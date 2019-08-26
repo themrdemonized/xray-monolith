@@ -1,0 +1,24 @@
+# exclude all dot files except .gitignore
+.*
+!.gitignore
+
+# exclude binaries and temporary files
+bin/
+bin_plugs/
+intermediate/
+intermediate_plugs/
+lib/
+_build/
+libraries/
+/src/*.tss
+/**/x64/
+**/.vs/
+*.pdb
+*.ilk
+*.user
+*.VC.db
+*.VC.opendb
+lua51.dll
+lua51.exp
+lua51.lib
+luajit.exe
