@@ -645,9 +645,6 @@ void CActor::Hit(SHit* pHDS)
 		}
 		else
 		{
-			float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
-			HDS.power = hit_power;
-			HDS.add_wound = true;
 			if (g_Alive())
 			{
 				CScriptHit tLuaHit(&HDS);
@@ -670,6 +667,9 @@ void CActor::Hit(SHit* pHDS)
 					HDS.boneID
 				);
 			}
+			float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
+			HDS.power = hit_power;
+			HDS.add_wound = true;
 			inherited::Hit(&HDS);
 		}
 
@@ -2301,17 +2301,37 @@ float CActor::HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type)
 {
 	TIItemContainer::iterator it = inventory().m_belt.begin();
 	TIItemContainer::iterator ite = inventory().m_belt.end();
+	float sum = 0.0f;
 	for (; it != ite; ++it)
 	{
 		CArtefact* artefact = smart_cast<CArtefact*>(*it);
 		if (artefact)
 		{
-			hit_power -= artefact->m_ArtefactHitImmunities.AffectHit(1.0f, hit_type);
+			sum += (artefact->m_ArtefactHitImmunities.AffectHit(1.0f, hit_type) * artefact->GetCondition());
 		}
 	}
-	clamp(hit_power, 0.0f, flt_max);
-
-	return hit_power;
+	
+	if (sum == 0.0f )
+	{
+		return hit_power;
+	}
+	
+	clamp(sum, -0.99f, 0.99f);
+	//Msg ("arti sum: %.5f",sum);
+	
+	if (sum > 0.0f ) {
+		sum = 1.5f * pow( 0.9f, (4.0f / sum));
+		hit_power = hit_power * ( 1.0f - sum );
+		//Msg ("Engine hit power: %.5f",hit_power);
+		return hit_power;
+	} 
+	else 
+	{
+		sum = 1.5f * pow( 0.9f, (4.0f / (-1.0f * sum)));
+		hit_power = hit_power * ( 1.0f + sum );
+		//Msg ("Engine hit power: %.5f",hit_power);
+		return hit_power;
+	}
 }
 
 float CActor::GetProtection_ArtefactsOnBelt(ALife::EHitType hit_type)

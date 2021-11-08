@@ -1298,14 +1298,12 @@ u32 player_hud::anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotio
 
 player_hud_motion_container* player_hud::get_hand_motions(LPCSTR section)
 {
-	xr_vector<hand_motions*>::iterator it = m_hand_motions.begin();
-	xr_vector<hand_motions*>::iterator it_e = m_hand_motions.end();
-	for (; it != it_e; it++)
+	for (hand_motions* phm : m_hand_motions)
 	{
-		if (!xr_strcmp((*it)->section, section))
-			return &(*it)->pm;
+		if (phm->section == section)
+			return &phm->pm;
 	}
-
+	
 	hand_motions* res = xr_new<hand_motions>();
 	res->section = section;
 	res->pm.load(m_model, section);

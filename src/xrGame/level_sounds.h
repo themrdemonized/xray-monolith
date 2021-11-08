@@ -44,6 +44,7 @@ class CLevelSoundManager
 	StaticSoundsVec m_StaticSounds;
 	DEFINE_VECTOR(SMusicTrack, MusicTrackVec, MusicTrackVecIt);
 	MusicTrackVec m_MusicTracks;
+	U32Vec m_PlayedMusicIndices; //Already played music array
 	u32 m_NextTrackTime;
 	int m_CurrentTrack;
 public:

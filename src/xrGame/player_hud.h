@@ -33,7 +33,7 @@ struct player_hud_motion_container
 
 struct hand_motions
 {
-	LPCSTR section;
+	shared_str section;
 	player_hud_motion_container pm;
 };
 
@@ -126,7 +126,7 @@ struct movement_layer
 
 struct script_layer
 {
-	LPCSTR m_name;
+	shared_str m_name;
 	CObjectAnimator* anm;
 	float blend_amount;
 	float m_power;

@@ -199,6 +199,40 @@ bool CPSLibrary::Load(const char* nm)
 		return false;
 	}
 
+	FS_FileSet files;
+	string_path _path;
+	FS.update_path(_path, "$game_particles$", "");
+
+	FS.file_list(files, _path, FS_ListFiles, "*.pe,*.pg");
+	FS_FileSet::iterator it = files.begin();
+	FS_FileSet::iterator it_e = files.end();
+
+	string_path p_path, p_name, p_ext;
+	for (; it != it_e; ++it)
+	{
+		const FS_File& f = (*it);
+		_splitpath(f.name.c_str(), 0, p_path, p_name, p_ext);
+		FS.update_path(_path, "$game_particles$", f.name.c_str());
+		CInifile ini(_path,TRUE,TRUE,FALSE);
+		xr_sprintf(_path, sizeof(_path), "%s%s", p_path, p_name);
+
+
+		if (0 == stricmp(p_ext, ".pe"))
+		{
+			PS::CPEDef* def = xr_new<PS::CPEDef>();
+			def->m_Name = _path;
+			def->Load2(ini);
+			m_PEDs.push_back(def);
+		}
+		else if (0 == stricmp(p_ext, ".pg"))
+		{
+			PS::CPGDef* def = xr_new<PS::CPGDef>();
+			def->m_Name = _path;
+			def->Load2(ini);
+			m_PGDs.push_back(def);
+		}
+	}
+
 	IReader* F = FS.r_open(nm);
 	bool bRes = true;
 	R_ASSERT(F->find_chunk(PS_CHUNK_VERSION));
@@ -248,6 +282,8 @@ bool CPSLibrary::Load(const char* nm)
 
 	// final
 	FS.r_close(F);
+
+
 
 	std::sort(m_PEDs.begin(), m_PEDs.end(), ped_sort_pred);
 	std::sort(m_PGDs.begin(), m_PGDs.end(), pgd_sort_pred);
