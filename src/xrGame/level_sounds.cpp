@@ -236,16 +236,16 @@ void CLevelSoundManager::Update()
 			U32Vec indices;
 			for (u32 k = 0; k < m_MusicTracks.size(); k++)
 			{
-				Msg("Checking track %d", k);
+				// Msg("Checking track %d", k);
 				SMusicTrack& T = m_MusicTracks[k];
 				if (T.IsPlaying()) {
 					T.Stop();
-					//Msg("Stopping track %d", k);
+					// Msg("Stopping track %d", k);
 				}
 				if ((T.in(game_time) && m_PlayedMusicIndices.empty()) || 
 					(T.in(game_time) && !(std::find(m_PlayedMusicIndices.begin(), m_PlayedMusicIndices.end(), k) != m_PlayedMusicIndices.end()))) {
 					indices.push_back(k);
-					Msg("Pushing track %d", k);
+					// Msg("Pushing track %d", k);
 					/*
 									if ((0==T.m_ActiveTime.x) && (0==T.m_ActiveTime.y)||
 										((int(game_time)>=T.m_ActiveTime.x)&&(int(game_time)<T.m_ActiveTime.y)))
@@ -261,19 +261,19 @@ void CLevelSoundManager::Update()
 				SMusicTrack& T = m_MusicTracks[m_CurrentTrack];
 				T.Play();
 				m_PlayedMusicIndices.push_back(indices[idx]);
-				Msg("Starting track %d", indices[idx]);
+				// Msg("Starting track %d", indices[idx]);
 #ifdef DEBUG
 				Log				("- Play music track:",T.m_DbgName.c_str());
 #endif
 			}
 			else
 			{
-				Msg("m_PlayedMusicIndices.size %d", m_PlayedMusicIndices.size());
+				// Msg("m_PlayedMusicIndices.size %d", m_PlayedMusicIndices.size());
 				m_PlayedMusicIndices.clear();
 				std::random_device rd;
 				std::mt19937 g(rd());
 				std::shuffle(m_MusicTracks.begin(), m_MusicTracks.end(), g);
-				Msg("Refreshing tracks");
+				// Msg("Refreshing tracks");
 				m_NextTrackTime = engine_time + 10000; // next check after 10 sec
 			}
 		}
