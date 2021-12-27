@@ -536,18 +536,27 @@ int __cdecl CScriptStorage::script_log(ScriptStorage::ELuaMessageType tLuaMessag
 	int result = vscript_log(tLuaMessageType, caFormat, marker);
 	va_end(marker);
 
-#ifdef PRINT_CALL_STACK
-#	ifndef ENGINE_BUILD
-    static bool	reenterability = false;
-    if (!reenterability)
-    {
-        reenterability = true;
-        if (eLuaMessageTypeError == tLuaMessageType)
-            ai().script_engine().print_stack();
-        reenterability = false;
-    }
-#	endif //!ENGINE_BUILD
-#endif //-PRINT_CALL_STACK
+	static bool reenterability = false;
+	if (!reenterability)
+	{
+		reenterability = true;
+		if (tLuaMessageType == ScriptStorage::eLuaMessageTypeError)
+			ai().script_engine().print_stack();
+		reenterability = false;
+	}
+
+	// #ifdef PRINT_CALL_STACK
+	// #	ifndef ENGINE_BUILD
+	//     static bool	reenterability = false;
+	//     if (!reenterability)
+	//     {
+	//         reenterability = true;
+	//         if (eLuaMessageTypeError == tLuaMessageType)
+	//             ai().script_engine().print_stack();
+	//         reenterability = false;
+	//     }
+	// #	endif //!ENGINE_BUILD
+	// #endif //-PRINT_CALL_STACK
 
 	return (result);
 }
