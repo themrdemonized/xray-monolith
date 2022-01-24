@@ -280,6 +280,7 @@
     <ClCompile Include="ScopeLock.cpp">
       <Filter>Threading</Filter>
     </ClCompile>
+    <ClCompile Include="mezz_stringbuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FTimer.h">
@@ -589,6 +590,7 @@
     <ClInclude Include="ScopeLock.hpp">
       <Filter>Threading</Filter>
     </ClInclude>
+    <ClInclude Include="mezz_stringbuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="xrCore.rc">
