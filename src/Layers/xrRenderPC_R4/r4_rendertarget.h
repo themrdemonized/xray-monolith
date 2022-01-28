@@ -382,6 +382,14 @@ public:
 
 	void DoAsyncScreenshot();
 
+	// GTAO by doenitz
+	void phase_GTAO();
+	IBlender* b_GTAO;
+
+	ref_rt rt_GTAO_1;
+	ref_rt rt_GTAO_2;
+	ref_shader s_GTAO;
+
 #ifdef DEBUG
 	IC void						dbg_addline				(Fvector& P0, Fvector& P1, u32 c)					{
 		dbg_lines.push_back		(dbg_line_t());

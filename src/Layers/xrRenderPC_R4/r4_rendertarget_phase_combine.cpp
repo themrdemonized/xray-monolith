@@ -58,23 +58,26 @@ void CRenderTarget::phase_combine()
 		t_LUM_dest->surface_set		(rt_LUM_pool[gpu_id*2+1]->pSurface);
 	}
 
-	if (RImplementation.o.ssao_hdao && RImplementation.o.ssao_ultra)
-	{
-		if (ps_r_ssao > 0)
-		{
-			phase_hdao();
-		}
-	}
-	else
-	{
-		if (RImplementation.o.ssao_opt_data)
-		{
-			phase_downsamp();
-			//phase_ssao();
-		}
-		else if (RImplementation.o.ssao_blur_on)
-			phase_ssao();
-	}
+	//GTAO by doenitz
+	phase_GTAO();
+	
+	//if (rimplementation.o.ssao_hdao && rimplementation.o.ssao_ultra)
+	//{
+	//	if (ps_r_ssao > 0)
+	//	{
+	//		phase_hdao();
+	//	}
+	//}
+	//else
+	//{
+	//	if (rimplementation.o.ssao_opt_data)
+	//	{
+	//		phase_downsamp();
+	//		//phase_ssao();
+	//	}
+	//	else if (rimplementation.o.ssao_blur_on)
+	//		phase_ssao();
+	//}
 
 	FLOAT ColorRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	// low/hi RTs

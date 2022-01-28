@@ -368,6 +368,7 @@
     <ClInclude Include="blender_deffer_flat.h" />
     <ClInclude Include="blender_deffer_model.h" />
     <ClInclude Include="blender_dof.h" />
+    <ClInclude Include="blender_GTAO.h" />
     <ClInclude Include="blender_lut.h" />
     <ClInclude Include="blender_nightvision.h" />
     <ClInclude Include="blender_gasmask_drops.h" />
@@ -560,6 +561,7 @@
     <ClCompile Include="blender_deffer_flat.cpp" />
     <ClCompile Include="blender_deffer_model.cpp" />
     <ClCompile Include="blender_dof.cpp" />
+    <ClCompile Include="blender_GTAO.cpp" />
     <ClCompile Include="blender_lut.cpp" />
     <ClCompile Include="blender_nightvision.cpp" />
     <ClCompile Include="blender_gasmask_drops.cpp" />
@@ -608,6 +610,7 @@
     <ClCompile Include="r4_rendertarget_phase_accumulator.cpp" />
     <ClCompile Include="r4_rendertarget_phase_bloom.cpp" />
     <ClCompile Include="r4_rendertarget_phase_combine.cpp" />
+    <ClCompile Include="r4_rendertarget_phase_GTAO.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdao.cpp" />
     <ClCompile Include="r4_rendertarget_phase_luminance.cpp" />
     <ClCompile Include="r4_rendertarget_phase_occq.cpp" />

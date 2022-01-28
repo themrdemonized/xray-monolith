@@ -24,6 +24,7 @@
 #include "blender_pp_bloom.h"
 #include "blender_nightvision.h"
 #include "blender_lut.h"
+#include "blender_GTAO.h"
 
 #include "../xrRender/dxRenderDeviceRender.h"
 
@@ -1065,6 +1066,15 @@ CRenderTarget::CRenderTarget()
 				D3DX11FilterTexture(HW.pContext, t_noise_surf_mipped, 0, D3DX10_FILTER_POINT);
 			}
 		}
+	}
+
+	//GTAO by doenitz
+	{
+		u32 w = Device.dwWidth, h = Device.dwHeight;
+		b_GTAO = xr_new<CBlender_GTAO>();
+		rt_GTAO_1.create(r2_RT_GTAO_1, u32(w / 2), u32(h / 2), D3DFMT_A16B16G16R16F, 1, false);
+		rt_GTAO_2.create(r2_RT_GTAO_2, u32(w / 2), u32(h / 2), D3DFMT_A16B16G16R16F, 1, false);
+		s_GTAO.create(b_GTAO, "r2\\GTAO");
 	}
 
 	// PP

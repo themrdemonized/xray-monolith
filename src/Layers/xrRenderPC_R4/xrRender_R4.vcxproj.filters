@@ -777,6 +777,9 @@
     <ClInclude Include="blender_smaa.h">
       <Filter>Shading templates</Filter>
     </ClInclude>
+    <ClInclude Include="blender_GTAO.h">
+      <Filter>Shading templates</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -1437,6 +1440,12 @@
       <Filter>Core_Target</Filter>
     </ClCompile>
     <ClCompile Include="blender_smaa.cpp">
+      <Filter>Shading templates</Filter>
+    </ClCompile>
+    <ClCompile Include="r4_rendertarget_phase_GTAO.cpp">
+      <Filter>Core_Target</Filter>
+    </ClCompile>
+    <ClCompile Include="blender_GTAO.cpp">
       <Filter>Shading templates</Filter>
     </ClCompile>
   </ItemGroup>
