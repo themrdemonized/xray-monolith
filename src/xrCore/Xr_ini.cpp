@@ -327,7 +327,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 				{
 					if (!bIsCurrentSectionOverride)
 					{
-						Debug.fatal(DEBUG_INFO, "Duplicate section '%s' wasn't marked as an override. Override section by prefixing it with '!' (![%s]) or give it a unique name. File %s", *Current->Name, *Current->Name, m_file_name);
+						Debug.fatal(DEBUG_INFO, "Duplicate section '%s' wasn't marked as an override. Override section by prefixing it with '!' (![%s]) or give it a unique name. Check this file and its DLTX mods: %s", *Current->Name, *Current->Name, m_file_name);
 					}
 
 					//Overwrite existing override data
@@ -715,7 +715,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 			{
 				if (ParentSectionName == *It)
 				{
-					Debug.fatal(DEBUG_INFO, "Section '%s' has cyclical dependencies. Ensure that sections with parents don't inherit in a loop. File %s", ParentSectionName.c_str(), m_file_name);
+					Debug.fatal(DEBUG_INFO, "Section '%s' has cyclical dependencies. Ensure that sections with parents don't inherit in a loop. Check this file and its DLTX mods: %s", ParentSectionName.c_str(), m_file_name);
 				}
 			}
 
@@ -725,7 +725,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 			if (ParentIt == FinalData.end())
 			{
-				Debug.fatal(DEBUG_INFO, "Section '%s' inherits from non-existent section '%s'. File %s", SectionName.c_str(), ParentSectionName.c_str(), m_file_name);
+				Debug.fatal(DEBUG_INFO, "Section '%s' inherits from non-existent section '%s'. Check this file and its DLTX mods: %s", SectionName.c_str(), ParentSectionName.c_str(), m_file_name);
 			}
 
 			Sect* ParentSec = &ParentIt->second;
@@ -786,7 +786,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 	//throw errors if there are overrides that never got used
 	if (OverrideData.size())
 	{
-		Debug.fatal(DEBUG_INFO, "Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. File %s", OverrideData.begin()->first.c_str(), m_file_name);
+		Debug.fatal(DEBUG_INFO, "Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s", OverrideData.begin()->first.c_str(), m_file_name);
 	}
 }
 
