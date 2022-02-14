@@ -103,6 +103,7 @@ CWeapon::CWeapon()
 	//PP.RQ.set(NULL, 0.f, -1);
 }
 
+extern int scope_2dtexactive; //crookr
 CWeapon::~CWeapon()
 {
 	xr_delete(m_UIScope);
@@ -276,6 +277,7 @@ void CWeapon::UpdateUIScope()
 	if (!g_dedicated_server)
 	{
 		xr_delete(m_UIScope);
+		scope_2dtexactive = 0; //crookr
 
 		if (!scope_tex_name || scope_tex_name.equal("none") || g_player_hud->m_adjust_mode)
 			return;
@@ -1666,7 +1668,10 @@ CUIWindow* CWeapon::ZoomTexture()
 	if (UseScopeTexture())
 		return m_UIScope;
 	else
+	{
+		scope_2dtexactive = 0; //crookr
 		return NULL;
+	}
 }
 
 void CWeapon::SwitchState(u32 S)
@@ -2507,6 +2512,9 @@ void CWeapon::render_item_ui()
 
 	ZoomTexture()->Update();
 	ZoomTexture()->Draw();
+
+	//crookr
+	scope_2dtexactive = ZoomTexture()->IsShown() ? 1 : 0;
 }
 
 bool CWeapon::unlimited_ammo()

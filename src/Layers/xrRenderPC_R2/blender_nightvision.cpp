@@ -3,8 +3,12 @@
 #include "blender_nightvision.h"
 
 CBlender_nightvision::CBlender_nightvision() { description.CLS = 0; }
+CBlender_fakescope::CBlender_fakescope() { description.CLS = 0; } //crookr
 
 CBlender_nightvision::~CBlender_nightvision()
+{
+}
+CBlender_fakescope::~CBlender_fakescope() //crookr
 {
 }
 
@@ -37,4 +41,13 @@ void CBlender_nightvision::Compile(CBlender_Compile& C)
 		C.r_End();
 		break;	
 	}
+}
+
+void CBlender_fakescope::Compile(CBlender_Compile& C) //crookr
+{
+	IBlender::Compile(C);
+	C.r_Pass("null", "fakescope", FALSE, FALSE, FALSE);
+	C.r_Sampler_rtf("s_position", r2_RT_P);
+	C.r_Sampler_clf("s_image", r2_RT_generic0);
+	C.r_End();
 }

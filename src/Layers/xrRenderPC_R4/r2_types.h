@@ -69,6 +69,8 @@
 #define		r2_RT_dof			"$user$dof"
 #define		r2_RT_ui			"$user$ui"
 
+#define		r2_RT_scopert		"$user$scopeRT" //crookr
+
 #define		r2_RT_smaa_edgetex "$user$smaa_edgetex"
 #define		r2_RT_smaa_blendtex "$user$smaa_blendtex"
 

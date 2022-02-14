@@ -258,6 +258,10 @@ Fvector ps_r2_drops_control = {.0f, 1.15f, .0f}; // r2-only
 
 int ps_r2_nightvision = 0;
 
+//crookr
+int scope_fake_enabled = 1;
+//string32 scope_fake_texture = "wpn\\wpn_crosshair_pso1";
+
 float ps_r2_ss_sunshafts_length = 1.f;
 float ps_r2_ss_sunshafts_radius = 1.f;
 
@@ -1046,6 +1050,9 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "r__bloom_weight", &ps_pp_bloom_weight, twb_min, twb_max);
 	CMD4(CCC_Vector4, "r__bloom_thresh", &ps_pp_bloom_thresh, twb_min, twb_max);
 	CMD4(CCC_Integer, "r__nightvision", &ps_r2_nightvision, 0, 3); //For beef's nightvision shader or other stuff
+
+	CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1); //crookr for fake scope
+
 	CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS); //Terrain Z Prepass @Zagolski
 	
 	//////////other
