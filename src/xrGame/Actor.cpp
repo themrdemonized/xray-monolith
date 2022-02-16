@@ -645,9 +645,9 @@ void CActor::Hit(SHit* pHDS)
 		}
 		else
 		{
-			float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
+			/*float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
 			HDS.power = hit_power;
-			HDS.add_wound = true;
+			HDS.add_wound = true;*/
 			if (g_Alive())
 			{
 				CScriptHit tLuaHit(&HDS);
@@ -670,6 +670,9 @@ void CActor::Hit(SHit* pHDS)
 					HDS.boneID
 				);
 			}
+			float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
+			HDS.power = hit_power;
+			HDS.add_wound = true;
 			inherited::Hit(&HDS);
 		}
 
