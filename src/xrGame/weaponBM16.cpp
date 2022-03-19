@@ -39,13 +39,13 @@ void CWeaponBM16::PlayAnimShow()
 	switch (m_magazine.size())
 	{
 	case 0:
-		PlayHUDMotion("anm_show_0",TRUE, this, GetState());
+		PlayHUDMotion("anm_show_0",TRUE, this, GetState(), 1.f, 0.f, false);
 		break;
 	case 1:
-		PlayHUDMotion("anm_show_1",TRUE, this, GetState());
+		PlayHUDMotion("anm_show_1",TRUE, this, GetState(), 1.f, 0.f, false);
 		break;
 	case 2:
-		PlayHUDMotion("anm_show_2",TRUE, this, GetState());
+		PlayHUDMotion("anm_show_2",TRUE, this, GetState(), 1.f, 0.f, false);
 		break;
 	}
 }
@@ -91,9 +91,9 @@ bool CWeaponBM16::TryPlayAnimBore()
 			return true;
 		}
 		break;
-
-		return false;
 	}
+
+	return false;
 }
 
 void CWeaponBM16::PlayAnimReload()

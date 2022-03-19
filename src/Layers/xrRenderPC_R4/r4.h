@@ -244,7 +244,7 @@ public:
 		VERIFY(RC_dx10texture == C->type);
 		CTexture* T = RCache.get_ActiveTexture(u32(C->samp.index));
 		VERIFY(T);
-		float mtl = T->m_material;
+		float mtl = T ? T->m_material : 0.f;
 #ifdef	DEBUG
         if (ps_r2_ls_flags.test(R2FLAG_GLOBALMATERIAL))	mtl=ps_r2_gmaterial;
 #endif
@@ -300,8 +300,8 @@ public:
 	virtual void add_Geometry(IRenderVisual* V); // add visual(s)	(all culling performed)
 
 	// wallmarks
-	virtual void add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false);
-	virtual void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false);
+	virtual void add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false, bool random_rotation = true);
+	virtual void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false, bool random_rotation = true);
 	virtual void add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V);
 	virtual void clear_static_wallmarks();
 	virtual void add_SkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm);

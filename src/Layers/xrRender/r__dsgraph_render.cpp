@@ -506,6 +506,8 @@ void R_dsgraph_structure::r_dsgraph_render_hud()
 	// Change projection
 	Fmatrix Pold = Device.mProject;
 	Fmatrix FTold = Device.mFullTransform;
+	Fmatrix FVold = Device.mView;
+	Device.mView.build_camera_dir(Device.vCameraPosition, Device.vCameraDirection, Device.vCameraTop);
 	Device.mProject.build_projection(
 		deg2rad(psHUD_FOV * 83.f),
 		Device.fASPECT, R_VIEWPORT_NEAR,
@@ -523,39 +525,13 @@ void R_dsgraph_structure::r_dsgraph_render_hud()
 	if (g_hud && g_hud->RenderActiveItemUIQuery())
 		r_dsgraph_render_hud_ui(); // hud ui
 #endif
-	/*
-	if(g_hud && g_hud->RenderActiveItemUIQuery())
-	{
-#if	RENDER!=R_R1
-		// Targets, use accumulator for temporary storage
-		const ref_rt	rt_null;
-		//	Reset all rt.
-		//RCache.set_RT(0,	0);
-		RCache.set_RT(0,	1);
-		RCache.set_RT(0,	2);
-		//if (RImplementation.o.albedo_wo)	RCache.set_RT(RImplementation.Target->rt_Accumulator->pRT,	0);
-		//else								RCache.set_RT(RImplementation.Target->rt_Color->pRT,	0);
-		if (RImplementation.o.albedo_wo)	RImplementation.Target->u_setrt		(RImplementation.Target->rt_Accumulator,	rt_null,	rt_null,	HW.pBaseZB);
-		else								RImplementation.Target->u_setrt		(RImplementation.Target->rt_Color,			rt_null,	rt_null,	HW.pBaseZB);
-		//	View port is reset in DX9 when you change rt
-		rmNear						();
-#endif
-		g_hud->RenderActiveItemUI	();
-
-#if	RENDER!=R_R1
-		//RCache.set_RT(0,	0);
-		// Targets, use accumulator for temporary storage
-		if (RImplementation.o.albedo_wo)	RImplementation.Target->u_setrt		(RImplementation.Target->rt_Position,	RImplementation.Target->rt_Normal,	RImplementation.Target->rt_Accumulator,	HW.pBaseZB);
-		else								RImplementation.Target->u_setrt		(RImplementation.Target->rt_Position,	RImplementation.Target->rt_Normal,	RImplementation.Target->rt_Color,		HW.pBaseZB);
-#endif
-	}
-	*/
 
 	rmNormal();
 
 	// Restore projection
 	Device.mProject = Pold;
 	Device.mFullTransform = FTold;
+	Device.mView = FVold;
 	RCache.set_xform_project(Device.mProject);
 }
 

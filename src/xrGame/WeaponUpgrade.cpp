@@ -211,11 +211,11 @@ bool CWeapon::install_upgrade_hit(LPCSTR section, bool test)
 	silencer_bullet_speed        = 310
 	*/
 
-	result |= process_if_exists_set(section, "use_aim_bullet", &CInifile::r_bool, m_bUseAimBullet, test);
+	/*result |= process_if_exists_set(section, "use_aim_bullet", &CInifile::r_bool, m_bUseAimBullet, test);
 	if (m_bUseAimBullet) // first super bullet
 	{
 		result |= process_if_exists(section, "time_to_aim", &CInifile::r_float, m_fTimeToAim, test);
-	}
+	}*/
 
 	//	LPCSTR weapon_section = cNameSect().c_str(); 
 	float rpm = 60.0f / fOneShotTime; //pSettings->r_float( weapon_section, "rpm" ); // fOneShotTime * 60.0f;

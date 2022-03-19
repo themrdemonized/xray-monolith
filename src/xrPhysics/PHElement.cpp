@@ -1600,6 +1600,7 @@ void CPHElement::ReleaseFixed()
 	m_flags.set(flFixed,FALSE);
 	if (!isActive())return;
 	dBodySetMass(m_body, &m_mass);
+	dBodySetGravityMode(m_body, 1);
 }
 
 void CPHElement::applyGravityAccel(const Fvector& accel)

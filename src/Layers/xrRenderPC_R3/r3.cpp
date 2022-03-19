@@ -757,18 +757,18 @@ BOOL CRender::occ_visible(Fbox& P) { return HOM.visible(P); }
 void CRender::add_Visual(IRenderVisual* V) { add_leafs_Dynamic((dxRender_Visual*)V, V->_ignore_optimization); }
 void CRender::add_Geometry(IRenderVisual* V) { add_Static((dxRender_Visual*)V, View->getMask()); }
 
-void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* verts, float ttl, bool ignore_opt)
+void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* verts, float ttl, bool ignore_opt, bool random_rotation)
 {
 	if (T->suppress_wm) return;
 	VERIFY2(_valid(P) && _valid(s) && T && verts && (s>EPS_L), "Invalid static wallmark params");
-	Wallmarks->AddStaticWallmark(T, verts, P, &*S, s, ttl, ignore_opt);
+	Wallmarks->AddStaticWallmark(T, verts, P, &*S, s, ttl, ignore_opt, random_rotation);
 }
 
-void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt)
+void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, bool random_rotation)
 {
 	dxWallMarkArray* pWMA = (dxWallMarkArray *)pArray;
 	ref_shader* pShader = pWMA->dxGenerateWallmark();
-	if (pShader) add_StaticWallmark(*pShader, P, s, T, V, ttl, ignore_opt);
+	if (pShader) add_StaticWallmark(*pShader, P, s, T, V, ttl, ignore_opt, random_rotation);
 }
 
 void CRender::add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V)

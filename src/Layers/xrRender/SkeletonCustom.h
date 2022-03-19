@@ -256,14 +256,7 @@ public:
 		return visimask.is(u64(1) << bone_id);
 	}
 
-	BOOL _BCL LL_IsNotBoneHidden(u16 bone_id)
-	{ 
-		VERIFY(bone_id<LL_BoneCount()); 
-		return hidden_bones.is(u64(1) << bone_id); 
-	}
-
 	void LL_SetBoneVisible(u16 bone_id, BOOL val, BOOL bRecursive);
-	void LL_HideBoneVisible(u16 bone_id, BOOL bRecursive);
 	u64 _BCL LL_GetBonesVisible() { return visimask.get(); }
 	void LL_SetBonesVisible(u64 mask);
 
@@ -287,10 +280,10 @@ public:
 	// debug
 #ifdef DEBUG
 	void							DebugRender			(Fmatrix& XFORM);
+#endif
 protected:
 	virtual shared_str		_BCL	getDebugName()	{ return dbg_name; }
 public:
-#endif
 
 	// General "Visual" stuff
 	virtual void Copy(dxRender_Visual* pFrom);

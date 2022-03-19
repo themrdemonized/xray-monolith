@@ -252,7 +252,7 @@ void CDialogHolder::OnFrame()
 	{
 		xr_vector<dlgItem>::iterator it = m_dialogsToRender.begin();
 		for (; it != m_dialogsToRender.end(); ++it)
-			if ((*it).enabled && (*it).wnd->IsEnabled())
+			if ((*it).enabled && (*it).wnd && (*it).wnd->IsEnabled())
 				(*it).wnd->Update();
 	}
 
@@ -392,7 +392,7 @@ bool CDialogHolder::IR_UIOnMouseMove(int dx, int dy)
 	CUIDialogWnd* TIR = TopInputReceiver();
 	if (!TIR) return false;
 	if (!TIR->IR_process()) return false;
-	if (GetUICursor().IsVisible())
+	if (GetUICursor().IsVisible() || !TIR->NeedCursor())
 	{
 		GetUICursor().UpdateCursorPosition(dx, dy);
 		Fvector2 cPos = GetUICursor().GetCursorPosition();

@@ -44,6 +44,7 @@ private:
 	u32 m_dw_curr_state_time;
 protected:
 	u32 m_dw_curr_substate_time;
+	u32 m_lastState;
 public:
 	CHUDState() { SetState(eHidden); }
 	IC u32 GetNextState() const { return m_nextState; }
@@ -121,13 +122,13 @@ public:
 	virtual void PlaySound(LPCSTR alias, const Fvector& position, u8 index); //Alundaio: Play at index
 
 	virtual bool Action(u16 cmd, u32 flags) { return false; }
-	void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
+	virtual void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
 
 	virtual u8 GetCurrentHudOffsetIdx() { return 0; }
 
 	BOOL GetHUDmode();
 	void PlayBlendAnm(LPCSTR name, float speed = 1.f, float power = 1.f, bool stop_old = true);
-	IC BOOL IsPending() const { return !!m_huditem_flags.test(fl_pending); }
+	IC bool IsPending() const { return !!m_huditem_flags.test(fl_pending); }
 
 	virtual bool ActivateItem();
 	virtual void DeactivateItem();
@@ -152,9 +153,7 @@ public:
 
 	virtual void OnAnimationEnd(u32 state);
 
-	virtual void OnMotionMark(u32 state, const motion_marks&)
-	{
-	};
+	virtual void OnMotionMark(u32 state, const motion_marks& M);
 
 	virtual void PlayAnimIdle();
 	virtual bool TryPlayAnimBore();
@@ -175,7 +174,7 @@ public:
 
 	virtual void UpdateXForm() = 0;
 
-	u32 PlayHUDMotion(const shared_str& M, BOOL bMixIn, CHudItem* W, u32 state, float speed = 1.f, float end = 0.f, bool bMixIn2 = true);
+	u32 PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed = 1.f, float end = 0.f, bool bMixIn2 = true);
 	u32 PlayHUDMotion_noCB(const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true);
 	void StopCurrentAnimWithoutCallback();
 
@@ -184,6 +183,7 @@ public:
 	attachable_hud_item* HudItemData();
 	virtual bool ParentIsActor();
 	virtual float GetHudFov();
+	virtual void on_outfit_changed();
 	virtual void on_a_hud_attach();
 	virtual void on_b_hud_detach();
 	IC BOOL HudInertionEnabled() const { return m_huditem_flags.test(fl_inertion_enable); }
@@ -203,7 +203,7 @@ public:
 	virtual collide::rq_result& GetRQ();
 protected:
 
-	IC void SetPending(BOOL H) { m_huditem_flags.set(fl_pending, H); }
+	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
 	shared_str hud_sect;
 
 	//êàäðû ìîìåíòà ïåðåñ÷åòà XFORM è FirePos

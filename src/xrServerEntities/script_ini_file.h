@@ -58,6 +58,7 @@ public:
 	void set_override_names(bool b);
 	u32 section_count();
 	void set_readonly(bool b);
+	void close();
 #endif
 
 DECLARE_SCRIPT_REGISTER_FUNCTION

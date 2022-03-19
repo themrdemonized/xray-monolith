@@ -66,6 +66,7 @@ public:
 	}
 
 	virtual void SetHeight(float height) { m_wndSize.y = height; }
+	virtual bool StopAnyMove() { return true; }
 	IC float GetHeight() const { return m_wndSize.y; }
 	virtual void SetWidth(float width) { m_wndSize.x = width; }
 	IC float GetWidth() const { return m_wndSize.x; }

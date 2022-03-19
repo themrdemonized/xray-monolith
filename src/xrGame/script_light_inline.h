@@ -129,6 +129,7 @@ public:
 	IC void SetPosition(Fvector pos)					{ m_light->set_position(pos); }
 	IC void SetDirection(Fvector dir)					{ m_light->set_rotation(dir, Fvector().set(1, 0, 0)); }
 	IC void SetDirection(Fvector dir, Fvector right)	{ m_light->set_rotation(dir, right); }
+	IC void SetCone(float angle)						{ m_light->set_cone(angle); }
 	IC void Enable(bool state)							{ m_light->set_active(state); }
 	IC const bool IsEnabled() const						{ return m_light->get_active(); }
 	IC void SetHudMode(bool b)							{ m_light->set_hud_mode(b); }

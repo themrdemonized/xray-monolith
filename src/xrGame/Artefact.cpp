@@ -20,6 +20,7 @@
 #include "ai_space.h"
 #include "patrol_path.h"
 #include "patrol_path_storage.h"
+#include "player_hud.h"
 
 #define	FASTMODE_DISTANCE (50.f)	//distance to camera from sphere, when zone switches to fast update sequence
 
@@ -254,9 +255,23 @@ void CArtefact::StartLights()
 
 	VERIFY(m_pTrailLight == NULL);
 	m_pTrailLight = ::Render->light_create();
-	bool const b_light_shadow = !!pSettings->r_bool(cNameSect(), "idle_light_shadow");
+	bool const b_light_shadow = !!READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "idle_light_shadow", false);
+	bool const b_light_volumetric = !!READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "idle_light_volumetric", false);
 
 	m_pTrailLight->set_shadow(b_light_shadow);
+
+	if (b_light_volumetric)
+	{
+		float const f_light_volumetric_quality = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "idle_light_volumetric_quality", .5f);
+		float const f_light_volumetric_power = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "idle_light_volumetric_power", .5f);
+		float const f_light_volumetric_range = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "idle_light_volumetric_range", .5f);
+
+		m_pTrailLight->set_shadow(true);
+		m_pTrailLight->set_volumetric(true);
+		m_pTrailLight->set_volumetric_quality(f_light_volumetric_quality);
+		m_pTrailLight->set_volumetric_intensity(f_light_volumetric_power);
+		m_pTrailLight->set_volumetric_distance(f_light_volumetric_range);
+	}
 
 	m_pTrailLight->set_color(m_TrailLightColor);
 	m_pTrailLight->set_range(m_fTrailLightRange);
@@ -417,20 +432,21 @@ void CArtefact::OnStateSwitch(u32 S, u32 oldState)
 	{
 	case eShowing:
 		{
-			PlayHUDMotion("anm_show", FALSE, this, S);
+			if (ParentIsActor()) g_player_hud->attach_item(this);
+			PlayHUDMotion("anm_show", FALSE, this, S, 1.f, 0.f, false);
 		}
 		break;
 	case eHiding:
 		{
 			if (oldState != eHiding)
 			{
-				PlayHUDMotion("anm_hide", FALSE, this, S);
+				PlayHUDMotion("anm_hide", TRUE, this, S);
 			}
 		}
 		break;
 	case eActivating:
 		{
-			PlayHUDMotion("anm_activate", FALSE, this, S);
+			PlayHUDMotion("anm_activate", TRUE, this, S);
 		}
 		break;
 	case eIdle:
@@ -443,7 +459,7 @@ void CArtefact::OnStateSwitch(u32 S, u32 oldState)
 
 void CArtefact::PlayAnimIdle()
 {
-	PlayHUDMotion("anm_idle", FALSE, NULL, eIdle);
+	PlayHUDMotion("anm_idle", TRUE, NULL, eIdle);
 }
 
 void CArtefact::OnAnimationEnd(u32 state)

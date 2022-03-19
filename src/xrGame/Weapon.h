@@ -140,7 +140,6 @@ public:
 		eFire2,
 		eReload,
 		eMisfire,
-		eMagEmpty,
 		eSwitch,
 		eSwitchMode,
 	};
@@ -165,7 +164,8 @@ public:
 	// Does weapon need's update?
 	BOOL IsUpdating();
 
-	BOOL IsMisfire() const;
+	bool IsMisfire() const;
+	void SetMisfireScript(bool b);
 	BOOL CheckForMisfire();
 
 	BOOL AutoSpawnAmmo() const
@@ -796,7 +796,10 @@ public:
 	virtual float GetHitImpulse() { return fHitImpulse; };
 	virtual float GetFireDistance() { return fireDistance; };
 	
-	
+	IC u8 GetZoomType() const
+	{
+		return m_zoomtype;
+	}
 	
 protected:
 	u32 m_ef_main_weapon_type;

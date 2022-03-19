@@ -540,7 +540,7 @@ void CActor::ActorUse()
 			bool b_allow = !!pSettings->line_exist("ph_capture_visuals", object->cNameVisual());
 			luabind::functor<bool> funct;
 			if (ai().script_engine().functor("_G.CActor__OnBeforePHCapture", funct))
-				b_allow = funct(b_allow);
+				b_allow = funct(object->lua_game_object(), b_allow);
 
 			if (b_allow && !character_physics_support()->movement()->PHCapture())
 			{

@@ -89,6 +89,7 @@ public:
 	virtual void _BCL OnFrame(void);
 	virtual void OnAppActivate(void);
 	virtual void OnAppDeactivate(void);
+	void DeactivateSoft();
 
 	IInputReceiver* CurrentIR();
 

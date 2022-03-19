@@ -163,13 +163,20 @@ BOOL CEntity::net_Spawn(CSE_Abstract* DC)
 	{
 		SetfHealth(E->get_health());
 
-		R_ASSERT2(!((E->get_killer_id() != ALife::_OBJECT_ID(-1)) && g_Alive()),
-		          make_string("server entity [%s][%d] has an killer [%d] and not dead",
-			          E->name_replace(), E->ID, E->get_killer_id()).c_str());
+		//R_ASSERT2(!((E->get_killer_id() != ALife::_OBJECT_ID(-1)) && g_Alive()),
+		//          make_string("server entity [%s][%d] has an killer [%d] and not dead",
+		//	          E->name_replace(), E->ID, E->get_killer_id()).c_str());
 
 		m_killer_id = E->get_killer_id();
-		if (m_killer_id == ID())
+
+		if ((m_killer_id != ALife::_OBJECT_ID(-1)) && g_Alive())
+		{
+			Msg("!server entity [%s][%d] has a killer [%d] and is not dead", E->name_replace(), E->ID, E->get_killer_id());
 			m_killer_id = ALife::_OBJECT_ID(-1);
+		}
+		
+		//if (m_killer_id == ID())
+		//	m_killer_id = ALife::_OBJECT_ID(-1);
 	}
 	else
 		SetfHealth(1.0f);
@@ -214,7 +221,7 @@ BOOL CEntity::net_Spawn(CSE_Abstract* DC)
 	if (!g_Alive())
 	{
 		m_level_death_time = Device.dwTimeGlobal;
-		m_game_death_time = E->m_game_death_time;;
+		m_game_death_time = E->m_game_death_time;
 	}
 
 	if (!inherited::net_Spawn(DC))

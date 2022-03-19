@@ -1484,6 +1484,14 @@ float CScriptGameObject::GetArtefactBleedingRestoreSpeed()
 	return artefact->GetBleedingPower();
 }
 
+float CScriptGameObject::GetArtefactImmunity(ALife::EHitType hit_type)
+{
+	CArtefact* artefact = smart_cast<CArtefact*>(&object());
+	THROW(artefact);
+
+	return artefact->GetImmunity(hit_type);
+}
+
 void CScriptGameObject::SetArtefactHealthRestoreSpeed(float value)
 {
 	CArtefact* artefact = smart_cast<CArtefact*>(&object());
@@ -1522,6 +1530,14 @@ void CScriptGameObject::SetArtefactBleedingRestoreSpeed(float value)
 	THROW(artefact);
 
 	artefact->SetBleedingPower(value);
+}
+
+void CScriptGameObject::SetArtefactImmunity(ALife::EHitType hit_type, float value)
+{
+	CArtefact* artefact = smart_cast<CArtefact*>(&object());
+	THROW(artefact);
+
+	return artefact->SetImmunity(hit_type, value);
 }
 
 void CScriptGameObject::AttachVehicle(CScriptGameObject* veh, bool bForce)
@@ -1647,7 +1663,7 @@ void CScriptGameObject::SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool 
 	if (bone_id == BI_NONE)
 		return;
 
-	if (bVisibility == !k->LL_GetBoneVisible(bone_id))
+	if (bVisibility != k->LL_GetBoneVisible(bone_id))
 		k->LL_SetBoneVisible(bone_id, bVisibility, bRecursive);
 
 	return;

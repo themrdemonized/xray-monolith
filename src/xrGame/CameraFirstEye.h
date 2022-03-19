@@ -27,6 +27,11 @@ public:
 		lookat_point = p;
 		lookat_active = true;
 	}
+
+	void StopLookAtPoint()
+	{
+		lookat_active = false;
+	}
 };
 
 #endif // __CAMERALOOK_H__

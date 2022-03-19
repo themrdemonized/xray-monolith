@@ -306,6 +306,7 @@ void CBinocularsVision::Update()
 			m_active_objects.begin(),
 			m_active_objects.end(),
 			[](SBinocVisibleObj* _it) {
+			if (!_it) return true;
 			bool res = _it->m_flags.test(flVisObjNotValid);
 			if (res) xr_delete(_it);
 			return res;

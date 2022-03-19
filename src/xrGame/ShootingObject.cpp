@@ -33,9 +33,9 @@ CShootingObject::CShootingObject(void)
 	m_vCurrentShootPos.set(0, 0, 0);
 	m_iCurrentParentID = 0xFFFF;
 
-	m_fPredBulletTime = 0.0f;
-	m_bUseAimBullet = false;
-	m_fTimeToAim = 0.0f;
+	//m_fPredBulletTime = 0.0f;
+	//m_bUseAimBullet = false;
+	//m_fTimeToAim = 0.0f;
 
 	//particles
 	m_sFlameParticlesCurrent = m_sFlameParticles = NULL;
@@ -166,11 +166,11 @@ void CShootingObject::LoadFireParams(LPCSTR section)
 	fireDistance = pSettings->r_float(section, "fire_distance");
 	//начальная скорость пули
 	m_fStartBulletSpeed = pSettings->r_float(section, "bullet_speed");
-	m_bUseAimBullet = pSettings->r_bool(section, "use_aim_bullet");
+	/*m_bUseAimBullet = pSettings->r_bool(section, "use_aim_bullet");
 	if (m_bUseAimBullet)
 	{
 		m_fTimeToAim = pSettings->r_float(section, "time_to_aim");
-	}
+	}*/
 }
 
 void CShootingObject::LoadLights(LPCSTR section, LPCSTR prefix)
@@ -475,7 +475,7 @@ void CShootingObject::FireBullet(const Fvector& pos,
 	m_iCurrentParentID = parent_id;
 
 	bool aim_bullet;
-	if (m_bUseAimBullet)
+	/*if (m_bUseAimBullet)
 	{
 		if (ParentMayHaveAimBullet())
 		{
@@ -504,7 +504,7 @@ void CShootingObject::FireBullet(const Fvector& pos,
 	{
 		aim_bullet = false;
 	}
-	m_fPredBulletTime = Device.fTimeGlobal;
+	m_fPredBulletTime = Device.fTimeGlobal;*/
 
 	float l_fHitPower = 0.0f;
 	if (SOParentIsActor()) //если из оружия стреляет актёр(игрок)

@@ -666,9 +666,19 @@ void CWeapon::LoadFireParams(LPCSTR section)
 	CShootingObject::LoadFireParams(section);
 };
 
+void GetZoomData(const float scope_factor, float& delta, float& min_zoom_factor);
+
 BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
 {
-	m_fRTZoomFactor = m_zoom_params.m_fScopeZoomFactor;
+	if (m_zoom_params.m_bUseDynamicZoom)
+	{
+		float delta, min_zoom_factor;
+		GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+		m_fRTZoomFactor = min_zoom_factor;
+	}
+	else
+		m_fRTZoomFactor = m_zoom_params.m_fScopeZoomFactor;
+
 	BOOL bResult = inherited::net_Spawn(DC);
 	CSE_Abstract* e = (CSE_Abstract*)(DC);
 	CSE_ALifeItemWeapon* E = smart_cast<CSE_ALifeItemWeapon*>(e);
@@ -996,6 +1006,7 @@ void CWeapon::UpdateCL()
 		if (pActor && !pActor->AnyMove() && this == pActor->inventory().ActiveItem())
 		{
 			if (hud_adj_mode == 0 &&
+				g_player_hud->script_anim_part == u8(-1) &&
 				GetState() == eIdle &&
 				(Device.dwTimeGlobal - m_dw_curr_substate_time > 20000) &&
 				!IsZoomed() &&
@@ -1139,9 +1150,6 @@ bool CWeapon::Action(u16 cmd, u32 flags)
 						{
 							if (pActor && pActor->is_safemode())
 								pActor->set_safemode(false);
-
-							if (GetState() != eIdle)
-								SwitchState(eIdle);
 							OnZoomIn();
 						}
 					}
@@ -1157,9 +1165,6 @@ bool CWeapon::Action(u16 cmd, u32 flags)
 					{
 						if (pActor && pActor->is_safemode())
 							pActor->set_safemode(false);
-
-						if (GetState() != eIdle)
-							SwitchState(eIdle);
 						OnZoomIn();
 					}
 				}
@@ -1410,9 +1415,14 @@ BOOL CWeapon::CheckForMisfire()
 	}
 }
 
-BOOL CWeapon::IsMisfire() const
+bool CWeapon::IsMisfire() const
 {
 	return bMisfire;
+}
+
+void CWeapon::SetMisfireScript(bool b)
+{
+	bMisfire = b;
 }
 
 void CWeapon::Reload()
@@ -1603,7 +1613,6 @@ float CWeapon::CurrentZoomFactor()
 {
 	return m_zoom_params.m_fScopeZoomFactor;
 };
-void GetZoomData(const float scope_factor, float& delta, float& min_zoom_factor);
 
 void CWeapon::OnZoomIn()
 {
@@ -2748,16 +2757,9 @@ float CWeapon::GetSecondVPFov() const
 
 void CWeapon::UpdateSecondVP()
 {
-	bool b_is_active_item = (m_pInventory != NULL) && (m_pInventory->ActiveItem() == this);
-	R_ASSERT(
-		ParentIsActor() && b_is_active_item);
+	if (!(ParentIsActor() && (m_pInventory != NULL) && (m_pInventory->ActiveItem() == this)))
+		return;
 
 	CActor* pActor = smart_cast<CActor*>(H_Parent());
-
-	bool bCond_1 = m_zoom_params.m_fZoomRotationFactor > 0.05f;
-	bool bCond_2 = IsSecondVPZoomPresent();
-	bool bCond_3 = pActor->cam_Active() == pActor->cam_FirstEye();
-	bool bCond_4 = m_zoomtype == 0;
-
-	Device.m_SecondViewport.SetSVPActive(bCond_1 && bCond_2 && bCond_3 && bCond_4);
+	Device.m_SecondViewport.SetSVPActive(m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && m_zoom_params.m_fZoomRotationFactor > 0.05f);
 }

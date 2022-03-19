@@ -229,7 +229,7 @@ void CMissile::UpdateCL()
 	CActor* pActor = smart_cast<CActor*>(H_Parent());
 	if (pActor && !pActor->AnyMove() && this == pActor->inventory().ActiveItem())
 	{
-		if (hud_adj_mode == 0 && GetState() == eIdle && (Device.dwTimeGlobal - m_dw_curr_substate_time > 20000))
+		if (hud_adj_mode == 0 && g_player_hud->script_anim_part == u8(-1) && GetState() == eIdle && (Device.dwTimeGlobal - m_dw_curr_substate_time > 20000))
 		{
 			if (!pActor->is_safemode())
 				SwitchState(eBore);
@@ -295,8 +295,9 @@ void CMissile::State(u32 state, u32 old_state)
 	{
 	case eShowing:
 		{
+			if (ParentIsActor()) g_player_hud->attach_item(this);
 			SetPending(TRUE);
-			PlayHUDMotion("anm_show", FALSE, this, GetState());
+			PlayHUDMotion("anm_show", FALSE, this, GetState(), 1.f, 0.f, false);
 
 			if (m_sounds.FindSoundItem("sndShow", false))
 				m_sounds.PlaySound("sndShow", H_Root()->Position(), H_Root(), !!GetHUDmode());

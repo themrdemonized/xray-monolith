@@ -63,6 +63,7 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("AmmoTypeForEach", &CWeapon::AmmoTypeForEach)
 			.def("RPM", &CWeapon::RPMScript)
 			.def("ModeRPM", &CWeapon::ModeRPMScript)
+			.def("GetZoomType", &CWeapon::GetZoomType)
 			
 			.def("Get_PDM_Base", &CWeapon::Get_PDM_Base)
 			.def("Get_Silencer_PDM_Base", &CWeapon::Get_Silencer_PDM_Base)
@@ -90,11 +91,17 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("GetHitImpulse", &CWeapon::GetHitImpulse)
 			.def("GetFireDistance", &CWeapon::GetFireDistance)
 			.def("GetFireMode", &CWeapon::GetCurrentFireMode)
-			
+
 			.def("GetInertionAimFactor", &CWeapon::GetInertionAimFactor)
 			
 			.def("Cost", &CWeapon::Cost)
 			.def("Weight", &CWeapon::Weight)
+
+			.def("IsMisfire", &CWeapon::IsMisfire)
+			.def("SetMisfire", &CWeapon::SetMisfireScript)
+
+			.def("IsPending", &CWeapon::IsPending)
+			.def("SetPending", &CWeapon::SetPending)
 
 			.enum_("EWeaponStates")
 			[
@@ -102,7 +109,6 @@ void CWeaponAK74::script_register	(lua_State *L)
 				value("eFire2", int(EWeaponStates::eFire2)),
 				value("eReload", int(EWeaponStates::eReload)),
 				value("eMisfire", int(EWeaponStates::eMisfire)),
-				value("eMagEmpty", int(EWeaponStates::eMagEmpty)),
 				value("eSwitch", int(EWeaponStates::eSwitch)),
 				value("eSwitchMode", int(EWeaponStates::eSwitchMode))
 			]
@@ -113,10 +119,20 @@ void CWeaponAK74::script_register	(lua_State *L)
 				value("eSubstateReloadEnd", int(EWeaponSubStates::eSubstateReloadEnd))
 			],
 			
-		class_<CWeaponMagazined,CGameObject>("CWeaponMagazined")
-			.def(constructor<>()),
-			
-		class_<CWeaponMagazinedWGrenade,CGameObject>("CWeaponMagazinedWGrenade")
+		class_<CWeaponMagazined,CWeapon>("CWeaponMagazined")
 			.def(constructor<>())
+			.def("SetFireMode", &CWeaponMagazined::SetFireMode),
+			
+		class_<CWeaponMagazinedWGrenade,CWeaponMagazined>("CWeaponMagazinedWGrenade")
+			.def(constructor<>())
+			.def("GetGrenadeLauncherMode", &CWeaponMagazinedWGrenade::GetGrenadeLauncherMode)
+			.def("SetGrenadeLauncherMode", &CWeaponMagazinedWGrenade::SetGrenadeLauncherMode)
+
+			.def("SetAmmoElapsed2", &CWeaponMagazinedWGrenade::SetAmmoElapsed2)
+			.def("GetAmmoElapsed2", &CWeaponMagazinedWGrenade::GetAmmoElapsed2)
+			.def("GetAmmoMagSize2", &CWeaponMagazinedWGrenade::GetAmmoMagSize2)
+			.def("SetAmmoType2", &CWeaponMagazinedWGrenade::SetAmmoType2)
+			.def("GetAmmoType2", &CWeaponMagazinedWGrenade::GetAmmoType2)
+			.def("AmmoTypeForEach2", &CWeaponMagazinedWGrenade::AmmoTypeForEach2)
 	];
 }
