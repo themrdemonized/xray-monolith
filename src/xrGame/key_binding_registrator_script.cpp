@@ -87,6 +87,8 @@ void key_binding_registrator::script_register(lua_State* L)
 			value("kWPN_FIRE", int(kWPN_FIRE)),
 			value("kWPN_RELOAD", int(kWPN_RELOAD)),
 			value("kWPN_ZOOM", int(kWPN_ZOOM)),
+			value("kWPN_ZOOM_DEC", int(kWPN_ZOOM_DEC)),
+			value("kWPN_ZOOM_INC", int(kWPN_ZOOM_INC)),
 			value("kWPN_FUNC", int(kWPN_FUNC)),
 			value("kWPN_FIREMODE_PREV", int(kWPN_FIREMODE_PREV)), //Tronex: added
 			value("kWPN_FIREMODE_NEXT", int(kWPN_FIREMODE_NEXT)), //Tronex: added
