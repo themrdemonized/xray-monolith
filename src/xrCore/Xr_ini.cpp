@@ -786,7 +786,10 @@ void CInifile::Load(IReader* F, LPCSTR path
 	//throw errors if there are overrides that never got used
 	if (OverrideData.size())
 	{
-		Debug.fatal(DEBUG_INFO, "Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s", OverrideData.begin()->first.c_str(), m_file_name);
+		//Debug.fatal(DEBUG_INFO, "Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s", OverrideData.begin()->first.c_str(), m_file_name);
+		for (auto i = OverrideData.begin(); i != OverrideData.end(); i++) {
+			Msg("!!!DLTX ERROR Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s", i->first.c_str(), m_file_name);
+		}
 	}
 }
 
