@@ -11037,6 +11037,9 @@
     <ClCompile Include="script_wallmarks_manager.cpp">
       <Filter>Core\Client\Effects</Filter>
     </ClCompile>
+    <ClCompile Include="WeaponMagazineExtended.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Custom Weapon\Automatic</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="ai\monsters\chimera\chimera_attack_state.h">
