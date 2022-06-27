@@ -55,7 +55,7 @@ bool CWeaponShotgun::Action(u16 cmd, u32 flags)
 
 	if (m_bTriStateReload && GetState() == eReload &&
 		cmd == kWPN_FIRE && flags & CMD_START &&
-		m_sub_state == eSubstateReloadInProcess) //остановить перезагрузку
+		m_sub_state == eSubstateReloadInProcess || m_sub_state == eSubstateReloadInProcessEmptyEnd) //остановить перезагрузку
 	{
 		AddCartridge(1);
 		m_sub_state = eSubstateReloadEnd;
@@ -84,14 +84,25 @@ void CWeaponShotgun::OnAnimationEnd(u32 state)
 			{
 				m_sub_state = eSubstateReloadEnd;
 			}
+			else if (BeginReloadWasEmpty)
+			{
+				m_sub_state = eSubstateReloadInProcessEmptyEnd;
+			}
 			SwitchState(eReload);
 		}
 		break;
 
 	case eSubstateReloadEnd:
 		{
+			BeginReloadWasEmpty = false;
 			m_sub_state = eSubstateReloadBegin;
 			SwitchState(eIdle);
+		}
+		break;
+	case eSubstateReloadInProcessEmptyEnd:
+		{	
+			m_sub_state = eSubstateReloadBegin;
+			SwitchState(eReload);
 		}
 		break;
 	};
@@ -145,6 +156,9 @@ void CWeaponShotgun::OnStateSwitch(u32 S, u32 oldState)
 	case eSubstateReloadEnd:
 		switch2_EndReload();
 		break;
+	case eSubstateReloadInProcessEmptyEnd:
+		switch2_EndReload();
+		break;
 	};
 }
 
@@ -184,7 +198,7 @@ void CWeaponShotgun::PlayAnimOpenWeapon()
 void CWeaponShotgun::PlayAnimAddOneCartridgeWeapon()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_add_cartridge",FALSE, this, GetState());
+	PlayHUDMotion("anm_add_cartridge", FALSE, this, GetState());
 }
 
 void CWeaponShotgun::PlayAnimCloseWeapon()

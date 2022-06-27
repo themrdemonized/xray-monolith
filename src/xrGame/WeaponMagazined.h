@@ -47,6 +47,9 @@ protected:
 	virtual void switch2_Hidden();
 	virtual void switch2_Showing();
 
+	virtual void switch2_StartAim();
+	virtual void switch2_EndAim();
+
 	virtual void OnShot();
 	virtual void PlaySoundShot();
 
@@ -98,6 +101,7 @@ public:
 	virtual void net_Import(NET_Packet& P);
 
 	virtual void OnMotionMark(u32 state, const motion_marks& M);
+	virtual int     CheckAmmoBeforeReload(u8& v_ammoType);
 
 	virtual void OnH_A_Chield();
 

@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "weaponmagazinedwgrenade.h"
 #include "entity.h"
 #include "ParticlesObject.h"
@@ -146,6 +146,31 @@ void CWeaponMagazinedWGrenade::OnShot()
 	}
 	else
 		inherited::OnShot();
+}
+
+void CWeaponMagazinedWGrenade::PlayAnimFireModeSwitch()
+{
+	if (!m_bGrenadeMode || !IsGrenadeLauncherAttached())
+		inherited::PlayAnimFireModeSwitch();
+	else
+	{
+		if (!m_bHasDifferentFireModes) return;
+		if (m_aFireModes.size() <= 1) return;
+		if (GetState() != eIdle) return;
+
+		if (HudAnimationExist("anm_switch_mode_w_gl"))
+		{
+			SetPending(TRUE);
+			iAmmoElapsed == 0 && HudAnimationExist("anm_switch_mode_w_gl_empty")
+				? PlayHUDMotion("anm_switch_mode_w_gl_empty", TRUE, this, eSwitchMode)
+				: PlayHUDMotion("anm_switch_mode_w_gl", TRUE, this, eSwitchMode);
+		}
+		else
+			UpdateFireMode();
+
+		if (m_sounds.FindSoundItem("sndSwitchMode", false))
+			PlaySound("sndSwitchMode", get_LastFP());
+	}
 }
 
 bool CWeaponMagazinedWGrenade::SwitchMode()
@@ -635,6 +660,9 @@ void CWeaponMagazinedWGrenade::PlayAnimShow()
 	if (IsGrenadeLauncherAttached())
 	{
 		if (!m_bGrenadeMode)
+			HUD_VisualBulletUpdate();
+
+		if (!m_bGrenadeMode)
 			iAmmoElapsed == 0 && HudAnimationExist("anm_show_empty_w_gl")
 			? PlayHUDMotion("anm_show_empty_w_gl", FALSE, this, GetState())
 			: PlayHUDMotion("anm_show_w_gl", FALSE, this, GetState());
@@ -1072,6 +1100,13 @@ bool CWeaponMagazinedWGrenade::GetBriefInfo(II_BriefInfo& info)
 	int ae = GetAmmoElapsed();
 	xr_sprintf(int_str, "%d", ae);
 	info.cur_ammo._set(int_str);
+
+	if (bHasBulletsToHide && !m_bGrenadeMode)
+	{
+		last_hide_bullet = ae >= bullet_cnt ? bullet_cnt : bullet_cnt - ae - 1;
+		if (ae == 0) last_hide_bullet = -1;
+	}
+
 	if (HasFireModes())
 	{
 		if (m_iQueueSize == WEAPON_ININITE_QUEUE)
