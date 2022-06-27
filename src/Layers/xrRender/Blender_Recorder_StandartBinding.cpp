@@ -384,6 +384,23 @@ class cl_hemi_color : public R_constant_setup
 };
 
 static cl_hemi_color binder_hemi_color;
+
+class cl_sky_color : public R_constant_setup
+{
+	u32 marker;
+	Fvector4 result;
+
+	virtual void setup(R_constant* C)
+	{
+		if (marker != Device.dwFrame)
+		{
+			CEnvDescriptor& desc = *g_pGamePersistent->Environment().CurrentEnv;
+			result.set(desc.sky_color.x, desc.sky_color.y, desc.sky_color.z, desc.sky_rotation);
+		}
+		RCache.set_c(C, result);
+	}
+};
+static cl_sky_color binder_sky_color;
 #endif
 
 static class cl_screen_res : public R_constant_setup
@@ -689,6 +706,8 @@ void CBlender_Compile::SetMapping()
 	r_Constant("shader_param_6", &dev_param_6);
 	r_Constant("shader_param_7", &dev_param_7);
 	r_Constant("shader_param_8", &dev_param_8);
+	
+	r_Constant("sky_color", &binder_sky_color);
 
 	// other common
 	for (u32 it = 0; it < DEV->v_constant_setup.size(); it++)
