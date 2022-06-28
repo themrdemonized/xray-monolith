@@ -9,6 +9,9 @@
 #include "object_broker.h"
 #include "inventory.h"
 
+extern float n_zoom_step_count;
+float czoom;
+
 CWeaponBinoculars::CWeaponBinoculars()
 {
 	m_binoc_vision = NULL;
@@ -56,6 +59,7 @@ void CWeaponBinoculars::OnZoomIn()
 		}
 	}
 	inherited::OnZoomIn();
+    SetZoomFactor(czoom);
 }
 
 void CWeaponBinoculars::OnZoomOut()
@@ -75,6 +79,7 @@ void CWeaponBinoculars::OnZoomOut()
 
 BOOL CWeaponBinoculars::net_Spawn(CSE_Abstract* DC)
 {
+    czoom = CWeaponBinoculars::m_zoom_params.m_fScopeZoomFactor;
 	return inherited::net_Spawn(DC);
 }
 
@@ -115,24 +120,36 @@ void GetZoomData(const float scope_factor, float& delta, float& min_zoom_factor)
 	delta = (delta_factor_total * (1 - min_zoom_k)) / zoom_step_count;
 }
 
+void newGetZoomData(const float scope_factor, float& delta, float& min_zoom_factor, float c_zoom)
+{
+    float def_fov = float(g_fov);
+    float min_zoom_k = 0.3f;
+    float delta_factor_total = def_fov - scope_factor;
+    VERIFY(delta_factor_total > 0);
+    min_zoom_factor = def_fov - delta_factor_total * min_zoom_k;
+    delta = (delta_factor_total * (1 - min_zoom_k)) / n_zoom_step_count * (c_zoom / def_fov);
+}
+
 void CWeaponBinoculars::ZoomInc()
 {
 	float delta, min_zoom_factor;
-	GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+    newGetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor, czoom);
 
 	float f = GetZoomFactor() - delta;
 	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
 	SetZoomFactor(f);
+    czoom = f;
 }
 
 void CWeaponBinoculars::ZoomDec()
 {
 	float delta, min_zoom_factor;
-	GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+    newGetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor, czoom);
 
 	float f = GetZoomFactor() + delta;
 	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
 	SetZoomFactor(f);
+    czoom = f;
 }
 
 void CWeaponBinoculars::save(NET_Packet& output_packet)
