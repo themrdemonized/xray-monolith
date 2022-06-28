@@ -10,8 +10,13 @@
 #include "script_engine.h"
 #include "ai_space.h"
 #include "script_debugger.h"
+#include "new_sds.h"
 
 using namespace luabind;
+
+void AddScope(LPCSTR key, float val) {
+    listScopeRadii[key] = val;
+}
 
 void LuaLog1(LPCSTR caMessage)
 {
@@ -240,6 +245,7 @@ void CScriptEngine::script_register(lua_State* L)
 		def("user_name", &user_name),
 		def("time_global", &script_time_global),
 		def("time_global_async", &script_time_global_async),
+        def("add_scope_radii", &AddScope),
 #ifdef XRGAME_EXPORTS
 		def("device", &get_device),
 		def("is_enough_address_space_available", &is_enough_address_space_available_impl),

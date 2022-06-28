@@ -14,6 +14,8 @@
 
 #include "CameraRecoil.h"
 
+#include "NewZoomFlag.h"
+
 class CEntity;
 class ENGINE_API CMotionDef;
 class CSE_ALifeItemWeapon;
@@ -25,6 +27,11 @@ class CBinocularsVision;
 class CNightVisionEffector;
 
 extern float f_weapon_deterioration;
+
+extern std::map<shared_str, float> listScopeRadii;
+
+extern float scope_scrollpower;
+extern float sens_multiple;
 
 struct PickParam
 {
@@ -317,6 +324,7 @@ protected:
 
 	struct SZoomParams
 	{
+        float m_fMinBaseZoomFactor;
 		bool m_bZoomEnabled;
 		bool m_bHideCrosshairInZoom;
 		bool m_bZoomDofEnabled;
@@ -875,4 +883,6 @@ public:
 	{
 		return cNameSect();
 	};
+    
+    float SDS_Radius();
 };

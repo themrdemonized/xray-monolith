@@ -42,6 +42,47 @@
 float f_weapon_deterioration = 1.0f;
 extern CUIXml* pWpnScopeXml;
 
+//////////
+extern float scope_radius;
+
+Flags32 zoomFlags = {};
+extern float n_zoom_step_count;
+float sens_multiple = 1.0f;
+
+
+float CWeapon::SDS_Radius() {
+	shared_str scope_tex_name;
+	if (m_zoomtype == 0 && zoomFlags.test(SDS))
+	{
+		if (0 != (m_flagsAddOnState & CSE_ALifeItemWeapon::eWeaponAddonScope) && m_scopes.size())
+		{
+			scope_tex_name = pSettings->r_string(GetScopeName(), "scope_texture");
+		}
+		else
+		{
+			scope_tex_name = READ_IF_EXISTS(pSettings, r_string, cNameSect(), "scope_texture", NULL);
+		}
+
+		if (scope_tex_name != 0) {
+			auto item = listScopeRadii.find(scope_tex_name);
+			if (item != listScopeRadii.end()) {
+				return item->second;
+			}
+			else {
+				return 0.0;
+			}
+		}
+		else {
+			return 0.0;
+		}
+	}
+	else {
+		return 0.0;
+	}
+}
+
+//////////
+
 CWeapon::CWeapon()
 {
 	SetState(eHidden);
@@ -221,6 +262,17 @@ void CWeapon::UpdateFireDependencies_internal()
 
 void CWeapon::UpdateUIScope()
 {
+    //////////
+    m_zoom_params.m_fMinBaseZoomFactor = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "min_scope_zoom_factor", 200.0f);
+
+	clamp(scope_scrollpower, 0.01f, 1.0f);
+	float zoom_multiple = 1.0f;
+	if (zoomFlags.test(SDS_ZOOM) && (CWeapon::SDS_Radius() > 0.0)) {
+		zoom_multiple = scope_scrollpower;
+	}
+
+    //////////
+    
 	// Load scopes.xml if it's not loaded
 	if (pWpnScopeXml == nullptr)
 	{
@@ -241,20 +293,36 @@ void CWeapon::UpdateUIScope()
 	{
 		if (g_player_hud->m_adjust_mode)
 		{
-			m_zoom_params.m_fScopeZoomFactor = g_player_hud->m_adjust_zoom_factor[0];
+			m_zoom_params.m_fScopeZoomFactor = g_player_hud->m_adjust_zoom_factor[0] / zoom_multiple;
 		}
 		else if (ALife::eAddonPermanent != m_eScopeStatus && 0 != (m_flagsAddOnState & CSE_ALifeItemWeapon::eWeaponAddonScope) && m_scopes.size())
 		{
-			m_zoom_params.m_fScopeZoomFactor = pSettings->r_float(GetScopeName(), "scope_zoom_factor");
+			m_zoom_params.m_fScopeZoomFactor = pSettings->r_float(GetScopeName(), "scope_zoom_factor") / zoom_multiple;
 		}
 		else
 		{
-			m_zoom_params.m_fScopeZoomFactor = m_zoom_params.m_fBaseZoomFactor;
+			m_zoom_params.m_fScopeZoomFactor = m_zoom_params.m_fBaseZoomFactor / zoom_multiple;
 		}
 	}
 
-	if (IsZoomed())
+	if (IsZoomed()) {
+		scope_radius = CWeapon::SDS_Radius();
+		if (m_zoomtype == 0 && zoomFlags.test(SDS_SPEED) && (scope_radius > 0.0)) {
+			sens_multiple = scope_scrollpower;
+		}
+		else {
+			sens_multiple = 1.0f;
+		}
+
+
+		if (m_zoom_params.m_bUseDynamicZoom) {
+			m_zoom_params.m_fCurrentZoomFactor = m_fRTZoomFactor;
+		}
+		else {
 		m_zoom_params.m_fCurrentZoomFactor = m_zoom_params.m_fScopeZoomFactor;
+		}
+	}
+
 
 	// Change or remove scope texture
 	shared_str scope_tex_name;
@@ -292,6 +360,7 @@ void CWeapon::SwitchZoomType()
 	if (m_zoomtype == 0 && (m_altAimPos || g_player_hud->m_adjust_mode))
 	{
 		m_zoomtype = 1;
+        m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom_alt", false);
 	}
 	else if (IsGrenadeLauncherAttached())
 	{
@@ -301,6 +370,7 @@ void CWeapon::SwitchZoomType()
 	else if (m_zoomtype != 0)
 	{
 		m_zoomtype = 0;
+        m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom", false);
 	}
 
 	UpdateUIScope();
@@ -1609,6 +1679,17 @@ void GetZoomData(const float scope_factor, float& delta, float& min_zoom_factor)
 
 void CWeapon::OnZoomIn()
 {
+    //////////
+    scope_radius = CWeapon::SDS_Radius();
+
+	if ((scope_radius > 0.0) && zoomFlags.test(SDS_SPEED)) {
+		sens_multiple = scope_scrollpower;
+	}
+	else {
+		sens_multiple = 1.0f;
+	}
+    //////////
+    
 	m_zoom_params.m_bIsZoomModeNow = true;
 	if (m_zoom_params.m_bUseDynamicZoom)
 		SetZoomFactor(m_fRTZoomFactor);
@@ -1643,7 +1724,11 @@ void CWeapon::OnZoomIn()
 void CWeapon::OnZoomOut()
 {
 	m_zoom_params.m_bIsZoomModeNow = false;
-	m_fRTZoomFactor = GetZoomFactor(); //store current
+    if (m_zoom_params.m_bUseDynamicZoom)
+    {
+        m_fRTZoomFactor = GetZoomFactor(); //store current
+    }
+    
 	m_zoom_params.m_fCurrentZoomFactor = g_fov;
 
 	GamePersistent().RestoreEffectorDOF();
@@ -1661,6 +1746,11 @@ void CWeapon::OnZoomOut()
 	}
 
 	g_player_hud->updateMovementLayerState();
+    
+    scope_radius = 0.0;
+    scope_2dtexactive = 0;
+    sens_multiple = 1.0f;
+
 }
 
 CUIWindow* CWeapon::ZoomTexture()
@@ -2696,16 +2786,43 @@ bool CWeapon::IsHudModeNow()
 	return (HudItemData() != NULL);
 }
 
+void NewGetZoomData(const float scope_factor, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
+{
+	clamp(scope_scrollpower, 0.01f, 1.0f);
+	float def_fov = float(g_fov);
+	float min_zoom_k = 0.3f;
+	float delta_factor_total = def_fov - scope_factor;
+	VERIFY(delta_factor_total > 0);
+	float loc_min_zoom_factor = (atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f;
+
+	if (min_zoom < loc_min_zoom_factor) {
+		min_zoom_factor = min_zoom;
+	}
+	else {
+		min_zoom_factor = loc_min_zoom_factor;
+	}
+
+	delta = ((delta_factor_total * (1 - min_zoom_k)) / n_zoom_step_count) * (zoom / def_fov);
+}
+
 void CWeapon::ZoomInc()
 {
 	if (!IsScopeAttached()) return;
 	if (!m_zoom_params.m_bUseDynamicZoom) return;
 	float delta, min_zoom_factor;
-	GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
-
+	//
+	if (zoomFlags.test(NEW_ZOOM)) {
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor, GetZoomFactor(), m_zoom_params.m_fMinBaseZoomFactor);
+	}
+	else {
+        GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+	}
+	//
 	float f = GetZoomFactor() - delta;
 	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
 	SetZoomFactor(f);
+	//
+	m_fRTZoomFactor = GetZoomFactor();
 }
 
 void CWeapon::ZoomDec()
@@ -2713,11 +2830,19 @@ void CWeapon::ZoomDec()
 	if (!IsScopeAttached()) return;
 	if (!m_zoom_params.m_bUseDynamicZoom) return;
 	float delta, min_zoom_factor;
-	GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
-
+	//
+	if (zoomFlags.test(NEW_ZOOM)) {
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor, GetZoomFactor(), m_zoom_params.m_fMinBaseZoomFactor);
+	}
+	else {
+        GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+	}
+	//
 	float f = GetZoomFactor() + delta;
 	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
 	SetZoomFactor(f);
+	//
+	m_fRTZoomFactor = GetZoomFactor();
 }
 
 u32 CWeapon::Cost() const
