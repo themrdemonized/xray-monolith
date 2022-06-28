@@ -61,7 +61,7 @@
 #include "..\..\xrEngine\x_ray.h"
 
 #include "NewZoomFlag.h"
-float n_zoom_step_count = 5.0f;
+float n_zoom_step_count = 3.0f;
 
 string_path g_last_saved_game;
 
@@ -2513,7 +2513,7 @@ void CCC_RegisterCommands()
 	//No need for server commands in a singleplayer-only mod
 	//register_mp_console_commands();
     
-    zoomFlags.set(NEW_ZOOM, TRUE);
+    zoomFlags.set(NEW_ZOOM, FALSE);
     zoomFlags.set(SDS_ZOOM, TRUE);
     zoomFlags.set(SDS_SPEED, TRUE);
     zoomFlags.set(SDS, TRUE);
