@@ -37,12 +37,6 @@ struct hand_motions
 	player_hud_motion_container pm;
 };
 
-struct item_models
-{
-	LPCSTR name;
-	IKinematicsAnimated* model;
-};
-
 enum eMovementLayers
 {
 	eAimWalk = 0,
@@ -177,6 +171,28 @@ struct script_layer
 	}
 };
 
+struct BoneCallbackParams
+{
+	Fvector m_current;
+	Fvector m_target;
+
+	BoneCallbackParams()
+	{
+		m_current = { 0,0,0 };
+		m_target = { 0,0,0 };
+	}
+};
+
+enum EBoneCallbackParam
+{
+	r_finger0 = 0,
+	r_finger01,
+	r_finger02,
+	//bip01_r_finger1,
+	//bip01_r_finger11,
+	//bip01_r_finger12,
+};
+
 struct hud_item_measures
 {
 	enum { e_fire_point=(1 << 0), e_fire_point2=(1 << 1), e_shell_point=(1 << 2), e_16x9_mode_now=(1 << 3) };
@@ -278,7 +294,9 @@ class player_hud
 public:
 	player_hud();
 	~player_hud();
-	void load(const shared_str& model_name);
+	void load(const shared_str& model_name, bool force = false);
+	void load_script(LPCSTR section);
+	void reset_model_script() { script_override_arms = false; load(m_sect_name, true); };
 	void load_default() { load("actor_hud_05"); };
 	void update(const Fmatrix& trans);
 	void updateMovementLayerState();
@@ -301,6 +319,7 @@ public:
 	float script_anim_offset_factor;
 	bool m_bStopAtEndAnimIsRunning;
 	bool script_anim_item_attached;
+	bool script_override_arms;
 	IKinematicsAnimated* script_anim_item_model;
 	Fvector item_pos[2];
 	Fmatrix m_item_pos;
@@ -320,6 +339,7 @@ public:
 	void attach_item(CHudItem* item);
 	void re_sync_anim(u8 part);
 	void set_part_cycle_time(u8 part, float time);
+	void set_part_cycle_speed(u8 part, float speed);
 	bool allow_activation(CHudItem* item);
 	attachable_hud_item* attached_item(u16 item_idx) { return m_attached_items[item_idx]; };
 	void detach_item_idx(u16 idx);
@@ -357,33 +377,51 @@ private:
 	xr_vector<u16> m_ancors;
 	attachable_hud_item* m_attached_items[2];
 	xr_vector<attachable_hud_item*> m_pool;
-
-	static void _BCL Thumb0Callback(CBoneInstance* B);
-	static void _BCL Thumb01Callback(CBoneInstance* B);
-	static void _BCL Thumb02Callback(CBoneInstance* B);
+	static void _BCL FingerCallback(CBoneInstance* B);
 public:
 	Fvector m_adjust_offset[2][5]; // pos,rot/ normal,aim,GL,aim_alt,safemode
+	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
 	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui
 	Fvector m_adjust_firepoint_shell[2][2];
-	Fvector target_thumb0rot, target_thumb01rot, target_thumb02rot;
-	Fvector thumb0rot, thumb01rot, thumb02rot;
+	xr_map<EBoneCallbackParam, BoneCallbackParams*> m_bone_callback_params; // bonename,params
 	int m_edit_attachment;
 	float m_adjust_zoom_factor[3];
 	bool m_adjust_mode;
 	u16 m_edit_bone;
+
 	void reset_thumb(bool bForce)
 	{
 		if (bForce)
 		{
-			thumb0rot.set(0.f, 0.f, 0.f);
-			thumb01rot.set(0.f, 0.f, 0.f);
-			thumb02rot.set(0.f, 0.f, 0.f);
+			m_bone_callback_params[r_finger0]->m_current.set(0.f, 0.f, 0.f);
+			m_bone_callback_params[r_finger01]->m_current.set(0.f, 0.f, 0.f);
+			m_bone_callback_params[r_finger02]->m_current.set(0.f, 0.f, 0.f);
 		}
 		
-		target_thumb0rot.set(0.f, 0.f, 0.f);
-		target_thumb01rot.set(0.f, 0.f, 0.f);
-		target_thumb02rot.set(0.f, 0.f, 0.f);
+		m_bone_callback_params[r_finger0]->m_target.set(0.f, 0.f, 0.f);
+		m_bone_callback_params[r_finger01]->m_target.set(0.f, 0.f, 0.f);
+		m_bone_callback_params[r_finger02]->m_target.set(0.f, 0.f, 0.f);
 	}
+
+	/*void reset_triggerfinger(bool bForce)
+	{
+		if (bForce)
+		{
+			m_bone_callback_params[bip01_r_finger1]->m_current.set(0.f, 0.f, 0.f);
+			m_bone_callback_params[bip01_r_finger11]->m_current.set(0.f, 0.f, 0.f);
+			m_bone_callback_params[bip01_r_finger12]->m_current.set(0.f, 0.f, 0.f);
+		}
+
+		m_bone_callback_params[bip01_r_finger1]->m_target.set(0.f, 0.f, 0.f);
+		m_bone_callback_params[bip01_r_finger11]->m_target.set(0.f, 0.f, 0.f);
+		m_bone_callback_params[bip01_r_finger12]->m_target.set(0.f, 0.f, 0.f);
+	}*/
+
+	DECLARE_SCRIPT_REGISTER_FUNCTION
 };
+
+add_to_type_list(player_hud)
+#undef script_type_list
+#define script_type_list save_type_list(player_hud)
 
 extern player_hud* g_player_hud;

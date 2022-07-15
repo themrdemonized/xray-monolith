@@ -25,6 +25,7 @@
 #include "clsid_game.h"
 #include "static_cast_checked.hpp"
 #include "player_hud.h"
+#include "PDA.h"
 
 using namespace InventoryUtilities;
 //Alundaio
@@ -423,7 +424,7 @@ bool CInventory::Slot(u16 slot_id, PIItem pIItem, bool bNotActivate, bool strict
 	}
 
 	if (((m_iActiveSlot == slot_id) || (m_iActiveSlot == NO_ACTIVE_SLOT) && m_iNextActiveSlot == NO_ACTIVE_SLOT) && (!
-		bNotActivate) && pIItem->BaseSlot() != PDA_SLOT)
+		bNotActivate) && !smart_cast<CPda*>(pIItem))
 	{
 #ifdef DEBUG
 		Msg("---To Slot: activating slot [%d], Frame[%d]", slot_id, Device.dwFrame);
@@ -782,7 +783,7 @@ bool CInventory::Action(u16 cmd, u32 flags)
 		{
 			if (!psActorFlags.test(AF_3D_PDA)) return false;
 
-			if (GetActiveSlot() == PDA_SLOT && ActiveItem())
+			if (smart_cast<CPda*>(ActiveItem()))
 			{
 				Activate(NO_ACTIVE_SLOT);
 			}

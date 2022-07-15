@@ -129,6 +129,7 @@ public:
 	virtual void SetSmall();
 	virtual void SetIgnoreSmall();
 
+	virtual _flags<CLClassBits>& collide_class_bits() { return CPHObject::collide_class_bits(); }
 	virtual const CLBits& collide_bits() const { return CPHObject::collide_bits(); };
 	virtual const _flags<CLClassBits>& collide_class_bits() const { return CPHObject::collide_class_bits(); }
 

@@ -1531,6 +1531,9 @@ public:
 		if (EQ(args, "off") || EQ(args, "0"))
 			bWhatToDo = FALSE;
 
+		if (Device.Paused() && bWhatToDo == TRUE)
+			Device.Pause(FALSE, TRUE, TRUE, "li_pause_key");
+
 		MainMenu()->Activate(bWhatToDo);
 	}
 };
@@ -2214,7 +2217,6 @@ void CCC_RegisterCommands()
 		CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 		CMD1(CCC_Script, "run_script");
 		CMD1(CCC_ScriptCommand, "run_string");
-		CMD1(CCC_TimeFactor, "time_factor");
 		//CMD3(CCC_Mask, "g_no_clip", &psActorFlags, AF_NO_CLIP);
 		CMD1(CCC_PHGravity, "ph_gravity");
 		CMD3(CCC_Mask, "log_missing_ini", &FS.m_Flags, FS.flPrintLTX);
@@ -2225,6 +2227,7 @@ void CCC_RegisterCommands()
 	//#endif // MASTER_GOLD
 	/* AVO: end */
 
+	CMD1(CCC_TimeFactor, "time_factor");
 	CMD3(CCC_Mask, "g_use_tracers", &psActorFlags, AF_USE_TRACERS);
 	CMD3(CCC_Mask, "g_autopickup", &psActorFlags, AF_AUTOPICKUP);
 	CMD3(CCC_Mask, "g_dynamic_music", &psActorFlags, AF_DYNAMIC_MUSIC);

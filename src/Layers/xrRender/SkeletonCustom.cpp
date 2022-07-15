@@ -388,9 +388,7 @@ void CKinematics::LL_Validate()
 				if (BD.IK_data.ik_flags.is(SJointIKData::flBreakable))
 					BD.IK_data.ik_flags.set(SJointIKData::flBreakable,FALSE);
 			}
-#ifdef DEBUG
-            Msg						("! ERROR: Invalid breakable object: '%s'",*dbg_name);
-#endif
+            Msg("! ERROR: Invalid breakable object: '%s'",*dbg_name);
 		}
 	}
 }
@@ -490,6 +488,8 @@ void CKinematics::LL_SetBoneVisible(u16 bone_id, BOOL val, BOOL bRecursive)
 	if (!visimask.is(mask))
 	{
 		bone_instances[bone_id].mTransform.scale(0.f, 0.f, 0.f);
+		if (LL_GetData(bone_id).GetParentID() < LL_BoneCount() && LL_GetData(bone_id).GetParentID() != BI_NONE)
+			bone_instances[bone_id].mTransform.c = LL_GetBoneInstance(LL_GetData(bone_id).GetParentID()).mTransform.c;
 	}
 	else
 	{
@@ -525,30 +525,6 @@ void CKinematics::LL_SetBonesVisible(u64 mask)
 		}
 	}
 	CalculateBones_Invalidate();
-	Visibility_Invalidate();
-}
-
-//lost alpha
-//skyloader: need for dismemberment of limbs
-void CKinematics::LL_HideBoneVisible(u16 bone_id, BOOL bRecursive)
-{
-	VERIFY(bone_id<LL_BoneCount());
-	u64 mask = u64(1) << bone_id;
-	hidden_bones.set(mask, FALSE);
-
-	bone_instances[bone_id].mTransform.scale(0.f, 0.f, 0.f);
-
-	u16 ParentID = LL_GetData(bone_id).GetParentID();
-
-	CBoneInstance 	&BI = LL_GetBoneInstance(ParentID);
-	bone_instances[bone_id].mTransform.c = BI.mTransform.c;
-
-	bone_instances[bone_id].mRenderTransform.mul_43(bone_instances[bone_id].mTransform, (*bones)[bone_id]->m2b_transform);
-
-	if (bRecursive) {
-		for (xr_vector<CBoneData*>::iterator C = (*bones)[bone_id]->children.begin(); C != (*bones)[bone_id]->children.end(); C++)
-			LL_HideBoneVisible((*C)->GetSelfID(), bRecursive);
-	}
 	Visibility_Invalidate();
 }
 

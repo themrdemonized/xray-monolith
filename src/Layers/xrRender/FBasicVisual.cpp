@@ -41,9 +41,7 @@ void dxRender_Visual::Release()
 
 void dxRender_Visual::Load(const char* N, IReader* data, u32)
 {
-#ifdef DEBUG
-	dbg_name	= N;
-#endif
+	dbg_name = N;
 
 	// header
 	VERIFY(data);
@@ -88,7 +86,5 @@ void dxRender_Visual::Copy(dxRender_Visual* pFrom)
 #ifdef _EDITOR
 	PCOPY(desc);
 #endif
-#ifdef DEBUG
 	PCOPY(dbg_name);
-#endif
 }

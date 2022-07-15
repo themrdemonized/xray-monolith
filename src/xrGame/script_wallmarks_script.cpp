@@ -15,7 +15,8 @@ void CScriptWallmarksManager::script_register(lua_State *L)
 	[
 		class_<ScriptWallmarksManager>("ScriptWallmarksManager")
 		.def(constructor<>())
-		.def("place", &ScriptWallmarksManager::PlaceWallmark)
+		.def("place", (void (ScriptWallmarksManager::*)(Fvector, Fvector, float, float, LPCSTR, CScriptGameObject*, float))(&ScriptWallmarksManager::PlaceWallmark))
+		.def("place", (void (ScriptWallmarksManager::*)(Fvector, Fvector, float, float, LPCSTR, CScriptGameObject*, float, bool))(&ScriptWallmarksManager::PlaceWallmark))
 		.def("place_skeleton", &ScriptWallmarksManager::PlaceSkeletonWallmark),
 
 		def("wallmarks_manager", &GetManager)

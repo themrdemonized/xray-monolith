@@ -193,17 +193,12 @@ bool CPSLibrary::Load2()
 
 bool CPSLibrary::Load(const char* nm)
 {
-	if (!FS.exist(nm))
-	{
-		Msg("Can't find file: '%s'", nm);
-		return false;
-	}
-
 	FS_FileSet files;
 	string_path _path;
-	FS.update_path(_path, "$game_particles$", "");
 
+	FS.update_path(_path, "$game_particles$", "");
 	FS.file_list(files, _path, FS_ListFiles, "*.pe,*.pg");
+
 	FS_FileSet::iterator it = files.begin();
 	FS_FileSet::iterator it_e = files.end();
 
@@ -213,77 +208,114 @@ bool CPSLibrary::Load(const char* nm)
 		const FS_File& f = (*it);
 		_splitpath(f.name.c_str(), 0, p_path, p_name, p_ext);
 		FS.update_path(_path, "$game_particles$", f.name.c_str());
-		CInifile ini(_path,TRUE,TRUE,FALSE);
+		CInifile ini(_path, TRUE, TRUE, FALSE);
+
 		xr_sprintf(_path, sizeof(_path), "%s%s", p_path, p_name);
-
-
 		if (0 == stricmp(p_ext, ".pe"))
 		{
 			PS::CPEDef* def = xr_new<PS::CPEDef>();
 			def->m_Name = _path;
-			def->Load2(ini);
-			m_PEDs.push_back(def);
+			if (def->Load2(ini))
+				m_PEDs.push_back(def);
+			else
+				xr_delete(def);
 		}
 		else if (0 == stricmp(p_ext, ".pg"))
 		{
 			PS::CPGDef* def = xr_new<PS::CPGDef>();
 			def->m_Name = _path;
-			def->Load2(ini);
-			m_PGDs.push_back(def);
+			if (def->Load2(ini))
+				m_PGDs.push_back(def);
+			else
+				xr_delete(def);
+		}
+		else
+		{
+			R_ASSERT(0);
 		}
 	}
 
-	IReader* F = FS.r_open(nm);
 	bool bRes = true;
-	R_ASSERT(F->find_chunk(PS_CHUNK_VERSION));
-	u16 ver = F->r_u16();
-	if (ver != PS_VERSION) return false;
-	// second generation
-	IReader* OBJ;
-	OBJ = F->open_chunk(PS_CHUNK_SECONDGEN);
-	if (OBJ)
+	if (FS.exist(nm))
 	{
-		IReader* O = OBJ->open_chunk(0);
-		for (int count = 1; O; count++)
+		IReader* F = FS.r_open(nm);
+		R_ASSERT(F->find_chunk(PS_CHUNK_VERSION));
+		u16 ver = F->r_u16();
+		if (ver != PS_VERSION) return false;
+		// second generation
+		IReader* OBJ;
+		OBJ = F->open_chunk(PS_CHUNK_SECONDGEN);
+		if (OBJ)
 		{
-			PS::CPEDef* def = xr_new<PS::CPEDef>();
-			if (def->Load(*O)) m_PEDs.push_back(def);
-			else
+			IReader* O = OBJ->open_chunk(0);
+			for (int count = 1; O; count++)
 			{
-				bRes = false;
-				xr_delete(def);
+				PS::CPEDef* def = xr_new<PS::CPEDef>();
+				if (def->Load(*O))
+				{
+					bool exist = false;
+					for (PS::CPEDef* pdef : m_PEDs)
+					{
+						if (pdef->m_Name == def->m_Name)
+						{
+							exist = true;
+							xr_delete(def);
+							break;
+						}
+					}
+
+					if (!exist)
+						m_PEDs.push_back(def);
+				}
+				else
+				{
+					bRes = false;
+					xr_delete(def);
+				}
+				O->close();
+				if (!bRes) break;
+				O = OBJ->open_chunk(count);
 			}
-			O->close();
-			if (!bRes) break;
-			O = OBJ->open_chunk(count);
+			OBJ->close();
 		}
-		OBJ->close();
-	}
-	// second generation
-	OBJ = F->open_chunk(PS_CHUNK_THIRDGEN);
-	if (OBJ)
-	{
-		IReader* O = OBJ->open_chunk(0);
-		for (int count = 1; O; count++)
+		// second generation
+		OBJ = F->open_chunk(PS_CHUNK_THIRDGEN);
+		if (OBJ)
 		{
-			PS::CPGDef* def = xr_new<PS::CPGDef>();
-			if (def->Load(*O)) m_PGDs.push_back(def);
-			else
+			IReader* O = OBJ->open_chunk(0);
+			for (int count = 1; O; count++)
 			{
-				bRes = false;
-				xr_delete(def);
+				PS::CPGDef* def = xr_new<PS::CPGDef>();
+				if (def->Load(*O))
+				{
+					bool exist = false;
+					for (PS::CPGDef* pdef : m_PGDs)
+					{
+						if (pdef->m_Name == def->m_Name)
+						{
+							exist = true;
+							xr_delete(def);
+							break;
+						}
+					}
+
+					if (!exist)
+						m_PGDs.push_back(def);
+				}
+				else
+				{
+					bRes = false;
+					xr_delete(def);
+				}
+				O->close();
+				if (!bRes) break;
+				O = OBJ->open_chunk(count);
 			}
-			O->close();
-			if (!bRes) break;
-			O = OBJ->open_chunk(count);
+			OBJ->close();
 		}
-		OBJ->close();
+
+		FS.r_close(F);
 	}
-
-	// final
-	FS.r_close(F);
-
-
 
 	std::sort(m_PEDs.begin(), m_PEDs.end(), ped_sort_pred);
 	std::sort(m_PGDs.begin(), m_PGDs.end(), pgd_sort_pred);

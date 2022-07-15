@@ -204,7 +204,7 @@ void CWallmarksEngine::BuildMatrix(Fmatrix& mView, float invsz, const Fvector& f
 }
 
 void CWallmarksEngine::AddWallmark_internal(CDB::TRI* pTri, const Fvector* pVerts, const Fvector& contact_point,
-                                            ref_shader hShader, float sz, float ttl)
+                                            ref_shader hShader, float sz, float ttl, bool random_rotation)
 {
 	// query for polygons in bounding box
 	// calculate adjacency
@@ -240,7 +240,7 @@ void CWallmarksEngine::AddWallmark_internal(CDB::TRI* pTri, const Fvector* pVert
 	// build 3D ortho-frustum
 	Fmatrix mView, mRot;
 	BuildMatrix(mView, 1 / sz, contact_point);
-	mRot.rotateZ(::Random.randF(deg2rad(-20.f), deg2rad(20.f)));
+	mRot.rotateZ(random_rotation ? ::Random.randF(deg2rad(-20.f), deg2rad(20.f)) : 0.f);
 	mView.mulA_43(mRot);
 	sml_clipper.CreateFromMatrix(mView,FRUSTUM_P_LRTB);
 
@@ -301,7 +301,7 @@ void CWallmarksEngine::AddWallmark_internal(CDB::TRI* pTri, const Fvector* pVert
 }
 
 void CWallmarksEngine::AddStaticWallmark(CDB::TRI* pTri, const Fvector* pVerts, const Fvector& contact_point,
-                                         ref_shader hShader, float sz, float ttl, bool ignore_opt)
+                                         ref_shader hShader, float sz, float ttl, bool ignore_opt, bool random_rotation)
 {
 	// optimization cheat: don't allow wallmarks more than 100 m from viewer/actor
 	if (!ignore_opt && contact_point.distance_to_sqr(Device.vCameraPosition) > _sqr(100.f))
@@ -309,7 +309,7 @@ void CWallmarksEngine::AddStaticWallmark(CDB::TRI* pTri, const Fvector* pVerts, 
 
 	// Physics may add wallmarks in parallel with rendering
 	lock.Enter();
-	AddWallmark_internal(pTri, pVerts, contact_point, hShader, sz, ttl);
+	AddWallmark_internal(pTri, pVerts, contact_point, hShader, sz, ttl, random_rotation);
 	lock.Leave();
 }
 

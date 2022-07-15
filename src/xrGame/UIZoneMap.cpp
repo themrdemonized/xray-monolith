@@ -41,11 +41,14 @@ void CUIZoneMap::Init()
 
 	m_clock_wnd = UIHelper::CreateStatic(uiXml, "minimap:clock_wnd", &m_background);
 
+	BOOL bRotate = uiXml.ReadAttribInt("minimap:level_frame", 0, "rotate", TRUE);
 	BOOL bRounded = uiXml.ReadAttribInt("minimap:level_frame", 0, "rounded", TRUE);
+	BOOL bAspect = uiXml.ReadAttribInt("minimap:level_frame", 0, "aspect", TRUE);
 	u32 color = xml_init.GetColor(uiXml, "minimap:level_frame", 0, 0xff);
 
 	m_activeMap = xr_new<CUIMiniMap>();
 	m_activeMap->SetRounded(bRounded);
+	m_activeMap->SetRotate(bRotate);
 	m_activeMap->SetTextureColor(color);
 	m_clipFrame.AttachChild(m_activeMap);
 	m_activeMap->SetAutoDelete(true);
@@ -62,7 +65,7 @@ void CUIZoneMap::Init()
 	Fvector2 sz_k = m_clipFrame.GetWndSize();
 	Fvector2 sz = sz_k;
 	{
-		float k = UI().get_current_kx();
+		float k = bAspect ? UI().get_current_kx() : 1;
 
 		sz.y *= UI_BASE_HEIGHT * k;
 		sz.x = sz.y / k;
@@ -142,6 +145,7 @@ void CUIZoneMap::Update()
 	}
 
 	UpdateRadar(Device.vCameraPosition);
+
 	float h, p;
 	Device.vCameraDirection.getHP(h, p);
 	SetHeading(-h);
@@ -152,7 +156,8 @@ void CUIZoneMap::Update()
 
 void CUIZoneMap::SetHeading(float angle)
 {
-	m_activeMap->SetHeading(angle);
+	if (m_activeMap->Rotate())
+		m_activeMap->SetHeading(angle);
 	m_compass.SetHeading(angle);
 };
 

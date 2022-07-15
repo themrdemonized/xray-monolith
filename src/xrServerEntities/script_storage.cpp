@@ -301,6 +301,25 @@ CScriptStorage::~CScriptStorage()
 
 extern int luaopen_lua_extensions(lua_State* L);
 
+void disable_os_funcs(lua_State* L)
+{
+	lua_getglobal(L, "os");
+	lua_pushnil(L);
+	lua_setfield(L, -2, "execute");
+	lua_pushnil(L);
+	lua_setfield(L, -2, "rename");
+	lua_pushnil(L);
+	lua_setfield(L, -2, "remove");
+	lua_pushnil(L);
+	lua_setfield(L, -2, "exit");
+	lua_pop(L, 1);
+
+	lua_getglobal(L, "io");
+	lua_pushnil(L);
+	lua_setfield(L, -2, "popen");
+	lua_pop(L, 1);
+}
+
 void CScriptStorage::reinit()
 {
 	if (m_virtual_machine)
@@ -364,6 +383,7 @@ void CScriptStorage::reinit()
 #endif //!USE_LUAJIT_ONE
 
 	luaopen_lua_extensions(lua());
+	disable_os_funcs(lua());
 
 	if (strstr(Core.Params, "-_g"))
 		file_header = file_header_new; //AVO: I get fatal crash at the start if this is used

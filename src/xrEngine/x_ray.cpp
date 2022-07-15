@@ -35,6 +35,7 @@
 
 
 //---------------------------------------------------------------------
+#define XRAY_MONOLITH_VERSION "X-Ray Monolith v1.5.2"
 ENGINE_API CInifile* pGameIni = NULL;
 BOOL g_bIntroFinished = FALSE;
 extern void Intro(void* fn);
@@ -984,6 +985,32 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	Core._initialize("xray", NULL, TRUE, fsgame[0] ? fsgame : NULL);
 
 	InitSettings();
+	Msg(XRAY_MONOLITH_VERSION);
+
+	{
+		FS_FileSet fset;
+		FS.file_list(fset, "$game_data$", FS_ListFiles, "*");
+
+		// list all files in gamedata folder
+		u32 count = 0;
+		for (FS_FileSet::iterator it = fset.begin(); it != fset.end(); it++)
+		{
+			// skip virtual files from .db? archives, only interested in loose files
+			if ((*it).attrib != 0) continue;
+			Msg("gamedata: '%s'", (*it).name.c_str());
+
+			const u32 cutoff = 100;
+			if (++count >= cutoff)
+			{
+				u32 total = fset.size();
+				if (total > cutoff)
+				{
+					Msg("gamedata: ... %d more ...", total - cutoff);
+				}
+				break;
+			}
+		}
+	}
 
 	// Adjust player & computer name for Asian
 	if (pSettings->line_exist("string_table", "no_native_input"))

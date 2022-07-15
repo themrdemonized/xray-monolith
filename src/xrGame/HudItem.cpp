@@ -39,6 +39,7 @@ CHudItem::CHudItem()
 	m_fUD_InertiaFactor = 0.f;
 
 	m_nearwall_last_hud_fov = psHUD_FOV_def;
+	m_lastState = eHidden;
 
 	script_ui = nullptr;
 	script_ui_funct = nullptr;
@@ -162,6 +163,7 @@ void CHudItem::OnEvent(NET_Packet& P, u16 type)
 
 void CHudItem::OnStateSwitch(u32 S, u32 oldState)
 {
+	m_lastState = oldState;
 	SetState(S);
 
 	if (object().Remote())
@@ -183,6 +185,10 @@ void CHudItem::OnStateSwitch(u32 S, u32 oldState)
 		else
 			SwitchState(eIdle);
 
+		break;
+	case eHidden:
+		if (HudItemData())
+			g_player_hud->detach_item(this);
 		break;
 	}
 
@@ -514,6 +520,13 @@ void CHudItem::UpdateCL()
 		script_ui->Update();
 }
 
+void CHudItem::OnMotionMark(u32 state, const motion_marks& M)
+{
+	luabind::functor<bool> funct;
+	if (ai().script_engine().functor("_G.CHudItem__OnMotionMark", funct))
+		funct(state, *M.name);
+}
+
 void CHudItem::OnH_A_Chield()
 {
 }
@@ -556,22 +569,14 @@ void CHudItem::on_b_hud_detach()
 	m_sounds.StopAllSounds();
 }
 
-void CHudItem::on_a_hud_attach()
+void CHudItem::on_outfit_changed()
 {
 	if (m_current_motion_def)
-	{
 		PlayHUDMotion_noCB(m_current_motion, FALSE);
-#ifdef DEBUG
-		//		Msg("continue playing [%s][%d]",m_current_motion.c_str(), Device.dwFrame);
-#endif // #ifdef DEBUG
-	}
-	else
-	{
-#ifdef DEBUG
-		//		Msg("no active motion");
-#endif // #ifdef DEBUG
-	}
+}
 
+void CHudItem::on_a_hud_attach()
+{
 	if (script_ui_funct && nullptr == script_ui)
 	{
 		luabind::functor<CUIDialogWndEx*> funct;
@@ -585,7 +590,7 @@ void CHudItem::on_a_hud_attach()
 				Msg("[%s]: Failed to load script UI [%s]!", object().cNameSect_str(), script_ui_funct);
 		}
 		else
-			Msg("[%s]: Script UI functor [%s] does not exist!", script_ui_funct);
+			Msg("[%s]: Script UI functor [%s] does not exist!", object().cNameSect_str(), script_ui_funct);
 	}
 }
 
@@ -628,8 +633,49 @@ void CHudItem::render_item_3d_ui()
 
 extern float g_end_modif;
 
-u32 CHudItem::PlayHUDMotion(const shared_str& M, BOOL bMixIn, CHudItem* W, u32 state, float speed, float end, bool bMixIn2)
+u32 CHudItem::PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed, float end, bool bMixIn2)
 {
+	if (HudItemData())
+	{
+		luabind::functor<luabind::object> funct;
+		if (ai().script_engine().functor("_G.CHudItem__PlayHUDMotion", funct))
+		{
+			
+			luabind::object table = luabind::newtable(ai().script_engine().lua());
+			table["anm_name"] = *M;
+			table["anm_mixin"] = !!bMixIn;
+			table["anm_mixin2"] = bMixIn2;
+			table["anm_state"] = state;
+			table["anm_speed"] = speed;
+			table["anm_end"] = end;
+
+			luabind::object const& output = funct(table, object().lua_game_object());
+			if (output && output.type() == LUA_TTABLE)
+			{
+				M = luabind::object_cast<LPCSTR>(output["anm_name"]);
+				bMixIn = luabind::object_cast<bool>(output["anm_mixin"]);
+				bMixIn2 = luabind::object_cast<bool>(output["anm_mixin2"]);
+				state = luabind::object_cast<u32>(output["anm_state"]);
+				speed = luabind::object_cast<float>(output["anm_speed"]);
+				end = luabind::object_cast<float>(output["anm_end"]);
+			}
+
+			if (M == "$cancel")
+			{
+				m_sounds.StopAllSounds();
+				if (GetState() != m_lastState)
+					SwitchState(m_lastState);
+				return 0;
+			}
+		}
+
+		if (!HudAnimationExist(*M))
+		{
+			Msg("!Missing hud animation %s", *M);
+			return 0;
+		}
+	}
+
 	u32 anim_time = PlayHUDMotion_noCB(M, bMixIn, speed, bMixIn2);
 	if (anim_time > 0)
 	{

@@ -11,6 +11,7 @@ protected:
 	bool m_bCanBeZoomed;
 	bool m_bThrowAnm;
 	bool m_bWorking;
+	bool m_bOldZoom;
 
 public:
 	CCustomDevice();

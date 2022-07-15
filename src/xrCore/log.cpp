@@ -22,7 +22,7 @@ static LogCallback LogCB = 0;
 
 void FlushLog()
 {
-	if (!no_log)
+	if (!no_log && LogFile != nullptr)
 	{
 		logCS.Enter();
 		IWriter* f = FS.w_open(logFName);

@@ -143,6 +143,12 @@ void CWeaponMagazinedWGrenade::OnShot()
 		PlaySound("sndShotG", get_LastFP2());
 		AddShotEffector();
 		StartFlameParticles2();
+
+#ifndef EXTENDED_WEAPON_CALLBACKS
+		CGameObject* object = smart_cast<CGameObject*>(H_Parent());
+		if (object)
+			object->callback(GameObject::eOnWeaponFired)(object->lua_game_object(), this->lua_game_object(), iAmmoElapsed);
+#endif
 	}
 	else
 		inherited::OnShot();
@@ -150,8 +156,7 @@ void CWeaponMagazinedWGrenade::OnShot()
 
 bool CWeaponMagazinedWGrenade::SwitchMode()
 {
-	bool bUsefulStateToSwitch = ((eIdle == GetState()) || (eHidden == GetState()) || (eMisfire == GetState()) || (
-		eMagEmpty == GetState())) && (!IsPending());
+	bool bUsefulStateToSwitch = ((eIdle == GetState()) || (eHidden == GetState()) || (eMisfire == GetState())) && (!IsPending());
 
 	if (!bUsefulStateToSwitch)
 		return false;
@@ -192,7 +197,46 @@ void CWeaponMagazinedWGrenade::PerformSwitchGL()
 	m_magazine.swap(m_magazine2);
 	iAmmoElapsed = (int)m_magazine.size();
 
+	if (m_bGrenadeMode && !getRocketCount())
+	{
+		shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
+
+		CRocketLauncher::SpawnRocket(*fake_grenade_name, this);
+	}
+
 	m_BriefInfo_CalcFrame = 0;
+}
+
+void CWeaponMagazinedWGrenade::SetAmmoElapsed2(int ammo_count)
+{
+	iAmmoElapsed2 = ammo_count;
+
+	u32 uAmmo = u32(iAmmoElapsed2);
+
+	if (uAmmo != m_magazine2.size())
+	{
+		if (uAmmo > m_magazine2.size())
+		{
+			CCartridge l_cartridge;
+			l_cartridge.Load(m_ammoTypes2[m_ammoType2].c_str(), m_ammoType2, m_APk);
+			while (uAmmo > m_magazine2.size())
+				m_magazine2.push_back(l_cartridge);
+		}
+		else
+		{
+			while (uAmmo < m_magazine2.size())
+				m_magazine2.pop_back();
+		};
+	};
+}
+
+void CWeaponMagazinedWGrenade::AmmoTypeForEach2(const luabind::functor<bool> &funct)
+{
+	for (u8 i = 0; i < u8(m_ammoTypes2.size()); ++i)
+	{
+		if (funct(i, *m_ammoTypes2[i]))
+			break;
+	}
 }
 
 bool CWeaponMagazinedWGrenade::Action(u16 cmd, u32 flags)
@@ -636,12 +680,12 @@ void CWeaponMagazinedWGrenade::PlayAnimShow()
 	{
 		if (!m_bGrenadeMode)
 			iAmmoElapsed == 0 && HudAnimationExist("anm_show_empty_w_gl")
-			? PlayHUDMotion("anm_show_empty_w_gl", FALSE, this, GetState())
-			: PlayHUDMotion("anm_show_w_gl", FALSE, this, GetState());
+			? PlayHUDMotion("anm_show_empty_w_gl", FALSE, this, GetState(), 1.f, 0.f, false)
+			: PlayHUDMotion("anm_show_w_gl", FALSE, this, GetState(), 1.f, 0.f, false);
 		else
 			iAmmoElapsed == 0 && HudAnimationExist("anm_show_empty_g")
-			? PlayHUDMotion("anm_show_empty_g", FALSE, this, GetState())
-			: PlayHUDMotion("anm_show_g", FALSE, this, GetState());
+			? PlayHUDMotion("anm_show_empty_g", FALSE, this, GetState(), 1.f, 0.f, false)
+			: PlayHUDMotion("anm_show_g", FALSE, this, GetState(), 1.f, 0.f, false);
 	}
 	else
 		inherited::PlayAnimShow();

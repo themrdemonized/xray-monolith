@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "uidialogwnd.h"
+#include "UICursor.h"
 
 CUIDialogWnd::CUIDialogWnd()
 {
@@ -7,6 +8,8 @@ CUIDialogWnd::CUIDialogWnd()
 	m_bWorkInPause = false;
 	m_bShowMe = false;
 	m_bAllowMovement = false;
+	m_bNeedCursor = true;
+	m_bNeedCenterCursor = true;
 }
 
 CUIDialogWnd::~CUIDialogWnd()

@@ -140,6 +140,9 @@ void CActor::StartTalk(CInventoryOwner* talk_partner)
 	CGameObject* GO = smart_cast<CGameObject*>(talk_partner);
 	VERIFY(GO);
 	CInventoryOwner::StartTalk(talk_partner);
+
+	if (cam_freelook == eflEnabled || cam_freelook == eflEnabling)
+		cam_UnsetFreelook();
 }
 
 void CActor::NewPdaContact(CInventoryOwner* pInvOwner)

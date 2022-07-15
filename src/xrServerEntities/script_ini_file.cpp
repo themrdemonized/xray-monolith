@@ -246,6 +246,11 @@ void CScriptIniFile::set_readonly(bool b)
 	inherited::m_flags.set(eReadOnly, b);
 }
 
+void CScriptIniFile::close()
+{
+	inherited::Destroy(this);
+}
+
 u32 CScriptIniFile::section_count()
 {
 	return (inherited::section_count());

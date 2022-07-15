@@ -194,6 +194,13 @@ BOOL motions_value::load(LPCSTR N, IReader* data, vecBones* bones)
 		{
 			u16 bone_id = rm_bones[i];
 			VERIFY2(bone_id != BI_NONE, "Invalid remap index.");
+
+			if ((bones->size() - 1) < bone_id)
+			{
+				MS->close();
+				return false;
+			}
+
 			CMotion& M = m_motions[bones->at(bone_id)->name][m_idx];
 			M.set_count(dwLen);
 			M.set_flags(MS->r_u8());

@@ -332,7 +332,8 @@ void CWeaponKnife::switch2_Hidden()
 void CWeaponKnife::switch2_Showing()
 {
 	VERIFY(GetState()==eShowing);
-	PlayHUDMotion("anm_show", FALSE, this, GetState());
+	if (ParentIsActor()) g_player_hud->attach_item(this);
+	PlayHUDMotion("anm_show", FALSE, this, GetState(), 1.f, 0.f, false);
 	PlaySound("sndShow", get_LastFP());
 }
 

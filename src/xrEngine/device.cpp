@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "../xrCDB/frustum.h"
 #include "xr_ioconsole.h"
+#include "xr_input.h"
 
 #pragma warning(disable:4995)
 // mmsystem.h
@@ -637,16 +638,11 @@ void CRenderDevice::OnWM_Activate(WPARAM wParam, LPARAM lParam)
 
 	if (psDeviceFlags2.test(rsAlwaysActive) && g_screenmode != 2)
 	{
+		Device.b_is_Active = TRUE;
+
 		if (Device.b_hide_cursor != bActive)
 		{
 			Device.b_hide_cursor = bActive;
-
-			if (Device.b_is_Active == FALSE)
-			{
-				Device.b_is_Active = TRUE;
-				Device.seqAppActivate.Process(rp_AppActivate);
-				app_inactive_time += TimerMM.GetElapsed_ms() - app_inactive_time_start;
-			}
 
 			if (Device.b_hide_cursor)
 			{
@@ -658,16 +654,20 @@ void CRenderDevice::OnWM_Activate(WPARAM wParam, LPARAM lParam)
 					MapWindowPoints(m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
 					ClipCursor(&winRect);
 				}
+				pInput->OnAppActivate();
 			}
 			else
 			{
-				Device.seqAppDeactivate.Process(rp_AppDeactivate);
 				ShowCursor(TRUE);
 				ClipCursor(NULL);
+				pInput->OnAppDeactivate();
 			}
 		}
+
+		return;
 	}
-	else if (bActive != Device.b_is_Active)
+
+	if (bActive != Device.b_is_Active)
 	{
 		Device.b_is_Active = bActive;
 

@@ -253,23 +253,22 @@ void CFlashlight::OnStateSwitch(u32 S, u32 oldState)
 
 		m_sounds.PlaySound("sndShow", Fvector().set(0, 0, 0), this, true, false);
 
-		bool need_zoom;
+		bool need_zoom = false;
 		attachable_hud_item* i0 = g_player_hud->attached_item(0);
-		if (i0)
+		if (m_bCanBeZoomed && i0)
 		{
 			CWeapon* wpn = smart_cast<CWeapon*>(i0->m_parent_hud_item);
 			if (wpn && wpn->IsZoomed())
 				need_zoom = true;
 		}
 
-		if (m_bCanBeZoomed && need_zoom)
+		if (HudAnimationExist("anm_zoom_show") && need_zoom)
 		{
-			if (HudAnimationExist("anm_zoom_show"))
-				PlayHUDMotion("anm_zoom_show", FALSE, this, GetState());
+			PlayHUDMotion("anm_zoom_show", FALSE, this, GetState(), 1.f, 0.f, false);
 			m_bZoomed = true;
 		}
 		else
-			PlayHUDMotion(m_bFastAnimMode ? "anm_show_fast" : "anm_show", FALSE, this, GetState());
+			PlayHUDMotion(m_bFastAnimMode ? "anm_show_fast" : "anm_show", FALSE, this, GetState(), 1.f, 0.f, false);
 		SetPending(TRUE);
 	}
 	else

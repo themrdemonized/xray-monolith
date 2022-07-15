@@ -31,6 +31,9 @@ public:
 
 	virtual void shedule_Update(u32 dt);
 
+	virtual bool Action(u16 cmd, u32 flags);
+	virtual void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
+
 	virtual void feel_touch_new(CObject* O);
 	virtual void feel_touch_delete(CObject* O);
 	virtual bool feel_touch_contact(CObject* O);

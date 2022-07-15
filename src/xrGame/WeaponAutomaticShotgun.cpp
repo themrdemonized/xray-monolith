@@ -6,6 +6,7 @@
 #include "inventory.h"
 #include "level.h"
 #include "actor.h"
+#include "script_game_object.h"
 
 CWeaponAutomaticShotgun::CWeaponAutomaticShotgun()
 {
@@ -33,7 +34,7 @@ void CWeaponAutomaticShotgun::Load(LPCSTR section)
 
 		m_sounds.LoadSound(section, "snd_close_weapon", "sndClose", false, m_eSoundClose);
 
-		m_sounds.LoadSound(section, "snd_close_weapon_empty", "sndClose", false, m_eSoundClose);
+		m_sounds.LoadSound(section, "snd_close_weapon_empty", "sndCloseEmpty", false, m_eSoundClose);
 	};
 }
 
@@ -151,6 +152,7 @@ void CWeaponAutomaticShotgun::switch2_StartReload()
 
 void CWeaponAutomaticShotgun::switch2_AddCartgidge()
 {
+	if (ParentIsActor()) Actor()->callback(GameObject::eWeaponNoAmmoAvailable)(lua_game_object(), GetSuitableAmmoTotal());
 	PlaySound("sndAddCartridge", get_LastFP());
 	PlayAnimAddOneCartridgeWeapon();
 	SetPending(TRUE);
@@ -177,7 +179,7 @@ void CWeaponAutomaticShotgun::PlayAnimOpenWeapon()
 void CWeaponAutomaticShotgun::PlayAnimAddOneCartridgeWeapon()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_add_cartridge",FALSE, this, GetState());
+	PlayHUDMotion("anm_add_cartridge",TRUE, this, GetState(), 1.f, 0.f, false);
 }
 
 void CWeaponAutomaticShotgun::PlayAnimCloseWeapon()
@@ -185,9 +187,9 @@ void CWeaponAutomaticShotgun::PlayAnimCloseWeapon()
 	VERIFY(GetState()==eReload);
 
 	if (BeginReloadWasEmpty && HudAnimationExist("anm_close_empty"))
-		PlayHUDMotion("anm_close_empty", FALSE, this, GetState());
+		PlayHUDMotion("anm_close_empty", TRUE, this, GetState(), 1.f, 0.f, false);
 	else
-		PlayHUDMotion("anm_close",FALSE, this, GetState());
+		PlayHUDMotion("anm_close",TRUE, this, GetState(), 1.f, 0.f, false);
 }
 
 bool CWeaponAutomaticShotgun::HaveCartridgeInInventory(u8 cnt)
