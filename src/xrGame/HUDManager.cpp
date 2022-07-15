@@ -23,7 +23,7 @@
 
 extern CUIGameCustom* CurrentGameUI()
 {
-	return HUD().GetGameUI();
+	return g_hud ? HUD().GetGameUI() : nullptr;
 }
 
 CFontManager::CFontManager()

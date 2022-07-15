@@ -381,6 +381,7 @@ public:
 
 
 	void ActorLookAtPoint(Fvector point);
+	void ActorStopLookAtPoint();
 	void IterateInventory(luabind::functor<bool> functor, luabind::object object);
 	void IterateRuck(luabind::functor<bool> functor, luabind::object object);
 	void IterateBelt(luabind::functor<bool> functor, luabind::object object);
@@ -397,6 +398,7 @@ public:
 	void DropItemAndTeleport(CScriptGameObject* pItem, Fvector position);
 	void ForEachInventoryItems(const luabind::functor<bool>& functor);
 	void TransferItem(CScriptGameObject* pItem, CScriptGameObject* pForWho);
+	void TakeItem(CScriptGameObject* pItem);
 	void TransferMoney(int money, CScriptGameObject* pForWho);
 	void GiveMoney(int money);
 	u32 Money();
@@ -681,6 +683,7 @@ public:
 	void stop_particles(LPCSTR pname, LPCSTR bone);
 
 	Fvector bone_position(LPCSTR bone_name, bool bHud = false) const;
+	LPCSTR bone_name(u16 id, bool bHud);
 	bool is_body_turning() const;
 	cphysics_shell_scripted* get_physics_shell() const;
 	u16 get_bone_id(LPCSTR bone_name) const;
@@ -986,12 +989,14 @@ public:
 	float GetArtefactSatietyRestoreSpeed();
 	float GetArtefactPowerRestoreSpeed();
 	float GetArtefactBleedingRestoreSpeed();
+	float GetArtefactImmunity(ALife::EHitType hit_type);
 
 	void SetArtefactHealthRestoreSpeed(float value);
 	void SetArtefactRadiationRestoreSpeed(float value);
 	void SetArtefactSatietyRestoreSpeed(float value);
 	void SetArtefactPowerRestoreSpeed(float value);
 	void SetArtefactBleedingRestoreSpeed(float value);
+	void SetArtefactImmunity(ALife::EHitType hit_type, float value);
 
 	//Eatable items
 	void SetRemainingUses(u8 value);

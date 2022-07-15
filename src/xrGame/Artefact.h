@@ -44,12 +44,14 @@ public:
 	float GetSatietyPower() { return m_fSatietyRestoreSpeed; }
 	float GetPowerPower() { return m_fPowerRestoreSpeed; }
 	float GetBleedingPower() { return m_fBleedingRestoreSpeed; }
+	float GetImmunity(ALife::EHitType hit_type) { return m_ArtefactHitImmunities.GetHitImmunity(hit_type); }
 
 	void SetHealthPower(float value) { m_fHealthRestoreSpeed = value; }
 	void SetRadiationPower(float value) { m_fRadiationRestoreSpeed = value; }
 	void SetSatietyPower(float value) { m_fSatietyRestoreSpeed = value; }
 	void SetPowerPower(float value) { m_fPowerRestoreSpeed = value; }
 	void SetBleedingPower(float value) { m_fBleedingRestoreSpeed = value; }
+	void SetImmunity(ALife::EHitType hit_type, float val) { m_ArtefactHitImmunities.SetHitImmunity(hit_type, val); }
 
 protected:
 	virtual void UpdateCLChild()

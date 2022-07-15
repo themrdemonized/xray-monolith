@@ -116,6 +116,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 
 		.def("bone_position", &CScriptGameObject::bone_position)
 
+		.def("bone_name", &CScriptGameObject::bone_name)
 		.def("is_body_turning", &CScriptGameObject::is_body_turning)
 
 		//////////////////////////////////////////////////////////////////////////
@@ -196,6 +197,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("drop_item", &CScriptGameObject::DropItem)
 		.def("drop_item_and_teleport", &CScriptGameObject::DropItemAndTeleport)
 		.def("transfer_item", &CScriptGameObject::TransferItem)
+		.def("take_item", &CScriptGameObject::TakeItem)
 		.def("transfer_money", &CScriptGameObject::TransferMoney)
 		.def("give_money", &CScriptGameObject::GiveMoney)
 		.def("money", &CScriptGameObject::Money)
@@ -301,12 +303,14 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("get_artefact_satiety", &CScriptGameObject::GetArtefactSatietyRestoreSpeed)
 		.def("get_artefact_power", &CScriptGameObject::GetArtefactPowerRestoreSpeed)
 		.def("get_artefact_bleeding", &CScriptGameObject::GetArtefactBleedingRestoreSpeed)
+		.def("get_artefact_immunity", &CScriptGameObject::GetArtefactImmunity)
 
 		.def("set_artefact_health", &CScriptGameObject::SetArtefactHealthRestoreSpeed)
 		.def("set_artefact_radiation", &CScriptGameObject::SetArtefactRadiationRestoreSpeed)
 		.def("set_artefact_satiety", &CScriptGameObject::SetArtefactSatietyRestoreSpeed)
 		.def("set_artefact_power", &CScriptGameObject::SetArtefactPowerRestoreSpeed)
 		.def("set_artefact_bleeding", &CScriptGameObject::SetArtefactBleedingRestoreSpeed)
+		.def("set_artefact_immunity", &CScriptGameObject::SetArtefactImmunity)
 
 		//HELICOPTER
 		.def("get_helicopter", &CScriptGameObject::get_helicopter)
@@ -392,6 +396,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("aim_bone_id", (LPCSTR (CScriptGameObject::*)() const)&CScriptGameObject::aim_bone_id)
 
 		.def("actor_look_at_point", &CScriptGameObject::ActorLookAtPoint)
+		.def("actor_stop_look_at_point", &CScriptGameObject::ActorStopLookAtPoint)
 		.def("enable_level_changer", &CScriptGameObject::enable_level_changer)
 		.def("is_level_changer_enabled", &CScriptGameObject::is_level_changer_enabled)
 

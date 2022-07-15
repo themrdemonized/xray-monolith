@@ -149,7 +149,7 @@ void CLevel::IR_OnKeyboardPress(int key)
 
 	if (g_block_all_except_movement)
 	{
-		if (!(_curr < kCAM_1 || _curr == kWPN_FIRE || _curr == kPAUSE || _curr == kDROP || _curr == kSCREENSHOT || _curr == kQUIT || _curr == kCONSOLE))
+		if (!(_curr < kCAM_1 || _curr == kWPN_FIRE || _curr == kPAUSE || _curr == kDROP || _curr == kSCREENSHOT || _curr == kQUIT || _curr == kCONSOLE || _curr == kQUICK_LOAD || _curr == kQUICK_SAVE))
 			return;
 	}
 
@@ -201,11 +201,19 @@ void CLevel::IR_OnKeyboardPress(int key)
 		}
 	}
 
-	if (g_bDisableAllInput) return;
+    luabind::functor<bool> funct;
+    if (ai().script_engine().functor("level_input.on_key_press", funct))
+    {
+        if (funct(key, _curr, g_bDisableAllInput))
+            return;
+    }
 
-	CUIPdaWnd* pda = b_ui_exist ? &CurrentGameUI()->GetPdaMenu() : nullptr;
-	if (pda && CurrentGameUI()->TopInputReceiver() == pda) // Fix PDA hotkey input for disabled state
-		if (pda->IsShown() && !pda->IsEnabled() && pda->OnKeyboardAction(key, WINDOW_KEY_PRESSED)) return;
+    if (!g_bDisableAllInput)
+    {
+        CUIPdaWnd* pda = b_ui_exist ? &CurrentGameUI()->GetPdaMenu() : nullptr;
+        if (pda && CurrentGameUI()->TopInputReceiver() == pda) // Fix PDA hotkey input for disabled state
+            if (pda->IsShown() && !pda->IsEnabled() && pda->OnKeyboardAction(key, WINDOW_KEY_PRESSED)) return;
+    }
 
 	switch (_curr)
 	{
@@ -235,7 +243,7 @@ void CLevel::IR_OnKeyboardPress(int key)
 		break;
 	};
 
-	if (!bReady || !b_ui_exist) return;
+	if (g_bDisableAllInput || !bReady || !b_ui_exist) return;
 
 	if (b_ui_exist && CurrentGameUI()->IR_UIOnKeyboardPress(key)) return;
 
@@ -248,13 +256,7 @@ void CLevel::IR_OnKeyboardPress(int key)
 
 	if (game && game->OnKeyboardPress(get_binded_action(key))) return;
 
-	luabind::functor<bool> funct;
-	if (ai().script_engine().functor("level_input.on_key_press", funct))
-	{
-		if (funct(key, _curr))
-			return;
-	}
-
+    /*
 	if (_curr == kQUICK_SAVE && IsGameTypeSingle())
 	{
 		Console->Execute("save");
@@ -270,6 +272,7 @@ void CLevel::IR_OnKeyboardPress(int key)
 		Console->Execute("load_last_save");
 		return;
 	}
+    */
 
 #ifndef MASTER_GOLD
     switch (key) {

@@ -160,7 +160,9 @@ void CUIWindow::script_register(lua_State* L)
 		.def("ShowDialog", &CUIDialogWnd::ShowDialog)
 		.def("HideDialog", &CUIDialogWnd::HideDialog)
 		.def("GetHolder", &CUIDialogWnd::GetHolder)
-		.def("AllowMovement", &CUIDialogWnd::AllowMovement),
+		.def("AllowMovement", &CUIDialogWnd::AllowMovement)
+		.def("AllowCursor", &CUIDialogWnd::AllowCursor)
+		.def("AllowCenterCursor", &CUIDialogWnd::AllowCenterCursor),
 
 		class_<CUIFrameWindow, CUIWindow>("CUIFrameWindow")
 		.def(constructor<>())

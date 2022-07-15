@@ -68,12 +68,41 @@ public:
 	virtual void PlayAnimModeSwitch();
 	virtual bool TryPlayAnimBore();
 
+	//Script exports
+	void SetAmmoElapsed2(int ammo_count);
+	void AmmoTypeForEach2(const luabind::functor<bool>& funct);
+	virtual void SetAmmoType2(u8 type) { m_ammoType2 = type; };
+	u8 GetAmmoType2() { return m_ammoType2; };
+	int GetAmmoCount2(u8 ammo2_type) const;
+
+	IC int GetAmmoElapsed2() const
+	{
+		return iAmmoElapsed2;
+	}
+
+	IC int GetAmmoMagSize2() const
+	{
+		return iMagazineSize2;
+	}
+
+	IC bool GetGrenadeLauncherMode() const
+	{
+		return m_bGrenadeMode;
+	}
+
+	IC void SetGrenadeLauncherMode(bool mode)
+	{
+		if (!IsGrenadeLauncherAttached())
+			return;
+
+		if (mode != m_bGrenadeMode)
+			PerformSwitchGL();
+	}
+
 private:
 	virtual void net_Spawn_install_upgrades(Upgrades_type saved_upgrades);
 	virtual bool install_upgrade_impl(LPCSTR section, bool test);
 	virtual bool install_upgrade_ammo_class(LPCSTR section, bool test);
-
-	int GetAmmoCount2(u8 ammo2_type) const;
 
 public:
 	//дополнительные параметры патронов 

@@ -93,7 +93,7 @@ void CPda::OnStateSwitch(u32 S, u32 oldState)
 		g_pGamePersistent->pda_shader_data.pda_display_factor = 0.f;
 
 		m_sounds.PlaySound(hasEnoughBatteryPower() ? "sndShow" : "sndShowEmpty", Position(), H_Root(), !!GetHUDmode(), false);
-		PlayHUDMotion(!m_bNoticedEmptyBattery ? "anm_show" : "anm_show_empty", FALSE, this, GetState());
+		PlayHUDMotion(!m_bNoticedEmptyBattery ? "anm_show" : "anm_show_empty", FALSE, this, GetState(), 1.f, 0.f, false);
 		
 		SetPending(TRUE);
 		target_screen_switch = Device.fTimeGlobal + m_screen_on_delay;
@@ -126,7 +126,7 @@ void CPda::OnStateSwitch(u32 S, u32 oldState)
 
 			if (pda->IsShown())
 			{
-				if (psActorFlags.test(AF_3D_PDA))
+				if (!psActorFlags.test(AF_3D_PDA))
 					pda->Enable(true);
 				else
 					pda->HideDialog();
@@ -260,7 +260,7 @@ void CPda::UpdateCL()
 {
 	inherited::UpdateCL();
 
-	if (!ParentIsActor())
+	if (!ParentIsActor() || Actor()->inventory().ActiveItem() != this)
 		return;
 
 	// For battery icon
@@ -306,18 +306,6 @@ void CPda::UpdateCL()
 				}
 			}
 
-			// Disable PDA UI input if player is sprinting and no deferred input enable is expected.
-			else
-			{
-				CEntity::SEntityState st;
-				Actor()->g_State(st);
-				if (st.bSprint && !st.bCrouch && !m_eDeferredEnable)
-				{
-					pda->Enable(false);
-					m_bZoomed = false;
-				}
-			}
-
 			// Turn on "power saving" on low battery charge (dims the screen).
 			if (IsUsingCondition() && condition < m_fPowerSavingCharge)
 			{
@@ -351,16 +339,19 @@ void CPda::UpdateCL()
 
 	if (GetState() != eHidden)
 	{
+		float& brightness = g_pGamePersistent->pda_shader_data.pda_displaybrightness;
+		float& display = g_pGamePersistent->pda_shader_data.pda_display_factor;
+
 		// Adjust screen brightness (smooth)
 		if (m_bPowerSaving)
 		{
-			if (g_pGamePersistent->pda_shader_data.pda_displaybrightness > m_fDisplayBrightnessPowerSaving)
-				g_pGamePersistent->pda_shader_data.pda_displaybrightness -= Device.fTimeDelta / .25f;
+			if (brightness > m_fDisplayBrightnessPowerSaving)
+				brightness -= Device.fTimeDelta / .25f;
 		}
 		else
-			g_pGamePersistent->pda_shader_data.pda_displaybrightness = 1.f;
+			brightness = 1.f;
 
-		clamp(g_pGamePersistent->pda_shader_data.pda_displaybrightness, m_fDisplayBrightnessPowerSaving, 1.f);
+		clamp(brightness, m_fDisplayBrightnessPowerSaving, 1.f);
 
 		// Screen "Glitch" factor
 		g_pGamePersistent->pda_shader_data.pda_psy_influence = m_psy_factor;
@@ -370,13 +361,13 @@ void CPda::UpdateCL()
 		{
 			if (!enoughBatteryPower || state == eHiding)
 				// Change screen transparency (towards 0 = not visible).
-				g_pGamePersistent->pda_shader_data.pda_display_factor -= Device.fTimeDelta / .25f;
+				display -= Device.fTimeDelta / .25f;
 			else
 				// Change screen transparency (towards 1 = fully visible).
-				g_pGamePersistent->pda_shader_data.pda_display_factor += Device.fTimeDelta / .75f;
+				display += Device.fTimeDelta / .75f;
 		}
 
-		clamp(g_pGamePersistent->pda_shader_data.pda_display_factor, 0.f, 1.f);
+		clamp(display, 0.f, 1.f);
 	}
 }
 
@@ -399,6 +390,107 @@ void CPda::shedule_Update(u32 dt)
 		feel_touch_update(Position(), m_fRadius);
 		UpdateActiveContacts();
 	}
+}
+
+void CPda::OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd)
+{
+	inherited::OnMovementChanged(cmd);
+
+	if (cmd == mcSprint)
+	{
+		CEntity::SEntityState st;
+		Actor()->g_State(st);
+
+		CUIPdaWnd* pda = &CurrentGameUI()->GetPdaMenu();
+		if (pda->IsShown() && pda->IsEnabled() && st.bSprint)
+		{
+			m_bZoomed = false;
+			pda->Enable(false);
+		}
+	}
+}
+
+bool CPda::Action(u16 cmd, u32 flags)
+{
+	CUIPdaWnd* pda = &CurrentGameUI()->GetPdaMenu();
+
+	switch (cmd)
+	{
+		case kQUIT:
+		case kACTIVE_JOBS:
+		{
+			if (flags & CMD_START)
+			{
+				if (pda->IsShown() || cmd != kQUIT)
+				{
+					if (GetState() != eHidden && GetState() != eHiding)
+					{
+						Actor()->inventory().Activate(NO_ACTIVE_SLOT);
+						pda->HideDialog();
+						return true;
+					}
+				}
+			}
+		}
+		break;
+
+		case kWPN_RELOAD:
+		if (flags & CMD_START && !IsPending())
+		{
+			m_bZoomed = !m_bZoomed;
+			if (m_bZoomed)
+			{
+				pda->Enable(true);
+				Actor()->StopSprint();
+			}
+			else if (psActorFlags.test(AF_SIMPLE_PDA))
+				pda->Enable(false);
+			return true;
+		}
+		break;
+
+		case kWPN_ZOOM:
+		case kWPN_FIRE:
+		{
+			if (flags & CMD_START && !IsPending())
+			{
+				pda->Enable(true);
+				if (psActorFlags.test(AF_SIMPLE_PDA)) m_bZoomed = true;
+				Actor()->StopSprint();
+				return true;
+			}
+		}
+		break;
+
+		case kWPN_FUNC:
+		{
+			if (flags & CMD_START && !IsPending() && !psActorFlags.test(AF_SIMPLE_PDA))
+			{
+				pda->Enable(!pda->IsEnabled());
+				if (m_bZoomed && !pda->IsEnabled()) m_bZoomed = false;
+				if (pda->IsEnabled()) Actor()->StopSprint();
+				return true;
+			}
+		}
+		break;
+
+		case kINVENTORY:
+		{
+			if (flags & CMD_START && pda->IsEnabled())
+			{
+				if (GetState() != eHidden && GetState() != eHiding)
+				{
+					Actor()->inventory().Activate(NO_ACTIVE_SLOT);
+					pda->HideDialog();
+				}
+
+				CurrentGameUI()->ShowActorMenu();
+				return true;
+			}
+		}
+	}
+
+	return inherited::Action(cmd, flags);
 }
 
 void CPda::OnMoveToRuck(const SInvItemPlace& prev)
@@ -840,7 +932,10 @@ void CPda::OnH_B_Independent(bool just_before_destroy)
 	inherited::OnH_B_Independent(just_before_destroy);
 	TurnOff();
 
-	if (!ParentIsActor())
+	if (!ParentIsActor() || !g_player_hud->attached_item(0))
+		return;
+
+	if (g_player_hud->attached_item(0)->m_parent_hud_item != this)
 		return;
 
 	m_sounds.PlaySound(hasEnoughBatteryPower() ? "sndHide" : "sndHideEmpty", Position(), H_Root(), !!GetHUDmode(), false);

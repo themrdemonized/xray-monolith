@@ -8,6 +8,7 @@
 #include "xrmessages.h"
 #include "../Include/xrRender/Kinematics.h"
 #include "../Include/xrRender/KinematicsAnimated.h"
+#include "entity_alive.h"
 //#include "PHWorld.h"
 CTeleWhirlwind::CTeleWhirlwind()
 {
@@ -151,13 +152,13 @@ void CTeleWhirlwindObject::release()
 	else
 	{
 		dir_inv.random_dir();
-		impulse = throw_power * 100.f;
+		impulse = throw_power * 10.f;
 	}
 	/////////////////////////////////////////////////
 	bool b_destroyed = false;
 	if (magnitude < 2.f * object->Radius())
 	{
-		b_destroyed = destroy_object(dir_inv, throw_power * 100.f);
+		b_destroyed = destroy_object(dir_inv, impulse);
 	}
 
 
@@ -168,7 +169,7 @@ void CTeleWhirlwindObject::release()
 bool CTeleWhirlwindObject::destroy_object(const Fvector dir, float val)
 {
 	CPHDestroyable* D = object->ph_destroyable();
-	if (D)
+	if (D && D->CanDestroy())
 	{
 		D->PhysicallyRemoveSelf();
 		D->Destroy(m_telekinesis->OwnerObject()->ID());
@@ -185,7 +186,7 @@ bool CTeleWhirlwindObject::destroy_object(const Fvector dir, float val)
 
 
 		CParticlesPlayer* PP = smart_cast<CParticlesPlayer*>(object);
-		if (PP)
+		if (PP && smart_cast<CEntityAlive*>(object))
 		{
 			u16 root = (smart_cast<IKinematics*>(object->Visual()))->LL_GetBoneRoot();
 			PP->StartParticles(m_telekinesis->destroing_particles(), root, Fvector().set(0, 1, 0),

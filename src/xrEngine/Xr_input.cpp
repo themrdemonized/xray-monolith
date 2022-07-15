@@ -352,6 +352,8 @@ BOOL CInput::iGetAsyncKeyState(int dik)
 
 BOOL CInput::iGetAsyncBtnState(int btn)
 {
+	if ((btn == 0 || btn == 1) && !!GetSystemMetrics(SM_SWAPBUTTON))
+		btn = btn == 0 ? 1 : 0;
 	return !!mouseState[btn];
 }
 
@@ -387,6 +389,8 @@ void CInput::MouseUpdate()
 	mouse_prev[6] = mouseState[6];
 	mouse_prev[7] = mouseState[7];
 
+	bool bSwitched = !!GetSystemMetrics(SM_SWAPBUTTON);
+
 	offs[0] = offs[1] = offs[2] = 0;
 	for (u32 i = 0; i < dwElements; i++)
 	{
@@ -408,24 +412,24 @@ void CInput::MouseUpdate()
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[0] = TRUE;
-				cbStack.back()->IR_OnMousePress(0);
+				cbStack.back()->IR_OnMousePress(bSwitched ? 1 : 0);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[0] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(0);
+				cbStack.back()->IR_OnMouseRelease(bSwitched ? 1 : 0);
 			}
 			break;
 		case DIMOFS_BUTTON1:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[1] = TRUE;
-				cbStack.back()->IR_OnMousePress(1);
+				cbStack.back()->IR_OnMousePress(bSwitched ? 0 : 1);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[1] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(1);
+				cbStack.back()->IR_OnMouseRelease(bSwitched ? 0 : 1);
 			}
 			break;
 		case DIMOFS_BUTTON2:
@@ -505,12 +509,12 @@ void CInput::MouseUpdate()
 
 	if (mouseState[0] && mouse_prev[0])
 	{
-		cbStack.back()->IR_OnMouseHold(0);
+		cbStack.back()->IR_OnMouseHold(bSwitched ? 1 : 0);
 	}
 
 	if (mouseState[1] && mouse_prev[1])
 	{
-		cbStack.back()->IR_OnMouseHold(1);
+		cbStack.back()->IR_OnMouseHold(bSwitched ? 0 : 1);
 	}
 
 	if (mouseState[2] && mouse_prev[2])
@@ -621,6 +625,18 @@ void CInput::OnAppDeactivate(void)
 		CurrentIR()->IR_OnDeactivate();
 
 	SetAllAcquire(false);
+	ZeroMemory(mouseState, sizeof(mouseState));
+	ZeroMemory(KBState, sizeof(KBState));
+	ZeroMemory(timeStamp, sizeof(timeStamp));
+	ZeroMemory(timeSave, sizeof(timeStamp));
+	ZeroMemory(offs, sizeof(offs));
+}
+
+void CInput::DeactivateSoft()
+{
+	if (CurrentIR())
+		CurrentIR()->IR_OnDeactivate();
+
 	ZeroMemory(mouseState, sizeof(mouseState));
 	ZeroMemory(KBState, sizeof(KBState));
 	ZeroMemory(timeStamp, sizeof(timeStamp));

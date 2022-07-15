@@ -876,7 +876,7 @@ void CMainMenu::OnDownloadMPMap(CUIWindow* w, void* d)
 	LPCSTR url = m_downloaded_mp_map_url.c_str();
 	LPCSTR params = NULL;
 	STRCONCAT(params, "/C start ", url);
-	ShellExecute(0, "open", "cmd.exe", params, NULL, SW_SHOW);
+	//ShellExecute(0, "open", "cmd.exe", params, NULL, SW_SHOW);
 }
 
 demo_info const* CMainMenu::GetDemoInfo(LPCSTR file_name)

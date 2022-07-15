@@ -241,7 +241,12 @@ void CSE_ALifeInventoryBox::add_offline(const xr_vector<ALife::_OBJECT_ID>& save
 	{
 		CSE_ALifeDynamicObject* child = smart_cast<CSE_ALifeDynamicObject*>(
 			ai().alife().objects().object(saved_children[i], true));
-		R_ASSERT(child);
+		// R_ASSERT(child);
+		if (!child)
+		{
+			Msg("[DO] can't switch child [%d] offline, it's null", saved_children[i]);
+			continue;
+		}
 		child->m_bOnline = false;
 
 		CSE_ALifeInventoryItem* inventory_item = smart_cast<CSE_ALifeInventoryItem*>(child);

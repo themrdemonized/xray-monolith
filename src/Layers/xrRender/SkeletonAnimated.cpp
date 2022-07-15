@@ -400,7 +400,12 @@ CBlend* CKinematicsAnimated::LL_PlayCycle(u16 part, MotionID motion_ID, BOOL bMi
 	IBlendSetup(*B, part, channel, motion_ID, bMixing, blendAccrue, blendFalloff, Speed, noloop, Callback,
 	            CallbackParam);
 	for (u32 i = 0; i < P.bones.size(); i++)
+	{
+		if (!(*bones)[P.bones[i]])
+			Debug.fatal(DEBUG_INFO, "! MODEL: missing bone/wrong armature? : %s", *getDebugName());
+
 		Bone_Motion_Start_IM((*bones)[P.bones[i]], B);
+	}
 	blend_cycles[part].push_back(B);
 	return B;
 }

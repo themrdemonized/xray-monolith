@@ -3162,6 +3162,10 @@
     <ClCompile Include="physic_item.cpp" />
     <ClCompile Include="player_account.cpp" />
     <ClCompile Include="player_hud.cpp" />
+    <ClCompile Include="player_hud_script.cpp">
+	  <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
+    </ClCompile>
     <ClCompile Include="player_hud_tune.cpp" />
     <ClCompile Include="player_name_modifyer.cpp" />
     <ClCompile Include="player_spot_params.cpp" />

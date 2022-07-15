@@ -146,44 +146,28 @@ void CKinematics::CLBone(const CBoneData* bd, CBoneInstance& bi, const Fmatrix* 
 {
 	u16 SelfID = bd->GetSelfID();
 
-	if (!LL_IsNotBoneHidden(SelfID)) 
+	if (bi.callback_overwrite())
 	{
-		if (bi.callback_overwrite()) 
-		{
-			if (bi.callback())	bi.callback()(&bi);
-		}
-		else 
-		{
-			bi.mTransform.c = (*parent).c;
-			if (bi.callback())
-			{
-				bi.callback()(&bi);
-			}
-		}
-		bi.mRenderTransform.mul_43(bi.mTransform, bd->m2b_transform);
+		if (bi.callback()) bi.callback()(&bi);
 	}
-	else if (LL_GetBoneVisible(SelfID))
+	else
 	{
-		if (bi.callback_overwrite())
-		{
-			if (bi.callback()) bi.callback()(&bi);
-		}
-		else
-		{
+		if (LL_GetBoneVisible(SelfID))
 			BuildBoneMatrix(bd, bi, parent, channel_mask);
+		else
+			bi.mTransform.c = (*parent).c;
 #ifndef MASTER_GOLD
-			R_ASSERT2( _valid( bi.mTransform ), "anim kils bone matrix" ); 
+		R_ASSERT2(_valid(bi.mTransform), "anim kils bone matrix");
 #endif // #ifndef MASTER_GOLD
-			if (bi.callback())
-			{
-				bi.callback()(&bi);
+		if (bi.callback())
+		{
+			bi.callback()(&bi);
 #ifndef MASTER_GOLD
-				R_ASSERT2( _valid( bi.mTransform ), make_string( "callback kils bone matrix bone: %s " , bd->name.c_str() ) ); 
+			R_ASSERT2(_valid(bi.mTransform), make_string("callback kils bone matrix bone: %s ", bd->name.c_str()));
 #endif // #ifndef MASTER_GOLD
-			}
 		}
-		bi.mRenderTransform.mul_43(bi.mTransform, bd->m2b_transform);
 	}
+	bi.mRenderTransform.mul_43(bi.mTransform, bd->m2b_transform);
 }
 
 void CKinematics::Bone_GetAnimPos(Fmatrix& pos, u16 id, u8 mask_channel, bool ignore_callbacks)

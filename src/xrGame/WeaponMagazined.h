@@ -41,7 +41,6 @@ protected:
 
 	virtual void switch2_Idle();
 	virtual void switch2_Fire();
-	virtual void switch2_Empty();
 	virtual void switch2_Reload();
 	virtual void switch2_Hiding();
 	virtual void switch2_Hidden();
@@ -72,7 +71,6 @@ protected:
 	void ResetScopeKoeffs();
 
 	virtual void state_Fire(float dt);
-	virtual void state_MagEmpty(float dt);
 	virtual void state_Misfire(float dt);
 public:
 	CWeaponMagazined(ESoundTypes eSoundType = SOUND_TYPE_WEAPON_SUBMACHINEGUN);
@@ -186,6 +184,13 @@ public:
 			return m_aFireModes[m_iCurFireMode];
 		else
 			return 1;
+	};
+
+	virtual void SetFireMode(int mode)
+	{
+		if (mode >= m_aFireModes.size()) mode = 0;
+		m_iCurFireMode = mode;
+		SetQueueSize(GetCurrentFireMode());
 	};
 
 	virtual void save(NET_Packet& output_packet);

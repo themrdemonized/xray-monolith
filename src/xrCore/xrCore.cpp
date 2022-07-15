@@ -97,7 +97,7 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
 
 		time_t _time = time(NULL);
 		tm* time = localtime(&_time);
-		april1 = (time->tm_mday == 1 && time->tm_mon == 3);
+		april1 = time ? (time->tm_mday == 1 && time->tm_mon == 3) : false;
 
 		xr_FS = xr_new<CLocatorAPI>();
 
