@@ -139,7 +139,7 @@ void CUIPdaWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 		{
 			if (pWnd == m_btn_close)
 			{
-				if (Actor()->inventory().GetActiveSlot() == PDA_SLOT)
+				if (smart_cast<CPda*>(Actor()->inventory().ActiveItem()))
 					Actor()->inventory().Activate(NO_ACTIVE_SLOT);
 			}
 			break;
@@ -161,7 +161,7 @@ bool CUIPdaWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 	case WINDOW_LBUTTON_UP:
 	case WINDOW_RBUTTON_UP:
 	{
-		CPda* pda = Actor()->GetPDA();
+		CPda* pda = smart_cast<CPda*>(Actor()->inventory().ActiveItem());
 		if (pda)
 		{
 			if (pda->IsPending())
@@ -185,7 +185,7 @@ bool CUIPdaWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 
 void CUIPdaWnd::MouseMovement(float x, float y)
 {
-	CPda* pda = Actor()->GetPDA();
+	CPda* pda = smart_cast<CPda*>(Actor()->inventory().ActiveItem());
 	if (!pda) return;
 
 	x *= .1f;
@@ -207,9 +207,9 @@ void CUIPdaWnd::MouseMovement(float x, float y)
 	x += y * pda->m_thumb_rot[0];
 	y += x * pda->m_thumb_rot[1];
 
-	g_player_hud->target_thumb0rot.set(y*.15f, y*-.05f, (x*-.15f) + (buttonpressed ? .002f : 0.f));
-	g_player_hud->target_thumb01rot.set(0.f, 0.f, (x*-.25f) + (buttonpressed ? .01f : 0.f));
-	g_player_hud->target_thumb02rot.set(0.f, 0.f, (x*.75f) + (buttonpressed ? .025f : 0.f));
+	g_player_hud->m_bone_callback_params[r_finger0]->m_target.set(y*.15f, y*-.05f, (x*-.15f) + (buttonpressed ? .002f : 0.f));
+	g_player_hud->m_bone_callback_params[r_finger01]->m_target.set(0.f, 0.f, (x*-.25f) + (buttonpressed ? .01f : 0.f));
+	g_player_hud->m_bone_callback_params[r_finger02]->m_target.set(0.f, 0.f, (x*.75f) + (buttonpressed ? .025f : 0.f));
 }
 
 void CUIPdaWnd::Show(bool status)
@@ -300,12 +300,13 @@ void CUIPdaWnd::SetActiveSubdialog(const shared_str& section)
 			UIMainPdaFrame->AttachChild(m_pActiveDialog);
 		m_pActiveDialog->Show(true);
 		m_sActiveSection = section;
-		SetActiveCaption();
 	}
 	else
 	{
 		m_sActiveSection = "";
 	}
+
+	SetActiveCaption();
 }
 
 void CUIPdaWnd::SetActiveCaption()
@@ -330,9 +331,9 @@ void CUIPdaWnd::SetActiveCaption()
 	}
 
 	UITabControl->Show(false);
-	m_clock->Show(false);
+	//m_clock->Show(false);
 	m_caption->Show(false);
-	m_battery_bar->Show(false);
+	//m_battery_bar->Show(false);
 }
 
 #include "UICursor.h"
@@ -461,106 +462,26 @@ void CUIPdaWnd::Enable(bool status)
 
 bool CUIPdaWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 {
-	if (WINDOW_KEY_PRESSED == keyboard_action && IsShown())
+	if (IsShown() && (keyboard_action == WINDOW_KEY_PRESSED || keyboard_action == WINDOW_KEY_RELEASED))
 	{
-		if (!psActorFlags.test(AF_3D_PDA))
+		if (!psActorFlags.test(AF_3D_PDA) && keyboard_action == WINDOW_KEY_PRESSED)
 		{
 			EGameActions action = get_binded_action(dik);
 
 			if (action == kQUIT || action == kINVENTORY || action == kACTIVE_JOBS)
 			{
 				HideDialog();
-				return true;
+				return  action == kQUIT;
 			}
+
+			return inherited::OnKeyboardAction(dik, keyboard_action);
 		}
-		else
-		{
-			CPda* pda = Actor()->GetPDA();
-			if (pda)
-			{
-				EGameActions action = get_binded_action(dik);
 
-				if (action == kQUIT) // "Hack" to make Esc key open main menu instead of simply hiding the PDA UI
-				{
-					if (pda->GetState() == CPda::eHiding || pda->GetState() == CPda::eHidden)
-					{
-						HideDialog();
-						Console->Execute("main_menu");
-					}
-					else
-						Actor()->inventory().Activate(NO_ACTIVE_SLOT);
+		CPda* pda = smart_cast<CPda*>(Actor()->inventory().ActiveItem());
 
-					return true;
-				}
+		if (!pda)
+			return inherited::OnKeyboardAction(dik, keyboard_action);
 
-				if (action == kUSE || action == kACTIVE_JOBS || action == kINVENTORY || (action > kCAM_ZOOM_OUT && action < kWPN_NEXT)) // Since UI no longer passes non-movement inputs to the actor input receiver this is needed now.
-				{
-					CObject* obj = (GameID() == eGameIDSingle) ? Level().CurrentEntity() : Level().CurrentControlEntity();
-					{
-						IInputReceiver* IR = smart_cast<IInputReceiver*>(smart_cast<CGameObject*>(obj));
-						if (IR) IR->IR_OnKeyboardPress(action);
-					}
-					return true;
-				}
-
-				// Don't allow zoom in while draw/holster animation plays, freelook is enabled or a hand animation plays
-				if (pda->IsPending() || Actor()->cam_freelook == eflEnabled || Actor()->cam_freelook == eflEnabling || g_player_hud->script_anim_part != u8(-1))
-					return false;
-
-				// Simple PDA input mode - only allow input if PDA is zoomed in. Both left and right mouse button will zoom in instead of only right mouse button
-				if (psActorFlags.test(AF_SIMPLE_PDA))
-				{
-					if (action == kWPN_RELOAD || (!IsEnabled() && action == kWPN_ZOOM || action == kWPN_FIRE))
-					{
-						if (!pda->m_bZoomed)
-						{
-							Actor()->StopSprint();
-
-							// Input state change must be deferred because actor state can still be sprinting when activating which would instantly deactivate input again
-							pda->m_eDeferredEnable = CPda::eDeferredEnableState::eEnableZoomed;
-						}
-						else
-							Enable(false);
-
-						pda->m_bZoomed = !pda->m_bZoomed;
-						return true;
-					}
-				}
-				// "Normal" input mode, PDA input can be toggled without having to be zoomed in
-				else
-				{
-					if (action == kWPN_RELOAD || (!IsEnabled() && action == kWPN_ZOOM))
-					{
-						if (!pda->m_bZoomed && !IsEnabled())
-						{
-							Actor()->StopSprint();
-
-							// Input state change must be deferred because actor state can still be sprinting when activating which would instantly deactivate input again
-							pda->m_eDeferredEnable = CPda::eDeferredEnableState::eEnableZoomed;
-						}
-						pda->m_bZoomed = !pda->m_bZoomed;
-						return true;
-					}
-
-					if (action == kWPN_FUNC || (!IsEnabled() && action == kWPN_FIRE))
-					{
-						if (IsEnabled())
-						{
-							pda->m_bZoomed = false;
-							Enable(false);
-						}
-						else
-						{
-							Actor()->StopSprint();
-
-							// Input state change must be deferred because actor state can still be sprinting when activating which would instantly deactivate input again
-							pda->m_eDeferredEnable = CPda::eDeferredEnableState::eEnable;
-						}
-						return true;
-					}
-				}
-			}
-		}
+		return pda->Action(get_binded_action(dik), keyboard_action == WINDOW_KEY_PRESSED ? CMD_START : CMD_STOP);
 	}
-	return inherited::OnKeyboardAction(dik, keyboard_action);
 }

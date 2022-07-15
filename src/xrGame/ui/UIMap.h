@@ -16,7 +16,8 @@ protected:
 	enum EFlags 
 	{
 		eLocked = (1 << 0),
-		eRounded = (1 << 1)
+		eRounded = (1 << 1),
+		eRotate = (1 << 2)
 	};
 
 	float m_pointer_dist;
@@ -65,6 +66,8 @@ public:
 	void SetLocked(bool b) { m_flags.set(eLocked, b); }
 	bool IsRounded() { return m_flags.test(eRounded); }
 	void SetRounded(bool b) { m_flags.set(eRounded, b); }
+	bool Rotate() { return m_flags.test(eRotate); }
+	void SetRotate(bool b) { m_flags.set(eRotate, b); }
 	void SetPointerDistance(float d) { m_pointer_dist = d; };
 	float GetPointerDistance() { return m_pointer_dist; };
 protected:

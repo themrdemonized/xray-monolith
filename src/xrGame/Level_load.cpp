@@ -17,6 +17,7 @@
 #include "character_rank.h"
 #include "character_reputation.h"
 #include "monster_community.h"
+#include "HudManager.h"
 
 extern ENGINE_API bool g_dedicated_server;
 
@@ -177,6 +178,8 @@ bool CLevel::Load_GameSpecific_After()
 	BlockCheatLoad();
 
 	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(), game->GetEnvironmentGameTimeFactor());
+
+	HUD().SetRenderable(true);
 
 	return TRUE;
 }

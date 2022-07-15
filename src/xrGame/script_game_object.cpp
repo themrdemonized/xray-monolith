@@ -369,6 +369,20 @@ Fvector CScriptGameObject::bone_position(LPCSTR bone_name, bool bHud) const
 	return (matrix.c);
 }
 
+
+LPCSTR CScriptGameObject::bone_name(u16 id, bool bHud)
+{
+	IKinematics* k = nullptr;
+
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (bHud && itm && itm->HudItemData())
+		k = itm->HudItemData()->m_model;
+	else
+		k = object().Visual()->dcast_PKinematics();
+
+	return (k->LL_BoneName_dbg(id));
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////

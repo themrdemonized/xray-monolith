@@ -36,13 +36,12 @@ IC void construct_string(LPSTR result, u32 const result_size, const xr_vector<AL
 		CSE_ALifeDynamicObject* object = ai().alife().objects().object(*I);
 		if (!object)
 			continue;
-
+			
 		if (ai().game_graph().vertex(object->m_tGraphID)->level_id() != ai().level_graph().level_id())
 			continue;
 
 		if (count)
 			xr_strcat(result, result_size, ",");
-
 		xr_strcat(result, result_size, object->name_replace());
 		++count;
 	}

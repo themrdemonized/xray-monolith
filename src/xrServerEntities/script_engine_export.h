@@ -154,4 +154,5 @@
 #	include	"profile_data_types.h"
 #	include "script_light.h"
 #	include "script_wallmarks_manager.h"
+#	include "player_hud.h"
 #endif

@@ -162,8 +162,8 @@ void CStepManager::update(bool b_hud_view)
 		if (m_step_info.disable) return;
 		if (!m_blend) return;
 
-		float dist_sqr = m_object->Position().distance_to_sqr(Device.vCameraPosition);
-		bool b_play = dist_sqr < 400.0f; //20m
+		float dist = m_object->Position().distance_to(Device.vCameraPosition);
+		bool b_play = dist < 50.0f; //meters
 
 		// получить параметры шага
 		SStepParam& step = m_step_info.params;

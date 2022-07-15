@@ -14,14 +14,6 @@ player_hud* g_player_hud = NULL;
 Fvector _ancor_pos;
 Fvector _wpn_root_pos;
 
-float CalcMotionSpeed(const shared_str& anim_name)
-{
-	if (!IsGameTypeSingle() && (anim_name == "anm_show" || anim_name == "anm_hide"))
-		return 2.0f;
-	else
-		return 1.0f;
-}
-
 player_hud_motion* player_hud_motion_container::find_motion(const shared_str& name)
 {
 	xr_vector<player_hud_motion>::iterator it = m_anims.begin();
@@ -157,10 +149,10 @@ void attachable_hud_item::update(bool bForce)
 	if (!!m_measures.m_prop_flags.test(hud_item_measures::e_16x9_mode_now) != is_16x9)
 		m_measures.load(m_sect_name, m_model);
 
-	Fvector ypr = m_measures.m_item_attach[1];
+	Fvector ypr = m_parent->m_adjust_mode ? m_parent->m_adjust_obj[1] : m_measures.m_item_attach[1];
 	ypr.mul(PI / 180.f);
 	m_attach_offset.setHPB(ypr.x, ypr.y, ypr.z);
-	m_attach_offset.translate_over(m_measures.m_item_attach[0]);
+	m_attach_offset.translate_over(m_parent->m_adjust_mode ? m_parent->m_adjust_obj[0] : m_measures.m_item_attach[0]);
 
 	m_parent->calc_transform(m_attach_place_idx, m_attach_offset, m_item_transform);
 	m_upd_firedeps_frame = Device.dwFrame;
@@ -444,7 +436,7 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 	rnd_idx = (u8)Random.randI(anm->m_animations.size());
 	const motion_descr& M = anm->m_animations[rnd_idx];
 	if (speed == 1.f)
-		speed = anm->m_anim_speed != 0 ? anm->m_anim_speed : CalcMotionSpeed(anm_name_b);
+		speed = anm->m_anim_speed != 0 ? anm->m_anim_speed : 1.f;
 
 	u32 ret = g_player_hud->anim_play(m_attach_place_idx, M.mid, bMixIn, md, speed);
 
@@ -513,21 +505,31 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 	return ret;
 }
 
-
 player_hud::player_hud()
 {
 	m_model = nullptr;
 	m_model_2 = nullptr;
 	m_attached_items[0] = nullptr;
 	m_attached_items[1] = nullptr;
+	m_attach_offset.identity();
+	m_attach_offset_2.identity();
 	m_transform.identity();
 	m_transform_2.identity();
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
 	script_anim_offset_factor = 0.f;
 	m_item_pos.identity();
-	reset_thumb(true);
+	script_override_arms = false;
+
+	//Bone Callback Params
+	m_bone_callback_params.insert(mk_pair(r_finger0, xr_new<BoneCallbackParams>()));
+	m_bone_callback_params.insert(mk_pair(r_finger01, xr_new<BoneCallbackParams>()));
+	m_bone_callback_params.insert(mk_pair(r_finger02, xr_new<BoneCallbackParams>()));
+	//m_bone_callback_params.insert(mk_pair(bip01_r_finger1, xr_new<BoneCallbackParams>()));
+	//m_bone_callback_params.insert(mk_pair(bip01_r_finger11, xr_new<BoneCallbackParams>()));
+	//m_bone_callback_params.insert(mk_pair(bip01_r_finger12, xr_new<BoneCallbackParams>()));
 	
+	//Movement Layers
 	m_movement_layers.reserve(move_anms_end);
 
 	for (int i = 0; i < move_anms_end; i++)
@@ -551,7 +553,6 @@ player_hud::player_hud()
 	}
 }
 
-
 player_hud::~player_hud()
 {
 	IRenderVisual* v = m_model->dcast_RenderVisual();
@@ -566,14 +567,15 @@ player_hud::~player_hud()
 	delete_data(m_hand_motions);
 	delete_data(m_script_layers);
 	delete_data(m_movement_layers);
+	delete_data(m_bone_callback_params);
 }
 
-void player_hud::Thumb0Callback(CBoneInstance* B)
+void player_hud::FingerCallback(CBoneInstance* B)
 {
-	player_hud* P = static_cast<player_hud*>(B->callback_param());
+	BoneCallbackParams* params = static_cast<BoneCallbackParams*>(B->callback_param());
 
-	Fvector& target = P->target_thumb0rot;
-	Fvector& current = P->thumb0rot;
+	Fvector& target = params->m_target;
+	Fvector& current = params->m_current;
 
 	if (!target.similar(current))
 	{
@@ -602,78 +604,14 @@ void player_hud::Thumb0Callback(CBoneInstance* B)
 	B->mTransform.mulB_43(rotation);
 }
 
-void player_hud::Thumb01Callback(CBoneInstance* B)
+void player_hud::load(const shared_str& player_hud_sect, bool force)
 {
-	player_hud* P = static_cast<player_hud*>(B->callback_param());
+	if (!force && player_hud_sect == m_sect_name) return;
 
-	Fvector& target = P->target_thumb01rot;
-	Fvector& current = P->thumb01rot;
+	m_sect_name = player_hud_sect;
 
-	if (!target.similar(current))
-	{
-		Fvector diff[2];
-		diff[0] = target;
-		diff[0].sub(current);
-		diff[0].mul(Device.fTimeDelta / .1f);
-		current.add(diff[0]);
-	}
-	else
-		current.set(target);
+	if (script_override_arms) return;
 
-	Fmatrix rotation;
-	rotation.identity();
-	rotation.rotateX(current.x);
-
-	Fmatrix rotation_y;
-	rotation_y.identity();
-	rotation_y.rotateY(current.y);
-	rotation.mulA_43(rotation_y);
-
-	rotation_y.identity();
-	rotation_y.rotateZ(current.z);
-	rotation.mulA_43(rotation_y);
-
-	B->mTransform.mulB_43(rotation);
-}
-
-void player_hud::Thumb02Callback(CBoneInstance* B)
-{
-	player_hud* P = static_cast<player_hud*>(B->callback_param());
-
-	Fvector& target = P->target_thumb02rot;
-	Fvector& current = P->thumb02rot;
-
-	if (!target.similar(current))
-	{
-		Fvector diff[2];
-		diff[0] = target;
-		diff[0].sub(current);
-		diff[0].mul(Device.fTimeDelta / .1f);
-		current.add(diff[0]);
-	}
-	else
-		current.set(target);
-
-	Fmatrix rotation;
-	rotation.identity();
-	rotation.rotateX(current.x);
-
-	Fmatrix rotation_y;
-	rotation_y.identity();
-	rotation_y.rotateY(current.y);
-	rotation.mulA_43(rotation_y);
-
-	rotation_y.identity();
-	rotation_y.rotateZ(current.z);
-	rotation.mulA_43(rotation_y);
-
-	B->mTransform.mulB_43(rotation);
-}
-
-void player_hud::load(const shared_str& player_hud_sect)
-{
-	if (player_hud_sect == m_sect_name) return;
-	bool b_reload = (m_model != nullptr || m_model_2 != nullptr);
 	if (m_model)
 	{
 		IRenderVisual* v = m_model->dcast_RenderVisual();
@@ -685,21 +623,29 @@ void player_hud::load(const shared_str& player_hud_sect)
 		::Render->model_Delete(v);
 	}
 
-	m_sect_name = player_hud_sect;
 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
+	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
 
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
 
-	u16 r_finger0 = m_model->dcast_PKinematics()->LL_BoneID("r_finger0");
-	u16 r_finger01 = m_model->dcast_PKinematics()->LL_BoneID("r_finger01");
-	u16 r_finger02 = m_model->dcast_PKinematics()->LL_BoneID("r_finger02");
+	u16 bone_r_finger0 = m_model->dcast_PKinematics()->LL_BoneID("r_finger0");
+	u16 bone_r_finger01 = m_model->dcast_PKinematics()->LL_BoneID("r_finger01");
+	u16 bone_r_finger02 = m_model->dcast_PKinematics()->LL_BoneID("r_finger02");
 
-	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_finger0).set_callback(bctCustom, Thumb0Callback, this);
-	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_finger01).set_callback(bctCustom, Thumb01Callback, this);
-	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_finger02).set_callback(bctCustom, Thumb02Callback, this);
+	//u16 bone_r_triggerfinger0 = m_model->dcast_PKinematics()->LL_BoneID("bip01_r_finger1");
+	//u16 bone_r_triggerfinger01 = m_model->dcast_PKinematics()->LL_BoneID("bip01_r_finger11");
+	//u16 bone_r_triggerfinger02 = m_model->dcast_PKinematics()->LL_BoneID("bip01_r_finger12");
+
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_finger0).set_callback(bctCustom, FingerCallback, m_bone_callback_params[r_finger0]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_finger01).set_callback(bctCustom, FingerCallback, m_bone_callback_params[r_finger01]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_finger02).set_callback(bctCustom, FingerCallback, m_bone_callback_params[r_finger02]);
+
+	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger0).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger1]);
+	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger01).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger11]);
+	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger02).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger12]);
 
 	// hides the unused arm meshes
 	m_model->dcast_PKinematics()->LL_SetBoneVisible(l_arm, FALSE, TRUE);
@@ -725,15 +671,24 @@ void player_hud::load(const shared_str& player_hud_sect)
 	else
 	{
 		if (m_attached_items[1])
-			m_attached_items[1]->m_parent_hud_item->on_a_hud_attach();
+			m_attached_items[1]->m_parent_hud_item->on_outfit_changed();
 
 		if (m_attached_items[0])
-			m_attached_items[0]->m_parent_hud_item->on_a_hud_attach();
+			m_attached_items[0]->m_parent_hud_item->on_outfit_changed();
 	}
+
 	m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model->dcast_PKinematics()->CalculateBones(TRUE);
 	m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model_2->dcast_PKinematics()->CalculateBones(TRUE);
+
+}
+
+void player_hud::load_script(LPCSTR section)
+{
+	script_override_arms = false;
+	load(section, true);
+	script_override_arms = true;
 }
 
 bool player_hud::render_item_ui_query()
@@ -810,7 +765,6 @@ u32 player_hud::motion_length_script(LPCSTR section, LPCSTR anm_name, float spee
 
 u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md)
 {
-	float speed = CalcMotionSpeed(anim_name);
 	attachable_hud_item* pi = create_hud_item(hud_name);
 	player_hud_motion* pm = pi->m_hand_motions.find_motion(anim_name);
 	if (!pm || !pm->m_animations.size())
@@ -819,7 +773,7 @@ u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud
 	          make_string ("hudItem model [%s] has no motion with alias [%s]", hud_name.c_str(), anim_name.c_str() ).
 	          c_str()
 	);
-	return motion_length(pm->m_animations[0].mid, md, speed);
+	return motion_length(pm->m_animations[0].mid, md, 1.f);
 }
 
 u32 player_hud::motion_length(const MotionID& M, const CMotionDef*& md, float speed)
@@ -946,37 +900,35 @@ void player_hud::update(const Fmatrix& cam_trans)
 		trans_2 = trans;
 	
 	// override hand offset for single hand animation
-	if (script_anim_offset_factor != 0.f)
+	if (script_anim_part == 2 || (script_anim_part && !m_attached_items[0] && !m_attached_items[1]))
 	{
-		if (script_anim_part == 2 || (!m_attached_items[0] && !m_attached_items[1]))
+		m1pos = script_anim_offset[0];
+		m2pos = script_anim_offset[0];
+		m1rot = script_anim_offset[1];
+		m2rot = script_anim_offset[1];
+		trans = trans_b;
+		trans_2 = trans_b;
+	}
+	else if (script_anim_offset_factor != 0.f)
+	{
+		Fvector& hand_pos = script_anim_part == 0 ? m1pos : m2pos;
+		Fvector& hand_rot = script_anim_part == 0 ? m1rot : m2rot;
+
+		hand_pos.lerp(script_anim_part == 0 ? m1pos : m2pos, script_anim_offset[0], script_anim_offset_factor);
+		hand_rot.lerp(script_anim_part == 0 ? m1rot : m2rot, script_anim_offset[1], script_anim_offset_factor);
+
+		if (script_anim_part == 0)
 		{
-			m1pos = script_anim_offset[0];
-			m2pos = script_anim_offset[0];
-			m1rot = script_anim_offset[1];
-			m2rot = script_anim_offset[1];
+			trans_b.inertion(trans, script_anim_offset_factor);
 			trans = trans_b;
-			trans_2 = trans_b;
 		}
 		else
 		{
-			Fvector& hand_pos = script_anim_part == 0 ? m1pos : m2pos;
-			Fvector& hand_rot = script_anim_part == 0 ? m1rot : m2rot;
-
-			hand_pos.lerp(script_anim_part == 0 ? m1pos : m2pos, script_anim_offset[0], script_anim_offset_factor);
-			hand_rot.lerp(script_anim_part == 0 ? m1rot : m2rot, script_anim_offset[1], script_anim_offset_factor);
-
-			if (script_anim_part == 0)
-			{
-				trans_b.inertion(trans, script_anim_offset_factor);
-				trans = trans_b;
-			}
-			else
-			{
-				trans_b.inertion(trans_2, script_anim_offset_factor);
-				trans_2 = trans_b;
-			}
+			trans_b.inertion(trans_2, script_anim_offset_factor);
+			trans_2 = trans_b;
 		}
 	}
+
 	m1rot.mul(PI / 180.f);
 	m_attach_offset.setHPB(m1rot.x, m1rot.y, m1rot.z);
 	m_attach_offset.translate_over(m1pos);
@@ -1158,14 +1110,19 @@ void player_hud::PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bo
 {
 	for (script_layer* anm : m_script_layers)
 	{
-		if (!xr_strcmp(anm->m_name, name))
+		if (!xr_strcmp(*anm->m_name, name))
 		{
 			if (!no_restart)
 			{
-				anm->anm->Play(bLooped);
+				anm->anm->Stop();
 				anm->blend_amount = 0.f;
+				anm->blend.identity();
 			}
+
+			if (!anm->anm->IsPlaying())
+				anm->anm->Play(bLooped);
 				
+			anm->anm->bLoop = bLooped;
 			anm->m_part = part;
 			anm->anm->Speed() = speed;
 			anm->m_power = power;
@@ -1182,7 +1139,7 @@ void player_hud::StopBlendAnm(LPCSTR name, bool bForce)
 {
 	for (script_layer* anm : m_script_layers)
 	{
-		if (!xr_strcmp(anm->m_name, name))
+		if (!xr_strcmp(*anm->m_name, name))
 		{
 			anm->Stop(bForce);
 			return;
@@ -1202,8 +1159,11 @@ float player_hud::SetBlendAnmTime(LPCSTR name, float time)
 {
 	for (script_layer* anm : m_script_layers)
 	{
-		if (!xr_strcmp(anm->m_name, name))
+		if (!xr_strcmp(*anm->m_name, name))
 		{
+			if (!anm->anm->IsPlaying())
+				return 0;
+
 			float speed = (anm->anm->anim_param().max_t - anm->anm->anim_param().t_current) / time;
 			anm->anm->Speed() = speed;
 			return speed;
@@ -1331,6 +1291,15 @@ void player_hud::update_script_item()
 
 u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool bMixIn, float speed)
 {
+	if (!pSettings->section_exist(section))
+	{
+		Msg("!script motion section [%s] does not exist", section);
+		m_bStopAtEndAnimIsRunning = true;
+		script_anim_end = Device.dwTimeGlobal;
+		
+		return 0;
+	}
+
 	xr_string pos = "hands_position";
 	xr_string rot = "hands_orientation";
 
@@ -1367,14 +1336,6 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 	script_anim_offset[1] = rrot;
 	script_anim_part = hand;
 
-	if (!pSettings->section_exist(section))
-	{
-		Msg("!script motion section [%s] does not exist", section);
-		m_bStopAtEndAnimIsRunning = true;
-		script_anim_end = Device.dwTimeGlobal;
-		return 0;
-	}
-
 	player_hud_motion_container* pm = get_hand_motions(section);
 	player_hud_motion* phm = pm->find_motion(anm_name);
 
@@ -1383,6 +1344,7 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 		Msg("!script motion [%s] not found in section [%s]", anm_name, section);
 		m_bStopAtEndAnimIsRunning = true;
 		script_anim_end = Device.dwTimeGlobal;
+
 		return 0;
 	}
 	
@@ -1565,9 +1527,16 @@ void player_hud::re_sync_anim(u8 part)
 	}
 }
 
-//set cycle time (0...1)
+//set cycle time (0...1) part: 0 = root; 1 = left hand; 2 = right hand
 void player_hud::set_part_cycle_time(u8 part, float time)
 {
+	if (part == 0)
+	{
+		set_part_cycle_time(1, time);
+		set_part_cycle_time(2, time);
+		return;
+	}
+
 	u32 bc = part == 1 ? m_model_2->LL_PartBlendsCount(part) : m_model->LL_PartBlendsCount(part);
 	for (u32 bidx = 0; bidx < bc; ++bidx)
 	{
@@ -1576,6 +1545,25 @@ void player_hud::set_part_cycle_time(u8 part, float time)
 			continue;
 
 		BR->timeCurrent = BR->timeTotal * time;
+	}
+}
+
+//part: 0 = root; 1 = left hand; 2 = right hand
+void player_hud::set_part_cycle_speed(u8 part, float speed)
+{
+	if (part == 0)
+	{
+		set_part_cycle_speed(1, speed);
+		set_part_cycle_speed(2, speed);
+	}
+	u32 bc = part == 1 ? m_model_2->LL_PartBlendsCount(part) : m_model->LL_PartBlendsCount(part);
+	for (u32 bidx = 0; bidx < bc; ++bidx)
+	{
+		CBlend* BR = part == 1 ? m_model_2->LL_PartBlend(part, bidx) : m_model->LL_PartBlend(part, bidx);
+		if (!BR)
+			continue;
+
+		BR->speed = speed;
 	}
 }
 
@@ -1633,9 +1621,9 @@ void player_hud::detach_item(CHudItem* item)
 
 bool player_hud::allow_script_anim()
 {
-	if (m_attached_items[0] && m_attached_items[0]->m_parent_hud_item->IsPending())
+	if (m_attached_items[0] && (m_attached_items[0]->m_parent_hud_item->IsPending() || m_attached_items[0]->m_parent_hud_item->GetState() == CHudItem::EHudStates::eBore))
 		return false;
-	else if (m_attached_items[1] && m_attached_items[1]->m_parent_hud_item->IsPending())
+	else if (m_attached_items[1] && (m_attached_items[1]->m_parent_hud_item->IsPending() || m_attached_items[1]->m_parent_hud_item->GetState() == CHudItem::EHudStates::eBore))
 		return false;
 	else if (script_anim_part != u8(-1))
 		return false;
@@ -1684,6 +1672,12 @@ void player_hud::OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd)
 
 		if (m_attached_items[1])
 			m_attached_items[1]->m_parent_hud_item->OnMovementChanged(cmd);
+	}
+
+	luabind::functor<void> func;
+	if (ai().script_engine().functor("_g.player_hud__OnMovementChanged", func))
+	{
+		func(cmd);
 	}
 
 	updateMovementLayerState();

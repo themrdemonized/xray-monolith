@@ -21,6 +21,7 @@
 #include "game_object_space.h"
 #include "script_callback_ex.h"
 #include "script_game_object.h"
+#include "player_hud.h"
 #include "HudSound.h"
 
 #include "../build_config_defines.h"
@@ -339,11 +340,6 @@ void CWeaponMagazined::OnMagazineEmpty()
 		return;
 	}
 
-	if (GetNextState() != eMagEmpty && GetNextState() != eReload)
-	{
-		SwitchState(eMagEmpty);
-	}
-
 	inherited::OnMagazineEmpty();
 }
 
@@ -513,9 +509,6 @@ void CWeaponMagazined::OnStateSwitch(u32 S, u32 oldState)
 		if (smart_cast<CActor*>(this->H_Parent()) && (Level().CurrentViewEntity() == H_Parent()))
 			CurrentGameUI()->AddCustomStatic("gun_jammed", true);
 		break;
-	case eMagEmpty:
-		switch2_Empty();
-		break;
 	case eReload:
 		if (owner)
 			m_sounds_enabled = owner->CanPlayShHdRldSounds();
@@ -564,8 +557,6 @@ void CWeaponMagazined::UpdateCL()
 			}
 			break;
 		case eMisfire: state_Misfire(dt);
-			break;
-		case eMagEmpty: state_MagEmpty(dt);
 			break;
 		case eHidden: break;
 		}
@@ -683,6 +674,9 @@ void CWeaponMagazined::state_Fire(float dt)
 
 			if (bMisfire)
 			{
+				CGameObject* object = smart_cast<CGameObject*>(H_Parent());
+				if (object)
+					object->callback(GameObject::eOnWeaponJammed)(object->lua_game_object(), this->lua_game_object());
 				StopShooting();
 				return;
 			}
@@ -726,10 +720,6 @@ void CWeaponMagazined::state_Misfire(float dt)
 	bMisfire = true;
 
 	UpdateSounds();
-}
-
-void CWeaponMagazined::state_MagEmpty(float dt)
-{
 }
 
 void CWeaponMagazined::SetDefaults()
@@ -916,11 +906,6 @@ void CWeaponMagazined::switch2_Fire()
 		FireStart();
 }
 
-void CWeaponMagazined::switch2_Empty()
-{
-	inherited::FireEnd();
-}
-
 void CWeaponMagazined::PlayReloadSound()
 {
 	if (m_sounds_enabled)
@@ -1027,6 +1012,8 @@ void CWeaponMagazined::switch2_Hidden()
 
 void CWeaponMagazined::switch2_Showing()
 {
+	if (ParentIsActor()) g_player_hud->attach_item(this);
+
 	if (m_sounds_enabled)
 	{
 		if (ParentIsActor() && m_sounds.FindSoundItem("sndShowActor", false))
@@ -1472,8 +1459,8 @@ void CWeaponMagazined::PlayAnimShow()
 {
 	VERIFY(GetState() == eShowing);
 	iAmmoElapsed == 0 && HudAnimationExist("anm_show_empty")
-		? PlayHUDMotion("anm_show_empty", FALSE, this, GetState())
-		: PlayHUDMotion("anm_show", FALSE, this, GetState());
+		? PlayHUDMotion("anm_show_empty", FALSE, this, GetState(), 1.f, 0.f, false)
+		: PlayHUDMotion("anm_show", FALSE, this, GetState(), 1.f, 0.f, false);
 }
 
 void CWeaponMagazined::PlayAnimHide()

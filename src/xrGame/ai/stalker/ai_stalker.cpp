@@ -1550,20 +1550,15 @@ void CAI_Stalker::ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect)
 {
 	IKinematics* pKinematics = renderable.visual->dcast_PKinematics();
 	CInifile* ini = pKinematics->LL_UserData();
-	if (ini)
-	{
-		if (imm_sect || (ini->section_exist("immunities") && ini->line_exist("immunities", "immunities_sect")))
-		{
-			imm_sect = imm_sect ? imm_sect : ini->r_string("immunities", "immunities_sect");
-			conditions().LoadImmunities(imm_sect, pSettings);
-		}
+	conditions().LoadImmunities(
+		(ini && ini->section_exist("immunities") && ini->line_exist("immunities", "immunities_sect"))
+			? ini->r_string("immunities", "immunities_sect")
+			: (imm_sect ? imm_sect : "stalker_immunities"), pSettings);
 
-		if (bone_sect || (ini->section_exist("bone_protection") && ini->line_exist("bone_protection", "bones_protection_sect")))
-		{
-			bone_sect = bone_sect ? bone_sect : ini->r_string("bone_protection", "bones_protection_sect");
-			m_boneHitProtection->reload(bone_sect, pKinematics);
-		}
-	}
+	m_boneHitProtection->reload(
+		(ini && ini->section_exist("bone_protection") && ini->line_exist("bone_protection", "bones_protection_sect"))
+			? ini->r_string("bone_protection", "bones_protection_sect")
+			: (bone_sect ? bone_sect : "stalker_damage"), pKinematics);
 }
 
 void CAI_Stalker::ChangeVisual(shared_str NewVisual)

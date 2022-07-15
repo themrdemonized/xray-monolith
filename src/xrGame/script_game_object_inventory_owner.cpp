@@ -64,6 +64,7 @@
 //-Alundaio
 
 #include "Flashlight.h"
+#include "CharacterPhysicsSupport.h"
 
 bool CScriptGameObject::GiveInfoPortion(LPCSTR info_id)
 {
@@ -608,6 +609,51 @@ void CScriptGameObject::TransferItem(CScriptGameObject* pItem, CScriptGameObject
 	CGameObject::u_EventSend(P);
 }
 
+void CScriptGameObject::TakeItem(CScriptGameObject* pItem)
+{
+	if (!pItem)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "!CScriptGameObject::TakeItem | cannot take NULL item");
+		return;
+	}
+
+	CInventoryItem* pIItem = smart_cast<CInventoryItem*>(&pItem->object());
+	if (!pIItem)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "!CScriptGameObject::TakeItem | Cannot take not CInventoryItem item");
+		return;
+	}
+
+	// In case of an existing parent, transfer item as usual
+	// probably doesn't work on NPC for now and needs fixing if needed in the future
+	if (pIItem->object().H_Parent())
+	{
+		const CInventoryOwner* inventory_owner = smart_cast<CInventoryOwner*>(pIItem->object().H_Parent());
+		const CInventoryBox* inventory_box = smart_cast<CInventoryBox*>(pIItem->object().H_Parent());
+		const CGameObject* parentGO = smart_cast<CGameObject*>(pIItem->object().H_Parent());
+		if ((inventory_owner || inventory_box) && parentGO)
+		{
+			NET_Packet P;
+			CGameObject::u_EventGen(P, GE_TRADE_SELL, parentGO->ID());
+			P.w_u16(pIItem->object().ID());
+			CGameObject::u_EventSend(P);
+
+			CGameObject::u_EventGen(P, GE_TRADE_BUY, object().ID());
+			P.w_u16(pIItem->object().ID());
+			CGameObject::u_EventSend(P);
+		}
+		else
+		{
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "!CScriptGameObject::TakeItem | Unknown parent type found?");
+		}
+
+		return; // added return here just in case parent isn't identified as inventory owner or a box
+	}
+
+	// In case of no parent, do a take action
+	Game().SendPickUpEvent(object().ID(), pIItem->object().ID());
+}
+
 u32 CScriptGameObject::Money()
 {
 	CInventoryOwner* pOurOwner = smart_cast<CInventoryOwner*>(&object());
@@ -1056,6 +1102,13 @@ void CScriptGameObject::ActorLookAtPoint(Fvector point)
 	cf->LookAtPoint(point);
 }
 
+void CScriptGameObject::ActorStopLookAtPoint()
+{
+	CCameraBase* c = Actor()->cam_FirstEye();
+	CCameraFirstEye* cf = smart_cast<CCameraFirstEye*>(c);
+	cf->StopLookAtPoint();
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void construct_restriction_vector(shared_str restrictions, xr_vector<ALife::_OBJECT_ID>& result)
@@ -1474,7 +1527,7 @@ void CScriptGameObject::hide_device(bool bFast)
 	{
 		CCustomDevice* device = smart_cast<CCustomDevice*>(result);
 		if (device && device->GetState() != CHUDState::eHidden)
-			device->ShowDevice(bFast);
+			device->HideDevice(bFast);
 	}
 }
 
@@ -2363,7 +2416,7 @@ void CScriptGameObject::SetActorJumpSpeed(float jump_speed)
 		return;
 	}
 	pActor->m_fJumpSpeed = jump_speed;
-	//character_physics_support()->movement()->SetJumpUpVelocity(m_fJumpSpeed);  
+	pActor->character_physics_support()->movement()->SetJumpUpVelocity(pActor->m_fJumpSpeed);
 }
 
 float CScriptGameObject::GetActorSprintKoef() const

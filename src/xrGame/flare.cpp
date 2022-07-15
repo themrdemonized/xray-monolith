@@ -51,7 +51,7 @@ void CFlare::OnStateSwitch(u32 S, u32 oldState)
 	case eFlareShowing:
 		{
 			g_player_hud->attach_item(this);
-			PlayHUDMotion("anm_show", TRUE, this, GetState());
+			PlayHUDMotion("anm_show", FALSE, this, GetState(), 1.f, 0.f, false);
 			SetPending(TRUE);
 		}
 		break;

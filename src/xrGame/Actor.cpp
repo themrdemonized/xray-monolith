@@ -645,9 +645,6 @@ void CActor::Hit(SHit* pHDS)
 		}
 		else
 		{
-			/*float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
-			HDS.power = hit_power;
-			HDS.add_wound = true;*/
 			if (g_Alive())
 			{
 				CScriptHit tLuaHit(&HDS);
@@ -660,6 +657,8 @@ void CActor::Hit(SHit* pHDS)
 				}
 
 				HDS.ApplyScriptHit(&tLuaHit);
+				HDS.power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
+				HDS.add_wound = true;
 
 				/* AVO: send script callback*/
 				callback(GameObject::eHit)(
@@ -670,9 +669,6 @@ void CActor::Hit(SHit* pHDS)
 					HDS.boneID
 				);
 			}
-			float hit_power = HitArtefactsOnBelt(HDS.damage(), HDS.hit_type);
-			HDS.power = hit_power;
-			HDS.add_wound = true;
 			inherited::Hit(&HDS);
 		}
 
@@ -1120,11 +1116,11 @@ void CActor::UpdateCL()
 	inherited::UpdateCL();
 	m_pPhysics_support->in_UpdateCL();
 
-
+	pickup_result_t pickup_result = {true, false};
 	if (g_Alive())
-		PickupModeUpdate();
+		pickup_result = PickupModeUpdate();
 
-	PickupModeUpdate_COD();
+	PickupModeUpdate_COD(pickup_result);
 
 	SetZoomAimingMode(false);
 	CWeapon* pWeapon = smart_cast<CWeapon*>(inventory().ActiveItem());
@@ -1570,31 +1566,12 @@ void CActor::shedule_Update(u32 DT)
 		if (bHudView)
 		{
 			CInventoryItem* pInvItem = inventory().ActiveItem();
-			if (pInvItem)
-			{
-				CHudItem* pHudItem = smart_cast<CHudItem*>(pInvItem);
-				if (pHudItem)
-				{
-					if (pHudItem->IsHidden())
-					{
-						g_player_hud->detach_item(pHudItem);
-					}
-					else
-					{
-						g_player_hud->attach_item(pHudItem);
-					}
-				}
-			}
-			else
-			{
+			if (!pInvItem)
 				g_player_hud->detach_item_idx(0);
-				//Msg("---No active item in inventory(), item 0 detached.");
-			}
 		}
 		else
 		{
 			g_player_hud->detach_all_items();
-			//Msg("---No hud view found, all items detached.");
 		}
 	}
 
@@ -2302,6 +2279,21 @@ void CActor::UpdateArtefactsOnBeltAndOutfit()
 
 float CActor::HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type)
 {
+	luabind::functor<luabind::object> funct;
+	if (ai().script_engine().functor("_G.CActor__HitArtefactsOnBelt", funct))
+	{
+		luabind::object table = luabind::newtable(ai().script_engine().lua());
+		table["override"] = false;
+		table["hit_power"] = hit_power;
+
+		luabind::object output = funct(table, hit_power, hit_type);
+		if (output && output.type() == LUA_TTABLE)
+		{
+			if (luabind::object_cast<bool>(output["override"]))
+				return luabind::object_cast<float>(output["hit_power"]);
+		}
+	}
+
 	TIItemContainer::iterator it = inventory().m_belt.begin();
 	TIItemContainer::iterator ite = inventory().m_belt.end();
 	for (; it != ite; ++it)
@@ -2309,7 +2301,7 @@ float CActor::HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type)
 		CArtefact* artefact = smart_cast<CArtefact*>(*it);
 		if (artefact)
 		{
-			hit_power -= artefact->m_ArtefactHitImmunities.AffectHit(1.0f, hit_type) * artefact->GetCondition();
+			hit_power -= artefact->m_ArtefactHitImmunities.AffectHit(1.0f, hit_type);
 		}
 	}
 	clamp(hit_power, 0.0f, flt_max);

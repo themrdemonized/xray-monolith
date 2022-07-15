@@ -254,9 +254,9 @@ protected:
 	shared_str m_sShellParticles;
 public:
 	Fvector vLoadedShellPoint;
-	float m_fPredBulletTime;
-	float m_fTimeToAim;
-	BOOL m_bUseAimBullet;
+	//float m_fPredBulletTime;
+	//float m_fTimeToAim;
+	//BOOL m_bUseAimBullet;
 protected:
 	//имя пратиклов для огня
 	shared_str m_sFlameParticlesCurrent;

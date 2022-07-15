@@ -700,7 +700,9 @@ void CCustomZone::ChangeIdleParticles(LPCSTR name, bool bIdleLight)
 void CCustomZone::PlayIdleParticles(bool bIdleLight)
 {
 	if (!m_zone_flags.test(eFastMode)) return;
-	m_idle_sound.play_at_pos(0, Position(), true);
+
+	if (!m_idle_sound._feedback())
+		m_idle_sound.play_at_pos(0, Position(), true);
 
 	if (*m_sIdleParticles)
 	{

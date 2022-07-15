@@ -394,9 +394,14 @@ protected:
     float					m_fFeelGrenadeTime;
 	float m_fPickupInfoRadius;
 protected:
-	void PickupModeUpdate();
+	struct pickup_result_t
+	{
+		bool allow_pickup;
+		bool callback_handled;
+	};
+	pickup_result_t PickupModeUpdate();
 	void PickupInfoDraw(CObject* object);
-	void PickupModeUpdate_COD();
+	void PickupModeUpdate_COD(pickup_result_t pickup_state);
 
 public:
 	void DrawPickupItems();

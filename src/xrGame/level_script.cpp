@@ -46,6 +46,10 @@
 #include "../xrEngine/xr_efflensflare.h"
 #include "../xrEngine/thunderbolt.h"
 #include "GametaskManager.h"
+#include "xr_level_controller.h"
+#include "../xrEngine/GameMtlLib.h"
+#include "../xrEngine/xr_input.h"
+#include "script_ini_file.h"
 
 using namespace luabind;
 
@@ -109,11 +113,19 @@ CScriptGameObject *get_object_by_name(LPCSTR caObjectName)
 }
 #endif
 
-CScriptGameObject* get_object_by_id(u16 id)
+CScriptGameObject* get_object_by_id(luabind::object ob)
 {
+	if (!ob || ob.type() == LUA_TNIL)
+	{
+		Msg("!WARNING : level.object_by_id(nil) called!");
+		return nullptr;
+	}
+
+	u16 id = luabind::object_cast<u16>(ob);
+
 	CGameObject* pGameObject = smart_cast<CGameObject*>(Level().Objects.net_Find(id));
 	if (!pGameObject)
-		return NULL;
+		return nullptr;
 
 	return pGameObject->lua_game_object();
 }
@@ -491,6 +503,8 @@ extern bool g_bDisableAllInput;
 
 void disable_input()
 {
+	// "unpress" all keys when we disable level input! (but keep input devices aquired)
+	pInput->DeactivateSoft();
 	g_bDisableAllInput = true;
 #ifdef DEBUG
 	Msg("input disabled");
@@ -616,6 +630,37 @@ void remove_cam_effector(int id)
 {
 	Actor()->Cameras().RemoveCamEffector((ECamEffectorType)id);
 }
+
+void set_cam_effector_factor(int id, float factor)
+{
+	CAnimatorCamEffectorScriptCB* e = smart_cast<CAnimatorCamEffectorScriptCB*>(Actor()->Cameras().GetCamEffector((ECamEffectorType)id));
+	if (e)
+		e->SetPower(factor);
+}
+
+float get_cam_effector_factor(int id)
+{
+	CAnimatorCamEffectorScriptCB* e = smart_cast<CAnimatorCamEffectorScriptCB*>(Actor()->Cameras().GetCamEffector((ECamEffectorType)id));
+	return e ? e->GetPower() : 0.0f;
+}
+
+float get_cam_effector_length(int id)
+{
+	CAnimatorCamEffectorScriptCB* e = smart_cast<CAnimatorCamEffectorScriptCB*>(Actor()->Cameras().GetCamEffector((ECamEffectorType)id));
+	return e ? e->GetAnimatorLength() : 0.0f;
+}
+
+
+bool check_cam_effector(int id)
+{
+	CAnimatorCamEffectorScriptCB* e = smart_cast<CAnimatorCamEffectorScriptCB*>(Actor()->Cameras().GetCamEffector((ECamEffectorType)id));
+	if (e)
+	{
+		return e->Valid();
+	}
+	return false;
+}
+
 
 float get_snd_volume()
 {
@@ -793,18 +838,27 @@ void refresh_npc_names()
 }
 
 
-void LevelPressAction(EGameActions cmd)
+void LevelPressAction(int cmd)
 {
+	if ((cmd == MOUSE_1 || cmd == MOUSE_2) && !!GetSystemMetrics(SM_SWAPBUTTON))
+		cmd = cmd == MOUSE_1 ? MOUSE_2 : MOUSE_1;
+
 	Level().IR_OnKeyboardPress(cmd);
 }
 
-void LevelReleaseAction(EGameActions cmd)
+void LevelReleaseAction(int cmd)
 {
+	if ((cmd == MOUSE_1 || cmd == MOUSE_2) && !!GetSystemMetrics(SM_SWAPBUTTON))
+		cmd = cmd == MOUSE_1 ? MOUSE_2 : MOUSE_1;
+
 	Level().IR_OnKeyboardRelease(cmd);
 }
 
-void LevelHoldAction(EGameActions cmd)
+void LevelHoldAction(int cmd)
 {
+	if ((cmd == MOUSE_1 || cmd == MOUSE_2) && !!GetSystemMetrics(SM_SWAPBUTTON))
+		cmd = cmd == MOUSE_1 ? MOUSE_2 : MOUSE_1;
+
 	Level().IR_OnKeyboardHold(cmd);
 }
 
@@ -1155,6 +1209,12 @@ void hud_adj_offs(int off, int idx, float x, float y, float z)
 		g_player_hud->m_adjust_firepoint_shell[off][idx-10].set(x, y, z);
 	}
 
+	// Object pos/dir
+	else if (idx == 12)
+	{
+		g_player_hud->m_adjust_obj[off].set(x, y, z);
+	}
+
 	// Hud offsets
 	else
 		g_player_hud->m_adjust_offset[off][idx].set(x, y, z);
@@ -1269,21 +1329,38 @@ const u32 ActorMovingState()
 	return g_actor->MovingState();
 }
 
-const Fvector2 world2ui(Fvector pos)
+extern ENGINE_API float psHUD_FOV;
+
+const Fvector2 world2ui(Fvector pos, bool hud = false)
 {
 	Fmatrix world, res;
 	world.identity();
 	world.c = pos;
-	res.mul(Device.mFullTransform, world);
+
+	if (hud)
+	{
+		Fmatrix FP, FT, FV;
+		FV.build_camera_dir(Device.vCameraPosition, Device.vCameraDirection, Device.vCameraTop);
+		FP.build_projection(
+			deg2rad(psHUD_FOV * 83.f),
+			Device.fASPECT, R_VIEWPORT_NEAR,
+			g_pGamePersistent->Environment().CurrentEnv->far_plane);
+
+		FT.mul(FP, FV);
+		res.mul(FT, world);
+	}
+	else
+		res.mul(Device.mFullTransform, world);
+	
 	Fvector4 v_res;
-	Fvector shift;
 
-	shift.set(0, 0, 0);
-
-	res.transform(v_res, shift);
+	v_res.w = res._44;
+	v_res.x = res._41 / v_res.w;
+	v_res.y = res._42 / v_res.w;
+	v_res.z = res._43 / v_res.w;
 
 	if (v_res.z < 0 || v_res.w < 0) return { -9999,0 };
-	if (v_res.x < -1.f || v_res.x > 1.f || v_res.y < -1.f || v_res.y > 1.f) return { -9999,0 };
+	if (abs(v_res.x) > 1.f || abs(v_res.y) > 1.f) return { -9999,0 };
 
 	float x = (1.f + v_res.x) / 2.f * (Device.dwWidth);
 	float y = (1.f - v_res.y) / 2.f * (Device.dwHeight);
@@ -1456,6 +1533,75 @@ void iterate_nearest(const Fvector& pos, float radius, luabind::functor<bool> fu
 	}
 }
 
+LPCSTR PickMaterial(const Fvector& start_pos, const Fvector& dir, float trace_dist, CScriptGameObject* ignore_obj)
+{
+	collide::rq_result result;
+	BOOL reach_wall =
+		Level().ObjectSpace.RayPick(
+			start_pos,
+			dir,
+			trace_dist,
+			collide::rqtStatic,
+			result,
+			ignore_obj ? &ignore_obj->object() : nullptr
+		)
+		&&
+		!result.O;
+
+	if (reach_wall)
+	{
+		CDB::TRI* pTri = Level().ObjectSpace.GetStaticTris() + result.element;
+		SGameMtl* pMaterial = GMLib.GetMaterialByIdx(pTri->material);
+
+		if (pMaterial)
+		{
+			return *pMaterial->m_Name;
+		}
+	}
+
+	return "$null";
+}
+
+CScriptIniFile* GetVisualUserdata(LPCSTR visual)
+{
+	string_path low_name, fn;
+
+	VERIFY(xr_strlen(visual) < sizeof(low_name));
+	xr_strcpy(low_name, visual);
+	strlwr(low_name);
+
+	if (strext(low_name)) *strext(low_name) = 0;
+	xr_strcat(low_name, sizeof(low_name), ".ogf");
+
+	if (!FS.exist(low_name))
+	{
+		if (!FS.exist(fn, "$level$", low_name))
+		{
+			if (!FS.exist(fn, "$game_meshes$", low_name))
+			{
+				Msg("!Can't find model file '%s'.", low_name);
+				return nullptr;
+			}
+		}
+	}
+	else
+	{
+		xr_strcpy(fn, low_name);
+	}
+
+	IReader* data = FS.r_open(fn);
+	if (!data) return nullptr;
+
+	IReader* UD = data->open_chunk(17); //OGF_S_USERDATA
+	if (!UD) return nullptr;
+
+	CScriptIniFile* ini = xr_new<CScriptIniFile>(UD, FS.get_path("$game_config$")->m_Path);
+	FS.r_close(data);
+	UD->close();
+
+	return ini;
+}
+
 #pragma optimize("s",on)
 void CLevel::script_register(lua_State* L)
 {
@@ -1564,6 +1710,10 @@ void CLevel::script_register(lua_State* L)
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))&add_cam_effector)),
 			def("remove_cam_effector", &remove_cam_effector),
+			def("set_cam_effector_factor", &set_cam_effector_factor),
+			def("get_cam_effector_factor", &get_cam_effector_factor),
+			def("get_cam_effector_length", &get_cam_effector_length),
+			def("check_cam_effector", &check_cam_effector),
 			def("add_pp_effector", &add_pp_effector),
 			def("set_pp_effector_factor", &set_pp_effector_factor),
 			def("set_pp_effector_factor", &set_pp_effector_factor2),
@@ -1583,7 +1733,8 @@ void CLevel::script_register(lua_State* L)
 
 			def("actor_moving_state", &ActorMovingState),
 			def("get_env_rads", &get_env_rads),
-			def("iterate_nearest", &iterate_nearest)
+			def("iterate_nearest", &iterate_nearest),
+			def("pick_material", &PickMaterial)
 		],
 
 		module(L, "actor_stats")
@@ -1735,6 +1886,7 @@ void CLevel::script_register(lua_State* L)
 		def("actor_lower_weapon", actor_set_safemode),
 		def("prefetch_texture", prefetch_texture),
 		def("prefetch_model", prefetch_model),
+		def("get_visual_userdata", GetVisualUserdata),
 		def("world2ui", world2ui)
 	];
 }

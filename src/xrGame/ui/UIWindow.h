@@ -226,6 +226,8 @@ public:
 	virtual void Reset();
 	void ResetAll();
 
+	virtual bool NeedCursor() const { return true; }
+
 
 	DEF_UILIST(WINDOW_LIST, CUIWindow*);
 	WINDOW_LIST& GetChildWndList() { return m_ChildWndList; }

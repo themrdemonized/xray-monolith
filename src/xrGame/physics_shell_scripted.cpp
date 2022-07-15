@@ -55,6 +55,26 @@ cphysics_joint_scripted* cphysics_shell_scripted::get_JointByStoreOrder(u16 idx)
 	return get_script_wrapper<cphysics_joint_scripted>(*J);
 }
 
+void cphysics_shell_scripted::freeze()
+{
+	u16 max_elements = get_ElementsNumber();
+	for (u16 i = 0; i < max_elements; ++i)
+	{
+		get_ElementByStoreOrder(i)->Fix();
+	}
+	physics_impl().collide_class_bits().set(2, TRUE); //cbNCStatic
+}
+
+void cphysics_shell_scripted::unfreeze()
+{
+	u16 max_elements = get_ElementsNumber();
+	for (u16 i = 0; i < max_elements; ++i)
+	{
+		get_ElementByStoreOrder(i)->ReleaseFixed();
+	}
+	physics_impl().collide_class_bits().set(2, FALSE); //cbNCStatic
+}
+
 #pragma optimize("s",on)
 void cphysics_shell_scripted::script_register(lua_State* L)
 {
@@ -83,37 +103,12 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 		.def("is_breakable", &cphysics_shell_scripted::isBreakable)
 		.def("get_linear_vel", &cphysics_shell_scripted::get_LinearVel)
 		.def("get_angular_vel", &cphysics_shell_scripted::get_AngularVel)
+		.def("freeze", &cphysics_shell_scripted::freeze)
+		.def("unfreeze", &cphysics_shell_scripted::unfreeze)
 	];
 }
 
-
 /*
-Fmatrix	global_transform(CPhysicsElement* E)
-{
-	Fmatrix m;
-	E->GetGlobalTransformDynamic(&m);
-	return m;
-}
-
-void CPhysicsElement::script_register(lua_State *L)
-{
-	module(L)
-		[
-			class_<CPhysicsElement>("physics_element")
-			.def("apply_force",					(void (CPhysicsElement::*)(float,float,float))(&CPhysicsElement::applyForce))
-			.def("is_breakable",				&CPhysicsElement::isBreakable)
-			.def("get_linear_vel",				&CPhysicsElement::get_LinearVel)
-			.def("get_angular_vel",				&CPhysicsElement::get_AngularVel)
-			.def("get_mass",					&CPhysicsElement::getMass)
-			.def("get_density",					&CPhysicsElement::getDensity)
-			.def("get_volume",					&CPhysicsElement::getVolume)
-			.def("fix",							&CPhysicsElement::Fix)
-			.def("release_fixed",				&CPhysicsElement::ReleaseFixed)
-			.def("is_fixed",					&CPhysicsElement::isFixed)
-			.def("global_transform",			&global_transform)
-		];
-}
-
 void CPhysicsJoint::script_register(lua_State *L)
 {
 	module(L)
@@ -140,6 +135,4 @@ void CPhysicsJoint::script_register(lua_State *L)
 			.def("get_anchor",							&CPhysicsJoint::GetAnchorDynamic)
 			.def("is_breakable",						&CPhysicsJoint::isBreakable)
 		];
-}
-
-*/
+}*/
