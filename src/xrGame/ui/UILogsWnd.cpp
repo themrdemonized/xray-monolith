@@ -178,6 +178,14 @@ void CUILogsWnd::ReLoadNews()
 	VERIFY(m_filter_news && m_filter_talk);
 	GAME_NEWS_VECTOR& news_vector = Actor()->game_news_registry->registry().objects();
 
+	// Sort news by date correctly
+	struct {
+		bool operator()(GAME_NEWS_DATA& a, GAME_NEWS_DATA& b) {
+			return a.receive_time < b.receive_time;
+		}
+	} sortNewsDesc;
+	std::sort(news_vector.begin(), news_vector.end(), sortNewsDesc);
+
 	//	u32 currentNews = 0;
 
 	bool filter_news = m_filter_news->GetCheck();
