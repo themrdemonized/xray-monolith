@@ -33,6 +33,7 @@ void CUINewsItemWnd::Init(CUIXml& uiXml, LPCSTR start_from)
 
 void CUINewsItemWnd::Setup(GAME_NEWS_DATA& news_data)
 {
+	receive_time = news_data.receive_time;
 	shared_str time_str = InventoryUtilities::GetTimeAndDateAsString(news_data.receive_time);
 	u32 sz = (time_str.size() + 5) * sizeof(char);
 	PSTR str = (PSTR)_alloca(sz);
