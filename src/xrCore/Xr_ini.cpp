@@ -242,7 +242,27 @@ void CInifile::Load(IReader* F, LPCSTR path
 		}
 	};
 
-	std::function<void(IReader*, LPCSTR, std::unordered_map<std::string, Sect>*, std::unordered_map<std::string, std::vector<std::string>>*, BOOL, BOOL)> LTXLoad = [&](IReader* F, LPCSTR path, std::unordered_map<std::string, Sect>* OutputData, std::unordered_map<std::string, std::vector<std::string>>* ParentDataMap, BOOL bOverridesOnly, BOOL bIsRootFile)
+	string_path currentFileName;
+	std::unordered_map<std::string, std::unordered_map<std::string, bool>> OverrideToFilename;
+
+	std::function<void
+		(
+		IReader*,
+		LPCSTR,
+		std::unordered_map<std::string, Sect>*,
+		std::unordered_map<std::string, std::vector<std::string>>*,
+		BOOL,
+		BOOL
+		)
+	> LTXLoad = [&]
+		(
+		IReader* F,
+		LPCSTR path,
+		std::unordered_map<std::string, Sect>* OutputData,
+		std::unordered_map<std::string, std::vector<std::string>>* ParentDataMap,
+		BOOL bOverridesOnly,
+		BOOL bIsRootFile
+		)
 	{
 		Sect* Current = 0;
 
@@ -311,6 +331,8 @@ void CInifile::Load(IReader* F, LPCSTR path
 				IReader* I = FS.r_open(_fn);
 				R_ASSERT3(I, "Can't find include file:", name);
 
+				strcpy(currentFileName, name);
+
 				LTXLoad(I, inc_path, OutputData, ParentDataMap, bOverridesOnly, false);
 
 				FS.r_close(I);
@@ -327,7 +349,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 				{
 					if (!bIsCurrentSectionOverride)
 					{
-						Debug.fatal(DEBUG_INFO, "Duplicate section '%s' wasn't marked as an override. Override section by prefixing it with '!' (![%s]) or give it a unique name. Check this file and its DLTX mods: %s", *Current->Name, *Current->Name, m_file_name);
+						Debug.fatal(DEBUG_INFO, "Duplicate section '%s' wasn't marked as an override. Override section by prefixing it with '!' (![%s]) or give it a unique name. Check this file and its DLTX mods: %s, mod file %s", *Current->Name, *Current->Name, m_file_name, currentFileName);
 					}
 
 					//Overwrite existing override data
@@ -335,10 +357,13 @@ void CInifile::Load(IReader* F, LPCSTR path
 					{
 						insert_item(&SectIt->second, CurrentItem);
 					}
+
+					OverrideToFilename[SectIt->first][currentFileName] = true;
 				}
 				else
 				{
 					OutputData->emplace(std::pair<std::string, Sect>(std::string(Current->Name.c_str()), *Current));
+					OverrideToFilename[std::string(Current->Name.c_str())][currentFileName] = true;
 				}
 			}
 
@@ -715,7 +740,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 			{
 				if (ParentSectionName == *It)
 				{
-					Debug.fatal(DEBUG_INFO, "Section '%s' has cyclical dependencies. Ensure that sections with parents don't inherit in a loop. Check this file and its DLTX mods: %s", ParentSectionName.c_str(), m_file_name);
+					Debug.fatal(DEBUG_INFO, "Section '%s' has cyclical dependencies. Ensure that sections with parents don't inherit in a loop. Check this file and its DLTX mods: %s, mod file %s", ParentSectionName.c_str(), m_file_name, currentFileName);
 				}
 			}
 
@@ -725,7 +750,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 			if (ParentIt == FinalData.end())
 			{
-				Debug.fatal(DEBUG_INFO, "Section '%s' inherits from non-existent section '%s'. Check this file and its DLTX mods: %s", SectionName.c_str(), ParentSectionName.c_str(), m_file_name);
+				Debug.fatal(DEBUG_INFO, "Section '%s' inherits from non-existent section '%s'. Check this file and its DLTX mods: %s, mod file %s", SectionName.c_str(), ParentSectionName.c_str(), m_file_name, currentFileName);
 			}
 
 			Sect* ParentSec = &ParentIt->second;
@@ -788,7 +813,12 @@ void CInifile::Load(IReader* F, LPCSTR path
 	{
 		//Debug.fatal(DEBUG_INFO, "Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s", OverrideData.begin()->first.c_str(), m_file_name);
 		for (auto i = OverrideData.begin(); i != OverrideData.end(); i++) {
-			Msg("!!!DLTX ERROR Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s", i->first.c_str(), m_file_name);
+			auto override_filenames = OverrideToFilename.find(i->first);
+			if (override_filenames != OverrideToFilename.end()) {
+				for (auto &override_filename : override_filenames->second) {
+					Msg("!!!DLTX ERROR Attemped to override section '%s', which doesn't exist. Ensure that a base section with the same name is loaded first. Check this file and its DLTX mods: %s, mod file %s", i->first.c_str(), m_file_name, override_filename.first.c_str());
+				}
+			}
 		}
 	}
 }
