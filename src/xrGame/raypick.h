@@ -29,9 +29,6 @@ struct script_rq_result
 		}
 		range = R.range;
 		element = R.element;
-		pTri = R.pTri;
-		pMaterial = R.pMaterial;
-		pMaterialFlags = R.pMaterialFlags;
 	};
 };
 

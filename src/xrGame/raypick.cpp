@@ -27,7 +27,13 @@ bool CRayPick::query()
 	collide::rq_result R;
 	if (Level().ObjectSpace.RayPick(start_position, direction, range, flags, R, ignore))
 	{
+		auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
+		auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
+		auto pMaterialFlags = pMaterial->Flags;
 		result.set(R);
+		result.pTri = pTri;
+		result.pMaterial = pMaterial;
+		result.pMaterialFlags = pMaterialFlags;
 		return true;
 	}
 	else
