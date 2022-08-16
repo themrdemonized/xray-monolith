@@ -30,14 +30,14 @@ bool CRayPick::query()
 	{
 		result.set(R);
 		if (!R.O) {
-			Msg("no object, check material");
+			//Msg("no object, check material");
 			auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
 			auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
 			auto pMaterialFlags = pMaterial->Flags;
 			result.pTri = pTri;
 			result.pMaterial = pMaterial;
 			result.pMaterialFlags = pMaterialFlags.flags;
-			Msg("Material flags %d", result.pMaterialFlags);
+			//Msg("Material flags %d", result.pMaterialFlags);
 		}
 		return true;
 	}
