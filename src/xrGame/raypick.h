@@ -8,6 +8,9 @@ struct script_rq_result
 	CScriptGameObject* O;
 	float range;
 	int element;
+	CDB::TRI* pTri;
+	SGameMtl* pMaterial;
+	Flags32 pMaterialFlags;
 
 	script_rq_result()
 	{
@@ -26,6 +29,9 @@ struct script_rq_result
 		}
 		range = R.range;
 		element = R.element;
+		pTri = R.pTri;
+		pMaterial = R.pMaterial;
+		pMaterialFlags = R.pMaterialFlags;
 	};
 };
 
