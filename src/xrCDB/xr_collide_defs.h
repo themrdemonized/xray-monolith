@@ -100,9 +100,6 @@ namespace collide
 		CObject* O; // if NULL - static
 		float range; // range to intersection
 		int element; // номер кости/номер треугольника
-		CDB::TRI* pTri;
-		SGameMtl* pMaterial;
-		Flags32 pMaterialFlags;
 		IC rq_result& set(CObject* _O, float _range, int _element)
 		{
 			O = _O;

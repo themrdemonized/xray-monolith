@@ -119,9 +119,6 @@ BOOL CObjectSpace::RayPick(const Fvector& start, const Fvector& dir, float range
 {
 	Lock.Enter();
 	BOOL _res = _RayPick(start, dir, range, tgt, R, ignore_object);
-	R.pTri = GetStaticTris() + R.element;
-	R.pMaterial = GMLib.GetMaterialByIdx(R.pTri->material);
-	R.pMaterialFlags = R.pMaterial->Flags;
 	r_spatial.clear();
 	Lock.Leave();
 	return _res;

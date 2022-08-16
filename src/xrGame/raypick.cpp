@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "raypick.h"
 #include "level.h"
+#include "material_manager.h"
 
 CRayPick::CRayPick()
 {
@@ -27,13 +28,17 @@ bool CRayPick::query()
 	collide::rq_result R;
 	if (Level().ObjectSpace.RayPick(start_position, direction, range, flags, R, ignore))
 	{
-		auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
-		auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
-		auto pMaterialFlags = pMaterial->Flags;
 		result.set(R);
-		result.pTri = pTri;
-		result.pMaterial = pMaterial;
-		result.pMaterialFlags = pMaterialFlags;
+		if (!R.O) {
+			Msg("no object, check material");
+			auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
+			auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
+			auto pMaterialFlags = pMaterial->Flags;
+			result.pTri = pTri;
+			result.pMaterial = pMaterial;
+			result.pMaterialFlags = pMaterialFlags.flags;
+			Msg("Material flags %d", result.pMaterialFlags);
+		}
 		return true;
 	}
 	else

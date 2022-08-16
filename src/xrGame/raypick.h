@@ -10,7 +10,7 @@ struct script_rq_result
 	int element;
 	CDB::TRI* pTri;
 	SGameMtl* pMaterial;
-	Flags32 pMaterialFlags;
+	u32 pMaterialFlags;
 
 	script_rq_result()
 	{
