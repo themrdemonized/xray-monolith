@@ -34,10 +34,25 @@ bool CRayPick::query()
 			auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
 			auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
 			auto pMaterialFlags = pMaterial->Flags;
-			result.pTri = pTri;
-			result.pMaterial = pMaterial;
+			//result.pTri = pTri;
+			//result.pMaterial = pMaterial;
 			result.pMaterialFlags = pMaterialFlags.flags;
+			result.pMaterialName = pMaterial->m_Name;
 			//Msg("Material flags %d", result.pMaterialFlags);
+
+			result.fPHFriction = pMaterial->fPHFriction;
+			result.fPHDamping = pMaterial->fPHDamping;
+			result.fPHSpring = pMaterial->fPHSpring;
+			result.fPHBounceStartVelocity = pMaterial->fPHBounceStartVelocity;
+			result.fPHBouncing = pMaterial->fPHBouncing;
+			result.fFlotationFactor = pMaterial->fFlotationFactor;
+			result.fShootFactor = pMaterial->fShootFactor;
+			result.fShootFactorMP = pMaterial->fShootFactorMP;
+			result.fBounceDamageFactor = pMaterial->fBounceDamageFactor;
+			result.fInjuriousSpeed = pMaterial->fInjuriousSpeed;
+			result.fVisTransparencyFactor = pMaterial->fVisTransparencyFactor;
+			result.fSndOcclusionFactor = pMaterial->fSndOcclusionFactor;
+			result.fDensityFactor = pMaterial->fDensityFactor;
 		}
 		return true;
 	}
