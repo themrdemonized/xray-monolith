@@ -10,7 +10,7 @@ struct script_rq_result
 	int element;
 
 	// Material of tri of ray query result
-	shared_str pMaterialName;
+	str_c pMaterialName;
 	u32 pMaterialFlags;
 
 	// physics part

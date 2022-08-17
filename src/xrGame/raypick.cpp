@@ -37,8 +37,7 @@ bool CRayPick::query()
 			//result.pTri = pTri;
 			//result.pMaterial = pMaterial;
 			result.pMaterialFlags = pMaterialFlags.flags;
-			result.pMaterialName = pMaterial->m_Name;
-			//Msg("Material flags %d", result.pMaterialFlags);
+			result.pMaterialName = pMaterial->m_Name.c_str();
 
 			result.fPHFriction = pMaterial->fPHFriction;
 			result.fPHDamping = pMaterial->fPHDamping;
