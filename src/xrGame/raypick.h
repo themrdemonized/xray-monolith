@@ -9,6 +9,26 @@ struct script_rq_result
 	float range;
 	int element;
 
+	// Material of tri of ray query result
+	str_c pMaterialName;
+	u32 pMaterialFlags;
+
+	// physics part
+	float fPHFriction; // ?
+	float fPHDamping; // ?
+	float fPHSpring; // ?
+	float fPHBounceStartVelocity; // ?
+	float fPHBouncing; // ?
+					   // shoot&bounce&visibility&flotation
+	float fFlotationFactor; // 0.f - 1.f (1.f-полностью проходимый)
+	float fShootFactor; // 0.f - 1.f (1.f-полностью простреливаемый)
+	float fShootFactorMP; // 0.f - 1.f (1.f-полностью простреливаемый)
+	float fBounceDamageFactor; // 0.f - 100.f
+	float fInjuriousSpeed; // 0.f - ... (0.f-не отбирает здоровье (скорость уменьшения здоровья))
+	float fVisTransparencyFactor; // 0.f - 1.f (1.f-полностью прозрачный)
+	float fSndOcclusionFactor; // 0.f - 1.f (1.f-полностью слышен)
+	float fDensityFactor;
+
 	script_rq_result()
 	{
 		O = 0;
