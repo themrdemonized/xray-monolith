@@ -129,7 +129,7 @@ void CSpecificCharacter::load_shared(LPCSTR)
 	}
 
 	luabind::functor<luabind::object> funct;
-	if (ai().script_engine().functor("_G.CActor__BeforeDialog", funct))
+	if (ai().script_engine().functor("_G.CSpecificCharacterDialogList", funct))
 	{
 		luabind::object table = luabind::newtable(ai().script_engine().lua());
 		int i = 1;
@@ -147,7 +147,7 @@ void CSpecificCharacter::load_shared(LPCSTR)
 				luabind::object v = *i;
 				if (v.type() == LUA_TSTRING) {
 					shared_str dialog_name = luabind::object_cast<LPCSTR>(v);
-					Msg("character_id %s, dialog_name %s", character_name, dialog_name.c_str());
+					//Msg("character_id %s, dialog_name %s", character_name, dialog_name.c_str());
 					data()->m_ActorDialogs.push_back(dialog_name);
 				}
 			}
