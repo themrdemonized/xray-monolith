@@ -31,7 +31,7 @@ public:
 	void ClearInternal();
 
 	void Load(LPCSTR path_alias, LPCSTR path, LPCSTR xml_filename);
-
+	void LoadFromString(LPCSTR xml_string);
 
 	//чтение элементов
 	LPCSTR Read(LPCSTR path, int index, LPCSTR default_str_val);

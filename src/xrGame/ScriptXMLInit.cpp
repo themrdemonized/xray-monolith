@@ -37,6 +37,18 @@ void _attach_child(CUIWindow* _child, CUIWindow* _parent)
 		_parent->AttachChild(_child);
 }
 
+// demonized
+// Send XML file contents to Lua for edit
+void XMLLuaCallback(CXml &m_xml, LPCSTR xml_string) {
+	luabind::functor<LPCSTR> funct;
+	if (ai().script_engine().functor("_G.COnXmlRead", funct))
+	{
+		LPCSTR res = funct(m_xml.m_xml_file_name, xml_string);
+		//Msg("XMLLuaCallback, xml %s, contents %s", m_xml.m_xml_file_name, res);
+		m_xml.LoadFromString(res);
+	}
+}
+
 void CScriptXmlInit::ParseFile(LPCSTR xml_file)
 {
 	m_xml.Load(CONFIG_PATH, UI_PATH, xml_file);
