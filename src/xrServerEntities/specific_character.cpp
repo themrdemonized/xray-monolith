@@ -5,6 +5,9 @@
 #include "PhraseDialog.h"
 #include "string_table.h"
 
+#include "ai_space.h"
+#include "Script_Game_Object.h"
+using namespace luabind;
 
 SSpecificCharacterData::SSpecificCharacterData()
 {
@@ -123,6 +126,32 @@ void CSpecificCharacter::load_shared(LPCSTR)
 	{
 		shared_str dialog_name = pXML->Read(pXML->GetLocalRoot(), "actor_dialog", i, "");
 		data()->m_ActorDialogs.push_back(dialog_name);
+	}
+
+	luabind::functor<luabind::object> funct;
+	if (ai().script_engine().functor("_G.CActor__BeforeDialog", funct))
+	{
+		luabind::object table = luabind::newtable(ai().script_engine().lua());
+		int i = 1;
+		for (auto &dialog : data()->m_ActorDialogs) {
+			table[i] = dialog.c_str();
+			i++;
+		}
+		auto character_name = item_data.id.c_str();
+		luabind::object output = funct(character_name, table);
+		if (output && output.type() == LUA_TTABLE) {
+			data()->m_ActorDialogs.clear();
+			luabind::object::iterator i = output.begin();
+			luabind::object::iterator e = output.end();
+			for (; i != e; ++i) {
+				luabind::object v = *i;
+				if (v.type() == LUA_TSTRING) {
+					shared_str dialog_name = luabind::object_cast<LPCSTR>(v);
+					Msg("character_id %s, dialog_name %s", character_name, dialog_name.c_str());
+					data()->m_ActorDialogs.push_back(dialog_name);
+				}
+			}
+		}
 	}
 
 	data()->m_icon_name = pXML->Read("icon", 0, "ui_npc_u_barman");
