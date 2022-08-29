@@ -145,6 +145,7 @@ void CXml::Load(LPCSTR path, LPCSTR xml_filename)
 
 void CXml::LoadFromString(LPCSTR xml_string)
 {
+	ClearInternal();
 	m_Doc.Parse(&m_Doc, xml_string);
 	if (m_Doc.Error())
 	{
