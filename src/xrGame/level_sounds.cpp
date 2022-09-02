@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include <random>
+#include <algorithm>
 #pragma hdrstop
 
 #include "level.h"
@@ -188,6 +190,9 @@ void CLevelSoundManager::Load()
 				Msg("- Loading music tracks from '%s'...",music_sect);
 #endif // #ifdef DEBUG
 				CInifile::Sect& S = gameLtx.r_section(music_sect);
+				std::random_device rd;
+				std::mt19937 g(rd());
+				std::shuffle(S.Data.begin(), S.Data.end(), g);
 				CInifile::SectCIt it = S.Data.begin(), end = S.Data.end();
 				m_MusicTracks.reserve(S.Data.size());
 				for (; it != end; it++)
@@ -206,6 +211,7 @@ void CLevelSoundManager::Unload()
 	m_StaticSounds.clear();
 	// music
 	m_MusicTracks.clear();
+	m_PlayedMusicIndices.clear();
 }
 
 void CLevelSoundManager::Update()
@@ -228,32 +234,46 @@ void CLevelSoundManager::Update()
 		if (m_CurrentTrack < 0 && engine_time > m_NextTrackTime)
 		{
 			U32Vec indices;
-			for (u32 k = 0; k < m_MusicTracks.size(); ++k)
+			for (u32 k = 0; k < m_MusicTracks.size(); k++)
 			{
+				// Msg("Checking track %d", k);
 				SMusicTrack& T = m_MusicTracks[k];
-				if (T.IsPlaying())
+				if (T.IsPlaying()) {
 					T.Stop();
-
-				if (T.in(game_time))
+					// Msg("Stopping track %d", k);
+				}
+				if ((T.in(game_time) && m_PlayedMusicIndices.empty()) || 
+					(T.in(game_time) && !(std::find(m_PlayedMusicIndices.begin(), m_PlayedMusicIndices.end(), k) != m_PlayedMusicIndices.end()))) {
 					indices.push_back(k);
-				/*
-								if ((0==T.m_ActiveTime.x) && (0==T.m_ActiveTime.y)||
-									((int(game_time)>=T.m_ActiveTime.x)&&(int(game_time)<T.m_ActiveTime.y)))
-									indices.push_back	(k);
-				*/
+					// Msg("Pushing track %d", k);
+					/*
+									if ((0==T.m_ActiveTime.x) && (0==T.m_ActiveTime.y)||
+										((int(game_time)>=T.m_ActiveTime.x)&&(int(game_time)<T.m_ActiveTime.y)))
+										indices.push_back	(k);
+					*/
+				}
 			}
 			if (!indices.empty())
 			{
-				u32 idx = Random.randI(indices.size());
+				//u32 idx = Random.randI(indices.size());
+				u32 idx = 0;
 				m_CurrentTrack = indices[idx];
 				SMusicTrack& T = m_MusicTracks[m_CurrentTrack];
 				T.Play();
+				m_PlayedMusicIndices.push_back(indices[idx]);
+				// Msg("Starting track %d", indices[idx]);
 #ifdef DEBUG
 				Log				("- Play music track:",T.m_DbgName.c_str());
 #endif
 			}
 			else
 			{
+				// Msg("m_PlayedMusicIndices.size %d", m_PlayedMusicIndices.size());
+				m_PlayedMusicIndices.clear();
+				std::random_device rd;
+				std::mt19937 g(rd());
+				std::shuffle(m_MusicTracks.begin(), m_MusicTracks.end(), g);
+				// Msg("Refreshing tracks");
 				m_NextTrackTime = engine_time + 10000; // next check after 10 sec
 			}
 		}
@@ -262,7 +282,7 @@ void CLevelSoundManager::Update()
 		{
 			SMusicTrack& T = m_MusicTracks[m_CurrentTrack];
 			if (!T.IsPlaying())
-			{
+			{	
 				m_CurrentTrack = -1;
 				m_NextTrackTime = engine_time;
 
