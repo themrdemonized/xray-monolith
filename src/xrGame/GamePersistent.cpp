@@ -529,6 +529,14 @@ void CGamePersistent::game_loaded()
 			m_intro->Start("game_loaded");
 			Msg("intro_start game_loaded");
 			m_intro->m_on_destroy_event.bind(this, &CGamePersistent::update_game_loaded);
+
+			// demonized
+			// Callback for when loading screen happens and "Press Any Key to Continue" prompt appears
+			luabind::functor<void> funct;
+			if (ai().script_engine().functor("_G.OnLoadingScreenKeyPrompt", funct))
+			{
+				funct();
+			}
 		}
 		m_intro_event = 0;
 	}
@@ -539,6 +547,14 @@ void CGamePersistent::update_game_loaded()
 	xr_delete(m_intro);
 	Msg("intro_delete ::update_game_loaded");
 	start_game_intro();
+
+	// demonized
+	// Callback for when player dismisses loading screen after "Press Any Key to Continue" pressed
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.OnLoadingScreenDismissed", funct))
+	{
+		funct();
+	}
 }
 
 void CGamePersistent::start_game_intro()
