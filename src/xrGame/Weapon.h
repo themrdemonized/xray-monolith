@@ -88,6 +88,16 @@ public:
 	IC float GetSecondVPZoomFactor() const { return m_zoom_params.m_fSecondVPFovFactor; }
 	IC float IsSecondVPZoomPresent() const { return GetSecondVPZoomFactor() > 0.005f; }
 
+
+	// Up
+	// Magazine system & etc
+	xr_vector<shared_str> bullets_bones;
+	int bullet_cnt;
+	int last_hide_bullet;
+	bool bHasBulletsToHide;
+
+	virtual void HUD_VisualBulletUpdate(bool force = false, int force_idx = -1);
+
 	void UpdateSecondVP();
 
 	virtual void UpdateCL();
@@ -149,6 +159,8 @@ public:
 		eMisfire,
 		eSwitch,
 		eSwitchMode,
+		eAimStart,
+		eAimEnd,
 	};
 
 	enum EWeaponSubStates
@@ -156,6 +168,7 @@ public:
 		eSubstateReloadBegin = 0,
 		eSubstateReloadInProcess,
 		eSubstateReloadEnd,
+		eSubstateReloadInProcessEmptyEnd,
 	};
 
 	enum
@@ -201,6 +214,8 @@ protected:
 	virtual bool AllowBore();
 public:
 	u8 m_sub_state;
+
+	bool IsCustomReloadAvaible;
 
 	bool IsGrenadeLauncherAttached() const;
 	bool IsScopeAttached() const;

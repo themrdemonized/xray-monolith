@@ -11037,6 +11037,9 @@
     <ClCompile Include="script_wallmarks_manager.cpp">
       <Filter>Core\Client\Effects</Filter>
     </ClCompile>
+    <ClCompile Include="WeaponMagazineExtended.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Custom Weapon\Automatic</Filter>
+    </ClCompile>
     <ClCompile Include="player_hud_script.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClCompile>

@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "weaponmagazinedwgrenade.h"
 #include "entity.h"
 #include "ParticlesObject.h"
@@ -152,6 +152,36 @@ void CWeaponMagazinedWGrenade::OnShot()
 	}
 	else
 		inherited::OnShot();
+}
+
+void CWeaponMagazinedWGrenade::PlayAnimFireModeSwitch()
+{
+	if (IsGrenadeLauncherAttached())
+	{
+		if (!m_bGrenadeMode)
+		{
+			if (!m_bHasDifferentFireModes) return;
+			if (m_aFireModes.size() <= 1) return;
+			if (GetState() != eIdle) return;
+
+			if (HudAnimationExist("anm_switch_mode_w_gl"))
+			{
+				SetPending(TRUE);
+				iAmmoElapsed == 0 && HudAnimationExist("anm_switch_mode_w_gl_empty")
+					? PlayHUDMotion("anm_switch_mode_w_gl_empty", TRUE, this, eSwitchMode)
+					: PlayHUDMotion("anm_switch_mode_w_gl", TRUE, this, eSwitchMode);
+			}
+			else
+				UpdateFireMode();
+
+			if (m_sounds.FindSoundItem("sndSwitchMode", false))
+				PlaySound("sndSwitchMode", get_LastFP());
+		}
+	}
+	else
+	{
+		inherited::PlayAnimFireModeSwitch();
+	}
 }
 
 bool CWeaponMagazinedWGrenade::SwitchMode()
@@ -679,6 +709,9 @@ void CWeaponMagazinedWGrenade::PlayAnimShow()
 	if (IsGrenadeLauncherAttached())
 	{
 		if (!m_bGrenadeMode)
+			HUD_VisualBulletUpdate();
+
+		if (!m_bGrenadeMode)
 			iAmmoElapsed == 0 && HudAnimationExist("anm_show_empty_w_gl")
 			? PlayHUDMotion("anm_show_empty_w_gl", FALSE, this, GetState(), 1.f, 0.f, false)
 			: PlayHUDMotion("anm_show_w_gl", FALSE, this, GetState(), 1.f, 0.f, false);
@@ -856,12 +889,18 @@ void CWeaponMagazinedWGrenade::PlayAnimShoot()
 	{
 		if (iAmmoElapsed > 1 || !HudAnimationExist("anm_shot_g_l"))
 		{
-			PlayHUDMotion("anm_shots_g", TRUE, this, GetState(), 1.f, 0.f, false);
+			if (!IsZoomed() || !HudAnimationExist("anm_shots_g_aim"))
+				PlayHUDMotion("anm_shots_g", TRUE, this, GetState(), 1.f, 0.f, false);
+			else
+				PlayHUDMotion("anm_shots_g_aim", TRUE, this, GetState(), 1.f, 0.f, false);
 		}
 		else
 		{
-			PlayHUDMotion("anm_shot_g_l", TRUE, this, GetState(), 1.f, 0.f, false);
-		}
+			if(!IsZoomed() || !HudAnimationExist("anm_shot_g_l_aim"))
+				PlayHUDMotion("anm_shot_g_l", TRUE, this, GetState(), 1.f, 0.f, false);
+			else
+				PlayHUDMotion("anm_shot_g_l_aim", TRUE, this, GetState(), 1.f, 0.f, false);
+		}		
 	}
 	else
 	{
@@ -869,11 +908,17 @@ void CWeaponMagazinedWGrenade::PlayAnimShoot()
 		if (IsGrenadeLauncherAttached())
 			if (iAmmoElapsed > 1 || !HudAnimationExist("anm_shot_w_gl_l"))
 			{
-				PlayHUDMotion("anm_shots_w_gl", TRUE, this, GetState(), 1.f, 0.f, false);
+				if (!IsZoomed() || !HudAnimationExist("anm_shots_w_gl_aim"))
+					PlayHUDMotion("anm_shots_w_gl", TRUE, this, GetState(), 1.f, 0.f, false);
+				else
+					PlayHUDMotion("anm_shots_w_gl_aim", TRUE, this, GetState(), 1.f, 0.f, false);
 			}
 			else
 			{
-				PlayHUDMotion("anm_shot_w_gl_l", TRUE, this, GetState(), 1.f, 0.f, false);
+				if (!IsZoomed() || !HudAnimationExist("anm_shot_w_gl_l_aim"))
+					PlayHUDMotion("anm_shot_w_gl_l", TRUE, this, GetState(), 1.f, 0.f, false);
+				else
+					PlayHUDMotion("anm_shot_w_gl_l_aim", TRUE, this, GetState(), 1.f, 0.f, false);
 			}
 		else
 			inherited::PlayAnimShoot();
@@ -1116,6 +1161,13 @@ bool CWeaponMagazinedWGrenade::GetBriefInfo(II_BriefInfo& info)
 	int ae = GetAmmoElapsed();
 	xr_sprintf(int_str, "%d", ae);
 	info.cur_ammo._set(int_str);
+
+	if (bHasBulletsToHide && !m_bGrenadeMode)
+	{
+		last_hide_bullet = ae >= bullet_cnt ? bullet_cnt : bullet_cnt - ae - 1;
+		if (ae == 0) last_hide_bullet = -1;
+	}
+
 	if (HasFireModes())
 	{
 		if (m_iQueueSize == WEAPON_ININITE_QUEUE)

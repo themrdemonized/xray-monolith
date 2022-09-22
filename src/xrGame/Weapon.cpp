@@ -142,6 +142,10 @@ CWeapon::CWeapon()
 
 	//PP.RQ.range = 0.f;
 	//PP.RQ.set(NULL, 0.f, -1);
+
+	bHasBulletsToHide = false;
+	bullet_cnt = 0;
+	IsCustomReloadAvaible = false;
 }
 
 extern int scope_2dtexactive; //crookr
@@ -1222,11 +1226,22 @@ bool CWeapon::Action(u16 cmd, u32 flags)
 						{
 							if (pActor && pActor->is_safemode())
 								pActor->set_safemode(false);
+
+							if (GetState() != eAimStart && HudAnimationExist("anm_idle_aim_start"))
+								SwitchState(eAimStart);
+							else if (GetState() != eIdle)
+								SwitchState(eIdle);
+
 							OnZoomIn();
 						}
 					}
 					else
+					{
+						if (GetState() != eAimEnd && HudAnimationExist("anm_idle_aim_end"))
+							SwitchState(eAimEnd);
+
 						OnZoomOut();
+					}
 				}
 			}
 			else
@@ -1237,11 +1252,21 @@ bool CWeapon::Action(u16 cmd, u32 flags)
 					{
 						if (pActor && pActor->is_safemode())
 							pActor->set_safemode(false);
+
+						if (GetState() != eAimStart && HudAnimationExist("anm_idle_aim_start"))
+							SwitchState(eAimStart);
+						else if (GetState() != eIdle)
+							SwitchState(eIdle);
+
 						OnZoomIn();
 					}
 				}
 				else if (IsZoomed())
+				{
+					if (GetState() != eAimEnd && HudAnimationExist("anm_idle_aim_end"))
+						SwitchState(eAimEnd);
 					OnZoomOut();
+				}
 			}
 			return true;
 		}
@@ -1500,6 +1525,30 @@ void CWeapon::SetMisfireScript(bool b)
 void CWeapon::Reload()
 {
 	OnZoomOut();
+}
+
+void CWeapon::HUD_VisualBulletUpdate(bool force, int force_idx)
+{
+	if (!bHasBulletsToHide)
+		return;
+
+	if (!GetHUDmode())	return;
+
+	bool hide = true;
+
+	//Msg("Print %d bullets", last_hide_bullet);
+
+	if (last_hide_bullet == bullet_cnt || force) hide = false;
+
+	for (u8 b = 0; b < bullet_cnt; b++)
+	{
+		u16 bone_id = HudItemData()->m_model->LL_BoneID(bullets_bones[b]);
+
+		if (bone_id != BI_NONE)
+			HudItemData()->set_bone_visible(bullets_bones[b], !hide);
+
+		if (b == last_hide_bullet) hide = false;
+	}
 }
 
 bool CWeapon::IsGrenadeLauncherAttached() const
