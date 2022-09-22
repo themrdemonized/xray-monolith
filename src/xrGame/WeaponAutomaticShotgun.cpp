@@ -26,6 +26,11 @@ void CWeaponAutomaticShotgun::Load(LPCSTR section)
 	{
 		m_bTriStateReload = !!pSettings->r_bool(section, "tri_state_reload");
 	};
+	if (pSettings->line_exist(section, "bas_state_reload"))
+	{
+		IsCustomReloadAvaible = !!pSettings->r_bool(section, "bas_state_reload");
+	}
+	
 	if (m_bTriStateReload)
 	{
 		m_sounds.LoadSound(section, "snd_open_weapon", "sndOpen", false, m_eSoundOpen);
@@ -35,6 +40,8 @@ void CWeaponAutomaticShotgun::Load(LPCSTR section)
 		m_sounds.LoadSound(section, "snd_close_weapon", "sndClose", false, m_eSoundClose);
 
 		m_sounds.LoadSound(section, "snd_close_weapon_empty", "sndCloseEmpty", false, m_eSoundClose);
+
+		m_sounds.LoadSound(section, "snd_shoot_last", "sndShootL", false, m_eSoundShot);
 	};
 }
 
@@ -49,10 +56,11 @@ bool CWeaponAutomaticShotgun::Action(u16 cmd, u32 flags)
 
 	if (m_bTriStateReload && GetState() == eReload &&
 		cmd == kWPN_FIRE && flags & CMD_START &&
-		m_sub_state == eSubstateReloadInProcess) //остановить перезагрузку
-	{
+		m_sub_state == eSubstateReloadInProcess || m_sub_state == eSubstateReloadInProcessEmptyEnd) //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	{	
 		AddCartridge(1);
 		m_sub_state = eSubstateReloadEnd;
+		if(IsCustomReloadAvaible) SwitchState(eReload);
 		return true;
 	}
 	return false;
@@ -78,14 +86,26 @@ void CWeaponAutomaticShotgun::OnAnimationEnd(u32 state)
 			{
 				m_sub_state = eSubstateReloadEnd;
 			}
+			else if (BeginReloadWasEmpty && IsCustomReloadAvaible)
+			{
+				m_sub_state = eSubstateReloadInProcessEmptyEnd;
+				
+			}
 			SwitchState(eReload);
 		}
 		break;
 
 	case eSubstateReloadEnd:
 		{
+			BeginReloadWasEmpty = false;
 			m_sub_state = eSubstateReloadBegin;
 			SwitchState(eIdle);
+		}
+		break;
+	case eSubstateReloadInProcessEmptyEnd:
+		{
+			m_sub_state = eSubstateReloadBegin;
+			SwitchState(eReload);
 		}
 		break;
 	};
@@ -139,7 +159,30 @@ void CWeaponAutomaticShotgun::OnStateSwitch(u32 S, u32 oldState)
 	case eSubstateReloadEnd:
 		switch2_EndReload();
 		break;
+	case eSubstateReloadInProcessEmptyEnd:
+		switch2_EndReload();
+		break;
 	};
+}
+
+void CWeaponAutomaticShotgun::PlaySoundShot()
+{
+	// Temp fix for shotguns last shot
+	if (iAmmoElapsed > 1 || !HudAnimationExist("anm_shot_l"))
+	{
+		inherited::PlaySoundShot();
+	}
+	else
+	{
+		if (m_sounds.FindSoundItem("sndShootL", false))
+		{
+			m_sounds.PlaySound("sndShootL", get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1);
+		}
+		else
+		{
+			inherited::PlaySoundShot();
+		}
+	}
 }
 
 void CWeaponAutomaticShotgun::switch2_StartReload()
@@ -161,7 +204,6 @@ void CWeaponAutomaticShotgun::switch2_AddCartgidge()
 void CWeaponAutomaticShotgun::switch2_EndReload()
 {
 	SetPending(FALSE);
-
 	if (BeginReloadWasEmpty && m_sounds.FindSoundItem("sndCloseEmpty", false))
 		PlaySound("sndCloseEmpty", get_LastFP());
 	else
@@ -250,7 +292,7 @@ u8 CWeaponAutomaticShotgun::AddCartridge(u8 cnt)
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
 
-	//выкинуть коробку патронов, если она пустая
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if (m_pCurrentAmmo && !m_pCurrentAmmo->m_boxCurr && OnServer())
 		m_pCurrentAmmo->SetDropManual(TRUE);
 

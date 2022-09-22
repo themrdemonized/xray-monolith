@@ -493,12 +493,16 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 			strconcat(sizeof(anm_name), anm_name, "camera_effects\\weapon\\", M.name.c_str(), ".anm");
 			if (FS.exist(ce_path, "$game_anims$", anm_name))
 			{
-				CAnimatorCamEffector* e = xr_new<CAnimatorCamEffector>();
-				e->SetType(eCEWeaponAction);
-				e->SetHudAffect(false);
-				e->SetCyclic(false);
-				e->Start(anm_name);
-				current_actor->Cameras().AddCamEffector(e);
+				if (!(m_attach_place_idx == 1 && m_parent->attached_item(0)))
+				{
+					int rand = ::Random.randI(5000, 10000);
+					CAnimatorCamEffector* e = xr_new<CAnimatorCamEffector>();
+					e->SetType(ECamEffectorType(rand));
+					e->SetHudAffect(false);
+					e->SetCyclic(false);
+					e->Start(anm_name);
+					current_actor->Cameras().AddCamEffector(e);
+				}
 			}
 		}
 	}

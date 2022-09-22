@@ -31,6 +31,10 @@ void CWeaponShotgun::Load(LPCSTR section)
 	{
 		m_bTriStateReload = !!pSettings->r_bool(section, "tri_state_reload");
 	};
+	if (pSettings->line_exist(section, "bas_state_reload"))
+	{
+		IsCustomReloadAvaible = !!pSettings->r_bool(section, "bas_state_reload");
+	}
 	if (m_bTriStateReload)
 	{
 		m_sounds.LoadSound(section, "snd_open_weapon", "sndOpen", false, m_eSoundOpen);
@@ -56,7 +60,7 @@ bool CWeaponShotgun::Action(u16 cmd, u32 flags)
 
 	if (m_bTriStateReload && GetState() == eReload &&
 		cmd == kWPN_FIRE && flags & CMD_START &&
-		m_sub_state == eSubstateReloadInProcess) //остановить перезагрузку
+		m_sub_state == eSubstateReloadInProcess || m_sub_state == eSubstateReloadInProcessEmptyEnd) //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	{
 		AddCartridge(1);
 		m_sub_state = eSubstateReloadEnd;
@@ -85,14 +89,25 @@ void CWeaponShotgun::OnAnimationEnd(u32 state)
 			{
 				m_sub_state = eSubstateReloadEnd;
 			}
+			else if (BeginReloadWasEmpty && IsCustomReloadAvaible)
+			{
+				m_sub_state = eSubstateReloadInProcessEmptyEnd;
+			}
 			SwitchState(eReload);
 		}
 		break;
 
 	case eSubstateReloadEnd:
 		{
+			BeginReloadWasEmpty = false;
 			m_sub_state = eSubstateReloadBegin;
 			SwitchState(eIdle);
+		}
+		break;
+	case eSubstateReloadInProcessEmptyEnd:
+		{	
+			m_sub_state = eSubstateReloadBegin;
+			SwitchState(eReload);
 		}
 		break;
 	};
@@ -144,6 +159,9 @@ void CWeaponShotgun::OnStateSwitch(u32 S, u32 oldState)
 			switch2_AddCartgidge();
 		break;
 	case eSubstateReloadEnd:
+		switch2_EndReload();
+		break;
+	case eSubstateReloadInProcessEmptyEnd:
 		switch2_EndReload();
 		break;
 	};
@@ -257,7 +275,7 @@ u8 CWeaponShotgun::AddCartridge(u8 cnt)
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
 
-	//выкинуть коробку патронов, если она пустая
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if (m_pCurrentAmmo && !m_pCurrentAmmo->m_boxCurr && OnServer())
 		m_pCurrentAmmo->SetDropManual(TRUE);
 
