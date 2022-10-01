@@ -97,6 +97,30 @@ u16	GetSpawnInfo(NET_Packet &P, u16 &parent_id)
 //-AVO
 
 
+namespace crash_saving {
+	extern void(*save_impl)();
+	static bool g_isSaving = false;
+	static int saveCount = 0;
+
+	void _save_impl()
+	{
+		if (g_isSaving) return;
+		g_isSaving = true;
+		NET_Packet net_packet;
+		net_packet.w_begin(M_SAVE_GAME);
+		char path[] = { "FATAL_CTD_SAVE_X" };
+		path[15] = '0' + saveCount++;
+		net_packet.w_stringZ(path);
+		net_packet.w_u8(1);
+		CLevel& level = Level();
+		if (&level != nullptr)
+		{
+			level.Send(net_packet, net_flags(1));
+		}
+
+	}
+}
+
 CLevel::CLevel() :
 	IPureClient(Device.GetTimerGlobal())
 #ifdef PROFILE_CRITICAL_SECTIONS
@@ -141,12 +165,14 @@ CLevel::CLevel() :
 	g_player_hud = xr_new<player_hud>();
 	g_player_hud->load_default();
 	Msg("%s", Core.Params);
+	crash_saving::save_impl = crash_saving::_save_impl; // CLevel ready, we can save now
 }
 
 extern CAI_Space* g_ai_space;
 
 CLevel::~CLevel()
 {
+	crash_saving::save_impl = nullptr; // CLevel not available, disable crash save
 	xr_delete(g_player_hud);
 	delete_data(hud_zones_list);
 	hud_zones_list = nullptr;
