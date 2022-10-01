@@ -67,6 +67,20 @@ XRCORE_API xrDebug Debug;
 
 static bool error_after_dialog = false;
 
+namespace crash_saving
+{
+    void(*save_impl)();
+	bool enabled = true;
+
+    void save()
+    {
+        if (enabled && save_impl != nullptr)
+        {
+            (*save_impl)();
+        }
+    }
+}
+
 //extern void BuildStackTrace();
 //extern char g_stackTrace[100][4096];
 //extern int g_stackTraceCount;
@@ -206,6 +220,9 @@ void xrDebug::do_exit(const std::string& message)
 void xrDebug::backend(const char* expression, const char* description, const char* argument0, const char* argument1,
                       const char* file, int line, const char* function, bool& ignore_always)
 {
+    // we save first
+    crash_saving::save();
+    
 	static xrCriticalSection CS
 #ifdef PROFILE_CRITICAL_SECTIONS
         (MUTEX_PROFILE_ID(xrDebug::backend))
