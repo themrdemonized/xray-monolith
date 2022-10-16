@@ -232,7 +232,7 @@ void xrDebug::backend(const char* expression, const char* description, const cha
 	ShowCursor(true);
 	ShowWindow(GetActiveWindow(), SW_FORCEMINIMIZE);
 	MessageBox(
-		GetTopWindow(NULL),
+		NULL,
 		assertion_info,
 		"Fatal Error",
 		MB_OK | MB_ICONERROR | MB_SYSTEMMODAL
