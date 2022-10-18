@@ -2003,6 +2003,7 @@ public:
 
 namespace crash_saving {
 	extern bool enabled;
+	extern int saveCountMax;
 }
 
 class CCC_ToggleCrashSaving : public IConsole_Command
@@ -2548,6 +2549,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_always_active", &psDeviceFlags2, rsAlwaysActive);
 	//Toggle crash saving
 	CMD1(CCC_ToggleCrashSaving, "crash_save");
+	CMD4(CCC_Integer, "crash_save_count", &crash_saving::saveCountMax, 0, 20);
 
 	if (strstr(Core.Params, "-dbgdev"))
 		CMD4(CCC_Float, "g_streff", &streff, -10.f, 10.f);

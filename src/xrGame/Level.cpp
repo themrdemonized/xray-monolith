@@ -96,21 +96,65 @@ u16	GetSpawnInfo(NET_Packet &P, u16 &parent_id)
 #endif
 //-AVO
 
-
 namespace crash_saving {
 	extern void(*save_impl)();
 	static bool g_isSaving = false;
-	static int saveCount = 0;
+	int saveCountMax = 10;
 
 	void _save_impl()
 	{
 		if (g_isSaving) return;
+		if (saveCountMax <= 0) return;
+
+		int saveCount = -1;
 		g_isSaving = true;
 		NET_Packet net_packet;
 		net_packet.w_begin(M_SAVE_GAME);
-		char path[] = { "FATAL_CTD_SAVE_X" };
-		path[15] = '0' + saveCount++;
-		net_packet.w_stringZ(path);
+
+		std::string path = "fatal_ctd_save_";
+		std::string path_mask(path);
+		std::string path_ext = ".scop";
+		path_mask.append("*").append(path_ext);
+
+		FS_FileSet fset_temp;
+		FS.file_list(fset_temp, "$game_saves$", FS_ListFiles | FS_RootOnly, path_mask.c_str());
+
+		std::vector<FS_File> fset(fset_temp.begin(), fset_temp.end());
+		struct {
+			bool operator()(FS_File& a, FS_File& b) {
+				return a.time_write > b.time_write;
+			}
+		} sortFilesDesc;
+		std::sort(fset.begin(), fset.end(), sortFilesDesc);
+
+		//Msg("save mask %s", path_mask.c_str());
+
+		for (auto &file : fset)
+		{
+			string128 name;
+			xr_strcpy(name, sizeof(name), file.name.c_str());
+			std::string name_string(name);
+			name_string.erase(name_string.length() - path_ext.length());
+
+			//Msg("found save file %s, save_name %s", name, name_string.c_str());
+
+			try {
+				//Msg("save number %s", name_string.substr(path.length()).c_str());
+				int name_count = std::stoi(name_string.substr(path.length()));
+				saveCount = name_count;
+				break;
+			} catch (...) {
+				Msg("!error getting save number from %s", name);
+			}
+		}
+
+		saveCount++;
+		if (saveCount >= saveCountMax) {
+			saveCount = 0;
+		}
+
+		path.append(std::to_string(saveCount));
+		net_packet.w_stringZ(path.c_str());
 		net_packet.w_u8(1);
 		CLevel& level = Level();
 		if (&level != nullptr)
