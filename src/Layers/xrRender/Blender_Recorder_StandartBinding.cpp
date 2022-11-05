@@ -609,6 +609,10 @@ static class cl_near_far_plane : public R_constant_setup
 	}
 } binder_near_far_plane;
 
+// Screen Space Shaders Stuff
+extern Fvector4 ps_ssfx_wpn_dof_1;
+extern float ps_ssfx_wpn_dof_2;
+
 //Sneaky debug stuff
 extern Fvector4 ps_dev_param_1;
 extern Fvector4 ps_dev_param_2;
@@ -682,6 +686,22 @@ static class dev_param_8 : public R_constant_setup
 		RCache.set_c(C, ps_dev_param_8.x, ps_dev_param_8.y, ps_dev_param_8.z, ps_dev_param_8.w);
 	}
 }    dev_param_8;
+
+static class ssfx_wpn_dof_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wpn_dof_1.x, ps_ssfx_wpn_dof_1.y, ps_ssfx_wpn_dof_1.z, ps_ssfx_wpn_dof_1.w);
+	}
+}    ssfx_wpn_dof_1;
+
+static class ssfx_wpn_dof_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wpn_dof_2, 0, 0, 0);
+	}
+}    ssfx_wpn_dof_2;
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -769,6 +789,11 @@ void CBlender_Compile::SetMapping()
 
 	// PDA
 	r_Constant("pda_params", &binder_pda_params);
+
+	// Screen Space Shaders
+	r_Constant("sky_color", &binder_sky_color);
+	r_Constant("ssfx_wpn_dof_1", &ssfx_wpn_dof_1);
+	r_Constant("ssfx_wpn_dof_2", &ssfx_wpn_dof_2);
 
 	// Shader stuff
 	r_Constant("shader_param_1", &dev_param_1);
