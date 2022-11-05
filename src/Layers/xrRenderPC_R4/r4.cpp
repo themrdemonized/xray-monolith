@@ -1680,6 +1680,12 @@ HRESULT CRender::shader_compile(
 	}
 	sh_name[len] = '0' + char(o.dx10_minmax_sm != 0);
 	++len;
+	
+	defines[def_it].Name = "SSFX_MODEXE";
+	defines[def_it].Definition = "1";
+	def_it++;
+	sh_name[len] = '1';
+	++len;
 
 	//Be carefull!!!!! this should be at the end to correctly generate
 	//compiled shader name;
