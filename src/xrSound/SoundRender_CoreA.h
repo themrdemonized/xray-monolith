@@ -26,6 +26,9 @@ class CSoundRender_CoreA : public CSoundRender_Core
 	struct SListener
 	{
 		Fvector position;
+		Fvector prevVelocity;
+		Fvector curVelocity;
+		Fvector accVelocity;
 		Fvector orientation[2];
 	};
 
