@@ -7,6 +7,19 @@
 #include "../xrEngine/pure.h"
 #include "../xrEngine/XR_IOConsole.h"
 
+namespace soundSmoothingParams {
+	float power = 2.5;
+	int steps = 15;
+	float alpha = 2.0f / (steps + 1);
+	IC float getTimeDeltaSmoothing() {
+		return alpha;
+		//return min(1.0f, alpha * (Device.fTimeDelta / steps));
+	}
+	IC float getSmoothedValue(float target, float current, float smoothing = getTimeDeltaSmoothing()) {
+		return current + smoothing * (target - current);
+	}
+};
+
 extern CConsole* Console;
 
 CSoundRender_CoreA* SoundRenderA = 0;
@@ -148,6 +161,14 @@ void CSoundRender_CoreA::_initialize(int stage)
 		bEAX = EAXTestSupport(FALSE);
 	}
 
+	// Init listener struct
+	Listener.position.set(0.0f, 0.0f, 0.0f);
+	Listener.prevVelocity.set(0.0f, 0.0f, 0.0f);
+	Listener.curVelocity.set(0.0f, 0.0f, 0.0f);
+	Listener.accVelocity.set(0.0f, 0.0f, 0.0f);
+	Listener.orientation[0].set(0.0f, 0.0f, 0.0f);
+	Listener.orientation[1].set(0.0f, 0.0f, 0.0f);
+
 	inherited::_initialize(stage);
 
 	if (stage == 1) //first initialize
@@ -218,6 +239,18 @@ void CSoundRender_CoreA::update_listener(const Fvector& P, const Fvector& D, con
 {
 	inherited::update_listener(P, D, N, dt);
 
+	Listener.curVelocity.sub(P, Listener.position);
+
+	float a = soundSmoothingParams::getTimeDeltaSmoothing();
+	int p = soundSmoothingParams::power;
+	Listener.accVelocity.x = soundSmoothingParams::getSmoothedValue(Listener.curVelocity.x * p / dt, Listener.accVelocity.x, a);
+	Listener.accVelocity.y = soundSmoothingParams::getSmoothedValue(Listener.curVelocity.y * p / dt, Listener.accVelocity.y, a);
+	Listener.accVelocity.z = soundSmoothingParams::getSmoothedValue(Listener.curVelocity.z * p / dt, Listener.accVelocity.z, a);
+	
+	Listener.prevVelocity.set(Listener.accVelocity);
+
+	//Msg("listener sound update delta %.3f, velocity %.3f, %.3f, %.3f, power %.1f", dt, Listener.prevVelocity.x, Listener.prevVelocity.y, Listener.prevVelocity.z, soundSmoothingParams::power);
+
 	if (!Listener.position.similar(P))
 	{
 		Listener.position.set(P);
@@ -227,6 +260,6 @@ void CSoundRender_CoreA::update_listener(const Fvector& P, const Fvector& D, con
 	Listener.orientation[1].set(N.x, N.y, -N.z);
 
 	A_CHK(alListener3f (AL_POSITION,Listener.position.x,Listener.position.y,-Listener.position.z));
-	A_CHK(alListener3f (AL_VELOCITY,0.f,0.f,0.f));
+	A_CHK(alListener3f (AL_VELOCITY, Listener.prevVelocity.x, Listener.prevVelocity.y, -Listener.prevVelocity.z));
 	A_CHK(alListenerfv (AL_ORIENTATION,&Listener.orientation[0].x));
 }
