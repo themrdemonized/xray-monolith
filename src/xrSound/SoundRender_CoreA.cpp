@@ -9,8 +9,11 @@
 
 namespace soundSmoothingParams {
 	float power = 2.5;
-	int steps = 15;
-	float alpha = 2.0f / (steps + 1);
+	int steps = 25;
+	float alpha = getAlpha();
+	IC float getAlpha() {
+		return 2.0f / (steps + 1);
+	}
 	IC float getTimeDeltaSmoothing() {
 		return alpha;
 		//return min(1.0f, alpha * (Device.fTimeDelta / steps));
@@ -249,7 +252,7 @@ void CSoundRender_CoreA::update_listener(const Fvector& P, const Fvector& D, con
 	
 	Listener.prevVelocity.set(Listener.accVelocity);
 
-	//Msg("listener sound update delta %.3f, velocity %.3f, %.3f, %.3f, power %.1f", dt, Listener.prevVelocity.x, Listener.prevVelocity.y, Listener.prevVelocity.z, soundSmoothingParams::power);
+	// Msg("listener sound update delta %.3f, velocity %.3f, %.3f, %.3f, power %.1f, alpha %.3f", dt, Listener.prevVelocity.x, Listener.prevVelocity.y, Listener.prevVelocity.z, soundSmoothingParams::power, soundSmoothingParams::alpha);
 
 	if (!Listener.position.similar(P))
 	{

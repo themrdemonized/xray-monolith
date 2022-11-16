@@ -833,6 +833,18 @@ public:
 	}
 };
 
+class CCC_SoundParamsSmoothing : public CCC_Integer
+{
+public:
+	CCC_SoundParamsSmoothing(LPCSTR N, int* V, int _min = 0, int _max = 999) : CCC_Integer(N, V, _min, _max) {};
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Integer::Execute(args);
+		soundSmoothingParams::alpha = soundSmoothingParams::getAlpha();
+	}
+};
+
 ENGINE_API float psHUD_FOV_def = 0.45f;
 ENGINE_API float psHUD_FOV = psHUD_FOV_def;
 
@@ -984,6 +996,7 @@ void CCC_Register()
 	CMD4(CCC_Integer, "snd_cache_size", &psSoundCacheSizeMB, 8, 256);
 	// Doppler effect power
 	CMD4(CCC_Float, "snd_doppler_power", &soundSmoothingParams::power, 0.f, 5.f);
+	CMD4(CCC_SoundParamsSmoothing, "snd_doppler_smoothing", &soundSmoothingParams::steps, 1, 100);
 
 #ifdef DEBUG
     CMD3(CCC_Mask, "snd_stats", &g_stats_flags, st_sound);
