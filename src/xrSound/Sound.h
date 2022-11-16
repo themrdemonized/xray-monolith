@@ -216,6 +216,7 @@ namespace soundSmoothingParams {
 	extern float power;
 	extern int steps;
 	extern float alpha;
+	extern float getAlpha();
 	extern float getTimeDeltaSmoothing();
 	extern float getSmoothedValue(float, float, float);
 };
