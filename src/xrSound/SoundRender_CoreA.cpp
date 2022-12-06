@@ -8,7 +8,7 @@
 #include "../xrEngine/XR_IOConsole.h"
 
 namespace soundSmoothingParams {
-	float power = 2.5;
+	float power = 1.8;
 	int steps = 20;
 	float alpha = getAlpha();
 	IC float getAlpha() {
