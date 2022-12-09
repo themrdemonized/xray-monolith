@@ -43,6 +43,11 @@ static const float MAX_NOISE_FREQ = 0.03f;
 
 const float MAX_DIST_FACTOR = 0.95f;
 
+
+#include	"../xrGame/ai_space.h"
+#include    "../xrServerEntities/script_engine.h"
+#include    "../3rd party/luabind/luabind/luabind.hpp"
+
 //////////////////////////////////////////////////////////////////////////
 // environment
 CEnvironment::CEnvironment() :
@@ -286,6 +291,13 @@ void CEnvironment::SetGameTime(float game_time, float time_factor)
 		return;
 	}
 #endif
+	// Override game time for environment
+	luabind::functor<float> funct;
+	if (ai().script_engine().functor("_G.COnEnvGameTime", funct)) {
+		float res = funct(game_time);
+		clamp(res, 0.00001f, DAY_LENGTH);
+		game_time = res;
+	}
 	if (bWFX)
 		wfx_time -= TimeDiff(fGameTime, game_time);
 	fGameTime = game_time;
@@ -599,6 +611,19 @@ void CEnvironment::OnFrame()
 	else
 	{
 		calculate_config_sun_dir();
+		luabind::functor<luabind::object> funct;
+		if (ai().script_engine().functor("_G.COnSunUpdate", funct)) {
+			luabind::object table = luabind::newtable(ai().script_engine().lua());
+			table["sun_altitude"] = rad2deg(CurrentEnv->sun_dir.x);
+			table["sun_longitude"] = rad2deg(CurrentEnv->sun_dir.y);
+			luabind::object output = funct(table);
+			if (output && output.type() == LUA_TTABLE) {
+				CurrentEnv->sun_dir.setHP(
+					deg2rad(luabind::object_cast<float>(output["sun_altitude"])),
+					deg2rad(luabind::object_cast<float>(output["sun_longitude"]))
+				);
+			}
+		}
 		l_id = (current_weight < 0.5f) ? Current[0]->lens_flare_id : Current[1]->lens_flare_id;
 		t_id = (current_weight < 0.5f) ? Current[0]->tb_id : Current[1]->tb_id;
 	}
