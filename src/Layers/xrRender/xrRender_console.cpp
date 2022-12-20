@@ -292,6 +292,10 @@ Fvector4 ps_dev_param_8 = { .0f, .0f, .0f, .0f };
 
 /////////////////////////////////
 
+// Screen Space Shaders Stuff
+Fvector4 ps_ssfx_wpn_dof_1 = { .0f, .0f, .0f, .0f };
+float ps_ssfx_wpn_dof_2 = 1.0f;
+
 //	x - min (0), y - focus (1.4), z - max (100)
 Fvector3 ps_r2_dof = { -1.25f, 0.f, 600.f };
 float ps_r2_dof_sky = 30; //	distance to sky
@@ -1070,6 +1074,10 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+	
+	// Screen Space Shaders
+	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
+	CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
 
 	// Geometry optimization
 	CMD4(CCC_Integer, "r__optimize_static_geom", &opt_static, 0, 4);
