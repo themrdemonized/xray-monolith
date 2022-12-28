@@ -116,6 +116,13 @@ void CGameObject::net_Destroy()
 #endif
 
 	VERIFY(m_spawned);
+
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CGameObject_NetDestroy", funct))
+	{
+		funct(this->lua_game_object());
+	}
+
 	if (m_anim_mov_ctrl)
 		destroy_anim_mov_ctrl();
 
@@ -441,6 +448,11 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	}
 	BOOL ret =CScriptBinder::net_Spawn(DC);
 #else
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CGameObject_NetSpawn", funct))
+	{
+		funct(this->lua_game_object());
+	}
 	return (CScriptBinder::net_Spawn(DC));
 #endif
 
