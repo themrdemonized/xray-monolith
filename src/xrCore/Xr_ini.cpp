@@ -7,6 +7,8 @@
 #include <regex>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
+#include <algorithm>
 #include "mezz_stringbuffer.h"
 
 XRCORE_API CInifile const* pSettings = NULL;
@@ -634,6 +636,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 	std::unordered_map<std::string, std::vector<std::string>> OverrideParentDataMap;
 	std::unordered_map<std::string, Sect> OverrideData;
+	std::unordered_map<Sect*, std::vector<CInifile::Item>> OverrideModifyListData;
 
 	std::unordered_map<std::string, Sect> FinalData;
 
@@ -682,6 +685,16 @@ void CInifile::Load(IReader* F, LPCSTR path
 			}
 			else
 			{
+				// demonized
+				// DLTX: add or remove item from the section parameter if it has a structure of "name = item1, item2, item3, ..."
+				// >name = item will add item to the list
+				// <name = item will remove item from the list
+				CInifile::Item &I = CurrentItem;
+				if (I.first.c_str()[0] == '<' || I.first.c_str()[0] == '>') {
+					OverrideModifyListData[CurrentSect].push_back(I);
+					return;
+				}
+
 				//Insert item if variable isn't already set
 				CInifile::SectIt_ sect_it = std::lower_bound(CurrentSect->Data.begin(), CurrentSect->Data.end(), *CurrentItem.first, item_pred);
 				if (sect_it != CurrentSect->Data.end() && sect_it->first.equal(CurrentItem.first))
@@ -769,6 +782,94 @@ void CInifile::Load(IReader* F, LPCSTR path
 				CurrentSect->Data.erase(It.base() - 1);
 			}
 		}
+
+		// If there is data to modify parameters lists
+		if (OverrideModifyListData.find(CurrentSect) != OverrideModifyListData.end()) {
+			for (auto It = OverrideModifyListData[CurrentSect].rbegin(); It != OverrideModifyListData[CurrentSect].rend(); ++It) {
+				CInifile::Item &I = *It;
+
+				// If section exists with item list, split list and perform operation
+				char dltx_listmode = I.first[0];
+				I.first = I.first.c_str() + 1;
+
+				CInifile::SectIt_ sect_it = std::lower_bound(CurrentSect->Data.begin(), CurrentSect->Data.end(), *I.first, item_pred);
+				if (sect_it != CurrentSect->Data.end() && sect_it->first.equal(I.first)) {
+
+					//Msg("%s has dltx_listmode %s", I.first.c_str(), std::string(1, dltx_listmode).c_str());
+
+					if (dltx_listmode && sect_it->second != NULL) {
+						// Split list 
+						auto split_list = [](const std::string items, const std::string delimiter = ",") {
+							std::string i = items;
+							std::vector<std::string> vec;
+							size_t pos = 0;
+							std::string token;
+							while ((pos = i.find(delimiter)) != std::string::npos) {
+								token = i.substr(0, pos);
+								vec.push_back(token);
+								i.erase(0, pos + delimiter.length());
+							}
+							vec.push_back(i);
+
+							auto trim = [](std::string &s, const char* t = " \t\n\r\f\v") {
+								s.erase(s.find_last_not_of(t) + 1);
+								s.erase(0, s.find_first_not_of(t));
+							};
+							for (auto &item : vec) {
+								trim(item);
+							}
+							return vec;
+						};
+						std::vector<std::string> sect_it_items_vec = split_list(sect_it->second.c_str());
+						std::vector<std::string> I_items_vec = split_list(I.second.c_str());
+
+						// Add or remove to the list
+						auto find_and_store_index = [](const std::vector<std::string> &items_vec, const std::string item, int &vec_index) {
+							auto it = std::find(items_vec.begin(), items_vec.end(), item);
+							if (it != items_vec.end()) {
+								vec_index = it - items_vec.begin();
+								return true;
+							}
+							else {
+								vec_index = -1;
+								return false;
+							}
+						};
+						int vec_index = -1;
+						for (const auto &item : I_items_vec) {
+							if (dltx_listmode == '>') {
+								sect_it_items_vec.push_back(item);
+							}
+							else if (dltx_listmode == '<') {
+								while (find_and_store_index(sect_it_items_vec, item, vec_index)) {
+									sect_it_items_vec.erase(sect_it_items_vec.begin() + vec_index);
+								}
+							}
+						}
+
+						// Store result back
+						auto join_list = [](const std::vector<std::string> &items_vec, const std::string delimiter = ",") {
+							std::string ret;
+							for (const auto &i : items_vec) {
+								if (!ret.empty()) {
+									ret += delimiter;
+								}
+								ret += i;
+							}
+							return ret;
+						};
+
+						std::string c(1, dltx_listmode);
+						Msg("%s has dltx_listmode %s, %s items", I.first.c_str(), c.c_str(), dltx_listmode == '>' ? "adding" : "removing");
+						Msg("old %s", sect_it->second.c_str());
+						Msg("new %s", join_list(sect_it_items_vec).c_str());
+
+						sect_it->second = join_list(sect_it_items_vec, ",").c_str();
+					}
+				}
+			}
+		}
+		
 
 		//Pop from stack
 		auto LastElement = PreviousEvaluations->end();
