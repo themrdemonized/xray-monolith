@@ -185,8 +185,19 @@ CInifile::~CInifile()
 		xr_delete(*I);
 }
 
+std::unordered_map<std::string, std::vector<CInifile::Item>> OverrideModifyListData;
+
 static void insert_item(CInifile::Sect* tgt, const CInifile::Item& I)
 {
+	// demonized
+	// DLTX: add or remove item from the section parameter if it has a structure of "name = item1, item2, item3, ..."
+	// >name = item will add item to the list
+	// <name = item will remove item from the list
+	if (I.first.c_str()[0] == '<' || I.first.c_str()[0] == '>') {
+		OverrideModifyListData[std::string(tgt->Name.c_str())].push_back(I);
+		return;
+	}
+
 	CInifile::SectIt_ sect_it = std::lower_bound(tgt->Data.begin(), tgt->Data.end(), *I.first, item_pred);
 	if (sect_it != tgt->Data.end() && sect_it->first.equal(I.first))
 	{
@@ -267,7 +278,6 @@ void CInifile::Load(IReader* F, LPCSTR path
 		)
 	{
 		Sect* Current = 0;
-
 		MezzStringBuffer str;
 		MezzStringBuffer str2;
 
@@ -636,7 +646,6 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 	std::unordered_map<std::string, std::vector<std::string>> OverrideParentDataMap;
 	std::unordered_map<std::string, Sect> OverrideData;
-	std::unordered_map<Sect*, std::vector<CInifile::Item>> OverrideModifyListData;
 
 	std::unordered_map<std::string, Sect> FinalData;
 
@@ -685,16 +694,6 @@ void CInifile::Load(IReader* F, LPCSTR path
 			}
 			else
 			{
-				// demonized
-				// DLTX: add or remove item from the section parameter if it has a structure of "name = item1, item2, item3, ..."
-				// >name = item will add item to the list
-				// <name = item will remove item from the list
-				CInifile::Item &I = CurrentItem;
-				if (I.first.c_str()[0] == '<' || I.first.c_str()[0] == '>') {
-					OverrideModifyListData[CurrentSect].push_back(I);
-					return;
-				}
-
 				//Insert item if variable isn't already set
 				CInifile::SectIt_ sect_it = std::lower_bound(CurrentSect->Data.begin(), CurrentSect->Data.end(), *CurrentItem.first, item_pred);
 				if (sect_it != CurrentSect->Data.end() && sect_it->first.equal(CurrentItem.first))
@@ -784,8 +783,8 @@ void CInifile::Load(IReader* F, LPCSTR path
 		}
 
 		// If there is data to modify parameters lists
-		if (OverrideModifyListData.find(CurrentSect) != OverrideModifyListData.end()) {
-			for (auto It = OverrideModifyListData[CurrentSect].rbegin(); It != OverrideModifyListData[CurrentSect].rend(); ++It) {
+		if (OverrideModifyListData.find(std::string(CurrentSect->Name.c_str())) != OverrideModifyListData.end()) {
+			for (auto It = OverrideModifyListData[std::string(CurrentSect->Name.c_str())].begin(); It != OverrideModifyListData[std::string(CurrentSect->Name.c_str())].end(); ++It) {
 				CInifile::Item &I = *It;
 
 				// If section exists with item list, split list and perform operation
@@ -859,10 +858,10 @@ void CInifile::Load(IReader* F, LPCSTR path
 							return ret;
 						};
 
-						std::string c(1, dltx_listmode);
+						/*std::string c(1, dltx_listmode);
 						Msg("%s has dltx_listmode %s, %s items", I.first.c_str(), c.c_str(), dltx_listmode == '>' ? "adding" : "removing");
 						Msg("old %s", sect_it->second.c_str());
-						Msg("new %s", join_list(sect_it_items_vec).c_str());
+						Msg("new %s", join_list(sect_it_items_vec).c_str());*/
 
 						sect_it->second = join_list(sect_it_items_vec, ",").c_str();
 					}
@@ -908,6 +907,9 @@ void CInifile::Load(IReader* F, LPCSTR path
 		RootIt I = std::lower_bound(DATA.begin(), DATA.end(), SectPair.first.c_str(), sect_pred);
 		DATA.insert(I, NewSect);
 	}
+
+	// Clean modifiers of parameters' lists
+	OverrideModifyListData.clear();
 
 	//throw errors if there are overrides that never got used
 	if (OverrideData.size())
