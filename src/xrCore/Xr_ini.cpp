@@ -193,7 +193,7 @@ static void insert_item(CInifile::Sect* tgt, const CInifile::Item& I)
 	// DLTX: add or remove item from the section parameter if it has a structure of "name = item1, item2, item3, ..."
 	// >name = item will add item to the list
 	// <name = item will remove item from the list
-	if (I.first.c_str()[0] == '<' || I.first.c_str()[0] == '>') {
+	if (*I.first && (I.first.c_str()[0] == '<' || I.first.c_str()[0] == '>')) {
 		OverrideModifyListData[std::string(tgt->Name.c_str())].push_back(I);
 		return;
 	}
