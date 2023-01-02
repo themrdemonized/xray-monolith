@@ -2491,6 +2491,55 @@ void CScriptGameObject::SetActorRunBackCoef(float run_back_coef)
 	pActor->m_fRunBackFactor = run_back_coef;
 }
 
+
+float CScriptGameObject::GetActorWalkAccel() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorWalkAccel!");
+		return (false);
+	}
+	return (pActor->m_fWalkAccel);
+}
+void CScriptGameObject::SetActorWalkAccel(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorWalkAccel!");
+		return;
+	}
+	pActor->m_fWalkAccel = val;
+}
+
+
+float CScriptGameObject::GetActorWalkBackCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorWalkBackCoef!");
+		return (false);
+	}
+	return (pActor->m_fWalkBackFactor);
+}
+void CScriptGameObject::SetActorWalkBackCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorWalkBackCoef!");
+		return;
+	}
+	pActor->m_fWalkBackFactor = val;
+}
+
+
 void CScriptGameObject::SetCharacterIcon(LPCSTR iconName)
 {
 	CInventoryOwner* pInventoryOwner = smart_cast<CInventoryOwner*>(&object());

@@ -14,6 +14,7 @@ public:
 	void load(shared_str const& section);
 	bool is_bullet_first(float actor_linear_velocity) const;
 	inline float get_fire_dispertion() const { return m_fire_dispertion; };
+	inline void set_fire_dispertion(float val) { m_fire_dispertion = val; };
 	void make_shot();
 }; //class first_bullet_controller
 

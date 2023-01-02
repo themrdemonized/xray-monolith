@@ -287,6 +287,9 @@ void CActor::on_weapon_shot_start(CWeapon* weapon)
 		{
 			effector->Initialize(camera_recoil);
 		}
+		else {
+			effector->UpdateCameraRecoil(camera_recoil);
+		}
 	}
 
 	effector->m_WeaponID = weapon->ID();
