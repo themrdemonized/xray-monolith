@@ -45,6 +45,7 @@ public:
 	};
 
 	void Initialize(const CameraRecoil& cam_recoil);
+	void UpdateCameraRecoil(const CameraRecoil& cam_recoil);
 	void Reset();
 
 	IC bool IsActive() { return m_actived; }

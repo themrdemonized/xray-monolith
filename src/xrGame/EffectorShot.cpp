@@ -21,6 +21,11 @@ void CWeaponShotEffector::Initialize(const CameraRecoil& cam_recoil)
 	Reset();
 }
 
+void CWeaponShotEffector::UpdateCameraRecoil(const CameraRecoil& cam_recoil)
+{
+	m_cam_recoil.Clone(cam_recoil);
+}
+
 void CWeaponShotEffector::Reset()
 {
 	m_angle_vert = 0.0f;

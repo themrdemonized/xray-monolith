@@ -409,7 +409,16 @@ public:
 	LPCSTR GetScopeNameScript() const { return *GetScopeName(); }
 	float GetFireDispersionScript() const { return fireDispersionBase; }
 	float RPMScript() const { return fOneShotTime; }
+	float RealRPMScript() const { return 60.0f / fOneShotTime; } // Return actual RPM like in configs
 	float ModeRPMScript() const { return fModeShotTime; }
+	float ModeRealRPMScript() const { return 60.0f / fModeShotTime; }
+
+	//Setters
+	void SetFireDispersionScript(float val) { fireDispersionBase = val; }
+	void SetRPM(float newOneShotTime) { fOneShotTime = newOneShotTime; } // Input - time between shots like received from getter
+	void SetRealRPM(float rpm) { fOneShotTime = 60.0f / rpm; } // Input - actual RPM like in configs
+	void SetModeRPM(float newOneShotTime) { fModeShotTime = newOneShotTime; } // Input - time between shots like received from getter
+	void SetModeRealRPM(float rpm) { fModeShotTime = 60.0f / rpm; } // Input - actual RPM like in configs
 
 	virtual float Weight() const;
 	virtual u32 Cost() const;
@@ -586,6 +595,42 @@ public:
 	CameraRecoil cam_recoil; // simple mode (walk, run)
 	CameraRecoil zoom_cam_recoil; // using zoom =(ironsight or scope)
 
+	// Getters
+	float GetCamRelaxSpeed() { return cam_recoil.RelaxSpeed; };
+	float GetCamRelaxSpeed_AI() { return cam_recoil.RelaxSpeed_AI; };
+	float GetCamDispersion() { return cam_recoil.Dispersion; };
+	float GetCamDispersionInc() { return cam_recoil.DispersionInc; };
+	float GetCamDispersionFrac() { return cam_recoil.DispersionFrac; };
+	float GetCamMaxAngleVert() { return cam_recoil.MaxAngleVert; };
+	float GetCamMaxAngleHorz() { return cam_recoil.MaxAngleHorz; };
+	float GetCamStepAngleHorz() { return cam_recoil.StepAngleHorz; };
+	float GetZoomCamRelaxSpeed() { return zoom_cam_recoil.RelaxSpeed; };
+	float GetZoomCamRelaxSpeed_AI() { return zoom_cam_recoil.RelaxSpeed_AI; };
+	float GetZoomCamDispersion() { return zoom_cam_recoil.Dispersion; };
+	float GetZoomCamDispersionInc() { return zoom_cam_recoil.DispersionInc; };
+	float GetZoomCamDispersionFrac() { return zoom_cam_recoil.DispersionFrac; };
+	float GetZoomCamMaxAngleVert() { return zoom_cam_recoil.MaxAngleVert; };
+	float GetZoomCamMaxAngleHorz() { return zoom_cam_recoil.MaxAngleHorz; };
+	float GetZoomCamStepAngleHorz() { return zoom_cam_recoil.StepAngleHorz; };
+
+	// Setters
+	void SetCamRelaxSpeed(float val) { cam_recoil.RelaxSpeed = val; };
+	void SetCamRelaxSpeed_AI(float val) { cam_recoil.RelaxSpeed_AI = val; };
+	void SetCamDispersion(float val) { cam_recoil.Dispersion = val; };
+	void SetCamDispersionInc(float val) { cam_recoil.DispersionInc = val; };
+	void SetCamDispersionFrac(float val) { cam_recoil.DispersionFrac = val; };
+	void SetCamMaxAngleVert(float val) { cam_recoil.MaxAngleVert = val; };
+	void SetCamMaxAngleHorz(float val) { cam_recoil.MaxAngleHorz = val; };
+	void SetCamStepAngleHorz(float val) { cam_recoil.StepAngleHorz = val; };
+	void SetZoomCamRelaxSpeed(float val) { zoom_cam_recoil.RelaxSpeed = val; };
+	void SetZoomCamRelaxSpeed_AI(float val) { zoom_cam_recoil.RelaxSpeed_AI = val; };
+	void SetZoomCamDispersion(float val) { zoom_cam_recoil.Dispersion = val; };
+	void SetZoomCamDispersionInc(float val) { zoom_cam_recoil.DispersionInc = val; };
+	void SetZoomCamDispersionFrac(float val) { zoom_cam_recoil.DispersionFrac = val; };
+	void SetZoomCamMaxAngleVert(float val) { zoom_cam_recoil.MaxAngleVert = val; };
+	void SetZoomCamMaxAngleHorz(float val) { zoom_cam_recoil.MaxAngleHorz = val; };
+	void SetZoomCamStepAngleHorz(float val) { zoom_cam_recoil.StepAngleHorz = val; };
+
 protected:
 	//ôàêòîð óâåëè÷åíèÿ äèñïåðñèè ïðè ìàêñèìàëüíîé èçíîøåíîñòè
 	//(íà ñêîëüêî ïðîöåíòîâ óâåëè÷èòñÿ äèñïåðñèÿ)
@@ -611,6 +656,17 @@ public:
 	float GetMisfireEndCondition() const
 	{
 		return misfireEndCondition;
+	};
+
+	// Setters
+	void SetMisfireStartCondition(float val)
+	{
+		misfireStartCondition = val;
+	};
+
+	void SetMisfireEndCondition(float val)
+	{
+		misfireEndCondition = val;
 	};
 
 protected:
@@ -773,6 +829,107 @@ public:
 	{
 		return m_first_bullet_controller.get_fire_dispertion();
 	};
+
+	// Setters
+	virtual void Set_PDM_Base(float val) 
+	{
+		m_pdm.m_fPDM_disp_base = val;
+	};
+
+	virtual void Set_Silencer_PDM_Base(float val) 
+	{
+		cur_silencer_koef.pdm_base = val;
+	};
+
+	virtual void Set_Scope_PDM_Base(float val) 
+	{
+		cur_scope_koef.pdm_base = val;
+	};
+
+	virtual void Set_Launcher_PDM_Base(float val) 
+	{
+		cur_launcher_koef.pdm_base = val;
+	};
+
+	virtual void Set_PDM_BuckShot(float val) 
+	{
+		m_pdm.m_fPDM_disp_buckShot = val;
+	};
+
+	virtual void Set_PDM_Vel_F(float val) 
+	{
+		m_pdm.m_fPDM_disp_vel_factor = val;
+	};
+
+	virtual void Set_Silencer_PDM_Vel(float val) 
+	{
+		cur_silencer_koef.pdm_vel = val;
+	};
+
+	virtual void Set_Scope_PDM_Vel(float val) 
+	{
+		cur_scope_koef.pdm_vel = val;
+	};
+
+	virtual void Set_Launcher_PDM_Vel(float val) 
+	{
+		cur_launcher_koef.pdm_vel = val;
+	};
+
+	virtual void Set_PDM_Accel_F(float val) 
+	{
+		m_pdm.m_fPDM_disp_accel_factor = val;
+	};
+
+	virtual void Set_Silencer_PDM_Accel(float val) 
+	{
+		cur_silencer_koef.pdm_accel = val;
+	};
+
+	virtual void Set_Scope_PDM_Accel(float val) 
+	{
+		cur_scope_koef.pdm_accel = val;
+	};
+
+	virtual void Set_Launcher_PDM_Accel(float val) 
+	{
+		cur_launcher_koef.pdm_accel = val;
+	};
+
+	virtual void Set_PDM_Crouch(float val) 
+	{
+		m_pdm.m_fPDM_disp_crouch = val;
+	};
+
+	virtual void Set_PDM_Crouch_NA(float val) 
+	{
+		m_pdm.m_fPDM_disp_crouch_no_acc = val;
+	};
+
+	virtual void SetCrosshairInertion(float val) 
+	{
+		m_crosshair_inertion = val;
+	};
+
+	virtual void Set_Silencer_CrosshairInertion(float val) 
+	{
+		cur_silencer_koef.crosshair_inertion = val;
+	};
+
+	virtual void Set_Scope_CrosshairInertion(float val) 
+	{
+		cur_scope_koef.crosshair_inertion = val;
+	};
+
+	virtual void Set_Launcher_CrosshairInertion(float val)
+	{
+		cur_launcher_koef.crosshair_inertion = val;
+	};
+
+	void SetFirstBulletDisp(float val)
+	{
+		m_first_bullet_controller.set_fire_dispertion(val);
+	};
 protected:
 	int iAmmoElapsed; // ammo in magazine, currently
 	int iMagazineSize; // size (in bullets) of magazine
@@ -818,6 +975,20 @@ public:
 	virtual float GetHitPowerCritical() { return fvHitPowerCritical[g_SingleGameDifficulty]; };
 	virtual float GetHitImpulse() { return fHitImpulse; };
 	virtual float GetFireDistance() { return fireDistance; };
+
+	// Setters
+	virtual void SetHitPower(float val) {
+		for (int i = ESingleGameDifficulty::egdNovice; i < ESingleGameDifficulty::egdCount; i++) {
+			fvHitPower[i] = val;
+		}
+	};
+	virtual void SetHitPowerCritical(float val) {
+		for (int i = ESingleGameDifficulty::egdNovice; i < ESingleGameDifficulty::egdCount; i++) {
+			fvHitPowerCritical[i] = val;
+		}
+	};
+	virtual void SetHitImpulse(float val) { fHitImpulse = val; };
+	virtual void SetFireDistance(float val) { fireDistance = val; };
 	
 	IC u8 GetZoomType() const
 	{

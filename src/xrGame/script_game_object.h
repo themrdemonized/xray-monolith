@@ -1027,6 +1027,10 @@ public:
 	void SetActorRunCoef(float run_coef);
 	float GetActorRunBackCoef() const;
 	void SetActorRunBackCoef(float run_back_coef);
+	float GetActorWalkAccel() const;
+	void SetActorWalkAccel(float val);
+	float GetActorWalkBackCoef() const;
+	void SetActorWalkBackCoef(float val);
 
 	void SetCharacterIcon(LPCSTR iconName);
 #endif

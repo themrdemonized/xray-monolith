@@ -257,6 +257,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 	string_path currentFileName;
 	std::unordered_map<std::string, std::unordered_map<std::string, bool>> OverrideToFilename;
+	std::unordered_map<std::string, std::string> SectionToFilename;
 
 	std::function<void
 		(
@@ -361,7 +362,8 @@ void CInifile::Load(IReader* F, LPCSTR path
 				{
 					if (!bIsCurrentSectionOverride)
 					{
-						Debug.fatal(DEBUG_INFO, "Duplicate section '%s' wasn't marked as an override. Override section by prefixing it with '!' (![%s]) or give it a unique name. Check this file and its DLTX mods: %s, mod file %s", *Current->Name, *Current->Name, m_file_name, currentFileName);
+
+						Debug.fatal(DEBUG_INFO, "Duplicate section '%s' wasn't marked as an override.\n\nOverride section by prefixing it with '!' (![%s]) or give it a unique name.\n\nCheck this file and its DLTX mods:\n\"%s\",\nfile with section \"%s\",\nfile with duplicate \"%s\"", *Current->Name, *Current->Name, m_file_name, SectionToFilename[std::string(Current->Name.c_str())], currentFileName);
 					}
 
 					//Overwrite existing override data
@@ -376,6 +378,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 				{
 					OutputData->emplace(std::pair<std::string, Sect>(std::string(Current->Name.c_str()), *Current));
 					OverrideToFilename[std::string(Current->Name.c_str())][currentFileName] = true;
+					SectionToFilename[std::string(Current->Name.c_str())] = currentFileName;
 				}
 			}
 

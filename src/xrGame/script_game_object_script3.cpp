@@ -536,6 +536,12 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("get_actor_runback_coef", &CScriptGameObject::GetActorRunBackCoef)
 		.def("set_actor_runback_coef", &CScriptGameObject::SetActorRunBackCoef)
 		//end AVO
+
+		// Additional exports
+		.def("get_actor_walk_accel", &CScriptGameObject::GetActorWalkAccel)
+		.def("set_actor_walk_accel", &CScriptGameObject::SetActorWalkAccel)
+		.def("get_actor_walk_back_coef", &CScriptGameObject::GetActorWalkBackCoef)
+		.def("set_actor_walk_back_coef", &CScriptGameObject::SetActorWalkBackCoef)
 #endif
 
 		.def("set_can_be_harmed", &CScriptGameObject::SetCanBeHarmed)
