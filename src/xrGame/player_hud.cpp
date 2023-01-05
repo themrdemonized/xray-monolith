@@ -401,7 +401,7 @@ void attachable_hud_item::load(const shared_str& sect_name)
 	// Visual
 	LPCSTR visual_name = pSettings->r_string(sect_name, "item_visual");
 	IKinematicsAnimated* visual = ::Render->model_Create(visual_name)->dcast_PKinematicsAnimated();
-	R_ASSERT2(visual, make_string("could not create model %s", visual_name));
+	R_ASSERT2(visual, make_string("could not create model %s, section %s", visual_name, sect_name.c_str()));
 	m_model = smart_cast<IKinematics*>(visual);
 
 	m_attach_place_idx = pSettings->r_u16(sect_name, "attach_place_idx");
@@ -456,7 +456,7 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 		else if (bDebug)
 			Msg("playing item animation [%s]", item_anm_name.c_str());
 
-		R_ASSERT3(M2.valid(), "model has no motion [idle] ", pSettings->r_string(m_sect_name, "item_visual"));
+		R_ASSERT3(M2.valid(), make_string("model has no motion [idle], section %s", m_sect_name.c_str()).c_str(), pSettings->r_string(m_sect_name, "item_visual"));
 
 		u16 root_id = m_model->LL_GetBoneRoot();
 		CBoneInstance& root_binst = m_model->LL_GetBoneInstance(root_id);
@@ -1442,8 +1442,10 @@ void player_hud::remove_from_model_pool(LPCSTR sect)
 	}
 }
 
+shared_str current_player_hud_sect;
 attachable_hud_item* player_hud::create_hud_item(const shared_str& sect)
 {
+	current_player_hud_sect = sect;
 	xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
 	xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
 	for (; it != it_e; ++it)
