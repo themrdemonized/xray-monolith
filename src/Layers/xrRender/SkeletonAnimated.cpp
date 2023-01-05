@@ -11,6 +11,7 @@
 #include	"../../xrcore/dump_string.h"
 #endif
 extern int psSkeletonUpdate;
+extern shared_str current_player_hud_sect;
 using namespace animation;
 //////////////////////////////////////////////////////////////////////////
 // BoneInstance methods
@@ -781,7 +782,7 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 		if (!FS.exist(fn, "$level$", _path))
 		{
 			if (!FS.exist(fn, "$game_meshes$", _path))
-				Debug.fatal(DEBUG_INFO, "Can't find motion file '%s'.", _path);
+				Debug.fatal(DEBUG_INFO, "Can't find motion file '%s'\nsection '%s'\nmodel '%s'", _path, current_player_hud_sect.c_str(), N);
 		}
 
 		// Check compatibility
@@ -798,7 +799,7 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 		else
 		{
 			m_Motions.pop_back();
-			Msg("! error in model [%s]. Unable to load motion file '%s'.", N, _path);
+			Msg("! error in model [%s]. Unable to load motion file '%s', section '%s'.", N, _path, current_player_hud_sect.c_str());
 		}
 	};
 
