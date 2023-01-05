@@ -9,7 +9,7 @@
 
 namespace soundSmoothingParams {
 	float power = 1.8;
-	int steps = 20;
+	int steps = 15;
 	float alpha = getAlpha();
 	IC float getAlpha() {
 		return 2.0f / (steps + 1);
