@@ -809,7 +809,7 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 		string_path items_nm;
 		data->r_stringZ(items_nm, sizeof(items_nm));
 		u32 set_cnt = _GetItemCount(items_nm);
-		R_ASSERT(set_cnt<MAX_ANIM_SLOT);
+		R_ASSERT2(set_cnt<MAX_ANIM_SLOT, make_string("section '%s'\nmodel '%s'", current_player_hud_sect.c_str(), N).c_str());
 		m_Motions.reserve(set_cnt);
 		string_path nm;
 		for (u32 k = 0; k < set_cnt; ++k)
@@ -854,7 +854,7 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 		m_Motions.back().motions.create(nm, data, bones);
 	}
 
-	R_ASSERT(m_Motions.size());
+	R_ASSERT2(m_Motions.size(), make_string("section '%s'\nmodel '%s'", current_player_hud_sect.c_str(), N).c_str());
 
 	m_Partition = m_Motions[0].motions.partition();
 	m_Partition->load(this, N);
