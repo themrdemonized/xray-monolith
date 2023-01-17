@@ -2,6 +2,7 @@
 #pragma hdrstop
 
 #include "cpuid.h"
+#include <intrin.h>
 
 #include <array>
 #include <bitset>

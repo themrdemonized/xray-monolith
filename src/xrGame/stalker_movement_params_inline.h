@@ -9,6 +9,8 @@
 #ifndef STALKER_MOVEMENT_PARAMS_INLINE_H_INCLUDED
 #define STALKER_MOVEMENT_PARAMS_INLINE_H_INCLUDED
 
+#include "smart_cover.h"
+
 IC void stalker_movement_params::construct(stalker_movement_manager_smart_cover* manager)
 {
 	VERIFY(!m_manager);
@@ -99,6 +101,47 @@ IC void stalker_movement_params::cover_fire_position(Fvector const* position)
 IC Fvector const* stalker_movement_params::cover_fire_position() const
 {
 	return (m_cover_fire_position);
+}
+
+IC void stalker_movement_params::cover_loophole_id(shared_str const& loophole_id)
+{
+	cover_fire_object(0);
+	cover_fire_position(0);
+
+	if (m_cover_loophole_id == loophole_id)
+		return;
+
+	m_cover_loophole_id = loophole_id;
+	m_selected_loophole_actual = false;
+	m_cover_selected_loophole = 0;
+
+	if (!loophole_id.size())
+	{
+		m_cover_loophole = 0;
+		return;
+	}
+
+	VERIFY(m_cover);
+
+	typedef smart_cover::cover::Loopholes Loopholes;
+	Loopholes const& loopholes = m_cover->description()->loopholes();
+	Loopholes::const_iterator i =
+		std::find_if(
+			loopholes.begin(),
+			loopholes.end(),
+			loophole_id_predicate(loophole_id)
+		);
+
+	VERIFY2(
+		i != loopholes.end(),
+		make_string(
+			"loophole [%s] not present in smart_cover [%s]",
+			loophole_id.c_str(),
+			m_cover_id.c_str()
+		)
+	);
+
+	m_cover_loophole = *i;
 }
 
 #endif // #ifndef STALKER_MOVEMENT_PARAMS_INLINE_H_INCLUDED
