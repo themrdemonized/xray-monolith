@@ -210,7 +210,7 @@ u64 __fastcall GetCLK(void)
 		// Detect QPC Overhead
 		QueryPerformanceFrequency((PLARGE_INTEGER)&qpc_freq);
 		qpc_overhead = 0;
-		for (i = 0; i < 256; i++)
+		for (int i = 0; i < 256; i++)
 		{
 			start = QPC();
 			qpc_overhead += QPC() - start - dummy;

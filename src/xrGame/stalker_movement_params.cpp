@@ -144,62 +144,6 @@ void stalker_movement_params::cover_id(shared_str const& cover_id)
 	m_cover = ai().cover_manager().smart_cover(cover_id);
 }
 
-struct loophole_id_predicate
-{
-	shared_str m_id;
-
-	IC loophole_id_predicate(shared_str const& id) :
-		m_id(id)
-	{
-	}
-
-	IC bool operator()(smart_cover::loophole* loophole) const
-	{
-		return (loophole->id()._get() == m_id._get());
-	}
-}; // struct loophole_id_predicate
-
-void stalker_movement_params::cover_loophole_id(shared_str const& loophole_id)
-{
-	cover_fire_object(0);
-	cover_fire_position(0);
-
-	if (m_cover_loophole_id == loophole_id)
-		return;
-
-	m_cover_loophole_id = loophole_id;
-	m_selected_loophole_actual = false;
-	m_cover_selected_loophole = 0;
-
-	if (!loophole_id.size())
-	{
-		m_cover_loophole = 0;
-		return;
-	}
-
-	VERIFY(m_cover);
-
-	typedef smart_cover::cover::Loopholes Loopholes;
-	Loopholes const& loopholes = m_cover->description()->loopholes();
-	Loopholes::const_iterator i =
-		std::find_if(
-			loopholes.begin(),
-			loopholes.end(),
-			loophole_id_predicate(loophole_id)
-		);
-
-	VERIFY2(
-		i != loopholes.end(),
-		make_string (
-			"loophole [%s] not present in smart_cover [%s]",
-			loophole_id.c_str(),
-			m_cover_id.c_str()
-		)
-	);
-
-	m_cover_loophole = *i;
-}
-
 void stalker_movement_params::actualize_loophole() const
 {
 	if (m_selected_loophole_actual)
