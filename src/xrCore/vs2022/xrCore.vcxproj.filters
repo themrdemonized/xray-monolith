@@ -81,526 +81,188 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FTimer.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrCore.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="_compressed_normal.cpp">
-      <Filter>Math</Filter>
-    </ClCompile>
-    <ClCompile Include="_math.cpp">
-      <Filter>Math</Filter>
-    </ClCompile>
-    <ClCompile Include="_sphere.cpp">
-      <Filter>Math</Filter>
-    </ClCompile>
-    <ClCompile Include="dump_string.cpp">
-      <Filter>Math</Filter>
-    </ClCompile>
-    <ClCompile Include="cpuid.cpp">
-      <Filter>Math\CPU</Filter>
-    </ClCompile>
-    <ClCompile Include="_std_extensions.cpp">
-      <Filter>Math\Extensions</Filter>
-    </ClCompile>
-    <ClCompile Include="clsid.cpp">
-      <Filter>Math\Extensions</Filter>
-    </ClCompile>
-    <ClCompile Include="string_concatenations.cpp">
-      <Filter>Math\Extensions</Filter>
-    </ClCompile>
-    <ClCompile Include="xr_trims.cpp">
-      <Filter>Math\Extensions</Filter>
-    </ClCompile>
-    <ClCompile Include="FileSystem.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="FileSystem_borland.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="FS.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="LocatorAPI.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="LocatorAPI_auth.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="LocatorAPI_defs.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="LocatorAPI_Notifications.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="log.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="NET_utils.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="Xr_ini.cpp">
-      <Filter>FS</Filter>
-    </ClCompile>
-    <ClCompile Include="stream_reader.cpp">
-      <Filter>FS\stream_reader</Filter>
-    </ClCompile>
-    <ClCompile Include="file_stream_reader.cpp">
-      <Filter>FS\file_stream_reader</Filter>
-    </ClCompile>
-    <ClCompile Include="memory_allocation_stats.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="memory_usage.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_align.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_debug.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_POOL.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_pso_Copy.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_pso_Fill.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_pso_Fill32.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_subst_borland.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrMemory_subst_msvc.cpp">
-      <Filter>Memory manager</Filter>
-    </ClCompile>
-    <ClCompile Include="xrDebug.cpp">
-      <Filter>Debug core</Filter>
-    </ClCompile>
-    <ClCompile Include="xrDebugNew.cpp">
-      <Filter>Debug core</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\BlackBoxUI.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\BSUFunctions.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\CrashHandler.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\DiagAssert.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\GetLoadedModules.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\IsNT.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\NT4ProcessInfo.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\stdafx_.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="blackbox\TLHELPProcessInfo.cpp">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClCompile>
-    <ClCompile Include="crc32.cpp">
-      <Filter>shared memory/string library</Filter>
-    </ClCompile>
-    <ClCompile Include="xr_shared.cpp">
-      <Filter>shared memory/string library</Filter>
-    </ClCompile>
-    <ClCompile Include="xrsharedmem.cpp">
-      <Filter>shared memory/string library</Filter>
-    </ClCompile>
-    <ClCompile Include="xrstring.cpp">
-      <Filter>shared memory/string library</Filter>
-    </ClCompile>
-    <ClCompile Include="memory_monitor.cpp">
-      <Filter>memory_monitor</Filter>
-    </ClCompile>
-    <ClCompile Include="ppmd_compressor.cpp">
-      <Filter>Compression\ppmd</Filter>
-    </ClCompile>
-    <ClCompile Include="Model.cpp">
-      <Filter>Compression\ppmd\core</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_compressor.cpp">
-      <Filter>Compression\rt</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_compressor9.cpp">
-      <Filter>Compression\rt</Filter>
-    </ClCompile>
-    <ClCompile Include="LzHuf.cpp">
-      <Filter>Compression\lz</Filter>
-    </ClCompile>
-    <ClCompile Include="lzo_compressor.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_lzo1x_1.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_lzo1x_9x.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_lzo1x_d1.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_lzo1x_d2.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_lzo1x_d3.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="rt_lzo_init.cpp">
-      <Filter>Compression\lzo</Filter>
-    </ClCompile>
-    <ClCompile Include="os_clipboard.cpp">
-      <Filter>OS</Filter>
-    </ClCompile>
-    <ClCompile Include="xrSyncronize.cpp" />
-    <ClCompile Include="Lock.cpp">
-      <Filter>Threading</Filter>
-    </ClCompile>
-    <ClCompile Include="ScopeLock.cpp">
-      <Filter>Threading</Filter>
-    </ClCompile>
+    <ClCompile Include="..\blackbox\BlackBoxUI.cpp" />
+    <ClCompile Include="..\blackbox\BSUFunctions.cpp" />
+    <ClCompile Include="..\blackbox\CrashHandler.cpp" />
+    <ClCompile Include="..\blackbox\DiagAssert.cpp" />
+    <ClCompile Include="..\blackbox\GetLoadedModules.cpp" />
+    <ClCompile Include="..\blackbox\IsNT.cpp" />
+    <ClCompile Include="..\blackbox\NT4ProcessInfo.cpp" />
+    <ClCompile Include="..\blackbox\stdafx_.cpp" />
+    <ClCompile Include="..\blackbox\TLHELPProcessInfo.cpp" />
+    <ClCompile Include="..\clsid.cpp" />
+    <ClCompile Include="..\cpuid.cpp" />
+    <ClCompile Include="..\crc32.cpp" />
+    <ClCompile Include="..\dump_string.cpp" />
+    <ClCompile Include="..\FileSystem.cpp" />
+    <ClCompile Include="..\FileSystem_borland.cpp" />
+    <ClCompile Include="..\file_stream_reader.cpp" />
+    <ClCompile Include="..\FS.cpp" />
+    <ClCompile Include="..\FTimer.cpp" />
+    <ClCompile Include="..\LocatorAPI.cpp" />
+    <ClCompile Include="..\LocatorAPI_auth.cpp" />
+    <ClCompile Include="..\LocatorAPI_defs.cpp" />
+    <ClCompile Include="..\LocatorAPI_Notifications.cpp" />
+    <ClCompile Include="..\Lock.cpp" />
+    <ClCompile Include="..\log.cpp" />
+    <ClCompile Include="..\LzHuf.cpp" />
+    <ClCompile Include="..\lzo_compressor.cpp" />
+    <ClCompile Include="..\memory_allocation_stats.cpp" />
+    <ClCompile Include="..\memory_monitor.cpp" />
+    <ClCompile Include="..\memory_usage.cpp" />
+    <ClCompile Include="..\Model.cpp" />
+    <ClCompile Include="..\NET_utils.cpp" />
+    <ClCompile Include="..\os_clipboard.cpp" />
+    <ClCompile Include="..\ppmd_compressor.cpp" />
+    <ClCompile Include="..\rt_compressor.cpp" />
+    <ClCompile Include="..\rt_compressor9.cpp" />
+    <ClCompile Include="..\rt_lzo1x_1.cpp" />
+    <ClCompile Include="..\rt_lzo1x_9x.cpp" />
+    <ClCompile Include="..\rt_lzo1x_d1.cpp" />
+    <ClCompile Include="..\rt_lzo1x_d2.cpp" />
+    <ClCompile Include="..\rt_lzo1x_d3.cpp" />
+    <ClCompile Include="..\rt_lzo_init.cpp" />
+    <ClCompile Include="..\ScopeLock.cpp" />
+    <ClCompile Include="..\stdafx.cpp" />
+    <ClCompile Include="..\stream_reader.cpp" />
+    <ClCompile Include="..\string_concatenations.cpp" />
+    <ClCompile Include="..\xrCore.cpp" />
+    <ClCompile Include="..\xrDebug.cpp" />
+    <ClCompile Include="..\xrDebugNew.cpp" />
+    <ClCompile Include="..\xrMemory.cpp" />
+    <ClCompile Include="..\xrMemory_align.cpp" />
+    <ClCompile Include="..\xrMemory_debug.cpp" />
+    <ClCompile Include="..\xrMemory_POOL.cpp" />
+    <ClCompile Include="..\xrMemory_pso_Copy.cpp" />
+    <ClCompile Include="..\xrMemory_pso_Fill.cpp" />
+    <ClCompile Include="..\xrMemory_pso_Fill32.cpp" />
+    <ClCompile Include="..\xrMemory_subst_borland.cpp" />
+    <ClCompile Include="..\xrMemory_subst_msvc.cpp" />
+    <ClCompile Include="..\xrsharedmem.cpp" />
+    <ClCompile Include="..\xrstring.cpp" />
+    <ClCompile Include="..\xrSyncronize.cpp" />
+    <ClCompile Include="..\Xr_ini.cpp" />
+    <ClCompile Include="..\xr_shared.cpp" />
+    <ClCompile Include="..\xr_trims.cpp" />
+    <ClCompile Include="..\_compressed_normal.cpp" />
+    <ClCompile Include="..\_math.cpp" />
+    <ClCompile Include="..\_sphere.cpp" />
+    <ClCompile Include="..\_std_extensions.cpp" />
+    <ClCompile Include="..\mezz_stringbuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="FTimer.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="stdafx.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="xrCore.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="xrCore_platform.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="_bitwise.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_color.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_compressed_normal.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_cylinder.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_fbox.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_fbox2.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_flags.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_math.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_matrix.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_matrix33.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_obb.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_plane.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_plane2.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_quaternion.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_random.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_rect.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_sphere.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_types.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_vector2.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_vector3d.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_vector3d_ext.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="_vector4.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="dump_string.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="vector.h">
-      <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="cpuid.h">
-      <Filter>Math\CPU</Filter>
-    </ClInclude>
-    <ClInclude Include="FixedMap.h">
-      <Filter>Math\STLext</Filter>
-    </ClInclude>
-    <ClInclude Include="FixedSet.h">
-      <Filter>Math\STLext</Filter>
-    </ClInclude>
-    <ClInclude Include="FixedVector.h">
-      <Filter>Math\STLext</Filter>
-    </ClInclude>
-    <ClInclude Include="xrPool.h">
-      <Filter>Math\STLext</Filter>
-    </ClInclude>
-    <ClInclude Include="_std_extensions.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="_stl_extensions.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="_type_traits.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="clsid.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="fastdelegate.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="string_concatenations.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="string_concatenations_inline.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_trims.h">
-      <Filter>Math\Extensions</Filter>
-    </ClInclude>
-    <ClInclude Include="buffer_vector.h">
-      <Filter>Math\Extensions\buffer_vector</Filter>
-    </ClInclude>
-    <ClInclude Include="buffer_vector_inline.h">
-      <Filter>Math\Extensions\buffer_vector</Filter>
-    </ClInclude>
-    <ClInclude Include="FS.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="FS_impl.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="FS_internal.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="LocatorAPI.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="LocatorAPI_defs.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="log.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="net_utils.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_ini.h">
-      <Filter>FS</Filter>
-    </ClInclude>
-    <ClInclude Include="stream_reader.h">
-      <Filter>FS\stream_reader</Filter>
-    </ClInclude>
-    <ClInclude Include="stream_reader_inline.h">
-      <Filter>FS\stream_reader</Filter>
-    </ClInclude>
-    <ClInclude Include="file_stream_reader.h">
-      <Filter>FS\file_stream_reader</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMemory.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMemory_align.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMEMORY_POOL.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMemory_pso.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMemory_pure.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMemory_subst_borland.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrMemory_subst_msvc.h">
-      <Filter>Memory manager</Filter>
-    </ClInclude>
-    <ClInclude Include="xrDebug.h">
-      <Filter>Debug core</Filter>
-    </ClInclude>
-    <ClInclude Include="xrDebug_macros.h">
-      <Filter>Debug core</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\BugslayerUtil.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\CrashHandler.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\DiagAssert.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\Internal.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\stdafx_.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\SymbolEngine.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\WarningsOff.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="blackbox\WarningsOn.h">
-      <Filter>Debug core\BlackBox</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_resource.h">
-      <Filter>shared memory/string library</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_shared.h">
-      <Filter>shared memory/string library</Filter>
-    </ClInclude>
-    <ClInclude Include="xrsharedmem.h">
-      <Filter>shared memory/string library</Filter>
-    </ClInclude>
-    <ClInclude Include="xrstring.h">
-      <Filter>shared memory/string library</Filter>
-    </ClInclude>
-    <ClInclude Include="intrusive_ptr.h">
-      <Filter>intrusive_ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="intrusive_ptr_inline.h">
-      <Filter>intrusive_ptr</Filter>
-    </ClInclude>
-    <ClInclude Include="memory_monitor.h">
-      <Filter>memory_monitor</Filter>
-    </ClInclude>
-    <ClInclude Include="ppmd_compressor.h">
-      <Filter>Compression\ppmd</Filter>
-    </ClInclude>
-    <ClInclude Include="PPMd.h">
-      <Filter>Compression\ppmd\common</Filter>
-    </ClInclude>
-    <ClInclude Include="PPMdType.h">
-      <Filter>Compression\ppmd\common</Filter>
-    </ClInclude>
-    <ClInclude Include="Coder.hpp">
-      <Filter>Compression\ppmd\core</Filter>
-    </ClInclude>
-    <ClInclude Include="SubAlloc.hpp">
-      <Filter>Compression\ppmd\core\allocator</Filter>
-    </ClInclude>
-    <ClInclude Include="compression_ppmd_stream.h">
-      <Filter>Compression\ppmd\stream</Filter>
-    </ClInclude>
-    <ClInclude Include="compression_ppmd_stream_inline.h">
-      <Filter>Compression\ppmd\stream</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_compressor.h">
-      <Filter>Compression\rt</Filter>
-    </ClInclude>
-    <ClInclude Include="lzhuf.h">
-      <Filter>Compression\lz</Filter>
-    </ClInclude>
-    <ClInclude Include="lzo_compressor.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_config1x.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzo1x.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzo_conf.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzo_config.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzo_dict.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzo_ptr.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzoconf.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_lzodefs.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="rt_miniacc.h">
-      <Filter>Compression\lzo</Filter>
-    </ClInclude>
-    <ClInclude Include="os_clipboard.h">
-      <Filter>OS</Filter>
-    </ClInclude>
-    <ClInclude Include="xrSyncronize.h" />
-    <ClInclude Include="..\build_config_defines.h" />
-    <ClInclude Include="client_id.h" />
-    <ClInclude Include="ChooseTypes.H" />
-    <ClInclude Include="Lock.hpp">
-      <Filter>Threading</Filter>
-    </ClInclude>
-    <ClInclude Include="ScopeLock.hpp">
-      <Filter>Threading</Filter>
-    </ClInclude>
+    <ClInclude Include="..\..\build_config_defines.h" />
+    <ClInclude Include="..\blackbox\BugslayerUtil.h" />
+    <ClInclude Include="..\blackbox\CrashHandler.h" />
+    <ClInclude Include="..\blackbox\DiagAssert.h" />
+    <ClInclude Include="..\blackbox\Internal.h" />
+    <ClInclude Include="..\blackbox\stdafx_.h" />
+    <ClInclude Include="..\blackbox\SymbolEngine.h" />
+    <ClInclude Include="..\blackbox\WarningsOff.h" />
+    <ClInclude Include="..\blackbox\WarningsOn.h" />
+    <ClInclude Include="..\buffer_vector.h" />
+    <ClInclude Include="..\buffer_vector_inline.h" />
+    <ClInclude Include="..\ChooseTypes.H" />
+    <ClInclude Include="..\client_id.h" />
+    <ClInclude Include="..\clsid.h" />
+    <ClInclude Include="..\Coder.hpp" />
+    <ClInclude Include="..\compression_ppmd_stream.h" />
+    <ClInclude Include="..\compression_ppmd_stream_inline.h" />
+    <ClInclude Include="..\cpuid.h" />
+    <ClInclude Include="..\dump_string.h" />
+    <ClInclude Include="..\fastdelegate.h" />
+    <ClInclude Include="..\file_stream_reader.h" />
+    <ClInclude Include="..\FixedMap.h" />
+    <ClInclude Include="..\FixedSet.h" />
+    <ClInclude Include="..\FixedVector.h" />
+    <ClInclude Include="..\FS.h" />
+    <ClInclude Include="..\FS_impl.h" />
+    <ClInclude Include="..\FS_internal.h" />
+    <ClInclude Include="..\FTimer.h" />
+    <ClInclude Include="..\intrusive_ptr.h" />
+    <ClInclude Include="..\intrusive_ptr_inline.h" />
+    <ClInclude Include="..\LocatorAPI.h" />
+    <ClInclude Include="..\LocatorAPI_defs.h" />
+    <ClInclude Include="..\Lock.hpp" />
+    <ClInclude Include="..\log.h" />
+    <ClInclude Include="..\lzhuf.h" />
+    <ClInclude Include="..\lzo_compressor.h" />
+    <ClInclude Include="..\memory_monitor.h" />
+    <ClInclude Include="..\net_utils.h" />
+    <ClInclude Include="..\os_clipboard.h" />
+    <ClInclude Include="..\PPMd.h" />
+    <ClInclude Include="..\PPMdType.h" />
+    <ClInclude Include="..\ppmd_compressor.h" />
+    <ClInclude Include="..\resource.h" />
+    <ClInclude Include="..\rt_compressor.h" />
+    <ClInclude Include="..\rt_config1x.h" />
+    <ClInclude Include="..\rt_lzo1x.h" />
+    <ClInclude Include="..\rt_lzoconf.h" />
+    <ClInclude Include="..\rt_lzodefs.h" />
+    <ClInclude Include="..\rt_lzo_conf.h" />
+    <ClInclude Include="..\rt_lzo_config.h" />
+    <ClInclude Include="..\rt_lzo_dict.h" />
+    <ClInclude Include="..\rt_lzo_ptr.h" />
+    <ClInclude Include="..\rt_miniacc.h" />
+    <ClInclude Include="..\ScopeLock.hpp" />
+    <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="..\stream_reader.h" />
+    <ClInclude Include="..\stream_reader_inline.h" />
+    <ClInclude Include="..\string_concatenations.h" />
+    <ClInclude Include="..\string_concatenations_inline.h" />
+    <ClInclude Include="..\SubAlloc.hpp" />
+    <ClInclude Include="..\vector.h" />
+    <ClInclude Include="..\xrCore.h" />
+    <ClInclude Include="..\xrCore_platform.h" />
+    <ClInclude Include="..\xrDebug.h" />
+    <ClInclude Include="..\xrDebug_macros.h" />
+    <ClInclude Include="..\xrMemory.h" />
+    <ClInclude Include="..\xrMemory_align.h" />
+    <ClInclude Include="..\xrMEMORY_POOL.h" />
+    <ClInclude Include="..\xrMemory_pso.h" />
+    <ClInclude Include="..\xrMemory_pure.h" />
+    <ClInclude Include="..\xrMemory_subst_borland.h" />
+    <ClInclude Include="..\xrMemory_subst_msvc.h" />
+    <ClInclude Include="..\xrPool.h" />
+    <ClInclude Include="..\xrsharedmem.h" />
+    <ClInclude Include="..\xrstring.h" />
+    <ClInclude Include="..\xrSyncronize.h" />
+    <ClInclude Include="..\xr_ini.h" />
+    <ClInclude Include="..\xr_resource.h" />
+    <ClInclude Include="..\xr_shared.h" />
+    <ClInclude Include="..\xr_trims.h" />
+    <ClInclude Include="..\_bitwise.h" />
+    <ClInclude Include="..\_color.h" />
+    <ClInclude Include="..\_compressed_normal.h" />
+    <ClInclude Include="..\_cylinder.h" />
+    <ClInclude Include="..\_fbox.h" />
+    <ClInclude Include="..\_fbox2.h" />
+    <ClInclude Include="..\_flags.h" />
+    <ClInclude Include="..\_math.h" />
+    <ClInclude Include="..\_matrix.h" />
+    <ClInclude Include="..\_matrix33.h" />
+    <ClInclude Include="..\_obb.h" />
+    <ClInclude Include="..\_plane.h" />
+    <ClInclude Include="..\_plane2.h" />
+    <ClInclude Include="..\_quaternion.h" />
+    <ClInclude Include="..\_random.h" />
+    <ClInclude Include="..\_rect.h" />
+    <ClInclude Include="..\_sphere.h" />
+    <ClInclude Include="..\_std_extensions.h" />
+    <ClInclude Include="..\_stl_extensions.h" />
+    <ClInclude Include="..\_types.h" />
+    <ClInclude Include="..\_type_traits.h" />
+    <ClInclude Include="..\_vector2.h" />
+    <ClInclude Include="..\_vector3d.h" />
+    <ClInclude Include="..\_vector3d_ext.h" />
+    <ClInclude Include="..\_vector4.h" />
+    <ClInclude Include="..\mezz_stringbuffer.h" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="xrCore.rc">
-      <Filter>Kernel</Filter>
-    </ResourceCompile>
+    <ResourceCompile Include="..\xrCore.rc" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="FileSystem.h">
-      <Filter>FS</Filter>
-    </CustomBuild>
-    <CustomBuild Include="LocatorAPI_Notifications.h">
-      <Filter>FS</Filter>
-    </CustomBuild>
+    <CustomBuild Include="..\FileSystem.h" />
+    <CustomBuild Include="..\LocatorAPI_Notifications.h" />
   </ItemGroup>
 </Project>
