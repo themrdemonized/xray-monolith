@@ -9,6 +9,7 @@
 #include <direct.h>
 #include <fcntl.h>
 #include <sys\stat.h>
+#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
 #include <experimental\filesystem>
 #pragma warning(default:4995)
 
