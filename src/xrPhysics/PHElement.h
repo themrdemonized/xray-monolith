@@ -166,7 +166,7 @@ public: //
 	void BoneGlPos(Fmatrix& m, const Fmatrix& BoneTransform) const;
 	void ToBonePos(const CBoneInstance* B, motion_history_state history_state);
 	void ToBonePos(const Fmatrix& BoneTransform, motion_history_state history_state);
-	IC void ActivatingPos(const Fmatrix& BoneTransform);
+	void ActivatingPos(const Fmatrix& BoneTransform);
 	IC void CalculateBoneTransform(Fmatrix& bone_transform) const;
 
 #ifdef		DEBUG
