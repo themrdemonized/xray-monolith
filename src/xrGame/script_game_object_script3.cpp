@@ -115,6 +115,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 			     ::set_item))
 
 		.def("bone_position", &CScriptGameObject::bone_position)
+		.def("bone_direction", &CScriptGameObject::bone_direction)
 
 		.def("bone_name", &CScriptGameObject::bone_name)
 		.def("is_body_turning", &CScriptGameObject::is_body_turning)
