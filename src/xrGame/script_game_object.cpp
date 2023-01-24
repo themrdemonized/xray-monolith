@@ -369,6 +369,32 @@ Fvector CScriptGameObject::bone_position(LPCSTR bone_name, bool bHud) const
 	return (matrix.c);
 }
 
+Fvector CScriptGameObject::bone_direction(LPCSTR bone_name, bool bHud) const
+{
+	IKinematics* k = nullptr;
+
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (bHud && itm)
+		k = itm->HudItemData()->m_model;
+	else
+		k = object().Visual()->dcast_PKinematics();
+
+	u16 bone_id;
+	if (xr_strlen(bone_name))
+	{
+		bone_id = k->LL_BoneID(bone_name);
+		if (bone_id == BI_NONE)
+			bone_id = k->LL_GetBoneRoot();
+	} else
+		bone_id = k->LL_GetBoneRoot();
+
+	Fmatrix matrix;
+	Fvector res;
+	matrix.mul_43((bHud && itm) ? itm->HudItemData()->m_item_transform : object().XFORM(),
+		k->LL_GetTransform(bone_id));
+	matrix.getHPB(res);
+	return (res);
+}
 
 LPCSTR CScriptGameObject::bone_name(u16 id, bool bHud)
 {
