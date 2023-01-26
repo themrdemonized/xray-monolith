@@ -6,6 +6,7 @@
 #include	"ai/stalker/ai_stalker.h"
 #include	"stalker_movement_manager_smart_cover.h"
 #include	"weaponshotgun.h"
+#include	"WeaponAutomaticShotgun.h"
 #include	"explosive.h"
 #include	"weaponmagazined.h"
 #include	"CharacterPhysicsSupport.h"
@@ -177,8 +178,11 @@ class type_motion2 : public type_motion
 			return false;
 		//static_cast<CGameObject*>(O)->cast_weapon()
 		CWeaponShotgun* s = smart_cast<CWeaponShotgun*>(static_cast<CGameObject*>(O));
-		if (!s)
-			return false;
+		if (!s) {
+			CWeaponAutomaticShotgun* s = smart_cast<CWeaponAutomaticShotgun*>(static_cast<CGameObject*>(O));
+			if (!s)
+				return false;
+		}		
 		Fvector p;
 		const float max_distance = 20.f;
 		if (Fvector().sub(H.initiator()->Position(), global_hit_position(p, ea, H)).magnitude() > max_distance)
