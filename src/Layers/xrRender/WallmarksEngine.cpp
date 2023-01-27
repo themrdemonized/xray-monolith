@@ -34,7 +34,7 @@ namespace WallmarksEngine
 const float W_DIST_FADE = 15.f;
 const float W_DIST_FADE_SQR = W_DIST_FADE * W_DIST_FADE;
 const float I_DIST_FADE_SQR = 1.f / W_DIST_FADE_SQR;
-const unsigned int MAX_TRIS = 1024 * 64;
+const int MAX_TRIS = 1024 * 16;
 
 IC bool operator ==(const CWallmarksEngine::wm_slot* slot, const ref_shader& shader) { return slot->shader == shader; }
 
