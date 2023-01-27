@@ -385,6 +385,8 @@ void CInifile::Load(IReader* F, LPCSTR path
 			Current = NULL;
 		};
 
+		std::unordered_set<std::string> sectionsMarkedForCreate;
+
 		while (!F->eof() || (bIsRootFile && !bHasLoadedModFiles))
 		{
 			if (!F->eof())
@@ -488,6 +490,18 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 			_Trim(str);
 
+			auto isOverrideSection = [](char* str) {
+				return strstr(str, "![") == &str[0];
+			};
+
+			auto isSafeOverrideSection = [](char* str) {
+				return strstr(str, "@[") == &str[0];
+			};
+
+			auto isModSection = [isOverrideSection, isSafeOverrideSection](char* str) {
+				return isOverrideSection(str) || isSafeOverrideSection(str);
+			};
+
 			if (str[0] && (str[0] == '#') && strstr(str, "#include")) //handle includes
 			{
 				string_path inc_name;
@@ -542,21 +556,38 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 				continue;
 			}
-			else if ((str[0] && (str[0] == '[')) || strstr(str, "![") == &str[0]) //new section ?
+			else if ((str[0] && (str[0] == '[')) || isModSection(str)) //new section ?
 			{
 				// insert previous filled section
 				StashCurrentSection();
 
-				bIsCurrentSectionOverride = strstr(str, "![") == &str[0];	//Used to detect bad or unintended overrides
-
-				Current = xr_new<Sect>();
-				u32 SectionNameStartPos = (bIsCurrentSectionOverride ? 2 : 1);
+				u32 SectionNameStartPos = (isModSection(str) ? 2 : 1);
 				std::string SecName = std::string(str).substr(SectionNameStartPos, strchr(str, ']') - str - SectionNameStartPos).c_str();
 				for (auto i = SecName.begin(); i != SecName.end(); ++i)
 				{
 					*i = tolower(*i);
 				}
+				
+				if (isOverrideSection(str)) { //Used to detect bad or unintended overrides
+					bIsCurrentSectionOverride = true;
+				} else if (isSafeOverrideSection(str)) { // Create section if it doesnt exist, override if it does
+					bIsCurrentSectionOverride = true;
+					if (bOverridesOnly) {
+						// Msg("using @[, override existing section %s", SecName.c_str());
+					} else {
+						auto SectIt = OutputData->find(SecName);
+						if (SectIt != OutputData->end()) {
+							// Msg("using @[, override existing section %s", SecName.c_str());
+						} else {
+							// Msg("using @[, create new section %s", SecName.c_str());
+							sectionsMarkedForCreate.insert(SecName);
+						}
+					}
+				} else {
+					bIsCurrentSectionOverride = false;
+				}
 
+				Current = xr_new<Sect>();
 				Current->Name = SecName.c_str();
 
 				// start new section
@@ -642,6 +673,22 @@ void CInifile::Load(IReader* F, LPCSTR path
 		}
 
 		StashCurrentSection();
+
+		// Create empty sections that were marked with @[ and weren't defined normally
+		if (!bOverridesOnly) {
+			for (auto& SecName : sectionsMarkedForCreate) {
+				auto SectIt = OutputData->find(SecName);
+				if (SectIt == OutputData->end()) {
+					// Msg("section %s does not exist but was marked as @[, creating", SecName.c_str());
+					Current = xr_new<Sect>();
+					Current->Name = SecName.c_str();
+					OutputData->emplace(std::pair<std::string, Sect>(std::string(Current->Name.c_str()), *Current));
+					OverrideToFilename[std::string(Current->Name.c_str())][currentFileName] = true;
+					SectionToFilename[std::string(Current->Name.c_str())] = currentFileName;
+					Current = NULL;
+				}
+			}
+		}
 	};
 
 	std::unordered_map<std::string, std::vector<std::string>> BaseParentDataMap;
