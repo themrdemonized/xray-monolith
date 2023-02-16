@@ -17,6 +17,13 @@
 #include "../control_path_builder_base.h"
 #include "inventory_item.h"
 
+#include "script_hit.h"
+#include "pch_script.h"
+#include "../../script_game_object.h"
+
+//Flag for damaging NPCs and other objects by the stomp attack
+BOOL pseudogiantCanDamageObjects = 1;
+
 
 CPseudoGigant::CPseudoGigant()
 {
@@ -262,6 +269,21 @@ void CPseudoGigant::on_activate_control(ControlCom::EControlType type)
 	{
 		m_sound_start_threaten.play_at_pos(this, get_head_position(this));
 		m_time_next_threaten = time() + Random.randI(m_threaten_delay_min, m_threaten_delay_max);
+
+		// callback for start animation, will be triggered by everyone in radius
+		m_nearest.clear_not_free();
+		Level().ObjectSpace.GetNearest(m_nearest, Position(), 15.f, NULL);
+		for (u32 i = 0; i < m_nearest.size(); i++)
+		{
+			CPhysicsShellHolder* obj = smart_cast<CPhysicsShellHolder*>(m_nearest[i]);
+			if (obj && obj->ID() != 0 && obj->ID() != ID()) {
+				luabind::functor<void> funct;
+				if (ai().script_engine().functor("_G.CPseudoGigant__OnStartStompAnimation", funct))
+				{
+					funct(obj->lua_game_object(), this->lua_game_object());
+				}
+			}
+		}
 	}
 }
 
@@ -274,6 +296,56 @@ void CPseudoGigant::on_threaten_execute()
 	{
 		CPhysicsShellHolder* obj = smart_cast<CPhysicsShellHolder *>(m_nearest[i]);
 		CInventoryItem* itm = smart_cast<CInventoryItem*>(m_nearest[i]);
+
+		if (pseudogiantCanDamageObjects && obj && obj->ID() != 0 && obj->ID() != ID()) {
+			float dist_to_enemy = obj->Position().distance_to(Position());
+			float hit_value;
+			hit_value = m_kick_damage - m_kick_damage * dist_to_enemy / m_threaten_dist_max;
+			clamp(hit_value, 0.f, 1.f);
+
+			SHit HS;
+
+			HS.GenHeader(GE_HIT, obj->ID()); 
+			HS.whoID = ID(); 
+			HS.who = this;
+			HS.weaponID = ID(); 
+			HS.dir = Fvector().set(0.f, 1.f, 0.f); 
+			HS.power = hit_value; 
+			HS.boneID = smart_cast<IKinematics*>(obj->Visual())->LL_GetBoneRoot();
+			HS.p_in_bone_space = Fvector().set(0.f, 0.f, 0.f);
+
+			HS.impulse = obj->cast_entity_alive() && obj->cast_entity_alive()->g_Alive() ? 80 * 80 : 0; // 0 impulse for not alive objects, they will receive the impulse later
+			//HS.impulse = 80 * obj->character_physics_support()->movement()->GetMass();
+
+			HS.hit_type = ALife::eHitTypeStrike;
+
+			bool doHit = true;
+			luabind::functor<bool> funct;
+			CScriptHit tLuaHit(&HS);
+			if (ai().script_engine().functor("_G.CPseudoGigant__BeforeHitCallback", funct))
+			{
+				doHit = funct(obj->lua_game_object(), this->lua_game_object(), &tLuaHit, HS.boneID);
+				if (doHit) {
+					HS.ApplyScriptHit(&tLuaHit);
+				}
+			}
+
+			if (doHit) {
+				//Msg("hit entity %d, name %s, damage %f", obj->ID(), obj->Name(), hit_value);
+				obj->Hit(&HS);
+
+				luabind::functor<void> hitFunct;
+				if (ai().script_engine().functor("_G.CPseudoGigant__HitCallback", hitFunct))
+				{
+					hitFunct(obj->lua_game_object(), this->lua_game_object(), &tLuaHit, HS.boneID);
+				}
+
+				//NET_Packet l_P;
+				//HS.Write_Packet(l_P);
+				//u_EventSend(l_P);
+			}						
+		}
+
 		if (!obj || !obj->m_pPhysicsShell || (itm && itm->IsQuestItem())) continue;
 
 		Fvector dir;
