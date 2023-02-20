@@ -150,6 +150,9 @@ CDemoRecord::~CDemoRecord()
 		IR_Release(); // release input
 		FS.w_close(file);
 	}
+	if (pDemoRecords) {
+		pDemoRecords->erase(this);
+	}
 	g_bDisableRedText = stored_red_text;
 
 	Device.seqRender.Remove(this);
