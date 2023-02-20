@@ -1,3 +1,4 @@
+#include <unordered_set>
 #include "pch_script.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/xr_ioc_cmd.h"
@@ -463,6 +464,7 @@ public:
 };
 
 //-----------------------------------------------------------------------
+std::unordered_set<CDemoRecord*> pDemoRecords;
 class CCC_DemoRecord : public IConsole_Command
 {
 public:
@@ -487,7 +489,55 @@ public:
 		string_path fn;
 		FS.update_path(fn, "$game_saves$", fn_);
 
-		g_pGameLevel->Cameras().AddCamEffector(xr_new<CDemoRecord>(fn));
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords);
+		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
+	}
+};
+
+class CCC_DemoRecordBlockedInput : public IConsole_Command
+{
+public:
+
+	CCC_DemoRecordBlockedInput(LPCSTR N) : IConsole_Command(N)
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+#ifndef	DEBUG
+		//if (GameID() != eGameIDSingle)
+		//{
+		//	Msg("For this game type Demo Record is disabled.");
+		//	return;
+		//};
+#endif
+		Console->Hide();
+
+		LPSTR fn_;
+		STRCONCAT(fn_, args, ".xrdemo");
+		string_path fn;
+		FS.update_path(fn, "$game_saves$", fn_);
+
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords, TRUE);
+		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
+	}
+};
+
+class CCC_DemoRecordStop : public IConsole_Command
+{
+public:
+
+	CCC_DemoRecordStop(LPCSTR N) : IConsole_Command(N)
+	{
+		bEmptyArgsHandled = true;
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		for (auto pDemoRecord : pDemoRecords) {
+			pDemoRecord->StopDemo();
+		}
+		pDemoRecords.clear();
 	}
 };
 
@@ -519,6 +569,35 @@ public:
 };
 
 Fvector CCC_DemoRecordSetPos::p = {0, 0, 0};
+
+class CCC_DemoRecordSetDir : public CCC_Vector3
+{
+	static Fvector d;
+public:
+
+	CCC_DemoRecordSetDir(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+		Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+#ifndef	DEBUG
+		//if (GameID() != eGameIDSingle)
+		//{
+		//	Msg("For this game type Demo Record is disabled.");
+		//	return;
+		//};
+#endif
+		CDemoRecord::GetGlobalDirection(d);
+		CCC_Vector3::Execute(args);
+		CDemoRecord::SetGlobalDirection(d);
+	}
+
+	virtual void Save(IWriter* F) { ; }
+};
+
+Fvector CCC_DemoRecordSetDir::d = { 0, 0, 0 };
 
 class CCC_DemoPlay : public IConsole_Command
 {
@@ -2114,7 +2193,10 @@ void CCC_RegisterCommands()
 	//#ifndef MASTER_GOLD
 	CMD1(CCC_DemoPlay, "demo_play");
 	CMD1(CCC_DemoRecord, "demo_record");
+	CMD1(CCC_DemoRecordBlockedInput, "demo_record_blocked_input");
+	CMD1(CCC_DemoRecordStop, "demo_record_stop");
 	CMD1(CCC_DemoRecordSetPos, "demo_set_cam_position");
+	CMD1(CCC_DemoRecordSetDir, "demo_set_cam_direction");
 	//#endif // #ifndef MASTER_GOLD
 
 #ifndef MASTER_GOLD
