@@ -6,6 +6,8 @@
 #include "iinputreceiver.h"
 #include "effector.h"
 
+#include <unordered_set>
+
 class ENGINE_API CDemoRecord :
 	public CEffectorCam,
 	public IInputReceiver,
@@ -17,6 +19,12 @@ private:
 		bool set_position;
 		Fvector p;
 	} g_position;
+
+	static struct force_direction
+	{
+		bool set_direction;
+		Fvector d;
+	} g_direction;
 
 	int iCount;
 	IWriter* file;
@@ -44,6 +52,9 @@ private:
 	float m_fAngSpeed2;
 	float m_fAngSpeed3;
 
+	BOOL isInputBlocked;
+	std::unordered_set<CDemoRecord*>* pDemoRecords;
+
 	void MakeCubeMapFace(Fvector& D, Fvector& N);
 	void MakeLevelMapProcess();
 	void MakeScreenshotFace();
@@ -53,6 +64,7 @@ private:
 	void MakeLevelMapScreenshot(BOOL bHQ);
 public:
 	CDemoRecord(const char* name, float life_time = 60 * 60 * 1000);
+	CDemoRecord(const char* name, std::unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked = 0, float life_time = 60 * 60 * 1000);
 	virtual ~CDemoRecord();
 
 	virtual void IR_OnKeyboardPress(int dik);
@@ -62,10 +74,13 @@ public:
 	virtual void IR_OnMouseHold(int btn);
 	virtual void IR_OnMousePress(int btn);
 	virtual void IR_OnMouseRelease(int btn);
+	void StopDemo();
 
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
 	static void SetGlobalPosition(const Fvector& p) { g_position.p.set(p), g_position.set_position = true; }
 	static void GetGlobalPosition(Fvector& p) { p.set(g_position.p); }
+	static void SetGlobalDirection(const Fvector& d) { g_direction.d.set(d), g_direction.set_direction = true; }
+	static void GetGlobalDirection(Fvector& d) { d.set(g_direction.d); }
 	BOOL m_b_redirect_input_to_level;
 	virtual void OnRender();
 };
