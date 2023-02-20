@@ -1099,8 +1099,8 @@ void CRender::init_cacades()
 	m_sun_cascades[1].size = 120;
 	m_sun_cascades[1].bias = m_sun_cascades[1].size * fBias;
 
-	m_sun_cascades[2].size = 300;
-	m_sun_cascades[2].bias = m_sun_cascades[2].size * -0.0000015f;
+	m_sun_cascades[2].size = 320;
+	m_sun_cascades[2].bias = m_sun_cascades[2].size * fBias;
 
 	// 	for( u32 i = 0; i < cascade_count; ++i )
 	// 	{
