@@ -1060,7 +1060,7 @@ void CCC_Register()
 	// - CrookR
 	CMD2(CCC_Float, "scope_blur_outer", &scope_outerblur);
 	CMD2(CCC_Float, "scope_blur_inner", &scope_innerblur);
-	CMD2(CCC_Float, "scope_factor", &scope_scrollpower);
+	CMD4(CCC_Float, "scope_factor", &scope_scrollpower, 0.01, 1);
 	CMD2(CCC_Float, "scope_brightness", &scope_brightness);
 
 	CMD2(CCC_Float, "scope_fog_interp", &scope_fog_interp);

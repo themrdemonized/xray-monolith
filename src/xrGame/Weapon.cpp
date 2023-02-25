@@ -269,9 +269,9 @@ void CWeapon::UpdateUIScope()
     //////////
     m_zoom_params.m_fMinBaseZoomFactor = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "min_scope_zoom_factor", 200.0f);
 
-	clamp(scope_scrollpower, 0.01f, 1.0f);
+	
 	float zoom_multiple = 1.0f;
-	if (zoomFlags.test(SDS_ZOOM) && (CWeapon::SDS_Radius() > 0.0)) {
+	if (zoomFlags.test(SDS_ZOOM) && (SDS_Radius() > 0.0)) {
 		zoom_multiple = scope_scrollpower;
 	}
 
@@ -287,14 +287,17 @@ void CWeapon::UpdateUIScope()
 	// update zoom factor
 	if (m_zoomtype == 2) //GL
 	{
+		m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom_gl", false);
 		m_zoom_params.m_fScopeZoomFactor = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_zoom_factor[1] : READ_IF_EXISTS(pSettings, r_float, cNameSect(), "gl_zoom_factor", 0);
 	}
 	else if (m_zoomtype == 1) //Alt
 	{
+		m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom_alt", false);
 		m_zoom_params.m_fScopeZoomFactor = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_zoom_factor[2] : READ_IF_EXISTS(pSettings, r_float, cNameSect(), "scope_zoom_factor_alt", 0);
 	}
 	else //Main Sight
 	{
+		m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom", false);
 		if (g_player_hud->m_adjust_mode)
 		{
 			m_zoom_params.m_fScopeZoomFactor = g_player_hud->m_adjust_zoom_factor[0] / zoom_multiple;
@@ -2846,7 +2849,7 @@ bool CWeapon::IsHudModeNow()
 
 void NewGetZoomData(const float scope_factor, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
 {
-	clamp(scope_scrollpower, 0.01f, 1.0f);
+	
 	float def_fov = float(g_fov);
 	float min_zoom_k = 0.3f;
 	float delta_factor_total = def_fov - scope_factor;
