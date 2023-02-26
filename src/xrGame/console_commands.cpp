@@ -494,6 +494,21 @@ public:
 	}
 };
 
+class CCC_ScopeFactor : public CCC_Float
+{
+public:
+	CCC_ScopeFactor(LPCSTR N, float* V) : CCC_Float(N, V, 0.01f, 1.0f)
+	{
+	}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Float::Execute(args);
+		CGameObject* pGameObject = smart_cast<CGameObject*>(Level().Objects.net_Find(0));
+
+	}
+};
+
 class CCC_DemoRecordBlockedInput : public IConsole_Command
 {
 public:

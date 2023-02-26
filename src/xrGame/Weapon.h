@@ -484,6 +484,7 @@ public:
 	//virtual collide::rq_result& GetRQ() { return PP.RQ; }
 	//virtual void net_Relcase(CObject* object);
 	Fmatrix m_shoot_shake_mat;
+	void UpdateZoomParams();
 
 protected:
 	virtual void UpdateFireDependencies_internal();
@@ -1073,5 +1074,5 @@ public:
 		return cNameSect();
 	};
     
-    float SDS_Radius();
+    float SDS_Radius(bool alt = false);
 };

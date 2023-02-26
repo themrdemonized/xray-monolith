@@ -596,6 +596,21 @@ public:
 	}
 };
 
+extern void updateCurrentScope();
+class CCC_ScopeFactor : public CCC_Float
+{
+public:
+	CCC_ScopeFactor(LPCSTR N, float* V) : CCC_Float(N, V, 0.01f, 1.0f)
+	{
+	}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Float::Execute(args);
+		updateCurrentScope();
+	}
+};
+
 //-----------------------------------------------------------------------
 /*
 #ifdef DEBUG
@@ -1060,7 +1075,7 @@ void CCC_Register()
 	// - CrookR
 	CMD2(CCC_Float, "scope_blur_outer", &scope_outerblur);
 	CMD2(CCC_Float, "scope_blur_inner", &scope_innerblur);
-	CMD4(CCC_Float, "scope_factor", &scope_scrollpower, 0.01, 1);
+	CMD2(CCC_ScopeFactor, "scope_factor", &scope_scrollpower);
 	CMD2(CCC_Float, "scope_brightness", &scope_brightness);
 
 	CMD2(CCC_Float, "scope_fog_interp", &scope_fog_interp);
