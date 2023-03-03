@@ -2884,14 +2884,14 @@ void CWeapon::ZoomInc()
 	float delta, min_zoom_factor;
 	//
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor, GetZoomFactor(), m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * scope_scrollpower, delta, min_zoom_factor, GetZoomFactor() * scope_scrollpower, m_zoom_params.m_fMinBaseZoomFactor);
 	}
 	else {
-        GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+        GetZoomData(m_zoom_params.m_fScopeZoomFactor * scope_scrollpower, delta, min_zoom_factor);
 	}
 	//
 	float f = GetZoomFactor() * scope_scrollpower - delta;
-	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
+	clamp(f, m_zoom_params.m_fScopeZoomFactor * scope_scrollpower, min_zoom_factor);
 	SetZoomFactor(f / scope_scrollpower);
 	//
 	m_fRTZoomFactor = GetZoomFactor() * scope_scrollpower;
@@ -2904,14 +2904,14 @@ void CWeapon::ZoomDec()
 	float delta, min_zoom_factor;
 	//
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor, GetZoomFactor(), m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * scope_scrollpower, delta, min_zoom_factor, GetZoomFactor() * scope_scrollpower, m_zoom_params.m_fMinBaseZoomFactor);
 	}
 	else {
-        GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+        GetZoomData(m_zoom_params.m_fScopeZoomFactor * scope_scrollpower, delta, min_zoom_factor);
 	}
 	//
 	float f = GetZoomFactor() * scope_scrollpower + delta;
-	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
+	clamp(f, m_zoom_params.m_fScopeZoomFactor * scope_scrollpower, min_zoom_factor);
 	SetZoomFactor(f / scope_scrollpower);
 	//
 	m_fRTZoomFactor = GetZoomFactor() * scope_scrollpower;
