@@ -13,6 +13,8 @@
 #include "script_process.h"
 #include "../build_config_defines.h"
 #include "script_storage.h"
+#include <unordered_map>
+#include <set>
 
 #ifdef USE_DEBUGGER
 #	ifndef USE_LUA_STUDIO
@@ -282,6 +284,8 @@ void CScriptEngine::setup_auto_load()
 }
 
 extern void export_classes(lua_State* L);
+extern std::unordered_map<std::string, std::set<std::string>> unlocalizers;
+extern bool unlocalizerPassed;
 
 void CScriptEngine::init()
 {
@@ -328,6 +332,8 @@ void CScriptEngine::init()
 #endif // #ifndef USE_LUA_STUDIO
 	//	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
 
+	unlocalizers.clear();
+	unlocalizerPassed = false;
 	bool save = m_reload_modules;
 	m_reload_modules = true;
 	process_file_if_exists("_G", false);
