@@ -281,6 +281,10 @@ bool CWeapon::install_upgrade_addon(LPCSTR section, bool test)
 	result |= process_if_exists_set(section, "scope_alive_detector", &CInifile::r_string_wb,
 	                                m_zoom_params.m_sUseBinocularVision, test);
 
+	process_if_exists_set(section, "scope_dynamic_zoom", &CInifile::r_bool, m_zoom_params.m_bUseDynamicZoom_Primary, test);
+	process_if_exists_set(section, "scope_dynamic_zoom_alt", &CInifile::r_bool, m_zoom_params.m_bUseDynamicZoom_Alt, test);
+	process_if_exists_set(section, "scope_dynamic_zoom_gl", &CInifile::r_bool, m_zoom_params.m_bUseDynamicZoom_GL, test);
+
 	result |= result2;
 
 	temp_int = (int)m_eSilencerStatus;

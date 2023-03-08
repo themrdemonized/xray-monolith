@@ -354,6 +354,9 @@ protected:
 		Fvector4 m_ReloadDof;
 		Fvector4 m_ReloadEmptyDof; //Swartz: reload when empty mag. DOF
 		BOOL m_bUseDynamicZoom;
+		BOOL m_bUseDynamicZoom_Primary;
+		BOOL m_bUseDynamicZoom_Alt;
+		BOOL m_bUseDynamicZoom_GL;
 		shared_str m_sUseZoomPostprocess;
 		shared_str m_sUseBinocularVision;
 		CBinocularsVision* m_pVision;
