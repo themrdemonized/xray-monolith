@@ -2865,7 +2865,9 @@ void NewGetZoomData(const float scope_factor, float& delta, float& min_zoom_fact
 	float min_zoom_k = 0.3f;
 	float delta_factor_total = def_fov - scope_factor;
 	VERIFY(delta_factor_total > 0);
-	float loc_min_zoom_factor = (atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f;
+	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
+
+	//Msg("min zoom factor %f, min zoom %f, loc min zoom factor %f", min_zoom_factor, min_zoom, loc_min_zoom_factor);
 
 	if (min_zoom < loc_min_zoom_factor) {
 		min_zoom_factor = min_zoom;
