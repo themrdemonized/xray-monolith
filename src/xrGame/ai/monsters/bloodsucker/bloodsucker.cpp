@@ -556,10 +556,10 @@ void CAI_Bloodsucker::set_visibility_state(visibility_t new_state)
 		start_invisible_predator();
 	}
 	//--DSR-- HeatVision_start
-	else if (m_visibility_state == no_visibility)
+	/*else if (m_visibility_state == no_visibility)
 	{
 		start_invisible_predator();
-	}
+	}*/
 	//--DSR-- HeatVision_end
 	else
 	{
@@ -877,14 +877,19 @@ void CAI_Bloodsucker::manual_deactivate()
 	setVisible(TRUE);
 }
 
+
+extern int ps_r2_heatvision;
 void CAI_Bloodsucker::renderable_Render()
 {
 	//--DSR-- HeatVision_start
+	
 	//if (m_visibility_state != no_visibility)
 	//{
 	//	inherited::renderable_Render();  
 	//}
-	inherited::renderable_Render();
+
+	if (m_visibility_state != no_visibility || ps_r2_heatvision > 0)
+		inherited::renderable_Render();
 	//--DSR-- HeatVision_end
 }
 
