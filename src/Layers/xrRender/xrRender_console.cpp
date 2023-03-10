@@ -258,6 +258,14 @@ Fvector ps_r2_drops_control = {.0f, 1.15f, .0f}; // r2-only
 
 int ps_r2_nightvision = 0;
 
+//--DSR-- HeatVision_start
+int ps_r2_heatvision = 0;
+float heat_vision_mode = 0.0f;
+Fvector4 heat_vision_steps = { 0.45f, 0.65f, 0.76f, .0f };
+Fvector4 heat_vision_blurring = { 15.f, 4.f, 60.f, .0f };
+Fvector4 heat_vision_args_1 = { .0f, .0f, .0f, .0f };
+Fvector4 heat_vision_args_2 = { .0f, .0f, .0f, .0f };
+//--DSR-- HeatVision_end
 //crookr
 int scope_fake_enabled = 1;
 //string32 scope_fake_texture = "wpn\\wpn_crosshair_pso1";
@@ -1057,6 +1065,7 @@ void xrRender_initconsole()
 
 	CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1); //crookr for fake scope
 
+	CMD4(CCC_Integer, "r__heatvision", &ps_r2_heatvision, 0, 1); //--DSR-- HeatVision
 	CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS); //Terrain Z Prepass @Zagolski
 	
 	//////////other
@@ -1085,6 +1094,14 @@ void xrRender_initconsole()
 	// Screen Space Shaders
 	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
 	CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
+
+	//--DSR-- HeatVision_start
+	CMD2(CCC_Float,   "heat_vision_mode",		&heat_vision_mode);
+	CMD4(CCC_Vector4, "heat_vision_steps",		&heat_vision_steps, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "heat_vision_blurring",	&heat_vision_blurring, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "heat_vision_args_1",		&heat_vision_args_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "heat_vision_args_2",		&heat_vision_args_2, tw2_min, tw2_max);
+	//--DSR-- HeatVision_end
 
 	// Geometry optimization
 	CMD4(CCC_Integer, "r__optimize_static_geom", &opt_static, 0, 4);

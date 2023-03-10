@@ -21,6 +21,10 @@ public:
 	virtual void Load(const char* N, IReader* data, u32 dwFlags);
 	virtual void Copy(dxRender_Visual* pFrom);
 	virtual void Release();
+
+	//--DSR-- HeatVision_start
+	virtual void MarkAsHot(bool is_hot);
+	//--DSR-- HeatVision_end
 };
 
 #endif //FHierrarhyVisualH

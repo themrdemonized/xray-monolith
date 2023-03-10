@@ -248,6 +248,7 @@ CRenderTarget::CRenderTarget()
 	b_gasmask_dudv = xr_new<CBlender_gasmask_dudv>();
 	b_nightvision = xr_new<CBlender_nightvision>();
 	b_fakescope = xr_new<CBlender_fakescope>(); //crookr
+	b_heatvision = xr_new<CBlender_heatvision>(); //--DSR-- HeatVision
 	b_lut = xr_new<CBlender_lut>();
 	b_smaa = xr_new<CBlender_smaa>();
 
@@ -290,6 +291,10 @@ CRenderTarget::CRenderTarget()
 		rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
 
 		rt_fakescope.create(r2_RT_scopert, w, h, D3DFMT_A8R8G8B8, 1); //crookr fakescope
+		
+		//--DSR-- HeatVision_start
+		rt_Heat.create(r2_RT_heat, w, h, D3DFMT_A8R8G8B8, 1);
+		//--DSR-- HeatVision_end
 
 		// RT Blur
 		rt_blur_h_2.create(r2_RT_blur_h_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);
@@ -326,6 +331,7 @@ CRenderTarget::CRenderTarget()
 	s_gasmask_dudv.create(b_gasmask_dudv, "r2\\gasmask_dudv");
 	s_nightvision.create(b_nightvision, "r2\\nightvision");
 	s_fakescope.create(b_fakescope, "r2\\fakescope"); //crookr
+	s_heatvision.create(b_heatvision, "r2\\heatvision"); //--DSR-- HeatVision
 	s_lut.create(b_lut, "r2\\lut");	
 	// OCCLUSION
 	s_occq.create(b_occq, "r2\\occq");
@@ -762,6 +768,7 @@ CRenderTarget::~CRenderTarget()
 	xr_delete(b_gasmask_dudv);
 	xr_delete(b_nightvision);
 	xr_delete(b_fakescope); //crookr
+	xr_delete(b_heatvision); //--DSR-- HeatVision
 	xr_delete(b_lut);	
 	xr_delete(b_smaa);
 

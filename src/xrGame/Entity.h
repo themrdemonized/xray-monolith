@@ -82,6 +82,11 @@ public:
 	/*	virtual*/
 	IC void SetMaxHealth(float v) { m_entity_condition->max_health() = v; }
 
+	//--DSR-- HeatVision_start
+	virtual float GetHotness();
+	virtual void  OnChangeVisual();
+	//--DSR-- HeatVision_end
+
 	/*virtual*/
 	IC BOOL g_Alive() const { return GetfHealth() > 0; }
 	virtual BOOL g_State(SEntityState&) const { return FALSE; }

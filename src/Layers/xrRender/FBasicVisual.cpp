@@ -11,6 +11,7 @@
 
 #include "fbasicvisual.h"
 #include "../../xrEngine/fmesh.h"
+#include "dxRenderDeviceRender.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -75,6 +76,20 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 	    desc.Load		(*data);
 #endif
 }
+
+//--DSR-- HeatVision_start
+void dxRender_Visual::MarkAsHot(bool is_hot) {
+	Shader* s = shader._get();
+	if (0 == s) return;
+	ShaderElement* e = s->E[0]._get();
+	if (0 == e || e->passes.empty()) return;
+	SPass* p = e->passes[0]._get();
+	STextureList* l = p->T._get();
+	if (0 == l || l->empty()) return;
+	CTexture* t = l->at(0).second._get();
+	t->m_is_hot = is_hot;
+}
+//--DSR-- HeatVision_end
 
 #define PCOPY(a)	a = pFrom->a
 

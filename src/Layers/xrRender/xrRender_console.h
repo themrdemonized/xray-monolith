@@ -141,6 +141,7 @@ extern ECORE_API Fvector4 ps_r2_mask_control; // r2-only
 extern ECORE_API Fvector ps_r2_drops_control; // r2-only
 extern ECORE_API int ps_r2_nightvision;
 extern ECORE_API int scope_fake_enabled; //crookr
+extern ECORE_API int ps_r2_heatvision; //--DSR-- HeatVision
 extern ECORE_API float ps_r2_ss_sunshafts_length;
 extern ECORE_API float ps_r2_ss_sunshafts_radius;
 extern u32 ps_sunshafts_mode;

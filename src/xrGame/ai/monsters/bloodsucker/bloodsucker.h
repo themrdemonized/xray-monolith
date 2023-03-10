@@ -215,6 +215,9 @@ private:
 	TTime m_runaway_invisible_time;
 
 public:
+
+	virtual float GetTransparency(); //--DSR-- HeatVision
+
 	float get_full_visibility_radius();
 	float get_partial_visibility_radius();
 	float get_no_visibility_radius();
