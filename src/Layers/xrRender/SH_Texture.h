@@ -97,6 +97,10 @@ public: //	Public class members (must be encapsulated furthur)
 	float m_material;
 	shared_str m_bumpmap;
 
+	//--DSR-- HeatVision_start
+	bool m_is_hot = false;
+	//--DSR-- HeatVision_end
+
 	union
 	{
 		u32 m_play_time; // sync theora time

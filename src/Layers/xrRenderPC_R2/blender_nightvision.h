@@ -27,3 +27,18 @@ public:
 	CBlender_fakescope();
 	virtual ~CBlender_fakescope();
 };
+
+//--DSR-- HeatVision_start
+class CBlender_heatvision : public IBlender
+{
+public:
+	virtual LPCSTR getComment() { return "heatvision"; }
+	virtual BOOL canBeDetailed() { return FALSE; }
+	virtual BOOL canBeLMAPped() { return FALSE; }
+
+	virtual void Compile(CBlender_Compile& C);
+
+	CBlender_heatvision();
+	virtual ~CBlender_heatvision();
+};
+//--DSR-- HeatVision_end

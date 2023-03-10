@@ -25,6 +25,10 @@ public:
 	virtual shared_str	_BCL	getDebugName() = 0;
 #endif
 
+	//--DSR-- HeatVision_start
+	virtual void MarkAsHot(bool is_hot) {};
+	//--DSR-- HeatVision_end
+
 	virtual IKinematics* _BCL dcast_PKinematics() { return 0; }
 	virtual IKinematicsAnimated* dcast_PKinematicsAnimated() { return 0; }
 	virtual IParticleCustom* dcast_ParticleCustom() { return 0; }

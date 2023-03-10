@@ -4,12 +4,18 @@
 
 CBlender_nightvision::CBlender_nightvision() { description.CLS = 0; }
 CBlender_fakescope::CBlender_fakescope() { description.CLS = 0; } //crookr
+CBlender_heatvision::CBlender_heatvision() { description.CLS = 0; } //--DSR-- HeatVision
+
 
 CBlender_nightvision::~CBlender_nightvision()
 {
 }
 
 CBlender_fakescope::~CBlender_fakescope() //crookr
+{
+}
+
+CBlender_heatvision::~CBlender_heatvision() //--DSR-- HeatVision
 {
 }
 
@@ -90,3 +96,25 @@ void CBlender_fakescope::Compile(CBlender_Compile& C) //crookr
 	C.r_End();
 
 }
+
+//--DSR-- HeatVision_start
+void CBlender_heatvision::Compile(CBlender_Compile& C)
+{
+	IBlender::Compile(C);
+	
+	C.r_Pass("stub_screen_space", "heatvision", FALSE, FALSE, FALSE);
+	C.r_dx10Texture("s_position", r2_RT_P);
+	C.r_dx10Texture("s_image", r2_RT_generic0);
+	C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
+	C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
+	C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
+	C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
+
+	C.r_dx10Texture("s_heat", r2_RT_heat);
+
+	C.r_dx10Sampler("smp_base");
+	C.r_dx10Sampler("smp_nofilter");
+	C.r_dx10Sampler("smp_rtlinear");
+	C.r_End();
+}
+//--DSR-- HeatVision_end

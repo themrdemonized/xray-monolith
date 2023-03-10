@@ -4,11 +4,17 @@
 
 CBlender_nightvision::CBlender_nightvision() { description.CLS = 0; }
 CBlender_fakescope::CBlender_fakescope() { description.CLS = 0; } //crookr
+CBlender_heatvision::CBlender_heatvision() { description.CLS = 0;  } //--DSR-- HeatVision
 
 CBlender_nightvision::~CBlender_nightvision()
 {
 }
+
 CBlender_fakescope::~CBlender_fakescope() //crookr
+{
+}
+
+CBlender_heatvision::~CBlender_heatvision() //--DSR-- HeatVision_start
 {
 }
 
@@ -51,3 +57,14 @@ void CBlender_fakescope::Compile(CBlender_Compile& C) //crookr
 	C.r_Sampler_clf("s_image", r2_RT_generic0);
 	C.r_End();
 }
+
+//--DSR-- HeatVision_start
+void CBlender_heatvision::Compile(CBlender_Compile& C)
+{
+	IBlender::Compile(C);
+	C.r_Pass("null", "heatvision", FALSE, FALSE, FALSE);
+	C.r_Sampler_rtf("s_position", r2_RT_P);
+	C.r_Sampler_clf("s_image", r2_RT_generic0);
+	C.r_End();	
+}
+//--DSR-- HeatVision_end
