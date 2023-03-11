@@ -87,7 +87,8 @@ void dxRender_Visual::MarkAsHot(bool is_hot) {
 	STextureList* l = p->T._get();
 	if (0 == l || l->empty()) return;
 	CTexture* t = l->at(0).second._get();
-	t->m_is_hot = is_hot;
+	if (t)
+		t->m_is_hot = is_hot;
 }
 //--DSR-- HeatVision_end
 
