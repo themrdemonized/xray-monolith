@@ -251,7 +251,7 @@ public:
 #ifdef	DEBUG
         if (ps_r2_ls_flags.test(R2FLAG_GLOBALMATERIAL))	mtl=ps_r2_gmaterial;
 #endif
-		if (!T->m_is_hot)
+		if (!T || T && !T->m_is_hot)
 			RCache.hemi.set_hotness(0.f, 0.f, 0.f, 0.f);
 		RCache.hemi.set_material(o_hemi, o_sun, 0, (mtl < 5 ? (mtl + .5f) / 4.f : mtl));
 		RCache.hemi.set_pos_faces(o_hemi_cube[CROS_impl::CUBE_FACE_POS_X],
