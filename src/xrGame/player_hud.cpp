@@ -686,6 +686,10 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model_2->dcast_PKinematics()->CalculateBones(TRUE);
 
+	//--DSR-- HeatVision_start
+	m_model->dcast_RenderVisual()->MarkAsHot(true);
+	m_model_2->dcast_RenderVisual()->MarkAsHot(true);
+	//--DSR-- HeatVision_end
 }
 
 void player_hud::load_script(LPCSTR section)
@@ -693,11 +697,6 @@ void player_hud::load_script(LPCSTR section)
 	script_override_arms = false;
 	load(section, true);
 	script_override_arms = true;
-	
-	//--DSR-- HeatVision_start
-	m_model->dcast_RenderVisual()->MarkAsHot(true);
-	m_model_2->dcast_RenderVisual()->MarkAsHot(true);
-	//--DSR-- HeatVision_end
 }
 
 bool player_hud::render_item_ui_query()
