@@ -679,6 +679,15 @@ void set_snd_volume(float v)
 	clamp(psSoundVFactor, 0.0f, 1.0f);
 }
 
+float get_music_volume() {
+	return psSoundVMusicFactor;
+}
+
+void set_music_volume(float v) {
+	psSoundVMusicFactor = v;
+	clamp(psSoundVMusicFactor, 0.0f, 1.0f);
+}
+
 #include "actor_statistic_mgr.h"
 
 void add_actor_points(LPCSTR sect, LPCSTR detail_key, int cnt, int pts)
@@ -1705,6 +1714,8 @@ void CLevel::script_register(lua_State* L)
 			def("get_snd_volume", &get_snd_volume),
 			def("get_rain_volume", &get_rain_volume),
 			def("set_snd_volume", &set_snd_volume),
+			def("get_music_volume", &get_music_volume),
+			def("set_music_volume", &set_music_volume),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))&add_cam_effector)),
