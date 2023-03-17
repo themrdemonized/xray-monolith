@@ -113,3 +113,20 @@ BOOL CEffectorBobbing::ProcessCam(SCamEffectorInfo& info)
 	//	}
 	return TRUE;
 }
+
+CFPCamEffector::CFPCamEffector() : CEffectorCam(eCEUser, INT_MAX) {
+	m_Camera.identity();
+	m_HPB.set(0, 0, 0);
+	m_Position.set(0, 0, 0);
+}
+BOOL CFPCamEffector::ProcessCam(SCamEffectorInfo& info)
+{
+	m_Camera.setHPB(m_HPB.x, m_HPB.y, m_HPB.z);
+	m_Camera.translate_over(m_Position);
+
+	// update camera
+	info.n.set(m_Camera.j);
+	info.d.set(m_Camera.k);
+	info.p.set(m_Camera.c);
+	return TRUE;
+}

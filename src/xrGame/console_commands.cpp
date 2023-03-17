@@ -114,6 +114,8 @@ float streff;
 
 extern BOOL g_ai_die_in_anomaly; //Alundaio
 
+extern BOOL firstPersonDeath;
+
 extern BOOL pseudogiantCanDamageObjects;
 
 ENGINE_API extern float g_console_sensitive;
@@ -598,6 +600,30 @@ public:
 };
 
 Fvector CCC_DemoRecordSetDir::d = { 0, 0, 0 };
+
+extern float offsetH;
+extern float offsetP;
+extern float offsetB;
+class CCC_FPDOffset : public CCC_Vector3
+{
+	static Fvector d;
+public:
+
+	CCC_FPDOffset(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+		Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Vector3::Execute(args);
+		offsetH = d.x;
+		offsetP = d.y;
+		offsetB = d.z;
+	}
+};
+
+Fvector CCC_FPDOffset::d = { 0, 0, 0 };
 
 class CCC_DemoPlay : public IConsole_Command
 {
@@ -2633,6 +2659,11 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Token, "g_dead_body_collision", &g_dead_body_collision, dead_body_collision_tokens);
 	CMD3(CCC_Mask, "g_feel_grenade", &psDeviceFlags2, rsFeelGrenade);
 	CMD3(CCC_Mask, "g_always_active", &psDeviceFlags2, rsAlwaysActive);
+
+	//First Person Death
+	CMD4(CCC_Integer, "first_person_death", &firstPersonDeath, 0, 1);
+	CMD1(CCC_FPDOffset, "first_person_death_offset");
+
 	//Toggle crash saving
 	CMD1(CCC_ToggleCrashSaving, "crash_save");
 	CMD4(CCC_Integer, "crash_save_count", &crash_saving::saveCountMax, 0, 20);

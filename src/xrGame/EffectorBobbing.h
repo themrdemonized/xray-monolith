@@ -33,3 +33,16 @@ public:
 };
 
 #endif //_EFFECTOR_BOBBING_H
+
+class CFPCamEffector : public CEffectorCam
+{
+public:
+	Fvector m_Position;
+	Fvector m_HPB;
+	Fmatrix m_Camera;
+
+public:
+	CFPCamEffector();
+	virtual BOOL ProcessCam(SCamEffectorInfo& info);
+
+};
