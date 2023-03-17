@@ -61,6 +61,7 @@ class CActorStatisticMgr;
 class CLocationManager;
 
 class CNightVisionEffector;
+class CFPCamEffector;
 
 class CActor :
 	public CEntityAlive,
@@ -80,6 +81,9 @@ private:
 public:
 	CActor();
 	virtual ~CActor();
+
+protected:
+	CFPCamEffector* m_FPCam;
 
 public:
 	virtual BOOL AlwaysTheCrow() { return TRUE; }

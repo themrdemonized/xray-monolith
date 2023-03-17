@@ -592,11 +592,11 @@ void CActor::ActorUse()
 		}
 	}
 }
-
+extern BOOL firstPersonDeath;
 BOOL CActor::HUDview() const
 {
 	return IsFocused() && (cam_active == eacFirstEye) &&
-		((!m_holder) || (m_holder && m_holder->allowWeapon() && m_holder->HUDView()));
+		((!m_holder) || (m_holder && m_holder->allowWeapon() && m_holder->HUDView())) && (firstPersonDeath ? g_Alive() : true);
 }
 
 static u16 SlotsToCheck [] = {

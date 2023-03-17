@@ -28,6 +28,9 @@
 #include "player_hud.h"
 #include "Missile.h"
 
+#include "EffectorBobbing.h"
+class CFPCamEffector;
+
 ENGINE_API extern float psHUD_FOV;
 ENGINE_API extern float psHUD_FOV_def;
 
@@ -453,6 +456,10 @@ static const float ik_cam_shift_tolerance = 0.2f;
 static const float ik_cam_shift_speed = 0.01f;
 #endif
 
+BOOL firstPersonDeath = FALSE;
+float offsetH = 0;
+float offsetP = 0;
+float offsetB = 0;
 void CActor::cam_Update(float dt, float fFOV)
 {
 	if (m_holder) return;
@@ -575,6 +582,43 @@ void CActor::cam_Update(float dt, float fFOV)
 	if (Level().CurrentEntity() == this)
 	{
 		collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+	}
+	
+	if (cam_active == eacFirstEye) {
+		if (firstPersonDeath && !g_Alive() && m_FPCam) {
+			IKinematics* k = Visual()->dcast_PKinematics();
+
+			// Get eye bone position
+			CBoneInstance& eyeBone = k->LL_GetBoneInstance(m_eye_right);
+			Fmatrix matrix = Fidentity;
+			matrix.mul_43(XFORM(), eyeBone.mTransform);
+			Fvector camPos = (matrix.c);
+
+			// Get head bone direction, works better for first person death
+			CBoneInstance& headBone = k->LL_GetBoneInstance(m_head);
+			Fmatrix matrixDir = Fidentity;
+			Fvector camDir;
+			matrixDir.mul_43(XFORM(), headBone.mTransform);
+			matrixDir.getHPB(camDir);
+
+			// Adjust camera direction
+			Fvector adjustedCamDir;
+			adjustedCamDir.set(camDir).setHP(
+				camDir.x + deg2rad(8.f) + deg2rad(offsetH),
+				camDir.y - deg2rad(20.f) + deg2rad(offsetP)
+			);
+			camDir.set(
+				adjustedCamDir.getH(),
+				adjustedCamDir.getP(),
+				camDir.z + deg2rad(90.f) + deg2rad(offsetB)
+			);
+			if (camDir.x < 0) {
+				camDir.x = PI_MUL_2 + camDir.x;
+			}
+
+			m_FPCam->m_HPB.set(camDir);
+			m_FPCam->m_Position.set(camPos);
+		}
 	}
 
 	//Alundaio -psp always
