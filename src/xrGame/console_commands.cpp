@@ -604,12 +604,18 @@ Fvector CCC_DemoRecordSetDir::d = { 0, 0, 0 };
 extern float offsetH;
 extern float offsetP;
 extern float offsetB;
-class CCC_FPDOffset : public CCC_Vector3
+extern float offsetX;
+extern float offsetY;
+extern float offsetZ;
+extern int firstPersonDeathPositionSmoothing;
+extern int firstPersonDeathDirectionSmoothing;
+
+class CCC_FPDDirectionOffset : public CCC_Vector3
 {
 	static Fvector d;
 public:
 
-	CCC_FPDOffset(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+	CCC_FPDDirectionOffset(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
 		Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
 	{
 	};
@@ -622,8 +628,27 @@ public:
 		offsetB = d.z;
 	}
 };
+Fvector CCC_FPDDirectionOffset::d = { 0, 0, 0 };
 
-Fvector CCC_FPDOffset::d = { 0, 0, 0 };
+class CCC_FPDPositionOffset : public CCC_Vector3
+{
+	static Fvector d;
+public:
+
+	CCC_FPDPositionOffset(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+		Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Vector3::Execute(args);
+		offsetX = d.x;
+		offsetY = d.y;
+		offsetZ = d.z;
+	}
+};
+Fvector CCC_FPDPositionOffset::d = { 0, 0, 0 };
 
 class CCC_DemoPlay : public IConsole_Command
 {
@@ -2662,7 +2687,10 @@ void CCC_RegisterCommands()
 
 	//First Person Death
 	CMD4(CCC_Integer, "first_person_death", &firstPersonDeath, 0, 1);
-	CMD1(CCC_FPDOffset, "first_person_death_offset");
+	CMD1(CCC_FPDDirectionOffset, "first_person_death_direction_offset");
+	CMD1(CCC_FPDPositionOffset, "first_person_death_position_offset");
+	CMD4(CCC_Integer, "first_person_death_position_smoothing", &firstPersonDeathPositionSmoothing, 1, 30);
+	CMD4(CCC_Integer, "first_person_death_direction_smoothing", &firstPersonDeathDirectionSmoothing, 1, 60);
 
 	//Toggle crash saving
 	CMD1(CCC_ToggleCrashSaving, "crash_save");

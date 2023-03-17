@@ -40,7 +40,8 @@ public:
 	Fvector m_Position;
 	Fvector m_HPB;
 	Fmatrix m_Camera;
-
+	virtual void ema(Fvector& current, Fvector& target, int steps);
+	
 public:
 	CFPCamEffector();
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
