@@ -456,10 +456,13 @@ static const float ik_cam_shift_tolerance = 0.2f;
 static const float ik_cam_shift_speed = 0.01f;
 #endif
 
-BOOL firstPersonDeath = FALSE;
+BOOL firstPersonDeath = TRUE;
 float offsetH = 0;
 float offsetP = 0;
 float offsetB = 0;
+float offsetX = 0;
+float offsetY = 0;
+float offsetZ = 0;
 void CActor::cam_Update(float dt, float fFOV)
 {
 	if (m_holder) return;
@@ -615,6 +618,14 @@ void CActor::cam_Update(float dt, float fFOV)
 			if (camDir.x < 0) {
 				camDir.x = PI_MUL_2 + camDir.x;
 			}
+
+			Fvector dir, dirUp, dirRight;
+			dir.setHP(camDir.x, camDir.y);
+			Fvector::generate_orthonormal_basis_normalized(dir, dirUp, dirRight);
+
+			camPos.mad(dir, -0.1 + offsetZ);
+			camPos.mad(dirUp, offsetY);
+			camPos.mad(dirRight, -0.01 + offsetX);
 
 			m_FPCam->m_HPB.set(camDir);
 			m_FPCam->m_Position.set(camPos);
