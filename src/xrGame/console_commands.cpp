@@ -607,6 +607,7 @@ extern float offsetB;
 extern float offsetX;
 extern float offsetY;
 extern float offsetZ;
+extern float viewportNearOffset;
 extern int firstPersonDeathPositionSmoothing;
 extern int firstPersonDeathDirectionSmoothing;
 
@@ -2691,6 +2692,7 @@ void CCC_RegisterCommands()
 	CMD1(CCC_FPDPositionOffset, "first_person_death_position_offset");
 	CMD4(CCC_Integer, "first_person_death_position_smoothing", &firstPersonDeathPositionSmoothing, 1, 30);
 	CMD4(CCC_Integer, "first_person_death_direction_smoothing", &firstPersonDeathDirectionSmoothing, 1, 60);
+	CMD4(CCC_Float, "first_person_death_near_plane_offset", &viewportNearOffset, -0.1, 0.5);
 
 	//Toggle crash saving
 	CMD1(CCC_ToggleCrashSaving, "crash_save");
