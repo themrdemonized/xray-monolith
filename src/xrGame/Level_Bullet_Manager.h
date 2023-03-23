@@ -45,6 +45,9 @@ struct SBullet
 
 	u16 parent_id; //ID персонажа который иницировал действие
 	u16 weapon_id; //ID оружия из которого была выпущены пуля
+	LPCSTR catridgeSection;
+	static u32 bulletCount;
+	u32 bulletId;
 
 	float fly_dist; //дистанция которую пуля пролетела
 	Fvector tracer_start_position;
