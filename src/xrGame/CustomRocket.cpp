@@ -431,6 +431,55 @@ void CCustomRocket::UpdateCL()
 	}
 	if (m_eState == eEngine || m_eState == eFlying)
 	{
+		if (m_pPhysicsShell) {
+			luabind::functor<luabind::object> funct;
+			if (ai().script_engine().functor("_G.CRocketOnUpdate", funct)) {
+				luabind::object table = luabind::newtable(ai().script_engine().lua());
+
+				Fvector linearVel;
+				m_pPhysicsShell->get_LinearVel(linearVel);
+
+				table["position"] = Fvector(Position());
+				table["direction"] = Fvector(linearVel).normalize_safe();
+				table["body_direction"] = Fvector(Direction());
+				table["id"] = ID();
+				table["speed"] = linearVel.magnitude();
+				table["velocity_vector"] = linearVel;
+				table["engine_active"] = m_eState == eEngine;
+				table["section"] = cNameSect().c_str();
+				table["parent_id"] = m_pOwner ? m_pOwner->ID() : 65535;
+				table["weapon_id"] = H_Parent() ? H_Parent()->ID() : 65535;
+				/*table["speed"] = m_vLaunchVelocity;
+				table["distance"] = bullet.fly_dist;
+				table["section"] = bullet.catridgeSection;
+				table["bullet_id"] = bullet.bulletId;
+				table["weapon_id"] = bullet.weapon_id;
+				table["parent_id"] = bullet.parent_id;*/
+
+				luabind::object output = funct(table);
+
+				if (output && output.type() == LUA_TTABLE) {
+					m_pPhysicsShell->set_LinearVel(luabind::object_cast<Fvector>(table["velocity_vector"]));
+					Position().set(luabind::object_cast<Fvector>(table["position"]));
+					Direction().set(luabind::object_cast<Fvector>(table["body_direction"]));
+					
+					Fvector dir = luabind::object_cast<Fvector>(table["direction"]);
+					dir.normalize();
+					linearVel.set(dir).mul(luabind::object_cast<float>(table["speed"]));
+					m_pPhysicsShell->set_LinearVel(linearVel);
+
+					m_eState = luabind::object_cast<bool>(table["engine_active"]) ? eEngine : eFlying;
+					/*bullet.bullet_pos = luabind::object_cast<Fvector>(table["position"]);
+					bullet.dir = luabind::object_cast<Fvector>(table["direction"]);
+					bullet.speed = luabind::object_cast<float>(table["speed"]);
+					bullet.fly_dist = luabind::object_cast<float>(table["distance"]);
+					bullet.weapon_id = luabind::object_cast<u16>(table["weapon_id"]);
+					bullet.parent_id = luabind::object_cast<u16>(table["parent_id"]);*/
+				}
+			}
+		}
+		
+
 		if (m_time_to_explode < Device.fTimeGlobal)
 		{
 			Contact(Position(), Direction());
