@@ -843,7 +843,7 @@ bool CBulletManager::trajectory_check_error(
 	bullet.life_time = 0.f;
 
 	// Add RQ range to the bullet fly dist
-	for (auto i = storage.r_begin(); ;) {
+	for (auto i = storage.r_begin(); i != storage.r_end();) {
 		bullet.fly_dist += i->range;
 		break;
 	}
