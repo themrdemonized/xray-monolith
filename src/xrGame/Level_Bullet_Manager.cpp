@@ -1164,7 +1164,7 @@ void CBulletManager::CommitEvents() // @ the start of frame
 						bullet->bulletId,
 						bullet->weapon_id,
 						bullet->parent_id,
-						E.dynamic ? bullet->targetID : 65535,
+						E.dynamic && E.R.O ? E.R.O->ID() : 65535,
 						mt ? mt->m_Name.c_str() : NULL
 					);
 				}
