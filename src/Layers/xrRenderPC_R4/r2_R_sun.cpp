@@ -15,6 +15,8 @@ float OLES_SUN_LIMIT_27_01_07 = 100.f;
 const float MAP_SIZE_START = 6.f;
 const float MAP_GROW_FACTOR = 4.f;
 
+Fvector3 ps_ssfx_shadow_cascades = { 20, 40, 160 };
+
 //////////////////////////////////////////////////////////////////////////
 // tables to calculate view-frustum bounds in world space
 // note: D3D uses [0..1] range for Z
@@ -1093,13 +1095,13 @@ void CRender::init_cacades()
 	float fBias = -0.0000025f;
 	//	float size = MAP_SIZE_START;
 	m_sun_cascades[0].reset_chain = true;
-	m_sun_cascades[0].size = 40; 
+	m_sun_cascades[0].size = ps_ssfx_shadow_cascades.x; //20
 	m_sun_cascades[0].bias = m_sun_cascades[0].size * fBias;
 
-	m_sun_cascades[1].size = 120;
+	m_sun_cascades[1].size = ps_ssfx_shadow_cascades.y; //40
 	m_sun_cascades[1].bias = m_sun_cascades[1].size * fBias;
 
-	m_sun_cascades[2].size = 320;
+	m_sun_cascades[2].size = ps_ssfx_shadow_cascades.z; //160
 	m_sun_cascades[2].bias = m_sun_cascades[2].size * fBias;
 
 	// 	for( u32 i = 0; i < cascade_count; ++i )
@@ -1384,8 +1386,11 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 			RCache.set_xform_view(Fidentity);
 			RCache.set_xform_project(fuckingsun->X.D.combine);
 			r_dsgraph_render_graph(0);
-			if (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS))
+			if (psDeviceFlags2.test(rsGrassShadow) && cascade_ind <= ps_ssfx_grass_shadows.x)
+			{
+				Details->fade_distance = dm_fade * dm_fade * ps_ssfx_grass_shadows.y;
 				Details->Render();
+			}
 			fuckingsun->X.D.transluent = FALSE;
 			if (bSpecial)
 			{

@@ -1223,6 +1223,8 @@ HRESULT CRender::shader_compile(
 	char c_ssao [32];
 	char c_sun_quality [32];
 	char c_smaa_quality [32];
+	
+	char c_inter_grass[32];
 
 	char sh_name[MAX_PATH] = "";
 
@@ -1681,6 +1683,21 @@ HRESULT CRender::shader_compile(
 	sh_name[len] = '0' + char(o.dx10_minmax_sm != 0);
 	++len;
 	
+	if (ps_ssfx_grass_interactive.y > 0)
+	{
+		xr_sprintf(c_inter_grass, "%d", (int)ps_ssfx_grass_interactive.y);
+		defines[def_it].Name = "SSFX_INT_GRASS";
+		defines[def_it].Definition = c_inter_grass;
+		def_it++;
+		sh_name[len] = '0' + char((int)ps_ssfx_grass_interactive.y);
+		++len;
+	}
+	else
+	{
+		sh_name[len] = '0';
+		++len;
+	}
+
 	defines[def_it].Name = "SSFX_MODEXE";
 	defines[def_it].Definition = "1";
 	def_it++;

@@ -538,6 +538,9 @@ void CRender::Render()
 		Target->phase_combine();
 	}
 
+	if (Details && ps_ssfx_grass_shadows.x > 0)
+		Details->details_clear();
+
 	VERIFY(0==mapDistort.size());
 }
 

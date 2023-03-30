@@ -21,6 +21,8 @@ bool g_dedicated_server = false;
 # include "editor_environment_manager.hpp"
 #endif // INGAME_EDITOR
 
+extern Fvector4 ps_ssfx_grass_interactive;
+
 ENGINE_API IGame_Persistent* g_pGamePersistent = NULL;
 
 bool IsMainMenuActive()
@@ -337,4 +339,82 @@ void IGame_Persistent::OnAssetsChanged()
 #ifndef _EDITOR
 	Device.m_pRender->OnAssetsChanged(); //Resources->m_textures_description.Load();
 #endif
+}
+
+void IGame_Persistent::GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position)
+{
+	// Interactive grass disabled
+	if (ps_ssfx_grass_interactive.y < 1)
+		return;
+
+	if (RDEVICE.dwFrame < data_frame)
+	{
+		// Just update position if not NULL
+		if (data_idx != NULL)
+			grass_shader_data.pos[data_idx] = position;
+
+		return;
+	}
+
+	// Wait some random frames to split the checks
+	data_frame = RDEVICE.dwFrame + Random.randI(10, 30);
+
+	// Check Distance
+	if (position.distance_to_xz_sqr(Device.vCameraPosition) > ps_ssfx_grass_interactive.z)
+	{
+		GrassBendersRemoveByIndex(data_idx);
+		return;
+	}
+
+	CFrustum& view_frust = ::Render->ViewBase;
+	u32 mask = 0xff;
+
+	// In view frustum?
+	if (!view_frust.testSphere(position, 1, mask))
+	{
+		GrassBendersRemoveByIndex(data_idx);
+		return;
+	}
+
+	// Empty slot, let's use this
+	if (data_idx == NULL)
+	{
+		u8 idx = grass_shader_data.index + 1;
+
+		// Add to grass blenders array
+		if (grass_shader_data.id[idx] == NULL)
+		{
+			data_idx = idx;
+			grass_shader_data.pos[idx] = position;
+			grass_shader_data.id[idx] = id;
+		}
+
+		// Back to 0 when the array limit is reached
+		grass_shader_data.index = idx < ps_ssfx_grass_interactive.y ? idx : 0;
+	}
+	else
+	{
+		// Is already inview, let's add more time to re-check
+		data_frame += 30;
+		grass_shader_data.pos[data_idx] = position;
+	}
+
+}
+
+void IGame_Persistent::GrassBendersRemoveByIndex(u8& index)
+{
+	if (index != NULL)
+	{
+		grass_shader_data.id[index] = NULL;
+		grass_shader_data.pos[index].set(0, 0, 0); // Reset Position?
+		index = NULL;
+	}
+}
+
+void IGame_Persistent::GrassBendersRemoveById(u16 id)
+{
+	// Search by Object ID ( Used when removing benders CPHMovementControl::DestroyCharacter() )
+	for (int i = 1; i < ps_ssfx_grass_interactive.y + 1; i++)
+		if (grass_shader_data.id[i] == id)
+			grass_shader_data.id[i] = NULL;
 }
