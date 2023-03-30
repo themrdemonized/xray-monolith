@@ -305,7 +305,7 @@ Fvector4 ps_dev_param_8 = { .0f, .0f, .0f, .0f };
 /////////////////////////////////
 
 // Screen Space Shaders Stuff
-extern Fvector3 ps_ssfx_shadow_cascades;
+Fvector3 ps_ssfx_shadow_cascades = { 20, 40, 160 };
 Fvector4 ps_ssfx_grass_shadows = { .0f, .35f, 30.0f, .0f };
 Fvector4 ps_ssfx_grass_interactive = { .0f, .0f, 1000.0f, .0f };
 Fvector4 ps_ssfx_wpn_dof_1 = { .0f, .0f, .0f, .0f };
