@@ -114,7 +114,8 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 
 	// Grass benders data ( Player + Characters )
 	Fvector4 bender_pos[16];
-	int BendersQty = ps_ssfx_grass_interactive.y + 1;
+	int temp = ((int)ps_ssfx_grass_interactive.y) + 1;
+	int BendersQty = temp < 16 ? temp : 16;
 
 	// Add Player?
 	if (ps_ssfx_grass_interactive.x > 0)
@@ -167,9 +168,13 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 				}
 				VERIFY(c_grass);
 
-				for (int Bend = 0; Bend < BendersQty; Bend++)
-					c_grass[Bend].set(bender_pos[Bend]);
-
+				if (c_grass) {
+					for (int Bend = 0; Bend < BendersQty; Bend++) {
+						c_grass[Bend].set(bender_pos[Bend]);
+					}
+				}
+				
+					
 				//ref_constant constArray = RCache.get_c(strArray);
 				//VERIFY(constArray);
 
