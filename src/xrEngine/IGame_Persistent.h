@@ -64,6 +64,17 @@ public:
 	xr_set<CPS_Instance*> ps_active;
 	xr_vector<CPS_Instance*> ps_destroy;
 	xr_vector<CPS_Instance*> ps_needtoplay;
+public:
+	void GrassBendersRemoveById(u16 id);
+	void GrassBendersRemoveByIndex(u8& idx);
+	void GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position);
+
+	struct grass_data
+	{
+		u8 index;
+		u16 id[16];
+		Fvector pos[16];
+	} grass_shader_data;
 
 public:
 	void destroy_particles(const bool& all_particles);

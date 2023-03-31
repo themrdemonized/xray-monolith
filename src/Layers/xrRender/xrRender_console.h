@@ -3,6 +3,10 @@
 #pragma once
 
 // Common
+extern ECORE_API Fvector4 ps_ssfx_grass_shadows;
+extern ECORE_API Fvector3 ps_ssfx_shadow_cascades;
+extern ECORE_API Fvector4 ps_ssfx_grass_interactive;
+
 extern ECORE_API u32 ps_r_sun_shafts; //=	0;
 extern ECORE_API xr_token qsun_shafts_token[];
 
