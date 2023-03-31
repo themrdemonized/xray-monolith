@@ -160,21 +160,23 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 				RCache.set_c(strDir2D, wind);
 				RCache.set_c(strXForm, Device.mFullTransform);
 
-				Fvector4* c_grass;
+				if (ps_ssfx_grass_interactive.y > 0)
 				{
-					void* GrassData;
-					RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
-					c_grass = (Fvector4*)GrassData;
-				}
-				VERIFY(c_grass);
+					Fvector4* c_grass;
+					{
+						void* GrassData;
+						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
+						c_grass = (Fvector4*)GrassData;
+					}
+					VERIFY(c_grass);
 
-				if (c_grass) {
-					for (int Bend = 0; Bend < BendersQty; Bend++) {
-						c_grass[Bend].set(bender_pos[Bend]);
+					if (c_grass)
+					{
+						for (int Bend = 0; Bend < BendersQty; Bend++)
+							c_grass[Bend].set(bender_pos[Bend]);
 					}
 				}
-				
-					
+
 				//ref_constant constArray = RCache.get_c(strArray);
 				//VERIFY(constArray);
 
