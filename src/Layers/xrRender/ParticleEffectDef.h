@@ -85,7 +85,9 @@ namespace PS
 		SFrame m_Frame;
 		// compiled actions
 		CMemoryWriter m_Actions;
-		// def        
+		// def
+		u32 m_uStep;		// update rate of this effect in ms
+		float m_fStep;		// update rate of this effect in s
 		float m_fTimeLimit; // time limit
 		int m_MaxParticles; // max particle count
 		Fvector m_VelocityScale; // velocity scale
@@ -104,6 +106,9 @@ namespace PS
 	public:
 		CPEDef();
 		~CPEDef();
+
+		u32 GetUStep();
+		float GetFStep();
 
 		void SetName(LPCSTR name);
 		IC LPCSTR Name() const { return *m_Name; }
