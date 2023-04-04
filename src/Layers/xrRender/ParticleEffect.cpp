@@ -12,9 +12,6 @@
 using namespace PAPI;
 using namespace PS;
 
-const u32 PS::uDT_STEP = 33;
-const float PS::fDT_STEP = float(uDT_STEP) / 1000.f;
-
 static void ApplyTexgen(const Fmatrix& mVP)
 {
 	Fmatrix mTexgen;
@@ -135,6 +132,8 @@ void CParticleEffect::OnFrame(u32 frame_dt)
 		m_MemDT += frame_dt;
 
 		int StepCount = 0;
+		u32 uDT_STEP = m_Def->GetUStep();
+		float fDT_STEP = m_Def->GetFStep();
 		if (m_MemDT >= uDT_STEP)
 		{
 			// allow maximum of three steps (99ms) to avoid slowdown after loading
@@ -507,11 +506,11 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 						Fvector p;
 						pPE->m_XFORM.transform_tiny(p, m.pos);
 						M.mulA_43(pPE->m_XFORM);
-						FillSprite(pv, M.k, M.i, p, lt, rb, r_x, r_y, m.color, sina, cosa);
+						FillSprite(pv, M.k, M.i, p, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 					}
 					else
 					{
-						FillSprite(pv, M.k, M.i, m.pos, lt, rb, r_x, r_y, m.color, sina, cosa);
+						FillSprite(pv, M.k, M.i, m.pos, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 					}
 				}
 				else if ((speed >= EPS_S) && pPE->m_Def->m_Flags.is(CPEDef::dfFaceAlign))
@@ -531,11 +530,11 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 						Fvector p;
 						pPE->m_XFORM.transform_tiny(p, m.pos);
 						M.mulA_43(pPE->m_XFORM);
-						FillSprite(pv, M.j, M.i, p, lt, rb, r_x, r_y, m.color, sina, cosa);
+						FillSprite(pv, M.j, M.i, p, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 					}
 					else
 					{
-						FillSprite(pv, M.j, M.i, m.pos, lt, rb, r_x, r_y, m.color, sina, cosa);
+						FillSprite(pv, M.j, M.i, m.pos, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 					}
 				}
 				else
@@ -550,11 +549,11 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 						Fvector p, d;
 						pPE->m_XFORM.transform_tiny(p, m.pos);
 						pPE->m_XFORM.transform_dir(d, dir);
-						FillSprite(pv, p, d, lt, rb, r_x, r_y, m.color, sina, cosa);
+						FillSprite(pv, p, d, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 					}
 					else
 					{
-						FillSprite(pv, m.pos, dir, lt, rb, r_x, r_y, m.color, sina, cosa);
+						FillSprite(pv, m.pos, dir, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 					}
 				}
 			}
@@ -564,11 +563,11 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 				{
 					Fvector p;
 					pPE->m_XFORM.transform_tiny(p, m.pos);
-					FillSprite(pv, RDEVICE.vCameraTop, RDEVICE.vCameraRight, p, lt, rb, r_x, r_y, m.color, sina, cosa);
+					FillSprite(pv, RDEVICE.vCameraTop, RDEVICE.vCameraRight, p, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 				}
 				else
 				{
-					FillSprite(pv, RDEVICE.vCameraTop, RDEVICE.vCameraRight, m.pos, lt, rb, r_x, r_y, m.color, sina, cosa);
+					FillSprite(pv, RDEVICE.vCameraTop, RDEVICE.vCameraRight, m.pos, lt, rb, r_x, r_y, color_rgba_f(m.colorR, m.colorG, m.colorB, m.colorA), sina, cosa);
 				}
 			}
 		}

@@ -302,6 +302,8 @@ Fvector4 ps_dev_param_6 = { .0f, .0f, .0f, .0f };
 Fvector4 ps_dev_param_7 = { .0f, .0f, .0f, .0f };
 Fvector4 ps_dev_param_8 = { .0f, .0f, .0f, .0f };
 
+float ps_particle_update_coeff = 1.f;
+
 /////////////////////////////////
 
 // Screen Space Shaders Stuff
@@ -1135,6 +1137,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "heat_vision_args_1",		&heat_vision_args_1, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "heat_vision_args_2",		&heat_vision_args_2, tw2_min, tw2_max);
 	//--DSR-- HeatVision_end
+
+	CMD4(CCC_Float, "particle_update_mod", &ps_particle_update_coeff, 0.04f, 10.f);
 
 	// Geometry optimization
 	CMD4(CCC_Integer, "r__optimize_static_geom", &opt_static, 0, 4);

@@ -1504,21 +1504,30 @@ void PASpeedLimit::Execute(ParticleEffect* effect, const float dt, float& tm_max
 void PASpeedLimit::Transform(const Fmatrix&) { ; }
 //-------------------------------------------------------------------------------------------------
 
+#define STEP_DEFAULT 0.033F
+
 // Change color of all particles toward the specified color
 void PATargetColor::Execute(ParticleEffect* effect, const float dt, float& tm_max)
-{
-	float scaleFac = scale * dt;
-	Fcolor c_p, c_t;
+{	
+
+	float COEFF = STEP_DEFAULT / dt;
+	float scaleFac = scale * STEP_DEFAULT;
+	Fcolor c_p, c_t, c_n;
 
 	for (u32 i = 0; i < effect->p_count; i++)
 	{
 		Particle& m = effect->particles[i];
 		if (m.age < timeFrom * tm_max || m.age > timeTo * tm_max) continue;
 
-		c_p.set(m.color);
-		c_t.set(c_p.r + (color.x - c_p.r) * scaleFac, c_p.g + (color.y - c_p.g) * scaleFac,
-		        c_p.b + (color.z - c_p.b) * scaleFac, c_p.a + (alpha - c_p.a) * scaleFac);
-		m.color = c_t.get();
+		c_p.set(m.colorR, m.colorG, m.colorB, m.colorA);
+		c_t.set(color.x, color.y, color.z, alpha);
+		c_n.lerp(c_p, c_t, scaleFac);
+		c_n.set(c_n.get());
+
+		m.colorR -= (m.colorR - c_n.r) / COEFF;
+		m.colorG -= (m.colorG - c_n.g) / COEFF;
+		m.colorB -= (m.colorB - c_n.b) / COEFF;
+		m.colorA -= (m.colorA - c_n.a) / COEFF;
 	}
 }
 
@@ -1736,6 +1745,8 @@ struct TES_PARAMS
 	float magnitude;
 };
 
+extern float ps_particle_update_coeff;
+
 
 void PATurbulenceExecuteStream(LPVOID lpvParams)
 {
@@ -1837,7 +1848,7 @@ void PATurbulence::Execute(ParticleEffect* effect, const float dt, float& tm_max
 	tesParams.epsilon = epsilon;
 	tesParams.frequency = frequency;
 	tesParams.octaves = octaves;
-	tesParams.magnitude = magnitude;
+	tesParams.magnitude = magnitude*ps_particle_update_coeff;
 	PATurbulenceExecuteStream(&tesParams);
 }
 
