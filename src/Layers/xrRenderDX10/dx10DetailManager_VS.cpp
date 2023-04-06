@@ -110,6 +110,17 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 	static shared_str strArray("array");
 	static shared_str strXForm("xform");
 
+	static shared_str strBendersPos("benders_pos");
+	static shared_str strBendersSetup("benders_setup");
+
+	// Grass benders data
+	Fvector4 player_pos = { 0, 0, 0, 0 };
+	int BendersQty = _min(16, ps_ssfx_grass_interactive.y + 1);
+
+	// Add Player?
+	if (ps_ssfx_grass_interactive.x > 0)
+		player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z);
+
 	Device.Statistic->RenderDUMP_DT_Count = 0;
 
 	// Matrices and offsets
@@ -146,6 +157,27 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 				RCache.set_c(strDir2D, wind);
 				RCache.set_c(strXForm, Device.mFullTransform);
 
+				if (ps_ssfx_grass_interactive.y > 0)
+				{
+					RCache.set_c(strBendersSetup, ps_ssfx_int_grass_params_1);
+
+					Fvector4* c_grass;
+					{
+						void* GrassData;
+						RCache.get_ConstantDirect(strBendersPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
+						c_grass = (Fvector4*)GrassData;
+					}
+					VERIFY(c_grass);
+
+					if (c_grass)
+					{
+						c_grass[0].set(player_pos);
+
+						for (int Bend = 1; Bend < BendersQty; Bend++)
+							c_grass[Bend].set(g_pGamePersistent->grass_shader_data.pos[Bend].x, g_pGamePersistent->grass_shader_data.pos[Bend].y, g_pGamePersistent->grass_shader_data.pos[Bend].z);
+					}
+				}
+
 				//ref_constant constArray = RCache.get_c(strArray);
 				//VERIFY(constArray);
 
@@ -176,8 +208,20 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 						SlotItem& Instance = **_iI;
 						u32 base = dwBatch * 4;
 
-						// Build matrix ( 3x4 matrix, last row - color )
 						float scale = Instance.scale_calculated;
+
+						// Sort of fade using the scale
+						// fade_distance == -1 use light_position to define "fade", anything else uses fade_distance
+						if (fade_distance <= -1)
+							scale *= 1.0f - Instance.position.distance_to_xz_sqr(light_position) * 0.005f;
+						else if (Instance.distance > fade_distance)
+							scale *= 1.0f - abs(Instance.distance - fade_distance) * 0.005f;
+
+						if (scale <= 0)
+							break;
+
+						// Build matrix ( 3x4 matrix, last row - color )
+						//float scale = Instance.scale_calculated;
 						Fmatrix& M = Instance.mRotY;
 						c_storage[base + 0].set(M._11 * scale, M._21 * scale, M._31 * scale, M._41);
 						c_storage[base + 1].set(M._12 * scale, M._22 * scale, M._32 * scale, M._42);
@@ -233,13 +277,16 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 			}
 			// Clean up
 			// KD: we must not clear vis on r2 since we want details shadows
-			if (!psDeviceFlags2.test(rsGrassShadow) || ((ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_SMAP ==
+			if (ps_ssfx_grass_shadows.x <= 0)
+			{
+				if (!psDeviceFlags2.test(rsGrassShadow) || ((ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_SMAP ==
 					RImplementation.phase)) // phase smap with shadows
-				|| (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase)
-					&& (!RImplementation.is_sun())) // phase normal with shadows without sun
-				|| (!ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase))
-			)) // phase normal without shadows
-				vis.clear_not_free();
+					|| (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase)
+						&& (!RImplementation.is_sun())) // phase normal with shadows without sun
+					|| (!ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase))
+					)) // phase normal without shadows
+					vis.clear_not_free();
+			}
 		}
 		vOffset += hw_BatchSize * Object.number_vertices;
 		iOffset += hw_BatchSize * Object.number_indices;

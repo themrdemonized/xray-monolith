@@ -292,6 +292,16 @@ Fvector4 ps_dev_param_8 = { .0f, .0f, .0f, .0f };
 
 /////////////////////////////////
 
+// Screen Space Shaders Stuff
+Fvector3 ps_ssfx_shadow_cascades = { 20, 40, 160 };
+Fvector4 ps_ssfx_grass_shadows = { .0f, .35f, 30.0f, .0f };
+
+Fvector4 ps_ssfx_grass_interactive = { .0f, .0f, 1000.0f, .0f };
+Fvector4 ps_ssfx_int_grass_params_1 = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+Fvector4 ps_ssfx_wpn_dof_1 = { .0f, .0f, .0f, .0f };
+float ps_ssfx_wpn_dof_2 = 1.0f;
+
 //	x - min (0), y - focus (1.4), z - max (100)
 Fvector3 ps_r2_dof = { -1.25f, 0.f, 600.f };
 float ps_r2_dof_sky = 30; //	distance to sky
@@ -346,6 +356,33 @@ int opt_dynamic = 2;
 #if defined(USE_DX10) || defined(USE_DX11)
 #include "../xrRenderDX10/StateManager/dx10SamplerStateCache.h"
 #endif	//	USE_DX10
+
+class CCC_ssfx_cascades : public CCC_Vector3
+{
+public:
+	void apply()
+	{
+#if defined(USE_DX10) || defined(USE_DX11)
+		RImplementation.init_cacades();
+#endif
+	}
+
+	CCC_ssfx_cascades(LPCSTR N, Fvector3* V, const Fvector3 _min, const Fvector3 _max) : CCC_Vector3(N, V, _min, _max)
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Vector3::Execute(args);
+		apply();
+	}
+
+	virtual void Status(TStatus& S)
+	{
+		CCC_Vector3::Status(S);
+		apply();
+	}
+};
 
 //-----------------------------------------------------------------------
 //AVO: detail draw radius
@@ -1070,6 +1107,14 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+	
+	// Screen Space Shaders
+	CMD4(CCC_Vector4, "ssfx_grass_shadows", &ps_ssfx_grass_shadows, Fvector4().set(0, 0, 0, 0), Fvector4().set(3, 1, 100, 100));
+	CMD4(CCC_ssfx_cascades, "ssfx_shadow_cascades", &ps_ssfx_shadow_cascades, Fvector3().set(1.0f, 1.0f, 1.0f), Fvector3().set(300, 300, 300));
+	CMD4(CCC_Vector4, "ssfx_grass_interactive", &ps_ssfx_grass_interactive, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 15, 5000, 0));
+	CMD4(CCC_Vector4, "ssfx_int_grass_params_1", &ps_ssfx_int_grass_params_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 5, 5));
+	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
+	CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
 
 	// Geometry optimization
 	CMD4(CCC_Integer, "r__optimize_static_geom", &opt_static, 0, 4);
