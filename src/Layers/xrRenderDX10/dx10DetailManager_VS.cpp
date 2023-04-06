@@ -110,19 +110,16 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 	static shared_str strArray("array");
 	static shared_str strXForm("xform");
 
-	static shared_str strPos("benders_pos");
+	static shared_str strBendersPos("benders_pos");
+	static shared_str strBendersSetup("benders_setup");
 
-	// Grass benders data ( Player + Characters )
-	Fvector4 bender_pos[16];
-	int temp = ((int)ps_ssfx_grass_interactive.y) + 1;
-	int BendersQty = temp < 16 ? temp : 16;
+	// Grass benders data
+	Fvector4 player_pos = { 0, 0, 0, 0 };
+	int BendersQty = _min(16, ps_ssfx_grass_interactive.y + 1);
 
 	// Add Player?
 	if (ps_ssfx_grass_interactive.x > 0)
-		bender_pos[0].set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z);
-
-	for (int i = 1; i < BendersQty; i++)
-		bender_pos[i].set(g_pGamePersistent->grass_shader_data.pos[i].x, g_pGamePersistent->grass_shader_data.pos[i].y, g_pGamePersistent->grass_shader_data.pos[i].z);
+		player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z);
 
 	Device.Statistic->RenderDUMP_DT_Count = 0;
 
@@ -162,18 +159,22 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 
 				if (ps_ssfx_grass_interactive.y > 0)
 				{
+					RCache.set_c(strBendersSetup, ps_ssfx_int_grass_params_1);
+
 					Fvector4* c_grass;
 					{
 						void* GrassData;
-						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
+						RCache.get_ConstantDirect(strBendersPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
 						c_grass = (Fvector4*)GrassData;
 					}
 					VERIFY(c_grass);
 
 					if (c_grass)
 					{
-						for (int Bend = 0; Bend < BendersQty; Bend++)
-							c_grass[Bend].set(bender_pos[Bend]);
+						c_grass[0].set(player_pos);
+
+						for (int Bend = 1; Bend < BendersQty; Bend++)
+							c_grass[Bend].set(g_pGamePersistent->grass_shader_data.pos[Bend].x, g_pGamePersistent->grass_shader_data.pos[Bend].y, g_pGamePersistent->grass_shader_data.pos[Bend].z);
 					}
 				}
 
