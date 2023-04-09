@@ -305,6 +305,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("get_artefact_power", &CScriptGameObject::GetArtefactPowerRestoreSpeed)
 		.def("get_artefact_bleeding", &CScriptGameObject::GetArtefactBleedingRestoreSpeed)
 		.def("get_artefact_immunity", &CScriptGameObject::GetArtefactImmunity)
+		.def("get_artefact_additional_inventory_weight", &CScriptGameObject::GetArtefactAdditionalInventoryWeight)
 
 		.def("set_artefact_health", &CScriptGameObject::SetArtefactHealthRestoreSpeed)
 		.def("set_artefact_radiation", &CScriptGameObject::SetArtefactRadiationRestoreSpeed)
@@ -312,6 +313,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("set_artefact_power", &CScriptGameObject::SetArtefactPowerRestoreSpeed)
 		.def("set_artefact_bleeding", &CScriptGameObject::SetArtefactBleedingRestoreSpeed)
 		.def("set_artefact_immunity", &CScriptGameObject::SetArtefactImmunity)
+		.def("set_artefact_additional_inventory_weight", &CScriptGameObject::SetArtefactAdditionalInventoryWeight)
 
 		//HELICOPTER
 		.def("get_helicopter", &CScriptGameObject::get_helicopter)

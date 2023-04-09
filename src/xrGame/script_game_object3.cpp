@@ -1540,6 +1540,22 @@ void CScriptGameObject::SetArtefactImmunity(ALife::EHitType hit_type, float valu
 	return artefact->SetImmunity(hit_type, value);
 }
 
+float CScriptGameObject::GetArtefactAdditionalInventoryWeight()
+{
+	CArtefact* artefact = smart_cast<CArtefact*>(&object());
+	THROW(artefact);
+
+	return artefact->AdditionalInventoryWeight();
+}
+
+void CScriptGameObject::SetArtefactAdditionalInventoryWeight(float value)
+{
+	CArtefact* artefact = smart_cast<CArtefact*>(&object());
+	THROW(artefact);
+
+	artefact->m_additional_weight = value;
+}
+
 void CScriptGameObject::AttachVehicle(CScriptGameObject* veh, bool bForce)
 {
 	CActor* actor = smart_cast<CActor*>(&object());

@@ -70,7 +70,6 @@ protected:
 	float m_fTrailLightRange;
 	u8 m_af_rank;
 	bool m_bLightsEnabled;
-	float m_additional_weight;
 
 	virtual void UpdateLights();
 public:
@@ -90,6 +89,8 @@ public:
 	virtual void PhTune(float step)
 	{
 	};
+
+	float m_additional_weight;
 
 	float AdditionalInventoryWeight() const { return m_additional_weight; }
 	bool m_bCanSpawnZone;
