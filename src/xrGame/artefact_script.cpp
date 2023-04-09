@@ -33,6 +33,7 @@ void CArtefact::script_register(lua_State* L)
 		.def_readwrite("m_fSatietyRestoreSpeed", &CArtefact::m_fSatietyRestoreSpeed)
 		.def_readwrite("m_fPowerRestoreSpeed", &CArtefact::m_fPowerRestoreSpeed)
 		.def_readwrite("m_fBleedingRestoreSpeed", &CArtefact::m_fBleedingRestoreSpeed)
+		.def_readwrite("m_additional_weight", &CArtefact::m_additional_weight)
 		.def("FollowByPath", &CArtefact::FollowByPath)
 		.def("SwitchVisibility", &CArtefact::SwitchVisibility)
 		.def("GetAfRank", &CArtefact::GetAfRank),

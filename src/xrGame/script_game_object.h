@@ -999,6 +999,9 @@ public:
 	void SetArtefactBleedingRestoreSpeed(float value);
 	void SetArtefactImmunity(ALife::EHitType hit_type, float value);
 
+	float GetArtefactAdditionalInventoryWeight();
+	void SetArtefactAdditionalInventoryWeight(float value);
+
 	//Eatable items
 	void SetRemainingUses(u8 value);
 	u8 GetRemainingUses();
