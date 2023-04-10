@@ -1545,7 +1545,7 @@ float CScriptGameObject::GetArtefactAdditionalInventoryWeight()
 	CArtefact* artefact = smart_cast<CArtefact*>(&object());
 	THROW(artefact);
 
-	return artefact->AdditionalInventoryWeight();
+	return artefact->m_additional_weight;
 }
 
 void CScriptGameObject::SetArtefactAdditionalInventoryWeight(float value)
