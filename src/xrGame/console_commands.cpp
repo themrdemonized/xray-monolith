@@ -601,6 +601,47 @@ public:
 
 Fvector CCC_DemoRecordSetDir::d = { 0, 0, 0 };
 
+class CCC_DemoPlay : public IConsole_Command
+{
+public:
+	CCC_DemoPlay(LPCSTR N) :
+		IConsole_Command(N)
+	{
+		bEmptyArgsHandled = TRUE;
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+#ifndef	DEBUG
+		//if (GameID() != eGameIDSingle)
+		//{
+		//	Msg("For this game type Demo Play is disabled.");
+		//	return;
+		//};
+#endif
+		if (0 == g_pGameLevel)
+		{
+			Msg("! There are no level(s) started");
+		}
+		else
+		{
+			Console->Hide();
+			string_path fn;
+			u32 loops = 0;
+			LPSTR comma = strchr(const_cast<LPSTR>(args), ',');
+			if (comma)
+			{
+				loops = atoi(comma + 1);
+				*comma = 0; //. :)
+			}
+			strconcat(sizeof(fn), fn, args, ".xrdemo");
+			FS.update_path(fn, "$game_saves$", fn);
+			g_pGameLevel->Cameras().AddCamEffector(xr_new<CDemoPlay>(fn, 1.0f, loops));
+		}
+	}
+};
+
+// First Person Death
 extern float offsetH;
 extern float offsetP;
 extern float offsetB;
@@ -650,46 +691,6 @@ public:
 	}
 };
 Fvector CCC_FPDPositionOffset::d = { 0, 0, 0 };
-
-class CCC_DemoPlay : public IConsole_Command
-{
-public:
-	CCC_DemoPlay(LPCSTR N) :
-		IConsole_Command(N)
-	{
-		bEmptyArgsHandled = TRUE;
-	};
-
-	virtual void Execute(LPCSTR args)
-	{
-#ifndef	DEBUG
-		//if (GameID() != eGameIDSingle)
-		//{
-		//	Msg("For this game type Demo Play is disabled.");
-		//	return;
-		//};
-#endif
-		if (0 == g_pGameLevel)
-		{
-			Msg("! There are no level(s) started");
-		}
-		else
-		{
-			Console->Hide();
-			string_path fn;
-			u32 loops = 0;
-			LPSTR comma = strchr(const_cast<LPSTR>(args), ',');
-			if (comma)
-			{
-				loops = atoi(comma + 1);
-				*comma = 0; //. :)
-			}
-			strconcat(sizeof(fn), fn, args, ".xrdemo");
-			FS.update_path(fn, "$game_saves$", fn);
-			g_pGameLevel->Cameras().AddCamEffector(xr_new<CDemoPlay>(fn, 1.0f, loops));
-		}
-	}
-};
 
 // helper functions --------------------------------------------
 
