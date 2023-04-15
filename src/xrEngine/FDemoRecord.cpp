@@ -20,7 +20,8 @@ BOOL stored_cross;
 BOOL stored_red_text;
 
 CDemoRecord* xrDemoRecord = 0;
-CDemoRecord::force_position CDemoRecord::g_position = {false, {0, 0, 0}};
+CDemoRecord::force_position CDemoRecord::g_position = { false, {0, 0, 0} };
+CDemoRecord::force_direction CDemoRecord::g_direction = {false, {0, 0, 0}};
 
 Fbox curr_lm_fbox;
 
@@ -77,6 +78,8 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 	m_b_redirect_input_to_level = false;
 	_unlink(name);
 	file = FS.w_open(name);
+	isInputBlocked = FALSE;
+	pDemoRecords = nullptr;
 	if (file)
 	{
 		g_position.set_position = false;
@@ -123,12 +126,32 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 	}
 }
 
+CDemoRecord::CDemoRecord(const char* name, std::unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time) : CDemoRecord(name, life_time)
+{
+	pDemoRecords->insert(this);
+	this->pDemoRecords = pDemoRecords;
+	this->isInputBlocked = isInputBlocked;
+	if (!file) {
+		StopDemo();
+	}
+}
+
+void CDemoRecord::StopDemo() {
+	fLifeTime = -1;
+	if (pDemoRecords) {
+		pDemoRecords->erase(this);
+	}
+}
+
 CDemoRecord::~CDemoRecord()
 {
 	if (file)
 	{
 		IR_Release(); // release input
 		FS.w_close(file);
+	}
+	if (pDemoRecords) {
+		pDemoRecords->erase(this);
 	}
 	g_bDisableRedText = stored_red_text;
 
@@ -372,6 +395,13 @@ BOOL CDemoRecord::ProcessCam(SCamEffectorInfo& info)
 		}
 		else
 			g_position.p.set(m_Position);
+
+		if (g_direction.set_direction)
+		{
+			m_HPB.set(g_direction.d);
+			g_direction.set_direction = false;
+		} else
+			g_direction.d.set(m_Position);
 		// move
 		Fvector vmove;
 
@@ -399,6 +429,9 @@ BOOL CDemoRecord::ProcessCam(SCamEffectorInfo& info)
 		info.p.set(m_Camera.c);
 
 		fLifeTime -= Device.fTimeDelta;
+		if (fLifeTime < 0) {
+			StopDemo();
+		}
 
 		m_vT.set(0, 0, 0);
 		m_vR.set(0, 0, 0);
@@ -420,43 +453,54 @@ void CDemoRecord::IR_OnMouseRelease(int btn)
 
 void CDemoRecord::IR_OnKeyboardPress(int dik)
 {
-	if (dik == DIK_MULTIPLY) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
+	if (isInputBlocked) {
+		if (dik == DIK_PAUSE)
+			Device.Pause(!Device.Paused(), TRUE, TRUE, "demo_record");
+		if (dik == DIK_GRAVE)
+			Console->Show();
+		if (dik == DIK_ESCAPE)
+			Console->Execute("main_menu on");
+	} else {
+		if (dik == DIK_MULTIPLY) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
 
-	if (m_b_redirect_input_to_level)
-	{
-		g_pGameLevel->IR_OnKeyboardPress(dik);
-		return;
-	}
-	if (dik == DIK_GRAVE)
-		Console->Show();
-	if (dik == DIK_SPACE) RecordKey();
-	if (dik == DIK_BACK) MakeCubemap();
-	if (dik == DIK_F11) MakeLevelMapScreenshot(IR_GetKeyState(DIK_LCONTROL));
-	if (dik == DIK_F12) MakeScreenshot();
-	if (dik == DIK_ESCAPE) fLifeTime = -1;
-
-	//Alundaio: Teleport to demo cam
-	//#ifndef MASTER_GOLD
-	if (dik == DIK_RETURN)
-	{
-		if (strstr(Core.Params, "-dbg"))
+		if (m_b_redirect_input_to_level)
 		{
-			if (g_pGameLevel->CurrentEntity())
+			g_pGameLevel->IR_OnKeyboardPress(dik);
+			return;
+		}
+		if (dik == DIK_GRAVE)
+			Console->Show();
+		if (dik == DIK_SPACE) RecordKey();
+		if (dik == DIK_BACK) MakeCubemap();
+		if (dik == DIK_F11) MakeLevelMapScreenshot(IR_GetKeyState(DIK_LCONTROL));
+		if (dik == DIK_F12) MakeScreenshot();
+		if (dik == DIK_ESCAPE) StopDemo();
+
+		//Alundaio: Teleport to demo cam
+		//#ifndef MASTER_GOLD
+		if (dik == DIK_RETURN)
+		{
+			if (strstr(Core.Params, "-dbg"))
 			{
-				g_pGameLevel->CurrentEntity()->ForceTransform(m_Camera);
-				fLifeTime = -1;
+				if (g_pGameLevel->CurrentEntity())
+				{
+					g_pGameLevel->CurrentEntity()->ForceTransform(m_Camera);
+					StopDemo();
+				}
 			}
 		}
-	}
-	//#endif // #ifndef MASTER_GOLD
-	//-Alundaio
+		//#endif // #ifndef MASTER_GOLD
+		//-Alundaio
 
-	if (dik == DIK_PAUSE)
-		Device.Pause(!Device.Paused(), TRUE, TRUE, "demo_record");
+		if (dik == DIK_PAUSE)
+			Device.Pause(!Device.Paused(), TRUE, TRUE, "demo_record");
+	}
+	
 }
 
 void CDemoRecord::IR_OnKeyboardRelease(int dik)
 {
+	if (isInputBlocked) return;
 	if (m_b_redirect_input_to_level)
 		g_pGameLevel->IR_OnKeyboardRelease(dik);
 }
@@ -471,6 +515,7 @@ static void update_whith_timescale(Fvector& v, const Fvector& v_delta)
 
 void CDemoRecord::IR_OnKeyboardHold(int dik)
 {
+	if (isInputBlocked) return;
 	if (m_b_redirect_input_to_level)
 	{
 		g_pGameLevel->IR_OnKeyboardHold(dik);
@@ -526,6 +571,7 @@ void CDemoRecord::IR_OnKeyboardHold(int dik)
 
 void CDemoRecord::IR_OnMouseMove(int dx, int dy)
 {
+	if (isInputBlocked) return;
 	if (m_b_redirect_input_to_level)
 	{
 		g_pGameLevel->IR_OnMouseMove(dx, dy);
@@ -545,6 +591,7 @@ void CDemoRecord::IR_OnMouseMove(int dx, int dy)
 
 void CDemoRecord::IR_OnMouseHold(int btn)
 {
+	if (isInputBlocked) return;
 	if (m_b_redirect_input_to_level)
 	{
 		g_pGameLevel->IR_OnMouseHold(btn);
