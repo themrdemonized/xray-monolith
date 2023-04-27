@@ -21,6 +21,8 @@ bool g_dedicated_server = false;
 # include "editor_environment_manager.hpp"
 #endif // INGAME_EDITOR
 
+extern Fvector4 ps_ssfx_grass_interactive;
+
 ENGINE_API IGame_Persistent* g_pGamePersistent = NULL;
 
 bool IsMainMenuActive()
@@ -337,4 +339,215 @@ void IGame_Persistent::OnAssetsChanged()
 #ifndef _EDITOR
 	Device.m_pRender->OnAssetsChanged(); //Resources->m_textures_description.Load();
 #endif
+}
+
+void IGame_Persistent::GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position)
+{
+	// Interactive grass disabled
+	if (ps_ssfx_grass_interactive.y < 1)
+		return;
+
+	if (RDEVICE.dwFrame < data_frame)
+	{
+		// Just update position if not NULL
+		if (data_idx != NULL)
+		{
+			// Explosions can take the mem spot, unassign and try to get a spot later.
+			if (grass_shader_data.id[data_idx] != id)
+			{
+				data_idx = NULL;
+				data_frame = RDEVICE.dwFrame + Random.randI(10, 35);
+			}
+			else
+			{
+				// Just Update... ( FadeIn if str < 1.0f )
+				if (grass_shader_data.str[data_idx] < 1.0f)
+					grass_shader_data.str[data_idx] += 0.5f * Device.fTimeDelta;
+				else
+					grass_shader_data.str[data_idx] = 1.0f;
+
+				grass_shader_data.pos[data_idx] = position;
+			}
+		}
+
+		return;
+	}
+
+	// Wait some random frames to split the checks
+	data_frame = RDEVICE.dwFrame + Random.randI(10, 35);
+
+	// Check Distance
+	if (position.distance_to_xz_sqr(Device.vCameraPosition) > ps_ssfx_grass_interactive.z)
+	{
+		GrassBendersRemoveByIndex(data_idx);
+		return;
+	}
+
+	CFrustum& view_frust = ::Render->ViewBase;
+	u32 mask = 0xff;
+
+	// In view frustum?
+	if (!view_frust.testSphere(position, 1, mask))
+	{
+		GrassBendersRemoveByIndex(data_idx);
+		return;
+	}
+
+	// Empty slot, let's use this
+	if (data_idx == NULL)
+	{
+		u8 idx = grass_shader_data.index + 1;
+
+		// Add to grass blenders array
+		if (grass_shader_data.id[idx] == NULL)
+		{
+			data_idx = idx;
+			GrassBendersSet(idx, id, position, Fvector3().set(0, -99, 0), 0, 0, 0.0f, NULL, true);
+			grass_shader_data.radius_curr[idx] = -1.0f;
+		}
+
+		// Back to 0 when the array limit is reached
+		grass_shader_data.index = idx < ps_ssfx_grass_interactive.y ? idx : 0;
+	}
+	else
+	{
+		// Already inview, let's add more time to re-check
+		data_frame += 60;
+		grass_shader_data.pos[data_idx] = position;
+	}
+
+}
+
+void IGame_Persistent::GrassBendersAddExplosion(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius)
+{
+	if (ps_ssfx_grass_interactive.y < 1)
+		return;
+
+	for (int idx = 1; idx < ps_ssfx_grass_interactive.y + 1; idx++)
+	{
+		// Add explosion to any spot not already taken by an explosion.
+		if (grass_shader_data.radius[idx] == NULL)
+		{
+			// Add 99 to avoid conflicts between explosions and basic benders.
+			GrassBendersSet(idx, id + 99, position, dir, fade, speed, intensity, radius, true);
+			grass_shader_data.str_target[idx] = intensity;
+			break;
+		}
+	}
+}
+
+void IGame_Persistent::GrassBendersAddShot(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius)
+{
+	// Is disabled?
+	if (ps_ssfx_grass_interactive.y < 1 || intensity <= 0.0f)
+		return;
+
+	// Check distance
+	if (position.distance_to_xz_sqr(Device.vCameraPosition) > ps_ssfx_grass_interactive.z)
+		return;
+
+	int AddAt = -1;
+
+	// Look for a spot
+	for (int idx = 1; idx < ps_ssfx_grass_interactive.y + 1; idx++)
+	{
+		// Already exist, just update and increase intensity
+		if (grass_shader_data.id[idx] == id)
+		{
+			float currentSTR = grass_shader_data.str[idx];
+			GrassBendersSet(idx, id, position, dir, fade, speed, currentSTR, radius, false);
+			grass_shader_data.str_target[idx] += intensity;
+			AddAt = -1;
+			break;
+		}
+		else
+		{
+			// Check all index and keep usable index to use later if needed...
+			if (AddAt == -1 && grass_shader_data.radius[idx] == NULL)
+				AddAt = idx;
+		}
+	}
+
+	// We got an available index... Add bender at AddAt
+	if (AddAt != -1)
+	{
+		GrassBendersSet(AddAt, id, position, dir, fade, speed, 0.001f, radius, true);
+		grass_shader_data.str_target[AddAt] = intensity;
+	}
+}
+
+void IGame_Persistent::GrassBendersUpdateExplosions()
+{
+	for (int idx = 1; idx < ps_ssfx_grass_interactive.y + 1; idx++)
+	{
+		if (grass_shader_data.radius[idx] != NULL)
+		{
+			// Radius
+			grass_shader_data.time[idx] += Device.fTimeDelta * grass_shader_data.speed[idx];
+			grass_shader_data.radius_curr[idx] = grass_shader_data.radius[idx] * std::min(1.0f, grass_shader_data.time[idx]);
+
+			grass_shader_data.str_target[idx] = std::min(1.0f, grass_shader_data.str_target[idx]);
+
+			// Easing
+			float diff = abs(grass_shader_data.str[idx] - grass_shader_data.str_target[idx]);
+			diff = std::max(0.1f, diff);
+
+			// Intensity
+			if (grass_shader_data.str_target[idx] <= grass_shader_data.str[idx])
+			{
+				grass_shader_data.str[idx] -= Device.fTimeDelta * grass_shader_data.fade[idx] * diff;
+			}
+			else
+			{
+				grass_shader_data.str[idx] += Device.fTimeDelta * grass_shader_data.speed[idx] * diff;
+
+				if (grass_shader_data.str[idx] >= grass_shader_data.str_target[idx])
+					grass_shader_data.str_target[idx] = 0;
+			}
+
+			// Remove Bender
+			if (grass_shader_data.str[idx] < 0.0f)
+				GrassBendersReset(idx);
+		}
+	}
+}
+
+void IGame_Persistent::GrassBendersRemoveByIndex(u8& idx)
+{
+	if (idx != NULL)
+	{
+		GrassBendersReset(idx);
+		idx = NULL;
+	}
+}
+
+void IGame_Persistent::GrassBendersRemoveById(u16 id)
+{
+	// Search by Object ID ( Used when removing benders CPHMovementControl::DestroyCharacter() )
+	for (int i = 1; i < ps_ssfx_grass_interactive.y + 1; i++)
+		if (grass_shader_data.id[i] == id)
+			GrassBendersReset(i);
+}
+
+void IGame_Persistent::GrassBendersReset(u8 idx)
+{
+	GrassBendersSet(idx, NULL, { 0,0,0 }, Fvector3().set(0, -99, 0), 0, 0, 1, NULL, true);
+}
+
+void IGame_Persistent::GrassBendersSet(u8 idx, u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius, bool resetTime)
+{
+	// Set values
+	grass_shader_data.pos[idx] = position;
+	grass_shader_data.id[idx] = id;
+	grass_shader_data.radius[idx] = radius;
+	grass_shader_data.str[idx] = intensity;
+	grass_shader_data.fade[idx] = fade;
+	grass_shader_data.speed[idx] = speed;
+	grass_shader_data.dir[idx] = dir;
+
+	if (resetTime)
+	{
+		grass_shader_data.radius_curr[idx] = 0.01f;
+		grass_shader_data.time[idx] = 0;
+	}
 }
