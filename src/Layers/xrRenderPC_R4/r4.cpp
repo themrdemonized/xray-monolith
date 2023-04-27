@@ -614,6 +614,9 @@ void CRender::OnFrame()
 		Device.seqParallel.insert(Device.seqParallel.begin(),
 			fastdelegate::FastDelegate0<>(&HOM, &CHOM::MT_RENDER));
 	}
+
+	if (Details)
+		g_pGamePersistent->GrassBendersUpdateExplosions();
 }
 
 // Particles

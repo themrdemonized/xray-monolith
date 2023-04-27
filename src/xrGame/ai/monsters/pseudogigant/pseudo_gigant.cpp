@@ -363,6 +363,10 @@ void CPseudoGigant::on_threaten_execute()
 	pos.y += 0.1f;
 	m_sound_threaten_hit.play_at_pos(this, pos);
 
+	// Interactive Grass FX
+	extern Fvector4 ps_ssfx_grass_interactive;
+	g_pGamePersistent->GrassBendersAddExplosion(ID(), pos, Fvector().set(0, -99, 0), 1.33f, 5.0f, ps_ssfx_grass_interactive.w, 20);
+
 	// играть партиклы
 	PlayParticles(m_kick_particles, pos, Direction());
 

@@ -171,16 +171,19 @@ void FTreeVisual::Render(float LOD)
 
 	if (ps_ssfx_grass_interactive.y > 0)
 	{
+		// Inter grass Settings
+		RCache.set_c(c_c_BendersSetup, ps_ssfx_int_grass_params_1);
+
 		// Grass benders data ( Player + Characters )
+		IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
 		Fvector4 player_pos = { 0, 0, 0, 0 };
 		int BendersQty = _min(16, ps_ssfx_grass_interactive.y + 1);
 
 		// Add Player?
 		if (ps_ssfx_grass_interactive.x > 0)
-			player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z);
-
-		// Inter grass Settings
-		RCache.set_c(c_c_BendersSetup, ps_ssfx_int_grass_params_1);
+		{
+			player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z, -1);
+		}
 
 		Fvector4* c_grass;
 		{
@@ -194,9 +197,13 @@ void FTreeVisual::Render(float LOD)
 		if (c_grass)
 		{
 			c_grass[0].set(player_pos);
+			c_grass[16].set(0.0f, -99.0f, 0.0f, 1.0f);
 
 			for (int Bend = 1; Bend < BendersQty; Bend++)
-				c_grass[Bend].set(g_pGamePersistent->grass_shader_data.pos[Bend].x, g_pGamePersistent->grass_shader_data.pos[Bend].y, g_pGamePersistent->grass_shader_data.pos[Bend].z);
+			{
+				c_grass[Bend].set(GData.pos[Bend].x, GData.pos[Bend].y, GData.pos[Bend].z, GData.radius_curr[Bend]);
+				c_grass[Bend + 16].set(GData.dir[Bend].x, GData.dir[Bend].y, GData.dir[Bend].z, GData.str[Bend]);
+			}
 		}
 	}
 #endif
