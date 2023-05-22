@@ -731,6 +731,19 @@ void CWeapon::Load(LPCSTR section)
 	m_shoot_shake_mat.identity();
 }
 
+// demonized: World model on stalkers adjustments
+void CWeapon::set_mFirePoint(Fvector &fire_point) {
+	vLoadedFirePoint = fire_point;
+}
+
+void CWeapon::set_mFirePoint2(Fvector &fire_point) {
+	vLoadedFirePoint2 = fire_point;
+}
+
+void CWeapon::set_mShellPoint(Fvector &fire_point) {
+	vLoadedShellPoint = fire_point;
+}
+
 void CWeapon::LoadFireParams(LPCSTR section)
 {
 	cam_recoil.Dispersion = deg2rad(pSettings->r_float(section, "cam_dispersion"));
@@ -1931,6 +1944,21 @@ void CWeapon::reload(LPCSTR section)
 
 	m_ef_main_weapon_type = READ_IF_EXISTS(pSettings, r_u32, section, "ef_main_weapon_type", u32(-1));
 	m_ef_weapon_type = READ_IF_EXISTS(pSettings, r_u32, section, "ef_weapon_type", u32(-1));
+}
+
+// demonized: World model on stalkers adjustments
+void CWeapon::set_mOffset(Fvector position, Fvector orientation) {
+	orientation.mul(PI / 180.f);
+
+	m_Offset.setHPB(orientation.x, orientation.y, orientation.z);
+	m_Offset.translate_over(position);
+}
+
+void CWeapon::set_mStrapOffset(Fvector position, Fvector orientation) {
+	orientation.mul(PI / 180.f);
+
+	m_StrapOffset.setHPB(orientation.x, orientation.y, orientation.z);
+	m_StrapOffset.translate_over(position);
 }
 
 void CWeapon::create_physic_shell()

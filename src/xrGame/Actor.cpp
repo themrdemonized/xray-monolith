@@ -923,9 +923,10 @@ void CActor::Die(CObject* who)
 
 	if (IsGameTypeSingle())
 	{
+		// demonized: First Person Death
 		if (firstPersonDeath) {
 			cam_Set(eacFirstEye);
-			m_FPCam = xr_new<CFPCamEffector>();
+			initFPCam();
 			Fvector pos = Device.vCameraPosition;
 			Fvector hpb;
 			hpb.set(
@@ -936,7 +937,7 @@ void CActor::Die(CObject* who)
 			m_FPCam->m_Position.set(pos);
 			m_FPCam->m_HPB.set(hpb);
 			m_FPCam->m_Camera.setHPB(hpb.x, hpb.y, hpb.z).translate_over(pos);
-			Cameras().AddCamEffector(m_FPCam);
+			m_FPCam->m_customSmoothing = 0;
 		}
 		else
 			cam_Set(eacFreeLook);
@@ -1949,7 +1950,8 @@ extern	BOOL	g_ShowAnimationInfo		;
 void CActor::OnHUDDraw(CCustomHUD*)
 {
 	R_ASSERT(IsFocused());
-	if (!((mstate_real & mcLookout) && !IsGameTypeSingle()))
+	//demonized: disable hud when FPCam is on
+	if (!((mstate_real & mcLookout) && !IsGameTypeSingle()) && !m_FPCam)
 		g_player_hud->render_hud();
 
 
@@ -2689,5 +2691,22 @@ void CActor::SwitchNightVision(bool vision_on, bool use_sounds, bool send_event)
 		packet.w_u32(m_trader_flags.get());
 		object->u_EventSend(packet);
 		//Msg("GE_TRADER_FLAGS event sent %d", m_trader_flags.get());
+	}
+}
+
+// demonized: First Person Death
+void CActor::initFPCam()
+{
+	if (!m_FPCam) {
+		m_FPCam = xr_new<CFPCamEffector>();
+		Cameras().AddCamEffector(m_FPCam);
+	}
+}
+
+void CActor::removeFPCam() 
+{
+	if (m_FPCam) {
+		Cameras().RemoveCamEffector(m_FPCam);
+		m_FPCam = NULL;
 	}
 }

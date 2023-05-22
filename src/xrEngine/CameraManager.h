@@ -154,6 +154,9 @@ public:
 	CEffectorCam* GetCamEffector(ECamEffectorType type);
 	void RemoveCamEffector(ECamEffectorType type);
 
+	// demonized: removecameffector by pointer
+	void RemoveCamEffector(CEffectorCam* ef);
+
 	ECamEffectorType RequestCamEffectorId();
 	EEffectorPPType RequestPPEffectorId();
 	CEffectorPP* GetPPEffector(EEffectorPPType type);

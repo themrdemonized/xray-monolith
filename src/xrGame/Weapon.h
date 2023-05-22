@@ -120,6 +120,14 @@ public:
 
 	virtual void reinit();
 	virtual void reload(LPCSTR section);
+
+	// demonized: World model on stalkers adjustments
+	void set_mOffset(Fvector position, Fvector orientation);
+	void set_mStrapOffset(Fvector position, Fvector orientation);
+	void set_mFirePoint(Fvector &fire_point);
+	void set_mFirePoint2(Fvector &fire_point);
+	void set_mShellPoint(Fvector &fire_point);
+
 	virtual void create_physic_shell();
 	virtual void activate_physic_shell();
 	virtual void setup_physic_shell();
