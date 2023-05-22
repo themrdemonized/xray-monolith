@@ -225,6 +225,21 @@ void CCameraManager::RemoveCamEffector(ECamEffectorType type)
 		}
 }
 
+// demonized: removecameffector by pointer
+void CCameraManager::RemoveCamEffector(CEffectorCam* ef)
+{
+	for (EffectorCamIt it = m_EffectorsCam.begin(); it != m_EffectorsCam.end(); it++)
+	{
+		CEffectorCam* cam = (*it);
+		if (cam == ef)
+		{
+			OnEffectorReleased(cam);
+			m_EffectorsCam.erase(it);
+			return;
+		}
+	}
+}
+
 CEffectorPP* CCameraManager::GetPPEffector(EEffectorPPType type)
 {
 	for (EffectorPPIt it = m_EffectorsPP.begin(); it != m_EffectorsPP.end(); it++)

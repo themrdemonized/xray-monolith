@@ -82,8 +82,13 @@ public:
 	CActor();
 	virtual ~CActor();
 
-protected:
+// demonized: First Person Death
+public:
 	CFPCamEffector* m_FPCam;
+
+public:
+	void initFPCam();
+	void removeFPCam();
 
 public:
 	virtual BOOL AlwaysTheCrow() { return TRUE; }

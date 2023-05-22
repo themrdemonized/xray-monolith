@@ -114,18 +114,20 @@ BOOL CEffectorBobbing::ProcessCam(SCamEffectorInfo& info)
 	return TRUE;
 }
 
+// demonized: First Person Death (Cam Effector, can be used in scripts any time to set custom position and direction)
 CFPCamEffector::CFPCamEffector() : CEffectorCam(eCEUser, INT_MAX) {
 	m_Camera.identity();
 	m_Camera.setHPB(0, 0, 0);
 	m_HPB.set(0, 0, 0);
 	m_Position.set(0, 0, 0);
+	m_customSmoothing = 0;
 }
 
 // EMA smoothing for changing values, frame independent
 int firstPersonDeathPositionSmoothing = 6;
 int firstPersonDeathDirectionSmoothing = 12;
 
-void CFPCamEffector::ema(Fvector &current, Fvector &target, int steps) {
+void CFPCamEffector::ema(Fvector &current, Fvector &target, unsigned int steps) {
 	float smoothing_alpha = 2.0 / (steps + 1);
 	float delta = Device.dwTimeDelta;
 
@@ -148,9 +150,15 @@ BOOL CFPCamEffector::ProcessCam(SCamEffectorInfo& info)
 	temp.identity().setHPB(m_HPB.x, m_HPB.y, m_HPB.z).translate_over(m_Position);
 
 	// Smooth out transition between current camera and target
-	ema(m_Camera.j, temp.j, firstPersonDeathDirectionSmoothing);
-	ema(m_Camera.k, temp.k, firstPersonDeathDirectionSmoothing);
-	ema(m_Camera.c, temp.c, firstPersonDeathPositionSmoothing);
+	if (m_customSmoothing) {
+		ema(m_Camera.j, temp.j, m_customSmoothing);
+		ema(m_Camera.k, temp.k, m_customSmoothing);
+		ema(m_Camera.c, temp.c, m_customSmoothing);
+	} else {
+		ema(m_Camera.j, temp.j, firstPersonDeathDirectionSmoothing);
+		ema(m_Camera.k, temp.k, firstPersonDeathDirectionSmoothing);
+		ema(m_Camera.c, temp.c, firstPersonDeathPositionSmoothing);
+	}
 
 	// update camera
 	info.n.set(m_Camera.j);

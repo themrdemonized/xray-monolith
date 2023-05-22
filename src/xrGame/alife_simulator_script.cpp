@@ -412,6 +412,15 @@ CSE_Abstract* reprocess_spawn(CALifeSimulator* self, CSE_Abstract* object)
 	return (self->server().Process_spawn(packet, clientID));
 }
 
+// demonized: iterate alife objects
+void CALifeSimulator__iterate_objects(const CALifeSimulator* self, luabind::functor<bool> functor)
+{
+	const CALifeObjectRegistry &objects = self->objects();
+	for (const auto& se_obj : objects.objects()) {
+		if (functor(se_obj.second)) break;
+	}
+}
+
 CSE_Abstract* try_to_clone_object(CALifeSimulator* self, CSE_Abstract* object, LPCSTR section, const Fvector& position,
                                   u32 level_vertex_id, GameGraph::_GRAPH_ID game_vertex_id, ALife::_OBJECT_ID id_parent,
                                   bool bRegister = true)
@@ -513,6 +522,9 @@ void CALifeSimulator::script_register(lua_State* L)
 		.def("set_process_time", &set_process_time)
 		.def("get_children", &get_children, return_stl_iterator)
 		//Alundaio: END
+
+		// demonized: iterate alife objects
+		.def("iterate_objects", &CALifeSimulator__iterate_objects)
 
 		, def("alife", &alife)
 	];

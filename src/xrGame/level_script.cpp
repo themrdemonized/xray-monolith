@@ -50,6 +50,7 @@
 #include "../xrEngine/GameMtlLib.h"
 #include "../xrEngine/xr_input.h"
 #include "script_ini_file.h"
+#include "EffectorBobbing.h"
 
 using namespace luabind;
 
@@ -624,6 +625,27 @@ float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam
 	e->Start(fn);
 	Actor()->Cameras().AddCamEffector(e);
 	return e->GetAnimatorLength();
+}
+
+// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
+void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing)
+{
+	CActor* actor = Actor();
+	actor->initFPCam();
+	actor->m_FPCam->m_HPB.set(direction);
+	actor->m_FPCam->m_Position.set(position);
+	actor->m_FPCam->m_customSmoothing = smoothing;
+}
+
+void set_cam_position_direction(Fvector& position, Fvector& direction)
+{
+	set_cam_position_direction(position, direction, 1);
+}
+
+void remove_cam_position_direction() 
+{
+	CActor* actor = Actor();
+	actor->removeFPCam();
 }
 
 void remove_cam_effector(int id)
@@ -1720,6 +1742,12 @@ void CLevel::script_register(lua_State* L)
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))&add_cam_effector)),
+
+			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
+			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int))&set_cam_position_direction)),
+			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),
+			def("remove_cam_custom_position_direction", &remove_cam_position_direction),
+
 			def("remove_cam_effector", &remove_cam_effector),
 			def("set_cam_effector_factor", &set_cam_effector_factor),
 			def("get_cam_effector_factor", &get_cam_effector_factor),

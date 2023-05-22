@@ -34,13 +34,15 @@ public:
 
 #endif //_EFFECTOR_BOBBING_H
 
+// demonized: First Person Death Cam Effector
 class CFPCamEffector : public CEffectorCam
 {
 public:
 	Fvector m_Position;
 	Fvector m_HPB;
 	Fmatrix m_Camera;
-	virtual void ema(Fvector& current, Fvector& target, int steps);
+	unsigned int m_customSmoothing; // 0 - use FPDeath smoothing params, no custom smoothing
+	virtual void ema(Fvector& current, Fvector& target, unsigned int steps);
 	
 public:
 	CFPCamEffector();

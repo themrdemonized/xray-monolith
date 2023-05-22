@@ -129,6 +129,13 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("SetHitImpulse", &CWeapon::SetHitImpulse)
 			.def("SetFireDistance", &CWeapon::SetFireDistance)
 
+			// demonized: World model on stalkers adjustments
+			.def("Set_mOffset", &CWeapon::set_mOffset)
+			.def("Set_mStrapOffset", &CWeapon::set_mStrapOffset)
+			.def("Set_mFirePoint", &CWeapon::set_mFirePoint)
+			.def("Set_mFirePoint2", &CWeapon::set_mFirePoint2)
+			.def("Set_mShellPoint", &CWeapon::set_mShellPoint)
+
 			// Cam Recoil
 			// Getters
 			.def("GetCamRelaxSpeed", &CWeapon::GetCamRelaxSpeed)
