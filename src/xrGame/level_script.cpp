@@ -1405,6 +1405,98 @@ const Fvector2 world2ui(Fvector pos, bool hud = false)
 	return { x,y };
 }
 
+// demonized: unproject ui coordinates (ie mouse cursor coordinates) to world coordinates
+// returns position and underlying object id if found. If there is no object, obj_id will be 65535
+void ui2world(Fvector2 pos, Fvector& res, u16& obj_id)
+{
+	res.set(0, 0, 0);
+	if (pos.x < 0 || pos.x > UI_BASE_WIDTH || pos.y < 0 || pos.y > UI_BASE_HEIGHT) {
+		return;
+	}
+
+	// Convert to [-1; 1] NDC space
+	pos.x = 2 * pos.x / UI_BASE_WIDTH - 1;
+	pos.y = 1 - 2 * pos.y / UI_BASE_HEIGHT;
+
+	Fmatrix mProject = Device.mFullTransform;
+
+	// 4x4 invert of camera matrix
+	{
+		Fmatrix& m = mProject;
+
+		float mProjectDet = m._11 * (m._22*m._33*m._44 + m._23*m._34*m._42 + m._24*m._32*m._43 - m._24*m._33*m._42 - m._23*m._32*m._44 - m._22*m._34*m._43)
+						-   m._21 * (m._12*m._33*m._44 + m._13*m._34*m._42 + m._14*m._32*m._43 - m._14*m._33*m._42 - m._13*m._32*m._44 - m._12*m._34*m._43)
+						+   m._31 * (m._12*m._23*m._44 + m._13*m._24*m._42 + m._14*m._22*m._43 - m._14*m._23*m._42 - m._13*m._22*m._44 - m._12*m._24*m._43)
+						-   m._41 * (m._12*m._23*m._34 + m._13*m._24*m._32 + m._14*m._22*m._33 - m._14*m._23*m._32 - m._13*m._22*m._34 - m._12*m._24*m._33);
+
+		Fmatrix mProjectAdjugate;
+		mProjectAdjugate._11 = m._22*m._33*m._44 + m._23*m._34*m._42 + m._24*m._32*m._43 - m._24*m._33*m._42 - m._23*m._32*m._44 - m._22*m._34*m._43;
+		mProjectAdjugate._12 = -m._12*m._33*m._44 - m._13*m._34*m._42 - m._14*m._32*m._43 + m._14*m._33*m._42 + m._13*m._32*m._44 + m._12*m._34*m._43;
+		mProjectAdjugate._13 = m._12*m._23*m._44 + m._13*m._24*m._42 + m._14*m._22*m._43 - m._14*m._23*m._42 - m._13*m._22*m._44 - m._12*m._24*m._43;
+		mProjectAdjugate._14 = -m._12*m._23*m._34 - m._13*m._24*m._32 - m._14*m._22*m._33 + m._14*m._23*m._32 + m._13*m._22*m._34 + m._12*m._24*m._33;
+
+		mProjectAdjugate._21 = -m._21*m._33*m._44 - m._23*m._34*m._41 - m._24*m._31*m._43 + m._24*m._33*m._41 + m._23*m._31*m._44 + m._21*m._34*m._43;
+		mProjectAdjugate._22 = m._11*m._33*m._44 + m._13*m._34*m._41 + m._14*m._31*m._43 - m._14*m._33*m._41 - m._13*m._31*m._44 - m._11*m._34*m._43;
+		mProjectAdjugate._23 = -m._11*m._23*m._44 - m._13*m._24*m._41 - m._14*m._21*m._43 + m._14*m._23*m._41 + m._13*m._21*m._44 + m._11*m._24*m._43;
+		mProjectAdjugate._24 = m._11*m._23*m._34 + m._13*m._24*m._31 + m._14*m._21*m._33 - m._14*m._23*m._31 - m._13*m._21*m._34 - m._11*m._24*m._33;
+
+		mProjectAdjugate._31 = m._21*m._32*m._44 + m._22*m._34*m._41 + m._24*m._31*m._42 - m._24*m._32*m._41 - m._22*m._31*m._44 - m._21*m._34*m._42;
+		mProjectAdjugate._32 = -m._11*m._32*m._44 - m._12*m._34*m._41 - m._14*m._31*m._42 + m._14*m._32*m._41 + m._12*m._31*m._44 + m._11*m._34*m._42;
+		mProjectAdjugate._33 = m._11*m._22*m._44 + m._12*m._24*m._41 + m._14*m._21*m._42 - m._14*m._22*m._41 - m._12*m._21*m._44 - m._11*m._24*m._42;
+		mProjectAdjugate._34 = -m._11*m._22*m._34 - m._12*m._24*m._31 - m._14*m._21*m._32 + m._14*m._22*m._31 + m._12*m._21*m._34 + m._11*m._24*m._32;
+
+		mProjectAdjugate._41 = -m._21*m._32*m._43 - m._22*m._33*m._41 - m._23*m._31*m._42 + m._23*m._32*m._41 + m._22*m._31*m._43 + m._21*m._33*m._42;
+		mProjectAdjugate._42 = m._11*m._32*m._43 + m._12*m._33*m._41 + m._13*m._31*m._42 - m._13*m._32*m._41 - m._12*m._31*m._43 - m._11*m._33*m._42;
+		mProjectAdjugate._43 = -m._11*m._22*m._43 - m._12*m._23*m._41 - m._13*m._21*m._42 + m._13*m._22*m._41 + m._12*m._21*m._43 + m._11*m._23*m._42;
+		mProjectAdjugate._44 = m._11*m._22*m._33 + m._12*m._23*m._31 + m._13*m._21*m._32 - m._13*m._22*m._31 - m._12*m._21*m._33 - m._11*m._23*m._32;
+
+		mProjectDet = 1.0 / mProjectDet;
+		mProjectAdjugate.mul(mProjectDet);
+		mProject.set(mProjectAdjugate);
+	}
+		
+	// get position at arbitrary depth
+	res.set(pos.x, pos.y, 1);
+	{
+		auto& e = mProject.m;
+		auto x = res.x;
+		auto y = res.y;
+		auto z = res.z;
+		float w = 1.0 / (e[0][3] * x + e[1][3] * y + e[2][3] * z + e[3][3]);
+
+		res.x = (e[0][0] * x + e[1][0] * y + e[2][0] * z + e[3][0]) * w;
+		res.y = (e[0][1] * x + e[1][1] * y + e[2][1] * z + e[3][1]) * w;
+		res.z = (e[0][2] * x + e[1][2] * y + e[2][2] * z + e[3][2]) * w;
+	}
+
+	// perform ray cast to get actual position
+	collide::rq_result R;
+	CObject* ignore = Actor();
+	Fvector start = Device.vCameraPosition;
+	Fvector dir;
+	dir.set(res).sub(start).normalize();
+	start.mad(dir, R_VIEWPORT_NEAR);
+	float range = g_pGamePersistent->Environment().CurrentEnv->far_plane;
+
+	obj_id = 65535;
+	if (Level().ObjectSpace.RayPick(start, dir, range, collide::rqtBoth, R, ignore))
+	{
+		res.mad(start, dir, R.range);
+
+		if (R.O) {
+			CGameObject* o = smart_cast<CGameObject*>(R.O);
+			if (o) {
+				obj_id = o->ID();
+			}
+		}
+	}
+}
+
+void ui2world(Fvector& pos, Fvector& res, u16& obj_id)
+{
+	ui2world(Fvector2().set(pos.x, pos.y), res, obj_id);
+}
+
 const float get_env_rads()
 {
 	if (!CurrentGameUI())
@@ -1941,6 +2033,8 @@ void CLevel::script_register(lua_State* L)
 		def("prefetch_texture", prefetch_texture),
 		def("prefetch_model", prefetch_model),
 		def("get_visual_userdata", GetVisualUserdata),
-		def("world2ui", world2ui)
+		def("world2ui", world2ui),
+		def("ui2world", (void (*)(Fvector2, Fvector&, u16&))&ui2world, pure_out_value(_2) + pure_out_value(_3)),
+		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value(_2) + pure_out_value(_3))
 	];
 }
