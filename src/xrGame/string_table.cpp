@@ -30,6 +30,8 @@ void CStringTable::rescan()
 
 extern void refresh_npc_names();
 
+// demonized: use english text if locale text string is missing
+BOOL use_english_text_for_missing_translations = TRUE;
 void CStringTable::Init()
 {
 	if (NULL != pData) return;
@@ -39,6 +41,24 @@ void CStringTable::Init()
 	//имя языка, если не задано (NULL), то первый <text> в <string> в XML
 	pData->m_sLanguage = READ_IF_EXISTS(pSettings, r_string, "string_table", "language", "eng");
 
+	// demonized: parse english files first, then they will be replaced by current locale
+	if (use_english_text_for_missing_translations && xr_strcmp(pData->m_sLanguage, "eng") != 0) {
+		FS_FileSet fset;
+		string_path files_mask;
+		xr_sprintf(files_mask, "text\\%s\\*.xml", "eng");
+		FS.file_list(fset, "$game_config$", FS_ListFiles, files_mask);
+		FS_FileSetIt fit = fset.begin();
+		FS_FileSetIt fit_e = fset.end();
+
+		for (; fit != fit_e; ++fit)
+		{
+			string_path fn, ext;
+			_splitpath((*fit).name.c_str(), 0, 0, fn, ext);
+			xr_strcat(fn, ext);
+
+			Load(fn, "eng");
+		}
+	}
 
 	//---
 	FS_FileSet fset;
@@ -77,11 +97,12 @@ void CStringTable::Init()
 	discord_gameinfo.ex_update = true;
 }
 
-void CStringTable::Load(LPCSTR xml_file_full)
+void CStringTable::Load(LPCSTR xml_file_full, LPCSTR lang_in)
 {
+	LPCSTR lang = lang_in ? lang_in : pData->m_sLanguage.c_str();
 	CUIXml uiXml;
 	string_path _s;
-	strconcat(sizeof(_s), _s, "text\\", pData->m_sLanguage.c_str());
+	strconcat(sizeof(_s), _s, "text\\", lang);
 
 	uiXml.Load(CONFIG_PATH, _s, xml_file_full);
 
@@ -98,7 +119,7 @@ void CStringTable::Load(LPCSTR xml_file_full)
 		LPCSTR string_text = uiXml.Read(uiXml.GetRoot(), "string:text", i, NULL);
 
 		if (m_bWriteErrorsToLog && string_text)
-			Msg("[string table] '%s' no translation in '%s'", string_name, pData->m_sLanguage.c_str());
+			Msg("[string table] '%s' no translation in '%s'", string_name, lang);
 
 		VERIFY3(string_text, "string table entry does not have a text", string_name);
 

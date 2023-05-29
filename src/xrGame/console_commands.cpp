@@ -114,9 +114,14 @@ float streff;
 
 extern BOOL g_ai_die_in_anomaly; //Alundaio
 
+//demonized: new console vars
 extern BOOL firstPersonDeath;
-
 extern BOOL pseudogiantCanDamageObjects;
+extern BOOL use_english_text_for_missing_translations;
+namespace crash_saving {
+	extern BOOL enabled;
+	extern int saveCountMax;
+}
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2135,43 +2140,6 @@ public:
 	}
 };
 
-namespace crash_saving {
-	extern bool enabled;
-	extern int saveCountMax;
-}
-
-class CCC_ToggleCrashSaving : public IConsole_Command
-{
-public:
-	CCC_ToggleCrashSaving(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = false; };
-
-	virtual void Execute(LPCSTR args)
-	{
-		if (EQ(args, "on")) crash_saving::enabled = true;
-		else if (EQ(args, "off")) crash_saving::enabled = false;
-		else if (EQ(args, "1")) crash_saving::enabled = true;
-		else if (EQ(args, "0")) crash_saving::enabled = false;
-		else InvalidSyntax();
-	}
-
-	virtual void Status(TStatus& S)
-	{
-		xr_strcpy(S, crash_saving::enabled ? "on" : "off");
-	}
-
-	virtual void Info(TInfo& I)
-	{
-		xr_strcpy(I, "'on/off' or '1/0'");
-	}
-
-	virtual void fill_tips(vecTips& tips, u32 mode)
-	{
-		TStatus str;
-		xr_sprintf(str, sizeof(str), "%s (current) [on/off]", crash_saving::enabled ? "on" : "off");
-		tips.push_back(str);
-	}
-};
-
 void CCC_RegisterCommands()
 {
 	//Not needed for a singleplayer-only mod
@@ -2687,6 +2655,9 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_feel_grenade", &psDeviceFlags2, rsFeelGrenade);
 	CMD3(CCC_Mask, "g_always_active", &psDeviceFlags2, rsAlwaysActive);
 
+	// demonized: use_english_text_for_missing_translations
+	CMD4(CCC_Integer, "use_english_text_for_missing_translations", &use_english_text_for_missing_translations, 0, 1);
+
 	//First Person Death
 	CMD4(CCC_Integer, "first_person_death", &firstPersonDeath, 0, 1);
 	CMD1(CCC_FPDDirectionOffset, "first_person_death_direction_offset");
@@ -2696,7 +2667,7 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Float, "first_person_death_near_plane_offset", &viewportNearOffset, -0.1, 0.5);
 
 	//Toggle crash saving
-	CMD1(CCC_ToggleCrashSaving, "crash_save");
+	CMD4(CCC_Integer, "crash_save", &crash_saving::enabled, 0, 1);
 	CMD4(CCC_Integer, "crash_save_count", &crash_saving::saveCountMax, 0, 20);
 
 	if (strstr(Core.Params, "-dbgdev"))
