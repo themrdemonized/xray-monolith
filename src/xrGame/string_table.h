@@ -33,7 +33,7 @@ public:
 	void ReloadLanguage();
 private:
 	void Init();
-	void Load(LPCSTR xml_file);
+	void Load(LPCSTR xml_file, LPCSTR lang = 0);
 	static STRING_VALUE ParseLine(LPCSTR str, LPCSTR key, bool bFirst);
 	static STRING_TABLE_DATA* pData;
 };
