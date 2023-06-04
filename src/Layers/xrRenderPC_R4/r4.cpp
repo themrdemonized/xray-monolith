@@ -616,7 +616,7 @@ void CRender::OnFrame()
 	}
 
 	if (Details)
-		g_pGamePersistent->GrassBendersUpdateExplosions();
+		g_pGamePersistent->GrassBendersUpdateAnimations();
 }
 
 // Particles

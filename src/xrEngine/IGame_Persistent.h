@@ -65,18 +65,32 @@ public:
 	xr_vector<CPS_Instance*> ps_destroy;
 	xr_vector<CPS_Instance*> ps_needtoplay;
 public:
-	void GrassBendersUpdateExplosions();
+	enum GrassBenders_Anim
+	{
+		BENDER_ANIM_EXPLOSION = 0,
+		BENDER_ANIM_DEFAULT = 1,
+		BENDER_ANIM_WAVY = 2,
+		BENDER_ANIM_SUCK = 3,
+		BENDER_ANIM_BLOW = 4,
+		BENDER_ANIM_PULSE = 5,
+	}; 
+
+	void GrassBendersUpdateAnimations();
 	void GrassBendersAddExplosion(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius);
 	void GrassBendersAddShot(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius);
 	void GrassBendersRemoveById(u16 id);
 	void GrassBendersRemoveByIndex(u8& idx);
-	void GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position);
+	void GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position, float radius, float str, bool CheckDistance );
 	void GrassBendersReset(u8 idx);
-	void GrassBendersSet(u8 idx, u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius, bool resetTime);
+	void GrassBendersSet(u8 idx, u16 id, Fvector position, Fvector3 dir, float fade, float speed, float str, float radius, GrassBenders_Anim anim, bool resetTime);
+	float GrassBenderToValue(float& current, float go_to, float intensity, bool use_easing);
+
+	CPerlinNoise1D* PerlinNoise1D;
 
 	struct grass_data
 	{
 		u8 index;
+		s8 anim[16];
 		u16 id[16];
 		Fvector pos[16];
 		Fvector3 dir[16];

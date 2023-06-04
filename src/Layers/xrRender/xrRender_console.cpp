@@ -311,7 +311,7 @@ Fvector3 ps_ssfx_shadow_cascades = { 20, 40, 160 };
 Fvector4 ps_ssfx_grass_shadows = { .0f, .35f, 30.0f, .0f };
 
 Fvector4 ps_ssfx_grass_interactive = { .0f, .0f, 2000.0f, 1.0f };
-Fvector4 ps_ssfx_int_grass_params_1 = { 1.0f, 1.0f, 1.0f, 1.0f };
+Fvector4 ps_ssfx_int_grass_params_1 = { 1.0f, 1.0f, 1.0f, 25.0f };
 Fvector4 ps_ssfx_int_grass_params_2 = { 1.0f, 5.0f, 1.0f, 1.0f };
 
 Fvector4 ps_ssfx_wpn_dof_1 = { .0f, .0f, .0f, .0f };
@@ -1132,7 +1132,7 @@ void xrRender_initconsole()
 	CMD4(CCC_ssfx_cascades, "ssfx_shadow_cascades", &ps_ssfx_shadow_cascades, Fvector3().set(1.0f, 1.0f, 1.0f), Fvector3().set(300, 300, 300));
 	
 	CMD4(CCC_Vector4, "ssfx_grass_interactive", &ps_ssfx_grass_interactive, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 15, 5000, 1));
-	CMD4(CCC_Vector4, "ssfx_int_grass_params_1", &ps_ssfx_int_grass_params_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 5, 5));
+	CMD4(CCC_Vector4, "ssfx_int_grass_params_1", &ps_ssfx_int_grass_params_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 5, 60));
 	CMD4(CCC_Vector4, "ssfx_int_grass_params_2", &ps_ssfx_int_grass_params_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 20, 1, 5));
 	
 	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
