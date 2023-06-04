@@ -592,7 +592,7 @@ IC bool IsValuableToRender(dxRender_Visual* pVisual, bool isStatic, bool sm, Fma
 
 		if (sm && !!psDeviceFlags2.test(rsOptShadowGeom)) // Highest cut off for shadow map
 		{
-			if (sphere_volume < 50000.f && adjusted_distane > 160)
+			if (sphere_volume < 50000.f && adjusted_distane > ps_ssfx_shadow_cascades.z)
 				// don't need geometry behind the farest sun shadow cascade
 				return false;
 

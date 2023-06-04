@@ -614,6 +614,9 @@ void CRender::OnFrame()
 		Device.seqParallel.insert(Device.seqParallel.begin(),
 			fastdelegate::FastDelegate0<>(&HOM, &CHOM::MT_RENDER));
 	}
+
+	if (Details)
+		g_pGamePersistent->GrassBendersUpdateAnimations();
 }
 
 // Particles
@@ -1223,6 +1226,8 @@ HRESULT CRender::shader_compile(
 	char c_ssao [32];
 	char c_sun_quality [32];
 	char c_smaa_quality [32];
+	
+	char c_inter_grass[32];
 
 	char sh_name[MAX_PATH] = "";
 
@@ -1679,6 +1684,27 @@ HRESULT CRender::shader_compile(
 		def_it++;
 	}
 	sh_name[len] = '0' + char(o.dx10_minmax_sm != 0);
+	++len;
+	
+	if (ps_ssfx_grass_interactive.y > 0)
+	{
+		xr_sprintf(c_inter_grass, "%d", u8(ps_ssfx_grass_interactive.y));
+		defines[def_it].Name = "SSFX_INT_GRASS";
+		defines[def_it].Definition = c_inter_grass;
+		def_it++;
+		xr_strcat(sh_name, c_inter_grass);
+		len += xr_strlen(c_inter_grass);
+	}
+	else
+	{
+		sh_name[len] = '0';
+		++len;
+	}
+
+	defines[def_it].Name = "SSFX_MODEXE";
+	defines[def_it].Definition = "1";
+	def_it++;
+	sh_name[len] = '1';
 	++len;
 
 	//Be carefull!!!!! this should be at the end to correctly generate

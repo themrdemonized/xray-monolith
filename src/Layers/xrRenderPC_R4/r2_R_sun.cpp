@@ -1093,13 +1093,13 @@ void CRender::init_cacades()
 	float fBias = -0.0000025f;
 	//	float size = MAP_SIZE_START;
 	m_sun_cascades[0].reset_chain = true;
-	m_sun_cascades[0].size = 20; 
+	m_sun_cascades[0].size = ps_ssfx_shadow_cascades.x; //20
 	m_sun_cascades[0].bias = m_sun_cascades[0].size * fBias;
 
-	m_sun_cascades[1].size = 40;
+	m_sun_cascades[1].size = ps_ssfx_shadow_cascades.y; //40
 	m_sun_cascades[1].bias = m_sun_cascades[1].size * fBias;
 
-	m_sun_cascades[2].size = 160;
+	m_sun_cascades[2].size = ps_ssfx_shadow_cascades.z; //160
 	m_sun_cascades[2].bias = m_sun_cascades[2].size * fBias;
 
 	// 	for( u32 i = 0; i < cascade_count; ++i )
@@ -1384,8 +1384,11 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 			RCache.set_xform_view(Fidentity);
 			RCache.set_xform_project(fuckingsun->X.D.combine);
 			r_dsgraph_render_graph(0);
-			if (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS))
+			if (psDeviceFlags2.test(rsGrassShadow) && cascade_ind <= ps_ssfx_grass_shadows.x)
+			{
+				Details->fade_distance = dm_fade * dm_fade * ps_ssfx_grass_shadows.y;
 				Details->Render();
+			}
 			fuckingsun->X.D.transluent = FALSE;
 			if (bSpecial)
 			{
