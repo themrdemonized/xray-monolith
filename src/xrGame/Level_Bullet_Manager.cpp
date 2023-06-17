@@ -234,6 +234,24 @@ void CBulletManager::AddBullet(const Fvector& position,
 	            e_hit_type, maximum_distance, cartridge, air_resistance_factor, SendHit, iShotNum);
 	//	bullet.frame_num			= Device.dwFrame;
 	bullet.flags.aim_bullet = AimBullet;
+
+	// demonized - bullet on init callback
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CBulletOnInit", funct)) {
+		funct(
+			position,
+			direction,
+			starting_speed,
+			0,
+			bullet.catridgeSection,
+			bullet.bulletId,
+			bullet.weapon_id,
+			bullet.parent_id,
+			65535,
+			NULL
+		);
+	}
+
 	if (!IsGameTypeSingle())
 	{
 		if (SendHit)
