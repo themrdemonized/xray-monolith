@@ -467,6 +467,9 @@ public:
 	float m_fRun_StrafeFactor;
 	float m_fSprint_StrafeFactor;
 
+	// demonized: lookout modifier
+	float m_fLookoutFactor = 1;
+
 public:
 	Fvector GetMovementSpeed() { return NET_SavedAccel; };
 	//////////////////////////////////////////////////////////////////////////

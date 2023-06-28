@@ -2552,5 +2552,30 @@ void CScriptGameObject::SetCharacterIcon(LPCSTR iconName)
 	}
 	return pInventoryOwner->SetIcon(iconName);
 }
+
+// demonized: Adjust Lookout factor
+float CScriptGameObject::GetActorLookoutCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorLookoutCoef!");
+		return (false);
+	}
+	return (pActor->m_fLookoutFactor);
+}
+void CScriptGameObject::SetActorLookoutCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorLookoutCoef!");
+		return;
+	}
+	pActor->m_fLookoutFactor = val;
+}
+
 #endif
 //Alundaio: END

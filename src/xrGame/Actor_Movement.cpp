@@ -426,6 +426,9 @@ void CActor::g_Orientate(u32 mstate_rl, float dt)
 	{
 		tgt_roll = (mstate_rl & mcLLookout) ? -ACTOR_LLOOKOUT_ANGLE : ACTOR_RLOOKOUT_ANGLE;
 
+		// demonized: add lookout modifier
+		tgt_roll *= m_fLookoutFactor;
+
 		if ((mstate_rl & mcLLookout) && (mstate_rl & mcRLookout))
 			tgt_roll = 0.0f;
 	}
