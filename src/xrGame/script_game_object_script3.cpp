@@ -545,6 +545,10 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("set_actor_walk_accel", &CScriptGameObject::SetActorWalkAccel)
 		.def("get_actor_walk_back_coef", &CScriptGameObject::GetActorWalkBackCoef)
 		.def("set_actor_walk_back_coef", &CScriptGameObject::SetActorWalkBackCoef)
+
+		// demonized: Adjust Lookout factor
+		.def("get_actor_lookout_coef", &CScriptGameObject::GetActorLookoutCoef)
+		.def("set_actor_lookout_coef", &CScriptGameObject::SetActorLookoutCoef)
 #endif
 
 		.def("set_can_be_harmed", &CScriptGameObject::SetCanBeHarmed)

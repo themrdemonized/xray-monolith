@@ -1036,6 +1036,10 @@ public:
 	float GetActorWalkBackCoef() const;
 	void SetActorWalkBackCoef(float val);
 
+	// demonized: Adjust Lookout coeff
+	float GetActorLookoutCoef() const;
+	void SetActorLookoutCoef(float val);
+
 	void SetCharacterIcon(LPCSTR iconName);
 #endif
 	//-Alundaio
