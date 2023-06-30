@@ -1583,8 +1583,26 @@ void CActor::shedule_Update(u32 DT)
 		if (bHudView)
 		{
 			CInventoryItem* pInvItem = inventory().ActiveItem();
-			if (!pInvItem)
+			if (pInvItem)
+			{
+				CHudItem* pHudItem = smart_cast<CHudItem*>(pInvItem);
+				if (pHudItem)
+				{
+					if (pHudItem->IsHidden())
+					{
+						g_player_hud->detach_item(pHudItem);
+					}
+					else
+					{
+						g_player_hud->attach_item(pHudItem);
+					}
+				}
+			}
+			else
+			{
 				g_player_hud->detach_item_idx(0);
+				//Msg("---No active item in inventory(), item 0 detached.");
+			}
 		}
 		else
 		{
