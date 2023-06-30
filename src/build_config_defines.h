@@ -6,7 +6,7 @@
 #define INVENTORY_UPGRADE_CALLBACKS						// calls lua function inventory_upgrades.effect_upgrade_item
 #define ACTOR_BEFORE_DEATH_CALLBACK						// For extending the life of the actor to fake death or do other tasks that need to happen before actor is dead
 #define INPUT_CALLBACKS									// (eKeyPress, eKeyRelease, eKeyHold)
-//#define MOUSE_INPUT_CALLBACKS							// (eMouseMove, eMouseWheel)
+#define MOUSE_INPUT_CALLBACKS							// (eMouseMove, eMouseWheel)
 #define ENGINE_LUA_ALIFE_STORAGE_MANAGER_CALLBACKS		// calls lua functions from engine in a script named alife_storage_manager.script  (alife_storage_manager.CALifeStorageManager_save) and (alife_storage_manager.CALifeStorageManager_load)
 #define ENGINE_LUA_ALIFE_UPDAGE_MANAGER_CALLBACKS		// calls lua function named on_before_change_level and on_after_new_game in _G.script when enabled
 //-CALLBACKS
