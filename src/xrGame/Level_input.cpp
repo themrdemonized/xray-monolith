@@ -56,7 +56,18 @@ void CLevel::IR_OnMouseWheel(int direction)
 
 	/* avo: script callback */
 #ifdef MOUSE_INPUT_CALLBACKS
-    if (g_actor) g_actor->callback(GameObject::eMouseWheel)(direction);
+    if (g_actor) {
+        // demonized: add mouse wheel callback with consuming input
+        luabind::functor<bool> funct;
+        if (ai().script_engine().functor("_G.COnMouseWheel", funct))
+        {
+            if (!funct(direction))
+            {
+                return;
+            }
+        }
+        //g_actor->callback(GameObject::eMouseWheel)(direction);
+    }
 #endif
 	/* avo: end */
 
