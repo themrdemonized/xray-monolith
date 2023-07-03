@@ -334,6 +334,12 @@ void map_remove_object_spot(u16 id, LPCSTR spot_type)
 	Level().MapManager().RemoveMapLocation(spot_type, id);
 }
 
+// demonized: remove all map object spots by id
+void map_remove_all_object_spots(u16 id)
+{
+	Level().MapManager().RemoveAllMapLocationsById(id);
+}
+
 u16 map_has_object_spot(u16 id, LPCSTR spot_type)
 {
 	return Level().MapManager().HasMapLocation(spot_type, id);
@@ -1797,6 +1803,9 @@ void CLevel::script_register(lua_State* L)
 			def("map_remove_object_spot", map_remove_object_spot),
 			def("map_has_object_spot", map_has_object_spot),
 			def("map_change_spot_hint", map_change_spot_hint),
+
+			// demonized: remove all map object spots by id
+			def("map_remove_all_object_spots", map_remove_all_object_spots),
 
 			def("add_dialog_to_render", add_dialog_to_render),
 			def("remove_dialog_to_render", remove_dialog_to_render),
