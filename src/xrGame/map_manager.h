@@ -21,6 +21,10 @@ public:
 	CMapLocation* AddMapLocation(const shared_str& spot_type, u16 id);
 	CMapLocation* AddRelationLocation(CInventoryOwner* pInvOwner);
 	void RemoveMapLocation(const shared_str& spot_type, u16 id);
+
+	// demonized: remove all map object spots by id
+	void RemoveAllMapLocationsById(u16 id);
+
 	bool HasMapLocation(const shared_str& spot_type, u16 id);
 	void RemoveMapLocationByObjectID(u16 id); //call on destroy object
 	void RemoveMapLocation(CMapLocation* ml);
