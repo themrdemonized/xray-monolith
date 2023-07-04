@@ -1839,5 +1839,51 @@ void CScriptGameObject::SetRestrictionType(u8 typ)
 			Level().space_restriction_manager().register_restrictor(restr, RestrictionSpace::ERestrictorTypes(typ));
 	}
 }
+
+// demonized: add getters and setters for pathfinding for npcs around anomalies and damage for npcs
+bool CScriptGameObject::get_enable_anomalies_pathfinding()
+{
+	auto stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CGameObject : cannot access class member m_enable_anomalies_pathfinding!");
+		return false;
+	}
+	return stalker->m_enable_anomalies_pathfinding;
+}
+void CScriptGameObject::set_enable_anomalies_pathfinding(bool v)
+{
+	auto stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CGameObject : cannot access class member m_enable_anomalies_pathfinding!");
+		return;
+	}
+	stalker->m_enable_anomalies_pathfinding = v;
+}
+bool CScriptGameObject::get_enable_anomalies_damage()
+{
+	auto stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CGameObject : cannot access class member m_enable_anomalies_damage!");
+		return false;
+	}
+	return stalker->m_enable_anomalies_damage;
+}
+void CScriptGameObject::set_enable_anomalies_damage(bool v)
+{
+	auto stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CGameObject : cannot access class member m_enable_anomalies_damage!");
+		return;
+	}
+	stalker->m_enable_anomalies_damage = v;
+}
 #endif
 //-Alundaio

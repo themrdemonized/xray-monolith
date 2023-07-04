@@ -540,7 +540,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("set_actor_runback_coef", &CScriptGameObject::SetActorRunBackCoef)
 		//end AVO
 
-		// Additional exports
+		// demonized: Additional exports
 		.def("get_actor_walk_accel", &CScriptGameObject::GetActorWalkAccel)
 		.def("set_actor_walk_accel", &CScriptGameObject::SetActorWalkAccel)
 		.def("get_actor_walk_back_coef", &CScriptGameObject::GetActorWalkBackCoef)
@@ -549,6 +549,12 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		// demonized: Adjust Lookout factor
 		.def("get_actor_lookout_coef", &CScriptGameObject::GetActorLookoutCoef)
 		.def("set_actor_lookout_coef", &CScriptGameObject::SetActorLookoutCoef)
+
+		// demonized: add getters and setters for pathfinding for npcs around anomalies and damage for npcs
+		.def("get_enable_anomalies_pathfinding", &CScriptGameObject::get_enable_anomalies_pathfinding)
+		.def("set_enable_anomalies_pathfinding", &CScriptGameObject::set_enable_anomalies_pathfinding)
+		.def("get_enable_anomalies_damage", &CScriptGameObject::get_enable_anomalies_damage)
+		.def("set_enable_anomalies_damage", &CScriptGameObject::set_enable_anomalies_damage)
 #endif
 
 		.def("set_can_be_harmed", &CScriptGameObject::SetCanBeHarmed)
