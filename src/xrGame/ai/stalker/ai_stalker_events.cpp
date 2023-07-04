@@ -149,7 +149,7 @@ void CAI_Stalker::feel_touch_new(CObject* O)
 	if ((O->spatial.type | STYPE_VISIBLEFORAI) != O->spatial.type) return;
 
 	// demonized: add g_ai_die_in_anomaly == 0 check
-	if (!g_ai_die_in_anomaly) {
+	if (!(g_ai_die_in_anomaly || m_enable_anomalies_pathfinding)) {
 		CSpaceRestrictor* sr = smart_cast<CSpaceRestrictor*>(O);
 		if (sr) {
 			return;

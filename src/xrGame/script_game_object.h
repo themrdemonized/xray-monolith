@@ -938,6 +938,12 @@ public:
 	u8 GetRestrictionType();
 	void SetRestrictionType(u8 typ);
 
+	// demonized: add getters and setters for pathfinding for npcs around anomalies and damage for npcs
+	bool get_enable_anomalies_pathfinding();
+	void set_enable_anomalies_pathfinding(bool v);
+	bool get_enable_anomalies_damage();
+	void set_enable_anomalies_damage(bool v);
+
 	//Weapon
 	void Weapon_AddonAttach(CScriptGameObject* item);
 	void Weapon_AddonDetach(LPCSTR item_section, bool b_spawn_item = true);

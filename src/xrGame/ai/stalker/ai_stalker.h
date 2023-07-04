@@ -157,6 +157,10 @@ public:
 public:
 	bool m_wounded;
 
+	// demonized: add enabling pathfinding and damage by anomalies flags
+	bool m_enable_anomalies_pathfinding = false;
+	bool m_enable_anomalies_damage = false;
+
 public:
 	CAI_Stalker();
 	virtual ~CAI_Stalker();
