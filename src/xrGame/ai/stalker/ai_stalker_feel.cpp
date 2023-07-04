@@ -14,6 +14,7 @@
 #include "../../sight_manager.h"
 #include "../../stalker_movement_manager_smart_cover.h"
 #include "../../stalker_animation_manager.h"
+#include "space_restrictor.h"
 
 #ifdef DEBUG
 #	include "../../ai_debug.h"
@@ -74,12 +75,21 @@ bool CAI_Stalker::feel_touch_contact(CObject* O)
 	return (game_object->feel_touch_on_contact(this));
 }
 
+extern BOOL g_ai_die_in_anomaly;
 bool CAI_Stalker::feel_touch_on_contact(CObject* O)
 {
 	VERIFY(O != this);
 
 	if ((O->spatial.type | STYPE_VISIBLEFORAI) != O->spatial.type)
 		return (false);
+
+	// demonized: add g_ai_die_in_anomaly == 0 check
+	if (!g_ai_die_in_anomaly) {
+		CSpaceRestrictor* sr = smart_cast<CSpaceRestrictor*>(O);
+		if (sr) {
+			return false;
+		}
+	}
 
 	return (inherited::feel_touch_on_contact(O));
 }

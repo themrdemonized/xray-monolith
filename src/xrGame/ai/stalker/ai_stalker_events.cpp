@@ -15,6 +15,7 @@
 #include "../../level.h"
 #include "../../ai_monster_space.h"
 #include "../../characterphysicssupport.h"
+#include "space_restrictor.h"
 
 using namespace StalkerSpace;
 using namespace MonsterSpace;
@@ -139,12 +140,21 @@ void CAI_Stalker::UpdateAvailableDialogs(CPhraseDialogManager* partner)
 	CAI_PhraseDialogManager::UpdateAvailableDialogs(partner);
 }
 
+extern BOOL g_ai_die_in_anomaly;
 void CAI_Stalker::feel_touch_new(CObject* O)
 {
 	//	Msg					("FEEL_TOUCH::NEW : %s",*O->cName());
 	if (!g_Alive()) return;
 	if (Remote()) return;
 	if ((O->spatial.type | STYPE_VISIBLEFORAI) != O->spatial.type) return;
+
+	// demonized: add g_ai_die_in_anomaly == 0 check
+	if (!g_ai_die_in_anomaly) {
+		CSpaceRestrictor* sr = smart_cast<CSpaceRestrictor*>(O);
+		if (sr) {
+			return;
+		}
+	}
 
 	// Now, test for game specific logical objects to minimize traffic
 	CInventoryItem* I = smart_cast<CInventoryItem*>(O);
