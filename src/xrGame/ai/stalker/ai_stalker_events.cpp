@@ -15,7 +15,7 @@
 #include "../../level.h"
 #include "../../ai_monster_space.h"
 #include "../../characterphysicssupport.h"
-#include "space_restrictor.h"
+#include "CustomZone.h"
 
 using namespace StalkerSpace;
 using namespace MonsterSpace;
@@ -150,7 +150,7 @@ void CAI_Stalker::feel_touch_new(CObject* O)
 
 	// demonized: add g_ai_die_in_anomaly == 0 check
 	if (!(g_ai_die_in_anomaly || m_enable_anomalies_pathfinding)) {
-		CSpaceRestrictor* sr = smart_cast<CSpaceRestrictor*>(O);
+		CCustomZone* sr = smart_cast<CCustomZone*>(O);
 		if (sr) {
 			return;
 		}

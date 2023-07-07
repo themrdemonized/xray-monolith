@@ -14,7 +14,7 @@
 #include "../../sight_manager.h"
 #include "../../stalker_movement_manager_smart_cover.h"
 #include "../../stalker_animation_manager.h"
-#include "space_restrictor.h"
+#include "CustomZone.h"
 
 #ifdef DEBUG
 #	include "../../ai_debug.h"
@@ -76,7 +76,7 @@ bool CAI_Stalker::feel_touch_contact(CObject* O)
 	// demonized: add g_ai_die_in_anomaly == 0 and m_enable_anomalies_pathfinding check
 	// when 0 - disable pathfinding around anomaly
 	if (!(g_ai_die_in_anomaly || m_enable_anomalies_pathfinding)) {
-		CSpaceRestrictor* sr = smart_cast<CSpaceRestrictor*>(O);
+		CCustomZone* sr = smart_cast<CCustomZone*>(O);
 		if (sr && (sr->spatial.type & STYPE_VISIBLEFORAI)) {
 			return false;
 		}
@@ -95,7 +95,7 @@ bool CAI_Stalker::feel_touch_on_contact(CObject* O)
 	// demonized: add g_ai_die_in_anomaly == 0 and m_enable_anomalies_damage check
 	// when 0 - prevent any damage from anomalies
 	if (!(g_ai_die_in_anomaly || m_enable_anomalies_damage)) {
-		CSpaceRestrictor* sr = smart_cast<CSpaceRestrictor*>(O);
+		CCustomZone* sr = smart_cast<CCustomZone*>(O);
 		if (sr) {
 			return false;
 		}
