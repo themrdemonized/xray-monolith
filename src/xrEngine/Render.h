@@ -283,6 +283,9 @@ public:
 	virtual void add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V) = 0;
 	// Prefer this function when possible
 	virtual void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false, bool random_rotation = true) = 0;
+
+	// demonized: add user defined rotation to wallmark
+	virtual void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, float rotation) = 0;
 	virtual void clear_static_wallmarks() = 0;
 	//virtual void add_SkeletonWallmark (intrusive_ptr<CSkeletonWallmark> wm) = 0;
 	//virtual void add_SkeletonWallmark (const Fmatrix* xf, CKinematics* obj, ref_shader& sh, const Fvector& start, const Fvector& dir, float size)=0;

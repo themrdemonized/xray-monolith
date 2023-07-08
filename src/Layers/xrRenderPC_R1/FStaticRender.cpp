@@ -304,24 +304,35 @@ void CRender::add_Visual(IRenderVisual* V)
 
 void CRender::add_Geometry(IRenderVisual* V) { add_Static((dxRender_Visual*)V, View->getMask()); }
 
+// demonized: add user defined rotation to wallmark
 void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* verts, float ttl, bool ignore_opt, bool random_rotation)
 {
+	add_StaticWallmark(S, P, s, T, verts, ttl, ignore_opt, random_rotation ? ::Random.randF(-20.f, 20.f) : 0.f);
+}
+
+void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* verts, float ttl, bool ignore_opt, float rotation)
+{
 	if (T->suppress_wm) return;
-	VERIFY2(_valid(P) && _valid(s) && T && verts && (s>EPS_L), "Invalid static wallmark params");
-	Wallmarks->AddStaticWallmark(T, verts, P, &*S, s, ttl, ignore_opt, random_rotation);
+	VERIFY2(_valid(P) && _valid(s) && T && verts && (s > EPS_L), "Invalid static wallmark params");
+	Wallmarks->AddStaticWallmark(T, verts, P, &*S, s, ttl, ignore_opt, rotation);
 }
 
 void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, bool random_rotation)
 {
-	dxWallMarkArray* pWMA = (dxWallMarkArray *)pArray;
+	add_StaticWallmark(pArray, P, s, T, V, ttl, ignore_opt, random_rotation ? ::Random.randF(-20.f, 20.f) : 0.f);
+}
+
+void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, float rotation)
+{
+	dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
 	ref_shader* pShader = pWMA->dxGenerateWallmark();
-	if (pShader) add_StaticWallmark(*pShader, P, s, T, V, ttl, ignore_opt, random_rotation);
+	if (pShader) add_StaticWallmark(*pShader, P, s, T, V, ttl, ignore_opt, rotation);
 }
 
 void CRender::add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V)
 {
 	dxUIShader* pShader = (dxUIShader*)&*S;
-	add_StaticWallmark(pShader->hShader, P, s, T, V);
+	add_StaticWallmark(pShader->hShader, P, s, T, V, 0.0f, false, true);
 }
 
 void CRender::clear_static_wallmarks()
