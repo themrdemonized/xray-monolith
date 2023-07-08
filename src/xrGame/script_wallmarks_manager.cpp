@@ -52,9 +52,17 @@ void ScriptWallmarksManager::PlaceWallmark(Fvector dir, Fvector start_pos,
 	PlaceWallmark(dir, start_pos, trace_dist, wallmark_size, section, ignore_obj, ttl, true);
 }
 
+// demonized: add user defined rotation to wallmark
 void ScriptWallmarksManager::PlaceWallmark(Fvector dir, Fvector start_pos,
 	float trace_dist, float wallmark_size, LPCSTR section,
 	CScriptGameObject* ignore_obj, float ttl, bool random_rotation)
+{
+	PlaceWallmark(dir, start_pos, trace_dist, wallmark_size, section, ignore_obj, ttl, random_rotation ? ::Random.randF(-20.f, 20.f) : 0.f);
+}
+
+void ScriptWallmarksManager::PlaceWallmark(Fvector dir, Fvector start_pos,
+	float trace_dist, float wallmark_size, LPCSTR section,
+	CScriptGameObject* ignore_obj, float ttl, float rotation)
 {
 	collide::rq_result result;
 	BOOL reach_wall =
@@ -81,7 +89,7 @@ void ScriptWallmarksManager::PlaceWallmark(Fvector dir, Fvector start_pos,
 			end_point.set(0, 0, 0);
 			end_point.mad(start_pos, dir, result.range);
 
-			::Render->add_StaticWallmark(FindSection(section), end_point, wallmark_size, pTri, pVerts, ttl, true, random_rotation);
+			::Render->add_StaticWallmark(FindSection(section), end_point, wallmark_size, pTri, pVerts, ttl, true, rotation);
 		}
 	}
 }
