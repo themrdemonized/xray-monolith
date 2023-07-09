@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "raypick.h"
 #include "level.h"
-#include "material_manager.h"
 
 CRayPick::CRayPick()
 {
@@ -29,30 +28,6 @@ bool CRayPick::query()
 	if (Level().ObjectSpace.RayPick(start_position, direction, range, flags, R, ignore))
 	{
 		result.set(R);
-		if (!R.O) {
-			//Msg("no object, check material");
-			auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
-			auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
-			auto pMaterialFlags = pMaterial->Flags;
-			//result.pTri = pTri;
-			//result.pMaterial = pMaterial;
-			result.pMaterialFlags = pMaterialFlags.flags;
-			result.pMaterialName = pMaterial->m_Name.c_str();
-
-			result.fPHFriction = pMaterial->fPHFriction;
-			result.fPHDamping = pMaterial->fPHDamping;
-			result.fPHSpring = pMaterial->fPHSpring;
-			result.fPHBounceStartVelocity = pMaterial->fPHBounceStartVelocity;
-			result.fPHBouncing = pMaterial->fPHBouncing;
-			result.fFlotationFactor = pMaterial->fFlotationFactor;
-			result.fShootFactor = pMaterial->fShootFactor;
-			result.fShootFactorMP = pMaterial->fShootFactorMP;
-			result.fBounceDamageFactor = pMaterial->fBounceDamageFactor;
-			result.fInjuriousSpeed = pMaterial->fInjuriousSpeed;
-			result.fVisTransparencyFactor = pMaterial->fVisTransparencyFactor;
-			result.fSndOcclusionFactor = pMaterial->fSndOcclusionFactor;
-			result.fDensityFactor = pMaterial->fDensityFactor;
-		}
 		return true;
 	}
 	else

@@ -1556,6 +1556,28 @@ u32 g_get_target_element()
 	return (0);
 }
 
+// demonized: get world position under crosshair
+Fvector g_get_target_pos()
+{
+	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
+	if (RQ.range)
+	{
+		return Fvector().mad(Device.vCameraPosition, Device.vCameraDirection, RQ.range);
+	}
+	return Fvector().set(0, 0, 0);
+}
+
+// demonized: get result of crosshair ray query
+script_rq_result g_get_target_result()
+{
+	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
+	auto script_rq = script_rq_result();
+	if (RQ.range) {
+		script_rq.set(RQ);
+	}
+	return script_rq;
+}
+
 u8 get_active_cam()
 {
 	CActor* actor = smart_cast<CActor*>(Level().CurrentViewEntity());
@@ -1749,6 +1771,13 @@ void CLevel::script_register(lua_State* L)
 			def("get_target_obj", &g_get_target_obj), //intentionally named to what is in xray extensions
 			def("get_target_dist", &g_get_target_dist),
 			def("get_target_element", &g_get_target_element), //Can get bone cursor is targetting
+			
+			// demonized: get world position under crosshair
+			def("get_target_pos", &g_get_target_pos),
+
+			// demonized: get result of crosshair ray query
+			def("get_target_result", &g_get_target_result),
+
 			def("spawn_item", &spawn_section),
 			def("get_active_cam", &get_active_cam),
 			def("set_active_cam", &set_active_cam),
