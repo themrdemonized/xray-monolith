@@ -596,7 +596,7 @@ void CHudItem::on_a_hud_attach()
 
 void CHudItem::render_item_3d_ui()
 {
-	if (render_item_3d_ui_query() && script_ui)
+	if (script_ui)
 	{
 		Fmatrix LM;
 		Fmatrix trans = HudItemData()->m_item_transform;
@@ -618,17 +618,9 @@ void CHudItem::render_item_3d_ui()
 		else
 			LM.mulB_43(script_ui_matrix);
 
-		IUIRender::ePointType bk = UI().m_currentPointType;
-		UI().m_currentPointType = IUIRender::pttLIT;
 		UIRender->CacheSetXformWorld(LM);
-		UIRender->CacheSetCullMode(IUIRender::cmNONE);
-		UI().ScreenFrustumLIT().Clear();
 		script_ui->Draw();
-		UI().m_currentPointType = bk;
 	}
-
-	//	Restore cull mode
-	UIRender->CacheSetCullMode(IUIRender::cmCCW);
 }
 
 extern float g_end_modif;

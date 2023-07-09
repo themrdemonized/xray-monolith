@@ -722,6 +722,9 @@ void CRender::Render()
 	L_Dynamic->render(0); // addititional light sources
 	if (Wallmarks)Wallmarks->Render(); // wallmarks has priority as normal geometry
 
+	if (g_hud && g_hud->RenderActiveItemUIQuery())
+		r_dsgraph_render_hud_ui();
+
 	HOM.Enable();
 	o.vis_intersect = FALSE;
 	phase = PHASE_NORMAL;

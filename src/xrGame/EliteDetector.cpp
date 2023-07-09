@@ -146,12 +146,7 @@ void CUIArtefactDetectorElite::Draw()
 	Fmatrix LM;
 	GetUILocatorMatrix(LM);
 
-	IUIRender::ePointType bk = UI().m_currentPointType;
-
-	UI().m_currentPointType = IUIRender::pttLIT;
-
 	UIRender->CacheSetXformWorld(LM);
-	UIRender->CacheSetCullMode(IUIRender::cmNONE);
 
 	CUIWindow::Draw();
 
@@ -193,7 +188,7 @@ void CUIArtefactDetectorElite::Draw()
 		}
 	}
 
-	UI().m_currentPointType = bk;
+	UI().ScreenFrustumLIT().Clear();
 }
 
 void CUIArtefactDetectorElite::GetUILocatorMatrix(Fmatrix& _m)
