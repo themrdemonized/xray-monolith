@@ -713,11 +713,18 @@ bool player_hud::render_item_ui_query()
 
 void player_hud::render_item_ui()
 {
+	IUIRender::ePointType bk = UI().m_currentPointType;
+	UI().m_currentPointType = IUIRender::pttLIT;
+	UIRender->CacheSetCullMode(IUIRender::cmNONE);
+
 	if (m_attached_items[0])
 		m_attached_items[0]->render_item_ui();
 
 	if (m_attached_items[1])
 		m_attached_items[1]->render_item_ui();
+
+	UIRender->CacheSetCullMode(IUIRender::cmCCW);
+	UI().m_currentPointType = bk;
 }
 
 void player_hud::render_hud()

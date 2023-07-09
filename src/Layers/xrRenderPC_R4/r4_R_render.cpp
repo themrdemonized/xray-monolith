@@ -145,12 +145,22 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 				break; // exit loop on frustums
 			}
 		}
-		if (g_pGameLevel && (phase == PHASE_NORMAL)) g_hud->Render_Last(); // HUD
+		if (g_pGameLevel && (phase == PHASE_NORMAL))
+		{
+			g_hud->Render_Last(); // HUD
+			if (g_hud->RenderActiveItemUIQuery())
+				r_dsgraph_render_hud_ui();
+		}
 	}
 	else
 	{
 		set_Object(0);
-		if (g_pGameLevel && (phase == PHASE_NORMAL)) g_hud->Render_Last(); // HUD
+		if (g_pGameLevel && (phase == PHASE_NORMAL))
+		{
+			g_hud->Render_Last(); // HUD
+			if (g_hud->RenderActiveItemUIQuery())
+				r_dsgraph_render_hud_ui();
+		}
 	}
 }
 
@@ -433,12 +443,6 @@ void CRender::Render()
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
-	}
-
-	if (g_hud && g_hud->RenderActiveItemUIQuery())
-	{
-		Target->phase_wallmarks();
-		r_dsgraph_render_hud_ui();
 	}
 
 	// Wall marks
