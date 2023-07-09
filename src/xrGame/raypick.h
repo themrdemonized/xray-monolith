@@ -2,6 +2,7 @@
 #include "gameobject.h"
 #include "script_game_object.h"
 #include "../xrcdb/xr_collide_defs.h"
+#include "material_manager.h"
 
 struct script_rq_result
 {
@@ -46,6 +47,30 @@ struct script_rq_result
 		}
 		range = R.range;
 		element = R.element;
+
+		// demonized: set material params of ray pick result
+		//Msg("no object, check material");
+		auto pTri = Level().ObjectSpace.GetStaticTris() + R.element;
+		auto pMaterial = GMLib.GetMaterialByIdx(pTri->material);
+		auto pMaterialFlagsRQ = pMaterial->Flags;
+		//pTri = pTri;
+		//pMaterial = pMaterial;
+		pMaterialFlags = pMaterialFlagsRQ.flags;
+		pMaterialName = pMaterial->m_Name.c_str();
+
+		fPHFriction = pMaterial->fPHFriction;
+		fPHDamping = pMaterial->fPHDamping;
+		fPHSpring = pMaterial->fPHSpring;
+		fPHBounceStartVelocity = pMaterial->fPHBounceStartVelocity;
+		fPHBouncing = pMaterial->fPHBouncing;
+		fFlotationFactor = pMaterial->fFlotationFactor;
+		fShootFactor = pMaterial->fShootFactor;
+		fShootFactorMP = pMaterial->fShootFactorMP;
+		fBounceDamageFactor = pMaterial->fBounceDamageFactor;
+		fInjuriousSpeed = pMaterial->fInjuriousSpeed;
+		fVisTransparencyFactor = pMaterial->fVisTransparencyFactor;
+		fSndOcclusionFactor = pMaterial->fSndOcclusionFactor;
+		fDensityFactor = pMaterial->fDensityFactor;
 	};
 };
 
