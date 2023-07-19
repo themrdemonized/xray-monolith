@@ -125,6 +125,12 @@ void CLevel::IR_OnMouseMove(int dx, int dy)
 		IInputReceiver* IR = smart_cast<IInputReceiver*>(smart_cast<CGameObject*>(CURRENT_ENTITY()));
 		if (IR) IR->IR_OnMouseMove(dx, dy);
 	}
+
+    POINT p;
+    p.x = Device.dwWidth / 2;
+    p.y = Device.dwHeight / 2;
+    ClientToScreen(Device.m_hWnd, &p);
+    SetCursorPos(p.x, p.y);
 }
 
 // Обработка нажатия клавиш
