@@ -863,7 +863,16 @@ void CInventory::Update()
 				}
 			}
 
+			// demonized: add on changed slot callback
+			luabind::functor<void> funct;
+			auto prev_obj = ActiveItem() ? ActiveItem()->object().lua_game_object() : NULL;
+			auto prev_slot = m_iActiveSlot;
 			m_iActiveSlot = GetNextActiveSlot();
+			auto obj = ActiveItem() ? ActiveItem()->object().lua_game_object() : NULL;
+			if (ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
+			{
+				funct(m_iActiveSlot, obj, prev_slot, prev_obj);
+			}
 		}
 		else if ((GetNextActiveSlot() != NO_ACTIVE_SLOT) && ActiveItem() && ActiveItem()->cast_hud_item()->IsHidden())
 					ActiveItem()->ActivateItem();
