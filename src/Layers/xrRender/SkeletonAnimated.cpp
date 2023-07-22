@@ -814,7 +814,20 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 		string_path nm;
 		for (u32 k = 0; k < set_cnt; ++k)
 		{
-			_GetItem(items_nm, k, nm);
+			if (strstr(nm, "\\*.omf"))
+			{
+				FS_FileSet fset;
+				FS.file_list(fset, "$game_meshes$", FS_ListFiles, nm);
+				FS.file_list(fset, "$level$", FS_ListFiles, nm);
+
+				m_Motions.reserve(fset.size() - 1);
+
+				for (FS_FileSet::iterator it = fset.begin(); it != fset.end(); it++)
+					loadOMF((*it).name.c_str());
+
+				continue;
+			}
+
 			xr_strcat(nm, ".omf");
 			loadOMF(nm);
 		}

@@ -911,8 +911,11 @@ void player_hud::update(const Fmatrix& cam_trans)
 		if (wep && wep->IsZoomed())
 			trans_2.mulB_43(wep->m_shoot_shake_mat);
 	}
-	else
+	
+	if (m_attached_items[0] && !m_attached_items[1])
 		trans_2 = trans;
+	else if (m_attached_items[1] && !m_attached_items[0])
+		trans = trans_2;
 	
 	// override hand offset for single hand animation
 	if (script_anim_part == 2 || (script_anim_part && !m_attached_items[0] && !m_attached_items[1]))
