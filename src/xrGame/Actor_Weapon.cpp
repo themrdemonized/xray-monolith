@@ -74,7 +74,7 @@ float CActor::GetWeaponAccuracy() const
 		}
 	}
 
-	if (W->m_lastCartridge.param_s.buckShot > 1)
+	if (W && W->m_lastCartridge.param_s.buckShot > 1)
 		dispersion *= GetWeaponParam(W, Get_PDM_BuckShot(), 1.0f);
 
 	return dispersion;

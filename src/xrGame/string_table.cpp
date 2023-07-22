@@ -100,7 +100,7 @@ void CStringTable::Load(LPCSTR xml_file_full)
 		if (m_bWriteErrorsToLog && string_text)
 			Msg("[string table] '%s' no translation in '%s'", string_name, pData->m_sLanguage.c_str());
 
-		VERIFY3(string_text, "string table entry does not have a text", string_name);
+		R_ASSERT3(string_text, "string table entry does not have a text", string_name);
 
 		STRING_VALUE str_val = ParseLine(string_text, string_name, true);
 

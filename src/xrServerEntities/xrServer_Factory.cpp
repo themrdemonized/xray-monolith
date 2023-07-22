@@ -11,5 +11,6 @@
 
 CSE_Abstract* F_entity_Create(LPCSTR section)
 {
+	if (!pSettings->section_exist(section)) return nullptr;
 	return (object_factory().server_object(pSettings->r_clsid(section, "class"), section));
 }
