@@ -124,8 +124,10 @@ void dxRenderDeviceRender::SetupStates()
 	CHK_DX(HW.pDevice->SetRenderState( D3DRS_MULTISAMPLEANTIALIAS, FALSE ));
 	CHK_DX(HW.pDevice->SetRenderState( D3DRS_NORMALIZENORMALS, TRUE ));
 
-	if (psDeviceFlags.test(rsWireframe)) { CHK_DX(HW.pDevice->SetRenderState( D3DRS_FILLMODE, D3DFILL_WIREFRAME )); }
-	else { CHK_DX(HW.pDevice->SetRenderState( D3DRS_FILLMODE, D3DFILL_SOLID )); }
+	if (psDeviceFlags.test(rsWireframe))
+		RCache.set_FillMode(D3DFILL_WIREFRAME);
+	else
+		RCache.set_FillMode(D3DFILL_SOLID);
 
 	// ******************** Fog parameters
 	CHK_DX(HW.pDevice->SetRenderState( D3DRS_FOGCOLOR, 0 ));

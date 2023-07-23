@@ -1662,49 +1662,6 @@ bool CScriptGameObject::WeaponInGrenadeMode()
 	return wpn->m_bGrenadeMode;
 }
 
-void CScriptGameObject::SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud)
-{
-	IKinematics* k = nullptr;
-
-	CHudItem* itm = smart_cast<CHudItem*>(&object());
-	if (bHud && itm && itm->HudItemData())
-		k = itm->HudItemData()->m_model;
-	else
-		k = object().Visual()->dcast_PKinematics();
-
-	if (!k)
-		return;
-
-	u16 bone_id = k->LL_BoneID(bone_name);
-	if (bone_id == BI_NONE)
-		return;
-
-	if (bVisibility != k->LL_GetBoneVisible(bone_id))
-		k->LL_SetBoneVisible(bone_id, bVisibility, bRecursive);
-
-	return;
-}
-
-bool CScriptGameObject::IsBoneVisible(LPCSTR bone_name, bool bHud)
-{
-	IKinematics* k = nullptr;
-
-	CHudItem* itm = smart_cast<CHudItem*>(&object());
-	if (bHud && itm && itm->HudItemData())
-		k = itm->HudItemData()->m_model;
-	else
-		k = object().Visual()->dcast_PKinematics();
-
-	if (!k)
-		return false;
-
-	u16 bone_id = k->LL_BoneID(bone_name);
-	if (bone_id == BI_NONE)
-		return false;
-
-	return k->LL_GetBoneVisible(bone_id) == TRUE ? true : false;
-}
-
 float CScriptGameObject::GetLuminocityHemi()
 {
 	CObject* e = smart_cast<CObject*>(&object());

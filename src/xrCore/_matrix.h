@@ -325,6 +325,12 @@ public:
 		return *this;
 	}
 
+	IC SelfRef translate_add(T _x, T _y, T _z) // combine translation
+	{
+		c.add(_x, _y, _z);
+		return *this;
+	}
+
 	IC SelfRef scale(T x, T y, T z) // setup scale matrix
 	{
 		identity();
@@ -868,6 +874,8 @@ public:
 		_44_ = 1;
 		return *this;
 	}
+
+	ICF SelfRef setHPB(Tvector const& hpb) { return setHPB(hpb.x, hpb.y, hpb.z); }
 
 	IC SelfRef setXYZ(T x, T y, T z) { return setHPB(y, x, z); }
 	IC SelfRef setXYZ(Tvector const& xyz) { return setHPB(xyz.y, xyz.x, xyz.z); }

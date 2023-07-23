@@ -54,11 +54,12 @@
 #include "UIGameCustom.h"
 #include "ui/UIPdaWnd.h"
 #include "UICursor.h"
+#include "debug_renderer.h"
+#include "LevelDebugScript.h"
 
 #ifdef DEBUG
 #include "level_debug.h"
 #include "ai/stalker/ai_stalker.h"
-#include "debug_renderer.h"
 #include "PhysicObject.h"
 #include "PHDebug.h"
 #include "debug_text_tree.h"
@@ -197,8 +198,8 @@ CLevel::CLevel() :
 		m_space_restriction_manager = xr_new<CSpaceRestrictionManager>();
 		m_client_spawn_manager = xr_new<CClientSpawnManager>();
 		m_autosave_manager = xr_new<CAutosaveManager>();
-#ifdef DEBUG
         m_debug_renderer = xr_new<CDebugRenderer>();
+#ifdef DEBUG
         m_level_debug = xr_new<CLevelDebug>();
 #endif
 	}
@@ -250,9 +251,8 @@ CLevel::~CLevel()
 	xr_delete(m_seniority_hierarchy_holder);
 	xr_delete(m_client_spawn_manager);
 	xr_delete(m_autosave_manager);
-#ifdef DEBUG
     xr_delete(m_debug_renderer);
-#endif
+	delete_data(m_debug_render_queue);
 	if (!g_dedicated_server)
 		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
 	xr_delete(game);
@@ -853,6 +853,8 @@ void CLevel::OnRender()
 
 	HUD().RenderUI();
 
+	ScriptDebugRender();
+
 #ifdef DEBUG
     draw_wnds_rects();
     physics_world()->OnRender();
@@ -925,7 +927,7 @@ void CLevel::OnRender()
         UI().Font().pFontStat->SetHeight(8.0f);
     }
 #endif
-
+	debug_renderer().render();
 #ifdef DEBUG
     if (bDebug)
     {
@@ -933,7 +935,6 @@ void CLevel::OnRender()
         DBG().draw_text();
         DBG().draw_level_info();
     }
-    debug_renderer().render();
     DBG().draw_debug_text();
     if (psAI_Flags.is(aiVision))
     {
@@ -959,6 +960,23 @@ void CLevel::OnRender()
         }
     }
 #endif
+}
+
+void CLevel::ScriptDebugRender()
+{
+	if (!m_debug_render_queue.size())
+		return;
+
+	DRender->OnFrameEnd();
+
+	xr_map<u16, DBG_ScriptObject*>::iterator it = m_debug_render_queue.begin();
+	xr_map<u16, DBG_ScriptObject*>::iterator it_e = m_debug_render_queue.end();
+	for (; it != it_e; ++it)
+	{
+		DBG_ScriptObject* obj = (*it).second;
+		if (obj->m_visible)
+			obj->Render();
+	}
 }
 
 void CLevel::OnEvent(EVENT E, u64 P1, u64 /**P2/**/)
@@ -1245,12 +1263,14 @@ void CLevel::OnAlifeSimulatorUnLoaded()
 {
 	MapManager().ResetStorage();
 	GameTaskManager().ResetStorage();
+	delete_data(m_debug_render_queue);
 }
 
 void CLevel::OnAlifeSimulatorLoaded()
 {
 	MapManager().ResetStorage();
 	GameTaskManager().ResetStorage();
+	delete_data(m_debug_render_queue);
 }
 
 void CLevel::OnSessionTerminate(LPCSTR reason)

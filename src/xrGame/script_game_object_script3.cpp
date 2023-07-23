@@ -114,11 +114,42 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		     (void (CScriptGameObject::*)(MonsterSpace::EObjectAction, CScriptGameObject*, u32, u32))(&CScriptGameObject
 			     ::set_item))
 
-		.def("bone_position", &CScriptGameObject::bone_position)
-		.def("bone_direction", &CScriptGameObject::bone_direction)
-
-		.def("bone_name", &CScriptGameObject::bone_name)
 		.def("is_body_turning", &CScriptGameObject::is_body_turning)
+
+		// Backwards compatibility
+		.def("get_bone_id", (u16(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_id))
+		.def("get_bone_id", (u16(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_id))
+
+		.def("bone_id", (u16(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_id))
+		.def("bone_id", (u16(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_id))
+
+		.def("bone_name", (LPCSTR(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_name))
+		.def("bone_name", (LPCSTR(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_name))
+
+		.def("bone_position", (Fvector(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_position))
+		.def("bone_position", (Fvector(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_position))
+		.def("bone_position", (Fvector(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_position))
+		.def("bone_position", (Fvector(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_position))
+
+		.def("bone_direction", (Fvector(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_direction))
+		.def("bone_direction", (Fvector(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_direction))
+		.def("bone_direction", (Fvector(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_direction))
+		.def("bone_direction", (Fvector(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_direction))
+
+		.def("bone_parent", (u16(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_parent))
+		.def("bone_parent", (u16(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_parent))
+		.def("bone_parent", (u16(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_parent))
+		.def("bone_parent", (u16(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_parent))
+
+		.def("bone_visible", (bool (CScriptGameObject::*)(u16))(&CScriptGameObject::is_bone_visible))
+		.def("bone_visible", (bool (CScriptGameObject::*)(u16, bool))(&CScriptGameObject::is_bone_visible))
+		.def("bone_visible", (bool (CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::is_bone_visible))
+		.def("bone_visible", (bool (CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::is_bone_visible))
+
+		.def("set_bone_visible", (void (CScriptGameObject::*)(u16, bool, bool))(&CScriptGameObject::set_bone_visible))
+		.def("set_bone_visible", (void (CScriptGameObject::*)(u16, bool, bool, bool))(&CScriptGameObject::set_bone_visible))
+		.def("set_bone_visible", (void (CScriptGameObject::*)(LPCSTR, bool, bool))(&CScriptGameObject::set_bone_visible))
+		.def("set_bone_visible", (void (CScriptGameObject::*)(LPCSTR, bool, bool, bool))(&CScriptGameObject::set_bone_visible))
 
 		//////////////////////////////////////////////////////////////////////////
 		// Space restrictions
@@ -319,7 +350,6 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("get_helicopter", &CScriptGameObject::get_helicopter)
 		.def("get_car", &CScriptGameObject::get_car)
 		.def("get_hanging_lamp", &CScriptGameObject::get_hanging_lamp)
-		.def("get_bone_id", &CScriptGameObject::get_bone_id)
 		.def("get_physics_shell", &CScriptGameObject::get_physics_shell)
 		.def("get_holder_class", &CScriptGameObject::get_custom_holder)
 		.def("get_current_holder", &CScriptGameObject::get_current_holder)
@@ -418,8 +448,6 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("iterate_feel_touch", &CScriptGameObject::IterateFeelTouch)
 		.def("get_luminocity_hemi", &CScriptGameObject::GetLuminocityHemi)
 		.def("get_luminocity", &CScriptGameObject::GetLuminocity)
-		.def("bone_visible", &CScriptGameObject::IsBoneVisible)
-		.def("set_bone_visible", &CScriptGameObject::SetBoneVisible)
 		.def("set_health_ex", &CScriptGameObject::SetHealthEx)
 		.def("force_set_position", &CScriptGameObject::ForceSetPosition)
 		.def("set_spatial_type", &CScriptGameObject::SetSpatialType)

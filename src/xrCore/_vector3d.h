@@ -71,6 +71,13 @@ public:
 		z += s;
 		return *this;
 	};
+	ICF SelfRef add(T _x, T _y, T _z)
+	{
+		x += _x;
+		y += _y;
+		z += _z;
+		return *this;
+	};
 	ICF SelfRef add(const Self& a, const Self& v)
 	{
 		x = a.x + v.x;
@@ -98,6 +105,13 @@ public:
 		x -= s;
 		y -= s;
 		z -= s;
+		return *this;
+	};
+	ICF SelfRef sub(T _x, T _y, T _z)
+	{
+		x -= _x;
+		y -= _y;
+		z -= _z;
 		return *this;
 	};
 	ICF SelfRef sub(const Self& a, const Self& v)
@@ -129,6 +143,13 @@ public:
 		z *= s;
 		return *this;
 	};
+	ICF SelfRef mul(T _x, T _y, T _z)
+	{
+		x *= _x;
+		y *= _y;
+		z *= _z;
+		return *this;
+	};
 	ICF SelfRef mul(const Self& a, const Self& v)
 	{
 		x = a.x * v.x;
@@ -156,6 +177,13 @@ public:
 		x /= s;
 		y /= s;
 		z /= s;
+		return *this;
+	};
+	ICF SelfRef div(T _x, T _y, T _z)
+	{
+		x /= _x;
+		y /= _y;
+		z /= _z;
 		return *this;
 	};
 	ICF SelfRef div(const Self& a, const Self& v)
