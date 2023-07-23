@@ -33,10 +33,8 @@ class CZoneList;
 class message_filter;
 class demoplay_control;
 class demo_info;
-
-#ifdef DEBUG
 class CDebugRenderer;
-#endif
+class DBG_ScriptObject;
 
 extern float g_fov;
 
@@ -70,9 +68,7 @@ protected:
 	CSeniorityHierarchyHolder* m_seniority_hierarchy_holder = nullptr;
 	CClientSpawnManager* m_client_spawn_manager = nullptr;
 	CAutosaveManager* m_autosave_manager = nullptr;
-#ifdef DEBUG
     CDebugRenderer* m_debug_renderer = nullptr;
-#endif
 	CPHCommander* m_ph_commander = nullptr;
 	CPHCommander* m_ph_commander_scripts = nullptr;
 	CPHCommander* m_ph_commander_physics_worldstep = nullptr;
@@ -221,6 +217,19 @@ public:
 	virtual void OnEvent(EVENT E, u64 P1, u64 P2);
 	virtual void _BCL OnFrame(void);
 	virtual void OnRender();
+
+	enum DBG_RENDER_FLAGS
+	{
+		DBG_Script = 1 << 0,
+		DBG_SpaceRestrictors = 1 << 1,
+		DBG_GameGraph = 1 << 2
+	};
+
+	Flags32 m_debug_render_flags;
+	xr_map<u16, DBG_ScriptObject*> m_debug_render_queue;
+	xr_map<u16, DBG_ScriptObject*>* getScriptRenderQueue() { return &m_debug_render_queue; }
+	void ScriptDebugRender();
+
 	virtual shared_str OpenDemoFile(const char* demo_file_name);
 	virtual void net_StartPlayDemo();
 	void cl_Process_Event(u16 dest, u16 type, NET_Packet& P);
@@ -262,9 +271,7 @@ public:
 	IC CSeniorityHierarchyHolder& seniority_holder();
 	IC CClientSpawnManager& client_spawn_manager();
 	IC CAutosaveManager& autosave_manager();
-#ifdef DEBUG
     IC CDebugRenderer& debug_renderer();
-#endif
 	void __stdcall script_gc(); // GC-cycle
 	IC CPHCommander& ph_commander();
 	IC CPHCommander& ph_commander_scripts();
@@ -375,13 +382,11 @@ IC CAutosaveManager& CLevel::autosave_manager()
 	return *m_autosave_manager;
 }
 
-#ifdef DEBUG
 IC CDebugRenderer& CLevel::debug_renderer()
 {
     VERIFY(m_debug_renderer);
     return *m_debug_renderer;
 }
-#endif
 
 IC CPHCommander& CLevel::ph_commander()
 {

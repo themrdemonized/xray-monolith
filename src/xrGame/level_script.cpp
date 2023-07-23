@@ -51,6 +51,7 @@
 #include "../xrEngine/xr_input.h"
 #include "script_ini_file.h"
 #include "EffectorBobbing.h"
+#include "LevelDebugScript.h"
 
 using namespace luabind;
 
@@ -1368,7 +1369,7 @@ const u32 ActorMovingState()
 
 extern ENGINE_API float psHUD_FOV;
 
-const Fvector2 world2ui(Fvector pos, bool hud = false)
+const Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
 {
 	Fmatrix world, res;
 	world.identity();
@@ -1396,8 +1397,11 @@ const Fvector2 world2ui(Fvector pos, bool hud = false)
 	v_res.y = res._42 / v_res.w;
 	v_res.z = res._43 / v_res.w;
 
-	if (v_res.z < 0 || v_res.w < 0) return { -9999,0 };
-	if (abs(v_res.x) > 1.f || abs(v_res.y) > 1.f) return { -9999,0 };
+	if (!allow_offscreen)
+	{
+		if (v_res.z < 0 || v_res.w < 0) return { -9999,0 };
+		if (abs(v_res.x) > 1.f || abs(v_res.y) > 1.f) return { -9999,0 };
+	}
 
 	float x = (1.f + v_res.x) / 2.f * (Device.dwWidth);
 	float y = (1.f - v_res.y) / 2.f * (Device.dwHeight);
@@ -1753,15 +1757,108 @@ CScriptIniFile* GetVisualUserdata(LPCSTR visual)
 	return ini;
 }
 
+DBG_ScriptObject* get_object(u16 id)
+{
+	xr_map<u16, DBG_ScriptObject*>::iterator it = Level().getScriptRenderQueue()->find(id);
+	if (it == Level().getScriptRenderQueue()->end())
+		return nullptr;
+
+	return it->second;
+}
+
+void remove_object(u16 id)
+{
+	DBG_ScriptObject* dbg_obj = get_object(id);
+	if (!dbg_obj)
+		return;
+
+	xr_delete(dbg_obj);
+	Level().getScriptRenderQueue()->erase(id);
+}
+
+DBG_ScriptObject* add_object(u16 id, DebugRenderType type)
+{
+	remove_object(id);
+	DBG_ScriptObject* dbg_obj;
+
+	switch (type)
+	{
+	case eDBGSphere:
+		dbg_obj = xr_new<DBG_ScriptSphere>();
+		break;
+	case eDBGBox:
+		dbg_obj = xr_new<DBG_ScriptBox>();
+		break;
+	case eDBGLine:
+		dbg_obj = xr_new<DBG_ScriptLine>();
+		break;
+	default:
+		R_ASSERT2(false, "Wrong debug object type used!");
+	}
+
+	R_ASSERT(dbg_obj);
+	Level().getScriptRenderQueue()->emplace(mk_pair(id, dbg_obj));
+
+	return dbg_obj;
+}
+
+u32 get_flags()
+{
+	return Level().m_debug_render_flags.get();
+}
+
+void set_flags(u32 flags)
+{
+	Level().m_debug_render_flags.assign(flags);
+}
+
 #pragma optimize("s",on)
 void CLevel::script_register(lua_State* L)
 {
-	class_<CEnvDescriptor>("CEnvDescriptor")
-		.def_readonly("fog_density", &CEnvDescriptor::fog_density)
+	module(L)
+		[
+			class_<CEnvDescriptor>("CEnvDescriptor")
+			.def_readonly("fog_density", &CEnvDescriptor::fog_density)
 		.def_readonly("far_plane", &CEnvDescriptor::far_plane),
 
 		class_<CEnvironment>("CEnvironment")
-		.def("current", current_environment);
+		.def("current", current_environment),
+
+		class_<DBG_ScriptObject>("DBG_ScriptObject")
+		.enum_("dbg_type")
+		[
+			value("line", (int)DebugRenderType::eDBGLine),
+			value("sphere", (int)DebugRenderType::eDBGSphere),
+			value("box", (int)DebugRenderType::eDBGBox)
+		]
+	.def("cast_dbg_sphere", &DBG_ScriptObject::cast_dbg_sphere)
+		.def("cast_dbg_box", &DBG_ScriptObject::cast_dbg_box)
+		.def("cast_dbg_line", &DBG_ScriptObject::cast_dbg_line)
+		.def_readwrite("color", &DBG_ScriptObject::m_color)
+		.def_readwrite("hud", &DBG_ScriptObject::m_hud)
+		.def_readwrite("visible", &DBG_ScriptObject::m_visible),
+
+		class_<DBG_ScriptSphere, DBG_ScriptObject>("DBG_ScriptSphere")
+		.def_readwrite("matrix", &DBG_ScriptSphere::m_mat),
+
+		class_<DBG_ScriptBox, DBG_ScriptObject>("DBG_ScriptBox")
+		.def_readwrite("matrix", &DBG_ScriptBox::m_mat)
+		.def_readwrite("size", &DBG_ScriptBox::m_size),
+
+		class_<DBG_ScriptLine, DBG_ScriptObject>("DBG_ScriptLine")
+		.def_readwrite("point_a", &DBG_ScriptLine::m_point_a)
+		.def_readwrite("point_b", &DBG_ScriptLine::m_point_b)
+		];
+
+	module(L, "debug_render")
+		[
+			def("add_object", add_object),
+			def("remove_object", remove_object),
+			def("get_object", get_object),
+			def("get_flags", get_flags),
+			def("set_flags", set_flags)
+		];
+
 
 	module(L, "level")
 		[

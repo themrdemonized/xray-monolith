@@ -167,6 +167,7 @@ private:
 	u32 stencil_pass;
 	u32 stencil_zfail;
 	u32 colorwrite_mask;
+	u32 fill_mode;
 	u32 cull_mode;
 	u32 z_enable;
 	u32 z_func;
@@ -337,6 +338,7 @@ public:
 	IC void set_ColorWriteEnable(
 		u32 _mask = D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE |
 			D3DCOLORWRITEENABLE_ALPHA);
+	IC void set_FillMode(u32 _mode);
 	IC void set_CullMode(u32 _mode);
 	IC u32 get_CullMode() { return cull_mode; }
 	void set_ClipPlanes(u32 _enable, Fplane* _planes = NULL, u32 count = 0);
@@ -446,7 +448,7 @@ public:
 		CHK_DX(HW.pDevice->SetSamplerState(sampler,type,value));
 	}
 #endif	//	USE_DX10
-#ifdef DEBUG
+
 	void dbg_Draw					(D3DPRIMITIVETYPE T, FVF::L* pVerts, int vcnt, u16* pIdx, int pcnt);
 	void dbg_Draw					(D3DPRIMITIVETYPE T, FVF::L* pVerts, int pcnt);
 	IC void dbg_DrawAABB			(Fvector& T, float sx, float sy, float sz, u32 C)						{	Fvector half_dim;	half_dim.set(sx,sy,sz); Fmatrix	TM;	TM.translate(T); dbg_DrawOBB(TM,half_dim,C);	}
@@ -455,9 +457,19 @@ public:
 	void dbg_DrawTRI				(Fmatrix& T, Fvector& p1, Fvector& p2, Fvector& p3, u32 C);
 	void dbg_DrawLINE				(Fmatrix& T, Fvector& p1, Fvector& p2, u32 C);
 	void dbg_DrawEllipse			(Fmatrix& T, u32 C);
-#endif
 
 	CBackend() { Invalidate(); };
+
+private:
+	// Debug Draw
+	void InitDebugDraw();
+	void DestroyDebugDraw();
+
+	// DX9 doesn't need this
+#if defined(USE_DX10) || defined(USE_DX11)
+	ref_geom vs_L;
+	ref_geom vs_TL;
+#endif
 
 #if defined(USE_DX10) || defined(USE_DX11)
 private:

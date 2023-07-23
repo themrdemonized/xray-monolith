@@ -371,14 +371,13 @@ private:
 	const Fvector& attach_pos(u8 part) const;
 
 	shared_str m_sect_name;
-
-	IKinematicsAnimated* m_model;
-	IKinematicsAnimated* m_model_2;
 	xr_vector<u16> m_ancors;
 	attachable_hud_item* m_attached_items[2];
 	xr_vector<attachable_hud_item*> m_pool;
 	static void _BCL FingerCallback(CBoneInstance* B);
 public:
+	IKinematicsAnimated* m_model;
+	IKinematicsAnimated* m_model_2;
 	Fvector m_adjust_offset[2][5]; // pos,rot/ normal,aim,GL,aim_alt,safemode
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
 	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui

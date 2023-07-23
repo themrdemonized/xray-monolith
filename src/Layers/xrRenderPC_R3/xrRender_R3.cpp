@@ -20,9 +20,7 @@ BOOL DllMainXrRenderR3(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		::DU = &DUImpl;
 		//::vid_mode_token			= inited by HW;
 		UIRender = &UIRenderImpl;
-#ifdef DEBUG
-		DRender						= &DebugRenderImpl;
-#endif	//	DEBUG
+		DRender	= &DebugRenderImpl;
 		xrRender_initconsole();
 		break ;
 	case DLL_THREAD_ATTACH:

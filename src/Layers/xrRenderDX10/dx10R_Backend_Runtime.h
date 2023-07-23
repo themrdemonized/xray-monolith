@@ -442,6 +442,11 @@ IC void CBackend::set_ColorWriteEnable(u32 _mask)
 	//}
 }
 
+ICF void CBackend::set_FillMode(u32 _mode)
+{
+	StateManager.SetFillMode(_mode);
+}
+
 ICF void CBackend::set_CullMode(u32 _mode)
 {
 	StateManager.SetCullMode(_mode);

@@ -7372,6 +7372,11 @@
     <ClInclude Include="script_wallmarks_manager.h">
       <Filter>Core\Client\Effects</Filter>
     </ClInclude>
+    <ClInclude Include="NewZoomFlag.h" />
+    <ClInclude Include="new_sds.h" />
+    <ClInclude Include="LevelDebugScript.h">
+      <Filter>Core\Client\Level</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -11042,6 +11047,9 @@
     </ClCompile>
     <ClCompile Include="player_hud_script.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
+    </ClCompile>
+    <ClCompile Include="LevelDebugScript.cpp">
+      <Filter>Core\Client\Level</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

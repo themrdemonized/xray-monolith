@@ -682,12 +682,8 @@ public:
 	void start_particles(LPCSTR pname, LPCSTR bone);
 	void stop_particles(LPCSTR pname, LPCSTR bone);
 
-	Fvector bone_position(LPCSTR bone_name, bool bHud = false) const;
-	Fvector bone_direction(LPCSTR bone_name, bool bHud = false) const;
-	LPCSTR bone_name(u16 id, bool bHud);
 	bool is_body_turning() const;
 	cphysics_shell_scripted* get_physics_shell() const;
-	u16 get_bone_id(LPCSTR bone_name) const;
 	bool weapon_strapped() const;
 	bool weapon_unstrapped() const;
 	void eat(CScriptGameObject* item);
@@ -982,8 +978,35 @@ public:
 	void SwitchState(u32 state);
 	u32 GetState();
 	//Works for anything with visual
-	bool IsBoneVisible(LPCSTR bone_name, bool bHud = false);
-	void SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive = true, bool bHud = false);
+	u16 bone_id(LPCSTR bone_name, bool bHud);
+	u16 bone_id(LPCSTR bone_name) { return bone_id(bone_name, false); }
+	LPCSTR bone_name(u16 bone_id, bool bHud);
+	LPCSTR bone_name(u16 bone_id) { return bone_name(bone_id, false); }
+
+	bool is_bone_visible(u16 bone_id, bool bHud);
+	bool is_bone_visible(u16 bone_id) { return is_bone_visible(bone_id, false); }
+	bool is_bone_visible(LPCSTR bone_name, bool bHud) { return is_bone_visible(bone_id(bone_name, bHud), bHud); }
+	bool is_bone_visible(LPCSTR bone_name) { return is_bone_visible(bone_id(bone_name), false); }
+
+	void set_bone_visible(u16 bone_id, bool bVisibility, bool bRecursive, bool bHud);
+	void set_bone_visible(u16 bone_id, bool bVisibility, bool bRecursive) { set_bone_visible(bone_id, bVisibility, bRecursive, false); }
+	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud) { set_bone_visible(bone_id(bone_name, bHud), bVisibility, bRecursive, bHud); }
+	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive) { set_bone_visible(bone_id(bone_name), bVisibility, bRecursive, false); }
+
+	Fvector bone_position(u16 bone_id, bool bHud);
+	Fvector bone_position(u16 bone_id) { return bone_position(bone_id, false); }
+	Fvector bone_position(LPCSTR bone_name, bool bHud) { return bone_position(bone_id(bone_name, bHud), bHud); }
+	Fvector bone_position(LPCSTR bone_name) { return bone_position(bone_id(bone_name), false); }
+
+	Fvector bone_direction(u16 bone_id, bool bHud);
+	Fvector bone_direction(u16 bone_id) { return bone_direction(bone_id, false); }
+	Fvector bone_direction(LPCSTR bone_name, bool bHud) { return bone_direction(bone_id(bone_name, bHud), bHud); }
+	Fvector bone_direction(LPCSTR bone_name) { return bone_direction(bone_id(bone_name), false); }
+
+	u16 bone_parent(u16 bone_id, bool bHud);
+	u16 bone_parent(u16 bone_id) { return bone_parent(bone_id, false); }
+	u16 bone_parent(LPCSTR bone_name, bool bHud) { return bone_parent(bone_id(bone_name, bHud), bHud); }
+	u16 bone_parent(LPCSTR bone_name) { return bone_parent(bone_id(bone_name), false); }
 
 	//CAI_Stalker
 	void ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect);

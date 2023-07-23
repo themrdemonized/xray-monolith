@@ -14,16 +14,16 @@ IC void CDebugRenderer::render()
 }
 
 IC void CDebugRenderer::draw_line(const Fmatrix& matrix, const Fvector& vertex0, const Fvector& vertex1,
-                                  const u32& color)
+                                  const u32& color, bool bHud)
 {
 	Fvector vertices[2] = {vertex0, vertex1};
 	u16 indices[2] = {0, 1};
 	add_lines(&vertices[0], sizeof(vertices) / sizeof(Fvector), &indices[0], sizeof(indices) / (2 * sizeof(u16)),
-	          color);
+	          color, bHud);
 }
 
 IC void CDebugRenderer::draw_aabb(const Fvector& center, const float& half_radius_x, const float& half_radius_y,
-                                  const float& half_radius_z, const u32& color)
+                                  const float& half_radius_z, const u32& color, bool bHud)
 {
 	Fvector half_radius;
 	half_radius.set(half_radius_x, half_radius_y, half_radius_z);
@@ -31,5 +31,5 @@ IC void CDebugRenderer::draw_aabb(const Fvector& center, const float& half_radiu
 	Fmatrix matrix;
 	matrix.translate(center);
 
-	draw_obb(matrix, half_radius, color);
+	draw_obb(matrix, half_radius, color, bHud);
 }

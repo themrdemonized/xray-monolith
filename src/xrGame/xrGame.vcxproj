@@ -1160,6 +1160,7 @@
     <ClInclude Include="kills_store.h" />
     <ClInclude Include="kills_store_inline.h" />
     <ClInclude Include="Level.h" />
+    <ClInclude Include="LevelDebugScript.h" />
     <ClInclude Include="Level_Bullet_Manager.h" />
     <ClInclude Include="level_changer.h" />
     <ClInclude Include="level_debug.h" />
@@ -2955,6 +2956,7 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
+    <ClCompile Include="LevelDebugScript.cpp" />
     <ClCompile Include="Level_Bullet_Manager.cpp" />
     <ClCompile Include="Level_bullet_manager_firetrace.cpp" />
     <ClCompile Include="level_changer.cpp" />
@@ -3163,7 +3165,7 @@
     <ClCompile Include="player_account.cpp" />
     <ClCompile Include="player_hud.cpp" />
     <ClCompile Include="player_hud_script.cpp">
-	  <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <ClCompile Include="player_hud_tune.cpp" />
