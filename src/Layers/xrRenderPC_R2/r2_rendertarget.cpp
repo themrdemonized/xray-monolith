@@ -319,6 +319,8 @@ CRenderTarget::CRenderTarget()
 		//	temp: for higher quality blends
 		if (RImplementation.o.advancedpp)
 			rt_Generic_2.create(r2_RT_generic2, w, h, D3DFMT_A16B16G16R16F);
+
+		rt_Generic_PingPong.create("$user$generic_pingpong", w, h, D3DFMT_A8R8G8B8);
 	}
 
 	s_sunshafts.create(b_sunshafts, "r2\\sunshafts");
