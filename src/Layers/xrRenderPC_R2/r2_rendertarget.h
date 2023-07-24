@@ -71,6 +71,7 @@ public:
 	ref_rt rt_ui_pda;
 
 	ref_rt rt_fakescope; //crookr
+	ref_rt rt_Generic_PingPong;
 
 	ref_rt rt_dof;
 	ref_rt rt_Heat; //--DSR-- HeatVision
