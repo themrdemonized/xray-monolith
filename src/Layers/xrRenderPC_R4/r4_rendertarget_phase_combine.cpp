@@ -290,12 +290,14 @@ void CRenderTarget::phase_combine()
 	// Forward rendering
 	{
 		PIX_EVENT(Forward_rendering);
+
 		//--DSR-- HeatVision_start
 		if (!RImplementation.o.dx10_msaa)
 			u_setrt(rt_Generic_0, rt_Heat, 0, HW.pBaseZB); // LDR RT
 		else
 			u_setrt(rt_Generic_0_r, rt_Heat, 0, RImplementation.Target->rt_MSAADepth->pZRT); // LDR RT
 		//--DSR-- HeatVision_end
+
 		RCache.set_CullMode(CULL_CCW);
 		RCache.set_Stencil(FALSE);
 		RCache.set_ColorWriteEnable();

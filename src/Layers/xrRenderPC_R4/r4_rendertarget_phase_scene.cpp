@@ -13,6 +13,7 @@ void CRenderTarget::phase_scene_prepare()
 
 		FLOAT ColorRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 		HW.pContext->ClearRenderTargetView(rt_Position->pRT, ColorRGBA);
+
 		//--DSR-- HeatVision_start
 		HW.pContext->ClearRenderTargetView(rt_Heat->pRT, ColorRGBA);
 		//--DSR-- HeatVision_end
