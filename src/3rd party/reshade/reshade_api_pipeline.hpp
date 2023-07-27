@@ -7,7 +7,7 @@
 
 #include "reshade_api_resource.hpp"
 
-namespace reshade::api
+namespace reshade { namespace api
 {
 	/// <summary>
 	/// A list of flags that represent the available shader stages in the render pipeline.
@@ -71,9 +71,9 @@ namespace reshade::api
 	enum class pipeline_layout_param_type : uint32_t
 	{
 		push_constants = 1,
-		descriptor_set = 0,
+		descriptor_table = 0,
 		push_descriptors = 2,
-		push_descriptors_ranges = 3
+		push_descriptors_with_ranges = 3
 	};
 
 	/// <summary>
@@ -104,13 +104,13 @@ namespace reshade::api
 	};
 
 	/// <summary>
-	/// Describes a range of descriptors in a descriptor set layout.
+	/// Describes a range of descriptors of a descriptor table in a pipeline layout.
 	/// </summary>
 	struct descriptor_range
 	{
 		/// <summary>
 		/// OpenGL/Vulkan binding index (<c>layout(binding=X)</c> in GLSL).
-		/// In D3D this is equivalent to the offset (in descriptors) of this range in the descriptor set (since each binding can only have an array size of 1).
+		/// In D3D this is equivalent to the offset (in descriptors) of this range in the descriptor table (since each binding can only have an array size of 1).
 		/// </summary>
 		uint32_t binding = 0;
 		/// <summary>
@@ -123,6 +123,7 @@ namespace reshade::api
 		uint32_t dx_register_space = 0;
 		/// <summary>
 		/// Number of descriptors in this range.
+		/// Set to -1 (UINT32_MAX) to indicate an unbounded range.
 		/// </summary>
 		uint32_t count = 0;
 		/// <summary>
@@ -149,7 +150,7 @@ namespace reshade::api
 		constexpr pipeline_layout_param() : push_descriptors() {}
 		constexpr pipeline_layout_param(const constant_range &push_constants) : type(pipeline_layout_param_type::push_constants), push_constants(push_constants) {}
 		constexpr pipeline_layout_param(const descriptor_range &push_descriptors) : type(pipeline_layout_param_type::push_descriptors), push_descriptors(push_descriptors) {}
-		constexpr pipeline_layout_param(uint32_t count, const descriptor_range *ranges) : type(pipeline_layout_param_type::descriptor_set), descriptor_set({ count, ranges }) {}
+		constexpr pipeline_layout_param(uint32_t count, const descriptor_range *ranges) : type(pipeline_layout_param_type::descriptor_table), descriptor_table({ count, ranges }) {}
 
 		/// <summary>
 		/// Type of the parameter.
@@ -169,13 +170,13 @@ namespace reshade::api
 			descriptor_range push_descriptors;
 
 			/// <summary>
-			/// Used when parameter type is <see cref="pipeline_layout_param_type::descriptor_set"/> or <see cref="pipeline_layout_param_type::push_descriptors_ranges"/>.
+			/// Used when parameter type is <see cref="pipeline_layout_param_type::descriptor_table"/> or <see cref="pipeline_layout_param_type::push_descriptors_with_ranges"/>.
 			/// </summary>
 			struct
 			{
 				uint32_t count;
 				const descriptor_range *ranges;
-			} descriptor_set;
+			} descriptor_table;
 		};
 	};
 
@@ -563,17 +564,17 @@ namespace reshade::api
 		/// </summary>
 		bool stencil_enable = false;
 		/// <summary>
-		/// Mask applied to stencil values read from the depth-stencil buffer.
+		/// Mask applied to stencil values read from the depth-stencil buffer for pixels whose surface normal is towards the camera.
 		/// </summary>
-		uint8_t stencil_read_mask = 0xFF;
+		uint8_t front_stencil_read_mask = 0xFF;
 		/// <summary>
-		/// Mask applied to stencil values written to the depth-stencil buffer.
+		/// Mask applied to stencil values written to the depth-stencil buffer for pixels whose surface normal is towards the camera.
 		/// </summary>
-		uint8_t stencil_write_mask = 0xFF;
+		uint8_t front_stencil_write_mask = 0xFF;
 		/// <summary>
-		/// Reference value to perform against when doing stencil testing.
+		/// Reference value to perform against when stencil testing pixels whose surface normal is towards the camera.
 		/// </summary>
-		uint8_t stencil_reference_value = 0;
+		uint8_t front_stencil_reference_value = 0;
 		/// <summary>
 		/// Comparison function to use to compare new stencil value from a fragment against current stencil value for pixels whose surface normal is facing towards the camera.
 		/// </summary>
@@ -590,6 +591,18 @@ namespace reshade::api
 		/// Stencil operation to perform when stencil testing passes and depth testing fails for pixels whose surface normal is facing towards the camera.
 		/// </summary>
 		stencil_op front_stencil_depth_fail_op = stencil_op::keep;
+		/// <summary>
+		/// Mask applied to stencil values read from the depth-stencil buffer for pixels whose surface normal is facing away from the camera.
+		/// </summary>
+		uint8_t back_stencil_read_mask = 0xFF;
+		/// <summary>
+		/// Mask applied to stencil values written to the depth-stencil buffer for pixels whose surface normal is facing away from the camera.
+		/// </summary>
+		uint8_t back_stencil_write_mask = 0xFF;
+		/// <summary>
+		/// Reference value to perform against when stencil testing pixels whose surface normal is facing away from the camera.
+		/// </summary>
+		uint8_t back_stencil_reference_value = 0;
 		/// <summary>
 		/// Comparison function to use to compare new stencil value from a fragment against current stencil value for pixels whose surface normal is facing away from the camera.
 		/// </summary>
@@ -614,6 +627,7 @@ namespace reshade::api
 	enum class pipeline_subobject_type : uint32_t
 	{
 		unknown,
+
 		/// <summary>
 		/// Vertex shader to use.
 		/// Sub-object data is a pointer to a <see cref="shader_desc"/>.
@@ -791,22 +805,22 @@ namespace reshade::api
 	};
 
 	/// <summary>
-	/// An opaque handle to a descriptor set.
+	/// An opaque handle to a descriptor table in a descriptor heap.
 	/// <para>In Vulkan this is a 'VkDescriptorSet' handle.</para>
 	/// </summary>
-	RESHADE_DEFINE_HANDLE(descriptor_set);
+	RESHADE_DEFINE_HANDLE(descriptor_table);
 
 	/// <summary>
-	/// All information needed to copy descriptors between descriptor sets.
+	/// All information needed to copy descriptors between descriptor tables.
 	/// </summary>
-	struct descriptor_set_copy
+	struct descriptor_table_copy
 	{
 		/// <summary>
-		/// Descriptor set to copy from.
+		/// Descriptor table to copy from.
 		/// </summary>
-		descriptor_set source_set = { 0 };
+		descriptor_table source_table = { 0 };
 		/// <summary>
-		/// Index of the binding in the source descriptor set.
+		/// Index of the binding in the source descriptor table.
 		/// </summary>
 		uint32_t source_binding = 0;
 		/// <summary>
@@ -814,11 +828,11 @@ namespace reshade::api
 		/// </summary>
 		uint32_t source_array_offset = 0;
 		/// <summary>
-		/// Descriptor set to copy to.
+		/// Descriptor table to copy to.
 		/// </summary>
-		descriptor_set dest_set = { 0 };
+		descriptor_table dest_table = { 0 };
 		/// <summary>
-		/// Index of the binding in the destination descriptor set.
+		/// Index of the binding in the destination descriptor table.
 		/// </summary>
 		uint32_t dest_binding = 0;
 		/// <summary>
@@ -832,22 +846,22 @@ namespace reshade::api
 	};
 
 	/// <summary>
-	/// All information needed to update descriptors in a descriptor set.
+	/// All information needed to update descriptors in a descriptor table.
 	/// </summary>
-	struct descriptor_set_update
+	struct descriptor_table_update
 	{
 		/// <summary>
-		/// Descriptor set to update.
+		/// Descriptor table to update.
 		/// </summary>
-		descriptor_set set = { 0 };
+		descriptor_table table = { 0 };
 		/// <summary>
 		/// OpenGL/Vulkan binding index in the descriptor set.
-		/// In D3D this is equivalent to the offset (in descriptors) from the start of the set.
+		/// In D3D this is equivalent to the offset (in descriptors) from the start of the table.
 		/// </summary>
 		uint32_t binding = 0;
 		/// <summary>
 		/// Array index in the specified <see cref="binding"/> to begin updating at.
-		/// Only meaningful in Vulkan, in OpenGL and other APIs this has to be 0 (since each GLSL array element gets a separate binding index).
+		/// Only meaningful in Vulkan, in OpenGL and other APIs this has to be 0 (since each array element gets a separate binding).
 		/// </summary>
 		uint32_t array_offset = 0;
 		/// <summary>
@@ -860,17 +874,17 @@ namespace reshade::api
 		/// </summary>
 		descriptor_type type = descriptor_type::sampler;
 		/// <summary>
-		/// Pointer to an array of descriptors to update in the set (which should be as large as the specified <see cref="count"/>).
+		/// Pointer to an array of descriptors to update in the descriptor table (which should be as large as the specified <see cref="count"/>).
 		/// Depending on the descriptor <see cref="type"/> this should be pointer to an array of <see cref="buffer_range"/>, <see cref="resource_view"/>, <see cref="sampler"/> or <see cref="sampler_with_resource_view"/>.
 		/// </summary>
 		const void *descriptors = nullptr;
 	};
 
 	/// <summary>
-	/// An opaque handle to a descriptor pool.
+	/// An opaque handle to a descriptor heap.
 	/// <para>In D3D12 this is a pointer to a 'ID3D12DescriptorHeap' object, in Vulkan a 'VkDescriptorPool' handle.</para>
 	/// </summary>
-	RESHADE_DEFINE_HANDLE(descriptor_pool);
+	RESHADE_DEFINE_HANDLE(descriptor_heap);
 
 	/// <summary>
 	/// The available query types.
@@ -888,10 +902,10 @@ namespace reshade::api
 	};
 
 	/// <summary>
-	/// An opaque handle to a query pool.
+	/// An opaque handle to a query heap.
 	/// <para>In D3D12 this is a pointer to a 'ID3D12QueryHeap' object, in Vulkan a 'VkQueryPool' handle.</para>
 	/// </summary>
-	RESHADE_DEFINE_HANDLE(query_pool);
+	RESHADE_DEFINE_HANDLE(query_heap);
 
 	/// <summary>
 	/// A list of all possible render pipeline states that can be set independent of pipeline state objects.
@@ -919,8 +933,8 @@ namespace reshade::api
 		source_alpha_blend_factor = 207,
 		dest_alpha_blend_factor = 208,
 		alpha_blend_op = 209,
-		logic_op = 1005,
 		blend_constant = 193,
+		logic_op = 1005,
 		render_target_write_mask = 168,
 
 		// Rasterizer state
@@ -942,17 +956,20 @@ namespace reshade::api
 		depth_write_mask = 14,
 		depth_func = 23,
 		stencil_enable = 52,
-		stencil_read_mask = 58,
-		stencil_write_mask = 59,
-		stencil_reference_value = 57,
+		front_stencil_read_mask = 58,
+		front_stencil_write_mask = 59,
+		front_stencil_reference_value = 57,
 		front_stencil_func = 56,
 		front_stencil_pass_op = 55,
 		front_stencil_fail_op = 53,
 		front_stencil_depth_fail_op = 54,
+		back_stencil_read_mask = 1006,
+		back_stencil_write_mask = 1007,
+		back_stencil_reference_value = 1008,
 		back_stencil_func = 189,
 		back_stencil_pass_op = 188,
 		back_stencil_fail_op = 186,
-		back_stencil_depth_fail_op = 187
+		back_stencil_depth_fail_op = 187,
 	};
 
 	/// <summary>
@@ -981,4 +998,4 @@ namespace reshade::api
 		float min_depth = 0.0f;
 		float max_depth = 1.0f;
 	};
-}
+} }

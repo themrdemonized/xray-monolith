@@ -26,7 +26,7 @@
 
 #include "reshade_api_format.hpp"
 
-namespace reshade::api
+namespace reshade { namespace api
 {
 	/// <summary>
 	/// The available comparison types.
@@ -56,6 +56,7 @@ namespace reshade::api
 		min_linear_mag_point_mip_linear = 0x11,
 		min_mag_linear_mip_point = 0x14,
 		min_mag_mip_linear = 0x15,
+		min_mag_anisotropic_mip_point = 0x54,
 		anisotropic = 0x55,
 		compare_min_mag_mip_point = 0x80,
 		compare_min_mag_point_mip_linear = 0x81,
@@ -65,6 +66,7 @@ namespace reshade::api
 		compare_min_linear_mag_point_mip_linear = 0x91,
 		compare_min_mag_linear_mip_point = 0x94,
 		compare_min_mag_mip_linear = 0x95,
+		compare_min_mag_anisotropic_mip_point = 0xd4,
 		compare_anisotropic = 0xd5
 	};
 
@@ -523,4 +525,4 @@ namespace reshade::api
 		/// </summary>
 		float clear_color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	};
-}
+} }
