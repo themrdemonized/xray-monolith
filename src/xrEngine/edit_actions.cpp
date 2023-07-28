@@ -11,6 +11,20 @@
 #include "xr_input.h"
 #include <locale.h>
 
+// demonized: UGLY AF hack for correct switch to russian
+bool isRussianAlphabetLetter(const char l)
+{
+	const char* russianAlphabetString = "àáâãäå¸æçèéêëìíîïğñòóôõö÷øùúûüışÿÀÁÂÃÄÅ¨ÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖ×ØÙÚÛÜİŞß";
+	for (int i = 0; i < strlen(russianAlphabetString); i++)
+	{
+		if (russianAlphabetString[i] == l)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 namespace text_editor
 {
 	base::base() : m_previous_action(NULL)
@@ -100,7 +114,8 @@ namespace text_editor
 
 			if (pInput->get_dik_name(m_dik, buff, sizeof(buff)))
 			{
-				if (_isalpha_l(buff[0], current_locale) || buff[0] == char(-1)) // "ÿ" = -1
+				// demonized: add extra crutch check for russian letters
+				if (_isalpha_l(buff[0], current_locale) || isRussianAlphabetLetter(buff[0]) || buff[0] == char(-1)) // "ÿ" = -1
 				{
 					_strlwr_l(buff, current_locale);
 					c = buff[0];
