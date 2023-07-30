@@ -474,7 +474,7 @@ void CShootingObject::FireBullet(const Fvector& pos,
 	m_vCurrentShootPos = pos;
 	m_iCurrentParentID = parent_id;
 
-	bool aim_bullet;
+	bool aim_bullet = false;
 	/*if (m_bUseAimBullet)
 	{
 		if (ParentMayHaveAimBullet())
