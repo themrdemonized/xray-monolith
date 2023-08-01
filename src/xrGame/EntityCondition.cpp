@@ -13,6 +13,10 @@
 #include "ActorHelmet.h"
 #include "ActorBackpack.h"
 
+// demonized: add lua callback before hit but after calculations
+#include "script_hit.h"
+#include "script_game_object.h"
+
 #define MAX_HEALTH 1.0f
 #define MIN_HEALTH -0.01f
 
@@ -419,6 +423,18 @@ CWound* CEntityCondition::AddWound(float hit_power, ALife::EHitType hit_type, u1
 	return pWound;
 }
 
+// demonized: add lua callback before hit but after calculations
+// pHDS and hit_power will be changed after execution
+static inline void applyBeforeHitAfterCalcsCallback(CEntityAlive* target, const luabind::functor<void>& funct, SHit* pHDS, float& hit_power, const float hit_part)
+{
+	CScriptHit tLuaHit(pHDS);
+	tLuaHit.m_fPower = hit_power * hit_part;
+	funct(&tLuaHit, target->lua_game_object());
+	tLuaHit.m_fPower /= hit_part;
+	pHDS->ApplyScriptHit(&tLuaHit);
+	hit_power = tLuaHit.m_fPower;
+}
+
 CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 {
 	//кто нанес последний хит
@@ -433,6 +449,11 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 	float hit_power = hit_power_org;
 	hit_power = HitOutfitEffect(hit_power_org, pHDS->hit_type, pHDS->boneID, pHDS->armor_piercing, bAddWound);
 
+	// demonized: add lua callback before hit but after calculations
+	// don't call if there is no target
+	luabind::functor<void> funct;
+	bool has_func = ai().script_engine().functor("_G.CBeforeHitAfterCalcs", funct);
+
 	switch (pHDS->hit_type)
 	{
 	case ALife::eHitTypeTelepatic:
@@ -440,6 +461,13 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 		if (hit_power < 0.f)
 			hit_power = 0.f;
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostTelepaticImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart);
+		}
+
 		ChangePsyHealth(-hit_power);
 		m_fHealthLost = hit_power * m_fHealthHitPart;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
@@ -449,6 +477,13 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 	case ALife::eHitTypeLightBurn:
 	case ALife::eHitTypeBurn:
 		hit_power *= GetHitImmunity(ALife::eHitTypeBurn) - m_fBoostBurnImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart * m_fHitBoneScale);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart * m_fHitBoneScale;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
@@ -460,6 +495,13 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 		if (hit_power < 0.f)
 			hit_power = 0.f;
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostChemicalBurnImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
@@ -467,6 +509,13 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 		break;
 	case ALife::eHitTypeShock:
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostShockImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
@@ -477,12 +526,26 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 		if (hit_power < 0.f)
 			hit_power = 0.f;
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostRadiationImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, 1);
+		}
+
 		m_fDeltaRadiation += hit_power;
 		bAddWound = false;
 		return NULL;
 		break;
 	case ALife::eHitTypeExplosion:
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostExplImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
@@ -490,6 +553,13 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 	case ALife::eHitTypeStrike:
 		//	case ALife::eHitTypePhysicStrike:
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostStrikeImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
@@ -497,12 +567,26 @@ CWound* CEntityCondition::ConditionHit(SHit* pHDS)
 		break;
 	case ALife::eHitTypeFireWound:
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostFireWoundImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart * m_fHitBoneScale);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart * m_fHitBoneScale;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
 		break;
 	case ALife::eHitTypeWound:
 		hit_power *= GetHitImmunity(pHDS->hit_type) - m_fBoostWoundImmunity;
+
+		// demonized: add lua callback before hit but after calculations
+		if (has_func)
+		{
+			applyBeforeHitAfterCalcsCallback(m_object, funct, pHDS, hit_power, m_fHealthHitPart * m_fHitBoneScale);
+		}
+
 		m_fHealthLost = hit_power * m_fHealthHitPart * m_fHitBoneScale;
 		m_fDeltaHealth -= CanBeHarmed() ? m_fHealthLost : 0;
 		m_fDeltaPower -= hit_power * m_fPowerHitPart;
