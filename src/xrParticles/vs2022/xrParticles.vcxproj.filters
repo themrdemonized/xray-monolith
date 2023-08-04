@@ -9,55 +9,23 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="psystem.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="stdafx.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="noise.h">
-      <Filter>PAPI</Filter>
-    </ClInclude>
-    <ClInclude Include="particle_actions.h">
-      <Filter>PAPI</Filter>
-    </ClInclude>
-    <ClInclude Include="particle_actions_collection.h">
-      <Filter>PAPI</Filter>
-    </ClInclude>
-    <ClInclude Include="particle_core.h">
-      <Filter>PAPI</Filter>
-    </ClInclude>
-    <ClInclude Include="particle_effect.h">
-      <Filter>PAPI</Filter>
-    </ClInclude>
-    <ClInclude Include="particle_manager.h">
-      <Filter>PAPI</Filter>
-    </ClInclude>
+    <ClInclude Include="..\noise.h" />
+    <ClInclude Include="..\particle_actions.h" />
+    <ClInclude Include="..\particle_actions_collection.h" />
+    <ClInclude Include="..\particle_core.h" />
+    <ClInclude Include="..\particle_effect.h" />
+    <ClInclude Include="..\particle_manager.h" />
+    <ClInclude Include="..\psystem.h" />
+    <ClInclude Include="..\stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="noise.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="particle_actions.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="particle_actions_collection.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="particle_actions_collection_io.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="particle_core.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="particle_effect.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
-    <ClCompile Include="particle_manager.cpp">
-      <Filter>PAPI</Filter>
-    </ClCompile>
+    <ClCompile Include="..\noise.cpp" />
+    <ClCompile Include="..\particle_actions.cpp" />
+    <ClCompile Include="..\particle_actions_collection.cpp" />
+    <ClCompile Include="..\particle_actions_collection_io.cpp" />
+    <ClCompile Include="..\particle_core.cpp" />
+    <ClCompile Include="..\particle_effect.cpp" />
+    <ClCompile Include="..\particle_manager.cpp" />
+    <ClCompile Include="..\stdafx.cpp" />
   </ItemGroup>
 </Project>
