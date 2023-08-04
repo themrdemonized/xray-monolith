@@ -121,6 +121,7 @@ CFPCamEffector::CFPCamEffector() : CEffectorCam(eCEUser, INT_MAX) {
 	m_HPB.set(0, 0, 0);
 	m_Position.set(0, 0, 0);
 	m_customSmoothing = 0;
+	hudEnabled = false;
 }
 
 // EMA smoothing for changing values, frame independent

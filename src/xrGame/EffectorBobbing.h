@@ -41,6 +41,7 @@ public:
 	Fvector m_Position;
 	Fvector m_HPB;
 	Fmatrix m_Camera;
+	bool hudEnabled = false;
 	unsigned int m_customSmoothing; // 0 - use FPDeath smoothing params, no custom smoothing
 	virtual void ema(Fvector& current, Fvector& target, unsigned int steps);
 	

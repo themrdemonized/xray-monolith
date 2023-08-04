@@ -425,12 +425,18 @@ CWound* CEntityCondition::AddWound(float hit_power, ALife::EHitType hit_type, u1
 
 // demonized: add lua callback before hit but after calculations
 // pHDS and hit_power will be changed after execution
-static inline void applyBeforeHitAfterCalcsCallback(CEntityAlive* target, const luabind::functor<void>& funct, SHit* pHDS, float& hit_power, const float hit_part)
+static inline void applyBeforeHitAfterCalcsCallback(CEntityAlive* target, const luabind::functor<void>& funct, SHit* pHDS, float& hit_power, const float hit_part = 1)
 {
 	CScriptHit tLuaHit(pHDS);
-	tLuaHit.m_fPower = hit_power * hit_part;
+	tLuaHit.m_fPower = hit_power;
+	if (hit_part > 0)
+		tLuaHit.m_fPower *= hit_part;
+
 	funct(&tLuaHit, target->lua_game_object());
-	tLuaHit.m_fPower /= hit_part;
+
+	if (hit_part > 0)
+		tLuaHit.m_fPower /= hit_part;
+
 	pHDS->ApplyScriptHit(&tLuaHit);
 	hit_power = tLuaHit.m_fPower;
 }
