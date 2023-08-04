@@ -15,12 +15,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dxerr.cpp">
+    <ClCompile Include="..\dxerr.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="dxerr.h">
+    <ClInclude Include="..\dxerr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
