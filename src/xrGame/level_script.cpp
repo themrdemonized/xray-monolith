@@ -635,18 +635,30 @@ float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam
 }
 
 // demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
-void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing)
+void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing, bool hudEnabled, bool hudAffect)
 {
 	CActor* actor = Actor();
 	actor->initFPCam();
 	actor->m_FPCam->m_HPB.set(direction);
 	actor->m_FPCam->m_Position.set(position);
 	actor->m_FPCam->m_customSmoothing = smoothing;
+	actor->m_FPCam->hudEnabled = hudEnabled;
+	actor->m_FPCam->SetHudAffect(hudAffect);
 }
 
 void set_cam_position_direction(Fvector& position, Fvector& direction)
 {
-	set_cam_position_direction(position, direction, 1);
+	set_cam_position_direction(position, direction, 1, false, false);
+}
+
+void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing)
+{
+	set_cam_position_direction(position, direction, smoothing, false, false);
+}
+
+void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing, bool hudEnabled)
+{
+	set_cam_position_direction(position, direction, smoothing, hudEnabled, false);
 }
 
 void remove_cam_position_direction() 
@@ -1971,6 +1983,8 @@ void CLevel::script_register(lua_State* L)
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))&add_cam_effector)),
 
 			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
+			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool, bool))& set_cam_position_direction)),
+			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),
 			def("remove_cam_custom_position_direction", &remove_cam_position_direction),

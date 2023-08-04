@@ -1969,7 +1969,7 @@ void CActor::OnHUDDraw(CCustomHUD*)
 {
 	R_ASSERT(IsFocused());
 	//demonized: disable hud when FPCam is on
-	if (!((mstate_real & mcLookout) && !IsGameTypeSingle()) && !m_FPCam)
+	if (!((mstate_real & mcLookout) && !IsGameTypeSingle()) && (!m_FPCam || m_FPCam->hudEnabled))
 		g_player_hud->render_hud();
 
 
