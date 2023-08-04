@@ -170,7 +170,7 @@ public:
 	CBlend* PlayCycle(MotionID M, BOOL bMixIn = TRUE, PlayCallback Callback = 0, LPVOID CallbackParam = 0,
 	                  u8 channel = 0);
 	CBlend* PlayCycle(u16 partition, MotionID M, BOOL bMixIn = TRUE, PlayCallback Callback = 0,
-	                  LPVOID CallbackParam = 0, u8 channel = 0);
+	                  LPVOID CallbackParam = 0, u8 channel = 0, float speed = 1.f);
 	// fx'es
 	MotionID ID_FX(LPCSTR N);
 	MotionID ID_FX_Safe(LPCSTR N);

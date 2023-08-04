@@ -245,6 +245,7 @@ struct hud_item_measures
 	shooting_params m_shooting_params; //--#SM+#--
 
 	float m_fFreelookZOffset;
+	bool m_bLeadGunLeftHand;
 };
 
 struct attachable_hud_item
@@ -320,6 +321,7 @@ public:
 	bool m_bStopAtEndAnimIsRunning;
 	bool script_anim_item_attached;
 	bool script_override_arms;
+	bool script_anim_lead_gun;
 	IKinematicsAnimated* script_anim_item_model;
 	Fvector item_pos[2];
 	Fmatrix m_item_pos;
@@ -359,7 +361,7 @@ public:
 	Fmatrix m_attach_offset;
 	Fmatrix m_attach_offset_2;
 
-	void calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result);
+	void calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result, bool leadGun = false);
 	void tune(Ivector values);
 	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed);
 	u32 motion_length_script(LPCSTR section, LPCSTR anm_name, float speed);

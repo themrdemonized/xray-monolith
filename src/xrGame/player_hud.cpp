@@ -154,7 +154,7 @@ void attachable_hud_item::update(bool bForce)
 	m_attach_offset.setHPB(ypr.x, ypr.y, ypr.z);
 	m_attach_offset.translate_over(m_parent->m_adjust_mode ? m_parent->m_adjust_obj[0] : m_measures.m_item_attach[0]);
 
-	m_parent->calc_transform(m_attach_place_idx, m_attach_offset, m_item_transform);
+	m_parent->calc_transform(m_attach_place_idx, m_attach_offset, m_item_transform, m_measures.m_bLeadGunLeftHand);
 	m_upd_firedeps_frame = Device.dwFrame;
 
 	IKinematicsAnimated* ka = m_model->dcast_PKinematicsAnimated();
@@ -385,6 +385,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	//--#SM+# End--
 
 	m_fFreelookZOffset = READ_IF_EXISTS(pSettings, r_float, sect_name, "freelook_z_offset_mul", 0.f);
+	m_bLeadGunLeftHand = READ_IF_EXISTS(pSettings, r_bool, sect_name, "lh_lead_gun", false);
 }
 
 attachable_hud_item::~attachable_hud_item()
@@ -465,11 +466,7 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 
 		u16 pc = ka->partitions().count();
 		for (u16 pid = 0; pid < pc; ++pid)
-		{
-			CBlend* B = ka->PlayCycle(pid, M2, (bMixIn && !!bMixIn2));
-			R_ASSERT(B);
-			B->speed *= speed;
-		}
+			CBlend* B = ka->PlayCycle(pid, M2, (!!bMixIn && bMixIn2), 0, 0, 0, speed);
 
 		m_model->CalculateBones_Invalidate();
 	}
@@ -483,27 +480,19 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 	{
 		CActor* current_actor = static_cast_checked<CActor*>(Level().CurrentControlEntity());
 		VERIFY(current_actor);
-		CEffectorCam* ec = current_actor->Cameras().GetCamEffector(eCEWeaponAction);
 
-
-		if (NULL == ec)
+		string_path ce_path;
+		string_path anm_name;
+		strconcat(sizeof(anm_name), anm_name, "camera_effects\\weapon\\", M.name.c_str(), ".anm");
+		if (FS.exist(ce_path, "$game_anims$", anm_name))
 		{
-			string_path ce_path;
-			string_path anm_name;
-			strconcat(sizeof(anm_name), anm_name, "camera_effects\\weapon\\", M.name.c_str(), ".anm");
-			if (FS.exist(ce_path, "$game_anims$", anm_name))
-			{
-				if (!(m_attach_place_idx == 1 && m_parent->attached_item(0)))
-				{
-					int rand = ::Random.randI(5000, 10000);
-					CAnimatorCamEffector* e = xr_new<CAnimatorCamEffector>();
-					e->SetType(ECamEffectorType(rand));
-					e->SetHudAffect(false);
-					e->SetCyclic(false);
-					e->Start(anm_name);
-					current_actor->Cameras().AddCamEffector(e);
-				}
-			}
+			int rand = ::Random.randI(5000, 10000);
+			CAnimatorCamEffector* e = xr_new<CAnimatorCamEffector>();
+			e->SetType(ECamEffectorType(rand));
+			e->SetHudAffect(false);
+			e->SetCyclic(false);
+			e->Start(anm_name);
+			current_actor->Cameras().AddCamEffector(e);
 		}
 	}
 	return ret;
@@ -1191,11 +1180,36 @@ float player_hud::SetBlendAnmTime(LPCSTR name, float time)
 	return 0;
 }
 
+void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float speed)
+{
+	switch (pid)
+	{
+	case 0:
+	{
+		play_blend(hud, 1, M, bMixIn, speed);
+		play_blend(hud, 2, M, bMixIn, speed);
+		break;
+	}
+	case 1:
+		hud->m_model_2->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
+		hud->m_model_2->PlayCycle(1, M, bMixIn, 0, 0, 0, speed);
+		hud->m_model_2->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
+		hud->m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
+		break;
+	case 2:
+		hud->m_model->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
+		hud->m_model->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
+		hud->m_model->dcast_PKinematics()->CalculateBones_Invalidate();
+		break;
+	}
+}
+
 void player_hud::StopScriptAnim()
 {
 	u8 part = script_anim_part;
 	script_anim_part = u8(-1);
 	script_anim_item_model = nullptr;
+	script_anim_lead_gun = false;
 
 	updateMovementLayerState();
 
@@ -1205,71 +1219,19 @@ void player_hud::StopScriptAnim()
 		OnMovementChanged((ACTOR_DEFS::EMoveCommand) 0);
 }
 
+//part: 0 = right arm; 1 = left arm
 u32 player_hud::anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part)
 {
 	u16 part_id = u16(-1);
 	if (attached_item(0) && attached_item(1))
-		part_id = m_model->partitions().part_id((part == 0) ? "right_hand" : "left_hand");
+		part_id = ((part == 0) ? 2 : 1);
+	else
+		part_id = 0;
 
 	if (override_part != u16(-1))
 		part_id = override_part;
-	else if (script_anim_part != u8(-1))
-	{
-		if (script_anim_part != 2)
-			part_id = script_anim_part == 0 ? 1 : 0;
-		else
-			return 0;
-	}
 	
-	if (part_id == u16(-1))
-	{
-		for (u8 pid = 0; pid < 3; pid++)
-		{
-			if (pid == 0 || pid == 2)
-			{
-				CBlend* B = m_model->PlayCycle(pid, M, bMixIn);
-				R_ASSERT(B);
-				B->speed *= speed;
-			}
-			if (pid == 0 || pid == 1)
-			{
-				CBlend* B = m_model_2->PlayCycle(pid, M, bMixIn);
-				R_ASSERT(B);
-				B->speed *= speed;
-			}
-		}
-
-		m_model->dcast_PKinematics()->CalculateBones_Invalidate();
-		m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
-	}
-	else if (part_id == 0 || part_id == 2)
-	{
-		for (u8 pid = 0; pid < 3; pid++)
-		{
-			if (pid != 1)
-			{
-				CBlend* B = m_model->PlayCycle(pid, M, bMixIn);
-				R_ASSERT(B);
-				B->speed *= speed;
-			}
-		}
-
-		m_model->dcast_PKinematics()->CalculateBones_Invalidate();
-	}
-	else if (part_id == 1)
-	{
-		for (u8 pid = 0; pid < 3; pid++)
-		{
-			if (pid != 2)
-			{
-				CBlend* B = m_model_2->PlayCycle(pid, M, bMixIn);
-				R_ASSERT(B);
-				B->speed *= speed;
-			}
-		}
-
-		m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
-	}
+	play_blend(this, part_id, M, bMixIn, speed);
 
 	return motion_length(M, md, speed);
 }
@@ -1297,7 +1259,7 @@ void player_hud::update_script_item()
 	m_attach_offset.setHPB(ypr.x, ypr.y, ypr.z);
 	m_attach_offset.translate_over(item_pos[0]);
 
-	calc_transform(m_attach_idx, m_attach_offset, m_item_pos);
+	calc_transform(m_attach_idx, m_attach_offset, m_item_pos, script_anim_lead_gun);
 
 	if (script_anim_item_model)
 	{
@@ -1307,6 +1269,7 @@ void player_hud::update_script_item()
 	}
 }
 
+// 0 = right arm + hand, 1 = left arm + hand, 2 = both
 u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool bMixIn, float speed)
 {
 	if (!pSettings->section_exist(section))
@@ -1338,6 +1301,7 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 		item_pos[1] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_orientation", def);
 		script_anim_item_attached = READ_IF_EXISTS(pSettings, r_bool, section, "item_attached", true);
 		m_attach_idx = READ_IF_EXISTS(pSettings, r_u8, section, "attach_place_idx", 0);
+		script_anim_lead_gun = READ_IF_EXISTS(pSettings, r_bool, section, "lh_lead_gun", false);
 
 		if (!script_anim_item_attached)
 		{
@@ -1389,40 +1353,12 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 		u16 pc = script_anim_item_model->partitions().count();
 		for (u16 pid = 0; pid < pc; ++pid)
-		{
-			CBlend* B = script_anim_item_model->PlayCycle(pid, M2, bMixIn);
-			R_ASSERT(B);
-			B->speed *= speed;
-		}
+			CBlend* B = script_anim_item_model->PlayCycle(pid, M2, bMixIn, 0, 0, 0, speed);
 
 		script_anim_item_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	}
 
-	if (hand == 0) // right hand
-	{
-		CBlend* B = m_model->PlayCycle(0, M.mid, bMixIn);
-		B->speed *= speed;
-		B = m_model->PlayCycle(2, M.mid, bMixIn);
-		B->speed *= speed;
-	}
-	else if (hand == 1) // left hand
-	{
-		CBlend* B = m_model_2->PlayCycle(0, M.mid, bMixIn);
-		B->speed *= speed;
-		B = m_model_2->PlayCycle(1, M.mid, bMixIn);
-		B->speed *= speed;
-	}
-	else if (hand == 2) // both hands
-	{
-		CBlend* B = m_model->PlayCycle(0, M.mid, bMixIn);
-		B->speed *= speed;
-		B = m_model_2->PlayCycle(0, M.mid, bMixIn);
-		B->speed *= speed;
-		B = m_model->PlayCycle(2, M.mid, bMixIn);
-		B->speed *= speed;
-		B = m_model_2->PlayCycle(1, M.mid, bMixIn);
-		B->speed *= speed;
-	}
+	play_blend(this, (hand == 2 ? 0 : (hand + 1)), M.mid, bMixIn, speed);
 
 	const CMotionDef* md;
 	u32 length = motion_length(M.mid, md, speed);
@@ -1530,18 +1466,15 @@ void player_hud::re_sync_anim(u8 part)
 		{
 			if (pid == 0)
 			{
-				CBlend* B = m_model->PlayCycle(0, M, TRUE);
+				CBlend* B = m_model->PlayCycle(0, M, TRUE, 0, 0, 0, BR->speed);
 				B->timeCurrent = BR->timeCurrent;
-				B->speed = BR->speed;
-				B = m_model_2->PlayCycle(0, M, TRUE);
+				B = m_model_2->PlayCycle(0, M, TRUE, 0, 0, 0, BR->speed);
 				B->timeCurrent = BR->timeCurrent;
-				B->speed = BR->speed;
 			}
 			else if (pid != part)
 			{
-				CBlend* B = part == 1 ? m_model->PlayCycle(pid, M, TRUE) : m_model_2->PlayCycle(pid, M, TRUE);
+				CBlend* B = part == 1 ? m_model->PlayCycle(pid, M, TRUE, 0, 0, 0, BR->speed) : m_model_2->PlayCycle(pid, M, TRUE, 0, 0, 0, BR->speed);
 				B->timeCurrent = BR->timeCurrent;
-				B->speed = BR->speed;
 			}
 		}
 	}
@@ -1651,10 +1584,10 @@ bool player_hud::allow_script_anim()
 	return true;
 }
 
-void player_hud::calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result)
+void player_hud::calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result, bool leadGun)
 {
 	IKinematics* kin = (attach_slot_idx == 0) ? m_model->dcast_PKinematics() : m_model_2->dcast_PKinematics();
-	Fmatrix ancor_m =  kin->LL_GetTransform(m_ancors[attach_slot_idx]);
+	Fmatrix ancor_m =  kin->LL_GetTransform(m_ancors[(leadGun ? 0 : attach_slot_idx)]);
 	result.mul((attach_slot_idx == 0) ? m_transform : m_transform_2, ancor_m);
 	result.mulB_43(offset);
 }
