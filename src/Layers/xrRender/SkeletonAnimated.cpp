@@ -448,14 +448,14 @@ CBlend* CKinematicsAnimated::PlayCycle(MotionID motion_ID, BOOL bMixIn, PlayCall
 }
 
 CBlend* CKinematicsAnimated::PlayCycle(u16 partition, MotionID motion_ID, BOOL bMixIn, PlayCallback Callback,
-                                       LPVOID CallbackParam, u8 channel /*= 0*/)
+                                       LPVOID CallbackParam, u8 channel, float speed)
 {
 	VERIFY(motion_ID.valid());
 	CMotionDef* m_def = m_Motions[motion_ID.slot].motions.motion_def(motion_ID.idx);
 	VERIFY(m_def);
 	if (!m_def) return NULL;
 	return LL_PlayCycle(partition, motion_ID, bMixIn,
-	                    m_def->Accrue(), m_def->Falloff(), m_def->Speed(), m_def->StopAtEnd(),
+	                    m_def->Accrue(), m_def->Falloff(), m_def->Speed() * speed, m_def->StopAtEnd(),
 	                    Callback, CallbackParam, channel);
 }
 

@@ -99,7 +99,7 @@ public:
 	virtual CBlend* PlayCycle(MotionID M, BOOL bMixIn = TRUE, PlayCallback Callback = 0, LPVOID CallbackParam = 0,
 	                          u8 channel = 0) = 0;
 	virtual CBlend* PlayCycle(u16 partition, MotionID M, BOOL bMixIn = TRUE, PlayCallback Callback = 0,
-	                          LPVOID CallbackParam = 0, u8 channel = 0) = 0;
+	                          LPVOID CallbackParam = 0, u8 channel = 0, float speed = 0) = 0;
 	// fx'es
 	virtual MotionID ID_FX(LPCSTR N) = 0;
 	virtual MotionID ID_FX_Safe(LPCSTR N) = 0;
