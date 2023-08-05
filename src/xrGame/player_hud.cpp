@@ -401,7 +401,9 @@ void attachable_hud_item::load(const shared_str& sect_name)
 
 	// Visual
 	LPCSTR visual_name = pSettings->r_string(sect_name, "item_visual");
+	::Render->hud_loading = true;
 	IKinematicsAnimated* visual = ::Render->model_Create(visual_name)->dcast_PKinematicsAnimated();
+	::Render->hud_loading = false;
 	R_ASSERT2(visual, make_string("could not create model %s, section %s", visual_name, sect_name.c_str()));
 	m_model = smart_cast<IKinematics*>(visual);
 
@@ -617,8 +619,10 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	}
 
 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
+	::Render->hud_loading = true;
 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
+	::Render->hud_loading = true;
 	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
 
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
@@ -1296,7 +1300,9 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 	if (pSettings->line_exist(section, "item_visual"))
 	{
+		::Render->hud_loading = true;
 		script_anim_item_model = ::Render->model_Create(pSettings->r_string(section, "item_visual"))->dcast_PKinematicsAnimated();
+		::Render->hud_loading = false;
 		item_pos[0] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_position", def);
 		item_pos[1] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_orientation", def);
 		script_anim_item_attached = READ_IF_EXISTS(pSettings, r_bool, section, "item_attached", true);
