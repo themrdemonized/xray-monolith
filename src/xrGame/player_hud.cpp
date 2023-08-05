@@ -1,4 +1,4 @@
-ï»¿#include "stdafx.h"
+#include "stdafx.h"
 #include "player_hud.h"
 #include "HudItem.h"
 #include "ui_base.h"
@@ -304,7 +304,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	//--#SM+# Begin--
 	const Fvector vZero = {0.f, 0.f, 0.f};
 
-	// ÐÐ»ÑŒÑ‚ÐµÑ€Ð½Ð°Ñ‚Ð¸Ð²Ð½Ð¾Ðµ Ð¿Ñ€Ð¸Ñ†ÐµÐ»Ð¸Ð²Ð°Ð½Ð¸Ðµ
+	// Àëüòåðíàòèâíîå ïðèöåëèâàíèå
 	strconcat(sizeof(val_name), val_name, "aim_hud_offset_alt_pos", _prefix);
 	m_hands_offset[0][3] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 	strconcat(sizeof(val_name), val_name, "aim_hud_offset_alt_rot", _prefix);
@@ -316,23 +316,23 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	strconcat(sizeof(val_name), val_name, "lowered_hud_offset_rot", _prefix);
 	m_hands_offset[1][4] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 
-	// ÐÐ°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸ ÑÑ‚Ñ€ÐµÐ¹Ñ„Ð° (Ð±Ð¾ÐºÐ¾Ð²Ð°Ñ Ñ…Ð¾Ð´ÑŒÐ±Ð°)
+	// Íàñòðîéêè ñòðåéôà (áîêîâàÿ õîäüáà)
 	Fvector vDefStrafeValue;
 	vDefStrafeValue.set(vZero);
 
-	//--> Ð¡Ð¼ÐµÑ‰ÐµÐ½Ð¸Ðµ Ð² ÑÑ‚Ñ€ÐµÐ¹Ñ„Ðµ
+	//--> Ñìåùåíèå â ñòðåéôå
 	strconcat(sizeof(val_name), val_name, "strafe_hud_offset_pos", _prefix);
 	m_strafe_offset[0][0] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 	strconcat(sizeof(val_name), val_name, "strafe_hud_offset_rot", _prefix);
 	m_strafe_offset[1][0] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 
-	//--> ÐŸÐ¾Ð²Ð¾Ñ€Ð¾Ñ‚ Ð² ÑÑ‚Ñ€ÐµÐ¹Ñ„Ðµ
+	//--> Ïîâîðîò â ñòðåéôå
 	strconcat(sizeof(val_name), val_name, "strafe_aim_hud_offset_pos", _prefix);
 	m_strafe_offset[0][1] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 	strconcat(sizeof(val_name), val_name, "strafe_aim_hud_offset_rot", _prefix);
 	m_strafe_offset[1][1] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 
-	//--> ÐŸÐ°Ñ€Ð°Ð¼ÐµÑ‚Ñ€Ñ‹ ÑÑ‚Ñ€ÐµÐ¹Ñ„Ð°
+	//--> Ïàðàìåòðû ñòðåéôà
 	bool bStrafeEnabled = READ_IF_EXISTS(pSettings, r_bool, sect_name, "strafe_enabled", false);
 	bool bStrafeEnabled_aim = READ_IF_EXISTS(pSettings, r_bool, sect_name, "strafe_aim_enabled", false);
 	float fFullStrafeTime = READ_IF_EXISTS(pSettings, r_float, sect_name, "strafe_transition_time", .5f);
@@ -350,7 +350,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_strafe_offset[3][0].set(fStrafeCamLFactor, fStrafeMinAngle, NULL); // normal
 	m_strafe_offset[3][1].set(fStrafeCamLFactor_aim, fStrafeMinAngle_aim, NULL); // aim-GL
 
-	// Ð—Ð°Ð³Ñ€ÑƒÐ·ÐºÐ° Ð¿Ð°Ñ€Ð°Ð¼ÐµÑ‚Ñ€Ð¾Ð² ÑÐ¼ÐµÑ‰ÐµÐ½Ð¸Ñ / Ð¸Ð½ÐµÑ€Ñ†Ð¸Ð¸
+	// Çàãðóçêà ïàðàìåòðîâ ñìåùåíèÿ / èíåðöèè
 	m_inertion_params.m_tendto_speed = READ_IF_EXISTS(pSettings, r_float, sect_name, "inertion_tendto_speed",
 	                                                  TENDTO_SPEED);
 	m_inertion_params.m_tendto_speed_aim = READ_IF_EXISTS(pSettings, r_float, sect_name, "inertion_tendto_aim_speed",
@@ -370,7 +370,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_inertion_params.m_offset_LRUD_aim = READ_IF_EXISTS(pSettings, r_fvector4, sect_name, "inertion_offset_LRUD_aim",
 	                                                     Fvector4().set(ORIGIN_OFFSET_AIM));
 
-	// Ð—Ð°Ð³Ñ€ÑƒÐ·ÐºÐ° Ð¿Ð°Ñ€Ð°Ð¼ÐµÑ‚Ñ€Ð¾Ð² ÑÐ¼ÐµÑ‰ÐµÐ½Ð¸Ñ Ð¿Ñ€Ð¸ ÑÑ‚Ñ€ÐµÐ»ÑŒÐ±Ðµ
+	// Çàãðóçêà ïàðàìåòðîâ ñìåùåíèÿ ïðè ñòðåëüáå
 	m_shooting_params.bShootShake = READ_IF_EXISTS(pSettings, r_bool, sect_name, "shooting_hud_effect", false);
 	m_shooting_params.m_shot_max_offset_LRUD = READ_IF_EXISTS(pSettings, r_fvector4, sect_name, "shooting_max_LRUD",
 	                                                          Fvector4().set(0, 0, 0, 0));
@@ -400,7 +400,9 @@ void attachable_hud_item::load(const shared_str& sect_name)
 
 	// Visual
 	LPCSTR visual_name = pSettings->r_string(sect_name, "item_visual");
+	::Render->hud_loading = true;
 	IKinematicsAnimated* visual = ::Render->model_Create(visual_name)->dcast_PKinematicsAnimated();
+	::Render->hud_loading = false;
 	R_ASSERT2(visual, make_string("could not create model %s", visual_name));
 	m_model = smart_cast<IKinematics*>(visual);
 
@@ -624,10 +626,12 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	}
 
 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
+	::Render->hud_loading = true;
 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
 	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
 
+	::Render->hud_loading = false;
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
 
@@ -1315,7 +1319,9 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 	if (pSettings->line_exist(section, "item_visual"))
 	{
+		::Render->hud_loading = true;
 		script_anim_item_model = ::Render->model_Create(pSettings->r_string(section, "item_visual"))->dcast_PKinematicsAnimated();
+		::Render->hud_loading = false;
 		item_pos[0] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_position", def);
 		item_pos[1] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_orientation", def);
 		script_anim_item_attached = READ_IF_EXISTS(pSettings, r_bool, section, "item_attached", true);
