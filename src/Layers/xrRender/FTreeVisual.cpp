@@ -188,7 +188,7 @@ void FTreeVisual::Render(float LOD)
 		Fvector4* c_grass;
 		{
 			void* GrassData;
-			RCache.get_ConstantDirect(c_c_BendersPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
+			RCache.get_ConstantDirect(c_c_BendersPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
 
 			c_grass = (Fvector4*)GrassData;
 		}

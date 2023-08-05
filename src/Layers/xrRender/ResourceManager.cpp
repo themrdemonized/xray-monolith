@@ -176,6 +176,11 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 	C.BT = B;
 	C.bEditor = FALSE;
 	C.bDetail = FALSE;
+
+#if defined(USE_DX11)
+	C.HudElement = false;
+#endif
+
 #ifdef _EDITOR
 	if (!C.BT)			{ ELog.Msg(mtError,"Can't find shader '%s'",s_shader); return 0; }
 	C.bEditor			= TRUE;
@@ -185,6 +190,14 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 	_ParseList(C.L_textures, s_textures);
 	_ParseList(C.L_constants, s_constants);
 	_ParseList(C.L_matrices, s_matrices);
+
+#if defined(USE_DX11)
+	if (::Render->hud_loading && RImplementation.o.ssfx_hud_raindrops)
+	{
+		Msg(":::::::::::::::: HUD ELEMENT [%s] [%s]", s_shader, s_textures);
+		C.HudElement = true;
+	}
+#endif
 
 	// Compile element	(LOD0 - HQ)
 	{

@@ -74,6 +74,7 @@ private:
 	// Sounds
 	ref_sound snd_Ambient;
 	float rain_volume;
+	float rain_hemi = 0.0f;
 
 	// Utilities
 	void p_create();
@@ -86,7 +87,7 @@ private:
 	void p_free(Particle* P);
 
 	// Some methods
-	void Born(Item& dest, float radius);
+	void Born(Item& dest, float radius, float speed);
 	void Hit(Fvector& pos);
 	BOOL RayPick(const Fvector& s, const Fvector& d, float& range, collide::rq_target tgt);
 	void RenewItem(Item& dest, float height, BOOL bHit);
@@ -105,6 +106,7 @@ public:
 	}
 
 	float GetRainVolume() { return rain_volume; }
+	float GetRainHemi() { return rain_hemi; }
 };
 
 #endif //RainH

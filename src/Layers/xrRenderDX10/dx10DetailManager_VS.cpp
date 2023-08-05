@@ -165,7 +165,7 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 					Fvector4* c_grass;
 					{
 						void* GrassData;
-						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4), &GrassData, 0, 0);
+						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
 						c_grass = (Fvector4*)GrassData;
 					}
 					VERIFY(c_grass);

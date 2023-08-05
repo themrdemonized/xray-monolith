@@ -660,6 +660,9 @@ static class cl_near_far_plane : public R_constant_setup
 } binder_near_far_plane;
 
 // Screen Space Shaders Stuff
+extern Fvector4 ps_ssfx_hud_drops_1;
+extern Fvector4 ps_ssfx_hud_drops_2;
+extern Fvector4 ps_ssfx_blood_decals;
 extern Fvector4 ps_ssfx_wpn_dof_1;
 extern float ps_ssfx_wpn_dof_2;
 
@@ -753,6 +756,30 @@ static class ssfx_wpn_dof_2 : public R_constant_setup
 	}
 }    ssfx_wpn_dof_2;
 
+static class ssfx_blood_decals : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_blood_decals);
+	}
+}    ssfx_blood_decals;
+
+static class ssfx_hud_drops_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_drops_1);
+	}
+}    ssfx_hud_drops_1;
+
+static class ssfx_hud_drops_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_drops_2);
+	}
+}    ssfx_hud_drops_2;
+
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
 {
@@ -844,6 +871,9 @@ void CBlender_Compile::SetMapping()
 	r_Constant("sky_color", &binder_sky_color);
 	r_Constant("ssfx_wpn_dof_1", &ssfx_wpn_dof_1);
 	r_Constant("ssfx_wpn_dof_2", &ssfx_wpn_dof_2);
+	r_Constant("ssfx_blood_decals", &ssfx_blood_decals);
+	r_Constant("ssfx_hud_drops_1", &ssfx_hud_drops_1);
+	r_Constant("ssfx_hud_drops_2", &ssfx_hud_drops_2);
 
 	// Shader stuff
 	r_Constant("shader_param_1", &dev_param_1);
