@@ -1,4 +1,4 @@
-#include "stdafx.h"
+п»ї#include "stdafx.h"
 #include "player_hud.h"
 #include "HudItem.h"
 #include "ui_base.h"
@@ -304,7 +304,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	//--#SM+# Begin--
 	const Fvector vZero = {0.f, 0.f, 0.f};
 
-	// Альтернативное прицеливание
+	// РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅРѕРµ РїСЂРёС†РµР»РёРІР°РЅРёРµ
 	strconcat(sizeof(val_name), val_name, "aim_hud_offset_alt_pos", _prefix);
 	m_hands_offset[0][3] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 	strconcat(sizeof(val_name), val_name, "aim_hud_offset_alt_rot", _prefix);
@@ -316,23 +316,23 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	strconcat(sizeof(val_name), val_name, "lowered_hud_offset_rot", _prefix);
 	m_hands_offset[1][4] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 
-	// Настройки стрейфа (боковая ходьба)
+	// РќР°СЃС‚СЂРѕР№РєРё СЃС‚СЂРµР№С„Р° (Р±РѕРєРѕРІР°СЏ С…РѕРґСЊР±Р°)
 	Fvector vDefStrafeValue;
 	vDefStrafeValue.set(vZero);
 
-	//--> Смещение в стрейфе
+	//--> РЎРјРµС‰РµРЅРёРµ РІ СЃС‚СЂРµР№С„Рµ
 	strconcat(sizeof(val_name), val_name, "strafe_hud_offset_pos", _prefix);
 	m_strafe_offset[0][0] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 	strconcat(sizeof(val_name), val_name, "strafe_hud_offset_rot", _prefix);
 	m_strafe_offset[1][0] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 
-	//--> Поворот в стрейфе
+	//--> РџРѕРІРѕСЂРѕС‚ РІ СЃС‚СЂРµР№С„Рµ
 	strconcat(sizeof(val_name), val_name, "strafe_aim_hud_offset_pos", _prefix);
 	m_strafe_offset[0][1] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 	strconcat(sizeof(val_name), val_name, "strafe_aim_hud_offset_rot", _prefix);
 	m_strafe_offset[1][1] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vDefStrafeValue);
 
-	//--> Параметры стрейфа
+	//--> РџР°СЂР°РјРµС‚СЂС‹ СЃС‚СЂРµР№С„Р°
 	bool bStrafeEnabled = READ_IF_EXISTS(pSettings, r_bool, sect_name, "strafe_enabled", false);
 	bool bStrafeEnabled_aim = READ_IF_EXISTS(pSettings, r_bool, sect_name, "strafe_aim_enabled", false);
 	float fFullStrafeTime = READ_IF_EXISTS(pSettings, r_float, sect_name, "strafe_transition_time", .5f);
@@ -350,7 +350,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_strafe_offset[3][0].set(fStrafeCamLFactor, fStrafeMinAngle, NULL); // normal
 	m_strafe_offset[3][1].set(fStrafeCamLFactor_aim, fStrafeMinAngle_aim, NULL); // aim-GL
 
-	// Загрузка параметров смещения / инерции
+	// Р—Р°РіСЂСѓР·РєР° РїР°СЂР°РјРµС‚СЂРѕРІ СЃРјРµС‰РµРЅРёСЏ / РёРЅРµСЂС†РёРё
 	m_inertion_params.m_tendto_speed = READ_IF_EXISTS(pSettings, r_float, sect_name, "inertion_tendto_speed",
 	                                                  TENDTO_SPEED);
 	m_inertion_params.m_tendto_speed_aim = READ_IF_EXISTS(pSettings, r_float, sect_name, "inertion_tendto_aim_speed",
@@ -370,7 +370,7 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_inertion_params.m_offset_LRUD_aim = READ_IF_EXISTS(pSettings, r_fvector4, sect_name, "inertion_offset_LRUD_aim",
 	                                                     Fvector4().set(ORIGIN_OFFSET_AIM));
 
-	// Загрузка параметров смещения при стрельбе
+	// Р—Р°РіСЂСѓР·РєР° РїР°СЂР°РјРµС‚СЂРѕРІ СЃРјРµС‰РµРЅРёСЏ РїСЂРё СЃС‚СЂРµР»СЊР±Рµ
 	m_shooting_params.bShootShake = READ_IF_EXISTS(pSettings, r_bool, sect_name, "shooting_hud_effect", false);
 	m_shooting_params.m_shot_max_offset_LRUD = READ_IF_EXISTS(pSettings, r_fvector4, sect_name, "shooting_max_LRUD",
 	                                                          Fvector4().set(0, 0, 0, 0));
