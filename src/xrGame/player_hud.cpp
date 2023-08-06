@@ -1184,23 +1184,27 @@ float player_hud::SetBlendAnmTime(LPCSTR name, float time)
 	return 0;
 }
 
-void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float speed)
+//0 = both, 1 = left, 2 = right
+void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float speed, bool script_anim = false)
 {
 	switch (pid)
 	{
 	case 0:
 	{
+		if (!script_anim && hud->script_anim_part == 2) return;
 		play_blend(hud, 1, M, bMixIn, speed);
 		play_blend(hud, 2, M, bMixIn, speed);
 		break;
 	}
 	case 1:
+		if (!script_anim && hud->script_anim_part == 1) return;
 		hud->m_model_2->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->PlayCycle(1, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
 		break;
 	case 2:
+		if (!script_anim && hud->script_anim_part == 0) return;
 		hud->m_model->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model->dcast_PKinematics()->CalculateBones_Invalidate();
@@ -1364,7 +1368,7 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 		script_anim_item_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	}
 
-	play_blend(this, (hand == 2 ? 0 : (hand + 1)), M.mid, bMixIn, speed);
+	play_blend(this, (hand == 2 ? 0 : hand == 0 ? 2 : 1), M.mid, bMixIn, speed, true);
 
 	const CMotionDef* md;
 	u32 length = motion_length(M.mid, md, speed);
@@ -1472,15 +1476,18 @@ void player_hud::re_sync_anim(u8 part)
 		{
 			if (pid == 0)
 			{
-				CBlend* B = m_model->PlayCycle(0, M, TRUE, 0, 0, 0, BR->speed);
+				CBlend* B = m_model->PlayCycle(0, M, TRUE);
 				B->timeCurrent = BR->timeCurrent;
-				B = m_model_2->PlayCycle(0, M, TRUE, 0, 0, 0, BR->speed);
+				B->speed = BR->speed;
+				B = m_model_2->PlayCycle(0, M, TRUE);
 				B->timeCurrent = BR->timeCurrent;
+				B->speed = BR->speed;
 			}
 			else if (pid != part)
 			{
-				CBlend* B = part == 1 ? m_model->PlayCycle(pid, M, TRUE, 0, 0, 0, BR->speed) : m_model_2->PlayCycle(pid, M, TRUE, 0, 0, 0, BR->speed);
+				CBlend* B = part == 1 ? m_model->PlayCycle(pid, M, TRUE) : m_model_2->PlayCycle(pid, M, TRUE);
 				B->timeCurrent = BR->timeCurrent;
+				B->speed = BR->speed;
 			}
 		}
 	}
