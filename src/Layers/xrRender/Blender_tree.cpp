@@ -216,6 +216,13 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
 	switch (C.iElement)
 	{
 	case SE_R2_NORMAL_HQ: // deffer
+
+#if defined(USE_DX11)
+		// Is a branch/bush. Use a different VS
+		if (oBlend.value && RImplementation.o.ssfx_branches)
+			tvs = "tree_branch";
+#endif
+
 		if (bUseATOC)
 		{
 			uber_deffer(C, true, tvs, "base_atoc", oBlend.value, 0, true);
