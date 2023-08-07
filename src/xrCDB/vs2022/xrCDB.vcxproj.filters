@@ -12,270 +12,96 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cl_raypick.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="Frustum.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="StdAfx.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrCDB.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrCDB_box.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrCDB_Collector.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrCDB_frustum.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrCDB_ray.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_AABB.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_AABBCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_AABBTree.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Collider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Common.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Container.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Matrix3x3.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Matrix4x4.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Model.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_OBB.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_OBBCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_OptimizedTree.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Plane.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_PlanesCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Point.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Ray.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_RayCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_SphereCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_TreeBuilders.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_TreeCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_Triangle.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="OPC_VolumeCollider.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="Opcode.cpp">
-      <Filter>Opcode</Filter>
-    </ClCompile>
-    <ClCompile Include="ISpatial.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="ISpatial_q_box.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="ISpatial_q_frustum.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="ISpatial_q_ray.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="ISpatial_verify.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="xr_area.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="xr_area_query.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="xr_area_raypick.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
-    <ClCompile Include="xrXRC.cpp">
-      <Filter>engine</Filter>
-    </ClCompile>
+    <ClCompile Include="..\cl_raypick.cpp" />
+    <ClCompile Include="..\Frustum.cpp" />
+    <ClCompile Include="..\ISpatial.cpp" />
+    <ClCompile Include="..\ISpatial_q_box.cpp" />
+    <ClCompile Include="..\ISpatial_q_frustum.cpp" />
+    <ClCompile Include="..\ISpatial_q_ray.cpp" />
+    <ClCompile Include="..\ISpatial_verify.cpp" />
+    <ClCompile Include="..\Opcode.cpp" />
+    <ClCompile Include="..\OPC_AABB.cpp" />
+    <ClCompile Include="..\OPC_AABBCollider.cpp" />
+    <ClCompile Include="..\OPC_AABBTree.cpp" />
+    <ClCompile Include="..\OPC_Collider.cpp" />
+    <ClCompile Include="..\OPC_Common.cpp" />
+    <ClCompile Include="..\OPC_Container.cpp" />
+    <ClCompile Include="..\OPC_Matrix3x3.cpp" />
+    <ClCompile Include="..\OPC_Matrix4x4.cpp" />
+    <ClCompile Include="..\OPC_Model.cpp" />
+    <ClCompile Include="..\OPC_OBB.cpp" />
+    <ClCompile Include="..\OPC_OBBCollider.cpp" />
+    <ClCompile Include="..\OPC_OptimizedTree.cpp" />
+    <ClCompile Include="..\OPC_Plane.cpp" />
+    <ClCompile Include="..\OPC_PlanesCollider.cpp" />
+    <ClCompile Include="..\OPC_Point.cpp" />
+    <ClCompile Include="..\OPC_Ray.cpp" />
+    <ClCompile Include="..\OPC_RayCollider.cpp" />
+    <ClCompile Include="..\OPC_SphereCollider.cpp" />
+    <ClCompile Include="..\OPC_TreeBuilders.cpp" />
+    <ClCompile Include="..\OPC_TreeCollider.cpp" />
+    <ClCompile Include="..\OPC_Triangle.cpp" />
+    <ClCompile Include="..\OPC_VolumeCollider.cpp" />
+    <ClCompile Include="..\StdAfx.cpp" />
+    <ClCompile Include="..\xrCDB.cpp" />
+    <ClCompile Include="..\xrCDB_box.cpp" />
+    <ClCompile Include="..\xrCDB_Collector.cpp" />
+    <ClCompile Include="..\xrCDB_frustum.cpp" />
+    <ClCompile Include="..\xrCDB_ray.cpp" />
+    <ClCompile Include="..\xrXRC.cpp" />
+    <ClCompile Include="..\xr_area.cpp" />
+    <ClCompile Include="..\xr_area_query.cpp" />
+    <ClCompile Include="..\xr_area_raypick.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Frustum.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="StdAfx.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="xrCDB.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_AABB.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_AABBCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_AABBTree.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_BoundingSphere.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_BoxBoxOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_BVTCache.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Collider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Common.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Container.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_FPU.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Matrix3x3.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Matrix4x4.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_MemoryMacros.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Model.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_OBB.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_OBBCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_OptimizedTree.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Plane.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_PlanesAABBOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_PlanesCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_PlanesTriOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Point.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Preprocessor.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Ray.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_RayAABBOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_RayCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_RayTriOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Settings.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_SphereAABBOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_SphereCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_SphereTriOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_TreeBuilders.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_TreeCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Triangle.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_TriBoxOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_TriTriOverlap.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_Types.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="OPC_VolumeCollider.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="Opcode.h">
-      <Filter>Opcode</Filter>
-    </ClInclude>
-    <ClInclude Include="ISpatial.h">
-      <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_area.h">
-      <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_collide_defs.h">
-      <Filter>engine</Filter>
-    </ClInclude>
-    <ClInclude Include="xrXRC.h">
-      <Filter>engine</Filter>
-    </ClInclude>
+    <ClInclude Include="..\Frustum.h" />
+    <ClInclude Include="..\ISpatial.h" />
+    <ClInclude Include="..\Opcode.h" />
+    <ClInclude Include="..\OPC_AABB.h" />
+    <ClInclude Include="..\OPC_AABBCollider.h" />
+    <ClInclude Include="..\OPC_AABBTree.h" />
+    <ClInclude Include="..\OPC_BoundingSphere.h" />
+    <ClInclude Include="..\OPC_BoxBoxOverlap.h" />
+    <ClInclude Include="..\OPC_BVTCache.h" />
+    <ClInclude Include="..\OPC_Collider.h" />
+    <ClInclude Include="..\OPC_Common.h" />
+    <ClInclude Include="..\OPC_Container.h" />
+    <ClInclude Include="..\OPC_FPU.h" />
+    <ClInclude Include="..\OPC_Matrix3x3.h" />
+    <ClInclude Include="..\OPC_Matrix4x4.h" />
+    <ClInclude Include="..\OPC_MemoryMacros.h" />
+    <ClInclude Include="..\OPC_Model.h" />
+    <ClInclude Include="..\OPC_OBB.h" />
+    <ClInclude Include="..\OPC_OBBCollider.h" />
+    <ClInclude Include="..\OPC_OptimizedTree.h" />
+    <ClInclude Include="..\OPC_Plane.h" />
+    <ClInclude Include="..\OPC_PlanesAABBOverlap.h" />
+    <ClInclude Include="..\OPC_PlanesCollider.h" />
+    <ClInclude Include="..\OPC_PlanesTriOverlap.h" />
+    <ClInclude Include="..\OPC_Point.h" />
+    <ClInclude Include="..\OPC_Preprocessor.h" />
+    <ClInclude Include="..\OPC_Ray.h" />
+    <ClInclude Include="..\OPC_RayAABBOverlap.h" />
+    <ClInclude Include="..\OPC_RayCollider.h" />
+    <ClInclude Include="..\OPC_RayTriOverlap.h" />
+    <ClInclude Include="..\OPC_Settings.h" />
+    <ClInclude Include="..\OPC_SphereAABBOverlap.h" />
+    <ClInclude Include="..\OPC_SphereCollider.h" />
+    <ClInclude Include="..\OPC_SphereTriOverlap.h" />
+    <ClInclude Include="..\OPC_TreeBuilders.h" />
+    <ClInclude Include="..\OPC_TreeCollider.h" />
+    <ClInclude Include="..\OPC_Triangle.h" />
+    <ClInclude Include="..\OPC_TriBoxOverlap.h" />
+    <ClInclude Include="..\OPC_TriTriOverlap.h" />
+    <ClInclude Include="..\OPC_Types.h" />
+    <ClInclude Include="..\OPC_VolumeCollider.h" />
+    <ClInclude Include="..\StdAfx.h" />
+    <ClInclude Include="..\xrCDB.h" />
+    <ClInclude Include="..\xrXRC.h" />
+    <ClInclude Include="..\xr_area.h" />
+    <ClInclude Include="..\xr_collide_defs.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt">
-      <Filter>Opcode</Filter>
-    </Text>
+    <Text Include="..\ReadMe.txt" />
   </ItemGroup>
 </Project>
