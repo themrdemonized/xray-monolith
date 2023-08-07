@@ -30,103 +30,39 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cl_intersect.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="Sound.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="stdafx.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_Core.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="OpenALDeviceList.h">
-      <Filter>Core\OpenAL</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_CoreA.h">
-      <Filter>Core\OpenAL</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_Emitter.h">
-      <Filter>Emitter</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_Source.h">
-      <Filter>Source</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_Target.h">
-      <Filter>Target</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_TargetA.h">
-      <Filter>Target\OpenAL</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_Environment.h">
-      <Filter>Environment</Filter>
-    </ClInclude>
-    <ClInclude Include="SoundRender_Cache.h">
-      <Filter>Cache</Filter>
-    </ClInclude>
+    <ClInclude Include="..\cl_intersect.h" />
+    <ClInclude Include="..\OpenALDeviceList.h" />
+    <ClInclude Include="..\Sound.h" />
+    <ClInclude Include="..\SoundRender.h" />
+    <ClInclude Include="..\SoundRender_Cache.h" />
+    <ClInclude Include="..\SoundRender_Core.h" />
+    <ClInclude Include="..\SoundRender_CoreA.h" />
+    <ClInclude Include="..\SoundRender_Emitter.h" />
+    <ClInclude Include="..\SoundRender_Environment.h" />
+    <ClInclude Include="..\SoundRender_Source.h" />
+    <ClInclude Include="..\SoundRender_Target.h" />
+    <ClInclude Include="..\SoundRender_TargetA.h" />
+    <ClInclude Include="..\stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="guids.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="sound.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="stdafx.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Core.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Core_Processor.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Core_SourceManager.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Core_StartStop.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="OpenALDeviceList.cpp">
-      <Filter>Core\OpenAL</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_CoreA.cpp">
-      <Filter>Core\OpenAL</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Emitter.cpp">
-      <Filter>Emitter</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Emitter_FSM.cpp">
-      <Filter>Emitter</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Emitter_StartStop.cpp">
-      <Filter>Emitter</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Emitter_streamer.cpp">
-      <Filter>Emitter</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Source.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Source_loader.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Target.cpp">
-      <Filter>Target</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_TargetA.cpp">
-      <Filter>Target\OpenAL</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Environment.cpp">
-      <Filter>Environment</Filter>
-    </ClCompile>
-    <ClCompile Include="SoundRender_Cache.cpp">
-      <Filter>Cache</Filter>
-    </ClCompile>
+    <ClCompile Include="..\guids.cpp" />
+    <ClCompile Include="..\OpenALDeviceList.cpp" />
+    <ClCompile Include="..\sound.cpp" />
+    <ClCompile Include="..\SoundRender_Cache.cpp" />
+    <ClCompile Include="..\SoundRender_Core.cpp" />
+    <ClCompile Include="..\SoundRender_CoreA.cpp" />
+    <ClCompile Include="..\SoundRender_Core_Processor.cpp" />
+    <ClCompile Include="..\SoundRender_Core_SourceManager.cpp" />
+    <ClCompile Include="..\SoundRender_Core_StartStop.cpp" />
+    <ClCompile Include="..\SoundRender_Emitter.cpp" />
+    <ClCompile Include="..\SoundRender_Emitter_FSM.cpp" />
+    <ClCompile Include="..\SoundRender_Emitter_StartStop.cpp" />
+    <ClCompile Include="..\SoundRender_Emitter_streamer.cpp" />
+    <ClCompile Include="..\SoundRender_Environment.cpp" />
+    <ClCompile Include="..\SoundRender_Source.cpp" />
+    <ClCompile Include="..\SoundRender_Source_loader.cpp" />
+    <ClCompile Include="..\SoundRender_Target.cpp" />
+    <ClCompile Include="..\SoundRender_TargetA.cpp" />
+    <ClCompile Include="..\stdafx.cpp" />
   </ItemGroup>
 </Project>

@@ -12,31 +12,15 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="StdAfx.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="xrXMLParser.cpp">
-      <Filter>Kernel</Filter>
-    </ClCompile>
-    <ClCompile Include="tinyxml.cpp">
-      <Filter>Parser\TinyXML</Filter>
-    </ClCompile>
-    <ClCompile Include="tinyxmlerror.cpp">
-      <Filter>Parser\TinyXML</Filter>
-    </ClCompile>
-    <ClCompile Include="tinyxmlparser.cpp">
-      <Filter>Parser\TinyXML</Filter>
-    </ClCompile>
+    <ClCompile Include="..\StdAfx.cpp" />
+    <ClCompile Include="..\tinyxml.cpp" />
+    <ClCompile Include="..\tinyxmlerror.cpp" />
+    <ClCompile Include="..\tinyxmlparser.cpp" />
+    <ClCompile Include="..\xrXMLParser.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="stdafx.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="xrXMLParser.h">
-      <Filter>Kernel</Filter>
-    </ClInclude>
-    <ClInclude Include="tinyxml.h">
-      <Filter>Parser\TinyXML</Filter>
-    </ClInclude>
+    <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="..\tinyxml.h" />
+    <ClInclude Include="..\xrXMLParser.h" />
   </ItemGroup>
 </Project>
