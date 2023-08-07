@@ -626,10 +626,12 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	}
 
 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
+	::Render->hud_loading = true;
 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
 	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
 
+	::Render->hud_loading = false;
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
 
