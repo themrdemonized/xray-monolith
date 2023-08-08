@@ -281,6 +281,35 @@ float rain_factor()
 	return (g_pGamePersistent->Environment().CurrentEnv->rain_density);
 }
 
+float rain_wetness()
+{
+	return (g_pGamePersistent->Environment().wetness_factor);
+}
+
+float rain_hemi()
+{
+	CEffect_Rain* rain = g_pGamePersistent->pEnvironment->eff_Rain;
+
+	if (rain)
+	{
+		return rain->GetRainHemi();
+	}
+	else
+	{
+		CObject* E = g_pGameLevel->CurrentViewEntity();
+		if (E && E->renderable_ROS())
+		{
+			float* hemi_cube = E->renderable_ROS()->get_luminocity_hemi_cube();
+			float hemi_val = _max(hemi_cube[0], hemi_cube[1]);
+			hemi_val = _max(hemi_val, hemi_cube[2]);
+			hemi_val = _max(hemi_val, hemi_cube[3]);
+			hemi_val = _max(hemi_val, hemi_cube[5]);
+
+			return hemi_val;
+		}
+	}
+}
+
 u32 vertex_in_direction(u32 level_vertex_id, Fvector direction, float max_distance)
 {
 	if (!ai().level_graph().valid_vertex_id(level_vertex_id))
@@ -1928,6 +1957,8 @@ void CLevel::script_register(lua_State* L)
 			def("low_cover_in_direction", low_cover_in_direction),
 			def("vertex_in_direction", vertex_in_direction),
 			def("rain_factor", rain_factor),
+			def("rain_wetness", rain_wetness),
+			def("rain_hemi", rain_hemi),
 			def("patrol_path_exists", patrol_path_exists),
 			def("vertex_position", vertex_position),
 			def("name", get_name),

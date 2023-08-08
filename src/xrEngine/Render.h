@@ -212,6 +212,7 @@ public:
 
 public:
 	// options
+	bool hud_loading;
 	s32 m_skinning;
 	s32 m_MSAASample;
 

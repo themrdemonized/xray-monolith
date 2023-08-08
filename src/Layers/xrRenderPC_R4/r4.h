@@ -57,6 +57,11 @@ public:
 public:
 	struct _options
 	{
+		u32 ssfx_branches : 1;
+		u32 ssfx_blood : 1;
+		u32 ssfx_rain : 1;
+		u32 ssfx_hud_raindrops : 1;
+
 		u32 bug : 1;
 
 		u32 ssao_blur_on : 1;
