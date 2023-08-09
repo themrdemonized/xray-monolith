@@ -432,7 +432,7 @@ static inline void applyBeforeHitAfterCalcsCallback(CEntityAlive* target, const 
 	if (hit_part > 0)
 		tLuaHit.m_fPower *= hit_part;
 
-	funct(&tLuaHit, target->lua_game_object());
+	funct(&tLuaHit, target->lua_game_object(), pHDS->boneID);
 
 	if (hit_part > 0)
 		tLuaHit.m_fPower /= hit_part;
