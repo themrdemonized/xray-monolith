@@ -19,10 +19,11 @@ rnd_motion* rnd_motion::setup(IKinematicsAnimated* k, LPCSTR s)
 	VERIFY(k);
 	VERIFY(s);
 
+	R_ASSERT(xr_strlen(s) < sizeof(string1024)); // loop var 'n'
 	const u16 nb = (u16)_GetItemCount(s);
 	for (u16 i = 0; nb > i; ++i)
 	{
-		string64 n;
+		string1024 n;
 		_GetItem(s, i, n);
 		MotionID m = k->LL_MotionID(n);
 		VERIFY2(m.valid(), make_string( "motion: %s not found!", n ));
@@ -86,7 +87,7 @@ type_motion* type_motion::setup(IKinematicsAnimated* k, CInifile const* ini, LPC
 #endif
 			return this;
 		}
-		R_ASSERT(xr_strlen( line ) < 1023);
+		R_ASSERT(xr_strlen( line ) < sizeof(string1024)); // loop var 'sdir_anim'
 		const int num = _GetItemCount(line, '/');
 #ifdef	DEBUG
 		if( death_anim_debug && num == 0 )
