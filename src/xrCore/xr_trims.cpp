@@ -40,13 +40,13 @@ LPCSTR _SetPos(LPCSTR src, u32 pos, char separator)
 	return res;
 }
 
-LPCSTR _CopyVal(LPCSTR src, LPSTR dst, char separator)
+LPCSTR _CopyVal(LPCSTR src, LPSTR dst, u32 const dst_size, char separator)
 {
 	LPCSTR p;
 	size_t n;
 	p = strchr(src, separator);
 	n = (p > 0) ? (p - src) : xr_strlen(src);
-	strncpy(dst, src, n);
+	strncpy(dst, src, _min(dst_size, (u32)n));
 	dst[n] = 0;
 	return dst;
 }
@@ -74,7 +74,7 @@ LPSTR _GetItem(LPCSTR src, int index, LPSTR dst, u32 const dst_size, char separa
 {
 	LPCSTR ptr;
 	ptr = _SetPos(src, index, separator);
-	if (ptr) _CopyVal(ptr, dst, separator);
+	if (ptr) _CopyVal(ptr, dst, dst_size, separator);
 	else xr_strcpy(dst, dst_size, def);
 	if (trim) _Trim(dst);
 	return dst;
