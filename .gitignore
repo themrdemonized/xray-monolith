@@ -22,3 +22,12 @@ lua51.dll
 lua51.exp
 lua51.lib
 luajit.exe
+
+# luajit generated files
+src/3rd party/luajit-2/src/lj_bcdef.h
+src/3rd party/luajit-2/src/lj_ffdef.h
+src/3rd party/luajit-2/src/lj_folddef.h
+src/3rd party/luajit-2/src/lj_libdef.h
+src/3rd party/luajit-2/src/lj_recdef.h
+src/3rd party/luajit-2/src/host/buildvm_arch.h
+src/3rd party/luajit-2/src/jit/vmdef.lua
