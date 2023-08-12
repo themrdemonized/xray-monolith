@@ -30,7 +30,7 @@ inline LPSTR _GetItem(LPCSTR src, int index, char (&dst)[count], char separator 
 
 XRCORE_API LPSTR _GetItems(LPCSTR, int, int, LPSTR, char separator = ',');
 XRCORE_API LPCSTR _SetPos(LPCSTR src, u32 pos, char separator = ',');
-XRCORE_API LPCSTR _CopyVal(LPCSTR src, LPSTR dst, char separator = ',');
+XRCORE_API LPCSTR _CopyVal(LPCSTR src, LPSTR dst, u32 const dst_size, char separator = ',');
 XRCORE_API LPSTR _Trim(LPSTR str);
 XRCORE_API LPSTR _TrimLeft(LPSTR str);
 XRCORE_API LPSTR _TrimRight(LPSTR str);
