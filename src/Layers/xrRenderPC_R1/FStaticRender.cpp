@@ -1189,7 +1189,7 @@ static inline bool match_shader_id(LPCSTR const debug_shader_id, LPCSTR const fu
 
 void CRender::RenderToTarget(RRT target)
 {
-	ref_rt* RT;
+	ref_rt* RT = nullptr;
 
 	switch (target)
 	{
