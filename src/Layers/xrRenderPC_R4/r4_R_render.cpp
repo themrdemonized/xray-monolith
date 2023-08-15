@@ -573,7 +573,7 @@ void CRender::render_forward()
 
 void CRender::RenderToTarget(RRT target)
 {
-	ref_rt* RT;
+	ref_rt* RT = nullptr;
 
 	switch (target)
 	{

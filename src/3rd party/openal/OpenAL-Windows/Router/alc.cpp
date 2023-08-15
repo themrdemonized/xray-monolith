@@ -335,7 +335,7 @@ ALvoid BuildDeviceSpecifierList()
 		// Directory[2] is the current app directory
 		// Directory[3] is the system directory
 		//
-		TCHAR dir[3][MAX_PATH + 1];
+		TCHAR dir[4][MAX_PATH + 1];
         int numDirs				= 0;
 		DWORD dirSize			= 0;
 		int i;

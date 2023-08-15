@@ -289,24 +289,7 @@
     <ClCompile Include="..\ttapi.cpp" />
     <ClCompile Include="..\xrCPU_Pipe.cpp" />
     <ClCompile Include="..\xrSkin2W.cpp" />
-    <ClCompile Include="..\xrSkin2W_SSE.cpp">
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MaxSpeed</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='VerifiedDX11|x64'">MaxSpeed</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Verified|x64'">MaxSpeed</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">MaxSpeed</Optimization>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PreprocessToFile>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='VerifiedDX11|x64'">false</PreprocessToFile>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Verified|x64'">false</PreprocessToFile>
-      <PreprocessToFile Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">false</PreprocessToFile>
-      <PreprocessSuppressLineNumbers Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</PreprocessSuppressLineNumbers>
-      <PreprocessSuppressLineNumbers Condition="'$(Configuration)|$(Platform)'=='VerifiedDX11|x64'">false</PreprocessSuppressLineNumbers>
-      <PreprocessSuppressLineNumbers Condition="'$(Configuration)|$(Platform)'=='Verified|x64'">false</PreprocessSuppressLineNumbers>
-      <PreprocessSuppressLineNumbers Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">false</PreprocessSuppressLineNumbers>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='VerifiedDX11|x64'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Verified|x64'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">AssemblyAndSourceCode</AssemblerOutput>
-    </ClCompile>
+    <ClCompile Include="..\xrSkin2W_SSE.cpp" />
     <ClCompile Include="..\xrSkin2W_thread.cpp" />
   </ItemGroup>
   <ItemGroup>
