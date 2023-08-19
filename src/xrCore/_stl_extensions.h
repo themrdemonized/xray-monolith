@@ -3,6 +3,7 @@
 
 using std::swap;
 
+#include <functional>
 #include "_type_traits.h"
 
 #ifdef __BORLANDC__
