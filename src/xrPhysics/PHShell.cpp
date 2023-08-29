@@ -324,6 +324,29 @@ void CPHShell::applyForce(float x, float y, float z)
 	}
 };
 
+// demonized: applyTorque
+void CPHShell::applyTorque(const Fvector& dir, float val)
+{
+	if (!isActive()) return;
+	ELEMENT_I i = elements.begin(), e = elements.end();
+	val /= getMass();
+	for (; e != i; ++i)
+		(*i)->applyTorque(dir, val * (*i)->getMass());
+	EnableObject(0);
+};
+
+void CPHShell::applyTorque(float x, float y, float z)
+{
+	Fvector dir;
+	dir.set(x, y, z);
+	float val = dir.magnitude();
+	if (!fis_zero(val))
+	{
+		dir.mul(1.f / val);
+		applyTorque(dir, val);
+	}
+};
+
 void CPHShell::applyImpulse(const Fvector& dir, float val)
 {
 	if (!isActive()) return;

@@ -18,6 +18,10 @@ public:
 
 
 	void applyForce(float x, float y, float z) { physics_impl().applyForce(x, y, z); }
+
+	// demonized: applyTorque
+	void applyTorque(float x, float y, float z) { physics_impl().applyTorque(x, y, z); }
+
 	cphysics_element_scripted* get_Element(LPCSTR bone_name);
 	cphysics_element_scripted* get_Element(u16 bone_id);
 	cphysics_element_scripted* get_ElementByStoreOrder(u16 idx);
