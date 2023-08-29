@@ -1172,6 +1172,24 @@ void CPHElement::applyForce(float x, float y, float z) //called anywhere ph stat
 	VERIFY(dBodyStateValide(m_body));
 }
 
+// demonized: applyTorque
+void CPHElement::applyTorque(const Fvector& dir, float val)
+{
+	applyTorque(dir.x * val, dir.y * val, dir.z * val);
+}
+
+void CPHElement::applyTorque(float x, float y, float z)
+{
+	VERIFY(_valid(x) && _valid(y) && _valid(z));
+	if (!isActive())return; //hack??
+	if (m_flags.test(flFixed)) return;
+	if (!dBodyIsEnabled(m_body)) dBodyEnable(m_body);
+	m_shell->EnableObject(0);
+	dBodyAddTorque(m_body, x, y, z);
+	BodyCutForce(m_body, m_l_limit, m_w_limit);
+	VERIFY(dBodyStateValide(m_body));
+}
+
 void CPHElement::applyImpulse(const Fvector& dir, float val) //aux
 {
 	applyForce(dir.x * val / fixed_step, dir.y * val / fixed_step, dir.z * val / fixed_step);

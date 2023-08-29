@@ -14,6 +14,10 @@ public:
 	}
 
 	void applyForce(float x, float y, float z) { physics_impl().applyForce(x, y, z); }
+
+	// demonized: apply_torque
+	void applyTorque(float x, float y, float z) { physics_impl().applyTorque(x, y, z); }
+
 	bool isBreakable() { return physics_impl().isBreakable(); }
 	void get_LinearVel(Fvector& velocity) const { physics_impl().get_LinearVel(velocity); }
 	void get_AngularVel(Fvector& velocity) const { physics_impl().get_AngularVel(velocity); }

@@ -91,6 +91,11 @@ public:
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	virtual void applyForce(const Fvector& dir, float val) = 0;
 	virtual void applyForce(float x, float y, float z) = 0;
+
+	// demonized: applyTorque
+	virtual void applyTorque(const Fvector& dir, float val) = 0;
+	virtual void applyTorque(float x, float y, float z) = 0;
+
 	virtual void applyImpulse(const Fvector& dir, float val) = 0;
 	virtual void setTorque(const Fvector& torque) = 0;
 	virtual void setForce(const Fvector& force) = 0;

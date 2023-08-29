@@ -206,7 +206,13 @@ public: //
 	virtual void ReleaseFixed();
 	virtual bool isFixed() { return !!(m_flags.test(flFixed)); }
 	virtual void applyForce(const Fvector& dir, float val); //aux
-	virtual void applyForce(float x, float y, float z); //called anywhere ph state influent
+	virtual void applyForce(float x, float y, float z);
+
+	// demonized: applyTorque
+	virtual void applyTorque(const Fvector& dir, float val);
+	virtual void applyTorque(float x, float y, float z);
+
+	//called anywhere ph state influent
 	virtual void applyImpulse(const Fvector& dir, float val); //aux
 	virtual void applyImpulseVsMC(const Fvector& pos, const Fvector& dir, float val); //
 	virtual void applyImpulseVsGF(const Fvector& pos, const Fvector& dir, float val); //

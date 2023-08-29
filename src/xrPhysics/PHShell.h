@@ -146,6 +146,11 @@ public:
 	virtual void get_Extensions(const Fvector& axis, float center_prg, float& lo_ext, float& hi_ext) const;
 	virtual void applyForce(const Fvector& dir, float val);
 	virtual void applyForce(float x, float y, float z);
+
+	// demonized: applyTorque
+	virtual void applyTorque(float x, float y, float z);
+	virtual void applyTorque(const Fvector& dir, float val);
+
 	virtual void applyImpulse(const Fvector& dir, float val);
 	virtual void _BCL applyGravityAccel(const Fvector& accel);
 	virtual void setTorque(const Fvector& torque);

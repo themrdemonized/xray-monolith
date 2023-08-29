@@ -83,6 +83,11 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 		class_<cphysics_shell_scripted>("physics_shell")
 		.def("apply_force",
 		     (void (cphysics_shell_scripted::*)(float, float, float))(&cphysics_shell_scripted::applyForce))
+
+		// demonized: apply_torque
+		.def("apply_torque",
+			(void (cphysics_shell_scripted::*)(float, float, float))(&cphysics_shell_scripted::applyTorque))
+
 		.def("get_element_by_bone_name",
 		     (cphysics_element_scripted*(cphysics_shell_scripted::*)(LPCSTR))(&cphysics_shell_scripted::get_Element))
 		.def("get_element_by_bone_id",
