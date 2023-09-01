@@ -1,0 +1,104 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+name: MSBuild
+
+on:
+  push:
+    branches: [ "all-in-one-vs2022-wpo" ]
+  pull_request:
+    branches: [ "all-in-one-vs2022-wpo" ]
+
+env:
+  # Path to the solution file relative to the root of the project.
+  SOLUTION_FILE_PATH: ./src/engine-vs2022.sln
+
+  # Configuration type to build.
+  # You can convert this to a build matrix if you need coverage of multiple configuration types.
+  # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+  BUILD_CONFIGURATION: Release
+
+  
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        buildconf: ["DX11", "DX10", "DX9", "DX8", "DX11-AVX", "DX10-AVX", "DX9-AVX", "DX8-AVX"]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.0.2
+
+    - name: Restore NuGet packages
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: nuget restore ${{matrix.buildconf}}
+
+    - name: Build
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Get Datetime
+      id: datetime
+      uses: Kaven-Universe/github-action-current-date-time@v1
+      with:
+        format: "YYYY_MM_DD HH_mm_ss_SSS"
+        
+    # Use the output from the `datetime` step
+    - name: Get Version
+      env:
+        VERSION: "${{steps.datetime.outputs.year}}.${{steps.datetime.outputs.month}}.${{steps.datetime.outputs.day}}" 
+
+    - name: Zip Exe folder
+      run: |
+        mkdir ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX9.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX8.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX10.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX11.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX9AVX.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX8AVX.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX10AVX.exe ./release
+        mv ./_build/_game/bin_dbg/AnomalyDX11AVX.exe ./release
+        cd ./release
+        zip -r 'STALKER-Anomaly-modded-exes_${{env.VERSION}}.zip' ./*
+        mv 'STALKER-Anomaly-modded-exes_${{env.VERSION}}.zip' ../
+        cd ..
+      env: 
+        RELEASE_NAME_FULL: "${{env.VERSION}}"
+
+    - name: Zip PDB folder
+      run: |
+        mkdir ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX9.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX8.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX10.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX11.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX9AVX.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX8AVX.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX10AVX.pdb ./pdb
+        mv ./_build/_game/bin_dbg/AnomalyDX11AVX.pdb ./pdb
+        cd ./pdb
+        zip -r 'STALKER-Anomaly-modded-exes_${{env.VERSION}}_pdb.zip' ./*
+        mv 'STALKER-Anomaly-modded-exes_${{env.VERSION}}_pdb.zip' ../
+        cd ..
+        
+    - name: Publish
+      uses: "marvinpinto/action-automatic-releases@v1.2.1"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: ${{ github.event_name == 'push' && 'latest' || 'pre-release' }}
+        prerelease: ${{ github.event_name != 'push' }}
+        files: |
+          *.zip
