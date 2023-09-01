@@ -115,7 +115,23 @@ CScriptGameObject *get_object_by_name(LPCSTR caObjectName)
 }
 #endif
 
-CScriptGameObject* get_object_by_id(luabind::object ob)
+// demonized: add u16 id version of function to improve performance
+CScriptGameObject* get_object_by_id(u16 id)
+{
+	CGameObject* pGameObject = smart_cast<CGameObject*>(Level().Objects.net_Find(id));
+	if (!pGameObject)
+		return nullptr;
+
+	return pGameObject->lua_game_object();
+}
+
+CScriptGameObject* get_object_by_id()
+{
+	Msg("!WARNING : level.object_by_id(nil) called!");
+	return nullptr;
+}
+
+CScriptGameObject* get_object_by_id(const luabind::object& ob)
 {
 	if (!ob || ob.type() == LUA_TNIL)
 	{
@@ -124,12 +140,7 @@ CScriptGameObject* get_object_by_id(luabind::object ob)
 	}
 
 	u16 id = luabind::object_cast<u16>(ob);
-
-	CGameObject* pGameObject = smart_cast<CGameObject*>(Level().Objects.net_Find(id));
-	if (!pGameObject)
-		return nullptr;
-
-	return pGameObject->lua_game_object();
+	return get_object_by_id(id);
 }
 
 LPCSTR get_weather()
@@ -1925,7 +1936,10 @@ void CLevel::script_register(lua_State* L)
 #endif
 			//Alundaio: END
 			// obsolete\deprecated
-			def("object_by_id", get_object_by_id),
+			// demonized: add u16 override for better performance
+			def("object_by_id", ((CScriptGameObject * (*)(u16)) & get_object_by_id)),
+			def("object_by_id", ((CScriptGameObject* (*)()) & get_object_by_id)),
+			def("object_by_id", ((CScriptGameObject* (*)(const luabind::object&)) & get_object_by_id)),
 #ifdef DEBUG
 		def("debug_object",						get_object_by_name),
 		def("debug_actor",						tpfGetActor),
