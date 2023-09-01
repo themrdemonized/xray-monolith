@@ -18,9 +18,14 @@ env:
   # Configuration type to build.
   # You can convert this to a build matrix if you need coverage of multiple configuration types.
   # https://docs.github.com/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-  BUILD_CONFIGURATION: Release
-
-  
+  DX11: DX11
+  DX10: DX10
+  DX9: DX9
+  DX8: DX8
+  DX11AVX: DX11AVX
+  DX10AVX: DX10AVX
+  DX9AVX: DX9AVX
+  DX8AVX: DX8AVX
 
 permissions:
   contents: read
@@ -29,9 +34,9 @@ jobs:
   build:
     runs-on: windows-latest
 
-    strategy:
-      matrix:
-        buildconf: ["DX11", "DX10", "DX9", "DX8", "DX11-AVX", "DX10-AVX", "DX9-AVX", "DX8-AVX"]
+    # strategy:
+    #   matrix:
+    #     buildconf: ["DX11", "DX10", "DX9", "DX8", "DX11-AVX", "DX10-AVX", "DX9-AVX", "DX8-AVX"]
 
     steps:
     - uses: actions/checkout@v3
@@ -44,11 +49,53 @@ jobs:
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
 
-    - name: Build
+    - name: Build DX11
       working-directory: ${{env.GITHUB_WORKSPACE}}
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /m /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
+      run: msbuild /m /p:Configuration=${{env.DX11}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX10
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX10}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX9
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX9}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX8
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX8}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX11AVX
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX11AVX}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX10AVX
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX10AVX}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX9AVX
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX9AVX}} ${{env.SOLUTION_FILE_PATH}}
+
+    - name: Build DX8AVX
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{env.DX8AVX}} ${{env.SOLUTION_FILE_PATH}}
 
     - name: Get Datetime
       id: datetime
