@@ -51,9 +51,9 @@ jobs:
 
     - name: Add Dependecies
       run: |
-        "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --add Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64 --channelId VisualStudio.17.Release --productId Microsoft.VisualStudio.Product.Enterprise --quiet --norestart
-        "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --add Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL --channelId VisualStudio.17.Release --productId Microsoft.VisualStudio.Product.Enterprise --quiet --norestart
-        "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --add Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC --channelId VisualStudio.17.Release --productId Microsoft.VisualStudio.Product.Enterprise --quiet --norestart
+        & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --add Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64 --channelId VisualStudio.17.Release --productId Microsoft.VisualStudio.Product.Enterprise --quiet --norestart
+        & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --add Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL --channelId VisualStudio.17.Release --productId Microsoft.VisualStudio.Product.Enterprise --quiet --norestart
+        & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify --add Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC --channelId VisualStudio.17.Release --productId Microsoft.VisualStudio.Product.Enterprise --quiet --norestart
 
     # - name: Fake Build ${{matrix.buildconf}}
     #   working-directory: ${{env.GITHUB_WORKSPACE}}
