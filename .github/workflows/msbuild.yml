@@ -49,18 +49,18 @@ jobs:
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
 
-    - name: Fake Build ${{matrix.buildconf}}
-      working-directory: ${{env.GITHUB_WORKSPACE}}
-      run: |
-        New-Item -Type Directory -Path "./_build/_game/bin_dbg"
-        New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.exe"
-        New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.pdb"
-
-    # - name: Build ${{matrix.buildconf}}
+    # - name: Fake Build ${{matrix.buildconf}}
     #   working-directory: ${{env.GITHUB_WORKSPACE}}
-    #   # Add additional options to the MSBuild command line here (like platform or verbosity level).
-    #   # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-    #   run: msbuild /m /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
+    #   run: |
+    #     New-Item -Type Directory -Path "./_build/_game/bin_dbg"
+    #     New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.exe"
+    #     New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.pdb"
+
+    - name: Build ${{matrix.buildconf}}
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      # Add additional options to the MSBuild command line here (like platform or verbosity level).
+      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+      run: msbuild /m /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
 
     - name: Upload Exe
       uses: actions/upload-artifact@v3.1.2
