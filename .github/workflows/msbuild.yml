@@ -104,17 +104,17 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/checkout@v3
+    
     - name: Get Datetime
       id: datetime
-      uses: Kaven-Universe/github-action-current-date-time@v1
-      with:
-        format: "YYYY_MM_DD HH_mm_ss_SSS"
+      run: echo "::set-output name=today::$(date +'%Y.%m.%d')"
         
     # Use the output from the `datetime` step
     - name: Get Version
-      run: echo "VERSION ${{steps.datetime.outputs.year}}.${{steps.datetime.outputs.month}}.${{steps.datetime.outputs.day}}"
+      run: echo "VERSION ${{steps.datetime.outputs.today}}"
       env:
-        VERSION: "${{steps.datetime.outputs.year}}.${{steps.datetime.outputs.month}}.${{steps.datetime.outputs.day}}"
+        VERSION: "${{steps.datetime.outputs.today}}"
 
     - name: Download artifacts
       uses: actions/download-artifact@v3.0.2
