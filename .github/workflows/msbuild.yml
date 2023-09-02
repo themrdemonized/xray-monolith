@@ -123,7 +123,7 @@ jobs:
       run: |
         mkdir release
         mkdir release/bin
-        cp -R gamedata/* release
+        cp -a gamedata/. release
         mv ${{env.DX11}}_exe/*.exe release/bin
         mv ${{env.DX10}}_exe/*.exe release/bin
         mv ${{env.DX9}}_exe/*.exe release/bin
