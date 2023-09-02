@@ -27,9 +27,6 @@ env:
   DX9AVX: DX9-AVX
   DX8AVX: DX8-AVX
 
-permissions:
-  contents: read
-
 jobs:
   build:
     name: build-job
@@ -161,13 +158,13 @@ jobs:
       uses: remagpie/gha-remove-artifact@v1
       with:
         # Maximum age(by seconds) of artifacts to keep.
-        max-age: 604800
+        max-age: 1
         
     - name: Publish
-      uses: "marvinpinto/action-automatic-releases@v1.2.1"
+      uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: ${{ github.event_name == 'push' && 'latest' || 'pre-release' }}
-        prerelease: ${{ github.event_name != 'push' }}
+        automatic_release_tag: "latest"
+        prerelease: false
         files: |
           *.zip
