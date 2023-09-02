@@ -149,22 +149,6 @@ jobs:
       env: 
         RELEASE_NAME_FULL: "${{steps.datetime.outputs.today}}"
 
-    - name: Zip PDB folder
-      run: |
-        mkdir pdb
-        mv ${{env.DX11}}_pdb/*.pdb pdb
-        mv ${{env.DX10}}_pdb/*.pdb pdb
-        mv ${{env.DX9}}_pdb/*.pdb pdb
-        mv ${{env.DX8}}_pdb/*.pdb pdb
-        mv ${{env.DX11AVX}}_pdb/*.pdb pdb
-        mv ${{env.DX10AVX}}_pdb/*.pdb pdb
-        mv ${{env.DX9AVX}}_pdb/*.pdb pdb
-        mv ${{env.DX8AVX}}_pdb/*.pdb pdb
-        cd pdb
-        zip -r 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}_pdb.zip' ./*
-        mv 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}_pdb.zip' ../
-        cd ..
-
     - name: Remove Artifacts
       # You may pin to the exact commit or the version.
       # uses: remagpie/gha-remove-artifact@17a089caac8f6b2bbcb3a2dab795ec6228e7d6e2
@@ -182,3 +166,4 @@ jobs:
         prerelease: false
         files: |
           *.zip
+          pdb/*.pdb
