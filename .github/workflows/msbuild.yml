@@ -132,11 +132,11 @@ jobs:
         mv ${{env.DX9AVX}}_exe/*.exe release/bin
         mv ${{env.DX8AVX}}_exe/*.exe release/bin
         cd release
-        zip -r 'STALKER-Anomaly-modded-exes_${{env.VERSION}}.zip' ./*
-        mv 'STALKER-Anomaly-modded-exes_${{env.VERSION}}.zip' ../
+        zip -r 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}.zip' ./*
+        mv 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}.zip' ../
         cd ..
       env: 
-        RELEASE_NAME_FULL: "${{env.VERSION}}"
+        RELEASE_NAME_FULL: "${{steps.datetime.outputs.today}}"
 
     - name: Zip PDB folder
       run: |
@@ -150,8 +150,8 @@ jobs:
         mv ${{env.DX9AVX}}_pdb/*.pdb pdb
         mv ${{env.DX8AVX}}_pdb/*.pdb pdb
         cd pdb
-        zip -r 'STALKER-Anomaly-modded-exes_${{env.VERSION}}_pdb.zip' ./*
-        mv 'STALKER-Anomaly-modded-exes_${{env.VERSION}}_pdb.zip' ../
+        zip -r 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}_pdb.zip' ./*
+        mv 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}_pdb.zip' ../
         cd ..
 
     - name: Remove Artifacts
@@ -167,6 +167,7 @@ jobs:
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "latest"
+        title: "${{steps.datetime.outputs.today}}"
         prerelease: false
         files: |
           *.zip
