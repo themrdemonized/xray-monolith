@@ -181,7 +181,6 @@
     <TargetName>AnomalyDX11AVX</TargetName>
     <IntDir>$(xrIntDir)$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
-    <GenerateManifest>false</GenerateManifest>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseR3|x64'">
     <OutDir>$(xrGameDir)bin_dbg\</OutDir>
