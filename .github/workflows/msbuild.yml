@@ -52,9 +52,13 @@ jobs:
     - name: Add Dependencies
       run: |
         cd "C:\Program Files (x86)\Microsoft Visual Studio\Installer"
-        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64","--includeRecommended","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL","--includeRecommended","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC","--includeRecommended","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows10SDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows11SDK.22000","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Windows10SDK.20348","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.Component.VC.Runtime.UCRTSDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
 
     # - name: Fake Build ${{matrix.buildconf}}
     #   working-directory: ${{env.GITHUB_WORKSPACE}}
@@ -67,7 +71,7 @@ jobs:
       working-directory: ${{env.GITHUB_WORKSPACE}}
       # Add additional options to the MSBuild command line here (like platform or verbosity level).
       # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /p:Configuration=${{matrix.buildconf}} /v:diagnostic /ds:True /nr:False ${{env.SOLUTION_FILE_PATH}}
+      run: msbuild /p:Configuration=${{matrix.buildconf}} /nr:False ${{env.SOLUTION_FILE_PATH}}
 
     - name: Upload Exe
       uses: actions/upload-artifact@v3.1.2
