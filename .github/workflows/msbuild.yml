@@ -11,6 +11,8 @@ on:
   pull_request:
     branches: [ "all-in-one-vs2022-wpo" ]
 
+permissions: write-all
+
 env:
   # Path to the solution file relative to the root of the project.
   SOLUTION_FILE_PATH: src/engine-vs2022.sln
