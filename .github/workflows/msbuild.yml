@@ -121,18 +121,18 @@ jobs:
 
     - name: Zip Exe folder
       run: |
-        mkdir /release
-        mkdir /release/bin
-        cp -R /gamedata/* /release
-        mv ${{env.DX11}}_exe/*.exe /release/bin
-        mv ${{env.DX10}}_exe/*.exe /release/bin
-        mv ${{env.DX9}}_exe/*.exe /release/bin
-        mv ${{env.DX8}}_exe/*.exe /release/bin
-        mv ${{env.DX11AVX}}_exe/*.exe /release/bin
-        mv ${{env.DX10AVX}}_exe/*.exe /release/bin
-        mv ${{env.DX9AVX}}_exe/*.exe /release/bin
-        mv ${{env.DX8AVX}}_exe/*.exe /release/bin
-        cd /release
+        mkdir release
+        mkdir release/bin
+        cp -R gamedata/* release
+        mv ${{env.DX11}}_exe/*.exe release/bin
+        mv ${{env.DX10}}_exe/*.exe release/bin
+        mv ${{env.DX9}}_exe/*.exe release/bin
+        mv ${{env.DX8}}_exe/*.exe release/bin
+        mv ${{env.DX11AVX}}_exe/*.exe release/bin
+        mv ${{env.DX10AVX}}_exe/*.exe release/bin
+        mv ${{env.DX9AVX}}_exe/*.exe release/bin
+        mv ${{env.DX8AVX}}_exe/*.exe release/bin
+        cd release
         zip -r 'STALKER-Anomaly-modded-exes_${{env.VERSION}}.zip' ./*
         mv 'STALKER-Anomaly-modded-exes_${{env.VERSION}}.zip' ../
         cd ..
@@ -142,15 +142,15 @@ jobs:
     - name: Zip PDB folder
       run: |
         mkdir pdb
-        mv ${{env.DX11}}_pdb/*.pdb /pdb
-        mv ${{env.DX10}}_pdb/*.pdb /pdb
-        mv ${{env.DX9}}_pdb/*.pdb /pdb
-        mv ${{env.DX8}}_pdb/*.pdb /pdb
-        mv ${{env.DX11AVX}}_pdb/*.pdb /pdb
-        mv ${{env.DX10AVX}}_pdb/*.pdb /pdb
-        mv ${{env.DX9AVX}}_pdb/*.pdb /pdb
-        mv ${{env.DX8AVX}}_pdb/*.pdb /pdb
-        cd /pdb
+        mv ${{env.DX11}}_pdb/*.pdb pdb
+        mv ${{env.DX10}}_pdb/*.pdb pdb
+        mv ${{env.DX9}}_pdb/*.pdb pdb
+        mv ${{env.DX8}}_pdb/*.pdb pdb
+        mv ${{env.DX11AVX}}_pdb/*.pdb pdb
+        mv ${{env.DX10AVX}}_pdb/*.pdb pdb
+        mv ${{env.DX9AVX}}_pdb/*.pdb pdb
+        mv ${{env.DX8AVX}}_pdb/*.pdb pdb
+        cd pdb
         zip -r 'STALKER-Anomaly-modded-exes_${{env.VERSION}}_pdb.zip' ./*
         mv 'STALKER-Anomaly-modded-exes_${{env.VERSION}}_pdb.zip' ../
         cd ..
