@@ -44,7 +44,7 @@ jobs:
       #   ref: all-in-one-vs2022
 
     - name: setup-msbuild
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v1.3.1
       with:
         # Version of Visual Studio to search; defaults to latest if not specified
         # vs-version: '[17.6, 17.7)'
