@@ -98,6 +98,11 @@ jobs:
         # Duration after which artifact will expire in days. 0 means using default retention. Minimum 1 day. Maximum 90 days unless changed from the repository settings page.
         retention-days: 1
 
+    - name: Zip PDB
+      run: |
+        cd ./_build/_game/bin_dbg
+        compress-archive -DestinationPath "Anomaly${{matrix.buildconf}}_pdb.zip" -Path "./*.pdb"
+
     - name: Upload PDB
       uses: actions/upload-artifact@v3.1.2
       with:
@@ -105,7 +110,7 @@ jobs:
         name: ${{matrix.buildconf}}_pdb
         
         # A file, directory or wildcard pattern that describes what to upload
-        path: ./_build/_game/bin_dbg/*.pdb
+        path: ./_build/_game/bin_dbg/*.zip
         
         # The desired behavior if no files are found using the provided path. Available Options:
           #  warn: Output a warning but do not fail the action
@@ -156,6 +161,18 @@ jobs:
       env: 
         RELEASE_NAME_FULL: "${{steps.datetime.outputs.today}}"
 
+    - name: Move PDBs to folder
+      run: |
+        mkdir pdb
+        mv ${{env.DX11}}_pdb/*.zip pdb
+        mv ${{env.DX10}}_pdb/*.zip pdb
+        mv ${{env.DX9}}_pdb/*.zip pdb
+        mv ${{env.DX8}}_pdb/*.zip pdb
+        mv ${{env.DX11AVX}}_pdb/*.zip pdb
+        mv ${{env.DX10AVX}}_pdb/*.zip pdb
+        mv ${{env.DX9AVX}}_pdb/*.zip pdb
+        mv ${{env.DX8AVX}}_pdb/*.zip pdb
+        
     - name: Remove Artifacts
       # You may pin to the exact commit or the version.
       # uses: remagpie/gha-remove-artifact@17a089caac8f6b2bbcb3a2dab795ec6228e7d6e2
@@ -173,4 +190,4 @@ jobs:
         prerelease: false
         files: |
           *.zip
-          pdb/*.pdb
+          pdb/*.zip
