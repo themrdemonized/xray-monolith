@@ -1012,6 +1012,8 @@ public:
 	void ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect);
 	//Anything with PPhysicShell (ie. car, actor, stalker, monster, heli)
 	void ForceSetPosition(Fvector pos, bool bActivate = false);
+	void ForceSetAngle(Fvector ang, bool bActivate);
+	Fvector Angle();
 
 	//Artifacts
 	float GetArtefactHealthRestoreSpeed();

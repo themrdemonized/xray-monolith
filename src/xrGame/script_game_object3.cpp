@@ -1694,9 +1694,15 @@ void CScriptGameObject::ForceSetPosition(Fvector pos, bool bActivate)
 		if (bActivate)
 			sh->activate_physic_shell();
 
+#if 1
+		Fmatrix M = Fmatrix().set(object().XFORM());
+		M.translate_over(pos);
+		object().XFORM().set(M);
+#else
 		Fmatrix M = object().XFORM();
 		M.c = pos;
 		M.set(M);
+#endif
 
 		shell->SetGlTransformDynamic(M);
 		if (sh->character_physics_support())
@@ -1705,6 +1711,41 @@ void CScriptGameObject::ForceSetPosition(Fvector pos, bool bActivate)
 	else
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
 		                                "force_set_position: object %s has no physics shell!", *object().cName());
+}
+
+void CScriptGameObject::ForceSetAngle(Fvector ang, bool bActivate)
+{
+	CPhysicsShellHolder *sh = object().cast_physics_shell_holder();
+	if (!sh)
+		return;
+
+	if (bActivate)
+		sh->activate_physic_shell();
+
+	CPhysicsShell *shell = sh->PPhysicsShell();
+	if (shell)
+	{
+		Fmatrix M = Fmatrix().set(object().XFORM());
+		Fvector p = Fvector().set(object().XFORM().c);
+		M.setHPB(ang.x, ang.y, ang.z);
+		M.translate_over(p);
+		object().XFORM().set(M);
+		shell->SetGlTransformDynamic(M);
+		if (sh->character_physics_support())
+			sh->character_physics_support()->ForceTransform(M);
+	}
+	else
+	{
+		LPCSTR text = "force_set_angleHPB: object %s has no physics shell!";
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, text, object().Name());
+	}
+}
+
+Fvector CScriptGameObject::Angle()
+{
+	Fvector ang;
+	object().XFORM().getHPB(ang.x, ang.y, ang.z);
+	return ang;
 }
 
 void CScriptGameObject::SetRemainingUses(u8 value)
