@@ -39,7 +39,9 @@ jobs:
         buildconf: ["DX11", "DX10", "DX9", "DX8", "DX11-AVX", "DX10-AVX", "DX9-AVX", "DX8-AVX"]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: all-in-one-vs2022
 
     - name: setup-msbuild
       uses: microsoft/setup-msbuild@v1.3.1
@@ -126,7 +128,9 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        ref: all-in-one-vs2022
     
     - name: Get Datetime
       id: datetime
