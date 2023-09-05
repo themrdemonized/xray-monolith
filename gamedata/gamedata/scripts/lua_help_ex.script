@@ -29,6 +29,10 @@
         use_english_text_for_missing_translations // Enables using english text if translation is missing
     }
 
+    globals {
+        int get_modded_exes_version() // Returns modded exes version in integer format
+    }
+
     namespace alife() {
         void iterate_objects(function(se_obj))
     }

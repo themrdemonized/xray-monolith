@@ -1,0 +1,5 @@
+# STALKER .script files as Lua files:
+**/*.script linguist-language=Lua
+
+# STALKER .ltx files as INI filer
+**/*.ltx linguist-language=INI
