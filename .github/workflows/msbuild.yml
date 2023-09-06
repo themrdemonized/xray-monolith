@@ -39,7 +39,20 @@ jobs:
         buildconf: ["DX11", "DX10", "DX9", "DX8", "DX11-AVX", "DX10-AVX", "DX9-AVX", "DX8-AVX"]
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Configure Pagefile
+      # You may pin to the exact commit or the version.
+      # uses: al-cheb/configure-pagefile-action@86589fd789a4de3e62ba628dda2cb10027b66d67
+      uses: al-cheb/configure-pagefile-action@v1.3
+      with:
+        # Set minimum size of Pagefile
+        minimum-size: 8GB
+        # Set maximum size of Pagefile
+        maximum-size: 8GB
+        # Set disk root where pagefile.sys will be located
+        disk-root: "D:"
+        
+    - name: Checkout repo
+      uses: actions/checkout@v4
       # with:
       #   ref: all-in-one-vs2022
 
@@ -50,13 +63,6 @@ jobs:
         # vs-version: '[17.6, 17.7)'
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
-
-    # - name: Configure Pagefile
-    #   run: |
-    #     wmic pagefile list /format:list
-    #     wmic --% computersystem where name="%computername%" set AutomaticManagedPagefile=False
-    #     wmic --% pagefileset where name="D:\\pagefile.sys" set InitialSize=10240,MaximumSize=10240
-    #     wmic pagefile list /format:list        
 
     - name: Add Dependencies
       run: |
