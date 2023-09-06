@@ -44,12 +44,22 @@ jobs:
       #   ref: all-in-one-vs2022
 
     - name: setup-msbuild
-      uses: microsoft/setup-msbuild@v1.1
+      uses: microsoft/setup-msbuild@v1.3.1
       with:
         # Version of Visual Studio to search; defaults to latest if not specified
         # vs-version: '[17.6, 17.7)'
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
+        
+    - name: Setup Pagefile AutomaticManagedPagefile
+      run: |
+        cmd
+        wmic computersystem where name="%computername%" set AutomaticManagedPagefile=False
+
+    - name: Setup Pagefile Size
+      run: |
+        cmd
+        wmic pagefileset where name="C:\\pagefile.sys" set InitialSize=8192,MaximumSize=8192
 
     - name: Add Dependencies
       run: |
