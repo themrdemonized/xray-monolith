@@ -51,12 +51,12 @@ jobs:
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
 
-    - name: Configure Pagefile
-      run: |
-        wmic pagefile list /format:list
-        wmic --% computersystem where name="%computername%" set AutomaticManagedPagefile=False
-        wmic --% pagefileset where name="D:\\pagefile.sys" set InitialSize=10240,MaximumSize=10240
-        wmic pagefile list /format:list        
+    # - name: Configure Pagefile
+    #   run: |
+    #     wmic pagefile list /format:list
+    #     wmic --% computersystem where name="%computername%" set AutomaticManagedPagefile=False
+    #     wmic --% pagefileset where name="D:\\pagefile.sys" set InitialSize=10240,MaximumSize=10240
+    #     wmic pagefile list /format:list        
 
     - name: Add Dependencies
       run: |
