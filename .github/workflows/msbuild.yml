@@ -55,8 +55,8 @@ jobs:
       run: |
         wmic pagefile list /format:list
         wmic --% computersystem where name="%computername%" set AutomaticManagedPagefile=False
-        wmic --% wmic pagefileset where name="C:\\pagefile.sys" set InitialSize=10240,MaximumSize=10240
-        
+        wmic --% pagefileset where name="D:\\pagefile.sys" set InitialSize=10240,MaximumSize=10240
+        wmic pagefile list /format:list        
 
     - name: Add Dependencies
       run: |
