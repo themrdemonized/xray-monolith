@@ -55,13 +55,13 @@ jobs:
       # You may pin to the exact commit or the version.
       # uses: al-cheb/configure-pagefile-action@86589fd789a4de3e62ba628dda2cb10027b66d67
       uses: al-cheb/configure-pagefile-action@v1.3
-      # with:
-        # # Set minimum size of Pagefile
-        # minimum-size: # optional, default is 8GB
-        # # Set maximum size of Pagefile
-        # maximum-size: # optional
-        # # Set disk root where pagefile.sys will be located
-        # disk-root: # optional, default is D:
+      with:
+        # Set minimum size of Pagefile
+        minimum-size: 10GB
+        # Set maximum size of Pagefile
+        maximum-size: 10GB
+        # Set disk root where pagefile.sys will be located
+        # disk-root: "D:"
 
     - name: Add Dependencies
       run: |
