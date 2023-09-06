@@ -53,12 +53,10 @@ jobs:
         
     - name: Setup Pagefile AutomaticManagedPagefile
       run: |
-        cmd
         wmic computersystem where name="%computername%" set AutomaticManagedPagefile=False
 
     - name: Setup Pagefile Size
       run: |
-        cmd
         wmic pagefileset where name="C:\\pagefile.sys" set InitialSize=8192,MaximumSize=8192
 
     - name: Add Dependencies
