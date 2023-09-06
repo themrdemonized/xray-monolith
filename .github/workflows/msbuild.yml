@@ -49,7 +49,7 @@ jobs:
         # Set maximum size of Pagefile
         maximum-size: 8GB
         # Set disk root where pagefile.sys will be located
-        disk-root: "D:"
+        disk-root: "C:"
         
     - name: Checkout repo
       uses: actions/checkout@v4
