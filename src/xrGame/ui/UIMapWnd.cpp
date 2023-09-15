@@ -461,6 +461,8 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 }
 
 // demonized: Zoom towards mouse cursor instead of map center
+BOOL pda_map_zoom_in_to_mouse = TRUE;
+BOOL pda_map_zoom_out_to_mouse = TRUE;
 bool CUIMapWnd::UpdateZoom(bool b_zoom_in, bool b_scroll_wheel)
 {
 	auto before_mouse_pos = GetGlobalMapCoordsForMouse();
@@ -478,7 +480,7 @@ bool CUIMapWnd::UpdateZoom(bool b_zoom_in, bool b_scroll_wheel)
 		SetZoom(z);
 	}
 
-	if (b_scroll_wheel)
+	if (b_scroll_wheel && (pda_map_zoom_in_to_mouse || pda_map_zoom_out_to_mouse))
 	{
 		if (!fsimilar(prev_zoom, GetZoom()))
 		{
@@ -490,9 +492,17 @@ bool CUIMapWnd::UpdateZoom(bool b_zoom_in, bool b_scroll_wheel)
 			gm->GetAbsolutePos(pos);
 			m_tgtCenter.sub(pos);
 			m_tgtCenter.div(gm->GetCurrentZoom());
-			auto temp = m_tgtCenter;
-			temp.add(before_mouse_pos).div(2).sub(m_tgtCenter).mul(b_zoom_in ? 1 : -1);
-			m_tgtCenter.add(temp);
+
+			// Zoom towards mouse
+			if (b_zoom_in && pda_map_zoom_in_to_mouse) {
+				auto temp = m_tgtCenter;
+				temp.add(before_mouse_pos).div(2).sub(m_tgtCenter);
+				m_tgtCenter.add(temp);
+			} else if (!b_zoom_in && pda_map_zoom_out_to_mouse) {
+				auto temp = m_tgtCenter;
+				temp.add(before_mouse_pos).div(2).sub(m_tgtCenter).mul(-1);
+				m_tgtCenter.add(temp);
+			}
 
 			ResetActionPlanner();
 			HideCurHint();

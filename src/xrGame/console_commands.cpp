@@ -122,6 +122,8 @@ namespace crash_saving {
 	extern BOOL enabled;
 	extern int saveCountMax;
 }
+extern BOOL pda_map_zoom_in_to_mouse;
+extern BOOL pda_map_zoom_out_to_mouse;
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2665,6 +2667,10 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "first_person_death_position_smoothing", &firstPersonDeathPositionSmoothing, 1, 30);
 	CMD4(CCC_Integer, "first_person_death_direction_smoothing", &firstPersonDeathDirectionSmoothing, 1, 60);
 	CMD4(CCC_Float, "first_person_death_near_plane_offset", &viewportNearOffset, -0.1, 0.5);
+
+	// PDA commands
+	CMD4(CCC_Integer, "pda_map_zoom_in_to_mouse", &pda_map_zoom_in_to_mouse, 0, 1);
+	CMD4(CCC_Integer, "pda_map_zoom_out_to_mouse", &pda_map_zoom_out_to_mouse, 0, 1);
 
 	//Toggle crash saving
 	CMD4(CCC_Integer, "crash_save", &crash_saving::enabled, 0, 1);
