@@ -129,9 +129,9 @@ public:
 	void MoveMap(Fvector2 const& pos_delta);
 	float GetZoom() { return m_currentZoom; }
 	void SetZoom(float value);
-	bool UpdateZoom(bool b_zoom_in);
 
-
+	// demonized: zoom towards mouse cursor
+	bool UpdateZoom(bool b_zoom_in, bool b_scroll_wheel = false);
 	void ShowHintStr(CUIWindow* parent, LPCSTR text);
 	void ShowHintSpot(CMapSpot* spot);
 	void ShowHintTask(CGameTask* task, CUIWindow* owner);
@@ -146,6 +146,8 @@ public:
 	virtual bool OnKeyboardHold(int dik);
 
 	virtual void SendMessage(CUIWindow* pWnd, s16 msg, void* pData = NULL);
+
+	Fvector2 GetGlobalMapCoordsForMouse();
 
 	void SetTargetMap(CUICustomMap* m, bool bZoomIn = false);
 	void SetTargetMap(CUICustomMap* m, const Fvector2& pos, bool bZoomIn = false);
