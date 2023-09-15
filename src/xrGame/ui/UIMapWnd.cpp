@@ -447,11 +447,11 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 			break;
 
 		case WINDOW_MOUSE_WHEEL_DOWN:
-			UpdateZoom(true);
+			UpdateZoom(true, true);
 			return true;
 			break;
 		case WINDOW_MOUSE_WHEEL_UP:
-			UpdateZoom(false);
+			UpdateZoom(false, true);
 			return true;
 			break;
 		} //switch	
@@ -460,8 +460,11 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 	return false;
 }
 
-bool CUIMapWnd::UpdateZoom(bool b_zoom_in)
+// demonized: Zoom towards mouse cursor instead of map center
+bool CUIMapWnd::UpdateZoom(bool b_zoom_in, bool b_scroll_wheel)
 {
+	auto before_mouse_pos = GetGlobalMapCoordsForMouse();
+	before_mouse_pos.mul(-1);
 	float prev_zoom = GetZoom();
 	float z = 0.0f;
 	if (b_zoom_in)
@@ -475,22 +478,43 @@ bool CUIMapWnd::UpdateZoom(bool b_zoom_in)
 		SetZoom(z);
 	}
 
-
-	if (!fsimilar(prev_zoom, GetZoom()))
+	if (b_scroll_wheel)
 	{
-		//		m_tgtCenter.set( 0, 0 );// = cursor_pos;
-		Frect vis_rect = ActiveMapRect();
-		vis_rect.getcenter(m_tgtCenter);
+		if (!fsimilar(prev_zoom, GetZoom()))
+		{
+			Frect vis_rect = ActiveMapRect();
+			vis_rect.getcenter(m_tgtCenter);
 
-		Fvector2 pos;
-		CUIGlobalMap* gm = GlobalMap();
-		gm->GetAbsolutePos(pos);
-		m_tgtCenter.sub(pos);
-		m_tgtCenter.div(gm->GetCurrentZoom());
+			Fvector2 pos;
+			CUIGlobalMap* gm = GlobalMap();
+			gm->GetAbsolutePos(pos);
+			m_tgtCenter.sub(pos);
+			m_tgtCenter.div(gm->GetCurrentZoom());
+			auto temp = m_tgtCenter;
+			temp.add(before_mouse_pos).div(2).sub(m_tgtCenter).mul(b_zoom_in ? 1 : -1);
+			m_tgtCenter.add(temp);
 
-		ResetActionPlanner();
-		HideCurHint();
-		return false;
+			ResetActionPlanner();
+			HideCurHint();
+			return false;
+		}
+	} else {
+		if (!fsimilar(prev_zoom, GetZoom()))
+		{
+			//		m_tgtCenter.set( 0, 0 );// = cursor_pos;
+			Frect vis_rect = ActiveMapRect();
+			vis_rect.getcenter(m_tgtCenter);
+
+			Fvector2 pos;
+			CUIGlobalMap* gm = GlobalMap();
+			gm->GetAbsolutePos(pos);
+			m_tgtCenter.sub(pos);
+			m_tgtCenter.div(gm->GetCurrentZoom());
+
+			ResetActionPlanner();
+			HideCurHint();
+			return false;
+		}
 	}
 	return true;
 }
@@ -507,6 +531,33 @@ void CUIMapWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 	}
 }
 
+// demonized: get global map coords under mouse cursor
+Fvector2 CUIMapWnd::GetGlobalMapCoordsForMouse()
+{
+	auto gm = GlobalMap();
+
+	// 1. Get cursor position in map space
+	// Normalize mouse coordinates in map canvas
+	Fvector2 pos_abs;
+	auto cursor_pos = GetUICursor().GetCursorPosition();
+	cursor_pos.sub(ActiveMapRect().lt);
+
+	// Invert mouse coords
+	cursor_pos.mul(-1);
+
+	// Get absolute left top of the current area of the map
+	Fvector2 map_abs;
+	Fvector2& current_zoom = gm->GetCurrentZoom();
+	gm->GetAbsolutePos(map_abs);
+	map_abs.sub(gm->WorkingArea().lt);
+	map_abs.div(current_zoom);
+
+	// Increment to mouse coordinates
+	pos_abs.add(map_abs);
+	pos_abs.add(cursor_pos.div(current_zoom));
+	return pos_abs;
+}
+
 void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 {
 	m_UIPropertiesBox->RemoveAll();
@@ -518,6 +569,40 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 			funct(m_UIPropertiesBox, sp->MapLocation()->ObjectID(), (LPCSTR)sp->MapLocation()->GetLevelName().c_str(),
 			      (LPCSTR)sp->MapLocation()->GetHint());
 	}
+
+	// demonized: possibility to click trigger properties box anywhere on the map with right click
+	luabind::functor<void> rcFunct;
+	if (ai().script_engine().functor("_G.COnRightClickMap", rcFunct))
+	{
+		auto gm = GlobalMap();
+
+		// 1. Get cursor position in map space
+		// Normalize mouse coordinates in map canvas
+		Fvector2 pos_abs;
+		auto cursor_pos = GetUICursor().GetCursorPosition();
+		cursor_pos.sub(ActiveMapRect().lt);
+
+		// Invert mouse coords
+		cursor_pos.mul(-1);
+
+		// Get absolute left top of the current area of the map
+		Fvector2 map_abs;
+		Fvector2 &current_zoom = gm->GetCurrentZoom();
+		gm->GetAbsolutePos(map_abs);
+		map_abs.sub(gm->WorkingArea().lt);
+		map_abs.div(current_zoom);
+
+		// Increment to mouse coordinates
+		pos_abs.add(map_abs);
+		pos_abs.add(cursor_pos.div(current_zoom));
+
+		// 2. Get world space position from map space position 
+		Fvector2 pos_real = gm->ConvertLocalToReal(map_abs, gm->BoundRect());
+
+		// 3. Lua
+		rcFunct(m_UIPropertiesBox, pos_abs, map_abs, pos_real, gm->WorkingArea(), ActiveMapRect(), gm->GetWndRect(), current_zoom);
+	}
+
 
 	if (m_UIPropertiesBox->GetItemsCount() > 0)
 	{
