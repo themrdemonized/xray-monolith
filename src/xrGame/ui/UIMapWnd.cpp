@@ -588,29 +588,98 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 
 		// 1. Get cursor position in map space
 		// Normalize mouse coordinates in map canvas
-		Fvector2 pos_abs;
-		auto cursor_pos = GetUICursor().GetCursorPosition();
+		Fvector2 cursor_pos = GetUICursor().GetCursorPosition();
 		cursor_pos.sub(ActiveMapRect().lt);
 
 		// Invert mouse coords
 		cursor_pos.mul(-1);
 
+		// Divide by zoom level
+		Fvector2 current_zoom = gm->GetCurrentZoom();
+		cursor_pos.div(current_zoom);
+
 		// Get absolute left top of the current area of the map
-		Fvector2 map_abs;
-		Fvector2 &current_zoom = gm->GetCurrentZoom();
+		Fvector2 map_abs = { 0, 0 };
 		gm->GetAbsolutePos(map_abs);
-		map_abs.sub(gm->WorkingArea().lt);
-		map_abs.div(current_zoom);
+		map_abs.sub(gm->WorkingArea().lt).div(current_zoom);
 
 		// Increment to mouse coordinates
-		pos_abs.add(map_abs);
-		pos_abs.add(cursor_pos.div(current_zoom));
+		Fvector2 pos_abs = { 0, 0 };
+		pos_abs.add(map_abs).add(cursor_pos);
 
-		// 2. Get world space position from map space position 
-		Fvector2 pos_real = gm->ConvertLocalToReal(map_abs, gm->BoundRect());
+		// 2. Get map position from global position
+		if (gm->hoveredMap) {
 
-		// 3. Lua
-		rcFunct(m_UIPropertiesBox, pos_abs, map_abs, pos_real, gm->WorkingArea(), ActiveMapRect(), gm->GetWndRect(), current_zoom);
+			// Get position of the local map on global map
+			auto lm = gm->hoveredMap;
+			Frect lm_rect;
+			lm_rect.set(0, 0, 0, 0);
+			lm->GetAbsoluteRect(lm_rect);
+
+			// Normalize local map coordinates
+			Frect lm_wa = lm->WorkingArea();
+			lm_rect.lt.sub(lm_wa.lt);
+			lm_rect.rb.sub(lm_wa.rb);
+
+			// Divide by local map zoom level
+			Fvector2 lm_zoom = lm->GetCurrentZoom();
+			lm_rect.lt.div(lm_zoom);
+			lm_rect.rb.div(lm_zoom);
+
+			// Get cursor coordinates
+			Fvector2 lm_cursor_pos = GetUICursor().GetCursorPosition();
+			lm_cursor_pos.sub(ActiveMapRect().lt);
+
+			// Invert cursor coords
+			lm_cursor_pos.mul(-1);
+
+			// Divide by local map zoom level
+			lm_cursor_pos.div(lm_zoom);
+
+			// Get local map bounding rect
+			Frect lm_bound_rect = lm->BoundRect();
+			Fvector2 lm_bound_size = { 0, 0 };
+			lm_bound_rect.getsize(lm_bound_size);
+
+			// Get mouse coordinates relative to local map left top
+			Fvector2 lm_mouse_pos = { 0, 0 };
+			lm_mouse_pos.add(lm_rect.lt).add(lm_cursor_pos);
+			
+			// Adjust local map rect based on bounding rect
+			lm_rect.rb.set(Fvector2().set(lm_rect.lt).sub(lm_bound_size));
+
+			// Adjust mouse coordinates for getting real world coordinates
+			Fvector2 lm_real_mouse_pos = { 0, 0 };
+			Fvector2 lm_adjusted_mouse_pos = { 0, 0 };
+			lm_adjusted_mouse_pos.add(lm_mouse_pos).mul(-1).mul(lm_zoom);
+			
+			// Get real world coordinates
+			lm_real_mouse_pos.x = lm_bound_rect.lt.x + lm_adjusted_mouse_pos.x / lm_zoom.x;
+			lm_real_mouse_pos.y = lm_bound_rect.height() + lm_bound_rect.lt.y - lm_adjusted_mouse_pos.y / lm_zoom.x;
+			lm_real_mouse_pos.x /= UI().get_current_kx();
+
+			// Get Y component of real world coordinates - raycast
+
+			// Get map name
+			LPCSTR lm_name = lm->MapName().c_str();
+
+			luabind::object table = luabind::newtable(ai().script_engine().lua());
+			table["gm_cursor_pos"] = cursor_pos;
+			table["gm_map_abs"] = map_abs;
+			table["gm_pos_abs"] = pos_abs;
+			table["gm_zoom"] = current_zoom;
+			table["lm_rect"] = lm_rect;
+			table["lm_zoom"] = lm_zoom;
+			table["lm_mouse_pos"] = lm_mouse_pos;
+			table["lm_mouse_pos_adjusted"] = lm_adjusted_mouse_pos;
+			table["lm_mouse_pos_real"] = lm_real_mouse_pos;
+			table["lm_bound_rect"] = lm_bound_rect;
+			table["lm_bound_size"] = lm_bound_size;
+			table["lm_name"] = lm_name;
+
+			// 3. Lua
+			rcFunct(m_UIPropertiesBox, table);
+		}
 	}
 
 

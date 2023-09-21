@@ -505,6 +505,9 @@ void CUILevelMap::Update()
 
 	if (m_bCursorOverWindow)
 	{
+		// demonized: send pointer to this map into GlobalMap
+		MapWnd()->GlobalMap()->hoveredMap = this;
+
 		VERIFY(m_dwFocusReceiveTime>=0);
 		if (Device.dwTimeGlobal > (m_dwFocusReceiveTime + 500))
 		{
