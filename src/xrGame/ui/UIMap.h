@@ -110,6 +110,9 @@ public:
 	void ClipByVisRect();
 	virtual void Update();
 	void Initialize();
+
+	// demonized: pointer to hovered map on PDA
+	CUICustomMap* hoveredMap;
 protected:
 	virtual void Init_internal(const shared_str& name, CInifile& pLtx, const shared_str& sect_name, LPCSTR sh_name);
 };
