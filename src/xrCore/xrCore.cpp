@@ -32,6 +32,8 @@ static u32 init_counter = 0;
 
 //. extern xr_vector<shared_str>* LogFile;
 
+extern int get_modded_exes_version();
+
 void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, LPCSTR fs_fname)
 {
 	xr_strcpy(ApplicationName, _ApplicationName);
@@ -156,6 +158,9 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
 #endif
 		FS._initialize(flags, 0, fs_fname);
 		Msg("'%s' build %d, %s\n", "xrCore", build_id, build_date);
+
+		// demonized: Print modded exes version
+		Msg("Modded exes version %d\n", get_modded_exes_version());
 		EFS._initialize();
 #ifdef DEBUG
 #ifndef _EDITOR
