@@ -160,6 +160,53 @@ _G.try = function(func, ...)
     end
 end
 
+-- Postpone on next n tick
+_G.nextTick = function(f, n)
+	n = math.floor(math.max(n or 1, 1))
+	AddUniqueCall(function()
+		if n == 1 then
+			return f()
+		else
+			n = n - 1
+			return false
+		end
+	end)
+end
+
+_G.print_tip = function(text, ...)
+    local text = tostring(text)
+    printf(text, ...)
+    if not db.actor then
+        return
+    end
+    
+    local ico = "ui_inGame2_Dengi_otdani"
+    local text_color = utils_xml.get_color("pda_white")
+    local arg_color = utils_xml.get_color("d_green")
+    local function colorize(s)
+        return arg_color .. s .. text_color
+    end
+    local i = 0
+    local t = {...}
+    if #t > 0 then
+        local function sr(a)
+            i = i + 1
+            if (type(t[i]) == 'userdata') then
+                if (t[i].x and t[i].y) then
+                    return colorize(vec_to_str(t[i]))
+                end
+                return colorize('userdata')
+            end
+            return colorize(tostring(t[i]))
+        end
+        text = string.gsub(game.translate_string(text), "%%s", sr)
+    else
+        text = game.translate_string(text)
+    end
+    text = text_color .. text
+    news_manager.send_tip(db.actor, text, nil, ico, 6000)
+end
+
 -- Patches
 local xmlCallbacks = {}
 

@@ -168,6 +168,28 @@ function init_opt_base()
 
 			{ id = "divider", type = "line" },
 
+			-- PDA
+			{
+				id = "pda_map_zoom_in_to_mouse",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "pda_map_zoom_in_to_mouse") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "pda_map_zoom_in_to_mouse",
+				restart = false,
+			},
+			{
+				id = "pda_map_zoom_out_to_mouse",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "pda_map_zoom_out_to_mouse") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "pda_map_zoom_out_to_mouse",
+				restart = false,
+			},
+
+			{ id = "divider", type = "line" },
+
 			-- QoL
 			{
 				id = "use_english_text_for_missing_translations",

@@ -447,11 +447,11 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 			break;
 
 		case WINDOW_MOUSE_WHEEL_DOWN:
-			UpdateZoom(true);
+			UpdateZoom(true, true);
 			return true;
 			break;
 		case WINDOW_MOUSE_WHEEL_UP:
-			UpdateZoom(false);
+			UpdateZoom(false, true);
 			return true;
 			break;
 		} //switch	
@@ -460,8 +460,13 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 	return false;
 }
 
-bool CUIMapWnd::UpdateZoom(bool b_zoom_in)
+// demonized: Zoom towards mouse cursor instead of map center
+BOOL pda_map_zoom_in_to_mouse = TRUE;
+BOOL pda_map_zoom_out_to_mouse = TRUE;
+bool CUIMapWnd::UpdateZoom(bool b_zoom_in, bool b_scroll_wheel)
 {
+	auto before_mouse_pos = GetGlobalMapCoordsForMouse();
+	before_mouse_pos.mul(-1);
 	float prev_zoom = GetZoom();
 	float z = 0.0f;
 	if (b_zoom_in)
@@ -475,22 +480,51 @@ bool CUIMapWnd::UpdateZoom(bool b_zoom_in)
 		SetZoom(z);
 	}
 
-
-	if (!fsimilar(prev_zoom, GetZoom()))
+	if (b_scroll_wheel && (pda_map_zoom_in_to_mouse || pda_map_zoom_out_to_mouse))
 	{
-		//		m_tgtCenter.set( 0, 0 );// = cursor_pos;
-		Frect vis_rect = ActiveMapRect();
-		vis_rect.getcenter(m_tgtCenter);
+		if (!fsimilar(prev_zoom, GetZoom()))
+		{
+			Frect vis_rect = ActiveMapRect();
+			vis_rect.getcenter(m_tgtCenter);
 
-		Fvector2 pos;
-		CUIGlobalMap* gm = GlobalMap();
-		gm->GetAbsolutePos(pos);
-		m_tgtCenter.sub(pos);
-		m_tgtCenter.div(gm->GetCurrentZoom());
+			Fvector2 pos;
+			CUIGlobalMap* gm = GlobalMap();
+			gm->GetAbsolutePos(pos);
+			m_tgtCenter.sub(pos);
+			m_tgtCenter.div(gm->GetCurrentZoom());
 
-		ResetActionPlanner();
-		HideCurHint();
-		return false;
+			// Zoom towards mouse
+			if (b_zoom_in && pda_map_zoom_in_to_mouse) {
+				auto temp = m_tgtCenter;
+				temp.add(before_mouse_pos).div(2).sub(m_tgtCenter);
+				m_tgtCenter.add(temp);
+			} else if (!b_zoom_in && pda_map_zoom_out_to_mouse) {
+				auto temp = m_tgtCenter;
+				temp.add(before_mouse_pos).div(2).sub(m_tgtCenter).mul(-1);
+				m_tgtCenter.add(temp);
+			}
+
+			ResetActionPlanner();
+			HideCurHint();
+			return false;
+		}
+	} else {
+		if (!fsimilar(prev_zoom, GetZoom()))
+		{
+			//		m_tgtCenter.set( 0, 0 );// = cursor_pos;
+			Frect vis_rect = ActiveMapRect();
+			vis_rect.getcenter(m_tgtCenter);
+
+			Fvector2 pos;
+			CUIGlobalMap* gm = GlobalMap();
+			gm->GetAbsolutePos(pos);
+			m_tgtCenter.sub(pos);
+			m_tgtCenter.div(gm->GetCurrentZoom());
+
+			ResetActionPlanner();
+			HideCurHint();
+			return false;
+		}
 	}
 	return true;
 }
@@ -507,17 +541,211 @@ void CUIMapWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 	}
 }
 
+// demonized: get global map coords under mouse cursor
+Fvector2 CUIMapWnd::GetGlobalMapCoordsForMouse()
+{
+	auto gm = GlobalMap();
+
+	// 1. Get cursor position in map space
+	// Normalize mouse coordinates in map canvas
+	Fvector2 pos_abs = { 0, 0 };
+	auto cursor_pos = GetUICursor().GetCursorPosition();
+	cursor_pos.sub(ActiveMapRect().lt);
+
+	// Invert mouse coords
+	cursor_pos.mul(-1);
+
+	// Get absolute left top of the current area of the map
+	Fvector2 map_abs = { 0, 0 };
+	Fvector2& current_zoom = gm->GetCurrentZoom();
+	gm->GetAbsolutePos(map_abs);
+	map_abs.sub(gm->WorkingArea().lt);
+	map_abs.div(current_zoom);
+
+	// Increment to mouse coordinates
+	pos_abs.add(map_abs);
+	pos_abs.add(cursor_pos.div(current_zoom));
+	return pos_abs;
+}
+
 void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 {
 	m_UIPropertiesBox->RemoveAll();
 	luabind::functor<void> funct;
+	CMapSpot* sp = nullptr;
 	if (ai().script_engine().functor("pda.property_box_add_properties", funct))
 	{
-		CMapSpot* sp = smart_cast<CMapSpot*>(w);
+		sp = smart_cast<CMapSpot*>(w);
 		if (sp)
 			funct(m_UIPropertiesBox, sp->MapLocation()->ObjectID(), (LPCSTR)sp->MapLocation()->GetLevelName().c_str(),
 			      (LPCSTR)sp->MapLocation()->GetHint());
 	}
+
+	// demonized: possibility to click trigger properties box anywhere on the map with right click
+	luabind::functor<void> rcFunct;
+	if (ai().script_engine().functor("_G.COnRightClickMap", rcFunct))
+	{
+		auto gm = GlobalMap();
+
+		// 1. Get cursor position in map space
+		// Normalize mouse coordinates in map canvas
+		Fvector2 cursor_pos = GetUICursor().GetCursorPosition();
+		cursor_pos.sub(ActiveMapRect().lt);
+
+		// Invert mouse coords
+		cursor_pos.mul(-1);
+
+		// Divide by zoom level
+		Fvector2 current_zoom = gm->GetCurrentZoom();
+		cursor_pos.div(current_zoom);
+
+		// Get absolute left top of the current area of the map
+		Fvector2 map_abs = { 0, 0 };
+		gm->GetAbsolutePos(map_abs);
+		map_abs.sub(gm->WorkingArea().lt).div(current_zoom);
+
+		// Increment to mouse coordinates
+		Fvector2 pos_abs = { 0, 0 };
+		pos_abs.add(map_abs).add(cursor_pos);
+
+		// 2. Get map position from global position
+		if (gm->hoveredMap) {
+
+			// Get position of the local map on global map
+			auto lm = gm->hoveredMap;
+			Frect lm_rect;
+			lm_rect.set(0, 0, 0, 0);
+			lm->GetAbsoluteRect(lm_rect);
+
+			// Normalize local map coordinates
+			Frect lm_wa = lm->WorkingArea();
+			lm_rect.lt.sub(lm_wa.lt);
+			lm_rect.rb.sub(lm_wa.rb);
+
+			// Divide by local map zoom level
+			Fvector2 lm_zoom = lm->GetCurrentZoom();
+			lm_rect.lt.div(lm_zoom);
+			lm_rect.rb.div(lm_zoom);
+
+			// Get cursor coordinates
+			Fvector2 lm_cursor_pos = GetUICursor().GetCursorPosition();
+			lm_cursor_pos.sub(ActiveMapRect().lt);
+
+			// Invert cursor coords
+			lm_cursor_pos.mul(-1);
+
+			// Divide by local map zoom level
+			lm_cursor_pos.div(lm_zoom);
+
+			// Get local map bounding rect
+			Frect lm_bound_rect = lm->BoundRect();
+			Fvector2 lm_bound_size = { 0, 0 };
+			lm_bound_rect.getsize(lm_bound_size);
+
+			// Get mouse coordinates relative to local map left top
+			Fvector2 lm_mouse_pos = { 0, 0 };
+			lm_mouse_pos.add(lm_rect.lt).add(lm_cursor_pos);
+			
+			// Adjust local map rect based on bounding rect
+			lm_rect.rb.set(Fvector2().set(lm_rect.lt).sub(lm_bound_size));
+
+			// Adjust mouse coordinates for getting real world coordinates
+			Fvector2 lm_real_mouse_pos = { 0, 0 };
+			Fvector2 lm_adjusted_mouse_pos = { 0, 0 };
+			lm_adjusted_mouse_pos.add(lm_mouse_pos).mul(-1).mul(lm_zoom);
+			
+			// Get real world coordinates
+			lm_real_mouse_pos.x = lm_bound_rect.lt.x + lm_adjusted_mouse_pos.x / lm_zoom.x;
+			lm_real_mouse_pos.y = lm_bound_rect.height() + lm_bound_rect.lt.y - lm_adjusted_mouse_pos.y / lm_zoom.x;
+			lm_real_mouse_pos.x /= UI().get_current_kx();
+
+			// Get map name
+			LPCSTR lm_name = lm->MapName().c_str();
+
+			// Get Y component of real world coordinates - raycast. Only on current level
+			// On other levels y will be taken from lvid
+			// Get accurate lvid as well
+			Fvector lm_real_pos = { lm_real_mouse_pos.x, 0, lm_real_mouse_pos.y };
+			u32 lm_lvid = u32(-1);
+			if (0 == xr_strcmp(g_pGameLevel->name().c_str(), lm_name)) {
+
+				// perform ray cast to get actual position
+				collide::rq_result R;
+				CObject* ignore = Actor();
+				Fbox lm_bv = g_pGameLevel->ObjectSpace.GetBoundingVolume();
+				Fvector start = { lm_real_mouse_pos.x, lm_bv.max.y, lm_real_mouse_pos.y };
+				Fvector dir = { 0, -1, 0 };
+				float range = lm_bv.max.y - lm_bv.min.y;
+				Fvector res;
+				if (Level().ObjectSpace.RayPick(start, dir, range, collide::rqtStatic, R, ignore))
+				{
+					res.mad(start, dir, R.range);
+					lm_real_pos.y = res.y;
+					lm_lvid = ai().level_graph().vertex_id(lm_real_pos);
+				}
+			}
+
+			bool lvid_not_set = lm_lvid == u32(-1);
+			u16 lm_gvid = u16(-1);
+
+			// Get gvid and set lvid if wasnt set
+			auto& gg = ai().game_graph();
+			u32 current_gvid = 0;
+			float dist = FLT_MAX;
+			while (gg.valid_vertex_id(current_gvid)) {
+				auto vertex = gg.vertex(current_gvid);
+				if (!vertex) {
+					current_gvid++;
+					continue;
+				}
+				GameGraph::_LEVEL_ID level_id = vertex->level_id();
+				const GameGraph::LEVEL_MAP& levels = ai().game_graph().header().levels();
+				GameGraph::LEVEL_MAP::const_iterator I = levels.find(level_id);
+				if (I == levels.end()) {
+					current_gvid++;
+					continue;
+				}
+				LPCSTR level_name = I->second.name().c_str();
+				if (0 == xr_strcmp(level_name, lm_name)) {
+					Fvector3 pos = vertex->level_point();
+					float d = lm_real_pos.distance_to_xz_sqr(pos);
+					if (d < dist) {
+						dist = d;
+						lm_gvid = current_gvid;
+						if (lvid_not_set) {
+							lm_lvid = vertex->level_vertex_id();
+							Fvector3 lvid_pos = ai().level_graph().vertex_position(lm_lvid);
+							lm_real_pos.y = lvid_pos.y;
+						}
+					}
+				}
+				current_gvid++;
+			}
+
+			luabind::object table = luabind::newtable(ai().script_engine().lua());
+			/*table["gm_cursor_pos"] = cursor_pos;
+			table["gm_map_abs"] = map_abs;
+			table["lm_bound_rect"] = lm_bound_rect;
+			table["lm_bound_size"] = lm_bound_size;
+			table["gm_zoom"] = current_zoom;
+			table["lm_rect"] = lm_rect;
+			table["lm_zoom"] = lm_zoom;
+			table["lm_mouse_pos"] = lm_mouse_pos;
+			table["lm_mouse_pos_adjusted"] = lm_adjusted_mouse_pos;
+			table["lm_mouse_pos_real"] = lm_real_mouse_pos;*/
+			table["global_map_pos"] = pos_abs;
+			table["pos"] = lm_real_pos;
+			table["level_name"] = lm_name;
+			table["object_id"] = sp ? sp->MapLocation()->ObjectID() : 65535;
+			table["hint"] = sp ? sp->MapLocation()->GetHint() : NULL;
+			table["lvid"] = lm_lvid;
+			table["gvid"] = lm_gvid;
+
+			// 3. Lua
+			rcFunct(m_UIPropertiesBox, table);
+		}
+	}
+
 
 	if (m_UIPropertiesBox->GetItemsCount() > 0)
 	{
