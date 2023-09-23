@@ -64,9 +64,10 @@ jobs:
         # The preferred processor architecture of MSBuild. Can be either "x86", "x64", or "arm64". "x64" is only available from Visual Studio version 17.0 and later.
         msbuild-architecture: "x64"
 
-    # - name: Add Dependencies
-    #   run: |
-    #     cd "C:\Program Files (x86)\Microsoft Visual Studio\Installer"
+    - name: Add Dependencies
+      run: |
+        cd "C:\Program Files (x86)\Microsoft Visual Studio\Installer"
+        Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATLMFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.14.36.17.6.MFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
@@ -76,7 +77,6 @@ jobs:
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.Component.VC.Runtime.UCRTSDK","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ASAN","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATL","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
-    #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.ATLMFC","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Redist.14.Latest","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Tools.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Vcpkg","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
