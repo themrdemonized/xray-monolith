@@ -263,6 +263,8 @@ void CActor::IR_OnKeyboardPress(int cmd)
 	}
 }
 
+// demonized: switch to disable mouse wheel weapon change
+BOOL mouseWheelChangeWeapon = TRUE;
 void CActor::IR_OnMouseWheel(int direction)
 {
 	if (hud_adj_mode)
@@ -273,11 +275,12 @@ void CActor::IR_OnMouseWheel(int direction)
 
 	if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_DEC : (u16)kWPN_ZOOM_INC, CMD_START)) return;
 
-
-	if (direction > 0)
-		OnNextWeaponSlot();
-	else
-		OnPrevWeaponSlot();
+	if (mouseWheelChangeWeapon) {
+		if (direction > 0)
+			OnNextWeaponSlot();
+		else
+			OnPrevWeaponSlot();
+	}
 }
 
 void CActor::IR_OnKeyboardRelease(int cmd)
