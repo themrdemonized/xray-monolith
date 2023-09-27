@@ -393,8 +393,10 @@ Fvector CScriptGameObject::bone_position(u16 bone_id, bool bHud)
 
 	// demonized: backwards compatibility with scripts, get root bone if bone_id is BI_NONE
 	if (bone_id == BI_NONE) {
-		Msg("![bone_position] Incorrect bone_id provided, fallback to root bone");
-		ai().script_engine().print_stack();
+		if (strstr(Core.Params, "-dbg")) {
+			Msg("![bone_position] Incorrect bone_id provided for %s (%d), fallback to root bone", object().cNameSect_str(), object().ID());
+			ai().script_engine().print_stack();
+		}
 		bone_id = k->LL_GetBoneRoot();
 	}
 
@@ -433,8 +435,10 @@ Fvector CScriptGameObject::bone_direction(u16 bone_id, bool bHud)
 
 	// demonized: backwards compatibility with scripts, get root bone if bone_id is BI_NONE
 	if (bone_id == BI_NONE) {
-		Msg("![bone_direction] Incorrect bone_id provided, fallback to root bone");
-		ai().script_engine().print_stack();
+		if (strstr(Core.Params, "-dbg")) {
+			Msg("![bone_direction] Incorrect bone_id provided for %s (%d), fallback to root bone", object().cNameSect_str(), object().ID());
+			ai().script_engine().print_stack();
+		}
 		bone_id = k->LL_GetBoneRoot();
 	}
 
