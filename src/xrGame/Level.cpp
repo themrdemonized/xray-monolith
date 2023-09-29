@@ -967,16 +967,19 @@ void CLevel::ScriptDebugRender()
 	if (!m_debug_render_queue.size())
 		return;
 
-	DRender->OnFrameEnd();
-
+	bool hasVisibleObj = false;
 	xr_map<u16, DBG_ScriptObject*>::iterator it = m_debug_render_queue.begin();
 	xr_map<u16, DBG_ScriptObject*>::iterator it_e = m_debug_render_queue.end();
 	for (; it != it_e; ++it)
 	{
 		DBG_ScriptObject* obj = (*it).second;
-		if (obj->m_visible)
+		if (obj->m_visible) {
+			hasVisibleObj = true;
 			obj->Render();
+		}
 	}
+	if (hasVisibleObj)
+		DRender->OnFrameEnd();
 }
 
 void CLevel::OnEvent(EVENT E, u64 P1, u64 /**P2/**/)
