@@ -98,6 +98,9 @@
 		<text>Псевдогигант повреждает объекты при топоте (pseudogiant_can_damage_objects_on_stomp)</text>
 	</string>
 	<string id="ui_mm_modded_exes_use_english_text_for_missing_translations">
-		<text>Использовать английский язык для отсуствующего перевода (ui_mm_modded_exes_use_english_text_for_missing_translations)</text>
+		<text>Использовать английский язык для отсуствующего перевода (use_english_text_for_missing_translations)</text>
+	</string>
+	<string id="ui_mm_modded_exes_mouse_wheel_change_weapon">
+		<text>Менять оружие колесом мыши (mouse_wheel_change_weapon)</text>
 	</string>
 </string_table>

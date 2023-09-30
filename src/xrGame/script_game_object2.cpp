@@ -415,6 +415,20 @@ void CScriptGameObject::SetActorDirection(float dir)
 		                                "ScriptGameObject : attempt to call SetActorDirection method for non-actor object");
 }
 
+// demonized: add pitch for set actor direction
+void CScriptGameObject::SetActorDirection(float dir, float pitch)
+{
+	CActor* actor = smart_cast<CActor*>(&object());
+	if (actor)
+	{
+		actor->cam_Active()->Set(dir, pitch, 0);
+		//		actor->XFORM().setXYZ(0,dir,0);
+	} else
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"ScriptGameObject : attempt to call SetActorDirection method for non-actor object");
+}
+
+
 void CScriptGameObject::DisableHitMarks(bool disable)
 {
 	CActor* actor = smart_cast<CActor*>(&object());

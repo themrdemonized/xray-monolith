@@ -180,6 +180,8 @@ map_table contains:
 --]]
 AddScriptCallback("on_map_right_click")
 _G.COnRightClickMap = function(property_ui, map_table)
+	pda.map_spot_property.id = map_table.object_id
+	pda.map_spot_property.level_name = map_table.level_name
 	SendScriptCallback("on_map_right_click", property_ui, map_table)
 end
 
