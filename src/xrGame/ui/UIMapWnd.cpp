@@ -686,7 +686,7 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 			}
 
 			bool lvid_not_set = lm_lvid == u32(-1);
-			u16 lm_gvid = u16(-1);
+			u32 lm_gvid = u32(-1);
 
 			// Get gvid and set lvid if wasnt set
 			auto& gg = ai().game_graph();

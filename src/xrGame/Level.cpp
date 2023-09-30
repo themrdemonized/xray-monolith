@@ -978,6 +978,8 @@ void CLevel::ScriptDebugRender()
 			obj->Render();
 		}
 	}
+
+	// demonized: fix of showing console window when there are no visible gizmos 
 	if (hasVisibleObj)
 		DRender->OnFrameEnd();
 }
