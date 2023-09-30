@@ -98,6 +98,9 @@
 		<text>Pseudogiant Damage Objects On Stomp (pseudogiant_can_damage_objects_on_stomp)</text>
 	</string>
 	<string id="ui_mm_modded_exes_use_english_text_for_missing_translations">
-		<text>Use English Text For Missing Translations (ui_mm_modded_exes_use_english_text_for_missing_translations)</text>
+		<text>Use English Text For Missing Translations (use_english_text_for_missing_translations)</text>
+	</string>
+	<string id="ui_mm_modded_exes_mouse_wheel_change_weapon">
+		<text>Change weapons with mouse wheel (mouse_wheel_change_weapon)</text>
 	</string>
 </string_table>
