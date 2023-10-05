@@ -152,9 +152,15 @@ BOOL CFPCamEffector::ProcessCam(SCamEffectorInfo& info)
 
 	// Smooth out transition between current camera and target
 	if (m_customSmoothing) {
-		ema(m_Camera.j, temp.j, m_customSmoothing);
-		ema(m_Camera.k, temp.k, m_customSmoothing);
-		ema(m_Camera.c, temp.c, m_customSmoothing);
+		if (m_customSmoothing > 1) {
+			ema(m_Camera.j, temp.j, m_customSmoothing);
+			ema(m_Camera.k, temp.k, m_customSmoothing);
+			ema(m_Camera.c, temp.c, m_customSmoothing);
+		} else {
+			m_Camera.j = temp.j;
+			m_Camera.k = temp.k;
+			m_Camera.c = temp.c;
+		}
 	} else {
 		ema(m_Camera.j, temp.j, firstPersonDeathDirectionSmoothing);
 		ema(m_Camera.k, temp.k, firstPersonDeathDirectionSmoothing);

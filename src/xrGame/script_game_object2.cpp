@@ -402,32 +402,34 @@ void CScriptGameObject::SetNpcPosition(Fvector pos)
 		                                "ScriptGameObject : attempt to call SetActorPosition method for non-CCustomMonster object");
 }
 
-void CScriptGameObject::SetActorDirection(float dir)
-{
-	CActor* actor = smart_cast<CActor*>(&object());
-	if (actor)
-	{
-		actor->cam_Active()->Set(dir, 0, 0);
-		//		actor->XFORM().setXYZ(0,dir,0);
-	}
-	else
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "ScriptGameObject : attempt to call SetActorDirection method for non-actor object");
-}
-
 // demonized: add pitch for set actor direction
-void CScriptGameObject::SetActorDirection(float dir, float pitch)
+void CScriptGameObject::SetActorDirection(float dir, float pitch, float roll)
 {
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (actor)
 	{
-		actor->cam_Active()->Set(dir, pitch, 0);
+		actor->cam_Active()->Set(dir, pitch, roll);
 		//		actor->XFORM().setXYZ(0,dir,0);
 	} else
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
 			"ScriptGameObject : attempt to call SetActorDirection method for non-actor object");
 }
 
+void CScriptGameObject::SetActorDirection(float dir, float pitch)
+{
+	SetActorDirection(dir, pitch, 0);
+}
+
+void CScriptGameObject::SetActorDirection(float dir)
+{
+	SetActorDirection(dir, 0, 0);
+}
+
+// HPB vector input
+void CScriptGameObject::SetActorDirection(const Fvector& dir)
+{
+	SetActorDirection(dir.x, dir.y, dir.z);
+}
 
 void CScriptGameObject::DisableHitMarks(bool disable)
 {
