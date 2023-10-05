@@ -645,7 +645,7 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 			// Get mouse coordinates relative to local map left top
 			Fvector2 lm_mouse_pos = { 0, 0 };
 			lm_mouse_pos.add(lm_rect.lt).add(lm_cursor_pos);
-			
+
 			// Adjust local map rect based on bounding rect
 			lm_rect.rb.set(Fvector2().set(lm_rect.lt).sub(lm_bound_size));
 
@@ -653,7 +653,7 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 			Fvector2 lm_real_mouse_pos = { 0, 0 };
 			Fvector2 lm_adjusted_mouse_pos = { 0, 0 };
 			lm_adjusted_mouse_pos.add(lm_mouse_pos).mul(-1).mul(lm_zoom);
-			
+
 			// Get real world coordinates
 			lm_real_mouse_pos.x = lm_bound_rect.lt.x + lm_adjusted_mouse_pos.x / lm_zoom.x;
 			lm_real_mouse_pos.y = lm_bound_rect.height() + lm_bound_rect.lt.y - lm_adjusted_mouse_pos.y / lm_zoom.x;
@@ -693,31 +693,38 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 			u32 current_gvid = 0;
 			float dist = FLT_MAX;
 			while (gg.valid_vertex_id(current_gvid)) {
-				auto vertex = gg.vertex(current_gvid);
-				if (!vertex) {
-					current_gvid++;
-					continue;
-				}
-				GameGraph::_LEVEL_ID level_id = vertex->level_id();
-				const GameGraph::LEVEL_MAP& levels = ai().game_graph().header().levels();
-				GameGraph::LEVEL_MAP::const_iterator I = levels.find(level_id);
-				if (I == levels.end()) {
-					current_gvid++;
-					continue;
-				}
-				LPCSTR level_name = I->second.name().c_str();
-				if (0 == xr_strcmp(level_name, lm_name)) {
-					Fvector3 pos = vertex->level_point();
-					float d = lm_real_pos.distance_to_xz_sqr(pos);
-					if (d < dist) {
-						dist = d;
-						lm_gvid = current_gvid;
-						if (lvid_not_set) {
-							lm_lvid = vertex->level_vertex_id();
-							Fvector3 lvid_pos = ai().level_graph().vertex_position(lm_lvid);
-							lm_real_pos.y = lvid_pos.y;
+				try {
+					auto vertex = gg.vertex(current_gvid);
+					if (!vertex) {
+						current_gvid++;
+						continue;
+					}
+					GameGraph::_LEVEL_ID level_id = vertex->level_id();
+					const GameGraph::LEVEL_MAP& levels = ai().game_graph().header().levels();
+					GameGraph::LEVEL_MAP::const_iterator I = levels.find(level_id);
+					if (I == levels.end()) {
+						current_gvid++;
+						continue;
+					}
+					LPCSTR level_name = I->second.name().c_str();
+					if (0 == xr_strcmp(level_name, lm_name)) {
+						Fvector3 pos = vertex->level_point();
+						float d = lm_real_pos.distance_to_xz_sqr(pos);
+						if (d < dist) {
+							dist = d;
+							lm_gvid = current_gvid;
+							if (lvid_not_set) {
+								lm_lvid = vertex->level_vertex_id();
+								lm_real_pos.y = pos.y;
+
+								// code below might crash
+								/*Fvector3 lvid_pos = ai().level_graph().vertex_position(lm_lvid);
+								lm_real_pos.y = lvid_pos.y;*/
+							}
 						}
 					}
+				} catch (std::exception& e) {
+					Msg("![UIMapWnd.cpp] _G.COnRightClickMap %s", e.what());
 				}
 				current_gvid++;
 			}
