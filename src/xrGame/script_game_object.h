@@ -259,6 +259,8 @@ public:
 	void SetActorPosition(Fvector pos, bool bskip_collision_correct = false);
 	void SetActorDirection(float dir);
 	void SetActorDirection(float dir, float pitch);
+	void SetActorDirection(float dir, float pitch, float roll);
+	void SetActorDirection(const Fvector& dir);
 	void SetNpcPosition(Fvector pos);
 	void DisableHitMarks(bool disable);
 	bool DisableHitMarks() const;
