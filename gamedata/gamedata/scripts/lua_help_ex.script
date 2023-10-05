@@ -211,7 +211,9 @@
         function set_actor_walk_back_coef(float)
         function get_actor_lookout_coef()
         function set_actor_lookout_coef(float)
-        function set_actor_direction(yaw, pitch)
+        function set_actor_direction(float yaw, float pitch)
+        function set_actor_direction(float yaw, float pitch, float roll)
+        function set_actor_direction(Fvector HPB)
 
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
