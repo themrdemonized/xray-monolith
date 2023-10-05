@@ -674,6 +674,71 @@ float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam
 	return e->GetAnimatorLength();
 }
 
+// demonized: Get cam effector transform data from "*.anm" file
+#include "../xrEngine/motion.h"
+#include "../xrEngine/envelope.h"
+bool getCamEffectorTransformData(luabind::object& t, LPCSTR animationFile)
+{
+	string_path full_path;
+	if (!FS.exist(full_path, "$level$", animationFile))
+		if (!FS.exist(full_path, "$game_anims$", animationFile)) {
+			Msg("![getCamEffectorTransformData] Can't find motion file '%s'.", animationFile);
+			return false;
+		}
+
+	LPCSTR ext = strext(full_path);
+	if (ext)
+	{
+		if (0 == xr_strcmp(ext, ".anm"))
+		{
+			COMotion M;
+			if (M.LoadMotion(full_path)) {
+				std::map<EChannelType, std::string> mapOrder;
+				mapOrder[EChannelType::ctPositionX] = "positionX";
+				mapOrder[EChannelType::ctPositionY] = "positionY";
+				mapOrder[EChannelType::ctPositionZ] = "positionZ";
+				mapOrder[EChannelType::ctRotationH] = "positionH";
+				mapOrder[EChannelType::ctRotationP] = "positionP";
+				mapOrder[EChannelType::ctRotationB] = "positionB";
+
+				for (const auto& p : mapOrder) {
+					auto k = p.first;
+					auto v = p.second;
+					xr_vector<st_Key*>& keys = M.envs[k]->keys;
+					luabind::object keyData = luabind::newtable(ai().script_engine().lua());
+					int i = 1;
+					for (KeyIt k_it = keys.begin(); k_it != keys.end(); k_it++) {
+						luabind::object data = luabind::newtable(ai().script_engine().lua());
+						data["time"] = (*k_it)->time;
+						data["value"] = (*k_it)->value;
+						data["shape"] = (*k_it)->shape;
+						data["tension"] = (*k_it)->tension;
+						data["continuity"] = (*k_it)->continuity;
+						data["bias"] = (*k_it)->bias;
+						data["param0"] = (*k_it)->param[0];
+						data["param1"] = (*k_it)->param[1];
+						data["param2"] = (*k_it)->param[2];
+						data["param3"] = (*k_it)->param[3];
+						keyData[i] = data;
+						i++;
+					}
+					t[v] = keyData;
+				}
+
+				return true;
+			} else {
+				Msg("![getCamEffectorTransformData] failed to load file '%s'.", animationFile);
+				return false;
+			}
+		} else {
+			Msg("![getCamEffectorTransformData] file has incorrect extension '%s'.", animationFile);
+			return false;
+		}
+	}
+	Msg("![getCamEffectorTransformData] unknown error, file '%s'.", animationFile);
+	return false;
+}
+
 // demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
 void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing, bool hudEnabled, bool hudAffect)
 {
