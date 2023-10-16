@@ -318,6 +318,7 @@ float rain_hemi()
 
 			return hemi_val;
 		}
+		return 0;
 	}
 }
 
