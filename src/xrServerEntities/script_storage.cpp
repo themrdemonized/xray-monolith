@@ -753,14 +753,14 @@ static std::string join_list(const std::vector<std::string>& items_vec) {
 	return ret;
 };
 
-bool unlocalRegex(std::set<std::string>& unlocals, std::string& s, const std::regex pattern, const int group, const std::string replacement) {
+bool unlocalRegex(std::set<std::string>& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
 	if (std::regex_match(s, pattern)) {
 		//Msg("matching local function pattern");
 		std::smatch match;
 		std::regex_search(s, match, pattern);
 		std::string variable = match[group];
 		if (unlocals.find(variable) != unlocals.end()) {
-			Msg("found variable %s to unlocal", variable.c_str());
+			Msg("[unlocalRegex] found variable %s to unlocal", variable.c_str());
 			s = std::regex_replace(s, pattern, replacement);
 			return true;
 		}

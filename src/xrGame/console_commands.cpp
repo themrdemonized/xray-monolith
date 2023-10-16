@@ -2525,14 +2525,14 @@ void CCC_RegisterCommands()
 #endif
 
 #ifdef DEBUG
-	CMD4(CCC_Integer, "string_table_error_msg", &CStringTable::m_bWriteErrorsToLog, 0, 1);
-
 	CMD1(CCC_DumpInfos, "dump_infos");
 	CMD1(CCC_DumpTasks, "dump_tasks");
 	CMD1(CCC_DumpMap, "dump_map");
 	CMD1(CCC_DumpCreatures, "dump_creatures");
 
 #endif
+	// demonized: string_table_error_msg cvar to display missing translations
+	CMD4(CCC_Integer, "string_table_error_msg", &CStringTable::m_bWriteErrorsToLog, 0, 1);
 
 	CMD3(CCC_Mask, "cl_dynamiccrosshair", &psHUD_Flags, HUD_CROSSHAIR_DYNAMIC);
 	CMD1(CCC_MainMenu, "main_menu");
