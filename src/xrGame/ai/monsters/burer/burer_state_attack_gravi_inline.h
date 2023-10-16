@@ -138,4 +138,8 @@ void CStateBurerAttackGravi<Object>::ExecuteGraviFire()
 
 	object->StopGraviPrepare();
 	object->sound().play(CBurer::eMonsterSoundGraviAttack);
+
+	// Interactive Grass FX
+	extern Fvector4 ps_ssfx_grass_interactive;
+	g_pGamePersistent->GrassBendersAddExplosion(object->ID(), from_pos, object->Direction(), 1.33f, 3.0f, ps_ssfx_grass_interactive.w, 13.0f);
 }

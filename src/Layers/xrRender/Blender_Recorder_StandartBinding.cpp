@@ -384,6 +384,23 @@ class cl_hemi_color : public R_constant_setup
 };
 
 static cl_hemi_color binder_hemi_color;
+
+class cl_sky_color : public R_constant_setup
+{
+	u32 marker;
+	Fvector4 result;
+
+	virtual void setup(R_constant* C)
+	{
+		if (marker != Device.dwFrame)
+		{
+			CEnvDescriptor& desc = *g_pGamePersistent->Environment().CurrentEnv;
+			result.set(desc.sky_color.x, desc.sky_color.y, desc.sky_color.z, desc.sky_rotation);
+		}
+		RCache.set_c(C, result);
+	}
+};
+static cl_sky_color binder_sky_color;
 #endif
 
 static class cl_screen_res : public R_constant_setup
@@ -521,6 +538,24 @@ static class cl_near_far_plane : public R_constant_setup
 	}
 } binder_near_far_plane;
 
+// Screen Space Shaders Stuff
+extern Fvector4 ps_ssfx_florafixes_1;
+extern Fvector4 ps_ssfx_florafixes_2;
+
+extern float ps_ssfx_gloss_factor;
+extern Fvector3 ps_ssfx_gloss_minmax;
+
+extern Fvector4 ps_ssfx_wetsurfaces_1;
+extern Fvector4 ps_ssfx_wetsurfaces_2;
+
+extern int ps_ssfx_is_underground;
+extern Fvector4 ps_ssfx_lightsetup_1;
+extern Fvector4 ps_ssfx_hud_drops_1;
+extern Fvector4 ps_ssfx_hud_drops_2;
+extern Fvector4 ps_ssfx_blood_decals;
+extern Fvector4 ps_ssfx_wpn_dof_1;
+extern float ps_ssfx_wpn_dof_2;
+
 //Sneaky debug stuff
 extern Fvector4 ps_dev_param_1;
 extern Fvector4 ps_dev_param_2;
@@ -594,6 +629,103 @@ static class dev_param_8 : public R_constant_setup
 		RCache.set_c(C, ps_dev_param_8.x, ps_dev_param_8.y, ps_dev_param_8.z, ps_dev_param_8.w);
 	}
 }    dev_param_8;
+
+static class ssfx_wpn_dof_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wpn_dof_1.x, ps_ssfx_wpn_dof_1.y, ps_ssfx_wpn_dof_1.z, ps_ssfx_wpn_dof_1.w);
+	}
+}    ssfx_wpn_dof_1;
+
+static class ssfx_wpn_dof_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wpn_dof_2, 0, 0, 0);
+	}
+}    ssfx_wpn_dof_2;
+
+static class ssfx_blood_decals : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_blood_decals);
+	}
+}    ssfx_blood_decals;
+
+static class ssfx_hud_drops_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_drops_1);
+	}
+}    ssfx_hud_drops_1;
+
+static class ssfx_hud_drops_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_drops_2);
+	}
+}    ssfx_hud_drops_2;
+
+static class ssfx_lightsetup_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_lightsetup_1);
+	}
+}    ssfx_lightsetup_1;
+
+static class ssfx_is_underground : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_is_underground, 0, 0, 0);
+	}
+}    ssfx_is_underground;
+
+static class ssfx_wetsurfaces_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wetsurfaces_1);
+	}
+}    ssfx_wetsurfaces_1;
+
+static class ssfx_wetsurfaces_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wetsurfaces_2);
+	}
+}    ssfx_wetsurfaces_2;
+
+static class ssfx_gloss : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, 0);
+	}
+}    ssfx_gloss;
+
+static class ssfx_florafixes_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_florafixes_1);
+	}
+}    ssfx_florafixes_1;
+
+static class ssfx_florafixes_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_florafixes_2);
+	}
+}    ssfx_florafixes_2;
+
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -679,6 +811,21 @@ void CBlender_Compile::SetMapping()
 
 	// PDA
 	r_Constant("pda_params", &binder_pda_params);
+
+	// Screen Space Shaders
+	r_Constant("sky_color", &binder_sky_color);
+	r_Constant("ssfx_wpn_dof_1", &ssfx_wpn_dof_1);
+	r_Constant("ssfx_wpn_dof_2", &ssfx_wpn_dof_2);
+	r_Constant("ssfx_blood_decals", &ssfx_blood_decals);
+	r_Constant("ssfx_hud_drops_1", &ssfx_hud_drops_1);
+	r_Constant("ssfx_hud_drops_2", &ssfx_hud_drops_2);
+	r_Constant("ssfx_lightsetup_1", &ssfx_lightsetup_1);
+	r_Constant("ssfx_is_underground", &ssfx_is_underground);
+	r_Constant("ssfx_wetsurfaces_1", &ssfx_wetsurfaces_1);
+	r_Constant("ssfx_wetsurfaces_2", &ssfx_wetsurfaces_2);
+	r_Constant("ssfx_gloss", &ssfx_gloss);
+	r_Constant("ssfx_florafixes_1", &ssfx_florafixes_1);
+	r_Constant("ssfx_florafixes_2", &ssfx_florafixes_2);
 
 	// Shader stuff
 	r_Constant("shader_param_1", &dev_param_1);
