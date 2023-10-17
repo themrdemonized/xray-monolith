@@ -660,6 +660,17 @@ static class cl_near_far_plane : public R_constant_setup
 } binder_near_far_plane;
 
 // Screen Space Shaders Stuff
+extern Fvector4 ps_ssfx_florafixes_1;
+extern Fvector4 ps_ssfx_florafixes_2;
+
+extern float ps_ssfx_gloss_factor;
+extern Fvector3 ps_ssfx_gloss_minmax;
+
+extern Fvector4 ps_ssfx_wetsurfaces_1;
+extern Fvector4 ps_ssfx_wetsurfaces_2;
+
+extern int ps_ssfx_is_underground;
+extern Fvector4 ps_ssfx_lightsetup_1;
 extern Fvector4 ps_ssfx_hud_drops_1;
 extern Fvector4 ps_ssfx_hud_drops_2;
 extern Fvector4 ps_ssfx_blood_decals;
@@ -780,6 +791,63 @@ static class ssfx_hud_drops_2 : public R_constant_setup
 	}
 }    ssfx_hud_drops_2;
 
+static class ssfx_lightsetup_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_lightsetup_1);
+	}
+}    ssfx_lightsetup_1;
+
+static class ssfx_is_underground : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_is_underground, 0, 0, 0);
+	}
+}    ssfx_is_underground;
+
+static class ssfx_wetsurfaces_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wetsurfaces_1);
+	}
+}    ssfx_wetsurfaces_1;
+
+static class ssfx_wetsurfaces_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wetsurfaces_2);
+	}
+}    ssfx_wetsurfaces_2;
+
+static class ssfx_gloss : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, 0);
+	}
+}    ssfx_gloss;
+
+static class ssfx_florafixes_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_florafixes_1);
+	}
+}    ssfx_florafixes_1;
+
+static class ssfx_florafixes_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_florafixes_2);
+	}
+}    ssfx_florafixes_2;
+
+
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
 {
@@ -874,6 +942,13 @@ void CBlender_Compile::SetMapping()
 	r_Constant("ssfx_blood_decals", &ssfx_blood_decals);
 	r_Constant("ssfx_hud_drops_1", &ssfx_hud_drops_1);
 	r_Constant("ssfx_hud_drops_2", &ssfx_hud_drops_2);
+	r_Constant("ssfx_lightsetup_1", &ssfx_lightsetup_1);
+	r_Constant("ssfx_is_underground", &ssfx_is_underground);
+	r_Constant("ssfx_wetsurfaces_1", &ssfx_wetsurfaces_1);
+	r_Constant("ssfx_wetsurfaces_2", &ssfx_wetsurfaces_2);
+	r_Constant("ssfx_gloss", &ssfx_gloss);
+	r_Constant("ssfx_florafixes_1", &ssfx_florafixes_1);
+	r_Constant("ssfx_florafixes_2", &ssfx_florafixes_2);
 
 	// Shader stuff
 	r_Constant("shader_param_1", &dev_param_1);
