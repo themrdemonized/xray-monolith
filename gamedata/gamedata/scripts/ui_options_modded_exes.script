@@ -291,6 +291,18 @@ function init_opt_base()
 				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
 				cmd = "pseudogiant_can_damage_objects_on_stomp",
 			},
+
+			{ id = "divider", type = "line" },
+
+			-- Debug
+			{
+				id = "string_table_error_msg",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "string_table_error_msg") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "string_table_error_msg",
+			},
 		},
 	})
 end

@@ -103,4 +103,7 @@
 	<string id="ui_mm_modded_exes_mouse_wheel_change_weapon">
 		<text>Менять оружие колесом мыши (mouse_wheel_change_weapon)</text>
 	</string>
+	<string id="ui_mm_modded_exes_string_table_error_msg">
+		<text>Лог отсутсвующих переводов (string_table_error_msg)</text>
+	</string>
 </string_table>
