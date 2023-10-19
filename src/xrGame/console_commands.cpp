@@ -125,6 +125,7 @@ namespace crash_saving {
 extern BOOL pda_map_zoom_in_to_mouse;
 extern BOOL pda_map_zoom_out_to_mouse;
 extern BOOL mouseWheelChangeWeapon;
+extern BOOL mouseWheelInvertZoom;
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2675,6 +2676,7 @@ void CCC_RegisterCommands()
 
 	// Mouse Wheel
 	CMD4(CCC_Integer, "mouse_wheel_change_weapon", &mouseWheelChangeWeapon, 0, 1);
+	CMD4(CCC_Integer, "mouse_wheel_invert_zoom", &mouseWheelInvertZoom, 0, 1);
 
 	//Toggle crash saving
 	CMD4(CCC_Integer, "crash_save", &crash_saving::enabled, 0, 1);
