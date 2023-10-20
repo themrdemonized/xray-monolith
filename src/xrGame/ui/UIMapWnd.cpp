@@ -420,6 +420,7 @@ bool CUIMapWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	return inherited::OnKeyboardAction(dik, keyboard_action);
 }
 
+extern BOOL mouseWheelInvertZoom;
 bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 {
 	if (inherited::OnMouseAction(x, y, mouse_action) /*|| m_btn_nav_parent->OnMouseAction(x,y,mouse_action)*/)
@@ -447,11 +448,11 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 			break;
 
 		case WINDOW_MOUSE_WHEEL_DOWN:
-			UpdateZoom(true, true);
+			UpdateZoom(mouseWheelInvertZoom, true);
 			return true;
 			break;
 		case WINDOW_MOUSE_WHEEL_UP:
-			UpdateZoom(false, true);
+			UpdateZoom(!mouseWheelInvertZoom, true);
 			return true;
 			break;
 		} //switch	
