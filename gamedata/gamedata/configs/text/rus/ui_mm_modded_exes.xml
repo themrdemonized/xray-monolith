@@ -106,4 +106,7 @@
 	<string id="ui_mm_modded_exes_string_table_error_msg">
 		<text>Лог отсутсвующих переводов (string_table_error_msg)</text>
 	</string>
+	<string id="ui_mm_modded_exes_monster_stuck_fix">
+		<text>Фикс застревающих монстров (проседает FPS) (monster_stuck_fix)</text>
+	</string>
 </string_table>
