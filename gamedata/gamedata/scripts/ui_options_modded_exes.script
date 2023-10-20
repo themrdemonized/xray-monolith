@@ -192,6 +192,15 @@ function init_opt_base()
 
 			-- QoL
 			{
+				id = "monster_stuck_fix",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "monster_stuck_fix") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "monster_stuck_fix",
+				restart = true,
+			},
+			{
 				id = "mouse_wheel_change_weapon",
 				type = "list",
 				val = 0,

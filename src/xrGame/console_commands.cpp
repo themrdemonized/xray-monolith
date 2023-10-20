@@ -125,6 +125,7 @@ namespace crash_saving {
 extern BOOL pda_map_zoom_in_to_mouse;
 extern BOOL pda_map_zoom_out_to_mouse;
 extern BOOL mouseWheelChangeWeapon;
+extern BOOL monsterStuckFix;
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2679,6 +2680,9 @@ void CCC_RegisterCommands()
 	//Toggle crash saving
 	CMD4(CCC_Integer, "crash_save", &crash_saving::enabled, 0, 1);
 	CMD4(CCC_Integer, "crash_save_count", &crash_saving::saveCountMax, 0, 20);
+
+	// Monster Stuck Fix
+	CMD4(CCC_Integer, "monster_stuck_fix", &monsterStuckFix, 0, 1);
 
 	if (strstr(Core.Params, "-dbgdev"))
 		CMD4(CCC_Float, "g_streff", &streff, -10.f, 10.f);
