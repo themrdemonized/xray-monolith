@@ -265,6 +265,8 @@ void CActor::IR_OnKeyboardPress(int cmd)
 
 // demonized: switch to disable mouse wheel weapon change
 BOOL mouseWheelChangeWeapon = TRUE;
+// mbehm: switch to allow inverting mouse wheel zoom direction
+BOOL mouseWheelInvertZoom = TRUE;
 void CActor::IR_OnMouseWheel(int direction)
 {
 	if (hud_adj_mode)
@@ -273,7 +275,11 @@ void CActor::IR_OnMouseWheel(int direction)
 		return;
 	}
 
-	if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_DEC : (u16)kWPN_ZOOM_INC, CMD_START)) return;
+	if (mouseWheelInvertZoom) {
+		if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_DEC : (u16)kWPN_ZOOM_INC, CMD_START)) return;
+	} else {
+		if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_INC : (u16)kWPN_ZOOM_DEC, CMD_START)) return;
+	}
 
 	if (mouseWheelChangeWeapon) {
 		if (direction > 0)
