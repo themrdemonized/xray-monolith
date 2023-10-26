@@ -32,6 +32,7 @@
         pda_map_zoom_out_to_mouse // Enable map zoom out relative to cursor
 
         mouse_wheel_change_weapon // Enable changing weapons with mouse wheel
+        mouse_wheel_invert_zoom // Invert mouse wheel
 
         string_table_error_msg // Print xml translation errors
         monster_stuck_fix // Enables fix of stuck monsters at the fps cost
