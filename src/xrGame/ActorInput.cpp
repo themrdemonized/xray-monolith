@@ -265,8 +265,9 @@ void CActor::IR_OnKeyboardPress(int cmd)
 
 // demonized: switch to disable mouse wheel weapon change
 BOOL mouseWheelChangeWeapon = TRUE;
+
 // mbehm: switch to allow inverting mouse wheel zoom direction
-BOOL mouseWheelInvertZoom = TRUE;
+BOOL mouseWheelInvertZoom = FALSE;
 void CActor::IR_OnMouseWheel(int direction)
 {
 	if (hud_adj_mode)
