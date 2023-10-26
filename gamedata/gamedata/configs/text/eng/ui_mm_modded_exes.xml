@@ -103,6 +103,9 @@
 	<string id="ui_mm_modded_exes_mouse_wheel_change_weapon">
 		<text>Change weapons with mouse wheel (mouse_wheel_change_weapon)</text>
 	</string>
+	<string id="ui_mm_modded_exes_mouse_wheel_invert_zoom">
+		<text>Invert mouse wheel (mouse_wheel_invert_zoom)</text>
+	</string>
 	<string id="ui_mm_modded_exes_string_table_error_msg">
 		<text>Log missing translation strings (string_table_error_msg)</text>
 	</string>
