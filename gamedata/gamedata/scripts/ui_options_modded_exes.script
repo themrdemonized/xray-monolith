@@ -210,6 +210,15 @@ function init_opt_base()
 				restart = false,
 			},
 			{
+				id = "mouse_wheel_invert_zoom",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "mouse_wheel_invert_zoom") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "mouse_wheel_invert_zoom",
+				restart = false,
+			},
+			{
 				id = "use_english_text_for_missing_translations",
 				type = "list",
 				val = 0,
