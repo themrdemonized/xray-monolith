@@ -261,10 +261,8 @@
         bool bone_visible(string)
         bool bone_visible(string, bool bHud)
 
-        function set_bone_visible(u16 id)
-        function set_bone_visible(u16 id, bool bHud)
-        function set_bone_visible(string)
-        function set_bone_visible(string, bool bHud)
+        function set_bone_visible(u16 id, bool bVisibility, bool bRecursive, bool bHud)
+        function set_bone_visible(string bone_name, bool bVisibility, bool bRecursive, bool bHud)
     }
 
     class CArtefact : CGameObject {
