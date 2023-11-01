@@ -1692,7 +1692,7 @@ void CScriptGameObject::ForceSetPosition(Fvector pos, bool bActivate)
 	if (shell)
 	{
 		if (bActivate)
-			sh->activate_physic_shell();
+			shell->Enable();
 
 #if 1
 		Fmatrix M = Fmatrix().set(object().XFORM());
@@ -1719,10 +1719,11 @@ void CScriptGameObject::ForceSetAngle(Fvector ang, bool bActivate)
 	if (!sh)
 		return;
 
-	if (bActivate)
-		sh->activate_physic_shell();
+	CPhysicsShell* shell = sh->PPhysicsShell();
 
-	CPhysicsShell *shell = sh->PPhysicsShell();
+	if (bActivate)
+		shell->Enable();
+
 	if (shell)
 	{
 		Fmatrix M = Fmatrix().set(object().XFORM());
