@@ -845,6 +845,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 	// Unlocalize variables in the script defined by unlocalizers map
 	auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
 	auto scriptLength = (size_t)l_tpFileReader->length();
+	bool unlocalPerformed = false;
 	if (unlocalizers.find(std::string(caNameSpaceName)) != unlocalizers.end()) {
 		Msg("found script %s in unlocalizers data", caNameSpaceName);
 
@@ -885,6 +886,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 			//local function x(a,b,c)
 			pattern = std::regex(R"((^local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(\(.*$))");
 			if (unlocalRegex(unlocals, s, pattern, 5, "$3$4$5$6$7")) {
+				unlocalPerformed = true;
 				continue;
 			}
 
@@ -915,6 +917,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 					trim(v);
 					//Msg("%s\n", v.c_str());
 					if (unlocals.find(v) != unlocals.end()) {
+						unlocalPerformed = true;
 						Msg("found variable %s to unlocal", v.c_str());
 						s = std::regex_replace(s, pattern, "$3");
 						if (!hasValue) {
@@ -952,8 +955,15 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 
 	strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
 
-	if (!load_buffer(lua(), scriptContents, scriptLength,
-	                 l_caLuaFileName, caNameSpaceName))
+	bool bufferLoaded = false;
+	if (unlocalPerformed) {
+		bufferLoaded = load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
+	} else {
+		l_tpFileReader->rewind();
+		bufferLoaded = load_buffer(lua(), static_cast<LPCSTR>(l_tpFileReader->pointer()), (size_t)l_tpFileReader->length(), l_caLuaFileName, caNameSpaceName);
+	}
+
+	if (!bufferLoaded)
 	{
 		//		VERIFY		(lua_gettop(lua()) >= 4);
 		//		lua_pop		(lua(),4);

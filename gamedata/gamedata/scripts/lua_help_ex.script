@@ -32,6 +32,7 @@
         pda_map_zoom_out_to_mouse // Enable map zoom out relative to cursor
 
         mouse_wheel_change_weapon // Enable changing weapons with mouse wheel
+        mouse_wheel_invert_zoom // Invert mouse wheel
 
         string_table_error_msg // Print xml translation errors
         monster_stuck_fix // Enables fix of stuck monsters at the fps cost
@@ -260,10 +261,8 @@
         bool bone_visible(string)
         bool bone_visible(string, bool bHud)
 
-        function set_bone_visible(u16 id)
-        function set_bone_visible(u16 id, bool bHud)
-        function set_bone_visible(string)
-        function set_bone_visible(string, bool bHud)
+        function set_bone_visible(u16 id, bool bVisibility, bool bRecursive, bool bHud)
+        function set_bone_visible(string bone_name, bool bVisibility, bool bRecursive, bool bHud)
     }
 
     class CArtefact : CGameObject {
