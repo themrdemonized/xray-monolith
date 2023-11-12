@@ -52,7 +52,7 @@ float sens_multiple = 1.0f;
 
 float CWeapon::SDS_Radius(bool alt) {
 	shared_str scope_tex_name;
-	if (m_zoomtype == 0 && zoomFlags.test(SDS))
+	if (zoomFlags.test(SDS))
 	{
 		if (0 != (m_flagsAddOnState & CSE_ALifeItemWeapon::eWeaponAddonScope) && m_scopes.size())
 		{
@@ -284,7 +284,7 @@ void CWeapon::UpdateZoomParams() {
 
 
 	float zoom_multiple = 1.0f;
-	if (zoomFlags.test(SDS_ZOOM) && (SDS_Radius() > 0.0)) {
+	if (zoomFlags.test(SDS_ZOOM) && (SDS_Radius(m_zoomtype == 1) > 0.0)) {
 		zoom_multiple = scope_scrollpower;
 	}
 
@@ -322,7 +322,7 @@ void CWeapon::UpdateZoomParams() {
 	}
 
 	if (IsZoomed()) {
-		scope_radius = SDS_Radius();
+		scope_radius = SDS_Radius(m_zoomtype == 1);
 		if (m_zoomtype == 0 && zoomFlags.test(SDS_SPEED) && (scope_radius > 0.0)) {
 			sens_multiple = scope_scrollpower;
 		} else {
@@ -1765,7 +1765,7 @@ float CWeapon::CurrentZoomFactor()
 void CWeapon::OnZoomIn()
 {
     //////////
-    scope_radius = SDS_Radius();
+    scope_radius = SDS_Radius(m_zoomtype == 1);
 
 	if ((scope_radius > 0.0) && zoomFlags.test(SDS_SPEED)) {
 		sens_multiple = scope_scrollpower;
