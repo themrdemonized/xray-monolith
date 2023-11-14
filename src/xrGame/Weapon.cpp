@@ -51,6 +51,10 @@ float sens_multiple = 1.0f;
 
 
 float CWeapon::SDS_Radius(bool alt) {
+	// hack for GL to always return 0, fix later
+	if (m_zoomtype == 2)
+		return 0.0;
+
 	shared_str scope_tex_name;
 	if (zoomFlags.test(SDS))
 	{
