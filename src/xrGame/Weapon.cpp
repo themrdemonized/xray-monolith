@@ -60,7 +60,7 @@ float CWeapon::SDS_Radius(bool alt) {
 	{
 		if (0 != (m_flagsAddOnState & CSE_ALifeItemWeapon::eWeaponAddonScope) && m_scopes.size())
 		{
-			scope_tex_name = pSettings->r_string(GetScopeName(), alt ? "scope_texture_alt" : "scope_texture");
+			scope_tex_name = READ_IF_EXISTS(pSettings, r_string, GetScopeName(), alt ? "scope_texture_alt" : "scope_texture", NULL);
 		}
 		else
 		{
