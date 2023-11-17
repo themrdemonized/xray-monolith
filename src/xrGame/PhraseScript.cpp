@@ -86,6 +86,29 @@ LPCSTR CDialogScriptHelper::GetScriptText(LPCSTR str_to_translate, const CGameOb
 		return str_to_translate;
 
 	luabind::functor<LPCSTR> lua_function;
+#ifdef DIALOG_UPGRADE
+	luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
+	string256 str = {0};
+	xr_sprintf(str, sizeof(str), m_sScriptTextFunc.c_str());
+	LPCSTR v1 = strchr(str, '(');
+	LPCSTR v2 = strchr(str, ')');
+	if (v1 && v2 && (v1 < v2))
+	{
+		str[v1 - str] = '\0';
+		str[v2 - str] = '\0';
+		LPCSTR parameters_table_str = v1 + 1;
+		int n = _GetItemCount(parameters_table_str, ':');
+		for (int k = 0; k < n; k++)
+		{
+			string64 tmp;
+			_GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
+			parameters_table[k + 1] = tmp;
+		}
+	}
+	bool functor_exists = ai().script_engine().functor(str, lua_function);
+	THROW3(functor_exists, "Cannot find phrase script text ", m_sScriptTextFunc.c_str());
+	return lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), dialog_id, phrase_id, "", parameters_table);
+#else
 	bool functor_exists = ai().script_engine().functor(m_sScriptTextFunc.c_str(), lua_function);
 	THROW3(functor_exists, "Cannot find phrase script text ", m_sScriptTextFunc.c_str());
 
@@ -95,6 +118,7 @@ LPCSTR CDialogScriptHelper::GetScriptText(LPCSTR str_to_translate, const CGameOb
 	                          phrase_id);
 
 	return res;
+#endif
 }
 
 bool CDialogScriptHelper::Precondition(const CGameObject* pSpeakerGO, LPCSTR dialog_id, LPCSTR phrase_id) const
@@ -162,10 +186,39 @@ bool CDialogScriptHelper::Precondition(const CGameObject* pSpeakerGO1,
 	{
 		luabind::functor<bool> lua_function;
 		THROW(*Preconditions()[i]);
+
+#ifdef DIALOG_UPGRADE
+		luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
+		string256 str = {0};
+		xr_sprintf(str, sizeof(str), Preconditions()[i].c_str());
+		LPCSTR v1 = strchr(str, '(');
+		LPCSTR v2 = strchr(str, ')');
+		if (v1 && v2 && (v1 < v2))
+		{
+			str[v1 - str] = '\0';
+			str[v2 - str] = '\0';
+			LPCSTR parameters_table_str = v1 + 1;
+			int n = _GetItemCount(parameters_table_str, ':');
+			for (int k = 0; k < n; k++)
+			{
+				string64 tmp;
+				_GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
+				parameters_table[k + 1] = tmp;
+			}
+		}
+		bool is_positive = true;
+		string256 lua_function_str = {0};
+		GetLuaFunctionStringAndHeaderFlag(str, lua_function_str, sizeof(lua_function_str), is_positive);
+		bool functor_exists = ai().script_engine().functor(lua_function_str, lua_function);
+		THROW3(functor_exists, "Cannot find phrase precondition", Preconditions()[i].c_str());
+		predicate_result = lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), dialog_id, phrase_id, next_phrase_id, parameters_table);
+		predicate_result = (is_positive == true) ? predicate_result : !predicate_result;
+#else
 		bool functor_exists = ai().script_engine().functor(*Preconditions()[i], lua_function);
 		THROW3(functor_exists, "Cannot find phrase precondition", *Preconditions()[i]);
 		predicate_result = lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), dialog_id,
 		                                phrase_id, next_phrase_id);
+#endif
 		if (!predicate_result)
 		{
 #ifdef DEBUG
@@ -187,6 +240,39 @@ void CDialogScriptHelper::Action(const CGameObject* pSpeakerGO1, const CGameObje
 	{
 		luabind::functor<void> lua_function;
 		THROW(*Actions()[i]);
+
+#ifdef DIALOG_UPGRADE
+		luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
+		string256 str = {0};
+		xr_sprintf(str, sizeof(str), Actions()[i].c_str());
+		LPCSTR v1 = strchr(str, '(');
+		LPCSTR v2 = strchr(str, ')');
+		if (v1 && v2 && (v1 < v2))
+		{
+			str[v1 - str] = '\0';
+			str[v2 - str] = '\0';
+			LPCSTR parameters_table_str = v1 + 1;
+			int n = _GetItemCount(parameters_table_str, ':');
+			for (int k = 0; k < n; k++)
+			{
+				string64 tmp;
+				_GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
+				parameters_table[k + 1] = tmp;
+			}
+		}
+		bool is_positive = true;
+		string256 lua_function_str = {0};
+		GetLuaFunctionStringAndHeaderFlag(str, lua_function_str, sizeof(lua_function_str), is_positive);
+		bool functor_exists = ai().script_engine().functor(lua_function_str, lua_function);
+		THROW3(functor_exists, "Cannot find phrase dialog script function", Actions()[i].c_str());
+		try
+		{
+			lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), dialog_id, phrase_id, "", parameters_table);
+		}
+		catch (...)
+		{
+		}
+#else
 		bool functor_exists = ai().script_engine().functor(*Actions()[i], lua_function);
 		THROW3(functor_exists, "Cannot find phrase dialog script function", *Actions()[i]);
 		try
@@ -196,5 +282,30 @@ void CDialogScriptHelper::Action(const CGameObject* pSpeakerGO1, const CGameObje
 		catch (...)
 		{
 		}
+#endif
 	}
 }
+
+#ifdef DIALOG_UPGRADE
+void CDialogScriptHelper::GetLuaFunctionStringAndHeaderFlag(char *str, char *dst, int dst_size, bool &is_positive) const
+{
+	if (str && (str[0] != 0))
+	{
+		switch (str[0])
+		{
+		case '!':
+			xr_sprintf(dst, dst_size, str + 1);
+			is_positive = false;
+			break;
+		case '=':
+			xr_sprintf(dst, dst_size, str + 1);
+			is_positive = true;
+			break;
+		default:
+			is_positive = true;
+			xr_sprintf(dst, dst_size, str);
+			break;
+		}
+	}
+}
+#endif

@@ -6,6 +6,10 @@
 
 #include "InfoPortionDefs.h"
 
+#ifndef DIALOG_UPGRADE
+#define DIALOG_UPGRADE
+#endif
+
 #pragma once
 
 class CGameObject;
@@ -75,4 +79,9 @@ protected:
 	//проверка наличия/отсутствия информации
 	INFO_VECTOR m_HasInfo;
 	INFO_VECTOR m_DontHasInfo;
+
+#ifdef DIALOG_UPGRADE
+public:
+	void GetLuaFunctionStringAndHeaderFlag(char *str, char *dst, int dst_size, bool &is_positive) const;
+#endif
 };
