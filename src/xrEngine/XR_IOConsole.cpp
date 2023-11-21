@@ -101,7 +101,8 @@ u32 CConsole::get_mark_color(Console_mark type)
 	return color;
 }
 
-bool CConsole::is_mark(Console_mark type)
+// demonized: export console mark enum outside of CConsole class
+bool is_console_mark(Console_mark type)
 {
 	switch (type)
 	{
@@ -122,6 +123,11 @@ bool CConsole::is_mark(Console_mark type)
 		break;
 	}
 	return false;
+}
+
+bool CConsole::is_mark(Console_mark type)
+{
+	return is_console_mark(type);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
