@@ -8,6 +8,12 @@
 #include "malloc.h"
 #endif
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+#include <string>
+
 extern BOOL LogExecCB = TRUE;
 static string_path logFName = "engine.log";
 static string_path log_file_name = "engine.log";
@@ -39,6 +45,39 @@ void FlushLog()
 	}
 }
 
+std::string getCurrentTimeStamp(LPCSTR format = "%d.%m.%Y %H:%M:%S") {
+	using namespace std::chrono;
+
+	// get current time
+	auto now = system_clock::now();
+
+	// get number of milliseconds for the current second
+	// (remainder after division into seconds)
+	auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
+
+	// convert to std::time_t in order to convert to std::tm (broken time)
+	auto timer = system_clock::to_time_t(now);
+
+	// convert to broken time
+	std::tm bt = *std::localtime(&timer);
+
+	std::ostringstream oss;
+
+	oss << std::put_time(&bt, format); // HH:MM:SS
+	oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+
+	return oss.str();
+}
+
+std::string timeInDMYHMSMMM()
+{
+	return getCurrentTimeStamp("%d.%m.%Y %H:%M:%S");
+}
+
+BOOL logTimestamps = TRUE;
+enum Console_mark;
+extern bool is_console_mark(Console_mark type);
+
 void AddOne(const char* split)
 {
 	if (!LogFile)
@@ -53,7 +92,18 @@ void AddOne(const char* split)
 
 	// DUMP_PHASE;
 	{
-		shared_str temp = shared_str(split);
+		// demonized: add timestamps to log
+		std::string t = split;
+		if (logTimestamps) {
+			std::string c = "";
+			if (t.length() > 0 && is_console_mark((Console_mark)t[0])) {
+				c = t[0];
+				c += " ";
+				t.erase(0, 1);
+			}
+			t = c + "[" + timeInDMYHMSMMM() + "] " + t;
+		}
+		auto temp = shared_str(t.c_str());
 		static shared_str last_str;
 		static int items_count;
 
