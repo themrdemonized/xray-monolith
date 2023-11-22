@@ -1152,6 +1152,7 @@ function xml_object(xml_file_name, xml_string, xml_table)
 	t.query = function(self, query, where)
 		local query_table = cssQuery(query)
 		if is_empty(query_table) then
+			print_parser_error(xml_file_name, "invalid query %s", query)
 			return {}
 		end
 
