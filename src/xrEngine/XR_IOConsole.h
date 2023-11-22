@@ -57,6 +57,28 @@ struct TipString
 	}
 };
 
+// demonized: export console mark enum outside of CConsole class
+enum Console_mark // (int)=char
+{
+	no_mark = ' ',
+	mark0 = '~',
+	mark1 = '!',
+	// error
+	mark2 = '@',
+	// console cmd
+	mark3 = '#',
+	mark4 = '$',
+	mark5 = '%',
+	mark6 = '^',
+	mark7 = '&',
+	mark8 = '*',
+	mark9 = '-',
+	// green = ok
+	mark10 = '+',
+	mark11 = '=',
+	mark12 = '/'
+};
+
 class ENGINE_API CConsole :
 	public pureRender,
 	public pureFrame,
@@ -142,32 +164,12 @@ public:
 	Fvector GetFVector(LPCSTR cmd) const;
 	Fvector* GetFVectorPtr(LPCSTR cmd) const;
 	IConsole_Command* GetCommand(LPCSTR cmd) const;
+
 protected:
 	text_editor::line_editor* m_editor;
 	text_editor::line_edit_control& ec();
 
 	BENCH_SEC_SCRAMBLEMEMBER2
-
-	enum Console_mark // (int)=char
-	{
-		no_mark = ' ',
-		mark0 = '~',
-		mark1 = '!',
-		// error
-		mark2 = '@',
-		// console cmd
-		mark3 = '#',
-		mark4 = '$',
-		mark5 = '%',
-		mark6 = '^',
-		mark7 = '&',
-		mark8 = '*',
-		mark9 = '-',
-		// green = ok
-		mark10 = '+',
-		mark11 = '=',
-		mark12 = '/'
-	};
 
 	bool is_mark(Console_mark type);
 	u32 get_mark_color(Console_mark type);

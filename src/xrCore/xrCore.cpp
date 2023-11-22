@@ -32,7 +32,9 @@ static u32 init_counter = 0;
 
 //. extern xr_vector<shared_str>* LogFile;
 
+// demonized: print modded exes version
 extern int get_modded_exes_version();
+extern std::string timeInDMYHMSMMM();
 
 void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, LPCSTR fs_fname)
 {
@@ -161,6 +163,7 @@ void xrCore::_initialize(LPCSTR _ApplicationName, LogCallback cb, BOOL init_fs, 
 
 		// demonized: Print modded exes version
 		Msg("Modded exes version %d\n", get_modded_exes_version());
+		Msg("Game started: %s\n", timeInDMYHMSMMM().c_str());
 		EFS._initialize();
 #ifdef DEBUG
 #ifndef _EDITOR

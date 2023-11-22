@@ -1152,7 +1152,7 @@ function xml_object(xml_file_name, xml_string, xml_table)
 	t.query = function(self, query, where)
 		local query_table = cssQuery(query)
 		if is_empty(query_table) then
-			return
+			return {}
 		end
 
 		local stack = {where or self:getRoot()}

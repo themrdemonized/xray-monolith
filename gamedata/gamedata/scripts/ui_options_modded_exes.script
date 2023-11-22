@@ -321,6 +321,14 @@ function init_opt_base()
 				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
 				cmd = "string_table_error_msg",
 			},
+			{
+				id = "log_timestamps",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "log_timestamps") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "log_timestamps",
+			},
 		},
 	})
 end
