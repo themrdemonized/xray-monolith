@@ -74,7 +74,12 @@ std::string timeInDMYHMSMMM()
 	return getCurrentTimeStamp("%d.%m.%Y %H:%M:%S");
 }
 
-BOOL logTimestamps = TRUE;
+std::string timeInHMSMMM()
+{
+	return getCurrentTimeStamp("%H:%M:%S");
+}
+
+BOOL logTimestamps = FALSE;
 enum Console_mark;
 extern bool is_console_mark(Console_mark type);
 
@@ -101,7 +106,7 @@ void AddOne(const char* split)
 				c += " ";
 				t.erase(0, 1);
 			}
-			t = c + "[" + timeInDMYHMSMMM() + "] " + t;
+			t = c + "[" + timeInHMSMMM() + "] " + t;
 		}
 		auto temp = shared_str(t.c_str());
 		static shared_str last_str;
