@@ -83,7 +83,9 @@ public:
 	void SetHint(const shared_str& hint);
 	CComplexMapSpot* complex_spot() { return m_complex_spot; }
 	const CMapSpot* LevelMapSpot() { return m_level_spot; }
+	CMapSpot* LevelMapSpotNC() { return m_level_spot; }
 	const CMiniMapSpot* MiniMapSpot() { return m_minimap_spot; }
+	CMiniMapSpot* MiniMapSpotNC() { return m_minimap_spot; }
 
 	IC bool PointerEnabled() { return SpotEnabled() && !!m_flags.test(ePointerEnabled); };
 	IC void EnablePointer() { m_flags.set(ePointerEnabled,TRUE); };
