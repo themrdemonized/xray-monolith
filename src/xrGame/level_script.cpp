@@ -382,6 +382,21 @@ void map_remove_all_object_spots(u16 id)
 	Level().MapManager().RemoveAllMapLocationsById(id);
 }
 
+CUIStatic* map_get_spot_static(u16 id, LPCSTR spot_type)
+{
+	CMapLocation* ml = Level().MapManager().GetMapLocation(spot_type, id);
+	if (!ml) return nullptr;
+	CUIStatic* map_spot_static = ml->LevelMapSpotNC();
+	return map_spot_static;
+}
+CUIStatic* map_get_minimap_spot_static(u16 id, LPCSTR spot_type)
+{
+	CMapLocation* ml = Level().MapManager().GetMapLocation(spot_type, id);
+	if (!ml) return nullptr;
+	CUIStatic* map_spot_static = ml->MiniMapSpotNC();
+	return map_spot_static;
+}
+
 u16 map_has_object_spot(u16 id, LPCSTR spot_type)
 {
 	return Level().MapManager().HasMapLocation(spot_type, id);
@@ -2055,6 +2070,8 @@ void CLevel::script_register(lua_State* L)
 
 			// demonized: remove all map object spots by id
 			def("map_remove_all_object_spots", map_remove_all_object_spots),
+			def("map_get_object_spot_static", map_get_spot_static),
+			def("map_get_object_minimap_spot_static", map_get_minimap_spot_static),
 
 			def("add_dialog_to_render", add_dialog_to_render),
 			def("remove_dialog_to_render", remove_dialog_to_render),
