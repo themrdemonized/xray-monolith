@@ -404,17 +404,15 @@ local xml_string_debug_enabled = false
 local xml_string_cache = {}
 
 local function print_xml_error(xml_file_name, s, ...)
-	return printf("!COnXmlRead Error, file " .. xml_file_name .. " : " .. s, ...)
+	return printf("!DXML Error, file " .. xml_file_name .. " : " .. s, ...)
 end
 
 local function print_parser_msg(xml_file_name, s, ...)
-	if xml_string_debug_enabled then
-		return printf("COnXmlRead Parser, file " .. xml_file_name .. " : " .. s, ...)
-	end
+	return printf("DXML Parser, file " .. xml_file_name .. " : " .. s, ...)
 end
 
 local function print_parser_error(xml_file_name, s, ...)
-	return printf("!COnXmlRead Parser Error, file " .. xml_file_name .. " : " .. s, ...)
+	return printf("!DXML Parser Error, file " .. xml_file_name .. " : " .. s, ...)
 end
 
 local function print_r_xml(...)
@@ -1152,7 +1150,9 @@ function xml_object(xml_file_name, xml_string, xml_table)
 	t.query = function(self, query, where)
 		local query_table = cssQuery(query)
 		if is_empty(query_table) then
+			callstack()
 			print_parser_error(xml_file_name, "invalid query %s", query)
+			assert(false, ("\n\n!DXML ERROR invalid query %s"):format(query))
 			return {}
 		end
 
@@ -1175,9 +1175,7 @@ function xml_object(xml_file_name, xml_string, xml_table)
 				end
 				stack = new_stack
 				if is_empty(stack) then
-					if xml_string_debug_enabled then
-						print_parser_error(xml_file_name, "no elements were found matching query %s", query)
-					end
+					print_parser_error(xml_file_name, "no elements were found matching query %s", query)
 					return {}
 				end
 			elseif v.type == "selector" then
@@ -1200,7 +1198,7 @@ function xml_object(xml_file_name, xml_string, xml_table)
 		end
 		local el = self:query(string_format("specific_character[id=%s]", character_id))
 		el = el[1]
-		print_parser_msg(xml_file_name, "found specific_character by id %s", character_id)
+		if xml_string_debug_enabled then print_parser_msg(xml_file_name, "found specific_character by id %s", character_id) end
 		local already_has_dialog
 		local actor_break_dialog_pos
 		self:iterateChildren(el, function(v, i)
@@ -1212,17 +1210,17 @@ function xml_object(xml_file_name, xml_string, xml_table)
 					return true
 				end
 				if d:find("break_dialog") then
-					print_parser_msg(xml_file_name, "character_id %s found actor_break_dialog at %s", character_id, i)
+					if xml_string_debug_enabled then print_parser_msg(xml_file_name, "character_id %s found actor_break_dialog at %s", character_id, i) end
 					actor_break_dialog_pos = i
 				end
 			end 
 		end)
 		if not already_has_dialog then
 			pos = pos and clamp(pos, 1, #el.kids + 1) or actor_break_dialog_pos
-			print_parser_msg(xml_file_name, "character_id %s inserting actor_dialog %s, pos %s", character_id, dialog_line, pos)
+			if xml_string_debug_enabled then print_parser_msg(xml_file_name, "character_id %s inserting actor_dialog %s, pos %s", character_id, dialog_line, pos) end
 			local n_el, n_pos = self:insertElement({name = "actor_dialog"}, el, pos)
 			if n_el then
-				print_parser_msg(xml_file_name, "character_id %s success inserted actor_dialog %s, pos %s", character_id, dialog_line, n_pos)
+				if xml_string_debug_enabled then print_parser_msg(xml_file_name, "character_id %s success inserted actor_dialog %s, pos %s", character_id, dialog_line, n_pos) end
 				self:setText(n_el, dialog_line)
 				return n_el, n_pos
 			else
@@ -1252,11 +1250,11 @@ _G.COnXmlRead = function(xml_file_name, xml_string)
 	end
 
 	if xml_string_cache_enabled and xml_string_cache[xml_file_name] then
-		print_parser_msg(xml_file_name, "cache found, load cache")
+		if xml_string_debug_enabled then print_parser_msg(xml_file_name, "cache found, load cache") end
 		return xml_string_cache[xml_file_name]
 	end
 
-	print_parser_msg(xml_file_name, "loaded")
+	if xml_string_debug_enabled then print_parser_msg(xml_file_name, "loaded") end
 
 	local xml_table = try(parser.simple_dom, parser, xml_string, parser_options)
 	if not xml_table then
@@ -1268,10 +1266,10 @@ _G.COnXmlRead = function(xml_file_name, xml_string)
 		print_parser_error(xml_file_name, "error creating xml_obj")
 		return xml_string
 	end
-	print_parser_msg(xml_file_name, "parsed")
+	if xml_string_debug_enabled then print_parser_msg(xml_file_name, "parsed") end
 
 	xmlDispatch(xml_file_name, xml_obj)
-	print_parser_msg(xml_file_name, "callback")
+	if xml_string_debug_enabled then print_parser_msg(xml_file_name, "callback") end
 
 	xml_string = parser:simple_xml(xml_table)
 
