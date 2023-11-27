@@ -1175,7 +1175,9 @@ function xml_object(xml_file_name, xml_string, xml_table)
 				end
 				stack = new_stack
 				if is_empty(stack) then
-					print_parser_error(xml_file_name, "no elements were found matching query %s", query)
+					if xml_string_debug_enabled then
+						print_parser_error(xml_file_name, "no elements were found matching query %s", query)
+					end
 					return {}
 				end
 			elseif v.type == "selector" then
