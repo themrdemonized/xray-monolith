@@ -259,8 +259,8 @@ void CCustomDevice::OnAnimationEnd(u32 state)
 	break;
 	case eHiding:
 	{
-		SwitchState(eHidden);
 		TurnDeviceInternal(false);
+		SwitchState(eHidden);
 		g_player_hud->detach_item(this);
 		m_fZoomfactor = 0.f;
 	}
