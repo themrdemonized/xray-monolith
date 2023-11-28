@@ -300,3 +300,18 @@ void CFlashlight::OnAnimationEnd(u32 state)
 
 	inherited::OnAnimationEnd(state);
 }
+
+void CFlashlight::OnMotionMark(u32 state, const motion_marks& M)
+{
+	inherited::OnMotionMark(state, M);
+
+	if (state == eShowing)
+	{
+		if (!IsUsingCondition() || (IsUsingCondition() && GetCondition() >= m_fLowestBatteryCharge))
+			TurnDeviceInternal(true);
+	}
+	else if (state == eHiding)
+	{
+		TurnDeviceInternal(false);
+	}
+}
