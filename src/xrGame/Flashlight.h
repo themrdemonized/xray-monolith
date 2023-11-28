@@ -41,6 +41,7 @@ public:
 	virtual void UpdateCL();
 	virtual void OnStateSwitch(u32 S, u32 oldState);
 	virtual void OnAnimationEnd(u32 state);
+	virtual void OnMotionMark(u32 state, const motion_marks& M);
 	
 	void SetLanim(LPCSTR name, bool bFlicker, int flickerChance, float flickerDelay, float framerate);
 	void ResetLanim();
