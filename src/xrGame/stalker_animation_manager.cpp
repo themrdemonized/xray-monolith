@@ -13,6 +13,8 @@
 #include "stalker_animation_data.h"
 #include "stalker_movement_manager_smart_cover.h"
 
+#include "CharacterPhysicsSupport.h"
+
 // TODO:
 // stalker animation manager consists of 5 independent managers,
 // they should be represented with the different classes:
@@ -125,4 +127,18 @@ void CStalkerAnimationManager::play_fx(float power_factor, int fx_index)
 #endif
 	m_skeleton_animated->PlayFX(
 		m_data_storage->m_part_animations.A[object().movement().body_state()].m_global.A[0].A[fx_index], power_factor);
+}
+
+bool CStalkerAnimationManager::standing() const
+{
+	CAI_Stalker& obj = object();
+	stalker_movement_manager_smart_cover& movement = obj.movement();
+
+	if (movement.speed(obj.character_physics_support()->movement()) < EPS_L)
+		return (true);
+
+	if (eMovementTypeStand == movement.movement_type())
+		return (true);
+
+	return (false);
 }
