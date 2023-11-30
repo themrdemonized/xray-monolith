@@ -11,5 +11,6 @@ for /f "usebackq tokens=*" %%i in (`vswhere -latest -requires Microsoft.Componen
   "%%i" engine-vs2022.sln /p:Configuration=DX10-AVX
   "%%i" engine-vs2022.sln /p:Configuration=DX9-AVX
   "%%i" engine-vs2022.sln /p:Configuration=DX8-AVX
+  pause
   exit /b !errorlevel!
 )
