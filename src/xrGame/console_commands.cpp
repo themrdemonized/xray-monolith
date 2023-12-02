@@ -125,6 +125,7 @@ extern BOOL mouseWheelChangeWeapon;
 extern BOOL mouseWheelInvertZoom;
 extern BOOL monsterStuckFix;
 extern BOOL logTimestamps;
+extern float f_Freelook_cam_limit;
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2686,6 +2687,9 @@ void CCC_RegisterCommands()
 
 	// Timestamps in log
 	CMD4(CCC_Integer, "log_timestamps", &logTimestamps, 0, 1);
+
+	// Freelook
+	CMD4(CCC_Float, "freelook_cam_limit", &f_Freelook_cam_limit, 0.f, PI);
 
 	if (strstr(Core.Params, "-dbgdev"))
 		CMD4(CCC_Float, "g_streff", &streff, -10.f, 10.f);
