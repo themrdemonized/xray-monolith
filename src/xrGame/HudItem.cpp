@@ -524,7 +524,7 @@ void CHudItem::OnMotionMark(u32 state, const motion_marks& M)
 {
 	luabind::functor<bool> funct;
 	if (ai().script_engine().functor("_G.CHudItem__OnMotionMark", funct))
-		funct(state, *M.name);
+		funct(state, *M.name, object().lua_game_object(), object().lua_game_object() ? object().lua_game_object()->Parent() : nullptr);
 }
 
 void CHudItem::OnH_A_Chield()
@@ -641,7 +641,7 @@ u32 CHudItem::PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, f
 			table["anm_speed"] = speed;
 			table["anm_end"] = end;
 
-			luabind::object const& output = funct(table, object().lua_game_object());
+			luabind::object const& output = funct(table, object().lua_game_object(), object().lua_game_object() ? object().lua_game_object()->Parent() : nullptr);
 			if (output && output.type() == LUA_TTABLE)
 			{
 				M = luabind::object_cast<LPCSTR>(output["anm_name"]);
