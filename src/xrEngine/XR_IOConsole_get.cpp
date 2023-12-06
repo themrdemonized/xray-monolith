@@ -24,6 +24,7 @@ bool CConsole::GetBool(LPCSTR cmd) const
 	{
 		return (ci->GetValue() != 0);
 	}
+	Msg("! [%s] Failed to get bool value, try getting string and casting to bool instead (get_console():get_string)", cmd);
 	return false;
 }
 
@@ -38,6 +39,7 @@ float CConsole::GetFloat(LPCSTR cmd, float& min, float& max) const
 		cf->GetBounds(min, max);
 		return cf->GetValue();
 	}
+	Msg("! [%s] Failed to get float value, try getting string and casting to float instead (get_console():get_string)", cmd);
 	return 0.0f;
 }
 
