@@ -43,3 +43,14 @@ function ui_pda_npc_tab.use_view(obj)
 		end)
 	end
 end
+
+-- Additional params for callbacks
+-- Called on CHudItem Motion Mark
+_G.CHudItem__OnMotionMark = function(state, mark, obj, owner)
+	SendScriptCallback("actor_on_hud_animation_mark", state, mark, obj, owner)
+end
+
+_G.CHudItem__PlayHUDMotion = function(anm_table, obj, owner)
+	SendScriptCallback("actor_on_hud_animation_play", anm_table, obj, owner)
+	return anm_table
+end
