@@ -24,7 +24,6 @@ bool CConsole::GetBool(LPCSTR cmd) const
 	{
 		return (ci->GetValue() != 0);
 	}
-	Msg("! [%s] Failed to get bool value, try getting string and casting to bool instead (get_console():get_string)", cmd);
 	return false;
 }
 
