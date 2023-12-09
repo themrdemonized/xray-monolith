@@ -775,6 +775,11 @@ static void trim(std::string& s, const char* t = " \t\n\r\f\v") {
 	s.erase(0, s.find_first_not_of(t));
 };
 
+static void toLowerCase(std::string& s) {
+	std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+		return std::tolower(c);
+	});
+}
 
 bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
@@ -814,6 +819,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 				for (; i != e; ++i)
 				{
 					auto sectionName = std::string((*i)->Name.c_str());
+					toLowerCase(sectionName);
 					if (unlocalizers.find(sectionName) == unlocalizers.end()) {
 
 						// construct set that contains top level variables to delocalize by section name
@@ -846,7 +852,9 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 	auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
 	auto scriptLength = (size_t)l_tpFileReader->length();
 	bool unlocalPerformed = false;
-	if (unlocalizers.find(std::string(caNameSpaceName)) != unlocalizers.end()) {
+	std::string loweredNameSpaceName = caNameSpaceName;
+	toLowerCase(loweredNameSpaceName);
+	if (unlocalizers.find(loweredNameSpaceName) != unlocalizers.end()) {
 		Msg("found script %s in unlocalizers data", caNameSpaceName);
 
 		// Get contents of the script file and split by lines
@@ -866,7 +874,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 		}
 
 		// Iterate lines and unlocalize variables
-		auto& unlocals = unlocalizers[std::string(caNameSpaceName)];
+		auto& unlocals = unlocalizers[loweredNameSpaceName];
 
 		/*for (auto& u : unlocals) {
 			Msg("%s", u);
