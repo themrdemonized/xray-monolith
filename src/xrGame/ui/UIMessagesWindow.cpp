@@ -17,6 +17,8 @@ bool IsGameTypeSingle();
 #include "../game_news.h"
 #include "UIPdaMsgListItem.h"
 
+#include "../../xrServerEntities/script_engine.h"
+
 CUIMessagesWindow::CUIMessagesWindow()
 	: m_pChatLog(NULL), m_pChatWnd(NULL), m_pGameLog(NULL)
 {
@@ -134,6 +136,14 @@ void CUIMessagesWindow::AddIconedPdaMessage(GAME_NEWS_DATA* news)
 
 	float h1 = _max(pItem->UIIcon.GetHeight(), pItem->UIMsgText.GetWndPos().y + pItem->UIMsgText.GetHeight());
 	pItem->SetHeight(h1 + 3.0f);
+
+	// demonized: on news received callback
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CUIMessagesWindow__AddIconedPdaMessage", funct))
+	{
+		CUIWindow* CUIWindowPItem = pItem;
+		funct(CUIWindowPItem, &pItem->UITimeText, &pItem->UICaptionText, &pItem->UIMsgText, &pItem->UIIcon);
+	}
 
 	m_pGameLog->SendMessage(pItem, CHILD_CHANGED_SIZE);
 }
