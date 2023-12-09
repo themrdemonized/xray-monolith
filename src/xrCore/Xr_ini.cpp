@@ -1120,19 +1120,20 @@ void CInifile::cacheValue(LPCSTR S, LPCSTR L, LPCSTR V) {
 
 LPCSTR CInifile::r_string(LPCSTR S, LPCSTR L) const
 {
-	auto sectKey = m_cache.find(S);
-	if (sectKey != m_cache.end()) {
-		auto lineKey = sectKey->second.find(L);
-		if (lineKey != sectKey->second.end()) {
-			auto& res = lineKey->second;
-			Msg("%s, [%s] %s = %s found in cache", m_file_name, S, L, res.c_str());
-			return res.empty() ? 0 : res.c_str();
-		}
-	}
-
 	if (!S || !L || !strlen(S) || !strlen(L)) //--#SM+#-- [fix for one of "xrDebug - Invalid handler" error log]
 	{
 		Msg("!![ERROR] CInifile::r_string: S = [%s], L = [%s]", S, L);
+	}
+
+	if (S && L) {
+		auto sectKey = m_cache.find(S);
+		if (sectKey != m_cache.end()) {
+			auto lineKey = sectKey->second.find(L);
+			if (lineKey != sectKey->second.end()) {
+				auto& res = lineKey->second;
+				return res.empty() ? 0 : res.c_str();
+			}
+		}
 	}
 
 	Sect const& I = r_section(S);
