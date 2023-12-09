@@ -53,6 +53,8 @@
 #include "EffectorBobbing.h"
 #include "LevelDebugScript.h"
 
+#include "ui\UIPdaMsgListItem.h"
+
 using namespace luabind;
 
 extern ENGINE_API float ps_r2_sun_shafts_min;
@@ -1945,6 +1947,17 @@ void set_flags(u32 flags)
 	Level().m_debug_render_flags.assign(flags);
 }
 
+// demonized: adjust game news time
+void change_game_news_show_time(CUIWindow* CUIWindowPItem, float show_time) {
+	if (!CUIWindowPItem) return;
+
+	auto pItem = smart_cast<CUIPdaMsgListItem*>(CUIWindowPItem);
+	if (!pItem) return;
+
+	pItem->ResetColorAnimation();
+	pItem->SetColorAnimation("ui_main_msgs_short", LA_ONLYALPHA | LA_TEXTCOLOR | LA_TEXTURECOLOR, show_time);
+}
+
 #pragma optimize("s",on)
 void CLevel::script_register(lua_State* L)
 {
@@ -2312,6 +2325,9 @@ void CLevel::script_register(lua_State* L)
 		def("get_visual_userdata", GetVisualUserdata),
 		def("world2ui", world2ui),
 		def("ui2world", (void (*)(Fvector2, Fvector&, u16&))&ui2world, pure_out_value(_2) + pure_out_value(_3)),
-		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value(_2) + pure_out_value(_3))
+		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value(_2) + pure_out_value(_3)),
+		
+		// demonized: adjust game news time
+		def("change_game_news_show_time", &change_game_news_show_time)
 	];
 }

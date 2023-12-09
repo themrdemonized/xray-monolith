@@ -54,3 +54,77 @@ _G.CHudItem__PlayHUDMotion = function(anm_table, obj, owner)
 	SendScriptCallback("actor_on_hud_animation_play", anm_table, obj, owner)
 	return anm_table
 end
+
+-- Disable caching of ini values to utilize engine functions and reduce memory footprint
+_G.USE_INI_MEMOIZE = false
+clear_ini_cache(ini_sys)
+if ini_cache then
+	empty_table(ini_cache)
+end
+
+_G.ini_file.r_string_ex = function(ini,s,k,def)
+	return ini:section_exist(s) and ini:line_exist(s,k) and ini:r_string(s,k) or def
+end
+_G.ini_file.r_float_ex = function(ini,s,k,def)
+	if not (ini:section_exist(s) and ini:line_exist(s,k)) then
+		return def
+	end
+	local v = ini:r_string(s,k)
+	if v == nil then
+		return def
+	end
+	return tonumber(v)
+end
+_G.ini_file.r_bool_ex = function(ini,s,k,def)
+	if not (ini:section_exist(s) and ini:line_exist(s,k)) then
+		return def
+	end
+	local v = ini:r_string(s,k)
+	if v == nil then
+		return def
+	end
+	return v == "true" or v == "1"
+end
+_G.ini_file.r_sec_ex = function(ini,s,k,def)
+	local result = ini_file.r_string_ex(ini,s,k,def)
+	if result and ini_sys:section_exist(result) then
+		return result
+	end
+	return nil
+end
+_G.ini_file.r_line_ex = function(ini,s,k)
+	return ini:r_line(s,k,"","")
+end
+
+-- SYS_GetParam disabled ini caching in benefit to use engine functions and reduce memory footprint
+empty_table(INISYS_CACHE)
+_G.INISYS_TYPES = {
+	-- string
+	[0] = function(typ, sec, param, def)
+		return ini_sys:r_string_ex(sec, param, def)
+	end,
+	-- bool
+	[1] = function(typ, sec, param, def)
+		return ini_sys:r_bool_ex(sec, param)
+	end,
+	-- float
+	[2] = function(typ, sec, param, def)
+		return ini_sys:r_float_ex(sec, param, def)
+	end,
+}
+_G.SYS_GetParam = function(typ, sec, param, def)
+	if not (typ and INISYS_TYPES[typ]) then
+		printe("!ERROR SYS_GetParam(%s, %s, %s, %s), incorrect type %s", typ, sec, param, def, typ)
+		callstack()
+		return
+	end
+
+	if not (sec and param) then
+		printe("!ERROR SYS_GetParam(%s, %s, %s, %s) | What's missing?", typ, sec, param, def)
+		callstack()
+		return
+	end
+
+	local result = INISYS_TYPES[typ](typ, sec, param, def)
+	return result
+end
