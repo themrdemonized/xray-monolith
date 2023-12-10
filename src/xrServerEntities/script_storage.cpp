@@ -693,7 +693,7 @@ bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LP
 	return (true);
 }
 
-std::unordered_map<std::string, std::set<std::string>> unlocalizers;
+xr_unordered_map<std::string, std::set<std::string>> unlocalizers;
 bool unlocalizerPassed = false;
 
 std::vector<std::string> splitStringMulti(std::string& inputString, std::string separator = " ", bool includeSeparators = false) {

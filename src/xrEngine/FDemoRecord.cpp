@@ -126,7 +126,7 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 	}
 }
 
-CDemoRecord::CDemoRecord(const char* name, std::unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time) : CDemoRecord(name, life_time)
+CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time) : CDemoRecord(name, life_time)
 {
 	pDemoRecords->insert(this);
 	this->pDemoRecords = pDemoRecords;
