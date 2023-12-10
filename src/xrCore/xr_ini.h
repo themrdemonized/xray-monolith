@@ -57,7 +57,10 @@ public:
 private:
 	string_path m_file_name;
 	Root DATA;
+
+	// demonized: cache read and written ini values
 	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_cache;
+	void cacheValue(LPCSTR S, LPCSTR L, LPCSTR V);
 
 	void Load(IReader* F, LPCSTR path
 #ifndef _EDITOR
@@ -103,8 +106,6 @@ public:
 	BOOL section_exist(const shared_str& S) const;
 	Root& sections() { return DATA; }
 	Root const& sections() const { return DATA; }
-
-	void cacheValue(LPCSTR S, LPCSTR L, LPCSTR V);
 
 	CLASS_ID r_clsid(LPCSTR S, LPCSTR L) const;
 	CLASS_ID r_clsid(const shared_str& S, LPCSTR L) const { return r_clsid(*S, L); }

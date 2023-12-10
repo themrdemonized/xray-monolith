@@ -14,6 +14,8 @@
 XRCORE_API CInifile const* pSettings = NULL;
 XRCORE_API CInifile const* pSettingsAuth = NULL;
 
+//#define INICACHE_PRINT_DEBUG
+
 CInifile* CInifile::Create(const char* szFileName, BOOL ReadOnly)
 {
 	return xr_new<CInifile>(szFileName, ReadOnly);
@@ -1039,6 +1041,9 @@ bool CInifile::save_as(LPCSTR new_fname)
 BOOL CInifile::section_exist(LPCSTR S) const
 {
 	if (m_cache.find(S) != m_cache.end()) {
+#ifdef INICACHE_PRINT_DEBUG
+		Msg("[%s] section_exist: found section %s in cache", m_file_name, S);
+#endif // INICACHE_PRINT_DEBUG
 		return TRUE;
 	}
 	RootCIt I = std::lower_bound(DATA.begin(), DATA.end(), S, sect_pred);
@@ -1051,6 +1056,9 @@ BOOL CInifile::line_exist(LPCSTR S, LPCSTR L) const
 
 	auto cacheSec = m_cache.find(S);
 	if (cacheSec != m_cache.end() && cacheSec->second.find(L) != cacheSec->second.end()) {
+#ifdef INICACHE_PRINT_DEBUG
+		Msg("[%s] line_exist: found section %s line %s in cache", m_file_name, S, L);
+#endif // INICACHE_PRINT_DEBUG
 		return TRUE;
 	}
 
@@ -1114,7 +1122,10 @@ CInifile::Sect& CInifile::r_section(LPCSTR S) const
 
 void CInifile::cacheValue(LPCSTR S, LPCSTR L, LPCSTR V) {
 	if (S && L) {
-		m_cache[S][L] = V ? std::string(V) : "";
+#ifdef INICACHE_PRINT_DEBUG
+		Msg("[%s] cacheValue: writing [%s] %s = %s in cache", m_file_name, S, L, V);
+#endif // INICACHE_PRINT_DEBUG
+		m_cache[S][L] = V ? V : "";
 	}
 }
 
@@ -1125,14 +1136,15 @@ LPCSTR CInifile::r_string(LPCSTR S, LPCSTR L) const
 		Msg("!![ERROR] CInifile::r_string: S = [%s], L = [%s]", S, L);
 	}
 
-	if (S && L) {
-		auto sectKey = m_cache.find(S);
-		if (sectKey != m_cache.end()) {
-			auto lineKey = sectKey->second.find(L);
-			if (lineKey != sectKey->second.end()) {
-				auto& res = lineKey->second;
-				return res.empty() ? 0 : res.c_str();
-			}
+	auto sectKey = m_cache.find(S);
+	if (sectKey != m_cache.end()) {
+		auto lineKey = sectKey->second.find(L);
+		if (lineKey != sectKey->second.end()) {
+			auto& res = lineKey->second;
+#ifdef INICACHE_PRINT_DEBUG
+			Msg("[%s] r_string: getting [%s] %s = %s in cache", m_file_name, S, L, res.c_str());
+#endif // INICACHE_PRINT_DEBUG
+			return res.empty() ? 0 : res.c_str();
 		}
 	}
 
@@ -1541,7 +1553,10 @@ void CInifile::remove_line(LPCSTR S, LPCSTR L)
 		SectIt_ A = std::lower_bound(data.Data.begin(), data.Data.end(), L, item_pred);
 		R_ASSERT(A != data.Data.end() && xr_strcmp(*A->first, L) == 0);
 		data.Data.erase(A);
-		
+
+#ifdef INICACHE_PRINT_DEBUG
+		Msg("[%s] remove_line: removing [%s] %s from cache", m_file_name, S, L);
+#endif // INICACHE_PRINT_DEBUG
 		m_cache[S].erase(L);
 	}
 }
