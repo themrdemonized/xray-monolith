@@ -257,6 +257,7 @@
     <ClInclude Include="..\_vector3d_ext.h" />
     <ClInclude Include="..\_vector4.h" />
     <ClInclude Include="..\mezz_stringbuffer.h" />
+    <ClInclude Include="..\robin_hood.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\xrCore.rc" />
