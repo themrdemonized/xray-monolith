@@ -451,6 +451,7 @@
     <ClInclude Include="PPMdType.h" />
     <ClInclude Include="ppmd_compressor.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="robin_hood.h" />
     <ClInclude Include="rt_compressor.h" />
     <ClInclude Include="rt_config1x.h" />
     <ClInclude Include="rt_lzo1x.h" />

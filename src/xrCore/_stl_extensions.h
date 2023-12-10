@@ -274,9 +274,16 @@ protected:
 
 #include <unordered_map>
 
+#define USE_ROBINHOOD
+#ifdef USE_ROBINHOOD
+#include "robin_hood.h"
+template <typename K, class V>
+using xr_unordered_map = robin_hood::unordered_map<K, V>;
+#else
 template <typename K, class V, class Hasher = std::hash<K>, class Traits = std::equal_to<K>,
-          typename allocator = xalloc<std::pair<const K, V>>>
+	typename allocator = xalloc<std::pair<const K, V>>>
 using xr_unordered_map = std::unordered_map<K, V, Hasher, Traits, allocator>;
+#endif //USE_ROBINHOOD
 
 template <typename T, typename allocator = xalloc<T>>
 class xr_list : public std::list<T, allocator>

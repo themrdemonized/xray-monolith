@@ -3,6 +3,10 @@
 
 #include "fastdelegate.h"
 
+#ifdef USE_ROBINHOOD
+#include "robin_hood.h"
+#endif
+
 // refs
 class CInifile;
 struct xr_token;
@@ -59,7 +63,12 @@ private:
 	Root DATA;
 
 	// demonized: cache read and written ini values
-	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> m_cache;
+#ifdef USE_ROBINHOOD
+	robin_hood::unordered_flat_map<std::string, robin_hood::unordered_flat_map<std::string, std::string>> m_cache;
+#else
+	xr_unordered_map<std::string, xr_unordered_map<std::string, std::string>> m_cache;
+#endif //USE_ROBINHOOD
+
 	void cacheValue(LPCSTR S, LPCSTR L, LPCSTR V);
 
 	void Load(IReader* F, LPCSTR path

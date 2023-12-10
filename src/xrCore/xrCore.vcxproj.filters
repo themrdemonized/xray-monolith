@@ -289,6 +289,9 @@
     <ClInclude Include="resource.h">
       <Filter>Kernel</Filter>
     </ClInclude>
+    <ClInclude Include="robin_hood.h">
+      <Filter>Kernel</Filter>
+    </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Kernel</Filter>
     </ClInclude>
