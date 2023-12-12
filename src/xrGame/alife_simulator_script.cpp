@@ -381,7 +381,7 @@ void teleport_object(CALifeSimulator* alife, ALife::_OBJECT_ID id, GameGraph::_G
 	alife->teleport_object(id, game_vertex_id, level_vertex_id, position);
 }
 
-void IterateInfo(const CALifeSimulator* alife, const ALife::_OBJECT_ID& id, luabind::functor<void> functor)
+void IterateInfo(const CALifeSimulator* alife, const ALife::_OBJECT_ID& id, const luabind::functor<void>& functor)
 {
 	const KNOWN_INFO_VECTOR* known_info = registry(alife, id);
 	if (!known_info)
@@ -413,7 +413,7 @@ CSE_Abstract* reprocess_spawn(CALifeSimulator* self, CSE_Abstract* object)
 }
 
 // demonized: iterate alife objects
-void CALifeSimulator__iterate_objects(const CALifeSimulator* self, luabind::functor<bool> functor)
+void CALifeSimulator__iterate_objects(const CALifeSimulator* self, const luabind::functor<bool>& functor)
 {
 	const CALifeObjectRegistry &objects = self->objects();
 	for (const auto& se_obj : objects.objects()) {
