@@ -1809,12 +1809,17 @@ xrTime get_start_time()
 	return (xrTime(Level().GetStartGameTime()));
 }
 
-void iterate_nearest(const Fvector& pos, float radius, luabind::functor<bool> functor)
+void iterate_nearest(const Fvector& pos, float radius, const luabind::functor<bool>& functor)
 {
 	xr_vector<CObject*> m_nearest;
 	Level().ObjectSpace.GetNearest(m_nearest, pos, radius, NULL);
 
 	if (!m_nearest.size()) return;
+
+	// demonized: sort nearest by distance first
+	std::sort(m_nearest.begin(), m_nearest.end(), [&pos](CObject* o1, CObject* o2) {
+		return o1->Position().distance_to_sqr(pos) < o2->Position().distance_to_sqr(pos);
+	});
 
 	xr_vector<CObject*>::iterator it = m_nearest.begin();
 	xr_vector<CObject*>::iterator it_e = m_nearest.end();
