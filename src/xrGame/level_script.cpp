@@ -54,6 +54,9 @@
 #include "LevelDebugScript.h"
 
 #include "ui\UIPdaMsgListItem.h"
+#include "ui\UILogsWnd.h"
+#include "game_news.h"
+#include "alife_registry_wrappers.h"
 
 using namespace luabind;
 
@@ -1958,6 +1961,32 @@ void change_game_news_show_time(CUIWindow* CUIWindowPItem, float show_time) {
 	pItem->SetColorAnimation("ui_main_msgs_short", LA_ONLYALPHA | LA_TEXTCOLOR | LA_TEXTURECOLOR, show_time);
 }
 
+void update_pda_news_from_uiwindow(CUIWindow* CUIWindowPItem) {
+	if (!CUIWindowPItem) return;
+
+	auto pItem = smart_cast<CUIPdaMsgListItem*>(CUIWindowPItem);
+	if (!pItem) return;
+
+	auto news = pItem->getNews();
+	if (!news) {
+		Msg("![update_pda_news_from_uiwindow] cannot get news from pItem");
+	}
+
+	GAME_NEWS_VECTOR& news_vector = Actor()->game_news_registry->registry().objects();
+	GAME_NEWS_IT newsVectorRes = std::find_if(news_vector.begin(), news_vector.end(), [&news](const GAME_NEWS_DATA& d) {
+		return d.receive_time == news->receive_time;
+	});
+	if (newsVectorRes != news_vector.end()) {
+		newsVectorRes->news_caption = pItem->UICaptionText.GetText();
+		newsVectorRes->news_text = pItem->UIMsgText.GetText();
+		newsVectorRes->texture_name = pItem->UIIcon.m_TextureName.c_str();
+		CurrentGameUI()->UpdatePda();
+	}
+	else {
+		Msg("![update_pda_news_from_uiwindow] cannot find news by text %s", news->news_text.c_str());
+	}
+}
+
 #pragma optimize("s",on)
 void CLevel::script_register(lua_State* L)
 {
@@ -2328,6 +2357,7 @@ void CLevel::script_register(lua_State* L)
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value(_2) + pure_out_value(_3)),
 		
 		// demonized: adjust game news time
-		def("change_game_news_show_time", &change_game_news_show_time)
+		def("change_game_news_show_time", &change_game_news_show_time),
+		def("update_pda_news_from_uiwindow", &update_pda_news_from_uiwindow)
 	];
 }

@@ -136,6 +136,7 @@ void CUIMessagesWindow::AddIconedPdaMessage(GAME_NEWS_DATA* news)
 
 	float h1 = _max(pItem->UIIcon.GetHeight(), pItem->UIMsgText.GetWndPos().y + pItem->UIMsgText.GetHeight());
 	pItem->SetHeight(h1 + 3.0f);
+	pItem->addNews(news);
 
 	// demonized: on news received callback
 	luabind::functor<void> funct;
