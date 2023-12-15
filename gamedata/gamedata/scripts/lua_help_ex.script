@@ -73,6 +73,11 @@
         Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
         function ui2world(Fvector2 pos) -> Fvector result, u16 object_id
         change_game_news_show_time(CUIWindow* UIWindow, float show_time)
+        update_pda_news_from_uiwindow(CUIWindow* UIWindow)
+    }
+
+    ini_file() {
+        string get_filename()
     }
 
     // Player hud
