@@ -292,6 +292,9 @@
     <ClInclude Include="robin_hood.h">
       <Filter>Kernel</Filter>
     </ClInclude>
+    <ClInclude Include="..\3rd party\stackwalker\include\StackWalker.h">
+      <Filter>Kernel</Filter>
+    </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Kernel</Filter>
     </ClInclude>
@@ -599,6 +602,11 @@
     <ResourceCompile Include="xrCore.rc">
       <Filter>Kernel</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\3rd party\stackwalker\lib\StackWalker.lib">
+      <Filter>Kernel</Filter>
+    </Library>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="FileSystem.h">

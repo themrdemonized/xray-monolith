@@ -3,13 +3,7 @@
 !.gitignore
 
 # exclude binaries and temporary files
-bin/
-bin_plugs/
-intermediate/
-intermediate_plugs/
-lib/
 _build/
-libraries/
 /src/*.tss
 /**/x64/
 **/.vs/
