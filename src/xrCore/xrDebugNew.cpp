@@ -81,21 +81,52 @@ namespace crash_saving
     }
 }
 
-//extern void BuildStackTrace();
-//extern char g_stackTrace[100][4096];
-//extern int g_stackTraceCount;
+// demonized: print stack trace
+static void trim(std::string& s, const char* t = " \t\n\r\f\v") {
+    s.erase(s.find_last_not_of(t) + 1);
+    s.erase(0, s.find_first_not_of(t));
+};
+static void toLowerCase(std::string& s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return std::tolower(c);
+        });
+}
 
-void LogStackTrace(LPCSTR header)
+#include "windows.h"
+#include "../3rd party/stackwalker/include/StackWalker.h"
+class xr_StackWalker : public StackWalker {
+public:
+    xr_StackWalker() : StackWalker(StackWalker::StackWalkOptions::RetrieveSymbol
+        | StackWalker::StackWalkOptions::RetrieveLine
+        | StackWalker::StackWalkOptions::SymBuildPath
+    ) {}
+protected:    
+    virtual void OnOutput(LPCSTR szText) {
+        std::string s = szText;
+        std::string sLowered = s;
+        toLowerCase(sLowered);
+        if (sLowered.find(".dll") != std::string::npos) return;
+        if (sLowered.find(".drv") != std::string::npos) return;
+        if (sLowered.find("__scrt_common_main_seh") != std::string::npos) return;
+        trim(s);
+        Msg("%s", s.c_str());
+    }
+};
+extern void printLuaStack();
+void LogStackTrace(LPCSTR header = nullptr, bool printStack = false)
 {
 	if (!shared_str_initialized)
 		return;
 
-	//    BuildStackTrace();
+    if (header)
+	    Msg("%s", header);
 
-	Msg("%s", header);
-
-	//    for (int i = 1; i < g_stackTraceCount; ++i)
-	//        Msg("%s", g_stackTrace[i]);
+    if (printStack) {
+        printLuaStack();
+        Msg("\n");
+        auto s = xr_StackWalker();
+        s.ShowCallstack();
+    }
 }
 
 void xrDebug::gather_info(const char* expression, const char* description, const char* argument0, const char* argument1,
@@ -184,6 +215,8 @@ void xrDebug::gather_info(const char* expression, const char* description, const
 	{
 		if (shared_str_initialized)
 			Msg("stack trace:\n");
+
+        LogStackTrace(nullptr, true);
 
 #ifdef USE_OWN_ERROR_MESSAGE_WINDOW
 		buffer += xr_sprintf(buffer, assertion_size - u32(buffer - buffer_base), "stack trace:%s%s", endline, endline);
@@ -777,6 +810,8 @@ LONG WINAPI UnhandledFilter(_EXCEPTION_POINTERS* pExceptionInfo)
 
 	if (shared_str_initialized)
 		Msg("stack trace:\n");
+
+    LogStackTrace(nullptr, true);
 
 	if (!IsDebuggerPresent())
 	{

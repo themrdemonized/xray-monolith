@@ -234,6 +234,11 @@ void CScriptEngine::lua_error(lua_State* L)
 #endif
 }
 
+void printLuaStack()
+{
+	ai().script_engine().print_stack();
+}
+
 int CScriptEngine::lua_pcall_failed(lua_State* L)
 {
 	ai().script_engine().print_stack();
