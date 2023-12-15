@@ -3,11 +3,31 @@
 #include "xrUIXmlParser.h"
 #include "UIXmlInit.h"
 
+CUIPdaMsgListItem::~CUIPdaMsgListItem() {
+	if (news) {
+		xr_delete(news);
+	}
+}
+
 void CUIPdaMsgListItem::SetFont(CGameFont* pFont)
 {
 	UITimeText.SetFont(pFont);
 	UICaptionText.SetFont(pFont);
 	UIMsgText.SetFont(pFont);
+}
+
+GAME_NEWS_DATA* CUIPdaMsgListItem::addNews(GAME_NEWS_DATA* fromNews)
+{
+	if (news) {
+		xr_delete(news);
+	}
+	news = xr_new<GAME_NEWS_DATA>(*fromNews);
+	return news;
+}
+
+GAME_NEWS_DATA* CUIPdaMsgListItem::getNews()
+{
+	return news;
 }
 
 void CUIPdaMsgListItem::InitPdaMsgListItem(const Fvector2& size)

@@ -1,4 +1,3 @@
-#include <unordered_set>
 #include "pch_script.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/xr_ioc_cmd.h"
@@ -478,7 +477,7 @@ public:
 };
 
 //-----------------------------------------------------------------------
-std::unordered_set<CDemoRecord*> pDemoRecords;
+xr_unordered_set<CDemoRecord*> pDemoRecords;
 class CCC_DemoRecord : public IConsole_Command
 {
 public:

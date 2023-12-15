@@ -257,6 +257,8 @@
     <ClInclude Include="..\_vector3d_ext.h" />
     <ClInclude Include="..\_vector4.h" />
     <ClInclude Include="..\mezz_stringbuffer.h" />
+    <ClInclude Include="..\robin_hood.h" />
+    <ClInclude Include="..\..\3rd party\stackwalker\include\StackWalker.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\xrCore.rc" />
@@ -264,5 +266,8 @@
   <ItemGroup>
     <CustomBuild Include="..\FileSystem.h" />
     <CustomBuild Include="..\LocatorAPI_Notifications.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\3rd party\stackwalker\lib\StackWalker.lib" />
   </ItemGroup>
 </Project>

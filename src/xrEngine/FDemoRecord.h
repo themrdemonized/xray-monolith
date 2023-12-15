@@ -6,8 +6,6 @@
 #include "iinputreceiver.h"
 #include "effector.h"
 
-#include <unordered_set>
-
 class ENGINE_API CDemoRecord :
 	public CEffectorCam,
 	public IInputReceiver,
@@ -53,7 +51,7 @@ private:
 	float m_fAngSpeed3;
 
 	BOOL isInputBlocked;
-	std::unordered_set<CDemoRecord*>* pDemoRecords;
+	xr_unordered_set<CDemoRecord*>* pDemoRecords;
 
 	void MakeCubeMapFace(Fvector& D, Fvector& N);
 	void MakeLevelMapProcess();
@@ -64,7 +62,7 @@ private:
 	void MakeLevelMapScreenshot(BOOL bHQ);
 public:
 	CDemoRecord(const char* name, float life_time = 60 * 60 * 1000);
-	CDemoRecord(const char* name, std::unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked = 0, float life_time = 60 * 60 * 1000);
+	CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked = 0, float life_time = 60 * 60 * 1000);
 	virtual ~CDemoRecord();
 
 	virtual void IR_OnKeyboardPress(int dik);
