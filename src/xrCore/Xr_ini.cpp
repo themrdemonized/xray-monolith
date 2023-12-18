@@ -701,6 +701,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 
 	std::unordered_map<std::string, Sect> FinalData;
 
+	std::unordered_set<std::string> SectionsToDelete;
 	std::unordered_set<std::string> FinalizedSections;
 
 	enum InsertType
@@ -743,6 +744,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 			{
 				//Delete section
 				bDeleteSectionIfEmpty = TRUE;
+				SectionsToDelete.emplace(CurrentItem.first.c_str());
 			}
 			else
 			{
@@ -949,6 +951,18 @@ void CInifile::Load(IReader* F, LPCSTR path
 	{
 		EvaluateSection(SectPair.first, &PreviousEvaluations);
 	}
+
+	// demonized: check for marked for delete sections and return
+	for (auto &s: SectionsToDelete)
+	{
+		if (FinalData.find(s) != FinalData.end()) {
+			FinalData.erase(s);
+			if (OverrideData.find(s) != OverrideData.end()) {
+				OverrideData.erase(s);
+			}
+		}
+	}
+	SectionsToDelete.clear();
 
 	//Insert all finalized sections into final container
 	for (std::pair<std::string, Sect> SectPair : FinalData)
