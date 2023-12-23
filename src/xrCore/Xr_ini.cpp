@@ -260,6 +260,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 	string_path currentFileName;
 	std::unordered_map<std::string, std::unordered_map<std::string, bool>> OverrideToFilename;
 	std::unordered_map<std::string, std::string> SectionToFilename;
+	std::unordered_set<std::string> SectionsToDelete;
 
 	std::function<void
 		(
@@ -544,17 +545,14 @@ void CInifile::Load(IReader* F, LPCSTR path
 					continue;
 				}
 
-				Current = xr_new<Sect>();
-				*strchr(str, ']') = 0;
-				Current->Name = strlwr(&str[3]);
-
-				bIsCurrentSectionOverride = true;
-
-				Item DeleteItem;
-				DeleteItem.first = DLTX_DELETE.c_str();
-				DeleteItem.second = "";
-
-				insert_item(Current, DeleteItem);
+				u32 SectionNameStartPos = 3;
+				std::string SecName = std::string(str).substr(SectionNameStartPos, strchr(str, ']') - str - SectionNameStartPos).c_str();
+				for (auto i = SecName.begin(); i != SecName.end(); ++i)
+				{
+					*i = tolower(*i);
+				}
+				Msg("[DLTX] [%s] Encountered %s, mark section to delete", m_file_name, str.GetBuffer());
+				SectionsToDelete.insert(SecName);
 
 				continue;
 			}
@@ -948,6 +946,20 @@ void CInifile::Load(IReader* F, LPCSTR path
 	for (std::pair<std::string, Sect> SectPair : BaseData)
 	{
 		EvaluateSection(SectPair.first, &PreviousEvaluations);
+	}
+
+	// demonized: check for marked for delete sections and return
+	for (auto &s: SectionsToDelete)
+	{
+		Msg("[DLTX] [%s] Found section %s to delete", m_file_name, s.c_str());
+		if (FinalData.find(s) != FinalData.end()) {
+			Msg("[DLTX] [%s] Deleting section %s", m_file_name, s.c_str());
+			FinalData.erase(s);
+			if (OverrideData.find(s) != OverrideData.end()) {
+				Msg("[DLTX] [%s] Deleting overrides for section %s", m_file_name, s.c_str());
+				OverrideData.erase(s);
+			}
+		}
 	}
 
 	//Insert all finalized sections into final container

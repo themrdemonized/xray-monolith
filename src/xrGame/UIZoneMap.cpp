@@ -67,8 +67,28 @@ void CUIZoneMap::Init()
 	{
 		float k = bAspect ? UI().get_current_kx() : 1;
 
-		sz.y *= UI_BASE_HEIGHT * k;
-		sz.x = sz.y / k;
+
+		// Longreed 19/02/2023: Fix scaling mini map
+
+		/*
+			sz.y *= UI_BASE_HEIGHT * k;
+			sz.x = sz.y / k;
+		*/
+
+		if (bRounded)
+		{
+			sz.x = sz.x < sz.y ? sz.x : sz.y;
+			sz.y = sz.x;
+		}
+		else
+		{
+			sz.x *= k;
+		}
+		
+		sz.x *= UI_BASE_HEIGHT;
+		sz.y *= UI_BASE_HEIGHT;
+
+		// Longreed: End
 
 		m_clipFrame.SetWndSize(sz);
 
