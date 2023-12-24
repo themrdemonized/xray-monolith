@@ -3,6 +3,12 @@
 #pragma once
 
 // Common
+extern ECORE_API Fvector3 ps_ssfx_shadows;
+extern ECORE_API Fvector3 ps_ssfx_volumetric;
+
+extern ECORE_API Fvector4 ps_ssfx_wind_grass;
+extern ECORE_API Fvector4 ps_ssfx_wind_trees;
+
 extern ECORE_API Fvector4 ps_ssfx_rain_1;
 extern ECORE_API Fvector4 ps_ssfx_rain_2;
 extern ECORE_API Fvector4 ps_ssfx_rain_3;

@@ -339,7 +339,7 @@ void light::export_(light_Package& package)
 					L->set_shadow(true);
 					L->set_position(position);
 					L->set_rotation(cmDir[f], R);
-					L->set_cone(PI_DIV_2);
+					L->set_cone(PI_DIV_2 + 0.5f); // Add some extra angle to avoid problems with the shadow map frustum.
 					L->set_range(range);
 					L->set_color(color);
 					L->spatial.sector = spatial.sector; //. dangerous?
@@ -376,6 +376,7 @@ void light::export_(light_Package& package)
 			}
 			break;
 		case IRender_Light::SPOT:
+			this->set_volumetric_intensity(m_volumetric_intensity);
 			package.v_shadowed.push_back(this);
 			break;
 		}

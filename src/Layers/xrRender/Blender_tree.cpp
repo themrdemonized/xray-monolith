@@ -237,6 +237,10 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
 		uber_deffer(C, true, tvs, "base", oBlend.value, 0, true);
 		C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
 		C.r_StencilRef(0x01);
+
+		C.r_dx10Texture("s_waves", "fx\\wind_wave");
+		C.r_dx10Sampler("smp_linear2");
+
 		//C.PassSET_ZB		(true,false);
 		//	Need only for ATOC to emulate stencil test
 		if (bUseATOC)
@@ -259,6 +263,10 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
 		uber_deffer(C, false, tvs, "base", oBlend.value, 0, true);
 		C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
 		C.r_StencilRef(0x01);
+
+		C.r_dx10Texture("s_waves", "fx\\wind_wave");
+		C.r_dx10Sampler("smp_linear2");
+
 		//	Need only for ATOC to emulate stencil test
 		if (bUseATOC)
 			C.RS.SetRS(D3DRS_ZFUNC, D3DCMP_EQUAL);
@@ -274,6 +282,10 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_base", C.L_textures[0]);
 		C.r_dx10Sampler("smp_base");
 		C.r_dx10Sampler("smp_linear");
+
+		C.r_dx10Texture("s_waves", "fx\\wind_wave");
+		C.r_dx10Sampler("smp_linear2");
+
 		C.r_ColorWriteEnable(false, false, false, false);
 		C.r_End();
 		break;

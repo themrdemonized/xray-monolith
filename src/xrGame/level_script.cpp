@@ -1146,7 +1146,7 @@ void set_weather_value_numric(LPCSTR name, float val)
 	else if (0 == xr_strcmp(name, "wind_velocity"))
 		E.wind_velocity = val;
 	else if (0 == xr_strcmp(name, "wind_direction"))
-		E.wind_direction = val;
+		E.wind_direction = deg2rad(val);
 	else if (0 == xr_strcmp(name, "sun_shafts_intensity"))
 	{
 		E.m_fSunShaftsIntensity = val;

@@ -44,6 +44,7 @@ void CUIZoneMap::Init()
 	BOOL bRotate = uiXml.ReadAttribInt("minimap:level_frame", 0, "rotate", TRUE);
 	BOOL bRounded = uiXml.ReadAttribInt("minimap:level_frame", 0, "rounded", TRUE);
 	BOOL bAspect = uiXml.ReadAttribInt("minimap:level_frame", 0, "aspect", TRUE);
+	int ratioMode = uiXml.ReadAttribInt("minimap:level_frame", 0, "ratio_mode", 0);
 	u32 color = xml_init.GetColor(uiXml, "minimap:level_frame", 0, 0xff);
 
 	m_activeMap = xr_new<CUIMiniMap>();
@@ -67,28 +68,32 @@ void CUIZoneMap::Init()
 	{
 		float k = bAspect ? UI().get_current_kx() : 1;
 
-
-		// Longreed 19/02/2023: Fix scaling mini map
-
-		/*
-			sz.y *= UI_BASE_HEIGHT * k;
-			sz.x = sz.y / k;
-		*/
-
-		if (bRounded)
+		switch (ratioMode)
 		{
-			sz.x = sz.x < sz.y ? sz.x : sz.y;
-			sz.y = sz.x;
-		}
-		else
-		{
-			sz.x *= k;
-		}
-		
-		sz.x *= UI_BASE_HEIGHT;
-		sz.y *= UI_BASE_HEIGHT;
+			case 1:
 
-		// Longreed: End
+				// Longreed 19/02/2023: Fix scaling mini map
+				if (bRounded)
+				{
+					sz.x = sz.x < sz.y ? sz.x : sz.y;
+					sz.y = sz.x;
+				}
+				else
+				{
+					sz.x *= k;
+				}
+
+				sz.x *= UI_BASE_HEIGHT;
+				sz.y *= UI_BASE_HEIGHT;
+
+				break;
+				// Longreed: End
+
+			default:
+				sz.y *= UI_BASE_HEIGHT * k;
+				sz.x = sz.y / k;
+				break;
+		}
 
 		m_clipFrame.SetWndSize(sz);
 
