@@ -1,0 +1,2758 @@
+ src/Layers/xrRender/Blender_BmmD.cpp               |   5 +
+ src/Layers/xrRender/Blender_Model_EbB.cpp          |  10 +-
+ .../xrRender/Blender_Recorder_StandartBinding.cpp  | 197 +++++++++++++
+ src/Layers/xrRender/Blender_tree.cpp               |  19 ++
+ src/Layers/xrRender/DetailManager.cpp              |  32 ++-
+ src/Layers/xrRender/DetailManager.h                |   8 +
+ src/Layers/xrRender/FTreeVisual.cpp                |  47 ++++
+ src/Layers/xrRender/ResourceManager.cpp            |  12 +
+ src/Layers/xrRender/blenders/Blender_Recorder.h    |   1 +
+ src/Layers/xrRender/dxRainRender.cpp               |  71 ++++-
+ src/Layers/xrRender/dxRainRender.h                 |   1 +
+ src/Layers/xrRender/dxWallMarkArray.cpp            |  17 ++
+ src/Layers/xrRender/light.cpp                      |   3 +-
+ src/Layers/xrRender/light.h                        |  10 +-
+ src/Layers/xrRender/r__dsgraph_build.cpp           |   2 +-
+ src/Layers/xrRender/xrRender_console.cpp           | 114 +++++++-
+ src/Layers/xrRender/xrRender_console.h             |  15 +
+ src/Layers/xrRenderDX10/Blender_Recorder_R3.cpp    |  12 +
+ src/Layers/xrRenderDX10/dx10DetailManager_VS.cpp   |  66 ++++-
+ .../xrRenderDX10/dx10ResourceManager_Scripting.cpp |  14 +
+ .../Light_Render_Direct_ComputeXFS.cpp             |  23 +-
+ src/Layers/xrRenderPC_R4/blender_deffer_model.cpp  |   8 +-
+ src/Layers/xrRenderPC_R4/light_vis.cpp             |   4 +-
+ src/Layers/xrRenderPC_R4/r2_R_lights.cpp           |  27 ++
+ src/Layers/xrRenderPC_R4/r2_R_sun.cpp              |  11 +-
+ src/Layers/xrRenderPC_R4/r2_types.h                |  17 +-
+ src/Layers/xrRenderPC_R4/r4.cpp                    |  55 ++++
+ src/Layers/xrRenderPC_R4/r4.h                      |   5 +
+ src/Layers/xrRenderPC_R4/r4_R_rain.cpp             |   7 +-
+ src/Layers/xrRenderPC_R4/r4_R_render.cpp           |   3 +
+ .../xrRenderPC_R4/r4_rendertarget_accum_direct.cpp |  14 +-
+ .../xrRenderPC_R4/r4_rendertarget_accum_spot.cpp   |  28 +-
+ .../xrRenderPC_R4/r4_rendertarget_draw_rain.cpp    |   5 +-
+ src/xrEngine/Environment.cpp                       |  18 ++
+ src/xrEngine/Environment.h                         |   2 +
+ src/xrEngine/Environment_misc.cpp                  |   5 +-
+ src/xrEngine/IGame_Persistent.cpp                  | 310 +++++++++++++++++++++
+ src/xrEngine/IGame_Persistent.h                    |  38 +++
+ src/xrEngine/Rain.cpp                              | 100 +++++--
+ src/xrEngine/Rain.h                                |   5 +-
+ src/xrEngine/Render.h                              |   1 +
+ src/xrEngine/xr_ioc_cmd.cpp                        |   3 +
+ src/xrGame/CustomZone.cpp                          | 151 ++++++++++
+ src/xrGame/CustomZone.h                            |  22 ++
+ src/xrGame/Explosive.cpp                           |   5 +
+ src/xrGame/PHMovementControl.cpp                   |   5 +
+ src/xrGame/WeaponFire.cpp                          |   4 +
+ .../burer/burer_state_attack_gravi_inline.h        |   4 +
+ .../ai/monsters/pseudogigant/pseudo_gigant.cpp     |   4 +
+ src/xrGame/level_script.cpp                        |  34 ++-
+ src/xrGame/movement_manager.cpp                    |   3 +
+ src/xrGame/movement_manager.h                      |   4 +
+ src/xrGame/player_hud.cpp                          |   6 +
+ 53 files changed, 1499 insertions(+), 88 deletions(-)
+
+diff --git a/src/Layers/xrRender/Blender_BmmD.cpp b/src/Layers/xrRender/Blender_BmmD.cpp
+index 02e36cb..381d9ec 100644
+--- a/src/Layers/xrRender/Blender_BmmD.cpp
++++ b/src/Layers/xrRender/Blender_BmmD.cpp
+@@ -257,6 +257,11 @@ void CBlender_BmmD::Compile(CBlender_Compile& C)
+ 		C.r_dx10Texture("s_dn_b", strconcat(sizeof(mask), mask, oB_Name, "_bump"));
+ 		C.r_dx10Texture("s_dn_a", strconcat(sizeof(mask), mask, oA_Name, "_bump"));
+ 
++		C.r_dx10Texture("s_puddles_normal", "fx\\water_normal");
++		C.r_dx10Texture("s_puddles_perlin", "fx\\puddles_perlin");
++		C.r_dx10Texture("s_puddles_mask", strconcat(sizeof(mask), mask, C.L_textures[0].c_str(), "_puddles_mask"));
++		C.r_dx10Texture("s_rainsplash", "fx\\water_sbumpvolume");
++
+ 		C.r_dx10Sampler("smp_base");
+ 		C.r_dx10Sampler("smp_linear");
+ 
+diff --git a/src/Layers/xrRender/Blender_Model_EbB.cpp b/src/Layers/xrRender/Blender_Model_EbB.cpp
+index ee4b9a9..8669ab3 100644
+--- a/src/Layers/xrRender/Blender_Model_EbB.cpp
++++ b/src/Layers/xrRender/Blender_Model_EbB.cpp
+@@ -223,7 +223,15 @@ void CBlender_Model_EbB::Compile(CBlender_Compile& C)
+ 		switch (C.iElement)
+ 		{
+ 		case SE_R2_NORMAL_HQ: // deffer
+-			uber_deffer(C, true, "model", "base", false, 0, true);
++			
++			if (C.HudElement)
++			{
++				uber_deffer(C, true, "model_hud", "base_hud", false, 0, true);
++				C.r_dx10Texture("s_hud_rain", "fx\\hud_rain");
++			}
++			else
++				uber_deffer(C, true, "model", "base", false, 0, true);
++
+ 			C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
+ 			C.r_StencilRef(0x01);
+ 			C.r_End();
+diff --git a/src/Layers/xrRender/Blender_Recorder_StandartBinding.cpp b/src/Layers/xrRender/Blender_Recorder_StandartBinding.cpp
+index 5035624..12c0057 100644
+--- a/src/Layers/xrRender/Blender_Recorder_StandartBinding.cpp
++++ b/src/Layers/xrRender/Blender_Recorder_StandartBinding.cpp
+@@ -384,6 +384,23 @@ class cl_hemi_color : public R_constant_setup
+ };
+ 
+ static cl_hemi_color binder_hemi_color;
++
++class cl_sky_color : public R_constant_setup
++{
++	u32 marker;
++	Fvector4 result;
++
++	virtual void setup(R_constant* C)
++	{
++		if (marker != Device.dwFrame)
++		{
++			CEnvDescriptor& desc = *g_pGamePersistent->Environment().CurrentEnv;
++			result.set(desc.sky_color.x, desc.sky_color.y, desc.sky_color.z, desc.sky_rotation);
++		}
++		RCache.set_c(C, result);
++	}
++};
++static cl_sky_color binder_sky_color;
+ #endif
+ 
+ static class cl_screen_res : public R_constant_setup
+@@ -521,6 +538,29 @@ static class cl_near_far_plane : public R_constant_setup
+ 	}
+ } binder_near_far_plane;
+ 
++// Screen Space Shaders Stuff
++extern Fvector3 ps_ssfx_shadow_bias;
++extern Fvector4 ps_ssfx_lut;
++extern Fvector4 ps_ssfx_wind_grass;
++extern Fvector4 ps_ssfx_wind_trees;
++
++extern Fvector4 ps_ssfx_florafixes_1;
++extern Fvector4 ps_ssfx_florafixes_2;
++
++extern float ps_ssfx_gloss_factor;
++extern Fvector3 ps_ssfx_gloss_minmax;
++
++extern Fvector4 ps_ssfx_wetsurfaces_1;
++extern Fvector4 ps_ssfx_wetsurfaces_2;
++
++extern int ps_ssfx_is_underground;
++extern Fvector4 ps_ssfx_lightsetup_1;
++extern Fvector4 ps_ssfx_hud_drops_1;
++extern Fvector4 ps_ssfx_hud_drops_2;
++extern Fvector4 ps_ssfx_blood_decals;
++extern Fvector4 ps_ssfx_wpn_dof_1;
++extern float ps_ssfx_wpn_dof_2;
++
+ //Sneaky debug stuff
+ extern Fvector4 ps_dev_param_1;
+ extern Fvector4 ps_dev_param_2;
+@@ -595,6 +635,143 @@ static class dev_param_8 : public R_constant_setup
+ 	}
+ }    dev_param_8;
+ 
++static class ssfx_wpn_dof_1 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_wpn_dof_1.x, ps_ssfx_wpn_dof_1.y, ps_ssfx_wpn_dof_1.z, ps_ssfx_wpn_dof_1.w);
++	}
++}    ssfx_wpn_dof_1;
++
++static class ssfx_wpn_dof_2 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_wpn_dof_2, 0, 0, 0);
++	}
++}    ssfx_wpn_dof_2;
++
++static class ssfx_blood_decals : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_blood_decals);
++	}
++}    ssfx_blood_decals;
++
++static class ssfx_hud_drops_1 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_hud_drops_1);
++	}
++}    ssfx_hud_drops_1;
++
++static class ssfx_hud_drops_2 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_hud_drops_2);
++	}
++}    ssfx_hud_drops_2;
++
++static class ssfx_lightsetup_1 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_lightsetup_1);
++	}
++}    ssfx_lightsetup_1;
++
++static class ssfx_is_underground : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_is_underground, 0, 0, 0);
++	}
++}    ssfx_is_underground;
++
++static class ssfx_wetsurfaces_1 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_wetsurfaces_1);
++	}
++}    ssfx_wetsurfaces_1;
++
++static class ssfx_wetsurfaces_2 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_wetsurfaces_2);
++	}
++}    ssfx_wetsurfaces_2;
++
++static class ssfx_gloss : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, 0);
++	}
++}    ssfx_gloss;
++
++static class ssfx_florafixes_1 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_florafixes_1);
++	}
++}    ssfx_florafixes_1;
++
++static class ssfx_florafixes_2 : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_florafixes_2);
++	}
++}    ssfx_florafixes_2;
++
++static class ssfx_wind_grass : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_wind_grass);
++	}
++}    ssfx_wind_grass;
++
++static class ssfx_wind_trees : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_wind_trees);
++	}
++}    ssfx_wind_trees;
++
++static class ssfx_wind_anim : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		Fvector3 WindAni = g_pGamePersistent->Environment().wind_anim;
++		RCache.set_c(C, WindAni.x, WindAni.y, WindAni.z, 0);
++	}
++}    ssfx_wind_anim;
++
++static class ssfx_lut : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_lut);
++	}
++}    ssfx_lut;
++
++static class ssfx_shadow_bias : public R_constant_setup
++{
++	virtual void setup(R_constant* C)
++	{
++		RCache.set_c(C, ps_ssfx_shadow_bias.x, ps_ssfx_shadow_bias.y, 0, 0);
++	}
++}    ssfx_shadow_bias;
++
+ // Standart constant-binding
+ void CBlender_Compile::SetMapping()
+ {
+@@ -680,6 +857,26 @@ void CBlender_Compile::SetMapping()
+ 	// PDA
+ 	r_Constant("pda_params", &binder_pda_params);
+ 
++	// Screen Space Shaders
++	r_Constant("ssfx_shadow_bias", &ssfx_shadow_bias);
++	r_Constant("ssfx_wind_anim", &ssfx_wind_anim);
++	r_Constant("sky_color", &binder_sky_color);
++	r_Constant("ssfx_wpn_dof_1", &ssfx_wpn_dof_1);
++	r_Constant("ssfx_wpn_dof_2", &ssfx_wpn_dof_2);
++	r_Constant("ssfx_blood_decals", &ssfx_blood_decals);
++	r_Constant("ssfx_hud_drops_1", &ssfx_hud_drops_1);
++	r_Constant("ssfx_hud_drops_2", &ssfx_hud_drops_2);
++	r_Constant("ssfx_lightsetup_1", &ssfx_lightsetup_1);
++	r_Constant("ssfx_is_underground", &ssfx_is_underground);
++	r_Constant("ssfx_wetsurfaces_1", &ssfx_wetsurfaces_1);
++	r_Constant("ssfx_wetsurfaces_2", &ssfx_wetsurfaces_2);
++	r_Constant("ssfx_gloss", &ssfx_gloss);
++	r_Constant("ssfx_florafixes_1", &ssfx_florafixes_1);
++	r_Constant("ssfx_florafixes_2", &ssfx_florafixes_2);
++	r_Constant("ssfx_wsetup_grass", &ssfx_wind_grass);
++	r_Constant("ssfx_wsetup_trees", &ssfx_wind_trees);
++	r_Constant("ssfx_lut", &ssfx_lut);
++
+ 	// Shader stuff
+ 	r_Constant("shader_param_1", &dev_param_1);
+ 	r_Constant("shader_param_2", &dev_param_2);
+diff --git a/src/Layers/xrRender/Blender_tree.cpp b/src/Layers/xrRender/Blender_tree.cpp
+index 7a8b831..00785fc 100644
+--- a/src/Layers/xrRender/Blender_tree.cpp
++++ b/src/Layers/xrRender/Blender_tree.cpp
+@@ -216,6 +216,13 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
+ 	switch (C.iElement)
+ 	{
+ 	case SE_R2_NORMAL_HQ: // deffer
++
++#if defined(USE_DX11)
++		// Is a branch/bush. Use a different VS
++		if (oBlend.value && RImplementation.o.ssfx_branches)
++			tvs = "tree_branch";
++#endif
++
+ 		if (bUseATOC)
+ 		{
+ 			uber_deffer(C, true, tvs, "base_atoc", oBlend.value, 0, true);
+@@ -230,6 +237,10 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
+ 		uber_deffer(C, true, tvs, "base", oBlend.value, 0, true);
+ 		C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
+ 		C.r_StencilRef(0x01);
++
++		C.r_dx10Texture("s_waves", "fx\\wind_wave");
++		C.r_dx10Sampler("smp_linear2");
++
+ 		//C.PassSET_ZB		(true,false);
+ 		//	Need only for ATOC to emulate stencil test
+ 		if (bUseATOC)
+@@ -252,6 +263,10 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
+ 		uber_deffer(C, false, tvs, "base", oBlend.value, 0, true);
+ 		C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
+ 		C.r_StencilRef(0x01);
++
++		C.r_dx10Texture("s_waves", "fx\\wind_wave");
++		C.r_dx10Sampler("smp_linear2");
++
+ 		//	Need only for ATOC to emulate stencil test
+ 		if (bUseATOC)
+ 			C.RS.SetRS(D3DRS_ZFUNC, D3DCMP_EQUAL);
+@@ -267,6 +282,10 @@ void CBlender_Tree::Compile(CBlender_Compile& C)
+ 		C.r_dx10Texture("s_base", C.L_textures[0]);
+ 		C.r_dx10Sampler("smp_base");
+ 		C.r_dx10Sampler("smp_linear");
++
++		C.r_dx10Texture("s_waves", "fx\\wind_wave");
++		C.r_dx10Sampler("smp_linear2");
++
+ 		C.r_ColorWriteEnable(false, false, false, false);
+ 		C.r_End();
+ 		break;
+diff --git a/src/Layers/xrRender/DetailManager.cpp b/src/Layers/xrRender/DetailManager.cpp
+index 7d63982..613b5db 100644
+--- a/src/Layers/xrRender/DetailManager.cpp
++++ b/src/Layers/xrRender/DetailManager.cpp
+@@ -292,7 +292,7 @@ void CDetailManager::UpdateVisibleM()
+ 				continue;
+ 			}
+ 			u32 mask = 0xff;
+-			u32 res = View.testSAABB(MS.vis.sphere.P, MS.vis.sphere.R, MS.vis.box.data(), mask);
++			u32 res = View.testSphere(MS.vis.sphere.P, MS.vis.sphere.R, mask);
+ 			if (fcvNone == res)
+ 			{
+ 				continue; // invisible-view frustum
+@@ -319,7 +319,7 @@ void CDetailManager::UpdateVisibleM()
+ 				if (fcvPartial == res)
+ 				{
+ 					u32 _mask = mask;
+-					u32 _res = View.testSAABB(S.vis.sphere.P, S.vis.sphere.R, S.vis.box.data(), _mask);
++					u32 _res = View.testSphere(S.vis.sphere.P, S.vis.sphere.R, _mask);
+ 					if (fcvNone == _res)
+ 					{
+ 						continue; // invisible-view frustum
+@@ -370,7 +370,9 @@ void CDetailManager::UpdateVisibleM()
+ 							if (ssa > r_ssaCHEAP) vis_id = Item.vis_ID;
+ 
+ 							sp.r_items[vis_id].push_back(*siIT);
+-
++							
++							Item.distance = dist_sq;
++							Item.position = S.vis.sphere.P;
+ 							//2							visible[vis_id][sp.id].push_back(&Item);
+ 						}
+ 					}
+@@ -458,3 +460,27 @@ void __stdcall CDetailManager::MT_CALC()
+ 		}
+ 	MT.Leave();
+ }
++
++void CDetailManager::details_clear()
++{
++	// Disable fade, next render will be scene
++	fade_distance = 99999;
++
++	if (ps_ssfx_grass_shadows.x <= 0)
++		return;
++
++	for (u32 x = 0; x < 3; x++)
++	{
++		vis_list& list = m_visibles[x];
++
++		for (u32 O = 0; O < objects.size(); O++)
++		{
++			CDetail& Object = *objects[O];
++			xr_vector<SlotItemVec*>& vis = list[O];
++			if (!vis.empty())
++			{
++				vis.clear_not_free();
++			}
++		}
++	}
++}
+diff --git a/src/Layers/xrRender/DetailManager.h b/src/Layers/xrRender/DetailManager.h
+index 5851f93..95da475 100644
+--- a/src/Layers/xrRender/DetailManager.h
++++ b/src/Layers/xrRender/DetailManager.h
+@@ -64,6 +64,12 @@ const float		dm_fade = float(2 * dm_size) - .5f;
+ class ECORE_API CDetailManager
+ {
+ public:
++
++	float fade_distance = 99999;
++	Fvector light_position;
++
++	void details_clear();
++
+ 	struct SlotItem
+ 	{
+ 		// один кустик
+@@ -73,6 +79,8 @@ public:
+ 		u32 vis_ID; // индекс в visibility списке он же тип [не качается, качается1, качается2]
+ 		float c_hemi;
+ 		float c_sun;
++		float distance;
++		Fvector position;
+ #if RENDER==R_R1
+ 		Fvector c_rgb;
+ #endif
+diff --git a/src/Layers/xrRender/FTreeVisual.cpp b/src/Layers/xrRender/FTreeVisual.cpp
+index 0489ef7..2afa75a 100644
+--- a/src/Layers/xrRender/FTreeVisual.cpp
++++ b/src/Layers/xrRender/FTreeVisual.cpp
+@@ -19,6 +19,9 @@ shared_str c_c_bias;
+ shared_str c_c_scale;
+ shared_str c_c_sun;
+ 
++shared_str c_c_BendersPos;
++shared_str c_c_BendersSetup;
++
+ FTreeVisual::FTreeVisual(void)
+ {
+ }
+@@ -91,6 +94,9 @@ void FTreeVisual::Load(const char* N, IReader* data, u32 dwFlags)
+ 	c_c_bias = "c_bias";
+ 	c_c_scale = "c_scale";
+ 	c_c_sun = "c_sun";
++
++	c_c_BendersPos = "benders_pos";
++	c_c_BendersSetup = "benders_setup";
+ }
+ 
+ struct FTreeVisual_setup
+@@ -160,6 +166,47 @@ void FTreeVisual::Render(float LOD)
+ 	                       s * c_bias.rgb.z + desc.ambient.z, s * c_bias.hemi); // bias
+ #endif
+ 	RCache.tree.set_c_sun(s * c_scale.sun, s * c_bias.sun, 0, 0); // sun
++
++#if RENDER==R_R4 || RENDER==R_R3
++
++	if (ps_ssfx_grass_interactive.y > 0)
++	{
++		// Inter grass Settings
++		RCache.set_c(c_c_BendersSetup, ps_ssfx_int_grass_params_1);
++
++		// Grass benders data ( Player + Characters )
++		IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
++		Fvector4 player_pos = { 0, 0, 0, 0 };
++		int BendersQty = _min(16, ps_ssfx_grass_interactive.y + 1);
++
++		// Add Player?
++		if (ps_ssfx_grass_interactive.x > 0)
++		{
++			player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z, -1);
++		}
++
++		Fvector4* c_grass;
++		{
++			void* GrassData;
++			RCache.get_ConstantDirect(c_c_BendersPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
++
++			c_grass = (Fvector4*)GrassData;
++		}
++		VERIFY(c_grass);
++
++		if (c_grass)
++		{
++			c_grass[0].set(player_pos);
++			c_grass[16].set(0.0f, -99.0f, 0.0f, 1.0f);
++
++			for (int Bend = 1; Bend < BendersQty; Bend++)
++			{
++				c_grass[Bend].set(GData.pos[Bend].x, GData.pos[Bend].y, GData.pos[Bend].z, GData.radius_curr[Bend]);
++				c_grass[Bend + 16].set(GData.dir[Bend].x, GData.dir[Bend].y, GData.dir[Bend].z, GData.str[Bend]);
++			}
++		}
++	}
++#endif
+ }
+ 
+ #define PCOPY(a)	a = pFrom->a
+diff --git a/src/Layers/xrRender/ResourceManager.cpp b/src/Layers/xrRender/ResourceManager.cpp
+index 681f58b..115701c 100644
+--- a/src/Layers/xrRender/ResourceManager.cpp
++++ b/src/Layers/xrRender/ResourceManager.cpp
+@@ -176,6 +176,11 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
+ 	C.BT = B;
+ 	C.bEditor = FALSE;
+ 	C.bDetail = FALSE;
++
++#if defined(USE_DX11)
++	C.HudElement = false;
++#endif
++
+ #ifdef _EDITOR
+ 	if (!C.BT)			{ ELog.Msg(mtError,"Can't find shader '%s'",s_shader); return 0; }
+ 	C.bEditor			= TRUE;
+@@ -186,6 +191,13 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
+ 	_ParseList(C.L_constants, s_constants);
+ 	_ParseList(C.L_matrices, s_matrices);
+ 
++#if defined(USE_DX11)
++	if (::Render->hud_loading && RImplementation.o.ssfx_hud_raindrops)
++	{
++		C.HudElement = true;
++	}
++#endif
++
+ 	// Compile element	(LOD0 - HQ)
+ 	{
+ 		C.iElement = 0;
+diff --git a/src/Layers/xrRender/blenders/Blender_Recorder.h b/src/Layers/xrRender/blenders/Blender_Recorder.h
+index 6e2efdf..57f0f51 100644
+--- a/src/Layers/xrRender/blenders/Blender_Recorder.h
++++ b/src/Layers/xrRender/blenders/Blender_Recorder.h
+@@ -26,6 +26,7 @@ public:
+ 	BOOL bDetail_Bump;
+ 	BOOL bUseSteepParallax;
+ 	int iElement;
++	bool HudElement = false;
+ 
+ public:
+ 	CSimulator RS;
+diff --git a/src/Layers/xrRender/dxRainRender.cpp b/src/Layers/xrRender/dxRainRender.cpp
+index e67cfb2..dc6fbe6 100644
+--- a/src/Layers/xrRender/dxRainRender.cpp
++++ b/src/Layers/xrRender/dxRainRender.cpp
+@@ -5,14 +5,14 @@
+ 
+ //	Warning: duplicated in rain.cpp
+ static const int max_desired_items = 2500;
+-static const float source_radius = 12.5f;
+-static const float source_offset = 40.f;
+-static const float max_distance = source_offset * 1.25f;
++static const float source_radius = 15;//12.5f;
++static const float source_offset = 20.f; // 40
++static const float max_distance = source_offset * 1.5f; //1.25f;
+ static const float sink_offset = -(max_distance - source_offset);
+ static const float drop_length = 5.f;
+ static const float drop_width = 0.30f;
+ static const float drop_angle = 3.0f;
+-static const float drop_max_angle = deg2rad(10.f);
++static const float drop_max_angle = deg2rad(35.f); //10
+ static const float drop_max_wind_vel = 20.0f;
+ static const float drop_speed_min = 40.f;
+ static const float drop_speed_max = 80.f;
+@@ -21,8 +21,12 @@ const int max_particles = 1000;
+ const int particles_cache = 400;
+ const float particles_time = .3f;
+ 
++int current_items;
++
+ dxRainRender::dxRainRender()
+ {
++	current_items = 0;
++
+ 	IReader* F = FS.r_open("$game_meshes$", "dm\\rain.dm");
+ 	VERIFY3(F, "Can't open file.", "dm\\rain.dm");
+ 
+@@ -33,6 +37,11 @@ dxRainRender::dxRainRender()
+ 	hGeom_Rain.create(FVF::F_LIT, RCache.Vertex.Buffer(), RCache.QuadIB);
+ 	hGeom_Drops.create(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1, RCache.Vertex.Buffer(), RCache.Index.Buffer());
+ 
++#if defined(USE_DX11)
++	if (RImplementation.o.ssfx_rain)
++		SH_Splash.create("effects\\rain_splash", "fx\\fx_rain");
++#endif
++
+ 	FS.r_close(F);
+ }
+ 
+@@ -53,21 +62,43 @@ void dxRainRender::Render(CEffect_Rain& owner)
+ 	float factor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
+ 	if (factor < EPS_L) return;
+ 
+-	u32 desired_items = iFloor(0.5f * (1.f + factor) * float(max_desired_items));
++	float _drop_len = drop_length;
++	float _drop_width = drop_width;
++	float _drop_speed = 1.0f;
++	ref_shader& _splash_SH = DM_Drop->shader;
++	static shared_str s_shader_setup = "ssfx_rain_setup";
++
++	// SSS Rain shader is available
++#if defined(USE_DX11)
++	if (RImplementation.o.ssfx_rain)
++	{
++		_drop_len = ps_ssfx_rain_1.x;
++		_drop_width = ps_ssfx_rain_1.y;
++		_drop_speed = ps_ssfx_rain_1.z;
++		_splash_SH = SH_Splash;
++	}
++#endif
++
++	u32 desired_items = iFloor(0.01f * (1.f + factor * 99.0f) * float(max_desired_items));
++
++	// Get to the desired items
++	if (current_items < desired_items)
++		current_items += desired_items - current_items;
++
+ 	// visual
+ 	float factor_visual = factor / 2.f + .5f;
+ 	Fvector3 f_rain_color = g_pGamePersistent->Environment().CurrentEnv->rain_color;
+ 	u32 u_rain_color = color_rgba_f(f_rain_color.x, f_rain_color.y, f_rain_color.z, factor_visual);
+ 
+ 	// born _new_ if needed
+-	float b_radius_wrap_sqr = _sqr((source_radius + .5f));
+-	if (owner.items.size() < desired_items)
++	float b_radius_wrap_sqr = _sqr((source_radius * 1.5f));
++	if (owner.items.size() < current_items)
+ 	{
+ 		// owner.items.reserve		(desired_items);
+-		while (owner.items.size() < desired_items)
++		while (owner.items.size() < current_items)
+ 		{
+ 			CEffect_Rain::Item one;
+-			owner.Born(one, source_radius);
++			owner.Born(one, source_radius, _drop_speed);
+ 			owner.items.push_back(one);
+ 		}
+ 	}
+@@ -84,13 +115,21 @@ void dxRainRender::Render(CEffect_Rain& owner)
+ 	FVF::LIT* verts = (FVF::LIT *)RCache.Vertex.Lock(desired_items * 4, hGeom_Rain->vb_stride, vOffset);
+ 	FVF::LIT* start = verts;
+ 	const Fvector& vEye = Device.vCameraPosition;
+-	for (u32 I = 0; I < owner.items.size(); I++)
++	for (u32 I = 0; I < current_items; I++)
+ 	{
+ 		// physics and time control
+ 		CEffect_Rain::Item& one = owner.items[I];
+ 
+-		if (one.dwTime_Hit < Device.dwTimeGlobal) owner.Hit(one.Phit);
+-		if (one.dwTime_Life < Device.dwTimeGlobal) owner.Born(one, source_radius);
++		if (one.dwTime_Hit < Device.dwTimeGlobal) 
++		{
++			owner.Hit(one.Phit);
++			if (current_items > desired_items) current_items--; // Hit something
++		}
++		if (one.dwTime_Life < Device.dwTimeGlobal)
++		{
++			owner.Born(one, source_radius, _drop_speed);
++			if (current_items > desired_items) current_items--; // Out of life ( invalidated, never hit something, etc. )
++		}
+ 
+ 		// последняя дельта ??
+ 		//.		float xdt		= float(one.dwTime_Hit-Device.dwTimeGlobal)/1000.f;
+@@ -154,7 +193,7 @@ void dxRainRender::Render(CEffect_Rain& owner)
+ 		// Build line
+ 		Fvector& pos_head = one.P;
+ 		Fvector pos_trail;
+-		pos_trail.mad(pos_head, one.D, -drop_length * factor_visual);
++		pos_trail.mad(pos_head, one.D, -_drop_len * factor_visual);
+ 
+ 		// Culling
+ 		Fvector sC, lineD;
+@@ -176,7 +215,7 @@ void dxRainRender::Render(CEffect_Rain& owner)
+ 		camDir.sub(sC, vEye);
+ 		camDir.normalize();
+ 		lineTop.crossproduct(camDir, lineD);
+-		float w = drop_width;
++		float w = _drop_width;
+ 		u32 s = one.uv_set;
+ 		P.mad(pos_trail, lineTop, -w);
+ 		verts->set(P, u_rain_color, UV[s][0].x, UV[s][0].y);
+@@ -205,6 +244,7 @@ void dxRainRender::Render(CEffect_Rain& owner)
+ 		RCache.Render(D3DPT_TRIANGLELIST, vOffset, 0, vCount, 0, vCount / 2);
+ 		//HW.pDevice->SetRenderState	(D3DRS_CULLMODE,D3DCULL_CCW);
+ 		RCache.set_CullMode(CULL_CCW);
++		RCache.set_c(s_shader_setup, ps_ssfx_rain_2); // Alpha, Brigthness, Refraction, Reflection
+ 	}
+ 
+ 	// Particles
+@@ -214,7 +254,8 @@ void dxRainRender::Render(CEffect_Rain& owner)
+ 	{
+ 		float dt = Device.fTimeDelta;
+ 		_IndexStream& _IS = RCache.Index;
+-		RCache.set_Shader(DM_Drop->shader);
++		RCache.set_Shader(_splash_SH);
++		RCache.set_c(s_shader_setup, ps_ssfx_rain_3); // Alpha, Refraction
+ 
+ 		Fmatrix mXform, mScale;
+ 		int pcount = 0;
+diff --git a/src/Layers/xrRender/dxRainRender.h b/src/Layers/xrRender/dxRainRender.h
+index 80dcbc9..4b76746 100644
+--- a/src/Layers/xrRender/dxRainRender.h
++++ b/src/Layers/xrRender/dxRainRender.h
+@@ -23,6 +23,7 @@ private:
+ 	// Visualization	(drops)
+ 	IRender_DetailModel* DM_Drop;
+ 	ref_geom hGeom_Drops;
++	ref_shader SH_Splash;
+ };
+ 
+ #endif	//	RainRender_included
+diff --git a/src/Layers/xrRender/dxWallMarkArray.cpp b/src/Layers/xrRender/dxWallMarkArray.cpp
+index 384d8d3..847c526 100644
+--- a/src/Layers/xrRender/dxWallMarkArray.cpp
++++ b/src/Layers/xrRender/dxWallMarkArray.cpp
+@@ -17,7 +17,24 @@ dxWallMarkArray::~dxWallMarkArray()
+ void dxWallMarkArray::AppendMark(LPCSTR s_textures)
+ {
+ 	ref_shader s;
++
++#if defined(USE_DX11)
++
++	LPCSTR sh_name = "effects\\wallmark";
++
++	if (RImplementation.o.ssfx_blood)
++	{
++		// Use the blood shader for any texture with the name wm_blood_*
++		if (strstr(s_textures, "wm_blood_"))
++			sh_name = "effects\\wallmark_blood";
++	}
++
++	s.create(sh_name, s_textures);
++
++#else
+ 	s.create("effects\\wallmark", s_textures);
++#endif
++
+ 	m_CollideMarks.push_back(s);
+ }
+ 
+diff --git a/src/Layers/xrRender/light.cpp b/src/Layers/xrRender/light.cpp
+index 1b28f32..4b1b91c 100644
+--- a/src/Layers/xrRender/light.cpp
++++ b/src/Layers/xrRender/light.cpp
+@@ -339,7 +339,7 @@ void light::export_(light_Package& package)
+ 					L->set_shadow(true);
+ 					L->set_position(position);
+ 					L->set_rotation(cmDir[f], R);
+-					L->set_cone(PI_DIV_2);
++					L->set_cone(PI_DIV_2 + 0.5f); // Add some extra angle to avoid problems with the shadow map frustum.
+ 					L->set_range(range);
+ 					L->set_color(color);
+ 					L->spatial.sector = spatial.sector; //. dangerous?
+@@ -376,6 +376,7 @@ void light::export_(light_Package& package)
+ 			}
+ 			break;
+ 		case IRender_Light::SPOT:
++			this->set_volumetric_intensity(m_volumetric_intensity);
+ 			package.v_shadowed.push_back(this);
+ 			break;
+ 		}
+diff --git a/src/Layers/xrRender/light.h b/src/Layers/xrRender/light.h
+index 8146a37..930916e 100644
+--- a/src/Layers/xrRender/light.h
++++ b/src/Layers/xrRender/light.h
+@@ -9,6 +9,8 @@
+ #	include "light_GI.h"
+ #endif //(RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+ 
++extern Fvector3 ps_ssfx_volumetric;
++
+ class light : public IRender_Light, public ISpatial
+ {
+ public:
+@@ -70,6 +72,7 @@ public:
+ 		bool		visible;		// visible/invisible
+ 		bool		pending;		// test is still pending
+ 		u16			smap_ID;
++		float		distance;
+ 	}				vis;
+ 
+ 	union			_xform	{
+@@ -109,12 +112,15 @@ public:
+ 
+ 	virtual void set_volumetric(bool b)
+ 	{
++		if (ps_ssfx_volumetric.x > 0)
++			b = true;
++
+ 		flags.bVolumetric = b;
+ 	}
+ 
+ 	virtual void set_volumetric_quality(float fValue) { m_volumetric_quality = fValue; }
+-	virtual void set_volumetric_intensity(float fValue) { m_volumetric_intensity = fValue; }
+-	virtual void set_volumetric_distance(float fValue) { m_volumetric_distance = fValue; }
++	virtual void set_volumetric_intensity(float fValue) { m_volumetric_intensity = ps_ssfx_volumetric.y; }
++	virtual void set_volumetric_distance(float fValue) { m_volumetric_distance = 1.0f; }
+ 
+ 	virtual void set_position(const Fvector& P);
+ 	virtual void set_rotation(const Fvector& D, const Fvector& R);
+diff --git a/src/Layers/xrRender/r__dsgraph_build.cpp b/src/Layers/xrRender/r__dsgraph_build.cpp
+index 274542b..40a0ede 100644
+--- a/src/Layers/xrRender/r__dsgraph_build.cpp
++++ b/src/Layers/xrRender/r__dsgraph_build.cpp
+@@ -592,7 +592,7 @@ IC bool IsValuableToRender(dxRender_Visual* pVisual, bool isStatic, bool sm, Fma
+ 
+ 		if (sm && !!psDeviceFlags2.test(rsOptShadowGeom)) // Highest cut off for shadow map
+ 		{
+-			if (sphere_volume < 50000.f && adjusted_distane > 160)
++			if (sphere_volume < 50000.f && adjusted_distane > ps_ssfx_shadow_cascades.z)
+ 				// don't need geometry behind the farest sun shadow cascade
+ 				return false;
+ 
+diff --git a/src/Layers/xrRender/xrRender_console.cpp b/src/Layers/xrRender/xrRender_console.cpp
+index 19cf561..513992c 100644
+--- a/src/Layers/xrRender/xrRender_console.cpp
++++ b/src/Layers/xrRender/xrRender_console.cpp
+@@ -292,6 +292,48 @@ Fvector4 ps_dev_param_8 = { .0f, .0f, .0f, .0f };
+ 
+ /////////////////////////////////
+ 
++// Screen Space Shaders Stuff
++Fvector3 ps_ssfx_shadows = { 256, 1536, 0.0f };
++Fvector3 ps_ssfx_volumetric = { 0, 0.02f, 1.5f };
++
++Fvector3 ps_ssfx_shadow_bias = { 0.4f, 0.03f, 0.0f };
++
++Fvector4 ps_ssfx_lut = { 0.0f, 0.0f, 0.0f, 0.0f };
++
++Fvector4 ps_ssfx_wind_grass = { 9.5f, 1.4f, 1.5f, 0.4f };
++Fvector4 ps_ssfx_wind_trees = { 11.0f, 0.15f, 0.5f, 0.15f };
++
++Fvector4 ps_ssfx_florafixes_1 = { 0.3f, 0.21f, 0.3f, 0.21f }; // Flora fixes 1
++Fvector4 ps_ssfx_florafixes_2 = { 2.0f, 1.0f, 0.0f, 0.0f }; // Flora fixes 2
++
++Fvector4 ps_ssfx_wetsurfaces_1 = { 1.0f, 1.0f, 1.0f, 1.0f }; // Wet surfaces 1
++Fvector4 ps_ssfx_wetsurfaces_2 = { 1.0f, 1.0f, 1.0f, 1.0f }; // Wet surfaces 2
++
++int ps_ssfx_is_underground = 0;
++int ps_ssfx_gloss_method = 0;
++float ps_ssfx_gloss_factor = 0.5f;
++Fvector3 ps_ssfx_gloss_minmax = { 0.0f,0.92f,0.0f }; // Gloss
++
++Fvector4 ps_ssfx_lightsetup_1 = { 0.35f, 0.5f, 0.0f, 0.0f }; // Spec intensity
++
++Fvector4 ps_ssfx_hud_drops_1 = { 1.0f, 1.0f, 1.0f, 1.0f }; // Anim Speed, Int, Reflection, Refraction
++Fvector4 ps_ssfx_hud_drops_2 = { 1.5f, 0.85f, 0.0f, 2.0f }; // Density, Size, Extra Gloss, Gloss
++
++Fvector4 ps_ssfx_blood_decals = { 0.6f, 0.6f, 0.f, 0.f };
++Fvector4 ps_ssfx_rain_1 = { 2.0f, 0.1f, 0.6f, 2.f }; // Len, Width, Speed, Quality
++Fvector4 ps_ssfx_rain_2 = { 0.7f, 0.1f, 1.0f, 0.5f }; // Alpha, Brigthness, Refraction, Reflection
++Fvector4 ps_ssfx_rain_3 = { 0.5f, 1.0f, 0.0f, 0.0f }; // Alpha, Refraction ( Splashes )
++
++Fvector3 ps_ssfx_shadow_cascades = { 20, 40, 160 };
++Fvector4 ps_ssfx_grass_shadows = { .0f, .35f, 30.0f, .0f };
++
++Fvector4 ps_ssfx_grass_interactive = { .0f, .0f, 2000.0f, 1.0f };
++Fvector4 ps_ssfx_int_grass_params_1 = { 1.0f, 1.0f, 1.0f, 25.0f };
++Fvector4 ps_ssfx_int_grass_params_2 = { 1.0f, 5.0f, 1.0f, 1.0f };
++
++Fvector4 ps_ssfx_wpn_dof_1 = { .0f, .0f, .0f, .0f };
++float ps_ssfx_wpn_dof_2 = 1.0f;
++
+ //	x - min (0), y - focus (1.4), z - max (100)
+ Fvector3 ps_r2_dof = { -1.25f, 0.f, 600.f };
+ float ps_r2_dof_sky = 30; //	distance to sky
+@@ -347,6 +389,33 @@ int opt_dynamic = 2;
+ #include "../xrRenderDX10/StateManager/dx10SamplerStateCache.h"
+ #endif	//	USE_DX10
+ 
++class CCC_ssfx_cascades : public CCC_Vector3
++{
++public:
++	void apply()
++	{
++#if defined(USE_DX10) || defined(USE_DX11)
++		RImplementation.init_cacades();
++#endif
++	}
++
++	CCC_ssfx_cascades(LPCSTR N, Fvector3* V, const Fvector3 _min, const Fvector3 _max) : CCC_Vector3(N, V, _min, _max)
++	{
++	};
++
++	virtual void Execute(LPCSTR args)
++	{
++		CCC_Vector3::Execute(args);
++		apply();
++	}
++
++	virtual void Status(TStatus& S)
++	{
++		CCC_Vector3::Status(S);
++		apply();
++	}
++};
++
+ //-----------------------------------------------------------------------
+ //AVO: detail draw radius
+ #ifdef DETAIL_RADIUS
+@@ -962,7 +1031,7 @@ void xrRender_initconsole()
+ 	CMD4(CCC_Float, "r2_ls_dsm_kernel", &ps_r2_ls_dsm_kernel, .1f, 3.f);
+ 	CMD4(CCC_Float, "r2_ls_psm_kernel", &ps_r2_ls_psm_kernel, .1f, 3.f);
+ 	CMD4(CCC_Float, "r2_ls_ssm_kernel", &ps_r2_ls_ssm_kernel, .1f, 3.f);
+-	CMD4(CCC_Float, "r2_ls_squality", &ps_r2_ls_squality, .5f, 1.f);
++	CMD4(CCC_Float, "r2_ls_squality", &ps_r2_ls_squality, .5f, 3.f);
+ 
+ 	CMD3(CCC_Mask, "r2_zfill", &ps_r2_ls_flags, R2FLAG_ZFILL);
+ 	CMD4(CCC_Float, "r2_zfill_depth", &ps_r2_zfill, .001f, .5f);
+@@ -1070,6 +1139,49 @@ void xrRender_initconsole()
+ 	CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
+ 	CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
+ 	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
++	
++	// Screen Space Shaders
++	CMD4(CCC_Vector3, "ssfx_shadows", &ps_ssfx_shadows, Fvector3().set(128, 1536, 0), Fvector3().set(1536, 4096, 0));
++	CMD4(CCC_Vector3, "ssfx_volumetric", &ps_ssfx_volumetric, Fvector3().set(0, 0, 1.0), Fvector3().set(1.0, 1.0, 5.0));
++
++	CMD4(CCC_Vector3, "ssfx_shadow_bias", &ps_ssfx_shadow_bias, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
++
++	CMD4(CCC_Vector4, "ssfx_lut", &ps_ssfx_lut, Fvector4().set(0.0, 0.0, 0.0, 0.0), tw2_max);
++
++	CMD4(CCC_Vector4, "ssfx_wind_grass", &ps_ssfx_wind_grass, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(20.0, 5.0, 5.0, 5.0));
++	CMD4(CCC_Vector4, "ssfx_wind_trees", &ps_ssfx_wind_trees, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(20.0, 5.0, 5.0, 1.0));
++
++	CMD4(CCC_Vector4, "ssfx_florafixes_1", &ps_ssfx_florafixes_1, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
++	CMD4(CCC_Vector4, "ssfx_florafixes_2", &ps_ssfx_florafixes_2, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(10.0, 1.0, 1.0, 1.0));
++
++	CMD4(CCC_Vector4, "ssfx_wetsurfaces_1", &ps_ssfx_wetsurfaces_1, Fvector4().set(0.01, 0.01, 0.01, 0.01), Fvector4().set(2.0, 2.0, 2.0, 2.0));
++	CMD4(CCC_Vector4, "ssfx_wetsurfaces_2", &ps_ssfx_wetsurfaces_2, Fvector4().set(0.01, 0.01, 0.01, 0.01), Fvector4().set(2.0, 2.0, 2.0, 2.0));
++
++	CMD4(CCC_Integer, "ssfx_is_underground", &ps_ssfx_is_underground, 0, 1);
++	CMD4(CCC_Integer, "ssfx_gloss_method", &ps_ssfx_gloss_method, 0, 1);
++	CMD4(CCC_Vector3, "ssfx_gloss_minmax", &ps_ssfx_gloss_minmax, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
++	CMD4(CCC_Float, "ssfx_gloss_factor", &ps_ssfx_gloss_factor, 0.0f, 1.0f);
++
++	CMD4(CCC_Vector4, "ssfx_lightsetup_1", &ps_ssfx_lightsetup_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
++
++	CMD4(CCC_Vector4, "ssfx_hud_drops_1", &ps_ssfx_hud_drops_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(100000, 100, 100, 100));
++	CMD4(CCC_Vector4, "ssfx_hud_drops_2", &ps_ssfx_hud_drops_2, Fvector4().set(0, 0, 0, 0), tw2_max);
++
++	CMD4(CCC_Vector4, "ssfx_blood_decals", &ps_ssfx_blood_decals, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 0, 0));
++
++	CMD4(CCC_Vector4, "ssfx_rain_1", &ps_ssfx_rain_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 5, 5, 2));
++	CMD4(CCC_Vector4, "ssfx_rain_2", &ps_ssfx_rain_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 10, 10, 10));
++	CMD4(CCC_Vector4, "ssfx_rain_3", &ps_ssfx_rain_3, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 10, 10, 10));
++
++	CMD4(CCC_Vector4, "ssfx_grass_shadows", &ps_ssfx_grass_shadows, Fvector4().set(0, 0, 0, 0), Fvector4().set(3, 1, 100, 100));
++	CMD4(CCC_ssfx_cascades, "ssfx_shadow_cascades", &ps_ssfx_shadow_cascades, Fvector3().set(1.0f, 1.0f, 1.0f), Fvector3().set(300, 300, 300));
++	
++	CMD4(CCC_Vector4, "ssfx_grass_interactive", &ps_ssfx_grass_interactive, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 15, 5000, 1));
++	CMD4(CCC_Vector4, "ssfx_int_grass_params_1", &ps_ssfx_int_grass_params_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 5, 60));
++	CMD4(CCC_Vector4, "ssfx_int_grass_params_2", &ps_ssfx_int_grass_params_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 20, 1, 5));
++	
++	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
++	CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
+ 
+ 	// Geometry optimization
+ 	CMD4(CCC_Integer, "r__optimize_static_geom", &opt_static, 0, 4);
+diff --git a/src/Layers/xrRender/xrRender_console.h b/src/Layers/xrRender/xrRender_console.h
+index 7ee8c11..bea3c49 100644
+--- a/src/Layers/xrRender/xrRender_console.h
++++ b/src/Layers/xrRender/xrRender_console.h
+@@ -3,6 +3,21 @@
+ #pragma once
+ 
+ // Common
++extern ECORE_API Fvector3 ps_ssfx_shadows;
++extern ECORE_API Fvector3 ps_ssfx_volumetric;
++
++extern ECORE_API Fvector4 ps_ssfx_wind_grass;
++extern ECORE_API Fvector4 ps_ssfx_wind_trees;
++
++extern ECORE_API Fvector4 ps_ssfx_rain_1;
++extern ECORE_API Fvector4 ps_ssfx_rain_2;
++extern ECORE_API Fvector4 ps_ssfx_rain_3;
++extern ECORE_API Fvector4 ps_ssfx_grass_shadows;
++extern ECORE_API Fvector3 ps_ssfx_shadow_cascades;
++extern ECORE_API Fvector4 ps_ssfx_grass_interactive;
++extern ECORE_API Fvector4 ps_ssfx_int_grass_params_1;
++extern ECORE_API Fvector4 ps_ssfx_int_grass_params_2;
++
+ extern ECORE_API u32 ps_r_sun_shafts; //=	0;
+ extern ECORE_API xr_token qsun_shafts_token[];
+ 
+diff --git a/src/Layers/xrRenderDX10/Blender_Recorder_R3.cpp b/src/Layers/xrRenderDX10/Blender_Recorder_R3.cpp
+index 356c58f..2283fc0 100644
+--- a/src/Layers/xrRenderDX10/Blender_Recorder_R3.cpp
++++ b/src/Layers/xrRenderDX10/Blender_Recorder_R3.cpp
+@@ -182,6 +182,18 @@ u32 CBlender_Compile::r_dx10Sampler(LPCSTR ResourceName)
+ 		i_dx10Filter(stage, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+ 	}
+ 
++	if (0 == xr_strcmp(ResourceName, "smp_linear2"))
++	{
++		i_dx10Address(stage, D3DTADDRESS_WRAP);
++		i_dx10Filter(stage, D3DTEXF_LINEAR, D3DTEXF_LINEAR, D3DTEXF_LINEAR);
++	}
++
++	if (0 == xr_strcmp(ResourceName, "smp_point"))
++	{
++		i_dx10Address(stage, D3DTADDRESS_WRAP);
++		i_dx10Filter(stage, D3DTEXF_POINT, D3DTEXF_POINT, D3DTEXF_POINT);
++	}
++
+ 	return stage;
+ }
+ 
+diff --git a/src/Layers/xrRenderDX10/dx10DetailManager_VS.cpp b/src/Layers/xrRenderDX10/dx10DetailManager_VS.cpp
+index bb08aa2..e26e3fe 100644
+--- a/src/Layers/xrRenderDX10/dx10DetailManager_VS.cpp
++++ b/src/Layers/xrRenderDX10/dx10DetailManager_VS.cpp
+@@ -110,6 +110,18 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
+ 	static shared_str strArray("array");
+ 	static shared_str strXForm("xform");
+ 
++	static shared_str strPos("benders_pos");
++	static shared_str strGrassSetup("benders_setup");
++
++	// Grass benders data
++	IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
++	Fvector4 player_pos = { 0, 0, 0, 0 };
++	int BendersQty = _min(16, ps_ssfx_grass_interactive.y + 1);
++
++	// Add Player?
++	if (ps_ssfx_grass_interactive.x > 0)
++		player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z, -1);
++
+ 	Device.Statistic->RenderDUMP_DT_Count = 0;
+ 
+ 	// Matrices and offsets
+@@ -146,6 +158,31 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
+ 				RCache.set_c(strDir2D, wind);
+ 				RCache.set_c(strXForm, Device.mFullTransform);
+ 
++				if (ps_ssfx_grass_interactive.y > 0)
++				{
++					RCache.set_c(strGrassSetup, ps_ssfx_int_grass_params_1);
++
++					Fvector4* c_grass;
++					{
++						void* GrassData;
++						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
++						c_grass = (Fvector4*)GrassData;
++					}
++					VERIFY(c_grass);
++
++					if (c_grass)
++					{
++						c_grass[0].set(player_pos);
++						c_grass[16].set(0.0f, -99.0f, 0.0f, 1.0f);
++
++						for (int Bend = 1; Bend < BendersQty; Bend++)
++						{
++							c_grass[Bend].set(GData.pos[Bend].x, GData.pos[Bend].y, GData.pos[Bend].z, GData.radius_curr[Bend]);
++							c_grass[Bend + 16].set(GData.dir[Bend].x, GData.dir[Bend].y, GData.dir[Bend].z, GData.str[Bend]);
++						}
++					}
++				}
++
+ 				//ref_constant constArray = RCache.get_c(strArray);
+ 				//VERIFY(constArray);
+ 
+@@ -176,8 +213,20 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
+ 						SlotItem& Instance = **_iI;
+ 						u32 base = dwBatch * 4;
+ 
+-						// Build matrix ( 3x4 matrix, last row - color )
+ 						float scale = Instance.scale_calculated;
++
++						// Sort of fade using the scale
++						// fade_distance == -1 use light_position to define "fade", anything else uses fade_distance
++						if (fade_distance <= -1)
++							scale *= 1.0f - Instance.position.distance_to_xz_sqr(light_position) * 0.005f;
++						else if (Instance.distance > fade_distance)
++							scale *= 1.0f - abs(Instance.distance - fade_distance) * 0.005f;
++
++						if (scale <= 0)
++							break;
++
++						// Build matrix ( 3x4 matrix, last row - color )
++						//float scale = Instance.scale_calculated;
+ 						Fmatrix& M = Instance.mRotY;
+ 						c_storage[base + 0].set(M._11 * scale, M._21 * scale, M._31 * scale, M._41);
+ 						c_storage[base + 1].set(M._12 * scale, M._22 * scale, M._32 * scale, M._42);
+@@ -233,13 +282,16 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
+ 			}
+ 			// Clean up
+ 			// KD: we must not clear vis on r2 since we want details shadows
+-			if (!psDeviceFlags2.test(rsGrassShadow) || ((ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_SMAP ==
++			if (ps_ssfx_grass_shadows.x <= 0)
++			{
++				if (!psDeviceFlags2.test(rsGrassShadow) || ((ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_SMAP ==
+ 					RImplementation.phase)) // phase smap with shadows
+-				|| (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase)
+-					&& (!RImplementation.is_sun())) // phase normal with shadows without sun
+-				|| (!ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase))
+-			)) // phase normal without shadows
+-				vis.clear_not_free();
++					|| (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase)
++						&& (!RImplementation.is_sun())) // phase normal with shadows without sun
++					|| (!ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS) && (RImplementation.PHASE_NORMAL == RImplementation.phase))
++					)) // phase normal without shadows
++					vis.clear_not_free();
++			}
+ 		}
+ 		vOffset += hw_BatchSize * Object.number_vertices;
+ 		iOffset += hw_BatchSize * Object.number_indices;
+diff --git a/src/Layers/xrRenderDX10/dx10ResourceManager_Scripting.cpp b/src/Layers/xrRenderDX10/dx10ResourceManager_Scripting.cpp
+index 70d8640..1bdbd06 100644
+--- a/src/Layers/xrRenderDX10/dx10ResourceManager_Scripting.cpp
++++ b/src/Layers/xrRenderDX10/dx10ResourceManager_Scripting.cpp
+@@ -31,6 +31,12 @@ public:
+ 	{
+ 		return (RImplementation.o.dx10_msaa_alphatest == CRender::MSAA_ATEST_DX10_0_ATOC);
+ 	}
++
++	LPCSTR _get_level()
++	{
++		const shared_str level_name = g_pGameLevel->name();
++		return level_name.c_str();
++	}
+ };
+ 
+ // wrapper
+@@ -193,6 +199,12 @@ public:
+ 		return *this;
+ 	}
+ 
++	adopt_compiler& _dx10CullMode(u32 Ref)
++	{
++		C->r_CullMode((D3DCULL)Ref);
++		return *this;
++	}
++
+ 	adopt_compiler& _dx10ATOC(bool Enable)
+ 	{
+ 		C->RS.SetRS(XRDX10RS_ALPHATOCOVERAGE, Enable);
+@@ -344,6 +356,7 @@ void CResourceManager::LS_Load()
+ 	[
+ 		class_<adopt_dx10options>("_dx10options")
+ 		.def("dx10_msaa_alphatest_atoc", &adopt_dx10options::_dx10_msaa_alphatest_atoc)
++		.def("getLevel", &adopt_dx10options::_get_level)
+ 		//.def("",					&adopt_dx10options::_dx10Options		),	// returns options-object
+ 		,
+ 
+@@ -389,6 +402,7 @@ void CResourceManager::LS_Load()
+ 		.def("dx10texture", &adopt_compiler::_dx10texture, return_reference_to(_1))
+ 		.def("dx10stencil", &adopt_compiler::_dx10Stencil, return_reference_to(_1))
+ 		.def("dx10stencil_ref", &adopt_compiler::_dx10StencilRef, return_reference_to(_1))
++		.def("dx10cullmode", &adopt_compiler::_dx10CullMode, return_reference_to(_1))
+ 		.def("dx10atoc", &adopt_compiler::_dx10ATOC, return_reference_to(_1))
+ 		.def("dx10zfunc", &adopt_compiler::_dx10ZFunc, return_reference_to(_1))
+ 
+diff --git a/src/Layers/xrRenderPC_R4/Light_Render_Direct_ComputeXFS.cpp b/src/Layers/xrRenderPC_R4/Light_Render_Direct_ComputeXFS.cpp
+index 6b3c5dd..f2f9e8b 100644
+--- a/src/Layers/xrRenderPC_R4/Light_Render_Direct_ComputeXFS.cpp
++++ b/src/Layers/xrRenderPC_R4/Light_Render_Direct_ComputeXFS.cpp
+@@ -47,8 +47,9 @@ void CLight_Compute_XFORM_and_VIS::compute_xf_spot(light* L)
+ 	float intensity1 = (L->color.r * 0.2125f + L->color.g * 0.7154f + L->color.b * 0.0721f);
+ 	float intensity = (intensity0 + intensity1) / 2.f; // intensity1 tends to underestimate...
+ 
++	// [SSS 19] Improve this code later?
+ 	// compute how much duelling frusta occurs	[-1..1]-> 1 + [-0.5 .. +0.5]
+-	float duel_dot = 1.f - 0.5f * Device.vCameraDirection.dotproduct(L_dir);
++	//float duel_dot = 1.f - 0.5f * Device.vCameraDirection.dotproduct(L_dir);
+ 
+ 	// compute how large the light is - give more texels to larger lights, assume 8m as being optimal radius
+ 	float sizefactor = L->range / 8.f; // 4m = .5, 8m=1.f, 16m=2.f, 32m=4.f
+@@ -59,15 +60,17 @@ void CLight_Compute_XFORM_and_VIS::compute_xf_spot(light* L)
+ 	// factors
+ 	float factor0 = powf(ssa, 1.f / 2.f); // ssa is quadratic
+ 	float factor1 = powf(intensity, 1.f / 16.f); // less perceptually important?
+-	float factor2 = powf(duel_dot, 1.f / 4.f); // difficult to fast-change this -> visible
++	//float factor2 = powf(duel_dot, 1.f / 4.f); // difficult to fast-change this -> visible
+ 	float factor3 = powf(sizefactor, 1.f / 4.f); // this shouldn't make much difference
+ 	float factor4 = powf(widefactor, 1.f / 2.f); // make it linear ???
+-	float factor = ps_r2_ls_squality * factor0 * factor1 * factor2 * factor3 * factor4;
++	//float factor = ps_r2_ls_squality * factor0 * factor1 * factor2 * factor3 * factor4;
++	float factor = ps_r2_ls_squality * factor0 * factor1 * factor3 * factor4;
+ 
+ 	// final size calc
++	u32 max_size = RImplementation.o.smapsize <= ps_ssfx_shadows.y ? RImplementation.o.smapsize : ps_ssfx_shadows.y;
+ 	u32 _size = iFloor(factor * SMAP_adapt_optimal);
+-	if (_size < SMAP_adapt_min) _size = SMAP_adapt_min;
+-	if (_size > SMAP_adapt_max) _size = SMAP_adapt_max;
++	if (_size < ps_ssfx_shadows.x) _size = ps_ssfx_shadows.x;
++	if (_size > max_size) _size = max_size;
+ 	int _epsilon = iCeil(float(_size) * 0.01f);
+ 	int _diff = _abs(int(_size) - int(_cached_size));
+ 	L->X.S.size = (_diff >= _epsilon) ? _size : _cached_size;
+@@ -87,11 +90,11 @@ void CLight_Compute_XFORM_and_VIS::compute_xf_spot(light* L)
+ 	
+ 	/* Ray Twitty */
+ 	float tan_shift;
+-	if (L->flags.type == IRender_Light::POINT)	
+-		tan_shift = deg2rad(11.5f);
+-	else										
+-		tan_shift = deg2rad(3.5f);
+-	
++	if (L->flags.type == IRender_Light::POINT)
++		tan_shift = 0.2007129f; // deg2rad(11.5f);
++	else
++		tan_shift = 0.0610865f; //deg2rad(3.5f);
++
+ 	/* Ray Twitty end */
+ 	L->X.S.project.build_projection(L->cone + tan_shift, 1.f, L->virtual_size, L->range + EPS_S);
+ 	L->X.S.combine.mul(L->X.S.project, L->X.S.view);
+diff --git a/src/Layers/xrRenderPC_R4/blender_deffer_model.cpp b/src/Layers/xrRenderPC_R4/blender_deffer_model.cpp
+index 852818e..74ff68e 100644
+--- a/src/Layers/xrRenderPC_R4/blender_deffer_model.cpp
++++ b/src/Layers/xrRenderPC_R4/blender_deffer_model.cpp
+@@ -116,7 +116,13 @@ void CBlender_deffer_model::Compile(CBlender_Compile& C)
+ 				C.r_End();
+ 			}
+ 
+-			uber_deffer(C, true, "model", "base", bAref, 0, true);
++			if (C.HudElement)
++			{
++				uber_deffer(C, true, "model_hud", "base_hud", bAref, 0, true);
++				C.r_dx10Texture("s_hud_rain", "fx\\hud_rain");
++			}
++			else
++				uber_deffer(C, true, "model", "base", bAref, 0, true);
+ 
+ 			C.r_Stencil(TRUE, D3DCMP_ALWAYS, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
+ 			C.r_StencilRef(0x01);
+diff --git a/src/Layers/xrRenderPC_R4/light_vis.cpp b/src/Layers/xrRenderPC_R4/light_vis.cpp
+index f4334ea..ca2ca94 100644
+--- a/src/Layers/xrRenderPC_R4/light_vis.cpp
++++ b/src/Layers/xrRenderPC_R4/light_vis.cpp
+@@ -36,7 +36,9 @@ void light::vis_prepare()
+ 	if (ps_r2_ls_flags.test(R2FLAG_EXP_DONT_TEST_UNSHADOWED) && !flags.bShadow) skiptest = true;
+ 	if (ps_r2_ls_flags.test(R2FLAG_EXP_DONT_TEST_SHADOWED) && flags.bShadow) skiptest = true;
+ 
+-	if (skiptest || Device.vCameraPosition.distance_to(spatial.sphere.P) <= (spatial.sphere.R * 1.01f + safe_area))
++	vis.distance = Device.vCameraPosition.distance_to(spatial.sphere.P);
++
++	if (skiptest || vis.distance <= (spatial.sphere.R * 1.01f + safe_area))
+ 	{
+ 		// small error
+ 		vis.visible = true;
+diff --git a/src/Layers/xrRenderPC_R4/r2_R_lights.cpp b/src/Layers/xrRenderPC_R4/r2_R_lights.cpp
+index a66b3e0..378121f 100644
+--- a/src/Layers/xrRenderPC_R4/r2_R_lights.cpp
++++ b/src/Layers/xrRenderPC_R4/r2_R_lights.cpp
+@@ -7,6 +7,24 @@ IC bool pred_area(light* _1, light* _2)
+ 	return a0 > a1; // reverse -> descending
+ }
+ 
++bool check_grass_shadow(light* L, CFrustum VB)
++{
++	// Grass shadows are allowed?
++	if (ps_ssfx_grass_shadows.x < 3 || !psDeviceFlags2.test(rsGrassShadow))
++		return false;
++
++	// Inside the range?
++	if (L->vis.distance > ps_ssfx_grass_shadows.z)
++		return false;
++
++	// Is in view? L->vis.visible?
++	u32 mask = 0xff;
++	if (!VB.testSphere(L->position, L->range * 0.6f, mask))
++		return false;
++
++	return true;
++}
++
+ void CRender::render_lights(light_Package& LP)
+ {
+ 	//////////////////////////////////////////////////////////////////////////
+@@ -117,6 +135,15 @@ void CRender::render_lights(light_Package& LP)
+ 				RCache.set_xform_view(L->X.S.view);
+ 				RCache.set_xform_project(L->X.S.project);
+ 				r_dsgraph_render_graph(0);
++				if (Details)
++				{
++					if (check_grass_shadow(L, ViewBase))
++					{
++						Details->fade_distance = -1; // Use light position to calc "fade"
++						Details->light_position.set(L->position);
++						Details->Render();
++					}
++				}
+ 				L->X.S.transluent = FALSE;
+ 				if (bSpecial)
+ 				{
+diff --git a/src/Layers/xrRenderPC_R4/r2_R_sun.cpp b/src/Layers/xrRenderPC_R4/r2_R_sun.cpp
+index 7d6c6e9..2b0671c 100644
+--- a/src/Layers/xrRenderPC_R4/r2_R_sun.cpp
++++ b/src/Layers/xrRenderPC_R4/r2_R_sun.cpp
+@@ -1093,13 +1093,13 @@ void CRender::init_cacades()
+ 	float fBias = -0.0000025f;
+ 	//	float size = MAP_SIZE_START;
+ 	m_sun_cascades[0].reset_chain = true;
+-	m_sun_cascades[0].size = 20; 
++	m_sun_cascades[0].size = ps_ssfx_shadow_cascades.x; //20
+ 	m_sun_cascades[0].bias = m_sun_cascades[0].size * fBias;
+ 
+-	m_sun_cascades[1].size = 40;
++	m_sun_cascades[1].size = ps_ssfx_shadow_cascades.y; //40
+ 	m_sun_cascades[1].bias = m_sun_cascades[1].size * fBias;
+ 
+-	m_sun_cascades[2].size = 160;
++	m_sun_cascades[2].size = ps_ssfx_shadow_cascades.z; //160
+ 	m_sun_cascades[2].bias = m_sun_cascades[2].size * fBias;
+ 
+ 	// 	for( u32 i = 0; i < cascade_count; ++i )
+@@ -1384,8 +1384,11 @@ void CRender::render_sun_cascade(u32 cascade_ind)
+ 			RCache.set_xform_view(Fidentity);
+ 			RCache.set_xform_project(fuckingsun->X.D.combine);
+ 			r_dsgraph_render_graph(0);
+-			if (ps_r2_ls_flags.test(R2FLAG_SUN_DETAILS))
++			if (psDeviceFlags2.test(rsGrassShadow) && cascade_ind <= ps_ssfx_grass_shadows.x)
++			{
++				Details->fade_distance = dm_fade * dm_fade * ps_ssfx_grass_shadows.y;
+ 				Details->Render();
++			}
+ 			fuckingsun->X.D.transluent = FALSE;
+ 			if (bSpecial)
+ 			{
+diff --git a/src/Layers/xrRenderPC_R4/r2_types.h b/src/Layers/xrRenderPC_R4/r2_types.h
+index 18a11d4..9f99ef2 100644
+--- a/src/Layers/xrRenderPC_R4/r2_types.h
++++ b/src/Layers/xrRenderPC_R4/r2_types.h
+@@ -121,10 +121,23 @@ const u32 LUMINANCE_size = 16;
+ 
+ extern float ps_r2_gloss_factor;
+ extern float ps_r2_gloss_min;
++
++extern int ps_ssfx_gloss_method;
++extern float ps_ssfx_gloss_factor;
++extern Fvector3 ps_ssfx_gloss_minmax;
++
+ IC float u_diffuse2s(float x, float y, float z)
+ {
+-	float v = (x + y + z) / 3.f;
+-	return ps_r2_gloss_min + ps_r2_gloss_factor * ((v < 1) ? powf(v, 2.f / 3.f) : v);
++	if (ps_ssfx_gloss_method == 0)
++	{
++		float v = (x + y + z) / 3.f;
++		return ps_r2_gloss_min + ps_r2_gloss_factor * ((v < 1) ? powf(v, 2.f / 3.f) : v);
++	}
++	else
++	{
++		// Remove sun from the equation and clamp value.
++		return ps_ssfx_gloss_minmax.x + clampr(ps_ssfx_gloss_minmax.y - ps_ssfx_gloss_minmax.x, 0.0f, 1.0f) * ps_ssfx_gloss_factor;
++	}
+ }
+ 
+ IC float u_diffuse2s(Fvector3& c) { return u_diffuse2s(c.x, c.y, c.z); }
+diff --git a/src/Layers/xrRenderPC_R4/r4.cpp b/src/Layers/xrRenderPC_R4/r4.cpp
+index 77fb925..c8f2990 100644
+--- a/src/Layers/xrRenderPC_R4/r4.cpp
++++ b/src/Layers/xrRenderPC_R4/r4.cpp
+@@ -456,6 +456,18 @@ void CRender::create()
+ 		}
+ 	}
+ 
++	// Check if SSS shaders exist
++	string_path fn;
++	o.ssfx_rain = FS.exist(fn, "$game_shaders$", "r3\\effects_rain_splash", ".ps") ? 1 : 0;
++	o.ssfx_blood = FS.exist(fn, "$game_shaders$", "r3\\effects_wallmark_blood", ".ps") ? 1 : 0;
++	o.ssfx_branches = FS.exist(fn, "$game_shaders$", "r3\\deffer_tree_branch_bump-hq", ".vs") ? 1 : 0;
++	o.ssfx_hud_raindrops = FS.exist(fn, "$game_shaders$", "r3\\deffer_base_hud_bump", ".ps") ? 1 : 0;
++
++	Msg("- SSS HUD RAINDROPS SHADER INSTALLED %i", o.ssfx_hud_raindrops);
++	Msg("- SSS RAIN SHADER INSTALLED %i", o.ssfx_rain);
++	Msg("- SSS BLOOD SHADER INSTALLED %i", o.ssfx_blood);
++	Msg("- SSS BRANCHES SHADER INSTALLED %i", o.ssfx_branches);
++
+ 	// constants
+ 	CResourceManager* RM = dxRenderDeviceRender::Instance().Resources;
+ 	RM->RegisterConstantSetup("parallax", &binder_parallax);
+@@ -614,6 +626,9 @@ void CRender::OnFrame()
+ 		Device.seqParallel.insert(Device.seqParallel.begin(),
+ 			fastdelegate::FastDelegate0<>(&HOM, &CHOM::MT_RENDER));
+ 	}
++
++	if (Details)
++		g_pGamePersistent->GrassBendersUpdateAnimations();
+ }
+ 
+ // Particles
+@@ -1223,6 +1238,10 @@ HRESULT CRender::shader_compile(
+ 	char c_ssao [32];
+ 	char c_sun_quality [32];
+ 	char c_smaa_quality [32];
++	
++	// SSS preprocessor stuff
++	char c_rain_quality[32];
++	char c_inter_grass[32];
+ 
+ 	char sh_name[MAX_PATH] = "";
+ 
+@@ -1680,6 +1699,42 @@ HRESULT CRender::shader_compile(
+ 	}
+ 	sh_name[len] = '0' + char(o.dx10_minmax_sm != 0);
+ 	++len;
++	
++	if (ps_ssfx_rain_1.w > 0)
++	{
++		xr_sprintf(c_rain_quality, "%d", u8(ps_ssfx_rain_1.w));
++		defines[def_it].Name = "SSFX_RAIN_QUALITY";
++		defines[def_it].Definition = c_rain_quality;
++		def_it++;
++		xr_strcat(sh_name, c_rain_quality);
++		len += xr_strlen(c_rain_quality);
++	}
++	else
++	{
++		sh_name[len] = '0';
++		++len;
++	}
++
++	if (ps_ssfx_grass_interactive.y > 0)
++	{
++		xr_sprintf(c_inter_grass, "%d", u8(ps_ssfx_grass_interactive.y));
++		defines[def_it].Name = "SSFX_INT_GRASS";
++		defines[def_it].Definition = c_inter_grass;
++		def_it++;
++		xr_strcat(sh_name, c_inter_grass);
++		len += xr_strlen(c_inter_grass);
++	}
++	else
++	{
++		sh_name[len] = '0';
++		++len;
++	}
++
++	defines[def_it].Name = "SSFX_MODEXE";
++	defines[def_it].Definition = "1";
++	def_it++;
++	sh_name[len] = '1';
++	++len;
+ 
+ 	//Be carefull!!!!! this should be at the end to correctly generate
+ 	//compiled shader name;
+diff --git a/src/Layers/xrRenderPC_R4/r4.h b/src/Layers/xrRenderPC_R4/r4.h
+index 9ae8b61..41d6752 100644
+--- a/src/Layers/xrRenderPC_R4/r4.h
++++ b/src/Layers/xrRenderPC_R4/r4.h
+@@ -57,6 +57,11 @@ public:
+ public:
+ 	struct _options
+ 	{
++		u32 ssfx_branches : 1;
++		u32 ssfx_blood : 1;
++		u32 ssfx_rain : 1;
++		u32 ssfx_hud_raindrops : 1;
++
+ 		u32 bug : 1;
+ 
+ 		u32 ssao_blur_on : 1;
+diff --git a/src/Layers/xrRenderPC_R4/r4_R_rain.cpp b/src/Layers/xrRenderPC_R4/r4_R_rain.cpp
+index 30830e8..0e9ffa6 100644
+--- a/src/Layers/xrRenderPC_R4/r4_R_rain.cpp
++++ b/src/Layers/xrRenderPC_R4/r4_R_rain.cpp
+@@ -30,7 +30,12 @@ static int facetable[6][4] = {
+ void CRender::render_rain()
+ {
+ 	//return;
+-	float fRainFactor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
++	float fRainFactor = 0;
++	if (ps_ssfx_gloss_method == 0)
++		fRainFactor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
++	else
++		fRainFactor = g_pGamePersistent->Environment().wetness_factor;
++
+ 	if (fRainFactor < EPS_L) return;
+ 
+ 	PIX_EVENT(render_rain);
+diff --git a/src/Layers/xrRenderPC_R4/r4_R_render.cpp b/src/Layers/xrRenderPC_R4/r4_R_render.cpp
+index 46e1c03..02ee3f1 100644
+--- a/src/Layers/xrRenderPC_R4/r4_R_render.cpp
++++ b/src/Layers/xrRenderPC_R4/r4_R_render.cpp
+@@ -538,6 +538,9 @@ void CRender::Render()
+ 		Target->phase_combine();
+ 	}
+ 
++	if (Details)
++		Details->details_clear();
++
+ 	VERIFY(0==mapDistort.size());
+ }
+ 
+diff --git a/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_direct.cpp b/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_direct.cpp
+index d0e06c9..a28b876 100644
+--- a/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_direct.cpp
++++ b/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_direct.cpp
+@@ -205,10 +205,11 @@ void CRenderTarget::accum_direct(u32 sub_phase)
+ 			Fmatrix m_xform;
+ 			Fvector direction = fuckingsun->direction;
+ 			float w_dir = g_pGamePersistent->Environment().CurrentEnv->wind_direction;
+-			//float	w_speed				= g_pGamePersistent->Environment().CurrentEnv->wind_velocity	;
++			float w_speed = g_pGamePersistent->Environment().CurrentEnv->wind_velocity * 0.001f;
++			clamp(w_speed, 0.1f, 1.0f);
+ 			Fvector normal;
+-			normal.setHP(w_dir, 0);
+-			w_shift += 0.003f * Device.fTimeDelta;
++			normal.setHP(-w_dir, 0);
++			w_shift -= 0.005f * w_speed * Device.fTimeDelta;
+ 			Fvector position;
+ 			position.set(0, 0, 0);
+ 			m_xform.build_camera_dir(position, direction, normal);
+@@ -519,10 +520,11 @@ void CRenderTarget::accum_direct_cascade(u32 sub_phase, Fmatrix& xform, Fmatrix&
+ 			Fmatrix m_xform;
+ 			Fvector direction = fuckingsun->direction;
+ 			float w_dir = g_pGamePersistent->Environment().CurrentEnv->wind_direction;
+-			//float	w_speed				= g_pGamePersistent->Environment().CurrentEnv->wind_velocity	;
++			float w_speed = g_pGamePersistent->Environment().CurrentEnv->wind_velocity * 0.001f;
++			clamp(w_speed, 0.1f, 1.0f);
+ 			Fvector normal;
+-			normal.setHP(w_dir, 0);
+-			w_shift += 0.003f * Device.fTimeDelta;
++			normal.setHP(-w_dir, 0);
++			w_shift -= 0.005f * w_speed * Device.fTimeDelta;
+ 			Fvector position;
+ 			position.set(0, 0, 0);
+ 			m_xform.build_camera_dir(position, direction, normal);
+diff --git a/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_spot.cpp b/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_spot.cpp
+index aa2d2dc..a684c24 100644
+--- a/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_spot.cpp
++++ b/src/Layers/xrRenderPC_R4/r4_rendertarget_accum_spot.cpp
+@@ -415,12 +415,30 @@ void CRenderTarget::accum_volumetric(light* L)
+ 		}
+ 	*/
+ 	// Common constants
+-	float fQuality = L->m_volumetric_quality;
+-	int iNumSlises = (int)(VOLUMETRIC_SLICES * fQuality);
+-	//			min 10 surfaces
+-	iNumSlises = _max(10, iNumSlises);
++	float fQuality = 0;
++	int iNumSlices = 0;
++
++	if (ps_ssfx_volumetric.x <= 0)
++	{
++		// Vanilla Method
++		fQuality = L->m_volumetric_quality;
++		iNumSlices = (int)(VOLUMETRIC_SLICES * fQuality);
++		//			min 10 surfaces
++		iNumSlices = _max(10, iNumSlices);
++	}
++	else
++	{
++		// SSS Method
++		fQuality = ps_ssfx_volumetric.z;
++		iNumSlices = (int)(24 * fQuality);
++
++		if (L->flags.type == IRender_Light::OMNIPART)
++			iNumSlices = (int)(16 * fQuality);
++	}
++
++
+ 	//	Adjust slice intensity
+-	fQuality = ((float)iNumSlises) / VOLUMETRIC_SLICES;
++	fQuality = ((float)iNumSlices) / VOLUMETRIC_SLICES;
+ 	Fvector L_dir, L_clr, L_pos;
+ 	float L_spec;
+ 	L_clr.set(L->color.r, L->color.g, L->color.b);
+diff --git a/src/Layers/xrRenderPC_R4/r4_rendertarget_draw_rain.cpp b/src/Layers/xrRenderPC_R4/r4_rendertarget_draw_rain.cpp
+index 47d6c8d..b413abb 100644
+--- a/src/Layers/xrRenderPC_R4/r4_rendertarget_draw_rain.cpp
++++ b/src/Layers/xrRenderPC_R4/r4_rendertarget_draw_rain.cpp
+@@ -59,7 +59,10 @@ void CRenderTarget::draw_rain(light& RainSetup)
+ 	}
+ 
+ 	// recalculate d_Z, to perform depth-clipping
+-	const float fRainFar = ps_r3_dyn_wet_surf_far;
++	float fRainFar = 250;
++
++	if (ps_ssfx_gloss_method == 0)
++		fRainFar = ps_r3_dyn_wet_surf_far;
+ 
+ 	Fvector center_pt;
+ 	center_pt.mad(Device.vCameraPosition, Device.vCameraDirection, fRainFar);
+diff --git a/src/xrEngine/Environment.cpp b/src/xrEngine/Environment.cpp
+index bd4a486..ee5e8ac 100644
+--- a/src/xrEngine/Environment.cpp
++++ b/src/xrEngine/Environment.cpp
+@@ -43,6 +43,8 @@ static const float MAX_NOISE_FREQ = 0.03f;
+ 
+ const float MAX_DIST_FACTOR = 0.95f;
+ 
++extern Fvector4 ps_ssfx_wind_trees;
++
+ //////////////////////////////////////////////////////////////////////////
+ // environment
+ CEnvironment::CEnvironment() :
+@@ -82,6 +84,8 @@ CEnvironment::CEnvironment() :
+ 	wind_blast_strength_start_value = 0.f;
+ 	wind_blast_strength_stop_value = 0.f;
+ 
++	wind_anim = { 0.0f, 0.0f, 0.0f };
++
+ 	// fill clouds hemi verts & faces
+ 	const Fvector* verts;
+ 	CloudsVerts.resize(xrHemisphereVertices(2, verts));
+@@ -560,6 +564,20 @@ void CEnvironment::OnFrame()
+ 	if (!g_pGameLevel) return;
+ #endif
+ 
++	// Min wind velocity. [ ps_ssfx_wind_trees.w 0 ~ 1 ]
++	float WindVel = _max(CurrentEnv->wind_velocity, ps_ssfx_wind_trees.w * 1000);
++
++	// Limit min at 200 to avoid slow-mo at extremly low speed.
++	WindVel = _max(WindVel, 200) * 0.001f;
++
++	float WindDir = -CurrentEnv->wind_direction + PI_DIV_2;
++	Fvector2 WDir = { _cos(WindDir), _sin(WindDir) };
++	
++	wind_anim.x += WindVel * WDir.x * Device.fTimeDelta;
++	wind_anim.y += WindVel * WDir.y * Device.fTimeDelta;
++	wind_anim.z += clampr(WindVel * 1.33f, 0.0f, 1.0f) * Device.fTimeDelta;
++
++
+ 	// if (pInput->iGetAsyncKeyState(DIK_O)) SetWeatherFX("surge_day");
+ 	float current_weight;
+ 	lerp(current_weight);
+diff --git a/src/xrEngine/Environment.h b/src/xrEngine/Environment.h
+index 2b8cd53..7dae90c 100644
+--- a/src/xrEngine/Environment.h
++++ b/src/xrEngine/Environment.h
+@@ -298,6 +298,8 @@ public:
+ 
+ 	float wetness_factor;
+ 
++	Fvector3 wind_anim;
++
+ 	// wind blast params
+ 	float wind_blast_strength;
+ 	Fvector wind_blast_direction;
+diff --git a/src/xrEngine/Environment_misc.cpp b/src/xrEngine/Environment_misc.cpp
+index bb5c882..eca3900 100644
+--- a/src/xrEngine/Environment_misc.cpp
++++ b/src/xrEngine/Environment_misc.cpp
+@@ -14,6 +14,7 @@
+ 
+ extern float ps_r2_sun_shafts_min;
+ extern float ps_r2_sun_shafts_value;
++extern Fvector3 ssfx_wetness_multiplier;
+ 
+ void CEnvModifier::load(IReader* fs, u32 version)
+ {
+@@ -505,9 +506,9 @@ void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescrip
+ 	sun_color.lerp(A.sun_color, B.sun_color, f);
+ 
+ 	if (rain_density > 0.f)
+-		env->wetness_factor += rain_density / 10000.f;
++		env->wetness_factor += ( rain_density * ssfx_wetness_multiplier.x) / 10000.f;
+ 	else
+-		env->wetness_factor -= 0.00001f;
++		env->wetness_factor -= 0.0001f * ssfx_wetness_multiplier.y;
+ 
+ 	clamp(env->wetness_factor, 0.f, 1.f);
+ 
+diff --git a/src/xrEngine/IGame_Persistent.cpp b/src/xrEngine/IGame_Persistent.cpp
+index b31df1e..38a21b6 100644
+--- a/src/xrEngine/IGame_Persistent.cpp
++++ b/src/xrEngine/IGame_Persistent.cpp
+@@ -11,6 +11,7 @@
+ # include "Render.h"
+ # include "ps_instance.h"
+ # include "CustomHUD.h"
++# include "perlin.h"
+ #endif
+ 
+ #ifdef _EDITOR
+@@ -21,6 +22,8 @@ bool g_dedicated_server = false;
+ # include "editor_environment_manager.hpp"
+ #endif // INGAME_EDITOR
+ 
++extern Fvector4 ps_ssfx_grass_interactive;
++
+ ENGINE_API IGame_Persistent* g_pGamePersistent = NULL;
+ 
+ bool IsMainMenuActive()
+@@ -39,6 +42,10 @@ IGame_Persistent::IGame_Persistent()
+ 
+ 	m_pMainMenu = NULL;
+ 
++	PerlinNoise1D = xr_new<CPerlinNoise1D>(Random.randI(0, 0xFFFF));
++	PerlinNoise1D->SetOctaves(2);
++	PerlinNoise1D->SetAmplitude(0.66666f);
++
+ #ifndef INGAME_EDITOR
+ #ifndef _EDITOR
+ 	pEnvironment = xr_new<CEnvironment>();
+@@ -53,6 +60,7 @@ IGame_Persistent::IGame_Persistent()
+ 
+ IGame_Persistent::~IGame_Persistent()
+ {
++	xr_delete(PerlinNoise1D);
+ 	RDEVICE.seqFrame.Remove(this);
+ 	RDEVICE.seqAppStart.Remove(this);
+ 	RDEVICE.seqAppEnd.Remove(this);
+@@ -338,3 +346,305 @@ void IGame_Persistent::OnAssetsChanged()
+ 	Device.m_pRender->OnAssetsChanged(); //Resources->m_textures_description.Load();
+ #endif
+ }
++
++void IGame_Persistent::GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position, float init_radius, float init_str, bool CheckDistance)
++{
++	// Interactive grass disabled
++	if (ps_ssfx_grass_interactive.y < 1)
++		return;
++
++	// Just update position if not NULL
++	if (data_idx != NULL)
++	{
++		// Explosions can take the mem spot, unassign and try to get a spot later.
++		if (grass_shader_data.id[data_idx] != id)
++		{
++			data_idx = NULL;
++			data_frame = RDEVICE.dwFrame + Random.randI(10, 35);
++		}
++		else
++		{
++			grass_shader_data.pos[data_idx] = position;
++		}
++	}
++
++	if (RDEVICE.dwFrame < data_frame)
++		return;
++
++	// Wait some random frames to split the checks
++	data_frame = RDEVICE.dwFrame + Random.randI(10, 35);
++
++	// Check Distance
++	if (CheckDistance)
++	{
++		if (position.distance_to_xz_sqr(Device.vCameraPosition) > ps_ssfx_grass_interactive.z)
++		{
++			GrassBendersRemoveByIndex(data_idx);
++			return;
++		}
++	}
++
++	CFrustum& view_frust = ::Render->ViewBase;
++	u32 mask = 0xff;
++	float rad = data_idx == NULL ? 1.0 : std::max(1.0f, grass_shader_data.radius_curr[data_idx] + 0.5f);
++
++	// In view frustum?
++	if (!view_frust.testSphere(position, rad, mask))
++	{
++		GrassBendersRemoveByIndex(data_idx);
++		return;
++	}
++
++	// Empty slot, let's use this
++	if (data_idx == NULL)
++	{
++		u8 idx = grass_shader_data.index + 1;
++
++		// Add to grass blenders array
++		if (grass_shader_data.id[idx] == NULL)
++		{
++			data_idx = idx;
++			GrassBendersSet(idx, id, position, Fvector3().set(0, -99, 0), 0, 0, 0.0f, init_radius, BENDER_ANIM_DEFAULT, true);
++
++			grass_shader_data.str_target[idx] = init_str;
++			grass_shader_data.radius_curr[idx] = init_radius;
++		}
++		// Back to 0 when the array limit is reached
++		grass_shader_data.index = idx < ps_ssfx_grass_interactive.y ? idx : 0;
++	}
++	else
++	{
++		// Already inview, let's add more time to re-check
++		data_frame += 60;
++		grass_shader_data.pos[data_idx] = position;
++	}
++}
++
++void IGame_Persistent::GrassBendersAddExplosion(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius)
++{
++	if (ps_ssfx_grass_interactive.y < 1)
++		return;
++
++	for (int idx = 1; idx < ps_ssfx_grass_interactive.y + 1; idx++)
++	{
++		// Add explosion to any spot not already taken by an explosion.
++		if (grass_shader_data.anim[idx] != BENDER_ANIM_EXPLOSION)
++		{
++			// Add 99 to the ID to avoid conflicts between explosions and basic benders happening at the same time with the same ID.
++			GrassBendersSet(idx, id + 99, position, dir, fade, speed, intensity, radius, BENDER_ANIM_EXPLOSION, true);
++			grass_shader_data.str_target[idx] = intensity;
++			break;
++		}
++	}
++}
++
++void IGame_Persistent::GrassBendersAddShot(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius)
++{
++	// Is disabled?
++	if (ps_ssfx_grass_interactive.y < 1 || intensity <= 0.0f)
++		return;
++
++	// Check distance
++	if (position.distance_to_xz_sqr(Device.vCameraPosition) > ps_ssfx_grass_interactive.z)
++		return;
++
++	int AddAt = -1;
++
++	// Look for a spot
++	for (int idx = 1; idx < ps_ssfx_grass_interactive.y + 1; idx++)
++	{
++		// Already exist, just update and increase intensity
++		if (grass_shader_data.id[idx] == id)
++		{
++			float currentSTR = grass_shader_data.str[idx];
++			GrassBendersSet(idx, id, position, dir, fade, speed, currentSTR, radius, BENDER_ANIM_EXPLOSION, false);
++			grass_shader_data.str_target[idx] += intensity;
++			AddAt = -1;
++			break;
++		}
++		else
++		{
++			// Check all indexes and keep usable index to use later if needed...
++			if (AddAt == -1 && grass_shader_data.radius[idx] == NULL)
++				AddAt = idx;
++		}
++	}
++
++	// We got an available index... Add bender at AddAt
++	if (AddAt != -1)
++	{
++		GrassBendersSet(AddAt, id, position, dir, fade, speed, 0.001f, radius, BENDER_ANIM_EXPLOSION, true);
++		grass_shader_data.str_target[AddAt] = intensity;
++	}
++}
++
++void IGame_Persistent::GrassBendersUpdateAnimations()
++{
++	for (int idx = 1; idx < ps_ssfx_grass_interactive.y + 1; idx++)
++	{
++		if (grass_shader_data.id[idx] != NULL)
++		{
++			switch (grass_shader_data.anim[idx])
++			{
++			case BENDER_ANIM_EXPLOSION: // Internal Only ( You can use BENDER_ANIM_PULSE for anomalies )
++			{
++				// Radius
++				grass_shader_data.time[idx] += Device.fTimeDelta * grass_shader_data.speed[idx];
++				grass_shader_data.radius_curr[idx] = grass_shader_data.radius[idx] * std::min(1.0f, grass_shader_data.time[idx]);
++
++				grass_shader_data.str_target[idx] = std::min(1.0f, grass_shader_data.str_target[idx]);
++
++				// Easing
++				float diff = abs(grass_shader_data.str[idx] - grass_shader_data.str_target[idx]);
++				diff = std::max(0.1f, diff);
++
++				// Intensity
++				if (grass_shader_data.str_target[idx] <= grass_shader_data.str[idx])
++				{
++					grass_shader_data.str[idx] -= Device.fTimeDelta * grass_shader_data.fade[idx] * diff;
++				}
++				else
++				{
++					grass_shader_data.str[idx] += Device.fTimeDelta * grass_shader_data.speed[idx] * diff;
++
++					if (grass_shader_data.str[idx] >= grass_shader_data.str_target[idx])
++						grass_shader_data.str_target[idx] = 0;
++				}
++
++				// Remove Bender
++				if (grass_shader_data.str[idx] < 0.0f)
++					GrassBendersReset(idx);
++			}
++			break;
++
++			case BENDER_ANIM_WAVY:
++			{
++				// Anim Speed
++				grass_shader_data.time[idx] += Device.fTimeDelta * 1.5f * grass_shader_data.speed[idx];
++
++				// Curve
++				float curve = sin(grass_shader_data.time[idx]);
++
++				// Intensity using curve
++				grass_shader_data.str[idx] = curve * cos(curve * 1.4f) * 1.8f * grass_shader_data.str_target[idx];
++			}
++
++			break;
++
++			case BENDER_ANIM_SUCK:
++			{
++				// Anim Speed
++				grass_shader_data.time[idx] += Device.fTimeDelta * grass_shader_data.speed[idx];
++
++				// Perlin Noise
++				float curve = clampr(PerlinNoise1D->GetContinious(grass_shader_data.time[idx]) + 0.5f, 0.f, 1.f) * -1.0;
++
++				// Intensity using Perlin
++				grass_shader_data.str[idx] = curve * grass_shader_data.str_target[idx];
++			}
++			break;
++
++			case BENDER_ANIM_BLOW:
++			{
++				// Anim Speed
++				grass_shader_data.time[idx] += Device.fTimeDelta * 1.2f * grass_shader_data.speed[idx];
++
++				// Perlin Noise
++				float curve = clampr(PerlinNoise1D->GetContinious(grass_shader_data.time[idx]) + 1.0f, 0.f, 2.0f) * 0.25f;
++
++				// Intensity using Perlin
++				grass_shader_data.str[idx] = curve * grass_shader_data.str_target[idx];
++			}
++			break;
++
++			case BENDER_ANIM_PULSE:
++			{
++				// Anim Speed
++				grass_shader_data.time[idx] += Device.fTimeDelta * grass_shader_data.speed[idx];
++
++				// Radius
++				grass_shader_data.radius_curr[idx] = grass_shader_data.radius[idx] * std::min(1.0f, grass_shader_data.time[idx]);
++
++				// Diminish intensity when radius target is reached
++				if (grass_shader_data.radius_curr[idx] >= grass_shader_data.radius[idx])
++					grass_shader_data.str[idx] += GrassBenderToValue(grass_shader_data.str[idx], 0.0f, grass_shader_data.speed[idx] * 0.6f, true);
++
++				// Loop when intensity is <= 0
++				if (grass_shader_data.str[idx] <= 0.0f)
++				{
++					grass_shader_data.str[idx] = grass_shader_data.str_target[idx];
++					grass_shader_data.radius_curr[idx] = 0.0f;
++					grass_shader_data.time[idx] = 0.0f;
++				}
++
++			}
++			break;
++
++			case BENDER_ANIM_DEFAULT:
++
++				// Just fade to target strength
++				grass_shader_data.str[idx] += GrassBenderToValue(grass_shader_data.str[idx], grass_shader_data.str_target[idx], 2.0f, true);
++
++				break;
++			}
++		}
++	}
++}
++
++void IGame_Persistent::GrassBendersRemoveByIndex(u8& idx)
++{
++	if (idx != NULL)
++	{
++		GrassBendersReset(idx);
++		idx = NULL;
++	}
++}
++
++void IGame_Persistent::GrassBendersRemoveById(u16 id)
++{
++	// Search by Object ID ( Used when removing benders CPHMovementControl::DestroyCharacter() )
++	for (int i = 1; i < ps_ssfx_grass_interactive.y + 1; i++)
++		if (grass_shader_data.id[i] == id)
++			GrassBendersReset(i);
++}
++
++void IGame_Persistent::GrassBendersReset(u8 idx)
++{
++	// Reset Everything
++	GrassBendersSet(idx, NULL, Fvector3().set(0, 0, 0), Fvector3().set(0, -99, 0), 0, 0, 0, 0, BENDER_ANIM_DEFAULT, true);
++	grass_shader_data.str_target[idx] = 0;
++}
++
++void IGame_Persistent::GrassBendersSet(u8 idx, u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius, GrassBenders_Anim anim, bool resetTime)
++{
++	// Set values
++	grass_shader_data.anim[idx] = anim;
++	grass_shader_data.pos[idx] = position;
++	grass_shader_data.id[idx] = id;
++	grass_shader_data.radius[idx] = radius;
++	grass_shader_data.str[idx] = intensity;
++	grass_shader_data.fade[idx] = fade;
++	grass_shader_data.speed[idx] = speed;
++	grass_shader_data.dir[idx] = dir;
++
++	if (resetTime)
++	{
++		grass_shader_data.radius_curr[idx] = 0.01f;
++		grass_shader_data.time[idx] = 0;
++	}
++}
++
++float IGame_Persistent::GrassBenderToValue(float& current, float go_to, float intensity, bool use_easing)
++{
++	float diff = abs(current - go_to);
++
++	float r_value = Device.fTimeDelta * intensity * (use_easing ? std::min(0.5f, diff) : 1.0f);
++
++	if (diff - r_value <= 0)
++	{
++		current = go_to;
++		return 0;
++	}
++
++	return current < go_to ? r_value : -r_value;
++}
+diff --git a/src/xrEngine/IGame_Persistent.h b/src/xrEngine/IGame_Persistent.h
+index a39152f..9a88fc8 100644
+--- a/src/xrEngine/IGame_Persistent.h
++++ b/src/xrEngine/IGame_Persistent.h
+@@ -64,6 +64,44 @@ public:
+ 	xr_set<CPS_Instance*> ps_active;
+ 	xr_vector<CPS_Instance*> ps_destroy;
+ 	xr_vector<CPS_Instance*> ps_needtoplay;
++public:
++	enum GrassBenders_Anim
++	{
++		BENDER_ANIM_EXPLOSION = 0,
++		BENDER_ANIM_DEFAULT = 1,
++		BENDER_ANIM_WAVY = 2,
++		BENDER_ANIM_SUCK = 3,
++		BENDER_ANIM_BLOW = 4,
++		BENDER_ANIM_PULSE = 5,
++	}; 
++
++	void GrassBendersUpdateAnimations();
++	void GrassBendersAddExplosion(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius);
++	void GrassBendersAddShot(u16 id, Fvector position, Fvector3 dir, float fade, float speed, float intensity, float radius);
++	void GrassBendersRemoveById(u16 id);
++	void GrassBendersRemoveByIndex(u8& idx);
++	void GrassBendersUpdate(u16 id, u8& data_idx, u32& data_frame, Fvector& position, float radius, float str, bool CheckDistance );
++	void GrassBendersReset(u8 idx);
++	void GrassBendersSet(u8 idx, u16 id, Fvector position, Fvector3 dir, float fade, float speed, float str, float radius, GrassBenders_Anim anim, bool resetTime);
++	float GrassBenderToValue(float& current, float go_to, float intensity, bool use_easing);
++
++	CPerlinNoise1D* PerlinNoise1D;
++
++	struct grass_data
++	{
++		u8 index;
++		s8 anim[16];
++		u16 id[16];
++		Fvector pos[16];
++		Fvector3 dir[16];
++		float radius[16];
++		float radius_curr[16];
++		float str[16];
++		float str_target[16];
++		float time[16];
++		float fade[16];
++		float speed[16];
++	} grass_shader_data;
+ 
+ public:
+ 	void destroy_particles(const bool& all_particles);
+diff --git a/src/xrEngine/Rain.cpp b/src/xrEngine/Rain.cpp
+index b4de67e..53f4965 100644
+--- a/src/xrEngine/Rain.cpp
++++ b/src/xrEngine/Rain.cpp
+@@ -5,6 +5,8 @@
+ #include "igame_persistent.h"
+ #include "environment.h"
+ 
++#include "../../xrEngine/perlin.h"
++
+ #ifdef _EDITOR
+ #include "ui_toolscustom.h"
+ #else
+@@ -17,13 +19,13 @@
+ // Warning: duplicated in dxRainRender
+ static const int max_desired_items = 2500;
+ static const float source_radius = 12.5f;
+-static const float source_offset = 40.f;
+-static const float max_distance = source_offset * 1.25f;
++static const float source_offset = 20.f; // 40
++static const float max_distance = source_offset * 1.5f;//1.25f;
+ static const float sink_offset = -(max_distance - source_offset);
+ static const float drop_length = 5.f;
+ static const float drop_width = 0.30f;
+-static const float drop_angle = 3.0f;
+-static const float drop_max_angle = deg2rad(10.f);
++static const float drop_angle = deg2rad(15.0f); // 3.0
++static const float drop_max_angle = deg2rad(35.f); // 10
+ static const float drop_max_wind_vel = 20.0f;
+ static const float drop_speed_min = 40.f;
+ static const float drop_speed_max = 80.f;
+@@ -32,6 +34,8 @@ const int max_particles = 1000;
+ const int particles_cache = 400;
+ const float particles_time = .3f;
+ 
++CPerlinNoise1D* RainPerlin;
++
+ //////////////////////////////////////////////////////////////////////
+ // Construction/Destruction
+ //////////////////////////////////////////////////////////////////////
+@@ -43,6 +47,10 @@ CEffect_Rain::CEffect_Rain()
+ 	snd_Ambient.create("ambient\\rain", st_Effect, sg_Undefined);
+ 	rain_volume = 0.0f;
+ 
++	RainPerlin = xr_new<CPerlinNoise1D>(Random.randI(0, 0xFFFF));
++	RainPerlin->SetOctaves(2);
++	RainPerlin->SetAmplitude(0.66666f);
++
+ 	// Moced to p_Render constructor
+ 	/*
+ 	IReader* F = FS.r_open("$game_meshes$","dm\\rain.dm");
+@@ -60,6 +68,7 @@ CEffect_Rain::CEffect_Rain()
+ 
+ CEffect_Rain::~CEffect_Rain()
+ {
++	xr_delete(RainPerlin);
+ 	snd_Ambient.destroy();
+ 	rain_volume = 0.0f;
+ 
+@@ -69,28 +78,67 @@ CEffect_Rain::~CEffect_Rain()
+ 	//::Render->model_Delete (DM_Drop);
+ }
+ 
++void CEffect_Rain::Prepare(Fvector2& offset, Fvector3& axis, float W_Velocity, float W_Direction)
++{
++	// Wind gust, to add variation.
++	float Wind_Gust = RainPerlin->GetContinious(Device.fTimeGlobal * 0.3f) * 2.0f;
++
++	// Wind velocity [ 0 ~ 1 ]
++	float Wind_Velocity = W_Velocity + Wind_Gust;
++
++	clamp(Wind_Velocity, 0.0f, 1.0f);
++
++	// Wind velocity controles the angle
++	float pitch = drop_max_angle * Wind_Velocity;
++	axis.setHP(W_Direction, pitch - PI_DIV_2);
++
++	// Get distance
++	float dist = _sin(pitch) * source_offset;
++	float C = PI_DIV_2 - pitch;
++	dist /= _sin(C);
++
++	// 0 is North
++	float fixNorth = W_Direction - PI_DIV_2;
++
++	// Set offset
++	offset.set(dist * _cos(fixNorth), dist * _sin(fixNorth));
++}
++
+ // Born
+-void CEffect_Rain::Born(Item& dest, float radius)
++void CEffect_Rain::Born(Item& dest, float radius, float speed)
+ {
+-	Fvector axis;
+-	axis.set(0, -1, 0);
+-	float gust = g_pGamePersistent->Environment().wind_strength_factor / 10.f;
+-	float k = g_pGamePersistent->Environment().CurrentEnv->wind_velocity * gust / drop_max_wind_vel;
+-	clamp(k, 0.f, 1.f);
+-	float pitch = drop_max_angle * k - PI_DIV_2;
+-	axis.setHP(g_pGamePersistent->Environment().CurrentEnv->wind_direction, pitch);
++	// Prepare correct angle and distance to hit the player
++	Fvector Rain_Axis = { 0, -1, 0 };
++	Fvector2 Rain_Offset;
++
++	float Wind_Direction = -g_pGamePersistent->Environment().CurrentEnv->wind_direction;
++
++	// Wind Velocity [ From 0 ~ 1000 to 0 ~ 1 ]
++	float Wind_Velocity = g_pGamePersistent->Environment().CurrentEnv->wind_velocity * 0.001f;
++	clamp(Wind_Velocity, 0.0f, 1.0f);
+ 
++	Prepare(Rain_Offset, Rain_Axis, Wind_Velocity, Wind_Direction);
++
++	// Camera Position
+ 	Fvector& view = Device.vCameraPosition;
+-	float angle = ::Random.randF(0, PI_MUL_2);
+-	float dist = ::Random.randF();
+-	dist = _sqrt(dist) * radius;
+-	float x = dist * _cos(angle);
+-	float z = dist * _sin(angle);
+-	dest.D.random_dir(axis, deg2rad(drop_angle));
+-	dest.P.set(x + view.x - dest.D.x * source_offset, source_offset + view.y, z + view.z - dest.D.z * source_offset);
+-	// dest.P.set (x+view.x,height+view.y,z+view.z);
+-	dest.fSpeed = ::Random.randF(drop_speed_min, drop_speed_max);
+ 
++	// Random Position
++	float r = radius * 0.5f;
++	Fvector2 RandomP = { ::Random.randF(-r, r), ::Random.randF(-r, r) };
++
++	// Aim ahead of where the player is facing
++	Fvector FinalView = Fvector().mad(view, Device.vCameraDirection, 5.0f);
++
++	// Random direction. Higher angle at lower velocity
++	dest.D.random_dir(Rain_Axis, ::Random.randF(-drop_angle, drop_angle) * (1.5f - Wind_Velocity));
++
++	// Set final destination
++	dest.P.set(Rain_Offset.x + FinalView.x + RandomP.x, source_offset + view.y, Rain_Offset.y + FinalView.z + RandomP.y);
++
++	// Set speed
++	dest.fSpeed = ::Random.randF(drop_speed_min, drop_speed_max) * speed * clampr(Wind_Velocity * 1.5f, 0.5f, 1.0f);
++
++	// Born
+ 	float height = max_distance;
+ 	RenewItem(dest, height, RayPick(dest.P, dest.D, height, collide::rqtBoth));
+ }
+@@ -137,7 +185,14 @@ void CEffect_Rain::OnFrame()
+ #endif
+ 
+ 	// Parse states
+-	float factor = g_pGamePersistent->Environment().CurrentEnv->rain_density;
++	float rain_density = g_pGamePersistent->Environment().CurrentEnv->rain_density;
++	float wind_velocity = g_pGamePersistent->Environment().CurrentEnv->wind_velocity * 0.001f;
++	clamp(wind_velocity, 0.0f, 1.0f);
++	
++	wind_velocity *= (rain_density > 0.0f ? 1.0f : 0.0f); // Only when raining
++
++	// 50% of the volume is by rain_density and 50% wind_velocity;
++	float factor = rain_density * 0.5f + wind_velocity * 0.5f;
+ 	static float hemi_factor = 0.f;
+ #ifndef _EDITOR
+ 	CObject* E = g_pGameLevel->CurrentViewEntity();
+@@ -155,6 +210,7 @@ void CEffect_Rain::OnFrame()
+ 		float t = Device.fTimeDelta;
+ 		clamp(t, 0.001f, 1.0f);
+ 		hemi_factor = hemi_factor * (1.0f - t) + f * t;
++		rain_hemi = hemi_val;
+ 	}
+ #endif
+ 
+diff --git a/src/xrEngine/Rain.h b/src/xrEngine/Rain.h
+index 7f59021..c95167e 100644
+--- a/src/xrEngine/Rain.h
++++ b/src/xrEngine/Rain.h
+@@ -74,6 +74,7 @@ private:
+ 	// Sounds
+ 	ref_sound snd_Ambient;
+ 	float rain_volume;
++	float rain_hemi = 0.0f;
+ 
+ 	// Utilities
+ 	void p_create();
+@@ -86,10 +87,11 @@ private:
+ 	void p_free(Particle* P);
+ 
+ 	// Some methods
+-	void Born(Item& dest, float radius);
++	void Born(Item& dest, float radius, float speed);
+ 	void Hit(Fvector& pos);
+ 	BOOL RayPick(const Fvector& s, const Fvector& d, float& range, collide::rq_target tgt);
+ 	void RenewItem(Item& dest, float height, BOOL bHit);
++	void Prepare(Fvector2& offset, Fvector3& axis, float Wind_Vel, float Wind_Dir);
+ public:
+ 	CEffect_Rain();
+ 	~CEffect_Rain();
+@@ -105,6 +107,7 @@ public:
+ 	}
+ 
+ 	float GetRainVolume() { return rain_volume; }
++	float GetRainHemi() { return rain_hemi; }
+ };
+ 
+ #endif //RainH
+diff --git a/src/xrEngine/Render.h b/src/xrEngine/Render.h
+index df52521..414398d 100644
+--- a/src/xrEngine/Render.h
++++ b/src/xrEngine/Render.h
+@@ -212,6 +212,7 @@ public:
+ 
+ public:
+ 	// options
++	bool hud_loading;
+ 	s32 m_skinning;
+ 	s32 m_MSAASample;
+ 
+diff --git a/src/xrEngine/xr_ioc_cmd.cpp b/src/xrEngine/xr_ioc_cmd.cpp
+index a1ec515..3539662 100644
+--- a/src/xrEngine/xr_ioc_cmd.cpp
++++ b/src/xrEngine/xr_ioc_cmd.cpp
+@@ -864,6 +864,8 @@ Ivector4 g_crosshair_color_temp;
+ float g_freelook_z_offset;
+ float g_ironsights_factor = 1.25f;
+ 
++Fvector3 ssfx_wetness_multiplier = Fvector3().set(1.0f, 0.3f, 0.0f);
++
+ void CCC_Register()
+ {
+ 	// General
+@@ -1023,6 +1025,7 @@ void CCC_Register()
+ 		CMD4(CCC_Float, "g_freelook_z_offset_factor", &g_freelook_z_offset, -3.f, 3.f);
+ 
+ 	CMD4(CCC_Float, "g_ironsights_zoom_factor", &g_ironsights_factor, 1.f, 2.f);
++	CMD4(CCC_Vector3, "ssfx_wetness_multiplier", &ssfx_wetness_multiplier, Fvector3().set(0.1f, 0.1f, 0.0f), Fvector3().set(20.0f, 20.0f, 0.0f));
+ 	
+ #ifdef DEBUG
+     extern BOOL debug_destroy;
+diff --git a/src/xrGame/CustomZone.cpp b/src/xrGame/CustomZone.cpp
+index ff568cd..7d83a8d 100644
+--- a/src/xrGame/CustomZone.cpp
++++ b/src/xrGame/CustomZone.cpp
+@@ -22,6 +22,8 @@
+ #define WIND_RADIUS (4*Radius())	//расстояние до актера, когда появляется ветер 
+ #define FASTMODE_DISTANCE (100.f)	//distance to camera from sphere, when zone switches to fast update sequence
+ 
++extern Fvector4 ps_ssfx_int_grass_params_1;
++
+ CCustomZone::CCustomZone(void)
+ {
+ 	m_zone_flags.zero();
+@@ -59,6 +61,7 @@ CCustomZone::CCustomZone(void)
+ 
+ CCustomZone::~CCustomZone(void)
+ {
++	g_pGamePersistent->GrassBendersRemoveByIndex(grassbender_id);
+ 	m_idle_sound.destroy();
+ 	m_accum_sound.destroy();
+ 	m_awaking_sound.destroy();
+@@ -96,6 +99,59 @@ void CCustomZone::Load(LPCSTR section)
+ 
+ 	LPCSTR sound_str = NULL;
+ 
++	// -- Interactive Grass - IDLE
++	if (pSettings->line_exist(section, "bend_grass_idle_anim"))
++		m_BendGrass_idle_anim = pSettings->r_s8(section, "bend_grass_idle_anim");
++	else
++		m_BendGrass_idle_anim = -1;
++
++	if (pSettings->line_exist(section, "bend_grass_idle_str"))
++		m_BendGrass_idle_str = pSettings->r_float(section, "bend_grass_idle_str");
++	else
++		m_BendGrass_idle_str = 1.0f;
++
++	if (pSettings->line_exist(section, "bend_grass_idle_radius"))
++		m_BendGrass_idle_radius = pSettings->r_float(section, "bend_grass_idle_radius");
++	else
++		m_BendGrass_idle_radius = 1.0f;
++
++	if (pSettings->line_exist(section, "bend_grass_idle_speed"))
++		m_BendGrass_idle_speed = pSettings->r_float(section, "bend_grass_idle_speed");
++	else
++		m_BendGrass_idle_speed = 1.0f;
++
++	// -- Interactive Grass - ACTIVE
++	if (pSettings->line_exist(section, "bend_grass_whenactive_anim"))
++		m_BendGrass_whenactive_anim = pSettings->r_s8(section, "bend_grass_whenactive_anim");
++	else
++		m_BendGrass_whenactive_anim = -1;
++
++	if (pSettings->line_exist(section, "bend_grass_whenactive_speed"))
++		m_BendGrass_whenactive_speed = pSettings->r_float(section, "bend_grass_whenactive_speed");
++	else
++		m_BendGrass_whenactive_speed = -1;
++
++	if (pSettings->line_exist(section, "bend_grass_whenactive_str"))
++		m_BendGrass_whenactive_str = pSettings->r_float(section, "bend_grass_whenactive_str");
++	else
++		m_BendGrass_whenactive_str = -1;
++
++	// -- Interactive Grass - BLOWOUT
++	if (pSettings->line_exist(section, "bend_grass_blowout_duration"))
++		m_BendGrass_Blowout_time = pSettings->r_u32(section, "bend_grass_blowout_duration");
++	else
++		m_BendGrass_Blowout_time = -1;
++
++	if (pSettings->line_exist(section, "bend_grass_blowout"))
++		m_BendGrass_Blowout = pSettings->r_bool(section, "bend_grass_blowout");
++
++	if (pSettings->line_exist(section, "bend_grass_blowout_speed"))
++		m_BendGrass_Blowout_speed = pSettings->r_float(section, "bend_grass_blowout_speed");
++
++	if (pSettings->line_exist(section, "bend_grass_blowout_radius"))
++		m_BendGrass_Blowout_radius = pSettings->r_float(section, "bend_grass_blowout_radius");
++	// --
++
+ 	if (pSettings->line_exist(section, "idle_sound"))
+ 	{
+ 		sound_str = pSettings->r_string(section, "idle_sound");
+@@ -582,6 +638,31 @@ void CCustomZone::shedule_Update(u32 dt)
+ 
+ 		if (!m_zone_flags.test(eFastMode))
+ 			UpdateWorkload(dt);
++
++		if (act_distance < ps_ssfx_int_grass_params_1.w)
++			GrassZoneUpdate();
++		else
++		{
++			// Out of range, fadeOut if a grassbender_id is assigned
++			if (grassbender_id)
++			{
++				IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
++
++				// If the ID doesn't match... Just remove the grassbender_id.
++				if (GData.id[grassbender_id] == ID())
++				{
++					GData.str_target[grassbender_id] += g_pGamePersistent->GrassBenderToValue(GData.str_target[grassbender_id], 0.0f, 4.0f, false);
++
++					// Remove ( Don't worry, GrassBenderToValue() it's going to get the == 0 )
++					if (GData.str_target[grassbender_id] == 0)
++						g_pGamePersistent->GrassBendersRemoveByIndex(grassbender_id);
++				}
++				else
++				{
++					grassbender_id = NULL;
++				}
++			}
++		}
+ 	};
+ 
+ 	UpdateOnOffState();
+@@ -786,6 +867,8 @@ void CCustomZone::PlayBlowoutParticles()
+ 	pParticles = CParticlesObject::Create(*m_sBlowoutParticles,TRUE);
+ 	pParticles->UpdateParent(XFORM(), zero_vel);
+ 	pParticles->Play(false);
++
++	m_fBlowoutTimeLeft = (float)Device.dwTimeGlobal + m_BendGrass_Blowout_time;
+ }
+ 
+ void CCustomZone::PlayHitParticles(CGameObject* pObject)
+@@ -1125,6 +1208,9 @@ void CCustomZone::UpdateBlowout()
+ 		m_dwBlowoutExplosionTime < (u32)m_iStateTime)
+ 	{
+ 		AffectObjects();
++		
++		if (m_BendGrass_Blowout)
++			g_pGamePersistent->GrassBendersAddExplosion(ID(), Position(), Fvector().set(0, -99, 0), 1.33f, m_BendGrass_Blowout_speed, 1.0f, m_BendGrass_Blowout_radius);
+ 	}
+ }
+ 
+@@ -1158,6 +1244,13 @@ void CCustomZone::OnMove()
+ 
+ 		if (m_pIdleLight && m_pIdleLight->get_active())
+ 			m_pIdleLight->set_position(Position());
++
++		if (grassbender_id)
++		{
++			// Check ID, just in case...
++			if (g_pGamePersistent->grass_shader_data.id[grassbender_id] == ID())
++				g_pGamePersistent->grass_shader_data.pos[grassbender_id] = Position();
++		}
+ 	}
+ }
+ 
+@@ -1597,3 +1690,61 @@ void CCustomZone::load(IReader& input_packet)
+ 	else
+ 		m_eZoneState = eZoneStateIdle;
+ }
++
++void CCustomZone::GrassZoneUpdate()
++{
++	if (m_BendGrass_idle_anim == -1 && m_BendGrass_whenactive_anim == -1)
++		return;
++
++	IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
++	bool IsActive;
++	s8 targetAnim = -1;
++
++	// If m_BendGrass_Blowout_time is not set, use m_eZoneState to detect activation
++	if (m_BendGrass_Blowout_time <= -1)
++		IsActive = m_eZoneState != eZoneStateIdle;
++	else
++		IsActive = m_fBlowoutTimeLeft > (float)Device.dwTimeGlobal;
++
++	// Target animation depending if Zone is active
++	if (IsActive)
++		targetAnim = (m_BendGrass_whenactive_anim > -1) ? m_BendGrass_whenactive_anim : m_BendGrass_idle_anim;
++	else
++		targetAnim = m_BendGrass_idle_anim;
++
++	// Update grass bender if the animation is > -1
++	if (targetAnim > 0 || (grassbender_id > 0 && GData.anim[grassbender_id] > 0))
++		g_pGamePersistent->GrassBendersUpdate(ID(), grassbender_id, grassbender_frame, Position(), m_BendGrass_idle_radius, 0.0f, false);
++	else
++		g_pGamePersistent->GrassBendersRemoveByIndex(grassbender_id);
++
++	// Return if grassbender_id doesn't exist
++	if (grassbender_id <= 0)
++		return;
++
++	// Animation transition, diminish intensity to 0 and change.
++	if (GData.anim[grassbender_id] != targetAnim)
++	{
++		GData.str_target[grassbender_id] += g_pGamePersistent->GrassBenderToValue(GData.str_target[grassbender_id], 0.0f, 7.5f, false);
++
++		if (GData.str_target[grassbender_id] <= 0.05f)
++			GData.anim[grassbender_id] = targetAnim;
++
++		return;
++	}
++
++	// Apply settings when needed
++	if (IsActive)
++	{
++		if (m_BendGrass_whenactive_speed >= 0)
++			GData.speed[grassbender_id] += g_pGamePersistent->GrassBenderToValue(GData.speed[grassbender_id], m_BendGrass_whenactive_speed, 10.0f, true);
++
++		if (m_BendGrass_whenactive_str >= 0)
++			GData.str_target[grassbender_id] += g_pGamePersistent->GrassBenderToValue(GData.str_target[grassbender_id], m_BendGrass_whenactive_str, 10.0f, true);
++	}
++	else
++	{
++		GData.speed[grassbender_id] += g_pGamePersistent->GrassBenderToValue(GData.speed[grassbender_id], m_BendGrass_idle_speed, 10.0f, true);
++		GData.str_target[grassbender_id] += g_pGamePersistent->GrassBenderToValue(GData.str_target[grassbender_id], m_BendGrass_idle_str, 10.0f, true);
++	}
++}
+diff --git a/src/xrGame/CustomZone.h b/src/xrGame/CustomZone.h
+index 3baa654..eca8679 100644
+--- a/src/xrGame/CustomZone.h
++++ b/src/xrGame/CustomZone.h
+@@ -159,6 +159,28 @@ protected:
+ 	float volumetric_intensity;
+ 	float volumetric_quality;
+ 
++	// Interactive grass Settings
++	float m_fBlowoutTimeLeft;
++
++	s8 m_BendGrass_idle_anim;
++	float m_BendGrass_idle_radius;
++	float m_BendGrass_idle_speed;
++	float m_BendGrass_idle_str;
++
++	s8 m_BendGrass_whenactive_anim;
++	float m_BendGrass_whenactive_speed;
++	float m_BendGrass_whenactive_str;
++
++	bool m_BendGrass_Blowout;
++	s32 m_BendGrass_Blowout_time;
++	float m_BendGrass_Blowout_speed;
++	float m_BendGrass_Blowout_radius;
++
++	u8 grassbender_id;
++	u32 grassbender_frame;
++
++	void GrassZoneUpdate();
++
+ 	//массив с временами, сколько каждое состояние должно 
+ 	//длиться (если 0, то мгновенно -1 - бесконечность, 
+ 	//-2 - вообще не должно вызываться)
+diff --git a/src/xrGame/Explosive.cpp b/src/xrGame/Explosive.cpp
+index ef648e9..4154e12 100644
+--- a/src/xrGame/Explosive.cpp
++++ b/src/xrGame/Explosive.cpp
+@@ -341,6 +341,11 @@ void CExplosive::Explode()
+ 		DBG_DrawPoint(pos,0.3f,D3DCOLOR_XRGB(255,0,0));
+ 	}
+ #endif
++	
++	// Interactive Grass FX
++	extern Fvector4 ps_ssfx_int_grass_params_2;
++	g_pGamePersistent->GrassBendersAddExplosion(cast_game_object()->ID(), pos, Fvector().set(0, -99, 0), 1.33f, ps_ssfx_int_grass_params_2.y, ps_ssfx_int_grass_params_2.x, m_fBlastRadius * 2.0f);
++	
+ 	//	Msg("---------CExplosive Explode [%d] frame[%d]",cast_game_object()->ID(), Device.dwFrame);
+ 	OnBeforeExplosion();
+ 	//играем звук взрыва
+diff --git a/src/xrGame/PHMovementControl.cpp b/src/xrGame/PHMovementControl.cpp
+index 7836b3c..b8be9d8 100644
+--- a/src/xrGame/PHMovementControl.cpp
++++ b/src/xrGame/PHMovementControl.cpp
+@@ -1125,6 +1125,11 @@ void CPHMovementControl::PHReleaseObject()
+ void CPHMovementControl::DestroyCharacter()
+ {
+ 	VERIFY(m_character);
++
++	// Remove Grass bender if PHCharacter is not NULL
++	if (m_character->PhysicsRefObject() != NULL)
++		g_pGamePersistent->GrassBendersRemoveById(m_character->PhysicsRefObject()->ObjectID());
++
+ 	m_character->Destroy();
+ 	phcapture_destroy(m_capture);
+ 	//xr_delete(m_capture);
+diff --git a/src/xrGame/WeaponFire.cpp b/src/xrGame/WeaponFire.cpp
+index 39bbeda..60f4e8c 100644
+--- a/src/xrGame/WeaponFire.cpp
++++ b/src/xrGame/WeaponFire.cpp
+@@ -130,6 +130,10 @@ void CWeapon::FireTrace(const Fvector& P, const Fvector& D)
+ 	if (m_bLightShotEnabled)
+ 		Light_Start();
+ 
++	// Interactive Grass FX
++	extern Fvector4 ps_ssfx_int_grass_params_2;
++	Fvector ShotPos = Fvector().mad(P, D, 1.5f);
++	g_pGamePersistent->GrassBendersAddShot(cast_game_object()->ID(), ShotPos, D, 3.0f, 20.0f, ps_ssfx_int_grass_params_2.z, ps_ssfx_int_grass_params_2.w);
+ 
+ 	// Ammo
+ 	m_lastCartridge = l_cartridge;
+diff --git a/src/xrGame/ai/monsters/burer/burer_state_attack_gravi_inline.h b/src/xrGame/ai/monsters/burer/burer_state_attack_gravi_inline.h
+index 59ffe28..a25205f 100644
+--- a/src/xrGame/ai/monsters/burer/burer_state_attack_gravi_inline.h
++++ b/src/xrGame/ai/monsters/burer/burer_state_attack_gravi_inline.h
+@@ -138,4 +138,8 @@ void CStateBurerAttackGravi<Object>::ExecuteGraviFire()
+ 
+ 	object->StopGraviPrepare();
+ 	object->sound().play(CBurer::eMonsterSoundGraviAttack);
++
++	// Interactive Grass FX
++	extern Fvector4 ps_ssfx_grass_interactive;
++	g_pGamePersistent->GrassBendersAddExplosion(object->ID(), from_pos, object->Direction(), 1.33f, 3.0f, ps_ssfx_grass_interactive.w, 13.0f);
+ }
+diff --git a/src/xrGame/ai/monsters/pseudogigant/pseudo_gigant.cpp b/src/xrGame/ai/monsters/pseudogigant/pseudo_gigant.cpp
+index 908d83f..bf77ebd 100644
+--- a/src/xrGame/ai/monsters/pseudogigant/pseudo_gigant.cpp
++++ b/src/xrGame/ai/monsters/pseudogigant/pseudo_gigant.cpp
+@@ -291,6 +291,10 @@ void CPseudoGigant::on_threaten_execute()
+ 	pos.y += 0.1f;
+ 	m_sound_threaten_hit.play_at_pos(this, pos);
+ 
++	// Interactive Grass FX
++	extern Fvector4 ps_ssfx_grass_interactive;
++	g_pGamePersistent->GrassBendersAddExplosion(ID(), pos, Fvector().set(0, -99, 0), 1.33f, 5.0f, ps_ssfx_grass_interactive.w, 20);
++
+ 	// играть партиклы
+ 	PlayParticles(m_kick_particles, pos, Direction());
+ 
+diff --git a/src/xrGame/level_script.cpp b/src/xrGame/level_script.cpp
+index c16d21c..162b636 100644
+--- a/src/xrGame/level_script.cpp
++++ b/src/xrGame/level_script.cpp
+@@ -279,6 +279,36 @@ float rain_factor()
+ 	return (g_pGamePersistent->Environment().CurrentEnv->rain_density);
+ }
+ 
++float rain_wetness()
++{
++	return (g_pGamePersistent->Environment().wetness_factor);
++}
++
++float rain_hemi()
++{
++	CEffect_Rain* rain = g_pGamePersistent->pEnvironment->eff_Rain;
++
++	if (rain)
++	{
++		return rain->GetRainHemi();
++	}
++	else
++	{
++		CObject* E = g_pGameLevel->CurrentViewEntity();
++		if (E && E->renderable_ROS())
++		{
++			float* hemi_cube = E->renderable_ROS()->get_luminocity_hemi_cube();
++			float hemi_val = _max(hemi_cube[0], hemi_cube[1]);
++			hemi_val = _max(hemi_val, hemi_cube[2]);
++			hemi_val = _max(hemi_val, hemi_cube[3]);
++			hemi_val = _max(hemi_val, hemi_cube[5]);
++
++			return hemi_val;
++		}
++		return 0;
++	}
++}
++
+ u32 vertex_in_direction(u32 level_vertex_id, Fvector direction, float max_distance)
+ {
+ 	if (!ai().level_graph().valid_vertex_id(level_vertex_id))
+@@ -970,7 +1000,7 @@ void set_weather_value_numric(LPCSTR name, float val)
+ 	else if (0 == xr_strcmp(name, "wind_velocity"))
+ 		E.wind_velocity = val;
+ 	else if (0 == xr_strcmp(name, "wind_direction"))
+-		E.wind_direction = val;
++		E.wind_direction = deg2rad(val);
+ 	else if (0 == xr_strcmp(name, "sun_shafts_intensity"))
+ 	{
+ 		E.m_fSunShaftsIntensity = val;
+@@ -1661,6 +1691,8 @@ void CLevel::script_register(lua_State* L)
+ 			def("low_cover_in_direction", low_cover_in_direction),
+ 			def("vertex_in_direction", vertex_in_direction),
+ 			def("rain_factor", rain_factor),
++			def("rain_wetness", rain_wetness),
++			def("rain_hemi", rain_hemi),
+ 			def("patrol_path_exists", patrol_path_exists),
+ 			def("vertex_position", vertex_position),
+ 			def("name", get_name),
+diff --git a/src/xrGame/movement_manager.cpp b/src/xrGame/movement_manager.cpp
+index 117d30d..59769bd 100644
+--- a/src/xrGame/movement_manager.cpp
++++ b/src/xrGame/movement_manager.cpp
+@@ -373,6 +373,9 @@ void CMovementManager::on_frame(CPHMovementControl* movement_control, Fvector& d
+ 		update_path();
+ 
+ 	move_along_path(movement_control, dest_position, object().client_update_fdelta());
++
++	// Update Grass benders
++	g_pGamePersistent->GrassBendersUpdate(object().ID(), grassbender_id, grassbender_frame, object().Position(), -1.0f, 1.0f, true);
+ }
+ 
+ void CMovementManager::on_travel_point_change(const u32& previous_travel_point_index)
+diff --git a/src/xrGame/movement_manager.h b/src/xrGame/movement_manager.h
+index 2427493..4f7fe8b 100644
+--- a/src/xrGame/movement_manager.h
++++ b/src/xrGame/movement_manager.h
+@@ -84,6 +84,10 @@ class CDetailPathBuilder;
+ 
+ class CMovementManager
+ {
++public:
++	u8 grassbender_id;
++	u32 grassbender_frame;
++
+ private:
+ 	friend class CLevelPathBuilder;
+ 	friend class CDetailPathBuilder;
+diff --git a/src/xrGame/player_hud.cpp b/src/xrGame/player_hud.cpp
+index 96fae36..ec89e92 100644
+--- a/src/xrGame/player_hud.cpp
++++ b/src/xrGame/player_hud.cpp
+@@ -400,7 +400,9 @@ void attachable_hud_item::load(const shared_str& sect_name)
+ 
+ 	// Visual
+ 	LPCSTR visual_name = pSettings->r_string(sect_name, "item_visual");
++	::Render->hud_loading = true;
+ 	IKinematicsAnimated* visual = ::Render->model_Create(visual_name)->dcast_PKinematicsAnimated();
++	::Render->hud_loading = false;
+ 	R_ASSERT2(visual, make_string("could not create model %s", visual_name));
+ 	m_model = smart_cast<IKinematics*>(visual);
+ 
+@@ -624,10 +626,12 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
+ 	}
+ 
+ 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
++	::Render->hud_loading = true;
+ 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
+ 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
+ 	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
+ 
++	::Render->hud_loading = false;
+ 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
+ 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
+ 
+@@ -1315,7 +1319,9 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool
+ 
+ 	if (pSettings->line_exist(section, "item_visual"))
+ 	{
++		::Render->hud_loading = true;
+ 		script_anim_item_model = ::Render->model_Create(pSettings->r_string(section, "item_visual"))->dcast_PKinematicsAnimated();
++		::Render->hud_loading = false;
+ 		item_pos[0] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_position", def);
+ 		item_pos[1] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_orientation", def);
+ 		script_anim_item_attached = READ_IF_EXISTS(pSettings, r_bool, section, "item_attached", true);
