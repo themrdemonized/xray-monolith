@@ -660,6 +660,11 @@ static class cl_near_far_plane : public R_constant_setup
 } binder_near_far_plane;
 
 // Screen Space Shaders Stuff
+extern Fvector3 ps_ssfx_shadow_bias;
+extern Fvector4 ps_ssfx_lut;
+extern Fvector4 ps_ssfx_wind_grass;
+extern Fvector4 ps_ssfx_wind_trees;
+
 extern Fvector4 ps_ssfx_florafixes_1;
 extern Fvector4 ps_ssfx_florafixes_2;
 
@@ -847,6 +852,46 @@ static class ssfx_florafixes_2 : public R_constant_setup
 	}
 }    ssfx_florafixes_2;
 
+static class ssfx_wind_grass : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wind_grass);
+	}
+}    ssfx_wind_grass;
+
+static class ssfx_wind_trees : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wind_trees);
+	}
+}    ssfx_wind_trees;
+
+static class ssfx_wind_anim : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		Fvector3 WindAni = g_pGamePersistent->Environment().wind_anim;
+		RCache.set_c(C, WindAni.x, WindAni.y, WindAni.z, 0);
+	}
+}    ssfx_wind_anim;
+
+static class ssfx_lut : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_lut);
+	}
+}    ssfx_lut;
+
+static class ssfx_shadow_bias : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_shadow_bias.x, ps_ssfx_shadow_bias.y, 0, 0);
+	}
+}    ssfx_shadow_bias;
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -936,6 +981,8 @@ void CBlender_Compile::SetMapping()
 	r_Constant("pda_params", &binder_pda_params);
 
 	// Screen Space Shaders
+	r_Constant("ssfx_shadow_bias", &ssfx_shadow_bias);
+	r_Constant("ssfx_wind_anim", &ssfx_wind_anim);
 	r_Constant("sky_color", &binder_sky_color);
 	r_Constant("ssfx_wpn_dof_1", &ssfx_wpn_dof_1);
 	r_Constant("ssfx_wpn_dof_2", &ssfx_wpn_dof_2);
@@ -949,6 +996,9 @@ void CBlender_Compile::SetMapping()
 	r_Constant("ssfx_gloss", &ssfx_gloss);
 	r_Constant("ssfx_florafixes_1", &ssfx_florafixes_1);
 	r_Constant("ssfx_florafixes_2", &ssfx_florafixes_2);
+	r_Constant("ssfx_wsetup_grass", &ssfx_wind_grass);
+	r_Constant("ssfx_wsetup_trees", &ssfx_wind_trees);
+	r_Constant("ssfx_lut", &ssfx_lut);
 
 	// Shader stuff
 	r_Constant("shader_param_1", &dev_param_1);

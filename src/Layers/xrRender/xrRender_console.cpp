@@ -307,6 +307,16 @@ float ps_particle_update_coeff = 1.f;
 /////////////////////////////////
 
 // Screen Space Shaders Stuff
+Fvector3 ps_ssfx_shadows = { 256, 1536, 0.0f };
+Fvector3 ps_ssfx_volumetric = { 0, 0.02f, 1.5f };
+
+Fvector3 ps_ssfx_shadow_bias = { 0.4f, 0.03f, 0.0f };
+
+Fvector4 ps_ssfx_lut = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+Fvector4 ps_ssfx_wind_grass = { 9.5f, 1.4f, 1.5f, 0.4f };
+Fvector4 ps_ssfx_wind_trees = { 11.0f, 0.15f, 0.5f, 0.15f };
+
 Fvector4 ps_ssfx_florafixes_1 = { 0.3f, 0.21f, 0.3f, 0.21f }; // Flora fixes 1
 Fvector4 ps_ssfx_florafixes_2 = { 2.0f, 1.0f, 0.0f, 0.0f }; // Flora fixes 2
 
@@ -1035,7 +1045,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_ls_dsm_kernel", &ps_r2_ls_dsm_kernel, .1f, 3.f);
 	CMD4(CCC_Float, "r2_ls_psm_kernel", &ps_r2_ls_psm_kernel, .1f, 3.f);
 	CMD4(CCC_Float, "r2_ls_ssm_kernel", &ps_r2_ls_ssm_kernel, .1f, 3.f);
-	CMD4(CCC_Float, "r2_ls_squality", &ps_r2_ls_squality, .5f, 1.f);
+	CMD4(CCC_Float, "r2_ls_squality", &ps_r2_ls_squality, .5f, 3.f);
 
 	CMD3(CCC_Mask, "r2_zfill", &ps_r2_ls_flags, R2FLAG_ZFILL);
 	CMD4(CCC_Float, "r2_zfill_depth", &ps_r2_zfill, .001f, .5f);
@@ -1149,6 +1159,16 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
 	
 	// Screen Space Shaders
+	CMD4(CCC_Vector3, "ssfx_shadows", &ps_ssfx_shadows, Fvector3().set(128, 1536, 0), Fvector3().set(1536, 4096, 0));
+	CMD4(CCC_Vector3, "ssfx_volumetric", &ps_ssfx_volumetric, Fvector3().set(0, 0, 1.0), Fvector3().set(1.0, 1.0, 5.0));
+
+	CMD4(CCC_Vector3, "ssfx_shadow_bias", &ps_ssfx_shadow_bias, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+
+	CMD4(CCC_Vector4, "ssfx_lut", &ps_ssfx_lut, Fvector4().set(0.0, 0.0, 0.0, 0.0), tw2_max);
+
+	CMD4(CCC_Vector4, "ssfx_wind_grass", &ps_ssfx_wind_grass, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(20.0, 5.0, 5.0, 5.0));
+	CMD4(CCC_Vector4, "ssfx_wind_trees", &ps_ssfx_wind_trees, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(20.0, 5.0, 5.0, 1.0));
+
 	CMD4(CCC_Vector4, "ssfx_florafixes_1", &ps_ssfx_florafixes_1, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 	CMD4(CCC_Vector4, "ssfx_florafixes_2", &ps_ssfx_florafixes_2, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(10.0, 1.0, 1.0, 1.0));
 

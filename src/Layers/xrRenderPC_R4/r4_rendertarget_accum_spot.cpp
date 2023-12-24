@@ -415,12 +415,30 @@ void CRenderTarget::accum_volumetric(light* L)
 		}
 	*/
 	// Common constants
-	float fQuality = L->m_volumetric_quality;
-	int iNumSlises = (int)(VOLUMETRIC_SLICES * fQuality);
-	//			min 10 surfaces
-	iNumSlises = _max(10, iNumSlises);
+	float fQuality = 0;
+	int iNumSlices = 0;
+
+	if (ps_ssfx_volumetric.x <= 0)
+	{
+		// Vanilla Method
+		fQuality = L->m_volumetric_quality;
+		iNumSlices = (int)(VOLUMETRIC_SLICES * fQuality);
+		//			min 10 surfaces
+		iNumSlices = _max(10, iNumSlices);
+	}
+	else
+	{
+		// SSS Method
+		fQuality = ps_ssfx_volumetric.z;
+		iNumSlices = (int)(24 * fQuality);
+
+		if (L->flags.type == IRender_Light::OMNIPART)
+			iNumSlices = (int)(16 * fQuality);
+	}
+
+
 	//	Adjust slice intensity
-	fQuality = ((float)iNumSlises) / VOLUMETRIC_SLICES;
+	fQuality = ((float)iNumSlices) / VOLUMETRIC_SLICES;
 	Fvector L_dir, L_clr, L_pos;
 	float L_spec;
 	L_clr.set(L->color.r, L->color.g, L->color.b);
