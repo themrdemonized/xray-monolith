@@ -351,11 +351,11 @@ void CBulletManager::DynamicObjectHit(CBulletManager::_event& E)
 		                E.bullet.armor_piercing,
 		                E.bullet.flags.aim_bullet);
 
-		Hit.GenHeader(u16((AddStatistic) ? GE_HIT_STATISTIC : GE_HIT) & 0xffff, E.R.O->ID());
 		Hit.whoID = E.bullet.parent_id;
 		Hit.weaponID = E.bullet.weapon_id;
 		Hit.BulletID = E.bullet.m_dwID;
-
+		Hit.GenHeader(u16((AddStatistic) ? GE_HIT_STATISTIC : GE_HIT) & 0xffff, E.R.O->ID());
+		
 		NET_Packet np;
 		Hit.Write_Packet(np);
 
