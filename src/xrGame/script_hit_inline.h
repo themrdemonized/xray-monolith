@@ -19,6 +19,7 @@ IC CScriptHit::CScriptHit()
 	m_fImpulse = 100;
 	m_tpWeaponID = 0;
 	m_tHitType = ALife::eHitTypeWound;
+	bulletId = u32(-1);
 }
 
 IC CScriptHit::CScriptHit(const CScriptHit* tpLuaHit)
@@ -34,6 +35,7 @@ IC CScriptHit::CScriptHit(const SHit* tpHit)
 	m_fImpulse = tpHit->impulse;
 	m_tpWeaponID = tpHit->weaponID;
 	m_tHitType = tpHit->hit_type;
+	bulletId = tpHit->BulletID;
 }
 
 IC void CScriptHit::set_bone_name(LPCSTR bone_name)

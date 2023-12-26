@@ -568,7 +568,7 @@ void WeaponUsageStatistic::OnBullet_Fire(SBullet* pBullet, const CCartridge& car
 	if (!pActor) return;
 	//-----------------------------------------------------------------------------------
 	PLAYERS_STATS_it PlayerIt = FindPlayer(*object_parent->cName());
-	pBullet->m_dwID = PlayerIt->m_dwTotalShots++;
+	//pBullet->m_dwID = PlayerIt->m_dwTotalShots++;
 	PlayerIt->m_dwTotalShots_d++;
 	WEAPON_STATS_it WeaponIt = PlayerIt->FindPlayersWeapon(*object_weapon->cNameSect());
 	WeaponIt->m_dwRoundsFired = (++WeaponIt->m_dwBulletsFired) / cartridge.param_s.buckShot;

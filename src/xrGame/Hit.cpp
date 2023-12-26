@@ -30,7 +30,7 @@ SHit::SHit(float powerA, Fvector& dirA, CObject* whoA, u16 elementA, Fvector p_i
 	hit_type = hit_typeA;
 	armor_piercing = armor_piercingA;
 	PACKET_TYPE = 0;
-	BulletID = 0;
+	BulletID = u32(-1);
 	SenderID = 0;
 	aim_bullet = AimBullet;
 	add_wound = true;
@@ -60,7 +60,7 @@ void SHit::invalidate()
 	hit_type = ALife::eHitTypeMax;
 
 	armor_piercing = 0.0f;
-	BulletID = 0;
+	BulletID = u32(-1);
 	SenderID = 0;
 	aim_bullet = false;
 	add_wound = false;
@@ -107,9 +107,9 @@ void SHit::Read_Packet_Cont(NET_Packet Packet)
 	{
 		Packet.r_float(armor_piercing);
 	}
+	Packet.r_u32(BulletID);
 	if (PACKET_TYPE == GE_HIT_STATISTIC)
 	{
-		Packet.r_u32(BulletID);
 		Packet.r_u32(SenderID);
 	}
 }
@@ -130,9 +130,9 @@ void SHit::Write_Packet_Cont(NET_Packet& Packet)
 	{
 		Packet.w_float(armor_piercing);
 	}
+	Packet.w_u32(BulletID);
 	if (PACKET_TYPE == GE_HIT_STATISTIC)
 	{
-		Packet.w_u32(BulletID);
 		Packet.w_u32(SenderID);
 	}
 }
@@ -156,6 +156,7 @@ void SHit::ApplyScriptHit(CScriptHit* tLuaHit)
 	who = smart_cast<CObject*>(&tLuaHit->m_tpDraftsman->object());
 	whoID = tLuaHit->m_tpDraftsman->ID();
 	weaponID = tLuaHit->m_tpWeaponID;
+	//BulletID = tLuaHit->bulletId;
 }
 
 #ifdef DEBUG
