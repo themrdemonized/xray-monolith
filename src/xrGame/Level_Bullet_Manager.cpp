@@ -110,7 +110,8 @@ void SBullet::Init(const Fvector& position,
 	density_mode = 0;
 
 	catridgeSection = cartridge.m_ammoSect.c_str();
-	bulletId = bulletCount++;
+	m_dwID = bulletCount++;
+	bulletId = m_dwID;
 }
 
 // demonized: construct bullet table for Lua

@@ -24,6 +24,7 @@ public:
 	float m_fImpulse;
 	int m_tHitType;
 	u16 m_tpWeaponID;
+	u32 bulletId;
 
 public:
 	IC CScriptHit();
