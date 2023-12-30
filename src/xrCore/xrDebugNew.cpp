@@ -92,7 +92,7 @@ static void toLowerCase(std::string& s) {
         });
 }
 
-#include "windows.h"
+#include <Windows.h>
 #include "../3rd party/stackwalker/include/StackWalker.h"
 class xr_StackWalker : public StackWalker {
 public:
@@ -108,6 +108,10 @@ protected:
         if (sLowered.find(".dll") != std::string::npos) return;
         if (sLowered.find(".drv") != std::string::npos) return;
         if (sLowered.find("__scrt_common_main_seh") != std::string::npos) return;
+        if (s.find("ERROR: SymGetSymFromAddr64") != std::string::npos) return;
+        if (s.find("ERROR: SymGetLineFromAddr64") != std::string::npos) return;
+        if (sLowered.find("filename not available") != std::string::npos) return;
+        if (sLowered.find("function-name not available") != std::string::npos) return;
         trim(s);
         Msg("%s", s.c_str());
     }
