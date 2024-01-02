@@ -1074,6 +1074,17 @@ public:
 	float GetActorLookoutCoef() const;
 	void SetActorLookoutCoef(float val);
 
+	float GetActorCrouchCoef() const;
+	void SetActorCrouchCoef(float val);
+	float GetActorClimbCoef() const;
+	void SetActorClimbCoef(float val);
+	float GetActorWalkStrafeCoef() const;
+	void SetActorWalkStrafeCoef(float val);
+	float GetActorRunStrafeCoef() const;
+	void SetActorRunStrafeCoef(float val);
+	float GetActorSprintStrafeCoef() const;
+	void SetActorSprintStrafeCoef(float val);
+
 	void SetCharacterIcon(LPCSTR iconName);
 #endif
 	//-Alundaio
