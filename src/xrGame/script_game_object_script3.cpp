@@ -575,6 +575,16 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("set_actor_walk_accel", &CScriptGameObject::SetActorWalkAccel)
 		.def("get_actor_walk_back_coef", &CScriptGameObject::GetActorWalkBackCoef)
 		.def("set_actor_walk_back_coef", &CScriptGameObject::SetActorWalkBackCoef)
+		.def("get_actor_crouch_coef", &CScriptGameObject::GetActorCrouchCoef)
+		.def("set_actor_crouch_coef", &CScriptGameObject::SetActorCrouchCoef)
+		.def("get_actor_climb_coef", &CScriptGameObject::GetActorClimbCoef)
+		.def("set_actor_climb_coef", &CScriptGameObject::SetActorClimbCoef)
+		.def("get_actor_walk_strafe_coef", &CScriptGameObject::GetActorWalkStrafeCoef)
+		.def("set_actor_walk_strafe_coef", &CScriptGameObject::SetActorWalkStrafeCoef)
+		.def("get_actor_run_strafe_coef", &CScriptGameObject::GetActorRunStrafeCoef)
+		.def("set_actor_run_strafe_coef", &CScriptGameObject::SetActorRunStrafeCoef)
+		.def("get_actor_sprint_strafe_coef", &CScriptGameObject::GetActorSprintStrafeCoef)
+		.def("set_actor_sprint_strafe_coef", &CScriptGameObject::SetActorSprintStrafeCoef)
 
 		// demonized: Adjust Lookout factor
 		.def("get_actor_lookout_coef", &CScriptGameObject::GetActorLookoutCoef)
