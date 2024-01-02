@@ -207,6 +207,9 @@ bool CHelmet::install_upgrade_impl(LPCSTR section, bool test)
 	if (result2 && !test)
 		AddBonesProtection(str);
 
+	// demonized: add hit_fraction_actor upgrade to helmets
+	result |= process_if_exists(section, "hit_fraction_actor", &CInifile::r_float, m_boneProtection->m_fHitFracActor, test);
+
 	return result;
 }
 
