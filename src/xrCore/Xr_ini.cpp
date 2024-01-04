@@ -863,10 +863,6 @@ void CInifile::Load(IReader* F, LPCSTR path
 							}
 							vec.push_back(i);
 
-							auto trim = [](std::string &s, const char* t = " \t\n\r\f\v") {
-								s.erase(s.find_last_not_of(t) + 1);
-								s.erase(0, s.find_first_not_of(t));
-							};
 							for (auto &item : vec) {
 								trim(item);
 							}
@@ -996,40 +992,12 @@ void CInifile::Load(IReader* F, LPCSTR path
 // demonized: print DLTX override info
 void CInifile::DLTX_print(LPCSTR sec, LPCSTR line)
 {
-	auto splitStringMulti = [](std::string& inputString, std::string separator = " ", bool includeSeparators = false) {
-		std::stringstream stringStream(inputString);
-		std::string line;
-		std::vector<std::string> wordVector;
-		while (std::getline(stringStream, line))
-		{
-			std::size_t prev = 0, pos;
-			while ((pos = line.find_first_of(separator, prev)) != std::string::npos)
-			{
-				if (pos > prev)
-					wordVector.push_back(line.substr(prev, pos - prev));
-
-				if (includeSeparators)
-					wordVector.push_back(line.substr(pos, 1));
-
-				prev = pos + 1;
-			}
-			if (prev < line.length())
-				wordVector.push_back(line.substr(prev, std::string::npos));
-		}
-		return wordVector;
-	};
-	auto printLine = [&splitStringMulti](const Item& s) {
-		auto path = splitStringMulti(std::string(s.filename.c_str()), "\\");
-		std::string fname = path.empty() ? "" : path.back();
-		Msg("%s = %s -> %s", s.first.c_str(), s.second.c_str(), fname.c_str());
-	};
-
 	Msg("%s", m_file_name);
 	if (!sec) {
 		for (const auto& d : DATA) {
 			Msg("[%s]", d->Name.c_str());
 			for (const auto& s : d->Data) {
-				printLine(s);
+				printIniItemLine(s);
 			}
 		}
 		return;
@@ -1045,7 +1013,7 @@ void CInifile::DLTX_print(LPCSTR sec, LPCSTR line)
 	if (!line) {
 		Msg("[%s]", I.Name.c_str());
 		for (const auto& s : I.Data) {
-			printLine(s);
+			printIniItemLine(s);
 		}
 		return;
 	}
@@ -1057,7 +1025,43 @@ void CInifile::DLTX_print(LPCSTR sec, LPCSTR line)
 
 	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), line, item_pred);
 	Msg("[%s]", I.Name.c_str());
-	printLine(*A);
+	printIniItemLine(*A);
+}
+LPCSTR CInifile::DLTX_getFilenameOfLine(LPCSTR sec, LPCSTR line)
+{
+	if (!sec) {
+		Msg("![DLTX_getFilenameOfLine] no section provided");
+		return nullptr;
+	}
+
+	if (!line) {
+		Msg("![DLTX_getFilenameOfLine] no line provided for section %s", sec);
+		return nullptr;
+	}
+
+	if (!section_exist(sec)) {
+		Msg("![DLTX_getFilenameOfLine] no section exists by name %s", sec);
+		return nullptr;
+	}
+
+	if (!line_exist(sec, line)) {
+		Msg("![DLTX_getFilenameOfLine] no line %s exists in section %s", line, sec);
+		return nullptr;
+	}
+
+	Sect& I = r_section(sec);
+	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), line, item_pred);
+	auto fname = getFilename(std::string(A->filename.c_str()));
+	auto f = fname.c_str();
+	return f;
+}
+bool CInifile::DLTX_isOverride(LPCSTR sec, LPCSTR line)
+{
+	auto fname = DLTX_getFilenameOfLine(sec, line);
+	if (!fname) {
+		return false;
+	}
+	return std::string(fname).find("mod_") == 0;
 }
 
 void CInifile::save_as(IWriter& writer, bool bcheck) const

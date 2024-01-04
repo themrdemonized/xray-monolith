@@ -82,17 +82,8 @@ namespace crash_saving
 }
 
 // demonized: print stack trace
-static void trim(std::string& s, const char* t = " \t\n\r\f\v") {
-    s.erase(s.find_last_not_of(t) + 1);
-    s.erase(0, s.find_first_not_of(t));
-};
-static void toLowerCase(std::string& s) {
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-        return std::tolower(c);
-        });
-}
-
 #include <Windows.h>
+#include "mezz_stringbuffer.h"
 #include "../3rd party/stackwalker/include/StackWalker.h"
 class xr_StackWalker : public StackWalker {
 public:

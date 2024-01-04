@@ -255,9 +255,4 @@ u32 CScriptIniFile::section_count()
 {
 	return (inherited::section_count());
 }
-
-void CScriptIniFile::DLTX_print(LPCSTR sec, LPCSTR name)
-{
-	inherited::DLTX_print(sec, name);
-}
 #endif
