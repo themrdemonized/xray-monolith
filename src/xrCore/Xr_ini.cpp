@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
+#include <sstream>
 #include "mezz_stringbuffer.h"
 
 XRCORE_API CInifile const* pSettings = NULL;
@@ -204,6 +205,7 @@ static void insert_item(CInifile::Sect* tgt, const CInifile::Item& I)
 	if (sect_it != tgt->Data.end() && sect_it->first.equal(I.first))
 	{
 		sect_it->second = I.second;
+		sect_it->filename = I.filename;
 		//#ifdef DEBUG
 		// sect_it->comment= I.comment;
 		//#endif
@@ -661,6 +663,7 @@ void CInifile::Load(IReader* F, LPCSTR path
 					Item I;
 					I.first = (name[0] ? name : NULL);
 					I.second = bIsDelete ? DLTX_DELETE.c_str() : (str2[0] ? str2.GetBuffer() : NULL);
+					I.filename = currentFileName;
 
 					if (*I.first || *I.second)
 					{
@@ -988,6 +991,79 @@ void CInifile::Load(IReader* F, LPCSTR path
 			}
 		}
 	}
+}
+
+// demonized: print DLTX override info
+void CInifile::DLTX_print(LPCSTR sec, LPCSTR line)
+{
+	auto splitStringMulti = [](std::string& inputString, std::string separator = " ", bool includeSeparators = false) {
+		std::stringstream stringStream(inputString);
+		std::string line;
+		std::vector<std::string> wordVector;
+		while (std::getline(stringStream, line))
+		{
+			std::size_t prev = 0, pos;
+			while ((pos = line.find_first_of(separator, prev)) != std::string::npos)
+			{
+				if (pos > prev)
+					wordVector.push_back(line.substr(prev, pos - prev));
+
+				if (includeSeparators)
+					wordVector.push_back(line.substr(pos, 1));
+
+				prev = pos + 1;
+			}
+			if (prev < line.length())
+				wordVector.push_back(line.substr(prev, std::string::npos));
+		}
+		return wordVector;
+	};
+	auto printLine = [&splitStringMulti](const Item& s) {
+		auto path = splitStringMulti(std::string(s.filename.c_str()), "\\");
+		std::string fname;
+		if (path.empty()) {
+			fname = "";
+		}
+		else {
+			fname = path.back();
+		}
+		Msg("%s = %s -> %s", s.first.c_str(), s.second.c_str(), fname.c_str());
+	};
+
+	Msg("%s", m_file_name);
+	if (!sec) {
+		for (const auto& d : DATA) {
+			Msg("[%s]", d->Name.c_str());
+			for (const auto& s : d->Data) {
+				printLine(s);
+			}
+		}
+		return;
+	}
+
+	if (!section_exist(sec)) {
+		Msg("![DLTX_print] no section exists by name %s", sec);
+		return;
+	}
+
+	Sect& I = r_section(sec);
+
+	if (!line) {
+		Msg("[%s]", I.Name.c_str());
+		for (const auto& s : I.Data) {
+			printLine(s);
+		}
+		return;
+	}
+
+	if (!line_exist(sec, line)) {
+		Msg("![DLTX_print] no line %s exists in section %s", line, sec);
+		return;
+	}
+
+	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), line, item_pred);
+	Msg("[%s]", I.Name.c_str());
+	printLine(*A);
 }
 
 void CInifile::save_as(IWriter& writer, bool bcheck) const
