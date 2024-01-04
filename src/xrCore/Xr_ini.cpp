@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
+#include <sstream>
 #include "mezz_stringbuffer.h"
 
 XRCORE_API CInifile const* pSettings = NULL;
@@ -204,6 +205,7 @@ static void insert_item(CInifile::Sect* tgt, const CInifile::Item& I)
 	if (sect_it != tgt->Data.end() && sect_it->first.equal(I.first))
 	{
 		sect_it->second = I.second;
+		sect_it->filename = I.filename;
 		//#ifdef DEBUG
 		// sect_it->comment= I.comment;
 		//#endif
@@ -662,6 +664,14 @@ void CInifile::Load(IReader* F, LPCSTR path
 					I.first = (name[0] ? name : NULL);
 					I.second = bIsDelete ? DLTX_DELETE.c_str() : (str2[0] ? str2.GetBuffer() : NULL);
 
+					auto fname = toLowerCaseCopy(trimCopy(getFilename(std::string(currentFileName))));
+					// Remove .ltx part, unused for now
+					/*fname.pop_back();
+					fname.pop_back();
+					fname.pop_back();
+					fname.pop_back();*/
+					I.filename = fname.c_str();
+
 					if (*I.first || *I.second)
 					{
 						insert_item(Current, I);
@@ -860,10 +870,6 @@ void CInifile::Load(IReader* F, LPCSTR path
 							}
 							vec.push_back(i);
 
-							auto trim = [](std::string &s, const char* t = " \t\n\r\f\v") {
-								s.erase(s.find_last_not_of(t) + 1);
-								s.erase(0, s.find_first_not_of(t));
-							};
 							for (auto &item : vec) {
 								trim(item);
 							}
@@ -988,6 +994,80 @@ void CInifile::Load(IReader* F, LPCSTR path
 			}
 		}
 	}
+}
+
+// demonized: print DLTX override info
+void CInifile::DLTX_print(LPCSTR sec, LPCSTR line)
+{
+	Msg("%s", m_file_name);
+	if (!sec) {
+		for (const auto& d : DATA) {
+			Msg("[%s]", d->Name.c_str());
+			for (const auto& s : d->Data) {
+				printIniItemLine(s);
+			}
+		}
+		return;
+	}
+
+	if (!section_exist(sec)) {
+		Msg("![DLTX_print] no section exists by name %s", sec);
+		return;
+	}
+
+	Sect& I = r_section(sec);
+
+	if (!line) {
+		Msg("[%s]", I.Name.c_str());
+		for (const auto& s : I.Data) {
+			printIniItemLine(s);
+		}
+		return;
+	}
+
+	if (!line_exist(sec, line)) {
+		Msg("![DLTX_print] no line %s exists in section %s", line, sec);
+		return;
+	}
+
+	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), line, item_pred);
+	Msg("[%s]", I.Name.c_str());
+	printIniItemLine(*A);
+}
+LPCSTR CInifile::DLTX_getFilenameOfLine(LPCSTR sec, LPCSTR line)
+{
+	if (!sec) {
+		Msg("![DLTX_getFilenameOfLine] no section provided");
+		return nullptr;
+	}
+
+	if (!line) {
+		Msg("![DLTX_getFilenameOfLine] no line provided for section %s", sec);
+		return nullptr;
+	}
+
+	if (!section_exist(sec)) {
+		Msg("![DLTX_getFilenameOfLine] no section exists by name %s", sec);
+		return nullptr;
+	}
+
+	if (!line_exist(sec, line)) {
+		Msg("![DLTX_getFilenameOfLine] no line %s exists in section %s", line, sec);
+		return nullptr;
+	}
+
+	Sect& I = r_section(sec);
+	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), line, item_pred);
+	auto fname = A->filename.c_str();
+	return fname;
+}
+bool CInifile::DLTX_isOverride(LPCSTR sec, LPCSTR line)
+{
+	auto fname = DLTX_getFilenameOfLine(sec, line);
+	if (!fname) {
+		return false;
+	}
+	return std::string(fname).find("mod_") == 0;
 }
 
 void CInifile::save_as(IWriter& writer, bool bcheck) const

@@ -2577,5 +2577,117 @@ void CScriptGameObject::SetActorLookoutCoef(float val)
 	pActor->m_fLookoutFactor = val;
 }
 
+// demonized: Additional exports
+float CScriptGameObject::GetActorCrouchCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorCrouchCoef!");
+		return (false);
+	}
+	return (pActor->m_fCrouchFactor);
+}
+void CScriptGameObject::SetActorCrouchCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorCrouchCoef!");
+		return;
+	}
+	pActor->m_fCrouchFactor = val;
+}
+float CScriptGameObject::GetActorClimbCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorClimbCoef!");
+		return (false);
+	}
+	return (pActor->m_fClimbFactor);
+}
+void CScriptGameObject::SetActorClimbCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorClimbCoef!");
+		return;
+	}
+	pActor->m_fClimbFactor = val;
+}
+float CScriptGameObject::GetActorWalkStrafeCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorWalkStrafeCoef!");
+		return (false);
+	}
+	return (pActor->m_fWalk_StrafeFactor);
+}
+void CScriptGameObject::SetActorWalkStrafeCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorWalkStrafeCoef!");
+		return;
+	}
+	pActor->m_fWalk_StrafeFactor = val;
+}
+float CScriptGameObject::GetActorRunStrafeCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorRunStrafeCoef!");
+		return (false);
+	}
+	return (pActor->m_fRun_StrafeFactor);
+}
+void CScriptGameObject::SetActorRunStrafeCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorRunStrafeCoef!");
+		return;
+	}
+	pActor->m_fRun_StrafeFactor = val;
+}
+float CScriptGameObject::GetActorSprintStrafeCoef() const
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member GetActorSprintStrafeCoef!");
+		return (false);
+	}
+	return (pActor->m_fSprint_StrafeFactor);
+}
+void CScriptGameObject::SetActorSprintStrafeCoef(float val)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorSprintStrafeCoef!");
+		return;
+	}
+	pActor->m_fSprint_StrafeFactor = val;
+}
+
 #endif
 //Alundaio: END
