@@ -1020,13 +1020,7 @@ void CInifile::DLTX_print(LPCSTR sec, LPCSTR line)
 	};
 	auto printLine = [&splitStringMulti](const Item& s) {
 		auto path = splitStringMulti(std::string(s.filename.c_str()), "\\");
-		std::string fname;
-		if (path.empty()) {
-			fname = "";
-		}
-		else {
-			fname = path.back();
-		}
+		std::string fname = path.empty() ? "" : path.back();
 		Msg("%s = %s -> %s", s.first.c_str(), s.second.c_str(), fname.c_str());
 	};
 
