@@ -82,7 +82,7 @@ std::string getFilename(std::string& s) {
 }
 
 void printIniItemLine(const CInifile::Item& s) {
-	std::string fname = getFilename(std::string(s.filename.c_str()));
+	std::string fname = s.filename.c_str();
 	Msg("%s = %s -> %s", s.first.c_str(), s.second.c_str(), fname.c_str());
 }
 
@@ -90,7 +90,6 @@ void trim(std::string& s, const char* t) {
 	s.erase(s.find_last_not_of(t) + 1);
 	s.erase(0, s.find_first_not_of(t));
 };
-
 std::string trimCopy(std::string s, const char* t) {
 	trim(s, t);
 	return s;
@@ -101,8 +100,21 @@ void toLowerCase(std::string& s) {
 		return std::tolower(c);
 	});
 }
-
 std::string toLowerCaseCopy(std::string s) {
 	toLowerCase(s);
 	return s;
+}
+
+void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+	if (from.empty())
+		return;
+	size_t start_pos = 0;
+	while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+		str.replace(start_pos, from.length(), to);
+		start_pos += to.length(); // In case 'to' contains 'from', like replacing 'x' with 'yx'
+	}
+}
+std::string replaceAllCopy(std::string str, const std::string& from, const std::string& to) {
+	replaceAll(str, from, to);
+	return str;
 }

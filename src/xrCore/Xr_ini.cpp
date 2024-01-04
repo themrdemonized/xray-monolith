@@ -663,7 +663,14 @@ void CInifile::Load(IReader* F, LPCSTR path
 					Item I;
 					I.first = (name[0] ? name : NULL);
 					I.second = bIsDelete ? DLTX_DELETE.c_str() : (str2[0] ? str2.GetBuffer() : NULL);
-					I.filename = currentFileName;
+
+					auto fname = toLowerCaseCopy(trimCopy(getFilename(std::string(currentFileName))));
+					// Remove .ltx part, unused for now
+					/*fname.pop_back();
+					fname.pop_back();
+					fname.pop_back();
+					fname.pop_back();*/
+					I.filename = fname.c_str();
 
 					if (*I.first || *I.second)
 					{
@@ -1051,9 +1058,8 @@ LPCSTR CInifile::DLTX_getFilenameOfLine(LPCSTR sec, LPCSTR line)
 
 	Sect& I = r_section(sec);
 	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), line, item_pred);
-	auto fname = getFilename(std::string(A->filename.c_str()));
-	auto f = fname.c_str();
-	return f;
+	auto fname = A->filename.c_str();
+	return fname;
 }
 bool CInifile::DLTX_isOverride(LPCSTR sec, LPCSTR line)
 {

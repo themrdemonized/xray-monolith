@@ -11,6 +11,10 @@
 #include "script_token_list.h"
 #include "script_export_space.h"
 
+#include "pch_script.h"
+
+using namespace luabind;
+
 class CScriptIniFile : public CInifile
 {
 protected:
@@ -59,6 +63,9 @@ public:
 	u32 section_count();
 	void set_readonly(bool b);
 	void close();
+
+	// demonized: DLTX
+	luabind::object DLTX_scriptGetSection(LPCSTR sec);
 #endif
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
