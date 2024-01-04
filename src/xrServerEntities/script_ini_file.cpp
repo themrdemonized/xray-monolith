@@ -255,4 +255,29 @@ u32 CScriptIniFile::section_count()
 {
 	return (inherited::section_count());
 }
+
+// demonized: DLTX
+luabind::object CScriptIniFile::DLTX_scriptGetSection(LPCSTR sec)
+{
+	luabind::object table = luabind::newtable(ai().script_engine().lua());
+	if (!sec) {
+		Msg("![DLTX_scriptGetSection] no section provided");
+		return table;
+	}
+
+	if (!section_exist(sec)) {
+		Msg("![DLTX_scriptGetSection] no section exists by name %s", sec);
+		return table;
+	}
+
+	Sect& I = r_section(sec);
+	for (const auto& s : I.Data) {
+		luabind::object data = luabind::newtable(ai().script_engine().lua());
+		data["name"] = s.first.c_str();
+		data["value"] = s.second.c_str();
+		data["filename"] = s.filename.c_str();
+		table[s.first.c_str()] = data;
+	}
+	return table;
+}
 #endif
