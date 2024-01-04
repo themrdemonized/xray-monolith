@@ -9,6 +9,7 @@
 #include "pch_script.h"
 #include "script_storage.h"
 #include "script_thread.h"
+#include "../xrCore/mezz_stringbuffer.h"
 #include <stdarg.h>
 #include <unordered_map>
 #include <set>
@@ -696,55 +697,6 @@ bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LP
 xr_unordered_map<std::string, std::set<std::string>> unlocalizers;
 bool unlocalizerPassed = false;
 
-std::vector<std::string> splitStringMulti(std::string& inputString, std::string separator = " ", bool includeSeparators = false) {
-	std::stringstream stringStream(inputString);
-	std::string line;
-	std::vector<std::string> wordVector;
-	while (std::getline(stringStream, line))
-	{
-		std::size_t prev = 0, pos;
-		while ((pos = line.find_first_of(separator, prev)) != std::string::npos)
-		{
-			if (pos > prev)
-				wordVector.push_back(line.substr(prev, pos - prev));
-
-			if (includeSeparators)
-				wordVector.push_back(line.substr(pos, 1));
-
-			prev = pos + 1;
-		}
-		if (prev < line.length())
-			wordVector.push_back(line.substr(prev, std::string::npos));
-	}
-	return wordVector;
-}
-
-std::vector<std::string> splitStringLimit(std::string& inputString, std::string separator = " ", int limit = 0) {
-	std::stringstream stringStream(inputString);
-	std::string line;
-	std::vector<std::string> wordVector;
-	while (std::getline(stringStream, line))
-	{
-		std::size_t prev = 0, pos;
-		while ((pos = line.find_first_of(separator, prev)) != std::string::npos)
-		{
-			if (pos > prev)
-				wordVector.push_back(line.substr(prev, pos - prev));
-
-			prev = pos + 1;
-			if (limit > 0) {
-				if (wordVector.size() >= limit) {
-					wordVector.push_back(line.substr(prev, std::string::npos));
-					return wordVector;
-				}
-			}
-		}
-		if (prev < line.length())
-			wordVector.push_back(line.substr(prev, std::string::npos));
-	}
-	return wordVector;
-}
-
 static std::string join_list(const std::vector<std::string>& items_vec) {
 	std::string ret;
 	for (const auto& i : items_vec) {
@@ -753,7 +705,7 @@ static std::string join_list(const std::vector<std::string>& items_vec) {
 	return ret;
 };
 
-bool unlocalRegex(std::set<std::string>& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
+static bool unlocalRegex(std::set<std::string>& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
 	if (std::regex_match(s, pattern)) {
 		//Msg("matching local function pattern");
 		std::smatch match;
@@ -769,17 +721,6 @@ bool unlocalRegex(std::set<std::string>& unlocals, std::string& s, const std::re
 	}
 	return false;
 };
-
-static void trim(std::string& s, const char* t = " \t\n\r\f\v") {
-	s.erase(s.find_last_not_of(t) + 1);
-	s.erase(0, s.find_first_not_of(t));
-};
-
-static void toLowerCase(std::string& s) {
-	std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
-		return std::tolower(c);
-	});
-}
 
 bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
