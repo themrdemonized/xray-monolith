@@ -59,6 +59,8 @@ public:
 	u32 section_count();
 	void set_readonly(bool b);
 	void close();
+
+	void DLTX_print(LPCSTR sec, LPCSTR name);
 #endif
 
 DECLARE_SCRIPT_REGISTER_FUNCTION

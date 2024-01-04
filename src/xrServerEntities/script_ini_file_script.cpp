@@ -171,7 +171,8 @@ void CScriptIniFile::script_register(lua_State* L)
 		.def("r_line", &::r_line, out_value(_4) + out_value(_5))
 
 		// demonized: new exports
-		.def("get_filename", &CScriptIniFile::fname),
+		.def("get_filename", &CScriptIniFile::fname)
+		.def("dltx_print", &CScriptIniFile::DLTX_print),
 
 		def("system_ini", &get_system_ini),
 		//Alundaio: extend

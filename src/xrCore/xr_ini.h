@@ -19,10 +19,13 @@ public:
 	{
 		shared_str first;
 		shared_str second;
+
+		//demonized: add DLTX info
+		shared_str filename;
 		//#ifdef DEBUG
 		// shared_str comment;
 		//#endif
-		Item() : first(0), second(0)
+		Item() : first(0), second(0), filename(0)
 		//#ifdef DEBUG
 		// , comment(0)
 		//#endif
@@ -95,6 +98,7 @@ public:
 
 	virtual ~CInifile();
 	bool save_as(LPCSTR new_fname = 0);
+	void DLTX_print(LPCSTR sec, LPCSTR line);
 	void save_as(IWriter& writer, bool bcheck = false) const;
 	void set_override_names(BOOL b) { m_flags.set(eOverrideNames, b); }
 	void save_at_end(BOOL b) { m_flags.set(eSaveAtEnd, b); }
