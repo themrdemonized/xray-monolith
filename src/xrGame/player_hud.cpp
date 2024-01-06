@@ -249,7 +249,9 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_prop_flags.set(e_fire_point, pSettings->line_exist(sect_name, "fire_bone"));
 	if (m_prop_flags.test(e_fire_point))
 	{
-		bone_name = pSettings->r_string(sect_name, "fire_bone");
+		// demonized: replacing r_string with READ_IF_EXISTS
+		bone_name = READ_IF_EXISTS(pSettings, r_string, sect_name, "fire_bone", "wpn_body");
+		//bone_name = pSettings->r_string(sect_name, "fire_bone");
 		m_fire_bone = K->LL_BoneID(bone_name);
 		m_fire_point_offset = pSettings->r_fvector3(sect_name, "fire_point");
 		m_fire_direction = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, "fire_direction",
@@ -261,7 +263,8 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_prop_flags.set(e_fire_point2, pSettings->line_exist(sect_name, "fire_bone2"));
 	if (m_prop_flags.test(e_fire_point2))
 	{
-		bone_name = pSettings->r_string(sect_name, "fire_bone2");
+		bone_name = READ_IF_EXISTS(pSettings, r_string, sect_name, "fire_bone2", "wpn_body");
+		//bone_name = pSettings->r_string(sect_name, "fire_bone2");
 		m_fire_bone2 = K->LL_BoneID(bone_name);
 		m_fire_point2_offset = pSettings->r_fvector3(sect_name, "fire_point2");
 	}
@@ -271,7 +274,8 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_prop_flags.set(e_shell_point, pSettings->line_exist(sect_name, "shell_bone"));
 	if (m_prop_flags.test(e_shell_point))
 	{
-		bone_name = pSettings->r_string(sect_name, "shell_bone");
+		bone_name = READ_IF_EXISTS(pSettings, r_string, sect_name, "shell_bone", "wpn_body");
+		//bone_name = pSettings->r_string(sect_name, "shell_bone");
 		m_shell_bone = K->LL_BoneID(bone_name);
 		m_shell_point_offset = pSettings->r_fvector3(sect_name, "shell_point");
 	}
@@ -291,12 +295,13 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	strconcat(sizeof(val_name), val_name, "gl_hud_offset_rot", _prefix);
 	m_hands_offset[1][2] = pSettings->r_fvector3(sect_name, val_name);
 
-	R_ASSERT2(pSettings->line_exist(sect_name,"fire_point")==pSettings->line_exist(sect_name,"fire_bone"),
+	// demonized: removing asserts
+	/*R_ASSERT2(pSettings->line_exist(sect_name,"fire_point")==pSettings->line_exist(sect_name,"fire_bone"),
 	          sect_name.c_str());
 	R_ASSERT2(pSettings->line_exist(sect_name,"fire_point2")==pSettings->line_exist(sect_name,"fire_bone2"),
 	          sect_name.c_str());
 	R_ASSERT2(pSettings->line_exist(sect_name,"shell_point")==pSettings->line_exist(sect_name,"shell_bone"),
-	          sect_name.c_str());
+	          sect_name.c_str());*/
 
 	m_prop_flags.set(e_16x9_mode_now, is_16x9);
 
