@@ -139,15 +139,11 @@ void CGameMtlLibrary::Load()
 				M->m_Name = sec->Name;
 				materials.push_back(M);
 
-#ifdef DEBUG_PRINT_MATERIAL
-				Msg("Adding new material %s, id %d", M->m_Name.c_str(), M->ID);
-#endif
+				Msg("[materials.ltx] Adding new material %s, id %d", M->m_Name.c_str(), M->ID);
 			} else {
 				M = *material;
 
-#ifdef DEBUG_PRINT_MATERIAL
-				Msg("Changing existing material %s, id %d", M->m_Name.c_str(), M->ID);
-#endif
+				Msg("[materials.ltx] Changing existing material %s, id %d", M->m_Name.c_str(), M->ID);
 			}
 
 			if (materialsLtx->line_exist(M->m_Name, "desc"))					M->m_Desc = materialsLtx->r_string(M->m_Name, "desc");
@@ -284,15 +280,11 @@ void CGameMtlLibrary::Load()
 				M->SetPair(m1, m2);
 				material_pairs.push_back(M);
 
-#ifdef DEBUG_PRINT_MATERIAL
-				Msg("Adding new material pair %s | %s, id %d", GetMaterialByID(M->GetMtl0())->m_Name.c_str(), GetMaterialByID(M->GetMtl1())->m_Name.c_str(), M->ID);
-#endif
+				Msg("[material_pairs.ltx] Adding new material pair %s | %s, id %d", GetMaterialByID(M->GetMtl0())->m_Name.c_str(), GetMaterialByID(M->GetMtl1())->m_Name.c_str(), M->ID);
 			} else {
 				M = *material;
 
-#ifdef DEBUG_PRINT_MATERIAL
-				Msg("Changing existing material pair %s | %s, id %d", GetMaterialByID(M->GetMtl0())->m_Name.c_str(), GetMaterialByID(M->GetMtl1())->m_Name.c_str(), M->ID);
-#endif
+				Msg("[material_pairs.ltx] Changing existing material pair %s | %s, id %d", GetMaterialByID(M->GetMtl0())->m_Name.c_str(), GetMaterialByID(M->GetMtl1())->m_Name.c_str(), M->ID);
 			}
 
 			if (materialsLtx->line_exist(sec->Name, "breaking_sounds")) {
