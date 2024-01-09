@@ -750,7 +750,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 				xr_strcat(file_name, ".ltx");
 
 				Msg("opening file %s", file_name);
-				CInifile* config = CInifile::Create(file_name);
+				auto config = xr_new<CInifile>(file_name);
 
 				typedef CInifile::Root sections_type;
 				sections_type& sections = config->sections();
@@ -773,7 +773,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 						Msg("adding variable %s for unlocalizer for script %s", item.first.c_str(), sectionName.c_str());
 					}
 				}
-				CInifile::Destroy(config);
+				xr_delete(config);
 			}
 			FS.file_list_close(file_list);
 			unlocalizerPassed = true;
@@ -858,7 +858,6 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 					m = noncomments[1];
 				}
 
-
 				auto variablesAndValues = splitStringLimit(m, "=", 1);
 				bool hasValue = variablesAndValues.size() > 1;
 				auto variables = splitStringMulti(variablesAndValues[0], ",");
@@ -890,8 +889,9 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 
 		// Store result back
 		for (auto& s : tokens) {
-			s += "\n";
+			s += "\r\n";
 		}
+		tokens.emplace_back("\r\n");
 
 		/*for (auto& s : tokens) {
 			Msg("%s", s.c_str());
