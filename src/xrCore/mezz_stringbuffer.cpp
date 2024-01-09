@@ -26,7 +26,7 @@ MezzStringBuffer::operator char* () const
 }
 
 // String utils
-std::vector<std::string> splitStringMulti(std::string& inputString, std::string separator, bool includeSeparators) {
+std::vector<std::string> splitStringMulti(const std::string& inputString, std::string separator, bool includeSeparators, bool trimStrings) {
 	std::stringstream stringStream(inputString);
 	std::string line;
 	std::vector<std::string> wordVector;
@@ -46,10 +46,15 @@ std::vector<std::string> splitStringMulti(std::string& inputString, std::string 
 		if (prev < line.length())
 			wordVector.push_back(line.substr(prev, std::string::npos));
 	}
+	if (trimStrings) {
+		for (auto& s : wordVector) {
+			trim(s);
+		}
+	}
 	return wordVector;
 }
 
-std::vector<std::string> splitStringLimit(std::string& inputString, std::string separator, int limit) {
+std::vector<std::string> splitStringLimit(const std::string& inputString, std::string separator, int limit, bool trimStrings) {
 	std::stringstream stringStream(inputString);
 	std::string line;
 	std::vector<std::string> wordVector;
@@ -71,6 +76,11 @@ std::vector<std::string> splitStringLimit(std::string& inputString, std::string 
 		}
 		if (prev < line.length())
 			wordVector.push_back(line.substr(prev, std::string::npos));
+	}
+	if (trimStrings) {
+		for (auto& s : wordVector) {
+			trim(s);
+		}
 	}
 	return wordVector;
 }
