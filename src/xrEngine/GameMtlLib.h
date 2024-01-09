@@ -30,7 +30,7 @@
 #define GAMEMTLPAIR_CHUNK_COLLIDE 0x1005
 //----------------------------------------------------
 
-#define GAMEMTL_SUBITEM_COUNT 4
+#define GAMEMTL_SUBITEM_COUNT 10
 
 #define GAMEMTL_NONE_ID u32(-1)
 #define GAMEMTL_NONE_IDX u16(-1)
