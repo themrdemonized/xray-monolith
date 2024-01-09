@@ -177,12 +177,22 @@ public:
 		flCollideMarks = (1 << 6)
 	};
 
+	xr_string BreakingSoundsStr;
+	xr_string StepSoundsStr;
+	xr_string CollideSoundsStr;
+	xr_string CollideParticlesStr;
+	xr_string CollideMarksStr;
+
 	Flags32 OwnProps;
 	// properties
 	SoundVec BreakingSounds;
 	SoundVec StepSounds;
 	SoundVec CollideSounds;
 	PSVec CollideParticles;
+
+	void CreateSoundsImpl(SoundVec& sounds, LPCSTR str);
+	void CreateParticlesImpl(PSVec& particles, LPCSTR str);
+	void CreateMarksImpl(IWallMarkArray* marks, LPCSTR str);
 
 
 #ifdef GM_NON_GAME
