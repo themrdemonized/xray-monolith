@@ -697,9 +697,12 @@ bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LP
 xr_unordered_map<std::string, std::set<std::string>> unlocalizers;
 bool unlocalizerPassed = false;
 
-static std::string join_list(const std::vector<std::string>& items_vec) {
+static std::string join_list(const std::vector<std::string>& items_vec, std::string delim = "\n") {
 	std::string ret;
 	for (const auto& i : items_vec) {
+		if (!ret.empty()) {
+			ret += delim;
+		}
 		ret += i;
 	}
 	return ret;
@@ -750,7 +753,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 				xr_strcat(file_name, ".ltx");
 
 				Msg("opening file %s", file_name);
-				CInifile* config = CInifile::Create(file_name);
+				auto config = xr_new<CInifile>(file_name);
 
 				typedef CInifile::Root sections_type;
 				sections_type& sections = config->sections();
@@ -773,7 +776,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 						Msg("adding variable %s for unlocalizer for script %s", item.first.c_str(), sectionName.c_str());
 					}
 				}
-				CInifile::Destroy(config);
+				xr_delete(config);
 			}
 			FS.file_list_close(file_list);
 			unlocalizerPassed = true;
@@ -793,6 +796,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 	auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
 	auto scriptLength = (size_t)l_tpFileReader->length();
 	bool unlocalPerformed = false;
+	std::string unlocalizerResult;
 	std::string loweredNameSpaceName = caNameSpaceName;
 	toLowerCase(loweredNameSpaceName);
 	if (unlocalizers.find(loweredNameSpaceName) != unlocalizers.end()) {
@@ -858,7 +862,6 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 					m = noncomments[1];
 				}
 
-
 				auto variablesAndValues = splitStringLimit(m, "=", 1);
 				bool hasValue = variablesAndValues.size() > 1;
 				auto variables = splitStringMulti(variablesAndValues[0], ",");
@@ -889,16 +892,12 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 		}
 
 		// Store result back
-		for (auto& s : tokens) {
-			s += "\n";
-		}
-
 		/*for (auto& s : tokens) {
 			Msg("%s", s.c_str());
 		}*/
 
-		auto result = join_list(tokens);
-		scriptContents = result.c_str();
+		unlocalizerResult = join_list(tokens);
+		scriptContents = unlocalizerResult.c_str();
 		scriptLength = strlen(scriptContents);
 	}
 

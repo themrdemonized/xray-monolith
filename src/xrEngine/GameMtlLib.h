@@ -30,7 +30,7 @@
 #define GAMEMTLPAIR_CHUNK_COLLIDE 0x1005
 //----------------------------------------------------
 
-#define GAMEMTL_SUBITEM_COUNT 4
+#define GAMEMTL_SUBITEM_COUNT 10
 
 #define GAMEMTL_NONE_ID u32(-1)
 #define GAMEMTL_NONE_IDX u16(-1)
@@ -177,12 +177,22 @@ public:
 		flCollideMarks = (1 << 6)
 	};
 
+	xr_string BreakingSoundsStr;
+	xr_string StepSoundsStr;
+	xr_string CollideSoundsStr;
+	xr_string CollideParticlesStr;
+	xr_string CollideMarksStr;
+
 	Flags32 OwnProps;
 	// properties
 	SoundVec BreakingSounds;
 	SoundVec StepSounds;
 	SoundVec CollideSounds;
 	PSVec CollideParticles;
+
+	void CreateSoundsImpl(SoundVec& sounds, LPCSTR str);
+	void CreateParticlesImpl(PSVec& particles, LPCSTR str);
+	void CreateMarksImpl(IWallMarkArray* marks, LPCSTR str);
 
 
 #ifdef GM_NON_GAME

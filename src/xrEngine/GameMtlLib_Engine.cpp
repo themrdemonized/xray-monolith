@@ -117,18 +117,38 @@ void SGameMtlPair::Load(IReader& fs)
 
 	R_ASSERT(fs.find_chunk(GAMEMTLPAIR_CHUNK_BREAKING));
 	fs.r_stringZ(buf);
+	BreakingSoundsStr = buf.c_str();
 	CreateSounds(BreakingSounds, *buf);
 
 	R_ASSERT(fs.find_chunk(GAMEMTLPAIR_CHUNK_STEP));
 	fs.r_stringZ(buf);
+	StepSoundsStr = buf.c_str();
 	CreateSounds(StepSounds, *buf);
 
 	R_ASSERT(fs.find_chunk(GAMEMTLPAIR_CHUNK_COLLIDE));
 	fs.r_stringZ(buf);
+	CollideSoundsStr = buf.c_str();
 	CreateSounds(CollideSounds, *buf);
 	fs.r_stringZ(buf);
+	CollideParticlesStr = buf.c_str();
 	CreatePSs(CollideParticles, *buf);
 	fs.r_stringZ(buf);
 	//CreateMarks (CollideMarks,*buf);
+	CollideMarksStr = buf.c_str();
 	CreateMarks(&*m_pCollideMarks, *buf);
+}
+
+void SGameMtlPair::CreateSoundsImpl(SoundVec& sounds, LPCSTR str) {
+	sounds.clear();
+	CreateSounds(sounds, str);
+}
+
+void SGameMtlPair::CreateParticlesImpl(PSVec& particles, LPCSTR str) {
+	particles.clear();
+	CreatePSs(particles, str);
+}
+
+void SGameMtlPair::CreateMarksImpl(IWallMarkArray* marks, LPCSTR str) {
+	marks->clear();
+	CreateMarks(marks, str);
 }
