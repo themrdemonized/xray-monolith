@@ -51,6 +51,8 @@ bool CRenderDevice::on_message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 		}
 	case WM_CLOSE:
 		{
+			Engine.Event.Defer("KERNEL:disconnect");
+			Engine.Event.Defer("KERNEL:quit");								 
 #ifdef INGAME_EDITOR
         if (editor())
             break;

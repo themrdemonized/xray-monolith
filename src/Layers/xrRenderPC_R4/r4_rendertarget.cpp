@@ -339,6 +339,11 @@ CRenderTarget::CRenderTarget()
 		b_bloom_msaa = xr_new<CBlender_bloom_build_msaa>();
 		b_postprocess_msaa = xr_new<CBlender_postprocess_msaa>();
 	}
+	else
+	{
+		b_bloom_msaa = nullptr;
+		b_postprocess_msaa = nullptr;
+	}
 	b_luminance = xr_new<CBlender_luminance>();
 	b_combine = xr_new<CBlender_combine>();
 	b_ssao = xr_new<CBlender_SSAO_noMSAA>();
@@ -1187,13 +1192,14 @@ CRenderTarget::~CRenderTarget()
 			xr_delete(b_accum_direct_msaa[i]);
 			xr_delete(b_accum_mask_msaa[i]);
 			xr_delete(b_accum_direct_volumetric_msaa[i]);
-			//xr_delete					(b_accum_direct_volumetric_sun_msaa[i]);
 			xr_delete(b_accum_spot_msaa[i]);
 			xr_delete(b_accum_volumetric_msaa[i]);
 			xr_delete(b_accum_point_msaa[i]);
 			xr_delete(b_accum_reflected_msaa[i]);
 			xr_delete(b_ssao_msaa[i]);
 		}
+		xr_delete(b_postprocess_msaa);
+		xr_delete(b_bloom_msaa); 
 	}
 	xr_delete(b_accum_mask);
 	xr_delete(b_occq);

@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "xr_effgamma.h"
-//#include "device.h"
 
 #if defined(USE_DX10) || defined(USE_DX11)
 
@@ -19,6 +18,7 @@ void CGammaControl::Update()
 			GenLUT(GC, G);
 			pOutput->SetGammaControl(&G);
 		}
+		_RELEASE(pOutput);					
 	}
 }
 
@@ -37,10 +37,7 @@ void CGammaControl::GenLUT(const DXGI_GAMMA_CONTROL_CAPABILITIES& GC, DXGI_GAMMA
 
 	for (u32 i = 0; i < GC.NumGammaControlPoints; i++)
 	{
-		float c = (C + .5f) * powf(GC.ControlPointPositions[i], og)
-			+ (B - 0.5f) * 0.5f
-			- C * 0.5f
-			+ 0.25f;
+		float c = (C + .5f) * powf(GC.ControlPointPositions[i], og) + (B - 0.5f) * 0.5f - C * 0.5f + 0.25f;
 
 		c = GC.MinConvertedValue + c * DeltaCV;
 
@@ -80,7 +77,6 @@ void CGammaControl::GenLUT(D3DGAMMARAMP& G)
 	float C = fContrast / 2.f;
 	for (int i = 0; i < 256; i++)
 	{
-		//		float	c		= 65535.f*(powf(float(i)/255, og) + fBrightness);
 		float c = (C + .5f) * powf(i / 255.f, og) * 65535.f + (B - 0.5f) * 32768.f - C * 32768.f + 16384.f;
 		G.red[i] = clr2gamma(c * cBalance.r);
 		G.green[i] = clr2gamma(c * cBalance.g);
