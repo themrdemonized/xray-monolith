@@ -4497,7 +4497,6 @@
     <ClCompile Include="..\configs_dumper.cpp" />
     <ClCompile Include="..\configs_dump_verifyer.cpp" />
     <ClCompile Include="..\console_commands.cpp" />
-    <ClCompile Include="..\console_commands_mp.cpp" />
     <ClCompile Include="..\console_registrator_script.cpp" />
     <ClCompile Include="..\cover_evaluators.cpp" />
     <ClCompile Include="..\cover_manager.cpp" />

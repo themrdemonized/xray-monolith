@@ -43,6 +43,7 @@ void CActor::OnEvent(NET_Packet& P, u16 type)
 				break;
 			}
 
+			CGameObject* _GO = smart_cast<CGameObject*>(Obj);
 			if (inventory().CanTakeItem(smart_cast<CInventoryItem*>(_GO)))
 			{
 				Obj->H_SetParent(smart_cast<CObject*>(this));

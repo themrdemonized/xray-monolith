@@ -4,7 +4,6 @@
 #include "actorEffector.h"
 #include "inventory.h"
 #include "level.h"
-//#include "sleepeffector.h"
 #include "game_base_space.h"
 #include "autosave_manager.h"
 #include "xrserver.h"
@@ -30,8 +29,7 @@ BOOL GodMode()
 	return psActorFlags.test(AF_GODMODE | AF_GODMODE_RT);
 }
 
-CActorCondition::CActorCondition(CActor* object) :
-	inherited(object)
+CActorCondition::CActorCondition(CActor* object) : inherited(object)
 {
 	m_fJumpPower = 0.f;
 	m_fStandPower = 0.f;
@@ -178,7 +176,6 @@ float CActorCondition::GetZoneMaxPower(ALife::EHitType hit_type) const
 	case ALife::eHitTypeExplosion:
 	case ALife::eHitTypeFireWound:
 	case ALife::eHitTypeWound_2:
-		//	case ALife::eHitTypePhysicStrike:
 		return 1.0f;
 	case ALife::eHitTypeWound:
 		return m_max_wound_protection;
@@ -312,7 +309,7 @@ void CActorCondition::UpdateBoosters()
 		BOOSTER_MAP::iterator it = m_booster_influences.find((EBoostParams)i);
 		if (it != m_booster_influences.end())
 		{
-			it->second.fBoostTime -= m_fDeltaTime / Level().GetGameTimeFactor());
+			it->second.fBoostTime -= m_fDeltaTime / Level().GetGameTimeFactor();
 			if (it->second.fBoostTime <= 0.0f)
 			{
 				DisableBoostParameters(it->second);
@@ -368,9 +365,7 @@ void CActorCondition::AffectDamage_InjuriousMaterialAndMonstersInfluence()
 	{
 		typedef xr_vector<CObject*> monsters;
 
-		for (monsters::const_iterator it = pda->feel_touch.begin();
-		     it != pda->feel_touch.end();
-		     ++it)
+		for (monsters::const_iterator it = pda->feel_touch.begin(); it != pda->feel_touch.end(); ++it)
 		{
 			CBaseMonster* const monster = smart_cast<CBaseMonster*>(*it);
 			if (!monster || !monster->g_Alive()) continue;
@@ -404,23 +399,13 @@ void CActorCondition::AffectDamage_InjuriousMaterialAndMonstersInfluence()
 
 			if (damage > EPS)
 			{
-				SHit HDS = SHit(damage,
-				                //.								0.0f, 
-				                Fvector().set(0, 1, 0),
-				                NULL,
-				                BI_NONE,
-				                Fvector().set(0, 0, 0),
-				                0.0f,
-				                type,
-				                0.0f,
-				                false);
-
+				SHit HDS = SHit(damage, Fvector().set(0, 1, 0), NULL, BI_NONE, Fvector().set(0, 0, 0), 0.0f, type, 0.0f, false);
 				HDS.GenHeader(GE_HIT, m_object->ID());
 				HDS.Write_Packet(np);
 				CGameObject::u_EventSend(np);
 			}
-		} // for
-	} //while
+		}
+	}
 }
 
 #include "characterphysicssupport.h"
@@ -499,7 +484,6 @@ void CActorCondition::PowerHit(float power, bool apply_outfit)
 	clamp(m_fPower, 0.f, 1.f);
 }
 
-//weight - "удельный" вес от 0..1
 void CActorCondition::ConditionJump(float weight)
 {
 	if (GodMode())
@@ -574,7 +558,6 @@ bool CActorCondition::IsSleeping() const
 {
 	return object().HasInfo("actor_is_sleeping");
 }
-
 
 extern bool g_bShowHudInfo;
 
@@ -772,8 +755,6 @@ void CActorCondition::BoostBleedingRestore(const float value)
 
 void CActorCondition::BoostMaxWeight(const float value)
 {
-	//m_object->inventory().SetMaxWeight(object().inventory().GetMaxWeight() + value);
-	//m_MaxWalkWeight += value;
 	m_CarryWeightBoost += value;
 }
 
@@ -848,7 +829,6 @@ void CActorCondition::UpdateTutorialThresholds()
 	static float _cWpnCondition = pSettings->r_float("tutorial_conditions_thresholds", "weapon_jammed");
 	static float _cPsyHealthThr = pSettings->r_float("tutorial_conditions_thresholds", "psy_health");
 
-
 	bool b = true;
 	if (b && !m_condition_flags.test(eCriticalPowerReached) && GetPower() < _cPowerThr)
 	{
@@ -921,11 +901,7 @@ void CActorCondition::UpdateTutorialThresholds()
 
 bool CActorCondition::DisableSprint(SHit* pHDS)
 {
-	return (pHDS->hit_type != ALife::eHitTypeTelepatic) &&
-		(pHDS->hit_type != ALife::eHitTypeChemicalBurn) &&
-		(pHDS->hit_type != ALife::eHitTypeBurn) &&
-		(pHDS->hit_type != ALife::eHitTypeLightBurn) &&
-		(pHDS->hit_type != ALife::eHitTypeRadiation);
+	return (pHDS->hit_type != ALife::eHitTypeTelepatic) && (pHDS->hit_type != ALife::eHitTypeChemicalBurn) && (pHDS->hit_type != ALife::eHitTypeBurn) && (pHDS->hit_type != ALife::eHitTypeLightBurn) && (pHDS->hit_type != ALife::eHitTypeRadiation);
 }
 
 bool CActorCondition::PlayHitSound(SHit* pHDS)
@@ -941,7 +917,6 @@ bool CActorCondition::PlayHitSound(SHit* pHDS)
 	case ALife::eHitTypeExplosion:
 	case ALife::eHitTypeFireWound:
 	case ALife::eHitTypeWound_2:
-		//		case ALife::eHitTypePhysicStrike:
 		return true;
 		break;
 
@@ -1034,8 +1009,7 @@ void enable_input();
 void hide_indicators();
 void show_indicators();
 
-CActorDeathEffector::CActorDeathEffector(CActorCondition* parent, LPCSTR sect) // -((
-	: m_pParent(parent)
+CActorDeathEffector::CActorDeathEffector(CActorCondition* parent, LPCSTR sect) : m_pParent(parent)
 {
 	Actor()->SetWeaponHideState(INV_STATE_BLOCK_ALL, true);
 	hide_indicators();
@@ -1045,7 +1019,6 @@ CActorDeathEffector::CActorDeathEffector(CActorCondition* parent, LPCSTR sect) /
 	LPCSTR snd = pSettings->r_string(sect, "snd");
 	m_death_sound.create(snd, st_Effect, 0);
 	m_death_sound.play_at_pos(0, Fvector().set(0, 0, 0), sm_2D);
-
 
 	SBaseEffector* pe = Actor()->Cameras().GetPPEffector((EEffectorPPType)effActorDeath);
 	pe->m_on_b_remove_callback = SBaseEffector::CB_ON_B_REMOVE(this, &CActorDeathEffector::OnPPEffectorReleased);
@@ -1065,8 +1038,6 @@ void CActorDeathEffector::UpdateCL()
 void CActorDeathEffector::OnPPEffectorReleased()
 {
 	m_b_actual = false;
-	Msg("111");
-	//m_pParent->health()		= -1.0f;
 	m_pParent->SetHealth(-1.0f);
 }
 
