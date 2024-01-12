@@ -340,6 +340,8 @@ void CPHDestroyable::NotificatePart(CPHDestroyableNotificate* dn)
 
 void CPHDestroyable::NotificateDestroy(CPHDestroyableNotificate* dn)
 {
+	CPhysicsShellHolder	*obj = PPhysicsShellHolder();
+	obj->setVisible(false);		
 	VERIFY(m_depended_objects);
 #ifdef DEBUG
 	VERIFY(!physics_world()->Processing());
