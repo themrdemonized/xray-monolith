@@ -113,12 +113,13 @@ void CGameMtlLibrary::Load()
 
 	// demonized: loose gamemtl.xr loading
 	string_path materialsLtxName;
+	const int biggestIdStart = -1;
 	if (FS.exist(materialsLtxName, _game_data_, "materials\\materials", ".ltx"))
 	{
 #ifdef DEBUG_PRINT_MATERIAL
 		Msg("found materials.ltx file %s", materialsLtxName);
 #endif
-		int biggestId = -1;
+		int biggestId = biggestIdStart;
 		auto materialsLtx = xr_new<CInifile>(materialsLtxName, TRUE);
 		for (const auto& sec : materialsLtx->sections()) {
 			SGameMtl* M;
@@ -128,7 +129,7 @@ void CGameMtlLibrary::Load()
 			});
 			if (material == materials.end()) {
 				M = xr_new<SGameMtl>();
-				if (biggestId == 1) {
+				if (biggestId == biggestIdStart) {
 					for (const auto& m : materials) {
 						if (m->ID > biggestId) {
 							biggestId = m->ID;
@@ -238,7 +239,7 @@ void CGameMtlLibrary::Load()
 #ifdef DEBUG_PRINT_MATERIAL
 		Msg("found material_pairs.ltx file %s", materialPairsLtxName);
 #endif
-		int biggestId = -1;
+		int biggestId = biggestIdStart;
 		auto materialsLtx = xr_new<CInifile>(materialPairsLtxName, TRUE);
 		for (const auto& sec : materialsLtx->sections()) {
 			SGameMtlPair* M;
@@ -268,7 +269,7 @@ void CGameMtlLibrary::Load()
 
 			if (material == material_pairs.end()) {
 				M = xr_new<SGameMtlPair>(this);
-				if (biggestId == -1) {
+				if (biggestId == biggestIdStart) {
 					for (const auto& m : material_pairs) {
 						if (m->ID > biggestId) {
 							biggestId = m->ID;
