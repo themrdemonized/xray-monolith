@@ -7,9 +7,24 @@
 
 CAviPlayerCustom::CAviPlayerCustom()
 {
-	ZeroMemory(this, sizeof(*this));
+	alpha = nullptr;
+
+	m_pMovieIndex = nullptr;
+	m_pMovieData = nullptr;
+	m_aviIC = nullptr;
+	m_pDecompressedBuf = nullptr;
+
+	ZeroMemory(&m_biOutFormat, sizeof(BITMAPINFOHEADER));
+	ZeroMemory(&m_biInFormat, sizeof(BITMAPINFOHEADER));
+
+	m_fRate = 0.0f;
+	m_fCurrentRate = 0.0f;
+
+	m_dwFrameTotal = 0;	   
 	m_dwFrameCurrent = 0xfffffffd; // страхуемся от 0xffffffff + 1 == 0
 	m_dwFirstFrameOffset = 0;
+	m_dwWidth = 0;
+	m_dwHeight = 0;
 }
 
 CAviPlayerCustom::~CAviPlayerCustom()

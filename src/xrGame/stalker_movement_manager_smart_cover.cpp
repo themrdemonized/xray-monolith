@@ -60,6 +60,7 @@ void stalker_movement_manager_smart_cover::reinit()
 {
 	inherited::reinit();
 
+	xr_delete(m_animation_selector);								 
 	m_animation_selector = xr_new<animation_selector_type>(&object());
 	m_animation_selector->setup(&object(), m_property_storage);
 

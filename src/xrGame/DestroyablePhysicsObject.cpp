@@ -104,6 +104,7 @@ void CDestroyablePhysicsObject::Hit(SHit* pHDS)
 
 void CDestroyablePhysicsObject::Destroy()
 {
+	setVisible(false);				   
 #ifdef DEBUG
 	VERIFY(!physics_world()->Processing());
 #endif

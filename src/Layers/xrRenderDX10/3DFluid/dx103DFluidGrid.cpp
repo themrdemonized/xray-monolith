@@ -12,7 +12,6 @@ struct VS_INPUT_FLUIDSIM_STRUCT
 namespace
 {
 	//	namespace start
-
 	inline void ComputeRowColsForFlat3DTexture(int depth, int* outCols, int* outRows)
 	{
 		// Compute # of m_iRows and m_iCols for a "flat 3D-texture" configuration
@@ -40,7 +39,10 @@ dx103DFluidGrid::dx103DFluidGrid()
 
 dx103DFluidGrid::~dx103DFluidGrid()
 {
-	//	TODO: implement init/deinit functionality and guards
+    _RELEASE(m_pRenderQuadBuffer);
+    _RELEASE(m_pSlicesBuffer);
+    _RELEASE(m_pBoundarySlicesBuffer);
+    _RELEASE(m_pBoundaryLinesBuffer);						 
 }
 
 void dx103DFluidGrid::Initialize(int gridWidth, int gridHeight, int gridDepth)
