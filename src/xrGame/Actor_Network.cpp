@@ -61,8 +61,6 @@ CActor* Actor()
 {
 	R_ASSERT2(GameID() == eGameIDSingle, "Actor() method invokation must be only in Single Player game!");
 	VERIFY(g_actor);
-	/*if (GameID() != eGameIDSingle) 
-		VERIFY	(g_actor == Level().CurrentControlEntity());*/
 	return (g_actor);
 };
 
@@ -103,19 +101,12 @@ void CActor::net_Export(NET_Packet& P) // export to server
 	P.w_u8(u8(g_Squad()));
 	P.w_u8(u8(g_Group()));
 
-
-	//CSE_ALifeCreatureTrader
-	//	P.w_float			(inventory().TotalWeight());
-	//	P.w_u32				(m_dwMoney);
-
 	//CSE_ALifeCreatureActor
-
 	u16 ms = (u16)(mstate_real & 0x0000ffff);
 	P.w_u16(u16(ms));
 	P.w_sdir(NET_SavedAccel);
 	Fvector v = character_physics_support()->movement()->GetVelocity();
-	P.w_sdir(v); //m_PhysicMovementControl.GetVelocity());
-	//	P.w_float_q16		(fArmor,-500,1000);
+	P.w_sdir(v);
 	P.w_float(g_Radiation());
 
 	P.w_u8(u8(inventory().GetActiveSlot()));
@@ -591,14 +582,7 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 
 	cam_Active()->Set(-E->o_torso.yaw, E->o_torso.pitch, 0); //E->o_Angle.z);
 
-	// *** movement state - respawn
-	//mstate_wishful			= 0;
-	//mstate_real				= 0;
-	//mstate_old				= 0;
 	m_bJumpKeyPressed = FALSE;
-	//
-	//	m_bJumpKeyPressed = ((mstate_wishful&mcJump)!=0);
-	//		
 	NET_SavedAccel.set(0, 0, 0);
 	NET_WasInterpolating = TRUE;
 
@@ -606,59 +590,29 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 
 	Engine.Sheduler.Register(this,TRUE);
 
-	if (!IsGameTypeSingle())
-	{
-		setEnabled(TRUE);
-	}
-
 	m_hit_slowmo = 0.f;
 
 	OnChangeVisual();
 	//----------------------------------
 	m_bAllowDeathRemove = false;
 
-	//	m_bHasUpdate = false;
 	m_bInInterpolation = false;
 	m_bInterpolate = false;
 
-	//	if (GameID() != eGameIDSingle)
-	{
-		processing_activate();
-	}
+	processing_activate();
 
 #ifdef DEBUG
 	LastPosS.clear();
 	LastPosH.clear();
 	LastPosL.clear();
 #endif
-	//*
 
-	//	if (OnServer())// && E->s_flags.is(M_SPAWN_OBJECT_LOCAL))
-	/*	
-		if (OnClient())
-		{
-			if (!pStatGraph)
-			{
-				static g_Y = 0;
-				pStatGraph = xr_new<CStatGraph>();
-				pStatGraph->SetRect(0, g_Y, Device.dwWidth, 100, 0xff000000, 0xff000000);
-				g_Y += 110;
-				if (g_Y > 700) g_Y = 100;
-				pStatGraph->SetGrid(0, 0.0f, 10, 1.0f, 0xff808080, 0xffffffff);
-				pStatGraph->SetMinMax(0, 10, 300);
-				pStatGraph->SetStyle(CStatGraph::stBar);
-				pStatGraph->AppendSubGraph(CStatGraph::stCurve);
-				pStatGraph->AppendSubGraph(CStatGraph::stCurve);
-			}
-		}
-	*/
 	SetDefaultVisualOutfit(cNameVisual());
 
 	smart_cast<IKinematics*>(Visual())->CalculateBones();
 
 	//--------------------------------------------------------------
 	inventory().SetPrevActiveSlot(NO_ACTIVE_SLOT);
-
 
 	//-------------------------------------
 	m_States.empty();
@@ -669,9 +623,6 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 		mstate_real &= ~mcAnyMove;
 		IKinematicsAnimated* K = smart_cast<IKinematicsAnimated*>(Visual());
 		K->PlayCycle("death_init");
-
-
-		//   
 		m_HeavyBreathSnd.stop();
 	}
 
@@ -682,22 +633,16 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 	if (E->m_holderID != ALife::_OBJECT_ID(-1))
 		if (!g_dedicated_server)
 			Level().client_spawn_manager().add(E->m_holderID, ID(), callback);
-	//F
-	//-------------------------------------------------------------
 	m_iLastHitterID = u16(-1);
 	m_iLastHittingWeaponID = u16(-1);
 	m_s16LastHittedElement = -1;
 	m_bWasHitted = false;
 	m_dwILastUpdateTime = 0;
 
-	if (IsGameTypeSingle())
-	{
-		Level().MapManager().AddMapLocation("actor_location", ID());
-		Level().MapManager().AddMapLocation("actor_location_p", ID());
+	Level().MapManager().AddMapLocation("actor_location", ID());
+	Level().MapManager().AddMapLocation("actor_location_p", ID());
 
-		m_statistic_manager = xr_new<CActorStatisticMgr>();
-	}
-
+	m_statistic_manager = xr_new<CActorStatisticMgr>();
 
 	spatial.type |= STYPE_REACTTOSOUND;
 	psHUD_Flags.set(HUD_WEAPON_RT,TRUE);
@@ -755,16 +700,11 @@ void CActor::net_Destroy()
 
 	SetDefaultVisualOutfit(NULL);
 
-
 	if (g_actor == this) g_actor = NULL;
 
 	Engine.Sheduler.Unregister(this);
 
-	if (actor_camera_shell &&
-		actor_camera_shell->get_ElementByStoreOrder(0)->PhysicsRefObject()
-		==
-		this
-	)
+	if (actor_camera_shell && actor_camera_shell->get_ElementByStoreOrder(0)->PhysicsRefObject() == this)
 		destroy_physics_shell(actor_camera_shell);
 }
 

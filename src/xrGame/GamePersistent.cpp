@@ -40,16 +40,6 @@
 #endif // _EDITOR
 #include "gametype_chooser.h"
 
-//#ifdef DEBUG_MEMORY_MANAGER
-//	static	void *	ode_alloc	(size_t size)								{ return Memory.mem_alloc(size,"ODE");			}
-//	static	void *	ode_realloc	(void *ptr, size_t oldsize, size_t newsize)	{ return Memory.mem_realloc(ptr,newsize,"ODE");	}
-//	static	void	ode_free	(void *ptr, size_t size)					{ return xr_free(ptr);							}
-//#else // DEBUG_MEMORY_MANAGER
-//	static	void *	ode_alloc	(size_t size)								{ return xr_malloc(size);			}
-//	static	void *	ode_realloc	(void *ptr, size_t oldsize, size_t newsize)	{ return xr_realloc(ptr,newsize);	}
-//	static	void	ode_free	(void *ptr, size_t size)					{ return xr_free(ptr);				}
-//#endif // DEBUG_MEMORY_MANAGER
-
 CGamePersistent::CGamePersistent(void)
 {
 	m_bPickableDOF = false;
@@ -75,10 +65,6 @@ CGamePersistent::CGamePersistent(void)
     m_frame_counter = 0;
     m_last_stats_frame = u32(-2);
 #endif
-	// 
-	//dSetAllocHandler			(ode_alloc		);
-	//dSetReallocHandler			(ode_realloc	);
-	//dSetFreeHandler				(ode_free		);
 
 	// 
 	BOOL bDemoMode = (0 != strstr(Core.Params, "-demomode "));
@@ -124,8 +110,7 @@ void CGamePersistent::RegisterModel(IRenderVisual* V)
 	case MT_SKELETON_RIGID:
 		{
 			u16 def_idx = GMLib.GetMaterialIdx("default_object");
-			R_ASSERT2(GMLib.GetMaterialByIdx(def_idx)->Flags.is(SGameMtl::flDynamic),
-			          "'default_object' - must be dynamic");
+			R_ASSERT2(GMLib.GetMaterialByIdx(def_idx)->Flags.is(SGameMtl::flDynamic), "'default_object' - must be dynamic");
 			IKinematics* K = smart_cast<IKinematics*>(V);
 			VERIFY(K);
 			int cnt = K->LL_BoneCount();
@@ -135,8 +120,7 @@ void CGamePersistent::RegisterModel(IRenderVisual* V)
 				if (*(bd.game_mtl_name))
 				{
 					bd.game_mtl_idx = GMLib.GetMaterialIdx(*bd.game_mtl_name);
-					R_ASSERT2(GMLib.GetMaterialByIdx(bd.game_mtl_idx)->Flags.is(SGameMtl::flDynamic),
-					          "Required dynamic game material");
+					R_ASSERT2(GMLib.GetMaterialByIdx(bd.game_mtl_idx)->Flags.is(SGameMtl::flDynamic), "Required dynamic game material");
 				}
 				else
 				{
@@ -161,7 +145,6 @@ void CGamePersistent::OnAppStart()
 	m_pMainMenu = xr_new<CMainMenu>();
 	m_pWallmarksManager = xr_new<ScriptWallmarksManager>();
 }
-
 
 void CGamePersistent::OnAppEnd()
 {
@@ -640,7 +623,7 @@ void CGamePersistent::OnFrame()
 			}
 		}
 #ifndef MASTER_GOLD
-        if (Level().CurrentViewEntity() && IsGameTypeSingle())
+        if (Level().CurrentViewEntity())
         {
             if (!g_actor || (g_actor->ID() != Level().CurrentViewEntity()->ID()))
             {
@@ -696,7 +679,7 @@ void CGamePersistent::OnFrame()
             }
         }
 #else // MASTER_GOLD
-		if (g_actor && IsGameTypeSingle())
+		if (g_actor)
 		{
 			CCameraBase* C = NULL;
 			if (!Actor()->Holder())
@@ -900,14 +883,13 @@ void CGamePersistent::LoadTitle(bool change_tip, shared_str map_name)
 		else
 			xr_sprintf(buff, "ls_mp_tip_%d", tip_num);
 
-		pApp->LoadTitleInt(CStringTable().translate("ls_header").c_str(), tmp.c_str(),
-		                   CStringTable().translate(buff).c_str());
+		pApp->LoadTitleInt(CStringTable().translate("ls_header").c_str(), tmp.c_str(), CStringTable().translate(buff).c_str());
 	}
 }
 
 bool CGamePersistent::CanBePaused()
 {
-	return IsGameTypeSingle() || (g_pGameLevel && Level().IsDemoPlay());
+	return true;
 }
 
 void CGamePersistent::SetPickableEffectorDOF(bool bSet)
@@ -941,7 +923,6 @@ void CGamePersistent::RestoreEffectorDOF()
 
 #include "hudmanager.h"
 
-//	m_dof		[4];	// 0-dest 1-current 2-from 3-original
 void CGamePersistent::UpdateDof()
 {
 	static float diff_far = pSettings->r_float("zone_pick_dof", "far"); //70.0f;

@@ -346,20 +346,6 @@ void game_cl_GameState::shedule_Update(u32 dt)
 		if (CurrentGameUI())
 			m_game_ui_custom = CurrentGameUI();
 	}
-	//---------------------------------------
-	switch (Phase())
-	{
-	case GAME_PHASE_INPROGRESS:
-		{
-			if (!IsGameTypeSingle())
-				m_WeaponUsageStatistic->Update();
-		}
-		break;
-	default:
-		{
-		}
-		break;
-	};
 };
 
 void game_cl_GameState::sv_GameEventGen(NET_Packet& P)

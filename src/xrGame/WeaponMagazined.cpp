@@ -281,7 +281,7 @@ bool CWeaponMagazined::TryReload()
 {
 	if (m_pInventory)
 	{
-		if (IsGameTypeSingle() && ParentIsActor())
+		if (ParentIsActor())
 		{
 			int AC = GetSuitableAmmoTotal();
 			Actor()->callback(GameObject::eWeaponNoAmmoAvailable)(lua_game_object(), AC);
@@ -342,7 +342,7 @@ bool CWeaponMagazined::IsAmmoAvailable()
 void CWeaponMagazined::OnMagazineEmpty()
 {
 #ifdef	EXTENDED_WEAPON_CALLBACKS
-	if (IsGameTypeSingle() && ParentIsActor())
+	if (ParentIsActor())
 	{
 		int AC = GetSuitableAmmoTotal();
 		Actor()->callback(GameObject::eOnWeaponMagazineEmpty)(lua_game_object(), AC);
@@ -362,11 +362,8 @@ int CWeaponMagazined::CheckAmmoBeforeReload(u8& v_ammoType)
 	if (m_set_next_ammoType_on_reload != undefined_ammo_type)
 		v_ammoType = m_set_next_ammoType_on_reload;
 
-	//Msg("Ammo type in next reload : %d", m_set_next_ammoType_on_reload);
-
 	if (m_ammoTypes.size() <= v_ammoType)
 	{
-		//Msg("Ammo type is wrong : %d", v_ammoType);
 		return 0;
 	}
 
@@ -374,7 +371,6 @@ int CWeaponMagazined::CheckAmmoBeforeReload(u8& v_ammoType)
 
 	if (!tmp_sect_name)
 	{
-		//Msg("Sect name is wrong");
 		return 0;
 	}
 
@@ -428,7 +424,7 @@ void CWeaponMagazined::UnloadMagazine(bool spawn_ammo)
 	VERIFY((u32) iAmmoElapsed == m_magazine.size());
 
 #ifdef	EXTENDED_WEAPON_CALLBACKS
-	if (IsGameTypeSingle() && ParentIsActor())
+	if (ParentIsActor())
 	{
 		int AC = GetSuitableAmmoTotal();
 		Actor()->callback(GameObject::eOnWeaponMagazineEmpty)(lua_game_object(), AC);

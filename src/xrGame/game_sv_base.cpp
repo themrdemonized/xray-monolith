@@ -38,37 +38,12 @@ xr_token round_end_result_str[] =
 	{0, 0}
 };
 
-// Main
-/*game_PlayerState*	game_sv_GameState::get_it					(u32 it)
-{
-	xrClientData*	C	= (xrClientData*)m_server->client_Get			(it);
-	if (0==C)			return 0;
-	else				return C->ps;
-}*/
-
 game_PlayerState* game_sv_GameState::get_id(ClientID id)
 {
 	xrClientData* C = (xrClientData*)m_server->ID_to_client(id);
 	if (0 == C) return NULL;
 	else return C->ps;
 }
-
-/*ClientID				game_sv_GameState::get_it_2_id				(u32 it)
-{
-	xrClientData*	C	= (xrClientData*)m_server->client_Get		(it);
-	if (0==C){
-		ClientID clientID;clientID.set(0);
-		return clientID;
-	}
-	else				return C->ID;
-}
-
-LPCSTR				game_sv_GameState::get_name_it				(u32 it)
-{
-	xrClientData*	C	= (xrClientData*)m_server->client_Get		(it);
-	if (0==C)			return 0;
-	else				return *C->name;
-}*/
 
 LPCSTR game_sv_GameState::get_name_id(ClientID id)
 {
@@ -216,7 +191,6 @@ float game_sv_GameState::get_option_f(LPCSTR lst, LPCSTR name, float def)
 		int cnt = sscanf(found + xr_strlen(op), "%f", &val);
 		VERIFY(cnt==1);
 		return val;
-		//.		return atoi	(strstr(lst,op)+xr_strlen(op));
 	}
 	else
 		return def;
@@ -248,7 +222,6 @@ void game_sv_GameState::signal_Syncronize()
 }
 
 // Network
-
 struct player_exporter
 {
 	u16 counter;
@@ -308,11 +281,7 @@ void game_sv_GameState::net_Export_State(NET_Packet& P, ClientID to)
 	P.w_u8(u8(net_sv_control_hit));
 	P.w_u8(u8(g_bCollectStatisticData));
 
-	// Players
-	//	u32	p_count			= get_players_count() - ((g_dedicated_server)? 1 : 0);
-
-	xrClientData* tmp_client = static_cast<xrClientData*>(
-		m_server->GetClientByID(to));
+	xrClientData* tmp_client = static_cast<xrClientData*>(m_server->GetClientByID(to));
 	game_PlayerState* tmp_ps = tmp_client->ps;
 
 	player_exporter tmp_functor(to, tmp_ps, &P);
@@ -405,10 +374,7 @@ void game_sv_GameState::Create(shared_str& options)
 					if ((Type() == eGameIDCaptureTheArtefact) && (GameType & eGameIDCaptureTheArtefact))
 					{
 						team = team - 1;
-						R_ASSERT2(((team >= 0) && (team < 4)) ||
-						          (type != rptActorSpawn),
-						          "Problem with CTA Team indexes. Propably you have added rpoint of team 0 for cta game type.")
-						;
+						R_ASSERT2(((team >= 0) && (team < 4)) || (type != rptActorSpawn),"Problem with CTA Team indexes. Propably you have added rpoint of team 0 for cta game type.");
 					}
 					if ((!(GameType & eGameIDDeathmatch) && (Type() == eGameIDDeathmatch)) ||
 						(!(GameType & eGameIDTeamDeathmatch) && (Type() == eGameIDTeamDeathmatch)) ||
@@ -659,13 +625,9 @@ void game_sv_GameState::Update()
 			C->ps->ping = u16(C->stats.getPing());
 		}
 	};
+
 	ping_filler tmp_functor;
 	m_server->ForEachClientDo(tmp_functor);
-
-	if (!IsGameTypeSingle() && (Phase() == GAME_PHASE_INPROGRESS))
-	{
-		m_item_respawner.update(Level().timeServer());
-	}
 
 	if (!g_dedicated_server)
 	{
@@ -781,13 +743,9 @@ void game_sv_GameState::OnEvent(NET_Packet& tNetPacket, u16 type, u32 time, Clie
 			u16 id_src = tNetPacket.r_u16();
 			CSE_Abstract* e_src = get_entity_from_eid(id_src);
 
-			if (!e_src) // && !IsGameTypeSingle() added by andy because of Phantom does not have server entity
+			if (!e_src)
 			{
-				if (IsGameTypeSingle()) break;
-
-				game_PlayerState* ps = get_eid(id_src);
-				if (!ps) break;
-				id_src = ps->GameID;
+				break;
 			}
 
 			OnHit(id_src, id_dest, tNetPacket);
@@ -813,16 +771,12 @@ void game_sv_GameState::OnEvent(NET_Packet& tNetPacket, u16 type, u32 time, Clie
 	case GAME_EVENT_CREATE_PLAYER_STATE:
 		{
 			xrClientData* CL = m_server->ID_to_client(sender);
-			R_ASSERT2(CL,
-			          make_string("M_CREATE_PLAYER_STATE: client 0x%08x not found",
-				          sender.value()
-			          ).c_str()
-			);
+			R_ASSERT2(CL, make_string("M_CREATE_PLAYER_STATE: client 0x%08x not found", sender.value()).c_str());
 			CL->ps = createPlayerState(&tNetPacket);
 			CL->ps->m_online_time = Level().timeServer();
 			CL->ps->DeathTime = Device.dwTimeGlobal;
 
-			if (psNET_direct_connect) //IsGameTypeSingle())
+			if (psNET_direct_connect)
 				break;
 
 			if (Level().IsDemoPlay())
@@ -894,31 +848,7 @@ void game_sv_GameState::OnSwitchPhase(u32 old_phase, u32 new_phase)
 
 void game_sv_GameState::AddDelayedEvent(NET_Packet& tNetPacket, u16 type, u32 time, ClientID sender)
 {
-	//	OnEvent(tNetPacket,type,time,sender);
-	if (IsGameTypeSingle())
-	{
-		m_event_queue->Create(tNetPacket, type, time, sender);
-		return;
-	}
-	switch (type)
-	{
-	case GAME_EVENT_PLAYER_STARTED:
-	case GAME_EVENT_PLAYER_READY:
-	case GAME_EVENT_VOTE_START:
-	case GAME_EVENT_VOTE_YES:
-	case GAME_EVENT_VOTE_NO:
-	case GAME_EVENT_PLAYER_AUTH:
-	case GAME_EVENT_CREATE_PLAYER_STATE:
-		{
-			m_event_queue->Create(tNetPacket, type, time, sender);
-		}
-		break;
-	default:
-		{
-			m_event_queue->CreateSafe(tNetPacket, type, time, sender);
-		}
-		break;
-	}
+	m_event_queue->Create(tNetPacket, type, time, sender);
 }
 
 void game_sv_GameState::ProcessDelayedEvent()

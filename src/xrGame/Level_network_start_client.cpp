@@ -1,6 +1,4 @@
 #include "stdafx.h"
-//#include "PHdynamicdata.h"
-//#include "Physics.h"
 #include "level.h"
 #include "../xrEngine/x_ray.h"
 #include "../xrEngine/igame_persistent.h"
@@ -12,7 +10,6 @@
 #include "hudmanager.h"
 
 #include "../xrphysics/iphworld.h"
-
 
 #include "phcommander.h"
 #include "physics_game.h"
@@ -30,20 +27,11 @@ bool CLevel::net_start_client1()
 	pApp->LoadBegin();
 	// name_of_server
 	string64 name_of_server = "";
-	//	xr_strcpy						(name_of_server,*m_caClientOptions);
 	if (strchr(*m_caClientOptions, '/'))
 		strncpy_s(name_of_server, *m_caClientOptions, strchr(*m_caClientOptions, '/') - *m_caClientOptions);
 
 	if (strchr(name_of_server, '/')) *strchr(name_of_server, '/') = 0;
 
-	// Startup client
-	/*
-		string256					temp;
-		xr_sprintf						(temp,"%s %s",
-									CStringTable().translate("st_client_connecting_to").c_str(), name_of_server);
-	
-		g_pGamePersistent->LoadTitle				(temp);
-	*/
 	g_pGamePersistent->LoadTitle();
 	return true;
 }
@@ -72,9 +60,7 @@ bool CLevel::net_start_client2()
 void rescan_mp_archives()
 {
 	FS_Path* mp_archs_path = FS.get_path("$game_arch_mp$");
-	FS.rescan_path(mp_archs_path->m_Path,
-	               mp_archs_path->m_Flags.is(FS_Path::flRecurse)
-	);
+	FS.rescan_path(mp_archs_path->m_Path, mp_archs_path->m_Flags.is(FS_Path::flRecurse));
 }
 
 bool CLevel::net_start_client3()
@@ -88,7 +74,7 @@ bool CLevel::net_start_client3()
 		if (psNET_direct_connect) //single
 		{
 			shared_str const& server_options = Server->GetConnectOptions();
-			level_name = name().c_str(); //Server->level_name		(server_options).c_str();
+			level_name = name().c_str();
 			level_ver = Server->level_version(server_options).c_str(); //1.0
 		}
 		else //multiplayer
@@ -105,8 +91,7 @@ bool CLevel::net_start_client3()
 			Disconnect();
 
 			connected_to_server = FALSE;
-			Msg("! Level (name:%s), (version:%s), not found, try to download from:%s",
-			    level_name, level_ver, download_url);
+			Msg("! Level (name:%s), (version:%s), not found, try to download from:%s", level_name, level_ver, download_url);
 			map_data.m_name = level_name;
 			map_data.m_map_version = level_ver;
 			map_data.m_map_download_url = download_url;
@@ -125,8 +110,6 @@ bool CLevel::net_start_client3()
 		// Load level
 		R_ASSERT2(Load(level_id), "Loading failed.");
 		map_data.m_level_geom_crc32 = 0;
-		if (!IsGameTypeSingle())
-			CalculateLevelCrc32();
 	}
 	return true;
 }
@@ -136,13 +119,10 @@ bool CLevel::net_start_client4()
 	if (connected_to_server)
 	{
 		// Begin spawn
-		//		g_pGamePersistent->LoadTitle		("st_client_spawning");
 		g_pGamePersistent->LoadTitle();
 
 		// Send physics to single or multithreaded mode
-
 		create_physics_world(!!psDeviceFlags.test(mtPhysics), &ObjectSpace, &Objects, &Device);
-
 
 		R_ASSERT(physics_world());
 
@@ -154,7 +134,6 @@ bool CLevel::net_start_client4()
 
 		VERIFY(physics_world());
 		physics_world()->set_step_time_callback((PhysicsStepTimeCallback*)&PhisStepsCallback);
-
 
 		// Send network to single or multithreaded mode
 		// *note: release version always has "mt_*" enabled
@@ -176,23 +155,6 @@ bool CLevel::net_start_client4()
 				Sleep(5);
 			}
 		}
-		/*
-				if(psNET_direct_connect)
-				{
-					ClientReceive(); 
-					if(Server)
-							Server->Update()	;
-					Sleep(5);
-				}else
-		
-					while(!game_configured)			
-					{ 
-						ClientReceive(); 
-						if(Server)
-							Server->Update()	;
-						Sleep(5); 
-					}
-		*/
 	}
 	return true;
 }
@@ -209,21 +171,15 @@ void CLevel::ClientSendProfileData()
 	SecureSend(NP, net_flags(TRUE, TRUE, TRUE, TRUE));
 }
 
-
 bool CLevel::net_start_client5()
 {
 	if (connected_to_server)
 	{
-		// HUD
-
 		// Textures
 		if (!g_dedicated_server)
 		{
-			//			g_pGamePersistent->LoadTitle		("st_loading_textures");
 			g_pGamePersistent->LoadTitle();
-			//Device.Resources->DeferredLoad	(FALSE);
 			Device.m_pRender->DeferredLoad(FALSE);
-			//Device.Resources->DeferredUpload	();
 			Device.m_pRender->ResourcesDeferredUpload();
 			LL_CheckTextures();
 		}
@@ -265,7 +221,6 @@ bool CLevel::net_start_client6()
 			}
 		}
 
-		//		g_pGamePersistent->LoadTitle		("st_client_synchronising");
 		g_pGamePersistent->LoadTitle();
 		Device.PreCache(60, true, true);
 		net_start_result_total = TRUE;

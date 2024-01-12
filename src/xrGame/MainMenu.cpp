@@ -75,12 +75,6 @@ CMainMenu::CMainMenu()
 	m_deactivated_frame = 0;
 
 	m_sPatchURL = "";
-	//m_pGameSpyFull					= NULL;
-	//m_account_mngr					= NULL;
-	//m_login_mngr					= NULL;
-	//m_profile_store					= NULL;
-	//m_stats_submitter				= NULL;
-	//m_atlas_submit_queue			= NULL;
 
 	m_sPDProgress.IsInProgress = false;
 	m_downloaded_mp_map_url._set("");
@@ -98,7 +92,6 @@ CMainMenu::CMainMenu()
 	{
 		g_btnHint = xr_new<CUIButtonHint>();
 		g_statHint = xr_new<CUIButtonHint>();
-		//m_pGameSpyFull					= xr_new<CGameSpy_Full>();
 
 		for (u32 i = 0; i < u32(ErrMax); i++)
 		{
@@ -107,24 +100,10 @@ CMainMenu::CMainMenu()
 			m_pMB_ErrDlgs.push_back(pNewErrDlg);
 		}
 
-		m_pMB_ErrDlgs[PatchDownloadSuccess]->AddCallbackStr("button_yes", MESSAGE_BOX_YES_CLICKED,
-		                                                    CUIWndCallback::void_function(
-			                                                    this, &CMainMenu::OnRunDownloadedPatch));
-		m_pMB_ErrDlgs[PatchDownloadSuccess]->AddCallbackStr("button_yes", MESSAGE_BOX_OK_CLICKED,
-		                                                    CUIWndCallback::void_function(
-			                                                    this, &CMainMenu::OnConnectToMasterServerOkClicked));
-
-		m_pMB_ErrDlgs[DownloadMPMap]->AddCallbackStr("button_copy", MESSAGE_BOX_COPY_CLICKED,
-		                                             CUIWndCallback::void_function(
-			                                             this, &CMainMenu::OnDownloadMPMap_CopyURL));
-		m_pMB_ErrDlgs[DownloadMPMap]->AddCallbackStr("button_yes", MESSAGE_BOX_YES_CLICKED,
-		                                             CUIWndCallback::void_function(this, &CMainMenu::OnDownloadMPMap));
-
-		//m_account_mngr			= xr_new<gamespy_gp::account_manager>		(m_pGameSpyFull->GetGameSpyGP());
-		//m_login_mngr			= xr_new<gamespy_gp::login_manager>			(m_pGameSpyFull);
-		//m_profile_store			= xr_new<gamespy_profile::profile_store>	(m_pGameSpyFull);
-		//m_stats_submitter		= xr_new<gamespy_profile::stats_submitter>	(m_pGameSpyFull);
-		//m_atlas_submit_queue	= xr_new<atlas_submit_queue>				(m_stats_submitter);
+		m_pMB_ErrDlgs[PatchDownloadSuccess]->AddCallbackStr("button_yes", MESSAGE_BOX_YES_CLICKED, CUIWndCallback::void_function(this, &CMainMenu::OnRunDownloadedPatch));
+		m_pMB_ErrDlgs[PatchDownloadSuccess]->AddCallbackStr("button_yes", MESSAGE_BOX_OK_CLICKED, CUIWndCallback::void_function(this, &CMainMenu::OnConnectToMasterServerOkClicked));
+		m_pMB_ErrDlgs[DownloadMPMap]->AddCallbackStr("button_copy", MESSAGE_BOX_COPY_CLICKED, CUIWndCallback::void_function(this, &CMainMenu::OnDownloadMPMap_CopyURL));
+		m_pMB_ErrDlgs[DownloadMPMap]->AddCallbackStr("button_yes", MESSAGE_BOX_YES_CLICKED, CUIWndCallback::void_function(this, &CMainMenu::OnDownloadMPMap));
 	}
 
 	Device.seqFrame.Add(this,REG_PRIORITY_LOW - 1000);
@@ -137,15 +116,6 @@ CMainMenu::~CMainMenu()
 	xr_delete(g_statHint);
 	xr_delete(m_startDialog);
 	g_pGamePersistent->m_pMainMenu = NULL;
-
-	//xr_delete						(m_account_mngr);
-	//xr_delete						(m_login_mngr);
-	//xr_delete						(m_profile_store);
-	//xr_delete						(m_stats_submitter);
-	//xr_delete						(m_atlas_submit_queue);
-	//
-	//xr_delete						(m_pGameSpyFull);
-
 	xr_delete(m_demo_info_loader);
 	delete_data(m_pMB_ErrDlgs);
 }
@@ -168,22 +138,20 @@ void CMainMenu::ReadTextureInfo()
 }
 
 extern ENGINE_API BOOL bShowPauseString;
-extern bool IsGameTypeSingle();
 
 #include "..\..\xrEngine\x_ray.h"
 
 void CMainMenu::Activate(bool bActivate)
 {
-	if (!!m_Flags.test(flActive) == bActivate) return;
-	if (m_Flags.test(flGameSaveScreenshot)) return;
-	if ((m_screenshotFrame == Device.dwFrame) ||
-		(m_screenshotFrame == Device.dwFrame - 1) ||
-		(m_screenshotFrame == Device.dwFrame + 1))
+	if (!!m_Flags.test(flActive) == bActivate) 
+		return;
+	if (m_Flags.test(flGameSaveScreenshot))
+		return;
+	if ((m_screenshotFrame == Device.dwFrame) || (m_screenshotFrame == Device.dwFrame - 1) || (m_screenshotFrame == Device.dwFrame + 1))
 		return;
 
-	bool b_is_single = IsGameTypeSingle();
-
-	if (g_dedicated_server && bActivate) return;
+	if (g_dedicated_server && bActivate) 
+		return;
 
 	//Discord
 	discord_gameinfo.mainmenu = bActivate;
@@ -198,29 +166,23 @@ void CMainMenu::Activate(bool bActivate)
 
 		m_Flags.set(flRestoreCursor, GetUICursor().IsVisible());
 
-		if (!ReloadUI()) return;
+		if (!ReloadUI()) 
+			return;
 
 		m_Flags.set(flRestoreConsole, Console->bVisible);
 
-		if (b_is_single) m_Flags.set(flRestorePause, Device.Paused());
+		m_Flags.set(flRestorePause, Device.Paused());
 
 		Console->Hide();
 
-
-		if (b_is_single)
-		{
-			m_Flags.set(flRestorePauseStr, bShowPauseString);
-			bShowPauseString = FALSE;
-			if (!m_Flags.test(flRestorePause))
-				Device.Pause(TRUE, TRUE, FALSE, "mm_activate2");
-		}
+		m_Flags.set(flRestorePauseStr, bShowPauseString);
+		bShowPauseString = FALSE;
+		if (!m_Flags.test(flRestorePause))
+			Device.Pause(TRUE, TRUE, FALSE, "mm_activate2");
 
 		if (g_pGameLevel)
 		{
-			if (b_is_single)
-			{
-				Device.seqFrame.Remove(g_pGameLevel);
-			}
+			Device.seqFrame.Remove(g_pGameLevel);
 			Device.seqRender.Remove(g_pGameLevel);
 			CCameraManager::ResetPP();
 		};
@@ -254,22 +216,17 @@ void CMainMenu::Activate(bool bActivate)
 		CleanInternals();
 		if (g_pGameLevel)
 		{
-			if (b_is_single)
-			{
-				Device.seqFrame.Add(g_pGameLevel);
-			}
+			Device.seqFrame.Add(g_pGameLevel);
 			Device.seqRender.Add(g_pGameLevel);
 		};
+
 		if (m_Flags.test(flRestoreConsole))
 			Console->Show();
 
-		if (b_is_single)
-		{
-			if (!m_Flags.test(flRestorePause))
-				Device.Pause(FALSE, TRUE, FALSE, "mm_deactivate1");
+		if (!m_Flags.test(flRestorePause))
+			Device.Pause(FALSE, TRUE, FALSE, "mm_deactivate1");
 
-			bShowPauseString = m_Flags.test(flRestorePauseStr);
-		}
+		bShowPauseString = m_Flags.test(flRestorePauseStr);
 
 		if (m_Flags.test(flRestoreCursor))
 			GetUICursor().Show();

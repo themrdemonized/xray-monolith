@@ -34,9 +34,7 @@ BOOL CWeaponRG6::net_Spawn(CSE_Abstract* DC)
 				inheritedRL::SpawnRocket(*fake_grenade_name, this);
 			}
 		}
-		//			inheritedRL::SpawnRocket(*fake_grenade_name, this);
 	}
-
 
 	return l_res;
 };
@@ -77,11 +75,10 @@ void CWeaponRG6::FireStart()
 		Fmatrix launch_matrix;
 		launch_matrix.identity();
 		launch_matrix.k.set(d);
-		Fvector::generate_orthonormal_basis(launch_matrix.k,
-		                                    launch_matrix.j, launch_matrix.i);
+		Fvector::generate_orthonormal_basis(launch_matrix.k, launch_matrix.j, launch_matrix.i);
 		launch_matrix.c.set(p1);
 
-		if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()))
+		if (IsZoomed() && smart_cast<CActor*>(H_Parent()))
 		{
 			H_Parent()->setEnabled(FALSE);
 			setEnabled(FALSE);
@@ -94,25 +91,12 @@ void CWeaponRG6::FireStart()
 
 			if (HasPick)
 			{
-				//			collide::rq_result& RQ = HUD().GetCurrentRayQuery();
-				Fvector Transference;
-				//Transference.add(p1, Fvector().mul(d, RQ.range));				
+				Fvector Transference;			
 				Transference.mul(d, RQ.range);
 				Fvector res[2];
-				/*#ifdef		DEBUG
-								DBG_OpenCashedDraw();
-								DBG_DrawLine(p1,Fvector().add(p1,d),D3DCOLOR_XRGB(255,0,0));
-				#endif*/
-				u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, CRocketLauncher::m_fLaunchSpeed,
-				                                                EffectiveGravity(), res);
-				/*#ifdef DEBUG
-								if(canfire0>0)DBG_DrawLine(p1,Fvector().add(p1,res[0]),D3DCOLOR_XRGB(0,255,0));
-								if(canfire0>1)DBG_DrawLine(p1,Fvector().add(p1,res[1]),D3DCOLOR_XRGB(0,0,255));
-								DBG_ClosedCashedDraw(30000);
-				#endif*/
+				u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, CRocketLauncher::m_fLaunchSpeed, EffectiveGravity(), res);
 				if (canfire0 != 0)
 				{
-					//					Msg ("d[%f,%f,%f] - res [%f,%f,%f]", d.x, d.y, d.z, res[0].x, res[0].y, res[0].z);
 					d = res[0];
 				};
 			}

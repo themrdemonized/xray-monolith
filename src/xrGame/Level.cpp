@@ -628,15 +628,8 @@ void CLevel::OnFrame()
 			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(m_map_manager, &CMapManager::Update));
 		else
 			MapManager().Update();
-		if (IsGameTypeSingle() && Device.dwPrecacheFrame == 0)
+		if (Device.dwPrecacheFrame == 0)
 		{
-			// XXX nitrocaster: was enabled in x-ray 1.5; to be restored or removed
-			//if (g_mt_config.test(mtMap))
-			//{
-			//    Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(
-			//    m_game_task_manager,&CGameTaskManager::UpdateTasks));
-			//}
-			//else
 			GameTaskManager().UpdateTasks();
 		}
 	}
@@ -671,7 +664,6 @@ void CLevel::OnFrame()
 					{
 						m_server->UpdateClientStatistic(C);
 						F->OutNext("0x%08x: P(%d), BPS(%2.1fK), MRR(%2d), MSR(%2d), Retried(%2d), Blocked(%2d)",
-						           //Server->game->get_option_s(*C->Name,"name",*C->Name),
 						           C->ID.value(),
 						           C->stats.getPing(),
 						           float(C->stats.getBPS()), // /1024,

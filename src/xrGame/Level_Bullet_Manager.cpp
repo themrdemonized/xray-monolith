@@ -48,7 +48,6 @@ void SBullet::Init(const Fvector& position,
                    const Fvector& direction,
                    float starting_speed,
                    float power,
-                   //.				   float power_critical,
                    float impulse,
                    u16 sender_id,
                    u16 sendersweapon_id,
@@ -102,7 +101,6 @@ void SBullet::Init(const Fvector& position,
 	flags.allow_ricochet = !!cartridge.m_flags.test(CCartridge::cfRicochet);
 	flags.explosive = !!cartridge.m_flags.test(CCartridge::cfExplosive);
 	flags.magnetic_beam = !!cartridge.m_flags.test(CCartridge::cfMagneticBeam);
-	//	flags.skipped_frame		= 0;
 
 	init_frame_num = Device.dwFrame;
 
@@ -169,10 +167,6 @@ CBulletManager::~CBulletManager()
 void CBulletManager::Load()
 {
 	char const* bullet_manager_sect = "bullet_manager";
-	if (!IsGameTypeSingle())
-	{
-		bullet_manager_sect = "mp_bullet_manager";
-	}
 	m_fTracerWidth = pSettings->r_float(bullet_manager_sect, "tracer_width");
 	m_fTracerLengthMax = pSettings->r_float(bullet_manager_sect, "tracer_length_max");
 	m_fTracerLengthMin = pSettings->r_float(bullet_manager_sect, "tracer_length_min");
@@ -284,21 +278,10 @@ void CBulletManager::AddBullet(const Fvector& position,
 		);
 		funct(table);
 	}
-
-	if (!IsGameTypeSingle())
-	{
-		if (SendHit)
-			Game().m_WeaponUsageStatistic->OnBullet_Fire(&bullet, cartridge);
-		game_cl_mp* tmp_cl_game = smart_cast<game_cl_mp*>(&Game());
-		if (tmp_cl_game->get_reward_generator())
-			tmp_cl_game->get_reward_generator()->OnBullet_Fire(sender_id, sendersweapon_id, position, direction);
-	}
 }
 
 void CBulletManager::UpdateWorkload()
 {
-	//	VERIFY						( m_thread_id == GetCurrentThreadId() );
-
 	rq_storage.r_clear();
 
 	u32 const time_delta = Device.dwTimeDelta;

@@ -45,9 +45,6 @@ void CUIMotionIcon::Init(Frect const& zonemap_rect)
 	float k = UI().get_current_kx();
 	sz.mul(rel_sz * k);
 
-
-	//float h = Device.dwHeight;
-	//float w = Device.dwWidth;
 	AttachChild(&m_luminosity_progress);
 	xml_init.InitProgressShape(uiXml, "luminosity_progress", 0, &m_luminosity_progress);
 	m_luminosity_progress.SetWndSize(sz);
@@ -61,9 +58,6 @@ void CUIMotionIcon::Init(Frect const& zonemap_rect)
 
 void CUIMotionIcon::SetNoise(float Pos)
 {
-	if (!IsGameTypeSingle())
-		return;
-
 	if (!IsShown())
 		return;
 
@@ -73,9 +67,6 @@ void CUIMotionIcon::SetNoise(float Pos)
 
 void CUIMotionIcon::SetLuminosity(float Pos)
 {
-	if (!IsGameTypeSingle())
-		return;
-
 	if (!IsShown())
 		return;
 
@@ -92,12 +83,6 @@ void CUIMotionIcon::Draw()
 
 void CUIMotionIcon::Update()
 {
-	if (!IsGameTypeSingle())
-	{
-		inherited::Update();
-		return;
-	}
-
 	if (!IsShown())
 		return;
 
@@ -133,9 +118,6 @@ void CUIMotionIcon::Update()
 
 void SetActorVisibility(u16 who_id, float value)
 {
-	if (!IsGameTypeSingle())
-		return;
-
 	if (g_pMotionIcon && g_pMotionIcon->IsShown())
 		g_pMotionIcon->SetActorVisibility(who_id, value);
 }
@@ -148,9 +130,7 @@ void CUIMotionIcon::SetActorVisibility(u16 who_id, float value)
 	clamp(value, 0.f, 1.f);
 	value *= 100.f;
 
-	xr_vector<_npc_visibility>::iterator it = std::find(m_npc_visibility.begin(),
-	                                                    m_npc_visibility.end(),
-	                                                    who_id);
+	xr_vector<_npc_visibility>::iterator it = std::find(m_npc_visibility.begin(), m_npc_visibility.end(), who_id);
 
 	if (it == m_npc_visibility.end() && value != 0)
 	{

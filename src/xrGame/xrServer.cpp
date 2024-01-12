@@ -346,36 +346,7 @@ void xrServer::SendUpdatePacketsToAll()
 
 void xrServer::SendUpdatesToAll()
 {
-	if (IsGameTypeSingle())
-		return;
-
-	KickCheaters();
-
-
-	//sending game_update 
-	fastdelegate::FastDelegate1<IClient*, void> sendtofd;
-	sendtofd.bind(this, &xrServer::SendGameUpdateTo);
-	ForEachClientDoSender(sendtofd);
-
-	if ((Device.dwTimeGlobal - m_last_update_time) >= u32(1000 / psNET_ServerUpdate))
-	{
-		MakeUpdatePackets();
-		SendUpdatePacketsToAll();
-
-#ifdef DEBUG
-		g_sv_SendUpdate = 0;
-#endif
-		if (game->sv_force_sync) Perform_game_export();
-#ifdef DEBUG
-		VERIFY(verify_entities());
-#endif
-		m_last_update_time = Device.dwTimeGlobal;
-	}
-	if (m_file_transfers)
-	{
-		m_file_transfers->update_transfer();
-		m_file_transfers->stop_obsolete_receivers();
-	}
+	return;
 }
 
 xr_vector<shared_str> _tmp_log;

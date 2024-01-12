@@ -33,7 +33,6 @@ IC static void generate_orthonormal_basis1(const Fvector& dir, Fvector& updir, F
 	updir.crossproduct(right, dir);
 }
 
-
 void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 {
 	// Lookout
@@ -314,7 +313,7 @@ void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector& vControlAccel, float& Ju
 		} //(mstate_real&mcAnyMove)
 	} //peOnGround || peAtWall
 
-	if (IsGameTypeSingle() && cam_eff_factor > EPS)
+	if (cam_eff_factor > EPS)
 	{
 		LPCSTR state_anm = NULL;
 

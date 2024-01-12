@@ -43,7 +43,6 @@ CArtefact::CArtefact()
 	m_additional_weight = 0.0f;
 }
 
-
 CArtefact::~CArtefact()
 {
 }
@@ -52,18 +51,15 @@ void CArtefact::Load(LPCSTR section)
 {
 	inherited::Load(section);
 
-
 	if (pSettings->line_exist(section, "particles"))
 		m_sParticlesName = pSettings->r_string(section, "particles");
 
 	m_bLightsEnabled = !!pSettings->r_bool(section, "lights_enabled");
 	if (m_bLightsEnabled)
 	{
-		sscanf(pSettings->r_string(section, "trail_light_color"), "%f,%f,%f",
-		       &m_TrailLightColor.r, &m_TrailLightColor.g, &m_TrailLightColor.b);
+		sscanf(pSettings->r_string(section, "trail_light_color"), "%f,%f,%f", &m_TrailLightColor.r, &m_TrailLightColor.g, &m_TrailLightColor.b);
 		m_fTrailLightRange = pSettings->r_float(section, "trail_light_range");
 	}
-
 
 	m_fHealthRestoreSpeed = pSettings->r_float(section, "health_restore_speed");
 	m_fRadiationRestoreSpeed = pSettings->r_float(section, "radiation_restore_speed");
@@ -119,18 +115,9 @@ void CArtefact::OnH_A_Chield()
 	inherited::OnH_A_Chield();
 
 	StopLights();
-	if (IsGameTypeSingle())
-	{
-		SwitchAfParticles(false);
-	}
-	else
-	{
-		IKinematics* K = smart_cast<IKinematics*>(H_Parent()->Visual());
-		if (K)
-			m_CarringBoneID = K->LL_BoneID("bip01_head");
-		else
-			m_CarringBoneID = u16(-1);
-	}
+
+	SwitchAfParticles(false);
+
 	if (m_detectorObj)
 	{
 		m_detectorObj->m_currPatrolPath = NULL;
@@ -241,7 +228,6 @@ void CArtefact::shedule_Update(u32 dt)
 	}
 }
 
-
 void CArtefact::create_physic_shell()
 {
 	m_pPhysicsShell = P_build_Shell(this, false);
@@ -341,9 +327,7 @@ void CArtefact::MoveTo(Fvector const& position)
 	Fmatrix M = XFORM();
 	M.translate(position);
 	ForceTransform(M);
-	//m_bInInterpolation = false;	
 }
-
 
 #include "inventoryOwner.h"
 #include "Entity_alive.h"
@@ -393,7 +377,6 @@ void CArtefact::UpdateXForm()
 		N.normalize_safe();
 		mRes.set(R,N, D, mR.c);
 		mRes.mulA_43(E->XFORM());
-		//		UpdatePosition		(mRes);
 		XFORM().mul(mRes, offset());
 	}
 }
@@ -510,7 +493,6 @@ void CArtefact::SwitchVisibility(bool b)
 
 void CArtefact::StopActivation()
 {
-	//VERIFY2(m_activationObj, "activation object not initialized");
 	if (!m_activationObj)
 		return;
 	m_activationObj->Stop();
@@ -520,7 +502,7 @@ void CArtefact::ForceTransform(const Fmatrix& m)
 {
 	VERIFY(PPhysicsShell());
 	XFORM().set(m);
-	PPhysicsShell()->SetGlTransformDynamic(m); // XFORM().set(m);
+	PPhysicsShell()->SetGlTransformDynamic(m);
 }
 
 void CArtefact::CreateArtefactActivation()
@@ -532,10 +514,8 @@ void CArtefact::CreateArtefactActivation()
 	m_activationObj = xr_new<SArtefactActivation>(this, H_Parent()->ID());
 }
 
-SArtefactDetectorsSupport::SArtefactDetectorsSupport(CArtefact* A)
-	: m_parent(A), m_currPatrolPath(NULL), m_currPatrolVertex(NULL), m_switchVisTime(0)
-{
-}
+SArtefactDetectorsSupport::SArtefactDetectorsSupport(CArtefact* A) : m_parent(A), m_currPatrolPath(NULL), m_currPatrolVertex(NULL), m_switchVisTime(0)
+{}
 
 SArtefactDetectorsSupport::~SArtefactDetectorsSupport()
 {
@@ -554,8 +534,7 @@ void SArtefactDetectorsSupport::SetVisible(bool b)
 
 	if (b)
 	{
-		LPCSTR curr = pSettings->r_string(m_parent->cNameSect().c_str(),
-		                                  (b) ? "det_show_particles" : "det_hide_particles");
+		LPCSTR curr = pSettings->r_string(m_parent->cNameSect().c_str(), (b) ? "det_show_particles" : "det_hide_particles");
 
 		IKinematics* K = smart_cast<IKinematics*>(m_parent->Visual());
 		R_ASSERT2(K, m_parent->cNameSect().c_str());
@@ -651,11 +630,7 @@ void CArtefact::OnActiveItem()
 
 void CArtefact::OnHiddenItem()
 {
-	if (IsGameTypeSingle())
-		SwitchState(eHiding);
-	else
-		SwitchState(eHidden);
-
+	SwitchState(eHiding);
 	inherited::OnHiddenItem();
 	SetState(eHidden);
 	SetNextState(eHidden);

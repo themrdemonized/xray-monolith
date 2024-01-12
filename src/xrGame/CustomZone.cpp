@@ -39,11 +39,9 @@ CCustomZone::CCustomZone(void)
 	m_pIdleLAnim = NULL;
 	m_pBlowLAnim = NULL;
 
-
 	m_StateTime.resize(eZoneStateMax);
 	for (int i = 0; i < eZoneStateMax; i++)
 		m_StateTime[i] = 0;
-
 
 	m_dwAffectFrameNum = 0;
 	m_fBlowoutWindPowerMax = m_fStoreWindPower = 0.f;
@@ -175,7 +173,6 @@ void CCustomZone::Load(LPCSTR section)
 		m_blowout_sound.create(sound_str, st_Effect, sg_SourceType);
 	}
 
-
 	if (pSettings->line_exist(section, "hit_sound"))
 	{
 		sound_str = pSettings->r_string(section, "hit_sound");
@@ -187,7 +184,6 @@ void CCustomZone::Load(LPCSTR section)
 		sound_str = pSettings->r_string(section, "entrance_sound");
 		m_entrance_sound.create(sound_str, st_Effect, sg_SourceType);
 	}
-
 
 	if (pSettings->line_exist(section, "idle_particles"))
 		m_sIdleParticles = pSettings->r_string(section, "idle_particles");
@@ -203,7 +199,6 @@ void CCustomZone::Load(LPCSTR section)
 
 	if (pSettings->line_exist(section, "awake_particles"))
 		m_sAwakingParticles = pSettings->r_string(section, "awake_particles");
-
 
 	if (pSettings->line_exist(section, "entrance_small_particles"))
 		m_sEntranceParticlesSmall = pSettings->r_string(section, "entrance_small_particles");
@@ -229,7 +224,6 @@ void CCustomZone::Load(LPCSTR section)
 		m_actor_effector = xr_new<CZoneEffector>();
 		m_actor_effector->Load(pSettings->r_string(section, "postprocess"));
 	};
-
 
 	if (pSettings->line_exist(section, "bolt_entrance_particles"))
 	{
@@ -318,8 +312,7 @@ void CCustomZone::Load(LPCSTR section)
 	m_zone_flags.set(eBlowoutLight, pSettings->r_bool(section, "blowout_light"));
 	if (m_zone_flags.test(eBlowoutLight))
 	{
-		sscanf(pSettings->r_string(section, "light_color"), "%f,%f,%f", &m_LightColor.r, &m_LightColor.g,
-		       &m_LightColor.b);
+		sscanf(pSettings->r_string(section, "light_color"), "%f,%f,%f", &m_LightColor.r, &m_LightColor.g, &m_LightColor.b);
 		m_fLightRange = pSettings->r_float(section, "light_range");
 		m_fLightTime = pSettings->r_float(section, "light_time");
 		m_fLightTimeLeft = 0;
@@ -420,7 +413,6 @@ BOOL CCustomZone::net_Spawn(CSE_Abstract* DC)
 
 	m_dwLastTimeMoved = Device.dwTimeGlobal;
 	m_vPrevPos.set(Position());
-
 
 	if (spawn_ini() && spawn_ini()->line_exist("fast_mode", "always_fast"))
 	{
@@ -666,12 +658,6 @@ void CCustomZone::shedule_Update(u32 dt)
 	};
 
 	UpdateOnOffState();
-
-	if (!IsGameTypeSingle() && Local())
-	{
-		if (Device.dwTimeGlobal > m_ttl)
-			DestroyObject();
-	}
 }
 
 void CCustomZone::CheckForAwaking()
@@ -682,9 +668,6 @@ void CCustomZone::CheckForAwaking()
 
 void CCustomZone::feel_touch_new(CObject* O)
 {
-	//	if(smart_cast<CActor*>(O) && O == Level().CurrentEntity())
-	//					m_pLocalActor	= smart_cast<CActor*>(O);
-
 	CGameObject* pGameObject = smart_cast<CGameObject*>(O);
 	CEntityAlive* pEntityAlive = smart_cast<CEntityAlive*>(pGameObject);
 	CArtefact* pArtefact = smart_cast<CArtefact*>(pGameObject);
@@ -763,7 +746,7 @@ float CCustomZone::RelativePower(float dist, float nearest_shape_radius)
 
 float CCustomZone::effective_radius(float nearest_shape_radius)
 {
-	return /*Radius()*/nearest_shape_radius * m_fEffectiveRadius;
+	return nearest_shape_radius * m_fEffectiveRadius;
 }
 
 float CCustomZone::Power(float dist, float nearest_shape_radius)

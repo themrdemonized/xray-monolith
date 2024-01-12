@@ -251,11 +251,9 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	{
 		// demonized: replacing r_string with READ_IF_EXISTS
 		bone_name = READ_IF_EXISTS(pSettings, r_string, sect_name, "fire_bone", "wpn_body");
-		//bone_name = pSettings->r_string(sect_name, "fire_bone");
 		m_fire_bone = K->LL_BoneID(bone_name);
 		m_fire_point_offset = pSettings->r_fvector3(sect_name, "fire_point");
-		m_fire_direction = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, "fire_direction",
-		                                  Fvector().set(0.f, 0.f, 1.0f));
+		m_fire_direction = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, "fire_direction", Fvector().set(0.f, 0.f, 1.0f));
 	}
 	else
 		m_fire_point_offset.set(0, 0, 0);
@@ -264,7 +262,6 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	if (m_prop_flags.test(e_fire_point2))
 	{
 		bone_name = READ_IF_EXISTS(pSettings, r_string, sect_name, "fire_bone2", "wpn_body");
-		//bone_name = pSettings->r_string(sect_name, "fire_bone2");
 		m_fire_bone2 = K->LL_BoneID(bone_name);
 		m_fire_point2_offset = pSettings->r_fvector3(sect_name, "fire_point2");
 	}
@@ -275,7 +272,6 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	if (m_prop_flags.test(e_shell_point))
 	{
 		bone_name = READ_IF_EXISTS(pSettings, r_string, sect_name, "shell_bone", "wpn_body");
-		//bone_name = pSettings->r_string(sect_name, "shell_bone");
 		m_shell_bone = K->LL_BoneID(bone_name);
 		m_shell_point_offset = pSettings->r_fvector3(sect_name, "shell_point");
 	}
@@ -294,14 +290,6 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_hands_offset[0][2] = pSettings->r_fvector3(sect_name, val_name);
 	strconcat(sizeof(val_name), val_name, "gl_hud_offset_rot", _prefix);
 	m_hands_offset[1][2] = pSettings->r_fvector3(sect_name, val_name);
-
-	// demonized: removing asserts
-	/*R_ASSERT2(pSettings->line_exist(sect_name,"fire_point")==pSettings->line_exist(sect_name,"fire_bone"),
-	          sect_name.c_str());
-	R_ASSERT2(pSettings->line_exist(sect_name,"fire_point2")==pSettings->line_exist(sect_name,"fire_bone2"),
-	          sect_name.c_str());
-	R_ASSERT2(pSettings->line_exist(sect_name,"shell_point")==pSettings->line_exist(sect_name,"shell_bone"),
-	          sect_name.c_str());*/
 
 	m_prop_flags.set(e_16x9_mode_now, is_16x9);
 
@@ -480,10 +468,8 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 
 	R_ASSERT2(m_parent_hud_item, "parent hud item is NULL");
 	CPhysicItem& parent_object = m_parent_hud_item->object();
-	//R_ASSERT2		(parent_object, "object has no parent actor");
-	//CObject*		parent_object = static_cast_checked<CObject*>(&m_parent_hud_item->object());
 
-	if (IsGameTypeSingle() && parent_object.H_Parent() == Level().CurrentControlEntity())
+	if (parent_object.H_Parent() == Level().CurrentControlEntity())
 	{
 		CActor* current_actor = static_cast_checked<CActor*>(Level().CurrentControlEntity());
 		VERIFY(current_actor);
@@ -782,9 +768,7 @@ u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud
 	player_hud_motion* pm = pi->m_hand_motions.find_motion(anim_name);
 	if (!pm || !pm->m_animations.size())
 		return 100; // ms TEMPORARY
-	R_ASSERT2(pm,
-	          make_string ("hudItem model [%s] has no motion with alias [%s]", hud_name.c_str(), anim_name.c_str() ).
-	          c_str()
+	R_ASSERT2(pm, make_string ("hudItem model [%s] has no motion with alias [%s]", hud_name.c_str(), anim_name.c_str()).c_str()
 	);
 	return motion_length(pm->m_animations[0].mid, md, 1.f);
 }

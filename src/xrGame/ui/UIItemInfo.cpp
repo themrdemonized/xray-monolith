@@ -35,13 +35,11 @@ extern const LPCSTR g_inventory_upgrade_xml;
 CUIItemInfo::CUIItemInfo()
 {
 	UIItemImageSize.set(0.0f, 0.0f);
-
 	UICost = NULL;
 	UITradeTip = NULL;
 	UIWeight = NULL;
 	UIItemImage = NULL;
 	UIDesc = NULL;
-	//	UIConditionWnd				= NULL;
 	UIWpnParams = NULL;
 	UIProperties = NULL;
 	UIOutfitInfo = NULL;
@@ -56,7 +54,6 @@ CUIItemInfo::CUIItemInfo()
 
 CUIItemInfo::~CUIItemInfo()
 {
-	//	xr_delete	(UIConditionWnd);
 	xr_delete(UIWpnParams);
 	xr_delete(UIArtefactParams);
 	xr_delete(UIProperties);
@@ -126,8 +123,6 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 
 	if (uiXml.NavigateToNode("descr_list", 0))
 	{
-		//		UIConditionWnd					= xr_new<CUIConditionParams>();
-		//		UIConditionWnd->InitFromXml		(uiXml);
 		UIWpnParams = xr_new<CUIWpnParams>();
 		UIWpnParams->InitFromXml(uiXml);
 
@@ -136,11 +131,6 @@ void CUIItemInfo::InitItemInfo(LPCSTR xml_name)
 
 		UIBoosterInfo = xr_new<CUIBoosterInfo>();
 		UIBoosterInfo->InitFromXml(uiXml);
-
-		//UIDesc_line						= xr_new<CUIStatic>();
-		//AttachChild						(UIDesc_line);	
-		//UIDesc_line->SetAutoDelete		(true);
-		//xml_init.InitStatic				(uiXml, "description_line", 0, UIDesc_line);
 
 		if (ai().get_alife()) // (-designer)
 		{
@@ -222,9 +212,6 @@ LPCSTR CUIItemInfo::GetItemDescription(CInventoryItem& pInvItem, LPCSTR m_item_d
 }
 
 //-- Tronex
-
-bool IsGameTypeSingle();
-
 void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem, u32 item_price, LPCSTR trade_tip)
 {
 	if (!pCellItem)
@@ -276,7 +263,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 			UIWeight->SetWndPos(pos);
 		}
 	}
-	if (UICost && IsGameTypeSingle() && item_price != u32(-1))
+	if (UICost && item_price != u32(-1))
 	{
 		xr_sprintf(str, "%d RU", item_price); // will be owerwritten in multiplayer
 		UICost->SetText(str);
@@ -290,14 +277,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 	else
 		UICost->Show(false);
 
-	//	CActor* actor = smart_cast<CActor*>( Level().CurrentViewEntity() );
-	//	if ( g_pGameLevel && Level().game && actor )
-	//	{
-	//		game_cl_Deathmatch* gs_mp = smart_cast<game_cl_Deathmatch*>( Game() );
-	//		IBuyWnd* buy_menu = gs_mp->pCurBuyMenu->GetItemPrice();
-	//		GetItemPrice();
-	//	}
-	if (UITradeTip && IsGameTypeSingle())
+	if (UITradeTip)
 	{
 		pos.y = UITradeTip->GetWndPos().y;
 		if (UIWeight && m_complex_desc)
@@ -336,13 +316,12 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 			pItem->SetWidth(UIDesc->GetDesiredChildWidth());
 			pItem->SetTextComplexMode(true);
 			pItem->SetText(GetItemDescription(*pInvItem, *pInvItem->ItemDescription()));
-			//(*pInvItem->ItemDescription());
 			pItem->AdjustHeightToText();
 			UIDesc->AddWindow(pItem, true);
 		}
 		TryAddConditionInfo(*pInvItem, pCompareItem);
 		TryAddWpnInfo(*pInvItem, pCompareItem);
-		TryAddArtefactInfo(*pInvItem); //pInvItem->object().cNameSect());
+		TryAddArtefactInfo(*pInvItem);
 		TryAddOutfitInfo(*pInvItem, pCompareItem);
 		TryAddUpgradeInfo(*pInvItem);
 		TryAddBoosterInfo(*pInvItem);
@@ -396,15 +375,7 @@ void CUIItemInfo::InitItem(CUICellItem* pCellItem, CInventoryItem* pCompareItem,
 }
 
 void CUIItemInfo::TryAddConditionInfo(CInventoryItem& pInvItem, CInventoryItem* pCompareItem)
-{
-	CWeapon* weapon = smart_cast<CWeapon*>(&pInvItem);
-	CCustomOutfit* outfit = smart_cast<CCustomOutfit*>(&pInvItem);
-	if (weapon || outfit)
-	{
-		//		UIConditionWnd->SetInfo( pCompareItem, pInvItem );
-		//		UIDesc->AddWindow( UIConditionWnd, false );
-	}
-}
+{}
 
 void CUIItemInfo::TryAddWpnInfo(CInventoryItem& pInvItem, CInventoryItem* pCompareItem)
 {

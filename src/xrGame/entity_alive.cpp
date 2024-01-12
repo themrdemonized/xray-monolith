@@ -279,10 +279,8 @@ void CEntityAlive::Hit(SHit* pHDS)
 	if (HDS.hit_type == ALife::eHitTypeWound_2)
 		HDS.hit_type = ALife::eHitTypeWound;
 	//-------------------------------------------------------------------
-	CDamageManager::HitScale(HDS.boneID, conditions().hit_bone_scale(), conditions().wound_bone_scale(),
-	                         pHDS->aim_bullet);
+	CDamageManager::HitScale(HDS.boneID, conditions().hit_bone_scale(), conditions().wound_bone_scale(), pHDS->aim_bullet);
 
-	//èçìåíèòü ñîñòîÿíèå, ïåðåä òåì êàê ðîäèòåëüñêèé êëàññ îáðàáîòàåò õèò
 	CWound* pWound = conditions().ConditionHit(&HDS);
 	if (pWound && !pWound->GetDestroy())
 	{
@@ -302,7 +300,7 @@ void CEntityAlive::Hit(SHit* pHDS)
 	//-------------------------------------------
 	inherited::Hit(&HDS);
 
-	if (g_Alive() && IsGameTypeSingle())
+	if (g_Alive())
 	{
 		CEntityAlive* EA = smart_cast<CEntityAlive*>(HDS.who);
 		if (EA && EA->g_Alive() && EA->ID() != ID())
@@ -320,8 +318,7 @@ void CEntityAlive::OnEvent(NET_Packet& P, u16 type)
 
 void CEntityAlive::Die(CObject* who)
 {
-	if (IsGameTypeSingle())
-		RELATION_REGISTRY().Action(smart_cast<CEntityAlive*>(who), this, RELATION_REGISTRY::KILL);
+	RELATION_REGISTRY().Action(smart_cast<CEntityAlive*>(who), this, RELATION_REGISTRY::KILL);
 	inherited::Die(who);
 
 	const CGameObject* who_object = smart_cast<const CGameObject*>(who);
@@ -348,39 +345,40 @@ float CEntityAlive::CalcCondition(float /**hit/**/)
 	conditions().UpdateCondition();
 
 	//dont call inherited::CalcCondition it will be meaningless
-	return conditions().GetHealthLost(); //*100.f;
+	return conditions().GetHealthLost();
 }
 
 ///////////////////////////////////////////////////////////////////////
 u16 CEntityAlive::PHGetSyncItemsNumber()
 {
-	return
-		character_physics_support()->PHGetSyncItemsNumber();
+	return character_physics_support()->PHGetSyncItemsNumber();
 }
 
 CPHSynchronize* CEntityAlive::PHGetSyncItem(u16 item)
 {
-	return
-		character_physics_support()->PHGetSyncItem(item);
+	return character_physics_support()->PHGetSyncItem(item);
 }
 
 void CEntityAlive::PHUnFreeze()
 {
-	if (character_physics_support()->movement()->CharacterExist()) character_physics_support()->movement()->UnFreeze();
-	else if (m_pPhysicsShell) m_pPhysicsShell->UnFreeze();
+	if (character_physics_support()->movement()->CharacterExist()) 
+		character_physics_support()->movement()->UnFreeze();
+	else if (m_pPhysicsShell) 
+		m_pPhysicsShell->UnFreeze();
 }
 
 void CEntityAlive::PHFreeze()
 {
-	if (character_physics_support()->movement()->CharacterExist()) character_physics_support()->movement()->Freeze();
-	else if (m_pPhysicsShell) m_pPhysicsShell->Freeze();
+	if (character_physics_support()->movement()->CharacterExist()) 
+		character_physics_support()->movement()->Freeze();
+	else if (m_pPhysicsShell) 
+		m_pPhysicsShell->Freeze();
 }
 
 //////////////////////////////////////////////////////////////////////
 
 //добавление кровавых отметок на стенах, после получения хита
-void CEntityAlive::BloodyWallmarks(float P, const Fvector& dir, s16 element,
-                                   const Fvector& position_in_object_space)
+void CEntityAlive::BloodyWallmarks(float P, const Fvector& dir, s16 element, const Fvector& position_in_object_space)
 {
 	if (BI_NONE == (u16)element)
 		return;
@@ -397,8 +395,8 @@ void CEntityAlive::BloodyWallmarks(float P, const Fvector& dir, s16 element,
 	XFORM().transform_tiny(start_pos);
 
 	float small_entity = 1.f;
-	if (Radius() < SMALL_ENTITY_RADIUS) small_entity = 0.5;
-
+	if (Radius() < SMALL_ENTITY_RADIUS) 
+		small_entity = 0.5;
 
 	float wallmark_size = m_fBloodMarkSizeMax;
 	wallmark_size *= (P / m_fNominalHit);
@@ -406,26 +404,13 @@ void CEntityAlive::BloodyWallmarks(float P, const Fvector& dir, s16 element,
 	clamp(wallmark_size, m_fBloodMarkSizeMin, m_fBloodMarkSizeMax);
 
 	VERIFY(m_pBloodMarksVector);
-	PlaceBloodWallmark(dir, start_pos, m_fBloodMarkDistance,
-	                   wallmark_size, &**m_pBloodMarksVector);
+	PlaceBloodWallmark(dir, start_pos, m_fBloodMarkDistance, wallmark_size, &**m_pBloodMarksVector);
 }
 
-void CEntityAlive::PlaceBloodWallmark(const Fvector& dir, const Fvector& start_pos,
-                                      float trace_dist, float wallmark_size,
-                                      IWallMarkArray* pwallmarks_vector)
+void CEntityAlive::PlaceBloodWallmark(const Fvector& dir, const Fvector& start_pos, float trace_dist, float wallmark_size, IWallMarkArray* pwallmarks_vector)
 {
 	collide::rq_result result;
-	BOOL reach_wall =
-		Level().ObjectSpace.RayPick(
-			start_pos,
-			dir,
-			trace_dist,
-			collide::rqtBoth,
-			result,
-			this
-		)
-		&&
-		!result.O;
+	BOOL reach_wall = Level().ObjectSpace.RayPick(start_pos, dir, trace_dist, collide::rqtBoth, result, this) && !result.O;
 
 	//если кровь долетела до статического объекта
 	if (reach_wall)
@@ -443,18 +428,14 @@ void CEntityAlive::PlaceBloodWallmark(const Fvector& dir, const Fvector& start_p
 			end_point.set(0, 0, 0);
 			end_point.mad(start_pos, dir, result.range);
 
-
-			//ref_shader wallmarkShader = wallmarks_vector[::Random.randI(wallmarks_vector.size())];
 			VERIFY(!pwallmarks_vector->empty());
 			{
 				//добавить отметку на материале
-				//::Render->add_StaticWallmark(wallmarkShader, end_point, wallmark_size, pTri, pVerts);
 				::Render->add_StaticWallmark(pwallmarks_vector, end_point, wallmark_size, pTri, pVerts);
 			}
 		}
 	}
 }
-
 
 void CEntityAlive::StartFireParticles(CWound* pWound)
 {
@@ -470,18 +451,11 @@ void CEntityAlive::StartFireParticles(CWound* pWound)
 
 		if (BI_NONE != particle_bone)
 		{
-			CParticlesPlayer::StartParticles(pWound->GetParticleName(),
-			                                 pWound->GetParticleBoneNum(),
-			                                 Fvector().set(0, 1, 0),
-			                                 ID(),
-			                                 u32(float(m_dwMinBurnTime) * ::Random.randF(0.5f, 1.5f)), false);
+			CParticlesPlayer::StartParticles(pWound->GetParticleName(), pWound->GetParticleBoneNum(), Fvector().set(0, 1, 0), ID(), u32(float(m_dwMinBurnTime) * ::Random.randF(0.5f, 1.5f)), false);
 		}
 		else
 		{
-			CParticlesPlayer::StartParticles(pWound->GetParticleName(),
-			                                 Fvector().set(0, 1, 0),
-			                                 ID(),
-			                                 u32(float(m_dwMinBurnTime) * ::Random.randF(0.5f, 1.5f)), false);
+			CParticlesPlayer::StartParticles(pWound->GetParticleName(), Fvector().set(0, 1, 0), ID(), u32(float(m_dwMinBurnTime) * ::Random.randF(0.5f, 1.5f)), false);
 		}
 	}
 }
@@ -505,16 +479,14 @@ void CEntityAlive::UpdateFireParticles()
 
 		if ((burn_size > 0 && (burn_size < m_fStopBurnWoundSize || !g_Alive())))
 		{
-			CParticlesPlayer::AutoStopParticles(pWound->GetParticleName(), pWound->GetParticleBoneNum(),
-			                                    u32(float(m_dwMinBurnTime) * ::Random.randF(0.5f, 1.5f)));
+			CParticlesPlayer::AutoStopParticles(pWound->GetParticleName(), pWound->GetParticleBoneNum(), u32(float(m_dwMinBurnTime) * ::Random.randF(0.5f, 1.5f)));
 		}
 	}
 }
 
 ALife::ERelationType CEntityAlive::tfGetRelationType(const CEntityAlive* tpEntityAlive) const
 {
-	int relation = MONSTER_COMMUNITY::relation(this->monster_community->index(),
-	                                           tpEntityAlive->monster_community->index());
+	int relation = MONSTER_COMMUNITY::relation(this->monster_community->index(), tpEntityAlive->monster_community->index());
 
 	switch (relation)
 	{
@@ -534,8 +506,7 @@ ALife::ERelationType CEntityAlive::tfGetRelationType(const CEntityAlive* tpEntit
 
 bool CEntityAlive::is_relation_enemy(const CEntityAlive* tpEntityAlive) const
 {
-	return ((tfGetRelationType(tpEntityAlive) == ALife::eRelationTypeEnemy) ||
-		(tfGetRelationType(tpEntityAlive) == ALife::eRelationTypeWorstEnemy));
+	return ((tfGetRelationType(tpEntityAlive) == ALife::eRelationTypeEnemy) || (tfGetRelationType(tpEntityAlive) == ALife::eRelationTypeWorstEnemy));
 }
 
 void CEntityAlive::UpdateBloodDrops()
@@ -576,8 +547,7 @@ void CEntityAlive::UpdateBloodDrops()
 			pos_distort.mul(0.15f);
 			CParticlesPlayer::GetBonePos(this, pWound->GetBoneNum(), Fvector().set(0, 0, 0), pos);
 			pos.add(pos_distort);
-			PlaceBloodWallmark(Fvector().set(0.f, -1.f, 0.f), pos, m_fBloodMarkDistance, m_fBloodDropSize,
-			                   &**m_pBloodDropsVector);
+			PlaceBloodWallmark(Fvector().set(0.f, -1.f, 0.f), pos, m_fBloodMarkDistance, m_fBloodDropSize, &**m_pBloodDropsVector);
 		}
 	}
 }
@@ -609,45 +579,21 @@ CEntityConditionSimple* CEntityAlive::create_entity_condition(CEntityConditionSi
 	return (inherited::create_entity_condition(m_entity_condition));
 }
 
-/*
-float CEntityAlive::GetfHealth	() const
-{
-	return conditions().health()*100.f;
-}
-
-float CEntityAlive::SetfHealth	(float value)
-{
-	conditions().health() = value/100.f;
-	return value;
-}
-*/
 float CEntityAlive::SetfRadiation(float value)
 {
 	conditions().radiation() = value / 100.f;
 	return value;
 }
 
-/*
-float CEntityAlive::g_Health	() const
-{
-	return conditions().GetHealth()*100.f;
-}
-float CEntityAlive::g_MaxHealth	() const
-{
-	return conditions().GetMaxHealth()*100.f;
-}
-*/
 float CEntityAlive::g_Radiation() const
 {
 	return conditions().GetRadiation() * 100.f;
 }
 
-
 DLL_Pure* CEntityAlive::_construct()
 {
 	inherited::_construct();
-	if (character_physics_support())m_material_manager = xr_new<CMaterialManager>(
-		this, character_physics_support()->movement());
+	if (character_physics_support())m_material_manager = xr_new<CMaterialManager>(this, character_physics_support()->movement());
 	return (this);
 }
 
@@ -726,8 +672,10 @@ CPHSoundPlayer* CEntityAlive::ph_sound_player()
 ICollisionHitCallback* CEntityAlive::get_collision_hit_callback()
 {
 	CCharacterPhysicsSupport* cs = character_physics_support();
-	if (cs)return cs->get_collision_hit_callback();
-	else return false;
+	if (cs)
+		return cs->get_collision_hit_callback();
+	else 
+		return false;
 }
 
 void CEntityAlive::set_collision_hit_callback(ICollisionHitCallback* cc)
@@ -951,9 +899,7 @@ Fvector CEntityAlive::get_new_local_point_on_mesh(u16& bone_id) const
 			else
 			{
 				float const normalized_value = random_value - shape.cylinder.m_height;
-				height = shape.cylinder.m_height / 2.f * ((normalized_value < shape.cylinder.m_radius / 2.f)
-					                                          ? -1.f
-					                                          : 1.f);
+				height = shape.cylinder.m_height / 2.f * ((normalized_value < shape.cylinder.m_radius / 2.f) ? -1.f : 1.f);
 				radius = height > 0.f ? normalized_value - shape.cylinder.m_radius / 2.f : normalized_value;
 			}
 

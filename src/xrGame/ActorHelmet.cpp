@@ -66,9 +66,7 @@ void CHelmet::Load(LPCSTR section)
 
 void CHelmet::ReloadBonesProtection()
 {
-	CObject* parent = H_Parent();
-	if (IsGameTypeSingle())
-		parent = smart_cast<CObject*>(Level().CurrentViewEntity());
+	CObject* parent = smart_cast<CObject*>(Level().CurrentViewEntity());
 
 	if (parent && parent->Visual() && m_BonesProtectionSect.size())
 		m_boneProtection->reload(m_BonesProtectionSect, smart_cast<IKinematics*>(parent->Visual()));
@@ -76,8 +74,7 @@ void CHelmet::ReloadBonesProtection()
 
 BOOL CHelmet::net_Spawn(CSE_Abstract* DC)
 {
-	if (IsGameTypeSingle())
-		ReloadBonesProtection();
+	ReloadBonesProtection();
 
 	BOOL res = inherited::net_Spawn(DC);
 	return (res);
@@ -100,7 +97,6 @@ void CHelmet::net_Import(NET_Packet& P)
 void CHelmet::OnH_A_Chield()
 {
 	inherited::OnH_A_Chield();
-	//	ReloadBonesProtection();
 }
 
 void CHelmet::OnMoveToSlot(const SInvItemPlace& previous_place)
@@ -215,9 +211,7 @@ bool CHelmet::install_upgrade_impl(LPCSTR section, bool test)
 
 void CHelmet::AddBonesProtection(LPCSTR bones_section)
 {
-	CObject* parent = H_Parent();
-	if (IsGameTypeSingle())
-		parent = smart_cast<CObject*>(Level().CurrentViewEntity());
+	CObject* parent = smart_cast<CObject*>(Level().CurrentViewEntity());
 
 	if (parent && parent->Visual() && m_BonesProtectionSect.size())
 		m_boneProtection->add(bones_section, smart_cast<IKinematics*>(parent->Visual()));
@@ -245,10 +239,8 @@ float CHelmet::HitThroughArmor(float hit_power, s16 element, float ap, bool& add
 		{
 			//пуля НЕ пробила бронь
 			NewHitPower *= m_boneProtection->m_fHitFracActor;
-			//add_wound = false; 	//раны нет
 			if (strstr(Core.Params, "-dbgbullet"))
-				Msg("CHelmet::HitThroughArmor AP(%f) <= bone_armor(%f) [HitFracActor=%f] modified hit_power=%f", ap,
-				    BoneArmor, m_boneProtection->m_fHitFracActor, NewHitPower);
+				Msg("CHelmet::HitThroughArmor AP(%f) <= bone_armor(%f) [HitFracActor=%f] modified hit_power=%f", ap, BoneArmor, m_boneProtection->m_fHitFracActor, NewHitPower);
 		}
 
 		else
@@ -260,16 +252,12 @@ float CHelmet::HitThroughArmor(float hit_power, s16 element, float ap, bool& add
 		}
 
 		if (strstr(Core.Params, "-dbgbullet"))
-			Msg("CHelmet::HitThroughArmor AP(%f) > bone_armor(%f) [HitFracActor=%f] modified hit_power=%f", ap,
-			    BoneArmor, m_boneProtection->m_fHitFracActor, NewHitPower);
+			Msg("CHelmet::HitThroughArmor AP(%f) > bone_armor(%f) [HitFracActor=%f] modified hit_power=%f", ap, BoneArmor, m_boneProtection->m_fHitFracActor, NewHitPower);
 	}
 	else
 	{
 		float one = 0.1f;
-		if (hit_type == ALife::eHitTypeStrike ||
-			hit_type == ALife::eHitTypeWound ||
-			hit_type == ALife::eHitTypeWound_2 ||
-			hit_type == ALife::eHitTypeExplosion)
+		if (hit_type == ALife::eHitTypeStrike || hit_type == ALife::eHitTypeWound || hit_type == ALife::eHitTypeWound_2 || hit_type == ALife::eHitTypeExplosion)
 		{
 			one = 1.0f;
 		}
@@ -280,8 +268,7 @@ float CHelmet::HitThroughArmor(float hit_power, s16 element, float ap, bool& add
 			NewHitPower = 0.f;
 
 		if (strstr(Core.Params, "-dbgbullet"))
-			Msg("CHelmet::HitThroughArmor hit_type=%d | After HitTypeProtection(%f) hit_power=%f", (u32)hit_type,
-			    protect * one, NewHitPower);
+			Msg("CHelmet::HitThroughArmor hit_type=%d | After HitTypeProtection(%f) hit_power=%f", (u32)hit_type, protect * one, NewHitPower);
 	}
 
 	if (strstr(Core.Params, "-dbgbullet"))

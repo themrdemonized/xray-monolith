@@ -48,7 +48,7 @@ extern void restore_actor();
 bool g_bDisableAllInput = false;
 extern float g_fTimeFactor;
 
-#define CURRENT_ENTITY()	(game?((GameID() == eGameIDSingle) ? CurrentEntity() : CurrentControlEntity()):NULL)
+#define CURRENT_ENTITY() (game ? CurrentEntity() : NULL)
 
 void CLevel::IR_OnMouseWheel(int direction)
 {
@@ -66,7 +66,6 @@ void CLevel::IR_OnMouseWheel(int direction)
                 return;
             }
         }
-        //g_actor->callback(GameObject::eMouseWheel)(direction);
     }
 #endif
 	/* avo: end */
@@ -182,7 +181,7 @@ void CLevel::IR_OnKeyboardPress(int key)
         if (Device.editor())	return;
 #endif // INGAME_EDITOR
 
-		if (!g_block_pause && (IsGameTypeSingle() || IsDemoPlay()))
+		if (!g_block_pause && IsDemoPlay())
 		{
 #ifdef DEBUG
             if(psActorFlags.test(AF_NO_CLIP))
@@ -272,24 +271,6 @@ void CLevel::IR_OnKeyboardPress(int key)
 		return;
 
 	if (game && game->OnKeyboardPress(get_binded_action(key))) return;
-
-    /*
-	if (_curr == kQUICK_SAVE && IsGameTypeSingle())
-	{
-		Console->Execute("save");
-		return;
-	}
-	if (_curr == kQUICK_LOAD && IsGameTypeSingle())
-	{
-#ifdef DEBUG
-        FS.get_path					("$game_config$")->m_Flags.set(FS_Path::flNeedRescan, TRUE);
-        FS.get_path					("$game_scripts$")->m_Flags.set(FS_Path::flNeedRescan, TRUE);
-        FS.rescan_pathes			();
-#endif // DEBUG
-		Console->Execute("load_last_save");
-		return;
-	}
-    */
 
 #ifndef MASTER_GOLD
     switch (key) {

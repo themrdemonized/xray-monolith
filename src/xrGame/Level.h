@@ -408,6 +408,5 @@ IC CPHCommander& CLevel::ph_commander_physics_worldstep()
 
 IC bool OnServer() { return Level().IsServer(); }
 IC bool OnClient() { return Level().IsClient(); }
-IC bool IsGameTypeSingle() { return (g_pGamePersistent->GameType() == eGameIDSingle); }
 
 extern bool g_bDebugEvents;

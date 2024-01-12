@@ -760,17 +760,6 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-#if 0
-		if (!Level().autosave_manager().ready_for_autosave()) {
-			Msg("! Cannot save the game right now!");
-			return;
-		}
-#endif
-		if (!IsGameTypeSingle())
-		{
-			Msg("for single-mode only");
-			return;
-		}
 		if (!g_actor || !Actor()->g_Alive())
 		{
 			Msg("cannot make saved game because actor is dead :(");
@@ -2695,9 +2684,7 @@ void CCC_RegisterCommands()
 
 	if (strstr(Core.Params, "-dbgdev"))
 		CMD4(CCC_Float, "g_streff", &streff, -10.f, 10.f);
-	//No need for server commands in a singleplayer-only mod
-	//register_mp_console_commands();
-    
+
     zoomFlags.set(NEW_ZOOM, FALSE);
     zoomFlags.set(SDS_ZOOM, TRUE);
     zoomFlags.set(SDS_SPEED, TRUE);
