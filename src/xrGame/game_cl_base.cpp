@@ -126,10 +126,7 @@ void game_cl_GameState::net_import_state(NET_Packet& P)
 	P.r_u16(p_count);
 	R_ASSERT(p_count <= MAX_PLAYERS_COUNT);
 
-	buffer_vector<ClientID> valid_players(
-		_alloca(sizeof(ClientID) * (p_count + 1)),
-		(p_count + 1)
-	);
+	buffer_vector<ClientID> valid_players(_alloca(sizeof(ClientID) * (p_count + 1)), (p_count + 1));
 
 	for (u16 p_it = 0; p_it < p_count; ++p_it)
 	{
@@ -147,8 +144,6 @@ void game_cl_GameState::net_import_state(NET_Packet& P)
 			//-----------------------------------------------
 			IP->net_Import(P);
 			//-----------------------------------------------
-			if (OldFlags != IP->flags__)
-				if (Type() != eGameIDSingle) OnPlayerFlagsChanged(IP);
 			if (OldVote != IP->m_bCurrentVoteAgreed)
 				OnPlayerVoted(IP);
 			//***********************************************
@@ -156,16 +151,13 @@ void game_cl_GameState::net_import_state(NET_Packet& P)
 		}
 		else
 		{
-			if (ID == local_svdpnid) //Level().GetClientID())
+			if (ID == local_svdpnid)
 			{
 				game_PlayerState::skip_Import(P); //this mean that local_player not created yet ..
 				continue;
 			}
 
 			IP = createPlayerState(&P);
-
-			if (Type() != eGameIDSingle)
-				OnPlayerFlagsChanged(IP);
 
 			players.insert(mk_pair(ID, IP));
 			valid_players.push_back(ID);
@@ -193,20 +185,15 @@ void game_cl_GameState::net_import_update(NET_Packet& P)
 
 	// Update
 	PLAYERS_MAP_IT I = players.find(ID);
-	/*VERIFY2(I != players.end(), 
-		make_string("Player ClientID = %d not found in players map", ID.value()).c_str());*/
 	if (players.end() != I)
 	{
-		game_PlayerState* IP = I->second;
-		//		CopyMemory	(&IP,&PS,sizeof(PS));		
+		game_PlayerState* IP = I->second;	
 		//***********************************************
 		u16 OldFlags = IP->flags__;
 		u8 OldVote = IP->m_bCurrentVoteAgreed;
 		//-----------------------------------------------
 		IP->net_Import(P);
 		//-----------------------------------------------
-		if (OldFlags != IP->flags__)
-			if (Type() != eGameIDSingle) OnPlayerFlagsChanged(IP);
 		if (OldVote != IP->m_bCurrentVoteAgreed)
 			OnPlayerVoted(IP);
 		//***********************************************
@@ -251,11 +238,6 @@ void game_cl_GameState::TranslateGameMessage(u32 msg, NET_Packet& P)
 			}
 			VERIFY2(PS, "failed to create player state");
 
-			if (Type() != eGameIDSingle)
-			{
-				players.insert(mk_pair(newClientId, PS));
-				OnNewPlayerConnected(newClientId);
-			}
 			xr_sprintf(Text, "%s%s %s%s", Color_Teams[0], PS->getName(), Color_Main, *st.translate("mp_connected"));
 			if (CurrentGameUI()) CurrentGameUI()->CommonMessageOut(Text);
 			//---------------------------------------

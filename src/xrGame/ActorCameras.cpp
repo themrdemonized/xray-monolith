@@ -11,12 +11,10 @@
 #include "Weapon.h"
 #include "Inventory.h"
 
-//#include "SleepEffector.h"
 #include "ActorEffector.h"
 #include "level.h"
 #include "../xrEngine/cl_intersect.h"
 
-//#include "elevatorstate.h"
 #include "CharacterPhysicsSupport.h"
 #include "EffectorShot.h"
 
@@ -501,25 +499,6 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 		
 	on_weapon_shot_update();
-	float y_shift = 0;
-
-	if (GamePersistent().GameType() != eGameIDSingle && ik_cam_shift && character_physics_support() &&
-		character_physics_support()->ik_controller())
-	{
-		y_shift = character_physics_support()->ik_controller()->Shift();
-		float cam_smooth_k = 1.f;
-		if (_abs(y_shift - current_ik_cam_shift) > ik_cam_shift_tolerance)
-		{
-			cam_smooth_k = 1.f - ik_cam_shift_speed * dt / 0.01f;
-		}
-
-		if (_abs(y_shift) < ik_cam_shift_tolerance / 2.f)
-			cam_smooth_k = 1.f - ik_cam_shift_speed * 1.f / 0.01f * dt;
-		clamp(cam_smooth_k, 0.f, 1.f);
-		current_ik_cam_shift = cam_smooth_k * current_ik_cam_shift + y_shift * (1.f - cam_smooth_k);
-	}
-	else
-		current_ik_cam_shift = 0;
 
 	// Alex ADD: smooth crouch fix
 	float HeightInterpolationSpeed = 4.f;
@@ -529,11 +508,10 @@ void CActor::cam_Update(float dt, float fFOV)
 
 	if (CurrentHeight != CameraHeight())
 	{
-		CurrentHeight = (CurrentHeight * (1.0f - HeightInterpolationSpeed * dt)) + (CameraHeight() *
-			HeightInterpolationSpeed * dt);
+		CurrentHeight = (CurrentHeight * (1.0f - HeightInterpolationSpeed * dt)) + (CameraHeight() * HeightInterpolationSpeed * dt);
 	}
 
-	Fvector point = {0, CurrentHeight + current_ik_cam_shift, 0};
+	Fvector point = {0, CurrentHeight, 0};
 	Fvector dangle = {0, 0, 0};
 	Fmatrix xform;
 	xform.setXYZ(0, r_torso.yaw, 0);
@@ -542,7 +520,6 @@ void CActor::cam_Update(float dt, float fFOV)
 	// lookout
 	if (this == Level().CurrentControlEntity())
 		cam_Lookout(xform, point.y);
-
 
 	if (!fis_zero(r_torso.roll))
 	{
@@ -555,8 +532,7 @@ void CActor::cam_Update(float dt, float fFOV)
 	float flCurrentPlayerY = xform.c.y;
 
 	// Smooth out stair step ups
-	if ((character_physics_support()->movement()->Environment() == CPHMovementControl::peOnGround) && (flCurrentPlayerY
-		- fPrevCamPos > 0))
+	if ((character_physics_support()->movement()->Environment() == CPHMovementControl::peOnGround) && (flCurrentPlayerY - fPrevCamPos > 0))
 	{
 		fPrevCamPos += dt * 1.5f;
 		if (fPrevCamPos > flCurrentPlayerY)
@@ -571,6 +547,7 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 
 	float _viewport_near = VIEWPORT_NEAR;
+
 	// calc point
 	xform.transform_tiny(point);
 
@@ -608,16 +585,10 @@ void CActor::cam_Update(float dt, float fFOV)
 
 			// Adjust camera direction
 			Fvector adjustedCamDir;
-			adjustedCamDir.set(camDir).setHP(
-				camDir.x + deg2rad(8.f) + deg2rad(offsetH),
-				camDir.y - deg2rad(20.f) + deg2rad(offsetP)
-			);
-			camDir.set(
-				adjustedCamDir.getH(),
-				adjustedCamDir.getP(),
-				camDir.z + deg2rad(90.f) + deg2rad(offsetB)
-			);
-			if (camDir.x < 0) {
+			adjustedCamDir.set(camDir).setHP(camDir.x + deg2rad(8.f) + deg2rad(offsetH), camDir.y - deg2rad(20.f) + deg2rad(offsetP));
+			camDir.set(adjustedCamDir.getH(), adjustedCamDir.getP(), camDir.z + deg2rad(90.f) + deg2rad(offsetB));
+			if (camDir.x < 0) 
+			{
 				camDir.x = PI_MUL_2 + camDir.x;
 			}
 
@@ -632,19 +603,10 @@ void CActor::cam_Update(float dt, float fFOV)
 			m_FPCam->m_HPB.set(camDir);
 			m_FPCam->m_Position.set(camPos);
 			_viewport_near = VIEWPORT_NEAR - 0.08 + viewportNearOffset;
-			//Cameras().ApplyDevice(_viewport_near);
 		}
 	}
 
-	//Alundaio -psp always
-	//if( psActorFlags.test(AF_PSP) )
-	//{
 	Cameras().UpdateFromCamera(C);
-	//}else
-	//{
-	//	Cameras().UpdateFromCamera			(cameras[eacFirstEye]);
-	//}
-	//-Alundaio
 
 	fCurAVelocity = vPrevCamDir.sub(cameras[eacFirstEye]->vDirection).magnitude() / Device.fTimeDelta;
 	vPrevCamDir = cameras[eacFirstEye]->vDirection;
@@ -687,7 +649,6 @@ void CActor::cam_Update(float dt, float fFOV)
 void CActor::update_camera(CCameraShotEffector* effector)
 {
 	if (!effector) return;
-	//	if (Level().CurrentViewEntity() != this) return;
 
 	CCameraBase* pACam = cam_Active();
 	if (!pACam) return;
@@ -711,7 +672,6 @@ void CActor::update_camera(CCameraShotEffector* effector)
 	}
 }
 
-
 #ifdef DEBUG
 void dbg_draw_frustum (float FOV, float _FAR, float A, Fvector &P, Fvector &D, Fvector &U);
 extern	Flags32	dbg_net_Draw_Flags;
@@ -727,8 +687,6 @@ void CActor::OnRender	()
 
 	if ((dbg_net_Draw_Flags.is_any(dbg_draw_actor_phys)))
 		character_physics_support()->movement()->dbg_Draw	();
-
-	
 
 	OnRender_Network();
 

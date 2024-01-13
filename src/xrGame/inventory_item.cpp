@@ -167,27 +167,6 @@ LPCSTR CInventoryItem::NameShort()
 	return m_nameShort.c_str();
 }
 
-/*
-LPCSTR CInventoryItem::NameComplex() 
-{
-	const char *l_name = Name();
-	if(l_name) 	m_nameComplex = l_name; 
-	else 		m_nameComplex = 0;
-
-	if( m_flags.test(FUsingCondition) ){
-		string32		cond;
-		if(GetCondition()<0.33)		xr_strcpy		(cond,	"[poor]");
-		else if(GetCondition()<0.66)xr_strcpy		(cond,	"[bad]"	);
-		else						xr_strcpy		(cond,	"[good]");
-		string256		temp;
-		strconcat		(temp,*m_nameComplex," ",cond)	;
-		// xr_sprintf			(temp,"%s %s",*m_nameComplex,cond);
-		m_nameComplex	= temp;
-	}
-
-	return *m_nameComplex;
-}
-*/
 bool CInventoryItem::Useful() const
 {
 	return CanTake();
@@ -292,8 +271,7 @@ bool CInventoryItem::Detach(const char* item_section_name, bool b_spawn_item)
 	{
 		CSE_Abstract* D = F_entity_Create(item_section_name);
 		R_ASSERT(D);
-		CSE_ALifeDynamicObject* l_tpALifeDynamicObject =
-			smart_cast<CSE_ALifeDynamicObject*>(D);
+		CSE_ALifeDynamicObject* l_tpALifeDynamicObject = smart_cast<CSE_ALifeDynamicObject*>(D);
 		R_ASSERT(l_tpALifeDynamicObject);
 
 		l_tpALifeDynamicObject->m_tNodeID = (g_dedicated_server) ? u32(-1) : object().ai_location().level_vertex_id();
@@ -301,21 +279,9 @@ bool CInventoryItem::Detach(const char* item_section_name, bool b_spawn_item)
 		// Fill
 		D->s_name = item_section_name;
 		D->set_name_replace("");
-		//.		D->s_gameid			=	u8(GameID());
 		D->s_RP = 0xff;
 		D->ID = 0xffff;
-		if (GameID() == eGameIDSingle)
-		{
-			D->ID_Parent = u16(object().H_Parent()->ID());
-		}
-		else // i'm not sure this is right
-		{
-			// but it is simpliest way to avoid exception in MP BuyWnd... [Satan]
-			if (object().H_Parent())
-				D->ID_Parent = u16(object().H_Parent()->ID());
-			else
-				D->ID_Parent = 0xffff;
-		}
+		D->ID_Parent = u16(object().H_Parent()->ID());
 		D->ID_Phantom = 0xffff;
 		D->o_Position = object().Position();
 		D->s_flags.assign(M_SPAWN_OBJECT_LOCAL);
@@ -772,16 +738,6 @@ void CInventoryItem::modify_holder_params(float& range, float& fov) const
 
 bool CInventoryItem::NeedToDestroyObject() const
 {
-	if (GameID() == eGameIDSingle)
-		return false;
-
-	if (GameID() == eGameIDCaptureTheArtefact)
-		return false;
-
-	if (object().Remote()) return false;
-	if (TimePassedAfterIndependant() > ITEM_REMOVE_TIME)
-		return true;
-
 	return false;
 }
 

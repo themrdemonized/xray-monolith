@@ -128,16 +128,12 @@ namespace crash_saving {
 		} sortFilesDesc;
 		std::sort(fset.begin(), fset.end(), sortFilesDesc);
 
-		//Msg("save mask %s", path_mask.c_str());
-
 		for (auto &file : fset)
 		{
 			string128 name;
 			xr_strcpy(name, sizeof(name), file.name.c_str());
 			std::string name_string(name);
 			name_string.erase(name_string.length() - path_ext.length());
-
-			//Msg("found save file %s, save_name %s", name, name_string.c_str());
 
 			try {
 				//Msg("save number %s", name_string.substr(path.length()).c_str());
@@ -330,21 +326,6 @@ void CLevel::PrefetchSound(LPCSTR name)
 // Game interface ////////////////////////////////////////////////////
 int CLevel::get_RPID(LPCSTR /**name/**/)
 {
-	/*
-	// Gain access to string
-	LPCSTR	params = pLevel->r_string("respawn_point",name);
-	if (0==params)	return -1;
-
-	// Read data
-	Fvector4	pos;
-	int			team;
-	sscanf		(params,"%f,%f,%f,%d,%f",&pos.x,&pos.y,&pos.z,&team,&pos.w); pos.y += 0.1f;
-
-	// Search respawn point
-	svector<Fvector4,maxRP>	&rp = Level().get_team(team).RespawnPoints;
-	for (int i=0; i<(int)(rp.size()); ++i)
-	if (pos.similar(rp[i],EPS_L))	return i;
-	*/
 	return -1;
 }
 
@@ -514,8 +495,6 @@ void CLevel::ProcessGameEvents()
 				}
 			case M_STATISTIC_UPDATE:
 				{
-					if (GameID() != eGameIDSingle)
-						Game().m_WeaponUsageStatistic->OnUpdateRequest(&P);
 					break;
 				}
 			case M_FILE_TRANSFER:
@@ -537,8 +516,6 @@ void CLevel::ProcessGameEvents()
 			}
 		}
 	}
-	if (OnServer() && GameID() != eGameIDSingle)
-		Game().m_WeaponUsageStatistic->Send_Check_Respond();
 }
 
 #ifdef DEBUG_MEMORY_MANAGER
@@ -592,10 +569,7 @@ void CLevel::OnFrame()
 #endif
 	Fvector temp_vector;
 	m_feel_deny.feel_touch_update(temp_vector, 0.f);
-	if (GameID() != eGameIDSingle)
-		psDeviceFlags.set(rsDisableObjectsAsCrows, true);
-	else
-		psDeviceFlags.set(rsDisableObjectsAsCrows, false);
+	psDeviceFlags.set(rsDisableObjectsAsCrows, true);
 	// commit events from bullet manager from prev-frame
 	Device.Statistic->TEST0.Begin();
 	BulletManager().CommitEvents();
@@ -603,13 +577,6 @@ void CLevel::OnFrame()
 	// Client receive
 	if (net_isDisconnected())
 	{
-		if (OnClient() && GameID() != eGameIDSingle)
-		{
-#ifdef DEBUG
-            Msg("--- I'm disconnected, so clear all objects...");
-#endif
-			ClearAllObjects();
-		}
 		Engine.Event.Defer("kernel:disconnect");
 		return;
 	}
@@ -883,12 +850,6 @@ void CLevel::OnRender()
             CTeamBaseZone* team_base_zone = smart_cast<CTeamBaseZone*>(_O);
             if (team_base_zone)
                 team_base_zone->OnRender();
-            if (GameID() != eGameIDSingle)
-            {
-                CInventoryItem* pIItem = smart_cast<CInventoryItem*>(_O);
-                if (pIItem)
-                    pIItem->OnRender();
-            }
             if (dbg_net_Draw_Flags.test(dbg_draw_skeleton)) //draw skeleton
             {
                 CGameObject* pGO = smart_cast<CGameObject*>	(_O);
@@ -1145,22 +1106,6 @@ bool CLevel::InterpolationDisabled()
 
 void CLevel::PhisStepsCallback(u32 Time0, u32 Time1)
 {
-	if (!Level().game)
-		return;
-	if (GameID() == eGameIDSingle)
-		return;
-	//#pragma todo("Oles to all: highly inefficient and slow!!!")
-	//fixed (Andy)
-	/*
-	for (xr_vector<CObject*>::iterator O=Level().Objects.objects.begin(); O!=Level().Objects.objects.end(); ++O)
-	{
-	if( smart_cast<CActor*>((*O)){
-	CActor* pActor = smart_cast<CActor*>(*O);
-	if (!pActor || pActor->Remote()) continue;
-	pActor->UpdatePosStack(Time0, Time1);
-	}
-	};
-	*/
 }
 
 void CLevel::SetNumCrSteps(u32 NumSteps)

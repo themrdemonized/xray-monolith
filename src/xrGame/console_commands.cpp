@@ -23,7 +23,6 @@
 #include "script_process.h"
 #include "xrServer_Objects.h"
 #include "ui/UIMainIngameWnd.h"
-//#include "../xrphysics/PhysicsGamePars.h"
 #include "../xrphysics/iphworld.h"
 #include "string_table.h"
 #include "autosave_manager.h"
@@ -40,8 +39,6 @@
 #include "MainMenu.h"
 #include "saved_game_wrapper.h"
 #include "level_graph.h"
-//#include "../xrEngine/resourcemanager.h"
-//#include "../xrEngine/doug_lea_memory_allocator.h"
 #include "cameralook.h"
 #include "character_hit_animations_params.h"
 #include "inventory_upgrade_manager.h"
@@ -270,14 +267,6 @@ public:
 		CCC_Token::Execute(args);
 		if (g_pGameLevel && Level().game)
 		{
-			//#ifndef	DEBUG
-			if (GameID() != eGameIDSingle)
-			{
-				Msg("For this game type difficulty level is disabled.");
-				return;
-			};
-			//#endif
-
 			game_cl_Single* game = smart_cast<game_cl_Single*>(Level().game);
 			VERIFY(game);
 			game->OnDifficultyChanged();
@@ -387,7 +376,7 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-		if ((GameID() == eGameIDSingle) && ai().get_alife())
+		if (ai().get_alife())
 		{
 			float id1 = 0.0f;
 			sscanf(args, "%f", &id1);
@@ -415,7 +404,7 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-		if ((GameID() == eGameIDSingle) && ai().get_alife())
+		if (ai().get_alife())
 		{
 			game_sv_Single* tpGame = smart_cast<game_sv_Single *>(Level().Server->game);
 			VERIFY(tpGame);
@@ -440,7 +429,7 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-		if ((GameID() == eGameIDSingle) && ai().get_alife())
+		if (ai().get_alife())
 		{
 			game_sv_Single* tpGame = smart_cast<game_sv_Single *>(Level().Server->game);
 			VERIFY(tpGame);
@@ -462,7 +451,7 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-		if ((GameID() == eGameIDSingle) && ai().get_alife())
+		if (ai().get_alife())
 		{
 			game_sv_Single* tpGame = smart_cast<game_sv_Single *>(Level().Server->game);
 			VERIFY(tpGame);
@@ -488,13 +477,6 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-#ifndef	DEBUG
-		//if (GameID() != eGameIDSingle)
-		//{
-		//	Msg("For this game type Demo Record is disabled.");
-		//	return;
-		//};
-#endif
 		Console->Hide();
 
 		LPSTR fn_;
@@ -517,13 +499,6 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-#ifndef	DEBUG
-		//if (GameID() != eGameIDSingle)
-		//{
-		//	Msg("For this game type Demo Record is disabled.");
-		//	return;
-		//};
-#endif
 		Console->Hide();
 
 		LPSTR fn_;
@@ -559,20 +534,12 @@ class CCC_DemoRecordSetPos : public CCC_Vector3
 	static Fvector p;
 public:
 
-	CCC_DemoRecordSetPos(LPCSTR N) : CCC_Vector3(N, &p, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
-	                                             Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
+	CCC_DemoRecordSetPos(LPCSTR N) : CCC_Vector3(N, &p, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX), Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
 	{
 	};
 
 	virtual void Execute(LPCSTR args)
 	{
-#ifndef	DEBUG
-		//if (GameID() != eGameIDSingle)
-		//{
-		//	Msg("For this game type Demo Record is disabled.");
-		//	return;
-		//};
-#endif
 		CDemoRecord::GetGlobalPosition(p);
 		CCC_Vector3::Execute(args);
 		CDemoRecord::SetGlobalPosition(p);
@@ -588,20 +555,12 @@ class CCC_DemoRecordSetDir : public CCC_Vector3
 	static Fvector d;
 public:
 
-	CCC_DemoRecordSetDir(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX),
-		Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
+	CCC_DemoRecordSetDir(LPCSTR N) : CCC_Vector3(N, &d, Fvector().set(-FLT_MAX, -FLT_MAX, -FLT_MAX), Fvector().set(FLT_MAX, FLT_MAX, FLT_MAX))
 	{
 	};
 
 	virtual void Execute(LPCSTR args)
 	{
-#ifndef	DEBUG
-		//if (GameID() != eGameIDSingle)
-		//{
-		//	Msg("For this game type Demo Record is disabled.");
-		//	return;
-		//};
-#endif
 		CDemoRecord::GetGlobalDirection(d);
 		CCC_Vector3::Execute(args);
 		CDemoRecord::SetGlobalDirection(d);
@@ -623,13 +582,6 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-#ifndef	DEBUG
-		//if (GameID() != eGameIDSingle)
-		//{
-		//	Msg("For this game type Demo Play is disabled.");
-		//	return;
-		//};
-#endif
 		if (0 == g_pGameLevel)
 		{
 			Msg("! There are no level(s) started");
@@ -866,22 +818,6 @@ public:
 			return;
 		}
 
-		/*     moved to level_network_messages.cpp
-		CSavedGameWrapper			wrapper(args);
-		if (wrapper.level_id() == ai().level_graph().level_id()) {
-		if (Device.Paused())
-		Device.Pause		(FALSE, TRUE, TRUE, "CCC_ALifeLoadFrom");
-
-		Level().remove_objects	();
-
-		game_sv_Single			*game = smart_cast<game_sv_Single*>(Level().Server->game);
-		R_ASSERT				(game);
-		game->restart_simulator	(saved_game);
-
-		return;
-		}
-		*/
-
 		if (MainMenu()->IsActive())
 			MainMenu()->Activate(false);
 
@@ -1004,16 +940,7 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-#ifdef _DEBUG
 		CCC_Float::Execute(args);
-#else
-		if (!g_pGameLevel || GameID() == eGameIDSingle)
-			CCC_Float::Execute(args);
-		else
-		{
-			Msg("! Command disabled for this type of game");
-		}
-#endif
 	}
 };
 
@@ -1022,9 +949,7 @@ class CCC_Net_CL_InputUpdateRate : public CCC_Integer
 protected:
 	int* value_blin;
 public:
-	CCC_Net_CL_InputUpdateRate(LPCSTR N, int* V, int _min = 0, int _max = 999) :
-		CCC_Integer(N, V, _min, _max),
-		value_blin(V)
+	CCC_Net_CL_InputUpdateRate(LPCSTR N, int* V, int _min = 0, int _max = 999) : CCC_Integer(N, V, _min, _max), value_blin(V)
 	{
 	};
 
@@ -1344,7 +1269,6 @@ public:
 	virtual void Execute(LPCSTR args)
 	{
 		CCC_Integer::Execute(args);
-		// dWorldSetQuickStepNumIterations(NULL,phIterations);
 		if (physics_world())
 			physics_world()->StepNumIterations(phIterations);
 	}
@@ -1363,13 +1287,6 @@ public:
 	{
 		if (!physics_world())
 			return;
-#ifndef DEBUG
-		if (g_pGameLevel && Level().game && GameID() != eGameIDSingle)
-		{
-			Msg("Command is not available in Multiplayer");
-			return;
-		}
-#endif
 		physics_world()->SetGravity(float(atof(args)));
 	}
 

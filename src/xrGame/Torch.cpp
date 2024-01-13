@@ -328,8 +328,7 @@ void CTorch::UpdateCL()
 		CActor* actor = smart_cast<CActor*>(H_Parent());
 		if (actor) smart_cast<IKinematics*>(H_Parent()->Visual())->CalculateBones_Invalidate();
 
-		if (H_Parent()->XFORM().c.distance_to_sqr(Device.vCameraPosition) < _sqr(OPTIMIZATION_DISTANCE) || GameID() !=
-			eGameIDSingle)
+		if (H_Parent()->XFORM().c.distance_to_sqr(Device.vCameraPosition) < _sqr(OPTIMIZATION_DISTANCE))
 		{
 			// near camera
 			smart_cast<IKinematics*>(H_Parent()->Visual())->CalculateBones();
@@ -347,17 +346,13 @@ void CTorch::UpdateCL()
 		{
 			if (actor->active_cam() == eacLookAt)
 			{
-				m_prev_hp.x = angle_inertion_var(m_prev_hp.x, -actor->cam_Active()->yaw, m_torch_inertion_speed_min,
-				                                 m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
-				m_prev_hp.y = angle_inertion_var(m_prev_hp.y, -actor->cam_Active()->pitch, m_torch_inertion_speed_min,
-				                                 m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
+				m_prev_hp.x = angle_inertion_var(m_prev_hp.x, -actor->cam_Active()->yaw, m_torch_inertion_speed_min, m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
+				m_prev_hp.y = angle_inertion_var(m_prev_hp.y, -actor->cam_Active()->pitch, m_torch_inertion_speed_min, m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
 			}
 			else
 			{
-				m_prev_hp.x = angle_inertion_var(m_prev_hp.x, -actor->cam_FirstEye()->yaw, m_torch_inertion_speed_min,
-				                                 m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
-				m_prev_hp.y = angle_inertion_var(m_prev_hp.y, -actor->cam_FirstEye()->pitch, m_torch_inertion_speed_min,
-				                                 m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
+				m_prev_hp.x = angle_inertion_var(m_prev_hp.x, -actor->cam_FirstEye()->yaw, m_torch_inertion_speed_min, m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
+				m_prev_hp.y = angle_inertion_var(m_prev_hp.y, -actor->cam_FirstEye()->pitch, m_torch_inertion_speed_min, m_torch_inertion_speed_max, m_torch_inertion_clamp, Device.fTimeDelta);
 			}
 
 			Fvector dir, right, up;
@@ -495,8 +490,6 @@ void CTorch::setup_physic_shell()
 void CTorch::net_Export(NET_Packet& P)
 {
 	inherited::net_Export(P);
-	//	P.w_u8						(m_switched_on ? 1 : 0);
-
 
 	BYTE F = 0;
 	F |= (m_switched_on ? eTorchActive : 0);

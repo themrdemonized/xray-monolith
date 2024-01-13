@@ -105,8 +105,7 @@ static Fvector vFootExt;
 Flags32 psActorFlags = {AF_GODMODE_RT | AF_AUTOPICKUP | AF_RUN_BACKWARD | AF_IMPORTANT_SAVE | AF_USE_TRACERS};
 int psActorSleepTime = 1;
 
-
-CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
+CActor::CActor() : CEntityAlive()
 {
 	game_news_registry = xr_new<CGameNewsRegistryWrapper>();
 
@@ -310,8 +309,7 @@ void CActor::Load(LPCSTR section)
 	CInventoryOwner::Load(section);
 	m_location_manager->Load(section);
 
-	if (GameID() == eGameIDSingle)
-		OnDifficultyChanged();
+	OnDifficultyChanged();
 	//////////////////////////////////////////////////////////////////////////
 	ISpatial* self = smart_cast<ISpatial*>(this);
 	if (self)
@@ -1520,8 +1518,6 @@ void CActor::shedule_Update(u32 DT)
 		m_pVehicleWeLookingAt = smart_cast<CHolderCustom*>(game_object);
 		CEntityAlive* pEntityAlive = smart_cast<CEntityAlive*>(game_object);
 
-		if (GameID() == eGameIDSingle)
-		{
 			if (m_pUsableObject && m_pUsableObject->tip_text())
 			{
 				m_sDefaultObjAction = CStringTable().translate(m_pUsableObject->tip_text());
@@ -1564,7 +1560,6 @@ void CActor::shedule_Update(u32 DT)
 					m_sDefaultObjAction = NULL;
 				}
 			}
-		}
 	}
 	else
 	{
@@ -1874,21 +1869,11 @@ void CActor::UpdateArtefactsOnBeltAndOutfit()
 	CHelmet* pHelmet = smart_cast<CHelmet*>(inventory().ItemFromSlot(HELMET_SLOT));
 	if (outfit || pHelmet)
 	{
-		conditions().ChangeBleeding(
-			((outfit ? outfit->m_fBleedingRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fBleedingRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangeHealth(
-			((outfit ? outfit->m_fHealthRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fHealthRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangePower(
-			((outfit ? outfit->m_fPowerRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fPowerRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangeSatiety(
-			((outfit ? outfit->m_fSatietyRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fSatietyRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangeRadiation(
-			((outfit ? outfit->m_fRadiationRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fRadiationRestoreSpeed : 0.f)) *
-			f_update_time);
+		conditions().ChangeBleeding(((outfit ? outfit->m_fBleedingRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fBleedingRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangeHealth(((outfit ? outfit->m_fHealthRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fHealthRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangePower(((outfit ? outfit->m_fPowerRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fPowerRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangeSatiety(((outfit ? outfit->m_fSatietyRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fSatietyRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangeRadiation(((outfit ? outfit->m_fRadiationRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fRadiationRestoreSpeed : 0.f)) * f_update_time);
 	}
 }
 

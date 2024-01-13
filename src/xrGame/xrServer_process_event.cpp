@@ -190,22 +190,11 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 
 			xrClientData* l_pC = ID_to_client(sender);
 			VERIFY(game && l_pC);
-#ifndef MASTER_GOLD
-			if ((game->Type() != eGameIDSingle) && l_pC && l_pC->owner)
-			{
-				Msg					("* [%2d] killed by [%2d] - sended by [0x%08x]", id_dest, id_src, l_pC->ID.value());
-			}
-#endif // #ifndef MASTER_GOLD
 
 			CSE_Abstract* e_dest = receiver; // кто умер
 			// this is possible when hit event is sent before destroy event
 			if (!e_dest)
 				break;
-
-#ifndef MASTER_GOLD
-			if (game->Type() != eGameIDSingle)
-				Msg				("* [%2d] is [%s:%s]", id_dest, *e_dest->s_name, e_dest->name_replace());
-#endif // #ifndef MASTER_GOLD
 
 			CSE_Abstract* e_src = game->get_entity_from_eid(id_src); // кто убил
 			if (!e_src)
@@ -219,11 +208,6 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 				Msg("! ERROR: SV: src killer not exist.");
 				return;
 			}
-			//			R_ASSERT2			(e_dest && e_src, "Killer or/and being killed are offline or not exist at all :(");
-#ifndef MASTER_GOLD
-			if (game->Type() != eGameIDSingle)
-				Msg				("* [%2d] is [%s:%s]", id_src, *e_src->s_name, e_src->name_replace());
-#endif // #ifndef MASTER_GOLD
 
 			game->on_death(e_dest, e_src);
 
@@ -242,18 +226,13 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 
 			SendBroadcast(BroadcastCID, P, MODE);
 
-			//////////////////////////////////////////////////////////////////////////
-			// 
-			if (game->Type() == eGameIDSingle)
-			{
-				P.w_begin(M_EVENT);
-				P.w_u32(timestamp);
-				P.w_u16(GE_KILL_SOMEONE);
-				P.w_u16(id_src);
-				P.w_u16(destination);
-				SendTo(c_src->ID, P, net_flags(TRUE, TRUE));
-			}
-			//////////////////////////////////////////////////////////////////////////
+			P.w_begin(M_EVENT);
+			P.w_u32(timestamp);
+			P.w_u16(GE_KILL_SOMEONE);
+			P.w_u16(id_src);
+			P.w_u16(destination);
+			SendTo(c_src->ID, P, net_flags(TRUE, TRUE));
+
 #ifdef DEBUG
 			VERIFY(verify_entities());
 #endif

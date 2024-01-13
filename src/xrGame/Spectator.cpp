@@ -99,33 +99,6 @@ void CSpectator::UpdateCL()
 		}
 	}
 
-	if (GameID() != eGameIDSingle)
-	{
-		if (Game().local_player && (
-				(Game().local_player->GameID == ID()) ||
-				Level().IsDemoPlay()
-			)
-		)
-		{
-			if (cam_active != eacFreeFly)
-			{
-				if (m_pActorToLookAt && !m_pActorToLookAt->g_Alive())
-					cam_Set(eacFreeLook);
-				if (!m_pActorToLookAt)
-				{
-					SelectNextPlayerToLook(false);
-					if (m_pActorToLookAt)
-						cam_Set(m_last_camera);
-				};
-			}
-			if (Level().CurrentViewEntity() == this)
-			{
-				cam_Update(m_pActorToLookAt);
-			}
-			return;
-		}
-	};
-
 	if (g_pGameLevel->CurrentViewEntity() == this)
 	{
 		if (eacFreeFly != cam_active)
@@ -364,12 +337,6 @@ void CSpectator::FirstEye_ToPlayer(CObject* pObject)
 		if (pActor)
 		{
 			pActor->inventory().Items_SetCurrentEntityHud(true);
-
-			/*			CHudItem* pHudItem = smart_cast<CHudItem*>(pActor->inventory().ActiveItem());
-						if (pHudItem) 
-						{
-							pHudItem->OnStateSwitch(pHudItem->GetState());
-						}*/
 		}
 	};
 	if (Device.Paused() && pOldActor)
@@ -480,7 +447,6 @@ void CSpectator::cam_Update(CActor* A)
 		dangle.set(0, 0, 0);
 
 		cam->Update(point, dangle);
-		//		cam->vPosition.set(point0);
 		if (Device.Paused())
 		{
 			Device.fTimeDelta = m_fTimeDelta; //fake, to update cam (problem with fov)
@@ -546,60 +512,6 @@ void CSpectator::net_Destroy()
 
 bool CSpectator::SelectNextPlayerToLook(bool const search_next)
 {
-	if (GameID() == eGameIDSingle) return false;
-
-	game_PlayerState* PS = Game().local_player;
-	if (!PS) return false;
-	m_pActorToLookAt = NULL;
-
-	game_cl_mp* pMPGame = smart_cast<game_cl_mp*>(&Game());
-
-	game_cl_GameState::PLAYERS_MAP_IT it = Game().players.begin(),
-	                                  ite = Game().players.end();
-	u16 PPCount = 0;
-	CActor* PossiblePlayers[32];
-	int last_player_idx = -1;
-	for (; it != ite; ++it)
-	{
-		game_PlayerState* ps = it->second;
-		if (!ps || ps->testFlag(GAME_PLAYER_FLAG_VERY_VERY_DEAD) /*|| (ps==PS)*/) continue;
-		if (pMPGame && pMPGame->Is_Spectator_TeamCamera_Allowed())
-		{
-			if (ps->team != PS->team && !PS->testFlag(GAME_PLAYER_FLAG_SPECTATOR)) continue;
-		};
-		u16 id = ps->GameID;
-		CObject* pObject = Level().Objects.net_Find(id);
-		if (!pObject) continue;
-		CActor* A = smart_cast<CActor*>(pObject);
-		if (!A) continue;
-		if (m_last_player_name.size() && (m_last_player_name == ps->getName()))
-		{
-			last_player_idx = PPCount;
-		}
-		PossiblePlayers[PPCount++] = A;
-	};
-	if (!search_next)
-	{
-		if (last_player_idx != -1)
-		{
-			m_pActorToLookAt = PossiblePlayers[last_player_idx];
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	if (PPCount > 0)
-	{
-		look_idx %= PPCount;
-		m_pActorToLookAt = PossiblePlayers[look_idx];
-		game_PlayerState* tmp_state = Game().GetPlayerByGameID(m_pActorToLookAt->ID());
-		if (tmp_state)
-			m_last_player_name = tmp_state->getName();
-		return true;
-	};
 	return false;
 };
 
@@ -627,55 +539,7 @@ void CSpectator::net_Relcase(CObject* O)
 };
 
 void CSpectator::GetSpectatorString(string1024& pStr)
-{
-	if (!pStr) return;
-	if (GameID() == eGameIDSingle) return;
-
-	xr_string SpectatorMsg;
-	CStringTable st;
-	switch (cam_active)
-	{
-	case eacFreeFly:
-		{
-			SpectatorMsg = *st.translate("mp_spectator");
-			SpectatorMsg += " ";
-			SpectatorMsg += *st.translate("mp_free_fly");
-		}
-		break;
-	case eacFirstEye:
-		{
-			SpectatorMsg = *st.translate("mp_spectator");
-			SpectatorMsg += " ";
-			SpectatorMsg += *st.translate("mp_first_eye");
-			SpectatorMsg += " ";
-			//			SpectatorMsg = "SPECTATOR (First-Eye): ";
-			SpectatorMsg += m_pActorToLookAt ? m_pActorToLookAt->Name() : "";
-		}
-		break;
-	case eacFreeLook:
-		{
-			SpectatorMsg = *st.translate("mp_spectator");
-			SpectatorMsg += " ";
-			SpectatorMsg += *st.translate("mp_free_look");
-			SpectatorMsg += " ";
-			//			SpectatorMsg = "SPECTATOR (Free-Look):";
-			SpectatorMsg += m_pActorToLookAt ? m_pActorToLookAt->Name() : "";
-		}
-		break;
-	case eacLookAt:
-		{
-			SpectatorMsg = *st.translate("mp_spectator");
-			SpectatorMsg += " ";
-			SpectatorMsg += *st.translate("mp_look_at");
-			SpectatorMsg += " ";
-			//			SpectatorMsg = "SPECTATOR (Look-At):";
-			SpectatorMsg += m_pActorToLookAt ? m_pActorToLookAt->Name() : "";
-		}
-		break;
-	};
-	xr_strcpy(pStr, SpectatorMsg.c_str());
-};
-
+{};
 
 void CSpectator::On_SetEntity()
 {
