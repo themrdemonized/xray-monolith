@@ -101,12 +101,20 @@ CSE_Abstract::CSE_Abstract(LPCSTR caSection)
 	m_script_version = 0;
 	m_tClassID = TEXT2CLSID(pSettings->r_string(caSection, "class"));
 
+	//	m_spawn_probability			= 1.f;
 	m_spawn_flags.zero();
 	m_spawn_flags.set(flSpawnEnabled,TRUE);
 	m_spawn_flags.set(flSpawnOnSurgeOnly,TRUE);
 	m_spawn_flags.set(flSpawnSingleItemOnly,TRUE);
 	m_spawn_flags.set(flSpawnIfDestroyedOnly,TRUE);
 	m_spawn_flags.set(flSpawnInfiniteCount,TRUE);
+	//	m_max_spawn_count			= 1;
+	//	m_spawn_control				= "";
+	//	m_spawn_count				= 0;
+	//	m_last_spawn_time			= 0;
+	//	m_next_spawn_time			= 0;
+	//	m_min_spawn_interval		= 0;
+	//	m_max_spawn_interval		= 0;
 	m_ini_file = 0;
 
 	if (pSettings->line_exist(caSection, "custom_data"))
@@ -218,12 +226,19 @@ void CSE_Abstract::Spawn_Write(NET_Packet& tNetPacket, BOOL bLocal)
 	//client object custom data serialization SAVE
 	u16 client_data_size = (u16)client_data.size(); //не может быть больше 256 байт
 	tNetPacket.w_u16(client_data_size);
+	//	Msg							("SERVER:saving:save:%d bytes:%d:%s",client_data_size,ID,s_name_replace ? s_name_replace : "");
 	if (client_data_size > 0)
 	{
 		tNetPacket.w(&*client_data.begin(), client_data_size);
 	}
 
 	tNetPacket.w_u16(m_tSpawnID);
+	//	tNetPacket.w_float			(m_spawn_probability);
+	//	tNetPacket.w_u32			(m_spawn_flags.get());
+	//	tNetPacket.w_stringZ		(m_spawn_control);
+	//	tNetPacket.w_u32			(m_max_spawn_count);
+	//	tNetPacket.w_u64			(m_min_spawn_interval);
+	//	tNetPacket.w_u64			(m_max_spawn_interval);
 
 #ifdef XRSE_FACTORY_EXPORTS
 	CScriptValueContainer::assign();
@@ -234,7 +249,10 @@ void CSE_Abstract::Spawn_Write(NET_Packet& tNetPacket, BOOL bLocal)
 	tNetPacket.w_u16(0);
 	STATE_Write(tNetPacket);
 	u16 size = u16(tNetPacket.w_tell() - position);
-	R_ASSERT3((m_tClassID == CLSID_SPECTATOR) || (size > sizeof(size)), "object isn't successfully saved, get your backup :(", name_replace());
+	//#ifdef XRSE_FACTORY_EXPORTS
+	R_ASSERT3((m_tClassID == CLSID_SPECTATOR) || (size > sizeof(size)),
+	          "object isn't successfully saved, get your backup :(", name_replace());
+	//#endif
 	tNetPacket.w_seek(position, &size, sizeof(u16));
 }
 
@@ -309,6 +327,7 @@ BOOL CSE_Abstract::Spawn_Read(NET_Packet& tNetPacket)
 		//не может быть больше 256 байт
 		if (client_data_size > 0)
 		{
+			//			Msg					("SERVER:loading:load:%d bytes:%d:%s",client_data_size,ID,s_name_replace ? s_name_replace : "");
 			client_data.resize(client_data_size);
 			tNetPacket.r(&*client_data.begin(), client_data_size);
 		}
@@ -359,6 +378,9 @@ void CSE_Abstract::load(NET_Packet& tNetPacket)
 	u16 client_data_size = (m_wVersion > 93) ? tNetPacket.r_u16() : tNetPacket.r_u8(); //не может быть больше 256 байт
 	if (client_data_size > 0)
 	{
+#ifdef DEBUG
+		//		Msg						("SERVER:loading:load:%d bytes:%d:%s",client_data_size,ID,s_name_replace ? s_name_replace : "");
+#endif // DEBUG
 		client_data.resize(client_data_size);
 		tNetPacket.r(&*client_data.begin(), client_data_size);
 	}
@@ -415,6 +437,12 @@ Flags16& CSE_Abstract::flags()
 xr_token game_types[] = {
 	{"any_game", eGameIDNoGame},
 	{"single", eGameIDSingle},
+	{"deathmatch", eGameIDDeathmatch},
+	{"team_deathmatch", eGameIDTeamDeathmatch},
+	{"artefacthunt", eGameIDArtefactHunt},
+	{"capture_the_artefact", eGameIDCaptureTheArtefact},
+	//eGameIDDominationZone
+	//eGameIDTeamDominationZone
 	{0, 0}
 };
 
@@ -424,6 +452,13 @@ void CSE_Abstract::FillProps(LPCSTR pref, PropItemVec& items)
 #ifdef XRSE_FACTORY_EXPORTS
     m_gameType.FillProp(pref, items);
 #endif // #ifdef XRSE_FACTORY_EXPORTS
+/*
+#ifdef XRGAME_EXPORTS
+#	ifdef DEBUG
+	PHelper().CreateToken8		(items,	PrepareKey(pref,"Game Type"),			&s_gameid,		game_types);
+    PHelper().CreateU16			(items,	PrepareKey(pref, "Respawn Time (s)"),	&RespawnTime,	0,43200);
+
+*/
 }
 
 void CSE_Abstract::FillProp					(LPCSTR pref, PropItemVec &items)
@@ -438,3 +473,19 @@ bool CSE_Abstract::validate()
 {
 	return (true);
 }
+
+/**
+void CSE_Abstract::save_update				(NET_Packet &tNetPacket)
+{
+	tNetPacket.w				(&m_spawn_count,sizeof(m_spawn_count));
+	tNetPacket.w				(&m_last_spawn_time,sizeof(m_last_spawn_time));
+	tNetPacket.w				(&m_next_spawn_time,sizeof(m_next_spawn_time));
+}
+
+void CSE_Abstract::load_update				(NET_Packet &tNetPacket)
+{
+	tNetPacket.r				(&m_spawn_count,sizeof(m_spawn_count));
+	tNetPacket.r				(&m_last_spawn_time,sizeof(m_last_spawn_time));
+	tNetPacket.r				(&m_next_spawn_time,sizeof(m_next_spawn_time));
+}
+/**/

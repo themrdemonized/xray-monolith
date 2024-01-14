@@ -321,8 +321,14 @@ void CSE_ALifeTraderAbstract::OnChangeProfile(PropValue* sender)
 
 shared_str CSE_ALifeTraderAbstract::specific_character()
 {
+#ifdef XRGAME_EXPORTS
+#pragma todo("Dima to Yura, MadMax : Remove that hacks, please!")
+	if (g_pGameLevel && Level().game && (GameID() != eGameIDSingle)) return m_SpecificCharacter;
+#endif
+
 	if (m_SpecificCharacter.size())
 		return m_SpecificCharacter;
+
 
 	CCharacterInfo char_info;
 	char_info.Load(character_profile());
@@ -366,9 +372,11 @@ shared_str CSE_ALifeTraderAbstract::specific_character()
 				if (spec_char.data()->m_bDefaultForCommunity)
 					m_DefaultCharacters.push_back(id);
 
-				if (char_info.data()->m_Rank == NO_RANK || _abs(spec_char.Rank() - char_info.data()->m_Rank) < RANK_DELTA)
+				if (char_info.data()->m_Rank == NO_RANK || _abs(spec_char.Rank() - char_info.data()->m_Rank) <
+					RANK_DELTA)
 				{
-					if (char_info.data()->m_Reputation == NO_REPUTATION || _abs(spec_char.Reputation() - char_info.data()->m_Reputation) < REPUTATION_DELTA)
+					if (char_info.data()->m_Reputation == NO_REPUTATION || _abs(
+						spec_char.Reputation() - char_info.data()->m_Reputation) < REPUTATION_DELTA)
 					{
 #ifdef XRGAME_EXPORTS
 						int* count = NULL;
@@ -382,7 +390,8 @@ shared_str CSE_ALifeTraderAbstract::specific_character()
 				}
 			}
 		}
-		VERIFY3(!m_DefaultCharacters.empty(), "no default specific character set for class", *char_info.data()->m_Class);
+		VERIFY3(!m_DefaultCharacters.empty(),
+		          "no default specific character set for class", *char_info.data()->m_Class);
 
 		if (m_DefaultCharacters.empty())
 		{

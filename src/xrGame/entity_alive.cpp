@@ -51,7 +51,8 @@ STR_VECTOR* CEntityAlive::m_pFireParticlesVector = NULL;
 /////////////////////////////////////////////
 // CEntityAlive
 /////////////////////////////////////////////
-CEntityAlive::CEntityAlive() : m_hit_bone_surface_areas_actual(false)
+CEntityAlive::CEntityAlive() :
+	m_hit_bone_surface_areas_actual(false)
 {
 	m_bMobility = false;
 	m_fAccuracy = 0.0f;
@@ -323,7 +324,7 @@ void CEntityAlive::Die(CObject* who)
 	const CGameObject* who_object = smart_cast<const CGameObject*>(who);
 	callback(GameObject::eDeath)(lua_game_object(), who_object ? who_object->lua_game_object() : 0);
 
-	if (!getDestroy())
+	if (!getDestroy() && (GameID() == eGameIDSingle))
 	{
 		NET_Packet P;
 		u_EventGen(P, GE_ASSIGN_KILLER, ID());
@@ -537,7 +538,8 @@ void CEntityAlive::UpdateBloodDrops()
 		{
 			float size_k = blood_size - m_fStopBloodWoundSize;
 			size_k = size_k < 1.f ? size_k : 1.f;
-			pWound->m_fDropTime = Device.fTimeGlobal + (m_fBloodDropTimeMax - (m_fBloodDropTimeMax - m_fBloodDropTimeMin) * size_k) * Random.randF(0.8f, 1.2f);
+			pWound->m_fDropTime = Device.fTimeGlobal + (m_fBloodDropTimeMax - (m_fBloodDropTimeMax - m_fBloodDropTimeMin
+			) * size_k) * Random.randF(0.8f, 1.2f);
 			VERIFY(m_pBloodDropsVector);
 			Fvector pos;
 			Fvector pos_distort;

@@ -23,10 +23,13 @@ extern ENGINE_API bool g_dedicated_server;
 
 bool CLevel::Load_GameSpecific_Before()
 {
+	// AI space
+	//	g_pGamePersistent->LoadTitle		("st_loading_ai_objects");
 	g_pGamePersistent->LoadTitle();
 	string_path fn_game;
 
-	if (!ai().get_alife() && FS.exist(fn_game, "$level$", "level.ai") && !net_Hosts.empty())
+	if (GamePersistent().GameType() == eGameIDSingle && !ai().get_alife() && FS.exist(fn_game, "$level$", "level.ai") &&
+		!net_Hosts.empty())
 		ai().load(net_SessionName());
 
 	if (!g_dedicated_server && !ai().get_alife() && ai().get_game_graph() && FS.exist(fn_game, "$level$", "level.game"))
@@ -164,9 +167,12 @@ bool CLevel::Load_GameSpecific_After()
 		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
 
 		if (pLevel->section_exist("level_scripts") && pLevel->line_exist("level_scripts", "script"))
-			ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorLevel, xr_new<CScriptProcess>("level", pLevel->r_string("level_scripts", "script")));
+			ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorLevel,
+			                                        xr_new<CScriptProcess>(
+				                                        "level", pLevel->r_string("level_scripts", "script")));
 		else
-			ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorLevel, xr_new<CScriptProcess>("level", ""));
+			ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorLevel,
+			                                        xr_new<CScriptProcess>("level", ""));
 	}
 
 	BlockCheatLoad();
@@ -272,4 +278,8 @@ void CLevel::Load_GameSpecific_CFORM(CDB::TRI* tris, u32 count)
 }
 
 void CLevel::BlockCheatLoad()
-{}
+{
+#ifndef	DEBUG
+	if (game && (GameID() != eGameIDSingle)) phTimefactor = 1.f;
+#endif
+}

@@ -83,11 +83,16 @@ void CUIMMShniaga::InitShniaga(CUIXml& xml_doc, LPCSTR path)
 	}
 	else
 	{
-		VERIFY(Actor());
-		if (g_actor && !Actor()->g_Alive())
-			CreateList(m_buttons, xml_doc, "menu_main_single_dead");
+		if (GameID() == eGameIDSingle)
+		{
+			VERIFY(Actor());
+			if (g_actor && !Actor()->g_Alive())
+				CreateList(m_buttons, xml_doc, "menu_main_single_dead");
+			else
+				CreateList(m_buttons, xml_doc, "menu_main_single");
+		}
 		else
-			CreateList(m_buttons, xml_doc, "menu_main_single");
+			CreateList(m_buttons, xml_doc, "menu_main_mm");
 	}
 	CreateList(m_buttons_new_network, xml_doc, "menu_network_game");
 
@@ -131,11 +136,17 @@ void CUIMMShniaga::CreateList(xr_vector<CUITextWnd*>& lst, CUIXml& xml_doc, LPCS
 		st->SetFont(pF);
 		st->SetTextComplexMode(false);
 		st->SetTextST(xml_doc.ReadAttrib("btn", i, "caption"));
+
+		//		float font_height			= st->GetFont()->GetHeight();
+		//		UI().ClientToScreenScaledHeight(font_height);
+
+		//.		st->SetTextOffset			(0, (button_height-font_height)/2.0f);
 		st->SetTextColor(color);
 		st->SetTextAlignment(CGameFont::alCenter);
 		st->SetVTextAlignment(valCenter);
 		st->SetWindowName(xml_doc.ReadAttrib("btn", i, "name"));
 		st->SetMessageTarget(this);
+
 
 		lst.push_back(st);
 	}
@@ -219,7 +230,8 @@ void CUIMMShniaga::ShowNetworkGame()
 	m_page = epi_new_network_game;
 	m_view->Clear();
 
-	for (u32 i = 0, count = m_buttons_new_network.size(); i < count; ++i)
+	for (u32 i = 0,
+	         count = m_buttons_new_network.size(); i < count; ++i)
 	{
 		m_view->AddWindow(m_buttons_new_network[i], false);
 	}

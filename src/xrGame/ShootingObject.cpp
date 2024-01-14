@@ -459,7 +459,13 @@ bool CShootingObject::SendHitAllowed(CObject* pUser)
 
 extern void random_dir(Fvector& tgt_dir, const Fvector& src_dir, float dispersion);
 
-void CShootingObject::FireBullet(const Fvector& pos, const Fvector& shot_dir, float fire_disp, const CCartridge& cartridge, u16 parent_id, u16 weapon_id, bool send_hit, int iShotNum)
+void CShootingObject::FireBullet(const Fvector& pos,
+                                 const Fvector& shot_dir,
+                                 float fire_disp,
+                                 const CCartridge& cartridge,
+                                 u16 parent_id,
+                                 u16 weapon_id,
+                                 bool send_hit, int iShotNum)
 {
 	Fvector dir;
 	random_dir(dir, shot_dir, fire_disp);
@@ -469,18 +475,68 @@ void CShootingObject::FireBullet(const Fvector& pos, const Fvector& shot_dir, fl
 	m_iCurrentParentID = parent_id;
 
 	bool aim_bullet = false;
+	/*if (m_bUseAimBullet)
+	{
+		if (ParentMayHaveAimBullet())
+		{
+			if (m_fPredBulletTime == 0.0)
+			{
+				aim_bullet = true;
+			}
+			else
+			{
+				if ((Device.fTimeGlobal - m_fPredBulletTime) >= m_fTimeToAim)
+				{
+					aim_bullet = true;
+				}
+				else
+				{
+					aim_bullet = false;
+				}
+			}
+		}
+		else
+		{
+			aim_bullet = false;
+		}
+	}
+	else
+	{
+		aim_bullet = false;
+	}
+	m_fPredBulletTime = Device.fTimeGlobal;*/
 
 	float l_fHitPower = 0.0f;
 	if (SOParentIsActor()) //если из оружия стреляет актёр(игрок)
 	{
-		l_fHitPower = fvHitPower[g_SingleGameDifficulty];
+		if (GameID() == eGameIDSingle)
+		{
+			l_fHitPower = fvHitPower[g_SingleGameDifficulty];
+		}
+		else
+		{
+			l_fHitPower = fvHitPower[egdMaster];
+		}
 	}
 	else
 	{
 		l_fHitPower = fvHitPower[egdMaster];
 	}
 
-	Level().BulletManager().AddBullet(pos, dir, m_fStartBulletSpeed * cur_silencer_koef.bullet_speed, l_fHitPower * cur_silencer_koef.hit_power, fHitImpulse * cur_silencer_koef.hit_impulse, parent_id, weapon_id, ALife::eHitTypeFireWound, fireDistance, cartridge, m_air_resistance_factor, send_hit, aim_bullet, iShotNum);
+	Level().BulletManager().AddBullet(pos,
+	                                  dir,
+	                                  m_fStartBulletSpeed * cur_silencer_koef.bullet_speed,
+	                                  l_fHitPower * cur_silencer_koef.hit_power,
+	                                  fHitImpulse * cur_silencer_koef.hit_impulse,
+	                                  parent_id,
+	                                  weapon_id,
+	                                  ALife::eHitTypeFireWound,
+	                                  fireDistance,
+	                                  cartridge,
+	                                  m_air_resistance_factor,
+	                                  send_hit,
+	                                  aim_bullet,
+	                                  iShotNum);
 }
 
 void CShootingObject::FireStart()
@@ -496,5 +552,6 @@ void CShootingObject::FireEnd()
 void CShootingObject::StartShotParticles()
 {
 	CParticlesObject* pSmokeParticles = NULL;
-	StartParticles(pSmokeParticles, *m_sShotParticles, m_vCurrentShootPos, m_vCurrentShootDir, true);
+	StartParticles(pSmokeParticles, *m_sShotParticles,
+	               m_vCurrentShootPos, m_vCurrentShootDir, true);
 }

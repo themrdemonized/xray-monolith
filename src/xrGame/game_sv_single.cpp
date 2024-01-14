@@ -35,6 +35,20 @@ void game_sv_Single::Create(shared_str& options)
 	switch_Phase(GAME_PHASE_INPROGRESS);
 }
 
+/**
+CSE_Abstract*		game_sv_Single::get_entity_from_eid		(u16 id)
+{
+	if (!ai().get_alife())
+		return			(inherited::get_entity_from_eid(id));
+
+	CSE_Abstract		*object = ai().alife().objects().object(id,true);
+	if (!object)
+		return			(inherited::get_entity_from_eid(id));
+
+	return				(object);
+}
+/**/
+
 void game_sv_Single::OnCreate(u16 id_who)
 {
 	if (!ai().get_alife())
@@ -158,6 +172,13 @@ void game_sv_Single::OnDetach(u16 eid_who, u16 eid_what)
 void game_sv_Single::Update()
 {
 	inherited::Update();
+	/*	switch(phase) 	{
+			case GAME_PHASE_PENDING : {
+				OnRoundStart();
+				switch_Phase(GAME_PHASE_INPROGRESS);
+				break;
+			}
+		}*/
 }
 
 ALife::_TIME_ID game_sv_Single::GetStartGameTime()
@@ -339,6 +360,7 @@ void game_sv_Single::restart_simulator(LPCSTR saved_game_name)
 	pApp->ls_tip[0] = '\0';
 	pApp->LoadBegin();
 	m_alife_simulator = xr_new<CALifeSimulator>(&server(), &options);
+	//	g_pGamePersistent->LoadTitle		("st_client_synchronising");
 	g_pGamePersistent->LoadTitle();
 	Device.PreCache(60, true, true);
 	pApp->LoadEnd();

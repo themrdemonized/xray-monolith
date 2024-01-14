@@ -20,6 +20,7 @@
 #define MAX_HEALTH 1.0f
 #define MIN_HEALTH -0.01f
 
+
 #define MAX_POWER 1.0f
 #define MAX_RADIATION 1.0f
 #define MAX_PSY_HEALTH 1.0f
@@ -34,9 +35,11 @@ CEntityConditionSimple::CEntityConditionSimple()
 }
 
 CEntityConditionSimple::~CEntityConditionSimple()
-{}
+{
+}
 
-CEntityCondition::CEntityCondition(CEntityAlive* object) : CEntityConditionSimple()
+CEntityCondition::CEntityCondition(CEntityAlive* object)
+	: CEntityConditionSimple()
 {
 	VERIFY(object);
 
@@ -51,11 +54,13 @@ CEntityCondition::CEntityCondition(CEntityAlive* object) : CEntityConditionSimpl
 	m_fPsyHealthMax = MAX_PSY_HEALTH;
 	m_fEntityMorale = m_fEntityMoraleMax = 1.f;
 
+
 	m_fPower = MAX_POWER;
 	m_fRadiation = 0;
 	m_fPsyHealth = MAX_PSY_HEALTH;
 
 	m_fMinWoundSize = 0.00001f;
+
 
 	m_fHealthHitPart = 1.0f;
 	m_fPowerHitPart = 0.5f;
@@ -204,6 +209,7 @@ void CEntityCondition::ChangeEntityMorale(const float value)
 	m_fDeltaEntityMorale += value;
 }
 
+
 void CEntityCondition::ChangeBleeding(const float percent)
 {
 	//затянуть раны
@@ -228,12 +234,19 @@ bool RemoveWoundPred(CWound* pWound)
 void CEntityCondition::UpdateWounds()
 {
 	//убрать все зашившие раны из списка
-	m_WoundVector.erase(std::remove_if(m_WoundVector.begin(), m_WoundVector.end(), &RemoveWoundPred), m_WoundVector.end());
+	m_WoundVector.erase(
+		std::remove_if(
+			m_WoundVector.begin(),
+			m_WoundVector.end(),
+			&RemoveWoundPred
+		),
+		m_WoundVector.end()
+	);
 }
 
 void CEntityCondition::UpdateConditionTime()
 {
-	u64 _cur_time = Level().GetGameTime();
+	u64 _cur_time = (GameID() == eGameIDSingle) ? Level().GetGameTime() : Level().timeServer();
 
 	if (m_bTimeValid)
 	{
@@ -330,7 +343,9 @@ void CEntityCondition::UpdateCondition()
 	clamp(m_fPsyHealth, 0.0f, m_fPsyHealthMax);
 }
 
-float CEntityCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float ap, bool& add_wound)
+
+float CEntityCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float ap,
+                                        bool& add_wound)
 {
 	CInventoryOwner* pInvOwner = smart_cast<CInventoryOwner*>(m_object);
 	if (!pInvOwner)
