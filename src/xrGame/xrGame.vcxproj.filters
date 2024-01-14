@@ -9026,9 +9026,6 @@
     <ClCompile Include="actor_script.cpp">
       <Filter>Core\Client\Objects\actor\base</Filter>
     </ClCompile>
-    <ClCompile Include="Actor_Sleep.cpp">
-      <Filter>Core\Client\Objects\actor\base</Filter>
-    </ClCompile>
     <ClCompile Include="Actor_Weapon.cpp">
       <Filter>Core\Client\Objects\actor\base</Filter>
     </ClCompile>

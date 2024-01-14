@@ -47,12 +47,10 @@ extern discord::Core* discord_core;
 extern bool use_discord;
 
 #ifdef ECO_RENDER
-std::chrono::high_resolution_clock::time_point tlastf = std::chrono::high_resolution_clock::now(), tcurrentf = std::
-	                                               chrono::high_resolution_clock::now();
+std::chrono::high_resolution_clock::time_point tlastf = std::chrono::high_resolution_clock::now(), tcurrentf = std::chrono::high_resolution_clock::now();
 std::chrono::duration<float> time_span;
 ENGINE_API float refresh_rate = 0;
 #endif // ECO_RENDER
-
 
 BOOL CRenderDevice::Begin()
 {
@@ -334,8 +332,6 @@ void CRenderDevice::on_idle()
 	// Matrices
 	mFullTransform.mul(mProject, mView);
 	m_pRender->SetCacheXform(mView, mProject);
-	//RCache.set_xform_view ( mView );
-	//RCache.set_xform_project ( mProject );
 	D3DXMatrixInverse((D3DXMATRIX*)&mInvFullTransform, 0, (D3DXMATRIX*)&mFullTransform);
 
 	vCameraPosition_saved = vCameraPosition;
@@ -470,7 +466,6 @@ void CRenderDevice::message_loop()
 
 void CRenderDevice::Run()
 {
-	// DUMP_PHASE;
 	g_bLoaded = FALSE;
 	Log("Starting engine...");
 	thread_name("X-RAY Primary thread");
@@ -484,13 +479,13 @@ void CRenderDevice::Run()
 		u32 time_local = TimerAsync();
 		Timer_MM_Delta = time_system - time_local;
 	}
+
 	// Start all threads
-	// InitializeCriticalSection (&mt_csEnter);
-	// InitializeCriticalSection (&mt_csLeave);
 	mt_csEnter.Enter();
 	mt_bMustExit = FALSE;
 	thread_spawn(mt_FreezeThread, "Freeze detecting thread", 0, 0);
 	thread_spawn(mt_Thread, "X-RAY Secondary thread", 0, this);
+
 	// Message cycle
 	seqAppStart.Process(rp_AppStart);
 
@@ -500,9 +495,8 @@ void CRenderDevice::Run()
 	// Stop Balance-Thread
 	mt_bMustExit = TRUE;
 	mt_csEnter.Leave();
-	while (mt_bMustExit) Sleep(0);
-	// DeleteCriticalSection (&mt_csEnter);
-	// DeleteCriticalSection (&mt_csLeave);
+	while (mt_bMustExit) 
+		Sleep(0);
 }
 
 u32 app_inactive_time = 0;
@@ -591,9 +585,6 @@ void CRenderDevice::Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason)
 		if (bSound && ::Sound)
 		{
 			snd_emitters_ = ::Sound->pause_emitters(true);
-#ifdef DEBUG
-			// Log("snd_emitters_[true]",snd_emitters_);
-#endif // DEBUG
 		}
 	}
 	else
@@ -609,9 +600,6 @@ void CRenderDevice::Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason)
 			if (snd_emitters_ > 0) //avoid crash
 			{
 				snd_emitters_ = ::Sound->pause_emitters(false);
-#ifdef DEBUG
-				// Log("snd_emitters_[false]",snd_emitters_);
-#endif
 			}
 			else
 			{
@@ -714,8 +702,7 @@ void CRenderDevice::RemoveSeqFrame(pureFrame* f)
 	seqFrame.Remove(f);
 }
 
-CLoadScreenRenderer::CLoadScreenRenderer()
-	: b_registered(false)
+CLoadScreenRenderer::CLoadScreenRenderer() : b_registered(false)
 {
 }
 

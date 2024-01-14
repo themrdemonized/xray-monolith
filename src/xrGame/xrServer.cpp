@@ -1086,21 +1086,16 @@ extern int g_sv_ah_iReinforcementTime;
 extern int g_sv_mp_iDumpStatsPeriod;
 extern BOOL g_bCollectStatisticData;
 
-//xr_token game_types[];
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
-
 void xrServer::GetServerInfo(CServerInfo* si)
 {
 	string32 tmp;
 	string256 tmp256;
 
 	si->AddItem("Server port", itoa(GetPort(), tmp, 10), RGB(128, 128, 255));
-	LPCSTR time = InventoryUtilities::GetTimeAsString(Device.dwTimeGlobal, InventoryUtilities::etpTimeToSecondsAndDay).
-		c_str();
+	LPCSTR time = InventoryUtilities::GetTimeAsString(Device.dwTimeGlobal, InventoryUtilities::etpTimeToSecondsAndDay).c_str();
 	si->AddItem("Uptime", time, RGB(255, 228, 0));
 
-	//	xr_strcpy( tmp256, get_token_name(game_types, game->Type() ) );
-	xr_strcpy(tmp256, GameTypeToString(game->Type(), true));
+	xr_strcpy(tmp256, "single");
 	if (game->Type() == eGameIDDeathmatch || game->Type() == eGameIDTeamDeathmatch)
 	{
 		xr_strcat(tmp256, " [");
@@ -1115,7 +1110,6 @@ void xrServer::GetServerInfo(CServerInfo* si)
 		g_sv_ah_iReinforcementTime;
 	}
 
-	//if ( g_sv_dm_dwTimeLimit > 0 )
 	{
 		xr_strcat(tmp256, " time limit [");
 		xr_strcat(tmp256, itoa(g_sv_dm_dwTimeLimit, tmp, 10));

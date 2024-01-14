@@ -446,8 +446,6 @@ bool game_sv_mp::CheckPlayerMapName(ClientID const& clientID, NET_Packet& P)
 	return true;
 }
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
-
 void game_sv_mp::ReconnectPlayer(ClientID const& clientID)
 {
 #ifdef DEBUG
@@ -456,7 +454,7 @@ void game_sv_mp::ReconnectPlayer(ClientID const& clientID)
 	NET_Packet P;
 	P.w_begin(M_CHANGE_LEVEL_GAME);
 	P.w_stringZ(Level().name().c_str());
-	P.w_stringZ(GameTypeToString(Type(), true));
+	P.w_stringZ("single");
 	m_server->SendTo(clientID, P, net_flags(TRUE, TRUE));
 }
 
@@ -1462,10 +1460,6 @@ void game_sv_mp::OnPlayerKilled(NET_Packet P)
 #endif // #ifndef MASTER_GOLD
 		return;
 	}
-#ifdef MP_LOGGING
-	Msg("--- Player [%d] killed player [%d], Frame [%d]", KillerID, KilledID, Device.dwFrame);
-#endif
-
 
 	CSE_Abstract* pWeaponA = get_entity_from_eid(WeaponID);
 
@@ -1475,8 +1469,7 @@ void game_sv_mp::OnPlayerKilled(NET_Packet P)
 		Game().m_WeaponUsageStatistic->OnBleedKill(ps_killer, ps_killed, WeaponID);
 	}
 	//---------------------------------------------------
-	SendPlayerKilledMessage((ps_killed) ? ps_killed->GameID : KilledID, KillType,
-	                        (ps_killer) ? ps_killer->GameID : KillerID, WeaponID, SpecialKill);
+	SendPlayerKilledMessage((ps_killed) ? ps_killed->GameID : KilledID, KillType, (ps_killer) ? ps_killer->GameID : KillerID, WeaponID, SpecialKill);
 };
 
 void game_sv_mp::OnPlayerHitted(NET_Packet P)
@@ -1496,8 +1489,7 @@ void game_sv_mp::OnPlayerHitted(NET_Packet P)
 	};
 };
 
-void game_sv_mp::SendPlayerKilledMessage(u16 KilledID, KILL_TYPE KillType, u16 KillerID, u16 WeaponID,
-                                         SPECIAL_KILL_TYPE SpecialKill)
+void game_sv_mp::SendPlayerKilledMessage(u16 KilledID, KILL_TYPE KillType, u16 KillerID, u16 WeaponID, SPECIAL_KILL_TYPE SpecialKill)
 {
 #ifndef MASTER_GOLD
 	Msg("---Server: sending player [%d] killed message...", KillerID);
@@ -1732,25 +1724,6 @@ void game_sv_mp::UpdatePlayersMoney()
 	m_server->ForEachClientDoSender(tmp_functor);
 };
 
-/*
-bool	game_sv_mp::GetTeamItem_ByID		(WeaponDataStruct** pRes, TEAM_WPN_LIST* pWpnList, u16 ItemID)
-{
-	if (!pWpnList) return false;
-	TEAM_WPN_LIST_it pWpnI	= std::find(pWpnList->begin(), pWpnList->end(), (ItemID));
-	if (pWpnI == pWpnList->end() || !((*pWpnI) == (ItemID))) return false;
-	*pRes = &(*pWpnI);
-	return true;
-};
-
-bool	game_sv_mp::GetTeamItem_ByName		(WeaponDataStruct** pRes,TEAM_WPN_LIST* pWpnList, LPCSTR ItemName)
-{
-	if (!pWpnList) return false;
-	TEAM_WPN_LIST_it pWpnI	= std::find(pWpnList->begin(), pWpnList->end(), ItemName);
-	if (pWpnI == pWpnList->end() || !((*pWpnI) == ItemName)) return false;
-	*pRes = &(*pWpnI);
-	return true;
-};
-*/
 void game_sv_mp::Player_AddBonusMoney(game_PlayerState* ps, s32 MoneyAmount, SPECIAL_KILL_TYPE Reason, u8 Kill)
 {
 	if (!ps) return;

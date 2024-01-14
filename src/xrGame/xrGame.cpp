@@ -22,10 +22,8 @@
 //-AVO
 #include "luabind/library_linkage.h"
 
-//#pragma comment(lib,"ode.lib")
-//#pragma comment(lib,"xrEngine.lib")
-
-extern "C" {
+extern "C" 
+{
 DLL_API DLL_Pure* __cdecl xrFactory_Create(CLASS_ID clsid)
 {
 	DLL_Pure* object = object_factory().client_object(clsid);

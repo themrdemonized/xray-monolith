@@ -5,14 +5,12 @@
 #include "../xrcdb/xr_area.h"
 #include "render.h"
 #include "xrLevel.h"
-//#include "fbasicvisual.h"
 #include "../Include/xrRender/RenderVisual.h"
 #include "../Include/xrRender/Kinematics.h"
 
 #include "x_ray.h"
 #include "GameFont.h"
 
-#include "mp_logging.h"
 #include "xr_collide_form.h"
 
 #pragma warning(push)
@@ -41,13 +39,7 @@ void CObject::MakeMeCrow()
 
 	u32 const device_frame_id = Device.dwFrame;
 	u32 const object_frame_id = dwFrame_AsCrow;
-	if (
-		(u32)_InterlockedCompareExchange(
-			(long*)&dwFrame_AsCrow,
-			device_frame_id,
-			object_frame_id
-		) == device_frame_id
-	)
+	if ((u32)_InterlockedCompareExchange((long*)&dwFrame_AsCrow, device_frame_id, object_frame_id) == device_frame_id)
 		return;
 
 	VERIFY(dwFrame_AsCrow == device_frame_id);
@@ -66,7 +58,6 @@ void CObject::cNameSect_set(shared_str N)
 	NameSection = N;
 }
 
-//#include "SkeletonCustom.h"
 void CObject::cNameVisual_set(shared_str N)
 {
 	// check if equal
@@ -84,12 +75,6 @@ void CObject::cNameVisual_set(shared_str N)
 		IKinematics* old_k = old_v ? old_v->dcast_PKinematics() : NULL;
 		IKinematics* new_k = renderable.visual->dcast_PKinematics();
 
-		/*
-		if(old_k && new_k){
-		new_k->Update_Callback = old_k->Update_Callback;
-		new_k->Update_Callback_Param = old_k->Update_Callback_Param;
-		}
-		*/
 		if (old_k && new_k)
 		{
 			new_k->SetUpdateCallback(old_k->GetUpdateCallback());
@@ -150,7 +135,6 @@ void CObject::setVisible(BOOL _visible)
 	}
 }
 
-//void CObject::Center (Fvector& C) const { VERIFY2(renderable.visual,*cName()); renderable.xform.transform_tiny(C,renderable.visual->vis.sphere.P); }
 void CObject::Center(Fvector& C) const
 {
 	VERIFY2(renderable.visual, *cName());
@@ -158,14 +142,12 @@ void CObject::Center(Fvector& C) const
 		renderable.xform.transform_tiny(C, renderable.visual->getVisData().sphere.P);
 }
 
-//float CObject::Radius () const { VERIFY2(renderable.visual,*cName()); return renderable.visual->vis.sphere.R; }
 float CObject::Radius() const
 {
 	VERIFY2(renderable.visual, *cName());
 	return renderable.visual ? renderable.visual->getVisData().sphere.R : 0.0f;
 }
 
-//const Fbox& CObject::BoundingBox () const { VERIFY2(renderable.visual,*cName()); return renderable.visual->vis.box; }
 const Fbox& CObject::BoundingBox() const
 {
 	static const Fbox NULL_BOX = Fbox{}.null();
@@ -266,7 +248,6 @@ void CObject::net_Destroy()
 		shedule_unregister();
 
 	spatial_unregister();
-	// setDestroy (true);
 	// remove visual
 	cNameVisual_set(0);
 }
@@ -329,7 +310,6 @@ void CObject::spatial_update(float eps_P, float eps_R)
 				Center(C);
 				if (!C.similar(spatial.sphere.P, eps_P)) spatial_move();
 			}
-			// else nothing to do :_)
 		}
 	}
 }
@@ -370,17 +350,12 @@ void CObject::UpdateCL()
 void CObject::shedule_Update(u32 T)
 {
 	// consistency check
-	// Msg ("-SUB-:[%x][%s] CObject::shedule_Update",dynamic_cast<void*>(this),*cName());
 	ISheduled::shedule_Update(T);
 	spatial_update(base_spu_epsP * 1, base_spu_epsR * 1);
 
 	// Always make me crow on shedule-update
 	// Makes sure that update-cl called at least with freq of shedule-update
 	MakeMeCrow();
-	/*
-	if (AlwaysTheCrow()) MakeMeCrow ();
-	else if (Device.vCameraPosition.distance_to_sqr(Position()) < CROW_RADIUS*CROW_RADIUS) MakeMeCrow ();
-	*/
 }
 
 void CObject::spatial_register()
@@ -421,7 +396,6 @@ CObject* CObject::H_SetParent(CObject* new_parent, bool just_before_destroy)
 
 	VERIFY2((new_parent == 0) || (old_parent == 0), "Before set parent - execute H_SetParent(0)");
 
-	// if (Parent) Parent->H_ChildRemove (this);
 	if (0 == old_parent) OnH_B_Chield(); // before attach
 	else OnH_B_Independent(just_before_destroy); // before detach
 	if (new_parent) spatial_unregister();
@@ -429,7 +403,6 @@ CObject* CObject::H_SetParent(CObject* new_parent, bool just_before_destroy)
 	Parent = new_parent;
 	if (0 == old_parent) OnH_A_Chield(); // after attach
 	else OnH_A_Independent(); // after detach
-	// if (Parent) Parent->H_ChildAdd (this);
 	MakeMeCrow();
 	return old_parent;
 }
@@ -466,9 +439,6 @@ void CObject::setDestroy(BOOL _destroy)
         if (debug_destroy)
             Msg("cl setDestroy [%d][%d]", ID(), Device.dwFrame);
 #endif
-#ifdef MP_LOGGING
-        Msg("cl setDestroy [%d][%d]", ID(), Device.dwFrame);
-#endif //#ifdef MP_LOGGING
 	}
 	else
 	{

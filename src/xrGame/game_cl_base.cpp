@@ -13,9 +13,6 @@
 #include "game_cl_base_weapon_usage_statistic.h"
 #include "game_sv_mp_vote_flags.h"
 
-EGameIDs ParseStringToGameType(LPCSTR str);
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
-
 game_cl_GameState::game_cl_GameState()
 {
 	local_player = createPlayerState(NULL); //initializing account info
@@ -406,8 +403,8 @@ void game_cl_GameState::SendPickUpEvent(u16 ID_who, u16 ID_what)
 
 void game_cl_GameState::set_type_name(LPCSTR s)
 {
-	EGameIDs gid = ParseStringToGameType(s);
-	m_game_type_name = GameTypeToString(gid, false);
+	EGameIDs gid = eGameIDSingle;
+	m_game_type_name = "single";
 	if (OnClient())
 	{
 		xr_strcpy(g_pGamePersistent->m_game_params.m_game_type, m_game_type_name.c_str());

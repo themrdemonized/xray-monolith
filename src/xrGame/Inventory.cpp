@@ -992,10 +992,6 @@ bool CInventory::Eat(PIItem pIItem)
 	if (!pItemToEat->UseBy(entity_alive))
 		return false;
 
-#ifdef MP_LOGGING
-	Msg( "--- Actor [%d] use or eat [%d][%s]", entity_alive->ID(), pItemToEat->object().ID(), pItemToEat->object().cNameSect().c_str() );
-#endif // MP_LOGGING
-
 	if (Actor()->m_inventory == this)
 	{
 		Actor()->callback(GameObject::eUseObject)((smart_cast<CGameObject*>(pIItem))->lua_game_object());
@@ -1379,26 +1375,20 @@ void CInventory::TryDeactivateActiveSlot()
 
 void CInventory::BlockSlot(u16 slot_id)
 {
-	//VERIFY(slot_id <= LAST_SLOT);
-
 	++m_blocked_slots[slot_id];
 
-	VERIFY2(m_blocked_slots[slot_id] < 5,
-	        make_string("blocked slot [%d] overflow").c_str());
+	VERIFY2(m_blocked_slots[slot_id] < 5, make_string("blocked slot [%d] overflow").c_str());
 }
 
 void CInventory::UnblockSlot(u16 slot_id)
 {
-	//VERIFY(slot_id <= LAST_SLOT);
-	VERIFY2(m_blocked_slots[slot_id] > 0,
-	        make_string("blocked slot [%d] underflow").c_str());
+	VERIFY2(m_blocked_slots[slot_id] > 0, make_string("blocked slot [%d] underflow").c_str());
 
 	--m_blocked_slots[slot_id];
 }
 
 bool CInventory::IsSlotBlocked(u16 slot_id) const
 {
-	//VERIFY(slot_id <= LAST_SLOT);
 	return m_blocked_slots[slot_id] > 0;
 }
 

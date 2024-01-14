@@ -114,15 +114,13 @@ public:
 	// Render
 	virtual void renderable_Render();
 	virtual BOOL renderable_ShadowGenerate();
-	virtual void feel_sound_new(CObject* who, int type, CSound_UserDataPtr user_data, const Fvector& Position,
-	                            float power);
+	virtual void feel_sound_new(CObject* who, int type, CSound_UserDataPtr user_data, const Fvector& Position, float power);
 	virtual Feel::Sound* dcast_FeelSound() { return this; }
 	float m_snd_noise;
 #ifdef DEBUG
     virtual void						OnRender			();
 
 #endif
-
 
 public:
 	virtual bool OnReceiveInfo(shared_str info_id) const;
@@ -187,8 +185,7 @@ public:
 	virtual void PHHit(SHit& H);
 	virtual void HitSignal(float P, Fvector& vLocalDir, CObject* who, s16 element);
 	void HitSector(CObject* who, CObject* weapon);
-	void HitMark(float P, Fvector dir, CObject* who, s16 element, Fvector position_in_bone_space, float impulse,
-	             ALife::EHitType hit_type);
+	void HitMark(float P, Fvector dir, CObject* who, s16 element, Fvector position_in_bone_space, float impulse, ALife::EHitType hit_type);
 
     void Feel_Grenade_Update( float rad );
 
@@ -204,9 +201,7 @@ public:
 	virtual bool NeedToDestroyObject() const;
 	virtual ALife::_TIME_ID TimePassedAfterDeath() const;
 
-
 public:
-
 	//свойства артефактов
 	virtual void UpdateArtefactsOnBeltAndOutfit();
 	float HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type);
@@ -228,7 +223,6 @@ protected:
 	SndShockEffector* m_sndShockEffector;
 	xr_vector<ref_sound> sndHit[ALife::eHitTypeMax];
 	ref_sound sndDie[SND_DIE_COUNT];
-
 
 	float m_fLandingTime;
 	float m_fJumpTime;
@@ -285,7 +279,6 @@ protected:
 	float r_model_yaw; // orientation of model
 	float r_model_yaw_delta; // effect on multiple "strafe"+"something"
 
-
 public:
 	SActorMotions* m_anims;
 #ifdef ENABLE_CAR
@@ -313,6 +306,7 @@ public:
 
 	void g_SetAnimation(u32 mstate_rl);
 	void g_SetSprintAnimation(u32 mstate_rl, MotionID& head, MotionID& torso, MotionID& legs);
+
 public:
 	virtual void OnHUDDraw(CCustomHUD* hud);
 	BOOL HUDview() const;
@@ -320,7 +314,6 @@ public:
 	//visiblity 
 	virtual float ffGetFov() const { return 90.f; }
 	virtual float ffGetRange() const { return 500.f; }
-
 
 public:
 	CActorCameraManager& Cameras()

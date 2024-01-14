@@ -199,9 +199,6 @@ void CGameObject::OnEvent(NET_Packet& P, u16 type)
 				Msg("! ERROR (GameObject): GE_DESTROY arrived to object[%d][%s], that has parent[%d][%s], frame[%d]", ID(), cNameSect().c_str(), H_Parent()->ID(), H_Parent()->cName().c_str(), Device.dwFrame);
 				break;
 			}
-#ifdef MP_LOGGING
-			Msg("--- Object: GE_DESTROY of [%d][%s]", ID(), cNameSect().c_str());
-#endif // MP_LOGGING
 
 			setDestroy(TRUE);
 		}

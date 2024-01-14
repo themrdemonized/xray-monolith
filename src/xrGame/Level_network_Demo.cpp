@@ -73,17 +73,6 @@ void CLevel::StartPlayDemo()
 	m_starting_spawns_dtime = 0;
 	Msg("! ------------- Demo Started ------------");
 	CatchStartingSpawns();
-
-	//if using some filter ...
-#ifdef MP_LOGGING
-	message_filter* tmp_msg_filter = GetMessageFilter();
-	if (tmp_msg_filter)
-	{
-		string_path demo_msg_path;
-		FS.update_path(demo_msg_path, "$logs$", "dbg_msg.log");
-		tmp_msg_filter->dbg_set_message_log_file(demo_msg_path);
-	}
-#endif //#ifdef MP_LOGGING
 }
 
 void CLevel::RestartPlayDemo()

@@ -21,9 +21,6 @@ extern ENGINE_API string512 g_sLaunchOnExit_app;
 extern ENGINE_API string512 g_sLaunchOnExit_params;
 extern ENGINE_API string_path g_sLaunchWorkingFolder;
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
-
-
 CUIMapList::CUIMapList()
 {
 	m_pMapInfo = NULL;
@@ -210,7 +207,7 @@ const char* CUIMapList::GetCommandLine(LPCSTR player_name)
 	m_command = "start server(";
 	m_command += M.map_name.c_str();
 	m_command += "/";
-	m_command += GameTypeToString(GetCurGameType(), true);
+	m_command += "single";
 	m_command += m_srv_params;
 	m_command += "/ver=";
 	m_command += M.map_ver.c_str();

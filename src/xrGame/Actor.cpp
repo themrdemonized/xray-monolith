@@ -2,8 +2,7 @@
 #include "Actor_Flags.h"
 #include "hudmanager.h"
 #ifdef DEBUG
-
-#	include "PHDebug.h"
+#include "PHDebug.h"
 #endif // DEBUG
 #include "alife_space.h"
 #include "hit.h"
@@ -28,7 +27,6 @@
 
 // breakpoints
 #include "../xrEngine/xr_input.h"
-//
 #include "Actor.h"
 #include "ActorAnimation.h"
 #include "actor_anim_defs.h"
@@ -105,7 +103,6 @@ static Fvector vFootExt;
 Flags32 psActorFlags = {AF_GODMODE_RT | AF_AUTOPICKUP | AF_RUN_BACKWARD | AF_IMPORTANT_SAVE | AF_USE_TRACERS};
 int psActorSleepTime = 1;
 
-
 CActor::CActor() : CEntityAlive()
 {
 	game_news_registry = xr_new<CGameNewsRegistryWrapper>();
@@ -116,8 +113,8 @@ CActor::CActor() : CEntityAlive()
 
 	cameras[eacLookAt] = xr_new<CCameraLook2>(this);
 	cameras[eacLookAt]->Load("actor_look_cam_psp");
-	//-Alundaio
 
+	//-Alundaio
 	cameras[eacFreeLook] = xr_new<CCameraLook>(this);
 	cameras[eacFreeLook]->Load("actor_free_cam");
 	cameras[eacFixedLookAt] = xr_new<CCameraFixedLook>(this);
@@ -1870,21 +1867,11 @@ void CActor::UpdateArtefactsOnBeltAndOutfit()
 	CHelmet* pHelmet = smart_cast<CHelmet*>(inventory().ItemFromSlot(HELMET_SLOT));
 	if (outfit || pHelmet)
 	{
-		conditions().ChangeBleeding(
-			((outfit ? outfit->m_fBleedingRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fBleedingRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangeHealth(
-			((outfit ? outfit->m_fHealthRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fHealthRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangePower(
-			((outfit ? outfit->m_fPowerRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fPowerRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangeSatiety(
-			((outfit ? outfit->m_fSatietyRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fSatietyRestoreSpeed : 0.f)) *
-			f_update_time);
-		conditions().ChangeRadiation(
-			((outfit ? outfit->m_fRadiationRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fRadiationRestoreSpeed : 0.f)) *
-			f_update_time);
+		conditions().ChangeBleeding(((outfit ? outfit->m_fBleedingRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fBleedingRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangeHealth(((outfit ? outfit->m_fHealthRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fHealthRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangePower(((outfit ? outfit->m_fPowerRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fPowerRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangeSatiety(((outfit ? outfit->m_fSatietyRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fSatietyRestoreSpeed : 0.f)) * f_update_time);
+		conditions().ChangeRadiation(((outfit ? outfit->m_fRadiationRestoreSpeed : 0.f) + (pHelmet ? pHelmet->m_fRadiationRestoreSpeed : 0.f)) * f_update_time);
 	}
 }
 
@@ -1938,14 +1925,18 @@ float CActor::GetProtection_ArtefactsOnBelt(ALife::EHitType hit_type)
 
 void CActor::SetZoomRndSeed(s32 Seed)
 {
-	if (0 != Seed) m_ZoomRndSeed = Seed;
-	else m_ZoomRndSeed = s32(Level().timeServer_Async());
+	if (0 != Seed)
+		m_ZoomRndSeed = Seed;
+	else
+		m_ZoomRndSeed = s32(Level().timeServer_Async());
 };
 
 void CActor::SetShotRndSeed(s32 Seed)
 {
-	if (0 != Seed) m_ShotRndSeed = Seed;
-	else m_ShotRndSeed = s32(Level().timeServer_Async());
+	if (0 != Seed)
+		m_ShotRndSeed = Seed;
+	else
+		m_ShotRndSeed = s32(Level().timeServer_Async());
 };
 
 Fvector CActor::GetMissileOffset() const

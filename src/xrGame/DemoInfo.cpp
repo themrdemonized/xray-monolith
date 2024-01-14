@@ -6,37 +6,7 @@
 #include "../xrCore/stream_reader.h"
 #include "object_broker.h"
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
-
 u32 const demo_player_info::demo_info_max_size = DEMOSTRING_MAX_SIZE + 80;
-
-/*
-void stream_read_demostring(CStreamReader* stream, shared_str & dest_result, u32 max_size)
-{
-	R_ASSERT(stream);
-	R_ASSERT(max_size > 0);
-	char* dest_str		= static_cast<char*>(_alloca(max_size));
-	u32 string_size = stream->r_u32();
-	if (string_size > max_size)
-	{
-		int old_pos = stream->tell();
-		stream->r(static_cast<void*>(dest_str), max_size);
-		dest_str[max_size - 1] = 0;
-		stream->seek(old_pos + string_size);
-	} else
-	{
-		stream->r(static_cast<void*>(dest_str), string_size);
-	}
-	dest_result = dest_str;
-}
-
-void stream_write_demostring(IWriter* writer, shared_str const & string_to_write, u32 max_size)
-{
-	R_ASSERT(writer);
-	R_ASSERT(string_to_write.size() < max_size);
-	writer->w_u32		(string_to_write.size() + 1);//with zero end
-	writer->w_stringZ	(string_to_write);
-}*/
 
 demo_player_info::demo_player_info()
 {
@@ -157,7 +127,7 @@ void demo_info::load_from_game()
 	m_map_version = Level().version();
 	game_cl_mp* tmp_game = smart_cast<game_cl_mp*>(&Game());
 	R_ASSERT2(tmp_game, "client game not present");
-	m_game_type = GameTypeToString(tmp_game->Type(), true);
+	m_game_type = "single";
 	string32 tmp_score_dest;
 	m_game_score = tmp_game->GetGameScore(tmp_score_dest);
 	if (tmp_game->local_player && (xr_strlen(tmp_game->local_player->getName()) > 0))

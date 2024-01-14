@@ -186,16 +186,6 @@ void CGamePersistent::OnGameStart()
 	UpdateGameType();
 }
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort)
-{
-	return "single";
-}
-
-EGameIDs ParseStringToGameType(LPCSTR str)
-{
-	return eGameIDSingle;
-}
-
 void CGamePersistent::UpdateGameType()
 {
 	__super::UpdateGameType();

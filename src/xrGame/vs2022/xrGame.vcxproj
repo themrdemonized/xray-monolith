@@ -2157,7 +2157,6 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
-    <ClCompile Include="..\Actor_Sleep.cpp" />
     <ClCompile Include="..\actor_statistic_mgr.cpp" />
     <ClCompile Include="..\Actor_Weapon.cpp" />
     <ClCompile Include="..\AdvancedDetector.cpp" />

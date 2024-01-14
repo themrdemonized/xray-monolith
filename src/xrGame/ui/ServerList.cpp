@@ -11,14 +11,10 @@
 #include "../login_manager.h"
 
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort);
 CGameSpy_Browser* g_gs_browser = NULL;
 
 CServerList::CServerList()
 {
-	//m_GSBrowser	= MainMenu()->GetGS()->GetGameSpyBrowser();
-	//browser().Init(this);
-
 	for (int i = 0; i < LST_COLUMN_COUNT; i++)
 		AttachChild(&m_header_frames[i]);
 
@@ -706,99 +702,36 @@ void CServerList::SetSortFunc(const char* func_name, bool make_sort)
 
 void CServerList::SrvInfo2LstSrvInfo(const ServerInfo* pServerInfo)
 {
-	//m_itemInfo.info.server			= pServerInfo->m_ServerName;
-	//xr_string address				= pServerInfo->m_HostName;
-	//char							port[8];
-	//address							+= "/port=";	
-	//address							+= itoa(pServerInfo->m_Port, port, 10);
-	//m_itemInfo.info.address			= address.c_str();
-	//m_itemInfo.info.map				= pServerInfo->m_SessionName;
-	//m_itemInfo.info.game			= GameTypeToString( (EGameIDs)pServerInfo->m_GameType, true);
-	//m_itemInfo.info.players.printf	("%d/%d", pServerInfo->m_ServerNumPlayers, pServerInfo->m_ServerMaxPlayers);
-	//m_itemInfo.info.ping.printf		("%d", pServerInfo->m_Ping);
-	//m_itemInfo.info.version			= pServerInfo->m_ServerVersion;
-	//m_itemInfo.info.icons.pass		= pServerInfo->m_bPassword;
-	//m_itemInfo.info.icons.dedicated	= pServerInfo->m_bDedicated;
-	//m_itemInfo.info.icons.punkbuster= false;//	= pServerInfo->m_bPunkBuster;
-	//m_itemInfo.info.icons.user_pass	= pServerInfo->m_bUserPass;
-
-	//m_itemInfo.info.Index			= pServerInfo->Index;   
 }
 
 
 bool CServerList::sort_by_ServerName(int p1, int p2)
 {
-	//CGameSpy_Browser& gs_browser = *g_gs_browser;
-	//ServerInfo info1,info2;
-
-	//gs_browser.GetServerInfoByIndex(&info1, p1);
-	//   gs_browser.GetServerInfoByIndex(&info2, p2);
-
-	//int res = xr_strcmp(info1.m_ServerName, info2.m_ServerName);
-	//return (g_bSort_Ascending) ? (-1 == res) : (1 == res);
 	return p1 < p2;
 }
 
 bool CServerList::sort_by_Map(int p1, int p2)
 {
-	//CGameSpy_Browser& gs_browser = *g_gs_browser;
-	//ServerInfo info1,info2;
-
-	//gs_browser.GetServerInfoByIndex(&info1, p1);
-	//   gs_browser.GetServerInfoByIndex(&info2, p2);
-
-	//int res = xr_strcmp(info1.m_SessionName, info2.m_SessionName);
-	//return (g_bSort_Ascending) ? (-1 == res) : (1 == res);
 	return p1 < p2;
 }
 
 bool CServerList::sort_by_GameType(int p1, int p2)
 {
-	//CGameSpy_Browser& gs_browser = *g_gs_browser;
-	//ServerInfo info1,info2;
-
-	//gs_browser.GetServerInfoByIndex(&info1, p1);
-	//   gs_browser.GetServerInfoByIndex(&info2, p2);
-
-	//int res = xr_strcmp(info1.m_ServerGameType, info2.m_ServerGameType);
-	//return (g_bSort_Ascending) ? (-1 == res) : (1 == res);
 	return p1 < p2;
 }
 
 bool CServerList::sort_by_Players(int p1, int p2)
 {
-	//CGameSpy_Browser& gs_browser = *g_gs_browser;
-	//ServerInfo info1,info2;
-
-	//gs_browser.GetServerInfoByIndex(&info1, p1);
-	//   gs_browser.GetServerInfoByIndex(&info2, p2);
-
-	//return (g_bSort_Ascending) ? (info1.m_ServerNumPlayers < info2.m_ServerNumPlayers) : (info1.m_ServerNumPlayers > info2.m_ServerNumPlayers);
 	return p1 < p2;
 }
 
 bool CServerList::sort_by_Ping(int p1, int p2)
 {
-	//CGameSpy_Browser& gs_browser = *g_gs_browser;
-	//ServerInfo info1,info2;
-
-	//gs_browser.GetServerInfoByIndex(&info1, p1);
-	//   gs_browser.GetServerInfoByIndex(&info2, p2);
-
-	//return (g_bSort_Ascending) ? (info1.m_Ping < info2.m_Ping) : (info1.m_Ping > info2.m_Ping);
 	return p1 < p2;
 }
 
 bool CServerList::sort_by_Version(int p1, int p2)
 {
-	//CGameSpy_Browser& gs_browser = *g_gs_browser;
-	//ServerInfo info1,info2;
-
-	//gs_browser.GetServerInfoByIndex(&info1, p1);
-	//gs_browser.GetServerInfoByIndex(&info2, p2);
-
-	//int res = xr_strcmp(info1.m_ServerVersion, info2.m_ServerVersion);
-	//return (g_bSort_Ascending) ? (-1 == res) : (1 == res);
 	return p1 < p2;
 }
 

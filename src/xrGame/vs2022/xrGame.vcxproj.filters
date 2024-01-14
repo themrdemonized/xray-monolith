@@ -4215,7 +4215,6 @@
     <ClCompile Include="..\actor_mp_state.cpp" />
     <ClCompile Include="..\Actor_Network.cpp" />
     <ClCompile Include="..\actor_script.cpp" />
-    <ClCompile Include="..\Actor_Sleep.cpp" />
     <ClCompile Include="..\actor_statistic_mgr.cpp" />
     <ClCompile Include="..\Actor_Weapon.cpp" />
     <ClCompile Include="..\AdvancedDetector.cpp" />
