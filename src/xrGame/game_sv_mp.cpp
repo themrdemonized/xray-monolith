@@ -15,7 +15,6 @@
 #include "Grenade.h"
 #include "Inventory.h"
 #include "Artefact.h"
-#include "MPPlayersBag.h"
 #include "WeaponKnife.h"
 #include "game_cl_base_weapon_usage_statistic.h"
 #include "xrGameSpyServer.h"
@@ -2232,9 +2231,6 @@ void game_sv_mp::DestroyAllPlayerItems(ClientID id_who) //except rukzak
 			Msg("! ERROR: entity not found [%d]. Destroy all items of actor[%d]", object_id, ps->GameID);
 			continue;
 		}
-
-		if (smart_cast<CMPPlayersBag*>(*ii))
-			continue;
 
 		if (smart_cast<CWeaponKnife*>(*ii))
 			continue;

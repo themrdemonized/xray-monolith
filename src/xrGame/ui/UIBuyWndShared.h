@@ -13,7 +13,6 @@ typedef CUIMpTradeWnd BUY_WND_TYPE;
 
 
 #include "associative_vector.h"
-#include "restrictions.h"
 
 struct string_lex_less
 {
@@ -28,7 +27,7 @@ class CItemMgr
 	struct _i
 	{
 		u8 slot_idx;
-		u32 cost[_RANK_COUNT];
+		u32 cost[0];
 	};
 
 	typedef associative_vector<shared_str, _i, string_lex_less> COST_MAP;

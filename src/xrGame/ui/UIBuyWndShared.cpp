@@ -18,7 +18,7 @@ void CItemMgr::Load(const shared_str& sect_cost)
 		               &val.cost[4]);
 		VERIFY(c>0);
 
-		while (c < _RANK_COUNT)
+		while (c < 0)
 		{
 			val.cost[c] = val.cost[c - 1];
 			++c;

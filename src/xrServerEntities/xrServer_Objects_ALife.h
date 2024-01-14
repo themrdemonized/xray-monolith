@@ -87,8 +87,7 @@ SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeSchedulable, IPureSchedulableObject)
 	virtual void vfAttachItems(ALife::ETakeType tTakeType = ALife::eTakeTypeAll)
 	{
 	};
-	virtual ALife::EMeetActionType tfGetActionType(CSE_ALifeSchedulable* tpALifeSchedulable, int iGroupIndex,
-	                                               bool bMutualDetection) = 0;
+	virtual ALife::EMeetActionType tfGetActionType(CSE_ALifeSchedulable* tpALifeSchedulable, int iGroupIndex, bool bMutualDetection) = 0;
 	virtual bool bfActive() = 0;
 	virtual CSE_ALifeDynamicObject* tpfGetBestDetector() = 0;
 #endif
@@ -335,8 +334,7 @@ SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeDynamicObject, CSE_ALifeObject)
 	virtual void add_offline(const xr_vector<ALife::_OBJECT_ID>& saved_children, const bool& update_registries);
 	virtual bool redundant() const;
 	void attach(CSE_ALifeInventoryItem* tpALifeInventoryItem, bool bALifeRequest, bool bAddChildren = true);
-	void detach(CSE_ALifeInventoryItem* tpALifeInventoryItem, ALife::OBJECT_IT* I = 0, bool bALifeRequest = true,
-	            bool bRemoveChildren = true);
+	void detach(CSE_ALifeInventoryItem* tpALifeInventoryItem, ALife::OBJECT_IT* I = 0, bool bALifeRequest = true, bool bRemoveChildren = true);
 	virtual void clear_client_data();
 	virtual void on_failed_switch_online();
 #endif
@@ -414,8 +412,7 @@ SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeSmartZone, CSE_ALifeSpaceRestrictor, CSE_A
 	virtual bool bfActive();
 	virtual CSE_ALifeItemWeapon* tpfGetBestWeapon(ALife::EHitType& tHitType, float& fHitPower);
 	virtual CSE_ALifeDynamicObject* tpfGetBestDetector();
-	virtual ALife::EMeetActionType tfGetActionType(CSE_ALifeSchedulable* tpALifeSchedulable, int iGroupIndex,
-	                                               bool bMutualDetection);
+	virtual ALife::EMeetActionType tfGetActionType(CSE_ALifeSchedulable* tpALifeSchedulable, int iGroupIndex, bool bMutualDetection);
 	// additional functionality
 	virtual bool enabled(CSE_ALifeMonsterAbstract* object) const { return false; };
 	virtual float suitable(CSE_ALifeMonsterAbstract* object) const { return 0.f; };
@@ -444,8 +441,6 @@ SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeObjectPhysic, CSE_ALifeDynamicObjectVisual
 	virtual bool can_save() const;
 	virtual void load(NET_Packet& tNetPacket);
 	virtual CSE_Abstract* cast_abstract() { return this; }
-	//	virtual	void					load					(IReader& r){inherited::load(r);}
-	//	using inherited::load(IReader&);
 private:
 	u32 m_freeze_time;
 	static const u32 m_freeze_delta_time;
@@ -654,16 +649,6 @@ SERVER_ENTITY_DECLARE_END
 
 //add_to_type_list(CSE_ALifeStationaryMgun)
 //#define script_type_list save_type_list(CSE_ALifeStationaryMgun)
-
-SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeTeamBaseZone, CSE_ALifeSpaceRestrictor)
-	CSE_ALifeTeamBaseZone(LPCSTR caSection);
-	virtual ~CSE_ALifeTeamBaseZone();
-
-	u8 m_team;
-SERVER_ENTITY_DECLARE_END
-
-add_to_type_list(CSE_ALifeTeamBaseZone)
-#define script_type_list save_type_list(CSE_ALifeTeamBaseZone)
 
 SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeInventoryBox, CSE_ALifeDynamicObjectVisual)
 	bool m_can_take;

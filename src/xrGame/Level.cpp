@@ -18,7 +18,6 @@
 #include "script_process.h"
 #include "script_engine.h"
 #include "script_engine_space.h"
-#include "team_base_zone.h"
 #include "infoportion.h"
 #include "patrol_path_storage.h"
 #include "date_time.h"
@@ -866,9 +865,6 @@ void CLevel::OnRender()
             CClimableObject* climable = smart_cast<CClimableObject*>(_O);
             if (climable)
                 climable->OnRender();
-            CTeamBaseZone* team_base_zone = smart_cast<CTeamBaseZone*>(_O);
-            if (team_base_zone)
-                team_base_zone->OnRender();
             if (dbg_net_Draw_Flags.test(dbg_draw_skeleton)) //draw skeleton
             {
                 CGameObject* pGO = smart_cast<CGameObject*>	(_O);

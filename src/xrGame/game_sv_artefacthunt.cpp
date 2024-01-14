@@ -8,7 +8,6 @@
 #include "game_cl_base.h"
 #include "Inventory.h"
 #include "Artefact.h"
-#include "MPPlayersBag.h"
 #include "WeaponKnife.h"
 #include "ui\UIBuyWndShared.h"
 #include "game_cl_base_weapon_usage_statistic.h"
@@ -48,10 +47,9 @@ void game_sv_ArtefactHunt::Create(shared_str& options)
 	m_delayedRoundEnd = false;
 	m_delayedTeamEliminated = false;
 	m_eAState = NONE;
+
 	//---------------------------------------------------
 	// loading respawn points for artefacts
-	//.	m_LastRespawnPointID = 0;
-	//.	ArtefactsRPoints_ID.clear();
 	Artefact_rpoints.clear();
 
 	string_path fn_game;
@@ -651,11 +649,8 @@ void game_sv_ArtefactHunt::OnObjectLeaveTeamBase(u16 id, u16 zone_team)
 	CSE_Abstract* e_who = m_server->ID_to_entity(id);
 	if (!e_who) return;
 
-	//	CSE_Abstract*		e_zone	= m_server->ID_to_entity(id_zone);	VERIFY(e_zone	);
-
 	CSE_ALifeCreatureActor* eActor = smart_cast<CSE_ALifeCreatureActor*>(e_who);
-	//	CSE_ALifeTeamBaseZone*	eZoneBase = smart_cast<CSE_ALifeTeamBaseZone*> (e_zone);
-	if (eActor /*&& eZoneBase*/)
+	if (eActor)
 	{
 		if (eActor->g_team() == zone_team)
 		{
@@ -939,34 +934,14 @@ void game_sv_ArtefactHunt::OnCreate(u16 id_who)
 	CSE_ALifeItemArtefact* pIArtefact = smart_cast<CSE_ALifeItemArtefact*>(pEntity);
 	if (pIArtefact)
 		m_dwArtefactID = pIArtefact->ID;
-	CSE_ALifeTeamBaseZone* pTeamBase = smart_cast<CSE_ALifeTeamBaseZone*>(pEntity);
-	if (pTeamBase && m_bSwapBases)
-	{
-		pTeamBase->m_team = 3 - pTeamBase->m_team;
-	}
 };
 
 void game_sv_ArtefactHunt::Assign_Artefact_RPoint(CSE_Abstract* E)
 {
 	R_ASSERT(E);
 	const xr_vector<RPoint>& rp = Artefact_rpoints;
-	//.	xr_vector<u8>&	rpID		= ArtefactsRPoints_ID;
 	RPoint r;
-	/*
-		if (rpID.empty())
-		{
-			for (u8 i=0; i<rp.size(); i++)
-			{
-				if (m_LastRespawnPointID == i) continue;
-				rpID.push_back(i);
-			}
-		};
-	
-		u8 ID = u8(::Random.randI((int)rpID.size()));
-		m_LastRespawnPointID = rpID[ID];
-		r	= rp[m_LastRespawnPointID];
-		rpID.erase(rpID.begin()+ID);
-	*/
+
 	u32 ID = ArtefactChooserRandom.randI((int)rp.size());
 #ifndef MASTER_GOLD
 	Msg					("---select artefact RPoint [%d]", ID);
@@ -1058,7 +1033,6 @@ bool game_sv_ArtefactHunt::Artefact_NeedToRemove()
 
 	if (m_dwArtefactRemoveTime < Device.dwTimeGlobal)
 	{
-		//		VERIFY (m_eAState == ON_FIELD);
 		RemoveArtefact();
 		return true;
 	};
@@ -1204,8 +1178,6 @@ void game_sv_ArtefactHunt::MoveAllAlivePlayers()
 			//-----------------------------------------------
 			Fvector Pos = pA->o_Position;
 			Fvector Angle = pA->o_Angle;
-			//		pA->o_Position	= Pos;
-			//		pA->o_Angle		= Angle;
 			//------------------------------------------------
 			pActor->SetfHealth(pActor->GetMaxHealth());
 			pActor->MoveActor(Pos, Angle);
@@ -1318,7 +1290,6 @@ void game_sv_ArtefactHunt::CheckForTeamElimination()
 	if (!WinTeam) return;
 
 	SetTeamScore(WinTeam - 1, GetTeamScore(WinTeam - 1) + 1);
-	//			OnTeamScore(ps_killer->team, false);
 	//-----------------------------------------------------------------------------
 	TeamStruct* pWTeam = GetTeamData(WinTeam);
 	if (pWTeam)
@@ -1350,7 +1321,7 @@ void game_sv_ArtefactHunt::CheckForTeamElimination()
 	m_phase = u16((WinTeam == 1) ? GAME_PHASE_TEAM2_ELIMINATED : GAME_PHASE_TEAM1_ELIMINATED);
 	switch_Phase(m_phase);
 
-	OnDelayedTeamEliminated(); //OnDelayedRoundEnd( eRoundEnd_FragLimit ); //??   "Team Eliminated"
+	OnDelayedTeamEliminated();
 	RemoveArtefact();
 }
 
@@ -1406,11 +1377,6 @@ void game_sv_ArtefactHunt::check_Player_for_Invincibility(game_PlayerState* ps)
 void game_sv_ArtefactHunt::Check_ForClearRun(game_PlayerState* ps)
 {
 	if (!ps) return;
-	/*if (!ps->m_bClearRun)
-	{
-		ps->m_bClearRun = true;
-		return;
-	};*/
 	TeamStruct* pTeam = GetTeamData(u8(ps->team));
 	if (!pTeam) return;
 
@@ -1486,14 +1452,11 @@ bool game_sv_ArtefactHunt::Player_Check_Rank(game_PlayerState* ps)
 
 void game_sv_ArtefactHunt::OnPlayerHitPlayer_Case(game_PlayerState* ps_hitter, game_PlayerState* ps_hitted, SHit* pHitS)
 {
-	//if (pHitS->hit_type != ALife::eHitTypePhysicStrike)
-	//{
 	if (ps_hitted->testFlag(GAME_PLAYER_FLAG_ONBASE) && Get_ShieldedBases())
 	{
 		pHitS->power = 0;
 		pHitS->impulse = 0;
 	}
-	//	}	
 	inherited::OnPlayerHitPlayer_Case(ps_hitter, ps_hitted, pHitS);
 };
 
@@ -1516,13 +1479,6 @@ void game_sv_ArtefactHunt::OnPlayerHitPlayer(u16 id_hitter, u16 id_hitted, NET_P
 void game_sv_ArtefactHunt::SwapTeams()
 {
 	BOOL old_team_swap = g_sv_tdm_bAutoTeamSwap;
-	//swap rpoints
-	/*xr_vector<RPoint> tmpRPoints;
-	tmpRPoints = rpoints[1];
-	rpoints[1] = rpoints[2];
-	rpoints[2] = tmpRPoints;
-	//swap bases
-	m_bSwapBases = !m_bSwapBases;*/
 	g_sv_tdm_bAutoTeamSwap = TRUE;
 	AutoSwapTeams();
 	g_sv_tdm_bAutoTeamSwap = old_team_swap;
@@ -1534,39 +1490,3 @@ void game_sv_ArtefactHunt::WriteGameState(CInifile& ini, LPCSTR sect, bool bRoun
 
 	ini.w_u32(sect, "artefacts_limit", Get_ArtefactsCount());
 }
-
-/*void game_sv_ArtefactHunt::DestroyAllPlayerItems(ClientID id_who)	//except rukzak
-{
-	xrClientData* xrCData = m_server->ID_to_client(id_who);
-	
-	VERIFY2(xrCData, 
-		make_string("client (ClientID = 0x%08x) not found", id_who.value()).c_str());
-	VERIFY(xrCData->ps);
-	game_PlayerState*	ps	=	xrCData->ps;
-#ifndef MASTER_GOLD
-	Msg("---Destroying player [%s] items before spawning new bought items.", ps->getName());
-#endif // #ifndef MASTER_GOLD
-	
-	CActor* pActor = smart_cast<CActor*>(Level().Objects.net_Find(ps->GameID));
-	if (!pActor)
-		return;
-	
-	TIItemContainer::const_iterator iie = pActor->inventory().m_all.end();
-	for (TIItemContainer::const_iterator ii = pActor->inventory().m_all.begin();
-		ii != iie; ++ii)
-	{
-		VERIFY(*ii);
-		u16 object_id = (*ii)->object().ID();
-		CSE_Abstract* tempEntity = m_server->ID_to_entity(object_id);
-		VERIFY(tempEntity);
-		
-		if (smart_cast<CMPPlayersBag*>(*ii))
-			continue;
-		
-		CArtefact*	temp_artefact = smart_cast<CArtefact*>(*ii);
-		if (temp_artefact)
-			continue;
-		
-		DestroyGameItem(tempEntity);
-	}
-}*/

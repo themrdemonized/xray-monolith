@@ -82,8 +82,6 @@ bool is_item_in_list(CUIDragDropListEx* pList, PIItem item)
 	return false;
 }
 
-#include "../MPPlayersBag.h"
-
 void CUIActorMenu::FilterActorTradeBagList(int mode)
 {
 	m_pTradeActorBagList->ClearAll(true);
@@ -98,10 +96,6 @@ void CUIActorMenu::FilterActorTradeBagList(int mode)
 	{
 		if (!is_item_in_list(m_pTradeActorList, *itb))
 		{
-			CMPPlayersBag* bag = smart_cast<CMPPlayersBag*>(&(*itb)->object());
-			if (bag)
-				continue;
-
 			PIItem iitm = *itb;
 
 			int kinds = _GetItemCount(m_sort_kinds[mode]);

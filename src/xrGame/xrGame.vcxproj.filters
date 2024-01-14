@@ -5982,9 +5982,6 @@
     <ClInclude Include="wallmark_manager.h">
       <Filter>Core\Client\Objects\items &amp; weapons\Explosives</Filter>
     </ClInclude>
-    <ClInclude Include="MPPlayersBag.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\MPPlayersBag</Filter>
-    </ClInclude>
     <ClInclude Include="anticheat_dumpable_object.h">
       <Filter>Core\Client\Objects\items &amp; weapons\MPAnticheat</Filter>
     </ClInclude>
@@ -6017,9 +6014,6 @@
     </ClInclude>
     <ClInclude Include="script_zone.h">
       <Filter>Core\Client\Objects\zones\ScriptZone</Filter>
-    </ClInclude>
-    <ClInclude Include="team_base_zone.h">
-      <Filter>Core\Client\Objects\zones\TeamBaseZone</Filter>
     </ClInclude>
     <ClInclude Include="TorridZone.h">
       <Filter>Core\Client\Objects\zones\TorridZone</Filter>
@@ -7070,9 +7064,6 @@
     </ClInclude>
     <ClInclude Include="ui\UIMpTradeWnd.h">
       <Filter>UI\Multiplayer\BuyWeaponWnd</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\Restrictions.h">
-      <Filter>UI\Multiplayer\BuyWeaponWnd\rank_restrictions</Filter>
     </ClInclude>
     <ClInclude Include="ui\UIBuyWeaponTab.h">
       <Filter>UI\Multiplayer\BuyWeaponWnd\TAB</Filter>
@@ -9560,9 +9551,6 @@
     <ClCompile Include="wallmark_manager.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\Explosives</Filter>
     </ClCompile>
-    <ClCompile Include="MPPlayersBag.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\MPPlayersBag</Filter>
-    </ClCompile>
     <ClCompile Include="mpactor_dump_impl.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\MPAnticheat</Filter>
     </ClCompile>
@@ -9616,9 +9604,6 @@
     </ClCompile>
     <ClCompile Include="script_zone_script.cpp">
       <Filter>Core\Client\Objects\zones\ScriptZone</Filter>
-    </ClCompile>
-    <ClCompile Include="team_base_zone.cpp">
-      <Filter>Core\Client\Objects\zones\TeamBaseZone</Filter>
     </ClCompile>
     <ClCompile Include="TorridZone.cpp">
       <Filter>Core\Client\Objects\zones\TorridZone</Filter>
@@ -10732,9 +10717,6 @@
     </ClCompile>
     <ClCompile Include="ui\UIMpTradeWnd_wpn.cpp">
       <Filter>UI\Multiplayer\BuyWeaponWnd</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\Restrictions.cpp">
-      <Filter>UI\Multiplayer\BuyWeaponWnd\rank_restrictions</Filter>
     </ClCompile>
     <ClCompile Include="ui\UIBuyWeaponTab.cpp">
       <Filter>UI\Multiplayer\BuyWeaponWnd\TAB</Filter>

@@ -3455,7 +3455,6 @@
     <ClInclude Include="..\moving_objects_impl.h" />
     <ClInclude Include="..\moving_objects_inline.h" />
     <ClInclude Include="..\moving_object_inline.h" />
-    <ClInclude Include="..\MPPlayersBag.h" />
     <ClInclude Include="..\mp_config_sections.h" />
     <ClInclude Include="..\mt_config.h" />
     <ClInclude Include="..\Needles.h" />
@@ -3869,7 +3868,6 @@
     <ClInclude Include="..\step_manager_defs.h" />
     <ClInclude Include="..\string_table.h" />
     <ClInclude Include="..\string_table_defs.h" />
-    <ClInclude Include="..\team_base_zone.h" />
     <ClInclude Include="..\team_hierarchy_holder.h" />
     <ClInclude Include="..\team_hierarchy_holder_inline.h" />
     <ClInclude Include="..\TeleWhirlwind.h" />
@@ -3912,7 +3910,6 @@
     <ClInclude Include="..\ui\KillMessageStruct.h" />
     <ClInclude Include="..\ui\map_hint.h" />
     <ClInclude Include="..\ui\MMSound.h" />
-    <ClInclude Include="..\ui\Restrictions.h" />
     <ClInclude Include="..\ui\ServerList.h" />
     <ClInclude Include="..\ui\TeamInfo.h" />
     <ClInclude Include="..\ui\UI3tButton.h" />
@@ -4764,7 +4761,6 @@
     <ClCompile Include="..\moving_objects_dynamic_collision.cpp" />
     <ClCompile Include="..\moving_objects_static.cpp" />
     <ClCompile Include="..\mpactor_dump_impl.cpp" />
-    <ClCompile Include="..\MPPlayersBag.cpp" />
     <ClCompile Include="..\mp_config_sections.cpp" />
     <ClCompile Include="..\Needles.cpp" />
     <ClCompile Include="..\NoGravityZone.cpp" />
@@ -5055,7 +5051,6 @@
     <ClCompile Include="..\steering_behaviour.cpp" />
     <ClCompile Include="..\step_manager.cpp" />
     <ClCompile Include="..\string_table.cpp" />
-    <ClCompile Include="..\team_base_zone.cpp" />
     <ClCompile Include="..\team_hierarchy_holder.cpp" />
     <ClCompile Include="..\TeleWhirlwind.cpp" />
     <ClCompile Include="..\ThornArtifact.cpp" />
@@ -5090,7 +5085,6 @@
     <ClCompile Include="..\ui\ArtefactDetectorUI.cpp" />
     <ClCompile Include="..\ui\map_hint.cpp" />
     <ClCompile Include="..\ui\MMSound.cpp" />
-    <ClCompile Include="..\ui\Restrictions.cpp" />
     <ClCompile Include="..\ui\ServerList.cpp" />
     <ClCompile Include="..\ui\ServerList_GameSpy_func.cpp" />
     <ClCompile Include="..\ui\TeamInfo.cpp" />
