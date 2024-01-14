@@ -342,7 +342,6 @@ public:
 	float old_torso_yaw;
 
 protected:
-	//virtual	void			cam_Set					(EActorCameras style);
 	void cam_Update(float dt, float fFOV);
 	void cam_Lookout(const Fmatrix& xform, float camera_height);
 	void camUpdateLadder(float dt);
@@ -358,11 +357,9 @@ protected:
 	CCameraBase* cameras[eacMaxCam];
 	EActorCameras cam_active;
 	float fPrevCamPos;
-	float current_ik_cam_shift;
 	Fvector vPrevCamDir;
 	float fCurAVelocity;
 	CEffectorBobbing* pCamBobbing;
-
 
 	//менеджер эффекторов, есть у каждого актрера
 	CActorCameraManager* m_pActorEffector;
@@ -426,7 +423,6 @@ public:
 	void g_sv_Orientate(u32 mstate_rl, float dt);
 	void g_Orientate(u32 mstate_rl, float dt);
 	bool g_LadderOrient();
-	//	void					UpdateMotionIcon		(u32 mstate_rl);
 
 	bool CanAccelerate();
 	bool CanJump();
@@ -536,7 +532,6 @@ protected:
 	int m_spine;
 	int m_neck;
 
-
 	//////////////////////////////////////////////////////////////////////////
 	// Network
 	//////////////////////////////////////////////////////////////////////////
@@ -546,7 +541,7 @@ public:
 	virtual void net_Export(NET_Packet& P); // export to server
 	virtual void net_Import(NET_Packet& P); // import from server
 	virtual void net_Destroy();
-	virtual BOOL net_Relevant(); //	{ return getSVU() | getLocal(); };		// relevant for export to server
+	virtual BOOL net_Relevant(); // relevant for export to server
 	virtual void net_Relcase(CObject* O); //
 	virtual void xr_stdcall on_requested_spawn(CObject* object);
 	//object serialization
@@ -568,15 +563,12 @@ protected:
 	void net_Import_Physic_proceed();
 	//---------------------------------------------
 
-
 	////////////////////////////////////////////////////////////////////////////
 	virtual bool can_validate_position_on_spawn() { return false; }
 	///////////////////////////////////////////////////////
 	// апдайт с данными физики
 	xr_deque<net_update_A> NET_A;
 
-	//---------------------------------------------
-	//	bool					m_bHasUpdate;	
 	/// spline coeff /////////////////////
 	float SCoeff[3][4]; //коэффициэнты для сплайна Бизье
 	float HCoeff[3][4]; //коэффициэнты для сплайна Эрмита
@@ -589,7 +581,6 @@ protected:
     VIS_POSITION	LastPosH;
     VIS_POSITION	LastPosL;
 #endif
-
 
 	SPHNetState LastState;
 	SPHNetState RecalculatedState;
@@ -620,7 +611,6 @@ protected:
     //---------------------------------------------
 #endif
 
-	// Igor	ref_geom 				hFriendlyIndicator;
 	//////////////////////////////////////////////////////////////////////////
 	// Actor physics
 	//////////////////////////////////////////////////////////////////////////
@@ -631,7 +621,6 @@ public:
 	virtual void PH_B_CrPr(); // actions & operations before physic correction-prediction steps
 	virtual void PH_I_CrPr(); // actions & operations after correction before prediction steps
 	virtual void PH_A_CrPr(); // actions & operations after phisic correction-prediction steps
-	//	virtual void			UpdatePosStack	( u32 Time0, u32 Time1 );
 	virtual void MoveActor(Fvector NewPos, Fvector NewDir);
 
 	virtual void SpawnAmmoForWeapon(CInventoryItem* pIItem);
@@ -730,11 +719,10 @@ public:
 	void SwitchNightVision();
 	void SwitchTorch();
 #ifdef DEBUG
-            void				NoClipFly						(int cmd);
+	void				NoClipFly						(int cmd);
 #endif //DEBUG
 
 public:
-
 	virtual void on_weapon_shot_start(CWeapon* weapon);
 	virtual void on_weapon_shot_update();
 	virtual void on_weapon_shot_stop();
@@ -806,7 +794,6 @@ private:
 private:
 	bool m_disabled_hitmarks;
 	bool m_inventory_disabled;
-	//static CPhysicsShell		*actor_camera_shell;
 
 	IC u32 get_state() const
 	{

@@ -11,12 +11,10 @@
 #include "Weapon.h"
 #include "Inventory.h"
 
-//#include "SleepEffector.h"
 #include "ActorEffector.h"
 #include "level.h"
 #include "../xrEngine/cl_intersect.h"
 
-//#include "elevatorstate.h"
 #include "CharacterPhysicsSupport.h"
 #include "EffectorShot.h"
 
@@ -301,7 +299,6 @@ ICF BOOL test_point(const Fvector& pt, xrXRC& xrc, const Fmatrix33& mat, const F
 	return FALSE;
 }
 
-
 IC bool test_point(const Fvector& pt, const Fmatrix33& mat, const Fvector& ext, CActor* actor)
 {
 	Fmatrix fmat = Fidentity;
@@ -309,7 +306,6 @@ IC bool test_point(const Fvector& pt, const Fmatrix33& mat, const Fvector& ext, 
 	fmat.j.set(mat.j);
 	fmat.k.set(mat.k);
 	fmat.c.set(pt);
-	//IPhysicsShellHolder * ve = smart_cast<IPhysicsShellHolder*> ( Level().CurrentEntity() ) ;
 	VERIFY(actor);
 	return test_camera_box(ext, fmat, actor);
 }
@@ -326,7 +322,6 @@ void	dbg_draw_viewport( const T &cam_info, float _viewport_near )
 	const Fvector right	= Fvector().mul( cam_info.Right(), h_w );
 	const Fvector up	= Fvector().mul( cam_info.Up(), h_h );
 
-	
 	const Fvector	top_left = Fvector().sub( near_plane_center,  right ).add( up );
 	const Fvector	top_right = Fvector().add( near_plane_center,  right ).add( up );
 	const Fvector	bottom_left = Fvector().sub( near_plane_center,  right ).sub( up );
@@ -365,8 +360,7 @@ IC void get_q_box(Fbox& xf, float c, float alpha, float radius)
 	xf.grow(c);
 }
 
-IC void get_cam_oob(Fvector& bc, Fvector& bd, Fmatrix33& mat, const Fmatrix& xform, const SRotation& r_torso,
-                    float alpha, float radius, float c)
+IC void get_cam_oob(Fvector& bc, Fvector& bd, Fmatrix33& mat, const Fmatrix& xform, const SRotation& r_torso, float alpha, float radius, float c)
 {
 	get_box_mat(mat, alpha, r_torso);
 	Fbox xf;
@@ -376,8 +370,7 @@ IC void get_cam_oob(Fvector& bc, Fvector& bd, Fmatrix33& mat, const Fmatrix& xfo
 	xf.get_CD(bc, bd);
 }
 
-IC void get_cam_oob(Fvector& bd, Fmatrix& mat, const Fmatrix& xform, const SRotation& r_torso, float alpha,
-                    float radius, float c)
+IC void get_cam_oob(Fvector& bd, Fmatrix& mat, const Fmatrix& xform, const SRotation& r_torso, float alpha, float radius, float c)
 {
 	Fmatrix33 mat3;
 	Fvector bc;
@@ -404,15 +397,7 @@ void CActor::cam_Lookout(const Fmatrix& xform, float camera_height)
 		Fvector bc, bd;
 		Fmatrix33 mat;
 		get_cam_oob(bc, bd, mat, xform, r_torso, alpha, radius, c);
-
-		/*
-		xrXRC				xrc			;
-		xrc.box_options		(0)			;
-		xrc.box_query		(Level().ObjectSpace.GetStaticModel(), bc, bd)		;
-		u32 tri_count		= xrc.r_count();
-
-		*/
-		//if (tri_count)		
+		
 		{
 			float da = 0.f;
 			BOOL bIntersect = FALSE;
@@ -501,25 +486,6 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 		
 	on_weapon_shot_update();
-	float y_shift = 0;
-
-	if (GamePersistent().GameType() != eGameIDSingle && ik_cam_shift && character_physics_support() &&
-		character_physics_support()->ik_controller())
-	{
-		y_shift = character_physics_support()->ik_controller()->Shift();
-		float cam_smooth_k = 1.f;
-		if (_abs(y_shift - current_ik_cam_shift) > ik_cam_shift_tolerance)
-		{
-			cam_smooth_k = 1.f - ik_cam_shift_speed * dt / 0.01f;
-		}
-
-		if (_abs(y_shift) < ik_cam_shift_tolerance / 2.f)
-			cam_smooth_k = 1.f - ik_cam_shift_speed * 1.f / 0.01f * dt;
-		clamp(cam_smooth_k, 0.f, 1.f);
-		current_ik_cam_shift = cam_smooth_k * current_ik_cam_shift + y_shift * (1.f - cam_smooth_k);
-	}
-	else
-		current_ik_cam_shift = 0;
 
 	// Alex ADD: smooth crouch fix
 	float HeightInterpolationSpeed = 4.f;
@@ -529,11 +495,10 @@ void CActor::cam_Update(float dt, float fFOV)
 
 	if (CurrentHeight != CameraHeight())
 	{
-		CurrentHeight = (CurrentHeight * (1.0f - HeightInterpolationSpeed * dt)) + (CameraHeight() *
-			HeightInterpolationSpeed * dt);
+		CurrentHeight = (CurrentHeight * (1.0f - HeightInterpolationSpeed * dt)) + (CameraHeight() * HeightInterpolationSpeed * dt);
 	}
 
-	Fvector point = {0, CurrentHeight + current_ik_cam_shift, 0};
+	Fvector point = {0, CurrentHeight, 0};
 	Fvector dangle = {0, 0, 0};
 	Fmatrix xform;
 	xform.setXYZ(0, r_torso.yaw, 0);
@@ -542,7 +507,6 @@ void CActor::cam_Update(float dt, float fFOV)
 	// lookout
 	if (this == Level().CurrentControlEntity())
 		cam_Lookout(xform, point.y);
-
 
 	if (!fis_zero(r_torso.roll))
 	{
@@ -555,8 +519,7 @@ void CActor::cam_Update(float dt, float fFOV)
 	float flCurrentPlayerY = xform.c.y;
 
 	// Smooth out stair step ups
-	if ((character_physics_support()->movement()->Environment() == CPHMovementControl::peOnGround) && (flCurrentPlayerY
-		- fPrevCamPos > 0))
+	if ((character_physics_support()->movement()->Environment() == CPHMovementControl::peOnGround) && (flCurrentPlayerY - fPrevCamPos > 0))
 	{
 		fPrevCamPos += dt * 1.5f;
 		if (fPrevCamPos > flCurrentPlayerY)
@@ -571,6 +534,7 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 
 	float _viewport_near = VIEWPORT_NEAR;
+
 	// calc point
 	xform.transform_tiny(point);
 
@@ -589,8 +553,10 @@ void CActor::cam_Update(float dt, float fFOV)
 		collide_camera(*cameras[eacFirstEye], _viewport_near, this);
 	}
 	
-	if (cam_active == eacFirstEye) {
-		if (firstPersonDeath && !g_Alive() && m_FPCam) {
+	if (cam_active == eacFirstEye) 
+	{
+		if (firstPersonDeath && !g_Alive() && m_FPCam) 
+		{
 			IKinematics* k = Visual()->dcast_PKinematics();
 
 			// Get eye bone position
@@ -608,16 +574,10 @@ void CActor::cam_Update(float dt, float fFOV)
 
 			// Adjust camera direction
 			Fvector adjustedCamDir;
-			adjustedCamDir.set(camDir).setHP(
-				camDir.x + deg2rad(8.f) + deg2rad(offsetH),
-				camDir.y - deg2rad(20.f) + deg2rad(offsetP)
-			);
-			camDir.set(
-				adjustedCamDir.getH(),
-				adjustedCamDir.getP(),
-				camDir.z + deg2rad(90.f) + deg2rad(offsetB)
-			);
-			if (camDir.x < 0) {
+			adjustedCamDir.set(camDir).setHP(camDir.x + deg2rad(8.f) + deg2rad(offsetH), camDir.y - deg2rad(20.f) + deg2rad(offsetP));
+			camDir.set(adjustedCamDir.getH(), adjustedCamDir.getP(), camDir.z + deg2rad(90.f) + deg2rad(offsetB));
+			if (camDir.x < 0) 
+			{
 				camDir.x = PI_MUL_2 + camDir.x;
 			}
 
@@ -632,19 +592,10 @@ void CActor::cam_Update(float dt, float fFOV)
 			m_FPCam->m_HPB.set(camDir);
 			m_FPCam->m_Position.set(camPos);
 			_viewport_near = VIEWPORT_NEAR - 0.08 + viewportNearOffset;
-			//Cameras().ApplyDevice(_viewport_near);
 		}
 	}
 
-	//Alundaio -psp always
-	//if( psActorFlags.test(AF_PSP) )
-	//{
 	Cameras().UpdateFromCamera(C);
-	//}else
-	//{
-	//	Cameras().UpdateFromCamera			(cameras[eacFirstEye]);
-	//}
-	//-Alundaio
 
 	fCurAVelocity = vPrevCamDir.sub(cameras[eacFirstEye]->vDirection).magnitude() / Device.fTimeDelta;
 	vPrevCamDir = cameras[eacFirstEye]->vDirection;
@@ -686,11 +637,12 @@ void CActor::cam_Update(float dt, float fFOV)
 // shot effector stuff
 void CActor::update_camera(CCameraShotEffector* effector)
 {
-	if (!effector) return;
-	//	if (Level().CurrentViewEntity() != this) return;
+	if (!effector) 
+		return;
 
 	CCameraBase* pACam = cam_Active();
-	if (!pACam) return;
+	if (!pACam) 
+		return;
 
 	if (pACam->bClampPitch)
 	{
@@ -717,18 +669,17 @@ void dbg_draw_frustum (float FOV, float _FAR, float A, Fvector &P, Fvector &D, F
 extern	Flags32	dbg_net_Draw_Flags;
 extern	BOOL g_bDrawBulletHit;
 
-void CActor::OnRender	()
+void CActor::OnRender()
 {
 #ifdef DEBUG
 	if (inventory().ActiveItem())
 		inventory().ActiveItem()->OnRender();
 #endif
-	if (!bDebug)				return;
+	if (!bDebug)				
+		return;
 
 	if ((dbg_net_Draw_Flags.is_any(dbg_draw_actor_phys)))
-		character_physics_support()->movement()->dbg_Draw	();
-
-	
+		character_physics_support()->movement()->dbg_Draw();
 
 	OnRender_Network();
 

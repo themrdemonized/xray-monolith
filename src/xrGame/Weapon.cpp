@@ -38,7 +38,6 @@
 #define WEAPON_REMOVE_TIME		60000
 #define ROTATION_TIME			0.25f
 
-
 float f_weapon_deterioration = 1.0f;
 extern CUIXml* pWpnScopeXml;
 
@@ -48,7 +47,6 @@ extern float scope_radius;
 Flags32 zoomFlags = {};
 extern float n_zoom_step_count;
 float sens_multiple = 1.0f;
-
 
 float CWeapon::SDS_Radius(bool alt) {
 	// hack for GL to always return 0, fix later
@@ -1969,14 +1967,6 @@ int g_iWeaponRemove = 1;
 
 bool CWeapon::NeedToDestroyObject() const
 {
-	if (GameID() == eGameIDSingle) return false;
-	if (Remote()) return false;
-	if (H_Parent()) return false;
-	if (g_iWeaponRemove == -1) return false;
-	if (g_iWeaponRemove == 0) return true;
-	if (TimePassedAfterIndependant() > m_dwWeaponRemoveTime)
-		return true;
-
 	return false;
 }
 
@@ -2009,8 +1999,7 @@ CInventoryItem* CWeapon::can_kill(CInventory* inventory) const
 		if (!inventory_item)
 			continue;
 
-		xr_vector<shared_str>::const_iterator i = std::find(m_ammoTypes.begin(), m_ammoTypes.end(),
-		                                                    inventory_item->object().cNameSect());
+		xr_vector<shared_str>::const_iterator i = std::find(m_ammoTypes.begin(), m_ammoTypes.end(), inventory_item->object().cNameSect());
 		if (i != m_ammoTypes.end())
 			return (inventory_item);
 	}
@@ -2031,8 +2020,7 @@ const CInventoryItem* CWeapon::can_kill(const xr_vector<const CGameObject*>& ite
 		if (!inventory_item)
 			continue;
 
-		xr_vector<shared_str>::const_iterator i = std::find(m_ammoTypes.begin(), m_ammoTypes.end(),
-		                                                    inventory_item->object().cNameSect());
+		xr_vector<shared_str>::const_iterator i = std::find(m_ammoTypes.begin(), m_ammoTypes.end(), inventory_item->object().cNameSect());
 		if (i != m_ammoTypes.end())
 			return (inventory_item);
 	}
@@ -2050,11 +2038,8 @@ bool CWeapon::ready_to_kill() const
 	if (io->inventory().ActiveItem() == NULL || io->inventory().ActiveItem()->object().ID() != ID())
 		return false;
 	//-Alundaio
-	return (
-		!IsMisfire() &&
-		((GetState() == eIdle) || (GetState() == eFire) || (GetState() == eFire2)) &&
-		GetAmmoElapsed()
-	);
+
+	return (!IsMisfire() && ((GetState() == eIdle) || (GetState() == eFire) || (GetState() == eFire2)) && GetAmmoElapsed());
 }
 
 ICF static BOOL pick_trace_callback(collide::rq_result& result, LPVOID params)
@@ -2082,17 +2067,6 @@ ICF static BOOL pick_trace_callback(collide::rq_result& result, LPVOID params)
 	return FALSE;
 }
 
-/*void CWeapon::net_Relcase(CObject* object)
-{
-	if (!ParentIsActor())
-		return;
-
-	if (PP.RQ.O == object)
-		PP.RQ.O = NULL;
-
-	RQS.r_clear();
-}*/
-
 // Обновление координат текущего худа
 void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 {
@@ -2105,31 +2079,6 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 
 	attachable_hud_item* hi = HudItemData();
 	R_ASSERT(hi);
-
-	/*PP.RQ.O = 0;
-	PP.RQ.range = 3.f;
-	PP.RQ.element = -1;
-	PP.power = 1.0f;
-	PP.pass = 0;
-	RQS.r_clear();
-
-	const Fmatrix& fire_mat = HudItemData()->m_model->LL_GetTransform(HudItemData()->m_measures.m_fire_bone);
-	Fvector pos; // = get_LastFP();
-	Fvector offs = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_firepoint_shell[0][0] : HudItemData()->m_measures.m_fire_point_offset;
-	offs.z -= g_freelook_z_offset;
-	fire_mat.transform_tiny(pos, offs);
-	HudItemData()->m_item_transform.transform_tiny(pos);
-	Fvector offs;
-	fire_mat.transform_tiny(offs, { 0, 0, -pos.z -.5f }); //otherwise you can shoot through thin walls
-	pos.add(offs);
-	
-	// add RQ for weapon barrel collision
-	collide::ray_defs RD(pos, get_ParticlesXFORM().k, 3.f, CDB::OPT_CULL, collide::rqtBoth);
-	if (Level().ObjectSpace.RayQuery(RQS, RD, pick_trace_callback, &PP, NULL, Level().CurrentEntity()))
-		clamp(PP.RQ.range, 0.f, 3.f);
-
-	//Msg("RQ range: %f", PP.RQ.range);
-	*/
 
 	u8 idx = GetCurrentHudOffsetIdx();
 
@@ -2849,8 +2798,6 @@ void NewGetZoomData(const float scope_factor, float& delta, float& min_zoom_fact
 	float delta_factor_total = def_fov - scope_factor;
 	VERIFY(delta_factor_total > 0);
 	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
-
-	//Msg("min zoom factor %f, min zoom %f, loc min zoom factor %f", min_zoom_factor, min_zoom, loc_min_zoom_factor);
 
 	if (min_zoom < loc_min_zoom_factor) {
 		min_zoom_factor = min_zoom;

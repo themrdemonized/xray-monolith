@@ -37,7 +37,6 @@ float CEntityAlive::m_fStartBloodWoundSize = 0.3f;
 float CEntityAlive::m_fStopBloodWoundSize = 0.1f;
 float CEntityAlive::m_fBloodDropSize = 0.03f;
 
-
 //минимальный размер ожега, после которого горят партиклы
 //минимальное время горения
 u32 CEntityAlive::m_dwMinBurnTime = 10000;
@@ -51,8 +50,7 @@ STR_VECTOR* CEntityAlive::m_pFireParticlesVector = NULL;
 /////////////////////////////////////////////
 // CEntityAlive
 /////////////////////////////////////////////
-CEntityAlive::CEntityAlive() :
-	m_hit_bone_surface_areas_actual(false)
+CEntityAlive::CEntityAlive() : m_hit_bone_surface_areas_actual(false)
 {
 	m_bMobility = false;
 	m_fAccuracy = 0.0f;
@@ -115,12 +113,10 @@ void CEntityAlive::LoadBloodyWallmarks(LPCSTR section)
 	for (int k = 0; k < cnt; ++k)
 		(*m_pBloodMarksVector)->AppendMark(_GetItem(wallmarks_name, k, tmp));
 
-
 	m_fBloodMarkSizeMin = pSettings->r_float(section, "min_size");
 	m_fBloodMarkSizeMax = pSettings->r_float(section, "max_size");
 	m_fBloodMarkDistance = pSettings->r_float(section, "dist");
 	m_fNominalHit = pSettings->r_float(section, "nominal_hit");
-
 
 	//капли крови с открытых ран
 	wallmarks_name = pSettings->r_string(section, "blood_drops");
@@ -128,15 +124,6 @@ void CEntityAlive::LoadBloodyWallmarks(LPCSTR section)
 
 	for (int k = 0; k < cnt; ++k)
 		(*m_pBloodDropsVector)->AppendMark(_GetItem(wallmarks_name, k, tmp));
-
-	/*
-	for (int k=0; k<cnt; ++k)
-	{
-		s.create ("effects\\wallmark",_GetItem(wallmarks_name,k,tmp));
-		m_pBloodDropsVector->push_back	(s);
-	}
-	*/
-
 
 	m_fStartBloodWoundSize = pSettings->r_float(section, "start_blood_size");
 	m_fStopBloodWoundSize = pSettings->r_float(section, "stop_blood_size");
@@ -147,12 +134,10 @@ void CEntityAlive::UnloadBloodyWallmarks()
 {
 	if (m_pBloodMarksVector)
 	{
-		//		m_pBloodMarksVector->clear	();
 		xr_delete(m_pBloodMarksVector);
 	}
 	if (m_pBloodDropsVector)
 	{
-		//		m_pBloodDropsVector->clear	();
 		xr_delete(m_pBloodDropsVector);
 	}
 }
@@ -199,7 +184,6 @@ void CEntityAlive::reinit()
 void CEntityAlive::reload(LPCSTR section)
 {
 	CEntity::reload(section);
-	//	CEntityCondition::reload(section);
 
 	m_ef_creature_type = pSettings->r_u32(section, "ef_creature_type");
 	m_ef_weapon_type = READ_IF_EXISTS(pSettings, r_u32, section, "ef_weapon_type", u32(-1));
@@ -227,12 +211,10 @@ void CEntityAlive::shedule_Update(u32 dt)
 	{
 		if (conditions().GetWhoHitLastTime())
 		{
-			//			Msg			("%6d : KillEntity from CEntityAlive (using who hit last time) for object %s",Device.dwTimeGlobal,*cName());
 			KillEntity(conditions().GetWhoHitLastTimeID());
 		}
 		else
 		{
-			//			Msg			("%6d : KillEntity from CEntityAlive for object %s",Device.dwTimeGlobal,*cName());
 			KillEntity(ID());
 		}
 	}
@@ -240,10 +222,6 @@ void CEntityAlive::shedule_Update(u32 dt)
 
 BOOL CEntityAlive::net_Spawn(CSE_Abstract* DC)
 {
-	//установить команду в соответствии с community
-	/*	if(monster_community->team() != 255)
-			id_Team = monster_community->team();*/
-
 	conditions().reinit();
 	BOOL res = inherited::net_Spawn(DC);
 
@@ -267,10 +245,7 @@ void CEntityAlive::net_Destroy()
 }
 
 void CEntityAlive::HitImpulse(float /**amount/**/, Fvector& /**vWorldDir/**/, Fvector& /**vLocalDir/**/)
-{
-	//	float Q					= 2*float(amount)/m_PhysicMovementControl->GetMass();
-	//	m_PhysicMovementControl->vExternalImpulse.mad	(vWorldDir,Q);
-}
+{}
 
 void CEntityAlive::Hit(SHit* pHDS)
 {
@@ -324,7 +299,7 @@ void CEntityAlive::Die(CObject* who)
 	const CGameObject* who_object = smart_cast<const CGameObject*>(who);
 	callback(GameObject::eDeath)(lua_game_object(), who_object ? who_object->lua_game_object() : 0);
 
-	if (!getDestroy() && (GameID() == eGameIDSingle))
+	if (!getDestroy())
 	{
 		NET_Packet P;
 		u_EventGen(P, GE_ASSIGN_KILLER, ID());

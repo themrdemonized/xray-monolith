@@ -637,26 +637,6 @@ u32 xrServer::OnMessage(NET_Packet& P, ClientID sender) // Non-Zero means broadc
 		break;
 	case M_STATISTIC_UPDATE_RESPOND:
 		{
-			//client method for collecting statistics are called from two places : 1 - this, 2 - game_sv_mp::WritePlayerStats
-			if (GameID() != eGameIDSingle)
-			{
-				game_sv_mp* my_game = static_cast<game_sv_mp*>(game);
-				if (CL)
-				{
-					my_game->m_async_stats.set_responded(CL->ID);
-					if (static_cast<IClient*>(CL) != GetServerClient())
-					{
-						game_PlayerState* tmp_ps = CL->ps;
-						u32 tmp_pid = tmp_ps != NULL ? tmp_ps->m_account.profile_id() : 0;
-						Game().m_WeaponUsageStatistic->OnUpdateRespond(&P, CL->m_cdkey_digest, tmp_pid);
-					}
-				}
-				else
-				{
-					Msg("! ERROR: SV: update respond received from unknown sender");
-				}
-			}
-			//if (SV_Client) SendTo	(SV_Client->ID, P, net_flags(TRUE, TRUE));
 		}
 		break;
 	case M_PLAYER_FIRE:
@@ -890,8 +870,7 @@ void xrServer::Server_Client_Check(IClient* CL)
 
 bool xrServer::OnCL_QueryHost()
 {
-	if (game->Type() == eGameIDSingle) return false;
-	return (GetClientsCount() != 0);
+	return false;
 };
 
 CSE_Abstract* xrServer::GetEntity(u32 Num)

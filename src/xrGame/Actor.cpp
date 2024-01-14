@@ -106,7 +106,7 @@ Flags32 psActorFlags = {AF_GODMODE_RT | AF_AUTOPICKUP | AF_RUN_BACKWARD | AF_IMP
 int psActorSleepTime = 1;
 
 
-CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
+CActor::CActor() : CEntityAlive()
 {
 	game_news_registry = xr_new<CGameNewsRegistryWrapper>();
 
@@ -310,8 +310,7 @@ void CActor::Load(LPCSTR section)
 	CInventoryOwner::Load(section);
 	m_location_manager->Load(section);
 
-	if (GameID() == eGameIDSingle)
-		OnDifficultyChanged();
+	OnDifficultyChanged();
 	//////////////////////////////////////////////////////////////////////////
 	ISpatial* self = smart_cast<ISpatial*>(this);
 	if (self)
@@ -1520,49 +1519,46 @@ void CActor::shedule_Update(u32 DT)
 		m_pVehicleWeLookingAt = smart_cast<CHolderCustom*>(game_object);
 		CEntityAlive* pEntityAlive = smart_cast<CEntityAlive*>(game_object);
 
-		if (GameID() == eGameIDSingle)
+		if (m_pUsableObject && m_pUsableObject->tip_text())
 		{
-			if (m_pUsableObject && m_pUsableObject->tip_text())
+			m_sDefaultObjAction = CStringTable().translate(m_pUsableObject->tip_text());
+		}
+		else
+		{
+			if (m_pPersonWeLookingAt && pEntityAlive->g_Alive() && m_pPersonWeLookingAt->IsTalkEnabled())
 			{
-				m_sDefaultObjAction = CStringTable().translate(m_pUsableObject->tip_text());
+				m_sDefaultObjAction = m_sCharacterUseAction;
 			}
-			else
+			else if (pEntityAlive && !pEntityAlive->g_Alive())
 			{
-				if (m_pPersonWeLookingAt && pEntityAlive->g_Alive() && m_pPersonWeLookingAt->IsTalkEnabled())
+				if (m_pPersonWeLookingAt && m_pPersonWeLookingAt->deadbody_closed_status())
 				{
-					m_sDefaultObjAction = m_sCharacterUseAction;
-				}
-				else if (pEntityAlive && !pEntityAlive->g_Alive())
-				{
-					if (m_pPersonWeLookingAt && m_pPersonWeLookingAt->deadbody_closed_status())
-					{
-						m_sDefaultObjAction = m_sDeadCharacterDontUseAction;
-					}
-					else
-					{
-						bool b_allow_drag = !!pSettings->line_exist("ph_capture_visuals", pEntityAlive->cNameVisual());
-						if (b_allow_drag)
-						{
-							m_sDefaultObjAction = m_sDeadCharacterUseOrDragAction;
-						}
-						else if (pEntityAlive->cast_inventory_owner())
-						{
-							m_sDefaultObjAction = m_sDeadCharacterUseAction;
-						}
-					} // m_pPersonWeLookingAt
-				}
-				else if (m_pVehicleWeLookingAt)
-				{
-					m_sDefaultObjAction = m_pVehicleWeLookingAt->m_sUseAction == 0 ? m_sCarCharacterUseAction : m_pVehicleWeLookingAt->m_sUseAction;
-				}
-				else if (m_pObjectWeLookingAt && m_pObjectWeLookingAt->cast_inventory_item() && m_pObjectWeLookingAt->cast_inventory_item()->CanTake())
-				{
-					m_sDefaultObjAction = m_sInventoryItemUseAction;
+					m_sDefaultObjAction = m_sDeadCharacterDontUseAction;
 				}
 				else
 				{
-					m_sDefaultObjAction = NULL;
-				}
+					bool b_allow_drag = !!pSettings->line_exist("ph_capture_visuals", pEntityAlive->cNameVisual());
+					if (b_allow_drag)
+					{
+						m_sDefaultObjAction = m_sDeadCharacterUseOrDragAction;
+					}
+					else if (pEntityAlive->cast_inventory_owner())
+					{
+						m_sDefaultObjAction = m_sDeadCharacterUseAction;
+					}
+				} // m_pPersonWeLookingAt
+			}
+			else if (m_pVehicleWeLookingAt)
+			{
+				m_sDefaultObjAction = m_pVehicleWeLookingAt->m_sUseAction == 0 ? m_sCarCharacterUseAction : m_pVehicleWeLookingAt->m_sUseAction;
+			}
+			else if (m_pObjectWeLookingAt && m_pObjectWeLookingAt->cast_inventory_item() && m_pObjectWeLookingAt->cast_inventory_item()->CanTake())
+			{
+				m_sDefaultObjAction = m_sInventoryItemUseAction;
+			}
+			else
+			{
+				m_sDefaultObjAction = NULL;
 			}
 		}
 	}

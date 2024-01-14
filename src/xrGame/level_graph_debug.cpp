@@ -36,10 +36,8 @@ void CLevelGraph::setup_current_level	(const int &level_id)
 
 void CLevelGraph::render	()
 {
-	if (psAI_Flags.test(aiDrawGameGraph)) {
-//		if (psHUD_Flags.test(HUD_DRAW))
-			draw_game_graph	();
-	}
+	if (psAI_Flags.test(aiDrawGameGraph))
+		draw_game_graph	();
 
 	if (!bDebug && !psAI_Flags.test(aiMotion))
 		return;
@@ -147,9 +145,6 @@ void CLevelGraph::draw_edge			(const int &vertex_id0, const int &vertex_id1)
 	render.draw_aabb		(position0,radius,radius,radius,vertex_color0);
 	render.draw_aabb		(position1,radius,radius,radius,vertex_color1);
 	render.draw_line		(Fidentity,position0,position1,edge_color);
-//	RCache.dbg_DrawAABB		(position0,radius,radius,radius,vertex_color);
-//	RCache.dbg_DrawAABB		(position1,radius,radius,radius,vertex_color);
-//	RCache.dbg_DrawLINE		(Fidentity,position0,position1,edge_color);
 }
 
 void CLevelGraph::draw_vertex		(const int &vertex_id)
@@ -241,7 +236,6 @@ void CLevelGraph::draw_stalkers		(const int &vertex_id)
 
 			const PATH			&path = stalker->brain().movement().detail().path();
 			const float			&walked_distance = (path.size() < 2) ? 0.f : stalker->brain().movement().detail().walked_distance();
-//			font.OutNext		("%s",stalker->name_replace());
 
 			if ((path.size() >= 2) && !fis_zero(walked_distance))
 				continue;
@@ -407,7 +401,6 @@ void CLevelGraph::draw_objects		(const int &vertex_id)
 
 			const PATH			&path = monster->brain().movement().detail().path();
 			const float			&walked_distance = (path.size() < 2) ? 0.f : monster->brain().movement().detail().walked_distance();
-//			font.OutNext		("%s",monster->name_replace());
 
 			if ((path.size() >= 2) && !fis_zero(walked_distance))
 				continue;
@@ -499,9 +492,6 @@ void CLevelGraph::draw_game_graph	()
 	if (!Level().CurrentEntity())
 		return;
 
-//	Fvector					camera_position = Level().CurrentEntity()->Position();
-//	CGameFont				*font = UI().Font().pFontDI;
-
 	const Fmatrix			&xform = Level().CurrentEntity()->XFORM();
 	Fvector					center = Fvector().set(0.f,5.f,0.f);
 	Fvector					bounds = Fvector().set(3.f,0.f,3.f);
@@ -512,10 +502,6 @@ void CLevelGraph::draw_game_graph	()
 	xform.transform_tiny	(vertices[1], Fvector().set(center.x + bounds.x, center.y + bounds.y, center.z + bounds.z));
 	xform.transform_tiny	(vertices[2], Fvector().set(center.x - bounds.x, center.y - bounds.y, center.z - bounds.z));
 	xform.transform_tiny	(vertices[3], Fvector().set(center.x + bounds.x, center.y - bounds.y, center.z - bounds.z));
-
-//	u32						back_color = D3DCOLOR_XRGB(0,0,0);
-//	RCache.dbg_DrawTRI		(Fidentity,vertices[0],vertices[2],vertices[1],back_color);
-//	RCache.dbg_DrawTRI		(Fidentity,vertices[1],vertices[2],vertices[3],back_color);
 
 	// draw vertices
 	CGameGraph				&graph = ai().game_graph();
@@ -543,157 +529,6 @@ void CLevelGraph::draw_game_graph	()
 		if (psAI_Flags.test(aiDrawGameGraphObjects))
 			draw_objects	(i);
 	}
-
-	/**
-	for (int i=0; i<(int)ai().game_graph().header().vertex_count(); ++i) {
-		Fvector t1 = ai().game_graph().vertex(i)->game_point();
-		t1.y += .6f;
-		NORMALIZE_VECTOR(t1);
-		Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,255));
-		CGameGraph::const_iterator	I, E;
-		ai().game_graph().begin		(i,I,E);
-		for ( ; I != E; ++I) {
-			Fvector t2 = ai().game_graph().vertex((*I).vertex_id())->game_point();
-			t2.y += .6f;
-			NORMALIZE_VECTOR(t2);
-			Level().debug_renderer().draw_line(Fidentity,t1,t2,D3DCOLOR_XRGB(0,255,0));
-		}
-		Fvector         T;
-		Fvector4        S;
-		T.set			(t1);
-		//T.y+= 1.5f;
-		T.y+= 1.5f/10.f;
-		Device.mFullTransform.transform (S,T);
-		//out of screen
-		if (S.z < 0 || S.w < 0)												continue;
-		if (S.x < -1.f || S.x > 1.f || S.y<-1.f || S.x>1.f)					continue;
-		F->SetSizeI	(0.05f/_sqrt(_abs(S.w)));
-		F->SetColor(0xffffffff);
-		F->OutI(S.x,-S.y,"%d",i);
-	}
-	{
-		const xr_vector<u32>	&path = map_point_path;
-		if( path.size() ){
-			Fvector t1 = ai().game_graph().vertex(path.back())->game_point();
-			t1.y += .6f;
-			NORMALIZE_VECTOR(t1);
-			Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,255));
-			for (int i=(int)path.size() - 2; i>=0;--i) {
-				Fvector t2 = ai().game_graph().vertex(path[i])->game_point();
-				t2.y += .6f;
-				NORMALIZE_VECTOR(t2);
-				Level().debug_renderer().draw_aabb(t2,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,255));
-				Level().debug_renderer().draw_line(Fidentity,t1,t2,D3DCOLOR_XRGB(0,0,255));
-				t1 = t2;
-			}
-		}
-	}
-
-	if (GameID() == eGameIDSingle && ai().get_alife()) {
-		{
-			GameGraph::_LEVEL_ID	J = ai().game_graph().vertex(ai().alife().graph().actor()->m_tGraphID)->level_id();
-			for (int i=0, n=(int)ai().game_graph().header().vertex_count(); i<n; ++i) {
-				if (ai().game_graph().vertex(i)->level_id() != J)
-					continue;
-				Fvector t1 = ai().game_graph().vertex(i)->level_point(), t2 = ai().game_graph().vertex(i)->game_point();
-				t1.y += .6f;
-				t2.y += .6f;
-				NORMALIZE_VECTOR(t2);
-				Level().debug_renderer().draw_aabb(t1,.5f,.5f,.5f,D3DCOLOR_XRGB(255,255,255));
-				//Level().debug_renderer().draw_line(Fidentity,t1,t2,D3DCOLOR_XRGB(255,255,255));
-				Fvector         T;
-				Fvector4        S;
-				T.set			(t1);
-				//T.y+= 1.5f;
-				T.y+= 1.5f;
-				Device.mFullTransform.transform (S,T);
-				//out of screen
-				if (S.z < 0 || S.w < 0)												continue;
-				if (S.x < -1.f || S.x > 1.f || S.y<-1.f || S.x>1.f)					continue;
-				F->SetSizeI	(0.1f/_sqrt(_abs(S.w)));
-				F->SetColor(0xffffffff);
-				F->OutI(S.x,-S.y,"%d",i);
-			}
-		}
-
-		ALife::D_OBJECT_P_MAP::const_iterator	I = ai().alife().objects().objects().begin();
-		ALife::D_OBJECT_P_MAP::const_iterator	E = ai().alife().objects().objects().end();
-		for ( ; I != E; ++I) {
-			{
-				CSE_ALifeMonsterAbstract *tpALifeMonsterAbstract = smart_cast<CSE_ALifeMonsterAbstract *>((*I).second);
-				if (tpALifeMonsterAbstract && tpALifeMonsterAbstract->m_bDirectControl && !tpALifeMonsterAbstract->m_bOnline) {
-					CSE_ALifeHumanAbstract *tpALifeHuman = smart_cast<CSE_ALifeHumanAbstract *>(tpALifeMonsterAbstract);
-					if (tpALifeHuman && tpALifeHuman->brain().movement().detail().path().size()) {
-						Fvector t1 = ai().game_graph().vertex(tpALifeHuman->brain().movement().detail().path().back())->game_point();
-						t1.y += .6f;
-						NORMALIZE_VECTOR(t1);
-						Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,255));
-						for (int i=(int)tpALifeHuman->brain().movement().detail().path().size() - 2; i>=0;--i) {
-							Fvector t2 = ai().game_graph().vertex(tpALifeHuman->brain().movement().detail().path()[i])->game_point();
-							t2.y += .6f;
-							NORMALIZE_VECTOR(t2);
-							Level().debug_renderer().draw_aabb(t2,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,255));
-							Level().debug_renderer().draw_line(Fidentity,t1,t2,D3DCOLOR_XRGB(0,0,255));
-							t1 = t2;
-						}
-					}
-					if (tpALifeMonsterAbstract->m_fDistanceToPoint > EPS_L) {
-						Fvector t1 = ai().game_graph().vertex(tpALifeMonsterAbstract->m_tGraphID)->game_point();
-						Fvector t2 = ai().game_graph().vertex(tpALifeMonsterAbstract->m_tNextGraphID)->game_point();
-						t2.sub(t1);
-						t2.mul(tpALifeMonsterAbstract->m_fDistanceFromPoint/tpALifeMonsterAbstract->m_fDistanceToPoint);
-						t1.add(t2);
-						t1.y += .6f;
-						NORMALIZE_VECTOR(t1);
-						Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(255,0,0));
-					}
-					else {
-						Fvector t1 = ai().game_graph().vertex((*I).second->m_tGraphID)->game_point();
-						t1.y += .6f;
-						NORMALIZE_VECTOR(t1);
-						Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(255,0,0));
-					}
-				}
-				else {
-					CSE_ALifeInventoryItem *l_tpALifeInventoryItem = smart_cast<CSE_ALifeInventoryItem*>((*I).second);
-					if (l_tpALifeInventoryItem && !l_tpALifeInventoryItem->attached()) {
-						Fvector t1 = ai().game_graph().vertex((*I).second->m_tGraphID)->game_point();
-						t1.y += .6f;
-						NORMALIZE_VECTOR(t1);
-						Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(255,255,0));
-					}
-					else {
-						CSE_ALifeCreatureActor *tpALifeCreatureActor = smart_cast<CSE_ALifeCreatureActor*>((*I).second);
-						if (tpALifeCreatureActor) {
-							Fvector t1 = ai().game_graph().vertex((*I).second->m_tGraphID)->game_point();
-							t1.y += .6f;
-							NORMALIZE_VECTOR(t1);
-							Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(255,255,255));
-						}
-						else {
-							CSE_ALifeTrader *tpALifeTrader = smart_cast<CSE_ALifeTrader*>((*I).second);
-							if (tpALifeTrader) {
-								Fvector t1 = ai().game_graph().vertex((*I).second->m_tGraphID)->game_point();
-								t1.y += .6f;
-								NORMALIZE_VECTOR(t1);
-								Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(0,0,0));
-							}
-							else {
-								CSE_ALifeSmartZone *smart_zone = smart_cast<CSE_ALifeSmartZone*>((*I).second);
-								if (smart_zone) {
-									Fvector t1 = ai().game_graph().vertex((*I).second->m_tGraphID)->game_point();
-									t1.y += .6f;
-									NORMALIZE_VECTOR(t1);
-									Level().debug_renderer().draw_aabb(t1,.05f,.05f,.05f,D3DCOLOR_XRGB(255,0,0));
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	/**/
 }
 
 #endif // AI_COMPILER

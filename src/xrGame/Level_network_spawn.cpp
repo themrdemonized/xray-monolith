@@ -30,23 +30,16 @@ void CLevel::cl_Process_Spawn(NET_Packet& P)
 		F_entity_Destroy(E);
 		return;
 	}
-	//-------------------------------------------------
-	//.	Msg ("M_SPAWN - %s[%d][%x] - %d %d", *s_name,  E->ID, E,E->ID_Parent, Device.dwFrame);
-	//-------------------------------------------------
+
 	//force object to be local for server client
 	if (OnServer())
 	{
 		E->s_flags.set(M_SPAWN_OBJECT_LOCAL, TRUE);
 	};
 
-	/*
-	game_spawn_queue.push_back(E);
-	if (g_bDebugEvents)		ProcessGameSpawns();
-	/*/
 	g_sv_Spawn(E);
 
 	F_entity_Destroy(E);
-	//*/
 };
 
 void CLevel::g_cl_Spawn(LPCSTR name, u8 rp, u16 flags, Fvector pos)
@@ -58,7 +51,6 @@ void CLevel::g_cl_Spawn(LPCSTR name, u8 rp, u16 flags, Fvector pos)
 	// Fill
 	E->s_name = name;
 	E->set_name_replace("");
-	//.	E->s_gameid			=	u8(GameID());
 	E->s_RP = rp;
 	E->ID = 0xffff;
 	E->ID_Parent = 0xffff;
@@ -94,22 +86,13 @@ void CLevel::g_sv_Spawn(CSE_Abstract* E)
 	}
 #endif // DEBUG_MEMORY_MANAGER
 	//-----------------------------------------------------------------
-	//	CTimer		T(false);
-
-#ifdef DEBUG
-	//	Msg					("* CLIENT: Spawn: %s, ID=%d", *E->s_name, E->ID);
-#endif
 
 	// Optimization for single-player only	- minimize traffic between client and server
-	if (GameID() == eGameIDSingle) psNET_Flags.set(NETFLAG_MINIMIZEUPDATES,TRUE);
-	else psNET_Flags.set(NETFLAG_MINIMIZEUPDATES,FALSE);
+	psNET_Flags.set(NETFLAG_MINIMIZEUPDATES,TRUE);
 
 	// Client spawn
-	//	T.Start		();
 	CObject* O = Objects.Create(*E->s_name);
-	// Msg				("--spawn--CREATE: %f ms",1000.f*T.GetAsync());
 
-	//	T.Start		();
 #ifdef DEBUG_MEMORY_MANAGER
 	mem_alloc_gather_stats		(false);
 #endif // DEBUG_MEMORY_MANAGER
@@ -159,35 +142,13 @@ void CLevel::g_sv_Spawn(CSE_Abstract* E)
 
 		if (0xffff != E->ID_Parent)
 		{
-			/*
-			// Generate ownership-event
-			NET_Packet			GEN;
-			GEN.w_begin			(M_EVENT);
-			GEN.w_u32			(E->m_dwSpawnTime);//-NET_Latency);
-			GEN.w_u16			(GE_OWNERSHIP_TAKE);
-			GEN.w_u16			(E->ID_Parent);
-			GEN.w_u16			(u16(O->ID()));
-			game_events->insert	(GEN);
-			/*/
 			NET_Packet GEN;
 			GEN.write_start();
 			GEN.read_start();
 			GEN.w_u16(u16(O->ID()));
 			cl_Process_Event(E->ID_Parent, GE_OWNERSHIP_TAKE, GEN);
-			//*/
 		}
 	}
-
-	/*if (E->s_flags.is(M_SPAWN_UPDATE)) {
-		NET_Packet				temp;
-		temp.B.count			= 0;
-		E->UPDATE_Write			(temp);
-		if (temp.B.count > 0)
-		{
-			temp.r_seek				(0);
-			O->net_Import			(temp);
-		}
-		}*/ //:(
 
 	//---------------------------------------------------------
 	Game().OnSpawn(O);
@@ -201,8 +162,7 @@ void CLevel::g_sv_Spawn(CSE_Abstract* E)
 #endif // DEBUG_MEMORY_MANAGER
 }
 
-CSE_Abstract* CLevel::spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id, u16 parent_id,
-                                 bool return_item)
+CSE_Abstract* CLevel::spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id, u16 parent_id, bool return_item)
 {
 	CSE_Abstract* abstract = F_entity_Create(section);
 	R_ASSERT3(abstract, "Cannot find item with section", section);
@@ -222,7 +182,6 @@ CSE_Abstract* CLevel::spawn_item(LPCSTR section, const Fvector& position, u32 le
 	// Fill
 	abstract->s_name = section;
 	abstract->set_name_replace(section);
-	//.	abstract->s_gameid		= u8(GameID());
 	abstract->o_Position = position;
 	abstract->s_RP = 0xff;
 	abstract->ID = 0xffff;
