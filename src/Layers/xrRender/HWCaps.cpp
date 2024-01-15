@@ -6,7 +6,6 @@
 
 #ifndef _EDITOR
 #include <nvapi.h>
-//	#include "ATI/atimgpud.h"
 #endif
 
 namespace
@@ -18,8 +17,6 @@ namespace
 		NvU32 logicalGPUCount;
 		NvPhysicalGpuHandle physicalGPUs[NVAPI_MAX_PHYSICAL_GPUS];
 		NvU32 physicalGPUCount;
-
-		//	int result = NVAPI_OK;
 
 		int iGpuNum = 0;
 
@@ -38,7 +35,6 @@ namespace
 		{
 			Msg("* NvAPI_EnumLogicalGPUs failed!");
 			return iGpuNum;
-			// error
 		}
 
 		// enumerate physical gpus
@@ -47,7 +43,6 @@ namespace
 		{
 			Msg("* NvAPI_EnumPhysicalGPUs failed!");
 			return iGpuNum;
-			// error
 		}
 
 		Msg("* NVidia MGPU: Logical(%d), Physical(%d)", physicalGPUCount, logicalGPUCount);
@@ -70,7 +65,6 @@ namespace
 
 	u32 GetATIGpuNum()
 	{
-		//int iGpuNum = AtiMultiGPUAdapters();
 		int iGpuNum = 1;
 
 		if (iGpuNum > 1)
@@ -91,8 +85,6 @@ namespace
 
 		res = _min(res, CHWCaps::MAX_GPUS);
 
-		//	It's vital to have at least one GPU, else
-		//	code will fail.
 		VERIFY(res>0);
 
 		Msg("* Starting rendering as %d-GPU.", res);
@@ -130,18 +122,14 @@ void CHWCaps::Update()
 	raster_major = u16(u32(u32(caps.PixelShaderVersion) & u32(0xf << 8ul)) >> 8);
 	raster_minor = u16(u32(u32(caps.PixelShaderVersion) & u32(0xf)));
 	raster.dwStages = caps.MaxSimultaneousTextures;
-	raster.bNonPow2 = ((caps.TextureCaps & D3DPTEXTURECAPS_NONPOW2CONDITIONAL) != 0) || ((caps.TextureCaps &
-		D3DPTEXTURECAPS_POW2) == 0);
+	raster.bNonPow2 = ((caps.TextureCaps & D3DPTEXTURECAPS_NONPOW2CONDITIONAL) != 0) || ((caps.TextureCaps & D3DPTEXTURECAPS_POW2) == 0);
 	raster.bCubemap = (caps.TextureCaps & D3DPTEXTURECAPS_CUBEMAP) != 0;
 	raster.dwMRT_count = (caps.NumSimultaneousRTs);
 	raster.b_MRT_mixdepth = (caps.PrimitiveMiscCaps & D3DPMISCCAPS_MRTINDEPENDENTBITDEPTHS) != 0;
 	raster.dwInstructions = (caps.PS20Caps.NumInstructionSlots);
 
 	// ***************** Info
-	Msg("* GPU shading: vs(%x/%d.%d/%d), ps(%x/%d.%d/%d)",
-	    caps.VertexShaderVersion, geometry_major, geometry_minor, CAP_VERSION(geometry_major, geometry_minor),
-	    caps.PixelShaderVersion, raster_major, raster_minor, CAP_VERSION(raster_major, raster_minor)
-	);
+	Msg("* GPU shading: vs(%x/%d.%d/%d), ps(%x/%d.%d/%d)", caps.VertexShaderVersion, geometry_major, geometry_minor, CAP_VERSION(geometry_major, geometry_minor), caps.PixelShaderVersion, raster_major, raster_minor, CAP_VERSION(raster_major, raster_minor));
 
 	// *******1********** Vertex cache
 	ID3DQuery* q_vc;
@@ -169,8 +157,7 @@ void CHWCaps::Update()
 	geometry_major		= 0;
 #endif
 
-	//
-	bTableFog = FALSE; //BOOL	(caps.RasterCaps&D3DPRASTERCAPS_FOGTABLE);
+	bTableFog = FALSE;
 
 	// Detect if stencil available
 	bStencil = FALSE;
@@ -197,8 +184,7 @@ void CHWCaps::Update()
 
 	// Stencil relative caps
 	u32 dwStencilCaps = caps.StencilCaps;
-	if ((!(dwStencilCaps & D3DSTENCILCAPS_INCR) && !(dwStencilCaps & D3DSTENCILCAPS_INCRSAT))
-		|| (!(dwStencilCaps & D3DSTENCILCAPS_DECR) && !(dwStencilCaps & D3DSTENCILCAPS_DECRSAT)))
+	if ((!(dwStencilCaps & D3DSTENCILCAPS_INCR) && !(dwStencilCaps & D3DSTENCILCAPS_INCRSAT)) || (!(dwStencilCaps & D3DSTENCILCAPS_DECR) && !(dwStencilCaps & D3DSTENCILCAPS_DECRSAT)))
 	{
 		soDec = soInc = D3DSTENCILOP_KEEP;
 		dwMaxStencilValue = 0;
@@ -238,15 +224,11 @@ void CHWCaps::Update()
 	raster.bNonPow2 = TRUE;
 	raster.bCubemap = TRUE;
 	raster.dwMRT_count = 4;
-	//raster.b_MRT_mixdepth		= FALSE;
 	raster.b_MRT_mixdepth = TRUE;
 	raster.dwInstructions = 256;
 
 	// ***************** Info
-	Msg("* GPU shading: vs(%x/%d.%d/%d), ps(%x/%d.%d/%d)",
-	    0, geometry_major, geometry_minor, CAP_VERSION(geometry_major, geometry_minor),
-	    0, raster_major, raster_minor, CAP_VERSION(raster_major, raster_minor)
-	);
+	Msg("* GPU shading: vs(%x/%d.%d/%d), ps(%x/%d.%d/%d)", 0, geometry_major, geometry_minor, CAP_VERSION(geometry_major, geometry_minor), 0, raster_major, raster_minor, CAP_VERSION(raster_major, raster_minor));
 
 	// *******1********** Vertex cache
 	//	TODO: DX10: Find a way to detect cache size
@@ -254,10 +236,11 @@ void CHWCaps::Update()
 	Msg("* GPU vertex cache: %s, %d", "unrecognized", u32(geometry.dwVertexCache));
 
 	// *******1********** Compatibility : vertex shader
-	if (0 == raster_major) geometry_major = 0; // Disable VS if no PS
+	if (0 == raster_major)
+		geometry_major = 0; // Disable VS if no PS
 
 	//
-	bTableFog = FALSE; //BOOL	(caps.RasterCaps&D3DPRASTERCAPS_FOGTABLE);
+	bTableFog = FALSE;
 
 	// Detect if stencil available
 	bStencil = TRUE;
@@ -271,7 +254,6 @@ void CHWCaps::Update()
 	dwMaxStencilValue = (1 << 8) - 1;
 
 	// DEV INFO
-
 	iGPUNum = GetGpuNum();
 }
 #endif	//	USE_DX10

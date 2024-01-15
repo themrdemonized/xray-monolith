@@ -23,39 +23,11 @@
 static shared_str sbones_array;
 
 #pragma pack(push,1)
-float u_P(s16 v)
-{
-	return float(v) / (32767.f / 12.f);
-}
-
-s16 q_P(float v)
-{
-	int _v = clampr(iFloor(v * (32767.f / 12.f)), -32768, 32767);
-	return s16(_v);
-}
-
 u8 q_N(float v)
 {
 	int _v = clampr(iFloor((v + 1.f) * 127.5f), 0, 255);
 	return u8(_v);
 }
-
-s16 q_tc(float v)
-{
-	int _v = clampr(iFloor(v * (32767.f / 16.f)), -32768, 32767);
-	return s16(_v);
-}
-#ifdef _DEBUG
-float errN	(Fvector3 v, u8* qv)
-{
-	Fvector3	uv;	
-	uv.set		(float(qv[0]),float(qv[1]),float(qv[2])).div(255.f).mul(2.f).sub(1.f);
-	uv.normalize();
-	return		v.dotproduct(uv);
-}
-#else
-float errN(Fvector3 v, u8* qv) { return 0; }
-#endif
 
 static D3DVERTEXELEMENT9 dwDecl_01W [] = // 36bytes
 {
