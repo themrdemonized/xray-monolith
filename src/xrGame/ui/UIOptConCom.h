@@ -28,7 +28,6 @@ protected:
 	int m_iMaxPlayers;
 	Flags32 m_uNetSrvParams;
 	Flags32 m_uNetFilter;
-	u32 m_curGameMode;
 	string64 m_playerName;
 	string64 m_serverName;
 	int m_iNetConSpectator;

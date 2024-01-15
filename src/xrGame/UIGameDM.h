@@ -10,7 +10,6 @@ class game_cl_Deathmatch;
 class CUIMoneyIndicator;
 class CUIRankIndicator;
 class UIVoteStatusWnd;
-class CUIMapDesc;
 class UITeamPanels;
 class CUITextWnd;
 
