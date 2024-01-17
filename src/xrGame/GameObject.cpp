@@ -44,8 +44,6 @@ extern MagicBox3 MagicMinBox(int iQuantity, const Fvector* akPoint);
 #	include "PHDebug.h"
 #endif
 
-extern ENGINE_API bool g_dedicated_server;
-
 CGameObject::CGameObject()
 {
 	m_ai_obstacle = 0;
@@ -55,7 +53,7 @@ CGameObject::CGameObject()
 	m_bCrPr_Activated = false;
 	m_dwCrPr_ActivationStep = 0;
 	m_spawn_time = 0;
-	m_ai_location = !g_dedicated_server ? xr_new<CAI_ObjectLocation>() : 0;
+	m_ai_location = xr_new<CAI_ObjectLocation>();
 	m_server_flags.one();
 
 	m_callbacks = xr_new<CALLBACK_MAP>();
@@ -94,8 +92,7 @@ void CGameObject::Load(LPCSTR section)
 void CGameObject::reinit()
 {
 	m_visual_callback.clear();
-	if (!g_dedicated_server)
-		ai_location().reinit();
+	ai_location().reinit();
 
 	// clear callbacks	
 	for (CALLBACK_MAP_IT it = m_callbacks->begin(); it != m_callbacks->end(); ++it) it->second.clear();
@@ -289,7 +286,7 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 
 	// Net params
 	setLocal(E->s_flags.is(M_SPAWN_OBJECT_LOCAL));
-	if (Level().IsDemoPlay()) //&& OnClient())
+	if (Level().IsDemoPlay())
 	{
 		if (!demo_spectator)
 		{
@@ -312,12 +309,11 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	}
 
 	reload(*cNameSect());
-	if (!g_dedicated_server)
-		CScriptBinder::reload(*cNameSect());
+	CScriptBinder::reload(*cNameSect());
 
 	reinit();
-	if (!g_dedicated_server)
-		CScriptBinder::reinit();
+
+	CScriptBinder::reinit();
 #ifdef DEBUG
 	if(ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject)&&stricmp(PH_DBG_ObjectTrackName(),*cName())==0)
 	{
@@ -327,13 +323,8 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	//load custom user data from server
 	if (!E->client_data.empty())
 	{
-		//		Msg				("client data is present for object [%d][%s], load is processed",ID(),*cName());
 		IReader ireader = IReader(&*E->client_data.begin(), E->client_data.size());
 		net_Load(ireader);
-	}
-	else
-	{
-		//		Msg				("no client data for object [%d][%s], load is skipped",ID(),*cName());
 	}
 
 	// if we have a parent
@@ -357,16 +348,8 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 			validate_ai_locations(false);
 
 			// validating position
-			if (
-				UsedAI_Locations() &&
-				ai().level_graph().inside(
-					ai_location().level_vertex_id(),
-					Position()
-				) &&
-				can_validate_position_on_spawn()
-			)
-				Position().y = EPS_L + ai().level_graph().vertex_plane_y(
-					*ai_location().level_vertex(), Position().x, Position().z);
+			if (UsedAI_Locations() && ai().level_graph().inside(ai_location().level_vertex_id(), Position()) && can_validate_position_on_spawn())
+				Position().y = EPS_L + ai().level_graph().vertex_plane_y(*ai_location().level_vertex(), Position().x, Position().z);
 		}
 		else
 		{
@@ -821,11 +804,9 @@ void CGameObject::shedule_Update(u32 dt)
 		DestroyObject();
 	}
 
-	// Msg							("-SUB-:[%x][%s] CGameObject::shedule_Update",smart_cast<void*>(this),*cName());
 	inherited::shedule_Update(dt);
 
-	if (!g_dedicated_server)
-		CScriptBinder::shedule_Update(dt);
+	CScriptBinder::shedule_Update(dt);
 }
 
 BOOL CGameObject::net_SaveRelevant()
@@ -893,8 +874,7 @@ u32 CGameObject::ef_detector_type() const
 void CGameObject::net_Relcase(CObject* O)
 {
 	inherited::net_Relcase(O);
-	if (!g_dedicated_server)
-		CScriptBinder::net_Relcase(O);
+	CScriptBinder::net_Relcase(O);
 }
 
 CGameObject::CScriptCallbackExVoid& CGameObject::callback(GameObject::ECallbackType type) const

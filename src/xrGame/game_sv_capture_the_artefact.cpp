@@ -418,16 +418,11 @@ void game_sv_CaptureTheArtefact::OnPlayerConnect(ClientID id_who)
 
 	ps_who->resetFlag(GAME_PLAYER_FLAG_SKIP);
 
-	if ((g_dedicated_server || m_bSpectatorMode) && (xrCData == m_server->GetServerClient()))
+	if (m_bSpectatorMode && xrCData == m_server->GetServerClient())
 	{
 		ps_who->setFlag(GAME_PLAYER_FLAG_SKIP);
 		return;
 	}
-
-	/*if (!xrCData->flags.bReconnect) 
-		Money_SetStart				(id_who);
-
-	SetPlayersDefItems				(ps_who);*/
 }
 
 void game_sv_CaptureTheArtefact::OnPlayerConnectFinished(ClientID id_who)
@@ -2588,7 +2583,7 @@ void game_sv_CaptureTheArtefact::ReadOptions(shared_str& options)
 	g_sv_cta_activatedArtefactRet = get_option_i(*options, "actret", g_sv_cta_activatedArtefactRet); // in (sec)
 
 	m_bSpectatorMode = false;
-	if (!g_dedicated_server && (get_option_i(*options, "spectr", -1) != -1))
+	if (get_option_i(*options, "spectr", -1) != -1)
 	{
 		m_bSpectatorMode = true;
 		m_dwSM_SwitchDelta = get_option_i(*options, "spectr", 0) * 1000;

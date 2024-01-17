@@ -45,7 +45,6 @@ void SArtefactActivation::Load()
 
 	LPCSTR activation_seq = pSettings->r_string(*m_af->cNameSect(), "artefact_activation_seq");
 
-
 	m_activation_states[(int)eStarting].Load(activation_seq, "starting");
 	m_activation_states[(int)eFlying].Load(activation_seq, "flying");
 	m_activation_states[(int)eBeforeSpawn].Load(activation_seq, "idle_before_spawning");
@@ -180,16 +179,11 @@ void SArtefactActivation::SpawnAnomaly()
 	LPCSTR str = pSettings->r_string("artefact_spawn_zones", *m_af->cNameSect());
 	VERIFY3(3==_GetItemCount(str), "Bad record format in artefact_spawn_zones", str);
 	float zone_radius = (float)atof(_GetItem(str, 1, tmp));
-	LPCSTR zone_sect = _GetItem(str, 0, tmp); //must be last call of _GetItem... (LPCSTR !!!)
+	LPCSTR zone_sect = _GetItem(str, 0, tmp);
 
 	Fvector pos;
 	m_af->Center(pos);
-	CSE_Abstract* object = Level().spawn_item(zone_sect,
-	                                          pos,
-	                                          (g_dedicated_server) ? u32(-1) : m_af->ai_location().level_vertex_id(),
-	                                          0xffff,
-	                                          true
-	);
+	CSE_Abstract* object = Level().spawn_item(zone_sect, pos, m_af->ai_location().level_vertex_id(), 0xffff, true);
 	CSE_ALifeAnomalousZone* AlifeZone = smart_cast<CSE_ALifeAnomalousZone*>(object);
 	VERIFY(AlifeZone);
 	CShapeData::shape_def _shape;
@@ -197,7 +191,6 @@ void SArtefactActivation::SpawnAnomaly()
 	_shape.data.sphere.R = zone_radius;
 	_shape.type = CShapeData::cfSphere;
 	AlifeZone->assign_shapes(&_shape, 1);
-	//		AlifeZone->m_maxPower		= zone_power;
 	AlifeZone->m_owner_id = m_owner_id;
 	AlifeZone->m_space_restrictor_type = RestrictionSpace::eRestrictorTypeNone;
 
@@ -205,9 +198,7 @@ void SArtefactActivation::SpawnAnomaly()
 	object->Spawn_Write(P,TRUE);
 	Level().Send(P, net_flags(TRUE));
 	F_entity_Destroy(object);
-	//. #ifdef DEBUG
 	Msg("artefact [%s] spawned a zone [%s] at [%f]", *m_af->cName(), zone_sect, Device.fTimeGlobal);
-	//. #endif
 }
 
 shared_str clear_brackets(LPCSTR src)

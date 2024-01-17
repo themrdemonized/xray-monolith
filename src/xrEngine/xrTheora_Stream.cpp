@@ -1,11 +1,6 @@
 #include "stdafx.h"
 #include "xrtheora_stream.h"
 
-#ifdef _EDITOR
-//# pragma comment(lib, "x:\\oggB.lib")
-//# pragma comment(lib, "x:\\theoraB.lib")
-#endif
-
 CTheoraStream::CTheoraStream()
 {
 	// clear self
@@ -230,7 +225,6 @@ BOOL CTheoraStream::Decode(u32 in_tm_play)
 		VERIFY(TRUE == result);
 		VERIFY(d_frame == t_frame);
 		theora_decode_YUVout(&t_state, &t_yuv_buffer);
-		//. dbg_log ((stderr,"%04d: yuv out\n",d_frame));
 		return TRUE;
 	}
 	return FALSE;

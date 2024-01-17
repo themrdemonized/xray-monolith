@@ -159,9 +159,7 @@ const Fbox& CObject::BoundingBox() const
 // Class : CXR_Object
 // Purpose :
 //----------------------------------------------------------------------
-CObject::CObject() :
-	ISpatial(g_SpatialSpace),
-	dwFrame_AsCrow(u32(-1))
+CObject::CObject() : ISpatial(g_SpatialSpace), dwFrame_AsCrow(u32(-1))
 {
 	// Transform
 	Props.storage = 0;
@@ -308,7 +306,8 @@ void CObject::spatial_update(float eps_P, float eps_R)
 			{
 				Fvector C;
 				Center(C);
-				if (!C.similar(spatial.sphere.P, eps_P)) spatial_move();
+				if (!C.similar(spatial.sphere.P, eps_P)) 
+					spatial_move();
 			}
 		}
 	}

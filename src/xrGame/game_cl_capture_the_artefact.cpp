@@ -112,16 +112,12 @@ void game_cl_CaptureTheArtefact::shedule_Update(u32 dt)
 {
 	inherited::shedule_Update(dt);
 
-	if (g_dedicated_server)
-		return;
-
 	if ((Level().IsDemoPlayStarted() || Level().IsDemoPlayFinished()) && m_game_ui)
 	{
 		game_PlayerState* lookat_player = Game().lookat_player();
 		if (lookat_player)
 		{
-			m_game_ui->SetRank(static_cast<ETeam>(lookat_player->team),
-			                   lookat_player->rank);
+			m_game_ui->SetRank(static_cast<ETeam>(lookat_player->team), lookat_player->rank);
 			UpdateMoneyIndicator();
 		}
 	}
@@ -142,12 +138,8 @@ void game_cl_CaptureTheArtefact::shedule_Update(u32 dt)
 
 					UpdateMoneyIndicator();
 
-					if ((local_player->testFlag(GAME_PLAYER_FLAG_VERY_VERY_DEAD)) &&
-						(static_cast<ETeam>(local_player->team) != etSpectatorsTeam))
+					if ((local_player->testFlag(GAME_PLAYER_FLAG_VERY_VERY_DEAD)) && (static_cast<ETeam>(local_player->team) != etSpectatorsTeam))
 					{
-						/*if (!sendedSpawnMe)
-							SpawnMe();*/
-
 						if ((local_player->money_for_round + spawn_cost + buy_amount) >= 0)
 						{
 							m_captions_manager.CanCallBuySpawn(true);
@@ -158,12 +150,7 @@ void game_cl_CaptureTheArtefact::shedule_Update(u32 dt)
 						}
 						if (local_player->testFlag(GAME_PLAYER_FLAG_READY))
 						{
-							//m_captions_manager.CanSpawn(true);
 							m_captions_manager.CanCallBuySpawn(false);
-						}
-						else
-						{
-							//m_captions_manager.CanSpawn(false);
 						}
 					}
 				}
@@ -180,14 +167,6 @@ void game_cl_CaptureTheArtefact::shedule_Update(u32 dt)
 				UpdateWarmupTime(current_time);
 				UpdateTimeLimit(current_time);
 			}
-			/*if (Level().CurrentControlEntity()){
-					CGameObject* GO = smart_cast<CGameObject*>(Level().CurrentControlEntity());
-					Msg("---I'm ready (ID = %d) sending player ready packet !!!", GO->ID());
-					NET_Packet			P;
-					GO->u_EventGen		(P,GE_GAME_EVENT,GO->ID()	);
-					P.w_u16(GAME_EVENT_PLAYER_READY);
-					GO->u_EventSend			(P);
-			}*/
 		}
 		break;
 	case GAME_PHASE_PENDING:
@@ -670,7 +649,6 @@ void game_cl_CaptureTheArtefact::net_import_state(NET_Packet& P)
 	UpdateMapLocations();
 }
 
-
 void game_cl_CaptureTheArtefact::net_import_update(NET_Packet& P)
 {
 	inherited::net_import_update(P);
@@ -684,18 +662,11 @@ bool game_cl_CaptureTheArtefact::InWarmUp() const
 	return m_inWarmup;
 }
 
-
 CUIGameCustom* game_cl_CaptureTheArtefact::createGameUI()
 {
-	if (g_dedicated_server)
-		return NULL;
-
 	m_game_ui = smart_cast<CUIGameCTA*>(NEW_INSTANCE(CLSID_GAME_UI_CAPTURETHEARTEFACT));
 	VERIFY2(m_game_ui, "failed to create Capture The Artefact game UI");
 	m_game_ui->Load();
-	//m_game_ui->Init		(0);
-	//m_game_ui->Init		(1);
-	//m_game_ui->Init		(2);
 	LoadMessagesMenu(MESSAGE_MENUS);
 	return m_game_ui;
 }
@@ -740,7 +711,6 @@ void game_cl_CaptureTheArtefact::SpawnMe()
 	currActor->u_EventGen(packet, GE_GAME_EVENT, currActor->ID());
 	packet.w_u16(GAME_EVENT_PLAYER_READY);
 	currActor->u_EventSend(packet, net_flags(TRUE, TRUE));
-	//sendedSpawnMe = true;
 }
 
 // receive change team <----
@@ -751,9 +721,6 @@ void game_cl_CaptureTheArtefact::OnGameMenuRespond_ChangeTeam(NET_Packet& P)
 	m_bTeamSelected = TRUE;
 	VERIFY(local_player);
 	Msg("* player [%s][%d] changed team to %d", local_player->getName(), local_player->GameID, local_player->team);
-	/*shared_str const & teamSection = GetLocalPlayerTeamSection();
-	m_game_ui->UpdateBuyMenu(teamSection, BASECOST_SECTION);
-	m_game_ui->UpdateSkinMenu(teamSection);*/
 	OnTeamChanged();
 	if (m_reward_generator)
 		m_reward_generator->OnPlayerChangeTeam(local_player->team);
@@ -765,8 +732,6 @@ void game_cl_CaptureTheArtefact::OnGameMenuRespond_ChangeTeam(NET_Packet& P)
 
 void game_cl_CaptureTheArtefact::UpdateMapLocations()
 {
-	if (g_dedicated_server)
-		return;
 	//updating firends indicator
 	if (!local_player)
 		return;
@@ -774,14 +739,10 @@ void game_cl_CaptureTheArtefact::UpdateMapLocations()
 		return;
 
 	PLAYERS_MAP_IT ie = players.end();
-	for (PLAYERS_MAP_IT tempPlayerIt = players.begin();
-	     tempPlayerIt != ie; ++tempPlayerIt)
+	for (PLAYERS_MAP_IT tempPlayerIt = players.begin(); tempPlayerIt != ie; ++tempPlayerIt)
 	{
 		game_PlayerState* ps = tempPlayerIt->second;
-		if ((ps->team == local_player->team) &&
-			(ps != local_player) &&
-			(!ps->testFlag(GAME_PLAYER_FLAG_VERY_VERY_DEAD))
-		)
+		if ((ps->team == local_player->team) && (ps != local_player) && (!ps->testFlag(GAME_PLAYER_FLAG_VERY_VERY_DEAD)))
 		{
 			Level().MapManager().AddMapLocation(FRIEND_LOCATION, ps->GameID);
 		}
@@ -857,26 +818,10 @@ void game_cl_CaptureTheArtefact::OnSpawn(CObject* pObj)
 {
 	inherited::OnSpawn(pObj);
 
-	if (g_dedicated_server)
-		return;
-
 	CArtefact* pArtefact = smart_cast<CArtefact*>(pObj);
 	if (pArtefact)
 	{
 		Level().MapManager().AddMapLocation(ARTEFACT_NEUTRAL, pObj->ID())->EnablePointer();
-		/*if (OnServer()) // huck :( - server logic must be ONLY ON SERVER !!!
-		{
-			if (GetGreenArtefactID() == pArtefact->ID())
-			{
-				pArtefact->MoveTo(GetGreenArtefactRPoint());
-			} else if (GetBlueArtefactID() == pArtefact->ID())
-			{
-				pArtefact->MoveTo(GetBlueArtefactRPoint());
-			} else
-			{
-				VERIFY2(false, "unknown artefact in game");
-			}
-		}*/
 		return;
 	}
 	CActor* pActor = smart_cast<CActor*>(pObj);
@@ -1722,7 +1667,6 @@ void game_cl_CaptureTheArtefact::OnConnected()
 	inherited::OnConnected();
 	if (m_game_ui)
 	{
-		VERIFY(!g_dedicated_server);
 		m_game_ui = smart_cast<CUIGameCTA*>(CurrentGameUI());
 		m_game_ui->SetClGame(this);
 	}

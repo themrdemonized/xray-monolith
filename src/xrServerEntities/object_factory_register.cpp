@@ -184,7 +184,6 @@
 #endif // NO_XR_GAME
 
 #ifndef NO_XR_GAME
-extern ENGINE_API bool g_dedicated_server;
 #	define ADD(a,b,c,d)			add<a,b>(c,d)
 #	define ADD_MP(a,b,c,d,e,f)	add(xr_new<CObjectItemClientServerSingleMp<a,b,c,d> >(e,f))
 #else
@@ -416,13 +415,6 @@ void CObjectFactory::register_classes()
 #endif // #ifndef NO_SINGLE
 
 #ifndef NO_XR_GAME
-	// hack, for dedicated server only
-	// because we do not have scripts
-	// and script functionality is not
-	// needed here
-	if (!g_dedicated_server)
-		return;
-
 	ADD(CElectricBall, CSE_ALifeItemArtefact, TEXT2CLSID("SCRPTART"), "artefact_s");
 	ADD(CTorch, CSE_ALifeItemTorch, TEXT2CLSID("TORCH_S"), "device_torch_s");
 	ADD(CStalkerOutfit, CSE_ALifeItemCustomOutfit, TEXT2CLSID("E_STLK"), "equ_stalker_s");

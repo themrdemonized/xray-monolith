@@ -96,37 +96,13 @@ namespace text_editor
 		size_t const array_size = sizeof(m_actions) / sizeof(m_actions[0]);
 		buffer_vector<Base*> actions(m_actions, array_size, &m_actions[0], &m_actions[0] + array_size);
 		std::sort(actions.begin(), actions.end());
-		actions.erase(
-			std::unique(
-				actions.begin(),
-				actions.end()
-			),
-			actions.end()
-		);
+		actions.erase(std::unique(actions.begin(), actions.end()), actions.end());
 		delete_data(actions);
 	}
 
 	static inline bool get_caps_lock_state()
 	{
-#if 0
-    static bool first_time = true;
-    static bool is_windows_vista_or_later = false;
-    if (first_time)
-    {
-        first_time = false;
-        OSVERSIONINFO version_info;
-        ZeroMemory(&version_info, sizeof(version_info));
-        version_info.dwOSVersionInfoSize = sizeof(version_info);
-        GetVersionEx(&version_info);
-        is_windows_vista_or_later = version_info.dwMajorVersion >= 6;
-    }
-
-    if (is_windows_vista_or_later)
-        return !!(GetKeyState(VK_CAPITAL) & 1);
-    else
-#else // #if 0
 		return false;
-#endif // #if 0
 	}
 
 	void line_edit_control::update_key_states()
@@ -369,10 +345,6 @@ namespace text_editor
 	void line_edit_control::create_key_state(u32 const dik, key_state state)
 	{
 		Base* prev = m_actions[dik];
-		//if ( m_actions[dik] )
-		//{
-		// xr_delete( m_actions[dik] );
-		//}
 		m_actions[dik] = xr_new<text_editor::key_state_base>(state, prev);
 	}
 
@@ -540,11 +512,6 @@ namespace text_editor
 		{
 			m_need_update = false;
 		}
-
-		/*if ( Device.dwFrame % 100 == 0 )
-		{
-		Msg( " cur_time=%.2f re=%d acc=%.2f rep_time=%.2f", cur_time, bRepeat, fAccel, rep_time );
-		}*/
 	}
 
 	void line_edit_control::update_bufs()
@@ -564,8 +531,6 @@ namespace text_editor
 
 		m_need_update = true;
 		m_last_changed_frame = Device.dwFrame;
-		// if ( m_cursor_view ) {
-		// Msg( " m_p1=%d m_p2=%d cur=%d sstart=%d", m_p1, m_p2, m_cur_pos, m_select_start ); }
 	}
 
 	void line_edit_control::add_inserted_text()
@@ -598,8 +563,7 @@ namespace text_editor
 		strncpy_s(buf + m_p1, m_buffer_size, m_inserted, _min(new_size, m_buffer_size - m_p1)); // part 2
 
 		u8 ds = (m_insert_mode && m_p2 < old_edit_size) ? 1 : 0;
-		strncpy_s(buf + m_p1 + new_size, m_buffer_size, m_edit_str + m_p2 + ds,
-		          _min(old_edit_size - m_p2 - ds, m_buffer_size - m_p1 - new_size)); // part 3
+		strncpy_s(buf + m_p1 + new_size, m_buffer_size, m_edit_str + m_p2 + ds, _min(old_edit_size - m_p2 - ds, m_buffer_size - m_p1 - new_size)); // part 3
 		buf[m_buffer_size] = 0;
 
 		int szn = m_p1 + new_size + old_edit_size - m_p2 - ds;

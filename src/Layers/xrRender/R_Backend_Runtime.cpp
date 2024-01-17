@@ -15,49 +15,34 @@
 
 void CBackend::OnFrameEnd()
 {
-	//#ifndef DEDICATED_SERVER
-#ifndef _EDITOR
-	if (!g_dedicated_server)
-#endif
-	{
 #if defined(USE_DX10) || defined(USE_DX11)
-		HW.pContext->ClearState();
-		Invalidate();
+	HW.pContext->ClearState();
+	Invalidate();
 #else	//	USE_DX10
-
-		for (u32 stage = 0; stage < HW.Caps.raster.dwStages; stage++)
-			CHK_DX(HW.pDevice->SetTexture(0,0));
-		CHK_DX(HW.pDevice->SetStreamSource (0,0,0,0));
-		CHK_DX(HW.pDevice->SetIndices (0));
-		CHK_DX(HW.pDevice->SetVertexShader (0));
-		CHK_DX(HW.pDevice->SetPixelShader (0));
-		Invalidate();
+	for (u32 stage = 0; stage < HW.Caps.raster.dwStages; stage++)
+		CHK_DX(HW.pDevice->SetTexture(0,0));
+	CHK_DX(HW.pDevice->SetStreamSource (0,0,0,0));
+	CHK_DX(HW.pDevice->SetIndices (0));
+	CHK_DX(HW.pDevice->SetVertexShader (0));
+	CHK_DX(HW.pDevice->SetPixelShader (0));
+	Invalidate();
 #endif	//	USE_DX10
-	}
-	//#endif
 }
 
 void CBackend::OnFrameBegin()
 {
-	//#ifndef DEDICATED_SERVER
-#ifndef _EDITOR
-	if (!g_dedicated_server)
-#endif
-	{
-		PGO(Msg("PGO:*****frame[%d]*****",RDEVICE.dwFrame));
+	PGO(Msg("PGO:*****frame[%d]*****",RDEVICE.dwFrame));
 #if defined(USE_DX10) || defined(USE_DX11)
-		Invalidate();
-		//	DX9 sets base rt nd base zb by default
-		RImplementation.rmNormal();
-		set_RT(HW.pBaseRT);
-		set_ZB(HW.pBaseZB);
+	Invalidate();
+	//	DX9 sets base rt nd base zb by default
+	RImplementation.rmNormal();
+	set_RT(HW.pBaseRT);
+	set_ZB(HW.pBaseZB);
 #endif	//	USE_DX10
-		Memory.mem_fill(&stat, 0, sizeof(stat));
-		Vertex.Flush();
-		Index.Flush();
-		set_Stencil(FALSE);
-	}
-	//#endif
+	Memory.mem_fill(&stat, 0, sizeof(stat));
+	Vertex.Flush();
+	Index.Flush();
+	set_Stencil(FALSE);
 }
 
 void CBackend::Invalidate()
@@ -148,12 +133,11 @@ void CBackend::Invalidate()
 #endif
 }
 
-void CBackend::set_ClipPlanes(u32 _enable, Fplane* _planes /*=NULL */, u32 count/* =0*/)
+void CBackend::set_ClipPlanes(u32 _enable, Fplane* _planes, u32 count)
 {
 #if defined(USE_DX10) || defined(USE_DX11)
 	//	TODO: DX10: Implement in the corresponding vertex shaders
 	//	Use this to set up location, were shader setup code will get data
-	//VERIFY(!"CBackend::set_ClipPlanes not implemented!");
 	return;
 #else	//	USE_DX10
 	if (0 == HW.Caps.geometry.dwClipPlanes) return;
@@ -165,7 +149,8 @@ void CBackend::set_ClipPlanes(u32 _enable, Fplane* _planes /*=NULL */, u32 count
 
 	// Enable and setup planes
 	VERIFY(_planes && count);
-	if (count > HW.Caps.geometry.dwClipPlanes) count = HW.Caps.geometry.dwClipPlanes;
+	if (count > HW.Caps.geometry.dwClipPlanes) 
+		count = HW.Caps.geometry.dwClipPlanes;
 
 	D3DXMATRIX worldToClipMatrixIT;
 	D3DXMatrixInverse(&worldToClipMatrixIT,NULL, (D3DXMATRIX*)&RDEVICE.mFullTransform);
@@ -194,7 +179,6 @@ void CBackend::set_ClipPlanes(u32 _enable, Fmatrix* _xform /*=NULL */, u32 fmask
 #if defined(USE_DX10) || defined(USE_DX11)
 		//	TODO: DX10: Implement in the corresponding vertex shaders
 		//	Use this to set up location, were shader setup code will get data
-		//VERIFY(!"CBackend::set_ClipPlanes not implemented!");
 #else	//	USE_DX10
 		CHK_DX(HW.pDevice->SetRenderState(D3DRS_CLIPPLANEENABLE,FALSE));
 #endif	//	USE_DX10
@@ -246,7 +230,6 @@ void CBackend::set_Textures(STextureList* _T)
 				{
 					PGO(Msg("PGO:tex%d:%s",load_id,load_surf->cName.c_str()));
 					load_surf->bind(load_id);
-					//					load_surf->Apply	(load_id);
 				}
 			}
 		}
@@ -271,7 +254,6 @@ void CBackend::set_Textures(STextureList* _T)
 				{
 					PGO(Msg("PGO:tex%d:%s",load_id,load_surf->cName.c_str()));
 					load_surf->bind(load_id);
-					//					load_surf->Apply	(load_id);
 				}
 			}
 		}
@@ -294,7 +276,6 @@ void CBackend::set_Textures(STextureList* _T)
 					{
 						PGO(Msg("PGO:tex%d:%s",load_id,load_surf->cName.c_str()));
 						load_surf->bind(load_id);
-						//					load_surf->Apply	(load_id);
 					}
 				}
 			}
@@ -317,7 +298,6 @@ void CBackend::set_Textures(STextureList* _T)
 					{
 						PGO(Msg("PGO:tex%d:%s",load_id,load_surf->cName.c_str()));
 						load_surf->bind(load_id);
-						//					load_surf->Apply	(load_id);
 					}
 				}
 			}
@@ -339,7 +319,6 @@ void CBackend::set_Textures(STextureList* _T)
 					{
 						PGO(Msg("PGO:tex%d:%s",load_id,load_surf->cName.c_str()));
 						load_surf->bind(load_id);
-						//					load_surf->Apply	(load_id);
 					}
 				}
 			}
@@ -361,7 +340,6 @@ void CBackend::set_Textures(STextureList* _T)
 					{
 						PGO(Msg("PGO:tex%d:%s",load_id,load_surf->cName.c_str()));
 						load_surf->bind(load_id);
-						//					load_surf->Apply	(load_id);
 					}
 				}
 			}
@@ -382,7 +360,6 @@ void CBackend::set_Textures(STextureList* _T)
 #if defined(USE_DX10) || defined(USE_DX11)
 		//	TODO: DX10: Optimise: set all resources at once
 		ID3DShaderResourceView* pRes = 0;
-		//HW.pDevice->PSSetShaderResources(_last_ps, 1, &pRes);
 		SRVSManager.SetPSResource(_last_ps, pRes);
 #else	//	USE_DX10
 		CHK_DX(HW.pDevice->SetTexture(_last_ps,NULL));
@@ -398,7 +375,6 @@ void CBackend::set_Textures(STextureList* _T)
 #if defined(USE_DX10) || defined(USE_DX11)
 		//	TODO: DX10: Optimise: set all resources at once
 		ID3DShaderResourceView* pRes = 0;
-		//HW.pDevice->VSSetShaderResources(_last_vs, 1, &pRes);
 		SRVSManager.SetVSResource(_last_vs, pRes);
 #else	//	USE_DX10
 		CHK_DX(HW.pDevice->SetTexture(_last_vs+CTexture::rstVertex,NULL));
@@ -416,7 +392,6 @@ void CBackend::set_Textures(STextureList* _T)
 
 		//	TODO: DX10: Optimise: set all resources at once
 		ID3DShaderResourceView* pRes = 0;
-		//HW.pDevice->GSSetShaderResources(_last_gs, 1, &pRes);
 		SRVSManager.SetGSResource(_last_gs, pRes);
 	}
 #ifdef USE_DX11
@@ -458,7 +433,7 @@ void CBackend::set_Textures(STextureList* _T)
 }
 #else
 
-void	CBackend::set_ClipPlanes	(u32 _enable, Fmatrix*	_xform  /*=NULL */, u32 fmask/* =0xff */) {}
+void	CBackend::set_ClipPlanes	(u32 _enable, Fmatrix* _xform, u32 fmask) {}
 void CBackend::set_Textures			(STextureList* _T) {}
 
 #endif

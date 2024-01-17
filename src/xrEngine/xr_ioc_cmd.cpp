@@ -1,11 +1,9 @@
 #include "stdafx.h"
 #include "igame_level.h"
 
-//#include "xr_effgamma.h"
 #include "x_ray.h"
 #include "xr_ioconsole.h"
 #include "xr_ioc_cmd.h"
-//#include "fbasicvisual.h"
 #include "cameramanager.h"
 #include "environment.h"
 #include "xr_input.h"
@@ -127,8 +125,6 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-		//g_pMotionsContainer->dump();
-		// TODO: move this console commant into renderer
 		VERIFY(0);
 	}
 };
@@ -141,9 +137,6 @@ public:
 	virtual void Execute(LPCSTR args)
 	{
 		Device.DumpResourcesMemoryUsage();
-		//Device.Resources->_DumpMemoryUsage();
-		// TODO: move this console commant into renderer
-		//VERIFY(0);
 	}
 };
 
@@ -315,8 +308,7 @@ void CCC_LoadCFG::Execute(LPCSTR args)
 	}
 }
 
-CCC_LoadCFG_custom::CCC_LoadCFG_custom(LPCSTR cmd)
-	: CCC_LoadCFG(cmd)
+CCC_LoadCFG_custom::CCC_LoadCFG_custom(LPCSTR cmd) : CCC_LoadCFG(cmd)
 {
 	xr_strcpy(m_cmd, cmd);
 };
@@ -371,11 +363,6 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
-		/* if (g_pGameLevel) {
-		 Log ("! Please disconnect/unload first");
-		 return;
-		 }
-		 */
 		string4096 op_server, op_client, op_demo;
 		op_server[0] = 0;
 		op_client[0] = 0;
@@ -404,8 +391,7 @@ public:
 		}
 		else
 		{
-			Engine.Event.Defer("KERNEL:start", u64(xr_strlen(op_server) ? xr_strdup(op_server) : 0),
-			                   u64(xr_strdup(op_client)));
+			Engine.Event.Defer("KERNEL:start", u64(xr_strlen(op_server) ? xr_strdup(op_server) : 0), u64(xr_strdup(op_client)));
 		}
 	}
 };
@@ -585,13 +571,9 @@ public:
 	virtual void Execute(LPCSTR args)
 	{
 		CCC_Float::Execute(args);
-		//Device.Gamma.Gamma (ps_gamma);
 		Device.m_pRender->setGamma(ps_gamma);
-		//Device.Gamma.Brightness (ps_brightness);
 		Device.m_pRender->setBrightness(ps_brightness);
-		//Device.Gamma.Contrast (ps_contrast);
 		Device.m_pRender->setContrast(ps_contrast);
-		//Device.Gamma.Update ();
 		Device.m_pRender->updateGamma();
 	}
 };
@@ -611,62 +593,10 @@ public:
 	}
 };
 
-//-----------------------------------------------------------------------
-/*
-#ifdef DEBUG
-extern INT g_bDR_LM_UsePointsBBox;
-extern INT g_bDR_LM_4Steps;
-extern INT g_iDR_LM_Step;
-extern Fvector g_DR_LM_Min, g_DR_LM_Max;
-
-class CCC_DR_ClearPoint : public IConsole_Command
-{
-public:
-CCC_DR_ClearPoint(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
-virtual void Execute(LPCSTR args) {
-g_DR_LM_Min.x = 1000000.0f;
-g_DR_LM_Min.z = 1000000.0f;
-
-g_DR_LM_Max.x = -1000000.0f;
-g_DR_LM_Max.z = -1000000.0f;
-
-Msg("Local BBox (%f, %f) - (%f, %f)", g_DR_LM_Min.x, g_DR_LM_Min.z, g_DR_LM_Max.x, g_DR_LM_Max.z);
-}
-};
-
-class CCC_DR_TakePoint : public IConsole_Command
-{
-public:
-CCC_DR_TakePoint(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
-virtual void Execute(LPCSTR args) {
-Fvector CamPos = Device.vCameraPosition;
-
-if (g_DR_LM_Min.x > CamPos.x) g_DR_LM_Min.x = CamPos.x;
-if (g_DR_LM_Min.z > CamPos.z) g_DR_LM_Min.z = CamPos.z;
-
-if (g_DR_LM_Max.x < CamPos.x) g_DR_LM_Max.x = CamPos.x;
-if (g_DR_LM_Max.z < CamPos.z) g_DR_LM_Max.z = CamPos.z;
-
-Msg("Local BBox (%f, %f) - (%f, %f)", g_DR_LM_Min.x, g_DR_LM_Min.z, g_DR_LM_Max.x, g_DR_LM_Max.z);
-}
-};
-
-class CCC_DR_UsePoints : public CCC_Integer
-{
-public:
-CCC_DR_UsePoints(LPCSTR N, int* V, int _min=0, int _max=999) : CCC_Integer(N, V, _min, _max) {};
-virtual void Save (IWriter *F) {};
-};
-#endif
-*/
-
 ENGINE_API BOOL r2_sun_static = TRUE;
 ENGINE_API BOOL r2_advanced_pp = FALSE; // advanced post process and effects
 
 u32 renderer_value = 3;
-
-//void fill_render_mode_list();
-//void free_render_mode_list();
 
 class CCC_r2 : public CCC_Token
 {
@@ -676,12 +606,10 @@ public:
 
 	virtual ~CCC_r2()
 	{
-		//free_render_mode_list();
 	}
 
 	virtual void Execute(LPCSTR args)
 	{
-		//fill_render_mode_list ();
 		// vid_quality_token must be already created!
 		tokens = vid_quality_token;
 
@@ -731,7 +659,6 @@ public:
 
 	virtual void Save(IWriter* F)
 	{
-		//fill_render_mode_list ();
 		tokens = vid_quality_token;
 		if (!strstr(Core.Params, "-r2"))
 		{
@@ -863,7 +790,6 @@ public:
 ENGINE_API float psHUD_FOV_def = 0.45f;
 ENGINE_API float psHUD_FOV = psHUD_FOV_def;
 
-//extern int psSkeletonUpdate;
 extern int rsDVB_Size;
 extern int rsDIB_Size;
 extern int psNET_ClientUpdate;
@@ -873,7 +799,6 @@ extern int psNET_ServerPending;
 extern int psNET_DedicatedSleep;
 extern char psNET_Name[32];
 extern Flags32 psEnvFlags;
-//extern float r__dtex_range;
 
 extern int g_ErrorLineCount;
 
@@ -896,7 +821,6 @@ float scope_fog_interp = 0.15f;
 float scope_fog_travel = 0.25f;
 float scope_fog_attack = 0.66f;
 float scope_fog_mattack = 0.25f;
-//float scope_drift_amount = 1.f;
 float scope_ca = 0.003f;
 float scope_outerblur = 1.0f;
 float scope_innerblur = 0.1f;
@@ -947,7 +871,6 @@ void CCC_Register()
     CMD3(CCC_Mask, "rs_occlusion", &psDeviceFlags, rsOcclusion);
 
     CMD3(CCC_Mask, "rs_detail", &psDeviceFlags, rsDetails);
-    //CMD4(CCC_Float, "r__dtex_range", &r__dtex_range, 5, 175 );
 
     // CMD3(CCC_Mask, "rs_constant_fps", &psDeviceFlags, rsConstantFPS );
     CMD3(CCC_Mask, "rs_render_statics", &psDeviceFlags, rsDrawStatic);
@@ -1038,26 +961,20 @@ void CCC_Register()
 #ifndef DEDICATED_SERVER
 	CMD1(CCC_soundDevice, "snd_device");
 #endif
-	//psSoundRolloff = pSettings->r_float ("sound","rolloff"); clamp(psSoundRolloff, EPS_S, 2.f);
+
 	psSoundOcclusionScale = pSettings->r_float("sound", "occlusion_scale");
 	clamp(psSoundOcclusionScale, 0.1f, .5f);
 
 	extern int g_Dump_Export_Obj;
 	extern int g_Dump_Import_Obj;
-	//CMD4(CCC_Integer, "net_dbg_dump_export_obj", &g_Dump_Export_Obj, 0, 1);
-	//CMD4(CCC_Integer, "net_dbg_dump_import_obj", &g_Dump_Import_Obj, 0, 1);
 
 #ifdef DEBUG
     CMD1(CCC_DumpOpenFiles, "dump_open_files");
 #endif
 
-	//CMD1(CCC_ExclusiveMode, "input_exclusive_mode");
-
 	extern int g_svTextConsoleUpdateRate;
-	//CMD4(CCC_Integer, "sv_console_update_rate", &g_svTextConsoleUpdateRate, 1, 100);
 
 	extern int g_svDedicateServerUpdateReate;
-	//CMD4(CCC_Integer, "sv_dedicated_server_update_rate", &g_svDedicateServerUpdateReate, 1, 1000);
 
 	CMD1(CCC_HideConsole, "hide");
 
@@ -1082,7 +999,6 @@ void CCC_Register()
 	CMD4(CCC_Float, "scope_fog_travel", &scope_fog_travel, 0.f, 5.f);
 	CMD4(CCC_Float, "scope_fog_swayAim", &scope_fog_attack, -999.f, 999.f);
 	CMD4(CCC_Float, "scope_fog_swayMove", &scope_fog_mattack, -999.f, 999.f);
-	//CMD4(CCC_Float, "scope_drift_amount", &scope_drift_amount, -999.f, 999.f);
 
 	CMD2(CCC_Float, "scope_ca", &scope_ca);
 	CMD4(CCC_Float, "scope_radius", &scope_radius, 0, 2);

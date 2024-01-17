@@ -156,7 +156,6 @@ void CRenderDevice::End(void)
 #endif
 }
 
-
 volatile u32 mt_Thread_marker = 0x12345678;
 
 void mt_Thread(void* ptr)
@@ -253,19 +252,15 @@ float GetMonitorRefresh()
 	lpDevMode.dmSize = sizeof(DEVMODE);
 	lpDevMode.dmDriverExtra = 0;
 
-	if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0)
-	{
-		return 1.f / 60.f;
-	}
-	else
-		return 1.f / lpDevMode.dmDisplayFrequency;
+	return (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &lpDevMode) == 0) ? 1.f / 60.f : 1.f / lpDevMode.dmDisplayFrequency;
 }
 
 extern int ps_framelimiter;
 extern u32 g_screenmode;
 
 CTimer FreezeTimer;
-void mt_FreezeThread(void *ptr) {
+void mt_FreezeThread(void *ptr) 
+{
 	float freezetime = 0.f;
 	float repeatcheck = 500.f;
 
@@ -509,12 +504,6 @@ void CRenderDevice::FrameMove()
 	dwTimeContinual = TimerMM.GetElapsed_ms() - app_inactive_time;
 	if (psDeviceFlags.test(rsConstantFPS))
 	{
-		// 20ms = 50fps
-		//fTimeDelta = 0.020f;
-		//fTimeGlobal += 0.020f;
-		//dwTimeDelta = 20;
-		//dwTimeGlobal += 20;
-		// 33ms = 30fps
 		fTimeDelta = 0.033f;
 		fTimeGlobal += 0.033f;
 		dwTimeDelta = 33;
@@ -527,7 +516,6 @@ void CRenderDevice::FrameMove()
 		Timer.Start(); // previous frame
 		fTimeDelta = 0.1f * fTimeDelta + 0.9f * fPreviousFrameTime;
 		// smooth random system activity - worst case ~7% error
-		//fTimeDelta = 0.7f * fTimeDelta + 0.3f*fPreviousFrameTime; // smooth random system activity
 		if (fTimeDelta > .1f)
 			fTimeDelta = .1f; // limit to 15fps minimum
 		if (fTimeDelta <= 0.f)
@@ -543,11 +531,8 @@ void CRenderDevice::FrameMove()
 	// Frame move
 	Statistic->EngineTOTAL.Begin();
 	// TODO: HACK to test loading screen.
-	//if(!g_bLoaded)
 	Device.seqFrame.Process(rp_Frame);
 	g_bLoaded = TRUE;
-	//else
-	// seqFrame.Process(rp_Frame);
 	Statistic->EngineTOTAL.End();
 }
 

@@ -9,8 +9,6 @@ u64 g_qwStartGameTime = 12 * 60 * 60 * 1000;
 float g_fTimeFactor = 10.0f;
 u64 g_qwEStartGameTime = 12 * 60 * 60 * 1000;
 
-extern ENGINE_API bool g_dedicated_server;
-
 game_PlayerState::game_PlayerState(NET_Packet* account_info)
 {
 	skin = 0;
@@ -36,14 +34,7 @@ game_PlayerState::game_PlayerState(NET_Packet* account_info)
 	}
 	else
 	{
-		if (g_dedicated_server)
-		{
-			setFlag(GAME_PLAYER_FLAG_SKIP);
-		}
-		else
-		{
-			m_account.load_account();
-		}
+		m_account.load_account();
 	}
 }
 

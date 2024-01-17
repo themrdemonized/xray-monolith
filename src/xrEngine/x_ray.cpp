@@ -745,8 +745,6 @@ struct damn_keys_filter
 
 //#define RUSSIAN_BUILD
 
-ENGINE_API bool g_dedicated_server = false;
-
 #ifndef DEDICATED_SERVER
 
 #endif // DEDICATED_SERVER
@@ -802,8 +800,6 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lp
 		return 1;
 	}
 #endif
-#else // DEDICATED_SERVER
-    g_dedicated_server = true;
 #endif // DEDICATED_SERVER
 
 	// Title window
@@ -943,7 +939,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lp
 #else
         Console->Execute("renderer renderer_r1");
 #endif
-		//. InitInput ( );
+
 		Engine.External.Initialize();
 		Console->Execute("stat_memory");
 
@@ -1281,10 +1277,7 @@ PROTECT_API void CApplication::LoadDraw()
 	if (!Device.Begin()) 
 		return;
 
-	if (g_dedicated_server)
-		Console->OnRender();
-	else
-		load_draw_internal();
+	load_draw_internal();
 
 	Device.End();
 }

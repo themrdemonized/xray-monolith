@@ -19,7 +19,6 @@ class ENGINE_API CBoneInstance;
 // callback
 typedef void _BCL BoneCallbackFunction(CBoneInstance* P);
 typedef BoneCallbackFunction* BoneCallback;
-//typedef void (* BoneCallback) (CBoneInstance* P);
 
 //*** Bone Instance *******************************************************************************
 #pragma pack(push,8)
@@ -35,9 +34,7 @@ private:
 	BOOL Callback_overwrite; // performance hint - don't calc anims
 	u32 Callback_type;
 public:
-	float param[MAX_BONE_PARAMS]; //
-	//
-	// methods
+	float param[MAX_BONE_PARAMS];
 public:
 	IC BoneCallback _BCL callback() { return Callback; }
 	IC void* _BCL callback_param() { return Callback_Param; }
@@ -258,18 +255,11 @@ struct ECORE_API SJointIKData
 		F.w_u32(type);
 		for (int k = 0; k < 3; k++)
 		{
-			// Kostya Slipchenko say:
-			// направление вращения в ОДЕ отличается от направления вращение в X-Ray
-			// поэтому меняем знак у лимитов
-			//F.w_float (_min(-limits[k].limit.x,-limits[k].limit.y)); // min (swap special for ODE)
-			//F.w_float (_max(-limits[k].limit.x,-limits[k].limit.y)); // max (swap special for ODE)
-
 			VERIFY(_min(-limits[k].limit.x, -limits[k].limit.y) == -limits[k].limit.y);
 			VERIFY(_max(-limits[k].limit.x, -limits[k].limit.y) == -limits[k].limit.x);
 
-			F.w_float(-limits[k].limit.y); // min (swap special for ODE)
-			F.w_float(-limits[k].limit.x); // max (swap special for ODE)
-
+			F.w_float(-limits[k].limit.y);
+			F.w_float(-limits[k].limit.x);
 
 			F.w_float(limits[k].spring_factor);
 			F.w_float(limits[k].damping_factor);
@@ -302,7 +292,6 @@ struct ECORE_API SJointIKData
 };
 #pragma pack( pop )
 
-
 class IBoneData
 {
 public:
@@ -324,7 +313,6 @@ public:
 	virtual float _BCL hi_limit(u8 k) const = 0;
 };
 
-//static const Fobb dummy ;//= Fobb().identity();
 // refs
 class CBone;
 DEFINE_VECTOR(CBone*, BoneVec, BoneIt);
@@ -350,9 +338,6 @@ class ECORE_API CBone :
 	Fmatrix rest_transform;
 	Fmatrix rest_i_transform;
 
-	//Fmatrix last_transform;
-
-	//Fmatrix render_transform;
 public:
 	int SelfID;
 	CBone* parent;
@@ -515,7 +500,6 @@ protected:
 public:
 	shared_str name;
 
-
 	Fobb obb;
 
 	Fmatrix bind_transform;
@@ -526,7 +510,6 @@ public:
 	SJointIKData IK_data;
 	float mass;
 	Fvector center_of_mass;
-
 
 	vecBones children; // bones which are slaves to this
 

@@ -46,8 +46,8 @@ public:
 	BOOL b_is_Ready;
 	BOOL b_is_Active;
 	BOOL b_hide_cursor;
-public:
 
+public:
 	// Engine flow-control
 	u32 dwFrame;
 
@@ -75,8 +75,8 @@ public:
 
 	float fFOV;
 	float fASPECT;
-protected:
 
+protected:
 	u32 Timer_MM_Delta;
 	CTimer_paused Timer;
 	CTimer_paused TimerGlobal;
@@ -86,7 +86,6 @@ protected:
 	//-AVO
 
 public:
-
 	// Registrators
 	CRegistrator<pureRender> seqRender;
 	CRegistrator<pureAppActivate> seqAppActivate;
@@ -113,12 +112,11 @@ class ENGINE_API CRenderDevice : public CRenderDeviceBase
 public:
 	class ENGINE_API CSecondVPParams //--#SM+#-- +SecondVP+
 	{
-		bool isActive; // Oeaa aeoeaaoee ?aiaa?a ai aoi?ie au?ii?o
-		u8 frameDelay;  // Ia eaeii eaa?a n iiiaioa i?ioeiai ?aiaa?a ai aoi?ie au?ii?o iu ia?i?i iiaue
-						  //(ia ii?ao auou iaiuoa 2 - ea?aue aoi?ie eaa?, ?ai aieuoa oai aieaa ieceee FPS ai aoi?ii au?ii?oa)
+		bool isActive;
+		u8 frameDelay;
 
 	public:
-		bool isCamReady; // Oeaa aioiaiinoe eaia?u (FOV, iiceoey, e o.i) e ?aiaa?o aoi?iai au?ii?oa
+		bool isCamReady;
 
 		IC bool IsSVPActive() { return isActive; }
 		void SetSVPActive(bool bState);

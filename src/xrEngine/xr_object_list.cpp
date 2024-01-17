@@ -35,7 +35,6 @@ CObjectList::~CObjectList()
 	R_ASSERT(objects_active.empty());
 	R_ASSERT(objects_sleeping.empty());
 	R_ASSERT(destroy_queue.empty());
-	//. R_ASSERT ( map_NETID.empty() );
 }
 
 CObject* CObjectList::FindObjectByName(shared_str name)
@@ -69,14 +68,9 @@ CObject* CObjectList::FindObjectByCLS_ID(CLASS_ID cls)
 
 void CObjectList::o_remove(Objects& v, CObject* O)
 {
-	//. if(O->ID()==1026)
-	//. {
-	//. Log("ahtung");
-	//. }
 	Objects::iterator _i = std::find(v.begin(), v.end(), O);
 	VERIFY(_i != v.end());
 	v.erase(_i);
-	//. Msg("---o_remove[%s][%d]", O->cName().c_str(), O->ID() );
 }
 
 void CObjectList::o_activate(CObject* O)
@@ -99,21 +93,11 @@ void CObjectList::SingleUpdate(CObject* O)
 {
 	if (Device.dwFrame == O->dwFrame_UpdateCL)
 	{
-#ifdef DEBUG
-		// if (O->getDestroy())
-		// Msg ("- !!!processing_enabled ->destroy_queue.push_back %s[%d] frame [%d]",O->cName().c_str(), O->ID(), Device.dwFrame);
-#endif // #ifdef DEBUG
-
 		return;
 	}
 
 	if (!O->processing_enabled())
 	{
-#ifdef DEBUG
-		// if (O->getDestroy())
-		// Msg ("- !!!processing_enabled ->destroy_queue.push_back %s[%d] frame [%d]",O->cName().c_str(), O->ID(), Device.dwFrame);
-#endif // #ifdef DEBUG
-
 		return;
 	}
 
@@ -122,8 +106,6 @@ void CObjectList::SingleUpdate(CObject* O)
 
 	Device.Statistic->UpdateClient_updated++;
 	O->dwFrame_UpdateCL = Device.dwFrame;
-
-	// Msg ("[%d][0x%08x]IAmNotACrowAnyMore (CObjectList::SingleUpdate)", Device.dwFrame, dynamic_cast<void*>(O));
 
 	O->UpdateCL();
 #ifdef DEBUG
@@ -178,18 +160,12 @@ void CObjectList::SingleUpdate(CObject* O)
         R_ASSERT(false);
     } //end of __except
 #endif
-
-#ifdef DEBUG
-	// if (O->getDestroy())
-	// Msg ("- !!!processing_enabled ->destroy_queue.push_back %s[%d] frame [%d]",O->cName().c_str(), O->ID(), Device.dwFrame);
-#endif // #ifdef DEBUG
 }
 
 void CObjectList::clear_crow_vec(Objects& o)
 {
 	for (u32 _it = 0; _it < o.size(); _it++)
 	{
-		// Msg ("[%d][0x%08x]IAmNotACrowAnyMore (clear_crow_vec)", Device.dwFrame, dynamic_cast<void*>(o[_it]));
 		o[_it]->IAmNotACrowAnyMore();
 	}
 	o.clear_not_free();
@@ -213,26 +189,10 @@ void CObjectList::Update(bool bForce)
 				crows1.clear_not_free();
 			}
 
-#if 0
-            std::sort (crows.begin(), crows.end());
-            crows.erase (
-                std::unique(
-                    crows.begin(),
-                    crows.end()
-                ),
-                crows.end()
-            );
-#else
 # ifdef DEBUG
             std::sort(crows.begin(), crows.end());
-            VERIFY(
-                std::unique(
-                    crows.begin(),
-                    crows.end()
-                ) == crows.end()
-            );
+            VERIFY(std::unique(crows.begin(), crows.end()) == crows.end());
 # endif // ifdef DEBUG
-#endif
 
 			Device.Statistic->UpdateClient_crows = crows.size();
 			Objects* workload = 0;
@@ -301,7 +261,6 @@ void CObjectList::Update(bool bForce)
 		for (int it = destroy_queue.size() - 1; it >= 0; it--)
 		{
 			CObject* O = destroy_queue[it];
-			// Msg ("Object [%x]", O);
 #ifdef DEBUG
             if (debug_destroy)
                 Msg("Destroying object[%x][%x] [%d][%s] frame[%d]", dynamic_cast<void*>(O), O, O->ID(), *O->cName(), Device.dwFrame);
@@ -319,52 +278,37 @@ void CObjectList::net_Register(CObject* O)
 	R_ASSERT(O->ID() < 0xffff);
 
 	map_NETID[O->ID()] = O;
-
-
-	//. map_NETID.insert(mk_pair(O->ID(),O));
-	//Msg ("-------------------------------- Register: %s",O->cName());
 }
 
 void CObjectList::net_Unregister(CObject* O)
 {
-	//R_ASSERT (O->ID() < 0xffff);
 	if (O->ID() < 0xffff) //demo_spectator can have 0xffff
 		map_NETID[O->ID()] = NULL;
-	/*
-	 xr_map<u32,CObject*>::iterator it = map_NETID.find(O->ID());
-	 if ((it!=map_NETID.end()) && (it->second == O)) {
-	 // Msg ("-------------------------------- Unregster: %s",O->cName());
-	 map_NETID.erase(it);
-	 }
-	 */
 }
 
 int g_Dump_Export_Obj = 0;
 
 u32 CObjectList::net_Export(NET_Packet* _Packet, u32 start, u32 max_object_size)
 {
-	if (g_Dump_Export_Obj) Msg("---- net_export --- ");
+	if (g_Dump_Export_Obj)
+		Msg("---- net_export --- ");
 
 	NET_Packet& Packet = *_Packet;
 	u32 position;
 	for (; start < objects_active.size() + objects_sleeping.size(); start++)
 	{
-		CObject* P = (start < objects_active.size())
-			             ? objects_active[start]
-			             : objects_sleeping[start - objects_active.size()];
+		CObject* P = (start < objects_active.size()) ? objects_active[start] : objects_sleeping[start - objects_active.size()];
 		if (P->net_Relevant() && !P->getDestroy())
 		{
 			Packet.w_u16(u16(P->ID()));
 			Packet.w_chunk_open8(position);
-			//Msg ("cl_export: %d '%s'",P->ID(),*P->cName());
 			P->net_Export(Packet);
 
 #ifdef DEBUG
             u32 size = u32(Packet.w_tell() - position) - sizeof(u8);
             if (size >= 256)
             {
-                Debug.fatal(DEBUG_INFO, "Object [%s][%d] exceed network-data limit\n size=%d, Pend=%d, Pstart=%d",
-                            *P->cName(), P->ID(), size, Packet.w_tell(), position);
+                Debug.fatal(DEBUG_INFO, "Object [%s][%d] exceed network-data limit\n size=%d, Pend=%d, Pstart=%d", *P->cName(), P->ID(), size, Packet.w_tell(), position);
             }
 #endif
 			if (g_Dump_Export_Obj)
@@ -373,13 +317,14 @@ u32 CObjectList::net_Export(NET_Packet* _Packet, u32 start, u32 max_object_size)
 				Msg("* %s : %d", *(P->cNameSect()), size);
 			}
 			Packet.w_chunk_close8(position);
-			// if (0==(--count))
-			// break;
+
 			if (max_object_size >= (NET_PacketSizeLimit - Packet.w_tell()))
 				break;
 		}
 	}
-	if (g_Dump_Export_Obj) Msg("------------------- ");
+	if (g_Dump_Export_Obj) 
+		Msg("------------------- ");
+
 	return start + 1;
 }
 
@@ -387,7 +332,8 @@ int g_Dump_Import_Obj = 0;
 
 void CObjectList::net_Import(NET_Packet* Packet)
 {
-	if (g_Dump_Import_Obj) Msg("---- net_import --- ");
+	if (g_Dump_Import_Obj) 
+		Msg("---- net_import --- ");
 
 	while (!Packet->r_eof())
 	{
@@ -402,25 +348,20 @@ void CObjectList::net_Import(NET_Packet* Packet)
 
 			P->net_Import(*Packet);
 
-			if (g_Dump_Import_Obj) Msg("* %s : %d - %d", *(P->cNameSect()), size, Packet->r_tell() - rsize);
+			if (g_Dump_Import_Obj)
+				Msg("* %s : %d - %d", *(P->cNameSect()), size, Packet->r_tell() - rsize);
 		}
-		else Packet->r_advance(size);
+		else
+			Packet->r_advance(size);
 	}
 
-	if (g_Dump_Import_Obj) Msg("------------------- ");
+	if (g_Dump_Import_Obj)
+		Msg("------------------- ");
 }
 
-/*
-CObject* CObjectList::net_Find(u16 ID)
-{
-
-xr_map<u32,CObject*>::iterator it = map_NETID.find(ID);
-return (it==map_NETID.end())?0:it->second;
-}
-*/
 void CObjectList::Load()
 {
-	R_ASSERT(/*map_NETID.empty() &&*/ objects_active.empty() && destroy_queue.empty() && objects_sleeping.empty());
+	R_ASSERT(objects_active.empty() && destroy_queue.empty() && objects_sleeping.empty());
 }
 
 void CObjectList::Unload()
@@ -460,7 +401,6 @@ void CObjectList::Unload()
 CObject* CObjectList::Create(LPCSTR name)
 {
 	CObject* O = g_pGamePersistent->ObjectPool.create(name);
-	// Msg("CObjectList::Create [%x]%s", O, name);
 	objects_sleeping.push_back(O);
 	return O;
 }
@@ -509,13 +449,7 @@ void CObjectList::Destroy(CObject* O)
 	{
 		objects_active.erase(_i);
 		VERIFY(std::find(objects_active.begin(), objects_active.end(), O) == objects_active.end());
-		VERIFY(
-			std::find(
-				objects_sleeping.begin(),
-				objects_sleeping.end(),
-				O
-			) == objects_sleeping.end()
-		);
+		VERIFY(std::find(objects_sleeping.begin(), objects_sleeping.end(), O) == objects_sleeping.end());
 	}
 	else
 	{
@@ -535,9 +469,7 @@ void CObjectList::Destroy(CObject* O)
 void CObjectList::relcase_register(RELCASE_CALLBACK cb, int* ID)
 {
 #ifdef DEBUG
-    RELCASE_CALLBACK_VEC::iterator It = std::find(m_relcase_callbacks.begin(),
-                                        m_relcase_callbacks.end(),
-                                        cb);
+    RELCASE_CALLBACK_VEC::iterator It = std::find(m_relcase_callbacks.begin(), m_relcase_callbacks.end(), cb);
     VERIFY(It == m_relcase_callbacks.end());
 #endif
 	*ID = m_relcase_callbacks.size();
@@ -559,12 +491,7 @@ void CObjectList::dump_list(Objects& v, LPCSTR reason)
 #ifdef DEBUG
     Msg("----------------dump_list [%s]", reason);
     for (; it != it_e; ++it)
-        Msg("%x - name [%s] ID[%d] parent[%s] getDestroy()=[%s]",
-            (*it),
-            (*it)->cName().c_str(),
-            (*it)->ID(),
-            ((*it)->H_Parent()) ? (*it)->H_Parent()->cName().c_str() : "",
-            ((*it)->getDestroy()) ? "yes" : "no");
+        Msg("%x - name [%s] ID[%d] parent[%s] getDestroy()=[%s]", (*it), (*it)->cName().c_str(), (*it)->ID(), ((*it)->H_Parent()) ? (*it)->H_Parent()->cName().c_str() : "", ((*it)->getDestroy()) ? "yes" : "no");
 #endif // #ifdef DEBUG
 }
 
@@ -592,8 +519,7 @@ void CObjectList::register_object_to_destroy(CObject* object_to_destroy)
 		CObject* O = *it;
 		if (!O->getDestroy() && O->H_Parent() == object_to_destroy)
 		{
-			Msg("setDestroy called, but not-destroyed child found parent[%d] child[%d]", object_to_destroy->ID(),
-			    O->ID(), Device.dwFrame);
+			Msg("setDestroy called, but not-destroyed child found parent[%d] child[%d]", object_to_destroy->ID(), O->ID(), Device.dwFrame);
 			O->setDestroy(TRUE);
 		}
 	}
@@ -605,8 +531,7 @@ void CObjectList::register_object_to_destroy(CObject* object_to_destroy)
 		CObject* O = *it;
 		if (!O->getDestroy() && O->H_Parent() == object_to_destroy)
 		{
-			Msg("setDestroy called, but not-destroyed child found parent[%d] child[%d]", object_to_destroy->ID(),
-			    O->ID(), Device.dwFrame);
+			Msg("setDestroy called, but not-destroyed child found parent[%d] child[%d]", object_to_destroy->ID(), O->ID(), Device.dwFrame);
 			O->setDestroy(TRUE);
 		}
 	}
@@ -615,13 +540,6 @@ void CObjectList::register_object_to_destroy(CObject* object_to_destroy)
 #ifdef DEBUG
 bool CObjectList::registered_object_to_destroy(const CObject* object_to_destroy) const
 {
-    return (
-               std::find(
-                   destroy_queue.begin(),
-                   destroy_queue.end(),
-                   object_to_destroy
-               ) !=
-               destroy_queue.end()
-           );
+    return (std::find(destroy_queue.begin(), destroy_queue.end(), object_to_destroy) != destroy_queue.end());
 }
 #endif // DEBUG

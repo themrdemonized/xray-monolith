@@ -47,7 +47,6 @@ public:
 	{
 		m_icon.SetWndSize(Fvector2().set(29.0f * UI().get_current_kx(), 36.0f));
 		m_icon.SetStretchTexture(true);
-		//		m_icon.SetAlignment		(waCenter);
 		m_icon.InitTexture("ui_inGame2_inv_trash");
 	}
 
@@ -61,7 +60,6 @@ public:
 		pos.y += drag_sz.y;
 
 		m_icon.SetWndPos(pos);
-		//		m_icon.SetWndSize(sz);
 		m_icon.Draw();
 	}
 };
@@ -116,8 +114,7 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 
 			CGameObject* GO1 = smart_cast<CGameObject*>(CurrentIItem());
 			CGameObject* GO2 = _iitem ? smart_cast<CGameObject*>(_iitem) : NULL;
-			if (funct1(GO1 ? GO1->lua_game_object() : (0), GO2 ? GO2->lua_game_object() : (0), (int)t_old,
-			           (int)t_new) == false)
+			if (funct1(GO1 ? GO1->lua_game_object() : (0), GO2 ? GO2->lua_game_object() : (0), (int)t_old, (int)t_new) == false)
 				return false;
 		}
 		//-Alundaio
@@ -142,7 +139,6 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 		break;
 	case iActorSlot:
 		{
-			//.			if(GetSlotList(CurrentIItem()->GetSlot())==new_owner)
 			u16 slot_to_place;
 			if (CanSetItemToList(CurrentIItem(), new_owner, slot_to_place))
 				ToSlot(itm, true, slot_to_place);
@@ -213,8 +209,7 @@ bool CUIActorMenu::OnItemDrop(CUICellItem* itm)
 
 		CGameObject* GO1 = smart_cast<CGameObject*>(CurrentIItem());
 		CGameObject* GO2 = _iitem ? smart_cast<CGameObject*>(_iitem) : NULL;
-		if (funct1(GO1 ? GO1->lua_game_object() : (0), GO2 ? GO2->lua_game_object() : (0), (int)t_old,
-		           (int)t_new) == false)
+		if (funct1(GO1 ? GO1->lua_game_object() : (0), GO2 ? GO2->lua_game_object() : (0), (int)t_old, (int)t_new) == false)
 			return false;
 	}
 	//-Alundaio
@@ -269,12 +264,7 @@ bool CUIActorMenu::OnItemDbClick(CUICellItem* itm)
 				break;
 			}
 			PIItem iitem_to_place = (PIItem)itm->m_pData;
-			if (!m_pActorInvOwner->inventory().SlotIsPersistent(iitem_to_place->BaseSlot()) && m_pActorInvOwner
-			                                                                                   ->inventory().
-			                                                                                   ItemFromSlot(
-				                                                                                   iitem_to_place->
-				                                                                                   BaseSlot()) ==
-				iitem_to_place)
+			if (!m_pActorInvOwner->inventory().SlotIsPersistent(iitem_to_place->BaseSlot()) && m_pActorInvOwner->inventory().ItemFromSlot(iitem_to_place->BaseSlot()) == iitem_to_place)
 			{
 				ToBag(itm, false);
 			}
@@ -420,8 +410,7 @@ bool CUIActorMenu::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	InfoCurItem(NULL);
 	if (is_binded(kDROP, dik))
 	{
-		if (WINDOW_KEY_PRESSED == keyboard_action && CurrentIItem() && !CurrentIItem()->IsQuestItem()
-			&& CurrentIItem()->parent_id() == m_pActorInvOwner->object_id())
+		if (WINDOW_KEY_PRESSED == keyboard_action && CurrentIItem() && !CurrentIItem()->IsQuestItem() && CurrentIItem()->parent_id() == m_pActorInvOwner->object_id())
 		{
 			SendEvent_Item_Drop(CurrentIItem(), m_pActorInvOwner->object_id());
 			SetCurrentItem(NULL);
@@ -470,7 +459,6 @@ void CUIActorMenu::OnPressUserKey()
 	case mmUndefined: break;
 	case mmInventory: break;
 	case mmTrade:
-		//		OnBtnPerformTrade( this, 0 );
 		break;
 	case mmUpgrade:
 		TrySetCurUpgrade();

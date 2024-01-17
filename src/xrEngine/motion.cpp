@@ -250,15 +250,6 @@ BOOL COMotion::NormalizeKeys(float from_time, float to_time, float speed)
             (*k_it)->time = *f_it;
     }
 
-    /*
-     CEnvelope* E = Envelope();
-     for (KeyIt it=E->keys.begin(); it!=E->keys.end(); it++){
-     if (((*it)->time>from_time)&&((*it)->time<to_time)){
-     for (float tm=from_time; tm<=to_time; tm+=1.f/fFPS){
-
-     }
-     }
-     */
     return TRUE;
 }
 #endif
@@ -269,7 +260,6 @@ BOOL COMotion::NormalizeKeys(float from_time, float to_time, float speed)
 //------------------------------------------------------------------------------------------
 #ifdef _EDITOR
 
-//#include "SkeletonCustom.h"
 CSMotion::CSMotion():CCustomMotion()
 {
     mtype =mtSkeleton;
@@ -323,13 +313,11 @@ void CSMotion::add_empty_motion (shared_str const& bone_id)
     st_BoneMotion motion;
 
     motion.SetName (bone_id.c_str());
-    // flRKeyAbsent = (1<<1),
     motion.m_Flags.assign ( 1 << 1);
 
     for (int ch=0; ch<ctMaxChannel; ch++)
     {
         motion.envs[ch] = xr_new<CEnvelope> ();
-        // motion.envs[ch];
     }
 
     bone_mots.push_back (motion);
@@ -539,7 +527,6 @@ void CSMotion::SortBonesBySkeleton(BoneVec& bones)
             for (int ch = 0; ch < ctMaxChannel; ++ch)
             {
                 bm.envs[ch] = xr_new<CEnvelope>();
-                //. bm.envs[ch]->Load_2(F);
             }
             bm.envs[ctPositionX]->InsertKey(0.0f, B->_Offset().x);
             bm.envs[ctPositionY]->InsertKey(0.0f, B->_Offset().y);
@@ -567,7 +554,6 @@ void SAnimParams::Set(CCustomMotion* M)
 	Set((float)M->FrameStart(), (float)M->FrameEnd(), M->FPS());
 	t_current = min_t;
 	tmp = t_current;
-	// bPlay=true;
 }
 
 void SAnimParams::Update(float dt, float speed, bool loop)

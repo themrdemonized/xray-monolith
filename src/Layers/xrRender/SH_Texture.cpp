@@ -172,10 +172,7 @@ void CTexture::Load()
 	}
 
 	Preload();
-	//#ifndef		DEDICATED_SERVER
-#ifndef _EDITOR
-	if (!g_dedicated_server)
-#endif
+
 	{
 		// Check for OGM
 		string_path fn;
@@ -271,7 +268,6 @@ void CTexture::Load()
 					pSurface = ::RImplementation.texture_load(buffer, mem);
 					if (pSurface)
 					{
-						// pSurface->SetPriority	(PRIORITY_LOW);
 						seqDATA.push_back(pSurface);
 						flags.MemoryUsage += mem;
 					}
@@ -289,11 +285,9 @@ void CTexture::Load()
 			// Calc memory usage and preload into vid-mem
 			if (pSurface)
 			{
-				// pSurface->SetPriority	(PRIORITY_NORMAL);
 				flags.MemoryUsage = mem;
 			}
 		}
-		//#endif
 	}
 	PostLoad();
 }
@@ -304,8 +298,6 @@ void CTexture::Unload()
 	string_path				msg_buff;
 	xr_sprintf				(msg_buff,sizeof(msg_buff),"* Unloading texture [%s] pSurface RefCount=",cName.c_str());
 #endif // DEBUG
-
-	//.	if (flags.bLoaded)		Msg		("* Unloaded: %s",cName.c_str());
 
 	flags.bLoaded = FALSE;
 	if (!seqDATA.empty())

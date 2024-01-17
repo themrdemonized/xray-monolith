@@ -29,8 +29,7 @@
 
 u32 g_sv_traffic_optimization_level = eto_none;
 
-xrClientData::xrClientData() :
-	IClient(Device.GetTimerGlobal())
+xrClientData::xrClientData() : IClient(Device.GetTimerGlobal())
 {
 	ps = NULL;
 	Clear();
@@ -47,14 +46,12 @@ void xrClientData::Clear()
 	m_admin_rights.m_has_admin_rights = FALSE;
 };
 
-
 xrClientData::~xrClientData()
 {
 	xr_delete(ps);
 }
 
-
-xrServer::xrServer() : IPureServer(Device.GetTimerGlobal(), g_dedicated_server)
+xrServer::xrServer() : IPureServer(Device.GetTimerGlobal())
 {
 	m_file_transfers = NULL;
 	m_aDelayedPackets.clear();
@@ -1175,10 +1172,6 @@ void xrServer::KickCheaters()
 
 void xrServer::MakeScreenshot(ClientID const& admin_id, ClientID const& cheater_id)
 {
-	if ((cheater_id == SV_Client->ID) && g_dedicated_server)
-	{
-		return;
-	}
 	for (int i = 0; i < sizeof(m_screenshot_proxies) / sizeof(clientdata_proxy*); ++i)
 	{
 		if (!m_screenshot_proxies[i]->is_active())
@@ -1193,10 +1186,6 @@ void xrServer::MakeScreenshot(ClientID const& admin_id, ClientID const& cheater_
 
 void xrServer::MakeConfigDump(ClientID const& admin_id, ClientID const& cheater_id)
 {
-	if ((cheater_id == SV_Client->ID) && g_dedicated_server)
-	{
-		return;
-	}
 	for (int i = 0; i < sizeof(m_screenshot_proxies) / sizeof(clientdata_proxy*); ++i)
 	{
 		if (!m_screenshot_proxies[i]->is_active())

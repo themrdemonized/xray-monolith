@@ -29,7 +29,6 @@ void CUIActorMenu::InitUpgradeMode()
 	InitInventoryContents(m_pInventoryBagList);
 	VERIFY(m_pPartnerInvOwner);
 	m_pPartnerInvOwner->StartTrading();
-	//-	UpdateUpgradeItem();
 }
 
 void CUIActorMenu::DeInitUpgradeMode()
@@ -88,7 +87,6 @@ void CUIActorMenu::SetupUpgradeItem()
 
 void CUIActorMenu::UpdateUpgradeItem()
 {
-	//	m_pUpgradeWnd->InitInventory( CurrentIItem() );
 }
 
 void CUIActorMenu::TrySetCurUpgrade()
@@ -131,13 +129,7 @@ void CUIActorMenu::SeparateUpgradeItem()
 		return;
 	}
 
-	//	if ( m_upgrade_selected->ChildsCount() > 0 )
-	//	{
-	//PIItem item = get_upgrade_item();
 	m_upgrade_selected->Mark(false);
 	CUICellItem* ci = list_owner->RemoveItem(m_upgrade_selected, false);
 	list_owner->SetItem(ci);
-	//		m_upgrade_selected = ci;
-	//		m_upgrade_selected->Mark( true );
-	//	}
 }

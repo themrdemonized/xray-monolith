@@ -109,8 +109,6 @@ bool CLevel::net_start1()
 	// Start client and server if need it
 	if (m_caServerOptions.size())
 	{
-		//		g_pGamePersistent->LoadTitle("st_server_starting");
-
 		typedef IGame_Persistent::params params;
 		params& p = g_pGamePersistent->m_game_params;
 		// Connect
@@ -130,8 +128,7 @@ bool CLevel::net_start1()
 
 			map_data.m_name = game_sv_GameState::parse_level_name(m_caServerOptions);
 
-			if (!g_dedicated_server)
-				g_pGamePersistent->LoadTitle(true, map_data.m_name);
+			g_pGamePersistent->LoadTitle(true, map_data.m_name);
 
 			int id = pApp->Level_ID(map_data.m_name.c_str(), l_ver.c_str(), true);
 
@@ -163,8 +160,7 @@ bool CLevel::net_start2()
 		}
 		Server->SLS_Default();
 		map_data.m_name = Server->level_name(m_caServerOptions);
-		if (!g_dedicated_server)
-			g_pGamePersistent->LoadTitle(true, map_data.m_name);
+		g_pGamePersistent->LoadTitle(true, map_data.m_name);
 	}
 	return true;
 }
@@ -269,7 +265,7 @@ bool CLevel::net_start6()
 	{
 		Msg("! Failed to start client. Check the connection or level existance.");
 
-		if (m_connect_server_err == xrServer::ErrConnect && !psNET_direct_connect && !g_dedicated_server)
+		if (m_connect_server_err == xrServer::ErrConnect && !psNET_direct_connect)
 		{
 			DEL_INSTANCE(g_pGameLevel);
 			Console->Execute("main_menu on");
@@ -296,8 +292,7 @@ bool CLevel::net_start6()
 			CStringTable st;
 			LPCSTR tmp_map_ver = !!map_data.m_map_version ? map_data.m_map_version.c_str() : "";
 
-			STRCONCAT(level_id_string, st.translate("st_level"), ":",
-			          map_data.m_name.c_str(), "(", tmp_map_ver, "). ");
+			STRCONCAT(level_id_string, st.translate("st_level"), ":", map_data.m_name.c_str(), "(", tmp_map_ver, "). ");
 			STRCONCAT(dialog_string, level_id_string, st.translate("ui_st_map_data_corrupted"));
 
 			g_pGameLevel->net_Stop();
@@ -313,11 +308,8 @@ bool CLevel::net_start6()
 		return true;
 	}
 
-	if (!g_dedicated_server)
-	{
-		if (CurrentGameUI())
-			CurrentGameUI()->OnConnected();
-	}
+	if (CurrentGameUI())
+		CurrentGameUI()->OnConnected();
 
 	return true;
 }

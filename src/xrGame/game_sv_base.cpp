@@ -15,8 +15,6 @@
 #include "debug_renderer.h"
 #include "xrGameSpyServer.h"
 
-extern ENGINE_API bool g_dedicated_server;
-
 #define			MAPROT_LIST_NAME		"maprot_list.ltx"
 string_path MAPROT_LIST = "";
 BOOL net_sv_control_hit = FALSE;
@@ -414,44 +412,30 @@ void game_sv_GameState::Create(shared_str& options)
 		FS.r_close(F);
 	}
 
-	if (!g_dedicated_server)
-	{
-		// loading scripts
-		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorGame);
-		string_path S;
-		FS.update_path(S, "$game_config$", "script.ltx");
-		CInifile* l_tpIniFile = xr_new<CInifile>(S);
-		R_ASSERT(l_tpIniFile);
+	// loading scripts
+	ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorGame);
+	string_path S;
+	FS.update_path(S, "$game_config$", "script.ltx");
+	CInifile* l_tpIniFile = xr_new<CInifile>(S);
+	R_ASSERT(l_tpIniFile);
 
-		if (l_tpIniFile->section_exist(type_name()))
-			if (l_tpIniFile->r_string(type_name(), "script"))
-				ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorGame,
-				                                        xr_new<CScriptProcess>(
-					                                        "game", l_tpIniFile->r_string(type_name(), "script")));
-			else
-				ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorGame,
-				                                        xr_new<CScriptProcess>("game", ""));
+	if (l_tpIniFile->section_exist(type_name()))
+		if (l_tpIniFile->r_string(type_name(), "script"))
+			ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorGame, xr_new<CScriptProcess>("game", l_tpIniFile->r_string(type_name(), "script")));
+		else
+			ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorGame, xr_new<CScriptProcess>("game", ""));
 
-		xr_delete(l_tpIniFile);
-	}
+	xr_delete(l_tpIniFile);
 
-	//---------------------------------------------------------------------
 	ConsoleCommands_Create();
-	//---------------------------------------------------------------------
-	//	CCC_LoadCFG_custom*	pTmp = xr_new<CCC_LoadCFG_custom>("sv_");
-	//	pTmp->Execute				(Console->ConfigFile);
-	//	xr_delete					(pTmp);
-	//---------------------------------------------------------------------
+
 	LPCSTR svcfg_ltx_name = "-svcfg ";
 	if (strstr(Core.Params, svcfg_ltx_name))
 	{
 		string_path svcfg_name = "";
 		int sz = xr_strlen(svcfg_ltx_name);
 		sscanf(strstr(Core.Params, svcfg_ltx_name) + sz, "%[^ ] ", svcfg_name);
-		//		if (FS.exist(svcfg_name))
-		{
-			Console->ExecuteScript(svcfg_name);
-		}
+		Console->ExecuteScript(svcfg_name);
 	};
 	//---------------------------------------------------------------------
 	ReadOptions(options);
@@ -461,8 +445,6 @@ void game_sv_GameState::ReadOptions(shared_str& options)
 {
 	g_sv_base_dwRPointFreezeTime = get_option_i(*options, "rpfrz", g_sv_base_dwRPointFreezeTime / 1000) * 1000;
 
-	//.	xr_strcpy(MAPROT_LIST, MAPROT_LIST_NAME);
-	//.	if (!FS.exist(MAPROT_LIST))
 	FS.update_path(MAPROT_LIST, "$app_data_root$", MAPROT_LIST_NAME);
 	if (FS.exist(MAPROT_LIST))
 		Console->ExecuteScript(MAPROT_LIST);
@@ -629,14 +611,11 @@ void game_sv_GameState::Update()
 	ping_filler tmp_functor;
 	m_server->ForEachClientDo(tmp_functor);
 
-	if (!g_dedicated_server)
+	if (Level().game)
 	{
-		if (Level().game)
-		{
-			CScriptProcess* script_process = ai().script_engine().script_process(ScriptEngine::eScriptProcessorGame);
-			if (script_process)
-				script_process->update();
-		}
+		CScriptProcess* script_process = ai().script_engine().script_process(ScriptEngine::eScriptProcessorGame);
+		if (script_process)
+			script_process->update();
 	}
 }
 
@@ -656,13 +635,13 @@ game_sv_GameState::game_sv_GameState()
 	m_bFastRestart = false;
 	m_pMapRotation_List.clear();
 
-	for (int i = 0; i < TEAM_COUNT; i++) rpoints_MinDist[i] = 1000.0f;
+	for (int i = 0; i < TEAM_COUNT; i++) 
+		rpoints_MinDist[i] = 1000.0f;
 }
 
 game_sv_GameState::~game_sv_GameState()
 {
-	if (!g_dedicated_server)
-		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorGame);
+	ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorGame);
 	xr_delete(m_event_queue);
 
 	SaveMapList();
@@ -780,9 +759,6 @@ void game_sv_GameState::OnEvent(NET_Packet& tNetPacket, u16 type, u32 time, Clie
 				break;
 
 			if (Level().IsDemoPlay())
-				break;
-
-			if (g_dedicated_server && (CL == m_server->GetServerClient()))
 				break;
 
 			CheckNewPlayer(CL);

@@ -510,8 +510,7 @@ BOOL CSpectator::net_Spawn(CSE_Abstract* DC)
 void CSpectator::net_Destroy()
 {
 	inherited::net_Destroy();
-	if (!g_dedicated_server)
-		Level().MapManager().OnObjectDestroyNotify(ID());
+	Level().MapManager().OnObjectDestroyNotify(ID());
 }
 
 bool CSpectator::SelectNextPlayerToLook(bool const search_next)

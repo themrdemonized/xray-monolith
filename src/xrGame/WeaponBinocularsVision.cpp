@@ -204,13 +204,10 @@ CBinocularsVision::~CBinocularsVision()
 
 void CBinocularsVision::Update()
 {
-	if (g_dedicated_server)
-		return;
-	//-----------------------------------------------------
 	const CActor* pActor = Actor();
 	if (!pActor) 
 		return;
-	//-----------------------------------------------------
+
 	const CVisualMemoryManager::VISIBLES& vVisibles = pActor->memory().visual().objects();
 
 	VIS_OBJECTS_IT it = m_active_objects.begin();

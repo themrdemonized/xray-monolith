@@ -163,8 +163,7 @@ void CBulletManager::FireShotmark(SBullet* bullet, const Fvector& vDir, const Fv
 			//добавить отметку на материале
 			Fvector p;
 			p.mad(bullet->bullet_pos, bullet->dir, R.range - 0.01f);
-			if (!g_dedicated_server)
-				::Render->add_SkeletonWallmark(&R.O->renderable.xform, PKinematics(R.O->Visual()), &*mtl_pair->m_pCollideMarks, p, bullet->dir, bullet->wallmark_size);
+			::Render->add_SkeletonWallmark(&R.O->renderable.xform, PKinematics(R.O->Visual()), &*mtl_pair->m_pCollideMarks, p, bullet->dir, bullet->wallmark_size);
 		}
 	}
 	else
@@ -190,19 +189,14 @@ void CBulletManager::FireShotmark(SBullet* bullet, const Fvector& vDir, const Fv
 		bullet->m_mtl_snd.play_at_pos(O, vEnd, 0);
 	}
 
-	LPCSTR ps_name = (!mtl_pair || mtl_pair->CollideParticles.empty())
-		                 ? NULL
-		                 : *mtl_pair->CollideParticles[::Random.randI(0, mtl_pair->CollideParticles.size())];
+	LPCSTR ps_name = (!mtl_pair || mtl_pair->CollideParticles.empty()) ? NULL : *mtl_pair->CollideParticles[::Random.randI(0, mtl_pair->CollideParticles.size())];
 
 	SGameMtl* tgt_mtl = GMLib.GetMaterialByIdx(target_material);
 	BOOL bStatic = !tgt_mtl->Flags.test(SGameMtl::flDynamic);
 
 	if ((ps_name && ShowMark) || (bullet->flags.explosive && bStatic))
 	{
-		VERIFY2(
-			(particle_dir.x*particle_dir.x+particle_dir.y*particle_dir.y+particle_dir.z*particle_dir.z) > flt_zero,
-			make_string("[%f][%f][%f]", VPUSH(particle_dir))
-		);
+		VERIFY2((particle_dir.x*particle_dir.x+particle_dir.y*particle_dir.y+particle_dir.z*particle_dir.z) > flt_zero, make_string("[%f][%f][%f]", VPUSH(particle_dir)));
 		Fmatrix pos;
 		pos.k.normalize(particle_dir);
 		Fvector::generate_orthonormal_basis(pos.k, pos.j, pos.i);

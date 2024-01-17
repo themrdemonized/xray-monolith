@@ -9,7 +9,6 @@
 #include "XR_IOConsole.h"
 #include "xr_ioc_cmd.h"
 
-
 bool CConsole::GetBool(LPCSTR cmd) const
 {
 	IConsole_Command* cc = GetCommand(cmd);
@@ -50,7 +49,6 @@ IConsole_Command* CConsole::GetCommand(LPCSTR cmd) const
 	else
 		return it->second;
 }
-
 
 int CConsole::GetInteger(LPCSTR cmd, int& min, int& max) const
 {
