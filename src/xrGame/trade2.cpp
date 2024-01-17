@@ -177,8 +177,7 @@ u32 CTrade::GetItemPrice(PIItem pItem, bool b_buying, bool b_free)
 	{
 		exponent = pThis.inv_owner->trade_parameters().sell_item_exponent;
 	}
-
-	float condition_factor = powf(pItem->GetCondition(), exponent > 0.0f ? exponent : 0.75f) * 0.9f + .1f;
+	float condition_factor = powf(pItem->GetCondition() * 0.9f + .1f, exponent > 0.0f ? exponent : 0.75f);
 
 	// computing relation factor
 	float relation_factor;

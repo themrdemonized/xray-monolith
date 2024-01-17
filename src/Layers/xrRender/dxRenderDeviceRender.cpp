@@ -3,7 +3,8 @@
 
 #include "ResourceManager.h"
 
-dxRenderDeviceRender::dxRenderDeviceRender() : Resources(0)
+dxRenderDeviceRender::dxRenderDeviceRender()
+	: Resources(0)
 {
 	;
 }
@@ -154,13 +155,19 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 	::Render->create();
 	Device.Statistic->OnDeviceCreate();
 
-	m_WireShader.create("editor\\wire");
-	m_SelectionShader.create("editor\\selection");
+	//#ifndef DEDICATED_SERVER
+	if (!g_dedicated_server)
+	{
+		m_WireShader.create("editor\\wire");
+		m_SelectionShader.create("editor\\selection");
 
-	DUImpl.OnDeviceCreate();
+		DUImpl.OnDeviceCreate();
+	}
+	//#endif
 }
 
-void dxRenderDeviceRender::Create(HWND hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2, bool move_window)
+void dxRenderDeviceRender::Create(HWND hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2,
+                                  bool move_window)
 {
 	HW.CreateDevice(hWnd, move_window);
 #if defined(USE_DX10) || defined(USE_DX11)

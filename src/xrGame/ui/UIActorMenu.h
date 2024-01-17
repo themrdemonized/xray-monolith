@@ -62,7 +62,8 @@ enum EMenuMode
 	mmDeadBodySearch,
 };
 
-class CUIActorMenu : public CUIDialogWnd, public CUIWndCallback
+class CUIActorMenu : public CUIDialogWnd,
+                     public CUIWndCallback
 {
 	typedef CUIDialogWnd inherited;
 	typedef inventory::upgrade::Upgrade Upgrade_type;
@@ -151,13 +152,16 @@ protected:
 	CUIStatic* m_PartnerBottomInfo;
 	CUITextWnd* m_PartnerWeight;
 	float m_PartnerWeight_end_x;
+	//*	CUIStatic*					m_PartnerWeightMax;
 
 	// delimiter ------------------------------
 	CUIStatic* m_LeftDelimiter;
+	//	CUITextWnd*					m_PartnerTradeCaption;
 	CUITextWnd* m_PartnerTradePrice;
 	CUITextWnd* m_PartnerTradeWeightMax;
 
 	CUIStatic* m_RightDelimiter;
+	//	CUITextWnd*					m_ActorTradeCaption;
 	CUITextWnd* m_ActorTradePrice;
 	CUITextWnd* m_ActorTradeWeightMax;
 
@@ -169,6 +173,7 @@ protected:
 	CUI3tButton* m_takeall_button;
 	CUI3tButton* m_putall_button;
 	CUI3tButton* m_exit_button;
+	//	CUIStatic*					m_clock_value;
 
 	u32 m_last_time;
 	bool m_repair_mode;
@@ -257,6 +262,8 @@ protected:
 	void CurModeToScript();
 	void RepairEffect_CurItem();
 
+	//void						SetCurrentItem				(CUICellItem* itm); //Alundaio: Made public
+	//CUICellItem*				CurrentItem					();					//Alundaio: Made public
 	PIItem CurrentIItem();
 
 	void InfoCurItem(CUICellItem* cell_item); //on update item

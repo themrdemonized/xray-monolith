@@ -58,7 +58,8 @@ void CHW::Reset(HWND hwnd)
 
 #ifndef _EDITOR
 	BOOL bWindowed = TRUE;
-	bWindowed = (g_screenmode != 2);
+	if (!g_dedicated_server)
+		bWindowed = (g_screenmode != 2);
 
 	selectResolution(DevPP.BackBufferWidth, DevPP.BackBufferHeight, bWindowed);
 	// Windoze
@@ -179,32 +180,42 @@ extern void GetMonitorResolution(u32& horizontal, u32& vertical);
 void CHW::selectResolution(u32& dwWidth, u32& dwHeight, BOOL bWindowed)
 {
 	fill_vid_mode_list(this);
-
-	if (psCurrentVidMode[0] == 0 || psCurrentVidMode[1] == 0)
-		GetMonitorResolution(psCurrentVidMode[0], psCurrentVidMode[1]);
-
-	if (bWindowed)
-	{
-		dwWidth = psCurrentVidMode[0];
-		dwHeight = psCurrentVidMode[1];
-	}
-	else //check
-	{
 #ifndef _EDITOR
-		string64 buff;
-		xr_sprintf(buff, sizeof(buff), "%dx%d", psCurrentVidMode[0], psCurrentVidMode[1]);
-
-		if (_ParseItem(buff, vid_mode_token) == u32(-1)) //not found
-		{
-			//select safe
-			xr_sprintf(buff, sizeof(buff), "vid_mode %s", vid_mode_token[0].name);
-			Console->Execute(buff);
-		}
-
-		dwWidth = psCurrentVidMode[0];
-		dwHeight = psCurrentVidMode[1];
-#endif
+	if (g_dedicated_server)
+	{
+		dwWidth = 640;
+		dwHeight = 480;
 	}
+	else
+#endif
+	{
+		if (psCurrentVidMode[0] == 0 || psCurrentVidMode[1] == 0)
+			GetMonitorResolution(psCurrentVidMode[0], psCurrentVidMode[1]);
+
+		if (bWindowed)
+		{
+			dwWidth = psCurrentVidMode[0];
+			dwHeight = psCurrentVidMode[1];
+		}
+		else //check
+		{
+#ifndef _EDITOR
+			string64 buff;
+			xr_sprintf(buff, sizeof(buff), "%dx%d", psCurrentVidMode[0], psCurrentVidMode[1]);
+
+			if (_ParseItem(buff, vid_mode_token) == u32(-1)) //not found
+			{
+				//select safe
+				xr_sprintf(buff, sizeof(buff), "vid_mode %s", vid_mode_token[0].name);
+				Console->Execute(buff);
+			}
+
+			dwWidth = psCurrentVidMode[0];
+			dwHeight = psCurrentVidMode[1];
+#endif
+		}
+	}
+	//#endif
 }
 
 void CHW::CreateDevice(HWND m_hWnd, bool move_window)
@@ -215,7 +226,8 @@ void CHW::CreateDevice(HWND m_hWnd, bool move_window)
 	BOOL bWindowed = TRUE;
 
 #ifndef _EDITOR
-	bWindowed = (g_screenmode != 2);
+	if (!g_dedicated_server)
+		bWindowed = (g_screenmode != 2);
 #else
     bWindowed				= 1;
 #endif
@@ -526,7 +538,8 @@ void CHW::updateWindowProps(HWND m_hWnd)
 {
 	BOOL bWindowed = TRUE;
 #ifndef _EDITOR
-	bWindowed = (g_screenmode != 2);
+	if (!g_dedicated_server)
+		bWindowed = (g_screenmode != 2);
 #endif
 
 	u32 dwWindowStyle = 0;
@@ -567,12 +580,15 @@ void CHW::updateWindowProps(HWND m_hWnd)
 	}
 
 #ifndef _EDITOR
-	ShowCursor(FALSE);
-	SetForegroundWindow(m_hWnd);
-	RECT winRect;
-	GetClientRect(m_hWnd, &winRect);
-	MapWindowPoints(m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
-	ClipCursor(&winRect);
+	if (!g_dedicated_server)
+	{
+		ShowCursor(FALSE);
+		SetForegroundWindow(m_hWnd);
+		RECT winRect;
+		GetClientRect(m_hWnd, &winRect);
+		MapWindowPoints(m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
+		ClipCursor(&winRect);
+	}
 #endif
 }
 

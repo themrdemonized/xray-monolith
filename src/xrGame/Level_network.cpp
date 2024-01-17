@@ -21,6 +21,7 @@
 #include "../xrNetServer/NET_AuthCheck.h"
 
 #include "../xrphysics/physicscommon.h"
+extern ENGINE_API bool g_dedicated_server;
 
 const int max_objects_size = 2 * 1024;
 const int max_objects_size_in_save = 8 * 1024;
@@ -73,12 +74,14 @@ void CLevel::remove_objects()
 	ph_commander().clear();
 	ph_commander_scripts().clear();
 
-	space_restriction_manager().clear();
+	if (!g_dedicated_server)
+		space_restriction_manager().clear();
 
 	psDeviceFlags.set(rsDisableObjectsAsCrows, b_stored);
 	g_b_ClearGameCaptions = true;
 
-	ai().script_engine().collect_all_garbage();
+	if (!g_dedicated_server)
+		ai().script_engine().collect_all_garbage();
 
 	stalker_animation_data_storage().clear();
 
@@ -88,14 +91,17 @@ void CLevel::remove_objects()
 	Render->clear_static_wallmarks();
 
 #ifdef DEBUG
-	if (!client_spawn_manager().registry().empty())
-		client_spawn_manager().dump				();
+	if(!g_dedicated_server)
+		if (!client_spawn_manager().registry().empty())
+			client_spawn_manager().dump				();
 #endif // DEBUG
-
+	if (!g_dedicated_server)
+	{
 #ifdef DEBUG
-	VERIFY(client_spawn_manager().registry().empty());
+		VERIFY(client_spawn_manager().registry().empty());
 #endif
-	client_spawn_manager().clear();
+		client_spawn_manager().clear();
+	}
 
 	g_pGamePersistent->destroy_particles(false);
 }
@@ -132,7 +138,7 @@ void CLevel::net_Stop()
 	if (IsDemoPlay() && m_current_spectator) //destroying demo spectator ...
 	{
 		m_current_spectator->setDestroy(TRUE);
-		SetControlEntity(NULL);
+		SetControlEntity(NULL); //m_current_spectator == CurrentControlEntity()
 		m_current_spectator = NULL;
 	}
 	else if (IsDemoSave() && !IsDemoInfoSaved())
@@ -152,7 +158,8 @@ void CLevel::net_Stop()
 		xr_delete(Server);
 	}
 
-	ai().script_engine().collect_all_garbage();
+	if (!g_dedicated_server)
+		ai().script_engine().collect_all_garbage();
 
 #ifdef DEBUG
 	show_animation_stats		();
@@ -172,6 +179,7 @@ void CLevel::ClientSend()
 			if (!pObj->getDestroy() && pObj->net_Relevant())
 			{
 				P.w_begin(M_CL_UPDATE);
+
 
 				P.w_u16(u16(pObj->ID()));
 				P.w_u32(0); //reserved place for client's ping

@@ -44,6 +44,9 @@ public:
 	u32 Particles_starting; // starting
 	u32 Particles_active; // active
 	u32 Particles_destroy; // destroying
+	// CStatTimer Physics; // movement+collision
+	// CStatTimer ph_collision; // collision
+	// CStatTimer ph_core; // collision
 	CStatTimer AI_Think; // thinking
 	CStatTimer AI_Range; // query: range
 	CStatTimer AI_Path; // query: path

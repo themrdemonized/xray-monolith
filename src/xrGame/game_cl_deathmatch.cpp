@@ -89,6 +89,9 @@ void game_cl_Deathmatch::SetGameUI(CUIGameCustom* uigame)
 
 CUIGameCustom* game_cl_Deathmatch::createGameUI()
 {
+	if (g_dedicated_server)
+		return NULL;
+
 	CLASS_ID clsid = CLSID_GAME_UI_DEATHMATCH;
 	m_game_ui = smart_cast<CUIGameDM*>(NEW_INSTANCE(clsid));
 	R_ASSERT(m_game_ui);
@@ -296,8 +299,12 @@ BOOL game_cl_Deathmatch::CanCallInventoryMenu()
 	return TRUE;
 };
 
+
 void game_cl_Deathmatch::SetCurrentBuyMenu()
 {
+	if (g_dedicated_server)
+		return;
+
 	if (!pCurBuyMenu)
 	{
 		pCurBuyMenu = InitBuyMenu(GetBaseCostSect(), 0);
@@ -429,6 +436,7 @@ void game_cl_Deathmatch::OnConnected()
 	inherited::OnConnected();
 	if (m_game_ui)
 	{
+		VERIFY(!g_dedicated_server);
 		m_game_ui = smart_cast<CUIGameDM*>(CurrentGameUI());
 		m_game_ui->SetClGame(this);
 	}
@@ -439,6 +447,8 @@ void game_cl_Deathmatch::shedule_Update(u32 dt)
 	CStringTable st;
 
 	inherited::shedule_Update(dt);
+
+	if (g_dedicated_server) return;
 
 	//fake	
 	if (m_game_ui)
@@ -451,11 +461,15 @@ void game_cl_Deathmatch::shedule_Update(u32 dt)
 		m_game_ui->SetForceRespawnTimeCaption(NULL);
 		m_game_ui->SetWarmUpCaption(NULL);
 	};
+	//	if (CurrentGameUI() && CurrentGameUI()->UIMainIngameWnd)
+	//		CurrentGameUI()->UIMainIngameWnd->ZoneCounter().SetText("");
 
 	switch (Phase())
 	{
 	case GAME_PHASE_INPROGRESS:
 		{
+			//m_game_ui->ShowPlayersList(false);
+
 			Check_Invincible_Players();
 
 			if (!m_game_ui)

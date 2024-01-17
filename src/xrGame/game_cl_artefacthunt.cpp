@@ -272,7 +272,8 @@ void game_cl_ArtefactHunt::TranslateGameMessage(u32 msg, NET_Packet& P)
 		break;
 	case GAME_EVENT_ARTEFACT_DESTROYED: //ahunt
 		{
-			xr_sprintf(Text, "%s%s", Color_Main, *st.translate("mp_art_destroyed"));
+			xr_sprintf(Text, "%s%s",
+			           Color_Main, *st.translate("mp_art_destroyed"));
 			u16 ArtefactID = P.r_u16();
 			//-------------------------------------------
 			CObject* pObj = Level().Objects.net_Find(ArtefactID);
@@ -296,6 +297,9 @@ void game_cl_ArtefactHunt::SetGameUI(CUIGameCustom* uigame)
 
 CUIGameCustom* game_cl_ArtefactHunt::createGameUI()
 {
+	if (g_dedicated_server)
+		return NULL;
+
 	CLASS_ID clsid = CLSID_GAME_UI_ARTEFACTHUNT;
 	m_game_ui = smart_cast<CUIGameAHunt*>(NEW_INSTANCE(clsid));
 	R_ASSERT(m_game_ui);
@@ -314,7 +318,9 @@ void game_cl_ArtefactHunt::GetMapEntities(xr_vector<SZoneMapEntityData>& dst)
 	u32 color_artefact = 0xffffffff;
 	u32 color_friend_with_artefact = 0xffffff00;
 
+
 	s16 local_team = local_player->team;
+
 
 	CObject* pObject = Level().Objects.net_Find(artefactID);
 	if (!pObject)
@@ -354,6 +360,9 @@ void game_cl_ArtefactHunt::shedule_Update(u32 dt)
 	string1024 msg;
 
 	inherited::shedule_Update(dt);
+
+	if (g_dedicated_server)
+		return;
 
 	if (!m_game_ui)
 		return;

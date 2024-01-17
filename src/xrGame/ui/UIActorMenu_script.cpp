@@ -80,9 +80,13 @@ bool CUIActorMenu::CanRepairItem(PIItem item)
 	LPCSTR partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
 
 	luabind::functor<bool> funct;
-	R_ASSERT2(ai().script_engine().functor("inventory_upgrades.can_repair_item", funct), make_string("Failed to get functor <inventory_upgrades.can_repair_item>, item = %s", item_name));
+	R_ASSERT2(
+		ai().script_engine().functor("inventory_upgrades.can_repair_item", funct),
+		make_string("Failed to get functor <inventory_upgrades.can_repair_item>, item = %s", item_name)
+	);
+	bool can_repair = funct(item_name, item->GetCondition(), partner);
 
-	return funct(item_name, item->GetCondition(), partner);
+	return can_repair;
 }
 
 LPCSTR CUIActorMenu::RepairQuestion(PIItem item, bool can_repair)
@@ -90,9 +94,13 @@ LPCSTR CUIActorMenu::RepairQuestion(PIItem item, bool can_repair)
 	LPCSTR partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
 	LPCSTR item_name = item->m_section_id.c_str();
 	luabind::functor<LPCSTR> funct2;
-	R_ASSERT2(ai().script_engine().functor("inventory_upgrades.question_repair_item", funct2), make_string("Failed to get functor <inventory_upgrades.question_repair_item>, item = %s", item_name));
+	R_ASSERT2(
+		ai().script_engine().functor("inventory_upgrades.question_repair_item", funct2),
+		make_string("Failed to get functor <inventory_upgrades.question_repair_item>, item = %s", item_name)
+	);
+	LPCSTR question = funct2(item->m_section_id.c_str(), item->GetCondition(), can_repair, partner);
 
-	return funct2(item->m_section_id.c_str(), item->GetCondition(), can_repair, partner);
+	return question;
 }
 
 void CUIActorMenu::TryRepairItem(CUIWindow* w, void* d)
@@ -105,12 +113,18 @@ void CUIActorMenu::TryRepairItem(CUIWindow* w, void* d)
 
 	LPCSTR item_name = item->m_section_id.c_str();
 
-	luabind::functor<bool> funct;
-	R_ASSERT2(ai().script_engine().functor("inventory_upgrades.can_afford_repair_item", funct), make_string("Failed to get functor <inventory_upgrades.can_afford_repair_item>, item = %s", item_name));
+	bool can_repair = CanRepairItem(item);
 
-	if (CanRepairItem(item))
+	luabind::functor<bool> funct;
+	R_ASSERT2(
+		ai().script_engine().functor("inventory_upgrades.can_afford_repair_item", funct),
+		make_string("Failed to get functor <inventory_upgrades.can_afford_repair_item>, item = %s", item_name)
+	);
+	bool enough_money = funct(item_name, item->GetCondition());
+
+	if (can_repair)
 	{
-		if (funct(item_name, item->GetCondition()))
+		if (enough_money)
 		{
 			m_repair_mode = true;
 			CallMessageBoxYesNo(RepairQuestion(item, true));
@@ -130,7 +144,7 @@ void CUIActorMenu::RepairEffect_CurItem()
 	LPCSTR item_name = item->m_section_id.c_str();
 
 	luabind::functor<void> funct;
-	R_ASSERT(ai().script_engine().functor("inventory_upgrades.effect_repair_item", funct));
+	R_ASSERT(ai().script_engine().functor( "inventory_upgrades.effect_repair_item", funct ));
 	funct(item_name, item->GetCondition());
 
 	item->SetCondition(1.0f);
@@ -148,7 +162,11 @@ bool CUIActorMenu::CanUpgradeItem(PIItem item)
 	LPCSTR partner = m_pPartnerInvOwner->CharacterInfo().Profile().c_str();
 
 	luabind::functor<bool> funct;
-	R_ASSERT2(ai().script_engine().functor("inventory_upgrades.can_upgrade_item", funct), make_string("Failed to get functor <inventory_upgrades.can_upgrade_item>, item = %s, mechanic = %s", item_name, partner));
+	R_ASSERT2(
+		ai().script_engine().functor( "inventory_upgrades.can_upgrade_item", funct ),
+		make_string( "Failed to get functor <inventory_upgrades.can_upgrade_item>, item = %s, mechanic = %s", item_name,
+			partner )
+	);
 
 	return funct(item_name, partner);
 }
@@ -214,6 +232,7 @@ void CUIActorMenu::HighlightSectionInSlot(LPCSTR section, u8 type, u16 slot_id)
 
 	m_highlight_clear = false;
 }
+
 
 void CUIActorMenu::HighlightForEachInSlot(const luabind::functor<bool>& functor, u8 type, u16 slot_id)
 {

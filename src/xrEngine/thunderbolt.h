@@ -26,6 +26,7 @@ class CEnvironment;
 struct SThunderboltDesc
 {
 	// geom
+	//IRender_DetailModel* l_model;
 	FactoryPtr<IThunderboltDescRender> m_pRender;
 	// sound
 	ref_sound snd;
@@ -37,6 +38,7 @@ struct SThunderboltDesc
 		Fvector2 fRadius;
 		shared_str texture;
 		shared_str shader;
+		//ref_shader hShader;
 		FactoryPtr<IFlareRender> m_pFlare;
 
 		SFlare()
@@ -93,6 +95,7 @@ private:
 
 	FactoryPtr<IThunderboltRender> m_pRender;
 
+	//ref_geom hGeom_model;
 	// states
 	enum EState
 	{
@@ -102,6 +105,8 @@ private:
 
 	EState state;
 
+	//ref_geom hGeom_gradient;
+
 	Fvector lightning_center;
 	float lightning_size;
 	float lightning_phase;
@@ -110,6 +115,16 @@ private:
 	float current_time;
 	float next_lightning_time;
 	BOOL bEnabled;
+
+	// params
+	// Fvector2 p_var_alt;
+	// float p_var_long;
+	// float p_min_dist;
+	// float p_tilt;
+	// float p_second_prop;
+	// float p_sky_color;
+	// float p_sun_color;
+	// float p_fog_color;
 private:
 	BOOL RayPick(const Fvector& s, const Fvector& d, float& range);
 	void Bolt(shared_str id, float period, float life_time);

@@ -573,8 +573,6 @@ int CUIActorMenu::current_sort_mode()
 			return i;
 		}
 	}
-	
-	return 0;
 }
 
 void CUIActorMenu::SelectInventoryTab(int tab)
@@ -1110,6 +1108,10 @@ void CUIActorMenu::ActivatePropertiesBox()
 		if (m_currMenuMode == mmInventory)
 			PropertiesBoxForDrop(cell_item, item, b_show);
 	}
+		//else if ( m_currMenuMode == mmDeadBodySearch )
+		//{
+		//	PropertiesBoxForUsing( item, b_show );
+		//}
 	else if (m_currMenuMode == mmUpgrade)
 	{
 		PropertiesBoxForRepair(item, b_show);
@@ -1148,13 +1150,16 @@ void CUIActorMenu::PropertiesBoxForSlots(PIItem item, bool& b_show)
 	bool bAlreadyDressed = false;
 	u16 cur_slot = item->BaseSlot();
 
-	if (!pOutfit && !pHelmet && !pBackpack && cur_slot != NO_ACTIVE_SLOT && !inv.SlotIsPersistent(cur_slot) && m_pActorInvOwner->inventory().ItemFromSlot(cur_slot) != item)
+	if (!pOutfit && !pHelmet && !pBackpack &&
+		cur_slot != NO_ACTIVE_SLOT &&
+		!inv.SlotIsPersistent(cur_slot) && m_pActorInvOwner->inventory().ItemFromSlot(cur_slot) != item
+			/*&& inv.CanPutInSlot(item, cur_slot)*/)
 	{
 		m_UIPropertiesBox->AddItem("st_move_to_slot", NULL, INVENTORY_TO_SLOT_ACTION);
 		b_show = true;
 	}
-
-	if (item->Belt() && inv.CanPutInBelt(item))
+	if (item->Belt() &&
+		inv.CanPutInBelt(item))
 	{
 		m_UIPropertiesBox->AddItem("st_move_on_belt", NULL, INVENTORY_TO_BELT_ACTION);
 		b_show = true;
@@ -1185,7 +1190,6 @@ void CUIActorMenu::PropertiesBoxForSlots(PIItem item, bool& b_show)
 		bAlreadyDressed = true;
 		b_show = true;
 	}
-
 	if (pOutfit && !bAlreadyDressed)
 	{
 		m_UIPropertiesBox->AddItem("st_dress_outfit", NULL, INVENTORY_TO_SLOT_ACTION);
@@ -1276,6 +1280,7 @@ void CUIActorMenu::PropertiesBoxForWeapon(CUICellItem* cell_item, PIItem item, b
 void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 {
 	//присоединение аддонов к активному слоту (2 или 3)
+
 	CScope* pScope = smart_cast<CScope*>(item);
 	CSilencer* pSilencer = smart_cast<CSilencer*>(item);
 	CGrenadeLauncher* pGrenadeLauncher = smart_cast<CGrenadeLauncher*>(item);
@@ -1293,6 +1298,7 @@ void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 			shared_str str = CStringTable().translate("st_attach_scope_to_pistol");
 			str.printf("%s %s", str.c_str(), item_in_slot_2->m_name.c_str());
 			m_UIPropertiesBox->AddItem(str.c_str(), (void*)item_in_slot_2, INVENTORY_ATTACH_ADDON);
+			//			m_UIPropertiesBox->AddItem( "st_attach_scope_to_pistol",  (void*)item_in_slot_2, INVENTORY_ATTACH_ADDON );
 			b_show = true;
 		}
 		if (item_in_slot_3 && item_in_slot_3->CanAttach(pScope))
@@ -1300,6 +1306,7 @@ void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 			shared_str str = CStringTable().translate("st_attach_scope_to_pistol");
 			str.printf("%s %s", str.c_str(), item_in_slot_3->m_name.c_str());
 			m_UIPropertiesBox->AddItem(str.c_str(), (void*)item_in_slot_3, INVENTORY_ATTACH_ADDON);
+			//			m_UIPropertiesBox->AddItem( "st_attach_scope_to_rifle",  (void*)item_in_slot_3, INVENTORY_ATTACH_ADDON );
 			b_show = true;
 		}
 		return;
@@ -1312,6 +1319,7 @@ void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 			shared_str str = CStringTable().translate("st_attach_silencer_to_pistol");
 			str.printf("%s %s", str.c_str(), item_in_slot_2->m_name.c_str());
 			m_UIPropertiesBox->AddItem(str.c_str(), (void*)item_in_slot_2, INVENTORY_ATTACH_ADDON);
+			//			m_UIPropertiesBox->AddItem( "st_attach_silencer_to_pistol",  (void*)item_in_slot_2, INVENTORY_ATTACH_ADDON );
 			b_show = true;
 		}
 		if (item_in_slot_3 && item_in_slot_3->CanAttach(pSilencer))
@@ -1319,6 +1327,7 @@ void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 			shared_str str = CStringTable().translate("st_attach_silencer_to_pistol");
 			str.printf("%s %s", str.c_str(), item_in_slot_3->m_name.c_str());
 			m_UIPropertiesBox->AddItem(str.c_str(), (void*)item_in_slot_3, INVENTORY_ATTACH_ADDON);
+			//			m_UIPropertiesBox->AddItem( "st_attach_silencer_to_rifle",  (void*)item_in_slot_3, INVENTORY_ATTACH_ADDON );
 			b_show = true;
 		}
 		return;
@@ -1331,6 +1340,7 @@ void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 			shared_str str = CStringTable().translate("st_attach_gl_to_rifle");
 			str.printf("%s %s", str.c_str(), item_in_slot_2->m_name.c_str());
 			m_UIPropertiesBox->AddItem(str.c_str(), (void*)item_in_slot_2, INVENTORY_ATTACH_ADDON);
+			//			m_UIPropertiesBox->AddItem( "st_attach_gl_to_pistol",  (void*)item_in_slot_2, INVENTORY_ATTACH_ADDON );
 			b_show = true;
 		}
 		if (item_in_slot_3 && item_in_slot_3->CanAttach(pGrenadeLauncher))
@@ -1338,6 +1348,7 @@ void CUIActorMenu::PropertiesBoxForAddon(PIItem item, bool& b_show)
 			shared_str str = CStringTable().translate("st_attach_gl_to_rifle");
 			str.printf("%s %s", str.c_str(), item_in_slot_3->m_name.c_str());
 			m_UIPropertiesBox->AddItem(str.c_str(), (void*)item_in_slot_3, INVENTORY_ATTACH_ADDON);
+			//			m_UIPropertiesBox->AddItem( "st_attach_gl_to_rifle",  (void*)item_in_slot_3, INVENTORY_ATTACH_ADDON );
 			b_show = true;
 		}
 	}
@@ -1377,7 +1388,8 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 			{
 				act_str = "st_drink";
 			}
-			else if (!xr_strcmp(section_name, "bread") || !xr_strcmp(section_name, "kolbasa") || !xr_strcmp(section_name, "conserva"))
+			else if (!xr_strcmp(section_name, "bread") || !xr_strcmp(section_name, "kolbasa") || !xr_strcmp(
+				section_name, "conserva"))
 			{
 				act_str = "st_eat";
 			}
@@ -1601,6 +1613,7 @@ void CUIActorMenu::PropertiesBoxForDonate(PIItem item, bool& b_show)
 		b_show = true;
 	}
 }
+
 //-Alundaio
 
 void CUIActorMenu::ProcessPropertiesBoxClicked(CUIWindow* w, void* d)
@@ -1890,6 +1903,7 @@ void CUIActorMenu::ProcessPropertiesBoxClicked(CUIWindow* w, void* d)
 		}
 	} //switch
 
+	//SetCurrentItem( NULL );
 	UpdateItemsPlace();
 	UpdateConditionProgressBars();
 } //ProcessPropertiesBoxClicked

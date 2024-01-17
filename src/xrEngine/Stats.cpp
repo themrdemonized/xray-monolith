@@ -23,6 +23,8 @@ public:
 	optimizer()
 	{
 		average_ = 30.f;
+		//  enabled_ = TRUE;
+		//  disable ();
 		// because Engine is not exist
 		enabled_ = FALSE;
 	}
@@ -169,6 +171,7 @@ void CStats::Show()
 	if (Device.fTimeDelta > EPS_S)
 	{
 		float fps = 1.f / Device.fTimeDelta;
+		//if (Engine.External.tune_enabled) vtune.update (fps);
 		float fOne = 0.3f;
 		float fInv = 1.f - fOne;
 		fFPS = fInv * fFPS + fOne * fps;
@@ -177,6 +180,7 @@ void CStats::Show()
 		{
 			u32 rendered_polies = Device.m_pRender->GetCacheStatPolys();
 			fTPS = fInv * fTPS + fOne * float(rendered_polies) / (RenderTOTAL.result * 1000.f);
+			//fTPS = fInv*fTPS + fOne*float(RCache.stat.polys)/(RenderTOTAL.result*1000.f);
 			fRFPS = fInv * fRFPS + fOne * 1000.f / RenderTOTAL.result;
 		}
 	}
@@ -187,6 +191,9 @@ void CStats::Show()
 		Memory.stat_calls = 0;
 	}
 
+	////////////////////////////////////////////////
+	if (g_dedicated_server) return;
+	////////////////////////////////////////////////
 	int frm = 2000;
 	div_t ddd = div(Device.dwFrame, frm);
 	if (ddd.rem < frm / 2.0f)
@@ -334,7 +341,17 @@ void CStats::Show()
 		//  F.OutSet (640,0);
 		F.OutSkip();
 		m_pRender->OutData4(F);
-
+		/*
+		F.OutNext ("static:        %3.1f/%d", RCache.stat.r.s_static.verts/1024.f, RCache.stat.r.s_static.dips );
+		F.OutNext ("flora:         %3.1f/%d", RCache.stat.r.s_flora.verts/1024.f, RCache.stat.r.s_flora.dips );
+		F.OutNext ("  flora_lods:  %3.1f/%d", RCache.stat.r.s_flora_lods.verts/1024.f, RCache.stat.r.s_flora_lods.dips );
+		F.OutNext ("dynamic:       %3.1f/%d", RCache.stat.r.s_dynamic.verts/1024.f, RCache.stat.r.s_dynamic.dips );
+		F.OutNext ("  dynamic_sw:  %3.1f/%d", RCache.stat.r.s_dynamic_sw.verts/1024.f, RCache.stat.r.s_dynamic_sw.dips );
+		F.OutNext ("  dynamic_inst:%3.1f/%d", RCache.stat.r.s_dynamic_inst.verts/1024.f, RCache.stat.r.s_dynamic_inst.dips );
+		F.OutNext ("  dynamic_1B:  %3.1f/%d", RCache.stat.r.s_dynamic_1B.verts/1024.f, RCache.stat.r.s_dynamic_1B.dips );
+		F.OutNext ("  dynamic_2B:  %3.1f/%d", RCache.stat.r.s_dynamic_2B.verts/1024.f, RCache.stat.r.s_dynamic_2B.dips );
+		F.OutNext ("details:       %3.1f/%d", RCache.stat.r.s_details.verts/1024.f, RCache.stat.r.s_details.dips );
+		*/
 		//////////////////////////////////////////////////////////////////////////
 		// Renderer specific
 		F.SetHeightI(f_base_size);
@@ -354,7 +371,7 @@ void CStats::Show()
 		pFont->OnRender();
 	};
 
-	if (psDeviceFlags.test(rsCameraPos))
+	if (/*psDeviceFlags.test(rsStatistic) ||*/ psDeviceFlags.test(rsCameraPos))
 	{
 		_draw_cam_pos(pFont);
 		pFont->OnRender();
@@ -368,22 +385,21 @@ void CStats::Show()
         F.SetColor(color_rgba(255, 16, 16, 255));
         F.OutSet(300, 300);
         F.SetHeightI(f_base_size * 2);
-        if (fFPS < 30)    
-			F.OutNext("FPS       < 30:   %3.1f", fFPS);
+        if (fFPS < 30)     F.OutNext("FPS       < 30:   %3.1f", fFPS);
+        //if (RCache.stat.verts>500000) F.OutNext ("Verts     > 500k: %d", RCache.stat.verts);
         m_pRender->GuardVerts(F);
-
+        ////if (RCache.stat.polys>500000) F.OutNext ("Polys     > 500k: %d", RCache.stat.polys);
         if (psDeviceFlags.test(rsStatistic))
         {
             m_pRender->GuardDrawCalls(F);
-            if (RenderDUMP_DT_Count > 1000) 
-				F.OutNext("DT_count  > 1000: %u", RenderDUMP_DT_Count);
+            //if (RCache.stat.calls>1000)  F.OutNext ("DIP/DP    > 1k:   %d", RCache.stat.calls);
+            ////if (RCache.stat.textures>1000)F.OutNext ("T_change  > 500:  %d", RCache.stat.textures);
+            if (RenderDUMP_DT_Count > 1000) F.OutNext("DT_count  > 1000: %u", RenderDUMP_DT_Count);
             F.OutSkip();
-            if (Sheduler.result > 3.f)  
-				F.OutNext("Update     > 3ms: %3.1f", Sheduler.result);
-            if (UpdateClient.result > 3.f)
-				F.OutNext("UpdateCL   > 3ms: %3.1f", UpdateClient.result);
-            if (Physics.result > 5.f)
-				F.OutNext("Physics    > 5ms: %3.1f", Physics.result);
+            //if (fMem_calls>1500)   F.OutNext ("MMGR calls > 1500:%3.1f", fMem_calls);
+            if (Sheduler.result > 3.f)  F.OutNext("Update     > 3ms: %3.1f", Sheduler.result);
+            if (UpdateClient.result > 3.f) F.OutNext("UpdateCL   > 3ms: %3.1f", UpdateClient.result);
+            if (Physics.result > 5.f)   F.OutNext("Physics    > 5ms: %3.1f", Physics.result);
         }
     }
 
@@ -395,8 +411,13 @@ void CStats::Show()
         F.SetColor(color_rgba(255, 16, 16, 191));
         F.OutSet(200, 0);
         F.SetHeightI(f_base_size);
+#if 0
+        for (u32 it = 0; it < errors.size(); it++)
+            F.OutNext("%s", errors[it].c_str());
+#else
         for (u32 it = (u32)_max(int(0), (int)errors.size() - g_ErrorLineCount); it < errors.size(); it++)
             F.OutNext("%s", errors[it].c_str());
+#endif
         F.OnRender();
     }
 #endif
@@ -473,17 +494,22 @@ void CStats::OnDeviceCreate()
 {
 	g_bDisableRedText = strstr(Core.Params, "-xclsx") ? TRUE : FALSE;
 
+	// if (!strstr(Core.Params, "-dedicated"))
 #ifndef DEDICATED_SERVER
 	pFont = xr_new<CGameFont>("stat_font", CGameFont::fsDeviceIndependent);
 #endif
 
-	if (!pSettings->section_exist("evaluation") || !pSettings->line_exist("evaluation", "line1") || !pSettings->line_exist("evaluation", "line2") || !pSettings->line_exist("evaluation", "line3"))
+	if (!pSettings->section_exist("evaluation")
+		|| !pSettings->line_exist("evaluation", "line1")
+		|| !pSettings->line_exist("evaluation", "line2")
+		|| !pSettings->line_exist("evaluation", "line3"))
 		FATAL("");
 
 	eval_line_1 = pSettings->r_string_wb("evaluation", "line1");
 	eval_line_2 = pSettings->r_string_wb("evaluation", "line2");
 	eval_line_3 = pSettings->r_string_wb("evaluation", "line3");
 
+	//
 #ifdef DEBUG
     if (!g_bDisableRedText)   SetLogCB(_LogCallback);
 #endif
@@ -510,6 +536,9 @@ void CStats::OnRender()
             if (item._3D)
             {
                 m_pRender->SetDrawParams(&*Device.m_pRender);
+                //RCache.set_xform_world(Fidentity);
+	//RCache.set_Shader (Device.m_SelectionShader);
+                //RCache.set_c ("tfactor",1,1,1,1);
                 DU->DrawCross(item.params.position, 0.5f, 0xFF0000FF, true);
                 if (g_stats_flags.is(st_sound_min_dist))
                     DU->DrawSphere(Fidentity, item.params.position, item.params.min_distance, 0x400000FF, 0xFF0000FF, true, true);

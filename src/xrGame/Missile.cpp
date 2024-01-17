@@ -152,13 +152,14 @@ void CMissile::OnHiddenItem()
 	SetNextState(eHidden);
 }
 
+
 void CMissile::spawn_fake_missile()
 {
 	if (OnClient()) return;
 
 	if (!getDestroy())
 	{
-		CSE_Abstract* object = Level().spawn_item(*cNameSect(), Position(), ai_location().level_vertex_id(), ID(), true);
+		CSE_Abstract* object = Level().spawn_item(*cNameSect(), Position(), (g_dedicated_server) ? u32(-1) : ai_location().level_vertex_id(), ID(), true);
 
 		CSE_ALifeObject* alife_object = smart_cast<CSE_ALifeObject*>(object);
 		VERIFY(alife_object);

@@ -24,6 +24,7 @@ void CRender::level_Load(IReader* fs)
 	IReader* chunk;
 
 	// Shaders
+	//	g_pGamePersistent->LoadTitle		("st_loading_shaders");
 	g_pGamePersistent->LoadTitle();
 	{
 		chunk = fs->open_chunk(fsL_SHADERS);
@@ -51,6 +52,7 @@ void CRender::level_Load(IReader* fs)
 	}
 
 	// Components
+
 	L_Shadows = xr_new<CLightShadows>();
 	L_Projector = xr_new<CLightProjector>();
 	L_DB = xr_new<CLight_DB>();
@@ -63,24 +65,31 @@ void CRender::level_Load(IReader* fs)
 
 	marker = 0;
 
-	// VB,IB,SWI
-	g_pGamePersistent->LoadTitle();
-	CStreamReader* geom = FS.rs_open("$level$", "level.geom");
-	LoadBuffers(geom);
-	LoadSWIs(geom);
-	FS.r_close(geom);
+	if (!g_dedicated_server)
+	{
+		// VB,IB,SWI
+		//		g_pGamePersistent->LoadTitle("st_loading_geometry");
+		g_pGamePersistent->LoadTitle();
+		CStreamReader* geom = FS.rs_open("$level$", "level.geom");
+		LoadBuffers(geom);
+		LoadSWIs(geom);
+		FS.r_close(geom);
 
-	// Visuals
-	g_pGamePersistent->LoadTitle();
-	chunk = fs->open_chunk(fsL_VISUALS);
-	LoadVisuals(chunk);
-	chunk->close();
+		// Visuals
+		//		g_pGamePersistent->LoadTitle("st_loading_spatial_db");
+		g_pGamePersistent->LoadTitle();
+		chunk = fs->open_chunk(fsL_VISUALS);
+		LoadVisuals(chunk);
+		chunk->close();
 
-	// Details
-	g_pGamePersistent->LoadTitle();
-	Details->Load();
+		// Details
+		//		g_pGamePersistent->LoadTitle("st_loading_details");
+		g_pGamePersistent->LoadTitle();
+		Details->Load();
+	}
 
 	// Sectors
+	//	g_pGamePersistent->LoadTitle("st_loading_sectors_portals");
 	g_pGamePersistent->LoadTitle();
 	LoadSectors(fs);
 
@@ -88,6 +97,7 @@ void CRender::level_Load(IReader* fs)
 	HOM.Load();
 
 	// Lights
+	//pApp->LoadTitle				("Loading lights...");
 	LoadLights(fs);
 
 	// End
@@ -158,6 +168,7 @@ void CRender::level_Unload()
 
 	//. dbg
 #ifdef DEBUG
+	// dxRenderDeviceRender::Instance().Resources->_DumpMemoryUsage	();
 	dxRenderDeviceRender::Instance().Resources->DBG_VerifyGeoms	();
 	dxRenderDeviceRender::Instance().Resources->DBG_VerifyTextures();
 #endif
@@ -184,6 +195,9 @@ void CRender::LoadBuffers(CStreamReader* base_fs)
 		for (u32 i = 0; i < count; i++)
 		{
 			// decl
+
+			//			D3DVERTEXELEMENT9	*dcl = (D3DVERTEXELEMENT9*) fs->pointer();
+
 			fs->r(dcl, buffer_size);
 			fs->advance(-(int)buffer_size);
 
@@ -191,6 +205,7 @@ void CRender::LoadBuffers(CStreamReader* base_fs)
 
 			DCL[i].resize(dcl_len);
 			fs->r(DCL[i].begin(), dcl_len * sizeof(D3DVERTEXELEMENT9));
+			//.????????? remove T&B from DCL[]
 
 			// count, size
 			u32 vCount = fs->r_u32();
@@ -203,7 +218,10 @@ void CRender::LoadBuffers(CStreamReader* base_fs)
 			HW.stats_manager.increment_stats(vCount * vSize, enum_stats_buffer_type_vertex, D3DPOOL_MANAGED);
 			R_CHK(VB[i]->Lock(0, 0, (void**)&pData, 0));
 			fs->r(pData, vCount * vSize);
+			//			CopyMemory			(pData,fs->pointer(),vCount*vSize);	//.???? copy while skip T&B
 			VB[i]->Unlock();
+
+			//			fs->advance			(vCount*vSize);
 		}
 		fs->close();
 	}
@@ -228,8 +246,11 @@ void CRender::LoadBuffers(CStreamReader* base_fs)
 			R_CHK(HW.pDevice->CreateIndexBuffer(iCount*2,dwUsage,D3DFMT_INDEX16,D3DPOOL_MANAGED,&IB[i],0));
 			HW.stats_manager.increment_stats(iCount * 2, enum_stats_buffer_type_index, D3DPOOL_MANAGED);
 			R_CHK(IB[i]->Lock(0,0,(void**)&pData,0));
+			//			CopyMemory			(pData,fs->pointer(),iCount*2);
 			fs->r(pData, iCount * 2);
 			IB[i]->Unlock();
+
+			//			fs->advance			(iCount*2);
 		}
 		fs->close();
 	}
@@ -309,7 +330,9 @@ void CRender::LoadSectors(IReader* fs)
 			b_portal P;
 			fs->r(&P, sizeof(P));
 			CPortal* __P = (CPortal*)Portals[i];
-			__P->Setup(P.vertices.begin(), P.vertices.size(), (CSector*)getSector(P.sector_front), (CSector*)getSector(P.sector_back));
+			__P->Setup(P.vertices.begin(), P.vertices.size(),
+			           (CSector*)getSector(P.sector_front),
+			           (CSector*)getSector(P.sector_back));
 			for (u32 j = 2; j < P.vertices.size(); j++)
 				CL.add_face_packed_D(P.vertices[0], P.vertices[j - 1], P.vertices[j], u32(i));
 		}
@@ -330,6 +353,10 @@ void CRender::LoadSectors(IReader* fs)
 	{
 		rmPortals = 0;
 	}
+
+	// debug
+	//	for (int d=0; d<Sectors.size(); d++)
+	//		Sectors[d]->DebugDump	();
 
 	pLastSector = 0;
 }

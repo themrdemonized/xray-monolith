@@ -14,6 +14,10 @@
 # include "perlin.h"
 #endif
 
+#ifdef _EDITOR
+bool g_dedicated_server = false;
+#endif
+
 #ifdef INGAME_EDITOR
 # include "editor_environment_manager.hpp"
 #endif // INGAME_EDITOR

@@ -30,8 +30,7 @@ CPortal::~CPortal()
 #ifdef DEBUG
 void CPortal::OnRender	()
 {
-	if (psDeviceFlags.is(rsOcclusionDraw))
-	{
+	if (psDeviceFlags.is(rsOcclusionDraw)){
 		VERIFY				(poly.size());
 		// draw rect
 		DEFINE_VECTOR		(FVF::L,LVec,LVecIt);
@@ -278,8 +277,12 @@ void CSector::load(IReader& fs)
 		count--;
 	}
 
-	// Assign visual
-	size = fs.find_chunk(fsP_Root);
-	R_ASSERT(size==4);
-	m_root = (dxRender_Visual*)RImplementation.getVisual(fs.r_u32());
+	if (g_dedicated_server) m_root = 0;
+	else
+	{
+		// Assign visual
+		size = fs.find_chunk(fsP_Root);
+		R_ASSERT(size==4);
+		m_root = (dxRender_Visual*)RImplementation.getVisual(fs.r_u32());
+	}
 }

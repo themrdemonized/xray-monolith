@@ -359,6 +359,7 @@ void CWeapon::UpdateUIScope()
 		scope_tex_name = READ_IF_EXISTS(pSettings, r_string, cNameSect(), "scope_texture_alt", NULL);
 	}
 
+	if (!g_dedicated_server)
 	{
 		xr_delete(m_UIScope);
 		scope_2dtexactive = 0; //crookr
@@ -636,6 +637,7 @@ void CWeapon::Load(LPCSTR section)
 
 		if (!!scope_tex_name && !scope_tex_name.equal("none") && !g_player_hud->m_adjust_mode)
 		{
+			if (!g_dedicated_server)
 			{
 				m_UIScope = xr_new<CUIWindow>();
 				if (!pWpnScopeXml)
@@ -885,7 +887,7 @@ void CWeapon::net_Import(NET_Packet& P)
 		break;
 	default:
 		{
-			if (ammoType >= m_ammoTypes.size())
+		if (ammoType >= m_ammoTypes.size())
 				Msg("!! Weapon [%d], State - [%d]", ID(), wstate);
 			else
 			{
@@ -908,7 +910,6 @@ void CWeapon::save(NET_Packet& output_packet)
 	save_data(m_ammoType, output_packet);
 	save_data(m_zoom_params.m_bIsZoomModeNow, output_packet);
 	save_data(m_bRememberActorNVisnStatus, output_packet);
-	save_data(bMisfire, output_packet);	
 }
 
 void CWeapon::load(IReader& input_packet)
@@ -927,7 +928,6 @@ void CWeapon::load(IReader& input_packet)
 		OnZoomOut();
 
 	load_data(m_bRememberActorNVisnStatus, input_packet);
-	load_data(bMisfire, input_packet);
 }
 
 void CWeapon::OnEvent(NET_Packet& P, u16 type)
@@ -970,6 +970,11 @@ void CWeapon::OnEvent(NET_Packet& P, u16 type)
 
 void CWeapon::shedule_Update(u32 dT)
 {
+	// Queue shrink
+	//	u32	dwTimeCL		= Level().timeServer()-NET_Latency;
+	//	while ((NET.size()>2) && (NET[1].dwTimeStamp<dwTimeCL)) NET.pop_front();
+
+	// Inherited
 	inherited::shedule_Update(dT);
 }
 
@@ -1092,7 +1097,12 @@ void CWeapon::UpdateCL()
 		CActor* pActor = smart_cast<CActor*>(H_Parent());
 		if (pActor && !pActor->AnyMove() && this == pActor->inventory().ActiveItem())
 		{
-			if (hud_adj_mode == 0 && g_player_hud->script_anim_part == u8(-1) && GetState() == eIdle && (Device.dwTimeGlobal - m_dw_curr_substate_time > 20000) && !IsZoomed() && g_player_hud->attached_item(1) == NULL)
+			if (hud_adj_mode == 0 &&
+				g_player_hud->script_anim_part == u8(-1) &&
+				GetState() == eIdle &&
+				(Device.dwTimeGlobal - m_dw_curr_substate_time > 20000) &&
+				!IsZoomed() &&
+				g_player_hud->attached_item(1) == NULL)
 			{
 				if (AllowBore())
 					SwitchState(eBore);
@@ -1381,7 +1391,7 @@ void CWeapon::SpawnAmmo(u32 boxCurr, LPCSTR ammoSect, u32 ParentID)
 		D->ID_Phantom = 0xffff;
 		D->s_flags.assign(M_SPAWN_OBJECT_LOCAL);
 		D->RespawnTime = 0;
-		l_pA->m_tNodeID = ai_location().level_vertex_id();
+		l_pA->m_tNodeID = g_dedicated_server ? u32(-1) : ai_location().level_vertex_id();
 
 		if (boxCurr == 0xffffffff)
 			boxCurr = l_pA->m_boxSize;
@@ -1901,16 +1911,14 @@ void CWeapon::reload(LPCSTR section)
 }
 
 // demonized: World model on stalkers adjustments
-void CWeapon::set_mOffset(Fvector position, Fvector orientation) 
-{
+void CWeapon::set_mOffset(Fvector position, Fvector orientation) {
 	orientation.mul(PI / 180.f);
 
 	m_Offset.setHPB(orientation.x, orientation.y, orientation.z);
 	m_Offset.translate_over(position);
 }
 
-void CWeapon::set_mStrapOffset(Fvector position, Fvector orientation) 
-{
+void CWeapon::set_mStrapOffset(Fvector position, Fvector orientation) {
 	orientation.mul(PI / 180.f);
 
 	m_StrapOffset.setHPB(orientation.x, orientation.y, orientation.z);
@@ -1964,7 +1972,10 @@ bool CWeapon::NeedToDestroyObject() const
 
 ALife::_TIME_ID CWeapon::TimePassedAfterIndependant() const
 {
-	return !H_Parent() && m_dwWeaponIndependencyTime != 0 ? Level().timeServer() - m_dwWeaponIndependencyTime : 0;
+	if (!H_Parent() && m_dwWeaponIndependencyTime != 0)
+		return Level().timeServer() - m_dwWeaponIndependencyTime;
+	else
+		return 0;
 }
 
 bool CWeapon::can_kill() const
@@ -2171,15 +2182,33 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 	if (hi->m_measures.m_shooting_params.bShootShake)
 	{
 		// Параметры сдвига
-		float fShootingReturnSpeedMod = _lerp(hi->m_measures.m_shooting_params.m_ret_speed, hi->m_measures.m_shooting_params.m_ret_speed_aim, m_zoom_params.m_fZoomRotationFactor);
+		float fShootingReturnSpeedMod = _lerp(
+			hi->m_measures.m_shooting_params.m_ret_speed,
+			hi->m_measures.m_shooting_params.m_ret_speed_aim,
+			m_zoom_params.m_fZoomRotationFactor);
 
-		float fShootingBackwOffset = _lerp(hi->m_measures.m_shooting_params.m_shot_offset_BACKW.x, hi->m_measures.m_shooting_params.m_shot_offset_BACKW.y, m_zoom_params.m_fZoomRotationFactor);
+		float fShootingBackwOffset = _lerp(
+			hi->m_measures.m_shooting_params.m_shot_offset_BACKW.x,
+			hi->m_measures.m_shooting_params.m_shot_offset_BACKW.y,
+			m_zoom_params.m_fZoomRotationFactor);
 
 		Fvector4 vShOffsets; // x = L, y = R, z = U, w = D
-		vShOffsets.x = _lerp(hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.x, hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.x, m_zoom_params.m_fZoomRotationFactor);
-		vShOffsets.y = _lerp(hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.y, hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.y, m_zoom_params.m_fZoomRotationFactor);
-		vShOffsets.z = _lerp(hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.z, hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.z, m_zoom_params.m_fZoomRotationFactor);
-		vShOffsets.w = _lerp(hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.w, hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.w, m_zoom_params.m_fZoomRotationFactor);
+		vShOffsets.x = _lerp(
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.x,
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.x,
+			m_zoom_params.m_fZoomRotationFactor);
+		vShOffsets.y = _lerp(
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.y,
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.y,
+			m_zoom_params.m_fZoomRotationFactor);
+		vShOffsets.z = _lerp(
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.z,
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.z,
+			m_zoom_params.m_fZoomRotationFactor);
+		vShOffsets.w = _lerp(
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD.w,
+			hi->m_measures.m_shooting_params.m_shot_max_offset_LRUD_aim.w,
+			m_zoom_params.m_fZoomRotationFactor);
 
 		// Плавное затухание сдвига от стрельбы (основное, но без линейной никогда не опустит до полного 0.0f)
 		m_fLR_ShootingFactor *= clampr(1.f - fAvgTimeDelta * fShootingReturnSpeedMod, 0.0f, 1.0f);
@@ -2383,17 +2412,38 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 
 	//============= Инерция оружия =============//
 	// Параметры инерции
-	float fInertiaSpeedMod = _lerp(hi->m_measures.m_inertion_params.m_tendto_speed, hi->m_measures.m_inertion_params.m_tendto_speed_aim, m_zoom_params.m_fZoomRotationFactor);
+	float fInertiaSpeedMod = _lerp(
+		hi->m_measures.m_inertion_params.m_tendto_speed,
+		hi->m_measures.m_inertion_params.m_tendto_speed_aim,
+		m_zoom_params.m_fZoomRotationFactor);
 
-	float fInertiaReturnSpeedMod = _lerp(hi->m_measures.m_inertion_params.m_tendto_ret_speed, hi->m_measures.m_inertion_params.m_tendto_ret_speed_aim, m_zoom_params.m_fZoomRotationFactor);
+	float fInertiaReturnSpeedMod = _lerp(
+		hi->m_measures.m_inertion_params.m_tendto_ret_speed,
+		hi->m_measures.m_inertion_params.m_tendto_ret_speed_aim,
+		m_zoom_params.m_fZoomRotationFactor);
 
-	float fInertiaMinAngle = _lerp(hi->m_measures.m_inertion_params.m_min_angle, hi->m_measures.m_inertion_params.m_min_angle_aim, m_zoom_params.m_fZoomRotationFactor);
+	float fInertiaMinAngle = _lerp(
+		hi->m_measures.m_inertion_params.m_min_angle,
+		hi->m_measures.m_inertion_params.m_min_angle_aim,
+		m_zoom_params.m_fZoomRotationFactor);
 
 	Fvector4 vIOffsets; // x = L, y = R, z = U, w = D
-	vIOffsets.x = _lerp(hi->m_measures.m_inertion_params.m_offset_LRUD.x, hi->m_measures.m_inertion_params.m_offset_LRUD_aim.x, m_zoom_params.m_fZoomRotationFactor);
-	vIOffsets.y = _lerp(hi->m_measures.m_inertion_params.m_offset_LRUD.y, hi->m_measures.m_inertion_params.m_offset_LRUD_aim.y, m_zoom_params.m_fZoomRotationFactor);
-	vIOffsets.z = _lerp(hi->m_measures.m_inertion_params.m_offset_LRUD.z, hi->m_measures.m_inertion_params.m_offset_LRUD_aim.z, m_zoom_params.m_fZoomRotationFactor);
-	vIOffsets.w = _lerp(hi->m_measures.m_inertion_params.m_offset_LRUD.w, hi->m_measures.m_inertion_params.m_offset_LRUD_aim.w, m_zoom_params.m_fZoomRotationFactor);
+	vIOffsets.x = _lerp(
+		hi->m_measures.m_inertion_params.m_offset_LRUD.x,
+		hi->m_measures.m_inertion_params.m_offset_LRUD_aim.x,
+		m_zoom_params.m_fZoomRotationFactor);
+	vIOffsets.y = _lerp(
+		hi->m_measures.m_inertion_params.m_offset_LRUD.y,
+		hi->m_measures.m_inertion_params.m_offset_LRUD_aim.y,
+		m_zoom_params.m_fZoomRotationFactor);
+	vIOffsets.z = _lerp(
+		hi->m_measures.m_inertion_params.m_offset_LRUD.z,
+		hi->m_measures.m_inertion_params.m_offset_LRUD_aim.z,
+		m_zoom_params.m_fZoomRotationFactor);
+	vIOffsets.w = _lerp(
+		hi->m_measures.m_inertion_params.m_offset_LRUD.w,
+		hi->m_measures.m_inertion_params.m_offset_LRUD_aim.w,
+		m_zoom_params.m_fZoomRotationFactor);
 
 	// Высчитываем инерцию из поворотов камеры
 	bool bIsInertionPresent = m_fLR_InertiaFactor != 0.0f || m_fUD_InertiaFactor != 0.0f;
@@ -2742,12 +2792,20 @@ bool CWeapon::IsHudModeNow()
 
 void NewGetZoomData(const float scope_factor, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
 {
+	
 	float def_fov = float(g_fov);
 	float min_zoom_k = 0.3f;
 	float delta_factor_total = def_fov - scope_factor;
 	VERIFY(delta_factor_total > 0);
 	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
-	min_zoom_factor = min_zoom < loc_min_zoom_factor ? min_zoom : loc_min_zoom_factor;
+
+	if (min_zoom < loc_min_zoom_factor) {
+		min_zoom_factor = min_zoom;
+	}
+	else {
+		min_zoom_factor = loc_min_zoom_factor;
+	}
+
 	delta = ((delta_factor_total * (1 - min_zoom_k)) / n_zoom_step_count) * (zoom / def_fov);
 }
 
@@ -2758,12 +2816,10 @@ void CWeapon::ZoomInc()
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 	//
-	if (zoomFlags.test(NEW_ZOOM)) 
-	{
+	if (zoomFlags.test(NEW_ZOOM)) {
 		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
 	}
-	else 
-	{
+	else {
         GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor);
 	}
 	//
@@ -2781,12 +2837,10 @@ void CWeapon::ZoomDec()
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 	//
-	if (zoomFlags.test(NEW_ZOOM)) 
-	{
+	if (zoomFlags.test(NEW_ZOOM)) {
 		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
 	}
-	else 
-	{
+	else {
         GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor);
 	}
 	//

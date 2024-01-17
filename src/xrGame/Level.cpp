@@ -63,7 +63,7 @@
 #include "PHDebug.h"
 #include "debug_text_tree.h"
 #endif
-
+extern ENGINE_API bool g_dedicated_server;
 //AVO: used by SPAWN_ANTIFREEZE (by alpet)
 #ifdef SPAWN_ANTIFREEZE
 ENGINE_API BOOL	g_bootComplete;
@@ -184,11 +184,14 @@ CLevel::CLevel() :
 	eEnvironment = Engine.Event.Handler_Attach("LEVEL:Environment", this);
 	eEntitySpawn = Engine.Event.Handler_Attach("LEVEL:spawn", this);
 	m_pBulletManager = xr_new<CBulletManager>();
-	m_map_manager = xr_new<CMapManager>();
-	m_game_task_manager = xr_new<CGameTaskManager>();
+	if (!g_dedicated_server)
+	{
+		m_map_manager = xr_new<CMapManager>();
+		m_game_task_manager = xr_new<CGameTaskManager>();
+	}
 	m_dwDeltaUpdate = u32(fixed_step * 1000);
 	m_seniority_hierarchy_holder = xr_new<CSeniorityHierarchyHolder>();
-
+	if (!g_dedicated_server)
 	{
 		m_level_sound_manager = xr_new<CLevelSoundManager>();
 		m_space_restriction_manager = xr_new<CSpaceRestrictionManager>();
@@ -249,7 +252,8 @@ CLevel::~CLevel()
 	xr_delete(m_autosave_manager);
     xr_delete(m_debug_renderer);
 	delete_data(m_debug_render_queue);
-	ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
+	if (!g_dedicated_server)
+		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
 	xr_delete(game);
 	xr_delete(game_events);
 	xr_delete(m_pBulletManager);
@@ -600,26 +604,24 @@ void CLevel::OnFrame()
 		ClientReceive();
 		Device.Statistic->netClient1.End();
 	}
-	
 	ProcessGameEvents();
-	
 	if (m_bNeed_CrPr)
 		make_NetCorrectionPrediction();
-
-	if (g_mt_config.test(mtMap))
-		Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(m_map_manager, &CMapManager::Update));
-	else
-		MapManager().Update();
-
-	if (Device.dwPrecacheFrame == 0)
+	if (!g_dedicated_server)
 	{
-		GameTaskManager().UpdateTasks();
+		if (g_mt_config.test(mtMap))
+			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(m_map_manager, &CMapManager::Update));
+		else
+			MapManager().Update();
+		if (Device.dwPrecacheFrame == 0)
+		{
+			GameTaskManager().UpdateTasks();
+		}
 	}
-
 	// Inherited update
 	inherited::OnFrame();
 	// Draw client/server stats
-	if (psDeviceFlags.test(rsStatistic))
+	if (!g_dedicated_server && psDeviceFlags.test(rsStatistic))
 	{
 		CGameFont* F = UI().Font().pFontDI;
 		if (!psNET_direct_connect)
@@ -630,8 +632,10 @@ void CLevel::OnFrame()
 				F->SetHeightI(0.015f);
 				F->OutSetI(0.0f, 0.5f);
 				F->SetColor(D3DCOLOR_XRGB(0, 255, 0));
-				F->OutNext("IN:  %4d/%4d (%2.1f%%)", S->bytes_in_real, S->bytes_in, 100.f * float(S->bytes_in_real) / float(S->bytes_in));
-				F->OutNext("OUT: %4d/%4d (%2.1f%%)", S->bytes_out_real, S->bytes_out, 100.f * float(S->bytes_out_real) / float(S->bytes_out));
+				F->OutNext("IN:  %4d/%4d (%2.1f%%)", S->bytes_in_real, S->bytes_in,
+				           100.f * float(S->bytes_in_real) / float(S->bytes_in));
+				F->OutNext("OUT: %4d/%4d (%2.1f%%)", S->bytes_out_real, S->bytes_out,
+				           100.f * float(S->bytes_out_real) / float(S->bytes_out));
 				F->OutNext("client_2_sever ping: %d", net_Statistic.getPing());
 				F->OutNext("SPS/Sended : %4d/%4d", S->dwBytesPerSec, S->dwBytesSended);
 				F->OutNext("sv_urate/cl_urate : %4d/%4d", psNET_ServerUpdate, psNET_ClientUpdate);
@@ -644,7 +648,14 @@ void CLevel::OnFrame()
 					void operator()(IClient* C)
 					{
 						m_server->UpdateClientStatistic(C);
-						F->OutNext("0x%08x: P(%d), BPS(%2.1fK), MRR(%2d), MSR(%2d), Retried(%2d), Blocked(%2d)", C->ID.value(), C->stats.getPing(), float(C->stats.getBPS()), C->stats.getMPS_Receive(), C->stats.getMPS_Send(), C->stats.getRetriedCount(), C->stats.dwTimesBlocked);
+						F->OutNext("0x%08x: P(%d), BPS(%2.1fK), MRR(%2d), MSR(%2d), Retried(%2d), Blocked(%2d)",
+						           C->ID.value(),
+						           C->stats.getPing(),
+						           float(C->stats.getBPS()), // /1024,
+						           C->stats.getMPS_Receive(),
+						           C->stats.getMPS_Send(),
+						           C->stats.getRetriedCount(),
+						           C->stats.dwTimesBlocked);
 					}
 				};
 				net_stats_functor tmp_functor;
@@ -671,6 +682,7 @@ void CLevel::OnFrame()
                 {
                     pStatGraphR = xr_new<CStatGraph>();
                     pStatGraphR->SetRect(50, 700, 300, 68, 0xff000000, 0xff000000);
+                    //m_stat_graph->SetGrid(0, 0.0f, 10, 1.0f, 0xff808080, 0xffffffff);
                     pStatGraphR->SetMinMax(0.0f, 65536.0f, 1000);
                     pStatGraphR->SetStyle(CStatGraph::stBarLine);
                     pStatGraphR->AppendSubGraph(CStatGraph::stBarLine);
@@ -692,27 +704,34 @@ void CLevel::OnFrame()
 #ifdef DEBUG
     g_pGamePersistent->Environment().m_paused = m_bEnvPaused;
 #endif
-	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(), game->GetEnvironmentGameTimeFactor());
-	ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
+	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(),
+	                                             game->GetEnvironmentGameTimeFactor());
+	if (!g_dedicated_server)
+		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
 	m_ph_commander->update();
 	m_ph_commander_scripts->update();
 	Device.Statistic->TEST0.Begin();
 	BulletManager().CommitRenderSet();
 	Device.Statistic->TEST0.End();
 	// update static sounds
-	if (g_mt_config.test(mtLevelSounds))
+	if (!g_dedicated_server)
 	{
-		Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(m_level_sound_manager, &CLevelSoundManager::Update));
+		if (g_mt_config.test(mtLevelSounds))
+		{
+			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(
+				m_level_sound_manager, &CLevelSoundManager::Update));
+		}
+		else
+			m_level_sound_manager->Update();
 	}
-	else
-		m_level_sound_manager->Update();
-
 	// defer LUA-GC-STEP
-	if (g_mt_config.test(mtLUA_GC))
-		Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(this, &CLevel::script_gc));
-	else
-		script_gc();
-
+	if (!g_dedicated_server)
+	{
+		if (g_mt_config.test(mtLUA_GC))
+			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(this, &CLevel::script_gc));
+		else
+			script_gc();
+	}
 	if (pStatGraphR)
 	{
 		static float fRPC_Mult = 10.0f;
@@ -942,6 +961,9 @@ void CLevel::OnEvent(EVENT E, u64 P1, u64 /**P2/**/)
 		sscanf(LPCSTR(P1), "%s", Name);
 		Level().g_cl_Spawn(Name, 0xff, M_SPAWN_OBJECT_LOCAL, Fvector().set(0, 0, 0));
 	}
+	else if (E == eChangeRP && P1)
+	{
+	}
 	else if (E == eDemoPlay && P1)
 	{
 		char* name = (char*)P1;
@@ -949,6 +971,17 @@ void CLevel::OnEvent(EVENT E, u64 P1, u64 /**P2/**/)
 		xr_strcpy(RealName, name);
 		xr_strcat(RealName, ".xrdemo");
 		Cameras().AddCamEffector(xr_new<CDemoPlay>(RealName, 1.3f, 0));
+	}
+	else if (E == eChangeTrack && P1)
+	{
+		// int id = atoi((char*)P1);
+		// Environment->Music_Play(id);
+	}
+	else if (E == eEnvironment)
+	{
+		// int id=0; float s=1;
+		// sscanf((char*)P1,"%d,%f",&id,&s);
+		// Environment->set_EnvMode(id,s);
 	}
 }
 

@@ -188,6 +188,9 @@ void game_cl_TeamDeathmatch::SetGameUI(CUIGameCustom* uigame)
 
 CUIGameCustom* game_cl_TeamDeathmatch::createGameUI()
 {
+	if (g_dedicated_server)
+		return NULL;
+
 	CLASS_ID clsid = CLSID_GAME_UI_TEAMDEATHMATCH;
 	m_game_ui = smart_cast<CUIGameTDM*>(NEW_INSTANCE(clsid));
 	R_ASSERT(m_game_ui);
@@ -294,17 +297,25 @@ void game_cl_TeamDeathmatch::OnTeamSelect(int Team)
 		P.w_u8(PLAYER_CHANGE_TEAM);
 
 		P.w_s16(s16(Team + 1));
+		//P.w_u32			(0);
 		l_pPlayer->u_EventSend(P);
+		//-----------------------------------------------------------------
 		m_bSkinSelected = FALSE;
 	};
-
+	//-----------------------------------------------------------------
 	m_bTeamSelected = TRUE;
+	//---------------------------
+	//	if (m_bMenuCalledFromReady)
+	//	{
+	//		OnKeyboardPress(kJUMP);
+	//	}
 };
 //-----------------------------------------------------------------
 void game_cl_TeamDeathmatch::SetCurrentBuyMenu()
 {
 	if (!local_player) return;
 	if (!local_player->team || local_player->skin == -1) return;
+	if (g_dedicated_server) return;
 
 	if (!pCurBuyMenu)
 	{

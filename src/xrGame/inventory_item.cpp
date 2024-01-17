@@ -271,10 +271,11 @@ bool CInventoryItem::Detach(const char* item_section_name, bool b_spawn_item)
 	{
 		CSE_Abstract* D = F_entity_Create(item_section_name);
 		R_ASSERT(D);
-		CSE_ALifeDynamicObject* l_tpALifeDynamicObject = smart_cast<CSE_ALifeDynamicObject*>(D);
+		CSE_ALifeDynamicObject* l_tpALifeDynamicObject =
+			smart_cast<CSE_ALifeDynamicObject*>(D);
 		R_ASSERT(l_tpALifeDynamicObject);
 
-		l_tpALifeDynamicObject->m_tNodeID = object().ai_location().level_vertex_id();
+		l_tpALifeDynamicObject->m_tNodeID = (g_dedicated_server) ? u32(-1) : object().ai_location().level_vertex_id();
 
 		// Fill
 		D->s_name = item_section_name;

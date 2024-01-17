@@ -15,6 +15,8 @@
 
 #include "../Include/xrRender/UIRender.h"
 
+//#include "securom_api.h"
+
 static float const UI_BASE_WIDTH = 1024.0f;
 static float const UI_BASE_HEIGHT = 768.0f;
 static float const LDIST = 0.05f;
@@ -33,6 +35,7 @@ static u32 const tips_select_color = color_rgba(90, 90, 140, 230);
 static u32 const tips_word_color = color_rgba(5, 100, 56, 200);
 static u32 const tips_scroll_back_color = color_rgba(15, 15, 15, 230);
 static u32 const tips_scroll_pos_color = color_rgba(70, 70, 70, 240);
+
 
 ENGINE_API CConsole* Console = NULL;
 
@@ -266,7 +269,7 @@ void CConsole::OnRender()
 	if (!m_hShader_back)
 	{
 		m_hShader_back = xr_new<FactoryPtr<IUIShader>>();
-		(*m_hShader_back)->create("hud\\default", "ui\\ui_console");
+		(*m_hShader_back)->create("hud\\default", "ui\\ui_console"); // "ui\\ui_empty"
 	}
 
 	if (!pFont)
@@ -281,16 +284,21 @@ void CConsole::OnRender()
 	}
 
 	bool bGame = false;
-	if ((g_pGameLevel && g_pGameLevel->bReady) || (g_pGamePersistent && g_pGamePersistent->m_pMainMenu && g_pGamePersistent->m_pMainMenu->IsActive()))
+	if ((g_pGameLevel && g_pGameLevel->bReady) ||
+		(g_pGamePersistent && g_pGamePersistent->m_pMainMenu && g_pGamePersistent->m_pMainMenu->IsActive()))
 	{
 		bGame = true;
+	}
+	if (g_dedicated_server)
+	{
+		bGame = false;
 	}
 
 	DrawBackgrounds(bGame);
 
 	float fMaxY;
 	float dwMaxY = (float)Device.dwHeight;
-
+	// float dwMaxX=float(Device.dwWidth/2);
 	if (bGame)
 	{
 		fMaxY = 0.0f;
@@ -314,6 +322,7 @@ void CConsole::OnRender()
 	LPCSTR s_mark = ec().str_mark();
 	LPCSTR s_mark_a = ec().str_after_mark();
 
+	// strncpy_s( buf1, cur_pos, editor, MAX_LEN );
 	float str_length = ioc_d + pFont->SizeOf_(s_cursor);
 	float out_pos = 0.0f;
 	if (str_length > scr_width)
@@ -369,6 +378,8 @@ void CConsole::OnRender()
 	out_pos += pFont2->SizeOf_(s_mark);
 	pFont->OutI(-1.0f + out_pos * scr_x, ypos, "%s", s_mark_a);
 
+	//pFont2->OutI( -1.0f + ioc_d * scr_x, ypos, "%s", editor=all );
+
 	if (ec().cursor_view())
 	{
 		pFont->SetColor(cursor_font_color);
@@ -393,6 +404,8 @@ void CConsole::OnRender()
 		}
 		Console_mark cm = (Console_mark)ls[0];
 		pFont->SetColor(get_mark_color(cm));
+		//u8 b = (is_mark( cm ))? 2 : 0;
+		//OutFont( ls + b, ypos );
 		OutFont(ls, ypos);
 	}
 
@@ -414,6 +427,7 @@ void CConsole::DrawBackgrounds(bool bGame)
 	r.set(0.0f, 0.0f, float(Device.dwWidth), ky * float(Device.dwHeight));
 
 	UIRender->SetShader(**m_hShader_back);
+	// 6 = back, 12 = tips, (VIEW_TIPS_COUNT+1)*6 = highlight_words, 12 = scroll
 	UIRender->StartPrimitive(6 + 12 + (VIEW_TIPS_COUNT + 1) * 6 + 12, IUIRender::ptTriList, IUIRender::pttTL);
 
 	DrawRect(r, back_color);
@@ -535,7 +549,10 @@ void CConsole::DrawBackgrounds(bool bGame)
 			u_height = 0.5f * font_h;
 		}
 
+		//float u_pos = (back_height - u_height) * float(m_start_tip) / float(tips_sz);
 		float u_pos = back_height * float(m_start_tip) / float(tips_sz);
+
+		//clamp( u_pos, 0.0f, back_height - u_height );
 
 		rs = rb;
 		rs.y1 = pr.y1 + u_pos;
@@ -642,6 +659,8 @@ void CConsole::ExecuteCommand(LPCSTR cmd_str, bool record_cmd)
 
 void CConsole::Show()
 {
+	//SECUROM_MARKER_HIGH_SECURITY_ON(11)
+
 	if (bVisible)
 	{
 		return;
@@ -659,6 +678,8 @@ void CConsole::Show()
 	m_editor->IR_Capture();
 	Device.seqRender.Add(this, 1);
 	Device.seqFrame.Add(this);
+
+	//SECUROM_MARKER_HIGH_SECURITY_OFF(11)
 }
 
 extern CInput* pInput;
@@ -669,6 +690,12 @@ void CConsole::Hide()
 	{
 		return;
 	}
+	if (g_pGamePersistent && g_dedicated_server)
+	{
+		return;
+	}
+	// if ( g_pGameLevel ||
+	// ( g_pGamePersistent && g_pGamePersistent->m_pMainMenu && g_pGamePersistent->m_pMainMenu->IsActive() ))
 
 	if (pInput->get_exclusive_mode())
 	{
@@ -926,6 +953,7 @@ void CConsole::update_tips()
 	// cmd name
 	{
 		add_internal_cmds(cur, m_tips);
+		//add_next_cmds( cur, m_tips );
 		m_tips_mode = 1;
 	}
 
@@ -934,7 +962,6 @@ void CConsole::update_tips()
 		m_tips_mode = 0;
 		reset_selected_tip();
 	}
-
 	if ((int)m_tips.size() <= m_select_tip)
 	{
 		reset_selected_tip();

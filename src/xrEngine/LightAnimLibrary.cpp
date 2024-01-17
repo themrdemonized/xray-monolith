@@ -335,7 +335,10 @@ void ELightAnimLibrary::RemoveObject(LPCSTR _fname, EItemType type, bool& res)
 
 void ELightAnimLibrary::RenameObject(LPCSTR nm0, LPCSTR nm1, EItemType type)
 {
-	if (TYPE_OBJECT == type)
+    if (TYPE_FOLDER == type)
+    {
+    }
+    else if (TYPE_OBJECT == type)
     {
         CLAItem* I = FindItem(nm0);
         R_ASSERT(I);

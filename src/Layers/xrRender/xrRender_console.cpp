@@ -572,6 +572,9 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
+		if (g_dedicated_server)
+			return;
+
 		string_path name;
 		name[0] = 0;
 		sscanf(args, "%s", name);
