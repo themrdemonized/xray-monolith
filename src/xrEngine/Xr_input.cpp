@@ -3,11 +3,7 @@
 
 #include "xr_input.h"
 #include "IInputReceiver.h"
-//#include "../include/editor/ide.hpp"
 
-#ifndef _EDITOR
-# include "xr_input_xinput.h"
-#endif
 CInput* pInput = NULL;
 IInputReceiver dummyController;
 
@@ -67,25 +63,17 @@ CInput::CInput(BOOL bExclusive, int deviceForInit)
 	if (!pDI)
 		CHK_DX(DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&pDI, NULL));
 
-	//. u32 kb_input_flags = ((bExclusive)?DISCL_EXCLUSIVE:DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND;
 	u32 kb_input_flags = ((bExclusive) ? DISCL_EXCLUSIVE : DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND;
 
-	//. u32 mouse_input_flags = ((bExclusive)?DISCL_EXCLUSIVE:DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND | DISCL_NOWINKEY,
 	u32 mouse_input_flags = ((bExclusive) ? DISCL_EXCLUSIVE : DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND | DISCL_NOWINKEY;
 
 	// KEYBOARD
 	if (deviceForInit & keyboard_device_key)
-		CHK_DX(CreateInputDevice(
-		&pKeyboard, GUID_SysKeyboard, &c_dfDIKeyboard,
-		kb_input_flags,
-		KEYBOARDBUFFERSIZE));
+		CHK_DX(CreateInputDevice(&pKeyboard, GUID_SysKeyboard, &c_dfDIKeyboard, kb_input_flags, KEYBOARDBUFFERSIZE));
 
 	// MOUSE
 	if (deviceForInit & mouse_device_key)
-		CHK_DX(CreateInputDevice(
-		&pMouse, GUID_SysMouse, &c_dfDIMouse2,
-		mouse_input_flags,
-		MOUSEBUFFERSIZE));
+		CHK_DX(CreateInputDevice(&pMouse, GUID_SysMouse, &c_dfDIMouse2, mouse_input_flags, MOUSEBUFFERSIZE));
 
 	Debug.set_on_dialog(&on_error_dialog);
 
@@ -126,12 +114,11 @@ CInput::~CInput(void)
 // Name: CreateInputDevice()
 // Desc: Create a DirectInput device.
 //-----------------------------------------------------------------------------
-HRESULT CInput::CreateInputDevice(LPDIRECTINPUTDEVICE8* device, GUID guidDevice, const DIDATAFORMAT* pdidDataFormat,
-                                  u32 dwFlags, u32 buf_size)
+HRESULT CInput::CreateInputDevice(LPDIRECTINPUTDEVICE8* device, GUID guidDevice, const DIDATAFORMAT* pdidDataFormat, u32 dwFlags, u32 buf_size)
 {
 	// Obtain an interface to the input device
 	//. CHK_DX( pDI->CreateDeviceEx( guidDevice, IID_IDirectInputDevice8, (void**)device, NULL ) );
-	CHK_DX(pDI->CreateDevice(guidDevice, /*IID_IDirectInputDevice8,*/ device, NULL));
+	CHK_DX(pDI->CreateDevice(guidDevice, device, NULL));
 
 	// Set the device data format. Note: a data format specifies which
 	// controls on a device we are interested in, and how they should be
@@ -234,7 +221,6 @@ void CInput::KeyUpdate()
 		Engine.Event.Defer("KERNEL:quit");
 	}
 
-
 #endif
 	if (b_altF4) return;
 
@@ -266,48 +252,13 @@ void CInput::KeyUpdate()
 	}
 
 #ifndef _EDITOR
-	if (b_alt_tab) {
+	if (b_alt_tab) 
+	{
 		BOOL fullscreen = (g_screenmode == 2);
 		if (fullscreen)
 			SendMessage(Device.m_hWnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);
 	}
 #endif
-	/*
-	#ifndef _EDITOR
-	//update xinput if exist
-	for( DWORD iUserIndex=0; iUserIndex<DXUT_MAX_CONTROLLERS; iUserIndex++ )
-	{
-	DXUTGetGamepadState( iUserIndex, &g_GamePads[iUserIndex], true, false );
-
-	if( !g_GamePads[iUserIndex].bConnected )
-	continue; // unplugged?
-
-	bool new_b, old_b;
-	new_b = !!(g_GamePads[iUserIndex].wPressedButtons & XINPUT_GAMEPAD_A);
-	old_b = !!(g_GamePads[iUserIndex].wLastButtons & XINPUT_GAMEPAD_A);
-
-	if(new_b != old_b)
-	{
-	if(old_b)
-	cbStack.back()->IR_OnMousePress(0);
-	else
-	cbStack.back()->IR_OnMouseRelease(0);
-	}
-	int dx,dy;
-	dx = iFloor(g_GamePads[iUserIndex].fThumbRX*6);
-	dy = iFloor(g_GamePads[iUserIndex].fThumbRY*6);
-	if(dx || dy)
-	cbStack.back()->IR_OnMouseMove ( dx, dy );
-	}
-
-	if(Device.fTimeGlobal > stop_vibration_time)
-	{
-	stop_vibration_time = flt_max;
-	set_vibration (0, 0);
-	}
-	//xinput
-	#endif
-	*/
 }
 
 bool CInput::get_dik_name(int dik, LPSTR dest_str, int dest_sz)
@@ -554,12 +505,10 @@ void CInput::MouseUpdate()
 	}
 	else
 	{
-		if (timeStamp[1] && ((dwCurTime - timeStamp[1]) >= mouse_property.mouse_dt)) cbStack
-		                                                                             .back()->IR_OnMouseStop(
-			                                                                             DIMOFS_Y, timeStamp[1] = 0);
-		if (timeStamp[0] && ((dwCurTime - timeStamp[0]) >= mouse_property.mouse_dt)) cbStack
-		                                                                             .back()->IR_OnMouseStop(
-			                                                                             DIMOFS_X, timeStamp[0] = 0);
+		if (timeStamp[1] && ((dwCurTime - timeStamp[1]) >= mouse_property.mouse_dt)) 
+			cbStack.back()->IR_OnMouseStop(DIMOFS_Y, timeStamp[1] = 0);
+		if (timeStamp[0] && ((dwCurTime - timeStamp[0]) >= mouse_property.mouse_dt)) 
+			cbStack.back()->IR_OnMouseStop(DIMOFS_X, timeStamp[0] = 0);
 	}
 }
 
@@ -703,7 +652,4 @@ bool CInput::get_exclusive_mode()
 void CInput::feedback(u16 s1, u16 s2, float time)
 {
 	stop_vibration_time = RDEVICE.fTimeGlobal + time;
-#ifndef _EDITOR
-	//. set_vibration (s1, s2);
-#endif
 }

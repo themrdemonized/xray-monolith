@@ -172,7 +172,6 @@ void CEngineAPI::Initialize(void)
 #endif // DEDICATED_SERVER
 
 #ifdef STATIC_RENDERER_R1
-	//if (0 == hRender)
     {
         // try to load R1
         psDeviceFlags.set(rsR4, FALSE);
@@ -356,16 +355,12 @@ void CEngineAPI::CreateRendererList()
 	vid_quality_token[_cnt - 1].id = -1;
 	vid_quality_token[_cnt - 1].name = NULL;
 
-	//#ifdef DEBUG
 	Msg("Available render modes[%d]:", _tmp.size());
-	//#endif // DEBUG
 	for (u32 i = 0; i < _tmp.size(); ++i)
 	{
 		vid_quality_token[i].id = i;
 		vid_quality_token[i].name = _tmp[i];
-		//#ifdef DEBUG
 		Msg("[%s]", _tmp[i]);
-		//#endif // DEBUG
 	}
 #endif //#ifndef DEDICATED_SERVER
 }

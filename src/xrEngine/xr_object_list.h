@@ -9,7 +9,6 @@ class ENGINE_API CObjectList
 {
 private:
 	// data
-	//. xr_map<u32,CObject*> map_NETID;
 	CObject* map_NETID[0xffff];
 
 private:

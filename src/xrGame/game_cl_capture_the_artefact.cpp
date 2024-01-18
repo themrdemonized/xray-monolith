@@ -20,7 +20,6 @@
 
 #include "../xrEngine/IGame_Persistent.h"
 #include "ui/UIActorMenu.h"
-#include "ui/UIDemoPlayControl.h"
 
 #include "game_cl_capturetheartefact_snd_msg.h"
 #include "game_cl_teamdeathmatch_snd_messages.h"

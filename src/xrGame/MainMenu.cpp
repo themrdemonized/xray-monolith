@@ -15,9 +15,6 @@
 #include "string_table.h"
 #include "../xrCore/os_clipboard.h"
 
-#include "DemoInfo.h"
-#include "DemoInfo_Loader.h"
-
 #include "ui/UICDkey.h"
 
 #include <shellapi.h>
@@ -66,12 +63,8 @@ CMainMenu::CMainMenu()
 	g_statHint = NULL;
 	m_deactivated_frame = 0;
 
-	//-------------------------------------------
-
 	m_NeedErrDialog = ErrNoError;
 	m_start_time = 0;
-
-	m_demo_info_loader = NULL;
 
 	if (!g_dedicated_server)
 	{
@@ -96,7 +89,6 @@ CMainMenu::~CMainMenu()
 	xr_delete(g_statHint);
 	xr_delete(m_startDialog);
 	g_pGamePersistent->m_pMainMenu = NULL;
-	xr_delete(m_demo_info_loader);
 	delete_data(m_pMB_ErrDlgs);
 }
 
@@ -397,13 +389,6 @@ void CMainMenu::OnRenderPPUI_PP()
 	UI().pp_stop();
 }
 
-/*
-void CMainMenu::StartStopMenu(CUIDialogWnd* pDialog, bool bDoHideIndicators)
-{
-	pDialog->m_bWorkInPause = true;
-	CDialogHolder::StartStopMenu(pDialog, bDoHideIndicators);
-}*/
-
 //pureFrame
 void CMainMenu::OnFrame()
 {
@@ -482,14 +467,7 @@ void CMainMenu::RegisterPPDraw(CUIWindow* w)
 
 void CMainMenu::UnregisterPPDraw(CUIWindow* w)
 {
-	m_pp_draw_wnds.erase(
-		std::remove(
-			m_pp_draw_wnds.begin(),
-			m_pp_draw_wnds.end(),
-			w
-		),
-		m_pp_draw_wnds.end()
-	);
+	m_pp_draw_wnds.erase(std::remove(m_pp_draw_wnds.begin(), m_pp_draw_wnds.end(), w), m_pp_draw_wnds.end());
 }
 
 void CMainMenu::SetErrorDialog(EErrorDlg ErrDlg)
@@ -596,13 +574,4 @@ LPCSTR DelHyphens(LPCSTR c)
 	buf[sz - sz1] = 0;
 
 	return buf;
-}
-
-demo_info const* CMainMenu::GetDemoInfo(LPCSTR file_name)
-{
-	if (!m_demo_info_loader)
-	{
-		m_demo_info_loader = xr_new<demo_info_loader>();
-	}
-	return m_demo_info_loader->get_demofile_info(file_name);
 }

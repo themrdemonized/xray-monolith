@@ -947,9 +947,6 @@
     <ClInclude Include="debug_text_tree.h" />
     <ClInclude Include="debug_text_tree_inline.h" />
     <ClInclude Include="DelayedActionFuse.h" />
-    <ClInclude Include="DemoInfo.h" />
-    <ClInclude Include="DemoInfo_Loader.h" />
-    <ClInclude Include="DemoPlay_Control.h" />
     <ClInclude Include="DestroyablePhysicsObject.h" />
     <ClInclude Include="detail_path_builder.h" />
     <ClInclude Include="detail_path_manager.h" />
@@ -1709,7 +1706,6 @@
     <ClInclude Include="ui\UICustomEdit.h" />
     <ClInclude Include="ui\UICustomSpin.h" />
     <ClInclude Include="ui\UIDebugFonts.h" />
-    <ClInclude Include="ui\UIDemoPlayControl.h" />
     <ClInclude Include="ui\UIDialogWnd.h" />
     <ClInclude Include="ui\UIDoubleProgressBar.h" />
     <ClInclude Include="ui\UIDragDropListEx.h" />
@@ -2624,9 +2620,6 @@
     <ClCompile Include="debug_renderer.cpp" />
     <ClCompile Include="debug_text_tree.cpp" />
     <ClCompile Include="DelayedActionFuse.cpp" />
-    <ClCompile Include="DemoInfo.cpp" />
-    <ClCompile Include="DemoInfo_Loader.cpp" />
-    <ClCompile Include="DemoPLay_Control.cpp" />
     <ClCompile Include="DestroyablePhysicsObject.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -3800,7 +3793,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='VerifiedDX11|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="ui\UIDemoPlayControl.cpp" />
     <ClCompile Include="ui\UIDialogWnd.cpp" />
     <ClCompile Include="ui\UIDoubleProgressBar.cpp" />
     <ClCompile Include="ui\UIDragDropListEx.cpp" />

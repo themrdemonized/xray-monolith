@@ -7,9 +7,7 @@
 #include "ps_instance.h"
 #include "IGame_Persistent.h"
 
-CPS_Instance::CPS_Instance(bool destroy_on_game_load) :
-	ISpatial(g_SpatialSpace),
-	m_destroy_on_game_load(destroy_on_game_load)
+CPS_Instance::CPS_Instance(bool destroy_on_game_load) : ISpatial(g_SpatialSpace), m_destroy_on_game_load(destroy_on_game_load)
 {
 	g_pGamePersistent->ps_active.insert(this);
 	renderable.pROS_Allowed = FALSE;
@@ -29,8 +27,7 @@ CPS_Instance::~CPS_Instance()
 	VERIFY(it != g_pGamePersistent->ps_active.end());
 	g_pGamePersistent->ps_active.erase(it);
 
-	xr_vector<CPS_Instance*>::iterator it2 = std::find(g_pGamePersistent->ps_destroy.begin(),
-	                                                   g_pGamePersistent->ps_destroy.end(), this);
+	xr_vector<CPS_Instance*>::iterator it2 = std::find(g_pGamePersistent->ps_destroy.begin(), g_pGamePersistent->ps_destroy.end(), this);
 
 	VERIFY(it2 == g_pGamePersistent->ps_destroy.end());
 

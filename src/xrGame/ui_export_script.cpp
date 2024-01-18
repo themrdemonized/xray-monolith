@@ -52,7 +52,6 @@ void UIRegistrator::script_register(lua_State* L)
 
 
 		class_<CMainMenu>("CMainMenu")
-		.def("GetDemoInfo", &CMainMenu::GetDemoInfo)
 	];
 
 	module(L, "main_menu")

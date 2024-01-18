@@ -43,8 +43,6 @@
 #include "UI/UIGameTutorial.h"
 #include "file_transfer.h"
 #include "message_filter.h"
-#include "demoplay_control.h"
-#include "demoinfo.h"
 #include "CustomDetector.h"
 #include "xrPhysics/IPHWorld.h"
 #include "xrPhysics/console_vars.h"
@@ -127,16 +125,12 @@ namespace crash_saving {
 		} sortFilesDesc;
 		std::sort(fset.begin(), fset.end(), sortFilesDesc);
 
-		//Msg("save mask %s", path_mask.c_str());
-
 		for (auto &file : fset)
 		{
 			string128 name;
 			xr_strcpy(name, sizeof(name), file.name.c_str());
 			std::string name_string(name);
 			name_string.erase(name_string.length() - path_ext.length());
-
-			//Msg("found save file %s, save_name %s", name, name_string.c_str());
 
 			try {
 				//Msg("save number %s", name_string.substr(path.length()).c_str());
@@ -287,9 +281,9 @@ CLevel::~CLevel()
 			m_reader = nullptr;
 		}
 	}
+
 	xr_delete(m_msg_filter);
-	xr_delete(m_demoplay_control);
-	xr_delete(m_demo_info);
+
 	if (IsDemoSave())
 	{
 		StopSaveDemo();

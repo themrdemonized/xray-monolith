@@ -58,18 +58,12 @@ BOOL CCF_DynamicMesh::_RayQuery(const collide::ray_defs& Q, collide::rq_results&
 			NODEFAULT;
 			return *this;
 		}
-	} pick((collide::ray_defs&)(Q), (const CObject&)(*owner), (IKinematics&)(*K));
+	} 
+	
+	pick((collide::ray_defs&)(Q), (const CObject&)(*owner), (IKinematics&)(*K));
 
-	R.r_results().erase(std::remove_if(R.r_results().begin() + s_count, R.r_results().end(), pick),
-	                    R.r_results().end());
-	/*
-	for( collide::rq_result* i = R.r_begin() + s_count; i < R.r_end(); ++i )
-	{
-	IKinematics::pick_result r;
-	if( K->PickBone( owner->XFORM(), r, Q.range, Q.start, Q.dir, (u16) i->element ) )
-	return TRUE;
-	}
-	*/
+	R.r_results().erase(std::remove_if(R.r_results().begin() + s_count, R.r_results().end(), pick), R.r_results().end());
+
 	VERIFY(R.r_count() >= s_count);
 	return R.r_count() > s_count;
 }

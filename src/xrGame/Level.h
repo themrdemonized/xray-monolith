@@ -31,7 +31,6 @@ class CLevelSoundManager;
 class CGameTaskManager;
 class CZoneList;
 class message_filter;
-class demoplay_control;
 class demo_info;
 class CDebugRenderer;
 class DBG_ScriptObject;

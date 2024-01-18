@@ -5379,15 +5379,6 @@
     <ClInclude Include="Level_network_map_sync.h">
       <Filter>Core\Client\Level\LevelMapSync</Filter>
     </ClInclude>
-    <ClInclude Include="DemoInfo.h">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClInclude>
-    <ClInclude Include="DemoInfo_Loader.h">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClInclude>
-    <ClInclude Include="DemoPlay_Control.h">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClInclude>
     <ClInclude Include="Level_network_Demo.h">
       <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
     </ClInclude>
@@ -7085,9 +7076,6 @@
     </ClInclude>
     <ClInclude Include="ui\UIVotingCategory.h">
       <Filter>UI\Multiplayer\Voting</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\UIDemoPlayControl.h">
-      <Filter>UI\Multiplayer\DemoPlayControl</Filter>
     </ClInclude>
     <ClInclude Include="UIAchivementsIndicator.h">
       <Filter>UI\Multiplayer\Achivements</Filter>
@@ -8942,15 +8930,6 @@
     <ClCompile Include="Level_network_digest_computer.cpp">
       <Filter>Core\Client\Level\ClientDigestComputer</Filter>
     </ClCompile>
-    <ClCompile Include="DemoInfo.cpp">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClCompile>
-    <ClCompile Include="DemoInfo_Loader.cpp">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClCompile>
-    <ClCompile Include="DemoPLay_Control.cpp">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClCompile>
     <ClCompile Include="Level_network_Demo.cpp">
       <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
     </ClCompile>
@@ -10714,9 +10693,6 @@
     </ClCompile>
     <ClCompile Include="ui\UIVotingCategory.cpp">
       <Filter>UI\Multiplayer\Voting</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\UIDemoPlayControl.cpp">
-      <Filter>UI\Multiplayer\DemoPlayControl</Filter>
     </ClCompile>
     <ClCompile Include="UIAchivementsIndicator.cpp">
       <Filter>UI\Multiplayer\Achivements</Filter>

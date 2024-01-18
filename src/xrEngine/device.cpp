@@ -156,7 +156,6 @@ void CRenderDevice::End(void)
 #endif
 }
 
-
 volatile u32 mt_Thread_marker = 0x12345678;
 
 void mt_Thread(void* ptr)
@@ -226,8 +225,7 @@ extern bool IsMainMenuActive(); //ECO_RENDER add
 
 void GetMonitorResolution(u32& horizontal, u32& vertical)
 {
-	HMONITOR hMonitor = MonitorFromWindow(
-		Device.m_hWnd, MONITOR_DEFAULTTOPRIMARY);
+	HMONITOR hMonitor = MonitorFromWindow(Device.m_hWnd, MONITOR_DEFAULTTOPRIMARY);
 
 	MONITORINFO mi;
 	mi.cbSize = sizeof(mi);
@@ -265,7 +263,8 @@ extern int ps_framelimiter;
 extern u32 g_screenmode;
 
 CTimer FreezeTimer;
-void mt_FreezeThread(void *ptr) {
+void mt_FreezeThread(void *ptr) 
+{
 	float freezetime = 0.f;
 	float repeatcheck = 500.f;
 
@@ -509,12 +508,6 @@ void CRenderDevice::FrameMove()
 	dwTimeContinual = TimerMM.GetElapsed_ms() - app_inactive_time;
 	if (psDeviceFlags.test(rsConstantFPS))
 	{
-		// 20ms = 50fps
-		//fTimeDelta = 0.020f;
-		//fTimeGlobal += 0.020f;
-		//dwTimeDelta = 20;
-		//dwTimeGlobal += 20;
-		// 33ms = 30fps
 		fTimeDelta = 0.033f;
 		fTimeGlobal += 0.033f;
 		dwTimeDelta = 33;
@@ -527,27 +520,22 @@ void CRenderDevice::FrameMove()
 		Timer.Start(); // previous frame
 		fTimeDelta = 0.1f * fTimeDelta + 0.9f * fPreviousFrameTime;
 		// smooth random system activity - worst case ~7% error
-		//fTimeDelta = 0.7f * fTimeDelta + 0.3f*fPreviousFrameTime; // smooth random system activity
 		if (fTimeDelta > .1f)
 			fTimeDelta = .1f; // limit to 15fps minimum
 		if (fTimeDelta <= 0.f)
 			fTimeDelta = EPS_S + EPS_S; // limit to 15fps minimum
 		if (Paused())
 			fTimeDelta = 0.0f;
-		// u64 qTime = TimerGlobal.GetElapsed_clk();
-		fTimeGlobal = TimerGlobal.GetElapsed_sec(); //float(qTime)*CPU::cycles2seconds;
+
+		fTimeGlobal = TimerGlobal.GetElapsed_sec();
 		u32 _old_global = dwTimeGlobal;
 		dwTimeGlobal = TimerGlobal.GetElapsed_ms();
 		dwTimeDelta = dwTimeGlobal - _old_global;
 	}
 	// Frame move
 	Statistic->EngineTOTAL.Begin();
-	// TODO: HACK to test loading screen.
-	//if(!g_bLoaded)
 	Device.seqFrame.Process(rp_Frame);
 	g_bLoaded = TRUE;
-	//else
-	// seqFrame.Process(rp_Frame);
 	Statistic->EngineTOTAL.End();
 }
 

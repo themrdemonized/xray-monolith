@@ -42,16 +42,6 @@ private:
 	void TryInitEngine(bool bNoRun = true);
 	void ReleaseEngine();
 
-	// OA option handling
-	//void DescribeOption(char* pszOptionName, const oaOptionDependency& Dependency);
-	//oaOptionDataType GetOptionType(char* pszOptionName);
-	//void GetOption(char* pszOptionName);
-	//void SetOption(oaNamedOption* pOption);
-
-	// OA Error report
-	//void Message(oaErrorType MessageType, const char* pszMsg);
-	//void Message(oaErrorType MessageType, const char* pszMsg, va_list& mark);
-
 private:
 	// States
 	bool m_bInited;
