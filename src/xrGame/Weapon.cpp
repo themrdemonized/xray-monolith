@@ -910,6 +910,7 @@ void CWeapon::save(NET_Packet& output_packet)
 	save_data(m_ammoType, output_packet);
 	save_data(m_zoom_params.m_bIsZoomModeNow, output_packet);
 	save_data(m_bRememberActorNVisnStatus, output_packet);
+	save_data(bMisfire, output_packet);
 }
 
 void CWeapon::load(IReader& input_packet)
@@ -928,6 +929,7 @@ void CWeapon::load(IReader& input_packet)
 		OnZoomOut();
 
 	load_data(m_bRememberActorNVisnStatus, input_packet);
+	load_data(bMisfire, input_packet);
 }
 
 void CWeapon::OnEvent(NET_Packet& P, u16 type)
