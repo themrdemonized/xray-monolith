@@ -207,8 +207,16 @@ void ui_core::PopScissor()
 
 ui_core::ui_core()
 {
-	m_pUICursor = xr_new<CUICursor>();
-	m_pFontManager = xr_new<CFontManager>();
+	if (!g_dedicated_server)
+	{
+		m_pUICursor = xr_new<CUICursor>();
+		m_pFontManager = xr_new<CFontManager>();
+	}
+	else
+	{
+		m_pUICursor = NULL;
+		m_pFontManager = NULL;
+	}
 
 	m_bPostprocess = false;
 
