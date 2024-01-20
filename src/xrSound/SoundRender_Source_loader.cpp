@@ -137,12 +137,16 @@ bool CSoundRender_Source::LoadWave(LPCSTR pName)
 		}
 		else
 		{
+#ifndef MASTER_GOLD
 			Log("! Invalid ogg-comment version, file: ", pName);
+#endif
 		}
 	}
 	else
 	{
+#ifndef MASTER_GOLD
 		Log("! Missing ogg-comment, file: ", pName);
+#endif
 	}
 	R_ASSERT3((m_fMaxAIDist>=0.1f)&&(m_fMaxDist>=0.1f), "Invalid max distance.", pName);
 
