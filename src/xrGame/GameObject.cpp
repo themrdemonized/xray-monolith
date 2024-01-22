@@ -842,6 +842,7 @@ CScriptGameObject* CGameObject::lua_game_object() const
 	if (!m_spawned)
 	{
 		Msg("! you are trying to use a destroyed object [%i]", ID());
+		ai().script_engine().print_stack();
 		return NULL;
 	}
 	if (!m_lua_game_object)
