@@ -137,12 +137,18 @@ bool CSoundRender_Source::LoadWave(LPCSTR pName)
 		}
 		else
 		{
-			Log("! Invalid ogg-comment version, file: ", pName);
+			if (strstr(Core.Params, "-dbg"))
+			{
+				Log("! Invalid ogg-comment version, file: ", pName);
+			}
 		}
 	}
 	else
 	{
-		Log("! Missing ogg-comment, file: ", pName);
+		if (strstr(Core.Params, "-dbg"))
+		{
+			Log("! Missing ogg-comment, file: ", pName);
+		}
 	}
 	R_ASSERT3((m_fMaxAIDist>=0.1f)&&(m_fMaxDist>=0.1f), "Invalid max distance.", pName);
 
