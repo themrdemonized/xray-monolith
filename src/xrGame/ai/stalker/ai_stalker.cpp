@@ -834,7 +834,10 @@ void CAI_Stalker::net_Export(NET_Packet& P)
 	R_ASSERT(Local());
 
 	// export last known packet
-	R_ASSERT(!NET.empty());
+	if (NET.empty()) {
+		Msg("![CAI_Stalker::net_Export] net_update deque is empty for %s, section %s, id %d, crash", cName().c_str(), cNameSect().c_str(), ID());
+		R_ASSERT(!NET.empty());
+	}
 	net_update& N = NET.back();
 	//	P.w_float						(inventory().TotalWeight());
 	//	P.w_u32							(m_dwMoney);
