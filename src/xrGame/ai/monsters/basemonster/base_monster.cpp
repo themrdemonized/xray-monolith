@@ -1047,7 +1047,10 @@ void CBaseMonster::update_eyes_visibility()
 	u16 const left_eye_bone_id = skeleton->LL_BoneID(m_left_eye_bone_name);
 	u16 const right_eye_bone_id = skeleton->LL_BoneID(m_right_eye_bone_name);
 
-	R_ASSERT(left_eye_bone_id != u16(-1) && right_eye_bone_id != u16(-1));
+	if (!(left_eye_bone_id != u16(-1) && right_eye_bone_id != u16(-1))) {
+		Msg("%s, section %s, id %d left_eye_bone_id != u16(-1) && right_eye_bone_id != u16(-1), crash", cName().c_str(), cNameSect().c_str(), ID());
+		R_ASSERT(left_eye_bone_id != u16(-1) && right_eye_bone_id != u16(-1));
+	}	
 
 	bool eyes_visible = !g_Alive() || get_screen_space_coverage_diagonal() > 0.05f;
 

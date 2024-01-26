@@ -275,7 +275,7 @@ protected:
 #include <unordered_map>
 #include <unordered_set>
 
-//#define USE_ROBINHOOD
+#define USE_ROBINHOOD
 #ifdef USE_ROBINHOOD
 #include "robin_hood.h"
 template <typename K, class V>
