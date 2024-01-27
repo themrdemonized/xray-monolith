@@ -189,14 +189,6 @@ jobs:
         mv ${{env.DX9AVX}}_pdb/*.zip pdb
         mv ${{env.DX8AVX}}_pdb/*.zip pdb
         
-    - name: Remove artifacts
-      # You may pin to the exact commit or the version.
-      # uses: c-hive/gha-remove-artifacts@24dc23384a1fa6a058b79c73727ae0cb2200ca4c
-      uses: c-hive/gha-remove-artifacts@v1.2.0
-      with:
-        # Artifacts older than this will be deleted (e.g. "2 months", "1 day"). Parsed by moment.
-        age: "1 second"
-        
     - name: Publish
       uses: "marvinpinto/action-automatic-releases@latest"
       with:
@@ -207,3 +199,11 @@ jobs:
         files: |
           *.zip
           pdb/*.zip
+    
+    - name: Remove artifacts
+      # You may pin to the exact commit or the version.
+      # uses: c-hive/gha-remove-artifacts@24dc23384a1fa6a058b79c73727ae0cb2200ca4c
+      uses: c-hive/gha-remove-artifacts@v1.2.0
+      with:
+        # Artifacts older than this will be deleted (e.g. "2 months", "1 day"). Parsed by moment.
+        age: "1 second"
