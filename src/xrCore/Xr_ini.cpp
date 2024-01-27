@@ -1212,12 +1212,16 @@ CInifile::Sect& CInifile::r_section(LPCSTR S) const
 	return **I;
 }
 
-void CInifile::cacheValue(LPCSTR S, LPCSTR L, LPCSTR V) {
+void CInifile::cacheValue(LPCSTR S, LPCSTR L, shared_str& V) {
 	if (S && L) {
+
 #ifdef INICACHE_PRINT_DEBUG
 		Msg("[%s] cacheValue: writing [%s] %s = %s in cache", m_file_name, S, L, V);
 #endif // INICACHE_PRINT_DEBUG
-		m_cache[S][L] = V ? V : "";
+
+		std::string s = S;
+		std::string l = L;
+		m_cache[s][l] = V;
 	}
 }
 
@@ -1227,24 +1231,31 @@ LPCSTR CInifile::r_string(LPCSTR S, LPCSTR L) const
 	{
 		Msg("!![ERROR] CInifile::r_string: S = [%s], L = [%s]", S, L);
 	}
+	
+	if (S && L) {
+		std::string s = S;
+		std::string l = L;
+		auto sectKey = m_cache.find(s);
+		if (sectKey != m_cache.end()) {
+			auto lineKey = sectKey->second.find(l);
+			if (lineKey != sectKey->second.end()) {
+				auto& res = lineKey->second;
 
-	auto sectKey = m_cache.find(S);
-	if (sectKey != m_cache.end()) {
-		auto lineKey = sectKey->second.find(L);
-		if (lineKey != sectKey->second.end()) {
-			auto& res = lineKey->second;
 #ifdef INICACHE_PRINT_DEBUG
-			Msg("[%s] r_string: getting [%s] %s = %s in cache", m_file_name, S, L, res.c_str());
+				Msg("[%s] r_string: getting [%s] %s = %s in cache", m_file_name, S, L, res.c_str());
 #endif // INICACHE_PRINT_DEBUG
-			return res.empty() ? 0 : res.c_str();
+
+				return *res;
+			}
 		}
 	}
 
 	Sect const& I = r_section(S);
 	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), L, item_pred);
 	if (A != I.Data.end() && xr_strcmp(*A->first, L) == 0) {
-		LPCSTR res = *A->second;
-		const_cast<CInifile*>(this)->cacheValue(S, L, res);
+		shared_str V = A->second;
+		LPCSTR res = *V;
+		const_cast<CInifile*>(this)->cacheValue(S, L, V);
 		return res;
 	}
 	else
@@ -1499,7 +1510,7 @@ void CInifile::w_string(LPCSTR S, LPCSTR L, LPCSTR V, LPCSTR comment)
 		data.Data.insert(it, I);
 	}
 
-	cacheValue(sect, I.first.c_str(), I.second.c_str());
+	cacheValue(sect, I.first.c_str(), I.second);
 	
 }
 
