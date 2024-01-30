@@ -3,6 +3,9 @@
 
 #include	"../xrphysics/physicsshell.h"
 
+//Hrust: fix volumetric fog
+#include "PhysicsShellHolder.h"
+
 #include	"../Include/xrRender/Kinematics.h"
 
 physics_shell_animated::physics_shell_animated(CPhysicsShellHolder* O, bool _update_velocity):
