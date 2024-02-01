@@ -1064,7 +1064,7 @@ void CCC_Register()
 	CMD4(CCC_Integer, "r__framelimit", &ps_framelimiter, 0, 500);
 	CMD3(CCC_Mask, "rs_refresh_60hz", &psDeviceFlags, rsRefresh60hz);
 	CMD4(CCC_CrosshairColor, "g_crosshair_color", &g_crosshair_color_temp, Ivector4().set(0, 0, 0, 0), Ivector4().set(255, 255, 255, 255));
-	CMD4(CCC_Float, "mouse_sens_aim", &g_AimLookFactor, .5f, 2.f);
+	CMD4(CCC_Float, "mouse_sens_aim", &g_AimLookFactor, 0.01f, 5.0f);
 
 	if (strstr(Core.Params, "-dbgdev"))
 		CMD4(CCC_Float, "g_freelook_z_offset_factor", &g_freelook_z_offset, -3.f, 3.f);
