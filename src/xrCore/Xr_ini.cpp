@@ -1132,7 +1132,7 @@ bool CInifile::save_as(LPCSTR new_fname)
 
 BOOL CInifile::section_exist(LPCSTR S) const
 {
-	if (m_cache.find(S) != m_cache.end()) {
+	if (S && m_cache.find(S) != m_cache.end()) {
 #ifdef INICACHE_PRINT_DEBUG
 		Msg("[%s] section_exist: found section %s in cache", m_file_name, S);
 #endif // INICACHE_PRINT_DEBUG
@@ -1146,12 +1146,16 @@ BOOL CInifile::line_exist(LPCSTR S, LPCSTR L) const
 {
 	if (!section_exist(S)) return FALSE;
 
-	auto cacheSec = m_cache.find(S);
-	if (cacheSec != m_cache.end() && cacheSec->second.find(L) != cacheSec->second.end()) {
+	if (S && L) {
+		auto cacheSec = m_cache.find(S);
+		if (cacheSec != m_cache.end() && cacheSec->second.find(L) != cacheSec->second.end()) {
+
 #ifdef INICACHE_PRINT_DEBUG
-		Msg("[%s] line_exist: found section %s line %s in cache", m_file_name, S, L);
+			Msg("[%s] line_exist: found section %s line %s in cache", m_file_name, S, L);
 #endif // INICACHE_PRINT_DEBUG
-		return TRUE;
+
+			return TRUE;
+		}
 	}
 
 	Sect& I = r_section(S);
@@ -1660,6 +1664,9 @@ void CInifile::remove_line(LPCSTR S, LPCSTR L)
 #ifdef INICACHE_PRINT_DEBUG
 		Msg("[%s] remove_line: removing [%s] %s from cache", m_file_name, S, L);
 #endif // INICACHE_PRINT_DEBUG
-		m_cache[S].erase(L);
+
+		std::string s = S;
+		std::string l = L;
+		m_cache[s].erase(l);
 	}
 }
