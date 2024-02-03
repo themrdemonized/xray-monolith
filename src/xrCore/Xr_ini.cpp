@@ -1220,7 +1220,7 @@ void CInifile::cacheValue(LPCSTR S, LPCSTR L, shared_str& V) {
 	if (S && L) {
 
 #ifdef INICACHE_PRINT_DEBUG
-		Msg("[%s] cacheValue: writing [%s] %s = %s in cache", m_file_name, S, L, V);
+		Msg("[%s] cacheValue: writing [%s] %s = %s in cache", m_file_name, S, L, V.c_str());
 #endif // INICACHE_PRINT_DEBUG
 
 		std::string s = S;
