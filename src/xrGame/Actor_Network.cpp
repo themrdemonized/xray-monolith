@@ -714,6 +714,10 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 	return TRUE;
 }
 
+namespace crash_saving {
+	extern void (*save_impl)();
+}
+
 void CActor::net_Destroy()
 {
 	inherited::net_Destroy();
@@ -766,6 +770,9 @@ void CActor::net_Destroy()
 		this
 	)
 		destroy_physics_shell(actor_camera_shell);
+
+	// demonized: disable crash saving when actor is destroyed
+	crash_saving::save_impl = nullptr;
 }
 
 void CActor::net_Relcase(CObject* O)

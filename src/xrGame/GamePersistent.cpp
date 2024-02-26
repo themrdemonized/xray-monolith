@@ -542,6 +542,11 @@ void CGamePersistent::game_loaded()
 	}
 }
 
+namespace crash_saving {
+	extern void (*save_impl)();
+	extern void _save_impl();
+}
+
 void CGamePersistent::update_game_loaded()
 {
 	xr_delete(m_intro);
@@ -549,6 +554,9 @@ void CGamePersistent::update_game_loaded()
 	start_game_intro();
 
 	// demonized
+	// Enable crash saving here
+	crash_saving::save_impl = &crash_saving::_save_impl;
+
 	// Callback for when player dismisses loading screen after "Press Any Key to Continue" pressed
 	luabind::functor<void> funct;
 	if (ai().script_engine().functor("_G.OnLoadingScreenDismissed", funct))
