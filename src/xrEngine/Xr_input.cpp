@@ -17,8 +17,10 @@ ENGINE_API Flags32 psMouseInvert = {FALSE};
 
 float stop_vibration_time = flt_max;
 
-#define MOUSEBUFFERSIZE 64
-#define KEYBOARDBUFFERSIZE 64
+// demonized: configurable buffer sizes for mouse and kb
+int MOUSEBUFFERSIZE = 1024;
+int KEYBOARDBUFFERSIZE = 128;
+
 #define _KEYDOWN(name,key) ( name[key] & 0x80 )
 
 static bool g_exclusive = false;
@@ -190,7 +192,7 @@ void CInput::KeyUpdate()
 
 	HRESULT hr;
 	DWORD dwElements = KEYBOARDBUFFERSIZE;
-	DIDEVICEOBJECTDATA od[KEYBOARDBUFFERSIZE];
+	auto od = std::make_unique<DIDEVICEOBJECTDATA[]>(KEYBOARDBUFFERSIZE);
 	DWORD key = 0;
 
 	VERIFY(pKeyboard);
@@ -361,7 +363,7 @@ void CInput::MouseUpdate()
 {
 	HRESULT hr;
 	DWORD dwElements = MOUSEBUFFERSIZE;
-	DIDEVICEOBJECTDATA od[MOUSEBUFFERSIZE];
+	auto od = std::make_unique<DIDEVICEOBJECTDATA[]>(MOUSEBUFFERSIZE);
 
 	VERIFY(pMouse);
 
