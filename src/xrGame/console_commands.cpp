@@ -128,6 +128,8 @@ extern BOOL mouseWheelInvertZoom;
 extern BOOL monsterStuckFix;
 extern BOOL logTimestamps;
 extern float f_Freelook_cam_limit;
+extern int MOUSEBUFFERSIZE;
+extern int KEYBOARDBUFFERSIZE;
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2693,6 +2695,10 @@ void CCC_RegisterCommands()
 
 	// Freelook
 	CMD4(CCC_Float, "freelook_cam_limit", &f_Freelook_cam_limit, 0.f, PI);
+
+	// Input buffer sizes
+	CMD4(CCC_Integer, "mouse_buffer_size", &MOUSEBUFFERSIZE, 64, 2048);
+	CMD4(CCC_Integer, "keyboard_buffer_size", &KEYBOARDBUFFERSIZE, 64, 512);
 
 	if (strstr(Core.Params, "-dbgdev"))
 		CMD4(CCC_Float, "g_streff", &streff, -10.f, 10.f);
