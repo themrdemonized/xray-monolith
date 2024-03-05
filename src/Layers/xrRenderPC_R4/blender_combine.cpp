@@ -69,6 +69,7 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -94,6 +95,7 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -118,6 +120,7 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -143,6 +146,7 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -227,6 +231,7 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 		
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -252,6 +257,7 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -276,6 +282,7 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
@@ -301,6 +308,7 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
