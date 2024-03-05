@@ -66,6 +66,10 @@ public:
 	IBlender* b_hdao_cs;
 	IBlender* b_hdao_msaa_cs;
 
+	// [SSS Stuff]
+	IBlender* b_ssfx_ssr;
+	IBlender* b_ssfx_volumetric_blur;
+
 #ifdef DEBUG
 	struct		dbg_line_t		{
 		Fvector	P0,P1;
@@ -143,6 +147,15 @@ public:
 	//	TODO: DX10: CHeck if we need old-style SMAP
 	//	IDirect3DSurface9*			rt_smap_ZB;		//
 
+	// Screen Space Shaders Stuff
+	ref_rt rt_ssfx;
+	ref_rt rt_ssfx_temp;
+	ref_rt rt_ssfx_temp2;
+	ref_rt rt_ssfx_accum;
+	ref_rt rt_ssfx_hud;
+
+	ref_shader s_ssfx_dumb;
+
 	//	Igor: for async screenshots
 	ID3DTexture2D* t_ss_async; //32bit		(r,g,b,a) is situated in the system memory
 
@@ -204,6 +217,10 @@ private:
 	ref_shader s_accum_spot_msaa[8];
 	ref_shader s_accum_reflected_msaa[8];
 	ref_shader s_accum_volume_msaa[8];
+
+	// Screen Space Shaders Stuff
+	ref_shader s_ssfx_ssr;
+	ref_shader s_ssfx_volumetric_blur;
 
 	ref_geom g_accum_point;
 	ref_geom g_accum_spot;
@@ -331,6 +348,11 @@ public:
 	void phase_accumulator();
 	void phase_vol_accumulator();
 	void shadow_direct(light* L, u32 dls_phase);
+
+	// SSS Stuff
+	void phase_ssfx_ssr(); // SSR Phase
+	void phase_ssfx_volumetric_blur(); // Volumetric Blur
+	void set_viewport_size(ID3DDeviceContext* dev, float w, float h);
 
 	//	Generates min/max sm
 	void create_minmax_SM();

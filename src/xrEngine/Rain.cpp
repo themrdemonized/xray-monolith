@@ -5,6 +5,8 @@
 #include "igame_persistent.h"
 #include "environment.h"
 
+#include "../../xrEngine/perlin.h"
+
 #ifdef _EDITOR
 #include "ui_toolscustom.h"
 #else
@@ -31,6 +33,8 @@ static const float drop_speed_max = 80.f;
 const int max_particles = 1000;
 const int particles_cache = 400;
 const float particles_time = .3f;
+
+CPerlinNoise1D* RainPerlin;
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction

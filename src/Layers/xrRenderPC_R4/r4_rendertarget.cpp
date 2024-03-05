@@ -29,6 +29,15 @@
 
 #include <D3DX10Tex.h>
 
+D3D_VIEWPORT custom_viewport[1] = { 0, 0, 0, 0, 0.f, 1.f };
+
+void CRenderTarget::set_viewport_size(ID3DDeviceContext * dev, float w, float h)
+{
+	custom_viewport[0].Width = w;
+	custom_viewport[0].Height = h;
+	dev->RSSetViewports(1, custom_viewport);
+}
+
 void CRenderTarget::u_setrt(const ref_rt& _1, const ref_rt& _2, const ref_rt& _3, ID3DDepthStencilView* zb)
 {
 	VERIFY(_1||zb);
@@ -360,6 +369,10 @@ CRenderTarget::CRenderTarget()
 	b_lut = xr_new<CBlender_lut>();
 	b_smaa = xr_new<CBlender_smaa>();
 
+	// Screen Space Shaders Stuff
+	b_ssfx_ssr = xr_new<CBlender_ssfx_ssr>(); // [Ascii1457] SSS new Phase
+	b_ssfx_volumetric_blur = xr_new<CBlender_ssfx_volumetric_blur>(); // [Ascii1457] SSS new Phase
+
 	// HDAO
 	b_hdao_cs = xr_new<CBlender_CS_HDAO>();
 	if (RImplementation.o.dx10_msaa)
@@ -471,7 +484,14 @@ CRenderTarget::CRenderTarget()
 		rt_blur_8.create(r2_RT_blur_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);	
 		
 		rt_pp_bloom.create(r2_RT_pp_bloom, w, h, D3DFMT_A8R8G8B8);
-			
+		
+		// Screen Space Shaders Stuff
+		rt_ssfx.create(r2_RT_ssfx, w, h, D3DFMT_A8R8G8B8); // Generic RT
+		rt_ssfx_temp.create(r2_RT_ssfx_temp, w, h, D3DFMT_A8R8G8B8); // Temp RT
+		rt_ssfx_temp2.create(r2_RT_ssfx_temp2, w, h, D3DFMT_A8R8G8B8); // Temp RT 8B
+		rt_ssfx_accum.create(r2_RT_ssfx_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount); // Temp RT 16B
+		
+		rt_ssfx_hud.create(r2_RT_ssfx_hud, w, h, D3DFMT_L8); // Temp RT 8B
 		
 		if (RImplementation.o.dx10_msaa)
 		{
@@ -500,6 +520,12 @@ CRenderTarget::CRenderTarget()
 	s_lut.create(b_lut, "r2\\lut");	
 	// OCCLUSION
 	s_occq.create(b_occq, "r2\\occq");
+
+	// Screen Space Shaders Stuff
+	s_ssfx_ssr.create(b_ssfx_ssr, "r2\\ssfx_ssr"); // SSR
+	s_ssfx_volumetric_blur.create(b_ssfx_volumetric_blur, "r2\\ssfx_volumetric_blur"); // Volumetric Blur
+	
+	s_ssfx_dumb.create("ssfx_dumb"); // Dumb shader
 
 	// DIRECT (spot)
 	D3DFORMAT depth_format = (D3DFORMAT)RImplementation.o.HW_smap_FORMAT;
@@ -1178,6 +1204,9 @@ CRenderTarget::~CRenderTarget()
 	xr_delete(b_heatvision); //--DSR-- HeatVision
 	xr_delete(b_lut);	
 	xr_delete(b_smaa);
+
+	xr_delete(b_ssfx_ssr); // [Ascii1457] SSS new Phase
+	xr_delete(b_ssfx_volumetric_blur); // [Ascii1457] SSS new Phase
 
 	if (RImplementation.o.dx10_msaa)
 	{

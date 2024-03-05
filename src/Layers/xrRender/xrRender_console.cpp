@@ -307,8 +307,15 @@ float ps_particle_update_coeff = 1.f;
 /////////////////////////////////
 
 // Screen Space Shaders Stuff
+int ps_ssfx_ssr_quality = 0; // Quality
+Fvector4 ps_ssfx_ssr = { 1.0f, 0.3f, 0.6f, 0.0f }; // Res, Blur, Temp, Noise
+Fvector4 ps_ssfx_ssr_2 = { 0.0f, 1.3f, 1.0f, 0.015f }; // Quality, Fade, Int, Wpn Int
+
+Fvector4 ps_ssfx_terrain_quality = { 6, 0, 0, 0 };
+Fvector4 ps_ssfx_terrain_offset = { 0, 0, 0, 0 };
+
 Fvector3 ps_ssfx_shadows = { 256, 1536, 0.0f };
-Fvector3 ps_ssfx_volumetric = { 0, 0.02f, 1.5f };
+Fvector4 ps_ssfx_volumetric = { 0, 1.0f, 3.0f, 8.0f };
 
 Fvector3 ps_ssfx_shadow_bias = { 0.4f, 0.03f, 0.0f };
 
@@ -1159,8 +1166,15 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
 	
 	// Screen Space Shaders
+	CMD4(CCC_Integer, "ssfx_ssr_quality", &ps_ssfx_ssr_quality, 0, 5);
+	CMD4(CCC_Vector4, "ssfx_ssr", &ps_ssfx_ssr, Fvector4().set(1, 0, 0, 0), Fvector4().set(2, 1, 1, 1));
+	CMD4(CCC_Vector4, "ssfx_ssr_2", &ps_ssfx_ssr_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(2, 2, 2, 2));
+	
+	CMD4(CCC_Vector4, "ssfx_terrain_quality", &ps_ssfx_terrain_quality, Fvector4().set(0, 0, 0, 0), Fvector4().set(12, 0, 0, 0));
+	CMD4(CCC_Vector4, "ssfx_terrain_offset", &ps_ssfx_terrain_offset, Fvector4().set(-1, -1, -1, -1), Fvector4().set(1, 1, 1, 1));
+
 	CMD4(CCC_Vector3, "ssfx_shadows", &ps_ssfx_shadows, Fvector3().set(128, 1536, 0), Fvector3().set(1536, 4096, 0));
-	CMD4(CCC_Vector3, "ssfx_volumetric", &ps_ssfx_volumetric, Fvector3().set(0, 0, 1.0), Fvector3().set(1.0, 1.0, 5.0));
+	CMD4(CCC_Vector4, "ssfx_volumetric", &ps_ssfx_volumetric, Fvector4().set(0, 0, 1.0, 1.0), Fvector4().set(1.0, 5.0, 5.0, 16.0));
 
 	CMD4(CCC_Vector3, "ssfx_shadow_bias", &ps_ssfx_shadow_bias, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
 

@@ -83,6 +83,21 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
 
+void __fastcall sorted_L1_nops(mapSorted_Node * N)
+{
+	VERIFY(N);
+	dxRender_Visual * V = N->val.pVisual;
+	VERIFY(V && V->shader._get());
+	RCache.set_Element(N->val.se);
+	
+#ifdef USE_DX11
+	RCache.set_PS(RImplementation.Target->s_ssfx_dumb->E[0]->passes[0]->ps);
+#endif
+	
+	RCache.set_xform_world(N->val.Matrix);
+	V->Render(0);
+}
+
 IC bool cmp_vs_nrm(mapNormalVS::TNode* N1, mapNormalVS::TNode* N2)
 {
 	return (N1->val.ssa > N2->val.ssa);
@@ -499,7 +514,7 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 
 //////////////////////////////////////////////////////////////////////////
 // HUD render
-void R_dsgraph_structure::r_dsgraph_render_hud()
+void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 {
 	//PIX_EVENT(r_dsgraph_render_hud);
 
@@ -518,8 +533,16 @@ void R_dsgraph_structure::r_dsgraph_render_hud()
 
 	// Rendering
 	rmNear();
-	mapHUD.traverseLR(sorted_L1);
-	mapHUD.clear();
+	if (!NoPS)
+	{
+		mapHUD.traverseLR(sorted_L1);
+		mapHUD.clear();
+	}
+	else
+	{
+		HUDMask.traverseLR(sorted_L1_nops);
+		HUDMask.clear();
+	}
 
 	rmNormal();
 
@@ -617,6 +640,12 @@ void R_dsgraph_structure::r_dsgraph_render_emissive()
 	Device.mFullTransform = FTold;
 	RCache.set_xform_project(Device.mProject);
 #endif
+}
+
+void R_dsgraph_structure::r_dsgraph_render_water()
+{
+	mapWater.traverseLR(sorted_L1);
+	mapWater.clear();
 }
 
 //////////////////////////////////////////////////////////////////////////
