@@ -9,7 +9,7 @@
 #	include "light_GI.h"
 #endif //(RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
 
-extern Fvector3 ps_ssfx_volumetric;
+extern Fvector4 ps_ssfx_volumetric;
 
 class light : public IRender_Light, public ISpatial
 {

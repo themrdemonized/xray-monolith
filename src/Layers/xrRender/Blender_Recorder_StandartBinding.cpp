@@ -660,6 +660,10 @@ static class cl_near_far_plane : public R_constant_setup
 } binder_near_far_plane;
 
 // Screen Space Shaders Stuff
+extern Fvector4 ps_ssfx_volumetric;
+extern Fvector4 ps_ssfx_ssr_2;
+extern Fvector4 ps_ssfx_terrain_offset;
+
 extern Fvector3 ps_ssfx_shadow_bias;
 extern Fvector4 ps_ssfx_lut;
 extern Fvector4 ps_ssfx_wind_grass;
@@ -893,6 +897,30 @@ static class ssfx_shadow_bias : public R_constant_setup
 	}
 }    ssfx_shadow_bias;
 
+static class ssfx_terrain_offset : public R_constant_setup
+{
+	virtual void setup(R_constant * C)
+	{
+		RCache.set_c(C, ps_ssfx_terrain_offset);
+	}
+}    ssfx_terrain_offset;
+
+static class ssfx_ssr_2 : public R_constant_setup
+{
+	virtual void setup(R_constant * C)
+	{
+		RCache.set_c(C, ps_ssfx_ssr_2);
+	}
+}    ssfx_ssr_2;
+
+static class ssfx_volumetric : public R_constant_setup
+{
+	virtual void setup(R_constant * C)
+	{
+		RCache.set_c(C, ps_ssfx_volumetric);
+	}
+}    ssfx_volumetric;
+
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
 {
@@ -981,6 +1009,9 @@ void CBlender_Compile::SetMapping()
 	r_Constant("pda_params", &binder_pda_params);
 
 	// Screen Space Shaders
+	r_Constant("ssfx_volumetric", &ssfx_volumetric);
+	r_Constant("ssfx_ssr_2", &ssfx_ssr_2);
+	r_Constant("ssfx_terrain_offset", &ssfx_terrain_offset);
 	r_Constant("ssfx_shadow_bias", &ssfx_shadow_bias);
 	r_Constant("ssfx_wind_anim", &ssfx_wind_anim);
 	r_Constant("sky_color", &binder_sky_color);

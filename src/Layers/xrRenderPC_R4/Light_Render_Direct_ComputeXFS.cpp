@@ -90,7 +90,9 @@ void CLight_Compute_XFORM_and_VIS::compute_xf_spot(light* L)
 	
 	/* Ray Twitty */
 	float tan_shift;
-	if (L->flags.type == IRender_Light::POINT)
+	if (L->flags.type == IRender_Light::OMNIPART) // [ SSS ] 0.3f fix almost all frustum problems... 0.5f was the old value ( SSS 19 ) but was causing issues?
+		tan_shift = 0.3f;
+	else if (L->flags.type == IRender_Light::POINT)
 		tan_shift = 0.2007129f; // deg2rad(11.5f);
 	else
 		tan_shift = 0.0610865f; //deg2rad(3.5f);

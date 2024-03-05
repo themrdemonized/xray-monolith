@@ -287,6 +287,23 @@ void CRenderTarget::phase_combine()
     else
         HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
+	if (RImplementation.o.ssfx_ssr)
+	{
+		phase_ssfx_ssr(); // [SSFX] - New SSR Phase
+	}
+	
+	// Water rendering & Rain/thunder-bolts
+	{
+		if (!RImplementation.o.dx10_msaa)
+			u_setrt(rt_Generic_0, 0, 0, HW.pBaseZB);
+		else
+			u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
+		
+		RCache.set_xform_world(Fidentity);
+		RImplementation.r_dsgraph_render_water();
+		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
+	}
+
 	// Forward rendering
 	{
 		PIX_EVENT(Forward_rendering);
@@ -708,19 +725,15 @@ void CRenderTarget::phase_combine_volumetric()
 	RCache.set_ColorWriteEnable(D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE);
 	{
 		// Fill VB
-		float scale_X = float(Device.dwWidth) / float(TEX_jitter);
-		float scale_Y = float(Device.dwHeight) / float(TEX_jitter);
+		//float scale_X = float(Device.dwWidth) / float(TEX_jitter);
+		//float scale_Y = float(Device.dwHeight) / float(TEX_jitter);
 
 		// Fill vertex buffer
 		FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(4, g_combine->vb_stride, Offset);
-		pv->set(-1, 1, 0, 1, 0, 0, scale_Y);
-		pv++;
-		pv->set(-1, -1, 0, 0, 0, 0, 0);
-		pv++;
-		pv->set(1, 1, 1, 1, 0, scale_X, scale_Y);
-		pv++;
-		pv->set(1, -1, 1, 0, 0, scale_X, 0);
-		pv++;
+		pv->set(-1, 1, 0, 1, 0, 0, 1); pv++;
+		pv->set(-1, -1, 0, 0, 0, 0, 0); pv++;
+		pv->set(1, 1, 1, 1, 0, 1, 1); pv++;
+		pv->set(1, -1, 1, 0, 0, 1, 0); pv++;
 		RCache.Vertex.Unlock(4, g_combine->vb_stride);
 
 		// Draw

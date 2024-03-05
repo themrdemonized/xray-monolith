@@ -61,6 +61,9 @@ public:
 		u32 ssfx_blood : 1;
 		u32 ssfx_rain : 1;
 		u32 ssfx_hud_raindrops : 1;
+		u32 ssfx_ssr : 1;
+		u32 ssfx_terrain : 1;
+		u32 ssfx_volumetric : 1;
 
 		u32 bug : 1;
 

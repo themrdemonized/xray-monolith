@@ -104,6 +104,10 @@ ShaderElement::ShaderElement()
 	flags.bDistort = FALSE;
 	flags.bWmark = FALSE;
 	flags.bLandscape = FALSE;
+	
+	// SSS Custom rendering
+	flags.isLandscape = FALSE;
+	flags.isWater = FALSE;
 }
 
 BOOL ShaderElement::equal(ShaderElement& S)

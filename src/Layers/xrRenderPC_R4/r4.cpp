@@ -81,7 +81,19 @@ ShaderElement* CRender::rimp_select_sh_static(dxRender_Visual* pVisual, float cd
 	int id = SE_R2_SHADOW;
 	if (CRender::PHASE_NORMAL == RImplementation.phase)
 	{
-		id = ((_sqrt(cdist_sq) - pVisual->vis.sphere.R) < r_dtex_range) ? SE_R2_NORMAL_HQ : SE_R2_NORMAL_LQ;
+		if (pVisual->shader->E[0]->flags.isLandscape)
+		{
+			float sec_dist = _sqrt(cdist_sq) - pVisual->vis.sphere.R;
+			id = (sec_dist < ps_ssfx_terrain_quality.x * 10) ? SE_R2_NORMAL_HQ : SE_R2_NORMAL_LQ;
+			
+			// Very low shader variation
+			if (sec_dist > 240)
+				id = 3;
+		}
+		else
+		{
+			id = ((_sqrt(cdist_sq) - pVisual->vis.sphere.R) < r_dtex_range) ? SE_R2_NORMAL_HQ : SE_R2_NORMAL_LQ;
+		}
 	}
 	return pVisual->shader->E[id]._get();
 }
@@ -462,11 +474,17 @@ void CRender::create()
 	o.ssfx_blood = FS.exist(fn, "$game_shaders$", "r3\\effects_wallmark_blood", ".ps") ? 1 : 0;
 	o.ssfx_branches = FS.exist(fn, "$game_shaders$", "r3\\deffer_tree_branch_bump-hq", ".vs") ? 1 : 0;
 	o.ssfx_hud_raindrops = FS.exist(fn, "$game_shaders$", "r3\\deffer_base_hud_bump", ".ps") ? 1 : 0;
+	o.ssfx_ssr = FS.exist(fn, "$game_shaders$", "r3\\ssfx_ssr", ".ps") ? 1 : 0;
+	o.ssfx_terrain = FS.exist(fn, "$game_shaders$", "r3\\deffer_terrain_high_flat_d", ".ps") ? 1 : 0;
+	o.ssfx_volumetric = FS.exist(fn, "$game_shaders$", "r3\\ssfx_volumetric_blur", ".ps") ? 1 : 0;
 
 	Msg("- SSS HUD RAINDROPS SHADER INSTALLED %i", o.ssfx_hud_raindrops);
 	Msg("- SSS RAIN SHADER INSTALLED %i", o.ssfx_rain);
 	Msg("- SSS BLOOD SHADER INSTALLED %i", o.ssfx_blood);
 	Msg("- SSS BRANCHES SHADER INSTALLED %i", o.ssfx_branches);
+	Msg("- SSS SSR SHADER INSTALLED %i", o.ssfx_ssr);
+	Msg("- SSS TERRAIN SHADER INSTALLED %i", o.ssfx_terrain);
+	Msg("- SSS VOLUMETRIC SHADER INSTALLED %i", o.ssfx_volumetric);
 
 	// constants
 	CResourceManager* RM = dxRenderDeviceRender::Instance().Resources;
@@ -1251,6 +1269,7 @@ HRESULT CRender::shader_compile(
 	char c_smaa_quality [32];
 	
 	// SSS preprocessor stuff
+	char c_ssr_quality[32];
 	char c_rain_quality[32];
 	char c_inter_grass[32];
 
@@ -1740,6 +1759,13 @@ HRESULT CRender::shader_compile(
 		sh_name[len] = '0';
 		++len;
 	}
+
+	xr_sprintf(c_ssr_quality, "%d", u8(min(max(ps_ssfx_ssr_quality, 0), 5)));
+	defines[def_it].Name = "SSFX_SSR_QUALITY";
+	defines[def_it].Definition = c_ssr_quality;
+	def_it++;
+	xr_strcat(sh_name, c_ssr_quality);
+	len += xr_strlen(c_ssr_quality);
 
 	defines[def_it].Name = "SSFX_MODEXE";
 	defines[def_it].Definition = "1";
