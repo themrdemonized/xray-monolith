@@ -11,6 +11,7 @@
 #include "random32.h"
 #include "ai_sounds.h"
 #include "associative_vector.h"
+#include "script_export_space.h"
 
 class CSoundPlayer : public CRandom32
 {
@@ -63,6 +64,7 @@ public:
 		~CSoundCollection();
 		IC ref_sound* add(ESoundTypes type, LPCSTR name) const;
 		const ref_sound& random(const u32& id);
+		const u32 random_num(const u32& id);
 	};
 
 	struct CSoundSingle : public CSoundParams
