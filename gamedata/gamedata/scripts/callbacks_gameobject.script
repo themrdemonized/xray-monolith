@@ -192,6 +192,22 @@ _G.CUIMessagesWindow__AddIconedPdaMessage = function(UIWindow, UITimeText, UICap
 	SendScriptCallback("on_news_received", UIWindow, UITimeText, UICaptionText, UIMsgText, UIIconStatic, tags)
 end
 
+-- actor_on_task_callback
+AddScriptCallback("actor_on_task_callback")
+task_callback = task_manager.task_callback
+task_manager.task_callback = function(tsk, state)
+	local tm = task_manager.get_task_manager()
+	local id = tsk:get_id()
+	SendScriptCallback("actor_on_task_callback", tsk, state, tm, id)
+	task_callback(tsk, state)
+end
+
+-- on_phrase_callback
+AddScriptCallback("on_phrase_callback")
+_G.CAI_Stalker_OnPhraseCallback = function(sound_name, obj)
+	SendScriptCallback("on_phrase_callback", sound_name, obj)
+end
+
 -- Improve NPCs pathfinding by reducing actual anomaly damage radius
 -- Works only when npc:get_enable_anomalies_pathfinding() == true or ai_die_in_anomalies cvar is 1
 function is_outside_damage_radius(zone, obj)
