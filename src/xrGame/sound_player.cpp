@@ -9,6 +9,9 @@
 #include "stdafx.h"
 #include "sound_player.h"
 #include "script_engine.h"
+#include "Script_Game_Object.h"
+//#include "GameObject.h"
+#include "script_callback_ex.h"
 #include "ai/stalker/ai_stalker_space.h"
 #include "ai_space.h"
 #include "../xrEngine/xr_object.h"
@@ -17,6 +20,7 @@
 #include "profiler.h"
 #include "sound_collection_storage.h"
 #include "object_broker.h"
+using namespace luabind;
 
 CSoundPlayer::CSoundPlayer(CObject* object)
 {
@@ -182,7 +186,6 @@ void CSoundPlayer::play(u32 internal_type, u32 max_start_time, u32 min_start_tim
 #endif
 		return;
 	}
-
 	remove_inappropriate_sounds(sound.m_synchro_mask);
 
 	CSoundSingle sound_single;
@@ -206,8 +209,9 @@ void CSoundPlayer::play(u32 internal_type, u32 max_start_time, u32 min_start_tim
 		sg_SourceType
 	);
 	/**/
+	u32 random_id = (*I).second.second->random_num(id);
 	sound_single.m_sound->clone(
-		(*I).second.second->random(id),
+		(*I).second.second->random(random_id),
 		st_Effect,
 		sg_SourceType
 	);
@@ -236,7 +240,16 @@ void CSoundPlayer::play(u32 internal_type, u32 max_start_time, u32 min_start_tim
 	sound_single.m_stop_time = sound_single.m_start_time + iFloor(sound_single.m_sound->get_length_sec() * 1000.0f) +
 		random_time;
 	m_playing_sounds.push_back(sound_single);
-
+	string256 name;
+	xr_sprintf(name, "%s%s%i", *sound.m_sound_player_prefix, *sound.m_sound_prefix, (random_id + 1));
+	Msg("Sound name \"%s\"", name);
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CAI_Stalker_OnPhraseCallback", funct))
+	{
+		CGameObject* g_obj = smart_cast<CGameObject*>(m_object);
+		if (!g_obj) return;
+			funct(name, g_obj->lua_game_object());
+	};
 	if (Device.dwTimeGlobal >= m_playing_sounds.back().m_start_time)
 		m_playing_sounds.back().play_at_pos(m_object, compute_sound_point(m_playing_sounds.back()));
 }
@@ -301,7 +314,6 @@ CSoundPlayer::CSoundCollection::~CSoundCollection()
 const ref_sound& CSoundPlayer::CSoundCollection::random(const u32& id)
 {
 	VERIFY(!m_sounds.empty());
-
 	if (id != u32(-1))
 	{
 		m_last_sound_id = id;
@@ -324,4 +336,31 @@ const ref_sound& CSoundPlayer::CSoundCollection::random(const u32& id)
 
 	m_last_sound_id = result;
 	return (*m_sounds[result]);
+}
+
+const u32 CSoundPlayer::CSoundCollection::random_num(const u32& id)
+{
+	VERIFY(!m_sounds.empty());
+	if (id != u32(-1))
+	{
+		m_last_sound_id = id;
+		VERIFY(id < m_sounds.size());
+		return (id);
+	}
+
+	if (m_sounds.size() <= 2)
+	{
+		m_last_sound_id = CRandom32::random(m_sounds.size());
+		return (m_last_sound_id);
+	}
+
+	u32 result;
+	do
+	{
+		result = CRandom32::random(m_sounds.size());
+	}
+	while (result == m_last_sound_id);
+
+	m_last_sound_id = result;
+	return (result);
 }
