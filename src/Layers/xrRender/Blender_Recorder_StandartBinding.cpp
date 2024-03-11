@@ -357,8 +357,8 @@ class cl_fakescope_params3 : public R_constant_setup
 static cl_fakescope_params3 binder_fakescope_params3;
 
 // Mark Switch
-extern float ps_markswitch_current;
-extern float ps_markswitch_count;
+extern int ps_markswitch_current;
+extern int ps_markswitch_count;
 extern Fvector4 ps_markswitch_color;
 
 static class markswitch_current : public R_constant_setup
