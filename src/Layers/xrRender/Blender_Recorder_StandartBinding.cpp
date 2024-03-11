@@ -356,6 +356,35 @@ class cl_fakescope_params3 : public R_constant_setup
 };
 static cl_fakescope_params3 binder_fakescope_params3;
 
+// Mark Switch
+extern int ps_markswitch_current;
+extern int ps_markswitch_count;
+extern Fvector4 ps_markswitch_color;
+
+static class markswitch_current : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_markswitch_current, 0, 0, 0);
+	}
+}    markswitch_current;
+
+static class markswitch_count : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_markswitch_count, 0, 0, 0);
+	}
+}    markswitch_count;
+
+static class markswitch_color : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_markswitch_color.x, ps_markswitch_color.y, ps_markswitch_color.z, ps_markswitch_color.w);
+	}
+}    markswitch_color;
+
 //--DSR-- HeatVision_start
 extern float heat_vision_mode;
 extern Fvector4 heat_vision_steps;
@@ -1040,6 +1069,11 @@ void CBlender_Compile::SetMapping()
 	r_Constant("shader_param_6", &dev_param_6);
 	r_Constant("shader_param_7", &dev_param_7);
 	r_Constant("shader_param_8", &dev_param_8);
+	
+	// Mark Switch
+	r_Constant("markswitch_current", &markswitch_current);
+	r_Constant("markswitch_count", &markswitch_count);
+	r_Constant("markswitch_color", &markswitch_color);
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);

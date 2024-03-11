@@ -306,6 +306,11 @@ float ps_particle_update_coeff = 1.f;
 
 /////////////////////////////////
 
+// Mark Switch
+int ps_markswitch_current = 0;
+int ps_markswitch_count = 0;
+Fvector4 ps_markswitch_color = { 0, 0, 0, 0 };
+
 // Screen Space Shaders Stuff
 int ps_ssfx_ssr_quality = 0; // Quality
 Fvector4 ps_ssfx_ssr = { 1.0f, 0.3f, 0.6f, 0.0f }; // Res, Blur, Temp, Noise
@@ -1164,6 +1169,11 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+	
+	// Mark Switch
+	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
+	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
+	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 	
 	// Screen Space Shaders
 	CMD4(CCC_Integer, "ssfx_ssr_quality", &ps_ssfx_ssr_quality, 0, 5);
