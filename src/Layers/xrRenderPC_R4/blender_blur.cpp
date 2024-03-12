@@ -97,12 +97,9 @@ void CBlender_ssfx_ssr::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_diffuse", r2_RT_albedo);
 
 		C.r_dx10Texture("ssr_image", r2_RT_ssfx); // Prev Frame
-
-		C.r_dx10Texture("s_rimage", r2_RT_generic0);
-
+		C.r_dx10Texture("s_rimage", "$user$generic_temp");
 		
 		C.r_dx10Texture("blue_noise", "fx\\blue_noise");
-		
 
 		C.r_dx10Texture("env_s0", r2_T_envs0);
 		C.r_dx10Texture("env_s1", r2_T_envs1);
@@ -137,7 +134,7 @@ void CBlender_ssfx_ssr::Compile(CBlender_Compile& C)
 	case 3:	// Combine
 		C.r_Pass("stub_screen_space", "ssfx_ssr_combine", FALSE, FALSE, FALSE);
 
-		C.r_dx10Texture("s_rimage", r2_RT_generic0);
+		C.r_dx10Texture("s_rimage", "$user$generic_temp");
 		C.r_dx10Texture("ssr_image", r2_RT_ssfx_temp2);
 
 		C.r_dx10Sampler("smp_linear");
