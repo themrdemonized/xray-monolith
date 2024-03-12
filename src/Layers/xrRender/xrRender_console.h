@@ -3,6 +3,25 @@
 #pragma once
 
 // Common
+extern ECORE_API int ps_ssfx_ssr_quality;
+extern ECORE_API Fvector4 ps_ssfx_ssr;
+extern ECORE_API Fvector4 ps_ssfx_ssr_2;
+extern ECORE_API Fvector4 ps_ssfx_terrain_quality;
+extern ECORE_API Fvector3 ps_ssfx_shadows;
+extern ECORE_API Fvector4 ps_ssfx_volumetric;
+
+extern ECORE_API Fvector4 ps_ssfx_wind_grass;
+extern ECORE_API Fvector4 ps_ssfx_wind_trees;
+
+extern ECORE_API Fvector4 ps_ssfx_rain_1;
+extern ECORE_API Fvector4 ps_ssfx_rain_2;
+extern ECORE_API Fvector4 ps_ssfx_rain_3;
+extern ECORE_API Fvector4 ps_ssfx_grass_shadows;
+extern ECORE_API Fvector3 ps_ssfx_shadow_cascades;
+extern ECORE_API Fvector4 ps_ssfx_grass_interactive;
+extern ECORE_API Fvector4 ps_ssfx_int_grass_params_1;
+extern ECORE_API Fvector4 ps_ssfx_int_grass_params_2;
+
 extern ECORE_API u32 ps_r_sun_shafts; //=	0;
 extern ECORE_API xr_token qsun_shafts_token[];
 

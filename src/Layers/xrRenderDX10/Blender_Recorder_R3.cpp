@@ -182,6 +182,18 @@ u32 CBlender_Compile::r_dx10Sampler(LPCSTR ResourceName)
 		i_dx10Filter(stage, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
 	}
 
+	if (0 == xr_strcmp(ResourceName, "smp_linear2"))
+	{
+		i_dx10Address(stage, D3DTADDRESS_WRAP);
+		i_dx10Filter(stage, D3DTEXF_LINEAR, D3DTEXF_LINEAR, D3DTEXF_LINEAR);
+	}
+
+	if (0 == xr_strcmp(ResourceName, "smp_point"))
+	{
+		i_dx10Address(stage, D3DTADDRESS_WRAP);
+		i_dx10Filter(stage, D3DTEXF_POINT, D3DTEXF_POINT, D3DTEXF_POINT);
+	}
+
 	return stage;
 }
 

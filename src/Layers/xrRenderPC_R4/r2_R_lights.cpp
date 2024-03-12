@@ -7,6 +7,24 @@ IC bool pred_area(light* _1, light* _2)
 	return a0 > a1; // reverse -> descending
 }
 
+bool check_grass_shadow(light* L, CFrustum VB)
+{
+	// Grass shadows are allowed?
+	if (ps_ssfx_grass_shadows.x < 3 || !psDeviceFlags2.test(rsGrassShadow))
+		return false;
+
+	// Inside the range?
+	if (L->vis.distance > ps_ssfx_grass_shadows.z)
+		return false;
+
+	// Is in view? L->vis.visible?
+	u32 mask = 0xff;
+	if (!VB.testSphere(L->position, L->range * 0.6f, mask))
+		return false;
+
+	return true;
+}
+
 void CRender::render_lights(light_Package& LP)
 {
 	//////////////////////////////////////////////////////////////////////////
@@ -117,6 +135,15 @@ void CRender::render_lights(light_Package& LP)
 				RCache.set_xform_view(L->X.S.view);
 				RCache.set_xform_project(L->X.S.project);
 				r_dsgraph_render_graph(0);
+				if (Details)
+				{
+					if (check_grass_shadow(L, ViewBase))
+					{
+						Details->fade_distance = -1; // Use light position to calc "fade"
+						Details->light_position.set(L->position);
+						Details->Render();
+					}
+				}
 				L->X.S.transluent = FALSE;
 				if (bSpecial)
 				{
@@ -187,8 +214,24 @@ void CRender::render_lights(light_Package& LP)
 
 			PIX_EVENT(ACCUM_VOLUMETRIC);
 			if (RImplementation.o.advancedpp && ps_r2_ls_flags.is(R2FLAG_VOLUMETRIC_LIGHTS))
+			{
+				// Current Resolution
+				float w = float(Device.dwWidth);
+				float h = float(Device.dwHeight);
+
+				// Adjust resolution
+				if (RImplementation.o.ssfx_volumetric && ps_ssfx_volumetric.w > 1)
+					Target->set_viewport_size(HW.pContext, w / ps_ssfx_volumetric.w, h / ps_ssfx_volumetric.w);
+
 				for (u32 it = 0; it < L_spot_s.size(); it++)
+				{
 					Target->accum_volumetric(L_spot_s[it]);
+				}
+				
+				// Restore resolution
+				if (RImplementation.o.ssfx_volumetric && ps_ssfx_volumetric.w > 1)
+					Target->set_viewport_size(HW.pContext, w, h);
+			}
 
 			L_spot_s.clear();
 		}
