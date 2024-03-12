@@ -216,24 +216,8 @@ void CRenderTarget::phase_ssfx_ssr()
 	RCache.set_Geometry(g_combine);
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
 
-
-	// COPY SSR RESULT //////////////////////////////////////////////
-	u_setrt(rt_ssfx, 0, 0, HW.pBaseZB);
-	RCache.set_CullMode(CULL_NONE);
-	RCache.set_Stencil(FALSE);
-
-	// Fill vertex buffer
-	pv = (FVF::TL*)RCache.Vertex.Lock(4, g_combine->vb_stride, Offset);
-	pv->set(0, h, d_Z, d_W, C, p0.x, p1.y); pv++;
-	pv->set(0, 0, d_Z, d_W, C, p0.x, p0.y); pv++;
-	pv->set(w, h, d_Z, d_W, C, p1.x, p1.y); pv++;
-	pv->set(w, 0, d_Z, d_W, C, p1.x, p0.y); pv++;
-	RCache.Vertex.Unlock(4, g_combine->vb_stride);
-
-	// Draw COLOR
-	RCache.set_Element(s_ssfx_ssr->E[5]);
-	RCache.set_Geometry(g_combine);
-	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
+	// COPY SSR RESULT ( ACC ) ////////////////////////////////////////////
+	HW.pContext->CopyResource(rt_ssfx->pTexture->surface_get(), rt_ssfx_temp2->pTexture->surface_get());
 
 	// Disable/Enable Blur if the value is <= 0
 	if (ps_ssfx_ssr.y > 0)
@@ -308,8 +292,11 @@ void CRenderTarget::phase_ssfx_ssr()
 
 	p1.set(1.0f, 1.0f);
 
-	ref_rt& dest_rt = RImplementation.o.dx10_msaa ? rt_Generic : rt_Color;
-	u_setrt(dest_rt, nullptr, nullptr, nullptr);
+	if (!RImplementation.o.dx10_msaa)
+		u_setrt(rt_Generic_0, nullptr, nullptr, nullptr);
+	else
+		u_setrt(rt_Generic_0_r, nullptr, nullptr, nullptr);
+
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 
@@ -326,9 +313,6 @@ void CRenderTarget::phase_ssfx_ssr()
 	RCache.set_c("ssr_setup", ps_ssfx_ssr);
 	RCache.set_Geometry(g_combine);
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
-
-	// Copy to rt_Generic_0
-	HW.pContext->CopyResource(rt_Generic_0->pTexture->surface_get(), dest_rt->pTexture->surface_get());
 };
 
 void CRenderTarget::phase_ssfx_volumetric_blur()
