@@ -82,13 +82,13 @@ void CRenderTarget::phase_combine()
 	{
 		HW.pContext->ClearRenderTargetView(rt_Generic_0->pRT, ColorRGBA);
 		HW.pContext->ClearRenderTargetView(rt_Generic_1->pRT, ColorRGBA);
-		u_setrt(rt_Generic_0, rt_Generic_1, 0, HW.pBaseZB);
+		u_setrt(rt_Generic_0, rt_Generic_1, rt_Heat, HW.pBaseZB);
 	}
 	else
 	{
 		HW.pContext->ClearRenderTargetView(rt_Generic_0_r->pRT, ColorRGBA);
 		HW.pContext->ClearRenderTargetView(rt_Generic_1_r->pRT, ColorRGBA);
-		u_setrt(rt_Generic_0_r, rt_Generic_1_r, 0, RImplementation.Target->rt_MSAADepth->pZRT);
+		u_setrt(rt_Generic_0_r, rt_Generic_1_r, rt_Heat, RImplementation.Target->rt_MSAADepth->pZRT);
 	}
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
@@ -416,11 +416,6 @@ void CRenderTarget::phase_combine()
 	
 	if(ps_r2_nightvision > 0)
 		phase_nightvision();
-	
-	//--DSR-- HeatVision_start
-	if (ps_r2_heatvision > 0)
-		phase_heatvision();
-	//--DSR-- HeatVision_end
 
 	if (scope_fake_enabled)
 	{
@@ -570,6 +565,11 @@ void CRenderTarget::phase_combine()
 	/* if (!RImplementation.o.fp16_blend)*/
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES))
 		g_pGamePersistent->Environment().RenderFlares(); // lens-flares
+
+	//--DSR-- HeatVision_start
+	if (ps_r2_heatvision > 0)
+		phase_heatvision();
+	//--DSR-- HeatVision_end
 
 	//	PP-if required
 	if (PP_Complex)
