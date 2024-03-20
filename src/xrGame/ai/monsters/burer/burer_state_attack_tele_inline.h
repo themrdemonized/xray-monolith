@@ -204,11 +204,16 @@ void CStateBurerAttackTele<Object>::FindFreeObjects(xr_vector<CObject*>& tpObjec
 		CGrenade* grenade = smart_cast<CGrenade *>(tpObjects[i]);
 		CInventoryItem* itm = smart_cast<CInventoryItem*>(tpObjects[i]);
 
+		if (obj && obj->PPhysicsShell() && obj->PPhysicsShell()->isActive() && obj != object) {
+			Msg("%s has mass %f", obj->Name(), obj->m_pPhysicsShell->getMass());
+			// custom_monster->m_pPhysicsShell->setMass();
+		}
+
 		if (grenade || // grenades are handled by HandleGrenades function
 			!obj ||
 			!obj->PPhysicsShell() ||
 			!obj->PPhysicsShell()->isActive() ||
-			custom_monster ||
+			custom_monster && custom_monster->g_Alive() ||
 			(obj->spawn_ini() && obj->spawn_ini()->section_exist("ph_heavy")) ||
 			(obj->m_pPhysicsShell->getMass() < object->m_tele_object_min_mass) ||
 			(obj->m_pPhysicsShell->getMass() > object->m_tele_object_max_mass) ||
