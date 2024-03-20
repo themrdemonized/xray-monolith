@@ -192,6 +192,14 @@ _G.CUIMessagesWindow__AddIconedPdaMessage = function(UIWindow, UITimeText, UICap
 	SendScriptCallback("on_news_received", UIWindow, UITimeText, UICaptionText, UIMsgText, UIIconStatic, tags)
 end
 
+-- NPC on item before pickup callback
+AddScriptCallback("npc_on_item_before_pickup")
+_G.CAI_Stalker__OnBeforeOwnershipTake = function(npc, item)
+	local flags = { ret_value = true }
+	SendScriptCallback("npc_on_item_before_pickup", npc, item, flags)
+	return flags.ret_value
+end
+
 -- actor_on_task_callback
 AddScriptCallback("actor_on_task_callback")
 task_callback = task_manager.task_callback
