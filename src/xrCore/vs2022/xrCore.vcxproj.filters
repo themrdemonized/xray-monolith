@@ -148,7 +148,6 @@
     <ClCompile Include="..\_math.cpp" />
     <ClCompile Include="..\_sphere.cpp" />
     <ClCompile Include="..\_std_extensions.cpp" />
-    <ClCompile Include="..\mezz_stringbuffer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\build_config_defines.h" />
@@ -256,7 +255,6 @@
     <ClInclude Include="..\_vector3d.h" />
     <ClInclude Include="..\_vector3d_ext.h" />
     <ClInclude Include="..\_vector4.h" />
-    <ClInclude Include="..\mezz_stringbuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\xrCore.rc" />
