@@ -169,7 +169,7 @@ void CAI_Stalker::feel_touch_new(CObject* O)
 		// Callback for when NPC tries to pickup an item
 		luabind::functor<bool> func;
 		if (ai().script_engine().functor("_G.CAI_Stalker__OnBeforeOwnershipTake", func)) {
-			if (!func(this->lua_game_object(), I->cast_game_object()->lua_game_object())) {
+			if (!func(lua_game_object(), I->cast_game_object()->lua_game_object())) {
 				return;
 			}
 		}
