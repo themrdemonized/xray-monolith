@@ -17,6 +17,7 @@
 #include "ai_space.h"
 #include "alife_simulator.h"
 #include "alife_time_manager.h"
+#include "../Layers/xrRender/xrRender_console.h"
 
 #define BODY_REMOVE_TIME		600000
 
@@ -410,8 +411,8 @@ u32 clampU(u32 x, u32 a, u32 b) {
 }
 
 float CEntity::GetHotness() {
-	if (AlreadyDie() || !g_Alive())
-		return 1.0f - (float)clampU(Device.dwTimeGlobal - m_level_death_time, 0, 20000) / 20000.0f;
+	if (heat_vision_cooldown && (AlreadyDie() || !g_Alive())) 
+		return 1.0f - (float)clampU(Device.dwTimeGlobal - m_level_death_time, 0, heat_vision_cooldown_time) / heat_vision_cooldown_time;
 	return 1.0f;
 }
 
