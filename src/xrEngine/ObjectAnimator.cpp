@@ -138,7 +138,8 @@ void CObjectAnimator::Stop()
 
 float CObjectAnimator::GetLength()
 {
-	if (!m_Current) return 0.0f;
+	if (!m_Current) 
+		return 0.0f;
 	float res = m_Current->Length() / m_Current->FPS();
 	return res;
 }
@@ -166,7 +167,7 @@ void CObjectAnimator::DrawPath()
         {
             m_Current->_Evaluate(t, T, r);
             path_points.push_back(T);
-    }
+		}
 
         EDevice.SetShader(EDevice.m_WireShader);
         RCache.set_xform_world(Fidentity);
@@ -182,6 +183,6 @@ void CObjectAnimator::DrawPath()
                 DU_impl.OutText(T, AnsiString().sprintf("K: %3.3f", (*k_it)->time).c_str(), 0xffffffff, 0x00000000);
             }
         }
-}
+	}
 }
 #endif

@@ -37,24 +37,15 @@ CUIDragDropListEx::CUIDragDropListEx()
 	m_vScrollBar->SetWindowName("scroll_v");
 	Register(m_vScrollBar);
 	AddCallbackStr("scroll_v", SCROLLBAR_VSCROLL, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnScrollV));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_DRAG,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemStartDragging));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_DROP,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemDrop));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_SELECTED,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemSelected));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_LBUTTON_CLICK,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemLButtonClick));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_RBUTTON_CLICK,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemRButtonClick));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_DB_CLICK,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemDBClick));
-	AddCallbackStr("cell_item", DRAG_DROP_ITEM_FOCUSED_UPDATE,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemFocusedUpdate));
-	AddCallbackStr("cell_item", WINDOW_FOCUS_RECEIVED,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemFocusReceived));
-	AddCallbackStr("cell_item", WINDOW_FOCUS_LOST,
-	               CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemFocusLost));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_DRAG, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemStartDragging));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_DROP, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemDrop));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_SELECTED, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemSelected));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_LBUTTON_CLICK, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemLButtonClick));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_RBUTTON_CLICK, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemRButtonClick));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_DB_CLICK, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemDBClick));
+	AddCallbackStr("cell_item", DRAG_DROP_ITEM_FOCUSED_UPDATE, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemFocusedUpdate));
+	AddCallbackStr("cell_item", WINDOW_FOCUS_RECEIVED, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemFocusReceived));
+	AddCallbackStr("cell_item", WINDOW_FOCUS_LOST, CUIWndCallback::void_function(this, &CUIDragDropListEx::OnItemFocusLost));
 
 	back_color = 0xFFFFFFFF;
 }
@@ -852,7 +843,7 @@ u32 CUICellContainer::GetCellsInRange(const Irect& rect, UI_CELLS_VEC& res)
 		for (int y = rect.y1; y <= rect.y2; ++y)
 			res.push_back(GetCellAt(Ivector2().set(x, y)));
 
-	std::unique(res.begin(), res.end());
+	res.erase(std::unique(res.begin(), res.end()), res.end());
 	return res.size();
 }
 

@@ -9,7 +9,6 @@ class CUIChangeMap;
 class ChangeWeatherDialog;
 class ChangeGameTypeDialog;
 class CUIXml;
-class CUITextVote;
 
 class CUIVotingCategory : public CUIDialogWnd
 {

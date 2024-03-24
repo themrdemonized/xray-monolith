@@ -10,7 +10,6 @@
 
 // refs
 class CUI;
-class CTeamBaseZone;
 class game_cl_GameState;
 class CUIDialogWnd;
 class CUICaption;

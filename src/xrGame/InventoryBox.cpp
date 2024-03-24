@@ -100,7 +100,7 @@ BOOL CInventoryBox::net_Spawn(CSE_Abstract* DC)
 	set_tip_text("inventory_box_use");
 
 	CSE_ALifeInventoryBox* pSE_box = smart_cast<CSE_ALifeInventoryBox*>(DC);
-	if (/*IsGameTypeSingle() &&*/ pSE_box)
+	if (pSE_box)
 	{
 		m_can_take = pSE_box->m_can_take;
 		m_closed = pSE_box->m_closed;

@@ -35,20 +35,6 @@ void game_sv_Single::Create(shared_str& options)
 	switch_Phase(GAME_PHASE_INPROGRESS);
 }
 
-/**
-CSE_Abstract*		game_sv_Single::get_entity_from_eid		(u16 id)
-{
-	if (!ai().get_alife())
-		return			(inherited::get_entity_from_eid(id));
-
-	CSE_Abstract		*object = ai().alife().objects().object(id,true);
-	if (!object)
-		return			(inherited::get_entity_from_eid(id));
-
-	return				(object);
-}
-/**/
-
 void game_sv_Single::OnCreate(u16 id_who)
 {
 	if (!ai().get_alife())

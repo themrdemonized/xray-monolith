@@ -39,12 +39,6 @@ public:
 	}
 };
 
-/*
-#if sizeof(Flight)!=sizeof(D3DLIGHT9)
-#error Different structure size
-#endif
-*/
-
 #endif
 
 #ifndef NO_XR_MATERIAL
@@ -87,12 +81,6 @@ public:
 		power = 0;
 	}
 };
-
-/*
-#if sizeof(Fmaterial)!=sizeof(D3DMATERIAL9)
-#error Different structure size
-#endif
-*/
 
 #endif
 

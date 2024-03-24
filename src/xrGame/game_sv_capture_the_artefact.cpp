@@ -1974,10 +1974,7 @@ void game_sv_CaptureTheArtefact::FillDeathActorRejectItems(CSE_ActorMP* actor, x
 		{
 			return;
 		}
-		//R_ASSERT		(server_item);
-#ifdef MP_LOGGING
-		Msg("--- SV: to_reject [%d]", server_item->ID);
-#endif
+
 		to_reject.push_back(server_item);
 	}
 }
@@ -2398,9 +2395,6 @@ void game_sv_CaptureTheArtefact::CheckForArtefactDelivering()
 		VERIFY2(xrCData, "client data for actor sv object not found");
 		if (!xrCData)
 		{
-#ifdef MP_LOGGING
-			Msg("! WARNING: bad actor [%d] tries to deliver artefact", tempActor->ID);
-#endif //#ifdef MP_LOGGING
 			continue;
 		}
 		if (!xrCData->net_Ready)

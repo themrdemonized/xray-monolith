@@ -38,9 +38,7 @@ CCustomOutfit::~CCustomOutfit()
 
 BOOL CCustomOutfit::net_Spawn(CSE_Abstract* DC)
 {
-	if (IsGameTypeSingle())
-		ReloadBonesProtection();
-
+	ReloadBonesProtection();
 	BOOL res = inherited::net_Spawn(DC);
 	return (res);
 }
@@ -62,10 +60,7 @@ void CCustomOutfit::net_Import(NET_Packet& P)
 void CCustomOutfit::OnH_A_Chield()
 {
 	inherited::OnH_A_Chield();
-	if (!IsGameTypeSingle())
-		ReloadBonesProtection();
 }
-
 
 void CCustomOutfit::Load(LPCSTR section)
 {
@@ -123,9 +118,7 @@ void CCustomOutfit::Load(LPCSTR section)
 
 void CCustomOutfit::ReloadBonesProtection()
 {
-	CObject* parent = H_Parent();
-	if (IsGameTypeSingle())
-		parent = smart_cast<CObject*>(Level().CurrentViewEntity());
+	CObject* parent = smart_cast<CObject*>(Level().CurrentViewEntity());
 
 	if (parent && parent->Visual() && m_BonesProtectionSect.size())
 		m_boneProtection->reload(m_BonesProtectionSect, smart_cast<IKinematics*>(parent->Visual()));
@@ -364,7 +357,6 @@ bool CCustomOutfit::install_upgrade_impl(LPCSTR section, bool test)
 	clamp(m_fPowerLoss, 0.0f, 1.0f);
 
 	result |= process_if_exists(section, "artefact_count", &CInifile::r_u32, m_artefact_count, test);
-	//clamp(m_artefact_count, (u32)0, (u32)5);
 	m_artefact_count = _max(m_artefact_count, (u32)0);
 
 	return result;
@@ -372,9 +364,7 @@ bool CCustomOutfit::install_upgrade_impl(LPCSTR section, bool test)
 
 void CCustomOutfit::AddBonesProtection(LPCSTR bones_section)
 {
-	CObject* parent = H_Parent();
-	if (IsGameTypeSingle())
-		parent = smart_cast<CObject*>(Level().CurrentViewEntity());
+	CObject* parent = smart_cast<CObject*>(Level().CurrentViewEntity());
 
 	if (parent && parent->Visual() && m_BonesProtectionSect.size())
 		m_boneProtection->add(bones_section, smart_cast<IKinematics*>(parent->Visual()));

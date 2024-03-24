@@ -3,7 +3,6 @@
 #include "xrMessages.h"
 
 extern BOOL g_bCheckTime;
-extern int g_dwEventDelay;
 
 class NET_Event
 {
@@ -23,13 +22,12 @@ public:
 		case M_SPAWN:
 			{
 				P.read_start();
-				//				timestamp = P->
 			}
 			break;
 		case M_EVENT:
 			{
 				P.r_u32(timestamp);
-				timestamp += u32(g_dwEventDelay);
+				timestamp += u32(0);
 				P.r_u16(type);
 				P.r_u16(destination);
 			}

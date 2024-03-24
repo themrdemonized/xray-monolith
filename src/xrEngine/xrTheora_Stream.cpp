@@ -1,11 +1,6 @@
 #include "stdafx.h"
 #include "xrtheora_stream.h"
 
-#ifdef _EDITOR
-//# pragma comment(lib, "x:\\oggB.lib")
-//# pragma comment(lib, "x:\\theoraB.lib")
-#endif
-
 CTheoraStream::CTheoraStream()
 {
 	// clear self
@@ -95,7 +90,6 @@ BOOL CTheoraStream::ParseHeaders()
 				ogg_stream_clear(&test);
 			}
 		}
-		// fall through to non-bos page parsing
 	}
 
 	// fail if theora stream not found in source
@@ -197,22 +191,16 @@ BOOL CTheoraStream::Decode(u32 in_tm_play)
 					//. hack preroll
 					if (d_frame < k_frame)
 					{
-						//. dbg_log ((stderr,"%04d: preroll\n",d_frame));
-						//AVO: commented out VERIFY to get COC start in Debug - something is wrong with video stream
-						//VERIFY((0 != d_frame%key_rate) || (0 == d_frame%key_rate) && theora_packet_iskeyframe(&o_packet));
 						continue;
 					}
 					BOOL is_key = theora_packet_iskeyframe(&o_packet);
-					//AVO: commented out VERIFY to get COC start in Debug - something is wrong with video stream
-					//VERIFY((d_frame != k_frame) || ((d_frame == k_frame) && is_key));
-					// real decode
-					//. dbg_log ((stderr,"%04d: decode\n",d_frame));
 					int res = theora_decode_packetin(&t_state, &o_packet);
 					VERIFY(res != OC_BADPACKET);
-					//. dbg_log ((stderr,"%04d: granule frame\n",theora_granule_frame(&t_state,t_state.granulepos)));
-					if (d_frame >= t_frame) result = TRUE;
+					if (d_frame >= t_frame) 
+						result = TRUE;
 				}
-				else break;
+				else 
+					break;
 			}
 			// check eof
 			VERIFY(!(FALSE == result&&source->eof()));
@@ -230,7 +218,6 @@ BOOL CTheoraStream::Decode(u32 in_tm_play)
 		VERIFY(TRUE == result);
 		VERIFY(d_frame == t_frame);
 		theora_decode_YUVout(&t_state, &t_yuv_buffer);
-		//. dbg_log ((stderr,"%04d: yuv out\n",d_frame));
 		return TRUE;
 	}
 	return FALSE;

@@ -67,46 +67,22 @@ void CWeapon::FireTrace(const Fvector& P, const Fvector& D)
 	VERIFY(m_magazine.size());
 
 	CCartridge& l_cartridge = m_magazine.back();
-	//	Msg("ammo - %s", l_cartridge.m_ammoSect.c_str());
 	VERIFY(u16(-1) != l_cartridge.bullet_material_idx);
 	//-------------------------------------------------------------	
 	bool is_tracer = m_bHasTracers && !!l_cartridge.m_flags.test(CCartridge::cfTracer);
-	if (is_tracer && !IsGameTypeSingle())
-		is_tracer = is_tracer /*&& (m_magazine.size() % 3 == 0)*/ && !IsSilencerAttached();
 
 	l_cartridge.m_flags.set(CCartridge::cfTracer, is_tracer);
 	if (m_u8TracerColorID != u8(-1))
 		l_cartridge.param_s.u8ColorID = m_u8TracerColorID;
 	//-------------------------------------------------------------
 	//повысить изношенность оружия с учетом влияния конкретного патрона
-	//	float Deterioration = GetWeaponDeterioration();
-	//	Msg("Deterioration = %f", Deterioration);
 	ChangeCondition(-GetWeaponDeterioration() * l_cartridge.param_s.impair * cur_silencer_koef.condition_shot_dec);
-
 
 	float fire_disp = 0.f;
 	CActor* tmp_actor = NULL;
-	if (!IsGameTypeSingle())
-	{
-		tmp_actor = smart_cast<CActor*>(Level().CurrentControlEntity());
-		if (tmp_actor)
-		{
-			CEntity::SEntityState state;
-			tmp_actor->g_State(state);
-			if (m_first_bullet_controller.is_bullet_first(state.fVelocity))
-			{
-				fire_disp = m_first_bullet_controller.get_fire_dispertion();
-				m_first_bullet_controller.make_shot();
-			}
-		}
-		game_cl_mp* tmp_mp_game = smart_cast<game_cl_mp*>(&Game());
-		VERIFY(tmp_mp_game);
-		if (tmp_mp_game->get_reward_generator())
-			tmp_mp_game->get_reward_generator()->OnWeapon_Fire(H_Parent()->ID(), ID());
-	}
+
 	if (fsimilar(fire_disp, 0.f))
 	{
-		//CActor* tmp_actor = smart_cast<CActor*>(Level().CurrentControlEntity());
 		if (H_Parent() && (H_Parent() == tmp_actor))
 		{
 			fire_disp = tmp_actor->GetFireDispertion();
@@ -116,7 +92,6 @@ void CWeapon::FireTrace(const Fvector& P, const Fvector& D)
 			fire_disp = GetFireDispersion(true);
 		}
 	}
-
 
 	bool SendHit = SendHitAllowed(H_Parent());
 	//выстерлить пулю (с учетом возможной стрельбы дробью)

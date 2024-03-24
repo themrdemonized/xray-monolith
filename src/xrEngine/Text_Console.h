@@ -45,10 +45,6 @@ public:
 	virtual void OnRender();
 	virtual void _BCL OnFrame();
 
-	// virtual void IR_OnKeyboardPress (int dik);
-
 	void AddString(LPCSTR string);
 	void OnPaint();
 }; // class TextConsole
-
-//extern ENGINE_API CTextConsole* TextConsole;

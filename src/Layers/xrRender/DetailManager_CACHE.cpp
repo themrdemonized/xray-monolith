@@ -24,8 +24,7 @@ void CDetailManager::cache_Initialize()
 			CacheSlot1& MS = cache_level1[_mz1][_mx1];
 			for (int _z = 0; _z < dm_cache1_count; _z++)
 				for (int _x = 0; _x < dm_cache1_count; _x++)
-					MS.slots[_z * dm_cache1_count + _x] = &cache[_mz1 * dm_cache1_count + _z][_mx1 * dm_cache1_count +
-						_x];
+					MS.slots[_z * dm_cache1_count + _x] = &cache[_mz1 * dm_cache1_count + _z][_mx1 * dm_cache1_count + _x];
 		}
 	}
 }
@@ -45,10 +44,7 @@ void CDetailManager::cache_Task(int gx, int gz, Slot* D)
 	int sz = cg2w_Z(gz);
 	DetailSlot& DS = QueryDB(sx, sz);
 
-	D->empty = (DS.id0 == DetailSlot::ID_Empty) &&
-		(DS.id1 == DetailSlot::ID_Empty) &&
-		(DS.id2 == DetailSlot::ID_Empty) &&
-		(DS.id3 == DetailSlot::ID_Empty);
+	D->empty = (DS.id0 == DetailSlot::ID_Empty) && (DS.id1 == DetailSlot::ID_Empty) && (DS.id2 == DetailSlot::ID_Empty) && (DS.id3 == DetailSlot::ID_Empty);
 
 	// Unpacking
 	u32 old_type = D->type;
@@ -75,7 +71,6 @@ void CDetailManager::cache_Task(int gx, int gz, Slot* D)
 	}
 }
 
-
 BOOL CDetailManager::cache_Validate()
 {
 	for (u32 z = 0; z < dm_cache_line; z++)
@@ -86,8 +81,10 @@ BOOL CDetailManager::cache_Validate()
 			int w_z = cg2w_Z(z);
 			Slot* D = cache[z][x];
 
-			if (D->sx != w_x) return FALSE;
-			if (D->sz != w_z) return FALSE;
+			if (D->sx != w_x || D->sz != w_z)
+			{
+				return FALSE;
+			}
 		}
 	}
 	return TRUE;
@@ -110,7 +107,6 @@ void CDetailManager::cache_Update(int v_x, int v_z, Fvector& view, int limit)
 				cache[z][dm_cache_line - 1] = S;
 				cache_Task(dm_cache_line - 1, z, S);
 			}
-			// R_ASSERT	(cache_Validate());
 		}
 		else
 		{
@@ -123,7 +119,6 @@ void CDetailManager::cache_Update(int v_x, int v_z, Fvector& view, int limit)
 				cache[z][0] = S;
 				cache_Task(0, z, S);
 			}
-			// R_ASSERT	(cache_Validate());
 		}
 	}
 	while (cache_cz != v_z)
@@ -139,7 +134,6 @@ void CDetailManager::cache_Update(int v_x, int v_z, Fvector& view, int limit)
 				cache[0][x] = S;
 				cache_Task(x, 0, S);
 			}
-			// R_ASSERT	(cache_Validate());
 		}
 		else
 		{
@@ -152,7 +146,6 @@ void CDetailManager::cache_Update(int v_x, int v_z, Fvector& view, int limit)
 				cache[dm_cache_line - 1][x] = S;
 				cache_Task(x, dm_cache_line - 1, S);
 			}
-			// R_ASSERT	(cache_Validate());
 		}
 	}
 

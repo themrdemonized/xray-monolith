@@ -151,9 +151,6 @@ void CGameFont::Initialize(LPCSTR cShader, LPCSTR cTextureName)
 	else if (ini->section_exist("symbol_coords"))
 	{
 		float d = 0.0f;
-		//. if(ini->section_exist("width_correction"))
-		//. d = ini->r_float("width_correction", "value");
-
 		fHeight = ini->r_float("symbol_coords", "height");
 		for (u32 i = 0; i < nNumChars; i++)
 		{
@@ -271,13 +268,7 @@ u16 CGameFont::SplitByWidth(u16* puBuffer, u16 uBufferSize, float fTargetWidth, 
 		if (IsNeedSpaceCharacter(wsStr[i]))
 			fDelta += fXStep;
 
-		if (
-			((fCurWidth + fDelta) > fTargetWidth) && // overlength
-			(!IsBadStartCharacter(wsStr[i])) && // can start with this character
-			(i < len) && // is not the last character
-			((i > 1) && (!IsBadEndCharacter(wsStr[i - 1]))) // && // do not stop the string on a "bad" character
-				// ( ( i > 1 ) && ( ! ( ( IsAlphaCharacter( wsStr[ i - 1 ] ) ) && ( IsAlphaCharacter( wsStr[ i ] ) ) ) ) ) // do not split numbers or words
-		)
+		if (((fCurWidth + fDelta) > fTargetWidth) && (!IsBadStartCharacter(wsStr[i])) && (i < len) && ((i > 1) && (!IsBadEndCharacter(wsStr[i - 1]))))
 		{
 			fCurWidth = fDelta;
 			VERIFY(nLines < uBufferSize);
@@ -290,9 +281,7 @@ u16 CGameFont::SplitByWidth(u16* puBuffer, u16 uBufferSize, float fTargetWidth, 
 	return nLines;
 }
 
-void CGameFont::MasterOut(
-	BOOL bCheckDevice, BOOL bUseCoords, BOOL bScaleCoords, BOOL bUseSkip,
-	float _x, float _y, float _skip, LPCSTR fmt, va_list p)
+void CGameFont::MasterOut(BOOL bCheckDevice, BOOL bUseCoords, BOOL bScaleCoords, BOOL bUseSkip, float _x, float _y, float _skip, LPCSTR fmt, va_list p)
 {
 	if (bCheckDevice && (!RDEVICE.b_is_Active))
 		return;
@@ -309,7 +298,6 @@ void CGameFont::MasterOut(
 #else
     int vs_sz = vsprintf(rs.string, fmt, p);
 #endif
-	//VERIFY( ( vs_sz != -1 ) && ( rs.string[ vs_sz ] == '\0' ) );
 
 	rs.string[sizeof(rs.string) - 1] = 0;
 	if (vs_sz == -1)
@@ -343,7 +331,6 @@ void __cdecl CGameFont::OutNext(LPCSTR fmt, ...)
 {
 	MASTER_OUT(TRUE, FALSE, FALSE, TRUE, 0.0f, 0.0f, 1.0f, fmt);
 };
-
 
 void CGameFont::OutSkip(float val)
 {

@@ -29,7 +29,6 @@
 #include "../CustomOutfit.h"
 #include "../ActorHelmet.h"
 #include "../UICursor.h"
-#include "../MPPlayersBag.h"
 #include "../player_hud.h"
 #include "../CustomDetector.h"
 #include "../PDA.h"
@@ -130,9 +129,6 @@ void CUIActorMenu::SendEvent_Item_Eat(PIItem pItem, u16 recipient)
 void CUIActorMenu::SendEvent_Item_Drop(PIItem pItem, u16 recipient)
 {
 	R_ASSERT(pItem->parent_id()==recipient);
-	if (!IsGameTypeSingle())
-		pItem->DenyTrade();
-	//pItem->SetDropManual			(TRUE);
 	NET_Packet P;
 	pItem->object().u_EventGen(P, GE_OWNERSHIP_REJECT, pItem->parent_id());
 	P.w_u16(pItem->object().ID());
@@ -489,10 +485,6 @@ void CUIActorMenu::InitInventoryContents(CUIDragDropListEx* pBagList)
 
 	for (; itb != ite; ++itb)
 	{
-		CMPPlayersBag* bag = smart_cast<CMPPlayersBag*>(&(*itb)->object());
-		if (bag)
-			continue;
-
 		CUICellItem* itm = create_cell_item(*itb);
 		curr_list->SetItem(itm);
 		if (m_currMenuMode == mmTrade && m_pPartnerInvOwner)
@@ -526,10 +518,6 @@ void CUIActorMenu::FilterActorBagList(int mode)
 	TIItemContainer::iterator ite = ruck_list.end();
 	for (; itb != ite; ++itb)
 	{
-		CMPPlayersBag* bag = smart_cast<CMPPlayersBag*>(&(*itb)->object());
-		if (bag)
-			continue;
-
 		PIItem iitm = *itb;
 		int kinds = _GetItemCount(m_sort_kinds[mode]);
 
@@ -1264,7 +1252,7 @@ void CUIActorMenu::PropertiesBoxForWeapon(CUICellItem* cell_item, PIItem item, b
 		{
 		}
 	}
-	if (smart_cast<CWeaponMagazined*>(pWeapon) && IsGameTypeSingle())
+	if (smart_cast<CWeaponMagazined*>(pWeapon))
 	{
 		bool b = (pWeapon->GetAmmoElapsed() != 0);
 		if (!b)

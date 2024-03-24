@@ -114,15 +114,13 @@ public:
 	// Render
 	virtual void renderable_Render();
 	virtual BOOL renderable_ShadowGenerate();
-	virtual void feel_sound_new(CObject* who, int type, CSound_UserDataPtr user_data, const Fvector& Position,
-	                            float power);
+	virtual void feel_sound_new(CObject* who, int type, CSound_UserDataPtr user_data, const Fvector& Position, float power);
 	virtual Feel::Sound* dcast_FeelSound() { return this; }
 	float m_snd_noise;
 #ifdef DEBUG
     virtual void						OnRender			();
 
 #endif
-
 
 public:
 	virtual bool OnReceiveInfo(shared_str info_id) const;
@@ -187,8 +185,7 @@ public:
 	virtual void PHHit(SHit& H);
 	virtual void HitSignal(float P, Fvector& vLocalDir, CObject* who, s16 element);
 	void HitSector(CObject* who, CObject* weapon);
-	void HitMark(float P, Fvector dir, CObject* who, s16 element, Fvector position_in_bone_space, float impulse,
-	             ALife::EHitType hit_type);
+	void HitMark(float P, Fvector dir, CObject* who, s16 element, Fvector position_in_bone_space, float impulse, ALife::EHitType hit_type);
 
     void Feel_Grenade_Update( float rad );
 
@@ -204,9 +201,7 @@ public:
 	virtual bool NeedToDestroyObject() const;
 	virtual ALife::_TIME_ID TimePassedAfterDeath() const;
 
-
 public:
-
 	//свойства артефактов
 	virtual void UpdateArtefactsOnBeltAndOutfit();
 	float HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type);
@@ -228,7 +223,6 @@ protected:
 	SndShockEffector* m_sndShockEffector;
 	xr_vector<ref_sound> sndHit[ALife::eHitTypeMax];
 	ref_sound sndDie[SND_DIE_COUNT];
-
 
 	float m_fLandingTime;
 	float m_fJumpTime;
@@ -285,7 +279,6 @@ protected:
 	float r_model_yaw; // orientation of model
 	float r_model_yaw_delta; // effect on multiple "strafe"+"something"
 
-
 public:
 	SActorMotions* m_anims;
 #ifdef ENABLE_CAR
@@ -313,6 +306,7 @@ public:
 
 	void g_SetAnimation(u32 mstate_rl);
 	void g_SetSprintAnimation(u32 mstate_rl, MotionID& head, MotionID& torso, MotionID& legs);
+
 public:
 	virtual void OnHUDDraw(CCustomHUD* hud);
 	BOOL HUDview() const;
@@ -320,7 +314,6 @@ public:
 	//visiblity 
 	virtual float ffGetFov() const { return 90.f; }
 	virtual float ffGetRange() const { return 500.f; }
-
 
 public:
 	CActorCameraManager& Cameras()
@@ -342,7 +335,6 @@ public:
 	float old_torso_yaw;
 
 protected:
-	//virtual	void			cam_Set					(EActorCameras style);
 	void cam_Update(float dt, float fFOV);
 	void cam_Lookout(const Fmatrix& xform, float camera_height);
 	void camUpdateLadder(float dt);
@@ -358,11 +350,9 @@ protected:
 	CCameraBase* cameras[eacMaxCam];
 	EActorCameras cam_active;
 	float fPrevCamPos;
-	float current_ik_cam_shift;
 	Fvector vPrevCamDir;
 	float fCurAVelocity;
 	CEffectorBobbing* pCamBobbing;
-
 
 	//менеджер эффекторов, есть у каждого актрера
 	CActorCameraManager* m_pActorEffector;
@@ -426,7 +416,6 @@ public:
 	void g_sv_Orientate(u32 mstate_rl, float dt);
 	void g_Orientate(u32 mstate_rl, float dt);
 	bool g_LadderOrient();
-	//	void					UpdateMotionIcon		(u32 mstate_rl);
 
 	bool CanAccelerate();
 	bool CanJump();
@@ -486,7 +475,7 @@ public:
 public:
 	virtual void g_WeaponBones(int& L, int& R1, int& R2);
 	virtual void g_fireParams(const CHudItem* pHudItem, Fvector& P, Fvector& D);
-	virtual bool g_stateFire() { return ! ((mstate_wishful & mcLookout) && !IsGameTypeSingle()); }
+	virtual bool g_stateFire() { return true; }
 
 	virtual BOOL g_State(SEntityState& state) const;
 	virtual float GetWeaponAccuracy() const;
@@ -536,7 +525,6 @@ protected:
 	int m_spine;
 	int m_neck;
 
-
 	//////////////////////////////////////////////////////////////////////////
 	// Network
 	//////////////////////////////////////////////////////////////////////////
@@ -546,7 +534,7 @@ public:
 	virtual void net_Export(NET_Packet& P); // export to server
 	virtual void net_Import(NET_Packet& P); // import from server
 	virtual void net_Destroy();
-	virtual BOOL net_Relevant(); //	{ return getSVU() | getLocal(); };		// relevant for export to server
+	virtual BOOL net_Relevant(); // relevant for export to server
 	virtual void net_Relcase(CObject* O); //
 	virtual void xr_stdcall on_requested_spawn(CObject* object);
 	//object serialization
@@ -568,15 +556,12 @@ protected:
 	void net_Import_Physic_proceed();
 	//---------------------------------------------
 
-
 	////////////////////////////////////////////////////////////////////////////
 	virtual bool can_validate_position_on_spawn() { return false; }
 	///////////////////////////////////////////////////////
 	// апдайт с данными физики
 	xr_deque<net_update_A> NET_A;
 
-	//---------------------------------------------
-	//	bool					m_bHasUpdate;	
 	/// spline coeff /////////////////////
 	float SCoeff[3][4]; //коэффициэнты для сплайна Бизье
 	float HCoeff[3][4]; //коэффициэнты для сплайна Эрмита
@@ -589,7 +574,6 @@ protected:
     VIS_POSITION	LastPosH;
     VIS_POSITION	LastPosL;
 #endif
-
 
 	SPHNetState LastState;
 	SPHNetState RecalculatedState;
@@ -620,7 +604,6 @@ protected:
     //---------------------------------------------
 #endif
 
-	// Igor	ref_geom 				hFriendlyIndicator;
 	//////////////////////////////////////////////////////////////////////////
 	// Actor physics
 	//////////////////////////////////////////////////////////////////////////
@@ -631,7 +614,6 @@ public:
 	virtual void PH_B_CrPr(); // actions & operations before physic correction-prediction steps
 	virtual void PH_I_CrPr(); // actions & operations after correction before prediction steps
 	virtual void PH_A_CrPr(); // actions & operations after phisic correction-prediction steps
-	//	virtual void			UpdatePosStack	( u32 Time0, u32 Time1 );
 	virtual void MoveActor(Fvector NewPos, Fvector NewDir);
 
 	virtual void SpawnAmmoForWeapon(CInventoryItem* pIItem);
@@ -730,11 +712,10 @@ public:
 	void SwitchNightVision();
 	void SwitchTorch();
 #ifdef DEBUG
-            void				NoClipFly						(int cmd);
+	void				NoClipFly						(int cmd);
 #endif //DEBUG
 
 public:
-
 	virtual void on_weapon_shot_start(CWeapon* weapon);
 	virtual void on_weapon_shot_update();
 	virtual void on_weapon_shot_stop();
@@ -806,7 +787,6 @@ private:
 private:
 	bool m_disabled_hitmarks;
 	bool m_inventory_disabled;
-	//static CPhysicsShell		*actor_camera_shell;
 
 	IC u32 get_state() const
 	{

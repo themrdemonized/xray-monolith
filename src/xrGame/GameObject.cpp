@@ -87,8 +87,6 @@ void CGameObject::Load(LPCSTR section)
 	ISpatial* self = smart_cast<ISpatial*>(this);
 	if (self)
 	{
-		// #pragma todo("to Dima: All objects are visible for AI ???")
-		// self->spatial.type	|=	STYPE_VISIBLEFORAI;	
 		self->spatial.type &= ~STYPE_REACTTOSOUND;
 	}
 }
@@ -155,8 +153,6 @@ void CGameObject::net_Destroy()
 
 	Level().RemoveObject_From_4CrPr(this);
 
-	//.	Parent									= 0;
-
 	CScriptBinder::net_Destroy();
 
 	xr_delete(m_lua_game_object);
@@ -170,37 +166,9 @@ void CGameObject::OnEvent(NET_Packet& P, u16 type)
 	case GE_HIT:
 	case GE_HIT_STATISTIC:
 		{
-			/*
-						u16				id,weapon_id;
-						Fvector			dir;
-						float			power, impulse;
-						s16				element;
-						Fvector			position_in_bone_space;
-						u16				hit_type;
-						float			ap = 0.0f;
-			
-						P.r_u16			(id);
-						P.r_u16			(weapon_id);
-						P.r_dir			(dir);
-						P.r_float		(power);
-						P.r_s16			(element);
-						P.r_vec3		(position_in_bone_space);
-						P.r_float		(impulse);
-						P.r_u16			(hit_type);	//hit type
-						if ((ALife::EHitType)hit_type == ALife::eHitTypeFireWound)
-						{
-							P.r_float	(ap);
-						}
-			
-						CObject*	Hitter = Level().Objects.net_Find(id);
-						CObject*	Weapon = Level().Objects.net_Find(weapon_id);
-			
-						SHit	HDS = SHit(power, dir, Hitter, element, position_in_bone_space, impulse, (ALife::EHitType)hit_type, ap);
-			*/
 			SHit HDS;
 			HDS.PACKET_TYPE = type;
 			HDS.Read_Packet_Cont(P);
-			//			Msg("Hit received: %d[%d,%d]", HDS.whoID, HDS.weaponID, HDS.BulletID);
 			CObject* Hitter = Level().Objects.net_Find(HDS.whoID);
 			CObject* Weapon = Level().Objects.net_Find(HDS.weaponID);
 			HDS.who = Hitter;
@@ -213,8 +181,6 @@ void CGameObject::OnEvent(NET_Packet& P, u16 type)
 			{
 			case GE_HIT_STATISTIC:
 				{
-					if (GameID() != eGameIDSingle)
-						Game().m_WeaponUsageStatistic->OnBullet_Check_Request(&HDS);
 				}
 				break;
 			default:
@@ -224,36 +190,17 @@ void CGameObject::OnEvent(NET_Packet& P, u16 type)
 			}
 			SetHitInfo(Hitter, Weapon, HDS.bone(), HDS.p_in_bone_space, HDS.dir);
 			Hit(&HDS);
-			//---------------------------------------------------------------------------
-			if (GameID() != eGameIDSingle)
-			{
-				Game().m_WeaponUsageStatistic->OnBullet_Check_Result(false);
-				game_cl_mp* mp_game = smart_cast<game_cl_mp*>(&Game());
-				if (mp_game->get_reward_generator())
-					mp_game->get_reward_generator()->OnBullet_Hit(Hitter, this, Weapon, HDS.boneID);
-			}
-			//---------------------------------------------------------------------------
 		}
 		break;
 	case GE_DESTROY:
 		{
 			if (H_Parent())
 			{
-				Msg("! ERROR (GameObject): GE_DESTROY arrived to object[%d][%s], that has parent[%d][%s], frame[%d]",
-				    ID(), cNameSect().c_str(),
-				    H_Parent()->ID(), H_Parent()->cName().c_str(), Device.dwFrame);
-
-				// This object will be destroy on call function <H_Parent::Destroy>
-				// or it will be call <H_Parent::Reject>  ==>  H_Parent = NULL
-				// !!! ___ it is necessary to be check!
+				Msg("! ERROR (GameObject): GE_DESTROY arrived to object[%d][%s], that has parent[%d][%s], frame[%d]", ID(), cNameSect().c_str(), H_Parent()->ID(), H_Parent()->cName().c_str(), Device.dwFrame);
 				break;
 			}
-#ifdef MP_LOGGING
-			Msg("--- Object: GE_DESTROY of [%d][%s]", ID(), cNameSect().c_str());
-#endif // MP_LOGGING
 
 			setDestroy(TRUE);
-			//			MakeMeCrow		();
 		}
 		break;
 	}
@@ -298,13 +245,10 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	}
 	else
 	{
-		//R_ASSERT(Level().Objects.net_Find(E->ID) == NULL);
 		CObject* o = Level().Objects.net_Find(E->ID);
 		if (o != NULL)
 		{
-			Msg("ERROR: CGameObject:net_spawn() Object with ID already exists! ID=%d self=%s other=%s", E->ID,
-			    *(cName()), *(o->cName()));
-			//ai().script_engine().script_log(eLuaMessageTypeError, "CGameObject:net_Spawn() | Level().Objects.net_Find(E->ID) != NULL (This mean object already exist on level by this ID) ID=%d s_name=%s", E->ID, *(E->s_name));
+			Msg("ERROR: CGameObject:net_spawn() Object with ID already exists! ID=%d self=%s other=%s", E->ID, *(cName()), *(o->cName()));
 			return false;
 		}
 	}
@@ -312,8 +256,6 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 
 
 	setID(E->ID);
-	//	if (GameID() != eGameIDSingle)
-	//		Msg ("CGameObject::net_Spawn -- object %s[%x] setID [%d]", *(E->s_name), this, E->ID);
 
 	// XForm
 	XFORM().setXYZ(E->o_Angle);

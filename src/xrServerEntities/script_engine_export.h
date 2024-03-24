@@ -63,7 +63,6 @@
 #	include "script_entity_action.h"
 #	include "helicopter.h"
 #	include "game_base.h"
-#	include "demoinfo.h"
 #	include "script_ui_registrator.h"
 #	include "key_binding_registrator.h"
 #	include "fs_registrator.h"

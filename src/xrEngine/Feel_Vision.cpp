@@ -8,15 +8,11 @@
 
 namespace Feel
 {
-	Vision::Vision(CObject const* owner) :
-		pure_relcase(&Vision::feel_vision_relcase),
-		m_owner(owner)
-	{
-	}
+	Vision::Vision(CObject const* owner) : pure_relcase(&Vision::feel_vision_relcase), m_owner(owner)
+	{}
 
 	Vision::~Vision()
-	{
-	}
+	{}
 
 	struct SFeelParam
 	{
@@ -25,12 +21,8 @@ namespace Feel
 		float vis;
 		float vis_threshold;
 
-		SFeelParam(Vision* _parent, Vision::feel_visible_Item* _item, float _vis_threshold) : parent(_parent),
-		                                                                                      item(_item), vis(1.f),
-		                                                                                      vis_threshold(
-			                                                                                      _vis_threshold)
-		{
-		}
+		SFeelParam(Vision* _parent, Vision::feel_visible_Item* _item, float _vis_threshold) : parent(_parent), item(_item), vis(1.f), vis_threshold(_vis_threshold)
+		{}
 	};
 
 	IC BOOL feel_vision_callback(collide::rq_result& result, LPVOID params)
@@ -106,13 +98,7 @@ namespace Feel
 
 		// Traverse object database
 		r_spatial.clear_not_free();
-		g_SpatialSpace->q_frustum
-		(
-			r_spatial,
-			0,
-			STYPE_VISIBLEFORAI,
-			Frustum
-		);
+		g_SpatialSpace->q_frustum(r_spatial, 0, STYPE_VISIBLEFORAI, Frustum);
 
 		// Determine visibility for dynamic part of scene
 		seen.clear_and_reserve();
@@ -120,13 +106,15 @@ namespace Feel
 		{
 			ISpatial* spatial = r_spatial[o_it];
 			CObject* object = spatial->dcast_CObject();
-			if (object && feel_vision_isRelevant(object)) seen.push_back(object);
+			if (object && feel_vision_isRelevant(object)) 
+				seen.push_back(object);
 		}
 		if (seen.size() > 1)
 		{
 			std::sort(seen.begin(), seen.end());
 			xr_vector<CObject*>::iterator end = std::unique(seen.begin(), seen.end());
-			if (end != seen.end()) seen.erase(end, seen.end());
+			if (end != seen.end()) 
+				seen.erase(end, seen.end());
 		}
 	}
 
@@ -140,10 +128,7 @@ namespace Feel
 
 			{
 				diff.resize(_max(seen.size(), query.size()));
-				xr_vector<CObject*>::iterator E = std::set_difference(
-					seen.begin(), seen.end(),
-					query.begin(), query.end(),
-					diff.begin());
+				xr_vector<CObject*>::iterator E = std::set_difference(seen.begin(), seen.end(), query.begin(), query.end(), diff.begin());
 				diff.resize(E - diff.begin());
 				for (u32 i = 0; i < diff.size(); i++)
 					o_new(diff[i]);
@@ -154,10 +139,7 @@ namespace Feel
 		if (!query.empty())
 		{
 			diff.resize(_max(seen.size(), query.size()));
-			xr_vector<CObject*>::iterator E = std::set_difference(
-				query.begin(), query.end(),
-				seen.begin(), seen.end(),
-				diff.begin());
+			xr_vector<CObject*>::iterator E = std::set_difference(query.begin(), query.end(), seen.begin(), seen.end(), diff.begin());
 			diff.resize(E - diff.begin());
 			for (u32 i = 0; i < diff.size(); i++)
 				o_delete(diff[i]);
@@ -180,10 +162,6 @@ namespace Feel
 				continue;
 			}
 
-			// verify relation
-			// if (positive(I->fuzzy) && I->O->Position().similar(I->cp_LR_dst,lr_granularity) && P.similar(I->cp_LR_src,lr_granularity))
-			// continue;
-
 			I->cp_LR_dst = I->O->Position();
 			I->cp_LR_src = P;
 			I->cp_LAST = I->O->get_last_local_point_on_mesh(I->cp_LP, I->bone_id);
@@ -202,16 +180,13 @@ namespace Feel
 			{
 				D.div(f);
 				// setup ray defs & feel params
-				collide::ray_defs RD(P, D, f, CDB::OPT_CULL,
-				                     collide::rq_target(
-					                     collide::rqtStatic | /**/collide::rqtObject | /**/collide::rqtObstacle));
+				collide::ray_defs RD(P, D, f, CDB::OPT_CULL, collide::rq_target(collide::rqtStatic | /**/collide::rqtObject | /**/collide::rqtObstacle));
 				SFeelParam feel_params(this, &*I, vis_threshold);
 				// check cache
 				if (I->Cache.result && I->Cache.similar(P, D, f))
 				{
 					// similar with previous query
 					feel_params.vis = I->Cache_vis;
-					// Log("cache 0");
 				}
 				else
 				{
@@ -219,7 +194,6 @@ namespace Feel
 					if (CDB::TestRayTri(P, D, I->Cache.verts, _u, _v, _range, false) && (_range > 0 && _range < f))
 					{
 						feel_params.vis = 0.f;
-						// Log("cache 1");
 					}
 					else
 					{
@@ -233,14 +207,11 @@ namespace Feel
 						}
 						else
 						{
-							// feel_params.vis = 0.f;
-							// I->Cache_vis = feel_params.vis ;
 							I->Cache.set(P, D, f, FALSE);
 						}
-						// Log("query");
 					}
 				}
-				// Log("Vis",feel_params.vis);
+
 				r_spatial.clear_not_free();
 				g_SpatialSpace->q_ray(r_spatial, 0, STYPE_VISIBLEFORAI, P, D, f);
 

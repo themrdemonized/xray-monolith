@@ -250,8 +250,7 @@ void vfCopyGlobals(CLuaVirtualMachine* tpLuaVM)
 	}
 }
 
-bool Script::bfLoadBuffer(CLuaVirtualMachine* tpLuaVM, LPCSTR caBuffer, size_t tSize, LPCSTR caScriptName,
-                          LPCSTR caNameSpaceName)
+bool Script::bfLoadBuffer(CLuaVirtualMachine* tpLuaVM, LPCSTR caBuffer, size_t tSize, LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
 	int l_iErrorCode;
 	if (caNameSpaceName)
@@ -286,8 +285,7 @@ bool bfDoFile(CLuaVirtualMachine* tpLuaVM, LPCSTR caScriptName, LPCSTR caNameSpa
 	R_ASSERT(l_tpFileReader);
 	strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
 
-	if (!bfLoadBuffer(tpLuaVM, static_cast<LPCSTR>(l_tpFileReader->pointer()), (size_t)l_tpFileReader->length(),
-	                  l_caLuaFileName, caNameSpaceName))
+	if (!bfLoadBuffer(tpLuaVM, static_cast<LPCSTR>(l_tpFileReader->pointer()), (size_t)l_tpFileReader->length(), l_caLuaFileName, caNameSpaceName))
 	{
 		lua_pop(tpLuaVM, 4);
 		FS.r_close(l_tpFileReader);
@@ -298,14 +296,6 @@ bool bfDoFile(CLuaVirtualMachine* tpLuaVM, LPCSTR caScriptName, LPCSTR caNameSpa
 	if (bCall)
 	{
 		lua_call(tpLuaVM, 0, 0);
-		// int l_iErrorCode = lua_pcall(tpLuaVM,0,0,0);
-		// if (l_iErrorCode) {
-		//#ifdef DEBUG
-		// bfPrintOutput (tpLuaVM,caScriptName,l_iErrorCode);
-		// vfPrintError (tpLuaVM,l_iErrorCode);
-		//#endif
-		// return (false);
-		// }
 	}
 	else
 		lua_insert(tpLuaVM, -4);
@@ -354,8 +344,7 @@ void vfSetNamespace(CLuaVirtualMachine* tpLuaVM)
 	lua_pop(tpLuaVM, 3);
 }
 
-bool Script::bfLoadFileIntoNamespace(CLuaVirtualMachine* tpLuaVM, LPCSTR caScriptName, LPCSTR caNamespaceName,
-                                     bool bCall)
+bool Script::bfLoadFileIntoNamespace(CLuaVirtualMachine* tpLuaVM, LPCSTR caScriptName, LPCSTR caNamespaceName, bool bCall)
 {
 	if (!bfCreateNamespaceTable(tpLuaVM, caNamespaceName))
 		return (false);

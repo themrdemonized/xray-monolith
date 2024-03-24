@@ -540,11 +540,6 @@ namespace text_editor
 		{
 			m_need_update = false;
 		}
-
-		/*if ( Device.dwFrame % 100 == 0 )
-		{
-		Msg( " cur_time=%.2f re=%d acc=%.2f rep_time=%.2f", cur_time, bRepeat, fAccel, rep_time );
-		}*/
 	}
 
 	void line_edit_control::update_bufs()
@@ -564,8 +559,6 @@ namespace text_editor
 
 		m_need_update = true;
 		m_last_changed_frame = Device.dwFrame;
-		// if ( m_cursor_view ) {
-		// Msg( " m_p1=%d m_p2=%d cur=%d sstart=%d", m_p1, m_p2, m_cur_pos, m_select_start ); }
 	}
 
 	void line_edit_control::add_inserted_text()
@@ -755,7 +748,6 @@ namespace text_editor
 		int edit_len = (int)xr_strlen(m_edit_str);
 		int i = m_cur_pos + 1;
 		while (i < edit_len && !terminate_char(m_edit_str[i], true)) { ++i; }
-		//while( i < edit_len && terminate_char( m_edit_str[i] ) ) { ++i; }
 		while (i < edit_len && m_edit_str[i] == ' ') { ++i; }
 		m_cur_pos = i;
 	}

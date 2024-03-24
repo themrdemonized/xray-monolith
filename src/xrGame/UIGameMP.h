@@ -3,7 +3,6 @@
 
 #include "UIGameCustom.h"
 
-class CUIDemoPlayControl;
 class CUIServerInfo;
 class CUIAchivementIndicator;
 class game_cl_mp;
@@ -14,8 +13,6 @@ class UIGameMP : public CUIGameCustom
 public:
 	UIGameMP();
 	virtual ~UIGameMP();
-
-	void ShowDemoPlayControl();
 
 	void SetServerLogo(u8 const* data_ptr, u32 data_size);
 	void SetServerRules(u8 const* data_ptr, u32 data_size);
@@ -31,7 +28,6 @@ public:
 	virtual bool IR_UIOnKeyboardRelease(int dik);
 	virtual void SetClGame(game_cl_GameState* g);
 protected:
-	CUIDemoPlayControl* m_pDemoPlayControl;
 	CUIServerInfo* m_pServerInfo;
 	CUIAchivementIndicator* m_pAchivementIdicator;
 	game_cl_mp* m_game;

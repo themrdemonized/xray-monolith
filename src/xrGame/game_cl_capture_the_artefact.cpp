@@ -8,7 +8,6 @@
 #include "ui/UIMainIngameWnd.h"
 #include "ui/UISkinSelector.h"
 #include "ui/UIPDAWnd.h"
-#include "ui/UIMapDesc.h"
 #include "ui/UIVote.h"
 #include "ui/TeamInfo.h"
 #include "game_base_menu_events.h"
@@ -21,7 +20,6 @@
 
 #include "../xrEngine/IGame_Persistent.h"
 #include "ui/UIActorMenu.h"
-#include "ui/UIDemoPlayControl.h"
 
 #include "game_cl_capturetheartefact_snd_msg.h"
 #include "game_cl_teamdeathmatch_snd_messages.h"

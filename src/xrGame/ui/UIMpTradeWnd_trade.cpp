@@ -208,70 +208,7 @@ bool CUIMpTradeWnd::TryToBuyItem(SBuyItemInfo* buy_itm, u32 buy_flags, SBuyItemI
 
 bool CUIMpTradeWnd::CheckBuyPossibility(const shared_str& sect_name, u32 buy_flags, bool b_silent)
 {
-	string256 info_buffer;
-	bool b_can_buy = true;
-
-	u32 _item_cost = m_item_mngr->GetItemCost(sect_name, GetRank());
-
-	if ((buy_flags & bf_check_money))
-	{
-		if (GetMoneyAmount() < _item_cost)
-		{
-			if (!b_silent)
-				xr_sprintf(info_buffer,
-				           "%s. %s. %s[%d] %s[%d]",
-				           CStringTable().translate("ui_inv_cant_buy_item").c_str(),
-				           CStringTable().translate("ui_inv_not_enought_money").c_str(),
-				           CStringTable().translate("ui_inv_has").c_str(),
-				           GetMoneyAmount(),
-				           CStringTable().translate("ui_inv_need").c_str(),
-				           _item_cost);
-			b_can_buy = false;
-		};
-	}
-
-	if (b_can_buy && (buy_flags & bf_check_rank_restr) && !g_mp_restrictions.IsAvailable(sect_name))
-	{
-		if (!b_silent)
-			xr_sprintf(info_buffer,
-			           "%s. %s. %s[%s] %s[%s] ",
-			           CStringTable().translate("ui_inv_cant_buy_item").c_str(),
-			           CStringTable().translate("ui_inv_rank_restr").c_str(),
-			           CStringTable().translate("ui_inv_has").c_str(),
-			           g_mp_restrictions.GetRankName(GetRank()).c_str(),
-			           CStringTable().translate("ui_inv_need").c_str(),
-			           g_mp_restrictions.GetRankName(get_rank(sect_name)).c_str()
-			);
-		b_can_buy = false;
-	}
-
-	if (b_can_buy && (buy_flags & bf_check_count_restr))
-	{
-		const shared_str& group = g_mp_restrictions.GetItemGroup(sect_name);
-		u32 cnt_restr = g_mp_restrictions.GetGroupCount(group);
-
-		u32 cnt_have = GetGroupCount(group, SBuyItemInfo::e_bought);
-		cnt_have += GetGroupCount(group, SBuyItemInfo::e_own);
-
-		if (cnt_have >= cnt_restr)
-		{
-			if (!b_silent)
-				xr_sprintf(info_buffer,
-				           "%s. %s. %s [%d]",
-				           CStringTable().translate("ui_inv_cant_buy_item").c_str(),
-				           CStringTable().translate("ui_inv_count_restr").c_str(),
-				           CStringTable().translate("ui_inv_you_already_have").c_str(),
-				           cnt_have);
-			b_can_buy = false;
-		}
-	}
-
-	if (!b_can_buy && !b_silent)
-	{
-		SetInfoString(info_buffer);
-	};
-
-	return b_can_buy;
+	return false;
 }
 
 void CUIMpTradeWnd::RenewShopItem(const shared_str& sect_name, bool b_just_bought)

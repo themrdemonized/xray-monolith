@@ -273,11 +273,8 @@ bool CLevel::net_start6()
 		{
 			DEL_INSTANCE(g_pGameLevel);
 			Console->Execute("main_menu on");
-
-			MainMenu()->SwitchToMultiplayerMenu();
 		}
 		else if (!map_data.m_map_loaded && map_data.m_name.size() && m_bConnectResult)
-			//if (map_data.m_name == "") - level not loaded, see CLevel::net_start_client3
 		{
 			LPCSTR level_id_string = NULL;
 			LPCSTR dialog_string = NULL;
@@ -285,18 +282,11 @@ bool CLevel::net_start6()
 			CStringTable st;
 			LPCSTR tmp_map_ver = !!map_data.m_map_version ? map_data.m_map_version.c_str() : "";
 
-			STRCONCAT(level_id_string, st.translate("st_level"), ":",
-			          map_data.m_name.c_str(), "(", tmp_map_ver, "). ");
+			STRCONCAT(level_id_string, st.translate("st_level"), ":", map_data.m_name.c_str(), "(", tmp_map_ver, "). ");
 			STRCONCAT(dialog_string, level_id_string, st.translate("ui_st_map_not_found"));
 
 			DEL_INSTANCE(g_pGameLevel);
 			Console->Execute("main_menu on");
-
-			if (!g_dedicated_server)
-			{
-				MainMenu()->SwitchToMultiplayerMenu();
-				MainMenu()->Show_DownloadMPMap(dialog_string, download_url);
-			}
 		}
 		else if (map_data.IsInvalidClientChecksum())
 		{
@@ -313,11 +303,6 @@ bool CLevel::net_start6()
 			g_pGameLevel->net_Stop();
 			DEL_INSTANCE(g_pGameLevel);
 			Console->Execute("main_menu on");
-			if (!g_dedicated_server)
-			{
-				MainMenu()->SwitchToMultiplayerMenu();
-				MainMenu()->Show_DownloadMPMap(dialog_string, download_url);
-			}
 		}
 		else
 		{
@@ -353,11 +338,5 @@ void CLevel::InitializeClientGame(NET_Packet& P)
 	game->set_type_name(game_type_name);
 	game->Init();
 	m_bGameConfigStarted = TRUE;
-
-	if (!IsGameTypeSingle())
-	{
-		init_compression();
-	}
-
 	R_ASSERT(Load_GameSpecific_After ());
 }

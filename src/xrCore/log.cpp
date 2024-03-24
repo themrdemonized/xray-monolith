@@ -95,13 +95,13 @@ void AddOne(const char* split)
     OutputDebugString("\n");
 #endif
 
-	// DUMP_PHASE;
 	{
 		// demonized: add timestamps to log
 		std::string t = split;
 		if (logTimestamps) {
 			std::string c = "";
-			if (t.length() > 0 && is_console_mark((Console_mark)t[0])) {
+			if (t.length() > 0 && is_console_mark((Console_mark)t[0])) 
+			{
 				c = t[0];
 				c += " ";
 				t.erase(0, 1);
@@ -130,7 +130,6 @@ void AddOne(const char* split)
 		}
 		else
 		{
-			// DUMP_PHASE;
 			LogFile->push_back(temp);
 			last_str = temp;
 			items_count = 0;
@@ -138,7 +137,8 @@ void AddOne(const char* split)
 	}
 
 	//exec CallBack
-	if (LogExecCB && LogCB)LogCB(split);
+	if (LogExecCB && LogCB)
+		LogCB(split);
 
 	logCS.Leave();
 }
@@ -243,13 +243,7 @@ void Log(const char* msg, const Fmatrix& dop)
 	u32 buffer_size = (xr_strlen(msg) + 2 + 4 * (4 * (64 + 1) + 1) + 1) * sizeof(char);
 	PSTR buf = (PSTR)_alloca(buffer_size);
 
-	xr_sprintf(buf, buffer_size, "%s:\n%f,%f,%f,%f\n%f,%f,%f,%f\n%f,%f,%f,%f\n%f,%f,%f,%f\n",
-	           msg,
-	           dop.i.x, dop.i.y, dop.i.z, dop._14_,
-	           dop.j.x, dop.j.y, dop.j.z, dop._24_,
-	           dop.k.x, dop.k.y, dop.k.z, dop._34_,
-	           dop.c.x, dop.c.y, dop.c.z, dop._44_
-	);
+	xr_sprintf(buf, buffer_size, "%s:\n%f,%f,%f,%f\n%f,%f,%f,%f\n%f,%f,%f,%f\n%f,%f,%f,%f\n", msg, dop.i.x, dop.i.y, dop.i.z, dop._14_, dop.j.x, dop.j.y, dop.j.z, dop._24_, dop.k.x, dop.k.y, dop.k.z, dop._34_, dop.c.x, dop.c.y, dop.c.z, dop._44_);
 	Log(buf);
 }
 

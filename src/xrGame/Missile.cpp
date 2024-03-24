@@ -1,6 +1,5 @@
 ﻿#include "stdafx.h"
 #include "missile.h"
-//.#include "WeaponHUD.h"
 #include "../xrphysics/PhysicsShell.h"
 #include "actor.h"
 #include "../xrEngine/CameraBase.h"
@@ -147,13 +146,7 @@ void CMissile::OnActiveItem()
 
 void CMissile::OnHiddenItem()
 {
-	//. -Hide
-	if (IsGameTypeSingle())
-		SwitchState(eHiding);
-	else
-		SwitchState(eHidden);
-	//-
-
+	SwitchState(eHiding);
 	inherited::OnHiddenItem();
 	SetState(eHidden);
 	SetNextState(eHidden);
@@ -166,13 +159,7 @@ void CMissile::spawn_fake_missile()
 
 	if (!getDestroy())
 	{
-		CSE_Abstract* object = Level().spawn_item(
-			*cNameSect(),
-			Position(),
-			(g_dedicated_server) ? u32(-1) : ai_location().level_vertex_id(),
-			ID(),
-			true
-		);
+		CSE_Abstract* object = Level().spawn_item(*cNameSect(), Position(), (g_dedicated_server) ? u32(-1) : ai_location().level_vertex_id(), ID(), true);
 
 		CSE_ALifeObject* alife_object = smart_cast<CSE_ALifeObject*>(object);
 		VERIFY(alife_object);
@@ -188,11 +175,7 @@ void CMissile::spawn_fake_missile()
 void CMissile::OnH_A_Chield()
 {
 	inherited::OnH_A_Chield();
-
-	//	if(!m_fake_missile && !smart_cast<CMissile*>(H_Parent())) 
-	//		spawn_fake_missile	();
 }
-
 
 void CMissile::OnH_B_Independent(bool just_before_destroy)
 {
@@ -206,7 +189,6 @@ void CMissile::OnH_B_Independent(bool just_before_destroy)
 
 		if (GetState() == eThrow)
 		{
-			Msg("Throw on reject");
 			Throw();
 		}
 	}
@@ -237,7 +219,6 @@ void CMissile::UpdateCL()
 			ResetSubStateTime();
 		}
 	}
-
 
 	if (GetState() == eReady)
 	{
@@ -673,16 +654,6 @@ void CMissile::UpdateFireDependencies_internal()
 		if (GetHUDmode() && !IsHidden())
 		{
 			R_ASSERT(0); //implement this!!!
-			/*
-						// 1st person view - skeletoned
-						CKinematics* V			= smart_cast<CKinematics*>(GetHUD()->Visual());
-						VERIFY					(V);
-						V->CalculateBones		();
-			
-						// fire point&direction
-						Fmatrix& parent			= GetHUD()->Transform	();
-						m_throw_direction.set	(parent.k);
-			*/
 		}
 		else
 		{
@@ -699,11 +670,6 @@ void CMissile::activate_physic_shell()
 	if (!smart_cast<CMissile*>(H_Parent()))
 	{
 		inherited::activate_physic_shell();
-		if (m_pPhysicsShell && m_pPhysicsShell->isActive() && !IsGameTypeSingle())
-		{
-			m_pPhysicsShell->add_ObjectContactCallback(ExitContactCallback);
-			m_pPhysicsShell->set_CallbackData(smart_cast<CPhysicsShellHolder*>(H_Root()));
-		}
 		return;
 	}
 
@@ -739,11 +705,9 @@ void CMissile::activate_physic_shell()
 	R_ASSERT(!m_pPhysicsShell);
 	create_physic_shell();
 	m_pPhysicsShell->Activate(m_throw_matrix, l_vel, a_vel);
-	//	m_pPhysicsShell->AddTracedGeom		();
 	m_pPhysicsShell->SetAllGeomTraced();
 	m_pPhysicsShell->add_ObjectContactCallback(ExitContactCallback);
 	m_pPhysicsShell->set_CallbackData(smart_cast<CPhysicsShellHolder*>(entity_alive));
-	//	m_pPhysicsShell->remove_ObjectContactCallback	(ExitContactCallback);
 	m_pPhysicsShell->SetAirResistance(0.f, 0.f);
 	m_pPhysicsShell->set_DynamicScales(1.f, 1.f);
 
@@ -768,7 +732,6 @@ void CMissile::net_Relcase(CObject* O)
 
 void CMissile::create_physic_shell()
 {
-	//create_box2sphere_physic_shell();
 	CInventoryItemObject::CreatePhysicsShell();
 }
 
@@ -808,8 +771,7 @@ void CMissile::render_item_ui()
 	g_MissileForceShape->Draw();
 }
 
-void CMissile::ExitContactCallback(bool& do_colide, bool bo1, dContact& c, SGameMtl* /*material_1*/,
-                                   SGameMtl* /*material_2*/)
+void CMissile::ExitContactCallback(bool& do_colide, bool bo1, dContact& c, SGameMtl* /*material_1*/, SGameMtl* /*material_2*/)
 {
 	dxGeomUserData *gd1 = NULL, *gd2 = NULL;
 	if (bo1)

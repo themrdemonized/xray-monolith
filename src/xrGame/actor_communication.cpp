@@ -43,7 +43,6 @@ void CActor::AddGameNews(GAME_NEWS_DATA& news_data)
 	}
 }
 
-
 bool CActor::OnReceiveInfo(shared_str info_id) const
 {
 	if (!CInventoryOwner::OnReceiveInfo(info_id))
@@ -56,6 +55,7 @@ bool CActor::OnReceiveInfo(shared_str info_id) const
 
 	if (!CurrentGameUI())
 		return false;
+
 	//только если находимся в режиме single
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (!pGameSP) return false;
@@ -65,10 +65,8 @@ bool CActor::OnReceiveInfo(shared_str info_id) const
 		pGameSP->TalkMenu->NeedUpdateQuestions();
 	}
 
-
 	return true;
 }
-
 
 void CActor::OnDisableInfo(shared_str info_id) const
 {
@@ -130,7 +128,6 @@ void CActor::RunTalkDialog(CInventoryOwner* talk_partner, bool disable_break)
 		if (CurrentGameUI()->TopInputReceiver())
 			CurrentGameUI()->TopInputReceiver()->HideDialog();
 
-		//		smart_cast<CUIGameSP*>(CurrentGameUI())->StartTalk(disable_break);
 		smart_cast<CUIGameSP*>(CurrentGameUI())->StartTalk(talk_partner->bDisableBreakDialog);
 	}
 }
@@ -147,8 +144,6 @@ void CActor::StartTalk(CInventoryOwner* talk_partner)
 
 void CActor::NewPdaContact(CInventoryOwner* pInvOwner)
 {
-	if (!IsGameTypeSingle()) return;
-
 	bool b_alive = !!(smart_cast<CEntityAlive*>(pInvOwner))->g_Alive();
 	CurrentGameUI()->UIMainIngameWnd->AnimateContacts(b_alive);
 
@@ -172,7 +167,6 @@ void CActor::LostPdaContact(CInventoryOwner* pInvOwner)
 void CActor::AddGameNews_deffered(GAME_NEWS_DATA& news_data, u32 delay)
 {
 	GAME_NEWS_DATA* d = xr_new<GAME_NEWS_DATA>(news_data);
-	//*d = news_data;
 	m_defferedMessages.push_back(SDefNewsMsg());
 	m_defferedMessages.back().news_data = d;
 	m_defferedMessages.back().time = Device.dwTimeGlobal + delay;
@@ -198,7 +192,8 @@ void CActor::UpdateDefferedMessages()
 bool CActor::OnDialogSoundHandlerStart(CInventoryOwner* inv_owner, LPCSTR phrase)
 {
 	CAI_Trader* trader = smart_cast<CAI_Trader*>(inv_owner);
-	if (!trader) return false;
+	if (!trader) 
+		return false;
 
 	trader->dialog_sound_start(phrase);
 	return true;
@@ -207,7 +202,8 @@ bool CActor::OnDialogSoundHandlerStart(CInventoryOwner* inv_owner, LPCSTR phrase
 bool CActor::OnDialogSoundHandlerStop(CInventoryOwner* inv_owner)
 {
 	CAI_Trader* trader = smart_cast<CAI_Trader*>(inv_owner);
-	if (!trader) return false;
+	if (!trader)
+		return false;
 
 	trader->dialog_sound_stop();
 	return true;

@@ -49,7 +49,6 @@ namespace award_system
 		best_scores_helper* m_best_scores_helper;
 
 		rewarding_event_handlers* m_event_handlers;
-		//atlas_submit_queue*						m_submit_queue;
 
 		u32 const m_max_rewards;
 		u32 m_rewarded;

@@ -176,7 +176,7 @@ void CUIMpTradeWnd::SetCurrentItem(CUICellItem* itm)
 		{
 			xr_strcpy(team, _team_names[m_store_hierarchy->TeamIdx() % 1]);
 		}
-		xr_sprintf(tex_name, "ui_hud_status_%s_0%d", team, 1 + get_rank(current_sect_name.c_str()));
+		xr_sprintf(tex_name, "ui_hud_status_%s_0%d", team, 1 + 0);
 
 		m_static_item_rank->InitTexture(tex_name);
 		m_static_item_rank->TextureOn();
@@ -190,7 +190,7 @@ void CUIMpTradeWnd::SetCurrentItem(CUICellItem* itm)
 
 int CUIMpTradeWnd::GetItemPrice(CInventoryItem* itm)
 {
-	return m_item_mngr->GetItemCost(itm->object().cNameSect(), g_mp_restrictions.GetRank());
+	return 0;
 }
 
 void CUIMpTradeWnd::BindDragDropListEvents(CUIDragDropListEx* lst, bool bDrag)
@@ -407,7 +407,7 @@ CUIDragDropListEx* CUIMpTradeWnd::GetMatchedListForItem(const shared_str& sect_n
 
 const u32 CUIMpTradeWnd::GetRank() const
 {
-	return g_mp_restrictions.GetRank();
+	return 0;
 }
 
 
@@ -480,8 +480,7 @@ u32 CUIMpTradeWnd::GetPresetCost(ETradePreset idx)
 
 void CUIMpTradeWnd::SetRank(u32 rank)
 {
-	if (m_bIgnoreMoneyAndRank) rank = _RANK_COUNT - 1;
-	g_mp_restrictions.SetRank(rank);
+	if (m_bIgnoreMoneyAndRank) rank = 0 - 1;
 
 	string64 tex_name;
 	string64 team;
@@ -498,7 +497,7 @@ void CUIMpTradeWnd::SetRank(u32 rank)
 
 u32 CUIMpTradeWnd::GetRank()
 {
-	return g_mp_restrictions.GetRank();
+	return u32(0);
 };
 
 void CUIMpTradeWnd::SetMoneyAmount(u32 money)

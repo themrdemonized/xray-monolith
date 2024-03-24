@@ -10,8 +10,6 @@
 #include "../xrServerEntities/object_broker.h"
 #include "../xrServerEntities/LevelGameDef.h"
 
-//#include "securom_api.h"
-
 extern float ps_r2_sun_shafts_min;
 extern float ps_r2_sun_shafts_value;
 extern Fvector3 ssfx_wetness_multiplier;
@@ -44,17 +42,18 @@ float CEnvModifier::sum(CEnvModifier& M, Fvector3& view)
 	float _att = 1 - _sqrt(_dist_sq) / M.radius; //[0..1];
 	float _power = M.power * _att;
 
-
 	if (M.use_flags.test(eViewDist))
 	{
 		far_plane += M.far_plane * _power;
 		use_flags.set(eViewDist, TRUE);
 	}
+	
 	if (M.use_flags.test(eFogColor))
 	{
 		fog_color.mad(M.fog_color, _power);
 		use_flags.set(eFogColor, TRUE);
 	}
+	
 	if (M.use_flags.test(eFogDensity))
 	{
 		fog_density += M.fog_density * _power;
@@ -96,10 +95,7 @@ void CEnvAmbient::SSndChannel::load(CInifile& config, LPCSTR sect)
 	m_sound_period.z = config.r_s32(m_load_section, "period2");
 	m_sound_period.w = config.r_s32(m_load_section, "period3");
 
-	// m_sound_period = config.r_ivector4(sect,"sound_period");
 	R_ASSERT(m_sound_period.x <= m_sound_period.y && m_sound_period.z <= m_sound_period.w);
-	// m_sound_period.mul (1000);// now in ms
-	// m_sound_dist = config.r_fvector2(sect,"sound_dist");
 	R_ASSERT2(m_sound_dist.y > m_sound_dist.x, sect);
 
 	LPCSTR snds = config.r_string(sect, "sounds");
@@ -177,24 +173,15 @@ void CEnvAmbient::load(
 	// sounds
 	LPCSTR channels = ambients_config.r_string(sect, "sound_channels");
 	u32 cnt = _GetItemCount(channels);
-	// R_ASSERT3 (cnt,"sound_channels empty", sect.c_str());
 	m_sound_channels.resize(cnt);
 
 	for (u32 i = 0; i < cnt; ++i)
 		m_sound_channels[i] = create_sound_channel(sound_channels_config, _GetItem(channels, i, tmp));
 
 	// effects
-	m_effect_period.set(
-		iFloor(
-			ambients_config.r_float(sect, "min_effect_period") * 1000.f
-		),
-		iFloor(
-			ambients_config.r_float(sect, "max_effect_period") * 1000.f
-		)
-	);
+	m_effect_period.set(iFloor(ambients_config.r_float(sect, "min_effect_period") * 1000.f), iFloor(ambients_config.r_float(sect, "max_effect_period") * 1000.f));
 	LPCSTR effs = ambients_config.r_string(sect, "effects");
 	cnt = _GetItemCount(effs);
-	// R_ASSERT3 (cnt,"effects empty", sect.c_str());
 
 	m_effects.resize(cnt);
 	for (u32 k = 0; k < cnt; ++k)
@@ -261,8 +248,7 @@ void CEnvDescriptor::load(CEnvironment& environment, CInifile& config)
 {
 	Ivector3 tm = {0, 0, 0};
 	sscanf(m_identifier.c_str(), "%d:%d:%d", &tm.x, &tm.y, &tm.z);
-	R_ASSERT3((tm.x >= 0) && (tm.x < 24) && (tm.y >= 0) && (tm.y < 60) && (tm.z >= 0) && (tm.z < 60),
-	          "Incorrect weather time", m_identifier.c_str());
+	R_ASSERT3((tm.x >= 0) && (tm.x < 24) && (tm.y >= 0) && (tm.y < 60) && (tm.z >= 0) && (tm.z < 60), "Incorrect weather time", m_identifier.c_str());
 	exec_time = tm.x * 3600.f + tm.y * 60.f + tm.z;
 	exec_time_loaded = exec_time;
 	string_path st, st_env;
@@ -296,23 +282,17 @@ void CEnvDescriptor::load(CEnvironment& environment, CInifile& config)
 	hemi_color = config.r_fvector4(m_identifier.c_str(), "hemisphere_color");
 	sun_color = config.r_fvector3(m_identifier.c_str(), "sun_color");
 
-	lens_flare_id = environment.eff_LensFlare->AppendDef(environment, environment.m_suns_config,
-	                                                     config.r_string(m_identifier.c_str(), "sun"));
-	tb_id = environment.eff_Thunderbolt->AppendDef(environment, environment.m_thunderbolt_collections_config,
-	                                               environment.m_thunderbolts_config,
-	                                               config.r_string(m_identifier.c_str(), "thunderbolt_collection"));
+	lens_flare_id = environment.eff_LensFlare->AppendDef(environment, environment.m_suns_config, config.r_string(m_identifier.c_str(), "sun"));
+	tb_id = environment.eff_Thunderbolt->AppendDef(environment, environment.m_thunderbolt_collections_config, environment.m_thunderbolts_config, config.r_string(m_identifier.c_str(), "thunderbolt_collection"));
 	bolt_period = (tb_id.size()) ? config.r_float(m_identifier.c_str(), "thunderbolt_period") : 0.f;
 	bolt_duration = (tb_id.size()) ? config.r_float(m_identifier.c_str(), "thunderbolt_duration") : 0.f;
-	env_ambient = config.line_exist(m_identifier.c_str(), "ambient")
-		              ? environment.AppendEnvAmb(config.r_string(m_identifier.c_str(), "ambient"))
-		              : 0;
+	env_ambient = config.line_exist(m_identifier.c_str(), "ambient") ? environment.AppendEnvAmb(config.r_string(m_identifier.c_str(), "ambient")) : 0;
 
 	if (config.line_exist(m_identifier.c_str(), "sun_shafts_intensity"))
 		m_fSunShaftsIntensity = config.r_float(m_identifier.c_str(), "sun_shafts_intensity");
 
 	if (config.line_exist(m_identifier.c_str(), "water_intensity"))
 		m_fWaterIntensity = config.r_float(m_identifier.c_str(), "water_intensity");
-
 
 	//lemurten
 	if (config.line_exist(m_identifier.c_str(), "hemi_vibrance"))
@@ -348,26 +328,11 @@ void CEnvDescriptor::load(CEnvironment& environment, CInifile& config)
 void CEnvDescriptor::on_device_create()
 {
 	m_pDescriptor->OnDeviceCreate(*this);
-	/*
-	if (sky_texture_name.size())
-	sky_texture.create (sky_texture_name.c_str());
-
-	if (sky_texture_env_name.size())
-	sky_texture_env.create (sky_texture_env_name.c_str());
-
-	if (clouds_texture_name.size())
-	clouds_texture.create (clouds_texture_name.c_str());
-	*/
 }
 
 void CEnvDescriptor::on_device_destroy()
 {
 	m_pDescriptor->OnDeviceDestroy();
-	/*
-	sky_texture.destroy ();
-	sky_texture_env.destroy ();
-	clouds_texture.destroy ();
-	*/
 }
 
 //-----------------------------------------------------------------------------
@@ -381,47 +346,19 @@ CEnvDescriptorMixer::CEnvDescriptorMixer(shared_str const& identifier) :
 void CEnvDescriptorMixer::destroy()
 {
 	m_pDescriptorMixer->Destroy();
-	/*
-	sky_r_textures.clear ();
-	sky_r_textures_env.clear ();
-	clouds_r_textures.clear ();
-	*/
 
 	// Reuse existing code
 	on_device_destroy();
-	/*
-	 sky_texture.destroy ();
-	 sky_texture_env.destroy ();
-	 clouds_texture.destroy ();
-	 */
 }
 
 void CEnvDescriptorMixer::clear()
 {
 	m_pDescriptorMixer->Clear();
-	/*
-	std::pair<u32,ref_texture> zero = mk_pair(u32(0),ref_texture(0));
-	sky_r_textures.clear ();
-	sky_r_textures.push_back (zero);
-	sky_r_textures.push_back (zero);
-	sky_r_textures.push_back (zero);
-
-	sky_r_textures_env.clear ();
-	sky_r_textures_env.push_back(zero);
-	sky_r_textures_env.push_back(zero);
-	sky_r_textures_env.push_back(zero);
-
-	clouds_r_textures.clear ();
-	clouds_r_textures.push_back (zero);
-	clouds_r_textures.push_back (zero);
-	clouds_r_textures.push_back (zero);
-	*/
 }
 
 int get_ref_count(IUnknown* ii);
 
-void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescriptor& B, float f, CEnvModifier& Mdf,
-                               float modifier_power)
+void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescriptor& B, float f, CEnvModifier& Mdf, float modifier_power)
 {
 	float modif_power = 1.f / (modifier_power + 1); // the environment itself
 	float fi = 1 - f;
@@ -570,7 +507,6 @@ void CEnvDescriptorMixer::boost(CEnvironment* env)
 		fog_color.add(env->env_boost.fog_color);
 		fog_color.clamp({0.f, 0.f, 0.f}, {1.f, 1.f, 1.f});
 	}
-	
 }
 
 //-----------------------------------------------------------------------------
@@ -583,12 +519,7 @@ CEnvAmbient* CEnvironment::AppendEnvAmb(const shared_str& sect)
 			return (*it);
 
 	Ambients.push_back(xr_new<CEnvAmbient>());
-	Ambients.back()->load(
-		*m_ambients_config,
-		*m_sound_channels_config,
-		*m_effects_config,
-		sect
-	);
+	Ambients.back()->load(*m_ambients_config, *m_sound_channels_config, *m_effects_config, sect);
 	return (Ambients.back());
 }
 
@@ -630,19 +561,13 @@ void CEnvironment::mods_unload()
 
 void CEnvironment::load_level_specific_ambients()
 {
-	//SECUROM_MARKER_PERFORMANCE_ON(13)
-
 	const shared_str level_name = g_pGameLevel->name();
 
 	string_path path;
 	strconcat(sizeof(path), path, "environment\\ambients\\", level_name.c_str(), ".ltx");
 
 	string_path full_path;
-	CInifile* level_ambients = xr_new<CInifile>(
-		FS.update_path(full_path, "$game_config$", path),
-		TRUE,
-		TRUE,
-		FALSE);
+	CInifile* level_ambients = xr_new<CInifile>(FS.update_path(full_path, "$game_config$", path), TRUE, TRUE, FALSE);
 
 	for (EnvAmbVecIt I = Ambients.begin(), E = Ambients.end(); I != E; ++I)
 	{
@@ -651,10 +576,7 @@ void CEnvironment::load_level_specific_ambients()
 		shared_str section_name = ambient->name();
 
 		// choose a source ini file
-		CInifile* source = (level_ambients && level_ambients->section_exist(section_name))
-			                   ? level_ambients
-			                   : m_ambients_config;
-
+		CInifile* source = (level_ambients && level_ambients->section_exist(section_name)) ? level_ambients : m_ambients_config;
 
 		// check and reload if needed
 		if (xr_strcmp(ambient->get_ambients_config_filename().c_str(), source->fname()))
@@ -665,8 +587,6 @@ void CEnvironment::load_level_specific_ambients()
 	}
 
 	xr_delete(level_ambients);
-
-	//SECUROM_MARKER_PERFORMANCE_OFF(13)
 }
 
 CEnvDescriptor* CEnvironment::create_descriptor(shared_str const& identifier, CInifile* config)
@@ -711,11 +631,7 @@ void CEnvironment::load_weathers()
 	{
 		u32 length = xr_strlen(*i);
 
-		if (!((length >= 4) &&
-			((*i)[length - 4] == '.') &&
-			((*i)[length - 3] == 'l') &&
-			((*i)[length - 2] == 't') &&
-			((*i)[length - 1] == 'x')))
+		if (!((length >= 4) && ((*i)[length - 4] == '.') && ((*i)[length - 3] == 'l') && ((*i)[length - 2] == 't') && ((*i)[length - 1] == 'x')))
 			continue;
 
 		id.assign(*i, length - 4);
@@ -805,30 +721,6 @@ void CEnvironment::load_weather_effects()
 
 	FS.file_list_close(file_list);
 
-#if 0
-    int line_count = pSettings->line_count("weather_effects");
-    for (int w_idx = 0; w_idx < line_count; w_idx++)
-    {
-        LPCSTR weather, sect_w;
-        if (pSettings->r_line("weather_effects", w_idx, &weather, &sect_w))
-        {
-            EnvVec& env = WeatherFXs[weather];
-            env.push_back(xr_new<CEnvDescriptor>("00:00:00"));
-            env.back()->exec_time_loaded = 0;
-            //. why? env.push_back (xr_new<CEnvDescriptor>("00:00:00")); env.back()->exec_time_loaded = 0;
-            int env_count = pSettings->line_count(sect_w);
-            LPCSTR exec_tm, sect_e;
-            for (int env_idx = 0; env_idx < env_count; env_idx++)
-            {
-                if (pSettings->r_line(sect_w, env_idx, &exec_tm, &sect_e))
-                    env.push_back(create_descriptor(sect_e));
-            }
-            env.push_back(create_descriptor("23:59:59"));
-            env.back()->exec_time_loaded = DAY_LENGTH;
-        }
-    }
-#endif // #if 0
-
 	// sorting weather envs
 	EnvsMapIt _I = WeatherFXs.begin();
 	EnvsMapIt _E = WeatherFXs.end();
@@ -845,10 +737,15 @@ void CEnvironment::load()
 		create_mixer();
 
 	m_pRender->OnLoad();
-	//tonemap = Device.Resources->_CreateTexture("$user$tonemap"); //. hack
-	if (!eff_Rain) eff_Rain = xr_new<CEffect_Rain>();
-	if (!eff_LensFlare) eff_LensFlare = xr_new<CLensFlare>();
-	if (!eff_Thunderbolt) eff_Thunderbolt = xr_new<CEffect_Thunderbolt>();
+
+	if (!eff_Rain) 
+		eff_Rain = xr_new<CEffect_Rain>();
+
+	if (!eff_LensFlare) 
+		eff_LensFlare = xr_new<CLensFlare>();
+
+	if (!eff_Thunderbolt) 
+		eff_Thunderbolt = xr_new<CEffect_Thunderbolt>();
 
 	load_weathers();
 	load_weather_effects();
@@ -858,6 +755,7 @@ void CEnvironment::load()
 void CEnvironment::unload()
 {
 	EnvsMapIt _I, _E;
+
 	// clear weathers
 	_I = WeatherCycles.begin();
 	_E = WeatherCycles.end();
@@ -866,8 +764,8 @@ void CEnvironment::unload()
 		for (EnvIt it = _I->second.begin(); it != _I->second.end(); it++)
 			xr_delete(*it);
 	}
-
 	WeatherCycles.clear();
+
 	// clear weather effect
 	_I = WeatherFXs.begin();
 	_E = WeatherFXs.end();
@@ -877,10 +775,12 @@ void CEnvironment::unload()
 			xr_delete(*it);
 	}
 	WeatherFXs.clear();
+
 	// clear ambient
 	for (EnvAmbVecIt it = Ambients.begin(); it != Ambients.end(); it++)
 		xr_delete(*it);
 	Ambients.clear();
+
 	// misc
 	xr_delete(eff_Rain);
 	xr_delete(eff_LensFlare);
@@ -891,7 +791,6 @@ void CEnvironment::unload()
 	Invalidate();
 
 	m_pRender->OnUnload();
-	// tonemap = 0;
 }
 
 void CEnvironment::Reload()

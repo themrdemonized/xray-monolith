@@ -16,10 +16,6 @@ namespace gamespy_profile
 			stats_submitter::g_number,
 			stats_submitter::public_key)
 	{
-		//VERIFY(fullgs_obj && fullgs_obj->GetGameSpySAKE());
-		//m_fullgs_obj		= fullgs_obj;
-		//m_sake_obj			= fullgs_obj->GetGameSpySAKE();
-
 		m_awards_store = xr_new<awards_store>(fullgs_obj);
 		m_best_scores_store = xr_new<best_scores_store>(fullgs_obj);
 	}
@@ -64,25 +60,6 @@ namespace gamespy_profile
 	void profile_store::load_current_profile(store_operation_cb progress_indicator_cb,
 	                                         store_operation_cb complete_cb)
 	{
-		//if (!complete_cb)
-		//{
-		//	complete_cb.bind(this, &profile_store::onlylog_completion);
-		//}
-		//gamespy_gp::login_manager*	tmp_lmngr		= MainMenu()->GetLoginMngr();
-		//R_ASSERT(tmp_lmngr);
-		//gamespy_gp::profile const * tmp_curr_prof	= tmp_lmngr->get_current_profile();
-		//if (!tmp_curr_prof)
-		//{
-		//	complete_cb(false, "mp_first_need_to_login");
-		//	return;
-		//}
-		//set_current_profile				(
-		//	tmp_curr_prof->m_profile_id,
-		//	tmp_curr_prof->m_login_ticket.c_str()
-		//);
-
-		//load_prof_params_t	tmp_args(progress_indicator_cb);
-		//m_load_current_profile_qam.execute(this, tmp_args, complete_cb);
 	}
 
 	void profile_store::load_current_profile_raw(load_prof_params_t const& args,
@@ -146,17 +123,6 @@ namespace gamespy_profile
 				);
 				FS.r_close(tmp_reader);
 			}
-		}
-		if (m_valid_ltx)
-		{
-			//s32 tmp_profile_id = m_dsigned_reader.get_ltx().r_s32(
-			//	profile_data_section, profile_id_line
-			//);
-			//gamespy_gp::login_manager*	tmp_lmngr		= MainMenu()->GetLoginMngr();
-			//R_ASSERT(tmp_lmngr);
-			//gamespy_gp::profile const * tmp_curr_prof	= tmp_lmngr->get_current_profile();
-			//R_ASSERT(tmp_curr_prof);
-			//m_valid_ltx = (tmp_profile_id == tmp_curr_prof->m_profile_id);
 		}
 
 		m_awards_store->reset_awards();
@@ -303,12 +269,6 @@ static u32 const actuality_update_time = 120;
 					profile_last_submit_time
 				)
 			);
-			if ((current_time - last_submit_time) >= actuality_update_time)
-			{
-				//atlas_submit_queue* tmp_submit_queue = MainMenu()->GetSubmitQueue();
-				//VERIFY(tmp_submit_queue);
-				//tmp_submit_queue->submit_all();
-			}
 		}
 	}
 } //namespace gamespy_profile

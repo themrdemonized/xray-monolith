@@ -4,7 +4,6 @@
 
 #include "ui/UISkinSelector.h"
 #include "ui/UIPdaWnd.h"
-#include "ui/UIMapDesc.h"
 #include "ui/KillMessageStruct.h"
 #include "level.h"
 #include "game_cl_base.h"

@@ -72,17 +72,18 @@ void IInputReceiver::IR_GetMousePosIndependent(Fvector2& f)
 {
 	Ivector2 p;
 	IR_GetMousePosReal(p);
-	f.set(
-		2.f * float(p.x) / float(RDEVICE.dwWidth) - 1.f,
-		2.f * float(p.y) / float(RDEVICE.dwHeight) - 1.f
-	);
+	f.set(2.f * float(p.x) / float(RDEVICE.dwWidth) - 1.f, 2.f * float(p.y) / float(RDEVICE.dwHeight) - 1.f);
 }
 
 void IInputReceiver::IR_GetMousePosIndependentCrop(Fvector2& f)
 {
 	IR_GetMousePosIndependent(f);
-	if (f.x < -1.f) f.x = -1.f;
-	if (f.x > 1.f) f.x = 1.f;
-	if (f.y < -1.f) f.y = -1.f;
-	if (f.y > 1.f) f.y = 1.f;
+	if (f.x < -1.f) 
+		f.x = -1.f;
+	if (f.x > 1.f)
+		f.x = 1.f;
+	if (f.y < -1.f)
+		f.y = -1.f;
+	if (f.y > 1.f)
+		f.y = 1.f;
 }

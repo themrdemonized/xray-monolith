@@ -24,7 +24,6 @@ CShootingObject::CShootingObject(void)
 {
 	fShotTimeCounter = 0;
 	fOneShotTime = 0;
-	//fHitPower						= 0.0f;
 	fvHitPower.set(0.0f, 0.0f, 0.0f, 0.0f);
 	fvHitPowerCritical.set(0.0f, 0.0f, 0.0f, 0.0f);
 	m_fStartBulletSpeed = 1000.f;
@@ -32,10 +31,6 @@ CShootingObject::CShootingObject(void)
 	m_vCurrentShootDir.set(0, 0, 0);
 	m_vCurrentShootPos.set(0, 0, 0);
 	m_iCurrentParentID = 0xFFFF;
-
-	//m_fPredBulletTime = 0.0f;
-	//m_bUseAimBullet = false;
-	//m_fTimeToAim = 0.0f;
 
 	//particles
 	m_sFlameParticlesCurrent = m_sFlameParticles = NULL;
@@ -127,8 +122,7 @@ void CShootingObject::LoadFireParams(LPCSTR section)
 
 	fvHitPower[egdNovice] = fvHitPower[egdStalker] = fvHitPower[egdVeteran] = fvHitPower[egdMaster];
 	//изначально параметры для других уровней сложности такие же
-	fvHitPowerCritical[egdNovice] = fvHitPowerCritical[egdStalker] = fvHitPowerCritical[egdVeteran] = fvHitPowerCritical
-		[egdMaster]; //изначально параметры для других уровней сложности такие же
+	fvHitPowerCritical[egdNovice] = fvHitPowerCritical[egdStalker] = fvHitPowerCritical[egdVeteran] = fvHitPowerCritical[egdMaster]; //изначально параметры для других уровней сложности такие же
 
 	int num_game_diff_param = _GetItemCount(*s_sHitPower); //узнаём колличество параметров для хитов
 	if (num_game_diff_param > 1) //если задан второй параметр хита
@@ -166,11 +160,6 @@ void CShootingObject::LoadFireParams(LPCSTR section)
 	fireDistance = pSettings->r_float(section, "fire_distance");
 	//начальная скорость пули
 	m_fStartBulletSpeed = pSettings->r_float(section, "bullet_speed");
-	/*m_bUseAimBullet = pSettings->r_bool(section, "use_aim_bullet");
-	if (m_bUseAimBullet)
-	{
-		m_fTimeToAim = pSettings->r_float(section, "time_to_aim");
-	}*/
 }
 
 void CShootingObject::LoadLights(LPCSTR section, LPCSTR prefix)
@@ -200,9 +189,7 @@ void CShootingObject::Light_Start()
 		light_frame = Device.dwFrame;
 		light_time = light_lifetime;
 
-		light_build_color.set(Random.randFs(light_var_color, light_base_color.r),
-		                      Random.randFs(light_var_color, light_base_color.g),
-		                      Random.randFs(light_var_color, light_base_color.b), 1);
+		light_build_color.set(Random.randFs(light_var_color, light_base_color.r), Random.randFs(light_var_color, light_base_color.g), Random.randFs(light_var_color, light_base_color.b), 1);
 		light_build_range = Random.randFs(light_var_range, light_base_range);
 	}
 }
@@ -213,8 +200,7 @@ void CShootingObject::Light_Render(const Fvector& P)
 	R_ASSERT(light_render);
 
 	light_render->set_position(P);
-	light_render->set_color(light_build_color.r * light_scale, light_build_color.g * light_scale,
-	                        light_build_color.b * light_scale);
+	light_render->set_color(light_build_color.r * light_scale, light_build_color.g * light_scale, light_build_color.b * light_scale);
 	light_render->set_range(fmaxf(.1f, (light_build_range * light_scale)));
 
 	if (!light_render->get_active())
@@ -223,13 +209,11 @@ void CShootingObject::Light_Render(const Fvector& P)
 	}
 }
 
-
 //////////////////////////////////////////////////////////////////////////
 // Particles
 //////////////////////////////////////////////////////////////////////////
 
-void CShootingObject::StartParticles(CParticlesObject*& pParticles, LPCSTR particles_name,
-                                     const Fvector& pos, const Fvector& vel, bool auto_remove_flag)
+void CShootingObject::StartParticles(CParticlesObject*& pParticles, LPCSTR particles_name, const Fvector& pos, const Fvector& vel, bool auto_remove_flag)
 {
 	if (!particles_name) return;
 
@@ -253,8 +237,7 @@ void CShootingObject::StopParticles(CParticlesObject*& pParticles)
 	CParticlesObject::Destroy(pParticles);
 }
 
-void CShootingObject::UpdateParticles(CParticlesObject*& pParticles,
-                                      const Fvector& pos, const Fvector& vel)
+void CShootingObject::UpdateParticles(CParticlesObject*& pParticles, const Fvector& pos, const Fvector& vel)
 {
 	if (!pParticles) return;
 
@@ -272,7 +255,6 @@ void CShootingObject::UpdateParticles(CParticlesObject*& pParticles,
 	}
 }
 
-
 void CShootingObject::LoadShellParticles(LPCSTR section, LPCSTR prefix)
 {
 	string256 full_name;
@@ -281,8 +263,7 @@ void CShootingObject::LoadShellParticles(LPCSTR section, LPCSTR prefix)
 	if (pSettings->line_exist(section, full_name))
 	{
 		m_sShellParticles = pSettings->r_string(section, full_name);
-		vLoadedShellPoint = pSettings->r_fvector3(
-			section, strconcat(sizeof(full_name), full_name, prefix, "shell_point"));
+		vLoadedShellPoint = pSettings->r_fvector3(section, strconcat(sizeof(full_name), full_name, prefix, "shell_point"));
 	}
 }
 
@@ -309,9 +290,7 @@ void CShootingObject::LoadFlameParticles(LPCSTR section, LPCSTR prefix)
 	m_sSmokeParticlesCurrent = m_sSmokeParticles;
 }
 
-
-void CShootingObject::OnShellDrop(const Fvector& play_pos,
-                                  const Fvector& parent_vel)
+void CShootingObject::OnShellDrop(const Fvector& play_pos, const Fvector& parent_vel)
 {
 	if (!m_sShellParticles) return;
 	if (Device.vCameraPosition.distance_to_sqr(play_pos) > 2 * 2) return;
@@ -325,8 +304,7 @@ void CShootingObject::OnShellDrop(const Fvector& play_pos,
 	pShellParticles->UpdateParent(particles_pos, parent_vel);
 	CSpectator* tmp_spectr = smart_cast<CSpectator*>(Level().CurrentControlEntity());
 	bool in_hud_mode = IsHudModeNow();
-	if (in_hud_mode && tmp_spectr &&
-		(tmp_spectr->GetActiveCam() != CSpectator::eacFirstEye))
+	if (in_hud_mode && tmp_spectr && (tmp_spectr->GetActiveCam() != CSpectator::eacFirstEye))
 	{
 		in_hud_mode = false;
 	}
@@ -335,13 +313,11 @@ void CShootingObject::OnShellDrop(const Fvector& play_pos,
 
 
 //партиклы дыма
-void CShootingObject::StartSmokeParticles(const Fvector& play_pos,
-                                          const Fvector& parent_vel)
+void CShootingObject::StartSmokeParticles(const Fvector& play_pos, const Fvector& parent_vel)
 {
 	CParticlesObject* pSmokeParticles = NULL;
 	StartParticles(pSmokeParticles, *m_sSmokeParticlesCurrent, play_pos, parent_vel, true);
 }
-
 
 void CShootingObject::StartFlameParticles()
 {
@@ -362,8 +338,7 @@ void CShootingObject::StartFlameParticles()
 
 	CSpectator* tmp_spectr = smart_cast<CSpectator*>(Level().CurrentControlEntity());
 	bool in_hud_mode = IsHudModeNow();
-	if (in_hud_mode && tmp_spectr &&
-		(tmp_spectr->GetActiveCam() != CSpectator::eacFirstEye))
+	if (in_hud_mode && tmp_spectr && (tmp_spectr->GetActiveCam() != CSpectator::eacFirstEye))
 	{
 		in_hud_mode = false;
 	}
@@ -459,13 +434,7 @@ bool CShootingObject::SendHitAllowed(CObject* pUser)
 
 extern void random_dir(Fvector& tgt_dir, const Fvector& src_dir, float dispersion);
 
-void CShootingObject::FireBullet(const Fvector& pos,
-                                 const Fvector& shot_dir,
-                                 float fire_disp,
-                                 const CCartridge& cartridge,
-                                 u16 parent_id,
-                                 u16 weapon_id,
-                                 bool send_hit, int iShotNum)
+void CShootingObject::FireBullet(const Fvector& pos, const Fvector& shot_dir, float fire_disp, const CCartridge& cartridge, u16 parent_id, u16 weapon_id, bool send_hit, int iShotNum)
 {
 	Fvector dir;
 	random_dir(dir, shot_dir, fire_disp);
@@ -475,68 +444,18 @@ void CShootingObject::FireBullet(const Fvector& pos,
 	m_iCurrentParentID = parent_id;
 
 	bool aim_bullet = false;
-	/*if (m_bUseAimBullet)
-	{
-		if (ParentMayHaveAimBullet())
-		{
-			if (m_fPredBulletTime == 0.0)
-			{
-				aim_bullet = true;
-			}
-			else
-			{
-				if ((Device.fTimeGlobal - m_fPredBulletTime) >= m_fTimeToAim)
-				{
-					aim_bullet = true;
-				}
-				else
-				{
-					aim_bullet = false;
-				}
-			}
-		}
-		else
-		{
-			aim_bullet = false;
-		}
-	}
-	else
-	{
-		aim_bullet = false;
-	}
-	m_fPredBulletTime = Device.fTimeGlobal;*/
 
 	float l_fHitPower = 0.0f;
 	if (SOParentIsActor()) //если из оружия стреляет актёр(игрок)
 	{
-		if (GameID() == eGameIDSingle)
-		{
-			l_fHitPower = fvHitPower[g_SingleGameDifficulty];
-		}
-		else
-		{
-			l_fHitPower = fvHitPower[egdMaster];
-		}
+		l_fHitPower = fvHitPower[g_SingleGameDifficulty];
 	}
 	else
 	{
 		l_fHitPower = fvHitPower[egdMaster];
 	}
 
-	Level().BulletManager().AddBullet(pos,
-	                                  dir,
-	                                  m_fStartBulletSpeed * cur_silencer_koef.bullet_speed,
-	                                  l_fHitPower * cur_silencer_koef.hit_power,
-	                                  fHitImpulse * cur_silencer_koef.hit_impulse,
-	                                  parent_id,
-	                                  weapon_id,
-	                                  ALife::eHitTypeFireWound,
-	                                  fireDistance,
-	                                  cartridge,
-	                                  m_air_resistance_factor,
-	                                  send_hit,
-	                                  aim_bullet,
-	                                  iShotNum);
+	Level().BulletManager().AddBullet(pos, dir, m_fStartBulletSpeed * cur_silencer_koef.bullet_speed, l_fHitPower * cur_silencer_koef.hit_power, fHitImpulse * cur_silencer_koef.hit_impulse, parent_id, weapon_id, ALife::eHitTypeFireWound, fireDistance, cartridge, m_air_resistance_factor, send_hit, aim_bullet, iShotNum);
 }
 
 void CShootingObject::FireStart()
@@ -552,6 +471,5 @@ void CShootingObject::FireEnd()
 void CShootingObject::StartShotParticles()
 {
 	CParticlesObject* pSmokeParticles = NULL;
-	StartParticles(pSmokeParticles, *m_sShotParticles,
-	               m_vCurrentShootPos, m_vCurrentShootDir, true);
+	StartParticles(pSmokeParticles, *m_sShotParticles, m_vCurrentShootPos, m_vCurrentShootDir, true);
 }

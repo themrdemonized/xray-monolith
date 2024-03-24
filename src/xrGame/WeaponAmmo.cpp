@@ -220,10 +220,6 @@ void CWeaponAmmo::UpdateCL()
 	VERIFY2(_valid(renderable.xform), *cName());
 	inherited::UpdateCL();
 	VERIFY2(_valid(renderable.xform), *cName());
-
-	if (!IsGameTypeSingle())
-		make_Interpolation();
-
 	VERIFY2(_valid(renderable.xform), *cName());
 }
 

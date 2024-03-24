@@ -79,34 +79,6 @@ xrGameSpyServer::EConnect xrGameSpyServer::Connect(shared_str& session_name, Gam
 
 	m_iReportToMasterServer = game->get_option_i(*session_name, "public", 0);
 	m_iMaxPlayers = game->get_option_i(*session_name, "maxplayers", 32);
-	//	m_bCheckCDKey = game->get_option_i		(*session_name,"cdkey",0) != 0;
-	//	m_bCheckCDKey = game->get_option_i		(*session_name,"public",0) != 0;
-	//--------------------------------------------//
-	if (game->Type() != eGameIDSingle)
-	{
-		//----- Check for Backend Services ---
-		//CGameSpy_Available GSA;
-		//shared_str result_string;
-		//if (!GSA.CheckAvailableServices(result_string))
-		//{
-		//	Msg(*result_string);
-		//};
-
-		//------ Init of QR2 SDK -------------
-		iGameSpyBasePort = game->get_option_i(*session_name, "portgs", -1);
-		QR2_Init(iGameSpyBasePort);
-
-		//------ Init of CDKey SDK -----------
-
-#ifndef DEBUG
-
-#ifndef DEMO_BUILD
-		if (m_bCheckCDKey)
-#endif
-
-			CDKey_Init();
-#endif // DEBUG
-	};
 
 	return res;
 }
@@ -114,16 +86,6 @@ xrGameSpyServer::EConnect xrGameSpyServer::Connect(shared_str& session_name, Gam
 void xrGameSpyServer::Update()
 {
 	inherited::Update();
-
-	//if (m_bQR2_Initialized)
-	//{
-	//	m_QR2.Think(NULL);
-	//};
-
-	//if (m_bCDKey_Initialized)
-	//{
-	//	m_GCDServer.Think();
-	//};
 }
 
 int xrGameSpyServer::GetPlayersCount()
@@ -152,7 +114,6 @@ void xrGameSpyServer::OnCL_Disconnected(IClient* _CL)
 	if (m_bCDKey_Initialized)
 	{
 		Msg("Server : Disconnecting Client");
-		//m_GCDServer.DisconnectUser(int(_CL->ID.value()));
 	};
 }
 
@@ -184,13 +145,10 @@ u32 xrGameSpyServer::OnMessage(NET_Packet& P, ClientID sender) // Non-Zero means
 #ifndef MASTER_GOLD
 				Msg("Server : Respond accepted, Authenticate client.");
 #endif // #ifndef MASTER_GOLD
-				//m_GCDServer.AuthUser(int(CL->ID.value()), CL->m_cAddress.m_data.data, CL->m_pChallengeString, ResponseStr, this);
-				//xr_strcpy(CL->m_guid,128,this->GCD_Server()->GetKeyHash(CL->ID.value()));
 			}
 			else
 			{
 				Msg("Server : Respond accepted, ReAuthenticate client.");
-				//m_GCDServer.ReAuthUser(int(CL->ID.value()), CL->m_iCDKeyReauthHint, ResponseStr);
 			}
 
 			return (0);
@@ -262,7 +220,6 @@ void xrGameSpyServer::GetServerInfo(CServerInfo* si)
 	si->AddItem("Players", tmp, RGB(255, 128, 255));
 
 	string256 res;
-	//si->AddItem( "Game version", QR2()->GetGameVersion( res ), RGB(0,158,255) );
 
 	xr_strcpy(res, "");
 	if (HasProtected() || (Password.size() > 0))

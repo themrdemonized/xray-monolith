@@ -20,13 +20,10 @@
 #include "xr_level_controller.h"
 
 #include "object_broker.h"
-//#include "clsid_game.h"
 #include "weaponknife.h"
 
 #include "ui/UISkinSelector.h"
-//.#include "ui/UIInventoryWnd.h"
 #include "ui/UIPdaWnd.h"
-#include "ui/UIMapDesc.h"
 #include "ui/UISpawnWnd.h"
 #include "ui/UIBuyWndBase.h"
 #include "ui/UIMpTradeWnd.h"

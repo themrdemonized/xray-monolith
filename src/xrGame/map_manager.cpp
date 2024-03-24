@@ -125,7 +125,7 @@ CMapLocation* CMapManager::AddMapLocation(const shared_str& spot_type, u16 id)
 	CMapLocation* l = xr_new<CMapLocation>(spot_type.c_str(), id);
 	Locations().push_back(SLocationKey(spot_type, id));
 	Locations().back().location = l;
-	if (IsGameTypeSingle() && g_actor)
+	if (g_actor)
 		Actor()->callback(GameObject::eMapLocationAdded)(spot_type.c_str(), id);
 
 	return l;
@@ -142,7 +142,6 @@ CMapLocation* CMapManager::AddRelationLocation(CInventoryOwner* pInvOwner)
 
 	CEntityAlive* pEntAlive = smart_cast<CEntityAlive*>(pInvOwner);
 	if (!pEntAlive->g_Alive()) sname = "deadbody_location";
-
 
 	R_ASSERT(!HasMapLocation(sname, pInvOwner->object_id()));
 	CMapLocation* l = xr_new<CRelationMapLocation>(sname, pInvOwner->object_id(), pActor->object_id());
@@ -162,9 +161,7 @@ void CMapManager::RemoveMapLocation(const shared_str& spot_type, u16 id)
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
 	if (it != Locations().end())
 	{
-		if (IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase((*it).location);
-
+		Level().GameTaskManager().MapLocationRelcase((*it).location);
 		Destroy((*it).location);
 		Locations().erase(it);
 	}
@@ -173,13 +170,16 @@ void CMapManager::RemoveMapLocation(const shared_str& spot_type, u16 id)
 // demonized: remove all map object spots by id
 void CMapManager::RemoveAllMapLocationsById(u16 id)
 {
-	for (Locations_it it = Locations().begin(); it != Locations().end(); ) {
-		if (it->object_id == id) {
-			if (IsGameTypeSingle())
-				Level().GameTaskManager().MapLocationRelcase((*it).location);
+	for (Locations_it it = Locations().begin(); it != Locations().end(); ) 
+	{
+		if (it->object_id == id) 
+		{
+			Level().GameTaskManager().MapLocationRelcase((*it).location);
 			Destroy((*it).location);
 			it = Locations().erase(it);
-		} else {
+		} 
+		else 
+		{
 			it++;
 		}
 	}
@@ -191,9 +191,7 @@ void CMapManager::RemoveMapLocationByObjectID(u16 id) //call on destroy object
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
 	while (it != Locations().end())
 	{
-		if (IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase((*it).location);
-
+		Level().GameTaskManager().MapLocationRelcase((*it).location);
 		Destroy((*it).location);
 		Locations().erase(it);
 
@@ -208,9 +206,7 @@ void CMapManager::RemoveMapLocation(CMapLocation* ml)
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
 	if (it != Locations().end())
 	{
-		if (IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase((*it).location);
-
+		Level().GameTaskManager().MapLocationRelcase((*it).location);
 		Destroy((*it).location);
 		Locations().erase(it);
 	}
@@ -273,13 +269,12 @@ void CMapManager::Update()
 		if ((*it).actual && bForce)
 			(*it).location->CalcPosition();
 	}
+
 	std::sort(Locations().begin(), Locations().end());
 
 	while ((!Locations().empty()) && (!Locations().back().actual))
 	{
-		if (IsGameTypeSingle())
-			Level().GameTaskManager().MapLocationRelcase(Locations().back().location);
-
+		Level().GameTaskManager().MapLocationRelcase(Locations().back().location);
 		Destroy(Locations().back().location);
 		Locations().pop_back();
 	}

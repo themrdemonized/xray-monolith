@@ -3,8 +3,6 @@
 class CTeamInfo
 {
 public:
-	static u32 GetTeam1_color();
-	static u32 GetTeam2_color();
 	static shared_str GetTeam1_name();
 	static shared_str GetTeam2_name();
 	static LPCSTR GetTeam_name(int team);

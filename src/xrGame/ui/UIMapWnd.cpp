@@ -40,13 +40,6 @@ CUIMapWnd::CUIMapWnd()
 	m_currentZoom = 1.0f;
 	m_map_location_hint = NULL;
 	m_map_move_step = 10.0f;
-	/*
-	#ifdef DEBUG
-	//	m_dbg_text_hint			= NULL;
-	//	m_dbg_info				= NULL;
-	#endif // DEBUG /**/
-
-	//	UIMainMapHeader			= NULL;
 	m_scroll_mode = false;
 	m_nav_timing = Device.dwTimeGlobal;
 	hint_wnd = NULL;
@@ -58,14 +51,8 @@ CUIMapWnd::~CUIMapWnd()
 	delete_data(m_ActionPlanner);
 	delete_data(m_GameMaps);
 	delete_data(m_map_location_hint);
-	/*
-	#ifdef DEBUG
-		delete_data( m_dbg_text_hint );
-		delete_data( m_dbg_info );
-	#endif // DEBUG/**/
 	g_map_wnd = NULL;
 }
-
 
 void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 {
@@ -83,7 +70,6 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	m_UILevelFrame->SetAutoDelete(true);
 	strconcat(sizeof(pth), pth, start_from, ":level_frame");
 	xml_init.InitWindow(uiXml, pth, 0, m_UILevelFrame);
-	//	m_UIMainFrame->AttachChild		(m_UILevelFrame);
 	AttachChild(m_UILevelFrame);
 
 	m_UIMainFrame = xr_new<CUIFrameWindow>();
@@ -130,7 +116,6 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	m_map_location_hint->SetAutoDelete(false);
 
 	// Load maps
-
 	m_GlobalMap = xr_new<CUIGlobalMap>(this);
 	m_GlobalMap->SetAutoDelete(true);
 	m_GlobalMap->Initialize();
@@ -143,11 +128,7 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	init_xml_nav(uiXml);
 
 	// initialize local maps
-	xr_string sect_name;
-	if (IsGameTypeSingle())
-		sect_name = "level_maps_single";
-	else
-		sect_name = "level_maps_mp";
+	xr_string sect_name = "level_maps_single";
 
 	if (pGameIni->section_exist(sect_name.c_str()))
 	{
@@ -311,10 +292,9 @@ void CUIMapWnd::SetTargetMap(CUICustomMap* m, const Fvector2& pos, bool bZoomIn)
 	}
 	else
 	{
-		if (bZoomIn/* && fsimilar(GlobalMap()->GetCurrentZoom(), GlobalMap()->GetMinZoom(),EPS_L )*/)
+		if (bZoomIn)
 			SetZoom(GlobalMap()->GetMaxZoom());
 
-		//		m_tgtCenter						= m->ConvertRealToLocalNoTransform(pos, m->BoundRect());
 		m_tgtCenter = m->ConvertRealToLocal(pos, true);
 		m_tgtCenter.add(m->GetWndPos()).div(GlobalMap()->GetCurrentZoom());
 	}
@@ -331,12 +311,6 @@ void CUIMapWnd::MoveMap(Fvector2 const& pos_delta)
 void CUIMapWnd::Draw()
 {
 	inherited::Draw();
-	/*
-	#ifdef DEBUG
-		m_dbg_text_hint->Draw	();
-		m_dbg_info->Draw		();
-	#endif // DEBUG/**/
-
 	m_btn_nav_parent->Draw();
 }
 
@@ -401,17 +375,13 @@ bool CUIMapWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	{
 	case DIK_NUMPADMINUS:
 		{
-			//SetZoom(GetZoom()/1.5f);
 			UpdateZoom(false);
-			//ResetActionPlanner();
 			return true;
 		}
 		break;
 	case DIK_NUMPADPLUS:
 		{
-			//SetZoom(GetZoom()*1.5f);
 			UpdateZoom(true);
-			//ResetActionPlanner();
 			return true;
 		}
 		break;
@@ -423,7 +393,7 @@ bool CUIMapWnd::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 extern BOOL mouseWheelInvertZoom;
 bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 {
-	if (inherited::OnMouseAction(x, y, mouse_action) /*|| m_btn_nav_parent->OnMouseAction(x,y,mouse_action)*/)
+	if (inherited::OnMouseAction(x, y, mouse_action))
 	{
 		return true;
 	}
@@ -578,8 +548,7 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 	{
 		sp = smart_cast<CMapSpot*>(w);
 		if (sp)
-			funct(m_UIPropertiesBox, sp->MapLocation()->ObjectID(), (LPCSTR)sp->MapLocation()->GetLevelName().c_str(),
-			      (LPCSTR)sp->MapLocation()->GetHint());
+			funct(m_UIPropertiesBox, sp->MapLocation()->ObjectID(), (LPCSTR)sp->MapLocation()->GetLevelName().c_str(), (LPCSTR)sp->MapLocation()->GetHint());
 	}
 
 	// demonized: possibility to click trigger properties box anywhere on the map with right click
@@ -717,10 +686,6 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 							if (lvid_not_set) {
 								lm_lvid = vertex->level_vertex_id();
 								lm_real_pos.y = pos.y;
-
-								// code below might crash
-								/*Fvector3 lvid_pos = ai().level_graph().vertex_position(lm_lvid);
-								lm_real_pos.y = lvid_pos.y;*/
 							}
 						}
 					}
@@ -966,12 +931,7 @@ void CUIMapWnd::HideCurHint()
 }
 
 void CUIMapWnd::Hint(const shared_str& text)
-{
-	/*
-#ifdef DEBUG
-	m_dbg_text_hint->SetTextST( *text );
-#endif // DEBUG/**/
-}
+{}
 
 void CUIMapWnd::Reset()
 {

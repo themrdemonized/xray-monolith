@@ -30,7 +30,6 @@ DECLARE_MESSAGE(DeviceReset);
 
 DECLARE_MESSAGE(ScreenResolutionChanged);
 
-
 //-----------------------------------------------------------------------------
 struct _REG_INFO
 {
@@ -38,8 +37,6 @@ struct _REG_INFO
 	int Prio;
 	u32 Flags;
 };
-
-//ENGINE_API extern int __cdecl _REG_Compare(const void *, const void *);
 
 template <class T>
 class CRegistrator // the registrator itself

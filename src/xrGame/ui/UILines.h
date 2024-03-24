@@ -6,7 +6,6 @@
 class CUILines : public CDeviceResetNotifier
 {
 	friend class CUICustomEdit;
-	friend class CUICDkey;
 public:
 	CUILines();
 	virtual ~CUILines();
@@ -34,7 +33,6 @@ public:
 	void SetEllipsis(bool mode);
 
 	void Draw(float x, float y);
-
 
 	// CDeviceResetNotifier methods
 	virtual void OnDeviceReset();
