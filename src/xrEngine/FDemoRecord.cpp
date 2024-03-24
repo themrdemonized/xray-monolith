@@ -461,7 +461,7 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_ESCAPE)
 			Console->Execute("main_menu on");
 	} else {
-		if (dik == DIK_MULTIPLY) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
+		if (dik == DIK_MULTIPLY || dik == DIK_TAB) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
 
 		if (m_b_redirect_input_to_level)
 		{
@@ -557,12 +557,14 @@ void CDemoRecord::IR_OnKeyboardHold(int dik)
 	case DIK_NUMPAD4:
 		vR_delta.y -= 1.0f;
 		break; // Turn Right
+	case DIK_C:
 	case DIK_NUMPAD9:
 		vR_delta.z -= 2.0f;
-		break; // Turn Right
+		break; // tilt Right
+	case DIK_Z:
 	case DIK_NUMPAD7:
 		vR_delta.z += 2.0f;
-		break; // Turn Right
+		break; // tilt left
 	}
 
 	update_whith_timescale(m_vT, vT_delta);
