@@ -133,6 +133,7 @@ CScriptGameObject* get_object_by_id(u16 id)
 CScriptGameObject* get_object_by_id()
 {
 	Msg("!WARNING : level.object_by_id(nil) called!");
+	ai().script_engine().print_stack();
 	return nullptr;
 }
 
@@ -141,6 +142,7 @@ CScriptGameObject* get_object_by_id(const luabind::object& ob)
 	if (!ob || ob.type() == LUA_TNIL)
 	{
 		Msg("!WARNING : level.object_by_id(nil) called!");
+		ai().script_engine().print_stack();
 		return nullptr;
 	}
 
