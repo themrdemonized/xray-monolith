@@ -16,6 +16,7 @@
 #include "../../ai_monster_space.h"
 #include "../../characterphysicssupport.h"
 #include "CustomZone.h"
+#include "script_game_object.h"
 
 using namespace StalkerSpace;
 using namespace MonsterSpace;
@@ -164,6 +165,15 @@ void CAI_Stalker::feel_touch_new(CObject* O)
 #ifndef SILENCE
 		Msg("Taking item %s (%d)!",I->object().cName().c_str(),I->object().ID());
 #endif
+		// Tosox
+		// Callback for when NPC tries to pickup an item
+		luabind::functor<bool> func;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnBeforeOwnershipTake", func)) {
+			if (!func(lua_game_object(), I->cast_game_object()->lua_game_object())) {
+				return;
+			}
+		}
+
 		generate_take_event(O);
 		return;
 	}
