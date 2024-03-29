@@ -978,9 +978,6 @@
     <ClInclude Include="..\debug_text_tree.h" />
     <ClInclude Include="..\debug_text_tree_inline.h" />
     <ClInclude Include="..\DelayedActionFuse.h" />
-    <ClInclude Include="..\DemoInfo.h" />
-    <ClInclude Include="..\DemoInfo_Loader.h" />
-    <ClInclude Include="..\DemoPlay_Control.h" />
     <ClInclude Include="..\DestroyablePhysicsObject.h" />
     <ClInclude Include="..\detail_path_builder.h" />
     <ClInclude Include="..\detail_path_manager.h" />
@@ -1256,7 +1253,6 @@
     <ClInclude Include="..\moving_objects_impl.h" />
     <ClInclude Include="..\moving_objects_inline.h" />
     <ClInclude Include="..\moving_object_inline.h" />
-    <ClInclude Include="..\MPPlayersBag.h" />
     <ClInclude Include="..\mp_config_sections.h" />
     <ClInclude Include="..\mt_config.h" />
     <ClInclude Include="..\Needles.h" />
@@ -1672,7 +1668,6 @@
     <ClInclude Include="..\step_manager_defs.h" />
     <ClInclude Include="..\string_table.h" />
     <ClInclude Include="..\string_table_defs.h" />
-    <ClInclude Include="..\team_base_zone.h" />
     <ClInclude Include="..\team_hierarchy_holder.h" />
     <ClInclude Include="..\team_hierarchy_holder_inline.h" />
     <ClInclude Include="..\TeleWhirlwind.h" />
@@ -1715,8 +1710,6 @@
     <ClInclude Include="..\ui\KillMessageStruct.h" />
     <ClInclude Include="..\ui\map_hint.h" />
     <ClInclude Include="..\ui\MMSound.h" />
-    <ClInclude Include="..\ui\Restrictions.h" />
-    <ClInclude Include="..\ui\ServerList.h" />
     <ClInclude Include="..\ui\TeamInfo.h" />
     <ClInclude Include="..\ui\UI3tButton.h" />
     <ClInclude Include="..\ui\uiabstract.h" />
@@ -1745,7 +1738,6 @@
     <ClInclude Include="..\ui\UICustomEdit.h" />
     <ClInclude Include="..\ui\UICustomSpin.h" />
     <ClInclude Include="..\ui\UIDebugFonts.h" />
-    <ClInclude Include="..\ui\UIDemoPlayControl.h" />
     <ClInclude Include="..\ui\UIDialogWnd.h" />
     <ClInclude Include="..\ui\UIDoubleProgressBar.h" />
     <ClInclude Include="..\ui\UIDragDropListEx.h" />
@@ -1777,14 +1769,10 @@
     <ClInclude Include="..\ui\UIListBox.h" />
     <ClInclude Include="..\ui\UIListBoxItem.h" />
     <ClInclude Include="..\ui\UIListBoxItemMsgChain.h" />
-    <ClInclude Include="..\ui\UIListItemServer.h" />
     <ClInclude Include="..\ui\UILogsWnd.h" />
     <ClInclude Include="..\ui\UIMainIngameWnd.h" />
     <ClInclude Include="..\ui\UIMap.h" />
-    <ClInclude Include="..\ui\UIMapDesc.h" />
-    <ClInclude Include="..\ui\UIMapInfo.h" />
     <ClInclude Include="..\ui\UIMapLegend.h" />
-    <ClInclude Include="..\ui\UIMapList.h" />
     <ClInclude Include="..\ui\UIMapWnd.h" />
     <ClInclude Include="..\ui\UIMapWndActions.h" />
     <ClInclude Include="..\ui\UIMapWndActionsSpace.h" />
@@ -1842,7 +1830,6 @@
     <ClInclude Include="..\ui\UITalkWnd.h" />
     <ClInclude Include="..\ui\UITaskWnd.h" />
     <ClInclude Include="..\ui\UITextureMaster.h" />
-    <ClInclude Include="..\ui\UITextVote.h" />
     <ClInclude Include="..\ui\UITrackBar.h" />
     <ClInclude Include="..\ui\UITrackButton.h" />
     <ClInclude Include="..\ui\UIVote.h" />
@@ -2160,7 +2147,6 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
-    <ClCompile Include="..\Actor_Sleep.cpp" />
     <ClCompile Include="..\actor_statistic_mgr.cpp" />
     <ClCompile Include="..\Actor_Weapon.cpp" />
     <ClCompile Include="..\AdvancedDetector.cpp" />
@@ -2614,7 +2600,6 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
-    <ClCompile Include="..\console_commands_mp.cpp" />
     <ClCompile Include="..\console_registrator_script.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -2667,9 +2652,6 @@
     <ClCompile Include="..\debug_renderer.cpp" />
     <ClCompile Include="..\debug_text_tree.cpp" />
     <ClCompile Include="..\DelayedActionFuse.cpp" />
-    <ClCompile Include="..\DemoInfo.cpp" />
-    <ClCompile Include="..\DemoInfo_Loader.cpp" />
-    <ClCompile Include="..\DemoPLay_Control.cpp" />
     <ClCompile Include="..\DestroyablePhysicsObject.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -3088,7 +3070,6 @@
     <ClCompile Include="..\moving_objects_dynamic_collision.cpp" />
     <ClCompile Include="..\moving_objects_static.cpp" />
     <ClCompile Include="..\mpactor_dump_impl.cpp" />
-    <ClCompile Include="..\MPPlayersBag.cpp" />
     <ClCompile Include="..\mp_config_sections.cpp" />
     <ClCompile Include="..\Needles.cpp" />
     <ClCompile Include="..\NoGravityZone.cpp" />
@@ -3733,7 +3714,6 @@
     <ClCompile Include="..\steering_behaviour.cpp" />
     <ClCompile Include="..\step_manager.cpp" />
     <ClCompile Include="..\string_table.cpp" />
-    <ClCompile Include="..\team_base_zone.cpp" />
     <ClCompile Include="..\team_hierarchy_holder.cpp" />
     <ClCompile Include="..\TeleWhirlwind.cpp" />
     <ClCompile Include="..\ThornArtifact.cpp" />
@@ -3786,9 +3766,6 @@
     <ClCompile Include="..\ui\ArtefactDetectorUI.cpp" />
     <ClCompile Include="..\ui\map_hint.cpp" />
     <ClCompile Include="..\ui\MMSound.cpp" />
-    <ClCompile Include="..\ui\Restrictions.cpp" />
-    <ClCompile Include="..\ui\ServerList.cpp" />
-    <ClCompile Include="..\ui\ServerList_GameSpy_func.cpp" />
     <ClCompile Include="..\ui\TeamInfo.cpp" />
     <ClCompile Include="..\ui\UI3tButton.cpp" />
     <ClCompile Include="..\ui\UIAchievements.cpp">
@@ -3850,7 +3827,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Verified|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\ui\UIDemoPlayControl.cpp" />
     <ClCompile Include="..\ui\UIDialogWnd.cpp" />
     <ClCompile Include="..\ui\UIDoubleProgressBar.cpp" />
     <ClCompile Include="..\ui\UIDragDropListEx.cpp" />
@@ -3921,18 +3897,10 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
-    <ClCompile Include="..\ui\UIListItemServer.cpp" />
     <ClCompile Include="..\ui\UILogsWnd.cpp" />
     <ClCompile Include="..\ui\UIMainIngameWnd.cpp" />
     <ClCompile Include="..\ui\UIMap.cpp" />
-    <ClCompile Include="..\ui\UIMapDesc.cpp" />
-    <ClCompile Include="..\ui\UIMapInfo.cpp" />
-    <ClCompile Include="..\ui\UIMapInfo_script.cpp">
-      <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
-    </ClCompile>
     <ClCompile Include="..\ui\UIMapLegend.cpp" />
-    <ClCompile Include="..\ui\UIMapList.cpp" />
     <ClCompile Include="..\ui\UIMapWnd.cpp" />
     <ClCompile Include="..\ui\UIMapWnd2.cpp" />
     <ClCompile Include="..\ui\UIMapWndActions.cpp" />
@@ -4030,7 +3998,6 @@
     <ClCompile Include="..\ui\UITalkWnd.cpp" />
     <ClCompile Include="..\ui\UITaskWnd.cpp" />
     <ClCompile Include="..\ui\UITextureMaster.cpp" />
-    <ClCompile Include="..\ui\UITextVote.cpp" />
     <ClCompile Include="..\ui\UITrackBar.cpp" />
     <ClCompile Include="..\ui\UITrackButton.cpp" />
     <ClCompile Include="..\ui\UIVote.cpp" />

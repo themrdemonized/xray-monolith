@@ -40,10 +40,7 @@ void setup_lm_screenshot_matrices()
 
 	bb.xform(Device.mView);
 	// build project matrix
-	Device.mProject.build_projection_ortho(bb.max.x - bb.min.x,
-	                                       bb.max.y - bb.min.y,
-	                                       bb.min.z,
-	                                       bb.max.z);
+	Device.mProject.build_projection_ortho(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.min.z, bb.max.z);
 }
 
 Fbox get_level_screenshot_bound()
@@ -69,12 +66,6 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 	stored_red_text = g_bDisableRedText;
 	g_bDisableRedText = TRUE;
 	m_iLMScreenshotFragment = -1;
-	/*
-	 stored_weapon = psHUD_Flags.test(HUD_WEAPON);
-	 stored_cross = psHUD_Flags.test(HUD_CROSSHAIR);
-	 psHUD_Flags.set(HUD_WEAPON, FALSE);
-	 psHUD_Flags.set(HUD_CROSSHAIR, FALSE);
-	 */
 	m_b_redirect_input_to_level = false;
 	_unlink(name);
 	file = FS.w_open(name);
@@ -131,14 +122,17 @@ CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemo
 	pDemoRecords->insert(this);
 	this->pDemoRecords = pDemoRecords;
 	this->isInputBlocked = isInputBlocked;
-	if (!file) {
+	if (!file) 
+	{
 		StopDemo();
 	}
 }
 
-void CDemoRecord::StopDemo() {
+void CDemoRecord::StopDemo() 
+{
 	fLifeTime = -1;
-	if (pDemoRecords) {
+	if (pDemoRecords) 
+	{
 		pDemoRecords->erase(this);
 	}
 }
@@ -166,7 +160,6 @@ static Fvector cmDir[6] = {
 	{1.f, 0.f, 0.f}, {-1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}, {0.f, -1.f, 0.f}, {0.f, 0.f, 1.f}, {0.f, 0.f, -1.f}
 };
 
-
 void CDemoRecord::MakeScreenshotFace()
 {
 	switch (m_Stage)
@@ -183,7 +176,6 @@ void CDemoRecord::MakeScreenshotFace()
 	}
 	m_Stage++;
 }
-
 
 void GetLM_BBox(Fbox& bb, INT Step)
 {
@@ -453,14 +445,17 @@ void CDemoRecord::IR_OnMouseRelease(int btn)
 
 void CDemoRecord::IR_OnKeyboardPress(int dik)
 {
-	if (isInputBlocked) {
+	if (isInputBlocked) 
+	{
 		if (dik == DIK_PAUSE)
 			Device.Pause(!Device.Paused(), TRUE, TRUE, "demo_record");
 		if (dik == DIK_GRAVE)
 			Console->Show();
 		if (dik == DIK_ESCAPE)
 			Console->Execute("main_menu on");
-	} else {
+	} 
+	else 
+	{
 		if (dik == DIK_MULTIPLY) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
 
 		if (m_b_redirect_input_to_level)
@@ -477,7 +472,6 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_ESCAPE) StopDemo();
 
 		//Alundaio: Teleport to demo cam
-		//#ifndef MASTER_GOLD
 		if (dik == DIK_RETURN)
 		{
 			if (strstr(Core.Params, "-dbg"))
@@ -489,7 +483,6 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 				}
 			}
 		}
-		//#endif // #ifndef MASTER_GOLD
 		//-Alundaio
 
 		if (dik == DIK_PAUSE)
@@ -633,8 +626,6 @@ void CDemoRecord::MakeScreenshot()
 
 void CDemoRecord::MakeLevelMapScreenshot(BOOL bHQ)
 {
-	//Console->Execute("run_string level.set_weather(\"map\",true)");
-
 	if (!bHQ)
 		m_iLMScreenshotFragment = -1;
 	else

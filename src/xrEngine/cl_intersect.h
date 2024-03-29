@@ -674,8 +674,7 @@ namespace CDB
 		stInside = 2,
 	};
 
-	IC EST_Result TestSphereTri(const Fvector& sphereOrigin, float sphereRadius,
-	                            const Fvector& orig, const Fvector& e0, const Fvector& e1)
+	IC EST_Result TestSphereTri(const Fvector& sphereOrigin, float sphereRadius, const Fvector& orig, const Fvector& e0, const Fvector& e1)
 	{
 		float fRSqr = sphereRadius * sphereRadius;
 		Fvector kV0mC;

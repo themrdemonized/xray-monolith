@@ -9,14 +9,6 @@
 
 #include "ui/UICDkey.h"
 
-xr_token g_GameModes [] = {
-	{"st_deathmatch", eGameIDDeathmatch},
-	{"st_team_deathmatch", eGameIDTeamDeathmatch},
-	{"st_artefacthunt", eGameIDArtefactHunt},
-	{"st_capture_the_artefact", eGameIDCaptureTheArtefact},
-	{0, 0}
-};
-
 CUIOptConCom::CUIOptConCom()
 {
 	xr_strcpy(m_playerName, "");
@@ -53,9 +45,7 @@ void CUIOptConCom::Init()
 	CMD3(CCC_UserName, "mm_net_player_name", m_playerName, 64);
 
 	m_iMaxPlayers = 32;
-	m_curGameMode = eGameIDDeathmatch;
 	CMD4(CCC_Integer, "mm_net_srv_maxplayers", &m_iMaxPlayers, 2, 32);
-	CMD3(CCC_Token, "mm_net_srv_gamemode", &m_curGameMode, g_GameModes);
 	m_uNetSrvParams.zero();
 	CMD3(CCC_Mask, "mm_mm_net_srv_dedicated", &m_uNetSrvParams, flNetSrvDedicated);
 	CMD3(CCC_Mask, "mm_net_con_publicserver", &m_uNetSrvParams, flNetConPublicServer);

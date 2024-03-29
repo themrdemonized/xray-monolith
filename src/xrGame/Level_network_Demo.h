@@ -8,7 +8,7 @@ private:
 	// XXX nitrocaster: why not CurrentControlEntity* ?
 	CObject* m_current_spectator = nullptr; // in real, this is CurrentControlEntity 
 	message_filter* m_msg_filter = nullptr;
-	demoplay_control* m_demoplay_control = nullptr;
+
 public:
 #pragma pack(push, 1)
 	struct DemoHeader
@@ -32,17 +32,14 @@ public:
 	CObject* GetDemoSpectator();
 	void PrepareToSaveDemo();
 	void SaveDemoInfo();
-	inline demo_info* GetDemoInfo() const { return m_demo_info; }
 	bool PrepareToPlayDemo(shared_str const & file_name);
 	void StartPlayDemo();
 	void RestartPlayDemo();
 	void StopPlayDemo();
 	float GetDemoPlayPos() const;
-	//void SetDemoPlayPos(float const pos);
-	float GetDemoPlaySpeed() const; //Device.time_factor()
-	void SetDemoPlaySpeed(float const time_factor); //Device.time_factor(
+	float GetDemoPlaySpeed() const;
+	void SetDemoPlaySpeed(float const time_factor);
 	message_filter* GetMessageFilter();
-	demoplay_control* GetDemoPlayControl();
 	BOOL IsDemoPlay() { return (!m_DemoSave && m_DemoPlay); }
 	BOOL IsDemoSave() { return (m_DemoSave && !m_DemoPlay); }
 	inline BOOL IsDemoPlayStarted() { return (IsDemoPlay() && m_DemoPlayStarted); }
@@ -56,7 +53,6 @@ private:
 	void SpawnDemoSpectator();
 	//saving
 	void SaveDemoHeader(const shared_str& server_options);
-	inline bool IsDemoInfoSaved() { return m_demo_info != nullptr; }
 	bool LoadDemoHeader();
 	bool LoadPacket(NET_Packet & dest_packet, u32 global_time_delta);
 	void SimulateServerUpdate();
@@ -66,7 +62,6 @@ private:
 	DemoHeader m_demo_header;
 	shared_str m_demo_server_options;
 	// if instance of this class exist, then the demo info have saved or loaded...
-	demo_info* m_demo_info = nullptr;
 	u32 m_demo_info_file_pos;
 	IWriter* m_writer = nullptr;
 	CStreamReader* m_reader = nullptr;

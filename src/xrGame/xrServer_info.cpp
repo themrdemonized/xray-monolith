@@ -39,30 +39,8 @@ server_info_uploader& xrServer::GetServerInfoUploader()
 
 void xrServer::SendServerInfoToClient(ClientID const& new_client) //WARNING ! this function is thread unsafe !!!
 {
-	if (IsGameTypeSingle())
-	{
-		SendConfigFinished(new_client);
-		return;
-	}
-
-	if (!m_server_logo || !m_server_rules)
-	{
-		SendConfigFinished(new_client);
-		return;
-	}
-
-
-	NET_Packet sinfo_packet;
-
-	sinfo_packet.w_begin(M_GAMEMESSAGE);
-	sinfo_packet.w_u32(GAME_EVENT_RECEIVE_SERVER_LOGO);
-	sinfo_packet.w_u32(GetServerClient()->ID.value());
-
-	SendTo(new_client, sinfo_packet, net_flags(TRUE, TRUE));
-
-	svinfo_upload_complete_cb upload_compl_cb(this, &xrServer::SendConfigFinished);
-	server_info_uploader& tmp_uploader = GetServerInfoUploader();
-	tmp_uploader.start_upload_info(m_server_logo, m_server_rules, new_client, upload_compl_cb);
+	SendConfigFinished(new_client);
+	return;
 }
 
 void xrServer::LoadServerInfo()

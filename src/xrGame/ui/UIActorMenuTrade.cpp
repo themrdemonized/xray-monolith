@@ -82,8 +82,6 @@ bool is_item_in_list(CUIDragDropListEx* pList, PIItem item)
 	return false;
 }
 
-#include "../MPPlayersBag.h"
-
 void CUIActorMenu::FilterActorTradeBagList(int mode)
 {
 	m_pTradeActorBagList->ClearAll(true);
@@ -98,10 +96,6 @@ void CUIActorMenu::FilterActorTradeBagList(int mode)
 	{
 		if (!is_item_in_list(m_pTradeActorList, *itb))
 		{
-			CMPPlayersBag* bag = smart_cast<CMPPlayersBag*>(&(*itb)->object());
-			if (bag)
-				continue;
-
 			PIItem iitm = *itb;
 
 			int kinds = _GetItemCount(m_sort_kinds[mode]);
@@ -414,8 +408,7 @@ bool CUIActorMenu::CanMoveToPartner(PIItem pItem)
 	if (!pItem->CanTrade())
 		return false;
 
-	if (!m_pPartnerInvOwner->trade_parameters().enabled(
-		CTradeParameters::action_buy(0), pItem->object().cNameSect()))
+	if (!m_pPartnerInvOwner->trade_parameters().enabled(CTradeParameters::action_buy(0), pItem->object().cNameSect()))
 	{
 		return false;
 	}
@@ -439,16 +432,9 @@ bool CUIActorMenu::CanMoveToPartner(PIItem pItem)
 
 void CUIActorMenu::UpdateActor()
 {
-	if (IsGameTypeSingle())
-	{
-		string64 buf;
-		xr_sprintf(buf, "%d RU", m_pActorInvOwner->get_money());
-		m_ActorMoney->SetText(buf);
-	}
-	else
-	{
-		UpdateActorMP();
-	}
+	string64 buf;
+	xr_sprintf(buf, "%d RU", m_pActorInvOwner->get_money());
+	m_ActorMoney->SetText(buf);
 
 	CActor* actor = smart_cast<CActor*>(m_pActorInvOwner);
 	if (actor)
@@ -458,7 +444,7 @@ void CUIActorMenu::UpdateActor()
 		{
 			wp->ForceUpdateAmmo();
 		}
-	} //actor
+	}
 
 	InventoryUtilities::UpdateWeightStr(*m_ActorWeight, *m_ActorWeightMax, m_pActorInvOwner);
 

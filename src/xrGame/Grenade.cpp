@@ -21,28 +21,24 @@ CGrenade::CGrenade(void)
 }
 
 CGrenade::~CGrenade(void)
-{
-}
+{}
 
 void CGrenade::Load(LPCSTR section)
 {
 	inherited::Load(section);
 	CExplosive::Load(section);
 
-	//////////////////////////////////////
-	//время убирания оружия с уровня
 	if (pSettings->line_exist(section, "grenade_remove_time"))
 		m_dwGrenadeRemoveTime = pSettings->r_u32(section, "grenade_remove_time");
 	else
 		m_dwGrenadeRemoveTime = GRENADE_REMOVE_TIME;
-	m_grenade_detonation_threshold_hit = READ_IF_EXISTS(pSettings, r_float, section, "detonation_threshold_hit",
-	                                                    default_grenade_detonation_threshold_hit);
+
+	m_grenade_detonation_threshold_hit = READ_IF_EXISTS(pSettings, r_float, section, "detonation_threshold_hit", default_grenade_detonation_threshold_hit);
 }
 
 void CGrenade::Hit(SHit* pHDS)
 {
-	if (ALife::eHitTypeExplosion == pHDS->hit_type && m_grenade_detonation_threshold_hit < pHDS->damage() && CExplosive
-		::Initiator() == u16(-1))
+	if (ALife::eHitTypeExplosion == pHDS->hit_type && m_grenade_detonation_threshold_hit < pHDS->damage() && CExplosive::Initiator() == u16(-1))
 	{
 		CExplosive::SetCurrentParentID(pHDS->who->ID());
 		Destroy();
@@ -124,11 +120,7 @@ void CGrenade::State(u32 state, u32 old_state)
 bool CGrenade::DropGrenade()
 {
 	EMissileStates grenade_state = static_cast<EMissileStates>(GetState());
-	if (((grenade_state == eThrowStart) ||
-			(grenade_state == eReady) ||
-			(grenade_state == eThrow)) &&
-		(!m_thrown)
-	)
+	if (((grenade_state == eThrowStart) || (grenade_state == eReady) || (grenade_state == eThrow)) && (!m_thrown))
 	{
 		Throw();
 		return true;
@@ -138,13 +130,10 @@ bool CGrenade::DropGrenade()
 
 void CGrenade::DiscardState()
 {
-	if (IsGameTypeSingle())
+	u32 state = GetState();
+	if (state == eReady || state == eThrow)
 	{
-		u32 state = GetState();
-		if (state == eReady || state == eThrow)
-		{
-			OnStateSwitch(eIdle, state);
-		}
+		OnStateSwitch(eIdle, state);
 	}
 }
 
@@ -152,7 +141,6 @@ void CGrenade::SendHiddenItem()
 {
 	if (GetState() == eThrow)
 	{
-		//		Msg("MotionMarks !!![%d][%d]", ID(), Device.dwFrame);
 		Throw();
 	}
 	CActor* pActor = smart_cast<CActor*>(m_pInventory->GetOwner());
@@ -186,7 +174,6 @@ void CGrenade::Throw()
 	m_thrown = true;
 }
 
-
 void CGrenade::Destroy()
 {
 	//Generate Expode event
@@ -202,13 +189,9 @@ void CGrenade::Destroy()
 	CExplosive::GenExplodeEvent(Position(), normal);
 }
 
-
 bool CGrenade::Useful() const
 {
-	bool res = (/* !m_throw && */ m_dwDestroyTime == 0xffffffff && CExplosive::Useful() && TestServerFlag(
-		CSE_ALifeObject::flCanSave));
-
-	return res;
+	return m_dwDestroyTime == 0xffffffff && CExplosive::Useful() && TestServerFlag(CSE_ALifeObject::flCanSave);
 }
 
 void CGrenade::OnEvent(NET_Packet& P, u16 type)
@@ -272,15 +255,11 @@ void CGrenade::OnAnimationEnd(u32 state)
 	}
 }
 
-
 void CGrenade::UpdateCL()
 {
 	inherited::UpdateCL();
 	CExplosive::UpdateCL();
-
-	if (!IsGameTypeSingle()) make_Interpolation();
 }
-
 
 bool CGrenade::Action(u16 cmd, u32 flags)
 {
@@ -305,11 +284,6 @@ bool CGrenade::Action(u16 cmd, u32 flags)
 
 bool CGrenade::NeedToDestroyObject() const
 {
-	if (IsGameTypeSingle()) return false;
-	if (Remote()) return false;
-	if (TimePassedAfterIndependant() > m_dwGrenadeRemoveTime)
-		return true;
-
 	return false;
 }
 

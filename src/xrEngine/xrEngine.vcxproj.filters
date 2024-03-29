@@ -165,9 +165,6 @@
     <ClInclude Include="defines.h">
       <Filter>General</Filter>
     </ClInclude>
-    <ClInclude Include="mp_logging.h">
-      <Filter>General</Filter>
-    </ClInclude>
     <ClInclude Include="no_single.h">
       <Filter>General</Filter>
     </ClInclude>
@@ -190,9 +187,6 @@
       <Filter>Interfaces\Input</Filter>
     </ClInclude>
     <ClInclude Include="xr_input.h">
-      <Filter>Interfaces\Input</Filter>
-    </ClInclude>
-    <ClInclude Include="xr_input_xinput.h">
       <Filter>Interfaces\Input</Filter>
     </ClInclude>
     <ClInclude Include="ISheduled.h">
@@ -497,9 +491,6 @@
     <ClCompile Include="Xr_input.cpp">
       <Filter>Interfaces\Input</Filter>
     </ClCompile>
-    <ClCompile Include="xr_input_xinput.cpp">
-      <Filter>Interfaces\Input</Filter>
-    </ClCompile>
     <ClCompile Include="ISheduled.cpp">
       <Filter>Interfaces\Sheduler</Filter>
     </ClCompile>
@@ -679,9 +670,6 @@
     </ClCompile>
     <ClCompile Include="mailSlot.cpp">
       <Filter>Engine\Core</Filter>
-    </ClCompile>
-    <ClCompile Include="_scripting.cpp">
-      <Filter>Engine\Core\Scripting</Filter>
     </ClCompile>
     <ClCompile Include="ai_script_lua_debug.cpp">
       <Filter>Engine\Core\Scripting</Filter>

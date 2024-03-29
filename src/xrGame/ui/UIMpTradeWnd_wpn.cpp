@@ -403,15 +403,7 @@ bool CUIMpTradeWnd::AttachAddon(SBuyItemInfo* itm, item_addon_type at)
 
 CUIMpTradeWnd::item_addon_type CUIMpTradeWnd::GetItemType(const shared_str& name_sect)
 {
-	const shared_str& group = g_mp_restrictions.GetItemGroup(name_sect);
-	if (group == "scp")
-		return at_scope;
-	else if (group == "sil")
-		return at_silencer;
-	else if (group == "gl")
-		return at_glauncher;
-	else
-		return at_not_addon;
+	return at_not_addon;
 }
 
 u8 GetItemAddonsState_ext(SBuyItemInfo* item)

@@ -92,17 +92,7 @@ void IGame_Persistent::OnAppStart()
 
 	// Texture Prefetch Config
 	string_path file_name;
-	m_textures_prefetch_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"prefetch\\textures.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-			);
+	m_textures_prefetch_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "prefetch\\textures.ltx"), TRUE, TRUE, FALSE);
 }
 
 void IGame_Persistent::OnAppEnd()
@@ -116,7 +106,6 @@ void IGame_Persistent::OnAppEnd()
 	DEL_INSTANCE(g_hud);
 #endif
 }
-
 
 void IGame_Persistent::PreStart(LPCSTR op)
 {
@@ -159,15 +148,13 @@ void IGame_Persistent::Disconnect()
 	destroy_particles(true);
 
 	if (g_hud)
-	DEL_INSTANCE(g_hud);
-	//. g_hud->OnDisconnected ();
+		DEL_INSTANCE(g_hud);
 #endif
 }
 
 void IGame_Persistent::OnGameStart()
 {
 #ifndef _EDITOR
-	// LoadTitle("st_prefetching_objects");
 	LoadTitle();
 	if (!strstr(Core.Params, "-noprefetch"))
 		Prefetch();
@@ -252,7 +239,6 @@ void IGame_Persistent::Prefetch()
 }
 #endif
 
-
 void IGame_Persistent::OnGameEnd()
 {
 #ifndef _EDITOR
@@ -267,7 +253,6 @@ void IGame_Persistent::OnFrame()
 
 	if (!Device.Paused() || Device.dwPrecacheFrame)
 		Environment().OnFrame();
-
 
 	Device.Statistic->Particles_starting = ps_needtoplay.size();
 	Device.Statistic->Particles_active = ps_active.size();
@@ -343,7 +328,7 @@ void IGame_Persistent::destroy_particles(const bool& all_particles)
 void IGame_Persistent::OnAssetsChanged()
 {
 #ifndef _EDITOR
-	Device.m_pRender->OnAssetsChanged(); //Resources->m_textures_description.Load();
+	Device.m_pRender->OnAssetsChanged();
 #endif
 }
 
@@ -528,7 +513,6 @@ void IGame_Persistent::GrassBendersUpdateAnimations()
 				// Intensity using curve
 				grass_shader_data.str[idx] = curve * cos(curve * 1.4f) * 1.8f * grass_shader_data.str_target[idx];
 			}
-
 			break;
 
 			case BENDER_ANIM_SUCK:
@@ -576,7 +560,6 @@ void IGame_Persistent::GrassBendersUpdateAnimations()
 					grass_shader_data.radius_curr[idx] = 0.0f;
 					grass_shader_data.time[idx] = 0.0f;
 				}
-
 			}
 			break;
 
@@ -584,7 +567,6 @@ void IGame_Persistent::GrassBendersUpdateAnimations()
 
 				// Just fade to target strength
 				grass_shader_data.str[idx] += GrassBenderToValue(grass_shader_data.str[idx], grass_shader_data.str_target[idx], 2.0f, true);
-
 				break;
 			}
 		}

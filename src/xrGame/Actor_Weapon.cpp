@@ -44,24 +44,15 @@ float CActor::GetWeaponAccuracy() const
 	if (g_State(state))
 	{
 		//fAVelocity = angle velocity
-		dispersion *= (1.0f + (state.fAVelocity / VEL_A_MAX) * m_fDispVelFactor * GetWeaponParam(
-				W, Get_PDM_Vel_F(), 1.0f) *
-			GetWeaponParam(W, Get_Silencer_PDM_Vel(), 1.0f) * GetWeaponParam(W, Get_Scope_PDM_Vel(), 1.0f) *
-			GetWeaponParam(W, Get_Launcher_PDM_Vel(), 1.0f));
+		dispersion *= (1.0f + (state.fAVelocity / VEL_A_MAX) * m_fDispVelFactor * GetWeaponParam(W, Get_PDM_Vel_F(), 1.0f) * GetWeaponParam(W, Get_Silencer_PDM_Vel(), 1.0f) * GetWeaponParam(W, Get_Scope_PDM_Vel(), 1.0f) * GetWeaponParam(W, Get_Launcher_PDM_Vel(), 1.0f));
 
 		//fVelocity = linear velocity
-		dispersion *= (1.0f + (state.fVelocity / VEL_MAX) * m_fDispVelFactor * GetWeaponParam(W, Get_PDM_Vel_F(), 1.0f)
-			*
-			GetWeaponParam(W, Get_Silencer_PDM_Vel(), 1.0f) * GetWeaponParam(W, Get_Scope_PDM_Vel(), 1.0f) *
-			GetWeaponParam(W, Get_Launcher_PDM_Vel(), 1.0f));
-
+		dispersion *= (1.0f + (state.fVelocity / VEL_MAX) * m_fDispVelFactor * GetWeaponParam(W, Get_PDM_Vel_F(), 1.0f) * GetWeaponParam(W, Get_Silencer_PDM_Vel(), 1.0f) * GetWeaponParam(W, Get_Scope_PDM_Vel(), 1.0f) * GetWeaponParam(W, Get_Launcher_PDM_Vel(), 1.0f));
 
 		bool bAccelerated = isActorAccelerated(mstate_real, IsZoomAimingMode());
 		if (bAccelerated || !state.bCrouch)
 		{
-			dispersion *= (1.0f + m_fDispAccelFactor * GetWeaponParam(W, Get_PDM_Accel_F(), 1.0f) *
-				GetWeaponParam(W, Get_Silencer_PDM_Accel(), 1.0f) * GetWeaponParam(W, Get_Scope_PDM_Accel(), 1.0f) *
-				GetWeaponParam(W, Get_Launcher_PDM_Accel(), 1.0f));
+			dispersion *= (1.0f + m_fDispAccelFactor * GetWeaponParam(W, Get_PDM_Accel_F(), 1.0f) * GetWeaponParam(W, Get_Silencer_PDM_Accel(), 1.0f) * GetWeaponParam(W, Get_Scope_PDM_Accel(), 1.0f) * GetWeaponParam(W, Get_Launcher_PDM_Accel(), 1.0f));
 		}
 
 		if (state.bCrouch)
@@ -97,8 +88,6 @@ void CActor::g_fireParams(const CHudItem* pHudItem, Fvector& fire_pos, Fvector& 
 	else if (pWeapon && pWeapon->HudItemData() && !smart_cast<CWeaponKnife*>(pWeapon))
 	{
 		const Fmatrix& fire_mat = pWeapon->get_ParticlesXFORM();
-		//collide::rq_result& RQ = pWeapon->GetRQ();
-		//float dist = RQ.range / 3.f;
 
 		if (cam_freelook != eflDisabled)
 		{
@@ -109,29 +98,7 @@ void CActor::g_fireParams(const CHudItem* pHudItem, Fvector& fire_pos, Fvector& 
 		}
 		else if ((psActorFlags.test(AF_FIREPOS) || (mstate_real & mcAnyMove)) && (pWeapon->GetZRotatingFactor() != 1.f /*|| dist < 1.f*/))
 		{
-			//correct barrel direction
-			fire_dir = fire_mat.k; //pWeapon->get_lastFD() doesn't seem to work, returns (0,0,1) for all weapons except pistols/shotguns
-
-			/* disabled for now, bugs :(
-			//correct barrel position
-			Fvector pos = pWeapon->get_LastFP();
-			Fvector offs;
-			float zoff = pWeapon->HudItemData()->m_item_transform.c.z;
-			zoff -= pos.z;
-			fire_mat.transform_tiny(offs, { 0, 0, -.5f }); //otherwise you can shoot through thin walls
-			pos.add(offs);
-			fire_pos = pos;
-			const Fmatrix& fire_mat2 = pWeapon->HudItemData()->m_model->LL_GetTransform(pWeapon->HudItemData()->m_measures.m_fire_bone);
-			Fvector offs = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_firepoint_shell[0][0] : pWeapon->HudItemData()->m_measures.m_fire_point_offset;
-			offs.z -= 1.f;
-			fire_mat2.transform_tiny(fire_pos, offs);
-			pWeapon->HudItemData()->m_item_transform.transform_tiny(fire_pos);
-
-			//fire_pos = pWeapon->get_LastFP();
-
-			//use barrel position instead of camera position even for zoomed weapon if close to a wall
-			if (pWeapon->IsZoomed())
-				fire_pos.lerp(fire_pos, Cameras().Position(), dist);*/
+			fire_dir = fire_mat.k;
 		}
 	}
 }
@@ -185,61 +152,7 @@ static u16 BestWeaponSlots [] = {
 };
 
 void CActor::SelectBestWeapon(CObject* O)
-{
-	if (!O) return;
-	if (IsGameTypeSingle()) return;
-	//if (Level().CurrentControlEntity() != this) return;
-	//if (OnClient()) return;
-	//-------------------------------------------------
-	CWeapon* pWeapon = smart_cast<CWeapon*>(O);
-	CGrenade* pGrenade = smart_cast<CGrenade*>(O);
-	CArtefact* pArtefact = smart_cast<CArtefact*>(O);
-	CInventoryItem* pIItem = smart_cast<CInventoryItem*>(O);
-	bool NeedToSelectBestWeapon = false;
-
-	if (pArtefact && pArtefact->H_Parent()) //just take an artefact
-		return;
-
-	if ((pWeapon || pGrenade || pArtefact) && pIItem)
-	{
-		NeedToSelectBestWeapon = true;
-		if ((GameID() == eGameIDArtefactHunt) || (GameID() == eGameIDCaptureTheArtefact)) //only for test...
-		{
-			if (pIItem->BaseSlot() == INV_SLOT_2 || pIItem->BaseSlot() == INV_SLOT_3)
-			{
-				CInventoryItem* pIItemInSlot = inventory().ItemFromSlot(pIItem->BaseSlot());
-				if (pIItemInSlot != NULL && pIItemInSlot != pIItem)
-					NeedToSelectBestWeapon = false;
-			}
-		}
-	}
-	if (!NeedToSelectBestWeapon) return;
-	//-------------------------------------------------
-	for (int i = 0; i < 4; i++)
-	{
-		if (inventory().ItemFromSlot(BestWeaponSlots[i]))
-		{
-			if (inventory().GetActiveSlot() != BestWeaponSlots[i])
-			{
-				PIItem best_item = inventory().ItemFromSlot(BestWeaponSlots[i]);
-				if (best_item && best_item->can_kill())
-				{
-#ifdef DEBUG
-					Msg("--- Selecting best weapon [%d], Frame[%d]", BestWeaponSlots[i], Device.dwFrame);
-#endif // #ifdef DEBUG
-					inventory().Activate(BestWeaponSlots[i]);
-				}
-				else
-				{
-#ifdef DEBUG
-					Msg("--- Weapon is not best...");
-#endif // #ifdef DEBUG
-				}
-			}
-			return;
-		};
-	};
-}
+{}
 
 #define ENEMY_HIT_SPOT	"mp_hit_sector_location"
 BOOL g_bShowHitSectors = TRUE;
@@ -273,7 +186,6 @@ void CActor::HitSector(CObject* who, CObject* weapon)
 
 void CActor::on_weapon_shot_start(CWeapon* weapon)
 {
-	//CWeaponMagazined* pWM = smart_cast<CWeaponMagazined*> (weapon);
 	CameraRecoil const& camera_recoil = (IsZoomAimingMode()) ? weapon->zoom_cam_recoil : weapon->cam_recoil;
 
 	CCameraShotEffector* effector = smart_cast<CCameraShotEffector*>(Cameras().GetCamEffector(eCEShot));
@@ -362,8 +274,6 @@ void CActor::SpawnAmmoForWeapon(CInventoryItem* pIItem)
 	CWeaponMagazined* pWM = smart_cast<CWeaponMagazined*>(pIItem);
 	if (!pWM || !pWM->AutoSpawnAmmo()) return;
 
-	///	CWeaponAmmo* pAmmo = smart_cast<CWeaponAmmo*>(inventory().GetAny( (pWM->m_ammoTypes[0].c_str()) ));
-	//	if (!pAmmo) 
 	pWM->SpawnAmmo(0xffffffff, NULL, ID());
 };
 
@@ -377,27 +287,6 @@ void CActor::RemoveAmmoForWeapon(CInventoryItem* pIItem)
 
 	CWeaponAmmo* pAmmo = smart_cast<CWeaponAmmo*>(inventory().GetAny(pWM->m_ammoTypes[0].c_str()));
 	if (!pAmmo) return;
-	//--- мы нашли патроны к текущему оружию	
-	/*
-	//--- проверяем не подходят ли они к чему-то еще
-	bool CanRemove = true;
-	TIItemContainer::const_iterator I = inventory().m_all.begin();//, B = I;
-	TIItemContainer::const_iterator E = inventory().m_all.end();
-	for ( ; I != E; ++I)
-	{
-	CInventoryItem* pItem = (*I);//->m_pIItem;
-	CWeaponMagazined* pWM = smart_cast<CWeaponMagazined*> (pItem);
-	if (!pWM || !pWM->AutoSpawnAmmo()) continue;
-	if (pWM == pIItem) continue;
-	if (pWM->m_ammoTypes[0] != pAmmo->CInventoryItem::object().cNameSect()) continue;
-	CanRemove = false;
-	break;
-	};
 
-	if (!CanRemove) return;
-	*/
 	pAmmo->DestroyObject();
-	//	NET_Packet			P;
-	//	u_EventGen			(P,GE_DESTROY,pAmmo->ID());
-	//	u_EventSend			(P);
 };

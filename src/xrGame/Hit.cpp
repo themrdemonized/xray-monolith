@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "alife_space.h"
 #include "hit.h"
-//#include "ode_include.h"
 #include "../xrEngine/bone.h"
 #include "xrMessages.h"
 #include "Level.h"
@@ -10,8 +9,7 @@
 #include "script_game_object.h"
 #include "GameObject.h"
 
-SHit::SHit(float powerA, Fvector& dirA, CObject* whoA, u16 elementA, Fvector p_in_bone_spaceA,
-           float impulseA, ALife::EHitType hit_typeA, float armor_piercingA, bool AimBullet)
+SHit::SHit(float powerA, Fvector& dirA, CObject* whoA, u16 elementA, Fvector p_in_bone_spaceA, float impulseA, ALife::EHitType hit_typeA, float armor_piercingA, bool AimBullet)
 {
 	Time = 0;
 	DestID = 0;
@@ -97,11 +95,8 @@ void SHit::Read_Packet_Cont(NET_Packet Packet)
 	Packet.r_u16(boneID);
 	Packet.r_vec3(p_in_bone_space);
 	Packet.r_float(impulse);
-	if (IsGameTypeSingle())
-		aim_bullet = Packet.r_u16() != 0;
-	else
-		aim_bullet = false;
-	hit_type = (ALife::EHitType)Packet.r_u16(); //hit type
+	aim_bullet = Packet.r_u16() != 0;
+	hit_type = (ALife::EHitType)Packet.r_u16();
 
 	if (hit_type == ALife::eHitTypeFireWound)
 	{
@@ -123,8 +118,7 @@ void SHit::Write_Packet_Cont(NET_Packet& Packet)
 	Packet.w_u16(boneID);
 	Packet.w_vec3(p_in_bone_space);
 	Packet.w_float(impulse);
-	if (IsGameTypeSingle())
-		Packet.w_u16(aim_bullet != 0);
+	Packet.w_u16(aim_bullet != 0);
 	Packet.w_u16(u16(hit_type & 0xffff));
 	if (hit_type == ALife::eHitTypeFireWound)
 	{
@@ -143,7 +137,6 @@ void SHit::Write_Packet(NET_Packet& Packet)
 	Packet.w_u32(Time);
 	Packet.w_u16(u16(PACKET_TYPE & 0xffff));
 	Packet.w_u16(u16(DestID & 0xffff));
-
 	Write_Packet_Cont(Packet);
 };
 
@@ -156,7 +149,6 @@ void SHit::ApplyScriptHit(CScriptHit* tLuaHit)
 	who = smart_cast<CObject*>(&tLuaHit->m_tpDraftsman->object());
 	whoID = tLuaHit->m_tpDraftsman->ID();
 	weaponID = tLuaHit->m_tpWeaponID;
-	//BulletID = tLuaHit->bulletId;
 }
 
 #ifdef DEBUG

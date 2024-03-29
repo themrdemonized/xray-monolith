@@ -48,7 +48,7 @@ PROTECT_API void CRenderDevice::Initialize()
 	// Unless a substitute hWnd has been specified, create a window to render into
 	if (m_hWnd == NULL)
 	{
-		const char* wndclass = "_XRAY_1.5";
+		const char* wndclass = "_XRAY_ANOMALY";
 
 		// Register the windows class
 		HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(0);
@@ -70,24 +70,11 @@ PROTECT_API void CRenderDevice::Initialize()
 		AdjustWindowRect(&rc, m_dwWindowStyle, FALSE);
 
 		// Create the render window
-		m_hWnd = CreateWindowEx(WS_EX_TOPMOST,
-		                        wndclass, "S.T.A.L.K.E.R.: Anomaly", m_dwWindowStyle,
-		                        /*rc.left, rc.top, */CW_USEDEFAULT, CW_USEDEFAULT,
-		                        (rc.right - rc.left), (rc.bottom - rc.top), 0L,
-		                        0, hInstance, 0L);
+		m_hWnd = CreateWindowEx(WS_EX_TOPMOST, wndclass, "S.T.A.L.K.E.R.: Anomaly", m_dwWindowStyle, CW_USEDEFAULT, CW_USEDEFAULT, (rc.right - rc.left), (rc.bottom - rc.top), 0L, 0, hInstance, 0L);
 	}
 
 	// Save window properties
 	m_dwWindowStyle = GetWindowLong(m_hWnd, GWL_STYLE);
 	GetWindowRect(m_hWnd, &m_rcWindowBounds);
 	GetClientRect(m_hWnd, &m_rcWindowClient);
-
-	/*
-	if (strstr(lpCmdLine,"-gpu_sw")!=NULL) HW.Caps.bForceGPU_SW = TRUE;
-	else HW.Caps.bForceGPU_SW = FALSE;
-	if (strstr(lpCmdLine,"-gpu_nopure")!=NULL) HW.Caps.bForceGPU_NonPure = TRUE;
-	else HW.Caps.bForceGPU_NonPure = FALSE;
-	if (strstr(lpCmdLine,"-gpu_ref")!=NULL) HW.Caps.bForceGPU_REF = TRUE;
-	else HW.Caps.bForceGPU_REF = FALSE;
-	*/
 }

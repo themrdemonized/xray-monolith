@@ -5379,15 +5379,6 @@
     <ClInclude Include="Level_network_map_sync.h">
       <Filter>Core\Client\Level\LevelMapSync</Filter>
     </ClInclude>
-    <ClInclude Include="DemoInfo.h">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClInclude>
-    <ClInclude Include="DemoInfo_Loader.h">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClInclude>
-    <ClInclude Include="DemoPlay_Control.h">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClInclude>
     <ClInclude Include="Level_network_Demo.h">
       <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
     </ClInclude>
@@ -5982,9 +5973,6 @@
     <ClInclude Include="wallmark_manager.h">
       <Filter>Core\Client\Objects\items &amp; weapons\Explosives</Filter>
     </ClInclude>
-    <ClInclude Include="MPPlayersBag.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\MPPlayersBag</Filter>
-    </ClInclude>
     <ClInclude Include="anticheat_dumpable_object.h">
       <Filter>Core\Client\Objects\items &amp; weapons\MPAnticheat</Filter>
     </ClInclude>
@@ -6017,9 +6005,6 @@
     </ClInclude>
     <ClInclude Include="script_zone.h">
       <Filter>Core\Client\Objects\zones\ScriptZone</Filter>
-    </ClInclude>
-    <ClInclude Include="team_base_zone.h">
-      <Filter>Core\Client\Objects\zones\TeamBaseZone</Filter>
     </ClInclude>
     <ClInclude Include="TorridZone.h">
       <Filter>Core\Client\Objects\zones\TorridZone</Filter>
@@ -7005,15 +6990,6 @@
     <ClInclude Include="ui\UICDkey.h">
       <Filter>UI\Multiplayer\MM_MP\CDkey</Filter>
     </ClInclude>
-    <ClInclude Include="ui\UIMapList.h">
-      <Filter>UI\Multiplayer\MM_MP\MapList</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\ServerList.h">
-      <Filter>UI\Multiplayer\MM_MP\ServerList</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\UIListItemServer.h">
-      <Filter>UI\Multiplayer\MM_MP\ServerList</Filter>
-    </ClInclude>
     <ClInclude Include="ui\TeamInfo.h">
       <Filter>UI\Multiplayer\MM_MP\TeamInfo</Filter>
     </ClInclude>
@@ -7071,20 +7047,11 @@
     <ClInclude Include="ui\UIMpTradeWnd.h">
       <Filter>UI\Multiplayer\BuyWeaponWnd</Filter>
     </ClInclude>
-    <ClInclude Include="ui\Restrictions.h">
-      <Filter>UI\Multiplayer\BuyWeaponWnd\rank_restrictions</Filter>
-    </ClInclude>
     <ClInclude Include="ui\UIBuyWeaponTab.h">
       <Filter>UI\Multiplayer\BuyWeaponWnd\TAB</Filter>
     </ClInclude>
     <ClInclude Include="ui\UITabButtonMP.h">
       <Filter>UI\Multiplayer\BuyWeaponWnd\TAB</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\UIMapDesc.h">
-      <Filter>UI\Multiplayer\team_skin_info\MapDesc</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\UIMapInfo.h">
-      <Filter>UI\Multiplayer\team_skin_info\MapDesc\MapInfo</Filter>
     </ClInclude>
     <ClInclude Include="ui\UISpawnWnd.h">
       <Filter>UI\Multiplayer\team_skin_info\Spawn</Filter>
@@ -7104,17 +7071,11 @@
     <ClInclude Include="ui\UIKickPlayer.h">
       <Filter>UI\Multiplayer\Voting</Filter>
     </ClInclude>
-    <ClInclude Include="ui\UITextVote.h">
-      <Filter>UI\Multiplayer\Voting</Filter>
-    </ClInclude>
     <ClInclude Include="ui\UIVote.h">
       <Filter>UI\Multiplayer\Voting</Filter>
     </ClInclude>
     <ClInclude Include="ui\UIVotingCategory.h">
       <Filter>UI\Multiplayer\Voting</Filter>
-    </ClInclude>
-    <ClInclude Include="ui\UIDemoPlayControl.h">
-      <Filter>UI\Multiplayer\DemoPlayControl</Filter>
     </ClInclude>
     <ClInclude Include="UIAchivementsIndicator.h">
       <Filter>UI\Multiplayer\Achivements</Filter>
@@ -8969,15 +8930,6 @@
     <ClCompile Include="Level_network_digest_computer.cpp">
       <Filter>Core\Client\Level\ClientDigestComputer</Filter>
     </ClCompile>
-    <ClCompile Include="DemoInfo.cpp">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClCompile>
-    <ClCompile Include="DemoInfo_Loader.cpp">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClCompile>
-    <ClCompile Include="DemoPLay_Control.cpp">
-      <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
-    </ClCompile>
     <ClCompile Include="Level_network_Demo.cpp">
       <Filter>Core\Client\Level\LevelNetworkDemo</Filter>
     </ClCompile>
@@ -9033,9 +8985,6 @@
       <Filter>Core\Client\Objects\actor\base</Filter>
     </ClCompile>
     <ClCompile Include="actor_script.cpp">
-      <Filter>Core\Client\Objects\actor\base</Filter>
-    </ClCompile>
-    <ClCompile Include="Actor_Sleep.cpp">
       <Filter>Core\Client\Objects\actor\base</Filter>
     </ClCompile>
     <ClCompile Include="Actor_Weapon.cpp">
@@ -9560,9 +9509,6 @@
     <ClCompile Include="wallmark_manager.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\Explosives</Filter>
     </ClCompile>
-    <ClCompile Include="MPPlayersBag.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\MPPlayersBag</Filter>
-    </ClCompile>
     <ClCompile Include="mpactor_dump_impl.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\MPAnticheat</Filter>
     </ClCompile>
@@ -9616,9 +9562,6 @@
     </ClCompile>
     <ClCompile Include="script_zone_script.cpp">
       <Filter>Core\Client\Objects\zones\ScriptZone</Filter>
-    </ClCompile>
-    <ClCompile Include="team_base_zone.cpp">
-      <Filter>Core\Client\Objects\zones\TeamBaseZone</Filter>
     </ClCompile>
     <ClCompile Include="TorridZone.cpp">
       <Filter>Core\Client\Objects\zones\TorridZone</Filter>
@@ -9714,9 +9657,6 @@
       <Filter>Core\Client\Spectator\Cameras</Filter>
     </ClCompile>
     <ClCompile Include="console_commands.cpp">
-      <Filter>Core\Common\Console Commands</Filter>
-    </ClCompile>
-    <ClCompile Include="console_commands_mp.cpp">
       <Filter>Core\Common\Console Commands</Filter>
     </ClCompile>
     <ClCompile Include="date_time.cpp">
@@ -10658,18 +10598,6 @@
     <ClCompile Include="ui\UICDkey.cpp">
       <Filter>UI\Multiplayer\MM_MP\CDkey</Filter>
     </ClCompile>
-    <ClCompile Include="ui\UIMapList.cpp">
-      <Filter>UI\Multiplayer\MM_MP\MapList</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\ServerList.cpp">
-      <Filter>UI\Multiplayer\MM_MP\ServerList</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\ServerList_GameSpy_func.cpp">
-      <Filter>UI\Multiplayer\MM_MP\ServerList</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\UIListItemServer.cpp">
-      <Filter>UI\Multiplayer\MM_MP\ServerList</Filter>
-    </ClCompile>
     <ClCompile Include="ui\TeamInfo.cpp">
       <Filter>UI\Multiplayer\MM_MP\TeamInfo</Filter>
     </ClCompile>
@@ -10736,23 +10664,11 @@
     <ClCompile Include="ui\UIMpTradeWnd_wpn.cpp">
       <Filter>UI\Multiplayer\BuyWeaponWnd</Filter>
     </ClCompile>
-    <ClCompile Include="ui\Restrictions.cpp">
-      <Filter>UI\Multiplayer\BuyWeaponWnd\rank_restrictions</Filter>
-    </ClCompile>
     <ClCompile Include="ui\UIBuyWeaponTab.cpp">
       <Filter>UI\Multiplayer\BuyWeaponWnd\TAB</Filter>
     </ClCompile>
     <ClCompile Include="ui\UITabButtonMP.cpp">
       <Filter>UI\Multiplayer\BuyWeaponWnd\TAB</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\UIMapDesc.cpp">
-      <Filter>UI\Multiplayer\team_skin_info\MapDesc</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\UIMapInfo.cpp">
-      <Filter>UI\Multiplayer\team_skin_info\MapDesc\MapInfo</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\UIMapInfo_script.cpp">
-      <Filter>UI\Multiplayer\team_skin_info\MapDesc\MapInfo</Filter>
     </ClCompile>
     <ClCompile Include="ui\UISpawnWnd.cpp">
       <Filter>UI\Multiplayer\team_skin_info\Spawn</Filter>
@@ -10772,17 +10688,11 @@
     <ClCompile Include="ui\UIKickPlayer.cpp">
       <Filter>UI\Multiplayer\Voting</Filter>
     </ClCompile>
-    <ClCompile Include="ui\UITextVote.cpp">
-      <Filter>UI\Multiplayer\Voting</Filter>
-    </ClCompile>
     <ClCompile Include="ui\UIVote.cpp">
       <Filter>UI\Multiplayer\Voting</Filter>
     </ClCompile>
     <ClCompile Include="ui\UIVotingCategory.cpp">
       <Filter>UI\Multiplayer\Voting</Filter>
-    </ClCompile>
-    <ClCompile Include="ui\UIDemoPlayControl.cpp">
-      <Filter>UI\Multiplayer\DemoPlayControl</Filter>
     </ClCompile>
     <ClCompile Include="UIAchivementsIndicator.cpp">
       <Filter>UI\Multiplayer\Achivements</Filter>

@@ -26,13 +26,7 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 
 #pragma warning(push)
 #pragma warning(disable:4238)
-	CInifile ini(
-		&IReader(
-			(void*)(ini_string),
-			xr_strlen(ini_string)
-		),
-		FS.get_path("$game_config$")->m_Path
-	);
+	CInifile ini(&IReader((void*)(ini_string), xr_strlen(ini_string)), FS.get_path("$game_config$")->m_Path);
 #pragma warning(pop)
 
 	// Alundaio: This will spawn a single random section listed in [spawn_loadout]
@@ -95,7 +89,6 @@ void CSE_ALifeObject::spawn_supplies(LPCSTR ini_string)
 						if (NULL != strstr(V, "ammo_type="))
 							i_ammo_type = atoi(strstr(V, "ammo_type=") + 10);
 					}
-
 
 					CSE_Abstract* E = alife().spawn_item(itmSection, o_Position, m_tNodeID, m_tGraphID, ID);
 					CSE_ALifeItemWeapon* W = smart_cast<CSE_ALifeItemWeapon*>(E);

@@ -118,48 +118,35 @@ BOOL CInventoryOwner::net_Spawn(CSE_Abstract* DC)
 	m_trade_parameters = xr_new<CTradeParameters>(trade_section());
 
 	//получить указатель на объект, InventoryOwner
-	//m_inventory->setSlotsBlocked(false);
 	CGameObject* pThis = smart_cast<CGameObject*>(this);
 	if (!pThis) return FALSE;
 	CSE_Abstract* E = (CSE_Abstract*)(DC);
 
-	if (IsGameTypeSingle())
+	CSE_ALifeTraderAbstract* pTrader = NULL;
+	if (E) pTrader = smart_cast<CSE_ALifeTraderAbstract*>(E);
+	if (!pTrader) return FALSE;
+
+	R_ASSERT(pTrader->character_profile().size());
+
+	//синхронизируем параметры персонажа с серверным объектом
+	CharacterInfo().Init(pTrader);
+
+	//-------------------------------------
+	m_known_info_registry->registry().init(E->ID);
+	//-------------------------------------
+
+	CAI_PhraseDialogManager* dialog_manager = smart_cast<CAI_PhraseDialogManager*>(this);
+	if (dialog_manager && !dialog_manager->GetStartDialog().size())
 	{
-		CSE_ALifeTraderAbstract* pTrader = NULL;
-		if (E) pTrader = smart_cast<CSE_ALifeTraderAbstract*>(E);
-		if (!pTrader) return FALSE;
-
-		R_ASSERT(pTrader->character_profile().size());
-
-		//синхронизируем параметры персонажа с серверным объектом
-		CharacterInfo().Init(pTrader);
-
-		//-------------------------------------
-		m_known_info_registry->registry().init(E->ID);
-		//-------------------------------------
-
-		CAI_PhraseDialogManager* dialog_manager = smart_cast<CAI_PhraseDialogManager*>(this);
-		if (dialog_manager && !dialog_manager->GetStartDialog().size())
-		{
-			dialog_manager->SetStartDialog(CharacterInfo().StartDialog());
-			dialog_manager->SetDefaultStartDialog(CharacterInfo().StartDialog());
-		}
-		m_game_name_str = pTrader->m_character_name_str;
-		m_game_name = pTrader->m_character_name;
-
-		m_deadbody_can_take = pTrader->m_deadbody_can_take;
-		m_deadbody_closed = pTrader->m_deadbody_closed;
-		m_trader_flags.assign(pTrader->m_trader_flags.get());
+		dialog_manager->SetStartDialog(CharacterInfo().StartDialog());
+		dialog_manager->SetDefaultStartDialog(CharacterInfo().StartDialog());
 	}
-	else
-	{
-		CharacterInfo().m_SpecificCharacter.Load("mp_actor");
-		CharacterInfo().InitSpecificCharacter("mp_actor");
-		CharacterInfo().m_SpecificCharacter.data()->m_sGameName = (E->name_replace()[0])
-			                                                          ? E->name_replace()
-			                                                          : *pThis->cName();
-		m_game_name = (E->name_replace()[0]) ? E->name_replace() : *pThis->cName();
-	}
+	m_game_name_str = pTrader->m_character_name_str;
+	m_game_name = pTrader->m_character_name;
+
+	m_deadbody_can_take = pTrader->m_deadbody_can_take;
+	m_deadbody_closed = pTrader->m_deadbody_closed;
+	m_trader_flags.assign(pTrader->m_trader_flags.get());
 
 	if (!pThis->Local()) return TRUE;
 
@@ -191,8 +178,6 @@ void CInventoryOwner::load(IReader& input_packet)
 	u8 active_slot = input_packet.r_u8();
 	if (active_slot == NO_ACTIVE_SLOT)
 		inventory().SetActiveSlot(NO_ACTIVE_SLOT);
-	//else
-	//inventory().Activate_deffered(active_slot, Device.dwFrame);
 
 	m_tmp_active_slot_num = active_slot;
 
@@ -267,9 +252,6 @@ bool CInventoryOwner::OfferTalk(CInventoryOwner* talk_partner)
 	CEntityAlive* pPartnerEntityAlive = smart_cast<CEntityAlive*>(talk_partner);
 	R_ASSERT(pPartnerEntityAlive);
 
-	//	ALife::ERelationType relation = RELATION_REGISTRY().GetRelationType(this, talk_partner);
-	//	if(relation == ALife::eRelationTypeEnemy) return false;
-
 	if (!is_alive() || !pPartnerEntityAlive->g_Alive()) return false;
 
 	StartTalk(talk_partner);
@@ -339,9 +321,7 @@ void CInventoryOwner::OnItemTake(CInventoryItem* inventory_item)
 
 	attach(inventory_item);
 
-	if (m_tmp_active_slot_num != NO_ACTIVE_SLOT &&
-		inventory_item->CurrPlace() == eItemPlaceSlot &&
-		inventory_item->CurrSlot() == m_tmp_active_slot_num)
+	if (m_tmp_active_slot_num != NO_ACTIVE_SLOT && inventory_item->CurrPlace() == eItemPlaceSlot && inventory_item->CurrSlot() == m_tmp_active_slot_num)
 	{
 		if (inventory().ItemFromSlot(m_tmp_active_slot_num))
 		{
@@ -376,28 +356,13 @@ void CInventoryOwner::spawn_supplies()
 	if (smart_cast<CBaseMonster*>(this)) return;
 
 	if (use_bolts())
-		Level().spawn_item("bolt", game_object->Position(), game_object->ai_location().level_vertex_id(),
-		                   game_object->ID());
+		Level().spawn_item("bolt", game_object->Position(), game_object->ai_location().level_vertex_id(), game_object->ID());
 
-	/*
-    if (!ai().get_alife() && IsGameTypeSingle())
-    {
-        CSE_Abstract						*abstract = Level().spawn_item("device_pda", game_object->Position(), game_object->ai_location().level_vertex_id(), game_object->ID(), true);
-        CSE_ALifeItemPDA					*pda = smart_cast<CSE_ALifeItemPDA*>(abstract);
-        R_ASSERT(pda);
-        pda->m_original_owner = (u16) game_object->ID();
-        NET_Packet							P;
-        abstract->Spawn_Write(P, TRUE);
-        Level().Send(P, net_flags(TRUE));
-        F_entity_Destroy(abstract);
-    }
-	*/
 }
 
 //игровое имя
 LPCSTR CInventoryOwner::Name() const
 {
-	//	return CharacterInfo().Name();
 	return m_game_name.c_str();
 }
 
@@ -619,12 +584,7 @@ void CInventoryOwner::sell_useless_items()
 
 bool CInventoryOwner::AllowItemToTrade(CInventoryItem const* item, const SInvItemPlace& place) const
 {
-	return (
-		trade_parameters().enabled(
-			CTradeParameters::action_sell(0),
-			item->object().cNameSect()
-		)
-	);
+	return (trade_parameters().enabled(CTradeParameters::action_sell(0), item->object().cNameSect()));
 }
 
 void CInventoryOwner::set_money(u32 amount, bool bSendEvent)

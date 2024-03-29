@@ -29,7 +29,6 @@ LPCSTR _list_names[] = {
 CUIMpTradeWnd::CUIMpTradeWnd()
 {
 	m_money = 0;
-	g_mp_restrictions.InitGroups();
 	m_bIgnoreMoneyAndRank = false;
 }
 

@@ -18,14 +18,6 @@
 
 //AVO: lua re-org
 #include "lua.hpp"
-/*extern "C" {
-    //#define BOOST_NO_TEMPLATE_PARTIAL_SPECIALIZATION
-
-#include <lua/lua.h>
-#include <lua/lualib.h>
-#include <lua/lauxlib.h>
-    // #include <lua/luajit.h>
-}*/
 //-AVO
 
 // Lua-bind

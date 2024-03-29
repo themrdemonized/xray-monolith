@@ -14,9 +14,6 @@ void CRenderDevice::_Destroy(BOOL bKeepTextures)
 	Statistic->OnDeviceDestroy();
 	::Render->destroy();
 	m_pRender->OnDeviceDestroy(bKeepTextures);
-	//Resources->OnDeviceDestroy (bKeepTextures);
-	//RCache.OnDeviceDestroy ();
-
 	Memory.mem_compact();
 }
 
@@ -34,9 +31,6 @@ void CRenderDevice::Destroy(void)
 
 	// real destroy
 	m_pRender->DestroyHW();
-
-	//xr_delete (Resources);
-	//HW.DestroyDevice ();
 
 	seqRender.R.clear();
 	seqAppActivate.R.clear();
@@ -66,17 +60,11 @@ void CRenderDevice::Reset(bool precache)
 
 	ShowCursor(TRUE);
 	u32 tm_start = TimerAsync();
-	if (g_pGamePersistent)
-	{
-		//. g_pGamePersistent->Environment().OnDeviceDestroy();
-	}
 
 	m_pRender->Reset(m_hWnd, dwWidth, dwHeight, fWidth_2, fHeight_2);
 
 	if (g_pGamePersistent)
 	{
-		//. g_pGamePersistent->Environment().OnDeviceCreate();
-		//bNeed_re_create_env = TRUE;
 		g_pGamePersistent->Environment().bNeed_re_create_env = TRUE;
 	}
 	_SetupStates();

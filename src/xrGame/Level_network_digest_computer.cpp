@@ -3,8 +3,6 @@
 
 #define DEFAULT_MODULE_HASH "3CAABCFCFF6F3A810019C6A72180F166"
 
-extern void GetCDKey_FromRegistry(char* CDKeyStr);
-
 char const* ComputeClientDigest(string128& dest)
 {
 	xr_strcpy(dest, sizeof(dest), DEFAULT_MODULE_HASH);

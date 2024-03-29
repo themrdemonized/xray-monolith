@@ -167,24 +167,8 @@ void CUIMainIngameWnd::Init()
 	m_ind_boost_power->Show(false);
 	m_ind_boost_rad->Show(false);
 
-	// Загружаем иконки 
-	/*	if ( IsGameTypeSingle() )
-		{
-			xml_init.InitStatic		(uiXml, "starvation_static", 0, &UIStarvationIcon);
-			UIStarvationIcon.Show	(false);
-	
-	//		xml_init.InitStatic		(uiXml, "psy_health_static", 0, &UIPsyHealthIcon);
-	//		UIPsyHealthIcon.Show	(false);
-		}
-	*/
 	UIWeaponJammedIcon = UIHelper::CreateStatic(uiXml, "weapon_jammed_static", NULL);
 	UIWeaponJammedIcon->Show(false);
-
-	//	xml_init.InitStatic			(uiXml, "radiation_static", 0, &UIRadiaitionIcon);
-	//	UIRadiaitionIcon.Show		(false);
-
-	//	xml_init.InitStatic			(uiXml, "wound_static", 0, &UIWoundIcon);
-	//	UIWoundIcon.Show			(false);
 
 	UIInvincibleIcon = UIHelper::CreateStatic(uiXml, "invincible_static", NULL);
 	UIInvincibleIcon->Show(false);
@@ -212,8 +196,7 @@ void CUIMainIngameWnd::Init()
 	while (j < ewiInvincible)
 	{
 		// Читаем данные порогов для каждого индикатора
-		shared_str cfgRecord = pSettings->r_string("main_ingame_indicators_thresholds",
-		                                           *warningStrings[static_cast<int>(j) - 1]);
+		shared_str cfgRecord = pSettings->r_string("main_ingame_indicators_thresholds", *warningStrings[static_cast<int>(j) - 1]);
 		u32 count = _GetItemCount(*cfgRecord);
 
 		char singleThreshold[8];
@@ -277,25 +260,17 @@ void CUIMainIngameWnd::Draw()
 	bool IOActive = (FS.dwOpenCounter > 0);
 	if (IOActive) UIStaticDiskIO_start_time = Device.fTimeGlobal;
 
-	if ((UIStaticDiskIO_start_time + 1.0f) < Device.fTimeGlobal) UIStaticDiskIO->Show(false);
+	if ((UIStaticDiskIO_start_time + 1.0f) < Device.fTimeGlobal) 
+		UIStaticDiskIO->Show(false);
 	else
 	{
 		u32 alpha = clampr(iFloor(255.f * (1.f - (Device.fTimeGlobal - UIStaticDiskIO_start_time) / 1.f)), 0, 255);
 		UIStaticDiskIO->Show(true);
 		UIStaticDiskIO->SetTextureColor(color_rgba(255, 255, 255, alpha));
 	}
+
 	FS.dwOpenCounter = 0;
 
-	if (!IsGameTypeSingle())
-	{
-		float luminocity = smart_cast<CGameObject*>(Level().CurrentEntity())->ROS()->get_luminocity();
-		float power = log(luminocity > .001f ? luminocity : .001f) * (1.f/*luminocity_factor*/);
-		luminocity = exp(power);
-
-		static float cur_lum = luminocity;
-		cur_lum = luminocity * 0.01f + cur_lum * 0.99f;
-		UIMotionIcon->SetLuminosity((s16)iFloor(cur_lum * 100.0f));
-	}
 	if (!pActor || !pActor->g_Alive()) return;
 
 	UIMotionIcon->SetNoise((s16)(0xffff & iFloor(pActor->m_snd_noise * 100)));
@@ -337,9 +312,6 @@ void CUIMainIngameWnd::Update()
 
 	UIZoneMap->Update();
 
-	//	UIHealthBar.SetProgressPos	(m_pActor->GetfHealth()*100.0f);
-	//	UIMotionIcon->SetPower		(m_pActor->conditions().GetPower()*100.0f);
-
 	UpdatePickUpItem();
 
 	if (Device.dwFrame % 10)
@@ -361,47 +333,7 @@ void CUIMainIngameWnd::Update()
 	}
 
 	UpdateMainIndicators();
-	if (IsGameTypeSingle())
-		return;
-
-	// ewiArtefact
-	if (GameID() == eGameIDArtefactHunt)
-	{
-		bool b_Artefact = !!(pActor->inventory().ItemFromSlot(ARTEFACT_SLOT));
-		if (b_Artefact)
-		{
-			SetWarningIconColor(ewiArtefact, 0xffffff00);
-		}
-		else
-		{
-			SetWarningIconColor(ewiArtefact, 0x00ffffff);
-		}
-	}
-	else if (GameID() == eGameIDCaptureTheArtefact)
-	{
-		//this is a bad style... It left for backward compatibility
-		//need to move this logic into UIGameCTA class
-		//bool b_Artefact = (NULL != m_pActor->inventory().ItemFromSlot(ARTEFACT_SLOT));
-		game_cl_CaptureTheArtefact* cta_game = static_cast_checked<game_cl_CaptureTheArtefact*>(&Game());
-		R_ASSERT(cta_game);
-		R_ASSERT(lookat_player);
-
-		if ((pActor->ID() == cta_game->GetGreenArtefactOwnerID()) ||
-			(pActor->ID() == cta_game->GetBlueArtefactOwnerID()))
-		{
-			SetWarningIconColor(ewiArtefact, 0xffff0000);
-		}
-		else if (pActor->inventory().ItemFromSlot(ARTEFACT_SLOT)) //own artefact
-		{
-			SetWarningIconColor(ewiArtefact, 0xff00ff00);
-		}
-		else
-		{
-			SetWarningIconColor(ewiArtefact, 0x00ffffff);
-		}
-	}
 } //update
-
 
 void CUIMainIngameWnd::RenderQuickInfos()
 {
@@ -470,21 +402,6 @@ void CUIMainIngameWnd::SetWarningIconColor(EWarningIcons icon, const u32 cl)
 	case ewiWeaponJammed:
 		SetWarningIconColorUI(UIWeaponJammedIcon, cl);
 		if (bMagicFlag) break;
-
-		/*	case ewiRadiation:
-				SetWarningIconColorUI	(&UIRadiaitionIcon, cl);
-				if (bMagicFlag) break;
-			case ewiWound:
-				SetWarningIconColorUI	(&UIWoundIcon, cl);
-				if (bMagicFlag) break;
-		
-			case ewiStarvation:
-				SetWarningIconColorUI	(&UIStarvationIcon, cl);
-				if (bMagicFlag) break;	
-			case ewiPsyHealth:
-				SetWarningIconColorUI	(&UIPsyHealthIcon, cl);
-				if (bMagicFlag) break;
-		*/
 	case ewiInvincible:
 		SetWarningIconColorUI(UIInvincibleIcon, cl);
 		if (bMagicFlag) break;
@@ -528,8 +445,10 @@ void CUIMainIngameWnd::InitFlashingIcons(CUIXml* node)
 		// Теперь запоминаем иконку и ее тип
 		EFlashingIcons type = efiPdaTask;
 
-		if (iconType == "pda") type = efiPdaTask;
-		else if (iconType == "mail") type = efiMail;
+		if (iconType == "pda") 
+			type = efiPdaTask;
+		else if (iconType == "mail") 
+			type = efiMail;
 		else
 			R_ASSERT(!"Unknown type of mainingame flashing icon");
 
@@ -584,7 +503,6 @@ void CUIMainIngameWnd::UpdatePickUpItem()
 		return;
 	};
 
-
 	shared_str sect_name = m_pPickUpItem->object().cNameSect();
 
 	//properties used by inventory menu
@@ -624,9 +542,7 @@ void CUIMainIngameWnd::UpdatePickUpItem()
 	UIPickUpItemIcon->SetWidth(m_iGridWidth * INV_GRID_WIDTH * scale * UI().get_current_kx());
 	UIPickUpItemIcon->SetHeight(m_iGridHeight * INV_GRID_HEIGHT * scale);
 
-	UIPickUpItemIcon->SetWndPos(Fvector2().set(
-		m_iPickUpItemIconX + (m_iPickUpItemIconWidth - UIPickUpItemIcon->GetWidth()) / 2.0f,
-		m_iPickUpItemIconY + (m_iPickUpItemIconHeight - UIPickUpItemIcon->GetHeight()) / 2.0f));
+	UIPickUpItemIcon->SetWndPos(Fvector2().set(m_iPickUpItemIconX + (m_iPickUpItemIconWidth - UIPickUpItemIcon->GetWidth()) / 2.0f, m_iPickUpItemIconY + (m_iPickUpItemIconHeight - UIPickUpItemIcon->GetHeight()) / 2.0f));
 
 	UIPickUpItemIcon->SetTextureColor(color_rgba(255, 255, 255, 192));
 	UIPickUpItemIcon->Show(true);
@@ -678,8 +594,7 @@ void CUIMainIngameWnd::UpdateMainIndicators()
 		return;
 
 	UpdateQuickSlots();
-	if (IsGameTypeSingle())
-		CurrentGameUI()->GetPdaMenu().UpdateRankingWnd();
+	CurrentGameUI()->GetPdaMenu().UpdateRankingWnd();
 
 	u8 flags = 0;
 	flags |= LA_CYCLIC;
@@ -741,9 +656,7 @@ void CUIMainIngameWnd::UpdateMainIndicators()
 	// Satiety icon
 	float satiety = pActor->conditions().GetSatiety();
 	float satiety_critical = pActor->conditions().SatietyCritical();
-	float satiety_koef = (satiety - satiety_critical) / (satiety >= satiety_critical
-		                                                     ? 1 - satiety_critical
-		                                                     : satiety_critical);
+	float satiety_koef = (satiety - satiety_critical) / (satiety >= satiety_critical ? 1 - satiety_critical : satiety_critical);
 	if (satiety_koef > 0.5)
 		m_ind_starvation->Show(false);
 	else
@@ -817,7 +730,7 @@ void CUIMainIngameWnd::UpdateMainIndicators()
 	float cur_weight = pActor->inventory().TotalWeight();
 	float max_weight = pActor->MaxWalkWeight();
 	m_ind_overweight->Show(false);
-	if (cur_weight >= max_weight - 10.0f && IsGameTypeSingle())
+	if (cur_weight >= max_weight - 10.0f)
 	{
 		m_ind_overweight->Show(true);
 		if (cur_weight > max_weight)
@@ -855,7 +768,6 @@ void CUIMainIngameWnd::UpdateQuickSlots()
 	if (tmp[2] == ',')
 		tmp[1] = '\0';
 	m_QuickSlotText4->SetTextST(tmp);
-
 
 	CActor* pActor = smart_cast<CActor*>(Level().CurrentViewEntity());
 	if (!pActor)

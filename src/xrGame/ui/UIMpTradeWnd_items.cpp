@@ -481,13 +481,7 @@ struct eq_group_state_comparer
 
 	bool operator ()(SBuyItemInfo* info)
 	{
-		if (!info->m_cell_item->IsHelper() && (info->GetState() == m_state))
-		{
-			const shared_str& _grp = g_mp_restrictions.GetItemGroup(info->m_name_sect);
-			return (_grp == m_group);
-		}
-		else
-			return false;
+		return false;
 	}
 };
 

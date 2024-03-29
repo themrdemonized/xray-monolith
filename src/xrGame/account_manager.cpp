@@ -238,19 +238,6 @@ namespace gamespy_gp
 			m_account_creation_cb(false, get_verify_error_descr());
 			return;
 		}
-
-		//GPResult tmp_res = m_gamespy_gp->NewUser(
-		//	nick,
-		//	unique_nick,
-		//	email,
-		//	password,
-		//	&account_manager::new_user_cb,
-		//	this
-		//);
-		//if (tmp_res != GP_NO_ERROR)
-		//{
-		//	m_account_creation_cb(false, CGameSpy_GP::TryToTranslate(tmp_res).c_str());
-		//}	
 	}
 
 	void account_manager::delete_profile(account_operation_cb dpcb)
@@ -263,23 +250,6 @@ namespace gamespy_gp
 		{
 			m_profile_deleting_cb = dpcb;
 		}
-
-		//login_manager* tmp_lmngr = MainMenu()->GetLoginMngr();
-		//VERIFY(tmp_lmngr);
-		//if (!tmp_lmngr->get_current_profile())
-		//{
-		//	m_profile_deleting_cb(false, "mp_gp_not_logged_in");
-		//	return;
-		//}
-
-		//GPResult tmp_res = m_gamespy_gp->DeleteProfile(
-		//	&account_manager::delete_profile_cb,
-		//	this
-		//);
-		//if (tmp_res != GP_NO_ERROR)
-		//{
-		//	m_profile_deleting_cb(false, CGameSpy_GP::TryToTranslate(tmp_res).c_str());
-		//}
 	}
 
 	void account_manager::get_account_profiles(char const* email,

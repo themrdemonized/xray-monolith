@@ -16,13 +16,10 @@
 
 #include "../build_config_defines.h"
 
-//#include "resourcemanager.h"
-
 #ifndef _EDITOR
 #include "IGame_Level.h"
 #endif
 
-//#include "D3DUtils.h"
 #include "../xrcore/xrCore.h"
 
 #include "../Include/xrRender/EnvironmentRender.h"
@@ -47,9 +44,7 @@ extern Fvector4 ps_ssfx_wind_trees;
 
 //////////////////////////////////////////////////////////////////////////
 // environment
-CEnvironment::CEnvironment() :
-	CurrentEnv(0),
-	m_ambients_config(0)
+CEnvironment::CEnvironment() : CurrentEnv(0), m_ambients_config(0)
 {
 	bNeed_re_create_env = FALSE;
 	bWFX = false;
@@ -99,99 +94,17 @@ CEnvironment::CEnvironment() :
 	PerlinNoise1D->SetOctaves(2);
 	PerlinNoise1D->SetAmplitude(0.66666f);
 
-	// tsky0 = Device.Resources->_CreateTexture("$user$sky0");
-	// tsky1 = Device.Resources->_CreateTexture("$user$sky1");
-
 	string_path file_name;
-	m_ambients_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\ambients.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_sound_channels_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\sound_channels.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_effects_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\effects.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_suns_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\suns.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_sun_pos_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\sun_positions.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_thunderbolt_collections_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\thunderbolt_collections.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_thunderbolts_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\thunderbolts.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
+	m_ambients_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\ambients.ltx"), TRUE, TRUE, FALSE);
+	m_sound_channels_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\sound_channels.ltx"), TRUE, TRUE, FALSE);
+	m_effects_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\effects.ltx"), TRUE, TRUE, FALSE);
+	m_suns_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\suns.ltx"), TRUE, TRUE, FALSE);
+	m_sun_pos_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\sun_positions.ltx"), TRUE, TRUE, FALSE);
+	m_thunderbolt_collections_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\thunderbolt_collections.ltx"), TRUE, TRUE, FALSE);
+	m_thunderbolts_config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\thunderbolts.ltx"), TRUE, TRUE, FALSE);
 
-	CInifile* config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\environment.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
+	CInifile* config = xr_new<CInifile>(FS.update_path(file_name, "$game_config$", "environment\\environment.ltx"), TRUE, TRUE, FALSE);
+
 	// params
 	p_var_alt = deg2rad(config->r_float("environment", "altitude"));
 	p_var_long = deg2rad(config->r_float("environment", "delta_longitude"));
@@ -305,18 +218,15 @@ float CEnvironment::NormalizeTime(float tm)
 
 void CEnvironment::SetWeather(shared_str name, bool forced)
 {
-	//. static BOOL bAlready = FALSE;
-	//. if(bAlready) return;
 	if (name.size())
 	{
-		//. bAlready = TRUE;
 		EnvsMapIt it = WeatherCycles.find(name);
 		if (it == WeatherCycles.end())
 		{
 			Msg("! Invalid weather name: %s", name.c_str());
 			return;
 		}
-		// R_ASSERT3(it != WeatherCycles.end(), "Invalid weather name.", *name);
+
 		CurrentCycleName = it->first;
 		if (forced) { Invalidate(); }
 		if (!bWFX)
@@ -355,9 +265,7 @@ bool CEnvironment::SetWeatherFX(shared_str name)
 		float current_weight;
 		if (Current[0]->exec_time > Current[1]->exec_time)
 		{
-			float x = fGameTime > Current[0]->exec_time
-				          ? fGameTime - Current[0]->exec_time
-				          : (DAY_LENGTH - Current[0]->exec_time) + fGameTime;
+			float x = fGameTime > Current[0]->exec_time ? fGameTime - Current[0]->exec_time : (DAY_LENGTH - Current[0]->exec_time) + fGameTime;
 			current_length = (DAY_LENGTH - Current[0]->exec_time) + Current[1]->exec_time;
 			current_weight = x / current_length;
 		}
@@ -374,8 +282,7 @@ bool CEnvironment::SetWeatherFX(shared_str name)
 		CEnvDescriptor* CE = CurrentWeather->at(CurrentWeather->size() - 2);
 		CEnvDescriptor* CT = CurrentWeather->at(CurrentWeather->size() - 1);
 		C0->copy(*Current[0]);
-		C0->exec_time = NormalizeTime(
-			fGameTime - ((rewind_tm / (Current[1]->exec_time - fGameTime)) * current_length - rewind_tm));
+		C0->exec_time = NormalizeTime(fGameTime - ((rewind_tm / (Current[1]->exec_time - fGameTime)) * current_length - rewind_tm));
 		C1->copy(*Current[1]);
 		C1->exec_time = NormalizeTime(start_tm);
 		for (EnvIt t_it = CurrentWeather->begin() + 2; t_it != CurrentWeather->end() - 1; t_it++)
@@ -394,8 +301,6 @@ bool CEnvironment::SetWeatherFX(shared_str name)
 		Current[1] = C1;
 #ifdef WEATHER_LOGGING
         Msg("Starting WFX: '%s' - %3.2f sec", *name, wfx_time);
-        // for (EnvIt l_it=CurrentWeather->begin(); l_it!=CurrentWeather->end(); l_it++)
-		// Msg (". Env: '%s' Tm: %3.2f",*(*l_it)->m_identifier.c_str(),(*l_it)->exec_time);
 #endif
 	}
 	else
@@ -534,8 +439,6 @@ void CEnvironment::lerp(float& current_weight)
 	// final lerp
 	if (!m_paused)
 		CurrentEnv->lerp(this, *Current[0], *Current[1], current_weight, EM, mpower);
-
-	//Msg("Puddles amount: %f", wetness_factor);
 }
 
 void CEnvironment::OnFrame()
@@ -577,8 +480,6 @@ void CEnvironment::OnFrame()
 	wind_anim.y += WindVel * WDir.y * Device.fTimeDelta;
 	wind_anim.z += clampr(WindVel * 1.33f, 0.0f, 1.0f) * Device.fTimeDelta;
 
-
-	// if (pInput->iGetAsyncKeyState(DIK_O)) SetWeatherFX("surge_day");
 	float current_weight;
 	lerp(current_weight);
 
@@ -594,9 +495,6 @@ void CEnvironment::OnFrame()
     if (CurrentEnv->sun_dir.y > 0)
     {
         Log("CurrentEnv->sun_dir", CurrentEnv->sun_dir);
-        // Log("current_weight", current_weight);
-        // Log("mpower", mpower);
-
         Log("Current[0]->sun_dir", Current[0]->sun_dir);
         Log("Current[1]->sun_dir", Current[1]->sun_dir);
 
@@ -657,10 +555,7 @@ void CEnvironment::calculate_config_sun_dir()
 	R_ASSERT(_valid(real_sun_alt));
 	R_ASSERT(_valid(real_sun_long));
 
-	CurrentEnv->sun_dir.setHP(
-		deg2rad(real_sun_alt),
-		deg2rad(real_sun_long)
-	);
+	CurrentEnv->sun_dir.setHP(deg2rad(real_sun_alt), deg2rad(real_sun_long));
 
 	R_ASSERT(_valid(CurrentEnv->sun_dir));
 }
@@ -672,12 +567,10 @@ void CEnvironment::calculate_dynamic_sun_dir()
 	g = deg2rad(g);
 
 	// Declination
-	float D = 0.396372f - 22.91327f * _cos(g) + 4.02543f * _sin(g) - 0.387205f * _cos(2 * g) +
-		0.051967f * _sin(2 * g) - 0.154527f * _cos(3 * g) + 0.084798f * _sin(3 * g);
+	float D = 0.396372f - 22.91327f * _cos(g) + 4.02543f * _sin(g) - 0.387205f * _cos(2 * g) + 0.051967f * _sin(2 * g) - 0.154527f * _cos(3 * g) + 0.084798f * _sin(3 * g);
 
 	// Now calculate the time correction for solar angle:
-	float TC = 0.004297f + 0.107029f * _cos(g) - 1.837877f * _sin(g) - 0.837378f * _cos(2 * g) -
-		2.340475f * _sin(2 * g);
+	float TC = 0.004297f + 0.107029f * _cos(g) - 1.837877f * _sin(g) - 0.837378f * _cos(2 * g) - 2.340475f * _sin(2 * g);
 
 	// IN degrees
 	float Longitude = -30.4f;
@@ -693,9 +586,7 @@ void CEnvironment::calculate_dynamic_sun_dir()
 	float const LatitudeR = deg2rad(Latitude);
 
 	// Now we can calculate the Sun Zenith Angle (SZA):
-	float cosSZA = _sin(LatitudeR)
-		* _sin(deg2rad(D)) + _cos(LatitudeR) *
-		_cos(deg2rad(D)) * _cos(deg2rad(SHA));
+	float cosSZA = _sin(LatitudeR) * _sin(deg2rad(D)) + _cos(LatitudeR) * _cos(deg2rad(D)) * _cos(deg2rad(SHA));
 
 	clamp(cosSZA, -1.0f, 1.0f);
 
@@ -757,8 +648,7 @@ SThunderboltCollection* CEnvironment::thunderbolt_collection(CInifile* pIni, CIn
 	return (result);
 }
 
-SThunderboltCollection* CEnvironment::thunderbolt_collection(xr_vector<SThunderboltCollection*>& collection,
-                                                             shared_str const& id)
+SThunderboltCollection* CEnvironment::thunderbolt_collection(xr_vector<SThunderboltCollection*>& collection, shared_str const& id)
 {
 	typedef xr_vector<SThunderboltCollection*> Container;
 	Container::iterator i = collection.begin();

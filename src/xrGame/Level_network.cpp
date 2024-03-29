@@ -30,7 +30,6 @@ extern bool g_b_ClearGameCaptions;
 
 void CLevel::remove_objects()
 {
-	if (!IsGameTypeSingle()) Msg("CLevel::remove_objects - Start");
 	BOOL b_stored = psDeviceFlags.test(rsDisableObjectsAsCrows);
 
 	int loop = 5;
@@ -105,10 +104,6 @@ void CLevel::remove_objects()
 	}
 
 	g_pGamePersistent->destroy_particles(false);
-
-	//.	xr_delete									(m_seniority_hierarchy_holder);
-	//.	m_seniority_hierarchy_holder				= xr_new<CSeniorityHierarchyHolder>();
-	if (!IsGameTypeSingle()) Msg("CLevel::remove_objects - End");
 }
 
 #ifdef DEBUG
@@ -146,8 +141,6 @@ void CLevel::net_Stop()
 		SetControlEntity(NULL); //m_current_spectator == CurrentControlEntity()
 		m_current_spectator = NULL;
 	}
-	else if (IsDemoSave() && !IsDemoInfoSaved())
-		SaveDemoInfo();
 
 	remove_objects();
 
@@ -174,17 +167,10 @@ void CLevel::net_Stop()
 
 void CLevel::ClientSend()
 {
-	if (GameID() != eGameIDSingle && OnClient())
-	{
-		if (!net_HasBandwidth()) return;
-	};
-
 	NET_Packet P;
 	u32 start = 0;
-	//----------- for E3 -----------------------------
-	//	if () 
+
 	{
-		//		if (!(Game().local_player) || Game().local_player->testFlag(GAME_PLAYER_FLAG_VERY_VERY_DEAD)) return;
 		if (CurrentControlEntity())
 		{
 			CObject* pObj = CurrentControlEntity();
@@ -284,7 +270,6 @@ void CLevel::ClientSave()
 	}
 }
 
-//extern	XRPHYSICS_API	float		phTimefactor;
 extern BOOL g_SV_Disable_Auth_Check;
 
 void CLevel::Send(NET_Packet& P, u32 dwFlags, u32 dwTimeout)
@@ -306,13 +291,6 @@ void CLevel::Send(NET_Packet& P, u32 dwFlags, u32 dwTimeout)
 	}
 	else
 		IPureClient::Send(P, dwFlags, dwTimeout);
-
-	if (g_pGameLevel && Level().game && GameID() != eGameIDSingle && !g_SV_Disable_Auth_Check)
-	{
-		// anti-cheat
-		phTimefactor = 1.f;
-		psDeviceFlags.set(rsConstantFPS,FALSE);
-	}
 }
 
 void CLevel::net_Update()
@@ -391,8 +369,7 @@ bool CLevel::Connect2Server(const char* options)
 		}
 		//-----------------------------------------
 	}
-	Msg("%c client : connection %s - <%s>", m_bConnectResult ? '*' : '!', m_bConnectResult ? "accepted" : "rejected",
-	    m_sConnectResult.c_str());
+	Msg("%c client : connection %s - <%s>", m_bConnectResult ? '*' : '!', m_bConnectResult ? "accepted" : "rejected", m_sConnectResult.c_str());
 	if (!m_bConnectResult)
 	{
 		if (Server)
@@ -422,10 +399,6 @@ bool CLevel::Connect2Server(const char* options)
 		}
 	};
 
-	//---------------------------------------------------------------------------
-	//P.w_begin	(M_CLIENT_REQUEST_CONNECTION_DATA);
-	//Send		(P, net_flags(TRUE, TRUE, TRUE, TRUE));
-	//---------------------------------------------------------------------------
 	return TRUE;
 };
 
@@ -484,15 +457,11 @@ void CLevel::OnConnectResult(NET_Packet* P)
 			{
 				if (!xr_strlen(ResultStr))
 				{
-					MainMenu()->OnSessionTerminate(
-						CStringTable().translate("st_you_have_been_banned").c_str()
-					);
+					MainMenu()->OnSessionTerminate(CStringTable().translate("st_you_have_been_banned").c_str());
 				}
 				else
 				{
-					MainMenu()->OnSessionTerminate(
-						CStringTable().translate(ResultStr).c_str()
-					);
+					MainMenu()->OnSessionTerminate(CStringTable().translate(ResultStr).c_str());
 				}
 			}
 			break;
@@ -500,15 +469,11 @@ void CLevel::OnConnectResult(NET_Packet* P)
 			{
 				if (!xr_strlen(ResultStr))
 				{
-					MainMenu()->OnSessionTerminate(
-						CStringTable().translate("st_profile_error").c_str()
-					);
+					MainMenu()->OnSessionTerminate(CStringTable().translate("st_profile_error").c_str());
 				}
 				else
 				{
-					MainMenu()->OnSessionTerminate(
-						CStringTable().translate(ResultStr).c_str()
-					);
+					MainMenu()->OnSessionTerminate(CStringTable().translate(ResultStr).c_str());
 				}
 			}
 		}
@@ -563,14 +528,7 @@ void CLevel::ClearAllObjects()
 		CObject* pObj = Level().Objects.o_get_by_iterator(i);
 		if (pObj->H_Parent() != NULL)
 		{
-			if (IsGameTypeSingle())
-			{
-				FATAL("pObj->H_Parent()==NULL");
-			}
-			else
-			{
-				Msg("! ERROR: object's parent is not NULL");
-			}
+			FATAL("pObj->H_Parent()==NULL");
 		}
 
 		//-----------------------------------------------------------
@@ -615,9 +573,6 @@ void CLevel::OnSessionFull()
 void CLevel::OnConnectRejected()
 {
 	IPureClient::OnConnectRejected();
-
-	//	if (MainMenu()->GetErrorDialogType() != CMainMenu::ErrNoError)
-	//		MainMenu()->SetErrorDialog(CMainMenu::ErrServerReject);
 };
 
 void CLevel::net_OnChangeSelfName(NET_Packet* P)

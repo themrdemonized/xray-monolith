@@ -6,15 +6,9 @@
 // ZNear - always 0.0f
 // ZFar - always 1.0f
 
-//class ENGINE_API CResourceManager;
-//class ENGINE_API CGammaControl;
-
 #include "pure.h"
-//#include "hw.h"
 #include "../xrcore/ftimer.h"
 #include "stats.h"
-//#include "shader.h"
-//#include "R_Backend.h"
 
 #include "../build_config_defines.h"
 
@@ -88,7 +82,7 @@ protected:
 	CTimer_paused TimerGlobal;
 
 	//AVO: 
-	CTimer frame_timer; //TODO: ïðîâåðèòü, íå äóáëèðóåòñÿ-ëè ñõîæèé òàéìåð (alpet)
+	CTimer frame_timer;
 	//-AVO
 
 public:
@@ -103,7 +97,6 @@ public:
 	CRegistrator<pureScreenResolutionChanged> seqResolutionChanged;
 
 	HWND m_hWnd;
-	// CStats* Statistic;
 };
 
 class ENGINE_API CRenderDeviceBase :
@@ -145,31 +138,21 @@ private:
 	RECT m_rcWindowBounds;
 	RECT m_rcWindowClient;
 
-	//u32 Timer_MM_Delta;
-	//CTimer_paused Timer;
-	//CTimer_paused TimerGlobal;
 	CTimer TimerMM;
 
 	void _Create(LPCSTR shName);
 	void _Destroy(BOOL bKeepTextures);
 	void _SetupStates();
+
 public:
-	// HWND m_hWnd;
 	LRESULT MsgProc(HWND, UINT, WPARAM, LPARAM);
 
-	// u32 dwFrame;
-	// u32 dwPrecacheFrame;
 	u32 dwPrecacheTotal;
 
-	// u32 dwWidth, dwHeight;
 	float fWidth_2, fHeight_2;
-	// BOOL b_is_Ready;
-	// BOOL b_is_Active;
 	void OnWM_Activate(WPARAM wParam, LPARAM lParam);
-public:
-	//ref_shader m_WireShader;
-	//ref_shader m_SelectionShader;
 
+public:
 	IRenderDeviceRender* m_pRender;
 
 	BOOL m_bNearer;
@@ -187,52 +170,20 @@ public:
 			mProject._43 += EPS_L;
 		}
 		m_pRender->SetCacheXform(mView, mProject);
-		//R_ASSERT(0);
-		// TODO: re-implement set projection
-		//RCache.set_xform_project (mProject);
 	}
 
 	void DumpResourcesMemoryUsage() { m_pRender->ResourcesDumpMemoryUsage(); }
 public:
 	// Registrators
-	//CRegistrator <pureRender > seqRender;
-	// CRegistrator <pureAppActivate > seqAppActivate;
-	// CRegistrator <pureAppDeactivate > seqAppDeactivate;
-	// CRegistrator <pureAppStart > seqAppStart;
-	// CRegistrator <pureAppEnd > seqAppEnd;
-	//CRegistrator <pureFrame > seqFrame;
 	CRegistrator<pureFrame> seqFrameMT;
 	CRegistrator<pureDeviceReset> seqDeviceReset;
 	xr_vector<fastdelegate::FastDelegate0<>> seqParallel;
 
-	// Dependent classes
-	//CResourceManager* Resources;
-
 	CStats* Statistic;
-
-	// Engine flow-control
-	//float fTimeDelta;
-	//float fTimeGlobal;
-	//u32 dwTimeDelta;
-	//u32 dwTimeGlobal;
-	//u32 dwTimeContinual;
-
-	// Cameras & projection
-	//Fvector vCameraPosition;
-	//Fvector vCameraDirection;
-	//Fvector vCameraTop;
-	//Fvector vCameraRight;
-
-	//Fmatrix mView;
-	//Fmatrix mProject;
-	//Fmatrix mFullTransform;
 
 	Fmatrix mInvFullTransform;
 
 	CSecondVPParams m_SecondViewport;	//--#SM+#-- +SecondVP+
-
-	//float fFOV;
-	//float fASPECT;
 
 	CRenderDevice()
 		:
@@ -313,11 +264,7 @@ public:
 
 	ICF void remove_from_seq_parallel(const fastdelegate::FastDelegate0<>& delegate)
 	{
-		xr_vector<fastdelegate::FastDelegate0<>>::iterator I = std::find(
-			seqParallel.begin(),
-			seqParallel.end(),
-			delegate
-		);
+		xr_vector<fastdelegate::FastDelegate0<>>::iterator I = std::find(seqParallel.begin(), seqParallel.end(), delegate);
 		if (I != seqParallel.end())
 			seqParallel.erase(I);
 	}

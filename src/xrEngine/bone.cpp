@@ -20,7 +20,6 @@ const Fobb& CBone::get_obb() const
 //////////////////////////////////////////////////////////////////////////
 // BoneInstance methods
 
-
 void ENGINE_API CBoneInstance::set_param(u32 idx, float data)
 {
 	VERIFY(idx < MAX_BONE_PARAMS);

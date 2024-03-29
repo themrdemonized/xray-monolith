@@ -6,8 +6,6 @@
 #include "EngineAPI.h"
 #include "../xrcdb/xrXRC.h"
 
-//#include "securom_api.h"
-
 //#define STATIC_RENDERER_R1
 //#define STATIC_RENDERER_R2
 //#define STATIC_RENDERER_R3
@@ -22,25 +20,6 @@ extern xr_token* vid_quality_token;
 void __cdecl dummy(void)
 {
 };
-
-// xrSound
-// libogg_static.lib;libvorbis_static.lib;libvorbisfile_static.lib;OpenAL32.lib
-// xrPhysics
-// libvorbisfile_static.lib;libogg_static.lib;OpenAL32.lib
-// xrNetServer
-// Ws2_32.lib;dxerr.lib
-// xrEngine
-// vfw32.lib;libogg_static.lib;libtheora_static.lib
-// xrRenderR4
-// dxguid.lib;d3dx11.lib;D3DCompiler.lib;d3d11.lib;dxgi.lib;nvapi.lib;dxerr.lib;d3d10.lib
-// xrRenderR3
-// dxguid.lib;d3dcompiler.lib;d3d10.lib;d3dx10.lib;dxgi.lib;nvapi.lib
-// xrRenderR2
-// nvapi.lib
-// xrRenderR1
-// d3dx9.lib;nvapi.lib
-// OpenAL32
-// version.lib;winmm.lib
 
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "vfw32.lib")
@@ -89,8 +68,6 @@ void __cdecl dummy(void)
 
 CEngineAPI::CEngineAPI()
 {
-	//hGame = 0;
-	//hRender = 0;
 	hTuner = 0;
 	pCreate = 0;
 	pDestroy = 0;
@@ -114,9 +91,6 @@ ENGINE_API int g_current_renderer = 0;
 ENGINE_API bool is_enough_address_space_available()
 {
 	return true; // we are on 64 bit, so it's always true
-	//SYSTEM_INFO system_info;
-	//    GetSystemInfo(&system_info);
-	//    return (*(u32*)&system_info.lpMaximumApplicationAddress) > 0x90000000;
 }
 
 #ifndef DEDICATED_SERVER
@@ -145,60 +119,35 @@ void CEngineAPI::InitializeNotDedicated()
 	LPCSTR r3_name = "xrRender_R3.dll";
 	LPCSTR r4_name = "xrRender_R4.dll";
 #ifdef STATIC_RENDERER_R4
-	//if (psDeviceFlags.test(rsR4))
     {
         // try to initialize R4
 		psDeviceFlags.set(rsR2, FALSE);
 		psDeviceFlags.set(rsR3, FALSE);
 		Log("Loading DLL:", r4_name);
 		DllMainXrRenderR4(NULL, DLL_PROCESS_ATTACH, NULL);
-        //hRender = LoadLibrary(r4_name);
-	//if (0 == hRender)
-	//{
-	//    // try to load R1
-	//    Msg("! ...Failed - incompatible hardware/pre-Vista OS.");
-	//    psDeviceFlags.set(rsR2, TRUE);
-        //}
 		g_current_renderer = 0;
     }
 #endif
 
 #ifdef STATIC_RENDERER_R3
-	//if (psDeviceFlags.test(rsR3))
 	{
 		// try to initialize R3
 		psDeviceFlags.set(rsR2, FALSE);
 		psDeviceFlags.set(rsR4, FALSE);
 		Log("Loading DLL:", r3_name);
 		DllMainXrRenderR3(NULL, DLL_PROCESS_ATTACH, NULL);
-		//hRender = LoadLibrary(r3_name);
-		//if (0 == hRender)
-		//{
-		//    // try to load R1
-		//    Msg("! ...Failed - incompatible hardware/pre-Vista OS.");
-		//    psDeviceFlags.set(rsR2, TRUE);
-		//}
-		//else
 		g_current_renderer = 3;
 	}
 #endif
 
 #ifdef STATIC_RENDERER_R2
-	//if (psDeviceFlags.test(rsR2))
     {
         // try to initialize R2
         psDeviceFlags.set(rsR3, FALSE);
 		psDeviceFlags.set(rsR4, FALSE);
 		Log("Loading DLL:", r2_name);
 		DllMainXrRenderR2(NULL, DLL_PROCESS_ATTACH, NULL);
-		//hRender = LoadLibrary(r2_name);
-	//if (0 == hRender)
-	//{
-	//    // try to load R1
-	//    Msg("! ...Failed - incompatible hardware.");
-	//}
-        //else
-            g_current_renderer = 2;
+		g_current_renderer = 2;
     }
 #endif
 }
@@ -223,7 +172,6 @@ void CEngineAPI::Initialize(void)
 #endif // DEDICATED_SERVER
 
 #ifdef STATIC_RENDERER_R1
-	//if (0 == hRender)
     {
         // try to load R1
         psDeviceFlags.set(rsR4, FALSE);
@@ -233,9 +181,6 @@ void CEngineAPI::Initialize(void)
 
         Log("Loading DLL:", r1_name);
 		DllMainXrRenderR1(NULL, DLL_PROCESS_ATTACH, NULL);
-		//hRender = LoadLibrary(r1_name);
-	//if (0 == hRender) R_CHK(GetLastError());
-        //R_ASSERT(hRender);
         g_current_renderer = 1;
     }
 #endif
@@ -246,14 +191,9 @@ void CEngineAPI::Initialize(void)
 	{
 		LPCSTR g_name = "xrGame.dll";
 		Log("Loading DLL:", g_name);
-		//hGame = LoadLibrary(g_name);
 		DllMainXrGame(NULL, DLL_PROCESS_ATTACH, NULL);
-		//if (0 == hGame) R_CHK(GetLastError());
-		//R_ASSERT2(hGame, "Game DLL raised exception during loading or there is no game DLL at all");
-		//pCreate = (Factory_Create*)GetProcAddress(hGame, "xrFactory_Create");
 		pCreate = xrFactory_Create;
 		R_ASSERT(pCreate);
-		//pDestroy = (Factory_Destroy*)GetProcAddress(hGame, "xrFactory_Destroy");
 		pDestroy = xrFactory_Destroy;
 		R_ASSERT(pDestroy);
 	}
@@ -279,9 +219,7 @@ void CEngineAPI::Initialize(void)
 
 void CEngineAPI::Destroy(void)
 {
-	//if (hGame) { FreeLibrary(hGame); hGame = 0; }
 	DllMainXrGame(NULL, DLL_PROCESS_DETACH, NULL);
-	//if (hRender) { FreeLibrary(hRender); hRender = 0; }
 	DLL_MAIN_RENDERER(NULL, DLL_PROCESS_DETACH, NULL);
 	pCreate = 0;
 	pDestroy = 0;
@@ -291,20 +229,20 @@ void CEngineAPI::Destroy(void)
 
 extern "C" {
 typedef bool __cdecl SupportsAdvancedRenderingREF(void);
-typedef bool /*_declspec(dllexport)*/ SupportsDX10RenderingREF();
-typedef bool /*_declspec(dllexport)*/ SupportsDX11RenderingREF();
+typedef bool SupportsDX10RenderingREF();
+typedef bool  SupportsDX11RenderingREF();
 };
 
 extern "C" {
 #ifdef STATIC_RENDERER_R2
-	bool /*_declspec(dllexport)*/ SupportsAdvancedRendering();
+	bool SupportsAdvancedRendering();
 #endif
 #ifdef STATIC_RENDERER_R3
-bool /*_declspec(dllexport)*/ SupportsDX10Rendering();
+bool SupportsDX10Rendering();
 
 #endif
 #ifdef STATIC_RENDERER_R4
-	bool /*_declspec(dllexport)*/ SupportsDX11Rendering();
+	bool SupportsDX11Rendering();
 #endif
 };
 
@@ -344,16 +282,13 @@ void CEngineAPI::CreateRendererList()
 #ifdef STATIC_RENDERER_R2
 		// try to initialize R2
         Log("Loading DLL:", r2_name);
-        //hRender = LoadLibrary(r2_name);
 		DllMainXrRenderR2(NULL, DLL_PROCESS_ATTACH, NULL);
-        //if (hRender)
+
         {
             bSupports_r2 = true;
-            //SupportsAdvancedRenderingREF* test_rendering = (SupportsAdvancedRenderingREF*)GetProcAddress(hRender, "SupportsAdvancedRendering");
             SupportsAdvancedRenderingREF* test_rendering = SupportsAdvancedRendering;
             R_ASSERT(test_rendering);
             bSupports_r2_5 = test_rendering();
-            //FreeLibrary(hRender);
         }
 #endif
 
@@ -362,17 +297,13 @@ void CEngineAPI::CreateRendererList()
 		Log("Loading DLL:", r3_name);
 		// Hide "d3d10.dll not found" message box for XP
 		SetErrorMode(SEM_FAILCRITICALERRORS);
-		//hRender = LoadLibrary(r3_name);
 		DllMainXrRenderR3(NULL, DLL_PROCESS_ATTACH, NULL);
 		// Restore error handling
 		SetErrorMode(0);
-		//if (hRender)
 		{
-			//SupportsDX10RenderingREF* test_dx10_rendering = (SupportsDX10RenderingREF*)GetProcAddress(hRender, "SupportsDX10Rendering");
 			SupportsDX10RenderingREF* test_dx10_rendering = SupportsDX10Rendering;
 			R_ASSERT(test_dx10_rendering);
 			bSupports_r3 = test_dx10_rendering();
-			//FreeLibrary(hRender);
 		}
 #endif
 
@@ -381,17 +312,13 @@ void CEngineAPI::CreateRendererList()
         Log("Loading DLL:", r4_name);
         // Hide "d3d10.dll not found" message box for XP
         SetErrorMode(SEM_FAILCRITICALERRORS);
-        //hRender = LoadLibrary(r4_name);
 		DllMainXrRenderR4(NULL, DLL_PROCESS_ATTACH, NULL);
         // Restore error handling
         SetErrorMode(0);
-        //if (hRender)
         {
-            //SupportsDX11RenderingREF* test_dx11_rendering = (SupportsDX11RenderingREF*)GetProcAddress(hRender, "SupportsDX11Rendering");
             SupportsDX11RenderingREF* test_dx11_rendering = SupportsDX11Rendering;
             R_ASSERT(test_dx11_rendering);
             bSupports_r4 = test_dx11_rendering();
-            //FreeLibrary(hRender);
         }
 #endif
 	}
@@ -428,16 +355,12 @@ void CEngineAPI::CreateRendererList()
 	vid_quality_token[_cnt - 1].id = -1;
 	vid_quality_token[_cnt - 1].name = NULL;
 
-	//#ifdef DEBUG
 	Msg("Available render modes[%d]:", _tmp.size());
-	//#endif // DEBUG
 	for (u32 i = 0; i < _tmp.size(); ++i)
 	{
 		vid_quality_token[i].id = i;
 		vid_quality_token[i].name = _tmp[i];
-		//#ifdef DEBUG
 		Msg("[%s]", _tmp[i]);
-		//#endif // DEBUG
 	}
 #endif //#ifndef DEDICATED_SERVER
 }

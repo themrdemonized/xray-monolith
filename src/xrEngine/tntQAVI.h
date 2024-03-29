@@ -3,39 +3,9 @@
 
 #include <math.h>
 
-//#include "tntTimer.h"
 #include "vfw.h"
 #include "mmsystem.h"
 
-// replaced with standard AVIIF_KEYFRAME
-//rr #define AVIINDEX_ISKEYFRAME 0x10 // ключевой кадр
-
-// reverse enginered AVI index v.1 format
-/*struct AviIndex {
-
- DWORD dwChunkType; // chunk type, i.e. '##dc' - DIB compressed
- DWORD dwFlags; // key-frame etc.
- DWORD dwOffset; // sub-chunk offset from the begining of the LIST chunk
- DWORD dwLenght; // chunk lenght
-
- };
-
- typedef struct {
- FOURCC fccType;
- FOURCC fccHandler;
- DWORD dwFlags;
- DWORD dwPriority;
- DWORD dwInitialFrames;
- DWORD dwScale;
- DWORD dwRate;
- DWORD dwStart;
- DWORD dwLength;
- DWORD dwSuggestedBufferSize;
- DWORD dwQuality;
- DWORD dwSampleSize;
- RECT rcFrame;
- } AVIStreamHeader;
- */
 typedef struct
 {
 	FOURCC fccType;

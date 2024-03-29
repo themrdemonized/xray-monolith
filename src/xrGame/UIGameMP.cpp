@@ -1,14 +1,12 @@
 #include "stdafx.h"
 #include "UIGameMP.h"
 #include "UIAchivementsIndicator.h"
-#include "ui/UIDemoPlayControl.h"
 #include "ui/UIServerInfo.h"
 #include "UICursor.h"
 #include "Level.h"
 #include "game_cl_mp.h"
 
 UIGameMP::UIGameMP() :
-	m_pDemoPlayControl(NULL),
 	m_pServerInfo(NULL),
 	m_pAchivementIdicator(NULL),
 	m_game(NULL)
@@ -17,19 +15,7 @@ UIGameMP::UIGameMP() :
 
 UIGameMP::~UIGameMP()
 {
-	xr_delete(m_pDemoPlayControl);
 	xr_delete(m_pServerInfo);
-}
-
-void UIGameMP::ShowDemoPlayControl()
-{
-	if (!m_pDemoPlayControl)
-	{
-		m_pDemoPlayControl = xr_new<CUIDemoPlayControl>();
-		m_pDemoPlayControl->Init();
-	}
-	m_pDemoPlayControl->ShowDialog(false);
-	GetUICursor().SetUICursorPosition(m_pDemoPlayControl->GetLastCursorPos());
 }
 
 #include <dinput.h>
@@ -38,7 +24,6 @@ bool UIGameMP::IR_UIOnKeyboardPress(int dik)
 {
 	if (is_binded(kCROUCH, dik) && Level().IsDemoPlay())
 	{
-		ShowDemoPlayControl();
 		return true;
 	}
 #ifdef DEBUG
@@ -54,24 +39,6 @@ bool UIGameMP::IR_UIOnKeyboardRelease(int dik)
 {
 	return inherited::IR_UIOnKeyboardRelease(dik);
 }
-
-/*
-bool UIGameMP::IsMapDescShown()
-{
-	VERIFY(m_pMapDesc);
-	return m_pMapDesc->IsShown();
-}
-void UIGameMP::ShowMapDesc()
-{
-	if (Level().IsDemoPlay())
-		return;
-	
-	VERIFY(m_pMapDesc);
-	if (!m_pMapDesc->IsShown())
-	{
-		m_pMapDesc->ShowDialog(true);
-	}
-}*/
 
 bool UIGameMP::IsServerInfoShown()
 {
@@ -90,12 +57,6 @@ bool UIGameMP::ShowServerInfo()
 	{
 		return false;
 	}
-
-	/*if (m_pServerInfo->InfoAboted())
-	{
-		m_game->OnMapInfoAccept();
-		return true;
-	}*/
 
 	if (!m_pServerInfo->HasInfo())
 	{

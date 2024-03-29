@@ -40,16 +40,6 @@
 #endif // _EDITOR
 #include "gametype_chooser.h"
 
-//#ifdef DEBUG_MEMORY_MANAGER
-//	static	void *	ode_alloc	(size_t size)								{ return Memory.mem_alloc(size,"ODE");			}
-//	static	void *	ode_realloc	(void *ptr, size_t oldsize, size_t newsize)	{ return Memory.mem_realloc(ptr,newsize,"ODE");	}
-//	static	void	ode_free	(void *ptr, size_t size)					{ return xr_free(ptr);							}
-//#else // DEBUG_MEMORY_MANAGER
-//	static	void *	ode_alloc	(size_t size)								{ return xr_malloc(size);			}
-//	static	void *	ode_realloc	(void *ptr, size_t oldsize, size_t newsize)	{ return xr_realloc(ptr,newsize);	}
-//	static	void	ode_free	(void *ptr, size_t size)					{ return xr_free(ptr);				}
-//#endif // DEBUG_MEMORY_MANAGER
-
 CGamePersistent::CGamePersistent(void)
 {
 	m_bPickableDOF = false;
@@ -75,10 +65,6 @@ CGamePersistent::CGamePersistent(void)
     m_frame_counter = 0;
     m_last_stats_frame = u32(-2);
 #endif
-	// 
-	//dSetAllocHandler			(ode_alloc		);
-	//dSetReallocHandler			(ode_realloc	);
-	//dSetFreeHandler				(ode_free		);
 
 	// 
 	BOOL bDemoMode = (0 != strstr(Core.Params, "-demomode "));
@@ -124,8 +110,7 @@ void CGamePersistent::RegisterModel(IRenderVisual* V)
 	case MT_SKELETON_RIGID:
 		{
 			u16 def_idx = GMLib.GetMaterialIdx("default_object");
-			R_ASSERT2(GMLib.GetMaterialByIdx(def_idx)->Flags.is(SGameMtl::flDynamic),
-			          "'default_object' - must be dynamic");
+			R_ASSERT2(GMLib.GetMaterialByIdx(def_idx)->Flags.is(SGameMtl::flDynamic), "'default_object' - must be dynamic");
 			IKinematics* K = smart_cast<IKinematics*>(V);
 			VERIFY(K);
 			int cnt = K->LL_BoneCount();
@@ -135,8 +120,7 @@ void CGamePersistent::RegisterModel(IRenderVisual* V)
 				if (*(bd.game_mtl_name))
 				{
 					bd.game_mtl_idx = GMLib.GetMaterialIdx(*bd.game_mtl_name);
-					R_ASSERT2(GMLib.GetMaterialByIdx(bd.game_mtl_idx)->Flags.is(SGameMtl::flDynamic),
-					          "Required dynamic game material");
+					R_ASSERT2(GMLib.GetMaterialByIdx(bd.game_mtl_idx)->Flags.is(SGameMtl::flDynamic), "Required dynamic game material");
 				}
 				else
 				{
@@ -161,7 +145,6 @@ void CGamePersistent::OnAppStart()
 	m_pMainMenu = xr_new<CMainMenu>();
 	m_pWallmarksManager = xr_new<ScriptWallmarksManager>();
 }
-
 
 void CGamePersistent::OnAppEnd()
 {
@@ -203,67 +186,13 @@ void CGamePersistent::OnGameStart()
 	UpdateGameType();
 }
 
-LPCSTR GameTypeToString(EGameIDs gt, bool bShort)
-{
-	switch (gt)
-	{
-	case eGameIDSingle:
-		return "single";
-		break;
-	case eGameIDDeathmatch:
-		return (bShort) ? "dm" : "deathmatch";
-		break;
-	case eGameIDTeamDeathmatch:
-		return (bShort) ? "tdm" : "teamdeathmatch";
-		break;
-	case eGameIDArtefactHunt:
-		return (bShort) ? "ah" : "artefacthunt";
-		break;
-	case eGameIDCaptureTheArtefact:
-		return (bShort) ? "cta" : "capturetheartefact";
-		break;
-	case eGameIDDominationZone:
-		return (bShort) ? "dz" : "dominationzone";
-		break;
-	case eGameIDTeamDominationZone:
-		return (bShort) ? "tdz" : "teamdominationzone";
-		break;
-	default:
-		return "---";
-	}
-}
-
-EGameIDs ParseStringToGameType(LPCSTR str)
-{
-	if (!xr_strcmp(str, "single"))
-		return eGameIDSingle;
-	else if (!xr_strcmp(str, "deathmatch") || !xr_strcmp(str, "dm"))
-		return eGameIDDeathmatch;
-	else if (!xr_strcmp(str, "teamdeathmatch") || !xr_strcmp(str, "tdm"))
-		return eGameIDTeamDeathmatch;
-	else if (!xr_strcmp(str, "artefacthunt") || !xr_strcmp(str, "ah"))
-		return eGameIDArtefactHunt;
-	else if (!xr_strcmp(str, "capturetheartefact") || !xr_strcmp(str, "cta"))
-		return eGameIDCaptureTheArtefact;
-	else if (!xr_strcmp(str, "dominationzone"))
-		return eGameIDDominationZone;
-	else if (!xr_strcmp(str, "teamdominationzone"))
-		return eGameIDTeamDominationZone;
-	else
-		return eGameIDNoGame; //EGameIDs
-}
-
 void CGamePersistent::UpdateGameType()
 {
 	__super::UpdateGameType();
 
-	m_game_params.m_e_game_type = ParseStringToGameType(m_game_params.m_game_type);
+	m_game_params.m_e_game_type = eGameIDSingle;
 
-
-	if (m_game_params.m_e_game_type == eGameIDSingle)
-		g_current_keygroup = _sp;
-	else
-		g_current_keygroup = _mp;
+	g_current_keygroup = _sp;
 }
 
 void CGamePersistent::OnGameEnd()
@@ -518,11 +447,7 @@ void CGamePersistent::game_loaded()
 {
 	if (Device.dwPrecacheFrame <= 2)
 	{
-		if (g_pGameLevel &&
-			g_pGameLevel->bReady &&
-			(allow_intro() && psDeviceFlags2.test(rsKeypress)) &&
-			load_screen_renderer.b_need_user_input &&
-			m_game_params.m_e_game_type == eGameIDSingle)
+		if (g_pGameLevel && g_pGameLevel->bReady && (allow_intro() && psDeviceFlags2.test(rsKeypress)) && load_screen_renderer.b_need_user_input)
 		{
 			VERIFY(NULL == m_intro);
 			m_intro = xr_new<CUISequencer>();
@@ -648,7 +573,7 @@ void CGamePersistent::OnFrame()
 			}
 		}
 #ifndef MASTER_GOLD
-        if (Level().CurrentViewEntity() && IsGameTypeSingle())
+        if (Level().CurrentViewEntity())
         {
             if (!g_actor || (g_actor->ID() != Level().CurrentViewEntity()->ID()))
             {
@@ -704,7 +629,7 @@ void CGamePersistent::OnFrame()
             }
         }
 #else // MASTER_GOLD
-		if (g_actor && IsGameTypeSingle())
+		if (g_actor)
 		{
 			CCameraBase* C = NULL;
 			if (!Actor()->Holder())
@@ -821,46 +746,26 @@ static BOOL bEntryFlag = TRUE;
 
 void CGamePersistent::OnAppActivate()
 {
-	bool bIsMP = (g_pGameLevel && Level().game && GameID() != eGameIDSingle);
-	bIsMP &= !Device.Paused();
-
-	if (!bIsMP)
-	{
-		Device.Pause(FALSE, !bRestorePause, TRUE, "CGP::OnAppActivate");
-	}
-	else
-	{
-		Device.Pause(FALSE, TRUE, TRUE, "CGP::OnAppActivate MP");
-	}
-
+	Device.Pause(FALSE, !bRestorePause, TRUE, "CGP::OnAppActivate");
 	bEntryFlag = TRUE;
 }
 
 void CGamePersistent::OnAppDeactivate()
 {
-	if (!bEntryFlag) return;
-
-	bool bIsMP = (g_pGameLevel && Level().game && GameID() != eGameIDSingle);
+	if (!bEntryFlag) 
+		return;
 
 	bRestorePause = FALSE;
 
-	if (!bIsMP)
-	{
-		bRestorePause = Device.Paused();
-		Device.Pause(TRUE, TRUE, TRUE, "CGP::OnAppDeactivate");
-	}
-	else
-	{
-		Device.Pause(TRUE, FALSE, TRUE, "CGP::OnAppDeactivate MP");
-	}
+	bRestorePause = Device.Paused();
+	Device.Pause(TRUE, TRUE, TRUE, "CGP::OnAppDeactivate");
+
 	bEntryFlag = FALSE;
 }
-
 
 bool CGamePersistent::OnRenderPPUI_query()
 {
 	return MainMenu()->OnRenderPPUI_query();
-	// enable PP or not
 }
 
 extern void draw_wnds_rects();
@@ -888,34 +793,18 @@ void CGamePersistent::LoadTitle(bool change_tip, shared_str map_name)
 		string512 buff;
 		u8 tip_num;
 		luabind::functor<u8> m_functor;
-		bool is_single = !xr_strcmp(m_game_params.m_game_type, "single");
-		if (is_single)
-		{
-			R_ASSERT(ai().script_engine().functor("loadscreen.get_tip_number", m_functor));
-			tip_num = m_functor(map_name.c_str());
-		}
-		else
-		{
-			R_ASSERT(ai().script_engine().functor("loadscreen.get_mp_tip_number", m_functor));
-			tip_num = m_functor(map_name.c_str());
-		}
-		//		tip_num = 83;
+		R_ASSERT(ai().script_engine().functor("loadscreen.get_tip_number", m_functor));
+		tip_num = m_functor(map_name.c_str());
 		xr_sprintf(buff, "%s%d:", CStringTable().translate("ls_tip_number").c_str(), tip_num);
 		shared_str tmp = buff;
-
-		if (is_single)
-			xr_sprintf(buff, "ls_tip_%d", tip_num);
-		else
-			xr_sprintf(buff, "ls_mp_tip_%d", tip_num);
-
-		pApp->LoadTitleInt(CStringTable().translate("ls_header").c_str(), tmp.c_str(),
-		                   CStringTable().translate(buff).c_str());
+		xr_sprintf(buff, "ls_tip_%d", tip_num);
+		pApp->LoadTitleInt(CStringTable().translate("ls_header").c_str(), tmp.c_str(), CStringTable().translate(buff).c_str());
 	}
 }
 
 bool CGamePersistent::CanBePaused()
 {
-	return IsGameTypeSingle() || (g_pGameLevel && Level().IsDemoPlay());
+	return true;
 }
 
 void CGamePersistent::SetPickableEffectorDOF(bool bSet)
@@ -949,7 +838,6 @@ void CGamePersistent::RestoreEffectorDOF()
 
 #include "hudmanager.h"
 
-//	m_dof		[4];	// 0-dest 1-current 2-from 3-original
 void CGamePersistent::UpdateDof()
 {
 	static float diff_far = pSettings->r_float("zone_pick_dof", "far"); //70.0f;

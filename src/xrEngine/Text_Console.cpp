@@ -53,7 +53,7 @@ void CTextConsole::CreateConsoleWnd()
 	RegisterClass(&wndClass);
 
 	// Set the window's initial style
-	u32 dwWindowStyle = WS_OVERLAPPED | WS_CHILD | WS_VISIBLE; // | WS_CLIPSIBLINGS;// | WS_CLIPCHILDREN;
+	u32 dwWindowStyle = WS_OVERLAPPED | WS_CHILD | WS_VISIBLE;
 
 	// Set the window's initial width
 	RECT rc;
@@ -61,10 +61,7 @@ void CTextConsole::CreateConsoleWnd()
 	// AdjustWindowRect( &rc, dwWindowStyle, FALSE );
 
 	// Create the render window
-	m_hConsoleWnd = CreateWindow(wndclass, "XRAY Text Console", dwWindowStyle,
-	                             lX, lY,
-	                             lWidth, lHeight, *m_pMainWnd,
-	                             0, hInstance, 0L);
+	m_hConsoleWnd = CreateWindow(wndclass, "XRAY Text Console", dwWindowStyle, lX, lY, lWidth, lHeight, *m_pMainWnd, 0, hInstance, 0L);
 	//---------------------------------------------------------------------------
 	R_ASSERT2(m_hConsoleWnd, "Unable to Create TextConsole Window!");
 };
@@ -96,7 +93,6 @@ void CTextConsole::CreateLogWnd()
 
 	// Set the window's initial style
 	u32 dwWindowStyle = WS_OVERLAPPED | WS_CHILD | WS_VISIBLE; // | WS_CLIPSIBLINGS;
-	// u32 dwWindowStyleEx = WS_EX_CLIENTEDGE;
 
 	// Set the window's initial width
 	RECT rc;
@@ -104,10 +100,7 @@ void CTextConsole::CreateLogWnd()
 	// AdjustWindowRect( &rc, dwWindowStyle, FALSE );
 
 	// Create the render window
-	m_hLogWnd = CreateWindow(wndclass, "XRAY Text Console Log", dwWindowStyle,
-	                         lX, lY,
-	                         lWidth, lHeight, m_hConsoleWnd,
-	                         0, hInstance, 0L);
+	m_hLogWnd = CreateWindow(wndclass, "XRAY Text Console Log", dwWindowStyle, lX, lY, lWidth, lHeight, m_hConsoleWnd, 0, hInstance, 0L);
 	//---------------------------------------------------------------------------
 	R_ASSERT2(m_hLogWnd, "Unable to Create TextConsole Window!");
 	//---------------------------------------------------------------------------
@@ -194,8 +187,7 @@ void CTextConsole::Destroy()
 }
 
 void CTextConsole::OnRender()
-{
-} //disable ÑConsole::OnRender()
+{}
 
 void CTextConsole::OnPaint()
 {
@@ -203,11 +195,8 @@ void CTextConsole::OnPaint()
 	PAINTSTRUCT ps;
 	BeginPaint(m_hLogWnd, &ps);
 
-	if (/*m_bNeedUpdate*/ Device.dwFrame % 2)
+	if (Device.dwFrame % 2)
 	{
-		// m_dwLastUpdateTime = Device.dwTimeGlobal;
-		// m_bNeedUpdate = false;
-
 		GetClientRect(m_hLogWnd, &wRC);
 		DrawLog(m_hDC_LogWnd_BackBuffer, &wRC);
 	}
@@ -217,15 +206,8 @@ void CTextConsole::OnPaint()
 	}
 
 
-	BitBlt(m_hDC_LogWnd,
-	       wRC.left, wRC.top,
-	       wRC.right - wRC.left, wRC.bottom - wRC.top,
-	       m_hDC_LogWnd_BackBuffer,
-	       wRC.left, wRC.top,
-	       SRCCOPY); //(FullUpdate) ? SRCCOPY : NOTSRCCOPY);
-	/*
-	 Msg ("URect - %d:%d - %d:%d", ps.rcPaint.left, ps.rcPaint.top, ps.rcPaint.right, ps.rcPaint.bottom);
-	 */
+	BitBlt(m_hDC_LogWnd, wRC.left, wRC.top, wRC.right - wRC.left, wRC.bottom - wRC.top, m_hDC_LogWnd_BackBuffer, wRC.left, wRC.top, SRCCOPY);
+
 	EndPaint(m_hLogWnd, &ps);
 }
 
@@ -263,7 +245,6 @@ void CTextConsole::DrawLog(HDC hDC, RECT* pRect)
 
 	SetTextColor(hDC, RGB(0, 0, 0));
 	TextOut(hDC, xb, Height - tm.tmHeight - 1, buf, cur0_len);
-
 
 	SetTextColor(hDC, RGB(255, 255, 255));
 	TextOut(hDC, 0, Height - tm.tmHeight - 3, ioc_prompt, xr_strlen(ioc_prompt)); // ">>> "
@@ -331,22 +312,10 @@ void CTextConsole::DrawLog(HDC hDC, RECT* pRect)
 	}
 }
 
-/*
-void CTextConsole::IR_OnKeyboardPress( int dik ) !!!!!!!!!!!!!!!!!!!!!
-{
-m_bNeedUpdate = true;
-inherited::IR_OnKeyboardPress( dik );
-}
-*/
 void CTextConsole::OnFrame()
 {
 	inherited::OnFrame();
-	/* if ( !m_bNeedUpdate && m_dwLastUpdateTime + 1000/g_svTextConsoleUpdateRate > Device.dwTimeGlobal )
-	 {
-	 return;
-	 }
-	 */
+
 	InvalidateRect(m_hConsoleWnd, NULL, FALSE);
 	SetCursor(LoadCursor(NULL, IDC_ARROW));
-	// m_bNeedUpdate = true;
 }

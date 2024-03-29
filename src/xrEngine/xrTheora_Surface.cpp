@@ -125,7 +125,6 @@ BOOL CTheoraSurface::Load(const char* fname)
             VERIFY(m_rgb->t_info.pixelformat == m_alpha->t_info.pixelformat);
         }
 #endif
-		//. VERIFY3 (btwIsPow2(m_rgb->t_info.frame_width)&&btwIsPow2(m_rgb->t_info.frame_height),"Invalid size.",fname);
 		tm_total = m_rgb->tm_total;
 		VERIFY(0 != tm_total);
 		// reset playback
@@ -143,12 +142,6 @@ BOOL CTheoraSurface::Load(const char* fname)
 	}
 	if (res)
 	{
-		// TODO: get shader version here for theora surface
-		//VERIFY(0);
-
-		//u32 v_dev = CAP_VERSION(HW.Caps.raster_major, HW.Caps.raster_minor);
-		//u32 v_need = CAP_VERSION(2,0);
-		//bShaderYUV2RGB = (v_dev>=v_need);
 #ifndef _EDITOR
 		R_ASSERT(Device.m_pRender);
 		bShaderYUV2RGB = Device.m_pRender->HWSupportsShaderYUV2RGB();
@@ -161,8 +154,6 @@ BOOL CTheoraSurface::Load(const char* fname)
 
 u32 CTheoraSurface::Width(bool bRealSize)
 {
-	// return m_rgb->t_info.frame_width;
-
 	if (bRealSize)
 		return m_rgb->t_info.frame_width;
 	else
@@ -171,8 +162,6 @@ u32 CTheoraSurface::Width(bool bRealSize)
 
 u32 CTheoraSurface::Height(bool bRealSize)
 {
-	// return m_rgb->t_info.frame_height;
-
 	if (bRealSize)
 		return m_rgb->t_info.frame_height;
 	else
@@ -189,9 +178,6 @@ void CTheoraSurface::DecompressFrame(u32* data, u32 _width, int& _pos)
 	u32 height = Height(true);
 
 	static const float K = 0.256788f + 0.504129f + 0.097906f;
-
-	// we use ffmpeg2theora for encoding, so only OC_PF_420 valid
-	// u32 pixelformat = m_rgb->t_info.pixelformat;
 
 	// rgb
 	if (yuv_rgb)
@@ -335,8 +321,8 @@ void CTheoraSurface::write_sdl_video()
         if ( SDL_LockSurface(sdl_screen) < 0 ) return;
     if (SDL_LockYUVOverlay(sdl_yuv_overlay) < 0) return;
     // let's draw the data (*yuv[3]) on a SDL screen (*screen)
-// deal with border stride
-// reverse u and v for SDL
+	// deal with border stride
+	// reverse u and v for SDL
     // and crop input properly, respecting the encoded frame rect
     crop_offset=t_info.offset_x+t_yuv_buffer.y_stride*t_info.offset_y;
     for(i=0; i<sdl_yuv_overlay->h; i++)

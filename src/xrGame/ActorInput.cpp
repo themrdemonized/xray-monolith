@@ -51,8 +51,6 @@ void CActor::IR_OnKeyboardPress(int cmd)
 	{
 	case kWPN_FIRE:
 		{
-			if ((mstate_wishful & mcLookout) && !IsGameTypeSingle()) return;
-
 			// Tronex: export to allow/prevent weapon fire if returned false
 			luabind::functor<bool> funct;
 			if (ai().script_engine().functor("_G.CActor_Fire", funct))
@@ -167,12 +165,10 @@ void CActor::IR_OnKeyboardPress(int cmd)
 		break;
 	case kNIGHT_VISION:
 		{
-			//SwitchNightVision(); //Rezy: now it's controlled via LUA scripts for timing and animations
 			break;
 		}
 	case kTORCH:
 		{
-			//SwitchTorch(); //Tronex: now it's controlled via LUA scripts for timing and animations
 			break;
 		}
 
@@ -187,25 +183,6 @@ void CActor::IR_OnKeyboardPress(int cmd)
 			}
 		}
 		break;
-		/*
-			case kFLARE:{
-					PIItem fl_active = inventory().ItemFromSlot(FLARE_SLOT);
-					if(fl_active)
-					{
-						CFlare* fl			= smart_cast<CFlare*>(fl_active);
-						fl->DropFlare		();
-						return				;
-					}
-		
-					PIItem fli = inventory().Get(CLSID_DEVICE_FLARE, true);
-					if(!fli)			return;
-		
-					CFlare* fl			= smart_cast<CFlare*>(fli);
-					
-					if(inventory().Slot(fl))
-						fl->ActivateFlare	();
-				}break;
-		*/
 	case kUSE:
 		ActorUse();
 		break;
@@ -240,21 +217,11 @@ void CActor::IR_OnKeyboardPress(int cmd)
 					CGameObject* GO = itm->cast_game_object();
 					if (GO && funct(GO->lua_game_object()))
 					{
-						if (IsGameTypeSingle())
-						{
-							inventory().Eat(itm);
-						}
-						else
-						{
-							inventory().ClientEat(itm);
-						}
-
+						inventory().Eat(itm);
 						StaticDrawableWrapper* _s = CurrentGameUI()->AddCustomStatic("item_used", true);
 						string1024 str;
 						strconcat(sizeof(str), str, *CStringTable().translate("st_item_used"), ": ", itm->NameItem());
 						_s->wnd()->TextItemControl()->SetText(str);
-
-						//CurrentGameUI()->GetActorMenu().m_pQuickSlot->ReloadReferences(this);
 					}
 				}
 			}
@@ -276,13 +243,17 @@ void CActor::IR_OnMouseWheel(int direction)
 		return;
 	}
 
-	if (mouseWheelInvertZoom) {
+	if (mouseWheelInvertZoom) 
+	{
 		if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_DEC : (u16)kWPN_ZOOM_INC, CMD_START)) return;
-	} else {
+	} 
+	else 
+	{
 		if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_INC : (u16)kWPN_ZOOM_DEC, CMD_START)) return;
 	}
 
-	if (mouseWheelChangeWeapon) {
+	if (mouseWheelChangeWeapon) 
+	{
 		if (direction > 0)
 			OnNextWeaponSlot();
 		else
@@ -572,41 +543,36 @@ void CActor::ActorUse()
 
 		if (m_pPersonWeLookingAt)
 		{
-			CEntityAlive* pEntityAliveWeLookingAt =
-				smart_cast<CEntityAlive*>(m_pPersonWeLookingAt);
+			CEntityAlive* pEntityAliveWeLookingAt = smart_cast<CEntityAlive*>(m_pPersonWeLookingAt);
 
 			VERIFY(pEntityAliveWeLookingAt);
 
-			if (IsGameTypeSingle())
+			if (pEntityAliveWeLookingAt->g_Alive())
 			{
-				if (pEntityAliveWeLookingAt->g_Alive())
+				TryToTalk();
+			}
+			else if (!bCaptured)
+			{
+				//только если находимся в режиме single
+				CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
+				if (pGameSP)
 				{
-					TryToTalk();
-				}
-				else if (!bCaptured)
-				{
-					//только если находимся в режиме single
-					CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
-					if (pGameSP)
+					if (!m_pPersonWeLookingAt->deadbody_closed_status())
 					{
-						if (!m_pPersonWeLookingAt->deadbody_closed_status())
-						{
-							if (pEntityAliveWeLookingAt->AlreadyDie() &&
-								pEntityAliveWeLookingAt->GetLevelDeathTime() + 3000 < Device.dwTimeGlobal)
-								// 99.9% dead
-								pGameSP->StartCarBody(this, m_pPersonWeLookingAt);
-						}
+						if (pEntityAliveWeLookingAt->AlreadyDie() && pEntityAliveWeLookingAt->GetLevelDeathTime() + 3000 < Device.dwTimeGlobal)
+							// 99.9% dead
+							pGameSP->StartCarBody(this, m_pPersonWeLookingAt);
 					}
 				}
 			}
 		}
 	}
 }
+
 extern BOOL firstPersonDeath;
 BOOL CActor::HUDview() const
 {
-	return IsFocused() && (cam_active == eacFirstEye) &&
-		((!m_holder) || (m_holder && m_holder->allowWeapon() && m_holder->HUDView())) && (firstPersonDeath ? g_Alive() : true);
+	return IsFocused() && (cam_active == eacFirstEye) && ((!m_holder) || (m_holder && m_holder->allowWeapon() && m_holder->HUDView())) && (firstPersonDeath ? g_Alive() : true);
 }
 
 static u16 SlotsToCheck [] = {

@@ -38,8 +38,7 @@ CEntityConditionSimple::~CEntityConditionSimple()
 {
 }
 
-CEntityCondition::CEntityCondition(CEntityAlive* object)
-	: CEntityConditionSimple()
+CEntityCondition::CEntityCondition(CEntityAlive* object) : CEntityConditionSimple()
 {
 	VERIFY(object);
 
@@ -60,7 +59,6 @@ CEntityCondition::CEntityCondition(CEntityAlive* object)
 	m_fPsyHealth = MAX_PSY_HEALTH;
 
 	m_fMinWoundSize = 0.00001f;
-
 
 	m_fHealthHitPart = 1.0f;
 	m_fPowerHitPart = 0.5f;
@@ -234,19 +232,12 @@ bool RemoveWoundPred(CWound* pWound)
 void CEntityCondition::UpdateWounds()
 {
 	//убрать все зашившие раны из списка
-	m_WoundVector.erase(
-		std::remove_if(
-			m_WoundVector.begin(),
-			m_WoundVector.end(),
-			&RemoveWoundPred
-		),
-		m_WoundVector.end()
-	);
+	m_WoundVector.erase(std::remove_if(m_WoundVector.begin(), m_WoundVector.end(), &RemoveWoundPred), m_WoundVector.end());
 }
 
 void CEntityCondition::UpdateConditionTime()
 {
-	u64 _cur_time = (GameID() == eGameIDSingle) ? Level().GetGameTime() : Level().timeServer();
+	u64 _cur_time = Level().GetGameTime();
 
 	if (m_bTimeValid)
 	{
