@@ -42,13 +42,17 @@ void CMincer::Load(LPCSTR section)
 {
 	inherited::Load(section);
 
-	m_telekinetics.set_destroing_particles(shared_str(pSettings->r_string(section, "tearing_particles")));
-	m_telekinetics.set_throw_power(pSettings->r_float(section, "throw_out_impulse"));
-	m_torn_particles = pSettings->r_string(section, "torn_particles");
-	m_tearing_sound.create(pSettings->r_string(section, "body_tearing_sound"), st_Effect, sg_SourceType);
-	m_fActorBlowoutRadiusPercent = pSettings->r_float(section, "actor_blowout_radius_percent");
+	if (pSettings->line_exist(section, "tele_height_fixed"))
+	{
+		m_oTelekinesis.SetHeightFixed(pSettings->r_bool(section, "tele_height_fixed"));
+	}
 
-	//pSettings->r_fvector3(section,whirlwind_center);
+	m_oTelekinesis.SetTearingSound(pSettings->r_string(section, "body_tearing_sound"));
+	m_oTelekinesis.SetTearingParticles(shared_str(pSettings->r_string(section, "tearing_particles")));
+	m_oTelekinesis.SetThrowPower(pSettings->r_float(section, "throw_out_impulse"));
+
+	m_sParticlesSkeleton = pSettings->r_string(section, "torn_particles");
+	m_fActorBlowoutRadiusPercent = pSettings->r_float(section, "actor_blowout_radius_percent");
 }
 
 BOOL CMincer::net_Spawn(CSE_Abstract* DC)
@@ -57,15 +61,15 @@ BOOL CMincer::net_Spawn(CSE_Abstract* DC)
 	Fvector C;
 	Center(C);
 	C.y += m_fTeleHeight;
-	m_telekinetics.SetCenter(C);
-	m_telekinetics.SetOwnerObject(smart_cast<CGameObject*>(this));
+	m_oTelekinesis.SetCenter(C);
+	m_oTelekinesis.SetOwnerID(this->ID());
 	return result;
 }
 
 void CMincer::net_Destroy()
 {
 	inherited::net_Destroy();
-	m_telekinetics.clear_impacts();
+	m_oTelekinesis.ClearImpacts();
 }
 
 void CMincer::feel_touch_new(CObject* O)
@@ -91,17 +95,6 @@ void CMincer::AffectThrow(SZoneObjectInfo* O, CPhysicsShellHolder* GO, const Fve
 bool CMincer::BlowoutState()
 {
 	bool ret = inherited::BlowoutState();
-
-	//xr_set<CObject*>::iterator it=m_inZone.begin(),e=m_inZone.end();
-	//for(;e!=it;++it)
-	//{
-	//	CEntityAlive * EA = smart_cast<CEntityAlive *>(*it);
-	//	if(!EA)continue;
-	//	CPhysicsShellHolder * GO = smart_cast<CPhysicsShellHolder *>(*it);
-	//	Telekinesis().activate(GO,m_fThrowInImpulse, m_fTeleHeight, 100000);
-
-	//}
-
 	if (m_dwBlowoutExplosionTime < (u32)m_iPreviousStateTime ||
 		m_dwBlowoutExplosionTime >= (u32)m_iStateTime)
 		return ret;
@@ -111,7 +104,7 @@ bool CMincer::BlowoutState()
 
 void CMincer::ThrowInCenter(Fvector& C)
 {
-	C.set(m_telekinetics.Center());
+	C.set(m_oTelekinesis.GetCenter());
 	C.y = Position().y;
 }
 
@@ -121,38 +114,34 @@ void CMincer::Center(Fvector& C) const
 	C.set(Position());
 }
 
+/* This is called on object destruction when spawned
+ * "destroyed" replacement object: mostly skeleton models (ph_skeleton_object)
+ */
 void CMincer::NotificateDestroy(CPHDestroyableNotificate* dn)
 {
-	Fvector dir;
-	float power = 0.0f; // can change
-	float impulse;
-	//if(!m_telekinetics.has_impacts()) return;
-
-	//CObject* obj=Level().Objects.net_Find(id);
 	CPhysicsShellHolder* obj = dn->PPhysicsShellHolder();
-	m_telekinetics.draw_out_impact(dir, impulse);
 	CParticlesPlayer* PP = smart_cast<CParticlesPlayer*>(obj);
 
-	if (smart_cast<CEntityAlive*>(obj))
+	if (PP && *m_sParticlesSkeleton)
 	{
-		if (PP && *m_torn_particles)
-		{
-			PP->StartParticles(m_torn_particles, Fvector().set(0, 1, 0), ID());
-		}
-		m_tearing_sound.play_at_pos(0, m_telekinetics.Center());
+		PP->StartParticles(m_sParticlesSkeleton, Fvector().set(0, 1, 0), ID());
 	}
 
-	Fvector position_in_bone_space, throw_in_dir;
-	position_in_bone_space.set(0.0f, 0.0f, 0.0f);
-	throw_in_dir.set(1.0f, 0.0f, 1.0f);
+	Fvector dir;
+	Fvector position_in_bone_space { 0.0f, 0.0f, 0.0f };
+	Fvector throw_in_dir{ 1.0f, 0.0f, 1.0f };
+
+	float power = 0.0f;
+	float impulse;
+
+	m_oTelekinesis.DrawOutImpact(dir, impulse);
+
 	CreateHit(obj->ID(), ID(), throw_in_dir, power, 0, position_in_bone_space, impulse, ALife::eHitTypeExplosion);
 }
 
 void CMincer::AffectPullAlife(CEntityAlive* EA, const Fvector& throw_in_dir, float dist)
 {
 	float power = Power(dist, Radius());
-	//Fvector dir;
-	//dir.random_dir(throw_in_dir,2.f*M_PI);
 	if (!smart_cast<CActor*>(EA))
 	{
 		Fvector pos_in_bone_space;

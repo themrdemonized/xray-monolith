@@ -9,10 +9,12 @@ class CGameObject;
 
 class CTeleWhirlwindObject : public CTelekineticObject
 {
+private:
 	typedef CTelekineticObject inherited;
-	CTeleWhirlwind* m_telekinesis;
-	bool b_destroyable;
-	float throw_power;
+
+	CTeleWhirlwind* m_pTelekinesis;
+	bool			m_bDestroyable;
+	float			m_fThrowPower;
 
 public:
 	virtual ~CTeleWhirlwindObject()
@@ -34,43 +36,62 @@ public:
 
 class CTeleWhirlwind : public CTelekinesis
 {
+private:
 	typedef CTelekinesis inherited;
-	Fvector m_center;
-	float m_keep_radius;
-	float m_throw_power;
-	CGameObject* m_owner_object;
-	PH_IMPACT_STORAGE m_saved_impacts;
-	shared_str m_destroying_particles;
+
+	// ID of the owner object
+	u16 m_iOwnerID;
+
+	Fvector	m_vCenter;
+	float	m_fKeepRadius;
+	float	m_fThrowPower;
+	boolean	m_bHeightFixed;		// whether object will be hard-fixed at tele_heigh or can go above (true - default)
+
+	// Arrays of impacts
+	PH_IMPACT_STORAGE m_vSavedImpacts;
+
+	// Effects of tearing
+	shared_str m_sTearingParticles;
+	ref_sound  m_pTearingSound;
 
 public:
 	CTeleWhirlwind();
-	CGameObject* OwnerObject() const { return m_owner_object; }
-	const Fvector& Center() const { return m_center; }
-	void SetCenter(const Fvector center) { m_center.set(center); }
-	void SetOwnerObject(CGameObject* owner_object) { m_owner_object = owner_object; }
-	void add_impact(const Fvector& dir, float val);
-	void draw_out_impact(Fvector& dir, float& val);
-	void clear_impacts();
-
-	void set_destroing_particles(const shared_str& destroying_particles)
-	{
-		m_destroying_particles = destroying_particles;
-	}
-
-	const shared_str& destroing_particles() { return m_destroying_particles; }
-	void play_destroy(CTeleWhirlwindObject* obj);
-	virtual CTelekineticObject* activate(CPhysicsShellHolder* obj, float strength, float height, u32 max_time_keep,
-	                                     bool rot = true);
+	
+	void AddImpact(const Fvector& dir, float val);
+	void DrawOutImpact(Fvector& dir, float& val);
+	void ClearImpacts();
+	
 	virtual void clear();
 	virtual void clear_notrelevant();
 
+	virtual CTelekineticObject* activate(CPhysicsShellHolder* obj, float strength, float height, u32 max_time_keep, bool rot = true);
 	virtual CTelekineticObject* alloc_tele_object()
 	{
 		return static_cast<CTelekineticObject*>(xr_new<CTeleWhirlwindObject>());
 	}
 
-	float keep_radius() { return m_keep_radius; }
-	void set_throw_power(float throw_pow);
+	void PlayTearingSound(CObject* object) 
+	{ 
+		m_pTearingSound.play_at_pos(object, m_vCenter); 
+	}
+
+public: // Getters
+
+	u16				GetOwnerID() const { return m_iOwnerID; }
+	float			GetKeepRadius() const { return m_fKeepRadius; }
+	boolean			GetHeightFixed() const { return m_bHeightFixed; }
+	const Fvector&	GetCenter() const { return m_vCenter; }
+	LPCSTR			GetTearingParticles() const { return *m_sTearingParticles; }
+	
+public: // Setters
+
+	void SetCenter(const Fvector& center) { m_vCenter.set(center); }
+	void SetOwnerID(u16 owner_id) { m_iOwnerID = owner_id; }
+	void SetThrowPower(float throw_pow) { m_fThrowPower = throw_pow;}
+	void SetHeightFixed(boolean value) { m_bHeightFixed = value; }
+	void SetTearingParticles(const shared_str& particles) { m_sTearingParticles = particles; }
+	void SetTearingSound(LPCSTR name) {	m_pTearingSound.create(name, st_Effect, sg_SourceType); }
+
 };
 
 
