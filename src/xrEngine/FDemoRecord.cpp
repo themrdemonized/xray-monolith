@@ -466,22 +466,23 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_ESCAPE)
 			Console->Execute("main_menu on");
 	} else {
-		// Added dik == DIK_TAB as extra keybind to support keyboards with no numpad
-		// if launching demo_record from game console it's important that TAB key is not bound to any menu or gui (e.g. inventory, pda, etc)
-		if (dik == DIK_MULTIPLY || dik == DIK_TAB) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
+		// Added dik == DIK_RCONTROL as extra keybind to support keyboards with no numpad
+		// Added dik == DIK_TAB as extra keybind that can also be used if return_ctrl_inputs is enabled. This key press event can be captured by the Demo Record invoker 
+		if (dik == DIK_MULTIPLY || dik == DIK_RCONTROL || (dik == DIK_TAB && return_ctrl_inputs)) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
 
 		if (m_b_redirect_input_to_level)
 		{
 			g_pGameLevel->IR_OnKeyboardPress(dik);
 			return;
 		}else{
-			// we end up here if controls have not been redirected to the caller entity
-			// if we launched demo_record_return_ctrl_inputs we return the event TAB key press also to the launcher entity
+			// we end up here if controls have not been redirected to the invoker
+			// if we launched demo_record_return_ctrl_inputs we return the event DIK_TAB key press also to the invoker 
 			if (dik == DIK_TAB && return_ctrl_inputs) {
 				// Sends upstream the DIK_TAB keyboard press event. This key toggles controls between demo_record and its launcher (game console or script)
-				// upon relinquishing the controls (to gameconsole/scripts), if the TAB key is pressed (captured by DemoRecord regardless) we end up here 
-				// but we like to let know the lancher that the TAB key was pressed and controls are back into DemoRecord hands
+				// upon relinquishing the controls (to gameconsole/scripts), if the DIK_TAB key is pressed (captured by DemoRecord regardless) we end up here 
+				// but we like to let know the invoker that the DIK_TAB key was pressed and controls are back into DemoRecord hands
 				g_pGameLevel->IR_OnKeyboardPress(dik);
+				return;
 			}
 		}
 		if (dik == DIK_GRAVE)
