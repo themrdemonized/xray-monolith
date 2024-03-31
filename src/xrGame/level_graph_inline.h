@@ -284,6 +284,9 @@ ICF const xrGUID& CLevelGraph::CHeader::guid() const
 
 ICF u32 CLevelGraph::CVertex::link(int index) const
 {
+	if(CURRENT_XRAI_VERSION != XRAI_CURRENT_VERSION) {
+		return (NodeCompressed::linknew(u8(index)));
+	}
 	return (NodeCompressed::link(u8(index)));
 }
 

@@ -14,6 +14,7 @@
 
 //#include "securom_api.h"
 
+ENGINE_API u32 CURRENT_XRAI_VERSION = XRAI_CURRENT_VERSION;
 ENGINE_API IGame_Level* g_pGameLevel = NULL;
 extern BOOL g_bLoaded;
 
