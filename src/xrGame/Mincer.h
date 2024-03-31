@@ -1,10 +1,11 @@
 /////////////////////////////////////////////////////
-// Аномальная зона: "мясорубка"
-// При попадании живого объекта в зону происходит 
-// электрический разряд
-// Зона восстанавливает заряд через определенное время
-// (через m_dwPeriod заряжается с 0 до m_fMaxPower)
-//
+// 
+// Common class for gravity anomalies: Vortex and Whirlgig
+// When object gets caught it will be pulled towards the
+// center + additional tele_height, then ripped apart.
+// Zone recharges after blowout
+// (charges from 0 to m_fMaxPower in m_dwPeriod time)
+// 
 /////////////////////////////////////////////////////
 #pragma once
 
@@ -20,18 +21,18 @@ class CMincer :
 {
 private:
 	typedef CBaseGraviZone inherited;
-	CTeleWhirlwind m_telekinetics;
-	shared_str m_torn_particles;
-	ref_sound m_tearing_sound;
-	float m_fActorBlowoutRadiusPercent;
+
+	CTeleWhirlwind	m_oTelekinesis;
+	shared_str		m_sParticlesSkeleton;
+	float			m_fActorBlowoutRadiusPercent;
 
 public:
-	virtual CTelekinesis& Telekinesis() { return m_telekinetics; }
+	virtual CTelekinesis& Telekinesis() { return m_oTelekinesis; }
 
 public:
 	CMincer();
 	virtual ~CMincer();
-	//	virtual void	SwitchZoneState				(EZoneState new_state);
+
 	virtual void OnStateSwitch(EZoneState new_state);
 	virtual bool feel_touch_contact(CObject* O);
 	virtual void feel_touch_new(CObject* O);

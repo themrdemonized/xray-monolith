@@ -314,6 +314,12 @@ void CCustomZone::Load(LPCSTR section)
 		m_fBlowoutWindPowerMax = pSettings->r_float(section, "blowout_wind_power");
 	}
 
+	//загрузить флаг отмены idle анимации при blowout
+	if (pSettings->line_exist(section, "blowout_disable_idle"))
+	{
+		m_zone_flags.set(eBlowoutDisableIdle, pSettings->r_bool(section, "blowout_disable_idle"));
+	}
+
 	//загрузить параметры световой вспышки от взрыва
 	m_zone_flags.set(eBlowoutLight, pSettings->r_bool(section, "blowout_light"));
 	if (m_zone_flags.test(eBlowoutLight))
@@ -483,6 +489,10 @@ bool CCustomZone::BlowoutState()
 {
 	if (m_iStateTime >= m_StateTime[eZoneStateBlowout])
 	{
+
+		if (m_zone_flags.test(eBlowoutDisableIdle))
+			PlayIdleParticles();
+
 		SwitchZoneState(eZoneStateAccumulate);
 		if (m_bBlowoutOnce)
 		{
@@ -491,6 +501,10 @@ bool CCustomZone::BlowoutState()
 
 		return true;
 	}
+
+	if (m_zone_flags.test(eBlowoutDisableIdle))
+		StopIdleParticles();
+
 	return false;
 }
 
