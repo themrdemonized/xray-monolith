@@ -110,6 +110,7 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_bMakeCubeMap = FALSE;
 		m_bMakeScreenshot = FALSE;
 		m_bMakeLevelMap = FALSE;
+		return_ctrl_inputs = FALSE;
 
 		m_fSpeed0 = pSettings->r_float("demo_record", "speed0");
 		m_fSpeed1 = pSettings->r_float("demo_record", "speed1");
@@ -141,6 +142,10 @@ void CDemoRecord::StopDemo() {
 	if (pDemoRecords) {
 		pDemoRecords->erase(this);
 	}
+}
+
+void CDemoRecord::EnableReturnCtrlInputs() {
+	return_ctrl_inputs = TRUE;
 }
 
 CDemoRecord::~CDemoRecord()
@@ -461,12 +466,24 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_ESCAPE)
 			Console->Execute("main_menu on");
 	} else {
-		if (dik == DIK_MULTIPLY) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
+		// Added dik == DIK_RCONTROL as extra keybind to support keyboards with no numpad
+		// Added dik == DIK_TAB as extra keybind that can also be used if return_ctrl_inputs is enabled. This key press event can be captured by the Demo Record invoker 
+		if (dik == DIK_MULTIPLY || dik == DIK_RCONTROL || (dik == DIK_TAB && return_ctrl_inputs)) m_b_redirect_input_to_level = !m_b_redirect_input_to_level;
 
 		if (m_b_redirect_input_to_level)
 		{
 			g_pGameLevel->IR_OnKeyboardPress(dik);
 			return;
+		}else{
+			// we end up here if controls have not been redirected to the invoker
+			// if we launched demo_record_return_ctrl_inputs we return the event DIK_TAB key press also to the invoker 
+			if (dik == DIK_TAB && return_ctrl_inputs) {
+				// Sends upstream the DIK_TAB keyboard press event. This key toggles controls between demo_record and its launcher (game console or script)
+				// upon relinquishing the controls (to gameconsole/scripts), if the DIK_TAB key is pressed (captured by DemoRecord regardless) we end up here 
+				// but we like to let know the invoker that the DIK_TAB key was pressed and controls are back into DemoRecord hands
+				g_pGameLevel->IR_OnKeyboardPress(dik);
+				return;
+			}
 		}
 		if (dik == DIK_GRAVE)
 			Console->Show();
@@ -474,8 +491,15 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_BACK) MakeCubemap();
 		if (dik == DIK_F11) MakeLevelMapScreenshot(IR_GetKeyState(DIK_LCONTROL));
 		if (dik == DIK_F12) MakeScreenshot();
-		if (dik == DIK_ESCAPE) StopDemo();
-
+		if (dik == DIK_ESCAPE) {
+			StopDemo();
+			// if we launched demo_record_return_ctrl_inputs we return the event ESCAPE key press also to the launcher entity
+			if (return_ctrl_inputs){
+				// sends upstream the DIK_ESCAPE keyboard press event. This key quit demo_record and returns controls to its launcher (game console or script)
+				// This can help scripts that execute command demo_record_photomode to know when the demo_record has exited
+				g_pGameLevel->IR_OnKeyboardPress(dik);
+			}
+		}
 		//Alundaio: Teleport to demo cam
 		//#ifndef MASTER_GOLD
 		if (dik == DIK_RETURN)
@@ -557,12 +581,14 @@ void CDemoRecord::IR_OnKeyboardHold(int dik)
 	case DIK_NUMPAD4:
 		vR_delta.y -= 1.0f;
 		break; // Turn Right
+	case DIK_C: // Added DIK_C as extra keybind to support keyboards with no numpad
 	case DIK_NUMPAD9:
 		vR_delta.z -= 2.0f;
-		break; // Turn Right
+		break; // tilt Right
+	case DIK_Z: // Added DIK_Z as extra keybind to support keyboards with no numpad
 	case DIK_NUMPAD7:
 		vR_delta.z += 2.0f;
-		break; // Turn Right
+		break; // tilt left
 	}
 
 	update_whith_timescale(m_vT, vT_delta);

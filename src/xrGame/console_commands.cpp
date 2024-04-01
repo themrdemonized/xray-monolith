@@ -509,6 +509,36 @@ public:
 	}
 };
 
+class CCC_DemoRecordReturnCtrlInputs : public IConsole_Command
+{
+public:
+
+	CCC_DemoRecordReturnCtrlInputs(LPCSTR N) : IConsole_Command(N)
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+#ifndef	DEBUG
+		//if (GameID() != eGameIDSingle)
+		//{
+		//	Msg("For this game type Demo Record is disabled.");
+		//	return;
+		//};
+#endif
+		Console->Hide();
+
+		LPSTR fn_;
+		STRCONCAT(fn_, args, ".xrdemo");
+		string_path fn;
+		FS.update_path(fn, "$game_saves$", fn_);
+
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords);
+		pDemoRecord->EnableReturnCtrlInputs();
+		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
+	}
+};
+
 class CCC_DemoRecordBlockedInput : public IConsole_Command
 {
 public:
@@ -2224,6 +2254,7 @@ void CCC_RegisterCommands()
 	CMD1(CCC_DemoRecord, "demo_record");
 	CMD1(CCC_DemoRecordBlockedInput, "demo_record_blocked_input");
 	CMD1(CCC_DemoRecordStop, "demo_record_stop");
+	CMD1(CCC_DemoRecordReturnCtrlInputs, "demo_record_return_ctrl_inputs");
 	CMD1(CCC_DemoRecordSetPos, "demo_set_cam_position");
 	CMD1(CCC_DemoRecordSetDir, "demo_set_cam_direction");
 	//#endif // #ifndef MASTER_GOLD
