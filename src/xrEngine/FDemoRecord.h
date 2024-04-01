@@ -40,6 +40,7 @@ private:
 	BOOL m_bMakeScreenshot;
 	int m_iLMScreenshotFragment;
 	BOOL m_bMakeLevelMap;
+	BOOL return_ctrl_inputs;
 
 	float m_fSpeed0;
 	float m_fSpeed1;
@@ -73,7 +74,7 @@ public:
 	virtual void IR_OnMousePress(int btn);
 	virtual void IR_OnMouseRelease(int btn);
 	void StopDemo();
-
+	void EnableReturnCtrlInputs();
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
 	static void SetGlobalPosition(const Fvector& p) { g_position.p.set(p), g_position.set_position = true; }
 	static void GetGlobalPosition(Fvector& p) { p.set(g_position.p); }
