@@ -1017,6 +1017,13 @@ bool CAI_Stalker::wounded(const CRestrictedObject* object) const
 	return (true);
 }
 
+// demonized: toggle movement collision for stalker NPCs
+void CAI_Stalker::set_enable_movement_collision(bool value) {
+	character_physics_support()->movement()->DestroyCharacter();
+	if (value)
+		character_physics_support()->CreateCharacterSafe();
+}
+
 bool CAI_Stalker::use_default_throw_force()
 {
 	return (false);
