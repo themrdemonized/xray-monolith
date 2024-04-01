@@ -679,6 +679,7 @@ public:
 public:
 	void wounded(bool value);
 	bool wounded(const CRestrictedObject* object) const;
+	void set_enable_movement_collision(bool value);
 	IC bool wounded() const;
 
 	// throwing grenades
