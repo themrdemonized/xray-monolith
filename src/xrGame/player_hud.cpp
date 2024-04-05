@@ -285,6 +285,11 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	m_hands_offset[0][0].set(0, 0, 0);
 	m_hands_offset[1][0].set(0, 0, 0);
 
+	strconcat(sizeof(val_name), val_name, "base_hud_offset_pos", _prefix);
+	m_hands_offset[0][5] = pSettings->r_fvector3(sect_name, val_name);
+	strconcat(sizeof(val_name), val_name, "base_hud_offset_rot", _prefix);
+	m_hands_offset[1][5] = pSettings->r_fvector3(sect_name, val_name);
+
 	strconcat(sizeof(val_name), val_name, "aim_hud_offset_pos", _prefix);
 	m_hands_offset[0][1] = pSettings->r_fvector3(sect_name, val_name);
 	strconcat(sizeof(val_name), val_name, "aim_hud_offset_rot", _prefix);
