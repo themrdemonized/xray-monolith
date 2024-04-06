@@ -10,7 +10,7 @@
 #include "render.h"
 #include "CustomHUD.h"
 #include "CameraManager.h"
-
+#include "../xrGame/UICursor.h"
 extern BOOL g_bDisableRedText;
 static Flags32 s_hud_flag = {0};
 static Flags32 s_dev_flags = {0};
@@ -135,6 +135,8 @@ CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemo
 	if (!file) {
 		StopDemo();
 	}
+	// when demo_record is launched, mouse controls are redirected to camera movements, so we hide the cursor
+	GetUICursor().Hide();
 }
 
 void CDemoRecord::StopDemo() {
@@ -472,9 +474,18 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 
 		if (m_b_redirect_input_to_level)
 		{
+			// control inputs are redirected to the invoker
+			if (return_ctrl_inputs){
+				// if the invoker is a script that launched demo_record with return_ctrl_inputs enabled we show the cursor
+				GetUICursor().Show();
+			}
 			g_pGameLevel->IR_OnKeyboardPress(dik);
 			return;
 		}else{
+			if (GetUICursor().IsVisible()){
+				// mouse controls are back to the camera movements, so we hide the cursor
+				GetUICursor().Hide();
+			}
 			// we end up here if controls have not been redirected to the invoker
 			// if we launched demo_record_return_ctrl_inputs we return the event DIK_TAB key press also to the invoker 
 			if (dik == DIK_TAB && return_ctrl_inputs) {
@@ -495,6 +506,8 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 			StopDemo();
 			// if we launched demo_record_return_ctrl_inputs we return the event ESCAPE key press also to the launcher entity
 			if (return_ctrl_inputs){
+				// we also show the cursor
+				GetUICursor().Show();
 				// sends upstream the DIK_ESCAPE keyboard press event. This key quit demo_record and returns controls to its launcher (game console or script)
 				// This can help scripts that execute command demo_record_photomode to know when the demo_record has exited
 				g_pGameLevel->IR_OnKeyboardPress(dik);
