@@ -242,7 +242,7 @@ void CShootingObject::StartParticles(CParticlesObject*& pParticles, LPCSTR parti
 	pParticles = CParticlesObject::Create(particles_name, (BOOL)auto_remove_flag);
 
 	UpdateParticles(pParticles, pos, vel);
-	pParticles->Play(false);
+	pParticles->Play(IsHudModeNow());
 }
 
 void CShootingObject::StopParticles(CParticlesObject*& pParticles)

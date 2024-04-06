@@ -250,6 +250,20 @@ void CScriptGameObject::wounded(bool value)
 	stalker->wounded(value);
 }
 
+// demonized: Toggle movement collision for stalker NPCs
+void CScriptGameObject::set_enable_movement_collision(bool value)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CAI_Stalker : cannot set_enable_movement_collision for non CAI_Stalker objects");
+		return;
+	}
+
+	stalker->set_enable_movement_collision(value);
+}
+
 CSightParams CScriptGameObject::sight_params()
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());

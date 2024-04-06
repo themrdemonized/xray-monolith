@@ -200,7 +200,7 @@ struct hud_item_measures
 	Flags8 m_prop_flags;
 
 	Fvector m_item_attach[2]; // pos,rot
-	Fvector m_hands_offset[2][5]; // pos,rot/ normal,aim,GL,aim_alt,safemode --#SM+#--
+	Fvector m_hands_offset[2][6]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2 --#SM+#--
 	Fvector m_strafe_offset[4][2]; // pos,rot,data1,data2/ normal,aim-GL	 --#SM+#--
 
 	u16 m_fire_bone;
@@ -380,7 +380,7 @@ private:
 public:
 	IKinematicsAnimated* m_model;
 	IKinematicsAnimated* m_model_2;
-	Fvector m_adjust_offset[2][5]; // pos,rot/ normal,aim,GL,aim_alt,safemode
+	Fvector m_adjust_offset[2][6]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
 	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui
 	Fvector m_adjust_firepoint_shell[2][2];

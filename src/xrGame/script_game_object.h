@@ -744,6 +744,8 @@ public:
 	bool wounded() const;
 	void wounded(bool value);
 
+	void set_enable_movement_collision(bool value);
+
 	CSightParams sight_params();
 
 	void enable_movement(bool enable);
