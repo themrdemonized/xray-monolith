@@ -538,6 +538,21 @@ void CGamePersistent::game_loaded()
 				funct();
 			}
 		}
+
+		else if (	g_pGameLevel &&
+					g_pGameLevel->bReady &&
+					m_game_params.m_e_game_type == eGameIDSingle
+				 )
+		{
+			Msg("intro_start game_loaded");
+
+			luabind::functor<void> funct;
+			if (ai().script_engine().functor("_G.OnLoadingScreenKeyPrompt", funct))
+			{
+				funct();
+			}
+		}
+
 		m_intro_event = 0;
 	}
 }
