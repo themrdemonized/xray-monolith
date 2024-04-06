@@ -535,6 +535,7 @@ public:
 
 		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords);
 		pDemoRecord->EnableReturnCtrlInputs();
+		pDemoRecord->SetCameraBoundary(15.f);
 		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
 	}
 };

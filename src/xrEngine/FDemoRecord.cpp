@@ -85,6 +85,7 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		g_position.set_position = false;
 		IR_Capture(); // capture input
 		m_Camera.invert(Device.mView);
+		m_fCameraBoundary = 100.f;
 
 		// parse yaw
 		Fvector& dir = m_Camera.k;
@@ -100,7 +101,8 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_HPB.z = 0;
 
 		m_Position.set(m_Camera.c);
-
+		m_Actor_Position.set(m_Camera.c.x,m_Camera.c.y,m_Camera.c.z);
+		m_fGroundPosition = m_Actor_Position.y - 1.0f;
 		m_vVelocity.set(0, 0, 0);
 		m_vAngularVelocity.set(0, 0, 0);
 		iCount = 0;
@@ -111,7 +113,7 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_bMakeScreenshot = FALSE;
 		m_bMakeLevelMap = FALSE;
 		return_ctrl_inputs = FALSE;
-
+		m_CameraBoundaryEnabled = FALSE;
 		m_fSpeed0 = pSettings->r_float("demo_record", "speed0");
 		m_fSpeed1 = pSettings->r_float("demo_record", "speed1");
 		m_fSpeed2 = pSettings->r_float("demo_record", "speed2");
@@ -149,7 +151,10 @@ void CDemoRecord::StopDemo() {
 void CDemoRecord::EnableReturnCtrlInputs() {
 	return_ctrl_inputs = TRUE;
 }
-
+void CDemoRecord::SetCameraBoundary(float boundary) {
+	m_CameraBoundaryEnabled = TRUE;
+	m_fCameraBoundary = boundary;
+}
 CDemoRecord::~CDemoRecord()
 {
 	if (file)
@@ -322,6 +327,8 @@ BOOL CDemoRecord::ProcessCam(SCamEffectorInfo& info)
 	info.dont_apply = false;
 	if (0 == file) return TRUE;
 
+	m_Starting_Position.set(m_Position.x, m_Position.y, m_Position.z);
+
 	if (m_bMakeScreenshot)
 	{
 		MakeScreenshotFace();
@@ -427,9 +434,33 @@ BOOL CDemoRecord::ProcessCam(SCamEffectorInfo& info)
 		vmove.mul(m_vT.y);
 		m_Position.add(vmove);
 
+		if (m_CameraBoundaryEnabled)
+		{
+			float x = m_Position.x;
+			float y = m_Position.y;
+			float z = m_Position.z;
+			// let's check if we're out of bound
+			if (_abs(m_Position.x - m_Actor_Position.x) > m_fCameraBoundary)
+			{
+				x = m_Starting_Position.x;
+			}
+			if (_abs(m_Position.y - m_Actor_Position.y) > m_fCameraBoundary)
+			{
+				y = m_Starting_Position.y;
+			}
+			if (_abs(m_Position.z - m_Actor_Position.z) > m_fCameraBoundary)
+			{
+				z = m_Starting_Position.z;
+			}
+			// fake groud collision check
+			if (m_Position.y < m_fGroundPosition){
+				y = m_Starting_Position.y;
+			}
+			m_Position.set(x, y, z);
+		}
+
 		m_Camera.setHPB(m_HPB.x, m_HPB.y, m_HPB.z);
 		m_Camera.translate_over(m_Position);
-
 		// update camera
 		info.n.set(m_Camera.j);
 		info.d.set(m_Camera.k);

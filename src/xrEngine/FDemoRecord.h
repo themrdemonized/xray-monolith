@@ -28,6 +28,8 @@ private:
 	IWriter* file;
 	Fvector m_HPB;
 	Fvector m_Position;
+	Fvector m_Actor_Position;	
+	Fvector m_Starting_Position;
 	Fmatrix m_Camera;
 	u32 m_Stage;
 
@@ -41,6 +43,7 @@ private:
 	int m_iLMScreenshotFragment;
 	BOOL m_bMakeLevelMap;
 	BOOL return_ctrl_inputs;
+	BOOL m_CameraBoundaryEnabled;
 
 	float m_fSpeed0;
 	float m_fSpeed1;
@@ -50,6 +53,8 @@ private:
 	float m_fAngSpeed1;
 	float m_fAngSpeed2;
 	float m_fAngSpeed3;
+	float m_fCameraBoundary;
+	float m_fGroundPosition;
 
 	BOOL isInputBlocked;
 	xr_unordered_set<CDemoRecord*>* pDemoRecords;
@@ -75,6 +80,7 @@ public:
 	virtual void IR_OnMouseRelease(int btn);
 	void StopDemo();
 	void EnableReturnCtrlInputs();
+	void SetCameraBoundary(float boundary);
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
 	static void SetGlobalPosition(const Fvector& p) { g_position.p.set(p), g_position.set_position = true; }
 	static void GetGlobalPosition(Fvector& p) { p.set(g_position.p); }
