@@ -538,8 +538,14 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 void CDemoRecord::IR_OnKeyboardRelease(int dik)
 {
 	if (isInputBlocked) return;
-	if (m_b_redirect_input_to_level)
+	if (m_b_redirect_input_to_level){
 		g_pGameLevel->IR_OnKeyboardRelease(dik);
+	}else{
+		if (dik == DIK_F12 && return_ctrl_inputs) {
+			// if demo_record_return_ctrl_inputs is enabled we return the event F12 key release also to the launcher entity
+			g_pGameLevel->IR_OnKeyboardRelease(dik);
+		}		
+	}
 }
 
 static void update_whith_timescale(Fvector& v, const Fvector& v_delta)
