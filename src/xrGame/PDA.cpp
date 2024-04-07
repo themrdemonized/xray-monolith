@@ -543,26 +543,87 @@ void CPda::UpdateHudAdditional(Fmatrix& trans)
 	}
 
 	Fvector curr_offs, curr_rot;
-	curr_offs = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_offset[0][1] : hi->m_measures.m_hands_offset[0][1];
-	curr_rot = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_offset[1][1] : hi->m_measures.m_hands_offset[1][1];
+	// DaimeneX: Applying hud_base_offset to PDA
+	if (g_player_hud->m_adjust_mode)
+	{
+		if (!m_bZoomed)
+		{
+			curr_offs = g_player_hud->m_adjust_offset[0][5]; //pos,normal2
+			curr_rot = g_player_hud->m_adjust_offset[1][5]; //rot,normal2
+		}
+		else
+		{
+			curr_offs = g_player_hud->m_adjust_offset[0][1]; //pos,aim
+			curr_rot = g_player_hud->m_adjust_offset[1][1]; //rot,aim
+		}
+	}
+	else
+	{
+		if (!m_bZoomed)
+		{
+			curr_offs = hi->m_measures.m_hands_offset[0][5]; //pos,normal2
+			curr_rot = hi->m_measures.m_hands_offset[1][5]; //pos,normal2
+		}
+		else {
+			curr_offs = hi->m_measures.m_hands_offset[0][1]; //pos,aim
+			curr_rot = hi->m_measures.m_hands_offset[1][1]; //rot,aim
+		}
+	}
+	
+	float factor;
 
-	curr_offs.mul(m_fZoomfactor);
-	curr_rot.mul(m_fZoomfactor);
+	factor = Device.fTimeDelta / (0.2f);
+
+	if (curr_offs.similar(m_hud_offset[0], EPS))
+	{
+		m_hud_offset[0].set(curr_offs);
+	}
+	else
+	{
+		Fvector diff;
+		diff.set(curr_offs);
+		diff.sub(m_hud_offset[0]);
+		diff.mul(factor * 2.5f);
+		m_hud_offset[0].add(diff);
+	}
+
+	if (curr_rot.similar(m_hud_offset[1], EPS))
+	{
+		m_hud_offset[1].set(curr_rot);
+	}
+	else
+	{
+		Fvector diff;
+		diff.set(curr_rot);
+		diff.sub(m_hud_offset[1]);
+		diff.mul(factor * 2.5f);
+		m_hud_offset[1].add(diff);
+	}
+
+	// Remove pending state before weapon has fully moved to the new position to remove some delay
+	if (curr_offs.similar(m_hud_offset[0], .02f) && curr_rot.similar(m_hud_offset[1], .02f))
+	{
+		if ((m_bZoomed == true || m_LastMBZoom == true) && IsPending()) SetPending(FALSE);
+		m_LastMBZoom = m_bZoomed;
+	}
+
+	/*curr_offs.mul(m_fZoomfactor);
+	curr_rot.mul(m_fZoomfactor);*/
 
 	Fmatrix hud_rotation;
 	hud_rotation.identity();
-	hud_rotation.rotateX(curr_rot.x);
+	hud_rotation.rotateX(m_hud_offset[1].x);
 
 	Fmatrix hud_rotation_y;
 	hud_rotation_y.identity();
-	hud_rotation_y.rotateY(curr_rot.y);
+	hud_rotation_y.rotateY(m_hud_offset[1].y);
 	hud_rotation.mulA_43(hud_rotation_y);
 
 	hud_rotation_y.identity();
-	hud_rotation_y.rotateZ(curr_rot.z);
+	hud_rotation_y.rotateZ(m_hud_offset[1].z);
 	hud_rotation.mulA_43(hud_rotation_y);
 
-	hud_rotation.translate_over(curr_offs);
+	hud_rotation.translate_over(m_hud_offset[0]);
 	trans.mulB_43(hud_rotation);
 
 	if (m_bZoomed)
