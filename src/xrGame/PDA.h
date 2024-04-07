@@ -95,6 +95,7 @@ protected:
 	bool hasEnoughBatteryPower(){ return (!IsUsingCondition() || (IsUsingCondition() && GetCondition() > m_fLowestBatteryCharge)); }
 	static void _BCL JoystickCallback(CBoneInstance* B);
 	bool m_bNoticedEmptyBattery;
+	bool m_LastMBZoom;
 public:
 	virtual void OnStateSwitch(u32 S, u32 oldState);
 	virtual void OnAnimationEnd(u32 state);
@@ -104,6 +105,7 @@ public:
 	virtual void UpdateXForm();
 	virtual void OnActiveItem();
 	virtual void OnHiddenItem();
+	Fvector m_hud_offset[2];
 
 	enum eDeferredEnableState
 	{

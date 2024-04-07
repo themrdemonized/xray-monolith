@@ -2179,8 +2179,8 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 		{
 			if (idx == 0)
 			{
-				curr_offs = g_player_hud->m_adjust_offset[0][5]; //pos,aim
-				curr_rot = g_player_hud->m_adjust_offset[1][5]; //rot,aim
+				curr_offs = g_player_hud->m_adjust_offset[0][5]; //pos,normal2
+				curr_rot = g_player_hud->m_adjust_offset[1][5]; //rot,normal2
 			}
 			else
 			{
@@ -2192,8 +2192,8 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 		{
 			if (idx == 0)
 			{
-				curr_offs = hi->m_measures.m_hands_offset[0][5]; //pos,aim
-				curr_rot = hi->m_measures.m_hands_offset[1][5]; //pos,aim
+				curr_offs = hi->m_measures.m_hands_offset[0][5]; //pos,normal2
+				curr_rot = hi->m_measures.m_hands_offset[1][5]; //pos,normal2
 			}
 			else {
 				curr_offs = hi->m_measures.m_hands_offset[0][idx]; //pos,aim
