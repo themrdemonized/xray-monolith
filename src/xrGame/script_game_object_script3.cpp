@@ -400,6 +400,9 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("wounded", (bool (CScriptGameObject::*)() const)(&CScriptGameObject::wounded))
 		.def("wounded", (void (CScriptGameObject::*)(bool))(&CScriptGameObject::wounded))
 
+		// demonized: Toggle movement collision for stalker NPCs
+		.def("set_enable_movement_collision", &CScriptGameObject::set_enable_movement_collision)
+
 		.def("mark_item_dropped", &CScriptGameObject::MarkItemDropped)
 		.def("marked_dropped", &CScriptGameObject::MarkedDropped)
 		.def("unload_magazine", &CScriptGameObject::UnloadMagazine)

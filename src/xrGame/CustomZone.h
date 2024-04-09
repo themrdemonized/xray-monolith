@@ -123,6 +123,7 @@ protected:
 		eIdleLightR1 =(1 << 15),
 		eBoltEntranceParticles =(1 << 16),
 		eUseSecondaryHit =(1 << 17),
+		eBlowoutDisableIdle =(1 << 18),
 	};
 
 	u32 m_owner_id;
