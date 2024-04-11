@@ -100,8 +100,17 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_HPB.y = asinf(dir.y);
 		m_HPB.z = 0;
 
-		m_Position.set(m_Camera.c);
+		// Set the camera position to the actor's position
 		m_Actor_Position.set(m_Camera.c.x,m_Camera.c.y,m_Camera.c.z);
+		// Move the camera a bit in front of the actor
+		float distanceInFrontOfActor = 3.0f; // Set this to the desired distance
+		Fvector cameraOffset = m_Camera.k;
+		cameraOffset.mul(-distanceInFrontOfActor); // Note the negative sign
+		m_Camera.c.add(m_Actor_Position, cameraOffset);
+		// Turn the camera towards the actor
+		m_Camera.k.invert();
+		m_Position.set(m_Camera.c);
+
 		m_fGroundPosition = m_Actor_Position.y - 1.0f;
 		m_vVelocity.set(0, 0, 0);
 		m_vAngularVelocity.set(0, 0, 0);
@@ -452,7 +461,7 @@ BOOL CDemoRecord::ProcessCam(SCamEffectorInfo& info)
 			{
 				z = m_Starting_Position.z;
 			}
-			// fake groud collision check
+			// fake ground collision check
 			if (m_Position.y < m_fGroundPosition){
 				y = m_Starting_Position.y;
 			}
