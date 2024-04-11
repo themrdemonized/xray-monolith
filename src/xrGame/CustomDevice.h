@@ -58,7 +58,7 @@ public:
 
 	bool m_bZoomed;
 	float m_fZoomfactor;
-
+	Fvector m_hud_offset[2];
 protected:
 	virtual bool CheckCompatibilityInt(CHudItem* itm, u16* slot_to_activate);
 	virtual void TurnDeviceInternal(bool b);
@@ -68,4 +68,5 @@ protected:
 
 	virtual void CreateUI(){};
 	virtual void ResetUI(){};
+	bool m_LastMBZoom;
 };
