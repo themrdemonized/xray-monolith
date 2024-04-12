@@ -31,6 +31,7 @@ public:
 	IC CScriptHit(const CScriptHit* tpLuaHit);
 	IC CScriptHit(const SHit* tpHit);
 	virtual ~CScriptHit();
+	IC LPCSTR get_bone_name() const;
 	IC void set_bone_name(LPCSTR bone_name);
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };
