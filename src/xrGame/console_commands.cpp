@@ -532,7 +532,7 @@ public:
 		float boundary = 15.f; // default value
 
 		if (!(iss >> arg1)) {
-			Msg("not enough parameters. e.g. demo_record_return_ctrl_inputs <filename> <boundary>");
+			Msg("not enough parameters. e.g. demo_record_return_ctrl_inputs [filename] [boundary]");
 			return;
 		}
 
@@ -544,7 +544,7 @@ public:
 			if (iss2 >> num) {
 				boundary = num;
 			} else {
-				Msg("bonduary needs to be a number. e.g. demo_record_return_ctrl_inputs <filename> <boundary>");
+				Msg("bonduary needs to be a number. e.g. demo_record_return_ctrl_inputs [filename] [boundary]");
 				return;
 			}
 		}
