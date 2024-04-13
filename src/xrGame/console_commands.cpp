@@ -503,8 +503,8 @@ public:
 		STRCONCAT(fn_, args, ".xrdemo");
 		string_path fn;
 		FS.update_path(fn, "$game_saves$", fn_);
-
-		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords);
+		float life_time = 60 * 60 * 1000;
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords, FALSE, life_time, FALSE);
 		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
 	}
 };
@@ -543,18 +543,14 @@ public:
 			float num;
 			if (iss2 >> num) {
 				boundary = num;
-			} else {
-				Msg("bonduary needs to be a number. e.g. demo_record_return_ctrl_inputs [filename] [boundary]");
-				return;
 			}
 		}
 		LPSTR fn_;
 		STRCONCAT(fn_, arg1.c_str(), ".xrdemo");
 		string_path fn;
 		FS.update_path(fn, "$game_saves$", fn_);
-
-		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords);
-		pDemoRecord->EnableReturnCtrlInputs();
+		float life_time = 60 * 60 * 1000;
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords, FALSE, life_time, TRUE);
 		pDemoRecord->SetCameraBoundary(boundary);
 		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
 	}
@@ -583,8 +579,8 @@ public:
 		STRCONCAT(fn_, args, ".xrdemo");
 		string_path fn;
 		FS.update_path(fn, "$game_saves$", fn_);
-
-		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords, TRUE);
+		float life_time = 60 * 60 * 1000;
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords, FALSE, life_time, FALSE);
 		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
 	}
 };

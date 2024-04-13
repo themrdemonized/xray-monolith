@@ -64,7 +64,7 @@ Fbox get_level_screenshot_bound()
 
 void _InitializeFont(CGameFont*& F, LPCSTR section, u32 flags);
 
-CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDemo, life_time/*,FALSE*/)
+CDemoRecord::CDemoRecord(const char* name, float life_time, BOOL return_ctrl_inputs) : CEffectorCam(cefDemo, life_time/*,FALSE*/)
 {
 	stored_red_text = g_bDisableRedText;
 	g_bDisableRedText = TRUE;
@@ -100,19 +100,24 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_HPB.y = asinf(dir.y);
 		m_HPB.z = 0;
 
-		// Set the camera position to the actor's position
-		m_Actor_Position.set(m_Camera.c.x,m_Camera.c.y,m_Camera.c.z);
+		if (return_ctrl_inputs){
+			// Set the camera position behind the actor's position
+			m_Actor_Position.set(m_Camera.c.x,m_Camera.c.y,m_Camera.c.z);
 
-		// Move the camera a bit in front of the actor
-		float distanceInFrontOfActor = 3.0f; // Set this to the desired distance
-		Fvector cameraOffset = m_Camera.k;
-		cameraOffset.mul(-distanceInFrontOfActor); // Note the negative sign
-		m_Camera.c.add(m_Actor_Position, cameraOffset);
-		
-		// Turn the camera towards the actor
-		m_Camera.k.invert();
-		m_Position.set(m_Camera.c);
+			// Move the camera a bit in front of the actor
+			float distanceInFrontOfActor = 3.0f; // Set this to the desired distance
+			Fvector cameraOffset = m_Camera.k;
+			cameraOffset.mul(-distanceInFrontOfActor); // Note the negative sign
+			m_Camera.c.add(m_Actor_Position, cameraOffset);
 
+			// Turn the camera towards the actor
+			// m_Camera.k.invert();
+			m_Position.set(m_Camera.c);
+		}else{
+			// Set the camera position to the actor's position
+			m_Position.set(m_Camera.c);
+			m_Actor_Position.set(m_Camera.c.x,m_Camera.c.y,m_Camera.c.z);			
+		}
 		m_fGroundPosition = m_Actor_Position.y - 1.0f;
 		m_vVelocity.set(0, 0, 0);
 		m_vAngularVelocity.set(0, 0, 0);
@@ -140,11 +145,12 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 	}
 }
 
-CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time) : CDemoRecord(name, life_time)
+CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time, BOOL return_ctrl_inputs) : CDemoRecord(name, life_time, return_ctrl_inputs)
 {
 	pDemoRecords->insert(this);
 	this->pDemoRecords = pDemoRecords;
 	this->isInputBlocked = isInputBlocked;
+	this->return_ctrl_inputs = return_ctrl_inputs;
 	if (!file) {
 		StopDemo();
 	}
