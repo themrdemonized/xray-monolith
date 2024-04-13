@@ -38,6 +38,11 @@ IC CScriptHit::CScriptHit(const SHit* tpHit)
 	bulletId = tpHit->BulletID;
 }
 
+IC LPCSTR CScriptHit::get_bone_name() const
+{
+	return m_caBoneName.c_str();
+}
+
 IC void CScriptHit::set_bone_name(LPCSTR bone_name)
 {
 	m_caBoneName = bone_name;

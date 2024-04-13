@@ -41,17 +41,11 @@ void CMincer::OnStateSwitch(EZoneState new_state)
 void CMincer::Load(LPCSTR section)
 {
 	inherited::Load(section);
-
-	if (pSettings->line_exist(section, "tele_height_fixed"))
+	m_oTelekinesis.Load(section);
+	if (pSettings->line_exist(section, "torn_particles"))
 	{
-		m_oTelekinesis.SetHeightFixed(pSettings->r_bool(section, "tele_height_fixed"));
+		m_sParticlesSkeleton = pSettings->r_string(section, "torn_particles");
 	}
-
-	m_oTelekinesis.SetTearingSound(pSettings->r_string(section, "body_tearing_sound"));
-	m_oTelekinesis.SetTearingParticles(shared_str(pSettings->r_string(section, "tearing_particles")));
-	m_oTelekinesis.SetThrowPower(pSettings->r_float(section, "throw_out_impulse"));
-
-	m_sParticlesSkeleton = pSettings->r_string(section, "torn_particles");
 	m_fActorBlowoutRadiusPercent = pSettings->r_float(section, "actor_blowout_radius_percent");
 }
 
