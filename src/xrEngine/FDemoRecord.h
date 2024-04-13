@@ -28,7 +28,7 @@ private:
 	IWriter* file;
 	Fvector m_HPB;
 	Fvector m_Position;
-	Fvector m_Actor_Position;	
+	Fvector m_Actor_Position;
 	Fvector m_Starting_Position;
 	Fmatrix m_Camera;
 	u32 m_Stage;
@@ -67,8 +67,8 @@ private:
 	void MakeScreenshot();
 	void MakeLevelMapScreenshot(BOOL bHQ);
 public:
-	CDemoRecord(const char* name, float life_time = 60 * 60 * 1000);
-	CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked = 0, float life_time = 60 * 60 * 1000);
+	CDemoRecord(const char* name, float life_time = 60 * 60 * 1000, BOOL return_ctrl_inputs = 0);
+	CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked = 0, float life_time = 60 * 60 * 1000, BOOL return_ctrl_inputs = 0);
 	virtual ~CDemoRecord();
 
 	virtual void IR_OnKeyboardPress(int dik);

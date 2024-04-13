@@ -48,7 +48,7 @@
 
 #include "ai_debug_variables.h"
 #include "../xrphysics/console_vars.h"
-
+#include <sstream>
 #include "..\xrCore\LocatorAPI.h"
 #ifdef DEBUG
 #	include "PHDebug.h"
@@ -527,15 +527,31 @@ public:
 		//};
 #endif
 		Console->Hide();
+		std::istringstream iss(args);
+		std::string arg1;
+		float boundary = 15.f; // default value
 
+		if (!(iss >> arg1)) {
+			Msg("not enough parameters. e.g. demo_record_return_ctrl_inputs [filename] [boundary]");
+			return;
+		}
+
+		// Try to parse an optional second argument
+		std::string arg2;
+		if (iss >> arg2) {
+			std::istringstream iss2(arg2);
+			float num;
+			if (iss2 >> num) {
+				boundary = num;
+			}
+		}
 		LPSTR fn_;
-		STRCONCAT(fn_, args, ".xrdemo");
+		STRCONCAT(fn_, arg1.c_str(), ".xrdemo");
 		string_path fn;
 		FS.update_path(fn, "$game_saves$", fn_);
-
-		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords);
-		pDemoRecord->EnableReturnCtrlInputs();
-		pDemoRecord->SetCameraBoundary(15.f);
+		float life_time = 60 * 60 * 1000;
+		auto pDemoRecord = xr_new<CDemoRecord>(fn, &pDemoRecords, FALSE, life_time, TRUE);
+		pDemoRecord->SetCameraBoundary(boundary);
 		g_pGameLevel->Cameras().AddCamEffector(pDemoRecord);
 	}
 };
