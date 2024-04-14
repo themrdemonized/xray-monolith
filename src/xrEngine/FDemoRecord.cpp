@@ -64,7 +64,7 @@ Fbox get_level_screenshot_bound()
 
 void _InitializeFont(CGameFont*& F, LPCSTR section, u32 flags);
 
-CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDemo, life_time/*,FALSE*/)
+CDemoRecord::CDemoRecord(const char* name, float life_time, BOOL return_ctrl_inputs) : CEffectorCam(cefDemo, life_time/*,FALSE*/)
 {
 	stored_red_text = g_bDisableRedText;
 	g_bDisableRedText = TRUE;
@@ -100,8 +100,24 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_HPB.y = asinf(dir.y);
 		m_HPB.z = 0;
 
-		m_Position.set(m_Camera.c);
-		m_Actor_Position.set(m_Camera.c.x,m_Camera.c.y,m_Camera.c.z);
+		if (return_ctrl_inputs) {
+			// Set the camera position behind the actor's position
+			m_Actor_Position.set(m_Camera.c.x, m_Camera.c.y, m_Camera.c.z);
+
+			// Move the camera a bit in front of the actor
+			float distanceInFrontOfActor = 3.0f; // Set this to the desired distance
+			Fvector cameraOffset = m_Camera.k;
+			cameraOffset.mul(-distanceInFrontOfActor); // Note the negative sign
+			m_Camera.c.add(m_Actor_Position, cameraOffset);
+
+			// Turn the camera towards the actor
+			// m_Camera.k.invert();
+			m_Position.set(m_Camera.c);
+		} else {
+			// Set the camera position to the actor's position
+			m_Position.set(m_Camera.c);
+			m_Actor_Position.set(m_Camera.c.x, m_Camera.c.y, m_Camera.c.z);
+		}
 		m_fGroundPosition = m_Actor_Position.y - 1.0f;
 		m_vVelocity.set(0, 0, 0);
 		m_vAngularVelocity.set(0, 0, 0);
@@ -122,18 +138,18 @@ CDemoRecord::CDemoRecord(const char* name, float life_time) : CEffectorCam(cefDe
 		m_fAngSpeed1 = pSettings->r_float("demo_record", "ang_speed1");
 		m_fAngSpeed2 = pSettings->r_float("demo_record", "ang_speed2");
 		m_fAngSpeed3 = pSettings->r_float("demo_record", "ang_speed3");
-	}
-	else
+	} else
 	{
 		fLifeTime = -1;
 	}
 }
 
-CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time) : CDemoRecord(name, life_time)
+CDemoRecord::CDemoRecord(const char* name, xr_unordered_set<CDemoRecord*>* pDemoRecords, BOOL isInputBlocked, float life_time, BOOL return_ctrl_inputs) : CDemoRecord(name, life_time, return_ctrl_inputs)
 {
 	pDemoRecords->insert(this);
 	this->pDemoRecords = pDemoRecords;
 	this->isInputBlocked = isInputBlocked;
+	this->return_ctrl_inputs = return_ctrl_inputs;
 	if (!file) {
 		StopDemo();
 	}
@@ -452,8 +468,8 @@ BOOL CDemoRecord::ProcessCam(SCamEffectorInfo& info)
 			{
 				z = m_Starting_Position.z;
 			}
-			// fake groud collision check
-			if (m_Position.y < m_fGroundPosition){
+			// fake ground collision check
+			if (m_Position.y < m_fGroundPosition) {
 				y = m_Starting_Position.y;
 			}
 			m_Position.set(x, y, z);
@@ -506,14 +522,14 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (m_b_redirect_input_to_level)
 		{
 			// control inputs are redirected to the invoker
-			if (return_ctrl_inputs){
+			if (return_ctrl_inputs) {
 				// if the invoker is a script that launched demo_record with return_ctrl_inputs enabled we show the cursor
 				GetUICursor().Show();
 			}
 			g_pGameLevel->IR_OnKeyboardPress(dik);
 			return;
-		}else{
-			if (GetUICursor().IsVisible()){
+		} else {
+			if (GetUICursor().IsVisible()) {
 				// mouse controls are back to the camera movements, so we hide the cursor
 				GetUICursor().Hide();
 			}
@@ -536,7 +552,7 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_ESCAPE) {
 			StopDemo();
 			// if we launched demo_record_return_ctrl_inputs we return the event ESCAPE key press also to the launcher entity
-			if (return_ctrl_inputs){
+			if (return_ctrl_inputs) {
 				// we also show the cursor
 				GetUICursor().Show();
 				// sends upstream the DIK_ESCAPE keyboard press event. This key quit demo_record and returns controls to its launcher (game console or script)
@@ -563,19 +579,19 @@ void CDemoRecord::IR_OnKeyboardPress(int dik)
 		if (dik == DIK_PAUSE)
 			Device.Pause(!Device.Paused(), TRUE, TRUE, "demo_record");
 	}
-	
+
 }
 
 void CDemoRecord::IR_OnKeyboardRelease(int dik)
 {
 	if (isInputBlocked) return;
-	if (m_b_redirect_input_to_level){
+	if (m_b_redirect_input_to_level) {
 		g_pGameLevel->IR_OnKeyboardRelease(dik);
-	}else{
+	} else {
 		if (dik == DIK_F12 && return_ctrl_inputs) {
 			// if demo_record_return_ctrl_inputs is enabled we return the event F12 key release also to the launcher entity
 			g_pGameLevel->IR_OnKeyboardRelease(dik);
-		}		
+		}
 	}
 }
 

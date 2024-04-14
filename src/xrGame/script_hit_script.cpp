@@ -42,5 +42,6 @@ void CScriptHit::script_register(lua_State* L)
 		.def(constructor<>())
 		.def(constructor<const CScriptHit *>())
 		.def("bone", &CScriptHit::set_bone_name)
+		.property("bone", &CScriptHit::get_bone_name, &CScriptHit::set_bone_name)
 	];
 }
