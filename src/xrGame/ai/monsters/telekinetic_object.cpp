@@ -123,10 +123,13 @@ void CTelekineticObject::raise(float step)
 	dir.set(0.f, 1.0f, 0.f);
 
 	float elem_size = float(object->m_pPhysicsShell->Elements().size());
+	// Msg("Object %s has elem_size %.2f", object->Name(), elem_size);
 
 	// Tosox
+	// Clamp elem_size so objects with many elements don't hover to high up in the air
+	// Common physic objects have elem_size 1-2 while bodies have about 11
 	if (g_telekinetic_objects_include_corpses)
-		clamp(elem_size, 1.f, 5.f); // Clamp elem_size so objects with many elements don't hover to high up in the air
+		clamp(elem_size, 1.f, 3.f);
 
 	dir.mul(elem_size * elem_size * strength);
 
