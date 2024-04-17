@@ -16,8 +16,8 @@
 @if "%1"=="clean" goto :CLEAN
 
 @setlocal
-@set LJCOMPILE=cl /nologo /c /O2 /W3 /fp:precise /MD /GF /GS- /Zi /D_CRT_SECURE_NO_DEPRECATE
-@set LJLINK=link /nologo /debug
+@set LJCOMPILE=cl /nologo /c /O2 /Ob3 /Oi /Ot /Oy /GT /W3 /fp:precise /MD /GF /GS- /Zi /D_CRT_SECURE_NO_DEPRECATE
+@set LJLINK=link /nologo /debug /OPT:REF /OPT:ICF
 @set LJMT=mt /nologo
 @set LJLIB=lib /nologo
 @set DASMDIR=..\dynasm
