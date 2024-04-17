@@ -189,6 +189,7 @@ bool CPolterTele::trace_object(CObject* obj, const Fvector& target)
 	return false;
 }
 
+extern BOOL g_telekinetic_objects_include_corpses;
 void CPolterTele::tele_find_objects(xr_vector<CObject*>& objects, const Fvector& pos)
 {
 	m_nearest.clear_not_free();
@@ -202,7 +203,7 @@ void CPolterTele::tele_find_objects(xr_vector<CObject*>& objects, const Fvector&
 		if (!obj ||
 			!obj->PPhysicsShell() ||
 			!obj->PPhysicsShell()->isActive() ||
-			custom_monster ||
+			custom_monster && (!g_telekinetic_objects_include_corpses || custom_monster->g_Alive()) ||
 			(obj->spawn_ini() && obj->spawn_ini()->section_exist("ph_heavy")) ||
 			(obj->m_pPhysicsShell->getMass() < m_pmt_object_min_mass) ||
 			(obj->m_pPhysicsShell->getMass() > m_pmt_object_max_mass) ||

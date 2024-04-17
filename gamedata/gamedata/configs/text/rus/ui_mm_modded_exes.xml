@@ -118,4 +118,8 @@
 	<string id="ui_mm_modded_exes_freelook_cam_limit">
 		<text>Угол свободного обзора (freelook_cam_limit)</text>
 	</string>
+
+	<string id="ui_mm_modded_exes_telekinetic_objects_include_corpses">
+		<text>Полтергейсты и бюреры бросают трупы (telekinetic_objects_include_corpses)</text>
+	</string>
 </string_table>

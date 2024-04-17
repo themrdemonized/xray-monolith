@@ -9,6 +9,8 @@
         crash_save_count [0; 20] // Crash saves max number
 
         pseudogiant_can_damage_objects_on_stomp [0; 1] // Enable the ability for pseudogiants to damage objects on stomp
+
+        telekinetic_objects_include_corpses [0; 1] // Enable the ability for poltergeists and burers to throw corpses
         
         sds_enable [0; 1] // Enable shader based scopes
         sds_speed_enable [0; 1] // Enable mouse sensitivity change on zooming

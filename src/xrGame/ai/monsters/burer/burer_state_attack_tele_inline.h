@@ -5,6 +5,8 @@
 #define GOOD_DISTANCE_FOR_TELE	15.f
 #define MAX_TIME_CHECK_FAILURE	6000
 
+BOOL g_telekinetic_objects_include_corpses = 0;
+
 template <typename Object>
 CStateBurerAttackTele<Object>::CStateBurerAttackTele(Object* obj) : inherited(obj), m_action()
 {
@@ -208,7 +210,7 @@ void CStateBurerAttackTele<Object>::FindFreeObjects(xr_vector<CObject*>& tpObjec
 			!obj ||
 			!obj->PPhysicsShell() ||
 			!obj->PPhysicsShell()->isActive() ||
-			custom_monster ||
+			custom_monster && (!g_telekinetic_objects_include_corpses || custom_monster->g_Alive()) ||
 			(obj->spawn_ini() && obj->spawn_ini()->section_exist("ph_heavy")) ||
 			(obj->m_pPhysicsShell->getMass() < object->m_tele_object_min_mass) ||
 			(obj->m_pPhysicsShell->getMass() > object->m_tele_object_max_mass) ||
