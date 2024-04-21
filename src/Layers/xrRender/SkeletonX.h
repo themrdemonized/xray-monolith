@@ -100,6 +100,18 @@ protected:
 public:
 	BOOL has_visible_bones();
 
+	//--DSR-- SilencerOverheat_start
+	BOOL has_bone_id(u16 bone_id)
+	{
+		for (u32 it = 0; it < BonesUsed.size(); it++)
+			if (BonesUsed[it] == bone_id)
+			{
+				return TRUE;
+			}
+		return FALSE;
+	}
+	//--DSR-- SilencerOverheat_end
+
 	CSkeletonX()
 	{
 		Parent = 0;

@@ -242,11 +242,15 @@ public:
 		//o_hemi						= 0.5f*LT.get_hemi			()	;
 		o_sun = 0.75f * LT.get_sun();
 		//--DSR-- HeatVision_start
-		RCache.hemi.set_hotness(O->GetHotness(), O->GetTransparency(), 0.f, 0.f);
+		RCache.hemi.set_hotness(O->GetHotness(), O->GetTransparency(), 0.f, 0.f);			//--DSR-- HeatVision
+		RCache.hemi.set_glowing(															//--DSR-- SilencerOverheat
+			sil_glow_color.x, 
+			sil_glow_color.y,
+			sil_glow_color.z, O->GetGlowing());
 		//--DSR-- HeatVision_end
 		CopyMemory(o_hemi_cube, LT.get_hemi_cube(), CROS_impl::NUM_FACES*sizeof(float));
 	}
-
+	
 	IC void apply_lmaterial()
 	{
 		R_constant* C = &*RCache.get_c(c_sbase); // get sampler
@@ -259,8 +263,10 @@ public:
 #ifdef	DEBUG
         if (ps_r2_ls_flags.test(R2FLAG_GLOBALMATERIAL))	mtl=ps_r2_gmaterial;
 #endif
-		if (!(T && T->m_is_hot))
+		if (!(T && T->m_is_hot))										//--DSR-- HeatVision
 			RCache.hemi.set_hotness(0.f, 0.f, 0.f, 0.f);
+		if (!(T && T->m_is_glowing))									//--DSR-- SilencerOverheat
+			RCache.hemi.set_glowing(0.f, 0.f, 0.f, 0.f);
 
 		RCache.hemi.set_material(o_hemi, o_sun, 0, (mtl < 5 ? (mtl + .5f) / 4.f : mtl));
 		RCache.hemi.set_pos_faces(o_hemi_cube[CROS_impl::CUBE_FACE_POS_X],

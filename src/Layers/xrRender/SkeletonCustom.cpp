@@ -333,6 +333,32 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 	LL_Validate();
 }
 
+//--DSR-- SilencerOverheat_start
+IRenderVisual* CKinematics::GetVisualByBone(u16 bone_id)
+{
+	for (u32 it = 0; it < children.size(); it++)
+	{
+		IRenderVisual* child = children[it];
+		CSkeletonX* childSkel = smart_cast<CSkeletonX*>(child);
+		if (childSkel->has_bone_id(bone_id))
+		{
+			return child;
+		}
+	}
+	return 0;
+}
+
+IRenderVisual* CKinematics::GetVisualByBone(LPCSTR bone_name)
+{
+	u16 bone_id = LL_BoneID(bone_name);
+	if (bone_id != BI_NONE)
+	{
+		return GetVisualByBone(bone_id);
+	}
+	return 0;
+}
+//--DSR-- SilencerOverheat_end
+
 IC void iBuildGroups(CBoneData* B, U16Vec& tgt, u16 id, u16& last_id)
 {
 	if (B->IK_data.ik_flags.is(SJointIKData::flBreakable)) id = ++last_id;

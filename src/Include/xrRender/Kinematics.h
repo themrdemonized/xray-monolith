@@ -70,6 +70,11 @@ public:
 	virtual u64 _BCL LL_GetBonesVisible() = 0;
 	virtual void LL_SetBonesVisible(u64 mask) = 0;
 
+	//--DSR-- SilencerOverheat_start
+	virtual IRenderVisual* GetVisualByBone(u16 bone_id) = 0;
+	virtual IRenderVisual* GetVisualByBone(LPCSTR bone_name) = 0;
+	//--DSR-- SilencerOverheat_end
+
 	// Main functionality
 	virtual void CalculateBones(BOOL bForceExact = FALSE) = 0; // Recalculate skeleton
 	virtual void CalculateBones_Invalidate() = 0;

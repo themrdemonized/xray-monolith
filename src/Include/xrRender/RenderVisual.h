@@ -25,9 +25,8 @@ public:
 	virtual shared_str	_BCL	getDebugName() = 0;
 #endif
 
-	//--DSR-- HeatVision_start
-	virtual void MarkAsHot(bool is_hot) {};
-	//--DSR-- HeatVision_end
+	virtual void MarkAsHot(bool is_hot) {};				//--DSR-- HeatVision
+	virtual void MarkAsGlowing(bool is_glowing) {};		//--DSR-- SilencerOverheat
 
 	virtual IKinematics* _BCL dcast_PKinematics() { return 0; }
 	virtual IKinematicsAnimated* dcast_PKinematicsAnimated() { return 0; }

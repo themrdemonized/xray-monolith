@@ -258,6 +258,17 @@ Fvector ps_r2_drops_control = {.0f, 1.15f, .0f}; // r2-only
 
 int ps_r2_nightvision = 0;
 
+//--DSR-- SilencerOverheat_start
+float sil_glow_max_temp = 0.15f;				// Max possible weapon temperature
+float sil_glow_shot_temp = 0.004f;				// Temperature added on 1 successful shot
+float sil_glow_cool_temp_rate = 0.01f;			// Temperature removed after 1 second
+Fvector sil_glow_color = { 1.f, .0f, .0f };	// Color of max temperature
+//--DSR-- SilencerOverheat_end
+
+Fvector dsr_test = { 0.f, 0.f, 0.f };
+Fvector dsr_test1 = { 0.f, 0.f, 0.f };
+Fvector dsr_test2 = { 0.f, 0.f, 0.f };
+
 //--DSR-- HeatVision_start
 int ps_r2_heatvision = 0;			// heatvision shader ON/OFF
 float heat_vision_mode = 0.0f;		// heatvision mode - rgb/greyscale
@@ -1226,6 +1237,17 @@ void xrRender_initconsole()
 	
 	CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
 	CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
+
+	//--DSR-- SilencerOverheat_start
+	CMD4(CCC_Float, "sil_glow_max_temp", &sil_glow_max_temp, 0.f, 1.f);
+	CMD4(CCC_Float, "sil_glow_shot_temp", &sil_glow_shot_temp, 0.f, 1.f);
+	CMD4(CCC_Float, "sil_glow_cool_temp_rate", &sil_glow_cool_temp_rate, 0.f, 1.f);
+	CMD4(CCC_Vector3, "sil_glow_color", &sil_glow_color, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+	//--DRS-- SilencerOverheat_end
+
+	CMD4(CCC_Vector3, "dsr_test", &dsr_test, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
+	CMD4(CCC_Vector3, "dsr_test1", &dsr_test1, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
+	CMD4(CCC_Vector3, "dsr_test2", &dsr_test2, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
 
 	//--DSR-- HeatVision_start
 	CMD4(CCC_Integer, "heat_vision_cooldown",	&heat_vision_cooldown, 0, 1);
