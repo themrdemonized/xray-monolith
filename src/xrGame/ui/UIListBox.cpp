@@ -16,6 +16,8 @@ CUIListBox::CUIListBox()
 
 	SetFixedScrollBar(false);
 	InitScrollView();
+
+	bComplexMode = false;
 }
 
 void CUIListBox::SetSelectionTexture(LPCSTR texture)
@@ -69,6 +71,10 @@ CUIListBoxItem* CUIListBox::AddItem()
 	item->SetFont(GetFont());
 	item->SetSelected(false);
 	item->SetMessageTarget(this);
+
+	// demonized: complex mode support for item list
+	item->GetTextItem()->TextItemControl().SetTextComplexMode(bComplexMode);
+
 	AddWindow(item, true);
 	return item;
 }

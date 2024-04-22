@@ -1235,6 +1235,10 @@ bool CUIXmlInit::InitListBox(CUIXml& xml_doc, LPCSTR path, int index, CUIListBox
 
 	float h = xml_doc.ReadAttribFlt(path, index, "item_height", 20.0f);
 	pWnd->SetItemHeight(h);
+
+	// demonized: complex mode support for item list
+	pWnd->bComplexMode = xml_doc.ReadAttribInt("properties_box:list", 0, "complex_mode", 0);
+
 	return true;
 }
 
