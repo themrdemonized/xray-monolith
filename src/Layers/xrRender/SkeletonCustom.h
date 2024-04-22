@@ -152,6 +152,11 @@ protected:
 	void Visibility_Invalidate() { Update_Visibility = TRUE; };
 	void Visibility_Update();
 
+	//--DSR-- SilencerOverheat_start
+	virtual IRenderVisual* GetVisualByBone(u16 bone_id);
+	virtual IRenderVisual* GetVisualByBone(LPCSTR bone_name);
+	//--DSR-- SilencerOverheat_end
+
 	void LL_Validate();
 public:
 	UpdateCallback Update_Callback;
