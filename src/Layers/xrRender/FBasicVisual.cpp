@@ -78,19 +78,43 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 }
 
 //--DSR-- HeatVision_start
-void dxRender_Visual::MarkAsHot(bool is_hot) {
-	Shader* s = shader._get();
-	if (0 == s) return;
-	ShaderElement* e = s->E[0]._get();
-	if (0 == e || e->passes.empty()) return;
-	SPass* p = e->passes[0]._get();
-	STextureList* l = p->T._get();
-	if (0 == l || l->empty()) return;
-	CTexture* t = l->at(0).second._get();
-	if (t)
-		t->m_is_hot = is_hot;
+CTexture* dxRender_Visual::GetTexture()
+{
+	Shader* pSh = shader._get();
+	if (pSh == 0) 
+		return 0;
+
+	ShaderElement* pShE = pSh->E[0]._get();
+	if (pShE == 0 || pShE->passes.empty()) 
+		return 0;
+
+	SPass* pPass = pShE->passes[0]._get();
+	if (pPass == 0)
+		return 0;
+
+	STextureList* pTexList = pPass->T._get();
+	if (pTexList == 0 || pTexList->empty()) 
+		return 0;
+
+	return pTexList->at(0).second._get();
+}
+
+void dxRender_Visual::MarkAsHot(bool is_hot) 
+{
+	auto texture = GetTexture();
+	if (texture)
+		texture->m_is_hot = is_hot;
 }
 //--DSR-- HeatVision_end
+
+//--DSR-- SilencerOverheat_start
+void dxRender_Visual::MarkAsGlowing(bool is_glowing)
+{
+	auto texture = GetTexture();
+	if (texture)
+		texture->m_is_glowing = is_glowing;
+}
+//--DSR-- SilencerOverheat_end
 
 #define PCOPY(a)	a = pFrom->a
 

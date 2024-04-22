@@ -385,6 +385,16 @@ static class markswitch_color : public R_constant_setup
 	}
 }    markswitch_color;
 
+//--DSR-- SilencerOverheat_start
+static class cl_silencer_glowing : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.hemi.set_c_glowing(C);
+	}
+} binder_silencer_glowing;
+//--DSR-- SilencerOverheat_end
+
 //--DSR-- HeatVision_start
 extern float heat_vision_mode;
 extern Fvector4 heat_vision_steps;
@@ -1087,6 +1097,8 @@ void CBlender_Compile::SetMapping()
 		r_Constant(*cs.first, cs.second);
 	}
 
+
+	r_Constant("L_glowing", &binder_silencer_glowing);		//--DSR-- SilencerOverheat
 	//--DSR-- HeatVision_start
 	r_Constant("L_hotness", &binder_heatvision_hotness);
 	r_Constant("heatvision_params1", &binder_heatvision_params1);

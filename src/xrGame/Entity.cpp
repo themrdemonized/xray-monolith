@@ -18,6 +18,9 @@
 #include "alife_simulator.h"
 #include "alife_time_manager.h"
 #include "../Layers/xrRender/xrRender_console.h"
+#include "InventoryOwner.h"
+#include "Inventory.h"
+#include "Weapon.h"
 
 #define BODY_REMOVE_TIME		600000
 
@@ -404,10 +407,9 @@ void CEntity::ChangeTeam(int team, int squad, int group)
 }
 
 //--DSR-- HeatVision_start
-u32 clampU(u32 x, u32 a, u32 b) {
-	if (x < a) return a;
-	else if (x > b) return b;
-	return x;
+static u32 clampU(u32 x, u32 a, u32 b) 
+{
+	return x < a ? a : (x > b ? b : x);
 }
 
 float CEntity::GetHotness() {
@@ -423,3 +425,19 @@ void CEntity::OnChangeVisual()
 		renderable.visual->MarkAsHot(true);
 }
 //--DSR-- HeatVision_end
+
+//--DSR-- SilencerOverheat_start
+float CEntity::GetGlowing() 
+{
+	auto invOwner = smart_cast<CInventoryOwner*>(this);
+	if (invOwner) 
+	{
+		auto weapon = smart_cast<CWeapon*>(invOwner->inventory().ActiveItem());
+		if (weapon)
+		{
+			return weapon->GetGlowing();
+		}
+	}
+	return 0.f;
+}
+//--DSR-- SilencerOverheat_end

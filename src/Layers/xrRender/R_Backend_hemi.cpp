@@ -13,9 +13,8 @@ void R_hemi::unmap()
 	c_pos_faces = 0;
 	c_neg_faces = 0;
 	c_material = 0;
-	//--DSR-- HeatVision_start
-	c_hotness = 0;
-	//--DSR-- HeatVision_end
+	c_hotness = 0; //--DSR-- HeatVision
+	c_glowing = 0; //--DSR-- SilencerOverheat
 }
 
 void R_hemi::set_pos_faces(float posx, float posy, float posz)
@@ -39,3 +38,10 @@ void R_hemi::set_hotness(float x, float y, float z, float w)
 	if (c_hotness) RCache.set_c(c_hotness, x, y, z, w);
 }
 //--DSR-- HeatVision_end
+
+//--DSR-- SilencerOverheat_start
+void R_hemi::set_glowing(float x, float y, float z, float w)
+{
+	if (c_glowing) RCache.set_c(c_glowing, x, y, z, w);
+}
+//--DSR-- SilencerOverheat_end

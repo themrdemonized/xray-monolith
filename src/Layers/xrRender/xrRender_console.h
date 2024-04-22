@@ -167,6 +167,17 @@ extern ECORE_API float ps_r2_ss_sunshafts_length;
 extern ECORE_API float ps_r2_ss_sunshafts_radius;
 extern u32 ps_sunshafts_mode;
 
+//--DSR-- SilencerOverheat_start
+extern ECORE_API float sil_glow_max_temp;
+extern ECORE_API float sil_glow_shot_temp;
+extern ECORE_API float sil_glow_cool_temp_rate;
+extern ECORE_API Fvector sil_glow_color;
+//--DSR-- SilencerOverheat_end
+
+extern ECORE_API Fvector dsr_test;
+extern ECORE_API Fvector dsr_test1;
+extern ECORE_API Fvector dsr_test2;
+
 extern ECORE_API float ps_r2_tnmp_a; // r2-only
 extern ECORE_API float ps_r2_tnmp_b; // r2-only
 extern ECORE_API float ps_r2_tnmp_c; // r2-only

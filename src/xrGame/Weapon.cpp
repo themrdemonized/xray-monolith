@@ -34,6 +34,7 @@
 #include "HUDManager.h"
 #include "WeaponMagazinedWGrenade.h"
 #include "../xrEngine/GameMtlLib.h"
+#include "../Layers/xrRender/xrRender_console.h"
 
 #define WEAPON_REMOVE_TIME		60000
 #define ROTATION_TIME			0.25f
@@ -150,6 +151,7 @@ CWeapon::CWeapon()
 	bHasBulletsToHide = false;
 	bullet_cnt = 0;
 	IsCustomReloadAvaible = false;
+	temperature = 0.f;	//--DSR-- SilencerOverheat
 }
 
 extern int scope_2dtexactive; //crookr
@@ -733,6 +735,19 @@ void CWeapon::Load(LPCSTR section)
 	m_safemode_anm[1].power = READ_IF_EXISTS(pSettings, r_float, *hud_sect, "safemode_anm_power2", 1.f);
 
 	m_shoot_shake_mat.identity();
+
+	//--DSR-- SilencerOverheat_start
+	if (m_eSilencerStatus == ALife::eAddonAttachable)
+	{
+		auto kinematics = smart_cast<IKinematics*>(renderable.visual);
+		if (kinematics)
+		{
+			auto visual = kinematics->GetVisualByBone("wpn_silencer");
+			if (visual)
+				visual->MarkAsGlowing(true);
+		}
+	}
+	//--DSR-- SilencerOverheat_end
 }
 
 // demonized: World model on stalkers adjustments
@@ -975,12 +990,12 @@ void CWeapon::OnEvent(NET_Packet& P, u16 type)
 
 void CWeapon::shedule_Update(u32 dT)
 {
-	// Queue shrink
-	//	u32	dwTimeCL		= Level().timeServer()-NET_Latency;
-	//	while ((NET.size()>2) && (NET[1].dwTimeStamp<dwTimeCL)) NET.pop_front();
-
-	// Inherited
 	inherited::shedule_Update(dT);
+	//--DSR-- SilencerOverheat_start
+	temperature -= (float)dT / 1000.f * sil_glow_cool_temp_rate;
+	if (temperature < 0.f)
+		temperature = 0.f;
+	//--DSR-- SilencerOverheat_end
 }
 
 void CWeapon::OnH_B_Independent(bool just_before_destroy)
