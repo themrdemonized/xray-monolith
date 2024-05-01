@@ -267,6 +267,8 @@
         function set_actor_run_strafe_coef(float)
         function get_actor_sprint_strafe_coef()
         function set_actor_sprint_strafe_coef(float)
+        function update_weight()
+        function get_total_weight_force_update()
 
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()

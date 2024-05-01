@@ -1057,6 +1057,11 @@ public:
 	float GetAdditionalMaxWalkWeight() const;
 	void SetAdditionalMaxWalkWeight(float add_max_walk_weight);
 	float GetTotalWeight() const;
+
+	// demonized: force update of weight
+	float GetTotalWeightForceUpdate() const;
+	void UpdateWeight() const;
+
 	float Weight() const;
 
 	float GetActorJumpSpeed() const;
