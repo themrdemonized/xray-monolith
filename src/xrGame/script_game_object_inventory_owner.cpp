@@ -2369,6 +2369,32 @@ float CScriptGameObject::GetTotalWeight() const
 	return (inventory_owner->inventory().TotalWeight());
 }
 
+// demonized: force update of weight
+void CScriptGameObject::UpdateWeight() const
+{
+	CInventoryOwner* inventory_owner = smart_cast<CInventoryOwner*>(&object());
+	if (!inventory_owner)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CInventoryOwner : cannot access class member GetTotalWeightForceUpdate!");
+		return;
+	}
+	inventory_owner->inventory().CalcTotalWeight();
+}
+
+float CScriptGameObject::GetTotalWeightForceUpdate() const
+{
+	CInventoryOwner* inventory_owner = smart_cast<CInventoryOwner*>(&object());
+	if (!inventory_owner)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CInventoryOwner : cannot access class member GetTotalWeightForceUpdate!");
+		return (false);
+	}
+	inventory_owner->inventory().CalcTotalWeight();
+	return (inventory_owner->inventory().TotalWeight());
+}
+
 // получить вес предмета
 float CScriptGameObject::Weight() const
 {

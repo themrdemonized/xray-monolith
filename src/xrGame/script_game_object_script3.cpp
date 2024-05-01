@@ -562,6 +562,11 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("get_additional_max_walk_weight", &CScriptGameObject::GetAdditionalMaxWalkWeight)
 		.def("set_additional_max_walk_weight", &CScriptGameObject::SetAdditionalMaxWalkWeight)
 		.def("get_total_weight", &CScriptGameObject::GetTotalWeight)
+
+		// demonized: force update of weight
+		.def("update_weight", &CScriptGameObject::UpdateWeight)
+		.def("get_total_weight_force_update", &CScriptGameObject::GetTotalWeightForceUpdate)
+
 		.def("weight", &CScriptGameObject::Weight)
 
 		.def("get_actor_jump_speed", &CScriptGameObject::GetActorJumpSpeed)
