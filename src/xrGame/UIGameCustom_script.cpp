@@ -29,6 +29,7 @@ void CUIGameCustom::script_register(lua_State* L)
 		.def("UpdateActorMenu", &CUIGameCustom::UpdateActorMenu)
 		.def("CurrentItemAtCell", &CUIGameCustom::CurrentItemAtCell)
 		//-Alundaio
+		.def("GetWindow", &CUIGameCustom::GetWindow)	//--DSR--
 		.def("HidePdaMenu", &CUIGameCustom::HidePdaMenu)
 		.def("show_messages", &CUIGameCustom::ShowMessagesWindow)
 		.def("hide_messages", &CUIGameCustom::HideMessagesWindow)
