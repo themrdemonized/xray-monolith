@@ -120,6 +120,8 @@ public:
 	void ShowCrosshair(bool show) { psHUD_Flags.set(HUD_CROSSHAIR_RT, show); }
 	bool CrosshairShown() { return !!psHUD_Flags.test(HUD_CROSSHAIR_RT); }
 
+	CUIWindow* GetWindow() { return Window; }
+
 	virtual void HideShownDialogs()
 	{
 	}
