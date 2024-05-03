@@ -87,6 +87,12 @@
         bool dltx_is_override(string sec, string line)
     }
 
+    // UI hud
+    // get_hud():GetWindow()
+    get_hud() {
+        CUIWindow GetWindow()
+    }
+
     // Player hud
     // get_player_hud():set_hands("actor_hud_cs_exo")
     globals {
