@@ -1671,7 +1671,28 @@ public:
 		IConsole_Command::fill_tips(tips, mode);
 	}
 };
+class CCC_FreezeTime : public IConsole_Command
+{
+public:
+	CCC_FreezeTime(LPCSTR N) : IConsole_Command(N)
+	{
+	}
 
+	virtual void Execute(LPCSTR args)
+	{
+		float time_factor;
+		if (EQ(args, "on") || EQ(args, "1"))
+			time_factor = 1;
+
+		if (EQ(args, "off") || EQ(args, "0"))
+			time_factor = 0;
+
+		if (!time_factor)
+			return;
+
+		Device.time_factor(time_factor);
+	}
+};
 class CCC_TimeFactor : public IConsole_Command
 {
 public:
@@ -2432,6 +2453,7 @@ void CCC_RegisterCommands()
 	/* AVO: end */
 
 	CMD1(CCC_TimeFactor, "time_factor");
+	CMD1(CCC_FreezeTime, "freeze_time");
 	CMD3(CCC_Mask, "g_use_tracers", &psActorFlags, AF_USE_TRACERS);
 	CMD3(CCC_Mask, "g_autopickup", &psActorFlags, AF_AUTOPICKUP);
 	CMD3(CCC_Mask, "g_dynamic_music", &psActorFlags, AF_DYNAMIC_MUSIC);
