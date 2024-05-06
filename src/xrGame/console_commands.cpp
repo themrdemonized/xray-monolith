@@ -1681,16 +1681,29 @@ public:
 	virtual void Execute(LPCSTR args)
 	{
 		float time_factor;
-		if (EQ(args, "on") || EQ(args, "1"))
-			time_factor = 1;
+		bool isSet = false;
 
-		if (EQ(args, "off") || EQ(args, "0"))
-			time_factor = 0;
+		if (EQ(args, "off") || EQ(args, "0")) {
+			time_factor = 1.0f;
+			isSet = true;
+		}
 
-		if (!time_factor)
+		if (EQ(args, "on") || EQ(args, "1")) {
+			time_factor = 0.0f;
+			isSet = true;
+		}
+
+		if (!isSet) {
+			Msg("requires parameter [on,off]");
 			return;
+		}
 
 		Device.time_factor(time_factor);
+	}
+
+		virtual void Info(TInfo& I)
+	{
+		xr_strcpy(I, "[on,off] or [1,0]");
 	}
 };
 class CCC_TimeFactor : public IConsole_Command
