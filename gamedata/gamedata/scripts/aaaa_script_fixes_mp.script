@@ -58,6 +58,21 @@ _G.CHudItem__PlayHUDMotion = function(anm_table, obj, owner)
 	return anm_table
 end
 
+-- item_device and itms_manager faulty callbacks with flags
+item_device_on_anomaly_touch = item_device.on_anomaly_touch
+item_device.on_anomaly_touch = function(obj, flags)
+	if flags.ret_value then
+		item_device_on_anomaly_touch(obj, flags)
+	end
+end
+
+itms_manager_actor_on_item_before_use = itms_manager.actor_on_item_before_use
+itms_manager.actor_on_item_before_use = function(obj, flags)
+	if flags.ret_value then
+		itms_manager_actor_on_item_before_use(obj, flags)
+	end
+end
+
 -- Disable caching of ini values to utilize engine functions and reduce memory footprint
 _G.USE_INI_MEMOIZE = false
 clear_ini_cache(ini_sys)
