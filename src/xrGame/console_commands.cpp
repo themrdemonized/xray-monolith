@@ -1671,7 +1671,41 @@ public:
 		IConsole_Command::fill_tips(tips, mode);
 	}
 };
+class CCC_FreezeTime : public IConsole_Command
+{
+public:
+	CCC_FreezeTime(LPCSTR N) : IConsole_Command(N)
+	{
+	}
 
+	virtual void Execute(LPCSTR args)
+	{
+		float time_factor;
+		bool isSet = false;
+
+		if (EQ(args, "off") || EQ(args, "0")) {
+			time_factor = 1.0f;
+			isSet = true;
+		}
+
+		if (EQ(args, "on") || EQ(args, "1")) {
+			time_factor = 0.0f;
+			isSet = true;
+		}
+
+		if (!isSet) {
+			Msg("requires parameter [on,off]");
+			return;
+		}
+
+		Device.time_factor(time_factor);
+	}
+
+		virtual void Info(TInfo& I)
+	{
+		xr_strcpy(I, "[on,off] or [1,0]");
+	}
+};
 class CCC_TimeFactor : public IConsole_Command
 {
 public:
@@ -2432,6 +2466,7 @@ void CCC_RegisterCommands()
 	/* AVO: end */
 
 	CMD1(CCC_TimeFactor, "time_factor");
+	CMD1(CCC_FreezeTime, "freeze_time");
 	CMD3(CCC_Mask, "g_use_tracers", &psActorFlags, AF_USE_TRACERS);
 	CMD3(CCC_Mask, "g_autopickup", &psActorFlags, AF_AUTOPICKUP);
 	CMD3(CCC_Mask, "g_dynamic_music", &psActorFlags, AF_DYNAMIC_MUSIC);
