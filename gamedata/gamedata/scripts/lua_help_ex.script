@@ -67,6 +67,7 @@
 
     globals {
         int get_modded_exes_version() // Returns modded exes version in integer format
+        table get_string_table() // Returns all translated strings in [string id] = string text format 
     }
 
     namespace alife() {

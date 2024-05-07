@@ -9,6 +9,10 @@
 #include "pch_script.h"
 #include "script_ini_file.h"
 
+#include "string_table.h"
+#include "script_engine.h"
+#include "ai_space.h"
+
 using namespace luabind;
 
 CScriptIniFile* get_system_ini()
@@ -119,6 +123,20 @@ int get_modded_exes_version() {
 	return result;
 }
 
+luabind::object get_string_table() {
+	auto pData = CStringTable::getPData();
+	luabind::object table = luabind::newtable(ai().script_engine().lua());
+	if (!pData) {
+		return table;
+	}
+
+	for (const auto& v : pData->m_StringTable) {
+		table[v.first.c_str()] = v.second.c_str();
+	}
+	
+	return table;
+}
+
 #pragma optimize("s",on)
 void CScriptIniFile::script_register(lua_State* L)
 {
@@ -189,6 +207,9 @@ void CScriptIniFile::script_register(lua_State* L)
 		def("create_ini_file", &create_ini_file, adopt(result)),
 
 		// demonized: get modded exes version
-		def("get_modded_exes_version", &get_modded_exes_version)
+		def("get_modded_exes_version", &get_modded_exes_version),
+
+		// demonized: get translation strings table
+		def("get_string_table", &get_string_table)
 	];
 }

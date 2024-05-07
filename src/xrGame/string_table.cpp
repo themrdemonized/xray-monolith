@@ -28,6 +28,11 @@ void CStringTable::rescan()
 	Init();
 }
 
+STRING_TABLE_DATA* CStringTable::getPData()
+{
+	return pData;
+}
+
 extern void refresh_npc_names();
 
 // demonized: use english text if locale text string is missing
