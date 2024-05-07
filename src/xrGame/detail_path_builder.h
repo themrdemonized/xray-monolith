@@ -59,7 +59,7 @@ public:
 
 	void __stdcall process()
 	{
-		process_impl();
+		process_impl(true);
 	}
 
 	IC void remove()

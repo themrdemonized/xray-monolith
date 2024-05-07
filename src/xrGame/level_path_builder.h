@@ -29,8 +29,8 @@ private:
 private:
 	enum
 	{
-		time_to_wait_after_fail_min = u32(1500),
-		time_to_wait_after_fail_max = u32(2500),
+		time_to_wait_after_fail_min = u32(1000),
+		time_to_wait_after_fail_max = u32(1500),
 	};
 
 public:
@@ -73,14 +73,15 @@ public:
 
 	void register_to_process()
 	{
-		m_object->m_wait_for_distributed_computation = true;
+		// demonized: Move next_retry_time check above m_object->m_wait_for_distributed_computation set to fix never resetting flag leading to stuck monsters
 		if (Device.dwTimeGlobal < m_next_retry_time)
 			return;
 
+		m_object->m_wait_for_distributed_computation = true;
 		Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(this, &CLevelPathBuilder::process));
 	}
 
-	void process_impl()
+	void process_impl(bool separate_compute = false)
 	{
 		m_object->m_wait_for_distributed_computation = false;
 		m_object->level_path().build_path(m_start_vertex_id, m_dest_vertex_id);
@@ -106,15 +107,16 @@ public:
 			m_object->detail().set_dest_position(*m_precise_position);
 
 		inherited::setup(m_object->level_path().path(), m_object->level_path().intermediate_index());
-		inherited::process_impl(false);
+		inherited::process_impl(separate_compute);
 	}
 
 	void __stdcall process()
 	{
-		if (Device.dwTimeGlobal < m_next_retry_time)
-			return;
+		// demonized: disable the check since we already do it in register_to_process
+		/*if (Device.dwTimeGlobal < m_next_retry_time)
+			return;*/
 
-		m_object->build_level_path();
+		m_object->build_level_path(true);
 	}
 
 	IC void remove()

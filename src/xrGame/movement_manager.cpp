@@ -413,11 +413,11 @@ CMovementManager::CLevelPathManager::PATH& CMovementManager::level_path_path()
 	return (level_path().m_path);
 }
 
-void CMovementManager::build_level_path()
+void CMovementManager::build_level_path(bool separate_compute)
 {
 	//	CTimer								timer;
 	//	timer.Start							();
-	level_path_builder().process_impl();
+	level_path_builder().process_impl(separate_compute);
 	//	static int i=0;
 	//	Msg									("[%6d][%6d][%4d][%f] build_level_path",Device.dwTimeGlobal,Device.dwFrame,++i,timer.GetElapsed_sec()*1000.f);
 }

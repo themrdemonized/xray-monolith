@@ -31,6 +31,7 @@ public:
 	static BOOL m_bWriteErrorsToLog;
 	static void ReparseKeyBindings();
 	void ReloadLanguage();
+	static STRING_TABLE_DATA* getPData();
 private:
 	void Init();
 	void Load(LPCSTR xml_file, LPCSTR lang = 0);
