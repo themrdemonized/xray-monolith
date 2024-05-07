@@ -286,7 +286,7 @@ protected:
 	xr_vector<u32>& level_path_path();
 
 public:
-	virtual void build_level_path();
+	virtual void build_level_path(bool separate_compute = false);
 
 private:
 	void show_game_path_info();
