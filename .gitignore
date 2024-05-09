@@ -26,4 +26,3 @@ src/3rd party/luajit-2/src/lj_libdef.h
 src/3rd party/luajit-2/src/lj_recdef.h
 src/3rd party/luajit-2/src/host/buildvm_arch.h
 src/3rd party/luajit-2/src/jit/vmdef.lua
-src/batch_build — копия.bat
