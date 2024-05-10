@@ -1,4 +1,4 @@
-// Explosive.cpp: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+// Explosive.cpp: интерфейс для взврывающихся объектов
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -11,7 +11,7 @@
 //#include "PSObject.h"
 #include "ParticlesObject.h"
 
-//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//для вызова статических функций поражения осколками
 #include "Weapon.h"
 
 #include "actor.h"
@@ -118,20 +118,14 @@ void CExplosive::Load(CInifile const* ini, LPCSTR section)
 	m_fLightRange = ini->r_float(section, "light_range");
 	m_fLightTime = ini->r_float(section, "light_time");
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//трассы для разлета осколков
 	m_fFragmentSpeed = ini->r_float(section, "fragment_speed");
 
 	m_layered_sounds.LoadSound(ini, section, "snd_explode", "sndExplode", false, m_eSoundExplode);
 
 	m_fExplodeDurationMax = ini->r_float(section, "explode_duration");
-	if( ini->line_exist(section,"explode_effector_sect_name") )
-	{
-		effector.effect_sect_name = ini->r_string(section, "explode_effector_sect_name");
-	}
-	else
-	{
-		effector.effect_sect_name = ini->r_string("explode_effector", "effect_sect_name");
-	}
+
+	effector.effect_sect_name = ini->r_string("explode_effector", "effect_sect_name");
 	//	if( ini->line_exist(section,"wallmark_section") )
 	//	{
 	m_wallmark_manager.m_owner = cast_game_object();
@@ -184,7 +178,7 @@ struct SExpQParams
 	float shoot_factor;
 };
 
-//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ" пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//проверка на попадание "осколком" по объекту
 ICF static BOOL grenade_hit_callback(collide::rq_result& result, LPVOID params)
 {
 	SExpQParams& ep = *(SExpQParams*)params;
@@ -200,7 +194,7 @@ ICF static BOOL grenade_hit_callback(collide::rq_result& result, LPVOID params)
 	}
 	else
 	{
-		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		//получить треугольник и узнать его материал
 		CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
 		mtl_idx = T->material;
 	}
@@ -354,11 +348,11 @@ void CExplosive::Explode()
 	
 	//	Msg("---------CExplosive Explode [%d] frame[%d]",cast_game_object()->ID(), Device.dwFrame);
 	OnBeforeExplosion();
-	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//играем звук взрыва
 
 	m_layered_sounds.PlaySound("sndExplode", pos, smart_cast<CObject*>(this), false, false, (u8)-1);
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//показываем эффекты
 
 	m_wallmark_manager.PlaceWallmarks(pos);
 
@@ -377,14 +371,14 @@ void CExplosive::Explode()
 	pStaticPG->UpdateParent(explode_matrix, vel);
 	pStaticPG->Play(false);
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//включаем подсветку от взрыва
 	StartLight();
 
 	//trace frags
 	Fvector frag_dir;
 
 	//////////////////////////////
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//осколки
 	//////////////////////////////
 	//-------------------------------------
 	bool SendHits = false;
@@ -416,7 +410,7 @@ void CExplosive::Explode()
 	if (cast_game_object()->Remote()) return;
 
 	/////////////////////////////////
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	//взрывная волна
 	////////////////////////////////
 	//---------------------------------------------------------------------
 	xr_vector<ISpatial*> ISpatialResult;
@@ -454,9 +448,7 @@ void CExplosive::Explode()
 		float dist_to_actor = pActor->Position().distance_to(pos);
 		float max_dist = EFFECTOR_RADIUS;
 		if (dist_to_actor < max_dist)
-			if (effector.effect_sect_name != "$no_effector"){
-				AddEffector(pActor, effExplodeHit, effector.effect_sect_name, (max_dist - dist_to_actor) / max_dist);
-			}
+			AddEffector(pActor, effExplodeHit, effector.effect_sect_name, (max_dist - dist_to_actor) / max_dist);
 	}
 }
 
@@ -503,7 +495,7 @@ void CExplosive::UpdateCL()
 		OnAfterExplosion();
 		return;
 	}
-	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//время вышло, убираем объект взрывчатки
 	if (m_fExplodeDuration < 0.f && m_blasted_objects.empty())
 	{
 		m_explosion_flags.set(flExploded,TRUE);
@@ -527,7 +519,7 @@ void CExplosive::UpdateCL()
 		UpdateExplosionPos();
 		UpdateExplosionParticles();
 		ExplodeWaveProcess();
-		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+		//обновить подсветку взрыва
 		if (m_pLight && m_pLight->get_active() && m_fLightTime > 0)
 		{
 			if (m_fExplodeDuration > (m_fExplodeDurationMax - m_fLightTime))
@@ -550,7 +542,7 @@ void CExplosive::OnAfterExplosion()
 		CParticlesObject::Destroy(m_pExpParticle);
 		m_pExpParticle = NULL;
 	}
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
+	//ликвидировать сам объект 
 	if (cast_game_object()->Local()) cast_game_object()->DestroyObject();
 
 	//	NET_Packet			P;
@@ -647,8 +639,8 @@ void CExplosive::FindNormal(Fvector& normal)
 	if (!result || RQ.O)
 	{
 		normal.set(0, 1, 0);
-		//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-		//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
+		//если лежим на статике
+		//найти треугольник и вычислить нормаль по нему
 	}
 	else
 	{
@@ -703,7 +695,7 @@ void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysics
 {
 	Fvector l_goPos;
 	if (l_pGO->Visual()) l_pGO->Center(l_goPos);
-	else return; //пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	else return; //мне непонятно зачем наносить хит от взрыва по объектам не имеющим вижуал - поэтому игнорируем
 
 #ifdef DEBUG
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
@@ -724,8 +716,8 @@ void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysics
 
 		float rmag = _sqrt(m_fUpThrowFactor * m_fUpThrowFactor + 1.f + 2.f * m_fUpThrowFactor * l_dir.y);
 		l_dir.y += m_fUpThrowFactor;
-		//rmag -пїЅпїЅпїЅпїЅпїЅпїЅ l_dir пїЅпїЅпїЅпїЅпїЅ l_dir.y += m_fUpThrowFactor, пїЅпїЅпїЅпїЅпїЅпїЅ=_sqrt(l_dir^2+y^2+2.*(l_dir,y)),y=(0,m_fUpThrowFactor,0) (пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ l_dir =1)
-		l_dir.mul(1.f / rmag); //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		//rmag -модуль l_dir после l_dir.y += m_fUpThrowFactor, модуль=_sqrt(l_dir^2+y^2+2.*(l_dir,y)),y=(0,m_fUpThrowFactor,0) (до этого модуль l_dir =1)
+		l_dir.mul(1.f / rmag); //перенормировка
 		NET_Packet P;
 		SHit HS;
 		HS.GenHeader(GE_HIT, l_pGO->ID()); //		cast_game_object()->u_EventGen		(P,GE_HIT,l_pGO->ID());
