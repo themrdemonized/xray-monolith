@@ -124,8 +124,14 @@ void CExplosive::Load(CInifile const* ini, LPCSTR section)
 	m_layered_sounds.LoadSound(ini, section, "snd_explode", "sndExplode", false, m_eSoundExplode);
 
 	m_fExplodeDurationMax = ini->r_float(section, "explode_duration");
-
-	effector.effect_sect_name = ini->r_string("explode_effector", "effect_sect_name");
+	if( ini->line_exist(section,"explode_effector_sect_name") )
+	{
+		effector.effect_sect_name = ini->r_string(section, "explode_effector_sect_name");
+	}
+	else
+	{
+		effector.effect_sect_name = ini->r_string("explode_effector", "effect_sect_name");
+	}
 	//	if( ini->line_exist(section,"wallmark_section") )
 	//	{
 	m_wallmark_manager.m_owner = cast_game_object();
@@ -448,7 +454,9 @@ void CExplosive::Explode()
 		float dist_to_actor = pActor->Position().distance_to(pos);
 		float max_dist = EFFECTOR_RADIUS;
 		if (dist_to_actor < max_dist)
-			AddEffector(pActor, effExplodeHit, effector.effect_sect_name, (max_dist - dist_to_actor) / max_dist);
+			if (effector.effect_sect_name != "$no_effector"){
+				AddEffector(pActor, effExplodeHit, effector.effect_sect_name, (max_dist - dist_to_actor) / max_dist);
+			}
 	}
 }
 
