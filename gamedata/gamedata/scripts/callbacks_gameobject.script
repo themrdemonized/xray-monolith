@@ -107,6 +107,7 @@ end
 -- Weapons callbacks
 AddScriptCallback("actor_on_weapon_zoom_type_changed")
 
+
 _G.CWeapon_OnSwitchZoomType = function(obj, previous, current)
 	SendScriptCallback("actor_on_weapon_zoom_type_changed", obj, previous, current)
 end
