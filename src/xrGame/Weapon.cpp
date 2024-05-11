@@ -381,6 +381,8 @@ void CWeapon::UpdateUIScope()
 
 void CWeapon::SwitchZoomType()
 {
+    int previous_zoom_type = m_zoomtype;
+
 	if (m_zoomtype == 0 && (m_altAimPos || g_player_hud->m_adjust_mode))
 	{
 		m_zoomtype = 1;
@@ -396,6 +398,12 @@ void CWeapon::SwitchZoomType()
 		m_zoomtype = 0;
         m_zoom_params.m_bUseDynamicZoom = m_zoom_params.m_bUseDynamicZoom_Primary || READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom", false);
 	}
+
+    luabind::functor<void> funct;
+    if (ai().script_engine().functor("_G.CWeapon_OnSwitchZoomType", funct))
+    {
+        funct(this->lua_game_object(), previous_zoom_type, m_zoomtype);
+    }
 
 	UpdateUIScope();
 }
