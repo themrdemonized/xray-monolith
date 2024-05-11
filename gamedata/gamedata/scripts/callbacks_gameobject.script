@@ -104,6 +104,14 @@ _G.CBulletOnRemove = function(bullet)
 	SendScriptCallback("bullet_on_remove", bullet)
 end
 
+-- Weapons callbacks
+AddScriptCallback("actor_on_weapon_zoom_type_changed")
+
+
+_G.CWeapon_OnSwitchZoomType = function(obj, previous, current)
+	SendScriptCallback("actor_on_weapon_zoom_type_changed", obj, previous, current)
+end
+
 -- WIP DONT TOUCH
 -- AddScriptCallback("rocket_on_update")
 -- Called when rocket is flying
