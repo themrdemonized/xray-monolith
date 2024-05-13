@@ -213,7 +213,15 @@ void CWeaponMagazinedWGrenade::PerformSwitchGL()
 {
 	m_bGrenadeMode = !m_bGrenadeMode;
 
+    int previous_zoom_type = m_zoomtype;
+
 	m_zoomtype = m_bGrenadeMode ? 2 : 0;
+
+    luabind::functor<void> funct;
+    if (ai().script_engine().functor("_G.CWeapon_OnSwitchZoomType", funct))
+    {
+        funct(this->lua_game_object(), previous_zoom_type, m_zoomtype);
+    }
 
 	UpdateUIScope();
 
