@@ -12,8 +12,6 @@
 #include "game_base_space.h"
 #include "../xrphysics/MathUtils.h"
 #include "player_hud.h"
-#include "pch_script.h"
-#include "script_game_object.h"
 #include "../build_config_defines.h"
 
 #ifdef DEBUG

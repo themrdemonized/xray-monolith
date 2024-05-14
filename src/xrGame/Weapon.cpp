@@ -35,6 +35,8 @@
 #include "WeaponMagazinedWGrenade.h"
 #include "../xrEngine/GameMtlLib.h"
 #include "../Layers/xrRender/xrRender_console.h"
+#include "pch_script.h"
+#include "script_game_object.h"
 
 #define WEAPON_REMOVE_TIME		60000
 #define ROTATION_TIME			0.25f
