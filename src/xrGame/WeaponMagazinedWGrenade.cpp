@@ -12,7 +12,6 @@
 #include "game_base_space.h"
 #include "../xrphysics/MathUtils.h"
 #include "player_hud.h"
-
 #include "../build_config_defines.h"
 
 #ifdef DEBUG
@@ -213,7 +212,7 @@ void CWeaponMagazinedWGrenade::PerformSwitchGL()
 {
 	m_bGrenadeMode = !m_bGrenadeMode;
 
-	m_zoomtype = m_bGrenadeMode ? 2 : 0;
+    SetZoomType(m_bGrenadeMode ? 2 : 0);
 
 	UpdateUIScope();
 
