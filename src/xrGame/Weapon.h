@@ -515,6 +515,7 @@ protected:
 	virtual void UpdateFireDependencies_internal();
 	void UpdateUIScope();
 	void SwitchZoomType();
+    void SetZoomType(u8 new_zoom_type);
 	float GetHudFov();
 	virtual void UpdatePosition(const Fmatrix& transform); //.
 	virtual void UpdateXForm();
