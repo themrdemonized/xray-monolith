@@ -9,6 +9,13 @@
 #include "actor.h"
 
 
+//предикат для сортировки вектора фраз
+static bool PhraseGoodwillPred(const CPhrase* phrase1, const CPhrase* phrase2)
+{
+    return phrase1->GoodwillLevel() > phrase2->GoodwillLevel();
+}
+
+
 SPhraseDialogData::SPhraseDialogData()
 {
 	m_PhraseGraph.clear();
@@ -361,10 +368,4 @@ bool CPhraseDialog::allIsDummy()
 	}
 
 	return bAllIsDummy;
-}
-
-//предикат для сортировки вектора фраз
-static bool PhraseGoodwillPred(const CPhrase* phrase1, const CPhrase* phrase2)
-{
-    return phrase1->GoodwillLevel() > phrase2->GoodwillLevel();
 }
