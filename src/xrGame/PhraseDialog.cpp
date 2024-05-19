@@ -8,6 +8,7 @@
 #include "script_game_object.h"
 #include "actor.h"
 
+
 SPhraseDialogData::SPhraseDialogData()
 {
 	m_PhraseGraph.clear();
