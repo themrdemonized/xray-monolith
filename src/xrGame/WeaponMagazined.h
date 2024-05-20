@@ -73,6 +73,8 @@ protected:
 	void ResetSilencerKoeffs();
 	void ResetScopeKoeffs();
 
+	bool cycleDownCheck();
+
 	virtual void state_Fire(float dt);
 	virtual void state_Misfire(float dt);
 public:

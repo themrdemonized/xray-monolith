@@ -1093,6 +1093,9 @@ public:
 	void SetActorSprintStrafeCoef(float val);
 
 	void SetCharacterIcon(LPCSTR iconName);
+
+	// demonized: get talking npc
+	CScriptGameObject* get_talking_npc();
 #endif
 	//-Alundaio
 

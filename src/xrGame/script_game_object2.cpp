@@ -713,3 +713,22 @@ void CScriptGameObject::reload_weapon()
 		}
 	}
 }
+
+// demonized: get talking npc
+CScriptGameObject* CScriptGameObject::get_talking_npc() {
+	CInventoryOwner* pInvOwner = smart_cast<CInventoryOwner*>(&object());
+	if (!pInvOwner)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : get_talking_npc works only with CInventoryOwner!");
+		return nullptr;
+	}
+
+	auto* tp = pInvOwner->GetTalkPartner();
+	if (!tp) return nullptr;
+	
+	auto* g_obj = tp->cast_game_object();
+	if (!g_obj) return nullptr;
+
+	return g_obj->lua_game_object();
+}
