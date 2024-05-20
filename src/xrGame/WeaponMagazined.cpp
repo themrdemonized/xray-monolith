@@ -139,7 +139,7 @@ void CWeaponMagazined::Load(LPCSTR section)
 
 	m_sSndShotCurrent = IsSilencerAttached() ? "sndSilencerShot" : "sndShot";
 
-	//çâóêè è ïàðòèêëû ãëóøèòåëÿ, åñëèò òàêîé åñòü
+	//звуки и партиклы глушителя, еслит такой есть
 	if (m_eSilencerStatus == ALife::eAddonAttachable || m_eSilencerStatus == ALife::eAddonPermanent)
 	{
 		if (pSettings->line_exist(section, "silencer_flame_particles"))
@@ -460,7 +460,7 @@ void CWeaponMagazined::ReloadMagazine()
 	m_needReload = false;
 	m_BriefInfo_CalcFrame = 0;
 
-	//óñòðàíèòü îñå÷êó ïðè ïåðåçàðÿäêå
+	//устранить осечку при перезарядке
 	if (IsMisfire())
 	{
 		bMisfire = false;
@@ -494,14 +494,14 @@ void CWeaponMagazined::ReloadMagazine()
 		if (!tmp_sect_name)
 			return;
 
-		//ïîïûòàòüñÿ íàéòè â èíâåíòàðå ïàòðîíû òåêóùåãî òèïà
+		//попытаться найти в инвентаре патроны текущего типа
 		m_pCurrentAmmo = smart_cast<CWeaponAmmo*>(m_pInventory->GetAny(tmp_sect_name));
 
 		if (!m_pCurrentAmmo && !m_bLockType && iAmmoElapsed == 0)
 		{
 			for (u8 i = 0; i < u8(m_ammoTypes.size()); ++i)
 			{
-				//ïðîâåðèòü ïàòðîíû âñåõ ïîäõîäÿùèõ òèïîâ
+				//проверить патроны всех подходящих типов
 				m_pCurrentAmmo = smart_cast<CWeaponAmmo*>(m_pInventory->GetAny(m_ammoTypes[i].c_str()));
 				if (m_pCurrentAmmo)
 				{
@@ -512,10 +512,10 @@ void CWeaponMagazined::ReloadMagazine()
 		}
 	}
 
-	//íåò ïàòðîíîâ äëÿ ïåðåçàðÿäêè
+	//нет патронов для перезарядки
 	if (!m_pCurrentAmmo && !unlimited_ammo()) return;
 
-	//ðàçðÿäèòü ìàãàçèí, åñëè çàãðóæàåì ïàòðîíàìè äðóãîãî òèïà
+	//разрядить магазин, если загружаем патронами другого типа
 	if (!m_bLockType && !m_magazine.empty() &&
 		(!m_pCurrentAmmo || xr_strcmp(m_pCurrentAmmo->cNameSect(),
 		                              *m_magazine.back().m_ammoSect)))
@@ -539,7 +539,7 @@ void CWeaponMagazined::ReloadMagazine()
 
 	VERIFY((u32) iAmmoElapsed == m_magazine.size());
 
-	//âûêèíóòü êîðîáêó ïàòðîíîâ, åñëè îíà ïóñòàÿ
+	//выкинуть коробку патронов, если она пустая
 	if (m_pCurrentAmmo && !m_pCurrentAmmo->m_boxCurr && OnServer())
 		m_pCurrentAmmo->SetDropManual(TRUE);
 
@@ -603,8 +603,8 @@ void CWeaponMagazined::UpdateCL()
 	inherited::UpdateCL();
 	float dt = Device.fTimeDelta;
 
-	//êîãäà ïðîèñõîäèò àïäåéò ñîñòîÿíèÿ îðóæèÿ
-	//íè÷åãî äðóãîãî íå äåëàòü
+	//когда происходит апдейт состояния оружия
+	//ничего другого не делать
 	if (GetNextState() == GetState())
 	{
 		switch (GetState())
@@ -671,6 +671,15 @@ void CWeaponMagazined::UpdateSounds()
 		m_sounds.SetPosition("sndShotMisfireActor", P);
 }
 
+// demonized: check if cycle_down is enabled and shot num below max possible burst. Adds support for arbitrary burst shot at rpm_mode_2 with cycling down to rpm after maxBurstAmount
+bool CWeaponMagazined::cycleDownCheck() {
+	s8 maxBurstAmount = 0;
+	for (const auto& fm : m_aFireModes) {
+		maxBurstAmount = max(maxBurstAmount, fm);
+	}
+	return bCycleDown && maxBurstAmount > 1 && m_iShotNum < (maxBurstAmount - 1);
+}
+
 void CWeaponMagazined::state_Fire(float dt)
 {
 	if (iAmmoElapsed > 0)
@@ -721,7 +730,8 @@ void CWeaponMagazined::state_Fire(float dt)
 
 			//Alundaio: Use fModeShotTime instead of fOneShotTime if current fire mode is 2-shot burst
 			//Alundaio: Cycle down RPM after two shots; used for Abakan/AN-94
-			if (GetCurrentFireMode() == 3 || GetCurrentFireMode() == 2 || (bCycleDown == true && m_iShotNum < 1))
+			// demonized: Add support for arbitrary shot burst at rpm_mode_2
+			if (GetCurrentFireMode() >= 2 || cycleDownCheck())
 			{
 				fShotTimeCounter = fModeShotTime;
 			}
@@ -851,10 +861,10 @@ void CWeaponMagazined::OnShot()
 	PHGetLinearVell(vel);
 	OnShellDrop(get_LastSP(), vel);
 
-	// Îãîíü èç ñòâîëà
+	// Огонь из ствола
 	StartFlameParticles();
 
-	//äûì èç ñòâîëà
+	//дым из ствола
 	ForceUpdateFireParticles();
 
 	StartSmokeParticles(get_LastFP(), vel);
@@ -1102,7 +1112,7 @@ bool CWeaponMagazined::Action(u16 cmd, u32 flags)
 {
 	if (inherited::Action(cmd, flags)) return true;
 
-	//åñëè îðóæèå ÷åì-òî çàíÿòî, òî íè÷åãî íå äåëàòü
+	//если оружие чем-то занято, то ничего не делать
 	if (IsPending()) return false;
 
 	switch (cmd)
@@ -1309,7 +1319,7 @@ bool CWeaponMagazined::Attach(PIItem pIItem, bool b_send_event)
 	{
 		if (b_send_event && OnServer())
 		{
-			//óíè÷òîæèòü ïîäñîåäèíåííóþ âåùü èç èíâåíòàðÿ
+			//уничтожить подсоединенную вещь из инвентаря
 			//.			pIItem->Drop					();
 			pIItem->object().DestroyObject();
 		};
@@ -1957,14 +1967,30 @@ bool CWeaponMagazined::install_upgrade_impl(LPCSTR section, bool test)
 
 	// fov for zoom mode
 	result |= process_if_exists(section, "scope_zoom_factor", &CInifile::r_float, m_zoom_params.m_fBaseZoomFactor,
-	                            test);
+								test);
+
+	// demonized: additional weapon upgrade fields
+	float tempFloat = 0.0;
+	result2 = process_if_exists_set(section, "rpm_mode_2", &CInifile::r_float, tempFloat, test);
+	if (result2 && !test)
+	{
+		fModeShotTime = 60.f / tempFloat;
+	}
+	result |= result2;
+
+	result2 = process_if_exists_set(section, "cycle_down", &CInifile::r_string, str, test);
+	if (result2 && !test)
+	{
+		bCycleDown = CInifile::IsBOOL(str);
+	}
+	result |= result2;
 
 	UpdateUIScope();
 
 	return result;
 }
 
-//òåêóùàÿ äèñïåðñèÿ (â ðàäèàíàõ) îðóæèÿ ñ ó÷åòîì èñïîëüçóåìîãî ïàòðîíà è íåäèñïåðñèîííûõ ïóëü
+//текущая дисперсия (в радианах) оружия с учетом используемого патрона и недисперсионных пуль
 float CWeaponMagazined::GetFireDispersion(float cartridge_k, bool for_crosshair)
 {
 	float fire_disp = GetBaseDispersion(cartridge_k);
