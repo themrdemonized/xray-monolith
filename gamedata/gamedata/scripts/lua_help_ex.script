@@ -277,6 +277,7 @@
         function set_actor_sprint_strafe_coef(float)
         function update_weight()
         function get_total_weight_force_update()
+        function get_talking_npc()
 
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
