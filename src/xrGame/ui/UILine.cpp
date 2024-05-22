@@ -35,6 +35,7 @@ void dump_list_lines()
 CUILine::CUILine()
 {
 	m_tmpLine = NULL;
+	m_text = "";
 #ifdef LOG_ALL_LINES
 	ListLinesCount++;
 	dbg_list_lines.push_back(DBGList());
@@ -62,10 +63,18 @@ CUILine::~CUILine()
 #endif
 }
 
+void CUILine::setTextFromSublines() {
+	m_text = "";
+	for (const auto& sl : m_subLines) {
+		m_text += sl.m_text;
+	}
+}
+
 CUILine::CUILine(const CUILine& other)
 {
 	m_subLines = other.m_subLines;
 	m_tmpLine = NULL;
+	setTextFromSublines();
 #ifdef LOG_ALL_LINES
 	ListLinesCount++;
 	dbg_list_lines.push_back(DBGList());
@@ -77,6 +86,7 @@ CUILine::CUILine(const CUILine& other)
 CUILine& CUILine::operator =(const CUILine& other)
 {
 	m_subLines = other.m_subLines;
+	setTextFromSublines();
 	xr_delete(m_tmpLine);
 	return (*this);
 }
@@ -87,6 +97,7 @@ void CUILine::AddSubLine(const xr_string& str, u32 color)
 	sline.m_color = color;
 	sline.m_text = str;
 	m_subLines.push_back(sline);
+	setTextFromSublines();
 }
 
 void CUILine::AddSubLine(const char* str, u32 color)
@@ -95,11 +106,13 @@ void CUILine::AddSubLine(const char* str, u32 color)
 	sline.m_color = color;
 	sline.m_text = str;
 	m_subLines.push_back(sline);
+	setTextFromSublines();
 }
 
 void CUILine::AddSubLine(const CUISubLine* subLine)
 {
 	m_subLines.push_back(*subLine);
+	setTextFromSublines();
 }
 
 void CUILine::Clear()
@@ -129,6 +142,7 @@ void CUILine::ProcessNewLines()
 			}
 		}
 	}
+	setTextFromSublines();
 }
 
 void CUILine::Draw(CGameFont* pFont, float x, float y) const

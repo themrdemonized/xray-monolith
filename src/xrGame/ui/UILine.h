@@ -46,6 +46,7 @@ class CUILine
 public:
 	CUILine();
 	~CUILine();
+	void setTextFromSublines();
 	CUILine(const CUILine& other);
 	CUILine& operator=(const CUILine& other);
 	void AddSubLine(const xr_string& str, u32 color);
@@ -57,12 +58,14 @@ public:
 	void Draw(CGameFont* pFont, float x, float y) const;
 	bool IsEmpty() { return m_subLines.empty(); }
 
-protected:
 	int GetSize();
+	xr_vector<CUISubLine> m_subLines;
+
+	xr_string m_text;
+
+protected:
 	const CUILine* Cut2Pos(Position& pos, bool to_first = true);
 	const CUILine* GetEmptyLine();
-
-	xr_vector<CUISubLine> m_subLines;
 
 	CUILine* m_tmpLine;
 };

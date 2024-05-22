@@ -32,10 +32,16 @@ CUILines::CUILines()
 	uFlags.set(flColoringMode, TRUE);
 	uFlags.set(flCutWordsMode, FALSE);
 	uFlags.set(flRecognizeNewLine, TRUE);
+	uFlags.set(flWordWrap, TRUE);
 }
 
 CUILines::~CUILines()
 {
+}
+
+void CUILines::SetNeedReparse()
+{
+	uFlags.set(flNeedReparse, TRUE);
 }
 
 void CUILines::SetTextComplexMode(bool mode)
@@ -71,6 +77,11 @@ void CUILines::SetEllipsis(bool mode)
 void CUILines::SetUseNewLineMode(bool mode)
 {
 	uFlags.set(flRecognizeNewLine, mode);
+}
+
+void CUILines::SetWordWrap(bool mode)
+{
+	uFlags.set(flWordWrap, mode);
 }
 
 

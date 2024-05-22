@@ -44,6 +44,7 @@ public:
 
 public:
 	bool bComplexMode;
+	bool bLineWrap;
 
 protected:
 	CGameFont* m_pFont;
