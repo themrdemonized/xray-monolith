@@ -18,6 +18,7 @@ CUIListBox::CUIListBox()
 	InitScrollView();
 
 	bComplexMode = false;
+	bLineWrap = true;
 }
 
 void CUIListBox::SetSelectionTexture(LPCSTR texture)
@@ -74,6 +75,7 @@ CUIListBoxItem* CUIListBox::AddItem()
 
 	// demonized: complex mode support for item list
 	item->GetTextItem()->TextItemControl().SetTextComplexMode(bComplexMode);
+	item->GetTextItem()->TextItemControl().SetWordWrap(bLineWrap);
 
 	AddWindow(item, true);
 	return item;
@@ -333,8 +335,11 @@ float CUIListBox::GetLongestLength()
 		CUIListBoxItem* item = smart_cast<CUIListBoxItem*>(*it);
 		if (item)
 		{
-			float tmp_len = item->GetFont()->SizeOf_(item->GetText()); //all ok
+			CUILines temp;
+			auto lines = temp.ParseTextToColoredLine(item->GetText());
+			float tmp_len = item->GetFont()->SizeOf_(lines->m_text.c_str()); //all ok
 			UI().ClientToScreenScaledWidth(tmp_len);
+			xr_delete(lines);
 
 			if (tmp_len > len)
 				len = tmp_len;

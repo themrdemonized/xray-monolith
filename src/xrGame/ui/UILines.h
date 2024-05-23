@@ -11,6 +11,8 @@ public:
 	CUILines();
 	virtual ~CUILines();
 
+	void SetNeedReparse();
+
 	void SetText(LPCSTR text);
 	void SetTextST(LPCSTR text);
 	LPCSTR GetText();
@@ -31,6 +33,7 @@ public:
 	void SetColoringMode(bool mode);
 	void SetCutWordsMode(bool mode);
 	void SetUseNewLineMode(bool mode);
+	void SetWordWrap(bool mode);
 	void SetEllipsis(bool mode);
 
 	void Draw(float x, float y);
@@ -47,17 +50,17 @@ public:
 	Fvector2 m_TextOffset;
 	Fvector2 m_wndSize;
 	Fvector2 m_wndPos;
+
+	CUILine* ParseTextToColoredLine(const xr_string& str);
+	typedef xr_vector<CUILine> LinesVector;
+	typedef LinesVector::iterator LinesVector_it;
+	LinesVector m_lines; // parsed text
 protected:
 	// %c[255,255,255,255]
 	u32 GetColorFromText(const xr_string& str) const;
 	float GetIndentByAlign() const;
 	float GetVIndentByAlign();
 	void CutFirstColoredTextEntry(xr_string& entry, u32& color, xr_string& text) const;
-	CUILine* ParseTextToColoredLine(const xr_string& str);
-
-	typedef xr_vector<CUILine> LinesVector;
-	typedef LinesVector::iterator LinesVector_it;
-	LinesVector m_lines; // parsed text
 
 	shared_str m_text;
 
@@ -75,7 +78,8 @@ protected:
 		flColoringMode = (1 << 3),
 		flCutWordsMode = (1 << 4),
 		flRecognizeNewLine = (1 << 5),
-		flEllipsis = (1 << 6)
+		flEllipsis = (1 << 6),
+		flWordWrap = (1 << 7)
 	};
 
 private:
