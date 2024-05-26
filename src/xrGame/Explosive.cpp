@@ -426,7 +426,7 @@ void CExplosive::Explode()
 		Level().BulletManager().AddBullet(pos, frag_dir, m_fFragmentSpeed,
 		                                  m_fFragHit, m_fFragHitImpulse, Initiator(),
 		                                  cast_game_object()->ID(), m_eHitTypeFrag, m_fFragsRadius,
-		                                  cartridge, 1.f, SendHits, false, i + 1);
+		                                  cartridge, m_fFragAirRes, SendHits, false, i + 1);
 	}
 
 	if (cast_game_object()->Remote()) return;
