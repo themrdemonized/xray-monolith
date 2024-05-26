@@ -35,6 +35,8 @@
 #include "Flashlight.h"
 #include "../xrPhysics/IElevatorState.h"
 #include "holder_custom.h"
+#include "Weapon.h"
+#include "CustomOutfit.h"
 
 extern u32 hud_adj_mode;
 
@@ -440,7 +442,7 @@ void CActor::IR_OnMouseMove(int dx, int dy)
 	if (cam_freelook == eflEnabling || cam_freelook == eflDisabling)
 		return;
 
-	float LookFactor = GetLookFactor();
+	const float LookFactor = GetLookFactor();
 
 	CCameraBase* C = cameras[cam_active];
     float scale = (C->f_fov / g_fov) * (psMouseSens * sens_multiple) * psMouseSensScale / 50.f / LookFactor;
@@ -585,7 +587,7 @@ void CActor::ActorUse()
 				}
 				else if (!bCaptured)
 				{
-					//только если находимся в режиме single
+					//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ single
 					CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 					if (pGameSP)
 					{
@@ -698,18 +700,40 @@ void CActor::OnPrevWeaponSlot()
 
 extern float g_AimLookFactor;
 
+// momopate: Optional restoration of the handling gimmick from the original games
+BOOL g_allow_weapon_control_inertion_factor = 1;
+BOOL g_allow_outfit_control_inertion_factor = 1;
+
 float CActor::GetLookFactor()
 {
 	if (m_input_external_handler)
 		return m_input_external_handler->mouse_scale_factor();
 
+	float factor = 1.f;
+
 	if (m_bZoomAimingMode)
-		return (1.f / g_AimLookFactor);
+		factor /= g_AimLookFactor;
+
+	if (g_allow_weapon_control_inertion_factor)
+	{
+		PIItem pItem = inventory().ActiveItem();
+		if (pItem)
+			factor *= pItem->GetControlInertionFactor();
+	}
+
+	if (g_allow_outfit_control_inertion_factor)
+	{
+		CCustomOutfit* outfit = GetOutfit();
+		if (outfit)
+			factor *= outfit->GetControlInertionFactor();
+	}
+
+    VERIFY(!fis_zero(factor));
 
 	if (cam_freelook != eflDisabled)
 		return 1.5f;
 
-	return 1.f;
+	return factor;
 }
 
 void CActor::set_input_external_handler(CActorInputHandler* handler)

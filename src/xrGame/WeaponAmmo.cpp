@@ -49,6 +49,8 @@ void CCartridge::Load(LPCSTR section, u8 LocalAmmoType, float ap_mod)
 	param_s.impair = pSettings->r_float(section, "impair");
 	param_s.fWallmarkSize = pSettings->r_float(section, "wm_size");
 
+	param_s.tracer_silenced = READ_IF_EXISTS(pSettings, r_bool, section, "tracer_silenced", false);
+
 	m_flags.set(cfCanBeUnlimited | cfRicochet, TRUE);
 	m_flags.set(cfMagneticBeam, FALSE);
 
@@ -177,15 +179,15 @@ void CWeaponAmmo::OnH_B_Independent(bool just_before_destroy)
 
 bool CWeaponAmmo::Useful() const
 {
-	// Если IItem еще не полностью использованый, вернуть true
+	// пїЅпїЅпїЅпїЅ IItem пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ true
 	return !!m_boxCurr;
 }
 
 /*
 s32 CWeaponAmmo::Sort(PIItem pIItem) 
 {
-	// Если нужно разместить IItem после this - вернуть 1, если
-	// перед - -1. Если пофиг то 0.
+	// пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ IItem пїЅпїЅпїЅпїЅпїЅ this - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 1, пїЅпїЅпїЅпїЅ
+	// пїЅпїЅпїЅпїЅпїЅ - -1. пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ 0.
 	CWeaponAmmo *l_pA = smart_cast<CWeaponAmmo*>(pIItem);
 	if(!l_pA) return 0;
 	if(xr_strcmp(cNameSect(), l_pA->cNameSect())) return 0;

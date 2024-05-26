@@ -115,6 +115,10 @@ extern BOOL g_ai_die_in_anomaly; //Alundaio
 
 extern BOOL g_telekinetic_objects_include_corpses; // Tosox
 
+extern BOOL g_allow_weapon_control_inertion_factor; // momopate
+extern BOOL g_allow_outfit_control_inertion_factor;
+extern BOOL g_render_short_tracers;
+
 //demonized: new console vars
 extern BOOL firstPersonDeath;
 extern BOOL pseudogiantCanDamageObjects;
@@ -2690,6 +2694,12 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "pseudogiant_can_damage_objects_on_stomp", &pseudogiantCanDamageObjects, 0, 1);
 
 	CMD4(CCC_Integer, "telekinetic_objects_include_corpses", &g_telekinetic_objects_include_corpses, 0, 1); // Tosox
+
+	CMD4(CCC_Integer, "allow_weapon_control_inertion_factor", &g_allow_weapon_control_inertion_factor, 0, 1); // momopate
+
+	CMD4(CCC_Integer, "allow_outfit_control_inertion_factor", &g_allow_outfit_control_inertion_factor, 0, 1);
+
+	CMD4(CCC_Integer, "render_short_tracers", &g_render_short_tracers, 0, 1);
 
 	CMD4(CCC_Float, "ai_aim_predict_time", &g_aim_predict_time, 0.f, 10.f);
 
