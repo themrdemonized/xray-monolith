@@ -13,6 +13,7 @@ CTracer::CTracer()
 	LPCSTR sh_name = pSettings->r_string("bullet_manager", "tracer_shader");
 	LPCSTR tx_name = pSettings->r_string("bullet_manager", "tracer_texture");
 	m_circle_size_k = pSettings->r_float("bullet_manager", "fire_circle_k");
+	m_tracer_length_k = READ_IF_EXISTS(pSettings, r_float, "bullet_manager", "tracer_length_k", 1.0f);	// momopate: Allow for customizable tracer length
 
 	sh_Tracer->create(sh_name, tx_name);
 
@@ -133,6 +134,6 @@ void CTracer::Render(const Fvector& pos,
 			                  m_aColors[colorID]);
 		}
 
-		FillSprite_Line(center, dir, width * .5f, length * .5f, m_aColors[colorID]);
+		FillSprite_Line(center, dir, width * .5f, length * .5f * m_tracer_length_k, m_aColors[colorID]);
 	}
 }

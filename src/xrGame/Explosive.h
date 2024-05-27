@@ -1,4 +1,4 @@
-// Explosive.h: интерфейс для взврывающихся объектов
+// Explosive.h: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -88,7 +88,7 @@ protected:
 	HUD_SOUND_COLLECTION_LAYERED m_layered_sounds;
 
 	CWalmarkManager m_wallmark_manager;
-	//ID персонажа который иницировал действие
+	//ID пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	u16 m_iCurrentParentID;
 
 	//bool						m_bReadyToExplode;
@@ -96,35 +96,35 @@ protected:
 	Fvector m_vExplodeSize;
 	Fvector m_vExplodeDir;
 
-	//параметры взрыва
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float m_fBlastHit;
 	float m_fBlastHitImpulse;
 	float m_fBlastRadius;
 
-	//параметры и количество осколков
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	float m_fFragsRadius;
 	float m_fFragHit;
 	float m_fFragHitImpulse;
 	int m_iFragsNum;
 
-	//типы наносимых хитов
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	ALife::EHitType m_eHitTypeBlast;
 	ALife::EHitType m_eHitTypeFrag;
 
-	//фактор подпроса предмета вверх взрывной волной 
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
 	float m_fUpThrowFactor;
 
-	//список пораженных объектов
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	BLASTED_OBJECTS_V m_blasted_objects;
 
-	//текущая продолжительность взрыва
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float m_fExplodeDuration;
-	//общее время взрыва
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float m_fExplodeDurationMax;
-	//Время, через которое надо сделать взрывчатку невиимой, если она не становится невидимой во время взрыва
+	//пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float m_fExplodeHideDurationMax;
 
-	//флаг состояния взрыва
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	enum
 	{
 		flExploding =1 << 0,
@@ -135,7 +135,7 @@ protected:
 
 	Flags8 m_explosion_flags;
 	///////////////////////////////////////////////
-	//Должен ли объект быть скрыт после взрыва: true - для всех кроме дымовой гранаты
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: true - пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	BOOL m_bHideInExplosion;
 	bool m_bAlreadyHidden;
 	virtual void HideExplosive();
@@ -143,23 +143,32 @@ protected:
 	//bool						m_bExplodeEventSent;
 
 	//////////////////////////////////////////////
-	//для разлета осколков
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	float m_fFragmentSpeed;
 
-	//звуки
+	//пїЅпїЅпїЅпїЅпїЅ
 	ESoundTypes m_eSoundExplode;
 
-	//размер отметки на стенах
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float fWallmarkSize;
 
-	//эффекты и подсветка
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	shared_str m_sExplodeParticles;
 
-	//подсветка взрыва
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	ref_light m_pLight;
 	Fcolor m_LightColor;
 	float m_fLightRange;
 	float m_fLightTime;
+
+	// momopate: Extended shrapnel customization
+	float m_fFragAP;
+	float m_fFragAirRes;
+	bool m_bFragTracer;
+	bool m_bFrag4to1Tracer;
+	bool m_bFragMagneticBeamShot;
+	bool m_bFragAllowRicochet;
+	u8 u8FragColorID;
 
 	virtual void StartLight();
 	virtual void StopLight();
@@ -168,7 +177,7 @@ protected:
 	CParticlesObject* m_pExpParticle;
 	virtual void UpdateExplosionParticles();
 
-	// эффектор
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	struct
 	{
 		shared_str effect_sect_name;

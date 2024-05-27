@@ -1,5 +1,5 @@
-// Level_Bullet_Manager.cpp:	для обеспечения полета пули по траектории
-//								все пули и осколки передаются сюда
+// Level_Bullet_Manager.cpp:	пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//								пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
@@ -13,6 +13,7 @@
 #include "game_cl_mp.h"
 #include "reward_event_generator.h"
 #include "material_manager.h"
+#include "Weapon.h"
 
 #include "../Include/xrRender/UIRender.h"
 #include "../Include/xrRender/Kinematics.h"
@@ -98,6 +99,18 @@ void SBullet::Init(const Fvector& position,
 	if (flags.allow_tracer && cartridge.m_4to1_tracer && iShotNum % 5 != 0)
 		flags.allow_tracer = false;
 	//-Alundaio
+
+	// demonized: hide tracer when weapon has silencer
+	if (!cartridge.param_s.tracer_silenced)		// momopate: Make it optional
+	{
+		CObject* g_obj = Level().Objects.net_Find(weapon_id);
+		if (g_obj) 
+		{
+			CWeapon* weapon = smart_cast<CWeapon*>(g_obj);
+			if (weapon && weapon->IsSilencerAttached())
+				flags.allow_tracer = false;
+		}
+	}
 
 	flags.allow_ricochet = !!cartridge.m_flags.test(CCartridge::cfRicochet);
 	flags.explosive = !!cartridge.m_flags.test(CCartridge::cfExplosive);
@@ -819,7 +832,7 @@ BOOL CBulletManager::firetrace_callback(collide::rq_result& result, LPVOID param
 	if (fis_zero(data.collide_time))
 		return (TRUE);
 
-	//статический объект
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if (!result.O)
 	{
 		CDB::TRI const& triangle = *(Level().ObjectSpace.GetStaticTris() + result.element);
@@ -827,7 +840,7 @@ BOOL CBulletManager::firetrace_callback(collide::rq_result& result, LPVOID param
 		return (FALSE);
 	}
 
-	//динамический объект
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	VERIFY(!(result.O->ID() == bullet.parent_id && bullet.fly_dist < parent_ignore_distance));
 	IKinematics* const kinematics = smart_cast<IKinematics*>(result.O->Visual());
 	if (!kinematics)
@@ -1080,6 +1093,7 @@ float SqrDistancePointToSegment(const Fvector& pt, const Fvector& orig, const Fv
 	return diff.square_magnitude();
 }
 
+BOOL g_render_short_tracers = 1;
 void CBulletManager::Render()
 {
 #ifdef DEBUG
@@ -1105,9 +1119,9 @@ void CBulletManager::Render()
 	else
 		m_bullet_points.clear_not_free	();
 
-	//0-рикошет
-	//1-застрявание пули в материале
-	//2-пробивание материала
+	//0-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//1-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//2-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if (g_bDrawBulletHit) {
 		extern FvectorVec g_hit[];
 		FvectorIt it;
@@ -1146,7 +1160,13 @@ void CBulletManager::Render()
 			                                 : Fvector().set(0.f, 0.f, 1.f);
 
 		if (length < m_fTracerLengthMin)
-			continue;
+		{
+			// momopate: Optionally cap tracers to their minimum length instead of not rendering them
+			if (g_render_short_tracers)
+				length = m_fTracerLengthMin;
+			else
+				continue;
+		}
 
 		if (length > m_fTracerLengthMax)
 			length = m_fTracerLengthMax;

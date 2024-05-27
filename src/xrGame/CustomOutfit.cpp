@@ -106,7 +106,7 @@ void CCustomOutfit::Load(LPCSTR section)
 	m_fSatietyRestoreSpeed = READ_IF_EXISTS(pSettings, r_float, section, "satiety_restore_speed", 0.0f);
 	m_fPowerRestoreSpeed = READ_IF_EXISTS(pSettings, r_float, section, "power_restore_speed", 0.0f);
 	m_fBleedingRestoreSpeed = READ_IF_EXISTS(pSettings, r_float, section, "bleeding_restore_speed", 0.0f);
-
+	m_fControlInertionFactor = READ_IF_EXISTS(pSettings, r_float, section, "control_inertion_factor", 1.0f);
 
 	m_full_icon_name = pSettings->r_string(section, "full_icon_name");
 	m_artefact_count = READ_IF_EXISTS(pSettings, r_u32, section, "artefact_count", 0);
@@ -169,9 +169,9 @@ float CCustomOutfit::HitThroughArmor(float hit_power, s16 element, float ap, boo
 		float BoneArmor = ba * GetCondition();
 		if (ap <= BoneArmor)
 		{
-			//пуля НЕ пробила бронь
+			//пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 			NewHitPower *= m_boneProtection->m_fHitFracActor;
-			//add_wound = false; 	//раны нет
+			//add_wound = false; 	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 
 			if (strstr(Core.Params, "-dbgbullet"))
 				Msg("CCustomOutfit::HitThroughArmor AP(%f) <= bone_armor(%f) [HitFracActor=%f] modified hit_power=%f",
@@ -210,7 +210,7 @@ float CCustomOutfit::HitThroughArmor(float hit_power, s16 element, float ap, boo
 			Msg("CCustomOutfit::HitThroughArmor hit_type=%d | After HitTypeProtection(%f) hit_power=%f", (u32)hit_type,
 			    protect * one, NewHitPower);
 	}
-	//увеличить изношенность костюма
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	Hit(hit_power, hit_type);
 
 	if (strstr(Core.Params, "-dbgbullet"))
