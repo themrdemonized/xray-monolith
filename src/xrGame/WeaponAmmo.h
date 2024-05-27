@@ -10,6 +10,8 @@ struct SCartridgeParam
 	float fWallmarkSize;
 	u8 u8ColorID;
 
+	bool tracer_silenced;
+
 	IC void Init()
 	{
 		kDist = kDisp = kHit = kImpulse = kBulletSpeed = 1.0f;
@@ -21,6 +23,7 @@ struct SCartridgeParam
 		fWallmarkSize = 0.0f;
 		u8ColorID = 0;
 		k_cam_dispersion = 1.0f;
+		tracer_silenced = false;
 	}
 };
 
