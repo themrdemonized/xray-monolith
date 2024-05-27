@@ -587,7 +587,7 @@ void CActor::ActorUse()
 				}
 				else if (!bCaptured)
 				{
-					//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ single
+					//только если находимся в режиме single
 					CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 					if (pGameSP)
 					{
@@ -701,8 +701,8 @@ void CActor::OnPrevWeaponSlot()
 extern float g_AimLookFactor;
 
 // momopate: Optional restoration of the handling gimmick from the original games
-BOOL g_allow_weapon_control_inertion_factor = 1;
-BOOL g_allow_outfit_control_inertion_factor = 1;
+BOOL g_allow_weapon_control_inertion_factor = 0;
+BOOL g_allow_outfit_control_inertion_factor = 0;
 
 float CActor::GetLookFactor()
 {
