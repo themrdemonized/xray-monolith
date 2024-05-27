@@ -40,6 +40,10 @@
         string_table_error_msg // Print xml translation errors
         monster_stuck_fix // Enables fix of stuck monsters at the fps cost
         freeze_time [0,1] // Freezes the alife but leaves the sounds playing at the time of the freeze, e.g. soundtrack, looped_fx. No new sounds will be played by the ailife, since it is frozen. You can however, after this point, play new sounds from scripts. 
+
+        allow_outfit_control_inertion_factor 
+        allow_weapon_control_inertion_factor // Weapon and outfit control_inertion_factor can affect mouse sens
+        render_short_tracers // Tracers will be capped to their minimum length instead of not rendering 
     }
 
     lua extensions {
