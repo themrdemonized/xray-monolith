@@ -45,7 +45,7 @@ void CEatableItem::Load(LPCSTR section)
 {
 	inherited::Load(section);
 
-	m_iRemainingUses = m_iMaxUses = READ_IF_EXISTS(pSettings, r_u8, section, "max_uses", 1);
+	m_iRemainingUses = m_iMaxUses = READ_IF_EXISTS(pSettings, r_u16, section, "max_uses", 1);
 	m_bRemoveAfterUse = READ_IF_EXISTS(pSettings, r_bool, section, "remove_after_use", TRUE);
 	m_fWeightFull = m_weight;
 	m_fWeightEmpty = READ_IF_EXISTS(pSettings, r_float, section, "empty_weight", 0.0f);
@@ -64,14 +64,14 @@ void CEatableItem::load(IReader& packet)
 {
 	inherited::load(packet);
 
-	m_iRemainingUses = packet.r_u8();
+	m_iRemainingUses = packet.r_u16();
 }
 
 void CEatableItem::save(NET_Packet& packet)
 {
 	inherited::save(packet);
 
-	packet.w_u8(m_iRemainingUses);
+	packet.w_u16(m_iRemainingUses);
 }
 
 BOOL CEatableItem::net_Spawn(CSE_Abstract* DC)

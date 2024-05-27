@@ -1749,7 +1749,7 @@ Fvector CScriptGameObject::Angle()
 	return ang;
 }
 
-void CScriptGameObject::SetRemainingUses(u8 value)
+void CScriptGameObject::SetRemainingUses(u16 value)
 {
 	CInventoryItem* IItm = object().cast_inventory_item();
 	if (!IItm)
@@ -1762,7 +1762,7 @@ void CScriptGameObject::SetRemainingUses(u8 value)
 	eItm->SetRemainingUses(value);
 }
 
-u8 CScriptGameObject::GetRemainingUses()
+u16 CScriptGameObject::GetRemainingUses()
 {
 	CInventoryItem* IItm = object().cast_inventory_item();
 	if (!IItm)
@@ -1775,7 +1775,7 @@ u8 CScriptGameObject::GetRemainingUses()
 	return eItm->GetRemainingUses();
 }
 
-u8 CScriptGameObject::GetMaxUses()
+u16 CScriptGameObject::GetMaxUses()
 {
 	CInventoryItem* IItm = object().cast_inventory_item();
 	if (!IItm)

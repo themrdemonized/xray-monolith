@@ -19,8 +19,8 @@ private:
 protected:
 	CPhysicItem* m_physic_item;
 
-	u8 m_iMaxUses;
-	u8 m_iRemainingUses;
+	u16 m_iMaxUses;
+	u16 m_iRemainingUses;
 	BOOL m_bRemoveAfterUse;
 	float m_fWeightFull;
 	float m_fWeightEmpty;
@@ -44,9 +44,9 @@ public:
 
 	bool Empty() const { return m_iRemainingUses == 0; };
 	bool CanDelete() const { return m_bRemoveAfterUse == 1; };
-	u8 GetMaxUses() const { return m_iMaxUses; };
-	u8 GetRemainingUses() const { return m_iRemainingUses; };
-	void SetRemainingUses(u8 value) { if (value <= m_iMaxUses) m_iRemainingUses = value; };
+	u16 GetMaxUses() const { return m_iMaxUses; };
+	u16 GetRemainingUses() const { return m_iRemainingUses; };
+	void SetRemainingUses(u16 value) { if (value <= m_iMaxUses) m_iRemainingUses = value; };
 	virtual float Weight() const;
 
 	DECLARE_SCRIPT_REGISTER_FUNCTION
