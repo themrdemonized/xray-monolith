@@ -1,5 +1,5 @@
-// Level_Bullet_Manager.cpp:	пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-//								пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+// Level_Bullet_Manager.cpp:	для обеспечения полета пули по траектории
+//								все пули и осколки передаются сюда
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
@@ -832,7 +832,7 @@ BOOL CBulletManager::firetrace_callback(collide::rq_result& result, LPVOID param
 	if (fis_zero(data.collide_time))
 		return (TRUE);
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//статический объект
 	if (!result.O)
 	{
 		CDB::TRI const& triangle = *(Level().ObjectSpace.GetStaticTris() + result.element);
@@ -840,7 +840,7 @@ BOOL CBulletManager::firetrace_callback(collide::rq_result& result, LPVOID param
 		return (FALSE);
 	}
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//динамический объект
 	VERIFY(!(result.O->ID() == bullet.parent_id && bullet.fly_dist < parent_ignore_distance));
 	IKinematics* const kinematics = smart_cast<IKinematics*>(result.O->Visual());
 	if (!kinematics)
@@ -1119,9 +1119,9 @@ void CBulletManager::Render()
 	else
 		m_bullet_points.clear_not_free	();
 
-	//0-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	//1-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
-	//2-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//0-рикошет
+	//1-застрявание пули в материале
+	//2-пробивание материала
 	if (g_bDrawBulletHit) {
 		extern FvectorVec g_hit[];
 		FvectorIt it;
