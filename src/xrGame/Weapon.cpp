@@ -477,9 +477,9 @@ void CWeapon::Load(LPCSTR section)
 	iMagazineSize = pSettings->r_s32(section, "ammo_mag_size");
 
 	////////////////////////////////////////////////////
-	// äèñïåðñèÿ ñòðåëüáû
+	// дисперсия стрельбы
 
-	//ïîäáðàñûâàíèå êàìåðû âî âðåìÿ îòäà÷è
+	//подбрасывание камеры во время отдачи
 	u8 rm = READ_IF_EXISTS(pSettings, r_u8, section, "cam_return", 1);
 	cam_recoil.ReturnMode = (rm == 1);
 
