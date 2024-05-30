@@ -406,6 +406,11 @@ LPCSTR CInventoryOwner::IconName() const
 	return CharacterInfo().IconName().c_str();
 }
 
+DIALOG_ID_VECTOR CInventoryOwner::Dialogs() const
+{
+	return CharacterInfo().ActorDialogs();
+}
+
 void CInventoryOwner::NewPdaContact(CInventoryOwner* pInvOwner)
 {
 }

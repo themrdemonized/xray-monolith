@@ -113,6 +113,7 @@ public:
 	//игровое имя 
 	virtual LPCSTR Name() const;
 	LPCSTR IconName() const;
+	DIALOG_ID_VECTOR Dialogs() const;
 	u32 get_money() const { return m_money; }
 	void set_money(u32 amount, bool bSendEvent);
 	bool is_alive();
