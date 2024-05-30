@@ -454,6 +454,7 @@ public:
 	LPCSTR CharacterName();
 	LPCSTR CharacterIcon();
 	LPCSTR CharacterCommunity();
+	luabind::object CharacterDialogs();
 	int CharacterRank();
 	int CharacterReputation();
 
