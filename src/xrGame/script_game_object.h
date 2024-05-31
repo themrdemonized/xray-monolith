@@ -1040,9 +1040,9 @@ public:
 	void SetArtefactAdditionalInventoryWeight(float value);
 
 	//Eatable items
-	void SetRemainingUses(u16 value);
-	u16 GetRemainingUses();
-	u16 GetMaxUses();
+	void SetRemainingUses(u8 value);
+	u8 GetRemainingUses();
+	u8 GetMaxUses();
 
 	//Phantom
 	void PhantomSetEnemy(CScriptGameObject*);

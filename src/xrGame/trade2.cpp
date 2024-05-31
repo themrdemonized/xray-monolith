@@ -284,8 +284,8 @@ u32 CTrade::GetItemPrice(PIItem pItem, bool b_buying, bool b_free)
 	CEatableItem* eatable_item = pItem->cast_eatable_item();
 	if (eatable_item && eatable_item->GetMaxUses())
 	{
-		u16 max_uses = eatable_item->GetMaxUses();
-		u16 remaining_uses = eatable_item->GetRemainingUses();
+		u8 max_uses = eatable_item->GetMaxUses();
+		u8 remaining_uses = eatable_item->GetRemainingUses();
 		result = result * remaining_uses / max_uses;
 		if (result < 1) result = 1;
 	}
