@@ -24,4 +24,6 @@ void XRCORE_API FlushLog();
 extern XRCORE_API xr_vector<shared_str>* LogFile;
 extern XRCORE_API BOOL LogExecCB;
 
+shared_str FormatString(LPCSTR fmt, ...);
+
 #endif
