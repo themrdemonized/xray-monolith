@@ -9,7 +9,7 @@
 #include "actor.h"
 
 
-//предикат для сортировки вектора фраз
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 static bool PhraseGoodwillPred(const CPhrase* phrase1, const CPhrase* phrase2)
 {
     return phrase1->GoodwillLevel() > phrase2->GoodwillLevel();
@@ -59,7 +59,7 @@ void CPhraseDialog::Init(CPhraseDialogManager* speaker_first, CPhraseDialogManag
 	m_bFirstIsSpeaking = true;
 }
 
-//обнуляем все связи
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 void CPhraseDialog::Reset()
 {
 }
@@ -102,12 +102,12 @@ bool CPhraseDialog::SayPhrase(DIALOG_SHARED_PTR& phrase_dialog, const shared_str
 
 	CPhrase* last_phrase = phrase_vertex->data();
 
-	//вызвать скриптовую присоединенную функцию 
-	//активируется после сказанной фразы
-	//первый параметр - тот кто говорит фразу, второй - тот кто слушает
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ - пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	last_phrase->GetScriptHelper()->Action(pSpeakerGO1, pSpeakerGO2, *phrase_dialog->m_DialogId, phrase_id.c_str());
 
-	//больше нет фраз, чтоб говорить
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	phrase_dialog->m_PhraseVector.clear();
 	if (phrase_vertex->edges().empty())
 	{
@@ -115,7 +115,7 @@ bool CPhraseDialog::SayPhrase(DIALOG_SHARED_PTR& phrase_dialog, const shared_str
 	}
 	else
 	{
-		//обновить список фраз, которые сейчас сможет говорить собеседник
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		for (xr_vector<CPhraseGraph::CEdge>::const_iterator it = phrase_vertex->edges().begin();
 		     it != phrase_vertex->edges().end();
 		     it++)
@@ -143,12 +143,12 @@ bool CPhraseDialog::SayPhrase(DIALOG_SHARED_PTR& phrase_dialog, const shared_str
                 make_string("No available phrase to say, dialog[%s]", *phrase_dialog->m_DialogId)
         );
 
-		//упорядочить списко по убыванию благосклонности
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		std::sort(phrase_dialog->m_PhraseVector.begin(), phrase_dialog->m_PhraseVector.end(), PhraseGoodwillPred);
 	}
 
-	//сообщить CDialogManager, что сказана фраза
-	//и ожидается ответ
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ CDialogManager, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	//пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	if (first_is_speaking)
 		phrase_dialog->SecondSpeaker()->ReceivePhrase(phrase_dialog);
 	else
@@ -179,32 +179,33 @@ LPCSTR CPhraseDialog::GetPhraseText(const shared_str& phrase_id, bool current_sp
 		pSpeakerGO = pSpeakerGO1;
 
 #ifdef DIALOG_UPGRADE
-    {
-        luabind::functor<LPCSTR> lua_function;
-        luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
-        string256 str = {0};
-        xr_sprintf(str, sizeof(str), (ph->m_script_text_id.length() == 0) ? ph->GetText() : ph->m_script_text_id.c_str());
-        LPCSTR v1 = strchr(str, '(');
-        LPCSTR v2 = strchr(str, ')');
-        if (v1 && v2 && (v1 < v2))
-        {
-            str[v1 - str] = '\0';
-            str[v2 - str] = '\0';
-            LPCSTR parameters_table_str = v1 + 1;
-            int n = _GetItemCount(parameters_table_str, ':');
-            for (int k = 0; k < n; k++)
-            {
-                string64 tmp;
-                _GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
-                parameters_table[k + 1] = tmp;
-            }
+		if (ph->m_script_text_id.length() > 0)
+		{
+			luabind::functor<LPCSTR> lua_function;
+			luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
+			string256 str = {0};
+			xr_sprintf(str, sizeof(str), ph->m_script_text_id.c_str());
+			LPCSTR v1 = strchr(str, '(');
+			LPCSTR v2 = strchr(str, ')');
+			if (v1 && v2 && (v1 < v2))
+			{
+				str[v1 - str] = '\0';
+				str[v2 - str] = '\0';
+				LPCSTR parameters_table_str = v1 + 1;
+				int n = _GetItemCount(parameters_table_str, ':');
+				for (int k = 0; k < n; k++)
+				{
+					string64 tmp;
+					_GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
+					parameters_table[k + 1] = tmp;
+				}
 
-            bool functor_exists = ai().script_engine().functor(str, lua_function);
-            THROW3(functor_exists, "Cannot find phrase script text ", (ph->m_script_text_id.length() == 0) ? ph->GetText() : ph->m_script_text_id.c_str());
-            ph->m_script_text_val = lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), m_DialogId.c_str(), phrase_id.c_str(), "", parameters_table);
-            return ph->m_script_text_val.c_str();
-        }
-    }
+				bool functor_exists = ai().script_engine().functor(str, lua_function);
+				THROW3(functor_exists, "Cannot find phrase script text ", (ph->m_script_text_id.length() == 0) ? ph->GetText() : ph->m_script_text_id.c_str());
+				ph->m_script_text_val = lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), m_DialogId.c_str(), phrase_id.c_str(), "", parameters_table);
+				return ph->m_script_text_val.c_str();
+			}
+    	}
 #endif
 
     if (ph->m_script_text_id.length() > 0)
@@ -251,13 +252,13 @@ void CPhraseDialog::load_shared(LPCSTR)
 
 	SetPriority(pXML->ReadAttribInt(dialog_node, "priority", 0));
 
-	//заголовок 
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
 	SetCaption(pXML->Read(dialog_node, "caption", 0, NULL));
 
-	//предикаты начала диалога
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	data()->m_ScriptDialogHelper.Load(pXML, dialog_node);
 
-	//заполнить граф диалога фразами
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	data()->m_PhraseGraph.clear();
 
 	XML_NODE* phrase_list_node = pXML->NavigateToNode(dialog_node, "phrase_list", 0);
@@ -282,7 +283,7 @@ void CPhraseDialog::load_shared(LPCSTR)
 	THROW3(wrong_phrase_id == NULL, *item_data.id, wrong_phrase_id);
 #endif
 
-	//ищем стартовую фразу
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	XML_NODE* phrase_node = pXML->NavigateToNodeWithAttribute("phrase", "id", "0");
 	THROW(phrase_node);
 	AddPhrase(pXML, phrase_node, "0", "");
@@ -333,7 +334,7 @@ void CPhraseDialog::AddPhrase(CUIXml* pXml, XML_NODE* phrase_node, const shared_
 
 	ph->GetScriptHelper()->Load(pXml, phrase_node);
 
-	//фразы которые собеседник может говорить после этой
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	int next_num = pXml->GetNodesNum(phrase_node, "next");
 	for (int i = 0; i < next_num; ++i)
 	{
