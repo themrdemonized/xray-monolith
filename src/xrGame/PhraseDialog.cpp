@@ -179,32 +179,33 @@ LPCSTR CPhraseDialog::GetPhraseText(const shared_str& phrase_id, bool current_sp
 		pSpeakerGO = pSpeakerGO1;
 
 #ifdef DIALOG_UPGRADE
-    {
-        luabind::functor<LPCSTR> lua_function;
-        luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
-        string256 str = {0};
-        xr_sprintf(str, sizeof(str), (ph->m_script_text_id.length() == 0) ? ph->GetText() : ph->m_script_text_id.c_str());
-        LPCSTR v1 = strchr(str, '(');
-        LPCSTR v2 = strchr(str, ')');
-        if (v1 && v2 && (v1 < v2))
-        {
-            str[v1 - str] = '\0';
-            str[v2 - str] = '\0';
-            LPCSTR parameters_table_str = v1 + 1;
-            int n = _GetItemCount(parameters_table_str, ':');
-            for (int k = 0; k < n; k++)
-            {
-                string64 tmp;
-                _GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
-                parameters_table[k + 1] = tmp;
-            }
+	if (ph->m_script_text_id.length() > 0)
+	{
+		luabind::functor<LPCSTR> lua_function;
+		luabind::object parameters_table = luabind::newtable(ai().script_engine().lua());
+		string256 str = { 0 };
+		xr_sprintf(str, sizeof(str), ph->m_script_text_id.c_str());
+		LPCSTR v1 = strchr(str, '(');
+		LPCSTR v2 = strchr(str, ')');
+		if (v1 && v2 && (v1 < v2))
+		{
+			str[v1 - str] = '\0';
+			str[v2 - str] = '\0';
+			LPCSTR parameters_table_str = v1 + 1;
+			int n = _GetItemCount(parameters_table_str, ':');
+			for (int k = 0; k < n; k++)
+			{
+				string64 tmp;
+				_GetItem(parameters_table_str, k, tmp, sizeof(tmp), ':');
+				parameters_table[k + 1] = tmp;
+			}
 
-            bool functor_exists = ai().script_engine().functor(str, lua_function);
-            THROW3(functor_exists, "Cannot find phrase script text ", (ph->m_script_text_id.length() == 0) ? ph->GetText() : ph->m_script_text_id.c_str());
-            ph->m_script_text_val = lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), m_DialogId.c_str(), phrase_id.c_str(), "", parameters_table);
-            return ph->m_script_text_val.c_str();
-        }
-    }
+			bool functor_exists = ai().script_engine().functor(str, lua_function);
+			THROW3(functor_exists, "Cannot find phrase script text ", (ph->m_script_text_id.length() == 0) ? ph->GetText() : ph->m_script_text_id.c_str());
+			ph->m_script_text_val = lua_function(pSpeakerGO1->lua_game_object(), pSpeakerGO2->lua_game_object(), m_DialogId.c_str(), phrase_id.c_str(), "", parameters_table);
+			return ph->m_script_text_val.c_str();
+		}
+	}
 #endif
 
     if (ph->m_script_text_id.length() > 0)
