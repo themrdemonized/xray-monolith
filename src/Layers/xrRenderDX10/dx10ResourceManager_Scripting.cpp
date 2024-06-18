@@ -118,6 +118,12 @@ public:
 		return *this;
 	}
 
+	adopt_compiler& _o_scope(bool E)
+	{
+		C->SH->flags.isScope = E;
+		return *this;
+	}
+
 	adopt_compiler& _o_distort(bool E)
 	{
 		C->SH->flags.bDistort = E;
@@ -407,7 +413,10 @@ void CResourceManager::LS_Load()
 		.def("dx10zfunc", &adopt_compiler::_dx10ZFunc, return_reference_to(_1))
 
 		.def("dx10sampler", &adopt_compiler::_dx10sampler) // returns sampler-object
-		.def("dx10Options", &adopt_compiler::_dx10Options), // returns options-object			
+		.def("dx10Options", &adopt_compiler::_dx10Options) // returns options-object	
+
+			
+		.def("dx10Scope", &adopt_compiler::_o_scope, return_reference_to(_1)),
 
 
 		class_<adopt_blend>("blend")

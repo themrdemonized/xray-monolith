@@ -108,6 +108,8 @@ ShaderElement::ShaderElement()
 	// SSS Custom rendering
 	flags.isLandscape = FALSE;
 	flags.isWater = FALSE;
+
+	flags.isScope = FALSE;
 }
 
 BOOL ShaderElement::equal(ShaderElement& S)
@@ -115,6 +117,7 @@ BOOL ShaderElement::equal(ShaderElement& S)
 	if (flags.iPriority != S.flags.iPriority) return FALSE;
 	if (flags.bStrictB2F != S.flags.bStrictB2F) return FALSE;
 	if (flags.bEmissive != S.flags.bEmissive) return FALSE;
+	if (flags.isScope != S.flags.isScope) return FALSE;
 	if (flags.bLandscape != S.flags.bLandscape) return FALSE;
 	if (flags.bWmark != S.flags.bWmark) return FALSE;
 	if (flags.bDistort != S.flags.bDistort) return FALSE;

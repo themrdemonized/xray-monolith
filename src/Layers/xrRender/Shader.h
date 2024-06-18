@@ -129,6 +129,7 @@ public:
 		u32 bLandscape : 1;
 		u32 isLandscape : 1;
 		u32 isWater : 1;
+		u32 isScope : 1;
 	};
 
 public:
