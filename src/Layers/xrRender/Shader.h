@@ -129,7 +129,9 @@ public:
 		u32 bLandscape : 1;
 		u32 isLandscape : 1;
 		u32 isWater : 1;
-		u32 isScope : 1;
+
+		u32 isScope : 1;	//  Redotix99: for 3D Shader Based Scopes
+		u32 isScope2 : 1;
 	};
 
 public:

@@ -118,9 +118,16 @@ public:
 		return *this;
 	}
 
+	//  Redotix99: for 3D Shader Based Scopes
 	adopt_compiler& _o_scope(bool E)
 	{
 		C->SH->flags.isScope = E;
+		return *this;
+	}
+
+	adopt_compiler& _o_scope2(bool E)
+	{
+		C->SH->flags.isScope2 = E;
 		return *this;
 	}
 
@@ -403,7 +410,8 @@ void CResourceManager::LS_Load()
 		.def("blend", &adopt_compiler::_blend, return_reference_to(_1))
 		.def("aref", &adopt_compiler::_aref, return_reference_to(_1))
 
-		.def("scope", &adopt_compiler::_o_scope, return_reference_to(_1))
+		.def("scope", &adopt_compiler::_o_scope, return_reference_to(_1)) //  Redotix99: for 3D Shader Based Scopes
+		.def("scope2", &adopt_compiler::_o_scope2, return_reference_to(_1))
 
 		//	For compatibility only
 		.def("dx10color_write_enable", &adopt_compiler::_dx10color_write_enable, return_reference_to(_1))

@@ -73,19 +73,32 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 
+	//  Redotix99: for 3D Shader Based Scopes
+	if (sh->flags.isScope)
+	{
+		mapHUD_Node* N = mapHUD.insertInAnyWay(EPS);
+		N->val.ssa = SSA;
+		N->val.pObject = RI.val_pObject;
+		N->val.pVisual = pVisual;
+		N->val.Matrix = *RI.val_pTransform;
+		N->val.se = sh;
+		return;
+	}
+	//  Redotix99: for 3D Shader Based Scopes
+	if (sh->flags.isScope2)
+	{
+		mapHUD_Node* N = mapHUD.insertInAnyWay(FLT_MAX);
+		N->val.ssa = SSA;
+		N->val.pObject = RI.val_pObject;
+		N->val.pVisual = pVisual;
+		N->val.Matrix = *RI.val_pTransform;
+		N->val.se = sh;
+		return;
+	}
+
 	// HUD rendering
 	if (RI.val_bHUD)
 	{
-		if (sh->flags.isScope)
-		{
-			mapHUD_Node* N = mapHUD.insertInAnyWay(EPS);
-			N->val.ssa = SSA;
-			N->val.pObject = RI.val_pObject;
-			N->val.pVisual = pVisual;
-			N->val.Matrix = *RI.val_pTransform;
-			N->val.se = sh;
-			return;
-		}
 		if (sh->flags.bStrictB2F)
 		{
 #if RENDER!=R_R1
