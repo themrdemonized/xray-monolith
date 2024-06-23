@@ -154,6 +154,8 @@ public:
 	ref_rt rt_ssfx_accum;
 	ref_rt rt_ssfx_hud;
 
+	ref_rt rt_tempzb;
+
 	ref_shader s_ssfx_dumb;
 
 	//	Igor: for async screenshots

@@ -64,6 +64,9 @@ public:
 	ID3D11RenderTargetView*	pBaseRT;	//	combine with DX9 pBaseRT via typedef
 	ID3D11DepthStencilView*	pBaseZB;
 
+	D3D_TEXTURE2D_DESC*		pBaseZBTexDesc;
+	D3D_DEPTH_STENCIL_VIEW_DESC* pBaseZBDesc;
+
 	CHWCaps					Caps;
 
 	D3D_DRIVER_TYPE		m_DriverType;	//	DevT equivalent
