@@ -1035,7 +1035,6 @@ void CHW::UpdateViews()
 	R_CHK(R);
 
 	//Create texture resource
-	ID3D11Texture2D* pBaseTEXZB;
 	D3D_TEXTURE2D_DESC texDesc;
 	texDesc.Width = sd.BufferDesc.Width;
 	texDesc.Height = sd.BufferDesc.Height;
@@ -1045,13 +1044,13 @@ void CHW::UpdateViews()
 	texDesc.SampleDesc.Count = 1;
 	texDesc.SampleDesc.Quality = 0;
 	texDesc.Usage = D3D_USAGE_DEFAULT;
-	texDesc.BindFlags = D3D_BIND_DEPTH_STENCIL | D3D_BIND_SHADER_RESOURCE | D3D_BIND_RENDER_TARGET;
+	texDesc.BindFlags = D3D_BIND_DEPTH_STENCIL | D3D_BIND_SHADER_RESOURCE;
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = 0;
 
 	//Create DSV
 	D3D_DEPTH_STENCIL_VIEW_DESC dsvDesc;
-#if defined(USE_DX11) //dirty hack so it doesnt crash DX10
+#if defined(USE_DX11)
 	dsvDesc.Flags = 0;
 #endif
 	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -1059,6 +1058,6 @@ void CHW::UpdateViews()
 	dsvDesc.Texture2D.MipSlice = 0;
 
 	R_CHK(pDevice->CreateTexture2D(&texDesc, NULL, &pBaseTEXZB));
-    R_CHK(pDevice->CreateDepthStencilView(pBaseTEXZB, &dsvDesc, &pBaseZB));
+	R_CHK(pDevice->CreateDepthStencilView(pBaseTEXZB, &dsvDesc, &pBaseZB));
 }
 #endif

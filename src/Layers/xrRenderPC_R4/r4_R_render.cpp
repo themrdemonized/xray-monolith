@@ -436,6 +436,10 @@ void CRender::Render()
 			RCache.set_Z(TRUE);
 		}
 
+		ID3D11Resource* zbuffer_res;
+		HW.pBaseZB->GetResource(&zbuffer_res); //get the resource
+		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
+
 		// level
 		Target->phase_scene_begin();
 		r_dsgraph_render_hud();

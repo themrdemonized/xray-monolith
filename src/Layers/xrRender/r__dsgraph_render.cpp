@@ -531,20 +531,6 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_project(Device.mProject);
 
-	ID3D11Texture2D* pRt_tempzbTexture = nullptr;
-	HW.pDevice->CreateTexture2D(HW.pBaseZBTexDesc, nullptr, &pRt_tempzbTexture);
-	RImplementation.Target->rt_tempzb->pSurface = pRt_tempzbTexture;
-
-	ID3D11Resource* pResource = nullptr;
-	ID3D11Texture2D* pTexture2D = nullptr;
-
-	HW.pBaseZB->GetResource(&pResource);
-
-	pResource->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&pTexture2D);
-
-	HW.pContext->CopyResource(pTexture2D, RImplementation.Target->rt_tempzb->pTexture->surface_get());
-
-	pResource->Release();
 
 	// Rendering
 	rmNear();
