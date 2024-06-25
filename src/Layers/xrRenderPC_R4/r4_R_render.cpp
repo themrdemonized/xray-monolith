@@ -440,6 +440,8 @@ void CRender::Render()
 		HW.pBaseZB->GetResource(&zbuffer_res); //get the resource
 		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
 
+		zbuffer_res->Release();
+
 		// level
 		Target->phase_scene_begin();
 		r_dsgraph_render_hud();
