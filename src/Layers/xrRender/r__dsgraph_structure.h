@@ -40,6 +40,7 @@ public:
 	R_dsgraph::mapMatrixPasses_T mapMatrixPasses [2];
 	R_dsgraph::mapSorted_T mapSorted;
 	R_dsgraph::mapHUD_T mapHUD;
+	R_dsgraph::mapScopeHUD_T mapScopeHUD;
 	R_dsgraph::mapLOD_T mapLOD;
 	R_dsgraph::mapSorted_T mapDistort;
 	R_dsgraph::mapHUD_T mapHUDSorted;

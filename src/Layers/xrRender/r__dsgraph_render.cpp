@@ -547,6 +547,9 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 	rmNormal();
 
+	mapScopeHUD.traverseLR(sorted_L1);
+	mapScopeHUD.clear();
+
 	// Restore projection
 	Device.mProject = Pold;
 	Device.mFullTransform = FTold;

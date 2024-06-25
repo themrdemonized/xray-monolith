@@ -218,6 +218,9 @@ namespace R_dsgraph
 	typedef FixedMAP<float, _MatrixItemS, render_allocator> mapHUD_T;
 	typedef mapHUD_T::TNode mapHUD_Node;
 
+	typedef FixedMAP<float, _MatrixItemS, render_allocator> mapScopeHUD_T;
+	typedef mapScopeHUD_T::TNode mapScopeHUD_T_Node;
+
 	typedef FixedMAP<float, _MatrixItemS, render_allocator> HUDMask_T;
 	typedef HUDMask_T::TNode HUDMask_Node;
 

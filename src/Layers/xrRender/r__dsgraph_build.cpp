@@ -87,7 +87,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	//  Redotix99: for 3D Shader Based Scopes
 	if (sh->flags.isScope2)
 	{
-		mapHUD_Node* N = mapHUD.insertInAnyWay(FLT_MAX);
+		mapHUD_Node* N = mapScopeHUD.insertInAnyWay(FLT_MAX);
 		N->val.ssa = SSA;
 		N->val.pObject = RI.val_pObject;
 		N->val.pVisual = pVisual;
