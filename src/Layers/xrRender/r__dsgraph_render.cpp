@@ -547,8 +547,11 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 	rmNormal();
 
-	mapScopeHUD.traverseLR(sorted_L1);
-	mapScopeHUD.clear();
+	if (scope_fake_enabled)
+	{
+		mapScopeHUD.traverseLR(sorted_L1);
+		mapScopeHUD.clear();
+	}
 
 	// Restore projection
 	Device.mProject = Pold;
@@ -603,6 +606,33 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	rmNear();
 	mapHUDSorted.traverseRL(sorted_L1);
 	mapHUDSorted.clear();
+	rmNormal();
+
+	// Restore projection
+	Device.mProject = Pold;
+	Device.mFullTransform = FTold;
+	RCache.set_xform_project(Device.mProject);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// strict-sorted render
+void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()
+{
+	// Change projection
+	Fmatrix Pold = Device.mProject;
+	Fmatrix FTold = Device.mFullTransform;
+	Device.mProject.build_projection(
+		deg2rad(psHUD_FOV * 83.f),
+		Device.fASPECT, R_VIEWPORT_NEAR,
+		g_pGamePersistent->Environment().CurrentEnv->far_plane);
+
+	Device.mFullTransform.mul(Device.mProject, Device.mView);
+	RCache.set_xform_project(Device.mProject);
+
+	// Rendering
+	rmNear();
+	mapScopeHUDSorted.traverseRL(sorted_L1);
+	mapScopeHUDSorted.clear();
 	rmNormal();
 
 	// Restore projection

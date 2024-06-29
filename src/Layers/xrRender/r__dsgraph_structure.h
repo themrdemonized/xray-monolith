@@ -44,6 +44,7 @@ public:
 	R_dsgraph::mapLOD_T mapLOD;
 	R_dsgraph::mapSorted_T mapDistort;
 	R_dsgraph::mapHUD_T mapHUDSorted;
+	R_dsgraph::mapScopeHUD_T mapScopeHUDSorted;
 	R_dsgraph::mapLandscape_T mapLandscape;
 	R_dsgraph::HUDMask_T HUDMask;
 	R_dsgraph::mapWater_T mapWater;
@@ -198,6 +199,7 @@ public:
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted();
+	void r_dsgraph_render_ScopeSorted();
 	void r_dsgraph_render_emissive();
 	void r_dsgraph_render_wmarks();
 	void r_dsgraph_render_distort();

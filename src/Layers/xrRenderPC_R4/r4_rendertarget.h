@@ -332,6 +332,7 @@ public:
 	void phase_nightvision();
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
+	void phase_3DSSReticle();
 	void phase_lut();		
 	void phase_smaa();
 	void phase_scene_prepare();

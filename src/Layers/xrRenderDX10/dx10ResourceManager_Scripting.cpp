@@ -131,6 +131,12 @@ public:
 		return *this;
 	}
 
+	adopt_compiler& _o_scope3(bool E)
+	{
+		C->SH->flags.isScope3 = E;
+		return *this;
+	}
+
 	adopt_compiler& _o_distort(bool E)
 	{
 		C->SH->flags.bDistort = E;
@@ -412,6 +418,7 @@ void CResourceManager::LS_Load()
 
 		.def("scope", &adopt_compiler::_o_scope, return_reference_to(_1)) //  Redotix99: for 3D Shader Based Scopes
 		.def("scope2", &adopt_compiler::_o_scope2, return_reference_to(_1))
+		.def("scope3", &adopt_compiler::_o_scope3, return_reference_to(_1))
 
 		//	For compatibility only
 		.def("dx10color_write_enable", &adopt_compiler::_dx10color_write_enable, return_reference_to(_1))

@@ -47,15 +47,15 @@ void CRenderTarget::phase_combine()
 	Fvector2 p0, p1;
 
 	//*** exposure-pipeline
-	u32			gpu_id	= Device.dwFrame%HW.Caps.iGPUNum;
+	u32			gpu_id = Device.dwFrame % HW.Caps.iGPUNum;
 	if (Device.m_SecondViewport.IsSVPActive()) //--#SM+#-- +SecondVP+
 	{
 		// clang-format off
 		gpu_id = (Device.dwFrame - 1) % HW.Caps.iGPUNum;
 	}
 	{
-		t_LUM_src->surface_set		(rt_LUM_pool[gpu_id*2+0]->pSurface);
-		t_LUM_dest->surface_set		(rt_LUM_pool[gpu_id*2+1]->pSurface);
+		t_LUM_src->surface_set(rt_LUM_pool[gpu_id * 2 + 0]->pSurface);
+		t_LUM_dest->surface_set(rt_LUM_pool[gpu_id * 2 + 1]->pSurface);
 	}
 
 	if (RImplementation.o.ssao_hdao && RImplementation.o.ssao_ultra)
@@ -76,7 +76,7 @@ void CRenderTarget::phase_combine()
 			phase_ssao();
 	}
 
-	FLOAT ColorRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 	// low/hi RTs
 	if (!RImplementation.o.dx10_msaa)
 	{
@@ -160,7 +160,7 @@ void CRenderTarget::phase_combine()
 			envdesc.weight
 		};
 
-		Fvector4 fogclr = {envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0};
+		Fvector4 fogclr = { envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0 };
 		envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
 		envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
 		envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
@@ -284,21 +284,21 @@ void CRenderTarget::phase_combine()
 	//Copy previous rt
 	if (!RImplementation.o.dx10_msaa)
 		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());
-    else
-        HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
+	else
+		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
 	if (RImplementation.o.ssfx_ssr)
 	{
 		phase_ssfx_ssr(); // [SSFX] - New SSR Phase
 	}
-	
+
 	// Water rendering & Rain/thunder-bolts
 	{
 		if (!RImplementation.o.dx10_msaa)
 			u_setrt(rt_Generic_0, 0, 0, HW.pBaseZB);
 		else
 			u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
-		
+
 		RCache.set_xform_world(Fidentity);
 		RImplementation.r_dsgraph_render_water();
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
@@ -395,6 +395,11 @@ void CRenderTarget::phase_combine()
 			phase_sunshafts();
 	}
 	
+	if (scope_fake_enabled)
+	{
+		phase_3DSSReticle();
+	}
+
 	//Compute blur textures
 	phase_blur();
 
@@ -407,7 +412,7 @@ void CRenderTarget::phase_combine()
 	}
 	
 	phase_lut();	
-	
+
 	if(ps_r2_mask_control.x > 0)
 	{
 		phase_gasmask_dudv();

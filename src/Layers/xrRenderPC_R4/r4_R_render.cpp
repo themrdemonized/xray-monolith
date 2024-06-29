@@ -362,6 +362,10 @@ void CRender::Render()
 		r_dsgraph_render_graph(0);
 		Target->disable_aniso();
 	}
+	
+	ID3D11Resource* zbuffer_res;
+	HW.pBaseZB->GetResource(&zbuffer_res); //get the resource
+	HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
 
 	//******* Occlusion testing of volume-limited light-sources
 	Target->phase_occq();
@@ -435,12 +439,6 @@ void CRender::Render()
 			//CHK_DX(HW.pDevice->SetRenderState			( D3DRS_ZENABLE,	TRUE				));
 			RCache.set_Z(TRUE);
 		}
-
-		ID3D11Resource* zbuffer_res;
-		HW.pBaseZB->GetResource(&zbuffer_res); //get the resource
-		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
-
-		zbuffer_res->Release();
 
 		// level
 		Target->phase_scene_begin();
@@ -578,6 +576,16 @@ void CRender::render_forward()
 		r_dsgraph_render_sorted(); // strict-sorted geoms
 		//g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 	}
+
+	RImplementation.o.distortion = FALSE; // disable distorion
+}
+
+void CRender::render_Reticle()
+{
+	VERIFY(0 == mapDistort.size());
+	RImplementation.o.distortion = RImplementation.o.distortion_enabled; // enable distorion
+
+	r_dsgraph_render_ScopeSorted();
 
 	RImplementation.o.distortion = FALSE; // disable distorion
 }

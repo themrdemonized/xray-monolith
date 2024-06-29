@@ -111,6 +111,7 @@ ShaderElement::ShaderElement()
 
 	flags.isScope = FALSE;		//  Redotix99: for 3D Shader Based Scopes
 	flags.isScope2 = FALSE;
+	flags.isScope3 = FALSE;
 }
 
 BOOL ShaderElement::equal(ShaderElement& S)
@@ -120,6 +121,7 @@ BOOL ShaderElement::equal(ShaderElement& S)
 	if (flags.bEmissive != S.flags.bEmissive) return FALSE;
 	if (flags.isScope != S.flags.isScope) return FALSE;		//  Redotix99: for 3D Shader Based Scopes
 	if (flags.isScope2 != S.flags.isScope2) return FALSE;
+	if (flags.isScope3 != S.flags.isScope3) return FALSE;
 	if (flags.bLandscape != S.flags.bLandscape) return FALSE;
 	if (flags.bWmark != S.flags.bWmark) return FALSE;
 	if (flags.bDistort != S.flags.bDistort) return FALSE;
