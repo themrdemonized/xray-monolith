@@ -511,6 +511,9 @@ public:
 	Fmatrix m_shoot_shake_mat;
 	void UpdateZoomParams();
 
+	void SetUIScope(LPCSTR scope_texture);
+	shared_str m_scope_tex_name;
+
 protected:
 	virtual void UpdateFireDependencies_internal();
 	void UpdateUIScope();

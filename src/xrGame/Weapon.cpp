@@ -376,9 +376,20 @@ void CWeapon::UpdateUIScope()
 		if (!scope_tex_name || scope_tex_name.equal("none") || g_player_hud->m_adjust_mode)
 			return;
 
+		m_scope_tex_name = scope_tex_name;
 		m_UIScope = xr_new<CUIWindow>();
 		CUIXmlInit::InitWindow(*pWpnScopeXml, scope_tex_name.c_str(), 0, m_UIScope);
 	}
+}
+
+void CWeapon::SetUIScope(LPCSTR scope_texture)
+{
+	xr_delete(m_UIScope);
+	scope_2dtexactive = 0; //crookr
+
+	m_scope_tex_name = scope_texture;
+	m_UIScope = xr_new<CUIWindow>();
+	CUIXmlInit::InitWindow(*pWpnScopeXml, scope_texture, 0, m_UIScope);
 }
 
 void CWeapon::SwitchZoomType()
@@ -666,6 +677,7 @@ void CWeapon::Load(LPCSTR section)
 					pWpnScopeXml = xr_new<CUIXml>();
 					pWpnScopeXml->Load(CONFIG_PATH, UI_PATH, "scopes.xml");
 				}
+				m_scope_tex_name = scope_tex_name;
 				CUIXmlInit::InitWindow(*pWpnScopeXml, scope_tex_name.c_str(), 0, m_UIScope);
 			}
 		}

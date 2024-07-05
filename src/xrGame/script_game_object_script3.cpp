@@ -608,6 +608,10 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 
 		// demonized: get object currently talking to
 		.def("get_talking_npc", &CScriptGameObject::get_talking_npc)
+
+		// demonized: get current scope texture
+		.def("get_scope_ui", &CScriptGameObject::get_scope_ui)
+		.def("set_scope_ui", &CScriptGameObject::set_scope_ui)
 #endif
 
 		.def("set_can_be_harmed", &CScriptGameObject::SetCanBeHarmed)
