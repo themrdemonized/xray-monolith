@@ -416,6 +416,16 @@
         function SetZoomCamMaxAngleVert(float)
         function SetZoomCamMaxAngleHorz(float)
         function SetZoomCamStepAngleHorz(float)
+
+        //Scope UI
+        //Returns table containing this data
+        {
+            name - name of scope_texture weapon currently uses
+            uiWindow - CUIWindow instance of scope UI
+            statics - array of CUIStatic that CUIWindow scope UI instance uses
+        }
+        table get_scope_ui() 
+        function set_scope_ui(string)
     }
 
     enum rq_target { (sum them up to target multiple types)
