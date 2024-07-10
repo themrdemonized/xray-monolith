@@ -395,10 +395,9 @@ void CRenderTarget::phase_combine()
 			phase_sunshafts();
 	}
 	
-	if (scope_fake_enabled)
-	{
-		phase_3DSSReticle();
-	}
+
+	phase_3DSSReticle();
+
 
 	//Compute blur textures
 	phase_blur();

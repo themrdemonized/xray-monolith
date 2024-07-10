@@ -547,11 +547,11 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 	rmNormal();
 
-	if (scope_fake_enabled)
+	if (scope_3D_fake_enabled)
 	{
 		mapScopeHUD.traverseLR(sorted_L1);
-		mapScopeHUD.clear();
 	}
+	mapScopeHUD.clear();
 
 	// Restore projection
 	Device.mProject = Pold;
