@@ -338,7 +338,7 @@ bool CInventory::DropItem(CGameObject* pObj, bool just_before_destroy, bool dont
 	return true;
 }
 
-//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
+//положить вещь в слот
 bool CInventory::Slot(u16 slot_id, PIItem pIItem, bool bNotActivate, bool strict_placement)
 {
 	VERIFY(pIItem);
@@ -379,7 +379,7 @@ bool CInventory::Slot(u16 slot_id, PIItem pIItem, bool bNotActivate, bool strict
 
 	m_slots[slot_id].m_pIItem = pIItem;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	//удалить из рюкзака или пояса
 	TIItemContainer::iterator it_ruck = std::find(m_ruck.begin(), m_ruck.end(), pIItem);
 	TIItemContainer::iterator it_belt = std::find(m_belt.begin(), m_belt.end(), pIItem);
 	if (!IsGameTypeSingle())
@@ -446,7 +446,7 @@ bool CInventory::Belt(PIItem pIItem, bool strict_placement)
 {
 	if (!strict_placement && !CanPutInBelt(pIItem)) return false;
 
-	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
+	//вещь была в слоте
 	bool in_slot = InSlot(pIItem);
 	if (in_slot)
 	{
@@ -497,7 +497,7 @@ bool CInventory::Ruck(PIItem pIItem, bool strict_placement)
 	}
 
 	bool in_slot = InSlot(pIItem);
-	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
+	//вещь была в слоте
 	if (in_slot)
 	{
 		if (GetActiveSlot() == pIItem->CurrSlot())
@@ -507,7 +507,7 @@ bool CInventory::Ruck(PIItem pIItem, bool strict_placement)
 	}
 	else
 	{
-		//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ
+		//вещь была на поясе или вообще только поднята с земли
 		TIItemContainer::iterator it = std::find(m_belt.begin(), m_belt.end(), pIItem);
 		if (m_belt.end() != it)
 			m_belt.erase(it);
@@ -593,7 +593,7 @@ void CInventory::Activate(u16 slot, bool bForce)
 	//	Msg("--- Activating slot [%d], inventory owner: [%s], Frame[%d]", slot, m_pOwner->Name(), Device.dwFrame);
 #endif // #ifdef DEBUG
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//активный слот не выбран
 	if (GetActiveSlot() == NO_ACTIVE_SLOT)
 	{
 		if (tmp_item)
@@ -616,7 +616,7 @@ void CInventory::Activate(u16 slot, bool bForce)
 			}
 		}
 	}
-		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+		//активный слот задействован
 	else if (slot == NO_ACTIVE_SLOT || tmp_item)
 	{
 		PIItem active_item = ActiveItem();
@@ -882,7 +882,7 @@ void CInventory::Update()
 
 void CInventory::UpdateDropTasks()
 {
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	//проверить слоты
 	for (u16 i = FirstSlot(); i <= LastSlot(); ++i)
 	{
 		PIItem itm = ItemFromSlot(i);
@@ -926,7 +926,7 @@ void CInventory::UpdateDropItem(PIItem pIItem)
 	} // dropManual
 }
 
-//пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+//ищем на поясе гранату такоже типа
 PIItem CInventory::Same(const PIItem pIItem, bool bSearchRuck) const
 {
 	const TIItemContainer& list = bSearchRuck ? m_ruck : m_belt;
@@ -943,7 +943,7 @@ PIItem CInventory::Same(const PIItem pIItem, bool bSearchRuck) const
 	return NULL;
 }
 
-//пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 
+//ищем на поясе вещь для слота 
 
 PIItem CInventory::SameSlot(const u16 slot, PIItem pIItem, bool bSearchRuck) const
 {
@@ -960,7 +960,7 @@ PIItem CInventory::SameSlot(const u16 slot, PIItem pIItem, bool bSearchRuck) con
 	return NULL;
 }
 
-//пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+//найти в инвенторе вещь с указанным именем
 PIItem CInventory::Get(LPCSTR name, bool bSearchRuck) const
 {
 	const TIItemContainer& list = bSearchRuck ? m_ruck : m_belt;
@@ -1095,14 +1095,14 @@ CInventoryItem* CInventory::get_object_by_id(ALife::_OBJECT_ID tObjectID)
 	return (0);
 }
 
-//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
+//скушать предмет 
 #include "game_object_space.h"
 #include "script_callback_ex.h"
 #include "script_game_object.h"
 
 bool CInventory::Eat(PIItem pIItem)
 {
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
+	//устанаовить съедобна ли вещь
 	CEatableItem* pItemToEat = smart_cast<CEatableItem*>(pIItem);
 	if (!pItemToEat) return false;
 
@@ -1226,8 +1226,8 @@ bool CInventory::CanPutInSlot(PIItem pIItem, u16 slot_id) const
 	return false;
 }
 
-//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ,
-//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//проверяет можем ли поместить вещь на пояс,
+//при этом реально ничего не меняется
 bool CInventory::CanPutInBelt(PIItem pIItem)
 {
 	if (InBelt(pIItem)) return false;
@@ -1238,8 +1238,8 @@ bool CInventory::CanPutInBelt(PIItem pIItem)
 	return FreeRoom_inBelt(m_belt, pIItem, BeltWidth(), 1);
 }
 
-//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ,
-//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//проверяет можем ли поместить вещь в рюкзак,
+//при этом реально ничего не меняется
 bool CInventory::CanPutInRuck(PIItem pIItem) const
 {
 	if (InRuck(pIItem)) return false;
@@ -1311,7 +1311,7 @@ bool CInventory::CanTakeItem(CInventoryItem* inventory_item) const
 	VERIFY3(it == m_all.end(), "item already exists in inventory", *inventory_item->object().cName());
 
 	CActor* pActor = smart_cast<CActor*>(m_pOwner);
-	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+	//актер всегда может взять вещь
 	if (!pActor && (TotalWeight() + inventory_item->Weight() > m_pOwner->MaxCarryWeight()))
 		return false;
 
