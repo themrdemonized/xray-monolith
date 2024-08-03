@@ -44,6 +44,8 @@
         allow_outfit_control_inertion_factor 
         allow_weapon_control_inertion_factor // Weapon and outfit control_inertion_factor can affect mouse sens
         render_short_tracers // Tracers will be capped to their minimum length instead of not rendering 
+		
+		viewport_near [0.0, 1.0] // Adjust the camera near value
     }
 
     lua extensions {
