@@ -18,7 +18,7 @@
 
 #include "../build_config_defines.h"
 
-#define VIEWPORT_NEAR 0.2f
+#define VIEWPORT_NEAR  Device.ViewportNear //0.2f
 #define R_VIEWPORT_NEAR 0.005f
 
 #define DEVICE_RESET_PRECACHE_FRAME_COUNT 10
@@ -81,6 +81,7 @@ public:
 
 	float fFOV;
 	float fASPECT;
+	float ViewportNear = 0.02f;
 protected:
 
 	u32 Timer_MM_Delta;
