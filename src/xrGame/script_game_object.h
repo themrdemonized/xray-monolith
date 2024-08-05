@@ -1097,6 +1097,10 @@ public:
 
 	// demonized: get talking npc
 	CScriptGameObject* get_talking_npc();
+
+	// demonized: get and set scope UI
+	luabind::object get_scope_ui();
+	void set_scope_ui(LPCSTR scope_texture);
 #endif
 	//-Alundaio
 
