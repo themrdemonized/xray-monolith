@@ -922,6 +922,7 @@ CScriptGameObject* CScriptGameObject::GetActiveItem()
 CScriptGameObject* CScriptGameObject::GetObjectByName(LPCSTR caObjectName) const
 {
 	CInventoryOwner* l_tpInventoryOwner = smart_cast<CInventoryOwner*>(&object());
+	CInventoryBox* inventory_box = smart_cast<CInventoryBox*>(&this->object());
 	if (l_tpInventoryOwner)
 	{
 		CInventoryItem* l_tpInventoryItem = l_tpInventoryOwner->inventory().GetItemFromInventory(caObjectName);
@@ -930,6 +931,19 @@ CScriptGameObject* CScriptGameObject::GetObjectByName(LPCSTR caObjectName) const
 			return (0);
 		else
 			return (l_tpGameObject->lua_game_object());
+	}
+	else if (inventory_box)
+	{
+		xr_vector<u16>::const_iterator I = inventory_box->m_items.begin();
+		xr_vector<u16>::const_iterator E = inventory_box->m_items.end();
+		for (; I != E; ++I)
+		{
+			CGameObject* GO = smart_cast<CGameObject*>(Level().Objects.net_Find(*I));
+			if (GO && GO->cNameSect() == caObjectName) {
+				return (GO->lua_game_object());
+			}
+		}
+		return (0);
 	}
 	else
 	{
