@@ -1321,16 +1321,22 @@ bool CInventory::CanTakeItem(CInventoryItem* inventory_item) const
 
 u32 CInventory::BeltWidth() const
 {
+	u32 artefact_count = 0;
 	CActor* pActor = smart_cast<CActor*>(m_pOwner);
 	if (pActor)
 	{
 		CCustomOutfit* outfit = pActor->GetOutfit();
 		if (outfit)
 		{
-			return outfit->get_artefact_count();
+			artefact_count =  outfit->get_artefact_count();
 		}
 	}
-	return 0; //m_iMaxBelt;
+	luabind::functor<int> funct;
+		if (ai().script_engine().functor("actor_menu_inventory.CInventory_BeltWidth", funct))
+		{
+			artefact_count = funct(artefact_count);
+		}
+	return artefact_count; //m_iMaxBelt;
 }
 
 void CInventory::AddAvailableItems(TIItemContainer& items_container, bool for_trade, bool bOverride) const

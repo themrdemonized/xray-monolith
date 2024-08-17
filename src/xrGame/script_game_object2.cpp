@@ -732,3 +732,59 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 
 	return g_obj->lua_game_object();
 }
+
+// demonized: get scope UI
+luabind::object CScriptGameObject::get_scope_ui() {
+	CWeapon* weapon = smart_cast<CWeapon*>(&object());
+	luabind::object table = luabind::newtable(ai().script_engine().lua());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : get_scope_ui works only with CWeapon object!");
+		return table;
+	}
+	
+	auto& zoomTextureWndList = weapon->ZoomTexture()->GetChildWndList();
+	if (zoomTextureWndList.empty()) {
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : get_scope_ui, no scope texture found for %s!", weapon->cNameSect().c_str());
+		return table;
+	}
+
+	luabind::object staticChildren = luabind::newtable(ai().script_engine().lua());
+
+	for (int i = 0; i < zoomTextureWndList.size(); i++) {
+		CUIStatic* staticWnd = smart_cast<CUIStatic*>(zoomTextureWndList[i]);
+		if (!staticWnd) {
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+											"CScriptGameObject : get_scope_ui, can't cast scope texture %d to CUIStatic for %s!", i, weapon->cNameSect().c_str());
+		} else {
+			staticChildren[i + 1] = staticWnd;
+		}
+	}
+
+	table["name"] = weapon->m_scope_tex_name.c_str();
+	table["uiWindow"] = weapon->ZoomTexture();
+	table["statics"] = staticChildren;
+	
+	return table;
+}
+
+void CScriptGameObject::set_scope_ui(LPCSTR scope_texture) {
+	CWeapon* weapon = smart_cast<CWeapon*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : set_scope_ui works only with CWeapon object!");
+		return;
+	}
+
+	auto wnd = weapon->ZoomTexture();
+	if (!wnd) {
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : set_scope_ui no scope found for %s!", weapon->cNameSect().c_str());
+		return;
+	}
+
+	weapon->SetUIScope(scope_texture);
+}
