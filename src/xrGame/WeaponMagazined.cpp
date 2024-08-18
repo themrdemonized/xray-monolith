@@ -158,8 +158,8 @@ void CWeaponMagazined::Load(LPCSTR section)
 		//-Alundaio
 
 		// Cyclic fire sounds w/ silencer
-		if (WeaponSoundExist(section, "snd_silncershoot_actor_first"))
-			m_sounds.LoadSound(section, "snd_silncershoot_actor_first", "sndSilencerShotActorFirst", false, m_eSoundShot);
+		if (WeaponSoundExist(section, "snd_silncer_shoot_actor_first"))
+			m_sounds.LoadSound(section, "snd_silncer_shoot_actor_first", "sndSilencerShotActorFirst", false, m_eSoundShot);
 
 		//misfire shot
 		if (WeaponSoundExist(section, "snd_silncer_shot_misfire"))
