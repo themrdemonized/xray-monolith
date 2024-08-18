@@ -95,7 +95,7 @@ void CPatrolPathStorage::load_from_config()
 	FS.update_path(fname, "$game_config$", "patrol_paths.ltx");
 	CInifile* ini_paths = xr_new<CInifile>(fname, TRUE);
 
-	Msg("[ASHES] %s initialized", fname);
+	Msg("[PP] %s initialized", fname);
 
 	// Iterate sections. Each section is a unique patrol path
 	CInifile::Root& paths = ini_paths->sections();
@@ -104,11 +104,11 @@ void CPatrolPathStorage::load_from_config()
 		// Get patrol path name
 		LPCSTR patrol_name = (*i)->Name.c_str();
 
-		Msg("[ASHES] Reading section %s", patrol_name);
+		Msg("[PP] Reading section %s", patrol_name);
 
 		// Assert unique
 		const_iterator exists = m_registry.find(patrol_name);
-		R_ASSERT2(exists == m_registry.end(), "Duplicated patrol path found", patrol_name);
+		R_ASSERT3(exists == m_registry.end(), "Duplicated patrol path found", patrol_name);
 
 		// Build CPatrolPath object
 		CPatrolPath* patrol_path = &xr_new<CPatrolPath>(patrol_name)->load_from_config(ini_paths, patrol_name);
@@ -118,7 +118,7 @@ void CPatrolPathStorage::load_from_config()
 		m_registry.insert(pair);
 	}
 
-	Msg("[ASHES] Done reading patrol paths from configs");
+	Msg("[PP] Done reading patrol paths from configs");
 
 	xr_delete(ini_paths);
 }

@@ -105,19 +105,19 @@ CPatrolPoint& CPatrolPoint::load_raw(const CLevelGraph* level_graph, const CGame
 CPatrolPoint& CPatrolPoint::load_from_config(CInifile* ini_paths, LPCSTR patrol_name, LPCSTR point_name)
 {
 	LPCSTR point_name_key = FormatString("%s:%s", point_name, "name").c_str();
-	R_ASSERT2(ini_paths->line_exist(patrol_name, point_name_key), "Missing 'name' for patrol path", patrol_name);
+	R_ASSERT3(ini_paths->line_exist(patrol_name, point_name_key), "Missing 'name' for patrol path", patrol_name);
 	m_name = ini_paths->r_string(patrol_name, point_name_key);
 
 	LPCSTR point_position_key = FormatString("%s:%s", point_name, "position").c_str();
-	R_ASSERT2(ini_paths->line_exist(patrol_name, point_position_key), "Missing 'position' for patrol path", patrol_name);
+	R_ASSERT3(ini_paths->line_exist(patrol_name, point_position_key), "Missing 'position' for patrol path", patrol_name);
 	m_position = ini_paths->r_fvector3(patrol_name, point_position_key);
 
 	LPCSTR point_lvid_key = FormatString("%s:%s", point_name, "level_vertex_id").c_str();
-	R_ASSERT2(ini_paths->line_exist(patrol_name, point_lvid_key), "Missing 'level_vertex_id' for patrol path", patrol_name);
+	R_ASSERT3(ini_paths->line_exist(patrol_name, point_lvid_key), "Missing 'level_vertex_id' for patrol path", patrol_name);
 	m_level_vertex_id = ini_paths->r_u32(patrol_name, point_lvid_key);
 
 	LPCSTR point_gvid_key = FormatString("%s:%s", point_name, "game_vertex_id").c_str();
-	R_ASSERT2(ini_paths->line_exist(patrol_name, point_gvid_key), "Missing 'game_vertex_id' for patrol path", patrol_name);
+	R_ASSERT3(ini_paths->line_exist(patrol_name, point_gvid_key), "Missing 'game_vertex_id' for patrol path", patrol_name);
 	m_game_vertex_id = ini_paths->r_u16(patrol_name, point_gvid_key);
 
 	LPCSTR point_flags_key = FormatString("%s:%s", point_name, "flags").c_str();
