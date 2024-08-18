@@ -45,7 +45,7 @@ CPatrolPath& CPatrolPath::load_raw(const CLevelGraph* level_graph, const CGameLe
 
 CPatrolPath& CPatrolPath::load_from_config(CInifile* ini_paths, LPCSTR patrol_name)
 {
-	R_ASSERT3(ini_paths->line_exist(patrol_name, "points"), "Missing 'points' for patrol path", patrol_name);
+	R_ASSERT3(ini_paths->line_exist(patrol_name, "points"), "Missing key 'points' in patrol path", patrol_name);
 	LPCSTR points_csv = ini_paths->r_string(patrol_name, "points");
 	std::vector<std::string> points = splitStringMulti(points_csv, ",", false, true);
 
