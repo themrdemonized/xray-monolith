@@ -305,3 +305,15 @@ void CloseLog(void)
 	LogFile->clear();
 	xr_delete(LogFile);
 }
+
+shared_str FormatString(LPCSTR fmt, ...)
+{
+	va_list mark;
+	string2048 buf;
+	va_start(mark, fmt);
+	int sz = _vsnprintf(buf, sizeof(buf) - 1, fmt, mark);
+	buf[sizeof(buf) - 1] = 0;
+	va_end(mark);
+	if (sz) return shared_str(buf);
+	return shared_str(0);
+}
