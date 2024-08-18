@@ -47,23 +47,13 @@ function ui_pda_npc_tab.use_view(obj)
 	end
 end
 
--- Fix for ActorMenu_on_item_after_move callback sending nil values
+-- NLTP_ASHES: Fix for ActorMenu_on_item_after_move callback sending nil values
 ui_inventory_UIInventory_Action_Move = ui_inventory.UIInventory.Action_Move
 function ui_inventory.UIInventory:Action_Move(obj, bag)
   obj = self:CheckItem(obj,"Action_Move")
   if obj then
     ui_inventory_UIInventory_Action_Move(self, obj, bag)
   end
-end
-
--- Fix for actor_on_item_put_in_box not firing when item is moved from slot (and not from backpack)
-function on_game_start()
-	RegisterScriptCallback("ActorMenu_on_item_after_move", function(npc_id, obj, mode, bag_from)
-		local box = level.object_by_id(npc_id)
-		if box and IsInvbox(box) and mode == "loot" and bag_from == 1 then
-			SendScriptCallback("actor_on_item_put_in_box", box, obj)
-		end
-	end)
 end
 
 -- Additional params for callbacks
