@@ -103,6 +103,10 @@ void CWeaponMagazined::Load(LPCSTR section)
 		m_sounds.LoadSound(section, "snd_shoot_actor", "sndShotActor", false, m_eSoundShot);
 	//-Alundaio
 
+	// Cyclic fire sounds
+	if (WeaponSoundExist(section, "snd_shoot_actor_first"))
+		m_sounds.LoadSound(section, "snd_shoot_actor_first", "sndShotActorFirst", false, m_eSoundShot);
+
 	//misfire shot
 	if (WeaponSoundExist(section, "snd_shot_misfire"))
 		m_sounds.LoadSound(section, "snd_shot_misfire", "sndShotMisfire", false, m_eSoundShot);
@@ -152,6 +156,10 @@ void CWeaponMagazined::Load(LPCSTR section)
 		if (WeaponSoundExist(section, "snd_silncer_shot_actor"))
 			m_sounds.LoadSound(section, "snd_silncer_shot_actor", "sndSilencerShotActor", false, m_eSoundShot);
 		//-Alundaio
+
+		// Cyclic fire sounds w/ silencer
+		if (WeaponSoundExist(section, "snd_silncer_shoot_actor_first"))
+			m_sounds.LoadSound(section, "snd_silncer_shoot_actor_first", "sndSilencerShotActorFirst", false, m_eSoundShot);
 
 		//misfire shot
 		if (WeaponSoundExist(section, "snd_silncer_shot_misfire"))
@@ -669,6 +677,8 @@ void CWeaponMagazined::UpdateSounds()
 		m_sounds.SetPosition("sndShotMisfire", P);
 	if (m_sounds.FindSoundItem("sndShotMisfireActor", false))
 		m_sounds.SetPosition("sndShotMisfireActor", P);
+	if (m_sounds.FindSoundItem("sndShotActorFirst", false))
+		m_sounds.SetPosition("sndShotActorFirst", P);
 }
 
 // demonized: check if cycle_down is enabled and shot num below max possible burst. Adds support for arbitrary burst shot at rpm_mode_2 with cycling down to rpm after maxBurstAmount
@@ -817,6 +827,14 @@ void CWeaponMagazined::PlaySoundShot()
 				m_sounds.PlaySound(sndNameMisfire, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1);
 				return;
 			}
+		}
+
+		string128 sndNameFirst;
+		strconcat(sizeof(sndNameFirst), sndNameFirst, m_sSndShotCurrent.c_str(), "ActorFirst");
+		if (m_iShotNum == 1 && m_sounds.FindSoundItem(sndNameFirst, false))
+		{
+			m_sounds.PlaySound(sndNameFirst, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1);
+			return;
 		}
 
 		string128 sndName;
