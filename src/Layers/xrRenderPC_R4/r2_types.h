@@ -75,11 +75,20 @@
 #define		r2_RT_smaa_edgetex "$user$smaa_edgetex"
 #define		r2_RT_smaa_blendtex "$user$smaa_blendtex"
 
-#define		r2_RT_ssfx			"$user$ssfx" // [Ascii1457] SSS new Phase
-#define		r2_RT_ssfx_temp		"$user$ssfx_temp" // [Ascii1457] SSS new Phase
-#define		r2_RT_ssfx_temp2	"$user$ssfx_temp2" // [ SSS ] Full res - D3DFMT_A8B8G8R8F
-#define		r2_RT_ssfx_accum	"$user$ssfx_accum" // [ SSS ] Full res - D3DFMT_A16B16G16R16F
-#define		r2_RT_ssfx_hud		"$user$ssfx_hud" // ...
+#define		r2_RT_ssfx				"$user$ssfx" // SSS Temp1
+#define		r2_RT_ssfx_temp			"$user$ssfx_temp" // SSS Temp2
+#define		r2_RT_ssfx_temp2		"$user$ssfx_temp2" // SSS Temp3
+#define		r2_RT_ssfx_temp3		"$user$ssfx_temp3"
+#define		r2_RT_ssfx_accum		"$user$ssfx_accum" // SSS Volumetric
+#define		r2_RT_ssfx_hud			"$user$ssfx_hud" // HUD & Velocity Buffer
+
+#define		r2_RT_ssfx_ssr			"$user$ssfx_ssr" // SSR Acc
+#define		r2_RT_ssfx_water		"$user$ssfx_water" // Water Acc
+#define		r2_RT_ssfx_water_waves	"$user$ssfx_water_waves"
+#define		r2_RT_ssfx_ao			"$user$ssfx_ao" // AO Acc
+#define		r2_RT_ssfx_il			"$user$ssfx_il" // IL Acc
+
+#define		r2_RT_ssfx_prevPos		"$user$ssfx_prev_p" // Prev Position
 
 #define		JITTER(a) r2_jitter #a
 

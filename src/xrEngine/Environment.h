@@ -298,7 +298,7 @@ public:
 
 	float wetness_factor;
 
-	Fvector3 wind_anim;
+	Fvector4 wind_anim;
 
 	// wind blast params
 	float wind_blast_strength;

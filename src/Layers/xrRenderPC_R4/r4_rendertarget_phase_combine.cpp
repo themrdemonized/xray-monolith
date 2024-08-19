@@ -39,6 +39,8 @@ float hclip(float v, float dim) { return 2.f * v / dim - 1.f; }
 void CRenderTarget::phase_combine()
 {
 	PIX_EVENT(phase_combine);
+	
+	bool ssfx_PrevPos_Requiered = false;
 
 	//	TODO: DX10: Remove half poxel offset
 	bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
@@ -74,6 +76,50 @@ void CRenderTarget::phase_combine()
 		}
 		else if (RImplementation.o.ssao_blur_on)
 			phase_ssao();
+	}
+
+	// Save previus and current matrices
+	Fvector2 m_blur_scale;
+	{
+		static Fmatrix m_saved_viewproj;
+
+		if (!Device.m_SecondViewport.IsSVPFrame())
+		{
+			static Fvector3 saved_position;
+			Position_previous.set(saved_position);
+			saved_position.set(Device.vCameraPosition);
+
+			Fmatrix m_invview;
+			m_invview.invert(Device.mView);
+			Matrix_previous.mul(m_saved_viewproj, m_invview);
+			Matrix_current.set(Device.mProject);
+			m_saved_viewproj.set(Device.mFullTransform);
+		}
+		float scale = ps_r2_mblur / 2.f;
+		m_blur_scale.set(scale, -scale).div(12.f);
+	}
+
+	{
+		// Disable when rendering SecondViewport
+		if (!Device.m_SecondViewport.IsSVPFrame())
+		{
+			// Clear RT
+			FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+			HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
+			HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
+
+			if (RImplementation.o.ssfx_ao && ps_ssfx_ao.y > 0)
+			{
+				ssfx_PrevPos_Requiered = true;
+				phase_ssfx_ao(); // [SSFX] - New AO Phase
+			}
+
+			if (RImplementation.o.ssfx_il && ps_ssfx_il.y > 0)
+			{
+				ssfx_PrevPos_Requiered = true;
+				phase_ssfx_il(); // [SSFX] - New IL Phase
+			}
+		}
 	}
 
 	FLOAT ColorRGBA[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -124,7 +170,7 @@ void CRenderTarget::phase_combine()
 	//}
 
 	// calc m-blur matrices
-	Fmatrix m_previous, m_current;
+	/*Fmatrix m_previous, m_current;
 	Fvector2 m_blur_scale;
 	{
 		static Fmatrix m_saved_viewproj;
@@ -137,7 +183,7 @@ void CRenderTarget::phase_combine()
 		m_saved_viewproj.set(Device.mFullTransform);
 		float scale = ps_r2_mblur / 2.f;
 		m_blur_scale.set(scale, -scale).div(12.f);
-	}
+	}*/
 
 	// Draw full-screen quad textured with our scene image
 	if (!_menu_pp)
@@ -287,22 +333,59 @@ void CRenderTarget::phase_combine()
     else
         HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
-	if (RImplementation.o.ssfx_ssr)
+	if (RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
 	{
+		ssfx_PrevPos_Requiered = true;
 		phase_ssfx_ssr(); // [SSFX] - New SSR Phase
 	}
-	
-	// Water rendering & Rain/thunder-bolts
+
+	// [SSFX] - Water SSR rendering
+	if (RImplementation.o.ssfx_water && !Device.m_SecondViewport.IsSVPFrame())
 	{
+		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
+		HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
+
 		if (!RImplementation.o.dx10_msaa)
-			u_setrt(rt_Generic_0, 0, 0, HW.pBaseZB);
+			u_setrt(rt_ssfx_temp, 0, 0, 0);
 		else
-			u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
-		
+			u_setrt(rt_ssfx_temp, 0, 0, 0);
+
+		float w = float(Device.dwWidth);
+		float h = float(Device.dwHeight);
+
+		// Render Scale
+		set_viewport_size(HW.pContext, w / ps_ssfx_water.x, h / ps_ssfx_water.x);
+
+		// Render Water SSR
 		RCache.set_xform_world(Fidentity);
-		RImplementation.r_dsgraph_render_water();
-		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
+		RImplementation.r_dsgraph_render_water_ssr();
+
+		// Restore Viewport
+		set_viewport_size(HW.pContext, w, h);
+
+		// Save Frame
+		HW.pContext->CopyResource(rt_ssfx_water->pTexture->surface_get(), rt_ssfx_temp->pTexture->surface_get());
+
+		// Water SSR Blur
+		phase_ssfx_water_blur();
+
+		// Water waves
+		phase_ssfx_water_waves();
 	}
+
+	if (!RImplementation.o.dx10_msaa)
+		u_setrt(rt_Generic_0, 0, 0, HW.pBaseZB);
+	else
+		u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
+
+	// Final water rendering ( All the code above can be omitted if the Water module isn't installed )
+	RCache.set_xform_world(Fidentity);
+	RImplementation.r_dsgraph_render_water();
+	g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
+
+	if (ssfx_PrevPos_Requiered)
+		HW.pContext->CopyResource(rt_ssfx_prevPos->pTexture->surface_get(), rt_Position->pTexture->surface_get());
 
 	// Forward rendering
 	{
@@ -396,7 +479,8 @@ void CRenderTarget::phase_combine()
 	}
 	
 	//Compute blur textures
-	phase_blur();
+	if (!Device.m_SecondViewport.IsSVPFrame()) // Temp fix for blur buffer and SVP
+		phase_blur();
 
 	//Compute bloom (new)
 	phase_pp_bloom();
@@ -541,8 +625,8 @@ void CRenderTarget::phase_combine()
 		RCache.set_c("e_barrier", ps_r2_aa_barier.x, ps_r2_aa_barier.y, ps_r2_aa_barier.z, 0);
 		RCache.set_c("e_weights", ps_r2_aa_weight.x, ps_r2_aa_weight.y, ps_r2_aa_weight.z, 0);
 		RCache.set_c("e_kernel", ps_r2_aa_kernel, ps_r2_aa_kernel, ps_r2_aa_kernel, 0);
-		RCache.set_c("m_current", m_current);
-		RCache.set_c("m_previous", m_previous);
+		RCache.set_c("m_current", Matrix_current);
+		RCache.set_c("m_previous", Matrix_previous);
 		RCache.set_c("m_blur", m_blur_scale.x, m_blur_scale.y, 0, 0);
 		/////lvutner		
 		RCache.set_c("mask_control", ps_r2_mask_control.x, ps_r2_mask_control.y, ps_r2_mask_control.z, ps_r2_mask_control.w);

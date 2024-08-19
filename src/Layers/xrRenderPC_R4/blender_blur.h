@@ -40,3 +40,16 @@ public:
 	CBlender_ssfx_volumetric_blur();
 	virtual ~CBlender_ssfx_volumetric_blur();
 };
+
+class CBlender_ssfx_ao : public IBlender
+{
+public:
+	virtual LPCSTR getComment() { return "ssfx_ao"; }
+	virtual BOOL canBeDetailed() { return FALSE; }
+	virtual BOOL canBeLMAPped() { return FALSE; }
+
+	virtual void Compile(CBlender_Compile& C);
+
+	CBlender_ssfx_ao();
+	virtual ~CBlender_ssfx_ao();
+};
