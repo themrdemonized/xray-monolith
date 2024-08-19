@@ -17,8 +17,7 @@ CPatrolPathStorage::~CPatrolPathStorage()
 	delete_data(m_registry);
 }
 
-void CPatrolPathStorage::load_raw(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross,
-                                  const CGameGraph* game_graph, IReader& stream)
+void CPatrolPathStorage::load_raw(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph, IReader& stream)
 {
 	IReader* chunk = stream.open_chunk(WAY_PATROLPATH_CHUNK);
 
@@ -26,8 +25,7 @@ void CPatrolPathStorage::load_raw(const CLevelGraph* level_graph, const CGameLev
 		return;
 
 	u32 chunk_iterator;
-	for (IReader* sub_chunk = chunk->open_chunk_iterator(chunk_iterator); sub_chunk; sub_chunk = chunk->
-	     open_chunk_iterator(chunk_iterator, sub_chunk))
+	for (IReader* sub_chunk = chunk->open_chunk_iterator(chunk_iterator); sub_chunk; sub_chunk = chunk->open_chunk_iterator(chunk_iterator, sub_chunk))
 	{
 		R_ASSERT(sub_chunk->find_chunk(WAYOBJECT_CHUNK_VERSION));
 		R_ASSERT(sub_chunk->r_u16() == WAYOBJECT_VERSION);
@@ -40,14 +38,7 @@ void CPatrolPathStorage::load_raw(const CLevelGraph* level_graph, const CGameLev
 		m_registry.insert(
 			std::make_pair(
 				patrol_name,
-				&xr_new<CPatrolPath>(
-					patrol_name
-				)->load_raw(
-					level_graph,
-					cross,
-					game_graph,
-					*sub_chunk
-				)
+				&xr_new<CPatrolPath>(patrol_name)->load_raw(level_graph, cross, game_graph, *sub_chunk)
 			)
 		);
 	}
@@ -88,13 +79,48 @@ void CPatrolPathStorage::load(IReader& stream)
 		VERIFY3(I == m_registry.end(), "Duplicated patrol path found ", *pair.first);
 
 #ifdef DEBUG
-		pair.second->name		(pair.first);
+		pair.second->name(pair.first);
 #endif
 
 		m_registry.insert(pair);
 	}
 
 	chunk->close();
+}
+
+void CPatrolPathStorage::load_from_config()
+{
+	// Open patrol_paths.ltx
+	string_path fname;
+	FS.update_path(fname, "$game_config$", "patrol_paths.ltx");
+	CInifile* ini_paths = xr_new<CInifile>(fname, TRUE);
+
+	Msg("[PP] %s initialized", fname);
+
+	// Iterate sections. Each section is a unique patrol path
+	CInifile::Root& paths = ini_paths->sections();
+	for (CInifile::Root::iterator i = paths.begin(), ie = paths.end(); i != ie; ++i)
+	{
+		// Get patrol path name
+		LPCSTR patrol_name = (*i)->Name.c_str();
+
+		Msg("[PP] Reading section %s", patrol_name);
+
+		// Assert unique
+		const_iterator exists = m_registry.find(patrol_name);
+		R_ASSERT3(exists == m_registry.end(), "Duplicated patrol path found", patrol_name);
+
+		// Build CPatrolPath object
+		CPatrolPath* patrol_path = &xr_new<CPatrolPath>(patrol_name)->load_from_config(ini_paths, patrol_name);
+
+		// Insert in registry
+		PATROL_REGISTRY::value_type pair = std::make_pair(patrol_name, patrol_path);
+		m_registry.insert(pair);
+	}
+
+	Msg("[PP] Done reading patrol paths from configs");
+
+	xr_delete(ini_paths);
 }
 
 void CPatrolPathStorage::save(IWriter& stream)
