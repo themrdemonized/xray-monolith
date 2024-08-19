@@ -83,20 +83,81 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
 
-void __fastcall sorted_L1_nops(mapSorted_Node * N)
+void __fastcall water_node_ssr(mapSorted_Node* N)
+{
+#ifdef USE_DX11
+	VERIFY(N);
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V);
+
+	RCache.set_Shader(RImplementation.Target->s_ssfx_water_ssr);
+
+	RCache.set_xform_world(N->val.Matrix);
+	RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_lmaterial();
+
+	RCache.set_c("cam_pos", RImplementation.Target->Position_previous.x, RImplementation.Target->Position_previous.y, RImplementation.Target->Position_previous.z, 0.0f);
+
+	// Previous matrix data
+	RCache.set_c("m_previous", N->val.PrevMatrix);
+	N->val.PrevMatrix.set(RCache.xforms.m_wvp);
+
+	V->Render(calcLOD(N->key, V->vis.sphere.R));
+#endif
+}
+
+void __fastcall water_node(mapSorted_Node* N)
 {
 	VERIFY(N);
-	dxRender_Visual * V = N->val.pVisual;
-	VERIFY(V && V->shader._get());
-	RCache.set_Element(N->val.se);
-	
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V);
+
 #ifdef USE_DX11
-	RCache.set_PS(RImplementation.Target->s_ssfx_dumb->E[0]->passes[0]->ps);
+	if (RImplementation.o.ssfx_water)
+	{
+		RCache.set_Shader(RImplementation.Target->s_ssfx_water);
+	}
 #endif
-	
+
 	RCache.set_xform_world(N->val.Matrix);
-	V->Render(0);
+	RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_lmaterial();
+
+	// Wind settings
+	float WindDir = g_pGamePersistent->Environment().CurrentEnv->wind_direction;
+	float WindVel = g_pGamePersistent->Environment().CurrentEnv->wind_velocity;
+	RCache.set_c("wind_setup", WindDir, WindVel, 0, 0);
+
+	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
+
+void __fastcall hud_node(mapSorted_Node* N)
+{
+	VERIFY(N);
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V && V->shader._get());
+	RCache.set_xform_world(N->val.Matrix);
+
+#ifdef USE_DX11
+
+	if (N->val.se->passes[0]->ps->hud_disabled)
+		return;
+
+	int skinning = N->val.se->passes[0]->vs->skinning;
+	RCache.set_Shader(RImplementation.Target->s_ssfx_hud[skinning]);
+
+	RImplementation.Target->Matrix_HUD_previous.set(N->val.PrevMatrix);
+	N->val.PrevMatrix.set(RCache.xforms.m_wvp);
+
+	RImplementation.Target->RVelocity = true;
+
+#endif
+
+	V->Render(calcLOD(N->key, V->vis.sphere.R));
+
+#ifdef USE_DX11
+	RImplementation.Target->RVelocity = false;
+#endif
 
 IC bool cmp_vs_nrm(mapNormalVS::TNode* N1, mapNormalVS::TNode* N2)
 {
@@ -540,9 +601,14 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	}
 	else
 	{
-		HUDMask.traverseLR(sorted_L1_nops);
+		HUDMask.traverseLR(hud_node);
 		HUDMask.clear();
 	}
+
+#if	RENDER==R_R1
+	if (g_hud && g_hud->RenderActiveItemUIQuery())
+		r_dsgraph_render_hud_ui(); // hud ui
+#endif
 
 	rmNormal();
 
@@ -555,6 +621,8 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 {
+	VERIFY(g_hud && g_hud->RenderActiveItemUIQuery());
+
 	// Change projection
 	Fmatrix Pold = Device.mProject;
 	Fmatrix FTold = Device.mFullTransform;
@@ -565,6 +633,36 @@ void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_project(Device.mProject);
+
+#if	RENDER!=R_R1
+	// Targets, use accumulator for temporary storage
+	const ref_rt rt_null;
+	RCache.set_RT(0, 1);
+	RCache.set_RT(0, 2);
+#if	(RENDER==R_R3) || (RENDER==R_R4)
+	if (!RImplementation.o.dx10_msaa)
+	{
+		if (RImplementation.o.albedo_wo)
+			RImplementation.Target->u_setrt(RImplementation.Target->rt_Accumulator,
+			                                rt_null, rt_null, HW.pBaseZB);
+		else RImplementation.Target->u_setrt(RImplementation.Target->rt_Color, rt_null, rt_null, HW.pBaseZB);
+	}
+	else
+	{
+		if (RImplementation.o.albedo_wo)
+			RImplementation.Target->u_setrt(RImplementation.Target->rt_Accumulator,
+			                                rt_null, rt_null,
+			                                RImplementation.Target->rt_MSAADepth->pZRT);
+		else
+			RImplementation.Target->u_setrt(RImplementation.Target->rt_Color, rt_null, rt_null,
+			                                RImplementation.Target->rt_MSAADepth->pZRT);
+	}
+#else // (RENDER==R_R3) || (RENDER==R_R4)
+	if (RImplementation.o.albedo_wo) RImplementation.Target->u_setrt(RImplementation.Target->rt_Accumulator, rt_null,
+	                                                                 rt_null, HW.pBaseZB);
+	else RImplementation.Target->u_setrt(RImplementation.Target->rt_Color, rt_null, rt_null, HW.pBaseZB);
+#endif // (RENDER==R_R3) || (RENDER==R_R4)
+#endif // RENDER!=R_R1
 
 	rmNear();
 	g_hud->RenderActiveItemUI();
@@ -642,9 +740,14 @@ void R_dsgraph_structure::r_dsgraph_render_emissive()
 #endif
 }
 
+void R_dsgraph_structure::r_dsgraph_render_water_ssr()
+{
+	mapWater.traverseLR(water_node_ssr);
+}
+
 void R_dsgraph_structure::r_dsgraph_render_water()
 {
-	mapWater.traverseLR(sorted_L1);
+	mapWater.traverseLR(water_node);
 	mapWater.clear();
 }
 

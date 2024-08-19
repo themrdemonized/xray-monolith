@@ -370,8 +370,9 @@ CRenderTarget::CRenderTarget()
 	b_smaa = xr_new<CBlender_smaa>();
 
 	// Screen Space Shaders Stuff
-	b_ssfx_ssr = xr_new<CBlender_ssfx_ssr>(); // [Ascii1457] SSS new Phase
-	b_ssfx_volumetric_blur = xr_new<CBlender_ssfx_volumetric_blur>(); // [Ascii1457] SSS new Phase
+	b_ssfx_ssr = xr_new<CBlender_ssfx_ssr>(); // SSR
+	b_ssfx_volumetric_blur = xr_new<CBlender_ssfx_volumetric_blur>(); // Volumetric Blur
+	b_ssfx_ao = xr_new<CBlender_ssfx_ao>(); // AO
 
 	// HDAO
 	b_hdao_cs = xr_new<CBlender_CS_HDAO>();
@@ -486,12 +487,22 @@ CRenderTarget::CRenderTarget()
 		rt_pp_bloom.create(r2_RT_pp_bloom, w, h, D3DFMT_A8R8G8B8);
 		
 		// Screen Space Shaders Stuff
-		rt_ssfx.create(r2_RT_ssfx, w, h, D3DFMT_A8R8G8B8); // Generic RT
+		rt_ssfx.create(r2_RT_ssfx, w, h, D3DFMT_A8R8G8B8); // Temp RT
 		rt_ssfx_temp.create(r2_RT_ssfx_temp, w, h, D3DFMT_A8R8G8B8); // Temp RT
-		rt_ssfx_temp2.create(r2_RT_ssfx_temp2, w, h, D3DFMT_A8R8G8B8); // Temp RT 8B
-		rt_ssfx_accum.create(r2_RT_ssfx_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount); // Temp RT 16B
-		
-		rt_ssfx_hud.create(r2_RT_ssfx_hud, w, h, D3DFMT_L8); // Temp RT 8B
+		rt_ssfx_temp2.create(r2_RT_ssfx_temp2, w, h, D3DFMT_A8R8G8B8); // Temp RT
+		rt_ssfx_temp3.create(r2_RT_ssfx_temp3, w, h, D3DFMT_A8R8G8B8); // Temp RT
+
+		rt_ssfx_accum.create(r2_RT_ssfx_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount); // Volumetric Acc
+		rt_ssfx_ssr.create(r2_RT_ssfx_ssr, w, h, D3DFMT_A8R8G8B8); // SSR Acc
+		rt_ssfx_water.create(r2_RT_ssfx_water, w, h, D3DFMT_A8R8G8B8); // Water Acc
+		rt_ssfx_ao.create(r2_RT_ssfx_ao, w, h, D3DFMT_A8R8G8B8); // AO Acc
+		rt_ssfx_il.create(r2_RT_ssfx_il, w, h, D3DFMT_A8R8G8B8); // IL Acc
+
+		rt_ssfx_water_waves.create(r2_RT_ssfx_water_waves, 512, 512, D3DFMT_A8R8G8B8); // Water Waves
+
+		rt_ssfx_prevPos.create(r2_RT_ssfx_prevPos, w, h, D3DFMT_A16B16G16R16F, SampleCount);
+
+		rt_ssfx_hud.create(r2_RT_ssfx_hud, w, h, D3DFMT_A16B16G16R16F); // HUD mask & Velocity buffer
 		
 		if (RImplementation.o.dx10_msaa)
 		{
@@ -525,7 +536,17 @@ CRenderTarget::CRenderTarget()
 	s_ssfx_ssr.create(b_ssfx_ssr, "r2\\ssfx_ssr"); // SSR
 	s_ssfx_volumetric_blur.create(b_ssfx_volumetric_blur, "r2\\ssfx_volumetric_blur"); // Volumetric Blur
 	
-	s_ssfx_dumb.create("ssfx_dumb"); // Dumb shader
+	s_ssfx_water_ssr.create("ssfx_water_ssr"); // Water SSR
+	s_ssfx_water.create("ssfx_water"); // Water
+
+	s_ssfx_ao.create(b_ssfx_ao, "ssfx_ao"); // SSR
+
+	string32 cskin_buffer;
+	for (int skin_num = 0; skin_num < 5; skin_num++)
+	{
+		sprintf(cskin_buffer, "ssfx_hud_skin%i", skin_num);
+		s_ssfx_hud[skin_num].create(cskin_buffer);
+	}
 
 	// DIRECT (spot)
 	D3DFORMAT depth_format = (D3DFORMAT)RImplementation.o.HW_smap_FORMAT;
@@ -1205,8 +1226,10 @@ CRenderTarget::~CRenderTarget()
 	xr_delete(b_lut);	
 	xr_delete(b_smaa);
 
-	xr_delete(b_ssfx_ssr); // [Ascii1457] SSS new Phase
-	xr_delete(b_ssfx_volumetric_blur); // [Ascii1457] SSS new Phase
+	// [ SSS Stuff ]
+	xr_delete(b_ssfx_ssr); // SSR Phase
+	xr_delete(b_ssfx_volumetric_blur); // Volumetric Phase
+	xr_delete(b_ssfx_ao); // AO Phase
 
 	if (RImplementation.o.dx10_msaa)
 	{
@@ -1221,6 +1244,7 @@ CRenderTarget::~CRenderTarget()
 			xr_delete(b_accum_direct_msaa[i]);
 			xr_delete(b_accum_mask_msaa[i]);
 			xr_delete(b_accum_direct_volumetric_msaa[i]);
+			//xr_delete					(b_accum_direct_volumetric_sun_msaa[i]);
 			xr_delete(b_accum_spot_msaa[i]);
 			xr_delete(b_accum_volumetric_msaa[i]);
 			xr_delete(b_accum_point_msaa[i]);

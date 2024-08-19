@@ -17,7 +17,7 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 	{
 	case 0: // combine
 		C.r_Pass("combine_1", "combine_1_nomsaa", FALSE, FALSE, FALSE, TRUE, D3DBLEND_INVSRCALPHA,
-		         D3DBLEND_SRCALPHA); //. MRT-blend?
+			D3DBLEND_SRCALPHA); //. MRT-blend?
 		C.r_Stencil(TRUE, D3DCMP_LESSEQUAL, 0xff, 0x00); // stencil should be >= 1
 		C.r_StencilRef(0x01);
 		//C.r_Sampler_rtf		("s_position",		r2_RT_P				);
@@ -45,8 +45,14 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_occ", r2_RT_ssao_temp);
 		C.r_dx10Texture("s_half_depth", r2_RT_half_depth);
 
+		C.r_dx10Texture("ssfx_ao", r2_RT_ssfx_temp);
+		C.r_dx10Texture("ssfx_il", r2_RT_ssfx_temp2);
+
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		jitter(C);
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_material");
 		C.r_dx10Sampler("smp_rtlinear");
@@ -63,7 +69,7 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);			
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
@@ -73,6 +79,9 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -89,16 +98,19 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);			
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -114,16 +126,19 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);			
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -140,16 +155,19 @@ void CBlender_combine::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);	
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -179,7 +197,7 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 	{
 	case 0: // combine
 		C.r_Pass("combine_1", "combine_1_msaa", FALSE, FALSE, FALSE, TRUE, D3DBLEND_INVSRCALPHA,
-		         D3DBLEND_SRCALPHA); //. MRT-blend?
+			D3DBLEND_SRCALPHA); //. MRT-blend?
 		C.r_Stencil(TRUE, D3DCMP_LESSEQUAL, 0xff, 0x00); // stencil should be >= 1
 		C.r_StencilRef(0x01);
 		//C.r_Sampler_rtf		("s_position",		r2_RT_P				);
@@ -207,8 +225,14 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("sky_s0", r2_T_sky0);
 		C.r_dx10Texture("sky_s1", r2_T_sky1);
 
+		C.r_dx10Texture("ssfx_ao", r2_RT_ssfx_temp);
+		C.r_dx10Texture("ssfx_il", r2_RT_ssfx_temp2);
+
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		jitter(C);
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_material");
 		C.r_dx10Sampler("smp_rtlinear");
@@ -225,16 +249,19 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);			
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1_r);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
-		
+
 		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -251,7 +278,7 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);		
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1_r);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
@@ -261,6 +288,9 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -276,16 +306,19 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);			
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1_r);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();
@@ -302,16 +335,19 @@ void CBlender_combine_msaa::Compile(CBlender_Compile& C)
 		C.r_dx10Texture("s_position", r2_RT_P);
 		C.r_dx10Texture("s_image", r2_RT_generic0);
 		C.r_dx10Texture("s_bloom", r2_RT_bloom1);
-		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);					
+		C.r_dx10Texture("s_bloom_new", r2_RT_pp_bloom);
 		C.r_dx10Texture("s_distort", r2_RT_generic1_r);
 		C.r_dx10Texture("s_blur_2", r2_RT_blur_2);
 		C.r_dx10Texture("s_blur_4", r2_RT_blur_4);
 		C.r_dx10Texture("s_blur_8", r2_RT_blur_8);
 
+		C.r_dx10Texture("s_hud_mask", r2_RT_ssfx_hud);
+
 		C.r_dx10Texture("s_lut_atlas", "shaders\\lut_atlas");
 		C.r_dx10Texture("s_lens_dirt", "shaders\\lens_dirt");
 		C.r_dx10Texture("s_noise_1", "shaders\\noise\\noise_tex");
 
+		C.r_dx10Sampler("smp_linear");
 		C.r_dx10Sampler("smp_nofilter");
 		C.r_dx10Sampler("smp_rtlinear");
 		C.r_End();

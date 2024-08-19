@@ -207,6 +207,7 @@ public:
 	void r_dsgraph_render_R1_box(IRender_Sector* _sector, Fbox& _bb, int _element);
 
 	void r_dsgraph_render_landscape(u32 pass, bool _clear);
+	void r_dsgraph_render_water_ssr();
 	void r_dsgraph_render_water();
 
 

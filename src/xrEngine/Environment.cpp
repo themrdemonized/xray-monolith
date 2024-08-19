@@ -84,7 +84,7 @@ CEnvironment::CEnvironment() :
 	wind_blast_strength_start_value = 0.f;
 	wind_blast_strength_stop_value = 0.f;
 
-	wind_anim = { 0.0f, 0.0f, 0.0f };
+	wind_anim = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	// fill clouds hemi verts & faces
 	const Fvector* verts;
@@ -576,7 +576,7 @@ void CEnvironment::OnFrame()
 	wind_anim.x += WindVel * WDir.x * Device.fTimeDelta;
 	wind_anim.y += WindVel * WDir.y * Device.fTimeDelta;
 	wind_anim.z += clampr(WindVel * 1.33f, 0.0f, 1.0f) * Device.fTimeDelta;
-
+	wind_anim.w += 1.0f * Device.fTimeDelta;
 
 	// if (pInput->iGetAsyncKeyState(DIK_O)) SetWeatherFX("surge_day");
 	float current_weight;

@@ -105,6 +105,17 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
+
+			if (!sh->passes[0]->ps->hud_disabled)
+			{
+				HUDMask_Node* N2 = HUDMask.insertInAnyWay(distSQ);
+				N2->val.ssa = SSA;
+				N2->val.pObject = RI.val_pObject;
+				N2->val.pVisual = pVisual;
+				N2->val.Matrix = *RI.val_pTransform;
+				N2->val.se = sh;
+			}
+
 #if RENDER!=R_R1
 			if (sh->flags.bEmissive)
 			{

@@ -699,6 +699,15 @@ static class cl_near_far_plane : public R_constant_setup
 } binder_near_far_plane;
 
 // Screen Space Shaders Stuff
+extern float ps_ssfx_hud_hemi;
+extern Fvector4 ps_ssfx_il;
+extern Fvector4 ps_ssfx_il_setup1;
+extern Fvector4 ps_ssfx_ao;
+extern Fvector4 ps_ssfx_ao_setup1;
+extern Fvector4 ps_ssfx_water;
+extern Fvector4 ps_ssfx_water_setup1;
+extern Fvector4 ps_ssfx_water_setup2;
+
 extern Fvector4 ps_ssfx_volumetric;
 extern Fvector4 ps_ssfx_ssr_2;
 extern Fvector4 ps_ssfx_terrain_offset;
@@ -915,8 +924,7 @@ static class ssfx_wind_anim : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		Fvector3 WindAni = g_pGamePersistent->Environment().wind_anim;
-		RCache.set_c(C, WindAni.x, WindAni.y, WindAni.z, 0);
+		RCache.set_c(C, g_pGamePersistent->Environment().wind_anim);
 	}
 }    ssfx_wind_anim;
 
@@ -959,6 +967,78 @@ static class ssfx_volumetric : public R_constant_setup
 		RCache.set_c(C, ps_ssfx_volumetric);
 	}
 }    ssfx_volumetric;
+
+static class ssfx_water : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water);
+	}
+}    ssfx_water;
+
+static class ssfx_water_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water_setup1);
+	}
+}    ssfx_water_setup1;
+
+static class ssfx_water_setup2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water_setup2);
+	}
+}    ssfx_water_setup2;
+
+static class ssfx_ao : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_ao);
+	}
+}    ssfx_ao;
+
+static class ssfx_ao_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_ao_setup1);
+	}
+}    ssfx_ao_setup1;
+
+static class ssfx_il : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_il);
+	}
+}    ssfx_il;
+
+static class ssfx_il_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_il_setup1);
+	}
+}    ssfx_il_setup1;
+
+static class ssfx_hud_hemi : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_hemi, 0, 0, 0);
+	}
+}    ssfx_hud_hemi;
+
+static class ssfx_issvp : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, Device.m_SecondViewport.IsSVPFrame(), 0, 0, 0);
+	}
+}    ssfx_issvp;
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -1048,6 +1128,16 @@ void CBlender_Compile::SetMapping()
 	r_Constant("pda_params", &binder_pda_params);
 
 	// Screen Space Shaders
+	r_Constant("ssfx_issvp", &ssfx_issvp);
+	r_Constant("ssfx_hud_hemi", &ssfx_hud_hemi);
+	r_Constant("ssfx_il_setup", &ssfx_il);
+	r_Constant("ssfx_il_setup2", &ssfx_il_setup1);
+	r_Constant("ssfx_ao_setup", &ssfx_ao);
+	r_Constant("ssfx_ao_setup2", &ssfx_ao_setup1);
+	r_Constant("ssfx_water", &ssfx_water);
+	r_Constant("ssfx_water_setup1", &ssfx_water_setup1);
+	r_Constant("ssfx_water_setup2", &ssfx_water_setup2);
+
 	r_Constant("ssfx_volumetric", &ssfx_volumetric);
 	r_Constant("ssfx_ssr_2", &ssfx_ssr_2);
 	r_Constant("ssfx_terrain_offset", &ssfx_terrain_offset);
