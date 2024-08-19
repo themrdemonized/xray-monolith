@@ -158,6 +158,7 @@ void __fastcall hud_node(mapSorted_Node* N)
 #ifdef USE_DX11
 	RImplementation.Target->RVelocity = false;
 #endif
+}
 
 IC bool cmp_vs_nrm(mapNormalVS::TNode* N1, mapNormalVS::TNode* N2)
 {
