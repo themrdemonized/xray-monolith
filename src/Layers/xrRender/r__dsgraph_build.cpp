@@ -105,6 +105,17 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
+
+			if (!sh->passes[0]->ps->hud_disabled)
+			{
+				HUDMask_Node* N2 = HUDMask.insertInAnyWay(distSQ);
+				N2->val.ssa = SSA;
+				N2->val.pObject = RI.val_pObject;
+				N2->val.pVisual = pVisual;
+				N2->val.Matrix = *RI.val_pTransform;
+				N2->val.se = sh;
+			}
+
 #if RENDER!=R_R1
 			if (sh->flags.bEmissive)
 			{
@@ -301,6 +312,18 @@ void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
 	ShaderElement* sh = RImplementation.rimp_select_sh_static(pVisual, distSQ);
 	if (0 == sh) return;
 	if (!pmask[sh->flags.iPriority / 2]) return;
+
+	// Water rendering
+	if (sh->flags.isWater)
+	{
+		mapWater_Node* N = mapWater.insertInAnyWay(distSQ);
+		N->val.ssa = SSA;
+		N->val.pObject = NULL;
+		N->val.pVisual = pVisual;
+		N->val.Matrix = Fidentity;
+		N->val.se = sh;
+		return;
+	}
 
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F)
@@ -592,7 +615,7 @@ IC bool IsValuableToRender(dxRender_Visual* pVisual, bool isStatic, bool sm, Fma
 
 		if (sm && !!psDeviceFlags2.test(rsOptShadowGeom)) // Highest cut off for shadow map
 		{
-			if (sphere_volume < 50000.f && adjusted_distane > 160)
+			if (sphere_volume < 50000.f && adjusted_distane > ps_ssfx_shadow_cascades.z)
 				// don't need geometry behind the farest sun shadow cascade
 				return false;
 
@@ -606,10 +629,16 @@ IC bool IsValuableToRender(dxRender_Visual* pVisual, bool isStatic, bool sm, Fma
 				return false;
 			else if ((sphere_volume < o_optimize_static_l5_size.z) && (adjusted_distane > o_optimize_static_l5_dist.z))
 				return false;
+
+			return true;
 		}
 
 		if (isStatic)
 		{
+
+			if (pVisual->Type == MT_LOD || pVisual->Type == MT_TREE_PM || pVisual->Type == MT_TREE_ST)
+				return true;
+
 			if (opt_static == 2)
 			{
 				if ((sphere_volume < o_optimize_static_l1_size.y) && (adjusted_distane > o_optimize_static_l1_dist.y))

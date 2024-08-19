@@ -81,7 +81,19 @@ ShaderElement* CRender::rimp_select_sh_static(dxRender_Visual* pVisual, float cd
 	int id = SE_R2_SHADOW;
 	if (CRender::PHASE_NORMAL == RImplementation.phase)
 	{
-		id = ((_sqrt(cdist_sq) - pVisual->vis.sphere.R) < r_dtex_range) ? SE_R2_NORMAL_HQ : SE_R2_NORMAL_LQ;
+		if (pVisual->shader->E[0]->flags.isLandscape)
+		{
+			float sec_dist = _sqrt(cdist_sq) - pVisual->vis.sphere.R;
+			id = (sec_dist < ps_ssfx_terrain_quality.x * 10) ? SE_R2_NORMAL_HQ : SE_R2_NORMAL_LQ;
+			
+			// Very low shader variation
+			if (sec_dist > 240)
+				id = 3;
+		}
+		else
+		{
+			id = ((_sqrt(cdist_sq) - pVisual->vis.sphere.R) < r_dtex_range) ? SE_R2_NORMAL_HQ : SE_R2_NORMAL_LQ;
+		}
 	}
 	return pVisual->shader->E[id]._get();
 }
@@ -456,6 +468,33 @@ void CRender::create()
 		}
 	}
 
+	// Check if SSS shaders exist
+	string_path fn;
+	o.ssfx_core = FS.exist(fn, "$game_shaders$", "r3\\screenspace_common", ".h") ? 1 : 0;
+	o.ssfx_rain = FS.exist(fn, "$game_shaders$", "r3\\effects_rain_splash", ".ps") ? 1 : 0;
+	o.ssfx_blood = FS.exist(fn, "$game_shaders$", "r3\\effects_wallmark_blood", ".ps") ? 1 : 0;
+	o.ssfx_branches = FS.exist(fn, "$game_shaders$", "r3\\deffer_tree_branch_bump-hq", ".vs") ? 1 : 0;
+	o.ssfx_hud_raindrops = FS.exist(fn, "$game_shaders$", "r3\\deffer_base_hud_bump", ".ps") ? 1 : 0;
+	o.ssfx_ssr = FS.exist(fn, "$game_shaders$", "r3\\ssfx_ssr", ".ps") ? 1 : 0;
+	o.ssfx_terrain = FS.exist(fn, "$game_shaders$", "r3\\deffer_terrain_high_flat_d", ".ps") ? 1 : 0;
+	o.ssfx_volumetric = FS.exist(fn, "$game_shaders$", "r3\\ssfx_volumetric_blur", ".ps") ? 1 : 0;
+	o.ssfx_water = FS.exist(fn, "$game_shaders$", "r3\\ssfx_water", ".ps") ? 1 : 0;
+	o.ssfx_ao = FS.exist(fn, "$game_shaders$", "r3\\ssfx_ao", ".ps") ? 1 : 0;
+	o.ssfx_il = FS.exist(fn, "$game_shaders$", "r3\\ssfx_il", ".ps") ? 1 : 0;
+
+	Msg("- Supports SSS UPDATE 21");
+	Msg("- SSS CORE INSTALLED %i", o.ssfx_core);
+	Msg("- SSS HUD RAINDROPS SHADER INSTALLED %i", o.ssfx_hud_raindrops);
+	Msg("- SSS RAIN SHADER INSTALLED %i", o.ssfx_rain);
+	Msg("- SSS BLOOD SHADER INSTALLED %i", o.ssfx_blood);
+	Msg("- SSS BRANCHES SHADER INSTALLED %i", o.ssfx_branches);
+	Msg("- SSS SSR SHADER INSTALLED %i", o.ssfx_ssr);
+	Msg("- SSS TERRAIN SHADER INSTALLED %i", o.ssfx_terrain);
+	Msg("- SSS VOLUMETRIC SHADER INSTALLED %i", o.ssfx_volumetric);
+	Msg("- SSS WATER SHADER INSTALLED %i", o.ssfx_water);
+	Msg("- SSS AO SHADER INSTALLED %i", o.ssfx_ao);
+	Msg("- SSS IL SHADER INSTALLED %i", o.ssfx_il);
+
 	// constants
 	CResourceManager* RM = dxRenderDeviceRender::Instance().Resources;
 	RM->RegisterConstantSetup("parallax", &binder_parallax);
@@ -614,6 +653,9 @@ void CRender::OnFrame()
 		Device.seqParallel.insert(Device.seqParallel.begin(),
 			fastdelegate::FastDelegate0<>(&HOM, &CHOM::MT_RENDER));
 	}
+
+	if (Details)
+		g_pGamePersistent->GrassBendersUpdateAnimations();
 }
 
 // Particles
@@ -1223,6 +1265,15 @@ HRESULT CRender::shader_compile(
 	char c_ssao [32];
 	char c_sun_quality [32];
 	char c_smaa_quality [32];
+	
+	// SSS preprocessor stuff
+	char c_ssfx_il[32];
+	char c_ssfx_ao[32];
+	char c_ssfx_water[32];
+	char c_ssfx_water_parallax[32];
+	char c_ssr_quality[32];
+	char c_rain_quality[32];
+	char c_inter_grass[32];
 
 	char sh_name[MAX_PATH] = "";
 
@@ -1679,6 +1730,77 @@ HRESULT CRender::shader_compile(
 		def_it++;
 	}
 	sh_name[len] = '0' + char(o.dx10_minmax_sm != 0);
+	++len;
+	
+	if (ps_ssfx_rain_1.w > 0)
+	{
+		xr_sprintf(c_rain_quality, "%d", u8(ps_ssfx_rain_1.w));
+		defines[def_it].Name = "SSFX_RAIN_QUALITY";
+		defines[def_it].Definition = c_rain_quality;
+		def_it++;
+		xr_strcat(sh_name, c_rain_quality);
+		len += xr_strlen(c_rain_quality);
+	}
+	else
+	{
+		sh_name[len] = '0';
+		++len;
+	}
+
+	if (ps_ssfx_grass_interactive.y > 0)
+	{
+		xr_sprintf(c_inter_grass, "%d", u8(ps_ssfx_grass_interactive.y));
+		defines[def_it].Name = "SSFX_INT_GRASS";
+		defines[def_it].Definition = c_inter_grass;
+		def_it++;
+		xr_strcat(sh_name, c_inter_grass);
+		len += xr_strlen(c_inter_grass);
+	}
+	else
+	{
+		sh_name[len] = '0';
+		++len;
+	}
+
+	xr_sprintf(c_ssr_quality, "%d", u8(min(max(ps_ssfx_ssr_quality, 0), 5)));
+	defines[def_it].Name = "SSFX_SSR_QUALITY";
+	defines[def_it].Definition = c_ssr_quality;
+	def_it++;
+	xr_strcat(sh_name, c_ssr_quality);
+	len += xr_strlen(c_ssr_quality);
+
+	xr_sprintf(c_ssfx_water, "%d", u8(min(max(ps_ssfx_water_quality.x, 0.0f), 4.0f)));
+	defines[def_it].Name = "SSFX_WATER_QUALITY";
+	defines[def_it].Definition = c_ssfx_water;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_water);
+	len += xr_strlen(c_ssfx_water);
+
+	xr_sprintf(c_ssfx_water_parallax, "%d", u8(min(max(ps_ssfx_water_quality.y, 0.0f), 3.0f)));
+	defines[def_it].Name = "SSFX_WATER_PARALLAX";
+	defines[def_it].Definition = c_ssfx_water_parallax;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_water_parallax);
+	len += xr_strlen(c_ssfx_water_parallax);
+
+	xr_sprintf(c_ssfx_il, "%d", u8(min(max(ps_ssfx_il_quality, 0), 64)));
+	defines[def_it].Name = "SSFX_IL_QUALITY";
+	defines[def_it].Definition = c_ssfx_il;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_il);
+	len += xr_strlen(c_ssfx_il);
+
+	xr_sprintf(c_ssfx_ao, "%d", u8(min(max(ps_ssfx_ao_quality, 2), 8)));
+	defines[def_it].Name = "SSFX_AO_QUALITY";
+	defines[def_it].Definition = c_ssfx_ao;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_ao);
+	len += xr_strlen(c_ssfx_ao);
+
+	defines[def_it].Name = "SSFX_MODEXE";
+	defines[def_it].Definition = "1";
+	def_it++;
+	sh_name[len] = '1';
 	++len;
 
 	//Be carefull!!!!! this should be at the end to correctly generate

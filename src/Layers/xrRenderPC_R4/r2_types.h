@@ -72,6 +72,21 @@
 #define		r2_RT_smaa_edgetex "$user$smaa_edgetex"
 #define		r2_RT_smaa_blendtex "$user$smaa_blendtex"
 
+#define		r2_RT_ssfx				"$user$ssfx" // SSS Temp1
+#define		r2_RT_ssfx_temp			"$user$ssfx_temp" // SSS Temp2
+#define		r2_RT_ssfx_temp2		"$user$ssfx_temp2" // SSS Temp3
+#define		r2_RT_ssfx_temp3		"$user$ssfx_temp3"
+#define		r2_RT_ssfx_accum		"$user$ssfx_accum" // SSS Volumetric
+#define		r2_RT_ssfx_hud			"$user$ssfx_hud" // HUD & Velocity Buffer
+
+#define		r2_RT_ssfx_ssr			"$user$ssfx_ssr" // SSR Acc
+#define		r2_RT_ssfx_water		"$user$ssfx_water" // Water Acc
+#define		r2_RT_ssfx_water_waves	"$user$ssfx_water_waves"
+#define		r2_RT_ssfx_ao			"$user$ssfx_ao" // AO Acc
+#define		r2_RT_ssfx_il			"$user$ssfx_il" // IL Acc
+
+#define		r2_RT_ssfx_prevPos		"$user$ssfx_prev_p" // Prev Position
+
 #define		JITTER(a) r2_jitter #a
 
 const float SMAP_near_plane = .1f;
@@ -121,10 +136,23 @@ const u32 LUMINANCE_size = 16;
 
 extern float ps_r2_gloss_factor;
 extern float ps_r2_gloss_min;
+
+extern int ps_ssfx_gloss_method;
+extern float ps_ssfx_gloss_factor;
+extern Fvector3 ps_ssfx_gloss_minmax;
+
 IC float u_diffuse2s(float x, float y, float z)
 {
-	float v = (x + y + z) / 3.f;
-	return ps_r2_gloss_min + ps_r2_gloss_factor * ((v < 1) ? powf(v, 2.f / 3.f) : v);
+	if (ps_ssfx_gloss_method == 0)
+	{
+		float v = (x + y + z) / 3.f;
+		return ps_r2_gloss_min + ps_r2_gloss_factor * ((v < 1) ? powf(v, 2.f / 3.f) : v);
+	}
+	else
+	{
+		// Remove sun from the equation and clamp value.
+		return ps_ssfx_gloss_minmax.x + clampr(ps_ssfx_gloss_minmax.y - ps_ssfx_gloss_minmax.x, 0.0f, 1.0f) * ps_ssfx_gloss_factor;
+	}
 }
 
 IC float u_diffuse2s(Fvector3& c) { return u_diffuse2s(c.x, c.y, c.z); }

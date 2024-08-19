@@ -384,6 +384,23 @@ class cl_hemi_color : public R_constant_setup
 };
 
 static cl_hemi_color binder_hemi_color;
+
+class cl_sky_color : public R_constant_setup
+{
+	u32 marker;
+	Fvector4 result;
+
+	virtual void setup(R_constant* C)
+	{
+		if (marker != Device.dwFrame)
+		{
+			CEnvDescriptor& desc = *g_pGamePersistent->Environment().CurrentEnv;
+			result.set(desc.sky_color.x, desc.sky_color.y, desc.sky_color.z, desc.sky_rotation);
+		}
+		RCache.set_c(C, result);
+	}
+};
+static cl_sky_color binder_sky_color;
 #endif
 
 static class cl_screen_res : public R_constant_setup
@@ -521,6 +538,42 @@ static class cl_near_far_plane : public R_constant_setup
 	}
 } binder_near_far_plane;
 
+// Screen Space Shaders Stuff
+extern float ps_ssfx_hud_hemi;
+extern Fvector4 ps_ssfx_il;
+extern Fvector4 ps_ssfx_il_setup1;
+extern Fvector4 ps_ssfx_ao;
+extern Fvector4 ps_ssfx_ao_setup1;
+extern Fvector4 ps_ssfx_water;
+extern Fvector4 ps_ssfx_water_setup1;
+extern Fvector4 ps_ssfx_water_setup2;
+
+extern Fvector4 ps_ssfx_volumetric;
+extern Fvector4 ps_ssfx_ssr_2;
+extern Fvector4 ps_ssfx_terrain_offset;
+
+extern Fvector3 ps_ssfx_shadow_bias;
+extern Fvector4 ps_ssfx_lut;
+extern Fvector4 ps_ssfx_wind_grass;
+extern Fvector4 ps_ssfx_wind_trees;
+
+extern Fvector4 ps_ssfx_florafixes_1;
+extern Fvector4 ps_ssfx_florafixes_2;
+
+extern float ps_ssfx_gloss_factor;
+extern Fvector3 ps_ssfx_gloss_minmax;
+
+extern Fvector4 ps_ssfx_wetsurfaces_1;
+extern Fvector4 ps_ssfx_wetsurfaces_2;
+
+extern int ps_ssfx_is_underground;
+extern Fvector4 ps_ssfx_lightsetup_1;
+extern Fvector4 ps_ssfx_hud_drops_1;
+extern Fvector4 ps_ssfx_hud_drops_2;
+extern Fvector4 ps_ssfx_blood_decals;
+extern Fvector4 ps_ssfx_wpn_dof_1;
+extern float ps_ssfx_wpn_dof_2;
+
 //Sneaky debug stuff
 extern Fvector4 ps_dev_param_1;
 extern Fvector4 ps_dev_param_2;
@@ -594,6 +647,238 @@ static class dev_param_8 : public R_constant_setup
 		RCache.set_c(C, ps_dev_param_8.x, ps_dev_param_8.y, ps_dev_param_8.z, ps_dev_param_8.w);
 	}
 }    dev_param_8;
+
+static class ssfx_wpn_dof_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wpn_dof_1.x, ps_ssfx_wpn_dof_1.y, ps_ssfx_wpn_dof_1.z, ps_ssfx_wpn_dof_1.w);
+	}
+}    ssfx_wpn_dof_1;
+
+static class ssfx_wpn_dof_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wpn_dof_2, 0, 0, 0);
+	}
+}    ssfx_wpn_dof_2;
+
+static class ssfx_blood_decals : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_blood_decals);
+	}
+}    ssfx_blood_decals;
+
+static class ssfx_hud_drops_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_drops_1);
+	}
+}    ssfx_hud_drops_1;
+
+static class ssfx_hud_drops_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_drops_2);
+	}
+}    ssfx_hud_drops_2;
+
+static class ssfx_lightsetup_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_lightsetup_1);
+	}
+}    ssfx_lightsetup_1;
+
+static class ssfx_is_underground : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_is_underground, 0, 0, 0);
+	}
+}    ssfx_is_underground;
+
+static class ssfx_wetsurfaces_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wetsurfaces_1);
+	}
+}    ssfx_wetsurfaces_1;
+
+static class ssfx_wetsurfaces_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wetsurfaces_2);
+	}
+}    ssfx_wetsurfaces_2;
+
+static class ssfx_gloss : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, 0);
+	}
+}    ssfx_gloss;
+
+static class ssfx_florafixes_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_florafixes_1);
+	}
+}    ssfx_florafixes_1;
+
+static class ssfx_florafixes_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_florafixes_2);
+	}
+}    ssfx_florafixes_2;
+
+static class ssfx_wind_grass : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wind_grass);
+	}
+}    ssfx_wind_grass;
+
+static class ssfx_wind_trees : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_wind_trees);
+	}
+}    ssfx_wind_trees;
+
+static class ssfx_wind_anim : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, g_pGamePersistent->Environment().wind_anim);
+	}
+}    ssfx_wind_anim;
+
+static class ssfx_lut : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_lut);
+	}
+}    ssfx_lut;
+
+static class ssfx_shadow_bias : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_shadow_bias.x, ps_ssfx_shadow_bias.y, 0, 0);
+	}
+}    ssfx_shadow_bias;
+
+static class ssfx_terrain_offset : public R_constant_setup
+{
+	virtual void setup(R_constant * C)
+	{
+		RCache.set_c(C, ps_ssfx_terrain_offset);
+	}
+}    ssfx_terrain_offset;
+
+static class ssfx_ssr_2 : public R_constant_setup
+{
+	virtual void setup(R_constant * C)
+	{
+		RCache.set_c(C, ps_ssfx_ssr_2);
+	}
+}    ssfx_ssr_2;
+
+static class ssfx_volumetric : public R_constant_setup
+{
+	virtual void setup(R_constant * C)
+	{
+		RCache.set_c(C, ps_ssfx_volumetric);
+	}
+}    ssfx_volumetric;
+
+static class ssfx_water : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water);
+	}
+}    ssfx_water;
+
+static class ssfx_water_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water_setup1);
+	}
+}    ssfx_water_setup1;
+
+static class ssfx_water_setup2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water_setup2);
+	}
+}    ssfx_water_setup2;
+
+static class ssfx_ao : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_ao);
+	}
+}    ssfx_ao;
+
+static class ssfx_ao_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_ao_setup1);
+	}
+}    ssfx_ao_setup1;
+
+static class ssfx_il : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_il);
+	}
+}    ssfx_il;
+
+static class ssfx_il_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_il_setup1);
+	}
+}    ssfx_il_setup1;
+
+static class ssfx_hud_hemi : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_hemi, 0, 0, 0);
+	}
+}    ssfx_hud_hemi;
+
+static class ssfx_issvp : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, Device.m_SecondViewport.IsSVPFrame(), 0, 0, 0);
+	}
+}    ssfx_issvp;
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -679,6 +964,39 @@ void CBlender_Compile::SetMapping()
 
 	// PDA
 	r_Constant("pda_params", &binder_pda_params);
+
+	// Screen Space Shaders
+	r_Constant("ssfx_issvp", &ssfx_issvp);
+	r_Constant("ssfx_hud_hemi", &ssfx_hud_hemi);
+	r_Constant("ssfx_il_setup", &ssfx_il);
+	r_Constant("ssfx_il_setup2", &ssfx_il_setup1);
+	r_Constant("ssfx_ao_setup", &ssfx_ao);
+	r_Constant("ssfx_ao_setup2", &ssfx_ao_setup1);
+	r_Constant("ssfx_water", &ssfx_water);
+	r_Constant("ssfx_water_setup1", &ssfx_water_setup1);
+	r_Constant("ssfx_water_setup2", &ssfx_water_setup2);
+
+	r_Constant("ssfx_volumetric", &ssfx_volumetric);
+	r_Constant("ssfx_ssr_2", &ssfx_ssr_2);
+	r_Constant("ssfx_terrain_offset", &ssfx_terrain_offset);
+	r_Constant("ssfx_shadow_bias", &ssfx_shadow_bias);
+	r_Constant("ssfx_wind_anim", &ssfx_wind_anim);
+	r_Constant("sky_color", &binder_sky_color);
+	r_Constant("ssfx_wpn_dof_1", &ssfx_wpn_dof_1);
+	r_Constant("ssfx_wpn_dof_2", &ssfx_wpn_dof_2);
+	r_Constant("ssfx_blood_decals", &ssfx_blood_decals);
+	r_Constant("ssfx_hud_drops_1", &ssfx_hud_drops_1);
+	r_Constant("ssfx_hud_drops_2", &ssfx_hud_drops_2);
+	r_Constant("ssfx_lightsetup_1", &ssfx_lightsetup_1);
+	r_Constant("ssfx_is_underground", &ssfx_is_underground);
+	r_Constant("ssfx_wetsurfaces_1", &ssfx_wetsurfaces_1);
+	r_Constant("ssfx_wetsurfaces_2", &ssfx_wetsurfaces_2);
+	r_Constant("ssfx_gloss", &ssfx_gloss);
+	r_Constant("ssfx_florafixes_1", &ssfx_florafixes_1);
+	r_Constant("ssfx_florafixes_2", &ssfx_florafixes_2);
+	r_Constant("ssfx_wsetup_grass", &ssfx_wind_grass);
+	r_Constant("ssfx_wsetup_trees", &ssfx_wind_trees);
+	r_Constant("ssfx_lut", &ssfx_lut);
 
 	// Shader stuff
 	r_Constant("shader_param_1", &dev_param_1);

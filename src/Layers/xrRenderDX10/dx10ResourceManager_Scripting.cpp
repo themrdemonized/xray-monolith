@@ -31,6 +31,12 @@ public:
 	{
 		return (RImplementation.o.dx10_msaa_alphatest == CRender::MSAA_ATEST_DX10_0_ATOC);
 	}
+
+	LPCSTR _get_level()
+	{
+		const shared_str level_name = g_pGameLevel->name();
+		return level_name.c_str();
+	}
 };
 
 // wrapper
@@ -193,6 +199,12 @@ public:
 		return *this;
 	}
 
+	adopt_compiler& _dx10CullMode(u32 Ref)
+	{
+		C->r_CullMode((D3DCULL)Ref);
+		return *this;
+	}
+
 	adopt_compiler& _dx10ATOC(bool Enable)
 	{
 		C->RS.SetRS(XRDX10RS_ALPHATOCOVERAGE, Enable);
@@ -344,6 +356,7 @@ void CResourceManager::LS_Load()
 	[
 		class_<adopt_dx10options>("_dx10options")
 		.def("dx10_msaa_alphatest_atoc", &adopt_dx10options::_dx10_msaa_alphatest_atoc)
+		.def("getLevel", &adopt_dx10options::_get_level)
 		//.def("",					&adopt_dx10options::_dx10Options		),	// returns options-object
 		,
 
@@ -389,6 +402,7 @@ void CResourceManager::LS_Load()
 		.def("dx10texture", &adopt_compiler::_dx10texture, return_reference_to(_1))
 		.def("dx10stencil", &adopt_compiler::_dx10Stencil, return_reference_to(_1))
 		.def("dx10stencil_ref", &adopt_compiler::_dx10StencilRef, return_reference_to(_1))
+		.def("dx10cullmode", &adopt_compiler::_dx10CullMode, return_reference_to(_1))
 		.def("dx10atoc", &adopt_compiler::_dx10ATOC, return_reference_to(_1))
 		.def("dx10zfunc", &adopt_compiler::_dx10ZFunc, return_reference_to(_1))
 
@@ -528,6 +542,16 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 			C.bDetail = dxRenderDeviceRender::Instance().Resources->m_textures_description.GetDetailTexture(
 				C.L_textures[0], C.detail_texture, C.detail_scaler);
 			S.E[0] = C._lua_Compile(s_shader, "normal");
+			
+/// SSS fix water for DX10
+#if RENDER == R_R4
+			// Water Flag
+			if (S.E[0]->flags.bDistort)
+			{
+				if (strstr(s_shader, "effects_water"))
+					S.E[0]->flags.isWater = TRUE;
+			}
+#endif
 		}
 	}
 

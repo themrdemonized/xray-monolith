@@ -176,6 +176,11 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 	C.BT = B;
 	C.bEditor = FALSE;
 	C.bDetail = FALSE;
+
+#if defined(USE_DX11)
+	C.HudElement = false;
+#endif
+
 #ifdef _EDITOR
 	if (!C.BT)			{ ELog.Msg(mtError,"Can't find shader '%s'",s_shader); return 0; }
 	C.bEditor			= TRUE;
@@ -185,6 +190,13 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 	_ParseList(C.L_textures, s_textures);
 	_ParseList(C.L_constants, s_constants);
 	_ParseList(C.L_matrices, s_matrices);
+
+#if defined(USE_DX11)
+	if (::Render->hud_loading && RImplementation.o.ssfx_hud_raindrops)
+	{
+		C.HudElement = true;
+	}
+#endif
 
 	// Compile element	(LOD0 - HQ)
 	{
@@ -240,6 +252,13 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 		ShaderElement E;
 		C._cpp_Compile(&E);
 		S.E[5] = _CreateElement(E);
+	}
+
+	// Hacky way to remove from the HUD mask transparent stuff. ( Let's try something better later... )
+	if (::Render->hud_loading)
+	{
+		if (strstr(s_shader, "lens"))
+			S.E[0]->passes[0]->ps->hud_disabled = TRUE;
 	}
 
 	// Search equal in shaders array

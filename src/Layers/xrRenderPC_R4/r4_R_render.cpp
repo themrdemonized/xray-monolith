@@ -321,6 +321,19 @@ void CRender::Render()
 	set_Recorder(NULL);
 	r_pmask(true, false); // disable priority "1"
 	Device.Statistic->RenderCALC.End();
+	
+	if (RImplementation.o.ssfx_core)
+	{
+		// HUD Masking rendering
+		FLOAT ColorRGBA[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		HW.pContext->ClearRenderTargetView(Target->rt_ssfx_hud->pRT, ColorRGBA);
+
+		Target->u_setrt(Target->rt_ssfx_hud, NULL, NULL, HW.pBaseZB);
+		r_dsgraph_render_hud(true);
+
+		// Reset Depth
+		HW.pContext->ClearDepthStencilView(HW.pBaseZB, D3D_CLEAR_DEPTH, 1.0f, 0);
+	}
 
 	if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS))
 	{
@@ -532,11 +545,19 @@ void CRender::Render()
 		render_lights(LP_pending);
 	}
 
+	{
+		if (RImplementation.o.ssfx_volumetric)
+			Target->phase_ssfx_volumetric_blur();
+	}
+
 	// Postprocess
 	{
 		PIX_EVENT(DEFER_LIGHT_COMBINE);
 		Target->phase_combine();
 	}
+
+	if (Details)
+		Details->details_clear();
 
 	VERIFY(0==mapDistort.size());
 }
@@ -558,7 +579,7 @@ void CRender::render_forward()
 		r_dsgraph_render_graph(1); // normal level, secondary priority
 		PortalTraverser.fade_render(); // faded-portals
 		r_dsgraph_render_sorted(); // strict-sorted geoms
-		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
+		//g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 	}
 
 	RImplementation.o.distortion = FALSE; // disable distorion
