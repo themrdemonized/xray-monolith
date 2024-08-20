@@ -622,57 +622,25 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 {
-	VERIFY(g_hud && g_hud->RenderActiveItemUIQuery());
-
 	// Change projection
-	Fmatrix Pold = Device.mProject;
-	Fmatrix FTold = Device.mFullTransform;
-	Device.mProject.build_projection(
-		deg2rad(psHUD_FOV * 83.f),
-		Device.fASPECT, R_VIEWPORT_NEAR,
-		g_pGamePersistent->Environment().CurrentEnv->far_plane);
+    Fmatrix Pold = Device.mProject;
+    Fmatrix FTold = Device.mFullTransform;
+    Device.mProject.build_projection(
+        deg2rad(psHUD_FOV * 83.f),
+        Device.fASPECT, R_VIEWPORT_NEAR,
+        g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
-	Device.mFullTransform.mul(Device.mProject, Device.mView);
-	RCache.set_xform_project(Device.mProject);
+    Device.mFullTransform.mul(Device.mProject, Device.mView);
+    RCache.set_xform_project(Device.mProject);
 
-#if	RENDER!=R_R1
-	// Targets, use accumulator for temporary storage
-	const ref_rt rt_null;
-	RCache.set_RT(0, 1);
-	RCache.set_RT(0, 2);
-#if	(RENDER==R_R3) || (RENDER==R_R4)
-	if (!RImplementation.o.dx10_msaa)
-	{
-		if (RImplementation.o.albedo_wo)
-			RImplementation.Target->u_setrt(RImplementation.Target->rt_Accumulator,
-			                                rt_null, rt_null, HW.pBaseZB);
-		else RImplementation.Target->u_setrt(RImplementation.Target->rt_Color, rt_null, rt_null, HW.pBaseZB);
-	}
-	else
-	{
-		if (RImplementation.o.albedo_wo)
-			RImplementation.Target->u_setrt(RImplementation.Target->rt_Accumulator,
-			                                rt_null, rt_null,
-			                                RImplementation.Target->rt_MSAADepth->pZRT);
-		else
-			RImplementation.Target->u_setrt(RImplementation.Target->rt_Color, rt_null, rt_null,
-			                                RImplementation.Target->rt_MSAADepth->pZRT);
-	}
-#else // (RENDER==R_R3) || (RENDER==R_R4)
-	if (RImplementation.o.albedo_wo) RImplementation.Target->u_setrt(RImplementation.Target->rt_Accumulator, rt_null,
-	                                                                 rt_null, HW.pBaseZB);
-	else RImplementation.Target->u_setrt(RImplementation.Target->rt_Color, rt_null, rt_null, HW.pBaseZB);
-#endif // (RENDER==R_R3) || (RENDER==R_R4)
-#endif // RENDER!=R_R1
+    rmNear();
+    g_hud->RenderActiveItemUI();
+    rmNormal();
 
-	rmNear();
-	g_hud->RenderActiveItemUI();
-	rmNormal();
-
-	// Restore projection
-	Device.mProject = Pold;
-	Device.mFullTransform = FTold;
-	RCache.set_xform_project(Device.mProject);
+    // Restore projection
+    Device.mProject = Pold;
+    Device.mFullTransform = FTold;
+    RCache.set_xform_project(Device.mProject);
 }
 
 //////////////////////////////////////////////////////////////////////////
