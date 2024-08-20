@@ -118,7 +118,7 @@ void __fastcall water_node(mapSorted_Node* N)
 		RCache.set_Shader(RImplementation.Target->s_ssfx_water);
 	}
 #endif
-
+	
 	RCache.set_xform_world(N->val.Matrix);
 	RImplementation.apply_object(N->val.pObject);
 	RImplementation.apply_lmaterial();
@@ -131,21 +131,21 @@ void __fastcall water_node(mapSorted_Node* N)
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
 
-void __fastcall hud_node(mapSorted_Node* N)
+void __fastcall hud_node(mapSorted_Node * N)
 {
 	VERIFY(N);
-	dxRender_Visual* V = N->val.pVisual;
+	dxRender_Visual * V = N->val.pVisual;
 	VERIFY(V && V->shader._get());
 	RCache.set_xform_world(N->val.Matrix);
 
 #ifdef USE_DX11
-
+	
 	if (N->val.se->passes[0]->ps->hud_disabled)
 		return;
-
+	
 	int skinning = N->val.se->passes[0]->vs->skinning;
 	RCache.set_Shader(RImplementation.Target->s_ssfx_hud[skinning]);
-
+	
 	RImplementation.Target->Matrix_HUD_previous.set(N->val.PrevMatrix);
 	N->val.PrevMatrix.set(RCache.xforms.m_wvp);
 
@@ -606,11 +606,6 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 		HUDMask.clear();
 	}
 
-#if	RENDER==R_R1
-	if (g_hud && g_hud->RenderActiveItemUIQuery())
-		r_dsgraph_render_hud_ui(); // hud ui
-#endif
-
 	rmNormal();
 
 	// Restore projection
@@ -623,24 +618,24 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 {
 	// Change projection
-    Fmatrix Pold = Device.mProject;
-    Fmatrix FTold = Device.mFullTransform;
-    Device.mProject.build_projection(
-        deg2rad(psHUD_FOV * 83.f),
-        Device.fASPECT, R_VIEWPORT_NEAR,
-        g_pGamePersistent->Environment().CurrentEnv->far_plane);
+	Fmatrix Pold = Device.mProject;
+	Fmatrix FTold = Device.mFullTransform;
+	Device.mProject.build_projection(
+		deg2rad(psHUD_FOV * 83.f),
+		Device.fASPECT, R_VIEWPORT_NEAR,
+		g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
-    Device.mFullTransform.mul(Device.mProject, Device.mView);
-    RCache.set_xform_project(Device.mProject);
+	Device.mFullTransform.mul(Device.mProject, Device.mView);
+	RCache.set_xform_project(Device.mProject);
 
-    rmNear();
-    g_hud->RenderActiveItemUI();
-    rmNormal();
+	rmNear();
+	g_hud->RenderActiveItemUI();
+	rmNormal();
 
-    // Restore projection
-    Device.mProject = Pold;
-    Device.mFullTransform = FTold;
-    RCache.set_xform_project(Device.mProject);
+	// Restore projection
+	Device.mProject = Pold;
+	Device.mFullTransform = FTold;
+	RCache.set_xform_project(Device.mProject);
 }
 
 //////////////////////////////////////////////////////////////////////////
