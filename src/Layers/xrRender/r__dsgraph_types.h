@@ -80,6 +80,7 @@ namespace R_dsgraph
 		IRenderable* pObject;
 		dxRender_Visual* pVisual;
 		Fmatrix Matrix; // matrix (copy)
+		Fmatrix PrevMatrix;
 	};
 
 	struct _MatrixItemS : public _MatrixItem

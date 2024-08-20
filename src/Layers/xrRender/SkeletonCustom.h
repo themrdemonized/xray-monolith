@@ -123,6 +123,7 @@ public:
 protected:
 	SkeletonWMVec wallmarks;
 	u32 wm_frame;
+	u32 CurrentFrame;
 
 	xr_vector<dxRender_Visual*> children_invisible;
 

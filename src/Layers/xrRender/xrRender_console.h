@@ -3,6 +3,13 @@
 #pragma once
 
 // Common
+extern ECORE_API int ps_ssfx_il_quality;
+extern ECORE_API int ps_ssfx_ao_quality;
+extern ECORE_API Fvector3 ps_ssfx_water_quality;
+extern ECORE_API Fvector4 ps_ssfx_il;
+extern ECORE_API Fvector4 ps_ssfx_ao;
+extern ECORE_API Fvector4 ps_ssfx_water;
+
 extern ECORE_API int ps_ssfx_ssr_quality;
 extern ECORE_API Fvector4 ps_ssfx_ssr;
 extern ECORE_API Fvector4 ps_ssfx_ssr_2;

@@ -21,6 +21,7 @@
 #include "../../xrCPU_Pipe/xrCPU_Pipe.h"
 
 shared_str s_bones_array_const;
+shared_str s_bones_array_prev_const;
 
 //////////////////////////////////////////////////////////////////////
 // Body Part
@@ -57,6 +58,33 @@ void CSkeletonX::_Copy(CSkeletonX* B)
 //////////////////////////////////////////////////////////////////////
 void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 {
+	bool CalcVelocity = false;
+
+#ifdef USE_DX11
+
+	CalcVelocity = RImplementation.Target->RVelocity;
+
+	if (CalcVelocity)
+	{
+		// Previous WVP
+		RCache.set_c("m_WVP_prev", RImplementation.Target->Matrix_HUD_previous);
+
+		if (RenderMode > 1 && Device.dwFrame > Parent->CurrentFrame)
+		{
+			Parent->CurrentFrame = Device.dwFrame;
+
+			// Save bone matrix to use next frame
+			for (u16 b = 0; b < Parent->LL_BoneCount(); b++)
+			{
+				CBoneInstance& Bone = Parent->LL_GetBoneInstance(b);
+				Bone.mRenderTransform_prev.set(Bone.mRenderTransform_temp);
+				Bone.mRenderTransform_temp.set(Bone.mRenderTransform);
+			}
+		}
+	}
+
+#endif
+
 	RCache.stat.r.s_dynamic.add(vCount);
 	switch (RenderMode)
 	{
@@ -69,6 +97,11 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 			Fmatrix W;
 			W.mul_43(RCache.xforms.m_w, Parent->LL_GetTransform_R(u16(RMS_boneid)));
 			RCache.set_xform_world(W);
+
+			// Add the bone transform
+			if (CalcVelocity)
+				RCache.set_c("m_bone", Parent->LL_GetTransform_R(u16(RMS_boneid)));
+
 			RCache.set_Geometry(hGeom);
 			RCache.Render(D3DPT_TRIANGLELIST, 0, 0, vCount, iOffset, pCount);
 			RCache.stat.r.s_dynamic_inst.add(vCount);
@@ -79,8 +112,10 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 	case RM_SKINNING_3B:
 	case RM_SKINNING_4B:
 		{
-			// transfer matrices
+			// Transfer matrices ( current and previous )
 			ref_constant array = RCache.get_c(s_bones_array_const);
+			ref_constant array_prev = RCache.get_c(s_bones_array_prev_const);
+
 			u32 count = RMS_bonecount;
 			for (u32 mid = 0; mid < count; mid++)
 			{
@@ -89,6 +124,15 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 				RCache.set_ca(&*array, id + 0, M._11, M._21, M._31, M._41);
 				RCache.set_ca(&*array, id + 1, M._12, M._22, M._32, M._42);
 				RCache.set_ca(&*array, id + 2, M._13, M._23, M._33, M._43);
+
+				if (CalcVelocity)
+				{
+					// Previus transform
+					Fmatrix& Mprev = Parent->LL_GetBoneInstance(u16(mid)).mRenderTransform_prev;
+					RCache.set_ca(&*array_prev, id + 0, Mprev._11, Mprev._21, Mprev._31, Mprev._41);
+					RCache.set_ca(&*array_prev, id + 1, Mprev._12, Mprev._22, Mprev._32, Mprev._42);
+					RCache.set_ca(&*array_prev, id + 2, Mprev._13, Mprev._23, Mprev._33, Mprev._43);
+				}
 			}
 
 			// render
@@ -170,6 +214,7 @@ void CSkeletonX::_Render_soft(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCou
 void CSkeletonX::_Load(const char* N, IReader* data, u32& dwVertCount)
 {
 	s_bones_array_const = "sbones_array";
+	s_bones_array_prev_const = "sbones_array_prev";
 	xr_vector<u16> bids;
 
 	// Load vertices

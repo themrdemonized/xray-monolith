@@ -254,6 +254,13 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 		S.E[5] = _CreateElement(E);
 	}
 
+	// Hacky way to remove from the HUD mask transparent stuff. ( Let's try something better later... )
+	if (::Render->hud_loading)
+	{
+		if (strstr(s_shader, "lens"))
+			S.E[0]->passes[0]->ps->hud_disabled = TRUE;
+	}
+
 	// Search equal in shaders array
 	for (u32 it = 0; it < v_shaders.size(); it++)
 		if (S.equal(v_shaders[it])) return v_shaders[it];
