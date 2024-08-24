@@ -109,9 +109,11 @@ ShaderElement::ShaderElement()
 	flags.isLandscape = FALSE;
 	flags.isWater = FALSE;
 
-	flags.isScope = FALSE;		//  Redotix99: for 3D Shader Based Scopes
-	flags.isScope2 = FALSE;
-	flags.isScope3 = FALSE;
+	flags.iScopeLense = 0; 	//  Redotix99: for 3D Shader Based Scopes
+	//	0 = eNoLense, 
+	//  1 = eBackLense, 
+	//  2 = eZwriteLense, 
+	//	3 = eReticleLense
 }
 
 BOOL ShaderElement::equal(ShaderElement& S)
@@ -119,9 +121,9 @@ BOOL ShaderElement::equal(ShaderElement& S)
 	if (flags.iPriority != S.flags.iPriority) return FALSE;
 	if (flags.bStrictB2F != S.flags.bStrictB2F) return FALSE;
 	if (flags.bEmissive != S.flags.bEmissive) return FALSE;
-	if (flags.isScope != S.flags.isScope) return FALSE;		//  Redotix99: for 3D Shader Based Scopes
-	if (flags.isScope2 != S.flags.isScope2) return FALSE;
-	if (flags.isScope3 != S.flags.isScope3) return FALSE;
+
+	if (flags.iScopeLense != S.flags.iScopeLense) return FALSE;		//  Redotix99: for 3D Shader Based Scopes
+
 	if (flags.bLandscape != S.flags.bLandscape) return FALSE;
 	if (flags.bWmark != S.flags.bWmark) return FALSE;
 	if (flags.bDistort != S.flags.bDistort) return FALSE;

@@ -600,20 +600,22 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	{
 		mapHUD.traverseLR(sorted_L1);
 		mapHUD.clear();
+
+		rmNormal();
+
+		if (scope_3D_fake_enabled)
+		{
+			mapScopeHUD.traverseLR(sorted_L1);
+		}
+		mapScopeHUD.clear();
 	}
 	else
 	{
 		HUDMask.traverseLR(hud_node);
 		HUDMask.clear();
-	}
 
-	rmNormal();
-
-	if (scope_3D_fake_enabled)
-	{
-		mapScopeHUD.traverseLR(sorted_L1);
+		rmNormal();
 	}
-	mapScopeHUD.clear();
 
 	// Restore projection
 	Device.mProject = Pold;
