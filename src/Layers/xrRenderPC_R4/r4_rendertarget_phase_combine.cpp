@@ -479,7 +479,7 @@ void CRenderTarget::phase_combine()
 	}
 	
 
-	phase_3DSSReticle();
+	phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 
 
 	//Compute blur textures

@@ -174,7 +174,7 @@ public:
 	Fvector3 Position_previous;
 	bool RVelocity;
 	
-	ref_rt rt_tempzb;
+	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
 
 	ref_shader s_ssfx_dumb;
 
@@ -352,7 +352,7 @@ public:
 	void phase_nightvision();
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
-	void phase_3DSSReticle();
+	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 	void phase_lut();		
 	void phase_smaa();
 	void phase_scene_prepare();

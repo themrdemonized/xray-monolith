@@ -602,12 +602,15 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 		mapHUD.clear();
 
 		rmNormal();
+		
+#if defined(USE_DX10) || defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 
 		if (scope_3D_fake_enabled)
 		{
 			mapScopeHUD.traverseLR(sorted_L1);
 		}
 		mapScopeHUD.clear();
+#endif
 	}
 	else
 	{
@@ -678,9 +681,10 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	RCache.set_xform_project(Device.mProject);
 }
 
+#if defined(USE_DX10) || defined(USE_DX11)
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
-void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()
+void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	
 {
 	// Change projection
 	Fmatrix Pold = Device.mProject;
@@ -704,6 +708,7 @@ void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()
 	Device.mFullTransform = FTold;
 	RCache.set_xform_project(Device.mProject);
 }
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
