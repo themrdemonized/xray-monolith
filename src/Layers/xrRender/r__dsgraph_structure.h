@@ -43,7 +43,7 @@ public:
 	R_dsgraph::mapLOD_T mapLOD;
 	R_dsgraph::mapSorted_T mapDistort;
 	R_dsgraph::mapHUD_T mapHUDSorted;
-#if defined(USE_DX10) || defined(USE_DX11)
+#if defined(USE_DX11)
 	R_dsgraph::mapScopeHUD_T mapScopeHUD;	//  Redotix99: for 3D Shader Based Scopes
 	R_dsgraph::mapScopeHUD_T mapScopeHUDSorted;
 #endif
@@ -201,7 +201,7 @@ public:
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted();
-#if defined(USE_DX10) || defined(USE_DX11)
+#if defined(USE_DX11)
 	void r_dsgraph_render_ScopeSorted(); // Redotix99: for 3D Shader Based Scopes
 #endif
 	void r_dsgraph_render_emissive();
