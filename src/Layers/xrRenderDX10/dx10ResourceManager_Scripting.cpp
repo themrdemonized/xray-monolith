@@ -118,6 +118,13 @@ public:
 		return *this;
 	}
 
+	//  Redotix99: for 3D Shader Based Scopes
+	adopt_compiler& _o_scopelense(u32 lenseType)
+	{
+		C->SH->flags.iScopeLense = lenseType;
+		return *this;
+	}
+
 	adopt_compiler& _o_distort(bool E)
 	{
 		C->SH->flags.bDistort = E;
@@ -396,6 +403,9 @@ void CResourceManager::LS_Load()
 		.def("zb", &adopt_compiler::_ZB, return_reference_to(_1))
 		.def("blend", &adopt_compiler::_blend, return_reference_to(_1))
 		.def("aref", &adopt_compiler::_aref, return_reference_to(_1))
+
+		.def("scopelense", &adopt_compiler::_o_scopelense, return_reference_to(_1)) //  Redotix99: for 3D Shader Based Scopes
+
 		//	For compatibility only
 		.def("dx10color_write_enable", &adopt_compiler::_dx10color_write_enable, return_reference_to(_1))
 		.def("color_write_enable", &adopt_compiler::_dx10color_write_enable, return_reference_to(_1))
@@ -407,7 +417,7 @@ void CResourceManager::LS_Load()
 		.def("dx10zfunc", &adopt_compiler::_dx10ZFunc, return_reference_to(_1))
 
 		.def("dx10sampler", &adopt_compiler::_dx10sampler) // returns sampler-object
-		.def("dx10Options", &adopt_compiler::_dx10Options), // returns options-object			
+		.def("dx10Options", &adopt_compiler::_dx10Options), // returns options-object	
 
 
 		class_<adopt_blend>("blend")

@@ -205,6 +205,7 @@ public:
 	IRender_Sector* rimp_detectSector(Fvector& P, Fvector& D);
 	void render_main(Fmatrix& mCombined, bool _fportals);
 	void render_forward();
+	void render_Reticle();
 	void render_smap_direct(Fmatrix& mCombined);
 	void render_indirect(light* L);
 	void render_lights(light_Package& LP);
