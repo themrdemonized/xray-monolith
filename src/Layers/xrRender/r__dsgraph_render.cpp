@@ -593,20 +593,32 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_project(Device.mProject);
 
+
 	// Rendering
 	rmNear();
 	if (!NoPS)
 	{
 		mapHUD.traverseLR(sorted_L1);
 		mapHUD.clear();
+
+		rmNormal();
+		
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
+
+		if (scope_3D_fake_enabled)
+		{
+			mapScopeHUD.traverseLR(sorted_L1);
+		}
+		mapScopeHUD.clear();
+#endif
 	}
 	else
 	{
 		HUDMask.traverseLR(hud_node);
 		HUDMask.clear();
-	}
 
-	rmNormal();
+		rmNormal();
+	}
 
 	// Restore projection
 	Device.mProject = Pold;
@@ -668,6 +680,35 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	Device.mFullTransform = FTold;
 	RCache.set_xform_project(Device.mProject);
 }
+
+#if defined(USE_DX11)
+//////////////////////////////////////////////////////////////////////////
+// strict-sorted render
+void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	
+{
+	// Change projection
+	Fmatrix Pold = Device.mProject;
+	Fmatrix FTold = Device.mFullTransform;
+	Device.mProject.build_projection(
+		deg2rad(psHUD_FOV * 83.f),
+		Device.fASPECT, R_VIEWPORT_NEAR,
+		g_pGamePersistent->Environment().CurrentEnv->far_plane);
+
+	Device.mFullTransform.mul(Device.mProject, Device.mView);
+	RCache.set_xform_project(Device.mProject);
+
+	// Rendering
+	rmNear();
+	mapScopeHUDSorted.traverseRL(sorted_L1);
+	mapScopeHUDSorted.clear();
+	rmNormal();
+
+	// Restore projection
+	Device.mProject = Pold;
+	Device.mFullTransform = FTold;
+	RCache.set_xform_project(Device.mProject);
+}
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render

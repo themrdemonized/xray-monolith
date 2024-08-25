@@ -73,6 +73,53 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
+	switch (sh->flags.iScopeLense) {	
+		case 0:
+			break;
+
+		case 1: {
+			mapHUD_Node* N = mapHUD.insertInAnyWay(EPS);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+
+			if (!sh->passes[0]->ps->hud_disabled)
+			{
+				HUDMask_Node* N2 = HUDMask.insertInAnyWay(EPS);
+				N2->val.ssa = SSA;
+				N2->val.pObject = RI.val_pObject;
+				N2->val.pVisual = pVisual;
+				N2->val.Matrix = *RI.val_pTransform;
+				N2->val.se = sh;
+			}
+			return;
+		}
+
+		case 2: {
+			mapHUD_Node * N = mapScopeHUD.insertInAnyWay(distSQ);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+			return;
+		}
+
+		case 3: {
+			mapSorted_Node * N = mapScopeHUDSorted.insertInAnyWay(distSQ);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+			return;
+		}		
+	}
+#endif
+
 	// HUD rendering
 	if (RI.val_bHUD)
 	{

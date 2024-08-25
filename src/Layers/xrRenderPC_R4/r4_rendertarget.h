@@ -173,6 +173,10 @@ public:
 	Fmatrix Matrix_HUD_previous, Matrix_HUD_current;
 	Fvector3 Position_previous;
 	bool RVelocity;
+	
+	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
+
+	ref_shader s_ssfx_dumb;
 
 	//	Igor: for async screenshots
 	ID3DTexture2D* t_ss_async; //32bit		(r,g,b,a) is situated in the system memory
@@ -348,6 +352,7 @@ public:
 	void phase_nightvision();
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
+	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 	void phase_lut();		
 	void phase_smaa();
 	void phase_scene_prepare();

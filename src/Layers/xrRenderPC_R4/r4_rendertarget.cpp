@@ -421,7 +421,11 @@ CRenderTarget::CRenderTarget()
 		rt_Position.create(r2_RT_P, w, h, D3DFMT_A16B16G16R16F, SampleCount);
 
 		if (RImplementation.o.dx10_msaa)
+		{
 			rt_MSAADepth.create(r2_RT_MSAAdepth, w, h, D3DFMT_D24S8, SampleCount);
+		}
+
+		rt_tempzb.create("$user$temp_zb", w, h, D3DFMT_D24S8); // Redotix99: for 3D Shader Based Scopes
 
 		// select albedo & accum
 		if (RImplementation.o.mrtmixdepth)

@@ -281,6 +281,7 @@ Fvector4 heat_vision_args_2 = { .0f, .0f, .0f, .0f };
 //--DSR-- HeatVision_end
 //crookr
 int scope_fake_enabled = 1;
+int scope_3D_fake_enabled = 0; // Redotix99: for 3D Shader Based Scopes
 //string32 scope_fake_texture = "wpn\\wpn_crosshair_pso1";
 
 float ps_r2_ss_sunshafts_length = 1.f;
@@ -1171,6 +1172,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__nightvision", &ps_r2_nightvision, 0, 3); //For beef's nightvision shader or other stuff
 
 	CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1); //crookr for fake scope
+	CMD4(CCC_Integer, "r__3Dfakescope", &scope_3D_fake_enabled, 0, 1); // Redotix99: for 3D Shader Based Scopes
 
 	CMD4(CCC_Integer, "r__heatvision", &ps_r2_heatvision, 0, 1); //--DSR-- HeatVision
 	CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS); //Terrain Z Prepass @Zagolski

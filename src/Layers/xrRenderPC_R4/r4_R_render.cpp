@@ -376,6 +376,11 @@ void CRender::Render()
 		Target->disable_aniso();
 	}
 
+	//  Redotix99: for 3D Shader Based Scopes 		
+	ID3D11Resource* zbuffer_res;
+	HW.pBaseZB->GetResource(&zbuffer_res);
+	HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
+
 	//******* Occlusion testing of volume-limited light-sources
 	Target->phase_occq();
 	LP_normal.clear();
@@ -587,6 +592,17 @@ void CRender::render_forward()
 	}
 
 	RImplementation.o.distortion = FALSE; // disable distorion
+}
+
+// Redotix99: for 3D Shader Based Scopes
+void CRender::render_Reticle()
+{
+	VERIFY(0 == mapDistort.size());
+	RImplementation.o.distortion = RImplementation.o.distortion_enabled;
+
+	r_dsgraph_render_ScopeSorted();
+
+	RImplementation.o.distortion = FALSE;
 }
 
 void CRender::RenderToTarget(RRT target)

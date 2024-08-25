@@ -49,15 +49,15 @@ void CRenderTarget::phase_combine()
 	Fvector2 p0, p1;
 
 	//*** exposure-pipeline
-	u32			gpu_id	= Device.dwFrame%HW.Caps.iGPUNum;
+	u32			gpu_id = Device.dwFrame % HW.Caps.iGPUNum;
 	if (Device.m_SecondViewport.IsSVPActive()) //--#SM+#-- +SecondVP+
 	{
 		// clang-format off
 		gpu_id = (Device.dwFrame - 1) % HW.Caps.iGPUNum;
 	}
 	{
-		t_LUM_src->surface_set		(rt_LUM_pool[gpu_id*2+0]->pSurface);
-		t_LUM_dest->surface_set		(rt_LUM_pool[gpu_id*2+1]->pSurface);
+		t_LUM_src->surface_set(rt_LUM_pool[gpu_id * 2 + 0]->pSurface);
+		t_LUM_dest->surface_set(rt_LUM_pool[gpu_id * 2 + 1]->pSurface);
 	}
 
 	if (RImplementation.o.ssao_hdao && RImplementation.o.ssao_ultra)
@@ -206,7 +206,7 @@ void CRenderTarget::phase_combine()
 			envdesc.weight
 		};
 
-		Fvector4 fogclr = {envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0};
+		Fvector4 fogclr = { envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0 };
 		envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
 		envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
 		envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
@@ -330,8 +330,8 @@ void CRenderTarget::phase_combine()
 	//Copy previous rt
 	if (!RImplementation.o.dx10_msaa)
 		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());
-    else
-        HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
+	else
+		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
 	if (RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
 	{
@@ -478,6 +478,10 @@ void CRenderTarget::phase_combine()
 			phase_sunshafts();
 	}
 	
+
+	phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
+
+
 	//Compute blur textures
 	if (!Device.m_SecondViewport.IsSVPFrame()) // Temp fix for blur buffer and SVP
 		phase_blur();
@@ -491,7 +495,7 @@ void CRenderTarget::phase_combine()
 	}
 	
 	phase_lut();	
-	
+
 	if(ps_r2_mask_control.x > 0)
 	{
 		phase_gasmask_dudv();
