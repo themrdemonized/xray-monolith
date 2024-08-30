@@ -26,6 +26,7 @@
 #include "blender_lut.h"
 
 #include "../xrRender/dxRenderDeviceRender.h"
+#include "../xrRender/xrRender_console.h"
 
 #include <D3DX10Tex.h>
 
@@ -431,7 +432,11 @@ CRenderTarget::CRenderTarget()
 		if (RImplementation.o.mrtmixdepth)
 		{
 			// NV50
-			rt_Color.create(r2_RT_albedo, w, h, D3DFMT_A8R8G8B8, SampleCount);
+			if (ps_r4_hdr_on) {
+            	rt_Color.create(r2_RT_albedo, w, h, D3DFMT_A16B16G16R16F, SampleCount);
+			} else {
+				rt_Color.create(r2_RT_albedo, w, h, D3DFMT_A8R8G8B8, SampleCount);
+			}
 			rt_Accumulator.create(r2_RT_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount);
 		}
 		else
@@ -455,10 +460,15 @@ CRenderTarget::CRenderTarget()
 
 		// generic(LDR) RTs
 		//LV - we should change their formats into D3DFMT_A16B16G16R16F for better HDR support.
-		rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A8R8G8B8, 1);
-		rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A8R8G8B8, 1);
-		rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A8R8G8B8, 1);
-
+		if (ps_r4_hdr_on) {
+			rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A16B16G16R16F, 1);
+			rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A16B16G16R16F, 1);
+			rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A16B16G16R16F, 1);
+		} else {
+			rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A8R8G8B8, 1);
+			rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A8R8G8B8, 1);
+			rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A8R8G8B8, 1);
+		}
 
 		rt_fakescope.create(r2_RT_scopert, w, h, D3DFMT_A8R8G8B8, 1); //crookr fakescope
 
@@ -466,14 +476,21 @@ CRenderTarget::CRenderTarget()
 		rt_Heat.create(r2_RT_heat, w, h, D3DFMT_A8R8G8B8, SampleCount);
 		//--DSR-- HeatVision_end
 
-        if (RImplementation.o.dx10_msaa)
-            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A8R8G8B8, SampleCount);
-        else
-            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A8R8G8B8, 1);
+        if (ps_r4_hdr_on) {
+            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A16B16G16R16F, RImplementation.o.dx10_msaa ? SampleCount : 1);
+		} else {
+            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A8R8G8B8, RImplementation.o.dx10_msaa ? SampleCount : 1);
+		}
 
-		rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A8R8G8B8, 1); //--#SM+#-- +SecondVP+
 		rt_dof.create(r2_RT_dof, w, h, D3DFMT_A8R8G8B8);
-		rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
+		if (ps_r4_hdr_on) {
+			rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A2R10G10B10, 1); //--#SM+#-- +SecondVP+ // NOTE: this is a hack to use DXGI R10G10B10A2_UNORM
+			rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A2R10G10B10); // NOTE: this is a hack to use DXGI R10G10B10A2_UNORM
+		} else {
+			rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A8R8G8B8, 1); //--#SM+#-- +SecondVP+
+			rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
+		}
+                                                         // PDA, probably not ideal though
 		// RT - KD
 		rt_sunshafts_0.create(r2_RT_sunshafts0, w, h, D3DFMT_A8R8G8B8);
 		rt_sunshafts_1.create(r2_RT_sunshafts1, w, h, D3DFMT_A8R8G8B8);
@@ -510,8 +527,8 @@ CRenderTarget::CRenderTarget()
 		
 		if (RImplementation.o.dx10_msaa)
 		{
-			rt_Generic_0_r.create(r2_RT_generic0_r, w, h, D3DFMT_A8R8G8B8, SampleCount);
-			rt_Generic_1_r.create(r2_RT_generic1_r, w, h, D3DFMT_A8R8G8B8, SampleCount);
+            rt_Generic_0_r.create(r2_RT_generic0_r, w, h, ps_r4_hdr_on ? D3DFMT_A16B16G16R16F : D3DFMT_A8R8G8B8, SampleCount);
+            rt_Generic_1_r.create(r2_RT_generic1_r, w, h, ps_r4_hdr_on ? D3DFMT_A16B16G16R16F : D3DFMT_A8R8G8B8, SampleCount);
 			//rt_Generic.create		      (r2_RT_generic,w,h,   D3DFMT_A8R8G8B8, 1		);
 		}
 		//	Igor: for volumetric lights
@@ -1334,8 +1351,8 @@ bool CRenderTarget::use_minmax_sm_this_frame()
 	case CRender::MMSM_AUTODETECT:
 		{
 			u32 dwScreenArea =
-				HW.m_ChainDesc.BufferDesc.Width *
-				HW.m_ChainDesc.BufferDesc.Height;
+				HW.m_ChainDesc.Width *
+				HW.m_ChainDesc.Height;
 
 			if ((dwScreenArea >= RImplementation.o.dx10_minmax_sm_screenarea_threshold))
 				return need_to_render_sunshafts();

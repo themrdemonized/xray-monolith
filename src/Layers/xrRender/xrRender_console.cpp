@@ -110,9 +110,9 @@ xr_token screenshot_mode_token [ ] = {
 	{ 0, 0 }
 };
 
-//	“Off”
-//	“DX10.0 style [Standard]”
-//	“DX10.1 style [Higher quality]”
+//	пїЅOffпїЅ
+//	пїЅDX10.0 style [Standard]пїЅ
+//	пїЅDX10.1 style [Higher quality]пїЅ
 
 // Common
 extern int psSkeletonUpdate;
@@ -298,6 +298,12 @@ float ps_r2_tnmp_exposure = 7.0f; // r2-only
 float ps_r2_tnmp_gamma = .25f; // r2-only
 float ps_r2_tnmp_onoff = .0f; // r2-only
 
+// HDR10 parameters
+float ps_r4_hdr_whitepoint_nits = 1000.0f; // r4-only
+float ps_r4_hdr_ui_nits         = 800.0f; // r4-only
+int   ps_r4_hdr_pda             = 0; // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
+int   ps_r4_hdr_on              = 0; // r4-only
+
 float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
 float ps_r2_img_saturation = 1.0f; // r2-only
@@ -404,7 +410,7 @@ Flags32 ps_actor_shadow_flags = {0}; //Swartz: actor shadow
 Flags32 ps_common_flags = {0}; // r1-only
 u32 ps_steep_parallax = 0;
 int ps_r__detail_radius = 49;
-#ifdef DETAIL_RADIUS // управление радиусом отрисовки травы
+#ifdef DETAIL_RADIUS // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 u32 dm_size = 24;
 u32 dm_cache1_line = 12; //dm_size*2/dm_cache1_count
 u32 dm_cache_line = 49; //dm_size+1+dm_size
@@ -1126,9 +1132,9 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_sun_depth_far_bias", &ps_r2_sun_depth_far_bias, -0.5, +0.5);
 	CMD4(CCC_Float, "r2_sun_depth_near_scale", &ps_r2_sun_depth_near_scale, 0.5, 1.5);
 	CMD4(CCC_Float, "r2_sun_depth_near_bias", &ps_r2_sun_depth_near_bias, -0.5, +0.5);
-	CMD4(CCC_Float, "r2_sun_lumscale", &ps_r2_sun_lumscale, -1.0, +3.0);
-	CMD4(CCC_Float, "r2_sun_lumscale_hemi", &ps_r2_sun_lumscale_hemi, 0.0, +3.0);
-	CMD4(CCC_Float, "r2_sun_lumscale_amb", &ps_r2_sun_lumscale_amb, 0.0, +3.0);
+	CMD4(CCC_Float, "r2_sun_lumscale", &ps_r2_sun_lumscale, -1.0, +10.0);
+	CMD4(CCC_Float, "r2_sun_lumscale_hemi", &ps_r2_sun_lumscale_hemi, 0.0, +10.0);
+	CMD4(CCC_Float, "r2_sun_lumscale_amb", &ps_r2_sun_lumscale_amb, 0.0, +10.0);
 
 	CMD3(CCC_Mask, "r2_aa", &ps_r2_ls_flags, R2FLAG_AA);
 	CMD4(CCC_Float, "r2_aa_kernel", &ps_r2_aa_kernel, 0.3f, 0.7f);
@@ -1155,9 +1161,12 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_tnmp_gamma", &ps_r2_tnmp_gamma, 0.0f, 20.0f);
 	CMD4(CCC_Float, "r2_tnmp_onoff", &ps_r2_tnmp_onoff, 0.0f, 1.0f);
 
+    CMD4(CCC_Float, "r4_hdr_whitepoint_nits", &ps_r4_hdr_whitepoint_nits, 1.0f, 10000.0f);
+    CMD4(CCC_Float, "r4_hdr_ui_nits", &ps_r4_hdr_ui_nits, 1.0f, 10000.0f);
+	CMD4(CCC_Integer, "r4_hdr_on", &ps_r4_hdr_on, 0, 1);
 
 	CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
-	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);
+	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.1f, 3.0f);
 	CMD4(CCC_Float, "r__saturation", &ps_r2_img_saturation, 0.0f, 2.0f);
 
 	tw_min.set(0, 0, 0);

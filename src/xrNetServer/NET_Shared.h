@@ -31,6 +31,81 @@ XRNETSERVER_API extern int psNET_ServerPending;
 
 XRNETSERVER_API extern BOOL psNET_direct_connect;
 
+// work around for GUID symbol conflicts
+#define XR_GUID(x) xrInternalGuid_ ## x
+
+// externs
+extern const GUID XR_GUID(CLSID_DirectPlay8Client);
+
+// {DA825E1B-6830-43d7-835D-0B5AD82956A2}
+extern const GUID XR_GUID(CLSID_DirectPlay8Server);
+
+// {286F484D-375E-4458-A272-B138E2F80A6A}
+extern const GUID XR_GUID(CLSID_DirectPlay8Peer);
+
+
+// CLSIDs added for DirectX 9
+
+// {FC47060E-6153-4b34-B975-8E4121EB7F3C}
+extern const GUID XR_GUID(CLSID_DirectPlay8ThreadPool);
+
+// {E4C1D9A2-CBF7-48bd-9A69-34A55E0D8941}
+extern const GUID XR_GUID(CLSID_DirectPlay8NATResolver);
+
+/****************************************************************************
+ *
+ * DirectPlay8 Interface IIDs
+ *
+ ****************************************************************************/
+
+typedef REFIID DP8REFIID;
+
+
+// {5102DACD-241B-11d3-AEA7-006097B01411}
+extern const GUID XR_GUID(IID_IDirectPlay8Client);
+
+// {5102DACE-241B-11d3-AEA7-006097B01411}
+extern const GUID XR_GUID(IID_IDirectPlay8Server);
+
+// {5102DACF-241B-11d3-AEA7-006097B01411}
+extern const GUID XR_GUID(IID_IDirectPlay8Peer);
+
+
+// IIDs added for DirectX 9
+
+// {0D22EE73-4A46-4a0d-89B2-045B4D666425}
+extern const GUID XR_GUID(IID_IDirectPlay8ThreadPool);
+
+// {A9E213F2-9A60-486f-BF3B-53408B6D1CBB}
+extern const GUID XR_GUID(IID_IDirectPlay8NATResolver);
+
+// {53934290-628D-11D2-AE0F-006097B01411}
+extern const GUID XR_GUID(CLSID_DP8SP_IPX);
+
+
+// {6D4A3650-628D-11D2-AE0F-006097B01411}
+extern const GUID XR_GUID(CLSID_DP8SP_MODEM);
+
+
+// {743B5D60-628D-11D2-AE0F-006097B01411}
+extern const GUID XR_GUID(CLSID_DP8SP_SERIAL);
+
+
+// {EBFE7BA0-628D-11D2-AE0F-006097B01411}
+extern const GUID XR_GUID(CLSID_DP8SP_TCPIP);
+
+
+// Service providers added for DirectX 9
+
+
+// {995513AF-3027-4b9a-956E-C772B3F78006}
+extern const GUID XR_GUID(CLSID_DP8SP_BLUETOOTH);
+
+extern const GUID XR_GUID(CLSID_DirectPlay8Address);
+
+extern const GUID XR_GUID(IID_IDirectPlay8Address);
+
+
 enum
 {
 	NETFLAG_MINIMIZEUPDATES = (1 << 0),
