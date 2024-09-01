@@ -299,10 +299,11 @@ float ps_r2_tnmp_gamma = .25f; // r2-only
 float ps_r2_tnmp_onoff = .0f; // r2-only
 
 // HDR10 parameters
-float ps_r4_hdr_whitepoint_nits = 1000.0f; // r4-only
-float ps_r4_hdr_ui_nits         = 800.0f; // r4-only
+float ps_r4_hdr_whitepoint_nits = 400.0f; // r4-only
+float ps_r4_hdr_ui_nits         = 400.0f; // r4-only
 int   ps_r4_hdr_pda             = 0; // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
 int   ps_r4_hdr_on              = 0; // r4-only
+int   ps_r4_hdr_colorspace      = 0; // r4-only
 
 float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
@@ -1132,9 +1133,9 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_sun_depth_far_bias", &ps_r2_sun_depth_far_bias, -0.5, +0.5);
 	CMD4(CCC_Float, "r2_sun_depth_near_scale", &ps_r2_sun_depth_near_scale, 0.5, 1.5);
 	CMD4(CCC_Float, "r2_sun_depth_near_bias", &ps_r2_sun_depth_near_bias, -0.5, +0.5);
-	CMD4(CCC_Float, "r2_sun_lumscale", &ps_r2_sun_lumscale, -1.0, +10.0);
-	CMD4(CCC_Float, "r2_sun_lumscale_hemi", &ps_r2_sun_lumscale_hemi, 0.0, +10.0);
-	CMD4(CCC_Float, "r2_sun_lumscale_amb", &ps_r2_sun_lumscale_amb, 0.0, +10.0);
+	CMD4(CCC_Float, "r2_sun_lumscale", &ps_r2_sun_lumscale, -1.0, +3.0);
+	CMD4(CCC_Float, "r2_sun_lumscale_hemi", &ps_r2_sun_lumscale_hemi, 0.0, +3.0);
+	CMD4(CCC_Float, "r2_sun_lumscale_amb", &ps_r2_sun_lumscale_amb, 0.0, +3.0);
 
 	CMD3(CCC_Mask, "r2_aa", &ps_r2_ls_flags, R2FLAG_AA);
 	CMD4(CCC_Float, "r2_aa_kernel", &ps_r2_aa_kernel, 0.3f, 0.7f);
@@ -1164,9 +1165,10 @@ void xrRender_initconsole()
     CMD4(CCC_Float, "r4_hdr_whitepoint_nits", &ps_r4_hdr_whitepoint_nits, 1.0f, 10000.0f);
     CMD4(CCC_Float, "r4_hdr_ui_nits", &ps_r4_hdr_ui_nits, 1.0f, 10000.0f);
 	CMD4(CCC_Integer, "r4_hdr_on", &ps_r4_hdr_on, 0, 1);
+    CMD4(CCC_Integer, "r4_hdr_colorspace", &ps_r4_hdr_colorspace, 0, 2); // 0 = Rec709/sRGB, 1 = DCI-P3, 2 = Rec2020
 
 	CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
-	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.1f, 3.0f);
+	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);
 	CMD4(CCC_Float, "r__saturation", &ps_r2_img_saturation, 0.0f, 2.0f);
 
 	tw_min.set(0, 0, 0);

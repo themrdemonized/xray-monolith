@@ -401,15 +401,13 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     };
 
     // create device
-    // TODO: single threaded?
     ID3D11Device* device;
     ID3D11DeviceContext* context;
     R_CHK(D3D11CreateDevice(
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
-        //D3D11_CREATE_DEVICE_DEBUG | D3D11_CREATE_DEVICE_BGRA_SUPPORT, // TODO: D3D11_CREATE_DEVICE_SINGLETHREADED ? is the renderer single threaded?
-        D3D11_CREATE_DEVICE_BGRA_SUPPORT,
+        D3D11_CREATE_DEVICE_BGRA_SUPPORT, // D3D11_CREATE_DEVICE_DEBUG is useful for debugging
         pFeatureLevels,
         1,
         D3D11_SDK_VERSION,
@@ -420,11 +418,13 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     R_CHK(device->QueryInterface(&pDevice));
     R_CHK(context->QueryInterface(&pContext));
 
+    _RELEASE(device);
+    _RELEASE(context);
+
     // create swapchain
     R_CHK(m_pFactory->CreateSwapChainForHwnd(pDevice, m_hWnd, &sd, &sd_fullscreen, NULL, &m_pSwapChain));
 
     // setup colorspace
-    // HDR   (F16 output) -> DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709
     // HDR10 (U10 output) -> DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020
     // SDR   (U8 output)  -> DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709
     // TODO: SDR 10-bit?
@@ -440,13 +440,14 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
         if (color_space_supported & DXGI_SWAP_CHAIN_COLOR_SPACE_SUPPORT_FLAG_PRESENT) {
             R_CHK(swapchain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020));
         } else {
-            // TODO: may want to log here that the color space is unsupported
+            Log("HDR10 color space unsupported, failed to enable HDR10 output");
+            R_CHK(swapchain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709));
         }
     } else {
         R_CHK(swapchain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G22_NONE_P709));
     }
 
-    // TODO: release for queried interfaces?
+    _RELEASE(swapchain3);
 
 #else
 	R = D3DX10CreateDeviceAndSwapChain(m_pAdapter,

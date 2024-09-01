@@ -1045,8 +1045,9 @@ extern float ps_r4_hdr_whitepoint_nits; // r4-only
 extern float ps_r4_hdr_ui_nits;  // r4-only
 extern int   ps_r4_hdr_pda; // r4-only (NOTE: this is a hack to prevent double HDR tonemapping the PDA)
 extern int   ps_r4_hdr_on; // r4-only
+extern int   ps_r4_hdr_colorspace; // r4-only
 
-static class cl_hdr_parameters : public R_constant_setup
+static class cl_hdr_parameters1 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
@@ -1057,7 +1058,15 @@ static class cl_hdr_parameters : public R_constant_setup
             (float)ps_r4_hdr_on,
             (float)ps_r4_hdr_pda);
 	}
-} binder_hdr_parameters;
+} binder_hdr_parameters1;
+
+static class cl_hdr_parameters2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+        RCache.set_c(C, (float)ps_r4_hdr_colorspace, 0.0f, 0.0f, 0.0f);
+	}
+} binder_hdr_parameters2;
 
 /* --- HDR10 Parameters --- */
 
@@ -1219,5 +1228,6 @@ void CBlender_Compile::SetMapping()
 	//--DSR-- HeatVision_end
 
 	// HDR10 parameters
-    r_Constant("hdr_parameters", &binder_hdr_parameters);
+    r_Constant("hdr_parameters1", &binder_hdr_parameters1);
+    r_Constant("hdr_parameters2", &binder_hdr_parameters2);
 }
