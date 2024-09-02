@@ -338,6 +338,7 @@ function init_opt_base()
 				curr = {function() return get_console_cmd(0, "r4_hdr_on") end},
 				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
 				cmd = "r4_hdr_on",
+				restart = true,
 			},
 			{
 				id = "hdr10_whitepoint_nits",
