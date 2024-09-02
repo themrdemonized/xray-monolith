@@ -110,9 +110,9 @@ xr_token screenshot_mode_token [ ] = {
 	{ 0, 0 }
 };
 
-//	�Off�
-//	�DX10.0 style [Standard]�
-//	�DX10.1 style [Higher quality]�
+//	“Off”
+//	“DX10.0 style [Standard]”
+//	“DX10.1 style [Higher quality]”
 
 // Common
 extern int psSkeletonUpdate;
@@ -411,7 +411,7 @@ Flags32 ps_actor_shadow_flags = {0}; //Swartz: actor shadow
 Flags32 ps_common_flags = {0}; // r1-only
 u32 ps_steep_parallax = 0;
 int ps_r__detail_radius = 49;
-#ifdef DETAIL_RADIUS // ���������� �������� ��������� �����
+#ifdef DETAIL_RADIUS // управление радиусом отрисовки травы
 u32 dm_size = 24;
 u32 dm_cache1_line = 12; //dm_size*2/dm_cache1_count
 u32 dm_cache_line = 49; //dm_size+1+dm_size

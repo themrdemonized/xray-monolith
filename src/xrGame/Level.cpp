@@ -457,26 +457,26 @@ void CLevel::ProcessGameEvents()
 			game_events->get(ID, dest, type, P);
 			//AVO: spawn antifreeze implementation by alpet
 #ifdef SPAWN_ANTIFREEZE
-            // �� ���������� ������� �� ������������ ��������
-            if (g_bootComplete && M_EVENT == ID && PostponedSpawn(dest))
-            {
-                spawn_events->insert(P);
-                continue;
-            }
-            if (g_bootComplete && M_SPAWN == ID && Device.frame_elapsed() > work_limit) // alpet: �������� ������� �������� ������� � ������, ��� �������� ������
-            {
-                u16 parent_id;
-                GetSpawnInfo(P, parent_id);
-                //-------------------------------------------------				
-                if (parent_id < 0xffff) // ����������� ����� ������ �������� � ����������
-                {
-                    if (!spawn_events->available(svT))
-                        Msg("* ProcessGameEvents, spawn event postponed. Events rest = %d", game_events->queue.size());
+			// не отправлять события не заспавненным объектам
+			if (g_bootComplete && M_EVENT == ID && PostponedSpawn(dest))
+			{
+				spawn_events->insert(P);
+				continue;
+			}
+			if (g_bootComplete && M_SPAWN == ID && Device.frame_elapsed() > work_limit) // alpet: позволит плавнее выводить объекты в онлайн, без заметных фризов
+			{
+				u16 parent_id;
+				GetSpawnInfo(P, parent_id);
+				//-------------------------------------------------				
+				if (parent_id < 0xffff) // откладывать спавн только объектов в контейнеры
+				{
+					if (!spawn_events->available(svT))
+						Msg("* ProcessGameEvents, spawn event postponed. Events rest = %d", game_events->queue.size());
 
-                    spawn_events->insert(P);
-                    continue;
-                }
-            }
+					spawn_events->insert(P);
+					continue;
+				}
+			}
 #endif
 			//-AVO
 			switch (ID)
