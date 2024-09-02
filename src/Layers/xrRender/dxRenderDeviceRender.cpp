@@ -71,7 +71,10 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 
 	HW.Reset(hWnd);
 
-#if defined(USE_DX10) || defined(USE_DX11)
+#if defined(USE_DX11)
+	dwWidth = HW.m_ChainDesc.Width;
+	dwHeight = HW.m_ChainDesc.Height;
+#elif defined(USE_DX10)
 	dwWidth = HW.m_ChainDesc.BufferDesc.Width;
 	dwHeight = HW.m_ChainDesc.BufferDesc.Height;
 #else	//	USE_DX10
@@ -170,7 +173,10 @@ void dxRenderDeviceRender::Create(HWND hWnd, u32& dwWidth, u32& dwHeight, float&
                                   bool move_window)
 {
 	HW.CreateDevice(hWnd, move_window);
-#if defined(USE_DX10) || defined(USE_DX11)
+#if defined(USE_DX11)
+	dwWidth = HW.m_ChainDesc.Width;
+	dwHeight = HW.m_ChainDesc.Height;
+#elif defined(USE_DX10)
 	dwWidth = HW.m_ChainDesc.BufferDesc.Width;
 	dwHeight = HW.m_ChainDesc.BufferDesc.Height;
 #else	//	USE_DX10
