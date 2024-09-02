@@ -6,6 +6,11 @@
 #define AFX_HW_H__0E25CF4A_FFEC_11D3_B4E3_4854E82A090D__INCLUDED_
 #pragma once
 
+#if defined(USE_DX11)
+#include <d3d11_4.h>
+#include <dxgi1_4.h>
+#endif
+
 #include "hwcaps.h"
 
 #include "../../build_config_defines.h"
@@ -57,19 +62,22 @@ public:
 	//	Variables section
 #if defined(USE_DX11)	//	USE_DX10
 public:
-	IDXGIAdapter*			m_pAdapter;	//	pD3D equivalent
-	ID3D11Device*			pDevice;	//	combine with DX9 pDevice via typedef
-	ID3D11DeviceContext*    pContext;	//	combine with DX9 pDevice via typedef
-	IDXGISwapChain*         m_pSwapChain;
+    IDXGIFactory2*          m_pFactory; //  DXGI factory
+	IDXGIAdapter1*			m_pAdapter;	//	pD3D equivalent
+	ID3D11Device1*			pDevice;	//	combine with DX9 pDevice via typedef
+	ID3D11DeviceContext1*   pContext;	//	combine with DX9 pDevice via typedef
+	IDXGISwapChain1*        m_pSwapChain;
 	ID3D11RenderTargetView*	pBaseRT;	//	combine with DX9 pBaseRT via typedef
 	ID3D11DepthStencilView*	pBaseZB;
 
 	CHWCaps					Caps;
 
-	D3D_DRIVER_TYPE		m_DriverType;	//	DevT equivalent
-	DXGI_SWAP_CHAIN_DESC	m_ChainDesc;	//	DevPP equivalent
-	bool					m_bUsePerfhud;
-	D3D_FEATURE_LEVEL		FeatureLevel;
+	D3D_DRIVER_TYPE					m_DriverType;	//	DevT equivalent
+	DXGI_SWAP_CHAIN_DESC1			m_ChainDesc;	//	DevPP equivalent
+    DXGI_SWAP_CHAIN_FULLSCREEN_DESC m_ChainDescFullscreen;
+    HWND                            m_hWnd;
+	bool							m_bUsePerfhud;
+	D3D_FEATURE_LEVEL				FeatureLevel;
 #elif defined(USE_DX10)
 public:
 	IDXGIAdapter*			m_pAdapter;	//	pD3D equivalent

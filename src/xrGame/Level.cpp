@@ -457,18 +457,18 @@ void CLevel::ProcessGameEvents()
 			game_events->get(ID, dest, type, P);
 			//AVO: spawn antifreeze implementation by alpet
 #ifdef SPAWN_ANTIFREEZE
-            // не отправлять события не заспавненным объектам
+            // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             if (g_bootComplete && M_EVENT == ID && PostponedSpawn(dest))
             {
                 spawn_events->insert(P);
                 continue;
             }
-            if (g_bootComplete && M_SPAWN == ID && Device.frame_elapsed() > work_limit) // alpet: позволит плавнее выводить объекты в онлайн, без заметных фризов
+            if (g_bootComplete && M_SPAWN == ID && Device.frame_elapsed() > work_limit) // alpet: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
             {
                 u16 parent_id;
                 GetSpawnInfo(P, parent_id);
                 //-------------------------------------------------				
-                if (parent_id < 0xffff) // откладывать спавн только объектов в контейнеры
+                if (parent_id < 0xffff) // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
                 {
                     if (!spawn_events->available(svT))
                         Msg("* ProcessGameEvents, spawn event postponed. Events rest = %d", game_events->queue.size());
@@ -783,6 +783,8 @@ extern void draw_wnds_rects();
 extern bool use_reshade;
 extern void render_reshade_effects();
 
+extern int ps_r4_hdr_pda; // NOTE: this is a hack to avoid double HDR tonemapping the PDA
+
 void CLevel::OnRender()
 {
 	// PDA
@@ -791,6 +793,8 @@ void CLevel::OnRender()
 		CUIPdaWnd* pda = &CurrentGameUI()->GetPdaMenu();
 		if (psActorFlags.test(AF_3D_PDA) && pda->IsShown())
 		{
+			ps_r4_hdr_pda = 1; // !!! HACK !!!
+
 			pda->Draw();
 			CUICursor* cursor = &UI().GetUICursor();
 
@@ -830,6 +834,8 @@ void CLevel::OnRender()
 					cursor->OnRender();
 			}
 			Render->RenderToTarget(Render->rtPDA);
+
+			ps_r4_hdr_pda = 0;
 		}
 
 		if (Actor() && Actor()->m_bDelayDrawPickupItems)

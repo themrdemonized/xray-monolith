@@ -184,6 +184,7 @@ void CRender::ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* me
 		VERIFY(name);
 		strconcat(sizeof(buf), buf, name, ".tga");
 
+		// TODO: this won't work due to texture format incompat
 		ID3DTexture2D* pTex = Target->t_ss_async;
 		HW.pContext->CopyResource(pTex, pSrcTexture);
 
