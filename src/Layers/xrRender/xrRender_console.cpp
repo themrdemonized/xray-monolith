@@ -332,6 +332,12 @@ int ps_markswitch_current = 0;
 int ps_markswitch_count = 0;
 Fvector4 ps_markswitch_color = { 0, 0, 0, 0 };
 
+// Shader 3D Scopes
+Fvector4 ps_s3ds_param_1 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_2 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
+
 // Screen Space Shaders Stuff
 float ps_ssfx_hud_hemi = 0.15f; // HUD Hemi Offset
 
@@ -1215,6 +1221,12 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
 	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
 	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+
+	// Shader 3D Scopes
+	CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 	
 	// Screen Space Shaders
 	CMD4(CCC_Float, "ssfx_hud_hemi", &ps_ssfx_hud_hemi, 0.0f, 1.0f);

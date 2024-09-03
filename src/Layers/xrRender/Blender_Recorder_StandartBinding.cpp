@@ -385,6 +385,44 @@ static class markswitch_color : public R_constant_setup
 	}
 }    markswitch_color;
 
+// Shader 3D Scopes
+extern Fvector4 ps_s3ds_param_1;
+extern Fvector4 ps_s3ds_param_2;
+extern Fvector4 ps_s3ds_param_3;
+extern Fvector4 ps_s3ds_param_4;
+
+static class s3ds_param_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, ps_s3ds_param_1.z, ps_s3ds_param_1.w);
+	}
+}    s3ds_param_1;
+
+static class s3ds_param_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, ps_s3ds_param_2.w);
+	}
+}    s3ds_param_2;
+
+static class s3ds_param_3 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_3.x, ps_s3ds_param_3.y, ps_s3ds_param_3.z, ps_s3ds_param_3.w);
+	}
+}    s3ds_param_3;
+
+static class s3ds_param_4 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, ps_s3ds_param_4.w);
+	}
+}    s3ds_param_4;
+
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
 {
@@ -1204,6 +1242,12 @@ void CBlender_Compile::SetMapping()
 	r_Constant("markswitch_current", &markswitch_current);
 	r_Constant("markswitch_count", &markswitch_count);
 	r_Constant("markswitch_color", &markswitch_color);
+
+	// Shader 3D Scopes
+	r_Constant("s3ds_param_1", &s3ds_param_1);
+	r_Constant("s3ds_param_2", &s3ds_param_2);
+	r_Constant("s3ds_param_3", &s3ds_param_3);
+	r_Constant("s3ds_param_4", &s3ds_param_4);
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);
