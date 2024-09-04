@@ -134,6 +134,9 @@
 	<string id="ui_mm_modded_exes_hdr10_enabled">
 		<text>Включить HDR10 (требуется перезагрузка) (r4_hdr_on)</text>
 	</string>
+	<string id="ui_mm_modded_exes_hdr10_enabled_desc">
+		<text>HDR10 несовместим с MSAA, при включении HDR, MSAA будет выключен</text>
+	</string>
 	<string id="ui_mm_modded_exes_hdr10_whitepoint_nits">
 		<text>HDR10 Белая точка (nits) (r4_hdr_whitepoint_nits)</text>
 	</string>

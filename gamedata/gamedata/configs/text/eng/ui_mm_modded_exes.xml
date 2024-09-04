@@ -134,6 +134,9 @@
 	<string id="ui_mm_modded_exes_hdr10_enabled">
 		<text>Enable HDR10 (Requires Restart) (r4_hdr_on)</text>
 	</string>
+	<string id="ui_mm_modded_exes_hdr10_enabled_desc">
+		<text>HDR10 is incompatible with MSAA, enabling HDR will disable MSAA</text>
+	</string>
 	<string id="ui_mm_modded_exes_hdr10_whitepoint_nits">
 		<text>HDR10 White Point (nits) (r4_hdr_whitepoint_nits)</text>
 	</string>
