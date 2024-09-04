@@ -52,9 +52,10 @@ public:
 
 	adopt_dx10sampler(const adopt_dx10sampler& _C) : m_pC(_C.m_pC), m_SI(_C.m_SI) { if (u32(-1) == m_SI) m_pC = 0; }
 
+	// TODO: why are these commented out?
 	//	adopt_sampler&			_texture		(LPCSTR texture)		{ if (C) C->i_Texture	(stage,texture);											return *this;	}
 	//	adopt_sampler&			_projective		(bool _b)				{ if (C) C->i_Projective(stage,_b);													return *this;	}
-	//	adopt_sampler&			_clamp			()						{ if (C) C->i_Address	(stage,D3DTADDRESS_CLAMP);									return *this;	}
+		adopt_dx10sampler&	    _clamp			()						{ if (m_pC) m_pC->i_dx10Address	(m_SI,D3DTADDRESS_CLAMP);							return *this;	}
 	//	adopt_sampler&			_wrap			()						{ if (C) C->i_Address	(stage,D3DTADDRESS_WRAP);									return *this;	}
 	//	adopt_sampler&			_mirror			()						{ if (C) C->i_Address	(stage,D3DTADDRESS_MIRROR);									return *this;	}
 	//	adopt_sampler&			_f_anisotropic	()						{ if (C) C->i_Filter	(stage,D3DTEXF_ANISOTROPIC,D3DTEXF_LINEAR,D3DTEXF_ANISOTROPIC);	return *this;	}
@@ -369,9 +370,10 @@ void CResourceManager::LS_Load()
 
 
 		class_<adopt_dx10sampler>("_dx10sampler")
+		// TODO: why are these commented out?
 		//.def("texture",						&adopt_sampler::_texture		,return_reference_to(_1))
 		//.def("project",						&adopt_sampler::_projective		,return_reference_to(_1))
-		//.def("clamp",						&adopt_sampler::_clamp			,return_reference_to(_1))
+		.def("clamp",						&adopt_dx10sampler::_clamp			,return_reference_to(_1))
 		//.def("wrap",						&adopt_sampler::_wrap			,return_reference_to(_1))
 		//.def("mirror",						&adopt_sampler::_mirror			,return_reference_to(_1))
 		//.def("f_anisotropic",				&adopt_sampler::_f_anisotropic	,return_reference_to(_1))
