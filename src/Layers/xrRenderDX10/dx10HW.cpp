@@ -525,7 +525,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
 
     // NOTE: this seems required to get the default render target to match the swap chain resolution
     // probably the sequence ResizeTarget, ResizeBuffers, and UpdateViews is important
-    Reset(m_hWnd);
+    Reset(hwnd);
     fill_vid_mode_list(this);
 
     // #ifndef _EDITOR
