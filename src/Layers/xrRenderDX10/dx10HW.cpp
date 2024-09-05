@@ -512,22 +512,26 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     }
     */
 
+    // u32	memory									= pDevice->GetAvailableTextureMem	();
+    size_t memory = Desc.DedicatedVideoMemory;
+    Msg("*     Texture memory: %d M", memory / (1024 * 1024));
+
     // Capture misc data
     //	DX10: Don't neeed this?
 	//#ifdef DEBUG
     //	R_CHK	(pDevice->CreateStateBlock			(D3DSBT_ALL,&dwDebugSB));
 	//#endif
     //	Create render target and depth-stencil views here
-    UpdateViews();
 
-	//u32	memory									= pDevice->GetAvailableTextureMem	();
-    size_t memory = Desc.DedicatedVideoMemory;
-    Msg("*     Texture memory: %d M", memory / (1024 * 1024));
-	//Msg		("*          DDI-level: %2.1f",		float(D3DXGetDriverLevel(pDevice))/100.f);
-#ifndef _EDITOR
-    updateWindowProps(hwnd);
+    // NOTE: this seems required to get the default render target to match the swap chain resolution
+    // probably the sequence ResizeTarget, ResizeBuffers, and UpdateViews is important
+    Reset(m_hWnd);
     fill_vid_mode_list(this);
-#endif
+
+    // #ifndef _EDITOR
+    //    updateWindowProps(hwnd); // Reset() does this as well
+    //    fill_vid_mode_list(this);
+    // #endif
 }
 
 void CHW::DestroyDevice()
@@ -558,18 +562,6 @@ void CHW::DestroyDevice()
 
     if (!is_windowed) {
         m_pSwapChain->SetFullscreenState(FALSE, NULL);
-
-#ifdef USE_DX11
-        const auto& cd = m_ChainDesc;
-        CHK_DX(m_pSwapChain->ResizeBuffers(
-            cd.BufferCount,
-            cd.Width,
-            cd.Height,
-            cd.Format,
-            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
-
-        UpdateViews();
-#endif
     }
     _SHOW_REF("refCount:m_pSwapChain", m_pSwapChain);
     _RELEASE(m_pSwapChain);
@@ -894,6 +886,12 @@ void CHW::OnAppActivate()
         m_pSwapChain->SetFullscreenState(TRUE, NULL);
 
 #ifdef USE_DX11
+        _SHOW_REF("refCount:pBaseZB", pBaseZB);
+        _RELEASE(pBaseZB);
+
+        _SHOW_REF("refCount:pBaseRT", pBaseRT);
+        _RELEASE(pBaseRT);
+
         const auto& cd = m_ChainDesc;
         m_pSwapChain->ResizeBuffers(
             cd.BufferCount,
@@ -901,6 +899,7 @@ void CHW::OnAppActivate()
             cd.Height,
             cd.Format,
             DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+
         UpdateViews();
 #endif
     }
@@ -917,7 +916,14 @@ void CHW::OnAppDeactivate()
 	if (m_pSwapChain && !is_windowed)
 	{
         m_pSwapChain->SetFullscreenState(FALSE, NULL);
+
 #ifdef USE_DX11
+        _SHOW_REF("refCount:pBaseZB", pBaseZB);
+        _RELEASE(pBaseZB);
+
+        _SHOW_REF("refCount:pBaseRT", pBaseRT);
+        _RELEASE(pBaseRT);
+
         const auto& cd = m_ChainDesc;
         m_pSwapChain->ResizeBuffers(
             cd.BufferCount,
@@ -925,6 +931,7 @@ void CHW::OnAppDeactivate()
             cd.Height,
             cd.Format,
             DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+
         UpdateViews();
 #endif
 
