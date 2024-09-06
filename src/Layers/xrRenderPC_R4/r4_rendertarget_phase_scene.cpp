@@ -45,7 +45,7 @@ void CRenderTarget::phase_scene_begin()
 	{
 		//--DSR-- HeatVision_start
 		if (RImplementation.o.albedo_wo) u_setrt(rt_Position, rt_Accumulator, rt_Heat, pZB);
-		else u_setrt(rt_Position, rt_Color, rt_Heat, pZB);
+		else u_setrt(rt_Position, rt_Color, rt_Heat, rt_ssfx_hud, pZB);
 		//--DSR-- HeatVision_end
 	}
 
