@@ -607,7 +607,11 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 		if (scope_3D_fake_enabled)
 		{
+			RCache.set_RT(RImplementation.Target->rt_ssfx_hud->pRT, 3);
+
 			mapScopeHUD.traverseLR(sorted_L1);
+
+			RCache.set_RT(NULL, 3);
 		}
 		mapScopeHUD.clear();
 #endif
