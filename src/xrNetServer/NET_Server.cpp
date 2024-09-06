@@ -315,8 +315,8 @@ IPureServer::EConnect IPureServer::Connect(LPCSTR options, GameDescriptionData& 
 		//	};	
 		//---------------------------
 		// Create the IDirectPlay8Client object.
-		HRESULT CoCreateInstanceRes = CoCreateInstance(CLSID_DirectPlay8Server, NULL, CLSCTX_INPROC_SERVER,
-		                                               IID_IDirectPlay8Server, (LPVOID*)&NET);
+		HRESULT CoCreateInstanceRes = CoCreateInstance(XR_GUID(CLSID_DirectPlay8Server), NULL, CLSCTX_INPROC_SERVER,
+		                                               XR_GUID(IID_IDirectPlay8Server), (LPVOID*)&NET);
 		//---------------------------	
 		if (CoCreateInstanceRes != S_OK)
 		{
@@ -379,9 +379,9 @@ IPureServer::EConnect IPureServer::Connect(LPCSTR options, GameDescriptionData& 
 		// Create our IDirectPlay8Address Device Address, --- Set the SP for our Device Address
 		net_Address_device = NULL;
 		CHK_DX(
-			CoCreateInstance (CLSID_DirectPlay8Address,NULL, CLSCTX_INPROC_SERVER, IID_IDirectPlay8Address,(LPVOID*) &
+			CoCreateInstance (XR_GUID(CLSID_DirectPlay8Address),NULL, CLSCTX_INPROC_SERVER, XR_GUID(IID_IDirectPlay8Address),(LPVOID*) &
 				net_Address_device ));
-		CHK_DX(net_Address_device->SetSP (bSimulator? &CLSID_NETWORKSIMULATOR_DP8SP_TCPIP : &CLSID_DP8SP_TCPIP ));
+		CHK_DX(net_Address_device->SetSP (bSimulator? &CLSID_NETWORKSIMULATOR_DP8SP_TCPIP : &XR_GUID(CLSID_DP8SP_TCPIP) ));
 
 		DWORD dwTraversalMode = DPNA_TRAVERSALMODE_NONE;
 		CHK_DX(

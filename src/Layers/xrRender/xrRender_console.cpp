@@ -110,9 +110,9 @@ xr_token screenshot_mode_token [ ] = {
 	{ 0, 0 }
 };
 
-//	ìOffî
-//	ìDX10.0 style [Standard]î
-//	ìDX10.1 style [Higher quality]î
+//	‚ÄúOff‚Äù
+//	‚ÄúDX10.0 style [Standard]‚Äù
+//	‚ÄúDX10.1 style [Higher quality]‚Äù
 
 // Common
 extern int psSkeletonUpdate;
@@ -298,6 +298,13 @@ float ps_r2_tnmp_exposure = 7.0f; // r2-only
 float ps_r2_tnmp_gamma = .25f; // r2-only
 float ps_r2_tnmp_onoff = .0f; // r2-only
 
+// HDR10 parameters
+float ps_r4_hdr_whitepoint_nits = 400.0f; // r4-only
+float ps_r4_hdr_ui_nits         = 400.0f; // r4-only
+int   ps_r4_hdr_pda             = 0; // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
+int   ps_r4_hdr_on              = 0; // r4-only
+int   ps_r4_hdr_colorspace      = 0; // r4-only
+
 float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
 float ps_r2_img_saturation = 1.0f; // r2-only
@@ -324,6 +331,12 @@ float ps_particle_update_coeff = 1.f;
 int ps_markswitch_current = 0;
 int ps_markswitch_count = 0;
 Fvector4 ps_markswitch_color = { 0, 0, 0, 0 };
+
+// Shader 3D Scopes
+Fvector4 ps_s3ds_param_1 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_2 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 
 // Screen Space Shaders Stuff
 float ps_ssfx_hud_hemi = 0.15f; // HUD Hemi Offset
@@ -404,7 +417,7 @@ Flags32 ps_actor_shadow_flags = {0}; //Swartz: actor shadow
 Flags32 ps_common_flags = {0}; // r1-only
 u32 ps_steep_parallax = 0;
 int ps_r__detail_radius = 49;
-#ifdef DETAIL_RADIUS // ÛÔ‡‚ÎÂÌËÂ ‡‰ËÛÒÓÏ ÓÚËÒÓ‚ÍË Ú‡‚˚
+#ifdef DETAIL_RADIUS // —É–ø—Ä–∞–≤–ª–µ–Ω–∏–µ —Ä–∞–¥–∏—É—Å–æ–º –æ—Ç—Ä–∏—Å–æ–≤–∫–∏ —Ç—Ä–∞–≤—ã
 u32 dm_size = 24;
 u32 dm_cache1_line = 12; //dm_size*2/dm_cache1_count
 u32 dm_cache_line = 49; //dm_size+1+dm_size
@@ -1155,6 +1168,10 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_tnmp_gamma", &ps_r2_tnmp_gamma, 0.0f, 20.0f);
 	CMD4(CCC_Float, "r2_tnmp_onoff", &ps_r2_tnmp_onoff, 0.0f, 1.0f);
 
+    CMD4(CCC_Float, "r4_hdr_whitepoint_nits", &ps_r4_hdr_whitepoint_nits, 1.0f, 10000.0f);
+    CMD4(CCC_Float, "r4_hdr_ui_nits", &ps_r4_hdr_ui_nits, 1.0f, 10000.0f);
+	CMD4(CCC_Integer, "r4_hdr_on", &ps_r4_hdr_on, 0, 1);
+    CMD4(CCC_Integer, "r4_hdr_colorspace", &ps_r4_hdr_colorspace, 0, 2); // 0 = Rec709/sRGB, 1 = DCI-P3, 2 = Rec2020
 
 	CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
 	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);
@@ -1204,6 +1221,12 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
 	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
 	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+
+	// Shader 3D Scopes
+	CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 	
 	// Screen Space Shaders
 	CMD4(CCC_Float, "ssfx_hud_hemi", &ps_ssfx_hud_hemi, 0.0f, 1.0f);

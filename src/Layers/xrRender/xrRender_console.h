@@ -197,6 +197,12 @@ extern ECORE_API float ps_r2_tnmp_exposure; // r2-only
 extern ECORE_API float ps_r2_tnmp_gamma; // r2-only
 extern ECORE_API float ps_r2_tnmp_onoff; // r2-only
 
+// HDR10 parameters
+extern ECORE_API float ps_r4_hdr_whitepoint_nits; // r4-only
+extern ECORE_API float ps_r4_hdr_ui_nits; // r4-only
+extern ECORE_API int   ps_r4_hdr_pda;  // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
+extern ECORE_API int   ps_r4_hdr_on; // r4-only
+
 extern ECORE_API float ps_r2_img_exposure; // r2-only
 extern ECORE_API float ps_r2_img_gamma; // r2-only
 extern ECORE_API float ps_r2_img_saturation; // r2-only
