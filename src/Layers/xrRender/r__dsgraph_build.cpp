@@ -361,7 +361,8 @@ void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
 	if (!pmask[sh->flags.iPriority / 2]) return;
 
 	// Water rendering
-	if (sh->flags.isWater)
+#if RENDER==R_R4
+	if (sh->flags.isWater && RImplementation.o.ssfx_water)
 	{
 		mapWater_Node* N = mapWater.insertInAnyWay(distSQ);
 		N->val.ssa = SSA;
@@ -371,6 +372,7 @@ void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
 		N->val.se = sh;
 		return;
 	}
+#endif
 
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F)
