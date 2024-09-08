@@ -11,6 +11,16 @@ function init_opt_base()
 				text = "ui_mm_title_modded_exes",
 				size = { 512, 50 },
 			},
+			
+			-- 3D Shader scopes
+			{
+                id = "r__3Dfakescope",
+                type = "list",
+                val = 0,
+                curr = {function() return get_console_cmd(0, "r__3Dfakescope") end},
+                content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+                cmd = "r__3Dfakescope",
+            },
 
 			-- Shader scopes
 			{

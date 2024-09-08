@@ -479,9 +479,10 @@ void CRenderTarget::phase_combine()
 			phase_sunshafts();
 	}
 	
-
-	phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
-
+	if (scope_3D_fake_enabled)
+	{
+		phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
+	}
 
 	//Compute blur textures
 	if (!Device.m_SecondViewport.IsSVPFrame()) // Temp fix for blur buffer and SVP
