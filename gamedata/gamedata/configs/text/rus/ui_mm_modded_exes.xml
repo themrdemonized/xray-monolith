@@ -14,6 +14,9 @@
 		<text>ВЫКЛ</text>
 	</string>
 
+	<string id="ui_mm_modded_exes_r__3Dfakescope">
+		<text>Включение 3D Shader Scopes (r__3Dfakescope)</text>
+	</string>
 	<string id="ui_mm_modded_exes_sds_enable">
 		<text>Включение Shader Scopes (sds_enable)</text>
 	</string>
