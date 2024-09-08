@@ -376,10 +376,13 @@ void CRender::Render()
 		Target->disable_aniso();
 	}
 
-	//  Redotix99: for 3D Shader Based Scopes 		
-	ID3D11Resource* zbuffer_res;
-	HW.pBaseZB->GetResource(&zbuffer_res);
-	HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
+	//  Redotix99: for 3D Shader Based Scopes 	
+	if (scope_3D_fake_enabled)
+	{
+		ID3D11Resource* zbuffer_res;
+		HW.pBaseZB->GetResource(&zbuffer_res);
+		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
+	}
 
 	//******* Occlusion testing of volume-limited light-sources
 	Target->phase_occq();
@@ -435,6 +438,7 @@ void CRender::Render()
 	{
 		PIX_EVENT(DEFER_PART1_SPLIT);
 		// skybox can be drawn here
+		
 		if (0)
 		{
 			if (!RImplementation.o.dx10_msaa)
