@@ -274,6 +274,7 @@ int ps_r2_heatvision = 0;			// heatvision shader ON/OFF
 float heat_vision_mode = 0.0f;		// heatvision mode - rgb/greyscale
 int heat_vision_cooldown = 1;		// heatvision corpse cooling down ON/OFF
 float heat_vision_cooldown_time = 20000.f;	// heatvision corpse cooling down time (in ms)
+int heat_vision_zombie_cold = 0;    // heatvision zombies are not shown as hot objects ON/OFF
 Fvector4 heat_vision_steps = { 0.45f, 0.65f, 0.76f, .0f };
 Fvector4 heat_vision_blurring = { 15.f, 4.f, 60.f, .0f };
 Fvector4 heat_vision_args_1 = { .0f, .0f, .0f, .0f };
@@ -1307,6 +1308,7 @@ void xrRender_initconsole()
 	//--DSR-- HeatVision_start
 	CMD4(CCC_Integer, "heat_vision_cooldown",	&heat_vision_cooldown, 0, 1);
 	CMD4(CCC_Float, "heat_vision_cooldown_time", &heat_vision_cooldown_time, 0, 300000.f);
+	CMD4(CCC_Integer, "heat_vision_zombie_cold", &heat_vision_zombie_cold, 0, 1);
 	CMD2(CCC_Float,   "heat_vision_mode",		&heat_vision_mode);
 	CMD4(CCC_Vector4, "heat_vision_steps",		&heat_vision_steps, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "heat_vision_blurring",	&heat_vision_blurring, tw2_min, tw2_max);

@@ -3,6 +3,7 @@
 #include "../controlled_entity.h"
 #include "../ai_monster_bones.h"
 #include "../anim_triple.h"
+#include "../Layers/xrRender/xrRender_console.h"
 #include "../../../../xrServerEntities/script_export_space.h"
 
 #define FAKE_DEATH_TYPES_COUNT	4
@@ -35,6 +36,12 @@ public:
 
 	virtual bool use_center_to_aim() const { return true; }
 	virtual char* get_monster_class_name() { return "zombie"; }
+	virtual float GetHotness() {
+		if (heat_vision_zombie_cold) {
+			return 0.0f;
+		}
+		return inherited::GetHotness();
+	}
 
 
 	CBoneInstance* bone_spine;
