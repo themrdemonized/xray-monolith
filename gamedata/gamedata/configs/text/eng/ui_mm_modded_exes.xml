@@ -159,4 +159,8 @@
 		<text>Rec.2020</text>
 	</string>
 	<!-- HDR10 -->
+
+	<string id="ui_mm_modded_exes_heat_vision_zombie_cold">
+		<text>Cold zombies in Heat Vision</text>
+	</string>
 </string_table>

@@ -577,6 +577,18 @@ void CExplosive::OnAfterExplosion()
 
 void CExplosive::OnBeforeExplosion()
 {
+#ifdef CEXPLOSIVE_CHANGE
+	LPCSTR lua_function_str = READ_IF_EXISTS(pSettings, r_string, cast_game_object()->cNameSect_str(), "on_explode", NULL);
+	if (lua_function_str && strlen(lua_function_str))
+	{
+		luabind::functor<void> lua_function;
+		if (ai().script_engine().functor(lua_function_str, lua_function))
+		{
+			lua_function(cast_game_object()->lua_game_object());
+		}
+	}
+#endif
+
 	m_bAlreadyHidden = false;
 	if (m_bHideInExplosion)
 	{

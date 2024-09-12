@@ -382,6 +382,10 @@ void CWeaponMagazinedWGrenade::LaunchGrenade()
 	if (!getRocketCount()) return;
 	R_ASSERT(m_bGrenadeMode);
 	{
+#ifdef CROCKETLAUNCHER_CHANGE
+		LPCSTR ammo_name = m_ammoTypes[m_ammoType].c_str();
+		float launch_speed = READ_IF_EXISTS(pSettings, r_float, ammo_name, "ammo_grenade_vel", CRocketLauncher::m_fLaunchSpeed);
+#endif
 		Fvector p1, d;
 		p1.set(get_LastFP2());
 		d.set(get_LastFD());
@@ -431,10 +435,14 @@ void CWeaponMagazinedWGrenade::LaunchGrenade()
 				//.				DBG_OpenCashedDraw();
 				//.				DBG_DrawLine(p1,Fvector().add(p1,d),D3DCOLOR_XRGB(255,0,0));
 #endif
+#ifdef CROCKETLAUNCHER_CHANGE
+				u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, launch_speed, EffectiveGravity(), res);
+#else
 				u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference,
 				                                                CRocketLauncher::m_fLaunchSpeed,
 				                                                EffectiveGravity(),
 				                                                res);
+#endif
 #ifdef DEBUG
 				//.				if(canfire0>0)DBG_DrawLine(p1,Fvector().add(p1,res[0]),D3DCOLOR_XRGB(0,255,0));
 				//.				if(canfire0>1)DBG_DrawLine(p1,Fvector().add(p1,res[1]),D3DCOLOR_XRGB(0,0,255));
@@ -449,7 +457,11 @@ void CWeaponMagazinedWGrenade::LaunchGrenade()
 		};
 
 		d.normalize();
+#ifdef CROCKETLAUNCHER_CHANGE
+		d.mul(launch_speed);
+#else
 		d.mul(CRocketLauncher::m_fLaunchSpeed);
+#endif
 		VERIFY2(_valid(launch_matrix), "CWeaponMagazinedWGrenade::SwitchState. Invalid launch_matrix!");
 		CRocketLauncher::LaunchRocket(launch_matrix, d, zero_vel);
 
@@ -1270,3 +1282,17 @@ int CWeaponMagazinedWGrenade::GetAmmoCount2(u8 ammo2_type) const
 
 	return GetAmmoCount_forType(m_ammoTypes2[ammo2_type]);
 }
+
+#ifdef CROCKETLAUNCHER_CHANGE
+void CWeaponMagazinedWGrenade::UnloadRocket()
+{
+	while (getRocketCount() > 0)
+	{
+		NET_Packet P;
+		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
+		P.w_u16(u16(getCurrentRocket()->ID()));
+		u_EventSend(P);
+        dropCurrentRocket();
+	}
+}
+#endif

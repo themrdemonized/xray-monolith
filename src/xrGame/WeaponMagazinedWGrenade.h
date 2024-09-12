@@ -104,6 +104,10 @@ public:
 			PerformSwitchGL();
 	}
 
+#ifdef CROCKETLAUNCHER_CHANGE
+	virtual void UnloadRocket();
+#endif
+
 private:
 	virtual void net_Spawn_install_upgrades(Upgrades_type saved_upgrades);
 	virtual bool install_upgrade_impl(LPCSTR section, bool test);

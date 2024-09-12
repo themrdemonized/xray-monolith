@@ -25,6 +25,7 @@
 #include "HudSound.h"
 
 #include "../build_config_defines.h"
+#include "WeaponRG6.h"
 
 extern ENGINE_API bool g_dedicated_server;
 ENGINE_API extern float psHUD_FOV;
@@ -491,6 +492,21 @@ void CWeaponMagazined::ReloadMagazine()
 		m_ammoType = m_set_next_ammoType_on_reload;
 		m_set_next_ammoType_on_reload = undefined_ammo_type;
 	}
+
+#ifdef CROCKETLAUNCHER_CHANGE
+	{
+		CWeaponMagazinedWGrenade *wg = smart_cast<CWeaponMagazinedWGrenade *>(this);
+		if (wg && wg->IsGrenadeLauncherAttached() && wg->GetGrenadeLauncherMode())
+		{
+			wg->UnloadRocket();
+		}
+		CWeaponRG6 *rg = smart_cast<CWeaponRG6 *>(this);
+		if (rg)
+		{
+			rg->UnloadRocket();
+		}
+	}
+#endif
 
 	if (!unlimited_ammo())
 	{
