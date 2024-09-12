@@ -6,6 +6,10 @@
 #include "../xrEngine/iobjectphysicscollision.h"
 #include "../xrphysics/iphysicsshellholder.h"
 
+#if 1
+#include "../xrphysics/ExtendedGeom.h"
+#endif
+
 class CPHDestroyable;
 class CPHCollisionDamageReceiver;
 class CPHSoundPlayer;
@@ -15,6 +19,9 @@ class CCharacterPhysicsSupport;
 class ICollisionDamageInfo;
 class CIKLimbsController;
 
+#if 1
+class CCustomMonster;
+#endif
 
 class CPhysicsShellHolder : public CGameObject,
                             public CParticlesPlayer,
@@ -150,6 +157,21 @@ private: //IPhysicsShellHolder
 	virtual void _BCL BonceDamagerCallback(float& damage_factor);
 #ifdef	DEBUG
 	virtual	std::string				_BCL					dump								(EDumpType type) const  ;
+#endif
+
+#if 1
+public:
+	enum ICFlags
+	{
+		ICmap = (1 << 0),
+		ICobj = (1 << 1),
+		ICnpc = (1 << 2),
+	};
+	u32 m_ignore_collision_flag;
+
+public:
+	static void IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
+	void active_ignore_collision();
 #endif
 };
 

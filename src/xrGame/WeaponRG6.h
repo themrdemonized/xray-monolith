@@ -15,6 +15,11 @@ public:
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
 	virtual void Load(LPCSTR section);
 	virtual void OnEvent(NET_Packet& P, u16 type);
+
+#ifdef CROCKETLAUNCHER_CHANGE
+	virtual void UnloadRocket();
+#endif
+
 protected:
 	virtual void FireStart();
 	virtual u8 AddCartridge(u8 cnt);

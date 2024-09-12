@@ -55,6 +55,10 @@ void CWeaponRG6::FireStart()
 	if (GetState() == eIdle && getRocketCount() && iAmmoElapsed)
 	{
 		inheritedSG::FireStart();
+#ifdef CROCKETLAUNCHER_CHANGE
+		LPCSTR ammo_name = m_ammoTypes[m_ammoType].c_str();
+		float launch_speed = READ_IF_EXISTS(pSettings, r_float, ammo_name, "ammo_grenade_vel", CRocketLauncher::m_fLaunchSpeed);
+#endif
 
 		Fvector p1, d;
 		p1.set(get_LastFP());
@@ -103,8 +107,12 @@ void CWeaponRG6::FireStart()
 								DBG_OpenCashedDraw();
 								DBG_DrawLine(p1,Fvector().add(p1,d),D3DCOLOR_XRGB(255,0,0));
 				#endif*/
+#ifdef CROCKETLAUNCHER_CHANGE
+				u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, launch_speed, EffectiveGravity(), res);
+#else
 				u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, CRocketLauncher::m_fLaunchSpeed,
 				                                                EffectiveGravity(), res);
+#endif
 				/*#ifdef DEBUG
 								if(canfire0>0)DBG_DrawLine(p1,Fvector().add(p1,res[0]),D3DCOLOR_XRGB(0,255,0));
 								if(canfire0>1)DBG_DrawLine(p1,Fvector().add(p1,res[1]),D3DCOLOR_XRGB(0,0,255));
@@ -119,7 +127,11 @@ void CWeaponRG6::FireStart()
 		};
 
 		d.normalize();
+#ifdef CROCKETLAUNCHER_CHANGE
+		d.mul(launch_speed);
+#else
 		d.mul(m_fLaunchSpeed);
+#endif
 		VERIFY2(_valid(launch_matrix), "CWeaponRG6::FireStart. Invalid launch_matrix");
 		CRocketLauncher::LaunchRocket(launch_matrix, d, zero_vel);
 
@@ -174,3 +186,18 @@ void CWeaponRG6::OnEvent(NET_Packet& P, u16 type)
 		break;
 	}
 }
+
+#ifdef CROCKETLAUNCHER_CHANGE
+void CWeaponRG6::UnloadRocket()
+{
+	while (getRocketCount() > 0)
+	{
+		Msg("%s:%d [%d]-[%s]", __FUNCTION__, __LINE__, getRocketCount(), getCurrentRocket()->cNameSect_str());
+		NET_Packet P;
+		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
+		P.w_u16(u16(getCurrentRocket()->ID()));
+		u_EventSend(P);
+        dropCurrentRocket();
+	}
+}
+#endif

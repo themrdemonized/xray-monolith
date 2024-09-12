@@ -457,9 +457,16 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 	float angle = 0xFFFFFFFF;
 
 
+#if 1
+	/* From OpenXRay. */
+	// Don't replace this code with multithreaded one.
+	// This singlethreaded version is much faster.
+	for (u32 i = 0; i != count; ++i)
+#else
 	tbb::parallel_for(tbb::blocked_range<u32>(0, count), [&](const tbb::blocked_range<u32>& range) 
 	{
 		for (u32 i = range.begin(); i != range.end(); ++i)
+#endif
 		{
 			PAPI::Particle& m = particles[i];
 			Fvector2 lt, rb;
@@ -571,7 +578,11 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 				}
 			}
 		}
+#if 1
+	// Remove.
+#else
 	});
+#endif
 }
 
 void CParticleEffect::Render(float)

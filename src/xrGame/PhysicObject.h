@@ -8,6 +8,23 @@
 #include "animation_script_callback.h"
 #include "xrserver_objects_alife.h"
 
+// GhenTuong: physics object callback
+#ifndef CPHYSICOBJECT_CHANGE
+#define CPHYSICOBJECT_CHANGE
+#endif
+
+#ifdef CPHYSICOBJECT_CHANGE
+#include "Level.h"
+#include "Entity.h"
+#include "Actor.h"
+#include "CustomMonster.h"
+#include "GameObject.h"
+#include "script_game_object.h"
+
+#include "../xrphysics/PhysicsShell.h"
+#include "../xrphysics/ExtendedGeom.h"
+#endif
+
 class CSE_ALifeObjectPhysic;
 class CPhysicsElement;
 class moving_bones_snd_player;
@@ -137,6 +154,16 @@ protected:
 	Flags16 m_flags;
 	bool m_just_after_spawn;
 	bool m_activated;
+
+
+#ifdef CPHYSICOBJECT_CHANGE
+private:
+	LPCSTR m_physic_contact_callback;
+	luabind::functor<bool> m_physic_contact_function;
+public:
+	static void PhysicContactCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
+	bool PhysicContactFunction(CGameObject *who);
+#endif
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };
