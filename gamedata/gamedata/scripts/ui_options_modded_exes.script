@@ -11,6 +11,18 @@ function init_opt_base()
 				text = "ui_mm_title_modded_exes",
 				size = { 512, 50 },
 			},
+			
+			-- 3D Shader scopes
+			{
+                id = "r__3Dfakescope",
+                type = "list",
+                val = 0,
+                curr = {function() return get_console_cmd(0, "r__3Dfakescope") end},
+                content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+                cmd = "r__3Dfakescope",
+            },
+
+            { id = "divider", type = "line" },
 
 			-- Shader scopes
 			{
@@ -310,6 +322,14 @@ function init_opt_base()
 				max = 30,
 				step = 1,
 				cmd = "first_person_death_direction_smoothing",
+			},
+			{
+				id = "heat_vision_zombie_cold",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "heat_vision_zombie_cold") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "heat_vision_zombie_cold",
 			},
 			{
 				id = "pseudogiant_can_damage_objects_on_stomp",

@@ -29,6 +29,9 @@ CPhysicObject::CPhysicObject(void):
 	m_just_after_spawn(false),
 	m_activated(false)
 {
+#ifdef CPHYSICOBJECT_CHANGE
+	m_physic_contact_callback = NULL;
+#endif
 }
 
 CPhysicObject::~CPhysicObject(void)
@@ -91,6 +94,22 @@ if(dbg_draw_doors)
 	DBG_ClosedCashedDraw( 50000000 );
 }
 #endif
+
+#if 1
+	if (PPhysicsShell() && m_ignore_collision_flag)
+	{
+		CPhysicsShellHolder::active_ignore_collision();
+	}
+#endif
+
+#ifdef CPHYSICOBJECT_CHANGE
+	if (pSettings->line_exist(cNameSect_str(), "on_physic_contact"))
+	{
+		R_ASSERT(PPhysicsShell());
+		PPhysicsShell()->add_ObjectContactCallback(PhysicContactCallback);
+	}
+#endif
+
 	return TRUE;
 }
 
@@ -298,6 +317,13 @@ void CPhysicObject::net_Destroy()
 	//	processing_deactivate();
 	//}
 
+#ifdef CPHYSICOBJECT_CHANGE
+	if (PPhysicsShell())
+	{
+		PPhysicsShell()->remove_ObjectContactCallback(PhysicContactCallback);
+	}
+#endif
+
 	inherited::net_Destroy();
 	CPHSkeleton::RespawnInit();
 	xr_delete(bones_snd_player);
@@ -330,6 +356,17 @@ void CPhysicObject::Load(LPCSTR section)
 {
 	inherited::Load(section);
 	CPHSkeleton::Load(section);
+
+#ifdef CPHYSICOBJECT_CHANGE
+	m_physic_contact_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_physic_contact", NULL);
+	if (m_physic_contact_callback && strlen(m_physic_contact_callback))
+	{
+		if (ai().script_engine().functor(m_physic_contact_callback, m_physic_contact_function) == false)
+		{
+			m_physic_contact_callback = NULL;
+		}
+	}
+#endif
 }
 
 
@@ -984,3 +1021,38 @@ if(dbg_draw_doors)
 
 	return true;
 }
+
+#ifdef CPHYSICOBJECT_CHANGE
+void CPhysicObject::PhysicContactCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
+{
+	if (do_colide == false)
+	{
+		return;
+	}
+
+	dxGeomUserData *gd1 = bo1 ? PHRetrieveGeomUserData(c.geom.g1) : PHRetrieveGeomUserData(c.geom.g2);
+	dxGeomUserData *gd2 = bo1 ? PHRetrieveGeomUserData(c.geom.g2) : PHRetrieveGeomUserData(c.geom.g1);
+	CGameObject *obj = (gd1) ? smart_cast<CGameObject *>(gd1->ph_ref_object) : NULL;
+	CGameObject *who = (gd2) ? smart_cast<CGameObject *>(gd2->ph_ref_object) : NULL;
+
+	CPhysicObject *phy = (obj) ? smart_cast<CPhysicObject *>(obj) : NULL;
+	if (phy == NULL || who == NULL)
+	{
+		return;
+	}
+
+	if (!phy->PhysicContactFunction(who))
+	{
+		do_colide = false;
+	}
+}
+
+bool CPhysicObject::PhysicContactFunction(CGameObject *who)
+{
+	if (m_physic_contact_callback)
+	{
+		return m_physic_contact_function(cast_game_object()->lua_game_object(), who->lua_game_object());
+	}
+	return true;
+}
+#endif

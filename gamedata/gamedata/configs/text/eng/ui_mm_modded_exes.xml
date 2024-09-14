@@ -14,6 +14,9 @@
 		<text>OFF</text>
 	</string>
 
+	<string id="ui_mm_modded_exes_r__3Dfakescope">
+		<text>3D Shader Scopes Enable (r__3Dfakescope)</text>
+	</string>
 	<string id="ui_mm_modded_exes_sds_enable">
 		<text>Shader Scopes Enable (sds_enable)</text>
 	</string>
@@ -240,4 +243,8 @@
 		<text>Adjusts image saturation.</text>
 	</string>
 	<!-- HDR10 -->
+
+	<string id="ui_mm_modded_exes_heat_vision_zombie_cold">
+		<text>Cold zombies in Heat Vision</text>
+	</string>
 </string_table>
