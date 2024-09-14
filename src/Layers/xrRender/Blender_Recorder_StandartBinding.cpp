@@ -1041,32 +1041,52 @@ static class ssfx_issvp : public R_constant_setup
 }    ssfx_issvp;
 
 /* --- HDR10 parameters --- */
-extern float ps_r4_hdr_whitepoint_nits; // r4-only
-extern float ps_r4_hdr_ui_nits;  // r4-only
-extern int   ps_r4_hdr_pda; // r4-only (NOTE: this is a hack to prevent double HDR tonemapping the PDA)
-extern int   ps_r4_hdr_on; // r4-only
-extern int   ps_r4_hdr_colorspace; // r4-only
+extern float ps_r4_hdr10_whitepoint_nits;
+extern float ps_r4_hdr10_ui_nits;
+extern float ps_r4_hdr10_pda_intensity;
+extern int   ps_r4_hdr10_pda;
+extern int   ps_r4_hdr10_on;
 
-static class cl_hdr_parameters1 : public R_constant_setup
-{
-	virtual void setup(R_constant* C)
-	{
-        RCache.set_c(
-            C,
-            ps_r4_hdr_whitepoint_nits,
-            ps_r4_hdr_ui_nits / ps_r4_hdr_whitepoint_nits,
-            (float)ps_r4_hdr_on,
-            (float)ps_r4_hdr_pda);
-	}
-} binder_hdr_parameters1;
+extern int   ps_r4_hdr10_colorspace;
+extern int   ps_r4_hdr10_tonemapper;
+extern int   ps_r4_hdr10_tonemap_mode;
+extern float ps_r4_hdr10_exposure;
+extern float ps_r4_hdr10_contrast;
+extern float ps_r4_hdr10_contrast_middle_gray;
+extern float ps_r4_hdr10_saturation;
 
-static class cl_hdr_parameters2 : public R_constant_setup
-{
-	virtual void setup(R_constant* C)
-	{
-        RCache.set_c(C, (float)ps_r4_hdr_colorspace, 0.0f, 0.0f, 0.0f);
-	}
-} binder_hdr_parameters2;
+#define DECL_BINDER4F(name, x, y, z, w) \
+	static class cl_##name : public R_constant_setup \
+	{ \
+		virtual void setup(R_constant* C) \
+		{ \
+			RCache.set_c( \
+				C, \
+				(float)(x), (float)(y), (float)(z), (float)(w) \
+			); \
+		} \
+	} name
+
+DECL_BINDER4F( binder_hdr10_parameters1,
+	ps_r4_hdr10_whitepoint_nits,
+	ps_r4_hdr10_ui_nits / ps_r4_hdr10_whitepoint_nits,
+	ps_r4_hdr10_on,
+	ps_r4_hdr10_pda
+);
+
+DECL_BINDER4F( binder_hdr10_parameters2,
+	ps_r4_hdr10_colorspace,
+	ps_r4_hdr10_pda_intensity,
+	ps_r4_hdr10_tonemapper,
+	ps_r4_hdr10_tonemap_mode
+);
+
+DECL_BINDER4F( binder_hdr10_parameters3,
+	ps_r4_hdr10_exposure,
+	ps_r4_hdr10_contrast,
+	ps_r4_hdr10_saturation,
+	ps_r4_hdr10_contrast_middle_gray
+);
 
 /* --- HDR10 Parameters --- */
 
@@ -1228,6 +1248,7 @@ void CBlender_Compile::SetMapping()
 	//--DSR-- HeatVision_end
 
 	// HDR10 parameters
-    r_Constant("hdr_parameters1", &binder_hdr_parameters1);
-    r_Constant("hdr_parameters2", &binder_hdr_parameters2);
+    r_Constant("hdr10_parameters1", &binder_hdr10_parameters1);
+    r_Constant("hdr10_parameters2", &binder_hdr10_parameters2);
+    r_Constant("hdr10_parameters3", &binder_hdr10_parameters3);
 }

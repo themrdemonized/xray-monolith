@@ -324,7 +324,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
 
 #if defined(USE_DX11)
     sd.AlphaMode   = DXGI_ALPHA_MODE_IGNORE;
-    sd.Format      = ps_r4_hdr_on ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
+    sd.Format      = ps_r4_hdr10_on ? DXGI_FORMAT_R10G10B10A2_UNORM : DXGI_FORMAT_R8G8B8A8_UNORM;
 #elif defined(USE_DX10)
     sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 #endif
@@ -431,7 +431,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     IDXGISwapChain3* swapchain3;
     R_CHK(m_pSwapChain->QueryInterface(&swapchain3));
 
-    if (ps_r4_hdr_on) {
+    if (ps_r4_hdr10_on) {
         UINT color_space_supported = 0;
         R_CHK(swapchain3->CheckColorSpaceSupport(
             DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020,
