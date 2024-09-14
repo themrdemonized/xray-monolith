@@ -389,8 +389,20 @@ void dxRenderDeviceRender::End()
 	DoAsyncScreenshot();
 
 #if defined(USE_DX10) || defined(USE_DX11)
-	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady)
-		HW.m_pSwapChain->Present(!!psDeviceFlags.test(rsVSync), 0);
+    UINT flags = 0;
+
+	UINT use_vsync = !!psDeviceFlags.test(rsVSync);
+# if defined(USE_DX11)
+    BOOL is_windowed = HW.m_ChainDescFullscreen.Windowed;
+
+	if (is_windowed && !use_vsync) {
+        flags |= DXGI_PRESENT_ALLOW_TEARING;
+	}
+# endif
+
+	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady) {
+		HW.m_pSwapChain->Present(use_vsync, flags);
+	}
 #else //!USE_DX10 || USE_DX11
 	CHK_DX(HW.pDevice->EndScene());
 

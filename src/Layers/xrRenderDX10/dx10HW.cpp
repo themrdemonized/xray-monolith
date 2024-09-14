@@ -383,6 +383,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
 
     //	Additional set up
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.Flags       = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
     UINT createDeviceFlags = 0;
 #ifdef DEBUG
@@ -661,7 +662,7 @@ void CHW::Reset(HWND hwnd)
         cd.Width,
         cd.Height,
         cd.Format,
-        DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
+        DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING));
 #elif defined(USE_DX10)
 	CHK_DX(m_pSwapChain->ResizeBuffers(
 		cd.BufferCount,
@@ -898,7 +899,7 @@ void CHW::OnAppActivate()
             cd.Width,
             cd.Height,
             cd.Format,
-            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
 
         UpdateViews();
 #endif
@@ -930,7 +931,7 @@ void CHW::OnAppDeactivate()
             cd.Width,
             cd.Height,
             cd.Format,
-            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH | DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING);
 
         UpdateViews();
 #endif
