@@ -397,7 +397,7 @@ void CRender::create()
 
 	//	MSAA option dependencies
 
-	o.dx10_msaa = ps_r3_msaa && !ps_r4_hdr_on;
+	o.dx10_msaa = ps_r3_msaa && !ps_r4_hdr10_on;
 	o.dx10_msaa_samples = (1 << ps_r3_msaa);
 
 	o.dx10_msaa_opt = ps_r2_ls_flags.test(R3FLAG_MSAA_OPT);

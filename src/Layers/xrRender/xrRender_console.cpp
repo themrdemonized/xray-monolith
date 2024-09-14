@@ -300,11 +300,19 @@ float ps_r2_tnmp_gamma = .25f; // r2-only
 float ps_r2_tnmp_onoff = .0f; // r2-only
 
 // HDR10 parameters
-float ps_r4_hdr_whitepoint_nits = 400.0f; // r4-only
-float ps_r4_hdr_ui_nits         = 400.0f; // r4-only
-int   ps_r4_hdr_pda             = 0; // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
-int   ps_r4_hdr_on              = 0; // r4-only
-int   ps_r4_hdr_colorspace      = 0; // r4-only
+float ps_r4_hdr10_whitepoint_nits = 400.0f; // r4-only, default = 400 nits
+float ps_r4_hdr10_ui_nits         = 400.0f; // r4-only, default = 400 nits
+float ps_r4_hdr10_pda_intensity   = 1.0f;   // r4-only, default = 1.0x
+int   ps_r4_hdr10_pda             = 0;	    // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
+int   ps_r4_hdr10_on              = 0;	    // r4-only, default = off
+int   ps_r4_hdr10_colorspace      = 2;      // r4-only, default = Rec.2020
+
+int   ps_r4_hdr10_tonemapper   		   = 0;    // r4-only, default = ACES (Narkowicz)
+int   ps_r4_hdr10_tonemap_mode 		   = 1;	   // r4-only, default = Color
+float ps_r4_hdr10_exposure     		   = 2.0f; // r4-only, default = 1.0x
+float ps_r4_hdr10_contrast     		   = 0.0f; // r4-only, default = +0%
+float ps_r4_hdr10_contrast_middle_gray = 0.5f; // r4-only, default = 0.5
+float ps_r4_hdr10_saturation   		   = 0.0f; // r4-only, default = +0%
 
 float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
@@ -1169,10 +1177,18 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_tnmp_gamma", &ps_r2_tnmp_gamma, 0.0f, 20.0f);
 	CMD4(CCC_Float, "r2_tnmp_onoff", &ps_r2_tnmp_onoff, 0.0f, 1.0f);
 
-    CMD4(CCC_Float, "r4_hdr_whitepoint_nits", &ps_r4_hdr_whitepoint_nits, 1.0f, 10000.0f);
-    CMD4(CCC_Float, "r4_hdr_ui_nits", &ps_r4_hdr_ui_nits, 1.0f, 10000.0f);
-	CMD4(CCC_Integer, "r4_hdr_on", &ps_r4_hdr_on, 0, 1);
-    CMD4(CCC_Integer, "r4_hdr_colorspace", &ps_r4_hdr_colorspace, 0, 2); // 0 = Rec709/sRGB, 1 = DCI-P3, 2 = Rec2020
+    CMD4(CCC_Float,   "r4_hdr10_whitepoint_nits", &ps_r4_hdr10_whitepoint_nits, 1.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_ui_nits", 		  &ps_r4_hdr10_ui_nits, 	    1.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_pda_intensity",   &ps_r4_hdr10_pda_intensity,      0, 1);
+	CMD4(CCC_Integer, "r4_hdr10_on", 			  &ps_r4_hdr10_on, 				   0, 1);
+    CMD4(CCC_Integer, "r4_hdr10_colorspace",	  &ps_r4_hdr10_colorspace, 		   0, 2);
+
+    CMD4(CCC_Integer, "r4_hdr10_tonemapper", 	  		&ps_r4_hdr10_tonemapper,      	    0, 8);
+	CMD4(CCC_Integer, "r4_hdr10_tonemap_mode",    		&ps_r4_hdr10_tonemap_mode,    	    0, 1);
+	CMD4(CCC_Float,   "r4_hdr10_exposure",        		&ps_r4_hdr10_exposure, 		  	    0, 20);
+	CMD4(CCC_Float,   "r4_hdr10_contrast",        		&ps_r4_hdr10_contrast, 		  	   -1, 1);
+	CMD4(CCC_Float,   "r4_hdr10_contrast_middle_gray",  &ps_r4_hdr10_contrast_middle_gray,  0, 10);
+	CMD4(CCC_Float,   "r4_hdr10_saturation", 	  		&ps_r4_hdr10_saturation,      	   -1, 1);
 
 	CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
 	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);

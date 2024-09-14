@@ -783,7 +783,7 @@ extern void draw_wnds_rects();
 extern bool use_reshade;
 extern void render_reshade_effects();
 
-extern int ps_r4_hdr_pda; // NOTE: this is a hack to avoid double HDR tonemapping the PDA
+extern int ps_r4_hdr10_pda; // NOTE: this is a hack to avoid double HDR tonemapping the PDA
 
 void CLevel::OnRender()
 {
@@ -793,7 +793,7 @@ void CLevel::OnRender()
 		CUIPdaWnd* pda = &CurrentGameUI()->GetPdaMenu();
 		if (psActorFlags.test(AF_3D_PDA) && pda->IsShown())
 		{
-			ps_r4_hdr_pda = 1; // !!! HACK !!!
+			ps_r4_hdr10_pda = 1; // !!! HACK !!!
 
 			pda->Draw();
 			CUICursor* cursor = &UI().GetUICursor();
@@ -835,7 +835,7 @@ void CLevel::OnRender()
 			}
 			Render->RenderToTarget(Render->rtPDA);
 
-			ps_r4_hdr_pda = 0;
+			ps_r4_hdr10_pda = 0;
 		}
 
 		if (Actor() && Actor()->m_bDelayDrawPickupItems)
