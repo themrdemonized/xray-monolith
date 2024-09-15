@@ -21,7 +21,7 @@
 
 class CHW
 #if defined(USE_DX10) || defined(USE_DX11)
-	:	public pureAppActivate, 
+	:	public pureAppActivate,
 		public pureAppDeactivate
 #endif	//	USE_DX10
 {
@@ -78,6 +78,7 @@ public:
     HWND                            m_hWnd;
 	bool							m_bUsePerfhud;
 	D3D_FEATURE_LEVEL				FeatureLevel;
+	bool 							m_SupportsVRR; // whether we can use DXGI_PRESENT_ALLOW_TEARING etc.
 #elif defined(USE_DX10)
 public:
 	IDXGIAdapter*			m_pAdapter;	//	pD3D equivalent

@@ -8,7 +8,7 @@
 #include <d3dx9.h>
 #ifdef USE_DX11
 # include <d3d11_4.h>
-# include <dxgi1_4.h>
+# include <dxgi1_5.h>
 #endif
 #pragma warning(default:4995)
 #include "../xrRender/HW.h"
@@ -129,6 +129,38 @@ void CHW::CreateD3D()
 #endif
     }
 
+#if defined(USE_DX11)
+    // when using FLIP_* present modes, to disable DWM vsync we have to use DXGI_PRESENT_ALLOW_TEARING with ->Present()
+    // when vsync is off (PresentInterval = 0) and only when in window mode
+    // store whether we can use the flag for later use (swapchain creation, buffer resize, present call)
+
+    // TODO: On some PC configurations (versions of Windows, graphics drivers, currently unknown what exactly) this isn't
+    // sufficient to disable the DWM vsync when the game is launched in a windowed mode, however if the user switches from
+    // borderless/windowed -> exclusive fullscreen -> borderless/windowed then it seems to work correctly.
+    // Worth investigating why this is occurring
+    //
+    // Configuration where this occurs:
+    // - Windows 10 Enterprise LTSC, 21H2, 19044.4894
+    // - NVIDIA driver version 560.94
+    {
+        HRESULT hr;
+
+        IDXGIFactory5* factory5 = nullptr;
+        hr = m_pFactory->QueryInterface(&factory5);
+
+        if (SUCCEEDED(hr) && factory5) {
+            BOOL supports_vrr = FALSE;
+            hr = factory5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &supports_vrr, sizeof(supports_vrr));
+
+            m_SupportsVRR = (SUCCEEDED(hr) && supports_vrr);
+
+            factory5->Release();
+        } else {
+            m_SupportsVRR = false;
+        }
+    }
+#endif
+
 #ifdef USE_DX10
     pFactory->Release();
 #endif
@@ -148,6 +180,11 @@ void CHW::DestroyD3D()
 
     _SHOW_REF("refCount:m_pAdapter", m_pAdapter);
     _RELEASE(m_pAdapter);
+
+#if defined(USE_DX11)
+    _SHOW_REF("refCount:m_pFactory", m_pFactory);
+    _RELEASE(m_pFactory);
+#endif
 
     //	FreeLibrary(hD3D);
 }
@@ -383,6 +420,13 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
 
     //	Additional set up
     sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.Flags       = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+
+#if defined(USE_DX11)
+    if (m_SupportsVRR) {
+        sd.Flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    }
+#endif
 
     UINT createDeviceFlags = 0;
 #ifdef DEBUG
@@ -400,6 +444,13 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
         // D3D_FEATURE_LEVEL_10_0,
     };
 
+    UINT create_device_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+    if (strstr(Core.Params, "--dxgi-dbg")) {
+        // enables d3d11 debug layer validation and output
+        // viewable in VS debugger `Output > Debug` view or using a tool like Sysinternals DebugView
+        create_device_flags |= D3D11_CREATE_DEVICE_DEBUG;
+    }
+
     // create device
     ID3D11Device* device;
     ID3D11DeviceContext* context;
@@ -407,7 +458,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
-        D3D11_CREATE_DEVICE_BGRA_SUPPORT, // D3D11_CREATE_DEVICE_DEBUG is useful for debugging
+        create_device_flags,
         pFeatureLevels,
         1,
         D3D11_SDK_VERSION,
@@ -656,12 +707,17 @@ void CHW::Reset(HWND hwnd)
     _RELEASE(pBaseRT);
 
 #if defined(USE_DX11)
+    UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    if (m_SupportsVRR) {
+        flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+    }
+
     CHK_DX(m_pSwapChain->ResizeBuffers(
         cd.BufferCount,
         cd.Width,
         cd.Height,
         cd.Format,
-        DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH));
+        flags));
 #elif defined(USE_DX10)
 	CHK_DX(m_pSwapChain->ResizeBuffers(
 		cd.BufferCount,
@@ -893,12 +949,18 @@ void CHW::OnAppActivate()
         _RELEASE(pBaseRT);
 
         const auto& cd = m_ChainDesc;
+
+        UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        if (m_SupportsVRR) {
+            flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+        }
+
         m_pSwapChain->ResizeBuffers(
             cd.BufferCount,
             cd.Width,
             cd.Height,
             cd.Format,
-            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+            flags);
 
         UpdateViews();
 #endif
@@ -925,12 +987,18 @@ void CHW::OnAppDeactivate()
         _RELEASE(pBaseRT);
 
         const auto& cd = m_ChainDesc;
+
+        UINT flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+        if (m_SupportsVRR) {
+            flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+        }
+
         m_pSwapChain->ResizeBuffers(
             cd.BufferCount,
             cd.Width,
             cd.Height,
             cd.Format,
-            DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH);
+            flags);
 
         UpdateViews();
 #endif
