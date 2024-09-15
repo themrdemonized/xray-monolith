@@ -241,8 +241,8 @@ CRenderTarget::CRenderTarget()
 	b_combine = xr_new<CBlender_combine>();
 	///////////////////////////////////lvutner
 	b_sunshafts = xr_new<CBlender_sunshafts>();
-	b_blur = xr_new<CBlender_blur>();	
-	b_pp_bloom = xr_new<CBlender_pp_bloom>();		
+	b_blur = xr_new<CBlender_blur>();
+	b_pp_bloom = xr_new<CBlender_pp_bloom>();
 	b_dof = xr_new<CBlender_dof>();
 	b_gasmask_drops = xr_new<CBlender_gasmask_drops>();
 	b_gasmask_dudv = xr_new<CBlender_gasmask_dudv>();
@@ -291,26 +291,28 @@ CRenderTarget::CRenderTarget()
 		rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
 
 		rt_fakescope.create(r2_RT_scopert, w, h, D3DFMT_A8R8G8B8, 1); //crookr fakescope
-		
+
 		//--DSR-- HeatVision_start
 		rt_Heat.create(r2_RT_heat, w, h, D3DFMT_A8R8G8B8, 1);
 		//--DSR-- HeatVision_end
 
 		// RT Blur
 		rt_blur_h_2.create(r2_RT_blur_h_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);
-		rt_blur_2.create(r2_RT_blur_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);		
+		rt_blur_2.create(r2_RT_blur_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);
+		R_CHK(HW.pDevice->CreateDepthStencilSurface(u32(w/2), u32(h/2), D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, TRUE, &rt_blur_2_zb, NULL));
 
 		rt_blur_h_4.create(r2_RT_blur_h_4, u32(w/4), u32(h/4), D3DFMT_A8R8G8B8);
-		rt_blur_4.create(r2_RT_blur_4, u32(w/4), u32(h/4), D3DFMT_A8R8G8B8);		
-		
+		rt_blur_4.create(r2_RT_blur_4, u32(w/4), u32(h/4), D3DFMT_A8R8G8B8);
+		R_CHK(HW.pDevice->CreateDepthStencilSurface(u32(w/4), u32(h/4), D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, TRUE, &rt_blur_4_zb, NULL));
+
 		rt_blur_h_8.create(r2_RT_blur_h_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);
-		rt_blur_8.create(r2_RT_blur_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);	
-		
+		rt_blur_8.create(r2_RT_blur_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);
+		R_CHK(HW.pDevice->CreateDepthStencilSurface(u32(w/8), u32(h/8), D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, TRUE, &rt_blur_8_zb, NULL));
 
 		rt_dof.create(r2_RT_dof, w, h, D3DFMT_A8R8G8B8);
-		
+
 		rt_pp_bloom.create(r2_RT_pp_bloom, w, h, D3DFMT_A8R8G8B8);
-		
+
 		// RT - KD
 		rt_sunshafts_0.create(r2_RT_sunshafts0, w, h, D3DFMT_A8R8G8B8);
 		rt_sunshafts_1.create(r2_RT_sunshafts1, w, h, D3DFMT_A8R8G8B8);
@@ -328,13 +330,13 @@ CRenderTarget::CRenderTarget()
 
 	s_blur.create(b_blur, "r2\\blur");
 	s_dof.create(b_dof, "r2\\dof");
-	s_pp_bloom.create(b_pp_bloom, "r2\\pp_bloom");	
+	s_pp_bloom.create(b_pp_bloom, "r2\\pp_bloom");
 	s_gasmask_drops.create(b_gasmask_drops, "r2\\gasmask_drops");
 	s_gasmask_dudv.create(b_gasmask_dudv, "r2\\gasmask_dudv");
 	s_nightvision.create(b_nightvision, "r2\\nightvision");
 	s_fakescope.create(b_fakescope, "r2\\fakescope"); //crookr
 	s_heatvision.create(b_heatvision, "r2\\heatvision"); //--DSR-- HeatVision
-	s_lut.create(b_lut, "r2\\lut");	
+	s_lut.create(b_lut, "r2\\lut");
 	// OCCLUSION
 	s_occq.create(b_occq, "r2\\occq");
 
@@ -427,10 +429,10 @@ CRenderTarget::CRenderTarget()
 	{
 		u32 w = Device.dwWidth;
 		u32 h = Device.dwHeight;
-	
+
 		rt_smaa_edgetex.create(r2_RT_smaa_edgetex, w, h, D3DFMT_A8R8G8B8);
 		rt_smaa_blendtex.create(r2_RT_smaa_blendtex, w, h, D3DFMT_A8R8G8B8);
-		
+
 		s_smaa.create(b_smaa, "r3\\smaa");
 	}
 
@@ -695,7 +697,7 @@ CRenderTarget::CRenderTarget()
 	HW.pBaseRT->GetDesc(&desc);
 	HW.pDevice->CreateOffscreenPlainSurface(Device.dwWidth, Device.dwHeight, desc.Format, D3DPOOL_SYSTEMMEM, &pFB,NULL);
 
-	// 
+	//
 	dwWidth = Device.dwWidth;
 	dwHeight = Device.dwHeight;
 }
@@ -735,6 +737,10 @@ CRenderTarget::~CRenderTarget()
 
 	_RELEASE(rt_smap_ZB);
 
+	_RELEASE(rt_blur_2_zb);
+	_RELEASE(rt_blur_4_zb);
+	_RELEASE(rt_blur_8_zb);
+
 	// Jitter
 	for (int it = 0; it < TEX_jitter_count; it++)
 	{
@@ -745,7 +751,7 @@ CRenderTarget::~CRenderTarget()
 		_RELEASE(t_noise_surf[it]);
 	}
 
-	// 
+	//
 	accum_spot_geom_destroy();
 	accum_omnip_geom_destroy();
 	accum_point_geom_destroy();
@@ -763,15 +769,15 @@ CRenderTarget::~CRenderTarget()
 	xr_delete(b_accum_direct_cascade);
 
 	////////////lvutner
-	xr_delete(b_blur);		
+	xr_delete(b_blur);
 	xr_delete(b_dof);
-	xr_delete(b_pp_bloom);		
+	xr_delete(b_pp_bloom);
 	xr_delete(b_gasmask_drops);
 	xr_delete(b_gasmask_dudv);
 	xr_delete(b_nightvision);
 	xr_delete(b_fakescope); //crookr
 	xr_delete(b_heatvision); //--DSR-- HeatVision
-	xr_delete(b_lut);	
+	xr_delete(b_lut);
 	xr_delete(b_smaa);
 
 	xr_delete(b_accum_mask);

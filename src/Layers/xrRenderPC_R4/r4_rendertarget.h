@@ -27,7 +27,7 @@ public:
 	};
 
 	u32 dwLightMarkerID;
-	// 
+	//
 	IBlender* b_occq;
 	IBlender* b_accum_mask;
 	IBlender* b_accum_direct;
@@ -51,10 +51,10 @@ public:
 	IBlender* b_accum_reflected_msaa[8];
 	IBlender* b_ssao;
 	IBlender* b_ssao_msaa[8];
-	
-	IBlender* b_blur;	
+
+	IBlender* b_blur;
 	IBlender* b_dof;
-	IBlender* b_pp_bloom;	
+	IBlender* b_pp_bloom;
 	IBlender* b_gasmask_drops;
 	IBlender* b_gasmask_dudv;
 	IBlender* b_nightvision;
@@ -94,16 +94,16 @@ public:
 	ref_rt rt_Heat;
 	//--DSR-- HeatVision_end
 
-	// 
+	//
 	ref_rt rt_Accumulator; // 64bit		(r,g,b,specular)
 	ref_rt rt_Accumulator_temp; // only for HW which doesn't feature fp16 blend
 	ref_rt rt_sunshafts_0; // ss0
 	ref_rt rt_sunshafts_1; // ss1
 	ref_rt rt_Generic_0; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
 	ref_rt rt_Generic_1; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
-	
+
 	resptr_core<CRT, resptrcode_crt> rt_Generic_temp;
-	
+
 	ref_rt rt_secondVP;	// 32bit		(r,g,b,a) --//#SM+#-- +SecondVP+
 
 
@@ -111,21 +111,24 @@ public:
 
 	ref_rt rt_dof;
 	ref_rt rt_ui_pda;
-	
+
 	ref_rt rt_blur_h_2;
 	ref_rt rt_blur_2;
+	ref_rt rt_blur_2_zb;
 
 	ref_rt rt_blur_h_4;
 	ref_rt rt_blur_4;
-	
+	ref_rt rt_blur_4_zb;
+
 	ref_rt rt_blur_h_8;
 	ref_rt rt_blur_8;
+	ref_rt rt_blur_8_zb;
 
 	ref_rt rt_pp_bloom;
 
 	ref_rt rt_smaa_edgetex;
 	ref_rt rt_smaa_blendtex;
-	
+
 	//	Igor: for volumetric lights
 	ref_rt rt_Generic_2; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
 	ref_rt rt_Bloom_1; // 32bit, dim/4	(r,g,b,?)
@@ -143,7 +146,7 @@ public:
 
 	// smap
 	ref_rt rt_smap_surf; // 32bit,		color
-	ref_rt rt_smap_depth; // 24(32) bit,	depth 
+	ref_rt rt_smap_depth; // 24(32) bit,	depth
 	ref_rt rt_smap_depth_minmax; //	is used for min/max sm
 	//	TODO: DX10: CHeck if we need old-style SMAP
 	//	IDirect3DSurface9*			rt_smap_ZB;		//
@@ -173,7 +176,7 @@ public:
 	Fmatrix Matrix_HUD_previous, Matrix_HUD_current;
 	Fvector3 Position_previous;
 	bool RVelocity;
-	
+
 	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
 
 	ref_shader s_ssfx_dumb;
@@ -202,7 +205,7 @@ private:
 	ref_shader s_hdao_cs;
 	ref_shader s_hdao_cs_msaa;
 
-	
+
 
 	// Accum
 	ref_shader s_accum_mask;
@@ -213,9 +216,9 @@ private:
 	ref_shader s_accum_spot;
 	ref_shader s_accum_reflected;
 	ref_shader s_accum_volume;
-	ref_shader s_blur;	
+	ref_shader s_blur;
 	ref_shader s_dof;
-	ref_shader s_pp_bloom;	
+	ref_shader s_pp_bloom;
 	ref_shader s_gasmask_drops;
 	ref_shader s_gasmask_dudv;
 	ref_shader s_nightvision;
@@ -345,7 +348,7 @@ public:
 	void u_DBT_disable();
 	void phase_sunshafts();
 	void phase_blur();
-	void phase_pp_bloom();	
+	void phase_pp_bloom();
 	void phase_dof();
 	void phase_gasmask_drops();
 	void phase_gasmask_dudv();
@@ -353,7 +356,7 @@ public:
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
 	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
-	void phase_lut();		
+	void phase_lut();
 	void phase_smaa();
 	void phase_scene_prepare();
 	void phase_scene_begin();

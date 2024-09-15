@@ -49,7 +49,7 @@
 #define		r2_RT_secondVP		"$user$viewport2"		// --#SM+#-- +SecondVP+ O?aíeo ea?oeíeó nî âoî?îaî âü?iî?oa
 
 #define		r2_RT_blur_h_2	"$user$blur_h_2"
-#define		r2_RT_blur_2		"$user$blur_2"
+#define		r2_RT_blur_2	"$user$blur_2"
 
 #define		r2_RT_blur_h_4	"$user$blur_h_4"
 #define		r2_RT_blur_4	"$user$blur_4"
