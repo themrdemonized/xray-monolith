@@ -15,7 +15,7 @@ void CRenderTarget::phase_blur()
 	float h = float(Device.dwHeight);
 
 	Fvector2 p0, p1;
-#if defined(USE_DX10) || defined(USE_DX11)	
+#if defined(USE_DX10) || defined(USE_DX11)
 	p0.set(0.0f, 0.0f);
 	p1.set(1.0f, 1.0f);
 #else
@@ -29,7 +29,11 @@ void CRenderTarget::phase_blur()
 	w = float(Device.dwWidth) * 0.5f;
 	h = float(Device.dwHeight) * 0.5f;
 
-	u_setrt(rt_blur_h_2, 0, 0, HW.pBaseZB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	u_setrt(rt_blur_h_2, 0, 0, rt_blur_2_zb->pZRT);
+#else
+	u_setrt(rt_blur_h_2, 0, 0, rt_blur_2_zb);
+#endif
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 
@@ -49,7 +53,11 @@ void CRenderTarget::phase_blur()
 	///////////////////////////////////////////////////////////////////////////////////
 	////Final blur
 	///////////////////////////////////////////////////////////////////////////////////
-	u_setrt(rt_blur_2, 0, 0, HW.pBaseZB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	u_setrt(rt_blur_2, 0, 0, rt_blur_2_zb->pZRT);
+#else
+	u_setrt(rt_blur_2, 0, 0, rt_blur_2_zb);
+#endif
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 
@@ -72,7 +80,11 @@ void CRenderTarget::phase_blur()
 	w = float(Device.dwWidth) * 0.25f;
 	h = float(Device.dwHeight) * 0.25f;
 
-	u_setrt(rt_blur_h_4, 0, 0, HW.pBaseZB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	u_setrt(rt_blur_h_4, 0, 0, rt_blur_4_zb->pZRT);
+#else
+	u_setrt(rt_blur_h_4, 0, 0, rt_blur_4_zb);
+#endif
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 
@@ -92,7 +104,11 @@ void CRenderTarget::phase_blur()
 	///////////////////////////////////////////////////////////////////////////////////
 	////Final blur
 	///////////////////////////////////////////////////////////////////////////////////
-	u_setrt(rt_blur_4, 0, 0, HW.pBaseZB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	u_setrt(rt_blur_4, 0, 0, rt_blur_4_zb->pZRT);
+#else
+	u_setrt(rt_blur_4, 0, 0, rt_blur_4_zb);
+#endif
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 
@@ -115,7 +131,11 @@ void CRenderTarget::phase_blur()
 	w = float(Device.dwWidth) * 0.125f;
 	h = float(Device.dwHeight) * 0.125f;
 
-	u_setrt(rt_blur_h_8, 0, 0, HW.pBaseZB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	u_setrt(rt_blur_h_8, 0, 0, rt_blur_8_zb->pZRT);
+#else
+	u_setrt(rt_blur_h_8, 0, 0, rt_blur_8_zb);
+#endif
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 
@@ -135,7 +155,11 @@ void CRenderTarget::phase_blur()
 	///////////////////////////////////////////////////////////////////////////////////
 	////Final blur
 	///////////////////////////////////////////////////////////////////////////////////
-	u_setrt(rt_blur_8, 0, 0, HW.pBaseZB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	u_setrt(rt_blur_8, 0, 0, rt_blur_8_zb->pZRT);
+#else
+	u_setrt(rt_blur_8, 0, 0, rt_blur_8_zb);
+#endif
 	RCache.set_CullMode(CULL_NONE);
 	RCache.set_Stencil(FALSE);
 

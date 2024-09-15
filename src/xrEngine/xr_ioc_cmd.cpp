@@ -18,7 +18,7 @@
 xr_token* vid_quality_token = NULL;
 
 u32 g_screenmode = 1;
-xr_token screen_mode_tokens[] = 
+xr_token screen_mode_tokens[] =
 {
 	{"fullscreen", 2},
 	{"borderless", 1},
@@ -539,8 +539,35 @@ public:
 
 		if ((prev_mode != g_screenmode))
 		{
-			if (Device.b_is_Ready && (prev_mode == 2 || g_screenmode == 2))
+			// TODO: If you enable the debug layer for DX11 and switch between fullscreen and windowed a few times,
+			// you'll occasionally see the following error in the output:
+			// DXGI ERROR: IDXGISwapChain::Present: The application has not called ResizeBuffers or re-created the SwapChain after a fullscreen or windowed transition. Flip model swapchains (DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL and DXGI_SWAP_EFFECT_FLIP_DISCARD) are required to do so. [ MISCELLANEOUS ERROR #117: ]
+			// This shouldn't happen if we're calling reset on FS/Windowed transitions, I tried logging where Present()
+			// is called as well as where ResizeBuffers and SetFullscreenState are called, and the debug output looks like this:
+			//
+			// Present()
+			// SetFullscreenState()
+			// [ERROR MESSAGE FROM ABOVE]
+			// ResizeBuffers()
+			// Present()
+			//
+			// Which makes no sense, it's impossible for us to have called Present between SetFullscreenState and ResizeBuffers
+			// so DX11 must be doing it automatically
+			//
+			// These threads might be relevant for someone looking into this:
+			// https://www.gamedev.net/forums/topic/652626-resizebuffers-bug/
+			// https://www.gamedev.net/forums/topic/667426-dxgi-altenter-behaves-inconsistently/
+			// https://www.gamedev.net/forums/topic/687484-correct-way-of-creating-the-swapchain-fullscreenwindowedvsync-about-refresh-rate/
+			//
+			// but the fixes make no sense and contradicts MSDN, and this isn't a major priority since ResizeBuffers is called
+			// immediately after (before our Present call) so it works, just so stupid
+
+			bool windowed_to_fullscreen = ((prev_mode == 0) || (prev_mode == 1)) && (g_screenmode == 2);
+			bool fullscreen_to_windowed = (prev_mode == 2) && ((g_screenmode == 0) || (g_screenmode == 1));
+			bool reset_required		    = windowed_to_fullscreen || fullscreen_to_windowed;
+			if (Device.b_is_Ready && reset_required) {
 				Device.Reset();
+			}
 
 			if (g_screenmode == 0 || g_screenmode == 1)
 			{
@@ -956,7 +983,7 @@ void CCC_Register()
 
 	// bone damage modifier
 	CMD4(CCC_Float, "g_hit_pwr_modif", &hit_modifier, .5f, 3.f);
-	
+
 	CMD4(CCC_Float, "g_dispersion_base", &g_dispersion_base, 0.0f, 5.0f);
 	CMD4(CCC_Float, "g_dispersion_factor", &g_dispersion_factor, 0.1f, 10.0f);
 
@@ -1071,7 +1098,7 @@ void CCC_Register()
 
 	CMD4(CCC_Float, "g_ironsights_zoom_factor", &g_ironsights_factor, 1.f, 2.f);
 	CMD4(CCC_Vector3, "ssfx_wetness_multiplier", &ssfx_wetness_multiplier, Fvector3().set(0.1f, 0.1f, 0.0f), Fvector3().set(20.0f, 20.0f, 0.0f));
-	
+
 	// - CrookR
 	CMD2(CCC_Float, "scope_blur_outer", &scope_outerblur);
 	CMD2(CCC_Float, "scope_blur_inner", &scope_innerblur);

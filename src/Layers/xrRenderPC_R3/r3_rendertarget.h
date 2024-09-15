@@ -27,7 +27,7 @@ public:
 	};
 
 	u32 dwLightMarkerID;
-	// 
+	//
 	IBlender* b_occq;
 	IBlender* b_accum_mask;
 	IBlender* b_accum_direct;
@@ -54,15 +54,15 @@ public:
 
 	IBlender* b_blur;
 	IBlender* b_dof;
-	IBlender* b_pp_bloom;	
+	IBlender* b_pp_bloom;
 	IBlender* b_gasmask_drops;
 	IBlender* b_gasmask_dudv;
 	IBlender* b_nightvision;
 	IBlender* b_fakescope; //crookr
 	IBlender* b_heatvision; //--DSR-- HeatVision
 	IBlender* b_lut;
-	
-	IBlender* b_smaa;	
+
+	IBlender* b_smaa;
 #ifdef DEBUG
 	struct		dbg_line_t		{
 		Fvector	P0,P1;
@@ -82,7 +82,7 @@ public:
 	ref_rt rt_Position; // 64bit,	fat	(x,y,z,?)				(eye-space)
 	ref_rt rt_Color; // 64/32bit,fat	(r,g,b,specular-gloss)	(or decompressed MET-8-8-8-8)
 
-	// 
+	//
 	ref_rt rt_Accumulator; // 64bit		(r,g,b,specular)
 	ref_rt rt_Accumulator_temp; // only for HW which doesn't feature fp16 blend
 	ref_rt rt_sunshafts_0; // ss0
@@ -97,25 +97,28 @@ public:
 
 
 	ref_rt rt_fakescope; //crookr
-	
+
 	ref_rt rt_Heat; //--DSR-- HeatVision
 
 	ref_rt rt_dof;
 
 	ref_rt rt_blur_h_2;
 	ref_rt rt_blur_2;
+	ref_rt rt_blur_2_zb;
 
 	ref_rt rt_blur_h_4;
 	ref_rt rt_blur_4;
-	
+	ref_rt rt_blur_4_zb;
+
 	ref_rt rt_blur_h_8;
 	ref_rt rt_blur_8;
+	ref_rt rt_blur_8_zb;
 
 	ref_rt rt_pp_bloom;
 
 	ref_rt rt_smaa_edgetex;
 	ref_rt rt_smaa_blendtex;
-	
+
 	//	Igor: for volumetric lights
 	ref_rt rt_Generic_2; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
 	ref_rt rt_Bloom_1; // 32bit, dim/4	(r,g,b,?)
@@ -133,7 +136,7 @@ public:
 
 	// smap
 	ref_rt rt_smap_surf; // 32bit,		color
-	ref_rt rt_smap_depth; // 24(32) bit,	depth 
+	ref_rt rt_smap_depth; // 24(32) bit,	depth
 	ref_rt rt_smap_depth_minmax; //	is used for min/max sm
 	//	TODO: DX10: CHeck if we need old-style SMAP
 	//	IDirect3DSurface9*			rt_smap_ZB;		//
@@ -161,7 +164,7 @@ private:
 	ref_shader s_ssao_msaa[8];
 
 
-	
+
 	// Accum
 	ref_shader s_accum_mask;
 	ref_shader s_accum_direct;
@@ -172,18 +175,18 @@ private:
 	ref_shader s_accum_reflected;
 	ref_shader s_accum_volume;
 
-	ref_shader s_blur;	
+	ref_shader s_blur;
 	ref_shader s_dof;
-	ref_shader s_pp_bloom;	
+	ref_shader s_pp_bloom;
 	ref_shader s_gasmask_drops;
 	ref_shader s_gasmask_dudv;
 	ref_shader s_nightvision;
 	ref_shader s_fakescope; //crookr
 	ref_shader s_heatvision; //--DSR-- HeatVision
-	ref_shader s_lut;	
+	ref_shader s_lut;
 
     ref_shader s_smaa;
-	
+
 	//	generate min/max
 	ref_shader s_create_minmax_sm;
 
@@ -302,15 +305,15 @@ public:
 	void phase_sunshafts();
 
 	void phase_blur();
-	void phase_pp_bloom();	
+	void phase_pp_bloom();
 	void phase_dof();
 	void phase_gasmask_drops();
 	void phase_gasmask_dudv();
 	void phase_nightvision();
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
-	void phase_lut();	
-	void phase_smaa();	
+	void phase_lut();
+	void phase_smaa();
 
 	void phase_scene_prepare();
 	void phase_scene_begin();
