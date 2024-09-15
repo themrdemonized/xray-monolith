@@ -58,7 +58,7 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 {
 #ifdef DEBUG
     _SHOW_REF("*ref -CRenderDevice::ResetTotal: DeviceREF:",HW.pDevice);
-#endif // DEBUG	
+#endif // DEBUG
 
 	Resources->reset_begin();
 	Memory.mem_compact();
@@ -303,7 +303,7 @@ dxRenderDeviceRender::DeviceState dxRenderDeviceRender::GetDeviceState()
 	HW.Validate();
 #if defined(USE_DX10) || defined(USE_DX11)
     HRESULT _hr = HW.m_pSwapChain->Present(0, DXGI_PRESENT_TEST);
-	
+
 	if (FAILED(_hr))
 	{
 		//LV: Check if it's correct. If so - that should be fix for AMD issues. Thank me later. Yo
@@ -317,7 +317,7 @@ dxRenderDeviceRender::DeviceState dxRenderDeviceRender::GetDeviceState()
 	}
 #else	//	USE_DX10
 	HRESULT _hr = HW.pDevice->TestCooperativeLevel();
-	
+
 	if (FAILED(_hr))
 	{
 		// If the device was lost, do not render until we get it back
@@ -389,19 +389,20 @@ void dxRenderDeviceRender::End()
 	DoAsyncScreenshot();
 
 #if defined(USE_DX10) || defined(USE_DX11)
-    UINT flags = 0;
+    UINT present_flags = 0;
+	bool use_vsync = !!psDeviceFlags.test(rsVSync);
+	UINT present_interval = (use_vsync) ? 1 : 0;
 
-	UINT use_vsync = !!psDeviceFlags.test(rsVSync);
 # if defined(USE_DX11)
+	// NOTE: https://learn.microsoft.com/en-us/windows/win32/direct3ddxgi/variable-refresh-rate-displays
     BOOL is_windowed = HW.m_ChainDescFullscreen.Windowed;
-
-	if (is_windowed && !use_vsync) {
-        flags |= DXGI_PRESENT_ALLOW_TEARING;
+	if (is_windowed && !use_vsync && HW.m_SupportsVRR) {
+        present_flags |= DXGI_PRESENT_ALLOW_TEARING;
 	}
 # endif
 
 	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady) {
-		HW.m_pSwapChain->Present(use_vsync, flags);
+		HW.m_pSwapChain->Present(present_interval, present_flags);
 	}
 #else //!USE_DX10 || USE_DX11
 	CHK_DX(HW.pDevice->EndScene());
