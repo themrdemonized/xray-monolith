@@ -1709,29 +1709,50 @@ float CScriptGameObject::GetLuminocity()
 	return e->renderable_ROS()->get_luminocity();
 }
 
-void CScriptGameObject::ForceSetPosition(Fvector pos, bool bActivate)
+void CScriptGameObject::ForceSetPosition(Fvector pos, bool enable)
 {
 	CPhysicsShellHolder* sh = object().cast_physics_shell_holder();
 	if (!sh)
 		return;
 
+	Fmatrix& M = object().XFORM();
+	M.c = pos;
+
 	CPhysicsShell* shell = sh->PPhysicsShell();
 	if (shell)
 	{
-		if (bActivate)
-			sh->activate_physic_shell();
-
-		Fmatrix M = object().XFORM();
-		M.c = pos;
-		M.set(M);
-
 		shell->SetGlTransformDynamic(M);
-		if (sh->character_physics_support())
-			sh->character_physics_support()->ForceTransform(M);
+		sh->correct_spawn_pos();
+		if (enable)
+			shell->Enable();
 	}
-	else
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "force_set_position: object %s has no physics shell!", *object().cName());
+
+	if (sh->character_physics_support())
+		sh->character_physics_support()->ForceTransform(M);
+}
+
+void CScriptGameObject::ForceSetRotation(Fvector rot, bool enable)
+{
+	CPhysicsShellHolder* sh = object().cast_physics_shell_holder();
+	if (!sh)
+		return;
+
+	Fmatrix& M = object().XFORM();
+	Fvector pos = M.c;
+	M.setHPB(rot.x, rot.y, rot.z);
+	M.c = pos;
+
+	CPhysicsShell* shell = sh->PPhysicsShell();
+	if (shell)
+	{
+		shell->SetGlTransformDynamic(M);
+		sh->correct_spawn_pos();
+		if (enable)
+			shell->Enable();
+	}
+
+	if (sh->character_physics_support())
+		sh->character_physics_support()->ForceTransform(M);
 }
 
 void CScriptGameObject::SetRemainingUses(u8 value)

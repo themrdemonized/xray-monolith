@@ -42,8 +42,8 @@ public:
 	CScriptParticles(LPCSTR caParticlesName);
 	virtual ~CScriptParticles();
 
-	void Play();
-	void PlayAtPos(const Fvector& pos);
+	void Play(bool bHudMode = false);
+	void PlayAtPos(const Fvector& pos, bool bHudMode = false);
 	void Stop();
 	void StopDeffered();
 

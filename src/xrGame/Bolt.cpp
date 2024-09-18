@@ -3,6 +3,7 @@
 #include "ParticlesObject.h"
 #include "../xrphysics/PhysicsShell.h"
 #include "xr_level_controller.h"
+#include "script_game_object.h"
 // Tronex
 #include "inventory.h"
 #include "actor.h"
@@ -120,20 +121,25 @@ void CBolt::PutNextToSlot()
 
 		VERIFY(pNext != this);
 
-		if (pNext && m_pInventory->Slot(pNext->BaseSlot(), pNext))
+		if (pNext)
 		{
-			pNext->u_EventGen(P, GEG_PLAYER_ITEM2SLOT, pNext->H_Parent()->ID());
-			P.w_u16(pNext->ID());
-			P.w_u16(pNext->BaseSlot());
-			pNext->u_EventSend(P);
-			m_pInventory->SetActiveSlot(pNext->BaseSlot());
-		}
-		else
-		{
-			CActor* pActor = smart_cast<CActor*>(m_pInventory->GetOwner());
+			luabind::functor<CScriptGameObject*> funct;
+			if (ai().script_engine().functor("_g.CMissile__PutNextToSlot", funct))
+			{
+				CScriptGameObject* obj = funct(pNext->lua_game_object());
+				if (!obj || !smart_cast<CBolt*>(&obj->object())) return;
 
-			if (pActor)
-				pActor->OnPrevWeaponSlot();
+				pNext = smart_cast<CBolt*>(&obj->object());
+			}
+
+			if (m_pInventory->Slot(pNext->BaseSlot(), pNext))
+			{
+				pNext->u_EventGen(P, GEG_PLAYER_ITEM2SLOT, pNext->H_Parent()->ID());
+				P.w_u16(pNext->ID());
+				P.w_u16(pNext->BaseSlot());
+				pNext->u_EventSend(P);
+				m_pInventory->SetActiveSlot(pNext->BaseSlot());
+			}
 		}
 
 		m_thrown = false;

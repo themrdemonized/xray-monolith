@@ -156,7 +156,9 @@ void CWeapon::UpdateXForm()
 	if ((HandDependence() == hd1Hand) || (GetState() == eReload) || (!E->g_Alive()))
 		boneL = boneR2;
 
-	V->CalculateBones();
+	V->CalculateBones_Invalidate();
+	V->CalculateBones(TRUE);
+
 	Fmatrix& mL = V->LL_GetTransform(u16(boneL));
 	Fmatrix& mR = V->LL_GetTransform(u16(boneR));
 	// Calculate
@@ -639,6 +641,8 @@ void CWeapon::Load(LPCSTR section)
 	m_safemode_anm[1].power = READ_IF_EXISTS(pSettings, r_float, *hud_sect, "safemode_anm_power2", 1.f);
 
 	m_shoot_shake_mat.identity();
+
+	m_playFullShotAnim = READ_IF_EXISTS(pSettings, r_bool, *hud_sect, "rpm_anim_fix", true);
 }
 
 void CWeapon::LoadFireParams(LPCSTR section)
@@ -1125,6 +1129,13 @@ bool CWeapon::Action(u16 cmd, u32 flags)
 				return true;
 			}
 
+			if (bMisfire)
+			{
+				OnEmptyClick();
+				if (!m_current_motion_def || !m_playFullShotAnim)
+					SwitchState(eIdle);
+			}
+			
 			FireStart();
 		}
 		else
@@ -1402,10 +1413,8 @@ BOOL CWeapon::CheckForMisfire()
 	float mp = GetConditionMisfireProbability();
 	if (rnd < mp)
 	{
-		FireEnd();
-
+		StopShooting();
 		bMisfire = true;
-		SwitchState(eMisfire);
 
 		return TRUE;
 	}
