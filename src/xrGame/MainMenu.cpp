@@ -896,3 +896,9 @@ demo_info const* CMainMenu::GetDemoInfo(LPCSTR file_name)
 	}
 	return m_demo_info_loader->get_demofile_info(file_name);
 }
+
+void open_originals_link()
+{
+	LPCSTR params = "/C start https://www.stalker-game.com/en/available-on";
+	ShellExecute(0, "open", "cmd.exe", params, NULL, SW_SHOW);
+}

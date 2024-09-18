@@ -1604,10 +1604,6 @@ void CActor::shedule_Update(u32 DT)
 				//Msg("---No active item in inventory(), item 0 detached.");
 			}
 		}
-		else
-		{
-			g_player_hud->detach_all_items();
-		}
 	}
 
 	if (m_holder || !getEnabled() || !Ready())

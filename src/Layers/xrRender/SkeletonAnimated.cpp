@@ -815,6 +815,7 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 		for (u32 k = 0; k < set_cnt; ++k)
 		{
 			_GetItem(items_nm, k, nm);
+
 			if (strstr(nm, "\\*.omf"))
 			{
 				FS_FileSet fset;

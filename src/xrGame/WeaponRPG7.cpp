@@ -164,7 +164,7 @@ void CWeaponRPG7::switch2_Fire()
 void CWeaponRPG7::PlayAnimReload()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_reload", TRUE, this, GetState());
+	PlayHUDMotion("anm_reload", TRUE, this, GetState(), 1.f, 0.f, false);
 }
 
 void CWeaponRPG7::OnEvent(NET_Packet& P, u16 type)

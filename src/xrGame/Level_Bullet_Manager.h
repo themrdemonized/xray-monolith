@@ -82,6 +82,7 @@ struct SBullet
 	bool density_mode;
 	float density;
 	Fvector begin_density;
+	LPCSTR section;
 	bool operator ==(u32 ID) { return ID == m_dwID; }
 public:
 	SBullet();

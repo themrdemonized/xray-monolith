@@ -152,7 +152,9 @@ void CWeapon::StopShooting()
 	if (m_pFlameParticles && m_pFlameParticles->IsLooped())
 		StopFlameParticles();
 
-	SwitchState(eIdle);
+	if (!m_current_motion_def || !m_playFullShotAnim)
+		SwitchState(eIdle);
+
 	FireEnd();
 }
 
