@@ -1569,10 +1569,6 @@ void CActor::shedule_Update(u32 DT)
 			if (!pInvItem)
 				g_player_hud->detach_item_idx(0);
 		}
-		else
-		{
-			g_player_hud->detach_all_items();
-		}
 	}
 
 	if (m_holder || !getEnabled() || !Ready())

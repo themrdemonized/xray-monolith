@@ -42,7 +42,7 @@
 #include "raypick.h"
 #include "../xrcdb/xr_collide_defs.h"
 #include "../xrEngine/Rain.h"
-
+#include "Level_Bullet_Manager.h"
 #include "../xrEngine/xr_efflensflare.h"
 #include "../xrEngine/thunderbolt.h"
 #include "GametaskManager.h"
@@ -1329,6 +1329,14 @@ const u32 ActorMovingState()
 	return g_actor->MovingState();
 }
 
+void AddBullet(Fvector pos, Fvector dir, float speed, float power, float impulse, u16 sender, ALife::EHitType hit_type, float max_dist, LPCSTR ammo_sect, float air_resistance)
+{
+	CCartridge* _temp = xr_new<CCartridge>();
+	_temp->Load(ammo_sect, 0);
+	Level().BulletManager().AddBullet(pos, dir, speed, power, impulse, sender, sender, hit_type, max_dist, *_temp, air_resistance, true);
+	delete_data(_temp);
+}
+
 extern ENGINE_API float psHUD_FOV;
 
 const Fvector2 world2ui(Fvector pos, bool hud = false)
@@ -1603,6 +1611,9 @@ CScriptIniFile* GetVisualUserdata(LPCSTR visual)
 }
 
 #pragma optimize("s",on)
+
+extern void open_originals_link();
+
 void CLevel::script_register(lua_State* L)
 {
 	class_<CEnvDescriptor>("CEnvDescriptor")
@@ -1734,7 +1745,8 @@ void CLevel::script_register(lua_State* L)
 			def("actor_moving_state", &ActorMovingState),
 			def("get_env_rads", &get_env_rads),
 			def("iterate_nearest", &iterate_nearest),
-			def("pick_material", &PickMaterial)
+			def("pick_material", &PickMaterial),
+			def("add_bullet", &AddBullet)
 		],
 
 		module(L, "actor_stats")
@@ -1863,6 +1875,7 @@ void CLevel::script_register(lua_State* L)
 		//		def("get_surge_time",	Game::get_surge_time),
 		//		def("get_object_by_name",Game::get_object_by_name),
 
+		def("open_originals_link", &open_originals_link),
 		def("start_tutorial", &start_tutorial),
 		def("stop_tutorial", &stop_tutorial),
 		def("has_active_tutorial", &has_active_tutotial),

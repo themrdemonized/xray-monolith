@@ -114,6 +114,7 @@ public:
 	virtual void SendHiddenItem(); //same as OnHiddenItem but for client... (sends message to a server)...
 
 	virtual bool NeedBlendAnm();
+	virtual void OnEmptyClick() {};
 
 public:
 	virtual bool can_kill() const;
@@ -189,6 +190,8 @@ protected:
 	// a misfire happens, you'll need to rearm weapon
 	bool bMisfire;
 	bool bClearJamOnly; //used for "reload" misfire animation
+
+	bool m_playFullShotAnim;
 
 	BOOL m_bAutoSpawnAmmo;
 	virtual bool AllowBore();

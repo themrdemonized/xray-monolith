@@ -22,6 +22,7 @@
 #include "ik/math3d.h"
 #include "actor.h"
 #include "ai/monsters/basemonster/base_monster.h"
+#include "script_game_object.h"
 
 //константы ShootFactor, определяющие 
 //поведение пули при столкновении с объектом
@@ -373,6 +374,10 @@ extern void random_dir(Fvector& tgt_dir, const Fvector& src_dir, float dispersio
 bool CBulletManager::ObjectHit(SBullet_Hit* hit_res, SBullet* bullet, const Fvector& end_point,
                                collide::rq_result& R, u16 target_material, Fvector& hit_normal)
 {
+	luabind::functor<void> funct;
+	if (ai().script_engine().functor("_g.CBulletManager__ObjectHit", funct))
+		funct(bullet->section, smart_cast<CGameObject*>(R.O) ? smart_cast<CGameObject*>(R.O)->lua_game_object() : nullptr, end_point, bullet->dir, *GMLib.GetMaterialByIdx(target_material)->m_Name, bullet->speed, bullet->weapon_id);
+
 	//----------- normal - start
 	if (R.O)
 	{
@@ -478,7 +483,7 @@ bool CBulletManager::ObjectHit(SBullet_Hit* hit_res, SBullet* bullet, const Fvec
 	random_dir(tgt_dir, new_dir, deg2rad(10.0f));
 	float ricoshet_factor = bullet->dir.dotproduct(tgt_dir);
 
-	float f = Random.randF(0.5f, 0.8f); //(0.5f,1.f);
+	float f = Random.randF(0.2f, 0.6f);
 	if ((f < ricoshet_factor) && !mtl->Flags.test(SGameMtl::flNoRicoshet) && bullet->flags.allow_ricochet)
 	{
 		// уменьшение скорости полета в зависимости от угла падения пули (чем прямее угол, тем больше потеря)

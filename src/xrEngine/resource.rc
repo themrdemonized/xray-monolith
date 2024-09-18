@@ -43,8 +43,8 @@ IDB_BITMAP1             BITMAP                  "splash_xrcs_en.bmp"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,5,5
- PRODUCTVERSION 1,0,5,5
+ FILEVERSION 1,0,5,6
+ PRODUCTVERSION 1,0,5,6
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -61,12 +61,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Anomaly Team"
             VALUE "FileDescription", "X-Ray Monolith Engine"
-            VALUE "FileVersion", "1.0.5.5"
+            VALUE "FileVersion", "1.0.5.6"
             VALUE "InternalName", "Monolith Engine"
-            VALUE "LegalCopyright", "Copyright 2009 GSC Game World, 2018-2020 Anomaly Team"
+            VALUE "LegalCopyright", "Copyright 2009 GSC Game World, 2018-2024 Anomaly Team"
             VALUE "OriginalFilename", "Anomaly.exe"
             VALUE "ProductName", "S.T.A.L.K.E.R.: Anomaly"
-            VALUE "ProductVersion", "1.0.5.5"
+            VALUE "ProductVersion", "1.0.5.6"
         END
     END
     BLOCK "VarFileInfo"

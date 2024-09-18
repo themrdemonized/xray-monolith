@@ -419,6 +419,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("set_bone_visible", &CScriptGameObject::SetBoneVisible)
 		.def("set_health_ex", &CScriptGameObject::SetHealthEx)
 		.def("force_set_position", &CScriptGameObject::ForceSetPosition)
+		.def("force_set_rotation", &CScriptGameObject::ForceSetRotation)
 		.def("set_spatial_type", &CScriptGameObject::SetSpatialType)
 		.def("get_spatial_type", &CScriptGameObject::GetSpatialType)
 		.def("destroy_object", &CScriptGameObject::DestroyObject)

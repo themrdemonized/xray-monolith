@@ -981,7 +981,8 @@ public:
 	//CAI_Stalker
 	void ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect);
 	//Anything with PPhysicShell (ie. car, actor, stalker, monster, heli)
-	void ForceSetPosition(Fvector pos, bool bActivate = false);
+	void ForceSetPosition(Fvector pos, bool enable = true);
+	void ForceSetRotation(Fvector rot, bool enable = true);
 
 	//Artifacts
 	float GetArtefactHealthRestoreSpeed();

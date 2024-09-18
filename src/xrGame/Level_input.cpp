@@ -147,6 +147,13 @@ void CLevel::IR_OnKeyboardPress(int key)
 
 	EGameActions _curr = get_binded_action(key);
 
+    luabind::functor<bool> funct;
+    if (ai().script_engine().functor("level_input.on_key_press", funct))
+    {
+        if (funct(key, _curr, g_bDisableAllInput))
+            return;
+    }
+
 	if (g_block_all_except_movement)
 	{
 		if (!(_curr < kCAM_1 || _curr == kWPN_FIRE || _curr == kPAUSE || _curr == kDROP || _curr == kSCREENSHOT || _curr == kQUIT || _curr == kCONSOLE || _curr == kQUICK_LOAD || _curr == kQUICK_SAVE))
@@ -200,13 +207,6 @@ void CLevel::IR_OnKeyboardPress(int key)
 		break;
 		}
 	}
-
-    luabind::functor<bool> funct;
-    if (ai().script_engine().functor("level_input.on_key_press", funct))
-    {
-        if (funct(key, _curr, g_bDisableAllInput))
-            return;
-    }
 
     if (!g_bDisableAllInput)
     {
@@ -535,7 +535,16 @@ void CLevel::IR_OnKeyboardPress(int key)
 
 void CLevel::IR_OnKeyboardRelease(int key)
 {
-	if (!bReady || g_bDisableAllInput) return;
+	if (!bReady) return;
+
+    luabind::functor<bool> funct;
+    if (ai().script_engine().functor("level_input.on_key_release", funct))
+    {
+        if (funct(key, get_binded_action(key), g_bDisableAllInput))
+            return;
+    }
+
+    if (g_bDisableAllInput) return;
 
 #ifdef INPUT_CALLBACKS
 	/* avo: script callback */
@@ -561,6 +570,13 @@ void CLevel::IR_OnKeyboardRelease(int key)
 
 void CLevel::IR_OnKeyboardHold(int key)
 {
+    luabind::functor<bool> funct;
+    if (ai().script_engine().functor("level_input.on_key_hold", funct))
+    {
+        if (funct(key, get_binded_action(key), g_bDisableAllInput))
+            return;
+    }
+
 	if (g_bDisableAllInput) return;
 
 #ifdef INPUT_CALLBACKS
