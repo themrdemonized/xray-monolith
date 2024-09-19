@@ -210,7 +210,9 @@ void CWeapon::UpdateXForm()
 	if ((HandDependence() == hd1Hand) || (GetState() == eReload) || (!E->g_Alive()))
 		boneL = boneR2;
 
-	V->CalculateBones();
+	V->CalculateBones_Invalidate();
+	V->CalculateBones(TRUE);
+
 	Fmatrix& mL = V->LL_GetTransform(u16(boneL));
 	Fmatrix& mR = V->LL_GetTransform(u16(boneR));
 	// Calculate
@@ -762,6 +764,7 @@ void CWeapon::Load(LPCSTR section)
 
 	m_shoot_shake_mat.identity();
 
+	m_playFullShotAnim = READ_IF_EXISTS(pSettings, r_bool, *hud_sect, "rpm_anim_fix", true);
 	//--DSR-- SilencerOverheat_start
 	if (m_eSilencerStatus == ALife::eAddonAttachable)
 	{
@@ -1016,6 +1019,11 @@ void CWeapon::OnEvent(NET_Packet& P, u16 type)
 
 void CWeapon::shedule_Update(u32 dT)
 {
+	// Queue shrink
+	//	u32	dwTimeCL		= Level().timeServer()-NET_Latency;
+	//	while ((NET.size()>2) && (NET[1].dwTimeStamp<dwTimeCL)) NET.pop_front();
+
+	// Inherited
 	inherited::shedule_Update(dT);
 	//--DSR-- SilencerOverheat_start
 	temperature -= (float)dT / 1000.f * sil_glow_cool_temp_rate;
@@ -1273,6 +1281,13 @@ bool CWeapon::Action(u16 cmd, u32 flags)
 				return true;
 			}
 
+			if (bMisfire)
+			{
+				OnEmptyClick();
+				if (!m_current_motion_def || !m_playFullShotAnim)
+					SwitchState(eIdle);
+			}
+			
 			FireStart();
 		}
 		else
@@ -1571,10 +1586,8 @@ BOOL CWeapon::CheckForMisfire()
 	float mp = GetConditionMisfireProbability();
 	if (rnd < mp)
 	{
-		FireEnd();
-
+		StopShooting();
 		bMisfire = true;
-		SwitchState(eMisfire);
 
 		return TRUE;
 	}

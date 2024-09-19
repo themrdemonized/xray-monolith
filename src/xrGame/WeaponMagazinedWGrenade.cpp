@@ -185,7 +185,7 @@ void CWeaponMagazinedWGrenade::PlayAnimFireModeSwitch()
 
 bool CWeaponMagazinedWGrenade::SwitchMode()
 {
-	bool bUsefulStateToSwitch = ((eIdle == GetState()) || (eHidden == GetState()) || (eMisfire == GetState())) && (!IsPending());
+	bool bUsefulStateToSwitch = (eIdle == GetState() && !IsPending());
 
 	if (!bUsefulStateToSwitch)
 		return false;

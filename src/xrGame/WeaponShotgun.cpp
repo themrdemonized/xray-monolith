@@ -198,7 +198,7 @@ void CWeaponShotgun::switch2_EndReload()
 void CWeaponShotgun::PlayAnimOpenWeapon()
 {
 	VERIFY(GetState()==eReload);
-	PlayHUDMotion("anm_open",TRUE, this, GetState());
+	PlayHUDMotion("anm_open",TRUE, this, GetState(), 1.f, 0.f, false);
 }
 
 void CWeaponShotgun::PlayAnimAddOneCartridgeWeapon()

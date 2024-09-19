@@ -232,7 +232,7 @@ void CWeaponMagazined::FireStart()
 				if (GetState() == eReload) return;
 				if (GetState() == eShowing) return;
 				if (GetState() == eHiding) return;
-				if (GetState() == eMisfire) return;
+				if (bMisfire) return;
 
 				inherited::FireStart();
 
@@ -590,10 +590,6 @@ void CWeaponMagazined::OnStateSwitch(u32 S, u32 oldState)
 	case eFire:
 		switch2_Fire();
 		break;
-	case eMisfire:
-		if (smart_cast<CActor*>(this->H_Parent()) && (Level().CurrentViewEntity() == H_Parent()))
-			CurrentGameUI()->AddCustomStatic("gun_jammed", true);
-		break;
 	case eAimStart:
 		switch2_StartAim();
 		break;
@@ -647,9 +643,7 @@ void CWeaponMagazined::UpdateCL()
 				state_Fire(dt);
 			}
 			break;
-		case eMisfire: state_Misfire(dt);
-			break;
-		case eHidden: break;
+		//case eHidden: break; ???
 		}
 	}
 
@@ -815,16 +809,6 @@ void CWeaponMagazined::state_Fire(float dt)
 	}
 }
 
-void CWeaponMagazined::state_Misfire(float dt)
-{
-	OnEmptyClick();
-	SwitchState(eIdle);
-
-	bMisfire = true;
-
-	UpdateSounds();
-}
-
 void CWeaponMagazined::SetDefaults()
 {
 	CWeapon::SetDefaults();
@@ -959,6 +943,10 @@ void CWeaponMagazined::OnAnimationEnd(u32 state)
 		break; // End of Show
 	case eIdle: switch2_Idle();
 		break; // Keep showing idle
+	case eFire: 
+		if (!bWorking || 0 == iAmmoElapsed)
+			SwitchState(eIdle);
+		break; // Switch to idle if we stopped shooting
 	case eAimStart: SwitchState(eIdle);		break;
 	case eAimEnd:   SwitchState(eIdle);		break;
 	case eSwitchMode: UpdateFireMode();

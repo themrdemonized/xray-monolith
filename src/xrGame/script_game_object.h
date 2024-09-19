@@ -1014,10 +1014,13 @@ public:
 	u16 bone_parent(LPCSTR bone_name, bool bHud) { return bone_parent(bone_id(bone_name, bHud), bHud); }
 	u16 bone_parent(LPCSTR bone_name) { return bone_parent(bone_id(bone_name), false); }
 
+	bool IsBoneVisible(LPCSTR bone_name, bool bHud = false);	
+	void SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive = true, bool bHud = false);	
 	//CAI_Stalker
 	void ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect);
 	//Anything with PPhysicShell (ie. car, actor, stalker, monster, heli)
 	void ForceSetPosition(Fvector pos, bool bActivate = false);
+	void ForceSetRotation(Fvector rot, bool enable = true);
 	void ForceSetAngle(Fvector ang, bool bActivate);
 	Fvector Angle();
 

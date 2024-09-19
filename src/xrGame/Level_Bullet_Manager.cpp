@@ -59,6 +59,7 @@ void SBullet::Init(const Fvector& position,
                    float const air_resistance_factor,
                    bool SendHit, int iShotNum)
 {
+	section = *cartridge.m_ammoSect;
 	flags._storage = 0;
 	bullet_pos = position;
 	starting_speed *= cartridge.param_s.kBulletSpeed;
