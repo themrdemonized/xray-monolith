@@ -116,9 +116,9 @@ private:
 	velocities_type const* m_velocities;
 	float m_danger_head_speed;
 	u32 m_last_turn_index;
-	CAI_Stalker* m_object;
 
 protected:
+	CAI_Stalker* m_object;
 	stalker_movement_params m_current;
 	stalker_movement_params m_target;
 

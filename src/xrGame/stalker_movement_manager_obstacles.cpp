@@ -313,4 +313,5 @@ void stalker_movement_manager_obstacles::on_death()
 {
 	VERIFY(m_doors_actor);
 	xr_delete(m_doors_actor);
+	m_doors_actor = xr_new<doors::actor>(*m_object);
 }
