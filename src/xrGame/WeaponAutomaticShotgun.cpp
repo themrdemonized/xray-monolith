@@ -49,7 +49,7 @@ bool CWeaponAutomaticShotgun::Action(u16 cmd, u32 flags)
 {
 	if (cmd == kWPN_FIRE && flags & CMD_START)
 	{
-		if (GetState() == eFire)
+		if (fShotTimeCounter > 0.f)
 			return true;
 	}
 	if (inherited::Action(cmd, flags)) return true;

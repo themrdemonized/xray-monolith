@@ -35,7 +35,7 @@
 
 
 //---------------------------------------------------------------------
-#define XRAY_MONOLITH_VERSION "X-Ray Monolith v1.5.2"
+#define XRAY_MONOLITH_VERSION "X-Ray Monolith v1.5.3"
 ENGINE_API CInifile* pGameIni = NULL;
 BOOL g_bIntroFinished = FALSE;
 extern void Intro(void* fn);
