@@ -1836,7 +1836,7 @@ void PATurbulence::Execute(ParticleEffect* effect, const float dt, float& tm_max
 
 		__m128 _D = _mm_load_fvector(D);
 		__m128 _d = _mm_set1_ps(d);
-		__m128 _magnitude = _mm_set1_ps(magnitude);
+		__m128 _magnitude = _mm_set1_ps(magnitude * ps_particle_update_coeff);
 		__m128 _mvel = _mm_load_fvector(m.vel);
 		_D = _mm_sub_ps(_D, _d);
 		_D = _mm_mul_ps(_D, _magnitude);
