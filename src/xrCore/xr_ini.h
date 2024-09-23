@@ -3,6 +3,10 @@
 
 #include "fastdelegate.h"
 
+#ifdef USE_ROBINHOOD
+#include "robin_hood.h"
+#endif
+
 // refs
 class CInifile;
 struct xr_token;
@@ -15,10 +19,13 @@ public:
 	{
 		shared_str first;
 		shared_str second;
+
+		//demonized: add DLTX info
+		shared_str filename;
 		//#ifdef DEBUG
 		// shared_str comment;
 		//#endif
-		Item() : first(0), second(0)
+		Item() : first(0), second(0), filename(0)
 		//#ifdef DEBUG
 		// , comment(0)
 		//#endif
@@ -58,6 +65,10 @@ private:
 	string_path m_file_name;
 	Root DATA;
 
+	// demonized: cache read and written ini values
+	xr_unordered_map<std::string, xr_unordered_map<std::string, shared_str>> m_cache;
+	void cacheValue(LPCSTR S, LPCSTR L, shared_str& V);
+
 	void Load(IReader* F, LPCSTR path
 #ifndef _EDITOR
 	          , allow_include_func_t allow_include_func = NULL
@@ -86,6 +97,9 @@ public:
 
 	virtual ~CInifile();
 	bool save_as(LPCSTR new_fname = 0);
+	void DLTX_print(LPCSTR sec, LPCSTR line);
+	LPCSTR DLTX_getFilenameOfLine(LPCSTR sec, LPCSTR line);
+	bool DLTX_isOverride(LPCSTR sec, LPCSTR line);
 	void save_as(IWriter& writer, bool bcheck = false) const;
 	void set_override_names(BOOL b) { m_flags.set(eOverrideNames, b); }
 	void save_at_end(BOOL b) { m_flags.set(eSaveAtEnd, b); }
