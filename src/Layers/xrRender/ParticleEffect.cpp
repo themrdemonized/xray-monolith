@@ -457,48 +457,39 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 	float angle = 0xFFFFFFFF;
 
 
-#if 1
-	/* From OpenXRay. */
-	// Don't replace this code with multithreaded one.
-	// This singlethreaded version is much faster.
 	for (u32 i = 0; i != count; ++i)
-#else
-	tbb::parallel_for(tbb::blocked_range<u32>(0, count), [&](const tbb::blocked_range<u32>& range) 
 	{
-		for (u32 i = range.begin(); i != range.end(); ++i)
-#endif
+		PAPI::Particle& m = particles[i];
+		Fvector2 lt, rb;
+		lt.set(0.f, 0.f);
+		rb.set(1.f, 1.f);
+
+		_mm_prefetch((char*)&particles[i + 1], _MM_HINT_NTA);
+
+		if (angle != m.rot.x)
 		{
-			PAPI::Particle& m = particles[i];
-			Fvector2 lt, rb;
-			lt.set(0.f, 0.f);
-			rb.set(1.f, 1.f);
+			angle = m.rot.x;
+			sina = std::sinf(*(float*)&angle);
+			cosa = std::cosf(*(float*)&angle);
+		}
 
-			_mm_prefetch((char*)&particles[i + 1], _MM_HINT_NTA);
+		_mm_prefetch(64 + (char*)&particles[i + 1], _MM_HINT_NTA);
 
-			if (angle != m.rot.x)
-			{
-				angle = m.rot.x;
-				sina = std::sinf(*(float*)&angle);
-				cosa = std::cosf(*(float*)&angle);
-			}
+		if (pPE->m_Def->m_Flags.is(CPEDef::dfFramed))
+			pPE->m_Def->m_Frame.CalculateTC(iFloor(float(m.frame) / 255.f), lt, rb);
 
-			_mm_prefetch(64 + (char*)&particles[i + 1], _MM_HINT_NTA);
+		float r_x = m.size.x * 0.5f;
+		float r_y = m.size.y * 0.5f;
+		float speed = 0.f;
+		bool speed_calculated = false;
 
-			if (pPE->m_Def->m_Flags.is(CPEDef::dfFramed))
-				pPE->m_Def->m_Frame.CalculateTC(iFloor(float(m.frame) / 255.f), lt, rb);
-
-			float r_x = m.size.x * 0.5f;
-			float r_y = m.size.y * 0.5f;
-			float speed = 0.f;
-			bool speed_calculated = false;
-
-			if (pPE->m_Def->m_Flags.is(CPEDef::dfVelocityScale))
-			{
-				magnitude_sse(m.vel, speed);
-				speed_calculated = true;
-				r_x += speed * pPE->m_Def->m_VelocityScale.x;
-				r_y += speed * pPE->m_Def->m_VelocityScale.y;
-			}
+		if (pPE->m_Def->m_Flags.is(CPEDef::dfVelocityScale))
+		{
+			magnitude_sse(m.vel, speed);
+			speed_calculated = true;
+			r_x += speed * pPE->m_Def->m_VelocityScale.x;
+			r_y += speed * pPE->m_Def->m_VelocityScale.y;
+		}
 
 			if (pPE->m_Def->m_Flags.is(CPEDef::dfAlignToPath))
 			{
@@ -578,11 +569,6 @@ void ParticleRenderStream(FVF::LIT* pv, u32 count, PAPI::Particle * particles, C
 				}
 			}
 		}
-#if 1
-	// Remove.
-#else
-	});
-#endif
 }
 
 void CParticleEffect::Render(float)

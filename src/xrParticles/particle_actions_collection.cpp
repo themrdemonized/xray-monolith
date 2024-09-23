@@ -1317,7 +1317,6 @@ void PARestore::Execute(ParticleEffect* effect, const float dt, float& tm_max)
 
 		for (u32 i = 0; i < effect->p_count; i++)
 		{
-#if 1
 			Particle& m = effect->particles[i];
 
 			// Solve for a desired-behavior velocity function in each axis
@@ -1343,32 +1342,6 @@ void PARestore::Execute(ParticleEffect* effect, const float dt, float& tm_max)
 
 			// Figure new velocity at next timestep
 			m.vel.z += a + b;
-#else
-			Particle &m = effect->particles[i];
-			
-			// XXX Optimize this.
-			// Solve for a desired-behavior velocity function in each axis
-			float a, b, c; // Coefficients of velocity function needed
-			
-			_pconstrain(m.pos.x, m.vel.x, m.posB.x, 0.,
-				timeLeft, &a, &b, &c);
-			
-			// Figure new velocity at next timestep
-			m.vel.x = a * dtSqr + b * dt + c;
-			
-			_pconstrain(m.pos.y, m.vel.y, m.posB.y, 0.,
-				timeLeft, &a, &b, &c);
-			
-			// Figure new velocity at next timestep
-			m.vel.y = a * dtSqr + b * dt + c;
-			
-			_pconstrain(m.pos.z, m.vel.z, m.posB.z, 0.,
-				timeLeft, &a, &b, &c);
-			
-			// Figure new velocity at next timestep
-			m.vel.z = a * dtSqr + b * dt + c;
-			
-#endif
 		}
 	}
 
@@ -1840,88 +1813,59 @@ void PATurbulence::Execute(ParticleEffect* effect, const float dt, float& tm_max
 	if (! p_cnt)
 		return;
 
-#if 1
-	/* From OpenXRay. */
-    pVector pV;
-    pVector vX;
-    pVector vY;
-    pVector vZ;
+	pVector pV;
+	pVector vX;
+	pVector vY;
+	pVector vZ;
 
-	// Don't replace this code with multithreaded one.
-	// This singlethreaded version is much faster.
-    for (u32 i = 0; i != p_cnt; ++i)
-    {
-        Particle& m = effect->particles[i];
+	for (u32 i = 0; i != p_cnt; ++i)
+	{
+		Particle& m = effect->particles[i];
 
-        pV.mad(m.pos, offset, age);
-        vX.set(pV.x + epsilon, pV.y, pV.z);
-        vY.set(pV.x, pV.y + epsilon, pV.z);
-        vZ.set(pV.x, pV.y, pV.z + epsilon);
+		pV.mad(m.pos, offset, age);
+		vX.set(pV.x + epsilon, pV.y, pV.z);
+		vY.set(pV.x, pV.y + epsilon, pV.z);
+		vZ.set(pV.x, pV.y, pV.z + epsilon);
 
-        const float d = fractalsum3(pV, frequency, octaves);
+		const float d = fractalsum3(pV, frequency, octaves);
 
-        pVector D;
+		pVector D;
+		D.x = fractalsum3(vX, frequency, octaves);
+		D.y = fractalsum3(vY, frequency, octaves);
+		D.z = fractalsum3(vZ, frequency, octaves);
 
-#if 1
-        D.x = fractalsum3(vX, frequency, octaves);
-        D.y = fractalsum3(vY, frequency, octaves);
-        D.z = fractalsum3(vZ, frequency, octaves);
+		__m128 _D = _mm_load_fvector(D);
+		__m128 _d = _mm_set1_ps(d);
+		__m128 _magnitude = _mm_set1_ps(magnitude);
+		__m128 _mvel = _mm_load_fvector(m.vel);
+		_D = _mm_sub_ps(_D, _d);
+		_D = _mm_mul_ps(_D, _magnitude);
 
-        __m128 _D = _mm_load_fvector(D);
-        __m128 _d = _mm_set1_ps(d);
-        __m128 _magnitude = _mm_set1_ps(magnitude);
-        __m128 _mvel = _mm_load_fvector(m.vel);
-        _D = _mm_sub_ps(_D, _d);
-        _D = _mm_mul_ps(_D, _magnitude);
+		__m128 _vmo = _mm_mul_ps(_mvel, _mvel); // _vmo = 00 | zz | yy | xx
+		__m128 _tmp = _mm_movehl_ps(_vmo, _vmo); // _tmp = 00 | zz | 00 | zz 
+		_vmo = _mm_add_ss(_vmo, _tmp); // _vmo = 00 | zz | yy | xx + zz
+		_tmp = _mm_unpacklo_ps(_vmo, _vmo); // _tmp = yy | yy | xx + zz | xx + zz
+		_tmp = _mm_movehl_ps(_tmp, _tmp); // _tmp = yy | yy | yy | yy 
+		_vmo = _mm_add_ss(_vmo, _tmp); // _vmo = 00 | zz | yy | xx + yy + zz
+		_vmo = _mm_sqrt_ss(_vmo); // _vmo = 00 | zz | yy | vmo
 
-        __m128 _vmo = _mm_mul_ps(_mvel, _mvel); // _vmo = 00 | zz | yy | xx
-        __m128 _tmp = _mm_movehl_ps(_vmo, _vmo); // _tmp = 00 | zz | 00 | zz
-        _vmo = _mm_add_ss(_vmo, _tmp); // _vmo = 00 | zz | yy | xx + zz
-        _tmp = _mm_unpacklo_ps(_vmo, _vmo); // _tmp = yy | yy | xx + zz | xx + zz
-        _tmp = _mm_movehl_ps(_tmp, _tmp); // _tmp = yy | yy | yy | yy
-        _vmo = _mm_add_ss(_vmo, _tmp); // _vmo = 00 | zz | yy | xx + yy + zz
-        _vmo = _mm_sqrt_ss(_vmo); // _vmo = 00 | zz | yy | vmo
+		_mvel = _mm_add_ps(_mvel, _D);
 
-        _mvel = _mm_add_ps(_mvel, _D);
+		__m128 _vmn = _mm_mul_ps(_mvel, _mvel); // _vmn = 00 | zz | yy | xx
+		_tmp = _mm_movehl_ps(_vmn, _vmn); // _tmp = 00 | zz | 00 | zz 
+		_vmn = _mm_add_ss(_vmn, _tmp); // _vmn = 00 | zz | yy | xx + zz
+		_tmp = _mm_unpacklo_ps(_vmn, _vmn); // _tmp = yy | yy | xx + zz | xx + zz
+		_tmp = _mm_movehl_ps(_tmp, _tmp); // _tmp = yy | yy | yy | yy 
+		_vmn = _mm_add_ss(_vmn, _tmp); // _vmn = 00 | zz | yy | xx + yy + zz
+		_vmn = _mm_sqrt_ss(_vmn); // _vmn = 00 | zz | yy | vmn
 
-        __m128 _vmn = _mm_mul_ps(_mvel, _mvel); // _vmn = 00 | zz | yy | xx
-        _tmp = _mm_movehl_ps(_vmn, _vmn); // _tmp = 00 | zz | 00 | zz
-        _vmn = _mm_add_ss(_vmn, _tmp); // _vmn = 00 | zz | yy | xx + zz
-        _tmp = _mm_unpacklo_ps(_vmn, _vmn); // _tmp = yy | yy | xx + zz | xx + zz
-        _tmp = _mm_movehl_ps(_tmp, _tmp); // _tmp = yy | yy | yy | yy
-        _vmn = _mm_add_ss(_vmn, _tmp); // _vmn = 00 | zz | yy | xx + yy + zz
-        _vmn = _mm_sqrt_ss(_vmn); // _vmn = 00 | zz | yy | vmn
+		_vmo = _mm_div_ss(_vmo, _vmn); // _vmo = 00 | zz | yy | scale
 
-        _vmo = _mm_div_ss(_vmo, _vmn); // _vmo = 00 | zz | yy | scale
+		_vmo = _mm_shuffle_ps(_vmo, _vmo, _MM_SHUFFLE(0, 0, 0, 0)); // _vmo = scale | scale | scale | scale
+		_mvel = _mm_mul_ps(_mvel, _vmo);
 
-        _vmo = _mm_shuffle_ps(_vmo, _vmo, _MM_SHUFFLE(0, 0, 0, 0)); // _vmo = scale | scale | scale | scale
-        _mvel = _mm_mul_ps(_mvel, _vmo);
-
-        _mm_store_fvector(m.vel, _mvel);
-#else
-        D.x = (fractalsum3(vX, frequency, octaves) - d) * (float)magnitude;
-        D.y = (fractalsum3(vY, frequency, octaves) - d) * (float)magnitude;
-        D.z = (fractalsum3(vZ, frequency, octaves) - d) * (float)magnitude;
-
-        float velMagOrig = m.vel.magnitude();
-        m.vel.add(D);
-        float velMagNow = m.vel.magnitude();
-        float valMagScale = velMagOrig / velMagNow;
-        m.vel.mul(valMagScale);
-#endif
-    }
-#else
-	TES_PARAMS tesParams;
-	tesParams.p_count = p_cnt;
-	tesParams.effect = effect;
-	tesParams.offset = offset;
-	tesParams.age = age;
-	tesParams.epsilon = epsilon;
-	tesParams.frequency = frequency;
-	tesParams.octaves = octaves;
-	tesParams.magnitude = magnitude*ps_particle_update_coeff;
-	PATurbulenceExecuteStream(&tesParams);
-#endif
+		_mm_store_fvector(m.vel, _mvel);
+	}
 }
 
 #else
