@@ -7,7 +7,7 @@ Here is list of exe files for Anomaly 1.5.2 that contains all engine patches by 
 
 
 * Install the latest Visual C++ Redistributables: https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/
-* Download STALKER-Anomaly-modded-exes.zip archive.
+* Download STALKER-Anomaly-modded-exes_`<version>`.zip archive.
 * Unpack all directories directly into your Anomaly game folder, overwrite files if requested.
 * Delete shader cache in launcher before first launch of the game with new exes. You only have to do it once.
 
@@ -176,7 +176,7 @@ The original engine is used in S.T.A.L.K.E.R. Call of Pripyat game released by G
 ## How to make my own modded exe?
 
 How to compile exes:
-1. Fork xray-monolith repo from https://github.com/themrdemonized/xray-monolith
+1. Fork this xray-monolith
 2. Clone the fork onto your pc
 3. Select all-in-one-vs2022-wpo branch
 4. Compile the engine-vs2022.sln solution with VS2022
