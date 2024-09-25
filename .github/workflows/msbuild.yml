@@ -54,7 +54,7 @@ jobs:
         name: ${{env.PACK_GAMEDATA_NAME}}
         
         # A file, directory or wildcard pattern that describes what to upload
-        path: ./compressor/00_modded_exes_gamedata.db0
+        path: ./compressor/${{env.PACK_GAMEDATA_NAME}}
         
         # The desired behavior if no files are found using the provided path. Available Options:
           #  warn: Output a warning but do not fail the action
