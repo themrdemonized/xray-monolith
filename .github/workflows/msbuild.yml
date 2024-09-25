@@ -28,6 +28,7 @@ env:
   DX10AVX: DX10-AVX
   DX9AVX: DX9-AVX
   DX8AVX: DX8-AVX
+  PACK_GAMEDATA_NAME: 00_modded_exes_gamedata.db0
 
 jobs:
   pack_gamedata:
@@ -44,13 +45,13 @@ jobs:
         copy-item -path "./gamedata/*" -destination "./compressor/gamedata" -recurse -force
         cd ./compressor
         start-process -filepath "./! compress_gamedata.cmd" -Wait
-        rename-item -path gamedata.db0 -newname 00_modded_exes_gamedata.db0
+        rename-item -path gamedata.db0 -newname ${{env.PACK_GAMEDATA_NAME}}
         
     - name: Upload gamedata
       uses: actions/upload-artifact@v3.1.2
       with:
         # Artifact name
-        name: gamedata
+        name: ${{env.PACK_GAMEDATA_NAME}}
         
         # A file, directory or wildcard pattern that describes what to upload
         path: ./compressor/00_modded_exes_gamedata.db0
@@ -116,18 +117,18 @@ jobs:
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.VC.Tools.x86.x64","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
     #     Start-Process -FilePath .\setup.exe -ArgumentList "modify","--add","Microsoft.VisualStudio.Component.Vcpkg","--includeRecommended","--includeOptional","--channelId","VisualStudio.17.Release","--productId","Microsoft.VisualStudio.Product.Enterprise","--quiet","--norestart" -Wait -PassThru
 
-    # - name: Fake Build ${{matrix.buildconf}}
-    #   working-directory: ${{env.GITHUB_WORKSPACE}}
-    #   run: |
-    #     New-Item -Type Directory -Path "./_build/_game/bin_dbg"
-    #     New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.exe"
-    #     New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.pdb"
-
-    - name: Build ${{matrix.buildconf}}
+    - name: Fake Build ${{matrix.buildconf}}
       working-directory: ${{env.GITHUB_WORKSPACE}}
-      # Add additional options to the MSBuild command line here (like platform or verbosity level).
-      # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
-      run: msbuild /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
+      run: |
+        New-Item -Type Directory -Path "./_build/_game/bin_dbg"
+        New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.exe"
+        New-Item -Path "./_build/_game/bin_dbg/${{matrix.buildconf}}.pdb"
+
+    # - name: Build ${{matrix.buildconf}}
+    #   working-directory: ${{env.GITHUB_WORKSPACE}}
+    #   # Add additional options to the MSBuild command line here (like platform or verbosity level).
+    #   # See https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference
+    #   run: msbuild /p:Configuration=${{matrix.buildconf}} ${{env.SOLUTION_FILE_PATH}}
 
     - name: Upload Exe
       uses: actions/upload-artifact@v3.1.2
@@ -196,7 +197,9 @@ jobs:
       run: |
         mkdir release
         mkdir release/bin
-        cp -a gamedata/. release
+        mkdir release/db
+        mkdir release/db/mods
+        mv ${{env.PACK_GAMEDATA_NAME}}/*.db0 release/db/mods
         mv ${{env.DX11}}_exe/*.exe release/bin
         mv ${{env.DX10}}_exe/*.exe release/bin
         mv ${{env.DX9}}_exe/*.exe release/bin
