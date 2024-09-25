@@ -16,7 +16,7 @@ Here is list of exe files for Anomaly 1.5.2 that contains all engine patches by 
 * A: 
   * Delete everything in `db/mods` folders
   * Delete everything in `gamedata/configs` folder except `localization.ltx`, `axr_options.ltx` and `cache_dbg.ltx"` files
-  * Delete these folders:
+  * Delete these folders if you have them:
     * `gamedata/materials`
     * `gamedata/scripts`
     * `gamedata/shaders`
