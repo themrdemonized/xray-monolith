@@ -67,7 +67,6 @@ jobs:
         
   build:
     name: build-job
-    needs: pack_gamedata
     runs-on: windows-latest
 
     strategy:
