@@ -40,6 +40,7 @@ jobs:
 
     - name: Pack gamedata
       run: |
+        new-item -path "./compressor/gamedata" -itemtype directory -force
         copy-item -path "./gamedata/*" -destination "./compressor/gamedata" -recurse -force
         cd ./compressor
         start-process -filepath "./! compress_gamedata.cmd" -Wait
