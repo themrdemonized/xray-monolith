@@ -184,6 +184,18 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.09.25 (clean reinstall required)**
+* Gamedata files are packed `00_modded_exes_gamedata.db0` archive during Github Action
+
+**2024.09.23**
+* Anomaly 1.5.3 Test3 Update
+
+**2024.09.20**
+* Anomaly 1.5.3 Test2 Update
+
+**2024.09.19**
+* Anomaly 1.5.3 Test1 Update
+
 **2024.09.15**
 * deggua: DX11 DWM vsync fix for windowed modes + fix for broken blur passes (https://github.com/themrdemonized/xray-monolith/pull/72)
 
