@@ -184,6 +184,9 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.09.28**
+* Reset mouse state on loading the game
+
 **2024.09.25 (clean reinstall required)**
 * Gamedata files are packed `00_modded_exes_gamedata.db0` archive during Github Action
 
