@@ -312,6 +312,13 @@ void CInput::KeyUpdate()
 	*/
 }
 
+void CInput::resetMouseState()
+{
+	for (int i = 0; i < COUNT_MOUSE_BUTTONS; i++) {
+		mouseState[i] = 0;
+	}
+}
+
 bool CInput::get_dik_name(int dik, LPSTR dest_str, int dest_sz)
 {
 	DIPROPSTRING keyname;
