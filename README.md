@@ -1,6 +1,6 @@
 # STALKER-Anomaly-modded-exes
 
-Here is list of exe files for Anomaly 1.5.2 that contains all engine patches by community required for some advanced mods to work.
+Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by community required for some advanced mods to work.
 
 # Read the instructions PLEASE!!!
 ![image](https://github.com/themrdemonized/STALKER-Anomaly-modded-exes/assets/46323442/6c5b89c8-c749-4945-b842-ec0a7c4f748a)
@@ -184,6 +184,9 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.09.29 ([clean reinstall required](https://github.com/themrdemonized/xray-monolith?tab=readme-ov-file#troubleshooting))**
+* Anomaly 1.5.3 Update
+
 **2024.09.28**
 * Reset mouse state on loading the game
 
