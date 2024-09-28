@@ -69,6 +69,7 @@ private:
 	void KeyUpdate();
 
 public:
+	void resetMouseState();
 	sxr_mouse mouse_property;
 	sxr_key key_property;
 	u32 dwCurTime;
