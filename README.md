@@ -184,6 +184,11 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.01**
+* Added game version check for ActorMenu_on_item_after_move fix
+* DXML: add check for empty XMLs, fixed crash when trying to use `query` on them
+* `r__3Dfakescope 0` by default
+
 **2024.09.29 ([clean reinstall required](https://github.com/themrdemonized/xray-monolith?tab=readme-ov-file#troubleshooting))**
 * Anomaly 1.5.3 Update
 
