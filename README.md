@@ -5,7 +5,7 @@ Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by 
 # Read the instructions PLEASE!!!
 ![image](https://github.com/themrdemonized/STALKER-Anomaly-modded-exes/assets/46323442/6c5b89c8-c749-4945-b842-ec0a7c4f748a)
 
-
+* **Windows 10 1903 Update at least is required!!!** 
 * Install the latest Visual C++ Redistributables: https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/
 * Download STALKER-Anomaly-modded-exes_`<version>`.zip archive.
 * Unpack all directories directly into your Anomaly game folder, overwrite files if requested.
