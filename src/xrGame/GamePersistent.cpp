@@ -31,6 +31,8 @@
 #include "../xrServerEntities/xrServer_Object_Base.h"
 #include "UI/UIGameTutorial.h"
 
+#include "../xrEngine/xr_input.h"
+
 #ifndef MASTER_GOLD
 #	include "custommonster.h"
 #endif // MASTER_GOLD
@@ -529,6 +531,9 @@ void CGamePersistent::game_loaded()
 			m_intro->Start("game_loaded");
 			Msg("intro_start game_loaded");
 			m_intro->m_on_destroy_event.bind(this, &CGamePersistent::update_game_loaded);
+
+			// demonized: Reset mouse state on loading the game
+			pInput->resetMouseState();
 
 			// demonized
 			// Callback for when loading screen happens and "Press Any Key to Continue" prompt appears

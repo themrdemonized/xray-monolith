@@ -1,0 +1,73 @@
+* Detected CPU: AMD Ryzen 7 5800X3D 8-Core Processor [AuthenticAMD], F15/M1/S2, 3393.00 mhz, 47-clk 'rdtsc'
+* CPU features: RDTSC, MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2
+* CPU cores/threads: 16/16
+
+Initializing File System...
+FS: 56 files cached 0 archives, 110Kb memory used.
+Init FileSystem 0.002261 sec
+Processing folder: ''
++F: configs\
++F: configs\text\
++F: configs\text\eng\
++F: configs\text\rus\
++F: configs\unlocalizers\
++F: materials\
++F: scripts\
++F: shaders\
++F: shaders\r2\
++F: shaders\r3\
+configs\axr_options.ltx                                                            - OK (17.3%)
+configs\cache_dbg.ltx                                                              - OK (39.0%)
+configs\localization.ltx                                                           - OK (59.5%)
+configs\mod_script_dxml.ltx                                                        - OK (72.6%)
+configs\mod_system_base_hud.ltx                                                    - OK (46.1%)
+configs\text\eng\ui_mm_modded_exes.xml                                             - OK (27.4%)
+configs\text\rus\ui_mm_modded_exes.xml                                             - OK (30.9%)
+configs\unlocalizers\unlocalizer_modded_exes_global.ltx                            - No compression (R)
+configs\unlocalizers\unlocalizer_modded_exes_item_device_script_fixes.ltx          - No compression (R)
+configs\unlocalizers\unlocalizer_modded_exes_pda.ltx                               - OK (51.3%)
+configs\unlocalizers\unlocalizer_modded_exes_xrs_facer_script_fixes.ltx            - No compression (R)
+configs\unlocalizers\unlocalizer_test.ltx                                          - OK (50.0%)
+materials\material_pairs.ltx                                                       - OK (41.1%)
+materials\materials.ltx                                                            - OK (35.6%)
+scripts\aaaa_script_fixes_mp.script                                                - OK (35.8%)
+scripts\callbacks_gameobject.script                                                - OK (36.0%)
+scripts\dxml_core.script                                                           - OK (30.0%)
+scripts\fakelens.script                                                            - OK (69.3%)
+scripts\lua_help_ex.script                                                         - OK (30.8%)
+scripts\modxml_test.script                                                         - OK (62.7%)
+scripts\scoperadii.script                                                          - OK (31.7%)
+scripts\shotgun_reload_fix.script                                                  - OK (64.0%)
+scripts\slaxml.script                                                              - OK (30.9%)
+scripts\true_first_person_death.script                                             - OK (36.3%)
+scripts\ui_options_modded_exes.script                                              - OK (19.2%)
+shaders\r2\fakescope.ps                                                            - No compression
+shaders\r2\heatvision.ps                                                           - No compression
+shaders\r3\combine_2_naa.ps                                                        - No compression
+shaders\r3\common_functions.h                                                      - No compression
+shaders\r3\deffer_tree_branch_bump-hq.vs                                           - No compression
+shaders\r3\deffer_tree_branch_bump_d-hq.vs                                         - No compression
+shaders\r3\deffer_tree_branch_flat.vs                                              - No compression
+shaders\r3\editor.vs                                                               - No compression
+shaders\r3\fakescope.ps                                                            - No compression
+shaders\r3\hdr10.h                                                                 - No compression
+shaders\r3\hud_cursor.s                                                            - No compression
+shaders\r3\hud_default.ps                                                          - No compression
+shaders\r3\hud_default.s                                                           - ALIAS (gamedata\shaders\r3\hud_cursor.s)
+shaders\r3\hud_font.ps                                                             - No compression
+shaders\r3\night_vision.h                                                          - No compression
+shaders\r3\postprocess.ps                                                          - No compression
+shaders\r3\postprocess_cm.ps                                                       - No compression
+shaders\r3\simple_color.ps                                                         - No compression
+shaders\r3\yuv2rgb.ps                                                              - No compression
+...Writing pack desc
+Data size: 151401. Desc size: 2466.
+Pack saved.
+ 
+ 
+Files total/skipped/No compression/aliased: 44/0/21/1
+Overal: 147K/444K, 33.2%
+Elapsed time: 0:0
+Compression speed: 1.$ Mb/s
+ 
+
