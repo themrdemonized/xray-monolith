@@ -52,6 +52,15 @@ public:
 	IBlender* b_ssao;
 	IBlender* b_ssao_msaa[8];
 
+	IBlender* b_hdr10_bloom_downsample;
+	IBlender* b_hdr10_bloom_blur;
+	IBlender* b_hdr10_bloom_upsample;
+	
+	IBlender* b_hdr10_lens_flare_downsample;
+	IBlender* b_hdr10_lens_flare_fgen;
+	IBlender* b_hdr10_lens_flare_blur;
+	IBlender* b_hdr10_lens_flare_upsample;
+
 	IBlender* b_blur;
 	IBlender* b_dof;
 	IBlender* b_pp_bloom;
@@ -139,6 +148,9 @@ public:
 	ref_rt rt_LUM_pool[CHWCaps::MAX_GPUS * 2]; // 1xfp32,1x1,		exp-result -> scaler
 	ref_texture t_LUM_src; // source
 	ref_texture t_LUM_dest; // destination & usage for current frame
+
+	// HDR10
+	ref_rt rt_HDR10_HalfRes[2];
 
 	// env
 	ref_texture t_envmap_0; // env-0
@@ -273,6 +285,16 @@ private:
 	ref_shader s_bloom_msaa;
 	float f_bloom_factor;
 
+	// HDR10
+	ref_shader s_hdr10_bloom_downsample;
+	ref_shader s_hdr10_bloom_blur;
+	ref_shader s_hdr10_bloom_upsample;
+	
+	ref_shader s_hdr10_lens_flare_downsample;
+	ref_shader s_hdr10_lens_flare_fgen;
+	ref_shader s_hdr10_lens_flare_blur;
+	ref_shader s_hdr10_lens_flare_upsample;
+
 	// Luminance
 	ref_shader s_luminance;
 	float f_luminance_adapt;
@@ -383,6 +405,10 @@ public:
 	void phase_ssfx_ao(); // AO
 	void phase_ssfx_il(); // IL
 	void set_viewport_size(ID3DDeviceContext* dev, float w, float h);
+
+	// HDR10
+	void phase_hdr10_bloom();
+	void phase_hdr10_lens_flare();
 
 	//	Generates min/max sm
 	void create_minmax_SM();

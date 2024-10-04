@@ -309,10 +309,42 @@ int   ps_r4_hdr10_colorspace      = 2;      // r4-only, default = Rec.2020
 
 int   ps_r4_hdr10_tonemapper   		   = 0;    // r4-only, default = ACES (Narkowicz)
 int   ps_r4_hdr10_tonemap_mode 		   = 1;	   // r4-only, default = Color
-float ps_r4_hdr10_exposure     		   = 2.0f; // r4-only, default = 1.0x
+float ps_r4_hdr10_exposure     		   = 0.8f; // r4-only, default = 1.0x
 float ps_r4_hdr10_contrast     		   = 0.0f; // r4-only, default = +0%
 float ps_r4_hdr10_contrast_middle_gray = 0.5f; // r4-only, default = 0.5
-float ps_r4_hdr10_saturation   		   = 0.0f; // r4-only, default = +0%
+float ps_r4_hdr10_saturation   		   = 0.1f; // r4-only, default = +0%
+float ps_r4_hdr10_brightness		   = 0.0f; // r4-only, default = +0
+float ps_r4_hdr10_gamma 			   = 1.1f; // r4-only, default = 1.0
+float ps_r4_hdr10_ui_saturation        = 0.5f; // r4-only, default = +0%
+
+int   ps_r4_hdr10_bloom_on          = 1; 	  // r4-only, default = off
+int   ps_r4_hdr10_bloom_blur_passes = 20;      // r4-only, default = 8
+float ps_r4_hdr10_bloom_blur_scale 	= 1.0f;   // r4-only, default = 1.0
+float ps_r4_hdr10_bloom_intensity   = 0.06f;  // r4-only, default = 0.05
+
+int      ps_r4_hdr10_flare_on 			   = 1;	     // r4-only
+float    ps_r4_hdr10_flare_threshold       = 0.0f;   // r4-only
+float    ps_r4_hdr10_flare_power           = 0.04f;  // r4-only
+int      ps_r4_hdr10_flare_ghosts          = 1;      // r4-only
+float    ps_r4_hdr10_flare_ghost_dispersal = 0.6f;   // r4-only
+float    ps_r4_hdr10_flare_center_falloff  = 1.1f;   // r4-only
+float    ps_r4_hdr10_flare_halo_scale      = 0.47f; // r4-only
+float    ps_r4_hdr10_flare_halo_ca         = 10.0f;  // r4-only
+float    ps_r4_hdr10_flare_ghost_ca        = 3.0f;   // r4-only
+int      ps_r4_hdr10_flare_blur_passes     = 12;     // r4-only
+float    ps_r4_hdr10_flare_blur_scale      = 1.0f;   // r4-only
+float    ps_r4_hdr10_flare_ghost_intensity = 0.04f;  // r4-only
+float    ps_r4_hdr10_flare_halo_intensity  = 0.04f;  // r4-only
+Fvector3 ps_r4_hdr10_flare_lens_color      = {1.0f, 0.7f, 1.0f}; // r4-only
+
+int   ps_r4_hdr10_sun_on 		   = 1;
+float ps_r4_hdr10_sun_intensity    = 80.0f; // r4-only
+float ps_r4_hdr10_sun_inner_radius = 0.20f; // r4-only
+float ps_r4_hdr10_sun_outer_radius = 0.40f; // r4-only
+float ps_r4_hdr10_sun_dawn_begin   = 4.5f;  // r4-only, 24 hour format
+float ps_r4_hdr10_sun_dawn_end     = 6.0f;  // r4-only, 24 hour format
+float ps_r4_hdr10_sun_dusk_begin   = 18.5f; // r4-only, 24 hour format
+float ps_r4_hdr10_sun_dusk_end     = 21.0f; // r4-only, 24 hour format
 
 float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
@@ -1177,18 +1209,50 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_tnmp_gamma", &ps_r2_tnmp_gamma, 0.0f, 20.0f);
 	CMD4(CCC_Float, "r2_tnmp_onoff", &ps_r2_tnmp_onoff, 0.0f, 1.0f);
 
-    CMD4(CCC_Float,   "r4_hdr10_whitepoint_nits", &ps_r4_hdr10_whitepoint_nits, 1.0f, 10000.0f);
-    CMD4(CCC_Float,   "r4_hdr10_ui_nits", 		  &ps_r4_hdr10_ui_nits, 	    1.0f, 10000.0f);
-    CMD4(CCC_Float,   "r4_hdr10_pda_intensity",   &ps_r4_hdr10_pda_intensity,      0, 1);
-	CMD4(CCC_Integer, "r4_hdr10_on", 			  &ps_r4_hdr10_on, 				   0, 1);
-    CMD4(CCC_Integer, "r4_hdr10_colorspace",	  &ps_r4_hdr10_colorspace, 		   0, 2);
+    CMD4(CCC_Float,   "r4_hdr10_whitepoint_nits", &ps_r4_hdr10_whitepoint_nits,  10.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_ui_nits", 		  &ps_r4_hdr10_ui_nits, 	     10.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_pda_intensity",   &ps_r4_hdr10_pda_intensity,      0.1, 2);
+	CMD4(CCC_Integer, "r4_hdr10_on", 			  &ps_r4_hdr10_on, 				     0, 1);
+    CMD4(CCC_Integer, "r4_hdr10_colorspace",	  &ps_r4_hdr10_colorspace, 		     0, 2);
 
-    CMD4(CCC_Integer, "r4_hdr10_tonemapper", 	  		&ps_r4_hdr10_tonemapper,      	    0, 8);
-	CMD4(CCC_Integer, "r4_hdr10_tonemap_mode",    		&ps_r4_hdr10_tonemap_mode,    	    0, 1);
-	CMD4(CCC_Float,   "r4_hdr10_exposure",        		&ps_r4_hdr10_exposure, 		  	    0, 20);
-	CMD4(CCC_Float,   "r4_hdr10_contrast",        		&ps_r4_hdr10_contrast, 		  	   -1, 1);
-	CMD4(CCC_Float,   "r4_hdr10_contrast_middle_gray",  &ps_r4_hdr10_contrast_middle_gray,  0, 10);
-	CMD4(CCC_Float,   "r4_hdr10_saturation", 	  		&ps_r4_hdr10_saturation,      	   -1, 1);
+    CMD4(CCC_Integer, "r4_hdr10_tonemapper", 	  		&ps_r4_hdr10_tonemapper,      	      0, 8);
+	CMD4(CCC_Integer, "r4_hdr10_tonemap_mode",    		&ps_r4_hdr10_tonemap_mode,    	      0, 1);
+	CMD4(CCC_Float,   "r4_hdr10_exposure",        		&ps_r4_hdr10_exposure, 		  	    0.1, 30);
+	CMD4(CCC_Float,   "r4_hdr10_contrast",        		&ps_r4_hdr10_contrast, 		  	     -1, 1);
+	CMD4(CCC_Float,   "r4_hdr10_contrast_middle_gray",  &ps_r4_hdr10_contrast_middle_gray,    0, 5);
+	CMD4(CCC_Float,   "r4_hdr10_saturation", 	  		&ps_r4_hdr10_saturation,      	     -1, 1);
+	CMD4(CCC_Float,   "r4_hdr10_brightness", 			&ps_r4_hdr10_brightness,			 -1, 1);
+	CMD4(CCC_Float,   "r4_hdr10_gamma",   			    &ps_r4_hdr10_gamma,					0.1, 5);
+	CMD4(CCC_Float,   "r4_hdr10_ui_saturation",         &ps_r4_hdr10_ui_saturation,          -1, 1);
+
+	CMD4(CCC_Integer, "r4_hdr10_bloom_on",          &ps_r4_hdr10_bloom_on,          0, 1);
+	CMD4(CCC_Integer, "r4_hdr10_bloom_blur_passes", &ps_r4_hdr10_bloom_blur_passes, 1, 32);
+	CMD4(CCC_Float,   "r4_hdr10_bloom_blur_scale",  &ps_r4_hdr10_bloom_blur_scale,  0, 1);
+	CMD4(CCC_Float,   "r4_hdr10_bloom_intensity",   &ps_r4_hdr10_bloom_intensity,   0, 1);
+
+	CMD4(CCC_Integer, "r4_hdr10_flare_on",              &ps_r4_hdr10_flare_on,                   0, 1);
+	CMD4(CCC_Float,   "r4_hdr10_flare_threshold",       &ps_r4_hdr10_flare_threshold,         0.0f, 10.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_power",           &ps_r4_hdr10_flare_power,             0.0f, 5.0f);
+	CMD4(CCC_Integer, "r4_hdr10_flare_ghosts",          &ps_r4_hdr10_flare_ghosts,               0, 10);
+	CMD4(CCC_Float,   "r4_hdr10_flare_ghost_dispersal", &ps_r4_hdr10_flare_ghost_dispersal,  0.01f, 5.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_center_falloff",  &ps_r4_hdr10_flare_center_falloff,    0.1f, 10.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_halo_scale",      &ps_r4_hdr10_flare_halo_scale,       0.01f, 5.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_halo_ca",         &ps_r4_hdr10_flare_halo_ca,           0.0f, 20.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_ghost_ca",        &ps_r4_hdr10_flare_ghost_ca,          0.0f, 20.0f);
+	CMD4(CCC_Integer, "r4_hdr10_flare_blur_passes",     &ps_r4_hdr10_flare_blur_passes,          1, 32);
+	CMD4(CCC_Float,   "r4_hdr10_flare_blur_scale",      &ps_r4_hdr10_flare_blur_scale,        0.0f, 1.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_ghost_intensity", &ps_r4_hdr10_flare_ghost_intensity,   0.0f, 1.0f);
+	CMD4(CCC_Float,   "r4_hdr10_flare_halo_intensity",  &ps_r4_hdr10_flare_halo_intensity,    0.0f, 1.0f);
+	CMD4(CCC_Vector3, "r4_hdr10_flare_lens_color",      &ps_r4_hdr10_flare_lens_color, Fvector3().set(0,0,0), Fvector3().set(1,1,1));
+
+	CMD4(CCC_Integer, "r4_hdr10_sun_on",           &ps_r4_hdr10_sun_on,               0, 1);
+	CMD4(CCC_Float,   "r4_hdr10_sun_intensity",    &ps_r4_hdr10_sun_intensity,     1.0f, 100.0f);
+	CMD4(CCC_Float,   "r4_hdr10_sun_inner_radius", &ps_r4_hdr10_sun_inner_radius, 0.01f, 1.0f);
+	CMD4(CCC_Float,   "r4_hdr10_sun_outer_radius", &ps_r4_hdr10_sun_outer_radius, 0.01f, 1.0f);
+	CMD4(CCC_Float,   "r4_hdr10_sun_dawn_begin",   &ps_r4_hdr10_sun_dawn_begin,    0.0f, 24.0f);
+	CMD4(CCC_Float,   "r4_hdr10_sun_dawn_end",     &ps_r4_hdr10_sun_dawn_end,      0.0f, 24.0f);
+	CMD4(CCC_Float,   "r4_hdr10_sun_dusk_begin",   &ps_r4_hdr10_sun_dusk_begin,    0.0f, 24.0f);
+	CMD4(CCC_Float,   "r4_hdr10_sun_dusk_end",     &ps_r4_hdr10_sun_dusk_end,      0.0f, 24.0f);
 
 	CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
 	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);

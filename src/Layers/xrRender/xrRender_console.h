@@ -198,7 +198,7 @@ extern ECORE_API float ps_r2_tnmp_exposure; // r2-only
 extern ECORE_API float ps_r2_tnmp_gamma; // r2-only
 extern ECORE_API float ps_r2_tnmp_onoff; // r2-only
 
-// HDR10 parameters
+/* --- HDR10 parameters --- */
 extern ECORE_API float ps_r4_hdr10_whitepoint_nits; // r4-only
 extern ECORE_API float ps_r4_hdr10_ui_nits; 		// r4-only
 extern ECORE_API int   ps_r4_hdr10_pda;  			// r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
@@ -211,6 +211,39 @@ extern ECORE_API float ps_r4_hdr10_exposure;      		 // r4-only
 extern ECORE_API float ps_r4_hdr10_contrast;      		 // r4-only
 extern ECORE_API float ps_r4_hdr10_contrast_middle_gray; // r4-only
 extern ECORE_API float ps_r4_hdr10_saturation;    		 // r4-only
+extern ECORE_API float ps_r4_hdr10_brightness;			 // r4-only
+extern ECORE_API float ps_r4_hdr10_gamma;				 // r4-only
+extern ECORE_API float ps_r4_hdr10_ui_saturation;		 // r4-only
+
+extern ECORE_API int   ps_r4_hdr10_bloom_on;		  // r4-only
+extern ECORE_API int   ps_r4_hdr10_bloom_blur_passes; // r4-only
+extern ECORE_API float ps_r4_hdr10_bloom_blur_scale;       // r4-only
+extern ECORE_API float ps_r4_hdr10_bloom_intensity;   // r4-only
+
+extern ECORE_API int      ps_r4_hdr10_flare_on; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_threshold; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_power; // r4-only
+extern ECORE_API int      ps_r4_hdr10_flare_ghosts; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_ghost_dispersal; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_center_falloff; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_halo_scale; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_halo_ca; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_ghost_ca; // r4-only
+extern ECORE_API int      ps_r4_hdr10_flare_blur_passes; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_blur_scale; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_ghost_intensity; // r4-only
+extern ECORE_API float    ps_r4_hdr10_flare_halo_intensity; // r4-only
+extern ECORE_API Fvector3 ps_r4_hdr10_flare_lens_color; // r4-only
+
+extern ECORE_API int   ps_r4_hdr10_sun_on; // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_intensity;  // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_inner_radius; // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_outer_radius; // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_dawn_begin; // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_dawn_end;   // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_dusk_begin; // r4-only
+extern ECORE_API float ps_r4_hdr10_sun_dusk_end;   // r4-only
+/* --- HDR10 parameters --- */
 
 extern ECORE_API float ps_r2_img_exposure; // r2-only
 extern ECORE_API float ps_r2_img_gamma; // r2-only
