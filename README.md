@@ -184,6 +184,11 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.05**
+* deggua: HDR10 Bloom, Lens Flares, Misc Updates (https://github.com/themrdemonized/xray-monolith/pull/78)
+* Disabled screenshot capturing if HDR is enabled to prevent crashes
+* Added HDR live editing in Modded Exes settings
+
 **2024.10.01**
 * Added game version check for ActorMenu_on_item_after_move fix
 * DXML: add check for empty XMLs, fixed crash when trying to use `query` on them
