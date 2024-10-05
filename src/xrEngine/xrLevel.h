@@ -194,6 +194,12 @@ private:
 		}
 	}
 
+	ICF void linknew(u8 link_index, u32 value) {
+		data[0 + link_index * 3] = (value >> 16) & 0xFF;
+		data[1 + link_index * 3] = (value >> 8) & 0xFF;
+		data[2 + link_index * 3] = value & 0xFF;
+	}
+
 	ICF void light(u8 value)
 	{
 		data[10] |= value << 4;
@@ -233,6 +239,16 @@ public:
 	u16 plane;
 	NodePosition p;
 	// 32 + 16 + 40 + 92 = 180 bits = 24.5 bytes => 25 bytes
+
+	ICF u32 linknew(u8 index) const {
+		u32 value = 0;
+
+		value |= (data[0 + index * 3] << 16);
+		value |= (data[1 + index * 3] << 8);
+		value |= (data[2 + index * 3]);
+
+		return value;
+	}
 
 	ICF u32 link(u8 index) const
 	{
@@ -382,7 +398,8 @@ typedef SNodePositionOld NodePosition;
 const u32 XRCL_CURRENT_VERSION = 18; //17; // input
 const u32 XRCL_PRODUCTION_VERSION = 14; // output
 const u32 CFORM_CURRENT_VERSION = 4;
-const u32 MAX_NODE_BIT_COUNT = 23;
+const u32 MAX_NODE_BIT_COUNT = 24;
 const u32 XRAI_CURRENT_VERSION = 10;
+extern ENGINE_API u32 CURRENT_XRAI_VERSION;
 
 #endif // xrLevelH

@@ -29,7 +29,7 @@ IC CGameGraph::CGameGraph(const IReader& _stream)
 {
 	IReader& stream = const_cast<IReader&>(_stream);
 	m_header.load(&stream);
-	R_ASSERT2(header().version() == XRAI_CURRENT_VERSION, "Graph version mismatch!");
+	//R_ASSERT2(header().version() == XRAI_CURRENT_VERSION, "Graph version mismatch!");
 	m_nodes = (CVertex*)stream.pointer();
 	m_current_level_some_vertex_id = _GRAPH_ID(-1);
 	m_enabled.assign(header().vertex_count(), true);

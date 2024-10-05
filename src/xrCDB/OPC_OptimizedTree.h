@@ -120,6 +120,8 @@ IMPLEMENT_NOLEAF_NODE(AABBQuantizedNoLeafNode, QuantizedAABB)
 		virtual			bool				Build(AABBTree* tree);											\
 		/* Data access */																					\
 		inline_			const volume*		GetNodes()		const	{ return mNodes;					}	\
+    void* GetData() const override { return static_cast<void*>(mNodes); }\
+    void SetData(void* ptr, udword nbNodes) override { mNodes = static_cast<volume*>(ptr); mNbNodes = nbNodes; }\
 		/* Stats */																							\
 		virtual			udword				GetUsedBytes()	const	{ return mNbNodes*sizeof(volume);	}	\
 		private:																							\
@@ -139,6 +141,9 @@ public:
 
 	// Data access
 	inline_ udword GetNbNodes() const { return mNbNodes; }
+
+	virtual void* GetData() const = 0;
+	virtual void SetData(void* ptr, udword nbNodes) = 0;
 
 	virtual udword GetUsedBytes() const = 0;
 	virtual bool Build(AABBTree* tree) = 0;
