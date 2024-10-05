@@ -386,6 +386,9 @@
 	<string id="ui_mm_modded_exes_hdr10_sun_outer_radius_desc">
 		<text>Adjusts the outer radius of the HDR sun rendering. The outer radius fades between full intensity and 0.</text>
 	</string>
+	<string id="ui_mm_modded_exes_hdr10_live_editing">
+		<text>Setup</text>
+	</string>
 	<!-- HDR10 -->
 
 	<string id="ui_mm_modded_exes_heat_vision_zombie_cold">
