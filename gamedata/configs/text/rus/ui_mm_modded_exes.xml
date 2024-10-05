@@ -2,10 +2,10 @@
 
 <string_table>
 	<string id="ui_mm_title_modded_exes">
-		<text>Модифицированные экзешники</text>
+		<text>Modded Exes</text>
 	</string>
 	<string id="ui_mm_menu_modded_exes">
-		<text>Мод экзешники</text>
+		<text>Modded Exes</text>
 	</string>
 	<string id="ui_mm_lst_ON">
 		<text>ВКЛ</text>
@@ -385,6 +385,9 @@
 	</string>
 	<string id="ui_mm_modded_exes_hdr10_sun_outer_radius_desc">
 		<text>Регулирует внешний радиус рендеринга HDR-солнца. Внешний радиус изменяется от полной интенсивности до 0.</text>
+	</string>
+	<string id="ui_mm_modded_exes_hdr10_live_editing">
+		<text>Настройка</text>
 	</string>
 	<!-- HDR10 -->
 
