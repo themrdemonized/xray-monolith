@@ -43,9 +43,16 @@ IC void MouseRayFromPoint(Fvector& direction, int x, int y, Fmatrix& m_CamMat)
 #define SM_FOR_SEND_WIDTH 640
 #define SM_FOR_SEND_HEIGHT 480
 
+extern int ps_r4_hdr10_on;
+
 #if defined(USE_DX10) || defined(USE_DX11)
 void CRender::ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* memory_writer)
 {
+	// demonized: Disable screenshots if HDR is enabled
+	if (ps_r4_hdr10_on) {
+		return;
+	}
+
 	ID3DResource* pSrcTexture;
 	HW.pBaseRT->GetResource(&pSrcTexture);
 
