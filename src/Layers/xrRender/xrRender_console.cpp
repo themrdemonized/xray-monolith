@@ -317,12 +317,12 @@ float ps_r4_hdr10_brightness		   = 0.0f; // r4-only, default = +0
 float ps_r4_hdr10_gamma 			   = 1.1f; // r4-only, default = 1.0
 float ps_r4_hdr10_ui_saturation        = 0.5f; // r4-only, default = +0%
 
-int   ps_r4_hdr10_bloom_on          = 1; 	  // r4-only, default = off
+int   ps_r4_hdr10_bloom_on          = 0; 	  // r4-only, default = off
 int   ps_r4_hdr10_bloom_blur_passes = 20;      // r4-only, default = 8
 float ps_r4_hdr10_bloom_blur_scale 	= 1.0f;   // r4-only, default = 1.0
 float ps_r4_hdr10_bloom_intensity   = 0.06f;  // r4-only, default = 0.05
 
-int      ps_r4_hdr10_flare_on 			   = 1;	     // r4-only
+int      ps_r4_hdr10_flare_on 			   = 0;	     // r4-only
 float    ps_r4_hdr10_flare_threshold       = 0.0f;   // r4-only
 float    ps_r4_hdr10_flare_power           = 0.04f;  // r4-only
 int      ps_r4_hdr10_flare_ghosts          = 1;      // r4-only
@@ -337,7 +337,7 @@ float    ps_r4_hdr10_flare_ghost_intensity = 0.04f;  // r4-only
 float    ps_r4_hdr10_flare_halo_intensity  = 0.04f;  // r4-only
 Fvector3 ps_r4_hdr10_flare_lens_color      = {1.0f, 0.7f, 1.0f}; // r4-only
 
-int   ps_r4_hdr10_sun_on 		   = 1;
+int   ps_r4_hdr10_sun_on 		   = 0;
 float ps_r4_hdr10_sun_intensity    = 80.0f; // r4-only
 float ps_r4_hdr10_sun_inner_radius = 0.20f; // r4-only
 float ps_r4_hdr10_sun_outer_radius = 0.40f; // r4-only
