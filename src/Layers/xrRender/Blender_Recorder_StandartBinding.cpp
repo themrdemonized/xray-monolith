@@ -1054,6 +1054,35 @@ extern float ps_r4_hdr10_exposure;
 extern float ps_r4_hdr10_contrast;
 extern float ps_r4_hdr10_contrast_middle_gray;
 extern float ps_r4_hdr10_saturation;
+extern float ps_r4_hdr10_brightness;
+extern float ps_r4_hdr10_gamma;
+extern float ps_r4_hdr10_ui_saturation;
+
+extern int   ps_r4_hdr10_bloom_on;
+extern float ps_r4_hdr10_bloom_blur_scale;
+extern float ps_r4_hdr10_bloom_intensity;
+
+extern float    ps_r4_hdr10_flare_threshold;
+extern float    ps_r4_hdr10_flare_power;
+extern int      ps_r4_hdr10_flare_ghosts;
+extern float    ps_r4_hdr10_flare_ghost_dispersal;
+extern float    ps_r4_hdr10_flare_center_falloff;
+extern float    ps_r4_hdr10_flare_halo_scale;
+extern float    ps_r4_hdr10_flare_halo_ca;
+extern float    ps_r4_hdr10_flare_ghost_ca;
+extern float    ps_r4_hdr10_flare_blur_scale;
+extern float    ps_r4_hdr10_flare_ghost_intensity;
+extern float    ps_r4_hdr10_flare_halo_intensity;
+extern Fvector3 ps_r4_hdr10_flare_lens_color;
+
+extern int   ps_r4_hdr10_sun_on;
+extern float ps_r4_hdr10_sun_intensity;
+extern float ps_r4_hdr10_sun_inner_radius;
+extern float ps_r4_hdr10_sun_outer_radius;
+extern float ps_r4_hdr10_sun_dawn_begin;
+extern float ps_r4_hdr10_sun_dawn_end;
+extern float ps_r4_hdr10_sun_dusk_begin;
+extern float ps_r4_hdr10_sun_dusk_end;
 
 #define DECL_BINDER4F(name, x, y, z, w) \
 	static class cl_##name : public R_constant_setup \
@@ -1067,27 +1096,81 @@ extern float ps_r4_hdr10_saturation;
 		} \
 	} name
 
+#if RENDER == R_R4
+#define HDR10_ON (RImplementation.o.dx11_hdr10)
+#else
+#define HDR10_ON (0)
+#endif
+
 DECL_BINDER4F( binder_hdr10_parameters1,
 	ps_r4_hdr10_whitepoint_nits,
 	ps_r4_hdr10_ui_nits / ps_r4_hdr10_whitepoint_nits,
-	ps_r4_hdr10_on,
+	HDR10_ON,
 	ps_r4_hdr10_pda
 );
 
 DECL_BINDER4F( binder_hdr10_parameters2,
 	ps_r4_hdr10_colorspace,
 	ps_r4_hdr10_pda_intensity,
-	ps_r4_hdr10_tonemapper,
+	1u << ps_r4_hdr10_tonemapper,
 	ps_r4_hdr10_tonemap_mode
 );
 
 DECL_BINDER4F( binder_hdr10_parameters3,
 	ps_r4_hdr10_exposure,
-	ps_r4_hdr10_contrast,
-	ps_r4_hdr10_saturation,
+	ps_r4_hdr10_contrast + 1.0f,
+	ps_r4_hdr10_saturation + 1.0f,
 	ps_r4_hdr10_contrast_middle_gray
 );
 
+DECL_BINDER4F( binder_hdr10_parameters4,
+	ps_r4_hdr10_bloom_on,
+	ps_r4_hdr10_bloom_blur_scale,
+	ps_r4_hdr10_bloom_intensity,
+	ps_r4_hdr10_sun_intensity
+);
+
+DECL_BINDER4F( binder_hdr10_parameters5,
+	ps_r4_hdr10_sun_dawn_begin,
+	ps_r4_hdr10_sun_dawn_end,
+	ps_r4_hdr10_sun_dusk_begin,
+	ps_r4_hdr10_sun_dusk_end
+);
+
+DECL_BINDER4F( binder_hdr10_parameters6,
+	ps_r4_hdr10_brightness,
+	1.0f / ps_r4_hdr10_gamma,
+	ps_r4_hdr10_flare_threshold,
+	ps_r4_hdr10_flare_power
+);
+
+DECL_BINDER4F( binder_hdr10_parameters7,
+	ps_r4_hdr10_flare_ghosts,
+	ps_r4_hdr10_flare_ghost_dispersal,
+	ps_r4_hdr10_flare_center_falloff,
+	ps_r4_hdr10_flare_halo_scale
+);
+
+DECL_BINDER4F( binder_hdr10_parameters8,
+	ps_r4_hdr10_flare_halo_ca,
+	ps_r4_hdr10_flare_ghost_ca,
+	ps_r4_hdr10_flare_blur_scale,
+	ps_r4_hdr10_ui_saturation + 1.0f
+);
+
+DECL_BINDER4F( binder_hdr10_parameters9,
+	ps_r4_hdr10_flare_ghost_intensity,
+	ps_r4_hdr10_flare_halo_intensity,
+	ps_r4_hdr10_sun_inner_radius,
+	ps_r4_hdr10_sun_outer_radius
+);
+
+DECL_BINDER4F( binder_hdr10_parameters10,
+	ps_r4_hdr10_flare_lens_color.x,
+	ps_r4_hdr10_flare_lens_color.y,
+	ps_r4_hdr10_flare_lens_color.z,
+	ps_r4_hdr10_sun_on
+);
 /* --- HDR10 Parameters --- */
 
 // Standart constant-binding
@@ -1248,7 +1331,14 @@ void CBlender_Compile::SetMapping()
 	//--DSR-- HeatVision_end
 
 	// HDR10 parameters
-    r_Constant("hdr10_parameters1", &binder_hdr10_parameters1);
-    r_Constant("hdr10_parameters2", &binder_hdr10_parameters2);
-    r_Constant("hdr10_parameters3", &binder_hdr10_parameters3);
+    r_Constant("hdr10_parameters1",  &binder_hdr10_parameters1);
+    r_Constant("hdr10_parameters2",  &binder_hdr10_parameters2);
+    r_Constant("hdr10_parameters3",  &binder_hdr10_parameters3);
+	r_Constant("hdr10_parameters4",  &binder_hdr10_parameters4);
+	r_Constant("hdr10_parameters5",  &binder_hdr10_parameters5);
+	r_Constant("hdr10_parameters6",  &binder_hdr10_parameters6);
+	r_Constant("hdr10_parameters7",  &binder_hdr10_parameters7);
+	r_Constant("hdr10_parameters8",  &binder_hdr10_parameters8);
+	r_Constant("hdr10_parameters9",  &binder_hdr10_parameters9);
+	r_Constant("hdr10_parameters10", &binder_hdr10_parameters10);
 }

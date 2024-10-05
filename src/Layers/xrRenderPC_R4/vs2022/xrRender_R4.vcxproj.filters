@@ -383,6 +383,8 @@
     <ClInclude Include="..\R_Backend_LOD.h" />
     <ClInclude Include="..\SMAP_Allocator.h" />
     <ClInclude Include="..\stdafx.h" />
+    <ClInclude Include="..\blender_hdr10_bloom.h" />
+    <ClInclude Include="..\blender_hdr10_lens_flare.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\xrEngine\ai_script_lua_debug.cpp" />
@@ -605,5 +607,9 @@
     <ClCompile Include="..\R_Backend_LOD.cpp" />
     <ClCompile Include="..\stdafx.cpp" />
     <ClCompile Include="..\xrRender_R4.cpp" />
+    <ClCompile Include="..\r4_rendertarget_phase_hdr10_bloom.cpp" />
+    <ClCompile Include="..\r4_rendertarget_phase_hdr10_lens_flare.cpp" />
+    <ClCompile Include="..\blender_hdr10_bloom.cpp" />
+    <ClCompile Include="..\blender_hdr10_lens_flare.cpp" />
   </ItemGroup>
 </Project>

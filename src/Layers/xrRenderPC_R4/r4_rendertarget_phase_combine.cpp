@@ -656,6 +656,18 @@ void CRenderTarget::phase_combine()
 	}
 	RCache.set_Stencil(FALSE);
 
+	if (RImplementation.o.dx11_hdr10) {
+		// TODO: we should be able to avoid a copy if both are enabled
+		if (ps_r4_hdr10_bloom_on) {
+			HW.pContext->CopyResource(rt_Generic_0->pTexture->surface_get(), rt_Color->pTexture->surface_get());
+			phase_hdr10_bloom(); // samples from rt_Generic_0, writes to rt_Color
+		}
+		if (ps_r4_hdr10_flare_on) {
+			HW.pContext->CopyResource(rt_Generic_0->pTexture->surface_get(), rt_Color->pTexture->surface_get());
+			phase_hdr10_lens_flare(); // samples from rt_Generic_0, writes to rt_Color
+		}
+	}
+
 	//	if FP16-BLEND !not! supported - draw flares here, overwise they are already in the bloom target
 	/* if (!RImplementation.o.fp16_blend)*/
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES) && ps_r2_heatvision == 0) //--DSR-- HeatVision

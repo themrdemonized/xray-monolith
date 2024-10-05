@@ -395,10 +395,12 @@ void CRender::create()
 	o.dx10_sm4_1 = ps_r2_ls_flags.test((u32)R3FLAG_USE_DX10_1);
 	o.dx10_sm4_1 = o.dx10_sm4_1 && (HW.FeatureLevel >= D3D_FEATURE_LEVEL_10_1);
 
-	//	MSAA option dependencies
+	// HDR10
+	o.dx11_hdr10 = !!ps_r4_hdr10_on;
 
-	o.dx10_msaa = ps_r3_msaa && !ps_r4_hdr10_on;
-	o.dx10_msaa_samples = (1 << ps_r3_msaa);
+	//	MSAA option dependencies
+	o.dx10_msaa = ps_r3_msaa && !o.dx11_hdr10;
+	o.dx10_msaa_samples = o.dx11_hdr10 ? 1 : (1 << ps_r3_msaa);
 
 	o.dx10_msaa_opt = ps_r2_ls_flags.test(R3FLAG_MSAA_OPT);
 	o.dx10_msaa_opt = o.dx10_msaa_opt && o.dx10_msaa && (HW.FeatureLevel >= D3D_FEATURE_LEVEL_10_1)
