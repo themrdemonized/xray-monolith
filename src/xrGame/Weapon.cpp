@@ -312,10 +312,12 @@ void CWeapon::UpdateZoomParams() {
 	{
 		m_zoom_params.m_bUseDynamicZoom = m_zoom_params.m_bUseDynamicZoom_GL || READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom_gl", false);
 		m_zoom_params.m_fScopeZoomFactor = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_zoom_factor[1] : READ_IF_EXISTS(pSettings, r_float, cNameSect(), "gl_zoom_factor", 0);
+		m_zoom_params.m_fZoomStepCount = 0;
 	} else if (m_zoomtype == 1) //Alt
 	{
 		m_zoom_params.m_bUseDynamicZoom = m_zoom_params.m_bUseDynamicZoom_Alt || READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom_alt", false);
 		m_zoom_params.m_fScopeZoomFactor = (g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_zoom_factor[2] : READ_IF_EXISTS(pSettings, r_float, cNameSect(), "scope_zoom_factor_alt", 0)) / (READ_IF_EXISTS(pSettings, r_string, cNameSect(), "scope_texture_alt", NULL) && zoomFlags.test(SDS_ZOOM) && (SDS_Radius(true) > 0.0) ? zoom_multiple : 1);
+		m_zoom_params.m_fZoomStepCount = 0;
 	} else //Main Sight
 	{
 		m_zoom_params.m_bUseDynamicZoom = m_zoom_params.m_bUseDynamicZoom_Primary || READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "scope_dynamic_zoom", false);
@@ -329,6 +331,7 @@ void CWeapon::UpdateZoomParams() {
 		{
 			m_zoom_params.m_fScopeZoomFactor = m_zoom_params.m_fBaseZoomFactor / zoom_multiple;
 		}
+		m_zoom_params.m_fZoomStepCount = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "zoom_step_count", 0);
 	}
 
 	if (IsZoomed()) {
@@ -817,14 +820,39 @@ void CWeapon::LoadFireParams(LPCSTR section)
 	CShootingObject::LoadFireParams(section);
 };
 
-void GetZoomData(const float scope_factor, float& delta, float& min_zoom_factor);
+void GetZoomData(const float scope_factor, const float zoom_step_count, float& delta, float& min_zoom_factor);
+
+void NewGetZoomData(const float scope_factor, const float zoom_step_count, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
+{
+	float def_fov = float(g_fov);
+	float min_zoom_k = 0.3f;
+	float delta_factor_total = def_fov - scope_factor;
+	VERIFY(delta_factor_total > 0);
+	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
+
+	//Msg("min zoom factor %f, min zoom %f, loc min zoom factor %f", min_zoom_factor, min_zoom, loc_min_zoom_factor);
+
+	if (min_zoom < loc_min_zoom_factor) {
+		min_zoom_factor = min_zoom;
+	} else {
+		min_zoom_factor = loc_min_zoom_factor;
+	}
+
+	float steps = zoom_step_count ? zoom_step_count : n_zoom_step_count;
+	delta = (min_zoom_factor - scope_factor) / steps;
+}
 
 BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
 {
 	if (m_zoom_params.m_bUseDynamicZoom)
 	{
 		float delta, min_zoom_factor;
-		GetZoomData(m_zoom_params.m_fScopeZoomFactor, delta, min_zoom_factor);
+		float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+		if (zoomFlags.test(NEW_ZOOM)) {
+			NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+		} else {
+			GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor);
+		}
 		m_fRTZoomFactor = min_zoom_factor;
 	}
 	else
@@ -2951,27 +2979,6 @@ bool CWeapon::IsHudModeNow()
 	return (HudItemData() != NULL);
 }
 
-void NewGetZoomData(const float scope_factor, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
-{
-	
-	float def_fov = float(g_fov);
-	float min_zoom_k = 0.3f;
-	float delta_factor_total = def_fov - scope_factor;
-	VERIFY(delta_factor_total > 0);
-	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
-
-	//Msg("min zoom factor %f, min zoom %f, loc min zoom factor %f", min_zoom_factor, min_zoom, loc_min_zoom_factor);
-
-	if (min_zoom < loc_min_zoom_factor) {
-		min_zoom_factor = min_zoom;
-	}
-	else {
-		min_zoom_factor = loc_min_zoom_factor;
-	}
-
-	delta = ((delta_factor_total * (1 - min_zoom_k)) / n_zoom_step_count) * (zoom / def_fov);
-}
-
 void CWeapon::ZoomInc()
 {
 	if (!IsScopeAttached()) return;
@@ -2980,10 +2987,9 @@ void CWeapon::ZoomInc()
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 	//
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
-	}
-	else {
-        GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+	} else {
+		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor);
 	}
 	//
 	float f = GetZoomFactor() * power - delta;
@@ -3001,10 +3007,9 @@ void CWeapon::ZoomDec()
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 	//
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
-	}
-	else {
-        GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, delta, min_zoom_factor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+	} else {
+		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor);
 	}
 	//
 	float f = GetZoomFactor() * power + delta;
