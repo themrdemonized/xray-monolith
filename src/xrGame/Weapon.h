@@ -365,6 +365,7 @@ protected:
 	struct SZoomParams
 	{
         float m_fMinBaseZoomFactor;
+		float m_fZoomStepCount;
 		bool m_bZoomEnabled;
 		bool m_bHideCrosshairInZoom;
 		bool m_bZoomDofEnabled;
