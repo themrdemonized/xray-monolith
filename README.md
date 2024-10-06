@@ -184,6 +184,11 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.06**
+* Hozar2002: Large levels support (https://github.com/themrdemonized/xray-monolith/pull/75)
+* damoldavskiy: Zoom step count adjustment and slight refactor (https://github.com/themrdemonized/xray-monolith/pull/80)
+* New `ltx_help_ex.script` file to describe additional LTX params supported by the engine
+
 **2024.10.05**
 * deggua: HDR10 Bloom, Lens Flares, Misc Updates (https://github.com/themrdemonized/xray-monolith/pull/78)
 * Disabled screenshot capturing if HDR is enabled to prevent crashes
