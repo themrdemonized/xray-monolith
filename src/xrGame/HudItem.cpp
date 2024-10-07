@@ -178,7 +178,7 @@ void CHudItem::OnStateSwitch(u32 S, u32 oldState)
 		{
 			if (HudItemData())
 			{
-				Fvector P = object().XFORM().c;
+				Fvector P = HudItemData()->m_item_transform.c;
 				m_sounds.PlaySound("sndBore", P, object().H_Root(), !!GetHUDmode(), false, m_started_rnd_anim_idx);
 			}
 		}
@@ -600,8 +600,6 @@ void CHudItem::render_item_3d_ui()
 	{
 		Fmatrix LM;
 		Fmatrix trans = HudItemData()->m_item_transform;
-		//trans.c.add(Device.vCameraPosition);
-
 		u16 bid = HudItemData()->m_model->LL_BoneID(script_ui_bone);
 		Fmatrix ui_bone = HudItemData()->m_model->LL_GetTransform(bid);
 		LM.mul(trans, ui_bone);
