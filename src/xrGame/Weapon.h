@@ -398,6 +398,7 @@ public:
 		return m_zoom_params.m_bZoomEnabled;
 	}
 
+	virtual float GetMinScopeZoomFactor() const;
 	virtual void ZoomInc();
 	virtual void ZoomDec();
 	virtual void OnZoomIn();
