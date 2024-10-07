@@ -184,6 +184,11 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.07**
+* damoldavskiy: Min/max scope zoom fov params (https://github.com/themrdemonized/xray-monolith/pull/81)
+* Reverted Fix HUD Shaking due to 3DSS compatibility issues (https://github.com/themrdemonized/xray-monolith/pull/75/commits/98022a2a2cd17204c0ffac215d541425940042ba)
+* Fix Grenade launcher rounds issue when loading save (https://github.com/themrdemonized/xray-monolith/issues/79)
+
 **2024.10.06**
 * Hozar2002: Large levels support and fix HUD model rendering at large distances from map origin (https://github.com/themrdemonized/xray-monolith/pull/75)
 * damoldavskiy: Zoom step count adjustment and slight refactor (https://github.com/themrdemonized/xray-monolith/pull/80)
