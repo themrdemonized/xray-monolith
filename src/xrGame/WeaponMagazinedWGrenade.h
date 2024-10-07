@@ -55,7 +55,7 @@ public:
 	virtual void UpdateSounds();
 
 	//переключение в режим подствольника
-	virtual bool SwitchMode();
+	virtual bool SwitchMode(bool force = false);
 	void PerformSwitchGL();
 	void OnAnimationEnd(u32 state);
 	virtual void OnMagazineEmpty();

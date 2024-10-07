@@ -175,7 +175,6 @@ void attachable_hud_item::setup_firedeps(firedeps& fd)
 		Fmatrix& fire_mat = m_model->LL_GetTransform(m_measures.m_fire_bone);
 		fire_mat.transform_tiny(fd.vLastFP, m_parent->m_adjust_mode ? m_parent->m_adjust_firepoint_shell[0][0] : m_measures.m_fire_point_offset);
 		m_item_transform.transform_tiny(fd.vLastFP);
-		fd.vLastFP.add(Device.vCameraPosition);
 
 		fd.vLastFD.set(m_parent->m_adjust_mode ? m_parent->m_adjust_firepoint_shell[1][0] : m_measures.m_fire_direction);
 		m_item_transform.transform_dir(fd.vLastFD);
@@ -195,7 +194,6 @@ void attachable_hud_item::setup_firedeps(firedeps& fd)
 		Fmatrix& fire_mat = m_model->LL_GetTransform(m_measures.m_fire_bone2);
 		fire_mat.transform_tiny(fd.vLastFP2, m_parent->m_adjust_mode ? m_parent->m_adjust_firepoint_shell[0][1] : m_measures.m_fire_point2_offset);
 		m_item_transform.transform_tiny(fd.vLastFP2);
-		fd.vLastFP2.add(Device.vCameraPosition);
 		fd.vLastFD.set(m_parent->m_adjust_mode ? m_parent->m_adjust_firepoint_shell[1][0] : m_measures.m_fire_direction);
 		VERIFY(_valid(fd.vLastFP2));
 	}
@@ -205,7 +203,6 @@ void attachable_hud_item::setup_firedeps(firedeps& fd)
 		Fmatrix& fire_mat = m_model->LL_GetTransform(m_measures.m_shell_bone);
 		fire_mat.transform_tiny(fd.vLastSP, m_parent->m_adjust_mode ? m_parent->m_adjust_firepoint_shell[1][1] : m_measures.m_shell_point_offset);
 		m_item_transform.transform_tiny(fd.vLastSP);
-		fd.vLastSP.add(Device.vCameraPosition);
 		VERIFY(_valid(fd.vLastSP));
 	}
 }

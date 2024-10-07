@@ -33,10 +33,6 @@ ICF float CalcSSA(float& distSQ, Fvector& C, float R)
 	return R / distSQ;
 }
 
-ICF float CalcHudSSA(float& distSQ, Fvector& C, dxRender_Visual* V) {
-	return  V->vis.sphere.R / EPS;
-}
-
 void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center)
 {
 	CRender& RI = RImplementation;
@@ -50,8 +46,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #endif
 
 	float distSQ;
-	float SSA = !RI.val_bHUD ? CalcSSA(distSQ, Center, pVisual) : CalcHudSSA(distSQ, Center, pVisual);
-
+	float SSA = CalcSSA(distSQ, Center, pVisual);
 	if (SSA <= r_ssaDISCARD) return;
 
 	// Distortive geometry should be marked and R2 special-cases it
@@ -643,7 +638,7 @@ Fvector4 o_optimize_dynamic_l3_size = {O_D_L3_S_LOW, O_D_L3_S_MED, O_D_L3_S_HII,
 IC float GetDistFromCamera(const Fvector& from_position)
 // Aproximate, adjusted by fov, distance from camera to position (For right work when looking though binoculars and scopes)
 {
-	float distance = !RImplementation.get_HUD() ? Device.vCameraPosition.distance_to(from_position) : from_position.magnitude();
+	float distance = Device.vCameraPosition.distance_to(from_position);
 	float fov_K = BASE_FOV / Device.fFOV;
 	float adjusted_distane = distance / fov_K;
 

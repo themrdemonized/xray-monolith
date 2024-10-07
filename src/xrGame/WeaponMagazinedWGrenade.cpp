@@ -183,11 +183,11 @@ void CWeaponMagazinedWGrenade::PlayAnimFireModeSwitch()
 	}
 }
 
-bool CWeaponMagazinedWGrenade::SwitchMode()
+bool CWeaponMagazinedWGrenade::SwitchMode(bool force)
 {
 	bool bUsefulStateToSwitch = (eIdle == GetState() && !IsPending());
 
-	if (!bUsefulStateToSwitch)
+	if (!force && !bUsefulStateToSwitch)
 		return false;
 
 	if (!IsGrenadeLauncherAttached())
@@ -1015,7 +1015,12 @@ void CWeaponMagazinedWGrenade::load(IReader& input_packet)
 	bool b;
 	load_data(b, input_packet);
 	if (b != m_bGrenadeMode)
-		SwitchMode();
+		SwitchMode(true);
+
+	if (b && !m_bGrenadeMode) {
+		Msg("[%s] ERROR: CWeaponMagazinedWGrenade::load: m_bGrenadeMode = %d, failed to switch to grenade mode", Name(), m_bGrenadeMode);
+		return;
+	}
 
 	u32 sz;
 	load_data(sz, input_packet);
