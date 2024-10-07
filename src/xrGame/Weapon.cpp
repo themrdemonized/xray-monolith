@@ -2979,6 +2979,19 @@ bool CWeapon::IsHudModeNow()
 	return (HudItemData() != NULL);
 }
 
+float CWeapon::GetMinScopeZoomFactor() const
+{
+	float delta, min_zoom_factor;
+	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+	if (zoomFlags.test(NEW_ZOOM)) {
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+	}
+	else {
+		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor);
+	}
+	return min_zoom_factor;
+}
+
 void CWeapon::ZoomInc()
 {
 	if (!IsScopeAttached()) return;
