@@ -1195,6 +1195,9 @@ void CActor::UpdateCL()
 			g_pGamePersistent->m_pGShaderConstants->hud_params.y = pWeapon->GetSecondVPZoomFactor();
 			g_pGamePersistent->m_pGShaderConstants->hud_params.z = pWeapon->m_nearwall_last_hud_fov;
 			g_pGamePersistent->m_pGShaderConstants->hud_params.w = Device.m_SecondViewport.IsSVPFrame();
+
+			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.x = pWeapon->CurrentZoomFactor();
+			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y = pWeapon->GetMinScopeZoomFactor();
 		}
 	}
 	else
@@ -1206,6 +1209,7 @@ void CActor::UpdateCL()
 
 			// Clearing Weapons Information in Shaders
 			g_pGamePersistent->m_pGShaderConstants->hud_params.set(0.f, 0.f, 0.f, 0.f);
+			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.set(0.f, 0.f, 0.f, 0.f);
 			g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
 
 			// Turn off SecondVP
