@@ -184,6 +184,9 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.09**
+* damoldavskiy: Added hud_fov_aim_factor console parameter which which lowers hud_fov in ads. Useful for 3D scopes. Default is 0 (https://github.com/themrdemonized/xray-monolith/pull/83)
+
 **2024.10.07**
 * damoldavskiy: Min/max scope zoom fov params (https://github.com/themrdemonized/xray-monolith/pull/81)
 * Reverted Fix HUD Shaking due to 3DSS compatibility issues (https://github.com/themrdemonized/xray-monolith/pull/75/commits/98022a2a2cd17204c0ffac215d541425940042ba)
