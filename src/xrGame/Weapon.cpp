@@ -432,9 +432,18 @@ void CWeapon::SetZoomType(u8 new_zoom_type)
 
 extern float g_ironsights_factor;
 
+inline float smoothstep(float x)
+{
+	return x * x * (3 - 2 * x);
+}
+
 float CWeapon::GetHudFov()
 {
 	float base = inherited::GetHudFov();
+
+	float x = smoothstep(m_zoom_params.m_fZoomRotationFactor);
+	float factor = hud_fov_aim_factor > 0 ? hud_fov_aim_factor : 1;
+	base = (base * factor) * x + base * (1 - x);
 
 	/*
 	if (m_zoom_params.m_fBaseZoomFactor == 0.f)
