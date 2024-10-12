@@ -194,6 +194,7 @@ void CUIArtefactDetectorElite::Draw()
 void CUIArtefactDetectorElite::GetUILocatorMatrix(Fmatrix& _m)
 {
 	Fmatrix trans = m_parent->HudItemData()->m_item_transform;
+	trans.c.add(Device.vCameraPosition);
 
 	// Lucy: custom boneid for ui
 	u16 bid = m_parent->HudItemData()->m_model->LL_BoneID(READ_IF_EXISTS(pSettings, r_string, *m_parent->HudItemData()->m_sect_name, "detector_ui_bone", "cover"));
