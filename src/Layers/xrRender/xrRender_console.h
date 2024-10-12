@@ -266,6 +266,8 @@ extern ECORE_API int ps_r3_dyn_wet_surf_sm_res; // 256
 extern ECORE_API int opt_static;
 extern ECORE_API int opt_dynamic;
 
+extern ECORE_API bool hud_geom_render;
+
 enum
 {
 	R2FLAG_SUN = (1 << 0),

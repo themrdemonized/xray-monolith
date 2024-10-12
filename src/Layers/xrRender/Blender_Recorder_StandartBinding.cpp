@@ -254,8 +254,13 @@ class cl_eye_P : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		Fvector& V = RDEVICE.vCameraPosition;
-		RCache.set_c(C, V.x, V.y, V.z, 1);
+		if(hud_geom_render) {
+			RCache.set_c(C, 0, 0, 0, 1);
+		}
+		else {
+			Fvector& V = RDEVICE.vCameraPosition;
+			RCache.set_c(C, V.x, V.y, V.z, 1);
+		}
 	}
 };
 static cl_eye_P binder_eye_P;
@@ -267,13 +272,17 @@ extern float scope_fog_interp;
 extern float scope_fog_travel;
 class cl_eye_PL : public R_constant_setup
 {
-	Fvector tV;
+	Fvector tV, tVt;
 	virtual void setup(R_constant* C)
 	{
 		Fvector& V = RDEVICE.vCameraPosition;
-		tV = tV.lerp(tV, V, scope_fog_interp);
+		tVt = tV = tV.lerp(tV, V, scope_fog_interp);
 
-		RCache.set_c(C, tV.x, tV.y, tV.z, 1);
+		if(hud_geom_render) {
+			tVt.sub(V);
+		}
+
+		RCache.set_c(C, tVt.x, tVt.y, tVt.z, 1);
 	}
 };
 static cl_eye_PL binder_eye_PL;
