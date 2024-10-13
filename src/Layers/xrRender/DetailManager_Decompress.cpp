@@ -71,6 +71,13 @@ bool det_render_debug = false;
 
 #include "../../xrEngine/gamemtllib.h"
 
+static inline u32 hash2(u32 x, u32 y)
+{
+	u64 a = ((u64)x << 32) | (u64)y;
+	u64 r = 9199940308585234877ull * a + 9199940308585234877ull;
+	return (u32)(r >> 32);
+}
+
 //#define		DBG_SWITCHOFF_RANDOMIZE
 void CDetailManager::cache_Decompress(Slot* S)
 {
@@ -117,7 +124,7 @@ void CDetailManager::cache_Decompress(Slot* S)
 	u32 d_size = iCeil(dm_slot_size / density);
 	svector<int, dm_obj_in_slot> selected;
 
-	u32 p_rnd = D.sx * D.sz; // нужно для того чтобы убрать полосы(ряды)
+	u32 p_rnd = hash2((u32)D.sx, (u32)D.sz);
 	CRandom r_selection(0x12071980 ^ p_rnd);
 	CRandom r_jitter(0x12071980 ^ p_rnd);
 	CRandom r_yaw(0x12071980 ^ p_rnd);
