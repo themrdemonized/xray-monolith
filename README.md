@@ -184,7 +184,7 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
-**2024.10.13**
+**2024.10.14**
 * deggua: Fix Grass Patterns due to Bad PRNG Seeding (https://github.com/themrdemonized/xray-monolith/pull/86)
 
 **2024.10.10**
