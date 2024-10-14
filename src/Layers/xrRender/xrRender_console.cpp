@@ -484,8 +484,6 @@ xr_token ext_quality_token[] = {
 };
 //-AVO
 
-ECORE_API bool hud_geom_render = false;
-
 //- Mad Max
 float ps_r2_gloss_factor = 4.0f;
 float ps_r2_gloss_min = 0.0f;

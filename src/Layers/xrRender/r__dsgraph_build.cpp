@@ -34,8 +34,7 @@ ICF float CalcSSA(float& distSQ, Fvector& C, float R)
 }
 
 ICF float CalcHudSSA(float& distSQ, Fvector& C, dxRender_Visual* V) {
-	distSQ = C.square_magnitude() + EPS;
-	return  V->vis.sphere.R / distSQ;
+	return  V->vis.sphere.R / EPS;
 }
 
 void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center)

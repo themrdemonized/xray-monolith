@@ -583,6 +583,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	// Change projection
 	Fmatrix Pold = Device.mProject;
 	Fmatrix FTold = Device.mFullTransform;
+	Fmatrix FVold = Device.mView;
 
 	Fmatrix Vold = Device.mView;
 	Device.mView.build_camera_dir(Fvector().set(0.f, 0.f, 0.f), Device.vCameraDirection, Device.vCameraTop);
@@ -595,8 +596,6 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-
-	hud_geom_render = true;
 
 
 	// Rendering
@@ -632,11 +631,10 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	// Restore projection
 	Device.mProject = Pold;
 	Device.mFullTransform = FTold;
+	Device.mView = FVold;
 	Device.mView = Vold;
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-
-	hud_geom_render = false;
 }
 
 void R_dsgraph_structure::r_dsgraph_render_hud_ui()
@@ -654,7 +652,6 @@ void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = true;
 
 	rmNear();
 	g_hud->RenderActiveItemUI();
@@ -666,7 +663,6 @@ void R_dsgraph_structure::r_dsgraph_render_hud_ui()
 	Device.mView = Vold;
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = false;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -690,7 +686,6 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = true;
 
 	// Rendering
 	rmNear();
@@ -704,7 +699,6 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	Device.mView = Vold;
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = false;
 }
 
 #if defined(USE_DX11)
@@ -715,17 +709,13 @@ void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D 
 	// Change projection
 	Fmatrix Pold = Device.mProject;
 	Fmatrix FTold = Device.mFullTransform;
-	Fmatrix Vold = Device.mView;
-	Device.mView.build_camera_dir(Fvector().set(0.f, 0.f, 0.f), Device.vCameraDirection, Device.vCameraTop);
 	Device.mProject.build_projection(
 		deg2rad(psHUD_FOV * 83.f),
 		Device.fASPECT, R_VIEWPORT_NEAR,
 		g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
-	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = true;
 
 	// Rendering
 	rmNear();
@@ -736,10 +726,7 @@ void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D 
 	// Restore projection
 	Device.mProject = Pold;
 	Device.mFullTransform = FTold;
-	Device.mView = Vold;
-	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = false;
 }
 #endif
 
@@ -765,7 +752,6 @@ void R_dsgraph_structure::r_dsgraph_render_emissive()
 	Device.mFullTransform.mul(Device.mProject, Device.mView);
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = true;
 
 	// Rendering
 	rmNear();
@@ -781,7 +767,6 @@ void R_dsgraph_structure::r_dsgraph_render_emissive()
 	Device.mView = Vold;
 	RCache.set_xform_view(Device.mView);
 	RCache.set_xform_project(Device.mProject);
-	hud_geom_render = false;
 #endif
 }
 
