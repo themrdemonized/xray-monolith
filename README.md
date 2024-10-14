@@ -184,7 +184,10 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
-**2024.10.09**
+**2024.10.13**
+* deggua: Fix Grass Patterns due to Bad PRNG Seeding (https://github.com/themrdemonized/xray-monolith/pull/86)
+
+**2024.10.10**
 * damoldavskiy: Added hud_fov_aim_factor console parameter which which lowers hud_fov in ads. Useful for 3D scopes. Default is 0 (https://github.com/themrdemonized/xray-monolith/pull/83)
 
 **2024.10.07**
