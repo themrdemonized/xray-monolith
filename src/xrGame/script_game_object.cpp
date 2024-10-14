@@ -400,14 +400,8 @@ Fvector CScriptGameObject::bone_position(u16 bone_id, bool bHud)
 		bone_id = k->LL_GetBoneRoot();
 	}
 
-	Fmatrix trans = *xform;
-	if(bHud) {
-		trans.c.add(Device.vCameraPosition);
-	}
-
-
 	Fmatrix matrix;
-	matrix.mul_43(trans, k->LL_GetTransform(bone_id));
+	matrix.mul_43(*xform, k->LL_GetTransform(bone_id));
 	return (matrix.c);
 }
 
