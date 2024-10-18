@@ -834,12 +834,9 @@ void GetZoomData(const float scope_factor, const float zoom_step_count, float& d
 void NewGetZoomData(const float scope_factor, const float zoom_step_count, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
 {
 	float def_fov = float(g_fov);
-	float min_zoom_k = 0.3f;
 	float delta_factor_total = def_fov - scope_factor;
 	VERIFY(delta_factor_total > 0);
 	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
-
-	//Msg("min zoom factor %f, min zoom %f, loc min zoom factor %f", min_zoom_factor, min_zoom, loc_min_zoom_factor);
 
 	if (min_zoom < loc_min_zoom_factor) {
 		min_zoom_factor = min_zoom;
@@ -849,6 +846,8 @@ void NewGetZoomData(const float scope_factor, const float zoom_step_count, float
 
 	float steps = zoom_step_count ? zoom_step_count : n_zoom_step_count;
 	delta = (min_zoom_factor - scope_factor) / steps;
+
+	//Msg("min zoom factor %f, min zoom %f, loc min zoom factor %f, g_ironsights_factor %f, scope_radius %f, scope_scrollpower %f, zoom_step_count %f, n_zoom_step_count %f, steps %f, delta %f", min_zoom_factor, min_zoom, loc_min_zoom_factor, g_ironsights_factor, scope_radius, scope_scrollpower, zoom_step_count, n_zoom_step_count, steps, delta);
 }
 
 BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
@@ -1871,6 +1870,26 @@ void CWeapon::OnZoomIn()
     //////////
     
 	m_zoom_params.m_bIsZoomModeNow = true;
+
+	if (!firstZoomDone) {
+		firstZoomDone = true;
+
+		if (m_zoom_params.m_bUseDynamicZoom) {
+			float delta, min_zoom_factor;
+			float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+			
+			if (zoomFlags.test(NEW_ZOOM)) {
+				NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+			} else {
+				GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor);
+			}
+			
+			m_fRTZoomFactor = min_zoom_factor;
+		}
+	}
+
+	//Msg("m_fRTZoomFactor %f, scope_scrollpower %f", m_fRTZoomFactor, scope_scrollpower);
+
 	if (m_zoom_params.m_bUseDynamicZoom)
 		SetZoomFactor(scope_radius > 0.0 ? m_fRTZoomFactor / scope_scrollpower : m_fRTZoomFactor);
 	else

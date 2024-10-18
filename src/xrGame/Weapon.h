@@ -391,6 +391,10 @@ protected:
 
 	float m_fRTZoomFactor; //run-time zoom factor
 	CUIWindow* m_UIScope;
+
+private:
+	bool firstZoomDone;
+
 public:
 
 	IC bool IsZoomEnabled() const
