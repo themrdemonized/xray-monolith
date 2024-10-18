@@ -184,6 +184,10 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.18**
+* Fixed wrong initial zoom level with dynamic zoom scopes
+* `level.add_bullet` supports table as an argument to define bullet properties. Refer to `lua_help_ex.script` file for available table fields
+
 **2024.10.14**
 * deggua: Fix Grass Patterns due to Bad PRNG Seeding (https://github.com/themrdemonized/xray-monolith/pull/86)
 
