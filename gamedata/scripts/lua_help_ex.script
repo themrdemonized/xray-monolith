@@ -178,6 +178,24 @@
 
         CUIStatic* map_get_object_spot_static(u16 id, LPCSTR spot_type)
         CUIStatic* map_get_object_minimap_spot_static(u16 id, LPCSTR spot_type)
+
+        add_bullet(Fvector pos, Fvector dir, float speed, float power, float impulse, u16 sender, ALife::EHitType hit_type, float max_dist, LPCSTR ammo_sect, float air_resistance)
+
+        add_bullet(table t)
+        // Supported parameters and example:
+        //    local t = {
+        //        pos = device().cam_pos,
+        //        dir = device().cam_dir,
+        //        speed = 10,
+        //        power = 1,
+        //        impulse = 1,
+        //        sender = AC_ID,
+        //        hit_type = 1,
+        //        max_dist = 100,
+        //        ammo_sect = "ammo_5.56x45_fmj",
+        //        air_resistance = 0.2,
+        //    }
+        //    level.add_bullet(t)
     }
 
     // obj:get_physics_shell()

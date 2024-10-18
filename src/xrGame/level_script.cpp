@@ -1515,6 +1515,32 @@ void AddBullet(Fvector pos, Fvector dir, float speed, float power, float impulse
 	delete_data(_temp);
 }
 
+// demonized: AddBullet with lua table as argument
+void AddBullet(luabind::object t)
+{
+	if (t && t.type() == LUA_TTABLE)
+	{
+		Fvector pos = luabind::object_cast<Fvector>(t["pos"]);
+		Fvector dir = luabind::object_cast<Fvector>(t["dir"]);
+		float speed = luabind::object_cast<float>(t["speed"]);
+		float power = luabind::object_cast<float>(t["power"]);
+		float impulse = luabind::object_cast<float>(t["impulse"]);
+		u16 sender = luabind::object_cast<u16>(t["sender"]);
+		ALife::EHitType hit_type = luabind::object_cast<ALife::EHitType>(t["hit_type"]);
+		float max_dist = luabind::object_cast<float>(t["max_dist"]);
+		LPCSTR ammo_sect = luabind::object_cast<LPCSTR>(t["ammo_sect"]);
+		float air_resistance = luabind::object_cast<float>(t["air_resistance"]);
+
+		CCartridge* _temp = xr_new<CCartridge>();
+		_temp->Load(ammo_sect, 0);
+		Level().BulletManager().AddBullet(pos, dir, speed, power, impulse, sender, sender, hit_type, max_dist, *_temp, air_resistance, true);
+		delete_data(_temp);
+	} else {
+		Msg("!AddBullet(luabind::object t): argument is not a table");
+		ai().script_engine().print_stack();
+	}
+}
+
 extern ENGINE_API float psHUD_FOV;
 
 const Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
@@ -2203,7 +2229,8 @@ void CLevel::script_register(lua_State* L)
 			def("get_env_rads", &get_env_rads),
 			def("iterate_nearest", &iterate_nearest),
 			def("pick_material", &PickMaterial),
-			def("add_bullet", &AddBullet)
+			def("add_bullet", ((void (*)(Fvector, Fvector, float, float, float, u16, ALife::EHitType, float, LPCSTR, float))& AddBullet)),
+			def("add_bullet", ((void (*)(luabind::object))& AddBullet))
 		],
 
 		module(L, "actor_stats")
