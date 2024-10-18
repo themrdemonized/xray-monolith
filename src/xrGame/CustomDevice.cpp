@@ -31,7 +31,20 @@ bool CCustomDevice::CheckCompatibilityInt(CHudItem* itm, u16* slot_to_activate)
 
 	CInventoryItem& iitm = itm->item();
 	u32 slot = iitm.BaseSlot();
-	bool bres = (slot == INV_SLOT_2 || slot == KNIFE_SLOT || slot == BOLT_SLOT); // || iitm.AllowDevice();
+	bool bres = (slot == INV_SLOT_2 || slot == KNIFE_SLOT || slot == BOLT_SLOT || slot == INV_SLOT_3) ; // || iitm.IsSingleHanded()) ; // || iitm.AllowDevice();
+
+	if (bres)
+	{
+		CWeapon* W = smart_cast<CWeapon*>(itm);
+		if (W)
+			bres = bres &&
+			(W->IsSingleHanded()) &&
+			(W->GetState() != CHUDState::eBore) &&
+			(W->GetState() != CWeapon::eReload) &&
+			(W->GetState() != CWeapon::eSwitch) && 
+			(m_bCanBeZoomed || !W->IsZoomed());
+	}
+
 	if (!bres && slot_to_activate)
 	{
 		*slot_to_activate = NO_ACTIVE_SLOT;
@@ -54,16 +67,6 @@ bool CCustomDevice::CheckCompatibilityInt(CHudItem* itm, u16* slot_to_activate)
 	if (itm->GetState() != CHUDState::eShowing)
 		bres = bres && !itm->IsPending();
 
-	if (bres)
-	{
-		CWeapon* W = smart_cast<CWeapon*>(itm);
-		if (W)
-			bres = bres &&
-			(W->GetState() != CHUDState::eBore) &&
-			(W->GetState() != CWeapon::eReload) &&
-			(W->GetState() != CWeapon::eSwitch) && 
-			(m_bCanBeZoomed || !W->IsZoomed());
-	}
 	return bres;
 }
 
