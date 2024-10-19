@@ -118,6 +118,9 @@
 	<string id="ui_mm_modded_exes_log_timestamps">
 		<text>Время в логах (log_timestamps)</text>
 	</string>
+	<string id="ui_mm_modded_exes_print_bone_warnings">
+		<text>Предупреждения invalid bone в логе (print_bone_warnings)</text>
+	</string>
 	<string id="ui_mm_modded_exes_freelook_cam_limit">
 		<text>Угол свободного обзора (freelook_cam_limit)</text>
 	</string>

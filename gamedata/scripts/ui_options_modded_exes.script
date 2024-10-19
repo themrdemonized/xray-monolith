@@ -759,6 +759,14 @@ function init_opt_base()
 				cmd = "log_timestamps",
 			},
 			{
+				id = "print_bone_warnings",
+				type = "list",
+				val = 0,
+				curr = {function() return get_console_cmd(0, "print_bone_warnings") end},
+				content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
+				cmd = "print_bone_warnings",
+			},
+			{
 				id = "lua_gcstep",
 				type = "track",
 				val = 2,
