@@ -184,6 +184,10 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.19**
+* Ishmael: Allow addons to hide loading tips (https://github.com/themrdemonized/xray-monolith/pull/91)
+* Added console command `print_bone_warnings` to toggle printing warnings when using bone_position and bone_direction functions and encounter invalid bones
+
 **2024.10.18**
 * Fixed wrong initial zoom level with dynamic zoom scopes
 * `level.add_bullet` supports table as an argument to define bullet properties. Refer to `lua_help_ex.script` file for available table fields

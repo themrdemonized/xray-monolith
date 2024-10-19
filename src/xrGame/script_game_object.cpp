@@ -114,6 +114,8 @@ BIND_FUNCTION10(&object(), CScriptGameObject::GetEnemyStrength, CScriptEntity, g
 BIND_FUNCTION10(&object(), CScriptGameObject::GetActionCount, CScriptEntity, GetActionCount, u32, 0);
 BIND_FUNCTION10(&object(), CScriptGameObject::can_script_capture, CScriptEntity, can_script_capture, bool, 0);
 
+BOOL print_bone_warnings = TRUE;
+
 u32 CScriptGameObject::level_vertex_id() const
 {
 	return (object().ai_location().level_vertex_id());
@@ -393,7 +395,7 @@ Fvector CScriptGameObject::bone_position(u16 bone_id, bool bHud)
 
 	// demonized: backwards compatibility with scripts, get root bone if bone_id is BI_NONE
 	if (bone_id == BI_NONE) {
-		if (strstr(Core.Params, "-dbg")) {
+		if (strstr(Core.Params, "-dbg") && print_bone_warnings) {
 			Msg("![bone_position] Incorrect bone_id provided for %s (%d), fallback to root bone", object().cNameSect_str(), object().ID());
 			ai().script_engine().print_stack();
 		}
@@ -435,7 +437,7 @@ Fvector CScriptGameObject::bone_direction(u16 bone_id, bool bHud)
 
 	// demonized: backwards compatibility with scripts, get root bone if bone_id is BI_NONE
 	if (bone_id == BI_NONE) {
-		if (strstr(Core.Params, "-dbg")) {
+		if (strstr(Core.Params, "-dbg") && print_bone_warnings) {
 			Msg("![bone_direction] Incorrect bone_id provided for %s (%d), fallback to root bone", object().cNameSect_str(), object().ID());
 			ai().script_engine().print_stack();
 		}
