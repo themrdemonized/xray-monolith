@@ -919,6 +919,10 @@ void CGamePersistent::LoadTitle(bool change_tip, shared_str map_name)
 			R_ASSERT(ai().script_engine().functor("loadscreen.get_mp_tip_number", m_functor));
 			tip_num = m_functor(map_name.c_str());
 		}
+
+		if (tip_num < 1)
+			return;
+
 		//		tip_num = 83;
 		xr_sprintf(buff, "%s%d:", CStringTable().translate("ls_tip_number").c_str(), tip_num);
 		shared_str tmp = buff;
