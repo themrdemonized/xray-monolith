@@ -184,6 +184,9 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2024.10.22**
+* `aaa_sound_object_patch.script` file: Rework of the `sound_object` class to have caching of playing sounds, fixing the issue of abrupt cutting of sounds due to LuaJIT GC
+
 **2024.10.19**
 * Ishmael: Allow addons to hide loading tips (https://github.com/themrdemonized/xray-monolith/pull/91)
 * Added console command `print_bone_warnings` to toggle printing warnings when using bone_position and bone_direction functions and encounter invalid bones
