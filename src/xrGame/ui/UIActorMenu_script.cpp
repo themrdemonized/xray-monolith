@@ -388,6 +388,11 @@ void CUIActorMenu::script_register(lua_State* L)
 		.def_readwrite("m_ui_health_bar_show", &CUIHudStatesWnd::m_ui_health_bar_show)
 		.def_readwrite("m_ui_stamina_bar_show", &CUIHudStatesWnd::m_ui_stamina_bar_show)
 		.def_readwrite("m_ui_psy_bar_show", &CUIHudStatesWnd::m_ui_psy_bar_show)
+
+		// Catspaw - Expose noise and luminosity values to scripting via ActorMenu.get_maingame()
+		.def_readwrite("m_noise_progress", &CUIHudStatesWnd::m_noise_progress)
+		.def_readwrite("m_luminosity_progress", &CUIHudStatesWnd::m_luminosity_progress)
+		
 	];
 
 	module(L, "ActorMenu")
