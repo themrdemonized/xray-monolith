@@ -82,7 +82,7 @@ void CPhysicsShellHolder::net_Destroy()
 		char_support->destroy_imotion();
 	inherited::net_Destroy();
 	b_sheduled = false;
-
+	if (!renderable.visual && m_pPhysicsShell) m_pPhysicsShell->set_Kinematics(nullptr);
 	deactivate_physics_shell();
 	xr_delete(m_pPhysicsShell);
 }

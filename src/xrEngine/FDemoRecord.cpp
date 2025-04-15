@@ -505,6 +505,11 @@ void CDemoRecord::IR_OnMouseRelease(int btn)
 	IR_OnKeyboardRelease(mouse_button_2_key[btn]);
 }
 
+void CDemoRecord::IR_OnMouseWheel(int direction)
+{
+	if (m_b_redirect_input_to_level) g_pGameLevel->IR_OnMouseWheel(direction);
+}
+
 void CDemoRecord::IR_OnKeyboardPress(int dik)
 {
 	if (isInputBlocked) {

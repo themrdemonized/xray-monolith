@@ -78,6 +78,7 @@ public:
 	virtual void IR_OnMouseHold(int btn);
 	virtual void IR_OnMousePress(int btn);
 	virtual void IR_OnMouseRelease(int btn);
+	virtual void IR_OnMouseWheel(int direction);
 	void StopDemo();
 	void EnableReturnCtrlInputs();
 	void SetCameraBoundary(float boundary);

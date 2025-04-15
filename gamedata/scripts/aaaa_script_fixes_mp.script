@@ -148,6 +148,7 @@ function axr_trade_manager.npc_trade_buy_sell(npc)
 	local itm,itm_base_cost,buy_sell, slot, bw,can_sell
 	for sec,count in pairs(st.trade_items) do
 		-- demonized: fixed count loop to go down
+		local count = tonumber(count) or 0
 		for i=count, 1, -1 do
 			itm = npc:object(sec)
 			if (itm) then
@@ -334,6 +335,7 @@ function axr_trade_manager.npc_tech_upgrade_sell(npc)
 	local itm,itm_base_cost,buy_sell, slot, bw,can_sell
 	for sec,count in pairs(st.tech_items) do
 		-- demonized: fixed count loop to go down
+		local count = tonumber(count) or 0
 		for i=count, 1, -1 do
 			itm = npc:object(sec)
 			if (itm) then
