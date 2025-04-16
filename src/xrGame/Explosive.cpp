@@ -22,6 +22,8 @@
 #include "../xrEngine/gamemtllib.h"
 #include "hudsound.h"
 #include "script_game_object.h"
+#include "inventory.h"
+#include "InventoryOwner.h"
 
 #ifdef DEBUG
 #	include "../xrEngine/StatGraph.h"
@@ -151,7 +153,7 @@ void CExplosive::Load(CInifile const* ini, LPCSTR section)
 
 	m_layered_sounds.LoadSound(ini, section, "snd_explode", "sndExplode", false, m_eSoundExplode);
 	if (SoundExist(section, "snd_explode_indoor"))
-		m_sounds.LoadSound(section, "snd_explode_indoor", "sndExplodeIndoor", false, m_eSoundShot);
+		m_layered_sounds.LoadSound(section, "snd_explode_indoor", "sndExplodeIndoor", false, m_eSoundExplode);
 
 	m_fExplodeDurationMax = ini->r_float(section, "explode_duration");
 	if( ini->line_exist(section,"explode_effector_sect_name") )
