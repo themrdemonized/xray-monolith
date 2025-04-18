@@ -182,7 +182,7 @@ void CWeaponMagazined::Load(LPCSTR section)
 		} else {
 			if (WeaponSoundExist(section, "snd_silncer_shoot_indoor_bak")) {
 				m_sounds.LoadSound(section, "snd_silncer_shoot_indoor_bak", "sndSilencerShotIndoor", false, m_eSoundShot);
-		}
+		}}
 		//misfire shot
 		if (WeaponSoundExist(section, "snd_silncer_shot_misfire"))
 			m_sounds.LoadSound(section, "snd_silncer_shot_misfire", "sndSilencerShotMisfire", false, m_eSoundShot);
