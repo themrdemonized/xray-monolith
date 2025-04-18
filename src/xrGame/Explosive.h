@@ -182,6 +182,10 @@ protected:
 	CParticlesObject* m_pExpParticle;
 	virtual void UpdateExplosionParticles();
 
+	template <typename T>
+	IC static bool process_if_exists_set(LPCSTR section, LPCSTR name, T (CInifile::*method)(LPCSTR, LPCSTR) const,
+	                                     T& value, bool test);
+
 	// ��������
 	struct
 	{

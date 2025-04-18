@@ -1,4 +1,4 @@
-// Explosive.cpp: ˜˜˜˜˜˜˜˜˜ ˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜
+// Explosive.cpp: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -11,7 +11,7 @@
 //#include "PSObject.h"
 #include "ParticlesObject.h"
 
-//˜˜˜ ˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜
+//ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 #include "Weapon.h"
 
 #include "actor.h"
@@ -149,7 +149,7 @@ void CExplosive::Load(CInifile const* ini, LPCSTR section)
 	m_fLightRange = ini->r_float(section, "light_range");
 	m_fLightTime = ini->r_float(section, "light_time");
 
-	//˜˜˜˜˜˜ ˜˜˜ ˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	m_fFragmentSpeed = ini->r_float(section, "fragment_speed");
 
 	m_layered_sounds.LoadSound(ini, section, "snd_explode", "sndExplode", false, m_eSoundExplode);
@@ -217,7 +217,7 @@ struct SExpQParams
 	float shoot_factor;
 };
 
-//˜˜˜˜˜˜˜˜ ˜˜ ˜˜˜˜˜˜˜˜˜ "˜˜˜˜˜˜˜˜" ˜˜ ˜˜˜˜˜˜˜
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 ICF static BOOL grenade_hit_callback(collide::rq_result& result, LPVOID params)
 {
 	SExpQParams& ep = *(SExpQParams*)params;
@@ -233,7 +233,7 @@ ICF static BOOL grenade_hit_callback(collide::rq_result& result, LPVOID params)
 	}
 	else
 	{
-		//˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜ ˜ ˜˜˜˜˜˜ ˜˜˜ ˜˜˜˜˜˜˜˜
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
 		mtl_idx = T->material;
 	}
@@ -387,7 +387,7 @@ void CExplosive::Explode()
 	
 	//	Msg("---------CExplosive Explode [%d] frame[%d]",cast_game_object()->ID(), Device.dwFrame);
 	OnBeforeExplosion();
-	//˜˜˜˜˜˜ ˜˜˜˜ ˜˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	// Indoor explodesion sounds
 	if (g_gunsnd_indoor>0.f) {
 		if (m_layered_sounds.FindSoundItem("sndExplodeIndoor", false))
@@ -397,7 +397,7 @@ void CExplosive::Explode()
 	} else {
 	m_layered_sounds.PlaySound("sndExplode", pos, smart_cast<CObject*>(this), false, false, (u8)-1);
 	}
-	//˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	m_wallmark_manager.PlaceWallmarks(pos);
 
@@ -416,14 +416,14 @@ void CExplosive::Explode()
 	pStaticPG->UpdateParent(explode_matrix, vel);
 	pStaticPG->Play(false);
 
-	//˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜ ˜˜ ˜˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	StartLight();
 
 	//trace frags
 	Fvector frag_dir;
 
 	//////////////////////////////
-	//˜˜˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	//////////////////////////////
 	//-------------------------------------
 	bool SendHits = false;
@@ -460,7 +460,7 @@ void CExplosive::Explode()
 	if (cast_game_object()->Remote()) return;
 
 	/////////////////////////////////
-	//˜˜˜˜˜˜˜˜ ˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½
 	////////////////////////////////
 	//---------------------------------------------------------------------
 	xr_vector<ISpatial*> ISpatialResult;
@@ -547,7 +547,7 @@ void CExplosive::UpdateCL()
 		OnAfterExplosion();
 		return;
 	}
-	//˜˜˜˜˜ ˜˜˜˜˜, ˜˜˜˜˜˜˜ ˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (m_fExplodeDuration < 0.f && m_blasted_objects.empty())
 	{
 		m_explosion_flags.set(flExploded,TRUE);
@@ -571,7 +571,7 @@ void CExplosive::UpdateCL()
 		UpdateExplosionPos();
 		UpdateExplosionParticles();
 		ExplodeWaveProcess();
-		//˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		if (m_pLight && m_pLight->get_active() && m_fLightTime > 0)
 		{
 			if (m_fExplodeDuration > (m_fExplodeDurationMax - m_fLightTime))
@@ -594,7 +594,7 @@ void CExplosive::OnAfterExplosion()
 		CParticlesObject::Destroy(m_pExpParticle);
 		m_pExpParticle = NULL;
 	}
-	//˜˜˜˜˜˜˜˜˜˜˜˜˜ ˜˜˜ ˜˜˜˜˜˜ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 	if (cast_game_object()->Local()) cast_game_object()->DestroyObject();
 
 	//	NET_Packet			P;
@@ -703,8 +703,8 @@ void CExplosive::FindNormal(Fvector& normal)
 	if (!result || RQ.O)
 	{
 		normal.set(0, 1, 0);
-		//˜˜˜˜ ˜˜˜˜˜ ˜˜ ˜˜˜˜˜˜˜
-		//˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜ ˜ ˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜ ˜˜ ˜˜˜˜
+		//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 	}
 	else
 	{
@@ -759,7 +759,7 @@ void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysics
 {
 	Fvector l_goPos;
 	if (l_pGO->Visual()) l_pGO->Center(l_goPos);
-	else return; //˜˜˜ ˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜ ˜˜˜˜˜˜˜˜ ˜˜˜ ˜˜ ˜˜˜˜˜˜ ˜˜ ˜˜˜˜˜˜˜˜ ˜˜ ˜˜˜˜˜˜˜ ˜˜˜˜˜˜ - ˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜
+	else return; //ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 #ifdef DEBUG
 	if(ph_dbg_draw_mask.test(phDbgDrawExplosions))
@@ -780,8 +780,8 @@ void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysics
 
 		float rmag = _sqrt(m_fUpThrowFactor * m_fUpThrowFactor + 1.f + 2.f * m_fUpThrowFactor * l_dir.y);
 		l_dir.y += m_fUpThrowFactor;
-		//rmag -˜˜˜˜˜˜ l_dir ˜˜˜˜˜ l_dir.y += m_fUpThrowFactor, ˜˜˜˜˜˜=_sqrt(l_dir^2+y^2+2.*(l_dir,y)),y=(0,m_fUpThrowFactor,0) (˜˜ ˜˜˜˜˜ ˜˜˜˜˜˜ l_dir =1)
-		l_dir.mul(1.f / rmag); //˜˜˜˜˜˜˜˜˜˜˜˜˜˜
+		//rmag -ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ l_dir ï¿½ï¿½ï¿½ï¿½ï¿½ l_dir.y += m_fUpThrowFactor, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½=_sqrt(l_dir^2+y^2+2.*(l_dir,y)),y=(0,m_fUpThrowFactor,0) (ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ l_dir =1)
+		l_dir.mul(1.f / rmag); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		NET_Packet P;
 		SHit HS;
 		HS.GenHeader(GE_HIT, l_pGO->ID()); //		cast_game_object()->u_EventGen		(P,GE_HIT,l_pGO->ID());
