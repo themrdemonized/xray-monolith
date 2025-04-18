@@ -204,7 +204,7 @@ private:
 
 	BOOL add_Dynamic(dxRender_Visual* pVisual, u32 planes); // normal processing
 	void add_Static(dxRender_Visual* pVisual, u32 planes);
-	void add_leafs_Dynamic(dxRender_Visual* pVisual); // if detected node's full visibility
+	void add_leafs_Dynamic(dxRender_Visual* pVisual, bool ignore = false); // if detected node's full visibility
 	void add_leafs_Static(dxRender_Visual* pVisual); // if detected node's full visibility
 
 public:
@@ -363,12 +363,12 @@ public:
 	virtual IRenderVisual* model_Create(LPCSTR name, IReader* data = 0);
 	virtual IRenderVisual* model_CreateChild(LPCSTR name, IReader* data);
 	virtual IRenderVisual* model_Duplicate(IRenderVisual* V);
-	virtual IRenderVisual* model_Instance(LPCSTR name);
 	virtual void model_Delete(IRenderVisual* & V, BOOL bDiscard);
 	virtual void model_Delete(IRender_DetailModel* & F);
 	virtual void model_Logging(BOOL bEnable) { Models->Logging(bEnable); }
 	virtual void models_Prefetch();
 	virtual void models_PrefetchOne(LPCSTR name);
+	virtual void models_Clear(BOOL b_complete);
 
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V);

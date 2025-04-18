@@ -570,7 +570,6 @@ void attachable_hud_item::load(const shared_str& sect_name)
 
 	m_attach_place_idx = pSettings->r_u16(sect_name, "attach_place_idx");
 	m_measures.load(sect_name, m_model);
-	m_hand_motions = m_parent->get_hand_motions(*sect_name);
 }
 
 player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
@@ -580,12 +579,12 @@ player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
 	bool is_16x9 = UI().is_widescreen();
 	xr_sprintf(anim_name_r, "%s%s", anm_name.c_str(), ((m_attach_place_idx == 1) && is_16x9) ? "_16x9" : "");
 
-	player_hud_motion* anm = m_hand_motions->find_motion(anim_name_r);
+	player_hud_motion* anm = m_hand_motions.find_motion(anim_name_r);
 
 	if (!anm)
-		anm = m_hand_motions->find_motion(anm_name);
+		anm = m_hand_motions.find_motion(anm_name);
 
-	R_ASSERT2(anm, make_string("model [%s] has no motion alias defined [%s]", m_sect_name.c_str(), anm_name).c_str())
+	R_ASSERT2(anm, make_string("model [%s] has no motion alias defined [%s]", m_sect_name.c_str(), anim_name_r).c_str())
 	;
 	VERIFY2(anm->m_animations.size(),
 	        make_string("model [%s] has no motion defined in motion_alias [%s]", pSettings->r_string(m_sect_name,
@@ -734,6 +733,7 @@ player_hud::~player_hud()
 	::Render->model_Delete(v);
 	m_model_2 = nullptr;
 
+	delete_data(m_pool);
 	delete_data(m_hand_motions);
 	delete_data(m_script_layers);
 	delete_data(m_movement_layers);
@@ -987,9 +987,8 @@ u32 player_hud::motion_length_script(LPCSTR section, LPCSTR anm_name, float spee
 
 u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md)
 {
-	player_hud_motion_container* pc = get_hand_motions(*hud_name);
-	if (!pc) return 0;
-	player_hud_motion* pm = pc->find_motion(anim_name);
+	attachable_hud_item* pi = get_hud_item(hud_name);
+	player_hud_motion* pm = pi->m_hand_motions.find_motion(anim_name);
 	if (!pm || !pm->m_animations.size())
 		return 100; // ms TEMPORARY
 	R_ASSERT2(pm,
@@ -1609,6 +1608,46 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 	return length;
 }
 
+void player_hud::remove_from_model_pool(LPCSTR sect)
+{
+	xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
+	xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
+	for (; it != it_e; ++it)
+	{
+		attachable_hud_item* itm = *it;
+		if (itm->m_sect_name == sect)
+		{
+			if (m_attached_items[0] && m_attached_items[0] == itm)
+				detach_item_idx(0);
+			else if (m_attached_items[1] && m_attached_items[1] == itm)
+				detach_item_idx(1);
+
+			m_pool.erase(it);
+			break;
+		}
+	}
+}
+
+shared_str current_player_hud_sect;
+attachable_hud_item* player_hud::get_hud_item(const shared_str& sect)
+{
+	current_player_hud_sect = sect;
+	xr_vector<attachable_hud_item*>::iterator it = m_pool.begin();
+	xr_vector<attachable_hud_item*>::iterator it_e = m_pool.end();
+	for (; it != it_e; ++it)
+	{
+		attachable_hud_item* itm = *it;
+		if (itm->m_sect_name == sect)
+			return itm;
+	}
+	attachable_hud_item* res = xr_new<attachable_hud_item>(this);
+	res->load(sect);
+	res->m_hand_motions.load(m_model, sect);
+	m_pool.push_back(res);
+
+	return res;
+}
+
 bool player_hud::allow_activation(CHudItem* item)
 {
 	if (script_anim_part != u8(-1))
@@ -1619,10 +1658,9 @@ bool player_hud::allow_activation(CHudItem* item)
 		return true;
 }
 
-shared_str current_player_hud_sect;
 void player_hud::attach_item(CHudItem* item)
 {
-	attachable_hud_item* pi = item->HudItemData();
+	attachable_hud_item* pi = get_hud_item(item->HudSection());
 	int item_idx = pi->m_attach_place_idx;
 
 	if (m_attached_items[item_idx] != pi)
@@ -1631,6 +1669,7 @@ void player_hud::attach_item(CHudItem* item)
 			m_attached_items[item_idx]->m_parent_hud_item->on_b_hud_detach();
 
 		m_attached_items[item_idx] = pi;
+		pi->m_parent_hud_item = item;
 
 		if (item_idx == 0 && m_attached_items[1])
 			m_attached_items[1]->m_parent_hud_item->CheckCompatibility(item);
@@ -1639,6 +1678,7 @@ void player_hud::attach_item(CHudItem* item)
 
 		updateMovementLayerState();
 	}
+	pi->m_parent_hud_item = item;
 }
 
 //sync anim of other part to selected part (1 = sync to left hand anim; 2 = sync to right hand anim)
@@ -1720,6 +1760,8 @@ void player_hud::detach_item_idx(u16 idx)
 	if (NULL == m_attached_items[idx]) return;
 
 	m_attached_items[idx]->m_parent_hud_item->on_b_hud_detach();
+
+	m_attached_items[idx]->m_parent_hud_item = NULL;
 	m_attached_items[idx] = NULL;
 
 	if (idx == 1)
@@ -1736,7 +1778,7 @@ void player_hud::detach_item_idx(u16 idx)
 		if (m_attached_items[1])
 		{
 			//fix for a rare case where the right hand stays visible on screen after detaching the right hand's attached item
-			player_hud_motion* pm = m_attached_items[1]->m_hand_motions->find_motion("anm_idle");
+			player_hud_motion* pm = m_attached_items[1]->m_hand_motions.find_motion("anm_idle");
 			const motion_descr& M = pm->m_animations[0];
 			m_model->PlayCycle(0, M.mid, false);
 			m_model->PlayCycle(2, M.mid, false);

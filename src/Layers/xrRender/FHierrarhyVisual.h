@@ -12,7 +12,7 @@
 class FHierrarhyVisual : public dxRender_Visual
 {
 public:
-	xr_vector<IRenderVisual*> children;
+	xr_vector<dxRender_Visual*> children;
 	BOOL bDontDelete;
 public:
 	FHierrarhyVisual();
@@ -25,8 +25,6 @@ public:
 	//--DSR-- HeatVision_start
 	virtual void MarkAsHot(bool is_hot);
 	//--DSR-- HeatVision_end
-
-	virtual xr_vector<IRenderVisual*>* get_children() { return &children; };
 };
 
 #endif //FHierrarhyVisualH

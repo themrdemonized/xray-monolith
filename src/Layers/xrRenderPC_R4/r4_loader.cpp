@@ -181,6 +181,7 @@ void CRender::level_Unload()
 
 	if (psDeviceFlags2.test(rsClearModels))
 	{
+		Models->ClearPool(true);
 		Visuals.clear_and_free();
 		dxRenderDeviceRender::Instance().Resources->Dump(false);
 		//static int unload_counter = 0;

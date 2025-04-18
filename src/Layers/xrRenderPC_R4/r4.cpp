@@ -688,7 +688,6 @@ void CRender::ros_destroy(IRender_ObjectSpecific* & p) { xr_delete(p); }
 IRenderVisual* CRender::model_Create(LPCSTR name, IReader* data) { return Models->Create(name, data); }
 IRenderVisual* CRender::model_CreateChild(LPCSTR name, IReader* data) { return Models->CreateChild(name, data); }
 IRenderVisual* CRender::model_Duplicate(IRenderVisual* V) { return Models->Instance_Duplicate((dxRender_Visual*)V); }
-IRenderVisual* CRender::model_Instance(LPCSTR name) { return Models->Instance_Find(name); }
 
 void CRender::model_Delete(IRenderVisual* & V, BOOL bDiscard)
 {
@@ -736,6 +735,7 @@ IRenderVisual* CRender::model_CreateParticles(LPCSTR name)
 
 void CRender::models_Prefetch() { Models->Prefetch(); }
 void CRender::models_PrefetchOne(LPCSTR name) { Models->Prefetch_One(name); }
+void CRender::models_Clear(BOOL b_complete) { Models->ClearPool(b_complete); }
 
 ref_shader CRender::getShader(int id)
 {
@@ -822,7 +822,7 @@ BOOL CRender::occ_visible(vis_data& P) { return HOM.visible(P); }
 BOOL CRender::occ_visible(sPoly& P) { return HOM.visible(P); }
 BOOL CRender::occ_visible(Fbox& P) { return HOM.visible(P); }
 
-void CRender::add_Visual(IRenderVisual* V) { add_leafs_Dynamic((dxRender_Visual*)V); }
+void CRender::add_Visual(IRenderVisual* V) { add_leafs_Dynamic((dxRender_Visual*)V, V->_ignore_optimization); }
 void CRender::add_Geometry(IRenderVisual* V) { add_Static((dxRender_Visual*)V, View->getMask()); }
 
 // demonized: add user defined rotation to wallmark

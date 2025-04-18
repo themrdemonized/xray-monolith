@@ -322,13 +322,13 @@ public:
 	virtual IRenderVisual* model_Create(LPCSTR name, IReader* data = 0) = 0;
 	virtual IRenderVisual* model_CreateChild(LPCSTR name, IReader* data) = 0;
 	virtual IRenderVisual* model_Duplicate(IRenderVisual* V) = 0;
-	virtual IRenderVisual* model_Instance(LPCSTR name) = 0;
 	//virtual void model_Delete (IRenderVisual* & V, BOOL bDiscard=FALSE) = 0;
 	virtual void model_Delete(IRenderVisual*& V, BOOL bDiscard = FALSE) = 0;
 	// virtual void model_Delete (IRender_DetailModel* & F) = 0;
 	virtual void model_Logging(BOOL bEnable) = 0;
 	virtual void models_Prefetch() = 0;
 	virtual void models_PrefetchOne(LPCSTR name) = 0;
+	virtual void models_Clear(BOOL b_complete) = 0;
 
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V) = 0;

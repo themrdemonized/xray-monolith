@@ -188,6 +188,9 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2025.04.18**
+* VodoXleb: Actor camera y offset (https://github.com/themrdemonized/xray-monolith/pull/170)
+
 **2025.04.15**
 * Fixes (https://github.com/themrdemonized/xray-monolith/issues/168)
 * Lucy: Fixes (https://github.com/themrdemonized/xray-monolith/pull/167)

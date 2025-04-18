@@ -1086,6 +1086,7 @@ public:
 	void SetActorRunCoef(float run_coef);
 	float GetActorRunBackCoef() const;
 	void SetActorRunBackCoef(float run_back_coef);
+	void SetActorCamBoxYOffset(u32 box_num, float offset);
 	float GetActorWalkAccel() const;
 	void SetActorWalkAccel(float val);
 	float GetActorWalkBackCoef() const;
@@ -1120,9 +1121,6 @@ public:
 	void set_scope_ui(LPCSTR scope_texture);
 #endif
 	//-Alundaio
-
-	::luabind::object GetShaders(bool bHud = false);
-	void SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud = false);
 
 	script_attachment* AddAttachment(u16 slot, LPCSTR model_name);
 	script_attachment* GetAttachment(u16 slot);

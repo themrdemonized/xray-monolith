@@ -656,6 +656,26 @@ void CScriptGameObject::set_visual_name(LPCSTR visual, bool bForce)
 	if (stalker)
 	{
 		stalker->ChangeVisual(visual);
+
+		IKinematicsAnimated* V = smart_cast<IKinematicsAnimated*>(stalker->Visual());
+		if (V)
+		{
+			if (!stalker->g_Alive())
+			{
+				stalker->m_pPhysics_support->in_Die(false);
+			}
+			else
+			{
+				stalker->CStepManager::reload(stalker->cNameSect().c_str());
+			}
+
+			stalker->CDamageManager::reload(*stalker->cNameSect(), "damage", pSettings);
+			stalker->ResetBoneProtections(NULL, NULL);
+			stalker->reattach_items();
+			stalker->m_pPhysics_support->in_ChangeVisual();
+			stalker->animation().reload();
+		}
+
 		return;
 	}
 
