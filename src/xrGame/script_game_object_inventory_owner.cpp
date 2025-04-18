@@ -2565,6 +2565,18 @@ void CScriptGameObject::SetActorRunBackCoef(float run_back_coef)
 	pActor->m_fRunBackFactor = run_back_coef;
 }
 
+void CScriptGameObject::SetActorCamBoxYOffset(u32 box_num, float offset)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+	if (!pActor)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CActor : cannot access class member SetActorCamBoxYOffset!");
+		return;
+	}
+	pActor->set_actor_box_y_offset(box_num, offset);
+}
+
 
 float CScriptGameObject::GetActorWalkAccel() const
 {

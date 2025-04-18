@@ -103,8 +103,6 @@ public:
 	virtual void net_Import(NET_Packet& P);
 	virtual void net_Relcase(CObject* O);
 
-	virtual void OnChangeVisual();
-
 	//save/load server serialization
 	virtual void save(NET_Packet& output_packet) { inherited::save(output_packet); }
 	virtual void load(IReader& input_packet) { inherited::load(input_packet); }

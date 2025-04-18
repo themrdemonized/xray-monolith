@@ -1294,15 +1294,9 @@ void CCharacterPhysicsSupport::in_ChangeVisual()
 
 	if (m_pPhysicsShell)
 	{
-		if (!m_EntityAlife.renderable.visual)
-			m_pPhysicsShell->set_Kinematics(nullptr);
-
 		VERIFY(m_eType!=etStalker);
 		if (m_physics_skeleton)
 		{
-			if (!m_EntityAlife.renderable.visual)
-				m_physics_skeleton->set_Kinematics(nullptr);
-
 			m_EntityAlife.processing_deactivate();
 			m_physics_skeleton->Deactivate();
 			xr_delete(m_physics_skeleton);

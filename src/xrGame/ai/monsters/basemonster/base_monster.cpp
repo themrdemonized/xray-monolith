@@ -817,12 +817,6 @@ void CBaseMonster::net_Relcase(CObject* O)
 	m_pPhysics_support->in_NetRelcase(O);
 }
 
-void CBaseMonster::OnChangeVisual()
-{
-	if (renderable.visual && ID() != u16(-1)) control().reinit(); //skip during load
-	inherited::OnChangeVisual();
-}
-
 void CBaseMonster::create_base_controls()
 {
 	m_anim_base = xr_new<CControlAnimationBase>();

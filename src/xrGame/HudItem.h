@@ -93,8 +93,6 @@ protected:
 		bool m_bStopAtEndAnimIsRunning;
 	};
 
-	attachable_hud_item* m_attachable;
-
 	float m_fLR_CameraFactor; // Фактор бокового наклона худа при ходьбе [-1; +1]
 	float m_fLR_MovingFactor; // Фактор бокового наклона худа при движении камеры [-1; +1]
 	float m_fLR_InertiaFactor; // Фактор горизонтальной инерции худа при движении камеры [-1; +1]
@@ -131,8 +129,6 @@ public:
 	BOOL GetHUDmode();
 	void PlayBlendAnm(LPCSTR name, float speed = 1.f, float power = 1.f, bool stop_old = true);
 	IC bool IsPending() const { return !!m_huditem_flags.test(fl_pending); }
-
-	virtual void DeleteHudItemData();
 
 	virtual bool ActivateItem();
 	virtual void DeactivateItem();

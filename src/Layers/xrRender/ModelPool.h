@@ -18,6 +18,14 @@ class ECORE_API CModelPool
 private:
 	friend class CRender;
 
+	struct str_pred : public std::binary_function<const shared_str&, const shared_str&, bool>
+	{
+		IC bool operator()(const shared_str& x, const shared_str& y) const
+		{
+			return xr_strcmp(x, y) < 0;
+		}
+	};
+
 	struct ModelDef
 	{
 		shared_str name;
@@ -31,12 +39,15 @@ private:
 		}
 	};
 
+	typedef xr_multimap<shared_str, dxRender_Visual*, str_pred> POOL;
+	typedef POOL::iterator POOL_IT;
 	typedef xr_map<dxRender_Visual*, shared_str> REGISTRY;
 	typedef REGISTRY::iterator REGISTRY_IT;
 private:
 	xr_vector<ModelDef> Models; // Reference / Base
-	xr_map<dxRender_Visual*, bool> ModelsToDelete; // 
+	xr_vector<dxRender_Visual*> ModelsToDelete; // 
 	REGISTRY Registry; // Just pairing of pointer / Name
+	POOL Pool; // Unused / Inactive
 	BOOL bLogging;
 	BOOL bForceDiscard;
 	BOOL bAllowChildrenDuplicate;
@@ -65,6 +76,7 @@ public:
 
 	void Prefetch();
 	void Prefetch_One(LPCSTR N);
+	void ClearPool(BOOL b_complete);
 
 	void dump();
 

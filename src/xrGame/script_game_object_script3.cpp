@@ -595,6 +595,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		// demonized: Additional exports
 		.def("get_actor_walk_accel", &CScriptGameObject::GetActorWalkAccel)
 		.def("set_actor_walk_accel", &CScriptGameObject::SetActorWalkAccel)
+		.def("set_actor_box_y_offset", &CScriptGameObject::SetActorCamBoxYOffset)
 		.def("get_actor_walk_back_coef", &CScriptGameObject::GetActorWalkBackCoef)
 		.def("set_actor_walk_back_coef", &CScriptGameObject::SetActorWalkBackCoef)
 		.def("get_actor_crouch_coef", &CScriptGameObject::GetActorCrouchCoef)
@@ -636,9 +637,6 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("add_attachment", &CScriptGameObject::AddAttachment)
 		.def("get_attachment", &CScriptGameObject::GetAttachment)
 		.def("remove_attachment", &CScriptGameObject::RemoveAttachment)
-
-		.def("get_shaders", &CScriptGameObject::GetShaders)
-		.def("set_shader", &CScriptGameObject::SetShaderTexture)
 		;
 	return (instance);
 }

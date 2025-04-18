@@ -185,7 +185,7 @@ public:
 
 	virtual void OnPlayHeadShotParticle(NET_Packet P);
 
-
+	virtual void set_actor_box_y_offset(u32 box_num, float offset);
 	virtual void Die(CObject* who);
 	virtual void Hit(SHit* pHDS);
 	virtual void PHHit(SHit& H);
