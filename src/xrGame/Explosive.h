@@ -206,3 +206,24 @@ IC void random_point_in_object_box(Fvector& out_pos, CObject* obj)
 	obj->XFORM().transform_tiny(out_pos);
 	out_pos.add(l_c);
 }
+
+template <typename T>
+IC bool CExplosive::process_if_exists_set(LPCSTR section, LPCSTR name, T (CInifile::*method)(LPCSTR, LPCSTR) const,
+                                              T& value, bool test)
+{
+	if (!pSettings->line_exist(section, name))
+	{
+		return false;
+	}
+	LPCSTR str = pSettings->r_string(section, name);
+	if (!str || !xr_strlen(str))
+	{
+		return false;
+	}
+
+	if (!test)
+	{
+		value = (pSettings->*method)(section, name); // set
+	}
+	return true;
+}
