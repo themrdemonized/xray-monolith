@@ -113,7 +113,7 @@ void CWeaponMagazined::Load(LPCSTR section)
 	if (WeaponSoundExist(section, "snd_shoot_indoor")) {
 		m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoor", false, m_eSoundShot);
 	} else {
-		if (WeaponSoundExist(section, "snd_shoot_indoor")) {
+		if (WeaponSoundExist(section, "snd_shoot_indoor_bak")) {
 			m_sounds.LoadSound(section, "snd_shoot_indoor_bak", "sndShotIndoor", false, m_eSoundShot);
 		}
 	}
