@@ -110,6 +110,14 @@ void CWeaponMagazined::Load(LPCSTR section)
 	if (WeaponSoundExist(section, "snd_shoot_actor"))
 		m_sounds.LoadSound(section, "snd_shoot_actor", "sndShotActor", false, m_eSoundShot);
 	// Indoor
+	if (WeaponSoundExist(section, "snd_shoot_indoor_actor")) {
+		m_sounds.LoadSound(section, "snd_shoot_indoor_actor", "sndShotIndoorActor", false, m_eSoundShot);
+	} else {
+		if (WeaponSoundExist(section, "snd_shoot_indoor_actor_bak")) {
+			m_sounds.LoadSound(section, "snd_shoot_indoor_actor_bak", "sndShotIndoorActor", false, m_eSoundShot);
+		}
+	}
+
 	if (WeaponSoundExist(section, "snd_shoot_indoor")) {
 		m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoor", false, m_eSoundShot);
 	} else {
@@ -740,6 +748,8 @@ void CWeaponMagazined::UpdateSounds()
 		m_sounds.SetPosition("sndShotActorFirst", P);
 	if (m_sounds.FindSoundItem("sndShotIndoor", false))
 		m_sounds.SetPosition("sndShotIndoor", P);
+	if (m_sounds.FindSoundItem("sndShotIndoorActor", false))
+		m_sounds.SetPosition("sndShotIndoorActor", P);
 }
 
 // demonized: check if cycle_down is enabled and shot num below max possible burst. Adds support for arbitrary burst shot at rpm_mode_2 with cycling down to rpm after maxBurstAmount
@@ -882,11 +892,13 @@ void CWeaponMagazined::PlaySoundShot()
 		// INDOOR
 		if (g_gunsnd_indoor>0.f)
 		{
+			string128 sndNameIndoorActor;
+			strconcat(sizeof(sndNameIndoorActor), sndNameIndoorActor, m_sSndShotCurrent.c_str(), "IndoorActor");
 			string128 sndNameIndoor;
 			strconcat(sizeof(sndNameIndoor), sndNameIndoor, m_sSndShotCurrent.c_str(), "Indoor");
-			if (m_sounds.FindSoundItem(sndNameIndoor, false))
+			if (m_sounds.FindSoundItem(sndNameIndoorActor false))
 			{
-				m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor*g_gunsnd_indoor_volume);
+				m_sounds.PlaySound(sndNameIndoorActor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor*g_gunsnd_indoor_volume);
 				if (1.f-g_gunsnd_indoor>0.f) 
 				{
 					string128 sndNameFirst;
@@ -906,6 +918,28 @@ void CWeaponMagazined::PlaySoundShot()
 					}
 				}
 				return;
+			}
+			if (m_sounds.FindSoundItem(sndNameIndoor, false))
+			{
+				m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f*g_gunsnd_indoor_volume);
+				if (1.f-g_gunsnd_indoor>0.f) 
+				{
+					string128 sndNameFirst;
+					strconcat(sizeof(sndNameFirst), sndNameFirst, m_sSndShotCurrent.c_str(), "ActorFirst");
+					if (m_iShotNum == 1 && m_sounds.FindSoundItem(sndNameFirst, false))
+					{
+						m_sounds.PlaySound(sndNameFirst, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f-g_gunsnd_indoor);
+						return;
+					}
+			
+					string128 sndName;
+					strconcat(sizeof(sndName), sndName, m_sSndShotCurrent.c_str(), "Actor");
+					if (m_sounds.FindSoundItem(sndName, false))
+					{
+						m_sounds.PlaySound(sndName, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1,  1.f-g_gunsnd_indoor);
+						return;
+					}
+				}
 			}
 		}
 
@@ -937,7 +971,7 @@ void CWeaponMagazined::PlaySoundShot()
 		}
 	}
 
-	if (g_gunsnd_indoor==1.f)
+	if (g_gunsnd_indoor>0.75f)
 	{
 		string128 sndNameIndoor;
 		strconcat(sizeof(sndNameIndoor), sndNameIndoor, m_sSndShotCurrent.c_str(), "Indoor");
