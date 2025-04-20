@@ -896,7 +896,7 @@ void CWeaponMagazined::PlaySoundShot()
 			strconcat(sizeof(sndNameIndoorActor), sndNameIndoorActor, m_sSndShotCurrent.c_str(), "IndoorActor");
 			string128 sndNameIndoor;
 			strconcat(sizeof(sndNameIndoor), sndNameIndoor, m_sSndShotCurrent.c_str(), "Indoor");
-			if (m_sounds.FindSoundItem(sndNameIndoorActor false))
+			if (m_sounds.FindSoundItem(sndNameIndoorActor, false))
 			{
 				m_sounds.PlaySound(sndNameIndoorActor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor*g_gunsnd_indoor_volume);
 				if (1.f-g_gunsnd_indoor>0.f) 
@@ -918,8 +918,7 @@ void CWeaponMagazined::PlaySoundShot()
 					}
 				}
 				return;
-			}
-			if (m_sounds.FindSoundItem(sndNameIndoor, false))
+			} else if (m_sounds.FindSoundItem(sndNameIndoor, false))
 			{
 				m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f*g_gunsnd_indoor_volume);
 				if (1.f-g_gunsnd_indoor>0.f) 
@@ -977,7 +976,7 @@ void CWeaponMagazined::PlaySoundShot()
 		strconcat(sizeof(sndNameIndoor), sndNameIndoor, m_sSndShotCurrent.c_str(), "Indoor");
 		if (m_sounds.FindSoundItem(sndNameIndoor, false))
 		{
-			m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f*g_gunsnd_indoor_volume);
+			m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor_volume);
 			return;
 		}
 	}
