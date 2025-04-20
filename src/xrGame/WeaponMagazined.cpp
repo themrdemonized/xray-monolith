@@ -115,6 +115,9 @@ void CWeaponMagazined::Load(LPCSTR section)
 	} else {
 		if (WeaponSoundExist(section, "snd_shoot_indoor_actor_bak")) {
 			m_sounds.LoadSound(section, "snd_shoot_indoor_actor_bak", "sndShotIndoorActor", false, m_eSoundShot);
+		} else {
+			if (WeaponSoundExist(section, "snd_shoot_indoor")) {
+				m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoorActor", false, m_eSoundShot);}
 		}
 	}
 
@@ -918,27 +921,6 @@ void CWeaponMagazined::PlaySoundShot()
 					}
 				}
 				return;
-			} else if (m_sounds.FindSoundItem(sndNameIndoor, false))
-			{
-				m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f*g_gunsnd_indoor_volume);
-				if (1.f-g_gunsnd_indoor>0.f) 
-				{
-					string128 sndNameFirst;
-					strconcat(sizeof(sndNameFirst), sndNameFirst, m_sSndShotCurrent.c_str(), "ActorFirst");
-					if (m_iShotNum == 1 && m_sounds.FindSoundItem(sndNameFirst, false))
-					{
-						m_sounds.PlaySound(sndNameFirst, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f-g_gunsnd_indoor);
-						return;
-					}
-			
-					string128 sndName;
-					strconcat(sizeof(sndName), sndName, m_sSndShotCurrent.c_str(), "Actor");
-					if (m_sounds.FindSoundItem(sndName, false))
-					{
-						m_sounds.PlaySound(sndName, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1,  1.f-g_gunsnd_indoor);
-						return;
-					}
-				}
 			}
 		}
 
