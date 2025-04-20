@@ -1529,11 +1529,26 @@ void set_nv_lumfactor(float factor)
 
 void remove_hud_model(LPCSTR section)
 {
-	LPCSTR hud_section = READ_IF_EXISTS(pSettings, r_string, section, "hud", nullptr);
-	if (hud_section != nullptr)
-		g_player_hud->remove_from_model_pool(hud_section);
-	else
-		Msg("can't find hud section for [%s]", section);
+	attachable_hud_item* itm0 = g_player_hud->attached_item(0);
+	attachable_hud_item* itm1 = g_player_hud->attached_item(1);
+
+	if (itm0 && itm0->m_parent_hud_item->object().cNameSect().equal(section))
+	{
+		CHudItem* itm = itm0->m_parent_hud_item;
+		g_player_hud->detach_item_idx(0);
+		itm0->m_parent_hud_item->DeleteHudItemData();
+		g_player_hud->attach_item(itm);
+		itm->PlayAnimIdle();
+	}
+	
+	if (itm1 && itm1->m_parent_hud_item->object().cNameSect().equal(section))
+	{
+		CHudItem* itm = itm1->m_parent_hud_item;
+		g_player_hud->detach_item_idx(1);
+		itm1->m_parent_hud_item->DeleteHudItemData();
+		g_player_hud->attach_item(itm);
+		itm->PlayAnimIdle();
+	}
 }
 
 const u32 ActorMovingState()

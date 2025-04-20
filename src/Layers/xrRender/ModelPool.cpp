@@ -239,8 +239,7 @@ dxRender_Visual* CModelPool::Create(const char* name, IReader* data)
 	xr_strcpy(low_name, name);
 	strlwr(low_name);
 	if (strext(low_name)) *strext(low_name) = 0;
-	//	Msg						("-CREATE %s",low_name);
-
+	
 	// 0. Search POOL
 	POOL_IT it = Pool.find(low_name);
 	if (it != Pool.end())
@@ -260,8 +259,8 @@ dxRender_Visual* CModelPool::Create(const char* name, IReader* data)
 		{
 			// 2. If not found
 			bAllowChildrenDuplicate = FALSE;
-			if (data) Base = Instance_Load(low_name, data,TRUE);
-			else Base = Instance_Load(low_name,TRUE);
+			if (data) Base = Instance_Load(low_name, data, TRUE);
+			else Base = Instance_Load(low_name, TRUE);
 			bAllowChildrenDuplicate = TRUE;
 #ifdef _EDITOR
 			if (!Base)		return 0;
@@ -312,7 +311,14 @@ void CModelPool::DeleteInternal(dxRender_Visual* & V, BOOL bDiscard)
 		REGISTRY_IT it = Registry.find(V);
 		if (it != Registry.end())
 		{
-			// Registry entry found - move it to pool
+			// Registry entry found - move it to pool and reset changed shader/texture if necessary
+			xr_vector<IRenderVisual*>* children = V->get_children();
+			if (children)
+				for (auto* child : *children)
+					child->ResetShaderTexture();
+			else
+				V->ResetShaderTexture();
+
 			Pool.insert(mk_pair(it->second, V));
 		}
 		else
@@ -352,8 +358,6 @@ void CModelPool::Discard(dxRender_Visual* & V, BOOL b_complete)
 	REGISTRY_IT it = Registry.find(V);
 	if (it != Registry.end())
 	{
-		// Pool - OK
-
 		// Base
 		const shared_str& name = it->second;
 		xr_vector<ModelDef>::iterator I = Models.begin();
@@ -387,7 +391,6 @@ void CModelPool::Discard(dxRender_Visual* & V, BOOL b_complete)
 		}
 		// Registry
 		xr_delete(V);
-		//.		xr_free			(name);
 		Registry.erase(it);
 	}
 	else
@@ -420,17 +423,6 @@ void CModelPool::Prefetch_One(LPCSTR N)
 	Delete(V,FALSE);
 }
 
-void CModelPool::ClearPool(BOOL b_complete)
-{
-	POOL_IT _I = Pool.begin();
-	POOL_IT _E = Pool.end();
-	for (; _I != _E; _I++)
-	{
-		Discard(_I->second, b_complete);
-	}
-	Pool.clear();
-}
-
 dxRender_Visual* CModelPool::CreatePE(PS::CPEDef* source)
 {
 	PS::CParticleEffect* V = (PS::CParticleEffect*)Instance_Create(MT_PARTICLE_EFFECT);
@@ -443,6 +435,17 @@ dxRender_Visual* CModelPool::CreatePG(PS::CPGDef* source)
 	PS::CParticleGroup* V = (PS::CParticleGroup*)Instance_Create(MT_PARTICLE_GROUP);
 	V->Compile(source);
 	return V;
+}
+
+void CModelPool::ClearPool(BOOL b_complete)
+{
+	POOL_IT _I = Pool.begin();
+	POOL_IT _E = Pool.end();
+	for (; _I != _E; _I++)
+	{
+		Discard(_I->second, b_complete);
+	}
+	Pool.clear();
 }
 
 void CModelPool::dump()

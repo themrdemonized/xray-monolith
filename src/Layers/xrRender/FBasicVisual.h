@@ -49,12 +49,21 @@ public:
     ogf_desc					desc		;
 #endif
 	shared_str					dbg_name	;
+	shared_str					dbg_shader	;
+	shared_str					dbg_texture	;
+	shared_str					dbg_shader_def	;
+	shared_str					dbg_texture_def	;
 	virtual shared_str	_BCL	getDebugName() { return dbg_name; }
+	virtual LPCSTR _BCL			getDebugShader() { return *dbg_shader; }
+	virtual LPCSTR _BCL			getDebugTexture() { return *dbg_texture; }
+	virtual LPCSTR _BCL			getDebugShaderDef() { return *dbg_shader_def; }
+	virtual LPCSTR _BCL			getDebugTextureDef() { return *dbg_texture_def; }
 public:
 	// Common data for rendering
 	u32 Type; // visual's type
 	vis_data vis; // visibility-data
 	ref_shader shader; // pipe state, shared
+	s32 skinning;
 
 	virtual void Render(float LOD)
 	{
@@ -74,6 +83,9 @@ public:
 	//	virtual	CKinematics*		dcast_PKinematics			()				{ return 0;	}
 	//	virtual	CKinematicsAnimated*dcast_PKinematicsAnimated	()				{ return 0;	}
 	//	virtual IParticleCustom*	dcast_ParticleCustom		()				{ return 0;	}
+
+	virtual void SetShaderTexture(LPCSTR shader, LPCSTR texture);
+	virtual void ResetShaderTexture();
 
 	virtual vis_data& _BCL getVisData() { return vis; }
 	virtual u32 getType() { return Type; }

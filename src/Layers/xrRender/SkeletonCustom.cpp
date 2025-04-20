@@ -585,7 +585,7 @@ void CKinematics::Visibility_Update()
 		if (!_c->has_visible_bones())
 		{
 			// move into invisible list
-			children_invisible.push_back(children[c_it]);
+			children_invisible.push_back((dxRender_Visual*)children[c_it]);
 			swap(children[c_it], children.back());
 			children.pop_back();
 			Update_Visibility = TRUE;

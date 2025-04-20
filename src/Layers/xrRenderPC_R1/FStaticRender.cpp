@@ -299,7 +299,7 @@ ENGINE_API extern BOOL g_bRendering;
 void CRender::add_Visual(IRenderVisual* V)
 {
 	VERIFY(g_bRendering);
-	add_leafs_Dynamic((dxRender_Visual*)V, V->_ignore_optimization);
+	add_leafs_Dynamic((dxRender_Visual*)V);
 }
 
 void CRender::add_Geometry(IRenderVisual* V) { add_Static((dxRender_Visual*)V, View->getMask()); }

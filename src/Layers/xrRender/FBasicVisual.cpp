@@ -43,6 +43,7 @@ void dxRender_Visual::Release()
 void dxRender_Visual::Load(const char* N, IReader* data, u32)
 {
 	dbg_name = N;
+	skinning = ::Render->m_skinning;
 
 	// header
 	VERIFY(data);
@@ -67,7 +68,9 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 		string256 fnT, fnS;
 		data->r_stringZ(fnT, sizeof(fnT));
 		data->r_stringZ(fnS, sizeof(fnS));
-		shader.create(fnS, fnT);
+		dbg_shader_def = fnS;
+		dbg_texture_def = fnT;
+		ResetShaderTexture();
 	}
 
 	// desc
@@ -116,6 +119,40 @@ void dxRender_Visual::MarkAsGlowing(bool is_glowing)
 }
 //--DSR-- SilencerOverheat_end
 
+void dxRender_Visual::SetShaderTexture(LPCSTR s_shader, LPCSTR s_texture)
+{
+	if (s_shader && strlen(s_shader))
+	{
+		char* shader = xr_strdup(s_shader);
+		char* no_shadow = strstr(shader, "$no_shadows");
+
+		if (no_shadow)
+		{
+			flags.set(IRenderVisualFlags::eNoShadow, TRUE);
+			*no_shadow = 0;
+		}
+		else
+			flags.set(IRenderVisualFlags::eNoShadow, FALSE);
+
+		dbg_shader = shader;
+		xr_delete(shader);
+	}
+
+	if (s_texture && strlen(s_texture))
+	{
+		dbg_texture = s_texture;
+	}
+
+	::Render->m_skinning = skinning;
+	shader.create(*dbg_shader, *dbg_texture);
+}
+
+void dxRender_Visual::ResetShaderTexture()
+{
+	if (!dbg_shader.equal(dbg_shader_def) || !dbg_texture.equal(dbg_texture_def))
+		SetShaderTexture(*dbg_shader_def, *dbg_texture_def);
+}
+
 #define PCOPY(a)	a = pFrom->a
 
 void dxRender_Visual::Copy(dxRender_Visual* pFrom)
@@ -126,5 +163,11 @@ void dxRender_Visual::Copy(dxRender_Visual* pFrom)
 #ifdef _EDITOR
 	PCOPY(desc);
 #endif
+	PCOPY(flags);
 	PCOPY(dbg_name);
+	PCOPY(dbg_shader);
+	PCOPY(dbg_shader_def);
+	PCOPY(dbg_texture);
+	PCOPY(dbg_texture_def);
+	PCOPY(skinning);
 }

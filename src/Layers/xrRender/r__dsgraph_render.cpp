@@ -944,7 +944,7 @@ void R_dsgraph_structure::r_dsgraph_render_R1_box(IRender_Sector* _S, Fbox& BB, 
 		dxRender_Visual* V = lstVisuals[test];
 
 		// Visual is 100% visible - simply add it
-		xr_vector<dxRender_Visual*>::iterator I, E; // it may be usefull for 'hierrarhy' visuals
+		xr_vector<IRenderVisual*>::iterator I, E; // it may be usefull for 'hierrarhy' visuals
 
 		switch (V->Type)
 		{
@@ -956,7 +956,7 @@ void R_dsgraph_structure::r_dsgraph_render_R1_box(IRender_Sector* _S, Fbox& BB, 
 				E = pV->children.end();
 				for (; I != E; ++I)
 				{
-					dxRender_Visual* T = *I;
+					dxRender_Visual* T = (dxRender_Visual*)*I;
 					if (BB.intersect(T->vis.box)) lstVisuals.push_back(T);
 				}
 			}
@@ -971,7 +971,7 @@ void R_dsgraph_structure::r_dsgraph_render_R1_box(IRender_Sector* _S, Fbox& BB, 
 				E = pV->children.end();
 				for (; I != E; ++I)
 				{
-					dxRender_Visual* T = *I;
+					dxRender_Visual* T = (dxRender_Visual*)*I;
 					if (BB.intersect(T->vis.box)) lstVisuals.push_back(T);
 				}
 			}
@@ -983,7 +983,7 @@ void R_dsgraph_structure::r_dsgraph_render_R1_box(IRender_Sector* _S, Fbox& BB, 
 				E = pV->children.end();
 				for (; I != E; ++I)
 				{
-					dxRender_Visual* T = *I;
+					dxRender_Visual* T = (dxRender_Visual*)*I;
 					if (BB.intersect(T->vis.box)) lstVisuals.push_back(T);
 				}
 			}

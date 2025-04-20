@@ -637,6 +637,11 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("add_attachment", &CScriptGameObject::AddAttachment)
 		.def("get_attachment", &CScriptGameObject::GetAttachment)
 		.def("remove_attachment", &CScriptGameObject::RemoveAttachment)
+
+		.def("get_shaders", &CScriptGameObject::GetShaders)
+		.def("get_default_shaders", &CScriptGameObject::GetDefaultShaders)
+		.def("set_shader", &CScriptGameObject::SetShaderTexture)
+		.def("reset_shader", &CScriptGameObject::ResetShaderTexture)
 		;
 	return (instance);
 }

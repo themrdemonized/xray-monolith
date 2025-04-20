@@ -625,3 +625,125 @@ Fvector script_attachment::GetCenter()
 
 	return { 0,0,0 };
 }
+
+luabind::object script_attachment::GetShaders()
+{
+	luabind::object table = luabind::newtable(ai().script_engine().lua());
+
+	if (!m_model)
+	{
+		table["error"] = true;
+		return table;
+	}
+
+	xr_vector<IRenderVisual*>* children = m_model->get_children();
+
+	if (!children)
+	{
+		luabind::object subtable = luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = m_model->getDebugShader();
+		subtable["texture"] = m_model->getDebugTexture();
+		table[1] = subtable;
+		return table;
+	}
+
+	int i = 1;
+
+	for (auto* child : *children)
+	{
+		luabind::object subtable = luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShader();
+		subtable["texture"] = child->getDebugTexture();
+		table[i] = subtable;
+		++i;
+	}
+
+	return table;
+}
+
+luabind::object script_attachment::GetDefaultShaders()
+{
+	luabind::object table = luabind::newtable(ai().script_engine().lua());
+
+	if (!m_model)
+	{
+		table["error"] = true;
+		return table;
+	}
+
+	xr_vector<IRenderVisual*>* children = m_model->get_children();
+
+	if (!children)
+	{
+		luabind::object subtable = luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = m_model->getDebugShaderDef();
+		subtable["texture"] = m_model->getDebugTextureDef();
+		table[1] = subtable;
+		return table;
+	}
+
+	int i = 1;
+
+	for (auto* child : *children)
+	{
+		luabind::object subtable = luabind::newtable(ai().script_engine().lua());
+		subtable["shader"] = child->getDebugShaderDef();
+		subtable["texture"] = child->getDebugTextureDef();
+		table[i] = subtable;
+		++i;
+	}
+
+	return table;
+}
+
+void script_attachment::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture)
+{
+	if (!m_model) return;
+	xr_vector<IRenderVisual*>* children = m_model->get_children();
+
+	if (!children)
+	{
+		m_model->SetShaderTexture(shader, texture);
+		return;
+	}
+
+	if (id == -1)
+	{
+		for (auto* child : *children)
+		{
+			child->SetShaderTexture(shader, texture);
+		}
+		return;
+	}
+
+	id--;
+
+	if (id >= 0 && children->size() > id)
+		children->at(id)->SetShaderTexture(shader, texture);
+}
+
+void script_attachment::ResetShaderTexture(int id)
+{
+	if (!m_model) return;
+	xr_vector<IRenderVisual*>* children = m_model->get_children();
+
+	if (!children)
+	{
+		m_model->ResetShaderTexture();
+		return;
+	}
+
+	if (id == -1)
+	{
+		for (auto* child : *children)
+		{
+			child->ResetShaderTexture();
+		}
+		return;
+	}
+
+	id--;
+
+	if (id >= 0 && children->size() > id)
+		children->at(id)->ResetShaderTexture();
+}

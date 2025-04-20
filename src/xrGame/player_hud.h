@@ -266,7 +266,7 @@ struct attachable_hud_item
 	Fmatrix m_attach_offset;
 	Fmatrix m_item_transform;
 
-	player_hud_motion_container m_hand_motions;
+	player_hud_motion_container* m_hand_motions;
 
 	attachable_hud_item(player_hud* pparent): m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
 	                                          m_model(nullptr), m_attach_place_idx(0) {}
@@ -315,7 +315,7 @@ public:
 	void load(const shared_str& model_name, bool force = false);
 	void load_script(LPCSTR section);
 	void reset_model_script() { script_override_arms = false; load(m_sect_name, true); };
-	void load_default() { load("actor_hud_05"); };
+	void load_default() { load("actor_hud_05", true); };
 	void update(const Fmatrix& trans);
 	void updateMovementLayerState();
 	void StopScriptAnim();
@@ -329,7 +329,6 @@ public:
 	u32 anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part = u16(-1));
 	u32 script_anim_play(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true, float speed = 1.f);
 	const shared_str& section_name() const { return m_sect_name; }
-	void remove_from_model_pool(LPCSTR sect);
 
 	u8 script_anim_part;
 	Fvector script_anim_offset[2];
@@ -352,8 +351,6 @@ public:
 	player_hud_motion_container* get_hand_motions(LPCSTR section);
 
 	void update_script_item();
-
-	attachable_hud_item* get_hud_item(const shared_str& sect);
 
 	void attach_item(CHudItem* item);
 	void re_sync_anim(u8 part);
@@ -392,7 +389,6 @@ private:
 	shared_str m_sect_name;
 	xr_vector<u16> m_ancors;
 	attachable_hud_item* m_attached_items[3];
-	xr_vector<attachable_hud_item*> m_pool;
 	static void _BCL FingerCallback(CBoneInstance* B);
 public:
 	IKinematicsAnimated* m_model;
