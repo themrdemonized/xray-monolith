@@ -188,6 +188,12 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2025.04.19**
+* Lucy: (https://github.com/themrdemonized/xray-monolith/pull/171)
+  * Removal of Model Pool caused a lot of unpredictable crashes, so now it's back but with a small change to work in line with the set_shader lua methods :)
+  * Added `get_default_shaders` and `reset_shader` to easily revert a model to its vanilla shaders without the need to store default values in a table
+  * Added support for getting/setting/resetting Script Attachment model shaders/textures
+
 **2025.04.18**
 * VodoXleb: Actor camera y offset (https://github.com/themrdemonized/xray-monolith/pull/170)
 

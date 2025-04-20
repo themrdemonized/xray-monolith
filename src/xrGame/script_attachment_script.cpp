@@ -2,7 +2,7 @@
 #include "pch_script.h"
 #include "script_attachment_manager.h"
 
-using namespace luabind;
+using namespace ::luabind;
 
 #pragma optimize("s",on)
 void script_attachment::script_register(lua_State* L)
@@ -57,6 +57,10 @@ void script_attachment::script_register(lua_State* L)
 		.def("get_transform", &script_attachment::GetTransform)
 		.def("get_center", &script_attachment::GetCenter)
 		.def("bone_callback", (void (script_attachment::*)(u16,u16,bool)) &script_attachment::SetBoneCallback)
-		.def("bone_callback", (void (script_attachment::*)(u16, const luabind::functor<Fmatrix>&,bool)) &script_attachment::SetBoneCallback)
+		.def("bone_callback", (void (script_attachment::*)(u16, const ::luabind::functor<Fmatrix>&,bool)) &script_attachment::SetBoneCallback)
+		.def("get_shaders", &script_attachment::GetShaders)
+		.def("get_default_shaders", &script_attachment::GetDefaultShaders)
+		.def("set_shader", &script_attachment::SetShaderTexture)
+		.def("reset_shader", &script_attachment::ResetShaderTexture)
 	];
 }

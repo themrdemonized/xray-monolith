@@ -1574,6 +1574,26 @@ void CAI_Stalker::ChangeVisual(shared_str NewVisual)
 
 	cNameVisual_set(NewVisual);
 
+	IKinematicsAnimated* V = smart_cast<IKinematicsAnimated*>(Visual());
+	if (V)
+	{
+		if (!g_Alive())
+		{
+			m_pPhysics_support->in_Die(false);
+		}
+		else
+		{
+			CStepManager::reload(cNameSect_str());
+		}
+
+		CDamageManager::reload(cNameSect_str(), "damage", pSettings);
+		ResetBoneProtections(NULL, NULL);
+		reattach_items();
+		m_pPhysics_support->in_ChangeVisual();
+		animation().reload();
+		movement().reload(cNameSect_str());
+	}
+
 	Visual()->dcast_PKinematics()->CalculateBones_Invalidate();
 	Visual()->dcast_PKinematics()->CalculateBones(TRUE);
 };

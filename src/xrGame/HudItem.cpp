@@ -60,6 +60,13 @@ DLL_Pure* CHudItem::_construct()
 
 CHudItem::~CHudItem()
 {
+	DeleteHudItemData();
+}
+
+void CHudItem::DeleteHudItemData()
+{
+	xr_delete(m_attachable);
+	m_attachable = nullptr;
 }
 
 void CHudItem::Load(LPCSTR section)
@@ -801,11 +808,11 @@ bool CHudItem::HudAnimationExist(LPCSTR anim_name)
 		bool is_16x9 = UI().is_widescreen();
 		u16 attach_place_idx = pSettings->r_u16(HudItemData()->m_sect_name, "attach_place_idx");
 		xr_sprintf(anim_name_r, "%s%s", anim_name, ((attach_place_idx == 1) && is_16x9) ? "_16x9" : "");
-		player_hud_motion* anm = HudItemData()->m_hand_motions.find_motion(anim_name_r);
+		player_hud_motion* anm = HudItemData()->m_hand_motions->find_motion(anim_name_r);
 		if (anm)
 			return true;
 
-		anm = HudItemData()->m_hand_motions.find_motion(anim_name);
+		anm = HudItemData()->m_hand_motions->find_motion(anim_name);
 		if (anm)
 			return true;
 	}
@@ -866,28 +873,22 @@ void CHudItem::OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd)
 	}
 }
 
+extern shared_str current_player_hud_sect;
+
 attachable_hud_item* CHudItem::HudItemData()
 {
-	attachable_hud_item* hi = nullptr;
 	if (!g_player_hud)
-		return hi;
+		return nullptr;
 
-	hi = g_player_hud->attached_item(0);
-	if (hi && hi->m_parent_hud_item == this)
-		return hi;
+	if (!m_attachable)
+	{
+		current_player_hud_sect = hud_sect;
+		m_attachable = xr_new<attachable_hud_item>(g_player_hud);
+		m_attachable->m_parent_hud_item = this;
+		m_attachable->load(hud_sect);
+	}
 
-	hi = g_player_hud->attached_item(1);
-	if (hi && hi->m_parent_hud_item == this)
-		return hi;
-
-	hi = g_player_hud->attached_item(SCOPE_ATTACH_IDX);
-	if (hi && hi->m_parent_hud_item == this)
-		return hi;
-
-	hi = g_player_hud->get_hud_item(HudSection());
-	R_ASSERT(hi);
-
-	return hi;
+	return m_attachable;
 }
 
 bool CHudItem::IsAttachedToHUD()

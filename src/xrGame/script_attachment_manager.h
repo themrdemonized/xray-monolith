@@ -13,16 +13,16 @@ enum script_attachment_flags
 struct script_attachment_bone_cb
 {
 	u16 m_bone_id, m_attachment_bone_id;
-	luabind::functor<Fmatrix>* m_func;
+	::luabind::functor<Fmatrix>* m_func;
 	script_attachment* m_attachment;
 	Fmatrix m_mat;
 	bool m_overwrite;
 
-	script_attachment_bone_cb(const luabind::functor<Fmatrix>& func, script_attachment* att, u16 id, bool overwrite)
+	script_attachment_bone_cb(const ::luabind::functor<Fmatrix>& func, script_attachment* att, u16 id, bool overwrite)
 	{
 		m_attachment = att;
 		m_attachment_bone_id = id;
-		m_func = xr_new<luabind::functor<Fmatrix>>(func);
+		m_func = xr_new<::luabind::functor<Fmatrix>>(func);
 		m_mat = Fidentity;
 		m_bone_id = BI_NONE;
 		m_overwrite = overwrite;
@@ -111,7 +111,7 @@ public:
 	void SetParent(script_attachment* att);
 	void SetParent(CGameObject* obj);
 	void SetParent(CScriptGameObject* obj);
-	luabind::object GetParent();
+	::luabind::object GetParent();
 
 	void SetParentBone(u16 bone_id) { m_parent_bone = bone_id; }
 	u16 GetParentBone() { return m_parent_bone; }
@@ -149,12 +149,17 @@ public:
 
 	static void _BCL ScriptAttachmentBoneCallback(CBoneInstance* B);
 	void SetBoneCallback(u16 bone_id, u16 parent_bone, bool overwrite = false);
-	void SetBoneCallback(u16 bone_id, const luabind::functor<Fmatrix>& func, bool overwrite = false);
+	void SetBoneCallback(u16 bone_id, const ::luabind::functor<Fmatrix>& func, bool overwrite = false);
 	void RemoveBoneCallback(u16 bone_id);
 
 	Fmatrix GetBoneMatrix(u16 bone_id);
 	Fmatrix GetTransform() { return m_transform; };
 	Fvector GetCenter();
+
+	::luabind::object GetShaders();
+	::luabind::object GetDefaultShaders();
+	void SetShaderTexture(int id, LPCSTR shader, LPCSTR texture);
+	void ResetShaderTexture(int id);
 
 	DECLARE_SCRIPT_REGISTER_FUNCTION
 };
