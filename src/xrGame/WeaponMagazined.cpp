@@ -110,24 +110,8 @@ void CWeaponMagazined::Load(LPCSTR section)
 	if (WeaponSoundExist(section, "snd_shoot_actor"))
 		m_sounds.LoadSound(section, "snd_shoot_actor", "sndShotActor", false, m_eSoundShot);
 	// Indoor
-	if (WeaponSoundExist(section, "snd_shoot_indoor_actor")) {
-		m_sounds.LoadSound(section, "snd_shoot_indoor_actor", "sndShotIndoorActor", false, m_eSoundShot);
-	} else {
-		if (WeaponSoundExist(section, "snd_shoot_indoor")) {
-			m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoorActor", false, m_eSoundShot);
-		} else {
-			if (WeaponSoundExist(section, "snd_shoot_indoor_actor_bak")) {
-				m_sounds.LoadSound(section, "snd_shoot_indoor_actor_bak", "sndShotIndoorActor", false, m_eSoundShot);}
-		}
-	}
-
-	if (WeaponSoundExist(section, "snd_shoot_indoor")) {
+	if (WeaponSoundExist(section, "snd_shoot_indoor"))
 		m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoor", false, m_eSoundShot);
-	} else {
-		if (WeaponSoundExist(section, "snd_shoot_indoor_bak")) {
-			m_sounds.LoadSound(section, "snd_shoot_indoor_bak", "sndShotIndoor", false, m_eSoundShot);
-		}
-	}
 	//-Alundaio
 	// Cyclic fire sounds
 	if (WeaponSoundExist(section, "snd_shoot_actor_first"))
@@ -188,12 +172,9 @@ void CWeaponMagazined::Load(LPCSTR section)
 			m_sounds.LoadSound(section, "snd_silncer_shoot_actor_first", "sndSilencerShotActorFirst", false, m_eSoundShot);
 
 		// Indoor
-		if (WeaponSoundExist(section, "snd_silncer_shoot_indoor")) {
+		if (WeaponSoundExist(section, "snd_silncer_shoot_indoor"))
 			m_sounds.LoadSound(section, "snd_silncer_shoot_indoor", "sndSilencerShotIndoor", false, m_eSoundShot);
-		} else {
-			if (WeaponSoundExist(section, "snd_silncer_shoot_indoor_bak")) {
-				m_sounds.LoadSound(section, "snd_silncer_shoot_indoor_bak", "sndSilencerShotIndoor", false, m_eSoundShot);
-		}}
+
 		//misfire shot
 		if (WeaponSoundExist(section, "snd_silncer_shot_misfire"))
 			m_sounds.LoadSound(section, "snd_silncer_shot_misfire", "sndSilencerShotMisfire", false, m_eSoundShot);
@@ -751,8 +732,6 @@ void CWeaponMagazined::UpdateSounds()
 		m_sounds.SetPosition("sndShotActorFirst", P);
 	if (m_sounds.FindSoundItem("sndShotIndoor", false))
 		m_sounds.SetPosition("sndShotIndoor", P);
-	if (m_sounds.FindSoundItem("sndShotIndoorActor", false))
-		m_sounds.SetPosition("sndShotIndoorActor", P);
 }
 
 // demonized: check if cycle_down is enabled and shot num below max possible burst. Adds support for arbitrary burst shot at rpm_mode_2 with cycling down to rpm after maxBurstAmount
@@ -895,13 +874,11 @@ void CWeaponMagazined::PlaySoundShot()
 		// INDOOR
 		if (g_gunsnd_indoor>0.f)
 		{
-			string128 sndNameIndoorActor;
-			strconcat(sizeof(sndNameIndoorActor), sndNameIndoorActor, m_sSndShotCurrent.c_str(), "IndoorActor");
 			string128 sndNameIndoor;
 			strconcat(sizeof(sndNameIndoor), sndNameIndoor, m_sSndShotCurrent.c_str(), "Indoor");
-			if (m_sounds.FindSoundItem(sndNameIndoorActor, false))
+			if (m_sounds.FindSoundItem(sndNameIndoor, false))
 			{
-				m_sounds.PlaySound(sndNameIndoorActor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor*g_gunsnd_indoor_volume);
+				m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor*g_gunsnd_indoor_volume);
 				if (1.f-g_gunsnd_indoor>0.f) 
 				{
 					string128 sndNameFirst;
@@ -952,13 +929,13 @@ void CWeaponMagazined::PlaySoundShot()
 		}
 	}
 
-	if (g_gunsnd_indoor>0.75f)
+	if (g_gunsnd_indoor==1.f)
 	{
 		string128 sndNameIndoor;
 		strconcat(sizeof(sndNameIndoor), sndNameIndoor, m_sSndShotCurrent.c_str(), "Indoor");
 		if (m_sounds.FindSoundItem(sndNameIndoor, false))
 		{
-			m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor_volume);
+			m_sounds.PlaySound(sndNameIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, 1.f*g_gunsnd_indoor_volume);
 			return;
 		}
 	}

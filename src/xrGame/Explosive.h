@@ -1,4 +1,4 @@
-// Explosive.h: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+// Explosive.h: интерфейс для взврывающихся объектов
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -93,7 +93,7 @@ protected:
 	HUD_SOUND_COLLECTION_LAYERED m_layered_sounds;
 
 	CWalmarkManager m_wallmark_manager;
-	//ID пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//ID персонажа который иницировал действие
 	u16 m_iCurrentParentID;
 
 	//bool						m_bReadyToExplode;
@@ -101,35 +101,35 @@ protected:
 	Fvector m_vExplodeSize;
 	Fvector m_vExplodeDir;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//параметры взрыва
 	float m_fBlastHit;
 	float m_fBlastHitImpulse;
 	float m_fBlastRadius;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//параметры и количество осколков
 	float m_fFragsRadius;
 	float m_fFragHit;
 	float m_fFragHitImpulse;
 	int m_iFragsNum;
 
-	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	//типы наносимых хитов
 	ALife::EHitType m_eHitTypeBlast;
 	ALife::EHitType m_eHitTypeFrag;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
+	//фактор подпроса предмета вверх взрывной волной 
 	float m_fUpThrowFactor;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//список пораженных объектов
 	BLASTED_OBJECTS_V m_blasted_objects;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//текущая продолжительность взрыва
 	float m_fExplodeDuration;
-	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//общее время взрыва
 	float m_fExplodeDurationMax;
-	//пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//Время, через которое надо сделать взрывчатку невиимой, если она не становится невидимой во время взрыва
 	float m_fExplodeHideDurationMax;
 
-	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//флаг состояния взрыва
 	enum
 	{
 		flExploding =1 << 0,
@@ -140,7 +140,7 @@ protected:
 
 	Flags8 m_explosion_flags;
 	///////////////////////////////////////////////
-	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: true - пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//Должен ли объект быть скрыт после взрыва: true - для всех кроме дымовой гранаты
 	BOOL m_bHideInExplosion;
 	bool m_bAlreadyHidden;
 	virtual void HideExplosive();
@@ -148,19 +148,19 @@ protected:
 	//bool						m_bExplodeEventSent;
 
 	//////////////////////////////////////////////
-	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//для разлета осколков
 	float m_fFragmentSpeed;
 
-	//пїЅпїЅпїЅпїЅпїЅ
+	//звуки
 	ESoundTypes m_eSoundExplode;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//размер отметки на стенах
 	float fWallmarkSize;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//эффекты и подсветка
 	shared_str m_sExplodeParticles;
 
-	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//подсветка взрыва
 	ref_light m_pLight;
 	Fcolor m_LightColor;
 	float m_fLightRange;
@@ -182,19 +182,13 @@ protected:
 	CParticlesObject* m_pExpParticle;
 	virtual void UpdateExplosionParticles();
 
-	template <typename T>
-	IC static bool process_if_exists_set(LPCSTR section, LPCSTR name, T (CInifile::*method)(LPCSTR, LPCSTR) const,
-	                                     T& value, bool test);
-
-	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	// эффектор
 	struct
 	{
 		shared_str effect_sect_name;
 	} effector;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
-	// Check sounds exist for custom sounds
-	bool SoundExist(LPCSTR section, LPCSTR sound_name);
 };
 
 add_to_type_list(CExplosive)
@@ -209,25 +203,4 @@ IC void random_point_in_object_box(Fvector& out_pos, CObject* obj)
 	out_pos.random_point(l_d);
 	obj->XFORM().transform_tiny(out_pos);
 	out_pos.add(l_c);
-}
-
-template <typename T>
-IC bool CExplosive::process_if_exists_set(LPCSTR section, LPCSTR name, T (CInifile::*method)(LPCSTR, LPCSTR) const,
-                                              T& value, bool test)
-{
-	if (!pSettings->line_exist(section, name))
-	{
-		return false;
-	}
-	LPCSTR str = pSettings->r_string(section, name);
-	if (!str || !xr_strlen(str))
-	{
-		return false;
-	}
-
-	if (!test)
-	{
-		value = (pSettings->*method)(section, name); // set
-	}
-	return true;
 }
