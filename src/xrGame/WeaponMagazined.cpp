@@ -110,21 +110,27 @@ void CWeaponMagazined::Load(LPCSTR section)
 	if (WeaponSoundExist(section, "snd_shoot_actor"))
 		m_sounds.LoadSound(section, "snd_shoot_actor", "sndShotActor", false, m_eSoundShot);
 	// Indoor
-	if (WeaponSoundExist(section, "snd_shoot_indoor_actor")) {
+	if (WeaponSoundExist(section, "snd_shoot_actor_indoor")) {
 		m_sounds.LoadSound(section, "snd_shoot_actor_indoor", "sndShotIndoorActor", false, m_eSoundShot);
 	} else {
 		if (WeaponSoundExist(section, "snd_shoot_indoor")) {
 			m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoorActor", false, m_eSoundShot);
 		}
 	}
-
 	if (WeaponSoundExist(section, "snd_shoot_indoor")) {
 		m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoor", false, m_eSoundShot);
 	}
+	if (WeaponSoundExist(section, "snd_shoot_actor_first_indoor"))
+		m_sounds.LoadSound(section, "snd_shoot_actor_first_indoor", "sndShotActorFirst", false, m_eSoundShot);
+	if (WeaponSoundExist(section, "snd_shot_misfire_indoor"))
+		m_sounds.LoadSound(section, "snd_shot_misfire_indoor", "sndShotMisfire", false, m_eSoundShot);
+	if (WeaponSoundExist(section, "snd_shot_misfire_actor_indoor"))
+		m_sounds.LoadSound(section, "snd_shot_misfire_actor_indoor", "sndShotMisfireActor", false, m_eSoundShot);
 	//-Alundaio
-	// Cyclic fire sounds
+	// Cyclic fire soundsf
 	if (WeaponSoundExist(section, "snd_shoot_actor_first"))
 		m_sounds.LoadSound(section, "snd_shoot_actor_first", "sndShotActorFirst", false, m_eSoundShot);
+
 
 	//misfire shot
 	if (WeaponSoundExist(section, "snd_shot_misfire"))
