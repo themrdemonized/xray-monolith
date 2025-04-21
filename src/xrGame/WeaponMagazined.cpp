@@ -964,13 +964,14 @@ void CWeaponMagazined::PlaySoundShot()
 
 	if (bMisfire)
 	{
-		if (g_gunsnd_indoor>0.75f)
-		string128 sndNameMisfireIndoor;
-		strconcat(sizeof(sndNameMisfireIndoor), sndNameMisfireIndoor, m_sSndShotCurrent.c_str(), "MisfireIndoor");
-		if (m_sounds.FindSoundItem(sndNameMisfireIndoor, false))
-		{
-			m_sounds.PlaySound(sndNameMisfireIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor_volume);
-			return;
+		if (g_gunsnd_indoor>0.75f) {
+			string128 sndNameMisfireIndoor;
+			strconcat(sizeof(sndNameMisfireIndoor), sndNameMisfireIndoor, m_sSndShotCurrent.c_str(), "MisfireIndoor");
+			if (m_sounds.FindSoundItem(sndNameMisfireIndoor, false))
+			{
+				m_sounds.PlaySound(sndNameMisfireIndoor, get_LastFP(), H_Root(), !!GetHUDmode(), false, (u8)-1, g_gunsnd_indoor_volume);
+				return;
+			}
 		}
 
 		string128 sndNameMisfire;
