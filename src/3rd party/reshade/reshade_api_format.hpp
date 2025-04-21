@@ -8,10 +8,10 @@
 #include <cfloat>
 #include <cstdint>
 
-namespace reshade::api
+namespace reshade { namespace api
 {
 	/// <summary>
-	/// The available data and texture formats.
+	/// Available data and texture formats.
 	/// This is mostly compatible with 'DXGI_FORMAT'.
 	/// </summary>
 	enum class format : uint32_t
@@ -21,90 +21,119 @@ namespace reshade::api
 		// Color formats
 
 		r1_unorm = 66,
-		l8_unorm = 0x3030384C,
+
+		l8_unorm = 0x3030384C /* L800 */,
 		a8_unorm = 65,
 		r8_typeless = 60,
 		r8_uint = 62,
 		r8_sint = 64,
 		r8_unorm = 61,
 		r8_snorm = 63,
-		l8a8_unorm = 0x3038414C,
+
+		l8a8_unorm = 0x3038414C /* LA80 */,
 		r8g8_typeless = 48,
 		r8g8_uint = 50,
 		r8g8_sint = 52,
 		r8g8_unorm = 49,
 		r8g8_snorm = 51,
+
+		r8g8b8_typeless = 0x42475230 /* 0RGB */,
+		r8g8b8_uint = 0x42475232 /* 2RGB */,
+		r8g8b8_sint = 0x42475234 /* 4RGB */,
+		r8g8b8_unorm = 0x42475231 /* 1RGB */,
+		r8g8b8_unorm_srgb = 0x42475235 /* 5RGB */,
+		r8g8b8_snorm = 0x42475233 /* 3RGB */,
+		b8g8r8_typeless = 0x52474230 /* 0BGR */,
+		b8g8r8_unorm = 0x52474231 /* 1BGR */,
+		b8g8r8_unorm_srgb = 0x52474235 /* 5BGR */,
+
 		r8g8b8a8_typeless = 27,
 		r8g8b8a8_uint = 30,
 		r8g8b8a8_sint = 32,
 		r8g8b8a8_unorm = 28,
+		r8g8b8x8_unorm = 0x424757B9 /* _WGB */,
 		r8g8b8a8_unorm_srgb = 29,
+		r8g8b8x8_unorm_srgb = 0x424757BA /* _WGB */,
 		r8g8b8a8_snorm = 31,
-		r8g8b8x8_typeless = 0x424757B8,
-		r8g8b8x8_unorm = 0x424757B9,
-		r8g8b8x8_unorm_srgb = 0x424757BA,
 		b8g8r8a8_typeless = 90,
-		b8g8r8a8_unorm = 87,
-		b8g8r8a8_unorm_srgb = 91,
 		b8g8r8x8_typeless = 92,
+		b8g8r8a8_unorm = 87,
 		b8g8r8x8_unorm = 88,
+		b8g8r8a8_unorm_srgb = 91,
 		b8g8r8x8_unorm_srgb = 93,
+
 		r10g10b10a2_typeless = 23,
 		r10g10b10a2_uint = 25,
 		r10g10b10a2_unorm = 24,
 		r10g10b10a2_xr_bias = 89,
-		b10g10r10a2_typeless = 0x42475330,
-		b10g10r10a2_uint = 0x42475332,
-		b10g10r10a2_unorm = 0x42475331,
+		b10g10r10a2_typeless = 0x42475330 /* 0SGB */,
+		b10g10r10a2_uint = 0x42475332 /* 2SGB */,
+		b10g10r10a2_unorm = 0x42475331 /* 1SGB */,
+
 		l16_unorm = 0x3036314C,
 		r16_typeless = 53,
 		r16_uint = 57,
 		r16_sint = 59,
-		r16_float = 54,
 		r16_unorm = 56,
 		r16_snorm = 58,
-		l16a16_unorm = 0x3631414C,
+		r16_float = 54,
+
+		l16a16_unorm = 0x3631414C /* LA16 */,
 		r16g16_typeless = 33,
 		r16g16_uint = 36,
 		r16g16_sint = 38,
-		r16g16_float = 34,
 		r16g16_unorm = 35,
 		r16g16_snorm = 37,
+		r16g16_float = 34,
+
+		r16g16b16_typeless = 0x42475430 /* 0TGB */,
+		r16g16b16_uint = 0x42475432 /* 2TGB */,
+		r16g16b16_sint = 0x42475434 /* 4TGB */,
+		r16g16b16_unorm = 0x42475431 /* 1TGB */,
+		r16g16b16_snorm = 0x42475433 /* 3TGB */,
+		r16g16b16_float = 0x42475435 /* 5TGB */,
+
 		r16g16b16a16_typeless = 9,
 		r16g16b16a16_uint = 12,
 		r16g16b16a16_sint = 14,
-		r16g16b16a16_float = 10,
 		r16g16b16a16_unorm = 11,
 		r16g16b16a16_snorm = 13,
+		r16g16b16a16_float = 10,
+
 		r32_typeless = 39,
 		r32_uint = 42,
 		r32_sint = 43,
 		r32_float = 41,
+
 		r32g32_typeless = 15,
 		r32g32_uint = 17,
 		r32g32_sint = 18,
 		r32g32_float = 16,
+
 		r32g32b32_typeless = 5,
 		r32g32b32_uint = 7,
 		r32g32b32_sint = 8,
 		r32g32b32_float = 6,
+
 		r32g32b32a32_typeless = 1,
 		r32g32b32a32_uint = 3,
 		r32g32b32a32_sint = 4,
 		r32g32b32a32_float = 2,
+
 		r9g9b9e5 = 67,
 		r11g11b10_float = 26,
 		b5g6r5_unorm = 85,
 		b5g5r5a1_unorm = 86,
-		b5g5r5x1_unorm = 0x424757B5,
+		b5g5r5x1_unorm = 0x424757B5 /* _WGB */,
 		b4g4r4a4_unorm = 115,
+		a4b4g4r4_unorm = 191,
 
 		// Depth-stencil formats
 
-		s8_uint = 0x30303853,
+		s8_uint = 0x30303853 /* S800 */,
 		d16_unorm = 55,
-		d16_unorm_s8_uint = 0x38363144,
-		d24_unorm_x8_uint = 0x38343244,
+		d16_unorm_s8_uint = 0x38363144 /* D168 */,
+		d24_unorm_x8_uint = 0x38343244 /* D248 */,
 		d24_unorm_s8_uint = 45,
 		d32_float = 40,
 		d32_float_s8_uint = 20,
@@ -147,7 +176,7 @@ namespace reshade::api
 
 		// Special purpose formats
 
-		intz = 0x5A544E49,
+		intz = 0x5A544E49 /* INTZ */,
 	};
 
 	/// <summary>
@@ -191,6 +220,8 @@ namespace reshade::api
 		case format::r8g8b8a8_unorm:
 		case format::r8g8b8a8_unorm_srgb:
 		case format::r8g8b8a8_snorm:
+		case format::r8g8b8x8_unorm:
+		case format::r8g8b8x8_unorm_srgb:
 			return format::r8g8b8a8_typeless;
 		case format::b8g8r8a8_typeless:
 		case format::b8g8r8a8_unorm:
@@ -310,12 +341,21 @@ namespace reshade::api
 			return format::r8_unorm;
 		case format::r8g8_typeless:
 			return format::r8g8_unorm;
+		case format::r8g8b8_typeless:
+		case format::r8g8b8_unorm:
+			return srgb_variant == 1 ? format::r8g8b8_unorm_srgb : format::r8g8b8_unorm;
+		case format::r8g8b8_unorm_srgb:
+			return srgb_variant != 0 ? format::r8g8b8_unorm_srgb : format::r8g8b8_unorm;
+		case format::b8g8r8_typeless:
+		case format::b8g8r8_unorm:
+			return srgb_variant == 1 ? format::b8g8r8_unorm_srgb : format::b8g8r8_unorm;
+		case format::b8g8r8_unorm_srgb:
+			return srgb_variant != 0 ? format::b8g8r8_unorm_srgb : format::b8g8r8_unorm;
 		case format::r8g8b8a8_typeless:
 		case format::r8g8b8a8_unorm:
 			return srgb_variant == 1 ? format::r8g8b8a8_unorm_srgb : format::r8g8b8a8_unorm;
 		case format::r8g8b8a8_unorm_srgb:
 			return srgb_variant != 0 ? format::r8g8b8a8_unorm_srgb : format::r8g8b8a8_unorm;
-		case format::r8g8b8x8_typeless:
 		case format::r8g8b8x8_unorm:
 			return srgb_variant == 1 ? format::r8g8b8x8_unorm_srgb : format::r8g8b8x8_unorm;
 		case format::r8g8b8x8_unorm_srgb:
@@ -335,12 +375,15 @@ namespace reshade::api
 		case format::b10g10r10a2_typeless:
 			return format::b10g10r10a2_unorm;
 		case format::d16_unorm:
-		case format::r16_typeless:
 			return format::r16_unorm;
+		case format::r16_typeless:
+			return format::r16_float;
 		case format::r16g16_typeless:
-			return format::r16g16_unorm;
+			return format::r16g16_float;
+		case format::r16g16b16_typeless:
+			return format::r16g16b16_float;
 		case format::r16g16b16a16_typeless:
-			return format::r16g16b16a16_unorm;
+			return format::r16g16b16a16_float;
 		case format::d32_float:
 		case format::r32_typeless:
 			return format::r32_float;
@@ -415,6 +458,50 @@ namespace reshade::api
 	}
 
 	/// <summary>
+	/// Gets the average component bit depth of the specified format <paramref name="value"/>.
+	/// </summary>
+	inline const uint32_t format_bit_depth(format value)
+	{
+		switch (value)
+		{
+		case format::b5g6r5_unorm:
+		case format::b5g5r5a1_unorm:
+		case format::b5g5r5x1_unorm:
+			return 5;
+		case format::r8g8b8a8_typeless:
+		case format::r8g8b8a8_unorm:
+		case format::r8g8b8a8_unorm_srgb:
+		case format::r8g8b8x8_unorm:
+		case format::r8g8b8x8_unorm_srgb:
+		case format::b8g8r8a8_typeless:
+		case format::b8g8r8a8_unorm:
+		case format::b8g8r8a8_unorm_srgb:
+		case format::b8g8r8x8_typeless:
+		case format::b8g8r8x8_unorm:
+		case format::b8g8r8x8_unorm_srgb:
+			return 8;
+		case format::r10g10b10a2_typeless:
+		case format::r10g10b10a2_unorm:
+		case format::r10g10b10a2_xr_bias:
+		case format::b10g10r10a2_typeless:
+		case format::b10g10r10a2_unorm:
+			return 10;
+		case format::r11g11b10_float:
+			return 11;
+		case format::r16g16b16a16_typeless:
+		case format::r16g16b16a16_float:
+			return 16;
+		case format::r32g32b32_typeless:
+		case format::r32g32b32_float:
+		case format::r32g32b32a32_typeless:
+		case format::r32g32b32a32_float:
+			return 32;
+		default:
+			return 0;
+		}
+	}
+
+	/// <summary>
 	/// Gets the number of bytes a texture row of the specified format <paramref name="value"/> occupies.
 	/// </summary>
 	inline const uint32_t format_row_pitch(format value, uint32_t width)
@@ -434,17 +521,24 @@ namespace reshade::api
 			return  2 * width;
 		if (value <= format::a8_unorm || value == format::l8_unorm)
 			return  1 * width;
-		if (value <= format::g8r8_g8b8_unorm || (value >= format::b8g8r8a8_unorm && value <= format::b8g8r8x8_unorm_srgb) || (value >= format::r8g8b8x8_typeless && value <= format::r8g8b8x8_unorm_srgb))
+		if (value <= format::g8r8_g8b8_unorm || (value >= format::b8g8r8a8_unorm && value <= format::b8g8r8x8_unorm_srgb) || (value == format::r8g8b8x8_unorm || value == format::r8g8b8x8_unorm_srgb) || (value >= format::b10g10r10a2_typeless && value <= format::b10g10r10a2_uint))
 			return  4 * width;
 
 		// Block compressed formats are bytes per block, rather than per pixel
-		if ((value >= format::bc1_typeless && value <= format::bc1_unorm_srgb) || (value >= format::bc4_typeless && value <= format::bc4_snorm))
-			return  8 * ((width + 3) / 4);
 		if ((value >= format::bc2_typeless && value <= format::bc2_unorm_srgb) || (value >= format::bc3_typeless && value <= format::bc3_unorm_srgb) || (value >= format::bc5_typeless && value <= format::bc7_unorm_srgb))
 			return 16 * ((width + 3) / 4);
+		if ((value >= format::bc1_typeless && value <= format::bc1_unorm_srgb) || (value >= format::bc4_typeless && value <= format::bc4_snorm))
+			return  8 * ((width + 3) / 4);
+
+		// Unusual formats
+		if ((value >= format::r16g16b16_typeless && value <= format::r16g16b16_float))
+			return  6 * width;
+		if ((value >= format::r8g8b8_typeless && value <= format::r8g8b8_unorm_srgb) || (value >= format::b8g8r8_typeless && value <= format::b8g8r8_unorm_srgb))
+			return  3 * width;
 
 		return 0;
 	}
+
 	/// <summary>
 	/// Gets the number of bytes a texture slice of the specified format <paramref name="value"/> occupies.
 	/// </summary>
@@ -455,4 +549,4 @@ namespace reshade::api
 
 		return row_pitch * height;
 	}
-}
+} }

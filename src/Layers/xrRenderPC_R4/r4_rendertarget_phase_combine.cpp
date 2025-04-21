@@ -449,8 +449,11 @@ void CRenderTarget::phase_combine()
 	// Distortion filter
 	BOOL bDistort = RImplementation.o.distortion_enabled; // This can be modified
 	{
-		if ((0 == RImplementation.mapDistort.size()) && !_menu_pp)
+		u32 count = RImplementation.mapDistort.size() + RImplementation.mapHUDDistort.size();
+		if ((count < 1 && !_menu_pp))
+		{
 			bDistort = FALSE;
+		}
 		if (bDistort)
 		{
 			PIX_EVENT(render_distort_objects);

@@ -55,12 +55,19 @@ void CRenderDevice::Destroy(void)
 
 #include "IGame_Level.h"
 #include "CustomHUD.h"
-extern BOOL bNeed_re_create_env;
+extern bool use_reshade;
+extern bool init_reshade();
+extern void unregister_reshade();
 extern u32 g_screenmode;
 extern void GetMonitorResolution(u32& horizontal, u32& vertical);
 
 void CRenderDevice::Reset(bool precache)
 {
+	if (use_reshade)
+		unregister_reshade();
+
+	use_reshade = false;
+
 	u32 dwWidth_before = dwWidth;
 	u32 dwHeight_before = dwHeight;
 
@@ -110,4 +117,6 @@ void CRenderDevice::Reset(bool precache)
 	MapWindowPoints(m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
 	ClipCursor(&winRect);
 #endif
+
+	use_reshade = init_reshade();
 }
