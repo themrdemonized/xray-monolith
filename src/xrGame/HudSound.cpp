@@ -2,6 +2,10 @@
 
 #include "HudSound.h"
 
+#include "pch_script.h"
+#include "script_game_object.h"
+using namespace luabind;
+
 float psHUDSoundVolume = 1.0f;
 float psHUDStepSoundVolume = 1.0f;
 
@@ -222,6 +226,7 @@ void HUD_SOUND_COLLECTION::LoadSound(LPCSTR section, LPCSTR line, LPCSTR alias, 
 	HUD_SOUND_ITEM::LoadSound(section, line, snd_item, type);
 	snd_item.m_alias = alias;
 	snd_item.m_b_exclusive = exclusive;
+	snd_item.m_type = type;
 }
 
 //Alundaio:
@@ -282,13 +287,66 @@ void HUD_SOUND_COLLECTION_LAYERED::SetPosition(LPCSTR alias, const Fvector& pos)
 void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& position, const CObject* parent,
                                              bool hud_mode, bool looped, u8 index, float volume_mult)
 {
+	LPCSTR alias_to_play = alias;
+	luabind::functor<luabind::object> funct;
+	if (ai().script_engine().functor("_G.COnBeforePlayHudSound", funct))
+	{
+		const CGameObject* parent_game_object = smart_cast<const CGameObject*>(parent);
+		if (parent_game_object)
+		{
+			auto parent_lua_game_object = parent_game_object->lua_game_object();
+			luabind::object output = funct(alias, parent_lua_game_object);
+			if (output && output.type() == LUA_TTABLE)
+			{
+				LPCSTR section = luabind::object_cast<LPCSTR>(output["section"]);
+				LPCSTR line = luabind::object_cast<LPCSTR>(output["line"]);
+				if (!section)
+				{
+					Msg("!HUD_SOUND_COLLECTION_LAYERED::PlaySound, failed to override sound item %s, no section specified", alias);
+				} 
+				else if (!line)
+				{
+					Msg("!HUD_SOUND_COLLECTION_LAYERED::PlaySound, failed to override sound item %s, no line specified", alias);
+				} 
+				else
+				{
+					xr_string new_alias = xr_string(section) + "|" + line;
+					if (!FindSoundItem(new_alias.c_str(), false))
+					{
+						auto old_sound = FindSoundItem(alias, false);
+						if (old_sound)
+						{
+							alias_to_play = new_alias.c_str();
+							LoadSound(section, line, alias_to_play, old_sound->m_b_exclusive, old_sound->m_type);
+							if (!FindSoundItem(alias_to_play, false))
+							{
+								Msg("!HUD_SOUND_COLLECTION_LAYERED::PlaySound, failed to override sound item %s with %s, failed to load section %s line %s", alias, alias_to_play, section, line);
+							} else {
+								//Msg("HUD_SOUND_COLLECTION_LAYERED::PlaySound, overriding sound item %s with %s, section %s line %s", alias, alias_to_play, section, line);
+							}
+						}
+						else
+						{
+							Msg("!HUD_SOUND_COLLECTION_LAYERED::PlaySound, failed to override sound item %s with %s, sound item by original alias %s not found", alias, new_alias.c_str(), alias);
+						}
+					} 
+					else
+					{
+						alias_to_play = new_alias.c_str();
+						//Msg("HUD_SOUND_COLLECTION_LAYERED::PlaySound, overriding sound item %s with %s, already exists", alias, alias_to_play);
+					}
+				}
+			}
+		}
+	}
+
 	xr_vector<HUD_SOUND_COLLECTION>::iterator it = m_sound_items.begin();
 	xr_vector<HUD_SOUND_COLLECTION>::iterator it_e = m_sound_items.end();
 
 	for (; it != it_e; ++it)
 	{
-		if (it->m_alias == alias)
-			it->PlaySound(alias, position, parent, hud_mode, looped, index, volume_mult);
+		if (it->m_alias == alias_to_play)
+			it->PlaySound(alias_to_play, position, parent, hud_mode, looped, index, volume_mult);
 	}
 }
 
@@ -308,38 +366,7 @@ HUD_SOUND_ITEM* HUD_SOUND_COLLECTION_LAYERED::FindSoundItem(LPCSTR alias, bool b
 
 void HUD_SOUND_COLLECTION_LAYERED::LoadSound(LPCSTR section, LPCSTR line, LPCSTR alias, bool exclusive, int type)
 {
-	if (!pSettings->line_exist(section, line))
-		return;
-
-	LPCSTR str = pSettings->r_string(section, line);
-	string256 buf_str;
-
-	int count = _GetItemCount(str);
-	R_ASSERT(count);
-
-	_GetItem(str, 0, buf_str);
-
-	if (pSettings->section_exist(buf_str))
-	{
-		string256 sound_line;
-		xr_strcpy(sound_line, "snd_1_layer");
-		int k = 1;
-		while (pSettings->line_exist(buf_str, sound_line))
-		{
-			m_sound_items.resize(m_sound_items.size() + 1);
-			HUD_SOUND_COLLECTION& snd_item = m_sound_items.back();
-			snd_item.LoadSound(buf_str, sound_line, alias, exclusive, type);
-			snd_item.m_alias = alias;
-			xr_sprintf(sound_line, "snd_%d_layer", ++k);
-		}
-	}
-	else //For compatibility with normal HUD_SOUND_COLLECTION sounds
-	{
-		m_sound_items.resize(m_sound_items.size() + 1);
-		HUD_SOUND_COLLECTION& snd_item = m_sound_items.back();
-		snd_item.LoadSound(section, line, alias, exclusive, type);
-		snd_item.m_alias = alias;
-	}
+	LoadSound(pSettings, section, line, alias, exclusive, type);
 }
 
 void HUD_SOUND_COLLECTION_LAYERED::LoadSound(CInifile const* ini, LPCSTR section, LPCSTR line, LPCSTR alias,

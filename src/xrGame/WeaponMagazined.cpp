@@ -111,22 +111,15 @@ void CWeaponMagazined::Load(LPCSTR section)
 		m_sounds.LoadSound(section, "snd_shoot_actor", "sndShotActor", false, m_eSoundShot);
 	// Indoor
 	if (WeaponSoundExist(section, "snd_shoot_indoor_actor")) {
-		m_sounds.LoadSound(section, "snd_shoot_indoor_actor", "sndShotIndoorActor", false, m_eSoundShot);
+		m_sounds.LoadSound(section, "snd_shoot_actor_indoor", "sndShotIndoorActor", false, m_eSoundShot);
 	} else {
 		if (WeaponSoundExist(section, "snd_shoot_indoor")) {
 			m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoorActor", false, m_eSoundShot);
-		} else {
-			if (WeaponSoundExist(section, "snd_shoot_indoor_actor_bak")) {
-				m_sounds.LoadSound(section, "snd_shoot_indoor_actor_bak", "sndShotIndoorActor", false, m_eSoundShot);}
 		}
 	}
 
 	if (WeaponSoundExist(section, "snd_shoot_indoor")) {
 		m_sounds.LoadSound(section, "snd_shoot_indoor", "sndShotIndoor", false, m_eSoundShot);
-	} else {
-		if (WeaponSoundExist(section, "snd_shoot_indoor_bak")) {
-			m_sounds.LoadSound(section, "snd_shoot_indoor_bak", "sndShotIndoor", false, m_eSoundShot);
-		}
 	}
 	//-Alundaio
 	// Cyclic fire sounds
@@ -190,10 +183,7 @@ void CWeaponMagazined::Load(LPCSTR section)
 		// Indoor
 		if (WeaponSoundExist(section, "snd_silncer_shoot_indoor")) {
 			m_sounds.LoadSound(section, "snd_silncer_shoot_indoor", "sndSilencerShotIndoor", false, m_eSoundShot);
-		} else {
-			if (WeaponSoundExist(section, "snd_silncer_shoot_indoor_bak")) {
-				m_sounds.LoadSound(section, "snd_silncer_shoot_indoor_bak", "sndSilencerShotIndoor", false, m_eSoundShot);
-		}}
+		}
 		//misfire shot
 		if (WeaponSoundExist(section, "snd_silncer_shot_misfire"))
 			m_sounds.LoadSound(section, "snd_silncer_shot_misfire", "sndSilencerShotMisfire", false, m_eSoundShot);

@@ -55,6 +55,7 @@ struct HUD_SOUND_ITEM
 	shared_str m_alias;
 	SSnd* m_activeSnd;
 	bool m_b_exclusive;
+	int m_type;
 	xr_vector<SSnd> sounds;
 
 	bool operator ==(LPCSTR alias) const
