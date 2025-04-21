@@ -22,10 +22,6 @@ Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by 
     * `gamedata/shaders`
   * Install modded exes following the instructions above
 
-* Q: The game crashes when using reshade and trying to switch resolution/change graphics settings/init `vid_restart` command
-* A: This is due to Reshade versions shenanigans. The latest tested version that doesn't crash while doing stuff in question is 5.7.0, you can download it here: https://reshade.me/downloads/ReShade_Setup_5.7.0_Addon.exe. If you wish to use later versions, try not to change graphics settings with them.
-
-
 * Q: The game crashes on DX11 Fullscreen on Linux
 * A: You need to add `--dxgi-old` parameter into `commandline.txt` file or via making a shotcut to exe and adding argument there
 
@@ -188,6 +184,10 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2025.04.21**
+* NLTP_Ashes: Add support for distortion on HUD geometry (https://github.com/themrdemonized/xray-monolith/pull/174)
+* Lucy: Updated ReShade Support (https://github.com/themrdemonized/xray-monolith/pull/175)
+
 **2025.04.19**
 * Lucy: (https://github.com/themrdemonized/xray-monolith/pull/171)
   * Removal of Model Pool caused a lot of unpredictable crashes, so now it's back but with a small change to work in line with the set_shader lua methods :)

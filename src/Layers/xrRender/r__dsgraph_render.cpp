@@ -833,6 +833,20 @@ void R_dsgraph_structure::r_dsgraph_render_distort()
 	// Sorted (back to front)
 	mapDistort.traverseRL(sorted_L1);
 	mapDistort.clear();
+
+	// Change projection
+	Fmatrix FTold = Device.mFullTransform;
+	Device.mFullTransform = Device.mFullTransformHud;
+	RCache.set_xform_project(Device.mProjectHud);
+
+	rmNear();
+	mapHUDDistort.traverseLR(sorted_L1);
+	mapHUDDistort.clear();
+	rmNormal();
+
+	// Restore projection
+	Device.mFullTransform = FTold;
+	RCache.set_xform_project(Device.mProject);
 }
 
 //////////////////////////////////////////////////////////////////////////
