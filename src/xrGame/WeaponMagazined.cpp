@@ -189,6 +189,17 @@ void CWeaponMagazined::Load(LPCSTR section)
 		if (WeaponSoundExist(section, "snd_silncer_shoot_indoor")) {
 			m_sounds.LoadSound(section, "snd_silncer_shoot_indoor", "sndSilencerShotIndoor", false, m_eSoundShot);
 		}
+		if (WeaponSoundExist(section, "snd_silncer_shot_misfire_indoor"))
+			m_sounds.LoadSound(section, "snd_silncer_shot_misfire_indoor", "sndSilencerShotMisfireIndoor", false, m_eSoundShot);
+
+		if (WeaponSoundExist(section, "snd_silncer_shot_actor_indoor"))
+			m_sounds.LoadSound(section, "snd_silncer_shot_actor_indoor", "sndSilencerShotActorIndoor", false, m_eSoundShot);
+
+		if (WeaponSoundExist(section, "snd_silncer_shot_misfire_actor_indoor"))
+			m_sounds.LoadSound(section, "snd_silncer_shot_misfire_actor_indoor", "sndSilencerShotMisfireActorIndoor", false, m_eSoundShot);
+
+		if (WeaponSoundExist(section, "snd_silncer_shoot_actor_first_indoor"))
+			m_sounds.LoadSound(section, "snd_silncer_shoot_actor_first_indoor", "sndSilencerShotActorFirstIndoor", false, m_eSoundShot);
 		//misfire shot
 		if (WeaponSoundExist(section, "snd_silncer_shot_misfire"))
 			m_sounds.LoadSound(section, "snd_silncer_shot_misfire", "sndSilencerShotMisfire", false, m_eSoundShot);
