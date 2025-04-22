@@ -257,6 +257,93 @@ _G.CPickupModeUpdate_COD = function(obj)
 	SendScriptCallback("actor_on_update_pickup", obj)
 end
 
+--[[
+on_before_play_hud_sound callback, possibility to override sound with another one
+Callback returns a table which must contain "section" and "line" fields, which refer to section and line to load new sounds from
+
+Arguments
+	Alias: internal sound type in the engine
+	Parent: Parent object of an object that initiated the sound (`actor` when shooting a weapon for example), might be nil
+
+Example
+	if alias == "sndShot" and parent and parent:id() == AC_ID then
+		result.section = "wpn_l96a1_sounds"
+		result.line = "snd_shoot"
+	end
+
+Possible aliases:
+	"catch_snd"
+	"found_snd"
+	"NightVisionBrokenSnd"
+	"NightVisionIdleSnd"
+	"NightVisionOffSnd"
+	"NightVisionOnSnd"
+	"sndAddCartridge"
+	"sndBore"
+	"sndButtonPress"
+	"sndButtonRelease"
+	"sndCheckout"
+	"sndClickMisfire"
+	"sndClickMisfireActor"
+	"sndClose"
+	"sndCloseEmpty"
+	"sndEmptyBattery"
+	"sndEmptyClick"
+	"sndEmptyClickActor"
+	"sndExplode"
+	"sndHide"
+	"sndHideActor"
+	"sndHideEmpty"
+	"sndOpen"
+	"sndReload"
+	"sndReload1"
+	"sndReloadActor"
+	"sndReloadEmpty"
+	"sndReloadEmptyActor"
+	"sndReloadG"
+	"sndReloadMisfire"
+	"sndReloadMisfireActor"
+	"sndRocket"
+	"sndShoot"
+	"sndShootL"
+	"sndShot"
+	"sndShotActor"
+	"sndShotActorFirst"
+	"sndShotG"
+	"sndShotIndoor"
+	"sndShotMisfire"
+	"sndShotMisfireActor"
+	"sndShow"
+	"sndShowActor"
+	"sndShowEmpty"
+	"sndSilencerShot"
+	"sndSilencerShotActor"
+	"sndSilencerShotActorFirst"
+	"sndSilencerShotIndoor"
+	"sndSilencerShotMisfire"
+	"sndSilencerShotMisfireActor"
+	"sndSwitch"
+	"sndSwitchMode"
+	"sndThrow"
+	"sndTurnOff"
+	"sndTurnOn"
+	"sndZoomIn"
+	"sndZoomOut"
+--]]
+AddScriptCallback("on_before_play_hud_sound")
+_G.COnBeforePlayHudSound = function(alias, parent)
+	local result = {
+		section = nil,
+		line = nil
+	}
+
+	SendScriptCallback("on_before_play_hud_sound", alias, parent, result)
+
+	if result.section and result.line then
+		return result
+	end
+end
+
 -- Improve NPCs pathfinding by reducing actual anomaly damage radius
 -- Works only when npc:get_enable_anomalies_pathfinding() == true or ai_die_in_anomalies cvar is 1
 function is_outside_damage_radius(zone, obj)
