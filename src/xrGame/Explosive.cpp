@@ -22,9 +22,6 @@
 #include "../xrEngine/gamemtllib.h"
 #include "hudsound.h"
 #include "script_game_object.h"
-#include "inventory.h"
-#include "inventory_item.h"
-#include "InventoryOwner.h"
 
 #ifdef DEBUG
 #	include "../xrEngine/StatGraph.h"
