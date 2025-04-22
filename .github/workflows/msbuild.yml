@@ -7,9 +7,9 @@ name: MSBuild
 
 on:
   push:
-    branches: [ "dev" ]
+    branches: [ "all-in-one-vs2022-wpo" ]
   pull_request:
-    branches: [ "dev" ]
+    branches: [ "all-in-one-vs2022-wpo" ]
 
 permissions: write-all
 
