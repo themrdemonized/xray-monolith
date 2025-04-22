@@ -702,6 +702,15 @@ public:
 		Device.mInvView.transform_tiny(pos);
 	}
 
+	IC static void world_to_hud(Self& pos)
+	{
+		Device.mInvView.transform_tiny(pos);
+		Device.mInvProject.transform_tiny(pos);
+
+		Device.mProjectHud.transform_tiny(pos);
+		Device.mView.transform_tiny(pos);
+	}
+
 	IC static void hud_to_world_dir(Self& dir)
 	{
 		Device.mView.transform_dir(dir);
@@ -709,6 +718,59 @@ public:
 
 		Device.mInvProject.transform_dir(dir);
 		Device.mInvView.transform_dir(dir);
+	}
+
+	IC static void world_to_hud_dir(Self& dir)
+	{
+		Device.mInvView.transform_dir(dir);
+		Device.mInvProject.transform_dir(dir);
+
+		Device.mProjectHud.transform_dir(dir);
+		Device.mView.transform_dir(dir);
+	}
+
+	IC SelfRef hud_to_world_self()
+	{
+		SelfRef tmp = *this;
+		Device.mView.transform_tiny(tmp);
+		Device.mProjectHud.transform_tiny(tmp);
+
+		Device.mInvProject.transform_tiny(tmp);
+		Device.mInvView.transform_tiny(tmp);
+		return *this;
+	}
+
+	IC SelfRef world_to_hud_self()
+	{
+		SelfRef tmp = *this;
+		Device.mInvView.transform_tiny(tmp);
+		Device.mInvProject.transform_tiny(tmp);
+
+		Device.mProjectHud.transform_tiny(tmp);
+		Device.mView.transform_tiny(tmp);
+		return *this;
+	}
+
+	IC SelfRef hud_to_world_dir_self()
+	{
+		SelfRef tmp = *this;
+		Device.mView.transform_dir(tmp);
+		Device.mProjectHud.transform_dir(tmp);
+
+		Device.mInvProject.transform_dir(tmp);
+		Device.mInvView.transform_dir(tmp);
+		return *this;
+	}
+
+	IC SelfRef world_to_hud_dir_self()
+	{
+		SelfRef tmp = *this;
+		Device.mInvView.transform_dir(tmp);
+		Device.mInvProject.transform_dir(tmp);
+
+		Device.mProjectHud.transform_dir(tmp);
+		Device.mView.transform_dir(tmp);
+		return *this;
 	}
 };
 

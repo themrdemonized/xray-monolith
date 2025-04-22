@@ -177,6 +177,7 @@ public:
 	void play_cycle(LPCSTR anim, bool mix_in);
 	void play_cycle(LPCSTR anim);
 	Fvector Center(bool bHud = false);
+	Fmatrix Xform(bool bHud = false);
 	_DECLARE_FUNCTION10(Position, Fvector);
 	_DECLARE_FUNCTION10(Direction, Fvector);
 	_DECLARE_FUNCTION10(Mass, float);
@@ -1013,6 +1014,11 @@ public:
 	Fvector bone_direction(u16 bone_id) { return bone_direction(bone_id, false); }
 	Fvector bone_direction(LPCSTR bone_name, bool bHud) { return bone_direction(bone_id(bone_name, bHud), bHud); }
 	Fvector bone_direction(LPCSTR bone_name) { return bone_direction(bone_id(bone_name), false); }
+
+	Fmatrix bone_transform(u16 bone_id, bool bHud);
+	Fmatrix bone_transform(u16 bone_id) { return bone_transform(bone_id, false); }
+	Fmatrix bone_transform(LPCSTR bone_name, bool bHud) { return bone_transform(bone_id(bone_name, bHud), bHud); }
+	Fmatrix bone_transform(LPCSTR bone_name) { return bone_transform(bone_id(bone_name), false); }
 
 	u16 bone_parent(u16 bone_id, bool bHud);
 	u16 bone_parent(u16 bone_id) { return bone_parent(bone_id, false); }

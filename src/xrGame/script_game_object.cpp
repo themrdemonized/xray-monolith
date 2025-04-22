@@ -68,6 +68,29 @@ Fvector CScriptGameObject::Center(bool bHud)
 	return c;
 }
 
+Fmatrix CScriptGameObject::Xform(bool bHud)
+{
+	Fmatrix* xform = nullptr;
+
+	if (bHud)
+	{
+		CHudItem* itm = smart_cast<CHudItem*>(&object());
+		if (itm)
+		{
+			xform = &itm->HudItemData()->m_item_transform;
+		}
+	} else {
+		xform = &object().XFORM();
+	}
+
+	if (!xform) {
+		Msg("!CScriptGameObject::XForm xform is null for %s", object().Name());
+		return Fmatrix().identity();
+	}
+
+	return *xform;
+}
+
 BIND_FUNCTION10(&object(), CScriptGameObject::Position, CGameObject, Position, Fvector, Fvector());
 BIND_FUNCTION10(&object(), CScriptGameObject::Direction, CGameObject, Direction, Fvector, Fvector());
 BIND_FUNCTION10(&object(), CScriptGameObject::Mass, CPhysicsShellHolder, GetMass, float, float(-1));
@@ -457,6 +480,47 @@ Fvector CScriptGameObject::bone_direction(u16 bone_id, bool bHud)
 	matrix.mul_43(*xform, k->LL_GetTransform(bone_id));
 	matrix.getHPB(res);
 	return (res);
+}
+
+Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud)
+{
+	//if (bone_id == BI_NONE) return Fvector().set(0, 0, 0);
+
+	IKinematics* k = nullptr;
+	Fmatrix* xform = nullptr;
+
+	if (bHud)
+	{
+		CActor* act = smart_cast<CActor*>(&object());
+		CHudItem* itm = smart_cast<CHudItem*>(&object());
+		if (itm)
+		{
+			k = itm->HudItemData()->m_model;
+			xform = &itm->HudItemData()->m_item_transform;
+		} else if (act)
+		{
+			k = (bone_id > 20) ? g_player_hud->m_model->dcast_PKinematics() : g_player_hud->m_model_2->dcast_PKinematics();
+			xform = (bone_id > 20) ? &g_player_hud->m_transform : &g_player_hud->m_transform_2;
+		}
+	} else {
+		k = object().Visual()->dcast_PKinematics();
+		xform = &object().XFORM();
+	}
+
+	if (!k) return Fmatrix().identity();
+
+	// demonized: backwards compatibility with scripts, get root bone if bone_id is BI_NONE
+	if (bone_id == BI_NONE) {
+		if (strstr(Core.Params, "-dbg") && print_bone_warnings) {
+			Msg("![bone_position] Incorrect bone_id provided for %s (%d), fallback to root bone", object().cNameSect_str(), object().ID());
+			ai().script_engine().print_stack();
+		}
+		bone_id = k->LL_GetBoneRoot();
+	}
+
+	Fmatrix matrix;
+	matrix.mul_43(*xform, k->LL_GetTransform(bone_id));
+	return matrix;
 }
 
 u16 CScriptGameObject::bone_parent(u16 bone_id, bool bHud)

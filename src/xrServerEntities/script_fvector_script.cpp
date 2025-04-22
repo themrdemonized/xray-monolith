@@ -97,8 +97,12 @@ void CScriptFvector::script_register(lua_State* L)
 		.def("getP", &Fvector::getP)
 
 		.def("reflect", &Fvector::reflect, return_reference_to(_1))
-		.def("slide", &Fvector::slide, return_reference_to(_1)),
-		//			.def("generate_orthonormal_basis",	&Fvector::generate_orthonormal_basis),
+		.def("slide", &Fvector::slide, return_reference_to(_1))
+		.def("generate_orthonormal_basis",	&Fvector::generate_orthonormal_basis)
+		.def("hud_to_world", &Fvector::hud_to_world_self, return_reference_to(_1))
+		.def("world_to_hud", &Fvector::world_to_hud_self, return_reference_to(_1))
+		.def("hud_to_world_dir", &Fvector::hud_to_world_dir_self, return_reference_to(_1))
+		.def("world_to_hud_dir", &Fvector::world_to_hud_dir_self, return_reference_to(_1)),
 
 		class_<Fvector2>("vector2")
 		.def_readwrite("x", &Fvector2::x)

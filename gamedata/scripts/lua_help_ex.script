@@ -229,6 +229,10 @@
         function mul(float x, float y, float z)
         function div(float x, float y, float z)
         function distance_to_xz_sqr(Fvector)
+        function hud_to_world()
+        function world_to_hud()
+        function hud_to_world_dir()
+        function world_to_hud_dir()
     }
 
     class Fmatrix {
@@ -296,8 +300,8 @@
     }
 
     class game_object {
-        // Skeletons
-        function bone_direction(string bone_name, bool bHud = false)
+        // General
+        Fmatrix xform(bool bHud)
 
         // Player
         function get_actor_walk_accel()
@@ -362,6 +366,11 @@
         Fvector bone_direction(u16 id, bool bHud)
         Fvector bone_direction(string)
         Fvector bone_direction(string, bool bHud)
+
+        Fmatrix bone_transform(u16 id)
+        Fmatrix bone_transform(u16 id, bool bHud)
+        Fmatrix bone_transform(string)
+        Fmatrix bone_transform(string, bool bHud)
 
         u16 bone_parent(u16 id)
         u16 bone_parent(u16 id, bool bHud)

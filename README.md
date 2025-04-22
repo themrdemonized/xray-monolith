@@ -184,6 +184,16 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2025.04.22**
+* `on_before_play_hud_sound` callback, possibility to override hud sound with another one
+* `obj:bone_transform` functions to get transform matrix of a bone
+* `obj:xform` function to get transform matrix of an object
+* New vector functions
+  * `hud_to_world()` to translate vector from hud space to world space
+  * `world_to_hud()` to vice versa
+  * `hud_to_world_dir()` to translate direction vector from hud space to world space
+  * `world_to_hud_dir()` to vice versa
+
 **2025.04.21**
 * NLTP_Ashes: Add support for distortion on HUD geometry (https://github.com/themrdemonized/xray-monolith/pull/174)
 * Lucy: Updated ReShade Support (https://github.com/themrdemonized/xray-monolith/pull/175)
