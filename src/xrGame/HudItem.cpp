@@ -23,6 +23,7 @@
 #include "HUDManager.h"
 
 ENGINE_API extern float psHUD_FOV_def;
+int g_nearwall = NW_FOV;
 
 CHudItem::CHudItem()
 {
@@ -38,7 +39,7 @@ CHudItem::CHudItem()
 	m_fLR_InertiaFactor = 0.f;
 	m_fUD_InertiaFactor = 0.f;
 
-	m_nearwall_last_hud_fov = psHUD_FOV_def;
+	m_nearwall_factor = 0.f;
 	m_lastState = eHidden;
 
 	script_ui = nullptr;
@@ -263,6 +264,12 @@ void CHudItem::SendHiddenItem()
 	}
 }
 
+float CHudItem::GetNearWallOffset()
+{
+	float ofs = g_nearwall == NW_POS ? m_nearwall_factor * GetNearWallRange() * GetBaseHudFov() : 0.f;
+	return ofs;
+}
+
 void CHudItem::UpdateHudAdditional(Fmatrix& trans)
 {
 	CActor* pActor = smart_cast<CActor*>(object().H_Parent());
@@ -480,8 +487,26 @@ void CHudItem::UpdateHudAdditional(Fmatrix& trans)
 	trans.mulB_43(hud_rotation);
 }
 
+float CHudItem::GetNearWallRange()
+{
+	return m_nearwall_dist_max - m_nearwall_dist_min;
+}
+
 void CHudItem::UpdateCL()
 {
+	if (ParentIsActor() && Level().CurrentViewEntity() == object().H_Parent())
+	{
+		float dist = GetRQ().range;
+		clamp(dist, m_nearwall_dist_min, m_nearwall_dist_max);
+
+		float fac = 1 - ((dist - m_nearwall_dist_min) / GetNearWallRange());
+
+		float t = m_nearwall_speed_mod * Device.fTimeDelta;
+		clamp(t, 0.f, 1.f);
+
+		m_nearwall_factor = m_nearwall_factor * (1 - t) + fac * t;
+	}
+
 	if (m_current_motion_def)
 	{
 		if (m_bStopAtEndAnimIsRunning)
@@ -546,7 +571,7 @@ void CHudItem::OnH_B_Independent(bool just_before_destroy)
 {
 	m_sounds.StopAllSounds();
 	UpdateXForm();
-	m_nearwall_last_hud_fov = psHUD_FOV_def;
+	m_nearwall_factor = 0.f;
 
 	// next code was commented
 	/*
@@ -931,25 +956,17 @@ collide::rq_result& CHudItem::GetRQ()
 	return HUD().GetCurrentRayQuery(); 
 }
 
+float CHudItem::GetBaseHudFov()
+{
+	return (m_base_fov ? m_base_fov : psHUD_FOV_def) + m_hud_fov_add_mod;
+}
+
 float CHudItem::GetHudFov()
 {
-	if (ParentIsActor() && Level().CurrentViewEntity() == object().H_Parent())
-	{
-		float dist = GetRQ().range;
-
-		clamp(dist, m_nearwall_dist_min, m_nearwall_dist_max);
-		float fDistanceMod = ((dist - m_nearwall_dist_min) / (m_nearwall_dist_max - m_nearwall_dist_min));
-		// 0.f ... 1.f
-		float fBaseFov = (m_base_fov ? m_base_fov : psHUD_FOV_def) + m_hud_fov_add_mod;
-		clamp(fBaseFov, 0.0f, 1.f);
-		float src = m_nearwall_speed_mod * Device.fTimeDelta;
-		clamp(src, 0.f, 1.f);
-
-		float fTrgFov = m_nearwall_target_hud_fov + fDistanceMod * (fBaseFov - m_nearwall_target_hud_fov);
-		m_nearwall_last_hud_fov = m_nearwall_last_hud_fov * (1 - src) + fTrgFov * src;
-	}
-
-	return m_nearwall_last_hud_fov;
+	float fov = GetBaseHudFov();
+	if (g_nearwall == NW_FOV)
+		fov -= m_nearwall_target_hud_fov * m_nearwall_factor;
+	return fov;
 }
 
 CAnonHudItem::CAnonHudItem() { }

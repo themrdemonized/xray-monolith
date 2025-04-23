@@ -25,6 +25,13 @@ class CUIWindow;
 struct attachable_hud_item;
 class motion_marks;
 
+enum ENearWallMode {
+	NW_OFF = 0,
+	NW_FOV,
+	NW_POS,
+	NW_MAX
+};
+
 class CHUDState
 {
 public:
@@ -187,6 +194,9 @@ public:
 	attachable_hud_item* HudItemData();
 	bool IsAttachedToHUD();
 	virtual bool ParentIsActor();
+	virtual float GetNearWallRange();
+	virtual float GetNearWallOffset();
+	virtual float GetBaseHudFov();
 	virtual float GetHudFov();
 	virtual void on_outfit_changed();
 	virtual void on_a_hud_attach();
@@ -257,7 +267,7 @@ public:
 	float m_hud_fov_add_mod;
 	float m_nearwall_dist_max;
 	float m_nearwall_dist_min;
-	float m_nearwall_last_hud_fov;
+	float m_nearwall_factor;
 	float m_nearwall_target_hud_fov;
 	float m_nearwall_speed_mod;
 	float m_base_fov;
