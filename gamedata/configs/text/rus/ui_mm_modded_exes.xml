@@ -240,6 +240,16 @@
 	<string id="ui_mm_modded_exes_gameplay_g_firepos_zoom">
 		<text>Пули вылетают из ствола во время прицеливания (g_firepos_zoom)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_nearwall">
+		<text>Поведение оружия при смещении вблизи стены (g_nearwall)</text>
+	</string>
+
+	<string id="ui_mm_lst_nearwall_hud_fov">
+		<text>HUD FOV</text>
+	</string>
+	<string id="ui_mm_lst_nearwall_position">
+		<text>Положение</text>
+	</string>
 
 	<!-- HDR10 -->
 	<string id="ui_mm_modded_exes_hdr10_enabled">

@@ -52,6 +52,7 @@ Flags32 zoomFlags = {};
 extern float n_zoom_step_count;
 float sens_multiple = 1.0f;
 
+extern int g_nearwall;
 
 float CWeapon::SDS_Radius(bool alt) {
 	// hack for GL to always return 0, fix later
@@ -530,6 +531,25 @@ float CWeapon::GetHudFov()
 	return base;
 }
 
+inline float lerp(float a, float b, float t)
+{
+	return a * (1 - t) + b * t;
+}
+
+float CWeapon::GetNearWallOffset()
+{
+	if (g_nearwall != NW_POS)
+		return 0.f;
+
+	float range = GetNearWallRange();
+	if (Actor()->active_cam() == EActorCameras::eacFirstEye)
+	{
+		range = lerp(range, m_nearwall_zoomed_range, GetZRotatingFactor());
+		range *= GetBaseHudFov();
+	}
+	return m_nearwall_factor * range;
+}
+
 void CWeapon::ForceUpdateFireParticles()
 {
 	if (!GetHUDmode())
@@ -884,6 +904,8 @@ void CWeapon::Load(LPCSTR section)
 		}
 	}
 	//--DSR-- SilencerOverheat_end
+
+	m_nearwall_zoomed_range = READ_IF_EXISTS(pSettings, r_float, section, "nearwall_zoomed_range", 0.14f);
 }
 
 // demonized: World model on stalkers adjustments

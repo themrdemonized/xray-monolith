@@ -164,6 +164,8 @@ void CHUDManager::OnFrame()
 		pUIGame->OnFrame();
 
 	m_pHUDTarget->CursorOnFrame();
+
+	g_player_hud->OnFrame();
 }
 
 //--------------------------------------------------------------------

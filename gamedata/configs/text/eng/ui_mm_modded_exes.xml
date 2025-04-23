@@ -245,6 +245,16 @@
 	<string id="ui_mm_modded_exes_gameplay_g_firepos_zoom">
 		<text>Enable bullets firing from gun barrel while aiming (g_firepos_zoom)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_nearwall">
+		<text>Weapon near-wall offset behaviour (g_nearwall)</text>
+	</string>
+
+	<string id="ui_mm_lst_nearwall_hud_fov">
+		<text>HUD FOV</text>
+	</string>
+	<string id="ui_mm_lst_nearwall_position">
+		<text>Position</text>
+	</string>
 
 
 	<!-- HDR10 -->

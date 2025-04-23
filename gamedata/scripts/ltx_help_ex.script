@@ -18,6 +18,7 @@
         base_hud_offset_rot_16x9 - Editable variables that allow weapon position adjustements that don't require aim tweaks
         silenced_tracers - Option to disable silencers hiding the tracer on a per weapon basis
         fire_point_silencer - Adjust fire point when silencer is attached, defaults to the value of fire_point. Supports both HUD and world models
+		nearwall_zoomed_range - Maximum offset toward camera when aiming down sight close to a wall.
         ai_rpm - Set RPM of weapon for AI (only for SSRS)
         modular_attachments - enable modular attachments (https://github.com/themrdemonized/xray-monolith/pull/135)
         modular_scope_group - section which is used to define available scopes (modular attachments)

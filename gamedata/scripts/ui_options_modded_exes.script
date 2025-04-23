@@ -624,6 +624,15 @@ function init_opt_base()
 						def = true,
 						cmd = "g_firepos_zoom",
 					},
+					{
+						id = "g_nearwall",
+						type = "list",
+						val = 1,
+						def = 2,
+						curr = {function() return get_console_cmd(0, "g_nearwall") end},
+						content = {function() return {{"0", "OFF"}, {"1", "nearwall_hud_fov"}, {"2", "nearwall_position"}} end},
+						cmd = "g_nearwall",
+					},
 				}
 			},
 

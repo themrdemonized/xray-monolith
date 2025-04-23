@@ -148,6 +148,7 @@ extern BOOL g_freelook_while_reloading;
 extern BOOL useSeparateUBGLKeybind;
 extern float g_gunsnd_indoor;
 extern float g_gunsnd_indoor_volume;
+extern int g_nearwall;
 
 extern string32 crosshair_shader;
 extern string32 crosshair_texture;
@@ -2489,6 +2490,7 @@ void CCC_RegisterCommands()
 
 	CMD1(CCC_TimeFactor, "time_factor");
 	CMD1(CCC_FreezeTime, "freeze_time");
+	CMD4(CCC_Integer, "g_nearwall", &g_nearwall, 0, 2);
 	CMD4(CCC_Float, "g_crosshair_near_size", &crosshair_near_size, 1.f, 16.f);
 	CMD3(CCC_Mask, "g_use_shader_crosshair", &psHUD_Flags, HUD_SHADER_CROSSHAIR);
 	CMD3(CCC_String, "g_crosshair_shader", crosshair_shader, 32);
