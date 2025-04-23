@@ -148,6 +148,7 @@ extern BOOL g_freelook_while_reloading;
 extern BOOL useSeparateUBGLKeybind;
 extern float g_gunsnd_indoor;
 extern float g_gunsnd_indoor_volume;
+extern int g_nearwall;
 
 ENGINE_API extern float g_console_sensitive;
 
@@ -2485,6 +2486,7 @@ void CCC_RegisterCommands()
 
 	CMD1(CCC_TimeFactor, "time_factor");
 	CMD1(CCC_FreezeTime, "freeze_time");
+	CMD4(CCC_Integer, "g_nearwall", &g_nearwall, 0, 2);
 	CMD3(CCC_Mask, "g_use_tracers", &psActorFlags, AF_USE_TRACERS);
 	CMD3(CCC_Mask, "g_autopickup", &psActorFlags, AF_AUTOPICKUP);
 	CMD3(CCC_Mask, "g_dynamic_music", &psActorFlags, AF_DYNAMIC_MUSIC);
