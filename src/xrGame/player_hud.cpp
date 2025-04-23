@@ -12,6 +12,8 @@
 #include "script_attachment_manager.h"
 #include "../xrEngine/CameraBase.h"
 
+extern int g_nearwall;
+
 player_hud* g_player_hud = NULL;
 Fvector _ancor_pos;
 Fvector _wpn_root_pos;
@@ -1165,7 +1167,7 @@ void player_hud::update(const Fmatrix& cam_trans)
 
 	m_transform.mul(trans, m_attach_offset);
 	m_transform_2.mul(trans_2, m_attach_offset_2);
-	
+
 	m_model->UpdateTracks();
 	m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model->dcast_PKinematics()->CalculateBones(TRUE);
@@ -1835,4 +1837,38 @@ void player_hud::OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd)
 	}
 
 	updateMovementLayerState();
+}
+
+void player_hud::OnFrame()
+{
+	// If near-wall is in position mode...
+	if (g_nearwall == NW_POS)
+	{
+		Fvector nearwall_0;
+		if (m_attached_items[0])
+		{
+			CHudItem* parent = m_attached_items[0]->m_parent_hud_item;
+			nearwall_0 = Fvector().mul(m_attached_items[0]->m_item_transform.k, -parent->GetNearWallOffset());
+			m_transform.translate_add(nearwall_0);
+			m_attached_items[0]->m_item_transform.translate_add(nearwall_0);
+			if (!m_attached_items[1])
+			{
+				m_transform_2.translate_add(nearwall_0);
+			}
+		}
+
+		if (m_attached_items[1])
+		{
+			CHudItem* parent = m_attached_items[1]->m_parent_hud_item;
+			Fvector nearwall_vec = Fvector().mul(m_attached_items[1]->m_item_transform.k, -parent->GetNearWallOffset());
+			if (m_attached_items[0])
+			{
+				CWeapon* pWeapon = smart_cast<CWeapon*>(m_attached_items[0]->m_parent_hud_item);
+				if (pWeapon)
+					nearwall_vec.lerp(nearwall_vec, nearwall_0, pWeapon->GetZRotatingFactor());
+			}
+			m_transform_2.translate_add(nearwall_vec);
+			m_attached_items[1]->m_item_transform.translate_add(nearwall_vec);
+		}
+	}
 }
