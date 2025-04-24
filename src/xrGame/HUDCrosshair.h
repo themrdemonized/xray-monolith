@@ -12,30 +12,29 @@
 class CHUDCrosshair
 {
 private:
-	float cross_length_perc;
-	float min_radius_perc;
-	float max_radius_perc;
+	Fmatrix transform;
+	float minRadius;
+	float maxRadius;
+	u32 crossColor;
 
-	//текущий радиус прицела
-	float radius;
-	float target_radius;
-#ifdef DEBUG
-	float			fb_radius;
-#endif
-	//ref_geom 		hGeomLine;
-	ui_shader hShader;
+	ui_shader shaderWire;
+	ui_shader shaderCrosshair;
+
+	string32 lastCrosshairShader;
+	string32 lastCrosshairTexture;
+
+	void DeinitShaderCrosshair();
+	bool InitShaderCrosshair();
+	void RenderShaderCrosshair();
+	void RenderWireCrosshair();
+
 public:
-	u32 cross_color;
-
 	CHUDCrosshair();
 	~CHUDCrosshair();
 
-	void OnRender();
-	void SetDispersion(float disp);
-#ifdef DEBUG
-			void	SetFirstBulletDispertion(float fbdisp);
-			void	OnRenderFirstBulletDispertion();
-#endif
-
 	void Load();
+	void SetTransform(const Fmatrix& m);
+	void SetColor(u32 c);
+	void SetDispersion(float d);
+	void OnRender();
 };
