@@ -229,6 +229,10 @@
         function mul(float x, float y, float z)
         function div(float x, float y, float z)
         function distance_to_xz_sqr(Fvector)
+        function hud_to_world()
+        function world_to_hud()
+        function hud_to_world_dir()
+        function world_to_hud_dir()
     }
 
     class Fmatrix {
@@ -277,6 +281,8 @@
         function setXYZi(float x, float y, float z)
         function setXYZi(Fvector)
         Fvector getHPB()
+        function hud_to_world()
+        function world_to_hud()
     }
 
     class particle_object {
@@ -296,8 +302,8 @@
     }
 
     class game_object {
-        // Skeletons
-        function bone_direction(string bone_name, bool bHud = false)
+        // General
+        Fmatrix xform(bool bHud)
 
         // Player
         function get_actor_walk_accel()
@@ -352,6 +358,11 @@
 
         string bone_name(u16 id)
         string bone_name(u16 id, bool bHud)
+
+        Fmatrix bone_transform(u16 id)
+        Fmatrix bone_transform(u16 id, bool bHud)
+        Fmatrix bone_transform(string)
+        Fmatrix bone_transform(string, bool bHud)
 
         Fvector bone_position(u16 id)
         Fvector bone_position(u16 id, bool bHud)
@@ -520,7 +531,7 @@
         function GetZoomRotateTime()
         function SetZoomRotateTime(float)
     }
-
+	
     enum rq_target { (sum them up to target multiple types)
         rqtNone     = 0,
         rqtObject   = 1,

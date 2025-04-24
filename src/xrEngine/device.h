@@ -312,6 +312,101 @@ public:
 		return (Timer.time_factor());
 	}
 
+	Fvector& hud_to_world(Fvector& v, const Fmatrix& p)
+	{
+		mView.transform_tiny(v);
+		p.transform_tiny(v);
+
+		v.z -= ViewportNear;
+
+		mInvProject.transform_tiny(v);
+		mInvView.transform_tiny(v);
+
+		return v;
+	}
+
+	Fvector& hud_to_world(Fvector& v)
+	{
+		return hud_to_world(v, mProjectHud);
+	}
+
+	Fvector& hud_to_world_dir(Fvector& v, const Fmatrix& p)
+	{
+		mView.transform_dir(v);
+		p.transform_dir(v);
+
+		mInvProject.transform_dir(v);
+		mInvView.transform_dir(v);
+
+		return v;
+	}
+
+	Fvector& hud_to_world_dir(Fvector& v)
+	{
+		return hud_to_world_dir(v, mProjectHud);
+	}
+
+	Fmatrix& hud_to_world(Fmatrix& m, const Fmatrix& p)
+	{
+		hud_to_world(m.c, p);
+		hud_to_world_dir(m.i, p).normalize();
+		hud_to_world_dir(m.j, p).normalize();
+		hud_to_world_dir(m.k, p).normalize();
+		return m;
+	}
+
+	Fmatrix& hud_to_world(Fmatrix& m)
+	{
+		return hud_to_world(m, mProjectHud);
+	}
+
+	Fvector& world_to_hud(Fvector& v, const Fmatrix& p)
+	{
+		mInvView.transform_tiny(v);
+		mInvProject.transform_tiny(v);
+
+		v.z += ViewportNear;
+
+		mProjectHud.transform_tiny(v);
+		mView.transform_tiny(v);
+		return v;
+	}
+
+	Fvector& world_to_hud(Fvector& v)
+	{
+		return world_to_hud(v, mProjectHud);
+	}
+
+	Fvector& world_to_hud_dir(Fvector& v, const Fmatrix& p)
+	{
+		mInvView.transform_dir(v);
+		mInvProject.transform_dir(v);
+
+		p.transform_dir(v);
+		mView.transform_dir(v);
+
+		return v;
+	}
+
+	Fvector& world_to_hud_dir(Fvector& v)
+	{
+		return world_to_hud_dir(v, mProjectHud);
+	}
+
+	Fmatrix& world_to_hud(Fmatrix& m, const Fmatrix& p)
+	{
+		world_to_hud(m.c, p);
+		world_to_hud_dir(m.i, p).normalize();
+		world_to_hud_dir(m.j, p).normalize();
+		world_to_hud_dir(m.k, p).normalize();
+		return m;
+	}
+
+	Fmatrix& world_to_hud(Fmatrix& m)
+	{
+		return world_to_hud(m, mProjectHud);
+	}
+
 	// Multi-threading
 	xrCriticalSection mt_csEnter;
 	xrCriticalSection mt_csLeave;

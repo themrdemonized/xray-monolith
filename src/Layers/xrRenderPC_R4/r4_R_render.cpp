@@ -224,7 +224,7 @@ void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
 
-	VERIFY(0==mapDistort.size());
+	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 
 	rmNormal();
 
@@ -636,12 +636,12 @@ void CRender::Render()
 	if (Details)
 		Details->details_clear();
 
-	VERIFY(0==mapDistort.size());
+	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 
 void CRender::render_forward()
 {
-	VERIFY(0==mapDistort.size());
+	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 	RImplementation.o.distortion = RImplementation.o.distortion_enabled; // enable distorion
 
 	//******* Main render - second order geometry (the one, that doesn't support deffering)
@@ -665,7 +665,7 @@ void CRender::render_forward()
 // Redotix99: for 3D Shader Based Scopes
 void CRender::render_Reticle()
 {
-	VERIFY(0 == mapDistort.size());
+	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 	RImplementation.o.distortion = RImplementation.o.distortion_enabled;
 
 	r_dsgraph_render_ScopeSorted();

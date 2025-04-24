@@ -12,6 +12,8 @@ Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by 
 * Delete shader cache in launcher before first launch of the game with new exes. You only have to do it once.
 
 # TROUBLESHOOTING
+* **If you are updating from version older than 2025.04.21 and use Reshade, you need to update Reshade as well**
+
 * Q: How to reinstall modded exes from scratch?
 * A: 
   * Delete everything in `db/mods` folders
@@ -21,10 +23,6 @@ Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by 
     * `gamedata/scripts`
     * `gamedata/shaders`
   * Install modded exes following the instructions above
-
-* Q: The game crashes when using reshade and trying to switch resolution/change graphics settings/init `vid_restart` command
-* A: This is due to Reshade versions shenanigans. The latest tested version that doesn't crash while doing stuff in question is 5.7.0, you can download it here: https://reshade.me/downloads/ReShade_Setup_5.7.0_Addon.exe. If you wish to use later versions, try not to change graphics settings with them.
-
 
 * Q: The game crashes on DX11 Fullscreen on Linux
 * A: You need to add `--dxgi-old` parameter into `commandline.txt` file or via making a shotcut to exe and adding argument there
@@ -188,6 +186,20 @@ How to compile exes:
 6. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2025.04.22**
+* `on_before_play_hud_sound` callback, possibility to override hud sound with another one
+* `obj:bone_transform` functions to get transform matrix of a bone
+* `obj:xform` function to get transform matrix of an object
+* New vector functions
+  * `hud_to_world()` to translate vector from hud space to world space
+  * `world_to_hud()` to vice versa
+  * `hud_to_world_dir()` to translate direction vector from hud space to world space
+  * `world_to_hud_dir()` to vice versa
+
+**2025.04.21**
+* NLTP_Ashes: Add support for distortion on HUD geometry (https://github.com/themrdemonized/xray-monolith/pull/174)
+* Lucy: Updated ReShade Support (https://github.com/themrdemonized/xray-monolith/pull/175). **If you are updating from version older than 2025.04.21 and use Reshade, you need to update Reshade as well**
+
 **2025.04.19**
 * Lucy: (https://github.com/themrdemonized/xray-monolith/pull/171)
   * Removal of Model Pool caused a lot of unpredictable crashes, so now it's back but with a small change to work in line with the set_shader lua methods :)

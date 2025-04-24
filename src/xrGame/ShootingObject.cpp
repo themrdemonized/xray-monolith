@@ -242,7 +242,15 @@ void CShootingObject::StartParticles(CParticlesObject*& pParticles, LPCSTR parti
 	pParticles = CParticlesObject::Create(particles_name, (BOOL)auto_remove_flag);
 
 	UpdateParticles(pParticles, pos, vel);
-	pParticles->Play(IsHudModeNow());
+
+	CSpectator* tmp_spectr = smart_cast<CSpectator*>(Level().CurrentControlEntity());
+	bool in_hud_mode = IsHudModeNow();
+	if (in_hud_mode && tmp_spectr &&
+		(tmp_spectr->GetActiveCam() != CSpectator::eacFirstEye))
+	{
+		in_hud_mode = false;
+	}
+	pParticles->Play(in_hud_mode);
 }
 
 void CShootingObject::StopParticles(CParticlesObject*& pParticles)

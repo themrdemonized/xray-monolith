@@ -39,4 +39,8 @@ void unregister_reshade()
 {
 	reshade::unregister_event<reshade::addon_event::reshade_begin_effects>(on_reshade_begin_effects);
 	reshade::unregister_addon(hInstance);
+	m_runtime = nullptr;
+	m_cmdlist = nullptr;
+	m_rtv.handle = 0;
+	m_rtv_srgb.handle = 0;
 }

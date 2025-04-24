@@ -177,6 +177,7 @@ public:
 	void play_cycle(LPCSTR anim, bool mix_in);
 	void play_cycle(LPCSTR anim);
 	Fvector Center(bool bHud = false);
+	Fmatrix Xform(bool bHud = false);
 	_DECLARE_FUNCTION10(Position, Fvector);
 	_DECLARE_FUNCTION10(Direction, Fvector);
 	_DECLARE_FUNCTION10(Mass, float);
@@ -1003,6 +1004,11 @@ public:
 	void set_bone_visible(u16 bone_id, bool bVisibility, bool bRecursive) { set_bone_visible(bone_id, bVisibility, bRecursive, false); }
 	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud) { set_bone_visible(bone_id(bone_name, bHud), bVisibility, bRecursive, bHud); }
 	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive) { set_bone_visible(bone_id(bone_name), bVisibility, bRecursive, false); }
+
+	Fmatrix bone_transform(u16 bone_id, bool bHud);
+	Fmatrix bone_transform(u16 bone_id) { return bone_transform(bone_id, false); }
+	Fmatrix bone_transform(LPCSTR bone_name, bool bHud) { return bone_transform(bone_id(bone_name, bHud), bHud); }
+	Fmatrix bone_transform(LPCSTR bone_name) { return bone_transform(bone_id(bone_name), false); }
 
 	Fvector bone_position(u16 bone_id, bool bHud);
 	Fvector bone_position(u16 bone_id) { return bone_position(bone_id, false); }

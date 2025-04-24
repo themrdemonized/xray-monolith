@@ -115,13 +115,10 @@ void CControlAnimationBase::update()
 	if (m_state_attack) return;
 
 	// Установка Yaw
-	if (m_object->control().path_builder().is_moving_on_path() && m_object->path().enabled()) m_object
-	                                                                                          ->dir().
-	                                                                                          use_path_direction(
-		                                                                                          ((spec_params &
-				                                                                                          ASP_MOVE_BKWD)
-			                                                                                          ==
-			                                                                                          ASP_MOVE_BKWD));
+	if (m_object->control().path_builder().is_moving_on_path() && m_object->path().enabled())
+	{
+		m_object->dir().use_path_direction(((spec_params & ASP_MOVE_BKWD) == ASP_MOVE_BKWD));
+	}
 
 	SelectAnimation();
 	SelectVelocities();

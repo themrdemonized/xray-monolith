@@ -323,8 +323,8 @@ IC void hud_light_apply(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos, 
 
 		saved_pos.emplace(L, mk_pair(L->position, L->direction));
 
-		Fvector::hud_to_world(L->position);
-		Fvector::hud_to_world_dir(L->direction);
+		Device.hud_to_world(L->position);
+		Device.hud_to_world_dir(L->direction);
 	}
 }
 

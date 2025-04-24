@@ -138,6 +138,11 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("bone_direction", (Fvector(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_direction))
 		.def("bone_direction", (Fvector(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_direction))
 
+		.def("bone_transform", (Fmatrix(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_transform))
+		.def("bone_transform", (Fmatrix(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_transform))
+		.def("bone_transform", (Fmatrix(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_transform))
+		.def("bone_transform", (Fmatrix(CScriptGameObject::*)(LPCSTR, bool))(&CScriptGameObject::bone_transform))
+
 		.def("bone_parent", (u16(CScriptGameObject::*)(u16))(&CScriptGameObject::bone_parent))
 		.def("bone_parent", (u16(CScriptGameObject::*)(u16, bool))(&CScriptGameObject::bone_parent))
 		.def("bone_parent", (u16(CScriptGameObject::*)(LPCSTR))(&CScriptGameObject::bone_parent))
