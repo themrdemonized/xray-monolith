@@ -17,7 +17,6 @@ struct SPickParam
 class CHUDTarget
 {
 private:
-	ui_shader hShader;
 	float fuzzyShowInfo;
 	SPickParam PP;
 

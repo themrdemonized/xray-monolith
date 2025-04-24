@@ -60,7 +60,6 @@ CHUDTarget::CHUDTarget()
 {
 	fuzzyShowInfo = 0.f;
 	PP.RQ.range = 0.f;
-	hShader->create("hud\\cursor", "ui\\cursor");
 
 	PP.RQ.set(NULL, 0.f, -1);
 
@@ -291,43 +290,12 @@ void CHUDTarget::Render()
 #endif
 	}
 
-	//отрендерить кружочек или крестик
-	if (!m_bShowCrosshair)
+	if (m_bShowCrosshair)
 	{
-		UIRender->StartPrimitive(6, IUIRender::ptTriList, UI().m_currentPointType);
-
-		Fvector2 scr_size;
-		scr_size.set(float(Device.dwWidth), float(Device.dwHeight));
-		float size_x = scr_size.x * di_size;
-		float size_y = scr_size.y * di_size;
-
-		size_y = size_x;
-
-		float w_2 = scr_size.x / 2.0f;
-		float h_2 = scr_size.y / 2.0f;
-
-		// Convert to screen coords
-		float cx = (pt.x + 1) * w_2;
-		float cy = (pt.y + 1) * h_2;
-
-		//	TODO: return code back to indexed rendering since we use quads
-		//	Tri 1
-		UIRender->PushPoint(cx - size_x, cy + size_y, 0, C, 0, 1);
-		UIRender->PushPoint(cx - size_x, cy - size_y, 0, C, 0, 0);
-		UIRender->PushPoint(cx + size_x, cy + size_y, 0, C, 1, 1);
-		//	Tri 2
-		UIRender->PushPoint(cx + size_x, cy + size_y, 0, C, 1, 1);
-		UIRender->PushPoint(cx - size_x, cy - size_y, 0, C, 0, 0);
-		UIRender->PushPoint(cx + size_x, cy - size_y, 0, C, 1, 0);
-
-		// unlock VB and Render it as triangle LIST
-		UIRender->SetShader(*hShader);
-		UIRender->FlushPrimitive();
-	}
-	else
-	{
-		//отрендерить прицел
-		HUDCrosshair.cross_color = (C == C_DEFAULT ? g_crosshair_color : C );
+		Fmatrix mat = Device.mInvView;
+		mat.translate_add(Fvector().mul(mat.k, PP.RQ.range));
+		HUDCrosshair.SetTransform(mat);
+		HUDCrosshair.SetColor(C == C_DEFAULT ? g_crosshair_color : C);
 		HUDCrosshair.OnRender();
 	}
 }

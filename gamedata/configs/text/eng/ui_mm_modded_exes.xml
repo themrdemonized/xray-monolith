@@ -22,6 +22,17 @@
 		<text>Vertical Mouse Sensitivity Factor (mouse_sens_vertical)</text>
 	</string>
 	
+	<!-- HUD -->
+	<string id="ui_mm_hud_modded_exes">
+		<text>HUD</text>
+	</string>
+	<string id="ui_mm_modded_exes_misc_g_crosshair_near_size">
+		<text>Crosshair size near the camera (g_crosshair_near_size)</text>
+	</string>
+	<string id="ui_mm_modded_exes_misc_g_use_shader_crosshair">
+		<text>Use shader crosshair (g_use_shader_crosshair)</text>
+	</string>
+	
 	<!-- Particles -->
 	<string id="ui_mm_particles_modded_exes">
 		<text>Particles</text>
