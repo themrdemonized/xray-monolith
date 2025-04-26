@@ -538,11 +538,8 @@ inline float lerp(float a, float b, float t)
 
 float CWeapon::GetNearWallOffset()
 {
-	if (g_nearwall != NW_POS)
-		return 0.f;
-
 	float range = GetNearWallRange();
-	if (Actor()->active_cam() == EActorCameras::eacFirstEye)
+	if (GetHUDmode())
 	{
 		range = lerp(range, m_nearwall_zoomed_range, GetZRotatingFactor());
 		range *= GetBaseHudFov();
