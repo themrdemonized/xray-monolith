@@ -22,6 +22,7 @@ CHUDCrosshair::CHUDCrosshair()
 	minRadius = 0.001f;
 	maxRadius = 0.004f;
 	crossColor = 0;
+	dispersionRadius = 0.f;
 }
 
 CHUDCrosshair::~CHUDCrosshair()
@@ -47,8 +48,7 @@ void CHUDCrosshair::SetColor(u32 c)
 
 void CHUDCrosshair::SetDispersion(float d)
 {
-	// Stubbed out for now, as the existing code did not use the provided dispersion values
-	// Potential for a proper treatment later down the line
+	dispersionRadius = d;
 }
 
 extern ENGINE_API BOOL g_bRendering;
@@ -63,6 +63,8 @@ void CHUDCrosshair::DeinitShaderCrosshair()
 	if (shaderCrosshair->inited())
 	{
 		shaderCrosshair->destroy();
+		strcpy(lastCrosshairShader, "");
+		strcpy(lastCrosshairTexture, "");
 	}
 }
 
@@ -73,7 +75,6 @@ bool CHUDCrosshair::InitShaderCrosshair()
 		DeinitShaderCrosshair();
 
 		shaderCrosshair->create(crosshair_shader, crosshair_texture);
-
 		strcpy(lastCrosshairShader, crosshair_shader);
 		strcpy(lastCrosshairTexture, crosshair_texture);
 	}
@@ -91,11 +92,14 @@ void CHUDCrosshair::RenderShaderCrosshair()
 
 	Fvector2 scr_size = { float(Device.dwWidth), float(Device.dwHeight) };
 
+	float min = minRadius;
+	float max = maxRadius;
+
 	Fvector verts[4] = {
-		{-maxRadius, -maxRadius},
-		{-maxRadius, maxRadius},
-		{maxRadius, -maxRadius},
-		{maxRadius, maxRadius},
+		{-max, -max},
+		{-max, max},
+		{max, -max},
+		{max, max},
 	};
 
 	Fvector2 uvs[4] = {
@@ -117,7 +121,7 @@ void CHUDCrosshair::RenderShaderCrosshair()
 	// Calculate size from linear depth
 	float zNear = Device.ViewportNear;
 	float zFar = g_pGamePersistent->Environment().CurrentEnv->far_plane;
-	float size = lerp(zNear + (crosshair_near_size - 1), zFar, (pos_.z - zNear) / (zFar - zNear));
+	float size = lerp(zNear + (crosshair_near_size - 1), zFar, (pos_.z - zNear) / (zFar - zNear)) + (zFar * dispersionRadius);
 
 	// Transform and push vertices
 	for (int i = 0; i < 4; i++)
@@ -146,16 +150,19 @@ void CHUDCrosshair::RenderWireCrosshair()
 		float(::Render->getTarget()->get_height())
 	};
 
+	float min = minRadius;
+	float max = maxRadius;
+
 	// Create vertices from our size metrics
 	Fvector verts[8] = {
-		{ minRadius, 0 },
-		{ maxRadius, 0 },
-		{ -minRadius, 0 },
-		{ -maxRadius, 0 },
-		{ 0, minRadius },
-		{ 0, maxRadius },
-		{ 0, -minRadius },
-		{ 0, -maxRadius },
+		{ min, 0 },
+		{ max, 0 },
+		{ -min, 0 },
+		{ -max, 0 },
+		{ 0, min },
+		{ 0, max },
+		{ 0, -min },
+		{ 0, -max },
 	};
 
 	// Transform into view space
@@ -170,7 +177,7 @@ void CHUDCrosshair::RenderWireCrosshair()
 	// Calculate size from linear depth
 	float zNear = Device.ViewportNear;
 	float zFar = g_pGamePersistent->Environment().CurrentEnv->far_plane;
-	float size = lerp(zNear + (crosshair_near_size - 1), zFar, (pos_.z - zNear) / (zFar - zNear));
+	float size = lerp(zNear + (crosshair_near_size - 1), zFar, (pos_.z - zNear) / (zFar - zNear)) + (zFar * dispersionRadius);
 
 	// Project into NDC with W-divide
 	Device.mProject.transform(pos);

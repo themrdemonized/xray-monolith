@@ -23,6 +23,8 @@ private:
 	string32 lastCrosshairShader;
 	string32 lastCrosshairTexture;
 
+	float dispersionRadius;
+
 	void DeinitShaderCrosshair();
 	bool InitShaderCrosshair();
 	void RenderShaderCrosshair();
