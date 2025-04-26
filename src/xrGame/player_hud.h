@@ -330,6 +330,7 @@ public:
 	u32 script_anim_play(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true, float speed = 1.f);
 	const shared_str& section_name() const { return m_sect_name; }
 	void OnFrame();
+	void net_Relcase(CObject* obj);
 
 	u8 script_anim_part;
 	Fvector script_anim_offset[2];

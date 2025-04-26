@@ -1841,6 +1841,16 @@ void player_hud::OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd)
 
 void player_hud::OnFrame()
 {
+	if (m_attached_items[0])
+		m_attached_items[0]->m_parent_hud_item->OnFrame();
+
+	if (m_attached_items[1])
+		m_attached_items[1]->m_parent_hud_item->OnFrame();
+
+	if (m_attached_items[SCOPE_ATTACH_IDX])
+		m_attached_items[SCOPE_ATTACH_IDX]->m_parent_hud_item->OnFrame();
+
+
 	// If near-wall is in position mode...
 	if (g_nearwall == NW_POS)
 	{
@@ -1871,4 +1881,15 @@ void player_hud::OnFrame()
 			m_attached_items[1]->m_item_transform.translate_add(nearwall_vec);
 		}
 	}
+
+void player_hud::net_Relcase(CObject* obj)
+{
+	if (m_attached_items[0])
+		m_attached_items[0]->m_parent_hud_item->net_Relcase(obj);
+
+	if (m_attached_items[1])
+		m_attached_items[1]->m_parent_hud_item->net_Relcase(obj);
+
+	if (m_attached_items[SCOPE_ATTACH_IDX])
+		m_attached_items[SCOPE_ATTACH_IDX]->m_parent_hud_item->net_Relcase(obj);
 }
