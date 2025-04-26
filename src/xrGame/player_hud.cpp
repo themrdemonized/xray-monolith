@@ -1033,7 +1033,6 @@ const Fvector& player_hud::attach_pos(u8 part) const
 	return Fvector().set(0.f, 0.f, 0.f);
 }
 
-#include "../xrEngine/CameraBase.h"
 #include "Inventory.h"
 extern float g_freelook_z_offset;
 extern float psHUD_FOV;
