@@ -1745,57 +1745,112 @@ void spawn_section(LPCSTR sSection, Fvector3 vPosition, u32 LevelVertexID, u16 P
 	Level().spawn_item(sSection, vPosition, LevelVertexID, ParentID, bReturnItem);
 }
 
-//ability to get the target game_object at crosshair
-CScriptGameObject* g_get_target_obj()
+enum ETraceTarget {
+	TT_CAMERA = 0,
+	TT_WEAPON,
+	TT_DEVICE,
+	TT_MAX
+};
+
+static collide::rq_result* get_rq(ETraceTarget tt)
 {
-	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
-	if (RQ.O)
+	R_ASSERT(tt >= 0, tt < TT_MAX);
+
+	const attachable_hud_item* item = NULL;
+	switch (tt)
 	{
-		CGameObject* game_object = static_cast<CGameObject*>(RQ.O);
+	case TT_CAMERA:
+		return &HUD().GetRQ();
+	case TT_WEAPON:
+		item = g_player_hud->attached_item(0);
+		break;
+	case TT_DEVICE:
+		item = g_player_hud->attached_item(1);
+		break;
+	}
+
+	if (!item)
+		return (0);
+
+	return &item->m_parent_hud_item->GetRQ();
+}
+
+//ability to get the target game_object at crosshair
+CScriptGameObject* g_get_target_obj(ETraceTarget tt)
+{
+	collide::rq_result* RQ = get_rq(tt);
+	if (RQ && RQ->O)
+	{
+		CGameObject* game_object = static_cast<CGameObject*>(RQ->O);
 		if (game_object)
 			return game_object->lua_game_object();
 	}
 	return (0);
 }
 
+CScriptGameObject* g_get_target_obj()
+{
+	return g_get_target_obj(TT_CAMERA);
+}
+
+float g_get_target_dist(ETraceTarget tt)
+{
+	collide::rq_result* RQ = get_rq(tt);
+	if (RQ && RQ->range)
+		return RQ->range;
+	return (0);
+}
+
 float g_get_target_dist()
 {
-	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
-	if (RQ.range)
-		return RQ.range;
+	return g_get_target_dist(TT_CAMERA);
+}
+
+u32 g_get_target_element(ETraceTarget tt)
+{
+	collide::rq_result* RQ = get_rq(tt);
+	if (RQ && RQ->element)
+	{
+		return RQ->element;
+	}
 	return (0);
 }
 
 u32 g_get_target_element()
 {
-	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
-	if (RQ.element)
-	{
-		return RQ.element;
-	}
-	return (0);
+	return g_get_target_element(TT_CAMERA);
 }
 
 // demonized: get world position under crosshair
-Fvector g_get_target_pos()
+Fvector g_get_target_pos(ETraceTarget tt)
 {
-	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
-	if (RQ.range)
+	collide::rq_result* RQ = get_rq(tt);
+	if (RQ && RQ->range)
 	{
-		return Fvector().mad(Device.vCameraPosition, Device.vCameraDirection, RQ.range);
+		return Fvector().mad(Device.vCameraPosition, Device.vCameraDirection, RQ->range);
 	}
 	return Fvector().set(0, 0, 0);
 }
 
-// demonized: get result of crosshair ray query
-script_rq_result g_get_target_result()
+Fvector g_get_target_pos()
 {
-	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
+	return g_get_target_pos(TT_CAMERA);
+}
+
+// demonized: get result of crosshair ray query
+script_rq_result g_get_target_result(ETraceTarget tt)
+{
+	collide::rq_result* RQ = get_rq(tt);
 	auto script_rq = script_rq_result();
-	if (RQ.range) {
-		script_rq.set(RQ);
+	if (RQ && RQ->range) {
+		script_rq.set(*RQ);
 	}
 	return script_rq;
+}
+
+script_rq_result g_get_target_result()
+{
+	return g_get_target_result(TT_CAMERA);
 }
 
 u8 get_active_cam()
@@ -2120,21 +2175,39 @@ void CLevel::script_register(lua_State* L)
 			def("set_flags", set_flags)
 		];
 
+	module(L)
+		[
+			class_<enum_exporter<ETraceTarget>>("ETraceTarget")
+				.enum_("trace_targets")
+				[
+					value("Camera", int(ETraceTarget::TT_CAMERA)),
+					value("Weapon", int(ETraceTarget::TT_WEAPON)),
+					value("Device", int(ETraceTarget::TT_DEVICE))
+				]
+		];
 
 	module(L, "level")
 		[
 			//Alundaio: Extend level namespace exports
 #ifdef NAMESPACE_LEVEL_EXPORTS
 			def("send", &g_send), //allow the ability to send netpacket to level
-			def("get_target_obj", &g_get_target_obj), //intentionally named to what is in xray extensions
-			def("get_target_dist", &g_get_target_dist),
-			def("get_target_element", &g_get_target_element), //Can get bone cursor is targetting
+
+			def("get_target_obj", ((CScriptGameObject * (*)()) & g_get_target_obj)), //intentionally named to what is in xray extensions
+			def("get_target_obj", ((CScriptGameObject* (*)(ETraceTarget)) & g_get_target_obj)), //intentionally named to what is in xray extensions
+
+			def("get_target_dist", ((float (*)()) & g_get_target_dist)),
+			def("get_target_dist", ((float (*)(ETraceTarget)) & g_get_target_dist)),
+
+			def("get_target_element", ((u32 (*)()) & g_get_target_element)), //Can get bone cursor is targetting
+			def("get_target_element", ((u32 (*)(ETraceTarget)) & g_get_target_element)), //Can get bone cursor is targetting
 			
 			// demonized: get world position under crosshair
-			def("get_target_pos", &g_get_target_pos),
+			def("get_target_pos", ((Fvector(*)()) & g_get_target_pos)),
+			def("get_target_pos", ((Fvector (*)(ETraceTarget)) & g_get_target_pos)),
 
 			// demonized: get result of crosshair ray query
-			def("get_target_result", &g_get_target_result),
+			def("get_target_result", ((script_rq_result(*)()) & g_get_target_result)),
+			def("get_target_result", ((script_rq_result (*)(ETraceTarget)) & g_get_target_result)),
 
 			def("spawn_item", &spawn_section),
 			def("get_active_cam", &get_active_cam),

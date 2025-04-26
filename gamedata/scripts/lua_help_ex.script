@@ -173,6 +173,14 @@
         local box = debug_render.add_object(12, DBG_ScriptObject.box):cast_dbg_box()
         box.size = vector():set(0.5,1,0.5)
 
+
+    // Query data from actor ray queries; no parameter defaults to camera ray
+	enum ETraceTarget {
+		Camera      = 0,
+		Weapon      = 1,
+		Device      = 2,
+	}
+		
     namespace level {
         float get_music_volume()
         void set_music_volume(float)
@@ -183,9 +191,16 @@
         void set_cam_custom_position_direction(Fvector position, Fvector direction, int smoothing)
         void set_cam_custom_position_direction(Fvector position, Fvector direction)
         void remove_cam_custom_position_direction()
-
-        // Get target position and result of crosshair ray_query
+		
+        game_object get_target_obj(ETraceTarget)
+        game_object get_target_obj()
+        number get_target_dist(ETraceTarget)
+        number get_target_dist()
+        number get_target_element(ETraceTarget)
+        number get_target_element()
+        Fvector get_target_pos(ETraceTarget)
         Fvector get_target_pos()
+        script_rq_result get_target_result(ETraceTarget)
         script_rq_result get_target_result()
 
         void map_remove_all_object_spots(id)
