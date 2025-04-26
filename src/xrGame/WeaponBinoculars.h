@@ -19,6 +19,8 @@ public:
 
 	void Load(LPCSTR section);
 
+	virtual Fmatrix RayTransform();
+
 	virtual void OnZoomIn();
 	virtual void OnZoomOut();
 	virtual void ZoomInc();
