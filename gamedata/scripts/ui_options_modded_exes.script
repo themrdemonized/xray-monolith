@@ -617,12 +617,29 @@ function init_opt_base()
 						content = {function() return {{"1", "ON"}, {"0", "OFF"}} end},
 						cmd = "smooth_ads_transition",
 					},
+					
+					{ id = "divider", type = "line" },
+					
+					{
+						id = "g_firepos",
+						type = "check",
+						val = 1,
+						def = true,
+						cmd = "g_firepos",
+					},
 					{
 						id = "g_firepos_zoom",
 						type = "check",
 						val = 1,
 						def = true,
 						cmd = "g_firepos_zoom",
+					},
+					{
+						id = "g_firedir_third_person",
+						type = "check",
+						val = 1,
+						def = true,
+						cmd = "g_firedir_third_person",
 					},
 					{
 						id = "g_nearwall",
@@ -632,6 +649,15 @@ function init_opt_base()
 						curr = {function() return get_console_cmd(0, "g_nearwall") end},
 						content = {function() return {{"0", "OFF"}, {"1", "nearwall_hud_fov"}, {"2", "nearwall_position"}} end},
 						cmd = "g_nearwall",
+					},
+					{
+						id = "g_nearwall_trace",
+						type = "list",
+						val = 1,
+						def = 0,
+						curr = {function() return get_console_cmd(0, "g_nearwall_trace") end},
+						content = {function() return {{"0", "nearwall_camera"}, {"1", "nearwall_item"}} end},
+						cmd = "g_nearwall_trace",
 					},
 				}
 			},

@@ -237,11 +237,20 @@
 	<string id="ui_mm_modded_exes_gameplay_smooth_ads_transition">
 		<text>Плавно применить PDM значения (smooth_ads_transition)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_firepos">
+		<text>Пули вылетают из ствола, если не целиться (g_firepos)</text>
+	</string>
 	<string id="ui_mm_modded_exes_gameplay_g_firepos_zoom">
 		<text>Пули вылетают из ствола во время прицеливания (g_firepos_zoom)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_firedir_third_person">
+		<text>Используйте направление стрельбы от первого лица в третьем лице (g_firedir_third_person)</text>
+	</string>
 	<string id="ui_mm_modded_exes_gameplay_g_nearwall">
 		<text>Поведение оружия при смещении вблизи стены (g_nearwall)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_nearwall_trace">
+		<text>Происхождение следов вблизи стенки (g_nearwall_trace)</text>
 	</string>
 
 	<string id="ui_mm_lst_nearwall_hud_fov">
@@ -249,6 +258,12 @@
 	</string>
 	<string id="ui_mm_lst_nearwall_position">
 		<text>Положение</text>
+	</string>
+	<string id="ui_mm_lst_nearwall_camera">
+		<text>Камера</text>
+	</string>
+	<string id="ui_mm_lst_nearwall_item">
+		<text>Артикул</text>
 	</string>
 
 	<!-- HDR10 -->

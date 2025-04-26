@@ -242,11 +242,20 @@
 	<string id="ui_mm_modded_exes_gameplay_smooth_ads_transition">
 		<text>Smoothly apply the ADS accuracy bonus (smooth_ads_transition)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_firepos">
+		<text>Enable bullets firing from gun barrel while unaimed (g_firepos)</text>
+	</string>
 	<string id="ui_mm_modded_exes_gameplay_g_firepos_zoom">
 		<text>Enable bullets firing from gun barrel while aiming (g_firepos_zoom)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_firedir_third_person">
+		<text>Use first-person firing direction when in third-person (g_firedir_third_person)</text>
+	</string>
 	<string id="ui_mm_modded_exes_gameplay_g_nearwall">
 		<text>Weapon near-wall offset behaviour (g_nearwall)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_g_nearwall_trace">
+		<text>Near-wall trace origin (g_nearwall_trace)</text>
 	</string>
 
 	<string id="ui_mm_lst_nearwall_hud_fov">
@@ -254,6 +263,12 @@
 	</string>
 	<string id="ui_mm_lst_nearwall_position">
 		<text>Position</text>
+	</string>
+	<string id="ui_mm_lst_nearwall_camera">
+		<text>Camera</text>
+	</string>
+	<string id="ui_mm_lst_nearwall_item">
+		<text>Item</text>
 	</string>
 
 
