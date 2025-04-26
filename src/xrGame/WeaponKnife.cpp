@@ -75,6 +75,15 @@ void CWeaponKnife::Load(LPCSTR section)
 	knife_material_idx = GMLib.GetMaterialIdx(KNIFE_MATERIAL_NAME);
 }
 
+Fmatrix CWeaponKnife::RayTransform()
+{
+	Fmatrix matrix = CHudItem::RayTransform();
+	matrix.i = Device.vCameraTop;
+	matrix.j = Device.vCameraRight;
+	matrix.k = Device.vCameraDirection;
+	return matrix;
+}
+
 void CWeaponKnife::OnStateSwitch(u32 S, u32 oldState)
 {
 	inherited::OnStateSwitch(S, oldState);
