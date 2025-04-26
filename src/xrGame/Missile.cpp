@@ -755,7 +755,7 @@ void CMissile::activate_physic_shell()
 
 void CMissile::net_Relcase(CObject* O)
 {
-	inherited::net_Relcase(O);
+	CHudItem::net_Relcase(O);
 	if (PPhysicsShell() && PPhysicsShell()->isActive())
 	{
 		if (O == smart_cast<CObject*>((CPhysicsShellHolder*)PPhysicsShell()->get_CallbackData()))

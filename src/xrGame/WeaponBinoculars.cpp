@@ -191,7 +191,7 @@ bool CWeaponBinoculars::GetBriefInfo(II_BriefInfo& info)
 
 void CWeaponBinoculars::net_Relcase(CObject* object)
 {
-	inherited::net_Relcase(object);
+	CHudItem::net_Relcase(object);
 
 	if (!m_binoc_vision)
 		return;

@@ -10,6 +10,7 @@ class CUIWindow;
 #include "actor_defs.h"
 #include "inventory_space.h"
 #include "hudsound.h"
+#include "HUDManager.h"
 
 #define TENDTO_SPEED         1.0f     // Модификатор силы инерции (больше - чувствительней)
 #define TENDTO_SPEED_AIM     1.0f     // (Для прицеливания)
@@ -30,6 +31,12 @@ enum ENearWallMode {
 	NW_FOV,
 	NW_POS,
 	NW_MAX
+};
+
+enum ENearWallTrace {
+	NT_CAM = 0,
+	NT_ITEM,
+	NT_MAX
 };
 
 class CHUDState
@@ -214,8 +221,6 @@ public:
 	virtual bool render_item_3d_ui_query() { return true; }
 
 	virtual bool CheckCompatibility(CHudItem*) { return true; }
-
-	virtual collide::rq_result& GetRQ();
 protected:
 
 	IC void SetPending(bool H) { m_huditem_flags.set(fl_pending, H); }
@@ -275,6 +280,20 @@ public:
 	virtual CHudItem* cast_hud_item() { return this; }
 	virtual bool PlayAnimCrouchIdleMoving(); //AVO: new crouch idle animation
 	bool HudAnimationExist(LPCSTR anim_name);
+
+private:
+	SPickParam PP;
+
+public:
+	virtual void OnFrame();
+	void net_Relcase(CObject* O);
+
+	virtual Fmatrix RayTransform();
+	virtual void g_fireParams(SPickParam& pp);
+	virtual void Ray(SPickParam& pp);
+	SPickParam& GetPick() { return PP; };
+	collide::rq_result& GetRQ() { return GetPick().result; };
+	float GetRQVis() { return PP.power; };
 };
 
 class CAnonHudItem : public CHudItem
