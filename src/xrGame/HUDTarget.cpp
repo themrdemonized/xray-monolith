@@ -1,13 +1,19 @@
 #include "stdafx.h"
 #include "hudtarget.h"
-#include "../xrEngine/gamemtllib.h"
 
 #include "../xrEngine/Environment.h"
 #include "../xrEngine/CustomHUD.h"
 #include "Entity.h"
+#include "Actor.h"
+#include "Weapon.h"
+#include "WeaponKnife.h"
+#include "player_hud.h"
+#include "Missile.h"
 #include "level.h"
 #include "game_cl_base.h"
 #include "../xrEngine/igame_persistent.h"
+#include "script_render_device.h"
+#include "HUDManager.h"
 
 #include "ui_base.h"
 #include "InventoryOwner.h"
@@ -27,41 +33,48 @@ u32 C_ON_ENEMY D3DCOLOR_RGBA(0xff, 0, 0, 0x80);
 u32 C_ON_NEUTRAL D3DCOLOR_RGBA(0xff, 0xff, 0x80, 0x80);
 u32 C_ON_FRIEND D3DCOLOR_RGBA(0, 0xff, 0, 0x80);
 
-
 #define C_DEFAULT	D3DCOLOR_RGBA(0xff,0xff,0xff,0x80)
-#define C_SIZE		0.025f
-#define NEAR_LIM	0.5f
 
 #define SHOW_INFO_SPEED		0.5f
 #define HIDE_INFO_SPEED		10.f
 
-
-IC float recon_mindist()
+static float recon_mindist()
 {
 	return 2.f;
 }
 
-IC float recon_maxdist()
+static float recon_maxdist()
 {
 	return 50.f;
 }
 
-IC float recon_minspeed()
+static float recon_minspeed()
 {
 	return 0.5f;
 }
 
-IC float recon_maxspeed()
+static float recon_maxspeed()
 {
 	return 10.f;
+}
+
+static float lerp(float a, float b, float t)
+{
+	clamp(t, 0.f, 1.f);
+	return a * (1 - t) + b * t;
 }
 
 CHUDTarget::CHUDTarget()
 {
 	fuzzyShowInfo = 0.f;
-	PP.RQ.range = 0.f;
 
-	PP.RQ.set(NULL, 0.f, -1);
+	crosshairPos = Fvector();
+	crosshairOpacity = 1.f;
+
+	occludedOpacity = .6f;
+
+	occlusionFadeRate = 20.f;
+	distanceLerpRate = 35.f;
 
 	Load();
 	m_bShowCrosshair = false;
@@ -71,9 +84,11 @@ CHUDTarget::~CHUDTarget()
 {
 }
 
-
 void CHUDTarget::Load()
 {
+	occludedOpacity = pSettings->r_float(HUD_CURSOR_SECTION, "occluded_opacity");
+	occlusionFadeRate = pSettings->r_float(HUD_CURSOR_SECTION, "occlusion_fade_rate");
+	distanceLerpRate = pSettings->r_float(HUD_CURSOR_SECTION, "distance_lerp_rate");
 	HUDCrosshair.Load();
 }
 
@@ -82,65 +97,77 @@ void CHUDTarget::ShowCrosshair(bool b)
 	m_bShowCrosshair = b;
 }
 
-//. fVisTransparencyFactor
-float fCurrentPickPower;
-ICF static BOOL pick_trace_callback(collide::rq_result& result, LPVOID params)
-{
-	SPickParam* pp = (SPickParam*)params;
-	//	collide::rq_result* RQ	= pp->RQ;
-	++pp->pass;
-
-	if (result.O)
-	{
-		pp->RQ = result;
-		return FALSE;
-	}
-	else
-	{
-		//получить треугольник и узнать его материал
-		CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
-
-		SGameMtl* mtl = GMLib.GetMaterialByIdx(T->material);
-		pp->power *= mtl->fVisTransparencyFactor;
-		if (pp->power > 0.34f)
-		{
-			return TRUE;
-		}
-		//.		if (mtl->Flags.is(SGameMtl::flPassable)) 
-		//.			return TRUE;
-	}
-	pp->RQ = result;
-	return FALSE;
-}
-
-void CHUDTarget::CursorOnFrame()
-{
-	Fvector p1, dir;
-
-	p1 = Device.vCameraPosition;
-	dir = Device.vCameraDirection;
-
-	// Render cursor
-	if (Level().CurrentEntity())
-	{
-		PP.RQ.O = 0;
-		PP.RQ.range = g_pGamePersistent->Environment().CurrentEnv->far_plane * 0.99f;
-		PP.RQ.element = -1;
-
-		collide::ray_defs RD(p1, dir, PP.RQ.range, CDB::OPT_CULL, collide::rqtBoth);
-		RQR.r_clear();
-		VERIFY(!fis_zero(RD.dir.square_magnitude()));
-
-		PP.power = 1.0f;
-		PP.pass = 0;
-
-		if (Level().ObjectSpace.RayQuery(RQR, RD, pick_trace_callback, &PP, NULL, Level().CurrentEntity()))
-			clamp(PP.RQ.range, NEAR_LIM, PP.RQ.range);
-	}
-}
-
 extern ENGINE_API BOOL g_bRendering;
 u32 g_crosshair_color = C_DEFAULT;
+
+float CHUDTarget::GetUIDist() const
+{
+	const SPickParam& pp = Actor()->GetPick();
+	float dist = pp.result.range;
+	if (!pp.barrel_blocked)
+	{
+		dist -= pp.barrel_dist;
+	}
+	return dist;
+}
+
+float CHUDTarget::GetTargetOpacity() const
+{
+	const SPickParam& pp = Actor()->GetPick();
+	if (pp.barrel_blocked)
+	{
+		return 1.f;
+	}
+
+	// If the barrel is not occluded...
+	// Test whether the aim point is occluded
+	Fvector dir = Fvector().sub(
+		Fvector().add(pp.defs.start, Fvector().mul(pp.defs.dir, GetUIDist())),
+		Device.vCameraPosition
+	);
+
+	float dist = dir.magnitude();
+	dir.normalize();
+	SPickParam op = SPickParam();
+	op.defs.start = Device.vCameraPosition;
+	op.defs.dir = dir;
+	op.defs.range = dist * 0.99f;
+	if (!HUD().DoPick(op))
+	{
+		return 1.f;
+	}
+
+	// If it is, apply fade
+	return occludedOpacity;
+}
+
+void CHUDTarget::IntegratePosition()
+{
+	const SPickParam& pp = Actor()->GetPick();
+
+	// Transform ray start and direction into camera space
+	Fvector pos = pp.defs.start;
+	Fvector dir = pp.defs.dir;
+	Device.mView.transform_tiny(pos);
+	Device.mView.transform_dir(dir);
+
+	float dist = GetUIDist();
+
+	// Interpolate crosshair position toward target
+	crosshairPos.lerp(
+		crosshairPos,
+		Fvector().add(pos, Fvector().mul(dir, dist)),
+		Device.fTimeDelta * distanceLerpRate
+	);
+}
+
+void CHUDTarget::IntegrateOpacity()
+{
+	float opacity_target = GetTargetOpacity();
+
+	// Interpolate opacity offset toward target
+	crosshairOpacity = lerp(crosshairOpacity, opacity_target, Device.fTimeDelta * occlusionFadeRate);
+}
 
 void CHUDTarget::Render()
 {
@@ -156,67 +183,82 @@ void CHUDTarget::Render()
 	CEntity* E = smart_cast<CEntity*>(O);
 	if (0 == E) return;
 
-	Fvector p1 = Device.vCameraPosition;
-	Fvector dir = Device.vCameraDirection;
+	IntegratePosition();
+	IntegrateOpacity();
 
-	// Render cursor
-	u32 C = C_DEFAULT;
+	const SPickParam& pp = Actor()->GetPick();
 
-	Fvector p2;
-	p2.mad(p1, dir, PP.RQ.range);
+	// Construct animated aim point matrix from interpolated position and barrel roll
+	Fvector hpb_barrel;
+	pp.barrel_matrix.getHPB(hpb_barrel);
+
+	Fvector hpb_cam;
+	Device.mInvView.getHPB(hpb_cam);
+
+	Fmatrix mat_aim = Fmatrix().identity();
+	mat_aim.mulB_43(Device.mInvView);
+	mat_aim.mulB_43(Fmatrix().translate(crosshairPos));
+	mat_aim.mulB_43(Fmatrix().setHPB(0, 0, hpb_barrel.z - hpb_cam.z));
+
+	float result_dist = pp.result.range - pp.barrel_dist;
+	clamp(result_dist, 0.f, result_dist);
+
 	Fvector4 pt;
-	Device.mFullTransform.transform(pt, p2);
+	Device.mFullTransform.transform(pt, mat_aim.c);
 	pt.y = -pt.y;
-	float di_size = C_SIZE / powf(pt.w, .2f);
 
+	// Crosshair color
+	u32 color_readout = C_DEFAULT;
+
+	// Readout font
 	CGameFont* F = UI().Font().pFontGraffiti19Russian;
 	F->SetAligment(CGameFont::alCenter);
-	F->OutSetI(0.f, 0.05f);
+	F->OutSetI(pt.x, pt.y + 0.05f);
 
 	if (psHUD_Flags.test(HUD_CROSSHAIR_DIST))
 		F->OutSkip();
 
 	if (psHUD_Flags.test(HUD_INFO))
 	{
-		bool const is_poltergeist = PP.RQ.O && !!smart_cast<CPoltergeist*>(PP.RQ.O);
+		bool const is_poltergeist = pp.result.O && !!smart_cast<CPoltergeist*>(pp.result.O);
 
-		if ((PP.RQ.O && PP.RQ.O->getVisible()) || is_poltergeist)
+		if ((pp.result.O && pp.result.O->getVisible()) || is_poltergeist)
 		{
-			CEntityAlive* E = smart_cast<CEntityAlive*>(PP.RQ.O);
+			CEntityAlive* EA = smart_cast<CEntityAlive*>(pp.result.O);
 			CEntityAlive* pCurEnt = smart_cast<CEntityAlive*>(Level().CurrentEntity());
-			PIItem l_pI = smart_cast<PIItem>(PP.RQ.O);
+			PIItem l_pI = smart_cast<PIItem>(pp.result.O);
 
 			if (IsGameTypeSingle())
 			{
 				CInventoryOwner* our_inv_owner = smart_cast<CInventoryOwner*>(pCurEnt);
 
-				if (E && E->g_Alive() && E->cast_base_monster())
+				if (EA && EA->g_Alive() && EA->cast_base_monster())
 				{
-					C = C_ON_ENEMY;
+					color_readout = C_ON_ENEMY;
 				}
-				else if (E && E->g_Alive() && !E->cast_base_monster())
+				else if (EA && EA->g_Alive() && !EA->cast_base_monster())
 				{
-					CInventoryOwner* others_inv_owner = smart_cast<CInventoryOwner*>(E);
+					CInventoryOwner* others_inv_owner = smart_cast<CInventoryOwner*>(EA);
 
 					if (our_inv_owner && others_inv_owner)
 					{
 						switch (RELATION_REGISTRY().GetRelationType(others_inv_owner, our_inv_owner))
 						{
 						case ALife::eRelationTypeEnemy:
-							C = C_ON_ENEMY;
+							color_readout = C_ON_ENEMY;
 							break;
 						case ALife::eRelationTypeNeutral:
-							C = C_ON_NEUTRAL;
+							color_readout = C_ON_NEUTRAL;
 							break;
 						case ALife::eRelationTypeFriend:
-							C = C_ON_FRIEND;
+							color_readout = C_ON_FRIEND;
 							break;
 						}
 
 						if (fuzzyShowInfo > 0.5f)
 						{
 							CStringTable strtbl;
-							F->SetColor(subst_alpha(C, u8(iFloor(255.f * (fuzzyShowInfo - 0.5f) * 2.f))));
+							F->SetColor(subst_alpha(color_readout, u8(iFloor(255.f * (fuzzyShowInfo - 0.5f) * 2.f))));
 							F->OutNext("%s", *strtbl.translate(others_inv_owner->Name()));
 							F->OutNext("%s", *strtbl.translate(others_inv_owner->CharacterInfo().Community().id()));
 						}
@@ -224,11 +266,11 @@ void CHUDTarget::Render()
 
 					fuzzyShowInfo += SHOW_INFO_SPEED * Device.fTimeDelta;
 				}
-				else if (l_pI && our_inv_owner && PP.RQ.range < 2.0f * 2.0f)
+				else if (l_pI && our_inv_owner && result_dist < 2.0f * 2.0f)
 				{
 					if (fuzzyShowInfo > 0.5f && l_pI->NameItem())
 					{
-						F->SetColor(subst_alpha(C, u8(iFloor(255.f * (fuzzyShowInfo - 0.5f) * 2.f))));
+						F->SetColor(subst_alpha(color_readout, u8(iFloor(255.f * (fuzzyShowInfo - 0.5f) * 2.f))));
 						F->OutNext("%s", l_pI->NameItem());
 					}
 					fuzzyShowInfo += SHOW_INFO_SPEED * Device.fTimeDelta;
@@ -236,25 +278,25 @@ void CHUDTarget::Render()
 			}
 			else
 			{
-				if (E && (E->GetfHealth() > 0))
+				if (EA && (EA->GetfHealth() > 0))
 				{
-					if (pCurEnt && GameID() == eGameIDSingle)
+					if (pCurEnt && GameID() & eGameIDSingle)
 					{
-						if (GameID() == eGameIDDeathmatch) C = C_ON_ENEMY;
+						if (GameID() & eGameIDDeathmatch) color_readout = C_ON_ENEMY;
 						else
 						{
-							if (E->g_Team() != pCurEnt->g_Team()) C = C_ON_ENEMY;
-							else C = C_ON_FRIEND;
+							if (EA->g_Team() != pCurEnt->g_Team()) color_readout = C_ON_ENEMY;
+							else color_readout = C_ON_FRIEND;
 						};
-						if (PP.RQ.range >= recon_mindist() && PP.RQ.range <= recon_maxdist())
+						if (result_dist >= recon_mindist() && result_dist <= recon_maxdist())
 						{
-							float ddist = (PP.RQ.range - recon_mindist()) / (recon_maxdist() - recon_mindist());
+							float ddist = (result_dist - recon_mindist()) / (recon_maxdist() - recon_mindist());
 							float dspeed = recon_minspeed() + (recon_maxspeed() - recon_minspeed()) * ddist;
 							fuzzyShowInfo += Device.fTimeDelta / dspeed;
 						}
 						else
 						{
-							if (PP.RQ.range < recon_mindist())
+							if (result_dist < recon_mindist())
 								fuzzyShowInfo += recon_minspeed() * Device.fTimeDelta;
 							else
 								fuzzyShowInfo = 0;
@@ -265,8 +307,8 @@ void CHUDTarget::Render()
 							clamp(fuzzyShowInfo, 0.f, 1.f);
 							int alpha_C = iFloor(255.f * (fuzzyShowInfo - 0.5f) * 2.f);
 							u8 alpha_b = u8(alpha_C & 0x00ff);
-							F->SetColor(subst_alpha(C, alpha_b));
-							F->OutNext("%s", *PP.RQ.O->cName());
+							F->SetColor(subst_alpha(color_readout, alpha_b));
+							F->OutNext("%s", *pp.result.O->cName());
 						}
 					}
 				};
@@ -281,29 +323,28 @@ void CHUDTarget::Render()
 
 	if (psHUD_Flags.test(HUD_CROSSHAIR_DIST))
 	{
-		F->OutSetI(0.f, 0.05f);
-		F->SetColor(C);
+		F->OutSetI(pt.x, pt.y + 0.05f);
+		F->SetColor(color_readout);
 #ifdef DEBUG
-		F->OutNext		("%4.1f - %4.2f - %d", PP.RQ.range, PP.power, PP.pass);
+		F->OutNext("%4.1f - %4.2f - %d", result_dist, PP.power, PP.pass);
 #else
-		F->OutNext("%4.1f", PP.RQ.range);
+		F->OutNext("%4.1f", result_dist);
 #endif
 	}
 
+	// Use the crosshair color unless the readout color is non-default
+	u32 color_crosshair = color_readout == C_DEFAULT ? g_crosshair_color : color_readout;
+
+	// Modulate color alpha
+	DWORD alpha_mask = 0xff000000;
+	color_crosshair = (color_crosshair | alpha_mask)
+		& ((DWORD)(alpha_mask * crosshairOpacity) | (~alpha_mask));
+
 	if (m_bShowCrosshair)
 	{
-		Fmatrix mat = Device.mInvView;
-		mat.translate_add(Fvector().mul(mat.k, PP.RQ.range));
-		HUDCrosshair.SetTransform(mat);
-		HUDCrosshair.SetColor(C == C_DEFAULT ? g_crosshair_color : C);
+		// Update the crosshair's transform and color, and draw it
+		HUDCrosshair.SetTransform(mat_aim);
+		HUDCrosshair.SetColor(color_crosshair);
 		HUDCrosshair.OnRender();
 	}
-}
-
-void CHUDTarget::net_Relcase(CObject* O)
-{
-	if (PP.RQ.O == O)
-		PP.RQ.O = NULL;
-
-	RQR.r_clear();
 }

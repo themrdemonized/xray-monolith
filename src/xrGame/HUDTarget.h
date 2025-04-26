@@ -7,34 +7,31 @@
 class CHUDManager;
 class CLAItem;
 
-struct SPickParam
-{
-	collide::rq_result RQ;
-	float power;
-	u32 pass;
-};
-
 class CHUDTarget
 {
 private:
 	float fuzzyShowInfo;
-	SPickParam PP;
+
+	Fvector crosshairPos;
+	float crosshairOpacity;
+	float occludedOpacity;
+	float occlusionFadeRate;
+	float distanceLerpRate;
 
 	bool m_bShowCrosshair;
 	CHUDCrosshair HUDCrosshair;
 
 private:
-	collide::rq_results RQR;
+	float GetUIDist() const;
+	float GetTargetOpacity() const;
+	void IntegratePosition();
+	void IntegrateOpacity();
 
 public:
 	CHUDTarget();
 	~CHUDTarget();
-	void CursorOnFrame();
 	void Render();
 	void Load();
-	collide::rq_result& GetRQ() { return PP.RQ; };
-	float GetRQVis() { return PP.power; };
 	CHUDCrosshair& GetHUDCrosshair() { return HUDCrosshair; }
 	void ShowCrosshair(bool b);
-	void net_Relcase(CObject* O);
 };

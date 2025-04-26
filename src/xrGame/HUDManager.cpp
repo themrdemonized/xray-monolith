@@ -4,7 +4,7 @@
 #include "actor.h"
 #include "../xrEngine/igame_level.h"
 #include "../xrEngine/xr_input.h"
-#include "GamePersistent.h"
+#include "../xrEngine/gamemtllib.h"
 #include "MainMenu.h"
 #include "grenade.h"
 #include "spectator.h"
@@ -163,7 +163,8 @@ void CHUDManager::OnFrame()
 	if (pUIGame)
 		pUIGame->OnFrame();
 
-	m_pHUDTarget->CursorOnFrame();
+	PP.CameraPick();
+	DoPick(PP);
 
 	g_player_hud->OnFrame();
 }
@@ -312,9 +313,71 @@ void CHUDManager::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 }
 
-collide::rq_result& CHUDManager::GetCurrentRayQuery()
+bool CHUDManager::FireposActive()
 {
-	return m_pHUDTarget->GetRQ();
+	// If we have an actor...
+	CActor* pActor = smart_cast<CActor*>(Level().CurrentEntity());
+	if (!pActor)
+		return psActorFlags.test(AF_FIREPOS);
+
+	// And a weapon...
+	CWeapon* pWeapon = smart_cast<CWeapon*>(pActor->inventory().ActiveItem());
+	if (!pWeapon)
+		return psActorFlags.test(AF_FIREPOS);
+
+	// Firepos is active if a setting matches its respective zoom state
+	float zFac = pWeapon->GetZRotatingFactor();
+	return (psActorFlags.test(AF_FIREPOS) && zFac < 1.f)
+		|| (psActorFlags.test(AF_FIREPOS_ZOOM) && zFac >= 1.f);
+}
+
+ICF static BOOL pick_trace_callback(collide::rq_result& result, LPVOID params)
+{
+	SPickParam* pp = (SPickParam*)params;
+	//	collide::rq_result* RQ	= pp->RQ;
+	++pp->pass;
+
+	if (result.O)
+	{
+		pp->result = result;
+		return FALSE;
+	}
+	else
+	{
+		//получить треугольник и узнать его материал
+		CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
+
+		SGameMtl* mtl = GMLib.GetMaterialByIdx(T->material);
+		pp->power *= mtl->fVisTransparencyFactor;
+		if (pp->power > 0.34f)
+		{
+			return TRUE;
+		}
+		//.		if (mtl->Flags.is(SGameMtl::flPassable)) 
+		//.			return TRUE;
+	}
+	pp->result = result;
+	return FALSE;
+}
+
+bool CHUDManager::DoPick(SPickParam& pp)
+{
+	VERIFY(!fis_zero(pp.defs.dir.square_magnitude()));
+
+	pp.result.set(NULL, pp.defs.range, -1);
+	pp.power = 1.0f;
+	pp.pass = 0;
+
+	collide::rq_results rqr;
+	rqr.r_clear();
+	return Level().ObjectSpace.RayQuery(
+		rqr,
+		pp.defs,
+		pick_trace_callback,
+		&pp,
+		NULL,
+		Level().CurrentEntity()
+	);
 }
 
 void CHUDManager::SetCrosshairDisp(float dispf, float disps)
@@ -416,10 +479,14 @@ void CHUDManager::OnConnected()
 
 void CHUDManager::net_Relcase(CObject* obj)
 {
+	if (PP.result.O == obj)
+		PP.result.O = NULL;
+
 	HitMarker.net_Relcase(obj);
 
-	VERIFY(m_pHUDTarget);
-	m_pHUDTarget->net_Relcase(obj);
+	VERIFY(g_player_hud);
+	g_player_hud->net_Relcase(obj);
+
 #ifdef	DEBUG
     DBG_PH_NetRelcase( obj );
 #endif

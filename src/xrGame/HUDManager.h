@@ -2,9 +2,50 @@
 
 #include "../xrEngine/CustomHUD.h"
 #include "HitMarker.h"
+#include "HUDTarget.h"
+#include "GamePersistent.h"
 
 class CHUDTarget;
 class CUIGameCustom;
+
+struct SPickParam
+{
+	collide::ray_defs defs;
+	collide::rq_result result;
+	float barrel_dist;
+	bool barrel_blocked;
+	Fmatrix barrel_matrix;
+	float power;
+	u32 pass;
+
+	SPickParam() :
+		defs(collide::ray_defs(Fvector(), Fvector(), 0.f, CDB::OPT_CULL, collide::rqtBoth)),
+		result(collide::rq_result().set(NULL, 0.f, 0)),
+		barrel_dist(0.f),
+		barrel_blocked(false),
+		barrel_matrix(Fmatrix().identity()),
+		power(1.f),
+		pass(0)
+	{
+	}
+
+	void InitPick()
+	{
+		defs.start.set(0, 0, 0);
+		defs.dir.set(0, 0, 0);
+		defs.range = g_pGamePersistent->Environment().CurrentEnv->far_plane * 0.99f;
+		barrel_blocked = false;
+		barrel_dist = 0.f;
+		barrel_matrix.identity();
+	}
+
+	void CameraPick()
+	{
+		InitPick();
+		defs.start = Device.vCameraPosition;
+		defs.dir = Device.vCameraDirection;
+	}
+};
 
 class CHUDManager :
 	public CCustomHUD
@@ -16,6 +57,8 @@ private:
 	CHitMarker HitMarker;
 	CHUDTarget* m_pHUDTarget;
 	bool b_online;
+	SPickParam PP;
+	collide::rq_results RQR;
 public:
 	CHUDManager();
 	virtual ~CHUDManager();
@@ -38,8 +81,11 @@ public:
 	void Update_GrenadeView(Fvector& pos_actor);
 	void net_Relcase(CObject* obj);
 
-	//текущий предмет на который смотрит HUD
-	collide::rq_result& GetCurrentRayQuery();
+
+	bool FireposActive();
+	bool DoPick(SPickParam& pp);
+	SPickParam& GetPick() { return PP; }
+	collide::rq_result& GetRQ() { return GetPick().result; }
 
 	//устанвка внешнего вида прицела в зависимости от текущей дисперсии
 	void SetCrosshairDisp(float dispf, float disps = 0.f);
