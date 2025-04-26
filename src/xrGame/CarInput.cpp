@@ -39,7 +39,7 @@ void CCar::OnMouseMove(int dx, int dy)
 		Fvector pos = active_camera->Position();
 		Fvector cam_dir = active_camera->Direction();
 
-		collide::rq_result& RQ = HUD().GetCurrentRayQuery();
+		collide::rq_result& RQ = HUD().GetRQ();
 
 		pos.mad(cam_dir, RQ.range>3.f ? RQ.range : 30.f);
 		SetParam(CCarWeapon::eWpnDesiredPos, pos);

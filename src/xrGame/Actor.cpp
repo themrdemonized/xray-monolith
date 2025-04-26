@@ -1837,7 +1837,7 @@ void CActor::shedule_Update(u32 DT)
 		setVisible(TRUE);
 
 	//÷òî àêòåð âèäèò ïåðåä ñîáîé
-	collide::rq_result& RQ = HUD().GetCurrentRayQuery();
+	collide::rq_result& RQ = HUD().GetRQ();
 
 
 	if (!input_external_handler_installed() && RQ.O && RQ.O->getVisible() && RQ.range < 2.0f)

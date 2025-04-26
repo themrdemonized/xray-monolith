@@ -982,7 +982,7 @@ void CGamePersistent::UpdateDof()
 	if (m_bPickableDOF)
 	{
 		Fvector pick_dof;
-		pick_dof.y = HUD().GetCurrentRayQuery().range;
+		pick_dof.y = HUD().GetRQ().range;
 		pick_dof.x = pick_dof.y + diff_near;
 		pick_dof.z = pick_dof.y + diff_far;
 		m_dof[0] = pick_dof;

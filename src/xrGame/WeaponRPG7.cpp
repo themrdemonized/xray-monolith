@@ -126,7 +126,7 @@ void CWeaponRPG7::switch2_Fire()
 			if (IsHudModeNow())
 			{
 				Fvector p0;
-				float dist = HUD().GetCurrentRayQuery().range;
+				float dist = GetRQ().range;
 				p0.mul(d2, dist);
 				p0.add(p1);
 				p = p1;
