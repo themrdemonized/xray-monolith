@@ -26,6 +26,9 @@ public:
 	virtual void Load(LPCSTR section);
 	virtual void net_Destroy();
 
+	virtual float GetNearWallOffset();
+	virtual Fmatrix RayTransform();
+
 	virtual void OnH_A_Chield();
 	virtual void OnH_B_Independent(bool just_before_destroy);
 
@@ -125,4 +128,5 @@ public:
 	bool m_bPowerSaving;
 	float m_psy_factor;
 	float m_thumb_rot[2];
+	float m_nearwall_zoomed_range;
 };

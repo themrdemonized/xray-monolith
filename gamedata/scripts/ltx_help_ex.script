@@ -39,6 +39,9 @@
         frags_tracer_color_ID - Tracer color ID for shrapnel
         ammo_grenade_vel - Specify velocity of underbarrel grenade launcher ammo
         explode_effector_sect_name - customizable explode_effector per grenade section
+	
+	PDAs
+		nearwall_zoomed_range - Maximum offset toward camera when held up close to a wall.
 
     Ammo
         tracer_silenced - Silencers can hide bullet tracers on a per ammo type basis
