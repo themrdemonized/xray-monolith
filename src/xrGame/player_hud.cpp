@@ -1857,7 +1857,9 @@ void player_hud::OnFrame()
 		if (m_attached_items[0])
 		{
 			CHudItem* parent = m_attached_items[0]->m_parent_hud_item;
-			nearwall_0 = Fvector().mul(m_attached_items[0]->m_item_transform.k, -parent->GetNearWallOffset());
+			const SPickParam& pp = parent->GetPick();
+			float ofs = parent->GetNearWallOffset();
+			nearwall_0 = Fvector().mul(pp.barrel_matrix.k, -ofs);
 			m_transform.translate_add(nearwall_0);
 			m_attached_items[0]->m_item_transform.translate_add(nearwall_0);
 			if (!m_attached_items[1])
@@ -1869,17 +1871,20 @@ void player_hud::OnFrame()
 		if (m_attached_items[1])
 		{
 			CHudItem* parent = m_attached_items[1]->m_parent_hud_item;
-			Fvector nearwall_vec = Fvector().mul(m_attached_items[1]->m_item_transform.k, -parent->GetNearWallOffset());
+			const SPickParam& pp = parent->GetPick();
+			float ofs = parent->GetNearWallOffset();
+			Fvector nearwall_1 = Fvector().mul(pp.barrel_matrix.k, -ofs);
 			if (m_attached_items[0])
 			{
 				CWeapon* pWeapon = smart_cast<CWeapon*>(m_attached_items[0]->m_parent_hud_item);
 				if (pWeapon)
-					nearwall_vec.lerp(nearwall_vec, nearwall_0, pWeapon->GetZRotatingFactor());
+					nearwall_1.lerp(nearwall_1, nearwall_0, pWeapon->GetZRotatingFactor());
 			}
-			m_transform_2.translate_add(nearwall_vec);
-			m_attached_items[1]->m_item_transform.translate_add(nearwall_vec);
+			m_transform_2.translate_add(nearwall_1);
+			m_attached_items[1]->m_item_transform.translate_add(nearwall_1);
 		}
 	}
+}
 
 void player_hud::net_Relcase(CObject* obj)
 {
