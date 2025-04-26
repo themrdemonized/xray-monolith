@@ -153,9 +153,6 @@ CWeapon::CWeapon()
 	m_fSafeModeRotateTime = 0.f;
 	bClearJamOnly = false;
 
-	//PP.RQ.range = 0.f;
-	//PP.RQ.set(NULL, 0.f, -1);
-
 	bHasBulletsToHide = false;
 	bullet_cnt = 0;
 	IsCustomReloadAvaible = false;
@@ -2348,42 +2345,6 @@ bool CWeapon::ready_to_kill() const
 	);
 }
 
-ICF static BOOL pick_trace_callback(collide::rq_result& result, LPVOID params)
-{
-	PickParam* pp = (PickParam*)params;
-	++pp->pass;
-
-	if (result.O)
-	{
-		pp->RQ = result;
-		return FALSE;
-	}
-	else
-	{
-		CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
-
-		SGameMtl* mtl = GMLib.GetMaterialByIdx(T->material);
-		pp->power *= mtl->fVisTransparencyFactor;
-		if (pp->power > 0.34f)
-		{
-			return TRUE;
-		}
-	}
-	pp->RQ = result;
-	return FALSE;
-}
-
-/*void CWeapon::net_Relcase(CObject* object)
-{
-	if (!ParentIsActor())
-		return;
-
-	if (PP.RQ.O == object)
-		PP.RQ.O = NULL;
-
-	RQS.r_clear();
-}*/
-
 void CWeapon::InterpolateOffset(Fvector& current, const Fvector& target, const float factor) const
 {
 	if (target.similar(current, EPS))
@@ -2413,31 +2374,6 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 	attachable_hud_item* hi = HudItemData();
 	attachable_hud_item* si = g_player_hud->attached_item(SCOPE_ATTACH_IDX);
 	R_ASSERT(hi);
-
-	/*PP.RQ.O = 0;
-	PP.RQ.range = 3.f;
-	PP.RQ.element = -1;
-	PP.power = 1.0f;
-	PP.pass = 0;
-	RQS.r_clear();
-
-	const Fmatrix& fire_mat = HudItemData()->m_model->LL_GetTransform(HudItemData()->m_measures.m_fire_bone);
-	Fvector pos; // = get_LastFP();
-	Fvector offs = g_player_hud->m_adjust_mode ? g_player_hud->m_adjust_firepoint_shell[0][0] : HudItemData()->m_measures.m_fire_point_offset;
-	offs.z -= g_freelook_z_offset;
-	fire_mat.transform_tiny(pos, offs);
-	HudItemData()->m_item_transform.transform_tiny(pos);
-	Fvector offs;
-	fire_mat.transform_tiny(offs, { 0, 0, -pos.z -.5f }); //otherwise you can shoot through thin walls
-	pos.add(offs);
-	
-	// add RQ for weapon barrel collision
-	collide::ray_defs RD(pos, get_ParticlesXFORM().k, 3.f, CDB::OPT_CULL, collide::rqtBoth);
-	if (Level().ObjectSpace.RayQuery(RQS, RD, pick_trace_callback, &PP, NULL, Level().CurrentEntity()))
-		clamp(PP.RQ.range, 0.f, 3.f);
-
-	//Msg("RQ range: %f", PP.RQ.range);
-	*/
 
 	u8 idx = GetCurrentHudOffsetIdx();
 
@@ -3275,4 +3211,55 @@ void CWeapon::UpdateSecondVP()
 
 	CActor* pActor = smart_cast<CActor*>(H_Parent());
 	Device.m_SecondViewport.SetSVPActive(m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && m_zoom_params.m_fZoomRotationFactor > 0.05f);
+}
+
+Fmatrix CWeapon::RayTransform()
+{
+	attachable_hud_item* hi = HudItemData();
+	hud_item_measures& measures = hi->m_measures;
+
+	Fmatrix matrix;
+
+	if (GetHUDmode())
+	{
+		matrix = hi->m_item_transform;
+		matrix.mulB_43(hi->m_model->LL_GetTransform(measures.m_fire_bone));
+		matrix.mulB_43(Fmatrix().translate(measures.m_fire_point_offset));
+	}
+	else
+	{
+		matrix = XFORM();
+
+		if (psActorFlags.test(AF_FIREDIR_THIRD_PERSON))
+		{
+			// If firedir is enabled, override the barrel orientation with the HUD equivalent
+			Fmatrix hud_rot = hi->m_item_transform;
+			matrix.i = hud_rot.i;
+			matrix.j = hud_rot.j;
+			matrix.k = hud_rot.k;
+		}
+		else {
+			// Otherwise, transform it by the hands' HUD orientation
+			// to account for Lua-side free aim hackery
+			Fmatrix hud_rot = hi->m_parent->m_transform;
+			hud_rot.mulA_43(Device.mView);
+			hud_rot.c = Fvector();
+			matrix.mulB_43(hud_rot);
+		}
+
+		matrix.mulB_43(Fmatrix().translate(vLoadedFirePoint));
+	}
+
+	return matrix;
+}
+
+void CWeapon::g_fireParams(SPickParam& pp)
+{
+	// Block base implmentation if firepos is enabled
+	if (HUD().FireposActive())
+	{
+		return;
+	}
+
+	CHudItem::g_fireParams(pp);
 }

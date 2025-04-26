@@ -518,12 +518,8 @@ public:
 
 private:
 	firedeps m_current_firedeps;
-	//collide::rq_results RQS;
-	//PickParam PP;
 
 public:
-	//virtual collide::rq_result& GetRQ() { return PP.RQ; }
-	//virtual void net_Relcase(CObject* object);
 	Fmatrix m_shoot_shake_mat;
 	void UpdateZoomParams();
 
@@ -538,6 +534,10 @@ private:
 public:
 	float GetNearWallOffset();
 	float GetHudFov();
+
+public:
+	Fmatrix RayTransform();
+	void g_fireParams(SPickParam& pp);
 
 protected:
 	virtual void UpdateFireDependencies_internal();
