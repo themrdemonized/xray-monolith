@@ -97,6 +97,14 @@ void CCustomDevice::ForceHide()
 	g_player_hud->detach_item(this);
 }
 
+void CCustomDevice::Ray(SPickParam& pp)
+{
+	CHudItem::Ray(pp);
+	pp.barrel_matrix.i = Device.mInvView.i;
+	pp.barrel_matrix.j = Device.mInvView.j;
+	pp.barrel_matrix.k = Device.mInvView.k;
+}
+
 void CCustomDevice::ToggleDevice(bool bFastMode)
 {
 	m_bNeedActivation = false;

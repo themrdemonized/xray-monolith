@@ -53,6 +53,8 @@ public:
 	virtual void ForceHide();
 	virtual bool CheckCompatibility(CHudItem* itm);
 
+	virtual void Ray(SPickParam& pp);
+
 	virtual void render_item_3d_ui();
 	virtual bool render_item_3d_ui_query();
 
