@@ -832,3 +832,20 @@ bool CMissile::GetBriefInfo(II_BriefInfo& info)
 	info.name._set(m_nameShort);
 	return true;
 }
+
+Fmatrix CMissile::RayTransform()
+{
+	Fmatrix matrix = Device.mInvView;
+	matrix.mulB_43(Fmatrix().translate(m_vThrowPoint));
+	float h, p;
+	m_vThrowDir.getHP(h, p);
+	matrix.mulB_43(Fmatrix().setHPB(h, p, 0));
+	return matrix;
+}
+
+void CMissile::g_fireParams(SPickParam& pp)
+{
+	Fmatrix matrix = RayTransform();
+	pp.defs.start = matrix.c;
+	pp.defs.dir = matrix.k;
+}
