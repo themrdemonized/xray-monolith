@@ -14,6 +14,7 @@
 #include "../xrEngine/StatGraph.h"
 #include "PhraseDialogManager.h"
 #include "ui_defs.h"
+#include "HUDManager.h"
 
 #include "step_manager.h"
 #include "script_export_space.h"
@@ -488,6 +489,8 @@ public:
 	virtual float GetLookFactor();
 
 public:
+	SPickParam& GetPick();
+
 	virtual void g_WeaponBones(int& L, int& R1, int& R2);
 	virtual void g_fireParams(const CHudItem* pHudItem, Fvector& P, Fvector& D);
 	virtual bool g_stateFire() { return ! ((mstate_wishful & mcLookout) && !IsGameTypeSingle()); }
