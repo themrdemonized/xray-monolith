@@ -16,6 +16,8 @@ extern "C"{
     #include "lmarshal.h"
 }
 
+#include "lfennel.h"
+
 //#include "Libs.h"
 #include "script_additional_libs.h"
 
@@ -37,6 +39,7 @@ int luaopen_lua_extensions(lua_State *L){
     luaopen_marshal(L);
     //open_kb(L);
     //open_log(L); 
+    luaopen_fennel(L);
 
 	luaL_register(L, "lua_extensions", R);
 	return 0;

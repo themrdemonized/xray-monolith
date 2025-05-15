@@ -5,10 +5,12 @@
     <ClCompile Include="..\lfs.c" />
     <ClCompile Include="..\lmarshal.c" />
     <ClCompile Include="..\script_additional_libs.cpp" />
+    <ClCompile Include="..\lfennel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\lfs.h" />
     <ClInclude Include="..\lmarshal.h" />
     <ClInclude Include="..\script_additional_libs.h" />
+    <ClInclude Include="..\lfennel.h" />
   </ItemGroup>
 </Project>
