@@ -1,0 +1,50 @@
+;dialect lisp-macro
+
+(fn contains? [vals val]
+  "Returns true if VAL is present in VALS."
+  (accumulate [contains false
+               _ v (ipairs vals)]
+    (or contains (= val v))))
+
+(fn local? [[sym]]
+  "Returns true if SYM is local."
+  (= sym :local))
+
+(fn function? [[sym]]
+  "Returns true if SYM is fn or lambda."
+  (or (= sym :fn)
+      (= sym :lambda)))
+
+(fn unlocalize-local [name val]
+  "Unlocalize the local with the given signature."
+  `(global ,name ,val))
+
+(fn unlocalize-function [name sym args body]
+  "Unlocalize the function with the given signature."
+  `(global ,name (,sym ,args ,body)))
+
+(fn do-unlocalize [names binding]
+  "Replaces BINDING with its global equivalent if it is present in NAMES."
+  (case binding
+    ;; local
+    (where [sym name val]
+           (local? sym)
+           (contains? names name))
+    (unlocalize-local name val)
+
+    ;; fn, lambda
+    (where [sym name args body]
+           (function? sym)
+           (contains? names name))
+    (unlocalize-function name sym args body)
+
+    ;; fallthrough
+    [& rest]
+    (list (unpack rest))))
+
+(fn unlocalize [names & forms]
+  "Replaces local top-level function and variable bindings with globals."
+  (icollect [_ v (ipairs forms)]
+    (do-unlocalize names v)))
+
+{: unlocalize}
