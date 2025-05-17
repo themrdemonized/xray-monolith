@@ -12,10 +12,6 @@
 #include "script_thread.h"
 #include "../xrCore/mezz_stringbuffer.h"
 #include <stdarg.h>
-#include <unordered_map>
-#include <set>
-#include <sstream>
-#include <regex>
 
 #if !defined(DEBUG) && defined(USE_LUAJIT_ONE)
 #	include "opt.lua.h"
@@ -24,24 +20,6 @@
 #ifndef USE_LUAJIT_ONE
 #include "lua.hpp"
 #endif
-
-LPCSTR file_header_old = "\
-local function script_name()\n\
-    return \"%s\"\n\
-end\n\
-local this = {}\n\
-%s this %s\n\
-setmetatable(this, {__index = _G})\n";
-
-LPCSTR file_header_new = "\
-local function script_name()\n\
-    return \"%s\"\n\
-end\n\
-local this = {}\n\
-this._G = _G\n\
-%s this %s\n";
-
-LPCSTR file_header = 0;
 
 #ifndef ENGINE_BUILD
 #	include "script_engine.h"
@@ -383,11 +361,6 @@ void CScriptStorage::reinit()
 
     luaopen_lua_extensions(lua());
     disable_os_funcs(lua());
-
-    if (strstr(Core.Params, "-_g"))
-        file_header = file_header_new; //AVO: I get fatal crash at the start if this is used
-    else
-        file_header = file_header_old;
 }
 
 int CScriptStorage::vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker)
@@ -582,118 +555,53 @@ int __cdecl CScriptStorage::script_log(ScriptStorage::ELuaMessageType tLuaMessag
     return (result);
 }
 
-bool CScriptStorage::parse_namespace(LPCSTR caNamespaceName, LPSTR b, u32 const b_size, LPSTR c, u32 const c_size)
-{
-    *b = 0;
-    *c = 0;
-    LPSTR S2;
-    STRCONCAT(S2, caNamespaceName);
-    LPSTR S = S2;
-    for (int i = 0;; ++i)
-    {
-        if (!xr_strlen(S))
-        {
-            script_log(ScriptStorage::eLuaMessageTypeError, "the namespace name %s is incorrect!", caNamespaceName);
-            return (false);
-        }
-        LPSTR S1 = strchr(S, '.');
-        if (S1)
-            *S1 = 0;
+Unlocalizers unlocalizers;
+bool unlocalizerPassed = false;
 
-        if (i)
-            xr_strcat(b, b_size, "{");
-        xr_strcat(b, b_size, S);
-        xr_strcat(b, b_size, "=");
-        if (i)
-            xr_strcat(c, c_size, "}");
-        if (S1)
-            S = ++S1;
-        else
-            break;
-    }
-
-    return (true);
-}
-
-bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LPCSTR caScriptName,
-                                 LPCSTR caNameSpaceName)
+bool CScriptStorage::load_buffer(
+    lua_State* L,
+    Unlocalizers* unlocalizers,
+    LPCSTR caBuffer,
+    size_t tSize,
+    LPCSTR caScriptName,
+    LPCSTR caNameSpaceName
+)
 {
     const CScriptDialects& dialects = ScriptDialects();
-    const CScriptDialect* script_dialect = dialects.parse(caBuffer);
+    const CScriptDialect* dialect = dialects.parse(caBuffer);
+
+    std::string caString(caBuffer, caBuffer + tSize);
 
     size_t lang_tag_len = 0;
-    if (script_dialect)
-        lang_tag_len = script_dialect->tag_length();
+    if (dialect)
+        lang_tag_len = dialect->tag_length();
     else
+        dialect = &dialects.lua;
+
+    if (lang_tag_len > 0)
+        caString.erase(0, lang_tag_len);
+
+    std::string loweredNameSpaceName;
+    if (caNameSpaceName)
     {
-        script_dialect = &dialects.lua;
+        loweredNameSpaceName += caNameSpaceName;
+        toLowerCase(loweredNameSpaceName);
     }
 
-    caBuffer += lang_tag_len;
-    tSize -= lang_tag_len;
+    if (unlocalizers && unlocalizers->find(loweredNameSpaceName) != unlocalizers->end())
+    {
+        Msg("found script %s in unlocalizers data", caNameSpaceName);
+        // Iterate lines and unlocalize variables
+        Unlocalizer& unlocalizer = (*unlocalizers)[loweredNameSpaceName];
+        caString = dialect->unlocalize(unlocalizer, caString, caNameSpaceName);
+    }
 
-    int l_iErrorCode;
     if (caNameSpaceName && xr_strcmp("_G", caNameSpaceName))
     {
-        string512 insert, a, b;
-
-        LPCSTR header = file_header;
-
-        if (!parse_namespace(caNameSpaceName, a, sizeof(a), b, sizeof(b)))
-            return (false);
-
-        xr_sprintf(insert, header, caNameSpaceName, a, b);
-        u32 str_len = xr_strlen(insert);
-        u32 const total_size = str_len + script_dialect->wrap_ofs() + tSize;
-        LPSTR script = 0;
-        bool dynamic_allocation = false;
-
-        __try
-        {
-            if (total_size < 768 * 1024)
-                script = (LPSTR)_alloca(total_size);
-            else
-            {
-#ifdef DEBUG
-                script = (LPSTR)Memory.mem_alloc(total_size, "lua script file");
-#else //!DEBUG
-                script = (LPSTR)Memory.mem_alloc(total_size);
-#endif //-DEBUG
-                dynamic_allocation = true;
-            }
-        }
-        __except (GetExceptionCode() == STATUS_STACK_OVERFLOW)
-        {
-            int errcode = _resetstkoflw();
-            R_ASSERT2(errcode, "Could not reset the stack after \"Stack overflow\" exception!");
-#ifdef DEBUG
-            script					= (LPSTR)Memory.mem_alloc(total_size, "lua script file (after exception)");
-#else //#ifdef DEBUG
-            script = (LPSTR)Memory.mem_alloc(total_size);
-#endif //#ifdef DEBUG
-            dynamic_allocation = true;
-        };
-
-        xr_strcpy(script, total_size, insert);
-        
-        size_t out_size = script_dialect->wrap(script + str_len, caBuffer, tSize);
-
-        l_iErrorCode = luaL_loadbuffer(L, script, out_size + str_len, caScriptName);
-
-        if (dynamic_allocation)
-            xr_free(script);
-    }
-    else
-    {
-        //		try
-        {
-            l_iErrorCode = luaL_loadbuffer(L, caBuffer, tSize, caScriptName);
-        }
-        //		catch(...) {
-        //			l_iErrorCode= LUA_ERRSYNTAX;
-        //		}
+        caString = dialect->wrap(caString, caNameSpaceName);
     }
 
+    int l_iErrorCode = luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
     if (l_iErrorCode)
     {
 //#ifdef DEBUG
@@ -704,37 +612,6 @@ bool CScriptStorage::load_buffer(lua_State* L, LPCSTR caBuffer, size_t tSize, LP
     }
     return (true);
 }
-
-xr_unordered_map<std::string, std::set<std::string>> unlocalizers;
-bool unlocalizerPassed = false;
-
-static std::string join_list(const std::vector<std::string>& items_vec, std::string delim = "\n") {
-    std::string ret;
-    for (const auto& i : items_vec) {
-        if (!ret.empty()) {
-            ret += delim;
-        }
-        ret += i;
-    }
-    return ret;
-};
-
-static bool unlocalRegex(std::set<std::string>& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
-    if (std::regex_match(s, pattern)) {
-        //Msg("matching local function pattern");
-        std::smatch match;
-        std::regex_search(s, match, pattern);
-        std::string variable = match[group];
-        if (unlocals.find(variable) != unlocals.end()) {
-            Msg("[unlocalRegex] found variable %s to unlocal", variable.c_str());
-            s = std::regex_replace(s, pattern, replacement);
-            return true;
-        }
-    } else {
-        return false;
-    }
-    return false;
-};
 
 bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
@@ -803,124 +680,12 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
         return (false);
     }
 
-    // Unlocalize variables in the script defined by unlocalizers map
     auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
     auto scriptLength = (size_t)l_tpFileReader->length();
-    bool unlocalPerformed = false;
-    std::string unlocalizerResult;
-    std::string loweredNameSpaceName = caNameSpaceName;
-    toLowerCase(loweredNameSpaceName);
-    if (unlocalizers.find(loweredNameSpaceName) != unlocalizers.end()) {
-        Msg("found script %s in unlocalizers data", caNameSpaceName);
-
-        // Get contents of the script file and split by lines
-        std::vector<std::string> tokens;
-        std::string temp;
-        while (!l_tpFileReader->eof())
-        {
-            char c = l_tpFileReader->r_u8();
-            temp += c;
-        }
-
-        std::stringstream stringStream(temp);
-        std::string line;
-        tokens.clear();
-        while (std::getline(stringStream, line)) {
-            tokens.push_back(line);
-        }
-
-        // Iterate lines and unlocalize variables
-        auto& unlocals = unlocalizers[loweredNameSpaceName];
-
-        /*for (auto& u : unlocals) {
-            Msg("%s", u);
-        }*/
-
-        for (auto& s : tokens) {
-
-            //Msg("%s", s.c_str());
-
-            trim(s, "\n\r");
-            if (s.empty()) {
-                continue;
-            }
-
-            std::regex pattern;
-
-            //local function x(a,b,c)
-            pattern = std::regex(R"((^local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(\(.*$))");
-            if (unlocalRegex(unlocals, s, pattern, 5, "$3$4$5$6$7")) {
-                unlocalPerformed = true;
-                continue;
-            }
-
-            //local a = ...
-            //local a
-            //local a,b,c = ... (if one of a,b,c is in unlocalizers list - all of them will be unlocalized)
-            //local x; local y; - unsupported yet
-            pattern = std::regex(R"((^local)([\t ]+)(.*))");
-            if (std::regex_match(s, pattern)) {
-                std::smatch match;
-                std::regex_search(s, match, pattern);
-                std::string m = match[3];
-
-                // strip comments
-                std::regex r = std::regex(R"((.*)--.*)");
-                if (std::regex_match(m, r)) {
-                    //Msg("found comments\n");
-                    std::smatch noncomments;
-                    std::regex_search(m, noncomments, r);
-                    m = noncomments[1];
-                }
-
-                auto variablesAndValues = splitStringLimit(m, "=", 1);
-                bool hasValue = variablesAndValues.size() > 1;
-                auto variables = splitStringMulti(variablesAndValues[0], ",");
-                for (auto v : variables) {
-                    trim(v);
-                    //Msg("%s\n", v.c_str());
-                    if (unlocals.find(v) != unlocals.end()) {
-                        unlocalPerformed = true;
-                        Msg("found variable %s to unlocal", v.c_str());
-                        s = std::regex_replace(s, pattern, "$3");
-                        if (!hasValue) {
-
-                            // strip comments
-                            std::regex r = std::regex(R"((.*)(--.*))");
-                            if (std::regex_match(s, r)) {
-                                //Msg("found comments\n");
-                                std::smatch noncomments;
-                                std::regex_search(s, noncomments, r);
-                                s = std::string(noncomments[1]) + "= nil " + std::string(noncomments[2]);
-                            } else {
-                                s += " = nil";
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Store result back
-        /*for (auto& s : tokens) {
-            Msg("%s", s.c_str());
-        }*/
-
-        unlocalizerResult = join_list(tokens);
-        scriptContents = unlocalizerResult.c_str();
-        scriptLength = strlen(scriptContents);
-    }
-
-    strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
 
     bool bufferLoaded = false;
-    if (unlocalPerformed) {
-        bufferLoaded = load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
-    } else {
-        l_tpFileReader->rewind();
-        bufferLoaded = load_buffer(lua(), static_cast<LPCSTR>(l_tpFileReader->pointer()), (size_t)l_tpFileReader->length(), l_caLuaFileName, caNameSpaceName);
-    }
+    strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
+    bufferLoaded = load_buffer(lua(), &unlocalizers, scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
 
     if (!bufferLoaded)
     {

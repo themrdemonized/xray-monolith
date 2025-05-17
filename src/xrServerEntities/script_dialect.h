@@ -2,6 +2,7 @@
 
 #include "script_storage_space.h"
 #include "script_space_forward.h"
+#include "script_storage.h"
 
 class CScriptDialect
 {
@@ -10,6 +11,6 @@ private:
 public:
     size_t tag_length() const;
     bool parse(LPCSTR src) const;
-    virtual size_t wrap_ofs() const = 0;
-    virtual size_t wrap(LPSTR dest, LPCSTR src, size_t tSize) const = 0;
+    virtual std::string wrap(const std::string& src, LPCSTR caNameSpaceName) const = 0;
+    virtual std::string unlocalize(Unlocalizer& unlocalizer, const std::string& src, LPCSTR caNameSpaceName) const = 0;
 };
