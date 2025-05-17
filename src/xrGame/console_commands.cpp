@@ -1713,10 +1713,10 @@ public:
 			string4096 S;
 			shared_str m_script_name = "console command";
 			xr_sprintf(S, "%s\n", args);
-			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S, xr_strlen(S), "@console_command");
-			if (!l_iErrorCode)
+			bool loaded = ai().script_engine().load_buffer(ai().script_engine().lua(), NULL, S, xr_strlen(S), *m_script_name);
+			if (loaded)
 			{
-				l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
+				int l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
 				if (l_iErrorCode)
 				{
 					ai().script_engine().print_output(ai().script_engine().lua(), *m_script_name, l_iErrorCode);
@@ -1725,7 +1725,7 @@ public:
 				}
 			}
 
-			ai().script_engine().print_output(ai().script_engine().lua(), *m_script_name, l_iErrorCode);
+			ai().script_engine().print_output(ai().script_engine().lua(), *m_script_name, 0);
 		}
 	} //void	Execute
 
@@ -1749,6 +1749,47 @@ public:
 		IConsole_Command::fill_tips(tips, mode);
 	}
 };
+
+class CCC_LuaCommand : public CCC_ScriptCommand
+{
+public:
+	CCC_LuaCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		string4096 S;
+		xr_sprintf(S, "--dialect lua %s", args);
+		CCC_ScriptCommand::Execute(S);
+	}
+};
+
+class CCC_LispCommand : public CCC_ScriptCommand
+{
+public:
+	CCC_LispCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		string4096 S;
+		xr_sprintf(S, ";dialect lisp %s", args);
+		CCC_ScriptCommand::Execute(S);
+	}
+};
+
+// Unused for now, as console commands don't have a module-compatible script name
+class CCC_LispMacroCommand : public CCC_ScriptCommand
+{
+public:
+	CCC_LispMacroCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		string4096 S;
+		xr_sprintf(S, ";dialect lisp-macro %s", args);
+		CCC_ScriptCommand::Execute(S);
+	}
+};
+
 class CCC_FreezeTime : public IConsole_Command
 {
 public:
@@ -2521,7 +2562,9 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 	CMD1(CCC_Script, "run_script");
 	CMD1(CCC_ScriptCommand, "run_string");
-	CMD1(CCC_TimeFactor, "time_factor");
+	CMD1(CCC_LuaCommand, "eval_lua");
+	CMD1(CCC_LispCommand, "eval_lisp");
+	//CMD1(CCC_LispMacroCommand, "eval_lisp_macro");
 #endif // DEBUG
 
 	/* AVO: changing restriction to -dbg key instead of DEBUG */
@@ -2534,6 +2577,9 @@ void CCC_RegisterCommands()
 		CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 		CMD1(CCC_Script, "run_script");
 		CMD1(CCC_ScriptCommand, "run_string");
+		CMD1(CCC_LuaCommand, "eval_lua");
+		CMD1(CCC_LispCommand, "eval_lisp");
+		//CMD1(CCC_LispMacroCommand, "eval_lisp_macro");
 		//CMD3(CCC_Mask, "g_no_clip", &psActorFlags, AF_NO_CLIP);
 		CMD1(CCC_PHGravity, "ph_gravity");
 		CMD3(CCC_Mask, "log_missing_ini", &FS.m_Flags, FS.flPrintLTX);

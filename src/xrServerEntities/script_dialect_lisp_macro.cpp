@@ -32,12 +32,7 @@ LPCSTR CLispMacroDialect::tag() const
     return LISP_MACRO_TAG;
 }
 
-std::string CLispMacroDialect::wrap(const std::string& src, LPCSTR caNameSpaceName) const
+std::string CLispMacroDialect::wrap_body(const std::string& src, LPCSTR caNameSpaceName) const
 {
     return string_format(LISP_MACRO_WRAPPER, caNameSpaceName, src);
-}
-
-std::string CLispMacroDialect::unlocalize(Unlocalizer& unlocalizer, const std::string& src, LPCSTR caNameSpaceName) const
-{
-    return src;
 }

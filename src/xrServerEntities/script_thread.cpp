@@ -14,6 +14,7 @@
 };*/
 //-AVO
 #include "script_engine.h"
+#include "script_dialects.h"
 #include "script_thread.h"
 #include "ai_space.h"
 
@@ -38,24 +39,27 @@ const LPCSTR main_function = "console_command_run_string_main_thread_function";
 
 //extern "C" __declspec(dllimport) lua_State *lua_newcthread(lua_State *OL, int cstacksize);
 
-CScriptThread::CScriptThread(LPCSTR caNamespaceName, bool do_string, bool reload)
+CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string, bool reload)
 {
 	m_virtual_machine = 0;
 	m_active = false;
 
 	try
 	{
-		string256 S;
+		std::string S;
+
 		if (!do_string)
 		{
-			m_script_name = caNamespaceName;
-			ai().script_engine().process_file(caNamespaceName, reload);
+			m_script_name = caBuffer;
+			ai().script_engine().process_file(caBuffer, reload);
 		}
 		else
 		{
 			m_script_name = "console command";
-			xr_sprintf(S, "function %s()\n%s\nend\n", main_function, caNamespaceName);
-			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S, xr_strlen(S), "@console_command");
+			S += caBuffer;
+			S = ScriptDialects().wrap_buffer(S, *m_script_name);
+			S = "function " + std::string(main_function) + "()\n" + S + "\nend";
+			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S.c_str(), S.length(), "@console_command");
 			if (!l_iErrorCode)
 			{
 				l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
@@ -106,11 +110,11 @@ CScriptThread::CScriptThread(LPCSTR caNamespaceName, bool do_string, bool reload
 #endif // #ifndef USE_LUA_STUDIO
 
 		if (!do_string)
-			xr_sprintf(S, "%s.main()", caNamespaceName);
+			S = std::string(caBuffer) + ".main()";
 		else
-			xr_sprintf(S, "%s()", main_function);
+			S = std::string(main_function) + "()";
 
-		if (!ai().script_engine().load_buffer(lua(), NULL, S, xr_strlen(S), "@_thread_main"))
+		if (!ai().script_engine().load_buffer(lua(), NULL, S.c_str(), S.length(), "@_thread_main"))
 			return;
 
 		m_active = true;
