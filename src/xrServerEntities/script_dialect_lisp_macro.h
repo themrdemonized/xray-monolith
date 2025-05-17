@@ -2,7 +2,7 @@
 
 #include "script_dialect.h"
 
-class CLuaDialect : public CScriptDialect
+class CLispMacroDialect : public CScriptDialect
 {
 private:
     const char* tag() const;

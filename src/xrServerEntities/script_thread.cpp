@@ -110,7 +110,7 @@ CScriptThread::CScriptThread(LPCSTR caNamespaceName, bool do_string, bool reload
 		else
 			xr_sprintf(S, "%s()", main_function);
 
-		if (!ai().script_engine().load_buffer(lua(), S, xr_strlen(S), "@_thread_main"))
+		if (!ai().script_engine().load_buffer(lua(), NULL, S, xr_strlen(S), "@_thread_main"))
 			return;
 
 		m_active = true;
