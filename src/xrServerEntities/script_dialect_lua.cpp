@@ -7,31 +7,9 @@
 
 LPCSTR LUA_TAG = "--dialect lua";
 
-LPCSTR LUA_WRAPPER = R"(
-local function script_name()
-    return "%s"
-end
-
-local this = {}
-%s this %s
-setmetatable(this, {__index = _G})
-
-setfenv(1, this)
-%s
-)";
-
 LPCSTR CLuaDialect::tag() const
 {
     return LUA_TAG;
-}
-
-std::string CLuaDialect::wrap(const std::string& src, LPCSTR caNameSpaceName) const
-{
-    string512 a, b;
-    if (!parse_namespace(caNameSpaceName, a, sizeof(a), b, sizeof(b)))
-        return (false);
-
-    return string_format(LUA_WRAPPER, caNameSpaceName, a, b, src);
 }
 
 static bool unlocalRegex(Unlocalizer& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {

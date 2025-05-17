@@ -156,7 +156,7 @@ public:
 	IC CScriptThread* current_thread() const;
 	bool load_buffer(
 		lua_State* L,
-		xr_unordered_map<std::string, std::set<std::string>>* unlocalizers,
+		Unlocalizers* unlocalizers,
 		LPCSTR caBuffer,
 		size_t tSize,
 		LPCSTR caScriptName,

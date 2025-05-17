@@ -567,39 +567,8 @@ bool CScriptStorage::load_buffer(
     LPCSTR caNameSpaceName
 )
 {
-    const CScriptDialects& dialects = ScriptDialects();
-    const CScriptDialect* dialect = dialects.parse(caBuffer);
-
     std::string caString(caBuffer, caBuffer + tSize);
-
-    size_t lang_tag_len = 0;
-    if (dialect)
-        lang_tag_len = dialect->tag_length();
-    else
-        dialect = &dialects.lua;
-
-    if (lang_tag_len > 0)
-        caString.erase(0, lang_tag_len);
-
-    std::string loweredNameSpaceName;
-    if (caNameSpaceName)
-    {
-        loweredNameSpaceName += caNameSpaceName;
-        toLowerCase(loweredNameSpaceName);
-    }
-
-    if (unlocalizers && unlocalizers->find(loweredNameSpaceName) != unlocalizers->end())
-    {
-        Msg("found script %s in unlocalizers data", caNameSpaceName);
-        // Iterate lines and unlocalize variables
-        Unlocalizer& unlocalizer = (*unlocalizers)[loweredNameSpaceName];
-        caString = dialect->unlocalize(unlocalizer, caString, caNameSpaceName);
-    }
-
-    if (caNameSpaceName && xr_strcmp("_G", caNameSpaceName))
-    {
-        caString = dialect->wrap(caString, caNameSpaceName);
-    }
+    caString = ScriptDialects().wrap_buffer(caString, caScriptName, caNameSpaceName, unlocalizers);
 
     int l_iErrorCode = luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
     if (l_iErrorCode)
