@@ -39,12 +39,11 @@
     (unlocalize-function name sym args body)
 
     ;; fallthrough
-    [& rest]
-    (list (unpack rest))))
+    rest rest))
 
 (fn unlocalize [names & forms]
   "Replaces local top-level function and variable bindings with globals."
-  (icollect [_ v (ipairs forms)]
-    (do-unlocalize names v)))
+  `(do ,(unpack (icollect [_ v (ipairs forms)]
+                  (do-unlocalize names v)))))
 
 {: unlocalize}
