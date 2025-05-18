@@ -109,6 +109,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{8EC4
 		..\gamedata\scripts\class_registrator_modded_exes.script = ..\gamedata\scripts\class_registrator_modded_exes.script
 		..\gamedata\scripts\dxml_core.script = ..\gamedata\scripts\dxml_core.script
 		..\gamedata\scripts\fakelens.script = ..\gamedata\scripts\fakelens.script
+		..\gamedata\scripts\lisp_unlocalize.script = ..\gamedata\scripts\lisp_unlocalize.script
 		..\gamedata\scripts\ltx_help_ex.script = ..\gamedata\scripts\ltx_help_ex.script
 		..\gamedata\scripts\lua_help_ex.script = ..\gamedata\scripts\lua_help_ex.script
 		..\gamedata\scripts\modxml_inject_keybinds.script = ..\gamedata\scripts\modxml_inject_keybinds.script
