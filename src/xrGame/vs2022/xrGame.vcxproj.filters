@@ -7422,6 +7422,9 @@
     <ClInclude Include="..\..\xrServerEntities\script_dialect_lisp_macro.h">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\xrServerEntities\lua_macros.h">
+      <Filter>AI\AScript\ScriptDialect</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\damage_manager.cpp">
@@ -11134,6 +11137,9 @@
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_dialect_lisp_macro.cpp">
       <Filter>AI\AScript\ScriptDialect</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xrServerEntities\lua_macros.cpp">
+      <Filter>AI\AScript\ScriptStorage</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

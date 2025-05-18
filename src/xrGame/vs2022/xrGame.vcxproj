@@ -307,6 +307,7 @@
     <ClInclude Include="..\..\xrServerEntities\inventory_space.h" />
     <ClInclude Include="..\..\xrServerEntities\ItemListTypes.h" />
     <ClInclude Include="..\..\xrServerEntities\LevelGameDef.h" />
+    <ClInclude Include="..\..\xrServerEntities\lua_macros.h" />
     <ClInclude Include="..\..\xrServerEntities\lua_studio.h" />
     <ClInclude Include="..\..\xrServerEntities\mslotutils.h" />
     <ClInclude Include="..\..\xrServerEntities\object_broker.h" />
@@ -1941,6 +1942,7 @@
     <ClCompile Include="..\..\xrServerEntities\character_info.cpp" />
     <ClCompile Include="..\..\xrServerEntities\gametype_chooser.cpp" />
     <ClCompile Include="..\..\xrServerEntities\LevelGameDef.cpp" />
+    <ClCompile Include="..\..\xrServerEntities\lua_macros.cpp" />
     <ClCompile Include="..\..\xrServerEntities\lua_studio.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "script_dialect_lisp.h"
+#include "lua_macros.h"
 #include <iostream>
 
 LPCSTR LISP_TAG = ";dialect lisp";
@@ -25,14 +26,6 @@ LPCSTR LISP_UNLOCALIZE_WRAPPER = R"(
   %s)
 )";
 
-LPCSTR LISP_NAMESPACE_WRAPPER = R"(
-local function script_name()
-    return "%s"
-end
-
-%s %s
-)";
-
 LPCSTR CLispDialect::tag() const
 {
     return LISP_TAG;
@@ -40,11 +33,9 @@ LPCSTR CLispDialect::tag() const
 
 std::string CLispDialect::wrap_namespace(const std::string& src, LPCSTR caNameSpaceName) const
 {
-    return string_format(
-        LISP_NAMESPACE_WRAPPER,
-        caNameSpaceName,
-        parse_namespace(caNameSpaceName),
-        src
+    return lines(
+        script_name_getter(caNameSpaceName),
+        assign_path("_G", caNameSpaceName, src)
     );
 }
 
