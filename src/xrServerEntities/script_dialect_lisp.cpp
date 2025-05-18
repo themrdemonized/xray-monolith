@@ -12,7 +12,6 @@ require("fennel").eval(
     {
         allowedGlobals = false,
         correlate = true,
-        env = this,
         useBitLib = true,
         ["error-pinpoint"] = false,
     }
@@ -31,11 +30,7 @@ local function script_name()
     return "%s"
 end
 
-local this = {}
-%s this
-setmetatable(this, {__index = _G})
-
-%s
+%s %s
 )";
 
 LPCSTR CLispDialect::tag() const
