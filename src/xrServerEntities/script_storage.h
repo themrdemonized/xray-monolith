@@ -78,39 +78,6 @@ std::string string_format(std::string fmt, Args&& ... args) {
 	return string_format_internal(fmt, convert(std::forward<Args>(args))...);
 }
 
-static bool parse_namespace(LPCSTR caNamespaceName, LPSTR b, u32 const b_size, LPSTR c, u32 const c_size)
-{
-	*b = 0;
-	*c = 0;
-	LPSTR S2;
-	STRCONCAT(S2, caNamespaceName);
-	LPSTR S = S2;
-	for (int i = 0;; ++i)
-	{
-		if (!xr_strlen(S))
-		{
-			Msg("the namespace name %s is incorrect!", caNamespaceName);
-			return (false);
-		}
-		LPSTR S1 = strchr(S, '.');
-		if (S1)
-			*S1 = 0;
-
-		if (i)
-			xr_strcat(b, b_size, "{");
-		xr_strcat(b, b_size, S);
-		xr_strcat(b, b_size, "=");
-		if (i)
-			xr_strcat(c, c_size, "}");
-		if (S1)
-			S = ++S1;
-		else
-			break;
-	}
-
-	return (true);
-}
-
 using namespace ScriptStorage;
 
 class CScriptStorage

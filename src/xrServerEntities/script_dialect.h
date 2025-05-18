@@ -4,6 +4,27 @@
 #include "script_space_forward.h"
 #include "script_storage.h"
 
+static std::string parse_namespace(std::string src)
+{
+	std::string lsrc;
+	std::string dest;
+	while (true)
+	{
+		int sep = src.find(".");
+		if (sep > -1)
+		{
+			std::string cur = src.substr(0, sep);
+			dest += lsrc + cur + " = " + lsrc + cur + " or {}\n";
+			lsrc += cur + ".";
+			src.erase(0, sep + 1);
+			continue;
+		}
+
+		dest += lsrc + src + " = ";
+		return dest;
+	}
+}
+
 class CScriptDialect
 {
 private:
