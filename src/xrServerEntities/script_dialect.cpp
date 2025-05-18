@@ -1,18 +1,6 @@
 #include "stdafx.h"
 #include "script_dialect.h"
-
-LPCSTR NAMESPACE_WRAPPER = R"(
-local function script_name()
-    return "%s"
-end
-
-local this = {}
-%s this
-setmetatable(this, {__index = _G})
-setfenv(1, this)
-
-%s
-)";
+#include "lua_macros.h"
 
 size_t CScriptDialect::tag_length() const
 {
@@ -26,10 +14,26 @@ bool CScriptDialect::parse(const std::string& src) const
 
 std::string CScriptDialect::wrap_namespace(const std::string& src, LPCSTR caNameSpaceName) const
 {
-    return string_format(
-        NAMESPACE_WRAPPER,
-        caNameSpaceName,
-        parse_namespace(caNameSpaceName),
+    return lines(
+        script_name_getter(caNameSpaceName),
+        assign_local("this", "{}"),
+        string_format(
+            R"(
+setmetatable(
+    this,
+    {
+        __index = function(_, key)
+            local gv = _G[key]
+            if gv ~= nil then
+                return gv
+            end
+        end
+    }
+)
+            )"
+        ),
+        assign_path("_G", caNameSpaceName, "this"),
+        scope_to("this"),
         src
     );
 }
