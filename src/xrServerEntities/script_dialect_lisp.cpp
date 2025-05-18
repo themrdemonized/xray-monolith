@@ -26,9 +26,31 @@ LPCSTR LISP_UNLOCALIZE_WRAPPER = R"(
   %s)
 )";
 
+LPCSTR LISP_NAMESPACE_WRAPPER = R"(
+local function script_name()
+    return "%s"
+end
+
+local this = {}
+%s this
+setmetatable(this, {__index = _G})
+
+%s
+)";
+
 LPCSTR CLispDialect::tag() const
 {
     return LISP_TAG;
+}
+
+std::string CLispDialect::wrap_namespace(const std::string& src, LPCSTR caNameSpaceName) const
+{
+    return string_format(
+        LISP_NAMESPACE_WRAPPER,
+        caNameSpaceName,
+        parse_namespace(caNameSpaceName),
+        src
+    );
 }
 
 std::string CLispDialect::wrap_body(const std::string& src, LPCSTR caNameSpaceName) const

@@ -7,7 +7,7 @@ local function script_name()
 end
 
 local this = {}
-%s this %s
+%s this
 setmetatable(this, {__index = _G})
 setfenv(1, this)
 
@@ -26,10 +26,12 @@ bool CScriptDialect::parse(const std::string& src) const
 
 std::string CScriptDialect::wrap_namespace(const std::string& src, LPCSTR caNameSpaceName) const
 {
-    string512 a, b;
-    if (!parse_namespace(caNameSpaceName, a, sizeof(a), b, sizeof(b)))
-        return src;
-    return string_format(NAMESPACE_WRAPPER, caNameSpaceName, a, b, src);
+    return string_format(
+        NAMESPACE_WRAPPER,
+        caNameSpaceName,
+        parse_namespace(caNameSpaceName),
+        src
+    );
 }
 
 std::string CScriptDialect::wrap_body(const std::string& src, LPCSTR caNameSpaceName) const
