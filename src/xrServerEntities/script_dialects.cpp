@@ -1,58 +1,46 @@
 #include "stdafx.h"
 #include "script_dialects.h"
 #include "../xrCore/mezz_stringbuffer.h"
+#include "lua_macros.h"
 
-const CScriptDialect* CScriptDialects::parse(const std::string& src) const {
-	if (lua.parse(src)) {
-		return &lua;
-	}
-	else if (lisp_macro.parse(src)) {
+const CScriptDialect* CScriptDialects::recognize(const std::string& src, LPCSTR caNameSpaceName) const {
+    if (wua_g.recognize(src, caNameSpaceName))
+        return &wua_g;
+    else if (wua.recognize(src, caNameSpaceName))
+        return &wua;
+    else if (lua.recognize(src, caNameSpaceName))
+        return &lua;
+	else if (lisp_macro.recognize(src, caNameSpaceName))
 		return &lisp_macro;
-	}
-	else if (lisp.parse(src)) {
+	else if (lisp.recognize(src, caNameSpaceName))
 		return &lisp;
-	}
-	return NULL;
+	return &wua;
 }
 
-std::string CScriptDialects::wrap_buffer(
+std::string CScriptDialects::lift(
     std::string caString,
     LPCSTR caScriptName,
     LPCSTR caNameSpaceName,
     Unlocalizers* unlocalizers
 ) const
 {
-    const CScriptDialect* dialect = parse(caString);
-    size_t lang_tag_len = 0;
-    if (dialect)
-        lang_tag_len = dialect->tag_length();
-    else
-        dialect = &dialects.lua;
+    const CScriptDialect* dialect = recognize(caString, caNameSpaceName);
+    if (!dialect)
+        dialect = &dialects.wua;
 
-    if (lang_tag_len > 0)
-        caString.erase(0, lang_tag_len);
-
-    std::string loweredNameSpaceName;
     if (caNameSpaceName)
     {
+        std::string loweredNameSpaceName;
         loweredNameSpaceName += caNameSpaceName;
         toLowerCase(loweredNameSpaceName);
+        if (unlocalizers && unlocalizers->find(loweredNameSpaceName) != unlocalizers->end())
+        {
+            Msg("found script %s in unlocalizers data", caNameSpaceName);
+            // Iterate lines and unlocalize variables
+            Unlocalizer& unlocalizer = (*unlocalizers)[loweredNameSpaceName];
+            caString = dialect->unlocalize(unlocalizer, caString, caNameSpaceName);
+        }
     }
 
-    if (unlocalizers && unlocalizers->find(loweredNameSpaceName) != unlocalizers->end())
-    {
-        Msg("found script %s in unlocalizers data", caNameSpaceName);
-        // Iterate lines and unlocalize variables
-        Unlocalizer& unlocalizer = (*unlocalizers)[loweredNameSpaceName];
-        caString = dialect->unlocalize(unlocalizer, caString, caNameSpaceName);
-    }
-
-    caString = dialect->wrap_body(caString, caNameSpaceName);
-
-    if (caNameSpaceName && xr_strcmp("_G", caNameSpaceName))
-    {
-        caString = dialect->wrap_namespace(caString, caNameSpaceName);
-    }
-
-    return caString;
+    return dialect->lift(caString, caNameSpaceName);
 }

@@ -340,6 +340,8 @@
     <ClInclude Include="..\..\xrServerEntities\script_debugger_threads.h" />
     <ClInclude Include="..\..\xrServerEntities\script_dialects.h" />
     <ClInclude Include="..\..\xrServerEntities\script_dialect_lisp_macro.h" />
+    <ClInclude Include="..\..\xrServerEntities\script_dialect_lua.h" />
+    <ClInclude Include="..\..\xrServerEntities\script_dialect_wua_g.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_export.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_inline.h" />
@@ -354,7 +356,7 @@
     <ClInclude Include="..\..\xrServerEntities\script_ini_file_inline.h" />
     <ClInclude Include="..\..\xrServerEntities\script_dialect.h" />
     <ClInclude Include="..\..\xrServerEntities\script_dialect_lisp.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_dialect_lua.h" />
+    <ClInclude Include="..\..\xrServerEntities\script_dialect_wua.h" />
     <ClInclude Include="..\..\xrServerEntities\script_lua_helper.h" />
     <ClInclude Include="..\..\xrServerEntities\script_net_packet.h" />
     <ClInclude Include="..\..\xrServerEntities\script_process.h" />
@@ -1942,7 +1944,6 @@
     <ClCompile Include="..\..\xrServerEntities\character_info.cpp" />
     <ClCompile Include="..\..\xrServerEntities\gametype_chooser.cpp" />
     <ClCompile Include="..\..\xrServerEntities\LevelGameDef.cpp" />
-    <ClCompile Include="..\..\xrServerEntities\lua_macros.cpp" />
     <ClCompile Include="..\..\xrServerEntities\lua_studio.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -1971,6 +1972,8 @@
     <ClCompile Include="..\..\xrServerEntities\script_debugger_threads.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_dialects.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_dialect_lisp_macro.cpp" />
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_lua.cpp" />
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_wua_g.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_engine.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -2006,7 +2009,7 @@
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_dialect.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_dialect_lisp.cpp" />
-    <ClCompile Include="..\..\xrServerEntities\script_dialect_lua.cpp" />
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_wua.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_lua_helper.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

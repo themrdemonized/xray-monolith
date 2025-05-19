@@ -62,42 +62,30 @@ static std::string scope_to(const std::string& sThis)
 	return string_format("setfenv(%s, %s)", int_literal(1), sThis);
 }
 
-static std::string script_name_getter(const std::string& name)
+static std::string wua_environment(const std::string& key)
 {
 	return string_format(
 		R"(
-local function script_name()
-    return "%s"
-end
-        )",
-		name
+			local %s = setmetatable(
+				{},
+				{
+					__index = function(self, key)
+						local gv = _G[key]
+						if gv ~= nil then
+							return gv
+						end
+
+						local res, out = pcall(require, key)
+						if res then
+							return out
+						end
+					end,
+					__newindex = function(self, key, value)
+						_G[key] = value
+					end
+				}
+			)
+		)",
+		key
 	);
-}
-
-// Given a namespace name with optional . delimiters,
-// convert it into a series of assignments in the form:
-// A = A or {}
-// A.B = A.B or {}
-// A.B.C = val
-static std::string assign_path(std::string prefix, std::string namespaceName, std::string val)
-{
-	if (prefix.length() > 0)
-		prefix += ".";
-
-	std::string dest;
-	while (true)
-	{
-		int sep = namespaceName.find(".");
-		if (sep > -1)
-		{
-			std::string cur = namespaceName.substr(0, sep);
-			dest += prefix + cur + " = " + prefix + cur + " or {}\n";
-			prefix += cur + ".";
-			namespaceName.erase(0, sep + 1);
-			continue;
-		}
-
-		dest += prefix + namespaceName + " = " + val;
-		return dest;
-	}
 }

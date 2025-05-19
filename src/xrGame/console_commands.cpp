@@ -1750,6 +1750,19 @@ public:
 	}
 };
 
+class CCC_WuaCommand : public CCC_ScriptCommand
+{
+public:
+	CCC_WuaCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		string4096 S;
+		xr_sprintf(S, "--dialect wua %s", args);
+		CCC_ScriptCommand::Execute(S);
+	}
+};
+
 class CCC_LuaCommand : public CCC_ScriptCommand
 {
 public:
@@ -2562,6 +2575,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 	CMD1(CCC_Script, "run_script");
 	CMD1(CCC_ScriptCommand, "run_string");
+	CMD1(CCC_WuaCommand, "eval_wua");
 	CMD1(CCC_LuaCommand, "eval_lua");
 	CMD1(CCC_LispCommand, "eval_lisp");
 	//CMD1(CCC_LispMacroCommand, "eval_lisp_macro");
@@ -2577,6 +2591,7 @@ void CCC_RegisterCommands()
 		CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 		CMD1(CCC_Script, "run_script");
 		CMD1(CCC_ScriptCommand, "run_string");
+		CMD1(CCC_WuaCommand, "eval_wua");
 		CMD1(CCC_LuaCommand, "eval_lua");
 		CMD1(CCC_LispCommand, "eval_lisp");
 		//CMD1(CCC_LispMacroCommand, "eval_lisp_macro");

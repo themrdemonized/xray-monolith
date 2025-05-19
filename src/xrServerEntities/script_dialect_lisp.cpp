@@ -3,45 +3,11 @@
 #include "lua_macros.h"
 #include <iostream>
 
-LPCSTR LISP_TAG = ";dialect lisp";
+const std::string TAG_LISP = ";dialect lisp";
 
-LPCSTR LISP_WRAPPER = R"(
-require("fennel").eval(
-    [=[
-%s
-    ]=],
-    {
-        allowedGlobals = false,
-        correlate = true,
-        useBitLib = true,
-        ["error-pinpoint"] = false,
-    }
-)
-)";
-
-LPCSTR LISP_UNLOCALIZE_WRAPPER = R"(
-(import-macros {: unlocalize} :lisp_unlocalize)
-(unlocalize
-  [%s]
-  %s)
-)";
-
-LPCSTR CLispDialect::tag() const
+bool CLispDialect::recognize(const std::string& src, LPCSTR caNameSpaceName) const
 {
-    return LISP_TAG;
-}
-
-std::string CLispDialect::wrap_namespace(const std::string& src, LPCSTR caNameSpaceName) const
-{
-    return lines(
-        script_name_getter(caNameSpaceName),
-        assign_path("_G", caNameSpaceName, src)
-    );
-}
-
-std::string CLispDialect::wrap_body(const std::string& src, LPCSTR caNameSpaceName) const
-{
-    return string_format(LISP_WRAPPER, src);
+    return src.compare(0, TAG_LISP.length(), TAG_LISP) == 0;
 }
 
 std::string CLispDialect::unlocalize(Unlocalizer& unlocalizer, const std::string& src, LPCSTR caNameSpaceName) const
@@ -53,5 +19,38 @@ std::string CLispDialect::unlocalize(Unlocalizer& unlocalizer, const std::string
             unlocs += " ";
         unlocs += unloc;
     }
-    return string_format(LISP_UNLOCALIZE_WRAPPER, unlocs, src);
+    return string_format(
+        R"(
+(import-macros {: unlocalize} :lisp_unlocalize)
+(unlocalize
+  [%s]
+  %s)
+        )",
+        unlocs,
+        src
+    );
+}
+
+std::string CLispDialect::lift(const std::string& src, LPCSTR caNameSpaceName) const
+{
+    return string_format(
+        R"(
+package.loaded["%s"] = require("fennel").eval(
+    [=[
+(fn script_name []
+  "%s")
+%s
+    ]=],
+    {
+        allowedGlobals = false,
+        correlate = true,
+        useBitLib = true,
+        ["error-pinpoint"] = false,
+    }
+)
+        )",
+        caNameSpaceName,
+        caNameSpaceName,
+        src
+    );
 }

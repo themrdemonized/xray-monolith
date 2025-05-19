@@ -2,14 +2,14 @@
 #include "script_dialect_lisp_macro.h"
 #include "lua_macros.h"
 
-LPCSTR LISP_MACRO_TAG = ";dialect lisp-macro";
+const std::string TAG_LISP_MACRO = ";dialect lisp macro";
 
-LPCSTR CLispMacroDialect::tag() const
+bool CLispMacroDialect::recognize(const std::string& src, LPCSTR caNameSpaceName) const
 {
-    return LISP_MACRO_TAG;
+    return src.compare(0, TAG_LISP_MACRO.length(), TAG_LISP_MACRO) == 0;
 }
 
-std::string CLispMacroDialect::wrap_body(const std::string& src, LPCSTR caNameSpaceName) const
+std::string CLispMacroDialect::lift(const std::string& src, LPCSTR caNameSpaceName) const
 {
     return string_format(
         R"(
@@ -35,8 +35,10 @@ table.insert(
         end
     end
 )
+package.loaded["%s"] = {}
         )",
         caNameSpaceName,
-        src
+        src,
+        caNameSpaceName
     );
 }
