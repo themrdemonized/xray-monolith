@@ -1,0 +1,37 @@
+function lisp(src, namespace_name, unlocs)
+   -- Unlocalize
+   if #unlocs then
+      src = string.format(
+         [[
+(import-macros {: unlocalize} :lisp_unlocalize)
+(unlocalize
+  [%s]
+  %s)
+         ]],
+         table.concat(unlocs, " "),
+         src
+      )
+   end
+
+   -- Wrap into lisp compiler
+   return string.format(
+      [==[
+package.loaded["%s"] = require("fennel").eval(
+    [=[
+(fn script_name []
+  "%s")
+%s
+   ]=],
+   {
+      allowedGlobals = false,
+      correlate = true,
+      useBitLib = true,
+      ["error-pinpoint"] = false,
+   }
+)
+      ]==],
+      namespace_name,
+      namespace_name,
+      src
+   );
+end

@@ -1,4 +1,4 @@
-;dialect lisp macro
+#macro lisp_macro
 
 (fn contains? [vals val]
   "Returns true if VAL is present in VALS."
