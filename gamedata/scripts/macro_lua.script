@@ -1,0 +1,18 @@
+function lua(src, namespace_name, unlocalizer)
+   return string.format(
+      [[
+local function f()
+   local function script_name()
+      return "%s"
+   end
+
+   %s
+end
+
+package.loaded["%s"] = f()
+      ]],
+      namespace_name,
+      src,
+      namespace_name
+   )
+end

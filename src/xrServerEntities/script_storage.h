@@ -10,7 +10,7 @@
 
 #include "script_storage_space.h"
 #include "script_space_forward.h"
-#include "script_dialect.h"
+#include "script_macro.h"
 #include <unordered_map>
 #include <string>
 #include <set>

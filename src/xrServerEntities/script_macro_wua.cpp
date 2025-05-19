@@ -1,15 +1,10 @@
 #include "stdafx.h"
-#include "script_dialect_wua.h"
+#include "script_macro_wua.h"
 #include "lua_macros.h"
 
 #include <sstream>
 #include <regex>
 #include "../xrCore/mezz_stringbuffer.h"
-
-bool CWuaDialect::recognize(const std::string& src, LPCSTR caNameSpaceName) const
-{
-    return true;
-}
 
 static bool unlocalRegex(Unlocalizer& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
     if (std::regex_match(s, pattern)) {
@@ -40,7 +35,7 @@ static std::string join_list(const std::vector<std::string>& items_vec, std::str
     return ret;
 };
 
-std::string CWuaDialect::unlocalize(Unlocalizer& unlocalizer, const std::string& src, LPCSTR caNameSpaceName) const
+std::string CWuaMacro::unlocalize(const std::string& src, LPCSTR caNameSpaceName, Unlocalizer& unlocalizer) const
 {
     bool unlocalPerformed = false;
     std::string unlocalizerResult;
@@ -145,7 +140,7 @@ std::string CWuaDialect::unlocalize(Unlocalizer& unlocalizer, const std::string&
     return src;
 }
 
-std::string CWuaDialect::lift(const std::string& src, LPCSTR caNameSpaceName) const
+std::string CWuaMacro::lift(const std::string& src, LPCSTR caNameSpaceName) const
 {
     bool is_g = caNameSpaceName && xr_strcmp(caNameSpaceName, "_G") == 0;
     std::string out;

@@ -8,7 +8,7 @@
 
 #include "pch_script.h"
 #include "script_storage.h"
-#include "script_dialects.h"
+#include "script_macros.h"
 #include "script_thread.h"
 #include "../xrCore/mezz_stringbuffer.h"
 #include <stdarg.h>
@@ -568,7 +568,7 @@ bool CScriptStorage::load_buffer(
 )
 {
     std::string caString(caBuffer, caBuffer + tSize);
-    caString = ScriptDialects().lift(caString, caScriptName, caNameSpaceName, unlocalizers);
+    caString = ScriptMacros().lift(caString, caScriptName, caNameSpaceName, unlocalizers);
 
     int l_iErrorCode = luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
     if (l_iErrorCode)
