@@ -9,7 +9,6 @@
 #include "script_dialect_lisp_macro.h"
 
 struct CScriptDialects {
-	CWuaGDialect wua_g;
 	CWuaDialect wua;
 	CLuaDialect lua;
 	CLispDialect lisp;

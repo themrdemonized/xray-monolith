@@ -1,10 +1,11 @@
 #pragma once
 
-#include "script_dialect_wua_g.h"
+#include "script_dialect.h"
 
-class CWuaDialect : public CWuaGDialect
+class CWuaDialect : public CScriptDialect
 {
 public:
-    virtual bool recognize(const std::string& src, LPCSTR caNameSpaceName) const override;
+    virtual bool recognize(const std::string& src, LPCSTR caNameSpaceName) const;
+    virtual std::string unlocalize(Unlocalizer& unlocalizer, const std::string& src, LPCSTR caNameSpaceName) const override;
     virtual std::string lift(const std::string& src, LPCSTR caNameSpaceName) const override;
 };
