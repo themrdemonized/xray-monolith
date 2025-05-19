@@ -8,7 +8,7 @@
 
 bool CWuaGDialect::recognize(const std::string& src, LPCSTR caNameSpaceName) const
 {
-    return xr_strcmp(caNameSpaceName, "_G") == 0;
+    return caNameSpaceName && xr_strcmp(caNameSpaceName, "_G") == 0;
 }
 
 static bool unlocalRegex(Unlocalizer& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
