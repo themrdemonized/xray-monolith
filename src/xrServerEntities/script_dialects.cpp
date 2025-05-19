@@ -4,11 +4,7 @@
 #include "lua_macros.h"
 
 const CScriptDialect* CScriptDialects::recognize(const std::string& src, LPCSTR caNameSpaceName) const {
-    if (wua_g.recognize(src, caNameSpaceName))
-        return &wua_g;
-    else if (wua.recognize(src, caNameSpaceName))
-        return &wua;
-    else if (lua.recognize(src, caNameSpaceName))
+    if (lua.recognize(src, caNameSpaceName))
         return &lua;
 	else if (lisp_macro.recognize(src, caNameSpaceName))
 		return &lisp_macro;
@@ -25,8 +21,6 @@ std::string CScriptDialects::lift(
 ) const
 {
     const CScriptDialect* dialect = recognize(caString, caNameSpaceName);
-    if (!dialect)
-        dialect = &dialects.wua;
 
     if (caNameSpaceName)
     {
