@@ -2,7 +2,7 @@
 
 #include "script_dialect.h"
 
-class CLispDialect : public CScriptDialect
+class CWuaGDialect : public CScriptDialect
 {
 public:
     virtual bool recognize(const std::string& src, LPCSTR caNameSpaceName) const;

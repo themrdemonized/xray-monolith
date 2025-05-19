@@ -312,31 +312,45 @@ void CScriptEngine::lua_hook_call		(lua_State *L, lua_Debug *dbg)
 }
 #endif
 
-int auto_load(lua_State* L)
+int auto_load_closure(lua_State* L)
 {
-	if ((lua_gettop(L) < 2) || !lua_istable(L, 1) || !lua_isstring(L, 2))
+	lua_pushvalue(L, lua_upvalueindex(1));
+	return (1);
+}
+
+int auto_load_searcher(lua_State* L)
+{
+	assert(lua_gettop(L) == 1);
+	assert(lua_isstring(L, 1));
+
+	LPCSTR name = lua_tostring(L, 1);
+
+	if (ai().script_engine().process_file_if_exists(name, false))
 	{
-		lua_pushnil(L);
+		lua_getglobal(L, "package");
+		lua_getfield(L, -1, "loaded");
+		lua_pushstring(L, name);
+		lua_gettable(L, -2);
+		lua_remove(L, -2);
+		lua_pushcclosure(L, auto_load_closure, 1);
 		return (1);
 	}
 
-	ai().script_engine().process_file_if_exists(lua_tostring(L, 2), false);
-	lua_rawget(L, 1);
+	lua_pushstring(L, "\n\tFailure");
 	return (1);
 }
 
 void CScriptEngine::setup_auto_load()
 {
-	luaL_newmetatable(lua(), "XRAY_AutoLoadMetaTable");
-	lua_pushstring(lua(), "__index");
-	lua_pushcfunction(lua(), auto_load);
-	lua_settable(lua(), -3);
-	lua_pushstring(lua(), "_G");
-	lua_gettable(lua(), LUA_GLOBALSINDEX);
-	luaL_getmetatable(lua(), "XRAY_AutoLoadMetaTable");
-	lua_setmetatable(lua(), -2);
-	//. ??????????
-	// lua_settop							(lua(),-0);
+	lua_getglobal(lua(), "table");
+	lua_getfield(lua(), -1, "insert");
+	lua_remove(lua(), -2);
+	lua_getglobal(lua(), "package");
+	lua_getfield(lua(), -1, "loaders");
+	lua_remove(lua(),  - 2);
+	lua_pushinteger(lua(), 2);
+	lua_pushcfunction(lua(), auto_load_searcher);
+	lua_call(lua(), 3, 0);
 }
 
 extern void export_classes(lua_State* L);
@@ -451,11 +465,11 @@ void CScriptEngine::load_common_scripts()
 	xr_delete(l_tpIniFile);
 }
 
-void CScriptEngine::process_file_if_exists(LPCSTR file_name, bool warn_if_not_exist)
+bool CScriptEngine::process_file_if_exists(LPCSTR file_name, bool warn_if_not_exist)
 {
 	u32 string_length = xr_strlen(file_name);
 	if (!warn_if_not_exist && no_file_exists(file_name, string_length))
-		return;
+		return false;
 
 	string_path S, S1;
 	if (m_reload_modules || (*file_name && !namespace_loaded(file_name)))
@@ -474,15 +488,17 @@ void CScriptEngine::process_file_if_exists(LPCSTR file_name, bool warn_if_not_ex
             }
 #endif
 			add_no_file(file_name, string_length);
-			return;
+			return false;
 		}
 		//#ifndef MASTER_GOLD
 		if (strstr(Core.Params, "-dbg"))
 			Msg("* loading script %s", S1);
 		//#endif // MASTER_GOLD
 		m_reload_modules = false;
-		load_file_into_namespace(S, *file_name ? file_name : "_G");
+		return load_file_into_namespace(S, *file_name ? file_name : "_G");
 	}
+
+	return true;
 }
 
 void CScriptEngine::process_file(LPCSTR file_name)

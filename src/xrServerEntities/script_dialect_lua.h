@@ -4,8 +4,7 @@
 
 class CLuaDialect : public CScriptDialect
 {
-private:
-    const char* tag() const;
 public:
-    std::string unlocalize(Unlocalizer& unlocalizer, const std::string& src, LPCSTR caNameSpaceName) const;
+    virtual bool recognize(const std::string& src, LPCSTR caNameSpaceName) const;
+    virtual std::string lift(const std::string& src, LPCSTR caNameSpaceName) const override;
 };

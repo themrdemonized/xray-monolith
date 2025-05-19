@@ -7404,7 +7404,7 @@
     <ClInclude Include="..\..\xrServerEntities\script_dialect_lisp.h">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_dialect_lua.h">
+    <ClInclude Include="..\..\xrServerEntities\script_dialect_wua.h">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\script_dialects.h">
@@ -7414,6 +7414,12 @@
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\lua_macros.h">
+      <Filter>AI\AScript\ScriptDialect</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xrServerEntities\script_dialect_wua_g.h">
+      <Filter>AI\AScript\ScriptDialect</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xrServerEntities\script_dialect_lua.h">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClInclude>
   </ItemGroup>
@@ -11117,7 +11123,7 @@
     <ClCompile Include="..\..\xrServerEntities\script_dialect_lisp.cpp">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_dialect_lua.cpp">
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_wua.cpp">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_dialects.cpp">
@@ -11126,8 +11132,11 @@
     <ClCompile Include="..\..\xrServerEntities\script_dialect_lisp_macro.cpp">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\lua_macros.cpp">
-      <Filter>AI\AScript\ScriptStorage</Filter>
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_wua_g.cpp">
+      <Filter>AI\AScript\ScriptDialect</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_lua.cpp">
+      <Filter>AI\AScript\ScriptDialect</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

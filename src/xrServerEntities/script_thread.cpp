@@ -57,7 +57,7 @@ CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string, bool reload)
 		{
 			m_script_name = "console command";
 			S += caBuffer;
-			S = ScriptDialects().wrap_buffer(S, *m_script_name);
+			S = ScriptDialects().lift(S, *m_script_name);
 			S = "function " + std::string(main_function) + "()\n" + S + "\nend";
 			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S.c_str(), S.length(), "@console_command");
 			if (!l_iErrorCode)

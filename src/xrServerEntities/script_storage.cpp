@@ -568,7 +568,7 @@ bool CScriptStorage::load_buffer(
 )
 {
     std::string caString(caBuffer, caBuffer + tSize);
-    caString = ScriptDialects().wrap_buffer(caString, caScriptName, caNameSpaceName, unlocalizers);
+    caString = ScriptDialects().lift(caString, caScriptName, caNameSpaceName, unlocalizers);
 
     int l_iErrorCode = luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
     if (l_iErrorCode)
@@ -720,8 +720,9 @@ bool CScriptStorage::load_file_into_namespace(LPCSTR caScriptName, LPCSTR caName
 bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
 {
     int start = lua_gettop(lua());
-    lua_pushstring(lua(), "_G");
-    lua_rawget(lua(), LUA_GLOBALSINDEX);
+    lua_getglobal(lua(), "package");
+    lua_getfield(lua(), -1, "loaded");
+    lua_remove(lua(), -2);
     string256 S2;
     xr_strcpy(S2, N);
     LPSTR S = S2;
@@ -815,6 +816,8 @@ luabind::object CScriptStorage::name_space(LPCSTR namespace_name)
     xr_strcpy(S1, namespace_name);
     LPSTR S = S1;
     luabind::object lua_namespace = luabind::get_globals(lua());
+    lua_namespace = lua_namespace["package"];
+    lua_namespace = lua_namespace["loaded"];
     for (;;)
     {
         if (!xr_strlen(S))
