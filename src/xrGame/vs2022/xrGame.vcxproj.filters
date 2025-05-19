@@ -11138,6 +11138,9 @@
     <ClCompile Include="..\..\xrServerEntities\script_dialect_lua.cpp">
       <Filter>AI\AScript\ScriptDialect</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\xrServerEntities\script_dialect_script.cpp">
+      <Filter>AI\AScript\ScriptDialect</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\Explosive.h">
