@@ -338,7 +338,7 @@
     <ClInclude Include="..\..\xrServerEntities\script_debugger.h" />
     <ClInclude Include="..\..\xrServerEntities\script_debugger_messages.h" />
     <ClInclude Include="..\..\xrServerEntities\script_debugger_threads.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_macros.h" />
+    <ClInclude Include="..\..\xrServerEntities\script_compiler.h" />
     <ClInclude Include="..\..\xrServerEntities\script_macro_wua.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_export.h" />
@@ -1966,7 +1966,7 @@
     <ClCompile Include="..\..\xrServerEntities\script_callStack.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_debugger.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_debugger_threads.cpp" />
-    <ClCompile Include="..\..\xrServerEntities\script_macros.cpp" />
+    <ClCompile Include="..\..\xrServerEntities\script_compiler.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_macro_script.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_macro_wua.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_engine.cpp">

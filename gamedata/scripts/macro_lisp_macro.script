@@ -1,4 +1,4 @@
-function lisp_macro(src, namespace_name)
+function expand(src, namespace_name)
    return string.format(
       [==[
 local fennel = require("fennel")

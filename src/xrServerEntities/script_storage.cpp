@@ -8,7 +8,7 @@
 
 #include "pch_script.h"
 #include "script_storage.h"
-#include "script_macros.h"
+#include "script_compiler.h"
 #include "script_thread.h"
 #include "../xrCore/mezz_stringbuffer.h"
 #include <stdarg.h>
@@ -555,12 +555,8 @@ int __cdecl CScriptStorage::script_log(ScriptStorage::ELuaMessageType tLuaMessag
     return (result);
 }
 
-Unlocalizers unlocalizers;
-bool unlocalizerPassed = false;
-
 bool CScriptStorage::load_buffer(
     lua_State* L,
-    Unlocalizers* unlocalizers,
     LPCSTR caBuffer,
     size_t tSize,
     LPCSTR caScriptName,
@@ -568,7 +564,7 @@ bool CScriptStorage::load_buffer(
 )
 {
     std::string caString(caBuffer, caBuffer + tSize);
-    caString = ScriptMacros().lift(caString, caScriptName, caNameSpaceName, unlocalizers);
+    caString = ScriptCompiler().lift(caString, caScriptName, caNameSpaceName);
 
     int l_iErrorCode = luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
     if (l_iErrorCode)
@@ -584,61 +580,6 @@ bool CScriptStorage::load_buffer(
 
 bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
-    if (!unlocalizerPassed) {
-        auto file_list = FS.file_list_open("$game_config$", "unlocalizers\\", FS_RootOnly | FS_ListFiles);
-        if (!file_list) {
-            unlocalizerPassed = true;
-        } else {
-            xr_string id;
-            auto i = file_list->begin();
-            auto e = file_list->end();
-            for (; i != e; ++i)
-            {
-                u32 length = xr_strlen(*i);
-
-                if (!((length >= 4) &&
-                    ((*i)[length - 4] == '.') &&
-                    ((*i)[length - 3] == 'l') &&
-                    ((*i)[length - 2] == 't') &&
-                    ((*i)[length - 1] == 'x')))
-                    continue;
-
-                id.assign(*i, length - 4);
-
-                string_path file_name;
-                FS.update_path(file_name, "$game_config$", (xr_string("unlocalizers\\") + id).c_str());
-                xr_strcat(file_name, ".ltx");
-
-                Msg("opening file %s", file_name);
-                auto config = xr_new<CInifile>(file_name);
-
-                typedef CInifile::Root sections_type;
-                sections_type& sections = config->sections();
-
-                sections_type::const_iterator i = sections.begin();
-                sections_type::const_iterator e = sections.end();
-                for (; i != e; ++i)
-                {
-                    auto sectionName = std::string((*i)->Name.c_str());
-                    toLowerCase(sectionName);
-                    if (unlocalizers.find(sectionName) == unlocalizers.end()) {
-
-                        // construct set that contains top level variables to delocalize by section name
-                        unlocalizers[sectionName].clear();
-                        Msg("creating unlocalizer for script %s", sectionName.c_str());
-                    }
-                    auto& data = (*i)->Data;
-                    for (auto& item : data) {
-                        unlocalizers[sectionName].insert(std::string(item.first.c_str()));
-                        Msg("adding variable %s for unlocalizer for script %s", item.first.c_str(), sectionName.c_str());
-                    }
-                }
-                xr_delete(config);
-            }
-            FS.file_list_close(file_list);
-            unlocalizerPassed = true;
-        }
-    }
     int start = lua_gettop(lua());
     string_path l_caLuaFileName;
     IReader* l_tpFileReader = FS.r_open(caScriptName);
@@ -654,7 +595,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 
     bool bufferLoaded = false;
     strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
-    bufferLoaded = load_buffer(lua(), &unlocalizers, scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
+    bufferLoaded = load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
 
     if (!bufferLoaded)
     {

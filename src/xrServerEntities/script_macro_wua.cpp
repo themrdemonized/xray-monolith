@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "script_macro_wua.h"
+#include "script_compiler.h"
 #include "lua_macros.h"
 
 #include <sstream>
@@ -35,8 +36,12 @@ static std::string join_list(const std::vector<std::string>& items_vec, std::str
     return ret;
 };
 
-std::string CWuaMacro::unlocalize(const std::string& src, LPCSTR caNameSpaceName, Unlocalizer& unlocalizer) const
+std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
 {
+    Unlocalizer* unlocalizer = ScriptCompiler().get_unlocalizer(caNameSpaceName);
+    if (!unlocalizer)
+        return src;
+
     bool unlocalPerformed = false;
     std::string unlocalizerResult;
 
@@ -70,7 +75,7 @@ std::string CWuaMacro::unlocalize(const std::string& src, LPCSTR caNameSpaceName
 
         //local function x(a,b,c)
         pattern = std::regex(R"((^local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(\(.*$))");
-        if (unlocalRegex(unlocalizer, s, pattern, 5, "$3$4$5$6$7")) {
+        if (unlocalRegex(*unlocalizer, s, pattern, 5, "$3$4$5$6$7")) {
             //Msg("Regex matched");
             unlocalPerformed = true;
             continue;
@@ -103,7 +108,7 @@ std::string CWuaMacro::unlocalize(const std::string& src, LPCSTR caNameSpaceName
             for (auto v : variables) {
                 trim(v);
                 //Msg("%s\n", v.c_str());
-                if (unlocalizer.find(v) != unlocalizer.end()) {
+                if (unlocalizer->find(v) != unlocalizer->end()) {
                     unlocalPerformed = true;
                     Msg("found variable %s to unlocal", v.c_str());
                     s = std::regex_replace(s, pattern, "$3");
@@ -140,8 +145,9 @@ std::string CWuaMacro::unlocalize(const std::string& src, LPCSTR caNameSpaceName
     return src;
 }
 
-std::string CWuaMacro::lift(const std::string& src, LPCSTR caNameSpaceName) const
+std::string CWuaMacro::lift(std::string src, LPCSTR caNameSpaceName) const
 {
+    src = unlocalize(src, caNameSpaceName);
     bool is_g = caNameSpaceName && xr_strcmp(caNameSpaceName, "_G") == 0;
     std::string out;
     out += wua_environment("G");
