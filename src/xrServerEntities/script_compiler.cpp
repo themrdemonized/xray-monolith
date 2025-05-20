@@ -80,7 +80,8 @@ Unlocalizer* CScriptCompiler::get_unlocalizer(std::string name)
     return NULL;
 }
 
-std::string CScriptCompiler::lift(
+int CScriptCompiler::compile(
+    lua_State* L,
     std::string caString,
     LPCSTR caScriptName,
     LPCSTR caNameSpaceName
@@ -94,7 +95,7 @@ std::string CScriptCompiler::lift(
         caString = std::string(match[2]) + std::string(match.suffix());
         if (macro_name != "wua")
         {
-            luabind::functor<LPCSTR> macro;
+            luabind::functor<luabind::object> macro;
             if (ai().script_engine().functor((std::string("macro_") + macro_name).c_str(), macro))
             {
 
@@ -110,7 +111,9 @@ std::string CScriptCompiler::lift(
                     }
                 }
 
-                return std::string(macro(caString.c_str(), caNameSpaceName, unlocs));
+                luabind::object result = macro(caString.c_str(), caNameSpaceName, unlocs);
+                result.pushvalue();
+                return 0;
             }
             else
             {
@@ -120,5 +123,6 @@ std::string CScriptCompiler::lift(
         }
     }
 
-    return wua.lift(caString, caNameSpaceName);
+    caString = wua.lift(caString, caNameSpaceName);
+    return luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
 }

@@ -1,32 +1,18 @@
-function expand(src, namespace_name)
-   return string.format(
-      [==[
-local fennel = require("fennel")
-table.insert(
-    fennel["macro-searchers"],
-    function(module_name)
-        if module_name ~= "%s" then
-            return
-        end
-        return function()
-            return fennel.eval(
-                [=[
-                    %s
-                ]=],
-                {
-                    correlate = true,
-                    env = "_COMPILER",
-                    useBitLib = true,
-                    ["error-pinpoint"] = false,
-                }
-            )
-        end
-    end
-)
-package.loaded["%s"] = {}
-      ]==],
-      namespace_name,
-      src,
-      namespace_name
-   )
+COMPILER_OPTS = {
+   correlate = true,
+   env = "_COMPILER",
+   useBitLib = true,
+   ["error-pinpoint"] = false,
+}
+
+function compile(src, namespace_name)
+   return function()
+      local macros = fennel.eval(
+         src,
+         COMPILER_OPTS
+      )
+
+      package.loaded[namespace_name] = macros
+      fennel["macro-loaded"][namespace_name] = macros
+   end
 end
