@@ -1,4 +1,4 @@
-function lisp(src, namespace_name, unlocs)
+function expand(src, namespace_name, unlocs)
    -- Unlocalize
    if #unlocs then
       src = string.format(

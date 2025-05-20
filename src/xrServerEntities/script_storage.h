@@ -87,7 +87,6 @@ public:
 	IC CScriptThread* current_thread() const;
 	bool load_buffer(
 		lua_State* L,
-		Unlocalizers* unlocalizers,
 		LPCSTR caBuffer,
 		size_t tSize,
 		LPCSTR caScriptName,

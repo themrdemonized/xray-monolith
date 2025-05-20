@@ -1,4 +1,4 @@
-#macro lisp_macro
+#macro lisp_macro.expand
 
 (fn contains? [vals val]
   "Returns true if VAL is present in VALS."

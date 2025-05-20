@@ -2494,7 +2494,7 @@
     <Filter Include="AI\AMonsters\monsters\Chimera\state attack">
       <UniqueIdentifier>{8d6475ec-c185-4ebb-9ba6-e7dc1644c4c1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="AI\AScript\ScriptDialect">
+    <Filter Include="AI\AScript\ScriptCompiler">
       <UniqueIdentifier>{53abd459-f211-4178-b3c6-2be2afe329ba}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -7399,16 +7399,16 @@
       <Filter>UI\Cursor</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\script_macro.h">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_macros.h">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+    <ClInclude Include="..\..\xrServerEntities\script_compiler.h">
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\lua_macros.h">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\script_macro_wua.h">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -11106,16 +11106,16 @@
       <Filter>UI\Cursor</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_macro.cpp">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_macros.cpp">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+    <ClCompile Include="..\..\xrServerEntities\script_compiler.cpp">
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_macro_wua.cpp">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_macro_script.cpp">
-      <Filter>AI\AScript\ScriptDialect</Filter>
+      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

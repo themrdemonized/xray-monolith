@@ -10,7 +10,6 @@ void CScriptMacro::script_register(lua_State* L)
 	module(L)
 		[
 			class_<CScriptMacro>("CScriptMacro")
-			.def("unlocalize", &CScriptMacro::unlocalize)
 			.def("lift", &CScriptMacro::lift)
 		];
 }
