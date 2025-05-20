@@ -21,7 +21,8 @@ public:
 	void load_unlocalizers();
 	Unlocalizer* CScriptCompiler::get_unlocalizer(std::string name);
 
-	std::string lift(
+	int compile(
+		lua_State* L,
 		std::string caString,
 		LPCSTR caScriptName,
 		LPCSTR caNameSpaceName = 0

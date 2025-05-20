@@ -1,0 +1,10 @@
+function load_src(src)
+   return assert(loadstring(src))
+end
+
+function extend_env(dest)
+   for k,v in pairs(getfenv(0)) do
+       dest[k] = v
+   end
+   return dest
+end

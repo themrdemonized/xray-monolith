@@ -1,18 +1,12 @@
 function expand(src, namespace_name, unlocalizer)
-   return string.format(
-      [=[
-local function f()
-   local function script_name()
-      return "%s"
+   return function()
+      package.loaded[namespace_name] = setfenv(
+         macro.load_src(src),
+         macro.extend_env {
+            script_name = function()
+               return namespace_name
+            end
+         }
+      )()
    end
-
-   %s
-end
-
-package.loaded["%s"] = f()
-      ]=],
-      namespace_name,
-      src,
-      namespace_name
-   )
 end

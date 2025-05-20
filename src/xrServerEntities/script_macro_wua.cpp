@@ -38,6 +38,9 @@ static std::string join_list(const std::vector<std::string>& items_vec, std::str
 
 std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
 {
+    if (!caNameSpaceName)
+        return src;
+
     Unlocalizer* unlocalizer = ScriptCompiler().get_unlocalizer(caNameSpaceName);
     if (!unlocalizer)
         return src;

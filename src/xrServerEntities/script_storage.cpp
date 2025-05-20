@@ -563,10 +563,12 @@ bool CScriptStorage::load_buffer(
     LPCSTR caNameSpaceName
 )
 {
-    std::string caString(caBuffer, caBuffer + tSize);
-    caString = ScriptCompiler().lift(caString, caScriptName, caNameSpaceName);
-
-    int l_iErrorCode = luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
+    int l_iErrorCode = ScriptCompiler().compile(
+        L,
+        std::string(caBuffer, caBuffer + tSize),
+        caScriptName,
+        caNameSpaceName
+    );
     if (l_iErrorCode)
     {
 //#ifdef DEBUG
