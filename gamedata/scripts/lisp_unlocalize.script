@@ -6,44 +6,33 @@
                _ v (ipairs vals)]
     (or contains (= val v))))
 
-(fn local? [[sym]]
-  "Returns true if SYM is local."
-  (= sym :local))
-
-(fn function? [[sym]]
-  "Returns true if SYM is fn or lambda."
-  (or (= sym :fn)
-      (= sym :lambda)))
-
-(fn unlocalize-local [name val]
-  "Unlocalize the local with the given signature."
-  `(global ,name ,val))
-
-(fn unlocalize-function [name sym args body]
-  "Unlocalize the function with the given signature."
-  `(global ,name (,sym ,args ,body)))
-
-(fn do-unlocalize [names binding]
-  "Replaces BINDING with its global equivalent if it is present in NAMES."
-  (case binding
+(var syms [:var :set :local :fn :lambda])
+(fn unlocalize-form [with names form]
+  "If the head of FORM is one of SYMS and its NAME is in NAMES,
+   append a call to (WITH :NAME NAME)."
+  (match form
     ;; local
-    (where [sym name val]
-           (local? sym)
+    (where [[sym] name & _]
+           (contains? syms sym)
            (contains? names name))
-    (unlocalize-local name val)
-
-    ;; fn, lambda
-    (where [sym name args body]
-           (function? sym)
-           (contains? names name))
-    (unlocalize-function name sym args body)
+    [form
+     `(,with ,(tostring name) #,name)]
 
     ;; fallthrough
-    rest rest))
+    _ [form]))
 
-(fn unlocalize [names & forms]
-  "Replaces local top-level function and variable bindings with globals."
-  `(do ,(unpack (icollect [_ v (ipairs forms)]
-                  (do-unlocalize names v)))))
+(fn unlocalize [with names forms]
+  "Inserts a (WITH :NAME NAME) call for each top-level local binding in FORMS."
+  (let [out []]
+    (each [_ form (ipairs forms)]
+      (each [_ v (ipairs (unlocalize-form with names form))]
+        (table.insert out v)))
+    out))
 
-{: unlocalize}
+(fn wrap_do [forms]
+  "Wra
+p FORMS in (do ...)"
+  `(do ,(unpack forms)))
+
+{: unlocalize
+ : wrap_do}

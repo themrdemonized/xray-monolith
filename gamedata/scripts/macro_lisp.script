@@ -13,14 +13,14 @@ function make_compiler_opts(env)
    return opts
 end
 
-function fennel_form(src)
+function form(src)
    local _, form = assert(
       fennel.parser(src)()
    )
    return form
 end
 
-function fennel_forms(src)
+function forms(src)
    local forms = {}
    for ok, form in fennel.parser(src) do
       assert(ok, "Invalid form")
@@ -29,11 +29,11 @@ function fennel_forms(src)
    return forms
 end
 
-function fennel_list(lst)
-   return fennel_form("[" .. table.concat(lst, " ") .. "]")
+function list(lst)
+   return form("[" .. table.concat(lst, " ") .. "]")
 end
 
-function fennel_eval_ast(ast, opts)
+function eval_ast(ast, opts)
    local env = opts.env
    opts.env = nil
 
@@ -48,24 +48,66 @@ end
 
 function compile(src, namespace_name, unlocs)
    return function()
-      local ast = fennel_forms(src)
+      -- Compile the given source to Fennel AST
+      local ast = forms(src)
 
-      if #unlocs then
+      -- Define a symbol for our unlocalize callback
+      local do_unloc_key = "_UNLOCAL"
+
+      -- Define unlocalizer callback
+      local unlocals = {}
+      local do_unloc = function(k, f)
+         unlocals[k] = f()
+      end
+
+      -- Determine if we want to unlocalize
+      local want_unloc = #unlocs > 0
+
+      -- If so, inject callback invocations for the given bindings
+      if want_unloc then
          ast = lisp_unlocalize.unlocalize(
-            fennel_list(unlocs),
-            unpack(ast)
+            form(do_unloc_key),
+            list(unlocs),
+            ast
          )
       end
 
-      package.loaded[namespace_name] = fennel_eval_ast(
+      ast = lisp_unlocalize.wrap_do(ast)
+
+      -- Evaluate our modified AST with the unlocalizer callback in scope
+      local out = eval_ast(
          ast,
          make_compiler_opts(
             macro.extend_env {
                script_name = function()
                   return namespace_name
-               end
+               end,
+               [do_unloc_key] = do_unloc
             }
          )
       )
+
+      -- Ensure the script's output is unlocalizable
+      if want_unloc and type(out) ~= "table" then
+         assert(
+            nil,
+            string.format(
+               "Cannot unlocalize: Script returned non-table: %s",
+               out
+            )
+         )
+      end
+
+      -- Load unlocalized variables into the resulting table
+      for k,v in pairs(unlocals) do
+         -- Consider already-present keys as more relevant than our unlocal
+         if out[k] == nil then
+            printf("Unlocalized %s: %s", k, v)
+            out[k] = v
+         end
+      end
+
+      -- Load the final result as a package
+      package.loaded[namespace_name] = out
    end
 end
