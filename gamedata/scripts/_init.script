@@ -1,0 +1,26 @@
+function print(...)
+   local str = ""
+   for _,v in ipairs({...}) do
+      if #str > 0 then
+         str = str .. " "
+      end
+
+      local s = nil
+      if (type(v) == 'userdata') then
+         s = 'userdata'
+      else
+         s = tostring(v)
+      end
+
+      str = str .. s
+   end
+
+   if (log) then
+      log(str)
+   else
+      get_console():execute("load ~#debug msg:" .. str)
+   end
+end
+
+print("Lua initializing...")
+print("package.loaded._G:", package.loaded._G)
