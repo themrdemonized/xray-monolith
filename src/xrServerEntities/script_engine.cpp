@@ -138,7 +138,6 @@ void CScriptEngine::disconnect_from_debugger	()
 CScriptEngine::CScriptEngine()
 {
 	m_stack_level = 0;
-	m_reload_modules = false;
 	m_last_no_file_length = 0;
 	*m_last_no_file = 0;
 
@@ -402,10 +401,7 @@ void CScriptEngine::init()
 	//	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
 
 	ScriptCompiler().load_unlocalizers();
-	bool save = m_reload_modules;
-	m_reload_modules = true;
 	process_file_if_exists("_G", false);
-	m_reload_modules = save;
 
 	register_script_classes();
 	object_factory().register_script();
@@ -424,6 +420,16 @@ void CScriptEngine::remove_script_process(const EScriptProcessors& process_id)
 		xr_delete((*I).second);
 		m_script_processes.erase(I);
 	}
+}
+
+void CScriptEngine::unload_package(LPCSTR name)
+{
+	lua_getglobal(lua(), "package");
+	lua_getfield(lua(), -1, "loaded");
+	lua_remove(lua(), -2);
+	lua_pushnil(lua());
+	lua_setfield(lua(), -2, name);
+	lua_remove(lua(), -1);
 }
 
 void CScriptEngine::load_common_scripts()
@@ -470,7 +476,7 @@ bool CScriptEngine::process_file_if_exists(LPCSTR file_name, bool warn_if_not_ex
 		return false;
 
 	string_path S, S1;
-	if (m_reload_modules || (*file_name && !namespace_loaded(file_name)))
+	if (0 == xr_strcmp(file_name, "_G") || * file_name && !namespace_loaded(file_name))
 	{
 		FS.update_path(S, "$game_scripts$", strconcat(sizeof(S1), S1, file_name, ".script"));
 		if (!warn_if_not_exist && !FS.exist(S))
@@ -492,7 +498,6 @@ bool CScriptEngine::process_file_if_exists(LPCSTR file_name, bool warn_if_not_ex
 		if (strstr(Core.Params, "-dbg"))
 			Msg("* loading script %s", S1);
 		//#endif // MASTER_GOLD
-		m_reload_modules = false;
 		return load_file_into_namespace(S, *file_name ? file_name : "_G");
 	}
 
@@ -502,13 +507,6 @@ bool CScriptEngine::process_file_if_exists(LPCSTR file_name, bool warn_if_not_ex
 void CScriptEngine::process_file(LPCSTR file_name)
 {
 	process_file_if_exists(file_name, true);
-}
-
-void CScriptEngine::process_file(LPCSTR file_name, bool reload_modules)
-{
-	m_reload_modules = reload_modules;
-	process_file_if_exists(file_name, true);
-	m_reload_modules = false;
 }
 
 void CScriptEngine::register_script_classes()

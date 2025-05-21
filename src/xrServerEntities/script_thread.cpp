@@ -39,7 +39,7 @@ const LPCSTR main_function = "console_command_run_string_main_thread_function";
 
 //extern "C" __declspec(dllimport) lua_State *lua_newcthread(lua_State *OL, int cstacksize);
 
-CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string, bool reload)
+CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string)
 {
 	m_virtual_machine = 0;
 	m_active = false;
@@ -51,7 +51,7 @@ CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string, bool reload)
 		if (!do_string)
 		{
 			m_script_name = caBuffer;
-			ai().script_engine().process_file(caBuffer, reload);
+			ai().script_engine().process_file(caBuffer);
 		}
 		else
 		{
