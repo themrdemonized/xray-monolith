@@ -94,8 +94,6 @@ public:
 	);
 	bool load_file_into_namespace(LPCSTR caScriptName, LPCSTR caNamespaceName);
 	bool namespace_loaded(LPCSTR caName, bool remove_from_stack = true);
-	bool object(LPCSTR caIdentifier, int type);
-	bool object(LPCSTR caNamespaceName, LPCSTR caIdentifier, int type);
 	luabind::object name_space(LPCSTR namespace_name);
 	int error_log(LPCSTR caFormat, ...);
 	static int __cdecl script_log(ELuaMessageType message, LPCSTR caFormat, ...);

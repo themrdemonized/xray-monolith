@@ -717,41 +717,7 @@ bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
         VERIFY(lua_gettop(lua()) == start);
     }
     return (true);
-}
-
-bool CScriptStorage::object(LPCSTR identifier, int type)
-{
-    int start = lua_gettop(lua());
-    lua_pushnil(lua());
-    while (lua_next(lua(), -2))
-    {
-        if ((lua_type(lua(), -1) == type) && !xr_strcmp(identifier, lua_tostring(lua(), -2)))
-        {
-            VERIFY(lua_gettop(lua()) >= 3);
-            lua_pop(lua(), 3);
-            VERIFY(lua_gettop(lua()) == start - 1);
-            return (true);
         }
-        lua_pop(lua(), 1);
-    }
-    VERIFY(lua_gettop(lua()) >= 1);
-    lua_pop(lua(), 1);
-    VERIFY(lua_gettop(lua()) == start - 1);
-    return (false);
-}
-
-bool CScriptStorage::object(LPCSTR namespace_name, LPCSTR identifier, int type)
-{
-    int start = lua_gettop(lua());
-    if (xr_strlen(namespace_name) && !namespace_loaded(namespace_name, false))
-    {
-        VERIFY(lua_gettop(lua()) == start);
-        return (false);
-    }
-    bool result = object(identifier, type);
-    VERIFY(lua_gettop(lua()) == start);
-    return (result);
-}
 
 luabind::object CScriptStorage::name_space(LPCSTR namespace_name)
 {
