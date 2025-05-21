@@ -1713,8 +1713,7 @@ public:
 			string4096 S;
 			shared_str m_script_name = "console command";
 			xr_sprintf(S, "%s\n", args);
-			bool loaded = ai().script_engine().load_buffer(ai().script_engine().lua(), S, xr_strlen(S), *m_script_name);
-			if (loaded)
+			if (0 == ai().script_engine().load_buffer(ai().script_engine().lua(), S, xr_strlen(S), *m_script_name))
 			{
 				int l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
 				if (l_iErrorCode)

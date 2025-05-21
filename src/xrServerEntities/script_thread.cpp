@@ -106,7 +106,7 @@ CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string)
 		else
 			S = std::string(main_function) + "()";
 
-		if (!ai().script_engine().load_buffer(lua(), S.c_str(), S.length(), "@_thread_main"))
+		if (ai().script_engine().load_buffer(lua(), S.c_str(), S.length(), "@_thread_main"))
 			return;
 
 		m_active = true;

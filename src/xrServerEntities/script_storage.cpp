@@ -555,7 +555,7 @@ int __cdecl CScriptStorage::script_log(ScriptStorage::ELuaMessageType tLuaMessag
     return (result);
 }
 
-bool CScriptStorage::load_buffer(
+int CScriptStorage::load_buffer(
     lua_State* L,
     LPCSTR caBuffer,
     size_t tSize,
@@ -575,9 +575,8 @@ bool CScriptStorage::load_buffer(
         if (strstr(Core.Params, "-dbg")) print_output(L,caScriptName,l_iErrorCode);
 //#endif //-DEBUG
         on_error(L);
-        return (false);
     }
-    return (true);
+    return l_iErrorCode;
 }
 
 bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
@@ -595,11 +594,8 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
     auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
     auto scriptLength = (size_t)l_tpFileReader->length();
 
-    bool bufferLoaded = false;
     strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
-    bufferLoaded = load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
-
-    if (!bufferLoaded)
+    if (load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName))
     {
         //		VERIFY		(lua_gettop(lua()) >= 4);
         //		lua_pop		(lua(),4);
