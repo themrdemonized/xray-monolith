@@ -46,7 +46,9 @@ function eval_ast(ast, opts)
    )()
 end
 
-function compile(src, namespace_name, unlocs)
+function compile(src, namespace_name)
+   local unlocs = unlocalizers.get(namespace_name)
+
    return function()
       -- Compile the given source to Fennel AST
       local ast = forms(src)
@@ -61,7 +63,7 @@ function compile(src, namespace_name, unlocs)
       end
 
       -- Determine if we want to unlocalize
-      local want_unloc = #unlocs > 0
+      local want_unloc = unlocs and #unlocs > 0
 
       -- If so, inject callback invocations for the given bindings
       if want_unloc then
@@ -74,18 +76,18 @@ function compile(src, namespace_name, unlocs)
 
       ast = lisp_unlocalize.wrap_do(ast)
 
+      local env = {
+         [do_unloc_key] = do_unloc
+      }
+
+      if namespace_name then
+         env.script_name = function()
+            return namespace_name
+         end
+      end
+
       -- Evaluate our modified AST with the unlocalizer callback in scope
-      local out = eval_ast(
-         ast,
-         make_compiler_opts(
-            macro.extend_env {
-               script_name = function()
-                  return namespace_name
-               end,
-               [do_unloc_key] = do_unloc
-            }
-         )
-      )
+      local out = eval_ast(ast, make_compiler_opts(macro.extend_env(env)))
 
       -- Ensure the script's output is unlocalizable
       if want_unloc and type(out) ~= "table" then
@@ -102,12 +104,14 @@ function compile(src, namespace_name, unlocs)
       for k,v in pairs(unlocals) do
          -- Consider already-present keys as more relevant than our unlocal
          if out[k] == nil then
-            printf("Unlocalized %s: %s", k, v)
+            print("Unlocalized:", k, v)
             out[k] = v
          end
       end
 
-      -- Load the final result as a package
-      package.loaded[namespace_name] = out
+      if namespace_name then
+         -- Load the final result as a package
+         package.loaded[namespace_name] = out
+      end
    end
 end

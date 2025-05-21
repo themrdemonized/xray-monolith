@@ -1,4 +1,4 @@
-function expand(src, namespace_name, unlocalizer)
+function expand(src, namespace_name)
    return function()
       package.loaded[namespace_name] = setfenv(
          macro.load_src(src),

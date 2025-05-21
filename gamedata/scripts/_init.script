@@ -1,4 +1,4 @@
-function print(...)
+function _G.print(...)
    local str = ""
    for _,v in ipairs({...}) do
       if #str > 0 then
