@@ -97,6 +97,10 @@ public:
 	bool process_file_if_exists(LPCSTR file_name, bool warn_if_not_exist);
 	void process_file(LPCSTR file_name);
 	void process_file(LPCSTR file_name, bool reload_modules);
+protected:
+	bool object(LPCSTR caIdentifier, int type);
+	bool object(LPCSTR caNamespaceName, LPCSTR caIdentifier, int type);
+public:
 	bool function_object(LPCSTR function_to_call, luabind::object& object, int type = LUA_TFUNCTION);
 	void register_script_classes();
 	IC void parse_script_namespace(LPCSTR function_to_call, LPSTR name_space, u32 const namespace_size, LPSTR function,
