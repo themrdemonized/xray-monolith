@@ -10,7 +10,6 @@
 
 #include "script_storage_space.h"
 #include "script_space_forward.h"
-#include "script_macro.h"
 #include <unordered_map>
 #include <string>
 #include <set>
@@ -85,6 +84,12 @@ public:
 	IC lua_State* lua();
 	IC void current_thread(CScriptThread* thread);
 	IC CScriptThread* current_thread() const;
+	int compile_buffer(
+		lua_State* L,
+		std::string caString,
+		LPCSTR caScriptName,
+		LPCSTR caNameSpaceName = 0
+	);
 	int load_buffer(
 		lua_State* L,
 		LPCSTR caBuffer,

@@ -13,7 +13,7 @@
 #include "script_process.h"
 #include "../build_config_defines.h"
 #include "script_storage.h"
-#include "script_compiler.h"
+#include "macro_wua.h"
 #include <unordered_map>
 #include <set>
 
@@ -355,6 +355,15 @@ void CScriptEngine::setup_auto_load()
 
 extern void export_classes(lua_State* L);
 
+int do_compile_wua(lua_State* L)
+{
+	VERIFY(lua_gettop(L) == 2);
+	VERIFY(lua_type(L, 1) == LUA_TSTRING);
+	VERIFY(lua_type(L, 2) == LUA_TSTRING);
+	lua_pushstring(L, compile_wua(lua_tostring(L, 1), lua_tostring(L, 2)));
+	return (1);
+}
+
 void CScriptEngine::init()
 {
 #ifdef USE_LUA_STUDIO
@@ -399,6 +408,9 @@ void CScriptEngine::init()
 #	endif // #ifdef DEBUG
 #endif // #ifndef USE_LUA_STUDIO
 	//	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
+
+	lua_pushcfunction(lua(), do_compile_wua);
+	lua_setglobal(lua(), "compile_wua");
 
 	process_file_if_exists("_init", false);
 	process_file_if_exists("_G", false);
