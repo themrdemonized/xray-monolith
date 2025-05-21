@@ -8,7 +8,6 @@
 
 #include "pch_script.h"
 #include "script_storage.h"
-#include "script_compiler.h"
 #include "script_thread.h"
 #include "../xrCore/mezz_stringbuffer.h"
 #include <stdarg.h>
@@ -555,6 +554,23 @@ int __cdecl CScriptStorage::script_log(ScriptStorage::ELuaMessageType tLuaMessag
     return (result);
 }
 
+int CScriptStorage::compile_buffer(lua_State* L, std::string caString, LPCSTR caScriptName, LPCSTR caNameSpaceName)
+{
+    luabind::functor<luabind::object> compile;
+    if (ai().script_engine().namespace_loaded("script_compiler", true))
+    {
+        if (ai().script_engine().functor("script_compiler.compile", compile))
+        {
+            luabind::object result = compile(caString.c_str(), caScriptName, caNameSpaceName);
+            result.pushvalue();
+            return 0;
+        }
+    }
+
+    Msg("script_compiler not available, loading as raw Lua...");
+    return luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
+}
+
 int CScriptStorage::load_buffer(
     lua_State* L,
     LPCSTR caBuffer,
@@ -563,7 +579,7 @@ int CScriptStorage::load_buffer(
     LPCSTR caNameSpaceName
 )
 {
-    int l_iErrorCode = ScriptCompiler().compile(
+    int l_iErrorCode = compile_buffer(
         L,
         std::string(caBuffer, caBuffer + tSize),
         caScriptName,
@@ -716,7 +732,7 @@ bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
         VERIFY(lua_gettop(lua()) == start);
     }
     return (true);
-        }
+}
 
 luabind::object CScriptStorage::name_space(LPCSTR namespace_name)
 {

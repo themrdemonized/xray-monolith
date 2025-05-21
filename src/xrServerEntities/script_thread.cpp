@@ -14,7 +14,6 @@
 };*/
 //-AVO
 #include "script_engine.h"
-#include "script_compiler.h"
 #include "script_thread.h"
 #include "ai_space.h"
 
@@ -57,7 +56,7 @@ CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string)
 		{
 			m_script_name = "console command";
 			S += caBuffer;
-			int l_iErrorCode = ScriptCompiler().compile(ai().script_engine().lua(), S, "@console_command");
+			int l_iErrorCode = ai().script_engine().compile_buffer(ai().script_engine().lua(), S, "@console_command");
 			if (!l_iErrorCode)
 			{
 				lua_setglobal(ai().script_engine().lua(), main_function);

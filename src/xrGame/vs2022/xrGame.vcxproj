@@ -307,7 +307,6 @@
     <ClInclude Include="..\..\xrServerEntities\inventory_space.h" />
     <ClInclude Include="..\..\xrServerEntities\ItemListTypes.h" />
     <ClInclude Include="..\..\xrServerEntities\LevelGameDef.h" />
-    <ClInclude Include="..\..\xrServerEntities\lua_macros.h" />
     <ClInclude Include="..\..\xrServerEntities\lua_studio.h" />
     <ClInclude Include="..\..\xrServerEntities\mslotutils.h" />
     <ClInclude Include="..\..\xrServerEntities\object_broker.h" />
@@ -338,7 +337,6 @@
     <ClInclude Include="..\..\xrServerEntities\script_debugger.h" />
     <ClInclude Include="..\..\xrServerEntities\script_debugger_messages.h" />
     <ClInclude Include="..\..\xrServerEntities\script_debugger_threads.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_compiler.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_export.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_inline.h" />
@@ -351,7 +349,6 @@
     <ClInclude Include="..\..\xrServerEntities\script_fvector.h" />
     <ClInclude Include="..\..\xrServerEntities\script_ini_file.h" />
     <ClInclude Include="..\..\xrServerEntities\script_ini_file_inline.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_macro.h" />
     <ClInclude Include="..\..\xrServerEntities\script_lua_helper.h" />
     <ClInclude Include="..\..\xrServerEntities\script_net_packet.h" />
     <ClInclude Include="..\..\xrServerEntities\script_process.h" />
@@ -1963,8 +1960,6 @@
     <ClCompile Include="..\..\xrServerEntities\script_callStack.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_debugger.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_debugger_threads.cpp" />
-    <ClCompile Include="..\..\xrServerEntities\script_compiler.cpp" />
-    <ClCompile Include="..\..\xrServerEntities\script_macro_script.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_engine.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -1998,7 +1993,6 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_macro.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_lua_helper.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

@@ -2494,9 +2494,6 @@
     <Filter Include="AI\AMonsters\monsters\Chimera\state attack">
       <UniqueIdentifier>{8d6475ec-c185-4ebb-9ba6-e7dc1644c4c1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="AI\AScript\ScriptCompiler">
-      <UniqueIdentifier>{53abd459-f211-4178-b3c6-2be2afe329ba}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\mt_config.h">
@@ -7398,15 +7395,6 @@
     <ClInclude Include="..\HUDRecon.h">
       <Filter>UI\Cursor</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_macro.h">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_compiler.h">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\lua_macros.h">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\damage_manager.cpp">
@@ -11101,15 +11089,6 @@
     </ClCompile>
     <ClCompile Include="..\HUDRecon.cpp">
       <Filter>UI\Cursor</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_macro.cpp">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_compiler.cpp">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_macro_script.cpp">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
