@@ -660,7 +660,9 @@ bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
 {
     int start = lua_gettop(lua());
     lua_getglobal(lua(), "package");
+    VERIFY(lua_istable(lua(), -1));
     lua_getfield(lua(), -1, "loaded");
+    VERIFY(lua_istable(lua(), -1));
     lua_remove(lua(), -2);
     string256 S2;
     xr_strcpy(S2, N);
@@ -689,11 +691,12 @@ bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
         }
         else if (!lua_istable(lua(), -1))
         {
+            std::string tn(lua_typename(lua(), -1));
             //				lua_settop	(lua(),0);
             VERIFY(lua_gettop(lua()) >= 1);
             lua_pop(lua(), 1);
             VERIFY(start == lua_gettop(lua()));
-            FATAL(" Error : the namespace name is already being used by the non-table object!\n");
+            FATAL((std::string("Error : the namespace name ") + N + " is already being used by non-table object of type " + tn + "\n").c_str());
             return (false);
         }
         lua_remove(lua(), -2);
