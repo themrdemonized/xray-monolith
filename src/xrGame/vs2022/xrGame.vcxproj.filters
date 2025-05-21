@@ -7407,9 +7407,6 @@
     <ClInclude Include="..\..\xrServerEntities\lua_macros.h">
       <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_macro_wua.h">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\damage_manager.cpp">
@@ -11109,9 +11106,6 @@
       <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_compiler.cpp">
-      <Filter>AI\AScript\ScriptCompiler</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_macro_wua.cpp">
       <Filter>AI\AScript\ScriptCompiler</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_macro_script.cpp">

@@ -400,7 +400,6 @@ void CScriptEngine::init()
 #endif // #ifndef USE_LUA_STUDIO
 	//	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
 
-	ScriptCompiler().load_unlocalizers();
 	process_file_if_exists("_init", false);
 	process_file_if_exists("_G", false);
 
