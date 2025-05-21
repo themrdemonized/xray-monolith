@@ -24,3 +24,5 @@ end
 
 print("Lua initializing...")
 print("package.loaded._G:", package.loaded._G)
+
+require("script_compiler").set_default_macro(compile_wua)

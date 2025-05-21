@@ -1,11 +1,16 @@
 #include "stdafx.h"
-#include "script_macro_wua.h"
-#include "script_compiler.h"
 #include "lua_macros.h"
+#include "ai_space.h"
+#include "script_engine.h"
 
+#include <string>
 #include <sstream>
 #include <regex>
+#include <luabind/luabind.hpp>
 #include "../xrCore/mezz_stringbuffer.h"
+
+typedef std::set<std::string> Unlocalizer;
+typedef xr_unordered_map<std::string, Unlocalizer> Unlocalizers;
 
 static bool unlocalRegex(Unlocalizer& unlocals, std::string& s, const std::regex& pattern, const int group, const std::string& replacement) {
     if (std::regex_match(s, pattern)) {
@@ -36,14 +41,28 @@ static std::string join_list(const std::vector<std::string>& items_vec, std::str
     return ret;
 };
 
-std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
+static std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
 {
     if (!caNameSpaceName)
         return src;
 
-    Unlocalizer* unlocalizer = ScriptCompiler().get_unlocalizer(caNameSpaceName);
-    if (!unlocalizer)
+    Unlocalizer unlocalizer;
+
+    luabind::functor<luabind::object> f;
+    if (xr_strcmp(caNameSpaceName, "unlocalizers") == 0)
         return src;
+
+    VERIFY(!ai().script_engine().functor("unlocalizers.get", f));
+
+    luabind::object table = f(caNameSpaceName);
+
+    if (table.type() != LUA_TTABLE)
+        return src;
+
+    for (luabind::object o : table)
+    {
+        unlocalizer.insert(luabind::object_cast<LPCSTR>(o));
+    }
 
     bool unlocalPerformed = false;
     std::string unlocalizerResult;
@@ -78,7 +97,7 @@ std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
 
         //local function x(a,b,c)
         pattern = std::regex(R"((^local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(\(.*$))");
-        if (unlocalRegex(*unlocalizer, s, pattern, 5, "$3$4$5$6$7")) {
+        if (unlocalRegex(unlocalizer, s, pattern, 5, "$3$4$5$6$7")) {
             //Msg("Regex matched");
             unlocalPerformed = true;
             continue;
@@ -111,7 +130,7 @@ std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
             for (auto v : variables) {
                 trim(v);
                 //Msg("%s\n", v.c_str());
-                if (unlocalizer->find(v) != unlocalizer->end()) {
+                if (unlocalizer.find(v) != unlocalizer.end()) {
                     unlocalPerformed = true;
                     Msg("found variable %s to unlocal", v.c_str());
                     s = std::regex_replace(s, pattern, "$3");
@@ -148,8 +167,9 @@ std::string unlocalize(const std::string& src, LPCSTR caNameSpaceName)
     return src;
 }
 
-std::string CWuaMacro::lift(std::string src, LPCSTR caNameSpaceName) const
+static LPCSTR compile_wua(LPCSTR buffer, LPCSTR caNameSpaceName)
 {
+    std::string src(buffer);
     src = unlocalize(src, caNameSpaceName);
     bool is_g = caNameSpaceName && xr_strcmp(caNameSpaceName, "_G") == 0;
     std::string out;
@@ -196,5 +216,5 @@ end
 
     out += "\n" + src;
 
-    return out;
+    return out.c_str();
 }

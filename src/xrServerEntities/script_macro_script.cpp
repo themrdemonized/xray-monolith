@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "pch_script.h"
 #include "script_macro.h"
+#include "macro_wua.h"
 
 using namespace luabind;
 
@@ -9,7 +10,6 @@ void CScriptMacro::script_register(lua_State* L)
 {
 	module(L)
 		[
-			class_<CScriptMacro>("CScriptMacro")
-			.def("lift", &CScriptMacro::lift)
+			def("compile_wua", &compile_wua)
 		];
 }

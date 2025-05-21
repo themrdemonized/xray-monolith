@@ -3,10 +3,6 @@
 #include "stdafx.h"
 #include "script_storage.h"
 #include "script_macro.h"
-#include "script_macro_wua.h"
-
-typedef std::set<std::string> Unlocalizer;
-typedef xr_unordered_map<std::string, Unlocalizer> Unlocalizers;
 
 namespace luabind
 {
@@ -18,9 +14,6 @@ namespace luabind
 
 struct CScriptCompiler {
 public:
-	void load_unlocalizers();
-	Unlocalizer* CScriptCompiler::get_unlocalizer(std::string name);
-
 	int compile(
 		lua_State* L,
 		std::string caString,

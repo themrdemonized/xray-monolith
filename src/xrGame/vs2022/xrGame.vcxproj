@@ -339,7 +339,6 @@
     <ClInclude Include="..\..\xrServerEntities\script_debugger_messages.h" />
     <ClInclude Include="..\..\xrServerEntities\script_debugger_threads.h" />
     <ClInclude Include="..\..\xrServerEntities\script_compiler.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_macro_wua.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_export.h" />
     <ClInclude Include="..\..\xrServerEntities\script_engine_inline.h" />
@@ -1968,7 +1967,6 @@
     <ClCompile Include="..\..\xrServerEntities\script_debugger_threads.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_compiler.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_macro_script.cpp" />
-    <ClCompile Include="..\..\xrServerEntities\script_macro_wua.cpp" />
     <ClCompile Include="..\..\xrServerEntities\script_engine.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
