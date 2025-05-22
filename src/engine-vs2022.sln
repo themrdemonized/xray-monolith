@@ -110,6 +110,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{8EC4
 		..\gamedata\scripts\dxml_core.script = ..\gamedata\scripts\dxml_core.script
 		..\gamedata\scripts\fakelens.script = ..\gamedata\scripts\fakelens.script
 		..\gamedata\scripts\lisp_unlocalize.script = ..\gamedata\scripts\lisp_unlocalize.script
+		..\gamedata\scripts\init.script = ..\gamedata\scripts\init.script
 		..\gamedata\scripts\ltx_help_ex.script = ..\gamedata\scripts\ltx_help_ex.script
 		..\gamedata\scripts\lua_help_ex.script = ..\gamedata\scripts\lua_help_ex.script
 		..\gamedata\scripts\macro.script = ..\gamedata\scripts\macro.script
@@ -152,7 +153,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{8EC4
 		..\gamedata\scripts\ui_options_modded_exes.script = ..\gamedata\scripts\ui_options_modded_exes.script
 		..\gamedata\scripts\unlocalizers.script = ..\gamedata\scripts\unlocalizers.script
 		..\gamedata\scripts\_g_patches.script = ..\gamedata\scripts\_g_patches.script
-		..\gamedata\scripts\_init.script = ..\gamedata\scripts\_init.script
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "configs", "configs", "{369CB01D-A1A7-72D2-AABC-3F0945D148A2}"
