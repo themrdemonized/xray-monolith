@@ -131,7 +131,6 @@ public:
 	
 	void setup_callbacks();
 	void load_common_scripts();
-	void register_script_classes();
 
 	int compile_buffer(
 		lua_State* L,

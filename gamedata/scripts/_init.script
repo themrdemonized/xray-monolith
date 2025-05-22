@@ -1,3 +1,26 @@
+function require_path(str)
+   print("require_path:", str)
+   local path = {}
+   for v in string.gmatch(str, "[^%.]+") do
+      table.insert(path, v)
+   end
+
+   local mod_name = table.remove(path, 1)
+   print("mod_name:", mod_name)
+
+   local mod = require(mod_name)
+   print("mod:", mod)
+
+   local val = mod
+   for _, seg in ipairs(path) do
+      print("seg:", seg)
+      val = val[seg]
+      print("val:", val)
+   end
+
+   return val
+end
+
 load_package("scam_print")
 
 print("Instigating S.C.A.M.")
@@ -11,3 +34,6 @@ require("scam_compiler").set_default_macro(
 )
 
 load_package("_G")
+
+load_package("scam_classes")
+--load_package("scam_scripts")

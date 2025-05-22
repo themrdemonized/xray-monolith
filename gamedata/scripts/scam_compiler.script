@@ -10,17 +10,14 @@ function compile(src, script_name, namespace_name)
    if string.sub(src, 1, #TAG_MACRO) == TAG_MACRO then
       src = string.sub(src, #TAG_MACRO + 1)
       local tag, rest = string.match(src, "([^%s]+)(%s+.*)")
-      local path = {}
-      for v in string.gmatch(tag, "[^%.]+") do
-         table.insert(path, v)
-      end
 
-      local mod_name = table.remove(path, 1)
-      local out = require("macro_" ..  mod_name)
-      for _, v in ipairs(path) do
-         out = out[v]
-      end
-      return out(rest, namespace_name)
+      local mac = require_path("macro_" .. tag)
+      print("mac:", mac)
+
+      local out = mac(rest, namespace_name)
+      print("out:", out)
+
+      return out
    end
 
    if state.default_macro then
