@@ -6,7 +6,6 @@ local function string_trim(s, v)
       v = " \t\n\r\f\v"
    end
    local pattern = string.format("^[%s]*([^%s]*)[%s]*$", v, v, v)
-   print("pattern:", pattern)
    return string.match(s, pattern)
 end
 
@@ -26,9 +25,7 @@ local function unlocal_regex(unlocals, s)
 
    if e and contains(unlocals, e) then
       print("[unlocal_regex] found variable " .. e .. " to unlocal")
-      print("s", s)
       s = c .. d .. e .. f .. g
-      print("s'", s)
       return s
    end
 
@@ -54,9 +51,7 @@ local function unlocalize(src, namespace_name)
    end
 
    for i,s in ipairs(tokens) do
-      print("s", s)
       s = string_trim(s, "\n\r")
-      print("trimmed", s)
       tokens[i] = s
 
       if s == "" then
