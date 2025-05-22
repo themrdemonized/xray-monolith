@@ -1,5 +1,5 @@
-local unlocalizers = require("unlocalizers")
 local macro = require("macro")
+local scam_unlocalize = require("scam_unlocalize")
 
 local function string_trim(s, v)
    if v == nil then
@@ -37,7 +37,7 @@ local function unlocalize(src, namespace_name)
       return src
    end
    
-   local unlocalizer = unlocalizers.get(namespace_name)
+   local unlocalizer = scam_unlocalize.get(namespace_name)
    if not unlocalizer then
       return src
    end
