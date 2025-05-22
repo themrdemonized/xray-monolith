@@ -160,14 +160,6 @@ public:
 	void flush_log();
 #endif //-LUA_DEBUG_PRINT DEBUG
 
-	IC void parse_script_namespace(
-		LPCSTR function_to_call,
-		LPSTR name_space,
-		u32 const namespace_size,
-		LPSTR function,
-		u32 const function_size
-	);
-
 	bool function_object(LPCSTR function_to_call, luabind::object& object, int type = LUA_TFUNCTION);
 
 	template <typename _result_type>
