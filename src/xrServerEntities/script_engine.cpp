@@ -411,8 +411,6 @@ void CScriptEngine::init()
 
     load_package("_init", false);
 
-    object_factory().register_script();
-
 #ifdef XRGAME_EXPORTS
     load_common_scripts();
 #endif
