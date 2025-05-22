@@ -22,7 +22,6 @@ function print(...)
    end
 end
 
-print("Lua initializing...")
-print("package.loaded._G:", package.loaded._G)
+print("Instigating SCAM...")
 
 require("script_compiler").set_default_macro(require("macro_wua").expand)
