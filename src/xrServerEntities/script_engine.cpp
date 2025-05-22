@@ -410,10 +410,6 @@ void CScriptEngine::init()
     lua_setglobal(lua(), "get_object_factory");
 
     load_package("_init", false);
-
-#ifdef XRGAME_EXPORTS
-    load_common_scripts();
-#endif
     m_stack_level = lua_gettop(lua());
 }
 
@@ -1285,43 +1281,6 @@ void CScriptEngine::unload_package(LPCSTR name)
     lua_pushnil(lua());
     lua_setfield(lua(), -2, name);
     lua_remove(lua(), -1);
-}
-
-void CScriptEngine::load_common_scripts()
-{
-#ifdef DBG_DISABLE_SCRIPTS
-    return;
-#endif
-    string_path S;
-    FS.update_path(S, "$game_config$", "script.ltx");
-    CInifile* l_tpIniFile = xr_new<CInifile>(S);
-    R_ASSERT(l_tpIniFile);
-    if (!l_tpIniFile->section_exist("common"))
-    {
-        xr_delete(l_tpIniFile);
-        return;
-    }
-
-    if (l_tpIniFile->line_exist("common", "script"))
-    {
-        LPCSTR caScriptString = l_tpIniFile->r_string("common", "script");
-        u32 n = _GetItemCount(caScriptString);
-        string256 I;
-        for (u32 i = 0; i < n; ++i)
-        {
-            load_package(_GetItem(caScriptString, i, I));
-            xr_strcat(I, "_initialize");
-            if (object("_G", I, LUA_TFUNCTION))
-            {
-                //				lua_dostring			(lua(),xr_strcat(I,"()"));
-                luabind::functor<void> f;
-                R_ASSERT(functor(I, f));
-                f();
-            }
-        }
-    }
-
-    xr_delete(l_tpIniFile);
 }
 
 bool CScriptEngine::object(LPCSTR identifier, int type)

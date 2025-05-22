@@ -36,4 +36,4 @@ require("scam_compiler").set_default_macro(
 load_package("_G")
 
 load_package("scam_classes")
---load_package("scam_scripts")
+load_package("scam_scripts")

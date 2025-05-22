@@ -130,7 +130,6 @@ public:
 #endif // #ifdef DEBUG
 	
 	void setup_callbacks();
-	void load_common_scripts();
 
 	int compile_buffer(
 		lua_State* L,
