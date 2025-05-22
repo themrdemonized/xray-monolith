@@ -409,7 +409,7 @@ void CScriptEngine::init()
     lua_pushcfunction(lua(), get_object_factory);
     lua_setglobal(lua(), "get_object_factory");
 
-    load_package("_init", false);
+    load_package("init", false);
     m_stack_level = lua_gettop(lua());
 }
 
