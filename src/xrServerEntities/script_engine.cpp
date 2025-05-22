@@ -1324,7 +1324,25 @@ bool CScriptEngine::function_object(LPCSTR function_to_call, luabind::object& ob
 
 	string256 name_space, function;
 
-	parse_script_namespace(function_to_call, name_space, sizeof(name_space), function, sizeof(function));
+    // Parse namespace
+    LPCSTR I = function_to_call, J = 0;
+    for (; ; J = I, ++I)
+    {
+        I = strchr(I, '.');
+        if (!I)
+            break;
+    }
+    xr_strcpy(name_space, sizeof(name_space), "_G");
+    if (!J)
+        xr_strcpy(function, sizeof(function), function_to_call);
+    else
+    {
+        CopyMemory(name_space, function_to_call, u32(J - function_to_call) * sizeof(char));
+        name_space[u32(J - function_to_call)] = 0;
+        xr_strcpy(function, sizeof(function), J + 1);
+    }
+
+    // If not _G, load corresponding package
 	if (xr_strcmp(name_space, "_G"))
 	{
 		LPSTR file_name = strchr(name_space, '.');
