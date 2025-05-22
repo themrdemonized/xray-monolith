@@ -1,0 +1,28 @@
+-- Setup script load paths
+local scripts_path = getFS():update_path("$game_scripts$", "")
+local paths = {
+   "?.script",
+   "?.lua",
+   "?.fnl",
+}
+
+for i=#paths,1,-1 do
+   local path = paths[i]
+   package.path = scripts_path .. path .. ";" .. package.path
+end
+
+-- Inject our custom X-Ray FS implementation next
+table.insert(
+   package.loaders,
+   2,
+   function(name)
+      if load_package(name, false) then
+         local res = package.loaded[name]
+         return function()
+            return res
+         end
+      end
+
+      return "\n\t" .. name .. " not present in X-Ray filesystem"
+   end
+)
