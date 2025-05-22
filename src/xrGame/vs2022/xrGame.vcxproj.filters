@@ -5229,12 +5229,6 @@
     <ClInclude Include="..\..\xrServerEntities\script_process_inline.h">
       <Filter>AI\AScript\ScriptProcess</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_storage.h">
-      <Filter>AI\AScript\ScriptStorage</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_storage_inline.h">
-      <Filter>AI\AScript\ScriptStorage</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\script_storage_space.h">
       <Filter>AI\AScript\ScriptStorage</Filter>
     </ClInclude>
@@ -8815,9 +8809,6 @@
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_process.cpp">
       <Filter>AI\AScript\ScriptProcess</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_storage.cpp">
-      <Filter>AI\AScript\ScriptStorage</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_thread.cpp">
       <Filter>AI\AScript\ScriptThread</Filter>

@@ -360,8 +360,6 @@
     <ClInclude Include="..\..\xrServerEntities\script_space_forward.h" />
     <ClInclude Include="..\..\xrServerEntities\script_stack_tracker.h" />
     <ClInclude Include="..\..\xrServerEntities\script_stack_tracker_inline.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_storage.h" />
-    <ClInclude Include="..\..\xrServerEntities\script_storage_inline.h" />
     <ClInclude Include="..\..\xrServerEntities\script_storage_space.h" />
     <ClInclude Include="..\..\xrServerEntities\script_thread.h" />
     <ClInclude Include="..\..\xrServerEntities\script_thread_inline.h" />
@@ -2018,10 +2016,6 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_stack_tracker.cpp">
-      <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_storage.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
