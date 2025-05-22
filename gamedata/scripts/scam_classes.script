@@ -11,15 +11,13 @@ if not ini:line_exist("common", "class_registrators") then
    error("Missing class_registrators line")
 end
 
-local regs = ini:r_string("common", "class_registrators", "")
-print("class registrators:", regs)
 
 local fac = get_object_factory()
-print("object_factory:", fac)
 
+local regs = ini:r_string("common", "class_registrators", "")
 for reg_path in regs:gmatch("[^,]+") do
-   print("reg_path:", reg_path)
    local reg = require_path(reg_path)
-   print("reg:", reg)
    reg(fac)
 end
+
+fac:register_script()
