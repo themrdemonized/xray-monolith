@@ -1,6 +1,6 @@
 function expand(src, namespace_name)
    return function()
-      package.loaded[namespace_name] = setfenv(
+      setfenv(
          macro.load_src(src),
          macro.extend_env {
             script_name = function()
