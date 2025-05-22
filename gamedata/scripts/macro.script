@@ -8,3 +8,8 @@ function extend_env(dest)
    end
    return dest
 end
+
+package.loaded["macro"] = {
+    load_src = load_src,
+    extend_env = extend_env,
+}
