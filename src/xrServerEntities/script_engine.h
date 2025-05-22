@@ -55,6 +55,9 @@ class CScriptThread;
 struct lua_State;
 struct lua_Debug;
 
+typedef ScriptEngine::EScriptProcessors EScriptProcessors;
+typedef associative_vector<EScriptProcessors, CScriptProcess*> CScriptProcessStorage;
+
 #ifdef USE_DEBUGGER
 #	ifndef USE_LUA_STUDIO
 		class CScriptDebugger;
@@ -74,7 +77,19 @@ class CScriptEngine
 private:
 	lua_State* m_virtual_machine;
 	CScriptThread* m_current_thread;
-	BOOL m_jit;
+
+protected:
+	CScriptProcessStorage m_script_processes;
+	int m_stack_level;
+
+#ifdef USE_DEBUGGER
+#	ifndef USE_LUA_STUDIO
+	CScriptDebugger* m_scriptDebugger;
+#	else // #ifndef USE_LUA_STUDIO
+	cs::lua_studio::world* m_lua_studio_world;
+	lua_studio_engine* m_lua_studio_engine;
+#	endif // #ifndef USE_LUA_STUDIO
+#endif // #ifdef USE_DEBUGGER
 
 #ifdef DEBUG
 public:
@@ -91,25 +106,33 @@ protected:
 #   endif //-DEBUG
 #endif //-LUA_DEBUG_PRINT PRINT_CALL_STACK
 
-protected:
-	static int vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker);
-	bool do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName);
-	void reinit();
-
-public:
-	//#ifdef PRINT_CALL_STACK
-	void print_stack();
-	//AVO: added to stop duplicate stack output prints in log
-	static int __cdecl script_log_no_stack(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...);
-	//-AVO
-	//#endif //-PRINT_CALL_STACK
-
 public:
 	CScriptEngine();
 	~CScriptEngine();
-	IC lua_State* lua();
+
+	void init();
+	void unload();
+
 	IC void current_thread(CScriptThread* thread);
 	IC CScriptThread* current_thread() const;
+
+	IC CScriptProcess* script_process(const EScriptProcessors& process_id) const;
+	IC void add_script_process(const EScriptProcessors& process_id, CScriptProcess* script_process);
+	void remove_script_process(const EScriptProcessors& process_id);
+
+	IC lua_State* lua();
+	static int lua_panic(lua_State* L);
+	static void lua_error(lua_State* L);
+	static int lua_pcall_failed(lua_State* L);
+
+#ifdef DEBUG
+	static	void				lua_hook_call(lua_State* L, lua_Debug* dbg);
+#endif // #ifdef DEBUG
+	
+	void setup_callbacks();
+	void load_common_scripts();
+	void register_script_classes();
+
 	int compile_buffer(
 		lua_State* L,
 		std::string caString,
@@ -123,9 +146,12 @@ public:
 		LPCSTR caScriptName,
 		LPCSTR caNameSpaceName = 0
 	);
-	bool load_file_into_namespace(LPCSTR caScriptName, LPCSTR caNamespaceName);
+	
 	bool namespace_loaded(LPCSTR caName, bool remove_from_stack = true);
 	luabind::object name_space(LPCSTR namespace_name);
+	bool load_package(LPCSTR file_name, bool warn_if_not_exist = true);
+	void unload_package(LPCSTR package);
+
 	int error_log(LPCSTR caFormat, ...);
 	static int __cdecl script_log(ELuaMessageType message, LPCSTR caFormat, ...);
 	static bool print_output(lua_State* L, LPCSTR caScriptName, int iErorCode = 0);
@@ -133,77 +159,48 @@ public:
 	void on_error(lua_State* L);
 
 #ifdef LUA_DEBUG_PRINT //DEBUG
-public:
 	void flush_log();
 #endif //-LUA_DEBUG_PRINT DEBUG
 
-public:
-	typedef ScriptEngine::EScriptProcessors EScriptProcessors;
-	typedef associative_vector<EScriptProcessors, CScriptProcess*> CScriptProcessStorage;
+	IC void parse_script_namespace(
+		LPCSTR function_to_call,
+		LPSTR name_space,
+		u32 const namespace_size,
+		LPSTR function,
+		u32 const function_size
+	);
 
-protected:
-	CScriptProcessStorage m_script_processes;
-	int m_stack_level;
-	shared_str m_class_registrators;
-
-protected:
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-		CScriptDebugger			*m_scriptDebugger;
-#	else // #ifndef USE_LUA_STUDIO
-		cs::lua_studio::world*	m_lua_studio_world;
-		lua_studio_engine*		m_lua_studio_engine;
-#	endif // #ifndef USE_LUA_STUDIO
-#endif // #ifdef USE_DEBUGGER
-
-private:
-	string128 m_last_no_file;
-	u32 m_last_no_file_length;
-
-	bool no_file_exists(LPCSTR file_name, u32 string_length);
-	void add_no_file(LPCSTR file_name, u32 string_length);
-
-public:
-	void init();
-	void unload();
-	static int lua_panic(lua_State* L);
-	static void lua_error(lua_State* L);
-	static int lua_pcall_failed(lua_State* L);
-#ifdef DEBUG
-	static	void				lua_hook_call				(lua_State *L, lua_Debug *dbg);
-#endif // #ifdef DEBUG
-	void setup_callbacks();
-	void load_common_scripts();
-	IC CScriptProcess* script_process(const EScriptProcessors& process_id) const;
-	IC void add_script_process(const EScriptProcessors& process_id, CScriptProcess* script_process);
-	void remove_script_process(const EScriptProcessors& process_id);
-	void setup_auto_load();
-	bool load_package(LPCSTR file_name, bool warn_if_not_exist = true);
-	void unload_package(LPCSTR package);
-protected:
-	bool object(LPCSTR caIdentifier, int type);
-	bool object(LPCSTR caNamespaceName, LPCSTR caIdentifier, int type);
-public:
 	bool function_object(LPCSTR function_to_call, luabind::object& object, int type = LUA_TFUNCTION);
-	void register_script_classes();
-	IC void parse_script_namespace(LPCSTR function_to_call, LPSTR name_space, u32 const namespace_size, LPSTR function,
-	                               u32 const function_size);
 
 	template <typename _result_type>
 	IC bool functor(LPCSTR function_to_call, luabind::functor<_result_type>& lua_function);
 
+	//#ifdef PRINT_CALL_STACK
+	void print_stack();
+	//AVO: added to stop duplicate stack output prints in log
+	static int __cdecl script_log_no_stack(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...);
+	//-AVO
+	//#endif //-PRINT_CALL_STACK
+
+	void collect_all_garbage();
+
 #ifdef USE_DEBUGGER
 #	ifndef USE_LUA_STUDIO
-			void				stopDebugger				();
-			void				restartDebugger				();
-			CScriptDebugger		*debugger					();
+	void				stopDebugger();
+	void				restartDebugger();
+	CScriptDebugger* debugger();
 #	else // ifndef USE_LUA_STUDIO
-			void				try_connect_to_debugger		();
-			void				disconnect_from_debugger	();
-	inline cs::lua_studio::world* debugger					() const { return m_lua_studio_world; }
+	void				try_connect_to_debugger();
+	void				disconnect_from_debugger();
+	inline cs::lua_studio::world* debugger() const { return m_lua_studio_world; }
 #	endif // ifndef USE_LUA_STUDIO
 #endif
-	void collect_all_garbage();
+
+protected:
+	void reinit();
+	static int vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker);
+	bool object(LPCSTR caIdentifier, int type);
+	bool object(LPCSTR caNamespaceName, LPCSTR caIdentifier, int type);
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

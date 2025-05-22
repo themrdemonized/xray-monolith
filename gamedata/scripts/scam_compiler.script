@@ -25,10 +25,11 @@ function compile(src, script_name, namespace_name)
 
    if state.default_macro then
       print("loading via default macro")
-      return loadstring(state.default_macro(src, namespace_name), script_name)
+      src = state.default_macro(src, namespace_name)
+   else
+      print("loading raw lua")
    end
 
-   print("loading raw lua")
    return loadstring(src, script_name)
 end
 
@@ -36,7 +37,7 @@ function set_default_macro(mac)
    state.default_macro = mac
 end
 
-package.loaded["script_compiler"] = {
+package.loaded["scam_compiler"] = {
    compile = compile,
    set_default_macro = set_default_macro
 }

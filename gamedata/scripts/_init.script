@@ -1,27 +1,13 @@
-function print(...)
-   local str = ""
-   for _,v in ipairs({...}) do
-      if #str > 0 then
-         str = str .. " "
-      end
+load_package("scam_print")
 
-      local s = nil
-      if (type(v) == 'userdata') then
-         s = 'userdata'
-      else
-         s = tostring(v)
-      end
+print("Instigating S.C.A.M.")
 
-      str = str .. s
-   end
+load_package("scam_sandbox")
 
-   if (log) then
-      log(str)
-   else
-      get_console():execute("load ~#debug msg:" .. str)
-   end
-end
+load_package("scam_loader")
 
-print("Instigating SCAM...")
+require("scam_compiler").set_default_macro(
+   require("macro_wua").expand
+)
 
-require("script_compiler").set_default_macro(require("macro_wua").expand)
+load_package("_G")
