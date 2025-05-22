@@ -337,7 +337,7 @@ CScriptEngine::~CScriptEngine()
         remove_script_process(m_script_processes.begin()->first);
 }
 
-int do_load_package(lua_State* L)
+static int do_load_package(lua_State* L)
 {
     assert(lua_gettop(L) == 1);
     assert(lua_isstring(L, 1));
@@ -350,6 +350,12 @@ int do_load_package(lua_State* L)
         )
     );
 
+    return (1);
+}
+
+static int get_object_factory(lua_State* L)
+{
+    luabind::object(L, const_cast<CObjectFactory*>(&object_factory())).pushvalue();
     return (1);
 }
 
@@ -400,9 +406,11 @@ void CScriptEngine::init()
     lua_pushcfunction(lua(), do_load_package);
     lua_setglobal(lua(), "load_package");
 
+    lua_pushcfunction(lua(), get_object_factory);
+    lua_setglobal(lua(), "get_object_factory");
+
     load_package("_init", false);
 
-    register_script_classes();
     object_factory().register_script();
 
 #ifdef XRGAME_EXPORTS
@@ -1316,40 +1324,6 @@ void CScriptEngine::load_common_scripts()
     }
 
     xr_delete(l_tpIniFile);
-}
-
-void CScriptEngine::register_script_classes()
-{
-#ifdef DBG_DISABLE_SCRIPTS
-    return;
-#endif
-    string_path S;
-    FS.update_path(S, "$game_config$", "script.ltx");
-    CInifile* l_tpIniFile = xr_new<CInifile>(S);
-    R_ASSERT(l_tpIniFile);
-
-    if (!l_tpIniFile->section_exist("common"))
-    {
-        xr_delete(l_tpIniFile);
-        return;
-    }
-
-    shared_str m_class_registrators = READ_IF_EXISTS(l_tpIniFile, r_string, "common", "class_registrators", "");
-    xr_delete(l_tpIniFile);
-
-    u32 n = _GetItemCount(*m_class_registrators);
-    string256 I;
-    for (u32 i = 0; i < n; ++i)
-    {
-        _GetItem(*m_class_registrators, i, I);
-        luabind::functor<void> result;
-        if (!functor(I, result))
-        {
-            script_log(eLuaMessageTypeError, "Cannot load class registrator %s!", I);
-            continue;
-        }
-        result(const_cast<CObjectFactory*>(&object_factory()));
-    }
 }
 
 bool CScriptEngine::object(LPCSTR identifier, int type)
