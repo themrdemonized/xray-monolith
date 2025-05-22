@@ -121,7 +121,7 @@ LPCSTR user_name()
 
 void prefetch_module(LPCSTR file_name)
 {
-	ai().script_engine().process_file(file_name);
+	ai().script_engine().load_package(file_name);
 }
 
 struct profile_timer_script

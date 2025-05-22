@@ -50,7 +50,7 @@ CScriptThread::CScriptThread(LPCSTR caBuffer, bool do_string)
 		if (!do_string)
 		{
 			m_script_name = caBuffer;
-			ai().script_engine().process_file(caBuffer);
+			ai().script_engine().load_package(caBuffer);
 		}
 		else
 		{
