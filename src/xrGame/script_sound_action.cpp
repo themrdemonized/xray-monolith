@@ -28,7 +28,7 @@ void CScriptSoundAction::SetSound(LPCSTR caSoundToPlay)
 	}
 	else
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "File not found \"%s\"!", l_caFileName);
+		ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "File not found \"%s\"!", l_caFileName);
 		m_bStartedToPlay = true;
 		m_bCompleted = true;
 	}

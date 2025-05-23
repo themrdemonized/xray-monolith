@@ -7389,6 +7389,9 @@
     <ClInclude Include="..\HUDRecon.h">
       <Filter>UI\Cursor</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\xrServerEntities\script_storage.h">
+      <Filter>AI\AScript\ScriptStorage</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\damage_manager.cpp">
@@ -11080,6 +11083,9 @@
     </ClCompile>
     <ClCompile Include="..\HUDRecon.cpp">
       <Filter>UI\Cursor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xrServerEntities\script_storage.cpp">
+      <Filter>AI\AScript\ScriptStorage</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

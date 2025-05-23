@@ -8,7 +8,6 @@
 
 #include "pch_script.h"
 #include "script_stack_tracker.h"
-#include "script_storage_space.h"
 #include "ai_space.h"
 #include "script_engine.h"
 
@@ -79,13 +78,13 @@ void CScriptStackTracker::print_stack(lua_State* L)
 	{
 		lua_Debug l_tDebugInfo = *m_stack[j];
 		if (!l_tDebugInfo.name)
-			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", k,
+			ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", k,
 			                                l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, "");
 		else if (!xr_strcmp(l_tDebugInfo.what, "C"))
-			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [C  ] %s", k,
+			ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "%2d : [C  ] %s", k,
 			                                l_tDebugInfo.name);
 		else
-			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", k,
+			ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", k,
 			                                l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline,
 			                                l_tDebugInfo.name);
 	}

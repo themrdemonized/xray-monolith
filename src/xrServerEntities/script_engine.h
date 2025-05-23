@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "script_storage_space.h"
+#include "script_engine_space.h"
 #include "script_export_space.h"
 #include "script_space_forward.h"
 #include "associative_vector.h"
@@ -48,14 +48,13 @@
 #endif //-!DEBUG
 //-AVO
 
-using namespace ScriptStorage;
+using namespace ScriptEngine;
 
 class CScriptProcess;
 class CScriptThread;
 struct lua_State;
 struct lua_Debug;
 
-typedef ScriptEngine::EScriptProcessors EScriptProcessors;
 typedef associative_vector<EScriptProcessors, CScriptProcess*> CScriptProcessStorage;
 
 #ifdef USE_DEBUGGER
@@ -168,7 +167,7 @@ public:
 	//#ifdef PRINT_CALL_STACK
 	void print_stack();
 	//AVO: added to stop duplicate stack output prints in log
-	static int __cdecl script_log_no_stack(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...);
+	static int __cdecl script_log_no_stack(ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...);
 	//-AVO
 	//#endif //-PRINT_CALL_STACK
 
@@ -188,7 +187,7 @@ public:
 
 protected:
 	void reinit();
-	static int vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker);
+	static int vscript_log(ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker);
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

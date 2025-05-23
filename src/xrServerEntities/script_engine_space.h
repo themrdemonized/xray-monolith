@@ -10,6 +10,18 @@
 
 namespace ScriptEngine
 {
+	enum ELuaMessageType
+	{
+		eLuaMessageTypeInfo = u32(0),
+		eLuaMessageTypeError,
+		eLuaMessageTypeMessage,
+		eLuaMessageTypeHookCall,
+		eLuaMessageTypeHookReturn,
+		eLuaMessageTypeHookLine,
+		eLuaMessageTypeHookCount,
+		eLuaMessageTypeHookTailReturn = u32(-1),
+	};
+
 	enum EScriptProcessors
 	{
 		eScriptProcessorLevel = u32(0),

@@ -19,6 +19,8 @@
 #include <set>
 #include <boost/noncopyable.hpp>
 
+using namespace ScriptEngine;
+
 #if !defined(DEBUG) && defined(USE_LUAJIT_ONE)
 #	include "opt.lua.h"
 #	include "opt_inline.lua.h"
@@ -692,11 +694,11 @@ luabind::object CScriptEngine::name_space(LPCSTR namespace_name)
     }
 }
 
-int CScriptEngine::vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker)
+int CScriptEngine::vscript_log(ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker)
 {
 #ifndef NO_XRGAME_SCRIPT_ENGINE
 #   ifdef DEBUG
-    if (!psAI_Flags.test(aiLua) && (tLuaMessageType != ScriptStorage::eLuaMessageTypeError))
+    if (!psAI_Flags.test(aiLua) && (tLuaMessageType != eLuaMessageTypeError))
         return(0);
 #   endif //-DEBUG
 #endif //!NO_XRGAME_SCRIPT_ENGINE
@@ -705,7 +707,7 @@ int CScriptEngine::vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, L
     //return		(0);
     //#else //PRINT_CALL_STACK
 #   ifndef NO_XRGAME_SCRIPT_ENGINE
-    //AVO: allow LUA debug prints (i.e.: ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CWeapon : cannot access class member Weapon_IsScopeAttached!");)
+    //AVO: allow LUA debug prints (i.e.: ai().script_engine().script_log(eLuaMessageTypeError, "CWeapon : cannot access class member Weapon_IsScopeAttached!");)
 #       ifndef DEBUG
 
     if (!strstr(Core.Params, "-dbg"))
@@ -713,11 +715,11 @@ int CScriptEngine::vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, L
 #       endif //!DEBUG
 #       ifndef LUA_DEBUG_PRINT
 #           ifdef DEBUG
-    if (!psAI_Flags.test(aiLua) && (tLuaMessageType != ScriptStorage::eLuaMessageTypeError))
+    if (!psAI_Flags.test(aiLua) && (tLuaMessageType != eLuaMessageTypeError))
         return(0);
 #           endif //-DEBUG
 #       else //!LUA_DEBUG_PRINT
-    if (!psAI_Flags.test(aiLua) && (tLuaMessageType != ScriptStorage::eLuaMessageTypeError))
+    if (!psAI_Flags.test(aiLua) && (tLuaMessageType != eLuaMessageTypeError))
         return(0);
 #       endif //-LUA_DEBUG_PRINT
 #endif //-NO_XRGAME_SCRIPT_ENGINE
@@ -727,49 +729,49 @@ int CScriptEngine::vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, L
     string4096 S2;
     switch (tLuaMessageType)
     {
-    case ScriptStorage::eLuaMessageTypeInfo:
+    case eLuaMessageTypeInfo:
     {
         S = "* [LUA] ";
         SS = "[INFO]        ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeError:
+    case eLuaMessageTypeError:
     {
         S = "! [LUA] ";
         SS = "[ERROR]       ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeMessage:
+    case eLuaMessageTypeMessage:
     {
         S = "~ [LUA] ";
         SS = "[MESSAGE]     ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeHookCall:
+    case eLuaMessageTypeHookCall:
     {
         S = "[LUA][HOOK_CALL] ";
         SS = "[CALL]        ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeHookReturn:
+    case eLuaMessageTypeHookReturn:
     {
         S = "[LUA][HOOK_RETURN] ";
         SS = "[RETURN]      ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeHookLine:
+    case eLuaMessageTypeHookLine:
     {
         S = "[LUA][HOOK_LINE] ";
         SS = "[LINE]        ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeHookCount:
+    case eLuaMessageTypeHookCount:
     {
         S = "[LUA][HOOK_COUNT] ";
         SS = "[COUNT]       ";
         break;
     }
-    case ScriptStorage::eLuaMessageTypeHookTailReturn:
+    case eLuaMessageTypeHookTailReturn:
     {
         S = "[LUA][HOOK_TAIL_RETURN] ";
         SS = "[TAIL_RETURN] ";
@@ -815,22 +817,22 @@ void CScriptEngine::print_stack()
         lua_getinfo(L, "nSlu", &l_tDebugInfo);
         if (!l_tDebugInfo.name)
         {
-            script_log_no_stack(ScriptStorage::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what,
+            script_log_no_stack(eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what,
                 l_tDebugInfo.short_src, l_tDebugInfo.currentline, "");
-            //script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, "");
+            //script_log(eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, "");
         }
         else
         {
             if (!xr_strcmp(l_tDebugInfo.what, "C"))
             {
-                script_log_no_stack(ScriptStorage::eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);
-                //script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);  
+                script_log_no_stack(eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);
+                //script_log(eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);  
             }
             else
             {
-                script_log_no_stack(ScriptStorage::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what,
+                script_log_no_stack(eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what,
                     l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name);
-                //script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name);
+                //script_log(eLuaMessageTypeError, "%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name);
             }
         }
     }
@@ -839,7 +841,7 @@ void CScriptEngine::print_stack()
 //#endif //-PRINT_CALL_STACK
 
 //AVO: added to stop duplicate stack output prints in log
-int __cdecl CScriptEngine::script_log_no_stack(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...)
+int __cdecl CScriptEngine::script_log_no_stack(ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...)
 {
     va_list marker;
     va_start(marker, caFormat);
@@ -850,7 +852,7 @@ int __cdecl CScriptEngine::script_log_no_stack(ScriptStorage::ELuaMessageType tL
 
 //-AVO
 
-int __cdecl CScriptEngine::script_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...)
+int __cdecl CScriptEngine::script_log(ELuaMessageType tLuaMessageType, LPCSTR caFormat, ...)
 {
     va_list marker;
     va_start(marker, caFormat);
@@ -861,7 +863,7 @@ int __cdecl CScriptEngine::script_log(ScriptStorage::ELuaMessageType tLuaMessage
     if (!reenterability)
     {
         reenterability = true;
-        if (tLuaMessageType == ScriptStorage::eLuaMessageTypeError) {
+        if (tLuaMessageType == eLuaMessageTypeError) {
             ai().script_engine().print_stack();
         }
         else {
@@ -914,8 +916,8 @@ bool CScriptEngine::print_output(lua_State* L, LPCSTR caScriptFileName, int iEro
     else
     {
         if (!iErorCode)
-            script_log(ScriptStorage::eLuaMessageTypeInfo, "Output from %s", caScriptFileName);
-        script_log(iErorCode ? ScriptStorage::eLuaMessageTypeError : ScriptStorage::eLuaMessageTypeMessage, "%s", S);
+            script_log(eLuaMessageTypeInfo, "Output from %s", caScriptFileName);
+        script_log(iErorCode ? eLuaMessageTypeError : eLuaMessageTypeMessage, "%s", S);
 #ifdef USE_DEBUGGER
 #	ifndef USE_LUA_STUDIO
         if (ai().script_engine().debugger() && ai().script_engine().debugger()->Active()) {
@@ -934,32 +936,32 @@ void CScriptEngine::print_error(lua_State* L, int iErrorCode)
     {
     case LUA_ERRRUN:
     {
-        script_log(ScriptStorage::eLuaMessageTypeError, "SCRIPT RUNTIME ERROR");
+        script_log(eLuaMessageTypeError, "SCRIPT RUNTIME ERROR");
         break;
     }
     case LUA_ERRMEM:
     {
-        script_log(ScriptStorage::eLuaMessageTypeError, "SCRIPT ERROR (memory allocation)");
+        script_log(eLuaMessageTypeError, "SCRIPT ERROR (memory allocation)");
         break;
     }
     case LUA_ERRERR:
     {
-        script_log(ScriptStorage::eLuaMessageTypeError, "SCRIPT ERROR (while running the error handler function)");
+        script_log(eLuaMessageTypeError, "SCRIPT ERROR (while running the error handler function)");
         break;
     }
     case LUA_ERRFILE:
     {
-        script_log(ScriptStorage::eLuaMessageTypeError, "SCRIPT ERROR (while running file)");
+        script_log(eLuaMessageTypeError, "SCRIPT ERROR (while running file)");
         break;
     }
     case LUA_ERRSYNTAX:
     {
-        script_log(ScriptStorage::eLuaMessageTypeError, "SCRIPT SYNTAX ERROR");
+        script_log(eLuaMessageTypeError, "SCRIPT SYNTAX ERROR");
         break;
     }
     case LUA_YIELD:
     {
-        script_log(ScriptStorage::eLuaMessageTypeInfo, "Thread is yielded");
+        script_log(eLuaMessageTypeInfo, "Thread is yielded");
         break;
     }
     default: NODEFAULT;
