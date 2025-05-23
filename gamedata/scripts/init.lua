@@ -1,4 +1,22 @@
+-- Ensure _G loads from script next time we require it
 package.loaded._G = nil
+
+-- Emplace generalized memoization function
+function _MEMOIZE(f)
+   local cache = {}
+   return function(i)
+      if cache[i] == nil then
+         cache[i] = f(i)
+      end
+      return cache[i]
+   end
+end
+
+-- Emplace boot-time passthrough compiler
+function _COMPILER(src, script_name, namespace_name)
+   print("* boot: loading " .. namespace_name)
+   return loadstring(src, namespace_name)
+end
 
 -- Emplace working print function
 function print(...)
@@ -24,7 +42,6 @@ function print(...)
       get_console():execute("load ~#debug msg:" .. str)
    end
 end
-
 -- Setup script load paths
 local scripts_path = getFS():update_path("$game_scripts$", ""):gsub("\\", "/")
 local paths = {
@@ -42,7 +59,7 @@ for i=#paths,1,-1 do
 end
 
 -- Define *.db reader
-function read_db(name)
+local function read_db(name)
    local fs = getFS()
    local fname = name:gsub("/", "\\") .. ".script"
    local path = fs:update_path("$game_scripts$", fname)
@@ -61,7 +78,7 @@ function read_db(name)
 end
 
 -- Define IO reader
-function read_io(name)
+local function read_io(name)
    local errs = ""
    for seg in package.path:gmatch("[^;]+") do
       local path = seg:gsub("?", name)
@@ -88,13 +105,8 @@ function read_io(name)
    return nil, nil, errs
 end
 
-function _COMPILER(src, script_name, namespace_name)
-   print("lua: loading " .. namespace_name)
-   return loadstring(src, namespace_name)
-end
-
 -- Define reader -> loader transformer
-function loader(with)
+local function loader(with)
    return function(name)
       local src, path, err = with(name)
       if not src then
@@ -131,12 +143,7 @@ end
 
 -- Lift into a memoized higher-order loader
 local loaders = package.loaders
-local io_miss = {}
 local function io_loader(name)
-   if io_miss[name] then
-      return io_miss[name]
-   end
-
    local err = ""
    for i=1,#loaders do
       local res = loaders[i](name)
@@ -156,12 +163,11 @@ local function io_loader(name)
       end
    end
 
-   io_miss[name] = err
-   return io_miss[name]
+   return err
 end
 
 -- Replace the loader list with the preloader plus our memoized IO loader
-package.loaders = { preload_loader, io_loader }
+package.loaders = { preload_loader, _MEMOIZE(io_loader) }
 
 -- Extend require with path support
 function function_object(str)
