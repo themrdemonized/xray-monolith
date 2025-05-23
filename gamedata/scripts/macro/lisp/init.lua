@@ -1,3 +1,6 @@
+local scam_unlocalize = require("scam/unlocalize")
+local lisp_unlocalize = require("macro/lisp/unlocalize")
+
 COMPILER_OPTS = {
    allowedGlobals = false,
    correlate = true,
@@ -47,6 +50,8 @@ function eval_ast(ast, opts)
 end
 
 function compile(src, namespace_name)
+   print("lisp: compiling " .. namespace_name)
+
    local unlocs = scam_unlocalize.get(namespace_name)
 
    return function()

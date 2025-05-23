@@ -16,7 +16,7 @@ local fac = get_object_factory()
 
 local regs = ini:r_string("common", "class_registrators", "")
 for reg_path in regs:gmatch("[^,]+") do
-   local reg = require_path(reg_path)
+   local reg = function_object(reg_path)
    reg(fac)
 end
 

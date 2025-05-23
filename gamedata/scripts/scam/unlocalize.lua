@@ -35,17 +35,11 @@ function update()
       print("opening file:", id)
 
       local config = ini_file("unlocalizers\\" .. id)
-      print("config", config)
-
       config:section_for_each(function(section)
-         print("section", section)
          local name = string.lower(section)
-         print("name", name)
          local count = config:line_count(name)
          for j=0,count-1 do
             local res, sec = config:r_line(name, j)
-            print("res", res)
-            print("sec", sec)
             if not res then
                goto next_line
             end
@@ -69,7 +63,7 @@ function get(k)
 end
 
 
-package.loaded["scam_unlocalize"] = {
+package.loaded["scam/unlocalize"] = {
    update = update,
    get = get
 }
