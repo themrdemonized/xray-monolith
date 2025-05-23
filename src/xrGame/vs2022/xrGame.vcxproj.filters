@@ -11087,6 +11087,9 @@
     <ClCompile Include="..\..\xrServerEntities\script_storage.cpp">
       <Filter>AI\AScript\ScriptStorage</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\xrServerEntities\script_storage_script.cpp">
+      <Filter>AI\AScript\ScriptEngine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\Explosive.h">

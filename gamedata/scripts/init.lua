@@ -133,8 +133,9 @@ end
 local loaders = package.loaders
 local io_miss = {}
 local function io_loader(name)
-   if io_miss[name] then
-      return io_miss[name]
+   local io_miss = _SCRIPT_STORAGE:get("io_loader", name)
+   if io_miss then
+      return io_miss
    end
 
    local err = ""
@@ -156,8 +157,8 @@ local function io_loader(name)
       end
    end
 
-   io_miss[name] = err
-   return io_miss[name]
+   _SCRIPT_STORAGE:set("io_loader", name, err)
+   return err
 end
 
 -- Replace the loader list with the preloader plus our memoized IO loader
