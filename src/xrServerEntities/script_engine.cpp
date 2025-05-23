@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "script_engine.h"
+#include "script_storage.h"
 #include "ai_space.h"
 #include "object_factory.h"
 #include "script_process.h"
@@ -339,9 +340,9 @@ CScriptEngine::~CScriptEngine()
         remove_script_process(m_script_processes.begin()->first);
 }
 
-static int get_object_factory(lua_State* L)
+static int get_script_storage(lua_State* L)
 {
-    luabind::object(L, const_cast<CObjectFactory*>(&object_factory())).pushvalue();
+    luabind::object(L, const_cast<CScriptStorage*>(&ScriptStorage())).pushvalue();
     return (1);
 }
 
@@ -389,8 +390,12 @@ void CScriptEngine::init()
 #endif // #ifndef USE_LUA_STUDIO
     //	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
 
-    lua_pushcfunction(lua(), get_object_factory);
-    lua_setglobal(lua(), "get_object_factory");
+    luabind::object(lua(), const_cast<CObjectFactory*>(&object_factory())).pushvalue();
+    lua_setglobal(lua(), "_OBJECT_FACTORY");
+
+    CScriptStorage::script_register(lua());
+    luabind::object(lua(), const_cast<CScriptStorage*>(&ScriptStorage())).pushvalue();
+    lua_setglobal(lua(), "_SCRIPT_STORAGE");
 
     string_path path;
     if (luaL_dofile(lua(), FS.update_path(path, "$game_scripts$", "init.lua")))

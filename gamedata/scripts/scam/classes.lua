@@ -12,12 +12,10 @@ if not ini:line_exist("common", "class_registrators") then
 end
 
 
-local fac = get_object_factory()
-
 local regs = ini:r_string("common", "class_registrators", "")
 for reg_path in regs:gmatch("[^,]+") do
    local reg = function_object(reg_path)
-   reg(fac)
+   reg(_OBJECT_FACTORY)
 end
 
-fac:register_script()
+_OBJECT_FACTORY:register_script()

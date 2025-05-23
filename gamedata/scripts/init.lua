@@ -42,6 +42,7 @@ function print(...)
       get_console():execute("load ~#debug msg:" .. str)
    end
 end
+
 -- Setup script load paths
 local scripts_path = getFS():update_path("$game_scripts$", ""):gsub("\\", "/")
 local paths = {
@@ -144,6 +145,11 @@ end
 -- Lift into a memoized higher-order loader
 local loaders = package.loaders
 local function io_loader(name)
+   local io_miss = _SCRIPT_STORAGE:get("io_loader", name)
+   if io_miss then
+      return io_miss
+   end
+
    local err = ""
    for i=1,#loaders do
       local res = loaders[i](name)
@@ -163,11 +169,12 @@ local function io_loader(name)
       end
    end
 
+   _SCRIPT_STORAGE:set("io_loader", name, err)
    return err
 end
 
 -- Replace the loader list with the preloader plus our memoized IO loader
-package.loaders = { preload_loader, _MEMOIZE(io_loader) }
+package.loaders = { preload_loader, io_loader }
 
 -- Extend require with path support
 function function_object(str)
