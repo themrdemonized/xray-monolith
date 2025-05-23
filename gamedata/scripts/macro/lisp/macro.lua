@@ -6,7 +6,7 @@ COMPILER_OPTS = {
 }
 
 function compile(src, namespace_name)
-   print("lisp_macro: compiling " .. namespace_name)
+   print("* lisp_macro: compiling " .. namespace_name)
 
    return function()
       local macros = fennel.eval(

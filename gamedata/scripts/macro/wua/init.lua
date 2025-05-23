@@ -179,7 +179,7 @@ local this = _M
 end
 
 local function expand(src, namespace_name)
-   print("wua: expanding " .. namespace_name)
+   print("* wua: expanding " .. namespace_name)
    return compile(
       unlocalize(src, namespace_name),
       namespace_name
