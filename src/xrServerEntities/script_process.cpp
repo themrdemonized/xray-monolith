@@ -86,7 +86,7 @@ void CScriptProcess::update()
 	if (g_ca_stdout[0])
 	{
 		fputc(0,stderr);
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeInfo, "%s", g_ca_stdout);
+		ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeInfo, "%s", g_ca_stdout);
 		fflush(stderr);
 	}
 
