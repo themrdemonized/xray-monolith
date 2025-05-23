@@ -121,83 +121,79 @@ local function unlocalize(src, namespace_name)
 end
 
 local function compile(src, namespace_name)
-   local is_g = namespace_name == "_G"
+   return function()
+      local is_g = namespace_name == "_G"
 
-   local G = setmetatable(
-      {},
-      {
-         __index = function(_, key)
-            local gv = _G[key]
-            if gv ~= nil then
-               return gv
-            end
+      local G = setmetatable(
+         {},
+         {
+            __index = function(_, key)
+               local gv = _G[key]
+               if gv ~= nil then
+                  return gv
+               end
 
-            local res, out = pcall(require, key)
-            if res then
-               return out
+               local res, out = pcall(require, key)
+               if res then
+                  return out
+               end
+            end,
+            __newindex = function(_, k, v)
+               _G[k] = v
             end
-         end,
-         __newindex = function(_, k, v)
+         }
+      )
+
+      local mt = {
+         __index = G
+      }
+
+      if is_g then
+         mt.__newindex = function(_, k, v)
             _G[k] = v
          end
-      }
-   )
-
-   local mt = {
-      __index = G
-   }
-
-   if is_g then
-      mt.__newindex = function(_, k, v)
-         _G[k] = v
       end
-   end
 
-   local env = setmetatable({ _G = G }, mt)
+      local env = setmetatable({ _G = G }, mt)
 
-   setmetatable(env, mt)
+      if not is_g then
+         env._M = env
+         if namespace_name then
+            env._PACKAGE = namespace_name
+            -- Prepopulate the environment in case of indirection
+            package.loaded[namespace_name] = env
+         end
+      end
 
-   if is_g then
-      print("expanding _g")
-   else
-      print("expanding module", namespace_name)
-      env._M = env
+
       if namespace_name then
-         env._PACKAGE = namespace_name
-         package.loaded[namespace_name] = env
-      end
-   end
-
-
-   if namespace_name then
-      src = [[
+         src = [[
 local script_name = function()
    return _PACKAGE
 end
-      ]] .. src
-   end
+         ]] .. src
+      end
 
-   src = [[
+      src = [[
 local this = _M
-   ]] .. src
+      ]] .. src
 
-   return setfenv(
-      macro.load_src(src),
-      env
-   )
+      local mod = require("macro").load_src(src, namespace_name)
+      setfenv(mod, env)()
+
+      -- Emplace in package.loaded so require returns env
+      package.loaded[namespace_name] = env
+   end
 end
 
 local function expand(src, namespace_name)
-   print("macro_wua.expand", namespace_name)
-   
-   return macro.load_src(
-      compile(
-         unlocalize(src, namespace_name),
-         namespace_name
-      )
+   print("wua: expanding " .. namespace_name)
+   return compile(
+      unlocalize(src, namespace_name),
+      namespace_name
    )
 end
 
-package.loaded["macro_wua"] = {
+package.loaded["macro/wua"] = {
    expand = expand
 }

@@ -1,3 +1,6 @@
+local scam_unlocalize = require("scam/unlocalize")
+local lisp_unlocalize = require("macro/lisp/unlocalize")
+
 COMPILER_OPTS = {
    allowedGlobals = false,
    correlate = true,
@@ -46,7 +49,11 @@ function fennel_eval_ast(ast, opts)
    )()
 end
 
-function compile(src, namespace_name, unlocs)
+function compile(src, namespace_name)
+   print("lisp: compiling " .. namespace_name)
+
+   local unlocs = scam_unlocalize.get(namespace_name)
+
    return function()
       local ast = fennel_forms(src)
 

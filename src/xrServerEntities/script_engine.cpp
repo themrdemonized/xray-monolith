@@ -337,22 +337,6 @@ CScriptEngine::~CScriptEngine()
         remove_script_process(m_script_processes.begin()->first);
 }
 
-static int do_load_package(lua_State* L)
-{
-    assert(lua_gettop(L) == 1);
-    assert(lua_isstring(L, 1));
-
-    lua_pushboolean(
-        L,
-        ai().script_engine().load_package(
-            lua_tostring(L, 1),
-            false
-        )
-    );
-
-    return (1);
-}
-
 static int get_object_factory(lua_State* L)
 {
     luabind::object(L, const_cast<CObjectFactory*>(&object_factory())).pushvalue();
@@ -403,13 +387,17 @@ void CScriptEngine::init()
 #endif // #ifndef USE_LUA_STUDIO
     //	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
 
-    lua_pushcfunction(lua(), do_load_package);
-    lua_setglobal(lua(), "load_package");
-
     lua_pushcfunction(lua(), get_object_factory);
     lua_setglobal(lua(), "get_object_factory");
 
-    load_package("init", false);
+    string_path path;
+    if (luaL_dofile(lua(), FS.update_path(path, "$game_scripts$", "init.lua")))
+    {
+        LPCSTR e = lua_tostring(lua(), -1);
+        lua_pop(lua(), 1);
+        FATAL((std::string("Failed to load init.lua:\n") + e).c_str());
+    }
+
     m_stack_level = lua_gettop(lua());
 }
 
@@ -584,15 +572,12 @@ void lua_cast_failed(lua_State* L, LUABIND_TYPE_INFO info)
 
 int CScriptEngine::compile_buffer(lua_State* L, std::string caString, LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
-    luabind::functor<luabind::object> compile;
-    if (ai().script_engine().namespace_loaded("scam_compiler", true))
+    luabind::functor<luabind::object> compiler;
+    if (functor("_COMPILER", compiler))
     {
-        if (ai().script_engine().functor("scam_compiler.compile", compile))
-        {
-            luabind::object result = compile(caString.c_str(), caScriptName, caNameSpaceName);
-            result.pushvalue();
-            return 0;
-        }
+        luabind::object result = compiler(caString.c_str(), caScriptName, caNameSpaceName);
+        result.pushvalue();
+        return 0;
     }
 
     Msg("scam_compiler not available, loading as raw Lua...");
@@ -1283,85 +1268,26 @@ void CScriptEngine::unload_package(LPCSTR name)
     lua_remove(lua(), -1);
 }
 
-bool CScriptEngine::object(LPCSTR identifier, int type)
+bool CScriptEngine::function_object(LPCSTR function_to_call, luabind::object& out, int type)
 {
-	int start = lua_gettop(lua());
-	lua_pushnil(lua());
-	while (lua_next(lua(), -2))
-	{
-		if ((lua_type(lua(), -1) == type) && !xr_strcmp(identifier, lua_tostring(lua(), -2)))
-		{
-			VERIFY(lua_gettop(lua()) >= 3);
-			lua_pop(lua(), 3);
-			VERIFY(lua_gettop(lua()) == start - 1);
-			return (true);
-		}
-		lua_pop(lua(), 1);
-	}
-	VERIFY(lua_gettop(lua()) >= 1);
-	lua_pop(lua(), 1);
-	VERIFY(lua_gettop(lua()) == start - 1);
-	return (false);
-}
+    int start = lua_gettop(lua());
+    lua_getglobal(lua(), "function_object");
+    lua_pushstring(lua(), function_to_call);
 
-bool CScriptEngine::object(LPCSTR namespace_name, LPCSTR identifier, int type)
-{
-	int start = lua_gettop(lua());
-	if (xr_strlen(namespace_name) && !namespace_loaded(namespace_name, false))
-	{
-		VERIFY(lua_gettop(lua()) == start);
-		return (false);
-	}
-	bool result = object(identifier, type);
-	VERIFY(lua_gettop(lua()) == start);
-	return (result);
-}
-
-bool CScriptEngine::function_object(LPCSTR function_to_call, luabind::object& object, int type)
-{
-	if (!xr_strlen(function_to_call))
-		return (false);
-
-	string256 name_space, function;
-
-    // Parse namespace
-    LPCSTR I = function_to_call, J = 0;
-    for (; ; J = I, ++I)
+    int l_iErrorCode = lua_pcall(lua(), 1, 1, 0);
+    VERIFY(lua_gettop(lua()) == start + 1);
+    if (l_iErrorCode)
     {
-        I = strchr(I, '.');
-        if (!I)
-            break;
-    }
-    xr_strcpy(name_space, sizeof(name_space), "_G");
-    if (!J)
-        xr_strcpy(function, sizeof(function), function_to_call);
-    else
-    {
-        CopyMemory(name_space, function_to_call, u32(J - function_to_call) * sizeof(char));
-        name_space[u32(J - function_to_call)] = 0;
-        xr_strcpy(function, sizeof(function), J + 1);
+        lua_pop(lua(), 1);
+        VERIFY(lua_gettop(lua()) == start);
+        return false;
     }
 
-    // If not _G, load corresponding package
-	if (xr_strcmp(name_space, "_G"))
-	{
-		LPSTR file_name = strchr(name_space, '.');
-		if (!file_name)
-			load_package(name_space);
-		else
-		{
-			*file_name = 0;
-			load_package(name_space);
-			*file_name = '.';
-		}
-	}
+    bool is_type = lua_type(lua(), -1) == type;
+    out = luabind::object(lua());
+    out.set();
 
-	if (!this->object(name_space, function, type))
-		return (false);
-
-	luabind::object lua_namespace = this->name_space(name_space);
-	object = lua_namespace[function];
-	return (true);
+    return is_type;
 }
 
 void CScriptEngine::collect_all_garbage()

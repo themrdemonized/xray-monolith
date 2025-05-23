@@ -189,8 +189,6 @@ public:
 protected:
 	void reinit();
 	static int vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker);
-	bool object(LPCSTR caIdentifier, int type);
-	bool object(LPCSTR caNamespaceName, LPCSTR caIdentifier, int type);
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

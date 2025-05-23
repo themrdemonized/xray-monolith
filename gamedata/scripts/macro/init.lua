@@ -1,5 +1,5 @@
-function load_src(src)
-   return assert(loadstring(src))
+function load_src(src, script_name)
+   return assert(loadstring(src, script_name))
 end
 
 function extend_env(dest)

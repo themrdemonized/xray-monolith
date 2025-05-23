@@ -20,9 +20,19 @@ end
 local scripts = ini:r_string("common", "script", "")
 
 for script in scripts:gmatch("[^,]+") do
-   local init_name = script .. "_initialize"
-   local init = _G[init_name]
-   if init then
-      init()
+   print("script:", script)
+   local mod = require(script)
+   if type(mod) ~= "table" then
+      print("Error: " .. script .. " module is not a table")
+      return
    end
+
+   local init = mod[script .. "_initialize"]
+   if not init then
+      goto next_script
+   end
+
+   init()
+
+   ::next_script::
 end
