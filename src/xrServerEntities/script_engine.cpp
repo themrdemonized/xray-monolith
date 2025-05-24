@@ -390,6 +390,10 @@ void CScriptEngine::init()
 #endif // #ifndef USE_LUA_STUDIO
     //	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
 
+    // Force the FS to recursively enumerate the scripts folder
+    FS_Path* P = FS.get_path("$game_scripts$");
+    P->m_Flags.set(FS_Path::flNeedRescan, TRUE);
+    FS.rescan_pathes();
     luabind::object(lua(), const_cast<CObjectFactory*>(&object_factory())).pushvalue();
     lua_setglobal(lua(), "_OBJECT_FACTORY");
 
