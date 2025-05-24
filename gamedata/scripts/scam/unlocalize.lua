@@ -15,7 +15,7 @@ function update()
    if not list then
       return
    end
-    
+
    local count = list:Size() or 0
    if count == 0 then
       return

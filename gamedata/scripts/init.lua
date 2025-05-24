@@ -179,7 +179,4 @@ function function_object(str)
 end
 
 -- Pass control to scam init
-local res, err = require("scam")
-if not res then
-   error("Failed to load scam:\n" .. err)
-end
+require("scam")

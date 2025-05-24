@@ -56,42 +56,37 @@ local function compile(src, namespace_name)
 
    local unlocs = scam_unlocalize.get(namespace_name)
 
+   -- Compile the given source to Fennel AST
+   local ast = forms(src)
+
+   -- Define a symbol for our unlocalize callback
+   local do_unloc_key = "_UNLOCAL"
+
+   -- Define unlocalizer callback
+   local unlocals = {}
+   local do_unloc = function(k, f)
+      unlocals[k] = f()
+   end
+
+   -- Determine if we want to unlocalize
+   local want_unloc = unlocs and #unlocs > 0
+
+   -- If so, inject callback invocations for the given bindings
+   if want_unloc then
+      ast = lisp_unlocalize.unlocalize(
+         form(do_unloc_key),
+         list(unlocs),
+         ast
+      )
+   end
+
+   ast = lisp_unlocalize.wrap_do(ast)
+
    return function()
-      -- Compile the given source to Fennel AST
-      local ast = forms(src)
-
-      -- Define a symbol for our unlocalize callback
-      local do_unloc_key = "_UNLOCAL"
-
-      -- Define unlocalizer callback
-      local unlocals = {}
-      local do_unloc = function(k, f)
-         unlocals[k] = f()
-      end
-
-      -- Determine if we want to unlocalize
-      local want_unloc = unlocs and #unlocs > 0
-
-      -- If so, inject callback invocations for the given bindings
-      if want_unloc then
-         ast = lisp_unlocalize.unlocalize(
-            form(do_unloc_key),
-            list(unlocs),
-            ast
-         )
-      end
-
-      ast = lisp_unlocalize.wrap_do(ast)
-
       local env = {
-         [do_unloc_key] = do_unloc
+         _PACKAGE = namespace_name,
+         [do_unloc_key] = do_unloc,
       }
-
-      if namespace_name then
-         env.script_name = function()
-            return namespace_name
-         end
-      end
 
       -- Evaluate our modified AST with the unlocalizer callback in scope
       local out = eval_ast(ast, make_compiler_opts(macro.extend_env(env)))

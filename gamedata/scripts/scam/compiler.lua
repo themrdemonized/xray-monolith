@@ -1,5 +1,3 @@
-TAG_MACRO = "#macro "
-
 local extensions = {}
 
 local old_compiler = _COMPILER
@@ -12,11 +10,10 @@ function _COMPILER(src, script_name, namespace_name)
       default = mac
    end
 
-   if string.sub(src, 1, #TAG_MACRO) == TAG_MACRO then
-      src = string.sub(src, #TAG_MACRO + 1)
-      local tag, rest = string.match(src, "([^%s]+)(%s+.*)")
-      local path = "macro/" .. tag
-      return function_object(path)(rest, namespace_name, script_name)
+   local tag,rest = src:match("[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)")
+   if tag ~= nil then
+      local f = function_object(tag)
+      return f(rest, namespace_name, script_name)
    end
 
    if default then

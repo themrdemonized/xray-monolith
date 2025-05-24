@@ -1,4 +1,4 @@
-#macro lisp/macro.compile
+; =*= lang: macro/lisp/macro.compile =*=
 
 (fn contains? [vals val]
   "Returns true if VAL is present in VALS."
@@ -30,8 +30,7 @@
     out))
 
 (fn wrap_do [forms]
-  "Wra
-p FORMS in (do ...)"
+  "Wrap FORMS in (do ...)"
   `(do ,(unpack forms)))
 
 {: unlocalize
