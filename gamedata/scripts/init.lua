@@ -43,8 +43,7 @@ function print(...)
    end
 end
 
--- Setup script load paths
-local scripts_path = getFS():update_path("$game_scripts$", ""):gsub("\\", "/")
+-- Define script load paths
 local paths = {
    "?.script",
    "?/init.script",
@@ -54,28 +53,39 @@ local paths = {
    "?/init.fnl",
 }
 
+-- Emplace package.path -friendly paths for non-xray loaders
 for i=#paths,1,-1 do
    local path = paths[i]
+   local scripts_path = getFS():update_path("$game_scripts$", ""):gsub("\\", "/")
    package.path = scripts_path .. path .. ";" .. package.path
 end
 
--- Define *.db reader
+-- Define xray script reader
 local function read_db(name)
    local fs = getFS()
-   local fname = name:gsub("/", "\\") .. ".script"
-   local path = fs:update_path("$game_scripts$", fname)
-   local file = fs:r_open(path)
 
-   if not file then
-      return nil, nil, "No db entry: gamedata/scripts/" .. fname
+   local errs = ""
+   for _,seg in ipairs(paths) do
+      local fname = seg:gsub("?", name):gsub("/", "\\")
+      local path = fs:update_path("$game_scripts$", fname)
+      if path then
+         if fs:exist(path) then
+            local file = fs:r_open(path)
+            if file then
+               local size = file:r_elapsed()
+               local src = file:r_stringZ():sub(1, size)
+               return src, path
+            end
+         end
+      end
+
+      if #errs > 0 then
+         errs = errs .. "\n\t"
+      end
+      errs = errs .. "No db entry: " .. path
    end
 
-   local src = ""
-   while not file:r_eof() do
-      src = src .. string.char(file:r_u8())
-   end
-
-   return src, path
+   return nil, nil, errs
 end
 
 -- Define IO reader
@@ -203,7 +213,7 @@ function function_object(str)
 end
 
 -- Pass control to scam init
-local res, err = pcall(require, "scam")
+local res, err = require("scam")
 if not res then
    error("Failed to load scam:\n" .. err)
 end

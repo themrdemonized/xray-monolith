@@ -1,14 +1,16 @@
+local macro = require("macro")
+local fennel = require("fennel")
 local scam_unlocalize = require("scam/unlocalize")
 local lisp_unlocalize = require("macro/lisp/unlocalize")
 
-COMPILER_OPTS = {
+local COMPILER_OPTS = {
    allowedGlobals = false,
    correlate = true,
    useBitLib = true,
    ["error-pinpoint"] = false,
 }
 
-function make_compiler_opts(env)
+local function make_compiler_opts(env)
    local opts = { env = env }
    for k,v in pairs(COMPILER_OPTS) do
       opts[k] = v
@@ -16,14 +18,14 @@ function make_compiler_opts(env)
    return opts
 end
 
-function form(src)
+local function form(src)
    local _, form = assert(
       fennel.parser(src)()
    )
    return form
 end
 
-function forms(src)
+local function forms(src)
    local forms = {}
    for ok, form in fennel.parser(src) do
       assert(ok, "Invalid form")
@@ -32,11 +34,11 @@ function forms(src)
    return forms
 end
 
-function list(lst)
+local function list(lst)
    return form("[" .. table.concat(lst, " ") .. "]")
 end
 
-function eval_ast(ast, opts)
+local function eval_ast(ast, opts)
    local env = opts.env
    opts.env = nil
 
@@ -49,7 +51,7 @@ function eval_ast(ast, opts)
    )()
 end
 
-function compile(src, namespace_name)
+local function compile(src, namespace_name)
    print("* lisp: compiling " .. namespace_name)
 
    local unlocs = scam_unlocalize.get(namespace_name)
@@ -120,3 +122,9 @@ function compile(src, namespace_name)
       end
    end
 end
+
+require("scam/compiler").register_extension("fnl", compile)
+
+package.loaded["macro/lisp"] = {
+   compile = compile
+}

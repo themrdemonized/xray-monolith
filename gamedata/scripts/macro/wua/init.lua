@@ -186,6 +186,8 @@ local function expand(src, namespace_name)
    )
 end
 
+require("scam/compiler").register_extension("script", expand)
+
 package.loaded["macro/wua"] = {
    expand = expand
 }

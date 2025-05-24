@@ -1,8 +1,8 @@
-function load_src(src, script_name)
+local function load_src(src, script_name)
    return assert(loadstring(src, script_name))
 end
 
-function extend_env(dest)
+local function extend_env(dest)
    for k,v in pairs(getfenv(0)) do
        dest[k] = v
    end

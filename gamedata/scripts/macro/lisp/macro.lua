@@ -1,11 +1,13 @@
-COMPILER_OPTS = {
+local fennel = require("fennel")
+
+local COMPILER_OPTS = {
    correlate = true,
    env = "_COMPILER",
    useBitLib = true,
    ["error-pinpoint"] = false,
 }
 
-function compile(src, namespace_name)
+local function compile(src, namespace_name)
    print("* lisp_macro: compiling " .. namespace_name)
 
    return function()
@@ -20,3 +22,7 @@ function compile(src, namespace_name)
       end
    end
 end
+
+package.loaded["macro/lisp/macro"] = {
+   compile = compile
+}

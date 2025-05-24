@@ -16,3 +16,5 @@ for k,v in pairs(disabled) do
       _G[k][v[i]] = nil
    end
 end
+
+package.loaded["scam/sandbox"] = {}
