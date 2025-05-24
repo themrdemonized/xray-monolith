@@ -394,13 +394,18 @@ void CScriptEngine::init()
     FS_Path* P = FS.get_path("$game_scripts$");
     P->m_Flags.set(FS_Path::flNeedRescan, TRUE);
     FS.rescan_pathes();
+
+    // Emplace the object factory
     luabind::object(lua(), const_cast<CObjectFactory*>(&object_factory())).pushvalue();
     lua_setglobal(lua(), "_OBJECT_FACTORY");
 
+    // Emplace script storage
     CScriptStorage::script_register(lua());
     luabind::object(lua(), const_cast<CScriptStorage*>(&ScriptStorage())).pushvalue();
     lua_setglobal(lua(), "_SCRIPT_STORAGE");
 
+    // Hand control to Lua
+    Msg("* engine: loading init.lua");
     string_path path;
     if (luaL_dofile(lua(), FS.update_path(path, "$game_scripts$", "init.lua")))
     {
