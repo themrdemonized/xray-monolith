@@ -1,7 +1,7 @@
 local macro = require("macro")
 local fennel = require("fennel")
 local scam_unlocalize = require("scam/unlocalize")
-local lisp_unlocalize = require("macro/lisp/unlocalize")
+local lisp_unlocalize = nil
 
 local COMPILER_OPTS = {
    allowedGlobals = false,
@@ -124,6 +124,7 @@ local function compile(src, namespace_name)
 end
 
 require("scam/compiler").register_extension("fnl", compile)
+lisp_unlocalize = require("macro/lisp/unlocalize")
 
 package.loaded["macro/lisp"] = {
    compile = compile

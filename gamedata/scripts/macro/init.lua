@@ -13,3 +13,7 @@ package.loaded["macro"] = {
     load_src = load_src,
     extend_env = extend_env,
 }
+
+require("macro/lua")
+require("macro/lisp")
+require("macro/wua")

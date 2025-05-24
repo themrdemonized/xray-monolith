@@ -27,6 +27,10 @@ function _COMPILER(src, script_name, namespace_name)
 end
 
 local function register_extension(k, v)
+   _REGISTER_PATHS(
+      "?." .. k,
+      "?/init." .. k
+   )
    extensions[k] = v
 end
 

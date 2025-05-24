@@ -4,9 +4,7 @@ local function expand(src, namespace_name)
    return setfenv(
       macro.load_src(src),
       macro.extend_env {
-         script_name = function()
-            return namespace_name
-         end
+         _PACKAGE = namespace_name
       }
    )
 end

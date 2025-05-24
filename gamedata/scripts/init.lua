@@ -44,32 +44,27 @@ function print(...)
 end
 
 -- Define script load paths
-local paths = {
-   "?.script",
-   "?/init.script",
-   "?.lua",
-   "?/init.lua",
-   "?.fnl",
-   "?/init.fnl",
-}
-
--- Emplace package.path -friendly paths for non-xray loaders
-for i=#paths,1,-1 do
-   local path = paths[i]
-   local scripts_path = getFS():update_path("$game_scripts$", ""):gsub("\\", "/")
-   package.path = scripts_path .. path .. ";" .. package.path
+function _REGISTER_PATHS(...)
+   local ps = {...}
+   for i=#ps,1,-1 do
+      p = getFS():update_path("$game_scripts$", ps[i])
+      package.path = p .. ";" .. package.path
+   end
 end
 
+_REGISTER_PATHS("?.lua", "?/init.lua")
+
 -- Define xray script reader
-local function read_db(name)
+local function read_fs(name)
    local fs = getFS()
 
    local errs = ""
-   for _,seg in ipairs(paths) do
-      local fname = seg:gsub("?", name):gsub("/", "\\")
-      local path = fs:update_path("$game_scripts$", fname)
-      if path then
-         if fs:exist(path) then
+   local base = fs:update_path("$game_scripts$", "")
+   for seg in package.path:gmatch("[^;]+") do
+      if seg:sub(1, #base) == base then
+         local fname = seg:sub(#base + 1):gsub("?", name):gsub("/", "\\")
+         local path = fs:update_path("$game_scripts$", fname)
+         if path and fs:exist(path) then
             local file = fs:r_open(path)
             if file then
                local size = file:r_elapsed()
@@ -77,40 +72,12 @@ local function read_db(name)
                return src, path
             end
          end
-      end
 
-      if #errs > 0 then
-         errs = errs .. "\n\t"
-      end
-      errs = errs .. "No db entry: " .. path
-   end
-
-   return nil, nil, errs
-end
-
--- Define IO reader
-local function read_io(name)
-   local errs = ""
-   for seg in package.path:gmatch("[^;]+") do
-      local path = seg:gsub("?", name)
-
-      local file, err = io.open(path)
-      if file == nil then
          if #errs > 0 then
-            errs = errs .. "\n"
+            errs = errs .. "\n\t"
          end
-         errs = errs .. err
-         goto next_seg
+         errs = errs .. "No db entry: " .. path
       end
-
-      local src = file:read("*a")
-      file:close()
-
-      if src then
-         return src, path
-      end
-
-      ::next_seg::
    end
 
    return nil, nil, errs
@@ -136,8 +103,7 @@ end
 
 -- Define the set of readers to register as loaders
 local readers = {
-   read_io,
-   read_db
+   read_fs
 }
 
 -- Pop the preloader off the loader list
