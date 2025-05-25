@@ -220,13 +220,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\base.cpp" />
-    <ClCompile Include="..\lfennel.cpp" />
     <ClCompile Include="..\lfs.c" />
     <ClCompile Include="..\lmarshal.c" />
     <ClCompile Include="..\script_additional_libs.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\lfennel.h" />
     <ClInclude Include="..\lfs.h" />
     <ClInclude Include="..\lmarshal.h" />
     <ClInclude Include="..\script_additional_libs.h" />

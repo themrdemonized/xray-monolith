@@ -915,11 +915,6 @@
       <Project>{94a1c366-3d19-48e6-8170-4adc2e70df98}</Project>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="..\..\3rd party\lua-extensions\fennel-1.5.3.lua">
-      <FileType>Script</FileType>
-    </None>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

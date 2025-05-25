@@ -781,21 +781,16 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\stalker_cs.ico">
-      <Filter>General\Resources</Filter>
-    </Image>
-    <Image Include="..\splash_xrcs_en.bmp">
-      <Filter>General\Resources</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="..\resource.rc">
+    <ResourceCompile Include="resource.rc">
       <Filter>General\Resources</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\3rd party\lua-extensions\fennel-1.5.3.lua">
+    <Image Include="splash_xrcs_en.bmp">
       <Filter>General\Resources</Filter>
-    </None>
+    </Image>
+    <Image Include="stalker_cs.ico">
+      <Filter>General\Resources</Filter>
+    </Image>
   </ItemGroup>
 </Project>
