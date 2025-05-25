@@ -1,50 +1,59 @@
-local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
+; =*= lang: macro/lisp.compile =*=
 
-function axr_main.on_game_start()
-   local ignore = { 
-      ["init.lua"] = true,
-      ["_G.script"] = true,
-      ["class_registrator.script"] = true,
-      ["game_registrator.script"] = true,
-      ["ui_registrator.script"] = true,
-      ["ce_new_attachable_item.script"] = true,
-      ["ce_new_game_dm.script"] = true,
-      ["sim_faction_brain_human.script"] = true,
-      ["sim_faction_brain_mutant.script"] = true,
-      ["ce_switcher.script"] = true,
-      ["axr_main.script"] = true,
-      ["lua_help.script"] = true,
-      ["rx_gl.script"] = true
-   }
-   
-   local t = {}
-   local size_t = 0 
-   local f   = getFS()
-   local flist = f:file_list_open_ex(
-      "$game_scripts$",
-      FS.FS_ListFiles,
-      "*.script"
-   )
-   local f_cnt = flist:Size()
-   for   it=0, f_cnt-1 do
-      local file = flist:GetAt(it)
-      local file_name = file:NameShort()
-      printf("%s size=%s",file_name,file:Size())
-      if (file:Size() > 0 and ignore[file_name] ~= true) then
-         path,name = file_name:match(PATTERN_FILE_PATH)
-         if path then
-            file_name = path .. name
-            if type(_G[file_name]) == "table"
-               and _G[file_name].on_game_start
-            then
-               size_t = size_t + 1 
-               t[size_t] = file_name -- load all scripts first
-            end
-         end
-      end
-   end
-   for i=1,#t do
-      --printf("%s.on_game_start()",t[i])
-      _G[t[i]].on_game_start()
-   end
-end
+(var axr-main (require :axr_main))
+
+(var PATTERN-FILE-PATH (. (require "scam/compiler") :PATTERN_FILE_PATH))
+
+(var ignore
+     {:_G.script true
+      :class_registrator.script true
+      :game_registrator.script true
+      :ui_registrator.script true
+      :ce_new_attachable_item.script true
+      :ce_new_game_dm.script true
+      :sim_faction_brain_human.script true
+      :sim_faction_brain_mutant.script true
+      :ce_switcher.script true
+      :axr_main.script true
+      :lua_help.script true
+      :rx_gl.script true})
+
+(fn axr-main.on_game_start []
+  ;; Fetch a filesystem handle
+  (var fs (getFS))
+
+  ;; List scripts recursively
+  (var flist
+       (fs:file_list_open_ex "$game_scripts$"
+                             FS.FS_ListFiles
+                             "*.script"))
+
+  ;; Accumulate on_game_start functions,
+  ;; loading modules in the process
+  (var start
+       (faccumulate [start #nil
+                     index 0 (- (flist:Size) 1)]
+         (case-try (flist:GetAt index)
+           (where file (> (file:Size) 0))
+           (file:NameShort)
+           
+           (where file_name (not (. ignore file_name)))
+           (file_name:match PATTERN-FILE-PATH)
+           
+           (path name ext)
+           (do (print :requiring: (.. path name))
+               (pcall require (.. path name)))
+           
+           (true { :on_game_start on-game-start })
+           (let [old-start start]
+             #(do (old-start)
+                  (on-game-start)))
+
+           (catch _ start))))
+
+  ;; Call the result
+  (start))
+
+{}
+
+
