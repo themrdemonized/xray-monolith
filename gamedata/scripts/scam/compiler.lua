@@ -41,9 +41,18 @@ local function register_extension(k, v)
    extensions[k] = v
 end
 
+local function get_extensions()
+   local out = {}
+   for k in pairs(extensions) do
+      table.insert(out, k)
+   end
+   return out
+end
+
 package.loaded["scam/compiler"] = {
    PATTERN_FILE_PATH = PATTERN_FILE_PATH,
    PATTERN_MACRO_TAG = PATTERN_MACRO_TAG,
    compile = _COMPILER,
    register_extension = register_extension,
+   get_extensions = get_extensions,
 }

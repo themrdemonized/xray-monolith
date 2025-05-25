@@ -2,10 +2,13 @@
 
 (var axr-main (require :axr_main))
 
-(var PATTERN-FILE-PATH (. (require "scam/compiler") :PATTERN_FILE_PATH))
+(var compiler (require :scam/compiler))
+(var PATTERN-FILE-PATH (. compiler :PATTERN_FILE_PATH))
 
+;; List of files that should not be loaded when searching for on_game_start
 (var ignore
-     {:_G.script true
+     {:init.lua true
+      :_G.script true
       :class_registrator.script true
       :game_registrator.script true
       :ui_registrator.script true
@@ -18,15 +21,20 @@
       :lua_help.script true
       :rx_gl.script true})
 
+;; Gather file extensions from the compiler and format them as an FS mask
+(var extensions
+     (accumulate [exts nil
+                  _ v (ipairs (compiler.get_extensions))]
+       (if exts
+           (.. exts "," "*." v)
+           v)))
+
 (fn axr-main.on_game_start []
   ;; Fetch a filesystem handle
   (var fs (getFS))
 
   ;; List scripts recursively
-  (var flist
-       (fs:file_list_open_ex "$game_scripts$"
-                             FS.FS_ListFiles
-                             "*.script"))
+  (var flist (fs:file_list_open_ex "$game_scripts$" FS.FS_ListFiles extensions))
 
   ;; Accumulate on_game_start functions,
   ;; loading modules in the process
