@@ -3,10 +3,13 @@ local function load_src(src, script_name)
 end
 
 local function extend_env(dest)
-   for k,v in pairs(getfenv(0)) do
-       dest[k] = v
-   end
-   return dest
+   return setmetatable(
+      dest,
+      {
+         __index = _G,
+         __newindex = _G,
+      }
+   )
 end
 
 package.loaded["macro"] = {
