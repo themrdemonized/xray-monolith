@@ -411,7 +411,7 @@ void CScriptEngine::init()
     {
         LPCSTR e = lua_tostring(lua(), -1);
         lua_pop(lua(), 1);
-        FATAL((std::string("Failed to load init.lua:\n") + e).c_str());
+        FATAL((std::string("! engine: error loading init.lua:\n") + e).c_str());
     }
 
     m_stack_level = lua_gettop(lua());
@@ -591,12 +591,12 @@ int CScriptEngine::compile_buffer(lua_State* L, std::string caString, LPCSTR caS
     luabind::functor<luabind::object> compiler;
     if (functor("_COMPILER", compiler))
     {
-        luabind::object result = compiler(caString.c_str(), caScriptName, caNameSpaceName);
+        luabind::object result = compiler(caString.c_str(), caNameSpaceName, caScriptName);
         result.pushvalue();
         return 0;
     }
 
-    Msg("scam_compiler not available, loading as raw Lua...");
+    Msg("* engine: loading %s", caNameSpaceName);
     return luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
 }
 
