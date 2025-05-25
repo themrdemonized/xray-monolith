@@ -20,7 +20,6 @@ end
 local scripts = ini:r_string("common", "script", "")
 
 for script in scripts:gmatch("[^,]+") do
-   print("script:", script)
    local mod = require(script)
    if type(mod) ~= "table" then
       print("Error: " .. script .. " module is not a table")
