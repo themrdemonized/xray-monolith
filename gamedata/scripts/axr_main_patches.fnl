@@ -1,5 +1,3 @@
-; =*= lang: macro/lisp.compile =*=
-
 (var axr-main (require :axr_main))
 
 (var compiler (require :scam/compiler))
