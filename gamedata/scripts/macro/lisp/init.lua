@@ -1,7 +1,7 @@
-local macro = require("macro")
+require("macro/lisp/macro")
+
 local fennel = require("fennel")
-local scam_unlocalize = require("scam/unlocalize")
-local lisp_unlocalize = nil
+local lisp_unlocalize
 
 local COMPILER_OPTS = {
    allowedGlobals = false,
@@ -38,7 +38,7 @@ local function list(lst)
    return form("[" .. table.concat(lst, " ") .. "]")
 end
 
-local function eval_ast(ast, opts)
+local function eval_ast(ast, opts, namespace_name)
    local env = opts.env
    opts.env = nil
 
@@ -47,14 +47,15 @@ local function eval_ast(ast, opts)
          ast,
          opts
       ),
-      env
+      env,
+      namespace_name
    )()
 end
 
 local function compile(src, namespace_name)
    print("* lisp: compiling " .. namespace_name)
 
-   local unlocs = scam_unlocalize.get(namespace_name)
+   local unlocs = require("scam/unlocalize").get(namespace_name)
 
    -- Compile the given source to Fennel AST
    local ast = forms(src)
@@ -82,31 +83,53 @@ local function compile(src, namespace_name)
 
    ast = lisp_unlocalize.wrap_do(ast)
 
-   return function()
-      local env = {
-         _PACKAGE = namespace_name,
-         [do_unloc_key] = do_unloc,
-      }
+   local env = require("macro").extend_env({
+      _PACKAGE = namespace_name,
+      [do_unloc_key] = do_unloc,
+   })
 
+   local compiled, lua = pcall(
+      fennel.compile,
+      ast,
+      make_compiler_opts(env)
+   )
+   if not compiled then
+      lua = "! lisp: error compiling " .. namespace_name .. ":\n\n"
+           .. lua .. "\n"
+      error(lua)
+   end
+
+   local loaded, mod = pcall(fennel.loadCode, lua, env, namespace_name)
+   if not loaded then
+      mod = "! lisp: error loading " .. namespace_name .. ":\n\n"
+           .. mod .. "\n"
+      error(mod)
+   end
+
+   return function()
       -- Evaluate our modified AST with the unlocalizer callback in scope
-      local out = eval_ast(ast, make_compiler_opts(macro.extend_env(env)))
+      local evaluated, out = pcall(mod)
+      if not evaluated then
+         out = "! lisp: error evaluating " .. namespace_name .. ":\n\n"
+            .. out .. "\n"
+         print(out)
+         error(out)
+      end
 
       -- Ensure the script's output is unlocalizable
-      if want_unloc and type(out) ~= "table" then
-         assert(
-            nil,
-            string.format(
-               "Cannot unlocalize: Script returned non-table: %s",
-               out
-            )
-         )
+      local ty = type(out)
+      if want_unloc and ty ~= "table" then
+         local err = "! lisp: cannot unlocalize, script returned non-table: "
+            .. tostring(out) .. "(" .. ty .. ")"
+         print(err)
+         error(err)
       end
 
       -- Load unlocalized variables into the resulting table
       for k,v in pairs(unlocals) do
          -- Consider already-present keys as more relevant than our unlocal
          if out[k] == nil then
-            print("Unlocalized:", k, v)
+            print("lisp: unlocalized", k, v)
             out[k] = v
          end
       end
@@ -118,9 +141,9 @@ local function compile(src, namespace_name)
    end
 end
 
-require("scam/compiler").register_extension("fnl", compile)
-lisp_unlocalize = require("macro/lisp/unlocalize")
-
 package.loaded["macro/lisp"] = {
    compile = compile
 }
+
+require("scam/compiler").register_extension("fnl", compile)
+lisp_unlocalize = require("macro/lisp/unlocalize")

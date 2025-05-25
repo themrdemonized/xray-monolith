@@ -1,29 +1,39 @@
+local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
+local PATTERN_MACRO_TAG = "[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)"
+
 local extensions = {}
 
 local old_compiler = _COMPILER
-function _COMPILER(src, script_name, namespace_name)
-   local default = nil
+function _COMPILER(src, namespace_name, script_name)
+   local mac = nil
 
-   local _,_,ext = script_name:match("^(.-)([^\\/]-)%.([^\\/%.]-)%.?$")
-   local mac = extensions[ext]
-   if mac then
-      default = mac
+   local _,_,ext = script_name:match(PATTERN_FILE_PATH)
+   if extensions[ext] then
+      mac = extensions[ext]
    end
 
-   local tag,rest = src:match("[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)")
+   local tag,rest = src:match(PATTERN_MACRO_TAG)
    if tag ~= nil then
-      local f = function_object(tag)
-      return f(rest, namespace_name, script_name)
+      src = rest
+      mac = function_object(tag)
    end
 
-   if default then
-      return default(src, namespace_name, script_name)
+   if mac == nil then
+      mac = old_compiler
    end
 
-   return old_compiler(src, script_name, namespace_name)
+   local res, out = pcall(mac, src, namespace_name, script_name)
+   if not res then
+      print(out)
+      error(out)
+      package.loaded[namespace_name] = nil
+   end
+
+   return out
 end
 
 local function register_extension(k, v)
+   print("compiler: registering script extension: " .. k)
    _REGISTER_PATHS(
       "?." .. k,
       "?/init." .. k
@@ -32,6 +42,8 @@ local function register_extension(k, v)
 end
 
 package.loaded["scam/compiler"] = {
+   PATTERN_FILE_PATH = PATTERN_FILE_PATH,
+   PATTERN_MACRO_TAG = PATTERN_MACRO_TAG,
    compile = _COMPILER,
-   register_extension = register_extension
+   register_extension = register_extension,
 }

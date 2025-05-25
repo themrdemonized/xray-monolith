@@ -1,23 +1,6 @@
 -- Ensure _G loads from script next time we require it
 package.loaded._G = nil
 
--- Emplace generalized memoization function
-function _MEMOIZE(f)
-   local cache = {}
-   return function(i)
-      if cache[i] == nil then
-         cache[i] = f(i)
-      end
-      return cache[i]
-   end
-end
-
--- Emplace boot-time passthrough compiler
-function _COMPILER(src, script_name, namespace_name)
-   print("* boot: loading " .. namespace_name)
-   return loadstring(src, namespace_name)
-end
-
 -- Emplace working print function
 function print(...)
    local str = ""
@@ -41,6 +24,19 @@ function print(...)
    else
       get_console():execute("load ~#debug msg:" .. str)
    end
+end
+
+-- Emplace boot-time passthrough compiler
+function _COMPILER(src, namespace_name)
+   print("* init: loading " .. namespace_name)
+   local res, out = pcall(loadstring, src, namespace_name)
+   if not res then
+      error(
+         "! init: error loading " .. namespace_name .. ":\n"
+         .. out
+      )
+   end
+   return out
 end
 
 -- Define script load paths
@@ -88,16 +84,16 @@ local function loader(with)
    return function(name)
       local src, path, err = with(name)
       if not src then
-         return "\n\t" .. err
+         return err
       end
 
-      local mod = _COMPILER(src, path, name)
-
-      if mod then
-         return mod
+      local res, out = pcall(_COMPILER, src, name, path)
+      if not res then
+         print(out)
+         error(out)
       end
 
-      return "\n\tFailed to compile " .. name
+      return out
    end
 end
 
@@ -117,10 +113,9 @@ for i=#readers,1,-1 do
    table.insert(package.loaders, 1, loader(readers[i]))
 end
 
-
 -- Lift into a memoized higher-order loader
 local loaders = package.loaders
-local function io_loader(name)
+local function io_loaders(name)
    local io_miss = _SCRIPT_STORAGE:get("io_loader", name)
    if io_miss then
       return io_miss
@@ -128,19 +123,19 @@ local function io_loader(name)
 
    local err = ""
    for i=1,#loaders do
-      local res = loaders[i](name)
+      local out = loaders[i](name)
 
-      local ty = type(res)
+      local ty = type(out)
       if ty == "function" then
-         return res
+         return out
       else
          if #err > 0 then
             err = err .. "\n"
          end
          if ty == "string" then
-            err = err .. res
+            err = err .. out
          else
-            err = err .. "Loader returned invalid type: " .. ty
+            error("Loader returned invalid value: " .. tostring(out))
          end
       end
    end
@@ -150,7 +145,7 @@ local function io_loader(name)
 end
 
 -- Replace the loader list with the preloader plus our memoized IO loader
-package.loaders = { preload_loader, io_loader }
+package.loaders = { preload_loader, io_loaders }
 
 -- Extend require with path support
 function function_object(str)
