@@ -1,0 +1,50 @@
+local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
+
+function axr_main.on_game_start()
+   local ignore = { 
+      ["init.lua"] = true,
+      ["_G.script"] = true,
+      ["class_registrator.script"] = true,
+      ["game_registrator.script"] = true,
+      ["ui_registrator.script"] = true,
+      ["ce_new_attachable_item.script"] = true,
+      ["ce_new_game_dm.script"] = true,
+      ["sim_faction_brain_human.script"] = true,
+      ["sim_faction_brain_mutant.script"] = true,
+      ["ce_switcher.script"] = true,
+      ["axr_main.script"] = true,
+      ["lua_help.script"] = true,
+      ["rx_gl.script"] = true
+   }
+   
+   local t = {}
+   local size_t = 0 
+   local f   = getFS()
+   local flist = f:file_list_open_ex(
+      "$game_scripts$",
+      FS.FS_ListFiles,
+      "*.script"
+   )
+   local f_cnt = flist:Size()
+   for   it=0, f_cnt-1 do
+      local file = flist:GetAt(it)
+      local file_name = file:NameShort()
+      printf("%s size=%s",file_name,file:Size())
+      if (file:Size() > 0 and ignore[file_name] ~= true) then
+         path,name = file_name:match(PATTERN_FILE_PATH)
+         if path then
+            file_name = path .. name
+            if type(_G[file_name]) == "table"
+               and _G[file_name].on_game_start
+            then
+               size_t = size_t + 1 
+               t[size_t] = file_name -- load all scripts first
+            end
+         end
+      end
+   end
+   for i=1,#t do
+      --printf("%s.on_game_start()",t[i])
+      _G[t[i]].on_game_start()
+   end
+end
