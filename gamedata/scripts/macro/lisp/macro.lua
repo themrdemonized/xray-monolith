@@ -7,6 +7,17 @@ local COMPILER_OPTS = {
    ["error-pinpoint"] = false,
 }
 
+local function handle_error(msg)
+   return function(err)
+      err = "! lisp_macro: "
+         .. msg .. ":\n\n"
+         .. debug.traceback(err .. "\n", 2)
+         .. "\n"
+      print(err)
+      error(err)
+   end
+end
+
 local function compile(src, namespace_name)
    print("* lisp_macro: compiling " .. namespace_name)
 
@@ -18,15 +29,11 @@ local function compile(src, namespace_name)
       )
 
       if not res then
-         local err = "! lisp_macro: error compiling " .. namespace_name .. ":\n"
-                     .. out
-         print(err)
-         error(err)
+         handle_error("error compiling" .. namespace_name)(out)
       end
 
       if namespace_name then
          fennel["macro-loaded"][namespace_name] = out
-         package.loaded[namespace_name] = out
       end
 
       return out
