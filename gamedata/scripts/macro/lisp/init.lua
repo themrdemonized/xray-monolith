@@ -85,10 +85,16 @@ local function compile(src, namespace_name)
 
    ast = lisp_unlocalize.wrap_do(ast)
 
-   local env = require("macro").extend_env({
+   local env = setmetatable(
+      {
       _PACKAGE = namespace_name,
       [do_unloc_key] = do_unloc,
-   })
+      },
+      {
+         __index = _G,
+         __newindex = _G,
+      }
+   )
 
    local compiled, lua = pcall(
       fennel.compile,
