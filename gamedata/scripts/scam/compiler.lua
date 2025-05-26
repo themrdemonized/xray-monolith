@@ -2,14 +2,18 @@ local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
 local PATTERN_MACRO_TAG = "[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)"
 
 local extensions = {}
+local state = {
+   default = _COMPILER
+}
 
-local old_compiler = _COMPILER
 function _COMPILER(src, namespace_name, script_name)
    local mac = nil
 
-   local _,_,ext = script_name:match(PATTERN_FILE_PATH)
-   if extensions[ext] then
-      mac = extensions[ext]
+   if script_name then
+      local _,_,ext = script_name:match(PATTERN_FILE_PATH)
+      if extensions[ext] then
+         mac = extensions[ext]
+      end
    end
 
    local tag,rest = src:match(PATTERN_MACRO_TAG)
@@ -19,14 +23,16 @@ function _COMPILER(src, namespace_name, script_name)
    end
 
    if mac == nil then
-      mac = old_compiler
+      mac = state.default
    end
 
    local res, out = pcall(mac, src, namespace_name, script_name)
    if not res then
       print(out)
       error(out)
-      package.loaded[namespace_name] = nil
+      if namespace_name then
+         package.loaded[namespace_name] = nil
+      end
    end
 
    return out
@@ -49,10 +55,15 @@ local function get_extensions()
    return out
 end
 
-package.loaded["scam/compiler"] = {
+local function set_default_macro(mac)
+   state.default = mac
+end
+
+package.loaded[_PACKAGE] = {
    PATTERN_FILE_PATH = PATTERN_FILE_PATH,
    PATTERN_MACRO_TAG = PATTERN_MACRO_TAG,
    compile = _COMPILER,
    register_extension = register_extension,
    get_extensions = get_extensions,
+   set_default_macro = set_default_macro
 }
