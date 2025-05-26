@@ -112,6 +112,6 @@ local function unlocalize(src, namespace_name)
    return src
 end
 
-package.loaded[_PACKAGE] = {
+return {
    unlocalize = unlocalize
 }

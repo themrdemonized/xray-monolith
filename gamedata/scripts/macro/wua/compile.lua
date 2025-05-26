@@ -74,6 +74,6 @@ local this = _M
    end
 end
 
-package.loaded[_PACKAGE] = {
+return {
    compile = compile
 }

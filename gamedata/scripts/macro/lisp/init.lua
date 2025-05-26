@@ -1,7 +1,6 @@
 require(_PACKAGE .. "/macro")
 
 local fennel = require("fennel")
-local lisp_unlocalize
 
 local COMPILER_OPTS = {
    allowedGlobals = false,
@@ -72,6 +71,9 @@ local function compile(src, namespace_name)
    -- Determine if we want to unlocalize
    local want_unloc = unlocs and #unlocs > 0
 
+   -- Late-load the unlocalize module to ensure it can compile
+   local lisp_unlocalize = require(_PACKAGE .. "/unlocalize")
+
    -- If so, inject callback invocations for the given bindings
    if want_unloc then
       ast = lisp_unlocalize.unlocalize(
@@ -141,9 +143,8 @@ local function compile(src, namespace_name)
    end
 end
 
-package.loaded[_PACKAGE] = {
+require("scam/compiler").register_extension("fnl", compile)
+
+return {
    compile = compile
 }
-
-require("scam/compiler").register_extension("fnl", compile)
-lisp_unlocalize = require(_PACKAGE .. "/unlocalize")

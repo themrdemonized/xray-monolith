@@ -17,4 +17,4 @@ for k,v in pairs(disabled) do
    end
 end
 
-package.loaded["scam/sandbox"] = {}
+return {}

@@ -20,4 +20,4 @@ end
 
 _OBJECT_FACTORY:register_script()
 
-package.loaded["scam/classes"] = {}
+return {}

@@ -36,4 +36,4 @@ for script in scripts:gmatch("[^,]+") do
    ::next_script::
 end
 
-package.loaded["scam/scripts"] = {}
+return {}

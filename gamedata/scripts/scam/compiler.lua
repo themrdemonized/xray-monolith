@@ -59,7 +59,7 @@ local function set_default_macro(mac)
    state.default = mac
 end
 
-package.loaded[_PACKAGE] = {
+return {
    PATTERN_FILE_PATH = PATTERN_FILE_PATH,
    PATTERN_MACRO_TAG = PATTERN_MACRO_TAG,
    compile = _COMPILER,

@@ -57,9 +57,10 @@ local function get(k)
    return unlocalizers[k]
 end
 
-package.loaded["scam/unlocalize"] = {
+update()
+
+return {
    update = update,
    get = get
 }
 
-update()
