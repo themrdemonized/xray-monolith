@@ -51,6 +51,17 @@ local function eval_ast(ast, opts, namespace_name)
    )()
 end
 
+local function handle_error(msg)
+   return function(err)
+      err = "! lisp: "
+         .. msg .. ":\n\n"
+         .. debug.traceback(err .. "\n", 2)
+         .. "\n"
+      print(err)
+      error(err)
+   end
+end
+
 local function compile(src, namespace_name)
    print("* lisp: compiling " .. namespace_name)
 
@@ -87,8 +98,8 @@ local function compile(src, namespace_name)
 
    local env = setmetatable(
       {
-      _PACKAGE = namespace_name,
-      [do_unloc_key] = do_unloc,
+         _PACKAGE = namespace_name,
+         [do_unloc_key] = do_unloc,
       },
       {
          __index = _G,
@@ -102,35 +113,29 @@ local function compile(src, namespace_name)
       make_compiler_opts(env)
    )
    if not compiled then
-      lua = "! lisp: error compiling " .. namespace_name .. ":\n\n"
-           .. lua .. "\n"
-      error(lua)
+      handle_error("error compiling " .. namespace_name)(lua)
    end
 
    local loaded, mod = pcall(fennel.loadCode, lua, env, namespace_name)
    if not loaded then
-      mod = "! lisp: error loading " .. namespace_name .. ":\n\n"
-           .. mod .. "\n"
-      error(mod)
+      handle_error("error loading " .. namespace_name)(mod)
    end
 
    return function()
       -- Evaluate our modified AST with the unlocalizer callback in scope
-      local evaluated, out = pcall(mod)
-      if not evaluated then
-         out = "! lisp: error evaluating " .. namespace_name .. ":\n\n"
-            .. out .. "\n"
-         print(out)
-         error(out)
-      end
+      local _, out = xpcall(
+         mod,
+         handle_error("error evaluating " .. namespace_name)
+      )
 
       -- Ensure the script's output is unlocalizable
       local ty = type(out)
       if want_unloc and ty ~= "table" then
-         local err = "! lisp: cannot unlocalize, script returned non-table: "
-            .. tostring(out) .. "(" .. ty .. ")"
-         print(err)
-         error(err)
+         handle_error(
+            "cannot unlocalize "
+            .. namespace_name
+            .. ", script returned non-table: "
+         )(tostring(out) .. "(" .. ty .. ")")
       end
 
       -- Load unlocalized variables into the resulting table
