@@ -1,13 +1,20 @@
+local function handle_error(msg)
+   return function(err)
+      err = "! lua: "
+         .. msg .. ":\n\n"
+         .. debug.traceback(err .. "\n", 2)
+         .. "\n"
+      print(err)
+      error(err)
+   end
+end
+
 local function expand(src, namespace_name)
    print("* lua: expanding", namespace_name)
-   print(src)
 
    local res, mod = pcall(loadstring, src, namespace_name)
    if not res then
-      local msg = "! lua: error loading " .. namespace_name .. ":\n\n"
-               .. mod .. "\n"
-      print(msg)
-      error(msg)
+      handle_error("error loading " .. namespace_name)(mod)
    end
 
    local mac = setfenv(
@@ -22,13 +29,10 @@ local function expand(src, namespace_name)
    )
 
    return function()
-      local evaluated, out = pcall(mac)
-      if not evaluated then
-         out = "! lua: error evaluating " .. namespace_name .. ":\n\n"
-            .. out .. "\n"
-         print(out)
-         error(out)
-      end
+      local _, out = xpcall(
+         mac,
+         handle_error("error evaluating " .. namespace_name)
+      )
 
       return out
    end
