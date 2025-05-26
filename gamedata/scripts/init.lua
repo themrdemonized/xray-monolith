@@ -28,15 +28,31 @@ end
 
 -- Emplace boot-time passthrough compiler
 function _COMPILER(src, namespace_name)
-   print("* init: loading " .. namespace_name)
-   local res, out = pcall(loadstring, src, namespace_name)
+   print("* init: loading", namespace_name)
+
+   local res, out = pcall(
+      loadstring,
+      src,
+      namespace_name
+   )
+
    if not res then
       error(
          "! init: error loading " .. namespace_name .. ":\n"
          .. out
       )
    end
-   return out
+
+   return setfenv(
+      out,
+      setmetatable(
+         { _PACKAGE = namespace_name },
+         {
+            __index = _G,
+            __newindex = _G,
+         }
+      )
+   )
 end
 
 -- Define script load paths

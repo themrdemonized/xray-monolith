@@ -11,6 +11,6 @@ end
 
 require("scam/compiler").register_extension("lua", expand)
 
-package.loaded["macro/lua"] = {
+package.loaded[_PACKAGE] = {
    expand = expand
 }

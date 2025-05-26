@@ -1,4 +1,4 @@
-require("macro/lisp/macro")
+require(_PACKAGE .. "/macro")
 
 local fennel = require("fennel")
 local lisp_unlocalize
@@ -134,16 +134,16 @@ local function compile(src, namespace_name)
          end
       end
 
-      if namespace_name then
+      if namespace_name and out then
          -- Load the final result as a package
          package.loaded[namespace_name] = out
       end
    end
 end
 
-package.loaded["macro/lisp"] = {
+package.loaded[_PACKAGE] = {
    compile = compile
 }
 
 require("scam/compiler").register_extension("fnl", compile)
-lisp_unlocalize = require("macro/lisp/unlocalize")
+lisp_unlocalize = require(_PACKAGE .. "/unlocalize")

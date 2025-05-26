@@ -12,11 +12,11 @@ local function extend_env(dest)
    )
 end
 
-package.loaded["macro"] = {
-    load_src = load_src,
-    extend_env = extend_env,
+package.loaded[_PACKAGE] = {
+   load_src = load_src,
+   extend_env = extend_env,
 }
 
-require("macro/lua")
-require("macro/lisp")
-require("macro/wua")
+package.loaded[_PACKAGE].lua = require(_PACKAGE .. "/lua")
+package.loaded[_PACKAGE].lisp = require(_PACKAGE .. "/lisp")
+package.loaded[_PACKAGE].wua = require(_PACKAGE .. "/wua")

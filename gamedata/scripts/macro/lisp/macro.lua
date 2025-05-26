@@ -31,6 +31,6 @@ local function compile(src, namespace_name)
    end
 end
 
-package.loaded["macro/lisp/macro"] = {
+package.loaded[_PACKAGE] = {
    compile = compile
 }
