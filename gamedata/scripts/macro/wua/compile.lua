@@ -68,9 +68,7 @@ local this = _M
 
    return function()
       mod()
-      if namespace_name then
-         package.loaded[namespace_name] = env
-      end
+      return env
    end
 end
 
