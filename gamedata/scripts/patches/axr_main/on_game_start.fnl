@@ -23,43 +23,42 @@
 (var extensions
      (accumulate [exts nil
                   _ v (ipairs (compiler.get_extensions))]
-       (if exts
-           (.. exts "," "*." v)
-           v)))
+       (let [v (.. "*." v)]
+         (if exts
+             (.. exts "," v)
+             v))))
 
 (fn axr-main.on_game_start []
   ;; Fetch a filesystem handle
   (var fs (getFS))
+
+  (print "extensions:" extensions)
 
   ;; List scripts recursively
   (var flist (fs:file_list_open_ex "$game_scripts$" FS.FS_ListFiles extensions))
 
   ;; Accumulate on_game_start functions,
   ;; loading modules in the process
-  (var start
-       (faccumulate [start #nil
-                     index 0 (- (flist:Size) 1)]
+  (var starts
+       (fcollect [index 0 (- (flist:Size) 1)]
          (case-try (flist:GetAt index)
            (where file (> (file:Size) 0))
            (file:NameShort)
            
-           (where file_name (not (. ignore file_name)))
-           (file_name:match PATTERN-FILE-PATH)
+           (where file-name (not (. ignore file-name)))
+           (file-name:match PATTERN-FILE-PATH)
            
            (path name ext)
-           (let [file_name (string.gsub (.. path name) "\\" "/")]
-             (pcall require file_name))
+           (let [file-name (string.gsub (.. path name) "\\" "/")]
+             (pcall require file-name))
            
            (true { :on_game_start on-game-start })
-           (let [old-start start]
-             #(do (old-start)
-                  (on-game-start)))
+           on-game-start
 
            (catch _ start))))
 
   ;; Call the result
-  (start))
+  (each [_ start (ipairs starts)]
+    (start)))
 
 {}
-
-
