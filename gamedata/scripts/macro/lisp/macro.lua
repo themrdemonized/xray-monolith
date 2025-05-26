@@ -28,6 +28,8 @@ local function compile(src, namespace_name)
          fennel["macro-loaded"][namespace_name] = out
          package.loaded[namespace_name] = out
       end
+
+      return out
    end
 end
 

@@ -136,10 +136,7 @@ local function compile(src, namespace_name)
          end
       end
 
-      if namespace_name and out then
-         -- Load the final result as a package
-         package.loaded[namespace_name] = out
-      end
+      return out
    end
 end
 
