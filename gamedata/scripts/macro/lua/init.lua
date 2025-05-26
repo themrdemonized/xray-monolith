@@ -12,10 +12,12 @@ end
 local function expand(src, namespace_name)
    print("* lua: expanding", namespace_name)
 
-   local res, mod = pcall(loadstring, src, namespace_name)
-   if not res then
-      handle_error("error loading " .. namespace_name)(mod)
-   end
+   local _, mod = xpcall(
+      function()
+         return loadstring(src, namespace_name)
+      end,
+      handle_error("error loading " .. namespace_name)
+   )
 
    local mac = setfenv(
       mod,
