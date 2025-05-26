@@ -11,7 +11,7 @@ local function handle_error(msg)
    return function(err)
       err = "! lisp_macro: "
          .. msg .. ":\n\n"
-         .. debug.traceback(err .. "\n", 2)
+         .. fennel.traceback(err .. "\n", 3)
          .. "\n"
       print(err)
       error(err)
@@ -22,15 +22,15 @@ local function compile(src, namespace_name)
    print("* lisp_macro: compiling " .. namespace_name)
 
    return function()
-      local res, out = pcall(
-         fennel.eval,
-         src,
-         COMPILER_OPTS
+      local _, out = xpcall(
+         function()
+            return fennel.eval(
+               src,
+               COMPILER_OPTS
+            )
+         end,
+         handle_error("error compiling" .. namespace_name)
       )
-
-      if not res then
-         handle_error("error compiling" .. namespace_name)(out)
-      end
 
       if namespace_name then
          fennel["macro-loaded"][namespace_name] = out

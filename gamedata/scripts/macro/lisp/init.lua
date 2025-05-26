@@ -55,7 +55,7 @@ local function handle_error(msg)
    return function(err)
       err = "! lisp: "
          .. msg .. ":\n\n"
-         .. debug.traceback(err .. "\n", 2)
+         .. fennel.traceback(err .. "\n", 3)
          .. "\n"
       print(err)
       error(err)
@@ -107,19 +107,22 @@ local function compile(src, namespace_name)
       }
    )
 
-   local compiled, lua = pcall(
-      fennel.compile,
-      ast,
-      make_compiler_opts(env)
+   local _, lua = xpcall(
+      function()
+         return fennel.compile(
+            ast,
+            make_compiler_opts(env)
+         )
+      end,
+      handle_error("error compiling " .. namespace_name)
    )
-   if not compiled then
-      handle_error("error compiling " .. namespace_name)(lua)
-   end
 
-   local loaded, mod = pcall(fennel.loadCode, lua, env, namespace_name)
-   if not loaded then
-      handle_error("error loading " .. namespace_name)(mod)
-   end
+   local _, mod = xpcall(
+      function()
+         return fennel.loadCode(lua, env, namespace_name)
+      end,
+      handle_error("error loading " .. namespace_name)
+   )
 
    return function()
       -- Evaluate our modified AST with the unlocalizer callback in scope
