@@ -25,6 +25,17 @@ local G = setmetatable(
    }
 )
 
+local function handle_error(msg)
+   return function(err)
+      err = "! wua: "
+         .. msg .. ":\n\n"
+         .. debug.traceback(err .. "\n", 2)
+         .. "\n"
+      print(err)
+      error(err)
+   end
+end
+
 local function compile(src, namespace_name)
    local is_g = namespace_name == "_G"
 
@@ -48,26 +59,21 @@ local function compile(src, namespace_name)
       end
    end
 
-
    if namespace_name then
-      src = [[
-local script_name = function()
-return _PACKAGE
-end
-      ]] .. src
+      src = "local script_name = function() return _PACKAGE end " .. src
    end
 
-   src = [[
-local this = _M
-   ]] .. src
+   src = "local this = _M " .. src
 
-   local mod = setfenv(
-      require("macro").load_src(src, namespace_name),
-      env
-   )
+   local res, mod = pcall(loadstring, src, namespace_name)
+   if not res then
+      handle_error("error loading " .. namespace_name)(mod)
+   end
+
+   local mac = setfenv(mod, env)
 
    return function()
-      mod()
+      xpcall(mac, handle_error("error evaluating " .. namespace_name))
       return env
    end
 end
