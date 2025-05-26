@@ -32,8 +32,6 @@
   ;; Fetch a filesystem handle
   (var fs (getFS))
 
-  (print "extensions:" extensions)
-
   ;; List scripts recursively
   (var flist (fs:file_list_open_ex "$game_scripts$" FS.FS_ListFiles extensions))
 
