@@ -6,7 +6,7 @@
                _ v (ipairs vals)]
     (or contains (= val v))))
 
-(var syms [:var :set :local :fn :lambda])
+(var syms [:var :set :local :fn :lambda :λ])
 (fn unlocalize-form [with names form]
   "If the head of FORM is one of SYMS and its NAME is in NAMES,
    append a call to (WITH :NAME NAME)."
