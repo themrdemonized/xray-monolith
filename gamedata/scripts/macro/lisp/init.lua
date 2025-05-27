@@ -9,8 +9,11 @@ local COMPILER_OPTS = {
    ["error-pinpoint"] = false,
 }
 
-local function make_compiler_opts(env)
-   local opts = { env = env }
+local function make_compiler_opts(env, filename)
+   local opts = {
+      env = env,
+      filename = filename,
+   }
    for k,v in pairs(COMPILER_OPTS) do
       opts[k] = v
    end
@@ -35,20 +38,6 @@ end
 
 local function list(lst)
    return form("[" .. table.concat(lst, " ") .. "]")
-end
-
-local function eval_ast(ast, opts, namespace_name)
-   local env = opts.env
-   opts.env = nil
-
-   return fennel.loadCode(
-      fennel.compile(
-         ast,
-         opts
-      ),
-      env,
-      namespace_name
-   )()
 end
 
 local function handle_error(msg)
@@ -111,7 +100,7 @@ local function compile(src, namespace_name)
       function()
          return fennel.compile(
             ast,
-            make_compiler_opts(env)
+            make_compiler_opts(env, namespace_name)
          )
       end,
       handle_error("error compiling " .. namespace_name)
