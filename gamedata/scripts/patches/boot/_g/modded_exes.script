@@ -666,3 +666,4 @@ _G.IsLauncher = function(o, c)
 	}
 	return c and launcher[c] or false
 end
+
