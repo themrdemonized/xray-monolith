@@ -65,12 +65,10 @@ local function compile(src, namespace_name)
 
    src = "local this = _M " .. src
 
-   local _, mod = xpcall(
-      function()
-         return loadstring(src, namespace_name)
-      end,
-      handle_error("error loading " .. namespace_name)
-   )
+   local mod, err = loadstring(src, namespace_name)
+   if not mod then
+      handle_error("error loading " .. namespace_name)(err)
+   end
 
    local mac = setfenv(mod, env)
 
