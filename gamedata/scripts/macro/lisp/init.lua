@@ -44,7 +44,7 @@ local function handle_error(msg)
    return function(err)
       err = "! lisp: "
          .. msg .. ":\n\n"
-         .. fennel.traceback(err .. "\n", 3)
+         .. fennel.traceback(err .. "\n", 2)
          .. "\n"
       print(err)
       error(err)
