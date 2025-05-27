@@ -30,16 +30,12 @@ end
 function _COMPILER(src, namespace_name)
    print("* init: loading", namespace_name)
 
-   local res, out = pcall(
-      loadstring,
-      src,
-      namespace_name
-   )
+   local out, err = loadstring(src, namespace_name)
 
-   if not res then
+   if not out then
       error(
          "! init: error loading " .. namespace_name .. ":\n"
-         .. out
+         .. err
       )
    end
 
@@ -150,6 +146,8 @@ local function io_loaders(name)
          end
          if ty == "string" then
             err = err .. out
+         elseif ty == "nil" then
+            error("No such module: " .. name)
          else
             error("Loader returned invalid value: " .. tostring(out))
          end
