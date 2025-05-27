@@ -47,7 +47,8 @@
            (file-name:match PATTERN-FILE-PATH)
            
            (path name ext)
-           (let [file-name (string.gsub (.. path name) "\\" "/")]
+           (let [file-name (: (: (.. path name) :gsub "\\" "/")
+                              :gsub "/init$" "")]
              (pcall require file-name))
            
            (true { :on_game_start on-game-start })
