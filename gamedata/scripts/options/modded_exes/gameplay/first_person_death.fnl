@@ -1,0 +1,14 @@
+(var {: page
+      : list-bool
+      : track}
+     (require :options/builder))
+
+(page :id :first_person_death 
+      (list-bool :id :first_person_death)
+      (track :id :first_person_death_position_smoothing
+             :def 6
+             :step 1)
+      (track :id :first_person_death_direction_smoothing
+             :def 12
+             :step 1))
+
