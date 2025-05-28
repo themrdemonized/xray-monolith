@@ -4,6 +4,7 @@ local MOVED = {
    aaa_sound_object_patch = "patches/_g/sound_object",
    axr_beh_patches = "patches/axr_beh/ghentuong",
    class_registrator_modded_exes = "amx/registrator",
+   dxml_core = "dxml",
    options_builder = "options/builder",
    options_modded_exes = "options/modded_exes",
    options_modded_exes_visual = "options/modded_exes/visual",

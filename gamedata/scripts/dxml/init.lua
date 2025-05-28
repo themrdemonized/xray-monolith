@@ -1,5 +1,7 @@
 -- DXML Core script
 
+local slaxml = require("slaxml")
+
 -- IMPORTS
 local string_find 	= string.find
 local string_format	= string.format
@@ -11,7 +13,7 @@ local table_sort 	= table.sort
 -- Patches
 local xmlCallbacks = {}
 
-RSC = _G.RegisterScriptCallback
+local RSC = _G.RegisterScriptCallback
 _G.RegisterScriptCallback = function(name,func_or_userdata)
 	if name == "on_xml_read" then
 		for i = #xmlCallbacks, 1, -1 do
@@ -27,7 +29,7 @@ _G.RegisterScriptCallback = function(name,func_or_userdata)
 	RSC(name, func_or_userdata)
 end
 
-URSC = _G.UnregisterScriptCallback
+local URSC = _G.UnregisterScriptCallback
 _G.UnregisterScriptCallback = function(name,func_or_userdata)
 	if name == "on_xml_read" then
 		for i = #xmlCallbacks, 1, -1 do
@@ -41,7 +43,7 @@ _G.UnregisterScriptCallback = function(name,func_or_userdata)
 	URSC(name, func_or_userdata)
 end
 
-function xmlDispatch(xml_file_name, xml_obj, flags)
+local function xmlDispatch(xml_file_name, xml_obj, flags)
 	for i, v in ipairs(xmlCallbacks) do
 		v(xml_file_name, xml_obj, flags)
 	end
@@ -168,10 +170,10 @@ do
 	for	it=0, f_cnt-1 do
 		local file = flist:GetAt(it)
 		local file_name = file:NameShort()
-		--printf("%s size=%s",file_name,file:Size())
+		printf("%s size=%s",file_name,file:Size())
 		if (file:Size() > 0 and ignore[file_name] ~= true) then
 			file_name = file_name:sub(0,file_name:len()-7)
-			if (_G[file_name] and _G[file_name].on_xml_read) then
+			if (require(file_name) and require(file_name).on_xml_read) then
 				printf("gathering %s.script", file_name)
 				size_t = size_t + 1 
 				t[size_t] = file_name -- load all scripts first
@@ -181,7 +183,7 @@ do
 	table_sort(t)
 	for i=1, #t do
 		local file_name = t[i]
-		_G[file_name].on_xml_read()
+		require(file_name).on_xml_read()
 	end
 
 	-- Force load some other non modxml scripts
@@ -192,8 +194,8 @@ do
 	table_sort(force_load)
 
 	for _, k in ipairs(force_load) do
-		if (_G[k] and _G[k].on_xml_read) then
-			local s = _G[k]
+           if (require(k) and require(k).on_xml_read) then
+                        local s = require(k)
 			s.on_xml_read()
 		end
 	end
@@ -235,7 +237,7 @@ end
 local parser = slaxml.SLAXML()
 local parser_options = {stripWhitespace = true}
 
-function xml_object(xml_file_name, xml_string, xml_table)
+local function xml_object(xml_file_name, xml_string, xml_table)
 	local t = {
 		xml_string = xml_string,
 		xml_table = xml_table,
@@ -1000,7 +1002,7 @@ end
 
 -- UTILS
 -- Open file, apply dxml edits and return the xml_obj for custom work with files outside of callback
-function openXMLFile(xml_file_name)
+local function openXMLFile(xml_file_name)
 	local function loadFile(path)
 		local file_reader = getFS():r_open('$game_config$', path)
 		if file_reader then
@@ -1035,3 +1037,9 @@ function openXMLFile(xml_file_name)
 	xmlDispatch(xml_file_name, xml_obj, {})
 	return xml_obj
 end
+
+return {
+   xmlDispatch = xmlDispatch,
+   xml_object = xml_object,
+   openXMLFile = openXMLFile,
+}
