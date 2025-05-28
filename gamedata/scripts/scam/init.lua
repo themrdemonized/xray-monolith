@@ -1,4 +1,4 @@
-print("Instigating S.C.A.M.")
+--- Script Compilers And Macros
 
 local compiler = require(_PACKAGE .. "/compiler")
 
