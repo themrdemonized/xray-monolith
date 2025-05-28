@@ -1,43 +1,10 @@
-local MOVED = {
-   _g_patches = "patches/boot/_g/modded_exes",
-   callbacks_gameobject = "patches/boot/_g/callbacks_gameobject",
-   aaa_sound_object_patch = "patches/_g/sound_object",
-   axr_beh_patches = "patches/axr_beh/ghentuong",
-   class_registrator_modded_exes = "amx/registrator",
-   dxml_core = "dxml",
-   options_builder = "options/builder",
-   options_modded_exes = "options/modded_exes",
-   options_modded_exes_visual = "options/modded_exes/visual",
-   options_modded_exes_ui_hud = "options/modded_exes/visual/ui_hud",
-   options_modded_exes_crosshair = "options/modded_exes/visual/crosshair",
-   options_modded_exes_3d_scopes = "options/modded_exes/visual/3d_scopes",
-   options_modded_exes_hdr10 = "options/modded_exes/visual/hdr10",
-   options_modded_exes_particles = "options/modded_exes/visual/particles",
-   options_modded_exes_wallmarks = "options/modded_exes/visual/wallmarks",
-   options_modded_exes_control = "options/modded_exes/control",
-   options_modded_exes_keyboard = "options/modded_exes/control/keyboard",
-   options_modded_exes_mouse = "options/modded_exes/control/mouse",
-   options_modded_exes_camera = "options/modded_exes/control/camera",
-   options_modded_exes_pda = "options/modded_exes/control/pda",
-   options_modded_exes_sound = "options/modded_exes/sound",
-   options_modded_exes_doppler = "options/modded_exes/sound/doppler",
-   options_modded_exes_gameplay = "options/modded_exes/gameplay",
-   options_modded_exes_3d_ballistics = "options/modded_exes/gameplay/3d_ballistics",
-   options_modded_exes_first_person_death = "options/modded_exes/gameplay/first_person_death",
-   options_modded_exes_monsters = "options/modded_exes/gameplay/monsters",
-   options_modded_exes_aim = "options/modded_exes/gameplay/aim",
-   options_modded_exes_saves = "options/modded_exes/saves",
-   options_modded_exes_crash_saves = "options/modded_exes/saves/crash_saves",
-   options_modded_exes_debug = "options/modded_exes/debug",
-   options_modded_exes_logging = "options/modded_exes/debug/logging",
-   options_modded_exes_metrics = "options/modded_exes/debug/metrics",
-}
+local remap = require("moved").remap
 
 local G = setmetatable(
    {},
    {
       __index = function(_, key)
-         local redir = MOVED[key]
+         local redir = remap[key]
          if redir ~= nil then
             key = redir
          end
