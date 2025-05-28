@@ -1,63 +1,125 @@
-(var axr-main (require :axr_main))
+(var axr_main (require :axr_main))
 
 (var compiler (require :scam/compiler))
 (var PATTERN-FILE-PATH (. compiler :PATTERN_FILE_PATH))
 
 ;; List of files that should not be loaded when searching for on_game_start
 (var ignore
-     {:init.lua true
-      :_G.script true
-      :class_registrator.script true
-      :game_registrator.script true
-      :ui_registrator.script true
-      :ce_new_attachable_item.script true
-      :ce_new_game_dm.script true
-      :sim_faction_brain_human.script true
-      :sim_faction_brain_mutant.script true
-      :ce_switcher.script true
-      :axr_main.script true
-      :lua_help.script true
-      :rx_gl.script true})
+     {:init true
+      :_G true
+      :class_registrator true
+      :game_registrator true
+      :ui_registrator true
+      :ce_new_attachable_item true
+      :ce_new_game_dm true
+      :sim_faction_brain_human true
+      :sim_faction_brain_mutant true
+      :ce_switcher true
+      :axr_main true
+      :lua_help true
+      :rx_gl true})
 
-;; Gather file extensions from the compiler and format them as an FS mask
-(var extensions
-     (accumulate [exts nil
-                  _ v (ipairs (compiler.get_extensions))]
-       (let [v (.. "*." v)]
-         (if exts
-             (.. exts "," v)
-             v))))
+(λ get-extensions []
+  "Gather registered extensions from the compiler,
+   and format them into a filesystem mask."
+  (accumulate [exts nil
+               _ v (ipairs (compiler.get_extensions))]
+    (let [v (.. "*." v)]
+      (if exts
+          (.. exts "," v)
+          v))))
 
-(fn axr-main.on_game_start []
-  ;; Fetch a filesystem handle
-  (var fs (getFS))
+(λ list-values [list ?index]
+  "Produce an iterator over the values in `list`,
+   indexing via `.` unless `?index` is specified."
+  (var index (or ?index
+                 #(. $1 $2)))
+  
+  (var i 1)
+  (values
+   (fn [list]
+     (var v (index list i))
+     (set i (+ 1 i))
+     v)
+   list))
 
-  ;; List scripts recursively
-  (var flist (fs:file_list_open_ex "$game_scripts$" FS.FS_ListFiles extensions))
+(λ flist->iter [flist]
+  "Produce an iterator over the paths in `flist`."
+  (list-values
+   flist
+   #(do (var idx (- $2 1))
+        (if (< idx ($1:Size))
+            ($1:GetAt idx)))))
 
-  ;; Accumulate on_game_start functions,
-  ;; loading modules in the process
+(λ iter-map [t f ...]
+  "Map transformer `t` over the iterator defined by function `f`
+   and stateful params `...`."
+  (values
+   (fn [...]
+     (-?> ...
+          (f)
+          (t)))
+   ...))
+
+(λ iter-filter [take? f ...]
+  "Modify the iterator defined by function `f` and stateful params `...`
+   to include only values for which `take?` returns true."
+  (values
+   (fn [...]
+     (var done? false)
+     (var ?out nil)
+     (while (and (not done?)
+                 (= nil out?))
+       (var val (f ...))
+       (if val
+           (do (when (take? val)
+                 (do (set ?out val)
+                     (set done? true))))
+           (set done? true)))
+     ?out)
+   ...))
+
+(λ strip-extension [s]
+  (var (path name _) (: s :match PATTERN-FILE-PATH))
+  (.. path name))
+
+(λ backslashes->slashes [s]
+  "Replace backslashes with slashes in string `s`."
+  (s:gsub "\\" "/"))
+
+(λ strip-/init [s]
+  "Remove any `/init` suffix that may be present on `s`"
+  (s:gsub "/init$" ""))
+
+(λ file-empty? [file]
+  (= (file:Size) 0))
+
+(λ iter-scripts [fs extensions]
+  (var flist (: fs :file_list_open_ex
+                "$game_scripts$" FS.FS_ListFiles extensions))
+
+  (->> (flist->iter flist)
+       
+       (iter-filter
+        #(not (file-empty? $1)))
+       
+       (iter-map
+        #(-> $1
+             (: :NameShort)
+             (strip-extension)
+             (backslashes->slashes)
+             (strip-/init)))))
+
+(fn axr_main.on_game_start []
   (var starts
-       (fcollect [index 0 (- (flist:Size) 1)]
-         (case-try (flist:GetAt index)
-           (where file (> (file:Size) 0))
-           (file:NameShort)
-           
-           (where file-name (not (. ignore file-name)))
-           (file-name:match PATTERN-FILE-PATH)
-           
-           (path name ext)
-           (let [file-name (: (: (.. path name) :gsub "\\" "/")
-                              :gsub "/init$" "")]
-             (pcall require file-name))
-           
-           (true { :on_game_start on-game-start })
-           on-game-start
-
-           (catch _ start))))
-
+       (icollect [res out (->> (iter-scripts (getFS) (get-extensions))
+                               (iter-filter #(not (. ignore $1)))
+                               (iter-map #(pcall require $1)))]
+         (case (values res out)
+           (true {:on_game_start start}) start)))
+  
   ;; Call the result
-  (each [_ start (ipairs starts)]
+  (each [start (list-values starts)]
     (start)))
 
 {}
