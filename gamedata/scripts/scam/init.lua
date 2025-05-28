@@ -1,14 +1,9 @@
 print("Instigating S.C.A.M.")
 
-require("scam/sandbox")
+local compiler = require(_PACKAGE .. "/compiler")
 
-local compiler = require("scam/compiler")
-require("macro")
-compiler.set_default_macro(require("macro/wua").expand)
-
-require("_G")
-
-require("scam/classes")
-require("scam/scripts")
-
-return {}
+return {
+   compiler = compiler,
+   lua = require(_PACKAGE .. "/lua"),
+   lisp = require(_PACKAGE .. "/lisp"),
+}

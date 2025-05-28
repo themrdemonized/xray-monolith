@@ -1,5 +1,5 @@
-local unlocalize = require("macro/wua/unlocalize").unlocalize
-local compile = require("macro/wua/compile").compile
+local unlocalize = require(_PACKAGE .. "/unlocalize").unlocalize
+local compile = require(_PACKAGE .. "/compile").compile
 
 local function expand(src, namespace_name)
    print("* wua: expanding", namespace_name)

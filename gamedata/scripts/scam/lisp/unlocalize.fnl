@@ -1,4 +1,4 @@
-; =*= lang: macro/lisp/macro.compile =*=
+; =*= lang: scam/lisp/macro.compile =*=
 
 (fn contains? [vals val]
   "Returns true if VAL is present in VALS."

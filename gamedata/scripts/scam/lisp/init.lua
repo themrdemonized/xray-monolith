@@ -54,7 +54,7 @@ end
 local function compile(src, namespace_name)
    print("* lisp: compiling " .. namespace_name)
 
-   local unlocs = require("scam/unlocalize").get(namespace_name)
+   local unlocs = require("modded_exes/unlocalize").get(namespace_name)
 
    -- Compile the given source to Fennel AST
    local ast = forms(src)

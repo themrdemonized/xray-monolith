@@ -1,30 +1,6 @@
--- Ensure _G loads from script next time we require it
-package.loaded._G = nil
-
--- Emplace working print function
-function print(...)
-   local str = ""
-   for _,v in ipairs({...}) do
-      if #str > 0 then
-         str = str .. " "
-      end
-
-      local s = nil
-      if (type(v) == 'userdata') then
-         s = 'userdata'
-      else
-         s = tostring(v)
-      end
-
-      str = str .. s
-   end
-
-   if (log) then
-      log(str)
-   else
-      get_console():execute("load ~#debug msg:" .. str)
-   end
-end
+--- Lua Entrypoint
+--- Bootstraps the machinery necessary for require to work,
+--- then uses it to hand control to the actual entrypoint
 
 -- Emplace boot-time passthrough compiler
 function _COMPILER(src, namespace_name)
@@ -50,17 +26,6 @@ function _COMPILER(src, namespace_name)
       )
    )
 end
-
--- Define script load paths
-function _REGISTER_PATHS(...)
-   local ps = {...}
-   for i=#ps,1,-1 do
-      p = getFS():update_path("$game_scripts$", ps[i])
-      package.path = p .. ";" .. package.path
-   end
-end
-
-_REGISTER_PATHS("?.lua", "?/init.lua")
 
 -- Define xray script reader
 local function read_fs(name)
@@ -161,31 +126,42 @@ end
 -- Replace the loader list with the preloader plus our memoized IO loader
 package.loaders = { preload_loader, io_loaders }
 
--- Extend require with path support
-function function_object(str)
-   local path = {}
-   for v in string.gmatch(str, "[^%.]+") do
-      table.insert(path, v)
+-- Define load path registrator
+function _REGISTER_PATHS(...)
+   local ps = {...}
+   for i=#ps,1,-1 do
+      p = getFS():update_path("$game_scripts$", ps[i])
+      package.path = p .. ";" .. package.path
    end
-
-   local mod_name = table.remove(path, 1)
-
-   local mod = nil
-   if mod_name == "_G" then
-      mod = _G
-   elseif _G[mod_name] then
-      mod = _G[mod_name]
-   else
-      mod = require(mod_name)
-   end
-
-   local val = mod
-   for _, seg in ipairs(path) do
-      val = val[seg]
-   end
-
-   return val
 end
 
--- Pass control to scam init
-require("scam")
+-- Register lua paths
+_REGISTER_PATHS("?.lua", "?/init.lua")
+
+-- Emplace working print function
+function print(...)
+   local str = ""
+   for _,v in ipairs({...}) do
+      if #str > 0 then
+         str = str .. " "
+      end
+
+      local s = nil
+      if (type(v) == 'userdata') then
+         s = 'userdata'
+      else
+         s = tostring(v)
+      end
+
+      str = str .. s
+   end
+
+   if (log) then
+      log(str)
+   else
+      get_console():execute("load ~#debug msg:" .. str)
+   end
+end
+
+-- Pass control to modded exes entrypoint
+require("modded_exes")
