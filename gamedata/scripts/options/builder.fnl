@@ -1,95 +1,12 @@
 ;;; Smart constructor API for options menu data tables
 
-;;; Type checking
-
-(λ nil? [?arg]
-  "Return true if ARG is nil."
-  (= (type ?arg) :nil))
-
-(λ number? [?arg]
-  "Return true if ARG is a number."
-  (= (type ?arg) :number))
-
-(λ string? [?arg]
-  "Return true if ARG is a string."
-  (= (type ?arg) :string))
-
-;; Alias to string, since symbols are strings in this lisp
-(var symbol? string?)
-
-(λ table? [?arg]
-  "Return true if ARG is a table."
-  (= (type ?arg) :table))
-
-(λ list? [?arg]
-  "Return true if ARG is a list."
-  (and (table? ?arg)
-       (or (= 0 (length ?arg))
-           (number? (next ?arg)))))
-
-(λ plist? [?arg]
-  "Return true if ARG is a plist."
-  (and (list? ?arg)
-       (= 0 (% (length ?arg) 2))))
-
-(λ even? [number]
-  ;; Returns true if NUMBER is even.
-  (assert (number? number))
-  (= 0 (% number 2)))
-
-(λ odd? [number]
-  ;; Returns true if NUMBER is odd.
-  (assert (number? number))
-  (= 1 (% number 2)))
-
-(λ join [& tbls]
-  "Flatten the list of tables TBLS into a single table."
-  (accumulate [dest {}
-               _ tbl (ipairs tbls)]
-    (accumulate [d dest
-                 k v (pairs tbl)]
-      (do (set (. d k) v)
-          d))))
-
-(λ plist [& args]
-  "Gather variadic ARGS into a property list.
-   This is a lisp semantic; plists are structurally equivalent to Lua lists.
-   We use a named form to distinguish them from associative lists ('alists'.)"
-  args)
-
-(λ plist->table [plist]
-  "Treat PLIST as a flat list of key-value pairs to construct a table."
-  (assert (plist? plist)
-          (.. "PLIST is not a valid plist: " (tostring plist)))
-  (case (length plist)
-    0 {}
-    1 (error (.. "odd-numbered plist input: " (tostring (. plist 1))))
-    _ (do (var k (table.remove plist 1))
-          (var v (table.remove plist 1))
-          (var pair {k v})
-          (if (> (length plist) 0)
-              (join pair
-                    (plist->table plist))
-              pair))))
-
-(λ plist->header+list [plist]
-  "Remove symbol-value pairs from PLIST until a non-symbol is reached,
-   then return the resulting header and list."
-  (var header {})
-  (while (symbol? (. plist 1))
-    (var k (table.remove plist 1))
-    (var v (table.remove plist 1))
-    (set (. header k) v))
-  (values header plist))
-
-(λ table->plist [tbl]
-  "Flatten TBL into a plist."
-  (assert (table? tbl)
-          (.. "TBL is not a valid table: " (tostring tbl)))
-  (accumulate [plist [] k v (pairs tbl)]
-    (do (table.insert plist k)
-        (table.insert plist v)
-        plist)))
+(var {: nil?
+      : number?
+      : string?
+      : table?
+      : plist->table
+      : plist->header+list}
+     (require :prelude/fennel))
 
 ;;; Controls
 

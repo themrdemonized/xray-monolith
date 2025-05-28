@@ -1,3 +1,11 @@
+(var {: list-values
+      : iter-map
+      : iter-filter
+      : flist->iter
+      : file-empty?
+      : file-not-empty?}
+     (require :prelude/fennel))
+
 (var axr_main (require :axr_main))
 
 (var {:compiler {:PATTERN_FILE_PATH PATTERN-FILE-PATH
@@ -34,56 +42,6 @@
    and format them into a filesystem mask."
   (format-extensions (compiler.get_extensions)))
 
-(λ list-values [list ?index]
-  "Produce an iterator over the values in `list`,
-   indexing via `.` unless `?index` is specified."
-  (var index (or ?index
-                 #(. $1 $2)))
-  
-  (var i 1)
-  (values
-   (fn [list]
-     (var v (index list i))
-     (set i (+ 1 i))
-     v)
-   list))
-
-(λ flist->iter [flist]
-  "Produce an iterator over the paths in `flist`."
-  (list-values
-   flist
-   #(do (var idx (- $2 1))
-        (if (< idx ($1:Size))
-            ($1:GetAt idx)))))
-
-(λ iter-map [t f ...]
-  "Map transformer `t` over the iterator defined by function `f`
-   and stateful params `...`."
-  (values
-   (fn [...]
-     (-?> ...
-          (f)
-          (t)))
-   ...))
-
-(λ iter-filter [take? f ...]
-  "Modify the iterator defined by function `f` and stateful params `...`
-   to include only values for which `take?` returns true."
-  (values
-   (fn [...]
-     (var done? false)
-     (var ?out nil)
-     (while (and (not done?)
-                 (= nil out?))
-       (var val (f ...))
-       (if val
-           (do (when (take? val)
-                 (do (set ?out val)
-                     (set done? true))))
-           (set done? true)))
-     ?out)
-   ...))
-
 (λ strip-extension [s]
   "Remove any file extension from path `s`."
   (var (path name _) (: s :match PATTERN-FILE-PATH))
@@ -96,14 +54,6 @@
 (λ strip-/init [s]
   "Remove any `/init` suffix that may be present on `s`"
   (s:gsub "/init$" ""))
-
-(λ file-empty? [file]
-  "Return true if `file` is empty."
-  (= (file:Size) 0))
-
-(λ file-not-empty? [file]
-  "Return true if `file` is non-empty."
-  (not (file-empty? file)))
 
 (λ iter-files [fs path ?extensions ?flags]
   (var flags (or ?flags 0))
