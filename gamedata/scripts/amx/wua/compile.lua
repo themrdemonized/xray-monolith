@@ -56,7 +56,7 @@ local G = setmetatable(
 
 local function handle_error(msg)
    return function(err)
-      err = "! wua: "
+      err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
          .. debug.traceback(err .. "\n", 2)
          .. "\n"

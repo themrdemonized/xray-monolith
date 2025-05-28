@@ -2,9 +2,12 @@
 --- Bootstraps the machinery necessary for require to work,
 --- then uses it to hand control to the actual entrypoint
 
+-- Emplace literal package name
+_PACKAGE = "init"
+
 -- Emplace boot-time passthrough compiler
 function _COMPILER(src, namespace_name)
-   print("* init: loading", namespace_name)
+   print("* " .. _PACKAGE .. ": loading", namespace_name)
 
    local out, err = loadstring(src, namespace_name)
 
@@ -164,4 +167,4 @@ function print(...)
 end
 
 -- Pass control to modded exes entrypoint
-require("modded_exes")
+require("amx")

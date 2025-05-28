@@ -34,7 +34,7 @@ local function unlocalize(src, namespace_name)
       return src
    end
    
-   local unlocalizer = require("modded_exes/unlocalize").get(namespace_name)
+   local unlocalizer = require("amx/unlocalize").get(namespace_name)
    if not unlocalizer then
       return src
    end

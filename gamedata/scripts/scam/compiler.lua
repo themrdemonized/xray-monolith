@@ -39,7 +39,7 @@ function _COMPILER(src, namespace_name, script_name)
 end
 
 local function register_extension(k, v)
-   print("compiler: registering script extension: " .. k)
+   print(_PACKAGE .. ": registering script extension: " .. k)
    _REGISTER_PATHS(
       "?." .. k,
       "?/init." .. k

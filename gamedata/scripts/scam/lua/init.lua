@@ -1,6 +1,6 @@
 local function handle_error(msg)
    return function(err)
-      err = "! lua: "
+      err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
          .. debug.traceback(err .. "\n", 2)
          .. "\n"
@@ -10,7 +10,7 @@ local function handle_error(msg)
 end
 
 local function expand(src, namespace_name)
-   print("* lua: expanding", namespace_name)
+   print("* " .. _PACKAGE .. ": expanding", namespace_name)
 
    local mod, err = loadstring(src, namespace_name)
    if not mod then
