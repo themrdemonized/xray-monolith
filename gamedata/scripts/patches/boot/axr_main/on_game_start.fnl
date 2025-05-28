@@ -1,10 +1,16 @@
-(var {: list-values
-      : iter-map
-      : iter-filter
-      : flist->iter
-      : file-empty?
-      : file-not-empty?}
-     (require :prelude/fennel))
+(var {:list
+      {: list-values}
+      
+      :iterator
+      {: iter-map
+       : iter-filter}
+      
+      :file
+      {: flist->iter
+       : file-empty?
+       : file-not-empty?}}
+     
+     (require :prelude))
 
 (var axr_main (require :axr_main))
 
