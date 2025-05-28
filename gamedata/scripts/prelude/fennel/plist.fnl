@@ -3,7 +3,10 @@
 (var {: table?
       : list?
       : symbol?}
-     (require :prelude/type))
+     (require :prelude/fennel/type))
+
+(var {: join}
+     (require :prelude/fennel/table))
 
 (λ plist? [?arg]
   "Return true if ARG is a plist."

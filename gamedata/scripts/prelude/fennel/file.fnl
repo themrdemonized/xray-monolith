@@ -1,5 +1,7 @@
 ;; Files
 
+(var {: list-values} (require :prelude/fennel/list))
+
 (λ file-empty? [file]
   "Return true if `file` is empty."
   (= (file:Size) 0))
@@ -16,6 +18,6 @@
         (if (< idx ($1:Size))
             ($1:GetAt idx)))))
 
-{: flist->iter
- : file-empty?
- : file-not-empty?}
+{: file-empty?
+ : file-not-empty?
+ : flist->iter}

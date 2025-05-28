@@ -1,14 +1,14 @@
-(var {:list
-      {: list-values}
-      
-      :iterator
-      {: iter-map
-       : iter-filter}
-      
-      :file
-      {: flist->iter
-       : file-empty?
-       : file-not-empty?}}
+(var {:fennel {:list
+               {: list-values}
+               
+               :iterator
+               {: iter-map
+                : iter-filter}
+               
+               :file
+               {: flist->iter
+                : file-empty?
+                : file-not-empty?}} }
      
      (require :prelude))
 

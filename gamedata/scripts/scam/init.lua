@@ -5,5 +5,5 @@ local compiler = require(_PACKAGE .. "/compiler")
 return {
    compiler = compiler,
    lua = require(_PACKAGE .. "/lua"),
-   lisp = require(_PACKAGE .. "/lisp"),
+   lisp = require(_PACKAGE .. "/fennel"),
 }

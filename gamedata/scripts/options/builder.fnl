@@ -1,12 +1,13 @@
 ;;; Smart constructor API for options menu data tables
 
-(var {:fennel {:types {: nil?
-                       : number?
-                       : string?
-                       : table?}
+(var {:fennel {:type {: nil?
+                      : number?
+                      : string?
+                      : table?}
 
                :plist {: plist->table
-                       : plist->header+list}}}
+                       : plist->header+list
+                       : table->plist}}}
      (require :prelude))
 
 ;;; Controls

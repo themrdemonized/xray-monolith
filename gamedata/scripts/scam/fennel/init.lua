@@ -42,7 +42,7 @@ end
 
 local function handle_error(msg)
    return function(err)
-      err = "! lisp: "
+      err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
          .. fennel.traceback(err .. "\n", 2)
          .. "\n"
@@ -52,7 +52,7 @@ local function handle_error(msg)
 end
 
 local function compile(src, namespace_name)
-   print("* lisp: compiling " .. namespace_name)
+   print("* " .. _PACKAGE .. ": compiling " .. namespace_name)
 
    local unlocs = require("modded_exes/unlocalize").get(namespace_name)
 
@@ -134,7 +134,7 @@ local function compile(src, namespace_name)
       for k,v in pairs(unlocals) do
          -- Consider already-present keys as more relevant than our unlocal
          if out[k] == nil then
-            print("lisp: unlocalized", k, v)
+            print(_PACKAGE .. ": unlocalized", k, v)
             out[k] = v
          end
       end

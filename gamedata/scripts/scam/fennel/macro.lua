@@ -9,7 +9,7 @@ local COMPILER_OPTS = {
 
 local function handle_error(msg)
    return function(err)
-      err = "! lisp_macro: "
+      err = "! " .. _PACKAGE .. "_macro: "
          .. msg .. ":\n\n"
          .. fennel.traceback(err .. "\n", 3)
          .. "\n"
@@ -19,7 +19,7 @@ local function handle_error(msg)
 end
 
 local function compile(src, namespace_name)
-   print("* lisp_macro: compiling " .. namespace_name)
+   print("* " .. _PACKAGE .. "_macro: compiling " .. namespace_name)
 
    return function()
       local _, out = xpcall(
