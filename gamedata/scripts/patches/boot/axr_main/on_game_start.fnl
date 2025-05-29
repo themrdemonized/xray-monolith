@@ -5,9 +5,6 @@
       {: iter-map
        : iter-filter}
       
-      :file
-      {: format-compiler-extensions}
-      
       :package
       {: iter-packages}}
      
@@ -35,14 +32,9 @@
       :lua_help true
       :rx_gl true})
 
-(λ iter-scripts [fs extensions]
-  (iter-packages fs "$game_scripts$" extensions))
-
 (fn axr_main.on_game_start []
   (var starts
-       (icollect [res out (->> (iter-scripts
-                                (getFS)
-                                (format-compiler-extensions))
+       (icollect [res out (->> (iter-packages)
                                (iter-filter #(not (. ignore $1)))
                                (iter-map #(pcall require $1)))]
          (case (values res out)

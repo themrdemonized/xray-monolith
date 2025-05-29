@@ -23,4 +23,7 @@
  (require (.. _PACKAGE :/package))
 
  :string
- (require (.. _PACKAGE :/string))}
+ (require (.. _PACKAGE :/string))
+
+ :path
+ (require (.. _PACKAGE :/path))}

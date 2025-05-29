@@ -3,8 +3,12 @@
      (require :prelude/fennel/iterator))
 
 (var {: file-not-empty?
-      : flist->iter}
+      : flist->iter
+      : format-compiler-extensions}
      (require :prelude/fennel/file))
+
+(var {: path-includes?}
+     (require :prelude/fennel/path))
 
 (var {:PATTERN_FILE_PATH PATTERN-FILE-PATH}
      (require :scam/compiler))
@@ -23,27 +27,39 @@
   (s:gsub "/init$" ""))
 
 (λ path->package [s]
+  "Convert string path `s` into a package name."
   (-> s
       (strip-extension)
       (backslashes->slashes)
       (strip-/init)))
 
 (λ file->package [file]
+  "Retrieve the package name for file handle `file`."
   (-> file
       (: :NameShort)
       (path->package)))
 
-(λ iter-packages [fs path ?extensions ?flags]
+(λ iter-files [fs path extensions ?flags]
   (var flags (or ?flags 0))
   (set flags (bor FS.FS_ListFiles flags))
-  
-  (var flist (fs:file_list_open_ex path flags ?extensions))
+  (flist->iter (fs:file_list_open_ex path flags extensions)))
 
-  (->> flist
-       (flist->iter)
+(λ iter-packages []
+  "Produce an iterator over all script packages in the filesystem."
+  (->> (iter-files (getFS)
+                   "$game_scripts$"
+                   (format-compiler-extensions)
+                   FS.FS_ListFiles)
        (iter-filter file-not-empty?)
        (iter-map file->package)))
 
+(λ iter-package-path [path]
+  "Produce an iterator over packages included in the unix-style path `path`."
+  (->> (iter-packages)
+       (iter-filter (path-includes? path))))
+
 {: path->package
  : file->package
- : iter-packages}
+ : iter-files
+ : iter-packages
+ : iter-package-path}

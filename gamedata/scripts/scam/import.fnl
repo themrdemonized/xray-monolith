@@ -1,47 +1,43 @@
 ;; Imports
-(var {: format-compiler-extensions}
-     (require :prelude/fennel/file))
-
-(var {: iter-packages}
+(var {: iter-package-path}
      (require :prelude/fennel/package))
 
-(var {: iter-filter
-      : iter-zip}
-     (require :prelude/fennel/iterator))
+(λ relative-path [env path]
+  "If `path` doesn't have a leading /, prepend the path from `env`."
+  (or (and (path:match "^/") path)
+      (.. (. env :_PACKAGE) :/ path)))
 
-(var {: list-values}
-     (require :prelude/fennel/list))
+(λ fixup-_G [path]
+  "Return _G if `path` is _g, otherwise return `path`.
+   Avoids namespace mismatch when loading _g.script."
+  (or (and (= path :_g) :_G)
+      path))
 
-(λ filter-path [path file]
-  "Return true if unix-style path `path` includes `file`."
-  ;; Split the path and file into segments and iterate them as pairs
-  (accumulate [equal true
-               [va vb] (iter-zip [(path:gmatch "[^/]+")]
-                                 [(file:gmatch "[^/]+")])
-               &until (not equal)]
-    (and equal ;; All previous segments must match
-         va vb ;; If either result is nil, length mismatch
-         (or (= va :*) ;; If va is a glob, pass unconditionally
-             (= (va:lower) (vb:lower)))))) ;; Test case-insensitive equality
+(λ import-list-impl [env path]
+  "Use the parent env `env` to resolve the unix-style path `path`
+   and import the resulting modules, returning the results
+   as a list of packages."
+  (icollect [package (iter-package-path (relative-path env path))]
+    (require (fixup-_G package))))
+
+(λ import-table-impl [env path]
+  "Use the parent env `env` to resolve the unix-style path `path`
+   and import the resulting modules, returning the results
+   as a table of name-package pairs."
+  (collect [package (iter-package-path (relative-path env path))]
+    (values package (require (fixup-_G package)))))
+
+(λ _G.import_table [path]
+  "Resolve the unix-style path `path` and import the resulting modules,
+   returning the results as a table of name-package pairs."
+  (import-table-impl (getfenv 2) path))
+
+(λ _G.import_list [path]
+  "Resolve the unix-style path `path` and import the resulting modules,
+   returning the results as a list of packages."
+  (import-list-impl (getfenv 2) path))
 
 (λ _G.import [path]
-  "Resolve the unix-style path `path` and import the resulting modules."
-
-  ;; If we don't have a leading /, prepend the calling package's path
-  (var path (if (not (path:match "^/"))
-                (.. (. (getfenv 2) :_PACKAGE) :/ path)
-                path))
-
-  (var files (icollect [package (->> (iter-packages
-                                      (getFS)
-                                      "$game_scripts$"
-                                      (format-compiler-extensions))
-                                     (iter-filter (partial filter-path path)))]
-               package))
-  
-  (unpack (icollect [file (list-values files)]
-            (do (print :file: file)
-                (var file (if (= file :_g)
-                              :_G
-                              file))
-                (require file)))))
+  "Resolve the unix-style path `path` and import the resulting modules,
+   returning the results variadically."
+  (unpack (import-list-impl (getfenv 2) path)))
