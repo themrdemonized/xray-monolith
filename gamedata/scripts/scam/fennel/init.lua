@@ -1,4 +1,4 @@
-require(_PACKAGE .. "/macro")
+require("scam/fennel/macro")
 
 local fennel = require("fennel")
 
@@ -72,7 +72,7 @@ local function compile(src, namespace_name)
    local want_unloc = unlocs and #unlocs > 0
 
    -- Late-load the unlocalize module to ensure it can compile
-   local lisp_unlocalize = require(_PACKAGE .. "/unlocalize")
+   local lisp_unlocalize = require("scam/fennel/unlocalize")
 
    -- If so, inject callback invocations for the given bindings
    if want_unloc then

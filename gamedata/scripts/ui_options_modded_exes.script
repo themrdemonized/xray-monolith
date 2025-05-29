@@ -5,7 +5,9 @@ function on_xml_read()
 	ui_options_base = ui_options.init_opt_base
 	ui_options.init_opt_base = function()
 		ui_options_base()
-		table.insert(ui_options.options, _G["options/modded_exes"])
+                for _,v in pairs(import("/options")) do
+                    table.insert(ui_options.options, v)
+                end
 	end
 	ui_options.init_opt_base()
 end

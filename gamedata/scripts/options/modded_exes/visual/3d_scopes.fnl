@@ -4,7 +4,7 @@
       : check
       : track
       : line}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :3d_scopes 
       (list-bool :id :r__3Dfakescope)

@@ -1,20 +1,17 @@
--- Disable unsafe Lua primitives
-require(_PACKAGE .. "/sandbox")
+-- Setup S.C.A.M. environment
+local scam = require("scam")
 
--- Emplace object lookup function
-require(_PACKAGE .. "/function_object")
-
--- Setup S.C.A.M. and emplace Wua as the default language
-require("scam").compiler.set_default_macro(
-   require(_PACKAGE .. "/wua").expand
+-- Setup wua as the default language
+scam.compiler.set_default_macro(
+   import("wua").expand
 )
 
 -- Forcefully load _g.script
 package.loaded._G = nil
-require("_G")
+import("/_G")
 
 -- Register classes
-require(_PACKAGE .. "/classes")
+import("classes")
 
 -- Run common scripts
-require(_PACKAGE .. "/scripts")
+import("scripts")

@@ -17,4 +17,10 @@
  (require (.. _PACKAGE :/iterator))
 
  :file
- (require (.. _PACKAGE :/file))}
+ (require (.. _PACKAGE :/file))
+
+ :package
+ (require (.. _PACKAGE :/package))
+
+ :string
+ (require (.. _PACKAGE :/string))}

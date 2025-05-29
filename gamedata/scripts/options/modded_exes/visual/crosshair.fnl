@@ -4,7 +4,7 @@
       : input
       : track
       : color}
-     (require :options/builder))
+     (import :/options/builder))
 
 (λ concat [& rest]
   (accumulate [dest []

@@ -1,6 +1,6 @@
 (var {: page
       : list-bool}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :ui_hud 
       (list-bool :id :g_draw_pickup_item_names)

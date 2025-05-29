@@ -1,9 +1,9 @@
-(var {: group} (require :options/builder))
+(var {: group} (import :/options/builder))
 
 (group :id :visual 
-       (require (.. _PACKAGE :/ui_hud))
-       (require (.. _PACKAGE :/crosshair))
-       (require (.. _PACKAGE :/3d_scopes))
-       (require (.. _PACKAGE :/particles))
-       (require (.. _PACKAGE :/wallmarks))
-       (require (.. _PACKAGE :/hdr10)))
+       (import :ui_hud)
+       (import :crosshair)
+       (import :3d_scopes)
+       (import :particles)
+       (import :wallmarks)
+       (import :hdr10))

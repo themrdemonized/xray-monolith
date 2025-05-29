@@ -1,4 +1,4 @@
--- Extend require with path support
+-- Engine interface; require with explicit _G and recursive indexing
 function function_object(str)
    local path = {}
    for v in string.gmatch(str, "[^%.]+") do

@@ -1,5 +1,5 @@
-(var {: group} (require :options/builder))
+(var {: group} (import :/options/builder))
 
 (group :id :debug 
-       (require (.. _PACKAGE :/logging))
-       (require (.. _PACKAGE :/metrics)))
+       (import :logging)
+       (import :metrics))

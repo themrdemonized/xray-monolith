@@ -1,7 +1,7 @@
 (var {: page
       : check
       : list-enum}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :3d_ballistics 
       (check :id :g_firepos)

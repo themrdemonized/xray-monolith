@@ -1,1 +1,1 @@
-{:fennel (require (.. _PACKAGE :/fennel))}
+{:fennel (import :fennel)}

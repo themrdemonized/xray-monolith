@@ -1,3 +1,3 @@
-(require (.. _PACKAGE :/on_game_start))
+(import :on_game_start)
 
 {}

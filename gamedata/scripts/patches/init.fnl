@@ -1,3 +1,3 @@
-(require (.. _PACKAGE "/boot"))
+(import :boot)
 
 {}

@@ -1,1 +1,1 @@
-(require (.. _PACKAGE "/modded_exes"))
+{:modded_exes (import :modded_exes)}

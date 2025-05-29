@@ -28,5 +28,19 @@
      ?out)
    ...))
 
+(λ iter-zip [[fa ?sa ?ca] [fb ?sb ?cb] ?short?]
+  "Given two iterators captured in lists, produce an iterator of pairs.
+   If `?short` is truthy, short-circuit once one of the iterators returns nil."
+  (values (λ [[?sa ?sb] [?ca ?cb]]
+            (var va (fa ?sa ?ca))
+            (var vb (fb ?sb ?cb))
+            (if (if ?short?
+                    (and (not= nil va) (not= nil vb))
+                    (or (not= nil va) (not= nil vb)))
+                [va vb]))
+          [?sa ?sb]
+          [?ca ?cb]))
+
 {: iter-map
- : iter-filter}
+ : iter-filter
+ : iter-zip}

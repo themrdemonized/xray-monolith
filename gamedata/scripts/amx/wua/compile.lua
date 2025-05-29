@@ -1,4 +1,4 @@
-local remap = require("moved").remap
+local remap = import("/moved").remap
 
 local G = setmetatable(
    {},

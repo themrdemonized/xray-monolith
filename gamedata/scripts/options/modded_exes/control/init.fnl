@@ -1,7 +1,7 @@
-(var {: group} (require :options/builder))
+(var {: group} (import :/options/builder))
 
 (group :id :control 
-       (require (.. _PACKAGE :/keyboard))
-       (require (.. _PACKAGE :/mouse))
-       (require (.. _PACKAGE :/camera))
-       (require (.. _PACKAGE :/pda)))
+       (import :keyboard)
+       (import :mouse)
+       (import :camera)
+       (import :pda))

@@ -1,5 +1,5 @@
-(var {: group} (require :options/builder))
+(var {: group} (import :/options/builder))
 
 (group :id :saves 
-       (require (.. _PACKAGE :/crash_saves)))
+       (import :crash_saves))
 

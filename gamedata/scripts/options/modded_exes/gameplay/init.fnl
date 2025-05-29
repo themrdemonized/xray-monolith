@@ -1,8 +1,8 @@
-(var {: group} (require :options/builder))
+(var {: group} (import :/options/builder))
 
 (group :id :gameplay 
-       (require (.. _PACKAGE :/aim))
-       (require (.. _PACKAGE :/3d_ballistics))
-       (require (.. _PACKAGE :/first_person_death))
-       (require (.. _PACKAGE :/monsters)))
+       (import :aim)
+       (import :3d_ballistics)
+       (import :first_person_death)
+       (import :monsters))
 

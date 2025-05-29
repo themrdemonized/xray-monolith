@@ -1,7 +1,7 @@
 (var {: page
       : track
       : list-bool}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :particles 
       (track :id :particle_update_mod

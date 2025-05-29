@@ -1,9 +1,15 @@
 --- Lua Entrypoint
---- Configures the import path and hands control to the boot module
+--- Called by CScriptEngine at the end of Lua initialization
 
+_PACKAGE = "init"
+
+--- Configure the initial import path
 local fs = getFS()
 local base = fs:update_path("$game_scripts$", "")
 package.path = base .. "?.lua;" .. base .. "?/init.lua"
 
+--- Initialize environment via the boot module
 require("boot")
 
+-- Pass control to modded exes entrypoint
+require("amx")

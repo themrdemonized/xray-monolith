@@ -1,2 +1,2 @@
-require(_PACKAGE .. "/_g")
-require(_PACKAGE .. "/axr_main")
+import("_g")
+import("axr_main")

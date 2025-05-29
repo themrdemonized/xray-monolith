@@ -1,6 +1,6 @@
 (var {: page
       : track}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :doppler 
       (track :id :snd_doppler_power

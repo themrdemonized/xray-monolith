@@ -1,6 +1,6 @@
 (var {: page
       : list-bool}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :monsters 
       (list-bool :id :heat_vision_zombie_cold)

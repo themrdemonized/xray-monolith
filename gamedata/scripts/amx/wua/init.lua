@@ -1,5 +1,5 @@
-local unlocalize = require(_PACKAGE .. "/unlocalize").unlocalize
-local compile = require(_PACKAGE .. "/compile").compile
+local unlocalize = import("unlocalize").unlocalize
+local compile = import("compile").compile
 
 local function expand(src, namespace_name)
    print("* " .. _PACKAGE .. ": expanding", namespace_name)

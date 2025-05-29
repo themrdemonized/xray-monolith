@@ -1,7 +1,7 @@
 (var {: page
       : list-bool
       : track}
-     (require :options/builder))
+     (import :/options/builder))
 
 (page :id :first_person_death 
       (list-bool :id :first_person_death)

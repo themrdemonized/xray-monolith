@@ -1,4 +1,4 @@
-(var {: group} (require :options/builder))
+(var {: group} (import :/options/builder))
 
 (group :id :sound 
-       (require (.. _PACKAGE :/doppler)))
+       (import :doppler))

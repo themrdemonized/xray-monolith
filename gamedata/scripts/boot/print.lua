@@ -1,3 +1,5 @@
+_PACKAGE = "boot/print"
+
 -- Emplace working print function
 function print(...)
    local str = ""
