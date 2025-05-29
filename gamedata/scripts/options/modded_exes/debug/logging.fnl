@@ -1,6 +1,6 @@
 (var {: page
       : list-bool}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :logging 
       (list-bool :id :string_table_error_msg)

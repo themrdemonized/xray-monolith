@@ -1,4 +1,4 @@
-(var {: group} (import :/options/builder))
+(var {: group} (import :.../builder))
 
 (group :id :gameplay 
        (import :aim)

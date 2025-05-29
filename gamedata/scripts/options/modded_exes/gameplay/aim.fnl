@@ -1,6 +1,6 @@
 (var {: page
       : list-bool}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :aim 
       (list-bool :id :aimmode_remember)

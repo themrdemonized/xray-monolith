@@ -1,7 +1,7 @@
 (var {: page
       : list-bool
       : track}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :crash_saves 
       (list-bool :id :crash_save)

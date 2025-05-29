@@ -1,6 +1,6 @@
 (var {: page
       : track}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :wallmarks 
       (track :id :g_wallmark_range_static

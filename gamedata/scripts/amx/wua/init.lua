@@ -1,11 +1,12 @@
 local unlocalize = import("unlocalize").unlocalize
 local compile = import("compile").compile
 
-local function expand(src, namespace_name)
+local function expand(src, namespace_name, script_name)
    print("* " .. _PACKAGE .. ": expanding", namespace_name)
    return compile(
       unlocalize(src, namespace_name),
-      namespace_name
+      namespace_name,
+      script_name
    )
 end
 

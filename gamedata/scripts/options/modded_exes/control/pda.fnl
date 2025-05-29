@@ -1,6 +1,6 @@
 (var {: page
       : list-bool}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :pda 
       (list-bool :id :pda_map_zoom_in_to_mouse)

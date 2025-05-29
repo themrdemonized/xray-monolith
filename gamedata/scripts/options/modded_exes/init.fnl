@@ -1,7 +1,4 @@
-(var {: group} (import :/options/builder))
-
-(each [_ v (ipairs [(import :/*/boot/*)])]
-  (print "glob-import:" v))
+(var {: group} (import :../builder))
 
 (group :id :modded_exes
        (import :*))

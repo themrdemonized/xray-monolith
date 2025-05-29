@@ -1,7 +1,7 @@
 --- HDR10 options tree
 
 -- Import smart constructors
-local options_builder = import("/options/builder")
+local options_builder = import(".../builder")
 local page = options_builder.page
 local line = options_builder.line
 local button = options_builder.button

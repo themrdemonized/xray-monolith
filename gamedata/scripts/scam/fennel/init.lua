@@ -51,7 +51,7 @@ local function handle_error(msg)
    end
 end
 
-local function compile(src, namespace_name)
+local function compile(src, namespace_name, script_name)
    print("* " .. _PACKAGE .. ": compiling " .. namespace_name)
 
    local unlocs = require("amx/unlocalize").get(namespace_name)
@@ -88,6 +88,7 @@ local function compile(src, namespace_name)
    local env = setmetatable(
       {
          _PACKAGE = namespace_name,
+         _FILE = script_name,
          [do_unloc_key] = do_unloc,
       },
       {

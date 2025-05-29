@@ -1,7 +1,7 @@
 (var {: page
       : track
       : list-bool}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :mouse 
       (track :id :mouse_sens_vertical

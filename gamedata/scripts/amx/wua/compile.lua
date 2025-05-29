@@ -34,7 +34,7 @@ local function handle_error(msg)
    end
 end
 
-local function compile(src, namespace_name)
+local function compile(src, namespace_name, script_name)
    local is_g = namespace_name == "_G"
 
    local mt = {
@@ -51,6 +51,7 @@ local function compile(src, namespace_name)
       env._M = env
       if namespace_name then
          env._PACKAGE = namespace_name
+         env._FILE = script_name
          env._COMPILER = _COMPILER
          env.loadstring = _COMPILER
          env[namespace_name] = env

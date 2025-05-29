@@ -7,16 +7,9 @@
       : format-compiler-extensions}
      (require :prelude/fennel/file))
 
-(var {: path-includes?}
+(var {: strip-extension
+      : path-includes?}
      (require :prelude/fennel/path))
-
-(var {:PATTERN_FILE_PATH PATTERN-FILE-PATH}
-     (require :scam/compiler))
-
-(λ strip-extension [s]
-  "Remove any file extension from path `s`."
-  (var (path name _) (s:match PATTERN-FILE-PATH))
-  (.. path name))
 
 (λ backslashes->slashes [s]
   "Replace backslashes with slashes in string `s`."
@@ -58,7 +51,9 @@
   (->> (iter-packages)
        (iter-filter (path-includes? path))))
 
-{: path->package
+{: backslashes->slashes
+ : strip-/init
+ : path->package
  : file->package
  : iter-files
  : iter-packages

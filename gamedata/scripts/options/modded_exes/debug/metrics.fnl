@@ -1,6 +1,6 @@
 (var {: page
       : track}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :metrics 
       (track :id :lua_gcstep

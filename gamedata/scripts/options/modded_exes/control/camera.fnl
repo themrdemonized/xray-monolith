@@ -1,7 +1,7 @@
 (var {: page
       : track
       : list-bool}
-     (import :/options/builder))
+     (import :.../builder))
 
 (page :id :camera 
       (track :id :freelook_cam_limit

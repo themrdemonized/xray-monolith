@@ -1,3 +1,6 @@
+_PACKAGE = "amx"
+_FILE = "amx/init.lua"
+
 -- Setup S.C.A.M. environment
 local scam = require("scam")
 

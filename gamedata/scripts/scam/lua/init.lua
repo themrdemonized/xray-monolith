@@ -9,7 +9,7 @@ local function handle_error(msg)
    end
 end
 
-local function expand(src, namespace_name)
+local function expand(src, namespace_name, script_name)
    print("* " .. _PACKAGE .. ": expanding", namespace_name)
 
    local mod, err = loadstring(src, namespace_name)
@@ -20,7 +20,10 @@ local function expand(src, namespace_name)
    local mac = setfenv(
       mod,
       setmetatable(
-         { _PACKAGE = namespace_name },
+         {
+            _PACKAGE = namespace_name,
+            _FILE = script_name,
+         },
          {
             __index = _G,
             __newindex = _G,
