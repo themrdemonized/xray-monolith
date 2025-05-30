@@ -9,8 +9,6 @@ local string_format = string.format
 local table_insert  = table.insert
 local table_remove  = table.remove
 
-local iter_values = require("prelude/fennel/iterator")["iter-values"]
-
 -- Patches
 local xmlCallbacks = {}
 
@@ -163,7 +161,17 @@ do
       ["_g.script"] = true,
    }
 
+   -- Gather all root modxml_* scripts
    for k,v in pairs(import_table("/modxml_*", ignore)) do
+      local read = v.on_xml_read
+      if read then
+         print("gathered " .. k)
+         read()
+      end
+   end
+
+   -- Recursively gather scripts in the dxml directory
+   for k,v in pairs(import_table("**")) do
       local read = v.on_xml_read
       if read then
          print("gathered " .. k)
