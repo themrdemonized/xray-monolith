@@ -40,6 +40,9 @@ local remap = {
    scopeRadii = {
       to = "2d_scopes/scope_radii",
       if_not_overwritten = true
+   },
+   slaxml = {
+      to = "packages/lib/slaxml"
    }
 }
 

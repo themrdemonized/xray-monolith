@@ -213,7 +213,7 @@ local function xml_walk(walk_table, callback)
    end
 end
 
-local parser = slaxml.SLAXML()
+local parser = slaxml
 local parser_options = {stripWhitespace = true}
 
 local function xml_object(xml_file_name, xml_string, xml_table)
@@ -999,7 +999,7 @@ local function openXMLFile(xml_file_name)
       return 
    end
 
-   local parser = slaxml.SLAXML()
+   local parser = slaxml
    local parser_options = {stripWhitespace = true}
 
    local xml_table = try(parser.simple_dom, parser, xml_string, parser_options)

@@ -100,65 +100,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NVTT", "3rd party\NVTT\vs20
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ReShadeCompat", "ReShadeCompat\ReShadeCompat.vcxproj", "{9646DBF8-1A5E-41F0-9328-F65910706666}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
-	ProjectSection(SolutionItems) = preProject
-		..\gamedata\scripts\aaa_sound_object_patch.script = ..\gamedata\scripts\aaa_sound_object_patch.script
-		..\gamedata\scripts\aaaa_script_fixes_mp.script = ..\gamedata\scripts\aaaa_script_fixes_mp.script
-		..\gamedata\scripts\axr_beh_patches.script = ..\gamedata\scripts\axr_beh_patches.script
-		..\gamedata\scripts\callbacks_gameobject.script = ..\gamedata\scripts\callbacks_gameobject.script
-		..\gamedata\scripts\class_registrator_modded_exes.script = ..\gamedata\scripts\class_registrator_modded_exes.script
-		..\gamedata\scripts\dxml_core.script = ..\gamedata\scripts\dxml_core.script
-		..\gamedata\scripts\fakelens.script = ..\gamedata\scripts\fakelens.script
-		..\gamedata\scripts\init.script = ..\gamedata\scripts\init.script
-		..\gamedata\scripts\lisp_unlocalize.script = ..\gamedata\scripts\lisp_unlocalize.script
-		..\gamedata\scripts\ltx_help_ex.script = ..\gamedata\scripts\ltx_help_ex.script
-		..\gamedata\scripts\lua_help_ex.script = ..\gamedata\scripts\lua_help_ex.script
-		..\gamedata\scripts\macro.script = ..\gamedata\scripts\macro.script
-		..\gamedata\scripts\macro_lisp.script = ..\gamedata\scripts\macro_lisp.script
-		..\gamedata\scripts\macro_lisp_macro.script = ..\gamedata\scripts\macro_lisp_macro.script
-		..\gamedata\scripts\macro_lua.script = ..\gamedata\scripts\macro_lua.script
-		..\gamedata\scripts\macro_wua.script = ..\gamedata\scripts\macro_wua.script
-		..\gamedata\scripts\modxml_inject_keybinds.script = ..\gamedata\scripts\modxml_inject_keybinds.script
-		..\gamedata\scripts\modxml_test.script = ..\gamedata\scripts\modxml_test.script
-		..\gamedata\scripts\options_builder.script = ..\gamedata\scripts\options_builder.script
-		..\gamedata\scripts\options_modded_exes.script = ..\gamedata\scripts\options_modded_exes.script
-		..\gamedata\scripts\options_modded_exes_3d_ballistics.script = ..\gamedata\scripts\options_modded_exes_3d_ballistics.script
-		..\gamedata\scripts\options_modded_exes_3d_scopes.script = ..\gamedata\scripts\options_modded_exes_3d_scopes.script
-		..\gamedata\scripts\options_modded_exes_aim.script = ..\gamedata\scripts\options_modded_exes_aim.script
-		..\gamedata\scripts\options_modded_exes_camera.script = ..\gamedata\scripts\options_modded_exes_camera.script
-		..\gamedata\scripts\options_modded_exes_control.script = ..\gamedata\scripts\options_modded_exes_control.script
-		..\gamedata\scripts\options_modded_exes_crash_saves.script = ..\gamedata\scripts\options_modded_exes_crash_saves.script
-		..\gamedata\scripts\options_modded_exes_crosshair.script = ..\gamedata\scripts\options_modded_exes_crosshair.script
-		..\gamedata\scripts\options_modded_exes_debug.script = ..\gamedata\scripts\options_modded_exes_debug.script
-		..\gamedata\scripts\options_modded_exes_doppler.script = ..\gamedata\scripts\options_modded_exes_doppler.script
-		..\gamedata\scripts\options_modded_exes_first_person_death.script = ..\gamedata\scripts\options_modded_exes_first_person_death.script
-		..\gamedata\scripts\options_modded_exes_gameplay.script = ..\gamedata\scripts\options_modded_exes_gameplay.script
-		..\gamedata\scripts\options_modded_exes_hdr10.script = ..\gamedata\scripts\options_modded_exes_hdr10.script
-		..\gamedata\scripts\options_modded_exes_keyboard.script = ..\gamedata\scripts\options_modded_exes_keyboard.script
-		..\gamedata\scripts\options_modded_exes_logging.script = ..\gamedata\scripts\options_modded_exes_logging.script
-		..\gamedata\scripts\options_modded_exes_metrics.script = ..\gamedata\scripts\options_modded_exes_metrics.script
-		..\gamedata\scripts\options_modded_exes_monsters.script = ..\gamedata\scripts\options_modded_exes_monsters.script
-		..\gamedata\scripts\options_modded_exes_mouse.script = ..\gamedata\scripts\options_modded_exes_mouse.script
-		..\gamedata\scripts\options_modded_exes_particles.script = ..\gamedata\scripts\options_modded_exes_particles.script
-		..\gamedata\scripts\options_modded_exes_pda.script = ..\gamedata\scripts\options_modded_exes_pda.script
-		..\gamedata\scripts\options_modded_exes_saves.script = ..\gamedata\scripts\options_modded_exes_saves.script
-		..\gamedata\scripts\options_modded_exes_sound.script = ..\gamedata\scripts\options_modded_exes_sound.script
-		..\gamedata\scripts\options_modded_exes_ui_hud.script = ..\gamedata\scripts\options_modded_exes_ui_hud.script
-		..\gamedata\scripts\options_modded_exes_visual.script = ..\gamedata\scripts\options_modded_exes_visual.script
-		..\gamedata\scripts\options_modded_exes_wallmarks.script = ..\gamedata\scripts\options_modded_exes_wallmarks.script
-		..\gamedata\scripts\scopeRadii.script = ..\gamedata\scripts\scopeRadii.script
-		..\gamedata\scripts\script_compiler.script = ..\gamedata\scripts\script_compiler.script
-		..\gamedata\scripts\slaxml.script = ..\gamedata\scripts\slaxml.script
-		..\gamedata\scripts\true_first_person_death.script = ..\gamedata\scripts\true_first_person_death.script
-		..\gamedata\scripts\ui_options_modded_exes.script = ..\gamedata\scripts\ui_options_modded_exes.script
-		..\gamedata\scripts\unlocalizers.script = ..\gamedata\scripts\unlocalizers.script
-		..\gamedata\scripts\_g_patches.script = ..\gamedata\scripts\_g_patches.script
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "configs", "configs", "{369CB01D-A1A7-72D2-AABC-3F0945D148A2}"
 	ProjectSection(SolutionItems) = preProject
-		..\gamedata\configs\mod_system_base_hud.ltx = ..\gamedata\configs\mod_system_base_hud.ltx
 		..\gamedata\configs\mod_script_modded_exes.ltx = ..\gamedata\configs\mod_script_modded_exes.ltx
+		..\gamedata\configs\mod_system_base_hud.ltx = ..\gamedata\configs\mod_system_base_hud.ltx
 		..\gamedata\configs\mod_system_flashlight_definition.ltx = ..\gamedata\configs\mod_system_flashlight_definition.ltx
 		..\gamedata\configs\mod_system_shader_crosshair.ltx = ..\gamedata\configs\mod_system_shader_crosshair.ltx
 		..\gamedata\configs\patrol_paths.ltx = ..\gamedata\configs\patrol_paths.ltx
@@ -252,6 +197,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ui", "ui", "{91413BC1-731E-
 		..\gamedata\textures\ui\cursor_cross.dds = ..\gamedata\textures\ui\cursor_cross.dds
 		..\gamedata\textures\ui\cursor_dot.dds = ..\gamedata\textures\ui\cursor_dot.dds
 		..\gamedata\textures\ui\cursor_plus.dds = ..\gamedata\textures\ui\cursor_plus.dds
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{B91540D8-C135-4655-9D09-C4346C9A7822}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "packages", "packages", "{36CB2863-4BC6-4928-BB74-F0086E166299}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{F8FAB356-95EC-4A58-996B-F59DFDA76D2C}"
+	ProjectSection(SolutionItems) = preProject
+		..\gamedata\scripts\packages\lib\fennel.lua = ..\gamedata\scripts\packages\lib\fennel.lua
+		..\gamedata\scripts\packages\lib\slaxml.lua = ..\gamedata\scripts\packages\lib\slaxml.lua
+		..\gamedata\scripts\packages\lib\slaxml.script = ..\gamedata\scripts\packages\lib\slaxml.script
 	EndProjectSection
 EndProject
 Global
@@ -1018,7 +974,6 @@ Global
 		{772FE450-F4F3-4687-A2A7-5624825089D7} = {2BFC806B-CE92-4EA4-8FE8-5F2EA54BA348}
 		{0EB257DC-5CFC-44B0-82C9-CE6B158BE473} = {2BFC806B-CE92-4EA4-8FE8-5F2EA54BA348}
 		{9646DBF8-1A5E-41F0-9328-F65910706666} = {2BFC806B-CE92-4EA4-8FE8-5F2EA54BA348}
-		{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D} = {8537520E-5391-4DA0-A369-D7B22852C696}
 		{369CB01D-A1A7-72D2-AABC-3F0945D148A2} = {8537520E-5391-4DA0-A369-D7B22852C696}
 		{ED17A420-A16D-4EC7-B2F7-129FE3802785} = {369CB01D-A1A7-72D2-AABC-3F0945D148A2}
 		{97F45CC7-E2B1-4009-9A2F-DA95F0706422} = {ED17A420-A16D-4EC7-B2F7-129FE3802785}
@@ -1031,6 +986,9 @@ Global
 		{5768CC9B-FEF6-4F20-B5D6-2E22E8A6D962} = {8537520E-5391-4DA0-A369-D7B22852C696}
 		{44A08F7F-E393-4E0B-B9E6-94AF30774CE7} = {8537520E-5391-4DA0-A369-D7B22852C696}
 		{91413BC1-731E-470B-AA8C-8C1F6290D8D7} = {44A08F7F-E393-4E0B-B9E6-94AF30774CE7}
+		{B91540D8-C135-4655-9D09-C4346C9A7822} = {8537520E-5391-4DA0-A369-D7B22852C696}
+		{36CB2863-4BC6-4928-BB74-F0086E166299} = {B91540D8-C135-4655-9D09-C4346C9A7822}
+		{F8FAB356-95EC-4A58-996B-F59DFDA76D2C} = {36CB2863-4BC6-4928-BB74-F0086E166299}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {76CF157A-A169-443B-AE3A-F17AD29325C6}
