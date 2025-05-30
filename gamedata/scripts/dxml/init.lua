@@ -157,13 +157,13 @@ end
 -- Manipulate xml nodes through modxml_...script files
 -- Gather all files
 do
-   printf("init gathering modxml_... scripts")
+   print("init gathering modxml_... scripts")
    local ignore = { 
       ["_g.script"] = true,
    }
-   
+
    local t = {}
-   local size_t = 0 
+   local size_t = 0
    local f = getFS()
    local flist = f:file_list_open_ex("$game_scripts$",bit_or(FS.FS_ListFiles,FS.FS_RootOnly),"modxml_*.script")
    local f_cnt = flist:Size()
@@ -181,24 +181,17 @@ do
       end
    end
    table_sort(t)
-   for i=1, #t do
-      local file_name = t[i]
-      require(file_name).on_xml_read()
-   end
 
-   -- Force load some other non modxml scripts
-   local force_load = {
-      ["ui_options_modded_exes"] = true
-   }
-   k2t_table(force_load)
-   table_sort(force_load)
-
-   for _, k in ipairs(force_load) do
-           if (require(k) and require(k).on_xml_read) then
-                        local s = require(k)
-         s.on_xml_read()
+   --[[
+   for pkg in iter_values(import("/**/modxml_*", ignore)) do
+      print("gathering " .. pkg)
+      local pkg = require(pkg)
+      local read = pkg.on_xml_read
+      if read then
+         read()
       end
    end
+   --]]
 end
 
 -- Cache parsed files
