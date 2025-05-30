@@ -1,5 +1,11 @@
 ;; Iterators
 
+(var {: list-values} (require :prelude/fennel/list))
+
+(λ iter-values [& vals]
+  "Produce an iterator over the given variadic values."
+  (list-values vals))
+
 (λ iter-map [t f ...]
   "Map transformer `t` over the iterator defined by function `f`
    and stateful params `...`."
@@ -41,6 +47,7 @@
           [?sa ?sb]
           [?ca ?cb]))
 
-{: iter-map
+{: iter-values
+ : iter-map
  : iter-filter
  : iter-zip}

@@ -1,3 +1,6 @@
+(var {: list-values}
+     (require :prelude/fennel/list))
+
 (var {: iter-zip}
      (require :prelude/fennel/iterator))
 
@@ -48,19 +51,36 @@
     ;; Resolve relative path segments
     (var abs-path (resolve-relative-path path))
     
-    ;; Split both the path and subject into segment lists
-    (var path-segs [(abs-path:gmatch "[^/]+")])
+    ;; Split the subject into a segment iterator
     (var subj-segs [(subj:gmatch "[^/]+")])
+    
+    ;; Split the path into a segment list
+    (var path-list (icollect [seg (abs-path:gmatch "[^/]+")]
+                     seg))
 
-    ;; Zip the lists into an iterator of pairs and fold a bool over it
+    ;; Test the last segment for multi-glob
+    (var count (length path-list))
+    (var tail (. path-list count))
+    (var multi (tail:match "^%*%*+$"))
+    
+    ;; Convert the path list into an iterator
+    (var path-segs [(list-values path-list)])
+
+    ;; Zip the path and subject iterators and fold a bool over them
     (accumulate [equal true
                  [va vb] (iter-zip path-segs subj-segs)
                  &until (not equal)]
-      (and equal    ;; All previous segments must match
-           va vb    ;; If either result is nil, length mismatch
-           (or (and (va:match "%*") ;; If va is a convert to pattern and match
-                    (vb:match (va:gsub "%*" "%.%*")))
-               (= (va:lower) (vb:lower))))))) ;; Case-insensitive comparison
+      (case (values va vb)
+        ;; If both segments are valid, lowercase both,
+        ;; convert va into a pattern, and match against it
+        (a b) (do (var va (va:lower))
+                  (var vb (vb:lower))
+                  (set va (va:gsub "%*" "%.%*"))
+                  (vb:match va))
+        ;; If vb is nil, length mismatch
+        (a nil) false
+        ;; If va is nil, we either have a length mismatch or are a multi-glob
+        (nil _) multi))))
 
 {: PATTERN-FILE-PATH
  : strip-extension

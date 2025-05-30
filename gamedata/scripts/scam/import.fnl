@@ -8,24 +8,31 @@
   (or (and (= path :_g) :_G)
       path))
 
-(λ import-list-impl [path]
+(λ import-list-impl [path ?ignore ?handle-error]
   "Use the parent env `env` to resolve the unix-style path `path`
    and import the resulting modules, returning the results
    as a list of packages."
+  (var handle-error (or ?handle-error error))
   (icollect [package (iter-package-path path)]
-    (require (fixup-_G package))))
+    (if (not (and ?ignore (. ?ignore package)))
+        (case (pcall require (fixup-_G package))
+          (true out) out
+          (false err) (handle-error err)))))
 
-(λ import-table-impl [path]
+(λ import-table-impl [path ?ignore ?handle-error]
   "Use the parent env `env` to resolve the unix-style path `path`
    and import the resulting modules, returning the results
    as a table of name-package pairs."
+  (var handle-error (or ?handle-error error))
   (collect [package (iter-package-path path)]
-    (values package (require (-> package
-                                 (fixup-_G))))))
+    (if (not (and ?ignore (. ?ignore package)))
+        (case (pcall require (fixup-_G package))
+          (true out) (values package out)
+          (false err) (handle-error err)))))
 
 (λ absolute-path [env path]
   (var path path)
-
+  
   ;; If the environment points at an init.* file,
   ;; strip a dot from relative paths
   (when (and (path:match "^%.+/")
@@ -37,17 +44,24 @@
   (or (and (path:match "^/") path)
       (.. env._PACKAGE "/" path)))
 
-(λ _G.import_table [path]
+(λ _G.import_table [path ?ignore ?handle-error]
   "Resolve the unix-style path `path` and import the resulting modules,
    returning the results as a table of name-package pairs."
-  (import-table-impl (absolute-path (getfenv 2) path)))
+  (import-table-impl (absolute-path (getfenv 2) path)
+                     ?ignore
+                     ?handle-error))
 
-(λ _G.import_list [path]
+(λ _G.import_list [path ?ignore ?handle-error]
   "Resolve the unix-style path `path` and import the resulting modules,
    returning the results as a list of packages."
-  (import-list-impl (absolute-path (getfenv 2) path)))
+  (import-list-impl (absolute-path (getfenv 2) path)
+                    ?ignore
+                    ?handle-error))
 
-(λ _G.import [path]
+(λ _G.import [path ?ignore ?handle-error]
   "Resolve the unix-style path `path` and import the resulting modules,
    returning the results variadically."
-  (unpack (import-list-impl (absolute-path (getfenv 2) path))))
+  (unpack (import-list-impl (absolute-path (getfenv 2) path)
+                            ?ignore
+                            ?handle-error)))
+
