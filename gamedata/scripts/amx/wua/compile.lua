@@ -3,17 +3,50 @@ local remap = import("/moved").remap
 local G = setmetatable(
    {},
    {
-      __index = function(_, key)
+      __index = function(self, key)
+         -- Fetch the remap for this key
          local redir = remap[key]
+
+         -- If we have a redirection...
          if redir ~= nil then
-            key = redir
+            -- Check the no-overwrite flag;
+            -- If set and the key exists in _G, return its value
+            if redir.if_not_overwritten then
+               local gv = _G[key]
+               if gv then
+                  return gv
+               end
+
+               local res, out = pcall(require, key)
+               if res then
+                  return out
+               end
+            end
+
+            -- Otherwise, fetch the redirected key
+            if type(redir.to) ~= "string" then
+               error(
+                  "Redirection from " .. key
+                  .. " has invalid 'to' field: " .. redir.to
+               )
+            end
+
+            -- And recurse with it
+            local rv = self[redir.to]
+
+            -- If if exists, return it
+            if rv ~= nil then
+               return rv
+            end
          end
 
+         -- Otherwise, check the global key's value and return if valid
          local gv = _G[key]
          if gv ~= nil then
             return gv
          end
 
+         -- Otherwise, try to auto-load the key as a script
          local res, out = pcall(require, key)
          if res then
             return out

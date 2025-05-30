@@ -7,15 +7,40 @@
 --
 -- For instance: If a script only contains monkey-patches to existing functions,
 -- it doesn't need to be remapped.
+--
+-- Table keys:
+--                 `to` - Defines the script's new path
+
+-- `if_not_overwritten` - Does not remap if a copy of the original still exists
+--                        used to account for cases like `scopeRadii` where
+--                        the script is designed to be overridden by mods
 
 local remap = {
-   callbacks_gameobject = "patches/boot/_g/callbacks_gameobject",
-   axr_beh_patches = "patches/axr_beh/ghentuong",
-   class_registrator_modded_exes = "amx/registrator",
-   dxml_core = "dxml",
-   fakelens = "2d_scopes/fakelens",
-   modxml_inject_keybinds = "dxml/inject_keybinds",
-   modxml_test = "dxml/test",
+   callbacks_gameobject = {
+      to = "patches/boot/_g/callbacks_gameobject",
+   },
+   axr_beh_patches = {
+      to = "patches/axr_beh/ghentuong",
+   },
+   class_registrator_modded_exes = {
+      to = "amx/registrator",
+   },
+   dxml_core = {
+      to = "dxml",
+   },
+   fakelens = {
+      to = "2d_scopes/fakelens",
+   },
+   modxml_inject_keybinds = {
+      to = "dxml/inject_keybinds",
+   },
+   modxml_test = {
+      to = "dxml/test",
+   },
+   scopeRadii = {
+      to = "2d_scopes/scope_radii",
+      if_not_overwritten = true
+   }
 }
 
 return {
