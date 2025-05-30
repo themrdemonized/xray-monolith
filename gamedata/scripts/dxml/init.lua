@@ -8,7 +8,8 @@ local string_format = string.format
 
 local table_insert  = table.insert
 local table_remove  = table.remove
-local table_sort    = table.sort
+
+local iter_values = require("prelude/fennel/iterator")["iter-values"]
 
 -- Patches
 local xmlCallbacks = {}
@@ -162,36 +163,13 @@ do
       ["_g.script"] = true,
    }
 
-   local t = {}
-   local size_t = 0
-   local f = getFS()
-   local flist = f:file_list_open_ex("$game_scripts$",bit_or(FS.FS_ListFiles,FS.FS_RootOnly),"modxml_*.script")
-   local f_cnt = flist:Size()
-   for it=0, f_cnt-1 do
-      local file = flist:GetAt(it)
-      local file_name = file:NameShort()
-      printf("%s size=%s",file_name,file:Size())
-      if (file:Size() > 0 and ignore[file_name] ~= true) then
-         file_name = file_name:sub(0,file_name:len()-7)
-         if (require(file_name) and require(file_name).on_xml_read) then
-            printf("gathering %s.script", file_name)
-            size_t = size_t + 1 
-            t[size_t] = file_name -- load all scripts first
-         end
-      end
-   end
-   table_sort(t)
-
-   --[[
-   for pkg in iter_values(import("/**/modxml_*", ignore)) do
-      print("gathering " .. pkg)
-      local pkg = require(pkg)
-      local read = pkg.on_xml_read
+   for k,v in pairs(import_table("/modxml_*", ignore)) do
+      local read = v.on_xml_read
       if read then
+         print("gathered " .. k)
          read()
       end
    end
-   --]]
 end
 
 -- Cache parsed files
