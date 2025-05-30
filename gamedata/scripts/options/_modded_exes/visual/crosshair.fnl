@@ -45,7 +45,7 @@
           :step 1
           :hint :modded_exes_visual_crosshair_g_crosshair_depth
           :def (or args.defs.depth 0))
-   (color :id (.. "g_crosshair_" args.prefix "_color") )])
+   (color :id (.. "g_crosshair_" args.prefix "_color"))])
 
 (λ crosshair-distance-commands [args]
   [(check :id (.. "g_crosshair_" args.prefix "_distance_lerp")

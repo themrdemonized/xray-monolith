@@ -120,15 +120,6 @@
                  ")")))))
 
   (values
-   (track :id (.. table.id "_a")
-          :min 0
-          :max 255
-          :def 255
-          :step 1
-          :curr [curr-color table.id :a]
-          :functor [func-color table.id :a]
-          :cmd false )
-   
    (track :id (.. table.id "_r")
           :min 0
           :max 255
@@ -136,7 +127,8 @@
           :step 1
           :curr [curr-color table.id :r]
           :functor [func-color table.id :r]
-          :cmd false )
+          :cmd false
+          :hint :modded_exes_color_r)
    
    (track :id (.. table.id "_g")
           :min 0
@@ -145,7 +137,8 @@
           :step 1
           :curr [curr-color table.id :g]
           :functor [func-color table.id :g]
-          :cmd false )
+          :cmd false
+          :hint :modded_exes_color_g)
    
    (track :id (.. table.id "_b")
           :min 0
@@ -154,7 +147,18 @@
           :step 1
           :curr [curr-color table.id :b]
           :functor [func-color table.id :b]
-          :cmd false )))
+          :cmd false
+          :hint :modded_exes_color_b)
+          
+   (track :id (.. table.id "_a")
+          :min 0
+          :max 255
+          :def 255
+          :step 1
+          :curr [curr-color table.id :a]
+          :functor [func-color table.id :a]
+          :cmd false
+          :hint :modded_exes_color_a)))
 
 (λ input [& plist]
   "String input."
