@@ -1,0 +1,12 @@
+function get_game_version()
+   local function table_of_strings_to_number(t)
+      local res = {}
+      for i, v in ipairs(t) do
+         res[i] = tonumber(v)
+      end
+      if not res[2] then res[2] = 0 end
+      if not res[3] then res[3] = 0 end
+      return res
+   end
+   return GAME_VERSION and table_of_strings_to_number(str_explode(GAME_VERSION, "%.")) or {0, 0, 0}
+end

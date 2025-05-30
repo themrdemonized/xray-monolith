@@ -1,0 +1,216 @@
+function axr_trade_manager.npc_tech_upgrade_sell(npc)
+   local id = npc and npc:id()
+   local st = id and db.storage[id]
+   if not (st) then
+      return
+   end
+
+   if not (st.has_tech_items) then
+      --printf("st.has_tech_items = nil!")
+      return
+   end
+
+   if not (st.tech_items) then
+      --printf("no tech items to sell")
+      return
+   end
+
+   local smart = xr_gulag.get_npc_smart(npc)
+   local npc_info = smart and smart.npc_info[id]
+   if (npc_info) then
+      npc_info.job.idle = time_global() + 20000
+   end
+
+   printf("- NPC Tech | Selling")
+
+   local se_obj = alife_object(id)
+   if not (se_obj) then 
+      return 
+   end
+   
+   -- Get the Trader
+   local smart = xr_gulag.get_npc_smart(npc)
+   local npc_info = smart and smart.npc_info[id]
+   local mechanic_id = npc_info and npc_info.job and npc_info.job.mechanic_id
+   local mechanic = mechanic_id and (db.storage[mechanic_id] and db.storage[mechanic_id].object or level.object_by_id(mechanic_id))
+   printf("- NPC Tech | Mechanic = %s", mechanic and mechanic:name())
+   
+   -- SELL ITEMS
+   local itm,itm_base_cost,buy_sell, slot, bw,can_sell
+   for sec,count in pairs(st.tech_items) do
+      -- demonized: fixed count loop to go down
+      local count = tonumber(count) or 0
+      for i=count, 1, -1 do
+         itm = npc:object(sec)
+         if (itm) then
+            can_sell = true
+
+            -- Make sure item is not his best weapon
+            bw = npc:best_weapon()
+            if (bw and bw:id() == itm:id()) then
+               can_sell = false
+            end
+
+            -- Make sure item is not equipped
+            for i=1,12 do
+               slot = npc:item_in_slot(i)
+               if (slot and slot:id() == itm:id()) then
+                  can_sell = false
+                  break
+               end
+            end
+
+            buy_sell = axr_trade_manager.ini:r_string_ex("buy_sell_mechanic",sec)
+            if (buy_sell and buy_sell ~= "" and can_sell) then
+               buy_sell = str_explode(buy_sell,",")
+               
+               -- Transfer the item
+               if mechanic then
+                  npc:transfer_item(itm, mechanic)
+               else
+                  alife_release_id(itm:id())
+               end
+
+               -- Give money
+               itm_base_cost = ini_sys:r_float_ex(sec,"cost") or 30
+               local money = math.floor(itm_base_cost * (tonumber(buy_sell[4]) or 1))
+               npc:give_money(money)
+               
+               -- Increase NPC rank because he is a good boy
+               game_statistics.increment_npc_statistic(npc,"items_sold")
+               
+               printf("- NPC Tech | %s sold [%s] for %s RU", npc:name(), sec, money)
+
+               -- Only sell enough till reach keep-in-stock count (param 1)
+               if (i <= tonumber(buy_sell[1])) then
+                  break
+               end
+            end
+         else
+            printf("! NPC Tech | no item [%s] found for npc %s", sec, npc:name())
+         end
+      end
+   end
+   
+   empty_table(st.tech_items)
+   st.has_tech_items = false
+
+   -- Upgrade
+   local money = npc:money()
+   if (money == nil or money <= 0) then
+      return
+   end
+
+   if not (smart) then
+      return
+   end
+
+   if (npc_info == nil or npc_info.job == nil) then
+      return
+   end
+
+   if not (mechanic) then
+      return
+   end
+   
+   local wpn = npc:best_weapon()
+   if not (wpn and IsWeapon(wpn) and not IsMelee(wpn)) then
+      return
+   end
+   
+   local sec_wpn = wpn:section()
+   printf("- NPC Tech | Upgrading weapons [%s]", sec_wpn)
+   
+   -- Upgrades calculating
+   local picked = {}
+   local upgrades = utils_item.get_upgrades_tree(sec_wpn)
+   if not (upgrades and size_table(upgrades) > 0) then
+      printf("warning: axr_trade_manager.npc_tech_upgrade_sell(): no upgrades found for [%s]", sec_wpn)
+      return
+   end
+   local installed = utils_item.get_upgrades_installed(wpn, nil, true)
+   
+   local opposite = {
+         [1] = 2,
+         [2] = 1,
+         [3] = 4,
+         [4] = 3,
+         [5] = 6,
+         [6] = 5,
+   }
+   local money_before = money
+   local functor = function(t,a,b) return a < b end
+   local cnt = 0
+   
+   for gr,v in spairs(upgrades,functor) do
+      for ind,v2 in spairs(v,functor) do
+         if installed[v2.section] then
+            axr_trade_manager.picked_set(picked, gr, ind)
+         end
+      end
+   end
+   
+   while (cnt < axr_trade_manager.max_upgrades_per_visit) and (money > 500) do
+      local gr = random_key_table(upgrades)
+      for ind, v in spairs(upgrades[gr],functor) do
+         local section = v.section
+         local cost = v.stats_cost or 2000
+         
+         if upgrades[gr][ind].prop
+         and (upgrades[gr][ind].prop[1] ~= "prop_not_available")
+         and axr_trade_manager.picked_unchecked(picked, gr, ind)
+         and (not installed[section])
+         then
+            if (not upgrades[gr][opposite[ind]])
+            or (upgrades[gr][opposite[ind]] and axr_trade_manager.picked_unchecked(picked, gr, opposite[ind]))
+            then
+               axr_trade_manager.picked_set(picked, gr, ind)
+               money = money - cost
+               printf("/ NPC Tech | %s installed upgrade [%s] for %s RU", npc:name(), section, cost)
+               break
+            end
+         end
+      end
+      cnt = cnt + 1
+   end
+   money = money > 100 and money or math.random(100,200)
+   
+   local to_install = {}
+   local new_install = {}
+   for gr,v in spairs(upgrades,functor) do
+      for ind,v2 in spairs(v,functor) do
+         if (picked[gr] and picked[gr][ind]) then
+            to_install[#to_install + 1] = v2.section
+            new_install[#new_install + 1] = v2.section
+            printf("- NPC Tech | upgrade [%s] is new", v2.section)
+         elseif installed[v2.section] then
+            to_install[#to_install + 1] = v2.section
+            printf("~ NPC Tech | upgrade [%s] is old", v2.section)
+         end
+      end
+   end
+   
+   if (#to_install <= #installed) then
+      printf("! NPC Tech | no new upgrades are picked")
+      return
+   end
+   
+   -- Consume NPC money
+   npc:give_money(money - money_before)
+   printf("/ NPC Tech | money taken: %s", money - money_before)
+   
+   -- Install upgrades
+   inventory_upgrades.force_upgrade = true
+   for i=1,#new_install do
+      wpn:install_upgrade(new_install[i])
+   end
+   inventory_upgrades.force_upgrade = false
+
+   
+   -- Send news
+   if (#new_install > 0) then 
+      if (dynamic_news_manager and ui_options.get("alife/dynamic_news/nearby_activity_news")) then
+         dynamic_news_manager.get_dynamic_news():UpgradedItems(npc, mechanic, sec_wpn, new_install)
+      end
+   end
+end

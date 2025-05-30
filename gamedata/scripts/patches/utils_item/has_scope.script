@@ -1,0 +1,67 @@
+-- Fix for returning wrong attached scope
+utils_item.has_scope = function(section)
+   if not utils_item.scopes_list then
+      utils_item.scopes_list = utils_data.collect_section(ini_sys, "addons_table")
+   end
+
+   local function sort_func(t, a, b)
+      if #t[a] ~= #t[b] then 
+         return sort_func_values_length_descend(t, a, b) 
+      else
+         return sort_func_values_descend(t, a, b)
+      end
+   end
+   
+   -- Determine which addon is attached to the weapon.
+   -- demonized: Sort addons by descend and check if the weapon section ends with addon section instead of string.find
+   for k, v in spairs(utils_item.scopes_list, sort_func) do
+      if section:endswith(v) then
+         return v
+      end
+   end
+end
+
+-- Fix for returning wrong scope section on detaching
+function item_weapon.detach_scope(weapon)
+   -- Return if the weapon is not valid.
+   if not weapon then
+      return
+   end
+   
+   -- An addon has not been attached or none can be detached.
+   local parent_section = ini_sys:r_string_ex(weapon:section(),"parent_section")
+   if not parent_section or weapon:section() == parent_section then
+      return
+   end
+   
+   -- Get weapon owner
+   local old_weapon = alife_object(weapon:id())
+   local owner = old_weapon and old_weapon.parent_id and get_object_by_id(old_weapon.parent_id)
+   if not owner then
+      printf("~ item_weapon.detach_scope | weapon owner not found")
+      return
+   end
+
+   local function sort_func(t, a, b)
+      if #a ~= #b then 
+         return sort_func_keys_length_descend(t, a, b) 
+      else
+         return sort_func_keys_descend(t, a, b)
+      end
+   end
+   
+   -- Determine which addon is attached to the weapon.
+   -- Create the item in the actor's inventory when found.
+   -- demonized: Sort addons by descend and check if the weapon section ends with addon section instead of string.find
+   for k, v in spairs(item_weapon.scopes_table, sort_func) do
+      if weapon:section():endswith(k) then
+         alife_create_item(k, owner)
+         break
+      end
+   end
+   
+   -- Create objects for the 'before' and 'after' detachment weapons.
+   if old_weapon then
+      alife_clone_weapon(old_weapon, parent_section)
+   end
+end

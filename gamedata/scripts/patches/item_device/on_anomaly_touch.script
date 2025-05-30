@@ -1,0 +1,7 @@
+-- item_device and itms_manager faulty callbacks with flags
+item_device_on_anomaly_touch = item_device.on_anomaly_touch
+item_device.on_anomaly_touch = function(obj, flags)
+   if flags.ret_value then
+      item_device_on_anomaly_touch(obj, flags)
+   end
+end

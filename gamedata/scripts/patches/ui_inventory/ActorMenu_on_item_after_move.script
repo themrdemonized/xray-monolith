@@ -1,0 +1,13 @@
+-- NLTP_ASHES: Fix for ActorMenu_on_item_after_move callback sending nil values
+do
+   local ver = get_game_version()
+   if ver[2] <= 5 and ver[3] <= 2 then
+      ui_inventory_UIInventory_Action_Move = ui_inventory.UIInventory.Action_Move
+      function ui_inventory.UIInventory:Action_Move(obj, bag)
+        obj = self:CheckItem(obj,"Action_Move")
+        if obj then
+          ui_inventory_UIInventory_Action_Move(self, obj, bag)
+        end
+      end
+   end
+end
