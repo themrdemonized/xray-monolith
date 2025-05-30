@@ -1,13 +1,18 @@
+(var {: iter-values} (import :/prelude/fennel/iterator))
+
 (var ui_options (import :/ui_options))
 
-;; Assemble options data
-(var options {:modded_exes (import :modded_exes)})
+;; Table of packages to ignore when glob importing
+(var ignore {:options/builder true})
 
-;; Override options init function and inject our data
+;; Monkey-patch options init function
 (var ui_options_base ui_options.init_opt_base)
 (fn ui_options.init_opt_base []
+  ;; Call base init
   (ui_options_base)
-  (each [_ option (pairs options)]
+
+  ;; Iterate submodules and add their contents to the options table
+  (each [option (iter-values (import :* ignore))]
     (table.insert ui_options.options option)))
 
 ;; Run the init function
