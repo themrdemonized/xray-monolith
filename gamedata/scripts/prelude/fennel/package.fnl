@@ -37,6 +37,12 @@
   (set flags (bor FS.FS_ListFiles flags))
   (flist->iter (fs:file_list_open_ex path flags extensions)))
 
+(λ package-hidden? [package]
+  (package:match "^%."))
+
+(λ package-not-hidden? [package]
+  (not (package-hidden? package)))
+
 (λ iter-packages []
   "Produce an iterator over all script packages in the filesystem."
   (->> (iter-files (getFS)
@@ -44,7 +50,8 @@
                    (format-compiler-extensions)
                    FS.FS_ListFiles)
        (iter-filter file-not-empty?)
-       (iter-map file->package)))
+       (iter-map file->package)
+       (iter-filter package-not-hidden?)))
 
 (λ iter-package-path [path]
   "Produce an iterator over packages included in the unix-style path `path`."
