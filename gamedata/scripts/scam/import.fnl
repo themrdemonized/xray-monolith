@@ -32,17 +32,32 @@
 
 (λ absolute-path [env path]
   (var path path)
-  
+
+  (var is-init? (env._FILE:match "\\init%.[^.]+$"))
+  (var is-parent? (path:match "^%.+/"))
+  (var is-absolute? (path:match "^/"))
+
+  (var base (or (and is-absolute? "")
+                env._PACKAGE))
+
   ;; If the environment points at an init.* file,
-  ;; strip a dot from relative paths
-  (when (and (path:match "^%.+/")
-             (env._FILE:match "\\init%.[^.]+$"))
+  ;; strip a dot from parent paths
+  (when (and is-init? is-parent?)
     (set path (path:sub 2)))
   
-  ;; If the path doesn't begin with /,
-  ;; it's relative and should inherit the parent package's path
-  (or (and (path:match "^/") path)
-      (.. env._PACKAGE "/" path)))
+  ;; If path is non-parent, relative,
+  ;; and the environment doesn't point at an init.* file,
+  ;; strip the last segment from the base
+  (when (and (not is-init?)
+             (not is-parent?)
+             (not is-absolute?))
+    (set base (base:gsub "/[^/]+$" "")))
+  
+  ;; If the path is relative, prepend the base path
+  (when (not is-absolute?)
+    (set path (.. base "/" path)))
+
+  path)
 
 (λ _G.import_table [path ?ignore ?handle-error]
   "Resolve the unix-style path `path` and import the resulting modules,
