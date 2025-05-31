@@ -404,10 +404,23 @@ void CScriptEngine::init()
     luabind::object(lua(), const_cast<CScriptStorage*>(&ScriptStorage())).pushvalue();
     lua_setglobal(lua(), "_SCRIPT_STORAGE");
 
-    // Hand control to Lua
     Msg("* engine: loading init.lua");
+
+    // Fetch init.lua's path from the FS
     string_path path;
-    if (luaL_dofile(lua(), FS.update_path(path, "$game_scripts$", "init.lua")))
+    FS.update_path(path, "$game_scripts$", "init.lua");
+    if (!path)
+        FATAL("* engine: invalid init.lua path");
+
+    // Open a file handle and read it into a string
+    auto file = FS.r_open(path);
+    if (!file)
+        FATAL("* engine: failed to load init.lua");
+    std::string src((char*)file->pointer(), file->length());
+    FS.r_close(file);
+
+    // Run the resulting source
+    if (luaL_dostring(lua(), src.c_str()))
     {
         LPCSTR e = lua_tostring(lua(), -1);
         lua_pop(lua(), 1);
