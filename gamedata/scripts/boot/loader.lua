@@ -30,7 +30,7 @@ function _COMPILER(src, namespace_name)
 end
 
 -- Define xray script reader
-local function read_fs(name)
+local function fs_loader(name)
    local fs = getFS()
 
    local errs = ""
@@ -44,7 +44,14 @@ local function read_fs(name)
             if file then
                local size = file:r_elapsed()
                local src = file:r_stringZ():sub(1, size)
-               return src, path
+
+               local res, out = pcall(_COMPILER, src, name, path)
+               if not res then
+                  print(out)
+                  error(out)
+               end
+
+               return out
             end
          end
 
@@ -55,31 +62,8 @@ local function read_fs(name)
       end
    end
 
-   return nil, nil, errs
+   return errs
 end
-
--- Define reader -> loader transformer
-local function loader(with)
-   return function(name)
-      local src, path, err = with(name)
-      if not src then
-         return err
-      end
-
-      local res, out = pcall(_COMPILER, src, name, path)
-      if not res then
-         print(out)
-         error(out)
-      end
-
-      return out
-   end
-end
-
--- Define the set of readers to register as loaders
-local readers = {
-   read_fs
-}
 
 -- Pop the preloader off the loader list
 local preload_loader = table.remove(package.loaders, 1)
@@ -87,10 +71,8 @@ local preload_loader = table.remove(package.loaders, 1)
 -- Pop the default textual script loader
 table.remove(package.loaders, 1)
 
--- Emplace new loaders for filesystem and db
-for i=#readers,1,-1 do
-   table.insert(package.loaders, 1, loader(readers[i]))
-end
+-- Emplace x-ray FS loader
+table.insert(package.loaders, 1, fs_loader)
 
 -- Lift into a memoized higher-order loader
 local loaders = package.loaders
