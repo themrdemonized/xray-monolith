@@ -1,5 +1,9 @@
 _PACKAGE = "boot/loader"
 
+local state = {
+   callbacks = {}
+}
+
 -- Emplace boot-time passthrough compiler
 function _COMPILER(src, namespace_name)
    print("* " .. _PACKAGE .. ": loading", namespace_name)
@@ -102,8 +106,20 @@ local function io_loaders(name)
 
       local ty = type(out)
       if ty == "function" then
-         return out
+         local already_loaded = package.loaded[name]
+         local res = out()
+         package.loaded[name] = res
+         if already_loaded == nil then
+            for _,f in ipairs(state.callbacks) do
+               f(name)
+            end
+         end
+         return function()
+            package.loaded[name] = res
+            return res
+         end
       else
+         package.loaded[name] = nil
          if #err > 0 then
             err = err .. "\n"
          end
@@ -123,3 +139,11 @@ end
 
 -- Replace the loader list with the preloader plus our memoized IO loader
 package.loaders = { preload_loader, io_loaders }
+
+local function register_on_load_callback(f)
+   table.insert(state.callbacks, f)
+end
+
+return {
+   register_on_load_callback = register_on_load_callback
+}

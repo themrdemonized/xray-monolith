@@ -708,3 +708,5 @@ function slaxml.simple_xml(self, n, opts)
 
     return table.concat(out, opts.indent and "\n" or "")
 end
+
+return {}

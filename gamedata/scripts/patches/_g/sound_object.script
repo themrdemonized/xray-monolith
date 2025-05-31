@@ -1,18 +1,6 @@
 local soundCache = {}
 local soundCacheIter = 1
 
-AddUniqueCall(function()
-  if not soundCache[soundCacheIter] then
-    soundCacheIter = #soundCache
-    return
-  end
-  if not soundCache[soundCacheIter]:playing() then
-    -- printf("removing sound %s, current amount of sounds %s", soundCache[soundCacheIter].my_sound_object_path, #soundCache - 1)
-    table.remove(soundCache, soundCacheIter)
-  end
-  soundCacheIter = soundCacheIter - 1
-end)
-
 class "my_sound_object" (sound_object)
 function my_sound_object:__init(path)
   super(path)
@@ -28,3 +16,17 @@ function my_sound_object:__finalize()
 end
 
 _G.sound_object = my_sound_object
+
+function on_game_start()
+    AddUniqueCall(function()
+    if not soundCache[soundCacheIter] then
+        soundCacheIter = #soundCache
+        return
+    end
+    if not soundCache[soundCacheIter]:playing() then
+        -- printf("removing sound %s, current amount of sounds %s", soundCache[soundCacheIter].my_sound_object_path, #soundCache - 1)
+        table.remove(soundCache, soundCacheIter)
+    end
+    soundCacheIter = soundCacheIter - 1
+    end)
+end

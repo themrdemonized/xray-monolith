@@ -40,8 +40,11 @@ local function list(lst)
    return form("[" .. table.concat(lst, " ") .. "]")
 end
 
-local function handle_error(msg)
+local function handle_error(msg, namespace_name)
    return function(err)
+      if namespace_name then
+         package.loaded[namespace_name] = nil
+      end
       err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
          .. fennel.traceback(err .. "\n", 2)
@@ -104,21 +107,22 @@ local function compile(src, namespace_name, script_name)
             make_compiler_opts(env, namespace_name)
          )
       end,
-      handle_error("error compiling " .. namespace_name)
+      handle_error("error compiling " .. namespace_name, namespace_name)
    )
 
    local _, mod = xpcall(
       function()
          return fennel.loadCode(lua, env, namespace_name)
       end,
-      handle_error("error loading " .. namespace_name)
+      handle_error("error loading " .. namespace_name, namespace_name)
    )
 
    return function()
+      package.loaded[namespace_name] = env
       -- Evaluate our modified AST with the unlocalizer callback in scope
       local _, out = xpcall(
          mod,
-         handle_error("error evaluating " .. namespace_name)
+         handle_error("error evaluating " .. namespace_name, namespace_name)
       )
 
       -- Ensure the script's output is unlocalizable

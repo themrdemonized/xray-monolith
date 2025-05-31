@@ -16,7 +16,8 @@
       :ce_switcher true
       :axr_main true
       :lua_help true
-      :rx_gl true})
+      :rx_gl true
+      :patches true})
 
 (fn axr_main.on_game_start []
   ;; Call the result

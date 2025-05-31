@@ -30,9 +30,6 @@ function _COMPILER(src, namespace_name, script_name)
    if not res then
       print(out)
       error(out)
-      if namespace_name then
-         package.loaded[namespace_name] = nil
-      end
    end
 
    return out

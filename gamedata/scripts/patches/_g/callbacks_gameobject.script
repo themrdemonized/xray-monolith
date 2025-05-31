@@ -1,0 +1,450 @@
+function on_game_start()
+   -- Loading screen callbacks
+   AddScriptCallback("on_loading_screen_key_prompt")
+   AddScriptCallback("on_loading_screen_dismissed")
+
+   -- Called from GamePersistent.cpp
+   -- Callback for when loading screen happens and "Press Any Key to Continue" prompt appears
+   _G.OnLoadingScreenKeyPrompt = function()
+      SendScriptCallback("on_loading_screen_key_prompt")
+   end
+
+   -- Callback for when player dismisses loading screen after "Press Any Key to Continue" pressed
+   _G.OnLoadingScreenDismissed = function()
+      SendScriptCallback("on_loading_screen_dismissed")
+   end
+
+   -- Generic net spawn/net destroy callbacks
+   AddScriptCallback("game_object_on_net_spawn")
+   AddScriptCallback("game_object_on_net_destroy")
+   _G.CGameObject_NetSpawn = function(obj)
+      SendScriptCallback("game_object_on_net_spawn", obj)
+   end
+
+   _G.CGameObject_NetDestroy = function(obj)
+      SendScriptCallback("game_object_on_net_destroy", obj)
+   end
+
+   -- Game objects registry
+   gameobjects_registry = {}
+   function game_object_on_net_spawn(obj)
+      gameobjects_registry[obj:id()] = obj
+   end
+   function game_object_on_net_destroy(obj)
+      gameobjects_registry[obj:id()] = nil
+   end
+
+   -- Game objects iterator
+   _G.game_objects_iter = function()
+      local k = nil
+      local obj = nil
+      return function()
+         k, obj = next(gameobjects_registry, k)
+         return obj
+      end
+   end
+
+   -- Pseudogiant callbacks
+   AddScriptCallback("pseudogiant_on_start_stomp_animation")
+   AddScriptCallback("pseudogiant_before_stomp")
+   AddScriptCallback("pseudogiant_on_stomp")
+
+   _G.CPseudoGigant__OnStartStompAnimation = function(victim, who)
+      SendScriptCallback("pseudogiant_on_start_stomp_animation", victim, who)
+   end
+
+   _G.CPseudoGigant__BeforeHitCallback = function(victim, who, shit, boneId)
+      local flags = { ret_value = true }
+      SendScriptCallback("pseudogiant_before_stomp", victim, who, shit, boneId, flags)
+      return flags.ret_value
+   end
+
+   _G.CPseudoGigant__HitCallback = function(victim, who, shit, boneId)
+      SendScriptCallback("pseudogiant_on_stomp", victim, who, shit, boneId)
+   end
+
+   -- Bullet callbacks
+   AddScriptCallback("bullet_on_init")
+   AddScriptCallback("bullet_on_update")
+   AddScriptCallback("bullet_on_impact")
+   AddScriptCallback("bullet_on_remove")
+
+   -- Available fields in bullet object
+   -- position = position of impact,
+   -- direction = direction of impact,
+   -- speed = speed of impact -- Speed will be 0 in bullet_on_remove callback if the bullet hitted the target and stayed inside of it
+   -- distance - flew distance before impact
+   -- section - section of bullet
+   -- bullet_id = unique id of the bullet, its NOT GAME OBJECT ID
+   -- weapon_id = game object id of weapon that shot bullet
+   -- parent_id = game object id of actor that has a weapon that shot bullet
+   -- target_id = game object id of entity the bullet hit (it will be 65535 if bullet hit the terrain or vanished)
+   -- material = name of material that bullet hit
+   -- life_time = time of bullet fly
+
+   -- Called when bullet is shot from the weapon
+   _G.CBulletOnInit = function(bullet)
+      SendScriptCallback("bullet_on_init", bullet)
+   end
+
+   -- Called when bullet is flying
+   _G.CBulletOnUpdate = function(bullet)
+      SendScriptCallback("bullet_on_update", bullet)
+   end
+
+   -- Called when bullet hits something (terrain, object, npcs)
+   _G.CBulletOnImpact = function(bullet)
+      SendScriptCallback("bullet_on_impact", bullet)
+   end
+
+   -- Called when bullet is destroyed and removed from the world
+   _G.CBulletOnRemove = function(bullet)
+      SendScriptCallback("bullet_on_remove", bullet)
+   end
+
+   -- Weapons callbacks
+   AddScriptCallback("actor_on_weapon_zoom_type_changed")
+   _G.CWeapon_OnSwitchZoomType = function(obj, previous, current)
+      SendScriptCallback("actor_on_weapon_zoom_type_changed", obj, previous, current)
+   end
+
+   -- WIP DONT TOUCH
+   -- AddScriptCallback("rocket_on_update")
+   -- Called when rocket is flying
+   -- _G.CRocketOnUpdate = function(rocket)
+   -- 	SendScriptCallback("rocket_on_update", rocket)
+   -- 	return rocket
+   -- end
+
+   -- function on_game_start()
+   -- 	RegisterScriptCallback("rocket_on_update", function(rocket)
+   -- 		printf("rocket is flying")
+   -- 		local speed = rocket.speed
+   -- 		printf("speed %s", speed)
+   -- 		-- rocket.engine_active = true
+   -- 		if rocket.engine_active then
+   -- 			rocket.speed = 15
+   -- 		end
+   -- 		local targetDist = level.get_target_dist()
+   -- 		local targetPos = vector():mad(device().cam_pos, device().cam_dir, targetDist)
+   -- 		local pos = vector():set(rocket.position)
+   -- 		local targetRocketDir = targetPos:sub(pos):normalize()
+   -- 		-- rocket.direction = targetRocketDir
+   -- 		rocket.body_direction = targetRocketDir
+   -- 		print_r(rocket)
+   -- 	end)
+   -- end
+
+   -- HUD item callbacks
+
+   -- Near-wall transform callback
+   -- Intercepts the transforms applied to the HUD when near a wall
+   -- Receives the following table:
+   -- {
+   --   target: int
+   --   offset: float
+   --   direction: vector
+   --   matrix: matrix
+   --   override: bool
+   -- }
+   -- `target` corresponds to the Weapon and Camera variants of ETraceTarget in lua_help_ex.script
+   -- `offset` is the signed distance from the barrel to the wall
+   -- `direction` is the vector along which the offset is applied
+   -- `matrix` is the mutable offset transform
+   -- `override` is a mutable flag for suppressing the built-in position offset
+   AddScriptCallback("actor_hud_on_nearwall")
+   _G.CActorHudOnNearWall = function(arg)
+      SendScriptCallback("actor_hud_on_nearwall", arg)
+   end
+
+   -- Mouse callbacks
+   -- Scroll wheel callback, sends mouse wheel direction as a number
+   -- 1 is up, 0 is down
+   -- set flags.ret_value = false to consume the input and prevent actor wheel binds (zoom, switch weapons, etc)
+   -- Example:
+   --[[
+      RegisterScriptCallback("on_mouse_wheel", function(dir, flags)
+         printf("mousewheel %s", dir == 1 and "up" or "down")
+      end)
+   ]] 
+
+   AddScriptCallback("on_mouse_wheel")
+   _G.COnMouseWheel = function(dir)
+      local d = dir > 0 and 1 or 0
+      local flags = { ret_value = true }
+      SendScriptCallback("on_mouse_wheel", d, flags)
+      return flags.ret_value
+   end
+
+   AddScriptCallback("on_before_mouse_move")
+   level_input.on_mouse_move = function(x, y, disabled)
+      local flags = { ret_value = false }
+      SendScriptCallback("on_before_mouse_move", x, y, disabled, flags)
+      return flags.ret_value
+   end
+
+   -- Slot change callback
+   -- new_obj and prev_obj can be nil
+   AddScriptCallback("actor_on_changed_slot")
+   _G.CActor_OnChangedSlot = function(new_slot, new_obj, prev_slot, prev_obj)
+      SendScriptCallback("actor_on_changed_slot", new_slot, new_obj, prev_slot, prev_obj)
+   end
+
+   -- Outfit artefact count get callback
+   AddScriptCallback("on_artefact_count_get")
+   _G.CCustomOutfit_get_artefact_count = function(artefact_count)
+      local flags = { ret_value = artefact_count }
+      SendScriptCallback("on_artefact_count_get", artefact_count, flags)
+      return flags.ret_value
+   end
+
+   -- Artefact belt size get callback
+   AddScriptCallback("on_belt_size_get")
+   actor_menu_inventory.CInventory_BeltWidth = function(artefact_count)
+      local flags = { ret_value = artefact_count }
+      SendScriptCallback("on_belt_size_get", artefact_count, flags)
+      return flags.ret_value
+   end
+
+   -- On before hit after calculations callback
+   -- The hit object contains final values before applying
+   AddScriptCallback("on_before_hit_after_calcs")
+   _G.CBeforeHitAfterCalcs = function(shit, target, boneId)
+      SendScriptCallback("on_before_hit_after_calcs", shit, target, boneId)
+   end
+
+   --[[ 
+
+   On right click on PDA map callback
+   Params are property_ui and map_table
+   property_ui is the same as in pda.property_box_add_properties callback
+   map_table contains:
+      level_name - name of hovered map
+      pos - position in the real world under the cursor on the hovered map
+      global_map_pos - position under the cursor on the global map canvas, not the real world position
+      object_id - id of object under cursor, 65535 if no object
+      hint - tooltip string for the object under cursor, nil if no object
+      lvid - level vertex id by position on the hovered map
+      gvid - game vertex id by position on the hovered map
+
+   --]]
+
+   AddScriptCallback("on_map_right_click")
+   _G.COnRightClickMap = function(property_ui, map_table)
+      pda.map_spot_property.id = map_table.object_id
+      pda.map_spot_property.level_name = map_table.level_name
+      SendScriptCallback("on_map_right_click", property_ui, map_table)
+   end
+
+   -- On receive game news callback
+   AddScriptCallback("on_news_received")
+   _G.CUIMessagesWindow__AddIconedPdaMessage = function(UIMessageView, UITimeText, UICaptionText, UIMsgText, UIIconStatic, UIMessagesScrollView)
+      local tags = {}
+      SendScriptCallback("on_news_received", UIMessageView, UITimeText, UICaptionText, UIMsgText, UIIconStatic, UIMessagesScrollView, tags)
+   end
+
+   -- NPC on item before pickup callback
+   AddScriptCallback("npc_on_item_before_pickup")
+   _G.CAI_Stalker__OnBeforeOwnershipTake = function(npc, item)
+      local flags = { ret_value = true }
+      SendScriptCallback("npc_on_item_before_pickup", npc, item, flags)
+      return flags.ret_value
+   end
+
+   AddScriptCallback("npc_set_body_state")
+   function _G.CAI_Stalker__SetBodyState(npc, state)
+      local flags = {ret_value = state}
+      SendScriptCallback("npc_set_body_state",npc, state, flags)
+      return flags.ret_value
+   end
+
+   --[[
+   GhenTuong:
+   Force stalkers to play a body state during combat by changing csbs_flags.body_state.
+   world_operator = {
+      stalker_ids.action_get_item_to_kill,
+      stalker_ids.action_make_item_killing,
+      stalker_ids.action_retreat_from_enemy,
+      stalker_ids.action_get_ready_to_kill,
+      stalker_ids.action_take_cover,
+      stalker_ids.action_look_out,
+      stalker_ids.action_hold_position,
+      stalker_ids.action_detour_enemy,
+      stalker_ids.action_hide_from_grenade,
+      stalker_ids.action_sudden_attack,
+      stalker_ids.action_throw_grenade,
+   }
+   body_state = {
+      move.crouch,
+      move.stand,
+   }
+   --]]
+   local csbs_flags = {}
+   AddScriptCallback("npc_on_combat_set_body_state")
+   function _G.CAI_Stalker__CombatSetBodyState(npc,world_operator,body_state)
+      csbs_flags.body_state = body_state
+      SendScriptCallback("npc_on_combat_set_body_state",npc,world_operator,body_state,csbs_flags)
+      return csbs_flags.body_state
+   end
+
+   -- actor_on_task_callback
+   AddScriptCallback("actor_on_task_callback")
+   task_callback = task_manager.task_callback
+   task_manager.task_callback = function(tsk, state)
+      local tm = task_manager.get_task_manager()
+      local id = tsk:get_id()
+      SendScriptCallback("actor_on_task_callback", tsk, state, tm, id)
+      task_callback(tsk, state)
+   end
+
+   -- on_phrase_callback
+   AddScriptCallback("on_phrase_callback")
+   _G.CAI_Stalker_OnPhraseCallback = function(sound_name, obj)
+      SendScriptCallback("on_phrase_callback", sound_name, obj)
+   end
+
+   -- explosive item explosion callback
+   AddScriptCallback("explosive_item_on_explode")
+   _G.CExplosiveItem__OnExplode = function(obj)
+      SendScriptCallback("explosive_item_on_explode", obj)
+   end
+
+   -- nearest item to pickup callback
+   -- obj can be nil
+   AddScriptCallback("actor_on_update_pickup")
+   _G.CPickupModeUpdate_COD = function(obj)
+      SendScriptCallback("actor_on_update_pickup", obj)
+   end
+
+   --[[
+   on_before_play_hud_sound callback, possibility to override sound with another one
+   Callback returns a table which must contain "section" and "line" fields, which refer to section and line to load new sounds from
+
+   Arguments
+      Alias: internal sound type in the engine
+      Parent: Parent object of an object that initiated the sound (`actor` when shooting a weapon for example), might be nil
+
+   Example
+      if alias == "sndShot" and parent and parent:id() == AC_ID then
+         result.section = "wpn_l96a1_sounds"
+         result.line = "snd_shoot"
+      end
+
+   Possible aliases:
+      "catch_snd"
+      "found_snd"
+      "NightVisionBrokenSnd"
+      "NightVisionIdleSnd"
+      "NightVisionOffSnd"
+      "NightVisionOnSnd"
+      "sndAddCartridge"
+      "sndBore"
+      "sndButtonPress"
+      "sndButtonRelease"
+      "sndCheckout"
+      "sndClickMisfire"
+      "sndClickMisfireActor"
+      "sndClose"
+      "sndCloseEmpty"
+      "sndEmptyBattery"
+      "sndEmptyClick"
+      "sndEmptyClickActor"
+      "sndExplode"
+      "sndHide"
+      "sndHideActor"
+      "sndHideEmpty"
+      "sndOpen"
+      "sndReload"
+      "sndReload1"
+      "sndReloadActor"
+      "sndReloadEmpty"
+      "sndReloadEmptyActor"
+      "sndReloadG"
+      "sndReloadMisfire"
+      "sndReloadMisfireActor"
+      "sndRocket"
+      "sndShoot"
+      "sndShootL"
+      "sndShot"
+      "sndShotActor"
+      "sndShotActorFirst"
+      "sndShotG"
+      "sndShotIndoor"
+      "sndShotMisfire"
+      "sndShotMisfireActor"
+      "sndShow"
+      "sndShowActor"
+      "sndShowEmpty"
+      "sndSilencerShot"
+      "sndSilencerShotActor"
+      "sndSilencerShotActorFirst"
+      "sndSilencerShotIndoor"
+      "sndSilencerShotMisfire"
+      "sndSilencerShotMisfireActor"
+      "sndSwitch"
+      "sndSwitchMode"
+      "sndThrow"
+      "sndTurnOff"
+      "sndTurnOn"
+      "sndZoomIn"
+      "sndZoomOut"
+   --]]
+   AddScriptCallback("on_before_play_hud_sound")
+   _G.COnBeforePlayHudSound = function(alias, parent)
+      local result = {
+         section = nil,
+         line = nil
+      }
+
+      SendScriptCallback("on_before_play_hud_sound", alias, parent, result)
+
+      if result.section and result.line then
+         return result
+      end
+   end
+
+   -- Improve NPCs pathfinding by reducing actual anomaly damage radius
+   -- Works only when npc:get_enable_anomalies_pathfinding() == true or ai_die_in_anomalies cvar is 1
+   function is_outside_damage_radius(zone, obj)
+      local se_zone = alife_object(zone:id())
+      if not se_zone then
+         return false
+      end
+
+      local data = utils_stpk.get_anom_zone_data(se_zone)
+      if not (data and data.shapes[1] and data.shapes[1].radius) then
+         return false
+      end
+
+      local radius = data.shapes[1].radius
+      local damage_radius = math.max(radius - 1.1, 1)
+      local damage_radius_sqr = damage_radius * damage_radius
+      local dist_sqr = zone:position():distance_to_sqr(obj:position())
+      local res = dist_sqr > damage_radius_sqr
+      return res
+   end
+
+   function anomaly_on_before_activate(zone, obj, flags)
+      if obj:id() ~= AC_ID 
+      and (IsStalker(obj) or IsMonster(obj))
+      and obj:alive()
+      and is_outside_damage_radius(zone, obj)
+      then
+         flags.ret_value = false
+      end
+   end
+
+   -- NLTP_ASHES: Trigger actor_on_item_put_in_box callback when moving item to stash from slot
+   function ActorMenu_on_item_after_move(npc_id, obj, mode, bag_from)
+      local box = level.object_by_id(npc_id)
+      if box and IsInvbox(box) and mode == "loot" and bag_from == 1 then
+      SendScriptCallback("actor_on_item_put_in_box", box, obj)
+      end
+   end
+
+
+   RegisterScriptCallback("ActorMenu_on_item_after_move", ActorMenu_on_item_after_move)
+   RegisterScriptCallback("anomaly_on_before_activate", anomaly_on_before_activate)
+   RegisterScriptCallback("game_object_on_net_spawn", game_object_on_net_spawn)
+   RegisterScriptCallback("game_object_on_net_destroy", game_object_on_net_destroy)
+end

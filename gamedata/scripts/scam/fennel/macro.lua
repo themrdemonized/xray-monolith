@@ -7,8 +7,9 @@ local COMPILER_OPTS = {
    ["error-pinpoint"] = false,
 }
 
-local function handle_error(msg)
+local function handle_error(msg, namespace_name)
    return function(err)
+      package.loaded[namespace_name] = nil
       err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
          .. fennel.traceback(err .. "\n", 3)
@@ -24,12 +25,13 @@ local function compile(src, namespace_name)
    return function()
       local _, out = xpcall(
          function()
+            package.loaded[namespace_name] = {}
             return fennel.eval(
                src,
                COMPILER_OPTS
             )
          end,
-         handle_error("error compiling" .. namespace_name)
+         handle_error("error compiling" .. namespace_name, namespace_name)
       )
 
       if namespace_name then
