@@ -75,8 +75,8 @@
         ;; convert va into a pattern, and match against it
         (a b) (do (var va (va:lower))
                   (var vb (vb:lower))
-                  (set va (va:gsub "%*" "%.%*"))
-                  (vb:match va))
+                  (var pat (.. "^" (va:gsub "%*" "%.%*") "$"))
+                  (vb:match pat))
         ;; If vb is nil, length mismatch
         (a nil) false
         ;; If va is nil, we either have a length mismatch or are a multi-glob
