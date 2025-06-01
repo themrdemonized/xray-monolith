@@ -9,11 +9,11 @@ require("boot/sandbox")
 -- Make print work
 require("boot/print")
 
--- Setup loading machinery
-require("boot/loader")
-
 -- Setup path machinery
 require("boot/paths")
+
+-- Setup loading machinery
+require("boot/loader")
 
 -- Setup engine interface
 require("boot/function_object")

@@ -4,35 +4,9 @@ local state = {
    callbacks = {}
 }
 
--- Emplace boot-time passthrough compiler
-function _COMPILER(src, namespace_name)
-   print("* " .. _PACKAGE .. ": loading", namespace_name)
-
-   local out, err = loadstring(src, namespace_name)
-
-   if not out then
-      error(
-         "! init: error loading " .. namespace_name .. ":\n"
-         .. err
-      )
-   end
-
-   return setfenv(
-      out,
-      setmetatable(
-         { _PACKAGE = namespace_name },
-         {
-            __index = _G,
-            __newindex = _G,
-         }
-      )
-   )
-end
-
--- Define xray script reader
-local function fs_loader(name)
+-- Define xray FS loader
+function _LOADERS.fs(name)
    local fs = getFS()
-
    local errs = ""
    local base = fs:update_path("$game_scripts$", "")
    for seg in package.path:gmatch("[^;]+") do
@@ -40,19 +14,15 @@ local function fs_loader(name)
          local fname = seg:sub(#base + 1):gsub("?", name):gsub("/", "\\")
          local path = fs:update_path("$game_scripts$", fname)
          if path and fs:exist(path) then
-            local file = fs:r_open(path)
-            if file then
-               local size = file:r_elapsed()
-               local src = file:r_stringZ():sub(1, size)
+            local src = _LOAD_FILE(path)
 
-               local res, out = pcall(_COMPILER, src, name, path)
-               if not res then
-                  print(out)
-                  error(out)
-               end
-
-               return out
+            local res, out = pcall(_COMPILER, src, name, path)
+            if not res then
+               print(out)
+               error(out)
             end
+
+            return out
          end
 
          if #errs > 0 then
@@ -65,17 +35,9 @@ local function fs_loader(name)
    return errs
 end
 
--- Pop the preloader off the loader list
-local preload_loader = table.remove(package.loaders, 1)
-
--- Pop the default textual script loader
-table.remove(package.loaders, 1)
-
--- Emplace x-ray FS loader
-table.insert(package.loaders, 1, fs_loader)
+local loaders = { _LOADERS.fs }
 
 -- Lift into a memoized higher-order loader
-local loaders = package.loaders
 local function io_loaders(name)
    local io_miss = _SCRIPT_STORAGE:get("io_loader", name)
    if io_miss then
@@ -120,7 +82,7 @@ local function io_loaders(name)
 end
 
 -- Replace the loader list with the preloader plus our memoized IO loader
-package.loaders = { preload_loader, io_loaders }
+package.loaders = { _LOADERS.pre, io_loaders }
 
 local function register_on_load_callback(f)
    table.insert(state.callbacks, f)
