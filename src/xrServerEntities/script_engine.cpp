@@ -340,9 +340,22 @@ CScriptEngine::~CScriptEngine()
         remove_script_process(m_script_processes.begin()->first);
 }
 
-static int get_script_storage(lua_State* L)
+// Low level path -> string content loader to work around intractable Lua IReader::r_stringZ behaviour
+static int load_file(lua_State* L)
 {
-    luabind::object(L, const_cast<CScriptStorage*>(&ScriptStorage())).pushvalue();
+    LPCSTR path = lua_tostring(L, 1);
+    if (!path)
+        FATAL("Invalid path");
+
+    IReader* file = FS.r_open(path);
+
+    if (!file)
+        FATAL("Invalid file");
+
+    lua_pushlstring(L, (LPCSTR)file->pointer(), file->length());
+
+    FS.r_close(file);
+
     return (1);
 }
 
@@ -403,6 +416,9 @@ void CScriptEngine::init()
     CScriptStorage::script_register(lua());
     luabind::object(lua(), const_cast<CScriptStorage*>(&ScriptStorage())).pushvalue();
     lua_setglobal(lua(), "_SCRIPT_STORAGE");
+
+    lua_pushcfunction(lua(), load_file);
+    lua_setglobal(lua(), "_LOAD_FILE");
 
     Msg("* engine: loading init.lua");
 
