@@ -22,7 +22,7 @@ function _COMPILER(src, script_name, namespace_name)
    return old_compiler(src, script_name, namespace_name)
 end
 
-package.loaded["scam/compiler"] = {
+return {
    compile = _COMPILER,
    set_default_macro = set_default_macro
 }

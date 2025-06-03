@@ -33,8 +33,8 @@ local function unlocalize(src, namespace_name)
    if not namespace_name then
       return src
    end
-   
-   local unlocalizer = require("scam/unlocalize").get(namespace_name)
+
+   local unlocalizer = require("amx/unlocalize").get(namespace_name)
    if not unlocalizer then
       return src
    end

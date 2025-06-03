@@ -63,7 +63,7 @@ function get(k)
 end
 
 
-package.loaded["scam/unlocalize"] = {
+return {
    update = update,
    get = get
 }

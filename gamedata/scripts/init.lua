@@ -190,8 +190,5 @@ function function_object(str)
    return val
 end
 
--- Pass control to scam init
-local res, err = pcall(require, "scam")
-if not res then
-   error("Failed to load scam:\n" .. err)
-end
+-- Pass control to amx entrypoint
+require("amx")
