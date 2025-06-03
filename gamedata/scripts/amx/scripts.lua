@@ -35,3 +35,5 @@ for script in scripts:gmatch("[^,]+") do
 
    ::next_script::
 end
+
+return {}

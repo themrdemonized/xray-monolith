@@ -1,7 +1,6 @@
 local unlocalizers = {}
-local updated = false
 
-function update()
+local function update()
    local fs = getFS()
    local list = fs:file_list_open(
       "$game_config$",
@@ -15,7 +14,7 @@ function update()
    if not list then
       return
    end
-    
+
    local count = list:Size() or 0
    if count == 0 then
       return
@@ -54,16 +53,14 @@ function update()
    end
 end
 
-function get(k)
-   if not updated then
-      updated = true
-      update()
-   end
+local function get(k)
    return unlocalizers[k]
 end
 
+update()
 
 return {
    update = update,
    get = get
 }
+

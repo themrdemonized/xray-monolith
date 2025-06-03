@@ -19,3 +19,5 @@ for reg_path in regs:gmatch("[^,]+") do
 end
 
 _OBJECT_FACTORY:register_script()
+
+return {}
