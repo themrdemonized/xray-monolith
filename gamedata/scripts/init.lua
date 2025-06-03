@@ -89,7 +89,7 @@ function read_io(name)
 end
 
 function _COMPILER(src, script_name, namespace_name)
-   print("lua: loading " .. namespace_name)
+   print("* init: loading " .. namespace_name)
    return loadstring(src, namespace_name)
 end
 
