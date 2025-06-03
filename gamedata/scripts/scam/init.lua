@@ -1,12 +1,17 @@
-print("Instigating S.C.A.M.")
+--- Script Compilers And Macros
+--- Racket-inspired language-oriented programming in Lua
 
+-- Setup compiler
 local compiler = require("scam/compiler")
 
-require("macro/wua")
+-- Load initial languages
+require("scam/lua")
+require("scam/teal")
+require("scam/fennel")
 
-compiler.set_default_macro("macro/wua.expand")
+-- Setup import machinery
+require("scam/import")
 
-require("_G")
-
-require("scam/classes")
-require("scam/scripts")
+return {
+   compiler = compiler
+}

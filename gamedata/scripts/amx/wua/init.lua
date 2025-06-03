@@ -10,7 +10,7 @@ local function expand(src, namespace_name, script_name)
    )
 end
 
---require("scam/compiler").register_extension("script", expand)
+require("scam/compiler").register_extension("script", expand)
 
 return {
    expand = expand
