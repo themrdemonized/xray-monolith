@@ -63,9 +63,8 @@ local function handle_error(msg, namespace_name)
       package.loaded[namespace_name] = nil
       err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
-         .. debug.traceback(err .. "\n", 2)
+         .. err
          .. "\n"
-      print(err)
       error(err)
    end
 end

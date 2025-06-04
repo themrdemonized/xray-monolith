@@ -36,11 +36,36 @@ function print(...)
    end
 end
 
+-- Set to true if we're unwinding the stack following an error
+_UNWIND = false
+
 --- Emplace minimal compiler
 function _COMPILER(src, namespace_name)
    print("* init: loading " .. namespace_name)
    return setfenv(
-      loadstring(src, namespace_name),
+      function(...)
+         local f, err = loadstring(src, namespace_name)
+         if not f then
+            local err = "init: error loading " .. namespace_name .. ":\n\n"
+                     .. err .. "\n"
+            if not _UNWIND then
+               print(debug.traceback(err, 2))
+               _UNWIND = true
+            end
+            error(err)
+         end
+
+         local res, out = pcall(f, ...)
+         if not res then
+            if not _UNWIND then
+               print(debug.traceback(out, 2))
+               _UNWIND = true
+            end
+            error(out)
+         end
+
+         return out
+      end,
       setmetatable(
          { _PACKAGE = namespace_name },
          {

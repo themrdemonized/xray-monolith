@@ -15,14 +15,7 @@ function _LOADERS.fs(name)
          local path = fs:update_path("$game_scripts$", fname)
          if path and fs:exist(path) then
             local src = _LOAD_FILE(path)
-
-            local res, out = pcall(_COMPILER, src, name, path)
-            if not res then
-               print(out)
-               error(out)
-            end
-
-            return out
+            return _COMPILER(src, name, path)
          end
 
          if #errs > 0 then

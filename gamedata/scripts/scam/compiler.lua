@@ -26,13 +26,7 @@ function _COMPILER(src, namespace_name, script_name)
       mac = state.default
    end
 
-   local res, out = pcall(mac, src, namespace_name, script_name)
-   if not res then
-      print(out)
-      error(out)
-   end
-
-   return out
+   return mac(src, namespace_name, script_name)
 end
 
 local function register_extension(k, v)
