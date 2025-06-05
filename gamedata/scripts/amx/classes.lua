@@ -20,4 +20,3 @@ end
 
 _OBJECT_FACTORY:register_script()
 
-return {}

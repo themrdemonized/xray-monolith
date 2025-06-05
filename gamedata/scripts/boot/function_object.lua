@@ -23,5 +23,3 @@ function function_object(str)
 
    return val
 end
-
-return {}

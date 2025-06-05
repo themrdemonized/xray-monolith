@@ -16,5 +16,3 @@ for k,v in pairs(disabled) do
       _G[k][v[i]] = nil
    end
 end
-
-return {}
