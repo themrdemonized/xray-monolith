@@ -60,16 +60,23 @@ local G = setmetatable(
 
 local function handle_error(msg, namespace_name)
    return function(err)
-      package.loaded[namespace_name] = nil
+      if namespace_name then
+         package.loaded[namespace_name] = nil
+      end
+
       err = "! " .. _PACKAGE .. ": "
          .. msg .. ":\n\n"
          .. err
          .. "\n"
+      err = debug.traceback(err, 2)
+
+      print(err)
       error(err)
    end
 end
 
-local function compile(src, namespace_name, script_name)
+local compile
+compile = function(src, namespace_name, script_name)
    local is_g = namespace_name == "_G"
 
    local mt = {
@@ -84,13 +91,59 @@ local function compile(src, namespace_name, script_name)
 
    if not is_g then
       env._M = env
+
+      -- If this is a named module, emplace relevant globals
       if namespace_name then
          env._PACKAGE = namespace_name
          env._FILE = script_name
-         env._COMPILER = _COMPILER
-         env.loadstring = _COMPILER
          env[namespace_name] = env
       end
+
+      -- Redirect loadstring through wua
+      env.loadstring = compile
+
+      -- Redirect load through wua
+      env.load = function(f, name)
+         local src = ""
+
+         while true do
+            local part = f()
+            if part == nil then
+               break
+            elseif type(part == "string") then
+               if #part == 0 then
+                  break
+               end
+
+               src = src .. part
+            end
+         end
+
+         return compile(src, name)
+      end
+
+      -- Redirect loadfile through wua
+      env.loadfile = function(path)
+         local file = io.input(path)
+         local src = file:read("*a")
+         file:close()
+         return compile(src)
+      end
+
+      -- Selectively patch the package module
+      -- to restore unconfigured Lua environment
+      local pkg = {}
+      for k,v in pairs(package) do
+         pkg[k] = v
+      end
+      pkg.path = _DEFAULT_PATH
+      pkg.loaders = {
+         _LOADERS.pre,
+         _LOADERS.lib,
+         _LOADERS.bin,
+         _LOADERS.aio,
+      }
+      env.package = pkg
    end
 
    if namespace_name then
@@ -101,21 +154,29 @@ local function compile(src, namespace_name, script_name)
 
    local mod, err = loadstring(src, namespace_name)
    if not mod then
-      handle_error("error loading " .. namespace_name, namespace_name)(err)
+      handle_error("error loading " .. (namespace_name or "script"), namespace_name)(err)
    end
 
    local mac = setfenv(mod, env)
 
    return function()
-      package.loaded[namespace_name] = env
-      xpcall(
+      if namespace_name then
+         package.loaded[namespace_name] = env
+      end
+
+      local _, out = xpcall(
          mac,
          handle_error(
-            "error evaluating " .. namespace_name,
+            "error evaluating " .. (namespace_name or "script"),
             namespace_name
          )
       )
-      return package.loaded[namespace_name]
+
+      if namespace_name then
+         return package.loaded[namespace_name]
+      else
+         return out
+      end
    end
 end
 

@@ -1,5 +1,8 @@
 _PACKAGE = "boot/paths"
 
+-- Cache default path for later
+_DEFAULT_PATH = package.path
+
 -- Define load path registrator
 function _REGISTER_PATHS(...)
    local ps = {...}
