@@ -37,8 +37,6 @@ function print(...)
 end
 
 -- Set to true if we're unwinding the stack following an error
-_UNWIND = false
-
 --- Emplace Lua passthrough compiler
 function _COMPILER(src, namespace_name, script_name)
    print("* lua: loading " .. namespace_name)
@@ -47,11 +45,8 @@ function _COMPILER(src, namespace_name, script_name)
    if not f then
       err = "init: error loading " .. namespace_name .. ":\n\n"
                .. err .. "\n"
-      if not _UNWIND then
-         err = debug.traceback(err, 2)
-         print(err)
-         _UNWIND = true
-      end
+      err = debug.traceback(err, 2)
+      print(err)
       error(err)
    end
 
@@ -71,19 +66,15 @@ function _COMPILER(src, namespace_name, script_name)
 
    return function(...)
       local args = {...}
+
       local _, out = xpcall(
          function()
             return mac(unpack(args))
          end,
          function(err)
-            if not res then
-               if not _UNWIND then
-                  err = debug.traceback(err, 2)
-                  print(err)
-                  _UNWIND = true
-               end
-               error(err)
-            end
+            err = debug.traceback(err, 2)
+            print(err)
+            error(err)
          end
       )
 
