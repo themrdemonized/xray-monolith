@@ -1,7 +1,7 @@
 local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
 local PATTERN_MACRO_TAG = "[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)"
 
-local extensions = {}
+local extensions = { lua = _COMPILER }
 local state = {
    default = _COMPILER
 }
