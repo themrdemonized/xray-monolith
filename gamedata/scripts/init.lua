@@ -39,41 +39,56 @@ end
 -- Set to true if we're unwinding the stack following an error
 _UNWIND = false
 
---- Emplace minimal compiler
-function _COMPILER(src, namespace_name)
-   print("* init: loading " .. namespace_name)
-   return setfenv(
-      function(...)
-         local f, err = loadstring(src, namespace_name)
-         if not f then
-            local err = "init: error loading " .. namespace_name .. ":\n\n"
-                     .. err .. "\n"
-            if not _UNWIND then
-               print(debug.traceback(err, 2))
-               _UNWIND = true
-            end
-            error(err)
-         end
+--- Emplace Lua passthrough compiler
+function _COMPILER(src, namespace_name, script_name)
+   print("* lua: loading " .. namespace_name)
 
-         local res, out = pcall(f, ...)
-         if not res then
-            if not _UNWIND then
-               print(debug.traceback(out, 2))
-               _UNWIND = true
-            end
-            error(out)
-         end
+   local f, err = loadstring(src, namespace_name)
+   if not f then
+      err = "init: error loading " .. namespace_name .. ":\n\n"
+               .. err .. "\n"
+      if not _UNWIND then
+         err = debug.traceback(err, 2)
+         print(err)
+         _UNWIND = true
+      end
+      error(err)
+   end
 
-         return out
-      end,
+   local mac = setfenv(
+      f,
       setmetatable(
-         { _PACKAGE = namespace_name },
+         {
+            _PACKAGE = namespace_name,
+            _FILE = script_name,
+         },
          {
             __index = _G,
             __newindex = _G,
          }
       )
    )
+
+   return function(...)
+      local args = {...}
+      local _, out = xpcall(
+         function()
+            return mac(unpack(args))
+         end,
+         function(err)
+            if not res then
+               if not _UNWIND then
+                  err = debug.traceback(err, 2)
+                  print(err)
+                  _UNWIND = true
+               end
+               error(err)
+            end
+         end
+      )
+
+      return out
+   end
 end
 
 --- Emplace minimal X-Ray FS loader
