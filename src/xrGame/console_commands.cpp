@@ -1723,8 +1723,6 @@ public:
 					return;
 				}
 			}
-
-			ai().script_engine().print_output(ai().script_engine().lua(), *m_script_name, 0);
 		}
 	} //void	Execute
 
@@ -1749,55 +1747,15 @@ public:
 	}
 };
 
-class CCC_WuaCommand : public CCC_ScriptCommand
+class CCC_EvalCommand : public CCC_ScriptCommand
 {
 public:
-	CCC_WuaCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
+	CCC_EvalCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
 
 	virtual void Execute(LPCSTR args)
 	{
 		string4096 S;
-		xr_sprintf(S, "--dialect wua %s", args);
-		CCC_ScriptCommand::Execute(S);
-	}
-};
-
-class CCC_LuaCommand : public CCC_ScriptCommand
-{
-public:
-	CCC_LuaCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
-
-	virtual void Execute(LPCSTR args)
-	{
-		string4096 S;
-		xr_sprintf(S, "--dialect lua %s", args);
-		CCC_ScriptCommand::Execute(S);
-	}
-};
-
-class CCC_LispCommand : public CCC_ScriptCommand
-{
-public:
-	CCC_LispCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
-
-	virtual void Execute(LPCSTR args)
-	{
-		string4096 S;
-		xr_sprintf(S, ";dialect lisp %s", args);
-		CCC_ScriptCommand::Execute(S);
-	}
-};
-
-// Unused for now, as console commands don't have a module-compatible script name
-class CCC_LispMacroCommand : public CCC_ScriptCommand
-{
-public:
-	CCC_LispMacroCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
-
-	virtual void Execute(LPCSTR args)
-	{
-		string4096 S;
-		xr_sprintf(S, ";dialect lisp-macro %s", args);
+		xr_sprintf(S, "print(%s)", args);
 		CCC_ScriptCommand::Execute(S);
 	}
 };
@@ -2574,10 +2532,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 	CMD1(CCC_Script, "run_script");
 	CMD1(CCC_ScriptCommand, "run_string");
-	CMD1(CCC_WuaCommand, "eval_wua");
-	CMD1(CCC_LuaCommand, "eval_lua");
-	CMD1(CCC_LispCommand, "eval_lisp");
-	//CMD1(CCC_LispMacroCommand, "eval_lisp_macro");
+	CMD1(CCC_EvalCommand, "eval");
 #endif // DEBUG
 
 	/* AVO: changing restriction to -dbg key instead of DEBUG */
@@ -2590,10 +2545,7 @@ void CCC_RegisterCommands()
 		CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 		CMD1(CCC_Script, "run_script");
 		CMD1(CCC_ScriptCommand, "run_string");
-		CMD1(CCC_WuaCommand, "eval_wua");
-		CMD1(CCC_LuaCommand, "eval_lua");
-		CMD1(CCC_LispCommand, "eval_lisp");
-		//CMD1(CCC_LispMacroCommand, "eval_lisp_macro");
+		CMD1(CCC_EvalCommand, "eval");
 		//CMD3(CCC_Mask, "g_no_clip", &psActorFlags, AF_NO_CLIP);
 		CMD1(CCC_PHGravity, "ph_gravity");
 		CMD3(CCC_Mask, "log_missing_ini", &FS.m_Flags, FS.flPrintLTX);
