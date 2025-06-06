@@ -90,10 +90,9 @@ compile = function(src, namespace_name, script_name)
    local env = setmetatable({ _G = G }, mt)
 
    if not is_g then
-      env._M = env
-
       -- If this is a named module, emplace relevant globals
       if namespace_name then
+         env._M = env
          env._PACKAGE = namespace_name
          env._FILE = script_name
          env[namespace_name] = env
@@ -148,9 +147,8 @@ compile = function(src, namespace_name, script_name)
 
    if namespace_name then
       src = "local script_name = function() return _PACKAGE end " .. src
+      src = "local this = _M " .. src
    end
-
-   src = "local this = _M " .. src
 
    local mod, err = loadstring(src, namespace_name)
    if not mod then
