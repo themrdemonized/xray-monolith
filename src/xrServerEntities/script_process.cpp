@@ -45,7 +45,7 @@ void CScriptProcess::run_scripts()
 		S = xr_strdup(I);
 		m_scripts_to_run.pop_back();
 
-		if (reload)
+		if (!do_string && reload)
 			ai().script_engine().unload_package(S);
 
 		CScriptThread* script = xr_new<CScriptThread>(S, do_string);
