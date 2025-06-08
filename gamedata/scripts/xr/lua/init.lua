@@ -1,48 +1,14 @@
---local remap = import("/moved").remap
+-- XR Lua Compiler
+-- The original X-Ray script environment, reimplemented as a loadstring wrapper
 
+local compiler = require("xr/compiler")
+
+-- _G wrapper with redirection to package.loaded via `require`
 local G = setmetatable(
    {},
    {
       __index = function(self, key)
-         --[[
-         -- Fetch the remap for this key
-         local redir = remap[key]
-
-         -- If we have a redirection...
-         if redir ~= nil then
-            -- Check the no-overwrite flag;
-            -- If set and the key exists in _G, return its value
-            if redir.if_not_overwritten then
-               local gv = _G[key]
-               if gv then
-                  return gv
-               end
-
-               local res, out = pcall(require, key)
-               if res then
-                  return out
-               end
-            end
-
-            -- Otherwise, fetch the redirected key
-            if type(redir.to) ~= "string" then
-               error(
-                  "Redirection from " .. key
-                  .. " has invalid 'to' field: " .. redir.to
-               )
-            end
-
-            -- And recurse with it
-            local rv = self[redir.to]
-
-            -- If if exists, return it
-            if rv ~= nil then
-               return rv
-            end
-         end
-         --]]
-
-         -- Otherwise, check the global key's value and return if valid
+         -- Check _G for our key and return the result if valid
          local gv = _G[key]
          if gv ~= nil then
             return gv
@@ -58,6 +24,7 @@ local G = setmetatable(
    }
 )
 
+-- Error pretty-printer
 local function format_error(msg, err, stack_level)
    stack_level = stack_level or 2
 
@@ -69,6 +36,7 @@ local function format_error(msg, err, stack_level)
    return debug.traceback(err, stack_level)
 end
 
+-- Error handler constructor
 local function handle_error(msg, namespace_name)
    return function(err)
       if namespace_name then
@@ -82,8 +50,8 @@ local function handle_error(msg, namespace_name)
    end
 end
 
-local compile
-compile = function(src, namespace_name, script_name)
+-- `loadstring` replacement specialized to X-Ray scripts
+local function loadstring(src, namespace_name, script_name)
    local is_g = namespace_name == "_G"
 
    local mt = {
@@ -155,10 +123,16 @@ compile = function(src, namespace_name, script_name)
    end
 end
 
-local compiler = require("xr/compiler")
-compiler.register_extension("script", compile)
-compiler.set_default_macro(compile)
-
-return {
-   compile = compile
+-- Prepare module value
+local mod = {
+   loadstring = loadstring
 }
+
+-- Register this as the compiler for .script files
+compiler.register_extension("script", mod)
+
+-- Register this as the default compiler
+compiler.set_default_module(mod)
+
+-- Return module value
+return mod

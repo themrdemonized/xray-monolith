@@ -16,15 +16,19 @@ function _REGISTER_PATHS(...)
    end
 end
 
+-- Fetch filesystem handle
 local fs = getFS()
 
+-- Get base scripts folder path
 local base = fs:update_path("$game_scripts$", "")
 
+-- Search for lua files in scripts, and scripts/packages/lib
 package.path = base .. [[?.lua]]
      .. ";" .. base .. [[?/init.lua]]
      .. ";" .. base .. [[packages/lib/?.lua]]
      .. ";" .. base .. [[packages/lib/?/init.lua]]
 
+-- Search for binary libraries in packages/bin
 package.cpath = base .. [[packages/bin/?.dll]]
       .. ";" .. base .. [[packages/bin/?/init.dll]]
       .. ";" .. base .. [[packages/bin/?.so]]

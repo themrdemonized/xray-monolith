@@ -1,5 +1,5 @@
 --- Boot Kernel
---- Establishes a basic functioning X-Ray Lua environment
+--- Establishes a functioning X-Ray Lua environment
 
 _PACKAGE = "boot"
 

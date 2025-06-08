@@ -36,7 +36,7 @@ function print(...)
    end
 end
 
---- Replace loadstring with our own override
+--- Replace loadstring with an error-checked version
 _LOADSTRING = loadstring
 function loadstring(src, namespace_name, script_name)
    print("* lua: loading " .. namespace_name)

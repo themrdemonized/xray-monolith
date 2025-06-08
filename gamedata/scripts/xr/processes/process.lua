@@ -6,8 +6,10 @@
 local DEBUG = false
 local DISABLE_SCRIPTS = false
 
+-- Script process class
 ScriptProcess = {}
 
+-- Constructor
 function ScriptProcess.new(name, scripts)
    if DEBUG then
       print("* Initializing " .. name .. " script process")
@@ -40,6 +42,7 @@ function ScriptProcess.new(name, scripts)
    return out
 end
 
+-- Update entrypoint, called by the engine
 function ScriptProcess:update()
    if DISABLE_SCRIPTS then
       while #self.coroutines > 0 do
@@ -70,7 +73,7 @@ function ScriptProcess:update()
    end
 end
 
--- Add a raw coroutine to the script process
+-- Add a raw coroutine to the process
 function ScriptProcess:add_coroutine(co)
    if DEBUG then
       print(
@@ -83,7 +86,7 @@ function ScriptProcess:add_coroutine(co)
    table.insert(self.coroutines, co)
 end
 
--- Add a function to the script process as a coroutine
+-- Add a function to the process as a coroutine
 function ScriptProcess:add_function(f)
    if DEBUG then
       print(
@@ -96,6 +99,19 @@ function ScriptProcess:add_function(f)
    self:add_coroutine(coroutine.create(f))
 end
 
+-- Add a string of source code to the script process
+function ScriptProcess:add_string(src)
+   if DEBUG then
+      print(
+         "* Adding string ".. src .. " to " .. self.name .. " script process"
+      )
+   end
+
+   self:add_function(loadstring(src, nil, "console command"))
+end
+
+-- Add a package's main function to the process by name
+-- Optionally force-reloading it
 function ScriptProcess:add_script(script_name, reload)
    if DEBUG then
       print("* Adding script ".. script_name .. " to " .. self.name .. " script process")
@@ -123,14 +139,5 @@ function ScriptProcess:add_script(script_name, reload)
    )
 end
 
-function ScriptProcess:add_string(src)
-   if DEBUG then
-      print(
-         "* Adding string ".. src .. " to " .. self.name .. " script process"
-      )
-   end
-
-   self:add_function(loadstring(src, nil, "console command"))
-end
-
+-- Return class as package value
 return ScriptProcess

@@ -1,10 +1,12 @@
 -- Engine interface to domain-scoped coroutines
 -- Formerly part of CScriptManager
 
-local ScriptProcess = require("xr/process")
+local ScriptProcess = require("xr/processes/process")
 
+-- Script processes class
 local ScriptProcesses = {}
 
+-- Constructor
 function ScriptProcesses.new()
    return setmetatable(
       {
@@ -21,39 +23,46 @@ function ScriptProcesses.new()
    )
 end
 
+-- Add a script process by name, with a set of scripts to add by default
 function ScriptProcesses:add(name, scripts)
    self.processes[name] = ScriptProcess.new(name, scripts)
 end
 
+-- Remove a script process by name
 function ScriptProcesses:remove(name)
    self.processes[name] = nil
 end
 
+-- Test the existence of a script process by name
 function ScriptProcesses:has(name)
    return self.processes[name] ~= nil
 end
 
+-- Get a script process by name
 function ScriptProcesses:get(name)
    return self.processes[name]
 end
 
--- Prepare module output
+-- Prepare package output
 local processes = ScriptProcesses.new()
 
--- Game process
-local ini_script = ini_file("configs\\script.ltx")
+-- Setup game process
+do
+   local ini_script = ini_file("configs\\script.ltx")
 
-local game_scripts = ""
-if ini_script:section_exist("single")
-   and ini_script:line_exist("single", "script")
-then
-   game_scripts = ini_script:r_string("single", "script");
+   local game_scripts = ""
+   if ini_script:section_exist("single")
+      and ini_script:line_exist("single", "script")
+   then
+      game_scripts = ini_script:r_string("single", "script");
+   end
+
+   processes:add("game", game_scripts)
 end
 
-processes:add("game", game_scripts)
-
--- Level process
+-- If a level exists...
 if level.present() then
+   -- Setup level process
    local ini_level = ini_file(
       string.format("levels\\%s\\level.ltx", level.name())
    )
@@ -68,5 +77,5 @@ if level.present() then
    processes:add("level", level_scripts)
 end
 
--- Return module output
+-- Return package output
 return processes

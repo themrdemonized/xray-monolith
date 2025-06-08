@@ -1,5 +1,6 @@
 #include <luabind/luabind.hpp>
 
+// Luabind wrapper for xr/processes/process
 class CScriptProcess
 {
 private:
