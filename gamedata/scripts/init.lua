@@ -113,4 +113,4 @@ package.loaders = { _LOADERS.init }
 require("boot")
 
 -- Pass control to xray entrypoint
-require("amx")
+require("xr")

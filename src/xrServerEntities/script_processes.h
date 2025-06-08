@@ -10,7 +10,7 @@ public:
     CScriptProcesses(lua_State* L)
     {
         lua_getglobal(L, "require");
-        lua_pushstring(L, "amx/processes");
+        lua_pushstring(L, "xr/processes");
         lua_call(L, 1, 1);
 
         m_obj = luabind::object(L);

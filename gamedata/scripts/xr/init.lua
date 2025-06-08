@@ -1,15 +1,15 @@
-_PACKAGE = "amx"
-_FILE = "amx/init.lua"
+_PACKAGE = "xr"
+_FILE = "xr/init.lua"
 
 -- Initialize S.C.A.M. environment
 local scam = require("scam")
 
--- Load amx/unlocalize before amx/lua to avoid circular referencing
+-- Load xr/unlocalize before xr/lua to avoid circular referencing
 require(_PACKAGE .. "/unlocalize")
 
--- Setup wua as the default language
+-- Setup xr/lua as the default language
 scam.compiler.set_default_macro(
-   require(_PACKAGE .. "/wua").expand
+   require(_PACKAGE .. "/lua").expand
 )
 
 -- Forcefully load _g.script
