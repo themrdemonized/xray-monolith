@@ -1,3 +1,6 @@
+-- Boot Loader
+-- Configures package.loaders with support for X-Ray FS
+
 _PACKAGE = "boot/loader"
 
 local state = {

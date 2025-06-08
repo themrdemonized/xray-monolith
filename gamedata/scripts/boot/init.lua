@@ -6,11 +6,17 @@ _PACKAGE = "boot"
 -- Disable unsafe Lua primitives
 require("boot/sandbox")
 
--- Setup path machinery
+-- Setup package.path machinery
 require("boot/paths")
 
--- Setup loading machinery
+-- Setup package.loaders machinery
 require("boot/loader")
 
 -- Setup engine interface
 require("boot/function_object")
+
+-- Ensure _G loads on first require
+package.loaded._G = nil
+
+-- Run startup modules defined in script.ltx
+require("boot/scripts")

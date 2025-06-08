@@ -1,3 +1,6 @@
+-- XR Lua Compiler
+-- Lua-friendly virtualization of the original X-Ray script environment
+
 local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
 local PATTERN_MACRO_TAG = "[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)"
 
@@ -30,7 +33,7 @@ function _COMPILER(src, namespace_name, script_name)
 end
 
 local function register_extension(k, v)
-   print(_PACKAGE .. ": registering script extension: " .. k)
+   print(_PACKAGE .. ": registering extension: " .. k)
    _REGISTER_PATHS(
       "?." .. k,
       "?/init." .. k
@@ -47,6 +50,7 @@ local function get_extensions()
 end
 
 local function set_default_macro(mac)
+   print(_PACKAGE .. ": setting default macro...")
    state.default = mac
 end
 

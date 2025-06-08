@@ -1,3 +1,5 @@
+-- Unlocalizer for xr/lua scripts
+
 local function string_trim(s, v)
    if v == nil then
       v = " \t\n\r\f\v"
@@ -34,7 +36,7 @@ local function unlocalize(src, namespace_name)
       return src
    end
    
-   local unlocalizer = require("xr/unlocalize").get(namespace_name)
+   local unlocalizer = require("amx/unlocalize").get(namespace_name)
    if not unlocalizer then
       return src
    end
@@ -112,6 +114,4 @@ local function unlocalize(src, namespace_name)
    return src
 end
 
-return {
-   unlocalize = unlocalize
-}
+return unlocalize

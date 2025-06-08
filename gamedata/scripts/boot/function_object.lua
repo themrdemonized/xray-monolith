@@ -1,4 +1,6 @@
--- Engine interface; require with explicit _G and recursive indexing
+-- Engine interface
+-- Behaves like _G-aware `require` with recursive . indexing
+
 function function_object(str)
    local path = {}
    for v in string.gmatch(str, "[^%.]+") do

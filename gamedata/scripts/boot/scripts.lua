@@ -1,3 +1,6 @@
+-- Boot Scripts
+-- Loads scripts specified in script.ltx
+
 local DISABLE_SCRIPTS = false
 
 if DISABLE_SCRIPTS then
@@ -20,6 +23,7 @@ end
 local scripts = ini:r_string("common", "script", "")
 
 for script in scripts:gmatch("[^,]+") do
+   print("requiring " .. script)
    local mod = require(script)
    if type(mod) == "table" then
       local init = mod[script .. "_initialize"]

@@ -1,4 +1,6 @@
--- Disable OS functions
+-- Boot Sandbox
+-- Disables dangerous Lua primitives
+
 local disabled = {
    os = {
       "execute",

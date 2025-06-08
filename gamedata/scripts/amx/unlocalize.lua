@@ -1,3 +1,6 @@
+-- AMX Unlocalizer Storage
+-- Loads unlocalizers from disk and exposes them via `get`
+
 local unlocalizers = {}
 
 local function update()
@@ -63,4 +66,3 @@ return {
    update = update,
    get = get
 }
-

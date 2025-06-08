@@ -1,3 +1,7 @@
+-- Boot Paths
+-- Configures package.path to root at gamedata/scripts,
+-- and gamedata/scripts/packages
+
 _PACKAGE = "boot/paths"
 
 -- Cache default path for later
