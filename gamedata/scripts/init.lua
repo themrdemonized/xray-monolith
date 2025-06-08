@@ -36,18 +36,18 @@ function print(...)
    end
 end
 
--- Set to true if we're unwinding the stack following an error
---- Emplace Lua passthrough compiler
-function _COMPILER(src, namespace_name, script_name)
+--- Replace loadstring with our own override
+_LOADSTRING = loadstring
+function loadstring(src, namespace_name, script_name)
    print("* lua: loading " .. namespace_name)
 
-   local f, err = loadstring(src, namespace_name)
+   local f, err = _LOADSTRING(src, namespace_name)
    if not f then
       err = "init: error loading " .. namespace_name .. ":\n\n"
                .. err .. "\n"
       err = debug.traceback(err, 2)
       print(err)
-      error(err)
+      return nil, err
    end
 
    local mac = setfenv(
@@ -82,6 +82,35 @@ function _COMPILER(src, namespace_name, script_name)
    end
 end
 
+-- Redirect load through loadstring
+load = function(f, name)
+   local src = ""
+
+   while true do
+      local part = f()
+      if part == nil then
+         break
+      elseif type(part == "string") then
+         if #part == 0 then
+            break
+         end
+
+         src = src .. part
+      end
+   end
+
+   return loadstring(src, name)
+end
+
+-- Redirect loadfile through loadstring
+loadfile = function(path)
+   local file = io.input(path)
+   local src = file:read("*a")
+   file:close()
+   return loadstring(src)
+end
+
+
 --- Emplace minimal X-Ray FS loader
 function _LOADERS.init(name)
    local fs = getFS()
@@ -99,12 +128,12 @@ function _LOADERS.init(name)
       return "\n\tNo such package: " .. name
    end
 
-   local res, out = pcall(_COMPILER, _LOAD_FILE(path), name, path)
-   if not res then
-      print(out)
-      error(out)
+   local res, err = loadstring(_LOAD_FILE(path), name, path)
+   if res then
+      return res
    end
-   return out
+
+   return err
 end
 
 package.loaders = { _LOADERS.init }

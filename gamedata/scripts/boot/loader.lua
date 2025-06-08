@@ -7,83 +7,101 @@ local state = {
    callbacks = {}
 }
 
--- Define xray FS loader
+-- X-Ray FS Loader
 function _LOADERS.fs(name)
-   local fs = getFS()
-   local errs = ""
-   local base = fs:update_path("$game_scripts$", "")
-   for seg in package.path:gmatch("[^;]+") do
-      if seg:sub(1, #base) == base then
-         local fname = seg:sub(#base + 1):gsub("?", name):gsub("/", "\\")
-         local path = fs:update_path("$game_scripts$", fname)
-         if path and fs:exist(path) then
-            local src = _LOAD_FILE(path)
-            return _COMPILER(src, name, path)
-         end
-
-         if #errs > 0 then
-            errs = errs .. "\n\t"
-         end
-         errs = errs .. "No db entry: " .. path
-      end
-   end
-
-   return errs
-end
-
-local loaders = { _LOADERS.fs }
-
--- Lift into a memoized higher-order loader
-local function io_loaders(name)
+   -- Check whether the target is known to not exist on the FS
    local io_miss = _SCRIPT_STORAGE:get("io_loader", name)
    if io_miss then
+      -- If so, early out
       return io_miss
    end
 
-   local err = ""
-   for i=1,#loaders do
-      local out = loaders[i](name)
+   -- Allocate error storage
+   local errs = ""
 
-      local ty = type(out)
-      if ty == "function" then
-         local already_loaded = package.loaded[name]
-         local res = out()
-         package.loaded[name] = res
-         if already_loaded == nil then
-            for _,f in ipairs(state.callbacks) do
-               f(name)
+   -- Fetch filesystem handle
+   local fs = getFS()
+
+   -- Update the FS' view of our script directory
+   local base = fs:update_path("$game_scripts$", "")
+
+   -- Iterate over our search paths
+   for seg in package.path:gmatch("[^;]+") do
+      -- If the segment begins with our base directory
+      if seg:sub(1, #base) == base then
+         -- Strip the base path, interpolate package name,
+         -- and replace separators to produce a filename
+         local fname = seg:sub(#base + 1):gsub("?", name):gsub("/", "\\")
+
+         -- Get an xray path from our filename
+         local path = fs:update_path("$game_scripts$", fname)
+
+         -- If the path is valid and exists...
+         if path and fs:exist(path) then
+            -- Load the corresponding file into a string
+            local src = _LOAD_FILE(path)
+
+            -- Compile it into a Lua function
+            local mac, err = loadstring(src, name, path)
+
+            -- If we don't have a result...
+            if not mac then
+               -- Print and throw the corresponding error
+               print(err)
+               error(err)
             end
-         end
-         return function()
+
+            -- Cache any loaded copy of this package
+            local already_loaded = package.loaded[name]
+
+            -- Evaluate the compiled Lua function
+            local res = mac()
+
+            -- Emplace the result in package.loaded so callbacks can see it
             package.loaded[name] = res
-            return res
-         end
-      else
-         package.loaded[name] = nil
-         if #err > 0 then
-            err = err .. "\n"
-         end
-         if ty == "string" then
-            err = err .. out
-         elseif ty == "nil" then
-            error("No such module: " .. name)
+
+            -- If this package wasn't already loaded...
+            if already_loaded == nil then
+               -- Fire on-load callbacks
+               for _,f in ipairs(state.callbacks) do
+                  f(name)
+               end
+            end
+
+            -- Finally, return a function that populates package.loaded
+            -- with the result and returns it,
+            -- to ensure `require` returns the correct value
+            -- regardless of re-entrant loading that may occur in the interim
+            return function()
+               package.loaded[name] = res
+               return res
+            end
          else
-            error("Loader returned invalid value: " .. tostring(out))
+            -- Otherwise, add to our error accumulator
+            if #errs > 0 then
+               errs = errs .. "\n\t"
+            end
+            errs = errs .. "No db entry: " .. path
          end
       end
    end
 
-   _SCRIPT_STORAGE:set("io_loader", name, err)
-   return err
+   -- Cache the IO miss for later
+   _SCRIPT_STORAGE:set("io_loader", name, errs)
+
+   -- Return error accumulator
+   return errs
 end
 
--- Replace the loader list with the preloader plus our memoized IO loader
-package.loaders = { _LOADERS.pre, io_loaders }
+-- Replace the loader list with the preloader plus our FS loader
+package.loaders = { _LOADERS.pre, _LOADERS.fs }
 
+-- Define callback registrator
 local function register_on_load_callback(f)
    table.insert(state.callbacks, f)
 end
 
+-- Return final module
 return {
    register_on_load_callback = register_on_load_callback
 }

@@ -4,12 +4,12 @@
 local PATTERN_FILE_PATH = "^(.-)([^\\/]-)%.([^\\/%.]-)%.?$"
 local PATTERN_MACRO_TAG = "[^ ]+ +=%*= +lang: +([^ ]+) +=%*=[^\n]*(\n.*)"
 
-local extensions = { lua = _COMPILER }
+local extensions = { lua = loadstring }
 local state = {
-   default = _COMPILER
+   default = loadstring
 }
 
-function _COMPILER(src, namespace_name, script_name)
+function loadstring(src, namespace_name, script_name)
    local mac = nil
 
    if script_name then
@@ -57,7 +57,6 @@ end
 return {
    PATTERN_FILE_PATH = PATTERN_FILE_PATH,
    PATTERN_MACRO_TAG = PATTERN_MACRO_TAG,
-   compile = _COMPILER,
    register_extension = register_extension,
    get_extensions = get_extensions,
    set_default_macro = set_default_macro

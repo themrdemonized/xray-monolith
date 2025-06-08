@@ -58,17 +58,24 @@ local G = setmetatable(
    }
 )
 
+local function format_error(msg, err, stack_level)
+   stack_level = stack_level or 2
+
+   err = "! " .. _PACKAGE .. ": "
+      .. msg .. ":\n\n"
+      .. err
+      .. "\n"
+
+   return debug.traceback(err, stack_level)
+end
+
 local function handle_error(msg, namespace_name)
    return function(err)
       if namespace_name then
          package.loaded[namespace_name] = nil
       end
 
-      err = "! " .. _PACKAGE .. ": "
-         .. msg .. ":\n\n"
-         .. err
-         .. "\n"
-      err = debug.traceback(err, 2)
+      err = format_error(msg, err, 3)
 
       print(err)
       error(err)
@@ -98,37 +105,6 @@ compile = function(src, namespace_name, script_name)
          env[namespace_name] = env
       end
 
-      -- Redirect loadstring through this compiler
-      env.loadstring = compile
-
-      -- Redirect load through this compiler
-      env.load = function(f, name)
-         local src = ""
-
-         while true do
-            local part = f()
-            if part == nil then
-               break
-            elseif type(part == "string") then
-               if #part == 0 then
-                  break
-               end
-
-               src = src .. part
-            end
-         end
-
-         return compile(src, name)
-      end
-
-      -- Redirect loadfile through this compiler
-      env.loadfile = function(path)
-         local file = io.input(path)
-         local src = file:read("*a")
-         file:close()
-         return compile(src)
-      end
-
       -- Selectively patch the package module
       -- to restore unconfigured Lua environment
       local pkg = {}
@@ -150,9 +126,10 @@ compile = function(src, namespace_name, script_name)
       src = "local this = _M " .. src
    end
 
-   local mod, err = loadstring(src, namespace_name)
+   local mod, err = _LOADSTRING(src, namespace_name)
    if not mod then
-      handle_error("error loading " .. (namespace_name or "script"), namespace_name)(err)
+      err = format_error("error loading " .. (namespace_name or "script"), err)
+      return nil, err
    end
 
    local mac = setfenv(mod, env)

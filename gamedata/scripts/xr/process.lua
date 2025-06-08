@@ -130,7 +130,7 @@ function ScriptProcess:add_string(src)
       )
    end
 
-   self:add_function(_COMPILER(src, nil, "console command"))
+   self:add_function(loadstring(src, nil, "console command"))
 end
 
 return ScriptProcess
