@@ -21,11 +21,4 @@ namespace ScriptEngine
 		eLuaMessageTypeHookCount,
 		eLuaMessageTypeHookTailReturn = u32(-1),
 	};
-
-	enum EScriptProcessors
-	{
-		eScriptProcessorLevel = u32(0),
-		eScriptProcessorGame,
-		eScriptProcessorDummy = u32(-1),
-	};
 };

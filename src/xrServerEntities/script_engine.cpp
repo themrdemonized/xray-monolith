@@ -11,14 +11,14 @@
 #include "script_storage.h"
 #include "ai_space.h"
 #include "object_factory.h"
-#include "script_process.h"
 #include "../build_config_defines.h"
-#include "script_thread.h"
 #include "../xrCore/mezz_stringbuffer.h"
 #include <stdarg.h>
 #include <unordered_map>
 #include <set>
 #include <boost/noncopyable.hpp>
+#include "luabind/object.hpp"
+#include "luabind/functor.hpp"
 
 using namespace ScriptEngine;
 
@@ -45,15 +45,14 @@ using namespace ScriptEngine;
 #	include "ai_debug.h"
 #endif //!NO_XRGAME_SCRIPT_ENGINE
 
-#ifdef USE_DEBUGGER
-#	include "script_debugger.h"
-#endif
-
 #ifndef PURE_ALLOC
 //#	ifndef USE_MEMORY_MONITOR
 //#		define USE_DL_ALLOCATOR
 //#	endif //!USE_MEMORY_MONITOR
 #endif //!PURE_ALLOC
+
+extern void export_classes(lua_State* L);
+extern int luaopen_lua_extensions(lua_State* L);
 
 struct raii_guard : private boost::noncopyable
 {
@@ -68,11 +67,6 @@ struct raii_guard : private boost::noncopyable
     ~raii_guard()
     {
 #ifdef DEBUG
-        bool lua_studio_connected = !!ai().script_engine().debugger();
-        if (!lua_studio_connected)
-#endif //-DEBUG
-        {
-#ifdef DEBUG
             static bool const break_on_assert = !!strstr(Core.Params, "-break_on_assert");
 #else //!DEBUG
             static bool const break_on_assert = false; //Alundaio: Can't get a proper stack trace with this enabled
@@ -84,12 +78,8 @@ struct raii_guard : private boost::noncopyable
                 R_ASSERT2(!m_error_code, m_error_description);
             else
                 Msg("! [SCRIPT ERROR]: %s", m_error_description);
-        }
     }
 }; //-struct raii_guard
-
-extern void export_classes(lua_State* L);
-extern int luaopen_lua_extensions(lua_State* L);
 
 #ifndef USE_DL_ALLOCATOR
 static void* lua_alloc(void* ud, void* ptr, size_t osize, size_t nsize)
@@ -298,25 +288,112 @@ static void put_function(lua_State* state, u8 const* buffer, u32 const buffer_si
 #endif //!DEBUG
 #endif //-USE_LUAJIT_ONE
 
+// demonized: get lua stack in array
+static std::vector<std::string> get_lua_stack(lua_State* L)
+{
+    std::vector<std::string> res;
+    lua_Debug l_tDebugInfo;
+    for (int i = 0; lua_getstack(L, i, &l_tDebugInfo); ++i)
+    {
+        lua_getinfo(L, "nSlu", &l_tDebugInfo);
+        if (!l_tDebugInfo.name)
+        {
+            res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, ""));
+        }
+        else
+        {
+            if (!xr_strcmp(l_tDebugInfo.what, "C"))
+            {
+                res.push_back(make_string("%2d : [C  ] %s", i, l_tDebugInfo.name));
+            }
+            else
+            {
+                res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name));
+            }
+        }
+    }
+    return res;
+}
+
+void printLuaStack()
+{
+    ai().script_engine().print_stack();
+}
+
+void on_lua_error(lua_State* L)
+{
+    ai().script_engine().print_stack();
+    ai().script_engine().print_output(L, "", LUA_ERRRUN);
+    ai().script_engine().on_error(L);
+
+    // demonized: print first line with lua error
+    auto stack = get_lua_stack(L);
+    std::string lua_error_line = "";
+    for (auto const& s : stack) {
+        if (s.find("[Lua]") != std::string::npos) {
+            lua_error_line = s;
+            break;
+        }
+    }
+
+    auto error_str = make_string("\n%s\n\nLUA error: %s\n\nCheck log for details", lua_error_line.c_str(), lua_tostring(L, -1));
+    LPCSTR error_msg = error_str.c_str();
+
+#if !XRAY_EXCEPTIONS
+    Debug.fatal(DEBUG_INFO, error_msg);
+#else
+    throw					lua_tostring(L, -1);
+#endif
+}
+
+int on_lua_pcall_failed(lua_State* L)
+{
+    ai().script_engine().print_stack();
+    ai().script_engine().print_output(L, "", LUA_ERRRUN);
+    ai().script_engine().on_error(L);
+
+    // demonized: print first line with lua error
+    auto stack = get_lua_stack(L);
+    std::string lua_error_line = "";
+    for (auto const& s : stack) {
+        if (s.find("[Lua]") != std::string::npos) {
+            lua_error_line = s;
+            break;
+        }
+    }
+
+    auto error_str = make_string("\n%s\n\nLUA error: %s\n\nCheck log for details", lua_error_line.c_str(), lua_isstring(L, -1) ? lua_tostring(L, -1) : "");
+    LPCSTR error_msg = error_str.c_str();
+
+#if !XRAY_EXCEPTIONS
+    Debug.fatal(DEBUG_INFO, error_msg);
+#endif
+    if (lua_isstring(L, -1))
+        lua_pop(L, 1);
+    return (LUA_ERRRUN);
+}
+
+int on_lua_panic(lua_State* L)
+{
+    ai().script_engine().print_stack();
+    ai().script_engine().print_output(L, "PANIC", LUA_ERRRUN);
+    return (0);
+}
+
+void on_lua_cast_failed(lua_State* L, LUABIND_TYPE_INFO info)
+{
+    CScriptEngine::print_output(L, "", LUA_ERRRUN);
+    Debug.fatal(DEBUG_INFO, "LUA error: cannot cast lua value to %s", info->name());
+}
+
 CScriptEngine::CScriptEngine()
 {
-    m_current_thread = 0;
-
 #ifdef DEBUG
     m_stack_is_ready = false;
 #endif //-DEBUG
 
     m_virtual_machine = 0;
     m_stack_level = 0;
-
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-    m_scriptDebugger = NULL;
-    restartDebugger();
-#	else //USE_LUA_STUDIO
-    m_lua_studio_world = 0;
-#	endif //!USE_LUA_STUDIO
-#endif
 }
 
 CScriptEngine::~CScriptEngine()
@@ -325,19 +402,8 @@ CScriptEngine::~CScriptEngine()
     flush_log();
 #endif //-LUA_DEBUG_PRINT
 
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-    xr_delete(m_scriptDebugger);
-#	else // #ifndef USE_LUA_STUDIO
-    disconnect_from_debugger();
-#	endif // #ifndef USE_LUA_STUDIO
-#endif
-
     if (m_virtual_machine)
         lua_close(m_virtual_machine);
-
-    while (!m_script_processes.empty())
-        remove_script_process(m_script_processes.begin()->first);
 }
 
 // Low level path -> string content loader to work around intractable Lua IReader::r_stringZ behaviour
@@ -361,29 +427,7 @@ static int load_file(lua_State* L)
 
 void CScriptEngine::init()
 {
-#ifdef USE_LUA_STUDIO
-    bool lua_studio_connected = !!m_lua_studio_world;
-    if (lua_studio_connected)
-        m_lua_studio_world->remove(lua());
-#endif // #ifdef USE_LUA_STUDIO
-
     CScriptEngine::reinit();
-
-#ifdef USE_LUA_STUDIO
-    if (m_lua_studio_world || strstr(Core.Params, "-lua_studio")) {
-        if (!lua_studio_connected)
-            try_connect_to_debugger();
-        else {
-#ifdef USE_LUAJIT_ONE
-            jit_command(lua(), "debug=2");
-            jit_command(lua(), "off");
-#else
-            luaJIT_setmode(lua(), 0, LUAJIT_MODE_ENGINE | LUAJIT_MODE_OFF);
-#endif
-            m_lua_studio_world->add(lua());
-        }
-    }
-#endif // #ifdef USE_LUA_STUDIO
 
     luabind::open(lua());
     setup_callbacks();
@@ -393,15 +437,7 @@ void CScriptEngine::init()
     m_stack_is_ready = true;
 #endif
 
-#ifndef USE_LUA_STUDIO
-#	ifdef DEBUG
-#		if defined(USE_DEBUGGER) && !defined(USE_LUA_STUDIO)
-    if (!debugger() || !debugger()->Active())
-#		endif // #if defined(USE_DEBUGGER) && !defined(USE_LUA_STUDIO)
-        lua_sethook(lua(), lua_hook_call, LUA_MASKLINE | LUA_MASKCALL | LUA_MASKRET, 0);
-#	endif // #ifdef DEBUG
-#endif // #ifndef USE_LUA_STUDIO
-    //	lua_sethook							(lua(), lua_hook_call,	LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET,	0);
+    //	lua_sethook(lua(), lua_hook_call, LUA_MASKLINE|LUA_MASKCALL|LUA_MASKRET, 0);
 
     // Force the FS to recursively enumerate the scripts folder
     FS_Path* P = FS.get_path("$game_scripts$");
@@ -463,7 +499,6 @@ void CScriptEngine::reinit()
         return;
     }
 
-
 #ifndef USE_LUAJIT_ONE
     luaL_openlibs(lua());
     if (strstr(Core.Params, "-nojit"))
@@ -513,228 +548,75 @@ void CScriptEngine::reinit()
 
 void CScriptEngine::unload()
 {
+    // Restore original stack level
     lua_settop(lua(), m_stack_level);
 }
 
-int CScriptEngine::lua_panic(lua_State* L)
+void CScriptEngine::setup_callbacks()
 {
-    ai().script_engine().print_stack();
-    print_output(L, "PANIC", LUA_ERRRUN);
-    return (0);
-}
+#if !XRAY_EXCEPTIONS
+    luabind::set_error_callback(on_lua_error);
+#endif
 
-// demonized: get lua stack in array
-static std::vector<std::string> get_lua_stack(lua_State* L)
-{
-    std::vector<std::string> res;
-    lua_Debug l_tDebugInfo;
-    for (int i = 0; lua_getstack(L, i, &l_tDebugInfo); ++i)
-    {
-        lua_getinfo(L, "nSlu", &l_tDebugInfo);
-        if (!l_tDebugInfo.name)
-        {
-            res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, ""));
-        }
-        else
-        {
-            if (!xr_strcmp(l_tDebugInfo.what, "C"))
-            {
-                res.push_back(make_string("%2d : [C  ] %s", i, l_tDebugInfo.name));
-            }
-            else
-            {
-                res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name));
-            }
-        }
-    }
-    return res;
-}
-
-void CScriptEngine::lua_error(lua_State* L)
-{
-    ai().script_engine().print_stack();
-    print_output(L, "", LUA_ERRRUN);
-    ai().script_engine().on_error(L);
-
-    // demonized: print first line with lua error
-    auto stack = get_lua_stack(L);
-    std::string lua_error_line = "";
-    for (auto const& s : stack) {
-        if (s.find("[Lua]") != std::string::npos) {
-            lua_error_line = s;
-            break;
-        }
-    }
-
-    auto error_str = make_string("\n%s\n\nLUA error: %s\n\nCheck log for details", lua_error_line.c_str(), lua_tostring(L, -1));
-    LPCSTR error_msg = error_str.c_str();
+    luabind::set_pcall_callback(on_lua_pcall_failed);
 
 #if !XRAY_EXCEPTIONS
-    Debug.fatal(DEBUG_INFO, error_msg);
-#else
-    throw					lua_tostring(L, -1);
+    luabind::set_cast_failed_callback(on_lua_cast_failed);
 #endif
+    lua_atpanic(lua(), on_lua_panic);
 }
 
-void printLuaStack()
-{
-    ai().script_engine().print_stack();
-}
-
-int CScriptEngine::lua_pcall_failed(lua_State* L)
-{
-    ai().script_engine().print_stack();
-    print_output(L, "", LUA_ERRRUN);
-    ai().script_engine().on_error(L);
-
-    // demonized: print first line with lua error
-    auto stack = get_lua_stack(L);
-    std::string lua_error_line = "";
-    for (auto const& s : stack) {
-        if (s.find("[Lua]") != std::string::npos) {
-            lua_error_line = s;
-            break;
-        }
-    }
-
-    auto error_str = make_string("\n%s\n\nLUA error: %s\n\nCheck log for details", lua_error_line.c_str(), lua_isstring(L, -1) ? lua_tostring(L, -1) : "");
-    LPCSTR error_msg = error_str.c_str();
-
-#if !XRAY_EXCEPTIONS
-    Debug.fatal(DEBUG_INFO, error_msg);
-#endif
-    if (lua_isstring(L, -1))
-        lua_pop(L, 1);
-    return (LUA_ERRRUN);
-}
-
-void lua_cast_failed(lua_State* L, LUABIND_TYPE_INFO info)
-{
-    CScriptEngine::print_output(L, "", LUA_ERRRUN);
-
-    Debug.fatal(DEBUG_INFO, "LUA error: cannot cast lua value to %s", info->name());
-}
-
-int CScriptEngine::compile_buffer(lua_State* L, std::string caString, LPCSTR caScriptName, LPCSTR caNameSpaceName)
-{
-    luabind::functor<luabind::object> compiler;
-    if (functor("_COMPILER", compiler))
-    {
-        luabind::object result = compiler(caString.c_str(), caNameSpaceName, caScriptName);
-        result.pushvalue();
-        return 0;
-    }
-
-    Msg("* engine: loading %s", caNameSpaceName);
-    return luaL_loadbuffer(L, caString.c_str(), caString.length(), caScriptName);
-}
-
-int CScriptEngine::load_buffer(
-    lua_State* L,
-    LPCSTR caBuffer,
-    size_t tSize,
+int CScriptEngine::load_string(
+    LPCSTR caString,
     LPCSTR caScriptName,
     LPCSTR caNameSpaceName
 )
 {
-    int l_iErrorCode = compile_buffer(
-        L,
-        std::string(caBuffer, caBuffer + tSize),
-        caScriptName,
-        caNameSpaceName
-    );
+    lua_getglobal(lua(), "_COMPILER");
+    if (!lua_isfunction(lua(), -1))
+    {
+        FATAL("_COMPILER not available");
+    }
+
+    lua_pushstring(lua(), caString);
+    lua_pushstring(lua(), caNameSpaceName);
+    lua_pushstring(lua(), caScriptName);
+    int l_iErrorCode = lua_pcall(lua(), 3, 1, 0);
     if (l_iErrorCode)
     {
         //#ifdef DEBUG
-        if (strstr(Core.Params, "-dbg")) print_output(L, caScriptName, l_iErrorCode);
+        if (strstr(Core.Params, "-dbg")) print_output(lua(), caScriptName, l_iErrorCode);
         //#endif //-DEBUG
-        on_error(L);
+        on_error(lua());
     }
     return l_iErrorCode;
 }
 
-bool CScriptEngine::namespace_loaded(LPCSTR N, bool remove_from_stack)
+int CScriptEngine::do_string(
+    LPCSTR caString,
+    LPCSTR caScriptName,
+    LPCSTR caNameSpaceName
+)
 {
-    int start = lua_gettop(lua());
-    lua_getglobal(lua(), "package");
-    VERIFY(lua_istable(lua(), -1));
-    lua_getfield(lua(), -1, "loaded");
-    VERIFY(lua_istable(lua(), -1));
-    lua_remove(lua(), -2);
-    string256 S2;
-    xr_strcpy(S2, N);
-    LPSTR S = S2;
-    for (;;)
-    {
-        if (!xr_strlen(S))
-        {
-            VERIFY(lua_gettop(lua()) >= 1);
-            lua_pop(lua(), 1);
-            VERIFY(start == lua_gettop(lua()));
-            return (false);
-        }
-        LPSTR S1 = strchr(S, '.');
-        if (S1)
-            *S1 = 0;
-        lua_pushstring(lua(), S);
-        lua_rawget(lua(), -2);
-        if (lua_isnil(lua(), -1))
-        {
-            //			lua_settop		(lua(),0);
-            VERIFY(lua_gettop(lua()) >= 2);
-            lua_pop(lua(), 2);
-            VERIFY(start == lua_gettop(lua()));
-            return (false); //	there is no namespace!
-        }
-        else if (!lua_istable(lua(), -1))
-        {
-            std::string tn(lua_typename(lua(), -1));
-            //				lua_settop	(lua(),0);
-            VERIFY(lua_gettop(lua()) >= 1);
-            lua_pop(lua(), 1);
-            VERIFY(start == lua_gettop(lua()));
-            if (S1)
-                FATAL((std::string("Error : the namespace name ") + N + " is already being used by non-table object of type " + tn + "\n").c_str());
-            return (true);
-        }
-        lua_remove(lua(), -2);
-        if (S1)
-            S = ++S1;
-        else
-            break;
-    }
-    if (!remove_from_stack)
-    {
-        VERIFY(lua_gettop(lua()) == start + 1);
-    }
-    else
-    {
-        VERIFY(lua_gettop(lua()) >= 1);
-        lua_pop(lua(), 1);
-        VERIFY(lua_gettop(lua()) == start);
-    }
-    return (true);
-}
+    int l_iErrorCode;
 
-luabind::object CScriptEngine::name_space(LPCSTR namespace_name)
-{
-    string256 S1;
-    xr_strcpy(S1, namespace_name);
-    LPSTR S = S1;
-    luabind::object lua_namespace = luabind::get_globals(lua());
-    lua_namespace = lua_namespace["package"];
-    lua_namespace = lua_namespace["loaded"];
-    for (;;)
+    l_iErrorCode = load_string(caString, caScriptName, caNameSpaceName);
+    if (l_iErrorCode)
     {
-        if (!xr_strlen(S))
-            return (lua_namespace);
-        LPSTR I = strchr(S, '.');
-        if (!I)
-            return (lua_namespace[S]);
-        *I = 0;
-        lua_namespace = lua_namespace[S];
-        S = I + 1;
+        ai().script_engine().print_output(ai().script_engine().lua(), caScriptName, l_iErrorCode);
+        ai().script_engine().on_error(ai().script_engine().lua());
+        return l_iErrorCode;
     }
+
+    l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
+    if (l_iErrorCode)
+    {
+        ai().script_engine().print_output(ai().script_engine().lua(), caScriptName, l_iErrorCode);
+        ai().script_engine().on_error(ai().script_engine().lua());
+        return l_iErrorCode;
+    }
+
+    return l_iErrorCode;
 }
 
 int CScriptEngine::vscript_log(ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker)
@@ -947,28 +829,12 @@ bool CScriptEngine::print_output(lua_State* L, LPCSTR caScriptFileName, int iEro
     if (!xr_strcmp(S, "cannot resume dead coroutine"))
     {
         VERIFY2("Please do not return any values from main!!!", caScriptFileName);
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-        if (ai().script_engine().debugger() && ai().script_engine().debugger()->Active()) {
-            ai().script_engine().debugger()->Write(S);
-            ai().script_engine().debugger()->ErrorBreak();
-        }
-#	endif //!USE_LUA_STUDIO
-#endif //-USE_DEBUGGER
     }
     else
     {
         if (!iErorCode)
             script_log(eLuaMessageTypeInfo, "Output from %s", caScriptFileName);
         script_log(iErorCode ? eLuaMessageTypeError : eLuaMessageTypeMessage, "%s", S);
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-        if (ai().script_engine().debugger() && ai().script_engine().debugger()->Active()) {
-            ai().script_engine().debugger()->Write(S);
-            ai().script_engine().debugger()->ErrorBreak();
-        }
-#	endif //!USE_LUA_STUDIO
-#endif //-USE_DEBUGGER
     }
     return (true);
 }
@@ -1040,21 +906,6 @@ int CScriptEngine::error_log(LPCSTR format, ...)
     return (result);
 }
 
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-#		include "script_debugger.h"
-#	else //USE_LUA_STUDIO
-#		include "lua_studio.h"
-typedef cs::lua_studio::create_world_function_type			create_world_function_type;
-typedef cs::lua_studio::destroy_world_function_type			destroy_world_function_type;
-
-static create_world_function_type	s_create_world				= 0;
-static destroy_world_function_type	s_destroy_world				= 0;
-static HMODULE						s_script_debugger_handle	= 0;
-static LogCallback					s_old_log_callback			= 0;
-#	endif //!USE_LUA_STUDIO
-#endif
-
 #ifndef XRSE_FACTORY_EXPORTS
 #	ifdef DEBUG
 #		include "ai_debug.h"
@@ -1067,251 +918,12 @@ extern Flags32 psAI_Flags;
 void jit_command(lua_State*, LPCSTR);
 #endif
 
-#if defined(USE_DEBUGGER) && defined(USE_LUA_STUDIO)
-static void log_callback			(LPCSTR message)
-{
-    if (s_old_log_callback)
-        s_old_log_callback			(message);
-
-    if (!ai().script_engine().debugger())
-        return;
-
-    ai().script_engine().debugger()->add_log_line	(message);
-}
-
-static void initialize_lua_studio	( lua_State* state, cs::lua_studio::world*& world, lua_studio_engine*& engine)
-{
-    engine							= 0;
-    world							= 0;
-
-    u32 const old_error_mode		= SetErrorMode(SEM_FAILCRITICALERRORS);
-    s_script_debugger_handle		= LoadLibrary(CS_LUA_STUDIO_BACKEND_FILE_NAME);
-    SetErrorMode					(old_error_mode);
-    if (!s_script_debugger_handle) {
-        Msg							("! cannot load %s dynamic library", CS_LUA_STUDIO_BACKEND_FILE_NAME);
-        return;
-    }
-
-    R_ASSERT2						(s_script_debugger_handle, "can't load script debugger library");
-
-    s_create_world					= (create_world_function_type)
-        GetProcAddress(
-        s_script_debugger_handle,
-        "_cs_lua_studio_backend_create_world@12"
-        );
-    R_ASSERT2						(s_create_world, "can't find function \"cs_lua_studio_backend_create_world\"");
-
-    s_destroy_world					= (destroy_world_function_type)
-        GetProcAddress(
-        s_script_debugger_handle,
-        "_cs_lua_studio_backend_destroy_world@4"
-        );
-    R_ASSERT2						(s_destroy_world, "can't find function \"cs_lua_studio_backend_destroy_world\" in the library");
-
-    engine							= xr_new<lua_studio_engine>();
-    world							= s_create_world( *engine, false, false );
-    VERIFY							(world);
-
-    s_old_log_callback				= SetLogCB(&log_callback);
-
-#ifdef USE_LUAJIT_ONE
-    jit_command						(state, "debug=2");
-    jit_command						(state, "off");
-#else
-	luaJIT_setmode(state, 0, LUAJIT_MODE_ENGINE | LUAJIT_MODE_OFF);
-#endif
-
-    world->add						(state);
-}
-
-static void finalize_lua_studio		( lua_State* state, cs::lua_studio::world*& world, lua_studio_engine*& engine)
-{
-    world->remove					(state);
-
-    VERIFY							(world);
-    s_destroy_world					(world);
-    world							= 0;
-
-    VERIFY							(engine);
-    xr_delete						(engine);
-
-    FreeLibrary						(s_script_debugger_handle);
-    s_script_debugger_handle		= 0;
-
-    SetLogCB						(s_old_log_callback);
-}
-
-void CScriptEngine::try_connect_to_debugger		()
-{
-    if (m_lua_studio_world)
-        return;
-
-    initialize_lua_studio			( lua(), m_lua_studio_world, m_lua_studio_engine );
-}
-
-void CScriptEngine::disconnect_from_debugger	()
-{
-    if (!m_lua_studio_world)
-        return;
-
-    finalize_lua_studio				( lua(), m_lua_studio_world, m_lua_studio_engine );
-}
-#endif //-(USE_DEBUGGER) && defined(USE_LUA_STUDIO)
-
-void CScriptEngine::setup_callbacks()
-{
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-    if( debugger() )
-        debugger()->PrepareLuaBind	();
-#	endif // #ifndef USE_LUA_STUDIO
-#endif
-
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-    if (!debugger() || !debugger()->Active() )
-#	endif // #ifndef USE_LUA_STUDIO
-#endif
-	{
-#if !XRAY_EXCEPTIONS
-		luabind::set_error_callback(CScriptEngine::lua_error);
-#endif
-
-		luabind::set_pcall_callback(CScriptEngine::lua_pcall_failed);
-	}
-
-#if !XRAY_EXCEPTIONS
-	luabind::set_cast_failed_callback(lua_cast_failed);
-#endif
-	lua_atpanic(lua(), CScriptEngine::lua_panic);
-}
-
 #ifdef DEBUG
-#	include "script_thread.h"
-void CScriptEngine::lua_hook_call		(lua_State *L, lua_Debug *dbg)
+void CScriptEngine::lua_hook_call(lua_State *L, lua_Debug *dbg)
 {
-    if (ai().script_engine().current_thread())
-        ai().script_engine().current_thread()->script_hook(L,dbg);
-    else
-        ai().script_engine().m_stack_is_ready	= true;
+    ai().script_engine().m_stack_is_ready = true;
 }
 #endif
-
-void CScriptEngine::remove_script_process(const EScriptProcessors& process_id)
-{
-	CScriptProcessStorage::iterator I = m_script_processes.find(process_id);
-	if (I != m_script_processes.end())
-	{
-		xr_delete((*I).second);
-		m_script_processes.erase(I);
-	}
-}
-
-bool CScriptEngine::load_package(LPCSTR caNamespaceName, bool warn_if_not_exist)
-{
-    if (*caNamespaceName && xr_strcmp(caNamespaceName, "_G") && namespace_loaded(caNamespaceName))
-    {
-        return true;
-    }
-
-    string_path caScriptName, S1;
-    FS.update_path(caScriptName, "$game_scripts$", strconcat(sizeof(S1), S1, caNamespaceName, ".script"));
-    if (!warn_if_not_exist && !FS.exist(caScriptName))
-    {
-#ifdef DEBUG
-#	ifndef XRSE_FACTORY_EXPORTS
-        if (psAI_Flags.test(aiNilObjectAccess))
-#	endif
-        {
-            print_stack();
-            Msg("* trying to access variable %s, which doesn't exist, or to load script %s, which doesn't exist too", file_name, S);
-            m_stack_is_ready = true;
-        }
-#endif
-        return false;
-    }
-
-    //#ifndef MASTER_GOLD
-    if (strstr(Core.Params, "-dbg"))
-        Msg("* loading script %s", S1);
-    //#endif // MASTER_GOLD
-
-    if (!caNamespaceName)
-        caNamespaceName = "_G";
-    
-    int start = lua_gettop(lua());
-    string_path l_caLuaFileName;
-    IReader* l_tpFileReader = FS.r_open(caScriptName);
-
-    if (!l_tpFileReader)
-    {
-        script_log(eLuaMessageTypeError, "Cannot open file \"%s\"", caScriptName);
-        return (false);
-    }
-
-    auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
-    auto scriptLength = (size_t)l_tpFileReader->length();
-
-    strconcat(sizeof(l_caLuaFileName), l_caLuaFileName, "@", caScriptName);
-    if (load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNamespaceName))
-    {
-        //		VERIFY		(lua_gettop(lua()) >= 4);
-        //		lua_pop		(lua(),4);
-        //		VERIFY		(lua_gettop(lua()) == start - 3);
-        lua_settop(lua(), start);
-        FS.r_close(l_tpFileReader);
-        return (false);
-    }
-    FS.r_close(l_tpFileReader);
-
-    int errFuncId = -1;
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-    if (ai().script_engine().debugger())
-        errFuncId = ai().script_engine().debugger()->PrepareLua(lua());
-#	endif // #ifndef USE_LUA_STUDIO
-#endif // #ifdef USE_DEBUGGER
-    if (0) //.
-    {
-        for (int i = 0; lua_type(lua(), -i - 1); i++)
-            Msg("%2d : %s", -i - 1, lua_typename(lua(), lua_type(lua(), -i - 1)));
-    }
-
-    // because that's the first and the only call of the main chunk - there is no point to compile it
-    //	luaJIT_setmode	(lua(),0,LUAJIT_MODE_ENGINE|LUAJIT_MODE_OFF);						// Oles
-    int l_iErrorCode = lua_pcall(lua(), 0, 0, (-1 == errFuncId) ? 0 : errFuncId); // new_Andy
-    //	luaJIT_setmode	(lua(),0,LUAJIT_MODE_ENGINE|LUAJIT_MODE_ON);						// Oles
-
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-    if (ai().script_engine().debugger())
-        ai().script_engine().debugger()->UnPrepareLua(lua(), errFuncId);
-#	endif // #ifndef USE_LUA_STUDIO
-#endif // #ifdef USE_DEBUGGER
-    if (l_iErrorCode)
-    {
-        //#ifdef DEBUG
-        if (strstr(Core.Params, "-dbg")) print_output(lua(), caScriptName, l_iErrorCode);
-        //#endif
-        on_error(lua());
-        Msg("! [ERROR] --- Failed to load script %s", caNamespaceName);
-        lua_settop(lua(), start);
-        return (false);
-    }
-
-    VERIFY(lua_gettop(lua()) == start);
-    return (true);
-}
-
-void CScriptEngine::unload_package(LPCSTR name)
-{
-    lua_getglobal(lua(), "package");
-    lua_getfield(lua(), -1, "loaded");
-    lua_remove(lua(), -2);
-    lua_pushnil(lua());
-    lua_setfield(lua(), -2, name);
-    lua_remove(lua(), -1);
-}
 
 bool CScriptEngine::function_object(LPCSTR function_to_call, luabind::object& out, int type)
 {
@@ -1335,40 +947,18 @@ bool CScriptEngine::function_object(LPCSTR function_to_call, luabind::object& ou
     return is_type;
 }
 
+CScriptProcesses CScriptEngine::script_processes()
+{
+    return CScriptProcesses(lua());
+}
+
 void CScriptEngine::collect_all_garbage()
 {
     lua_gc(lua(), LUA_GCCOLLECT, 0);
-    lua_gc(lua(), LUA_GCCOLLECT, 0);
 }
 
-void CScriptEngine::on_error(lua_State* state)
+void CScriptEngine::on_error(lua_State* L)
 {
-#if defined(USE_DEBUGGER) && defined(USE_LUA_STUDIO)
-    if (!debugger())
-        return;
-
-    debugger()->on_error(state);
-#endif // #if defined(USE_DEBUGGER) && defined(USE_LUA_STUDIO)
+    CScriptEngine::print_output(L, "", LUA_ERRRUN);
+    FATAL("LUA error");
 }
-
-#if defined(USE_DEBUGGER) && !defined(USE_LUA_STUDIO)
-void CScriptEngine::stopDebugger				()
-{
-    if (debugger()){
-        xr_delete	(m_scriptDebugger);
-        Msg			("Script debugger succesfully stoped.");
-    }
-    else
-        Msg			("Script debugger not present.");
-}
-
-void CScriptEngine::restartDebugger				()
-{
-    if(debugger())
-        stopDebugger();
-
-    m_scriptDebugger = xr_new<CScriptDebugger>();
-    debugger()->PrepareLuaBind();
-    Msg				("Script debugger succesfully restarted.");
-}
-#endif // #if defined(USE_DEBUGGER) && !defined(USE_LUA_STUDIO)

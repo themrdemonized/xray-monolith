@@ -112,5 +112,5 @@ package.loaders = { _LOADERS.init }
 --- Initialize environment via the boot module
 require("boot")
 
--- Pass control to modded exes entrypoint
+-- Pass control to xray entrypoint
 require("amx")

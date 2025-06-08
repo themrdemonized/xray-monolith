@@ -67,11 +67,6 @@ void CAI_Space::init()
 	VERIFY(!m_script_engine);
 	m_script_engine = xr_new<CScriptEngine>();
 	script_engine().init();
-
-#ifndef NO_SINGLE
-	extern string4096 g_ca_stdout;
-	setvbuf(stderr, g_ca_stdout,_IOFBF, sizeof(g_ca_stdout));
-#endif //#ifndef NO_SINGLE
 }
 
 CAI_Space::~CAI_Space()

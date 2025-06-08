@@ -11,6 +11,7 @@
 #include "script_engine_space.h"
 #include "script_export_space.h"
 #include "script_space_forward.h"
+#include "script_processes.h"
 #include "associative_vector.h"
 
 //AVO: lua re-org
@@ -21,13 +22,6 @@
 //-AVO
 
 //#define DBG_DISABLE_SCRIPTS
-
-#include "script_engine_space.h"
-
-#ifndef MASTER_GOLD
-#	define USE_DEBUGGER
-#	define USE_LUA_STUDIO
-#endif //-!MASTER_GOLD
 
 #ifdef XRGAME_EXPORTS
 #	ifndef MASTER_GOLD
@@ -50,49 +44,20 @@
 
 using namespace ScriptEngine;
 
-class CScriptProcess;
-class CScriptThread;
 struct lua_State;
 struct lua_Debug;
-
-typedef associative_vector<EScriptProcessors, CScriptProcess*> CScriptProcessStorage;
-
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-		class CScriptDebugger;
-#	else // #ifndef USE_LUA_STUDIO
-		namespace cs {
-			namespace lua_studio {
-				struct world;
-			} // namespace lua_studio
-		} // namespace cs
-
-		class lua_studio_engine;
-#	endif // #ifndef USE_LUA_STUDIO
-#endif
 
 class CScriptEngine
 {
 private:
 	lua_State* m_virtual_machine;
-	CScriptThread* m_current_thread;
 
 protected:
-	CScriptProcessStorage m_script_processes;
 	int m_stack_level;
-
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-	CScriptDebugger* m_scriptDebugger;
-#	else // #ifndef USE_LUA_STUDIO
-	cs::lua_studio::world* m_lua_studio_world;
-	lua_studio_engine* m_lua_studio_engine;
-#	endif // #ifndef USE_LUA_STUDIO
-#endif // #ifdef USE_DEBUGGER
 
 #ifdef DEBUG
 public:
-	bool						m_stack_is_ready;
+	bool m_stack_is_ready;
 #endif //-DEBUG
 
 #ifdef LUA_DEBUG_PRINT//PRINT_CALL_STACK
@@ -110,44 +75,27 @@ public:
 	~CScriptEngine();
 
 	void init();
+	void setup_callbacks();
 	void unload();
 
-	IC void current_thread(CScriptThread* thread);
-	IC CScriptThread* current_thread() const;
-
-	IC CScriptProcess* script_process(const EScriptProcessors& process_id) const;
-	IC void add_script_process(const EScriptProcessors& process_id, CScriptProcess* script_process);
-	void remove_script_process(const EScriptProcessors& process_id);
-
-	IC lua_State* lua();
-	static int lua_panic(lua_State* L);
-	static void lua_error(lua_State* L);
-	static int lua_pcall_failed(lua_State* L);
+	IC lua_State* lua() { return m_virtual_machine; }
+	CScriptProcesses script_processes();
 
 #ifdef DEBUG
-	static	void				lua_hook_call(lua_State* L, lua_Debug* dbg);
+	static void lua_hook_call(lua_State* L, lua_Debug* dbg);
 #endif // #ifdef DEBUG
-	
-	void setup_callbacks();
 
-	int compile_buffer(
-		lua_State* L,
-		std::string caString,
+	int load_string(
+		LPCSTR caString,
 		LPCSTR caScriptName,
 		LPCSTR caNameSpaceName = 0
 	);
-	int load_buffer(
-		lua_State* L,
-		LPCSTR caBuffer,
-		size_t tSize,
+
+	int do_string(
+		LPCSTR caString,
 		LPCSTR caScriptName,
 		LPCSTR caNameSpaceName = 0
 	);
-	
-	bool namespace_loaded(LPCSTR caName, bool remove_from_stack = true);
-	luabind::object name_space(LPCSTR namespace_name);
-	bool load_package(LPCSTR file_name, bool warn_if_not_exist = true);
-	void unload_package(LPCSTR package);
 
 	int error_log(LPCSTR caFormat, ...);
 	static int __cdecl script_log(ELuaMessageType message, LPCSTR caFormat, ...);
@@ -162,7 +110,7 @@ public:
 	bool function_object(LPCSTR function_to_call, luabind::object& object, int type = LUA_TFUNCTION);
 
 	template <typename _result_type>
-	IC bool functor(LPCSTR function_to_call, luabind::functor<_result_type>& lua_function);
+	bool functor(LPCSTR function_to_call, luabind::functor<_result_type>& lua_function);
 
 	//#ifdef PRINT_CALL_STACK
 	void print_stack();
@@ -172,18 +120,6 @@ public:
 	//#endif //-PRINT_CALL_STACK
 
 	void collect_all_garbage();
-
-#ifdef USE_DEBUGGER
-#	ifndef USE_LUA_STUDIO
-	void				stopDebugger();
-	void				restartDebugger();
-	CScriptDebugger* debugger();
-#	else // ifndef USE_LUA_STUDIO
-	void				try_connect_to_debugger();
-	void				disconnect_from_debugger();
-	inline cs::lua_studio::world* debugger() const { return m_lua_studio_world; }
-#	endif // ifndef USE_LUA_STUDIO
-#endif
 
 protected:
 	void reinit();

@@ -98,10 +98,10 @@ compile = function(src, namespace_name, script_name)
          env[namespace_name] = env
       end
 
-      -- Redirect loadstring through wua
+      -- Redirect loadstring through this compiler
       env.loadstring = compile
 
-      -- Redirect load through wua
+      -- Redirect load through this compiler
       env.load = function(f, name)
          local src = ""
 
@@ -121,7 +121,7 @@ compile = function(src, namespace_name, script_name)
          return compile(src, name)
       end
 
-      -- Redirect loadfile through wua
+      -- Redirect loadfile through this compiler
       env.loadfile = function(path)
          local file = io.input(path)
          local src = file:read("*a")

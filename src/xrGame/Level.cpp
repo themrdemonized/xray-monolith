@@ -15,7 +15,6 @@
 #include "ShootingObject.h"
 #include "GameTaskManager.h"
 #include "Level_Bullet_Manager.h"
-#include "script_process.h"
 #include "script_engine.h"
 #include "script_engine_space.h"
 #include "team_base_zone.h"
@@ -253,8 +252,6 @@ CLevel::~CLevel()
 	xr_delete(m_autosave_manager);
     xr_delete(m_debug_renderer);
 	delete_data(m_debug_render_queue);
-	if (!g_dedicated_server)
-		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
 	xr_delete(game);
 	xr_delete(game_events);
 	xr_delete(m_pBulletManager);
@@ -729,8 +726,10 @@ void CLevel::OnFrame()
 #endif
 	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(),
 	                                             game->GetEnvironmentGameTimeFactor());
-	if (!g_dedicated_server)
-		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
+
+	if (!g_dedicated_server && ai().script_engine().script_processes().has("level"))
+		ai().script_engine().script_processes().get("level").update();
+
 	m_ph_commander->update();
 	m_ph_commander_scripts->update();
 	Device.Statistic->TEST0.Begin();

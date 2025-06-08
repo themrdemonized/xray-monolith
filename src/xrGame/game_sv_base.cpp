@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "LevelGameDef.h"
-#include "script_process.h"
 #include "xrServer_Objects_ALife_Monsters.h"
 #include "script_engine.h"
 #include "script_engine_space.h"
@@ -448,27 +447,6 @@ void game_sv_GameState::Create(shared_str& options)
 		FS.r_close(F);
 	}
 
-	if (!g_dedicated_server)
-	{
-		// loading scripts
-		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorGame);
-		string_path S;
-		FS.update_path(S, "$game_config$", "script.ltx");
-		CInifile* l_tpIniFile = xr_new<CInifile>(S);
-		R_ASSERT(l_tpIniFile);
-
-		if (l_tpIniFile->section_exist(type_name()))
-			if (l_tpIniFile->r_string(type_name(), "script"))
-				ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorGame,
-				                                        xr_new<CScriptProcess>(
-					                                        "game", l_tpIniFile->r_string(type_name(), "script")));
-			else
-				ai().script_engine().add_script_process(ScriptEngine::eScriptProcessorGame,
-				                                        xr_new<CScriptProcess>("game", ""));
-
-		xr_delete(l_tpIniFile);
-	}
-
 	//---------------------------------------------------------------------
 	ConsoleCommands_Create();
 	//---------------------------------------------------------------------
@@ -669,11 +647,9 @@ void game_sv_GameState::Update()
 
 	if (!g_dedicated_server)
 	{
-		if (Level().game)
+		if (Level().game && ai().script_engine().script_processes().has("game"))
 		{
-			CScriptProcess* script_process = ai().script_engine().script_process(ScriptEngine::eScriptProcessorGame);
-			if (script_process)
-				script_process->update();
+			ai().script_engine().script_processes().get("game").update();
 		}
 	}
 }
@@ -700,7 +676,7 @@ game_sv_GameState::game_sv_GameState()
 game_sv_GameState::~game_sv_GameState()
 {
 	if (!g_dedicated_server)
-		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorGame);
+		ai().script_engine().script_processes().remove("game");
 	xr_delete(m_event_queue);
 
 	SaveMapList();
