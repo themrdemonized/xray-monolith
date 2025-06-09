@@ -163,8 +163,10 @@ local RAND_S
 function get_random_stalker_chatter()
 	if not RAND_S then 
 		RAND_S = {}
-		alife():iterate_objects_without_actor(function(se_obj)
-			if  
+		for i=1,alife():max_id() - 1 do 
+			local se_obj = alife_object(i)
+			if 
+				se_obj and 
 				IsStalker(nil, se_obj:clsid()) and 
 				se_obj:alive() and 
 				not game_relations.is_factions_enemies(se_obj:community(),"freedom") and 
@@ -173,9 +175,9 @@ function get_random_stalker_chatter()
 				not (se_obj:community() == 'trader')
 			then
 				table.insert(RAND_S,{game.translate_string(se_obj:character_name()),se_obj:character_icon()})
-				if #RAND_S > 10 then return true end
+				if #RAND_S > 10 then break end
 			end
-		end)
+		end
 	end
 	if #RAND_S < 1 then
 		return nil, nil

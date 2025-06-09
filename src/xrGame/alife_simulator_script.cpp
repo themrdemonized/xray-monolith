@@ -519,6 +519,12 @@ alife_object_without_actor_iterator alife_object_without_actor_iter(const CALife
 	return alife_object_without_actor_iterator(&objects.objects());
 }
 
+ALife::_OBJECT_ID alife_max_id(const CALifeSimulator* self)
+{
+	return self->objects().max_id;
+}
+
+//-Alundaio
 CALifeObjectRegistry::OBJECT_REGISTRY const& alife_objects(const CALifeSimulator *self)
 {
 	VERIFY(self);
@@ -531,8 +537,6 @@ xr_vector<u16>& get_children(const CALifeSimulator *self, CSE_Abstract *object)
 	VERIFY(self);
 	return object->children;
 }
-//-Alundaio
-
 
 #pragma optimize("s",on)
 void CALifeSimulator::script_register(lua_State* L)
@@ -595,6 +599,7 @@ void CALifeSimulator::script_register(lua_State* L)
 		.def("iterate_objects_without_actor", &CALifeSimulator__iterate_objects_without_actor)
 		.def("objects_iter", &alife_object_iter)
 		.def("objects_without_actor_iter", &alife_object_without_actor_iter)
+		.def("max_id", &alife_max_id)
 
 		, def("alife", &alife)
 	];

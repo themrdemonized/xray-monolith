@@ -148,29 +148,32 @@ end
 
 function actor_on_first_update() --| Callback of the first Update actor. It is executed one-time after loading, _after_ spawn of all objects from all.spawn, unlike on_game_load
 	local smatch = string.match
-	alife():iterate_objects_without_actor(function(s_obj)
-		local name = s_obj:name()
-		local i = s_obj.id
+	local sim = alife()
+	for i=1, sim:max_id() - 1 do
+		local s_obj = sim:object(i)
+		if s_obj then
+			local name = s_obj:name()
 
-		--// If the vise is spawned all.spawn - save their values in the store
-		if smatch(name, '%w+%_awr%_tiski%_%d+') then
-			--// Cache vice id
-			vice_id[name] = i
-			angles_t[name] = l_v(name, angles_t[name])
-			
-			if debug_mode then
-				printf("/ Registered vice [%s] = %s", name, i)
-			end
-			
-		--// Cache vice lamps IDs
-		elseif smatch(name, '_awr_lamp') then
-			lamp_id[name] = i
-			
-			if debug_mode then
-				printf("/ Registered vice lamp [%s] = %s", name, i)
+			--// If the vise is spawned all.spawn - save their values in the store
+			if smatch(name, '%w+%_awr%_tiski%_%d+') then
+				--// Cache vice id
+				vice_id[name] = i
+				angles_t[name] = l_v(name, angles_t[name])
+				
+				if debug_mode then
+					printf("/ Registered vice [%s] = %s", name, i)
+				end
+				
+			--// Cache vice lamps IDs
+			elseif smatch(name, '_awr_lamp') then
+				lamp_id[name] = i
+				
+				if debug_mode then
+					printf("/ Registered vice lamp [%s] = %s", name, i)
+				end
 			end
 		end
-	end)
+	end
 	
 	--// Turn on lamps for all mechanics with a dead flag, otherwise it should be off
 	for key, val in pairs(angles_t) do

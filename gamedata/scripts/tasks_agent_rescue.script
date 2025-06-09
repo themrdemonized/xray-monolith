@@ -232,28 +232,31 @@ stage_f[0] = function(task, task_id) -- setup stage
 	end
 	
 	local sim = alife()
-	sim:iterate_objects_without_actor(function(se_obj)
-		if se_obj.parent_id
-		and (se_obj.parent_id == spy_id)
-		and sfind(se_obj:section_name(),"wpn_") 
-		then -- release all guns from spy
-			printl('- %s | releasing weapon %s from spy %s', task_id, se_obj:section_name(), se_obj.parent_id)
-			alife_release(se_obj)		
-			
-		elseif se_obj.parent_id
-		and (not (se_obj.parent_id == spy_id))
-		and members[se_obj.parent_id]
-		and sfind(se_obj:section_name(),spy_loadout[1])
-		then -- release spy gun from other members and give replacement weapon
-			printl('- %s | releasing gun %s from member %s', task_id, se_obj:section_name(), se_obj.parent_id)
-			
-			local sq_loadout = generate_squad_loadout(task_id)
-			for i=1,#sq_loadout do
-				alife_create(sq_loadout[i], se_obj.position, se_obj.m_level_vertex_id, se_obj.m_game_vertex_id, se_obj.parent_id)
+	for i=1,sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj then
+			if se_obj.parent_id
+			and (se_obj.parent_id == spy_id)
+			and sfind(se_obj:section_name(),"wpn_") 
+			then -- release all guns from spy
+				printl('- %s | releasing weapon %s from spy %s', task_id, se_obj:section_name(), se_obj.parent_id)
+				alife_release(se_obj)		
+				
+			elseif se_obj.parent_id
+			and (not (se_obj.parent_id == spy_id))
+			and members[se_obj.parent_id]
+			and sfind(se_obj:section_name(),spy_loadout[1])
+			then -- release spy gun from other members and give replacement weapon
+				printl('- %s | releasing gun %s from member %s', task_id, se_obj:section_name(), se_obj.parent_id)
+				
+				local sq_loadout = generate_squad_loadout(task_id)
+				for i=1,#sq_loadout do
+					alife_create(sq_loadout[i], se_obj.position, se_obj.m_level_vertex_id, se_obj.m_game_vertex_id, se_obj.parent_id)
+				end
+				alife_release(se_obj)
 			end
-			alife_release(se_obj)
 		end
-	end)
+	end
 	
 	-- give weapon to spy
 	local se_spy = alife_object(spy_id)

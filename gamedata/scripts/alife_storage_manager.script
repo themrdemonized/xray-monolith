@@ -140,9 +140,11 @@ function on_after_load_state() -- after first actor update
 			["detector_radio"] = true,
 			["detector_geiger"] = true,
 		}
-		alife():iterate_objects_without_actor(function(se_obj)
-			local sec = se_obj:section_name()
-			if to_replace[sec] then
+		local sim = alife()
+		for i=1,sim:max_id() - 1 do
+			local se_obj = sim:object(i)
+			local sec = se_obj and se_obj:section_name()
+			if sec and to_replace[sec] then
 				local p_id = se_obj.parent_id
 				alife_release(se_obj)
 				if p_id then
@@ -151,7 +153,7 @@ function on_after_load_state() -- after first actor update
 					printf("~ Marshal Library | Created [%s] for [%s]", sec, se_parent:name())
 				end
 			end
-		end)
+		end
 	end
 end
 

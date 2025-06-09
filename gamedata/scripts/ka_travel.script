@@ -38,15 +38,16 @@ local relations = {
 --	killer = "mercenary"
 
 local function get_smart_by_name(name)
-	local result
-	alife():iterate_objects_without_actor(function(smart)
-		if smart:clsid() == clsid.smart_terrain and smart:name() == name then
-			result = smart
-			return true
-		end
-	end)
+	local sim = alife()
 	
-	return result
+	for i=1,sim:max_id() - 1 do 
+		local smart = sim:object(i)
+		if (smart and smart:clsid() == clsid.smart_terrain and smart:name() == name) then
+			return smart
+		end
+	end
+	
+	return nil
 end
 
 local function teleport_to(smart_key)

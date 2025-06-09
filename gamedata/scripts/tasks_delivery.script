@@ -82,10 +82,10 @@ xr_effects.on_init_delivery_task = function(actor,npc,p)
 		local targets = {}
 		local gg = game_graph()
 		local sfind = string.find
-		sim:iterate_objects_without_actor(function(se_obj)
-			local i = se_obj.id
+		for i=1,sim:max_id() - 1 do 
+			local se_obj = sim:object(i)
 			-- Search for common npcs
-			if (IsStalker(nil,se_obj:clsid()) and se_obj:alive() and sfind(se_obj:section_name(),"sim_default") and get_object_story_id(i) == nil) then
+			if (se_obj and IsStalker(nil,se_obj:clsid()) and se_obj:alive() and sfind(se_obj:section_name(),"sim_default") and get_object_story_id(i) == nil) then
 				-- Search in natural factions
 				local comm = alife_character_community(se_obj)
 				if (faction_lookup[comm] == true) then
@@ -104,7 +104,7 @@ xr_effects.on_init_delivery_task = function(actor,npc,p)
 					end
 				end
 			end
-		end)
+		end
 		
 		if (#targets == 0) then
 			printf("! %s TASK ERROR: xr_effects.create_delivery_quest - no target found!", var)

@@ -143,15 +143,19 @@ end
 
 -- mines aren't worth shit and aren't amassed like ammo so even if some players lose 2-3 of them is no big deal, definitely not worth the autism to search and replace all occurrences
 function mine_killer()
-	alife():iterate_objects_without_actor(function(se)
+	for i=1, alife():max_id() - 1 do
+		local se = alife_object(i)
 		if
-			se:section_name() == 'mine'
-			or se:section_name() == 'ied'
-			or se:section_name() == 'ied_rpg'
+			se
+			and (
+				se:section_name() == 'mine'
+				or se:section_name() == 'ied'
+				or se:section_name() == 'ied_rpg'
+				)
 		then
 			alife_release_id(se.id)
 		end
-	end)
+	end
 end
 
 function actor_on_update()

@@ -171,9 +171,9 @@ function update_settings()
 	if not (is_empty(tsmarts)) then
 		local level_name
 		local sim,gg = alife(),game_graph()
-		sim:iterate_objects_without_actor(function(smart)
-			if (smart:clsid() == clsid.smart_terrain and tsmarts[smart:name()]) then
-				local i = smart.id
+		for i=1,sim:max_id() - 1 do
+			local smart = sim:object(i)
+			if (smart and smart:clsid() == clsid.smart_terrain and tsmarts[smart:name()]) then
 				if (level.map_has_object_spot(i, "fast_travel")) then
 					level.map_remove_object_spot(i, "fast_travel")
 				end
@@ -195,7 +195,7 @@ function update_settings()
 					end
 				end
 			end
-		end)
+		end
 	end
 	return true
 end

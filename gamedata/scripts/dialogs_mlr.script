@@ -1471,15 +1471,16 @@ function give_task_fanat_training_2()
 	-- Spawn Crystal artefact in Fanatic's stash
 	local sim = alife()
 	local box_id
-	sim:iterate_objects_without_actor(function(se_obj)
-		if se_obj:name() == "secret_fanat" then
-			box_id = se_obj.id
-			return true
+	for i=1,sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj and (se_obj:name() == "secret_fanat") then
+			box_id = i
+			break
 		end
-	end)
+	end
 	local se_arty = box_id and alife_create("af_ball", VEC_ZERO, 0, 0, box_id, false)
 	if (se_arty) then
-		sim:register(se_arty)
+		alife():register(se_arty)
 	end
 end
 function give_task_fanat_training_3()

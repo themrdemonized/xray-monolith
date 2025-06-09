@@ -1356,12 +1356,14 @@ function switch_on_off_steps(id)
 		local se_item = alife_object(id)
 		if se_item then
 			if simulation_objects.is_on_the_actor_level(se_item) then
-				alife():iterate_objects_without_actor(function(se_obj)
-					if not simulation_objects.is_on_the_actor_level(se_obj) then
+				local sim = alife()
+				for i=1,sim:max_id() - 1 do
+					local se_obj = sim:object(i)
+					if se_obj and (not simulation_objects.is_on_the_actor_level(se_obj)) then
 						alife():teleport_object(id, se_obj.m_game_vertex_id, se_obj.m_level_vertex_id, se_obj.position)
-						return true
+						break
 					end
-				end)
+				end
 			else
 				switch_trace[id] = 3
 			end

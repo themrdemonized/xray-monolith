@@ -314,11 +314,12 @@ end
 function bar_medic_remove_stuff()
 	if not alife_storage_manager.get_state().duty_medic_fix then
 		alife_storage_manager.get_state().duty_medic_fix = true
-		alife():iterate_objects_without_actor(function(se)
-			if (se:name() == 'bar_physic_object_mlr_0002' or se:name() == 'bar_physic_object_mlr_0003') then
+		for i=1,alife():max_id() - 1 do
+			local se = alife():object(i)
+			if se and (se:name() == 'bar_physic_object_mlr_0002' or se:name() == 'bar_physic_object_mlr_0003') then
 				alife():release(se)
 			end
-		end)
+		end
 	end
 end
 
@@ -328,11 +329,12 @@ end
 function darkscape_remove_physics_objects()
 	if not alife_storage_manager.get_state().darkscape_phys_fix then
 		alife_storage_manager.get_state().darkscape_phys_fix = true
-		alife():iterate_objects_without_actor(function(se)
-			if (se:name() == 'ds_physic_destroyable_object_0046' or se:name() == 'ds_physic_object_0009' or se:name() == 'ds_physic_object_0010' or se:name() == 'ds_physic_object_0002') then
+		for i=1,alife():max_id() - 1 do
+			local se = alife():object(i)
+			if se and (se:name() == 'ds_physic_destroyable_object_0046' or se:name() == 'ds_physic_object_0009' or se:name() == 'ds_physic_object_0010' or se:name() == 'ds_physic_object_0002') then
 				alife():release(se)
 			end
-		end)
+		end
 	end
 end
 
@@ -346,14 +348,16 @@ end
 function freedom_medic_fix()
 	if not alife_storage_manager.get_state().freedom_medic_fix then
 		alife_storage_manager.get_state().freedom_medic_fix = true
-		alife():iterate_objects_without_actor(function(se)
-			local i = se.id
-			if se:name() == 'mil_physic_object_0048' then
-				alife():release(se)
-			elseif se:name() == 'sc_freedom_medic_mlr' then
-				alife():teleport_object(i, 2165, 315401, vector():set(27.681089401245, -6.9381303787231, 17.38550567627))
+		for i=1,alife():max_id() - 1 do
+			local se = alife():object(i)
+			if se then
+				if se:name() == 'mil_physic_object_0048' then
+					alife():release(se)
+				elseif se:name() == 'sc_freedom_medic_mlr' then
+					alife():teleport_object(i, 2165, 315401, vector():set(27.681089401245, -6.9381303787231, 17.38550567627))
+				end
 			end
-		end)
+		end
 	end
 end
 
@@ -388,42 +392,47 @@ local function actor_on_first_update()
 	-- Release static items and mines
 	local sim = alife()
 	local boxes = {}
-	sim:iterate_objects_without_actor(function(se_obj)
-		local name = se_obj:name()
-		local i = se_obj.id
-		local cls = se_obj:clsid()
-		
-		if cls == clsid.inventory_box_s then
-			--print_debug('%s_%s is a box', i, name)
-			boxes[i] = true
+	for i=1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj then
+			local name = se_obj:name()
+			local cls = se_obj:clsid()
 			
-		elseif ini_dyn:line_exist("replace_items",name) then
-			--print_debug('releasing %s', name)
-			--sim:release(se_obj, true)
-			alife_release(se_obj)
-		end
-		
-		if ini_setup:line_exist("remove_objects",name) then
-			print_debug('/ Game Setup | Releasing object (%s)', name)
-			
-			-- Clear inventory boxes from their manager
-			if (cls == clsid.inventory_box_s) then
-				treasure_manager.release_stash_by_id(se_obj.id)
+			if cls == clsid.inventory_box_s then
+				--print_debug('%s_%s is a box', i, name)
+				boxes[i] = true
+				
+			elseif ini_dyn:line_exist("replace_items",name) then
+				--print_debug('releasing %s', name)
+				--sim:release(se_obj, true)
+				alife_release(se_obj)
 			end
 			
-			safe_release_manager.release(se_obj)
+			if ini_setup:line_exist("remove_objects",name) then
+				print_debug('/ Game Setup | Releasing object (%s)', name)
+				
+				-- Clear inventory boxes from their manager
+				if (cls == clsid.inventory_box_s) then
+					treasure_manager.release_stash_by_id(se_obj.id)
+				end
+				
+				safe_release_manager.release(se_obj)
+			end
 		end
-	end)
+	end
 	
 	-- Clear stashes
-	sim:iterate_objects_without_actor(function(se_obj)
-		local name = se_obj:name()
-		if boxes[se_obj.parent_id] and (not sfind(name, 'mlr_strelok_item')) then
-			print_debug('/ Game Setup | Releasing {%s} from box', name)
-			--sim:release(se_obj, true)
-			alife_release(se_obj)
+	for i=1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj then
+			local name = se_obj:name()
+			if boxes[se_obj.parent_id] and (not sfind(name, 'mlr_strelok_item')) then
+				print_debug('/ Game Setup | Releasing {%s} from box', name)
+				--sim:release(se_obj, true)
+				alife_release(se_obj)
+			end
 		end
-	end)
+	end
 	
 	-- Setup items
 	local multi = game_difficulties.get_eco_factor("random_items") or 0.5

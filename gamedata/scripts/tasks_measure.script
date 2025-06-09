@@ -228,9 +228,9 @@ xr_conditions.validate_measure_task = function(actor,npc,p)
 	local gg = game_graph()
 	local sfind = string.find
 	local dyn_anomalies = bind_anomaly_field and bind_anomaly_field.dyn_anomalies or {}
-	sim:iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
-		if ano_tbl[se_obj:section_name()] then
+	for i=1,sim:max_id() - 1 do 
+		local se_obj = sim:object(i)
+		if se_obj and ano_tbl[se_obj:section_name()] then
 			local lvl_name = sim:level_name( gg:vertex(se_obj.m_game_vertex_id):level_id())
 			if (not blacklisted_maps[lvl_name]) -- not in a blacklisted level
 			and (not (dyn_anomalies[lvl_name] and dyn_anomalies[lvl_name][i] ~= nil)) -- not a dynamic anomaly
@@ -247,7 +247,7 @@ xr_conditions.validate_measure_task = function(actor,npc,p)
 				end
 			end
 		end
-	end)
+	end
 	
 	if (#targets == 0) then
 		printf("! %s | No anomaly found!",task_id)

@@ -140,26 +140,29 @@ function nearest_object(s,offline)
 	local nearest
 	local min_dist
 	local is_match
-	alife():iterate_objects_without_actor(function(obj)
-		is_match = false
-		if (type(s) == "string" and string_find(obj:name(),s)) then
-			is_match = true
-		elseif (type(s) == "number" and s == obj:clsid()) then
-			is_match = true
-		end
+	for i=1, alife():max_id() - 1 do
+		local obj = alife_object(i)
+		if (obj) then
+			is_match = false
+			if (type(s) == "string" and string_find(obj:name(),s)) then
+				is_match = true
+			elseif (type(s) == "number" and s == obj:clsid()) then
+				is_match = true
+			end
 
-		if (is_match) then
-			dist = obj.position:distance_to_sqr(db.actor:position())
+			if (is_match) then
+				dist = obj.position:distance_to_sqr(db.actor:position())
 
-			if not(min_dist) then
-				min_dist = dist
-				nearest = obj
-			elseif (dist < min_dist) then
-				min_dist = dist
-				nearest = obj
+				if not(min_dist) then
+					min_dist = dist
+					nearest = obj
+				elseif (dist < min_dist) then
+					min_dist = dist
+					nearest = obj
+				end
 			end
 		end
-	end)
+	end
 
 	if (nearest) then
 		if (simulation_objects.is_on_the_same_level(nearest, alife():actor())) then

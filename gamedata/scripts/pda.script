@@ -469,15 +469,16 @@ function calculate_rankings()
 	t[0] = sim:actor():rank()
 	
 	-- check all stalker server objects
-	sim:iterate_objects_without_actor(function(se_obj)
-		if (IsStalker(nil,se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "trader") then
+	for i=1,sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if (se_obj and IsStalker(nil,se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "trader") then
 			-- Check if object has a story id, if it does they are probably unique
 			local sid = story_objects.story_id_by_object_id[se_obj.id]
 			if not (sid) then
 				t[se_obj.id] = se_obj:rank()
 			end
 		end
-	end)
+	end
 	
 	coc_ranking_list = iempty_table(coc_ranking_list)
 	local size_t = 0

@@ -60,15 +60,16 @@ end
 item_object_id_by_story_id = {}
 function get_story_se_item(story_id)
 	if (item_object_id_by_story_id[story_id] == nil) then
+		local sim = alife()
 		local found = false
-		alife():iterate_objects_without_actor(function(se_obj)
-			if se_obj:section_name() == story_id then -- assuming that section is similar to the story id
+		for i=1,sim:max_id() - 1 do
+			local se_obj = sim:object(i)
+			if se_obj and (se_obj:section_name() == story_id) then -- assuming that section is similar to the story id
 				--printf("/ Story Objects | found [%s] with id (%s)", story_id, i)
-				local i = se_obj.id
 				found = i
-				return true
+				break
 			end
-		end)
+		end
 		item_object_id_by_story_id[story_id] = found
 	end
 	

@@ -11,18 +11,19 @@ end
 --==========================================< Utility >==========================================--
 local anomaly_id = {}
 function get_anomaly_id(task_id, name_id)
-	local result
-	alife():iterate_objects_without_actor(function(se_obj)
-		local name = se_obj:name()
-		name = cfg_to_name[name] or name
-		if (name == name_id) then
-			local i = se_obj.id
-			anomaly_id[task_id] = i
-			result = i
-			return true
+	local sim = alife()
+	for i=1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj then
+			local name = se_obj:name()
+			name = cfg_to_name[name] or name
+			if (name == name_id) then
+				anomaly_id[task_id] = i
+				return i
+			end
 		end
-	end)
-	return result
+	end
+	return nil
 end
 
 --==========================================< Task >==========================================--

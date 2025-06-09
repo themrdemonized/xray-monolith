@@ -206,11 +206,12 @@ function actor_on_first_update()
 	local sim = alife()
 	local obj, se_obj
 	--[[
-	sim:iterate_objects_without_actor(function(se_obj)
-		if se_obj:section_name() == "device_pda" then
+	for i=1,sim:max_id() - 1 do
+		se_obj = sim:object(i)
+		if se_obj and (se_obj:section_name() == "device_pda") then
 			sim:release(se_obj,true)
 		end
-	end)
+	end
 	--]]
 	
 	-- Delete animation items on actor

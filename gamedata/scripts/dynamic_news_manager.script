@@ -860,24 +860,27 @@ function DynamicNewsManager:FindSpeakerAndTarget(not_in_combat,distance,speaker_
 	local sender_comm = sender:character_community()
 	
 	local sim = alife()
-	local clsid
-	sim:iterate_objects_without_actor(function(se_obj)
-		clsid = se_obj:clsid()
-		-- Check if its enemy stalker or monester
-		if ( IsStalker(nil,clsid) and (se_obj:community() ~= "trader") and game_relations.is_factions_enemies(sender_comm, se_obj:community()) ) or (IsMonster(nil,clsid)) then 
-			-- Check if its close to sender
-			if (se_obj.position:distance_to(sender_pos) < dis) and (se_obj.group_id ~= 65535) then
-				-- Check if its alive
-				if (se_obj:alive()) then
-					local st = db.storage[se_obj.id]
-					local npc = st and st.object or level.object_by_id(se_obj.id)
-					if npc then
-						t2[#t2+1] = npc
+	local se_obj,clsid
+	for i=1,sim:max_id() - 1 do 
+		se_obj = sim:object(i)
+		clsid = se_obj and se_obj:clsid()
+		if clsid then
+			-- Check if its enemy stalker or monester
+			if ( IsStalker(nil,clsid) and (se_obj:community() ~= "trader") and game_relations.is_factions_enemies(sender_comm, se_obj:community()) ) or (IsMonster(nil,clsid)) then 
+				-- Check if its close to sender
+				if (se_obj.position:distance_to(sender_pos) < dis) and (se_obj.group_id ~= 65535) then
+					-- Check if its alive
+					if (se_obj:alive()) then
+						local st = db.storage[se_obj.id]
+						local npc = st and st.object or level.object_by_id(se_obj.id)
+						if npc then
+							t2[#t2+1] = npc
+						end
 					end
 				end
 			end
 		end
-	end)
+	end
 	if (#t2 == 0) then
 		return nil
 	end
@@ -893,10 +896,11 @@ function DynamicNewsManager:FindSpeakerAnywhere(natural_only,faction) -- Find a 
 	local t = {}
 	local size_t = 0
 	
+	local sim = alife()
 	local act_comm = get_actor_true_community()
-	alife():iterate_objects_without_actor(function(se_obj)
-		if se_obj.group_id ~= 65535 then
-			local i = se_obj.id 
+	for i=1,sim:max_id() - 1 do 
+		local se_obj = sim:object(i)
+		if (se_obj and se_obj.group_id ~= 65535) then 
 			if IsStalker(nil,se_obj:clsid()) and se_obj:alive() and (se_obj:community() ~= "trader") then
 				local comm = se_obj:community()
 				if faction then
@@ -917,7 +921,7 @@ function DynamicNewsManager:FindSpeakerAnywhere(natural_only,faction) -- Find a 
 				end
 			end
 		end
-	end)
+	end
 
 	return (size_t > 0) and t[math.random(size_t)] or nil
 end
@@ -1099,11 +1103,12 @@ function DynamicNewsManager:WelcomeToNetwork() -- Welcome message on new game
 	-- Count the number of stalkers across the zone, except monolith and zombies
 	local c = 1
 	local sim = alife()
-	sim:iterate_objects_without_actor(function(se_obj)
-		if (IsStalker(nil,se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "monolith" and se_obj.group_id ~= 65535) then 
+	for i=1,sim:max_id() - 1 do 
+		local se_obj = sim:object(i)
+		if (se_obj and IsStalker(nil,se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "monolith" and se_obj.group_id ~= 65535) then 
 			c = c + 1
 		end
-	end)
+	end
 	
 	local se_actor = sim:actor()
 	
@@ -1866,9 +1871,9 @@ function DynamicNewsManager:ReportZoneActivity() -- report activity of squads in
 	local sfind = string.find
 	local monster_tiers = faction_expansions.mutant_tier_by_clsid
 	local lvl_name = dynamic_news_helper.PickMap(level.name())
-	sim:iterate_objects_without_actor(function(se_obj)
-		if lvl_name == sim:level_name(gg:vertex(se_obj.m_game_vertex_id):level_id()) then
-			local i = se_obj.id
+	for i=1,sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj and (lvl_name == sim:level_name(gg:vertex(se_obj.m_game_vertex_id):level_id())) then
 			local cls = se_obj:clsid()
 			local sec = se_obj:section_name()
 			if IsStalker(nil,cls) and sfind(sec,"sim_default_") then
@@ -1880,7 +1885,7 @@ function DynamicNewsManager:ReportZoneActivity() -- report activity of squads in
 				monsters[#monsters + 1] = cls
 			end
 		end
-	end)
+	end
 	if (#stalkers == 0) then
 		return
 	end

@@ -2320,9 +2320,13 @@ function alife_first_update()
 	_ALIFE_CNT = 0
 	--empty_table(_ALIFE_CACHE)
 	
-	alife():iterate_objects_without_actor(function(se_obj)
-		alife_record(nil,true)
-	end)
+	local sim = alife()
+	for i = 1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj then
+			alife_record(nil,true)
+		end
+	end
 end
 
 function create_ammo(section, position, lvi, gvi, pid, num)

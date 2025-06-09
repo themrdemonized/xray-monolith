@@ -1434,9 +1434,12 @@ function position_hud_show(hud)
 	if (time_global() > __tmr_pos_hud) then
 		__tmr_pos_hud = nil
 		_g_o_count = 0
-		alife():iterate_objects_without_actor(function(se_obj)
-			_g_o_count = _g_o_count + 1
-		end)
+		local sim = alife()
+		for i=1,sim:max_id() - 1 do
+			if (sim:object(i) ~= nil) then
+				_g_o_count = _g_o_count + 1
+			end
+		end
 	end
 	hud:add_msg("GameObject IDs",_g_o_count)
 	
@@ -1660,7 +1663,7 @@ function stalker_info_hud_show(hud)
 
 		local vo = near:best_enemy()
 		if (vo and vo:alive() and IsStalker(vo) and IsWounded(vo)) then
-			if (db.storage[vo:id()] and db.storage[vo:id()].victim_surrender and db.storage[vo:id()].victim_surrender < 65534) then
+			if (db.storage[vo:id()] and db.storage[vo:id()].victim_surrender and db.storage[vo:id()].victim_surrender < 65535) then
 				hud:add_msg("Kill wounded",vo:name())
 			end
 		end

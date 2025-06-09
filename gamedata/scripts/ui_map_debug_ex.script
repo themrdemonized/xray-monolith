@@ -186,25 +186,28 @@ end
 
 function hide_stash()
 		--hide all filled caches
-	alife():iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
+	for i=1,alife():max_id() - 1 do
 		if (level.map_has_object_spot(i, "treasure_all") ~= 0) then
 			level.map_remove_object_spot(i, "treasure_all")
 		end
-	end)
+	end
 end
 
 function show_stash_opened()
 		--show all opened caches
+	local sim = alife()
 	local caches = treasure_manager.caches
-	alife():iterate_objects_without_actor(function(se_obj)
-		local parent_id = se_obj.parent_id
-		if parent_id and caches[parent_id] == true then
-			if stashes_opened == nil then stashes_opened = {} end
-			if stashes_opened[parent_id] == nil then stashes_opened[parent_id] = "" end
-			stashes_opened[parent_id] = stashes_opened[parent_id] .. " " .. se_obj:section_name()
+	for i=1,sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if (se_obj) then
+			local parent_id = se_obj.parent_id
+			if parent_id and caches[parent_id] == true then
+				if stashes_opened == nil then stashes_opened = {} end
+				if stashes_opened[parent_id] == nil then stashes_opened[parent_id] = "" end
+				stashes_opened[parent_id] = stashes_opened[parent_id] .. " " .. se_obj:section_name()
+			end
 		end
-	end)
+	end
 	if stashes_opened then
 		--utils_data.print_table(stashes_opened, "previously opened unlooted stashes")
 		for id, v in pairs(stashes_opened) do
@@ -219,25 +222,23 @@ end
 
 function hide_stash_opened()
 		--hide all opened caches
-	alife():iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
+	for i=1,alife():max_id() - 1 do
 		if (level.map_has_object_spot(i, "treasure_all_opened") ~= 0) then
 			level.map_remove_object_spot(i, "treasure_all_opened")
 		end
-	end)
+	end
 end
 
 function hide_fast_travel()
 	local size = 0
 	gates = {}
-	alife():iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
+	for i=1,alife():max_id() - 1 do
 		if (level.map_has_object_spot(i, "fast_travel") ~= 0) then
 			size = size + 1
 			level.map_remove_object_spot(i, "fast_travel")
 			gates[size] = i
 		end
-	end)
+	end
 end
 
 function unhide_fast_travel()
@@ -260,18 +261,18 @@ function show_anom_zones()
 end 
 
 function hide_anom_zones()
-	alife():iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
+	for i=1,alife():max_id() - 1 do
 		if (level.map_has_object_spot(i, "anom_zone") ~= 0) then
 			level.map_remove_object_spot(i, "anom_zone")
 		end
-	end)
+	end
 end
 
 function show_artefacts()
-	alife():iterate_objects_without_actor(function(se_obj)
-		if se_obj:clsid() == clsid.artefact_s then
-			local i = se_obj.id
+	local sim = alife()
+	for i=1,sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if (se_obj and se_obj:clsid() == clsid.artefact_s) then
 			if (level.map_has_object_spot(i, "artefact") == 0) then
 				local props = se_obj:name()
 				
@@ -285,14 +286,13 @@ function show_artefacts()
 				level.map_add_object_spot_ser(se_obj.id, "artefact", props)
 			end
 		end
-	end)
+	end
 end 
 
 function hide_artefacts()
-	alife():iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
+	for i=1,alife():max_id() - 1 do
 		if (level.map_has_object_spot(i, "artefact") ~= 0) then
 			level.map_remove_object_spot(i, "artefact")
 		end
-	end)
+	end
 end

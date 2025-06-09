@@ -116,12 +116,14 @@ function prepare_safe_zone()
 	local safe_covers_list = utils_data.collect_section(sur_ini,"list",true)
 	
 	-- Only collect safe covers in the same level
+	local sim = alife()
 	local is_on_the_actor_level = simulation_objects.is_on_the_actor_level
-	alife():iterate_objects_without_actor(function(se_obj)
-		if safe_covers_list[se_obj:name()] and is_on_the_actor_level(se_obj) then
+	for i=1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj and safe_covers_list[se_obj:name()] and is_on_the_actor_level(se_obj) then
 			safe_covers[se_obj:name()] = se_obj.id
 		end
-	end)
+	end
 end
 function scan_safe_zone()
 	--printf("Safe cover: %s", GetEvent("current_safe_cover"))

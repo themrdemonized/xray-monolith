@@ -634,22 +634,25 @@ local function on_game_load()
 
 	local sim = alife()
 	local gg = game_graph()
-	sim:iterate_objects_without_actor(function(se_obj)
-		if (IsInvbox(nil,se_obj:clsid())) then
-			local name = se_obj:name()
-			if (not caches_blacklist[name]) then
-				caches[se_obj.id] = false
-				caches_count = caches_count + 1
-				
-				if enable_debug then
-					local lvl = sim:level_name(gg:vertex(se_obj.m_game_vertex_id):level_id())
-					local str = string.find(name,"level_prefix_inventory_box") and (lvl .. "_") or ""
-					local spot = caches_rare[str .. name] and "treasure_searched" or "treasure"
-					level.map_add_object_spot_ser(se_obj.id, spot, str .. name)
+	for i=1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if (se_obj) then
+			if (IsInvbox(nil,se_obj:clsid())) then
+				local name = se_obj:name()
+				if (not caches_blacklist[name]) then
+					caches[se_obj.id] = false
+					caches_count = caches_count + 1
+					
+					if enable_debug then
+						local lvl = sim:level_name(gg:vertex(se_obj.m_game_vertex_id):level_id())
+						local str = string.find(name,"level_prefix_inventory_box") and (lvl .. "_") or ""
+						local spot = caches_rare[str .. name] and "treasure_searched" or "treasure"
+						level.map_add_object_spot_ser(se_obj.id, spot, str .. name)
+					end
 				end
 			end
 		end
-	end)
+	end
 
 	for i=1, math.floor(caches_count/2) do
 		create_random_stash(true,"stash")

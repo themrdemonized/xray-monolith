@@ -57,10 +57,10 @@ function actor_on_before_death(whoID,flags)
 
 	--local faction_mates = {}
 	local sfind = string.find
-	sim:iterate_objects_without_actor(function(se_obj)
-		local i = se_obj.id
+	for i=1,sim:max_id() - 1 do 
+		local se_obj = sim:object(i)
 
-		if (IsStalker(nil, se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "trader" and se_obj.group_id ~= 65535 and (get_object_story_id(se_obj.group_id) == nil) and sfind(se_obj:name(),"sim_default_")) then
+		if (se_obj and IsStalker(nil, se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "trader" and se_obj.group_id ~= 65535 and (get_object_story_id(se_obj.group_id) == nil) and sfind(se_obj:name(),"sim_default_")) then
 			local faction = se_obj:community()
 
 			if is_warfare then
@@ -187,7 +187,7 @@ function actor_on_before_death(whoID,flags)
 				avail_entities[#avail_entities + 1] = se_obj.id
 			end
 		end
-	end)
+	end
 
 	if is_warfare then
 		if (warfare_options.options.azazel_respawn_as_nearest) then
@@ -312,14 +312,15 @@ function actor_on_before_death(whoID,flags)
 	
 	-- copy all items except ignored
 	sim = alife()
-	sim:iterate_objects_without_actor(function(se_item)
-		if (se_item.parent_id == se_obj.id) then
+	for i=1,sim:max_id() - 1 do 
+		local se_item = sim:object(i)
+		if (se_item and se_item.parent_id == se_obj.id) then
 			local sec = se_item:section_name()
 			if not (ignore_list[sec]) then
 				give_object_to_actor(sec)
 			end
 		end
-	end)
+	end
 
 	-- spawn suitable items
 	local npc_data = utils_stpk.get_stalker_data(se_obj)
