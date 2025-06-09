@@ -96,6 +96,9 @@
 
     alife() {
         void iterate_objects(function(se_obj))
+        void iterate_objects_without_actor(function(se_obj))
+        iterator objects_iter() // for obj in alife():objects_iter()
+        iterator objects_without_actor_iter() // for obj in alife():objects_without_actor_iter()
     }
 
     game {
@@ -132,16 +135,6 @@
 
     class CUIProgressBar {
         CUIStatic GetProgressStatic()
-    }
-
-    class CUIStatic {
-    	void SetColorAnimation(string name, number flags, float delay)
-		void ResetColorAnimation()
-		void RemoveColorAnimation()
-    }
-
-    class particles_object {
-        void set_hud_mode(bool hud_mode)
     }
 
     // Debug shapes
@@ -195,13 +188,13 @@
 
     // Query data from actor ray queries
     // Actor = Pick active ray from Weapon / Device / Camera
-	enum ETraceTarget {
-		Camera      = 0,
-		Weapon      = 1,
-		Device      = 2,
-		Actor       = 3,
-	}
-		
+    enum ETraceTarget {
+        Camera      = 0,
+        Weapon      = 1,
+        Device      = 2,
+        Actor       = 3,
+    }
+        
     level {
         float get_music_volume()
         void set_music_volume(float)
@@ -212,7 +205,7 @@
         void set_cam_custom_position_direction(Fvector position, Fvector direction, int smoothing)
         void set_cam_custom_position_direction(Fvector position, Fvector direction)
         void remove_cam_custom_position_direction()
-		
+        
         game_object get_target_obj(ETraceTarget)
         game_object get_target_obj()
         number get_target_dist(ETraceTarget)
@@ -398,7 +391,7 @@
         function get_actor_object_looking_at()
         function get_actor_person_looking_at()
         function get_actor_default_action_for_object()
-		function set_actor_box_y_offset(u32 box_num, float offset) --box_num:0 for stand, 1 for crouch, 2 for prone;
+        function set_actor_box_y_offset(u32 box_num, float offset) --box_num:0 for stand, 1 for crouch, 2 for prone;
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
         function set_enable_anomalies_pathfinding(bool)
@@ -462,39 +455,39 @@
         function remove_attachment(string)
         function remove_attachment(script_attachment)
         function iterate_attachments(function)
-		
-		// Shader/Textures
-		function get_shaders(bool)
-		function set_shader(number, string, string, bool)
-		function get_default_shaders(bool)
-		function reset_shader(number, bool)
-		
-		get_shaders(hud_mode)
-		hud_mode is optional and will default to false
-		returns a table of submesh IDs with subtables containing the shader and texture names of all submeshes of a model, table looks like this for example:
-		{
-		1 = 
-			{
-			texture = "act\act_face_mask_03",
-			shader = "models\model_pn",
-			},
-		2 = 
-			{
-			texture = "act\act_stalker_cskysun_2",
-			shader = "models\model_pn",
-			},
-		},
-		
-		get_default_shaders(hud_mode)
-		returns similar table as get_shaders but containing the default shader and texture names, even after they were changed by set_shader
-		
-		set_shader(id, shader, texture, hud_mode) can assign a new shader/texture to the submesh ID
-		id can be -1 to apply the shader/texture to all submeshes at once
-		shader/texture can be nil if you only want to apply one of them
-		hud_mode is optional and will default to false
-		
-		reset_shader(id, hud_mode)
-		same as set_shader but resets to the default shader/texture values, so you don't need to store them in a table to reset them later
+        
+        // Shader/Textures
+        function get_shaders(bool)
+        function set_shader(number, string, string, bool)
+        function get_default_shaders(bool)
+        function reset_shader(number, bool)
+        
+        get_shaders(hud_mode)
+        hud_mode is optional and will default to false
+        returns a table of submesh IDs with subtables containing the shader and texture names of all submeshes of a model, table looks like this for example:
+        {
+        1 = 
+            {
+            texture = "act\act_face_mask_03",
+            shader = "models\model_pn",
+            },
+        2 = 
+            {
+            texture = "act\act_stalker_cskysun_2",
+            shader = "models\model_pn",
+            },
+        },
+        
+        get_default_shaders(hud_mode)
+        returns similar table as get_shaders but containing the default shader and texture names, even after they were changed by set_shader
+        
+        set_shader(id, shader, texture, hud_mode) can assign a new shader/texture to the submesh ID
+        id can be -1 to apply the shader/texture to all submeshes at once
+        shader/texture can be nil if you only want to apply one of them
+        hud_mode is optional and will default to false
+        
+        reset_shader(id, hud_mode)
+        same as set_shader but resets to the default shader/texture values, so you don't need to store them in a table to reset them later
     }
 
     class CArtefact : CGameObject {
@@ -597,7 +590,7 @@
         function GetZoomRotateTime()
         function SetZoomRotateTime(float)
     }
-	
+    
     enum rq_target { (sum them up to target multiple types)
         rqtNone     = 0,
         rqtObject   = 1,
@@ -784,10 +777,10 @@
         function get_light_bone();
 
         -- Shader and Texture
-		function get_shaders()
-		function get_default_shaders()
-		function set_shader(number, string, string)
-		function reset_shader(number)
+        function get_shaders()
+        function get_default_shaders()
+        function set_shader(number, string, string)
+        function reset_shader(number)
     }
     
     Script Attachment Guide: https://igigog.github.io/anomaly-modding-book/tutorials/scripting/script-attachments.html

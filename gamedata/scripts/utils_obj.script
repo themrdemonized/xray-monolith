@@ -1,0 +1,928 @@
+
+--====================================================================
+-- Utilities for dealing with objects
+--====================================================================
+
+
+local enable_debug = false
+function print_dbg(...)
+	if enable_debug then
+		printf(...)
+	end
+end
+
+----------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------
+local string_find   = string.find
+local string_gmatch = string.gmatch
+local string_sub    = string.sub
+
+local math_floor    = math.floor
+
+
+
+function get_current_action_id(npc)
+	local mgr = npc:motivation_action_manager()
+
+	if not (mgr and mgr:initialized()) then
+		return false
+	end
+
+	return mgr:current_action_id()
+end
+
+function add_anim(npc,anm)
+	if anm then
+		npc:add_animation(anm,true,false)
+	end
+end
+
+function get_sound(snd)
+	if snd then
+		return sound_object(snd)
+	end
+end
+
+
+----------------------------------------------------------------------
+-- Testing
+----------------------------------------------------------------------
+function valid_vertex(npc,vid)
+	return vid and vid < 4294967295 and npc:accessible(vid) and vid
+end
+
+function accessible(npc,point)
+	if (type(point) == "number") then
+		return point < 4294967295 and npc:accessible(point)
+	end
+	return level.vertex_id(point) < 4294967295 and npc:accessible(point)
+end
+
+function safe_bone_pos(obj,bone)
+	local bone_id = obj:get_bone_id(bone)
+	return obj:bone_position(bone_id == 65535 and "" or bone)
+end
+
+function is_actor(object,c)
+	if not (c) then
+		c = object and object:clsid()
+	end
+	return c == clsid.script_actor or c == clsid.actor or c == clsid.spectator or object and object:id() == AC_ID
+end
+
+function is_trader(...)
+	local p = {...}
+	if p[1]:character_community() == "trader" or p[1]:clsid() == clsid.script_trader or p[1]:clsid() == clsid.trader then
+		return true
+	end
+
+	if string_find(p[1]:section(),"trader") then
+		return true
+	end
+
+	local cini = db.storage[p[1]:id()].ini
+	local logic = db.storage[p[1]:id()].section_logic
+
+	if not logic and not trader then
+		return false
+	end
+
+	if cini and logic and cini:section_exist(logic) and cini:line_exist(logic,"trade") then
+		return true
+	end
+
+	return false
+end
+
+function in_los(npc,be,friend)
+
+	if (npc:target_body_state() ~= move.crouch) then
+		return false 
+	end 
+	
+	if (IsWounded(friend)) then 
+		return false 
+	end
+
+	local be_pos = utils_obj.safe_bone_pos(be,"bip01_spine")
+	local pos = utils_obj.safe_bone_pos(npc,"bip01_spine")
+	local friend_pos = utils_obj.safe_bone_pos(friend,"bip01_spine")
+	local friend_dist = pos:distance_to(friend_pos)
+	local dir_aim = vec_sub(be_pos,pos)
+	local be_dist = npc:position():distance_to(be:position())
+
+	if (friend_dist < be_dist) then
+		local dir_friend = vec_sub(friend_pos,pos)
+		local vec_be,vec_who = vector():set(dir_aim):set_length(friend_dist),dir_friend:set_length(friend_dist)
+		local mywho = friend_dist < 1.5 and vec_who:similar(vec_be,0) or vec_who:similar(vec_be,1.3)
+		if (mywho == 1) then
+			return true
+		end
+	end
+	return false
+end
+
+
+----------------------------------------------------------------------
+-- Distance
+----------------------------------------------------------------------
+function debug_nearest(npc,msg,...)
+	local dbg = xrs_debug_tools.get_debug_npc()
+	local id = npc and npc.id and (type(npc.id) == "function" and npc:id() or npc.id)
+	if (id and dbg and id == dbg:id()) then
+		printf("nearest=%s |"..msg,npc:name(),...)
+	end
+end 
+
+function nearest_object(s,offline)
+	local dist
+	local nearest
+	local min_dist
+	local is_match
+	alife():iterate_objects_without_actor(function(obj)
+		is_match = false
+		if (type(s) == "string" and string_find(obj:name(),s)) then
+			is_match = true
+		elseif (type(s) == "number" and s == obj:clsid()) then
+			is_match = true
+		end
+
+		if (is_match) then
+			dist = obj.position:distance_to_sqr(db.actor:position())
+
+			if not(min_dist) then
+				min_dist = dist
+				nearest = obj
+			elseif (dist < min_dist) then
+				min_dist = dist
+				nearest = obj
+			end
+		end
+	end)
+
+	if (nearest) then
+		if (simulation_objects.is_on_the_same_level(nearest, alife():actor())) then
+			if (offline or min_dist <= alife():switch_distance()^2) then
+				return nearest,min_dist
+			end
+		end
+	end
+end
+
+function get_nearest_stalker(npc)
+	if not (db.OnlineStalkers) then
+		return
+	end
+	local stalker
+	local dist
+	local nearest_stalker,nearest_dist
+	local is_cam = npc == "cam"
+	local pos = is_cam and device().cam_pos or npc:position()
+	local st
+	for i=1, #db.OnlineStalkers do
+		st = db.storage[db.OnlineStalkers[i]]
+		stalker = st and st.object or level.object_by_id(db.OnlineStalkers[i])
+		if (stalker and IsStalker(stalker) and stalker:alive()) then
+			if (is_cam or npc:id() ~= stalker:id()) then
+				dist = pos:distance_to_sqr(stalker:position())
+				if not (nearest_dist) then
+					nearest_dist = dist
+					nearest_stalker = stalker
+				end
+
+				if (dist < nearest_dist) then
+					nearest_dist = dist
+					nearest_stalker = stalker
+				end
+			end
+		end
+	end
+	return nearest_stalker,nearest_dist
+end
+
+function get_nearest_object(npc,...)
+	local p = {...}
+	local match
+	local lowest_dist = p[2]
+	for key, value in pairs(p[1]) do
+		local obj
+		if ( value.object ) then
+			obj = value.object
+		else
+			obj = value
+		end
+		if ( obj and obj.position ) then
+			dist = npc:position():distance_to_sqr(obj:position())
+
+			if ( dist < lowest_dist ) then
+				lowest_dist = dist
+				match = obj
+			end
+		end
+	end
+
+	if ( match ) then
+		return match,lowest_dist
+	end
+end
+
+function graph_distance(vid1, vid2)
+--' Возвращает расстояние между двумя точками графа с учетом разности уровней
+	local gg = game_graph()
+	local p1 = gg:vertex(vid1):game_point()
+	local p2 = gg:vertex(vid2):game_point()
+
+	--printf("GRAPH DISTANCE [%s][%s][%s] : [%s][%s][%s]", p1.x, p1.y, p1.z, p2.x, p2.y, p2.z)
+
+	return gg:vertex(vid1):game_point():distance_to(gg:vertex(vid2):game_point())
+end
+
+
+----------------------------------------------------------------------
+-- State
+----------------------------------------------------------------------
+function switch_online(id)
+	if id == -1 then return end
+	local sim = alife()
+	if sim then
+		sim:set_switch_online(id,true)
+		sim:set_switch_offline(id,false)
+	end
+end
+
+function switch_offline(id)
+	local sim = alife()
+	if sim then
+		sim:set_switch_online(id,false)
+		sim:set_switch_offline(id,true)
+	end
+end
+
+
+----------------------------------------------------------------------
+-- Stats
+----------------------------------------------------------------------
+local ranks
+function get_rank_list()
+	if ranks then
+		return ranks
+	end
+	local tmp = parse_list(ini_sys,"game_relations","rating")
+	ranks = {}
+	for i,rn in ipairs(tmp) do
+		if not tonumber(rn) then
+			ranks[#ranks+1] = rn
+		end
+	end
+	return ranks
+end
+
+local reputation_list
+function get_reputation_list()
+	if reputation_list then
+		return reputation_list
+	end
+	local tmp = parse_list(ini_sys,"game_relations","reputation")
+	reputation_list = {}
+	for i,rn in ipairs(tmp) do
+		if not tonumber(rn) then
+			reputation_list[#reputation_list+1] = rn
+		end
+	end
+	return reputation_list
+end
+
+local reputations
+function get_reputation_name(value)
+	reputations = reputations or parse_list(ini_sys,"game_relations","reputation_names")
+	local prev = nil
+	for i,rn in ipairs(reputations) do
+		local repu = tonumber(rn)
+		if (repu and value <= repu) then 
+			return prev
+		else
+			prev = rn
+		end
+	end
+	return prev
+end
+
+local communities
+function get_communities_list()
+	if communities then
+		return communities
+	end
+	local tmp = parse_list(ini_sys,"game_relations","communities")
+	communities = {}
+	for i,cn in ipairs(tmp) do
+		if not tonumber(cn) then
+			communities[#communities+1] = cn
+		end
+	end
+	return communities
+end
+
+local communities_key
+function get_communities_list_key()
+	if communities_key then
+		return communities_key
+	end
+	local tmp = parse_list(ini_sys,"game_relations","communities")
+	communities_key = {}
+	for i,cn in ipairs(tmp) do
+		if not tonumber(cn) then
+			communities_key[cn] = true
+		end
+	end
+	return communities_key
+end
+
+
+----------------------------------------------------------------------
+-- Squads
+----------------------------------------------------------------------
+function get_commander(npc)
+	local squad = npc and get_object_squad(npc)
+	if (squad and squad:commander_id()) then
+		return level.object_by_id(squad:commander_id())
+	end
+end
+
+function get_squad_commander_action(npc)
+
+	local commander = get_commander(npc)
+	local mgr = commander and commander:motivation_action_manager()
+	if (mgr and mgr:initialized()) then
+		return mgr:current_action_id()
+	end
+end
+
+function get_squad_count(npc)
+	local squad = get_object_squad(npc)
+
+	if not ( squad ) then
+		return 1
+	end
+	local c = 0
+	for k in squad:squad_members() do
+		c = c + 1
+	end
+	return c
+end
+
+function create_squad(section,smart_name)
+	local sim = SIMBOARD
+	if not (sim) then return end
+	local smart = sim.smarts_by_names[smart_name]
+	if not (smart) then
+		printf("create_squad: no smart by name %s",smart_name)
+		return
+	end
+	local squad = sim:create_squad(smart,section)
+	squad.scripted_target = smart_name
+	return squad
+end
+
+function smart_has_uncommon_squad(name, only_arrived)
+	local se_sm = name and SIMBOARD.smarts_by_names[name]
+	if not se_sm then
+		printf('smart_has_uncommon_squads(%s,%s) -> invalid smart name', name, only_arrived)
+		return
+	end
+	
+	for id in pairs(SIMBOARD.smarts[se_sm.id].squads) do
+		local se_sq = alife_object(id)
+		if se_sq and not ini_sys:r_bool_ex(se_sq:section_name(),"common") then
+			if only_arrived then
+				if se_sm:am_i_reached(se_sq) then
+					return se_sm.id, se_sq:section_name()
+				end
+			else
+				return true
+			end
+		end
+	end
+end
+
+function assign_squad_to_smart(squad_id, id)
+	local sim = SIMBOARD
+	if not (sim) then return end
+	local squad = alife_object(squad_id)
+	if not (squad) then return end
+	if (squad.smart_id) then
+		sim:exit_smart(squad,squad.smart_id)
+	end
+	sim:assign_squad_to_smart(squad,id)
+	--sim:enter_smart(squad,id)
+	squad.assigned_target_id = id
+	squad.current_action = nil
+	squad:get_next_action(false)
+end
+
+function execute_script_on_squad(obj,script_to_execute,...)
+	local squad = obj:clsid() == clsid.online_offline_group_s and obj or get_object_squad(obj)
+
+	if not ( squad ) then
+		script_to_execute(obj,...)
+		return
+	end
+
+	for k in squad:squad_members() do
+		local member = db.storage[k.id] and db.storage[k.id].object
+
+		if ( member and member:alive() ) then
+			script_to_execute(member,...)
+		end
+	end
+end
+
+function execute_script_on_squad_not_commander(obj,script_to_execute,...)
+	local squad = obj:clsid() == clsid.online_offline_group_s and obj or get_object_squad(obj)
+
+	if not ( squad ) then
+		--script_to_execute(obj,...)
+		return
+	end
+
+	for k in squad:squad_members() do
+		local member = db.storage[k.id] and db.storage[k.id].object
+
+		if ( member and member:alive() and member:id() ~= squad:commander_id() ) then
+			script_to_execute(member,...)
+		end
+	end
+end
+
+function squad_in_los(npc,enemy)
+	local squad = get_object_squad(npc)
+	if not (squad) then
+		return false
+	end
+
+	for o in squad:squad_members() do
+		local member = db.storage[o.id] and db.storage[o.id].object
+		if (member and member:alive()) then
+			if (in_los(npc,member,enemy)) then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+
+----------------------------------------------------------------------
+-- Cover
+----------------------------------------------------------------------
+local function validate(npc,vid)
+	if (vid and vid < 4294967295 and npc:accessible(vid) and vid ~= npc:level_vertex_id()) then 
+		return db.used_level_vertex_ids[vid] == nil or db.used_level_vertex_ids[vid] == npc:id()
+	end 
+	return false
+end
+
+function lmove(npc,vid,old_vid)
+	if (old_vid) then 
+		db.used_level_vertex_ids[old_vid] = nil
+	end
+	
+	if (vid == nil or vid >= 4294967295) then 
+		return 
+	end
+	
+	if (db.used_level_vertex_ids[vid] == npc:id()) then
+		npc:set_dest_level_vertex_id(vid)
+		return vid 
+	end
+	
+	if not (npc:accessible(vid)) then
+		local vtemp = VEC_ZERO
+		vid, vtemp = npc:accessible_nearest(vid and level.vertex_position(vid) or npc:position(), vtemp )
+	end
+
+	db.used_level_vertex_ids[vid] = npc:id()
+
+	npc:set_dest_level_vertex_id(vid)
+	return vid
+end
+
+function send_to_nearest_accessible_vertex(npc,v_id,caller)
+-- отослать в ближайшую разрешённую ноду по направлению к заданной.
+-- возвращает vertex_id, в которое отправил персонажа
+
+	if (v_id == nil or v_id >= 4294967295) then
+		npc:set_dest_level_vertex_id(npc:level_vertex_id())
+		return npc:level_vertex_id()
+	end
+	if not (npc:accessible(v_id)) then
+		local new_lvid,vtemp = npc:accessible_nearest(level.vertex_position(v_id),VEC_ZERO)
+		npc:set_dest_level_vertex_id(new_lvid)
+		return new_lvid
+	end
+	npc:set_dest_level_vertex_id(v_id)
+	return v_id
+end
+
+function find_random_cover(npc,pos,min_rad,max_rad)
+	local rand = math.random
+	local base_point = npc:level_vertex_id()
+	local base_vertex_id = level.vertex_in_direction(base_point, vector_rotate_y(vec_set(npc:direction()),rand(0,360)), rand(min_rad,max_rad))
+	local base_position = level.vertex_position(base_vertex_id)
+
+	local cover, tcover
+	local cover_dist = 15
+	while not cover and cover_dist > 0 do
+		cover = npc:best_cover(base_position,pos,cover_dist,5,15)
+		cover_dist = cover_dist - 1
+	end
+
+	return cover and valid_vertex(npc,cover:level_vertex_id())
+end
+
+function find_close_cover(npc,base_position,pos,cover_dist,mn,mx) -- find nearest cover
+	local cover
+	cover_dist = not cover_dist and 5 or cover_dist
+	while not cover and cover_dist < 30 do
+		cover = npc:best_cover(base_position,pos,cover_dist,mn or 1,mx or 60)
+		if (cover) and not (validate(npc,cover:level_vertex_id())) then 
+			cover = nil 
+		end
+		cover_dist = cover_dist + 1
+	end
+	
+	return cover and valid_vertex(npc,cover:level_vertex_id())
+end
+
+function find_cover_in_rand_direction(npc,base_point,pos)
+	local rand = math.random
+	
+	local dir = npc:direction()
+	local rand_dir = rand(1,6)
+	local base_vertex_id, base_position, cover, cover_dist
+	for i=rand_dir,6 do
+		base_vertex_id = level.vertex_in_direction(base_point,dir,i*60)
+		base_position = level.vertex_position(base_vertex_id)
+
+		cover = nil
+		cover_dist = rand(1,30)
+		while not cover and cover_dist > 0 do
+			cover = npc:best_cover(base_position,pos,cover_dist,1,30)
+			cover_dist = cover_dist - 1
+		end
+		
+		if (cover and valid_vertex(npc,cover:level_vertex_id())) then 
+			return valid_vertex(npc,cover:level_vertex_id())
+		end
+	end
+
+	return valid_vertex(npc,base_vertex_id)
+end
+
+function try_go_backward(npc,radius,old_vid)
+	--utils_obj.debug_nearest(npc,"try_go_backward")
+	local dir = vector_rotate_y(vec_set(npc:direction()),math.random(160,200))
+	local vid
+	local base_point = npc:level_vertex_id()
+	while (radius > 0) do
+		vid = level.vertex_in_direction(base_point,dir,radius)
+		if (validate(npc,vid)) then
+			return utils_obj.lmove(npc,vid,old_vid)
+		end
+		radius = radius - 2
+	end
+end 
+
+function try_go_aside_object(npc,friend,pos,old_vid)
+	if not (friend) then 
+		return 
+	end 
+	
+	local mypos = npc:position()
+	
+	if (mypos:distance_to_sqr(friend:position()) < 3) then 
+		return 
+	end
+
+	--utils_obj.debug_nearest(npc,"try_to_strafe")
+	local _dir = vec_sub(mypos,pos)
+	local dir = {}
+	dir[1] = vector_rotate_y(vec_set(_dir),-90)
+	dir[2] = vector_rotate_y(vec_set(_dir),90)
+	local vid
+	local radius = 12
+	local base_point = friend:level_vertex_id()
+	
+	for i=1,2 do
+		while (radius > 0) do
+			vid = level.vertex_in_direction(base_point,dir[i],radius)
+			if (validate(npc,vid)) then 
+				return utils_obj.lmove(npc,vid,old_vid)
+			end
+			radius = radius - 2
+		end
+	end
+end 
+
+function try_go_position(npc,pos,old_vid)
+	local vid = level.vertex_id(pos)
+	if (validate(npc,vid)) then 
+		return utils_obj.lmove(npc,vid,old_vid)
+	end 
+end 
+
+function try_go_cover(npc,pos,old_vid,r)
+	local vid = utils_obj.find_close_cover(npc,npc:position(),pos,r or 8)
+	return validate(npc,vid) and utils_obj.lmove(npc,vid,old_vid)
+end 
+
+function try_to_strafe(npc,old_vid)
+	local _dir = npc:direction()
+	local dir = {}
+	dir[1] = vector_rotate_y(vec_set(_dir),-90)
+	dir[2] = vector_rotate_y(vec_set(_dir),90)
+	local vid
+	local radius = 10
+	local base_point = npc:level_vertex_id()
+	
+	for i=1,2 do
+		while (radius > 0) do
+			vid = level.vertex_in_direction(base_point,dir[i],radius)
+			if (validate(npc,vid)) then 
+				return lmove(npc,vid,old_vid)
+			end
+			radius = radius - 2
+		end
+	end
+end 
+
+function npc_in_zone(npc, zone)
+	zone = type(zone) == "string" and db.zone_by_name[zone] or zone
+	return npc and zone and zone.inside and zone:inside(npc:position())
+end
+
+
+----------------------------------------------------------------------
+-- Waypoints
+----------------------------------------------------------------------
+function parse_waypoint_data(pathname, wpflags, wpname)
+	local rslt = {}
+
+	rslt.flags = wpflags
+
+	local at
+	if string_find(wpname, "|", at, true) == nil then
+		return rslt
+	end
+
+	local par_num
+	local fld
+	local val
+
+	par_num = 1
+	for param in string_gmatch(wpname, "([%w%+~_\\%=%{%}%s%!%-%,%*]+)|*") do
+		if par_num == 1 then
+			-- continue
+		else
+			if param == "" then
+				printf("path '%s': waypoint '%s': syntax error in waypoint name", pathname, wpname)
+			end
+
+			local t_pos = string_find(param, "=", 1, true)
+
+			if t_pos == nil then
+				printf("Path_param: %s", param)
+				printf("path '%s': waypoint '%s': syntax error in waypoint name", pathname, wpname)
+				return
+			end
+
+			fld = string_sub(param, 1,t_pos - 1)
+			val = string_sub(param, t_pos + 1)
+
+			if not fld or fld == "" then
+				printf("path '%s': waypoint '%s': syntax error while parsing the param '%s': no field specified",
+					pathname, wpname, param)
+			end
+
+			if not val or val == "" then
+				val = "true"
+			end
+
+			if fld == "a" then
+				rslt[fld] = xr_logic.parse_condlist(db.actor, "waypoint_data", "anim_state", val)
+			else
+				rslt[fld] = val
+			end
+		end
+		par_num = par_num + 1
+	end
+	return rslt
+end
+
+function path_parse_waypoints(pathname)
+	if (pathname == nil or pathname == "") then
+		return nil
+	end
+
+	--printf("_bp: path_parse_waypoints: pathname='%s'", pathname)
+
+	if not (level.patrol_path_exists(pathname)) then
+		printf("ERROR: utils_obj.path_parse_waypoints: patrol path %s don't exist!",pathname)
+		return
+	end
+
+	local ptr = patrol(pathname)
+	local cnt = ptr:count()
+	local rslt = {}
+
+	for pt = 0, cnt - 1 do
+		--printf("_bp: %s", ptr:name(pt))
+		rslt[pt] = parse_waypoint_data(pathname, ptr:flags(pt), ptr:name(pt))
+		if not rslt[pt] then
+			printf("error while parsing point %d of path '%s'", pt, pathname)
+		end
+
+	end
+
+	return rslt
+end
+
+function path_parse_waypoints_from_arglist(pathname, num_points, ...)
+	local arg = {...}
+
+	if not pathname then
+		return nil
+	end
+
+	local ptr = patrol(pathname)
+	local cnt = ptr:count()
+
+	if cnt ~= num_points then
+		printf("path '%s' has %d points, but %d points were expected", pathname, cnt, num_points)
+	end
+
+	local rslt = {}
+
+	local cur_arg
+	local fl
+	for pt = 0, cnt-1 do
+		cur_arg = arg[pt + 1]
+		if not cur_arg then
+			printf("script error [1] while processing point %d of path '%s'", pt, pathname)
+		end
+		fl = flags32()
+		fl:assign(cur_arg[1])
+		rslt[pt] = parse_waypoint_data(pathname, fl, cur_arg[2])
+		if not rslt[pt] then
+			printf("script error [2] while processing point %d of path '%s'", pt, pathname)
+		end
+	end
+
+	return rslt
+end
+
+function stalker_at_waypoint(stalker, patrol_path, path_point)
+-- Проверяет, находится ли stalker рядом с точкой path_point пути patrol_path
+--	return stalker:level_vertex_id() == patrol_path:level_vertex_id(path_point)
+
+	local stalker_pos = stalker:position()
+	local distance = stalker_pos:distance_to_sqr(patrol_path:point(path_point))
+	if distance <= 0.13 then
+		return true
+	end
+	return false
+
+end
+
+function get_nearest_waypoint(obj, pathname, ptr, cnt)
+	local pt_chosen = nil
+	local min_dist = nil
+	local dist
+	for i = 0, cnt - 1 do
+		dist = obj:position():distance_to(ptr:point(i))
+		if not min_dist or dist < min_dist then
+			min_dist = dist
+			pt_chosen = i
+		end
+	end
+	if not pt_chosen then
+		printf("object '%s': path '%s': get_nearest_waypoint: unable to choose a nearest waypoint (path has no waypoints?)",
+			obj:name(), pathname)
+	end
+	return pt_chosen
+end
+
+
+----------------------------------------------------------------------
+-- Level
+----------------------------------------------------------------------
+function is_day()
+	local hrs = level.get_time_hours()
+	return hrs >= 5 and hrs < 22
+end
+
+function is_night()
+	local hrs = level.get_time_hours()
+	return hrs < 5 and hrs >= 22
+end
+
+local snd_obj
+function play_sound(path, vol)
+	snd_obj = nil
+	if (not path) or (type(path) ~= "string") then return end
+	
+	snd_obj = sound_object(path)
+	if snd_obj then
+		snd_obj:play(db.actor, 0, sound_object.s2d)
+		--snd_obj:play_no_feedback(db.actor, sound_object.s2d, 0, VEC_ZERO, vol or 1)
+		snd_obj.volume = vol or 1
+	end
+end
+
+function time_spent_in_zone(i)
+
+-- Rule: calculate and return how much time the player has spent in the zone based on a time scale
+-- Input: indicator (number from 1 to 5)
+-- Output: the time spent (number) so far, time scale depends on input
+
+	if not (i and db.actor) then
+		return false
+	end
+	
+	local s_time = level.get_start_time()
+	
+	local seconds = tonumber(game.get_game_time():diffSec(s_time))
+	if (i == 1) then
+		return seconds
+	end
+	
+	local minutes = math_floor(seconds/60)
+	if (i == 2) then
+		return seconds
+	end
+	
+	local hours = math_floor(minutes/60)
+	if (i == 3) then
+		return hours
+	end
+	
+	local days = math_floor(hours/24)
+	if (i == 4) then
+		return days
+	end
+	
+	local weeks = math_floor(days/7)
+	if (i == 5) then
+		return weeks
+	end
+	
+	return false
+end
+
+function is_time_spent_in_zone(s,m,h,d,w,mo)
+
+-- Rule: return true of the time spent in the zone exceeds the input (sec,min,hrs,days,weeks,months)
+-- Input: time scales (sec,min,hrs,days,weeks,months)
+	
+	s = s or 0
+	m = m or 0
+	h = h or 0
+	d = d or 0
+	w = w or 0
+	mo = mo or 0
+	
+	local s_time = level.get_start_time()
+	local seconds = tonumber(game.get_game_time():diffSec(s_time))
+	local minutes = math_floor(seconds/60)
+	local hours = math_floor(minutes/60)
+	local days = math_floor(hours/24)
+	local weeks = math_floor(days/7)
+	local months = math_floor(weeks/4)
+	
+	--printf("/ is_time_spent_in_zone(" .. s .. ":" .. m .. ":" .. h .. "," .. d .. "," .. w .. "," .. mo .. ") | Current time: (" .. seconds .. ":" .. minutes .. ":" .. hours .. "," .. days .. "," .. weeks .. "," .. months .. ")")
+	
+	if (months > mo) then
+		return true
+	elseif (months == mo) and (weeks > w) then
+		return true
+	elseif (months == mo) and (weeks == w) and (days > d) then
+		return true
+	elseif (months == mo) and (weeks == w) and (days == d) and (hours > h) then
+		return true
+	elseif (months == mo) and (weeks == w) and (days == d) and (hours == h) and (minutes > m) then
+		return true
+	elseif (months == mo) and (weeks == w) and (days == d) and (hours == h) and (minutes == m) and (seconds > s) then
+		return true
+	end
+	
+	return false
+end
+
+
+----------------------------------------------------------------------
+-- Override (IMPORTANT! because engine calls alun_utils.get_reputation_name, so we override it here)
+----------------------------------------------------------------------
+_G["alun_utils"] = {
+	get_reputation_name = utils_obj.get_reputation_name,
+}

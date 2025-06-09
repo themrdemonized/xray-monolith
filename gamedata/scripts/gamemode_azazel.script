@@ -1,0 +1,440 @@
+
+printd = warfare.printd
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_before_death",actor_on_before_death)
+	RegisterScriptCallback("on_game_load",on_game_load)
+end
+
+function on_game_load()
+	if not (alife_storage_manager.get_state().enable_azazel_mode) then
+		return
+	end
+	
+	if (alife_storage_manager.get_state().enable_warfare_mode) and (not warfare_options.options.azazel_mode) then
+		return
+	end
+	
+	if (alife_storage_manager.get_state().azazel_death) then
+		alife_storage_manager.get_state().azazel_death = nil
+		actor_menu.set_msg(1, strformat(game.translate_string("st_death_count"),game_statistics.get_statistic_count("deaths")),8)
+		
+		-- Heal 
+		bind_stalker_ext.invulnerable_time = time_global() + 30000
+		heal_everything()
+
+		-- Transition
+		level.add_pp_effector("deimos1.ppe", 210410, false)
+	end
+end
+
+function actor_on_before_death(whoID,flags)
+	if not (alife_storage_manager.get_state().enable_azazel_mode) then
+		return
+	end
+	
+	local is_warfare = false
+	if (alife_storage_manager.get_state().enable_warfare_mode) and (warfare_options.options.azazel_mode) then
+		is_warfare = true
+	end
+
+	game_statistics.increment_statistic("deaths")
+	actor_menu.set_msg(1, strformat(game.translate_string("st_death_count"),game_statistics.get_statistic_count("deaths")),8)
+	
+	-- find victims
+	local sim = alife()
+	local gg = game_graph()
+	local avail_entities = {}
+	local squad_mates = {}
+	local avail_faction = {}
+	local avail_faction_level = {}
+	local actor_faction = alife():actor():community():sub(7)
+	local actor_level = game_graph():vertex(alife():actor().m_game_vertex_id):level_id()
+
+	local actor_position = global_position.from(alife():actor())
+
+	local respawn_as_nearest = warfare_options.options.azazel_respawn_as_nearest
+
+	--local faction_mates = {}
+	local sfind = string.find
+	sim:iterate_objects_without_actor(function(se_obj)
+		local i = se_obj.id
+
+		if (IsStalker(nil, se_obj:clsid()) and se_obj:alive() and se_obj:community() ~= "zombied" and se_obj:community() ~= "trader" and se_obj.group_id ~= 65535 and (get_object_story_id(se_obj.group_id) == nil) and sfind(se_obj:name(),"sim_default_")) then
+			local faction = se_obj:community()
+
+			if is_warfare then
+				if (warfare_options.options.azazel_respawn_as_companions and axr_companions.companion_squads[se_obj.group_id]) then
+					local m = tonumber(warfare_options.options.azazel_companion_dist_mult)
+					local dist = warfare.distance_to_xz_sqr(global_position.from(alife():actor()), global_position.from(se_obj))
+	
+					local mi = tonumber(warfare_options.options.azazel_companion_min_respawn_dist)
+					local ma = tonumber(warfare_options.options.azazel_companion_max_respawn_dist)
+	
+					if (mi == 0 and ma == 0) then
+						avail_entities[#avail_entities + 1] = { i, dist }
+					elseif (mi == 0) then
+						if (dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					elseif (ma == 0) then
+						if (dist > math.pow(mi, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					else
+						if (dist > math.pow(mi, 2) and dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					end
+				end
+	
+				if (warfare_options.options.azazel_respawn_as_actor_faction and warfare.actor_faction == faction) then
+					local m = tonumber(warfare_options.options.azazel_same_faction_dist_mult)
+					local dist = warfare.distance_to_xz_sqr(global_position.from(alife():actor()), global_position.from(se_obj))
+	
+					local mi = tonumber(warfare_options.options.azazel_actor_faction_min_respawn_dist)
+					local ma = tonumber(warfare_options.options.azazel_actor_faction_max_respawn_dist)
+	
+					if (mi == 0 and ma == 0) then
+						avail_entities[#avail_entities + 1] = { i, dist }
+					elseif (mi == 0) then
+						if (dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					elseif (ma == 0) then
+						if (dist > math.pow(mi, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					else
+						if (dist > math.pow(mi, 2) and dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					end
+				end					
+				
+				if (warfare_options.options.azazel_respawn_as_allies and game_relations.is_factions_friends(warfare.actor_faction, faction)) then
+					local m = tonumber(warfare_options.options.azazel_friend_dist_mult)
+					local dist = warfare.distance_to_xz_sqr(global_position.from(alife():actor()), global_position.from(se_obj))
+	
+					local mi = tonumber(warfare_options.options.azazel_ally_min_respawn_dist)
+					local ma = tonumber(warfare_options.options.azazel_ally_max_respawn_dist)
+	
+					if (mi == 0 and ma == 0) then
+						avail_entities[#avail_entities + 1] = { i, dist }
+					elseif (mi == 0) then
+						if (dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					elseif (ma == 0) then
+						if (dist > math.pow(mi, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					else
+						if (dist > math.pow(mi, 2) and dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					end
+				end
+				
+				if (warfare_options.options.azazel_respawn_as_neutrals and not (game_relations.is_factions_friends(warfare.actor_faction, faction) or game_relations.is_factions_enemies(warfare.actor_faction, faction))) then
+					local m = tonumber(warfare_options.options.azazel_neutral_dist_mult)
+					local dist = warfare.distance_to_xz_sqr(global_position.from(alife():actor()), global_position.from(se_obj))
+	
+					local mi = tonumber(warfare_options.options.azazel_neutral_respawn_min_dist)
+					local ma = tonumber(warfare_options.options.azazel_neutral_respawn_max_dist)
+	
+					if (mi == 0 and ma == 0) then
+						avail_entities[#avail_entities + 1] = { i, dist }
+					elseif (mi == 0) then
+						if (dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					elseif (ma == 0) then
+						if (dist > math.pow(mi, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					else
+						if (dist > math.pow(mi, 2) and dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					end
+				end
+				
+				if (warfare_options.options.azazel_respawn_as_enemies and game_relations.is_factions_enemies(warfare.actor_faction, faction)) then
+					local m = tonumber(warfare_options.options.azazel_enemy_dist_mult)
+					local dist = warfare.distance_to_xz_sqr(global_position.from(alife():actor()), global_position.from(se_obj))
+	
+					local mi = tonumber(warfare_options.options.azazel_enemy_respawn_min_dist)
+					local ma = tonumber(warfare_options.options.azazel_enemy_respawn_max_dist)
+	
+					if (mi == 0 and ma == 0) then
+						avail_entities[#avail_entities + 1] = { i, dist }
+					elseif (mi == 0) then
+						if (dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					elseif (ma == 0) then
+						if (dist > math.pow(mi, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					else
+						if (dist > math.pow(mi, 2) and dist < math.pow(ma, 2)) then
+							avail_entities[#avail_entities + 1] = { i, dist }
+						end
+					end
+				end
+			else
+				avail_entities[#avail_entities + 1] = se_obj.id
+			end
+		end
+	end)
+
+	if is_warfare then
+		if (warfare_options.options.azazel_respawn_as_nearest) then
+			table.sort(avail_entities, function(a, b)
+				return a[2] < b[2]
+			end)
+		else
+			warfare.shuffleTable(avail_entities)
+		end
+	end
+
+	if (#avail_entities == 0) then
+		actor_menu.set_msg(1, strformat(game.translate_string("st_death_count") .. " " .. game.translate_string("st_nobody_left_to_replace"),game_statistics.get_statistic_count("deaths")),10)
+		return
+	end
+
+	bind_stalker_ext.invulnerable_time = time_global() + 30000
+	db.actor:set_health_ex(1)
+
+	heal_everything()
+
+	-- Modified list for Anomaly starters-pack items
+	local ignore_list = {
+		["cash"] = true,
+		["device_flashlight"] = true,
+		
+		["bolt"] = true,
+		["device_pda"] = true,
+		["medkit_script"] = true,
+		["guitar_a"] = true,
+		["harmonica_a"] = true,
+		["anim_binoc"] = true,
+		["anim_knife"] = true,
+		["hand_radio"] = true,
+		["hand_radio_r"] = true,
+		["stick_bred"] = true,
+		["stick_kolbasa"] = true,
+		["stick_kolbasa_bred"] = true,
+		["wpn_knife"] = true,
+		["pda_for_nps"] = true,
+		["sigaret_for_nps"] = true,
+	}
+	
+	axr_companions.remove_all_from_actor_squad()
+
+	local se_obj
+	if is_warfare then
+		local selectedCommanderID = avail_entities[1][1]
+		se_obj = alife_object(selectedCommanderID)
+	else
+		se_obj = alife_object(avail_entities[math.random(#avail_entities)])
+	end
+
+	--[[ make squad actor companions
+	local squad = alife_object(se_obj.group_id)
+	if (squad) then
+		SIMBOARD:assign_squad_to_smart(squad, nil)
+		axr_companions.companion_squads[squad.id] = squad
+		for k in squad:squad_members() do 
+			if (k.id ~= se_obj.id) then
+				axr_companions.non_task_companions[k.id] = true
+				se_save_var(k.id,k.object:name(),"companion",true)
+				local member = db.storage[k.id] and db.storage[k.id].object 
+				if (member) then
+					axr_companions.setup_companion_logic(member,db.storage[k.id],false)
+				end
+			end
+		end
+	end
+	--]]
+
+	local se_actor = alife():actor()
+	
+	-- actor corpse 
+	local se_mimic = alife_create("stalker_azazel",se_actor.position,se_actor.m_level_vertex_id,se_actor.m_game_vertex_id)
+	if (se_mimic) then 
+		se_mimic:set_character_name(se_actor:character_name())
+		se_mimic:set_profile_name(se_actor:profile_name())
+		se_mimic:kill()
+		
+		local m_data = alife_storage_manager.get_se_obj_state(se_mimic,true)
+		if (m_data) then
+			m_data.icon_name = se_actor:character_icon()
+			m_data.visual = db.actor:get_visual_name()
+		end
+		
+		local function release_actor_item(temp, item)
+			local sec = item:section()
+			if (not ignore_list[sec]) then
+				if alife_release_id(item:id()) then
+					alife_create_item(sec,se_mimic)
+				end
+			end
+		end
+		db.actor:iterate_inventory(release_actor_item,nil)
+	end
+
+	-- copy data over to player
+	if (db.actor_binder and db.actor_binder.character_icon) then 
+		db.actor_binder.character_icon = se_obj:character_icon()
+		db.actor:set_character_icon(db.actor_binder.character_icon)
+	end
+
+	pda_actor.manual_control = false
+	
+	se_actor:set_character_name(se_obj:character_name())
+	
+	local faction = se_obj:community()
+	se_actor:set_rank(se_obj:rank())
+	set_actor_true_community(faction) -- update default faction
+	db.actor:set_character_reputation(se_obj:reputation())
+	db.actor:give_money(10*math.random(1,250)+500)
+
+	printf(tostring(faction))
+	
+	game_relations.set_community_goodwill_for_faction(faction)
+	--game_relations.change_faction_relations(faction, faction:sub(7), 2000, true)
+	
+	-- Force update of game_statistics rank/rept records.
+	game_statistics.check_for_rank_change(true)
+	game_statistics.check_for_reputation_change(true)
+	
+	-- copy all items except ignored
+	sim = alife()
+	sim:iterate_objects_without_actor(function(se_item)
+		if (se_item.parent_id == se_obj.id) then
+			local sec = se_item:section_name()
+			if not (ignore_list[sec]) then
+				give_object_to_actor(sec)
+			end
+		end
+	end)
+
+	-- spawn suitable items
+	local npc_data = utils_stpk.get_stalker_data(se_obj)
+	local npc_visual = npc_data and npc_data.visual_name
+	local rank_name = ranks.get_obj_rank_name(db.actor)
+	
+	death_manager.try_spawn_ammo(db.actor)
+	death_manager.create_item_list(db.actor, faction, rank_name, false)
+	local outfit_id = death_manager.spawn_cosmetics(db.actor, AC_ID, faction, rank_name, npc_visual, true)
+	
+	if (not outfit_id) then
+		give_object_to_actor("novice_outfit") -- give novice outfit if no outfit is created
+	end
+	give_object_to_actor("device_pda_1") -- give PDA
+	give_object_to_actor("itm_backpack") -- give backpack
+	
+	
+	-- cancel all tasks
+	local task_info = task_manager.get_task_manager().task_info
+	
+	if #squad_mates < 1 then -- don't cancel any tasks if actor takes control of nearby squadmate
+		for task_id,tbl in pairs(task_info) do
+			--if not (tbl.storyline) then
+				tbl.forced_status = "fail"
+				tbl.cancelled_by_actor = true
+			--end
+		end
+	end
+
+	-- initiate transitition and removal of victim
+	local level_name = alife():level_name(game_graph():vertex(se_obj.m_game_vertex_id):level_id())
+	
+	if (level_name == level.name()) then
+		-- give bolt
+		local bolt_first = random_choice("bolt","bolt_bullet")
+		alife_create_item(bolt_first, db.actor)
+		
+		hide_hud_all()
+		db.actor:set_actor_position(se_obj.position)
+		--level.disable_input()
+		--level.remove_cam_effector(210409)
+		--level.add_cam_effector("camera_effects\\prison_1.anm", 210409, false, "gamemode_azazel.cam_effector_end")
+		heal_everything()
+		level.add_pp_effector("deimos1.ppe", 210410, false)
+		safe_release_manager.release(se_obj)
+	else
+		alife_storage_manager.get_state().bolt_first = random_choice("bolt","bolt_bullet") -- give bolt
+		
+		local pos = se_obj.position
+		local lvid = se_obj.m_level_vertex_id
+		local gvid = se_obj.m_game_vertex_id
+		level.add_pp_effector("deimos1.ppe", 210410, false)
+		safe_release_manager.release(se_obj)
+		alife_storage_manager.get_state().azazel_death = true
+		local function tele_me_now(id)
+			ChangeLevel(pos,lvid,gvid,VEC_ZERO, true)
+			return true
+		end
+		CreateTimeEvent(0,"tele",0,tele_me_now,se_obj.id)
+	end
+
+	-- skip surge due to bug with killing actor on switch
+	surge_manager.stop_surge()
+	if (psi_storm_manager.get_psi_storm_manager().started) then
+		psi_storm_manager.get_psi_storm_manager().finish(true)
+	end
+	
+	flags.ret_value = false
+end
+
+function cam_effector_end()
+	level.enable_input()
+	
+	bind_stalker_ext.invulnerable_time = nil
+	
+	-- xQd - degrade the condition of all weapons, equipped weapons should not be degraded further than 90%
+	local slot1, slot2
+	for i=2,3 do
+		local wpn = db.actor:item_in_slot(i)
+		if (wpn) then
+			if i == 2 then
+				slot1 = wpn:id()
+			else
+				slot2 = wpn:id()
+			end
+			wpn:set_condition(1 - (math.random(0,10)/100))
+		end
+	end
+	local function degrade_condition(temp, item)
+		local cls = item:clsid()
+		if IsWeapon(item,cls) and not(cls==clsid.wpn_grenade_rgd5_s or cls==clsid.wpn_grenade_f1_s) then
+			if slot1 and item:id() == slot1 then
+				return
+			end
+			if slot2 and item:id() == slot2 then
+				return 
+			end
+			item:set_condition(math.random(10,70)/100)
+		end
+	end
+	db.actor:iterate_inventory(degrade_condition,db.actor)
+end
+
+function heal_everything()
+	db.actor:set_health_ex(1)
+	db.actor.power = 1
+	db.actor.radiation = 0
+	db.actor.bleeding = 1
+	db.actor.satiety = 1
+	db.actor.psy_health = 1
+	arszi_psy.set_psy_health(1.0)
+end
+
+--Discord
+function get_possessed_lives()
+	local possessed_lives = tonumber(game_statistics.get_statistic_count("deaths")) or 0
+	return possessed_lives
+end

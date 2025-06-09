@@ -1,0 +1,209 @@
+------------------------------
+-- Fast Travel system
+-- author: Alundaio
+-- Modified: sLoPpYdOtBiGhOlE (marker names, menu and config options, etc)
+------------------------------
+local enabled = 0
+local combattravel = false
+local weighttravel = false
+local damagetravel = false
+local stormtravel = false
+local longnames = false
+local markermessage = false
+local notime = false
+local tsmarts = nil
+
+local function bbp_extra_weight()
+	local w = 0
+	
+	local function itr(npc,itm)
+		if (npc:is_on_belt(itm)) then
+			w = w + (itm and ((ini_sys:r_float_ex(itm:section(),"additional_inventory_weight") or 0) * itm:condition()) or 0)
+		end
+	end
+	db.actor:iterate_inventory(itr,db.actor)
+	
+	local bkpk = db.actor:item_in_slot(13)
+	w = w + (bkpk and ini_sys:r_float_ex(bkpk:section(),"additional_inventory_weight") or 0)
+	
+	return w
+end
+
+local function map_spot_menu_add_property(property_ui,id,level_name)
+	local se_obj = id > 0 and alife_object(id)
+	if not (se_obj) then
+		return
+	end
+	if (DEV_DEBUG) or (enabled > 0 and se_obj:clsid() == clsid.smart_terrain and tsmarts[se_obj:name()]) then
+		if (longnames) then
+				property_ui:AddItem(game.translate_string("st_pda_fast_travel_to").." ".. game.translate_string(level_name).." "..game.translate_string(se_obj:name()))
+		else
+				property_ui:AddItem(game.translate_string("st_pda_fast_travel_to").." "..game.translate_string(se_obj:name()))
+		end
+	end
+end
+
+local function map_spot_menu_property_clicked(property_ui,id,level_name,prop)
+	local se_obj = alife_object(id)
+	if not (se_obj) then
+		return
+	end
+
+	if (longnames) then
+		if (prop ~= (game.translate_string("st_pda_fast_travel_to").." "..game.translate_string(level_name).." "..game.translate_string(se_obj:name()))) then
+			return
+		end
+	else
+		if (prop ~= (game.translate_string("st_pda_fast_travel_to").." "..game.translate_string(se_obj:name()))) then
+			return
+		end
+	end
+
+	-- Prevent fast travel if in combat.
+	if not (combattravel) then
+		if not (is_empty(xr_combat_ignore.fighting_with_actor_npcs)) then
+			hide_hud_pda()
+			actor_menu.set_msg(1, game.translate_string("st_travel_event"),4)
+			return
+		end
+	end
+
+	-- Prevent fast travel while overloaded.
+	if not (weighttravel) then
+		local suit = db.actor:item_in_slot(7)
+		local diff = db.actor:get_total_weight() - db.actor:get_actor_max_walk_weight() - (suit and suit:get_additional_max_weight() or 0) - bbp_extra_weight()
+		if diff > 0 then
+			hide_hud_pda()
+			actor_menu.set_msg(1, game.translate_string("st_travel_overloaded"),4)
+			return
+		end
+	end
+
+	-- Prevent fast travel if bleeding and/or iradiated.
+	if not (damagetravel) then
+		local bleeding = db.actor.bleeding > 0
+		local radiation = db.actor.radiation > 0
+		if (bleeding or radiation) then
+			if (bleeding and radiation) then
+				actor_menu.set_msg(1, game.translate_string("st_sleep_bleeding_irradiated"),5)
+			elseif (bleeding) then
+				actor_menu.set_msg(1, game.translate_string("st_sleep_bleeding"),4)
+			elseif (radiation) then
+				actor_menu.set_msg(1, game.translate_string("st_sleep_irradiated"),4)
+			end
+			hide_hud_pda()
+			return
+		end
+	end
+
+	-- Prevent fast travel if an emission or psi-storm currently ongoing.
+	if not (stormtravel) then
+		if (xr_conditions.surge_started() or psi_storm_manager.is_started()) then
+			actor_menu.set_msg(1, game.translate_string("st_travel_event"),4)
+			hide_hud_pda()
+			return
+		end
+	end
+
+	-- forward time when traveling
+	if not (notime) then
+		local dist = db.actor:position():distance_to(se_obj.position)
+		level.change_game_time(0,math.floor(dist/1000)+math.random(0,2),math.random(1,59))
+		surge_manager.get_surge_manager().time_forwarded = true
+		psi_storm_manager.get_psi_storm_manager().time_forwarded = true
+		level_weathers.get_weather_manager():forced_weather_change()
+	end
+
+	if (se_obj.online) then
+		db.actor:set_actor_position(se_obj.position)
+		hide_hud_pda()
+	else
+		ChangeLevel(se_obj.position, se_obj.m_level_vertex_id, se_obj.m_game_vertex_id, VEC_ZERO, true)
+	end
+end
+
+-- Used for Visit_Only mode, catches the player near the marker and updates things.
+local function actor_on_interaction(typ, obj, name)
+	if (enabled ~= 1) then
+		return
+	end
+	
+	if (typ ~= "smarts") then
+		return
+	end
+	
+	if not (tsmarts[name]) then
+		return
+	end
+	
+	if (level.map_has_object_spot(obj.id, "fast_travel") == 0) then
+		if (longnames) then
+			local smart = alife():object(obj.id)
+			local level_name = alife():level_name(smart and game_graph():vertex(smart.m_game_vertex_id):level_id())			
+			level.map_add_object_spot(obj.id, "fast_travel", game.translate_string(level_name).." "..game.translate_string(name))
+			if (markermessage) then
+				actor_menu.set_msg(1, game.translate_string(level_name).." "..game.translate_string(name).." "..game.translate_string("st_fast_travel_discovered"), 4)
+			end
+		else
+			level.map_add_object_spot(obj.id, "fast_travel", game.translate_string(name))
+			if (markermessage) then
+				actor_menu.set_msg(1, game.translate_string(name).." "..game.translate_string("st_fast_travel_discovered"), 4)
+			end
+		end
+	end
+end
+
+local st_list_1 = game.translate_string("ui_mm_travel_list_1")
+function update_settings()
+	enabled = ui_options.get("gameplay/fast_travel/state")
+	combattravel = ui_options.get("gameplay/fast_travel/on_combat")
+	weighttravel = ui_options.get("gameplay/fast_travel/on_overweight")
+	damagetravel = ui_options.get("gameplay/fast_travel/on_damage")
+	stormtravel = ui_options.get("gameplay/fast_travel/on_emission")
+	longnames = ui_options.get("gameplay/fast_travel/long_names")
+	markermessage = ui_options.get("gameplay/fast_travel/visit_message")
+	notime = ui_options.get("gameplay/fast_travel/time")
+
+	local faction = character_community(db.actor):sub(7)
+	local pini = ini_file("plugins\\faction_quick_travel.ltx")
+	tsmarts = utils_data.collect_section(pini,faction,true)
+
+	if not (is_empty(tsmarts)) then
+		local level_name
+		local sim,gg = alife(),game_graph()
+		sim:iterate_objects_without_actor(function(smart)
+			if (smart:clsid() == clsid.smart_terrain and tsmarts[smart:name()]) then
+				local i = smart.id
+				if (level.map_has_object_spot(i, "fast_travel")) then
+					level.map_remove_object_spot(i, "fast_travel")
+				end
+				if (enabled == 1) then
+					if (game_statistics.has_actor_visited_smart(smart:name()) == true) then
+						if (longnames) then
+							level_name = sim:level_name(smart and gg:vertex(smart.m_game_vertex_id):level_id())
+							level.map_add_object_spot(i, "fast_travel", game.translate_string(level_name).." "..game.translate_string(smart:name()))
+						else
+							level.map_add_object_spot(i, "fast_travel", game.translate_string(smart:name()))
+						end
+					end
+				elseif (enabled == 2) then
+					if (longnames) then
+						level_name = sim:level_name(smart and gg:vertex(smart.m_game_vertex_id):level_id())
+						level.map_add_object_spot(i, "fast_travel", game.translate_string(level_name).." "..game.translate_string(smart:name()))
+					else
+						level.map_add_object_spot(i, "fast_travel", game.translate_string(smart:name()))
+					end
+				end
+			end
+		end)
+	end
+	return true
+end
+
+function on_game_start()
+	RegisterScriptCallback("map_spot_menu_add_property",map_spot_menu_add_property)
+	RegisterScriptCallback("map_spot_menu_property_clicked",map_spot_menu_property_clicked)
+	RegisterScriptCallback("on_game_load",update_settings)
+	RegisterScriptCallback("on_option_change",update_settings)
+	RegisterScriptCallback("actor_on_interaction", actor_on_interaction)
+end

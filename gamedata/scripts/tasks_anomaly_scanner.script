@@ -1,0 +1,158 @@
+-- For special cases because some anomalies zones have different cfg names
+local cfg_to_name = {
+	["zaton_b56_anomal_zone"] = "zat_b56_anomal_zone",
+}
+
+local name_to_cfg = {}
+for k,v in pairs(cfg_to_name) do
+	name_to_cfg[v] = k
+end
+
+--==========================================< Utility >==========================================--
+local anomaly_id = {}
+function get_anomaly_id(task_id, name_id)
+	local result
+	alife():iterate_objects_without_actor(function(se_obj)
+		local name = se_obj:name()
+		name = cfg_to_name[name] or name
+		if (name == name_id) then
+			local i = se_obj.id
+			anomaly_id[task_id] = i
+			result = i
+			return true
+		end
+	end)
+	return result
+end
+
+--==========================================< Task >==========================================--
+xr_conditions.validate_anomaly_scanner_field = function(actor, npc, p)
+	if not (p and p[1]) then
+		return
+	end
+	
+	local anom_tot = parse_list(task_manager.task_ini,p[1],"possible_anomalies")
+	local anom = {}
+	for i=1,#anom_tot do
+		if (not has_alife_info("anomaly_scanner_" .. anom_tot[i] .. "_done")) then
+			anom[#anom + 1] = anom_tot[i]
+		end
+	end
+	
+	if (#anom > 0) then
+		return true
+	end
+	
+	return false
+end
+
+xr_effects.pick_anomaly_scanner_field = function(actor, npc, p)
+	if not (p and p[1]) then
+		return
+	end
+	
+	local anom_tot = parse_list(task_manager.task_ini,p[1],"possible_anomalies")
+	local anom = {}
+	for i=1,#anom_tot do
+		if (not has_alife_info("anomaly_scanner_" .. anom_tot[i] .. "_done")) then
+			anom[#anom + 1] = anom_tot[i]
+		end
+	end
+	
+	if (#anom == 0)then
+		return
+	end
+	
+	dialogs.relocate_item_section(db.actor, "jup_b32_scanner_device", "in", 1)
+	
+	local anom_pick = anom[math.random(#anom)]
+	save_var(db.actor, p[1], anom_pick)
+end
+
+xr_effects.give_info_anomaly_scanner_field = function(actor, npc, p)
+	if not (p and p[1]) then
+		return
+	end
+	
+	local anom = load_var(db.actor, p[1])
+	if anom then
+		db.actor:give_info_portion("anomaly_scanner_" .. anom .. "_done")
+	end
+end
+
+task_functor.anomaly_scanner_task_target = function( task_id, field, p, tsk )
+	
+	if (not db.actor) then
+		if (field == "target") then return
+		elseif (field == "title") then return ""
+		elseif (field == "descr") then return ""
+		end
+		return
+	end
+
+	local anom_name = load_var(db.actor,task_id)
+	local anom_id = anomaly_id[task_id] or anom_name and get_anomaly_id(task_id, anom_name)
+	--printf("Scanner: name:%s - id: %s", anom_name, anom_id)
+	
+	if (field == "target") then
+		if (tsk.stage == 0) then
+			local se_obj = get_story_se_object( "jup_b32_scanner_device" )
+			if (se_obj) then 
+				return se_obj.id
+			end
+		elseif (tsk.stage == 1) then
+			if anom_id then
+				return anom_id
+			end
+		elseif (tsk.stage == 2) then
+		
+		elseif (tsk.stage == 3) then
+			return tsk.task_giver_id
+		end
+	elseif (field == "descr") then
+		if (tsk.stage == 0) then
+			return game.translate_string("jup_b6_scientist_nuclear_physicist_task_1_text0")
+		elseif (tsk.stage == 1) then
+			if anom_id then
+				return game.translate_string("jup_b6_scientist_nuclear_physicist_task_1_text1_0")
+			else
+				return game.translate_string("jup_b6_scientist_nuclear_physicist_task_1_text1_1")
+			end
+		elseif (tsk.stage == 2) then
+			return game.translate_string("jup_b6_scientist_nuclear_physicist_task_1_text2")
+		elseif (tsk.stage == 3) then
+			return game.translate_string("jup_b6_scientist_nuclear_physicist_task_1_text3")
+		end
+	end
+end
+
+task_status_functor.anomaly_scanner_task_status = function(tsk, task_id)
+	if not ( db.actor ) then
+		return
+	end
+	
+	local anom_name = load_var(db.actor,task_id)
+	anom_name = name_to_cfg[anom_name] or anom_name
+	local anomaly = anom_name and db.anomaly_by_name[anom_name]
+				
+	local scanner = "jup_b32_scanner_device"
+	if (tsk.stage == 0) then
+		if (db.actor:object(scanner)) then
+			tsk.stage = 1
+		end
+	elseif (tsk.stage == 1) and (anomaly) and (anomaly.object) then
+		local distance = heli_alife.distance_2d_sqr(db.actor:position(),anomaly.object:position())
+		if (heli_alife.distance_2d_sqr(db.actor:position(),anomaly.object:position()) <= 5^2) then
+			tsk.stage = 2
+		end
+	elseif (tsk.stage == 2) and (anomaly) and (anomaly.object) then
+		give_info("jup_b32_scanner_can_place")
+		if (heli_alife.distance_2d_sqr(db.actor:position(),anomaly.object:position()) > 5^2) then
+			tsk.stage = 1
+			disable_info("jup_b32_scanner_can_place")
+		elseif not (db.actor:object(scanner)) then
+			tsk.stage = 3
+			disable_info("jup_b32_scanner_can_place")
+		end
+	end
+end

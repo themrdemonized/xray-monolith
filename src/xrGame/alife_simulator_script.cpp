@@ -412,15 +412,6 @@ CSE_Abstract* reprocess_spawn(CALifeSimulator* self, CSE_Abstract* object)
 	return (self->server().Process_spawn(packet, clientID));
 }
 
-// demonized: iterate alife objects
-void CALifeSimulator__iterate_objects(const CALifeSimulator* self, const luabind::functor<bool>& functor)
-{
-	const CALifeObjectRegistry &objects = self->objects();
-	for (const auto& se_obj : objects.objects()) {
-		if (functor(se_obj.second)) break;
-	}
-}
-
 CSE_Abstract* try_to_clone_object(CALifeSimulator* self, CSE_Abstract* object, LPCSTR section, const Fvector& position,
                                   u32 level_vertex_id, GameGraph::_GRAPH_ID game_vertex_id, ALife::_OBJECT_ID id_parent,
                                   bool bRegister = true)
@@ -460,10 +451,79 @@ void set_process_time(CALifeSimulator* self, int micro)
 	self->set_process_time(micro);
 }
 
-const CALifeObjectRegistry::OBJECT_REGISTRY& alife_objects(const CALifeSimulator *self)
+// demonized: iterate alife objects, functor style
+void CALifeSimulator__iterate_objects(const CALifeSimulator* self, const luabind::functor<bool>& functor)
+{
+	const CALifeObjectRegistry& objects = self->objects();
+	for (const auto& se_obj : objects.objects()) {
+		if (functor(se_obj.second)) break;
+	}
+}
+
+void CALifeSimulator__iterate_objects_without_actor(const CALifeSimulator* self, const luabind::functor<bool>& functor)
+{
+	const CALifeObjectRegistry& objects = self->objects();
+	for (const auto& se_obj : objects.objects()) {
+		if (se_obj.first != 0 && functor(se_obj.second)) break;
+	}
+}
+
+struct alife_object_iterator {
+	const CALifeObjectRegistry::OBJECT_REGISTRY* container;
+	CALifeObjectRegistry::OBJECT_REGISTRY::const_iterator it;
+
+	alife_object_iterator(const CALifeObjectRegistry::OBJECT_REGISTRY* c)
+		: container(c), it(c ? c->begin() : CALifeObjectRegistry::OBJECT_REGISTRY::const_iterator()) {}
+
+	CSE_ALifeDynamicObject* next() {
+		if (!container || it == container->end())
+			return nullptr;
+		auto obj = it->second;
+		++it;
+		return obj;
+	}
+};
+
+struct alife_object_without_actor_iterator {
+	const CALifeObjectRegistry::OBJECT_REGISTRY* container;
+	CALifeObjectRegistry::OBJECT_REGISTRY::const_iterator it;
+
+	alife_object_without_actor_iterator(const CALifeObjectRegistry::OBJECT_REGISTRY* c)
+		: container(c), it(c ? c->begin() : CALifeObjectRegistry::OBJECT_REGISTRY::const_iterator()) {}
+
+	CSE_ALifeDynamicObject* next() {
+		if (!container || it == container->end())
+			return nullptr;
+		if (it->first == 0) {
+			++it;
+			return next();
+		}
+		auto obj = it->second;
+		++it;
+		return obj;
+	}
+};
+
+// demonized: iterate alife objects, for loop
+alife_object_iterator alife_object_iter(const CALifeSimulator* self)
 {
 	VERIFY(self);
-	return self->objects().objects();
+	const CALifeObjectRegistry& objects = self->objects();
+	return alife_object_iterator(&objects.objects());
+}
+// demonized: iterate alife objects without actor, for loop
+alife_object_without_actor_iterator alife_object_without_actor_iter(const CALifeSimulator* self)
+{
+	VERIFY(self);
+	const CALifeObjectRegistry& objects = self->objects();
+	return alife_object_without_actor_iterator(&objects.objects());
+}
+
+CALifeObjectRegistry::OBJECT_REGISTRY const& alife_objects(const CALifeSimulator *self)
+{
+	VERIFY(self);
+	const CALifeObjectRegistry& objects = self->objects();
+	return objects.objects();
 }
 
 xr_vector<u16>& get_children(const CALifeSimulator *self, CSE_Abstract *object)
@@ -479,13 +539,20 @@ void CALifeSimulator::script_register(lua_State* L)
 {
 	module(L)
 	[
+		class_<alife_object_iterator>("alife_object_iterator")
+		.def("next", &alife_object_iterator::next)
+		.def("__call", &alife_object_iterator::next), // for Lua for-loop
+
+		class_<alife_object_without_actor_iterator>("alife_object_without_actor_iterator")
+		.def("next", &alife_object_iterator::next)
+		.def("__call", &alife_object_iterator::next), // for Lua for-loop
+
 		class_<CALifeSimulator>("alife_simulator")
 		.def("valid_object_id", &valid_object_id)
 		.def("level_id", &get_level_id)
 		.def("level_name", &get_level_name)
 		.def("object", (CSE_ALifeDynamicObject *(*)(const CALifeSimulator*, ALife::_OBJECT_ID))(alife_object))
 		.def("object", (CSE_ALifeDynamicObject *(*)(const CALifeSimulator*, ALife::_OBJECT_ID, bool))(alife_object))
-// FIX LATER:		.def("objects", &alife_objects, return_stl_pair_iterator)
 		.def("story_object", (CSE_ALifeDynamicObject *(*)(const CALifeSimulator*, ALife::_STORY_ID))(alife_story_object))
 		.def("set_switch_online", (void (CALifeSimulator::*)(ALife::_OBJECT_ID, bool))(&CALifeSimulator::set_switch_online))
 		.def("set_switch_offline", (void (CALifeSimulator::*)(ALife::_OBJECT_ID, bool))(&CALifeSimulator::set_switch_offline))
@@ -525,6 +592,9 @@ void CALifeSimulator::script_register(lua_State* L)
 
 		// demonized: iterate alife objects
 		.def("iterate_objects", &CALifeSimulator__iterate_objects)
+		.def("iterate_objects_without_actor", &CALifeSimulator__iterate_objects_without_actor)
+		.def("objects_iter", &alife_object_iter)
+		.def("objects_without_actor_iter", &alife_object_without_actor_iter)
 
 		, def("alife", &alife)
 	];

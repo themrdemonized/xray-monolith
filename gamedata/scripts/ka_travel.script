@@ -1,0 +1,344 @@
+------------------------------
+-- Immersive Travel
+-- author: SpikensbroR
+------------------------------
+
+smarts = {
+	zaton = "zat_stalker_base_smart",
+	jupiter = "jup_a6",
+	yantar = "yan_smart_terrain_6_4",
+	cordon = "esc_smart_terrain_2_12",
+	bar = "bar_visitors",
+	warehouses = "mil_smart_terrain_7_10",
+	city = "cit_killers",
+	agroprom = "agr_smart_terrain_1_6",
+	swamp = "mar_smart_terrain_base"
+}
+
+local relations = {
+	zaton = {"stalker"},
+	jupiter = {"freedom", "stalker"},
+	yantar = {"ecolog", "stalker"},
+	cordon = {"stalker"},
+	bar = {"dolg", "stalker"},
+	warehouses = {"freedom"},
+	city = {"killer"},
+	agroprom = {"army"},
+	swamp = {"csky"}
+}
+
+--	stalker = "loner"
+--	bandit = "bandit"
+--	csky = "clearsky"
+--	army = "military"
+--	dolg = "duty"
+--	freedom = "freedom"
+--	ecolog = "ecologist"
+--	monolith = "monolith"
+--	killer = "mercenary"
+
+local function get_smart_by_name(name)
+	local result
+	alife():iterate_objects_without_actor(function(smart)
+		if smart:clsid() == clsid.smart_terrain and smart:name() == name then
+			result = smart
+			return true
+		end
+	end)
+	
+	return result
+end
+
+local function teleport_to(smart_key)
+	local smart = get_smart_by_name(smarts[smart_key])
+	local dist = db.actor:position():distance_to(smart.position)
+	
+	level.change_game_time(0,math.floor(dist/1000)+math.random(0,2),math.random(1,59))
+	surge_manager.get_surge_manager().time_forwarded = true
+	psi_storm_manager.get_psi_storm_manager().time_forwarded = true
+	level_weathers.get_weather_manager():forced_weather_change()
+	
+	ChangeLevel(smart.position, smart.m_level_vertex_id, smart.m_game_vertex_id, VEC_ZERO)
+end
+
+local function can_travel(cost)
+	-- Prevent travel if an emission or psi-storm currently ongoing.
+	if (xr_conditions.surge_started() or psi_storm_manager.is_started()) then
+		return false
+	end
+
+	return db.actor:money() > cost
+end
+
+local function get_travel_cost_for(smart_key)
+	local smart = get_smart_by_name(smarts[smart_key])
+	local dist = db.actor:position():distance_to(smart.position)
+	
+	return math.ceil(dist / 10) * 100
+end
+
+local function travel_to(a, b, smart_key)
+	dialogs.break_dialog(a, b)
+	dialogs.relocate_money_from_actor(a, b, get_travel_cost_for(smart_key))
+	teleport_to(smart_key)
+end
+
+local function text_travel_cost_for(smart_key)
+	return strformat(game.translate_string("ka_travel_dialog_cost"), get_travel_cost_for(smart_key))
+end
+
+local function in_proximity_of(smart_key)
+	local smart = get_smart_by_name(smarts[smart_key])
+	local dist = db.actor:position():distance_to(smart.position)
+	
+	return dist <= 45
+end
+
+local function is_enemy(smart_key)
+	local factions = relations[smart_key]
+	for key, value in pairs(factions) do
+		if (game_relations.is_factions_enemies(character_community(db.actor):sub(7), value)) then
+			return true
+		end
+	end
+	
+	return false
+end
+
+local function can_travel_to(smart_key)
+	return can_travel(get_travel_cost_for(smart_key))
+end
+
+-- Zaton
+
+function text_travel_to_zaton(a, b)
+	return text_travel_cost_for("zaton")
+end
+
+function can_travel_to_zaton_hard(a, b)
+	if (in_proximity_of("zaton")) then
+		return false
+	end
+	
+	if (is_enemy("zaton")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_zaton_soft(a, b)
+	return can_travel_to("zaton")
+end
+
+function travel_to_zaton(a, b)
+	travel_to(a, b, "zaton")
+end
+
+-- Jupiter
+
+function text_travel_to_jupiter(a, b)
+	return text_travel_cost_for("jupiter")
+end
+
+function can_travel_to_jupiter_hard(a, b)
+	if (in_proximity_of("jupiter")) then
+		return false
+	end
+	
+	if (is_enemy("jupiter")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_jupiter_soft(a, b)
+	return can_travel_to("jupiter")
+end
+
+function travel_to_jupiter(a, b)
+	travel_to(a, b, "jupiter")
+end
+
+-- Yantar
+
+function text_travel_to_yantar(a, b)
+	return text_travel_cost_for("yantar")
+end
+
+function can_travel_to_yantar_hard(a, b)
+	if (in_proximity_of("yantar")) then
+		return false
+	end
+		
+	if (is_enemy("yantar")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_yantar_soft(a, b)
+	return can_travel_to("yantar")
+end
+
+function travel_to_yantar(a, b)
+	travel_to(a, b, "yantar")
+end
+
+-- Cordon
+
+function text_travel_to_cordon(a, b)
+	return text_travel_cost_for("cordon")
+end
+
+function can_travel_to_cordon_hard(a, b)
+	if (in_proximity_of("cordon")) then
+		return false
+	end
+	
+	if (is_enemy("cordon")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_cordon_soft(a, b)
+	return can_travel_to("cordon")
+end
+
+function travel_to_cordon(a, b)
+	travel_to(a, b, "cordon")
+end
+
+-- Bar
+
+function text_travel_to_bar(a, b)
+	return text_travel_cost_for("bar")
+end
+
+function can_travel_to_bar_hard(a, b)
+	if (in_proximity_of("bar")) then
+		return false
+	end
+	
+	if (is_enemy("bar")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_bar_soft(a, b)
+	return can_travel_to("bar")
+end
+
+function travel_to_bar(a, b)
+	travel_to(a, b, "bar")
+end
+
+-- Army warehouses
+
+function text_travel_to_warehouses(a, b)
+	return text_travel_cost_for("warehouses")
+end
+
+function can_travel_to_warehouses_hard(a, b)
+	if (in_proximity_of("warehouses")) then
+		return false
+	end
+	
+	if (is_enemy("warehouses")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_warehouses_soft(a, b)
+	return can_travel_to("warehouses")
+end
+
+function travel_to_warehouses(a, b)
+	travel_to(a, b, "warehouses")
+end
+
+-- Dead city
+
+function text_travel_to_city(a, b)
+	return text_travel_cost_for("city")
+end
+
+function can_travel_to_city_hard(a, b)
+	if (in_proximity_of("city")) then
+		return false
+	end
+	
+	if (is_enemy("city")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_city_soft(a, b)
+	return can_travel_to("city")
+end
+
+function travel_to_city(a, b)
+	travel_to(a, b, "city")
+end
+
+-- Agroprom
+
+function text_travel_to_agroprom(a, b)
+	return text_travel_cost_for("agroprom")
+end
+
+function can_travel_to_agroprom_hard(a, b)
+	if (in_proximity_of("agroprom")) then
+		return false
+	end
+	
+	if (is_enemy("agroprom")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_agroprom_soft(a, b)
+	return can_travel_to("agroprom")
+end
+
+function travel_to_agroprom(a, b)
+	travel_to(a, b, "agroprom")
+end
+
+-- Great swamp
+
+function text_travel_to_swamp(a, b)
+	return text_travel_cost_for("swamp")
+end
+
+function can_travel_to_swamp_hard(a, b)
+	if (in_proximity_of("swamp")) then
+		return false
+	end
+	
+	if (is_enemy("swamp")) then
+		return false
+	end
+	
+	return true
+end
+
+function can_travel_to_swamp_soft(a, b)
+	return can_travel_to("swamp")
+end
+
+function travel_to_swamp(a, b)
+	travel_to(a, b, "swamp")
+end

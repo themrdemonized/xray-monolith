@@ -1,0 +1,3462 @@
+local cmd = {}
+
+function command_get_list()
+	return cmd
+end
+
+function command_get_count()
+	local count = 0
+	for k,v in pairs(cmd) do
+		count = count + 1
+	end
+	return count
+end
+
+function command_exists(name)
+	return cmd[name] ~= nil
+end
+
+function command_give(name,...)
+	return cmd[name](name,...)
+end
+
+function split(txt)
+	args = {}
+	for x in txt:gmatch("%S+") do table.insert(args, x) end
+	return args
+end
+
+local function trim(s)
+	return string.gsub(s, "^%s*(.-)%s*$", "%1")
+end
+
+local function first_word(txt)
+	local _strt, _end = string.find(txt,".%S+")
+	if (_strt and _end) then
+		return trim(string.lower(string.sub(txt,_strt, _end))),trim(string.sub(txt,_end+1))
+	end
+	return "",""
+end 
+
+function check_and_set_help(caller,txt,owner,msg)
+	local wrd,rest = first_word(txt)
+	
+	if (wrd == "") then 
+		owner:SendOutput("For usage type %s help",caller)
+		return
+	end 
+	
+	if (string.find(wrd,"help")) then
+		owner:SendOutput("%s %s",caller,msg)
+		return
+	end
+	return wrd,rest
+end
+
+-- HELP
+function cmd.help(me,txt,owner,p)
+	local wrd,rest = first_word(txt)
+	local page = tonumber(txt) or 1
+	local sz = owner.console_size
+
+	if not (sz) or (sz == 0) then return "help := error" end
+
+	local a = {}
+    for n in pairs(cmd) do
+		if (n ~= "help") then
+			table.insert(a, n)
+		end
+	end
+    table.sort(a)
+	
+	local page_count = math.ceil(#a/sz)
+	if (page > page_count) then
+		return "help:= Invaild page"
+	end
+	
+	owner:SendOutput("help := Command List [%s of %s]",page,page_count)
+	owner:SendOutputList(a,(page*sz)-sz,sz-1)
+end
+
+-- ECHO
+function cmd.echo(me,txt,owner,p)
+	return txt
+end
+
+function cmd.char_desc(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[checkall]")
+	if not (wrd) then return end
+	if not (wrd == "checkall") then return "char_desc:= try char_desc checkall" end
+	
+	local f = {	"character_desc_agroprom",
+				"character_desc_bar",
+				"character_desc_darkvalley",
+				"character_desc_deadcity",
+				"character_desc_escape",
+				"character_desc_general",
+				"character_desc_jupiter",
+				"character_desc_katacomb",
+				"character_desc_marsh",
+				"character_desc_military",
+				"character_desc_pripyat",
+				"character_desc_red_forest",
+				"character_desc_simulation",
+				"character_desc_underpass",
+				"character_desc_yantar",
+				"character_desc_zaton"
+			}
+			
+	local tags = {			["name"] = false,
+							["icon"] = false,
+							["map_icon"] = false,
+							--["bio"] = false,
+							["class"] = false,
+							["community"] = false,
+							["terrain_sect"] = false,
+							["money"] = false,
+							["rank"] = false,
+							["reputation"] = false,
+							["visual"] = false,
+							--["snd_config"] = false,
+							["supplies"] = false,
+							--["actor_dialog"] = false
+	}
+	
+	local xml,node,id,char_node,p
+	for i=1,#f do 
+		xml = utils_xml.XmlParser:loadFile(getFS():update_path('$game_config$', '').."gameplay\\"..f[i]..".xml")
+		if (xml) then
+			for index,node in pairs(xml.ChildNodes) do
+				if (type(node) == "table") then
+
+					-- Check if all specific_character nodes for mandatory child nodes
+					for k,child in pairs(node.ChildNodes) do
+						if (type(child) == "table") then
+							if (tags[child.Name] == false) then 
+								tags[child.Name] = true
+							end
+						end
+					end	
+
+					-- Validate that all nodes by tag names exist
+					for k,v in pairs(tags) do 
+						if (v == false) then 
+							owner:SendOutput("char_desc:= specific character id=%s missing a mandatory node by name %s",node.Attributes.id,k)
+						end
+						-- reset for next loop
+						tags[k] = false
+					end
+					
+				end
+			end
+		else
+			owner:SendOutput("char_desc:= no xml by name %s",f[i])
+		end 
+	end
+	return "char_desc:= scanning complete"
+end 
+
+-- print
+function cmd.print(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[_G]")
+	if not (wrd) then return end
+	
+	if (wrd == "_G" or wrd == "_g") then 
+		local list = { f={}, t={}, u={}, b={}, n={}, s={}, unknown={} }
+		
+		local msg = ""
+		for k,v in pairs(_G) do 
+			if (type(v) == "userdata") then 
+				table.insert(list.u,k)
+			elseif (type(v) == "function") then 
+				table.insert(list.f,k)
+			elseif (type(v) == "boolean") then 
+				table.insert(list.b,k)
+			elseif (type(v) == "number") then 
+				table.insert(list.n,k)
+			elseif (type(v) == "string") then 
+				table.insert(list.s,k)
+			elseif (type(v) == "table") then 
+				table.insert(list.t,k)
+			else 
+				table.insert(list.unknown,k)
+			end
+		end
+		
+		for k,v in pairs(list) do 
+			table.sort(v)
+		end
+		
+		msg = msg .. "\n\nNUMBER" .. "\n"
+		for i=1,#list.n do
+			msg = msg .. list.n[i] .. " = " .. tostring(_G[list.n[i]]) .. "\n"
+		end
+		
+		msg = msg .. "\n\nBOOLEAN" .. "\n"
+		for i=1,#list.b do
+			msg = msg .. list.b[i] .. " = " .. tostring(_G[list.b[i]]) .. "\n"
+		end		
+		
+		msg = msg .. "\n\nSTRING" .. "\n"
+		for i=1,#list.s do
+			msg = msg .. list.s[i] .. " = " .. _G[list.s[i]] .. "\n"
+		end
+		
+		msg = msg .. "\n\nTABLE" .. "\n"
+		for i=1,#list.t do
+			msg = msg .. list.t[i] .. "\n"
+		end
+	
+		msg = msg .. "\n\nFUNCTION" .. "\n"
+		for i=1,#list.f do
+			msg = msg .. list.f[i] .. "\n"
+		end
+		
+		msg = msg .. "\n\nUSERDATA" .. "\n"
+		for i=1,#list.u do
+			msg = msg .. list.u[i] .. "\n"
+		end
+		
+		msg = msg .. "\n\nUNKNOWN" .. "\n"
+		for i=1,#list.unknown do
+			msg = msg .. list.unknown[i] .. "\n"
+		end
+		
+		local file = io.open("debug_print.txt","w")
+		file:write(msg)
+		file:close()
+		return "print:= output sent to debug_print.txt"
+	end 
+	
+	return "print:= incorrect subcommands. Type 'print help'"
+end 
+
+-- reload_system_ini and language
+function cmd.reload_system_ini(me,txt,owner,p)
+	reload_ini_sys()
+	game.reload_language()
+	
+	return "reload_system_ini:= success"
+end
+
+-- Relations
+function cmd.relations(me,txt,owner,p)
+	owner:SendOutput("Stalker = %s",relation_registry.community_goodwill("stalker", 0))
+	owner:SendOutput("Bandit = %s",relation_registry.community_goodwill("bandit", 0))
+	owner:SendOutput("Mercenary = %s",relation_registry.community_goodwill("killer", 0))
+	owner:SendOutput("CSky = %s",relation_registry.community_goodwill("csky", 0))
+	owner:SendOutput("Freedom = %s",relation_registry.community_goodwill("freedom", 0))
+	owner:SendOutput("Duty = %s",relation_registry.community_goodwill("dolg", 0))
+	owner:SendOutput("Army = %s",relation_registry.community_goodwill("army", 0))
+	owner:SendOutput("Monolith = %s",relation_registry.community_goodwill("monolith", 0))
+	owner:SendOutput("Ecolog = %s",relation_registry.community_goodwill("ecolog", 0))
+	owner:SendOutput("Renegade = %s",relation_registry.community_goodwill("renegade", 0))
+	owner:SendOutput("Sin = %s",relation_registry.community_goodwill("greh", 0))
+	owner:SendOutput("ISG = %s",relation_registry.community_goodwill("isg", 0))
+	return "relations:= command finished"
+end 
+
+-- Lua Count All
+function cmd.lua_countall(me,txt,owner,p)
+	local seen = {}
+	local function count_all(f)
+		local function count_table(t)
+			if seen[t] then return end
+			f(t)
+			seen[t] = true
+			for k,v in pairs(t) do
+				if type(v) == "table" then
+					count_table(v)
+				else
+					f(v)
+				end
+			end
+		end
+		count_table(_G)
+	end
+
+	local count = 0
+	local function track(o)
+		if (type(o) == "function") then 
+			count = count + 1
+		end
+	end
+	
+	count_all(track)
+	
+	output = strformat("%s functions. %s bytes used",count,count*20)
+	
+	return "lua_countall:= " .. output
+end 
+
+-- Community
+function cmd.community(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"<community>")
+	if not (wrd) then return end
+	
+	local comm_list = utils_obj.get_communities_list()
+	for i=1,#comm_list do 
+		if (wrd == comm_list[i]) then 
+			set_actor_true_community(wrd)
+			return "community:= actor community successfully changed to "..wrd
+		end
+	end
+	return "community:= invalid community"
+end
+-- SPAWN
+--[[
+example usage:
+
+spawn s:stalker id:%s amt:5 $AC_ID     -- Spawns 5 stalkers at actor's position
+
+spawn s:wpn_pm id:5424 						   -- Spawns Pistol on ID's position
+
+spawn s:wpn_pm id:$AC_ID$
+
+spawn s:wpn_pm pos:244,355,123 lvid:11344 gvid:12  -- Spawns pistol at exact location
+
+--]]
+function cmd.spawn(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"s:<section> id:<number> amt:<number> [ pos:<x,y,z> lvid:<x,y,z> gvid:<x,y,z> ]")
+	if not (wrd) then return end
+
+	if (wrd == "reset") then
+		owner.spawn_pos = nil
+		owner.spawn_lvid = nil
+		owner.spawn_gvid = nil
+		return "spawn:= position reset to always actor"
+	end
+
+	if (wrd == "items") then
+		if not (ini_sys:section_exist("inv_backpack")) then
+			return "spawn:= requires inv_backpack from items_minimod"
+		end
+		local stash = alife_create("inv_backpack",db.actor:position(),db.actor:level_vertex_id(),db.actor:game_vertex_id())
+		local itm
+		if not (se_item.registered_items) then 
+			return "spawn:= registered items table needs uncommented in se_item.script"
+		end
+		for k,v in pairs(se_item.registered_items) do
+			alife_create_item(k, stash)
+		end
+		return "spawn:= all registered items in game spawned in a stash near you"
+	end
+
+	local sec
+	if (string.find(txt,"s:")) then
+		for s in string.gmatch(txt,"s:(.%S+)") do
+			sec = s
+		end
+	end
+
+	if not (sec) or not (ini_sys:section_exist(sec)) then
+		return "spawn:= Section %s does not exist.",sec
+	end
+
+	local pos,lvid,gvid,id
+
+	if (string.find(txt,"id:")) then
+		for s in string.gmatch(txt,"id:(%d+)") do
+			id = tonumber(s)
+		end
+
+		local obj = level.object_by_id(id)
+		if (obj) then
+			pos = obj:position()
+			lvid = obj:level_vertex_id()
+			gvid = obj:game_vertex_id()
+		end
+	else
+		if (string.find(txt,"pos:")) then
+			for s in string.gmatch(txt,"pos:([-]?%d+[.]?%d*,[-]?%d+[.]?%d*,[-]?%d+[.]?%d*)") do
+				local p = str_explode(s,",")
+				pos = vector():set(tonumber(p[1]),tonumber(p[2]),tonumber(p[3]))
+			end
+
+			if (string.find(txt,"lvid:")) then
+				for s in string.gmatch(txt,"lvid:(%w+)") do
+					lvid = tonumber(s)
+				end
+			else
+				return "spawn:= Must specify level_vertex_id along with position."
+			end
+
+			if (string.find(txt,"gvid:")) then
+				for s in string.gmatch(txt,"gvid:(%w+)") do
+					gvid = tonumber(s)
+				end
+			else
+				return "spawn:= Must specify game_vertex_id along with position."
+			end
+		else
+			return "spawn:= Must specify id or position. Type spawn help"
+		end
+	end
+
+	local amt = 1
+	if (string.find(txt,"amt:")) then
+		for s in string.gmatch(txt,"amt:(%d+)") do
+			amt = tonumber(s)
+		end
+	end
+
+	if (pos) and (lvid) and (gvid) then
+		for i=1,amt do
+			local obj = alife_create_item(sec, {pos,lvid,gvid,id})
+		end
+
+		if (amt > 1) then
+			return "Spawn:= Objects created"
+		end
+
+		if not (obj) then
+			return "spawn:= Object nil"
+		end
+		return "spawn:= Object %s created as ID %s.",obj:name(),obj.id
+	end
+
+	local p = string.format("%0.2f,%0.2f,%0.2f",pos.x,pos.y,pos.z)
+	return "spawn:= Error pos=%s lvid=%s gvid=%s",p,lvid,gvid
+end
+
+-- collectgarbage
+function cmd.collectgarbage(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[full|count|step]")
+	if not (wrd) then return end
+
+	if (wrd == "full") then
+		local before = collectgarbage("count")
+		collectgarbage()
+		local after = collectgarbage("count")
+		return "collectgarbage:= |before|=>"..before.." |after|=> "..after
+	elseif (wrd == "count") then
+		local count = collectgarbage("count")
+		return "collectgarbage:= "..count
+	elseif (wrd == "step") then
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+			local amt = wrd and wrd ~= "" and tonumber(wrd) or 0
+			if (amt) then
+				xrs_debug_tools.STEP = amt
+			end
+		end
+	else
+		return "collectgarbage:= wrong argument passed."
+	end
+end
+
+function cmd.attach(me,txt,owner,p)
+	local wpn = db.actor:active_item()
+	if (wpn) then
+		local firearm = IsWeapon(wpn)
+		if (firearm) then
+			if (wpn.weapon_addon_attach) then
+				local addons = {
+					"wpn_addon_scope",
+					"wpn_addon_scope_x2.7",
+					"wpn_addon_scope_detector",
+					"wpn_addon_scope_night",
+					"wpn_addon_scope_susat",
+					"wpn_addon_scope_susat_x1.6",
+					"wpn_addon_scope_susat_custom",
+					"wpn_addon_scope_susat_dusk",
+					"wpn_addon_scope_susat_night",
+					"wpn_addon_silencer",
+					"wpn_addon_grenade_launcher",
+					"wpn_addon_grenade_launcher_m203"
+					}
+				local addon
+				local attached = false
+				for k,v in pairs(addons) do
+					addon = db.actor:object(k)
+					if (addon) then 
+						wpn:weapon_addon_attach(addon)
+						attached = true
+					end
+				end 
+				
+				if (attached) then 
+					return "attach:= addon attached"
+				end 
+				return "attach:= no addons attached"
+			else 
+				return "attach:= weapon does not have weapon_addon_attach method"
+			end
+		end 
+	end
+	return "attach:= addon was not attached for active weapon"
+end 
+
+function cmd.detach(me,txt,owner,p)
+	local wpn = db.actor:active_item()
+	if (wpn) then
+		local firearm = IsWeapon(wpn)
+		if (firearm and wpn.weapon_addon_detach) then
+			local addons = {
+				"wpn_addon_scope",
+				"wpn_addon_scope_x2.7",
+				"wpn_addon_scope_detector",
+				"wpn_addon_scope_night",
+				"wpn_addon_scope_susat",
+				"wpn_addon_scope_susat_x1.6",
+				"wpn_addon_scope_susat_custom",
+				"wpn_addon_scope_susat_dusk",
+				"wpn_addon_scope_susat_night",
+				"wpn_addon_silencer",
+				"wpn_addon_grenade_launcher",
+				"wpn_addon_grenade_launcher_m203"
+				}
+			local addon
+			for k,v in pairs(addons) do
+				wpn:weapon_addon_detach(k)
+			end 
+
+			return "detach:= check item"
+		end 
+	end
+	return "detach:= addon was not detached from active weapon"
+end 
+
+local function parse_waypoint(pathname, wpflags, wpname, owner, tRet)
+
+	local rslt = {}
+
+	rslt.flags = wpflags
+
+	local at
+	if string.find(wpname, "|", at, true) == nil then
+		return rslt
+	end
+
+	--[[
+	file = io.open("axr_debug_log.txt","a+")
+	if (file) then
+		file:write(strformat("[%s] %s", pathname, wpname).."\n")
+		file:close()
+	end
+	--]]
+
+	local par_num
+	local fld
+	local val
+
+	par_num = 1
+	for param in string.gmatch(wpname, "([%w%+~_\\%=%{%}%s%!%-%,%*]+)|*") do
+		if par_num == 1 then
+			-- continue
+		else
+			if param == "" then
+				owner:SendOutput("path '%s': waypoint '%s': syntax error in waypoint name", pathname, wpname)
+				printf("path '%s': waypoint '%s': syntax error in waypoint name", pathname, wpname)
+			else
+				local t_pos = string.find(param, "=", 1, true)
+				if (t_pos) then
+					fld = string.sub(param, 1,t_pos - 1)
+					if not (fld and fld ~= "") then
+						tRet[#tRet+1] = strformat("path '%s': waypoint '%s': syntax error while parsing the param '%s': no field specified",pathname, wpname, param)
+						printf("path '%s': waypoint '%s': syntax error while parsing the param '%s': no field specified",pathname, wpname, param)
+					else
+						val = string.sub(param, t_pos + 1)
+						if not (val and val ~= "") then
+							val = "true"
+						end
+
+						if fld == "a" then
+							rslt[fld] = xr_logic.parse_condlist(db.actor, "waypoint_data", "anim_state", val)
+
+							if not (state_lib.states[val]) then
+								tRet[#tRet+1] = strformat("path '%s': waypoint '%s': not a valid state_lib anim  %s", pathname, wpname,val)
+								printf("path '%s': waypoint '%s': not a valid state_lib anim %s", pathname, wpname,val)
+							end
+						else
+							rslt[fld] = val
+						end
+					end
+				else
+					tRet[#tRet+1] = strformat("path '%s': waypoint '%s': syntax error in waypoint name", pathname, wpname)
+					printf("path '%s': waypoint '%s': syntax error in waypoint name", pathname, wpname)
+				end
+			end
+		end
+		par_num = par_num + 1
+	end
+	return rslt
+end
+
+function cmd.waypoint(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[checkall | checklevel | checkindex]")
+	if not (wrd) then return end
+
+	if not (wrd == "checkall" or wrd == "checklevel" or wrd == "checkindex") then
+		return "waypoint:= invalid argument. Type waypoint help for a list of subcommands"
+	end
+
+	local npc = xrs_debug_tools.get_debug_npc()
+	if (npc == nil and wrd == "checklevel" and npc:id() ~= 0) then
+		return "waypoint:= need NPC to validate waypoints, no nearest stalker found."
+	end
+
+	local path_jobs = {"surge","collector","walker","patrol","guard","sniper","camper","sleep"}
+
+	local gname,name,ptr,cnt,vec
+	local b = {}
+	local last_index
+
+	local sim = alife()
+	local actor_level = wrd == "checklevel" and sim:level_name(game_graph():vertex(sim:actor().m_game_vertex_id):level_id()) or "nil"
+
+	local checked = false
+	local gg = game_graph()
+	
+	local t = {}
+	sim:iterate_objects_without_actor(function(smart)
+		local i = smart.id
+		if smart:clsid() == clsid.smart_terrain then
+			gname = smart:name()
+			if (wrd == "checkindex") then
+				checked = true
+				for index,job in ipairs(path_jobs) do
+					b=empty_table(b)
+					last_index = 0
+					for add=1,20 do
+						name = job == "sleep" and gname.."_"..job.."_"..add or gname.."_"..job.."_"..add.."_walk"
+						ptr = patrol(name)
+						if (ptr) then
+							b[add] = name
+							last_index = add
+						end						
+					end
+					for add=1,last_index do 
+						if b[add] == nil then 
+							t[#t+1] = strformat("path %s does not exist!",job == "sleep" and gname.."_"..job.."_"..add or gname.."_"..job.."_"..add.."_walk")
+						end
+					end
+				end			
+			elseif (wrd == "checkall" or self.is_on_actor_level) then	
+				for index,job in ipairs(path_jobs) do
+					i = 1
+					while level.patrol_path_exists(job == "sleep" and gname.."_"..job.."_"..i or gname.."_"..job.."_"..i.."_walk") do
+						name = job == "sleep" and gname.."_"..job.."_"..i or gname.."_"..job.."_"..i.."_walk"
+						ptr = patrol(name)
+						if (ptr) then
+							checked = true
+							cnt = ptr:count()
+							for n=0,cnt-1 do
+							
+								if not (gg:valid_vertex_id(ptr:game_vertex_id(n))) then
+									t[#t+1] = strformat("path %s p%s:%s does not have valid game_vertex_id",name,n,ptr:name(n))
+									printf("path %s p%s:%s does not have valid game_vertex_id",name,n,ptr:name(n))
+								end
+								
+								if (actor_level ~= "nil") then 
+									if not (utils_obj.accessible(npc,ptr:level_vertex_id(n))) then
+										t[#t+1] = strformat("path %s p%s:%s does not have valid level_vertex_id",name,n,ptr:name(n))
+										printf("path %s p%s:%s does not have valid level_vertex_id",name,n,ptr:name(n))
+									end
+								else 
+									if (ptr:level_vertex_id(n) >= 4294967295) then 
+										t[#t+1] = strformat("path %s p%s:%s does not have valid level_vertex_id",name,n,ptr:name(n))
+										printf("path %s p%s:%s does not have valid level_vertex_id",name,n,ptr:name(n))
+									end
+								end
+								parse_waypoint(name,ptr:flags(n),ptr:name(n),owner,t)
+							end
+						end
+						-- Validate look waypoint also
+						name = gname.."_"..job.."_"..i.."_look"
+						if (level.patrol_path_exists(name)) then 
+							ptr = patrol(name)
+							if (ptr) then 
+								checked = true
+								cnt = ptr:count()
+								for n=0,cnt-1 do
+									parse_waypoint(name,ptr:flags(n),ptr:name(n),owner,t)
+								end
+							end
+						end
+						i = i + 1
+					end
+				end
+			end
+		end
+	end)
+
+	if (checked) then
+		if (#t > 0) then
+			wrd = ""
+			local _strt, _end = string.find(txt,"%d+")
+			if (_strt and _end) then
+				wrd = string.sub(txt,_strt, _end)
+				wrd = string.lower(wrd)
+			end
+
+			local page = wrd ~= "" and tonumber(wrd) or 1
+
+			local sz = owner.console_size
+
+			if not (sz) or (sz == 0) then return "waypoint:= error" end
+
+			local page_count = math.ceil(#t/sz)
+
+			if (page > page_count) then
+				return "waypoint:= Invalid page"
+			end
+
+			table.sort(t)
+
+			owner:SendOutput("waypoint:= Bad Waypoints [%s of %s]",page,page_count)
+			owner:SendOutputList(t,(page*sz)-sz,sz-1)
+			return
+		end
+		return "waypoint: successfully checked all gulag job paths."
+	end 
+	return "waypoint: failed, no checking done."
+end
+
+
+
+-- SURGE
+function cmd.surge(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[start|stop]")
+	if not (wrd) then return end
+
+	local sm = surge_manager.SurgeManager
+	if not (sm) then return "No surge manager!" end
+
+	if (wrd == "start") then
+		sm:start(true)
+		return "surge:= started"
+	elseif (wrd == "stop") then
+		sm:end_surge(true)
+		return "surge:= ended"
+	else
+		return "surge:= wrong argument passed."
+	end
+end
+
+-- PsiStorm
+function cmd.psi_storm(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[start|stop]")
+	if not (wrd) then return end
+
+	local sm = psi_storm_manager and psi_storm_manager.PsiStormManager
+	if not (sm) then return "No psi_storm manager!" end
+
+	if (wrd == "start") then
+		sm:start(true)
+		return "psi_storm:= started"
+	elseif (wrd == "stop") then
+		sm:finish(true)
+		return "psi_storm:= ended"
+	else
+		return "psi_storm:= wrong argument passed."
+	end
+end
+
+
+-- Fallout
+function cmd.fallout(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[start|stop]")
+	if not (wrd) then return end
+
+	local sm = fallout_manager and fallout_manager.get_fallout_manager()
+	if not (sm) then return "No fallout manager!" end
+
+	if (wrd == "start") then
+		sm:start(true)
+		return "fallout:= started"
+	elseif (wrd == "stop") then
+		sm:end_surge(true)
+		return "fallout:= ended"
+	else
+		return "fallout:= wrong argument passed."
+	end
+end
+
+
+-- Find
+function cmd.find(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"<name>")
+	if not (wrd) then return end
+
+	if (p[1]) then
+		owner:FindNearest(p[1])
+	else
+		owner:FindNearest(wrd)
+	end
+end
+
+-- Execute
+function cmd.execute(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"<string>")
+	if not (wrd) then return end
+
+	local f,err = assert(loadstring(wrd))
+	if (f) then
+		f()
+	else
+		return err
+	end
+end
+
+-- Alife
+
+function cmd.alife(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"{switch}")
+	if not (wrd) then return end
+
+	if (string.find(wrd,"switch")) then
+		--[[
+		if (string.find(txt,"set:")) then
+			local d
+			for s in string.gmatch(txt,"set:(%d+)") do
+				d = tonumber(s)
+			end
+			if not (d) then
+				return "alife := Invalid value for switch distance set:%s",d
+			end
+			local old = alife():switch_distance()
+			alife():switch_distance(d)
+			return "alife := switch distance changed from %s to %s",old,d
+		elseif (string.find(txt,"get")) then
+			local sd = alife():switch_distance()
+			return "alife := switch distance is %s",sd
+		else
+			return "alife switch [get|set:<value>]"
+		end
+		--]]
+		local sd = alife():switch_distance()
+		return "alife:= switch distance is %s",sd
+	end
+end
+
+-- Clear
+function cmd.clear(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"(Clears console)")
+	if (string.find(txt,"help")) then
+		return
+	end
+
+	for i=1,owner.console_size do
+		owner.txt_console[i]:SetText("")
+	end
+end
+
+-- Squad
+function cmd.squad(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"{assign}")
+	if not (wrd) then return end
+
+	if (string.find(wrd,"teleport")) then 
+		local id,squad,a_id,target
+		if (string.find(txt,"id:")) then
+			for s in string.gmatch(txt,"id:(%d+)") do
+				id = tonumber(s)
+			end
+
+			squad = alife_object(id)
+			if not (squad) then
+				return "squad:= improper id used. id:%s",id
+			end
+		end
+		
+		if (string.find(txt,"target:")) then
+			for s in string.gmatch(txt,"target:(%d+)") do
+				a_id = tonumber(s)
+			end
+
+			target = alife_object(a_id)
+			if not (target) then
+				return "squad:= target by id %s does not exist.",a_id
+			end
+		end
+
+		if (squad and target) then
+			TeleportSquad(squad,target.position,target.m_level_vertex_id,target.m_game_vertex_id)
+			return "squad := %s teleported to %s.",squad:name(),target:name()
+		end
+	elseif (string.find(wrd,"assign")) then
+		local id,squad,a_id,target
+		if (string.find(txt,"id:")) then
+			for s in string.gmatch(txt,"id:(%d+)") do
+				id = tonumber(s)
+			end
+
+			squad = alife_object(id)
+			if not (squad) then
+				return "squad:= improper id used. id:%s",id
+			end
+		end
+
+		if (string.find(txt,"target:")) then
+			for s in string.gmatch(txt,"target:(%d+)") do
+				a_id = tonumber(s)
+			end
+
+			target = alife_object(a_id)
+			if not (target) then
+				return "squad:= assign target does not exist. assign:%s",a_id
+			end
+		end
+
+		if (squad and target) then
+			utils_obj.assign_squad_to_smart(squad.id,target.id)
+			return "squad := %s assigned to %s.",squad:name(),target:name()
+		end
+	end
+
+	return "squad:= squad assign id:<id> target:<id>"
+end
+
+-- Console
+function cmd.console(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"{relay}")
+	if not (wrd) then return end
+
+	if (string.find(wrd,"relay")) then
+		if (owner.console_relay) then
+			owner.console_relay = false
+			return "Toggled off relay to game console"
+		else
+			owner.console_relay = true
+		end
+		return "Toggled on relay to game console"
+	end
+end
+
+-- Teleport
+function cmd.teleport(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"who:<id> [ to:<id> | pos:<x,y,z> | $code$ | cam ]")
+	if not (wrd) then return end
+
+	local who,to_pos,to_obj
+
+	if (string.find(txt,"who:")) then
+		local who_id
+		for s in string.gmatch(txt,"who:(%w+)") do
+			who_id = tonumber(s)
+		end
+
+		who = who_id and alife_object(who_id)
+		if not (who) then
+			return "teleport := Wrong argument given or object doesn't exist. who:<%s>",who_id
+		end
+	end
+
+	if (string.find(txt,"to:")) then
+		local id
+		for s in string.gmatch(txt,"to:(%w+)") do
+			id = tonumber(s)
+		end
+
+		to_obj = id and alife_object(id)
+		if not (to_obj) then
+			return "teleport := Wrong arugment given or object doesn't exist. id:%s",id
+		end
+
+		to_pos = to_obj.position
+	else
+		local pos = p[1]
+
+		if (string.find(txt,"cam")) then
+			pos = xrs_debug_tools.LastCameraPos
+		end
+
+		if (string.find(txt,"pos:")) then
+			for s in string.gmatch(txt,"pos:([-]?%d+[.]?%d*,[-]?%d+[.]?%d*,[-]?%d+[.]?%d*)") do
+				local t = str_explode(s,",")
+				pos = vector():set(tonumber(t[1]),tonumber(t[2]),tonumber(t[3]))
+			end
+		end
+
+		if not (pos) then
+			return "teleport := wrong format for position. pos:%s must be pos:x,y,z"
+		end
+
+		to_pos = pos
+	end
+	
+	
+	if (who and to_pos) then
+		local success = false
+		if (who.id == AC_ID) then 
+			db.actor:set_actor_position(to_pos)
+			success = true
+		elseif (to_obj) then
+			local squad
+			if (IsStalker(who) or IsMonster(who)) then 
+				local object = level.object_by_id(who.id)
+				if (object) then
+					object:set_npc_position(to_pos)
+					success = true
+				else 
+					squad = get_object_squad(who)
+				end
+			elseif (who:clsid() == clsid.online_offline_group_s) then 
+				squad = who
+			end 
+			
+			if (squad and alife().teleport_object) then 
+				TeleportSquad(squad,db.actor:position(),db.actor:level_vertex_id(),db.actor:game_vertex_id())
+				success = true
+			end
+		end
+		
+		if (success) then 
+			local pos = string.format("%0.3f, %0.3f, %0.3f",to_pos.x,to_pos.y,to_pos.z)
+			return "teleport:= %s teleported to pos:%s",who:name(),pos
+		end
+	end
+	
+	return "teleport:= failed to teleport %s",who and who:name()
+end
+
+-- Wound
+function cmd.wound(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"id:<number>")
+	if not (wrd) then return end
+
+	local id
+	local vo
+	if (string.find(txt,"id:")) then
+		for s in string.gmatch(txt,"id:(%d+)") do
+			id = tonumber(s)
+		end
+
+		vo = level.object_by_id(id)
+		if not (vo) then
+			return "wound:= Wrong arugument given or object doesn't exist. id:<%s>",id
+		end
+	end
+
+	if (vo) then
+		vo:set_health_ex(0.05)
+		--[[
+		local h = hit()
+		h.power = vo.health+0.05
+		h.direction = vector()
+		h.bone = "bip01_spine"
+		h.draftsman = vo
+		h.impulse = 6000
+		h.type = hit.wound
+		vo:hit(h)
+		--]]
+		return "wound:= %s has been wounded.",vo:name()
+	end
+end
+
+local var_list = { ["actor"] = db.actor}
+function get_var_list()
+	return var_list
+end
+
+-- Var
+function cmd.var(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"<name> $code$")
+	if not (wrd) then return end
+
+	if (wrd == "clear") then
+		for k,v in pairs(var_list) do
+			var_list[k] = nil
+		end
+		return "var:= All vars cleared"
+	end
+
+	if (wrd == "list") then
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+
+		local page = wrd ~= "" and tonumber(wrd) or 1
+		local sz = owner.console_size-1
+
+		if not (sz) or (sz == 0) then return "var:= error" end
+
+		local list_sz = 0
+		for k,v in pairs(var_list) do
+			list_sz = list_sz + 1
+		end
+
+		local page_count = math.ceil(list_sz/sz)
+
+		if (page > page_count) then
+			return "var:= Invaild page"
+		end
+
+		owner:SendOutput("var:= Variable List [%s of %s]",page,page_count)
+
+		local a = {}
+		for n in pairs(var_list) do table.insert(a, n) end
+		table.sort(a)
+
+		local ind, out, k
+		for i=1,sz do
+			ind = (page*sz - sz) + i
+			k = ind > 0 and a[ind]
+			out = " "
+
+			if (k) then
+				local v = var_list[k]
+				if ( type(v) == "userdata" ) then
+					out = string.format("%s = %s",k,"userdata")
+					if (v.name and type(v.name) == "function" ) then
+						out = string.format("%s = userdata [%s]",k,v:name())
+					elseif (v.position) then
+						local pos
+						if (type(v.position) == "function") then
+							pos = v:position()
+							out = string.format("%s = userdata [%s,%s,%s]",k,pos.x,pos.y,pos.z)
+						else
+							pos = v.position
+							out = string.format("%s = userdata [%s,%s,%s]",k,pos.x,pos.y,pos.z)
+						end
+					elseif (v.x and v.y and v.z) then
+						out = string.format("%s = userdata [%s,%s,%s]",k,v.x,v.y,v.z)
+					end
+				elseif ( type(v) == "number" or type(v) == "string" or type(v) == "table" or type(v) == "function") then
+					out = string.format("%s = %s",k,v)
+				end
+			end
+			owner:SendOutput(out)
+		end
+		return
+	end
+
+	if (wrd) then
+		var_list[wrd] = p[1]
+		return "var:= variable %s set.",wrd
+	end
+end
+
+-- Vector
+function cmd.vector(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"{add|sub}")
+	if not (wrd) then return end
+
+	if (wrd == "add") then
+		local inc = {}
+
+		inc.v = match_or_var(txt,"v:",".%S+",p[1])
+
+		if not (inc.v) then
+			return "vector:= Wrong arugument given to inc -> v:"
+		end
+
+		inc.x = tonumber( match_or_var(txt,"x:",".%S+",p[2]) ) or 0
+		inc.y = tonumber( match_or_var(txt,"y:",".%S+",p[3]) ) or 0
+		inc.z = tonumber( match_or_var(txt,"z:",".%S+",p[4]) ) or 0
+
+		inc.v = inc.v:add( vector():set(inc.x,inc.y,inc.z) )
+		return "vector:= vector updated to vector"
+	end
+
+	if (wrd == "sub") then
+		local v = {}
+
+		v[1] = match_or_var(txt,"1:",".%S+",p[1])
+		v[2] = match_or_var(txt,"2:",".%S+",p[2])
+
+		if (v[1] and v[2]) then
+			local p1,p2
+			if ( type(v[1]) == "string" ) then
+				p1 = level.object_by_id( tonumber(p1) ):position()
+			else
+				p1 = v[1]
+			end
+
+			if ( type(v[2]) == "string" ) then
+				p2 = level.object_by_id( tonumber(p2) ):position()
+			else
+				p2 = v[2]
+			end
+
+			local pr = p1 and p2 and p1:sub(p2)
+			if (pr) then
+				return "vector:= %s,%s,%s",pr.x,pr.y,pr.z
+			end
+		end
+		return "vector:= Wrong arugument given or object(s) do not exist."
+	end
+end
+
+-- Offset
+function cmd.offset(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"{get}")
+	if not (wrd) then return end
+
+	if (wrd == "get") then
+
+		if (string.find(txt,"help")) then
+			return "offset get [ 1:<id> 2:<id> | 1:<$var$> 2:<$var$> ]"
+		end
+
+		local v = {}
+		v[1] = match_or_var(txt,"1:",".%S+",p[1])
+		v[2] = match_or_var(txt,"2:",".%S+",p[2])
+
+		if (v[1] and v[2]) then
+			local p1,p2
+			if ( type(v[1]) == "string" ) then
+				p1 = level.object_by_id( tonumber(p1) )
+			else
+				p1 = v[1]
+			end
+
+			if ( type(v[2]) == "string" ) then
+				p2 = level.object_by_id( tonumber(p2) )
+			else
+				p2 = v[2]
+			end
+
+			local pr = get_position_offset(v[1],v[2])
+			if (pr) then
+				return "offset:= position(%s,%s,%s)",pr.x,pr.y,pr.z
+			end
+		else
+			return "offset:= type offset get help"
+		end
+	end
+
+end
+
+function cmd.object(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"{count}")
+	if not (wrd) then return end
+	
+	if (wrd == "count") then
+		local count = 0
+		alife():iterate_objects_without_actor(function(se_obj)
+			count = count + 1
+		end)
+		return "object:= there are %s ids in use.",count
+	end
+	return "object:= try object count <number>"
+end 
+
+function get_position_offset(npc,o)
+	local sec = o and type(o.section) == "function" and o:section()
+	if not (sec) then
+		return
+	end
+
+	local attach_bone_name = ini_sys:r_string_ex(sec,"attach_bone_name")
+	if not (attach_bone_name) then
+		return
+	end
+	local pos1 = utils_obj.safe_bone_pos(npc,attach_bone_name)--npc:bone_position(attach_bone_name)
+	local pos2 = o:center()
+	return pos1:sub(pos2)
+end
+
+function match_or_var(txt,token,pat,var)
+	if (var and var_list[var]) then
+		return var_list[var]
+	end
+
+	if (string.find(txt,token)) then
+		local v
+		for s in string.gmatch(txt,token.."("..pat..")") do
+			v = s
+		end
+		return v
+	end
+end
+
+-- Hud
+function cmd.hud(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[on|off]")
+	if not (wrd) then return end
+
+	if (wrd == "on") then
+		save_var(db.actor,"disable_debug_draw",false)
+		return "hud:= debug hud enabled"
+	end
+
+	if (wrd == "off") then
+		save_var(db.actor,"disable_debug_draw",true)
+		return "hud:= debug hud disabled"
+	end
+
+	return "hud:= type hud help for list of sub commands"
+end
+
+-- God
+function cmd.god(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[on|off]")
+	if not (wrd) then return end
+
+	if (wrd == "on") then
+		xrs_debug_tools.debug_god = true
+		--exec_console_cmd("g_god on")
+		return "god:= invincibility enabled"
+	end
+
+	if (wrd == "off") then
+		xrs_debug_tools.debug_god = nil
+		--exec_console_cmd("g_god off")
+		return "god:= invincibility disabled"
+	end
+
+	return "god:= type god help for list of sub commands"
+end
+
+-- Invisible
+function cmd.invisible(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[on|off]")
+	if not (wrd) then return end
+
+	if (wrd == "on") then
+		xrs_debug_tools.debug_invis = true
+		return "invisible:= invisibility enabled"
+	end
+
+	if (wrd == "off") then
+		xrs_debug_tools.debug_invis = nil
+		return "invisible:= invisibility disabled"
+	end
+
+	return "invisible:= type invisible help for list of sub commands"
+end
+
+function cmd.crow(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[on|off]")
+	if not (wrd) then return end
+
+	if (wrd == "on") then
+		local se_crow = utils_obj.nearest_object("m_crow")
+		if (se_crow) then
+			xrs_debug_tools.crow_fun = se_crow.id
+			return "crow:= enabled"
+		end
+		return "crow:= no crows found"
+	end
+
+	if (wrd == "off") then
+		xrs_debug_tools.crow_fun = nil
+		return "crow:= disabled"
+	end
+
+	return "crow:= type crow help for list of sub commands"
+end
+
+local heli_id
+function cmd.heli(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[spawn|move]")
+	if not (wrd) then return end
+
+	if (wrd == "spawn") then
+		local se_heli = utils_stpk.spawn_heli()
+		if (se_heli) then
+			heli_id = se_heli.id
+			return "heli:= Spawned at actor position"
+		end
+		return "heli:= Spawning failed"
+	end
+
+	if (wrd == "move") then
+		local str
+		if (string.find(txt,"pos:")) then
+			for s in string.gmatch(txt,"pos:(.%S+)") do
+				str = s
+			end
+		end
+
+		if (str and str ~= "") then
+			str = str_explode(str,",")
+			str.x = tonumber(str[1])
+			str.y = tonumber(str[2])
+			str.z = tonumber(str[3])
+		end
+
+		local obj = level.object_by_id(heli_id)
+		local heli = obj and obj:get_helicopter()
+		if (heli) then
+			local pos = str or db.actor:position()
+			heli:SetDestPosition(vector():set(pos.x,pos.y,pos.z))
+			return "heli:= destination set to actor position"
+		end
+		return "heli:= move failed"
+	end
+
+	if (wrd == "attack") then
+
+
+
+
+	end
+	return "heli:= type heli help for list of sub commands"
+end
+
+-- weather
+local weather_list
+function cmd.weather(me,txt,owner,p)
+	local wrd,rest = check_and_set_help(me,txt,owner,"[list <page> | <weather_name> ]")
+	if not (wrd) then return end
+
+	if (wrd == "list") then
+		if not (weather_list) then
+			weather_list = {}
+			local f = getFS()
+			local flist = f:file_list_open("$game_weathers$",1)
+			local f_cnt = flist:Size()
+
+			for	it=0, f_cnt-1 do
+				local file = flist:GetAt(it)
+				table.insert(weather_list,file)
+			end
+			
+			flist:Free()
+		end
+
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+
+		local page = wrd ~= "" and tonumber(wrd) or 1
+
+		local sz = owner.console_size
+
+		if not (sz) or (sz == 0) then return "weather:= error" end
+
+		local list_sz = 0
+		for k,v in pairs(weather_list) do
+			list_sz = list_sz + 1
+		end
+
+		local page_count = math.ceil(list_sz/sz)
+
+		if (page > page_count) then
+			return "weather:= Invaild page"
+		end
+
+		table.sort(weather_list)
+
+		owner:SendOutput("weather:= Weathers List [%s of %s]",page,page_count)
+		owner:SendOutputList(weather_list,(page*sz)-sz,sz-1)
+
+		return
+	elseif (wrd == "set") then
+		level.set_weather(rest,true)
+		return "weather:= weather set to " .. rest
+		
+	elseif (wrd == "reload") then
+		weather.reload()
+		return "weather:= reloaded weather configs"
+	end
+	return "weather: type weather help for a list of commands. Exclude .ltx when setting weather"
+end
+
+-- time
+function cmd.time(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[day,hour,minute]")
+	if not (wrd) then return end
+
+	local t = str_explode(txt,",")
+	if (t) then
+		--set_current_time(tonumber(t[1]),tonumber(t[2]),tonumber(t[3]))
+		level.change_game_time( tonumber(t[1]),tonumber(t[2]),tonumber(t[3]) )
+		level_weathers.get_weather_manager():forced_weather_change()
+	end
+end
+
+-- money
+function cmd.money(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"<amount>")
+	if not (wrd) then return end
+	local amt = tonumber(wrd) or 1000
+	db.actor:give_money(amt)
+	return "money:= gave actor "..amt.." RU. You dirty cheater, I'm going to find you and cut your legs off!"
+end
+
+-- luabind (not working)
+function cmd.luabind(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[list | info]")
+	if not (wrd) then return end
+	
+	if (wrd == "list") then
+		if not (_G.class_names) then 
+			return "luabind:= error no class_names()"
+		end 
+		
+		local class_names = _G.class_names()
+		table.sort(class_names)
+		
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+
+		local page = wrd ~= "" and tonumber(wrd) or 1
+
+		local sz = owner.console_size
+
+		if not (sz) or (sz == 0) then return "luabind:= error" end
+
+		local list_sz = 0
+		for k,v in pairs(class_names) do
+			list_sz = list_sz + 1
+		end
+
+		local page_count = math.ceil(list_sz/sz)
+
+		if (page > page_count) then
+			return "luabind:= Invaild page"
+		end
+
+		owner:SendOutput("luabind:= class_names() [%s of %s]",page,page_count)
+		owner:SendOutputList(class_names,(page*sz)-sz,sz-1)
+		return
+	elseif (wrd == "info") then 
+		if not (_G.class_info) then 
+			return "luabind:= error no class_info()"
+		end 
+		
+		if (string.find(txt,"help")) then
+			return "luabind select userdata:<$var$>"
+		end
+
+		local v = {}
+		v[1] = match_or_var(txt,"userdata:",".%S+",p[1])
+		if (v[1]) then
+			local c = class_info(v[1])
+			if not (c) then 
+				return "luabind:= error; no class info for userdata (not luabind class?)"
+			end
+			wrd = ""
+			local _strt, _end = string.find(txt,"%d+")
+			if (_strt and _end) then
+				wrd = string.sub(txt,_strt, _end)
+				wrd = string.lower(wrd)
+			end
+
+			local page = wrd ~= "" and tonumber(wrd) or 1
+
+			local sz = owner.console_size
+
+			if not (sz) or (sz == 0) then return "luabind:= error" end
+
+			local list_sz = 0
+			for k,v in pairs(class_names) do
+				list_sz = list_sz + 1
+			end
+
+			local page_count = math.ceil(list_sz/sz)
+
+			if (page > page_count) then
+				return "luabind:= invaild page"
+			end
+			owner:SendOutput("luabind:= class=%s",c.name)
+			owner:SendOutputList(c.methods,(page*sz)-sz,sz-1)
+			return
+		else
+			return "luabind:= no class/userdata specified. (ex. luabind select userdata:$npc$)"
+		end 
+	end
+	return "luabind:= type luabind help for a list of commands"
+end 
+
+-- level
+function cmd.level(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"<name> | [list]")
+	if not (wrd) then return end
+
+	if (wrd == "list") then
+
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+		local page = wrd ~= "" and tonumber(wrd) or 1
+
+		local levels = utils_data.collect_section(game_ini(),"level_maps_single")
+
+		local sz = owner.console_size
+		local list_sz = 0
+		for k,v in pairs(levels) do
+			list_sz = list_sz + 1
+		end
+
+		local page_count = math.ceil(list_sz/sz)
+
+		if (page > page_count) then
+			return "level:= Invaild page"
+		end
+
+		owner:SendOutput("level:= list of available levels by name [%s of %s]",page,page_count)
+		owner:SendOutputList(levels,(page*sz)-sz,sz-1)
+
+		return
+	end
+	
+	local level_name = level.name()
+	if (JumpToLevel(wrd)) then 
+		return "level:= level changer successfully created at your position from"..level_name.." to "..wrd.." (Spawning at first found gvid)"
+	end
+
+	--[[ depreciated
+	local levels = { 	["zaton_jupiter"] = {467.306884765625,55.5276184082031,12.9044094085693},
+						["zaton_pripyat"] = {467.206878662109,55.5276184082031,3.20440793037415},
+						["jupiter_zaton"] = {-7.12386798858643,14.484338760376,154.085464477539},
+						["jupiter_jupiter_underground"] = {460.005798339844,46.0688896179199,-295.460784912109},
+						["jupiter_pripyat"] = {-16.3238716125488,14.484338760376,142.785461425781},
+						["pripyat_zaton"] = {150.91047668457,22.3456954956055,-287.9228515625},
+						["pripyat_jupiter"] = {139.08171081543,22.3457069396973,-287.870025634766},
+						["pripyat_labx8"] = {-78.0360107421875,-7.04113388061523,100.684921264648},
+						["labx8_pripyat"] = {-78.062873840332,23.8045539855957,100.718994140625}
+	}
+	local level_name = level.name()
+	if (levels[level_name.."_"..wrd]) then
+		db.actor:set_actor_position(vector():set(levels[level_name.."_"..wrd][1],levels[level_name.."_"..wrd][2],levels[level_name.."_"..wrd][3]))
+		return "level:= teleporting player from "..level_name.." to "..wrd
+	end
+
+	local sim = alife()
+	local gg = game_graph()
+	local level,data
+	local default_vertex
+	local function create_lc(gvid,vertex)
+		local se_obj = sim:create("level_changer",db.actor:position(),db.actor:level_vertex_id(),db.actor:game_vertex_id())
+		if (se_obj) then
+			bind_stalker_ext.REMOVE_ME_LC = se_obj.id
+			local lvid = vertex:level_vertex_id()
+			local pos = vertex:level_point()
+
+			data = utils_stpk.get_level_changer_data(se_obj)
+			if (data) then
+				data.dest_game_vertex_id = gvid
+				data.dest_level_vertex_id = lvid
+				data.dest_position = pos
+				data.dest_direction = VEC_ZERO
+				data.dest_level_name = level
+				data.silent_mode = 1
+				
+				data.shapes[1] = {}
+				data.shapes[1].shtype = 0
+				data.shapes[1].offset = VEC_ZERO
+				data.shapes[1].radius = 5
+				
+				data.hint = "level_changer_invitation"
+
+				utils_stpk.set_level_changer_data(data,se_obj)
+			end
+		end
+	end 
+	
+	for gvid=0, 4836 do
+		if gg:valid_vertex_id(gvid) then
+			vertex = gg:vertex(gvid)
+			level = sim:level_name(vertex:level_id())
+			if (level == wrd) then
+				if (not vertex.name or string.find(vertex:name(),"actor_spawn")) then
+					create_lc(gvid,vertex)
+					return "level:= level changer successfully created at your position from"..level_name.." to "..wrd.." (Actor spawn point found!)"
+				elseif not (default_vertex) then
+					default_vertex = vertex
+				end
+			end
+		else
+			break
+		end
+		gvid = gvid + 1
+	end
+	
+	if (default_vertex) then 
+		create_lc(gvid,vertex)
+		return "level:= level changer successfully created at your position from"..level_name.." to "..wrd.." (Spawning at first found gvid)"
+	end
+	--]]
+
+	return "level:= there is no level changer between "..level_name.." and "..wrd
+end
+
+function cmd.warpall(me,txt,owner,p)
+	local levels = utils_data.collect_section(game_ini(),"level_maps_single")
+	if (levels[1]) then
+		save_var(db.actor,"debug_warpall",1)
+		_G.JumpToLevel(levels[1])
+	end
+	return "warpall := warping to every single level then flushing log"
+end
+
+-- dev_debug
+function cmd.dev_debug(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[on | off]")
+	if not (wrd) then return end
+	if (wrd == "on") then
+		_G.DEV_DEBUG = true
+	elseif (wrd == "off") then
+		_G.DEV_DEBUG = false
+	end
+	return "dev_debug:= type dev_debug help for list of sub commands."
+end
+
+-- game_graph
+function cmd.game_graph(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[show | near | checkall]")
+	if not (wrd) then return end
+
+	if (wrd == "show") then
+		local gg = game_graph()
+		local vertex, level_name, lvid, pos, se_obj
+		local sim = alife()
+		local gvid = 0
+		local lgvid = 0
+		local level = level
+		while gg:valid_vertex_id(gvid) do
+			vertex = gg:vertex(gvid)
+			level_name = alife():level_name(vertex:level_id())
+			lvid = vertex:level_vertex_id()
+			pos = vertex:level_point()
+
+			se_obj = sim:create("medkit", pos, lvid, gvid)
+			level.map_add_object_spot_ser(se_obj.id, "treasure", level_name.." Gvid:"..gvid)
+
+			if (level_name == level.name()) then
+				lgvid = lgvid + 1
+			end
+			gvid = gvid + 1
+		end
+		return "game_graph:= spots created. There are "..lgvid.." in "..level.name().." and "..gvid.." total."
+	elseif (wrd == "near") then
+		local gg = game_graph()
+		local vertex, level_name, lvid, pos
+		local near_lvid, near_dist, near_gvid, dist
+		local gvid = 0
+		local lgvid = 0
+		local level = level
+		while gg:valid_vertex_id(gvid) do
+			vertex = gg:vertex(gvid)
+			level_name = alife():level_name(vertex:level_id())
+			if (level_name == level.name()) then
+				pos = vertex:level_point()
+
+				dist = db.actor:position():distance_to_sqr(pos)
+
+				if not (near_dist) then
+					near_gvid = gvid
+					near_dist = dist
+				end
+
+				if (dist < near_dist) then
+					near_gvid = gvid
+					near_dist = dist
+				end
+				lgvid = lgvid + 1
+			end
+			gvid = gvid + 1
+		end
+		return "game_graph:= nearest gvid = " .. near_gvid .. " [dist = " .. near_dist .. "] There are "..lgvid.." in "..level.name().." and "..gvid.." total."
+	elseif (wrd == "checkall") then
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+		local page = wrd ~= "" and tonumber(wrd) or 1
+		
+		local issues = {}
+		local gg = game_graph()
+		local vertex
+		alife():iterate_objects_without_actor(function(se_obj)
+			if not gg:valid_vertex_id(se_obj.m_game_vertex_id) then
+				issues[#issues+1] = se_obj:name()
+			end
+		end)
+		
+		if (#issues == 0) then 
+			return "game_graph:= no issues found"
+		end
+		
+		local sz = owner.console_size
+		local page_count = math.ceil(#issues/sz)
+
+		if (page > page_count) then
+			return "game_graph:= Invalid page"
+		end
+
+		owner:SendOutput("game_graph:= list of objects with invalid game_vertex_ids [%s of %s]",page,page_count)
+		owner:SendOutputList(issues,(page*sz)-sz,sz-1)
+		return
+	end
+	return "game_graph:= type game_graph help for list of commands"
+end
+
+-- item
+function cmd.item(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[list <page> ]")
+	if not (wrd) then return end
+
+	if (wrd == "list") then
+		if not (se_item.registered_items) then
+			return "item:= error no registered_items list"
+		end
+
+		wrd = ""
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+
+		local page = wrd ~= "" and tonumber(wrd) or 1
+		local sz = owner.console_size - 1
+
+		if not (sz) or (sz == 0) then return "item:= error" end
+
+		local list_sz = 0
+		for k,v in pairs(se_item.registered_items) do
+			list_sz = list_sz + 1
+		end
+
+		local page_count = math.ceil(list_sz/sz)
+
+		if (page > page_count) then
+			return "item:= Invaild page"
+		end
+
+		owner:SendOutput("item:= Registered Item List [%s of %s]",page,page_count)
+
+		local a = {}
+		for n in pairs(se_item.registered_items) do table.insert(a, n) end
+		table.sort(a)
+
+		local ind, out, k
+		for i=1,sz do
+			ind = (page*sz - sz) + i
+			k = ind > 0 and a[ind]
+			out = " "
+			if (k) then
+				out = string.format("%s [count: %s]",k,se_item.registered_items[k])
+			end
+			owner:SendOutput(out)
+		end
+		return
+	end
+	return "item:= type item help for a list of subcommands"
+end
+
+-- info
+function cmd.info(me,txt,owner,p)
+	local wrd,rest = check_and_set_help(me,txt,owner,"[list <page> | give | take | pas_b400 ]")
+	if not (wrd) then return end
+
+	if (wrd == "give") then
+		give_info(rest)
+		return "info:= info given"
+	elseif (wrd == "take") then
+		disable_info(rest)
+		return "info:= disabled"
+	elseif (wrd == "clear") then 
+		local function itr(id,info)
+			disable_info(info)
+		end
+		alife():iterate_info(0,itr)
+		return "info:= all info portions removed from actor"
+	elseif (wrd == "pas_b400") then
+		give_info("pas_b400_task_given")
+		give_info("pas_b400_underpass_start")
+		give_info("pas_b400_sr_elevator_1_passed")
+		give_info("pas_b400_canalisation_done")
+		give_info("pas_b400_done")
+		give_info("jup_b218_monolith_hired")
+		give_info("pas_b400_elevator_done")
+		give_info("pas_b400_sr_elevator_5")
+		give_info("pas_b400_track_done")
+		give_info("pas_b400_sr_track_4")
+		give_info("pas_b400_downstairs_done")
+		give_info("pas_b400_sr_downstairs_2")
+		give_info("pas_b400_tunnel_done")
+		give_info("pas_b400_snork_tunnel_4_attack")
+		give_info("pas_b400_snork_tunnel_2_jumped")
+		give_info("pas_b400_snork_tunnel_3_jumped")
+		give_info("pas_b400_sr_tunnel_5_in")
+		give_info("pas_b400_hall_done")
+		give_info("pas_b400_hall_monolith_squad_dead")
+		give_info("pas_b400_hall_monolith_snipers_dead")
+		give_info("pas_b400_way_done")
+		give_info("pas_b400_sr_way_2")
+		give_info("pas_b400_canalisation_snork_rl_spawned")
+		give_info("pas_b400_disabled_ui")
+		give_info("jup_a10_vano_agree_go_und")
+		give_info("leader_achievement_gained")
+		give_info("jup_b218_soldier_hired")
+
+		if (xr_conditions.squad_exist(db.actor,db.actor,{"jup_b15_zulus_squad"})) then
+			xr_effects.create_squad_member(db.actor,db.actor,{"jup_b218_vano_in_suit","jup_b15_zulus_squad","jup_a6_jup_b218_squad_member_arrive_walk"})
+			xr_effects.create_squad_member(db.actor,db.actor,{"pri_a15_sokolov_sci","jup_b15_zulus_squad","jup_a6_jup_b218_squad_member_arrive_walk"})
+			xr_effects.create_squad_member(db.actor,db.actor,{"jup_b4_monolith_squad_leader_freedom_mon_skin","jup_b15_zulus_squad","jup_a6_jup_b218_squad_member_arrive_walk"})
+		end
+		return "info:= jupiter underpass info given to actor"
+	end
+
+
+	if (wrd == "list") then
+		if not (xrs_debug_tools.actor_info) then
+			return "info:= actor_info empty"
+		end
+
+		wrd = ""
+		local _strt, _end = string.find(rest,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+
+		local page = wrd ~= "" and tonumber(wrd) or 1
+
+		local sz = owner.console_size-1
+
+		if not (sz) or (sz == 0) then return "info:= error" end
+
+		local list_sz = 0
+		for k,v in pairs(xrs_debug_tools.actor_info) do
+			list_sz = list_sz + 1
+		end
+
+		local page_count = math.ceil(list_sz/sz)
+		if (page > page_count) then
+			return list_sz > 0 and "info: nothing in list" or "info:= Invaild page"
+		end
+
+		owner:SendOutput("info:= Infoportions [%s of %s]",page,page_count)
+
+		local a = {}
+		for n in pairs(xrs_debug_tools.actor_info) do table.insert(a, n) end
+		table.sort(a)
+
+		local ind, out, k
+		for i=1,sz do
+			ind = (page*sz - sz) + i
+			k = ind > 0 and a[ind]
+			owner:SendOutput(k or " ")
+		end
+		return
+	end
+	return "info:= type info help for a list of subcommands"
+end
+
+-- cmd.inventory_owner
+function cmd.inventory_owner(me,txt,owner,p)
+	local wrd,rest = check_and_set_help(me,txt,owner,"[removeall]")
+	if (wrd == "removeall") then 
+		wrd = first_word(rest)
+		if (wrd == "help") then 
+			return "inventory_owner:= try 'inventory_owner removeall id:<number>'"
+		end 
+		
+		local id
+		for s in string.gmatch(txt,"id:(%d+)") do
+			id = tonumber(s)
+		end
+		if not (id) then
+			return "inventory_owner:= type 'inventory_owner removeall help'"
+		end
+		
+		local count = 0
+		local sim = alife()
+		sim:iterate_objects_without_actor(function(se_obj)
+			if se_obj.parent_id == id then 
+				sim:release(se_obj,true)
+				count = count + 1
+			end
+		end)
+		if (count > 0) then 
+			return "inventory_owner:= removed %s children from inventory_owner",count
+		end
+		return "inventory_owner:= failed to remove any children from inventory_owner"
+	end
+	return "inventory_owner:= type 'inventory_owner help' for a list of subcommands"
+end 
+
+-- cmd.antifreeze
+function antifreeze_switch(id)
+	local sim = alife()
+	local se_obj = sim:object(id)
+	if not (se_obj) then 
+		return true 
+	end 
+	if (se_obj:can_switch_offline()) then
+		utils_obj.switch_offline(se_obj.id)
+	elseif (se_obj:can_switch_online()) then
+		utils_obj.switch_online(se_obj.id)
+	end
+	return true
+end 
+function cmd.antifreeze(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"[npc [<time>]] (ex.1: antifreeze 5 | ex.2: antifreeze npc 5)")
+	
+	local function tele_to_actor(id)
+		local sim = alife()
+		local se_obj = sim:object(id)
+		if not (se_obj) then 
+			return true 
+		end
+		local cls = se_obj:clsid()
+		if (cls == clsid.online_offline_group_s) then
+			TeleportSquad(se_obj,db.actor:position(),db.actor:level_vertex_id(),db.actor:game_vertex_id())
+		elseif (IsStalker(nil,cls) or IsMonster(nil,cls)) then 
+			if (alife().teleport_object) then 
+				alife():teleport_object(se_obj,db.actor:game_vertex_id(),db.actor:level_vertex_id(),db.actor:position())
+			end
+		end
+		return true
+	end  
+	
+	local function repeater(a)
+		CreateTimeEvent(a,"antifreeze",wrd,antifreeze_switch,a)
+		return false
+	end
+	
+	if (wrd == "npc") then 
+		local _strt, _end = string.find(txt,"%d+")
+		if (_strt and _end) then
+			wrd = string.sub(txt,_strt, _end)
+			wrd = string.lower(wrd)
+		end
+
+		wrd = wrd ~= "" and tonumber(wrd) or 5
+
+		se_obj = alife_create("sim_default_stalker_0", db.actor:position(), db.actor:level_vertex_id(), db.actor:game_vertex_id())
+		if not (se_obj) then 
+			return "antifreeze:= failed to create stalker "
+		end
+		CreateTimeEvent(se_obj.id,"repeater",10,repeater,se_obj.id)
+	else 
+		wrd = tonumber(wrd) or 5 
+		
+		if not (smart_terrain.nearest_to_actor_smart.id) then 
+			return "antifreeze:= no nearest smart"
+		end 
+		
+		local smart = alife_object(smart_terrain.nearest_to_actor_smart.id)
+		if not (smart) then 
+			return "antifreeze:= smart by id " .. smart_terrain.nearest_to_actor_smart.id .. "does not exist."
+		end 
+		
+		local se_obj = SIMBOARD:create_squad(smart,"stalker_sim_squad_novice")
+		if not (se_obj) then 
+			return "antifreeze:= failed to create squad "
+		end 
+		
+		se_obj.scripted_target = "actor"
+		
+		CreateTimeEvent(se_obj.id,"teleport",1,tele_to_actor,se_obj.id)
+		CreateTimeEvent(se_obj.id,"repeater",1,repeater,se_obj.id)
+	end
+	
+	return "antifreeze:= created object and teleported to your position!"
+end 
+
+function cmd.pstor_test(me,txt,owner,p)
+	local wrd = check_and_set_help(me,txt,owner,"saves 2000 boolean to db.actor using pstor_store")
+	if not (db.actor) then 
+		return "pstor_test:= actor not present"
+	end 
+	
+	for _ = 1, 2000 do
+		local var = tostring( math.random() ):sub( 1, 10 )
+		local val = tostring( math.random() ):sub( 1, 10 )
+		printf("%s | %s",var,val)
+		save_var( db.actor, var, val )
+	end
+
+	return "pstor_test:= successfully saved 2000 values to db.actor pstor"
+end
+
+debug_visuals = nil
+function cmd.debug_visuals(me,txt,owner,p)
+	local wrd,rest = check_and_set_help(me,txt,owner,"[all|<visual_name>]")
+	if (wrd) and (wrd == "all" or wrd ~= "") then
+		local check_all = wrd == "all"
+		
+		debug_visuals = {}
+		
+		local gvid = db.actor:game_vertex_id()
+		local pos = db.actor:position()
+
+		local dist = 1
+		local f = getFS()
+		local flist = f:file_list_open_ex("$game_meshes$",bit_or(FS.FS_ListFiles),"*.ogf")
+		local f_cnt = flist:Size()
+		for	it=0, f_cnt-1 do
+			local file = flist:GetAt(it)
+			local visual_name = file:NameFull():sub(1,-5)
+
+			if (check_all or string.find(visual_name,wrd)) then
+				if (string.find(visual_name,"actors\\") == 1 and not string.find(visual_name,"trader") and not string.find(visual_name,"lesnik")) then
+					local newpos = vector():set(pos)
+					newpos:add(vector():set(device().cam_dir):mul(dist))
+					newpos = vector():set(newpos.x,pos.y,newpos.z)
+					local lvid = level.vertex_id(newpos)
+					local se_obj = alife_create("sim_default_stalker_0",newpos,lvid,gvid)
+					if (se_obj) then
+						alife_create_item("wpn_pkm", se_obj)
+						--printf("%s visual:= %s",se_obj:name(),visual_name)
+						debug_visuals[se_obj.id] = visual_name
+					end
+					dist = dist + 1
+				end
+			end
+		end
+		return "debug_visuals:= done!"
+	end
+	return "debug_visuals:= type debug_visuals help for a list of subcommands."
+end
+
+function cmd.gulag(me,txt,owner,p)
+	local wrd,rest = check_and_set_help(me,txt,owner,"[export]")
+	if (wrd) then
+		if (wrd  == "export") then 
+			alife():iterate_objects_without_actor(function(se_obj)
+				if se_obj:clsid() == clsid.smart_terrain then 
+					gulag_general.load_job(se_obj,true)
+				end
+			end)
+			return "gulag export done"
+		end
+	end
+	return "gulag:= type gulag help for a list of subcommands."
+end
+
+
+-- Tronex
+function cmd.alife_release(_,txt,x)
+	local common = (txt == "common")
+	local all = (txt == "all")
+	local sim = alife()
+	local c = 0
+	for id,_ in pairs(SIMBOARD.squads) do
+		local se_squad = sim:object(id)
+		if se_squad then
+			if common then
+				--if (not get_object_story_id(id)) then
+				if se_squad.common then
+					se_squad:remove_squad()
+					c = c + 1
+				end
+			elseif all then
+				se_squad:remove_squad()
+				c = c + 1
+			end
+		end
+	end
+	if c == 0 then
+		--x:SendOutput('!Nothing is released dummy. Try (alife_release all) or (alife_release common)')
+		x:SendOutput('!No squads found')
+	else
+		x:SendOutput('-Released %s stalkers and mutants: %s squads', txt, c)
+	end
+end
+
+function cmd.alife_print_npc(_,txt,x)
+
+-- alife_print_info all 			(print count of all npcs, works without stating "all" too)
+-- alife_print_info human 			(print count of all humans, communities sorted)
+-- alife_print_info human killer 	(print count of all humans that belong to mercs)
+-- alife_print_info monster 		(print count of all mutants)
+
+	local a = {}
+	local b = split(txt) or {}
+	if (not b[1]) then
+		b[1] = "all"
+	end
+	
+	local is_s = (b[1] == "human") or (b[1] == "all") or false
+	local is_m = (b[1] == "monster") or (b[1] == "all") or false
+	if (not is_s) and (not is_m) then
+		return
+	end
+	
+	alife():iterate_objects_without_actor(function(se_obj)
+		if (se_obj.group_id ~= nil and se_obj.group_id ~= 65535) then 
+			if is_s and IsStalker(nil,se_obj:clsid()) then
+				local comm = se_obj:community()
+				if (not b[2]) or (b[2] and b[2] == comm) then
+					a[comm] = a[comm] and (a[comm] + 1) or 1
+				end
+			elseif (not b[2]) and is_m and IsMonster(nil,se_obj:clsid()) then
+				a["monster"] = a["monster"] and (a["monster"] + 1) or 1
+			end
+		end
+	end)
+	
+	local tot = 0
+	x:SendOutput('___________________________________')
+	for k,v in pairs(a) do
+		tot = tot + v
+		x:SendOutput('NPC count of %s: %s',k,v)
+	end
+	x:SendOutput('NPC count of %s: %s',txt,tot)
+end
+
+function cmd.alife_print_squad(_,txt,x)
+
+-- alife_print_squad all 			(print count of all squads, works without stating "all" too)
+-- alife_print_squad human 			(print count of all human squads, communities sorted)
+-- alife_print_squad human killer 	(print count of all human squads that belong to mercs)
+-- alife_print_squad monster 		(print count of all mutant squads)
+
+	local a = {}
+	local b = split(txt) or {}
+	if (not b[1]) then
+		b[1] = "all"
+	end
+	
+	local is_s = (b[1] == "human") or (b[1] == "all") or false
+	local is_m = (b[1] == "monster") or (b[1] == "all") or false
+	if (not is_s) and (not is_m) then
+		return
+	end
+	
+	local sim = alife()
+	for id,v in pairs( SIMBOARD.squads ) do
+		local squad = sim:object(id)
+		if (squad) then
+			if (not b[2]) and is_m and (is_squad_monster[squad.player_id]) then
+				a[squad.player_id] = a[squad.player_id] and (a[squad.player_id] + 1) or 1
+			elseif is_s and (not is_squad_monster[squad.player_id]) and (not get_object_story_id(squad.id)) then
+				if (not b[2]) or (b[2] and b[2] == squad.player_id) then
+					a[squad.player_id] = a[squad.player_id] and (a[squad.player_id] + 1) or 1
+				end
+			end
+		end
+	end
+	
+	local tot = 0
+	x:SendOutput('___________________________________')
+	for k,v in pairs(a) do
+		tot = tot + v
+		x:SendOutput('Squad count of %s: %s',k,v)
+	end
+	x:SendOutput('Squad count of %s: %s',txt,tot)
+end
+
+function cmd.alife_report(_,txt,x)
+	local alife_tbl = {}
+	local clsid_tbl = {}
+	local clsid_tbl_1 = {
+		["actor"] = 90,
+		["art_bast_artefact"] = 0,
+		["art_black_drops"] = 1,
+		["art_cta"] = 3,
+		["art_dummy"] = 4,
+		["art_electric_ball"] = 5,
+		["art_faded_ball"] = 6,
+		["art_galantine"] = 7,
+		["art_gravi"] = 8,
+		["art_gravi_black"] = 2,
+		["art_mercury_ball"] = 9,
+		["art_needles"] = 10,
+		["art_rusty_hair"] = 11,
+		["art_thorn"] = 12,
+		["art_zuda"] = 13,
+		["artefact"] = 41,
+		["artefact_s"] = 102,
+		["bloodsucker"] = 14,
+		["bloodsucker_s"] = 108,
+		["boar"] = 15,
+		["boar_s"] = 109,
+		["burer"] = 16,
+		["burer_s"] = 110,
+		["car"] = 52,
+		["cat"] = 17,
+		["cat_s"] = 111,
+		["chimera"] = 29,
+		["chimera_s"] = 112,
+		["controller"] = 18,
+		["controller_s"] = 113,
+		["crow"] = 19,
+		["destrphys_s"] = 93,
+		["device_detector_advanced"] = 53,
+		["device_detector_elite"] = 54,
+		["device_detector_scientific"] = 57,
+		["device_detector_simple"] = 58,
+		["device_flare"] = 55,
+		["device_pda"] = 56,
+		["device_torch"] = 59,
+		["device_torch_s"] = 146,
+		["dog_black"] = 20,
+		["dog_red"] = 23,
+		["dog_s"] = 116,
+		["equ_exo"] = 60,
+		["equ_military"] = 61,
+		["equ_scientific"] = 62,
+		["equ_stalker"] = 63,
+		["equ_stalker_s"] = 65,
+		["equ_helmet_s"] = 70,
+		["flesh"] = 24,
+		["flesh_group"] = 25,
+		["flesh_s"] = 117,
+		["fracture"] = 26,
+		["fracture_s"] = 119,
+		["game_cl_artefact_hunt"] = 45,
+		["game_cl_capture_the_artefact"] = 46,
+		["game_cl_deathmatch"] = 47,
+		["game_cl_single"] = 48,
+		["game_cl_team_deathmatch"] = 49,
+		["game_sv_artefact_hunt"] = 129,
+		["game_sv_capture_the_artefact"] = 130,
+		["game_sv_deathmatch"] = 131,
+		["game_sv_single"] = 132,
+		["game_sv_team_deathmatch"] = 133,
+		["game_ui_artefact_hunt"] = 147,
+		["game_ui_capture_the_artefact"] = 148,
+		["game_ui_deathmatch"] = 149,
+		["game_ui_single"] = 150,
+		["game_ui_team_deathmatch"] = 151,
+		["gigant_s"] = 118,
+		["graph_point"] = 28,
+		["hanging_lamp"] = 94,
+		["helicopter"] = 50,
+		["helmet"] = 64,
+		["hlamp_s"] = 125,
+		["hud_manager"] = 74,
+		["inventory_box"] = 95,
+		["inventory_box_s"] = 140,
+		["level"] = 69,
+		["level_changer"] = 84,
+		["level_changer_s"] = 85,
+		["main_menu"] = 86,
+		["mp_players_bag"] = 87,
+		["nogravity_zone"] = 211,
+		["obj_antirad"] = 75,
+		["obj_antirad_s"] = 135,
+		["obj_attachable"] = 76,
+		["obj_bandage"] = 77,
+		["obj_bandage_s"] = 136,
+		["obj_bolt"] = 78,
+		["obj_bottle"] = 79,
+		["obj_bottle_s"] = 137,
+		["obj_breakable"] = 91,
+		["obj_climable"] = 92,
+		["obj_document"] = 80,
+		["obj_explosive"] = 81,
+		["obj_explosive_s"] = 138,
+		["obj_food"] = 82,
+		["obj_food_s"] = 139,
+		["obj_medkit"] = 83,
+		["obj_medkit_s"] = 142,
+		["obj_pda_s"] = 144,
+		["obj_phskeleton"] = 100,
+		["obj_phys_destroyable"] = 99,
+		["obj_physic"] = 96,
+		["online_offline_group"] = 88,
+		["online_offline_group_s"] = 89,
+		["phantom"] = 30,
+		["poltergeist"] = 31,
+		["poltergeist_s"] = 120,
+		["projector"] = 98,
+		["pseudo_gigant"] = 27,
+		["pseudodog_s"] = 121,
+		["psy_dog"] = 22,
+		["psy_dog_phantom"] = 21,
+		["psy_dog_phantom_s"] = 114,
+		["psy_dog_s"] = 115,
+		["rat"] = 32,
+		["script_actor"] = 134,
+		["script_heli"] = 51,
+		["script_object"] = 103,
+		["script_phys"] = 97,
+		["script_restr"] = 127,
+		["script_stalker"] = 35,
+		["script_zone"] = 101,
+		["smart_cover"] = 104,
+		["smart_terrain"] = 105,
+		["smart_zone"] = 106,
+		["smartcover_s"] = 107,
+		["snork"] = 33,
+		["snork_s"] = 122,
+		["space_restrictor"] = 126,
+		["spectator"] = 128,
+		["stalker"] = 34,
+		["team_base_zone"] = 214,
+		["torrid_zone"] = 215,
+		["trader"] = 36,
+		["tushkano"] = 37,
+		["tushkano_s"] = 123,
+		["wpn_ak74"] = 173,
+		["wpn_ak74_s"] = 152,
+		["wpn_ammo"] = 39,
+		["wpn_ammo_m209"] = 42,
+		["wpn_ammo_m209_s"] = 141,
+		["wpn_ammo_og7b"] = 43,
+		["wpn_ammo_og7b_s"] = 143,
+		["wpn_ammo_s"] = 40,
+		["wpn_ammo_vog25"] = 44,
+		["wpn_ammo_vog25_s"] = 145,
+		["wpn_auto_shotgun_s"] = 153,
+		["wpn_binocular"] = 174,
+		["wpn_binocular_s"] = 154,
+		["wpn_bm16"] = 175,
+		["wpn_bm16_s"] = 155,
+		["wpn_fn2000"] = 176,
+		["wpn_fort"] = 177,
+		["wpn_grenade_f1"] = 66,
+		["wpn_grenade_f1_s"] = 67,
+		["wpn_grenade_fake"] = 68,
+		["wpn_grenade_launcher"] = 178,
+		["wpn_grenade_launcher_s"] = 156,
+		["wpn_grenade_rgd5"] = 71,
+		["wpn_grenade_rgd5_s"] = 72,
+		["wpn_grenade_rpg7"] = 73,
+		["wpn_groza"] = 179,
+		["wpn_groza_s"] = 157,
+		["wpn_hpsa"] = 180,
+		["wpn_hpsa_s"] = 158,
+		["wpn_knife"] = 181,
+		["wpn_knife_s"] = 159,
+		["wpn_lr300"] = 182,
+		["wpn_lr300_s"] = 160,
+		["wpn_pm"] = 183,
+		["wpn_pm_s"] = 161,
+		["wpn_rg6"] = 184,
+		["wpn_rg6_s"] = 162,
+		["wpn_rpg7"] = 185,
+		["wpn_rpg7_s"] = 163,
+		["wpn_scope"] = 186,
+		["wpn_scope_s"] = 164,
+		["wpn_shotgun"] = 187,
+		["wpn_shotgun_s"] = 165,
+		["wpn_silencer"] = 188,
+		["wpn_silencer_s"] = 166,
+		["wpn_stat_mgun"] = 189,
+		["wpn_svd"] = 190,
+		["wpn_svd_s"] = 167,
+		["wpn_svu"] = 191,
+		["wpn_svu_s"] = 168,
+		["wpn_usp45"] = 192,
+		["wpn_usp45_s"] = 169,
+		["wpn_val"] = 193,
+		["wpn_val_s"] = 170,
+		["wpn_vintorez"] = 194,
+		["wpn_vintorez_s"] = 171,
+		["wpn_walther"] = 195,
+		["wpn_walther_s"] = 172,
+		["wpn_wmagaz"] = 196,
+		["wpn_wmaggl"] = 197,
+		["zombie"] = 38,
+		["zombie_s"] = 124,
+		["zone"] = 216,
+		["zone_acid_fog"] = 204,
+		["zone_bfuzz"] = 205,
+		["zone_bfuzz_s"] = 198,
+		["zone_campfire"] = 206,
+		["zone_dead"] = 207,
+		["zone_galant_s"] = 199,
+		["zone_galantine"] = 208,
+		["zone_mbald_s"] = 200,
+		["zone_mincer"] = 210,
+		["zone_mincer_s"] = 201,
+		["zone_mosquito_bald"] = 209,
+		["zone_radio_s"] = 202,
+		["zone_radioactive"] = 212,
+		["zone_rusty_hair"] = 213,
+		["zone_torrid_s"] = 203,
+	}
+		
+	for k,v in pairs(clsid_tbl_1) do
+		clsid_tbl[v] = k
+	end
+
+	local c = 0
+
+	alife():iterate_objects_without_actor(function(se_obj)
+		c = c + 1
+		local cls = se_obj:clsid()
+		local sec = se_obj:section_name()
+		
+		if (not alife_tbl[cls]) then
+			alife_tbl[cls] = {}
+		end
+		alife_tbl[cls][sec] = alife_tbl[cls][sec] and (alife_tbl[cls][sec] + 1) or 1
+	end)
+	printf("-ALife total num of objects = %s",c)
+	printf("--------------------------------------")
+	
+	
+	printf("-ALife summery by class:")
+	for k,v in pairs(alife_tbl) do
+		local c = 0
+		for k2,v2 in pairs(v) do c = c + v2 end
+		printf("-cls[%s] = %s",clsid_tbl[k] or k,c)
+	end
+	printf("--------------------------------------")
+	
+	
+	printf("-ALife full report by class and section:")
+	for k,v in pairs(alife_tbl) do
+		for k2,v2 in pairs(v) do
+			printf("-cls[%s][%s] = %s",clsid_tbl[k] or k,k2,v2)
+		end
+	end
+	printf("--------------------------------------")
+	x:SendOutput('Done! see log')
+end
+
+function cmd.get_nearest_object(_,txt,x)
+	local b = split(txt) or {}
+	local dist,obj
+	local nearest_obj,nearest_dist
+	local is_cam = b[1] == "cam"
+	local pos = is_cam and device().cam_pos or db.actor:position()
+	
+	alife():iterate_objects_without_actor(function(se_obj)
+		if se_obj.parent_id ~= AC_ID then -- avoid items in inventory
+			local i = se_obj.id
+			obj = level.object_by_id(i)
+			if obj then
+				dist = pos:distance_to_sqr(obj:position())
+				if not (nearest_dist) then
+					nearest_dist = dist
+					nearest_obj = obj
+				end
+
+				if (dist < nearest_dist) then
+					nearest_dist = dist
+					nearest_obj = obj
+				end
+			end
+		end
+	end)
+	
+	if nearest_obj then
+		x:SendOutput('---------------------')
+		x:SendOutput('-Nearest object found: %s', nearest_obj:name())
+		x:SendOutput('-Section: %s', nearest_obj:section())
+		x:SendOutput('-ID: %s', nearest_obj:id())
+		x:SendOutput('-Distance: %s', nearest_dist^0.5)
+	else
+		x:SendOutput('!No online object is found')
+	end
+end
+
+function cmd.get_npc_visual(_,__,x)
+	local npc, dist = utils_obj.get_nearest_stalker("cam")
+	if (not npc) then
+		x:SendOutput('-No NPC found')
+		return
+	end
+	
+	local id = npc:id()
+	local name = npc:character_name()
+	local comm = npc:character_community()
+	local visual = npc:get_visual_name()
+	
+	x:SendOutput('- Nearest NPC')
+	x:SendOutput('/ Distance: %s',dist)
+	x:SendOutput('/ id: %s',id)
+	x:SendOutput('/ Name: %s',name)
+	x:SendOutput('/ Community: %s',comm)
+	x:SendOutput('/ Visual: %s',visual)
+	
+	printf('- Nearest NPC')
+	printf('/ Distance: %s',dist)
+	printf('/ id: %s',id)
+	printf('/ Name: %s',name)
+	printf('/ Community: %s',comm)
+	printf('/ Visual: %s',visual)
+end
+
+function cmd.surge(_,txt,x)
+	if (txt == "start") and (surge_manager.is_finished()) then
+		surge_manager.start_surge()
+		x:SendOutput('Surge has started')
+	elseif (txt == "stop") and (surge_manager.is_started()) then
+		surge_manager.stop_surge()
+		x:SendOutput('Surge has stopped')
+	end
+end
+
+function cmd.psi_storm(_,txt,x)
+	if (txt == "start") and (psi_storm_manager.is_finished()) then
+		psi_storm_manager.start_psi_storm()
+		x:SendOutput('Psi-storm has started')
+	elseif (txt == "stop") and (psi_storm_manager.is_started()) then
+		psi_storm_manager.stop_psi_storm()
+		x:SendOutput('Psi-storm has stopped')
+	end
+end
+
+function cmd.ppe_effect(_,txt,x)
+	local b = split(txt) or {}
+	
+	if b[1] and level.present() and (db.actor ~= nil) and db.actor:alive() then
+		if (b[1] == "play") and b[2] then
+			level.remove_pp_effector(2009)
+			level.add_pp_effector(b[2] .. ".ppe", 2009, true)
+		elseif b[2] == "stop" then
+			level.remove_pp_effector(2009)
+		end
+	end
+end
+
+function cmd.set_rank(_,txt,x)
+	local rank = txt and tonumber(txt)
+	if rank and (rank > 0) and (rank < 56000) then
+		db.actor:set_character_rank(rank)
+		local str = strformat("Actor rank is now: %s",rank)
+		x:SendOutput(str)
+	end
+end
+
+function cmd.set_rep(_,txt,x)
+	local rept = txt and tonumber(txt)
+	if rept and (rept > -4000) and (rept < 4000) then
+		db.actor:set_character_reputation(rept)
+		local str = strformat("Actor reputation is now: %s",rept)
+		x:SendOutput(str)
+	end
+end
+
+function cmd.get_nearby_companion(_,txt,x)
+	local npc, dist = utils_obj.get_nearest_stalker("cam")
+	if (not npc) then
+		x:SendOutput('-No NPC found')
+		return
+	end
+	
+	local name = npc:name()
+	
+	if (not dialogs_axr_companion.is_non_story(nil,npc)) then
+		x:SendOutput('![%s] is a story NPC',name)
+		return
+	end
+	if (not dialogs_axr_companion.is_not_actor_companion(nil,npc)) then
+		x:SendOutput('![%s] is already a companion',name)
+		return
+	end
+	if (not dialogs_axr_companion.is_room_in_actor_squad(nil,npc)) then
+		x:SendOutput('!you dont have more room for another companion',name)
+		return
+	end
+	if (not dialogs_axr_companion.is_not_hostage_task_giver(db.actor,npc)) then
+		x:SendOutput('![%s] is a hostage',name)
+		return
+	end
+	
+	dialogs_axr_companion.become_actor_companion(db.actor,npc)
+	
+	x:SendOutput('![%s] squad become companions',name)
+end
+
+function cmd.map_marker(_,txt,x)
+	local b = split(txt) or {}
+	if not (b[1] and b[2]) then
+		return
+	end
+	local add = b[1] == "add" and true or false
+	local remov = b[1] == "remove" and true or false
+	local id = tonumber(b[2])
+	if (add or remov) and (type(id) == "number") and (id > 0) and (id < 65535) then
+		local se_obj = alife_object(id)
+		local obj = level.object_by_id(id)
+		local name = (se_obj and se_obj:section_name()) or (obj and obj:section()) or ""
+		if name ~= "" then
+			if add then
+				local str = "Marked\\nsection: " .. name .. "\\nid: " .. tostring(id)
+				level.map_add_object_spot_ser(id, "secondary_task_location", str)
+				x:SendOutput("Map marker for id: " .. id .. "has been added!")
+				return
+			else
+				level.map_remove_object_spot(id, "secondary_task_location")
+				x:SendOutput("Map marker for id: " .. id .. "has been removed!")
+				return
+			end
+		end
+	end
+	return
+end
+
+function cmd.scan_item_configs(_,txt,x)
+	x:SendOutput("scan_item_configs")
+	local scan_uses = (txt == "uses") and true or false
+		
+	local sfind = string.find
+	local exclude = {
+		["spawn_by_story_id"] = true,
+		["trader"] = true,
+		["discount_0"] = true,
+		["discount_1"] = true,
+		["discount_2"] = true,
+		["discount_3"] = true,
+		["discount_4"] = true,
+		["discount_5"] = true,
+		["discount_6"] = true,
+		["discount_7"] = true,
+		["discount_8"] = true,
+		["discount_9"] = true,
+		["discount_10"] = true,
+		["discount_trasher_1"] = true,
+		["discount_trasher_ld_1"] = true,
+		["discount_supplier_1"] = true,
+		["discount_barman_1"] = true,
+		["discount_barman_ld_1"] = true,
+		["discount_neutral_1"] = true,
+		["discount_special_1"] = true,
+		["discount_extra_1"] = true,
+		["mutant_loot_mod"] = true,
+		["mutant_loot_drop_sections"] = true,
+	}
+	
+	local function scan_file(path)
+		printf("--------------------------------------------")
+		printf("~scan_item_configs | target file: %s", path)
+		local ltx = ini_file(path)
+		ltx:section_for_each(function(section)
+			if (not exclude[section]) then
+				local n = ltx:line_count(section)
+				local result, id, value = "", "", ""
+				for i=0,n-1 do
+					result, id, value	= ltx:r_line_ex(section,i,"","")
+					if id then
+						local sec, uses = utils_item.get_defined_uses(id)
+						if (not ini_sys:section_exist(sec)) then
+							printf("!LTX SCAN: %s: [%s]->[%s] invalid", path, section, sec)
+						elseif scan_uses and (not uses) and (ini_sys:r_bool_ex(sec,"use_condition")) and (ini_sys:r_float_ex(sec,"max_uses")) then
+							printf("!LTX SCAN: %s: [%s]->[%s] lack uses", path, section, sec)
+						end
+					end
+				end
+			end
+		end)
+	end
+	
+	local all_pathes = {}
+	local fileList = getFS():file_list_open("$game_config$", "items\\trade\\", bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
+	local count = fileList and fileList:Size() or 0
+	if count > 0 then
+		for i = 1, count do
+			local file_name = fileList:GetAt(i - 1):sub(1, -5)
+			if file_name then
+				all_pathes[#all_pathes + 1] = "items\\trade\\" .. file_name .. ".ltx"
+			end
+		end
+	end
+	
+	all_pathes[#all_pathes + 1] =  "items\\settings\\ph_box_generic.ltx"
+	all_pathes[#all_pathes + 1] =  "items\\settings\\treasure_manager.ltx"
+	--all_pathes[#all_pathes + 1] =  "items\\settings\\mutant_loot.ltx"
+	all_pathes[#all_pathes + 1] =  "items\\settings\\death_generic.ltx"
+	
+	for i=1,#all_pathes do
+		scan_file(all_pathes[i])
+	end
+	
+	return
+end
+
+function cmd.scan_unused_weapons(_,txt,x)
+	x:SendOutput("scan_unused_weapons")
+	
+	local sfind = string.find
+	
+	local weapon_secs = {}
+	local weapon_classes = {
+		["WP_KNIFE"]    = true,
+		["WP_HPSA"]     = true,
+		["WP_PM"]       = true,
+		["WP_ASHTG"]    = true,
+		["WP_BM16"]     = true,
+		["WP_AK74"]     = true,
+		["WP_GROZA"]    = true,
+		["WP_LR300"]    = true,
+		["WP_VAL"]      = true,
+		["WP_SVD"]      = true,
+		["WP_SVU"]      = true,
+		["WP_RG6"]      = true,
+		["WP_RPG7"]     = true,
+		["G_F1_S"]      = true,
+		["G_RGD5_S"]    = true,
+		["G_F1"] 	    = true,
+		["G_RGD5"] 	    = true,
+	}
+	
+	ini_sys:section_for_each(function(section)
+		local cls = ini_sys:r_string_ex(section,"class") or ""
+		if cls and cls ~= ""
+		and weapon_classes[cls]
+		and (not sfind(section,"hud"))
+		and (not sfind(section,"1p29"))
+		and (not sfind(section,"kobra"))
+		and (not sfind(section,"ps01"))
+		and (not sfind(section,"ac10632"))
+		and (not sfind(section,"ac11090"))
+		and (not sfind(section,"eot"))
+		and (not sfind(section,"acog"))
+		and (not sfind(section,"c-more"))
+		then
+			weapon_secs[section] = true
+		end
+	end)
+	
+	--------------------------------------------------------------------------------
+	
+	local function scan_trader_file(path)
+		printf("~scan_trader_configs | target file: %s", path)
+		local ltx = ini_file(path)
+		ltx:section_for_each(function(section)
+			if sfind(section,"supplies_") then
+				local n = ltx:line_count(section)
+				local result, id, value = "", "", ""
+				for i=0,n-1 do
+					result, id, value	= ltx:r_line_ex(section,i,"","")
+					if value and weapon_secs[id] then
+						weapon_secs[id] = nil
+					end
+				end
+			end
+		end)
+	end
+	
+	local all_trader_pathes = {}
+	local fileList = getFS():file_list_open("$game_config$", "items\\trade\\", bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
+	local count = fileList and fileList:Size() or 0
+	if count > 0 then
+		for i = 1, count do
+			local file_name = fileList:GetAt(i - 1):sub(1, -5)
+			if file_name then
+				all_trader_pathes[#all_trader_pathes + 1] = "items\\trade\\" .. file_name .. ".ltx"
+			end
+		end
+	end
+
+	for i=1,#all_trader_pathes do
+		scan_trader_file(all_trader_pathes[i])
+	end
+	
+	--------------------------------------------------------------------------------
+	
+	local function scan_ai_file(path)
+		printf("~scan_ai_configs | target file: %s", path)
+		local ltx = ini_file(path)
+		local str_ex = str_explode
+		ltx:section_for_each(function(section)
+			local n = ltx:line_count(section)
+			local result, id, value = "", "", ""
+			for i=0,n-1 do
+				result, id, value	= ltx:r_line_ex(section,i,"","")
+				local t = str_ex(id,":")
+				if t and t[1] and weapon_secs[t[1]] then
+					weapon_secs[id] = nil
+				end
+			end
+		end)
+	end
+	--scan_ai_file("ai_tweaks\\xrs_rnd_npc_loadout.ltx")
+	
+	--------------------------------------------------------------------------------
+	
+	printf("~List of weapons that don't exist in traders profiles")
+	for k,v in pairs(weapon_secs) do
+		printf("/ [%s]",k)
+	end
+	
+	return
+end
+
+function cmd.scan_unused_icons(_,txt,x)
+	x:SendOutput("scan_unused_icons")
+	
+	local sfind = string.find
+	local icons = {}
+	
+	-- Read all icons
+	ini_sys:section_for_each(function(section)
+		local x = ini_sys:r_float_ex(section,"inv_grid_x")
+		if x then
+			local y = ini_sys:r_float_ex(section,"inv_grid_y")
+			local w = ini_sys:r_float_ex(section,"inv_grid_width") or 1
+			local h = ini_sys:r_float_ex(section,"inv_grid_height") or 1
+			icons[section] = { x = x , y = y , w = w , h = h}
+		end
+	end)
+	
+	printf("-sections total: %s", table_size(icons))
+	
+	-- Removed sections with duplicated pos
+	local to_remove = {}
+	for k,v in pairs(icons) do
+		if (not to_remove[k]) then
+			for k2,v2 in pairs(icons) do
+				if (k ~= k2) and (v.x == v2.x) and (v.y == v2.y) then
+					to_remove[k2] = true
+				end
+			end
+		end
+	end
+	for k,v in pairs(icons) do
+		if to_remove[k] then
+			icons[k] = nil
+		end	
+	end
+	
+	printf("-sections finale: %s", table_size(icons))
+	printf("-duplicated sections to remove: %s", table_size(to_remove))
+	
+	-- Gather all used 50,50 squares
+	local us = {}
+	for k,v in pairs(icons) do
+		for i=1,(v.w) do
+			for j=1,(v.h) do
+				local x = v.x + (i-1)
+				local y = v.y + (j-1)
+				if (not us[x]) then us[x] = {} end
+				us[x][y] = true
+			end
+		end
+		
+	end
+	
+	-- Gather all unused 50,50 squares
+	local unused = {}
+	for i=1,164 do -- x
+		for j=1,82 do -- y
+			local x = i-1
+			local y = j-1
+			if not (us[x] and us[x][y]) then
+				unused[#unused + 1] = {x = x , y = y}
+			end
+		end
+	end
+	
+	-- Print
+	printf("-unused size: %s", #unused)
+	for i=1,#unused do
+		printf("x = %s , y = %s", unused[i].x, unused[i].y)
+	end
+	
+	return
+end
+
+function cmd.scan_unused_level_logic(_,txt,x)
+	x:SendOutput("scan_unused_level_logic")
+	if not (txt) then return end
+	
+	local map = txt
+	local sfind = string.find
+
+	local function collect_files(path)
+		local fileList = getFS():file_list_open("$game_config$", "scripts\\" .. path, bit_or(FS.FS_ListFiles, FS.FS_RootOnly))
+		local count = fileList and fileList:Size() or 0
+		local tbl = {}
+		if count > 0 then
+			for i = 1, count do
+				local file_name = fileList:GetAt(i - 1):sub(1, -5)
+				if file_name then
+					tbl[#tbl + 1] = path .. file_name .. ".ltx"
+				end
+			end
+			return tbl
+		end
+	end
+	
+	local logic_files = collect_files(map .. "\\")
+	local smart_files = collect_files(map .. "\\smart\\")
+	
+	local lgc = {}
+	for i=1,#logic_files do
+		lgc[logic_files[i]] = true
+	end
+	
+	-- remove used files out of table
+	for i=1,#smart_files do
+		local smart_ini = ini_file("scripts\\" .. smart_files[i])
+		smart_ini:section_for_each(function(section)
+			if section == "exclusive" then
+				local n = smart_ini:line_count(section)
+				local result, id, value = "", "", ""
+				for i=0,n-1 do
+					result, id, value	= smart_ini:r_line_ex(section,i,"","")
+					if value and lgc[value] then
+						lgc[value] = nil
+					end
+				end
+			end
+		end)
+	end
+	
+	-- remove files with space restrictor/pysical objects out of table
+	for k,v in pairs(lgc) do
+		local logic_ini = ini_file("scripts\\" .. k)
+		logic_ini:section_for_each(function(section)
+			if sfind(section,"sr_") or sfind(section,"ph_") then
+				lgc[k] = nil
+			end
+		end)
+	end
+	
+	-- to delet
+	printf("~Unused logic files for %s:",map)
+	for k,v in pairs(lgc) do
+		printf(k)
+	end
+	
+	return
+end
+
+function cmd.print_outfits_props(_,txt,x)
+	x:SendOutput("[START] print outfit props")
+	
+	local outfit_cls = {
+		["o_helmet"]    = true,
+		["E_HLMET"]     = true,
+		["EQU_HLMET"]   = true,
+
+		["o_light"]     = true,
+
+		["E_STLK"]      = true,
+		["EQU_STLK"]    = true,
+		["o_medium"]    = true,
+		["o_sci"]       = true,
+
+		["o_heavy"]     = true,
+	}
+	
+	local outfit_type = {
+		["helmet"]              =  1 ,
+		["helmet_light"]        =  2 ,
+		["outfit"]              =  3 ,
+		["outfit_novice"]       =  4 ,
+		["outfit_trenchcoat"]   =  5 ,
+		["outfit_sunrise"]      =  6 ,
+		["outfit_lcs"]          =  7 ,
+		["outfit_explorer"]     =  8 ,
+		["outfit_sts"]          =  9 ,
+		["outfit_ps5"]          =  10,
+		["outfit_nbc"]          =  11,
+		["outfit_assault_vest"] =  12,
+		["outfit_seva"]         =  13,
+		["outfit_ssp"]          =  14,
+		["outfit_berill"]       =  15,
+		["outfit_skat"]         =  16,
+		["outfit_exolight"]     =  17,
+		["outfit_proto_exo"]    =  18,
+		["outfit_exoskeleton"]  =  19,
+		["outfit_nosorog"]      =  20,
+	}
+
+	local p_file = "outfits_props.txt"
+	local function write_file(text,...)
+		if not text then return end
+		local debug_file = io.open(p_file,"a+")
+
+		if ( debug_file == nil ) then
+			return
+		end
+
+		local i = 0
+		local p = {...}
+		local function sr(a)
+			i = i + 1
+			return tostring(p[i])
+		end
+		local output = string.gsub(text,"%%s",sr)
+		debug_file:write(output.."\n")
+		debug_file:close()
+		exec_console_cmd("load ~#I#:"..output)
+	end
+	
+	local tbl = {}
+	local cnt = 0
+	ini_sys:section_for_each( function(section)
+		local class = ini_sys:r_string_ex(section,"class")
+		local kind = ini_sys:r_string_ex(section,"kind") -- special class name for the sake of correct listing
+		if kind then
+			class = kind
+		end
+		if class and outfit_cls[class] then
+			cnt = cnt + 1
+			tbl[section] = {}
+			tbl[section].typ = ini_sys:r_string_ex(section,"repair_type") or "na"
+			tbl[section].indx = tbl[section].typ and outfit_type[tbl[section].typ] or 0
+			
+			tbl[section].cost = ini_sys:r_float_ex(section,"cost") or "na"
+			tbl[section].w = ini_sys:r_float_ex(section,"inv_weight") or "na"
+			tbl[section].cw = ini_sys:r_float_ex(section,"additional_inventory_weight") or "na"
+			tbl[section].arty = ini_sys:r_float_ex(section,"artefact_count") or "na"
+			tbl[section].intria = ini_sys:r_float_ex(section,"control_inertion_factor") or "na"
+			
+			tbl[section].p_b = ini_sys:r_float_ex(section,"burn_protection") or "na"
+			tbl[section].p_sh = ini_sys:r_float_ex(section,"shock_protection") or "na"
+			tbl[section].p_r = ini_sys:r_float_ex(section,"radiation_protection") or "na"
+			tbl[section].p_cb = ini_sys:r_float_ex(section,"chemical_burn_protection") or "na"
+			tbl[section].p_t = ini_sys:r_float_ex(section,"telepatic_protection") or "na"
+			tbl[section].p_st = ini_sys:r_float_ex(section,"strike_protection") or "na"
+			tbl[section].p_e = ini_sys:r_float_ex(section,"explosion_protection") or "na"
+			tbl[section].p_w = ini_sys:r_float_ex(section,"wound_protection") or "na"
+			tbl[section].p_fw = ini_sys:r_float_ex(section,"fire_wound_protection") or "na"
+			
+			tbl[section].hit_f = ini_sys:r_float_ex(section,"hit_fraction_actor") or "na"
+		end
+	end)
+	
+	write_file("","")
+	write_file("--------------------------------------")
+	write_file("SYMBOLS:")
+	write_file("","")
+	write_file("w = inventory weight")
+	write_file("cw = carry weight")
+	write_file("arty = artefact slots")
+	write_file("intria = control_inertion_factor")
+	write_file("p_b = burn_protection")
+	write_file("p_sh = shock_protection")
+	write_file("p_r = radiation_protection")
+	write_file("p_cb = chemical_burn_protection")
+	write_file("p_t = telepatic_protection")
+	write_file("p_st = strike_protection")
+	write_file("p_e = explosion_protection")
+	write_file("p_w = wound_protection")
+	write_file("p_fw = fire_wound_protection")
+	write_file("hit_f = hit_fraction_actor")
+	write_file("","")
+	write_file("--------------------------------------")
+	write_file("OUTFIT STATS:")
+	write_file("","")
+	local functor = function(t,a,b) return t[a].indx < t[b].indx end
+	for section,v in spairs(tbl,functor) do
+		write_file("%s 		= type:%s | cost:%s | w:%s | cw:%s | arty:%s | intria:%s | p_b:%s | p_sh:%s | p_r:%s | p_cb:%s | p_t:%s | p_st:%s | p_e:%s | p_w:%s | p_fw:%s | hit_f:%s ", section, v.typ, v.cost, v.w, v.cw, v.arty, v.intria, v.p_b, v.p_sh, v.p_r, v.p_cb, v.p_t, v.p_st, v.p_e, v.p_w, v.p_fw, v.hit_f)
+	end
+	
+	x:SendOutput("[END] print outfit props - %s outfits printed - see outfits_props.txt", cnt)
+end
+
+function cmd.release_target()
+	local o = level.get_target_obj()
+	if o then
+		alife_release_id(o:id())
+		x:SendOutput("-Released object: %s", o:name())
+	else
+		x:SendOutput("!No object found on cursor to release")
+	end
+end
+
+function cmd.release_id(_,txt,x)
+	local id = txt and tonumber(txt)
+	if (not id) then
+		x:SendOutput("!Missing ID to release. Ex: release_id 34132")
+		return
+	end
+	
+	local se_obj = alife_object(id)
+	if (not se_obj) then
+		x:SendOutput("!No server object by ID (%s) is found", id)
+		return
+	end
+	
+	x:SendOutput("-Released server object by ID (%s): %s", id, se_obj:name())
+	alife_release(se_obj)
+end
+
+function cmd.calc_containers_weight(_,txt,x)
+	local _cont = {}
+	
+	ini_sys:section_for_each(function(section)
+		local con, arty
+		if (string.find(section, "(lead.-_box)",3)) then
+			con = "lead_box"
+			arty = section:gsub("_lead_box", "")		
+		elseif (string.find(section, "(af.-_iam)",3)) then
+			con = "af_iam"
+			arty = section:gsub("_af_iam", "")
+		elseif (string.find(section, "(af.-_aac)",3)) then
+			con = "af_aac"
+			arty = section:gsub("_af_aac", "")
+		elseif (string.find(section, "(af.-_aam)",3)) then
+			con = "af_aam"
+			arty = section:gsub("_af_aam", "")
+		end
+		
+		if con and arty and ini_sys:section_exist(con) and ini_sys:section_exist(arty) then
+			local arty_w = ini_sys:r_float_ex(arty,"inv_weight")
+			local con_w = ini_sys:r_float_ex(con,"inv_weight")
+			local new_weight = arty_w + con_w
+			
+			if (new_weight ~= ini_sys:r_float_ex(section,"inv_weight")) then
+				_cont[section] = new_weight
+				printf("~ calc_containers_weight | calculated new weight for [%s]: %s", section, new_weight)
+			end
+		end
+	end)
+	
+	local function file_exists(path)
+		return io.open(path) ~= nil
+	end
+	
+	local cnt = 0
+	local function on_execute(path,filename,quit)
+		local fullpath = path.."\\"..filename
+		local ltx = io.open(fullpath,"rb")
+		if (ltx) then
+			local data = ltx:read("*all")
+			ltx:close()
+			if (data) then
+				
+				local need_save
+				for sec,wt in pairs(_cont) do
+					if (string.find(data,"["..sec.."]",nil,true)) then
+						
+						ltx = utils_data.cfg_file(fullpath)
+						if (ltx) then
+							
+							ltx:SetValue(sec, "inv_weight", wt)
+							need_save = true
+							cnt = cnt + 1
+							printf("% calc_containers_weight | saved inv_weight [%s]->[%s]", sec, wt)
+							
+						end
+					end
+				end
+				
+				if need_save then
+					ltx:SaveExt()
+					printf("- ui_item_editor | saved changes for {%s}", fullpath)
+				end
+				return
+			end
+		end
+	end
+	
+	local sp = getFS():update_path('$game_config$', "items\\items\\")
+	sp = string.sub(sp,0,string.len(sp)-1)
+	lua_ext.recurse_subdirectories_and_execute(sp,{"ltx"},on_execute)
+	
+	x:SendOutput("-(%s) Weight calculations for artefact containers is done", cnt)
+end
+
+function cmd.validate_wpn_upgrades(_,txt,x)
+	exec_console_cmd("clear_log")
+	x:SendOutput("-Started weapon upgrades scan")
+	
+	local ignore_param = {
+		["cost"] = true,
+		["value"] = true,
+	}
+	
+	local prop_minus = {
+		["prop_recoil"] = true,
+		["prop_weight"] = true,
+	}
+	
+	local scan_list = {}
+	local n, result, par, value = 0,"","",""
+	local s_find = string.find
+	local parameters = ui_debug_item.parameters["weapon"]
+	
+	ini_sys:section_for_each(function(section)
+		local valid_wpn = ini_sys:r_string_ex(section,"upgrades") and ini_sys:r_float_ex(section,"rpm") and (not s_find(section,"tch_")) and (not s_find(section,"mp_")) and (not s_find(section,"_base"))
+		if valid_wpn then
+			local sec = ini_sys:r_string_ex(section,"parent_section") or section	
+			
+			-- Gather upgrades
+			local upgrades = utils_item.get_upgrades_tree(section)
+			if upgrades and is_not_empty(upgrades) and (not scan_list[sec]) then
+				scan_list[sec] = {}
+				
+				for row,v in pairs(upgrades) do
+					for clmn,u in pairs(v) do
+						local u_sec = u.stats
+						--printf("~ [%s] scanning upgrade %s", sec, u_sec)
+						
+						n = ini_sys:line_count(u_sec)
+						for i=0,n-1 do
+							result, par, value = ini_sys:r_line_ex(u_sec,i,"","")
+							value = tonumber(value)
+							if value and (parameters[par]) and (not ignore_param[par]) then
+								if (not scan_list[sec][par]) then
+									scan_list[sec][par] = ini_sys:r_float_ex(sec,par)
+									--printf("- [%s] param: %s = %s", sec, par, scan_list[sec][par])
+								end
+								if scan_list[sec][par] then
+									scan_list[sec][par] = scan_list[sec][par] + value
+									--printf("- [%s] param modifier in upgr [%s]: %s = %s", sec, u_sec, par, value)
+								else
+									printf("! [%s] param [%s]: %s don't exist", sec, par)
+								end
+								
+							elseif value and (par == "value") and u.prop and (#u.prop == 1) then
+								if prop_minus[u.prop[1]] and (value > 0) then
+									printf("! [%s] with property [%s] has positive value, it should be the opposite", u_sec, u.prop[1])
+								elseif (prop_minus[u.prop[1]] == nil) and (value < 0) then
+									printf("! [%s] with property [%s] has negative value, it should be the opposite", u_sec, u.prop[1])
+								end
+							end
+						end
+					end
+				end
+			end
+			
+		end
+	end)
+	
+	for sec, v in pairs(scan_list) do
+		for par, val in pairs(v) do
+			local _min = parameters[par].min
+			local _max = parameters[par].max
+			if (val <= _min) or (val >= _max) then
+				printf("! [%s] param (%s) get fucked on full upgrade: %s", sec, par, val)
+			end
+		end
+	end
+	
+	printf("- Finished upgrades scan")
+	x:SendOutput("-Finished upgrades scan")
+end
+
+function cmd.validate_outfit_upgrades(_,txt,x)
+	exec_console_cmd("clear_log")
+	x:SendOutput("-Started outfit upgrades scan")
+	
+	local ignore_param = {
+		["cost"] = true,
+		["value"] = true,
+	}
+	
+	local scan_list = {}
+	local n, m, result, par, value, o_value = 0,0,"","","",""
+	local s_find = string.find
+	local parameters = ui_debug_item.parameters["outfit"]
+	
+	ini_sys:section_for_each(function(section)
+		local valid_outfit = ini_sys:r_string_ex(section,"upgrades") and ini_sys:r_string_ex(section,"bones_koeff_protection") and (not s_find(section,"tch_")) and (not s_find(section,"mp_")) and (not s_find(section,"_base"))
+		if valid_outfit then
+			local sec = ini_sys:r_string_ex(section,"parent_section") or section	
+			
+			-- Gather upgrades
+			local upgrades = utils_item.get_upgrades_tree(section)
+			if upgrades and is_not_empty(upgrades) and (not scan_list[sec]) then
+				scan_list[sec] = {}
+				
+				for row,v in pairs(upgrades) do
+					for clmn,u in pairs(v) do
+						local u_sec = u.stats
+						--printf("~ [%s] scanning upgrade %s", sec, u_sec)
+						
+						n = ini_sys:line_count(u_sec)
+						for i=0,n-1 do
+							result, par, value = ini_sys:r_line_ex(u_sec,i,"","")
+							o_value = value
+							value = tonumber(value)
+							if o_value and (parameters[par] or (par == "immunities_sect_add")) and (not ignore_param[par]) then
+								if (not scan_list[sec][par]) then
+									scan_list[sec][par] = ini_sys:r_float_ex(sec,par)
+									--printf("- [%s] param: %s = %s", sec, par, scan_list[sec][par])
+								end
+								if scan_list[sec][par] then
+									scan_list[sec][par] = scan_list[sec][par] + value
+									--printf("- [%s] param modifier in upgr [%s]: %s = %s", sec, u_sec, par, value)
+								
+								elseif (par == "immunities_sect_add") and o_value then
+									m = ini_sys:line_count(o_value)
+									for j=0,m-1 do
+										result, par, value = ini_sys:r_line_ex(o_value,j,"","")
+										value = tonumber(value)
+										if value and (parameters[par]) and (not ignore_param[par]) then
+											if (not scan_list[sec][par]) then
+												local immunity = ini_sys:r_string_ex(sec,"immunities_sect")
+												scan_list[sec][par] = ini_sys:r_float_ex(immunity,par)
+												--printf("- [%s] param: %s = %s", sec, par, scan_list[sec][par])
+											end
+											if scan_list[sec][par] then
+												scan_list[sec][par] = scan_list[sec][par] + value
+												--printf("- [%s] param modifier in upgr [%s]: %s = %s", sec, u_sec, par, value)
+											else
+												printf("! [%s] param [%s]: %s don't exist", sec, par)
+											end
+										end
+									end
+								else
+									printf("! [%s] param [%s]: %s don't exist", sec, par)
+								end
+							end
+						end
+					end
+				end
+			end
+			
+		end
+	end)
+	
+	for sec, v in pairs(scan_list) do
+		for par, val in pairs(v) do
+			local _min = parameters[par].min
+			local _max = parameters[par].max
+			if (val < _min) or (val > _max) then
+				printf("! [%s] param (%s) get fucked on full upgrade: %s", sec, par, val)
+			end
+		end
+	end
+	
+	printf("- Finished upgrades scan")
+	x:SendOutput("-Finished upgrades scan")
+end
+
+function cmd.dump_system_ini()
+	ini_sys:save_as('system_full.ltx')
+end
+
+function cmd.dump_section(_,txt)
+	if txt and not (txt == '') and ini_sys:section_exist(txt) then
+		utils_data.print_table(utils_data.parse_ini_section_to_array(ini_sys,txt), txt)
+	end
+end
+
+function cmd.test_squad(_,txt,o)
+	local comm = alife():actor():community():sub(7)
+	local sim = alife()
+	comm = comm == 'dolg' and 'duty' or comm
+	comm = comm == 'army' and 'military' or comm
+	local num = 3	
+	if txt and not (txt == '') then
+		num = tonumber(txt) or num
+	end
+	
+	local id = smart_terrain.nearest_to_actor_smart.id
+	local smart = id and alife_object(id)
+	
+	if smart then
+		local npc_sec = strformat('sim_default_%s_0', comm)
+		o:SendOutput('spawning %s [%s] at %s', num, npc_sec, smart:name())
+		
+		local squad = sim:create('online_offline_group',smart.position,smart.m_level_vertex_id,smart.m_game_vertex_id)
+
+		for i=1, num do
+			squad:add_squad_member(npc_sec, smart.position,smart.m_level_vertex_id,smart.m_game_vertex_id)
+		end
+		
+		squad:set_squad_relation()
+		squad:refresh()
+	
+		SIMBOARD:assign_squad_to_smart(squad, smart.id)
+
+		for k in squad:squad_members() do
+			local se_obj = k.object or k.id and sim:object(k.id)
+			if (se_obj) then
+				SIMBOARD:setup_squad_and_group(se_obj)
+			end
+		end	
+		squad.scripted_target = smart:name()
+		return 'ok'
+	end	
+	return 'no smart'
+end
+
+function cmd.toggle_all_talk(_,__,o)
+	local old = load_var(db.actor,"force_all_talk", false)
+	save_var(db.actor,"force_all_talk",not old)
+	o:SendOutput('force all talk: %s', not old)
+	return "warning, keeping this active may cause problems, disable as soon you talked to the unresponsive npc"
+end

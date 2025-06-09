@@ -54,8 +54,8 @@ void CALifeSurgeManager::fill_spawned_objects()
 {
 	m_temp_spawned_objects.clear();
 
-	D_OBJECT_P_MAP::const_iterator I = objects().objects().begin();
-	D_OBJECT_P_MAP::const_iterator E = objects().objects().end();
+	auto I = objects().objects().begin();
+	auto E = objects().objects().end();
 	for (; I != E; ++I)
 		if (spawns().spawns().vertex((*I).second->m_tSpawnID))
 			m_temp_spawned_objects.push_back((*I).second->m_tSpawnID);

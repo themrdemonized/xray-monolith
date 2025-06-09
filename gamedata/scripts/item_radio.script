@@ -1,0 +1,531 @@
+
+--[[
+
+	Made by Tronex
+	2018/10/15
+	
+	RF Receiver and sources management
+	2020/4/26: Added 3D UI to the detector
+
+--]]
+
+local enable_debug = false
+
+local bands = {
+	["ELF"] = { _min = 3		, _max = 30 		, _unit = game.translate_string("st_hz") 		},
+	["SLF"] = { _min = 30		, _max = 300 		, _unit = game.translate_string("st_hz") 		},
+	["ULF"] = { _min = 300		, _max = 3000 		, _unit = game.translate_string("st_hz") 		},
+	["VLF"] = { _min = 3		, _max = 30 		, _unit = game.translate_string("st_khz")		},
+	["LF"]  = { _min = 30		, _max = 300 		, _unit = game.translate_string("st_khz")		},
+	["MF"]  = { _min = 300		, _max = 3000 		, _unit = game.translate_string("st_khz")		},
+	["HF"]  = { _min = 3		, _max = 30 		, _unit = game.translate_string("st_mhz")		},
+	["VHF"] = { _min = 30		, _max = 300 		, _unit = game.translate_string("st_mhz")		},
+	["UHF"] = { _min = 300		, _max = 3000 		, _unit = game.translate_string("st_mhz")		},
+	["SHF"] = { _min = 3		, _max = 30			, _unit = game.translate_string("st_ghz")		},
+	["EHF"] = { _min = 30		, _max = 300		, _unit = game.translate_string("st_ghz")		},
+	["THF"] = { _min = 300		, _max = 3000		, _unit = game.translate_string("st_ghz")		},
+}
+
+local _band = bands["VHF"] -- used band
+local _min = _band._min
+local _max = _band._max
+local _unit = _band._unit
+local _range = 2
+local _freq = math.random(_min,_max)
+
+local _device = "detector_radio"
+local scan_time = 5000 -- 5 seconds
+local clamp = clamp
+
+-- Sounds
+local snd_on = sound_object("detectors\\RF\\on")
+local snd_off = sound_object("detectors\\RF\\off")
+
+local snd_noise = sound_object("detectors\\RF\\noise")
+local snd_white_noise = sound_object("detectors\\RF\\noise")
+local snd_emission = {}
+for i=1,8 do snd_emission[i] = sound_object("detectors\\RF\\emission\\noise_emission_" .. tostring(i)) end
+local snd_random = {}
+for i=1,13 do snd_random[i] = sound_object("detectors\\RF\\random\\random_" .. tostring(i)) end
+local snd_talk = {}
+for i=1,33 do snd_talk[i] = sound_object("detectors\\RF\\talk\\talk_" .. tostring(i)) end
+
+-- Sound path
+local path_beep = "detectors\\RF\\beep_02"
+local path_random = {}
+for i=1,13 do path_random[i] = "detectors\\RF\\random\\random_" .. tostring(i) end
+
+
+-- Database
+local RF_database = {
+	-- Stash
+	[clsid.inventory_box]     = { dist = 70 , snd = { path_beep } },
+	[clsid.inventory_box_s]   = { dist = 70 , snd = { path_beep } },
+	
+	-- Stalkers
+	--[clsid.script_stalker] 	  = { dist = 150 , snd = snd_talk },
+	
+	-- Artefacts
+	[clsid.artefact] 		  = { dist = 50 , snd = path_random },
+	[clsid.artefact_s] 		  = { dist = 50 , snd = path_random },
+	["af_ring"]	  			  = { dist = 50 , snd = path_random , freq = 23},
+	["af_electra_flash"]	  = { dist = 50 , snd = path_random , freq = 124},
+	["af_electra_moonlight"]  = { dist = 50 , snd = path_random , freq = 57},
+	["af_black_spray"]	 	  = { dist = 50 , snd = path_random , freq = 89},
+	["af_full_empty"]	 	  = { dist = 50 , snd = path_random , freq = 236},
+	["af_ice"]	 	 		  = { dist = 50 , snd = path_random , freq = 178},
+	["af_soul"]	 	 		  = { dist = 50 , snd = path_random , freq = 302},
+	["af_compass"]	 	 	  = { dist = 100 , snd = path_random , freq = 285},
+	["af_death_lamp"]	 	  = { dist = 200 , snd = path_random , freq = 321},
+	
+	-- Psy Mutants
+	[clsid.controller_s]      = { dist = 150  , snd = path_random , freq = 145},
+	--[clsid.psysucker_s]       = { dist = 150  , snd = path_random , freq = 67},
+	--[clsid.karlik_s]          = { dist = 150  , snd = path_random , freq = 244},
+	[clsid.burer_s]           = { dist = 150  , snd = path_random , freq = 106},
+	[clsid.poltergeist_s]     = { dist = 150  , snd = path_random , freq = 219},
+	[clsid.psy_dog_s]         = { dist = 150  , snd = path_random , freq = 190},
+	[clsid.psy_dog_phantom_s] = { dist = 150  , snd = path_random , freq = 197},
+}
+
+local active_sources = {} -- all online RF sources 
+local RF = {}	          -- sources to process
+local exclude = {}
+RF_stashes = {}           -- stored stashes with RF source
+RF_targets = {}           -- stored specific targets with RF source
+
+
+----------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------
+function print_dbg(fmt, ...)
+	if enable_debug then
+		printf("item_radio | " .. fmt, ...)
+	end
+end
+
+function get_freq()
+	return _freq
+end
+
+function change_freq(num)
+	local hud = actor_menu.get_last_mode()
+	if (hud ~= 0) or item_device.is_pda_active() then
+		return
+	end
+
+	local oldf = _freq
+	local newf = clamp(_freq + num, _min, _max)
+	_freq = newf
+	
+	--actor_menu.set_msg(1, tostring(_freq) .. " " .. _unit,3)
+	
+	SendScriptCallback("actor_on_frequency_change", oldf, newf)
+end
+
+function is_in_range(freq)
+	local a = math.abs(freq - _freq)
+	if (a < _range) then
+		return true
+	end
+	return false
+end
+
+function get_vol_range(freq)
+	local a = math.abs(freq - _freq)
+	if (a < _range) then
+		return (1 - a/_range)
+	end
+	return 0
+end
+
+function get_random_freq()
+	return math.random(_min,_max)
+end
+
+function add_stash(lvl,id, freq)
+	if lvl and RF_stashes[lvl] then
+		RF_stashes[lvl][id] = freq or get_random_freq()
+	end
+end
+function clear_stash(lvl,id)
+	if lvl and RF_stashes[lvl] then
+		RF_stashes[lvl][id] = nil
+	end
+end
+
+function add_target(id, freq, dist)
+	freq = freq or get_random_freq()
+	dist = dist or 200
+	RF_targets[id] = { freq = freq , dist = dist }
+end
+function clear_target(id)
+	if id then
+		RF_targets[id] = nil
+	end
+end
+
+function create_rf_table(id, cls, dist_pos, freq, dist, snd)
+	return {
+		id       = id,
+		clsid    = cls,
+		dist_pos = dist_pos,
+		freq     = freq,
+		dist     = dist,
+		snd      = snd,
+	}
+end
+
+function validate_RF_targets() -- Clear non-existing RF targets
+	for k,v in pairs(RF_targets) do
+		local se = alife_object(k)
+		if (not se) then
+			RF_targets[k] = nil
+		end
+	end
+end
+
+function scan_online_sources()
+	print_dbg("scan_online_sources")
+	local pos = db.actor:position()
+	
+	-- Search
+	empty_table(active_sources)
+	for obj in game_objects_without_actor_iter() do
+		local id = obj:id()
+		local sec = obj:section()
+		local cls = obj:clsid()
+		local dist_pos = pos:distance_to(obj:position())
+		
+		-- Specific Targets (Quests)
+		if RF_targets[id] and (dist_pos < RF_targets[id].dist) then
+			print_dbg("found active_source | section: %s - clsid: %s - distance: %s", sec, cls, dist_pos)
+			active_sources[#active_sources + 1] = create_rf_table( id, cls, dist_pos, RF_targets[id].freq, RF_targets[id].dist, { path_beep } )
+
+		-- Common RF Sources
+		elseif RF_database[cls] and (dist_pos < RF_database[cls].dist) then
+			print_dbg("found active_source | section: %s - clsid: %s - distance: %s", sec, cls, dist_pos)
+
+			-- Stash
+			if (cls == clsid.inventory_box_s) or (cls == clsid.inventory_box) then
+				local _level = level.name()
+				if RF_stashes[_level] and RF_stashes[_level][id] then
+					active_sources[#active_sources + 1] = create_rf_table( id, cls, dist_pos, RF_stashes[_level][id], RF_database[cls].dist, RF_database[cls].snd )
+				end
+
+			-- Artefacts
+			elseif (cls == clsid.artefact) or (cls == clsid.artefact_s) then
+				if RF_database[sec] then
+					active_sources[#active_sources + 1] = create_rf_table( id, cls, dist_pos, RF_database[sec].freq, RF_database[cls].dist, RF_database[cls].snd )
+				end
+			
+			-- Anything else
+			elseif RF_database[cls] and RF_database[cls].freq then
+				active_sources[#active_sources + 1] = create_rf_table( id, cls, dist_pos, RF_database[cls].freq, RF_database[cls].dist, RF_database[cls].snd )
+			end
+		end
+	end
+	
+	-- store closest 3 sources 
+	empty_table(RF)
+	empty_table(exclude)
+	for j=1,3 do
+		local smallest_distance = 200
+		local last_id = nil
+		for i=1,#active_sources do
+			if (not exclude[i]) and (active_sources[i].dist_pos < smallest_distance) then
+				smallest_distance = active_sources[i].dist_pos
+				last_id = i
+			end
+		end
+		if (last_id ~= nil) and (not exclude[last_id]) then
+			RF[#RF+1] = active_sources[last_id] -- fill
+			exclude[last_id] = true
+		end
+	end
+	if (#RF > 0) then
+		refresh = true -- require sounds update
+	end
+	print_dbg("active_sources: %s | RF: %s", #active_sources, #RF)
+end
+
+local d_state = false
+local vol_n = 0
+function sound_trigger(state)
+	if state and (not d_state) then
+		snd_on:play(db.actor, 0, sound_object.s2d)
+		d_state = true
+		vol_n = 0.7
+		snd_noise.volume = vol_n
+	elseif (not state) and d_state then
+		snd_off:play(db.actor, 0, sound_object.s2d)
+		d_state = false
+		vol_n = 0
+		snd_noise.volume = vol_n
+	end
+end
+
+
+----------------------------------------------------------------------
+-- UI
+----------------------------------------------------------------------
+local detector_rf_ui = nil
+local tg_led = 0
+local tg_emission = 0
+
+class "UI3D_RF" (CUIScriptWnd)
+function UI3D_RF:__init() super()
+	self:Show					(true)
+	self:Enable					(true)
+	self.freq					= nil
+
+	local xml					= CScriptXmlInit()
+	self.xml = xml
+	xml:ParseFile				("ui_detector_rf.xml")
+	xml:InitWindow				("detector_rfproxy", 0, self)
+
+	--self.m_area_b				= xml:InitStatic("detector_rfproxy:area_b", self)
+	self.m_area_r				= xml:InitStatic("detector_rfproxy:area_r", self)
+	
+	self.m_seg1					= xml:InitStatic("detector_rfproxy:seg1", self)
+	self.m_seg2					= xml:InitStatic("detector_rfproxy:seg2", self)
+	self.m_seg3					= xml:InitStatic("detector_rfproxy:seg3", self)
+	
+	self.m_led					= xml:InitStatic("detector_rfproxy:led", self)
+end
+
+function UI3D_RF:__finalize() 
+	detector_rf_ui = nil
+end
+
+function UI3D_RF:Update()
+	
+	CUIScriptWnd.Update(self)
+	
+	local tg = time_global()
+	
+	-- LED flashing
+	if (tg > tg_led + 1000) then
+		tg_led = tg
+		self.m_led:Show(not self.m_led:IsShown())
+	end
+	
+	-- Emissions
+	if GetEvent("surge", "state") or GetEvent("psi_storm", "state") then
+		if (tg > tg_emission + 200) then
+			tg_emission = tg
+			
+			self.m_led:Show((math.random(1,100) < 50) and true or false)
+			_freq = math.random(_min,_max)
+		else
+			return
+		end
+		
+	-- Normal readings
+	else
+		if self.freq == _freq then
+			return
+		end
+		self.freq = _freq
+	end
+
+	local s_freq = tostring(_freq)
+	local seg1, seg2, seg3
+	
+	if (_freq > 99) then
+		seg1 = strformat("green_%s", s_freq:sub(1, 1))
+		seg2 = strformat("green_%s", s_freq:sub(2, 2))
+		seg3 = strformat("green_%s", s_freq:sub(3, 3))
+	elseif (_freq > 9) then
+		seg1 = "green_0"
+		seg2 = strformat("green_%s", s_freq:sub(1, 1))
+		seg3 = strformat("green_%s", s_freq:sub(2, 2))
+	elseif (_freq > 0) then
+		seg1 = "green_0"
+		seg2 = "green_0"
+		seg3 = strformat("green_%s", s_freq:sub(1, 1))
+	else
+		seg1 = "green_0"
+		seg2 = "green_0"
+		seg3 = "green_0"
+	end
+	
+	self.m_seg1:InitTextureEx(seg1, "hud\\p3d")
+	self.m_seg2:InitTextureEx(seg2, "hud\\p3d")
+	self.m_seg3:InitTextureEx(seg3, "hud\\p3d")
+end
+
+function get_UI()
+	if (detector_rf_ui == nil) then
+		detector_rf_ui = UI3D_RF()
+	end
+	
+	return detector_rf_ui
+end
+
+
+----------------------------------------------------------------------
+-- Callbacks
+----------------------------------------------------------------------
+local tg_scan = 0
+local tg_random = math.random(20,40)*1000
+local snds = {}
+local refresh = false
+local emission = false
+local flag_10,flag_50
+
+local function server_entity_on_unregister(se_obj, typ)
+	RF_targets[se_obj.id] = nil
+	
+end
+
+local function actor_on_first_update()
+	-- create RF stashes
+	if is_empty(RF_stashes) then
+		local sim = alife()
+		local gg = game_graph()
+	
+		-- gather all stashes
+		local lvls = {}
+		for id,v in pairs(treasure_manager.caches) do
+			local se = sim:object(id)
+			if se then
+				local lvl = sim:level_name(gg:vertex(se.m_game_vertex_id):level_id())
+				lvls[lvl] = lvls[lvl] or {} -- create level table
+				lvls[lvl][#lvls[lvl] + 1] = id -- add stashes from the same level
+			end
+		end
+		
+		-- fill stashes table with a few selected targets
+		for lvl,v in pairs(lvls) do
+			RF_stashes[lvl] = {}
+			local size = (#v > 15) and #v or 0
+			for i=1,size,(size/5) do
+				local indx = math.ceil(i)
+				local id = v[indx]
+				RF_stashes[lvl][id] = get_random_freq()
+				
+				if enable_debug then
+					level.map_add_object_spot_ser(id, "treasure", "RF Source\\nFrequency: " .. tostring(RF_stashes[lvl][id])) -- test
+				end
+				
+				print_dbg("RF_stashes[%s][%s] = %s",lvl,id,RF_stashes[lvl][id])
+			end
+		end
+	end
+end
+
+local function actor_on_update()
+
+	-- return if radio detector is no active
+	local obj_det = db.actor:active_detector()
+	if not (obj_det and obj_det:section() == _device and obj_det:condition() >= obj_det:power_critical()) then
+		sound_trigger(false)
+		return
+	end
+	sound_trigger(true)
+	
+	-- Emissions
+	emission = GetEvent("surge", "state") or GetEvent("psi_storm", "state")
+	
+	-- Scan for any nearby radio wave source
+	local tg = time_global()
+	if (tg > tg_scan) then
+		tg_scan = tg + scan_time
+		scan_online_sources()
+	end
+	
+	-- Signal sounds
+	local vol_noise_lowest = 0.7
+	for i=1,#RF do
+		local obj = level.object_by_id(RF[i].id)
+		if obj and (not emission) then
+			local dist = db.actor:position():distance_to(obj:position())
+			if (dist < RF[i].dist) then
+				
+				local dist_ratio = dist / RF[i].dist
+				local pass_range = is_in_range(RF[i].freq)
+				local vol_range = get_vol_range(RF[i].freq)
+				
+				local vol_signal = pass_range and clamp( (1-dist_ratio) * vol_range , 0 , 1) or 0
+				local vol_noise = pass_range and clamp( dist_ratio * vol_range , 0.2 , 0.7 ) or 0.7
+				vol_noise_lowest = (vol_noise < vol_noise_lowest) and vol_noise or vol_noise_lowest
+				
+				print_dbg("RF[%s] - id: %s - RF dist: %s - current dist: %s - dist_ratio: %s", i, RF[i].id, RF[i].dist, dist, dist_ratio)
+				print_dbg("vol_range: %s - vol_signal: %s - vol_noise: %s", vol_range, vol_signal, vol_noise)
+				if (not snds[i]) or (snds[i] and (not snds[i]:playing())) or refresh then
+					local snd_pathes = RF[i].snd
+					snds[i] = sound_object(snd_pathes[math.random(#snd_pathes)])
+					snds[i]:play(db.actor, 0, sound_object.s2d)
+					print_dbg("snds[%s] - #s: %s", i, #snd_pathes)
+				end
+				snds[i].volume = vol_signal
+			end
+		end
+	end
+	vol_n = vol_noise_lowest
+
+	-- White noise sound
+	if (not snd_noise:playing()) then
+		snd_noise = emission and snd_emission[math.random(#snd_emission)] or snd_white_noise
+		snd_noise:play(db.actor, 0, sound_object.s2d)
+	end
+	snd_noise.volume = vol_n
+	refresh = false
+	
+	-- Random sounds
+	if (tg > tg_random) then
+		tg_random = tg + math.random(20,40)*1000
+		local snd_random_now = (math.random(100) > 50) and snd_random[math.random(#snd_random)] or snd_talk[math.random(#snd_talk)]
+		snd_random_now:play(db.actor, 0, sound_object.s2d)
+		snd_random_now.volume = math.random(10,100)/100
+	end
+end
+
+local function load_state(m_data)
+	RF_stashes = m_data.RF_stashes or {}
+	RF_targets = m_data.RF_targets or {}
+	_freq = m_data.RF_freq or math.random(_min,_max)
+end
+
+local function save_state(m_data)
+	validate_RF_targets()
+	
+	m_data.RF_stashes = RF_stashes
+	m_data.RF_targets = RF_targets
+	m_data.RF_freq = _freq
+end
+
+local function on_key_hold(key)
+	if (key == DIK_keys["DIK_LSHIFT"]) then
+		flag_10 = true
+	elseif (key == DIK_keys["DIK_LMENU"]) then
+		flag_50 = true
+	end
+end
+
+local function on_key_release(key)
+	local detector = db.actor:active_detector()
+	local wep = db.actor:active_item()
+	
+	if detector and (detector:section() == _device) and (not wep) then
+		local num = (flag_50 and 50) or (flag_10 and 10) or 1
+		if (key == DIK_keys["MOUSE_1"]) then
+			change_freq(num)
+		elseif (key == DIK_keys["MOUSE_2"]) then
+			change_freq(-num)
+		end
+	end
+	flag_10 = false
+	flag_50 = false
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_key_hold",on_key_hold)
+	RegisterScriptCallback("on_key_release",on_key_release)
+	RegisterScriptCallback("save_state",save_state)
+	RegisterScriptCallback("load_state",load_state)
+	RegisterScriptCallback("actor_on_first_update",actor_on_first_update)
+	RegisterScriptCallback("actor_on_update",actor_on_update)
+	RegisterScriptCallback("server_entity_on_unregister",server_entity_on_unregister)
+end

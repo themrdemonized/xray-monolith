@@ -1,0 +1,1440 @@
+
+--====================================================================
+-- Utilities for dealing with items
+--====================================================================
+
+local enable_debug = false
+function print_dbg(fmt,...)
+	if enable_debug then
+		printf("-utils_item | " .. fmt,...)
+	end
+end
+
+----------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------
+local string_find   = string.find
+local string_match  = string.match
+local string_sub    = string.sub
+
+local read_from_ini = utils_data.read_from_ini
+
+
+----------------------------------------------------------------------
+-- Parsing
+----------------------------------------------------------------------
+local cache_param = {}
+local cache_param_key = {}
+local function check_cache(id, param, by_key)
+	if by_key then
+		return cache_param_key[id] and (cache_param_key[id][param] ~= nil)
+	end
+	
+	return cache_param[id] and (cache_param[id][param] ~= nil)
+end
+local function add_cache(id, param, value, by_key)
+	print_dbg("add_cache | id: %s - param: %s - value: %s - by_key: %s", id, param, value, by_key)
+	if by_key then
+		if (not cache_param_key[id]) then
+			cache_param_key[id] = {}
+		end
+		cache_param_key[id][param] = value
+		
+	else
+		if (not cache_param[id]) then
+			cache_param[id] = {}
+		end
+		cache_param[id][param] = value
+	end
+end
+local function get_cache(id, param, by_key)
+	print_dbg("get_cache | id: %s - param: %s - by_key: %s", id, param, by_key)
+	if by_key then
+		return cache_param_key[id] and cache_param_key[id][param]
+	end
+	
+	return cache_param[id] and cache_param[id][param]
+end
+
+
+local function item_vector_to_num(str, value)
+	local r = parse_names(str)
+	r = tonumber(r[1]) or 0
+	if value < r then
+		return r
+	end
+	return value
+end
+
+local function item_float_to_num(str, value)
+	if string_find(str,"f") then
+		return tonumber( string_sub(str,1,-2) )
+	end
+	return tonumber(str)
+end
+
+local param_special = {
+	["hit_power"]               = { typ= "string" , functor= item_vector_to_num },
+	["control_inertion_factor"] = { typ= "string" , functor= item_float_to_num },
+}
+
+function get_ammo(section, id, by_key)
+	print_dbg("get_ammo | section: %s - id: %s - by_key: %s", section, id, by_key)
+	
+	local ammo_list = {}
+	
+	-- If object exists
+	if id then
+		local obj = level.object_by_id(id)
+		if (not obj) then
+			return {}
+		end
+		
+		local cobj = obj:cast_Weapon()
+		if (not cobj) then
+			return {}
+		end
+		
+		cobj:AmmoTypeForEach( function(i, ammo_sec)
+			if by_key then
+				ammo_list[ammo_sec] = true
+			else
+				ammo_list[#ammo_list + 1] = ammo_sec
+			end
+		end)
+		
+	-- If section exists
+	elseif section and ini_sys:r_string_ex(section, "ammo_class") and (not IsItem("fake_ammo_wpn", section)) then
+		
+		-- If weapon ammo is cached, no need for new calculations
+		if check_cache(section, "ammo_class", by_key) then 
+			return get_cache(section, "ammo_class", by_key)
+		end
+	
+		-- Look through section and pre-installed upgrades
+		ammo_list = parse_list(ini_sys,section,"ammo_class",by_key)
+		local installed_upgr = parse_list( ini_sys, section, "installed_upgrades")
+		for _,upgrade in pairs(installed_upgr) do
+			local props = parse_list(ini_sys,tostring(upgrade),"property",true)
+			if props["prop_calibre"] or props["prop_no_buck"] then
+				local upgrade_sect = read_from_ini(ini_sys, tostring(upgrade), "section", "string", nil)
+				ammo_list = parse_list(ini_sys,upgrade_sect,"ammo_class",by_key)
+				print_dbg("get_ammo | section: %s - id: %s | found installed-upgrade [%s], new ammo: %s", section, id, upgrade, ammo_list[1])
+				break
+			end
+		end
+		
+		-- Cache
+		add_cache(section, "ammo_class", dup_table(ammo_list), by_key)
+	end
+
+	return ammo_list
+end
+
+function get_param(section, id, param, typ, add)
+	print_dbg("get_param | section: %s - id: %s - param: %s - type: %s - add: %s - upgrades table passed: %s", section, id, param, typ, add)
+	
+	-- Validate
+	if not (section and param) then
+		callstack()
+		printf("!ERROR utils_item.get_param | missing parameters")
+		return
+	end
+	
+	-- If item param is cached, no need for new calculations
+	if check_cache( (id or section), param) then 
+		return cache_param[ (id or section) ][param]
+	end
+	
+	-- For ammo, use its own function
+	if param == "ammo_class" then
+		return get_ammo(section, id, false)
+	end
+	
+	-- Read section
+	local typ_t = typ 
+	typ = param_special[param] and param_special[param].typ or typ
+	
+	local value = read_from_ini(ini_sys, section, param, typ, nil)
+	if (value == nil) then
+		--printf("!ERROR itms_manager.get_item_param | param (%s) doesn't exist for [%s]", param, section)
+		return
+	end
+	if param_special[param] then
+		value = param_special[param].functor(value,0)
+	end
+	print_dbg("get_param | section: %s - id: %s - param: %s | value in section: %s", section, id, param, value)
+
+	-- Read installed upgrades
+	local installed_upgr = id and get_upgrades_installed(nil, id) or parse_list( ini_sys, section, "installed_upgrades")
+	for k,upgr in pairs(installed_upgr) do
+		local upgrade_sect = ini_sys:r_string_ex(upgr, "section")
+		local upgrade_value = utils_data.read_from_ini(ini_sys, upgrade_sect, param, typ, nil)
+		if (upgrade_value ~= nil) then
+			if param_special[param] then
+				upgrade_value = param_special[param].functor(upgrade_value,value)
+			end
+
+			if add and (typ_t == "float") then
+				value = value + upgrade_value
+			else
+				value = upgrade_value
+			end
+			print_dbg("get_param | section: %s - id: %s - param: %s | found installed-upgrade [%s], adjusted value: %s", section, id, param, upgr, value)
+		end
+	end
+	
+	-- Cache
+	add_cache(id or section, param, value)
+	
+	return value
+end
+
+function get_cond_static(condition)
+	if game_difficulties.get_eco_factor("percentage_parts") then
+		return condition
+	end
+
+	return (condition <= 25 and 25) or (condition <= 50 and 50) or (condition <= 75 and 75) or 100
+end 
+
+function get_defined_uses(sec_d)
+	local _, __, sec_u, uses = string_find(sec_d,"(.*)__(%d)")
+	if sec_u and uses and ini_sys:section_exist(sec_u) then
+		return sec_u, tonumber(uses)
+	end
+	return sec_d
+end
+
+
+----------------------------------------------------------------------
+-- Weapons
+----------------------------------------------------------------------
+local wpn_param_by_name = { -- factors are used to convert from engine values to ltx | 1: multiply - 2: divide
+	["fire_dispersion_base"]    = { typ= "float", func= "GetFireDispersion" ,factor_1= (180.0/math.pi)},
+	["PDM_disp_base"]           = { typ= "float" ,func= "Get_PDM_Base"},
+	["control_inertion_factor"] = { typ= "float"	},
+	["hit_power"]               = { typ= "float" ,func= "GetHitPower"},
+	["scopes_sect"]           	= { typ= "string" ,func= "GetScopeName", sec= "scope_name"},
+	["silencer_name"]           = { typ= "string" ,func= "GetSilencerName"},
+	["grenade_launcher_name"]   = { typ= "string" ,func= "GetGrenadeLauncherName"},
+	["rpm"]   					= { typ= "float" 	},
+}
+
+function get_wpn_param(obj, sec, name, def)
+	if (not name) then
+		return def
+	end
+	
+	local param = wpn_param_by_name[name]
+	if (not param) then
+		return def
+	end
+	
+	-- Object exists
+	if obj and param.func then
+		local cobj = obj:cast_Weapon()
+		if (not cobj) then
+			return def
+		end
+		
+		local val = cobj[param.func](cobj)
+		if param.factor_1 then
+			val = param.factor_1 * val
+		end
+		if param.factor_2 then
+			val = param.factor_2 / val
+		end
+		--printf("[%s](%s) = %s", obj:name(), name, val) 
+		return val or def
+		
+	-- Section exists
+	elseif sec and param.typ then
+		local val = get_param(sec, obj and obj:id(), name, param.typ, true)
+		if param.sec then
+			return val and ini_sys:r_string_ex(val, param.sec) or def
+		end
+		return val or def
+	end
+	
+	return def
+end
+
+
+-- Addons
+local wpn_addons = {
+	["sc"] = {[1] = true,[3] = true,[5] = true,[7] = true}, -- Scope
+	["sl"] = {[4] = true,[5] = true,[6] = true,[7] = true}, -- Silencer
+	["gl"] = {[2] = true,[3] = true,[6] = true,[7] = true}, -- Grenade Launcher
+}
+function addon_attached(obj, addon, flag)
+	if wpn_addons[addon] then
+		return wpn_addons[addon][flag or get_addon_flag(obj,true)] == true
+	end
+	return false
+end
+
+local addon_memo = {}
+function get_addon_flag(obj, with_int)
+	local id = obj:id()
+	local tg = time_global()
+	print_dbg("get_addon_flag | name: %s - with_int: %s", obj and obj:name(), with_int)
+	
+	if (tg == addon_memo.tg) and (addon_memo.id == id) and (addon_memo.wi == with_int) then
+		return addon_memo.fl
+	else
+		local flag = 0
+		if obj:weapon_is_scope() then
+			if with_int or get_addon_status(obj,"sc") == 2 then
+				flag = 1
+			end
+		end
+		if obj:weapon_is_silencer() then
+			if with_int or get_addon_status(obj,"sl") == 2 then
+				flag = flag + 4
+			end
+		end
+		if obj:weapon_is_grenadelauncher() then
+			if with_int or get_addon_status(obj,"gl") == 2 then
+				flag = flag + 2
+			end
+		end
+		
+		addon_memo = {tg = tg, id = id, wi = with_int, fl = flag}
+		
+		return flag
+	end
+end
+function get_addon_status(obj, addon)
+	if (addon == "sc") then
+		return obj:weapon_scope_status()
+	elseif (addon == "sl") then
+		return obj:weapon_silencer_status()
+	elseif (addon == "gl") then
+		return obj:weapon_grenadelauncher_status()
+	end
+	return 0
+end
+
+local fa_cls = {
+	[clsid.wpn_pm_s]           = true,
+	[clsid.wpn_walther_s]      = true,
+	[clsid.wpn_usp45_s]        = true,
+	[clsid.wpn_hpsa_s]         = true,
+	[clsid.wpn_bm16_s]         = true,
+	[clsid.wpn_shotgun_s]      = true,
+	[clsid.wpn_auto_shotgun_s] = true,
+	[clsid.wpn_ak74_s]         = true,
+	[clsid.wpn_lr300_s]        = true,
+	[clsid.wpn_groza_s]        = true,
+	[clsid.wpn_val_s]          = true,
+	[clsid.wpn_vintorez_s]     = true,
+	[clsid.wpn_svu_s]          = true,
+	[clsid.wpn_svd_s]          = true,
+	[clsid.wpn_rg6_s]          = true,
+	[clsid.wpn_rpg7_s]         = true,
+	[clsid.wpn_knife_s]        = true,
+}
+function item_is_fa(o,c)
+	if not c then
+		c = o and o:clsid()
+	end
+	return c and fa_cls[c] or false
+end
+
+local scopes_list
+function has_scope(section)
+	if (not scopes_list) then
+		scopes_list = utils_data.collect_section(ini_sys, "addons_table")
+	end
+	
+	for _, scope in ipairs(scopes_list) do
+		if string_match(section, scope) then
+			return scope
+		end
+	end
+end
+
+-- For attachment status = 2 only!
+function support_attachments(wpn)
+	if not (wpn) then
+		--printf("!ERROR can_attach_scope | missing parameters")
+		return false
+	end
+	
+	if (not IsWeapon(wpn)) or IsItem("fake_ammo_wpn",wpn:section()) then
+		--printf("!ERROR can_attach_scope | [%s] doesn't support attachments", wpn:section())
+		return false
+	end
+	return true
+end
+
+function has_attached_scope(wpn)
+	if (not support_attachments(wpn)) then
+		return false
+	end
+
+	return (wpn:weapon_scope_status() == 2) and wpn:weapon_is_scope() or has_scope(wpn:section())
+end
+function can_attach_scope(wpn, addon, ignore)
+	if not (addon and support_attachments(wpn)) then
+		return false
+	end
+	
+	local add_sec = addon:section()
+	local is_scope = IsItem("scope",add_sec)
+	if (not is_scope) then
+		--printf("!ERROR can_attach_scope | addon [%s] is not a scope or sight", add_sec)
+		return false
+	end
+
+	local has_attachment = (ignore ~= true) and has_attached_scope(wpn) or false
+	if (not has_attachment) and (wpn:weapon_scope_status() == 2) then
+		local wpn_sec = wpn:section()
+		return (get_wpn_param(wpn, wpn_sec, "scopes_sect") == add_sec)
+	end
+	return false
+end
+function get_attached_scope(wpn, ignore)
+	if (not support_attachments(wpn)) then
+		return false
+	end
+	
+	local has_attachment = (ignore ~= true) and has_attached_scope(wpn) or false
+	if (has_attachment) then
+		local dxr_scope = has_scope(wpn:section())
+		if dxr_scope then
+			return dxr_scope
+		end
+		
+		return get_wpn_param(wpn, wpn:section(), "scopes_sect")
+	end
+end
+
+function has_attached_silencer(wpn)
+	if (not support_attachments(wpn)) then
+		return false
+	end
+	
+	return (wpn:weapon_silencer_status() == 2) and wpn:weapon_is_silencer()
+end
+function can_attach_silencer(wpn, addon, ignore)
+	if not (addon and support_attachments(wpn)) then
+		return false
+	end
+	
+	local add_sec = addon:section()
+	local is_sil = IsItem("sil",add_sec)
+	if (not is_sil) then
+		--printf("!ERROR can_attach_silencer | addon [%s] is not a silencer", add_sec)
+		return false
+	end
+	
+	local has_attachment = (ignore ~= true) and has_attached_silencer(wpn) or false
+	if (not has_attachment) and (wpn:weapon_silencer_status() == 2) then
+		return (get_wpn_param(wpn, wpn:section(), "silencer_name") == add_sec)
+	end
+	return false
+end
+function get_attached_silencer(wpn, ignore)
+	if (not support_attachments(wpn)) then
+		return false
+	end
+	
+	local has_attachment = (ignore ~= true) and has_attached_silencer(wpn) or false
+	return has_attachment and get_wpn_param(wpn, wpn:section(), "silencer_name")
+end
+
+function has_attached_gl(wpn)
+	if (not support_attachments(wpn)) then
+		return false
+	end
+	
+	return (wpn:weapon_grenadelauncher_status() == 2) and wpn:weapon_is_grenadelauncher()
+end
+function can_attach_gl(wpn, addon, ignore)
+	if not (addon and support_attachments(wpn)) then
+		return false
+	end
+	
+	local add_sec = addon:section()
+	local is_gl = IsItem("gl",add_sec)
+	if (not is_gl) then
+		--printf("!ERROR can_attach_gl | addon [%s] is not a grenade launcher", add_sec)
+		return false
+	end
+	
+	local has_attachment = (ignore ~= true) and has_attached_gl(wpn) or false
+	if (not has_attachment) and (wpn:weapon_grenadelauncher_status() == 2) then
+		return (get_wpn_param(wpn, wpn:section(), "grenade_launcher_name") == add_sec)
+	end
+	return false
+end
+function get_attached_gl(wpn, ignore)
+	if (not support_attachments(wpn)) then
+		return false
+	end
+	
+	local has_attachment = (ignore ~= true) and has_attached_gl(wpn) or false
+	return has_attachment and get_wpn_param(wpn, wpn:section(), "grenade_launcher_name")
+end
+
+function attach_addon(wpn, addon, typ, ignore)
+	if not (addon and support_attachments(wpn)) then
+		return
+	end
+	
+	if ignore
+	or (typ == "scope" and can_attach_scope(wpn, addon))
+	or (typ == "sil" and can_attach_silencer(wpn, addon))
+	or (typ == "gl" and can_attach_gl(wpn, addon))
+	then
+		if (typ == "scope") and ini_sys:section_exist(wpn:section() .. "_" .. addon:section()) then
+			item_weapon.attach_scope(addon, wpn)
+		else
+			wpn:weapon_addon_attach(addon)
+		end
+	end
+end
+function detach_addon(wpn, addon, typ, ignore)
+	if not (support_attachments(wpn)) then
+		return
+	end
+	
+	if (not addon) then
+		addon = (typ == "scope" and get_attached_scope(wpn)) or (typ == "sil" and get_attached_silencer(wpn)) or (typ == "gl" and get_attached_gl(wpn))
+	end
+	
+	local has_attached = ignore or (typ == "scope" and has_attached_scope(wpn)) or (typ == "sil" and has_attached_silencer(wpn)) or (typ == "gl" and has_attached_gl(wpn))
+	if has_attached then
+		if (typ == "scope") and item_weapon.menu_scope(wpn) then
+			item_weapon.detach_scope(wpn)
+			
+		elseif type(addon) == "string" and ini_sys:section_exist(addon) then
+			wpn:weapon_addon_detach(addon, true)
+			--printf("-detaching [%s] from [%s]", addon, wpn:section())
+		else
+			printf("!ERROR detach_addon | addon [%s] doesn't belong to [%s]", addon, wpn:section())
+		end
+	else
+		printf("~WARNING detach_addon | [%s] doesn't have attached addon [%s]", wpn:name(), addon)
+	end
+end
+
+
+----------------------------------------------------------------------
+-- Outfits
+----------------------------------------------------------------------
+local outfit_param_by_type = {
+	["Burn"]         = "burn_protection" ,
+	["Shock"]        = "shock_protection" ,
+	["ChemicalBurn"] = "chemical_burn_protection" ,
+	["Radiation"]    = "radiation_protection" ,
+	["Telepatic"]    = "telepatic_protection" ,
+	["Wound"]        = "wound_protection" ,
+	["FireWound"]    = "fire_wound_protection" ,
+	["Strike"]       = "strike_protection" ,
+	["Explosion"]    = "explosion_protection" ,
+}
+local outfit_prop_by_type = {
+	["helmet_avaliable"]             = {1,"bIsHelmetAvaliable"},
+	["backpack_avaliable"]           = {1,"bIsBackpackAvaliable"},
+	["additional_inventory_weight"]  = {2,"m_additional_weight"},
+	["additional_inventory_weight2"] = {2,"m_additional_weight2"},
+	["bleeding_restore_speed"]       = {2,"m_fBleedingRestoreSpeed"},
+	["health_restore_speed"]         = {2,"m_fHealthRestoreSpeed"},
+	["power_loss"]                   = {2,"m_fPowerLoss"},
+	["power_restore_speed"]          = {2,"m_fPowerRestoreSpeed"},
+	["radiation_restore_speed"]      = {2,"m_fRadiationRestoreSpeed"},
+	["satiety_restore_speed"]        = {2,"m_fSatietyRestoreSpeed"},
+}
+
+function get_outfit_protection(obj, sec, name, def)
+	def = def or 0
+	
+	if (not name) then
+		return def
+	end
+	
+	local param = outfit_param_by_type[name]
+	if (not param) then
+		return def
+	end
+	
+	-- Object exists
+	if obj then
+		local outfit = IsOutfit(obj)
+		local helmet = IsHeadgear(obj)
+		local cobj = outfit and obj:cast_CustomOutfit() or helmet and obj:cast_Helmet()
+		if (not cobj) then
+			return def
+		end
+		
+		-- Special case for fire wound damage
+		if (name == "FireWound") then
+			local bone_value = 0
+			
+			-- Outfit
+			if outfit then
+				bone_value = cobj:GetBoneArmor( BoneID["bip01_spine"] ) or 0
+				if (not cobj.bIsHelmetAvaliable) then
+					bone_value = bone_value + cobj:GetBoneArmor( BoneID["bip01_head"] ) or 0
+				end
+				
+			-- Helmet
+			elseif helmet then
+				bone_value = cobj:GetBoneArmor( BoneID["bip01_head"] ) or 0
+			end
+		
+			return bone_value * obj:condition()
+			
+		-- Other types
+		else
+			return cobj:GetDefHitTypeProtection( HitTypeID[name] ) or def
+		end
+		
+	-- Section exists
+	elseif sec then
+		
+		-- Special case for fire wound damage
+		if (name == "FireWound") then
+			local bones_koeff_protection = SYS_GetParam(0,sec,"bones_koeff_protection")
+			
+			-- Outfit
+			if IsItem("outfit", sec) then
+				local bone_values = parse_list(ini_sys, bones_koeff_protection, "bip01_spine")
+				local bone_value = tonumber(bone_values[2]) or 0
+				
+				if (not SYS_GetParam(1,sec,"helmet_avaliable")) then
+					bone_values = parse_list(ini_sys, bones_koeff_protection, "bip01_head")
+					bone_value = bone_value + tonumber(bone_values[2])
+				end
+				return bone_value
+			
+			-- Helmet
+			elseif IsItem("helmet", sec) then
+				local bone_values = parse_list(ini_sys, bones_koeff_protection, "bip01_head")
+				return tonumber(bone_values[2])
+			end
+			
+		-- Other types
+		else
+			return param and SYS_GetParam(2,sec,param) or def
+		end
+	end
+	
+	return def
+end
+
+function get_outfit_property(obj, sec, name, def)
+	if (not name) then
+		return def
+	end
+	
+	local prop = outfit_prop_by_type[name] and outfit_prop_by_type[name][2]
+	if (not prop) then
+		return def
+	end
+	
+	if obj then
+		local cobj = IsOutfit(obj) and obj:cast_CustomOutfit()
+		if (not cobj) then
+			return def
+		end
+		return cobj[prop]
+		
+	elseif sec then
+		local typ = outfit_prop_by_type[name] and outfit_prop_by_type[name][1]
+		return typ and SYS_GetParam(typ, sec, prop)
+	end
+	
+	return def
+end
+
+function get_outfit_belt_size(obj, sec)
+	
+	if obj then
+		local cobj = IsOutfit(obj) and obj:cast_CustomOutfit()
+		if (not cobj) then
+			return 0
+		end
+		return cobj:get_artefact_count() or 0
+		
+	elseif sec then
+		return SYS_GetParam(2,sec,"artefact_count") or 0
+	end
+end
+
+
+----------------------------------------------------------------------
+-- Items
+----------------------------------------------------------------------
+local _parent
+function in_actor_inv(obj)
+	_parent = obj:parent()
+	return _parent and (_parent:id() == AC_ID)
+end
+
+function in_actor_ruck(obj)
+	return in_actor_inv(obj) and (not db.actor:is_on_belt(obj))
+end
+
+function in_npc_inv(npc, obj)
+	_parent = obj:parent()
+	return _parent and (_parent:id() == npc:id())
+end
+
+function is_degradable(obj, sec)
+	local section = obj and obj:section() or sec
+	return section and ini_sys:r_bool_ex(section,"use_condition") and (not IsItem("multiuse",section))
+end
+
+function degrade(obj, num) -- reduce condition of degradable item
+	if not (num and num > 0) then
+		return
+	end
+	
+	local sec = obj:section()
+	local cond = obj:condition()
+	if (cond > num) then
+		local new_con = cond - num
+		new_con = clamp(new_con,0.01,0.99)
+		obj:set_condition(new_con)
+		--print_dbg("degrade | degraded item (%s) with condition (%s)", sec, cond)
+		return new_con
+	end
+	
+	--print_dbg("degrade | released item (%s) with condition (%s)", sec, cond)
+	alife_release(obj)
+	return 0
+end
+
+function discharge(obj, num) --reduce use of multiuse item
+	if (not obj) then return end
+
+	num = num or 1
+	if IsItem("multiuse",nil,obj) then
+		local uses = obj:get_remaining_uses()
+		if uses and uses > num then
+			obj:set_remaining_uses(uses - num)
+			--print_dbg("discharge | discharged item (%s) by %s", obj:section(), num)
+			return uses - num
+		end
+	end
+		
+	--print_dbg("discharge | released item (%s)", obj:section())
+	alife_release(obj)
+	return 0
+end
+
+function get_item_remaining_uses(obj)
+	return obj and IsItem("multiuse",nil,obj) and obj:get_remaining_uses() or 1
+end
+
+function has_quest_item(npc)
+	if not (npc and IsStalker(npc)) then
+		return
+	end
+	
+	local found_quest_item = false
+	npc:iterate_inventory( function(owner, item)
+		if IsItem("quest",item:section()) then
+			found_quest_item = true
+			--printf("~found quest item: %s", item:section())
+			return true
+		end
+	end)
+	if found_quest_item then
+		return true
+	end
+	
+	return false
+end
+
+
+----------------------------------------------------------------------
+-- Inventory
+----------------------------------------------------------------------
+function get_amount(npc, section, mode)
+-- mode 0: count item as 1
+-- mode 1: can count item uses, but not ammo count
+
+	local amount = 0
+	local is_multi = IsItem("multiuse",section)
+	local is_ammo = IsItem("ammo",section)
+	
+	local function itr(temp, obj)
+		if (obj:section() == section) then
+			if (mode == 0) then
+				amount = amount + 1
+			elseif is_multi then
+				amount = amount + obj:get_remaining_uses()
+			elseif is_ammo and (mode ~= 1) then
+				amount = amount + obj:ammo_get_count()
+			else
+				amount = amount + 1
+			end
+		end
+	end
+	npc:iterate_inventory(itr, nil)
+	
+	return amount
+end
+
+function collect_amount(npc, section, mode)
+-- mode 0: count item as 1
+-- mode 1: can count item uses, but not ammo count
+
+	local amount = {}
+	local is_multi = IsItem("multiuse",section)
+	local is_ammo = IsItem("ammo",section)
+	
+	local function itr(temp, obj)
+		if (obj:section() == section) then
+			if (mode == 0) then
+				amount[obj:id()] = 1
+			elseif is_multi then
+				amount[obj:id()] = obj:get_remaining_uses()
+			elseif is_ammo and (mode ~= 1) then
+				amount[obj:id()] = obj:ammo_get_count()
+			else
+				amount[obj:id()] = 1
+			end
+		end
+	end
+	npc:iterate_inventory(itr, nil)
+	
+	return amount
+end
+
+function transfer_amount(npc_from, npc_to, section, amount, can_create)
+	
+	local remain = amount
+	local is_multi = IsItem("multiuse",section)
+	local is_ammo = IsItem("ammo",section)
+	
+	-- transfer currently owned items
+	local function itr(temp, obj)
+		if (remain <= 0) then
+			return true -- no point of iterating further if all amount is given
+		end
+		
+		if (obj:section() == section) then
+			local amt = (is_multi and obj:get_remaining_uses()) or (is_ammo and obj:ammo_get_count()) or 1
+			remain = remain - amt
+			if remain < 0 then
+				local to_keep = -remain
+				local to_give = amt - remain
+				if is_multi then
+					obj:set_remaining_uses(to_keep)
+					alife_create_item(section, npc_to, { uses = to_give })
+				elseif is_ammo then
+					obj:ammo_set_count(to_keep)
+					alife_create_item(section, npc_to, { ammo = to_give })
+				end
+			else
+				npc_from:transfer_item(obj, npc_to)
+			end
+		end
+	end
+	npc_from:iterate_inventory(itr, nil)
+	
+	-- In case giver npc is out of amount
+	if remain > 0 and can_create then
+		if is_ammo then
+			alife_create_item(section, npc_to, { ammo = remain })
+			
+		elseif is_multi then
+			local max_uses = ini_sys:r_float_ex(section,"max_uses")
+			while (remain > 0) do
+				if remain >= max_uses then
+					alife_create_item(section, npc_to)
+				else
+					alife_create_item(section, npc_to, { uses = (max_uses - remain) } )
+				end
+				remain = remain - max_uses
+			end
+		end
+	end
+	
+	return
+end
+
+function create_amount(npc, section, amount, basic)
+	if (not basic) and IsItem("ammo",section) then
+		alife_create_item(section, npc, { ammo = amount } )
+		
+	elseif (not basic) and IsItem("multiuse",section) then
+		local max_uses = ini_sys:r_float_ex(section,"max_uses")
+		local remain = amount
+		while remain > 0 do
+			if (remain >= max_uses) then
+				alife_create_item(section, npc)
+			else
+				alife_create_item(section, npc, { uses = (max_uses - remain) } )
+			end
+			remain = remain - max_uses
+		end
+		
+	else
+		for i=1,amount do
+			alife_create_item(section, npc)
+		end
+	end
+end
+
+function has_item_by_id(npc, id, section)
+	local npc_id = npc and npc:id() or AC_ID
+	local obj = id and level.object_by_id(id)
+	local pr = obj and obj:parent()
+	if pr and pr:id() == npc_id then
+		if (not section) or (section and section == obj:section()) then
+			return true
+		end
+	end
+	return false
+end
+
+function is_overweight(npc, npc_id, comp_weight)
+	npc = npc or get_object_by_id(npc_id)
+	if (not npc) then
+		return
+	end
+	
+	local max_weight = 30
+	local curr_weight = npc:get_total_weight()
+	if comp_weight then
+		return (comp_weight > (max_weight - curr_weight))
+	end
+	return curr_weight > max_weight, curr_weight, max_weight
+end
+
+local function delay_event_timer(to_create, to_release, news)
+
+	-- Send news
+	if news then
+		local obj = to_release[1] and level.object_by_id(to_release[1])
+		local sec = obj and obj:section()
+		local name = sec and ui_item.get_sec_name(sec) or ""
+	
+		local create_text = ""
+		for i=1,#to_create do
+			if ini_sys:section_exist(to_create[i]) then
+				create_text = create_text .. "\\n- " .. ui_item.get_sec_name(to_create[i])
+			end
+		end
+		actor_menu.set_item_news("success", "weapon_ammo", "st_dis_text_11", name, game.translate_string("st_dis_text_9"), create_text)
+	end
+	
+	-- Create items
+	for i=1,#to_create do
+		alife_create_item(to_create[i], db.actor)
+	end
+	
+	-- Release items
+	for i=1,#to_release do
+		alife_release_id(to_release[i])
+	end
+	
+	return true
+end
+function delay_event(to_create, to_release, effect, news, delay)
+	-- to_create: table of item sections to create
+	-- to_release: table of item ids to release
+	
+	delay = actor_effects.is_animations_on() and delay or 0
+	actor_effects.play_item_fx(effect)
+	CreateTimeEvent(math.random(1000), "delay_item", delay, delay_event_timer, to_create or {}, to_release or {}, news)
+end
+
+
+----------------------------------------------------------------------
+-- Trade
+----------------------------------------------------------------------
+--[[
+	profile = { -- see trade_manager
+		mode          = actor: 1 - npc: 2
+		cfg           = cfg_ltx
+		list          = current_buy_condition
+		cond_factor   = current_buy_item_condition_factor
+		cond_exponent = current_buy_item_exponent
+		discount      = 
+	}
+--]]
+
+function get_item_cost(obj, profile)
+
+	if not (obj and profile) then
+		return nil
+	end
+
+	local cost = obj:cost()
+	local sec = obj:section()
+	local discount = profile.discount
+	
+	-- Cost factor by trade config
+	local cfg = trade_manager.get_trade_cfg( profile.cfg ) 
+	if cfg then
+		local list = profile.list
+		if cfg:line_exist(list, sec) then
+			local val = cfg:r_string_ex(list,sec)
+			if val then
+				val = str_explode(val,",")
+				cost = cost * (tonumber(val[1]) or 1)
+			else
+				return false
+			end
+		end
+	end
+	
+	-- Cost for multiuse items
+	local uses = IsItem("multiuse",sec)
+	if uses then
+		cost = cost * discount * (obj:get_remaining_uses() / uses)
+		local ret = {}
+		SendScriptCallback("on_get_item_cost", "multiuse", obj, profile, cost, ret)
+		return tonumber(ret.new_cost) or cost
+	end
+	
+	-- Cost for ammo
+	local ammo = IsItem("ammo",sec)
+	if ammo then
+		cost = cost * discount * (obj:ammo_get_count() / ammo)
+		local ret = {}
+		SendScriptCallback("on_get_item_cost", "ammo", obj, profile, cost, ret)
+		return tonumber(ret.new_cost) or cost
+	end
+	
+	-- Cost for condition
+	local cond = obj:condition() or 1
+	local exponent = profile.cond_exponent
+	cost = cost * discount * math.pow((cond * 0.9 + 0.1), exponent > 0 and exponent or 0.75)
+	local ret = {}
+	SendScriptCallback("on_get_item_cost", "condition_based", obj, profile, cost, ret)
+	
+	return tonumber(ret.new_cost) or cost
+end
+
+function get_item_trade_status(obj, profile)
+	-- nil: no object
+	-- 1: item can't be traded
+	-- 2: item is too damaged to be traded
+	-- 3: item is not tradable by npc (to hide)
+	-- 4: tradable
+	
+	if not (obj and profile) then
+		return
+	end
+	
+	local note = 4
+	local sec = obj:section()
+	local cond = obj:condition() or 1
+	local uses = IsItem("multiuse",sec)
+	local ammo = IsItem("ammo",sec)
+	
+	-- No trade for too damaged item
+	if profile.cond_factor and cond < profile.cond_factor and (not uses) and (not ammo) then
+		note = 2
+	end
+	
+	-- No trade for quest items
+	if SYS_GetParam(1,sec,"quest_item") or (SYS_GetParam(1,sec,"can_trade") == false) then
+		note = 1
+	end
+	
+	-- No trade for unlisted items
+	local cfg = trade_manager.get_trade_cfg( profile.cfg )
+	local list = profile.list
+	if not (cfg and list) then
+		printe("!ERROR get_item_trade_status | trading profiles missing info | cfg: %s - list: %s", profile.cfg, list and true or false)
+		return
+	end
+	if cfg:line_exist(list, sec) and (not cfg:r_string_ex(list,sec)) then
+		note = 1
+	end
+	
+	-- For NPC, non-tradable items shouldn't be shown
+	if (profile.mode == 2) then
+		if (note ~= 4) or (obj:cost() <= 0) or IsItem("anim",sec) or IsItem("fake_ammo",sec)
+		or (ammo and ammo > obj:ammo_get_count())
+		or (uses and uses > obj:get_remaining_uses())
+		then
+			note = 3
+		end
+	end
+	
+	return note
+end
+
+
+----------------------------------------------------------------------
+-- Upgrades
+----------------------------------------------------------------------
+local cache_upgr_tree = {}
+local cache_upgr_ins = {}
+
+local upg_gr = {
+	["first"] = 1,
+	["secon"] = 2,
+	["third"] = 3,
+	["fourt"] = 4,
+	["fifth"] = 5,
+}
+local upg_ind = {
+	["a"] = 1,
+	["b"] = 2,
+	["c"] = 3,
+	["d"] = 4,
+	["e"] = 5,
+	["f"] = 6,
+}
+local upg_prop_tool = {
+	["prop_weight"]	            =	"upgr_w_^d_weight",	        --Weight
+	["prop_silencer"]	        =	"upgr_w_^d_muffle",	        --Muffler
+	["prop_underbarrel_slot"]	=	"upgr_w_^d_grenade_mount",	--Mount the grenade launcher
+	["prop_reliability"]	    =	"upgr_w_^d_reliability",	--Reliability
+	["prop_bullet_speed"]	    =	"upgr_w_^d_speed",	        --Flatness
+	["prop_recoil"]	            =	"upgr_w_^d_recoil",	        --Recoil
+	["prop_ammo_size"]	        =	"upgr_w_^d_magazine",	    --Cartridges
+	["prop_grenade_launcher"]	=	"upgr_w_^d_grenade_mount",	--Subbarrel
+	["prop_scope_4x"]	        =	"upgr_w_^d_scope",	        --Sight4
+	["prop_scope_1.6x"]	        =	"upgr_w_^d_scope",	        --Sight1.6
+	["prop_rpm"]	            =	"upgr_w_^d_rpm",	        --Rateoffire
+	["prop_calibre"]	        =	"upgr_w_^d_calibre",	    --caliber(9x18,5x45)
+	["prop_dispersion"]	        =	"upgr_w_^d_dispersion",	    --Accuracy
+	["prop_inertion"]	        =	"upgr_w_^d_inertion",	    --Convenience
+	["prop_autolockscope"]	    =	"upgr_w_^d_scope",	        --Auto Capture Targets in Optics
+	["prop_scope_1.5x"]	        =	"upgr_w_^d_scope",	        --Reflex Sight 1.5x
+	["prop_scope_5x"]	        =	"upgr_w_^d_scope",	        --Sight 5x
+	["prop_scope_6x"]	        =	"upgr_w_^d_scope",	        --Sight 6x
+	["prop_scope_10x"]	        =	"upgr_w_^d_scope",	        --Sight 10x
+	["prop_scope_12x"]	        =	"upgr_w_^d_scope",	        --Scope 12x
+	["prop_scope_15x"]	        =	"upgr_w_^d_scope",	        --Scope 15x
+	["prop_scope_attach"]	    =	"upgr_w_^d_scope_mount",	--Mount for optics
+	["prop_scope"]	            =	"upgr_w_^d_scope",	        --Adjustable range finder sight
+	["prop_contrast"]	        =	"upgr_w_^d_scope",	        --Increase the contrast of sight
+	["prop_autofire"]	        =	"upgr_w_^d_firemode",	    --Fully automatic firemode
+	["prop_3xfire"]	            =	"upgr_w_^d_firemode",	    --Three shots automatic shooting mode
+	["prop_nightvision"]	    =	"upgr_w_^d_scope",	        --Installing NVD
+	["prop_no_buck"]	        =	"upgr_w_^d_firemode",	    --Do not shoot a fraction.
+	
+	["prop_armor"]	            =	"upgr_o_^d_armor",	        --armor
+	["prop_damage"]	            =	"upgr_o_^d_damage",	        --Damage
+	["prop_durability"]	        =	"upgr_o_^d_durability",	    --wear resistance (strength)
+	["prop_restore_bleeding"]	=	"upgr_o_^d_bleed",	        --reduce bleeding
+	["prop_restore_health"]	    =	"upgr_o_^d_health",	        --Health Restoration
+	["prop_power"]	            =	"upgr_o_^d_power",	        --East. stamina
+	["prop_tonnage"]	        =	"upgr_o_^d_carry",	        --Carry weight
+	["prop_chem"]	            =	"upgr_o_^d_chem",	        --chemical protection
+	["prop_radio"]	            =	"upgr_o_^d_rad",	        --radio protection
+	["prop_thermo"]	            =	"upgr_o_^d_burn",	        --thermo protection
+	["prop_electro"]	        =	"upgr_o_^d_shock",	        --Electro protection
+	["prop_psy"]	            =	"upgr_o_^d_psi",	        --psi protection
+	["prop_artefact"]	        =	"upgr_o_^d_arty",	        --slot for artifacts
+	["prop_weightoutfit"]	    =	"upgr_o_^d_weight",	        --body armor weight
+	--["prop_autolock"]	        =	"",							--Avtozapvatgoal
+	["prop_sprint"]	            =	"upgr_o_^d_run",	        --Run in the exoskeleton
+	--["prop_scanner"]	        =	"",							--infra red scanner
+	
+	["prop_binoc_zoom"]	        =	"upgr_w_^d_scope",	        --Sight
+	["prop_binoc_nightvision"]	=	"upgr_w_^d_scope",	        --Installing NVD
+	["prop_binoc_autolock"]	    =	"upgr_w_^d_scope",	        --Sight
+}
+
+function extract_upgrade(tree, group, not_first)
+	
+	local elements = parse_list(ini_sys, group, "elements")
+	
+	-- Gather groups and indexes
+	for i=1,#elements do
+		local element = elements[i]
+		for k,row in pairs(upg_gr) do
+			if string_find(element,k) then
+			
+				-- create an suitable index
+				if (not tree[row]) then
+					tree[row] = {}
+				end 
+				local indx = element:sub(9,9) -- get the index
+				local col = indx and upg_ind[indx]
+				if col and (not tree[row][col]) then
+					local stats = ini_sys:r_string_ex(element,"section")
+					local effect = ini_sys:r_string_ex(element,"effects")
+					tree[row][col] = {}
+					tree[row][col].section = element
+					tree[row][col].stats = stats
+					tree[row][col].stats_cost = ini_sys:r_float_ex(stats,"cost")
+					tree[row][col].name = ini_sys:r_string_ex(element,"name")
+					tree[row][col].desc = ini_sys:r_string_ex(element,"description")
+					tree[row][col].icon = ini_sys:r_string_ex(element,"icon")
+					tree[row][col].effect = effect and parse_list(ini_sys, effect, "elements",true)
+					tree[row][col].prop = parse_list(ini_sys,element,"property")
+					tree[row][col].tier = ((col <= 2) and 1) or ((col <= 4) and 2) or 3
+					
+					local prop = tree[row][col].prop[1]
+					if prop then
+						local tool = upg_prop_tool[prop]
+						tree[row][col].tool = tool and tool:gsub("%^d", tostring(tree[row][col].tier)) or nil
+						if (not tree[row][col].tool) then
+							printdbg("! extract_upgr | can't generate tool for upgrade [%s], property: %s", tree[row][col].stats, prop)
+						end
+					end
+				end
+			end
+		end
+	end
+	
+	-- Repeat for followed upgrades
+	for i=1,#elements do
+		local group_next = ini_sys:r_string_ex(elements[i],"effects")
+		if group_next and (group_next ~= "") then
+			extract_upgrade(tree, group_next, true)
+		end
+	end
+	
+	-- Finalizing
+	if (not not_first) then
+		for row,v in pairs(tree) do
+			for col,info in pairs(v) do
+				if odd(col) and (not v[col+1]) then	
+					tree[row][col].solo = true -- indicating that the upgrade is alone in its group
+				end
+			end
+		end
+	end
+end
+
+function get_upgrades_tree(section, new_table)
+	print_dbg("get_upgrades_tree | section: %s - new_table: %s", section, new_table)
+	
+	local str = ini_sys:r_string_ex(section, "upgrades")
+	if str and str ~= "" then
+		-- return cached tree
+		if cache_upgr_tree[str] then
+			print_dbg("get_upgrades_tree | retreived cached upgrades")
+			return new_table and dup_table( cache_upgr_tree[str] ) or cache_upgr_tree[str]
+		end
+		
+		-- build and cache upgrades tree
+		cache_upgr_tree[str] = {}
+		local upgrades = str_explode(str,",")
+		for i=1, #upgrades do
+			extract_upgrade(cache_upgr_tree[str], upgrades[i])
+		end
+		print_dbg("get_upgrades_tree | cached upgrades")
+		return new_table and dup_table( cache_upgr_tree[str] ) or cache_upgr_tree[str]
+	end
+	return {}
+end
+
+function get_upgrades_tools(section)
+	print_dbg("get_upgrades_tools | section: %s", section)
+	
+	local tools = {}
+	local tree = get_upgrades_tree(section)
+	for row, v in pairs(tree) do
+		for col, w in pairs(v) do
+			if w.tool then
+				tools[w.tool] = (tools[w.tool] or 0) + 1
+			end
+		end
+	end
+	return tools
+end
+
+function get_upgrades_installed(obj, id, to_key)
+	local obj = obj or (id and level.object_by_id(id))
+	if (not obj) then
+		return {}
+	end
+	
+	local t = {}
+	obj:iterate_installed_upgrades( function(upgr_sec)
+		t[#t+1] = upgr_sec
+	end)
+	
+	if to_key then
+		t2k_table(t)
+	end
+	return t
+end
+
+function get_upgrade_prop_tool(prop)
+	return upg_prop_tool[prop]
+end
+
+function get_upgrade_sect_tool(sec, sect_u)
+	local tree = get_upgrades_tree(sec)
+	for row, v in pairs(tree) do
+		for col, w in pairs(v) do
+			if w.section == sect_u then
+				return w.tool
+			end
+		end
+	end
+end
+
+function has_upgrades(obj, sec)
+
+	if obj then
+		local found = false
+		obj:iterate_installed_upgrades( function(upgr_sec)
+			found = true
+			return true
+		end)
+		return found
+		
+	elseif sec then
+		return (SYS_GetParam(0,sec,"installed_upgrades","") ~= "")
+	end
+	
+	return false
+end
+
+function has_this_upgrade(obj, sec, up_sec)
+
+	if (not up_sec) then
+		return false
+	end
+	
+	local found = false
+	if obj then
+		obj:iterate_installed_upgrades( function(upgr_sec)
+			if (upgr_sec == up_sec) then
+				found = true
+				return true
+			end
+		end)
+		
+	elseif sec then
+		local list = SYS_GetParam(0,sec,"installed_upgrades","")
+		found = string.find(list, up_sec) and true or false
+	end
+	
+	return found	
+end
+
+----------------------------------------------------------------------
+-- Technical
+----------------------------------------------------------------------
+local switch_trace = {}
+function switch_on_off(id)
+	local obj = level.object_by_id(id)
+	if obj then
+		switch_trace[id] = 1
+		CreateTimeEvent(id,"switch_on_off",0,switch_on_off_steps,id)
+	end
+end
+
+function switch_on_off_steps(id)
+	ResetTimeEvent(id,"switch_on_off",0.1)
+	printf("switch_on_off_steps | [%s] (step: %s) (tg: %s)", id, switch_trace[id], time_global())
+	
+	-- Step 1: drop item on ground
+	if (switch_trace[id] == 1) then
+		local obj = level.object_by_id(id)
+		if (obj) then
+			local in_inv = false
+			db.actor:iterate_inventory( function(owner,obj_i)
+				if (obj_i:id() == id) then
+					in_inv = true
+					return true
+				end
+			end)
+			
+			if in_inv then
+				db.actor:drop_item(obj)
+			else
+				switch_trace[id] = 2
+			end
+			return false
+		end
+		return true
+		
+	-- Step 2: teleport item outside level
+	elseif (switch_trace[id] == 2) then
+		local se_item = alife_object(id)
+		if se_item then
+			if simulation_objects.is_on_the_actor_level(se_item) then
+				alife():iterate_objects_without_actor(function(se_obj)
+					if not simulation_objects.is_on_the_actor_level(se_obj) then
+						alife():teleport_object(id, se_obj.m_game_vertex_id, se_obj.m_level_vertex_id, se_obj.position)
+						return true
+					end
+				end)
+			else
+				switch_trace[id] = 3
+			end
+			return false
+		end	
+		return true
+		
+	elseif (switch_trace[id] == 3) then
+		local se_item = alife_object(id)
+		if se_item then
+			if (not simulation_objects.is_on_the_actor_level(se_item)) then
+				alife():teleport_object(id, db.actor:game_vertex_id(), db.actor:level_vertex_id(), db.actor:position())
+			else
+				switch_trace[id] = 4
+			end
+			return false
+		end	
+		return true
+		
+	elseif (switch_trace[id] == 4) then
+		local obj = level.object_by_id(id)
+		if (obj) then
+			db.actor:transfer_item(obj, db.actor)
+			switch_trace[id] = nil
+			return true
+		end
+	end
+	return false
+end
+
+
+----------------------------------------------------------------------
+-- Callbacks
+----------------------------------------------------------------------
+local function server_entity_on_unregister(se_obj, typ)
+	if cache_param[se_obj.id] then
+		cache_param[se_obj.id] = nil
+		print_dbg("utils_item | clearing unregistered item | cache_param [%s]", se_obj.id)
+	end
+	
+	if cache_param_key[se_obj.id] then
+		cache_param_key[se_obj.id] = nil
+		print_dbg("utils_item | clearing unregistered item | cache_param_key [%s]", se_obj.id)
+	end
+	
+	if cache_upgr_ins[se_obj.id] then
+		cache_upgr_ins[se_obj.id] = nil
+		print_dbg("utils_item | clearing unregistered item | cache_upgr_ins [%s]", se_obj.id)
+	end
+end
+
+function on_game_start()
+	RegisterScriptCallback("server_entity_on_unregister",server_entity_on_unregister)
+	-- RegisterScriptCallback("on_get_item_cost",on_get_item_cost)
+end
+
+-- arguments:
+	-- kind			: can be "multiuse", "ammo" or "condition_based" to tell what kind of calculation happened beforehand
+	-- obj				: game object of the item
+	-- profile			: table with information about the trading, see below
+	-- calculated_cost	: vanilla final cost
+	-- ret				: table, set a number on key "new_cost" to override the calulated cost
+
+-- profile values:
+	-- cfg : path to trader config
+	-- list : which section is used for prices, usually just trade_generic_buy or trade_generic_sell
+	-- mode : if 1 it means its calculating the price of selling to npc, if 2 means its calculating the price of buying from npc
+	-- cond_factor : same value of config
+	-- cond_exponent : same value of config
+	-- discount : current discount
+	
+-- this callback is called dozens of times when trading so avoid putting heavy operations in there
+-- also is called several times for each item for visualized price, price to calculate sum of sell/buy etc. so try to keep results consistent or stuff will break
+function on_get_item_cost(kind, obj, profile, calculated_cost, ret)
+	-- ret.new_cost = 500
+end

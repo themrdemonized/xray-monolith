@@ -1,0 +1,467 @@
+
+--[[
+
+	Tronex
+	2020/4/9
+	
+	Actor status / info - Handly for checking actor related info like current safe cover by other scripts
+	Custom HUD indicators
+	
+--]]
+
+-- Update rate
+local tg_update = 0
+local tg_update_step = 1000 --[ms]
+
+----------------------------------
+--	Current Boosters and states
+----------------------------------
+local active_boosters = {}
+local boost_name = {}
+function prepare_boosters_effect()
+	boost_name = invert_table(BoosterID)
+end
+function scan_boosters_effect()
+	for name,t in pairs(active_boosters) do
+		t.value = nil
+		t.period = nil
+	end
+	db.actor:cast_Actor():conditions():BoosterForEach( scan_current_booster_effect )
+end
+function scan_current_booster_effect(typ, period, value)
+	active_boosters[ boost_name[typ] ] = { value=value , period=period }
+end
+
+function get_boost(name, time_only)
+	if time_only then
+		return active_boosters[name] and active_boosters[name].period
+	end
+	return active_boosters[name] and active_boosters[name].value
+end
+
+function get_satienty(visual)
+	local conditions = db.actor:cast_Actor():conditions()
+	local satienty = conditions:GetSatiety()
+	if (not visual) then
+		return satienty
+	end
+	
+	local satiety_critical = conditions:SatietyCritical()
+	local satiety_koef = (satienty - satiety_critical) / (satienty >= satiety_critical and (1 - satiety_critical) or satiety_critical)
+	if (satiety_koef > 0.5) then
+		return 0
+	else
+		if (satiety_koef > 0.0) then
+			return 1
+		elseif (satiety_koef > -0.5) then
+			return 2
+		else
+			return 4
+		end
+	end
+end
+
+function get_radiation(visual)
+	local radiation = db.actor.radiation
+	if (not visual) then
+		return radiation
+	end
+	
+	-- for indicator
+	if radiation and radiation > 0 then
+		return math.ceil(radiation * 4)
+	end
+	return 0
+end
+
+function get_overweight(visual)
+	local actor = db.actor
+	local tot_weight = actor:get_total_weight()
+	local max_weight = actor:get_actor_max_walk_weight()
+	
+	local outfit = actor:item_in_slot(7)
+	local backpack = actor:item_in_slot(13)
+	max_weight = max_weight + (outfit and outfit:get_additional_max_weight() or 0)
+	max_weight = max_weight + (backpack and backpack:get_additional_max_weight() or 0)
+	actor:iterate_belt( function(owner, obj)
+		local c_arty = obj:cast_Artefact()
+		max_weight = max_weight + (c_arty and c_arty:AdditionalInventoryWeight() or 0)
+	end)
+	--max_weight = max_weight + actor:cast_Actor():conditions().eBoostMaxWeight
+	
+	if (not visual) then
+		return (tot_weight > max_weight), tot_weight, max_weight
+	end
+	
+	-- for indicator
+	if (tot_weight > max_weight) then
+		return 4
+	elseif (tot_weight + 10 > max_weight) then
+		return 2
+	end
+	return 0
+end
+
+
+----------------------------------
+--	Current safe cover
+----------------------------------
+local safe_covers = {}
+local near_cover_dist
+local last_cover, last_cover_2, near_cover
+local last_cover_o, near_cover_o
+
+function prepare_safe_zone()
+	local sur_ini = ini_file("misc\\surge_manager.ltx")
+	local safe_covers_list = utils_data.collect_section(sur_ini,"list",true)
+	
+	-- Only collect safe covers in the same level
+	local is_on_the_actor_level = simulation_objects.is_on_the_actor_level
+	alife():iterate_objects_without_actor(function(se_obj)
+		if safe_covers_list[se_obj:name()] and is_on_the_actor_level(se_obj) then
+			safe_covers[se_obj:name()] = se_obj.id
+		end
+	end)
+end
+function scan_safe_zone()
+	--printf("Safe cover: %s", GetEvent("current_safe_cover"))
+	if GetEvent("underground") then
+		return true, false, 0
+		
+	elseif last_cover and db.actor_inside_zones[last_cover] then
+		return db.actor_inside_zones[last_cover]:id(), false, 1
+		
+	elseif last_cover_2 and db.zone_by_name[last_cover_2] and db.zone_by_name[last_cover_2]:inside(db.actor:position()) then
+		return safe_covers[last_cover_2], false, 2
+		
+	elseif (size_table(db.actor_inside_zones) > 1) then
+		for name, obj in pairs(db.actor_inside_zones) do
+			last_cover = name
+			return obj:id(), false, 3
+		end
+		
+	else
+	
+		local pos = db.actor:position()
+		last_cover = nil
+		last_cover_2 = nil
+		near_cover = nil
+		near_cover_dist = nil
+		
+		for name,id in pairs(safe_covers) do
+			local zone = db.zone_by_name[name]
+			if (zone) then
+				local dist = zone:position():distance_to_sqr(pos)
+				if (near_cover_dist == nil or dist < near_cover_dist) then 
+					near_cover = name
+					near_cover_dist = dist
+				end
+			end
+		end
+		
+		if near_cover then
+			local zone = db.zone_by_name[near_cover]
+			if (zone) and zone:inside(pos) then
+				last_cover_2 = near_cover
+				return zone:id(), false, 4
+			end
+		end
+			
+		-- Tents are considered as save covers
+		if item_tent and item_tent.get_nearby_tent(1.5) then
+			return true, near_cover and safe_covers[near_cover] or false, 5
+		end
+		
+		return false, near_cover and safe_covers[near_cover] or false, 6
+	end
+end
+function scan_safe_zone_old()
+	--printf("Safe cover: %s", GetEvent("current_safe_cover"))
+	if GetEvent("underground") then
+		return true, false, 0
+		
+	elseif last_cover_o and db.zone_by_name[last_cover_o] and db.zone_by_name[last_cover_o]:inside(db.actor:position()) then
+		return safe_covers[last_cover_o], false, 2
+		
+	else
+	
+		local pos = db.actor:position()
+		last_cover_o = nil
+		near_cover_o = nil
+		near_cover_dist = nil
+		
+		for name,id in pairs(safe_covers) do
+			local zone = db.zone_by_name[name]
+			if (zone) then
+				local dist = zone:position():distance_to_sqr(pos)
+				if (near_cover_dist == nil or dist < near_cover_dist) then 
+					near_cover_o = name
+					near_cover_dist = dist
+				end
+			end
+		end
+		
+		if near_cover_o then
+			local zone = db.zone_by_name[near_cover_o]
+			if (zone) and zone:inside(pos) then
+				last_cover_o = near_cover_o
+				return zone:id(), false, 4
+			end
+		end
+			
+		-- Tents are considered as save covers
+		if item_tent and item_tent.get_nearby_tent(1.5) then
+			return true, near_cover_o and safe_covers[near_cover_o] or false, 5
+		end
+		
+		return false, near_cover_o and safe_covers[near_cover_o] or false, 6
+	end
+end
+
+----------------------------------
+--	HUD (Indicators)
+----------------------------------
+
+HUD = nil
+indicators = {}
+
+function prepare_indictors_list()
+-- functor must return number [1-4] if it's a state (to indicate the color), boosters will always use one color
+
+	if is_not_empty(indicators) then return end
+	indicators["Radiation"]       	   	 = { index= 1 	,typ= "state"	,functor= {"actor_status","get_radiation",true}	                    ,icon= "ui_inGame2_booster_rad"           ,background= "ui_inGame2_indicator_slot"	,anim_icon= true	,anim_bk= false  }
+	indicators["Hunger"]                 = { index= 2 	,typ= "state"	,functor= {"actor_status","get_satienty",true}	                    ,icon= "ui_inGame2_indicator_hunger"      ,background= "ui_inGame2_indicator_slot"	,anim_icon= false	,anim_bk= false  }
+	indicators["Overweight"]             = { index= 5 	,typ= "state"	,functor= {"actor_status","get_overweight",true}	                 ,icon= "ui_inGame2_indicator_overweight"  ,background= "ui_inGame2_indicator_slot"	,anim_icon= false	,anim_bk= false  }
+
+	indicators["HpRestore"]              = { index= 6 	,typ= "booster"	,functor= {"actor_status","get_boost","HpRestore",true}              ,icon= "ui_inGame2_booster_health"        ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["BleedingRestore"]        = { index= 7 	,typ= "booster"	,functor= {"actor_status","get_boost","BleedingRestore",true}        ,icon= "ui_inGame2_booster_bleed"         ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["RadiationRestore"]       = { index= 8 	,typ= "booster"	,functor= {"actor_status","get_boost","RadiationRestore",true}       ,icon= "ui_inGame2_booster_rad"           ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["MaxWeight"]              = { index= 9 	,typ= "booster"	,functor= {"actor_status","get_boost","MaxWeight",true}              ,icon= "ui_inGame2_booster_carry_weight"  ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["PowerRestore"]           = { index= 10	,typ= "booster"	,functor= {"actor_status","get_boost","PowerRestore",true}           ,icon= "ui_inGame2_booster_power"         ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["RadiationProtection"]    = { index= 11	,typ= "booster"	,functor= {"actor_status","get_boost","RadiationProtection",true}    ,icon= "ui_inGame2_booster_ext_rad"       ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["TelepaticProtection"]    = { index= 12	,typ= "booster"	,functor= {"actor_status","get_boost","TelepaticProtection",true}    ,icon= "ui_inGame2_booster_psi"           ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+	indicators["ChemicalBurnProtection"] = { index= 13	,typ= "booster"	,functor= {"actor_status","get_boost","ChemicalBurnProtection",true} ,icon= "ui_inGame2_booster_chem"          ,background= "ui_inGame2_booster_slot"	,anim_icon= false	,anim_bk= false  ,anim_period= 5 }
+end
+
+function add_indicator(k,v)
+	prepare_indictors_list()
+	indicators[k] = v
+end
+
+function func_index(t,a,b)
+	return (t[a].index) < (t[b].index)
+end
+
+-------
+function activate_hud()
+	RegisterScriptCallback("actor_on_net_destroy",actor_on_net_destroy)
+	RegisterScriptCallback("on_console_execute",on_console_execute)
+	RegisterScriptCallback("GUI_on_show",update_hud)
+	RegisterScriptCallback("GUI_on_hide",update_hud)
+	
+	if HUD == nil then
+		HUD = UIIndicators()
+		get_hud():AddDialogToRender(HUD)
+	end
+	HUD:Update(true)
+end
+
+function deactivate_hud()
+	if HUD ~= nil then
+		get_hud():RemoveDialogToRender(HUD)
+		HUD = nil
+	end
+	
+	UnregisterScriptCallback("actor_on_net_destroy",actor_on_net_destroy)
+	UnregisterScriptCallback("on_console_execute",on_console_execute)
+	UnregisterScriptCallback("GUI_on_show",update_hud)
+	UnregisterScriptCallback("GUI_on_hide",update_hud)
+end
+
+function update_hud()
+	if HUD ~= nil then
+		HUD:Update(true)
+	end
+end
+
+function actor_on_net_destroy()
+	if HUD ~= nil then
+		get_hud():RemoveDialogToRender(HUD)
+		HUD = nil
+	end
+end
+
+function on_console_execute(name)
+	if name == "hud_draw" and HUD then
+		HUD:Update(true)
+	end
+end
+
+-------
+class "UIIndicators" (CUIScriptWnd)
+
+function UIIndicators:__init() super()
+	
+	self.mirrored = false
+	self.slot = {}
+	self.clr_list = {
+		[0] = GetARGB(255,255,255,255), -- white
+		[1] = GetARGB(255,200,200,200), -- grey
+		[2] = GetARGB(255,255,255,50), -- yellow
+		[3] = GetARGB(255,255,125,50), -- orange
+		[4] = GetARGB(255,255,50,50), -- red
+	}
+	
+	self.ratio  = utils_xml.screen_ratio()
+	self._tmr   = time_global()
+	self.index  = 0
+	self.W      = 40
+	self.offset = 10
+	
+	prepare_indictors_list()
+	
+	self:InitControls()
+end
+
+function UIIndicators:__finalize()
+end
+
+function UIIndicators:InitControls()
+	local xml = utils_xml.get_hud_xml()
+	
+	self.dialog = xml:InitStatic("indicators", self)
+	--utils_xml.correct_ratio(self.dialog)
+	self.dialog:Show(false)
+	
+	local t_size = size_table(indicators)
+	for i=1,t_size do
+		local x = (i-1)*(self.W + self.offset)
+		if self.mirrored then
+			x = (1-i)*(self.W + self.offset)
+		end
+		
+		self.slot[i] = {}
+		self.slot[i].back_s = xml:InitStatic("indicators:static", self.dialog)
+		self.slot[i].back_f = xml:InitStatic("indicators:flashing", self.dialog)
+		self.slot[i].icon_s = xml:InitStatic("indicators:static", self.dialog)
+		self.slot[i].icon_f = xml:InitStatic("indicators:flashing", self.dialog)
+		for k, ele in pairs(self.slot[i]) do
+			ele:SetWndPos( vector2():set( x , 0 ) )
+			utils_xml.correct_ratio(ele)
+		end
+	end
+end
+
+function UIIndicators:Clear()
+	for i=1,size_table(indicators) do
+		if self.slot[i] then
+			for k, ele in pairs(self.slot[i]) do
+				ele:Show(false)
+			end
+		end
+	end
+	self.index = 0
+end
+
+function UIIndicators:Update(force)
+	CUIScriptWnd.Update(self)
+	
+	local tg = time_global()
+	if force then
+		self._tmr = tg - 1
+	end
+	if self._tmr >= tg then
+		return
+	else
+		self._tmr = tg + 1000
+	end
+	
+	-- Clear all
+	self:Clear()
+	
+	-- Hide HUD when it's occupied by a GUI class
+	if not main_hud_shown() then
+		return
+	end
+	
+	-- Gather info
+	for name,t in spairs(indicators, func_index) do
+		local value = t.functor and execute_func(unpack(t.functor))
+		
+		-- Determine if we should show the indicator on HUD according to type and value
+		local pass = false
+		if t.typ == "state" then
+			pass = value and value <= 4 and value >= 1
+		elseif t.typ == "booster" then
+			pass = value and true or false
+		end
+		
+		if pass then
+			local i = self.index + 1
+			
+			if t.icon then
+				local ico
+				if t.anim_period and (t.typ == "booster") and (value < t.anim_period) then
+					ico = self.slot[i].icon_f
+				else
+					ico = t.anim_icon and self.slot[i].icon_f or self.slot[i].icon_s
+				end
+				
+				ico:InitTexture( t.icon )
+				ico:Show(true)
+			end
+			
+			if t.background then
+				local bk
+				if t.anim_period and (t.typ == "booster") and (value < t.anim_period) then
+					bk = self.slot[i].back_f
+				else
+					bk = t.anim_bk and self.slot[i].back_f or self.slot[i].back_s
+				end
+				
+				bk:InitTexture( t.background )
+				bk:SetTextureColor( t.typ == "state" and self.clr_list[value] or self.clr_list[0] )
+				bk:Show(true)
+			end
+			
+			self.index = i
+		end
+	end
+	
+	self.dialog:Show(self.index > 0)
+end
+
+
+----------------------------------
+--	Callbacks
+----------------------------------
+
+local function actor_on_first_update()
+	prepare_boosters_effect()
+	prepare_safe_zone()
+	
+	activate_hud()
+end
+
+local function actor_on_update()
+	
+	local tg = time_global()
+	if tg < tg_update then
+		return
+	end
+	tg_update = tg + tg_update_step
+	
+	--local cover_curr, cover_near, num = scan_safe_zone()
+	local cover_curr, cover_near, num = scan_safe_zone_old()
+	--actor_menu.set_msg(nil, strformat("cover_curr: %s | cover_near: %s | num: %s", cover_curr, cover_near, num))
+	--printf("cover_curr: %s | cover_near: %s | num: %s", cover_curr, cover_near, num)
+	SetEvent("current_safe_cover", cover_curr)
+	SetEvent("nearest_safe_cover", cover_near)
+	
+	scan_boosters_effect()
+end
+
+function on_game_start()
+	RegisterScriptCallback("actor_on_first_update",actor_on_first_update)
+	RegisterScriptCallback("actor_on_update",actor_on_update)
+end

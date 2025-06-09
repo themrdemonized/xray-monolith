@@ -1,0 +1,234 @@
+-- game seconds
+local function printf() end
+
+local MIN_FORGET_TIME 	= 60*10
+local MAX_FORGET_TIME 	= 60*30
+local FUSE_TIME 		= 5
+local TRIGGER_RADIUS 	= 2.5
+
+local MODE_PROX 	= 0
+local MODE_TIMER 	= 1
+local MODE_REMOTE 	= 2
+
+-- now have same name as section but may change
+local FX_BY_SECTION = {
+	mine_new 	= 'mine',
+	ied_rpg_new = 'ied_rpg',
+	ied_new 	= 'ied',
+}
+
+local EXPLOSIVE_SECTION_LOOKUP = {
+	mine_new 	= 'mine_new_blow',
+	ied_rpg_new = 'rpg_new_blow',
+	ied_new 	= 'ied_new_blow',
+}
+
+_mines = {}
+
+function str_prox_plant()
+	return 'st_plant_explosive_prox'
+end
+function str_timer_plant_10()
+	return 'st_plant_explosive_timer_10'
+end
+function str_timer_plant_30()
+	return 'st_plant_explosive_timer_30'
+end
+
+function func_timer_plant_10(obj) plant_bomb(obj,MODE_TIMER,10) end
+function func_timer_plant_30(obj) plant_bomb(obj,MODE_TIMER,30) end
+function func_prox_plant(obj) plant_bomb(obj,MODE_PROX) end
+local vec_addon = vector():set(0,0.1,0)
+
+function plant_bomb(obj, mode, delay)
+	printf('plant_bomb(%s,%s,%s)', obj:name(), mode, delay)
+	local now = tss() 
+	local used_section = obj:section()
+	local used_id = obj:id()
+	local planted_section = EXPLOSIVE_SECTION_LOOKUP[used_section]
+	printf('planted_section = %s', planted_section)
+	local cd = device().cam_dir
+	-- local r = level.get_target_dist()
+	-- local lvid = level.vertex_in_direction(level.vertex_id(device().cam_pos),device().cam_dir,r)
+	-- local p = level.vertex_position(vid)
+	local ap = db.actor:position()
+	local pp = vector():set(ap.x + cd.x, ap.y + 0.1, ap.z + cd.z)
+	local vid = level.vertex_id(pp)
+	pp = level.vertex_position(vid)
+	
+	
+	local planted_se = alife_create(planted_section,ap,db.actor:level_vertex_id(),db.actor:game_vertex_id())
+	printf('creating %s at', planted_se:name())
+	printf('%s,%s,%s,%s,%s',ap.x,ap.y,ap.z,db.actor:level_vertex_id(),db.actor:game_vertex_id())
+	printf('actual position')
+	printf('%s,%s,%s,%s,%s',planted_se.position.x,planted_se.position.y,planted_se.position.z,planted_se.m_level_vertex_id,planted_se.m_game_vertex_id)
+	
+	-- local planted_se = alife_create(planted_section,p,lvid,db.actor:game_vertex_id())
+	local planted_id = planted_se.id
+	
+	printf('try FX')
+	_ = FX_BY_SECTION[used_section] and actor_effects.play_item_fx(FX_BY_SECTION[used_section])
+	
+	printf('check witnesses')
+	local witnesses = {}
+	for i in pairs(db.OnlineStalkers) do
+		local id = db.OnlineStalkers[i]
+		local npc = level.object_by_id(id)
+		if npc and IsStalker(npc) and npc:alive() then
+			if npc:see(db.actor) then
+				printf('%s saw player plant %s', npc:name(), planted_se:name())
+				witnesses[id] = now + math.random(MIN_FORGET_TIME, MAX_FORGET_TIME)*level.get_time_factor()
+			end
+		end
+	end
+	
+	printf('save mine data')
+	_mines[planted_id] = {
+		exp_time = now + (delay or FUSE_TIME) * level.get_time_factor(),
+		mode = mode,
+		witnesses = witnesses,
+		-- level = level.name(),
+		active = true
+		-- blast_radius = ini_sys:r_float_ex(planted_section,"blast_r")
+	}
+	
+	
+	printf('create release event')
+	CreateTimeEvent(0,"release_planted_mine",0,release_item, used_id)
+end
+
+function release_item(id)
+	printf('try release %s', id)
+	alife_release_id(id)
+	printf('%s released', id)
+	return true
+end
+
+function trigger_mine(id)
+	local obj = level.object_by_id(id)
+	if obj then 
+		printf('[%s]:explode()', obj:name())
+		obj:explode(0)
+	else
+		printf('coulnt find game object for %s', id)
+	end
+	_mines[id].active = false
+end
+
+function tss()
+	return game.get_game_time():diffSec(level.get_start_time())
+end
+
+function on_game_start()
+	RegisterScriptCallback("npc_on_update",generic_on_update)
+	RegisterScriptCallback("actor_on_update",actor_on_update)
+	RegisterScriptCallback("monster_on_update",generic_on_update)
+	RegisterScriptCallback("save_state",save_state)
+	RegisterScriptCallback("load_state",load_state)
+	RegisterScriptCallback("npc_on_before_hit",npc_on_before_hit)
+end
+
+function npc_on_before_hit(npc,shit,bone_id,flags)
+	printf('%s about to be hit by %s', npc and npc:name(), shit and shit.draftsman and shit.draftsman:name())
+	
+	-- if damage is dealt by player explosive and victim is a witness deliver the hit as if the player did and negate the explosive damage
+	if shit.draftsman and _mines[shit.draftsman:id()] then
+		printf('hit replaced')
+		local h = hit(shit)
+		h.draftsman = db.actor
+		npc:hit(h)
+		flags.ret_value = false
+	end
+end
+
+-- mines aren't worth shit and aren't amassed like ammo so even if some players lose 2-3 of them is no big deal, definitely not worth the autism to search and replace all occurrences
+function mine_killer()
+	alife():iterate_objects_without_actor(function(se)
+		if
+			se:section_name() == 'mine'
+			or se:section_name() == 'ied'
+			or se:section_name() == 'ied_rpg'
+		then
+			alife_release_id(se.id)
+		end
+	end)
+end
+
+function actor_on_update()
+	if not alife_storage_manager.get_state().mine_kill then
+		alife_storage_manager.get_state().mine_kill = true
+		mine_killer()
+	end
+	generic_on_update(db.actor)
+	manage_timer_explosives()
+	periodic_clean()
+end
+
+local next_clean = 0
+function periodic_clean()
+	if time_global() > next_clean then
+		next_clean = time_global() + 5000
+		clean_mines()
+	end
+end
+
+-- trigger if actor/npc/mutant are close enough to a proximity bomb
+function generic_on_update(npc)
+	local npcpos = npc:position()
+	local now = tss()
+	
+	if not npc:alive() then return end
+	for mine_id, data in pairs(_mines) do
+		local mine = level.object_by_id(mine_id) 
+		if 
+			mine
+			and data.active
+			and data.mode == MODE_PROX
+			and now >= data.exp_time
+			and mine:position():distance_to(npcpos) <= TRIGGER_RADIUS
+		then	
+			printf('%s triggered by %s', mine:name(), npc:name())
+			printf('%s, %s, %s',mine:position().x, mine:position().y, mine:position().z)
+			trigger_mine(mine_id)
+		end
+	end
+end
+
+function manage_timer_explosives()
+	local now = tss()
+	for mine_id, data in pairs(_mines) do
+		local mine = level.object_by_id(mine_id)
+		-- printf('testing %s -> %s', mine_id, mine and mine:name())
+		if 	
+			mine
+			and data.active
+			and data.mode == MODE_TIMER
+			and now >= data.exp_time
+		then
+			printf('%s triggered by time', mine:name())
+			printf('%s, %s, %s',mine:position().x, mine:position().y, mine:position().z)
+			trigger_mine(mine_id)
+		end
+	end
+end
+
+function clean_mines(id)
+	if id then
+		_mines[id] = nil
+	else
+		for mine_id, data in pairs(_mines) do
+			local se = alife_object(mine_id)
+			if not se then
+				_mines[mine_id] = nil
+			end
+		end
+	end
+end
+	
+function save_state(md) 
+	clean_mines()
+	md.new_mines = _mines
+end
+function load_state(md) 
+	_mines = md.new_mines or {}
+end
