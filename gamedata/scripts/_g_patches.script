@@ -666,3 +666,28 @@ _G.IsLauncher = function(o, c)
 	}
 	return c and launcher[c] or false
 end
+
+-- alife():max_id replacement
+_G._ALIFE_WARNING = alife():max_id() - 1500
+
+_G.alife_object = function(id)
+	if (id == nil or id >= alife():max_id()) then
+		callstack()
+		printe("!ALIFE OBJECT ID IS %s!",id)
+		return
+	end
+	return alife():object(id)
+end
+
+_G.alife_first_update = function()
+	_G._ALIFE_CNT = 0
+	--empty_table(_ALIFE_CACHE)
+	
+	local sim = alife()
+	for i = 1, sim:max_id() - 1 do
+		local se_obj = sim:object(i)
+		if se_obj then
+			alife_record(nil,true)
+		end
+	end
+end
