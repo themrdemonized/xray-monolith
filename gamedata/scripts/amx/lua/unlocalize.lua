@@ -35,7 +35,7 @@ local function unlocalize(src, namespace_name)
    if not namespace_name then
       return src
    end
-   
+
    local unlocalizer = require("amx/unlocalize").get(namespace_name)
    if not unlocalizer then
       return src
@@ -45,7 +45,7 @@ local function unlocalize(src, namespace_name)
 
    local temp = src
    local tokens = {}
-   for line in string.gmatch(temp, "[^\n]+") do
+   for line in string.gmatch(temp, "[^\n\r]+") do
       table.insert(tokens, line)
    end
 
