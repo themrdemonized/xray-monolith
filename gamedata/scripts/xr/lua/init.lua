@@ -73,6 +73,15 @@ local function loadstring(src, namespace_name, script_name)
          env[namespace_name] = env
       end
 
+      -- Pass loadstring through to base _LOADSTRING within our environment
+      -- Ensures any uses of debug.dump function as expected
+      env.loadstring = function(src, name)
+         return setfenv(
+            _LOADSTRING(src, name),
+            env
+         )
+      end
+
       -- Selectively patch the package module
       -- to restore unconfigured Lua environment
       local pkg = {}
