@@ -62,7 +62,6 @@ local function unlocalize(src, namespace_name)
       if ur then
          tokens[i] = ur
          unlocal_performed = true
-         tokens[i] = s
          goto next_token
       end
 
