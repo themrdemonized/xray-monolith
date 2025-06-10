@@ -94,7 +94,7 @@ local function loadstring(src, namespace_name, script_name)
       src = "local this = _M " .. src
    end
 
-   local mod, err = _LOADSTRING(src, namespace_name)
+   local mod, err = _LOADSTRING(src, script_name and ("@" .. script_name))
    if not mod then
       err = format_error("error loading " .. (namespace_name or "script"), err)
       return nil, err
