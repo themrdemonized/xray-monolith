@@ -572,10 +572,11 @@ int CScriptEngine::load_string(
     LPCSTR caNameSpaceName
 )
 {
-    lua_getglobal(lua(), "_COMPILER");
+    // Use the Lua-side loadstring primitive, since luaL_loadstring would step around script compiler machinery
+    lua_getglobal(lua(), "loadstring");
     if (!lua_isfunction(lua(), -1))
     {
-        FATAL("_COMPILER not available");
+        FATAL("loadstring not available");
     }
 
     lua_pushstring(lua(), caString);
