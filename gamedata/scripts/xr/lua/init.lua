@@ -17,18 +17,7 @@ local XR_PACKAGE = setmetatable(
       },
    },
    {
-      __index = function(self, key)
-
-         if key == "path" then
-            return XR_PATH
-         end
-
-         if key == "loaders" then
-            return XR_LOADERS
-         end
-
-         return package[key]
-      end,
+      __index = package,
       __newindex = package,
    }
 )
