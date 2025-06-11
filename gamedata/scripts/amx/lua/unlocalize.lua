@@ -18,19 +18,6 @@ local function contains(lst, a)
    return false
 end
 
-local function unlocal_regex(unlocals, s)
-   local pattern = [[^(local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(%(.*)$]]
-   local _, _, c, d, e, f, g = string.match(s, pattern)
-
-   if e and contains(unlocals, e) then
-      print("[unlocal_regex] found variable " .. e .. " to unlocal")
-      s = c .. d .. e .. f .. g
-      return s
-   end
-
-   return nil
-end
-
 local function unlocalize(src, namespace_name)
    if not namespace_name then
       return src
@@ -58,9 +45,14 @@ local function unlocalize(src, namespace_name)
       end
 
       -- local function x(a,b,c)
-      local ur = unlocal_regex(unlocalizer, s)
-      if ur then
-         tokens[i] = ur
+      local _, _, c, d, e, f, g = string.match(
+         s,
+         [[^(local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(%(.*)$]]
+      )
+
+      if e and contains(unlocalizer, e) then
+         print("[unlocal_regex] found variable " .. e .. " to unlocal")
+         tokens[i] = c .. d .. e .. f .. g
          unlocal_performed = true
          goto next_token
       end
@@ -69,8 +61,7 @@ local function unlocalize(src, namespace_name)
       -- local a
       -- local a,b,c = ... (if one of a,b,c is in unlocalizers list - all of them will be unlocalized)
       -- local x; local y; - unsupported yet
-      local pattern = [[^local%s+(.*)]]
-      local c = string.match(s, pattern) or ""
+      local c = string.match(s, [[^local%s+(.*)]]) or ""
       if #c > 0 then
          local r = [[(.*)--.*]]
          local nc = string.match(c, r)
@@ -79,18 +70,17 @@ local function unlocalize(src, namespace_name)
          end
       end
 
-      local pattern = [[([^=]+)=(.*)]]
-      local variables, values = string.match(c, pattern)
+      local variables = string.match(c, [[^([^=]+)]])
+      local values = string.match(c, [[=([^=]+)$]])
       if variables then
-         for v in string.gmatch(variables, "[^,]+") do
+         for v in string.gmatch(variables, "[^, ]+") do
             v = string_trim(v)
             if contains(unlocalizer, v) then
                unlocal_performed = true
                print("found variable", v, "to unlocal")
                s = c
                if not values then
-                  local r = [[(.*)(--.*)]]
-                  local lhs, rhs = string.match(s, r)
+                  local lhs, rhs = string.match(s, [[(.*)(--.*)]])
                   if lhs and rhs then
                      s = lhs .. "= nil " .. rhs
                   else
