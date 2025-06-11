@@ -1,14 +1,65 @@
--- XR Lua Compiler
--- The original X-Ray script environment, reimplemented as a loadstring wrapper
+--- XR Lua Compiler
+--- The original X-Ray script environment, reimplemented as a loadstring wrapper
 
 local compiler = require("xr/compiler")
 
--- _G wrapper with redirection to package.loaded via `require`
-local G = setmetatable(
-   {},
+-- `package` module override for X-Ray Lua scripts
+local XR_PACKAGE = setmetatable(
+   {
+      -- Use unconfigured Lua path
+      path = _DEFAULT_PATH,
+      -- Use unconfigured Lua loaders
+      loaders = {
+         _LOADERS.pre,
+         _LOADERS.lib,
+         _LOADERS.bin,
+         _LOADERS.aio,
+      },
+   },
    {
       __index = function(self, key)
-         -- Check _G for our key and return the result if valid
+
+         if key == "path" then
+            return XR_PATH
+         end
+
+         if key == "loaders" then
+            return XR_LOADERS
+         end
+
+         return package[key]
+      end,
+      __newindex = package,
+   }
+)
+
+-- Pass loadstring through to base _LOADSTRING for X-Ray Lua scripts
+-- Ensures any uses of debug.dump function as expected
+local XR_LOADSTRING = function(src, name)
+   return setfenv(
+      _LOADSTRING(src, name),
+      env
+   )
+end
+
+-- Global scope wrapper for X-Ray Lua scripts
+-- Indirects through `_G`, and `package.loaded` via `require`
+local XR_G = setmetatable(
+   {
+      -- Indirect package to our wrapper
+      package = XR_PACKAGE,
+      -- Indirect loadstring to our wrapper
+      loadstring = XR_LOADSTRING,
+   },
+   {
+      -- Override key reads
+      __index = function(self, key)
+         -- If the index is _G, indirect back to this object
+         if key == "_G" then
+            return self
+         end
+
+         -- Check the real _G for our key and return the result if valid
          local gv = _G[key]
          if gv ~= nil then
             return gv
@@ -20,6 +71,7 @@ local G = setmetatable(
             return out
          end
       end,
+      -- Send key writes straight to `_G`
       __newindex = _G
    }
 )
@@ -52,70 +104,64 @@ end
 
 -- `loadstring` replacement specialized to X-Ray scripts
 local function loadstring(src, namespace_name, script_name)
-   local is_g = namespace_name == "_G"
+   -- Construct our script's environment table
+   local env = {}
 
+   -- Create a wrapper around lua's base loadstring that runs in our environment
+   local function loadstring(src, name)
+      return setfenv(
+         _LOADSTRING(src, name),
+         env
+      )
+   end
+
+   -- Construct the metatable for our environment
    local mt = {
-      __index = G
+      __index = function(self, key)
+         -- Dynamically indirect to our loadstring wrapper when required
+         if key == "loadstring" then
+            return loadstring
+         end
+
+         -- Otherwise, indirect to XR_G
+         return XR_G[key]
+      end
    }
 
-   if is_g then
-      mt.__newindex = G
+   -- If we're loading _g.script, forward environment writes to _G
+   if namespace_name == "_G" then
+      mt.__newindex = XR_G
    end
 
-   local env = setmetatable({ _G = G }, mt)
+   -- Associate our environment with its metatable
+   setmetatable(env, mt)
 
-   if not is_g then
-      -- If this is a named module, emplace relevant globals
-      if namespace_name then
-         env._M = env
-         env._PACKAGE = namespace_name
-         env._FILE = script_name
-         env[namespace_name] = env
-      end
-
-      -- Pass loadstring through to base _LOADSTRING within our environment
-      -- Ensures any uses of debug.dump function as expected
-      env.loadstring = function(src, name)
-         return setfenv(
-            _LOADSTRING(src, name),
-            env
-         )
-      end
-
-      -- Selectively patch the package module
-      -- to restore unconfigured Lua environment
-      local pkg = {}
-      for k,v in pairs(package) do
-         pkg[k] = v
-      end
-      pkg.path = _DEFAULT_PATH
-      pkg.loaders = {
-         _LOADERS.pre,
-         _LOADERS.lib,
-         _LOADERS.bin,
-         _LOADERS.aio,
-      }
-      env.package = pkg
-   end
-
+   -- If we have a namespace name, inject locals that derive from it
    if namespace_name then
-      src = "local script_name = function() return _PACKAGE end " .. src
-      src = "local this = _M " .. src
+      src = "local this = _G[script_name()] " .. src
+      src = "local script_name = function() return \"" .. namespace_name .. "\" end " .. src
    end
 
+   -- Load the resulting script, using the filename to ensure `debug` compat
    local mod, err = _LOADSTRING(src, script_name and ("@" .. script_name))
+
+   -- On load failure, annotate the error and early-out
    if not mod then
       err = format_error("error loading " .. (namespace_name or "script"), err)
       return nil, err
    end
 
+   -- Apply our environment to the resulting function
    local mac = setfenv(mod, env)
 
+   -- Return a package constructor for the loaded module
    return function()
+      -- Prepopulate `package.loaded` in case of reentrancy
       if namespace_name then
          package.loaded[namespace_name] = env
       end
 
+      -- Call our script function with an appropriate error handler
       local _, out = xpcall(
          mac,
          handle_error(
@@ -124,9 +170,12 @@ local function loadstring(src, namespace_name, script_name)
          )
       )
 
+      -- If we have a namespace name...
       if namespace_name then
+         -- Return the prepopulated package
          return package.loaded[namespace_name]
       else
+         -- Otherwise, return the module output directly
          return out
       end
    end
