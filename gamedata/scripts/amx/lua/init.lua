@@ -16,3 +16,6 @@ function xr_lua.loadstring(src, namespace_name, script_name)
       script_name
    )
 end
+
+-- Run unit tests
+require("amx/lua/tests")
