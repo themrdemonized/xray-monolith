@@ -1,5 +1,7 @@
 -- Unlocalizer for xr/lua scripts
 
+local DEBUG = false
+
 local function string_trim(s, v)
    if v == nil then
       v = " \t\n\r\f\v"
@@ -18,16 +20,7 @@ local function contains(lst, a)
    return false
 end
 
-local function unlocalize(src, namespace_name)
-   if not namespace_name then
-      return src
-   end
-
-   local unlocalizer = require("amx/unlocalize").get(namespace_name)
-   if not unlocalizer then
-      return src
-   end
-
+local function unlocalize_with(src, unlocalizer)
    local unlocal_performed = false
 
    local temp = src
@@ -50,10 +43,14 @@ local function unlocalize(src, namespace_name)
          [[^(local)([\t ]+)(function)([\t ]+)([_a-zA-Z].*)([\t ]*)(%(.*)$]]
       )
 
-      if e and contains(unlocalizer, e) then
-         print("[unlocal_regex] found variable " .. e .. " to unlocal")
-         tokens[i] = c .. d .. e .. f .. g
-         unlocal_performed = true
+      if e then
+         if contains(unlocalizer, e)  then
+            if DEBUG then
+               print("[unlocal_regex] found variable " .. e .. " to unlocal")
+            end
+            tokens[i] = c .. d .. e .. f .. g
+            unlocal_performed = true
+         end
          goto next_token
       end
 
@@ -77,14 +74,16 @@ local function unlocalize(src, namespace_name)
             v = string_trim(v)
             if contains(unlocalizer, v) then
                unlocal_performed = true
-               print("found variable", v, "to unlocal")
+               if DEBUG then
+                  print("found variable", v, "to unlocal")
+               end
                s = c
                if not values then
-                  local lhs, rhs = string.match(s, [[(.*)(--.*)]])
+                  local lhs, rhs = string.match(s, [[([^-]+)(%-%-[^-]*)]])
                   if lhs and rhs then
                      s = lhs .. "= nil " .. rhs
                   else
-                     s = s .. " = nil"
+                     s = s .. "= nil"
                   end
                end
                tokens[i] = s
@@ -103,4 +102,20 @@ local function unlocalize(src, namespace_name)
    return src
 end
 
-return unlocalize
+local function unlocalize(src, namespace_name)
+   if not namespace_name then
+      return src
+   end
+
+   local unlocalizer = require("amx/unlocalize").get(namespace_name)
+   if not unlocalizer then
+      return src
+   end
+
+   return unlocalize_with(src, unlocalizer)
+end
+
+return {
+   unlocalize_with = unlocalize_with,
+   unlocalize = unlocalize,
+}
