@@ -4,13 +4,12 @@
 local xr_lua = require("xr.lua")
 local unlocalize = require(_PACKAGE .. ".unlocalize").unlocalize
 
-local old_loadstring = xr_lua.loadstring
 function xr_lua.loadstring(src, namespace_name, script_name)
    if namespace_name then
-      print("* " .. _PACKAGE .. ": compiling " .. namespace_name)
+      print("* [" .. _PACKAGE .. "] compiling " .. namespace_name)
    end
 
-   return old_loadstring(
+   return xr_lua.compile(
       unlocalize(src, namespace_name),
       namespace_name,
       script_name

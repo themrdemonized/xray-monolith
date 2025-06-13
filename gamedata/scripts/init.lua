@@ -36,10 +36,14 @@ function print(...)
    end
 end
 
---- Replace loadstring with an error-checked version
+--- Customizable environment for .lua files
+--- Needed so .script files can propagate their extended _G when requiring .lua
+_LUA_G = _G
+
+--- Emplace an error-checked lua compiler with customizable environment
 _LOADSTRING = loadstring
 function loadstring(src, namespace_name, script_name)
-   print("* lua: loading " .. namespace_name)
+   print("* [lua] loading " .. namespace_name)
 
    local f, err = _LOADSTRING(src, namespace_name)
    if not f then
@@ -58,8 +62,8 @@ function loadstring(src, namespace_name, script_name)
             _FILE = script_name,
          },
          {
-            __index = _G,
-            __newindex = _G,
+            __index = _LUA_G,
+            __newindex = _LUA_G,
          }
       )
    )

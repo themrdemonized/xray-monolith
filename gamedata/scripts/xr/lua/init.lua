@@ -3,33 +3,25 @@
 
 local compiler = require("xr.compiler")
 
+local XR_LOADERS = {
+   _LOADERS.pre,
+   _LOADERS.lib,
+   _LOADERS.bin,
+   _LOADERS.aio,
+}
+
 -- `package` module override for X-Ray Lua scripts
 local XR_PACKAGE = setmetatable(
    {
       -- Use unconfigured Lua path
       path = _DEFAULT_PATH,
       -- Use unconfigured Lua loaders
-      loaders = {
-         _LOADERS.pre,
-         _LOADERS.lib,
-         _LOADERS.bin,
-         _LOADERS.aio,
-      },
+      loaders = XR_LOADERS,
    },
    {
       __index = package,
-      __newindex = package,
    }
 )
-
--- Pass loadstring through to base _LOADSTRING for X-Ray Lua scripts
--- Ensures any uses of debug.dump function as expected
-local XR_LOADSTRING = function(src, name)
-   return setfenv(
-      _LOADSTRING(src, name),
-      env
-   )
-end
 
 -- Global scope wrapper for X-Ray Lua scripts
 -- Indirects through `_G`, and `package.loaded` via `require`
@@ -37,8 +29,6 @@ local XR_G = setmetatable(
    {
       -- Indirect package to our wrapper
       package = XR_PACKAGE,
-      -- Indirect loadstring to our wrapper
-      loadstring = XR_LOADSTRING,
    },
    {
       -- Override key reads
@@ -92,14 +82,17 @@ local function handle_error(msg, namespace_name)
 end
 
 -- `loadstring` replacement specialized to X-Ray scripts
-local function loadstring(src, namespace_name, script_name)
+local function compile(src, namespace_name, script_name)
    -- Construct our script's environment table
-   local env = {}
+   local env = {
+      _PACKAGE = namespace_name,
+      _FILE = script_name,
+   }
 
    -- Create a wrapper around lua's base loadstring that runs in our environment
-   local function loadstring(src, name)
+   local function base_loadstring(s, name)
       return setfenv(
-         _LOADSTRING(src, name),
+         _LOADSTRING(s, name),
          env
       )
    end
@@ -107,9 +100,9 @@ local function loadstring(src, namespace_name, script_name)
    -- Construct the metatable for our environment
    local mt = {
       __index = function(self, key)
-         -- Dynamically indirect to our loadstring wrapper when required
+         -- Dynamically indirect to our loadstring wrapper
          if key == "loadstring" then
-            return loadstring
+            return base_loadstring
          end
 
          -- Otherwise, indirect to XR_G
@@ -150,6 +143,9 @@ local function loadstring(src, namespace_name, script_name)
          package.loaded[namespace_name] = env
       end
 
+      local lua_g_old = _LUA_G
+      _LUA_G = env
+
       -- Call our script function with an appropriate error handler
       local _, out = xpcall(
          mac,
@@ -158,6 +154,8 @@ local function loadstring(src, namespace_name, script_name)
             namespace_name
          )
       )
+
+      _LUA_G = lua_g_old
 
       -- If we have a namespace name...
       if namespace_name then
@@ -170,8 +168,17 @@ local function loadstring(src, namespace_name, script_name)
    end
 end
 
+local function loadstring(src, namespace_name, script_name)
+   if namespace_name then
+      print("* [" .. _PACKAGE .. "] compiling " .. namespace_name)
+   end
+
+   return compile(src, namespace_name, script_name)
+end
+
 -- Prepare module value
 local mod = {
+   compile = compile,
    loadstring = loadstring
 }
 
