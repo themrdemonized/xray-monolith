@@ -1,5 +1,5 @@
-local run_tests = require("tests/util").run_tests
-local unlocalize_with = require("amx/lua/unlocalize").unlocalize_with
+local run_tests = require("tests.util").run_tests
+local unlocalize_with = require("amx.lua.unlocalize").unlocalize_with
 
 local SRC = {
    declare_function = [[

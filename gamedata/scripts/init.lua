@@ -114,7 +114,8 @@ end
 --- Emplace minimal X-Ray FS loader
 function _LOADERS.init(name)
    local fs = getFS()
-   local path = fs:update_path("$game_scripts$", name:gsub("/", "\\"))
+   local sname = name:gsub("%.", "\\")
+   local path = fs:update_path("$game_scripts$", sname)
    if not path then
       return "\n\tInvalid path " .. path
    end

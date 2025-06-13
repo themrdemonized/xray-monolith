@@ -1,8 +1,8 @@
 -- AMX Lua Compiler
 -- Patches unlocalization onto the base XR Lua compiler
 
-local xr_lua = require("xr/lua")
-local unlocalize = require(_PACKAGE .. "/unlocalize").unlocalize
+local xr_lua = require("xr.lua")
+local unlocalize = require(_PACKAGE .. ".unlocalize").unlocalize
 
 local old_loadstring = xr_lua.loadstring
 function xr_lua.loadstring(src, namespace_name, script_name)
@@ -18,4 +18,4 @@ function xr_lua.loadstring(src, namespace_name, script_name)
 end
 
 -- Run unit tests
-require("amx/lua/tests")
+require("amx.lua.tests")

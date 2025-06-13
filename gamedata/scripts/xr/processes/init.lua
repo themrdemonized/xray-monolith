@@ -1,7 +1,7 @@
 -- Engine interface to domain-scoped coroutines
 -- Formerly part of CScriptManager
 
-local ScriptProcess = require("xr/processes/process")
+local ScriptProcess = require("xr.processes.process")
 
 -- Script processes class
 local ScriptProcesses = {}

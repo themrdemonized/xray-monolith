@@ -42,7 +42,7 @@ local function register_extension(k, mod)
    print(_PACKAGE .. ": registering extension: " .. k)
    _REGISTER_PATHS(
       "?." .. k,
-      "?/init." .. k
+      "?\\init." .. k
    )
    extensions[k] = mod
 end

@@ -4,6 +4,7 @@
 function function_object(str)
    local path = {}
    for v in string.gmatch(str, "[^%.]+") do
+      v = v:gsub("/", ".")
       table.insert(path, v)
    end
 

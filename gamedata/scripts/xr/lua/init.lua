@@ -1,7 +1,7 @@
 --- XR Lua Compiler
 --- The original X-Ray script environment, reimplemented as a loadstring wrapper
 
-local compiler = require("xr/compiler")
+local compiler = require("xr.compiler")
 
 -- `package` module override for X-Ray Lua scripts
 local XR_PACKAGE = setmetatable(

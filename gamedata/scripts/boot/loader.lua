@@ -31,7 +31,9 @@ function _LOADERS.fs(name)
       if seg:sub(1, #base) == base then
          -- Strip the base path, interpolate package name,
          -- and replace separators to produce a filename
-         local fname = seg:sub(#base + 1):gsub("?", name):gsub("/", "\\")
+         local sname = name:gsub("%.", "\\")
+         local fname = seg:sub(#base + 1)
+         fname = fname:gsub("?", sname)
 
          -- Get an xray path from our filename
          local path = fs:update_path("$game_scripts$", fname)
