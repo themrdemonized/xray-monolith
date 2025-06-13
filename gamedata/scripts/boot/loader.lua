@@ -80,10 +80,7 @@ function _LOADERS.fs(name)
             end
          else
             -- Otherwise, add to our error accumulator
-            if #errs > 0 then
-               errs = errs .. "\n\t"
-            end
-            errs = errs .. "No db entry: " .. path
+            errs = errs .. "\n\tNo db entry: " .. path
          end
       end
    end
