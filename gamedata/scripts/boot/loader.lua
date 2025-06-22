@@ -92,8 +92,22 @@ function _LOADERS.fs(name)
    return errs
 end
 
+function memoize(f)
+   local cache = {}
+   return function(v)
+      if cache[v] then
+         return cache[v]
+      end
+
+      local out = f(v)
+      cache[v] = out
+
+      return out
+   end
+end
+
 -- Replace the loader list with the preloader plus our FS loader
-package.loaders = { _LOADERS.pre, _LOADERS.fs }
+package.loaders = { _LOADERS.pre, _LOADERS.fs, memoize(_LOADERS.bin) }
 
 -- Define callback registrator
 local function register_on_load_callback(f)

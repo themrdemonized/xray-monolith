@@ -4,8 +4,9 @@
 
 _PACKAGE = "boot/paths"
 
--- Cache default path for later
+-- Cache default paths for later
 _DEFAULT_PATH = package.path
+_DEFAULT_CPATH = package.cpath
 
 -- Define load path registrator
 function _REGISTER_PATHS(...)

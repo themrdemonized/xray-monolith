@@ -13,8 +13,6 @@ local XR_LOADERS = {
 -- `package` module override for X-Ray Lua scripts
 local XR_PACKAGE = setmetatable(
    {
-      -- Use unconfigured Lua path
-      path = _DEFAULT_PATH,
       -- Use unconfigured Lua loaders
       loaders = XR_LOADERS,
    },
@@ -44,8 +42,20 @@ local XR_G = setmetatable(
             return gv
          end
 
-         -- Otherwise, try to auto-load the key as a script
+         -- Otherwise, try to auto-load via the global package.path
          local res, out = pcall(require, key)
+         if res then
+            return out
+         end
+
+         -- Otherwise, try to auto-load via xr/lua's local package.path
+         local package_path_old = package.path
+         local package_cpath_old = package.cpath
+         package.path = _DEFAULT_PATH
+         package.cpath = _DEFAULT_CPATH
+         res, out = pcall(require, key)
+         package.path = package_path_old
+         package.cpath = package_cpath_old
          if res then
             return out
          end
