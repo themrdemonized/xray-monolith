@@ -1,0 +1,2 @@
+-- X-Ray Lua Core
+-- Submodules are loaded by script.ltx for flexible initialization order

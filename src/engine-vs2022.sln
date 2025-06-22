@@ -110,8 +110,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{8EC4
 		..\gamedata\scripts\class_registrator_modded_exes.script = ..\gamedata\scripts\class_registrator_modded_exes.script
 		..\gamedata\scripts\dxml_core.script = ..\gamedata\scripts\dxml_core.script
 		..\gamedata\scripts\fakelens.script = ..\gamedata\scripts\fakelens.script
+		..\gamedata\scripts\imgui_helper.script = ..\gamedata\scripts\imgui_helper.script
+		..\gamedata\scripts\init.lua = ..\gamedata\scripts\init.lua
 		..\gamedata\scripts\ltx_help_ex.script = ..\gamedata\scripts\ltx_help_ex.script
 		..\gamedata\scripts\lua_help_ex.script = ..\gamedata\scripts\lua_help_ex.script
+		..\gamedata\scripts\lua_help_imgui.script = ..\gamedata\scripts\lua_help_imgui.script
 		..\gamedata\scripts\modxml_inject_keybinds.script = ..\gamedata\scripts\modxml_inject_keybinds.script
 		..\gamedata\scripts\modxml_test.script = ..\gamedata\scripts\modxml_test.script
 		..\gamedata\scripts\options_builder.script = ..\gamedata\scripts\options_builder.script
@@ -250,6 +253,20 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "imgui", "3rd party\imgui\im
 	ProjectSection(ProjectDependencies) = postProject
 		{A0F7D1FB-59A7-4717-A7E4-96F37E91998E} = {A0F7D1FB-59A7-4717-A7E4-96F37E91998E}
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "amx", "amx", "{04EC24DC-AB94-4F19-8056-23DE855052D7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "boot", "boot", "{2B4D82D1-8DFD-4CF4-A8B5-923ED00EFFC1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{7188B178-0BAC-4DB1-80EE-0B3C32775905}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "xr", "xr", "{277AEE51-4F38-46F9-BF6E-78F198D718B5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lua", "lua", "{EC96D3E8-1D33-4EAD-9D67-01A07903C3FC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lua", "lua", "{3CC5A577-05F4-4C38-946B-FB99F37CCA19}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "processes", "processes", "{96150BF0-7065-45D8-8ACB-47D2B6646849}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -1053,6 +1070,13 @@ Global
 		{44A08F7F-E393-4E0B-B9E6-94AF30774CE7} = {8537520E-5391-4DA0-A369-D7B22852C696}
 		{91413BC1-731E-470B-AA8C-8C1F6290D8D7} = {44A08F7F-E393-4E0B-B9E6-94AF30774CE7}
 		{D0843040-7706-4FBF-A931-582748BAFBB1} = {2BFC806B-CE92-4EA4-8FE8-5F2EA54BA348}
+		{04EC24DC-AB94-4F19-8056-23DE855052D7} = {8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}
+		{2B4D82D1-8DFD-4CF4-A8B5-923ED00EFFC1} = {8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}
+		{7188B178-0BAC-4DB1-80EE-0B3C32775905} = {8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}
+		{277AEE51-4F38-46F9-BF6E-78F198D718B5} = {8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}
+		{EC96D3E8-1D33-4EAD-9D67-01A07903C3FC} = {04EC24DC-AB94-4F19-8056-23DE855052D7}
+		{3CC5A577-05F4-4C38-946B-FB99F37CCA19} = {277AEE51-4F38-46F9-BF6E-78F198D718B5}
+		{96150BF0-7065-45D8-8ACB-47D2B6646849} = {277AEE51-4F38-46F9-BF6E-78F198D718B5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {76CF157A-A169-443B-AE3A-F17AD29325C6}

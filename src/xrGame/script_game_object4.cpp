@@ -51,6 +51,8 @@
 #include "antirad.h"
 #include "BottleItem.h"
 
+using namespace ScriptEngine;
+
 class CWeapon;
 
 //////////////////////////////////////////////////////////////////////////
@@ -62,7 +64,7 @@ bool CScriptGameObject::is_body_turning() const
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CGameObject : cannot access class member is_turning!");
 		return (false);
 	}
@@ -88,7 +90,7 @@ u32 CScriptGameObject::add_sound(LPCSTR prefix, u32 max_count, ESoundTypes type,
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member add!");
 		return (0);
 	}
@@ -102,7 +104,7 @@ u32 CScriptGameObject::add_combat_sound(LPCSTR prefix, u32 max_count, ESoundType
 	CAI_Stalker* const stalker = smart_cast<CAI_Stalker*>(&object());
 	if (!stalker)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member add!");
 		return (0);
 	}
@@ -121,7 +123,7 @@ void CScriptGameObject::remove_sound(u32 internal_type)
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member add!");
 	else
 		monster->sound().remove(internal_type);
@@ -131,7 +133,7 @@ void CScriptGameObject::set_sound_mask(u32 sound_mask)
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member set_sound_mask!");
 	else
 	{
@@ -148,7 +150,7 @@ void CScriptGameObject::play_sound(u32 internal_type)
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member play!");
 	else
 		monster->sound().play(internal_type);
@@ -158,7 +160,7 @@ void CScriptGameObject::play_sound(u32 internal_type, u32 max_start_time)
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member play!");
 	else
 		monster->sound().play(internal_type, max_start_time);
@@ -168,7 +170,7 @@ void CScriptGameObject::play_sound(u32 internal_type, u32 max_start_time, u32 mi
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member play!");
 	else
 		monster->sound().play(internal_type, max_start_time, min_start_time);
@@ -178,7 +180,7 @@ void CScriptGameObject::play_sound(u32 internal_type, u32 max_start_time, u32 mi
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member play!");
 	else
 		monster->sound().play(internal_type, max_start_time, min_start_time, max_stop_time);
@@ -189,7 +191,7 @@ void CScriptGameObject::play_sound(u32 internal_type, u32 max_start_time, u32 mi
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member play!");
 	else
 		monster->sound().play(internal_type, max_start_time, min_start_time, max_stop_time, min_stop_time);
@@ -200,7 +202,7 @@ void CScriptGameObject::play_sound(u32 internal_type, u32 max_start_time, u32 mi
 {
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CSoundPlayer : cannot access class member play!");
 	else
 		monster->sound().play(internal_type, max_start_time, min_start_time, max_stop_time, min_stop_time, id);
@@ -211,7 +213,7 @@ int CScriptGameObject::active_sound_count(bool only_playing)
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CGameObject : cannot access class member active_sound_count!");
 		return (-1);
 	}
@@ -229,7 +231,7 @@ bool CScriptGameObject::wounded() const
 	const CAI_Stalker* stalker = smart_cast<const CAI_Stalker *>(&object());
 	if (!stalker)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CAI_Stalker : cannot access class member wounded!");
 		return (false);
 	}
@@ -242,7 +244,7 @@ void CScriptGameObject::wounded(bool value)
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker *>(&object());
 	if (!stalker)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CAI_Stalker : cannot access class member wounded!");
 		return;
 	}
@@ -256,7 +258,7 @@ void CScriptGameObject::set_enable_movement_collision(bool value)
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
 	if (!stalker)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 										"CAI_Stalker : cannot set_enable_movement_collision for non CAI_Stalker objects");
 		return;
 	}
@@ -269,7 +271,7 @@ CSightParams CScriptGameObject::sight_params()
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
 	if (!stalker)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CAI_Stalker : cannot access class member sight_params!");
 
 		CSightParams result;
@@ -292,7 +294,7 @@ bool CScriptGameObject::critically_wounded()
 	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
 	if (!custom_monster)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "CCustomMonster : cannot access class member critically_wounded!");
 		return (false);
 	}
@@ -418,7 +420,7 @@ void CScriptGameObject::start_particles(LPCSTR pname, LPCSTR bone)
 	if (K->LL_GetBoneVisible(play_bone))
 		PP->StartParticles(pname, play_bone, Fvector().set(0, 1, 0), 9999);
 	else
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "Cant start particles, bone [%s] is not visible now", bone);
 }
 
@@ -439,7 +441,7 @@ void CScriptGameObject::stop_particles(LPCSTR pname, LPCSTR bone)
 	if (K->LL_GetBoneVisible(play_bone))
 		PP->StopParticles(9999, play_bone, true);
 	else
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(eLuaMessageTypeError,
 		                                "Cant stop particles, bone [%s] is not visible now", bone);
 }
 

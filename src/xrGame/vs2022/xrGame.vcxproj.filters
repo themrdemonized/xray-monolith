@@ -1342,26 +1342,11 @@
     <Filter Include="AI\AScript\ScriptClasses\ScriptSound">
       <UniqueIdentifier>{7461340c-f13a-4ba4-a432-e8aeca7393cf}</UniqueIdentifier>
     </Filter>
-    <Filter Include="AI\AScript\ScriptDebugger">
-      <UniqueIdentifier>{a1df39ed-f84f-4b5e-9aa6-7310378e3614}</UniqueIdentifier>
-    </Filter>
     <Filter Include="AI\AScript\ScriptEngine">
       <UniqueIdentifier>{c64d88d0-2cc0-440e-bed2-367ebd29671c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="AI\AScript\ScriptProcess">
-      <UniqueIdentifier>{2bfb6ae4-1fec-4054-bc45-5a6ed56f73ed}</UniqueIdentifier>
-    </Filter>
     <Filter Include="AI\AScript\ScriptStorage">
       <UniqueIdentifier>{8ce0ad22-cee7-419e-b54c-65da67769b68}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="AI\AScript\ScriptThread">
-      <UniqueIdentifier>{0126fd57-f558-4910-ad5e-f63e20a12940}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="AI\AScript\ScriptThread\ScriptStackTracker">
-      <UniqueIdentifier>{2f517721-a4fd-4e92-aee2-7c703d7b2abe}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="AI\AScript\lua_studio">
-      <UniqueIdentifier>{91189d3e-089f-4e5c-a9f4-b41fb1136e69}</UniqueIdentifier>
     </Filter>
     <Filter Include="AI\ASound">
       <UniqueIdentifier>{a568c889-96b8-41c7-9bee-0d4f24d1a47e}</UniqueIdentifier>
@@ -2493,9 +2478,6 @@
     </Filter>
     <Filter Include="AI\AMonsters\monsters\Chimera\state attack">
       <UniqueIdentifier>{8d6475ec-c185-4ebb-9ba6-e7dc1644c4c1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="UI\Common\ImGui">
-      <UniqueIdentifier>{c14ffa0c-947d-49b9-8e01-269569b48371}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -5199,62 +5181,11 @@
     <ClInclude Include="..\script_sound_inline.h">
       <Filter>AI\AScript\ScriptClasses\ScriptSound</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\mslotutils.h">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_callStack.h">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_debugger.h">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_debugger_messages.h">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_debugger_threads.h">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_lua_helper.h">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\script_engine.h">
-      <Filter>AI\AScript\ScriptEngine</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_engine_inline.h">
       <Filter>AI\AScript\ScriptEngine</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\script_engine_space.h">
       <Filter>AI\AScript\ScriptEngine</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_process.h">
-      <Filter>AI\AScript\ScriptProcess</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_process_inline.h">
-      <Filter>AI\AScript\ScriptProcess</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_storage.h">
-      <Filter>AI\AScript\ScriptStorage</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_storage_inline.h">
-      <Filter>AI\AScript\ScriptStorage</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_storage_space.h">
-      <Filter>AI\AScript\ScriptStorage</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_thread.h">
-      <Filter>AI\AScript\ScriptThread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_thread_inline.h">
-      <Filter>AI\AScript\ScriptThread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_stack_tracker.h">
-      <Filter>AI\AScript\ScriptThread\ScriptStackTracker</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\script_stack_tracker_inline.h">
-      <Filter>AI\AScript\ScriptThread\ScriptStackTracker</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\xrServerEntities\lua_studio.h">
-      <Filter>AI\AScript\lua_studio</Filter>
     </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\ai_sounds.h">
       <Filter>AI\ASound</Filter>
@@ -7398,11 +7329,17 @@
     <ClInclude Include="..\HUDRecon.h">
       <Filter>UI\Cursor</Filter>
     </ClInclude>
-    <ClInclude Include="..\script_imgui.h">
-      <Filter>UI\Common\ImGui</Filter>
+    <ClInclude Include="..\..\xrServerEntities\script_storage.h">
+      <Filter>AI\AScript\ScriptStorage</Filter>
     </ClInclude>
-    <ClInclude Include="..\script_imgui_inline.h">
-      <Filter>UI\Common\ImGui</Filter>
+    <ClInclude Include="..\..\xrServerEntities\script_engine_inline.h">
+      <Filter>AI\AScript\ScriptEngine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xrServerEntities\script_process.h">
+      <Filter>AI\AScript\ScriptEngine</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\xrServerEntities\script_processes.h">
+      <Filter>AI\AScript\ScriptEngine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -8798,44 +8735,14 @@
     <ClCompile Include="..\script_sound_script.cpp">
       <Filter>AI\AScript\ScriptClasses\ScriptSound</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_callStack.cpp">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_debugger.cpp">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_debugger_threads.cpp">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_lua_helper.cpp">
-      <Filter>AI\AScript\ScriptDebugger</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_engine.cpp">
       <Filter>AI\AScript\ScriptEngine</Filter>
     </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_engine_export.cpp">
       <Filter>AI\AScript\ScriptEngine</Filter>
     </ClCompile>
-    <ClCompile Include="..\script_engine_help.cpp">
-      <Filter>AI\AScript\ScriptEngine</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\xrServerEntities\script_engine_script.cpp">
       <Filter>AI\AScript\ScriptEngine</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_process.cpp">
-      <Filter>AI\AScript\ScriptProcess</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_storage.cpp">
-      <Filter>AI\AScript\ScriptStorage</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_thread.cpp">
-      <Filter>AI\AScript\ScriptThread</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\script_stack_tracker.cpp">
-      <Filter>AI\AScript\ScriptThread\ScriptStackTracker</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\xrServerEntities\lua_studio.cpp">
-      <Filter>AI\AScript\lua_studio</Filter>
     </ClCompile>
     <ClCompile Include="..\ai_sounds.cpp">
       <Filter>AI\ASound</Filter>
@@ -11099,8 +11006,11 @@
     <ClCompile Include="..\HUDRecon.cpp">
       <Filter>UI\Cursor</Filter>
     </ClCompile>
-    <ClCompile Include="..\script_imgui_script.cpp">
-      <Filter>UI\Common\ImGui</Filter>
+    <ClCompile Include="..\..\xrServerEntities\script_storage.cpp">
+      <Filter>AI\AScript\ScriptStorage</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\xrServerEntities\script_storage_script.cpp">
+      <Filter>AI\AScript\ScriptEngine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

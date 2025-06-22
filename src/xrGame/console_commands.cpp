@@ -7,7 +7,6 @@
 #include "xrMessages.h"
 #include "xrserver.h"
 #include "level.h"
-#include "script_debugger.h"
 #include "ai_debug.h"
 #include "alife_simulator.h"
 #include "game_cl_base.h"
@@ -20,7 +19,6 @@
 #include "customzone.h"
 #include "script_engine.h"
 #include "script_engine_space.h"
-#include "script_process.h"
 #include "xrServer_Objects.h"
 #include "ui/UIMainIngameWnd.h"
 //#include "../xrphysics/PhysicsGamePars.h"
@@ -1674,8 +1672,8 @@ public:
 			P->m_Flags.set(FS_Path::flNeedRescan, TRUE);
 			FS.rescan_pathes();
 			// run script
-			if (ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel))
-				ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->add_script(args, false, true);
+			if (ai().script_engine().script_processes().has("level"))
+				ai().script_engine().script_processes().get("level").add_script(args, true);
 		}
 	}
 
@@ -1701,33 +1699,22 @@ public:
 
 	virtual void Execute(LPCSTR args)
 	{
+		// Early out if no arguments were provided
 		if (!xr_strlen(args))
-			Log("* Specify string to run!");
-		else
 		{
-			if (ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel))
-			{
-				ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->add_script(args, true, true);
-				return;
-			}
-
-			string4096 S;
-			shared_str m_script_name = "console command";
-			xr_sprintf(S, "%s\n", args);
-			int l_iErrorCode = luaL_loadbuffer(ai().script_engine().lua(), S, xr_strlen(S), "@console_command");
-			if (!l_iErrorCode)
-			{
-				l_iErrorCode = lua_pcall(ai().script_engine().lua(), 0, 0, 0);
-				if (l_iErrorCode)
-				{
-					ai().script_engine().print_output(ai().script_engine().lua(), *m_script_name, l_iErrorCode);
-					ai().script_engine().on_error(ai().script_engine().lua());
-					return;
-				}
-			}
-
-			ai().script_engine().print_output(ai().script_engine().lua(), *m_script_name, l_iErrorCode);
+			Log("* Specify string to run!");
+			return;
 		}
+
+		// If we have a level script processor, use it to run the command as a coroutine
+		if (ai().script_engine().script_processes().has("level"))
+		{
+			ai().script_engine().script_processes().get("level").add_string(args);
+			return;
+		}
+
+		// Otherwise, 
+		ai().script_engine().do_string(args, "console command");
 	} //void	Execute
 
 	virtual void Status(TStatus& S)
@@ -1750,6 +1737,20 @@ public:
 		IConsole_Command::fill_tips(tips, mode);
 	}
 };
+
+class CCC_EvalCommand : public CCC_ScriptCommand
+{
+public:
+	CCC_EvalCommand(LPCSTR N) : CCC_ScriptCommand(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		string4096 S;
+		xr_sprintf(S, "print(%s)", args);
+		CCC_ScriptCommand::Execute(S);
+	}
+};
+
 class CCC_FreezeTime : public IConsole_Command
 {
 public:
@@ -2522,7 +2523,7 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 	CMD1(CCC_Script, "run_script");
 	CMD1(CCC_ScriptCommand, "run_string");
-	CMD1(CCC_TimeFactor, "time_factor");
+	CMD1(CCC_EvalCommand, "eval");
 #endif // DEBUG
 
 	/* AVO: changing restriction to -dbg key instead of DEBUG */
@@ -2535,6 +2536,7 @@ void CCC_RegisterCommands()
 		CMD3(CCC_Mask, "g_unlimitedammo", &psActorFlags, AF_UNLIMITEDAMMO);
 		CMD1(CCC_Script, "run_script");
 		CMD1(CCC_ScriptCommand, "run_string");
+		CMD1(CCC_EvalCommand, "eval");
 		//CMD3(CCC_Mask, "g_no_clip", &psActorFlags, AF_NO_CLIP);
 		CMD1(CCC_PHGravity, "ph_gravity");
 		CMD3(CCC_Mask, "log_missing_ini", &FS.m_Flags, FS.flPrintLTX);

@@ -991,7 +991,7 @@ int g_get_general_goodwill_between(u16 from, u16 to)
 
 	if (!from_obj || !to_obj)
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError,
 		                                "RELATION_REGISTRY::get_general_goodwill_between  : cannot convert obj to CSE_ALifeTraderAbstract!");
 		return (0);
 	}

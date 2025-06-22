@@ -251,7 +251,7 @@ bool CAI_Stalker::bfAssignObject(CScriptEntityAction* tpEntityAction)
 					l_tObjectAction.m_bCompleted = true;
 			}
 			else
-				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+				ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError,
 				                                "cannot reload active item because it is not selected!");
 
 			//			if (inventory().ActiveItem()) {
@@ -306,7 +306,7 @@ bool CAI_Stalker::bfAssignObject(CScriptEntityAction* tpEntityAction)
 		{
 			if (inventory().GetItemFromInventory(*l_tObjectAction.m_tpObject->cName()))
 			{
-				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+				ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError,
 				                                "item is already in the inventory!");
 				return ((l_tObjectAction.m_bCompleted = true) == false);
 			}
@@ -318,7 +318,7 @@ bool CAI_Stalker::bfAssignObject(CScriptEntityAction* tpEntityAction)
 		{
 			if (!inventory().GetItemFromInventory(*l_tObjectAction.m_tpObject->cName()))
 			{
-				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "item is not in the inventory!");
+				ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "item is not in the inventory!");
 				return ((l_tObjectAction.m_bCompleted = true) == false);
 			}
 			DropItemSendMessage(l_tObjectAction.m_tpObject);

@@ -1265,7 +1265,7 @@ CInventoryItem* CInventory::tpfGetObjectByIndex(int iIndex)
 	}
 	else
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "invalid inventory index!");
+		ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "invalid inventory index!");
 		return (0);
 	}
 	R_ASSERT(false);

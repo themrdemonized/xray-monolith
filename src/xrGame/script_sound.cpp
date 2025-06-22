@@ -22,7 +22,7 @@ CScriptSound::CScriptSound(LPCSTR caSoundName, ESoundTypes sound_type)
 		m_sound.create(caSoundName, st_Effect, sound_type);
 	else
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "File not found \"%s\"!", l_caFileName);
+		ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError, "File not found \"%s\"!", l_caFileName);
 		m_sound.create("$no_sound.ogg", st_Effect, sound_type);
 	}
 }
@@ -44,7 +44,7 @@ Fvector CScriptSound::GetPosition() const
 		return (l_tpSoundParams->position);
 	else
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		ai().script_engine().script_log(ScriptEngine::eLuaMessageTypeError,
 		                                "Sound was not launched, can't get position!");
 		return (Fvector().set(0, 0, 0));
 	}

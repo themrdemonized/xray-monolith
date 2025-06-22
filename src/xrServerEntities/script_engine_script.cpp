@@ -9,7 +9,6 @@
 #include "pch_script.h"
 #include "script_engine.h"
 #include "ai_space.h"
-#include "script_debugger.h"
 #include "new_sds.h"
 
 using namespace luabind;
@@ -73,9 +72,9 @@ void FlushLogs()
 #endif // DEBUG
 }
 
-void verify_if_thread_is_running()
-{
-	THROW2(ai().script_engine().current_thread(), "coroutine.yield() is called outside the LUA thread!");
+void verify_if_thread_is_running() {
+	// Dummied, as it is unused; only callsite is in _g, and commented out
+	// Lua threads (coroutines) are now managed by Lua, so should be verified in script
 }
 
 bool is_editor()
@@ -83,7 +82,7 @@ bool is_editor()
 #ifdef XRGAME_EXPORTS
 	return (false);
 #else
-    return		(true);
+    return (true);
 #endif
 }
 
@@ -121,7 +120,9 @@ LPCSTR user_name()
 
 void prefetch_module(LPCSTR file_name)
 {
-	ai().script_engine().process_file(file_name);
+	lua_getglobal(ai().script_engine().lua(), "require");
+	lua_pushstring(ai().script_engine().lua(), file_name);
+	lua_call(ai().script_engine().lua(), 1, 0);
 }
 
 struct profile_timer_script
