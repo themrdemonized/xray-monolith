@@ -7401,6 +7401,9 @@
     <ClInclude Include="script_imgui_inline.h">
       <Filter>UI\Common\ImGui</Filter>
     </ClInclude>
+    <ClInclude Include="ui\UI3dStatic.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -11098,6 +11101,12 @@
     </ClCompile>
     <ClCompile Include="script_imgui_script.cpp">
       <Filter>UI\Common\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\UI3dStatic.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\UI3dStatic_script.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -10,6 +10,7 @@
 #include "UIProgressShape.h"
 #include "UITabControl.h"
 //#include "UILabel.h"
+#include "UI3dStatic.h"
 #include "UIAnimatedStatic.h"
 #include "uixmlinit.h"
 #include "UIListBox.h"
@@ -196,6 +197,16 @@ bool CUIXmlInit::InitStatic(CUIXml& xml_doc, LPCSTR path,
 		pWnd->TextItemControl()->SetTextComplexMode(bComplexMode);
 
 	pWnd->m_stat_hint_text = xml_doc.ReadAttrib(path, index, "hint", "");
+
+	return true;
+}
+
+bool CUIXmlInit::Init3dStatic(CUIXml& xml_doc, LPCSTR path,
+	int index, CUI3dStatic* pWnd)
+{
+	R_ASSERT4(xml_doc.NavigateToNode(path, index), "XML node not found", path, xml_doc.m_xml_file_name);
+
+	InitWindow(xml_doc, path, index, pWnd);
 
 	return true;
 }

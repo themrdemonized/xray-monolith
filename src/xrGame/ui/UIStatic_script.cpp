@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "UIStatic.h"
+#include "UI3dStatic.h"
 #include "UIAnimatedStatic.h"
 
 using namespace luabind;
@@ -40,6 +41,13 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetColorAnimation", &CUIStatic::SetColorAnimation)
 		.def("ResetColorAnimation", &CUIStatic::ResetColorAnimation)
 		.def("RemoveColorAnimation", &CUIStatic::RemoveColorAnimation)
+		,
+
+		class_<CUI3dStatic, CUIWindow>("CUI3dStatic")
+		.def(constructor<>())
+		.def("SetRotate", &CUI3dStatic::SetRotate)
+		.def("SetGameObject", &CUI3dStatic::SetGameObject)
+		.def("Draw", &CUI3dStatic::Draw)
 		,
 
 		class_<CUITextWnd, CUIWindow>("CUITextWnd")

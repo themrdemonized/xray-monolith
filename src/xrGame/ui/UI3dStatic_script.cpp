@@ -1,11 +1,10 @@
-#include "pch_script.h"
+#include "pch_script.h"/*
 #include "UI3dStatic.h"
-
-using namespace luabind;
+using namespace ::luabind;
 
 #pragma optimize("s",on)
 
-void CUIStatic::script_register(lua_State* L)
+void CUI3dStatic::script_register(lua_State* L)
 {
 	module(L)
 	[
@@ -15,4 +14,4 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetGameObject", &CUI3dStatic::SetGameObject)
 		.def("Draw", &CUI3dStatic::Draw)
 	];
-}
+}*/

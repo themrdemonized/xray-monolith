@@ -3,10 +3,13 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "../ui_base.h"
 #include "ui3dstatic.h"
 #include "../gameobject.h"
 #include "../HUDManager.h"
-#include "../../xr_3da/fbasicvisual.h"
+//#include "../../Layers/xrRender/FBasicVisual.h"
+#include "../Include/xrRender/RenderVisual.h"
+#include "../Include/xrRender/KinematicsAnimated.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -72,79 +75,89 @@ void  CUI3dStatic::Draw()
 
 		Fmatrix matrix;
 		matrix.identity();
+		if (m_pCurrentItem)
+		{
+			auto visual = m_pCurrentItem->Visual();
+			if (visual)
+			{
+				auto visData = visual->getVisData();
+				//поместить объект в центр сферы
+				translate_matrix.identity();
+				if (_valid(visData.sphere)) {
+					translate_matrix.translate(-visData.sphere.P.x,
+						-visData.sphere.P.y,
+						-visData.sphere.P.z);
+				}
+
+				matrix.mulA_44(translate_matrix);
 
 
-		//поместить объект в центр сферы
-		translate_matrix.identity();
-		translate_matrix.translate( - m_pCurrentItem->Visual()->vis.sphere.P.x, 
-			 					    - m_pCurrentItem->Visual()->vis.sphere.P.y, 
-								    - m_pCurrentItem->Visual()->vis.sphere.P.z);
-
-		matrix.mulA_44(translate_matrix);
-
-
-		rx_m.identity();
-		rx_m.rotateX(m_x_angle);
-		ry_m.identity();
-		ry_m.rotateY(m_y_angle);
-		rz_m.identity();
-		rz_m.rotateZ(m_z_angle);
+				rx_m.identity();
+				rx_m.rotateX(m_x_angle);
+				ry_m.identity();
+				ry_m.rotateY(m_y_angle);
+				rz_m.identity();
+				rz_m.rotateZ(m_z_angle);
 
 
-		matrix.mulA_44(rx_m);
-		matrix.mulA_44(ry_m);
-		matrix.mulA_44(rz_m);
-		
+				matrix.mulA_44(rx_m);
+				matrix.mulA_44(ry_m);
+				matrix.mulA_44(rz_m);
 
-		
-		float x1, y1, x2, y2;
 
-		FromScreenToItem(rect.left, rect.top, x1, y1);
-		FromScreenToItem(rect.right, rect.bottom, x2, y2);
 
-		float normal_size;
-		normal_size =_abs(x2-x1)<_abs(y2-y1)?_abs(x2-x1):_abs(y2-y1);
-		
-				
-		float radius = m_pCurrentItem->Visual()->vis.sphere.R;
+				float x1, y1, x2, y2;
 
-		float scale = normal_size/(radius*2);
+				FromScreenToItem(rect.left, rect.top, x1, y1);
+				FromScreenToItem(rect.right, rect.bottom, x2, y2);
 
-		scale_matrix.identity();
-		scale_matrix.scale( scale, scale,scale);
+				float normal_size;
+				normal_size = _abs(x2 - x1) < _abs(y2 - y1) ? _abs(x2 - x1) : _abs(y2 - y1);
 
-		matrix.mulA_44(scale_matrix);
-        
 
-		float right_item_offset, up_item_offset;
+				float radius = 0.5;
+				if (_valid(visData.sphere)) {
+					radius = visData.sphere.R;
+				}
+				float scale = normal_size / (radius * 2);
 
-		
-		///////////////////////////////	
-		
-		FromScreenToItem(rect.left + iFloor(GetWidth()/2 * GetScaleX()),
-						 rect.top + iFloor(GetHeight()/2 * GetScaleY()), 
-						 right_item_offset, up_item_offset);
+				scale_matrix.identity();
+				scale_matrix.scale(scale, scale, scale);
 
-		translate_matrix.identity();
-		translate_matrix.translate(right_item_offset,
-								   up_item_offset,
-								   DIST);
+				matrix.mulA_44(scale_matrix);
 
-		matrix.mulA_44(translate_matrix);
 
-		Fmatrix camera_matrix;
-		camera_matrix.identity();
-		camera_matrix = Device.mView;
-		camera_matrix.invert();
+				float right_item_offset, up_item_offset;
 
-		matrix.mulA_44(camera_matrix);
 
-		
-		::Render->set_Object(NULL); 
-		::Render->set_Transform(&matrix);
-		::Render->add_Visual(m_pCurrentItem->Visual());
+				///////////////////////////////	
 
-		::Render->flush();
+				FromScreenToItem(rect.left + iFloor(GetWidth() / 2 * GetScaleX()),
+					rect.top + iFloor(GetHeight() / 2 * GetScaleY()),
+					right_item_offset, up_item_offset);
+
+				translate_matrix.identity();
+				translate_matrix.translate(right_item_offset,
+					up_item_offset,
+					DIST);
+
+				matrix.mulA_44(translate_matrix);
+
+				Fmatrix camera_matrix;
+				camera_matrix.identity();
+				camera_matrix = Device.mView;
+				camera_matrix.invert();
+
+				matrix.mulA_44(camera_matrix);
+
+
+				::Render->set_Object(NULL);
+				::Render->set_Transform(&matrix);
+				::Render->add_Visual(m_pCurrentItem->Visual());
+
+				::Render->flush();
+			}
+		}
 	}
 }
 

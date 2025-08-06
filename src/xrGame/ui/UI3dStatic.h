@@ -7,8 +7,9 @@
 
 #pragma once
 
-
+#include "../../xrServerEntities/script_export_space.h"
 #include "uiwindow.h"
+#include "gameobject.h"
 
 class CGameObject;
 
@@ -41,6 +42,8 @@ protected:
 private:
 	float		GetScaleX() { return float(::Render->getTarget()->get_width()) / float(UI_BASE_WIDTH); }
 	float		GetScaleY() { return float(::Render->getTarget()->get_height()) / float(UI_BASE_HEIGHT); }
+public:
+DECLARE_SCRIPT_REGISTER_FUNCTION
 };
 
 #endif // _UI_3D_STATIC_H_

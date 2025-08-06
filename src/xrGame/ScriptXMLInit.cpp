@@ -14,6 +14,7 @@
 #include "ui\UIKeyBinding.h"
 #include "ui\UIEditBox.h"
 #include "ui\UIAnimatedStatic.h"
+#include "ui\UI3dStatic.h"
 #include "ui\UITrackBar.h"
 #include "ui\UICDkey.h"
 #include "ui\UIMapInfo.h"
@@ -176,6 +177,14 @@ CUIStatic* CScriptXmlInit::InitStatic(LPCSTR path, CUIWindow* parent)
 {
 	CUIStatic* pWnd = xr_new<CUIStatic>();
 	CUIXmlInit::InitStatic(m_xml, path, 0, pWnd);
+	_attach_child(pWnd, parent);
+	return pWnd;
+}
+
+CUI3dStatic* CScriptXmlInit::Init3dStatic(LPCSTR path, CUIWindow* parent)
+{
+	CUI3dStatic* pWnd = xr_new<CUI3dStatic>();
+	CUIXmlInit::Init3dStatic(m_xml, path, 0, pWnd);
 	_attach_child(pWnd, parent);
 	return pWnd;
 }
@@ -377,6 +386,7 @@ void CScriptXmlInit::script_register(lua_State* L)
 		.def("InitFrameLine", &CScriptXmlInit::InitFrameLine)
 		.def("InitEditBox", &CScriptXmlInit::InitEditBox)
 		.def("InitStatic", &CScriptXmlInit::InitStatic)
+		.def("Init3dStatic", &CScriptXmlInit::Init3dStatic)
 		.def("InitTextWnd", &CScriptXmlInit::InitTextWnd)
 		.def("InitAnimStatic", &CScriptXmlInit::InitAnimStatic)
 		.def("InitSleepStatic", &CScriptXmlInit::InitSleepStatic)
