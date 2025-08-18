@@ -1,7 +1,7 @@
 --[[
 	Kute:
 	
-	Callback Priority System: Make callbacks don't select a random function to run each time ("in pairs" order is randomized)
+	Ordered Callback: Make callbacks don't select a random function to run each time (in pairs, order is randomized)
 	Now it's ordered based on when you registered it.
 
 	Example:
@@ -20,69 +20,67 @@
 --]]
 
 
-local index = {}
-for i,v in pairs(axr_main.intercepts) do -- Copy the intercepts table for default callbacks
-	index[i] = {}
+local next_index = {}
+for name,v in pairs(axr_main.intercepts) do -- Copy the intercepts table for default callbacks
+	next_index[name] = 1
 end
 
 axr_main.callback_add = function(name)
 	if (not axr_main.intercepts[name]) then
 		axr_main.intercepts[name] = {}
-		index[name] = {}
+		next_index[name] = 1
 	else
 		printf("![axr_main callback_add] callback %s already exists!",name)
-		axr_main.callstack()
+		callstack()
 	end
 end
 
 axr_main.callback_set = function(name,func_or_userdata)
 	if (func_or_userdata == nil) then 
 		printf("![axr_main callback_set] trying to set callback %s to nil function!",name)
-		axr_main.callstack()
+		callstack()
 		return
 	end
 	if (axr_main.intercepts[name]) then
-		if not index[name][func_or_userdata] then -- check if callback exist
-			table.insert(axr_main.intercepts[name],func_or_userdata)
-			index[name][func_or_userdata] = #axr_main.intercepts[name]
-		else -- If callback already existed, remove the old one and push the callback to higher order
-			axr_main.intercepts[name][index[name][func_or_userdata]] = nil -- Set the value to nill instead of table.remove to maintain index order
-			table.insert(axr_main.intercepts[name],func_or_userdata)
-			index[name][func_or_userdata] = #axr_main.intercepts[name]
-		end
+		axr_main.intercepts[name][func_or_userdata] = next_index[name]
+		next_index[name] = next_index[name]+1
 	else
 		printf("![axr_main callback_set] callback %s doesn't exist!",name)
-		axr_main.callstack()
+		callstack()
 	end
 end
 
 axr_main.callback_unset = function(name,func_or_userdata)
 	if (axr_main.intercepts[name]) then
-		local func_or_userdata_index = index[name][func_or_userdata]
-		if func_or_userdata_index then
-			axr_main.intercepts[name][func_or_userdata_index] = nil -- Set the value to nill instead of table.remove to maintain index order
-			index[name][func_or_userdata] = nil
-		end
+		axr_main.intercepts[name][func_or_userdata] = nil
 	else
 		printf("![axr_main callback_unset] callback %s doesn't exist!",name)
-		axr_main.callstack()
+		callstack()
 	end
 end
 
 axr_main.make_callback = function(name,...)
 	if (axr_main.intercepts[name]) then
-		for i = 1,#axr_main.intercepts[name] do 
-			local func_or_userdata = axr_main.intercepts[name][i]
-			if func_or_userdata then
-				if (type(func_or_userdata) == "function") then 
-					func_or_userdata(...)
-				elseif (func_or_userdata[name]) then
-					func_or_userdata[name](func_or_userdata,...)
-				end
+		local functor = function(t,a,b)
+			if type(t[a])~="number" then -- fix main_menu_on_innit have a bool value for some reason
+				t[a] = next_index[name]
+				next_index[name] = next_index[name]+1
+			end
+			if type(t[b])~="number" then
+				t[b] = next_index[name]
+				next_index[name] = next_index[name]+1
+			end
+			return t[a] < t[b] 
+		end
+		for func_or_userdata,v in spairs(axr_main.intercepts[name],functor) do 
+			if (type(func_or_userdata) == "function") then 
+				func_or_userdata(...)
+			elseif (func_or_userdata[name]) then
+				func_or_userdata[name](func_or_userdata,...)
 			end
 		end
 	else
 		printf("![axr_main make_callback] can't make callback to non existing intercept %s!",name)
-		axr_main.callstack()
+		callstack()
 	end
 end
