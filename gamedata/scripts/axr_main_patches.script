@@ -1,0 +1,88 @@
+--[[
+	Kute:
+	
+	Callback Priority System: Make callbacks don't select a random function to run each time ("in pairs" order is randomized)
+	Now it's ordered based on when you registered it.
+
+	Example:
+	When you have 2 scripts, "aaa.script" and "zzz.script" register its call back in "on_game_start" function. 
+	The "zzz" one will run later, hence register its callback after aaa's.
+	That's mean the order of the callback function would be: aaa first, then zzz.
+
+	But what if aaa's callback want to override the changes of zzz's callback?
+	Then, aaa can re-register its callback again, in a later time, like using TimeEvent or register its callback in the "actor_on_first_update", 
+	to put it at a higher priority.
+
+	Re-register callback will move the function to the highest priory, without the need to unregister it first
+
+	This changes mainly to solve the clear priority issue in callbacks like `on_before_play_hud_sound` that require Lua code to return value to the engine.
+	But can be used more to manipulate values in same callback without the fear of overwriting.
+--]]
+
+
+local index = {}
+for i,v in pairs(axr_main.intercepts) do -- Copy the intercepts table for default callbacks
+	index[i] = {}
+end
+
+axr_main.callback_add = function(name)
+	if (not axr_main.intercepts[name]) then
+		axr_main.intercepts[name] = {}
+		index[name] = {}
+	else
+		printf("![axr_main callback_add] callback %s already exists!",name)
+		axr_main.callstack()
+	end
+end
+
+axr_main.callback_set = function(name,func_or_userdata)
+	if (func_or_userdata == nil) then 
+		printf("![axr_main callback_set] trying to set callback %s to nil function!",name)
+		axr_main.callstack()
+		return
+	end
+	if (axr_main.intercepts[name]) then
+		if not index[name][func_or_userdata] then -- check if callback exist
+			table.insert(axr_main.intercepts[name],func_or_userdata)
+			index[name][func_or_userdata] = #axr_main.intercepts[name]
+		else -- If callback already existed, remove the old one and push the callback to higher order
+			axr_main.intercepts[name][index[name][func_or_userdata]] = nil -- Set the value to nill instead of table.remove to maintain index order
+			table.insert(axr_main.intercepts[name],func_or_userdata)
+			index[name][func_or_userdata] = #axr_main.intercepts[name]
+		end
+	else
+		printf("![axr_main callback_set] callback %s doesn't exist!",name)
+		axr_main.callstack()
+	end
+end
+
+axr_main.callback_unset = function(name,func_or_userdata)
+	if (axr_main.intercepts[name]) then
+		local func_or_userdata_index = index[name][func_or_userdata]
+		if func_or_userdata_index then
+			axr_main.intercepts[name][func_or_userdata_index] = nil -- Set the value to nill instead of table.remove to maintain index order
+			index[name][func_or_userdata] = nil
+		end
+	else
+		printf("![axr_main callback_unset] callback %s doesn't exist!",name)
+		axr_main.callstack()
+	end
+end
+
+axr_main.make_callback = function(name,...)
+	if (axr_main.intercepts[name]) then
+		for i = 1,#axr_main.intercepts[name] do 
+			local func_or_userdata = axr_main.intercepts[name][i]
+			if func_or_userdata then
+				if (type(func_or_userdata) == "function") then 
+					func_or_userdata(...)
+				elseif (func_or_userdata[name]) then
+					func_or_userdata[name](func_or_userdata,...)
+				end
+			end
+		end
+	else
+		printf("![axr_main make_callback] can't make callback to non existing intercept %s!",name)
+		axr_main.callstack()
+	end
+end
