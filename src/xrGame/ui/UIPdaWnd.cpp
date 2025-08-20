@@ -35,7 +35,7 @@
 #include "ui\UIProgressBar.h"
 #include "player_hud.h"
 
-#define PDA_XML		"pda.xml"
+//shared_str g_pda_xml_path = "pda.xml";
 
 u32 g_pda_info_state = 0;
 
@@ -51,6 +51,7 @@ CUIPdaWnd::CUIPdaWnd()
 	m_power = 0.f;
 	last_cursor_pos.set(UI_BASE_WIDTH / 2.f, UI_BASE_HEIGHT / 2.f);
 	m_cursor_box.set(117.f, 39.f, UI_BASE_WIDTH - 121.f, UI_BASE_HEIGHT - 37.f);
+	g_pda_xml_path = "pda.xml";
 	Init();
 }
 
@@ -66,7 +67,7 @@ CUIPdaWnd::~CUIPdaWnd()
 void CUIPdaWnd::Init()
 {
 	CUIXml uiXml;
-	uiXml.Load(CONFIG_PATH, UI_PATH, PDA_XML);
+	uiXml.Load(CONFIG_PATH, UI_PATH, GetPdaXml());
 
 	m_pActiveDialog = NULL;
 	m_sActiveSection = "";
@@ -121,6 +122,26 @@ void CUIPdaWnd::Init()
 	CUIXmlInit::InitStatic(uiXml, "noice_static", 0, UINoice);
 
 	//	RearrangeTabButtons		(UITabControl);
+}
+
+void CUIPdaWnd::SetPdaXml(LPCSTR xml)
+{
+	if (m_pActiveDialog) {
+		if (UIMainPdaFrame->IsChild(m_pActiveDialog)) {
+			UIMainPdaFrame->DetachChild(m_pActiveDialog);
+		}
+		m_pActiveDialog->Show(false);
+		//m_pActiveDialog = NULL;
+		//m_sActiveSection = "";
+	}
+	//delete_data(pUITaskWnd);
+	//delete_data(pUIRankingWnd);
+	//delete_data(pUILogsWnd);
+
+	g_pda_xml_path = xml;
+	Init();
+	//Reset();
+	//UpdatePda();
 }
 
 void CUIPdaWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
