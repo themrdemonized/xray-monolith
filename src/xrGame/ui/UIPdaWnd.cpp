@@ -131,17 +131,10 @@ void CUIPdaWnd::SetPdaXml(LPCSTR xml)
 			UIMainPdaFrame->DetachChild(m_pActiveDialog);
 		}
 		m_pActiveDialog->Show(false);
-		//m_pActiveDialog = NULL;
-		//m_sActiveSection = "";
 	}
-	//delete_data(pUITaskWnd);
-	//delete_data(pUIRankingWnd);
-	//delete_data(pUILogsWnd);
 
 	g_pda_xml_path = xml;
 	Init();
-	//Reset();
-	//UpdatePda();
 }
 
 void CUIPdaWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
