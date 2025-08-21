@@ -338,6 +338,8 @@ void CUIActorMenu::script_register(lua_State* L)
 		.def("SetActiveDialog", &CUIPdaWnd::SetActiveDialog)
 		.def("GetActiveDialog", &CUIPdaWnd::GetActiveDialog)
 		.def("GetActiveSection", &CUIPdaWnd::GetActiveSection)
+		.def("SetPdaXml", &CUIPdaWnd::SetPdaXml)
+		.def("GetPdaXml", &CUIPdaWnd::GetPdaXml)
 		.def("GetTabControl", &CUIPdaWnd::GetTabControl),
 
 		class_<CUIMainIngameWnd, CUIWindow>("CUIMainIngameWnd")
