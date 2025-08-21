@@ -236,7 +236,10 @@ void CUIWindow::AttachChild(CUIWindow* pChild)
 	R_ASSERT(pChild);
 	if (!pChild) return;
 
-	R_ASSERT(!IsChild(pChild));
+	if (IsChild(pChild)) {
+		return; // Just do nothing if this happens
+	}
+
 	pChild->SetParent(this);
 	m_ChildWndList.push_back(pChild);
 }
@@ -625,7 +628,9 @@ CUIWindow* CUIWindow::FindChild(const shared_str name)
 
 void CUIWindow::SetParent(CUIWindow* pNewParent)
 {
-	R_ASSERT(!(m_pParentWnd && m_pParentWnd->IsChild(this)));
+	if (m_pParentWnd && m_pParentWnd->IsChild(this)) {
+		return; // Just do nothing if this happens
+	}
 
 	m_pParentWnd = pNewParent;
 }
