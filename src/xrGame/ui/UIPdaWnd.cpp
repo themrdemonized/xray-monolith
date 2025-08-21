@@ -35,8 +35,6 @@
 #include "ui\UIProgressBar.h"
 #include "player_hud.h"
 
-//shared_str g_pda_xml_path = "pda.xml";
-
 u32 g_pda_info_state = 0;
 
 void RearrangeTabButtons(CUITabControl* pTab);
