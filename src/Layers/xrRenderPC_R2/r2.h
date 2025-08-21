@@ -304,6 +304,36 @@ public:
 	virtual void models_Clear(BOOL b_complete);
 	virtual bool models_Exists(LPCSTR name);
 
+	// anglobes: Sun Values
+	virtual Fvector GetSunPosition()
+	{
+		static Fvector default_pos = { 0, 0, 0 };
+		light* sun = (light*)Lights.sun_adapted._get();
+		if (!sun)
+			return default_pos;
+		return sun->position;
+	};
+	virtual Fcolor GetSunColor()
+	{
+		static Fcolor default_color = { 0.0f, 0.0f, 0.0f, 0.0f };
+		light* sun = (light*)Lights.sun_adapted._get();
+		if (!sun)
+			return default_color;
+		return sun->color;
+	};
+	virtual float GetSunIntensity()
+	{
+		static float default_intensity = 0.0f;
+		light* sun = (light*)Lights.sun_adapted._get();
+		if (!sun)
+			return default_intensity;
+		return sun->color.intensity();
+	};
+	virtual bool IsSun()
+	{		
+		return is_sun();
+	};
+
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V);
 	virtual BOOL occ_visible(Fbox& B);

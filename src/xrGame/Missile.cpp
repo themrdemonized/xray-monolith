@@ -852,3 +852,31 @@ void CMissile::g_fireParams(SPickParam& pp)
 	pp.defs.start = matrix.c;
 	pp.defs.dir = matrix.k;
 }
+#include "pch_script.h"
+
+using namespace luabind;
+
+#pragma optimize("s",on)
+void CMissile::script_register(lua_State *L)
+{
+	module(L)
+	[
+		class_<CMissile, CGameObject>("CMissile")
+		.enum_("EMissileStates")
+		[
+			value("eThrowStart", int(CMissile::eThrowStart)),
+			value("eReady", int(CMissile::eReady)),
+			value("eThrow", int(CMissile::eThrow)),
+			value("eThrowEnd", int(CMissile::eThrowEnd))
+		]
+		.def("GetMinForce", &CMissile::GetMinForce)
+		.def("GetMaxForce", &CMissile::GetMaxForce)
+		.def("GetThrowForce", &CMissile::GetThrowForce)
+		.def("GetConstForce", &CMissile::GetConstForce)
+		.def("IsConstPower", &CMissile::IsConstPower)
+		.def("GetThrowPoint", &CMissile::GetThrowPoint)
+		.def("GetThrowDir", &CMissile::GetThrowDir)
+
+		.def(constructor<>())
+	];
+}

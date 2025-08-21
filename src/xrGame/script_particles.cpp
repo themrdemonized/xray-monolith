@@ -156,11 +156,11 @@ void CScriptParticles::SetDirection(const Fvector& dir)
 
 void CScriptParticles::SetOrientation(float yaw, float pitch, float roll)
 {
-	Fmatrix matrix;
+	Fmatrix matrix = Fmatrix().set(m_transform);
 	matrix.setHPB(yaw, pitch, roll); // ?????????? matrix.c
 	matrix.translate_over(m_transform.c);
 	m_transform.set(matrix);
-	m_particles->UpdateParent(matrix, zero_vel);
+	m_particles->SetXFORM(m_transform);
 }
 
 void CScriptParticles::SetHudMode(bool bHudMode)

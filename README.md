@@ -170,6 +170,12 @@ How to compile exes:
 7. For successful compilation, **the latest build tools with MFC and ATL libraries is required**
 
 ## Changelog
+**2025.08.21**
+* GhenTuong:
+  * CCar CWeaponStatMgun changes (https://github.com/themrdemonized/xray-monolith/pull/310)
+  * Export API functions and minor improvements (https://github.com/themrdemonized/xray-monolith/pull/340)
+* Antglobes: Sun values (https://github.com/themrdemonized/xray-monolith/pull/341)
+
 **2025.08.19**
 * Removed `parallel_for` in HOM and `particle_actions_collection` in favor of single-threaded loop for less thread creation overhead
 * Replace `unordered_map` implementation to `unordered_node_map`, same with set

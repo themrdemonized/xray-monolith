@@ -1190,6 +1190,46 @@ void CPHElement::applyTorque(float x, float y, float z)
 	VERIFY(dBodyStateValide(m_body));
 }
 
+void CPHElement::applyRelForce(const Fvector &dir, float val)
+{
+	applyRelForce(dir.x * val, dir.y * val, dir.z * val);
+}
+
+void CPHElement::applyRelForce(float x, float y, float z)
+{
+	VERIFY(_valid(x) && _valid(y) && _valid(z));
+	if (!isActive())
+		return;
+	if (m_flags.test(flFixed))
+		return;
+	if (!dBodyIsEnabled(m_body))
+		dBodyEnable(m_body);
+	m_shell->EnableObject(0);
+	dBodyAddRelForce(m_body, x, y, z);
+	BodyCutForce(m_body, m_l_limit, m_w_limit);
+	VERIFY(dBodyStateValide(m_body));
+}
+
+void CPHElement::applyRelTorque(const Fvector &dir, float val)
+{
+	applyRelTorque(dir.x * val, dir.y * val, dir.z * val);
+}
+
+void CPHElement::applyRelTorque(float x, float y, float z)
+{
+	VERIFY(_valid(x) && _valid(y) && _valid(z));
+	if (!isActive())
+		return;
+	if (m_flags.test(flFixed))
+		return;
+	if (!dBodyIsEnabled(m_body))
+		dBodyEnable(m_body);
+	m_shell->EnableObject(0);
+	dBodyAddRelTorque(m_body, x, y, z);
+	BodyCutForce(m_body, m_l_limit, m_w_limit);
+	VERIFY(dBodyStateValide(m_body));
+}
+
 void CPHElement::applyImpulse(const Fvector& dir, float val) //aux
 {
 	applyForce(dir.x * val / fixed_step, dir.y * val / fixed_step, dir.z * val / fixed_step);

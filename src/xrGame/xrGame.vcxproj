@@ -2662,6 +2662,7 @@
     <ClCompile Include="CarDamageParticles.cpp" />
     <ClCompile Include="CarDoors.cpp" />
     <ClCompile Include="CarExhaust.cpp" />
+    <ClCompile Include="CarNew.cpp" />
     <ClCompile Include="CarInput.cpp" />
     <ClCompile Include="CarLights.cpp" />
     <ClCompile Include="CarScript.cpp">
@@ -4261,8 +4262,10 @@
     </ClCompile>
     <ClCompile Include="WeaponStatMgun.cpp" />
     <ClCompile Include="HolderEntityObject.cpp" />
+    <ClCompile Include="WeaponStatMgunBarrel.cpp" />
     <ClCompile Include="WeaponStatMgunFire.cpp" />
     <ClCompile Include="WeaponStatMgunIR.cpp" />
+    <ClCompile Include="WeaponStatMgunMisc.cpp" />
     <ClCompile Include="WeaponSVD.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

@@ -392,3 +392,15 @@ void CActor::RemoveAmmoForWeapon(CInventoryItem* pIItem)
 	//	u_EventGen			(P,GE_DESTROY,pAmmo->ID());
 	//	u_EventSend			(P);
 };
+
+#ifdef STATIONARYMGUN_NEW
+float CActor::GetWeaponAccuracyStm()
+{
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(Holder());
+	if (stm && stm->IsCameraZoom())
+	{
+		return m_fDispAim;
+	}
+	return m_fDispBase;
+}
+#endif

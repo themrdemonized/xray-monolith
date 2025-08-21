@@ -202,6 +202,27 @@ void stop_weather_fx()
 	g_pGamePersistent->Environment().StopWFX();
 }
 
+Fvector get_sun_pos()
+{
+	return Render->GetSunPosition();
+}
+
+Fcolor get_sun_color()
+{
+	return Render->GetSunColor();
+}
+
+float get_sun_intensity()
+{
+	return Render->GetSunIntensity();
+}
+
+bool is_sun_visible()
+{
+	//return Render().RImplementation->is_sun();
+	return Render->IsSun();
+}
+
 void set_time_factor(float time_factor)
 {
 	if (!OnServer())
@@ -2257,6 +2278,14 @@ void CLevel::script_register(lua_State* L)
 			// demonized: get world position under crosshair
 			def("get_target_pos", ((Fvector(*)()) & g_get_target_pos)),
 			def("get_target_pos", ((Fvector (*)(ETraceTarget)) & g_get_target_pos)),
+			// antglobes: Get Sun Position in World Space
+			def("get_sun_pos", ((Fvector(*)()) & get_sun_pos)),
+			// antglobes: Get the float represenation of the sun's color in rgb format
+			def("get_sun_color", ((Fcolor (*)()) & get_sun_color)),
+			// antglobes: Get the sun's brightness
+			def("get_sun_intensity", ((float (*)()) & get_sun_intensity)),
+			// antglobes: Check if the weather is clear
+			def("is_sun_visible", ((bool (*)()) & is_sun_visible)),
 
 			// demonized: get result of crosshair ray query
 			def("get_target_result", ((script_rq_result(*)()) & g_get_target_result)),

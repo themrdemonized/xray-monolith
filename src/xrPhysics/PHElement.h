@@ -212,6 +212,11 @@ public: //
 	virtual void applyTorque(const Fvector& dir, float val);
 	virtual void applyTorque(float x, float y, float z);
 
+	virtual void applyRelForce(const Fvector &dir, float val);
+	virtual void applyRelForce(float x, float y, float z);
+	virtual void applyRelTorque(const Fvector &dir, float val);
+	virtual void applyRelTorque(float x, float y, float z);
+
 	//called anywhere ph state influent
 	virtual void applyImpulse(const Fvector& dir, float val); //aux
 	virtual void applyImpulseVsMC(const Fvector& pos, const Fvector& dir, float val); //

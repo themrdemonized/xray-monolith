@@ -211,6 +211,11 @@ void CSightManager::Exec_Look(float time_delta)
 		if (object().animation_movement_controlled())
 			return;
 
+#ifdef HOLDERCUSTOM_NEW
+		if (m_object->cast_stalker() && m_object->cast_stalker()->Holder())
+			return;
+#endif
+
 		Fmatrix& m = m_object->XFORM();
 		float h = -body.current.yaw;
 		float _sh = _sin(h), _ch = _cos(h);

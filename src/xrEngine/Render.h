@@ -331,6 +331,12 @@ public:
 	virtual void models_PrefetchOne(LPCSTR name, bool assert = true) = 0;
 	virtual void models_Clear(BOOL b_complete) = 0; 
 	virtual bool models_Exists(LPCSTR name) = 0;
+	
+	//  antglobes: Sun Values
+	virtual Fvector GetSunPosition() { static Fvector default_pos; return default_pos; };
+	virtual Fcolor GetSunColor() { static Fcolor default_color; return default_color; };
+	virtual float GetSunIntensity() { static float default_intensity; return default_intensity; };
+	virtual bool IsSun() { static bool is_sun_visible; return is_sun_visible; }
 
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V) = 0;

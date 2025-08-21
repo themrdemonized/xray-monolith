@@ -274,6 +274,18 @@ CHolderCustom* CScriptGameObject::get_custom_holder()
 	return holder;
 }
 
+#ifdef HOLDERCUSTOM_NEW
+CScriptGameObject *CScriptGameObject::get_holder_owner()
+{
+	CHolderCustom *holder = smart_cast<CHolderCustom *>(&object());
+	if (!holder)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : it is not a holder!");
+	}
+	return (holder && holder->Owner()) ? holder->Owner()->lua_game_object() : nullptr;
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -590,6 +602,14 @@ bool CScriptGameObject::is_bone_visible(u16 bone_id, bool bHud)
 
 u32 CScriptGameObject::GetAmmoElapsed()
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		return stm->GetAmmoElapsed();
+	}
+#endif
+
 	const CWeapon* weapon = smart_cast<const CWeapon*>(&object());
 	if (!weapon)
 		return (0);
@@ -598,6 +618,15 @@ u32 CScriptGameObject::GetAmmoElapsed()
 
 void CScriptGameObject::SetAmmoElapsed(int ammo_elapsed)
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		stm->SetAmmoElapsed(ammo_elapsed);
+		return;
+	}
+#endif
+	
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return;
 	weapon->SetAmmoElapsed(ammo_elapsed);
@@ -606,6 +635,14 @@ void CScriptGameObject::SetAmmoElapsed(int ammo_elapsed)
 //Alundaio
 int CScriptGameObject::GetAmmoCount(u8 type)
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		return (type < stm->m_ammoTypes.size()) ? stm->GetAmmoCount_forType(stm->m_ammoTypes[type]) : 0;
+	}
+#endif
+
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return 0;
 
@@ -617,6 +654,15 @@ int CScriptGameObject::GetAmmoCount(u8 type)
 
 void CScriptGameObject::SetAmmoType(u8 type)
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		stm->SetAmmoType(type);
+		return;
+	}
+#endif
+
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return;
 
@@ -625,6 +671,14 @@ void CScriptGameObject::SetAmmoType(u8 type)
 
 u8 CScriptGameObject::GetAmmoType()
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		return stm->GetAmmoType();
+	}
+#endif
+	
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return 255;
 
@@ -665,6 +719,14 @@ u32 CScriptGameObject::GetWeaponType()
 
 bool CScriptGameObject::HasAmmoType(u8 type)
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		return type < stm->m_ammoTypes.size();
+	}
+#endif
+
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return false;
 

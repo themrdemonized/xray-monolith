@@ -237,6 +237,12 @@
         script_rq_result get_target_result(ETraceTarget)
         script_rq_result get_target_result()
 
+        // antglobes
+        Fvector get_sun_pos() // Get the sun's position in the sky
+        Fcolor get_sun_color() // Get the float represenation of the sun's color in rgb format
+        float get_sun_intensity() // Get the sun's brightness
+        bool is_sun_visible() // Check if the weather is clear
+
         void map_remove_all_object_spots(id)
 
         CUIStatic* map_get_object_spot_static(u16 id, LPCSTR spot_type)

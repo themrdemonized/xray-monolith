@@ -188,6 +188,9 @@ protected:
 		shared_str effect_sect_name;
 	} effector;
 
+#ifdef CEXPLOSIVE_CHANGE
+	shared_str m_on_explode_callback;
+#endif
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };
 

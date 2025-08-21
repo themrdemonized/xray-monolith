@@ -224,6 +224,10 @@ void CStalkerAnimationManager::update_impl()
 
 	update_tracks();
 	play_delayed_callbacks();
+#ifdef HOLDERCUSTOM_NEW
+	if (object().Holder())
+		return;
+#endif
 
 	if (play_script())
 		return;
