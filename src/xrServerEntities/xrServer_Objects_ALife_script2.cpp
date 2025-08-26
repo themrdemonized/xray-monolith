@@ -49,6 +49,25 @@ void CSE_ALifeCar::script_register(lua_State* L)
 	];
 }
 
+#ifdef STATIONARYMGUN_NEW
+void CSE_ALifeStationaryMgun::script_register(lua_State* L)
+{
+	module(L)[
+		luabind_class_dynamic_alife1(
+			CSE_ALifeStationaryMgun,
+			"cse_alife_stmgun",
+			CSE_ALifeDynamicObjectVisual,
+			CSE_PHSkeleton
+		)
+		.def("get_ammo_magsize", &CSE_ALifeStationaryMgun::get_ammo_magsize)
+		.def("set_ammo_elapsed", &CSE_ALifeStationaryMgun::set_ammo_elapsed)
+		.def("get_ammo_elapsed", &CSE_ALifeStationaryMgun::get_ammo_elapsed)
+		.def("get_ammo_type", &CSE_ALifeStationaryMgun::get_ammo_type)
+		.def("set_ammo_type", &CSE_ALifeStationaryMgun::set_ammo_type)
+	];
+}
+#endif
+
 void CSE_ALifeObjectBreakable::script_register(lua_State* L)
 {
 	module(L)[

@@ -75,6 +75,10 @@ CExplosive::CExplosive(void)
 	m_fExplodeHideDurationMax = 0;
 	m_bDynamicParticles = FALSE;
 	m_pExpParticle = NULL;
+
+#ifdef CEXPLOSIVE_CHANGE
+	m_on_explode_callback._set("");
+#endif
 }
 
 void CExplosive::LightCreate()
@@ -163,6 +167,10 @@ void CExplosive::Load(CInifile const* ini, LPCSTR section)
 	m_bDynamicParticles = FALSE;
 	if (ini->line_exist(section, "dynamic_explosion_particles"))
 		m_bDynamicParticles = ini->r_bool(section, "dynamic_explosion_particles");
+
+#ifdef CEXPLOSIVE_CHANGE
+	m_on_explode_callback._set(READ_IF_EXISTS(ini, r_string, section, "on_explode", ""));
+#endif
 }
 
 void CExplosive::net_Destroy()
@@ -578,11 +586,10 @@ void CExplosive::OnAfterExplosion()
 void CExplosive::OnBeforeExplosion()
 {
 #ifdef CEXPLOSIVE_CHANGE
-	LPCSTR lua_function_str = READ_IF_EXISTS(pSettings, r_string, cast_game_object()->cNameSect_str(), "on_explode", NULL);
-	if (lua_function_str && strlen(lua_function_str))
+	if (m_on_explode_callback.size())
 	{
 		::luabind::functor<void> lua_function;
-		if (ai().script_engine().functor(lua_function_str, lua_function))
+		if (ai().script_engine().functor(m_on_explode_callback.c_str(), lua_function))
 		{
 			lua_function(cast_game_object()->lua_game_object());
 		}

@@ -16,6 +16,7 @@
 #ifdef XRGAME_EXPORTS
 #include "alife_smart_terrain_task.h"
 #endif //#ifdef XRGAME_EXPORTS
+#include "../../build_config_defines.h"
 
 #pragma warning(push)
 #pragma warning(disable:4005)
@@ -643,14 +644,52 @@ SERVER_ENTITY_DECLARE_END
 add_to_type_list(CSE_ALifeMountedWeapon)
 #define script_type_list save_type_list(CSE_ALifeMountedWeapon)
 
+#ifdef STATIONARYMGUN_NEW
+SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeStationaryMgun, CSE_ALifeDynamicObjectVisual, CSE_PHSkeleton)
+#else
 SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeStationaryMgun, CSE_ALifeDynamicObjectVisual)
+#endif
 	bool m_bWorking;
 	Fvector m_destEnemyDir;
+#ifdef STATIONARYMGUN_NEW
+	u8 ammo_type;
+	u16 a_elapsed;
+
+	struct SBarrel
+	{
+		SBarrel();
+		~SBarrel() {};
+		void read(NET_Packet &P);
+		void write(NET_Packet &P);
+		u16 a_elapsed;
+	};
+	xr_vector<SBarrel> m_barrels;
+#endif
 
 	CSE_ALifeStationaryMgun(LPCSTR caSection);
 	virtual ~CSE_ALifeStationaryMgun();
 
+#ifdef STATIONARYMGUN_NEW
+	u16 get_ammo_magsize();
+	u16 get_ammo_elapsed();
+	void set_ammo_elapsed(u16 count);
+	u8 get_ammo_type();
+	void set_ammo_type(u8 type);
+
+	virtual bool used_ai_locations() const;
+	virtual void load(NET_Packet& tNetPacket);
+	virtual bool can_save() const;
+	virtual CSE_Abstract* cast_abstract() { return this; }
+protected:
+	virtual void data_load(NET_Packet& tNetPacket);
+	virtual void data_save(NET_Packet& tNetPacket);
+#endif
 SERVER_ENTITY_DECLARE_END
+
+#ifdef STATIONARYMGUN_NEW
+add_to_type_list(CSE_ALifeStationaryMgun)
+#define script_type_list save_type_list(CSE_ALifeStationaryMgun)
+#endif
 
 //add_to_type_list(CSE_ALifeStationaryMgun)
 //#define script_type_list save_type_list(CSE_ALifeStationaryMgun)

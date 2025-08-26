@@ -19,6 +19,10 @@
 #include "step_manager.h"
 #include "script_export_space.h"
 
+#ifdef STATIONARYMGUN_NEW
+#include "WeaponStatMgun.h"
+#endif
+
 using namespace ACTOR_DEFS;
 
 class CInfoPortion;
@@ -263,9 +267,15 @@ public:
 	s32 GetShotRndSeed() { return m_ShotRndSeed; };
 
 public:
+#ifdef HOLDERCUSTOM_NEW
+	void detach_Vehicle(bool bForce);
+	void steer_Vehicle(float angle);
+	bool attach_Vehicle(CHolderCustom *object, bool bForce);
+#else
 	void detach_Vehicle();
 	void steer_Vehicle(float angle);
 	void attach_Vehicle(CHolderCustom* vehicle);
+#endif
 	bool use_HolderEx(CHolderCustom* object, bool bForce);
 
 	virtual bool can_attach(const CInventoryItem* inventory_item) const;
@@ -502,6 +512,10 @@ public:
 	virtual float MaxCarryWeight() const;
 	float MaxWalkWeight() const;
 	float get_additional_weight() const;
+	
+#ifdef STATIONARYMGUN_NEW
+	float GetWeaponAccuracyStm();
+#endif
 
 protected:
 	CFireDispertionController m_fdisp_controller;

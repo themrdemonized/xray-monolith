@@ -90,6 +90,10 @@
 #include "ui/UIHudStatesWnd.h"
 #include "script_attachment_manager.h"
 
+#ifdef STATIONARYMGUN_NEW
+#include "WeaponStatMgun.h"
+#endif
+
 const u32 patch_frames = 50;
 const float respawn_delay = 1.f;
 const float respawn_auto = 7.f;
@@ -857,6 +861,10 @@ extern BOOL firstPersonDeath;
 
 void CActor::Die(CObject* who)
 {
+#ifdef HOLDERCUSTOM_NEW
+	use_HolderEx(NULL, true);
+#endif
+
 #ifdef DEBUG
     Msg("--- Actor [%s] dies !", this->Name());
 #endif // #ifdef DEBUG
@@ -1166,6 +1174,10 @@ void CActor::UpdateCL()
 
 	cam_Update(float(Device.dwTimeDelta) / 1000.0f, currentFOV());
 
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(Holder());
+#endif
+
 	if (Level().CurrentEntity() && this->ID() == Level().CurrentEntity()->ID())
 	{
 		psHUD_Flags.set(HUD_CROSSHAIR_RT2, true);
@@ -1222,6 +1234,15 @@ void CActor::UpdateCL()
 			g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y = pWeapon->GetMinScopeZoomFactor();
 		}
 	}
+#ifdef STATIONARYMGUN_NEW
+	else if (stm && !stm->IsCameraZoom())
+	{
+		HUD().SetCrosshairDisp(0.05);
+		HUD().ShowCrosshair(true);
+		g_pGamePersistent->m_pGShaderConstants->hud_params.set(0.f, 0.f, 0.f, 0.f);
+		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
+	}
+#endif
 	else
 	{
 		if (Level().CurrentEntity() && this->ID() == Level().CurrentEntity()->ID())
@@ -1447,6 +1468,136 @@ void CActor::RPC_UpdateReputation()
 }
 
 #include "../xrphysics/actorcameracollision.h"
+
+#ifdef HOLDERCUSTOM_NEW
+bool CActor::use_HolderEx(CHolderCustom *object, bool bForce)
+{
+	if (object)
+	{
+		return attach_Vehicle(object, bForce);
+	}
+	detach_Vehicle(bForce);
+	return true;
+}
+
+bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
+{
+	if (object && !object->EnterLocked() || bForce)
+	{
+		Fvector center;
+		Center(center);
+		if ((bForce || object->Use(Device.vCameraPosition, Device.vCameraDirection, center)) && object->attach_Actor(this))
+		{
+			inventory().SetPrevActiveSlot(inventory().GetActiveSlot());
+			inventory().SetActiveSlot(NO_ACTIVE_SLOT);
+			SetWeaponHideState(INV_STATE_BLOCK_ALL, true);
+
+			character_physics_support()->movement()->DestroyCharacter();
+
+			m_holder = object;
+			m_holderID = smart_cast<CObject *>(object)->ID();
+
+			if (pCamBobbing)
+			{
+				Cameras().RemoveCamEffector(eCEBobbing);
+				pCamBobbing = NULL;
+			}
+
+			if (actor_camera_shell)
+				destroy_physics_shell(actor_camera_shell);
+
+			IKinematics *K = smart_cast<IKinematics *>(Visual());
+			K->LL_GetBoneInstance(K->LL_BoneID("bip01_spine")).reset_callback();
+			K->LL_GetBoneInstance(K->LL_BoneID("bip01_spine1")).reset_callback();
+			K->LL_GetBoneInstance(K->LL_BoneID("bip01_spine2")).reset_callback();
+
+			CCar *car = smart_cast<CCar *>(object);
+#ifdef CAR_NEW
+			if (car && car->IsRemoteControl() == false)
+#else
+			if (car)
+#endif
+			{
+				u16 anim_type = car->DriverAnimationType();
+				SVehicleAnimCollection &anims = m_vehicle_anims->m_vehicles_type_collections[anim_type];
+				IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
+				R_ASSERT(V);
+				V->PlayCycle(anims.idles[0], FALSE);
+				CStepManager::on_animation_start(MotionID(), 0);
+			}
+
+#ifdef STATIONARYMGUN_NEW
+			CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(object);
+			if (stm)
+			{
+				stm->UpdateAnimation();
+			}
+#endif
+
+			CGameObject *GO = smart_cast<CGameObject *>(object);
+			if (GO)
+			{
+				this->callback(GameObject::eAttachVehicle)(GO->lua_game_object());
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+void CActor::detach_Vehicle(bool bForce)
+{
+	if (!m_holder)
+		return;
+
+	if (bForce || !m_holder->ExitLocked())
+	{
+		CGameObject *GO = smart_cast<CGameObject *>(m_holder);
+		CPhysicsShellHolder *pholder = smart_cast<CPhysicsShellHolder *>(GO);
+		if (pholder)
+		{
+			pholder->PPhysicsShell()->SplitterHolderDeactivate();
+			if (!character_physics_support()->movement()->ActivateBoxDynamic(0))
+			{
+				pholder->PPhysicsShell()->SplitterHolderActivate();
+				return;
+			}
+			pholder->PPhysicsShell()->SplitterHolderActivate();
+		}
+
+		SetWeaponHideState(INV_STATE_BLOCK_ALL, false);
+		inventory().SetActiveSlot(inventory().GetPrevActiveSlot());
+		inventory().SetPrevActiveSlot(NO_ACTIVE_SLOT);
+
+		character_physics_support()->movement()->CreateCharacter();
+
+		CCar *car = smart_cast<CCar *>(m_holder);
+#ifdef CAR_NEW
+		if (car && car->IsRemoteControl() == false)
+#endif
+		{
+			character_physics_support()->movement()->SetPosition(m_holder->ExitPosition());
+			character_physics_support()->movement()->SetVelocity(m_holder->ExitVelocity());
+			cam_Active()->Direction().set(Fvector().setHP(GO->Direction().getH(), 0.0F));
+		}
+
+		m_holder->detach_Actor();
+		m_holder = NULL;
+		m_holderID = u16(-1);
+
+		SetCallbacks();
+		IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
+		R_ASSERT(V);
+		V->PlayCycle(m_anims->m_normal.legs_idle);
+		V->PlayCycle(m_anims->m_normal.m_torso_idle);
+
+		if (GO)
+		{
+			this->callback(GameObject::eDetachVehicle)(GO->lua_game_object());
+		}
+	}
+}
+#else
 bool CActor::use_HolderEx(CHolderCustom* object, bool bForce)
 {
 	if (m_holder)
@@ -1550,12 +1701,16 @@ bool CActor::use_HolderEx(CHolderCustom* object, bool bForce)
 	}
 	return false;
 }
+#endif
 
 void CActor::on_requested_spawn(CObject *object)
 {
 	CHolderCustom* oHolder = smart_cast<CHolderCustom*>(object);
 	if (!oHolder) return;
 
+#ifdef HOLDERCUSTOM_NEW
+	use_HolderEx(oHolder, true);
+#else
 	CGameObject* go = smart_cast<CGameObject*>(object);
 	CPhysicsShellHolder* pholder = smart_cast<CPhysicsShellHolder*>(go);
 	if (pholder)
@@ -1581,6 +1736,7 @@ void CActor::on_requested_spawn(CObject *object)
 	Fvector xyz;
 	object->XFORM().getXYZi(xyz);
 	r_torso.yaw = xyz.y;
+#endif
 }
 
 float NET_Jump = 0;
@@ -1859,7 +2015,7 @@ void CActor::shedule_Update(u32 DT)
 			}
 			else
 			{
-				if (m_pPersonWeLookingAt && pEntityAlive->g_Alive() && m_pPersonWeLookingAt->IsTalkEnabled())
+				if (m_pPersonWeLookingAt && pEntityAlive && pEntityAlive->g_Alive() && m_pPersonWeLookingAt->IsTalkEnabled())
 				{
 					m_sDefaultObjAction = m_sCharacterUseAction;
 				}

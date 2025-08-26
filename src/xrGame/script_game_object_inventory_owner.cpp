@@ -369,6 +369,15 @@ bool CScriptGameObject::MarkedDropped(CScriptGameObject* item)
 
 void CScriptGameObject::UnloadMagazine(bool bKeepAmmo)
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		stm->UnloadMagazine(bKeepAmmo);
+		return;
+	}
+#endif
+
 	CWeaponMagazined* weapon_magazined = smart_cast<CWeaponMagazined*>(&object());
 	if (!weapon_magazined)
 	{
@@ -386,6 +395,14 @@ void CScriptGameObject::UnloadMagazine(bool bKeepAmmo)
 
 void CScriptGameObject::ForceUnloadMagazine(bool bKeepAmmo)
 {
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(&object());
+	if (stm)
+	{
+		return stm->UnloadMagazine(bKeepAmmo);
+	}
+#endif
+
 	CWeaponMagazined* weapon_magazined = smart_cast<CWeaponMagazined*>(&object());
 	if (!weapon_magazined)
 	{

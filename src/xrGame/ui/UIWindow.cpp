@@ -236,7 +236,12 @@ void CUIWindow::AttachChild(CUIWindow* pChild)
 	R_ASSERT(pChild);
 	if (!pChild) return;
 
-	R_ASSERT(!IsChild(pChild));
+	// Ncenka: Print in console instead of crash
+	if (IsChild(pChild)) {
+		Msg("!CUIWindow::AttachChild, %s child element is already attached to %s", pChild->WindowName_script(), WindowName_script());
+		return;
+	}
+
 	pChild->SetParent(this);
 	m_ChildWndList.push_back(pChild);
 }
@@ -625,7 +630,11 @@ CUIWindow* CUIWindow::FindChild(const shared_str name)
 
 void CUIWindow::SetParent(CUIWindow* pNewParent)
 {
-	R_ASSERT(!(m_pParentWnd && m_pParentWnd->IsChild(this)));
+	// Ncenka: Print in console instead of crash
+	if (m_pParentWnd && m_pParentWnd->IsChild(this)) {
+		Msg("!CUIWindow::SetParent, %s element is already attached to %s", WindowName_script(), m_pParentWnd->WindowName_script());
+		return;
+	}
 
 	m_pParentWnd = pNewParent;
 }

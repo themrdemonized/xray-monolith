@@ -277,6 +277,12 @@
         // no extra exports yet
     }
 
+	 class CUIPdaWnd : CUIDialogWnd {
+        // Ncenka - allow to change PDA UI XML file
+		function SetPdaXml(string)
+		function GetPdaXml()
+    }
+
     namespace ActorMenu {
         function get_messages_menu()
     }
@@ -434,9 +440,9 @@
         function get_artefact_additional_inventory_weight()
         function set_artefact_additional_inventory_weight(float)
 
-	// Devices
-	function set_device_enabled(bool)
-	function is_device_enabled()
+		// Devices
+		function set_device_enabled(bool)
+		function is_device_enabled()
 
         // Bones
         u16 get_bone_id(string)

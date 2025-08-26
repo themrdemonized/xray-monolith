@@ -14,8 +14,14 @@ class CHolderCustom
 private:
 	CGameObject* m_owner;
 	CActor* m_ownerActor;
+#ifdef HOLDERCUSTOM_NEW
+public:
+	CGameObject *Owner() { return m_owner; }
+protected:
+#else
 protected:
 	CGameObject* Owner() { return m_owner; }
+#endif
 	CActor* OwnerActor() { return m_ownerActor; }
 	bool m_bEnterLocked;
 	bool m_bExitLocked;

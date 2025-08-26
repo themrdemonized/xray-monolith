@@ -17,8 +17,6 @@ XRCORE_API CInifile const* pSettingsAuth = NULL;
 
 BOOL print_dltx_warnings = FALSE;
 
-//#define INICACHE_PRINT_DEBUG
-
 CInifile* CInifile::Create(const char* szFileName, BOOL ReadOnly)
 {
 	return xr_new<CInifile>(szFileName, ReadOnly);
@@ -1143,12 +1141,6 @@ bool CInifile::save_as(LPCSTR new_fname)
 
 BOOL CInifile::section_exist(LPCSTR S) const
 {
-	if (S && m_cache.find(S) != m_cache.end()) {
-#ifdef INICACHE_PRINT_DEBUG
-		Msg("[%s] section_exist: found section %s in cache", m_file_name, S);
-#endif // INICACHE_PRINT_DEBUG
-		return TRUE;
-	}
 	RootCIt I = std::lower_bound(DATA.begin(), DATA.end(), S, sect_pred);
 	return (I != DATA.end() && xr_strcmp(*(*I)->Name, S) == 0);
 }
@@ -1156,18 +1148,6 @@ BOOL CInifile::section_exist(LPCSTR S) const
 BOOL CInifile::line_exist(LPCSTR S, LPCSTR L) const
 {
 	if (!section_exist(S)) return FALSE;
-
-	if (S && L) {
-		auto cacheSec = m_cache.find(S);
-		if (cacheSec != m_cache.end() && cacheSec->second.find(L) != cacheSec->second.end()) {
-
-#ifdef INICACHE_PRINT_DEBUG
-			Msg("[%s] line_exist: found section %s line %s in cache", m_file_name, S, L);
-#endif // INICACHE_PRINT_DEBUG
-
-			return TRUE;
-		}
-	}
 
 	Sect& I = r_section(S);
 	SectCIt A = std::lower_bound(I.Data.begin(), I.Data.end(), L, item_pred);
@@ -1227,42 +1207,11 @@ CInifile::Sect& CInifile::r_section(LPCSTR S) const
 	return **I;
 }
 
-void CInifile::cacheValue(LPCSTR S, LPCSTR L, shared_str& V) {
-	if (S && L) {
-
-#ifdef INICACHE_PRINT_DEBUG
-		Msg("[%s] cacheValue: writing [%s] %s = %s in cache", m_file_name, S, L, V.c_str());
-#endif // INICACHE_PRINT_DEBUG
-
-		std::string s = S;
-		std::string l = L;
-		m_cache[s][l] = V;
-	}
-}
-
 LPCSTR CInifile::r_string(LPCSTR S, LPCSTR L) const
 {
 	if (!S || !L || !strlen(S) || !strlen(L)) //--#SM+#-- [fix for one of "xrDebug - Invalid handler" error log]
 	{
 		Msg("!![ERROR] CInifile::r_string: S = [%s], L = [%s]", S, L);
-	}
-	
-	if (S && L) {
-		std::string s = S;
-		std::string l = L;
-		auto sectKey = m_cache.find(s);
-		if (sectKey != m_cache.end()) {
-			auto lineKey = sectKey->second.find(l);
-			if (lineKey != sectKey->second.end()) {
-				auto& res = lineKey->second;
-
-#ifdef INICACHE_PRINT_DEBUG
-				Msg("[%s] r_string: getting [%s] %s = %s in cache", m_file_name, S, L, res.c_str());
-#endif // INICACHE_PRINT_DEBUG
-
-				return *res;
-			}
-		}
 	}
 
 	Sect const& I = r_section(S);
@@ -1270,7 +1219,6 @@ LPCSTR CInifile::r_string(LPCSTR S, LPCSTR L) const
 	if (A != I.Data.end() && xr_strcmp(*A->first, L) == 0) {
 		shared_str V = A->second;
 		LPCSTR res = *V;
-		const_cast<CInifile*>(this)->cacheValue(S, L, V);
 		return res;
 	}
 	else
@@ -1524,9 +1472,6 @@ void CInifile::w_string(LPCSTR S, LPCSTR L, LPCSTR V, LPCSTR comment)
 	{
 		data.Data.insert(it, I);
 	}
-
-	cacheValue(sect, I.first.c_str(), I.second);
-	
 }
 
 void CInifile::w_u8(LPCSTR S, LPCSTR L, u8 V, LPCSTR comment)
@@ -1671,13 +1616,5 @@ void CInifile::remove_line(LPCSTR S, LPCSTR L)
 		SectIt_ A = std::lower_bound(data.Data.begin(), data.Data.end(), L, item_pred);
 		R_ASSERT(A != data.Data.end() && xr_strcmp(*A->first, L) == 0);
 		data.Data.erase(A);
-
-#ifdef INICACHE_PRINT_DEBUG
-		Msg("[%s] remove_line: removing [%s] %s from cache", m_file_name, S, L);
-#endif // INICACHE_PRINT_DEBUG
-
-		std::string s = S;
-		std::string l = L;
-		m_cache[s].erase(l);
 	}
 }

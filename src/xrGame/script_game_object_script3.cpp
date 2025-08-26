@@ -365,10 +365,16 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		//HELICOPTER
 		.def("get_helicopter", &CScriptGameObject::get_helicopter)
 		.def("get_car", &CScriptGameObject::get_car)
+#ifdef STATIONARYMGUN_NEW
+		.def("get_stmgun", &CScriptGameObject::get_stmgun)
+#endif
 		.def("get_hanging_lamp", &CScriptGameObject::get_hanging_lamp)
 		.def("get_physics_shell", &CScriptGameObject::get_physics_shell)
 		.def("get_holder_class", &CScriptGameObject::get_custom_holder)
 		.def("get_current_holder", &CScriptGameObject::get_current_holder)
+#ifdef HOLDERCUSTOM_NEW
+		.def("get_holder_owner", &CScriptGameObject::get_holder_owner)
+#endif
 		//usable object
 		.def("set_tip_text", &CScriptGameObject::SetTipText)
 		.def("set_tip_text_default", &CScriptGameObject::SetTipTextDefault)
@@ -522,6 +528,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("cast_Antirad", &CScriptGameObject::cast_Antirad)
 		.def("cast_FoodItem", &CScriptGameObject::cast_FoodItem)
 		.def("cast_BottleItem", &CScriptGameObject::cast_BottleItem)
+		.def("cast_Missile", &CScriptGameObject::cast_Missile)
 		//Alundaio: END
 
 		//Torch

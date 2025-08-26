@@ -101,6 +101,10 @@ CAI_Stalker::CAI_Stalker() :
 	savedOrientation.set(0.f, 0.f, 0.f);
 	dTimeFSeen = Device.dwTimeGlobal + 1000;
 	dTimeNfSeen = Device.dwTimeGlobal + 1000;
+
+#ifdef HOLDERCUSTOM_NEW
+	m_holder = nullptr;
+#endif
 }
 
 CAI_Stalker::~CAI_Stalker()
@@ -605,6 +609,9 @@ void CAI_Stalker::Die(CObject* who)
 		&& !::Random.randI(0, 2);
 
 	inherited::Die(who);
+#ifdef HOLDERCUSTOM_NEW
+	detach_Holder();
+#endif
 
 	//запретить использование слотов в инвенторе
 	inventory().SetSlotsUseful(false);
@@ -806,6 +813,9 @@ BOOL CAI_Stalker::net_Spawn(CSE_Abstract* DC)
 
 void CAI_Stalker::net_Destroy()
 {
+#ifdef HOLDERCUSTOM_NEW
+	detach_Holder();
+#endif
 	inherited::net_Destroy();
 	CInventoryOwner::net_Destroy();
 	m_pPhysics_support->in_NetDestroy();
@@ -1710,3 +1720,61 @@ void CAI_Stalker::LookAtActor(CBoneInstance* headBone) {
 	M.setHPB(VPUSH(savedOrientation));
 	headBone->mTransform.mulB_43(M);
 }
+
+#ifdef HOLDERCUSTOM_NEW
+bool CAI_Stalker::attach_Holder(CHolderCustom *holder)
+{
+	if (holder == NULL)
+		return false;
+	if (m_holder)
+		return false;
+
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(holder);
+	if (stm)
+	{
+		if (stm->attach_Actor(cast_game_object()))
+		{
+			m_holder = holder;
+
+			animation().clear_script_animations();
+			movement().set_movement_type(eMovementTypeStand);
+			movement().set_mental_state(eMentalStateFree);
+			movement().set_body_state(eBodyStateStand);
+			stm->UpdateAnimation();
+			return true;
+		}
+		return false;
+	}
+#endif
+
+	return false;
+}
+
+void CAI_Stalker::detach_Holder()
+{
+	if (m_holder == nullptr)
+		return;
+
+#ifdef STATIONARYMGUN_NEW
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(m_holder);
+	if (stm)
+	{
+		ForceTransform(Fmatrix().set(XFORM()).translate_over(stm->ExitPosition()));
+	}
+#endif
+
+	m_holder->detach_Actor();
+	m_holder = nullptr;
+}
+
+bool CAI_Stalker::use_HolderEx(CHolderCustom *object)
+{
+	if (object)
+	{
+		return attach_Holder(object);
+	}
+	detach_Holder();
+	return true;
+}
+#endif

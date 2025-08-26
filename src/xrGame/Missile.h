@@ -114,4 +114,20 @@ public:
 public:
 	Fmatrix RayTransform();
 	void g_fireParams(SPickParam& pp);
+
+public:
+	float GetMinForce() { return m_fMinForce; }
+	float GetMaxForce() { return m_fMaxForce; }
+	float GetThrowForce() { return m_fThrowForce; }
+	float GetConstForce() { return m_fConstForce; }
+	bool IsConstPower() { return m_constpower; }
+	Fvector GetThrowPoint() { return m_vThrowPoint; }
+	Fvector GetThrowDir() { return m_vThrowDir; }
+
+public:
+	DECLARE_SCRIPT_REGISTER_FUNCTION
 };
+
+add_to_type_list(CMissile)
+#undef script_type_list
+#define script_type_list save_type_list(CMissile)

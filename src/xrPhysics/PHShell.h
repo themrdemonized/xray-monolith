@@ -151,6 +151,11 @@ public:
 	virtual void applyTorque(float x, float y, float z);
 	virtual void applyTorque(const Fvector& dir, float val);
 
+	virtual void applyRelForce(const Fvector& dir, float val);
+	virtual void applyRelForce(float x, float y, float z);
+	virtual void applyRelTorque(float x, float y, float z);
+	virtual void applyRelTorque(const Fvector &dir, float val);
+
 	virtual void applyImpulse(const Fvector& dir, float val);
 	virtual void _BCL applyGravityAccel(const Fvector& accel);
 	virtual void setTorque(const Fvector& torque);

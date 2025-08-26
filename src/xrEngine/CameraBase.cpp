@@ -39,6 +39,16 @@ void CCameraBase::Load(LPCSTR section)
 	lim_yaw = pSettings->r_fvector2(section, "lim_yaw");
 	lim_pitch = pSettings->r_fvector2(section, "lim_pitch");
 
+#if 1
+	if (READ_IF_EXISTS(pSettings, r_bool, section, "lim_deg", false))
+	{
+		lim_yaw.x = deg2rad(lim_yaw.x);
+		lim_yaw.y = deg2rad(lim_yaw.y);
+		lim_pitch.x = deg2rad(lim_pitch.x);
+		lim_pitch.y = deg2rad(lim_pitch.y);
+	}
+#endif
+
 	bClampPitch = (0 != lim_pitch[0]) || (0 != lim_pitch[1]);
 	bClampYaw = (0 != lim_yaw[0]) || (0 != lim_yaw[1]);
 
