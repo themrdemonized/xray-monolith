@@ -1417,6 +1417,10 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 		}
 	}
 
+	// antglobes: send object in use and functor slot when clicked
+	::luabind::functor<void> ufcFunct;
+	bool hasUfcFunct = ai().script_engine().functor("_G.CUIActorMenu_UseFunctorClicked", ufcFunct);
+
 	//1st Custom Use action
 	LPCSTR functor_name = READ_IF_EXISTS(pSettings, r_string, GO->cNameSect(), "use1_functor", 0);
 	if (functor_name)
@@ -1430,6 +1434,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				m_UIPropertiesBox->AddItem(act_str, NULL, INVENTORY_EAT2_ACTION);
 				b_show = true;
 			}
+		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(1);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
 		}
 	}
 
@@ -1447,6 +1458,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				b_show = true;
 			}
 		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(2);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
+		}
 	}
 
 	//3rd Custom Use action
@@ -1462,6 +1480,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				m_UIPropertiesBox->AddItem(act_str, NULL, INVENTORY_EAT4_ACTION);
 				b_show = true;
 			}
+		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(3);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
 		}
 	}
 
@@ -1479,6 +1504,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				b_show = true;
 			}
 		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(4);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
+		}
 	}
 
 	//5th Custom Use action
@@ -1494,6 +1526,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				m_UIPropertiesBox->AddItem(act_str, NULL, INVENTORY_EAT6_ACTION);
 				b_show = true;
 			}
+		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(5);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
 		}
 	}
 
@@ -1511,6 +1550,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				b_show = true;
 			}
 		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(6);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
+		}
 	}
 
 	//7th Custom Use action
@@ -1526,6 +1572,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				m_UIPropertiesBox->AddItem(act_str, NULL, INVENTORY_EAT8_ACTION);
 				b_show = true;
 			}
+		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(7);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
 		}
 	}
 
@@ -1543,6 +1596,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				b_show = true;
 			}
 		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(8);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
+		}
 	}
 
 	//9th Custom Use action
@@ -1558,6 +1618,13 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 				m_UIPropertiesBox->AddItem(act_str, NULL, INVENTORY_EAT10_ACTION);
 				b_show = true;
 			}
+		}
+
+		if (hasUfcFunct)
+		{
+			auto obj = GO->lua_game_object();
+			u32 slot = u32(9);
+			applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
 		}
 	}
 
@@ -1576,6 +1643,18 @@ void CUIActorMenu::PropertiesBoxForUsing(PIItem item, bool& b_show)
 			}
 		}
 	}
+
+	if (hasUfcFunct)
+	{
+		auto obj = GO->lua_game_object();
+		u32 slot = u32(10);
+		applyUseFunctorClickedCallback(ufcFunct, obj, slot, functor_name);
+	}
+}
+
+static inline void applyUseFunctorClickedCallback(const ::luabind::functor<void>& funct, CGameObject* obj, u32& slot, LPCSTR& functor_name)
+{
+	funct(obj, slot, functor_name);
 }
 
 void CUIActorMenu::PropertiesBoxForPlaying(PIItem item, bool& b_show)

@@ -236,6 +236,14 @@ actor_menu_inventory.CInventory_BeltWidth = function(artefact_count)
 	return flags.ret_value
 end
 
+-- Antglobes: On use functor clicked callback
+-- Get the gameobject, functor slot and name after clicking an action in the 
+-- item properties box, inside of the player's inventory.
+AddScriptCallback("on_use_functor_clicked")
+_G.CUIActorMenu_UseFunctorClicked = function(obj, functor_slot, functor_name)
+	SendScriptCallback("on_use_functor_clicked", obj, functor_slot, functor_name)
+end
+
 -- On before hit after calculations callback
 -- The hit object contains final values before applying
 AddScriptCallback("on_before_hit_after_calcs")
