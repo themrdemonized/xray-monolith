@@ -691,3 +691,29 @@ _G.log = function(str)
         LuaPanda.printToVSCode(str,1,2)
     end
 end
+
+-- Lander:
+-- Prevent ui_options.UIOptions from addressing self.owner (the main menu)
+-- after localization reload. This causes MAVs, as the main menu gets xr_delete'd
+-- and replaced with a fresh instance before option change callbacks finish running.
+
+--- Localization reload flag
+local loc_reloaded = false
+
+--- Patch `func_localization` to set the reload flag
+local old_funct = ui_options.func_localization
+function ui_options.func_localization(...)
+    loc_reloaded = true
+    return old_funct(...)
+end
+
+--- Patch `UIOptions:On_Cancel` to reset the reload flag and early-return if it is set
+local old_cancel = ui_options.UIOptions.On_Cancel
+function ui_options.UIOptions.On_Cancel(self, ...)
+    if loc_reloaded then
+        loc_reloaded = false
+        self.owner = nil
+    else
+        return old_cancel(self, ...)
+    end
+end
