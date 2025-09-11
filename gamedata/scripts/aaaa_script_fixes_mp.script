@@ -615,3 +615,52 @@ end
 function smart_terrain.se_smart_terrain:task()
 	return self.smart_alife_task
 end
+
+-- Lander:
+-- Prevent ui_options.UIOptions from addressing self.owner (the main menu)
+-- after localization reload. This causes MAVs, as the main menu gets xr_delete'd
+-- and replaced with a fresh instance before option change callbacks finish running
+
+--- Localization reload flag
+local loc_reloaded = false
+
+--- Patch `func_localization` to set the reload flag
+local old_funct = ui_options.func_localization
+function ui_options.func_localization(...)
+    loc_reloaded = true
+    return old_funct(...)
+end
+
+--- Replace the copy emplaced in `ui_options.options`
+local found_other = false
+for _,group in ipairs(ui_options.options) do
+    if group.id == "other" then
+        found_other = true
+        local found_loc = false
+        for _,control in ipairs(group.gr) do
+            if control.id == "localization" then
+                found_loc = true
+                control.functor[1] = ui_options.func_localization
+                break
+            end
+        end
+        if not found_loc then
+            printf("~ Failed to monkey-patch ui_options functor: Missing 'localization' option")
+        end
+        break
+    end
+end
+if not found_other then
+    printf("~ Failed to monkey-patch ui_options functor: Missing 'other' group")
+end
+
+--- Patch `UIOptions:On_Cancel` to reset the reload flag and early-return if it is set
+local old_cancel = ui_options.UIOptions.On_Cancel
+function ui_options.UIOptions.On_Cancel(self, ...)
+    if loc_reloaded then
+        loc_reloaded = false
+        self.owner = nil
+    else
+        return old_cancel(self, ...)
+    end
+end
