@@ -34,4 +34,3 @@ src/3rd party/luajit-2/src/host/*.exe
 # emacs temp file
 \#*\#
 *~
-/src/batch_build - Copy.bat
