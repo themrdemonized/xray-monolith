@@ -239,7 +239,15 @@
 		Device      = 2,
 		Actor       = 3,
 	}
-		
+
+    // Encodings used for dds formats, DX10/11 Compatible
+	enum DxEncoding {
+		eDXE_A8R8G8B8 = 0,
+		eDXE_DXT1 = 1,
+		eDXE_DXT5 = 2,
+		eDXE_BC7 = 3,
+		eDXE_undefined = 4,
+    }
     level {
         float get_music_volume()
         void set_music_volume(float)
@@ -267,6 +275,9 @@
         Fcolor get_sun_color() // Get the float represenation of the sun's color in rgb format
         float get_sun_intensity() // Get the sun's brightness
         bool is_sun_visible() // Check if the weather is clear
+
+        //Take Screenshot (written to textures folder), each 'dimensions' field must be to power of 2
+        void take_screenshot(LPCSTR path, Fvector2 dimensions, DxEncoding dx_encoding)
 
         void map_remove_all_object_spots(id)
 
