@@ -564,3 +564,210 @@ void DoAsyncScreenshot()
 {
 	RImplementation.Target->DoAsyncScreenshot();
 }
+
+// Antglobes: Export Screenshot Func + variable resolution & encoding
+#if defined(USE_DX10) || defined(USE_DX11)
+void CRender::TakeScreenshot(LPCSTR path, Fvector2 dimensions, DxEncoding encoding)
+{
+	// demonized: Disable screenshots if HDR is enabled
+	if (ps_r4_hdr10_on) {
+		return;
+	}
+	if (!Device.b_is_Ready) return;
+
+	string_path fname;
+	if (0 == strext(path)) strconcat(sizeof(fname), fname, path, ".dds");
+	else xr_strcpy(fname, sizeof(fname), path);
+	FS.update_path(fname, "$game_textures$", fname);
+
+	// Clamp image dimensions
+	int actual_width = Device.dwWidth;
+	int actual_height = Device.dwHeight;
+	int width = dimensions.x;
+	int height = dimensions.y;
+	clamp(width, 0, actual_width);
+	clamp(height, 0, actual_height);
+
+	ID3DResource* pSrcTexture;
+	HW.pBaseRT->GetResource(&pSrcTexture);
+
+	VERIFY(pSrcTexture);
+
+
+	DXGI_FORMAT dx_encoding;
+	clamp(encoding, eDXE_A8R8G8B8, eDXE_DXT5);
+	switch (encoding)
+	{
+	case IRender_interface::eDXE_A8R8G8B8: 
+	{
+		dx_encoding = DXGI_FORMAT_R8G8B8A8_UNORM;
+	}
+	break;
+	case IRender_interface::eDXE_DXT1: 
+	{
+		dx_encoding = DXGI_FORMAT_BC1_UNORM;
+	}
+	break;
+	case IRender_interface::eDXE_DXT5: 
+	{
+		dx_encoding = DXGI_FORMAT_BC5_UNORM;
+	}
+	break;
+	case IRender_interface::eDXE_BC7:
+	{
+		dx_encoding = DXGI_FORMAT_BC7_UNORM;
+	}
+	break;
+	default:
+		dx_encoding = DXGI_FORMAT_R8G8B8A8_UNORM;
+		break;
+	}
+
+	ID3DTexture2D* pSrcSmallTexture;
+
+	D3D_TEXTURE2D_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	desc.Width = u32(width);
+	desc.Height = u32(height);
+	desc.MipLevels = encoding == eDXE_A8R8G8B8 ? 0: 1;
+	desc.ArraySize = 1;
+	desc.Format = dx_encoding;
+	desc.SampleDesc.Count = 1;
+	desc.Usage = D3D_USAGE_DEFAULT;
+	desc.BindFlags = D3D10_BIND_SHADER_RESOURCE;
+	CHK_DX(HW.pDevice->CreateTexture2D(&desc, NULL, &pSrcSmallTexture));
+
+	//	D3DX10_TEXTURE_LOAD_INFO *pLoadInfo
+
+#ifdef USE_DX11
+	CHK_DX(D3DX11LoadTextureFromTexture(HW.pContext, pSrcTexture,
+		NULL, pSrcSmallTexture));
+#else
+	CHK_DX(D3DX10LoadTextureFromTexture(pSrcTexture,
+		NULL, pSrcSmallTexture));
+#endif
+
+	
+
+	// save (logical & physical)
+	ID3DBlob* saved = 0;
+#ifdef USE_DX11
+	HRESULT hr = D3DX11SaveTextureToMemory(HW.pContext, pSrcSmallTexture, D3DX11_IFF_DDS, &saved, 0);
+#else
+	HRESULT hr = D3DX10SaveTextureToMemory(pSrcSmallTexture, D3DX10_IFF_DDS, &saved, 0);
+	//HRESULT hr					= D3DXSaveTextureToFileInMemory (&saved,D3DXIFF_DDS,texture,0);
+#endif
+	if (hr == D3D_OK)
+	{
+		IWriter* fs = FS.w_open(fname);
+		if (fs)
+		{
+			fs->w(saved->GetBufferPointer(), (u32)saved->GetBufferSize());
+			FS.w_close(fs);
+		}
+	}
+	_RELEASE(saved);
+
+	// cleanup
+	_RELEASE(pSrcSmallTexture);
+}
+#else //DX
+// Antglobes: Export Screenshot Func + variable resolution & encoding
+void CRender::TakeScreenshot(LPCSTR path, Fvector2 dimensions, DxEncoding encoding)
+{
+	if (!Device.b_is_Ready) return;
+	
+	string_path fname;
+	if (0 == strext(path)) strconcat(sizeof(fname), fname, path, ".dds");
+	else xr_strcpy(fname, sizeof(fname), path);
+	FS.update_path(fname, "$game_textures$", fname);
+
+	// Clamp image dimensions
+	int actual_width = Device.dwWidth;
+	int actual_height = Device.dwHeight;
+	int width = int(dimensions.x);
+	int height = int(dimensions.y);
+	clamp(width, 0, actual_width);
+	clamp(height, 0, actual_height);
+
+	// antglobes: dx encoding
+	D3DFORMAT dx_encoding;
+	switch (encoding)
+	{
+	case IRender_interface::eDXE_A8R8G8B8: {
+		dx_encoding = D3DFMT_A8R8G8B8;
+	}
+	break;
+	case IRender_interface::eDXE_DXT1: {
+		dx_encoding = D3DFMT_DXT1;
+	}
+	break;
+	case IRender_interface::eDXE_DXT5: {
+		dx_encoding = D3DFMT_DXT5;
+	}
+	break;
+	default:
+		dx_encoding = D3DFMT_A8R8G8B8;
+		break;
+	}
+	// Antglobes: DDS Image Prep from ScreenshotImpl
+
+	// Create temp-surface
+	IDirect3DSurface9* pFB;
+	D3DLOCKED_RECT D;
+	HRESULT hr = HW.pDevice->CreateOffscreenPlainSurface(Device.dwWidth, Device.dwHeight, HW.DevPP.BackBufferFormat,
+		D3DPOOL_SYSTEMMEM, &pFB, nullptr);
+	if (FAILED(hr)) return;
+
+	hr = HW.pDevice->GetRenderTargetData(HW.pBaseRT, pFB);
+	if (FAILED(hr)) goto _end_;
+
+	hr = pFB->LockRect(&D, 0, D3DLOCK_NOSYSLOCK);
+	if (FAILED(hr)) goto _end_;
+	// Image processing (gamma-correct)
+	u32* pPixel = (u32*)D.pBits;
+	u32* pEnd = pPixel + (Device.dwWidth * Device.dwHeight);
+	//	Kill alpha
+	for (; pPixel != pEnd; pPixel++)
+	{
+		u32 p = *pPixel;
+		*pPixel = color_xrgb(color_get_R(p), color_get_G(p), color_get_B(p));
+	}
+
+	hr = pFB->UnlockRect();
+	if (hr != D3D_OK) goto _end_;
+	// texture width/height = resolution
+	ID3DTexture2D* texture = NULL;
+	hr = D3DXCreateTexture(HW.pDevice, u32(width), u32(height), 1, 0, dx_encoding, D3DPOOL_SCRATCH,
+		&texture);
+	if (hr != D3D_OK) goto _end_;
+	if (NULL == texture) goto _end_;
+	// resize&convert to surface
+	IDirect3DSurface9* surface = 0;
+	hr = texture->GetSurfaceLevel(0, &surface);
+	if (hr != D3D_OK) goto _end_;
+	VERIFY(surface);
+
+	hr = D3DXLoadSurfaceFromSurface(surface, 0, 0, pFB, 0, 0, D3DX_DEFAULT, 0);
+	_RELEASE(surface);
+	if (hr != D3D_OK) goto _end_;
+	// save (logical & physical)
+	ID3DBlob* saved = 0;
+	hr = D3DXSaveTextureToFileInMemory(&saved, D3DXIFF_DDS, texture, 0);
+	if (hr != D3D_OK) goto _end_;
+
+	IWriter* fs = FS.w_open(fname);
+	if (fs)
+	{
+		fs->w(saved->GetBufferPointer(), saved->GetBufferSize());
+		FS.w_close(fs);
+	}
+	_RELEASE(saved);
+
+	// cleanup
+	_RELEASE(texture);
+
+_end_:
+	_RELEASE(pFB);
+}
+#endif

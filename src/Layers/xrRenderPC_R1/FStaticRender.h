@@ -206,7 +206,7 @@ public:
 	virtual void models_Clear(BOOL b_complete);
 	virtual bool models_Exists(LPCSTR name);
 
-	// anglobes: Sun Values
+	// antglobes: Sun Values
 	virtual Fvector GetSunPosition()
 	{
 		static Fvector default_pos = { 0, 0, 0 };
@@ -242,6 +242,9 @@ public:
 		float v = (sun_color.r + sun_color.g + sun_color.b) / 3.f;
 		return v > 1.0f ? true: is_sun_visible;
 	};
+
+	//antglobes: Selective DDS Screenshot
+	virtual void TakeScreenshot(LPCSTR path, Fvector2 dimensions, DxEncoding encoding = eDXE_A8R8G8B8);
 
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V);

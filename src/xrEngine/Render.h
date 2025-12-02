@@ -210,6 +210,15 @@ public:
 		rtSVP,
 	};
 
+	enum DxEncoding
+	{
+		eDXE_A8R8G8B8 = 0,
+		eDXE_DXT1 = 1,
+		eDXE_DXT5 = 2,
+		eDXE_BC7 = 3,
+		eDXE_undefined = 4,
+	};
+
 
 public:
 	// options
@@ -337,6 +346,9 @@ public:
 	virtual Fcolor GetSunColor() { static Fcolor default_color; return default_color; };
 	virtual float GetSunIntensity() { static float default_intensity; return default_intensity; };
 	virtual bool IsSun() { static bool is_sun_visible; return is_sun_visible; }
+
+	//antglobes: Selective DDS Screenshot
+	virtual void TakeScreenshot(LPCSTR path, Fvector2 dimensions, DxEncoding encoding = eDXE_A8R8G8B8) = 0;
 
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V) = 0;

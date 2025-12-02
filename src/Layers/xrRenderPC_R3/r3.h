@@ -381,6 +381,10 @@ public:
 		return is_sun();
 	};
 
+	//antglobes: Selective DDS Screenshot
+	virtual void TakeScreenshot(LPCSTR path, Fvector2 dimensions, DxEncoding encoding = eDXE_A8R8G8B8);
+
+
 	// Occlusion culling
 	virtual BOOL occ_visible(vis_data& V);
 	virtual BOOL occ_visible(Fbox& B);

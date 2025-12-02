@@ -2232,6 +2232,13 @@ void IterateAttachments(::luabind::functor<bool> functor)
 	Level().iterate_attachments(functor);
 }
 
+// Antglobes: Export Screenshot Func + variable resolution & encoding
+void take_screenshot(LPCSTR path, Fvector2 dimensions, IRender_interface::DxEncoding dx_encoding)
+{
+	Render->TakeScreenshot(path, dimensions, dx_encoding);
+}
+
+
 #pragma optimize("s",on)
 
 extern void open_originals_link();
@@ -2296,6 +2303,18 @@ void CLevel::script_register(lua_State* L)
 					value("Device", int(ETraceTarget::TT_DEVICE))
 				]
 		];
+	// Antglobes: DirectX Encodings (Parsed as DX10/11 equivalent if renderer 3+ used)
+	module(L)
+		[
+			class_<enum_exporter<IRender_interface::DxEncoding>>("DxEncoding")
+				.enum_("DxEncoding")
+				[
+					value("A8R8G8B8", int(IRender_interface::eDXE_A8R8G8B8)),
+					value("DXT1", int(IRender_interface::eDXE_DXT1)),
+					value("DXT5", int(IRender_interface::eDXE_DXT5)),
+					value("BC7", int(IRender_interface::eDXE_BC7))
+				]
+		];
 
 	module(L, "level")
 		[
@@ -2323,6 +2342,9 @@ void CLevel::script_register(lua_State* L)
 			def("get_sun_intensity", ((float (*)()) & get_sun_intensity)),
 			// antglobes: Check if the weather is clear
 			def("is_sun_visible", ((bool (*)()) & is_sun_visible)),
+			// Antglobes: Export Screenshot Func + variable resolution & encoding
+			def("take_screenshot", ((void (*)(LPCSTR, Ivector2, IRender_interface::DxEncoding)) &take_screenshot)),
+			// def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR))&add_cam_effector)),
 
 			// demonized: get result of crosshair ray query
 			def("get_target_result", ((script_rq_result(*)()) & g_get_target_result)),
