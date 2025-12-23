@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "Actor.h"
 #include "../xrEngine/CameraBase.h"
 #ifdef DEBUG
@@ -593,10 +593,10 @@ void CActor::cam_Update(float dt, float fFOV)
 		cameras[eacFirstEye]->Update(point, dangle);
 		cameras[eacFirstEye]->f_fov = fFOV;
 	}
-	//if (Level().CurrentEntity() == this)
-	//{
-	//	collide_camera(*cameras[eacFirstEye], _viewport_near, this);
-	//}
+	if (Level().CurrentEntity() == this)
+	{
+		collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+	}
 	
 	if (cam_active == eacFirstEye) {
 		if (firstPersonDeath && !g_Alive() && m_FPCam) {
