@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 //---------------------------------------------------------------------------
 // Vulkan independent version of SkeletonAnimated.cpp
 // Copied from src/Layers/xrRender/SkeletonAnimated.cpp
@@ -778,7 +782,10 @@ CBlend* CKinematicsAnimated::IBlend_Create()
 
 void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 {
+	Msg("[Vulkan] CKinematicsAnimated::Load ENTER: '%s'", N);
+	Msg("[Vulkan] CKinematicsAnimated::Load: calling inherited::Load...");
 	inherited::Load(N, data, dwFlags);
+	Msg("[Vulkan] CKinematicsAnimated::Load: inherited::Load completed");
 
 	// Globals
 	blend_instances = NULL;

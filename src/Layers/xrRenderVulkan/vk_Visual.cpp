@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #include "stdafx.h"
 #include "vk_Visual.h"
 #include "vk_R_Backend.h"
@@ -930,6 +934,12 @@ void vkSkeletonX_ST::Render(float LOD)
     vkFVisual::Render(LOD);
 }
 
+void vkSkeletonX_ST::AfterLoad(CKinematics* parent, u16 child_idx)
+{
+    SetParent(parent);
+    ChildIDX = child_idx;
+}
+
 // ============================================================================
 // vkSkeletonX_PM implementation - Skinned progressive mesh
 // ============================================================================
@@ -971,6 +981,12 @@ void vkSkeletonX_PM::Render(float LOD)
 {
     // TODO: Apply bone transforms before rendering
     vkFProgressive::Render(LOD);
+}
+
+void vkSkeletonX_PM::AfterLoad(CKinematics* parent, u16 child_idx)
+{
+    SetParent(parent);
+    ChildIDX = child_idx;
 }
 
 // ============================================================================

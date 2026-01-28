@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 //---------------------------------------------------------------------------
 // Vulkan independent version of SkeletonCustom.cpp
 // Copyrighted from src/Layers/xrRender/SkeletonCustom.cpp
@@ -173,16 +177,20 @@ CSkeletonX* CKinematics::LL_GetChild(u32 idx)
 
 void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 {
-	//Msg				("skeleton: %s",N);
+	Msg("[Vulkan] CKinematics::Load ENTER: '%s'", N);
+	Msg("[Vulkan] CKinematics::Load: calling inherited::Load (FHierrarhyVisual)...");
 	inherited::Load(N, data, dwFlags);
+	Msg("[Vulkan] CKinematics::Load: inherited::Load completed, children.size()=%u", children.size());
 
 	pUserData = NULL;
 	m_lod = NULL;
 	// loading lods
 
+	Msg("[Vulkan] CKinematics::Load: checking OGF_S_LODS...");
 	IReader* LD = data->open_chunk(OGF_S_LODS);
 	if (LD)
 	{
+		Msg("[Vulkan] CKinematics::Load: loading LOD...");
 		string_path short_name;
 		xr_strcpy(short_name, sizeof(short_name), N);
 
@@ -191,6 +199,7 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		{
 			string_path lod_name;
 			LD->r_string(lod_name, sizeof(lod_name));
+			Msg("[Vulkan] CKinematics::Load: LOD name='%s'", lod_name);
 			m_lod = (vkRender_Visual*)::Render->model_CreateChild(lod_name, NULL);
 
 			if (CKinematics* lod_kinematics = fast_dynamic_cast<CKinematics*>(m_lod))
@@ -201,16 +210,24 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 			VERIFY3(m_lod, "Cant create LOD model for", N);
 		}
 		LD->close();
+		Msg("[Vulkan] CKinematics::Load: LOD loaded");
+	}
+	else
+	{
+		Msg("[Vulkan] CKinematics::Load: no LOD chunk");
 	}
 
 #ifndef _EDITOR
 	// User data
+	Msg("[Vulkan] CKinematics::Load: checking OGF_S_USERDATA...");
 	IReader* UD = data->open_chunk(OGF_S_USERDATA);
 	pUserData = UD ? xr_new<CInifile>(UD, FS.get_path("$game_config$")->m_Path) : 0;
 	if (UD) UD->close();
+	Msg("[Vulkan] CKinematics::Load: userdata done");
 #endif
 
 	// Globals
+	Msg("[Vulkan] CKinematics::Load: creating bone structures...");
 	bone_map_N = xr_new<accel>();
 	bone_map_P = xr_new<accel>();
 	bones = xr_new<vecBones>();
@@ -220,13 +237,17 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 #pragma todo("container is created in stack!")
 	xr_vector<shared_str> L_parents;
 
-	R_ASSERT(data->find_chunk(OGF_S_BONE_NAMES));
+	Msg("[Vulkan] CKinematics::Load: finding OGF_S_BONE_NAMES...");
+	bool found = data->find_chunk(OGF_S_BONE_NAMES);
+	Msg("[Vulkan] CKinematics::Load: find_chunk returned %d", found ? 1 : 0);
+	R_ASSERT(found);
 
 	hidden_bones.zero();
 	visimask.zero();
 	int dwCount = data->r_u32();
+	Msg("[Vulkan] CKinematics::Load: bone count = %d", dwCount);
 	VERIFY3(dwCount <= 64, "More than 64 bones is a crazy thing!", N);
-	for (; dwCount; dwCount--)
+	for (int boneIdx = 0; dwCount; dwCount--, boneIdx++)
 	{
 		string256 buf;
 
@@ -234,9 +255,13 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		u16 ID = u16(bones->size());
 		data->r_stringZ(buf, sizeof(buf));
 		strlwr(buf);
+		Msg("[Vulkan] CKinematics::Load: bone[%d] = '%s', creating CBoneData...", boneIdx, buf);
 		CBoneData* pBone = CreateBoneData(ID);
+		Msg("[Vulkan] CKinematics::Load: CBoneData created %p", pBone);
 		pBone->name = shared_str(buf);
+		Msg("[Vulkan] CKinematics::Load: resizing child_faces to %u...", children.size());
 		pBone->child_faces.resize(children.size());
+		Msg("[Vulkan] CKinematics::Load: pushing to bones/maps...");
 		bones->push_back(pBone);
 		bone_map_N->push_back(mk_pair(pBone->name, ID));
 		bone_map_P->push_back(mk_pair(pBone->name, ID));
@@ -249,11 +274,15 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		data->r(&pBone->obb, sizeof(Fobb));
 		visimask.set(u64(1) << ID, TRUE);
 		hidden_bones.set(u64(1) << ID, TRUE);
+		Msg("[Vulkan] CKinematics::Load: bone[%d] done", boneIdx);
 	}
+	Msg("[Vulkan] CKinematics::Load: all bones loaded, sorting...");
 	std::sort(bone_map_N->begin(), bone_map_N->end(), pred_sort_N);
 	std::sort(bone_map_P->begin(), bone_map_P->end(), pred_sort_P);
+	Msg("[Vulkan] CKinematics::Load: bones sorted");
 
 	// Attach bones to their parents
+	Msg("[Vulkan] CKinematics::Load: attaching bones to parents...");
 	iRoot = BI_NONE;
 	for (u32 i = 0; i < bones->size(); i++)
 	{
@@ -276,11 +305,13 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		}
 	}
 	R_ASSERT(BI_NONE != iRoot);
+	Msg("[Vulkan] CKinematics::Load: bones attached, iRoot=%u", iRoot);
 
 	// Free parents
 	L_parents.clear();
 
 	// IK data
+	Msg("[Vulkan] CKinematics::Load: loading IK data...");
 	IReader* IKD = data->open_chunk(OGF_S_IKDATA);
 	if (IKD)
 	{
@@ -302,13 +333,23 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		// calculate model to bone converting matrix
 		(*bones)[LL_GetBoneRoot()]->CalculateM2B(Fidentity);
 		IKD->close();
+		Msg("[Vulkan] CKinematics::Load: IK data loaded");
+	}
+	else
+	{
+		Msg("[Vulkan] CKinematics::Load: no IK data chunk");
 	}
 
 	// after load process
+	Msg("[Vulkan] CKinematics::Load: calling AfterLoad on children...");
 	{
 		for (u16 child_idx = 0; child_idx < (u16)children.size(); child_idx++)
+		{
+			Msg("[Vulkan] CKinematics::Load: AfterLoad child[%u]...", child_idx);
 			LL_GetChild(child_idx)->AfterLoad(this, child_idx);
+		}
 	}
+	Msg("[Vulkan] CKinematics::Load: AfterLoad done");
 
 	// unique bone faces
 	{

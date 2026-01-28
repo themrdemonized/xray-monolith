@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 // ВАЖНО: VMA требует exceptions, поэтому компилируем этот файл с /EHsc
 // Этот файл полностью изолирован и НЕ использует stdafx.h или xrCore.h
 

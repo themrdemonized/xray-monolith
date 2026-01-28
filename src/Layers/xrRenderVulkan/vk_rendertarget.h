@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #pragma once
 #include "SH_RT_Vulkan.h"
 #include "../../xrEngine/Render.h"
@@ -42,6 +46,9 @@ public:
     CRT rt_Generic_0;
     CRT rt_Generic_1;
 
+    // Distortion map (R8G8B8A8_UNORM - R/B encode UV offset, 127=neutral)
+    CRT rt_Distortion;
+
     // Shadow maps
     CRT rt_smap_depth;        // 2048x2048 - Directional light shadow map (D32_SFLOAT)
     CRT rt_smap_depth_minmax; // 512x512   - MinMax optimization (R32G32_SFLOAT)
@@ -74,6 +81,7 @@ public:
     void phase_combine();
     void phase_forward();      // Phase 2.19: Forward pass (transparent objects)
     void phase_postprocess();  // Phase 2.20: Post-processing (bloom, vignette, etc.)
+    void phase_distortion();   // Distortion map rendering (for magnifier effect)
 
     // Shadow map rendering
     void phase_smap_direct(light* sun, u32 sub_phase);

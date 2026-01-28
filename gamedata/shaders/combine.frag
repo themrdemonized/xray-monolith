@@ -34,6 +34,7 @@ layout(set = 1, binding = 1) uniform sampler2D s_normal;      // Eye-space norma
 layout(set = 1, binding = 2) uniform sampler2D s_color;       // Albedo (sRGB)
 layout(set = 1, binding = 3) uniform sampler2D s_material;    // PBR: metallic/roughness/SSS/AO
 layout(set = 1, binding = 4) uniform sampler2D s_accumulator; // Accumulated lighting (HDR)
+layout(set = 1, binding = 5) uniform sampler2D s_distortion;  // Distortion map (R=X offset, B=Y offset, A=blur)
 
 // ============================================================================
 // Push Constants
@@ -49,6 +50,8 @@ layout(push_constant) uniform PushConstants
     float vignetteInner;  // Vignette inner radius (default: 0.4)
     float vignetteOuter;  // Vignette outer radius (default: 1.0)
     float vignetteIntensity; // Vignette intensity (default: 0.3)
+    float distortionScale;   // Distortion strength multiplier (default: 0.08)
+    uint enableDistortion;   // 1 = enable distortion, 0 = disable
 } pc;
 
 // ============================================================================
@@ -121,11 +124,43 @@ vec3 tonemap_uncharted2(vec3 color)
 void main()
 {
     // ========================================================================
-    // 1. Sample textures
+    // 0. Apply distortion (magnifier glass effect)
     // ========================================================================
-    vec3 lighting = texture(s_accumulator, v_TexCoord).rgb;  // Accumulated lighting (HDR)
-    vec3 albedo = texture(s_color, v_TexCoord).rgb;          // Albedo (sRGB)
-    vec4 material = texture(s_material, v_TexCoord);         // PBR properties
+    // Sample distortion map
+    // R channel = X offset (127/255 = no offset)
+    // B channel = Y offset (127/255 = no offset)
+    // A channel = blur amount (not used yet)
+    //
+    // The magnifier texture encodes UV offsets where:
+    // - Values < 127 = negative offset (shift left/up)
+    // - Values > 127 = positive offset (shift right/down)
+    // - Value == 127 = no offset
+    //
+    vec2 distortedUV = v_TexCoord;
+    float blurAmount = 0.0;
+
+    if (pc.enableDistortion != 0)
+    {
+        vec4 distort = texture(s_distortion, v_TexCoord);
+
+        // Convert from [0,1] to offset: (value - 0.5) * scale
+        // 127/255 ≈ 0.498 → offset ≈ 0
+        vec2 offset = (distort.rb - 127.0/255.0) * pc.distortionScale;
+        distortedUV = v_TexCoord + offset;
+
+        // Clamp to valid UV range
+        distortedUV = clamp(distortedUV, 0.0, 1.0);
+
+        // Blur amount from alpha (for future soft refraction)
+        blurAmount = distort.a;
+    }
+
+    // ========================================================================
+    // 1. Sample textures (using potentially distorted UV)
+    // ========================================================================
+    vec3 lighting = texture(s_accumulator, distortedUV).rgb;  // Accumulated lighting (HDR)
+    vec3 albedo = texture(s_color, distortedUV).rgb;          // Albedo (sRGB)
+    vec4 material = texture(s_material, distortedUV);         // PBR properties
 
     // Extract material properties
     float ao = material.a;  // Ambient occlusion

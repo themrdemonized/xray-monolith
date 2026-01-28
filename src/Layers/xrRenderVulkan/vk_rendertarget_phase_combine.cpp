@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #include "stdafx.h"
 #include "vk_rendertarget.h"
 #include "HW_Vulkan.h"
@@ -173,7 +177,7 @@ void CRenderTarget::phase_combine()
 	                        1, 1, &m_GBufferDescSet, 0, nullptr);
 
 	// ========================================================================
-	// Step 8: Push constants (exposure, ambient, tone mapping, vignette)
+	// Step 8: Push constants (exposure, ambient, tone mapping, vignette, distortion)
 	// ========================================================================
 	struct CombinePushConstants {
 		float exposure;
@@ -184,6 +188,8 @@ void CRenderTarget::phase_combine()
 		float vignetteInner;
 		float vignetteOuter;
 		float vignetteIntensity;
+		float distortionScale;
+		u32 enableDistortion;
 	} pushData;
 
 	pushData.exposure = 1.0f;
@@ -194,6 +200,12 @@ void CRenderTarget::phase_combine()
 	pushData.vignetteInner = 0.4f;
 	pushData.vignetteOuter = 1.0f;
 	pushData.vignetteIntensity = 0.3f;
+
+	// Distortion settings
+	// Scale: Controls how strong the magnifier glass effect is
+	// R4 uses def_distort which is typically around 0.08
+	pushData.distortionScale = 0.08f;
+	pushData.enableDistortion = 1;  // Always enable (will show neutral if no distortion)
 
 	vkCmdPushConstants(cmd, layout,
 	                   VK_SHADER_STAGE_FRAGMENT_BIT,

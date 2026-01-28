@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 // ============================================================================
 // vk_rendertarget_phase_gbuffer.cpp
 // ============================================================================
@@ -118,8 +122,6 @@ VkPipeline CRenderTarget::GetGBufferPipeline()
 // ============================================================================
 void CRenderTarget::phase_gbuffer()
 {
-    Msg("[Vulkan] phase_gbuffer: Rendering geometry to G-Buffer");
-
     // ========================================================================
     // Step 1: Get command buffer
     // ========================================================================
@@ -299,28 +301,29 @@ void CRenderTarget::phase_gbuffer()
         0, sizeof(GBufferPushConstants),
         &pushConstants);
 
-    Msg("[Vulkan] Rendering level geometry to G-Buffer...");
-
     // ========================================================================
     // Phase 2.22: Bind default material (Set 1 - PerMaterial)
     // ========================================================================
     if (g_MaterialManager && g_MaterialManager->GetDefaultMaterial()) {
         g_MaterialManager->GetDefaultMaterial()->Bind(cmd);
-        Msg("[Vulkan] Default material bound (white texture)");
-    } else {
-        Msg("![Vulkan] Material Manager or default material not available");
     }
 
-    // Render level visuals
-    // This calls visual->Render() for all level geometry
-    RImplementation.RenderLevelVisuals();
+    // ========================================================================
+    // Scene Graph Rendering (Phase 1)
+    // ========================================================================
+    // 1. Calculate() builds render queues with frustum culling
+    // 2. r_dsgraph_render_graph() sorts and renders all visuals
+    //
+    // This replaces the old RenderLevelVisuals() which rendered everything
+    // without culling or sorting.
+    // ========================================================================
 
-    // TODO Phase 2.23: Per-visual material binding
-    // for (auto visual : Visuals) {
-    //     CMaterial* mat = visual->GetMaterial();
-    //     if (mat) mat->Bind(cmd);
-    //     visual->Render();
-    // }
+    // Build render queues (frustum culling, SSA calculation)
+    RImplementation.Calculate();
+
+    // Render opaque geometry (sorted by SSA for early-Z optimization)
+    // _priority=0 = opaque pass, _clear=true = clear queue after rendering
+    RImplementation.r_dsgraph_render_graph(0, true);
 
     // ========================================================================
     // Step 8: End rendering
@@ -370,15 +373,6 @@ void CRenderTarget::phase_gbuffer()
     // Note: Depth buffer stays in DEPTH_ATTACHMENT_OPTIMAL
     // Forward pass will reuse it (read-only)
     // ========================================================================
-
-    Msg("[Vulkan] phase_gbuffer complete - G-Buffer filled");
-
-    // ========================================================================
-    // Statistics
-    // ========================================================================
-    // TODO: Update render stats
-    // RCache.stat.gbuffer_calls++;
-    // RCache.stat.gbuffer_polys += polyCount;
 }
 
 } // namespace VK

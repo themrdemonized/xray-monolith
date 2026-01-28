@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 // Vulkan ResourceManager - Scripting stub
 // Vulkan uses SPIR-V shaders, not Lua scripts
 

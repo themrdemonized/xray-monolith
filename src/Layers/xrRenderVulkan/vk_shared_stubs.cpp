@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 // Vulkan Renderer - Shared code stubs
 // These are temporary stubs for shared xrRender code that the Vulkan renderer
 // references but doesn't have full implementations for yet.
@@ -8,16 +12,65 @@
 
 #include "../xrRender/r__dsgraph_structure.h"
 #include "../xrRender/Shader.h"
+#include "rvk.h"
+#include "vk_Visual.h"
+#include "../../xrEngine/device.h"
 
-// ============================================================================
-// R_dsgraph_structure stubs
-// These methods are called by the engine but need Vulkan-specific implementations
-// ============================================================================
+// Include for sorting
+#include <algorithm>
 
 void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 {
-    // TODO: Implement for Vulkan
-    // For now, this is a stub
+    // ========================================================================
+    // Phase 1: Simplified Vulkan scene graph rendering
+    //
+    // Renders all visuals in lstNormal queue (built by Calculate())
+    // Sorted by SSA (front-to-back) for early-Z optimization
+    // ========================================================================
+
+    // Access render queues from CRender
+    CRender& RI = RImplementation;
+
+    // Skip if queue is empty
+    if (RI.lstNormal.empty())
+        return;
+
+    // ========================================================================
+    // Sort by SSA (descending = front-to-back)
+    // This optimizes early-Z rejection in the depth buffer
+    // ========================================================================
+    std::sort(RI.lstNormal.begin(), RI.lstNormal.end(),
+        [](const R_dsgraph::_NormalItem& a, const R_dsgraph::_NormalItem& b) {
+            return a.ssa > b.ssa;  // Larger SSA (closer) first
+        });
+
+    // ========================================================================
+    // Render all items
+    // ========================================================================
+    u32 renderCount = 0;
+    for (auto& item : RI.lstNormal)
+    {
+        if (!item.pVisual) continue;
+
+        // Cast to Vulkan visual type
+        vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+
+        // Render with full LOD (1.0)
+        // TODO Phase 2: Calculate actual LOD from SSA
+        pV->Render(1.0f);
+        renderCount++;
+    }
+
+    // Log occasionally
+    static u32 lastLogFrame = 0;
+    if (Device.dwFrame - lastLogFrame > 300) {
+        Msg("[Vulkan] r_dsgraph_render_graph: rendered %u items", renderCount);
+        lastLogFrame = Device.dwFrame;
+    }
+
+    // Clear queue if requested
+    if (_clear)
+        RI.lstNormal.clear();
 }
 
 void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)

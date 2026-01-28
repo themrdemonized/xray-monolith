@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 // Vulkan wrapper for shared FHierrarhyVisual.cpp
 // Compiles the shared implementation with Vulkan type mappings
 #include "stdafx.h"

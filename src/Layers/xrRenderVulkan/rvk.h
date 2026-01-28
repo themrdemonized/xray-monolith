@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include "stdafx.h"
@@ -8,6 +12,7 @@
 #include "../xrRender/Light_DB.h"  // CLight_DB
 #include "vk_HOM.h"               // vkCHOM (Vulkan HOM stub)
 #include "vk_sun_cascades.h"      // Sun cascade structures
+#include "../../xrCDB/Frustum.h"  // CFrustum for visibility culling
 
 // Forward declarations
 class dxRender_Visual;
@@ -16,6 +21,7 @@ class CDetailManager;
 class CWallmarksEngine;
 class vkModelPool;
 class vkRender_Visual;
+class vkFHierrarhyVisual;  // Hierarchy visual for scene graph traversal
 class CStreamReader;  // For level.geom loading
 class vkCSector;
 class CSkeletonWallmark;
@@ -164,6 +170,20 @@ public:
     xr_vector<VK::CVulkanBuffer*>  nIB, xIB;  // Normal/Extended index buffers
     xr_vector<u32>                 nVB_Strides;  // Vertex strides for nVB
     xr_vector<u32>                 xVB_Strides;  // Vertex strides for xVB
+
+    // ========================================================================
+    // Scene Graph - Render Queues (Phase 1)
+    // ========================================================================
+    // Simplified Vulkan scene graph: Pipeline -> Material -> Items
+    // DX11 uses deeper hierarchy (VS -> GS -> PS -> Constants -> States -> Textures -> Items)
+    // but Vulkan pipelines encapsulate all states, so we simplify
+
+    xr_vector<R_dsgraph::_NormalItem> lstNormal;   // Static visuals (level geometry)
+    xr_vector<R_dsgraph::_MatrixItem> lstMatrix;   // Dynamic visuals (objects with transforms)
+
+    // Visibility / Frustum culling
+    CFrustum ViewBase;    // Main camera frustum
+    CFrustum* View;       // Current frustum pointer (for portal traversal)
 
 public:
     CRender();
@@ -355,6 +375,11 @@ private:
     void LoadVisuals(IReader* fs);
     void LoadSectors(IReader* fs);
     void LoadSWIs(CStreamReader* fs);
+
+    // ========================================================================
+    // Scene Graph helpers (Phase 1)
+    // ========================================================================
+    void add_Static_Simple(vkRender_Visual* pVisual);  // Add static visual with frustum culling
 
     // ========================================================================
     // Sun cascade shadow maps (Phase 2.15)

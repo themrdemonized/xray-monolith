@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #include "stdafx.h"
 #include "vk_ModelPool.h"
 #include "rvk.h"
@@ -69,6 +73,8 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, BOOL allow_register, bool 
 
 vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_register)
 {
+    Msg("[Vulkan] Instance_Load ENTER: '%s'", N ? N : "NULL");
+
     // Build filename
     string_path name;
     string_path fn;
@@ -92,6 +98,7 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_
 
     // Convert to lowercase
     strlwr(name);
+    Msg("[Vulkan] Instance_Load: name='%s'", name);
 
     // Find file
     IReader* file_data = data;
@@ -104,11 +111,13 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_
         {
             file_data = FS.r_open(fn);
             need_close = true;
+            Msg("[Vulkan] Instance_Load: found in $level$");
         }
         else if (FS.exist(fn, "$game_meshes$", name))
         {
             file_data = FS.r_open(fn);
             need_close = true;
+            Msg("[Vulkan] Instance_Load: found in $game_meshes$");
         }
         else
         {
@@ -118,6 +127,7 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_
     }
 
     // Read header to determine type
+    Msg("[Vulkan] Instance_Load: reading header...");
     ogf_header H;
     if (!file_data->find_chunk(OGF_HEADER))
     {
@@ -127,9 +137,12 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_
     }
     file_data->r(&H, sizeof(H));
     file_data->seek(0); // Rewind for full load
+    Msg("[Vulkan] Instance_Load: type=%u (MT_SKELETON_ANIM=%d)", H.type, MT_SKELETON_ANIM);
 
     // Create visual of appropriate type
+    Msg("[Vulkan] Instance_Load: Instance_Create(%u)...", H.type);
     vkRender_Visual* V = Instance_Create(H.type);
+    Msg("[Vulkan] Instance_Load: Instance_Create returned %p", V);
     if (!V)
     {
         Msg("![Vulkan] Failed to create visual type %u for %s", H.type, name);
@@ -138,7 +151,9 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_
     }
 
     // Load visual data
+    Msg("[Vulkan] Instance_Load: V->Load('%s')...", name);
     V->Load(name, file_data, 0);
+    Msg("[Vulkan] Instance_Load: V->Load completed");
 
     // Register if requested
     if (allow_register)
@@ -151,11 +166,7 @@ vkRender_Visual* vkModelPool::Instance_Load(LPCSTR N, IReader* data, BOOL allow_
         FS.r_close(file_data);
     }
 
-    if (bLogging)
-    {
-        Msg("[Vulkan] Loaded model: %s (type %u)", name, H.type);
-    }
-
+    Msg("[Vulkan] Instance_Load EXIT: %p (type %u)", V, H.type);
     return V;
 }
 
@@ -201,6 +212,8 @@ vkRender_Visual* vkModelPool::Instance_Find(LPCSTR N)
 // ============================================================================
 vkRender_Visual* vkModelPool::Create(LPCSTR name, IReader* data, bool assert_on_fail)
 {
+    Msg("[Vulkan] vkModelPool::Create ENTER: '%s'", name ? name : "NULL");
+
     if (!name || !name[0])
     {
         return nullptr;
@@ -219,22 +232,21 @@ vkRender_Visual* vkModelPool::Create(LPCSTR name, IReader* data, bool assert_on_
         Pool.erase(it);
         V->Spawn();
         Registry.insert(std::make_pair(V, low_name));
-
-        if (bLogging)
-        {
-            Msg("[Vulkan] Reusing pooled model: %s", low_name);
-        }
-
+        Msg("[Vulkan] vkModelPool::Create: reused from pool");
         return V;
     }
 
     // 2. Find base model
+    Msg("[Vulkan] vkModelPool::Create: Instance_Find...");
     vkRender_Visual* Base = Instance_Find(low_name);
+    Msg("[Vulkan] vkModelPool::Create: Instance_Find returned %p", Base);
 
     // 3. Load if not found
     if (!Base)
     {
+        Msg("[Vulkan] vkModelPool::Create: Instance_Load...");
         Base = Instance_Load(low_name, data, TRUE);
+        Msg("[Vulkan] vkModelPool::Create: Instance_Load returned %p (Type=%d)", Base, Base ? Base->Type : -1);
         if (!Base)
         {
             if (assert_on_fail)
@@ -246,7 +258,9 @@ vkRender_Visual* vkModelPool::Create(LPCSTR name, IReader* data, bool assert_on_
     }
 
     // 4. Duplicate base
+    Msg("[Vulkan] vkModelPool::Create: Instance_Duplicate (Base Type=%d)...", Base->Type);
     vkRender_Visual* V = Instance_Duplicate(Base);
+    Msg("[Vulkan] vkModelPool::Create: Instance_Duplicate returned %p (Type=%d)", V, V ? V->Type : -1);
 
     // 5. Register instance
     Registry.insert(std::make_pair(V, low_name));
@@ -261,6 +275,7 @@ vkRender_Visual* vkModelPool::Create(LPCSTR name, IReader* data, bool assert_on_
         }
     }
 
+    Msg("[Vulkan] vkModelPool::Create EXIT: %p", V);
     return V;
 }
 

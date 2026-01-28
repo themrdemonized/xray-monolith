@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #include "stdafx.h"
 #include "vk_rendertarget.h"
 #include "HW_Vulkan.h"
@@ -109,6 +113,17 @@ void CRenderTarget::Create(u32 width, u32 height)
         false
     );
 
+    // rt_Distortion: Distortion map (R8G8B8A8_UNORM)
+    // R/B encode UV offset (127 = neutral), A = blur amount
+    // Note: TRANSFER_DST_BIT needed for vkCmdClearColorImage in phase_distortion()
+    Msg("[Vulkan]   Creating rt_Distortion...");
+    rt_Distortion.Create(
+        VK_FORMAT_R8G8B8A8_UNORM,
+        width, height,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        false
+    );
+
     // ========================================================================
     // Shadow Maps
     // ========================================================================
@@ -182,6 +197,7 @@ void CRenderTarget::Destroy()
 
     rt_Generic_0.Destroy();
     rt_Generic_1.Destroy();
+    rt_Distortion.Destroy();
 
     // Destroy shadow maps
     rt_smap_depth.Destroy();

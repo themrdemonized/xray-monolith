@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #pragma once
 
 #include "stdafx.h"
@@ -313,12 +317,18 @@ protected:
 // vkSkeletonX_ST - Skinned static mesh (no progressive LOD)
 // Equivalent to CSkeletonX_ST from DX11 renderer
 // ============================================================================
+class CKinematics;  // Forward declaration
+
 class vkSkeletonX_ST : public vkFVisual
 {
 public:
     // Bone data
     u32         RenderMode = 0;     // 1W, 2W, 3W, 4W weights
     u16         BonesUsed = 0;      // Number of bones affecting this mesh
+
+    // Parent skeleton (set by AfterLoad)
+    CKinematics* Parent = nullptr;
+    u16          ChildIDX = 0;
 
 public:
     vkSkeletonX_ST();
@@ -328,6 +338,10 @@ public:
     virtual void Release() override;
     virtual void Copy(vkRender_Visual* from) override;
     virtual void Render(float LOD) override;
+
+    // Called by CKinematics::Load to link child to parent
+    virtual void AfterLoad(CKinematics* parent, u16 child_idx);
+    void SetParent(CKinematics* p) { Parent = p; }
 };
 
 // ============================================================================
@@ -341,6 +355,10 @@ public:
     u32         RenderMode = 0;
     u16         BonesUsed = 0;
 
+    // Parent skeleton (set by AfterLoad)
+    CKinematics* Parent = nullptr;
+    u16          ChildIDX = 0;
+
 public:
     vkSkeletonX_PM();
     virtual ~vkSkeletonX_PM();
@@ -349,6 +367,10 @@ public:
     virtual void Release() override;
     virtual void Copy(vkRender_Visual* from) override;
     virtual void Render(float LOD) override;
+
+    // Called by CKinematics::Load to link child to parent
+    virtual void AfterLoad(CKinematics* parent, u16 child_idx);
+    void SetParent(CKinematics* p) { Parent = p; }
 };
 
 // ============================================================================

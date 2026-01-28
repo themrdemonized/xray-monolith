@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #include "stdafx.h"
 #include "rvk.h"
 #include "vk_R_Backend.h"
@@ -121,6 +125,10 @@ CRender::CRender()
 
     VulkanDiagWriteRvk("[DIAG] CRender ctor: step 6 - stats");
     memset(&stats, 0, sizeof(stats));  // memset instead of ZeroMemory (static init safe)
+
+    VulkanDiagWriteRvk("[DIAG] CRender ctor: step 7 - scene graph");
+    // Scene graph / visibility (Phase 1)
+    View = nullptr;  // Will be set to &ViewBase in Calculate()
     VulkanDiagWriteRvk("[DIAG] CRender ctor: DONE");
 }
 
@@ -345,9 +353,105 @@ void CRender::Statistics(CGameFont* F)
 // ============================================================================
 void CRender::Calculate()
 {
-    // Scene graph calculation / visibility culling
-    // TODO: Implement frustum culling, portal/sector visibility
-    // TODO: Build render queues (mapNormalPasses, mapMatrixPasses, etc.)
+    // Skip if level not loaded
+    if (!b_loaded) return;
+
+    // ========================================================================
+    // Phase 1: Simplified scene graph for Vulkan
+    // Build render queues with frustum culling
+    // ========================================================================
+
+    // Clear render queues
+    lstNormal.clear();
+    lstMatrix.clear();
+
+    // Increment marker for visibility tracking (prevents processing same visual twice)
+    marker++;
+
+    // Build frustum from full camera transform (View * Projection)
+    // FRUSTUM_P_LRTB = Left, Right, Top, Bottom planes
+    // FRUSTUM_P_FAR = Far plane (near plane omitted for indoor scenes)
+    ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB | FRUSTUM_P_FAR);
+    View = &ViewBase;
+
+    // ========================================================================
+    // Add all level visuals with frustum culling
+    // ========================================================================
+    u32 visualCount = 0;
+    for (auto visual : Visuals)
+    {
+        if (!visual) continue;
+        vkRender_Visual* pV = static_cast<vkRender_Visual*>(visual);
+        add_Static_Simple(pV);
+        visualCount++;
+    }
+
+    // Log statistics (only occasionally to avoid spam)
+    static u32 lastLogFrame = 0;
+    if (Device.dwFrame - lastLogFrame > 300) {  // Every ~5 seconds at 60fps
+        Msg("[Vulkan] Calculate: %u visuals processed, %u in lstNormal queue",
+            visualCount, lstNormal.size());
+        lastLogFrame = Device.dwFrame;
+    }
+}
+
+// ============================================================================
+// add_Static_Simple - Add static visual to render queue with frustum culling
+// ============================================================================
+// This is Phase 1 implementation - simplified for MVP
+// Phase 2+ will add:
+//   - SSA culling (r_ssaDISCARD threshold)
+//   - HOM occlusion culling
+//   - Portal/sector visibility
+//   - Pipeline sorting for state change minimization
+// ============================================================================
+void CRender::add_Static_Simple(vkRender_Visual* pVisual)
+{
+    if (!pVisual) return;
+
+    // Skip if already processed this frame (marker check)
+    if (pVisual->vis.marker == marker) return;
+    pVisual->vis.marker = marker;
+
+    // ========================================================================
+    // Frustum culling - skip objects outside camera view
+    // ========================================================================
+    if (View && !View->testSphere_dirty(pVisual->vis.sphere.P, pVisual->vis.sphere.R))
+        return;
+
+    // ========================================================================
+    // Handle hierarchical visuals (recursively process children)
+    // ========================================================================
+    if (pVisual->Type == MT_HIERRARHY)
+    {
+        vkFHierrarhyVisual* pH = static_cast<vkFHierrarhyVisual*>(pVisual);
+        for (auto child : pH->children)
+        {
+            if (child)
+                add_Static_Simple(static_cast<vkRender_Visual*>(child));
+        }
+        return;  // Hierarchy node itself has no geometry
+    }
+
+    // ========================================================================
+    // Calculate Screen-Space Area (SSA) for LOD and culling
+    // ========================================================================
+    // SSA = sphere_radius / distance_squared
+    // Larger SSA = closer/bigger objects = higher priority
+    float distSQ = Device.vCameraPosition.distance_to_sqr(pVisual->vis.sphere.P);
+    if (distSQ < EPS) distSQ = EPS;  // Avoid division by zero
+    float SSA = pVisual->vis.sphere.R / distSQ;
+
+    // TODO Phase 2: Add SSA culling
+    // if (SSA < r_ssaDISCARD) return;  // Skip tiny objects
+
+    // ========================================================================
+    // Add to render queue
+    // ========================================================================
+    R_dsgraph::_NormalItem item;
+    item.ssa = SSA;
+    item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);  // Type alias for Vulkan
+    lstNormal.push_back(item);
 }
 
 void CRender::Render()
@@ -370,8 +474,15 @@ void CRender::Render()
     if (_menu_pp)
     {
         VkDiagFrame("[RENDER] render_menu (PP-UI)");
+
+        // Render main UI elements to swapchain
         g_pGamePersistent->OnRenderPPUI_main();
+
+        // TODO Phase 2.20.2: Render PP-UI (magnifier) to rt_Distortion
+        // For now, just call OnRenderPPUI_PP() which renders to swapchain
+        // This means magnifier won't have distortion effect yet, but will display
         g_pGamePersistent->OnRenderPPUI_PP();
+
         return;
     }
 
@@ -481,13 +592,24 @@ void CRender::Render()
     }
 
     // ========================================================================
-    // PASS 4: Combine Pass (accumulator → swapchain)
+    // PASS 4: Distortion Pass (PP-UI elements like magnifier)
+    // ========================================================================
+    // Phase 2.20.1: Render distortion elements to rt_Distortion
+    // This must happen BEFORE combine so the combine shader can sample it
+    VkDiagFrame("[RENDER] PASS 4: distortion");
+    if (RTarget) {
+        RTarget->phase_distortion();
+    }
+
+    // ========================================================================
+    // PASS 5: Combine Pass (accumulator → swapchain)
     // ========================================================================
     // Phase 2.18: Combine accumulated lighting with albedo and output to swapchain
-    VkDiagFrame("[RENDER] PASS 4: combine");
+    // Also applies distortion from rt_Distortion (magnifier glass effect)
+    VkDiagFrame("[RENDER] PASS 5: combine");
     if (RTarget) {
         RTarget->phase_combine();
-        VkDiagFrame("[RENDER] PASS 4: combine done");
+        VkDiagFrame("[RENDER] PASS 5: combine done");
     } else {
         // Fallback: no RTarget — clear swapchain to a solid color so it's not garbage
         VkCommandBuffer cmd = RCache.GetCommandBuffer();
@@ -540,10 +662,10 @@ void CRender::Render()
     }
 
     // ========================================================================
-    // PASS 5: Forward Pass (transparent objects, particles, etc.)
+    // PASS 6: Forward Pass (transparent objects, particles, etc.)
     // ========================================================================
     // Phase 2.19: Forward rendering для transparent objects
-    VkDiagFrame("[RENDER] PASS 5: forward");
+    VkDiagFrame("[RENDER] PASS 6: forward");
     if (RTarget) {
         RTarget->phase_forward();
     }
@@ -552,12 +674,12 @@ void CRender::Render()
     // TODO: Sorted geometry rendering
 
     // ========================================================================
-    // PASS 6: Post-Process Pass
+    // PASS 7: Post-Process Pass
     // ========================================================================
-    // TODO: Bloom, tone mapping, color grading, etc.
+    // TODO: Bloom, color grading, etc.
 
     // ========================================================================
-    // PASS 7: UI Pass (in-game UI when level is loaded)
+    // PASS 8: UI Pass (in-game UI when level is loaded)
     // ========================================================================
     // In-game UI (HUD, inventory, etc.) is rendered via seqRender callbacks
     // from CMainMenu::OnRender() / IGame_Level::OnRender() after Render() returns.
@@ -630,8 +752,32 @@ void CRender::flush()
 // ============================================================================
 IRenderVisual* CRender::model_Create(LPCSTR name, IReader* data)
 {
-    if (!Models) return nullptr;
-    return Models->Create(name, data, true);
+    Msg("[Vulkan] model_Create ENTER: '%s'", name ? name : "NULL");
+
+    if (!Models) {
+        Msg("[Vulkan] model_Create: Models is NULL!");
+        return nullptr;
+    }
+
+    Msg("[Vulkan] model_Create: calling Models->Create...");
+    IRenderVisual* result = Models->Create(name, data, true);
+    Msg("[Vulkan] model_Create: Models->Create returned %p", result);
+
+    // Diagnostic for skeleton models
+    if (result)
+    {
+        Msg("[Vulkan] model_Create: calling dcast methods...");
+        IKinematics* K = result->dcast_PKinematics();
+        IKinematicsAnimated* KA = result->dcast_PKinematicsAnimated();
+        Msg("[Vulkan] model_Create('%s'): result=%p, dcast_PKinematics=%p, dcast_PKinematicsAnimated=%p",
+            name, result, K, KA);
+    }
+    else
+    {
+        Msg("[Vulkan] model_Create('%s'): FAILED (nullptr)", name);
+    }
+
+    return result;
 }
 
 IRenderVisual* CRender::model_CreateChild(LPCSTR name, IReader* data)

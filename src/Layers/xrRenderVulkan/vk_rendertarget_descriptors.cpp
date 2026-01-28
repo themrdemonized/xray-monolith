@@ -1,3 +1,7 @@
+// xrRenderVulkan - Vulkan renderer for X-Ray Engine
+// Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
+// SPDX-License-Identifier: MIT
+
 #include "stdafx.h"
 #include "vk_rendertarget.h"
 #include "vk_descriptors.h"
@@ -69,13 +73,14 @@ void CRenderTarget::UpdateGBufferDescriptorSet(VkDescriptorSet set)
 	}
 
 	// G-Buffer bindings (Set 1):
-	// - Binding 0: rt_Position  (eye-space position)
-	// - Binding 1: rt_Normal    (eye-space normal + hemi)
-	// - Binding 2: rt_Color     (albedo/diffuse)
-	// - Binding 3: rt_Material  (PBR: metallic/roughness/SSS/AO)
+	// - Binding 0: rt_Position   (eye-space position)
+	// - Binding 1: rt_Normal     (eye-space normal + hemi)
+	// - Binding 2: rt_Color      (albedo/diffuse)
+	// - Binding 3: rt_Material   (PBR: metallic/roughness/SSS/AO)
 	// - Binding 4: rt_Accumulator (accumulated lighting) - Phase 2.18
+	// - Binding 5: rt_Distortion  (distortion map for magnifier) - Phase 2.20
 
-	VkDescriptorImageInfo imageInfos[5] = {};
+	VkDescriptorImageInfo imageInfos[6] = {};
 
 	// Binding 0: Position
 	imageInfos[0].imageView = rt_Position.m_ImageView;
@@ -102,10 +107,15 @@ void CRenderTarget::UpdateGBufferDescriptorSet(VkDescriptorSet set)
 	imageInfos[4].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfos[4].sampler = rt_Accumulator.GetSampler();
 
-	// Update descriptor set
-	VkWriteDescriptorSet writes[5] = {};
+	// Binding 5: Distortion (Phase 2.20 - magnifier glass effect)
+	imageInfos[5].imageView = rt_Distortion.m_ImageView;
+	imageInfos[5].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfos[5].sampler = rt_Distortion.GetSampler();
 
-	for (u32 i = 0; i < 5; ++i) {
+	// Update descriptor set
+	VkWriteDescriptorSet writes[6] = {};
+
+	for (u32 i = 0; i < 6; ++i) {
 		writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[i].dstSet = set;
 		writes[i].dstBinding = i;
@@ -115,9 +125,7 @@ void CRenderTarget::UpdateGBufferDescriptorSet(VkDescriptorSet set)
 		writes[i].pImageInfo = &imageInfos[i];
 	}
 
-	vkUpdateDescriptorSets(VulkanHW.m_Device, 5, writes, 0, nullptr);
-
-	Msg("[Vulkan] G-Buffer descriptor set updated (5 textures)");
+	vkUpdateDescriptorSets(VulkanHW.m_Device, 6, writes, 0, nullptr);
 }
 
 // ============================================================================
