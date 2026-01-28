@@ -340,11 +340,11 @@ void CVulkanTexture::CreateImageView()
         viewInfo.components.b = VK_COMPONENT_SWIZZLE_ONE;
         viewInfo.components.a = VK_COMPONENT_SWIZZLE_R;
     } else if (m_bBCSwizzle) {
-        // BC/DXT textures: swap G<->B channels
-        // Vulkan BC3 decodes with G and B swapped compared to DirectX DXT5
-        viewInfo.components.r = VK_COMPONENT_SWIZZLE_R;
-        viewInfo.components.g = VK_COMPONENT_SWIZZLE_B;
-        viewInfo.components.b = VK_COMPONENT_SWIZZLE_G;
+        // BC/DXT textures: swap R<->B channels
+        // DirectX DXT textures use BGRA order, Vulkan BC uses RGBA
+        viewInfo.components.r = VK_COMPONENT_SWIZZLE_B;
+        viewInfo.components.g = VK_COMPONENT_SWIZZLE_G;
+        viewInfo.components.b = VK_COMPONENT_SWIZZLE_R;
         viewInfo.components.a = VK_COMPONENT_SWIZZLE_A;
     } else {
         viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
