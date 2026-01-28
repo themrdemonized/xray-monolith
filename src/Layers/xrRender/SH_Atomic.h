@@ -3,6 +3,7 @@
 #pragma once
 #include "../../xrCore/xr_resource.h"
 #include "tss_def.h"
+#include "xrD3DDefs.h"  // For D3D types (including Vulkan stubs)
 
 #if defined(USE_DX10) || defined(USE_DX11)
 #include "../xrRenderDX10/StateManager/dx10State.h"

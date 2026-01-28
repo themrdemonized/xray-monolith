@@ -6,6 +6,24 @@
 // AlexMX - Alexander Maksimchuk
 //-----------------------------------------------------------------------------
 #include "stdafx.h"
+// VULKAN_DIAG: Static initializer to check if crash is before WinMain
+// Using Win32 API to avoid CRT issues during static init
+static void VulkanDiagWrite(const char* msg) {
+	HANDLE h = CreateFileA("D:\\anomaly\\appdata\\logs\\vulkan_diag.txt",
+		FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h != INVALID_HANDLE_VALUE) {
+		DWORD written;
+		WriteFile(h, msg, (DWORD)strlen(msg), &written, NULL);
+		WriteFile(h, "\r\n", 2, &written, NULL);
+		FlushFileBuffers(h);
+		CloseHandle(h);
+	}
+}
+struct VulkanDiagStaticInit {
+	VulkanDiagStaticInit() { VulkanDiagWrite("[DIAG] Static init in x_ray.cpp"); }
+} g_VulkanDiagStaticInit;
+
 #include "igame_level.h"
 #include "igame_persistent.h"
 
@@ -42,6 +60,11 @@ BOOL g_bIntroFinished = FALSE;
 extern void Intro(void* fn);
 extern void Intro_DSHOW(void* fn);
 extern int PASCAL IntroDSHOW_wnd(HINSTANCE hInstC, HINSTANCE hInstP, LPSTR lpCmdLine, int nCmdShow);
+
+// Vulkan test initialization (DISABLED - using proper DLL renderer instead)
+// extern "C" void InitVulkanTest(void* hwnd);
+// extern "C" void VulkanRenderLoop(void* hwnd);
+
 //int max_load_stage = 0;
 
 // computing build id
@@ -586,6 +609,45 @@ void Startup()
 
 	// Initialize APP
 	ShowWindow(Device.m_hWnd, SW_SHOWNORMAL);
+
+	// Check if Vulkan renderer was selected - use Vulkan INSTEAD of DX11
+	extern u32 renderer_value;
+	extern xr_token* vid_quality_token;
+	bool useVulkan = false;
+
+	if (vid_quality_token && vid_quality_token[renderer_value].name)
+	{
+		LPCSTR renderer_name = vid_quality_token[renderer_value].name;
+
+		if (strcmp(renderer_name, "renderer_vk") == 0)
+		{
+			useVulkan = true;
+			Msg("[X-Ray] Vulkan renderer selected - creating Vulkan device instead of DX11");
+			Msg("[X-Ray] Device.m_hWnd = %p", Device.m_hWnd);
+
+			if (Device.m_hWnd == nullptr)
+			{
+				FATAL("Device.m_hWnd is NULL before Vulkan initialization");
+			}
+
+			// DISABLED: Using proper DLL renderer instead of test functions
+			// Msg("[X-Ray] Calling InitVulkanTest()...");
+			// InitVulkanTest(Device.m_hWnd);
+			// Msg("[X-Ray] InitVulkanTest() returned successfully");
+			Msg("[X-Ray] Vulkan renderer will be loaded via DLL system");
+		}
+	}
+
+	// DISABLED: Vulkan should use normal engine path, not test loop
+	// if (useVulkan)
+	// {
+	// 	Msg("[X-Ray] Running Vulkan test render loop...");
+	// 	VulkanRenderLoop(Device.m_hWnd);
+	// 	Msg("[X-Ray] Vulkan test complete, exiting.");
+	// 	return;
+	// }
+
+	// DX11 path - create device and continue normally
 	Device.Create();
 
 	LALib.OnCreate();
@@ -1106,6 +1168,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 			pTmp->Execute(Console->ConfigFile);
 			xr_delete(pTmp);
 		}
+
 #else
         Console->Execute("renderer renderer_r1");
 #endif
@@ -1172,7 +1235,9 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      char* lpCmdLine,
                      int nCmdShow)
 {
+	VulkanDiagWrite("[DIAG] WinMain entry");
 	//DllMainOpenAL32(NULL, DLL_PROCESS_ATTACH, NULL);
+	VulkanDiagWrite("[DIAG] Before DllMainXrCore");
 	DllMainXrCore(NULL, DLL_PROCESS_ATTACH, NULL);
 	DllMainXrPhysics(NULL, DLL_PROCESS_ATTACH, NULL);
 

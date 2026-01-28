@@ -469,6 +469,19 @@ void CMainMenu::OnRenderPPUI_PP()
 
 	if (m_Flags.test(flGameSaveScreenshot)) return;
 
+	// Debug: log PP windows once
+	static bool s_loggedPPWnds = false;
+	if (!s_loggedPPWnds && m_pp_draw_wnds.size() > 0)
+	{
+		s_loggedPPWnds = true;
+		Msg("[MainMenu] OnRenderPPUI_PP: %u PP windows registered", (u32)m_pp_draw_wnds.size());
+		for (size_t i = 0; i < m_pp_draw_wnds.size(); ++i)
+		{
+			CUIWindow* w = m_pp_draw_wnds[i];
+			Msg("  [%u] name='%s' shown=%d", (u32)i, w->WindowName_script(), w->IsShown());
+		}
+	}
+
 	UI().pp_start();
 
 	xr_vector<CUIWindow*>::iterator it = m_pp_draw_wnds.begin();

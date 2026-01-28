@@ -50,6 +50,16 @@ void CUIStaticItem::RenderInternal(const Fvector2& in_pos)
 	Fvector2 ts;
 	UIRender->GetActiveTextureResolution(ts);
 
+	// Debug: log first few UI elements rendering
+	static u32 s_logCount = 0;
+	if (s_logCount < 5)
+	{
+		s_logCount++;
+		Msg("[UIStaticItem::Render] #%u pos(%.1f,%.1f) size(%.1f,%.1f) texSize(%.0f,%.0f) texRect(%.1f,%.1f,%.1f,%.1f)",
+			s_logCount, pos.x, pos.y, vSize.x, vSize.y, ts.x, ts.y,
+			TextureRect.x1, TextureRect.y1, TextureRect.x2, TextureRect.y2);
+	}
+
 	if (!uFlags.test(flValidSize))
 		SetSize(ts);
 

@@ -6,7 +6,16 @@
 #include "Engine.h"
 #include "dedicated_server_only.h"
 
+// VULKAN_DIAG
+static void VulkanDiagWriteEngine(const char* msg) {
+	HANDLE h = CreateFileA("D:\\anomaly\\appdata\\logs\\vulkan_diag.txt",
+		FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h != INVALID_HANDLE_VALUE) { DWORD w; WriteFile(h, msg, (DWORD)strlen(msg), &w, NULL); WriteFile(h, "\r\n", 2, &w, NULL); FlushFileBuffers(h); CloseHandle(h); }
+}
+static struct DiagEng1 { DiagEng1() { VulkanDiagWriteEngine("[DIAG] Engine.cpp: before CEngine Engine"); } } g_diagEng1;
 CEngine Engine;
+static struct DiagEng2 { DiagEng2() { VulkanDiagWriteEngine("[DIAG] Engine.cpp: after CEngine Engine"); } } g_diagEng2;
 xrDispatchTable PSGP;
 
 //////////////////////////////////////////////////////////////////////

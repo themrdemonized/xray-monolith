@@ -1,0 +1,691 @@
+============================================
+  Building X-Ray Engine - Vulkan Only
+  (Simple build - essential projects)
+============================================
+
+>>> Building xrCore...
+
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+    OK
+>>> Building xrCDB...
+
+  xrCDB.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCDB.lib
+    OK
+>>> Building xrSound...
+
+  libogg_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libogg_static.lib
+  libvorbis_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbis_static.lib
+  libvorbisfile_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbisfile_static.lib
+  xrSound.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrSound.lib
+    OK
+>>> Building xrRender_Vulkan...
+
+  vk_Visual.cpp
+  vk_Skeleton.cpp
+  SkeletonAnimated.cpp
+  SkeletonCustom.cpp
+  SkeletonRigid.cpp
+  SkeletonX.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,11): error C3646: 'rm_geom': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,11): error C3646: 'rm_geom': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,11): error C3646: 'rm_geom': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,13): error C3646: 'shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,13): error C3646: 'shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,13): error C3646: 'shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,10): error C2143: syntax error: missing ';' before '*' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,10): error C2143: syntax error: missing ';' before '*' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,10): error C2143: syntax error: missing ';' before '*' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,24): error C2238: unexpected token(s) preceding ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,24): error C2238: unexpected token(s) preceding ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,24): error C2238: unexpected token(s) preceding ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(16,8): error C2011: 'IRender_Mesh': 'struct' type redefinition [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_FBasicVisual.h(21,8):
+      see declaration of 'IRender_Mesh'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(45,17): error C2011: 'vkRender_Visual': 'class' type redefinition [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.h(48,7):
+      see declaration of 'vkRender_Visual'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fhierrarhyvisual.h(12,33): error C2504: 'vkRender_Visual': base class undefined [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(26,13): error C3646: 'm_Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,13): error C3646: 'm_Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(26,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,13): error C3646: 'm_Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,11): error C3646: 'rm_geom': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(19,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,13): error C3646: 'shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(68,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,10): error C2143: syntax error: missing ';' before '*' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\fbasicvisual.h(96,24): error C2238: unexpected token(s) preceding ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(48,54): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(66,18): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(48,54): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(75,16): error C3646: 'Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(66,18): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(75,23): error C2059: syntax error: ')' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,16): error C3646: 'Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(75,25): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,23): error C2059: syntax error: ')' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(48,54): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(49,37): error C2065: 's': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,25): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(49,54): error C2065: 'ts': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(66,18): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(49,74): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,37): error C2065: 's': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,54): error C2065: 'ts': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(49,90): error C2065: 'te': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,16): error C3646: 'Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,74): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,23): error C2059: syntax error: ')' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,90): error C2065: 'te': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(49,28): error C2614: 'CSkeletonWallmark': illegal member initialization: 'm_Shader' is not a base or member [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,25): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,28): error C2614: 'CSkeletonWallmark': illegal member initialization: 'm_Shader' is not a base or member [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(68,11): error C2065: 'm_Shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,37): error C2065: 's': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,11): error C2065: 'm_Shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(68,23): error C2065: 'sh': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,54): error C2065: 'ts': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,23): error C2065: 'sh': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(68,53): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,74): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,53): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(68,57): error C2065: 'eps': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,90): error C2065: 'te': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,57): error C2065: 'eps': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,28): error C2614: 'CSkeletonWallmark': illegal member initialization: 'm_Shader' is not a base or member [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,11): error C2065: 'm_Shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,23): error C2065: 'sh': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,53): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,57): error C2065: 'eps': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(173,86): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(175,59): error C2653: 'FVF': is not a class or namespace name [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(175,64): error C2061: syntax error: identifier 'LIT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(173,86): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,59): error C2653: 'FVF': is not a class or namespace name [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,64): error C2061: syntax error: identifier 'LIT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(173,86): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\skeletoncustom.h(121,27): error C2027: use of undefined type 'ISpatial' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Include\xrRender\Kinematics.h(13,7):
+      see declaration of 'ISpatial'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,59): error C2653: 'FVF': is not a class or namespace name [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,64): error C2061: syntax error: identifier 'LIT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,13): error C3646: 'm_Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(121,27): error C2027: use of undefined type 'ISpatial' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Include\xrRender\Kinematics.h(13,7):
+      see declaration of 'ISpatial'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(121,27): error C2027: use of undefined type 'ISpatial' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Include\xrRender\Kinematics.h(13,7):
+      see declaration of 'ISpatial'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(41,19): error C2027: use of undefined type 'ISpatial' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Include\xrRender\Kinematics.h(13,7):
+      see declaration of 'ISpatial'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(41,17): error C2530: 'sphere': references must be initialized [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(44,51): error C3536: 'sphere': cannot be used before it is initialized [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(46,23): error C2660: 'CRenderDevice::CalcSSADynamic': function does not take 1 arguments [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.h(452,11):
+      see declaration of 'CRenderDevice::CalcSSADynamic'
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(46,23):
+      while trying to match the argument list '()'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(51,85): error C2660: 'CFrustum::testSphere_dirty': function does not take 1 arguments [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonRigid.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\frustum.h(89,7):
+      see declaration of 'CFrustum::testSphere_dirty'
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonRigid.cpp(51,85):
+      while trying to match the argument list '()'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.h(53,20): error C2061: syntax error: identifier 'ref_geom' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.h(54,15): error C2061: syntax error: identifier 'ref_geom' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(48,54): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(66,18): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,16): error C3646: 'Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,23): error C2059: syntax error: ')' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,25): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,37): error C2065: 's': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,54): error C2065: 'ts': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,74): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,90): error C2065: 'te': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,28): error C2614: 'CSkeletonWallmark': illegal member initialization: 'm_Shader' is not a base or member [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,11): error C2065: 'm_Shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,23): error C2065: 'sh': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,53): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,57): error C2065: 'eps': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(173,86): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,59): error C2653: 'FVF': is not a class or namespace name [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,64): error C2061: syntax error: identifier 'LIT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(121,27): error C2027: use of undefined type 'ISpatial' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Include\xrRender\Kinematics.h(13,7):
+      see declaration of 'ISpatial'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(253,43): error C2065: 'vis': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(305,51): error C2065: 'dbg_name': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(316,60): error C2440: 'return': cannot convert from 'CKinematics *' to 'IRenderVisual *' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(316,60):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(337,77): error C2027: use of undefined type 'vkRender_Visual' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.h(48,7):
+      see declaration of 'vkRender_Visual'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,13): error C3646: 'm_Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(26,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(48,54): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(66,18): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,16): error C3646: 'Shader': unknown override specifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,23): error C2059: syntax error: ')' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(75,25): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,37): error C2065: 's': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,54): error C2065: 'ts': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,74): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,90): error C2065: 'te': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(49,28): error C2614: 'CSkeletonWallmark': illegal member initialization: 'm_Shader' is not a base or member [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,11): error C2065: 'm_Shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,23): error C2065: 'sh': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,53): error C2065: 'cp': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(68,57): error C2065: 'eps': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(217) :  TODO : "container is created in stack!"
+  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(388) :  TODO : "container is created in stack!"
+  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(392) :  TODO : "container is created in stack!"
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(173,86): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,59): error C2653: 'FVF': is not a class or namespace name [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(175,64): error C2061: syntax error: identifier 'LIT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.h(121,27): error C2027: use of undefined type 'ISpatial' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Include\xrRender\Kinematics.h(13,7):
+      see declaration of 'ISpatial'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(665,31): error C2061: syntax error: identifier 'ref_shader' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(711,22): error C2065: 'size': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(729,19): error C2065: 'shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.h(53,20): error C2061: syntax error: identifier 'ref_geom' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.h(54,15): error C2061: syntax error: identifier 'ref_geom' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(739,86): error C2065: 'shader': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(739,119): error C2065: 'ttl': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(739,125): error C2065: 'ttl': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(739,131): error C2065: 'ps_r__WallmarkTTL': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(740,28): error C2065: 'size': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(740,20): error C2665: '_sphere<float>::set': no overloaded function could convert all the argument types [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(16,10):
+      could be 'void _sphere<float>::set(const _sphere<float> &)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(740,20):
+          'void _sphere<float>::set(const _sphere<float> &)': cannot convert argument 1 from 'Fvector' to 'const _sphere<float> &'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(740,24):
+              Reason: cannot convert from 'Fvector' to 'const _sphere<float>'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(740,24):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(740,20):
+      while trying to match the argument list '(Fvector)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(750,33): error C2065: 'size': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(750,2): error C2660: 'BuildMatrix': function does not take 3 arguments [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(618,6):
+      see declaration of 'BuildMatrix'
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(750,2):
+      while trying to match the argument list '(Fmatrix, Fvector, Fvector)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(59,26): error C2065: 'ref_geom': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(59,36): error C2065: 'hGeom': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(59,43): error C2275: 'u32': expected an expression instead of a type [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(59,47): error C2146: syntax error: missing ')' before identifier 'vCount' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(759,40): error C2065: 'size': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(60,1): error C2143: syntax error: missing ';' before '{' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(60,1): error C2447: '{': missing function header (old-style formal list?) [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(168,31): error C2065: 'ref_geom': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(168,41): error C2065: 'hGeom': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(168,48): error C2275: 'u32': expected an expression instead of a type [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(168,52): error C2146: syntax error: missing ')' before identifier 'vCount' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(169,1): error C2143: syntax error: missing ';' before '{' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(169,1): error C2447: '{': missing function header (old-style formal list?) [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(239,26): error C2065: 'HW': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(242,6): error C2065: 'ps_r1_SoftwareSkinning': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(785,8): error C2039: 'RImplementation': is not a member of '`global namespace'' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(785,8): error C2065: 'RImplementation': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(801,71): error C2653: 'FVF': is not a class or namespace name [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(801,76): error C2061: syntax error: identifier 'LIT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(804,2): error C2065: 'V': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(875,32): error C2065: 'V': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(876,4): error C2065: 'V': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(879,4): error C2065: 'V': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(880,4): error C2065: 'V': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.h(53,20): error C2061: syntax error: identifier 'ref_geom' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.h(54,15): error C2061: syntax error: identifier 'ref_geom' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/xrRender/SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonAnimated.h(188,60): error C2440: 'return': cannot convert from 'CKinematicsAnimated *' to 'IRenderVisual *' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Skeleton.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonAnimated.h(188,60):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1056,40): error C2440: '=': cannot convert from 'T *' to 'vkRender_Visual *' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1056,40): error C2440:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1056,40): error C2440:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1056,40): error C2440:             T=CKinematicsAnimated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1056,40): error C2440:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1056,40):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1060,32): error C2440: '=': cannot convert from 'T *' to 'vkRender_Visual *' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1060,32): error C2440:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1060,32): error C2440:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1060,32): error C2440:             T=CKinematics [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1060,32): error C2440:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(1060,32):
+      Types pointed to are unrelated; conversion requires reinterpret_cast, C-style cast or parenthesized function-style cast
+  
+
+ERROR: Failed to build xrRender_Vulkan
+

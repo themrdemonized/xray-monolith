@@ -80,6 +80,15 @@ void CUIStatic::InitTextureEx(LPCSTR tex_name, LPCSTR sh_name)
 
 void CUIStatic::Draw()
 {
+	// Debug: log PP mode draws
+	static bool s_loggedPPDraw = false;
+	if (GetPPMode() && !s_loggedPPDraw)
+	{
+		s_loggedPPDraw = true;
+		Msg("[CUIStatic::Draw] PP mode window drawing: texEnable=%d shader=%p inited=%d",
+			m_bTextureEnable, GetShader() ? (void*)1 : nullptr, GetShader() ? GetShader()->inited() : 0);
+	}
+
 	DrawTexture();
 	inherited::Draw();
 	DrawText();
@@ -108,6 +117,22 @@ void CUIStatic::DrawText()
 
 void CUIStatic::DrawTexture()
 {
+	// Debug: log first 20 unique windows that call DrawTexture
+	static xr_set<shared_str> s_loggedWindows;
+	static u32 s_logCount = 0;
+	LPCSTR wndName = WindowName_script();
+	if (wndName && s_logCount < 20)
+	{
+		shared_str key = wndName;
+		if (s_loggedWindows.find(key) == s_loggedWindows.end())
+		{
+			s_loggedWindows.insert(key);
+			s_logCount++;
+			Msg("[CUIStatic::DrawTexture] [%u] '%s': texEnable=%d inited=%d",
+				s_logCount, wndName, m_bTextureEnable, GetShader() ? GetShader()->inited() : 0);
+		}
+	}
+
 	if (m_bTextureEnable && GetShader() && GetShader()->inited())
 	{
 		Frect rect;

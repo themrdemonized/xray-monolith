@@ -1,0 +1,346 @@
+Building xrRender_Vulkan through solution...
+
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+  crypto.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\crypto.lib
+  xrCPU_Pipe.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCPU_Pipe.lib
+  stdafx.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(711,3): error C3861: 'Device': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(711,3):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(10,8):
+          while compiling class template '_vector3'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(711,3): error C2065: 'Device': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(717,3): error C3861: 'Device': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(717,3): error C2065: 'Device': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(723,3): error C3861: 'Device': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(723,3): error C2065: 'Device': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(729,3): error C3861: 'Device': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_vector3d.h(729,3): error C2065: 'Device': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_matrix.h(921,3): error C3861: 'Device': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_matrix.h(921,3):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_matrix.h(30,8):
+          while compiling class template '_matrix'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_matrix.h(921,3): error C2065: 'Device': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_matrix.h(927,3): error C3861: 'Device': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_matrix.h(927,3): error C2065: 'Device': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_rect.h(209,9): error C2065: 'lt': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_rect.h(209,9): error C3861: 'lt': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_rect.h(209,24): error C3861: 'rb': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_rect.h(209,24): error C2065: 'rb': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_fbox.h(506,48): error C2065: 'min': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_fbox.h(506,48): error C3861: 'min': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_fbox.h(506,63): error C3861: 'max': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_fbox.h(506,63): error C2065: 'max': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_obb.h(161,16): error C2065: 'm_rotate': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_obb.h(161,16): error C3861: 'm_rotate': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_obb.h(161,36): error C3861: 'm_translate': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_obb.h(161,59): error C3861: 'm_halfsize': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_obb.h(161,36): error C2065: 'm_translate': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_obb.h(161,59): error C2065: 'm_halfsize': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(102,3): error C2065: 'Fsphere': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(102,3):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(5,8):
+          while compiling class template '_sphere'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(102,23): error C3878: syntax error: unexpected token 'result' following 'expression' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(102,47): error C2760: syntax error: ',' was unexpected here; expected ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(102,47): error C3878: syntax error: unexpected token ',' following 'expression-statement' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(102,3): error C7510: 'ERP_Result': use of dependent type name must be prefixed with 'typename' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(104,17): error C2065: 'Fsphere': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(104,56): error C2065: 'Fsphere': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(108,9): error C2065: 'Fsphere': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_sphere.h(111,9): error C2065: 'Fsphere': undeclared identifier [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(68,13): error C2059: syntax error: '||' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(68,13):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(5,8):
+          while compiling class template '_flags'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(69,2): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(74,13): error C2059: syntax error: '||' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(75,2): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(80,16): error C2059: syntax error: '<parameter-list>' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(81,2): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(86,16): error C2059: syntax error: '<parameter-list>' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_flags.h(87,2): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xrMemory_subst_msvc.h(184,19): error C3861: 'is_polymorphic': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xrMemory_subst_msvc.h(194,19): error C3861: 'is_polymorphic': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xrMemory.h(139,10): warning C4595: 'operator new': non-member operator new or delete functions may not be declared inline [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xrMemory.h(140,9): warning C4595: 'operator delete': non-member operator new or delete functions may not be declared inline [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xrMemory.h(141,10): warning C4595: 'operator new[]': non-member operator new or delete functions may not be declared inline [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xrMemory.h(142,9): warning C4595: 'operator delete[]': non-member operator new or delete functions may not be declared inline [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,40): warning C4346: 'result': dependent name is not a type [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,40):
+      prefix the qualified-id with 'typename' to indicate a type
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,40):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(73,8):
+          while compiling class template 'is_polymorphic'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,49): error C2143: syntax error: missing '}' before 'is_pm_classify<is_class<T>::result>::_detail' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,49): warning C4346: '_detail': dependent name is not a type [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,49):
+      prefix the qualified-id with 'typename' to indicate a type
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,56): error C2143: syntax error: missing ';' before '<' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,49): error C3254: 'is_polymorphic<T>': class contains explicit override '_detail' but does not derive from an interface that contains the function declaration [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,49): error C2838: '_detail': illegal qualified name in member declaration [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(77,61): error C2039: 'result': is not a member of '`global namespace'' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(78,2): error C2143: syntax error: missing ';' before '}' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_type_traits.h(78,2): error C2238: unexpected token(s) preceding ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2143: syntax error: missing ';' before '[' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(152,7):
+          while compiling class template 'xr_vector'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,29): error C2061: syntax error: identifier 'size_type' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2805: binary operator '[]' has too few parameters [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333: 'xr_vector<T,allocator>::operator []': error in function declaration; skipping function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(205,12): error C2143: syntax error: missing ';' before '[' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(205,2): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(205,23): error C2061: syntax error: identifier 'size_type' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(205,12): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(205,12): error C2805: binary operator '[]' has too few parameters [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(205,12): error C2333: 'xr_vector<T,allocator>::operator []': error in function declaration; skipping function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(176,32): error C3861: 'begin': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(176,37):
+      'begin': function declaration must be available as none of the arguments depend on a template parameter
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(176,41): error C3861: 'end': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(176,44):
+      'end': function declaration must be available as none of the arguments depend on a template parameter
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(180,7): error C3861: 'capacity': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(180,15):
+      'capacity': function declaration must be available as none of the arguments depend on a template parameter
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(236,23): error C3861: 'begin': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(236,28):
+      'begin': function declaration must be available as none of the arguments depend on a template parameter
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(236,28):
+      the template instantiation context (the oldest one first) is
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(229,7):
+          while compiling class template partial specialization 'xr_vector<bool,allocator>'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(236,32): error C3861: 'end': identifier not found [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(236,35):
+      'end': function declaration must be available as none of the arguments depend on a template parameter
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(408,18): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(444,18): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(513,48): warning C4995: 'malloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(550,14): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(1597,60): warning C4995: 'malloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(1646,22): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(1654,60): warning C4995: 'malloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(2243,26): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(2330,56): warning C4995: 'malloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(2332,14): warning C4995: 'memset': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\robin_hood\robin_hood.h(2479,18): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333: 'xr_vector<BOOL,xalloc<T>>::operator []': error in function declaration; skipping function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:             T=BOOL [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(207,3): error C2059: syntax error: '{' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(207,3): error C2334: unexpected token(s) preceding '{'; skipping apparent function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(212,3): error C2059: syntax error: 'return' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(212,29): error C2238: unexpected token(s) preceding ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(214,1): error C2143: syntax error: missing ';' before '}' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333: 'xr_vector<BOOL *,xalloc<T>>::operator []': error in function declaration; skipping function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:             T=BOOL * [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333: 'xr_vector<Frect,xalloc<T>>::operator []': error in function declaration; skipping function body [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:             T=Frect [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(195,18): error C2333:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\_stl_extensions.h(212,3): error C1003: error count exceeds 100; stopping compilation [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file 'stdafx.cpp')
+  

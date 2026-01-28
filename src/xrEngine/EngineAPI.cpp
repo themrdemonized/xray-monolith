@@ -46,46 +46,13 @@ void __cdecl dummy(void)
 #pragma comment(lib, "vfw32.lib")
 #pragma comment(lib, "nvapi.lib")
 
-#if !defined(STATIC_RENDERER_R1) && !defined(STATIC_RENDERER_R2) && !defined(STATIC_RENDERER_R3) && !defined(STATIC_RENDERER_R4)
-	#error Select one of the renderers R1, R2, R3, or R4
+// Only Vulkan renderer is supported (R1/R2/R3/R4 have been removed)
+#ifndef STATIC_RENDERER_VULKAN
+	#error STATIC_RENDERER_VULKAN must be defined
 #endif
 
-#ifdef STATIC_RENDERER_R1
-#if defined(STATIC_RENDERER_R2) || defined(STATIC_RENDERER_R3) || defined(STATIC_RENDERER_R4)
-		#error Only one of the renderers R1, R2, R3, and R4 can be selected at once
-#endif
-	#pragma comment(lib, "xrRender_R1.lib")
-	#pragma comment(lib, "d3dx9.lib")
-#endif
-#ifdef STATIC_RENDERER_R2
-#if defined(STATIC_RENDERER_R1) || defined(STATIC_RENDERER_R3) || defined(STATIC_RENDERER_R4)
-		#error Only one of the renderers R1, R2, R3, and R4 can be selected at once
-#endif
-	#pragma comment(lib, "xrRender_R2.lib")
-#endif
-#ifdef STATIC_RENDERER_R3
-#if defined(STATIC_RENDERER_R1) || defined(STATIC_RENDERER_R2) || defined(STATIC_RENDERER_R4)
-		#error Only one of the renderers R1, R2, R3, and R4 can be selected at once
-#endif
-#pragma comment(lib, "xrRender_R3.lib")
-#pragma comment(lib, "dxguid.lib")
-#pragma comment(lib, "d3dcompiler.lib")
-#pragma comment(lib, "d3d10.lib")
-#pragma comment(lib, "d3dx10.lib")
-#pragma comment(lib, "dxgi.lib")
-#endif
-#ifdef STATIC_RENDERER_R4
-#if  defined(STATIC_RENDERER_R1) || defined(STATIC_RENDERER_R2) || defined(STATIC_RENDERER_R3)
-		#error Only one of the renderers R1, R2, R3, and R4 can be selected at once
-#endif
-	#pragma comment(lib, "xrRender_R4.lib")
-	#pragma comment(lib, "dxguid.lib")
-	#pragma comment(lib, "d3dx11.lib")
-	#pragma comment(lib, "D3DCompiler.lib")
-	#pragma comment(lib, "d3d11.lib")
-	#pragma comment(lib, "dxgi.lib")
-	#pragma comment(lib, "d3d10.lib")
-#endif
+#pragma comment(lib, "xrRender_Vulkan.lib")
+#pragma comment(lib, "vulkan-1.lib")
 
 CEngineAPI::CEngineAPI()
 {
@@ -125,82 +92,23 @@ extern BOOL DllMainXrRenderR1(HANDLE hModule, DWORD ul_reason_for_call, LPVOID l
 extern BOOL DllMainXrRenderR2(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved);
 extern BOOL DllMainXrRenderR3(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved);
 extern BOOL DllMainXrRenderR4(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved);
+extern BOOL DllMainXrRenderVulkan(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved);
 
-#ifdef STATIC_RENDERER_R1
-	#define DLL_MAIN_RENDERER DllMainXrRenderR1
-#endif
-#ifdef STATIC_RENDERER_R2
-	#define DLL_MAIN_RENDERER DllMainXrRenderR2
-#endif
-#ifdef STATIC_RENDERER_R3
-#define DLL_MAIN_RENDERER DllMainXrRenderR3
-#endif
-#ifdef STATIC_RENDERER_R4
-	#define DLL_MAIN_RENDERER DllMainXrRenderR4
-#endif
+// Only Vulkan renderer supported
+#define DLL_MAIN_RENDERER DllMainXrRenderVulkan
 
 void CEngineAPI::InitializeNotDedicated()
 {
-	LPCSTR r2_name = "xrRender_R2.dll";
-	LPCSTR r3_name = "xrRender_R3.dll";
-	LPCSTR r4_name = "xrRender_R4.dll";
-#ifdef STATIC_RENDERER_R4
-	//if (psDeviceFlags.test(rsR4))
-    {
-        // try to initialize R4
-		psDeviceFlags.set(rsR2, FALSE);
-		psDeviceFlags.set(rsR3, FALSE);
-		Log("Loading DLL:", r4_name);
-		DllMainXrRenderR4(NULL, DLL_PROCESS_ATTACH, NULL);
-        //hRender = LoadLibrary(r4_name);
-	//if (0 == hRender)
-	//{
-	//    // try to load R1
-	//    Msg("! ...Failed - incompatible hardware/pre-Vista OS.");
-	//    psDeviceFlags.set(rsR2, TRUE);
-        //}
-		g_current_renderer = 0;
-    }
-#endif
+	// Initialize Vulkan renderer (R1/R2/R3/R4 removed)
+	LPCSTR vulkan_name = "xrRender_Vulkan.dll";
 
-#ifdef STATIC_RENDERER_R3
-	//if (psDeviceFlags.test(rsR3))
-	{
-		// try to initialize R3
-		psDeviceFlags.set(rsR2, FALSE);
-		psDeviceFlags.set(rsR4, FALSE);
-		Log("Loading DLL:", r3_name);
-		DllMainXrRenderR3(NULL, DLL_PROCESS_ATTACH, NULL);
-		//hRender = LoadLibrary(r3_name);
-		//if (0 == hRender)
-		//{
-		//    // try to load R1
-		//    Msg("! ...Failed - incompatible hardware/pre-Vista OS.");
-		//    psDeviceFlags.set(rsR2, TRUE);
-		//}
-		//else
-		g_current_renderer = 3;
-	}
-#endif
+	psDeviceFlags.set(rsR2, FALSE);
+	psDeviceFlags.set(rsR3, FALSE);
+	psDeviceFlags.set(rsR4, FALSE);
 
-#ifdef STATIC_RENDERER_R2
-	//if (psDeviceFlags.test(rsR2))
-    {
-        // try to initialize R2
-        psDeviceFlags.set(rsR3, FALSE);
-		psDeviceFlags.set(rsR4, FALSE);
-		Log("Loading DLL:", r2_name);
-		DllMainXrRenderR2(NULL, DLL_PROCESS_ATTACH, NULL);
-		//hRender = LoadLibrary(r2_name);
-	//if (0 == hRender)
-	//{
-	//    // try to load R1
-	//    Msg("! ...Failed - incompatible hardware.");
-	//}
-        //else
-            g_current_renderer = 2;
-    }
-#endif
+	Log("Loading Renderer:", vulkan_name);
+	DllMainXrRenderVulkan(NULL, DLL_PROCESS_ATTACH, NULL);
+	g_current_renderer = 4; // Vulkan = 4
 }
 #endif // DEDICATED_SERVER
 
@@ -215,30 +123,10 @@ void __cdecl xrFactory_Destroy(DLL_Pure* O);
 void CEngineAPI::Initialize(void)
 {
 	//////////////////////////////////////////////////////////////////////////
-	// render
-	LPCSTR r1_name = "xrRender_R1.dll";
-
+	// Initialize renderer (Vulkan only)
 #ifndef DEDICATED_SERVER
 	InitializeNotDedicated();
 #endif // DEDICATED_SERVER
-
-#ifdef STATIC_RENDERER_R1
-	//if (0 == hRender)
-    {
-        // try to load R1
-        psDeviceFlags.set(rsR4, FALSE);
-        psDeviceFlags.set(rsR3, FALSE);
-        psDeviceFlags.set(rsR2, FALSE);
-        renderer_value = 0; //con cmd
-
-        Log("Loading DLL:", r1_name);
-		DllMainXrRenderR1(NULL, DLL_PROCESS_ATTACH, NULL);
-		//hRender = LoadLibrary(r1_name);
-	//if (0 == hRender) R_CHK(GetLastError());
-        //R_ASSERT(hRender);
-        g_current_renderer = 1;
-    }
-#endif
 
 	Device.ConnectToRender();
 
@@ -289,24 +177,7 @@ void CEngineAPI::Destroy(void)
 	XRC.r_clear_compact();
 }
 
-extern "C" {
-typedef bool __cdecl SupportsAdvancedRenderingREF(void);
-typedef bool /*_declspec(dllexport)*/ SupportsDX10RenderingREF();
-typedef bool /*_declspec(dllexport)*/ SupportsDX11RenderingREF();
-};
-
-extern "C" {
-#ifdef STATIC_RENDERER_R2
-	bool /*_declspec(dllexport)*/ SupportsAdvancedRendering();
-#endif
-#ifdef STATIC_RENDERER_R3
-bool /*_declspec(dllexport)*/ SupportsDX10Rendering();
-
-#endif
-#ifdef STATIC_RENDERER_R4
-	bool /*_declspec(dllexport)*/ SupportsDX11Rendering();
-#endif
-};
+// DirectX renderer support functions removed (R1/R2/R3/R4 removed)
 
 void CEngineAPI::CreateRendererList()
 {
@@ -321,104 +192,11 @@ void CEngineAPI::CreateRendererList()
     vid_quality_token[1].name = NULL;
 
 #else
-	// TODO: ask renderers if they are supported!
+	// Only Vulkan renderer is supported (R1/R2/R3/R4 removed)
 	if (vid_quality_token != NULL) return;
-	bool bSupports_r2 = false;
-	bool bSupports_r2_5 = false;
-	bool bSupports_r3 = false;
-	bool bSupports_r4 = false;
 
-	LPCSTR r2_name = "xrRender_R2.dll";
-	LPCSTR r3_name = "xrRender_R3.dll";
-	LPCSTR r4_name = "xrRender_R4.dll";
-
-	if (strstr(Core.Params, "-perfhud_hack"))
-	{
-		bSupports_r2 = true;
-		bSupports_r2_5 = true;
-		bSupports_r3 = true;
-		bSupports_r4 = true;
-	}
-	else
-	{
-#ifdef STATIC_RENDERER_R2
-		// try to initialize R2
-        Log("Loading DLL:", r2_name);
-        //hRender = LoadLibrary(r2_name);
-		DllMainXrRenderR2(NULL, DLL_PROCESS_ATTACH, NULL);
-        //if (hRender)
-        {
-            bSupports_r2 = true;
-            //SupportsAdvancedRenderingREF* test_rendering = (SupportsAdvancedRenderingREF*)GetProcAddress(hRender, "SupportsAdvancedRendering");
-            SupportsAdvancedRenderingREF* test_rendering = SupportsAdvancedRendering;
-            R_ASSERT(test_rendering);
-            bSupports_r2_5 = test_rendering();
-            //FreeLibrary(hRender);
-        }
-#endif
-
-#ifdef STATIC_RENDERER_R3
-		// try to initialize R3
-		Log("Loading DLL:", r3_name);
-		// Hide "d3d10.dll not found" message box for XP
-		SetErrorMode(SEM_FAILCRITICALERRORS);
-		//hRender = LoadLibrary(r3_name);
-		DllMainXrRenderR3(NULL, DLL_PROCESS_ATTACH, NULL);
-		// Restore error handling
-		SetErrorMode(0);
-		//if (hRender)
-		{
-			//SupportsDX10RenderingREF* test_dx10_rendering = (SupportsDX10RenderingREF*)GetProcAddress(hRender, "SupportsDX10Rendering");
-			SupportsDX10RenderingREF* test_dx10_rendering = SupportsDX10Rendering;
-			R_ASSERT(test_dx10_rendering);
-			bSupports_r3 = test_dx10_rendering();
-			//FreeLibrary(hRender);
-		}
-#endif
-
-#ifdef STATIC_RENDERER_R4
-		// try to initialize R4
-        Log("Loading DLL:", r4_name);
-        // Hide "d3d10.dll not found" message box for XP
-        SetErrorMode(SEM_FAILCRITICALERRORS);
-        //hRender = LoadLibrary(r4_name);
-		DllMainXrRenderR4(NULL, DLL_PROCESS_ATTACH, NULL);
-        // Restore error handling
-        SetErrorMode(0);
-        //if (hRender)
-        {
-            //SupportsDX11RenderingREF* test_dx11_rendering = (SupportsDX11RenderingREF*)GetProcAddress(hRender, "SupportsDX11Rendering");
-            SupportsDX11RenderingREF* test_dx11_rendering = SupportsDX11Rendering;
-            R_ASSERT(test_dx11_rendering);
-            bSupports_r4 = test_dx11_rendering();
-            //FreeLibrary(hRender);
-        }
-#endif
-	}
-
-	//hRender = 0;
-	bool proceed = true;
 	xr_vector<LPCSTR> _tmp;
-#ifdef STATIC_RENDERER_R1
-	_tmp.push_back("renderer_r1");
-#endif
-#ifdef STATIC_RENDERER_R2
-	if (proceed &= bSupports_r2, proceed)
-    {
-        _tmp.push_back("renderer_r2a");
-        _tmp.push_back("renderer_r2");
-    }
-    if (proceed &= bSupports_r2_5, proceed)
-        _tmp.push_back("renderer_r2.5");
-#endif
-#ifdef STATIC_RENDERER_R3
-	if (proceed &= bSupports_r3, proceed)
-		_tmp.push_back("renderer_r3");
-#endif
-#ifdef STATIC_RENDERER_R4
-	if (proceed &= bSupports_r4, proceed)
-        _tmp.push_back("renderer_r4");
-#endif
+	_tmp.push_back("renderer_vk");
 
 	R_ASSERT2(_tmp.size() != 0, "No valid renderer found, please use a render system that's supported by your PC");
 

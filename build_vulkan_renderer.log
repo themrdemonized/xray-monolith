@@ -1,0 +1,8 @@
+MSBuild version 17.14.23+b0019275e for .NET Framework
+MSBUILD : error MSB1008: Only one project can be specified.
+    Full command line: '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" src/engine-vs2022.sln p:Configuration=Debug p:Platform=x64 t:xrRender_Vulkan M:/ "C:/Program Files/Git/nologo" v:minimal'
+  Switches appended by response files:
+'' came from 'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.rsp'
+Switch: p:Configuration=Debug
+
+For switch syntax, type "MSBuild -help"

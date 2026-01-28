@@ -6,7 +6,41 @@
 
 #	include "..\xrRenderDX10\DXCommonTypes.h"
 
-#else	//	USE_DX10
+#elif defined(XRRENDER_VULKAN_EXPORTS)	//	Vulkan
+
+// Vulkan stubs for D3D types (needed for scene graph compatibility)
+typedef void* ID3DVertexShader;
+typedef void* ID3DPixelShader;
+typedef void* ID3DGeometryShader;
+typedef void* ID3DBlob;
+typedef void* ID3DQuery;
+typedef void* ID3DInclude;
+typedef void* ID3DTexture2D;
+typedef void* ID3DRenderTargetView;
+typedef void* ID3DDepthStencilView;
+typedef void* ID3DBaseTexture;
+typedef void* ID3DVertexBuffer;
+typedef void* ID3DIndexBuffer;
+typedef void* ID3DTexture3D;
+typedef void* ID3DState;
+
+struct D3D_TEXTURE2D_DESC {
+	u32 Width;
+	u32 Height;
+	u32 MipLevels;
+	u32 ArraySize;
+	u32 Format;
+	u32 SampleCount;
+	u32 SampleQuality;
+	u32 Usage;
+	u32 BindFlags;
+	u32 CPUAccessFlags;
+	u32 MiscFlags;
+};
+
+#define DX10_ONLY(expr)			do {} while (0)
+
+#else	//	DX9
 
 typedef IDirect3DVertexShader9 ID3DVertexShader;
 typedef IDirect3DPixelShader9 ID3DPixelShader;

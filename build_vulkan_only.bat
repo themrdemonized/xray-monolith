@@ -1,0 +1,3 @@
+@echo off
+echo Building xrRender_Vulkan through solution...
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" "src\engine-vs2022.sln" /t:xrRender_Vulkan /p:Configuration=Release /p:Platform=x64 /nologo /v:minimal

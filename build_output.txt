@@ -1,0 +1,4 @@
+Microsoft Windows [Version 10.0.26200.7628]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith>

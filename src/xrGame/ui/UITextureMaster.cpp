@@ -35,6 +35,7 @@ void CUITextureMaster::ParseShTexInfo(LPCSTR xml_file)
 	xml.Load(CONFIG_PATH, "ui\\textures_descr", xml_file);
 
 	int files_num = xml.GetNodesNum("", 0, "file");
+	Msg("[UITextureMaster] Parsing '%s': %d file nodes", xml_file, files_num);
 
 	for (int fi = 0; fi < files_num; ++fi)
 	{
@@ -62,6 +63,10 @@ void CUITextureMaster::ParseShTexInfo(LPCSTR xml_file)
 				m_textures.emplace(id, info);
 			else
 				m_textures[id] = info;
+			// Debug: log listline textures
+			if (strstr(id.c_str(), "listline"))
+				Msg("[UITextureMaster] Added '%s' -> file='%s' rect(%.1f,%.1f,%.1f,%.1f)",
+					id.c_str(), info.file.c_str(), info.rect.x1, info.rect.y1, info.rect.x2, info.rect.y2);
 			//m_textures.insert(mk_pair(id,info)); // original GSC insert call
 			/* avo: end */
 		}
@@ -88,9 +93,17 @@ void CUITextureMaster::InitTexture(const shared_str& texture_name, const shared_
 
 		out_shader = m_shaders[p];
 		out_rect = (*it).second.rect;
+		Msg("[UITextureMaster] Found '%s' in file '%s': rect(%.1f,%.1f,%.1f,%.1f)",
+			texture_name.c_str(), it->second.file.c_str(),
+			out_rect.x1, out_rect.y1, out_rect.x2, out_rect.y2);
 	}
 	else
+	{
+		Msg("! [UITextureMaster] Texture '%s' NOT FOUND in m_textures! Creating shader directly.",
+			texture_name.c_str());
 		out_shader->create(shader_name.c_str(), texture_name.c_str());
+		// out_rect remains uninitialized (0,0,0,0) - this causes invisible UI elements!
+	}
 }
 
 void CUITextureMaster::InitTexture(const shared_str& texture_name, CUIStaticItem* tc, const shared_str& shader_name)

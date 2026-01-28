@@ -1,0 +1,67 @@
+============================================
+  Building X-Ray Engine - Vulkan Only
+  (Simple build - essential projects)
+============================================
+
+>>> Building xrCore...
+
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+    OK
+>>> Building xrCDB...
+
+  xrCDB.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCDB.lib
+    OK
+>>> Building xrSound...
+
+  libogg_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libogg_static.lib
+  libvorbis_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbis_static.lib
+  libvorbisfile_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbisfile_static.lib
+  xrSound.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrSound.lib
+    OK
+>>> Building xrRender_Vulkan...
+
+  xrRender_Vulkan.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\VerifiedDX11\xrRender_Vulkan.lib
+    OK
+>>> Building xrEngine...
+
+  Ensuring LuaJIT generated files exist
+  libvorbis_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbis_static.lib
+  libtheora_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libtheora_static.lib
+  [LuaJIT] Determine DynASM path and if platform is x64
+  [LuaJIT] Platform is x64, set -D P64
+  [LuaJIT] Running DynASM to generate host\buildvm_arch.h
+  libogg_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libogg_static.lib
+  ReShadeCompat.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\ReShadeCompat.lib
+  [LuaJIT] Generating lj_vm.obj and headers
+  libvorbisfile_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbisfile_static.lib
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+  [LuaJIT] Generation complete
+  imgui.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\imgui.lib
+  lib_base.c
+  lib_bit.c
+  lib_debug.c
+  lib_ffi.c
+  lib_io.c
+  lib_jit.c
+  lib_math.c
+  lib_os.c
+  lib_string.c
+  lib_table.c
+  lj_bc.c
+  lj_crecord.c
+  lj_dispatch.c
+  lj_err.c
+  lj_ffrecord.c
+  lj_opt_fold.c
+  lj_record.c
+lj_vm.obj : warning LNK4042: object specified more than once; extras ignored [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\luajit-2\src\luajit.vcxproj]
+  luajit.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\lua51.lib
+  EngineAPI.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\EngineAPI.cpp(55,1): error C1189: #error:  Only one of the renderers R1, R2, R3, R4, and Vulkan can be selected at once [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/EngineAPI.cpp')
+  
+
+ERROR: Failed to build xrEngine
+

@@ -80,6 +80,23 @@ void CUIFrameLineWnd::DrawElements()
 	Fvector2 ts;
 	UIRender->GetActiveTextureResolution(ts);
 
+	// Debug: log texture resolution and tex_rect once per texture
+	static xr_set<shared_str> s_loggedTextures;
+	if (s_loggedTextures.find(dbg_tex_name) == s_loggedTextures.end())
+	{
+		s_loggedTextures.insert(dbg_tex_name);
+		Msg("[UIFrameLineWnd] DrawElements '%s': texSize=%.0fx%.0f", dbg_tex_name.c_str(), ts.x, ts.y);
+		Msg("  flBack:   rect(%.1f,%.1f,%.1f,%.1f) size=%.1fx%.1f",
+			m_tex_rect[flBack].x1, m_tex_rect[flBack].y1, m_tex_rect[flBack].x2, m_tex_rect[flBack].y2,
+			m_tex_rect[flBack].width(), m_tex_rect[flBack].height());
+		Msg("  flFirst:  rect(%.1f,%.1f,%.1f,%.1f) size=%.1fx%.1f",
+			m_tex_rect[flFirst].x1, m_tex_rect[flFirst].y1, m_tex_rect[flFirst].x2, m_tex_rect[flFirst].y2,
+			m_tex_rect[flFirst].width(), m_tex_rect[flFirst].height());
+		Msg("  flSecond: rect(%.1f,%.1f,%.1f,%.1f) size=%.1fx%.1f",
+			m_tex_rect[flSecond].x1, m_tex_rect[flSecond].y1, m_tex_rect[flSecond].x2, m_tex_rect[flSecond].y2,
+			m_tex_rect[flSecond].width(), m_tex_rect[flSecond].height());
+	}
+
 	Frect rect;
 	GetAbsoluteRect(rect);
 	UI().ClientToScreenScaled(rect.lt);

@@ -9,6 +9,7 @@
 class ENGINE_API CGameFont
 {
 	friend class dxFontRender;
+	friend class vkFontRender;
 public:
 	enum EAligment
 	{

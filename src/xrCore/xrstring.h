@@ -74,6 +74,11 @@ protected:
 public:
 	void _set(str_c rhs)
 	{
+		// Guard against static init: g_pStringContainer is NULL before xrCore initialization
+		if (!g_pStringContainer) {
+			p_ = 0;
+			return;
+		}
 		str_value* v = g_pStringContainer->dock(rhs);
 		if (0 != v) v->dwReference++;
 		_dec();

@@ -1,0 +1,33 @@
+; X-Ray Monolith - System Configuration
+; Vulkan Renderer Test Configuration
+
+[render]
+; Renderer selection:
+; renderer_r1   - DirectX 9 (R1)
+; renderer_r2a  - DirectX 10 (R2a)  
+; renderer_r2   - DirectX 10 (R2)
+; renderer_r3   - DirectX 11 (R3)
+; renderer_r4   - DirectX 11 (R4)
+; renderer_vulkan - Vulkan (experimental)
+
+renderer = renderer_vulkan
+
+[vulkan]
+; Vulkan-specific settings
+validation_layers = true
+vsync = false
+debug_markers = true
+gpu_index = 0
+
+[screen]
+; Display settings
+width = 1920
+height = 1080
+fullscreen = false
+refresh_rate = 60
+
+[debug]
+; Debug settings
+show_fps = true
+show_stats = true
+validation_errors = true

@@ -1,0 +1,3 @@
+@echo off
+"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\amd64\MSBuild.exe" "C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj" -t:Clean -p:Configuration=Release -p:Platform=x64 -p:SolutionDir="C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\\" -nologo -v:minimal
+echo CLEAN_EXIT=%ERRORLEVEL%

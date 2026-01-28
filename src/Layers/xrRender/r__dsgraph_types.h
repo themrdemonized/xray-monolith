@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../../xrCore/fixedmap.h"
+#include "xrD3DDefs.h"
+#include "Shader.h"
 
 //#ifndef USE_MEMORY_MONITOR
 //#	define USE_DOUG_LEA_ALLOCATOR_FOR_RENDER
@@ -105,17 +107,24 @@ namespace R_dsgraph
 #		endif
 #	endif	//	USE_DX10
 #else
-#if defined(USE_DX10) || defined(USE_DX11)	//	DX10 needs shader signature to propperly bind deometry to shader
+#if defined(XRRENDER_VULKAN_EXPORTS)	//	Vulkan
+	typedef void*					vs_type;
+	typedef void*					gs_type;
+	typedef void*					ps_type;
+	typedef void*					hs_type;
+	typedef void*					ds_type;
+#elif defined(USE_DX10) || defined(USE_DX11)	//	DX10 needs shader signature to propperly bind deometry to shader
 		typedef	SVS*					vs_type;
 		typedef	ID3DGeometryShader*		gs_type;
+		typedef ID3DPixelShader*		ps_type;
 #ifdef USE_DX11
 			typedef	ID3D11HullShader*		hs_type;
 			typedef	ID3D11DomainShader*		ds_type;
 #endif
-#else	//	USE_DX10
+#else	//	DX9
 	typedef ID3DVertexShader* vs_type;
-#endif	//	USE_DX10
 	typedef ID3DPixelShader* ps_type;
+#endif	//	USE_DX10
 #endif
 
 	// NORMAL
@@ -154,10 +163,13 @@ namespace R_dsgraph
 		float ssa;
 	};
 #endif	//	USE_DX11
-#if defined(USE_DX10) || defined(USE_DX11)
+#if defined(XRRENDER_VULKAN_EXPORTS)
+	// Vulkan uses simple pipeline (no GS/HS/DS)
+	struct	mapNormalVS			: public	FixedMAP<vs_type, mapNormalPS,render_allocator>						{	};
+#elif defined(USE_DX10) || defined(USE_DX11)
 	struct	mapNormalGS			: public	FixedMAP<gs_type, mapNormalPS,render_allocator>						{	float	ssa;	};
 	struct	mapNormalVS			: public	FixedMAP<vs_type, mapNormalGS,render_allocator>						{	};
-#else	//	USE_DX10
+#else	//	DX9
 	struct mapNormalVS : public FixedMAP<vs_type, mapNormalPS, render_allocator>
 	{
 	};
@@ -187,7 +199,7 @@ namespace R_dsgraph
 	{
 		float ssa;
 	};
-#ifdef USE_DX11
+#if defined(USE_DX11)
 	struct	mapMatrixAdvStages
 	{
 		hs_type		hs;
@@ -201,10 +213,13 @@ namespace R_dsgraph
 		float ssa;
 	};
 #endif	//	USE_DX11
-#if defined(USE_DX10) || defined(USE_DX11)
+#if defined(XRRENDER_VULKAN_EXPORTS)
+	// Vulkan uses simple pipeline (no GS/HS/DS)
+	struct	mapMatrixVS			: public	FixedMAP<vs_type, mapMatrixPS,render_allocator>						{	};
+#elif defined(USE_DX10) || defined(USE_DX11)
 	struct	mapMatrixGS			: public	FixedMAP<gs_type, mapMatrixPS,render_allocator>						{	float	ssa;	};
 	struct	mapMatrixVS			: public	FixedMAP<vs_type, mapMatrixGS,render_allocator>						{	};
-#else	//	USE_DX10
+#else	//	DX9
 	struct mapMatrixVS : public FixedMAP<vs_type, mapMatrixPS, render_allocator>
 	{
 	};

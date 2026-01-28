@@ -62,6 +62,7 @@ BOOL CRenderDevice::Begin()
 	PROF_EVENT();
 
 #ifndef DEDICATED_SERVER
+
 	switch (m_pRender->GetDeviceState())
 	{
 	case IRenderDeviceRender::dsOK:
@@ -444,13 +445,14 @@ void CRenderDevice::on_idle()
 	Statistic->RenderTOTAL_Real.FrameStart();
 	Statistic->RenderTOTAL_Real.Begin();
 
-	if (b_is_Active && Begin())
+	if (Begin())
 	{
 		START_PROFILE("Process seqRender");
-		seqRender.Process(rp_Render);
+		if (b_is_Active)
+			seqRender.Process(rp_Render);
 		STOP_PROFILE;
 
-		if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size())
+		if (b_is_Active && (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size()))
 		{
 			PROF_EVENT("Draw statistics");
 			Statistic->Show();

@@ -1,0 +1,514 @@
+Building xrRender_Vulkan through solution...
+
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+  crypto.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\crypto.lib
+  xrCPU_Pipe.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCPU_Pipe.lib
+  vk_Visual.cpp
+  vk_SkeletonStubs.cpp
+  vk_SkeletonCustom.cpp
+  vk_SkeletonAnimated.cpp
+  vk_SkeletonRigid.cpp
+  vk_SkeletonX.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCDB\ISpatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonStubs.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4302: '<function-style-cast>': truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_SkeletonRigid.cpp(19,32): error C2144: syntax error: 'void' should be preceded by ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_SkeletonRigid.cpp(19,12): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonRigid.cpp')
+  
+  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(217) :  TODO : "container is created in stack!"
+  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(388) :  TODO : "container is created in stack!"
+  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(392) :  TODO : "container is created in stack!"
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonCustom.cpp(785,8): error C2027: use of undefined type 'CRender' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonCustom.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_SkeletonCompat.h(27,7):
+      see declaration of 'CRender'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(104,16): error C2228: left of '.s_dynamic' must have class/struct/union [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(104,16):
+      type is 'u32'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(117,11): error C2665: 'CBackend::set_Geometry': no overloaded function could convert all the argument types [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(203,10):
+      could be 'void CBackend::set_Geometry(void *)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(117,11):
+          'void CBackend::set_Geometry(void *)': cannot convert argument 1 from 'ref_geom' to 'void *'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(117,24):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(202,10):
+      or       'void CBackend::set_Geometry(SGeometry *)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(117,11):
+          'void CBackend::set_Geometry(SGeometry *)': cannot convert argument 1 from 'ref_geom' to 'SGeometry *'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(117,24):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(117,11):
+      while trying to match the argument list '(ref_geom)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,32): error C2664: 'void *CBackend::get_c(LPCSTR)': cannot convert argument 1 from 'shared_str' to 'LPCSTR' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,38):
+      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(222,11):
+      see declaration of 'CBackend::get_c'
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,32):
+      while trying to match the argument list '(shared_str)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23): error C2440: 'initializing': cannot convert from '_T' to 'resptr_core<R_constant,resptr_base<R_constant>>' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23): error C2440:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23): error C2440:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23): error C2440:             _T=void * [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23): error C2440:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23):
+      'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core': no overloaded function could convert all the argument types
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xr_resource.h(109,2):
+          could be 'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(const resptr_core<R_constant,resptr_base<R_constant>> &)'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23):
+              'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(const resptr_core<R_constant,resptr_base<R_constant>> &)': cannot convert argument 1 from '_T' to 'const resptr_core<R_constant,resptr_base<R_constant>> &'
+          with
+          [
+              _T=void *
+          ]
+                  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,37):
+                  Reason: cannot convert from '_T' to 'const resptr_core<R_constant,resptr_base<R_constant>>'
+          with
+          [
+              _T=void *
+          ]
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xr_resource.h(103,2):
+          or       'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(T *,bool)'
+          with
+          [
+              T=R_constant
+          ]
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23):
+              'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(T *,bool)': cannot convert argument 1 from '_T' to 'T *'
+          with
+          [
+              T=R_constant
+          ]
+          and
+          [
+              _T=void *
+          ]
+          and
+          [
+              T=R_constant
+          ]
+                  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,37):
+                  Conversion from 'void*' to pointer to non-'void' requires an explicit cast
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(128,23):
+          while trying to match the argument list '(_T)'
+          with
+          [
+              _T=void *
+          ]
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,37): error C2664: 'void *CBackend::get_c(LPCSTR)': cannot convert argument 1 from 'shared_str' to 'LPCSTR' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,43):
+      No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(222,11):
+      see declaration of 'CBackend::get_c'
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,37):
+      while trying to match the argument list '(shared_str)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28): error C2440: 'initializing': cannot convert from '_T' to 'resptr_core<R_constant,resptr_base<R_constant>>' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28): error C2440:         with [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28): error C2440:         [ [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28): error C2440:             _T=void * [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28): error C2440:         ] [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28):
+      'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core': no overloaded function could convert all the argument types
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xr_resource.h(109,2):
+          could be 'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(const resptr_core<R_constant,resptr_base<R_constant>> &)'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28):
+              'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(const resptr_core<R_constant,resptr_base<R_constant>> &)': cannot convert argument 1 from '_T' to 'const resptr_core<R_constant,resptr_base<R_constant>> &'
+          with
+          [
+              _T=void *
+          ]
+                  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,42):
+                  Reason: cannot convert from '_T' to 'const resptr_core<R_constant,resptr_base<R_constant>>'
+          with
+          [
+              _T=void *
+          ]
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\xr_resource.h(103,2):
+          or       'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(T *,bool)'
+          with
+          [
+              T=R_constant
+          ]
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28):
+              'resptr_core<R_constant,resptr_base<R_constant>>::resptr_core(T *,bool)': cannot convert argument 1 from '_T' to 'T *'
+          with
+          [
+              T=R_constant
+          ]
+          and
+          [
+              _T=void *
+          ]
+          and
+          [
+              T=R_constant
+          ]
+                  C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,42):
+                  Conversion from 'void*' to pointer to non-'void' requires an explicit cast
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(129,28):
+          while trying to match the argument list '(_T)'
+          with
+          [
+              _T=void *
+          ]
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(153,11): error C2665: 'CBackend::set_Geometry': no overloaded function could convert all the argument types [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(203,10):
+      could be 'void CBackend::set_Geometry(void *)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(153,11):
+          'void CBackend::set_Geometry(void *)': cannot convert argument 1 from 'ref_geom' to 'void *'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(153,24):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(202,10):
+      or       'void CBackend::set_Geometry(SGeometry *)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(153,11):
+          'void CBackend::set_Geometry(SGeometry *)': cannot convert argument 1 from 'ref_geom' to 'SGeometry *'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(153,24):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(153,11):
+      while trying to match the argument list '(ref_geom)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(172,15): error C2296: '&': not valid as left operand has type 'VertexSoftwareStub *' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(172,15): error C2297: '&': not valid as right operand has type 'void *' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(224,9): error C2665: 'CBackend::set_Geometry': no overloaded function could convert all the argument types [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonX.cpp')
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(203,10):
+      could be 'void CBackend::set_Geometry(void *)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(224,9):
+          'void CBackend::set_Geometry(void *)': cannot convert argument 1 from 'ref_geom' to 'void *'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(224,22):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_R_Backend.h(202,10):
+      or       'void CBackend::set_Geometry(SGeometry *)'
+          C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(224,9):
+          'void CBackend::set_Geometry(SGeometry *)': cannot convert argument 1 from 'ref_geom' to 'SGeometry *'
+              C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(224,22):
+              No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
+      C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRender\SkeletonX.cpp(224,9):
+      while trying to match the argument list '(ref_geom)'
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_SkeletonAnimated.cpp(19,32): error C2144: syntax error: 'void' should be preceded by ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_SkeletonAnimated.cpp(19,12): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_SkeletonAnimated.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(8,32): error C2144: syntax error: 'void' should be preceded by ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(8,12): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(9,32): error C2144: syntax error: 'void' should be preceded by ';' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\vk_Visual.cpp(9,12): error C4430: missing type specifier - int assumed. Note: C++ does not support default-int [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\Layers\xrRenderVulkan\xrRender_Vulkan.vcxproj]
+  (compiling source file '/vk_Visual.cpp')
+  

@@ -414,9 +414,22 @@ void CResourceManager::LS_Load()
 	];
 
 	// load shaders
-	xr_vector<char*>* folder = FS.file_list_open("$game_shaders$", ::Render->getShaderPath(),
+	LPCSTR shaderPath = ::Render->getShaderPath();
+	Msg("* LS_Load: Loading shader scripts from path: %s", shaderPath);
+
+	// Skip Lua shader script files for Vulkan renderer (uses SPIR-V instead of Lua scripts)
+	// Note: Lua VM and bindings are still needed for game logic
+	if (shaderPath && strstr(shaderPath, "vulkan")) {
+		Msg("* LS_Load: Skipping .s shader script loading for Vulkan (uses SPIR-V)");
+		return;
+	}
+
+	xr_vector<char*>* folder = FS.file_list_open("$game_shaders$", shaderPath,
 	                                             FS_ListFiles | FS_RootOnly);
-	VERIFY(folder);
+	if (!folder) {
+		Msg("* Shader scripts folder not found or empty - skipping Lua shader loading");
+		return;
+	}
 	for (u32 it = 0; it < folder->size(); it++)
 	{
 		string_path namesp, fn;

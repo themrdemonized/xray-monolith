@@ -1,0 +1,1084 @@
+============================================
+  Building X-Ray Engine - Vulkan Only
+  (Simple build - essential projects)
+============================================
+
+>>> Building xrCore...
+
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+    OK
+>>> Building xrCDB...
+
+  xrCDB.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCDB.lib
+    OK
+>>> Building xrSound...
+
+  libogg_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libogg_static.lib
+  libvorbis_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbis_static.lib
+  libvorbisfile_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbisfile_static.lib
+  xrSound.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrSound.lib
+    OK
+>>> Building xrRender_Vulkan...
+
+  xrRender_Vulkan.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\VerifiedDX11\xrRender_Vulkan.lib
+    OK
+>>> Building xrEngine...
+
+  Ensuring LuaJIT generated files exist
+  libvorbis_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbis_static.lib
+  libtheora_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libtheora_static.lib
+  [LuaJIT] Determine DynASM path and if platform is x64
+  [LuaJIT] Platform is x64, set -D P64
+  [LuaJIT] Running DynASM to generate host\buildvm_arch.h
+  libogg_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libogg_static.lib
+  ReShadeCompat.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\ReShadeCompat.lib
+  libvorbisfile_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbisfile_static.lib
+  [LuaJIT] Generating lj_vm.obj and headers
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+  [LuaJIT] Generation complete
+  imgui.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\imgui.lib
+  lib_base.c
+  lib_bit.c
+  lib_debug.c
+  lib_ffi.c
+  lib_io.c
+  lib_jit.c
+  lib_math.c
+  lib_os.c
+  lib_string.c
+  lib_table.c
+  lj_bc.c
+  lj_crecord.c
+  lj_dispatch.c
+  lj_err.c
+  lj_ffrecord.c
+  lj_opt_fold.c
+  lj_record.c
+lj_vm.obj : warning LNK4042: object specified more than once; extras ignored [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\luajit-2\src\luajit.vcxproj]
+  luajit.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\lua51.lib
+  stdafx.cpp
+  achievement_manager.cpp
+  activity_manager.cpp
+  application_manager.cpp
+  core.cpp
+  image_manager.cpp
+  lobby_manager.cpp
+  network_manager.cpp
+  overlay_manager.cpp
+  relationship_manager.cpp
+  storage_manager.cpp
+  store_manager.cpp
+  types.cpp
+  user_manager.cpp
+  voice_manager.cpp
+  ai_script_lua_debug.cpp
+  ai_script_lua_extension.cpp
+  bone.cpp
+  CameraBase.cpp
+  CameraManager.cpp
+  cf_dynamic_mesh.cpp
+  CustomHUD.cpp
+  defines.cpp
+  device.cpp
+  Device_create.cpp
+  Device_destroy.cpp
+  Device_Initialize.cpp
+  Device_Misc.cpp
+  Device_overdraw.cpp
+  Device_wndproc.cpp
+  edit_actions.cpp
+  Effector.cpp
+  EffectorPP.cpp
+  Engine.cpp
+  EngineAPI.cpp
+  Envelope.cpp
+  Environment.cpp
+  Environment_misc.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/cf_dynamic_mesh.cpp')
+  
+  Environment_render.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(116,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(121,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(169,52): warning C4995: 'malloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(207,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(296,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(308,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(338,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(356,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  EventAPI.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(392,44): warning C4995: 'strcmp': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(392,80): warning C4995: 'strcmp': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(420,22): warning C4995: 'strcmp': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(528,27): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(530,43): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(554,21): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  FDemoPlay.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(563,47): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(595,21): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(604,47): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  FDemoRecord.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\Envelope.cpp(244,25): warning C4477: 'sscanf' : format string '%d' requires an argument of type 'int *', but variadic argument 1 has type 'int' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Envelope.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\Envelope.cpp(244,25): warning C4477: 'sscanf' : format string '%d' requires an argument of type 'int *', but variadic argument 2 has type 'int' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Envelope.cpp')
+  
+  Feel_Touch.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2549,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2552,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2824,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2829,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2971,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2974,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(3172,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(3175,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocbuf(360,46): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(76,47): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(202,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(203,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(204,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1321,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1330,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1339,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1348,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1362,39): warning C4995: 'fabs': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1372,54): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1399,54): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1411,69): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(219,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(220,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(221,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(222,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(674,34): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  Feel_Vision.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xloctime(615,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  fmesh.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xloctime(616,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xloctime(617,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  GameFont.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\locale(69,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/edit_actions.cpp')
+  
+  GameMtlLib.cpp
+  GameMtlLib_Engine.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Touch.cpp')
+  
+  ICollidable.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Feel_Vision.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/FDemoRecord.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(116,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(121,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(169,52): warning C4995: 'malloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(207,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(296,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(308,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(338,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocinfo(356,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(392,44): warning C4995: 'strcmp': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(392,80): warning C4995: 'strcmp': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+  IGame_Level.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(420,22): warning C4995: 'strcmp': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(528,27): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(530,43): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(554,21): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(563,47): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(595,21): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(604,47): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+  IGame_Level_check_textures.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ICollidable.cpp')
+  
+  IGame_ObjectPool.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2549,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2552,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2824,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2829,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2971,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(2974,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(3172,19): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocale(3175,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+  IGame_Persistent.cpp
+  IInputReceiver.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(76,47): warning C4995: 'calloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(202,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(203,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(204,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1321,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1330,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1339,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1348,39): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1362,39): warning C4995: 'fabs': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1372,54): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1399,54): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocnum(1411,69): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+  imgui_base.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\__msvc_ostream.hpp(690,62): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocbuf(360,46): warning C4995: 'strlen': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(219,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(220,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(221,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(222,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+  imgui_base_input.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xlocmon(674,34): warning C4995: 'sprintf_s': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xloctime(615,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xloctime(616,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\xloctime(617,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\locale(69,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(72,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(113,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+  imgui_helper.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(186,3): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\regex(1241,15): warning C4995: 'free': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include\regex(1307,49): warning C4995: 'realloc': name was marked as #pragma deprecated [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/GameMtlLib.cpp')
+  
+  interp.cpp
+  IRenderable.cpp
+  ISheduled.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(306,3): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(338,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(515,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(611,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+  LightAnimLibrary.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(671,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(813,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(823,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(836,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(845,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\device.cpp(857,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/device.cpp')
+  
+  line_editor.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IRenderable.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+  line_edit_control.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_ObjectPool.cpp')
+  
+  mailSlot.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ISheduled.cpp')
+  
+  MbHelpers.cpp
+  motion.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Level.cpp')
+  
+  ObjectAnimator.cpp
+  ObjectDump.cpp
+  perlin.cpp
+  phdebug.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/IGame_Persistent.cpp')
+  
+  PS_instance.cpp
+  pure.cpp
+  pure_relcase.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/ObjectDump.cpp')
+  
+  Rain.cpp
+  Render.cpp
+  SkeletonMotions.cpp
+  StatGraph.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/PS_instance.cpp')
+  
+  Stats.cpp
+  Text_Console.cpp
+  Text_Console_WndProc.cpp
+  thunderbolt.cpp
+  tntQAVI.cpp
+  xrHemisphere.cpp
+  xrImage_Resampler.cpp
+  xrSASH.cpp
+  xrSheduler.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ISpatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Stats.cpp')
+  
+  xrTheora_Stream.cpp
+  xrTheora_Surface.cpp
+  xrTheora_Surface_mmx.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xrSheduler.cpp')
+  
+  xr_collide_form.cpp
+  xr_efflensflare.cpp
+  Xr_input.cpp
+  xr_input_xinput.cpp
+  XR_IOConsole.cpp
+  XR_IOConsole_callback.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Rain.cpp')
+  
+  XR_IOConsole_control.cpp
+  XR_IOConsole_get.cpp
+  xr_ioc_cmd.cpp
+  xr_object.cpp
+  xr_object_list.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\Xr_input.cpp(409,8): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Xr_input.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\Xr_input.cpp(413,8): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Xr_input.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\Xr_input.cpp(417,8): warning C4644: usage of the macro-based offsetof pattern in constant expressions is non-standard; use offsetof defined in the C++ standard library instead [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/Xr_input.cpp')
+  
+  x_ray.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/thunderbolt.cpp')
+  
+  _scripting.cpp
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_collide_form.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_efflensflare.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_object_list.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/xr_ioc_cmd.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(151,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(152,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(153,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,9): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrcdb\ispatial.h(154,29): warning C4311: '<function-style-cast>': pointer truncation from 'ISpatial_NODE *' to 'ISpatial_NODE::ptrt' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(335,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(410,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1541,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1587,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1598,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1621,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1646,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1661,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1702,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1754,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\x_ray.cpp(1775,2): warning C4003: not enough arguments for function-like macro invocation 'PROF_EVENT' [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  (compiling source file '/x_ray.cpp')
+  
+     Creating library C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\..\_build\lib\ReleaseR2\AnomalyDX9.lib and object C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\..\_build\lib\ReleaseR2\AnomalyDX9.exp
+  Generating code
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrGame\ui\UIActorMenuInventory.cpp(588): warning C4715: 'CUIActorMenu::current_sort_mode': not all control paths return a value [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrGame\ui\UIPdaWnd.cpp(499): warning C4715: 'CUIPdaWnd::OnKeyboardAction': not all control paths return a value [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrCore\Xr_ini.cpp(769): warning C4715: '<lambda_537e531db150e790009071e6b506c2e9>::operator()': not all control paths return a value [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\sdk\include\jpeg\jcapimin.c(51): warning C4789: in function 'bool __cdecl CxImageJPG::Encode(class CxFile * __ptr64) __ptr64' buffer 'cinfo' of size 504 bytes will be overrun; 520 bytes will be written starting at offset 0 [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  Finished generating code
+  xrEngine.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\AnomalyDX9.exe
+    OK
+
+============================================
+  Build SUCCESS - Vulkan Only!
+============================================
+
+
+Ready to test Vulkan renderer!

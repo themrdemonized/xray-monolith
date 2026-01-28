@@ -1,0 +1,280 @@
+#include "stdafx.h"
+#include "vk_rendertarget.h"
+#include "HW_Vulkan.h"
+#include "vk_R_Backend.h"
+#include "vk_shaders.h"
+#include "vk_pipeline.h"
+#include "vk_swapchain.h"
+#include "rvk.h"
+
+namespace VK
+{
+
+// ============================================================================
+// phase_forward() - Forward Rendering Pass
+// ============================================================================
+//
+// Phase 2.19: Forward Pass
+//
+// Forward pass рендерит прозрачные объекты, частицы и эффекты которые
+// не подходят для deferred rendering (требуют alpha blending).
+//
+// Process:
+// 1. Render to swapchain (после combine pass)
+// 2. Use G-Buffer depth (read-only) для correct occlusion
+// 3. Alpha blending enabled
+// 4. Back-to-front sorting для transparency
+// 5. Per-object lighting (directional + N closest point lights)
+//
+// Differences from Deferred:
+// - Alpha blending support
+// - Multiple materials per pixel
+// - Per-object lighting (not screen-space)
+// - Higher cost (O(objects * lights) vs O(pixels))
+//
+// ============================================================================
+
+void CRenderTarget::phase_forward()
+{
+
+	VkCommandBuffer cmd = RCache.GetCommandBuffer();
+
+	// ========================================================================
+	// Step 1: Get current swapchain image
+	// ========================================================================
+	// Forward pass рендерит поверх combine pass result
+	VkImage swapchainImage = Swapchain.GetCurrentImage();
+	VkImageView swapchainView = Swapchain.GetCurrentImageView();
+	u32 swapWidth = Swapchain.GetWidth();
+	u32 swapHeight = Swapchain.GetHeight();
+
+	if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE) {
+		Msg("![Vulkan] phase_forward: Invalid swapchain image");
+		return;
+	}
+
+	// ========================================================================
+	// Step 2: Check if we have transparent objects to render
+	// ========================================================================
+	// TODO Phase 2.19.2: Implement transparent object list + sorting
+	//
+	// For now: skip if no transparent objects
+	// В будущем:
+	// - Собрать список transparent visuals
+	// - Отсортировать back-to-front (по distance to camera)
+	// - Render в правильном порядке
+
+	// Placeholder: check if we have transparent geometry
+	bool hasTransparentObjects = false;  // TODO: Replace with actual check
+
+	if (!hasTransparentObjects) {
+		return;
+	}
+
+	// ========================================================================
+	// Step 3: Transition swapchain to COLOR_ATTACHMENT_OPTIMAL
+	// ========================================================================
+	// Swapchain уже в PRESENT_SRC_KHR после combine pass
+	// Нужно вернуть в COLOR_ATTACHMENT_OPTIMAL для forward rendering
+
+	VkImageMemoryBarrier colorBarrier = {};
+	colorBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	colorBarrier.srcAccessMask = 0;  // Previous presentation
+	colorBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	colorBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	colorBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	colorBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	colorBarrier.image = swapchainImage;
+	colorBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	colorBarrier.subresourceRange.baseMipLevel = 0;
+	colorBarrier.subresourceRange.levelCount = 1;
+	colorBarrier.subresourceRange.baseArrayLayer = 0;
+	colorBarrier.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(cmd,
+	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	                     0, 0, nullptr, 0, nullptr, 1, &colorBarrier);
+
+	// ========================================================================
+	// Step 4: Transition depth buffer to READ-ONLY
+	// ========================================================================
+	// rt_ZBuffer используется только для depth testing (not writing)
+	// G-Buffer pass записал depth, forward pass только читает
+
+	VkImageMemoryBarrier depthBarrier = {};
+	depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	depthBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	depthBarrier.image = rt_ZBuffer.m_Image;
+	depthBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	depthBarrier.subresourceRange.baseMipLevel = 0;
+	depthBarrier.subresourceRange.levelCount = 1;
+	depthBarrier.subresourceRange.baseArrayLayer = 0;
+	depthBarrier.subresourceRange.layerCount = 1;
+
+	vkCmdPipelineBarrier(cmd,
+	                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+	                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+	                     0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+
+	// ========================================================================
+	// Step 5: Begin rendering to swapchain (с depth buffer)
+	// ========================================================================
+	VkRenderingAttachmentInfo colorAttachment = {};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.imageView = swapchainView;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;  // Preserve combine pass result!
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	VkRenderingAttachmentInfo depthAttachment = {};
+	depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	depthAttachment.imageView = rt_ZBuffer.m_ImageView;
+	depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;  // Preserve G-Buffer depth!
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	VkRenderingInfo renderingInfo = {};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.renderArea.offset = {0, 0};
+	renderingInfo.renderArea.extent = {swapWidth, swapHeight};
+	renderingInfo.layerCount = 1;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = &depthAttachment;
+
+	vkCmdBeginRendering(cmd, &renderingInfo);
+
+	// ========================================================================
+	// Step 6: Setup viewport and scissor
+	// ========================================================================
+	VkViewport viewport = {};
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = (float)swapWidth;
+	viewport.height = (float)swapHeight;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+	VkRect2D scissor = {};
+	scissor.offset = {0, 0};
+	scissor.extent = {swapWidth, swapHeight};
+	vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+	// ========================================================================
+	// Step 7: Load forward shaders
+	// ========================================================================
+	VkShaderModule vertShader = g_ShaderManager->Load("forward.vert.spv");
+	VkShaderModule fragShader = g_ShaderManager->Load("forward.frag.spv");
+
+	if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE) {
+		Msg("![Vulkan] Failed to load forward shaders");
+		vkCmdEndRendering(cmd);
+		return;
+	}
+
+	// ========================================================================
+	// Step 8: Create forward pipeline (alpha blending + depth test)
+	// ========================================================================
+	PipelineConfig config = {};
+	config.vertShader = vertShader;
+	config.fragShader = fragShader;
+	config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	config.cullMode = VK_CULL_MODE_BACK_BIT;  // Cull back faces
+
+	// Depth testing (read-only)
+	config.depthTest = true;
+	config.depthWrite = false;  // Don't write depth (read-only)
+	config.depthCompare = VK_COMPARE_OP_LESS_OR_EQUAL;
+
+	// Alpha blending
+	config.blendEnable = true;
+	config.srcColorBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+	config.dstColorBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	config.srcAlphaBlend = VK_BLEND_FACTOR_ONE;
+	config.dstAlphaBlend = VK_BLEND_FACTOR_ZERO;
+
+	// Render targets
+	config.colorAttachmentCount = 1;
+	config.colorFormats[0] = Swapchain.GetFormat();  // Swapchain
+	config.depthFormat = VK_FORMAT_D32_SFLOAT;          // rt_ZBuffer
+
+	VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
+	if (pipeline == VK_NULL_HANDLE) {
+		Msg("![Vulkan] Failed to create forward pipeline");
+		vkCmdEndRendering(cmd);
+		return;
+	}
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+	// ========================================================================
+	// Step 9: Render transparent objects
+	// ========================================================================
+	// TODO Phase 2.19.2: Implement transparent object rendering
+	//
+	// Pseudocode:
+	// for (auto& obj : sorted_transparent_objects) {
+	//     // Setup transform matrices
+	//     RCache.set_xform_world(obj.transform);
+	//     RCache.set_xform_view(Device.mView);
+	//     RCache.set_xform_project(Device.mProject);
+	//
+	//     // Setup material (textures, colors)
+	//     BindMaterial(obj.material);
+	//
+	//     // Setup lighting (sun + N closest point lights)
+	//     UpdateLightingUniforms(obj.position);
+	//
+	//     // Push constants
+	//     PushConstants(mvp, lighting, material);
+	//
+	//     // Draw
+	//     obj.visual->Render(1.0f);
+	// }
+
+	// TODO: render transparent objects here
+
+	// ========================================================================
+	// Step 10: End rendering
+	// ========================================================================
+	vkCmdEndRendering(cmd);
+
+	// ========================================================================
+	// Step 11: Transition swapchain back to PRESENT_SRC
+	// ========================================================================
+	colorBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	colorBarrier.dstAccessMask = 0;
+	colorBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	colorBarrier.image = swapchainImage;
+
+	vkCmdPipelineBarrier(cmd,
+	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	                     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+	                     0, 0, nullptr, 0, nullptr, 1, &colorBarrier);
+
+	// ========================================================================
+	// Step 12: Transition depth buffer back to ATTACHMENT_OPTIMAL
+	// ========================================================================
+	depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	depthBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depthBarrier.image = rt_ZBuffer.m_Image;
+
+	vkCmdPipelineBarrier(cmd,
+	                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+	                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+	                     0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+
+}
+
+} // namespace VK
