@@ -22,6 +22,26 @@ _G.printf_me = function(s, ...)
 	printf("[Modded Exes] " .. s, ...)
 end
 
+_G.convert_class_name = function(obj)
+	if obj then
+		local name = class_info(obj).name
+
+		if name == "game_object" then
+			return "client"
+		else
+			return "server"
+		end
+	else
+		return "nil"
+	end
+end
+
+-- используетс€ дл€ вы€влени€ сигнатур функций которые заложены в xr_conditions
+_G.printf_xrscript = function(fmt, ...)
+	log(debug.traceback(1))
+	printf(fmt, ...)
+end
+
 -- UTILS
 -- str_explode with limit on items to split
 -- n is the amount of times to split

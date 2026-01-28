@@ -27,8 +27,6 @@
 
 #include <type_traits>
 
-#include <fast_dynamic_cast/fast_dynamic_cast.hpp>
-
 namespace luabind {
     template<class T>
     T* get_pointer(T& ref)
@@ -43,12 +41,12 @@ namespace luabind {
     {     
        static wrap_base const* extract(T const* ptr)
         {
-            return fast_dynamic_cast<wrap_base const*>(get_pointer(*ptr));
+            return dynamic_cast<wrap_base const*>(get_pointer(*ptr));
         }
 
         static wrap_base* extract(T* ptr)
         {
-            return fast_dynamic_cast<wrap_base*>(get_pointer(*ptr));
+            return dynamic_cast<wrap_base*>(get_pointer(*ptr));
         }
     };
 

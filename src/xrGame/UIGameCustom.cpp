@@ -375,7 +375,7 @@ void CMapListHelper::LoadMapInfo(const char* cfgName, const xr_string& levelName
 	{
 		if (levelCfg.line_exist("map_usage", "ver") && !levelVer)
 			shLevelVer = levelCfg.r_string("map_usage", "ver");
-		for (CInifile::Item& kv : levelCfg.r_section("map_usage").Data)
+		for (const CInifile::Item& kv : levelCfg.r_section("map_usage").Data)
 		{
 			const shared_str& gameType = kv.first;
 			if (gameType == "ver")
@@ -417,7 +417,7 @@ void CMapListHelper::Load()
 	//read weathers set
 	CInifile::Sect weatherCfg = maplistCfg.r_section("weather");
 	m_weathers.reserve(weatherCfg.Data.size());
-	for (CInifile::Item& weatherDesc : weatherCfg.Data)
+	for (const CInifile::Item& weatherDesc : weatherCfg.Data)
 	{
 		MPWeatherDesc gw;
 		gw.Name = weatherDesc.first;

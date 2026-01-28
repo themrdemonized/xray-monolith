@@ -33,6 +33,26 @@
 		<text>Визуал</text>
 	</string>
 
+	<!-- Graphics -->
+	<string id="ui_mm_menu_graphics">
+		<text>Графика</text>
+	</string>
+	<string id="ui_mm_graphics_modded_exes">
+		<text>Графика</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_x">
+		<text>Тени травы кол-во каскадов</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_y">
+		<text>Тени травы расстояние убавления</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_z">
+		<text>Тени травы расстояние рендера</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_w">
+		<text>Не используется</text>
+	</string>
+
 	<!-- UI/HUD -->
 
 	<string id="ui_mm_menu_ui_hud">
@@ -846,10 +866,23 @@
 	<string id="ui_mm_optimizations_modded_exes">
 		<text>Оптимизации</text>
 	</string>
-	
-	<string id="ui_mm_modded_exes_optimizations_mt_update_weapon_sounds">
-		<text>Обновлять звуки оружия в отдельном потоке (mt_update_weapon_sounds)</text>
+
+	<string id="ui_mm_modded_exes_optimizations_r2_mt">
+		<text>Многопоточные тесты видимости и рендеринг травы (r2_mt)</text>
 	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_bullets">
+		<text>Многопоточные вычисления пуль (mt_bullets)</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_particles">
+		<text>Многопоточные партикли (mt_particles)</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_scheduler">
+		<text>Многопоточный планировщик (mt_scheduler)</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_update_weapon_sounds">
+		<text>Многопоточное обновление звуков оружия (mt_update_weapon_sounds)</text>
+	</string>
+	
 	<string id="ui_mm_modded_exes_optimizations_spawn_antifreeze">
 		<text>Меньше фризов при спавне (spawn_antifreeze)</text>
 	</string>
@@ -877,6 +910,9 @@
 	</string>
 	<string id="ui_mm_modded_exes_optimizations_spawn_antifreeze_batch_desc">
 		<text>Кол-во спавн событий которые будут выполнены каждый фрейм</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_lua_use_functor_cache">
+		<text>Lua кэшировать функции на стороне движка (lua_use_functor_cache)</text>
 	</string>	
 	<string id="ui_mm_modded_exes_optimizations_lua_gcstep">
 		<text>Lua шаг сборщика мусора (lua_gcstep)</text>

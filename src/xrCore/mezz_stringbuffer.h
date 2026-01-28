@@ -29,6 +29,7 @@ std::vector<std::string> splitStringLimit(const std::string& inputString, std::s
 std::string getFilename(std::string& s);
 void printIniItemLine(const CInifile::Item& s);
 void trim(std::string& s, const char* t = " \t\n\r\f\v");
+void trim(xr_string& s, const char* t = " \t\n\r\f\v");
 std::string trimCopy(std::string s, const char* t = " \t\n\r\f\v");
 void toLowerCase(std::string& s);
 std::string toLowerCaseCopy(std::string s);

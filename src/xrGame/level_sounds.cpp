@@ -192,13 +192,19 @@ void CLevelSoundManager::Load()
 				CInifile::Sect& S = gameLtx.r_section(music_sect);
 				std::random_device rd;
 				std::mt19937 g(rd());
-				std::shuffle(S.Data.begin(), S.Data.end(), g);
-				CInifile::SectCIt it = S.Data.begin(), end = S.Data.end();
-				m_MusicTracks.reserve(S.Data.size());
-				for (; it != end; it++)
+
+				// copy set into vector, shuffle vector (set iterators are not random-access)
+				CInifile::ItemsVec items;
+				items.reserve(S.Data.size());
+				for (const auto& entry : S.Data)
+					items.push_back(entry);
+				std::shuffle(items.begin(), items.end(), g);
+
+				m_MusicTracks.reserve(items.size());
+				for (const auto& entry : items)
 				{
-					m_MusicTracks.push_back(SMusicTrack());
-					m_MusicTracks.back().Load(*it->first, *it->second);
+					m_MusicTracks.emplace_back();
+					m_MusicTracks.back().Load(*entry.first, *entry.second);
 				}
 			}
 		}

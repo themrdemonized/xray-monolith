@@ -33,6 +33,26 @@
 		<text>Visual</text>
 	</string>
 
+	<!-- Graphics -->
+	<string id="ui_mm_menu_graphics">
+		<text>Graphics</text>
+	</string>
+	<string id="ui_mm_graphics_modded_exes">
+		<text>Graphics</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_x">
+		<text>Grass shadows Cascades</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_y">
+		<text>Grass shadows Fade Distance</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_z">
+		<text>Grass shadows Rendering Distance</text>
+	</string>
+	<string id="ui_mm_ssfx_grass_shadows_w">
+		<text>Unused</text>
+	</string>
+
 	<!-- UI/HUD -->
 
 	<string id="ui_mm_menu_ui_hud">
@@ -849,9 +869,22 @@
 		<text>Optimizations</text>
 	</string>
 	
-	<string id="ui_mm_modded_exes_optimizations_mt_update_weapon_sounds">
-		<text>Update weapon sounds on separate thread (mt_update_weapon_sounds)</text>
+	<string id="ui_mm_modded_exes_optimizations_r2_mt">
+		<text>Multithreaded visibility tests and grass rendering (r2_mt)</text>
 	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_bullets">
+		<text>Multithreaded bullets calculations (mt_bullets)</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_particles">
+		<text>Multithreaded particles (mt_particles)</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_scheduler">
+		<text>Multithreaded scheduler (mt_scheduler)</text>
+	</string>
+	<string id="ui_mm_modded_exes_optimizations_mt_update_weapon_sounds">
+		<text>Multithreaded weapon sounds updates (mt_update_weapon_sounds)</text>
+	</string>
+
 	<string id="ui_mm_modded_exes_optimizations_spawn_antifreeze">
 		<text>Spawn antifreeze (spawn_antifreeze)</text>
 	</string>
@@ -881,9 +914,14 @@
 	<string id="ui_mm_modded_exes_optimizations_spawn_antifreeze_batch_desc">
 		<text>Amount of spawn events to process each frame</text>
 	</string>
+
+	<string id="ui_mm_modded_exes_optimizations_lua_use_functor_cache">
+		<text>Lua cache function objects on the engine side (lua_use_functor_cache)</text>
+	</string>
 	<string id="ui_mm_modded_exes_optimizations_lua_gcstep">
 		<text>Lua Garbage Collection Step (lua_gcstep)</text>
 	</string>
+
 	<string id="ui_mm_modded_exes_optimizations_mouse_buffer_size">
 		<text>Mouse Input Buffer Size (mouse_buffer_size)</text>
 	</string>

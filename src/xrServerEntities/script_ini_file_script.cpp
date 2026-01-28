@@ -123,6 +123,11 @@ int get_modded_exes_version() {
 	return result;
 }
 
+LPCSTR get_modded_exes_name() {
+	shared_str result = "Modded Exes";
+	return result.c_str();
+}
+
 // demonized: get modded exes version
 xr_string get_modded_exes_version_string() {
 	std::string s = std::to_string(get_modded_exes_version());
@@ -215,6 +220,7 @@ void CScriptIniFile::script_register(lua_State* L)
 
 		// demonized: get modded exes version
 		def("get_modded_exes_version", &get_modded_exes_version),
+		def("get_modded_exes_name", &get_modded_exes_name),
 
 		// demonized: get translation strings table
 		def("get_string_table", &get_string_table)
