@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -271,6 +271,7 @@ Global
 		Release-AVX|x64 = Release-AVX|x64
 		Verified|x64 = Verified|x64
 		VerifiedDX11|x64 = VerifiedDX11|x64
+		Vulkan|x64 = Vulkan|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{2578C6D8-660D-48AE-9322-7422F8664F06}.DX10|x64.ActiveCfg = ReleaseR3|x64
@@ -1035,9 +1036,68 @@ Global
 		{8FDD9DAC-8E9F-677E-C93A-81986A581F89}.Verified|x64.Build.0 = Verified|x64
 		{8FDD9DAC-8E9F-677E-C93A-81986A581F89}.VerifiedDX11|x64.ActiveCfg = Verified|x64
 		{8FDD9DAC-8E9F-677E-C93A-81986A581F89}.VerifiedDX11|x64.Build.0 = Verified|x64
+		{0EB257DC-5CFC-44B0-82C9-CE6B158BE473}.Vulkan|x64.ActiveCfg = Release|x64
+		{0EB257DC-5CFC-44B0-82C9-CE6B158BE473}.Vulkan|x64.Build.0 = Release|x64
+		{CEBDE98B-A6AA-46E6-BC79-FAAF823DB9EC}.Vulkan|x64.ActiveCfg = Release|x64
+		{CEBDE98B-A6AA-46E6-BC79-FAAF823DB9EC}.Vulkan|x64.Build.0 = Release|x64
+		{2578C6D8-660D-48AE-9322-7422F8664F06}.Vulkan|x64.ActiveCfg = ReleaseVulkan|x64
+		{2578C6D8-660D-48AE-9322-7422F8664F06}.Vulkan|x64.Build.0 = ReleaseVulkan|x64
+		{3A214E06-B95E-4D61-A291-1F8DF2EC10FD}.Vulkan|x64.ActiveCfg = Release|x64
+		{3A214E06-B95E-4D61-A291-1F8DF2EC10FD}.Vulkan|x64.Build.0 = Release|x64
+		{94A1C366-3D19-48E6-8170-4ADC2E70DF97}.Vulkan|x64.ActiveCfg = Release|x64
+		{94A1C366-3D19-48E6-8170-4ADC2E70DF97}.Vulkan|x64.Build.0 = Release|x64
+		{4DDC8F7A-3B57-4250-9404-D2EE1991BE78}.Vulkan|x64.ActiveCfg = Release|x64
+		{4DDC8F7A-3B57-4250-9404-D2EE1991BE78}.Vulkan|x64.Build.0 = Release|x64
+		{938C5808-85A1-4B5A-8CB4-D2D9D7851CB8}.Vulkan|x64.ActiveCfg = Release|x64
+		{938C5808-85A1-4B5A-8CB4-D2D9D7851CB8}.Vulkan|x64.Build.0 = Release|x64
+		{10D13331-3282-43F9-BEA0-150D80388B52}.Vulkan|x64.ActiveCfg = Release|x64
+		{10D13331-3282-43F9-BEA0-150D80388B52}.Vulkan|x64.Build.0 = Release|x64
+		{9646DBF8-1A5E-41F0-9328-F65910706666}.Vulkan|x64.ActiveCfg = Release|x64
+		{9646DBF8-1A5E-41F0-9328-F65910706666}.Vulkan|x64.Build.0 = Release|x64
+		{CA0649DD-D089-423A-981C-46B57A884EB9}.Vulkan|x64.ActiveCfg = Release|x64
+		{CA0649DD-D089-423A-981C-46B57A884EB9}.Vulkan|x64.Build.0 = Release|x64
+		{D0843040-7706-4FBF-A931-582748BAFBB1}.Vulkan|x64.ActiveCfg = Release|x64
+		{D0843040-7706-4FBF-A931-582748BAFBB1}.Vulkan|x64.Build.0 = Release|x64
+		{772FE450-F4F3-4687-A2A7-5624825089D7}.Vulkan|x64.ActiveCfg = Release|x64
+		{772FE450-F4F3-4687-A2A7-5624825089D7}.Vulkan|x64.Build.0 = Release|x64
+		{44F716E7-05BD-4390-AB02-5F7DAF7FEFDE}.Vulkan|x64.ActiveCfg = Release|x64
+		{44F716E7-05BD-4390-AB02-5F7DAF7FEFDE}.Vulkan|x64.Build.0 = Release|x64
+		{200652A6-043E-4634-8837-87983B3BD5E0}.Vulkan|x64.ActiveCfg = Release|x64
+		{200652A6-043E-4634-8837-87983B3BD5E0}.Vulkan|x64.Build.0 = Release|x64
+		{A0F7D1FB-59A7-4717-A7E4-96F37E91998E}.Vulkan|x64.ActiveCfg = Release|x64
+		{A0F7D1FB-59A7-4717-A7E4-96F37E91998E}.Vulkan|x64.Build.0 = Release|x64
+		{FA169092-EA3E-40C1-8E5A-A2B575700FE8}.Vulkan|x64.ActiveCfg = Release|x64
+		{FA169092-EA3E-40C1-8E5A-A2B575700FE8}.Vulkan|x64.Build.0 = Release|x64
+		{98D24A3D-7666-4C11-9D6E-B10393CE8CBA}.Vulkan|x64.ActiveCfg = Release|x64
+		{98D24A3D-7666-4C11-9D6E-B10393CE8CBA}.Vulkan|x64.Build.0 = Release|x64
+		{8FDD9DAC-8E9F-677E-C93A-81986A581F89}.Vulkan|x64.ActiveCfg = Release|x64
+		{8FDD9DAC-8E9F-677E-C93A-81986A581F89}.Vulkan|x64.Build.0 = Release|x64
+		{9665A224-850E-4740-9886-918960857777}.Vulkan|x64.ActiveCfg = Vulkan|x64
+		{9665A224-850E-4740-9886-918960857777}.Vulkan|x64.Build.0 = Vulkan|x64
+		{880CD250-BA77-4DAF-A8D4-552F12DD3AE4}.Vulkan|x64.ActiveCfg = Release|x64
+		{880CD250-BA77-4DAF-A8D4-552F12DD3AE4}.Vulkan|x64.Build.0 = Release|x64
+		{893887A1-3ABF-40A0-B931-CD0867010785}.Vulkan|x64.ActiveCfg = Release|x64
+		{893887A1-3ABF-40A0-B931-CD0867010785}.Vulkan|x64.Build.0 = Release|x64
+		{0BDF3377-F84E-4B42-A605-B45AAA244CB6}.Vulkan|x64.ActiveCfg = Release|x64
+		{0BDF3377-F84E-4B42-A605-B45AAA244CB6}.Vulkan|x64.Build.0 = Release|x64
+		{CCCA7859-EB86-493E-9B53-C4235F45B3C5}.Vulkan|x64.ActiveCfg = Release|x64
+		{CCCA7859-EB86-493E-9B53-C4235F45B3C5}.Vulkan|x64.Build.0 = Release|x64
+		{1BF75FEB-87DD-486C-880B-227987D191C2}.Vulkan|x64.ActiveCfg = Release|x64
+		{1BF75FEB-87DD-486C-880B-227987D191C2}.Vulkan|x64.Build.0 = Release|x64
+		{632AEEB6-DC06-4E15-9551-B2B09A4B73C5}.Vulkan|x64.ActiveCfg = Release|x64
+		{632AEEB6-DC06-4E15-9551-B2B09A4B73C5}.Vulkan|x64.Build.0 = Release|x64
+		{A19B1DF2-82EC-4364-8BDF-85D13A1C89B5}.Vulkan|x64.ActiveCfg = Release|x64
+		{A19B1DF2-82EC-4364-8BDF-85D13A1C89B5}.Vulkan|x64.Build.0 = Release|x64
+		{94A1C366-3D19-48E6-8170-4ADC2E70DF98}.Vulkan|x64.ActiveCfg = Release|x64
+		{94A1C366-3D19-48E6-8170-4ADC2E70DF98}.Vulkan|x64.Build.0 = Release|x64
+		{435BAC9A-B225-457D-AB40-C9BD0CC8838C}.Vulkan|x64.ActiveCfg = Release|x64
+		{435BAC9A-B225-457D-AB40-C9BD0CC8838C}.Vulkan|x64.Build.0 = Release|x64
+		{1DAEC516-E52C-4A3C-A4DA-AE3553E6E0F8}.Vulkan|x64.ActiveCfg = Release|x64
+		{1DAEC516-E52C-4A3C-A4DA-AE3553E6E0F8}.Vulkan|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1BF75FEB-87DD-486C-880B-227987D191C2} = {2BFC806B-CE92-4EA4-8FE8-5F2EA54BA348}

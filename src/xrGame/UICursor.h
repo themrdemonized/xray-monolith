@@ -2,6 +2,7 @@
 
 #include "ui_base.h"
 class CUIStatic;
+class CUIAnimatedStatic;
 
 class CUICursor : public pureRender,
                   public pureScreenResolutionChanged
@@ -10,7 +11,7 @@ class CUICursor : public pureRender,
 	Fvector2 vPos;
 	Fvector2 vPrevPos;
 	bool m_b_use_win_cursor;
-	CUIStatic* m_static;
+	CUIAnimatedStatic* m_static;
 	void InitInternal();
 public:
 	CUICursor();

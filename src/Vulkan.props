@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vulkan build configuration properties -->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="UserMacros">
+    <!-- Vulkan SDK path - can be overridden via environment variable -->
+    <VulkanSdkPath Condition="'$(VULKAN_SDK)' != ''">$(VULKAN_SDK)</VulkanSdkPath>
+    <VulkanSdkPath Condition="'$(VULKAN_SDK)' == ''">C:\VulkanSDK\1.4.335.0</VulkanSdkPath>
+
+    <!-- VMA (Vulkan Memory Allocator) path -->
+    <VmaPath>$(SolutionDir)3rd party\vma</VmaPath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Output names for Vulkan builds -->
+    <VulkanTargetName>AnomalyVulkan</VulkanTargetName>
+    <VulkanTargetNameAVX>AnomalyVulkanAVX</VulkanTargetNameAVX>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <!-- Vulkan-specific include directories -->
+      <AdditionalIncludeDirectories>$(VulkanSdkPath)\Include;$(VmaPath);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- Vulkan preprocessor definitions -->
+      <PreprocessorDefinitions>STATIC_RENDERER_VULKAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <!-- Vulkan library directories -->
+      <AdditionalLibraryDirectories>$(VulkanSdkPath)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <!-- Vulkan libraries -->
+      <AdditionalDependencies>xrRender_Vulkan.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

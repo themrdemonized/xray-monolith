@@ -105,11 +105,53 @@ public:
 // ============================================================================
 // Global UI Texture Cache - Struct must be defined before vkUIShader
 // ============================================================================
-struct UITextureCacheEntry
+struct UITextureFrame
 {
 	VK::CVulkanTexture texture;
 	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+};
+
+struct UITextureCacheEntry
+{
+	// Single texture mode (non-animated)
+	VK::CVulkanTexture texture;
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+	// Sequence animation mode
+	xr_vector<UITextureFrame*> seqFrames;
+	u32 seqMSPF = 0;  // Milliseconds per frame
+	bool seqCyclic = true;
+
 	int refCount = 0;  // Number of UIShaders using this texture
+
+	bool IsSequence() const { return !seqFrames.empty(); }
+
+	VkDescriptorSet GetCurrentDescriptorSet() const
+	{
+		if (!IsSequence())
+			return descriptorSet;
+
+		if (seqFrames.empty() || seqMSPF == 0)
+			return descriptorSet;
+
+		// Calculate current frame based on time
+		u32 time = Device.dwTimeContinual;
+		u32 totalDuration = seqMSPF * (u32)seqFrames.size();
+		u32 cycleTime = time % totalDuration;
+		u32 frameIndex = cycleTime / seqMSPF;
+
+		if (frameIndex >= seqFrames.size())
+			frameIndex = (u32)seqFrames.size() - 1;
+
+		return seqFrames[frameIndex]->descriptorSet;
+	}
+
+	~UITextureCacheEntry()
+	{
+		for (auto* frame : seqFrames)
+			xr_delete(frame);
+		seqFrames.clear();
+	}
 };
 
 static xr_map<xr_string, UITextureCacheEntry*> g_UITextureCache;
@@ -184,8 +226,9 @@ public:
 	VkDescriptorSet GetDescriptorSet() override
 	{
 		// Return descriptor set from cache if available
+		// For sequences, this returns the current animated frame
 		if (m_pCacheEntry) {
-			return m_pCacheEntry->descriptorSet;
+			return m_pCacheEntry->GetCurrentDescriptorSet();
 		}
 		return VK_NULL_HANDLE;
 	}
@@ -209,11 +252,19 @@ private:
 		m_pCacheEntry = UITextureCache_LoadAndCache(m_TextureName);
 
 		if (m_pCacheEntry) {
-			// Cache texture dimensions from the shared texture
-			m_TextureWidth = m_pCacheEntry->texture.GetWidth();
-			m_TextureHeight = m_pCacheEntry->texture.GetHeight();
-			Msg("[Vulkan UI] Using cached texture: %s (%dx%d)",
-				m_TextureName.c_str(), m_TextureWidth, m_TextureHeight);
+			// Cache texture dimensions - for sequences, use first frame dimensions
+			if (m_pCacheEntry->IsSequence() && !m_pCacheEntry->seqFrames.empty()) {
+				m_TextureWidth = m_pCacheEntry->seqFrames[0]->texture.GetWidth();
+				m_TextureHeight = m_pCacheEntry->seqFrames[0]->texture.GetHeight();
+				Msg("[Vulkan UI] Using cached sequence: %s (%dx%d, %d frames)",
+					m_TextureName.c_str(), m_TextureWidth, m_TextureHeight,
+					(int)m_pCacheEntry->seqFrames.size());
+			} else {
+				m_TextureWidth = m_pCacheEntry->texture.GetWidth();
+				m_TextureHeight = m_pCacheEntry->texture.GetHeight();
+				Msg("[Vulkan UI] Using cached texture: %s (%dx%d)",
+					m_TextureName.c_str(), m_TextureWidth, m_TextureHeight);
+			}
 		}
 	}
 };
@@ -849,10 +900,94 @@ static UITextureCacheEntry* UITextureCache_LoadAndCache(const xr_string& texture
 	bool found = false;
 	xr_string actualName = textureName;
 
-	if (FS.exist(fn, "$game_textures$", textureName.c_str(), ".dds")) {
+	// Create new cache entry
+	UITextureCacheEntry* entry = xr_new<UITextureCacheEntry>();
+
+	// First check for .seq sequence file
+	if (FS.exist(fn, "$game_textures$", textureName.c_str(), ".seq")) {
+		Msg("[Vulkan UI Cache] Found sequence file: %s.seq", textureName.c_str());
+
+		IReader* seqFile = FS.r_open(fn);
+		if (seqFile) {
+			string256 buffer;
+
+			// Read first line - could be "cycled" or FPS number
+			seqFile->r_string(buffer, sizeof(buffer));
+			entry->seqCyclic = false;
+
+			if (0 == stricmp(buffer, "cycled")) {
+				entry->seqCyclic = true;
+				seqFile->r_string(buffer, sizeof(buffer));
+			}
+
+			u32 fps = atoi(buffer);
+			if (fps > 0) {
+				entry->seqMSPF = 1000 / fps;
+				Msg("[Vulkan UI Cache] Sequence FPS: %d (MSPF: %d), cyclic: %s",
+					fps, entry->seqMSPF, entry->seqCyclic ? "yes" : "no");
+			}
+
+			// Read frame texture names
+			VkDescriptorSetLayout layout = VulkanUI_GetDescriptorSetLayout();
+			VkDescriptorPool pool = VulkanUI_GetDescriptorPool();
+
+			while (!seqFile->eof()) {
+				seqFile->r_string(buffer, sizeof(buffer));
+				_Trim(buffer);
+				if (buffer[0]) {
+					string_path frameFn;
+					if (FS.exist(frameFn, "$game_textures$", buffer, ".dds")) {
+						UITextureFrame* frame = xr_new<UITextureFrame>();
+						if (frame->texture.LoadDDS(frameFn)) {
+							// Create descriptor set for this frame
+							if (layout != VK_NULL_HANDLE && pool != VK_NULL_HANDLE) {
+								VkDescriptorSetAllocateInfo allocInfo = {};
+								allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+								allocInfo.descriptorPool = pool;
+								allocInfo.descriptorSetCount = 1;
+								allocInfo.pSetLayouts = &layout;
+
+								if (vkAllocateDescriptorSets(VulkanHW.m_Device, &allocInfo, &frame->descriptorSet) == VK_SUCCESS) {
+									VkDescriptorImageInfo imageInfo = {};
+									imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+									imageInfo.imageView = frame->texture.GetView();
+									imageInfo.sampler = frame->texture.GetSampler();
+
+									VkWriteDescriptorSet write = {};
+									write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+									write.dstSet = frame->descriptorSet;
+									write.dstBinding = 0;
+									write.dstArrayElement = 0;
+									write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+									write.descriptorCount = 1;
+									write.pImageInfo = &imageInfo;
+
+									vkUpdateDescriptorSets(VulkanHW.m_Device, 1, &write, 0, nullptr);
+								}
+							}
+							entry->seqFrames.push_back(frame);
+							Msg("[Vulkan UI Cache] Loaded sequence frame %d: %s", (int)entry->seqFrames.size(), buffer);
+						} else {
+							xr_delete(frame);
+							Msg("! [Vulkan UI Cache] Failed to load sequence frame: %s", buffer);
+						}
+					}
+				}
+			}
+			FS.r_close(seqFile);
+
+			if (!entry->seqFrames.empty()) {
+				found = true;
+				Msg("[Vulkan UI Cache] Sequence loaded: %s (%d frames)", textureName.c_str(), (int)entry->seqFrames.size());
+			}
+		}
+	}
+
+	// If no sequence, try regular texture
+	if (!found && FS.exist(fn, "$game_textures$", textureName.c_str(), ".dds")) {
 		found = true;
-	} else {
-		// Try animated texture fallback (first frame)
+	} else if (!found) {
+		// Try animated texture fallback (first frame only)
 		xr_string firstFrame = textureName + "_01";
 		if (FS.exist(fn, "$game_textures$", firstFrame.c_str(), ".dds")) {
 			found = true;
@@ -863,12 +998,18 @@ static UITextureCacheEntry* UITextureCache_LoadAndCache(const xr_string& texture
 
 	if (!found) {
 		Msg("! [Vulkan UI Cache] Texture not found: %s", textureName.c_str());
+		xr_delete(entry);
 		return nullptr;
 	}
 
-	// Create new cache entry
-	UITextureCacheEntry* entry = xr_new<UITextureCacheEntry>();
+	// If we found a sequence, we're done loading
+	if (entry->IsSequence()) {
+		entry->refCount = 1;
+		g_UITextureCache[textureName] = entry;
+		return entry;
+	}
 
+	// Load single texture
 	if (!entry->texture.LoadDDS(fn)) {
 		Msg("! [Vulkan UI Cache] Failed to load texture: %s", fn);
 		xr_delete(entry);

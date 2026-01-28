@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "uicursor.h"
 
-#include "ui/UIStatic.h"
+#include "ui/UIAnimatedStatic.h"
 #include "ui/UIBtnHint.h"
 #include "xrEngine/IInputReceiver.h"
 
@@ -34,10 +34,23 @@ void CUICursor::OnScreenResolutionChanged()
 
 void CUICursor::InitInternal()
 {
-	m_static = xr_new<CUIStatic>();
+	m_static = xr_new<CUIAnimatedStatic>();
 	m_static->InitTextureEx("ui\\ui_ani_cursor", "hud\\cursor");
+
+	// Animation is now handled by the Vulkan renderer via .seq file
+	// Cursor frames are 64x64 pixels each
+	const float frameWidth = 64.0f;
+	const float frameHeight = 64.0f;
+
+	// CUIAnimatedStatic animation is not used - Vulkan handles .seq animation
+	m_static->SetFramesCount(1);
+	m_static->SetAnimCols(1);
+	m_static->SetFrameDimentions(frameWidth, frameHeight);
+	m_static->SetAnimationDuration(1000);
+	m_static->m_bCyclic = true;
+
 	Frect rect;
-	rect.set(0.0f, 0.0f, 40.0f, 40.0f);
+	rect.set(0.0f, 0.0f, frameWidth, frameHeight);
 	m_static->SetTextureRect(rect);
 	Fvector2 sz;
 	sz.set(rect.rb);
