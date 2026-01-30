@@ -12,8 +12,8 @@
 
 // Implementation of stub symbols required by Skeleton classes
 
-// Stub hardware caps
-CHW_Stub HW;
+// HW is now provided by ../xrRender/HW.h
+// CHW_Stub HW;  // Removed: conflicts with xrRender/HW.h
 
 // Console variables (defined in vk_console.cpp)
 extern int ps_r1_SoftwareSkinning;

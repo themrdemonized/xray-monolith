@@ -38,18 +38,8 @@ extern CRender RImplementation;
 // STEP 8: RCache - global backend instance
 extern CBackend RCache;
 
-// STEP 9: Stub for HW (used by SkeletonX.cpp)
-class CHW_Stub
-{
-public:
-	struct
-	{
-		u32 bSoftware : 1;
-		u32 geometry : 1;  // Geometry shader support
-	} Caps;
-	CHW_Stub() { Caps.bSoftware = 0; Caps.geometry = 1; }
-};
-extern CHW_Stub HW;
+// STEP 9: HW is now provided by ../xrRender/HW.h in stdafx.h
+// No need for local stub anymore
 
 // STEP 10: Console variables (used by Skeleton classes)
 extern int ps_r1_SoftwareSkinning;
