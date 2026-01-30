@@ -10,6 +10,7 @@
 #pragma hdrstop
 
 #include "vk_SkeletonCompat.h"
+#include "vk_Visual.h"  // vkSkeletonX_ST, vkSkeletonX_PM
 #include "rvk.h"  // Full CRender definition for add_SkeletonWallmark
 
 #define FBasicVisualH  // Prevent FBasicVisual.h from being included
@@ -346,12 +347,27 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		for (u16 child_idx = 0; child_idx < (u16)children.size(); child_idx++)
 		{
 			Msg("[Vulkan] CKinematics::Load: AfterLoad child[%u]...", child_idx);
-			LL_GetChild(child_idx)->AfterLoad(this, child_idx);
+			IRenderVisual* V = children[child_idx];
+			if (!V) continue;
+			// Try vkSkeletonX_ST first
+			vkSkeletonX_ST* pST = dynamic_cast<vkSkeletonX_ST*>(V);
+			if (pST) {
+				pST->AfterLoad(this, child_idx);
+				continue;
+			}
+			// Try vkSkeletonX_PM
+			vkSkeletonX_PM* pPM = dynamic_cast<vkSkeletonX_PM*>(V);
+			if (pPM) {
+				pPM->AfterLoad(this, child_idx);
+				continue;
+			}
+			Msg("[Vulkan] CKinematics::Load: child[%u] is not skeleton geometry (type=%u)", child_idx, V ? ((vkRender_Visual*)V)->Type : 0);
 		}
 	}
 	Msg("[Vulkan] CKinematics::Load: AfterLoad done");
 
 	// unique bone faces
+	if (bones)
 	{
 		for (u32 bone_idx = 0; bone_idx < bones->size(); bone_idx++)
 		{
@@ -383,7 +399,7 @@ IRenderVisual* CKinematics::GetVisualByBone(u16 bone_id)
 	{
 		IRenderVisual* child = children[it];
 		CSkeletonX* childSkel = smart_cast<CSkeletonX*>(child);
-		if (childSkel->has_bone_id(bone_id))
+		if (childSkel && childSkel->has_bone_id(bone_id))
 		{
 			return child;
 		}
@@ -464,10 +480,14 @@ void CKinematics::LL_Validate()
 
 void CKinematics::Copy(vkRender_Visual* P)
 {
+	Msg("[Vulkan] CKinematics::Copy ENTER");
+	Msg("[Vulkan] CKinematics::Copy: calling inherited::Copy...");
 	inherited::Copy(P);
+	Msg("[Vulkan] CKinematics::Copy: inherited::Copy done");
 
 	CKinematics* pFrom = fast_dynamic_cast<CKinematics*>(P);
 	VERIFY(pFrom);
+	Msg("[Vulkan] CKinematics::Copy: copying bone data...");
 	pUserData = pFrom->pUserData;
 	bones = pFrom->bones;
 	iRoot = pFrom->iRoot;
@@ -476,14 +496,36 @@ void CKinematics::Copy(vkRender_Visual* P)
 	visimask = pFrom->visimask;
 	hidden_bones = pFrom->hidden_bones;
 
+	Msg("[Vulkan] CKinematics::Copy: IBoneInstances_Create...");
 	IBoneInstances_Create();
+	Msg("[Vulkan] CKinematics::Copy: IBoneInstances_Create done");
 
+	Msg("[Vulkan] CKinematics::Copy: setting parents for %u children...", children.size());
 	for (u32 i = 0; i < children.size(); i++)
-		LL_GetChild(i)->SetParent(this);
+	{
+		CSkeletonX* child = LL_GetChild(i);
+		if (child)
+			child->SetParent(this);
+		else
+		{
+			// Child is not CSkeletonX (e.g. vkSkeletonX_ST inherits differently)
+			// Set parent via vkSkeletonX_ST/PM interface
+			IRenderVisual* V = children[i];
+			if (V)
+			{
+				vkSkeletonX_ST* st = dynamic_cast<vkSkeletonX_ST*>(V);
+				if (st) { st->SetParent(this); continue; }
+				vkSkeletonX_PM* pm = dynamic_cast<vkSkeletonX_PM*>(V);
+				if (pm) { pm->SetParent(this); continue; }
+			}
+		}
+	}
 
 	CalculateBones_Invalidate();
 
+	Msg("[Vulkan] CKinematics::Copy: duplicating LOD (pFrom->m_lod=%p)...", pFrom->m_lod);
 	m_lod = (pFrom->m_lod) ? (vkRender_Visual*)::Render->model_Duplicate(pFrom->m_lod) : 0;
+	Msg("[Vulkan] CKinematics::Copy DONE");
 }
 
 void CKinematics::CalculateBones_Invalidate()
@@ -614,7 +656,7 @@ void CKinematics::Visibility_Update()
 	for (u32 c_it = 0; c_it < children.size(); c_it++)
 	{
 		CSkeletonX* _c = fast_dynamic_cast<CSkeletonX*>(children[c_it]);
-		VERIFY(_c);
+		if (!_c) continue; // Skip non-skeleton children
 		if (!_c->has_visible_bones())
 		{
 			// move into invisible list
@@ -629,7 +671,7 @@ void CKinematics::Visibility_Update()
 	for (u32 _it = 0; _it < children_invisible.size(); _it++)
 	{
 		CSkeletonX* _c = fast_dynamic_cast<CSkeletonX*>(children_invisible[_it]);
-		VERIFY(_c) ;
+		if (!_c) continue; // Skip non-skeleton children
 		if (_c->has_visible_bones())
 		{
 			// move into visible list
