@@ -146,6 +146,39 @@ void vkCWallmarksEngine::static_wm_render(vkCWallmarksEngine::static_wallmark* W
 }
 
 // ============================================================================
+// Skeleton wallmark rendering
+// ============================================================================
+void vkCWallmarksEngine::skeleton_wm_render(intrusive_ptr<CSkeletonWallmark> wm, FVF::LIT*& V)
+{
+    if (!wm || !wm->Parent()) return;
+
+    // Calculate alpha fade based on lifetime
+    float a = wm->TimeEnd() == -1.f ? 0.f : (RDEVICE.fTimeGlobal - wm->TimeStart()) / wm->TimeEnd();
+    int aC = iFloor(a * 255.f);
+    clamp(aC, 0, 255);
+    u32 C = color_rgba(128, 128, 128, aC);
+
+    // Render wallmark through parent skeleton (CKinematics)
+    // This will transform vertices by bone matrices and write to V
+    FVF::LIT* w_save = V;
+    try
+    {
+        wm->Parent()->RenderWallmark(wm, V);
+
+        // Apply alpha to all generated vertices
+        for (FVF::LIT* it = w_save; it != V; it++)
+        {
+            it->color = C;
+        }
+    }
+    catch (...)
+    {
+        Msg("! Failed to render skeleton wallmark");
+        V = w_save;  // Restore pointer on error
+    }
+}
+
+// ============================================================================
 // Geometry generation (CPU) - ported from shared WallmarksEngine.cpp
 // ============================================================================
 void vkCWallmarksEngine::RecurseTri(u32 t, Fmatrix& mView, vkCWallmarksEngine::static_wallmark& W)
@@ -356,7 +389,21 @@ void vkCWallmarksEngine::AddSkeletonWallmark(const Fmatrix* xf, CKinematics* obj
 
 void vkCWallmarksEngine::AddSkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm)
 {
-    // TODO: Skeleton wallmarks not yet implemented for Vulkan
+    if (::RImplementation.phase != CRender::PHASE_NORMAL) return;
+
+    if (!::RImplementation.val_bHUD)
+    {
+        lock.Enter();
+        // Search if similar wallmark exists
+        wm_slot* slot = FindSlot(wm->Shader());
+        if (0 == slot) slot = AppendSlot(wm->Shader());
+        // No similar - register new
+        slot->skeleton_items.push_back(wm);
+#ifdef DEBUG
+        wm->used_in_render = Device.dwFrame;
+#endif
+        lock.Leave();
+    }
 }
 
 // ============================================================================
@@ -781,7 +828,36 @@ void vkCWallmarksEngine::RenderSlots()
                 bufferOffset += wvCount;
             }
 
-            // Skeleton wallmarks - stubbed out (skeleton rendering not yet supported in Vulkan)
+            // Skeleton wallmarks
+            for (auto& w_it : slot->skeleton_items)
+            {
+                intrusive_ptr<CSkeletonWallmark> W = w_it;
+                if (!W) continue;
+
+#ifdef DEBUG
+                if (W->used_in_render != Device.dwFrame)
+                {
+                    Log("W->used_in_render", W->used_in_render);
+                    Log("Device.dwFrame", Device.dwFrame);
+                    VERIFY(W->used_in_render == Device.dwFrame);
+                }
+#endif
+
+                Device.Statistic->RenderDUMP_WMD_Count++;
+
+                // Check if we have space for this wallmark
+                u32 wvCount = W->VCount();
+                if (bufferOffset + wvCount > MAX_WM_VERTS) { bufferFull = true; break; }
+
+                // Render skeleton wallmark (transform by bones)
+                FVF::LIT* dest = (FVF::LIT*)((u8*)m_dynamicVB->m_Mapped + bufferOffset * sizeof(FVF::LIT));
+                skeleton_wm_render(W, dest);
+                bufferOffset += wvCount;
+
+#ifdef DEBUG
+                W->used_in_render = u32(-1);
+#endif
+            }
         }
 
         // Record batch if this slot produced vertices

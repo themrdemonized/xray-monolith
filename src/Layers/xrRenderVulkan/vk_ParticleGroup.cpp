@@ -8,7 +8,9 @@
 
 #include "stdafx.h"
 #include "vk_ParticleGroup.h"
+#include "vk_ParticleEffect.h"
 #include "../xrRender/ParticleGroup.h"  // PS::CPGDef full definition
+#include "../xrRender/PSLibrary.h"       // For PSLibrary.FindPED()
 
 // ============================================================================
 // vkCParticleGroup - Constructor
@@ -43,11 +45,46 @@ BOOL vkCParticleGroup::Compile(PS::CPGDef* def)
 
     m_Def = def;
 
-    // TODO: Load child effects/groups from definition
-    // for each child in def->children:
-    //     Create child visual and add with offset
+    // Clear existing children
+    ClearChildren();
 
-    Msg("[Vulkan] Particle group compiled: %s", def->m_Name.c_str());
+    // Create child effects from definition
+    for (auto& effectDef : def->m_Effects)
+    {
+        if (!effectDef->m_Flags.is(PS::CPGDef::SEffect::flEnabled)) {
+            continue;  // Skip disabled effects
+        }
+
+        if (effectDef->m_EffectName.size() == 0) {
+            Msg("![Vulkan] Child effect has no name in group %s", def->m_Name.c_str());
+            continue;
+        }
+
+        // Find particle effect definition
+        PS::CPEDef* pedDef = PSLibrary.FindPED(effectDef->m_EffectName.c_str());
+        if (!pedDef) {
+            Msg("![Vulkan] Child effect not found: %s (in group %s)",
+                effectDef->m_EffectName.c_str(), def->m_Name.c_str());
+            continue;
+        }
+
+        // Create particle effect instance
+        vkCParticleEffect* effect = xr_new<vkCParticleEffect>();
+        if (!effect->Compile(pedDef)) {
+            Msg("![Vulkan] Failed to compile child effect: %s", effectDef->m_EffectName.c_str());
+            xr_delete(effect);
+            continue;
+        }
+
+        // Add child with offset (default: no offset)
+        Fvector offset = {0.f, 0.f, 0.f};
+        AddChild(effect, offset);
+
+        Msg("[Vulkan] Added child effect to group: %s", effectDef->m_EffectName.c_str());
+    }
+
+    Msg("[Vulkan] Particle group compiled: %s (%u children)",
+        def->m_Name.c_str(), items.size());
 
     return TRUE;
 }
@@ -103,8 +140,12 @@ void vkCParticleGroup::Play()
 
     // Play all children
     for (auto& item : items) {
-        // TODO: Cast and call Play() on child if it's an effect
+        if (item.pVisual) {
+            item.pVisual->Play();
+        }
     }
+
+    Msg("[Vulkan] Particle group playing: %s (%u children)", Name().c_str(), items.size());
 }
 
 // ============================================================================
@@ -112,12 +153,20 @@ void vkCParticleGroup::Play()
 // ============================================================================
 void vkCParticleGroup::Stop(BOOL bDeferredStop)
 {
-    m_RT_Flags.set(flRT_Playing, FALSE);
+    if (bDeferredStop) {
+        m_RT_Flags.set(flRT_DeferredStop, TRUE);
+    } else {
+        m_RT_Flags.set(flRT_Playing, FALSE);
+    }
 
     // Stop all children
     for (auto& item : items) {
-        // TODO: Cast and call Stop() on child if it's an effect
+        if (item.pVisual) {
+            item.pVisual->Stop(bDeferredStop);
+        }
     }
+
+    Msg("[Vulkan] Particle group stopped: %s", Name().c_str());
 }
 
 // ============================================================================

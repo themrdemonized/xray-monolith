@@ -126,27 +126,24 @@ void CPSLibrary::OnCreate()
     std::sort(m_PEDs.begin(), m_PEDs.end(), ped_sort_pred);
     std::sort(m_PGDs.begin(), m_PGDs.end(), pgd_sort_pred);
 
-    // Create shaders for all particle effects
-    // Note: In Vulkan, CreateShader() should use Vulkan shader loading
+    // Create Vulkan shaders for all particle effects
     for (PS::PEDIt e_it = m_PEDs.begin(); e_it != m_PEDs.end(); ++e_it)
     {
-        // TODO: Vulkan-specific shader creation
-        // For now, skip CreateShader() as it uses DX-specific code
-        // (*e_it)->CreateShader();
+        (*e_it)->CreateShader();
     }
 
     Msg("[Vulkan] Loaded %u particle effects and %u particle groups", loaded_pe, loaded_pg);
+    Msg("[Vulkan] Created shaders for %u particle effects", loaded_pe);
 }
 
 void CPSLibrary::OnDestroy()
 {
     Msg("[Vulkan] CPSLibrary::OnDestroy() - Cleaning up particle library...");
 
-    // Destroy shaders for all effects
+    // Destroy Vulkan shaders for all effects
     for (PS::PEDIt e_it = m_PEDs.begin(); e_it != m_PEDs.end(); ++e_it)
     {
-        // TODO: Vulkan-specific shader cleanup
-        // (*e_it)->DestroyShader();
+        (*e_it)->DestroyShader();
     }
 
     // Delete all particle effect definitions

@@ -119,24 +119,26 @@ bool vkParticlePipeline::LoadShaders(
     VkDevice device,
     ShaderModules& modules)
 {
-    // TODO: Construct path properly based on current directory
-    // For now, use relative path from gamedata
-    const char* vertShaderPath = "gamedata/shaders/vulkan/particle.vert.spv";
-    const char* fragShaderPath = "gamedata/shaders/vulkan/particle.frag.spv";
+    // Construct proper paths using FS.update_path
+    string_path vertShaderPath, fragShaderPath;
+
+    FS.update_path(vertShaderPath, "$game_shaders$", "vulkan\\particle.vert.spv");
+    FS.update_path(fragShaderPath, "$game_shaders$", "vulkan\\particle.frag.spv");
 
     modules.vertexModule = LoadShaderModule(device, vertShaderPath);
     if (modules.vertexModule == VK_NULL_HANDLE) {
-        Msg("![Vulkan] Failed to load vertex shader");
+        Msg("![Vulkan] Failed to load vertex shader: %s", vertShaderPath);
         return false;
     }
 
     modules.fragmentModule = LoadShaderModule(device, fragShaderPath);
     if (modules.fragmentModule == VK_NULL_HANDLE) {
         vkDestroyShaderModule(device, modules.vertexModule, nullptr);
-        Msg("![Vulkan] Failed to load fragment shader");
+        Msg("![Vulkan] Failed to load fragment shader: %s", fragShaderPath);
         return false;
     }
 
+    Msg("[Vulkan] Particle shaders loaded successfully");
     return true;
 }
 
