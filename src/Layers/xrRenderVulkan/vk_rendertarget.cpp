@@ -125,6 +125,41 @@ void CRenderTarget::Create(u32 width, u32 height)
     );
 
     // ========================================================================
+    // Water SSR Render Targets
+    // ========================================================================
+    Msg("[Vulkan]   Creating rt_ssfx_temp...");
+    rt_ssfx_temp.Create(
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        width, height,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        false
+    );
+
+    Msg("[Vulkan]   Creating rt_ssfx_temp2...");
+    rt_ssfx_temp2.Create(
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        width, height,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        false
+    );
+
+    Msg("[Vulkan]   Creating rt_ssfx_water...");
+    rt_ssfx_water.Create(
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        width, height,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        false
+    );
+
+    Msg("[Vulkan]   Creating rt_ssfx_water_waves...");
+    rt_ssfx_water_waves.Create(
+        VK_FORMAT_R8G8B8A8_UNORM,
+        512, 512,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        false
+    );
+
+    // ========================================================================
     // Shadow Maps
     // ========================================================================
     CreateShadowMaps(m_ShadowMapSize);
@@ -198,6 +233,12 @@ void CRenderTarget::Destroy()
     rt_Generic_0.Destroy();
     rt_Generic_1.Destroy();
     rt_Distortion.Destroy();
+
+    // Water SSR render targets
+    rt_ssfx_temp.Destroy();
+    rt_ssfx_temp2.Destroy();
+    rt_ssfx_water.Destroy();
+    rt_ssfx_water_waves.Destroy();
 
     // Destroy shadow maps
     rt_smap_depth.Destroy();

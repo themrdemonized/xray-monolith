@@ -289,9 +289,10 @@ public:
     void dbg_DrawTRI(Fmatrix& T, Fvector& p1, Fvector& p2, Fvector& p3, u32 C);
     void dbg_DrawLINE(Fmatrix& T, Fvector& p1, Fvector& p2, u32 C);
 
+    void ApplyViewportScissor();  // Made public for RImplementation access
+
 private:
     void Invalidate();
-    void ApplyViewportScissor();
 };
 
 // Global backend instance

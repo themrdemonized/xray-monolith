@@ -833,8 +833,7 @@ public:
     void OnDeviceDestroy() override {}
     particles_systems::library_interface const& particles_systems_library() override
     {
-        static particles_systems::library_interface* dummy = nullptr;
-        return *dummy;  // Will crash if called, but these are stubs
+        return RImplementation.PSLibrary;
     }
 };
 

@@ -1,0 +1,29 @@
+#include "common.h"
+#include "hdr10.h"
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Pixel
+float4 main ( p_TL I ) : SV_Target
+{
+	float4 col = s_base.Sample( smp_base, I.Tex0 )*I.Color;
+
+	if (!HDR10_IS_ENABLED) {
+		return col;
+	}
+
+	if (HDR10_IS_RENDERING_PDA) {
+		col.rgb = HDR10_sRGBToLinear(col.rgb);
+		col.rgb *= HDR10_UI_NITS_SCALAR;
+		col.rgb *= HDR10_PDA_INTENSITY;
+		col.rgb = HDR10_LinearTosRGB(col.rgb);
+	} else {
+		col.rgb = HDR10_ToDisplay_UI(col.rgb, HDR10_UI_NITS_SCALAR, col.a);
+	}
+
+	return col;
+
+//	float4 res = s_base.Sample( smp_base, I.Tex0 )*I.Color;
+//	clip(res-m_AlphaRef);
+//	clip(res-0.5);
+//	return res;
+}

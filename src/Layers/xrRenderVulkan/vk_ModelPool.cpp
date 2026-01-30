@@ -6,6 +6,7 @@
 #include "vk_ModelPool.h"
 #include "rvk.h"
 #include "../../xrEngine/fmesh.h"  // ogf_header
+#include "../../xrEngine/SkeletonMotions.h"  // g_pMotionsContainer
 
 // ============================================================================
 // vkModelPool - Constructor/Destructor
@@ -15,11 +16,15 @@ vkModelPool::vkModelPool()
     bLogging = FALSE;
     bForceDiscard = FALSE;
     bAllowChildrenDuplicate = TRUE;
+
+    // Initialize motions container (required for skeletal animations)
+    g_pMotionsContainer = xr_new<motions_container>();
 }
 
 vkModelPool::~vkModelPool()
 {
     Destroy();
+    xr_delete(g_pMotionsContainer);
 }
 
 void vkModelPool::Destroy()
@@ -42,6 +47,10 @@ void vkModelPool::Destroy()
     Models.clear();
 
     Registry.clear();
+
+    // Cleanup motions container
+    if (g_pMotionsContainer)
+        g_pMotionsContainer->clean(false);
 }
 
 // ============================================================================
@@ -55,13 +64,26 @@ vkRender_Visual* vkModelPool::Instance_Create(u32 Type)
 
 vkRender_Visual* vkModelPool::Instance_Duplicate(vkRender_Visual* V)
 {
-    if (!V) return nullptr;
+    if (!V) {
+        Msg("[Vulkan] Instance_Duplicate: V is NULL");
+        return nullptr;
+    }
+
+    Msg("[Vulkan] Instance_Duplicate ENTER: Type=%d", V->Type);
 
     // Create new instance of same type
     vkRender_Visual* N = Instance_Create(V->Type);
+    Msg("[Vulkan] Instance_Duplicate: Instance_Create returned %p", N);
+
+    if (!N) {
+        Msg("![Vulkan] Instance_Duplicate: failed to create instance");
+        return nullptr;
+    }
 
     // Copy data
+    Msg("[Vulkan] Instance_Duplicate: calling N->Copy...");
     N->Copy(V);
+    Msg("[Vulkan] Instance_Duplicate: Copy done");
 
     return N;
 }
@@ -194,6 +216,11 @@ vkRender_Visual* vkModelPool::Instance_Find(LPCSTR N)
 {
     string_path name;
     xr_strcpy(name, N);
+
+    // Add extension if missing (must match Instance_Load behavior)
+    if (0 == strext(N))
+        xr_strcat(name, ".ogf");
+
     strlwr(name);
 
     for (auto& def : Models)
@@ -398,18 +425,47 @@ void vkModelPool::DeleteQueue()
 }
 
 // ============================================================================
-// Particle System (stubs)
+// Particle System Implementation
 // ============================================================================
+
+// Particle definitions (need full type for member access)
+#include "../xrRender/ParticleEffectDef.h"
+#include "../xrRender/ParticleGroup.h"
+#include "vk_ParticleEffect.h"
+#include "vk_ParticleGroup.h"
+
 vkRender_Visual* vkModelPool::CreatePE(PS::CPEDef* source)
 {
-    // TODO: Implement particle effect creation
-    return nullptr;
+    if (!source) {
+        Msg("![Vulkan] CreatePE: source definition is nullptr");
+        return nullptr;
+    }
+
+    vkCParticleEffect* effect = xr_new<vkCParticleEffect>();
+    if (!effect->Compile(source)) {
+        Msg("![Vulkan] Failed to compile particle effect: %s", source->m_Name.c_str());
+        xr_delete(effect);
+        return nullptr;
+    }
+
+    return effect;
 }
 
 vkRender_Visual* vkModelPool::CreatePG(PS::CPGDef* source)
 {
-    // TODO: Implement particle group creation
-    return nullptr;
+    if (!source) {
+        Msg("![Vulkan] CreatePG: source definition is nullptr");
+        return nullptr;
+    }
+
+    vkCParticleGroup* group = xr_new<vkCParticleGroup>();
+    if (!group->Compile(source)) {
+        Msg("![Vulkan] Failed to compile particle group: %s", source->m_Name.c_str());
+        xr_delete(group);
+        return nullptr;
+    }
+
+    return group;
 }
 
 // ============================================================================

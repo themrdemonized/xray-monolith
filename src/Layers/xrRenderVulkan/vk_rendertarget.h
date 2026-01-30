@@ -49,6 +49,12 @@ public:
     // Distortion map (R8G8B8A8_UNORM - R/B encode UV offset, 127=neutral)
     CRT rt_Distortion;
 
+    // Water SSR render targets
+    CRT rt_ssfx_temp;         // R16G16B16A16_SFLOAT - Temporary for water SSR rendering
+    CRT rt_ssfx_temp2;        // R16G16B16A16_SFLOAT - Temporary for blur pass
+    CRT rt_ssfx_water;        // R16G16B16A16_SFLOAT - Water SSR result
+    CRT rt_ssfx_water_waves;  // R8G8B8A8_UNORM, 512x512 - Wave simulation
+
     // Shadow maps
     CRT rt_smap_depth;        // 2048x2048 - Directional light shadow map (D32_SFLOAT)
     CRT rt_smap_depth_minmax; // 512x512   - MinMax optimization (R32G32_SFLOAT)
@@ -82,6 +88,12 @@ public:
     void phase_forward();      // Phase 2.19: Forward pass (transparent objects)
     void phase_postprocess();  // Phase 2.20: Post-processing (bloom, vignette, etc.)
     void phase_distortion();   // Distortion map rendering (for magnifier effect)
+
+    // Water rendering phases
+    void phase_water_ssr();    // Water SSR pre-pass (reduced resolution)
+    void phase_water_blur();   // SSR blur post-process
+    void phase_water_waves();  // Wave simulation
+    void phase_water();        // Final water rendering
 
     // Shadow map rendering
     void phase_smap_direct(light* sun, u32 sub_phase);
@@ -144,6 +156,12 @@ private:
     VkPipeline m_ShadowPipeline = VK_NULL_HANDLE;      // Depth-only pipeline for shadow maps
     VkPipeline m_ShadowCubePipeline = VK_NULL_HANDLE;  // Cubemap shadow pipeline
     VkPipeline m_GBufferPipeline = VK_NULL_HANDLE;     // G-Buffer pipeline (Phase 2.21.2)
+
+    // Water pipelines
+    VkPipeline m_WaterSSRPipeline = VK_NULL_HANDLE;   // Water SSR pre-pass
+    VkPipeline m_WaterPipeline = VK_NULL_HANDLE;      // Final water rendering
+    VkPipeline m_WaterBlurPipeline = VK_NULL_HANDLE;  // SSR blur
+    VkPipeline m_WaterWavesPipeline = VK_NULL_HANDLE; // Wave simulation
 
     // Cached descriptor sets
     VkDescriptorSet m_GBufferDescSet = VK_NULL_HANDLE;  // G-Buffer textures (Set 1)

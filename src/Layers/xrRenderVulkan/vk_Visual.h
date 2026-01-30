@@ -55,9 +55,9 @@ public:
     // Type from OGF header
     u32                 Type = 0;
 
-    // Shader/Material (ref-counted)
-    // TODO: Replace with Vulkan pipeline reference
-    // ref_shader       shader;
+    // Shader ID (index into RImplementation.Shaders array)
+    // Phase 2.34: Shader-Material Binding
+    u16                 shader_id = 0;
 
     // Visibility data (bounding box/sphere for culling)
     vis_data            vis;
@@ -161,6 +161,12 @@ public:
 public:
     vkFHierrarhyVisual();
     virtual ~vkFHierrarhyVisual();
+
+    // ========================================================================
+    // IRenderVisual overrides
+    // ========================================================================
+    virtual xr_vector<IRenderVisual*>* get_children() override { return &children; }
+    virtual xr_vector<IRenderVisual*>* get_children_invisible() override { return &children_invisible; }
 
     // ========================================================================
     // vkRender_Visual overrides

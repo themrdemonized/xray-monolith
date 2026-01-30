@@ -14,9 +14,9 @@ namespace VK
 static constexpr u32 SPIRV_MAGIC = 0x07230203;
 
 // Constructor
-CVulkanShaderManager::CVulkanShaderManager()
+CVulkanSPIRVLoader::CVulkanSPIRVLoader()
 {
-    Msg("[Vulkan] CVulkanShaderManager::CVulkanShaderManager()");
+    Msg("[Vulkan] CVulkanSPIRVLoader::CVulkanSPIRVLoader()");
 
     // Build absolute path to Vulkan shaders using Core.ApplicationPath
     // ApplicationPath = exe directory (e.g. D:\anomaly\bin\)
@@ -26,14 +26,14 @@ CVulkanShaderManager::CVulkanShaderManager()
 }
 
 // Destructor
-CVulkanShaderManager::~CVulkanShaderManager()
+CVulkanSPIRVLoader::~CVulkanSPIRVLoader()
 {
-    Msg("[Vulkan] CVulkanShaderManager::~CVulkanShaderManager()");
+    Msg("[Vulkan] CVulkanSPIRVLoader::~CVulkanSPIRVLoader()");
     DestroyAll();
 }
 
 // Загрузка SPIR-V шейдера
-VkShaderModule CVulkanShaderManager::Load(const char* filename)
+VkShaderModule CVulkanSPIRVLoader::Load(const char* filename)
 {
     if (!filename || !filename[0]) {
         Msg("![Vulkan] Load(): Empty filename");
@@ -77,7 +77,7 @@ VkShaderModule CVulkanShaderManager::Load(const char* filename)
 }
 
 // Получить уже загруженный module
-VkShaderModule CVulkanShaderManager::Get(const char* filename)
+VkShaderModule CVulkanSPIRVLoader::Get(const char* filename)
 {
     auto it = m_Modules.find(filename);
     if (it != m_Modules.end()) {
@@ -89,7 +89,7 @@ VkShaderModule CVulkanShaderManager::Get(const char* filename)
 }
 
 // Удалить конкретный module
-void CVulkanShaderManager::Destroy(const char* filename)
+void CVulkanSPIRVLoader::Destroy(const char* filename)
 {
     auto it = m_Modules.find(filename);
     if (it != m_Modules.end()) {
@@ -100,7 +100,7 @@ void CVulkanShaderManager::Destroy(const char* filename)
 }
 
 // Удалить все modules
-void CVulkanShaderManager::DestroyAll()
+void CVulkanSPIRVLoader::DestroyAll()
 {
     if (m_Modules.empty()) {
         return;
@@ -118,7 +118,7 @@ void CVulkanShaderManager::DestroyAll()
 }
 
 // Чтение бинарного файла
-xr_vector<char> CVulkanShaderManager::ReadFile(const char* filename)
+xr_vector<char> CVulkanSPIRVLoader::ReadFile(const char* filename)
 {
     // Формируем полный путь
     xr_string fullPath = m_BasePath + filename;
@@ -151,7 +151,7 @@ xr_vector<char> CVulkanShaderManager::ReadFile(const char* filename)
 }
 
 // Создание shader module
-VkShaderModule CVulkanShaderManager::CreateShaderModule(const xr_vector<char>& code)
+VkShaderModule CVulkanSPIRVLoader::CreateShaderModule(const xr_vector<char>& code)
 {
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -170,7 +170,7 @@ VkShaderModule CVulkanShaderManager::CreateShaderModule(const xr_vector<char>& c
 }
 
 // Валидация SPIR-V
-bool CVulkanShaderManager::ValidateSPIRV(const xr_vector<char>& code)
+bool CVulkanSPIRVLoader::ValidateSPIRV(const xr_vector<char>& code)
 {
     // SPIR-V должен быть кратен 4 байтам
     if (code.size() % 4 != 0) {
@@ -196,5 +196,5 @@ bool CVulkanShaderManager::ValidateSPIRV(const xr_vector<char>& code)
 
 } // namespace VK
 
-// Глобальный экземпляр
-VK::CVulkanShaderManager* g_ShaderManager = nullptr;
+// Глобальный экземпляр SPIR-V loader
+VK::CVulkanSPIRVLoader* g_ShaderManager = nullptr;

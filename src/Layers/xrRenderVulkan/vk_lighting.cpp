@@ -8,6 +8,8 @@
 #include "HW_Vulkan.h"
 #include "vk_shaders.h"
 #include "vk_pipeline.h"
+#include "../../xrEngine/igame_persistent.h"  // For g_pGamePersistent and Environment access
+#include "../../xrEngine/Environment.h"       // For CEnvDescriptor
 
 // Глобальный экземпляр (VK:: prefix нужен для соответствия объявлению в namespace VK)
 VK::CVulkanLighting* VK::g_VulkanLighting = nullptr;
@@ -45,18 +47,22 @@ void CVulkanLighting::Create()
     // 1. Create sampler for G-Buffer textures
     CreateSampler();
 
-    // 2. Create G-Buffer descriptor set layout
+    // 2. Create GlobalLighting UBO (Phase: Hemisphere Lighting)
+    CreateGlobalLightingUBO();
+
+    // 3. Create G-Buffer descriptor set layout
     CreateGBufferDescriptorSetLayout();
 
-    // 3. Create descriptor pool for lighting
+    // 4. Create descriptor pool for lighting
     VkDescriptorPoolSize poolSizes[] = {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16 }  // G-Buffer textures
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 16 },  // G-Buffer textures
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 }             // GlobalLighting UBO
     };
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 4;  // For now: 1 set for G-Buffer
-    poolInfo.poolSizeCount = 1;
+    poolInfo.maxSets = 8;  // G-Buffer + GlobalLighting + future sets
+    poolInfo.poolSizeCount = 2;
     poolInfo.pPoolSizes = poolSizes;
 
     VkResult result = vkCreateDescriptorPool(VulkanHW.m_Device, &poolInfo, nullptr, &m_DescriptorPool);
@@ -86,6 +92,9 @@ void CVulkanLighting::Destroy()
     }
 
     Msg("[Vulkan] Destroying CVulkanLighting...");
+
+    // Destroy GlobalLighting UBO (Phase: Hemisphere Lighting)
+    DestroyGlobalLightingUBO();
 
     // Destroy pipeline
     if (m_AccumDirectSimple_Pipeline != VK_NULL_HANDLE) {
@@ -255,7 +264,7 @@ bool CVulkanLighting::CreateAccumDirectSimplePipeline()
     Msg("[Vulkan] Creating accum_direct_simple pipeline...");
 
     // ========================================================================
-    // 1. Pipeline Layout (Set 1 для G-Buffer + push constants для света)
+    // 1. Pipeline Layout (Set 0: GlobalLighting, Set 1: G-Buffer + push constants)
     // ========================================================================
 
     VkPushConstantRange pushConstantRange = {};
@@ -263,10 +272,16 @@ bool CVulkanLighting::CreateAccumDirectSimplePipeline()
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(PushConstants);
 
+    // Set layouts: Set 0 = GlobalLighting, Set 1 = G-Buffer
+    VkDescriptorSetLayout setLayouts[] = {
+        m_GlobalLightingLayout,  // Set 0: GlobalLighting UBO
+        m_GBufferLayout          // Set 1: G-Buffer textures
+    };
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &m_GBufferLayout;
+    pipelineLayoutInfo.setLayoutCount = 2;  // Set 0 + Set 1
+    pipelineLayoutInfo.pSetLayouts = setLayouts;
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -575,18 +590,32 @@ bool CVulkanLighting::BindAccumDirectSimple(VkCommandBuffer cmd,
     }
 
     // ========================================================================
+    // 0. Update GlobalLighting UBO (Phase: Hemisphere Lighting)
+    // ========================================================================
+    UpdateGlobalLightingUBO();
+
+    // ========================================================================
     // 1. Bind pipeline
     // ========================================================================
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_AccumDirectSimple_Pipeline);
 
     // ========================================================================
-    // 2. Bind descriptor set (G-Buffer textures at set 1)
+    // 2. Bind descriptor sets
     // ========================================================================
 
+    // Bind Set 0: GlobalLighting UBO
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_AccumDirectSimple_PipelineLayout,
-                            1,  // firstSet (set 1 in shader)
+                            0,  // firstSet (set 0)
+                            1,  // descriptorSetCount
+                            &m_GlobalLightingDescriptorSet,
+                            0, nullptr);  // No dynamic offsets
+
+    // Bind Set 1: G-Buffer textures
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            m_AccumDirectSimple_PipelineLayout,
+                            1,  // firstSet (set 1)
                             1,  // descriptorSetCount
                             &m_GBufferDescriptorSet,
                             0, nullptr);  // No dynamic offsets
@@ -607,6 +636,292 @@ bool CVulkanLighting::BindAccumDirectSimple(VkCommandBuffer cmd,
                        &pushConstants);
 
     return true;
+}
+
+// ============================================================================
+// Hemisphere Lighting Support (Phase: Hemisphere Lighting)
+// ============================================================================
+
+void CVulkanLighting::CreateGlobalLightingUBO()
+{
+    Msg("[Vulkan] Creating GlobalLighting UBO...");
+
+    // ========================================================================
+    // 1. Create Uniform Buffer
+    // ========================================================================
+    VkDeviceSize bufferSize = sizeof(GlobalLightingUBO);
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = bufferSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult result = vkCreateBuffer(VulkanHW.m_Device, &bufferInfo, nullptr, &m_GlobalLightingBuffer);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Failed to create GlobalLighting buffer: %d", result);
+        return;
+    }
+
+    // ========================================================================
+    // 2. Allocate Memory
+    // ========================================================================
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(VulkanHW.m_Device, m_GlobalLightingBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+
+    // Find memory type (HOST_VISIBLE + HOST_COHERENT for easy updates)
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(VulkanHW.m_PhysicalDevice, &memProperties);
+
+    u32 memoryTypeIndex = UINT32_MAX;
+    VkMemoryPropertyFlags requiredProperties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    for (u32 i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((memRequirements.memoryTypeBits & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & requiredProperties) == requiredProperties) {
+            memoryTypeIndex = i;
+            break;
+        }
+    }
+
+    if (memoryTypeIndex == UINT32_MAX) {
+        Msg("![Vulkan] Failed to find suitable memory type for GlobalLighting UBO");
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+        return;
+    }
+
+    allocInfo.memoryTypeIndex = memoryTypeIndex;
+
+    result = vkAllocateMemory(VulkanHW.m_Device, &allocInfo, nullptr, &m_GlobalLightingMemory);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Failed to allocate GlobalLighting memory: %d", result);
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+        return;
+    }
+
+    result = vkBindBufferMemory(VulkanHW.m_Device, m_GlobalLightingBuffer, m_GlobalLightingMemory, 0);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Failed to bind GlobalLighting buffer memory: %d", result);
+        vkFreeMemory(VulkanHW.m_Device, m_GlobalLightingMemory, nullptr);
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+        m_GlobalLightingMemory = VK_NULL_HANDLE;
+        return;
+    }
+
+    // ========================================================================
+    // 3. Map Memory (persistent mapping)
+    // ========================================================================
+    result = vkMapMemory(VulkanHW.m_Device, m_GlobalLightingMemory, 0, bufferSize, 0, &m_GlobalLightingMapped);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Failed to map GlobalLighting memory: %d", result);
+        vkFreeMemory(VulkanHW.m_Device, m_GlobalLightingMemory, nullptr);
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+        m_GlobalLightingMemory = VK_NULL_HANDLE;
+        return;
+    }
+
+    // ========================================================================
+    // 4. Create Descriptor Set Layout (Set 0)
+    // ========================================================================
+    VkDescriptorSetLayoutBinding uboBinding = {};
+    uboBinding.binding = 0;
+    uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboBinding.descriptorCount = 1;
+    uboBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    uboBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboBinding;
+
+    result = vkCreateDescriptorSetLayout(VulkanHW.m_Device, &layoutInfo, nullptr, &m_GlobalLightingLayout);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Failed to create GlobalLighting descriptor set layout: %d", result);
+        vkUnmapMemory(VulkanHW.m_Device, m_GlobalLightingMemory);
+        vkFreeMemory(VulkanHW.m_Device, m_GlobalLightingMemory, nullptr);
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+        m_GlobalLightingMemory = VK_NULL_HANDLE;
+        m_GlobalLightingMapped = nullptr;
+        return;
+    }
+
+    // ========================================================================
+    // 5. Allocate Descriptor Set
+    // ========================================================================
+    VkDescriptorSetAllocateInfo allocDescInfo = {};
+    allocDescInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocDescInfo.descriptorPool = m_DescriptorPool;
+    allocDescInfo.descriptorSetCount = 1;
+    allocDescInfo.pSetLayouts = &m_GlobalLightingLayout;
+
+    result = vkAllocateDescriptorSets(VulkanHW.m_Device, &allocDescInfo, &m_GlobalLightingDescriptorSet);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Failed to allocate GlobalLighting descriptor set: %d", result);
+        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_GlobalLightingLayout, nullptr);
+        vkUnmapMemory(VulkanHW.m_Device, m_GlobalLightingMemory);
+        vkFreeMemory(VulkanHW.m_Device, m_GlobalLightingMemory, nullptr);
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+        m_GlobalLightingMemory = VK_NULL_HANDLE;
+        m_GlobalLightingMapped = nullptr;
+        m_GlobalLightingLayout = VK_NULL_HANDLE;
+        return;
+    }
+
+    // ========================================================================
+    // 6. Update Descriptor Set
+    // ========================================================================
+    VkDescriptorBufferInfo bufferDescInfo = {};
+    bufferDescInfo.buffer = m_GlobalLightingBuffer;
+    bufferDescInfo.offset = 0;
+    bufferDescInfo.range = sizeof(GlobalLightingUBO);
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = m_GlobalLightingDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pBufferInfo = &bufferDescInfo;
+
+    vkUpdateDescriptorSets(VulkanHW.m_Device, 1, &descriptorWrite, 0, nullptr);
+
+    Msg("[Vulkan] GlobalLighting UBO created successfully");
+    Msg("[Vulkan]   - Buffer: %p", m_GlobalLightingBuffer);
+    Msg("[Vulkan]   - Memory: %p", m_GlobalLightingMemory);
+    Msg("[Vulkan]   - Mapped: %p", m_GlobalLightingMapped);
+    Msg("[Vulkan]   - Descriptor Set: %p", m_GlobalLightingDescriptorSet);
+}
+
+void CVulkanLighting::UpdateGlobalLightingUBO()
+{
+    if (!m_GlobalLightingMapped) {
+        // UBO not created or not mapped
+        return;
+    }
+
+    GlobalLightingUBO ubo = {};
+
+    // ========================================================================
+    // Get environment data
+    // ========================================================================
+
+    // Check if game persistent and environment are available
+    if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv)
+    {
+        CEnvDescriptor* desc = g_pGamePersistent->Environment().CurrentEnv;
+
+        // ====================================================================
+        // Hemisphere Color (цвет неба для верхней полусферы)
+        // ====================================================================
+        ubo.L_hemi_color.set(
+            desc->hemi_color.x,
+            desc->hemi_color.y,
+            desc->hemi_color.z,
+            1.0f  // Alpha unused, set to 1.0
+        );
+
+        // ====================================================================
+        // Ambient Color (базовый ambient)
+        // ====================================================================
+        ubo.L_ambient.set(
+            desc->ambient.x,
+            desc->ambient.y,
+            desc->ambient.z,
+            1.0f  // Alpha unused, set to 1.0
+        );
+
+        // ====================================================================
+        // Sun Color
+        // ====================================================================
+        ubo.L_sun_color.set(
+            desc->sun_color.x,
+            desc->sun_color.y,
+            desc->sun_color.z,
+            1.0f  // Alpha unused, set to 1.0
+        );
+
+        // ====================================================================
+        // Sun Direction (world space)
+        // ====================================================================
+        // NOTE: desc->sun_dir is direction FROM sun TO ground
+        ubo.L_sun_dir_w.set(
+            desc->sun_dir.x,
+            desc->sun_dir.y,
+            desc->sun_dir.z,
+            0.0f  // w = 0 for direction vector
+        );
+    }
+    else
+    {
+        // ====================================================================
+        // Fallback to default values if environment not available
+        // ====================================================================
+        ubo.L_hemi_color.set(0.3f, 0.4f, 0.5f, 1.0f);  // Blue sky
+        ubo.L_ambient.set(0.1f, 0.1f, 0.1f, 1.0f);     // Gray ambient
+        ubo.L_sun_color.set(1.0f, 0.95f, 0.8f, 1.0f);  // Warm sunlight
+        ubo.L_sun_dir_w.set(0.3f, -0.7f, 0.6f, 0.0f);  // Down and forward
+    }
+
+    // ========================================================================
+    // Inverse View Matrix (eye-space -> world-space)
+    // ========================================================================
+    // Get current view matrix from Device
+    Fmatrix viewMatrix = Device.mView;
+    viewMatrix.invert(m_invV);  // Compute inverse
+    ubo.m_invV = m_invV;
+
+    // ========================================================================
+    // Copy to mapped memory
+    // ========================================================================
+    memcpy(m_GlobalLightingMapped, &ubo, sizeof(GlobalLightingUBO));
+
+    // Note: No need to flush if memory is HOST_COHERENT
+}
+
+void CVulkanLighting::DestroyGlobalLightingUBO()
+{
+    Msg("[Vulkan] Destroying GlobalLighting UBO...");
+
+    // Unmap memory
+    if (m_GlobalLightingMapped && m_GlobalLightingMemory != VK_NULL_HANDLE) {
+        vkUnmapMemory(VulkanHW.m_Device, m_GlobalLightingMemory);
+        m_GlobalLightingMapped = nullptr;
+    }
+
+    // Destroy buffer
+    if (m_GlobalLightingBuffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(VulkanHW.m_Device, m_GlobalLightingBuffer, nullptr);
+        m_GlobalLightingBuffer = VK_NULL_HANDLE;
+    }
+
+    // Free memory
+    if (m_GlobalLightingMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(VulkanHW.m_Device, m_GlobalLightingMemory, nullptr);
+        m_GlobalLightingMemory = VK_NULL_HANDLE;
+    }
+
+    // Destroy descriptor set layout
+    if (m_GlobalLightingLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_GlobalLightingLayout, nullptr);
+        m_GlobalLightingLayout = VK_NULL_HANDLE;
+    }
+
+    // Descriptor set automatically freed when pool is destroyed
+    m_GlobalLightingDescriptorSet = VK_NULL_HANDLE;
+
+    Msg("[Vulkan] GlobalLighting UBO destroyed");
 }
 
 } // namespace VK

@@ -68,8 +68,10 @@ void CRenderTarget::phase_forward()
 	// - Отсортировать back-to-front (по distance to camera)
 	// - Render в правильном порядке
 
-	// Placeholder: check if we have transparent geometry
-	bool hasTransparentObjects = false;  // TODO: Replace with actual check
+	// Check if we have transparent/sorted geometry to render
+	bool hasTransparentObjects = (RImplementation.mapSorted.size() > 0) ||
+	                             (RImplementation.mapDistort.size() > 0) ||
+	                             (RImplementation.mapEmissive.size() > 0);
 
 	if (!hasTransparentObjects) {
 		return;
@@ -222,29 +224,36 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	// Step 9: Render transparent objects
 	// ========================================================================
-	// TODO Phase 2.19.2: Implement transparent object rendering
-	//
-	// Pseudocode:
-	// for (auto& obj : sorted_transparent_objects) {
-	//     // Setup transform matrices
-	//     RCache.set_xform_world(obj.transform);
-	//     RCache.set_xform_view(Device.mView);
-	//     RCache.set_xform_project(Device.mProject);
-	//
-	//     // Setup material (textures, colors)
-	//     BindMaterial(obj.material);
-	//
-	//     // Setup lighting (sun + N closest point lights)
-	//     UpdateLightingUniforms(obj.position);
-	//
-	//     // Push constants
-	//     PushConstants(mvp, lighting, material);
-	//
-	//     // Draw
-	//     obj.visual->Render(1.0f);
-	// }
+	// Forward pass renders multiple types of geometry:
+	// 1. LOD objects (flora imposters, distance geometry)
+	// 2. Sorted transparent geometry (glass, water, effects)
+	// 3. Emissive geometry (glowing objects, lights)
+	// 4. Distortion effects (heat shimmer, glass refraction)
 
-	// TODO: render transparent objects here
+	// ========================================================================
+	// 9.1: Render LODs (flora, distance imposters)
+	// ========================================================================
+	// LODs are rendered first with Z-buffer setup for proper depth
+	RImplementation.r_dsgraph_render_lods(true, true);
+
+	// ========================================================================
+	// 9.2: Render sorted transparent geometry (back-to-front)
+	// ========================================================================
+	// Glass, water surfaces, particle effects, etc.
+	RImplementation.r_dsgraph_render_sorted();
+
+	// ========================================================================
+	// 9.3: Render emissive geometry (self-illuminated objects)
+	// ========================================================================
+	// Glowing signs, lights, weapon sights, etc.
+	// renderHUD=true to include weapon sights and HUD emissives
+	RImplementation.r_dsgraph_render_emissive(true, true);
+
+	// ========================================================================
+	// 9.4: Render distortion effects (heat shimmer, refraction)
+	// ========================================================================
+	// Must be rendered after main geometry for proper effect
+	RImplementation.r_dsgraph_render_distort();
 
 	// ========================================================================
 	// Step 10: End rendering

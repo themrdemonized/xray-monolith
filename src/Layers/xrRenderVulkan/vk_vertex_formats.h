@@ -76,6 +76,29 @@ struct VertexSkinned {
 };
 
 // ============================================================================
+// VertexParticle - Vertex format for particle billboards
+// ============================================================================
+// Used for CPU-simulated particle rendering with billboard quads.
+//
+// Matches particle.vert shader inputs:
+//   layout(location = 0) in vec3 inPosition;
+//   layout(location = 1) in vec4 inColor;
+//   layout(location = 2) in vec2 inUV;
+//
+// Total: 24 bytes per vertex
+//
+struct VertexParticle {
+    float pos[3];           // Position (12 bytes) - world space
+    uint32_t color;         // Color (4 bytes) - RGBA8 packed
+    float uv[2];            // Texture coordinates (8 bytes)
+
+    // Total: 24 bytes per vertex
+
+    static VkVertexInputBindingDescription GetBindingDescription();
+    static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions();
+};
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 

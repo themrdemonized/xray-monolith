@@ -18,9 +18,19 @@
 #include "vk_buffer_pool.h"
 #include "vk_texture.h"
 #include "vk_material.h"
+#include "vk_shader.h"
 #include "vk_buffer_pool.h"
 #include "vk_ModelPool.h"
 #include "vk_Visual.h"
+#include "vk_ParticleCustom.h"
+#include "vk_ParticleEffect.h"
+#include "vk_ParticleGroup.h"
+#include "vk_WallmarksEngine.h"
+#include "../xrRender/dxWallMarkArray.h"
+#include "../xrRender/dxUIShader.h"
+#include "../xrRender/PSLibrary.h"
+#include "../../Include/xrRender/Kinematics.h"
+#include "../../xrCDB/ISpatial.h"
 
 // Direct diagnostic write for crash debugging
 static void VkDiagFrame(const char* /*msg*/) {
@@ -63,9 +73,10 @@ struct VulkanDiagRvk2 {
 
 // SSA (Screen-Space Area) culling thresholds
 // Used by sector/portal traversal and LOD system
-float r_ssaDISCARD       = 4.f;   // Discard objects smaller than this SSA
-float r_ssaLOD_A         = 64.f;  // Start LOD transition at this SSA
-float r_ssaLOD_B         = 48.f;  // End LOD transition at this SSA
+float r_ssaDISCARD       = 4.f;    // Discard objects smaller than this SSA
+float r_ssaDONTSORT      = 32.f;   // Don't sort objects larger than this SSA (always full detail)
+float r_ssaLOD_A         = 64.f;   // Start LOD transition at this SSA
+float r_ssaLOD_B         = 48.f;   // End LOD transition at this SSA
 
 // External test render function (temporary)
 extern void TestRenderFrame();
@@ -122,6 +133,7 @@ CRender::CRender()
     o.distortion = 1;
     o.distortion_enabled = 1;
     o.advancedpp = 1;
+    o.ssfx_water = 1;
 
     VulkanDiagWriteRvk("[DIAG] CRender ctor: step 6 - stats");
     memset(&stats, 0, sizeof(stats));  // memset instead of ZeroMemory (static init safe)
@@ -158,9 +170,13 @@ void CRender::create()
         Msg("[Vulkan] ModelPool created");
     }
 
+    // Initialize particle system library
+    PSLibrary.OnCreate();
+    Msg("[Vulkan] PSLibrary initialized");
+
     // Create managers if not already created
     if (!g_ShaderManager) {
-        g_ShaderManager = xr_new<VK::CVulkanShaderManager>();
+        g_ShaderManager = xr_new<VK::CVulkanSPIRVLoader>();
         Msg("[Vulkan] ShaderManager created");
     }
 
@@ -181,6 +197,13 @@ void CRender::create()
         g_MaterialManager = xr_new<VK::CMaterialManager>();
         g_MaterialManager->Create();
         Msg("[Vulkan] MaterialManager created");
+    }
+
+    // Create Vulkan Shader Manager (Phase 2.32)
+    if (!g_VulkanShaderManager) {
+        g_VulkanShaderManager = xr_new<VK::CVulkanShaderManager>();
+        g_VulkanShaderManager->Create();
+        Msg("[Vulkan] VulkanShaderManager created");
     }
 
     // Create Buffer Pool (Phase 2.23)
@@ -237,6 +260,10 @@ void CRender::destroy()
     vkPortalTraverser.destroy();
     Msg("[Vulkan] PortalTraverser destroyed");
 
+    // Destroy particle system library
+    PSLibrary.OnDestroy();
+    Msg("[Vulkan] PSLibrary destroyed");
+
     // Destroy model pool
     if (Models) {
         xr_delete(Models);
@@ -262,6 +289,12 @@ void CRender::destroy()
         xr_delete(g_MaterialManager);
         g_MaterialManager = nullptr;
         Msg("[Vulkan] MaterialManager destroyed");
+    }
+
+    if (g_VulkanShaderManager) {
+        xr_delete(g_VulkanShaderManager);
+        g_VulkanShaderManager = nullptr;
+        Msg("[Vulkan] VulkanShaderManager destroyed");
     }
 
     if (VK::g_PipelineManager) {
@@ -357,40 +390,187 @@ void CRender::Calculate()
     if (!b_loaded) return;
 
     // ========================================================================
-    // Phase 1: Simplified scene graph for Vulkan
-    // Build render queues with frustum culling
+    // Phase 2: Full scene graph with Portal Visibility and HOM Occlusion
     // ========================================================================
+
+    // Detect camera sector if not yet known (or sectors were loaded)
+    if (!pLastSector && !Sectors.empty())
+    {
+        pLastSector = (vkCSector*)detectSector(Device.vCameraPosition);
+        if (pLastSector)
+            Msg("[Vulkan] Detected initial sector for camera");
+    }
+
+    // Update lights (sun direction/color from environment)
+    Lights.Update();
 
     // Clear render queues
     lstNormal.clear();
     lstMatrix.clear();
 
-    // Increment marker for visibility tracking (prevents processing same visual twice)
+    // Increment marker for visibility tracking
     marker++;
 
-    // Build frustum from full camera transform (View * Projection)
-    // FRUSTUM_P_LRTB = Left, Right, Top, Bottom planes
-    // FRUSTUM_P_FAR = Far plane (near plane omitted for indoor scenes)
+    // Build frustum from camera transform
     ViewBase.CreateFromMatrix(Device.mFullTransform, FRUSTUM_P_LRTB | FRUSTUM_P_FAR);
     View = &ViewBase;
 
     // ========================================================================
-    // Add all level visuals with frustum culling
+    // HOM (Hierarchical Occlusion Map) - Render occluders
     // ========================================================================
-    u32 visualCount = 0;
-    for (auto visual : Visuals)
+    // HOM renders occluder geometry to a low-res Z-buffer for fast culling
+    if (HOM && pLastSector)
     {
-        if (!visual) continue;
-        vkRender_Visual* pV = static_cast<vkRender_Visual*>(visual);
-        add_Static_Simple(pV);
-        visualCount++;
+        HOM->Enable();
+        HOM->Render(ViewBase);
     }
 
-    // Log statistics (only occasionally to avoid spam)
+    // ========================================================================
+    // Portal Traversal - Determine visible sectors
+    // ========================================================================
+    if (pLastSector)
+    {
+        // Calculate view-projection matrix for portal traversal
+        Fmatrix m_ViewProjection;
+        m_ViewProjection.mul(Device.mProject, Device.mView);
+
+        // Traverse sector/portal structure with HOM + SSA + FADE
+        vkPortalTraverser.traverse(
+            pLastSector,
+            ViewBase,
+            Device.vCameraPosition,
+            m_ViewProjection,
+            vkCPortalTraverser::VQ_HOM | vkCPortalTraverser::VQ_SSA | vkCPortalTraverser::VQ_FADE
+        );
+
+        // ========================================================================
+        // Render static geometry from visible sectors
+        // ========================================================================
+        for (u32 s_it = 0; s_it < vkPortalTraverser.r_sectors.size(); s_it++)
+        {
+            vkCSector* sector = (vkCSector*)vkPortalTraverser.r_sectors[s_it];
+            vkRender_Visual* root = sector->root();
+
+            // Process each frustum for this sector
+            for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
+            {
+                CFrustum& frustum = sector->r_frustums[v_it];
+                View = &frustum;
+
+                // Add sector geometry to render queue
+                if (root)
+                    add_Static(root, SF_RENDERING);
+            }
+        }
+
+        // Restore main frustum
+        View = &ViewBase;
+    }
+    else
+    {
+        // ========================================================================
+        // Fallback: No portal system - render all visuals
+        // ========================================================================
+        for (auto visual : Visuals)
+        {
+            if (!visual) continue;
+            vkRender_Visual* pV = static_cast<vkRender_Visual*>(visual);
+            add_Static(pV, SF_RENDERING);
+        }
+    }
+
+    // ========================================================================
+    // Dynamic objects from Spatial Database
+    // ========================================================================
+    // TODO: Implement dynamic object rendering with proper spatial API
+    // Currently disabled due to undefined CSpatial_SyncedData type
+    /*
+    if (g_SpatialSpace && pLastSector)
+    {
+        // Query all spatials in frustum
+        lstSpatial.clear();
+        g_SpatialSpace->q_frustum(lstSpatial, ISpatial_DB::O_ORDERED, STYPE_RENDERABLE, ViewBase);
+
+        // Process dynamic renderables with HOM culling
+        for (u32 o_it = 0; o_it < lstSpatial.size(); o_it++)
+        {
+            ISpatial* spatial = lstSpatial[o_it];
+            if (!spatial) continue;
+
+            CSpatial_SyncedData* renderable = (CSpatial_SyncedData*)spatial->dcast_SpatialSyncedData();
+            if (!renderable) continue;
+            if (!renderable->renderable.visual) continue;
+
+            // HOM visibility test for dynamic objects
+            if (HOM && HOM->bEnabled)
+            {
+                vis_data& v_orig = ((vkRender_Visual*)renderable->renderable.visual)->vis;
+                vis_data v_copy = v_orig;
+                v_copy.box.xform(renderable->renderable.xform);
+
+                BOOL bVisible = HOM->visible(v_copy);
+                v_orig.marker = v_copy.marker;
+                v_orig.accept_frame = v_copy.accept_frame;
+                v_orig.hom_frame = v_copy.hom_frame;
+                v_orig.hom_tested = v_copy.hom_tested;
+
+                if (!bVisible) continue;
+            }
+
+            // Add to render queue
+            r_dsgraph_insert_dynamic(
+                (vkRender_Visual*)renderable->renderable.visual,
+                renderable->spatial.sphere.P
+            );
+        }
+    }
+    */
+
+    // ========================================================================
+    // Lights visibility with HOM culling
+    // ========================================================================
+    if (g_SpatialSpace && pLastSector)
+    {
+        // Get lights from spatial database
+        lstSpatial.clear();
+        g_SpatialSpace->q_frustum(lstSpatial, ISpatial_DB::O_ORDERED, STYPE_LIGHTSOURCE, ViewBase);
+
+        for (u32 o_it = 0; o_it < lstSpatial.size(); o_it++)
+        {
+            ISpatial* spatial = lstSpatial[o_it];
+            if (!spatial) continue;
+
+            light* L = (light*)spatial->dcast_Light();
+            if (!L) continue;
+            if (!L->flags.bActive) continue;
+
+            // HOM visibility test for lights
+            if (HOM && HOM->bEnabled)
+            {
+                float lod = L->get_LOD();
+                if (lod > EPS_L)
+                {
+                    vis_data& vis = L->get_homdata();
+                    if (HOM->visible(vis))
+                        Lights.add_light(L);
+                }
+            }
+            else
+            {
+                Lights.add_light(L);
+            }
+        }
+    }
+
+    // ========================================================================
+    // Statistics (occasional logging)
+    // ========================================================================
     static u32 lastLogFrame = 0;
-    if (Device.dwFrame - lastLogFrame > 300) {  // Every ~5 seconds at 60fps
-        Msg("[Vulkan] Calculate: %u visuals processed, %u in lstNormal queue",
-            visualCount, lstNormal.size());
+    if (Device.dwFrame - lastLogFrame > 300)
+    {
+        Msg("[Vulkan] Calculate: sectors=%u, visuals=%u",
+            pLastSector ? vkPortalTraverser.r_sectors.size() : 0,
+            lstNormal.size());
         lastLogFrame = Device.dwFrame;
     }
 }
@@ -405,6 +585,136 @@ void CRender::Calculate()
 //   - Portal/sector visibility
 //   - Pipeline sorting for state change minimization
 // ============================================================================
+// ============================================================================
+// Helper: Calculate SSA (Screen Space Area)
+// ============================================================================
+ICF float CalcSSA(float& distSQ, Fvector& C, vkRender_Visual* V)
+{
+    float R = V->vis.sphere.R;
+    distSQ = Device.vCameraPosition.distance_to_sqr(C) + EPS;
+    return R / distSQ;
+}
+
+ICF float CalcSSA(float& distSQ, Fvector& C, float R)
+{
+    distSQ = Device.vCameraPosition.distance_to_sqr(C) + EPS;
+    return R / distSQ;
+}
+
+// ============================================================================
+// add_Static - Add static visual with full frustum culling
+// ============================================================================
+void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
+{
+    if (!pVisual) return;
+
+    // Skip if already processed this frame
+    if (pVisual->vis.marker == marker) return;
+    pVisual->vis.marker = marker;
+
+    // ========================================================================
+    // SSA (Screen Space Area) Culling - Skip tiny objects
+    // ========================================================================
+    // SSA = sphere_radius / distance_squared
+    // Objects with SSA < r_ssaDISCARD are too small to be visible
+    float distSQ;
+    float SSA = CalcSSA(distSQ, pVisual->vis.sphere.P, pVisual);
+    if (SSA <= r_ssaDISCARD) return;  // Skip tiny objects
+
+    // ========================================================================
+    // Frustum culling with plane mask
+    // ========================================================================
+    EFC_Visible VIS = View->testSphere(pVisual->vis.sphere.P, pVisual->vis.sphere.R, planes);
+    if (VIS == fcvNone) return;  // Completely outside frustum
+
+    // ========================================================================
+    // HOM visibility test (optional - already done at sector level)
+    // ========================================================================
+    // Per-object HOM test disabled here to avoid double-testing
+    // Sectors are already HOM-culled during portal traversal
+
+    // ========================================================================
+    // Handle by visual type
+    // ========================================================================
+    switch (pVisual->Type)
+    {
+    case MT_HIERRARHY:
+        {
+            // Hierarchical visual - recursively process children
+            vkFHierrarhyVisual* pV = (vkFHierrarhyVisual*)pVisual;
+            for (auto child : pV->children)
+            {
+                if (!child) continue;
+
+                if (VIS == fcvPartial)
+                    // Partially visible - need per-child culling
+                    add_Static((vkRender_Visual*)child, planes);
+                else
+                    // Fully visible - skip culling for children
+                    add_leafs_Static((vkRender_Visual*)child);
+            }
+        }
+        break;
+
+    case MT_LOD:
+        {
+            // LOD visual - add to LOD queue for later rendering
+            r_dsgraph_insert_LOD(reinterpret_cast<dxRender_Visual*>(pVisual));
+        }
+        break;
+
+    default:
+        // Regular visual - add to render queue
+        r_dsgraph_insert_static(reinterpret_cast<dxRender_Visual*>(pVisual));
+        break;
+    }
+}
+
+// ============================================================================
+// add_leafs_Static - Add visual without additional culling
+// ============================================================================
+// Used for children of fully visible parent nodes
+// Note: Still performs SSA culling to skip tiny objects
+void CRender::add_leafs_Static(vkRender_Visual* pVisual)
+{
+    if (!pVisual) return;
+
+    // Skip if already processed
+    if (pVisual->vis.marker == marker) return;
+    pVisual->vis.marker = marker;
+
+    // ========================================================================
+    // SSA Culling - Still needed even for "fully visible" children
+    // ========================================================================
+    // Parent might be visible, but child could still be too small to render
+    float distSQ;
+    float SSA = CalcSSA(distSQ, pVisual->vis.sphere.P, pVisual);
+    if (SSA <= r_ssaDISCARD) return;  // Skip tiny objects
+
+    switch (pVisual->Type)
+    {
+    case MT_HIERRARHY:
+        {
+            // Recursively add all children
+            vkFHierrarhyVisual* pV = (vkFHierrarhyVisual*)pVisual;
+            for (auto child : pV->children)
+            {
+                if (child)
+                    add_leafs_Static((vkRender_Visual*)child);
+            }
+        }
+        break;
+
+    case MT_LOD:
+        r_dsgraph_insert_LOD(reinterpret_cast<dxRender_Visual*>(pVisual));
+        break;
+
+    default:
+        r_dsgraph_insert_static(reinterpret_cast<dxRender_Visual*>(pVisual));
+        break;
+    }
+}
+
 void CRender::add_Static_Simple(vkRender_Visual* pVisual)
 {
     if (!pVisual) return;
@@ -442,8 +752,10 @@ void CRender::add_Static_Simple(vkRender_Visual* pVisual)
     if (distSQ < EPS) distSQ = EPS;  // Avoid division by zero
     float SSA = pVisual->vis.sphere.R / distSQ;
 
-    // TODO Phase 2: Add SSA culling
-    // if (SSA < r_ssaDISCARD) return;  // Skip tiny objects
+    // ========================================================================
+    // SSA Culling - Skip tiny objects
+    // ========================================================================
+    if (SSA <= r_ssaDISCARD) return;  // Skip objects too small to be visible
 
     // ========================================================================
     // Add to render queue
@@ -564,9 +876,9 @@ void CRender::Render()
         // Clear accumulator
         RTarget->phase_accumulator();
 
-        // Render directional light with cascade shadows
-        // TODO: Render all 3 cascades (NEAR/MIDDLE/FAR)
-        // For now, just render FAR cascade as test
+        // Render directional light with cascade shadows (all 3 cascades)
+        RTarget->accum_direct_cascades(SE_SUN_NEAR);
+        RTarget->accum_direct_cascades(SE_SUN_MIDDLE);
         RTarget->accum_direct_cascades(SE_SUN_FAR);
 
         // Point lights (Phase 2.16.5)
@@ -599,6 +911,17 @@ void CRender::Render()
     VkDiagFrame("[RENDER] PASS 4: distortion");
     if (RTarget) {
         RTarget->phase_distortion();
+    }
+
+    // ========================================================================
+    // PASS 4.5: Water SSR + Final Water Rendering
+    // ========================================================================
+    VkDiagFrame("[RENDER] PASS 4.5: water");
+    if (b_loaded && RTarget && o.ssfx_water && mapWater.size()) {
+        RTarget->phase_water_ssr();
+        RTarget->phase_water_blur();
+        RTarget->phase_water_waves();
+        RTarget->phase_water();
     }
 
     // ========================================================================
@@ -670,16 +993,53 @@ void CRender::Render()
         RTarget->phase_forward();
     }
 
+    // Render sorted (transparent) geometry back-to-front
+    r_dsgraph_render_sorted();
+
     // TODO: Portal fade rendering: vkPortalTraverser.fade_render()
-    // TODO: Sorted geometry rendering
 
     // ========================================================================
-    // PASS 7: Post-Process Pass
+    // PASS 6.5: Wallmarks (blood, bullet holes, decals)
+    // ========================================================================
+    VkDiagFrame("[RENDER] PASS 6.5: wallmarks");
+    if (Wallmarks) {
+        Wallmarks->Render();
+    }
+
+    // ========================================================================
+    // PASS 7: HUD 3D Rendering (weapons, hands, HUD particles)
+    // ========================================================================
+    VkDiagFrame("[RENDER] PASS 7: HUD 3D");
+    r_dsgraph_render_hud(false);
+
+    // ========================================================================
+    // PASS 7.5: HUD UI Overlay (active item UI, camera-attached UI)
+    // ========================================================================
+    // Phase 2.28: Render HUD UI overlays with proper projection switching
+    VkDiagFrame("[RENDER] PASS 7.5: HUD UI");
+    // TODO: Implement HUD UI rendering
+    // Temporarily disabled due to undefined CHUDManager type
+    /*
+    extern CHUDManager* g_hud;
+    if (g_hud)
+    {
+        // Active item UI (weapon sights, scopes, etc.)
+        if (g_hud->RenderActiveItemUIQuery())
+            r_dsgraph_render_hud_ui();
+
+        // Camera-attached UI (special effects with custom FOV)
+        if (g_hud->RenderCamAttachedUIQuery())
+            r_dsgraph_render_cam_ui();
+    }
+    */
+
+    // ========================================================================
+    // PASS 8: Post-Process Pass
     // ========================================================================
     // TODO: Bloom, color grading, etc.
 
     // ========================================================================
-    // PASS 8: UI Pass (in-game UI when level is loaded)
+    // PASS 9: UI Pass (in-game UI when level is loaded)
     // ========================================================================
     // In-game UI (HUD, inventory, etc.) is rendered via seqRender callbacks
     // from CMainMenu::OnRender() / IGame_Level::OnRender() after Render() returns.
@@ -725,26 +1085,109 @@ void CRender::set_Object(IRenderable* O)
 
 void CRender::add_Visual(IRenderVisual* V)
 {
-    // Add visual to render queue
-    // TODO: Implement scene graph insertion
+    if (!V) return;
+
+    vkRender_Visual* pVisual = static_cast<vkRender_Visual*>(V);
+
+    // Route HUD visuals to mapHUD (rendered by r_dsgraph_render_hud)
+    if (val_bHUD)
+    {
+        R_dsgraph::_MatrixItemS item;
+        item.ssa = 1.0f;
+        item.pObject = val_pObject;
+        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+        item.Matrix = (val_pTransform) ? *val_pTransform : Fidentity;
+        item.PrevMatrix = item.Matrix;
+        item.se = nullptr;
+
+        mapHUD.insertInAnyWay(0.f, item);
+        return;
+    }
+
+    // Expand composite visuals into leaf visuals
+    add_leafs_Dynamic_VK(pVisual);
+}
+
+// ============================================================================
+// add_leafs_Dynamic_VK - Recursively expand dynamic visuals into render queue
+// ============================================================================
+void CRender::add_leafs_Dynamic_VK(vkRender_Visual* pVisual)
+{
+    if (!pVisual) return;
+
+    switch (pVisual->Type)
+    {
+    case MT_PARTICLE_GROUP:
+    {
+        // Expand particle group: iterate all child items
+        vkCParticleGroup* pG = static_cast<vkCParticleGroup*>(pVisual);
+        for (auto& item : pG->items)
+        {
+            if (item.pVisual)
+                add_leafs_Dynamic_VK(static_cast<vkRender_Visual*>(item.pVisual));
+        }
+        return;
+    }
+
+    case MT_HIERRARHY:
+    {
+        // Expand hierarchy via IRenderVisual::get_children()
+        xr_vector<IRenderVisual*>* children = pVisual->get_children();
+        if (children) {
+            for (auto child : *children) {
+                if (child)
+                    add_leafs_Dynamic_VK(static_cast<vkRender_Visual*>(child));
+            }
+        }
+        return;
+    }
+
+    case MT_SKELETON_ANIM:
+    case MT_SKELETON_RIGID:
+    {
+        // Skeleton: calculate bones, then expand children
+        IKinematics* pK = pVisual->dcast_PKinematics();
+        if (pK) {
+            pK->CalculateBones(TRUE);
+        }
+
+        // Expand skeleton children via IRenderVisual interface
+        xr_vector<IRenderVisual*>* children = pVisual->get_children();
+        if (children) {
+            for (auto child : *children) {
+                if (child)
+                    add_leafs_Dynamic_VK(static_cast<vkRender_Visual*>(child));
+            }
+        }
+        return;
+    }
+
+    default:
+    {
+        // Leaf visual (geometry, particle effect, etc.) - add to render queue
+        R_dsgraph::_NormalItem item;
+        item.ssa = 1.0f;  // Dynamic objects: max priority
+        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+        lstNormal.push_back(item);
+        return;
+    }
+    }
 }
 
 void CRender::add_Geometry(IRenderVisual* V)
 {
-    // Add geometry with culling
-    // TODO: Implement with frustum culling
+    // Same as add_Visual for Vulkan renderer
+    add_Visual(V);
 }
 
 void CRender::add_Occluder(Fbox2& bb_screenspace)
 {
-    // Add occluder for occlusion culling
     // TODO: Implement HOM integration
 }
 
 void CRender::flush()
 {
-    // Flush render queue
-    // TODO: Actually render queued objects
+    // TODO: Flush queued render objects
 }
 
 // ============================================================================
@@ -788,9 +1231,24 @@ IRenderVisual* CRender::model_CreateChild(LPCSTR name, IReader* data)
 
 IRenderVisual* CRender::model_CreateParticles(LPCSTR name)
 {
-    // TODO: Implement particle system creation
-    // return Models->CreatePE(...) or Models->CreatePG(...)
-    Msg("[Vulkan] model_CreateParticles not implemented: %s", name);
+    if (!Models) {
+        Msg("![Vulkan] ModelPool not initialized");
+        return nullptr;
+    }
+
+    // Try to find particle effect definition
+    PS::CPEDef* pe_def = PSLibrary.FindPED(name);
+    if (pe_def) {
+        return Models->CreatePE(pe_def);
+    }
+
+    // Try to find particle group definition
+    PS::CPGDef* pg_def = PSLibrary.FindPGD(name);
+    if (pg_def) {
+        return Models->CreatePG(pg_def);
+    }
+
+    Msg("![Vulkan] Particle not found: %s", name);
     return nullptr;
 }
 
@@ -840,47 +1298,100 @@ bool CRender::models_Exists(LPCSTR name)
 }
 
 // ============================================================================
-// Light management (stubs for now)
+// Light management
 // ============================================================================
 IRender_Light* CRender::light_create()
 {
-    // TODO: Implement light creation
-    return nullptr;
+    return Lights.Create();
 }
+
+// ============================================================================
+// Glow - minimal implementation (stub rendering, proper interface)
+// ============================================================================
+class CGlow : public IRender_Glow
+{
+public:
+    bool     bActive;
+    Fvector  position;
+    Fvector  direction;
+    float    radius;
+    Fcolor   color;
+
+    CGlow() : bActive(false), radius(0.5f)
+    {
+        position.set(0, 0, 0);
+        direction.set(0, 0, 1);
+        color.set(1, 1, 1, 1);
+    }
+
+    virtual void set_active(bool b) override    { bActive = b; }
+    virtual bool get_active() override          { return bActive; }
+    virtual void set_position(const Fvector& P) override { position.set(P); }
+    virtual void set_direction(const Fvector& D) override { direction.set(D); }
+    virtual void set_radius(float R) override   { radius = R; }
+    virtual void set_texture(LPCSTR name) override { /* Vulkan: glow textures not yet implemented */ }
+    virtual void set_color(const Fcolor& C) override { color.set(C); }
+    virtual void set_color(float r, float g, float b) override { color.set(r, g, b, 1); }
+};
 
 IRender_Glow* CRender::glow_create()
 {
-    // TODO: Implement glow creation
-    return nullptr;
+    return xr_new<CGlow>();
 }
 
 // ============================================================================
-// Wallmarks (stubs for now)
+// Wallmarks
 // ============================================================================
+
+// Helper: ref_shader overload with random rotation
+void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, bool random_rotation)
+{
+    add_StaticWallmark(S, P, s, T, V, ttl, ignore_opt, random_rotation ? ::Random.randF(-20.f, 20.f) : 0.f);
+}
+
+// Helper: ref_shader overload with explicit rotation
+void CRender::add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, float rotation)
+{
+    if (T->suppress_wm) return;
+    VERIFY2(_valid(P) && _valid(s) && T && V && (s > EPS_L), "Invalid static wallmark params");
+    if (Wallmarks)
+        Wallmarks->AddStaticWallmark(T, V, P, S, s, ttl, ignore_opt, rotation);
+}
+
+// IWallMarkArray overload with random rotation (called by game code)
 void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, bool random_rotation)
 {
-    // TODO: Implement
+    add_StaticWallmark(pArray, P, s, T, V, ttl, ignore_opt, random_rotation ? ::Random.randF(-20.f, 20.f) : 0.f);
 }
 
+// IWallMarkArray overload with explicit rotation (called by game code)
 void CRender::add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, float rotation)
 {
-    // TODO: Implement
+    dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
+    ref_shader* pShader = pWMA->dxGenerateWallmark();
+    if (pShader) add_StaticWallmark(*pShader, P, s, T, V, ttl, ignore_opt, rotation);
 }
 
+// wm_shader overload (used by older/UI code paths)
 void CRender::add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V)
 {
-    // TODO: Implement
+    dxUIShader* pShader = (dxUIShader*)&*S;
+    add_StaticWallmark(pShader->hShader, P, s, T, V, 0.0f, false, true);
 }
 
 void CRender::clear_static_wallmarks()
 {
-    // TODO: Implement
+    if (Wallmarks)
+        Wallmarks->clear();
 }
 
+// IKinematics + IWallMarkArray overload (called by game code for blood on animated models)
 void CRender::add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start,
                                    const Fvector& dir, float size, float ttl, bool ignore_opt)
 {
-    // TODO Phase 2.x: Implement skeleton wallmark rendering (blood decals on animated models)
+    dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
+    ref_shader* pShader = pWMA->dxGenerateWallmark();
+    if (pShader) add_SkeletonWallmark(xf, (CKinematics*)obj, *pShader, start, dir, size, ttl, ignore_opt);
 }
 
 // Include CSkeletonWallmark for intrusive_ptr wrapper
@@ -893,34 +1404,55 @@ void CRender::add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMar
 
 void CRender::add_SkeletonWallmark_impl(const CSkeletonWallmark* wm)
 {
-    // TODO Phase 2.x: Add pre-created wallmark to rendering queue
+    // Not used directly - see intrusive_ptr overload below
 }
 
-// Wrapper for intrusive_ptr overload (used by SkeletonCustom.cpp)
+// intrusive_ptr overload (called by CKinematics when wallmark is ready)
 void CRender::add_SkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm)
 {
-    add_SkeletonWallmark_impl(wm.get());
+    if (Wallmarks)
+        Wallmarks->AddSkeletonWallmark(wm);
 }
 
+// CKinematics + ref_shader overload (direct skeleton wallmark creation)
 void CRender::add_SkeletonWallmark(const Fmatrix* xf, CKinematics* obj, ref_shader& sh, const Fvector& start,
                                    const Fvector& dir, float size, float ttl, bool ignore_opt)
 {
-    // TODO Phase 2.x: Create skeleton wallmark with explicit shader
+    if (Wallmarks)
+        Wallmarks->AddSkeletonWallmark(xf, obj, sh, start, dir, size, ttl, ignore_opt);
 }
 
 // ============================================================================
-// ROS (stubs for now)
+// ROS (Render Object Specific) - Stub for Vulkan
 // ============================================================================
+// Minimal implementation returning safe dummy luminosity values.
+// Full light tracking (CROS_impl) not yet ported to Vulkan.
+// ============================================================================
+class vkROS : public IRender_ObjectSpecific
+{
+    u32   m_mode;
+    float m_hemi_cube[6];
+public:
+    vkROS() : m_mode(TRACE_ALL)
+    {
+        for (int i = 0; i < 6; i++)
+            m_hemi_cube[i] = 0.5f;   // neutral hemisphere
+    }
+    virtual void   force_mode(u32 mode)            { m_mode = mode; }
+    virtual float  get_luminocity()                 { return 0.5f; }
+    virtual float  get_luminocity_hemi()            { return 0.5f; }
+    virtual float* get_luminocity_hemi_cube()       { return m_hemi_cube; }
+    virtual ~vkROS() {}
+};
 
 IRender_ObjectSpecific* CRender::ros_create(IRenderable* parent)
 {
-    // TODO: Implement ROS creation
-    return nullptr;
+    return xr_new<vkROS>();
 }
 
 void CRender::ros_destroy(IRender_ObjectSpecific*& ROS)
 {
-    // TODO: Implement
+    xr_delete(ROS);
     ROS = nullptr;
 }
 
@@ -929,7 +1461,8 @@ void CRender::ros_destroy(IRender_ObjectSpecific*& ROS)
 // ============================================================================
 IRender_Sector* CRender::getSector(int id)
 {
-    // TODO: Implement
+    if (id >= 0 && id < (int)Sectors.size())
+        return Sectors[id];
     return nullptr;
 }
 
@@ -942,7 +1475,12 @@ IRenderVisual* CRender::getVisual(int id)
 
 IRender_Sector* CRender::detectSector(const Fvector& P)
 {
-    // TODO: Implement sector detection
+    // Simplified sector detection for Vulkan MVP.
+    // Full implementation would ray-cast against sector geometry.
+    // For now, return first available sector so portal traversal
+    // and spatial system have a valid sector to work with.
+    if (!Sectors.empty())
+        return Sectors[0];
     return nullptr;
 }
 
@@ -1001,20 +1539,44 @@ void CRender::ScreenshotAsyncEnd(CMemoryWriter& memory_writer)
 // ============================================================================
 void CRender::rmNear()
 {
-    // Set near clipping plane for weapon rendering
-    // TODO: Implement
+    // Set viewport depth range for HUD weapon rendering (front of depth buffer)
+    IRender_Target* T = getTarget();
+    if (!T) return;
+    RCache.m_Viewport.x = 0;
+    RCache.m_Viewport.y = 0;
+    RCache.m_Viewport.width  = (float)T->get_width();
+    RCache.m_Viewport.height = (float)T->get_height();
+    RCache.m_Viewport.minDepth = 0.f;
+    RCache.m_Viewport.maxDepth = 0.02f;
+    RCache.ApplyViewportScissor();
 }
 
 void CRender::rmFar()
 {
-    // Set far clipping plane
-    // TODO: Implement
+    // Set viewport depth range for sky rendering (back of depth buffer)
+    IRender_Target* T = getTarget();
+    if (!T) return;
+    RCache.m_Viewport.x = 0;
+    RCache.m_Viewport.y = 0;
+    RCache.m_Viewport.width  = (float)T->get_width();
+    RCache.m_Viewport.height = (float)T->get_height();
+    RCache.m_Viewport.minDepth = 0.99999f;
+    RCache.m_Viewport.maxDepth = 1.f;
+    RCache.ApplyViewportScissor();
 }
 
 void CRender::rmNormal()
 {
-    // Reset to normal clipping planes
-    // TODO: Implement
+    // Reset viewport depth range to full (normal rendering)
+    IRender_Target* T = getTarget();
+    if (!T) return;
+    RCache.m_Viewport.x = 0;
+    RCache.m_Viewport.y = 0;
+    RCache.m_Viewport.width  = (float)T->get_width();
+    RCache.m_Viewport.height = (float)T->get_height();
+    RCache.m_Viewport.minDepth = 0.f;
+    RCache.m_Viewport.maxDepth = 1.f;
+    RCache.ApplyViewportScissor();
 }
 
 // ============================================================================
@@ -1101,4 +1663,14 @@ void CRender::ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* me
 {
     // TODO: Implement actual Vulkan screenshot capture
     Msg("[Vulkan] ScreenshotImpl mode:%d name:%s", mode, name ? name : "null");
+}
+
+// ============================================================================
+// HUD Particle Rendering
+// ============================================================================
+void CRender::RenderHUDParticles()
+{
+    // TODO: Render particles that have flRT_HUDmode flag set
+    // These are typically muzzle flashes, impact effects, etc.
+    // that should render in screen space on top of HUD objects
 }

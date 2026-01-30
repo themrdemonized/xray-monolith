@@ -10,6 +10,8 @@
 #include "vk_ModelPool.h"
 #include "vk_sector.h"      // vkCSector, vkCPortal, vkPortalTraverser
 #include "vk_d3d_compat.h"  // D3D9 structures without d3d9.lib dependency
+#include "vk_WallmarksEngine.h"  // Wallmark engine
+#include "vk_shader.h"      // Vulkan shader system
 
 // Engine includes
 #include "../../xrEngine/x_ray.h"
@@ -45,24 +47,44 @@ void CRender::level_Load(IReader* fs)
         u32 count = chunk->r_u32();
         Msg("[Vulkan] Loading %d level shaders", count);
 
-        // TODO: Load shaders when we have shader system ready
-        // For now, just skip through the shader definitions
+        // Resize shader array
+        Shaders.resize(count);
+
+        // Load shader definitions
         for (u32 i = 0; i < count; i++)
         {
             string512 n_sh, n_tlist;
             LPCSTR n = LPCSTR(chunk->pointer());
             chunk->skip_stringZ();
-            if (0 == n[0]) continue;
 
+            if (0 == n[0]) {
+                // Empty shader name - use default
+                Shaders[i] = g_VulkanShaderManager->GetDefaultShader();
+                continue;
+            }
+
+            // Parse shader name and texture list
+            // Format: "shader_name/texture_name"
             xr_strcpy(n_sh, n);
+            n_tlist[0] = 0;
+
             LPSTR delim = strchr(n_sh, '/');
             if (delim) {
                 *delim = 0;
                 xr_strcpy(n_tlist, delim + 1);
             }
-            // TODO: Shaders[i] = CreateShader(n_sh, n_tlist);
+
+            // Create shader with texture
+            Shaders[i] = g_VulkanShaderManager->CreateShader(n_sh, n_tlist);
+
+            if (!Shaders[i]) {
+                Msg("![Vulkan] Failed to create shader %d: %s", i, n_sh);
+                Shaders[i] = g_VulkanShaderManager->GetDefaultShader();
+            }
         }
         chunk->close();
+
+        Msg("[Vulkan] Loaded %d shaders successfully", Shaders.size());
     }
 
     // ========================================================================
@@ -102,11 +124,23 @@ void CRender::level_Load(IReader* fs)
     LoadSectors(fs);
 
     // ========================================================================
-    // TODO: Load additional level components
+    // Create subsystems
     // ========================================================================
-    // - HOM (Hierarchical Occlusion Map)
-    // - Lights
-    // - Details
+    Wallmarks = xr_new<vkCWallmarksEngine>();
+    Msg("[Vulkan] Wallmarks engine created");
+
+    // HOM (Hierarchical Occlusion Map)
+    if (HOM)
+    {
+        HOM->Load();
+        Msg("[Vulkan] HOM loaded");
+    }
+
+    // Lights (sun, static, hemispheric)
+    LoadLights(fs);
+
+    // TODO: Load additional level components
+    // - Details (grass/debris)
     // - 3D Fluid volumes
 
     // End loading
@@ -128,6 +162,14 @@ void CRender::level_Unload()
     if (!b_loaded) return;
 
     Msg("[Vulkan] CRender::level_Unload()");
+
+    // ========================================================================
+    // Wallmarks
+    // ========================================================================
+    if (Wallmarks) {
+        xr_delete(Wallmarks);
+        Wallmarks = nullptr;
+    }
 
     // ========================================================================
     // Sectors/Portals
@@ -174,6 +216,13 @@ void CRender::level_Unload()
         }
     }
     SWIs.clear();
+
+    // ========================================================================
+    // Shaders (Phase 2.32)
+    // ========================================================================
+    // NOTE: Shaders themselves are managed by g_VulkanShaderManager
+    // We just clear the references here
+    Shaders.clear();
 
     // ========================================================================
     // Vertex/Index buffers
@@ -492,6 +541,20 @@ IRender_Sector* CRender::getSectorByIndex(int id)
     if (id >= 0 && id < (int)Sectors.size())
         return Sectors[id];
     return nullptr;
+}
+
+// ============================================================================
+// LoadLights - Load dynamic lights, sun, and hemispheric lighting
+// ============================================================================
+void CRender::LoadLights(IReader* fs)
+{
+    // Load dynamic lights (sun, static point/spot lights)
+    Lights.Load(fs);
+    Msg("[Vulkan] Dynamic lights loaded");
+
+    // Load hemispheric lights from build.lights
+    Lights.LoadHemi();
+    Msg("[Vulkan] Hemispheric lights loaded");
 }
 
 // ============================================================================

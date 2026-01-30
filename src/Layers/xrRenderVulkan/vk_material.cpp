@@ -7,8 +7,10 @@
 // ============================================================================
 //
 // Phase 2.22: Material System
+// Phase 2.33: Material Loading with .thm Support
 //
 // Implements material loading, texture management, and descriptor set binding.
+// Integrates with CTextureDescrMngr for .thm file loading.
 //
 // ============================================================================
 
@@ -17,6 +19,8 @@
 #include "HW_Vulkan.h"
 #include "vk_descriptors.h"
 #include "vk_pipeline.h"
+#include "../xrRender/TextureDescrManager.h"  // .thm loader
+#include "vk_detail_scaler.h"                 // For cl_dt_scaler
 
 // Глобальный экземпляр
 VK::CMaterialManager* g_MaterialManager = nullptr;
@@ -32,6 +36,10 @@ CMaterial::CMaterial()
     : m_TexDiffuse(nullptr)
     , m_TexNormal(nullptr)
     , m_TexSpecular(nullptr)
+    , m_TexDetail(nullptr)
+    , m_fMaterial(0.0f)
+    , m_bUseSteepParallax(false)
+    , m_fDetailScale(1.0f)
     , m_DescriptorSet(VK_NULL_HANDLE)
 {
 }
@@ -45,18 +53,21 @@ void CMaterial::Create(LPCSTR name)
 {
     m_Name = name;
 
-    // Load diffuse texture
-    LoadDiffuse(name);
+    // Load material parameters from .thm file (Phase 2.33)
+    LoadFromTHM(name);
 
-    // TODO Phase 2.23: Load normal and specular maps
-    // LoadNormal(...);
-    // LoadSpecular(...);
+    // Load textures
+    LoadDiffuse(name);
+    LoadNormal(name);
+    LoadSpecular(name);
+    LoadDetail(name);
 
     // Create descriptor set
     CreateDescriptorSet();
     UpdateDescriptorSet();
 
-    Msg("[Vulkan] Material created: %s", name);
+    Msg("[Vulkan] Material created: %s (material=%.2f, parallax=%d)",
+        name, m_fMaterial, m_bUseSteepParallax);
 }
 
 void CMaterial::Destroy()
@@ -67,46 +78,219 @@ void CMaterial::Destroy()
     m_TexDiffuse = nullptr;
     m_TexNormal = nullptr;
     m_TexSpecular = nullptr;
+    m_TexDetail = nullptr;
 }
 
 void CMaterial::LoadDiffuse(LPCSTR name)
 {
-    // For MVP: Use white texture fallback
-    // Phase 2.23 will implement actual texture loading from gamedata
-
-    if (g_MaterialManager) {
+    if (!name || !name[0]) {
         m_TexDiffuse = g_MaterialManager->GetWhiteTexture();
-        Msg("[Vulkan] Material '%s': Using white texture (fallback)", name);
+        return;
     }
 
-    // TODO Phase 2.23: Actual texture loading
-    //
-    // string_path fn;
-    // if (FS.exist(fn, "$game_textures$", name, ".dds")) {
-    //     m_TexDiffuse = LoadTextureDDS(fn);
-    // } else if (FS.exist(fn, "$game_textures$", name, ".tga")) {
-    //     m_TexDiffuse = LoadTextureTGA(fn);
-    // } else {
-    //     m_TexDiffuse = g_MaterialManager->GetWhiteTexture();
-    // }
+    // Check texture cache first
+    m_TexDiffuse = g_MaterialManager->FindTexture(name);
+    if (m_TexDiffuse) {
+        // Already loaded
+        return;
+    }
+
+    // Build texture path
+    string_path fn;
+
+    // Try .dds first (most common in X-Ray)
+    if (FS.exist(fn, "$game_textures$", name, ".dds")) {
+        m_TexDiffuse = g_MaterialManager->LoadTexture(name, fn);
+        if (m_TexDiffuse) {
+            Msg("[Vulkan] Loaded diffuse: %s", fn);
+            return;
+        }
+    }
+
+    // Try .tga as fallback
+    if (FS.exist(fn, "$game_textures$", name, ".tga")) {
+        Msg("![Vulkan] TGA not supported yet: %s, using white texture", fn);
+        m_TexDiffuse = g_MaterialManager->GetWhiteTexture();
+        return;
+    }
+
+    // Fallback to white texture
+    Msg("![Vulkan] Texture not found: %s, using white texture", name);
+    m_TexDiffuse = g_MaterialManager->GetWhiteTexture();
+}
+
+void CMaterial::LoadFromTHM(LPCSTR name)
+{
+    if (!name || !name[0]) {
+        m_fMaterial = 0.0f;
+        m_bUseSteepParallax = false;
+        m_fDetailScale = 1.0f;
+        return;
+    }
+
+    if (!g_MaterialManager->m_TexDescMngr) {
+        // .thm manager not initialized
+        m_fMaterial = 0.0f;
+        m_bUseSteepParallax = false;
+        m_fDetailScale = 1.0f;
+        return;
+    }
+
+    // Get material ID from .thm (0-3: OrenNayar-Blin, Blin-Phong, Phong-Metal, Metal-OrenNayar)
+    m_fMaterial = g_MaterialManager->m_TexDescMngr->GetMaterial(name);
+
+    // Get parallax flag from .thm
+    m_bUseSteepParallax = g_MaterialManager->m_TexDescMngr->UseSteepParallax(name);
+
+    // Note: Detail scale is loaded separately by GetDetailTexture()
+    m_fDetailScale = 1.0f;  // Will be set in LoadDetail()
 }
 
 void CMaterial::LoadNormal(LPCSTR name)
 {
-    // TODO Phase 2.23: Load normal map
-    // For now, use default flat normal
-    if (g_MaterialManager) {
+    if (!name || !name[0]) {
         m_TexNormal = g_MaterialManager->GetDefaultNormal();
+        return;
     }
+
+    // Try to get bump name from .thm file first (Phase 2.33)
+    shared_str bump_name;
+    if (g_MaterialManager->m_TexDescMngr) {
+        bump_name = g_MaterialManager->m_TexDescMngr->GetBumpName(name);
+    }
+
+    // If .thm specifies a bump map, use it
+    if (bump_name.size() > 0) {
+        // Check cache first
+        m_TexNormal = g_MaterialManager->FindTexture(bump_name.c_str());
+        if (m_TexNormal) {
+            return;
+        }
+
+        // Load from .thm bump_name
+        string_path fn;
+        if (FS.exist(fn, "$game_textures$", bump_name.c_str(), ".dds")) {
+            m_TexNormal = g_MaterialManager->LoadTexture(bump_name.c_str(), fn);
+            if (m_TexNormal) {
+                Msg("[Vulkan] Loaded normal map from .thm: %s", fn);
+                return;
+            }
+        }
+    }
+
+    // Fallback: Try common normal map naming conventions
+    string_path fn;
+    string_path normal_name;
+
+    const char* suffixes[] = {"_bump", "_nmap", "_n", nullptr};
+    for (int i = 0; suffixes[i] != nullptr; i++) {
+        xr_sprintf(normal_name, "%s%s", name, suffixes[i]);
+
+        // Check cache first
+        m_TexNormal = g_MaterialManager->FindTexture(normal_name);
+        if (m_TexNormal) {
+            return;
+        }
+
+        if (FS.exist(fn, "$game_textures$", normal_name, ".dds")) {
+            m_TexNormal = g_MaterialManager->LoadTexture(normal_name, fn);
+            if (m_TexNormal) {
+                Msg("[Vulkan] Loaded normal map (fallback): %s", fn);
+                return;
+            }
+        }
+    }
+
+    // Fallback to default flat normal
+    m_TexNormal = g_MaterialManager->GetDefaultNormal();
 }
 
 void CMaterial::LoadSpecular(LPCSTR name)
 {
-    // TODO Phase 2.23: Load specular map
-    // For now, use white texture (no specular)
-    if (g_MaterialManager) {
+    if (!name || !name[0]) {
         m_TexSpecular = g_MaterialManager->GetWhiteTexture();
+        return;
     }
+
+    // Check texture cache first
+    m_TexSpecular = g_MaterialManager->FindTexture(name);
+    if (m_TexSpecular) {
+        return;
+    }
+
+    // Build specular map name (usually base_name + "_spec" or "_s")
+    string_path fn;
+    string_path spec_name;
+
+    // Try common specular map naming conventions
+    const char* suffixes[] = {"_spec", "_s", nullptr};
+    for (int i = 0; suffixes[i] != nullptr; i++) {
+        xr_sprintf(spec_name, "%s%s", name, suffixes[i]);
+
+        if (FS.exist(fn, "$game_textures$", spec_name, ".dds")) {
+            m_TexSpecular = g_MaterialManager->LoadTexture(spec_name, fn);
+            if (m_TexSpecular) {
+                Msg("[Vulkan] Loaded specular map: %s", fn);
+                return;
+            }
+        }
+    }
+
+    // Fallback to white texture (no specular)
+    m_TexSpecular = g_MaterialManager->GetWhiteTexture();
+}
+
+void CMaterial::LoadDetail(LPCSTR name)
+{
+    if (!name || !name[0]) {
+        m_TexDetail = nullptr;
+        return;
+    }
+
+    if (!g_MaterialManager->m_TexDescMngr) {
+        // .thm manager not initialized
+        m_TexDetail = nullptr;
+        return;
+    }
+
+    // Get detail texture from .thm
+    LPCSTR detail_name = nullptr;
+    R_constant_setup* detail_scaler = nullptr;
+    BOOL has_detail = g_MaterialManager->m_TexDescMngr->GetDetailTexture(name, detail_name, detail_scaler);
+
+    if (!has_detail || !detail_name || !detail_name[0]) {
+        m_TexDetail = nullptr;
+        return;
+    }
+
+    // Get detail scale from constant setup
+    if (detail_scaler) {
+        // detail_scaler is always cl_dt_scaler* (from GetDetailTexture contract)
+        cl_dt_scaler* scaler = static_cast<cl_dt_scaler*>(detail_scaler);
+        m_fDetailScale = scaler->scale;
+    } else {
+        m_fDetailScale = 1.0f;  // No scaler provided, use default
+    }
+
+    // Check cache first
+    m_TexDetail = g_MaterialManager->FindTexture(detail_name);
+    if (m_TexDetail) {
+        Msg("[Vulkan] Using cached detail texture: %s", detail_name);
+        return;
+    }
+
+    // Load detail texture
+    string_path fn;
+    if (FS.exist(fn, "$game_textures$", detail_name, ".dds")) {
+        m_TexDetail = g_MaterialManager->LoadTexture(detail_name, fn);
+        if (m_TexDetail) {
+            Msg("[Vulkan] Loaded detail texture from .thm: %s (scale=%.2f)", fn, m_fDetailScale);
+            return;
+        }
+    }
+
+    // No detail texture found
+    m_TexDetail = nullptr;
 }
 
 void CMaterial::CreateDescriptorSet()
@@ -223,6 +407,7 @@ CMaterialManager::CMaterialManager()
     , m_BlackTexture(nullptr)
     , m_DefaultNormal(nullptr)
     , m_DefaultMaterial(nullptr)
+    , m_TexDescMngr(nullptr)
     , m_bCreated(false)
 {
 }
@@ -240,6 +425,13 @@ void CMaterialManager::Create()
 
     // NOTE: Descriptor set layout (Set 1 - PerMaterial) is managed by g_DescriptorManager
     // We use existing infrastructure instead of creating our own
+
+    // Create texture descriptor manager (.thm loader) - Phase 2.33
+    if (!m_TexDescMngr) {
+        m_TexDescMngr = xr_new<CTextureDescrMngr>();
+        m_TexDescMngr->Load();  // Load all .thm files from $game_textures$ and $level$
+        Msg("[Vulkan] Texture descriptor manager created (.thm files loaded)");
+    }
 
     // Create default textures (white, black, normal)
     CreateDefaultTextures();
@@ -273,8 +465,25 @@ void CMaterialManager::Destroy()
     }
     m_Materials.clear();
 
+    // Destroy all cached textures
+    for (auto& pair : m_Textures) {
+        if (pair.second) {
+            pair.second->Destroy();
+            xr_delete(pair.second);
+        }
+    }
+    m_Textures.clear();
+
     // Destroy default textures
     DestroyDefaultTextures();
+
+    // Destroy texture descriptor manager (.thm loader) - Phase 2.33
+    if (m_TexDescMngr) {
+        m_TexDescMngr->UnLoad();  // Unload .thm data
+        xr_delete(m_TexDescMngr);
+        m_TexDescMngr = nullptr;
+        Msg("[Vulkan] Texture descriptor manager destroyed");
+    }
 
     // NOTE: Descriptor sets are freed when g_DescriptorManager is destroyed
     // No need to manually destroy them here
@@ -323,6 +532,65 @@ void CMaterialManager::DestroyMaterial(CMaterial* mat)
             mat->Destroy();
             xr_delete(mat);
             m_Materials.erase(it);
+            return;
+        }
+    }
+}
+
+// ============================================================================
+// Texture Management
+// ============================================================================
+
+CVulkanTexture* CMaterialManager::FindTexture(LPCSTR name)
+{
+    if (!name || !name[0])
+        return nullptr;
+
+    // Check cache
+    auto it = m_Textures.find(name);
+    if (it != m_Textures.end()) {
+        return it->second;
+    }
+
+    return nullptr;
+}
+
+CVulkanTexture* CMaterialManager::LoadTexture(LPCSTR name, LPCSTR path)
+{
+    if (!name || !name[0] || !path || !path[0])
+        return nullptr;
+
+    // Check if already loaded
+    CVulkanTexture* existing = FindTexture(name);
+    if (existing) {
+        return existing;
+    }
+
+    // Load texture
+    CVulkanTexture* tex = xr_new<CVulkanTexture>();
+    if (!tex->LoadDDS(path)) {
+        // Load failed
+        Msg("![Vulkan] Failed to load texture: %s", path);
+        xr_delete(tex);
+        return nullptr;
+    }
+
+    // Add to cache
+    m_Textures[name] = tex;
+
+    return tex;
+}
+
+void CMaterialManager::DestroyTexture(CVulkanTexture* tex)
+{
+    if (!tex) return;
+
+    // Find and remove from cache
+    for (auto it = m_Textures.begin(); it != m_Textures.end(); ++it) {
+        if (it->second == tex) {
+            tex->Destroy();
+            xr_delete(tex);
+            m_Textures.erase(it);
             return;
         }
     }

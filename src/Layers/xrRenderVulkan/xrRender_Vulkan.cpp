@@ -926,10 +926,10 @@ static void TestShaderManager_Create()
 {
     Msg("[Vulkan TEST] Creating Shader Manager...");
 
-    // Создаём глобальный ShaderManager
-    g_ShaderManager = xr_new<VK::CVulkanShaderManager>();
+    // Создаём глобальный SPIR-V Loader
+    g_ShaderManager = xr_new<VK::CVulkanSPIRVLoader>();
 
-    Msg("[Vulkan TEST] Shader Manager created");
+    Msg("[Vulkan TEST] SPIR-V Loader created");
 }
 
 static void TestShaderManager_Load()

@@ -876,10 +876,25 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 			m_attached_items[0]->m_parent_hud_item->on_outfit_changed();
 	}
 
-	m_model->dcast_PKinematics()->CalculateBones_Invalidate();
-	m_model->dcast_PKinematics()->CalculateBones(TRUE);
-	m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
-	m_model_2->dcast_PKinematics()->CalculateBones(TRUE);
+	Msg("[PlayerHUD] m_model=%p, m_model_2=%p", m_model, m_model_2);
+
+	if (m_model && m_model->dcast_PKinematics())
+	{
+		Msg("[PlayerHUD] Calling m_model->CalculateBones_Invalidate()");
+		m_model->dcast_PKinematics()->CalculateBones_Invalidate();
+		Msg("[PlayerHUD] Calling m_model->CalculateBones(TRUE)");
+		m_model->dcast_PKinematics()->CalculateBones(TRUE);
+		Msg("[PlayerHUD] m_model CalculateBones completed");
+	}
+
+	if (m_model_2 && m_model_2->dcast_PKinematics())
+	{
+		Msg("[PlayerHUD] Calling m_model_2->CalculateBones_Invalidate()");
+		m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
+		Msg("[PlayerHUD] Calling m_model_2->CalculateBones(TRUE)");
+		m_model_2->dcast_PKinematics()->CalculateBones(TRUE);
+		Msg("[PlayerHUD] m_model_2 CalculateBones completed");
+	}
 
 	//--DSR-- HeatVision_start
 	m_model->dcast_RenderVisual()->MarkAsHot(true);

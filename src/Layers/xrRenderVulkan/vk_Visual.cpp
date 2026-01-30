@@ -6,6 +6,8 @@
 #include "vk_Visual.h"
 #include "vk_R_Backend.h"
 #include "vk_buffer_pool.h"
+#include "vk_shader.h"      // Phase 2.34: Shader binding
+#include "vk_material.h"    // Phase 2.34: Material binding
 #include "rvk.h"
 
 // Factory functions for Skeleton classes (implemented in vk_Skeleton*.cpp wrapper files)
@@ -97,7 +99,7 @@ void vkRender_Visual::LoadHeader(IReader* data)
         data->r(&H, sizeof(H));
 
         Type = H.type;
-        // shader_id = H.shader_id; // TODO: Use for shader lookup
+        shader_id = H.shader_id;  // Phase 2.34: Store shader ID for rendering
 
         // Set visibility data (copy from OGF header structs to engine structs)
         vis.box.set(H.bb.min, H.bb.max);
@@ -195,17 +197,51 @@ void vkFVisual::Render(float LOD)
     //     // Use fast-path for shadow maps
     // }
 
-    // Bind vertex buffer
-    if (m_mesh.p_rm_Vertices)
-    {
-        RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
+    // ========================================================================
+    // Phase 2.34: Shader-Material Binding
+    // ========================================================================
+
+    // Get shader from level's shader array
+    VK::CVulkanShader* shader = nullptr;
+    if (shader_id < RImplementation.Shaders.size()) {
+        shader = RImplementation.Shaders[shader_id];
     }
 
-    // Bind index buffer
-    if (m_mesh.p_rm_Indices)
-    {
-        RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
+    // Fallback to default shader if not found
+    if (!shader && g_VulkanShaderManager) {
+        shader = g_VulkanShaderManager->GetDefaultShader();
     }
+
+    // Bind shader pipeline
+    if (shader) {
+        VkPipeline pipeline = shader->GetPipeline();
+        if (pipeline != VK_NULL_HANDLE) {
+            RCache.set_Pipeline(pipeline);
+        }
+
+        // Bind material (textures via descriptor set)
+        VK::CMaterial* material = shader->GetMaterial();
+        if (material) {
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            if (cmd != VK_NULL_HANDLE) {
+                material->Bind(cmd);
+            }
+        }
+    }
+
+    // ========================================================================
+    // Geometry Rendering
+    // ========================================================================
+
+    // Both buffers must be valid to render
+    if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
+        return;
+
+    // Bind vertex buffer
+    RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
+
+    // Bind index buffer
+    RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
 
     // Draw
     RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, m_mesh.iBase, m_mesh.dwPrimitives);
@@ -440,21 +476,30 @@ void vkFHierrarhyVisual::Release()
 
 void vkFHierrarhyVisual::Copy(vkRender_Visual* from)
 {
+    Msg("[Vulkan] vkFHierrarhyVisual::Copy ENTER");
     vkRender_Visual::Copy(from);
 
     vkFHierrarhyVisual* src = dynamic_cast<vkFHierrarhyVisual*>(from);
-    if (!src) return;
+    if (!src) {
+        Msg("[Vulkan] vkFHierrarhyVisual::Copy: src is not vkFHierrarhyVisual, return");
+        return;
+    }
 
     // Deep copy children
+    Msg("[Vulkan] vkFHierrarhyVisual::Copy: copying %u children...", (u32)src->children.size());
     children.clear();
     children.reserve(src->children.size());
 
-    for (auto& src_child : src->children)
+    for (u32 i = 0; i < src->children.size(); i++)
     {
+        auto& src_child = src->children[i];
+        Msg("[Vulkan] vkFHierrarhyVisual::Copy: duplicating child[%u] type=%d...", i, src_child ? ((vkRender_Visual*)src_child)->Type : -1);
         IRenderVisual* child_copy = RImplementation.model_Duplicate(src_child);
+        Msg("[Vulkan] vkFHierrarhyVisual::Copy: child[%u] duplicated: %p", i, child_copy);
         children.push_back(child_copy);
     }
 
+    Msg("[Vulkan] vkFHierrarhyVisual::Copy: copying %u invisible children...", (u32)src->children_invisible.size());
     children_invisible.clear();
     children_invisible.reserve(src->children_invisible.size());
 
@@ -465,6 +510,7 @@ void vkFHierrarhyVisual::Copy(vkRender_Visual* from)
     }
 
     bDontDelete = FALSE;
+    Msg("[Vulkan] vkFHierrarhyVisual::Copy DONE");
 }
 
 void vkFHierrarhyVisual::Render(float LOD)

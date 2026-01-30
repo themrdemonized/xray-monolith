@@ -36,6 +36,18 @@ layout(set = 1, binding = 2) uniform sampler2D s_color;     // Albedo (diffuse c
 layout(set = 1, binding = 3) uniform sampler2D s_material;  // PBR: metallic/roughness/SSS/AO
 
 // ============================================================================
+// Set 0: Global Lighting Parameters
+// ============================================================================
+layout(set = 0, binding = 0) uniform GlobalLighting
+{
+    vec4 L_hemi_color;   // Hemisphere sky color (RGB) + intensity (A)
+    vec4 L_ambient;      // Flat ambient color (RGB) + unused (A)
+    vec4 L_sun_color;    // Sun color (RGB) + unused (A)
+    vec4 L_sun_dir_w;    // Sun direction world-space (XYZ) + unused (W)
+    mat4 m_invV;         // Inverse view matrix (eye-space -> world-space)
+} globals;
+
+// ============================================================================
 // Set 3: Point Light Data
 // ============================================================================
 
@@ -53,6 +65,17 @@ layout(set = 3, binding = 1) uniform PointLight
 // Constants
 // ============================================================================
 const float PI = 3.14159265359;
+
+// ============================================================================
+// Hemisphere Lighting Function
+// ============================================================================
+
+// calc_model_hemi_r1() - Hemisphere lighting based on normal Y component
+vec3 calc_model_hemi_r1(vec3 norm_w, vec3 hemi_color)
+{
+    // Upper hemisphere (norm.y > 0) is lit, lower hemisphere is dark
+    return max(0.0, norm_w.y) * hemi_color;
+}
 
 // ============================================================================
 // PCF Sampling Offsets для Soft Shadows
@@ -217,9 +240,21 @@ void main()
     }
 
     // ========================================================================
-    // Compute point light contribution
+    // Compute point light contribution (direct lighting only)
     // ========================================================================
     vec3 lighting = ComputePointLight(P, N, albedo, roughness);
+
+    // ========================================================================
+    // Optional: Add hemisphere ambient for first light pass
+    // ========================================================================
+    // NOTE: Hemisphere ambient обычно добавляется только в sun/directional pass
+    // чтобы избежать дублирования. Если нужно добавить здесь, раскомментируйте:
+
+    // Transform normal to world space
+    // vec3 n_world = normalize((globals.m_invV * vec4(N, 0.0)).xyz);
+    // vec3 hemi = calc_model_hemi_r1(n_world, globals.L_hemi_color.rgb);
+    // vec3 ambient = globals.L_ambient.rgb;
+    // lighting += albedo * (hemi + ambient);
 
     // ========================================================================
     // Output

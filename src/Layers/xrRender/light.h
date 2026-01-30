@@ -3,7 +3,7 @@
 
 #include "../../xrcdb/ispatial.h"
 
-#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4) || (RENDER==R_VK)
 #	include "light_package.h"
 #	include "light_smapvis.h"
 #	include "light_GI.h"
@@ -50,7 +50,7 @@ public:
 
 	float virtual_size;
 
-#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4) || (RENDER==R_VK)
 	float			falloff;			// precalc to make light equal to zero at light range
 	float	        attenuation0;		// Constant attenuation		
 	float	        attenuation1;		// Linear attenuation		
@@ -156,7 +156,7 @@ public:
 	virtual IRender_Light* dcast_Light() { return this; }
 
 	vis_data& get_homdata();
-#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4) || (RENDER==R_VK)
 	void			gi_generate				();
 	void			xform_calc				();
 	void			vis_prepare				();

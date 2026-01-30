@@ -17,11 +17,13 @@ class occTri;
 
 class vkCHOM
 {
+public:
+    BOOL bEnabled;  // Moved to public for access from rvk.cpp
+
 private:
     xrXRC xrc;
     CDB::MODEL* m_pModel;
     occTri* m_pTris;
-    BOOL bEnabled;
     Fmatrix m_xform;
     Fmatrix m_xform_01;
 

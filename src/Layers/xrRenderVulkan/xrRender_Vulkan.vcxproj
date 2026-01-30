@@ -208,9 +208,18 @@
     <ClInclude Include="vk_lighting.h" />
     <ClInclude Include="vk_sun_cascades.h" />
     <ClInclude Include="vk_material.h" />
+    <ClInclude Include="vk_shader.h" />
     <ClInclude Include="vk_FBasicVisual.h" />
     <ClInclude Include="vk_SkeletonCompat.h" />
     <ClInclude Include="vk_d3d_skeleton_compat.h" />
+    <ClInclude Include="vk_WallmarksEngine.h" />
+    <ClInclude Include="vk_ParticleBufferPool.h" />
+    <ClInclude Include="vk_ParticleCustom.h" />
+    <ClInclude Include="vk_ParticleDescriptors.h" />
+    <ClInclude Include="vk_ParticleEffect.h" />
+    <ClInclude Include="vk_ParticleGroup.h" />
+    <ClInclude Include="vk_ParticlePipeline.h" />
+    <ClInclude Include="vk_ParticleTextures.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -262,6 +271,7 @@
     <ClCompile Include="vk_rendertarget_phase_forward.cpp" />
     <ClCompile Include="vk_rendertarget_phase_gbuffer.cpp" />
     <ClCompile Include="vk_rendertarget_phase_postprocess.cpp" />
+    <ClCompile Include="vk_rendertarget_phase_water.cpp" />
     <ClCompile Include="vk_rendertarget_helpers.cpp" />
     <ClCompile Include="vk_rendertarget_phase_smap.cpp" />
     <ClCompile Include="vk_rendertarget_shadow.cpp" />
@@ -275,6 +285,7 @@
     <ClCompile Include="vk_lighting.cpp" />
     <ClCompile Include="vk_sun_cascades.cpp" />
     <ClCompile Include="vk_material.cpp" />
+    <ClCompile Include="vk_shader.cpp" />
     <ClCompile Include="rvk_sun.cpp" />
     <ClCompile Include="rvk_shadow.cpp" />
     <ClCompile Include="vk_ResourceManager_Scripting.cpp" />
@@ -291,6 +302,16 @@
     <ClCompile Include="vk_shared_Animation.cpp" />
     <ClCompile Include="..\xrRender\du_sphere.cpp" />
     <ClCompile Include="..\xrRender\du_cone.cpp" />
+    <!-- Particle System and texture manager - Vulkan implementation -->
+    <ClCompile Include="vk_PSLibrary_TextureMngr_stubs.cpp" />
+    <ClCompile Include="vk_ParticleEffectDef_stubs.cpp" />
+    <ClCompile Include="vk_WallmarksEngine.cpp" />
+    <ClCompile Include="vk_ParticleBufferPool.cpp" />
+    <ClCompile Include="vk_ParticleCustom.cpp" />
+    <ClCompile Include="vk_ParticleDescriptors.cpp" />
+    <ClCompile Include="vk_ParticleEffect.cpp" />
+    <ClCompile Include="vk_ParticleGroup.cpp" />
+    <ClCompile Include="vk_ParticlePipeline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\3rd party\crypto\crypto.vcxproj">

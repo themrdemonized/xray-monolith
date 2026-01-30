@@ -365,7 +365,7 @@ void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
 	if (!pmask[sh->flags.iPriority / 2]) return;
 
 	// Water rendering
-#if RENDER==R_R4
+#if RENDER==R_R4 || defined(XRRENDER_VULKAN_EXPORTS)
 	if (sh->flags.isWater && RImplementation.o.ssfx_water)
 	{
 		mapWater_Node* N = mapWater.insertInAnyWay(distSQ);

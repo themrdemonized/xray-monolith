@@ -99,6 +99,36 @@ private:
         Fvector4 Ldynamic_color;  // RGB + specular
     };
 
+    // ========================================================================
+    // Hemisphere Lighting Support (Phase: Hemisphere Lighting)
+    // ========================================================================
+
+    // UBO structure (matches shader layout in common_functions.h)
+    struct GlobalLightingUBO {
+        Fvector4 L_hemi_color;   // Hemisphere sky color (RGB) + intensity (A)
+        Fvector4 L_ambient;      // Flat ambient color (RGB) + unused (A)
+        Fvector4 L_sun_color;    // Sun color (RGB) + unused (A)
+        Fvector4 L_sun_dir_w;    // Sun direction world-space (XYZ) + unused (W)
+        Fmatrix  m_invV;         // Inverse view matrix (eye-space -> world-space)
+    };
+
+    // Vulkan resources for GlobalLighting UBO
+    VkBuffer m_GlobalLightingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_GlobalLightingMemory = VK_NULL_HANDLE;
+    void* m_GlobalLightingMapped = nullptr;
+
+    // Descriptor set for GlobalLighting (Set 0)
+    VkDescriptorSetLayout m_GlobalLightingLayout = VK_NULL_HANDLE;
+    VkDescriptorSet m_GlobalLightingDescriptorSet = VK_NULL_HANDLE;
+
+    // Methods
+    void CreateGlobalLightingUBO();
+    void UpdateGlobalLightingUBO();
+    void DestroyGlobalLightingUBO();
+
+    // Temporary storage for inverse view matrix
+    Fmatrix m_invV;
+
     bool m_bCreated = false;
     bool m_bShadersLoaded = false;
     bool m_bPipelineCreated = false;

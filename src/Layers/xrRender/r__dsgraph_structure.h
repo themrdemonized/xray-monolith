@@ -209,6 +209,7 @@ public:
 
 	void r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center);
 	void r_dsgraph_insert_static(dxRender_Visual* pVisual);
+	void r_dsgraph_insert_LOD(dxRender_Visual* pVisual);
 
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
 	void r_dsgraph_render_hud(bool NoPS = false);

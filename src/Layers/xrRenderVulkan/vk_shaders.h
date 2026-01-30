@@ -25,11 +25,11 @@ namespace VK
  * - Проверка существования файлов
  * - Валидация SPIR-V magic number
  */
-class CVulkanShaderManager
+class CVulkanSPIRVLoader
 {
 public:
-    CVulkanShaderManager();
-    ~CVulkanShaderManager();
+    CVulkanSPIRVLoader();
+    ~CVulkanSPIRVLoader();
 
     /**
      * Загрузить SPIR-V шейдер из файла
@@ -95,4 +95,4 @@ private:
 } // namespace VK
 
 // Глобальный экземпляр
-extern VK::CVulkanShaderManager* g_ShaderManager;
+extern VK::CVulkanSPIRVLoader* g_ShaderManager;

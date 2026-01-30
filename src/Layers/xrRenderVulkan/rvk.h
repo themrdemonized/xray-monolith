@@ -10,6 +10,7 @@
 #include "../../xrEngine/fmesh.h"  // FSlideWindowItem, ogf_header, etc.
 #include "../xrRender/r__dsgraph_structure.h"  // R_dsgraph_structure base class
 #include "../xrRender/Light_DB.h"  // CLight_DB
+#include "../xrRender/PSLibrary.h" // CPSLibrary for particle system
 #include "vk_HOM.h"               // vkCHOM (Vulkan HOM stub)
 #include "vk_sun_cascades.h"      // Sun cascade structures
 #include "../../xrCDB/Frustum.h"  // CFrustum for visibility culling
@@ -19,6 +20,7 @@ class dxRender_Visual;
 class CRenderTarget;
 class CDetailManager;
 class CWallmarksEngine;
+class vkCWallmarksEngine;
 class vkModelPool;
 class vkRender_Visual;
 class vkFHierrarhyVisual;  // Hierarchy visual for scene graph traversal
@@ -34,7 +36,13 @@ template<typename T, typename base_type> class intrusive_ptr;
 
 namespace VK {
     class CVulkanBuffer;
+    class CVulkanShader;
 }
+
+// ============================================================================
+// Frustum plane masks for culling
+// ============================================================================
+#define SF_RENDERING    0x3F    // All 6 frustum planes (LRTB + Near + Far)
 
 // ============================================================================
 // CRender - Main Vulkan renderer class
@@ -88,6 +96,7 @@ public:
 
         u32 forcegloss : 1;
         u32 forceskinw : 1;
+        u32 ssfx_water : 1;
 
         float forcegloss_v;
     } o;
@@ -139,6 +148,8 @@ public:
     vkModelPool*    Models;     // Model pool manager
     vkCHOM*         HOM;        // Hierarchical Occlusion Map (pointer - deferred init)
     CLight_DB       Lights;     // Light database (point, spot, directional)
+    CPSLibrary      PSLibrary;  // Particle system library
+    vkCWallmarksEngine* Wallmarks;  // Wallmark engine (blood, bullet holes, decals)
 
     // ========================================================================
     // Level data (loaded from level.geom and level file)
@@ -160,9 +171,8 @@ public:
     // Sliding window items (for LOD)
     xr_vector<FSlideWindowItem> SWIs;
 
-    // Level shaders
-    // TODO: Replace with Vulkan pipeline references
-    // xr_vector<ref_shader>    Shaders;
+    // Level shaders (Vulkan implementation)
+    xr_vector<VK::CVulkanShader*>    Shaders;
 
     // Level vertex/index buffers (normal and extended/fast-path)
     // These are shared buffers that level visuals reference via OGF_GCONTAINER
@@ -267,14 +277,18 @@ public:
     // ========================================================================
     // IRender_interface - Wallmarks
     // ========================================================================
+    // ref_shader overloads (internal, called by IWallMarkArray bridge)
+    void add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false, bool random_rotation = true);
+    void add_StaticWallmark(ref_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, float rotation);
+    // IWallMarkArray overloads (virtual interface from IRender)
     virtual void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl = 0.f, bool ignore_opt = false, bool random_rotation = true) override;
     virtual void add_StaticWallmark(IWallMarkArray* pArray, const Fvector& P, float s, CDB::TRI* T, Fvector* V, float ttl, bool ignore_opt, float rotation) override;
     virtual void add_StaticWallmark(const wm_shader& S, const Fvector& P, float s, CDB::TRI* T, Fvector* V) override;
     virtual void clear_static_wallmarks() override;
     virtual void add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start,
                                       const Fvector& dir, float size, float ttl = 0.f, bool ignore_opt = false) override;
-    void add_SkeletonWallmark_impl(const CSkeletonWallmark* wm);  // Implementation (plain pointer)
-    void add_SkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm);  // intrusive_ptr wrapper
+    void add_SkeletonWallmark_impl(const CSkeletonWallmark* wm);
+    void add_SkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm);
     void add_SkeletonWallmark(const Fmatrix* xf, CKinematics* obj, ref_shader& sh, const Fvector& start,
                               const Fvector& dir, float size, float ttl = 0.f, bool ignore_opt = false);
 
@@ -375,11 +389,7 @@ private:
     void LoadVisuals(IReader* fs);
     void LoadSectors(IReader* fs);
     void LoadSWIs(CStreamReader* fs);
-
-    // ========================================================================
-    // Scene Graph helpers (Phase 1)
-    // ========================================================================
-    void add_Static_Simple(vkRender_Visual* pVisual);  // Add static visual with frustum culling
+    void LoadLights(IReader* fs);
 
     // ========================================================================
     // Sun cascade shadow maps (Phase 2.15)
@@ -409,6 +419,13 @@ private:
 
 public:
     // ========================================================================
+    // Scene Graph helpers (Phase 1) - Public для доступа из vk_shared_stubs
+    // ========================================================================
+    void add_Static(vkRender_Visual* pVisual, u32 planes);       // Add static visual with full culling
+    void add_leafs_Static(vkRender_Visual* pVisual);             // Add visual without additional culling
+    void add_Static_Simple(vkRender_Visual* pVisual);            // Add static visual (simple version)
+
+    // ========================================================================
     // Shadow rendering methods (called by RenderTarget)
     // ========================================================================
     xr_vector<VK::SunCascade> m_sun_cascades;  // Sun cascade data (accessed by RenderTarget)
@@ -417,6 +434,16 @@ public:
     void render_shadow_geometry(const Fmatrix& viewProj, const Fvector& light_pos, float light_range);  // Generic shadow rendering for spot
     void render_shadow_geometry_cubemap(u32 face_index, const Fmatrix& face_matrix, const Fvector& light_pos, float light_range);
     void RenderLevelVisuals();          // Render level visuals (for shadow map or main scene)
+
+    // ========================================================================
+    // HUD and Particle Rendering
+    // ========================================================================
+    void RenderHUDParticles();          // Render HUD-mode particles (muzzle flashes, etc.)
+
+    // ========================================================================
+    // Dynamic visual expansion (hierarchy, particles, skeletons)
+    // ========================================================================
+    void add_leafs_Dynamic_VK(vkRender_Visual* pVisual);
 
     // ========================================================================
     // Level buffer access (for visuals using OGF_GCONTAINER)
