@@ -272,24 +272,23 @@ VkPhysicalDevice VK_SelectPhysicalDevice(VkInstance instance, VulkanCaps* outCap
     // Выбираем лучшее устройство
     DeviceScore& best = scores[0];
 
-    // Заполняем caps
-    xr_strcpy(outCaps->deviceName, best.props.deviceName);
-    outCaps->vendorID = best.props.vendorID;
-    outCaps->deviceID = best.props.deviceID;
-    outCaps->driverVersion = best.props.driverVersion;
-    outCaps->apiVersion = best.props.apiVersion;
+    // ========================================================================
+    // Query full features for Update()
+    // ========================================================================
+    VkPhysicalDeviceFeatures baseFeatures;
+    vkGetPhysicalDeviceFeatures(best.device, &baseFeatures);
 
-    outCaps->dynamicRendering = best.features13.dynamicRendering;
-    outCaps->synchronization2 = best.features13.synchronization2;
-    outCaps->maintenance4 = best.features13.maintenance4;
+    // ========================================================================
+    // Fill capabilities using Update()
+    // ========================================================================
+    outCaps->Update(best.device, best.props, baseFeatures, best.features13);
 
-    outCaps->maxColorAttachments = best.props.limits.maxColorAttachments;
-    outCaps->maxSamplerAnisotropy = best.props.limits.maxSamplerAnisotropy;
-    outCaps->msaaSamples = best.props.limits.framebufferColorSampleCounts;
-
-    // Подсчитываем VRAM
+    // ========================================================================
+    // Calculate VRAM (not done in Update())
+    // ========================================================================
     VkPhysicalDeviceMemoryProperties memProps;
     vkGetPhysicalDeviceMemoryProperties(best.device, &memProps);
+    outCaps->totalDeviceMemory = 0;  // Reset before counting
     for (u32 i = 0; i < memProps.memoryHeapCount; i++) {
         if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
             outCaps->totalDeviceMemory += memProps.memoryHeaps[i].size;
@@ -297,6 +296,11 @@ VkPhysicalDevice VK_SelectPhysicalDevice(VkInstance instance, VulkanCaps* outCap
     }
 
     Msg("[Vulkan] Selected: %s (score: %d)", best.props.deviceName, best.score);
+
+    // ========================================================================
+    // Print full capabilities report
+    // ========================================================================
+    outCaps->LogInfo();
 
     return best.device;
 }
