@@ -1329,6 +1329,14 @@ void CRender::Render()
     }
 
     // ========================================================================
+    // PASS 5.7: Detail rendering (grass, bushes, debris)
+    // ========================================================================
+    VkDiagFrame("[RENDER] PASS 5.7: details");
+    if (Details && b_loaded) {
+        Details->Render();
+    }
+
+    // ========================================================================
     // PASS 6: Forward Pass (transparent objects, particles, etc.)
     // ========================================================================
     // Phase 2.19: Forward rendering для transparent objects

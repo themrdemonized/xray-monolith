@@ -31,9 +31,13 @@ public:
     ref_texture         m_Texture;          // Diffuse texture
 
     // Rendering parameters
-    u32                 m_Flags;            // Detail flags
-    float               m_MinScale;         // Minimum scale
-    float               m_MaxScale;         // Maximum scale
+    u32                 m_Flags;            // Detail flags (DO_NO_WAVING etc.)
+    float               m_MinScale;         // Minimum scale (m_fMinScale in DX11)
+    float               m_MaxScale;         // Maximum scale (m_fMaxScale in DX11)
+
+    // Bounding volumes (same as DX11 IRender_DetailModel)
+    Fsphere             bv_sphere;
+    Fbox                bv_bb;
 
     // Reference
     shared_str          m_Name;             // Detail name

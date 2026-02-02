@@ -11,248 +11,261 @@ namespace VK
 {
 
 // ============================================================================
-// cache_Initialize - Initialize cache arrays
-// Ported from DetailManager.cpp
+// cache_Initialize - Initialize cache arrays and assign slots
+// Ported faithfully from DX11 DetailManager_CACHE.cpp
 // ============================================================================
 void CDetailManager::cache_Initialize()
 {
-#ifdef DETAIL_RADIUS
-    // Variable radius: allocate dynamic arrays
-    dm_current_cache1_line = dm_cache1_line;
-    dm_current_cache_line = dm_cache_line;
-    dm_current_cache_size = dm_cache_size;
-    dm_current_fade = dm_fade;
-
-    cache_level1 = (CacheSlot1**)xr_malloc(dm_cache1_line * sizeof(CacheSlot1*));
-    for (u32 i = 0; i < dm_cache1_line; i++)
-    {
-        cache_level1[i] = (CacheSlot1*)xr_malloc(dm_cache1_line * sizeof(CacheSlot1));
-        for (u32 j = 0; j < dm_cache1_line; j++)
-        {
-            new (&cache_level1[i][j]) CacheSlot1();
-        }
-    }
-
-    cache = (Slot***)xr_malloc(dm_cache_line * sizeof(Slot**));
-    for (u32 i = 0; i < dm_cache_line; i++)
-    {
-        cache[i] = (Slot**)xr_malloc(dm_cache_line * sizeof(Slot*));
-        Memory.mem_fill(cache[i], 0, dm_cache_line * sizeof(Slot*));
-    }
-
-    cache_pool = (Slot*)xr_malloc(dm_cache_size * sizeof(Slot));
-    for (u32 i = 0; i < dm_cache_size; i++)
-    {
-        new (&cache_pool[i]) Slot();
-    }
-#else
-    // Fixed radius: use static arrays
-    for (int z = 0; z < dm_cache1_line; z++)
-    {
-        for (int x = 0; x < dm_cache1_line; x++)
-        {
-            cache_level1[z][x].empty = 1;
-            cache_level1[z][x].vis.clear();
-        }
-    }
-
-    for (int z = 0; z < dm_cache_line; z++)
-    {
-        for (int x = 0; x < dm_cache_line; x++)
-        {
-            cache[z][x] = nullptr;
-        }
-    }
-
-    for (int i = 0; i < dm_cache_size; i++)
-    {
-        cache_pool[i].frame = 0;
-        cache_pool[i].empty = 1;
-        cache_pool[i].type = stReady;
-        cache_pool[i].sx = 0;
-        cache_pool[i].sz = 0;
-        cache_pool[i].vis.clear();
-        cache_pool[i].hidden = false;
-    }
-#endif
-
+    // Centroid
     cache_cx = 0;
     cache_cz = 0;
-    cache_task.clear();
 
-    Msg("[Vulkan] Detail cache initialized: %dx%d slots", dm_cache_line, dm_cache_line);
-}
-
-// ============================================================================
-// cache_Query - Get or allocate cache slot for world coordinates
-// Ported from DetailManager.cpp
-// ============================================================================
-CDetailManager::Slot* CDetailManager::cache_Query(int sx, int sz)
-{
-    // Convert world → cache grid
-    int gx = w2cg_X(sx);
-    int gz = w2cg_Z(sz);
-
-    // Bounds check
-    if (gx < 0 || gx >= dm_cache_line || gz < 0 || gz >= dm_cache_line)
+    // Initialize cache-grid: assign pool slots to grid positions
+    Slot* slt = cache_pool;
+    for (u32 i = 0; i < dm_cache_line; i++)
     {
-        return nullptr;
-    }
-
-    // Return existing slot
-    Slot* S = cache[gz][gx];
-    if (S)
-    {
-        return S;
-    }
-
-    // Allocate new slot from pool (LRU)
-    u32 oldest_frame = RDEVICE.dwFrame;
-    Slot* oldest_slot = nullptr;
-
-    for (int i = 0; i < dm_cache_size; i++)
-    {
-        Slot* candidate = &cache_pool[i];
-
-        // Prefer empty slots
-        if (candidate->empty)
+        for (u32 j = 0; j < dm_cache_line; j++, slt++)
         {
-            oldest_slot = candidate;
-            break;
-        }
-
-        // Find oldest used slot
-        if (candidate->frame < oldest_frame)
-        {
-            oldest_frame = candidate->frame;
-            oldest_slot = candidate;
+            cache[i][j] = slt;
+            cache_Task(j, i, slt);
         }
     }
 
-    if (!oldest_slot)
+    // Setup level1 cache (hierarchical bounding)
+    for (u32 _mz1 = 0; _mz1 < dm_cache1_line; _mz1++)
     {
-        Msg("![Vulkan] Detail cache exhausted");
-        return nullptr;
-    }
-
-    // Evict old slot
-    if (!oldest_slot->empty)
-    {
-        int old_gx = w2cg_X(oldest_slot->sx);
-        int old_gz = w2cg_Z(oldest_slot->sz);
-        if (old_gx >= 0 && old_gx < dm_cache_line && old_gz >= 0 && old_gz < dm_cache_line)
+        for (u32 _mx1 = 0; _mx1 < dm_cache1_line; _mx1++)
         {
-            cache[old_gz][old_gx] = nullptr;
-        }
-
-        // Free SlotItems
-        for (int obj = 0; obj < dm_obj_in_slot; obj++)
-        {
-            SlotPart& P = oldest_slot->G[obj];
-            for (SlotItemVecIt it = P.items.begin(); it != P.items.end(); ++it)
+            CacheSlot1& MS = cache_level1[_mz1][_mx1];
+            for (int _z = 0; _z < dm_cache1_count; _z++)
             {
-                poolSI.destroy(*it);
-            }
-            P.items.clear();
-            P.r_items[0].clear();
-            P.r_items[1].clear();
-            P.r_items[2].clear();
-        }
-    }
-
-    // Setup new slot
-    oldest_slot->sx = sx;
-    oldest_slot->sz = sz;
-    oldest_slot->empty = 0;
-    oldest_slot->type = stPending;  // Will be decompressed later
-    oldest_slot->frame = RDEVICE.dwFrame;
-    oldest_slot->vis.clear();
-    oldest_slot->hidden = false;
-
-    // Insert into cache
-    cache[gz][gx] = oldest_slot;
-
-    return oldest_slot;
-}
-
-// ============================================================================
-// cache_Update - Update cache around camera position
-// Ported from DetailManager.cpp
-// ============================================================================
-void CDetailManager::cache_Update(int sx, int sz, Fvector& view, int limit)
-{
-    // Update cache center
-    cache_cx = sx;
-    cache_cz = sz;
-
-    // Collect slots that need decompression
-    cache_task.clear();
-
-    for (int z = 0; z < dm_cache_line; z++)
-    {
-        for (int x = 0; x < dm_cache_line; x++)
-        {
-            // Convert cache grid → world
-            int wx = cg2w_X(x);
-            int wz = cg2w_Z(z);
-
-            // Get or create slot
-            Slot* S = cache_Query(wx, wz);
-            if (!S)
-                continue;
-
-            // Mark as used this frame
-            S->frame = RDEVICE.dwFrame;
-
-            // If pending decompression, add to task list
-            if (S->type == stPending)
-            {
-                cache_Task(x, z, S);
+                for (int _x = 0; _x < dm_cache1_count; _x++)
+                {
+                    MS.slots[_z * dm_cache1_count + _x] =
+                        &cache[_mz1 * dm_cache1_count + _z][_mx1 * dm_cache1_count + _x];
+                }
             }
         }
     }
 
-    // Process decompression tasks (limited per frame)
-    int tasks_done = 0;
-    for (u32 i = 0; i < cache_task.size() && tasks_done < limit; i++)
-    {
-        Slot* S = cache_task[i];
-        if (S->type == stPending)
-        {
-            cache_Decompress(S);
-            tasks_done++;
-        }
-    }
-
-    if (tasks_done > 0)
-    {
-        Msg("[Vulkan] Detail cache: decompressed %d slots", tasks_done);
-    }
+    // NOTE: do NOT clear cache_task here - cache_Task() filled it with pending
+    // slots that cache_Update() needs to decompress via cache_Decompress()
+    Msg("[Vulkan] Detail cache initialized: %dx%d slots, %u pending tasks",
+        dm_cache_line, dm_cache_line, (u32)cache_task.size());
 }
 
 // ============================================================================
-// cache_Task - Add slot to decompression queue
-// Ported from DetailManager.cpp
+// cache_Query - Get slot from cache grid
+// Ported from DX11 DetailManager_CACHE.cpp
+// ============================================================================
+CDetailManager::Slot* CDetailManager::cache_Query(int r_x, int r_z)
+{
+    int gx = w2cg_X(r_x + cache_cx);
+    VERIFY(gx >= 0 && gx < (int)dm_cache_line);
+    int gz = w2cg_Z(r_z + cache_cz);
+    VERIFY(gz >= 0 && gz < (int)dm_cache_line);
+    return cache[gz][gx];
+}
+
+// ============================================================================
+// cache_Task - Initialize slot data from DetailSlot DB
+// Ported faithfully from DX11 DetailManager_CACHE.cpp
+// This is the critical function that sets up vis.box bounds!
 // ============================================================================
 void CDetailManager::cache_Task(int gx, int gz, Slot* D)
 {
-    if (!D)
-        return;
+    int sx = cg2w_X(gx);
+    int sz = cg2w_Z(gz);
+    DetailSlot& DS = QueryDB(sx, sz);
 
-    // Add to task list if not already there
-    if (std::find(cache_task.begin(), cache_task.end(), D) == cache_task.end())
+    D->empty = (DS.id0 == DetailSlot::ID_Empty) &&
+               (DS.id1 == DetailSlot::ID_Empty) &&
+               (DS.id2 == DetailSlot::ID_Empty) &&
+               (DS.id3 == DetailSlot::ID_Empty);
+
+    // Unpacking
+    u32 old_type = D->type;
+    D->type = stPending;
+    D->sx = sx;
+    D->sz = sz;
+
+    // Initialize vis.box from slot data - this is critical for decompress!
+    D->vis.box.min.set(sx * dm_slot_size, DS.r_ybase(), sz * dm_slot_size);
+    D->vis.box.max.set(D->vis.box.min.x + dm_slot_size,
+                       DS.r_ybase() + DS.r_yheight(),
+                       D->vis.box.min.z + dm_slot_size);
+    D->vis.box.grow(EPS_L);
+
+    // Clear old items
+    for (u32 i = 0; i < dm_obj_in_slot; i++)
     {
+        D->G[i].id = DS.r_id(i);
+        for (u32 clr = 0; clr < D->G[i].items.size(); clr++)
+            poolSI.destroy(D->G[i].items[clr]);
+        D->G[i].items.clear();
+    }
+
+    if (old_type != stPending)
+    {
+        VERIFY(stPending == D->type);
         cache_task.push_back(D);
     }
 }
 
 // ============================================================================
+// cache_Update - Update cache around camera position
+// Ported faithfully from DX11 DetailManager_CACHE.cpp
+// Uses grid-shifting approach (not LRU eviction)
+// ============================================================================
+void CDetailManager::cache_Update(int v_x, int v_z, Fvector& view, int limit)
+{
+    bool bNeedMegaUpdate = (cache_cx != v_x) || (cache_cz != v_z);
+
+    // Cache shift - X axis
+    while (cache_cx != v_x)
+    {
+        if (v_x > cache_cx)
+        {
+            // shift matrix to left
+            cache_cx++;
+            for (u32 z = 0; z < dm_cache_line; z++)
+            {
+                Slot* S = cache[z][0];
+                for (u32 x = 1; x < dm_cache_line; x++)
+                    cache[z][x - 1] = cache[z][x];
+                cache[z][dm_cache_line - 1] = S;
+                cache_Task(dm_cache_line - 1, z, S);
+            }
+        }
+        else
+        {
+            // shift matrix to right
+            cache_cx--;
+            for (u32 z = 0; z < dm_cache_line; z++)
+            {
+                Slot* S = cache[z][dm_cache_line - 1];
+                for (u32 x = dm_cache_line - 1; x > 0; x--)
+                    cache[z][x] = cache[z][x - 1];
+                cache[z][0] = S;
+                cache_Task(0, z, S);
+            }
+        }
+    }
+
+    // Cache shift - Z axis
+    while (cache_cz != v_z)
+    {
+        if (v_z > cache_cz)
+        {
+            // shift matrix down
+            cache_cz++;
+            for (u32 x = 0; x < dm_cache_line; x++)
+            {
+                Slot* S = cache[dm_cache_line - 1][x];
+                for (u32 z = dm_cache_line - 1; z > 0; z--)
+                    cache[z][x] = cache[z - 1][x];
+                cache[0][x] = S;
+                cache_Task(x, 0, S);
+            }
+        }
+        else
+        {
+            // shift matrix up
+            cache_cz--;
+            for (u32 x = 0; x < dm_cache_line; x++)
+            {
+                Slot* S = cache[0][x];
+                for (u32 z = 1; z < dm_cache_line; z++)
+                    cache[z - 1][x] = cache[z][x];
+                cache[dm_cache_line - 1][x] = S;
+                cache_Task(x, dm_cache_line - 1, S);
+            }
+        }
+    }
+
+    // Task performer - decompress closest slots first
+    BOOL bFullUnpack = FALSE;
+    if (cache_task.size() == dm_cache_size)
+    {
+        limit = dm_cache_size;
+        bFullUnpack = TRUE;
+    }
+
+    for (int iteration = 0; cache_task.size() && (iteration < limit); iteration++)
+    {
+        u32 best_id = 0;
+        float best_dist = flt_max;
+
+        if (bFullUnpack)
+        {
+            best_id = cache_task.size() - 1;
+        }
+        else
+        {
+            for (u32 entry = 0; entry < cache_task.size(); entry++)
+            {
+                Slot* S = cache_task[entry];
+                VERIFY(stPending == S->type);
+
+                Fvector C;
+                S->vis.box.getcenter(C);
+                float D = view.distance_to_sqr(C);
+
+                if (D < best_dist)
+                {
+                    best_dist = D;
+                    best_id = entry;
+                }
+            }
+        }
+
+        // Decompress and remove task
+        cache_Decompress(cache_task[best_id]);
+        cache_task.erase(best_id);
+    }
+
+    // Update level1 cache bounds after mega-update
+    if (bNeedMegaUpdate)
+    {
+        for (u32 _mz1 = 0; _mz1 < dm_cache1_line; _mz1++)
+        {
+            for (u32 _mx1 = 0; _mx1 < dm_cache1_line; _mx1++)
+            {
+                CacheSlot1& MS = cache_level1[_mz1][_mx1];
+                MS.empty = TRUE;
+                MS.vis.clear();
+                for (int _i = 0; _i < dm_cache1_count * dm_cache1_count; _i++)
+                {
+                    Slot* PS = *MS.slots[_i];
+                    Slot& S = *PS;
+                    MS.vis.box.merge(S.vis.box);
+                    if (!S.empty)
+                        MS.empty = FALSE;
+                }
+                MS.vis.box.getsphere(MS.vis.sphere.P, MS.vis.sphere.R);
+            }
+        }
+    }
+}
+
+// ============================================================================
 // cache_Validate - Debug validation
+// Ported from DX11 DetailManager_CACHE.cpp
 // ============================================================================
 BOOL CDetailManager::cache_Validate()
 {
-    // Check for dangling pointers, overlaps, etc.
-    // TODO: Implement if needed
+    for (u32 z = 0; z < dm_cache_line; z++)
+    {
+        for (u32 x = 0; x < dm_cache_line; x++)
+        {
+            int w_x = cg2w_X(x);
+            int w_z = cg2w_Z(z);
+            Slot* D = cache[z][x];
+
+            if (D->sx != w_x) return FALSE;
+            if (D->sz != w_z) return FALSE;
+        }
+    }
     return TRUE;
 }
 

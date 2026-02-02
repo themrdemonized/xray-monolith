@@ -58,8 +58,12 @@ struct PipelineConfig
     // Custom vertex input (used when useDefaultVertexInput = false and custom data is provided)
     bool useCustomVertexInput = false;
     VkVertexInputBindingDescription customBinding = {};
-    VkVertexInputAttributeDescription customAttributes[4] = {};
+    VkVertexInputAttributeDescription customAttributes[8] = {};
     u32 customAttributeCount = 0;
+
+    // Multi-binding vertex input (e.g. vertex + instance data)
+    u32 customBindingCount = 0;
+    VkVertexInputBindingDescription customBindings[4] = {};
 
     /**
      * Calculate hash для caching

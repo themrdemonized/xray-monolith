@@ -15,21 +15,34 @@
 namespace VK
 {
 
-#ifdef DETAIL_RADIUS
-// Variable detail radius support
-u32 dm_size = 24;
-u32 dm_cache1_line = 0;
-u32 dm_cache_line = 0;
-u32 dm_cache_size = 0;
-float dm_fade = 0.0f;
-u32 dm_current_size = 24;
-u32 dm_current_cache1_line = 0;
-u32 dm_current_cache_line = 0;
-u32 dm_current_cache_size = 0;
-float dm_current_fade = 0.0f;
-float ps_current_detail_density = 0.3f;
-float ps_current_detail_height = 1.0f;
-#endif
+// ============================================================================
+// bwdithermap - Generate 16x16 dither matrix from 4x4 magic pattern
+// Ported from DetailManager.cpp
+// ============================================================================
+static int magic4x4[4][4] =
+{
+    {0, 14, 3, 13},
+    {11, 5, 8, 6},
+    {12, 2, 15, 1},
+    {7, 9, 4, 10}
+};
+
+void bwdithermap(int levels, int magic[16][16])
+{
+    float N = 255.0f / (levels - 1);
+    float magicfact = (N - 1) / 16;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            for (int k = 0; k < 4; k++)
+                for (int l = 0; l < 4; l++)
+                    magic[4 * k + i][4 * l + j] =
+                        (int)(0.5 + magic4x4[i][j] * magicfact +
+                            (magic4x4[k][l] / 16.) * magicfact);
+}
+
+// Note: DETAIL_RADIUS variables (dm_size, dm_cache1_line, etc.) and
+// ps_current_detail_density/ps_current_detail_height are defined in vk_console.cpp.
+// The header declares them as extern.
 
 // ============================================================================
 // CDetailInstanceBuffer - GPU instance buffer manager
@@ -184,15 +197,8 @@ CDetailManager::CDetailManager()
     m_bCreated = false;
     Memory.mem_fill(&m_Constants, 0, sizeof(m_Constants));
 
-    // Dither pattern (16x16 Bayer matrix for alpha fade)
-    int dith[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
-    for (int y = 0; y < 16; y++)
-    {
-        for (int x = 0; x < 16; x++)
-        {
-            dither[y][x] = dith[x] + dith[y] * 16;
-        }
-    }
+    // Dither pattern - will be properly initialized in Load() via bwdithermap()
+    Memory.mem_fill(dither, 0, sizeof(dither));
 
     fade_distance = 60.0f;
     light_position.set(0, 0, 0);
@@ -222,20 +228,30 @@ void CDetailManager::Unload()
 
     // Destroy cache
 #ifdef DETAIL_RADIUS
-    if (cache_level1)
+    if (cache_pool)
     {
-        xr_free(cache_level1);
-        cache_level1 = nullptr;
+        for (u32 i = 0; i < dm_cache_size; ++i)
+            cache_pool[i].~Slot();
+        Memory.mem_free(cache_pool);
+        cache_pool = nullptr;
     }
     if (cache)
     {
-        xr_free(cache);
+        for (u32 i = 0; i < dm_cache_line; ++i)
+            Memory.mem_free(cache[i]);
+        Memory.mem_free(cache);
         cache = nullptr;
     }
-    if (cache_pool)
+    if (cache_level1)
     {
-        xr_free(cache_pool);
-        cache_pool = nullptr;
+        for (u32 i = 0; i < dm_cache1_line; ++i)
+        {
+            for (u32 j = 0; j < dm_cache1_line; ++j)
+                cache_level1[i][j].~CacheSlot1();
+            Memory.mem_free(cache_level1[i]);
+        }
+        Memory.mem_free(cache_level1);
+        cache_level1 = nullptr;
     }
 #endif
 
@@ -300,7 +316,7 @@ void CDetailManager::CreatePipeline()
     // Depth testing (read + write for correct occlusion)
     config.depthTest = true;
     config.depthWrite = true;
-    config.depthCompare = VK_COMPARE_OP_LESS;
+    config.depthCompareOp = VK_COMPARE_OP_LESS;
 
     // No blending (alpha test in shader instead)
     config.blendEnable = false;
@@ -308,7 +324,70 @@ void CDetailManager::CreatePipeline()
     // Single color attachment (forward pass to swapchain)
     config.colorAttachmentCount = 1;
     config.colorFormats[0] = Swapchain.GetFormat();
-    config.depthFormat = VK_FORMAT_D32_SFLOAT;
+    config.depthFormat = Swapchain.m_DepthFormat;
+
+    // ========================================================================
+    // Custom vertex input: 2 bindings (vertex + instance)
+    // ========================================================================
+    config.useDefaultVertexInput = false;
+    config.useCustomVertexInput = true;
+
+    // Binding 0: per-vertex data (CDetail::Vertex = 24 bytes)
+    config.customBindings[0].binding = 0;
+    config.customBindings[0].stride = 24;  // vec3 pos + vec2 uv + float height
+    config.customBindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    // Binding 1: per-instance data (DetailInstance = 64 bytes)
+    config.customBindings[1].binding = 1;
+    config.customBindings[1].stride = sizeof(VK::DetailInstance);  // 64 bytes
+    config.customBindings[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+    config.customBindingCount = 2;
+
+    // Vertex attributes:
+    // location 0: vec3 aPos (binding 0, offset 0)
+    config.customAttributes[0].binding = 0;
+    config.customAttributes[0].location = 0;
+    config.customAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    config.customAttributes[0].offset = 0;
+
+    // location 1: vec2 aUV (binding 0, offset 12)
+    config.customAttributes[1].binding = 0;
+    config.customAttributes[1].location = 1;
+    config.customAttributes[1].format = VK_FORMAT_R32G32_SFLOAT;
+    config.customAttributes[1].offset = 12;
+
+    // location 2: float aHeight (binding 0, offset 20)
+    config.customAttributes[2].binding = 0;
+    config.customAttributes[2].location = 2;
+    config.customAttributes[2].format = VK_FORMAT_R32_SFLOAT;
+    config.customAttributes[2].offset = 20;
+
+    // location 3: vec4 aInstRow0 (binding 1, offset 0)
+    config.customAttributes[3].binding = 1;
+    config.customAttributes[3].location = 3;
+    config.customAttributes[3].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    config.customAttributes[3].offset = 0;
+
+    // location 4: vec4 aInstRow1 (binding 1, offset 16)
+    config.customAttributes[4].binding = 1;
+    config.customAttributes[4].location = 4;
+    config.customAttributes[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    config.customAttributes[4].offset = 16;
+
+    // location 5: vec4 aInstRow2 (binding 1, offset 32)
+    config.customAttributes[5].binding = 1;
+    config.customAttributes[5].location = 5;
+    config.customAttributes[5].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    config.customAttributes[5].offset = 32;
+
+    // location 6: vec4 aInstColor (binding 1, offset 48)
+    config.customAttributes[6].binding = 1;
+    config.customAttributes[6].location = 6;
+    config.customAttributes[6].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    config.customAttributes[6].offset = 48;
+
+    config.customAttributeCount = 7;
 
     // Create pipeline
     m_Pipeline = VK::g_PipelineManager->GetOrCreate(config);

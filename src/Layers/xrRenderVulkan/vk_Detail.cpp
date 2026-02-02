@@ -23,6 +23,9 @@ CDetail::CDetail()
     m_Flags = 0;
     m_MinScale = 0.5f;
     m_MaxScale = 1.5f;
+    bv_sphere.P.set(0, 0, 0);
+    bv_sphere.R = 0;
+    bv_bb.invalidate();
 }
 
 CDetail::~CDetail()
@@ -32,7 +35,7 @@ CDetail::~CDetail()
 
 // ============================================================================
 // Load - Load detail geometry from .details file
-// Ported from DetailModel.cpp
+// Ported from DetailModel.cpp - uses correct fvfVertexIn format
 // ============================================================================
 void CDetail::Load(IReader* S)
 {
@@ -49,59 +52,62 @@ void CDetail::Load(IReader* S)
     m_MinScale = S->r_float();
     m_MaxScale = S->r_float();
 
-    // Create shader
-    if (g_VulkanShaderManager)
-    {
-        m_Shader = g_VulkanShaderManager->CreateShader(fnS, fnT);
-        if (!m_Shader)
-        {
-            Msg("![Vulkan] Failed to create detail shader: %s / %s", fnS, fnT);
-            m_Shader = g_VulkanShaderManager->GetDefaultShader();
-        }
-    }
-
     // Read vertices and indices counts
     u32 vCount = S->r_u32();
     u32 iCount = S->r_u32();
     m_VertexCount = vCount;
+    m_IndexCount = iCount;
+
+    R_ASSERT(0 == (iCount % 3));
 
     if (vCount == 0)
     {
         Msg("![Vulkan] Detail %s has 0 vertices", m_Name.c_str());
-        m_IndexCount = iCount;
         return;
     }
 
-    // Read raw vertex data (fvfVertexIn format: Fvector P + s16 u, s16 v)
-    struct fvfVertexIn { Fvector P; short u, v; };
+    // ========================================================================
+    // Read raw vertex data
+    // DX11 fvfVertexIn format: { Fvector P; float u, v; } = 20 bytes
+    // NOT short u,v! The UV coords are stored as floats.
+    // ========================================================================
+    struct fvfVertexIn
+    {
+        Fvector P;
+        float u, v;
+    };
     u32 size_vertices = vCount * sizeof(fvfVertexIn);
     xr_vector<fvfVertexIn> rawVerts(vCount);
     S->r(rawVerts.data(), size_vertices);
 
     // Read index data
-    m_IndexCount = iCount;
     xr_vector<u16> indices(iCount);
     S->r(indices.data(), iCount * sizeof(u16));
 
-    // Calculate bounding box for height normalization
-    Fbox bv_bb;
+    // Calculate bounding box for height normalization and collision
     bv_bb.invalidate();
     for (u32 i = 0; i < vCount; i++)
         bv_bb.modify(rawVerts[i].P);
+    bv_bb.getsphere(bv_sphere.P, bv_sphere.R);
 
+    // ========================================================================
     // Convert to Vulkan vertex format
+    // ========================================================================
     xr_vector<Vertex> vertices(vCount);
+    float minY = bv_bb.min.y;
+    float maxY = bv_bb.max.y;
+    float rangeY = maxY - minY;
+
     for (u32 i = 0; i < vCount; i++)
     {
         vertices[i].pos = rawVerts[i].P;
-        vertices[i].uv.x = float(rawVerts[i].u) / 32767.0f;
-        vertices[i].uv.y = float(rawVerts[i].v) / 32767.0f;
+
+        // UV coords are already float in the source format - use directly
+        vertices[i].uv.x = rawVerts[i].u;
+        vertices[i].uv.y = rawVerts[i].v;
 
         // Height for wind animation (normalized Y position)
-        float minY = bv_bb.min.y;
-        float maxY = bv_bb.max.y;
-        float range = maxY - minY;
-        vertices[i].height = (range > 0.01f) ? ((rawVerts[i].P.y - minY) / range) : 0.0f;
+        vertices[i].height = (rangeY > 0.01f) ? ((rawVerts[i].P.y - minY) / rangeY) : 0.0f;
     }
 
     if (iCount == 0)
@@ -130,8 +136,8 @@ void CDetail::Load(IReader* S)
     );
     m_IndexBuffer->Upload(indices.data(), ibSize);
 
-    Msg("[Vulkan] Detail loaded: %s (%d verts, %d indices)",
-        m_Name.c_str(), vCount, iCount);
+    Msg("[Vulkan] Detail loaded: %s (%d verts, %d indices, scale %.1f-%.1f)",
+        m_Name.c_str(), vCount, iCount, m_MinScale, m_MaxScale);
 }
 
 // ============================================================================

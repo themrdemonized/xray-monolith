@@ -7,155 +7,174 @@
 #include "rvk.h"
 #include "../xrRender/DetailFormat.h"
 
+extern ECORE_API float r_ssaDISCARD;
+
 namespace VK
 {
 
 // ============================================================================
 // UpdateVisibleM - Main thread visibility update
-// Ported from DetailManager.cpp
+// Ported faithfully from DX11 DetailManager.cpp::UpdateVisibleM()
 // ============================================================================
 void CDetailManager::UpdateVisibleM()
 {
-    // Get camera position
-    Fvector cam_pos = RDEVICE.vCameraPosition;
-
-    // Convert to slot coordinates
-    int sx = iFloor(cam_pos.x / dm_slot_size);
-    int sz = iFloor(cam_pos.z / dm_slot_size);
-
-    // Update cache (decompress up to 4 slots per frame)
-    cache_Update(sx, sz, cam_pos, 4);
-
-    // Clear visibility lists
-    details_clear();
-
-    // Get frustum
-    CFrustum& frustum = RImplementation.ViewBase;
-
-    // Iterate visible cache slots
-    for (int z = 0; z < dm_cache_line; z++)
+    // Diagnostic: log cache state periodically
     {
-        for (int x = 0; x < dm_cache_line; x++)
+        static u32 s_vis_diag = 0;
+        if (RDEVICE.dwFrame > s_vis_diag + 120)
         {
-            Slot* S = cache[z][x];
-            if (!S || S->empty || S->type != stReady)
-                continue;
-
-            if (S->hidden)
-                continue;
-
-            // Frustum test slot AABB
-            float wx = float(S->sx) * dm_slot_size;
-            float wz = float(S->sz) * dm_slot_size;
-
-            Fbox slot_aabb;
-            slot_aabb.min.set(wx, cam_pos.y - 50.0f, wz);
-            slot_aabb.max.set(wx + dm_slot_size, cam_pos.y + 50.0f, wz + dm_slot_size);
-
-            u32 frustum_mask = 0xff;
-            if (fcvNone == frustum.testAABB(slot_aabb.data(), frustum_mask))
-                continue;
-
-            // Process each object type
-            for (int obj = 0; obj < dm_obj_in_slot; obj++)
-            {
-                SlotPart& Part = S->G[obj];
-
-                if (Part.id == DetailSlot::ID_Empty)
-                    continue;
-
-                if (Part.id >= objects.size())
-                    continue;
-
-                // Update each instance
-                for (SlotItemVecIt it = Part.items.begin(); it != Part.items.end(); ++it)
+            s_vis_diag = RDEVICE.dwFrame;
+            u32 non_empty_l1 = 0, non_empty_slots = 0, slots_with_items = 0;
+            u32 total_slot_items = 0;
+            for (u32 mz = 0; mz < dm_cache1_line; mz++)
+                for (u32 mx = 0; mx < dm_cache1_line; mx++)
                 {
-                    SlotItem* Item = *it;
-
-                    // Calculate distance to camera
-                    Fvector delta;
-                    delta.sub(Item->position, cam_pos);
-                    Item->distance = delta.magnitude();
-
-                    // LOD fade
-                    float fade_start = fade_distance * 0.7f;
-                    float fade_end = fade_distance;
-
-                    if (Item->distance > fade_end)
+                    CacheSlot1& MS = cache_level1[mz][mx];
+                    if (!MS.empty) non_empty_l1++;
+                    for (int si = 0; si < dm_cache1_count * dm_cache1_count; si++)
                     {
-                        Item->alpha_target = 0.0f;
-                        continue;  // Too far
+                        Slot* PS = *MS.slots[si];
+                        if (!PS->empty)
+                        {
+                            non_empty_slots++;
+                            for (int g = 0; g < dm_obj_in_slot; g++)
+                            {
+                                if (!PS->G[g].items.empty())
+                                {
+                                    slots_with_items++;
+                                    total_slot_items += (u32)PS->G[g].items.size();
+                                }
+                            }
+                        }
                     }
-                    else if (Item->distance > fade_start)
-                    {
-                        // Fade out
-                        float fade_factor = (fade_end - Item->distance) / (fade_end - fade_start);
-                        Item->alpha_target = fade_factor;
-                    }
-                    else
-                    {
-                        Item->alpha_target = 1.0f;
-                    }
-
-                    // Smooth alpha transition
-                    float alpha_speed = 2.0f;
-                    if (Item->alpha < Item->alpha_target)
-                    {
-                        Item->alpha += RDEVICE.fTimeDelta * alpha_speed;
-                        if (Item->alpha > Item->alpha_target)
-                            Item->alpha = Item->alpha_target;
-                    }
-                    else if (Item->alpha > Item->alpha_target)
-                    {
-                        Item->alpha -= RDEVICE.fTimeDelta * alpha_speed;
-                        if (Item->alpha < Item->alpha_target)
-                            Item->alpha = Item->alpha_target;
-                    }
-
-                    // Skip if alpha too low
-                    if (Item->alpha < 0.01f)
-                        continue;
-
-                    // Add to render list based on animation type
-                    Part.r_items[Item->vis_ID].push_back(Item);
                 }
-            }
+            Msg("[Detail Vis] cache_level1: %u/%u non-empty, slots: %u non-empty, %u with items, %u total items, pending=%u",
+                non_empty_l1, dm_cache1_line * dm_cache1_line,
+                non_empty_slots, slots_with_items, total_slot_items, (u32)cache_task.size());
         }
     }
 
-    // Build visibility lists for rendering (grouped by object)
-    for (u32 obj_id = 0; obj_id < objects.size(); obj_id++)
+    Fvector EYE = RDEVICE.vCameraPosition_saved;
+
+    CFrustum View;
+    View.CreateFromMatrix(RDEVICE.mFullTransform_saved, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+
+    float fade_limit = dm_fade;
+    fade_limit = fade_limit * fade_limit;
+    float fade_start = 1.f;
+    fade_start = fade_start * fade_start;
+    float fade_range = fade_limit - fade_start;
+    float r_ssaCHEAP = 16 * r_ssaDISCARD;
+
+    // Clear visibility lists before repopulating
+    for (u32 i = 0; i < 3; ++i)
     {
-        // For each animation type
-        for (int anim = 0; anim < 3; anim++)
+        for (u32 j = 0; j < m_visibles[i].size(); j++)
+            m_visibles[i][j].clear_not_free();
+    }
+
+    // Collect objects for rendering
+    for (u32 _mz = 0; _mz < dm_cache1_line; _mz++)
+    {
+        for (u32 _mx = 0; _mx < dm_cache1_line; _mx++)
         {
-            // Resize visibility list
-            if (m_visibles[anim].size() <= obj_id)
-            {
-                m_visibles[anim].resize(obj_id + 1);
-            }
+            CacheSlot1& MS = cache_level1[_mz][_mx];
+            if (MS.empty)
+                continue;
 
-            xr_vector<SlotItemVec*>& vis_vec = m_visibles[anim][obj_id];
-            vis_vec.clear();
+            u32 mask = 0xff;
+            u32 res = View.testSphere(MS.vis.sphere.P, MS.vis.sphere.R, mask);
+            if (fcvNone == res)
+                continue;  // invisible-view frustum
 
-            // Collect all SlotParts for this object
-            for (int z = 0; z < dm_cache_line; z++)
+            u32 dwCC = dm_cache1_count * dm_cache1_count;
+
+            for (u32 _i = 0; _i < dwCC; _i++)
             {
-                for (int x = 0; x < dm_cache_line; x++)
+                Slot* PS = *MS.slots[_i];
+                Slot& S = *PS;
+
+                // if slot empty - continue
+                if (S.empty)
+                    continue;
+
+                // if upper test = fcvPartial - test inner slots
+                if (fcvPartial == res)
                 {
-                    Slot* S = cache[z][x];
-                    if (!S || S->empty || S->type != stReady)
-                        continue;
+                    u32 _mask = mask;
+                    u32 _res = View.testSphere(S.vis.sphere.P, S.vis.sphere.R, _mask);
+                    if (fcvNone == _res)
+                        continue;  // invisible-view frustum
+                }
 
-                    for (int obj_idx = 0; obj_idx < dm_obj_in_slot; obj_idx++)
+                // HOM test
+                if (!RImplementation.HOM->visible(S.vis))
+                    continue;  // invisible-occlusion
+
+                // Add to visibility structures
+                if (RDEVICE.dwFrame > S.frame)
+                {
+                    // Calc fade factor (per slot)
+                    float dist_sq = EYE.distance_to_sqr(S.vis.sphere.P);
+                    if (dist_sq > fade_limit)
                     {
-                        SlotPart& Part = S->G[obj_idx];
+                        S.hidden = true;
+                        continue;
+                    }
+                    float alpha = (dist_sq < fade_start) ? 0.f : (dist_sq - fade_start) / fade_range;
+                    float alpha_i = 1.f - alpha;
+                    float dist_sq_rcp = 1.f / dist_sq;
 
-                        if (Part.id == obj_id && !Part.r_items[anim].empty())
+                    S.frame = RDEVICE.dwFrame + Random.randI(15, 30);
+                    for (int sp_id = 0; sp_id < dm_obj_in_slot; sp_id++)
+                    {
+                        SlotPart& sp = S.G[sp_id];
+                        if (sp.id == DetailSlot::ID_Empty) continue;
+
+                        sp.r_items[0].clear_not_free();
+                        sp.r_items[1].clear_not_free();
+                        sp.r_items[2].clear_not_free();
+
+                        float R = objects[sp.id]->bv_sphere.R;
+                        float Rq_drcp = R * R * dist_sq_rcp;
+
+                        SlotItem** siIT = &(*sp.items.begin()), **siEND = &(*sp.items.end());
+                        for (; siIT != siEND; siIT++)
                         {
-                            vis_vec.push_back(&Part.r_items[anim]);
+                            SlotItem& Item = *(*siIT);
+                            float scale = Item.scale_calculated = Item.scale * alpha_i;
+                            float ssa = scale * scale * Rq_drcp;
+                            if (ssa < r_ssaDISCARD)
+                            {
+                                Item.alpha_target = 0;
+                                continue;
+                            }
+                            u32 vis_id = 0;
+                            if (ssa > r_ssaCHEAP) vis_id = Item.vis_ID;
+
+                            sp.r_items[vis_id].push_back(*siIT);
+
+                            if (S.hidden)
+                            {
+                                Item.alpha = 0;
+                                S.hidden = false;
+                            }
+                            Item.alpha_target = 1;
+                            Item.distance = dist_sq;
+                            Item.position = S.vis.sphere.P;
                         }
                     }
+                }
+                for (int sp_id = 0; sp_id < dm_obj_in_slot; sp_id++)
+                {
+                    SlotPart& sp = S.G[sp_id];
+                    if (sp.id == DetailSlot::ID_Empty) continue;
+                    if (!sp.r_items[0].empty())
+                        m_visibles[0][sp.id].push_back(&sp.r_items[0]);
+                    if (!sp.r_items[1].empty())
+                        m_visibles[1][sp.id].push_back(&sp.r_items[1]);
+                    if (!sp.r_items[2].empty())
+                        m_visibles[2][sp.id].push_back(&sp.r_items[2]);
                 }
             }
         }
@@ -163,31 +182,38 @@ void CDetailManager::UpdateVisibleM()
 }
 
 // ============================================================================
-// UpdateVisibleS - Secondary thread visibility (unused for now)
+// UpdateVisibleS - Secondary thread visibility (unused)
 // ============================================================================
 void CDetailManager::UpdateVisibleS()
 {
-    // Not implemented yet - could be used for MT update
+    // Not implemented - could be used for MT update
 }
 
 // ============================================================================
 // MT_CALC - Multi-threaded calculation trigger
-// Ported from DetailManager.cpp
+// Ported from DX11 DetailManager.cpp::MT_CALC()
 // ============================================================================
 void CDetailManager::MT_CALC()
 {
+    if (!dtFS) return;
+
     MT.Enter();
 
-    if (m_frame_calc == RDEVICE.dwFrame)
+    if (m_frame_calc != RDEVICE.dwFrame)
     {
-        MT.Leave();
-        return;
+        if ((m_frame_rendered + 1) == RDEVICE.dwFrame)
+        {
+            Fvector EYE = RDEVICE.vCameraPosition_saved;
+
+            int s_x = iFloor(EYE.x / dm_slot_size + .5f);
+            int s_z = iFloor(EYE.z / dm_slot_size + .5f);
+
+            cache_Update(s_x, s_z, EYE, dm_max_decompress);
+
+            UpdateVisibleM();
+            m_frame_calc = RDEVICE.dwFrame;
+        }
     }
-
-    m_frame_calc = RDEVICE.dwFrame;
-
-    // Update visibility
-    UpdateVisibleM();
 
     MT.Leave();
 }

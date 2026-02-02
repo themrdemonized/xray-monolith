@@ -9,6 +9,24 @@
 #include "../xrRender/detailformat.h"
 #include "../../xrCore/xrpool.h"
 
+// ============================================================================
+// Detail radius variables (defined in vk_console.cpp at global scope)
+// ============================================================================
+#ifdef DETAIL_RADIUS
+extern u32 dm_size;
+extern u32 dm_cache1_line;
+extern u32 dm_cache_line;
+extern u32 dm_cache_size;
+extern float dm_fade;
+extern u32 dm_current_size;
+extern u32 dm_current_cache1_line;
+extern u32 dm_current_cache_line;
+extern u32 dm_current_cache_size;
+extern float dm_current_fade;
+#endif
+extern float ps_current_detail_density;
+extern float ps_current_detail_height;
+
 namespace VK
 {
 
@@ -21,21 +39,7 @@ const int dm_max_objects = 64;
 const int dm_obj_in_slot = 4;
 const float dm_slot_size = DETAIL_SLOT_SIZE;
 
-#ifdef DETAIL_RADIUS
-// Variable detail radius support
-extern u32 dm_size;
-extern u32 dm_cache1_line;
-extern u32 dm_cache_line;
-extern u32 dm_cache_size;
-extern float dm_fade;
-extern u32 dm_current_size;
-extern u32 dm_current_cache1_line;
-extern u32 dm_current_cache_line;
-extern u32 dm_current_cache_size;
-extern float dm_current_fade;
-extern float ps_current_detail_density;
-extern float ps_current_detail_height;
-#else
+#ifndef DETAIL_RADIUS
 const int dm_size = 24;
 const int dm_cache1_line = dm_size * 2 / dm_cache1_count;
 const int dm_cache_line = dm_size + 1 + dm_size;
@@ -222,6 +226,9 @@ public:
     int             cache_cz;
     PSS             poolSI;             // SlotItem memory pool
 
+    // Collision query (for decompression raycasting)
+    xrXRC           xrc;
+
     // Dither pattern
     int             dither[16][16];
 
@@ -309,5 +316,8 @@ private:
     void UpdateWindAnimation();         // Update wind constants
     void BuildInstanceData();           // Build instance buffer from visible slots
 };
+
+// Free function for dither matrix generation (from DX11)
+void bwdithermap(int levels, int magic[16][16]);
 
 } // namespace VK

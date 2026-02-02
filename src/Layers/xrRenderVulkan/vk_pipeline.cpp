@@ -38,6 +38,7 @@ size_t PipelineConfig::Hash() const
     hash ^= std::hash<bool>{}(useCustomVertexInput) << 21;
     hash ^= std::hash<u32>{}(customAttributeCount) << 22;
     hash ^= std::hash<u32>{}(vertexStride) << 23;
+    hash ^= std::hash<u32>{}(customBindingCount) << 24;
 
     // Hash color formats
     for (u32 i = 0; i < colorAttachmentCount && i < 8; ++i) {
@@ -65,6 +66,7 @@ bool PipelineConfig::operator==(const PipelineConfig& other) const
     if (useDefaultVertexInput != other.useDefaultVertexInput) return false;
     if (useCustomVertexInput != other.useCustomVertexInput) return false;
     if (customAttributeCount != other.customAttributeCount) return false;
+    if (customBindingCount != other.customBindingCount) return false;
     if (vertexStride != other.vertexStride) return false;
 
     for (u32 i = 0; i < colorAttachmentCount && i < 8; ++i) {
@@ -322,19 +324,29 @@ VkPipeline CVulkanPipelineManager::CreateGraphicsPipeline(const PipelineConfig& 
     // ========================================================================
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     VkVertexInputBindingDescription binding = {};
-    VkVertexInputAttributeDescription attributes[3] = {};
+    VkVertexInputBindingDescription bindings[4] = {};
+    VkVertexInputAttributeDescription attributes[8] = {};
 
     if (config.useDefaultVertexInput) {
         GetDefaultVertexInputState(vertexInputInfo, binding, attributes, config.vertexStride);
     } else if (config.useCustomVertexInput && config.customAttributeCount > 0) {
-        // Custom vertex input (e.g. sky box: vec3 position only)
-        binding = config.customBinding;
-        for (u32 i = 0; i < config.customAttributeCount && i < 4; ++i) {
+        // Custom vertex input
+        u32 bindingCount = 1;
+        if (config.customBindingCount > 0) {
+            // Multi-binding mode (e.g. vertex + instance data)
+            bindingCount = config.customBindingCount;
+            for (u32 i = 0; i < bindingCount && i < 4; ++i)
+                bindings[i] = config.customBindings[i];
+        } else {
+            // Single binding mode (backward compatible)
+            bindings[0] = config.customBinding;
+        }
+        for (u32 i = 0; i < config.customAttributeCount && i < 8; ++i) {
             attributes[i] = config.customAttributes[i];
         }
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 1;
-        vertexInputInfo.pVertexBindingDescriptions = &binding;
+        vertexInputInfo.vertexBindingDescriptionCount = bindingCount;
+        vertexInputInfo.pVertexBindingDescriptions = bindings;
         vertexInputInfo.vertexAttributeDescriptionCount = config.customAttributeCount;
         vertexInputInfo.pVertexAttributeDescriptions = attributes;
     } else {
