@@ -41,6 +41,7 @@ extern "C" void VulkanUI_ResetState();
 #include "../../Include/xrRender/Kinematics.h"
 #include "../../xrCDB/ISpatial.h"
 #include "../../xrCDB/xrXRC.h"  // CDB::Collider for detectSector
+#include "../../xrEngine/IGame_Level.h"  // g_pGameLevel for detectSector geometry query
 
 // Direct diagnostic write for crash debugging (Win32 file I/O, bypasses Msg buffer)
 // After g_bDeviceLost, stops overwriting so the last phase before crash is preserved.
@@ -487,12 +488,61 @@ void CRender::Calculate()
     // Phase 2: Full scene graph with Portal Visibility and HOM Occlusion
     // ========================================================================
 
-    // Detect camera sector if not yet known (or sectors were loaded)
-    if (!pLastSector && !Sectors.empty())
+    // ========================================================================
+    // Detect camera sector every frame when camera moves (ported from DX11 R2)
+    // ========================================================================
+    if (!Sectors.empty())
     {
-        pLastSector = (vkCSector*)detectSector(Device.vCameraPosition);
-        if (pLastSector)
-            Msg("[Vulkan] Detected initial sector for camera");
+        if (!vLastCameraPos.similar(Device.vCameraPosition, EPS_S))
+        {
+            vkCSector* pSector = (vkCSector*)detectSector(Device.vCameraPosition);
+            if (pSector && (pSector != pLastSector))
+            {
+                // Notify game about sector change
+                int sectorIdx = -1;
+                for (u32 i = 0; i < Sectors.size(); ++i)
+                {
+                    if (Sectors[i] == pSector) { sectorIdx = (int)i; break; }
+                }
+                if (sectorIdx >= 0)
+                    g_pGamePersistent->OnSectorChanged(sectorIdx);
+            }
+            if (nullptr == pSector) pSector = pLastSector;
+            pLastSector = pSector;
+            vLastCameraPos.set(Device.vCameraPosition);
+        }
+
+        // If still no sector (first frame), detect it
+        if (!pLastSector)
+        {
+            pLastSector = (vkCSector*)detectSector(Device.vCameraPosition);
+            if (pLastSector)
+                Msg("[Vulkan] Detected initial sector for camera");
+            vLastCameraPos.set(Device.vCameraPosition);
+        }
+    }
+
+    // ========================================================================
+    // Check if camera is too near to some portal - force DualRender
+    // (ported from DX11 R2 - prevents flickering at portal boundaries)
+    // ========================================================================
+    if (rmPortals)
+    {
+        float eps = VIEWPORT_NEAR + EPS_L;
+        Fvector box_radius;
+        box_radius.set(eps, eps, eps);
+        Sectors_xrc.box_options(CDB::OPT_FULL_TEST);
+        Sectors_xrc.box_query(rmPortals, Device.vCameraPosition, box_radius);
+        for (int K = 0; K < Sectors_xrc.r_count(); K++)
+        {
+            CDB::TRI* pTri = rmPortals->get_tris() + Sectors_xrc.r_begin()[K].id;
+            if (pTri->dummy < Portals.size())
+            {
+                vkCPortal* pPortal = (vkCPortal*)Portals[pTri->dummy];
+                if (pPortal)
+                    pPortal->bDualRender = TRUE;
+            }
+        }
     }
 
     // Update lights (sun direction/color from environment)
@@ -1907,95 +1957,88 @@ IRenderVisual* CRender::getVisual(int id)
 
 IRender_Sector* CRender::detectSector(const Fvector& P)
 {
-    // Phase 2.26: Proper sector detection via ray-casting
-    // Based on R1 implementation but with Vulkan-specific optimizations
-
+    // Ported from DX11 R2: detectSector with two-direction ray cast
     if (Sectors.empty())
         return nullptr;
 
-    // ========================================================================
-    // Method 1: Ray-cast through portal geometry (most accurate)
-    // ========================================================================
+    Sectors_xrc.ray_options(CDB::OPT_ONLYNEAREST);
+
+    // Try downward ray first
+    Fvector dir;
+    dir.set(0, -1, 0);
+    IRender_Sector* S = detectSector(P, dir);
+
+    // If downward fails, try upward
+    if (nullptr == S)
+    {
+        dir.set(0, 1, 0);
+        S = detectSector(P, dir);
+    }
+
+    return S;
+}
+
+IRender_Sector* CRender::detectSector(const Fvector& P, Fvector& dir)
+{
+    // Ported from DX11 R2: ray-cast through portal and geometry models
+    // to determine which sector contains point P
+
+    // Portal model query
+    int id1 = -1;
+    float range1 = 500.f;
     if (rmPortals)
     {
-        // Cast ray downward from point
-        Fvector dir;
-        dir.set(0, -1, 0);
-        float range = 500.f;
-
-        // Query portal model
-        CDB::COLLIDER Sectors_xrc;
-        Sectors_xrc.ray_options(CDB::OPT_ONLYNEAREST);
-        Sectors_xrc.ray_query(rmPortals, P, dir, range);
-
+        Sectors_xrc.ray_query(rmPortals, P, dir, range1);
         if (Sectors_xrc.r_count())
         {
-            // Hit portal - determine which sector is facing the point
-            CDB::RESULT* RP = Sectors_xrc.r_begin();
-            CDB::TRI* pTri = rmPortals->get_tris() + RP->id;
-
-            // Get portal from triangle's dummy field
-            if (pTri->dummy < Portals.size())
-            {
-                vkCPortal* pPortal = (vkCPortal*)Portals[pTri->dummy];
-                if (pPortal)
-                {
-                    vkCSector* sector = pPortal->getSectorFacing(P);
-                    if (sector)
-                        return sector;
-                }
-            }
+            CDB::RESULT* RP1 = Sectors_xrc.r_begin();
+            id1 = RP1->id;
+            range1 = RP1->range;
         }
     }
 
-    // ========================================================================
-    // Method 2: Check sector bounding boxes (fallback)
-    // ========================================================================
-    // If portal query fails, check which sector's root visual contains point
-    for (u32 i = 0; i < Sectors.size(); ++i)
+    // Geometry model query
+    int id2 = -1;
+    float range2 = range1;
+    if (g_pGameLevel && g_pGameLevel->ObjectSpace.GetStaticModel())
     {
-        vkCSector* sector = (vkCSector*)Sectors[i];
-        if (!sector)
-            continue;
-
-        vkRender_Visual* root = sector->root();
-        if (!root)
-            continue;
-
-        // Check if point is inside sector's bounding box
-        if (root->vis.box.contains(P))
-            return sector;
-    }
-
-    // ========================================================================
-    // Method 3: Return nearest sector (last resort)
-    // ========================================================================
-    // Find sector whose center is closest to the point
-    float min_dist_sqr = FLT_MAX;
-    vkCSector* nearest_sector = nullptr;
-
-    for (u32 i = 0; i < Sectors.size(); ++i)
-    {
-        vkCSector* sector = (vkCSector*)Sectors[i];
-        if (!sector)
-            continue;
-
-        vkRender_Visual* root = sector->root();
-        if (!root)
-            continue;
-
-        Fvector center;
-        root->vis.box.getcenter(center);
-        float dist_sqr = P.distance_to_sqr(center);
-
-        if (dist_sqr < min_dist_sqr)
+        Sectors_xrc.ray_query(g_pGameLevel->ObjectSpace.GetStaticModel(), P, dir, range2);
+        if (Sectors_xrc.r_count())
         {
-            min_dist_sqr = dist_sqr;
-            nearest_sector = sector;
+            CDB::RESULT* RP2 = Sectors_xrc.r_begin();
+            id2 = RP2->id;
+            range2 = RP2->range;
         }
     }
 
-    return nearest_sector ? nearest_sector : Sectors[0];
+    // Select best hit
+    int ID;
+    if (id1 >= 0)
+    {
+        if (id2 >= 0) ID = (range1 <= range2 + EPS) ? id1 : id2;
+        else ID = id1;
+    }
+    else if (id2 >= 0) ID = id2;
+    else return nullptr;
+
+    if (ID == id1)
+    {
+        // Hit portal - get sector facing the point
+        CDB::TRI* pTri = rmPortals->get_tris() + ID;
+        if (pTri->dummy < Portals.size())
+        {
+            vkCPortal* pPortal = (vkCPortal*)Portals[pTri->dummy];
+            if (pPortal)
+                return pPortal->getSectorFacing(P);
+        }
+        return nullptr;
+    }
+    else
+    {
+        // Hit geometry - get sector from triangle
+        CDB::TRI* pTri = g_pGameLevel->ObjectSpace.GetStaticTris() + ID;
+        return getSector(pTri->sector);
+    }
 }
 
 IRender_Target* CRender::getTarget()

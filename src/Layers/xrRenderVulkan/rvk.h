@@ -165,6 +165,7 @@ public:
     xr_vector<IRender_Portal*>  Portals;
     xr_vector<IRender_Sector*>  Sectors;
     CDB::MODEL*                 rmPortals;
+    CDB::COLLIDER               Sectors_xrc;
 
     // Portal access (for sector loading)
     IRender_Portal* getPortal(int id);
@@ -306,6 +307,7 @@ public:
     virtual IRender_Sector* getSector(int id) override;
     virtual IRenderVisual* getVisual(int id) override;
     virtual IRender_Sector* detectSector(const Fvector& P) override;
+    IRender_Sector* detectSector(const Fvector& P, Fvector& dir);  // helper overload
     virtual IRender_Target* getTarget() override;
 
     // ========================================================================
