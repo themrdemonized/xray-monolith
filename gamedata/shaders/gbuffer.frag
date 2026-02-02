@@ -100,9 +100,13 @@ void main()
     }
 
     // Alpha test for foliage/tree leaves (cutout transparency)
-    float alpha = texture(s_Diffuse, v_TexCoord).a;
-    if (alpha < 0.5)
-        discard;
+    // Only for non-terrain geometry — terrain diffuse alpha may be < 0.5
+    if (!isTerrain)
+    {
+        float alpha = texture(s_Diffuse, v_TexCoord).a;
+        if (alpha < 0.5)
+            discard;
+    }
 
     // Output albedo
     o_Color = vec4(albedo, 1.0);

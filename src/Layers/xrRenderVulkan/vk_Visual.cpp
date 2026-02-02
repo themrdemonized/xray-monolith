@@ -212,12 +212,60 @@ void vkFVisual::Render(float LOD)
     if (!m_mesh.IsValid())
         return;
 
+    u32 stride = m_mesh.vStride;
+
+    // Handle stride=12 (trees: FLOAT3 position only, no normals/UVs)
+    if (stride == 12)
+    {
+        if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
+            return;
+
+        // Switch to stride-12 pipeline only if not already active
+        if (RCache.m_CurrentGBufStride != 12)
+        {
+            VkPipeline pipeline = RTarget->GetGBufferPipeline(12);
+            if (pipeline == VK_NULL_HANDLE)
+                return;
+
+            RCache.set_Pipeline(pipeline);
+
+            // Tree positions are quantized by FTreeVisual_quant=2048, need prescale
+            float uvScale = 1.0f / 2048.0f;
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            if (cmd != VK_NULL_HANDLE)
+            {
+                VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+            }
+
+            RCache.m_CurrentGBufStride = 12;
+        }
+
+        // Bind tree's own material (has actual leaf/bark textures with alpha channel)
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        if (cmd != VK_NULL_HANDLE)
+        {
+            if (m_pMaterial && m_pMaterial->IsValid())
+                m_pMaterial->Bind(cmd);
+            else if (g_MaterialManager && g_MaterialManager->GetDefaultMaterial())
+                g_MaterialManager->GetDefaultMaterial()->Bind(cmd);
+        }
+
+        RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
+        RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
+        RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, m_mesh.iBase, m_mesh.dwPrimitives);
+
+        RCache.stat.polys += m_mesh.dwPrimitives;
+        RCache.stat.verts += m_mesh.vCount;
+        return;
+    }
+
     // Supported vertex strides:
     //   32 = level static (FLOAT3 pos + D3DCOLOR normal @12 + SHORT2 UV @24)
     //   36 = skinned 1W   (FLOAT4 pos + D3DCOLOR normal @16 + FLOAT2 UV @28)
     //   40 = skinned 4W   (FLOAT4 pos + D3DCOLOR normal @16 + FLOAT2 UV @28)
     //   44 = skinned 2W/3W(FLOAT4 pos + D3DCOLOR normal @16 + FLOAT2 UV @28)
-    u32 stride = m_mesh.vStride;
     if (stride != 32 && stride != 36 && stride != 40 && stride != 44)
         return;
 
@@ -751,9 +799,33 @@ void vkFTreeVisual::Copy(vkRender_Visual* from)
     xform = src->xform;
 }
 
+static u32 s_treeLogCounter = 0;
+
 void vkFTreeVisual::Render(float LOD)
 {
+    if (s_treeLogCounter < 20)
+    {
+        Msg("[TREE] Render #%u: vCount=%u iCount=%u stride=%u vBase=%u iBase=%u",
+            s_treeLogCounter, m_mesh.vCount, m_mesh.iCount, m_mesh.vStride,
+            m_mesh.vBase, m_mesh.iBase);
+        Msg("[TREE]   xform row0=(%.3f,%.3f,%.3f,%.3f)", xform._11, xform._12, xform._13, xform._14);
+        Msg("[TREE]   xform row1=(%.3f,%.3f,%.3f,%.3f)", xform._21, xform._22, xform._23, xform._24);
+        Msg("[TREE]   xform row2=(%.3f,%.3f,%.3f,%.3f)", xform._31, xform._32, xform._33, xform._34);
+        Msg("[TREE]   xform row3=(%.3f,%.3f,%.3f,%.3f) [translation]", xform._41, xform._42, xform._43, xform._44);
+        Msg("[TREE]   mat=%p matValid=%d shader_id=%u VB=%p IB=%p",
+            (void*)m_pMaterial,
+            (m_pMaterial && m_pMaterial->IsValid()) ? 1 : 0,
+            (u32)shader_id,
+            (void*)m_mesh.p_rm_Vertices,
+            (void*)m_mesh.p_rm_Indices);
+        Msg("[TREE]   c_scale=(%.2f,%.2f,%.2f) hemi=%.2f sun=%.2f",
+            c_scale.rgb.x, c_scale.rgb.y, c_scale.rgb.z, c_scale.hemi, c_scale.sun);
+        s_treeLogCounter++;
+    }
+
     // Push tree's xform as model matrix (offset 0, 64 bytes)
+    // With stride=32 VBs from level.geom, positions are already in local float coords.
+    // The xform from OGF_TREEDEF2 transforms local -> world. No prescale needed.
     VkCommandBuffer cmd = RCache.GetCommandBuffer();
     if (cmd != VK_NULL_HANDLE)
     {
@@ -788,6 +860,29 @@ void vkFTreeVisual::LoadTreeDef(IReader* data)
 
         // Read color bias
         data->r(&c_bias, sizeof(c_bias));
+
+        // Match DX11: halve c_scale and c_bias on load
+        c_scale.rgb.mul(.5f);
+        c_scale.hemi *= .5f;
+        c_scale.sun *= .5f;
+        c_bias.rgb.mul(.5f);
+        c_bias.hemi *= .5f;
+        c_bias.sun *= .5f;
+
+        static u32 s_treeLoadLog = 0;
+        if (s_treeLoadLog < 20)
+        {
+            Msg("[TREE-LOAD] xform pos=(%.2f,%.2f,%.2f) scale_diag=(%.3f,%.3f,%.3f) _44=%.3f",
+                xform._41, xform._42, xform._43,
+                xform._11, xform._22, xform._33, xform._44);
+            Msg("[TREE-LOAD] c_scale=(%.3f,%.3f,%.3f) hemi=%.3f sun=%.3f",
+                c_scale.rgb.x, c_scale.rgb.y, c_scale.rgb.z, c_scale.hemi, c_scale.sun);
+            s_treeLoadLog++;
+        }
+    }
+    else
+    {
+        Msg("! [TREE-LOAD] OGF_TREEDEF2 chunk NOT FOUND - tree has no transform!");
     }
 }
 

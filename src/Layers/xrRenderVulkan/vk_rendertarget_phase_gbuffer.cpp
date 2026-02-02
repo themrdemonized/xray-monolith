@@ -58,13 +58,18 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
     Msg("[Vulkan] Creating G-Buffer pipeline for stride %u...", stride);
 
     // ========================================================================
-    // Step 1: Load G-Buffer shaders
+    // Step 1: Load shaders (tree stride=12 uses dedicated vertex shader)
     // ========================================================================
-    VkShaderModule vertShader = g_ShaderManager->Load("gbuffer.vert.spv");
+    VkShaderModule vertShader = VK_NULL_HANDLE;
     VkShaderModule fragShader = g_ShaderManager->Load("gbuffer.frag.spv");
 
+    if (stride == 12)
+        vertShader = g_ShaderManager->Load("gbuffer_tree.vert.spv");
+    else
+        vertShader = g_ShaderManager->Load("gbuffer.vert.spv");
+
     if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE) {
-        Msg("![Vulkan] Failed to load G-Buffer shaders");
+        Msg("![Vulkan] Failed to load G-Buffer shaders (stride %u)", stride);
         return VK_NULL_HANDLE;
     }
 
@@ -74,8 +79,6 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
     PipelineConfig config;
     config.vertShader = vertShader;
     config.fragShader = fragShader;
-    config.useDefaultVertexInput = true;
-    config.vertexStride = stride;  // Parametric vertex layout by stride
     config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     config.cullMode = VK_CULL_MODE_NONE;  // No culling - X-Ray geometry has mixed winding
     config.depthTest = true;
@@ -92,6 +95,30 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
     config.colorFormats[2] = VK_FORMAT_R8G8B8A8_SRGB;        // rt_Color
     config.colorFormats[3] = VK_FORMAT_R8G8B8A8_UNORM;       // rt_Material
     config.depthFormat = VK_FORMAT_D32_SFLOAT;               // Depth buffer
+
+    if (stride == 12)
+    {
+        // Trees: position-only vertices (FLOAT3, 12 bytes)
+        // Use custom vertex input with single attribute
+        config.useDefaultVertexInput = false;
+        config.useCustomVertexInput = true;
+
+        config.customBinding.binding = 0;
+        config.customBinding.stride = 12;
+        config.customBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        config.customAttributes[0].binding = 0;
+        config.customAttributes[0].location = 0;
+        config.customAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        config.customAttributes[0].offset = 0;
+        config.customAttributeCount = 1;
+    }
+    else
+    {
+        // Standard geometry: use default vertex input (pos + normal + uv)
+        config.useDefaultVertexInput = true;
+        config.vertexStride = stride;
+    }
 
     // ========================================================================
     // Step 3: Create pipeline

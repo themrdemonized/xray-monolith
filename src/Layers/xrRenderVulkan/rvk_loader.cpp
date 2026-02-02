@@ -408,6 +408,14 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             Msg("  VB[%d]: %d verts, stride=%d, size=%d KB",
                 i, vCount, vSize, (vCount * vSize) / 1024);
 
+            // Log vertex declaration for non-standard strides
+            if (vSize != 32) {
+                for (u32 e = 0; e < dcl_len - 1; e++) {
+                    Msg("    dcl[%d]: stream=%d offset=%d type=%d usage=%d usageIdx=%d",
+                        e, dcl[e].Stream, dcl[e].Offset, dcl[e].Type, dcl[e].Usage, dcl[e].UsageIndex);
+                }
+            }
+
             // Read vertex data
             BYTE* pData = xr_alloc<BYTE>(vCount * vSize);
             fs->r(pData, vCount * vSize);
@@ -422,7 +430,10 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             _VB[i]->Upload(pData, vCount * vSize);
 
             // Register with buffer pool (Phase 2.23) - allow visuals to find buffers by ID
-            if (VK::g_BufferPool) {
+            // Only register normal (geom) buffers - NOT alternative (geomx) which would overwrite!
+            // geomx buffers (stride=12, position-only) are for fast-path/shadows only.
+            // Tree visuals and normal geometry use the geom pool (stride=32 with UV/normals).
+            if (VK::g_BufferPool && !_alternative) {
                 VK::g_BufferPool->RegisterVertexBuffer(i, _VB[i], vSize);
             }
 
@@ -464,7 +475,8 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             _IB[i]->Upload(pData, iSize);
 
             // Register with buffer pool (Phase 2.23) - allow visuals to find buffers by ID
-            if (VK::g_BufferPool) {
+            // Only register normal (geom) buffers - NOT alternative (geomx)
+            if (VK::g_BufferPool && !_alternative) {
                 VK::g_BufferPool->RegisterIndexBuffer(i, _IB[i], VK_INDEX_TYPE_UINT16);
             }
 

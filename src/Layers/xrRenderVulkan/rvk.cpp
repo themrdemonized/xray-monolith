@@ -849,6 +849,17 @@ void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
     default:
         {
             diag_leaf_added++;
+
+            // Debug: log tree types
+            static u32 s_treeAddLog = 0;
+            if ((pVisual->Type == 7 || pVisual->Type == 11) && s_treeAddLog < 20)
+            {
+                Msg("[TREE-ADD] add_Static default: type=%u name='%s' SSA=%.4f pos=(%.1f,%.1f,%.1f)",
+                    pVisual->Type, pVisual->dbg_name.c_str(), SSA,
+                    pVisual->vis.sphere.P.x, pVisual->vis.sphere.P.y, pVisual->vis.sphere.P.z);
+                s_treeAddLog++;
+            }
+
             // Leaf visual - add directly to lstNormal render queue.
             // We bypass r_dsgraph_insert_static() because it expects dxRender_Visual*
             // layout which is incompatible with vkRender_Visual* memory layout.
@@ -919,6 +930,15 @@ void CRender::add_leafs_Static(vkRender_Visual* pVisual)
 
     default:
         {
+            // Debug: log tree types
+            static u32 s_treeLeafLog = 0;
+            if ((pVisual->Type == 7 || pVisual->Type == 11) && s_treeLeafLog < 20)
+            {
+                Msg("[TREE-LEAF] add_leafs_Static default: type=%u name='%s' SSA=%.4f",
+                    pVisual->Type, pVisual->dbg_name.c_str(), SSA);
+                s_treeLeafLog++;
+            }
+
             // Leaf visual - add directly to lstNormal
             R_dsgraph::_NormalItem item;
             item.ssa = SSA;

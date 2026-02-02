@@ -344,6 +344,18 @@ void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
     item.ssa     = SSA;
     item.pVisual = pVisual;
     RI.lstNormal.push_back(item);
+
+    // Debug: log tree visuals being inserted
+    static u32 s_treeInsertLog = 0;
+    vkRender_Visual* vkV = reinterpret_cast<vkRender_Visual*>(pVisual);
+    if ((vkV->Type == 7 || vkV->Type == 11) && s_treeInsertLog < 10)
+    {
+        Msg("[TREE-INSERT] type=%u name='%s' SSA=%.4f pos=(%.1f,%.1f,%.1f) lstNormal.size=%u",
+            vkV->Type, vkV->dbg_name.c_str(), SSA,
+            pVisual->vis.sphere.P.x, pVisual->vis.sphere.P.y, pVisual->vis.sphere.P.z,
+            (u32)RI.lstNormal.size());
+        s_treeInsertLog++;
+    }
 }
 
 // ============================================================================
