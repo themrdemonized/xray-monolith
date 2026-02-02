@@ -464,6 +464,14 @@ void IReader::r_string(char* dest, u32 tgt_sz)
 {
 	char* src = (char*)data + Pos;
 	u32 sz = advance_term_string();
+	if (sz >= (tgt_sz - 1)) {
+		// Diagnostic: log the overflowing string before crashing
+		char preview[512];
+		u32 preview_len = (sz < 511) ? sz : 511;
+		strncpy(preview, src, preview_len);
+		preview[preview_len] = 0;
+		Msg("!![IReader::r_string] OVERFLOW: sz=%u tgt_sz=%u string='%s'", sz, tgt_sz, preview);
+	}
 	R_ASSERT2(sz < (tgt_sz - 1), "Dest string less than needed.");
 	R_ASSERT(!IsBadReadPtr((void*)src, sz));
 

@@ -27,7 +27,7 @@ struct PipelineConfig
 
     // Rasterization
     VkCullModeFlags cullMode = VK_CULL_MODE_BACK_BIT;
-    VkFrontFace frontFace = VK_FRONT_FACE_CLOCKWISE;
+    VkFrontFace frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     VkPolygonMode polygonMode = VK_POLYGON_MODE_FILL;
     float lineWidth = 1.0f;
 
@@ -51,6 +51,15 @@ struct PipelineConfig
 
     // Vertex input (по умолчанию - position, texcoord, normal)
     bool useDefaultVertexInput = true;
+
+    // Vertex stride (32 = level static, 36/40/44 = skinned meshes)
+    u32 vertexStride = 32;
+
+    // Custom vertex input (used when useDefaultVertexInput = false and custom data is provided)
+    bool useCustomVertexInput = false;
+    VkVertexInputBindingDescription customBinding = {};
+    VkVertexInputAttributeDescription customAttributes[4] = {};
+    u32 customAttributeCount = 0;
 
     /**
      * Calculate hash для caching
@@ -150,7 +159,8 @@ private:
     void GetDefaultVertexInputState(
         VkPipelineVertexInputStateCreateInfo& vertexInputInfo,
         VkVertexInputBindingDescription& binding,
-        VkVertexInputAttributeDescription attributes[3]);
+        VkVertexInputAttributeDescription attributes[3],
+        u32 stride = 32);
 
 private:
     // Pipeline layout (4 descriptor sets)

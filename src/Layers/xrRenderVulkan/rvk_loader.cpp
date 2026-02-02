@@ -4,6 +4,9 @@
 
 #include "stdafx.h"
 #include "rvk.h"
+#include "../xrRender/FBasicVisual.h"
+#include "../xrRender/FVF.h"
+#include "../xrRender/SkeletonCustom.h"
 #include "vk_buffer.h"
 #include "vk_buffer_pool.h"
 #include "vk_Visual.h"
@@ -12,6 +15,12 @@
 #include "vk_d3d_compat.h"  // D3D9 structures without d3d9.lib dependency
 #include "vk_WallmarksEngine.h"  // Wallmark engine
 #include "vk_shader.h"      // Vulkan shader system
+#include "vk_DetailManager.h"    // VK::CDetailManager
+#include "3DFluid/vk3DFluidVolume.h"  // 3D Fluid system (Phase 0)
+#include "3DFluid/vk3DFluidManager.h" // 3D Fluid manager (Phase 0)
+#include "HW_Vulkan.h"                // VulkanHW (for vkDeviceWaitIdle)
+
+using VK::g_FluidManager;
 
 // Engine includes
 #include "../../xrEngine/x_ray.h"
@@ -47,6 +56,18 @@ void CRender::level_Load(IReader* fs)
         u32 count = chunk->r_u32();
         Msg("[Vulkan] Loading %d level shaders", count);
 
+        // Safety: Verify shader manager is initialized
+        if (!g_VulkanShaderManager) {
+            Msg("![Vulkan] CRITICAL: g_VulkanShaderManager not initialized before level_Load()!");
+            Msg("![Vulkan] This indicates CRender::create() was not called or failed.");
+            Msg("![Vulkan] Cannot load level shaders - will use nullptr placeholders.");
+            // Resize array but leave all entries as nullptr
+            Shaders.resize(count, nullptr);
+            chunk->close();
+            // Continue loading to avoid engine crash, but rendering will fail
+            goto skip_shaders;
+        }
+
         // Resize shader array
         Shaders.resize(count);
 
@@ -56,6 +77,10 @@ void CRender::level_Load(IReader* fs)
             string512 n_sh, n_tlist;
             LPCSTR n = LPCSTR(chunk->pointer());
             chunk->skip_stringZ();
+
+            // Log first 20 shader entries and any grnd entries for diagnosis
+            if (i < 20 || (n[0] && strstr(n, "grnd")))
+                Msg("[Vulkan] LevelShader[%d]: '%s'", i, n);
 
             if (0 == n[0]) {
                 // Empty shader name - use default
@@ -74,47 +99,82 @@ void CRender::level_Load(IReader* fs)
                 xr_strcpy(n_tlist, delim + 1);
             }
 
+            if (i < 20 || strstr(n_tlist, "grnd"))
+                Msg("[Vulkan]   -> shader='%s' texture='%s'", n_sh, n_tlist);
+
             // Create shader with texture
             Shaders[i] = g_VulkanShaderManager->CreateShader(n_sh, n_tlist);
 
             if (!Shaders[i]) {
                 Msg("![Vulkan] Failed to create shader %d: %s", i, n_sh);
                 Shaders[i] = g_VulkanShaderManager->GetDefaultShader();
+
+                // Final check: if even default shader failed, warn and leave as nullptr
+                if (!Shaders[i]) {
+                    Msg("![Vulkan] CRITICAL: Default shader also failed for shader %d!", i);
+                    Msg("![Vulkan] This visual will not render correctly.");
+                }
             }
         }
         chunk->close();
 
         Msg("[Vulkan] Loaded %d shaders successfully", Shaders.size());
+
+        // ====================================================================
+        // Texture loading note
+        // ====================================================================
+        Msg("[Vulkan] Shader textures will load on-demand during rendering");
+        Msg("[Vulkan]   - CMaterialManager provides texture caching");
+        Msg("[Vulkan]   - Default textures (white/black/normal) ready");
+
+    skip_shaders:
+        ; // Empty statement for label
     }
 
     // ========================================================================
-    // Load geometry buffers (level.geom and level.geomx)
+    // Skip GPU-intensive loading on dedicated server (no rendering needed)
     // ========================================================================
-    g_pGamePersistent->LoadTitle();
+    if (!g_dedicated_server)
     {
-        // Normal geometry
-        CStreamReader* geom = FS.rs_open("$level$", "level.geom");
-        R_ASSERT2(geom, "level.geom not found");
-        LoadBuffers(geom, FALSE);
-        LoadSWIs(geom);
-        FS.r_close(geom);
+        // ====================================================================
+        // Load geometry buffers (level.geom and level.geomx)
+        // ====================================================================
+        g_pGamePersistent->LoadTitle();
+        {
+            // Normal geometry
+            CStreamReader* geom = FS.rs_open("$level$", "level.geom");
+            R_ASSERT2(geom, "level.geom not found");
+            LoadBuffers(geom, FALSE);
+            LoadSWIs(geom);
+            FS.r_close(geom);
 
-        // Extended/fast-path geometry (for shadow maps, etc.)
-        geom = FS.rs_open("$level$", "level.geomx");
-        R_ASSERT2(geom, "level.geomx not found");
-        LoadBuffers(geom, TRUE);
-        FS.r_close(geom);
-    }
+            // Extended/fast-path geometry (for shadow maps, etc.)
+            geom = FS.rs_open("$level$", "level.geomx");
+            R_ASSERT2(geom, "level.geomx not found");
+            LoadBuffers(geom, TRUE);
+            FS.r_close(geom);
+        }
 
-    // ========================================================================
-    // Load visuals
-    // ========================================================================
-    g_pGamePersistent->LoadTitle();
-    {
-        chunk = fs->open_chunk(fsL_VISUALS);
-        R_ASSERT2(chunk, "Level has no visuals");
-        LoadVisuals(chunk);
-        chunk->close();
+        // ====================================================================
+        // Load visuals
+        // ====================================================================
+        g_pGamePersistent->LoadTitle();
+        {
+            chunk = fs->open_chunk(fsL_VISUALS);
+            R_ASSERT2(chunk, "Level has no visuals");
+            LoadVisuals(chunk);
+            chunk->close();
+        }
+
+        // ====================================================================
+        // Details (grass/debris)
+        // ====================================================================
+        g_pGamePersistent->LoadTitle();
+        if (Details)
+        {
+            Details->Load();
+            Msg("[Vulkan] Details loaded");
+        }
     }
 
     // ========================================================================
@@ -139,12 +199,20 @@ void CRender::level_Load(IReader* fs)
     // Lights (sun, static, hemispheric)
     LoadLights(fs);
 
-    // TODO: Load additional level components
-    // - Details (grass/debris)
-    // - 3D Fluid volumes
+    // 3D Fluid volumes (Phase 0)
+    // Initialize fluid manager first
+    g_FluidManager.Initialize();
+    // Then load volumes from level
+    Load3DFluid();
 
     // End loading
     pApp->LoadEnd();
+
+    // Sanity-clear render lists (prevent stale data on level reload)
+    lstLODs.clear();
+    lstLODgroups.clear();
+    mapLOD.clear();
+    mapWater.clear();
 
     // Signal loaded
     b_loaded = TRUE;
@@ -162,6 +230,28 @@ void CRender::level_Unload()
     if (!b_loaded) return;
 
     Msg("[Vulkan] CRender::level_Unload()");
+
+    // ========================================================================
+    // GPU Sync — wait for all in-flight commands to finish before destroying
+    // any GPU resources. Without this, VMA/driver heap corrupts because the
+    // GPU is still reading buffers we are about to free.
+    // ========================================================================
+    if (VulkanHW.m_Device != VK_NULL_HANDLE)
+        vkDeviceWaitIdle(VulkanHW.m_Device);
+
+    // ========================================================================
+    // 3D Fluid Manager (Phase 0)
+    // ========================================================================
+    g_FluidManager.Destroy();
+
+    // ========================================================================
+    // Details (grass/debris)
+    // ========================================================================
+    if (Details)
+    {
+        Details->Unload();
+        Msg("[Vulkan] Details unloaded");
+    }
 
     // ========================================================================
     // Wallmarks
@@ -409,8 +499,10 @@ void CRender::LoadVisuals(IReader* fs)
         }
         else
         {
-            Msg("! [Vulkan] Unknown visual type %d at index %d", H.type, index);
-            Visuals.push_back(nullptr);
+            // Create dummy visual instead of nullptr to prevent crashes
+            Msg("! [Vulkan] Unknown visual type %d at index %d - using dummy visual", H.type, index);
+            vkRender_Visual* dummy = vkVisual_CreateDummy();
+            Visuals.push_back(dummy);
         }
 
         chunk->close();
@@ -484,13 +576,24 @@ void CRender::LoadSectors(IReader* fs)
             b_portal P;
             fs->r(&P, sizeof(P));
 
+            // Get connected sectors (may be nullptr if level data is corrupted)
+            vkCSector* sector_front = (vkCSector*)getSector(P.sector_front);
+            vkCSector* sector_back = (vkCSector*)getSector(P.sector_back);
+
+            // Validate sectors before portal setup
+            if (!sector_front || !sector_back) {
+                Msg("![Vulkan] Portal %d has invalid sectors (front=%d back=%d): front=%p back=%p",
+                    i, P.sector_front, P.sector_back, sector_front, sector_back);
+                // Continue anyway - traverse() will skip null sectors
+            }
+
             // Setup portal with connected sectors
             vkCPortal* portal = (vkCPortal*)Portals[i];
             portal->Setup(
                 P.vertices.begin(),
                 P.vertices.size(),
-                (vkCSector*)getSector(P.sector_front),
-                (vkCSector*)getSector(P.sector_back)
+                sector_front,
+                sector_back
             );
 
             // Add portal triangles to collision model
@@ -628,4 +731,65 @@ FSlideWindowItem* CRender::getSWI(int id)
     if (id >= 0 && id < (int)SWIs.size())
         return &SWIs[id];
     return nullptr;
+}
+
+// ============================================================================
+// 3D Fluid Volume Loading (Phase 0)
+// ============================================================================
+void CRender::Load3DFluid()
+{
+    // Проверяем включена ли volumetric smoke
+    if (!o.volumetricfog) {
+        Msg("[Vulkan] Volumetric fog disabled, skipping 3D fluid volumes");
+        return;
+    }
+
+    // Проверяем существует ли level.fog_vol
+    string_path fn_game;
+    if (!FS.exist(fn_game, "$level$", "level.fog_vol")) {
+        Msg("[Vulkan] level.fog_vol not found, skipping 3D fluid volumes");
+        return;
+    }
+
+    Msg("[Vulkan] Loading 3D fluid volumes from %s", fn_game);
+
+    // Открываем файл
+    IReader* F = FS.r_open(fn_game);
+    if (!F) {
+        Msg("![Vulkan] Failed to open level.fog_vol");
+        return;
+    }
+
+    // Читаем количество volumes
+    u32 volumeCount = F->r_u32();
+    Msg("[Vulkan] Found %d fluid volumes", volumeCount);
+
+    // Загружаем каждый volume
+    for (u32 i = 0; i < volumeCount; i++)
+    {
+        // Создаём visual
+        VK::vk3DFluidVolume* volume = xr_new<VK::vk3DFluidVolume>();
+
+        // Загружаем данные
+        string64 volumeName;
+        sprintf_s(volumeName, sizeof(volumeName), "fluid_volume_%d", i);
+        volume->Load(volumeName, F, 0);
+
+        // Добавляем в соответствующий сектор
+        // TODO: Читать sector ID из файла и добавлять в правильный сектор
+        // Пока добавим в первый сектор для теста
+        if (!Sectors.empty()) {
+            vkCSector* sector = (vkCSector*)Sectors[0];
+            if (sector) {
+                // Добавляем как child в sector root
+                // TODO: Правильная интеграция в sector hierarchy
+            }
+        }
+
+        Msg("[Vulkan] Fluid volume %d loaded", i);
+    }
+
+    FS.r_close(F);
+
+    Msg("[Vulkan] 3D fluid volumes loading complete");
 }

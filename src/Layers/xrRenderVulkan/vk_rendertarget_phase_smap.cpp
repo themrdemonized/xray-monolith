@@ -32,104 +32,6 @@ void CRenderTarget::phase_smap_direct(light* sun, u32 sub_phase)
         return;
     }
 
-    VkCommandBuffer cmd = RCache.GetCommandBuffer();
-
-    // ========================================================================
-    // Step 1: Transition shadow map to DEPTH_ATTACHMENT
-    // ========================================================================
-
-    VkImageMemoryBarrier2 barrier = {};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
-    barrier.srcAccessMask = VK_ACCESS_2_NONE;
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-                           VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // First use
-    barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = rt_smap_depth.m_Image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-
-    VkDependencyInfo dependencyInfo = {};
-    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    dependencyInfo.imageMemoryBarrierCount = 1;
-    dependencyInfo.pImageMemoryBarriers = &barrier;
-
-    vkCmdPipelineBarrier2(cmd, &dependencyInfo);
-
-    // ========================================================================
-    // Step 2: Clear shadow map
-    // ========================================================================
-
-    VkClearDepthStencilValue clearDepth = {};
-    clearDepth.depth = 1.0f;  // Far plane
-    clearDepth.stencil = 0;
-
-    VkImageSubresourceRange range = {};
-    range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-
-    vkCmdClearDepthStencilImage(cmd, rt_smap_depth.m_Image,
-                                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                &clearDepth, 1, &range);
-
-    // ========================================================================
-    // Step 3: Begin Rendering (depth-only pass)
-    // ========================================================================
-
-    VkRenderingAttachmentInfo depthAttachment = {};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = rt_smap_depth.m_ImageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil.depth = 1.0f;
-    depthAttachment.clearValue.depthStencil.stencil = 0;
-
-    VkRenderingInfo renderingInfo = {};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderingInfo.renderArea.offset = {0, 0};
-    renderingInfo.renderArea.extent = {m_ShadowMapSize, m_ShadowMapSize};
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 0;  // No color attachments (depth-only)
-    renderingInfo.pDepthAttachment = &depthAttachment;
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
-
-    // ========================================================================
-    // Step 4: Setup viewport and scissor
-    // ========================================================================
-
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)m_ShadowMapSize;
-    viewport.height = (float)m_ShadowMapSize;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = {m_ShadowMapSize, m_ShadowMapSize};
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    // ========================================================================
-    // Step 5: Use pre-calculated cascade shadow matrix
-    // ========================================================================
-
-    // The shadow matrix was already calculated by render_sun_cascade()
-    // and stored in RImplementation.m_sun_cascades[sub_phase].xform
-
     // Validate cascade index
     if (sub_phase >= RImplementation.m_sun_cascades.size()) {
         Msg("![Vulkan] phase_smap_direct: invalid cascade index %d", sub_phase);
@@ -138,9 +40,87 @@ void CRenderTarget::phase_smap_direct(light* sun, u32 sub_phase)
 
     const VK::SunCascade& cascade = RImplementation.m_sun_cascades[sub_phase];
 
-    // The cascade xform is the full light view-projection matrix
-    // For Vulkan, we need to set it as the combined VP matrix
-    // TODO: Split into View and Projection if needed by shader uniforms
+    VkCommandBuffer cmd = RCache.GetCommandBuffer();
+
+    // ========================================================================
+    // Step 1: Transition shadow map to DEPTH_ATTACHMENT (only for first cascade)
+    // ========================================================================
+
+    if (sub_phase == 0)
+    {
+        VkImageMemoryBarrier2 barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                               VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = rt_smap_depth.m_Image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        VkDependencyInfo dependencyInfo = {};
+        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &barrier;
+
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+    }
+
+    // ========================================================================
+    // Step 2: Begin Rendering (depth-only pass) with cascade viewport
+    // ========================================================================
+
+    VkRenderingAttachmentInfo depthAttachment = {};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = rt_smap_depth.m_ImageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;  // LOAD - preserve other cascades!
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+    VkRenderingInfo renderingInfo = {};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = {(s32)cascade.posX, (s32)cascade.posY};
+    renderingInfo.renderArea.extent = {cascade.viewport_size, cascade.viewport_size};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 0;  // No color attachments (depth-only)
+    renderingInfo.pDepthAttachment = &depthAttachment;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+
+    // ========================================================================
+    // Step 3: Setup viewport and scissor (cascade-specific region)
+    // ========================================================================
+
+    VkViewport viewport = {};
+    viewport.x = (float)cascade.posX;
+    viewport.y = (float)cascade.posY;
+    viewport.width = (float)cascade.viewport_size;
+    viewport.height = (float)cascade.viewport_size;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset = {(s32)cascade.posX, (s32)cascade.posY};
+    scissor.extent = {cascade.viewport_size, cascade.viewport_size};
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    // Cascade rendering to region
+
+    // ========================================================================
+    // Step 4: Use pre-calculated cascade shadow matrix
+    // ========================================================================
+
+    // The shadow matrix was already calculated by render_sun_cascade()
+    // and stored in RImplementation.m_sun_cascades[sub_phase].xform
     RCache.set_xform_view(cascade.xform);
 
     Fmatrix identity;
@@ -148,7 +128,7 @@ void CRenderTarget::phase_smap_direct(light* sun, u32 sub_phase)
     RCache.set_xform_project(identity);
 
     // ========================================================================
-    // Step 6: Render geometry (shadow casters)
+    // Step 5: Render geometry (shadow casters)
     // ========================================================================
 
     // Set world matrix to identity for scene geometry
@@ -162,29 +142,50 @@ void CRenderTarget::phase_smap_direct(light* sun, u32 sub_phase)
 
     RImplementation.render_shadow_geometry(sub_phase);
 
-    Msg("[Vulkan] phase_smap_direct() cascade %d: geometry rendered", sub_phase);
+    // Geometry rendered
 
     // ========================================================================
-    // Step 7: End rendering
+    // Step 6: End rendering
     // ========================================================================
 
     vkCmdEndRendering(cmd);
 
     // ========================================================================
-    // Step 8: Transition shadow map to SHADER_READ
+    // Step 7: Transition shadow map to SHADER_READ (only for last cascade)
     // ========================================================================
 
-    barrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-                           VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    barrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
-    barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // All cascades share one shadow atlas, so transition only after the last cascade
+    if (sub_phase == RImplementation.m_sun_cascades.size() - 1)
+    {
+        VkImageMemoryBarrier2 barrier = {};
+        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                               VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = rt_smap_depth.m_Image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
 
-    vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+        VkDependencyInfo dependencyInfo = {};
+        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &barrier;
 
-    Msg("[Vulkan] phase_smap_direct() complete for cascade %d", sub_phase);
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+
+        // Shadow atlas transitioned to SHADER_READ
+    }
+
+    // phase_smap_direct() complete
 }
 
 // phase_smap_point() and phase_smap_spot() implementations are in:

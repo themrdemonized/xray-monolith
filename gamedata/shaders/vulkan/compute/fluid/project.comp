@@ -1,0 +1,48 @@
+#version 450
+// 3D Fluid Velocity Projection
+// Subtracts pressure gradient from velocity: v_new = v - ∇p
+// Ensures divergence-free (incompressible) flow
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+// Input textures
+layout(set = 0, binding = 0) uniform sampler3D velocityTex;  // Current velocity
+layout(set = 0, binding = 1) uniform sampler3D pressureTex;  // Pressure field
+
+// Output texture
+layout(set = 0, binding = 2, rgba16f) writeonly uniform image3D velocityOut;
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    uvec3 gridSize = imageSize(velocityOut);
+
+    if (any(greaterThanEqual(id, gridSize))) {
+        return;
+    }
+
+    vec3 cellSize = 1.0 / vec3(gridSize);
+    vec3 uvw = (vec3(id) + 0.5) / vec3(gridSize);
+
+    // Sample current velocity
+    vec3 velocity = texture(velocityTex, uvw).xyz;
+
+    // Sample pressure at neighbors (for gradient)
+    float pL = texture(pressureTex, uvw - vec3(cellSize.x, 0.0, 0.0)).r;
+    float pR = texture(pressureTex, uvw + vec3(cellSize.x, 0.0, 0.0)).r;
+    float pD = texture(pressureTex, uvw - vec3(0.0, cellSize.y, 0.0)).r;
+    float pU = texture(pressureTex, uvw + vec3(0.0, cellSize.y, 0.0)).r;
+    float pB = texture(pressureTex, uvw - vec3(0.0, 0.0, cellSize.z)).r;
+    float pF = texture(pressureTex, uvw + vec3(0.0, 0.0, cellSize.z)).r;
+
+    // Compute pressure gradient (central differences)
+    vec3 gradP = vec3(
+        (pR - pL) * 0.5,
+        (pU - pD) * 0.5,
+        (pF - pB) * 0.5
+    ) / cellSize;
+
+    // Subtract gradient from velocity
+    vec3 projectedVelocity = velocity - gradP;
+
+    imageStore(velocityOut, ivec3(id), vec4(projectedVelocity, 0.0));
+}

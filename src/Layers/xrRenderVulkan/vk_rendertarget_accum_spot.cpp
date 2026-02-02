@@ -46,7 +46,7 @@ void CRenderTarget::phase_smap_spot(light* L)
         return;
     }
 
-    Msg("[Vulkan] phase_smap_spot: Rendering shadow map для spot light");
+    // phase_smap_spot: Rendering shadow map
 
     // ========================================================================
     // 1. Allocate atlas slot (if not already allocated)
@@ -93,8 +93,7 @@ void CRenderTarget::phase_smap_spot(light* L)
     L->X.S.project = proj;
     L->X.S.combine = viewProj;
 
-    Msg("[Vulkan] phase_smap_spot: View-projection matrix calculated (FOV=%.2f deg, range=%.2f)",
-        rad2deg(fov), L->range);
+    // View-projection matrix calculated
 
     // ========================================================================
     // 3. Transition rt_smap_depth to DEPTH_ATTACHMENT (if needed)
@@ -129,8 +128,7 @@ void CRenderTarget::phase_smap_spot(light* L)
 
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    Msg("[Vulkan] phase_smap_spot: Render pass begun (viewport: %dx%d at %d,%d)",
-        L->X.S.size, L->X.S.size, L->X.S.posX, L->X.S.posY);
+    // Render pass begun
 
     // ========================================================================
     // 5. Set viewport and scissor (atlasing)
@@ -166,7 +164,7 @@ void CRenderTarget::phase_smap_spot(light* L)
 
     vkCmdEndRendering(cmd);
 
-    Msg("[Vulkan] phase_smap_spot: Shadow map rendering complete");
+    // Shadow map rendering complete
 
     // Note: Layout transition to SHADER_READ_ONLY will be done once per frame
     // after all spot shadow maps are rendered
@@ -196,12 +194,19 @@ void CRenderTarget::phase_smap_spot(light* L)
  */
 void CRenderTarget::accum_spot(light* L)
 {
-    if (!L) {
-        Msg("![Vulkan] accum_spot: NULL light pointer");
-        return;
-    }
+    if (!L) return;
 
-    Msg("[Vulkan] accum_spot: Accumulating spot light");
+    // Early-out: check shaders before any Vulkan commands
+    static bool s_shaders_checked = false;
+    static bool s_shaders_available = false;
+    if (!s_shaders_checked) {
+        s_shaders_checked = true;
+        VkShaderModule vs = g_ShaderManager->Load("accum_spot.vert.spv");
+        VkShaderModule fs = g_ShaderManager->Load("accum_spot.frag.spv");
+        s_shaders_available = (vs != VK_NULL_HANDLE && fs != VK_NULL_HANDLE);
+        if (!s_shaders_available) Msg("![Vulkan] Spot light shaders not available - skipping all spot lights");
+    }
+    if (!s_shaders_available) return;
 
     VkCommandBuffer cmd = RCache.GetCommandBuffer();
 
@@ -443,7 +448,7 @@ void CRenderTarget::accum_spot(light* L)
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout,
                             3, 1, &sets[3], 0, nullptr);  // Set 3
 
-    Msg("[Vulkan] Descriptor sets bound: G-Buffer + Spot light");
+    // Descriptor sets bound: G-Buffer + Spot light
 
     // ========================================================================
     // Step 11: Push constants (spot light data)
@@ -476,7 +481,7 @@ void CRenderTarget::accum_spot(light* L)
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        0, sizeof(SpotLightPushConstants), &pushData);
 
-    Msg("[Vulkan] Push constants updated (192 bytes)");
+    // Push constants updated
 
     // ========================================================================
     // Step 12: Draw cone volume
@@ -489,7 +494,7 @@ void CRenderTarget::accum_spot(light* L)
     // Draw cone
     vkCmdDrawIndexed(cmd, m_SpotVolumeIndexCount, 1, 0, 0, 0);
 
-    Msg("[Vulkan] Spot light cone drawn: %d indices", m_SpotVolumeIndexCount);
+    // Spot light cone drawn
 
     // ========================================================================
     // Step 13: End rendering
@@ -501,7 +506,7 @@ void CRenderTarget::accum_spot(light* L)
     // ========================================================================
     increment_light_marker();
 
-    Msg("[Vulkan] accum_spot() complete");
+    // accum_spot() complete
 }
 
 // ============================================================================
@@ -569,8 +574,7 @@ bool CRenderTarget::AllocateShadowAtlasSlot(light* L)
     // Check if already allocated
     if (L->X.S.size > 0) {
         // Already has a slot
-        Msg("[Vulkan] AllocateShadowAtlasSlot: Light already has slot (pos=%d,%d, size=%d)",
-            L->X.S.posX, L->X.S.posY, L->X.S.size);
+        // Already allocated
         return true;
     }
 
@@ -588,8 +592,7 @@ bool CRenderTarget::AllocateShadowAtlasSlot(light* L)
             L->X.S.posY = slot.posY;
             L->X.S.size = slot.size;
 
-            Msg("[Vulkan] AllocateShadowAtlasSlot: Allocated slot %d (pos=%d,%d, size=%d)",
-                i, slot.posX, slot.posY, slot.size);
+            // Allocated slot
 
             return true;
         }

@@ -217,6 +217,8 @@ public:
 	CRegistrator<pureFrame> seqFrameMT;
 	CRegistrator<pureDeviceReset> seqDeviceReset;
 	xr_vector<fastdelegate::FastDelegate0<>> seqParallel;
+	xr_vector<fastdelegate::FastDelegate0<>> seqParallel_exec; // double-buffer for thread-safe execution
+	xrCriticalSection mt_csParallel; // protects seqParallel during swap and modifications
 
 	// Dependent classes
 	//CResourceManager* Resources;
@@ -422,8 +424,15 @@ public:
 	xrCriticalSection mt_csLeave;
 	volatile BOOL mt_bMustExit;
 
+	ICF void add_to_seq_parallel(const fastdelegate::FastDelegate0<>& delegate)
+	{
+		xrCriticalSectionGuard lock(mt_csParallel);
+		seqParallel.push_back(delegate);
+	}
+
 	ICF void remove_from_seq_parallel(const fastdelegate::FastDelegate0<>& delegate)
 	{
+		xrCriticalSectionGuard lock(mt_csParallel);
 		xr_vector<fastdelegate::FastDelegate0<>>::iterator I = std::find(
 			seqParallel.begin(),
 			seqParallel.end(),

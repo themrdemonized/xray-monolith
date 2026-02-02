@@ -24,6 +24,14 @@ void CLight_DB::Load(IReader* fs)
 	{
 		F = fs->open_chunk(fsL_LIGHT_DYNAMIC);
 
+		// Safety: Check if lights chunk exists
+		if (!F)
+		{
+			Msg("! [Light_DB] Warning: fsL_LIGHT_DYNAMIC chunk not found in level");
+			Msg("! [Light_DB] Level will have no static lights or sun");
+			return;
+		}
+
 		u32 size = F->length();
 		u32 element = sizeof(Flight) + 4;
 		u32 count = size / element;
@@ -81,7 +89,13 @@ void CLight_DB::Load(IReader* fs)
 
 		F->close();
 	}
-	R_ASSERT2(sun_original && sun_adapted, "Where is sun?");
+
+	// Verify sun was loaded (optional - some levels may not have directional light)
+	if (!sun_original || !sun_adapted)
+	{
+		Msg("! [Light_DB] Warning: No directional light (sun) found in level");
+		Msg("! [Light_DB] Scene will only have point lights and ambient");
+	}
 
 	// fake spot
 	/*
@@ -196,6 +210,17 @@ void CLight_DB::add_light(light* L)
 	L->export_(package);
 }
 #endif // (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+
+#if RENDER==R_VK
+void CLight_DB::add_light(light* L)
+{
+	if (Device.dwFrame == L->frame_render) return;
+	L->frame_render = Device.dwFrame;
+	if (RImplementation.o.noshadows) L->flags.bShadow = FALSE;
+	if (L->flags.bStatic && !ps_r2_ls_flags.test(R2FLAG_R1LIGHTS)) return;
+	L->export_(package);
+}
+#endif // RENDER==R_VK
 
 void CLight_DB::Update()
 {

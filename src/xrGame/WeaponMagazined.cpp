@@ -711,7 +711,7 @@ void CWeaponMagazined::UpdateSounds()
 	{
 		// Force update of fire dependencies and then put into second thread, fixes flickering limbs
 		get_LastFP();
-		Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(this, &CWeaponMagazined::UpdateSoundsPositions));
+		Device.add_to_seq_parallel(fastdelegate::FastDelegate0<>(this, &CWeaponMagazined::UpdateSoundsPositions));
 	}
 	else
 	{

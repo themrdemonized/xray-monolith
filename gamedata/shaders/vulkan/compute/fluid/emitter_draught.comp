@@ -1,0 +1,53 @@
+#version 450
+// 3D Fluid Draught Emitter
+// Oscillating vertical flow (for dynamic smoke columns)
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+// Input/Output textures
+layout(set = 0, binding = 0) uniform sampler3D velocityTex;
+layout(set = 0, binding = 1, rgba16f) writeonly uniform image3D velocityOut;
+
+// Parameters
+layout(push_constant) uniform Params {
+    vec3 center;           // Emitter center
+    float radius;          // Influence radius
+    float strength;        // Velocity strength
+    float time;            // Animation time
+    float frequency;       // Oscillation frequency
+    float padding;
+} params;
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    uvec3 gridSize = imageSize(velocityOut);
+
+    if (any(greaterThanEqual(id, gridSize))) {
+        return;
+    }
+
+    vec3 uvw = (vec3(id) + 0.5) / vec3(gridSize);
+
+    // Distance from emitter
+    vec3 delta = uvw - params.center;
+    float dist = length(delta);
+
+    if (dist > params.radius) {
+        // Outside influence radius - just copy
+        vec3 velocity = texture(velocityTex, uvw).xyz;
+        imageStore(velocityOut, ivec3(id), vec4(velocity, 0.0));
+        return;
+    }
+
+    // Oscillating vertical velocity
+    float oscillation = sin(params.time * params.frequency);
+    float falloff = 1.0 - (dist / params.radius);  // Linear falloff
+
+    vec3 draughtVelocity = vec3(0.0, params.strength * oscillation * falloff, 0.0);
+
+    // Add to existing velocity
+    vec3 velocity = texture(velocityTex, uvw).xyz;
+    velocity += draughtVelocity;
+
+    imageStore(velocityOut, ivec3(id), vec4(velocity, 0.0));
+}

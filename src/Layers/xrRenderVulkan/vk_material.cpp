@@ -37,9 +37,15 @@ CMaterial::CMaterial()
     , m_TexNormal(nullptr)
     , m_TexSpecular(nullptr)
     , m_TexDetail(nullptr)
+    , m_TexMask(nullptr)
+    , m_TexDetailR(nullptr)
+    , m_TexDetailG(nullptr)
+    , m_TexDetailB(nullptr)
+    , m_TexDetailA(nullptr)
     , m_fMaterial(0.0f)
     , m_bUseSteepParallax(false)
     , m_fDetailScale(1.0f)
+    , m_bTerrain(false)
     , m_DescriptorSet(VK_NULL_HANDLE)
 {
 }
@@ -53,6 +59,9 @@ void CMaterial::Create(LPCSTR name)
 {
     m_Name = name;
 
+    // Detect terrain by texture name prefix
+    m_bTerrain = (name && (strstr(name, "terrain\\") == name || strstr(name, "terrain/") == name));
+
     // Load material parameters from .thm file (Phase 2.33)
     LoadFromTHM(name);
 
@@ -62,12 +71,17 @@ void CMaterial::Create(LPCSTR name)
     LoadSpecular(name);
     LoadDetail(name);
 
+    // Load terrain-specific textures (mask + 4 detail layers)
+    if (m_bTerrain) {
+        LoadTerrainTextures(name);
+    }
+
     // Create descriptor set
     CreateDescriptorSet();
     UpdateDescriptorSet();
 
-    Msg("[Vulkan] Material created: %s (material=%.2f, parallax=%d)",
-        name, m_fMaterial, m_bUseSteepParallax);
+    Msg("[Vulkan] Material created: %s (material=%.2f, parallax=%d, terrain=%d)",
+        name, m_fMaterial, m_bUseSteepParallax, m_bTerrain);
 }
 
 void CMaterial::Destroy()
@@ -79,6 +93,11 @@ void CMaterial::Destroy()
     m_TexNormal = nullptr;
     m_TexSpecular = nullptr;
     m_TexDetail = nullptr;
+    m_TexMask = nullptr;
+    m_TexDetailR = nullptr;
+    m_TexDetailG = nullptr;
+    m_TexDetailB = nullptr;
+    m_TexDetailA = nullptr;
 }
 
 void CMaterial::LoadDiffuse(LPCSTR name)
@@ -96,26 +115,41 @@ void CMaterial::LoadDiffuse(LPCSTR name)
     }
 
     // Build texture path
+    // Match DX11 Texture.cpp search order: $level$ -> $game_saves$ -> $game_textures$
     string_path fn;
 
-    // Try .dds first (most common in X-Ray)
-    if (FS.exist(fn, "$game_textures$", name, ".dds")) {
+    // Try $level$ first (level-specific textures: terrain, lightmaps)
+    if (FS.exist(fn, "$level$", name, ".dds")) {
+        Msg("[Vulkan] Diffuse found in $level$: %s -> %s", name, fn);
         m_TexDiffuse = g_MaterialManager->LoadTexture(name, fn);
         if (m_TexDiffuse) {
-            Msg("[Vulkan] Loaded diffuse: %s", fn);
             return;
         }
+        Msg("![Vulkan] LoadTexture FAILED for: %s", fn);
     }
 
-    // Try .tga as fallback
-    if (FS.exist(fn, "$game_textures$", name, ".tga")) {
-        Msg("![Vulkan] TGA not supported yet: %s, using white texture", fn);
-        m_TexDiffuse = g_MaterialManager->GetWhiteTexture();
-        return;
+    // Try $game_saves$ (saved game textures)
+    if (FS.exist(fn, "$game_saves$", name, ".dds")) {
+        Msg("[Vulkan] Diffuse found in $game_saves$: %s -> %s", name, fn);
+        m_TexDiffuse = g_MaterialManager->LoadTexture(name, fn);
+        if (m_TexDiffuse) {
+            return;
+        }
+        Msg("![Vulkan] LoadTexture FAILED for: %s", fn);
+    }
+
+    // Try $game_textures$ (main texture archive)
+    if (FS.exist(fn, "$game_textures$", name, ".dds")) {
+        Msg("[Vulkan] Diffuse found in $game_textures$: %s -> %s", name, fn);
+        m_TexDiffuse = g_MaterialManager->LoadTexture(name, fn);
+        if (m_TexDiffuse) {
+            return;
+        }
+        Msg("![Vulkan] LoadTexture FAILED for: %s", fn);
     }
 
     // Fallback to white texture
-    Msg("![Vulkan] Texture not found: %s, using white texture", name);
+    Msg("![Vulkan] Texture NOT FOUND anywhere: %s (searched $level$, $game_saves$, $game_textures$)", name);
     m_TexDiffuse = g_MaterialManager->GetWhiteTexture();
 }
 
@@ -167,12 +201,12 @@ void CMaterial::LoadNormal(LPCSTR name)
             return;
         }
 
-        // Load from .thm bump_name
+        // Load from .thm bump_name (search $level$ -> $game_textures$)
         string_path fn;
-        if (FS.exist(fn, "$game_textures$", bump_name.c_str(), ".dds")) {
+        if (FS.exist(fn, "$level$", bump_name.c_str(), ".dds") ||
+            FS.exist(fn, "$game_textures$", bump_name.c_str(), ".dds")) {
             m_TexNormal = g_MaterialManager->LoadTexture(bump_name.c_str(), fn);
             if (m_TexNormal) {
-                Msg("[Vulkan] Loaded normal map from .thm: %s", fn);
                 return;
             }
         }
@@ -192,10 +226,10 @@ void CMaterial::LoadNormal(LPCSTR name)
             return;
         }
 
-        if (FS.exist(fn, "$game_textures$", normal_name, ".dds")) {
+        if (FS.exist(fn, "$level$", normal_name, ".dds") ||
+            FS.exist(fn, "$game_textures$", normal_name, ".dds")) {
             m_TexNormal = g_MaterialManager->LoadTexture(normal_name, fn);
             if (m_TexNormal) {
-                Msg("[Vulkan] Loaded normal map (fallback): %s", fn);
                 return;
             }
         }
@@ -227,10 +261,10 @@ void CMaterial::LoadSpecular(LPCSTR name)
     for (int i = 0; suffixes[i] != nullptr; i++) {
         xr_sprintf(spec_name, "%s%s", name, suffixes[i]);
 
-        if (FS.exist(fn, "$game_textures$", spec_name, ".dds")) {
+        if (FS.exist(fn, "$level$", spec_name, ".dds") ||
+            FS.exist(fn, "$game_textures$", spec_name, ".dds")) {
             m_TexSpecular = g_MaterialManager->LoadTexture(spec_name, fn);
             if (m_TexSpecular) {
-                Msg("[Vulkan] Loaded specular map: %s", fn);
                 return;
             }
         }
@@ -279,18 +313,77 @@ void CMaterial::LoadDetail(LPCSTR name)
         return;
     }
 
-    // Load detail texture
+    // Load detail texture (search $level$ -> $game_textures$)
     string_path fn;
-    if (FS.exist(fn, "$game_textures$", detail_name, ".dds")) {
+    if (FS.exist(fn, "$level$", detail_name, ".dds") ||
+        FS.exist(fn, "$game_textures$", detail_name, ".dds")) {
         m_TexDetail = g_MaterialManager->LoadTexture(detail_name, fn);
         if (m_TexDetail) {
-            Msg("[Vulkan] Loaded detail texture from .thm: %s (scale=%.2f)", fn, m_fDetailScale);
             return;
         }
     }
 
     // No detail texture found
     m_TexDetail = nullptr;
+}
+
+void CMaterial::LoadTerrainTextures(LPCSTR name)
+{
+    if (!name || !name[0]) return;
+
+    // ========================================================================
+    // Load terrain mask texture (base_name + "_mask")
+    // The mask RGBA channels control blending weights for 4 detail textures
+    // ========================================================================
+    string_path mask_name;
+    xr_sprintf(mask_name, "%s_mask", name);
+
+    m_TexMask = g_MaterialManager->FindTexture(mask_name);
+    if (!m_TexMask) {
+        string_path fn;
+        if (FS.exist(fn, "$level$", mask_name, ".dds") ||
+            FS.exist(fn, "$game_textures$", mask_name, ".dds")) {
+            m_TexMask = g_MaterialManager->LoadTexture(mask_name, fn);
+        }
+    }
+
+    if (m_TexMask) {
+        Msg("[Vulkan] Terrain mask loaded: %s", mask_name);
+    } else {
+        Msg("![Vulkan] Terrain mask not found: %s", mask_name);
+    }
+
+    // ========================================================================
+    // Load 4 detail textures (default names from CBlender_BmmD)
+    // R = grass, G = asphalt, B = earth, A = yantar
+    // ========================================================================
+    const char* detail_names[4] = {
+        "detail\\detail_grnd_grass",
+        "detail\\detail_grnd_asphalt",
+        "detail\\detail_grnd_earth",
+        "detail\\detail_grnd_yantar"
+    };
+
+    CVulkanTexture** detail_ptrs[4] = {
+        &m_TexDetailR, &m_TexDetailG, &m_TexDetailB, &m_TexDetailA
+    };
+
+    for (int i = 0; i < 4; i++) {
+        *detail_ptrs[i] = g_MaterialManager->FindTexture(detail_names[i]);
+        if (!*detail_ptrs[i]) {
+            string_path fn;
+            if (FS.exist(fn, "$game_textures$", detail_names[i], ".dds") ||
+                FS.exist(fn, "$level$", detail_names[i], ".dds")) {
+                *detail_ptrs[i] = g_MaterialManager->LoadTexture(detail_names[i], fn);
+            }
+        }
+
+        if (*detail_ptrs[i]) {
+            Msg("[Vulkan] Terrain detail[%d] loaded: %s", i, detail_names[i]);
+        } else {
+            Msg("![Vulkan] Terrain detail[%d] not found: %s", i, detail_names[i]);
+        }
+    }
 }
 
 void CMaterial::CreateDescriptorSet()
@@ -320,8 +413,16 @@ void CMaterial::UpdateDescriptorSet()
     CVulkanTexture* normal = m_TexNormal ? m_TexNormal : g_MaterialManager->GetDefaultNormal();
     CVulkanTexture* specular = m_TexSpecular ? m_TexSpecular : g_MaterialManager->GetWhiteTexture();
 
-    // Descriptor image infos
-    VkDescriptorImageInfo imageInfos[3] = {};
+    // Terrain textures fallback to white (1x1) — shader detects terrain via textureSize
+    CVulkanTexture* white = g_MaterialManager->GetWhiteTexture();
+    CVulkanTexture* mask = m_TexMask ? m_TexMask : white;
+    CVulkanTexture* detailR = m_TexDetailR ? m_TexDetailR : white;
+    CVulkanTexture* detailG = m_TexDetailG ? m_TexDetailG : white;
+    CVulkanTexture* detailB = m_TexDetailB ? m_TexDetailB : white;
+    CVulkanTexture* detailA = m_TexDetailA ? m_TexDetailA : white;
+
+    // Descriptor image infos for all 8 bindings
+    VkDescriptorImageInfo imageInfos[8] = {};
 
     // Binding 0: Diffuse texture
     imageInfos[0].sampler = diffuse->GetSampler();
@@ -338,37 +439,44 @@ void CMaterial::UpdateDescriptorSet()
     imageInfos[2].imageView = specular->GetView();
     imageInfos[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Write descriptor sets
-    VkWriteDescriptorSet writes[3] = {};
+    // Binding 3: Terrain mask
+    imageInfos[3].sampler = mask->GetSampler();
+    imageInfos[3].imageView = mask->GetView();
+    imageInfos[3].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Binding 0: Diffuse
-    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[0].dstSet = m_DescriptorSet;
-    writes[0].dstBinding = 0;
-    writes[0].dstArrayElement = 0;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].descriptorCount = 1;
-    writes[0].pImageInfo = &imageInfos[0];
+    // Binding 4: Detail R (grass)
+    imageInfos[4].sampler = detailR->GetSampler();
+    imageInfos[4].imageView = detailR->GetView();
+    imageInfos[4].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Binding 1: Normal
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = m_DescriptorSet;
-    writes[1].dstBinding = 1;
-    writes[1].dstArrayElement = 0;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[1].descriptorCount = 1;
-    writes[1].pImageInfo = &imageInfos[1];
+    // Binding 5: Detail G (asphalt)
+    imageInfos[5].sampler = detailG->GetSampler();
+    imageInfos[5].imageView = detailG->GetView();
+    imageInfos[5].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Binding 2: Specular
-    writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[2].dstSet = m_DescriptorSet;
-    writes[2].dstBinding = 2;
-    writes[2].dstArrayElement = 0;
-    writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[2].descriptorCount = 1;
-    writes[2].pImageInfo = &imageInfos[2];
+    // Binding 6: Detail B (earth)
+    imageInfos[6].sampler = detailB->GetSampler();
+    imageInfos[6].imageView = detailB->GetView();
+    imageInfos[6].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    vkUpdateDescriptorSets(VulkanHW.GetDevice(), 3, writes, 0, nullptr);
+    // Binding 7: Detail A (yantar)
+    imageInfos[7].sampler = detailA->GetSampler();
+    imageInfos[7].imageView = detailA->GetView();
+    imageInfos[7].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    // Write all 8 descriptor bindings
+    VkWriteDescriptorSet writes[8] = {};
+    for (int i = 0; i < 8; i++) {
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].dstSet = m_DescriptorSet;
+        writes[i].dstBinding = i;
+        writes[i].dstArrayElement = 0;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[i].descriptorCount = 1;
+        writes[i].pImageInfo = &imageInfos[i];
+    }
+
+    vkUpdateDescriptorSets(VulkanHW.GetDevice(), 8, writes, 0, nullptr);
 }
 
 void CMaterial::DestroyDescriptorSet()
@@ -442,6 +550,7 @@ void CMaterialManager::Create()
 
     m_bCreated = true;
     Msg("[Vulkan] Material Manager created successfully");
+    Msg("[Vulkan] Texture loading system ready - textures will load on-demand");
 }
 
 void CMaterialManager::Destroy()

@@ -32,9 +32,9 @@ void CVulkanSync::Create()
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;  // Создаём в signaled состоянии
 
     for (u32 i = 0; i < FRAMES_IN_FLIGHT; i++) {
-        VK_CHECK(vkCreateSemaphore(VulkanHW.m_Device, &semaphoreInfo, nullptr, &m_FrameSync[i].imageAvailable));
-        VK_CHECK(vkCreateSemaphore(VulkanHW.m_Device, &semaphoreInfo, nullptr, &m_FrameSync[i].renderFinished));
-        VK_CHECK(vkCreateFence(VulkanHW.m_Device, &fenceInfo, nullptr, &m_FrameSync[i].inFlightFence));
+        VK_CHECK_CRITICAL(vkCreateSemaphore(VulkanHW.m_Device, &semaphoreInfo, nullptr, &m_FrameSync[i].imageAvailable));
+        VK_CHECK_CRITICAL(vkCreateSemaphore(VulkanHW.m_Device, &semaphoreInfo, nullptr, &m_FrameSync[i].renderFinished));
+        VK_CHECK_CRITICAL(vkCreateFence(VulkanHW.m_Device, &fenceInfo, nullptr, &m_FrameSync[i].inFlightFence));
     }
 
     Msg("[Vulkan] Synchronization primitives created (3 frames in flight)");
@@ -65,15 +65,37 @@ void CVulkanSync::Destroy()
     Msg("[Vulkan] Synchronization primitives destroyed");
 }
 
-// Ожидание fence
-void CVulkanSync::WaitForFence(u32 frameIndex)
+// Ожидание fence — returns false on error (device lost, timeout)
+bool CVulkanSync::WaitForFence(u32 frameIndex)
 {
-    VK_CHECK(vkWaitForFences(VulkanHW.m_Device, 1, &m_FrameSync[frameIndex].inFlightFence,
-                             VK_TRUE, UINT64_MAX));
+    if (g_bDeviceLost) return false;
+
+    VkResult res = vkWaitForFences(VulkanHW.m_Device, 1, &m_FrameSync[frameIndex].inFlightFence,
+                                   VK_TRUE, 2000000000ULL);  // 2 second timeout
+    if (res == VK_SUCCESS) return true;
+
+    if (res == VK_ERROR_DEVICE_LOST) {
+        if (!g_bDeviceLost) {
+            Msg("!Vulkan DEVICE LOST in WaitForFence");
+            g_bDeviceLost = true;
+        }
+    } else if (res == VK_TIMEOUT) {
+        Msg("!Vulkan WaitForFence timeout (frame %u)", frameIndex);
+    } else {
+        Msg("!Vulkan WaitForFence error: %d", res);
+    }
+    return false;
 }
 
-// Сброс fence
-void CVulkanSync::ResetFence(u32 frameIndex)
+// Сброс fence — returns false on error
+bool CVulkanSync::ResetFence(u32 frameIndex)
 {
-    VK_CHECK(vkResetFences(VulkanHW.m_Device, 1, &m_FrameSync[frameIndex].inFlightFence));
+    if (g_bDeviceLost) return false;
+
+    VkResult res = vkResetFences(VulkanHW.m_Device, 1, &m_FrameSync[frameIndex].inFlightFence);
+    if (res != VK_SUCCESS) {
+        Msg("!Vulkan ResetFence error: %d", res);
+        return false;
+    }
+    return true;
 }

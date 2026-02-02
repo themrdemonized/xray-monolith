@@ -52,7 +52,7 @@ public:
 		if (size)
 		{
 			data.resize(size);
-			P.r(&*data.begin(), size);
+			P.r(&data[0], size);
 		}
 	}
 
@@ -63,13 +63,16 @@ public:
 		P.w_u32(timestamp);
 		P.w_u16(type);
 		P.w_u16(destination);
-		if (data.size()) P.w(&*data.begin(), (u32)data.size());
+		if (data.size()) P.w(&data[0], (u32)data.size());
 	}
 
 	void implication(NET_Packet& P) const
 	{
-		CopyMemory(P.B.data, &*data.begin(), (u32)data.size());
-		P.B.count = (u32)data.size();
+		u32 sz = (u32)data.size();
+		if (sz > 0) {
+			CopyMemory(P.B.data, &data[0], sz);
+		}
+		P.B.count = sz;
 		P.r_pos = 0;
 	}
 };

@@ -343,15 +343,31 @@ extern void export_classes(lua_State* L);
 extern xr_unordered_map<std::string, std::set<std::string>> unlocalizers;
 extern bool unlocalizerPassed;
 
+static void ScriptDiagWrite(const char* msg) {
+	HANDLE h = CreateFileA("D:\\anomaly\\appdata\\logs\\vulkan_diag.txt",
+		FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h != INVALID_HANDLE_VALUE) {
+		DWORD written;
+		WriteFile(h, msg, (DWORD)strlen(msg), &written, NULL);
+		WriteFile(h, "\r\n", 2, &written, NULL);
+		FlushFileBuffers(h);
+		CloseHandle(h);
+	}
+}
+
 void CScriptEngine::init()
 {
+	ScriptDiagWrite("[DIAG] CScriptEngine::init ENTER");
 #ifdef USE_LUA_STUDIO
     bool lua_studio_connected = !!m_lua_studio_world;
     if (lua_studio_connected)
         m_lua_studio_world->remove		(lua());
 #endif // #ifdef USE_LUA_STUDIO
 
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: before reinit");
 	CScriptStorage::reinit();
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: after reinit");
 
 #ifdef USE_LUA_STUDIO
     if (m_lua_studio_world || strstr(Core.Params, "-lua_studio")) {
@@ -369,10 +385,15 @@ void CScriptEngine::init()
     }
 #endif // #ifdef USE_LUA_STUDIO
 
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: before luabind::open");
 	::luabind::open(lua());
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: after luabind::open");
 	setup_callbacks();
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: before export_classes");
 	export_classes(lua());
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: after export_classes");
 	setup_auto_load();
+	ScriptDiagWrite("[DIAG] CScriptEngine::init: after setup_auto_load");
 
 #ifdef DEBUG
     m_stack_is_ready					= true;

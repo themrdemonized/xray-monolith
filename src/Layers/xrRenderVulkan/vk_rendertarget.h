@@ -4,7 +4,31 @@
 
 #pragma once
 #include "SH_RT_Vulkan.h"
+#include "vk_texture.h"
+#include "vk_buffer.h"
 #include "../../xrEngine/Render.h"
+
+// === ANOMALY LUA WEATHER SYSTEM ===
+// Anomaly sets weather params via Lua: weather.set_value_*(name, ...) -> CurrentEnv
+// INI configs may have empty/zero values for clouds, colors etc.
+// The engine lerps Current[0] + Current[1] into CurrentEnv every frame.
+// Lua can overwrite any field in CurrentEnv at any time.
+// Renderers should read runtime params from CurrentEnv (the final blended result).
+//
+// R4 (DX11) architecture for reference:
+//   dxEnvDescriptorRender    — loads sky/clouds textures per weather descriptor
+//   dxEnvDescriptorMixerRender — lerp() assembles texture pairs (slot0=A, slot1=B)
+//   dxEnvironmentRender      — RenderSky()/RenderClouds() bind mixer textures
+//   GPU shader               — blends two textures using CurrentEnv->weight
+//
+// Vulkan consumers per file:
+//   vk_lighting.cpp                      — sky_color, sun_color, sun_dir, hemi_color, ambient, rain_density, wind
+//   vk_rendertarget_phase_sky.cpp        — sky_texture_name, sky_color, weight
+//   vk_rendertarget_phase_clouds.cpp     — clouds_texture_name, clouds_color, wind_direction, weight
+//   vk_rendertarget_phase_combine.cpp    — sky_color, ambient
+//   vk_DetailManager*.cpp                — wind_direction, wind_strength_factor
+//   rvk_sun.cpp                          — far_plane
+//   vk_sector.cpp                        — ambient
 
 // Forward declarations
 class light;
@@ -85,6 +109,8 @@ public:
     void phase_gbuffer();      // Phase 2.21: G-Buffer pass (geometry rendering)
     void phase_accumulator();
     void phase_combine();
+    void phase_sky();          // Sky cubemap rendering (after combine, before forward)
+    void phase_clouds();       // Cloud hemisphere rendering (after sky, before forward)
     void phase_forward();      // Phase 2.19: Forward pass (transparent objects)
     void phase_postprocess();  // Phase 2.20: Post-processing (bloom, vignette, etc.)
     void phase_distortion();   // Distortion map rendering (for magnifier effect)
@@ -129,7 +155,7 @@ public:
     // Pipeline helpers
     VkPipeline GetShadowPipeline();                // Get or create depth-only pipeline
     VkPipeline GetShadowCubePipeline();            // Get or create cubemap shadow pipeline
-    VkPipeline GetGBufferPipeline();               // Get or create G-Buffer pipeline (Phase 2.21.2)
+    VkPipeline GetGBufferPipeline(u32 stride = 32); // Get or create G-Buffer pipeline (Phase 2.21.2)
 
     // Cubemap shadow rendering (Phase 2.16)
     void render_smap_cube_face(light* L, u32 face_index, const Fmatrix& face_matrix);  // Render one cubemap face
@@ -155,7 +181,7 @@ private:
     // Cached pipelines
     VkPipeline m_ShadowPipeline = VK_NULL_HANDLE;      // Depth-only pipeline for shadow maps
     VkPipeline m_ShadowCubePipeline = VK_NULL_HANDLE;  // Cubemap shadow pipeline
-    VkPipeline m_GBufferPipeline = VK_NULL_HANDLE;     // G-Buffer pipeline (Phase 2.21.2)
+    xr_map<u32, VkPipeline> m_GBufferPipelines;         // G-Buffer pipelines per vertex stride
 
     // Water pipelines
     VkPipeline m_WaterSSRPipeline = VK_NULL_HANDLE;   // Water SSR pre-pass
@@ -168,6 +194,20 @@ private:
     VkDescriptorSet m_SunDescSet = VK_NULL_HANDLE;      // Shadow map + sun data (Set 3)
     VkDescriptorSet m_PointDescSet = VK_NULL_HANDLE;    // Shadow cube + point data (Set 3)
     VkDescriptorSet m_SpotDescSet = VK_NULL_HANDLE;     // Shadow map + spot data (Set 3) - Phase 2.17.5
+
+    // Sky rendering resources
+    CVulkanTexture* m_FallbackSky = nullptr;              // 1x1x6 solid-color cubemap (created once)
+    CVulkanBuffer  m_SkyVB;                               // Half-box vertex buffer (12 verts)
+    CVulkanBuffer  m_SkyIB;                               // Half-box index buffer (60 indices)
+    VkDescriptorSet m_SkyDescSet = VK_NULL_HANDLE;       // Sky cubemap descriptor set
+    bool m_bSkyGeometryCreated = false;
+
+    // Cloud rendering resources
+    CVulkanTexture* m_FallbackCloud = nullptr;            // 1x1 white texture (created once)
+    CVulkanBuffer  m_CloudVB;                              // Hemisphere vertex buffer (91 verts, host-visible)
+    CVulkanBuffer  m_CloudIB;                              // Hemisphere index buffer (480 indices)
+    VkDescriptorSet m_CloudDescSet = VK_NULL_HANDLE;      // Cloud texture descriptor set
+    bool m_bCloudGeometryCreated = false;
 
     // Point light volume geometry (Phase 2.16.4)
     VkBuffer m_PointVolumeVB = VK_NULL_HANDLE;          // Sphere vertex buffer
@@ -203,6 +243,17 @@ public:
 
     // Shadow atlas initialization (Phase 2.17.2)
     void InitShadowAtlas();
+
+    // Sky rendering helpers
+    void CreateSkyGeometry();
+    void DestroySkyResources();
+    CVulkanTexture* CreateFallbackCubemap(float r, float g, float b);
+    CVulkanTexture* GetOrCreateFallbackSky();
+
+    // Cloud rendering helpers
+    void CreateCloudGeometry();
+    void DestroyCloudResources();
+    CVulkanTexture* GetOrCreateFallbackCloud();
 
     // IRender_Target interface implementation
     void set_blur(float f) override {}

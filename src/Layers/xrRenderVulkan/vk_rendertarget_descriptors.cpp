@@ -189,7 +189,7 @@ void CRenderTarget::UpdateSunDescriptorSet(VkDescriptorSet set, u32 cascade_ind)
 	// Update descriptor set
 	vkUpdateDescriptorSets(VulkanHW.m_Device, writeCount, writes, 0, nullptr);
 
-	Msg("[Vulkan] Sun descriptor set updated (cascade %d, shadow map bound)", cascade_ind);
+	// Sun descriptor set updated
 }
 
 // ============================================================================
@@ -232,7 +232,7 @@ VkDescriptorSet CRenderTarget::CreatePointDescriptorSet()
 
 void CRenderTarget::UpdatePointDescriptorSet(VkDescriptorSet set, light* L)
 {
-	Msg("[Vulkan] Updating point light descriptor set...");
+	// Updating point light descriptor set
 
 	if (set == VK_NULL_HANDLE) {
 		Msg("![Vulkan] Cannot update NULL descriptor set");
@@ -244,6 +244,14 @@ void CRenderTarget::UpdatePointDescriptorSet(VkDescriptorSet set, light* L)
 		return;
 	}
 
+	// Validate cubemap resources before updating descriptor set
+	if (rt_smap_cube.m_ImageView == VK_NULL_HANDLE || rt_smap_cube.GetSampler() == VK_NULL_HANDLE)
+	{
+		Msg("![Vulkan] Point light descriptor set update skipped: cubemap not ready (imageView=%p, sampler=%p)",
+			(void*)rt_smap_cube.m_ImageView, (void*)rt_smap_cube.GetSampler());
+		return;
+	}
+
 	VkWriteDescriptorSet writes[2] = {};
 	u32 writeCount = 0;
 
@@ -251,9 +259,9 @@ void CRenderTarget::UpdatePointDescriptorSet(VkDescriptorSet set, light* L)
 	// Binding 0: Shadow cubemap (samplerCube)
 	// ========================================================================
 	VkDescriptorImageInfo cubeInfo = {};
-	cubeInfo.imageView = rt_smap_cube.m_ImageView;  // Full cubemap view!
+	cubeInfo.imageView = rt_smap_cube.m_ImageView;
 	cubeInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	cubeInfo.sampler = VK_NULL_HANDLE;  // TODO: Create cubemap sampler
+	cubeInfo.sampler = rt_smap_cube.GetSampler();
 
 	writes[writeCount].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	writes[writeCount].dstSet = set;
@@ -264,21 +272,8 @@ void CRenderTarget::UpdatePointDescriptorSet(VkDescriptorSet set, light* L)
 	writes[writeCount].pImageInfo = &cubeInfo;
 	writeCount++;
 
-	// ========================================================================
-	// Binding 1: Point light uniform buffer
-	// ========================================================================
-	// TODO Phase 2.16 (production): Create point light uniform buffer
-	// Should contain:
-	// - vec4 position (eye-space, .w = 1.0 / (range * range))
-	// - vec4 color    (RGB + specular intensity)
-	//
-	// For now: skip uniform buffer binding (will use push constants)
-	// Or create a small dynamic uniform buffer
-
 	// Update descriptor set
 	vkUpdateDescriptorSets(VulkanHW.m_Device, writeCount, writes, 0, nullptr);
-
-	Msg("[Vulkan] Point light descriptor set updated (shadow cube bound)");
 }
 
 // ============================================================================
@@ -324,7 +319,7 @@ VkDescriptorSet CRenderTarget::CreateSpotDescriptorSet()
 
 void CRenderTarget::UpdateSpotDescriptorSet(VkDescriptorSet set, light* L)
 {
-	Msg("[Vulkan] Updating spot light descriptor set...");
+	// Updating spot light descriptor set
 
 	if (set == VK_NULL_HANDLE) {
 		Msg("![Vulkan] Cannot update NULL descriptor set");
@@ -348,10 +343,18 @@ void CRenderTarget::UpdateSpotDescriptorSet(VkDescriptorSet set, light* L)
 	// - VK_COMPARE_OP_LESS_OR_EQUAL for shadow comparison
 	// - VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE (to avoid atlas bleeding)
 
+	// Validate shadow map resources before updating descriptor set
+	if (rt_smap_depth.m_ImageView == VK_NULL_HANDLE || rt_smap_depth.GetSampler() == VK_NULL_HANDLE)
+	{
+		Msg("![Vulkan] Spot light descriptor set update skipped: shadow map not ready (imageView=%p, sampler=%p)",
+			(void*)rt_smap_depth.m_ImageView, (void*)rt_smap_depth.GetSampler());
+		return;
+	}
+
 	VkDescriptorImageInfo smapInfo = {};
 	smapInfo.imageView = rt_smap_depth.m_ImageView;
 	smapInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	smapInfo.sampler = VK_NULL_HANDLE;  // TODO: Create shadow sampler (linear, compare)
+	smapInfo.sampler = rt_smap_depth.GetSampler();
 
 	writes[writeCount].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	writes[writeCount].dstSet = set;
@@ -364,8 +367,6 @@ void CRenderTarget::UpdateSpotDescriptorSet(VkDescriptorSet set, light* L)
 
 	// Update descriptor set
 	vkUpdateDescriptorSets(VulkanHW.m_Device, writeCount, writes, 0, nullptr);
-
-	Msg("[Vulkan] Spot light descriptor set updated (2D shadow map bound)");
 }
 
 } // namespace VK

@@ -710,17 +710,13 @@ void CKinematicsAnimated::IBoneInstances_Destroy()
 
 void CKinematicsAnimated::Copy(vkRender_Visual* P)
 {
-	Msg("[Vulkan] CKinematicsAnimated::Copy ENTER");
 	inherited::Copy(P);
-	Msg("[Vulkan] CKinematicsAnimated::Copy: inherited done, copying motions...");
 
 	CKinematicsAnimated* pFrom = (CKinematicsAnimated*)P;
 	PCOPY(m_Motions);
 	PCOPY(m_Partition);
 
-	Msg("[Vulkan] CKinematicsAnimated::Copy: IBlend_Startup...");
 	IBlend_Startup();
-	Msg("[Vulkan] CKinematicsAnimated::Copy DONE");
 }
 
 void CKinematicsAnimated::Spawn()
@@ -786,21 +782,15 @@ CBlend* CKinematicsAnimated::IBlend_Create()
 
 void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 {
-	Msg("[Vulkan] CKinematicsAnimated::Load ENTER: '%s'", N);
-	Msg("[Vulkan] CKinematicsAnimated::Load: calling inherited::Load...");
 	inherited::Load(N, data, dwFlags);
-	Msg("[Vulkan] CKinematicsAnimated::Load: inherited::Load completed");
 
 	// Globals
-	Msg("[Vulkan] CKinematicsAnimated::Load: setting globals...");
 	blend_instances = NULL;
 	m_Partition = NULL;
 	Update_LastTime = 0;
-	Msg("[Vulkan] CKinematicsAnimated::Load: globals set");
 
 	const auto loadOMF = [&](LPCSTR _path)
 	{
-		Msg("[Vulkan] loadOMF ENTER: '%s'", _path);
 		string_path fn;
 		if (!FS.exist(fn, "$level$", _path))
 		{
@@ -810,15 +800,12 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 				Debug.fatal(DEBUG_INFO, "Can't find motion file '%s'\nsection '%s'\nmodel '%s'", _path, current_player_hud_sect.c_str(), N);
 			}
 		}
-		Msg("[Vulkan] loadOMF: found at '%s'", fn);
 
 		// Check compatibility
-		Msg("[Vulkan] loadOMF: pushing SMotionsSlot, current size=%u", (u32)m_Motions.size());
 		m_Motions.push_back(SMotionsSlot());
 		bool create_res = true;
 		if (!g_pMotionsContainer->has(_path)) //optimize fs operations
 		{
-			Msg("[Vulkan] loadOMF: motions not in container, loading from file...");
 			IReader* MS = FS.r_open(fn);
 			if (!MS)
 			{
@@ -826,20 +813,15 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 				m_Motions.pop_back();
 				return;
 			}
-			Msg("[Vulkan] loadOMF: file opened, size=%d", MS->length());
 			create_res = m_Motions.back().motions.create(_path, MS, bones);
-			Msg("[Vulkan] loadOMF: motions.create returned %d", create_res ? 1 : 0);
 			FS.r_close(MS);
 		}
 		else
 		{
-			Msg("[Vulkan] loadOMF: motions already in container");
 		}
 		if (create_res)
 		{
-			Msg("[Vulkan] loadOMF: creating from container...");
 			m_Motions.back().motions.create(_path, NULL, bones);
-			Msg("[Vulkan] loadOMF: done");
 		}
 		else
 		{
@@ -849,30 +831,22 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 	};
 
 	// Load animation
-	Msg("[Vulkan] CKinematicsAnimated::Load: loading animations... data=%p", data);
 	if (!data) {
 		Msg("![Vulkan] CKinematicsAnimated::Load: data is NULL!");
 		return;
 	}
 	// Reset position before searching for animation chunks
-	Msg("[Vulkan] CKinematicsAnimated::Load: data->length()=%d, data->tell()=%d", data->length(), data->tell());
 	data->rewind();
-	Msg("[Vulkan] CKinematicsAnimated::Load: after rewind, data->tell()=%d, elapsed=%d", data->tell(), data->elapsed());
 
 	// Test find_chunk with known chunk first
-	Msg("[Vulkan] CKinematicsAnimated::Load: testing find_chunk with OGF_HEADER=%u...", OGF_HEADER);
 	bool test_result = data->find_chunk(OGF_HEADER);
-	Msg("[Vulkan] CKinematicsAnimated::Load: test find_chunk returned %d", test_result ? 1 : 0);
 
 	data->rewind();
-	Msg("[Vulkan] CKinematicsAnimated::Load: calling find_chunk(OGF_S_MOTION_REFS=%u)...", OGF_S_MOTION_REFS);
 	if (data->find_chunk(OGF_S_MOTION_REFS))
 	{
-		Msg("[Vulkan] CKinematicsAnimated::Load: found OGF_S_MOTION_REFS");
 		string_path items_nm;
 		data->r_stringZ(items_nm, sizeof(items_nm));
 		u32 set_cnt = _GetItemCount(items_nm);
-		Msg("[Vulkan] CKinematicsAnimated::Load: motion refs count=%u, items='%s'", set_cnt, items_nm);
 		R_ASSERT2(set_cnt<MAX_ANIM_SLOT, make_string("section '%s'\nmodel '%s'", current_player_hud_sect.c_str(), N).c_str());
 		m_Motions.reserve(set_cnt);
 		string_path nm;
@@ -882,18 +856,15 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 
 			if (strstr(nm, "\\*.omf"))
 			{
-				Msg("[Vulkan] CKinematicsAnimated::Load: wildcard motion ref detected: '%s'", nm);
 				FS_FileSet fset;
 				FS.file_list(fset, "$game_meshes$", FS_ListFiles, nm);
 				FS.file_list(fset, "$level$", FS_ListFiles, nm);
-				Msg("[Vulkan] CKinematicsAnimated::Load: found %u OMF files", (u32)fset.size());
 
 				if (fset.size() > 1)
 					m_Motions.reserve(m_Motions.size() + fset.size());
 
 				for (FS_FileSet::iterator it = fset.begin(); it != fset.end(); it++)
 				{
-					Msg("[Vulkan] CKinematicsAnimated::Load: loading OMF '%s'", (*it).name.c_str());
 					loadOMF((*it).name.c_str());
 				}
 
@@ -901,38 +872,29 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 			}
 
 			xr_strcat(nm, ".omf");
-			Msg("[Vulkan] CKinematicsAnimated::Load: loading single OMF '%s'", nm);
 			loadOMF(nm);
 		}
 	}
 	else if (data->find_chunk(OGF_S_MOTION_REFS2))
 	{
-		Msg("[Vulkan] CKinematicsAnimated::Load: found OGF_S_MOTION_REFS2");
-		Msg("[Vulkan] CKinematicsAnimated::Load: reading set_cnt...");
 		u32 set_cnt = data->r_u32();
-		Msg("[Vulkan] CKinematicsAnimated::Load: set_cnt=%u", set_cnt);
 		m_Motions.reserve(set_cnt);
 		string_path nm;
 		for (u32 k = 0; k < set_cnt; ++k)
 		{
-			Msg("[Vulkan] CKinematicsAnimated::Load: reading motion ref [%u/%u]...", k, set_cnt);
 			data->r_stringZ(nm, sizeof(nm));
-			Msg("[Vulkan] CKinematicsAnimated::Load: motion ref[%u]='%s'", k, nm);
 
 			if (strstr(nm, "\\*.omf"))
 			{
-				Msg("[Vulkan] CKinematicsAnimated::Load: wildcard motion ref detected: '%s'", nm);
 				FS_FileSet fset;
 				FS.file_list(fset, "$game_meshes$", FS_ListFiles, nm);
 				FS.file_list(fset, "$level$", FS_ListFiles, nm);
-				Msg("[Vulkan] CKinematicsAnimated::Load: found %u OMF files", (u32)fset.size());
 
 				if (fset.size() > 1)
 					m_Motions.reserve(m_Motions.size() + fset.size());
 
 				for (FS_FileSet::iterator it = fset.begin(); it != fset.end(); it++)
 				{
-					Msg("[Vulkan] CKinematicsAnimated::Load: loading OMF '%s'", (*it).name.c_str());
 					loadOMF((*it).name.c_str());
 				}
 
@@ -940,29 +902,23 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 			}
 
 			xr_strcat(nm, ".omf");
-			Msg("[Vulkan] CKinematicsAnimated::Load: loading single OMF '%s'", nm);
 			loadOMF(nm);
 		}
 	}
 	else
 	{
-		Msg("[Vulkan] CKinematicsAnimated::Load: no external motion refs, loading embedded");
 		string_path nm;
 		strconcat(sizeof(nm), nm, N, ".ogf");
 		m_Motions.push_back(SMotionsSlot());
 		m_Motions.back().motions.create(nm, data, bones);
 	}
 
-	Msg("[Vulkan] CKinematicsAnimated::Load: m_Motions.size()=%u", m_Motions.size());
 	R_ASSERT2(m_Motions.size(), make_string("section '%s'\nmodel '%s'", current_player_hud_sect.c_str(), N).c_str());
 
-	Msg("[Vulkan] CKinematicsAnimated::Load: loading partition...");
 	m_Partition = m_Motions[0].motions.partition();
 	m_Partition->load(this, N);
-	Msg("[Vulkan] CKinematicsAnimated::Load: partition loaded");
 
 	// initialize motions
-	Msg("[Vulkan] CKinematicsAnimated::Load: initializing bone_motions...");
 	for (MotionsSlotVecIt m_it = m_Motions.begin(); m_it != m_Motions.end(); m_it++)
 	{
 		SMotionsSlot& MS = *m_it;
@@ -973,13 +929,10 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 			MS.bone_motions[i] = MS.motions.bone_motions(BD->name);
 		}
 	}
-	Msg("[Vulkan] CKinematicsAnimated::Load: bone_motions initialized");
 
 
 	// Init blend pool
-	Msg("[Vulkan] CKinematicsAnimated::Load: IBlend_Startup...");
 	IBlend_Startup();
-	Msg("[Vulkan] CKinematicsAnimated::Load: DONE");
 }
 
 

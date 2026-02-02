@@ -53,87 +53,156 @@ void CPSLibrary::OnCreate()
 {
     Msg("[Vulkan] CPSLibrary::OnCreate() - Loading particle definitions...");
 
-    // Load particle definitions from gamedata/particles/
+    // Step 1: Load individual .pe/.pg files from $game_particles$ (if any exist)
     FS_FileSet files;
     string_path _path;
 
     FS.update_path(_path, "$game_particles$", "");
     FS.file_list(files, _path, FS_ListFiles, "*.pe,*.pg");
 
-    if (files.empty())
-    {
-        Msg("![Vulkan] No particle files found in %s", _path);
-        return;
-    }
-
-    string_path p_path, p_name, p_ext;
     u32 loaded_pe = 0;
     u32 loaded_pg = 0;
 
-    for (const FS_File& f : files)
+    if (!files.empty())
     {
-        _splitpath(f.name.c_str(), 0, p_path, p_name, p_ext);
-        FS.update_path(_path, "$game_particles$", f.name.c_str());
-
-        if (!FS.exist(_path))
+        string_path p_path, p_name, p_ext;
+        for (const FS_File& f : files)
         {
-            Msg("![Vulkan] Particle file not found: %s", _path);
-            continue;
-        }
+            _splitpath(f.name.c_str(), 0, p_path, p_name, p_ext);
+            FS.update_path(_path, "$game_particles$", f.name.c_str());
 
-        CInifile ini(_path, TRUE, TRUE, FALSE);
-        xr_sprintf(_path, sizeof(_path), "%s%s", p_path, p_name);
+            if (!FS.exist(_path))
+                continue;
 
-        if (0 == stricmp(p_ext, ".pe"))
-        {
-            // Particle Effect Definition
-            PS::CPEDef* def = xr_new<PS::CPEDef>();
-            def->m_Name = _path;
+            CInifile ini(_path, TRUE, TRUE, FALSE);
+            xr_sprintf(_path, sizeof(_path), "%s%s", p_path, p_name);
 
-            if (def->Load2(ini))
+            if (0 == stricmp(p_ext, ".pe"))
             {
-                m_PEDs.push_back(def);
-                loaded_pe++;
-
-                // Note: CreateShader() called later after sorting
+                PS::CPEDef* def = xr_new<PS::CPEDef>();
+                def->m_Name = _path;
+                if (def->Load2(ini))
+                {
+                    m_PEDs.push_back(def);
+                    loaded_pe++;
+                }
+                else
+                    xr_delete(def);
             }
-            else
+            else if (0 == stricmp(p_ext, ".pg"))
             {
-                Msg("![Vulkan] Failed to load particle effect: %s", _path);
-                xr_delete(def);
-            }
-        }
-        else if (0 == stricmp(p_ext, ".pg"))
-        {
-            // Particle Group Definition
-            PS::CPGDef* def = xr_new<PS::CPGDef>();
-            def->m_Name = _path;
-
-            if (def->Load2(ini))
-            {
-                m_PGDs.push_back(def);
-                loaded_pg++;
-            }
-            else
-            {
-                Msg("![Vulkan] Failed to load particle group: %s", _path);
-                xr_delete(def);
+                PS::CPGDef* def = xr_new<PS::CPGDef>();
+                def->m_Name = _path;
+                if (def->Load2(ini))
+                {
+                    m_PGDs.push_back(def);
+                    loaded_pg++;
+                }
+                else
+                    xr_delete(def);
             }
         }
     }
+
+    Msg("[Vulkan] Loaded %u individual .pe files and %u .pg files", loaded_pe, loaded_pg);
+
+    // Step 2: Load from particles.xr binary archive (main particle database)
+    string_path fn;
+    FS.update_path(fn, _game_data_, "particles.xr");
+    if (FS.exist(fn))
+    {
+        IReader* F = FS.r_open(fn);
+        if (F)
+        {
+            if (F->find_chunk(PS_CHUNK_VERSION))
+            {
+                u16 ver = F->r_u16();
+                if (ver == PS_VERSION)
+                {
+                    // Load particle effect definitions (second generation)
+                    IReader* OBJ = F->open_chunk(PS_CHUNK_SECONDGEN);
+                    if (OBJ)
+                    {
+                        IReader* O = OBJ->open_chunk(0);
+                        for (int count = 1; O; count++)
+                        {
+                            PS::CPEDef* def = xr_new<PS::CPEDef>();
+                            if (def->Load(*O))
+                            {
+                                // Skip if already loaded from individual file
+                                bool exist = false;
+                                for (PS::CPEDef* pdef : m_PEDs)
+                                {
+                                    if (pdef->m_Name == def->m_Name)
+                                    {
+                                        exist = true;
+                                        xr_delete(def);
+                                        break;
+                                    }
+                                }
+                                if (!exist)
+                                    m_PEDs.push_back(def);
+                            }
+                            else
+                                xr_delete(def);
+
+                            O->close();
+                            O = OBJ->open_chunk(count);
+                        }
+                        OBJ->close();
+                    }
+
+                    // Load particle group definitions (third generation)
+                    OBJ = F->open_chunk(PS_CHUNK_THIRDGEN);
+                    if (OBJ)
+                    {
+                        IReader* O = OBJ->open_chunk(0);
+                        for (int count = 1; O; count++)
+                        {
+                            PS::CPGDef* def = xr_new<PS::CPGDef>();
+                            if (def->Load(*O))
+                            {
+                                bool exist = false;
+                                for (PS::CPGDef* pdef : m_PGDs)
+                                {
+                                    if (pdef->m_Name == def->m_Name)
+                                    {
+                                        exist = true;
+                                        xr_delete(def);
+                                        break;
+                                    }
+                                }
+                                if (!exist)
+                                    m_PGDs.push_back(def);
+                            }
+                            else
+                                xr_delete(def);
+
+                            O->close();
+                            O = OBJ->open_chunk(count);
+                        }
+                        OBJ->close();
+                    }
+                }
+                else
+                    Msg("![Vulkan] particles.xr version mismatch: %u (expected %u)", ver, PS_VERSION);
+            }
+            FS.r_close(F);
+        }
+    }
+    else
+        Msg("![Vulkan] particles.xr not found at: %s", fn);
 
     // Sort for faster binary search
     std::sort(m_PEDs.begin(), m_PEDs.end(), ped_sort_pred);
     std::sort(m_PGDs.begin(), m_PGDs.end(), pgd_sort_pred);
 
-    // Create Vulkan shaders for all particle effects
+    // Create shaders for all particle effects
     for (PS::PEDIt e_it = m_PEDs.begin(); e_it != m_PEDs.end(); ++e_it)
-    {
         (*e_it)->CreateShader();
-    }
 
-    Msg("[Vulkan] Loaded %u particle effects and %u particle groups", loaded_pe, loaded_pg);
-    Msg("[Vulkan] Created shaders for %u particle effects", loaded_pe);
+    Msg("[Vulkan] Total: %u particle effects and %u particle groups loaded",
+        (u32)m_PEDs.size(), (u32)m_PGDs.size());
 }
 
 void CPSLibrary::OnDestroy()
@@ -261,17 +330,12 @@ static void fix_texture_thm_name(LPSTR fn)
 struct TH_LoadTHM_Vulkan
 {
     LPCSTR initial;
-    CTextureDescrMngr::map_TD& s_texture_details;
-    CTextureDescrMngr::map_CS& s_detail_scalers;
+    CTextureDescrMngr::map_TD* s_texture_details;
+    CTextureDescrMngr::map_CS* s_detail_scalers;
 };
 
-// Thread function wrapper
-static void LoadTHMThread_Vulkan(void* args)
-{
-    TH_LoadTHM_Vulkan* p = (TH_LoadTHM_Vulkan*)args;
-    CTextureDescrMngr::LoadTHM(p->initial, p->s_texture_details, p->s_detail_scalers);
-    xr_delete(p);
-}
+// Forward declaration - defined below as member function
+// Thread loading uses LoadTHMThread (static member) which can access private LoadTHM
 
 // ============================================================================
 // LoadTHM - Load all .thm files from a directory (static method)
@@ -410,6 +474,13 @@ CTextureDescrMngr::~CTextureDescrMngr()
     m_detail_scalers.clear();
 }
 
+void CTextureDescrMngr::LoadTHMThread(void* args)
+{
+    TH_LoadTHM_Vulkan* p = (TH_LoadTHM_Vulkan*)args;
+    LoadTHM(p->initial, *p->s_texture_details, *p->s_detail_scalers);
+    xr_delete(p);
+}
+
 void CTextureDescrMngr::Load()
 {
     Msg("[Vulkan] CTextureDescrMngr::Load() - Loading .thm files...");
@@ -420,17 +491,17 @@ void CTextureDescrMngr::Load()
 
     TH_LoadTHM_Vulkan* gtex = xr_new<TH_LoadTHM_Vulkan>();
     gtex->initial = "$game_textures$";
-    gtex->s_texture_details = m_texture_details;
-    gtex->s_detail_scalers = m_detail_scalers;
+    gtex->s_texture_details = &m_texture_details;
+    gtex->s_detail_scalers = &m_detail_scalers;
 
     TH_LoadTHM_Vulkan* lvl = xr_new<TH_LoadTHM_Vulkan>();
     lvl->initial = "$level$";
-    lvl->s_texture_details = m_texture_details;
-    lvl->s_detail_scalers = m_detail_scalers;
+    lvl->s_texture_details = &m_texture_details;
+    lvl->s_detail_scalers = &m_detail_scalers;
 
     // Spawn loading threads
-    thread_spawn(LoadTHMThread_Vulkan, "Vulkan THM Loader 1", 0, gtex);
-    thread_spawn(LoadTHMThread_Vulkan, "Vulkan THM Loader 2", 0, lvl);
+    thread_spawn(CTextureDescrMngr::LoadTHMThread, "Vulkan THM Loader 1", 0, gtex);
+    thread_spawn(CTextureDescrMngr::LoadTHMThread, "Vulkan THM Loader 2", 0, lvl);
 
     // Wait a bit for threads to start
     Sleep(5);
@@ -528,4 +599,48 @@ resptr_core<Shader, resptrcode_shader>* dxWallMarkArray::dxGenerateWallmark()
     // For now return nullptr - wallmarks won't work but won't crash
     Msg("[Vulkan] dxWallMarkArray::dxGenerateWallmark() - stub");
     return nullptr;
+}
+
+// ============================================================================
+// STextureParams::Load - ported from xrRender/ETextureParams.cpp
+// Needed for .thm file loading in CTextureDescrMngr::LoadTHM
+// ============================================================================
+void STextureParams::Load(IReader& F)
+{
+    R_ASSERT(F.find_chunk(THM_CHUNK_TEXTUREPARAM));
+    F.r(&fmt, sizeof(ETFormat));
+    flags.assign(F.r_u32());
+    border_color = F.r_u32();
+    fade_color = F.r_u32();
+    fade_amount = F.r_u32();
+    mip_filter = F.r_u32();
+    width = F.r_u32();
+    height = F.r_u32();
+
+    if (F.find_chunk(THM_CHUNK_TEXTURE_TYPE))
+        type = (ETType)F.r_u32();
+
+    if (F.find_chunk(THM_CHUNK_DETAIL_EXT)) {
+        F.r_stringZ(detail_name);
+        detail_scale = F.r_float();
+    }
+
+    if (F.find_chunk(THM_CHUNK_MATERIAL)) {
+        material = F.r_u32();
+        material_weight = F.r_float();
+    }
+
+    if (F.find_chunk(THM_CHUNK_BUMP)) {
+        bump_virtual_height = F.r_float();
+        bump_mode = (ETBumpMode)F.r_u32();
+        if (bump_mode < STextureParams::tbmNone)
+            bump_mode = STextureParams::tbmNone;
+        F.r_stringZ(bump_name);
+    }
+
+    if (F.find_chunk(THM_CHUNK_EXT_NORMALMAP))
+        F.r_stringZ(ext_normal_map_name);
+
+    if (F.find_chunk(THM_CHUNK_FADE_DELAY))
+        fade_delay = F.r_u8();
 }

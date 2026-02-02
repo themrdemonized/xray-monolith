@@ -1,0 +1,41 @@
+#version 450
+// 3D Fluid Obstacle Rendering
+// Renders oriented bounding boxes into obstacle texture
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+// Output texture
+layout(set = 0, binding = 0, r8) writeonly uniform image3D obstacleOut;
+
+// Parameters
+layout(push_constant) uniform Params {
+    vec3 obbMin;      // OOBB minimum corner
+    float padding1;
+    vec3 obbMax;      // OOBB maximum corner
+    float padding2;
+    mat4 obbTransform; // OOBB transform matrix
+} params;
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    uvec3 gridSize = imageSize(obstacleOut);
+
+    if (any(greaterThanEqual(id, gridSize))) {
+        return;
+    }
+
+    // Grid position in [0,1]
+    vec3 uvw = (vec3(id) + 0.5) / vec3(gridSize);
+
+    // Transform to OOBB local space
+    vec4 localPos = params.obbTransform * vec4(uvw, 1.0);
+
+    // Check if inside OOBB
+    bool inside = all(greaterThanEqual(localPos.xyz, params.obbMin)) &&
+                  all(lessThanEqual(localPos.xyz, params.obbMax));
+
+    // Write 1.0 if inside obstacle, 0.0 otherwise
+    float obstacle = inside ? 1.0 : 0.0;
+
+    imageStore(obstacleOut, ivec3(id), vec4(obstacle, 0.0, 0.0, 0.0));
+}

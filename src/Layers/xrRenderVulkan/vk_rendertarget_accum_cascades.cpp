@@ -27,12 +27,11 @@ namespace VK
 
 void CRenderTarget::accum_direct_cascades(u32 sub_phase)
 {
-	Msg("[Vulkan] accum_direct_cascades(cascade=%d)", sub_phase);
+	// accum_direct_cascades
 
 	// Get sun light
 	light* sun = (light*)RImplementation.Lights.sun_adapted._get();
 	if (!sun) {
-		Msg("![Vulkan] No sun light available");
 		return;
 	}
 
@@ -151,7 +150,7 @@ void CRenderTarget::accum_direct_cascades(u32 sub_phase)
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout,
 	                        3, 1, &sets[3], 0, nullptr);  // Set 3
 
-	Msg("[Vulkan] Descriptor sets bound: G-Buffer (Set 1) + Shadow map (Set 3)");
+	// Descriptor sets bound
 
 	// ========================================================================
 	// Step 6: Draw fullscreen quad
@@ -161,7 +160,7 @@ void CRenderTarget::accum_direct_cascades(u32 sub_phase)
 	// For now, just placeholder
 	// vkCmdDraw(cmd, 6, 1, 0, 0);  // 2 triangles = 6 vertices
 
-	Msg("[Vulkan] TODO: Draw fullscreen quad with cascade shadow sampling");
+	// TODO: Draw fullscreen quad with cascade shadow sampling
 
 	// ========================================================================
 	// Step 7: End rendering
@@ -169,7 +168,7 @@ void CRenderTarget::accum_direct_cascades(u32 sub_phase)
 
 	vkCmdEndRendering(cmd);
 
-	Msg("[Vulkan] accum_direct_cascades(cascade=%d) complete (infrastructure ready)", sub_phase);
+	// accum_direct_cascades complete
 }
 
 } // namespace VK

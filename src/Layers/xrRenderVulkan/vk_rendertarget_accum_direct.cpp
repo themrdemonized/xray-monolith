@@ -21,10 +21,7 @@ void CRenderTarget::accum_direct_simple()
 {
     // Get sun light
     light* sun = (light*)RImplementation.Lights.sun_adapted._get();
-    if (!sun) {
-        Msg("[Vulkan] accum_direct_simple: no sun light");
-        return;
-    }
+    if (!sun) return;
 
     VkCommandBuffer cmd = RCache.GetCommandBuffer();
 
@@ -42,9 +39,7 @@ void CRenderTarget::accum_direct_simple()
     Device.mView.transform_dir(L_dir, sun->direction);
     L_dir.normalize();
 
-    Msg("[Vulkan] accum_direct_simple(): sun color=(%.2f,%.2f,%.2f), dir=(%.2f,%.2f,%.2f)",
-        L_clr.x, L_clr.y, L_clr.z,
-        L_dir.x, L_dir.y, L_dir.z);
+    // sun params ready
 
     // ========================================================================
     // Bind shader and geometry
@@ -78,7 +73,7 @@ void CRenderTarget::accum_direct_simple()
 
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
-    Msg("[Vulkan] accum_direct_simple(): fullscreen quad drawn");
+    // fullscreen quad drawn
 }
 
 // ============================================================================
@@ -104,7 +99,7 @@ void CRenderTarget::accum_direct(u32 sub_phase)
     // TODO Phase 2.15.3: Полная реализация с тенями
     // Пока вызываем упрощённую версию
 
-    Msg("[Vulkan] accum_direct(cascade=%d) - calling simple version for now", sub_phase);
+    // accum_direct - calling simple version
     accum_direct_simple();
 
     /*

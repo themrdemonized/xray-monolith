@@ -284,72 +284,202 @@ static void fill_vid_mode_list_vulkan()
 }
 
 // Главный метод создания device (аналог DX11)
-void CVulkanHW::CreateDevice(HWND hWnd)
+// Returns true on success, false on error
+bool CVulkanHW::CreateDevice(HWND hWnd)
 {
+    Msg("=================================================================");
+    Msg("[Vulkan] Initializing Vulkan renderer...");
+    Msg("=================================================================");
+
     m_hWnd = hWnd;
 
-    // 1. Создаём instance
+    // ========================================================================
+    // Step 1: Create Vulkan instance
+    // ========================================================================
+    Msg("[Vulkan] Step 1/11: Creating Vulkan instance...");
     if (!VK_CreateInstance(&m_Instance)) {
-        FATAL("Failed to create Vulkan instance");
+        Msg("![Vulkan] FAILED: Step 1 - Failed to create Vulkan instance");
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Possible reasons:");
+        Msg("![Vulkan] - Vulkan SDK not installed");
+        Msg("![Vulkan] - Outdated GPU drivers");
+        Msg("![Vulkan] - Vulkan not supported by system");
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Solutions:");
+        Msg("![Vulkan] 1. Install Vulkan SDK from https://vulkan.lunarg.com/");
+        Msg("![Vulkan] 2. Update GPU drivers to latest version");
+        Msg("![Vulkan] 3. Use DirectX renderer with -dx11 flag");
+        return false;
     }
+    Msg("[Vulkan] Step 1/11: SUCCESS - Vulkan instance created");
 
 #ifdef DEBUG
     // 2. Debug messenger
     VK_SetupDebugMessenger(m_Instance, &m_DebugMessenger);
+    Msg("[Vulkan] Debug messenger enabled");
 #endif
 
-    // 3. Создаём surface
+    // ========================================================================
+    // Step 2: Create window surface
+    // ========================================================================
+    Msg("[Vulkan] Step 2/11: Creating window surface...");
     VkWin32SurfaceCreateInfoKHR surfaceInfo = {};
     surfaceInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
     surfaceInfo.hinstance = GetModuleHandle(nullptr);
     surfaceInfo.hwnd = hWnd;
-    VK_CHECK(vkCreateWin32SurfaceKHR(m_Instance, &surfaceInfo, nullptr, &m_Surface));
 
-    // 4. Выбираем physical device
+    VkResult result = vkCreateWin32SurfaceKHR(m_Instance, &surfaceInfo, nullptr, &m_Surface);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] FAILED: Step 2 - Failed to create window surface (error: %d)", result);
+        Msg("![Vulkan] Window handle may be invalid");
+        return false;
+    }
+    Msg("[Vulkan] Step 2/11: SUCCESS - Window surface created");
+
+    // ========================================================================
+    // Step 3: Select physical device (GPU)
+    // ========================================================================
+    Msg("[Vulkan] Step 3/11: Selecting physical device (GPU)...");
     m_PhysicalDevice = VK_SelectPhysicalDevice(m_Instance, &Caps);
     if (m_PhysicalDevice == VK_NULL_HANDLE) {
-        FATAL("Failed to select physical device");
+        Msg("![Vulkan] FAILED: Step 3 - No compatible GPU found");
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Possible reasons:");
+        Msg("![Vulkan] - No Vulkan-capable GPU detected");
+        Msg("![Vulkan] - GPU drivers too old");
+        Msg("![Vulkan] - Integrated GPU disabled in BIOS");
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Solutions:");
+        Msg("![Vulkan] 1. Update GPU drivers to latest version");
+        Msg("![Vulkan] 2. Check GPU is enabled in Device Manager");
+        Msg("![Vulkan] 3. Use DirectX renderer with -dx11 flag");
+        return false;
     }
 
-    // Проверяем минимальные требования
+    // Display GPU information
+    Msg("[Vulkan] Step 3/11: SUCCESS - Physical device selected");
+    Msg("[Vulkan] ");
+    Msg("[Vulkan] GPU Information:");
+    Msg("[Vulkan] ----------------------------------------");
+    Msg("[Vulkan] Device Name: %s", Caps.deviceName);
+    Msg("[Vulkan] Vulkan API: %d.%d.%d",
+        VK_VERSION_MAJOR(Caps.apiVersion),
+        VK_VERSION_MINOR(Caps.apiVersion),
+        VK_VERSION_PATCH(Caps.apiVersion));
+    Msg("[Vulkan] Driver Version: %d.%d.%d",
+        VK_VERSION_MAJOR(Caps.driverVersion),
+        VK_VERSION_MINOR(Caps.driverVersion),
+        VK_VERSION_PATCH(Caps.driverVersion));
+    Msg("[Vulkan] ----------------------------------------");
+    Msg("[Vulkan] ");
+
+    // ========================================================================
+    // Step 4: Check minimum requirements
+    // ========================================================================
+    Msg("[Vulkan] Step 4/11: Checking GPU capabilities...");
     if (!Caps.CheckMinimumRequirements()) {
-        FATAL("GPU doesn't meet minimum requirements for Vulkan 1.3");
+        Msg("![Vulkan] FAILED: Step 4 - GPU doesn't meet minimum requirements");
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Requirements:");
+        Msg("![Vulkan] - Vulkan 1.2 or 1.3");
+        Msg("![Vulkan] - VK_KHR_dynamic_rendering extension");
+        Msg("![Vulkan] - VK_KHR_synchronization2 extension");
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Your GPU:");
+        Msg("![Vulkan] - Vulkan API: %d.%d.%d",
+            VK_VERSION_MAJOR(Caps.apiVersion),
+            VK_VERSION_MINOR(Caps.apiVersion),
+            VK_VERSION_PATCH(Caps.apiVersion));
+        Msg("![Vulkan] ");
+        Msg("![Vulkan] Solutions:");
+        Msg("![Vulkan] 1. Update GPU drivers to latest version");
+        Msg("![Vulkan] 2. For NVIDIA: Driver 515+ (GTX 1000 series+)");
+        Msg("![Vulkan] 3. For AMD: Driver 21.10.1+ (RX 5000 series+)");
+        Msg("![Vulkan] 4. For Intel: Driver 30.0.101.1191+ (Arc A-series)");
+        Msg("![Vulkan] 5. Use DirectX renderer with -dx11 flag");
+        return false;
     }
+    Msg("[Vulkan] Step 4/11: SUCCESS - GPU meets all requirements");
 
-    // 5. Находим queue families
+    // ========================================================================
+    // Step 5: Find queue families
+    // ========================================================================
+    Msg("[Vulkan] Step 5/11: Finding queue families...");
     if (!FindQueueFamilies()) {
-        FATAL("Failed to find queue families");
+        Msg("![Vulkan] FAILED: Step 5 - Failed to find suitable queue families");
+        Msg("![Vulkan] GPU doesn't support required graphics/present queues");
+        return false;
     }
+    Msg("[Vulkan] Step 5/11: SUCCESS - Queue families found (Graphics: %u, Present: %u)",
+        m_GraphicsFamily, m_PresentFamily);
 
-    // 6. Создаём logical device
+    // ========================================================================
+    // Step 6: Create logical device
+    // ========================================================================
+    Msg("[Vulkan] Step 6/11: Creating logical device...");
     if (!CreateLogicalDevice()) {
-        FATAL("Failed to create logical device");
+        Msg("![Vulkan] FAILED: Step 6 - Failed to create logical device");
+        Msg("![Vulkan] This may indicate driver issues or unsupported features");
+        return false;
     }
+    Msg("[Vulkan] Step 6/11: SUCCESS - Logical device created");
 
-    // 7. Создаём VMA
+    // ========================================================================
+    // Step 7: Create VMA (Vulkan Memory Allocator)
+    // ========================================================================
+    Msg("[Vulkan] Step 7/11: Creating VMA allocator...");
     if (!CreateVMA()) {
-        FATAL("Failed to create VMA allocator");
+        Msg("![Vulkan] FAILED: Step 7 - Failed to create VMA allocator");
+        Msg("![Vulkan] Memory allocation system initialization failed");
+        return false;
     }
+    Msg("[Vulkan] Step 7/11: SUCCESS - VMA allocator created");
 
-    // 8. Создаём command pool для transfer operations
+    // ========================================================================
+    // Step 8: Create command pool for transfer operations
+    // ========================================================================
+    Msg("[Vulkan] Step 8/11: Creating transfer command pool...");
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.queueFamilyIndex = m_GraphicsFamily;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;  // Short-lived commands
-    VK_CHECK(vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_TransferCommandPool));
 
-    Msg("[Vulkan] Transfer command pool created");
+    result = vkCreateCommandPool(m_Device, &poolInfo, nullptr, &m_TransferCommandPool);
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] FAILED: Step 8 - Failed to create transfer command pool (error: %d)", result);
+        return false;
+    }
+    Msg("[Vulkan] Step 8/11: SUCCESS - Transfer command pool created");
 
-    // 9. Создаём геометрию для deferred rendering
+    // ========================================================================
+    // Step 9: Create geometry system for deferred rendering
+    // ========================================================================
+    Msg("[Vulkan] Step 9/11: Creating geometry system...");
     g_VulkanGeometry = xr_new<VK::CVulkanGeometry>();
     g_VulkanGeometry->Create();
+    Msg("[Vulkan] Step 9/11: SUCCESS - Geometry system created");
 
-    // 10. Создаём lighting manager
+    // ========================================================================
+    // Step 10: Create lighting manager
+    // ========================================================================
+    Msg("[Vulkan] Step 10/11: Creating lighting manager...");
     g_VulkanLighting = xr_new<VK::CVulkanLighting>();
     g_VulkanLighting->Create();
+    Msg("[Vulkan] Step 10/11: SUCCESS - Lighting manager created");
 
-    // 11. Fill video mode list for options menu
+    // ========================================================================
+    // Step 11: Fill video mode list for options menu
+    // ========================================================================
+    Msg("[Vulkan] Step 11/11: Filling video mode list...");
     fill_vid_mode_list_vulkan();
+    Msg("[Vulkan] Step 11/11: SUCCESS - Video mode list filled");
+
+    Msg("=================================================================");
+    Msg("[Vulkan] Initialization completed successfully!");
+    Msg("[Vulkan] All systems ready");
+    Msg("=================================================================");
+
+    return true;
 }
 
 // Уничтожение device

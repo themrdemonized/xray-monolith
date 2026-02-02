@@ -11,6 +11,7 @@
 #include "../xrRender/xrRender_console.h"
 #include "../../xrEngine/XR_IOConsole.h"
 #include "../../xrEngine/xr_ioc_cmd.h"
+#include "../../xrEngine/IGame_Persistent.h"
 
 // VULKAN_DIAG: Static init diagnostics
 static void VulkanDiagWriteConsole(const char* msg) {
@@ -85,10 +86,30 @@ xr_token screenshot_mode_token[] = {
     {"jpg", 0}, {"png", 1}, {"tga", 2}, {0, 0}
 };
 
+// 3D Fluid system (Phase 0)
+u32 ps_r_fluid_quality = 1;
+xr_token qfluid_quality_token[] = {
+    {"low", 0}, {"medium", 1}, {"high", 2}, {0, 0}
+};
+
+u32 ps_r_fluid_grid_size = 128;
+xr_token qfluid_grid_token[] = {
+    {"64", 64}, {"128", 128}, {"256", 256}, {0, 0}
+};
+
+// ============================================================================
+// External variables (defined elsewhere in the engine)
+// ============================================================================
+extern int psSkeletonUpdate;
+extern float r__dtex_range;
+float OLES_SUN_LIMIT_27_01_07 = 100.f; // sun_far (defined here for Vulkan, R4 has its own)
+float r_dtex_range = 50.f;             // detail texture range (defined here for Vulkan)
+
 // ============================================================================
 // Common flags and settings
 // ============================================================================
 Flags32 ps_r__common_flags = {0};
+extern int ps_r__Supersample; // defined in xrEngine/xr_ioc_cmd.cpp
 int ps_r__LightSleepFrames = 10;
 
 float ps_r__Detail_l_ambient = 0.9f;
@@ -468,19 +489,721 @@ float wallmark_range_static = 100.f;
 float wallmark_range_skeleton = 50.f;
 
 // ============================================================================
+// Console command classes (Vulkan-compatible versions)
+// These are defined locally in the DX renderer's xrRender_console.cpp and
+// not exposed via any header, so we replicate them here for Vulkan.
+// ============================================================================
+
+class CCC_Preset : public CCC_Token
+{
+public:
+	CCC_Preset(LPCSTR N, u32* V, xr_token* T) : CCC_Token(N, V, T) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Token::Execute(args);
+		string_path _cfg;
+		string_path cmd;
+		switch (*value)
+		{
+		case 0: xr_strcpy(_cfg, "rspec_minimum.ltx"); break;
+		case 1: xr_strcpy(_cfg, "rspec_low.ltx"); break;
+		case 2: xr_strcpy(_cfg, "rspec_default.ltx"); break;
+		case 3: xr_strcpy(_cfg, "rspec_high.ltx"); break;
+		case 4: xr_strcpy(_cfg, "rspec_extreme.ltx"); break;
+		}
+		FS.update_path(_cfg, "$game_config$", _cfg);
+		strconcat(sizeof(cmd), cmd, "cfg_load", " ", _cfg);
+		Console->Execute(cmd);
+	}
+};
+
+class CCC_Screenshot : public IConsole_Command
+{
+public:
+	CCC_Screenshot(LPCSTR N) : IConsole_Command(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (g_dedicated_server) return;
+		string_path name;
+		name[0] = 0;
+		sscanf(args, "%s", name);
+		LPCSTR image = xr_strlen(name) ? name : 0;
+		::Render->Screenshot(IRender_interface::SM_NORMAL, image);
+	}
+};
+
+class CCC_RestoreQuadIBData : public IConsole_Command
+{
+public:
+	CCC_RestoreQuadIBData(LPCSTR N) : IConsole_Command(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		// TODO: Vulkan implementation
+	}
+};
+
+class CCC_tf_Aniso : public CCC_Integer
+{
+public:
+	CCC_tf_Aniso(LPCSTR N, int* v) : CCC_Integer(N, v, 1, 16) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Integer::Execute(args);
+		// TODO: Vulkan anisotropy control
+	}
+
+	virtual void Status(TStatus& S)
+	{
+		CCC_Integer::Status(S);
+	}
+};
+
+class CCC_tf_MipBias : public CCC_Float
+{
+public:
+	CCC_tf_MipBias(LPCSTR N, float* v) : CCC_Float(N, v, -3.0f, +3.0f) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Float::Execute(args);
+		// TODO: Vulkan mip bias control
+	}
+
+	virtual void Status(TStatus& S)
+	{
+		CCC_Float::Status(S);
+	}
+};
+
+class CCC_R2GM : public CCC_Float
+{
+public:
+	CCC_R2GM(LPCSTR N, float* v) : CCC_Float(N, v, 0.f, 4.f) { *v = 0; }
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (0 == xr_strcmp(args, "on"))
+			ps_r2_ls_flags.set(R2FLAG_GLOBALMATERIAL, TRUE);
+		else if (0 == xr_strcmp(args, "off"))
+			ps_r2_ls_flags.set(R2FLAG_GLOBALMATERIAL, FALSE);
+		else
+		{
+			CCC_Float::Execute(args);
+			if (ps_r2_ls_flags.test(R2FLAG_GLOBALMATERIAL))
+			{
+				static LPCSTR name[4] = {"oren", "blin", "phong", "metal"};
+				float mid = *value;
+				int m0 = iFloor(mid) % 4;
+				int m1 = (m0 + 1) % 4;
+				float frc = mid - float(iFloor(mid));
+				Msg("* material set to [%s]-[%s], with lerp of [%f]", name[m0], name[m1], frc);
+			}
+		}
+	}
+};
+
+class CCC_ssfx_cascades : public CCC_Vector3
+{
+public:
+	CCC_ssfx_cascades(LPCSTR N, Fvector3* V, const Fvector3 _min, const Fvector3 _max)
+		: CCC_Vector3(N, V, _min, _max) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Vector3::Execute(args);
+		// TODO: Vulkan cascade reinit
+	}
+
+	virtual void Status(TStatus& S)
+	{
+		CCC_Vector3::Status(S);
+	}
+};
+
+class CCC_Dof : public CCC_Vector3
+{
+public:
+	CCC_Dof(LPCSTR N, Fvector* V, const Fvector _min, const Fvector _max)
+		: CCC_Vector3(N, V, _min, _max) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		Fvector v;
+		if (3 != sscanf(args, "%f,%f,%f", &v.x, &v.y, &v.z))
+			InvalidSyntax();
+		else if ((v.x > v.y - 0.1f) || (v.z < v.y + 0.1f))
+		{
+			InvalidSyntax();
+			Msg("x <= y - 0.1");
+			Msg("y <= z - 0.1");
+		}
+		else
+		{
+			CCC_Vector3::Execute(args);
+			if (g_pGamePersistent)
+				g_pGamePersistent->SetBaseDof(ps_r2_dof);
+		}
+	}
+
+	virtual void Status(TStatus& S) { xr_sprintf(S, "%f,%f,%f", value->x, value->y, value->z); }
+	virtual void Info(TInfo& I) { xr_sprintf(I, "vector3 in range [%f,%f,%f]-[%f,%f,%f]", min.x, min.y, min.z, max.x, max.y, max.z); }
+};
+
+class CCC_DofNear : public CCC_Float
+{
+public:
+	CCC_DofNear(LPCSTR N, float* V, float _min = 0.0f, float _max = 10000.0f)
+		: CCC_Float(N, V, _min, _max) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		float v = float(atof(args));
+		if (v > ps_r2_dof.y - 0.1f)
+		{
+			Msg("~ Invalid syntax in call to '%s'", cName);
+			Console->Execute("r2_dof_focus");
+		}
+		else
+		{
+			CCC_Float::Execute(args);
+			if (g_pGamePersistent)
+				g_pGamePersistent->SetBaseDof(ps_r2_dof);
+		}
+	}
+
+	virtual void Save(IWriter* F) { ; }
+};
+
+class CCC_DofFocus : public CCC_Float
+{
+public:
+	CCC_DofFocus(LPCSTR N, float* V, float _min = 0.0f, float _max = 10000.0f)
+		: CCC_Float(N, V, _min, _max) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		float v = float(atof(args));
+		if (v > ps_r2_dof.z - 0.1f)
+		{
+			Msg("~ Invalid syntax in call to '%s'", cName);
+			Console->Execute("r2_dof_far");
+		}
+		else if (v < ps_r2_dof.x + 0.1f)
+		{
+			Msg("~ Invalid syntax in call to '%s'", cName);
+			Console->Execute("r2_dof_near");
+		}
+		else
+		{
+			CCC_Float::Execute(args);
+			if (g_pGamePersistent)
+				g_pGamePersistent->SetBaseDof(ps_r2_dof);
+		}
+	}
+
+	virtual void Save(IWriter* F) { ; }
+};
+
+class CCC_DofFar : public CCC_Float
+{
+public:
+	CCC_DofFar(LPCSTR N, float* V, float _min = 0.0f, float _max = 10000.0f)
+		: CCC_Float(N, V, _min, _max) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		float v = float(atof(args));
+		if (v < ps_r2_dof.y + 0.1f)
+		{
+			Msg("~ Invalid syntax in call to '%s'", cName);
+			Console->Execute("r2_dof_focus");
+		}
+		else
+		{
+			CCC_Float::Execute(args);
+			if (g_pGamePersistent)
+				g_pGamePersistent->SetBaseDof(ps_r2_dof);
+		}
+	}
+
+	virtual void Save(IWriter* F) { ; }
+};
+
+class CCC_SSAO_Mode : public CCC_Token
+{
+public:
+	CCC_SSAO_Mode(LPCSTR N, u32* V, xr_token* T) : CCC_Token(N, V, T) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Token::Execute(args);
+		switch (*value)
+		{
+		case 0:
+			ps_r_ssao = 0;
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HBAO, 0);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HDAO, 0);
+			break;
+		case 1:
+			if (ps_r_ssao == 0) ps_r_ssao = 1;
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HBAO, 0);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HDAO, 0);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HALF_DATA, 0);
+			break;
+		case 2:
+			if (ps_r_ssao == 0) ps_r_ssao = 1;
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HBAO, 0);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HDAO, 1);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_OPT_DATA, 0);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HALF_DATA, 0);
+			break;
+		case 3:
+			if (ps_r_ssao == 0) ps_r_ssao = 1;
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HBAO, 1);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_HDAO, 0);
+			ps_r2_ls_flags_ext.set(R2FLAGEXT_SSAO_OPT_DATA, 1);
+			break;
+		}
+	}
+};
+
+#ifdef DETAIL_RADIUS
+class CCC_detail_radius : public CCC_Integer
+{
+public:
+	CCC_detail_radius(LPCSTR N, int* V, int _min = 0, int _max = 999) : CCC_Integer(N, V, _min, _max) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Integer::Execute(args);
+		dm_current_size = iFloor((float)ps_r__detail_radius / 4) * 2;
+		dm_current_cache1_line = dm_current_size * 2 / 4;
+		dm_current_cache_line = dm_current_size + 1 + dm_current_size;
+		dm_current_cache_size = dm_current_cache_line * dm_current_cache_line;
+		dm_current_fade = float(2 * dm_current_size) - .5f;
+	}
+
+	virtual void Status(TStatus& S) { CCC_Integer::Status(S); }
+};
+#endif
+
+// ============================================================================
 // Console initialization (stub for Vulkan)
 // ============================================================================
 void xrRender_initconsole()
 {
     Msg("* [Vulkan] xrRender_initconsole: Registering render console commands");
 
-    // DOF commands - required by CGamePersistent constructor
+    // NOTE: This registration is copied from xrRender_console.cpp to ensure
+    // all console variables are accessible from Lua scripts via get_console()
+
+    CMD3(CCC_Preset, "_preset", &ps_Preset, qpreset_token);
+
+    CMD4(CCC_Integer, "rs_skeleton_update", &psSkeletonUpdate, 2, 128);
+    CMD4(CCC_Float, "r__dtex_range", &r__dtex_range, 5, 175);
+
+    // Common
+    CMD1(CCC_Screenshot, "screenshot");
+    CMD1(CCC_RestoreQuadIBData, "r_restore_quad_ib_data");
+
+    CMD4(CCC_Float, "r__wallmark_ttl", &ps_r__WallmarkTTL, 1.0f, 10.f*60.f);
+    CMD4(CCC_Integer, "r__supersample", &ps_r__Supersample, 1, 8);
+
     Fvector tw_min, tw_max;
+
+    CMD4(CCC_Float, "r__geometry_lod", &ps_r__LOD, 0.1f, 1.5f);
+    CMD4(CCC_Float, "r__detail_density", &ps_current_detail_density, 0.04f, 1.f);
+    CMD4(CCC_Float, "r__detail_height", &ps_current_detail_height, 0.5f, 2.0f);
+
+    CMD3(CCC_Mask, "r__no_ram_textures", &ps_r__common_flags, RFLAG_NO_RAM_TEXTURES);
+    CMD2(CCC_tf_Aniso, "r__tf_aniso", &ps_r__tf_Anisotropic);
+    CMD2(CCC_tf_MipBias, "r__tf_mipbias", &ps_r__tf_Mipbias);
+
+    // R1
+    CMD4(CCC_Float, "r1_ssa_lod_a", &ps_r1_ssaLOD_A, 16, 96);
+    CMD4(CCC_Float, "r1_ssa_lod_b", &ps_r1_ssaLOD_B, 16, 64);
+    CMD4(CCC_Float, "r1_lmodel_lerp", &ps_r1_lmodel_lerp, 0, 0.333f);
+    CMD3(CCC_Mask, "r1_dlights", &ps_r1_flags, R1FLAG_DLIGHTS);
+    CMD4(CCC_Float, "r1_dlights_clip", &ps_r1_dlights_clip, 10.f, 150.f);
+    CMD4(CCC_Float, "r1_pps_u", &ps_r1_pps_u, -1.f, +1.f);
+    CMD4(CCC_Float, "r1_pps_v", &ps_r1_pps_v, -1.f, +1.f);
+    CMD4(CCC_Integer, "r1_glows_per_frame", &ps_r1_GlowsPerFrame, 2, 32);
+    CMD3(CCC_Mask, "r1_detail_textures", &ps_r2_ls_flags, R1FLAG_DETAIL_TEXTURES);
+    CMD4(CCC_Float, "r1_fog_luminance", &ps_r1_fog_luminance, 0.2f, 5.f);
+    CMD4(CCC_Integer, "r1_software_skinning", &ps_r1_SoftwareSkinning, 0, 2);
+
+    // R2
+    CMD4(CCC_Float, "r2_ssa_lod_a", &ps_r2_ssaLOD_A, 16, 96);
+    CMD4(CCC_Float, "r2_ssa_lod_b", &ps_r2_ssaLOD_B, 32, 96);
+
+    // R2-specific
+    CMD2(CCC_R2GM, "r2em", &ps_r2_gmaterial);
+    CMD3(CCC_Mask, "r2_tonemap", &ps_r2_ls_flags, R2FLAG_TONEMAP);
+    CMD4(CCC_Float, "r2_tonemap_middlegray", &ps_r2_tonemap_middlegray, 0.0f, 2.0f);
+    CMD4(CCC_Float, "r2_tonemap_adaptation", &ps_r2_tonemap_adaptation, 0.01f, 10.0f);
+    CMD4(CCC_Float, "r2_tonemap_lowlum", &ps_r2_tonemap_low_lum, 0.0001f, 1.0f);
+    CMD4(CCC_Float, "r2_tonemap_amount", &ps_r2_tonemap_amount, 0.0000f, 1.0f);
+    CMD4(CCC_Float, "r2_ls_bloom_kernel_scale", &ps_r2_ls_bloom_kernel_scale, 0.05f, 2.f);
+    CMD4(CCC_Float, "r2_ls_bloom_kernel_g", &ps_r2_ls_bloom_kernel_g, 1.f, 7.f);
+    CMD4(CCC_Float, "r2_ls_bloom_kernel_b", &ps_r2_ls_bloom_kernel_b, 0.01f, 1.f);
+    CMD4(CCC_Float, "r2_ls_bloom_threshold", &ps_r2_ls_bloom_threshold, 0.f, 1.f);
+    CMD4(CCC_Float, "r2_ls_bloom_speed", &ps_r2_ls_bloom_speed, 0.f, 100.f);
+    CMD3(CCC_Mask, "r2_ls_bloom_fast", &ps_r2_ls_flags, R2FLAG_FASTBLOOM);
+    CMD4(CCC_Float, "r2_ls_dsm_kernel", &ps_r2_ls_dsm_kernel, .1f, 3.f);
+    CMD4(CCC_Float, "r2_ls_psm_kernel", &ps_r2_ls_psm_kernel, .1f, 3.f);
+    CMD4(CCC_Float, "r2_ls_ssm_kernel", &ps_r2_ls_ssm_kernel, .1f, 3.f);
+    CMD4(CCC_Float, "r2_ls_squality", &ps_r2_ls_squality, .5f, 3.f);
+
+    CMD3(CCC_Mask, "r2_zfill", &ps_r2_ls_flags, R2FLAG_ZFILL);
+    CMD4(CCC_Float, "r2_zfill_depth", &ps_r2_zfill, .001f, .5f);
+    CMD3(CCC_Mask, "r2_allow_r1_lights", &ps_r2_ls_flags, R2FLAG_R1LIGHTS);
+    CMD3(CCC_Mask, "r__actor_shadow", &ps_actor_shadow_flags, RFLAG_ACTOR_SHADOW);
+
+    CMD4(CCC_Float, "r2_gloss_factor", &ps_r2_gloss_factor, .001f, 10.f);
+    CMD4(CCC_Float, "r2_gloss_min", &ps_r2_gloss_min, .001f, 1.0f);
+
+    CMD3(CCC_Token, "r_screenshot_mode", &ps_r_screenshot_token, screenshot_mode_token);
+
+    CMD3(CCC_Mask, "r2_sun", &ps_r2_ls_flags, R2FLAG_SUN);
+    CMD3(CCC_Mask, "r2_sun_details", &ps_r2_ls_flags, R2FLAG_SUN_DETAILS);
+    CMD3(CCC_Mask, "r2_sun_focus", &ps_r2_ls_flags, R2FLAG_SUN_FOCUS);
+    CMD3(CCC_Mask, "r2_exp_donttest_shad", &ps_r2_ls_flags, R2FLAG_EXP_DONT_TEST_SHADOWED);
+
+    CMD3(CCC_Mask, "r2_sun_tsm", &ps_r2_ls_flags, R2FLAG_SUN_TSM);
+    CMD4(CCC_Float, "r2_sun_tsm_proj", &ps_r2_sun_tsm_projection, .001f, 0.8f);
+    CMD4(CCC_Float, "r2_sun_tsm_bias", &ps_r2_sun_tsm_bias, -0.5, +0.5);
+    CMD4(CCC_Float, "r2_sun_near", &ps_r2_sun_near, 1.f, 150.f);
+    CMD4(CCC_Float, "r2_sun_far", &OLES_SUN_LIMIT_27_01_07, 51.f, 180.f);
+    CMD4(CCC_Float, "r2_sun_near_border", &ps_r2_sun_near_border, .5f, 1.0f);
+    CMD4(CCC_Float, "r2_sun_depth_far_scale", &ps_r2_sun_depth_far_scale, 0.5, 1.5);
+    CMD4(CCC_Float, "r2_sun_depth_far_bias", &ps_r2_sun_depth_far_bias, -0.5, +0.5);
+    CMD4(CCC_Float, "r2_sun_depth_near_scale", &ps_r2_sun_depth_near_scale, 0.5, 1.5);
+    CMD4(CCC_Float, "r2_sun_depth_near_bias", &ps_r2_sun_depth_near_bias, -0.5, +0.5);
+    CMD4(CCC_Float, "r2_sun_lumscale", &ps_r2_sun_lumscale, -1.0, +3.0);
+    CMD4(CCC_Float, "r2_sun_lumscale_hemi", &ps_r2_sun_lumscale_hemi, 0.0, +3.0);
+    CMD4(CCC_Float, "r2_sun_lumscale_amb", &ps_r2_sun_lumscale_amb, 0.0, +3.0);
+
+    CMD3(CCC_Mask, "r2_aa", &ps_r2_ls_flags, R2FLAG_AA);
+    CMD4(CCC_Float, "r2_aa_kernel", &ps_r2_aa_kernel, 0.3f, 0.7f);
+    CMD4(CCC_Float, "r2_mblur", &ps_r2_mblur, 0.0f, 1.0f);
+
+    CMD4(CCC_Vector4, "r2_mask_control", &ps_r2_mask_control, Fvector4().set(0,0,0,0), Fvector4().set(10,3,1,1));
+
+    tw_min.set(0, 0, 0);
+    tw_max.set(1, 2, 1);
+    CMD4(CCC_Vector3, "r2_drops_control", &ps_r2_drops_control, tw_min, tw_max);
+    CMD3(CCC_Token, "r2_sunshafts_mode", &ps_sunshafts_mode, sunshafts_mode_token);
+    CMD4(CCC_Float, "r2_ss_sunshafts_length", &ps_r2_ss_sunshafts_length, .2f, 1.5f);
+    CMD4(CCC_Float, "r2_ss_sunshafts_radius", &ps_r2_ss_sunshafts_radius, .5f, 2.f);
+
+    CMD4(CCC_Float, "r2_tnmp_a", &ps_r2_tnmp_a, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_b", &ps_r2_tnmp_b, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_c", &ps_r2_tnmp_c, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_d", &ps_r2_tnmp_d, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_e", &ps_r2_tnmp_e, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_f", &ps_r2_tnmp_f, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_w", &ps_r2_tnmp_w, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_exposure", &ps_r2_tnmp_exposure, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_gamma", &ps_r2_tnmp_gamma, 0.0f, 20.0f);
+    CMD4(CCC_Float, "r2_tnmp_onoff", &ps_r2_tnmp_onoff, 0.0f, 1.0f);
+
+    CMD4(CCC_Float,   "r4_hdr10_whitepoint_nits", &ps_r4_hdr10_whitepoint_nits,  10.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_ui_nits",           &ps_r4_hdr10_ui_nits,          10.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_pda_intensity",   &ps_r4_hdr10_pda_intensity,      0.1, 2);
+    CMD4(CCC_Integer, "r4_hdr10_on",               &ps_r4_hdr10_on,                   0, 1);
+    CMD4(CCC_Integer, "r4_hdr10_pda",              &ps_r4_hdr10_pda,                  0, 1);
+    CMD4(CCC_Integer, "r4_hdr10_colorspace",      &ps_r4_hdr10_colorspace,           0, 2);
+
+    CMD4(CCC_Integer, "r4_hdr10_tonemapper",              &ps_r4_hdr10_tonemapper,              0, 8);
+    CMD4(CCC_Integer, "r4_hdr10_tonemap_mode",            &ps_r4_hdr10_tonemap_mode,            0, 1);
+    CMD4(CCC_Float,   "r4_hdr10_exposure",                &ps_r4_hdr10_exposure,              0.1, 30);
+    CMD4(CCC_Float,   "r4_hdr10_contrast",                &ps_r4_hdr10_contrast,               -1, 1);
+    CMD4(CCC_Float,   "r4_hdr10_contrast_middle_gray",  &ps_r4_hdr10_contrast_middle_gray,    0, 5);
+    CMD4(CCC_Float,   "r4_hdr10_saturation",              &ps_r4_hdr10_saturation,             -1, 1);
+    CMD4(CCC_Float,   "r4_hdr10_brightness",              &ps_r4_hdr10_brightness,             -1, 1);
+    CMD4(CCC_Float,   "r4_hdr10_gamma",                   &ps_r4_hdr10_gamma,                 0.1, 5);
+    CMD4(CCC_Float,   "r4_hdr10_ui_saturation",           &ps_r4_hdr10_ui_saturation,          -1, 1);
+
+    CMD4(CCC_Integer, "r4_hdr10_bloom_on",          &ps_r4_hdr10_bloom_on,          0, 1);
+    CMD4(CCC_Integer, "r4_hdr10_bloom_blur_passes", &ps_r4_hdr10_bloom_blur_passes, 1, 32);
+    CMD4(CCC_Float,   "r4_hdr10_bloom_blur_scale",  &ps_r4_hdr10_bloom_blur_scale,  0, 1);
+    CMD4(CCC_Float,   "r4_hdr10_bloom_intensity",   &ps_r4_hdr10_bloom_intensity,   0, 1);
+
+    CMD4(CCC_Integer, "r4_hdr10_flare_on",              &ps_r4_hdr10_flare_on,                   0, 1);
+    CMD4(CCC_Float,   "r4_hdr10_flare_threshold",       &ps_r4_hdr10_flare_threshold,         0.0f, 10.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_power",           &ps_r4_hdr10_flare_power,             0.0f, 5.0f);
+    CMD4(CCC_Integer, "r4_hdr10_flare_ghosts",          &ps_r4_hdr10_flare_ghosts,               0, 10);
+    CMD4(CCC_Float,   "r4_hdr10_flare_ghost_dispersal", &ps_r4_hdr10_flare_ghost_dispersal,  0.01f, 5.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_center_falloff",  &ps_r4_hdr10_flare_center_falloff,    0.1f, 10.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_halo_scale",      &ps_r4_hdr10_flare_halo_scale,       0.01f, 5.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_halo_ca",         &ps_r4_hdr10_flare_halo_ca,           0.0f, 20.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_ghost_ca",        &ps_r4_hdr10_flare_ghost_ca,          0.0f, 20.0f);
+    CMD4(CCC_Integer, "r4_hdr10_flare_blur_passes",     &ps_r4_hdr10_flare_blur_passes,          1, 32);
+    CMD4(CCC_Float,   "r4_hdr10_flare_blur_scale",      &ps_r4_hdr10_flare_blur_scale,        0.0f, 1.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_ghost_intensity", &ps_r4_hdr10_flare_ghost_intensity,   0.0f, 1.0f);
+    CMD4(CCC_Float,   "r4_hdr10_flare_halo_intensity",  &ps_r4_hdr10_flare_halo_intensity,    0.0f, 1.0f);
+    CMD4(CCC_Vector3, "r4_hdr10_flare_lens_color",      &ps_r4_hdr10_flare_lens_color, Fvector3().set(0,0,0), Fvector3().set(1,1,1));
+
+    CMD4(CCC_Integer, "r4_hdr10_sun_on",           &ps_r4_hdr10_sun_on,               0, 1);
+    CMD4(CCC_Float,   "r4_hdr10_sun_intensity",    &ps_r4_hdr10_sun_intensity,     1.0f, 100.0f);
+    CMD4(CCC_Float,   "r4_hdr10_sun_inner_radius", &ps_r4_hdr10_sun_inner_radius, 0.01f, 1.0f);
+    CMD4(CCC_Float,   "r4_hdr10_sun_outer_radius", &ps_r4_hdr10_sun_outer_radius, 0.01f, 1.0f);
+    CMD4(CCC_Float,   "r4_hdr10_sun_dawn_begin",   &ps_r4_hdr10_sun_dawn_begin,    0.0f, 24.0f);
+    CMD4(CCC_Float,   "r4_hdr10_sun_dawn_end",     &ps_r4_hdr10_sun_dawn_end,      0.0f, 24.0f);
+    CMD4(CCC_Float,   "r4_hdr10_sun_dusk_begin",   &ps_r4_hdr10_sun_dusk_begin,    0.0f, 24.0f);
+    CMD4(CCC_Float,   "r4_hdr10_sun_dusk_end",     &ps_r4_hdr10_sun_dusk_end,      0.0f, 24.0f);
+
+    CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
+    CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);
+    CMD4(CCC_Float, "r__saturation", &ps_r2_img_saturation, 0.0f, 2.0f);
+
+    tw_min.set(0, 0, 0);
+    tw_max.set(1, 1, 1);
+    CMD4(CCC_Vector3, "r__color_grading", &ps_r2_img_cg, tw_min, tw_max);
+
+    Fvector4 twb_min = { 0.f, 0.f, 0.f, 0.f };
+    Fvector4 twb_max = { 1.f, 1.f, 1.f, 1.f };
+    CMD4(CCC_Vector4, "r__bloom_weight", &ps_pp_bloom_weight, twb_min, twb_max);
+    CMD4(CCC_Vector4, "r__bloom_thresh", &ps_pp_bloom_thresh, twb_min, twb_max);
+
+    CMD4(CCC_Integer, "r__nightvision", &ps_r2_nightvision, 0, 3);
+    CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1);
+    CMD4(CCC_Integer, "r__3Dfakescope", &scope_3D_fake_enabled, 0, 1);
+    CMD4(CCC_Integer, "r__heatvision", &ps_r2_heatvision, 0, 1);
+    CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS);
+
+    CMD3(CCC_Mask, "r2_water_reflections", &ps_r2_anomaly_flags, R2_AN_FLAG_WATER_REFLECTIONS);
+    CMD3(CCC_Mask, "r2_mblur_enabled", &ps_r2_anomaly_flags, R2_AN_FLAG_MBLUR);
+    CMD3(CCC_Mask, "r__lens_flares", &ps_r2_anomaly_flags, R2_AN_FLAG_FLARES);
+    CMD3(CCC_Token, "r2_smaa", &ps_smaa_quality, smaa_quality_token);
+    CMD3(CCC_Mask, "r2_gi", &ps_r2_ls_flags, R2FLAG_GI);
+    CMD4(CCC_Float, "r2_gi_clip", &ps_r2_GI_clip, EPS, 0.1f);
+    CMD4(CCC_Integer, "r2_gi_depth", &ps_r2_GI_depth, 1, 5);
+    CMD4(CCC_Integer, "r2_gi_photons", &ps_r2_GI_photons, 8, 256);
+    CMD4(CCC_Float, "r2_gi_refl", &ps_r2_GI_refl, EPS_L, 0.99f);
+
+    // Shader params
+    Fvector4 tw2_min = { -100.f, -100.f, -100.f, -100.f };
+    Fvector4 tw2_max = { 100.f, 100.f, 100.f, 100.f };
+    CMD4(CCC_Vector4, "shader_param_1", &ps_dev_param_1, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_2", &ps_dev_param_2, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_3", &ps_dev_param_3, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_4", &ps_dev_param_4, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_5", &ps_dev_param_5, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+
+    CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
+    CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
+    CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+
+    CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+
+    CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
+
+    // Screen Space Shaders (SSFX)
+    CMD4(CCC_Vector4, "ssfx_floravariation", &ps_ssfx_floravariation, Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 1, 10, 1));
+    CMD4(CCC_Vector4, "ssfx_taa", &ps_ssfx_taa, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 1, 2, 1));
+    CMD4(CCC_Vector4, "ssfx_motionblur", &ps_ssfx_motionblur, Fvector4().set(1, 0, 0, 0), Fvector4().set(16, 2, 1, 100));
+    CMD4(CCC_Float, "ssfx_fog_scattering", &ps_ssfx_fog_scattering, 0, 1);
+    CMD4(CCC_Vector4, "ssfx_fog", &ps_ssfx_fog, Fvector4().set(0, 0, 0, 0), Fvector4().set(20, 5, 1, 100));
+
+    CMD4(CCC_Integer, "ssfx_pom_refine", &ps_ssfx_pom_refine, 0, 1);
+    CMD4(CCC_Vector4, "ssfx_pom", &ps_ssfx_pom, Fvector4().set(0, 0, 0, 0), Fvector4().set(36, 60, 1, 1));
+
+    CMD4(CCC_Integer, "ssfx_terrain_pom_refine", &ps_ssfx_terrain_pom_refine, 0, 1);
+    CMD4(CCC_Integer, "ssfx_terrain_grass_align", &ps_ssfx_terrain_grass_align, 0, 1);
+    CMD4(CCC_Float, "ssfx_terrain_grass_slope", &ps_ssfx_terrain_grass_slope, 0, 1);
+    CMD4(CCC_Vector4, "ssfx_terrain_pom", &ps_ssfx_terrain_pom, Fvector4().set(0, 0, 0, 0), Fvector4().set(36, 60, 1, 2));
+
+    CMD4(CCC_Integer, "ssfx_bloom_use_presets", &ps_ssfx_bloom_use_presets, 0, 1);
+    CMD4(CCC_Vector4, "ssfx_bloom_1", &ps_ssfx_bloom_1, Fvector4().set(1, 1, 0, 0), Fvector4().set(10, 100, 100, 10));
+    CMD4(CCC_Vector4, "ssfx_bloom_2", &ps_ssfx_bloom_2, Fvector4().set(1, 0, 0, 0), Fvector4().set(5, 10, 10, 10));
+    CMD4(CCC_Vector4, "ssfx_sss_quality", &ps_ssfx_sss_quality, Fvector4().set(1, 1, 0, 0), Fvector4().set(24, 12, 1, 1));
+    CMD4(CCC_Vector4, "ssfx_sss", &ps_ssfx_sss, Fvector4().set(0, 0, 0, 0), Fvector4().set(3, 3, 1, 1));
+
+    CMD4(CCC_Float, "ssfx_hud_hemi", &ps_ssfx_hud_hemi, 0.0f, 1.0f);
+
+    CMD4(CCC_Integer, "ssfx_il_quality", &ps_ssfx_il_quality, 16, 64);
+    CMD4(CCC_Vector4, "ssfx_il", &ps_ssfx_il, Fvector4().set(0, 0, 0, 0), Fvector4().set(8, 10, 3, 6));
+    CMD4(CCC_Vector4, "ssfx_il_setup1", &ps_ssfx_il_setup1, Fvector4().set(0, 0, 0, 0), Fvector4().set(300, 1, 1, 1));
+
+    CMD4(CCC_Integer, "ssfx_ao_quality", &ps_ssfx_ao_quality, 2, 8);
+    CMD4(CCC_Vector4, "ssfx_ao", &ps_ssfx_ao, Fvector4().set(0, 0, 0, 0), Fvector4().set(8, 10, 1, 10));
+    CMD4(CCC_Vector4, "ssfx_ao_setup1", &ps_ssfx_ao_setup1, Fvector4().set(0, 0, 0, 0), Fvector4().set(300, 1, 1, 1));
+
+    CMD4(CCC_Vector4, "ssfx_water", &ps_ssfx_water, Fvector4().set(1, 0, 0, 0), Fvector4().set(8, 1, 1, 0));
+    CMD4(CCC_Vector3, "ssfx_water_quality", &ps_ssfx_water_quality, Fvector3().set(0, 0, 0), Fvector3().set(4, 3, 0));
+    CMD4(CCC_Vector4, "ssfx_water_setup1", &ps_ssfx_water_setup1, Fvector4().set(0, 0, 0, 0), Fvector4().set(2, 10, 1, 0.1));
+    CMD4(CCC_Vector4, "ssfx_water_setup2", &ps_ssfx_water_setup2, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 10, 1, 1));
+
+    CMD4(CCC_Integer, "ssfx_ssr_quality", &ps_ssfx_ssr_quality, 0, 5);
+    CMD4(CCC_Vector4, "ssfx_ssr", &ps_ssfx_ssr, Fvector4().set(1, 0, 0, 0), Fvector4().set(2, 1, 1, 1));
+    CMD4(CCC_Vector4, "ssfx_ssr_2", &ps_ssfx_ssr_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(2, 2, 2, 2));
+
+    CMD4(CCC_Vector4, "ssfx_terrain_quality", &ps_ssfx_terrain_quality, Fvector4().set(0, 0, 0, 0), Fvector4().set(40, 0, 0, 0));
+    CMD4(CCC_Vector4, "ssfx_terrain_offset", &ps_ssfx_terrain_offset, Fvector4().set(-1, -1, -1, -1), Fvector4().set(1, 1, 1, 1));
+
+    CMD4(CCC_Vector3, "ssfx_shadows", &ps_ssfx_shadows, Fvector3().set(128, 1536, 0), Fvector3().set(1536, 4096, 0));
+    CMD4(CCC_Vector4, "ssfx_volumetric", &ps_ssfx_volumetric, Fvector4().set(0, 0, 1.0, 1.0), Fvector4().set(1.0, 5.0, 5.0, 16.0));
+
+    CMD4(CCC_Vector3, "ssfx_shadow_bias", &ps_ssfx_shadow_bias, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+    CMD4(CCC_Vector4, "ssfx_lut", &ps_ssfx_lut, Fvector4().set(0.0, 0.0, 0.0, 0.0), tw2_max);
+
+    CMD4(CCC_Vector4, "ssfx_wind_grass", &ps_ssfx_wind_grass, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(20.0, 5.0, 5.0, 5.0));
+    CMD4(CCC_Vector4, "ssfx_wind_trees", &ps_ssfx_wind_trees, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(20.0, 5.0, 5.0, 1.0));
+
+    CMD4(CCC_Vector4, "ssfx_florafixes_1", &ps_ssfx_florafixes_1, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+    CMD4(CCC_Vector4, "ssfx_florafixes_2", &ps_ssfx_florafixes_2, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(10.0, 1.0, 1.0, 1.0));
+
+    CMD4(CCC_Vector4, "ssfx_wetsurfaces_1", &ps_ssfx_wetsurfaces_1, Fvector4().set(0.01, 0.01, 0.01, 0.01), Fvector4().set(2.0, 2.0, 2.0, 2.0));
+    CMD4(CCC_Vector4, "ssfx_wetsurfaces_2", &ps_ssfx_wetsurfaces_2, Fvector4().set(0.01, 0.01, 0.01, 0.01), Fvector4().set(2.0, 2.0, 2.0, 2.0));
+
+    CMD4(CCC_Integer, "ssfx_is_underground", &ps_ssfx_is_underground, 0, 1);
+    CMD4(CCC_Integer, "ssfx_gloss_method", &ps_ssfx_gloss_method, 0, 1);
+    CMD4(CCC_Vector3, "ssfx_gloss_minmax", &ps_ssfx_gloss_minmax, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+    CMD4(CCC_Float, "ssfx_gloss_factor", &ps_ssfx_gloss_factor, 0.0f, 1.0f);
+
+    CMD4(CCC_Vector4, "ssfx_lightsetup_1", &ps_ssfx_lightsetup_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+
+    CMD4(CCC_Vector4, "ssfx_hud_drops_1", &ps_ssfx_hud_drops_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(100000, 100, 100, 100));
+    CMD4(CCC_Vector4, "ssfx_hud_drops_2", &ps_ssfx_hud_drops_2, Fvector4().set(0, 0, 0, 0), tw2_max);
+
+    CMD4(CCC_Vector4, "ssfx_blood_decals", &ps_ssfx_blood_decals, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 0, 0));
+
+    CMD4(CCC_Vector4, "ssfx_rain_drops_setup", &ps_ssfx_rain_drops_setup, Fvector4().set(1000, 10, 0, 0), Fvector4().set(5000, 30, 0, 0));
+    CMD4(CCC_Vector4, "ssfx_rain_1", &ps_ssfx_rain_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 5, 5, 2));
+    CMD4(CCC_Vector4, "ssfx_rain_2", &ps_ssfx_rain_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 10, 10, 10));
+    CMD4(CCC_Vector4, "ssfx_rain_3", &ps_ssfx_rain_3, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 10, 10, 10));
+
+    CMD4(CCC_Vector4, "ssfx_grass_shadows", &ps_ssfx_grass_shadows, Fvector4().set(0, 0, 0, 0), Fvector4().set(3, 1, 100, 100));
+    CMD4(CCC_ssfx_cascades, "ssfx_shadow_cascades", &ps_ssfx_shadow_cascades, Fvector3().set(1.0f, 1.0f, 1.0f), Fvector3().set(300, 300, 300));
+
+    CMD4(CCC_Vector4, "ssfx_grass_interactive", &ps_ssfx_grass_interactive, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 15, 5000, 1));
+    CMD4(CCC_Vector4, "ssfx_int_grass_params_1", &ps_ssfx_int_grass_params_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 5, 5, 60));
+    CMD4(CCC_Vector4, "ssfx_int_grass_params_2", &ps_ssfx_int_grass_params_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(5, 20, 1, 5));
+
+    CMD4(CCC_Vector4, "ssfx_wpn_dof_1", &ps_ssfx_wpn_dof_1, tw2_min, tw2_max);
+    CMD4(CCC_Float, "ssfx_wpn_dof_2", &ps_ssfx_wpn_dof_2, 0, 1);
+
+    // Silencer overheat
+    CMD4(CCC_Float, "sil_glow_max_temp", &sil_glow_max_temp, 0.f, 1.f);
+    CMD4(CCC_Float, "sil_glow_shot_temp", &sil_glow_shot_temp, 0.f, 1.f);
+    CMD4(CCC_Float, "sil_glow_cool_temp_rate", &sil_glow_cool_temp_rate, 0.f, 1.f);
+    CMD4(CCC_Vector3, "sil_glow_color", &sil_glow_color, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+
+    CMD4(CCC_Vector3, "dsr_test", &dsr_test, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
+    CMD4(CCC_Vector3, "dsr_test1", &dsr_test1, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
+    CMD4(CCC_Vector3, "dsr_test2", &dsr_test2, Fvector3().set(-100.f, -100.f, -100.f), Fvector3().set(100.f, 100.f, 100.f));
+
+    // Heat Vision
+    CMD4(CCC_Integer, "heat_vision_cooldown",    &heat_vision_cooldown, 0, 1);
+    CMD4(CCC_Float, "heat_vision_cooldown_time", &heat_vision_cooldown_time, 0, 300000.f);
+    CMD4(CCC_Integer, "heat_vision_zombie_cold", &heat_vision_zombie_cold, 0, 1);
+    CMD2(CCC_Float,   "heat_vision_mode",        &heat_vision_mode);
+    CMD4(CCC_Vector4, "heat_vision_steps",       &heat_vision_steps, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "heat_vision_blurring",    &heat_vision_blurring, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "heat_vision_args_1",      &heat_vision_args_1, tw2_min, tw2_max);
+    CMD4(CCC_Vector4, "heat_vision_args_2",      &heat_vision_args_2, tw2_min, tw2_max);
+
+    CMD4(CCC_Float, "particle_update_mod", &ps_particle_update_coeff, 0.04f, 10.f);
+
+    CMD4(CCC_Integer, "r__optimize_static_geom", &opt_static, 0, 4);
+    CMD4(CCC_Integer, "r__optimize_dynamic_geom", &opt_dynamic, 0, 4);
+
+    psDeviceFlags2.set(rsOptShadowGeom, TRUE);
+    CMD3(CCC_Mask, "r__optimize_shadow_geom", &psDeviceFlags2, rsOptShadowGeom);
+
+    CMD4(CCC_Integer, "r2_wait_sleep", &ps_r2_wait_sleep, 0, 1);
+    CMD4(CCC_Integer, "r2_qsync", &ps_r2_qsync, 0, 1);
+
+    // Dynamic hemisphere lighting
+    CMD4(CCC_Integer, "r2_dhemi_count", &ps_r2_dhemi_count, 4, 25);
+    CMD4(CCC_Float, "r2_dhemi_sky_scale", &ps_r2_dhemi_sky_scale, 0.0f, 100.f);
+    CMD4(CCC_Float, "r2_dhemi_light_scale", &ps_r2_dhemi_light_scale, 0, 100.f);
+    CMD4(CCC_Float, "r2_dhemi_light_flow", &ps_r2_dhemi_light_flow, 0, 1.f);
+    CMD4(CCC_Float, "r2_dhemi_smooth", &ps_r2_lt_smooth, 0.f, 10.f);
+
+    CMD3(CCC_Mask, "rs_hom_depth_draw", &ps_r2_ls_flags_ext, R_FLAGEXT_HOM_DEPTH_DRAW);
+    CMD3(CCC_Mask, "r2_shadow_cascede_zcul", &ps_r2_ls_flags_ext, R2FLAGEXT_SUN_ZCULLING);
+    CMD3(CCC_Mask, "r2_shadow_cascede_old", &ps_r2_ls_flags_ext, R2FLAGEXT_SUN_OLD);
+
+    CMD4(CCC_Float, "r2_ls_depth_scale", &ps_r2_ls_depth_scale, 0.5, 1.5);
+    CMD4(CCC_Float, "r2_ls_depth_bias", &ps_r2_ls_depth_bias, -0.5, +0.5);
+
+    CMD4(CCC_Float, "r2_parallax_h", &ps_r2_df_parallax_h, .0f, .5f);
+    CMD4(CCC_Float, "r2_slight_fade", &ps_r2_slight_fade, .2f, 1.f);
+
+    tw_min.set(0, 0, 0);
+    tw_max.set(1, 1, 1);
+    CMD4(CCC_Vector3, "r2_aa_break", &ps_r2_aa_barier, tw_min, tw_max);
+    CMD4(CCC_Vector3, "r2_aa_weight", &ps_r2_aa_weight, tw_min, tw_max);
+
+    // Depth of field
     tw_min.set(-10000, -10000, 0);
     tw_max.set(10000, 10000, 10000);
-    CMD4(CCC_Vector3, "r2_dof", &ps_r2_dof, tw_min, tw_max);
+    CMD4(CCC_Dof, "r2_dof", &ps_r2_dof, tw_min, tw_max);
+    CMD4(CCC_DofNear, "r2_dof_near", &ps_r2_dof.x, tw_min.x, tw_max.x);
+    CMD4(CCC_DofFocus, "r2_dof_focus", &ps_r2_dof.y, tw_min.y, tw_max.y);
+    CMD4(CCC_DofFar, "r2_dof_far", &ps_r2_dof.z, tw_min.z, tw_max.z);
     CMD4(CCC_Float, "r2_dof_radius", &ps_r2_dof_kernel_size, .05f, 1.f);
     CMD4(CCC_Float, "r2_dof_sky", &ps_r2_dof_sky, -10000.f, 10000.f);
+
+    ps_r2_ls_flags.set(R2FLAG_DOF, FALSE);
+    CMD3(CCC_Mask, "r2_dof_enable", &ps_r2_ls_flags, R2FLAG_DOF);
+
+    CMD3(CCC_Mask, "r2_volumetric_lights", &ps_r2_ls_flags, R2FLAG_VOLUMETRIC_LIGHTS);
+    CMD3(CCC_Token, "r2_sunshafts_quality", &ps_r_sun_shafts, qsun_shafts_token);
+    CMD3(CCC_SSAO_Mode, "r2_ssao_mode", &ps_r_ssao_mode, qssao_mode_token);
+    CMD3(CCC_Token, "r2_ssao", &ps_r_ssao, qssao_token);
+    CMD3(CCC_Mask, "r2_ssao_blur", &ps_r2_ls_flags_ext, R2FLAGEXT_SSAO_BLUR);
+    CMD3(CCC_Mask, "r2_ssao_opt_data", &ps_r2_ls_flags_ext, R2FLAGEXT_SSAO_OPT_DATA);
+    CMD3(CCC_Mask, "r2_ssao_half_data", &ps_r2_ls_flags_ext, R2FLAGEXT_SSAO_HALF_DATA);
+    CMD3(CCC_Mask, "r2_ssao_hbao", &ps_r2_ls_flags_ext, R2FLAGEXT_SSAO_HBAO);
+    CMD3(CCC_Mask, "r2_ssao_hdao", &ps_r2_ls_flags_ext, R2FLAGEXT_SSAO_HDAO);
+    CMD3(CCC_Mask, "r4_enable_tessellation", &ps_r2_ls_flags_ext, R2FLAGEXT_ENABLE_TESSELLATION);
+    CMD3(CCC_Mask, "r4_wireframe", &ps_r2_ls_flags_ext, R2FLAGEXT_WIREFRAME);
+    CMD3(CCC_Mask, "r2_steep_parallax", &ps_r2_ls_flags, R2FLAG_STEEP_PARALLAX);
+    CMD3(CCC_Mask, "r2_detail_bump", &ps_r2_ls_flags, R2FLAG_DETAIL_BUMP);
+
+    CMD3(CCC_Token, "r2_sun_quality", &ps_r_sun_quality, qsun_quality_token);
+
+    CMD3(CCC_Mask, "r2_soft_water", &ps_r2_ls_flags, R2FLAG_SOFT_WATER);
+    CMD3(CCC_Mask, "r2_soft_particles", &ps_r2_ls_flags, R2FLAG_SOFT_PARTICLES);
+
+    CMD3(CCC_Token, "r3_msaa", &ps_r3_msaa, qmsaa_token);
+    CMD3(CCC_Mask, "r3_use_dx10_1", &ps_r2_ls_flags, (u32)R3FLAG_USE_DX10_1);
+    CMD3(CCC_Token, "r3_msaa_alphatest", &ps_r3_msaa_atest, qmsaa__atest_token);
+    CMD3(CCC_Token, "r3_minmax_sm", &ps_r3_minmax_sm, qminmax_sm_token);
+
+    CMD3(CCC_Mask, "r3_dynamic_wet_surfaces", &ps_r2_ls_flags, R3FLAG_DYN_WET_SURF);
+    CMD4(CCC_Float, "r3_dynamic_wet_surfaces_near", &ps_r3_dyn_wet_surf_near, 10, 70);
+    CMD4(CCC_Float, "r3_dynamic_wet_surfaces_far", &ps_r3_dyn_wet_surf_far, 30, 100);
+    CMD4(CCC_Integer, "r3_dynamic_wet_surfaces_sm_res", &ps_r3_dyn_wet_surf_sm_res, 64, 2048);
+
+    CMD3(CCC_Mask, "r3_volumetric_smoke", &ps_r2_ls_flags, R3FLAG_VOLUMETRIC_SMOKE);
+    CMD3(CCC_Token, "r_fluid_quality", &ps_r_fluid_quality, qfluid_quality_token);
+    CMD3(CCC_Token, "r_fluid_grid_size", &ps_r_fluid_grid_size, qfluid_grid_token);
+
+    CMD4(CCC_Vector4, "vignette_control", &ps_vignette_control, Fvector4().set(0.0f, 0.0f, 0.0f, 0.0f), Fvector4().set(1.0f, 1.0f, 1.0f, 1.0f));
+
+#ifdef DETAIL_RADIUS
+    CMD4(CCC_detail_radius, "r__detail_radius", &ps_r__detail_radius, 0, 250);
+    CMD3(CCC_Mask, "r__clear_models_on_unload", &psDeviceFlags2, rsClearModels);
+    CMD3(CCC_Mask, "r__use_precompiled_shaders", &psDeviceFlags2, rsPrecompiledShaders);
+    CMD3(CCC_Mask, "r__enable_grass_shadow", &psDeviceFlags2, rsGrassShadow);
+    CMD3(CCC_Mask, "r__no_scale_on_fade", &psDeviceFlags2, rsNoScale);
+#endif
+
+    Msg("* [Vulkan] xrRender_initconsole: Registered %d console commands", Console->Commands.size());
 }
 
 BOOL xrRender_test_hw()

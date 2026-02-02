@@ -297,12 +297,13 @@ void CCC_LoadCFG::Execute(LPCSTR args)
 
 	IReader* F = FS.r_open(cfg_full_name);
 
-	string1024 str;
+	constexpr u32 CFG_LINE_MAX = 32768;
+	char* str = (char*)_alloca(CFG_LINE_MAX);
 	if (F != NULL)
 	{
 		while (!F->eof())
 		{
-			F->r_string(str, sizeof(str));
+			F->r_string(str, CFG_LINE_MAX);
 			if (allow(str))
 				Console->Execute(str);
 		}

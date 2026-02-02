@@ -178,29 +178,23 @@ CSkeletonX* CKinematics::LL_GetChild(u32 idx)
 
 void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 {
-	Msg("[Vulkan] CKinematics::Load ENTER: '%s'", N);
-	Msg("[Vulkan] CKinematics::Load: calling inherited::Load (FHierrarhyVisual)...");
 	inherited::Load(N, data, dwFlags);
-	Msg("[Vulkan] CKinematics::Load: inherited::Load completed, children.size()=%u", children.size());
 
 	pUserData = NULL;
 	m_lod = NULL;
 	// loading lods
 
-	Msg("[Vulkan] CKinematics::Load: checking OGF_S_LODS...");
 	IReader* LD = data->open_chunk(OGF_S_LODS);
 	if (LD)
 	{
-		Msg("[Vulkan] CKinematics::Load: loading LOD...");
 		string_path short_name;
 		xr_strcpy(short_name, sizeof(short_name), N);
 
 		if (strext(short_name)) *strext(short_name) = 0;
 		// From stream
 		{
-			string_path lod_name;
+			string1024 lod_name;
 			LD->r_string(lod_name, sizeof(lod_name));
-			Msg("[Vulkan] CKinematics::Load: LOD name='%s'", lod_name);
 			m_lod = (vkRender_Visual*)::Render->model_CreateChild(lod_name, NULL);
 
 			if (CKinematics* lod_kinematics = fast_dynamic_cast<CKinematics*>(m_lod))
@@ -211,24 +205,19 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 			VERIFY3(m_lod, "Cant create LOD model for", N);
 		}
 		LD->close();
-		Msg("[Vulkan] CKinematics::Load: LOD loaded");
 	}
 	else
 	{
-		Msg("[Vulkan] CKinematics::Load: no LOD chunk");
 	}
 
 #ifndef _EDITOR
 	// User data
-	Msg("[Vulkan] CKinematics::Load: checking OGF_S_USERDATA...");
 	IReader* UD = data->open_chunk(OGF_S_USERDATA);
 	pUserData = UD ? xr_new<CInifile>(UD, FS.get_path("$game_config$")->m_Path) : 0;
 	if (UD) UD->close();
-	Msg("[Vulkan] CKinematics::Load: userdata done");
 #endif
 
 	// Globals
-	Msg("[Vulkan] CKinematics::Load: creating bone structures...");
 	bone_map_N = xr_new<accel>();
 	bone_map_P = xr_new<accel>();
 	bones = xr_new<vecBones>();
@@ -238,15 +227,12 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 #pragma todo("container is created in stack!")
 	xr_vector<shared_str> L_parents;
 
-	Msg("[Vulkan] CKinematics::Load: finding OGF_S_BONE_NAMES...");
 	bool found = data->find_chunk(OGF_S_BONE_NAMES);
-	Msg("[Vulkan] CKinematics::Load: find_chunk returned %d", found ? 1 : 0);
 	R_ASSERT(found);
 
 	hidden_bones.zero();
 	visimask.zero();
 	int dwCount = data->r_u32();
-	Msg("[Vulkan] CKinematics::Load: bone count = %d", dwCount);
 	VERIFY3(dwCount <= 64, "More than 64 bones is a crazy thing!", N);
 	for (int boneIdx = 0; dwCount; dwCount--, boneIdx++)
 	{
@@ -256,13 +242,9 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		u16 ID = u16(bones->size());
 		data->r_stringZ(buf, sizeof(buf));
 		strlwr(buf);
-		Msg("[Vulkan] CKinematics::Load: bone[%d] = '%s', creating CBoneData...", boneIdx, buf);
 		CBoneData* pBone = CreateBoneData(ID);
-		Msg("[Vulkan] CKinematics::Load: CBoneData created %p", pBone);
 		pBone->name = shared_str(buf);
-		Msg("[Vulkan] CKinematics::Load: resizing child_faces to %u...", children.size());
 		pBone->child_faces.resize(children.size());
-		Msg("[Vulkan] CKinematics::Load: pushing to bones/maps...");
 		bones->push_back(pBone);
 		bone_map_N->push_back(mk_pair(pBone->name, ID));
 		bone_map_P->push_back(mk_pair(pBone->name, ID));
@@ -275,15 +257,11 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		data->r(&pBone->obb, sizeof(Fobb));
 		visimask.set(u64(1) << ID, TRUE);
 		hidden_bones.set(u64(1) << ID, TRUE);
-		Msg("[Vulkan] CKinematics::Load: bone[%d] done", boneIdx);
 	}
-	Msg("[Vulkan] CKinematics::Load: all bones loaded, sorting...");
 	std::sort(bone_map_N->begin(), bone_map_N->end(), pred_sort_N);
 	std::sort(bone_map_P->begin(), bone_map_P->end(), pred_sort_P);
-	Msg("[Vulkan] CKinematics::Load: bones sorted");
 
 	// Attach bones to their parents
-	Msg("[Vulkan] CKinematics::Load: attaching bones to parents...");
 	iRoot = BI_NONE;
 	for (u32 i = 0; i < bones->size(); i++)
 	{
@@ -306,13 +284,11 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		}
 	}
 	R_ASSERT(BI_NONE != iRoot);
-	Msg("[Vulkan] CKinematics::Load: bones attached, iRoot=%u", iRoot);
 
 	// Free parents
 	L_parents.clear();
 
 	// IK data
-	Msg("[Vulkan] CKinematics::Load: loading IK data...");
 	IReader* IKD = data->open_chunk(OGF_S_IKDATA);
 	if (IKD)
 	{
@@ -334,19 +310,15 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		// calculate model to bone converting matrix
 		(*bones)[LL_GetBoneRoot()]->CalculateM2B(Fidentity);
 		IKD->close();
-		Msg("[Vulkan] CKinematics::Load: IK data loaded");
 	}
 	else
 	{
-		Msg("[Vulkan] CKinematics::Load: no IK data chunk");
 	}
 
 	// after load process
-	Msg("[Vulkan] CKinematics::Load: calling AfterLoad on children...");
 	{
 		for (u16 child_idx = 0; child_idx < (u16)children.size(); child_idx++)
 		{
-			Msg("[Vulkan] CKinematics::Load: AfterLoad child[%u]...", child_idx);
 			IRenderVisual* V = children[child_idx];
 			if (!V) continue;
 			// Try vkSkeletonX_ST first
@@ -361,10 +333,8 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 				pPM->AfterLoad(this, child_idx);
 				continue;
 			}
-			Msg("[Vulkan] CKinematics::Load: child[%u] is not skeleton geometry (type=%u)", child_idx, V ? ((vkRender_Visual*)V)->Type : 0);
 		}
 	}
-	Msg("[Vulkan] CKinematics::Load: AfterLoad done");
 
 	// unique bone faces
 	if (bones)
@@ -480,14 +450,10 @@ void CKinematics::LL_Validate()
 
 void CKinematics::Copy(vkRender_Visual* P)
 {
-	Msg("[Vulkan] CKinematics::Copy ENTER");
-	Msg("[Vulkan] CKinematics::Copy: calling inherited::Copy...");
 	inherited::Copy(P);
-	Msg("[Vulkan] CKinematics::Copy: inherited::Copy done");
 
 	CKinematics* pFrom = fast_dynamic_cast<CKinematics*>(P);
 	VERIFY(pFrom);
-	Msg("[Vulkan] CKinematics::Copy: copying bone data...");
 	pUserData = pFrom->pUserData;
 	bones = pFrom->bones;
 	iRoot = pFrom->iRoot;
@@ -496,11 +462,8 @@ void CKinematics::Copy(vkRender_Visual* P)
 	visimask = pFrom->visimask;
 	hidden_bones = pFrom->hidden_bones;
 
-	Msg("[Vulkan] CKinematics::Copy: IBoneInstances_Create...");
 	IBoneInstances_Create();
-	Msg("[Vulkan] CKinematics::Copy: IBoneInstances_Create done");
 
-	Msg("[Vulkan] CKinematics::Copy: setting parents for %u children...", children.size());
 	for (u32 i = 0; i < children.size(); i++)
 	{
 		CSkeletonX* child = LL_GetChild(i);
@@ -523,9 +486,7 @@ void CKinematics::Copy(vkRender_Visual* P)
 
 	CalculateBones_Invalidate();
 
-	Msg("[Vulkan] CKinematics::Copy: duplicating LOD (pFrom->m_lod=%p)...", pFrom->m_lod);
 	m_lod = (pFrom->m_lod) ? (vkRender_Visual*)::Render->model_Duplicate(pFrom->m_lod) : 0;
-	Msg("[Vulkan] CKinematics::Copy DONE");
 }
 
 void CKinematics::CalculateBones_Invalidate()
@@ -716,8 +677,9 @@ void BuildMatrix(Fmatrix& mView, float invsz, const Fvector norm, const Fvector&
 
 void CKinematics::EnumBoneVertices(SEnumVerticesCallback& C, u16 bone_id)
 {
-	for (u32 i = 0; i < children.size(); i++)
-		LL_GetChild(i)->EnumBoneVertices(C, bone_id);
+	// Vulkan renderer: vkSkeletonX_ST/PM don't inherit from CSkeletonX,
+	// so LL_GetChild() cast is invalid. Skip bone vertex enumeration.
+	// This disables IK foot placement but prevents crash.
 }
 
 #include "cl_intersect.h"
@@ -734,7 +696,9 @@ bool CKinematics::PickBone(const Fmatrix& parent_xform, IKinematics::pick_result
 	P.transform_tiny(S, start);
 	P.transform_dir(D, dir);
 	for (u32 i = 0; i < children.size(); i++)
-		if (LL_GetChild(i)->PickBone(r, dist, S, D, bone_id))
+	{
+		CSkeletonX* child = LL_GetChild(i);
+		if (child && child->PickBone(r, dist, S, D, bone_id))
 		{
 			parent_xform.transform_dir(r.normal);
 			parent_xform.transform_tiny(r.tri[0]);
@@ -742,6 +706,7 @@ bool CKinematics::PickBone(const Fmatrix& parent_xform, IKinematics::pick_result
 			parent_xform.transform_tiny(r.tri[2]);
 			return true;
 		}
+	}
 	return false;
 }
 
@@ -774,7 +739,8 @@ void CKinematics::AddWallmark(const Fmatrix* parent_xform, const Fvector3& start
 			if (CDB::TestRayOBB(S, D, obb))
 				for (u32 i = 0; i < children.size(); i++)
 				{
-					if (LL_GetChild(i)->PickBone(r, dist, S, D, k))
+					CSkeletonX* child = LL_GetChild(i);
+					if (child && child->PickBone(r, dist, S, D, k))
 					{
 						picked = TRUE;
 						dist = r.dist;

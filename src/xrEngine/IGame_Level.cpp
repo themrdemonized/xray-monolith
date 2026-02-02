@@ -43,7 +43,10 @@ IGame_Level::~IGame_Level()
 	Render->level_Unload();
 	xr_delete(m_pCameras);
 	// Unregister
-	Device.seqParallel.clear_not_free();
+	{
+		xrCriticalSectionGuard lock(Device.mt_csParallel);
+		Device.seqParallel.clear_not_free();
+	}
 	Device.seqRender.Remove(this);
 	Device.seqFrame.Remove(this);
 	CCameraManager::ResetPP();
@@ -167,8 +170,27 @@ void IGame_Level::OnRender()
 	// Level render, only when no client output required
 	if (!g_dedicated_server)
 	{
-		Render->Calculate();
-		Render->Render();
+		// Periodic log flush so crash doesn't lose all log data
+		if (Device.dwFrame % 100 == 0)
+			FlushLog();
+
+		__try {
+			Render->Calculate();
+		} __except(EXCEPTION_EXECUTE_HANDLER) {
+			Msg("! CRASH in Render->Calculate() at frame %u, exception code 0x%08X",
+				Device.dwFrame, GetExceptionCode());
+			FlushLog();
+		}
+		__try {
+			Render->Render();
+		} __except(EXCEPTION_EXECUTE_HANDLER) {
+			Msg("! CRASH in Render->Render() at frame %u, exception code 0x%08X",
+				Device.dwFrame, GetExceptionCode());
+			FlushLog();
+			// Signal device lost so End() skips broken command buffer
+			extern bool g_bDeviceLost;
+			g_bDeviceLost = true;
+		}
 	}
 	else
 	{

@@ -76,7 +76,7 @@ void CRT::Create(VkFormat format, u32 width, u32 height, VkImageUsageFlags usage
 
     VK_CHECK(vkCreateSampler(VulkanHW.m_Device, &samplerInfo, nullptr, &m_Sampler));
 
-    Msg("[Vulkan] RT created: %dx%d, format %d", width, height, format);
+    Msg("[Vulkan] RT created: %dx%d, format %d, img=%p view=%p", width, height, format, m_Image, m_ImageView);
 }
 
 // Создание cubemap render target (Phase 2.16)
@@ -171,9 +171,82 @@ void CRT::CreateCube(VkFormat format, u32 width, u32 height, VkImageUsageFlags u
     Msg("[Vulkan] Cubemap RT created: %dx%dx6, format %d", width, height, format);
 }
 
+// Создание 3D texture render target (Phase 0.1 - 3D Fluid)
+void CRT::Create3D(VkFormat format, u32 width, u32 height, u32 depth, VkImageUsageFlags usage)
+{
+    m_Format = format;
+    m_Width = width;
+    m_Height = height;
+    m_Depth = depth;
+    m_Is3D = true;
+
+    // Создаём 3D image
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_3D;  // CRITICAL: 3D image type
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = depth;  // Z-dimension
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.flags = 0;
+
+    // Аллоцируем через VMA
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+    VK_CHECK(vmaCreateImage(VulkanHW.m_Allocator, &imageInfo, &allocInfo,
+                            &m_Image, &m_Allocation, nullptr));
+
+    // Создаём 3D image view (для sampling и compute storage)
+    VkImageViewCreateInfo viewInfo = {};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_Image;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;  // CRITICAL: 3D view type
+    viewInfo.format = format;
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+
+    VK_CHECK(vkCreateImageView(VulkanHW.m_Device, &viewInfo, nullptr, &m_ImageView));
+
+    // Create sampler for 3D texture sampling
+    VkSamplerCreateInfo samplerInfo = {};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = 1.0f;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+
+    VK_CHECK(vkCreateSampler(VulkanHW.m_Device, &samplerInfo, nullptr, &m_Sampler));
+
+    Msg("[Vulkan] 3D RT created: %dx%dx%d, format %d", width, height, depth, format);
+}
+
 // Уничтожение render target
 void CRT::Destroy()
 {
+    Msg("[Vulkan] RT Destroy: img=%p view=%p %dx%d fmt=%d", m_Image, m_ImageView, m_Width, m_Height, m_Format);
     // Destroy cubemap face views
     if (m_IsCubemap) {
         for (u32 i = 0; i < 6; i++) {
@@ -204,6 +277,8 @@ void CRT::Destroy()
     }
 
     m_IsCubemap = false;
+    m_Is3D = false;
+    m_Depth = 1;
 }
 
 // Layout transition
@@ -241,6 +316,9 @@ void CRT::TransitionLayout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImage
     } else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
         srcStage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
         srcAccess = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    } else if (oldLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        srcStage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        srcAccess = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
     }
 
     // Destination layout
@@ -256,6 +334,9 @@ void CRT::TransitionLayout(VkCommandBuffer cmd, VkImageLayout oldLayout, VkImage
     } else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
         dstStage = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
         dstAccess = 0;
+    } else if (newLayout == VK_IMAGE_LAYOUT_GENERAL) {
+        dstStage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        dstAccess = VK_ACCESS_2_SHADER_STORAGE_READ_BIT | VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
     }
 
     barrier.srcStageMask = srcStage;

@@ -70,10 +70,18 @@ public:
     CVulkanTexture* m_TexSpecular;  // Specular map (optional)
     CVulkanTexture* m_TexDetail;    // Detail texture (from .thm detail_name)
 
+    // Terrain textures (binding 3-7)
+    CVulkanTexture* m_TexMask;      // Terrain mask (RGBA = detail blend weights)
+    CVulkanTexture* m_TexDetailR;   // Detail texture for R channel (grass)
+    CVulkanTexture* m_TexDetailG;   // Detail texture for G channel (asphalt)
+    CVulkanTexture* m_TexDetailB;   // Detail texture for B channel (earth)
+    CVulkanTexture* m_TexDetailA;   // Detail texture for A channel (yantar)
+
     // Material parameters (from .thm)
     float m_fMaterial;              // Material ID (0-3 with weight)
     bool m_bUseSteepParallax;       // Use parallax occlusion mapping
     float m_fDetailScale;           // Detail texture scale
+    bool m_bTerrain;                // Is terrain material (uses mask + detail blending)
 
     // Descriptor set (Set 1 - PerMaterial)
     VkDescriptorSet m_DescriptorSet;
@@ -91,6 +99,7 @@ public:
     void LoadNormal(LPCSTR name);                      // Load normal map (from .thm bump_name)
     void LoadSpecular(LPCSTR name);                    // Load specular map
     void LoadDetail(LPCSTR name);                      // Load detail texture (from .thm detail_name)
+    void LoadTerrainTextures(LPCSTR name);             // Load terrain mask + 4 detail textures
     void LoadFromTHM(LPCSTR name);                     // Load material parameters from .thm
 
     // Descriptor set

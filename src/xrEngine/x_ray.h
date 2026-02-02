@@ -13,6 +13,7 @@ class ENGINE_API CApplication :
 	public IEventReceiver
 {
 	friend class dxApplicationRender;
+	friend class vkApplicationRender;
 
 	// levels
 	struct sLevelInfo

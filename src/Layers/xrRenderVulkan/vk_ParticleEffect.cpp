@@ -20,6 +20,7 @@
 #include "vk_command_buffer.h"  // For CommandManager
 #include "HW_Vulkan.h"
 #include "vk_material.h"
+#include "../xrRender/ParticleEffectDef.h"  // PS::CPEDef full definition
 #include <array>
 
 // External command manager
@@ -281,15 +282,13 @@ void vkCParticleEffect::OnDeviceCreate()
         m_dynamicVB = xr_new<VK::CVulkanBuffer>();
 
         // Create dynamic vertex buffer (HOST_VISIBLE for CPU updates)
-        bool created = m_dynamicVB->Create(
-            VulkanHW.GetDevice(),
+        m_dynamicVB->Create(
             bufferSize,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_CPU_TO_GPU,  // CPU writes, GPU reads
-            VMA_ALLOCATION_CREATE_MAPPED_BIT  // Keep mapped
+            VMA_MEMORY_USAGE_CPU_TO_GPU  // CPU writes, GPU reads
         );
 
-        if (!created) {
+        if (!m_dynamicVB->IsValid()) {
             Msg("![Vulkan] Failed to create particle vertex buffer");
             xr_delete(m_dynamicVB);
             return;
@@ -300,12 +299,9 @@ void vkCParticleEffect::OnDeviceCreate()
     }
 
     // Get texture from material (if shader was created)
-    if (m_Def->m_CachedShader) {
-        VK::CVulkanShader* shader = (VK::CVulkanShader*)m_Def->m_CachedShader;
-        if (shader && shader->m_Material) {
-            m_texture = shader->m_Material->m_TexDiffuse;
-            Msg("[Vulkan] Particle texture loaded: %s", m_Def->m_TextureName.c_str());
-        }
+    // TODO: Implement texture extraction from shader when shader system is ready
+    if (m_Def->m_CachedShader._get()) {
+        Msg("[Vulkan] Particle shader available: %s", m_Def->m_TextureName.c_str());
     }
 
     // Create descriptor set for texture binding
@@ -419,7 +415,7 @@ void vkCParticleEffect::BindResources(VkCommandBuffer cmd)
 
     // Bind vertex buffer
     if (m_dynamicVB) {
-        VkBuffer vertexBuffers[] = { m_dynamicVB->GetBuffer() };
+        VkBuffer vertexBuffers[] = { m_dynamicVB->GetHandle() };
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
     }

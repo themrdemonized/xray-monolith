@@ -123,63 +123,37 @@ vec3 tonemap_uncharted2(vec3 color)
 
 void main()
 {
+    vec2 uv = v_TexCoord;
+
+    // Sample G-Buffer textures
+    vec4 posData  = texture(s_position, uv);    // binding 0
+    vec4 normData = texture(s_normal, uv);      // binding 1
+    vec3 albedo   = texture(s_color, uv).rgb;   // binding 2
+    vec4 matData  = texture(s_material, uv);     // binding 3
+    vec3 accum    = texture(s_accumulator, uv).rgb; // binding 4
+
     // ========================================================================
-    // 0. Apply distortion (magnifier glass effect)
+    // Deferred Shading: combine lighting with albedo
     // ========================================================================
-    // Sample distortion map
-    // R channel = X offset (127/255 = no offset)
-    // B channel = Y offset (127/255 = no offset)
-    // A channel = blur amount (not used yet)
-    //
-    // The magnifier texture encodes UV offsets where:
-    // - Values < 127 = negative offset (shift left/up)
-    // - Values > 127 = positive offset (shift right/down)
-    // - Value == 127 = no offset
-    //
-    vec2 distortedUV = v_TexCoord;
-    float blurAmount = 0.0;
+    vec3 N = normalize(normData.rgb);
+    float ao = matData.a;  // Ambient Occlusion from material
 
-    if (pc.enableDistortion != 0)
-    {
-        vec4 distort = texture(s_distortion, v_TexCoord);
-
-        // Convert from [0,1] to offset: (value - 0.5) * scale
-        // 127/255 ≈ 0.498 → offset ≈ 0
-        vec2 offset = (distort.rb - 127.0/255.0) * pc.distortionScale;
-        distortedUV = v_TexCoord + offset;
-
-        // Clamp to valid UV range
-        distortedUV = clamp(distortedUV, 0.0, 1.0);
-
-        // Blur amount from alpha (for future soft refraction)
-        blurAmount = distort.a;
+    // Ambient lighting (hemisphere approximation)
+    vec3 ambient = vec3(pc.ambientR, pc.ambientG, pc.ambientB);
+    // If ambient is zero (uninitialized), use a reasonable default
+    if (dot(ambient, ambient) < 0.001) {
+        ambient = vec3(0.15, 0.15, 0.18);  // Slight blue-ish ambient
     }
 
-    // ========================================================================
-    // 1. Sample textures (using potentially distorted UV)
-    // ========================================================================
-    vec3 lighting = texture(s_accumulator, distortedUV).rgb;  // Accumulated lighting (HDR)
-    vec3 albedo = texture(s_color, distortedUV).rgb;          // Albedo (sRGB)
-    vec4 material = texture(s_material, distortedUV);         // PBR properties
+    // Fallback directional sun (until light accumulation passes are fully working)
+    vec3 sunDir = normalize(vec3(0.5, 1.0, 0.3));
+    float sunNdotL = max(dot(N, sunDir), 0.0);
+    vec3 sunColor = vec3(1.0, 0.95, 0.85);
+    vec3 directLight = sunColor * sunNdotL * 0.4;
 
-    // Extract material properties
-    float ao = material.a;  // Ambient occlusion
-
-    // ========================================================================
-    // 2. Combine lighting and albedo
-    // ========================================================================
-    vec3 color = lighting * albedo;
-
-    // ========================================================================
-    // 3. Add ambient lighting
-    // ========================================================================
-    vec3 ambientColor = vec3(pc.ambientR, pc.ambientG, pc.ambientB);
-
-    // When G-Buffer has geometry (albedo > 0), use albedo-modulated ambient
-    // When G-Buffer is empty (no geometry), use ambient directly as background
-    float hasGeometry = step(0.001, dot(albedo, vec3(1.0)));
-    vec3 ambient = mix(ambientColor, albedo * ambientColor * max(ao, 0.1), hasGeometry);
-    color += ambient;
+    // Combine: (ambient + sun + accumulated) * albedo
+    vec3 lighting = ambient * ao + directLight + accum;
+    vec3 color = albedo * lighting;
 
     // ========================================================================
     // 4. Apply exposure

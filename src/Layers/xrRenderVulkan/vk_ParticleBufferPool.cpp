@@ -83,15 +83,13 @@ bool vkParticleBufferPool::CreateBufferFrame(u32 index, VK::CVulkanDevice* /*dev
     frame.buffer = xr_new<VK::CVulkanBuffer>();
 
     // Create dynamic vertex buffer with HOST_VISIBLE memory
-    bool created = frame.buffer->Create(
-        device,
+    frame.buffer->Create(
         frame.capacity,
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VMA_MEMORY_USAGE_CPU_TO_GPU,  // HOST_VISIBLE + DEVICE_LOCAL (if possible)
-        VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT
+        VMA_MEMORY_USAGE_CPU_TO_GPU  // HOST_VISIBLE + DEVICE_LOCAL (if possible)
     );
 
-    if (!created) {
+    if (!frame.buffer->IsValid()) {
         Msg("![Vulkan] Failed to create particle buffer frame %u", index);
         xr_delete(frame.buffer);
         return false;

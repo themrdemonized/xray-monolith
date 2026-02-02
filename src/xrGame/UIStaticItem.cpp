@@ -195,6 +195,7 @@ void CUIStaticItem::RenderInternal(float angle)
 void CUIStaticItem::Render()
 {
 	VERIFY(g_bRendering);
+	if (!hShader || !hShader->inited()) return;  // Skip if shader not loaded
 	UIRender->SetShader(*hShader);
 	UIRender->StartPrimitive(8, IUIRender::ptTriList, UI().m_currentPointType);
 	RenderInternal(vPos);
@@ -204,7 +205,7 @@ void CUIStaticItem::Render()
 void CUIStaticItem::Render(float angle)
 {
 	VERIFY(g_bRendering);
-
+	if (!hShader || !hShader->inited()) return;  // Skip if shader not loaded
 	UIRender->SetShader(*hShader);
 	UIRender->StartPrimitive(32, IUIRender::ptTriList, UI().m_currentPointType);
 	RenderInternal(angle);

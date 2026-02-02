@@ -193,9 +193,14 @@ void mt_Thread(void* ptr)
 		STOP_PROFILE;
 
 		START_PROFILE("Process seqParallel");
-		for (u32 pit = 0; pit < device.seqParallel.size(); pit++)
-			device.seqParallel[pit]();
-		device.seqParallel.clear_not_free();
+		// Double-buffer: swap write buffer to exec buffer under lock, then execute without lock
+		{
+			xrCriticalSectionGuard lock(device.mt_csParallel);
+			device.seqParallel_exec.swap(device.seqParallel);
+		}
+		for (u32 pit = 0; pit < device.seqParallel_exec.size(); pit++)
+			device.seqParallel_exec[pit]();
+		device.seqParallel_exec.clear_not_free();
 		STOP_PROFILE;
 
 		START_PROFILE("Process seqFrameMT");
@@ -449,7 +454,14 @@ void CRenderDevice::on_idle()
 	{
 		START_PROFILE("Process seqRender");
 		if (b_is_Active)
-			seqRender.Process(rp_Render);
+		{
+			__try {
+				seqRender.Process(rp_Render);
+			} __except(EXCEPTION_EXECUTE_HANDLER) {
+				Msg("! CRASH in seqRender.Process at frame %u, exception 0x%08X", dwFrame, GetExceptionCode());
+				FlushLog();
+			}
+		}
 		STOP_PROFILE;
 
 		if (b_is_Active && (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size()))
@@ -458,7 +470,12 @@ void CRenderDevice::on_idle()
 			Statistic->Show();
 		}
 
-		End();
+		__try {
+			End();
+		} __except(EXCEPTION_EXECUTE_HANDLER) {
+			Msg("! CRASH in Device.End() at frame %u, exception 0x%08X", dwFrame, GetExceptionCode());
+			FlushLog();
+		}
 	}
 	Statistic->RenderTOTAL_Real.End();
 	Statistic->RenderTOTAL_Real.FrameEnd();
@@ -476,9 +493,14 @@ void CRenderDevice::on_idle()
 	if (dwFrame != mt_Thread_marker)
 	{
 		PROF_EVENT("Execute second thread");
-		for (u32 pit = 0; pit < Device.seqParallel.size(); pit++)
-			Device.seqParallel[pit]();
-		Device.seqParallel.clear_not_free();
+		// MT thread is suspended here, safe to access directly but use lock for consistency
+		{
+			xrCriticalSectionGuard lock(mt_csParallel);
+			seqParallel_exec.swap(seqParallel);
+		}
+		for (u32 pit = 0; pit < seqParallel_exec.size(); pit++)
+			seqParallel_exec[pit]();
+		seqParallel_exec.clear_not_free();
 		seqFrameMT.Process(rp_Frame);
 	}
 

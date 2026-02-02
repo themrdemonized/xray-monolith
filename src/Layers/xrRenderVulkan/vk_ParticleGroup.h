@@ -96,7 +96,8 @@ public:
 private:
     enum
     {
-        flRT_Playing = (1 << 0),  // Group is playing
-        flRT_HUDmode = (1 << 1),  // Render in HUD space
+        flRT_Playing = (1 << 0),       // Group is playing
+        flRT_DeferredStop = (1 << 1),  // Stop after particles die
+        flRT_HUDmode = (1 << 2),       // Render in HUD space
     };
 };

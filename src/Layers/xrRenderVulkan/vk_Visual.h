@@ -12,6 +12,7 @@
 // Forward declarations
 namespace VK {
     class CVulkanBuffer;
+    class CMaterial;
 }
 
 // ============================================================================
@@ -64,6 +65,9 @@ public:
 
     // Skinning quality (-1 = no skinning)
     s32                 skinning = -1;
+
+    // Material (diffuse texture + descriptor set)
+    VK::CMaterial*      m_pMaterial = nullptr;
 
     // Debug name
     shared_str          dbg_name;
@@ -328,13 +332,31 @@ class CKinematics;  // Forward declaration
 class vkSkeletonX_ST : public vkFVisual
 {
 public:
+    // Rendering modes (matching DX)
+    enum { RM_SKINNING_SOFT, RM_SINGLE, RM_SKINNING_1B, RM_SKINNING_2B, RM_SKINNING_3B, RM_SKINNING_4B };
+
     // Bone data
-    u32         RenderMode = 0;     // 1W, 2W, 3W, 4W weights
+    u16         RenderMode = 0;     // Rendering mode (RM_SINGLE, RM_SKINNING_1B, etc.)
     u16         BonesUsed = 0;      // Number of bones affecting this mesh
 
     // Parent skeleton (set by AfterLoad)
     CKinematics* Parent = nullptr;
     u16          ChildIDX = 0;
+
+    // Render-mode specific data
+    union
+    {
+        struct
+        {
+            // soft-skinning only (CPU-side)
+            u32 cache_DiscardID;
+            u32 cache_vCount;
+            u32 cache_vOffset;
+        };
+
+        u32 RMS_boneid;     // single-bone-rendering (RM_SINGLE)
+        u32 RMS_bonecount;  // skinning, maximal bone ID (RM_SKINNING_*)
+    };
 
 public:
     vkSkeletonX_ST();
@@ -357,13 +379,31 @@ public:
 class vkSkeletonX_PM : public vkFProgressive
 {
 public:
+    // Rendering modes (matching DX)
+    enum { RM_SKINNING_SOFT, RM_SINGLE, RM_SKINNING_1B, RM_SKINNING_2B, RM_SKINNING_3B, RM_SKINNING_4B };
+
     // Bone data
-    u32         RenderMode = 0;
-    u16         BonesUsed = 0;
+    u16         RenderMode = 0;     // Rendering mode (RM_SINGLE, RM_SKINNING_1B, etc.)
+    u16         BonesUsed = 0;      // Number of bones affecting this mesh
 
     // Parent skeleton (set by AfterLoad)
     CKinematics* Parent = nullptr;
     u16          ChildIDX = 0;
+
+    // Render-mode specific data
+    union
+    {
+        struct
+        {
+            // soft-skinning only (CPU-side)
+            u32 cache_DiscardID;
+            u32 cache_vCount;
+            u32 cache_vOffset;
+        };
+
+        u32 RMS_boneid;     // single-bone-rendering (RM_SINGLE)
+        u32 RMS_bonecount;  // skinning, maximal bone ID (RM_SKINNING_*)
+    };
 
 public:
     vkSkeletonX_PM();
@@ -410,3 +450,7 @@ public:
 // Factory function - creates visual based on type
 // ============================================================================
 vkRender_Visual* vkVisual_Create(u32 type);
+
+// Factory function - creates dummy visual for unknown types
+// Returns a valid but empty visual that won't crash when rendered
+vkRender_Visual* vkVisual_CreateDummy();

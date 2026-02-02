@@ -62,6 +62,13 @@ public:
     bool LoadDDS(const char* filename);
 
     /**
+     * Загрузить cubemap текстуру из DDS файла (6 faces)
+     * @param filename Путь к файлу
+     * @return true если успешно
+     */
+    bool LoadDDSCubemap(const char* filename);
+
+    /**
      * Уничтожить текстуру
      */
     void Destroy();
@@ -87,6 +94,11 @@ public:
     VkFormat GetFormat() const { return m_Format; }
     VkImageLayout GetCurrentLayout() const { return m_CurrentLayout; }
     bool IsValid() const { return m_Image != VK_NULL_HANDLE; }
+    bool IsCubemap() const { return m_bCubemap; }
+
+    // Cubemap configuration (must be set before Create())
+    bool            m_bCubemap = false;      // True if this is a cubemap texture (6 faces)
+    u32             m_ArrayLayers = 1;       // Number of array layers (6 for cubemap)
 
 private:
     /**
@@ -133,5 +145,51 @@ private:
     bool            m_bAlphaSwizzle = false; // For alpha-only textures (fonts): swizzle R→A, RGB→ONE
     bool            m_bBCSwizzle = false;    // For BC/DXT textures: swizzle R<->B for DirectX compatibility
 };
+
+/**
+ * User Texture Registry
+ *
+ * Регистрация динамических render targets как $user$ текстур.
+ * Используется для 3D Fluid системы и других эффектов, которые создают
+ * временные RT и хотят их сэмплировать в других шейдерах.
+ *
+ * Usage:
+ *   g_UserTextureRegistry.Register("$user$Texture_velocity0", &m_RT_Velocity);
+ *   CRT* rt = g_UserTextureRegistry.Get("$user$Texture_velocity0");
+ */
+class CUserTextureRegistry
+{
+public:
+    /**
+     * Зарегистрировать RT как $user$ текстуру
+     * @param name Имя текстуры (должно начинаться с "$user$")
+     * @param rt Указатель на CRT
+     */
+    void Register(const char* name, CRT* rt);
+
+    /**
+     * Получить RT по имени
+     * @param name Имя текстуры
+     * @return Указатель на CRT или nullptr если не найдено
+     */
+    CRT* Get(const char* name);
+
+    /**
+     * Удалить регистрацию
+     * @param name Имя текстуры
+     */
+    void Unregister(const char* name);
+
+    /**
+     * Очистить все регистрации
+     */
+    void Clear();
+
+private:
+    xr_map<shared_str, CRT*> m_UserTextures;
+};
+
+// Глобальный instance
+extern CUserTextureRegistry g_UserTextureRegistry;
 
 } // namespace VK

@@ -41,19 +41,21 @@ struct GBufferPushConstants
     Fmatrix u_Model;       // Model matrix (local → world)
     Fmatrix u_View;        // View matrix (world → eye)
     Fmatrix u_Projection;  // Projection matrix (eye → clip)
-    // Total: 192 bytes (3 x 64 bytes)
+    float   u_UVScale;     // UV scale: 1/1024 for SHORT2 (stride 32), 1.0 for FLOAT2 (stride 36+)
+    // Total: 196 bytes (3 x 64 bytes + 4 bytes)
 };
 
 // ============================================================================
 // GetGBufferPipeline() - Get or create G-Buffer pipeline
 // ============================================================================
-VkPipeline CRenderTarget::GetGBufferPipeline()
+VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
 {
-    // Return cached pipeline if exists
-    if (m_GBufferPipeline != VK_NULL_HANDLE)
-        return m_GBufferPipeline;
+    // Return cached pipeline for this stride if exists
+    auto it = m_GBufferPipelines.find(stride);
+    if (it != m_GBufferPipelines.end())
+        return it->second;
 
-    Msg("[Vulkan] Creating G-Buffer pipeline...");
+    Msg("[Vulkan] Creating G-Buffer pipeline for stride %u...", stride);
 
     // ========================================================================
     // Step 1: Load G-Buffer shaders
@@ -69,16 +71,16 @@ VkPipeline CRenderTarget::GetGBufferPipeline()
     // ========================================================================
     // Step 2: Configure pipeline for G-Buffer rendering
     // ========================================================================
-    PipelineConfig config = {};
+    PipelineConfig config;
     config.vertShader = vertShader;
     config.fragShader = fragShader;
+    config.useDefaultVertexInput = true;
+    config.vertexStride = stride;  // Parametric vertex layout by stride
     config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    config.cullMode = VK_CULL_MODE_BACK_BIT;  // Backface culling
-
-    // Depth testing (CRITICAL for correct occlusion)
+    config.cullMode = VK_CULL_MODE_NONE;  // No culling - X-Ray geometry has mixed winding
     config.depthTest = true;
-    config.depthWrite = true;   // Write depth values
-    config.depthCompare = VK_COMPARE_OP_LESS;  // Standard depth test
+    config.depthWrite = true;
+    config.depthCompareOp = VK_COMPARE_OP_LESS;
 
     // No blending (opaque geometry only)
     config.blendEnable = false;
@@ -94,91 +96,195 @@ VkPipeline CRenderTarget::GetGBufferPipeline()
     // ========================================================================
     // Step 3: Create pipeline
     // ========================================================================
-    m_GBufferPipeline = g_PipelineManager->GetOrCreate(config);
+    VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
 
-    if (m_GBufferPipeline == VK_NULL_HANDLE) {
-        Msg("![Vulkan] Failed to create G-Buffer pipeline");
+    if (pipeline == VK_NULL_HANDLE) {
+        Msg("![Vulkan] Failed to create G-Buffer pipeline for stride %u", stride);
     } else {
-        Msg("[Vulkan] G-Buffer pipeline created successfully");
+        m_GBufferPipelines[stride] = pipeline;
+        Msg("[Vulkan] G-Buffer pipeline created successfully (stride %u)", stride);
     }
 
-    return m_GBufferPipeline;
+    return pipeline;
 }
 
 // ============================================================================
 // Phase G-Buffer: Render Scene Geometry
 // ============================================================================
-//
-// This is the CRITICAL method that fills the G-Buffer with geometry data.
-// Currently this is the missing piece causing black screen.
-//
-// Output:
-// - rt_Position: Eye-space positions (R32G32B32A32_SFLOAT)
-// - rt_Normal: Eye-space normals (R32G32B32A32_SFLOAT)
-// - rt_Color: Albedo / diffuse color (R8G8B8A8_SRGB)
-// - rt_Material: PBR properties (R8G8B8A8_UNORM)
-// - Depth buffer: Depth values (D32_SFLOAT)
-//
-// ============================================================================
 void CRenderTarget::phase_gbuffer()
 {
+    static u32 s_gbuf_crashCount = 0;
+    static u32 s_lastDiagFrame = 0;
+
+    if (g_bDeviceLost) return;
+
     // ========================================================================
     // Step 1: Get command buffer
     // ========================================================================
-    VkCommandBuffer cmd = RCache.GetCommandBuffer();
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    __try {
+        cmd = RCache.GetCommandBuffer();
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in GetCommandBuffer at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        return;
+    }
+    if (cmd == VK_NULL_HANDLE) return;
 
     // ========================================================================
-    // Step 2: Transition render targets to COLOR_ATTACHMENT_OPTIMAL
+    // Step 2: Validate all resources before ANY Vulkan call
+    // ========================================================================
+    VkImage imgPos = rt_Position.GetImage();
+    VkImage imgNorm = rt_Normal.GetImage();
+    VkImage imgColor = rt_Color.GetImage();
+    VkImage imgMat = rt_Material.GetImage();
+    VkImageView viewPos = rt_Position.GetView();
+    VkImageView viewNorm = rt_Normal.GetView();
+    VkImageView viewColor = rt_Color.GetView();
+    VkImageView viewMat = rt_Material.GetView();
+    VkImageView viewDepth = Swapchain.m_DepthView;
+    VkImage imgDepth = Swapchain.m_DepthImage;
+
+    if (!imgPos || !imgNorm || !imgColor || !imgMat) {
+        Msg("! phase_gbuffer: NULL RT image at frame %u: pos=%p norm=%p col=%p mat=%p",
+            Device.dwFrame, imgPos, imgNorm, imgColor, imgMat);
+        return;
+    }
+    if (!viewPos || !viewNorm || !viewColor || !viewMat) {
+        Msg("! phase_gbuffer: NULL RT view at frame %u: pos=%p norm=%p col=%p mat=%p",
+            Device.dwFrame, viewPos, viewNorm, viewColor, viewMat);
+        return;
+    }
+    if (!imgDepth || !viewDepth) {
+        Msg("! phase_gbuffer: NULL depth at frame %u: img=%p view=%p",
+            Device.dwFrame, imgDepth, viewDepth);
+        return;
+    }
+
+    // Periodic diagnostics (every 500 frames)
+    bool bDiag = (Device.dwFrame - s_lastDiagFrame > 500);
+    if (bDiag) {
+        Msg("[gbuf-diag] frame=%u cmd=%p rt_pos(img=%p view=%p) rt_norm(img=%p view=%p) "
+            "rt_col(img=%p view=%p) rt_mat(img=%p view=%p) depth(img=%p view=%p) size=%ux%u created=%d",
+            Device.dwFrame, cmd,
+            imgPos, viewPos, imgNorm, viewNorm,
+            imgColor, viewColor, imgMat, viewMat,
+            imgDepth, viewDepth, m_Width, m_Height, (int)m_bCreated);
+        s_lastDiagFrame = Device.dwFrame;
+    }
+
+    // ========================================================================
+    // Step 2b: Validate image handles via vkGetImageMemoryRequirements
+    //          If an image was destroyed, this call will crash — caught by SEH
     // ========================================================================
     {
+        VkMemoryRequirements memReq = {};
+        bool imagesValid = true;
+
+        __try {
+            vkGetImageMemoryRequirements(VulkanHW.m_Device, imgPos, &memReq);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: rt_Position image INVALID (destroyed?) at frame %u, img=%p",
+                Device.dwFrame, imgPos);
+            FlushLog();
+            imagesValid = false;
+        }
+
+        __try {
+            vkGetImageMemoryRequirements(VulkanHW.m_Device, imgNorm, &memReq);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: rt_Normal image INVALID at frame %u, img=%p",
+                Device.dwFrame, imgNorm);
+            FlushLog();
+            imagesValid = false;
+        }
+
+        __try {
+            vkGetImageMemoryRequirements(VulkanHW.m_Device, imgColor, &memReq);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: rt_Color image INVALID at frame %u, img=%p",
+                Device.dwFrame, imgColor);
+            FlushLog();
+            imagesValid = false;
+        }
+
+        __try {
+            vkGetImageMemoryRequirements(VulkanHW.m_Device, imgMat, &memReq);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: rt_Material image INVALID at frame %u, img=%p",
+                Device.dwFrame, imgMat);
+            FlushLog();
+            imagesValid = false;
+        }
+
+        __try {
+            vkGetImageMemoryRequirements(VulkanHW.m_Device, imgDepth, &memReq);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: depth image INVALID at frame %u, img=%p",
+                Device.dwFrame, imgDepth);
+            FlushLog();
+            imagesValid = false;
+        }
+
+        if (!imagesValid) {
+            Msg("! phase_gbuffer: one or more images INVALID, skipping frame %u", Device.dwFrame);
+            FlushLog();
+            return;
+        }
+    }
+
+    // ========================================================================
+    // Step 3: Transition render targets to COLOR_ATTACHMENT_OPTIMAL
+    // ========================================================================
+    __try {
         VkImageMemoryBarrier barriers[4] = {};
 
-        // rt_Position
+        // Wait for previous frame's shader reads AND color writes to complete
+        // before transitioning. oldLayout=UNDEFINED is OK since we CLEAR every frame.
         barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barriers[0].srcAccessMask = 0;
+        barriers[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         barriers[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barriers[0].image = rt_Position.GetImage();
+        barriers[0].image = imgPos;
         barriers[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barriers[0].subresourceRange.baseMipLevel = 0;
         barriers[0].subresourceRange.levelCount = 1;
         barriers[0].subresourceRange.baseArrayLayer = 0;
         barriers[0].subresourceRange.layerCount = 1;
 
-        // rt_Normal
-        barriers[1] = barriers[0];
-        barriers[1].image = rt_Normal.GetImage();
-
-        // rt_Color
-        barriers[2] = barriers[0];
-        barriers[2].image = rt_Color.GetImage();
-
-        // rt_Material
-        barriers[3] = barriers[0];
-        barriers[3].image = rt_Material.GetImage();
+        barriers[1] = barriers[0]; barriers[1].image = imgNorm;
+        barriers[2] = barriers[0]; barriers[2].image = imgColor;
+        barriers[3] = barriers[0]; barriers[3].image = imgMat;
 
         vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             0, 0, nullptr, 0, nullptr, 4, barriers);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in color barrier at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        return;
     }
 
     // ========================================================================
-    // Step 3: Transition depth buffer to DEPTH_ATTACHMENT_OPTIMAL
+    // Step 4: Transition depth buffer to DEPTH_ATTACHMENT_OPTIMAL
     // ========================================================================
-    {
+    __try {
         VkImageMemoryBarrier depthBarrier = {};
         depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        depthBarrier.srcAccessMask = 0;
-        depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        // Wait for previous depth reads/writes before transitioning
+        depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
         depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        depthBarrier.image = Swapchain.m_DepthImage;
+        depthBarrier.image = imgDepth;
         depthBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         depthBarrier.subresourceRange.baseMipLevel = 0;
         depthBarrier.subresourceRange.levelCount = 1;
@@ -186,157 +292,189 @@ void CRenderTarget::phase_gbuffer()
         depthBarrier.subresourceRange.layerCount = 1;
 
         vkCmdPipelineBarrier(cmd,
-            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
             0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in depth barrier at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        return;
     }
 
     // ========================================================================
-    // Step 4: Begin rendering to G-Buffer (4 MRT + depth)
+    // Step 5: Begin rendering to G-Buffer (4 MRT + depth)
     // ========================================================================
-    VkRenderingAttachmentInfo colorAttachments[4] = {};
+    __try {
+        VkRenderingAttachmentInfo colorAttachments[4] = {};
 
-    // Attachment 0: rt_Position (clear to far plane)
-    colorAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachments[0].imageView = rt_Position.GetView();
-    colorAttachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachments[0].clearValue.color = {{0.0f, 0.0f, 0.0f, 1000.0f}};  // Far plane
+        colorAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        colorAttachments[0].imageView = viewPos;
+        colorAttachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachments[0].clearValue.color = {{0.0f, 0.0f, 0.0f, 1000.0f}};
 
-    // Attachment 1: rt_Normal (clear to up vector)
-    colorAttachments[1].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachments[1].imageView = rt_Normal.GetView();
-    colorAttachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachments[1].clearValue.color = {{0.0f, 1.0f, 0.0f, 0.0f}};  // Up vector
+        colorAttachments[1].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        colorAttachments[1].imageView = viewNorm;
+        colorAttachments[1].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachments[1].clearValue.color = {{0.0f, 1.0f, 0.0f, 0.0f}};
 
-    // Attachment 2: rt_Color (clear to black)
-    colorAttachments[2].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachments[2].imageView = rt_Color.GetView();
-    colorAttachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachments[2].clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};  // Black
+        colorAttachments[2].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        colorAttachments[2].imageView = viewColor;
+        colorAttachments[2].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachments[2].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachments[2].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachments[2].clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
 
-    // Attachment 3: rt_Material (clear to default PBR)
-    colorAttachments[3].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachments[3].imageView = rt_Material.GetView();
-    colorAttachments[3].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachments[3].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachments[3].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachments[3].clearValue.color = {{0.0f, 0.5f, 0.0f, 1.0f}};  // roughness=0.5
+        colorAttachments[3].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        colorAttachments[3].imageView = viewMat;
+        colorAttachments[3].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachments[3].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachments[3].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachments[3].clearValue.color = {{0.0f, 0.5f, 0.0f, 1.0f}};
 
-    // Depth attachment (clear to far)
-    VkRenderingAttachmentInfo depthAttachment = {};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = Swapchain.m_DepthView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil = {1.0f, 0};  // Clear to far (1.0)
+        VkRenderingAttachmentInfo depthAttachment = {};
+        depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        depthAttachment.imageView = viewDepth;
+        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
-    // Rendering info
-    VkRenderingInfo renderingInfo = {};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderingInfo.renderArea.offset = {0, 0};
-    renderingInfo.renderArea.extent = {m_Width, m_Height};
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 4;
-    renderingInfo.pColorAttachments = colorAttachments;
-    renderingInfo.pDepthAttachment = &depthAttachment;
+        VkRenderingInfo renderingInfo = {};
+        renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderingInfo.renderArea.offset = {0, 0};
+        renderingInfo.renderArea.extent = {m_Width, m_Height};
+        renderingInfo.layerCount = 1;
+        renderingInfo.colorAttachmentCount = 4;
+        renderingInfo.pColorAttachments = colorAttachments;
+        renderingInfo.pDepthAttachment = &depthAttachment;
 
-    vkCmdBeginRendering(cmd, &renderingInfo);
-
-    // ========================================================================
-    // Step 5: Setup viewport and scissor
-    // ========================================================================
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float)m_Width;
-    viewport.height = (float)m_Height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = {m_Width, m_Height};
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+        vkCmdBeginRendering(cmd, &renderingInfo);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in vkCmdBeginRendering at frame %u, exc=0x%08X "
+            "views: pos=%p norm=%p col=%p mat=%p depth=%p size=%ux%u",
+            Device.dwFrame, GetExceptionCode(),
+            viewPos, viewNorm, viewColor, viewMat, viewDepth, m_Width, m_Height);
+        FlushLog();
+        return;
+    }
 
     // ========================================================================
-    // Step 6: Get G-Buffer pipeline
+    // Step 6: Setup viewport and scissor
     // ========================================================================
-    VkPipeline pipeline = GetGBufferPipeline();
+    {
+        VkViewport viewport = {};
+        viewport.x = 0.0f;
+        viewport.y = (float)m_Height;
+        viewport.width = (float)m_Width;
+        viewport.height = -(float)m_Height;
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+        VkRect2D scissor = {};
+        scissor.offset = {0, 0};
+        scissor.extent = {m_Width, m_Height};
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+    }
+
+    // ========================================================================
+    // Step 7: Get G-Buffer pipeline (default stride 32)
+    // ========================================================================
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    __try {
+        pipeline = GetGBufferPipeline(32);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in GetGBufferPipeline at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        vkCmdEndRendering(cmd);
+        return;
+    }
     if (pipeline == VK_NULL_HANDLE) {
         Msg("![Vulkan] Failed to get G-Buffer pipeline");
         vkCmdEndRendering(cmd);
         return;
     }
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-    // ========================================================================
-    // Step 7: Render all level geometry
-    // ========================================================================
-    // Get view and projection matrices from Device
-    Fmatrix mView = Device.mView;
-    Fmatrix mProjection = Device.mProject;
-
-    // For MVP, use identity world matrix (static level geometry)
-    Fmatrix mWorld;
-    mWorld.identity();
-
-    // Push constants (MVP matrices)
-    GBufferPushConstants pushConstants;
-    pushConstants.u_Model = mWorld;
-    pushConstants.u_View = mView;
-    pushConstants.u_Projection = mProjection;
-
-    VkPipelineLayout layout = g_PipelineManager->GetLayout();
-    vkCmdPushConstants(cmd, layout,
-        VK_SHADER_STAGE_VERTEX_BIT,
-        0, sizeof(GBufferPushConstants),
-        &pushConstants);
-
-    // ========================================================================
-    // Phase 2.22: Bind default material (Set 1 - PerMaterial)
-    // ========================================================================
-    if (g_MaterialManager && g_MaterialManager->GetDefaultMaterial()) {
-        g_MaterialManager->GetDefaultMaterial()->Bind(cmd);
+    __try {
+        RCache.set_Pipeline(pipeline);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in set_Pipeline at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        vkCmdEndRendering(cmd);
+        return;
     }
 
     // ========================================================================
-    // Scene Graph Rendering (Phase 1)
+    // Step 8: Push constants (including UV scale for stride-32 default)
     // ========================================================================
-    // 1. Calculate() builds render queues with frustum culling
-    // 2. r_dsgraph_render_graph() sorts and renders all visuals
-    //
-    // This replaces the old RenderLevelVisuals() which rendered everything
-    // without culling or sorting.
-    // ========================================================================
+    __try {
+        Fmatrix mView = Device.mView;
+        Fmatrix mProjection = Device.mProject;
+        Fmatrix mWorld;
+        mWorld.identity();
 
-    // Build render queues (frustum culling, SSA calculation)
-    RImplementation.Calculate();
+        GBufferPushConstants pushConstants;
+        pushConstants.u_Model = mWorld;
+        pushConstants.u_View = mView;
+        pushConstants.u_Projection = mProjection;
+        pushConstants.u_UVScale = 1.0f / 1024.0f;  // SHORT2 UV scale for stride-32
 
-    // Render opaque geometry (sorted by SSA for early-Z optimization)
-    // _priority=0 = opaque pass, _clear=true = clear queue after rendering
-    RImplementation.r_dsgraph_render_graph(0, true);
+        VkPipelineLayout layout = g_PipelineManager->GetLayout();
+        vkCmdPushConstants(cmd, layout,
+            VK_SHADER_STAGE_VERTEX_BIT,
+            0, sizeof(GBufferPushConstants),
+            &pushConstants);
+
+        // Track current stride for per-visual pipeline switching
+        RCache.m_CurrentGBufStride = 32;
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in pushConstants at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        vkCmdEndRendering(cmd);
+        return;
+    }
 
     // ========================================================================
-    // Step 8: End rendering
+    // Step 9: Scene Graph Rendering (with crash isolation)
     // ========================================================================
-    vkCmdEndRendering(cmd);
+    __try {
+        RImplementation.r_dsgraph_render_graph(0, true);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        s_gbuf_crashCount++;
+        Msg("! phase_gbuffer: CRASH in r_dsgraph_render_graph at frame %u (crash #%u), "
+            "lstNormal=%u, exception 0x%08X",
+            Device.dwFrame, s_gbuf_crashCount,
+            (u32)RImplementation.lstNormal.size(), GetExceptionCode());
+        FlushLog();
+        RImplementation.lstNormal.clear();
+    }
 
     // ========================================================================
-    // Step 9: Transition render targets to SHADER_READ_ONLY
+    // Step 10: End rendering
     // ========================================================================
-    {
+    __try {
+        vkCmdEndRendering(cmd);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in vkCmdEndRendering at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
+        return;
+    }
+
+    // ========================================================================
+    // Step 11: Transition render targets to SHADER_READ_ONLY
+    // ========================================================================
+    __try {
         VkImageMemoryBarrier barriers[4] = {};
 
-        // rt_Position
         barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -344,35 +482,26 @@ void CRenderTarget::phase_gbuffer()
         barriers[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barriers[0].image = rt_Position.GetImage();
+        barriers[0].image = imgPos;
         barriers[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barriers[0].subresourceRange.baseMipLevel = 0;
         barriers[0].subresourceRange.levelCount = 1;
         barriers[0].subresourceRange.baseArrayLayer = 0;
         barriers[0].subresourceRange.layerCount = 1;
 
-        // rt_Normal
-        barriers[1] = barriers[0];
-        barriers[1].image = rt_Normal.GetImage();
-
-        // rt_Color
-        barriers[2] = barriers[0];
-        barriers[2].image = rt_Color.GetImage();
-
-        // rt_Material
-        barriers[3] = barriers[0];
-        barriers[3].image = rt_Material.GetImage();
+        barriers[1] = barriers[0]; barriers[1].image = imgNorm;
+        barriers[2] = barriers[0]; barriers[2].image = imgColor;
+        barriers[3] = barriers[0]; barriers[3].image = imgMat;
 
         vkCmdPipelineBarrier(cmd,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             0, 0, nullptr, 0, nullptr, 4, barriers);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in final barrier at frame %u, exc=0x%08X",
+            Device.dwFrame, GetExceptionCode());
+        FlushLog();
     }
-
-    // ========================================================================
-    // Note: Depth buffer stays in DEPTH_ATTACHMENT_OPTIMAL
-    // Forward pass will reuse it (read-only)
-    // ========================================================================
 }
 
 } // namespace VK

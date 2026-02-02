@@ -51,7 +51,21 @@ CVulkanShader::~CVulkanShader()
 void CVulkanShader::Create(LPCSTR name, LPCSTR tex_diffuse)
 {
     m_Name = name;
-    m_TexDiffuse = tex_diffuse;
+
+    // Texture list from level shaders has format: "diffuse,lmap1,lmap2"
+    // Extract only the first texture name (diffuse) before the comma
+    if (tex_diffuse && tex_diffuse[0])
+    {
+        string256 diffuse_only;
+        xr_strcpy(diffuse_only, tex_diffuse);
+        LPSTR comma = strchr(diffuse_only, ',');
+        if (comma) *comma = 0;
+        m_TexDiffuse = diffuse_only;
+    }
+    else
+    {
+        m_TexDiffuse = tex_diffuse;
+    }
 
     // Parse shader name for flags
     // Example: "def_shaders\def_aref" - alpha reference (alpha test)
@@ -192,8 +206,13 @@ CVulkanShader* CVulkanShaderManager::CreateShader(LPCSTR name, LPCSTR tex_diffus
         return m_DefaultShader;
     }
 
+    // Build unique key from shader name + texture name
+    // (same shader can be used with different textures in the level shader table)
+    string512 key;
+    xr_sprintf(key, "%s#%s", name, tex_diffuse ? tex_diffuse : "");
+
     // Check if shader already exists
-    auto it = m_Shaders.find(name);
+    auto it = m_Shaders.find(key);
     if (it != m_Shaders.end()) {
         return it->second;
     }
@@ -203,7 +222,7 @@ CVulkanShader* CVulkanShaderManager::CreateShader(LPCSTR name, LPCSTR tex_diffus
     shader->Create(name, tex_diffuse ? tex_diffuse : "");
 
     // Add to cache
-    m_Shaders[name] = shader;
+    m_Shaders[key] = shader;
 
     return shader;
 }

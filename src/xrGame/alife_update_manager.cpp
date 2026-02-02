@@ -125,7 +125,7 @@ void CALifeUpdateManager::shedule_Update(u32 dt)
 
 	if (!m_first_time && g_mt_config.test(mtALife))
 	{
-		Device.seqParallel.push_back(
+		Device.add_to_seq_parallel(
 			fastdelegate::FastDelegate0<>(
 				this,
 				&CALifeUpdateManager::update

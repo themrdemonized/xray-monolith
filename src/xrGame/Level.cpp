@@ -602,44 +602,59 @@ void CLevel::ProcessSpawnEvents()
 	PROF_EVENT("ProcessSpawnEvents");
 	for (auto it = spawn_events->queue.begin(); it != spawn_events->queue.end();)
 	{
-		const NET_Event& E = *it;
-		u16 ID, dest, type;
-		NET_Packet P;
-		ID = E.ID;
-		dest = E.destination;
-		type = E.type;
-		E.implication(P);
+		__try {
+			const NET_Event& E = *it;
 
-		u16 parent_id;
-		shared_str section;
-		u16 obj_id = GetSpawnInfo(P, parent_id, section);
-
-		if (spawn_antifreeze_debug) Msg("[ProcessSpawnEvents] spawning section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
-
-		// demonized: If item is II_BOLT class - go through anyway
-		if (pSettings->line_exist(section.c_str(), "class") && strstr(pSettings->r_string(section.c_str(), "class"), "II_BOLT") != nullptr)
-		{
-			// demonized: this is a sin, but its an easy way
-			goto spawn;
-		}
-
-		// demonized: If there is a parent of this object, check if its still in alife
-		if (parent_id != 0xffff)
-		{
-			auto parent_obj = ai().alife().objects().object(parent_id);
-			if (!parent_obj || !parent_obj->m_bOnline)
-			{
-				if (spawn_antifreeze_debug) Msg("![ProcessSpawnEvents] parent object is not in alife, do not spawn, section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
-				it = spawn_events->queue.erase(it); // remove current event
+			// Skip events with empty data — dereferencing empty vector is UB
+			if (E.data.empty()) {
+				Msg("! [ProcessSpawnEvents] skipping event with empty data at frame %u", Device.dwFrame);
+				it = spawn_events->queue.erase(it);
 				continue;
 			}
-		}
 
-	spawn:
-		u16 dummy16;
-		P.r_begin(dummy16);
-		cl_Process_Spawn(P);
-		it = spawn_events->queue.erase(it);
+			u16 ID, dest, type;
+			NET_Packet P;
+			ID = E.ID;
+			dest = E.destination;
+			type = E.type;
+			E.implication(P);
+
+			u16 parent_id;
+			shared_str section;
+			u16 obj_id = GetSpawnInfo(P, parent_id, section);
+
+			if (spawn_antifreeze_debug) Msg("[ProcessSpawnEvents] spawning section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
+
+			// demonized: If item is II_BOLT class - go through anyway
+			if (pSettings->line_exist(section.c_str(), "class") && strstr(pSettings->r_string(section.c_str(), "class"), "II_BOLT") != nullptr)
+			{
+				// demonized: this is a sin, but its an easy way
+				goto spawn;
+			}
+
+			// demonized: If there is a parent of this object, check if its still in alife
+			if (parent_id != 0xffff)
+			{
+				auto parent_obj = ai().alife().objects().object(parent_id);
+				if (!parent_obj || !parent_obj->m_bOnline)
+				{
+					if (spawn_antifreeze_debug) Msg("![ProcessSpawnEvents] parent object is not in alife, do not spawn, section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
+					it = spawn_events->queue.erase(it); // remove current event
+					continue;
+				}
+			}
+
+		spawn:
+			u16 dummy16;
+			P.r_begin(dummy16);
+			cl_Process_Spawn(P);
+			it = spawn_events->queue.erase(it);
+		} __except(EXCEPTION_EXECUTE_HANDLER) {
+			Msg("! [ProcessSpawnEvents] CRASH at frame %u, exception 0x%08X — skipping event",
+				Device.dwFrame, GetExceptionCode());
+			FlushLog();
+			it = spawn_events->queue.erase(it);
+		}
 	}
 }
 #endif
@@ -951,7 +966,7 @@ void CLevel::OnFrame()
 	if (!g_dedicated_server)
 	{
 		if (g_mt_config.test(mtMap))
-			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(m_map_manager, &CMapManager::Update));
+			Device.add_to_seq_parallel(fastdelegate::FastDelegate0<>(m_map_manager, &CMapManager::Update));
 		else
 			MapManager().Update();
 		if (IsGameTypeSingle() && Device.dwPrecacheFrame == 0)
@@ -1067,7 +1082,7 @@ void CLevel::OnFrame()
 	{
 		if (g_mt_config.test(mtLevelSounds))
 		{
-			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(
+			Device.add_to_seq_parallel(fastdelegate::FastDelegate0<>(
 				m_level_sound_manager, &CLevelSoundManager::Update));
 		}
 		else
@@ -1078,7 +1093,7 @@ void CLevel::OnFrame()
 	if (!g_dedicated_server)
 	{
 		if (g_mt_config.test(mtLUA_GC))
-			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(this, &CLevel::script_gc));
+			Device.add_to_seq_parallel(fastdelegate::FastDelegate0<>(this, &CLevel::script_gc));
 		else
 			script_gc();
 	}
@@ -1188,7 +1203,12 @@ void CLevel::OnRender()
 	if (use_reshade)
 		render_reshade_effects();
 
-	HUD().RenderUI();
+	__try {
+		HUD().RenderUI();
+	} __except(EXCEPTION_EXECUTE_HANDLER) {
+		static bool warned = false;
+		if (!warned) { warned = true; Msg("! CRASH in HUD().RenderUI() at frame %u - UI rendering disabled", Device.dwFrame); }
+	}
 
 	ScriptDebugRender();
 

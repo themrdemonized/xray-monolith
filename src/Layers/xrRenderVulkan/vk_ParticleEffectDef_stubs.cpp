@@ -166,6 +166,77 @@ int CPEDef::Load2(CInifile& ini)
 }
 
 // ============================================================================
+// Load - Load particle effect from binary IReader (particles.xr)
+// ============================================================================
+BOOL CPEDef::Load(IReader& F)
+{
+    R_ASSERT(F.find_chunk(PED_CHUNK_VERSION));
+    u16 version = F.r_u16();
+
+    if (version != PED_VERSION)
+        return FALSE;
+
+    R_ASSERT(F.find_chunk(PED_CHUNK_NAME));
+    F.r_stringZ(m_Name);
+
+    R_ASSERT(F.find_chunk(PED_CHUNK_EFFECTDATA));
+    m_MaxParticles = F.r_u32();
+
+    {
+        u32 action_list = F.find_chunk(PED_CHUNK_ACTIONLIST);
+        R_ASSERT(action_list);
+        m_Actions.w(F.pointer(), action_list);
+    }
+
+    F.r_chunk(PED_CHUNK_FLAGS, &m_Flags);
+
+    if (m_Flags.is(dfSprite))
+    {
+        R_ASSERT(F.find_chunk(PED_CHUNK_SPRITE));
+        F.r_stringZ(m_ShaderName);
+        F.r_stringZ(m_TextureName);
+    }
+
+    if (m_Flags.is(dfFramed))
+    {
+        R_ASSERT(F.find_chunk(PED_CHUNK_FRAME));
+        F.r(&m_Frame, sizeof(SFrame));
+    }
+
+    if (m_Flags.is(dfTimeLimit))
+    {
+        R_ASSERT(F.find_chunk(PED_CHUNK_TIMELIMIT));
+        m_fTimeLimit = F.r_float();
+    }
+
+    if (m_Flags.is(dfCollision))
+    {
+        R_ASSERT(F.find_chunk(PED_CHUNK_COLLISION));
+        m_fCollideOneMinusFriction = F.r_float();
+        m_fCollideResilience = F.r_float();
+        m_fCollideSqrCutoff = F.r_float();
+    }
+
+    if (m_Flags.is(dfVelocityScale))
+    {
+        R_ASSERT(F.find_chunk(PED_CHUNK_VEL_SCALE));
+        F.r_fvector3(m_VelocityScale);
+    }
+
+    if (m_Flags.is(dfAlignToPath))
+    {
+        if (F.find_chunk(PED_CHUNK_ALIGN_TO_PATH))
+        {
+            F.r_fvector3(m_APDefaultRotation);
+        }
+    }
+
+    // Note: PED_CHUNK_EDATA is editor-only data, skipped in Vulkan renderer
+
+    return TRUE;
+}
+
+// ============================================================================
 // CreateShader - Create Vulkan shader for particle rendering
 // ============================================================================
 void CPEDef::CreateShader()
@@ -195,10 +266,9 @@ void CPEDef::CreateShader()
         return;
     }
 
-    // Cache shader pointer
-    // Note: m_CachedShader is ref_shader in original, but for Vulkan we store CVulkanShader*
-    // This is a workaround since we can't modify the base class
-    m_CachedShader = (void*)shader;
+    // Note: m_CachedShader is ref_shader in original DX code.
+    // For Vulkan, shader caching is handled differently - skip assignment.
+    // The Vulkan particle system uses its own shader binding path.
 
     Msg("[Vulkan] Particle shader created: %s -> %s + %s",
         m_Name.c_str(), m_ShaderName.c_str(), m_TextureName.c_str());
@@ -214,14 +284,6 @@ void CPEDef::DestroyShader()
         // Note: Shader is managed by g_VulkanShaderManager, we just clear the pointer
         m_CachedShader = nullptr;
     }
-}
-
-// ============================================================================
-// Name - Get particle effect name
-// ============================================================================
-const char* CPEDef::Name() const
-{
-    return m_Name.c_str();
 }
 
 } // namespace PS
@@ -247,6 +309,52 @@ CPGDef::~CPGDef()
         xr_delete(effect);
     }
     m_Effects.clear();
+}
+
+// ============================================================================
+// Load - Load particle group from binary IReader (particles.xr)
+// ============================================================================
+BOOL CPGDef::Load(IReader& F)
+{
+    R_ASSERT(F.find_chunk(PGD_CHUNK_VERSION));
+    u16 version = F.r_u16();
+
+    if (version != PGD_VERSION)
+    {
+        Log("!Unsupported PG version. Load failed.");
+        return FALSE;
+    }
+
+    R_ASSERT(F.find_chunk(PGD_CHUNK_NAME));
+    F.r_stringZ(m_Name);
+
+    F.r_chunk(PGD_CHUNK_FLAGS, &m_Flags);
+
+    if (F.find_chunk(PGD_CHUNK_TIME_LIMIT))
+        m_fTimeLimit = F.r_float();
+    else
+        m_fTimeLimit = 0.0f;
+
+    bool dont_calc_timelimit = m_fTimeLimit > 0.0f;
+    if (F.find_chunk(PGD_CHUNK_EFFECTS))
+    {
+        m_Effects.resize(F.r_u32());
+        for (EffectIt it = m_Effects.begin(); it != m_Effects.end(); it++)
+        {
+            *it = xr_new<SEffect>();
+            F.r_stringZ((*it)->m_EffectName);
+            F.r_stringZ((*it)->m_OnPlayChildName);
+            F.r_stringZ((*it)->m_OnBirthChildName);
+            F.r_stringZ((*it)->m_OnDeadChildName);
+            (*it)->m_Time0 = F.r_float();
+            (*it)->m_Time1 = F.r_float();
+            (*it)->m_Flags.assign(F.r_u32());
+
+            if (!dont_calc_timelimit)
+                m_fTimeLimit = _max(m_fTimeLimit, (*it)->m_Time1);
+        }
+    }
+    return TRUE;
 }
 
 // ============================================================================

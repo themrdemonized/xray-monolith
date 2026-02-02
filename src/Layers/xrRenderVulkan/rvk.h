@@ -37,6 +37,7 @@ template<typename T, typename base_type> class intrusive_ptr;
 namespace VK {
     class CVulkanBuffer;
     class CVulkanShader;
+    class CDetailManager;
 }
 
 // ============================================================================
@@ -150,6 +151,7 @@ public:
     CLight_DB       Lights;     // Light database (point, spot, directional)
     CPSLibrary      PSLibrary;  // Particle system library
     vkCWallmarksEngine* Wallmarks;  // Wallmark engine (blood, bullet holes, decals)
+    VK::CDetailManager* Details;    // Detail rendering system (grass/debris)
 
     // ========================================================================
     // Level data (loaded from level.geom and level file)
@@ -390,6 +392,7 @@ private:
     void LoadSectors(IReader* fs);
     void LoadSWIs(CStreamReader* fs);
     void LoadLights(IReader* fs);
+    void Load3DFluid();  // Phase 0: 3D Fluid volumes
 
     // ========================================================================
     // Sun cascade shadow maps (Phase 2.15)
@@ -444,6 +447,12 @@ public:
     // Dynamic visual expansion (hierarchy, particles, skeletons)
     // ========================================================================
     void add_leafs_Dynamic_VK(vkRender_Visual* pVisual);
+
+    // ========================================================================
+    // Shader selection for render queue routing
+    // ========================================================================
+    ShaderElement* rimp_select_sh_static(dxRender_Visual* pVisual, float cdist_sq);
+    ShaderElement* rimp_select_sh_dynamic(dxRender_Visual* pVisual, float cdist_sq);
 
     // ========================================================================
     // Level buffer access (for visuals using OGF_GCONTAINER)

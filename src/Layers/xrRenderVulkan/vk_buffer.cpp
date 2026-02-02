@@ -103,6 +103,11 @@ void CVulkanBuffer::Destroy()
 // Upload данных
 void CVulkanBuffer::Upload(const void* data, VkDeviceSize size, VkDeviceSize offset)
 {
+    if (!IsValid()) {
+        Msg("![Vulkan] Upload: buffer is not valid (Create() was not called or failed)");
+        return;
+    }
+
     if (!data) {
         Msg("![Vulkan] Upload: data is null");
         return;
@@ -156,6 +161,11 @@ void CVulkanBuffer::Upload(const void* data, VkDeviceSize size, VkDeviceSize off
 // Upload через staging buffer
 void CVulkanBuffer::UploadViaStaging(const void* data, VkDeviceSize size, VkDeviceSize offset)
 {
+    if (!IsValid()) {
+        Msg("![Vulkan] UploadViaStaging: destination buffer is not valid");
+        return;
+    }
+
     // Создаём staging buffer
     CVulkanBuffer stagingBuffer;
     stagingBuffer.Create(
@@ -163,6 +173,11 @@ void CVulkanBuffer::UploadViaStaging(const void* data, VkDeviceSize size, VkDevi
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         VMA_MEMORY_USAGE_AUTO_PREFER_HOST
     );
+
+    if (!stagingBuffer.IsValid()) {
+        Msg("![Vulkan] UploadViaStaging: failed to create staging buffer");
+        return;
+    }
 
     // Копируем данные в staging
     void* mapped = stagingBuffer.Map();
@@ -177,7 +192,13 @@ void CVulkanBuffer::UploadViaStaging(const void* data, VkDeviceSize size, VkDevi
     stagingBuffer.Unmap();
 
     // Копируем staging → destination buffer через GPU
-    VkCommandBuffer cmd = CommandManager.Begin();
+    // Use dedicated immediate command buffer to avoid corrupting the render frame's cmd buffer
+    VkCommandBuffer cmd = CommandManager.BeginImmediate();
+    if (cmd == VK_NULL_HANDLE) {
+        Msg("![Vulkan] UploadViaStaging: failed to begin immediate cmd");
+        stagingBuffer.Destroy();
+        return;
+    }
 
     VkBufferCopy copyRegion = {};
     copyRegion.srcOffset = 0;
@@ -186,18 +207,8 @@ void CVulkanBuffer::UploadViaStaging(const void* data, VkDeviceSize size, VkDevi
 
     vkCmdCopyBuffer(cmd, stagingBuffer.m_Buffer, m_Buffer, 1, &copyRegion);
 
-    // Submit и ждём завершения
-    // TODO Phase 2: Использовать fence для async transfers
-    CommandManager.End(cmd);
-
-    // Submit immediately и wait
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-
-    vkQueueSubmit(VulkanHW.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(VulkanHW.m_GraphicsQueue);
+    // Submit and wait using dedicated fence
+    CommandManager.EndAndSubmitImmediate(cmd);
 
     // Cleanup staging buffer
     stagingBuffer.Destroy();
@@ -206,6 +217,11 @@ void CVulkanBuffer::UploadViaStaging(const void* data, VkDeviceSize size, VkDevi
 // Map memory
 void* CVulkanBuffer::Map()
 {
+    if (!IsValid()) {
+        Msg("![Vulkan] Map: buffer is not valid (Create() was not called or failed)");
+        return nullptr;
+    }
+
     if (m_Mapped != nullptr) {
         // Already mapped (persistent-mapped uniform buffer)
         return m_Mapped;
@@ -226,6 +242,10 @@ void* CVulkanBuffer::Map()
 // Unmap memory
 void CVulkanBuffer::Unmap()
 {
+    if (!IsValid()) {
+        return;
+    }
+
     if (m_Mapped == nullptr) {
         return;
     }
@@ -242,6 +262,10 @@ void CVulkanBuffer::Unmap()
 // Flush (для non-coherent memory)
 void CVulkanBuffer::Flush()
 {
+    if (!IsValid()) {
+        return;
+    }
+
     VkResult result = vmaFlushAllocation(VulkanHW.m_Allocator, m_Allocation, 0, VK_WHOLE_SIZE);
     if (result != VK_SUCCESS) {
         Msg("![Vulkan] vmaFlushAllocation failed: %d", result);
@@ -251,6 +275,10 @@ void CVulkanBuffer::Flush()
 // Invalidate (для non-coherent memory)
 void CVulkanBuffer::Invalidate()
 {
+    if (!IsValid()) {
+        return;
+    }
+
     VkResult result = vmaInvalidateAllocation(VulkanHW.m_Allocator, m_Allocation, 0, VK_WHOLE_SIZE);
     if (result != VK_SUCCESS) {
         Msg("![Vulkan] vmaInvalidateAllocation failed: %d", result);

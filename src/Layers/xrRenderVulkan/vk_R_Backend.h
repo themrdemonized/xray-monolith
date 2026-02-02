@@ -5,6 +5,7 @@
 #pragma once
 #include "stdafx.h"
 #include "../xrRender/FVF.h"  // For FVF::L in debug rendering
+#include "vk_buffer.h"         // For CVulkanBuffer (bone matrices)
 
 // Forward declarations (must be struct to match Shader.h definitions)
 struct SGeometry;
@@ -102,16 +103,62 @@ public:
 // CBackend - Low-level Vulkan render backend
 // ============================================================================
 // ============================================================================
-// _VertexStream_vk - Dynamic vertex buffer manager (stub for compatibility)
+// _VertexStream_vk - Dynamic vertex buffer manager (ring buffer)
+// ============================================================================
+// Implements a ring buffer for dynamic vertex data (particles, UI, debug geometry).
+// Uses persistent mapping with NOOVERWRITE/DISCARD pattern like D3D11.
+//
+// Usage:
+//   u32 offset;
+//   void* data = Vertex.Lock(100, 32, offset);  // Lock 100 vertices
+//   memcpy(data, vertices, 100 * 32);
+//   Vertex.Unlock(100, 32);
+//   vkCmdDraw(..., offset, ...);
 // ============================================================================
 class _VertexStream_vk
 {
 private:
-    VkBuffer m_Buffer = VK_NULL_HANDLE;
+    VkBuffer        m_Buffer = VK_NULL_HANDLE;
+    VmaAllocation   m_Allocation = VK_NULL_HANDLE;
+    void*           m_MappedData = nullptr;
+
+    u32             m_Size = 0;         // Total buffer size in bytes
+    u32             m_Position = 0;     // Current write position in bytes
+    u32             m_DiscardID = 0;    // Increments on each discard (for tracking)
+
+#ifdef DEBUG
+    u32             dbg_lock = 0;       // Debug: ensure Lock/Unlock pairs
+#endif
+
 public:
-    IC VkBuffer Buffer() { return m_Buffer; }
-    IC void* Lock(u32 vl_Count, u32 Stride, u32& vOffset) { return nullptr; } // TODO: implement
-    void Unlock(u32 Count, u32 Stride) {} // TODO: implement
+    _VertexStream_vk();
+    ~_VertexStream_vk();
+
+    // Create dynamic vertex buffer (called once at startup)
+    void Create();
+
+    // Destroy buffer
+    void Destroy();
+
+    // Reset at frame begin/end
+    void reset_begin();
+    void reset_end();
+
+    // Accessors
+    IC VkBuffer Buffer() const { return m_Buffer; }
+    IC u32 DiscardID() const { return m_DiscardID; }
+    IC u32 GetSize() const { return m_Size; }
+
+    // Force flush (reset position to start)
+    void Flush() { m_Position = m_Size; }
+
+    // Lock for writing vertex data
+    // Returns pointer to mapped memory, sets vOffset to vertex offset (not byte offset!)
+    // Uses DISCARD (rewind) or NOOVERWRITE (append) strategy
+    void* Lock(u32 vl_Count, u32 Stride, u32& vOffset);
+
+    // Unlock after writing
+    void Unlock(u32 Count, u32 Stride);
 };
 
 class CBackend
@@ -129,8 +176,16 @@ public:
     u32                     m_VBStride = 0;
     VkIndexType             m_IndexType = VK_INDEX_TYPE_UINT16;
 
+    // === G-Buffer stride tracking (for per-visual pipeline switching) ===
+    u32                     m_CurrentGBufStride = 0;
+
     // === Dynamic vertex/index streams (for runtime geometry) ===
     _VertexStream_vk        Vertex;
+
+    // === Bone matrices for skeletal animation (GPU skinning) ===
+    VK::CVulkanBuffer       m_BoneBuffer;           // Uniform buffer for bone matrices
+    static const u32        MAX_BONES = 256;        // Maximum bones per mesh
+    Fmatrix*                m_BoneMapped = nullptr; // Mapped pointer to bone data
 
     // === Transforms ===
     R_xforms_vk             xforms;
@@ -228,6 +283,10 @@ public:
     // Constant arrays (skeleton compatibility)
     void set_ca(void* c, u32 startReg, u32 count, const void* data);
     void set_ca(void* c, u32 index, float v0, float v1, float v2, float v3);  // Vector overload
+
+    // Get bone buffer for descriptor set binding
+    IC VkBuffer GetBoneBuffer() const { return m_BoneBuffer.m_Buffer; }
+    IC bool IsBoneBufferValid() const { return m_BoneBuffer.IsValid(); }
 
     // ========================================================================
     // Render target (P3 - Later)

@@ -5,7 +5,9 @@
 #include "stdafx.h"
 #include "vk_R_Backend.h"
 #include "HW_Vulkan.h"
+#include "vk_lighting.h"
 #include "../xrRender/fvf.h"
+#include "../xrRender/Shader.h"  // SGeometry definition for set_Geometry()
 
 // VULKAN_DIAG
 static void VulkanDiagWriteBackend(const char* msg) {
@@ -260,6 +262,9 @@ void CBackend::OnFrameBegin()
     // Reset transforms
     xforms.unmap();
 
+    // Reset dynamic streams
+    Vertex.reset_begin();
+
     // Only log occasionally to avoid spam
     s_FrameCount++;
     if (s_FrameCount % 300 == 1) {  // Every ~5 seconds at 60fps
@@ -269,6 +274,9 @@ void CBackend::OnFrameBegin()
 
 void CBackend::OnFrameEnd()
 {
+    // Reset dynamic streams
+    Vertex.reset_end();
+
     // Log statistics occasionally
     if (s_FrameCount % 300 == 0) {
         Msg("[Vulkan] Frame stats - polys:%u verts:%u calls:%u xforms:%u",
@@ -279,12 +287,45 @@ void CBackend::OnFrameEnd()
 void CBackend::OnDeviceCreate()
 {
     Msg("[Vulkan] CBackend::OnDeviceCreate");
+
+    // Create dynamic vertex stream
+    Vertex.Create();
+
+    // Create bone matrix uniform buffer for skeletal animation (GPU skinning)
+    // Size = MAX_BONES * sizeof(Fmatrix) = 256 * 64 = 16KB
+    VkDeviceSize boneBufferSize = MAX_BONES * sizeof(Fmatrix);
+    m_BoneBuffer.Create(
+        boneBufferSize,
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_CPU_TO_GPU  // CPU writes, GPU reads
+    );
+
+    if (m_BoneBuffer.IsValid() && m_BoneBuffer.IsMapped())
+    {
+        m_BoneMapped = (Fmatrix*)m_BoneBuffer.m_Mapped;
+        Msg("[Vulkan] Bone buffer created: %zu KB (%d bones max)",
+            boneBufferSize / 1024, MAX_BONES);
+    }
+    else
+    {
+        Msg("![Vulkan] Failed to create bone buffer");
+        m_BoneMapped = nullptr;
+    }
+
     Invalidate();
 }
 
 void CBackend::OnDeviceDestroy()
 {
     Msg("[Vulkan] CBackend::OnDeviceDestroy");
+
+    // Destroy bone buffer
+    m_BoneMapped = nullptr;
+    m_BoneBuffer.Destroy();
+
+    // Destroy dynamic vertex stream
+    Vertex.Destroy();
+
     Invalidate();
 }
 
@@ -294,6 +335,16 @@ void CBackend::OnDeviceDestroy()
 void CBackend::BeginCommandBuffer(VkCommandBuffer cmd)
 {
     m_Cmd = cmd;
+
+    // New command buffer does NOT inherit any state from previous one.
+    // Reset all tracked state so set_Pipeline/set_Vertices/etc. rebind correctly.
+    m_CurrentPipeline = VK_NULL_HANDLE;
+    for (u32 i = 0; i < 4; ++i)
+        m_CurrentDescriptorSets[i] = VK_NULL_HANDLE;
+    m_BoundDescriptorSetCount = 0;
+    m_CurrentVB = VK_NULL_HANDLE;
+    m_CurrentIB = VK_NULL_HANDLE;
+    m_VBStride = 0;
 }
 
 void CBackend::EndCommandBuffer()
@@ -335,8 +386,20 @@ void CBackend::set_Indices(VkBuffer ib, VkIndexType indexType)
 
 void CBackend::set_Geometry(SGeometry* geom)
 {
-    // TODO: Extract VB/IB from SGeometry when implemented
-    // For now, this is a stub
+    if (!geom) return;
+
+    // In Vulkan renderer, SGeometry::vb/ib store CVulkanBuffer* as void*.
+    // Cast back and extract VkBuffer handles.
+    // Note: Vulkan visuals (vkFVisual) bypass this and call set_Vertices/set_Indices directly.
+    // This path is for shared code compatibility (FSkinned soft-skinning, etc.)
+    VK::CVulkanBuffer* vkVB = reinterpret_cast<VK::CVulkanBuffer*>(geom->vb);
+    VK::CVulkanBuffer* vkIB = reinterpret_cast<VK::CVulkanBuffer*>(geom->ib);
+
+    if (vkVB && vkVB->GetHandle() != VK_NULL_HANDLE)
+        set_Vertices(vkVB->GetHandle(), geom->vb_stride);
+
+    if (vkIB && vkIB->GetHandle() != VK_NULL_HANDLE)
+        set_Indices(vkIB->GetHandle());
 }
 
 // ============================================================================
@@ -386,13 +449,16 @@ void CBackend::set_Element(ShaderElement* S, u32 pass)
 // ============================================================================
 void CBackend::set_c(LPCSTR name, float x, float y, float z, float w)
 {
-    // TODO: Implement push constants or uniform buffer updates
-    // For now, store in a pending update structure
+    // Redirect to VulkanLighting constant manager
+    if (VK::g_VulkanLighting)
+        VK::g_VulkanLighting->SetConstant(name, x, y, z, w);
 }
 
 void CBackend::set_c(LPCSTR name, const Fmatrix& M)
 {
-    // TODO: Implement push constants or uniform buffer updates
+    // Redirect to VulkanLighting constant manager
+    if (VK::g_VulkanLighting)
+        VK::g_VulkanLighting->SetConstant(name, M);
 }
 
 void CBackend::set_c(LPCSTR name, const Fvector4& V)
@@ -410,16 +476,72 @@ void* CBackend::get_c(LPCSTR name)
 
 void CBackend::set_ca(void* c, u32 startReg, u32 count, const void* data)
 {
-    // TODO: Implement shader constant array setting
-    // For skeleton compatibility, stub for now
-    // Skeleton code uses this to upload bone matrix arrays
+    // Upload bone matrix array to uniform buffer
+    // Used by skeletal animation (GPU skinning)
+    //
+    // Parameters:
+    //   c        - constant buffer pointer (ignored in Vulkan, we use m_BoneBuffer)
+    //   startReg - first matrix index (register index in DX terms)
+    //   count    - number of matrices to copy
+    //   data     - source data (Fmatrix array)
+
+    if (!m_BoneMapped || !data)
+    {
+        Msg("![Vulkan] set_ca() - bone buffer not mapped or data is null");
+        return;
+    }
+
+    if (startReg + count > MAX_BONES)
+    {
+        Msg("![Vulkan] set_ca() - bone count overflow: start=%d, count=%d, max=%d",
+            startReg, count, MAX_BONES);
+        return;
+    }
+
+    // Copy bone matrices to mapped buffer
+    // Each matrix is 16 floats (4x4)
+    const Fmatrix* src = (const Fmatrix*)data;
+    Fmatrix* dst = m_BoneMapped + startReg;
+
+    for (u32 i = 0; i < count; i++)
+    {
+        dst[i] = src[i];
+    }
+
+    // Flush to GPU (ensure visibility)
+    // CVulkanBuffer::Flush() handles vkFlushMappedMemoryRanges if needed
+    m_BoneBuffer.Flush();
 }
 
 void CBackend::set_ca(void* c, u32 index, float v0, float v1, float v2, float v3)
 {
-    // TODO: Implement shader constant vector setting
-    // For skeleton compatibility, stub for now
-    // Skeleton code uses this to set individual bone matrix rows
+    // Set individual vector in bone matrix array
+    // Used for setting matrix rows one by one
+    //
+    // This is rarely used - most code uses the array version above
+    // Kept for compatibility with legacy skeleton code
+
+    if (!m_BoneMapped)
+    {
+        return;
+    }
+
+    // Each Fmatrix has 4 rows (i, j, k, c)
+    // Index points to float4 (vec4) within the bone array
+    u32 matrix_idx = index / 4;      // Which matrix (0..255)
+    u32 row_idx = index % 4;          // Which row (0..3)
+
+    if (matrix_idx >= MAX_BONES)
+    {
+        return;
+    }
+
+    // Access matrix row as float array
+    float* row = (float*)&m_BoneMapped[matrix_idx] + (row_idx * 4);
+    row[0] = v0;
+    row[1] = v1;
+    row[2] = v2;
+    row[3] = v3;
 }
 
 void CBackend::set_Geometry(void* ref_geom)

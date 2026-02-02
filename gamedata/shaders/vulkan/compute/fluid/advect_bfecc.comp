@@ -1,0 +1,51 @@
+#version 450
+// 3D Fluid BFECC Advection
+// Back and Forth Error Correction for higher accuracy advection
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+// Input textures
+layout(set = 0, binding = 0) uniform sampler3D velocityTex;      // Velocity field
+layout(set = 0, binding = 1) uniform sampler3D scalarTex;        // Original field
+layout(set = 0, binding = 2) uniform sampler3D scalarForwardTex; // Forward advected
+layout(set = 0, binding = 3) uniform sampler3D scalarBackTex;    // Backward advected
+
+// Output texture
+layout(set = 0, binding = 4, r16f) writeonly uniform image3D scalarOut;
+
+// Parameters
+layout(push_constant) uniform Params {
+    float timeStep;
+    float dissipation;
+    float padding1;
+    float padding2;
+} params;
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    uvec3 gridSize = imageSize(scalarOut);
+
+    if (any(greaterThanEqual(id, gridSize))) {
+        return;
+    }
+
+    vec3 uvw = (vec3(id) + 0.5) / vec3(gridSize);
+
+    // BFECC error correction:
+    // phi_corrected = phi_forward + 0.5 * (phi_original - phi_back)
+
+    float phiOriginal = texture(scalarTex, uvw).r;
+    float phiForward = texture(scalarForwardTex, uvw).r;
+    float phiBack = texture(scalarBackTex, uvw).r;
+
+    float error = 0.5 * (phiOriginal - phiBack);
+    float corrected = phiForward + error;
+
+    // Apply dissipation
+    corrected *= params.dissipation;
+
+    // Clamp to prevent overshoots
+    corrected = max(corrected, 0.0);
+
+    imageStore(scalarOut, ivec3(id), vec4(corrected, 0.0, 0.0, 0.0));
+}

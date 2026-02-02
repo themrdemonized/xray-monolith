@@ -43,7 +43,7 @@ VkShaderModule CVulkanSPIRVLoader::Load(const char* filename)
     // Проверяем кэш
     auto it = m_Modules.find(filename);
     if (it != m_Modules.end()) {
-        Msg("[Vulkan] Shader '%s' already loaded (cached)", filename);
+        // Shader already loaded (cached)
         return it->second;
     }
 

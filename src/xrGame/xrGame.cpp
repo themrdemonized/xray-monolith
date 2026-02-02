@@ -24,10 +24,24 @@
 //#pragma comment(lib,"ode.lib")
 //#pragma comment(lib,"xrEngine.lib")
 
+static void GameDiagWrite(const char* msg) {
+	HANDLE h = CreateFileA("D:\\anomaly\\appdata\\logs\\vulkan_diag.txt",
+		FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h != INVALID_HANDLE_VALUE) {
+		DWORD written;
+		WriteFile(h, msg, (DWORD)strlen(msg), &written, NULL);
+		WriteFile(h, "\r\n", 2, &written, NULL);
+		FlushFileBuffers(h);
+		CloseHandle(h);
+	}
+}
+
 extern "C" {
 DLL_API DLL_Pure* __cdecl xrFactory_Create(CLASS_ID clsid)
 {
-	DLL_Pure* object = object_factory().client_object(clsid);
+	const CObjectFactory& factory = object_factory();
+	DLL_Pure* object = factory.client_object(clsid);
 #ifdef DEBUG
 		if (!object)
 			return			(0);

@@ -22,13 +22,16 @@ public:
     VkFormat      m_Format     = VK_FORMAT_UNDEFINED;
     u32           m_Width      = 0;
     u32           m_Height     = 0;
+    u32           m_Depth      = 1;  // For 3D textures
 
     bool          m_IsDepth    = false;
     bool          m_IsCubemap  = false;
+    bool          m_Is3D       = false;
 
 public:
     void Create(VkFormat format, u32 width, u32 height, VkImageUsageFlags usage, bool isDepth = false);
     void CreateCube(VkFormat format, u32 width, u32 height, VkImageUsageFlags usage, bool isDepth = false);
+    void Create3D(VkFormat format, u32 width, u32 height, u32 depth, VkImageUsageFlags usage);
     void Destroy();
 
     // Layout transitions
@@ -36,8 +39,14 @@ public:
 
     // Accessors
     VkImage GetImage() const { return m_Image; }
-    VkImageView GetView() const { return m_ImageView; }
+    VkImageView GetImageView() const { return m_ImageView; }
+    VkImageView GetView() const { return m_ImageView; }  // Alias
     VkSampler GetSampler() const { return m_Sampler; }  // For textures with samplers
+
+    u32 GetWidth() const { return m_Width; }
+    u32 GetHeight() const { return m_Height; }
+    u32 GetDepth() const { return m_Depth; }
+    bool Is3D() const { return m_Is3D; }
 
     // Utility
     VkImageAspectFlags GetAspect() const;

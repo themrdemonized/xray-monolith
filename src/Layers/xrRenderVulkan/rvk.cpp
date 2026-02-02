@@ -4,6 +4,12 @@
 
 #include "stdafx.h"
 #include "rvk.h"
+
+// Definition of g_bDeviceLost (declared extern in vk_core.h)
+bool g_bDeviceLost = false;
+
+// Reset UI state on crash (defined in xrRender_Vulkan.cpp)
+extern "C" void VulkanUI_ResetState();
 #include "vk_R_Backend.h"
 #include "vk_sector.h"
 #include "HW_Vulkan.h"
@@ -26,15 +32,43 @@
 #include "vk_ParticleEffect.h"
 #include "vk_ParticleGroup.h"
 #include "vk_WallmarksEngine.h"
+#include "vk_DetailManager.h"
 #include "../xrRender/dxWallMarkArray.h"
 #include "../xrRender/dxUIShader.h"
+#include "3DFluid/vk3DFluidManager.h"  // Phase 0: 3D Fluid system
+#include "../xrRender/FBasicVisual.h"  // dxRender_Visual full definition
 #include "../xrRender/PSLibrary.h"
 #include "../../Include/xrRender/Kinematics.h"
 #include "../../xrCDB/ISpatial.h"
+#include "../../xrCDB/xrXRC.h"  // CDB::Collider for detectSector
 
-// Direct diagnostic write for crash debugging
-static void VkDiagFrame(const char* /*msg*/) {
-	// Disabled: file I/O per frame is too expensive
+// Direct diagnostic write for crash debugging (Win32 file I/O, bypasses Msg buffer)
+// After g_bDeviceLost, stops overwriting so the last phase before crash is preserved.
+static void VkDiagFrame(const char* msg) {
+	static HANDLE hFile = INVALID_HANDLE_VALUE;
+	static bool s_frozen = false;  // Stop writing after device lost
+
+	if (s_frozen) return;
+	if (g_bDeviceLost) { s_frozen = true; return; }
+
+	if (hFile == INVALID_HANDLE_VALUE) {
+		const char* paths[] = {
+			"vk_lastframe.txt",
+			"D:\\anomaly\\vk_lastframe.txt",
+			"D:\\anomaly\\bin\\vk_lastframe.txt"
+		};
+		for (int i = 0; i < 3 && hFile == INVALID_HANDLE_VALUE; i++)
+			hFile = CreateFileA(paths[i], GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+	if (hFile != INVALID_HANDLE_VALUE) {
+		SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
+		SetEndOfFile(hFile);
+		DWORD written;
+		char buf[256];
+		int len = wsprintfA(buf, "frame=%u %s\r\n", Device.dwFrame, msg);
+		WriteFile(hFile, buf, len, &written, NULL);
+		FlushFileBuffers(hFile);
+	}
 }
 
 // Light system
@@ -72,11 +106,20 @@ struct VulkanDiagRvk2 {
 } g_VulkanDiagRvk2;
 
 // SSA (Screen-Space Area) culling thresholds
-// Used by sector/portal traversal and LOD system
-float r_ssaDISCARD       = 4.f;    // Discard objects smaller than this SSA
-float r_ssaDONTSORT      = 32.f;   // Don't sort objects larger than this SSA (always full detail)
-float r_ssaLOD_A         = 64.f;   // Start LOD transition at this SSA
-float r_ssaLOD_B         = 48.f;   // End LOD transition at this SSA
+// Recomputed each frame in Calculate() from screen resolution (matching DX11)
+float r_ssaDISCARD       = 4.f;    // Will be overwritten in Calculate()
+float r_ssaDONTSORT      = 32.f;
+float r_ssaLOD_A         = 64.f;
+float r_ssaLOD_B         = 48.f;
+extern float r_dtex_range;         // defined in vk_console.cpp
+
+// Console variables (defined in vk_console.cpp)
+extern float ps_r__LOD;
+extern float ps_r__ssaDISCARD;
+extern float ps_r__ssaDONTSORT;
+extern float ps_r2_ssaLOD_A;
+extern float ps_r2_ssaLOD_B;
+extern float ps_r2_df_parallax_range;
 
 // External test render function (temporary)
 extern void TestRenderFrame();
@@ -119,6 +162,8 @@ CRender::CRender()
     VulkanDiagWriteRvk("[DIAG] CRender ctor: step 3 - subsystems");
     Models = nullptr;
     HOM = nullptr;
+    Details = nullptr;
+    Wallmarks = nullptr;
 
     VulkanDiagWriteRvk("[DIAG] CRender ctor: step 4 - level data");
     pLastSector = nullptr;
@@ -170,6 +215,12 @@ void CRender::create()
         Msg("[Vulkan] ModelPool created");
     }
 
+    // Create detail manager (grass/debris)
+    if (!Details) {
+        Details = xr_new<VK::CDetailManager>();
+        Msg("[Vulkan] DetailManager created");
+    }
+
     // Initialize particle system library
     PSLibrary.OnCreate();
     Msg("[Vulkan] PSLibrary initialized");
@@ -202,8 +253,14 @@ void CRender::create()
     // Create Vulkan Shader Manager (Phase 2.32)
     if (!g_VulkanShaderManager) {
         g_VulkanShaderManager = xr_new<VK::CVulkanShaderManager>();
-        g_VulkanShaderManager->Create();
-        Msg("[Vulkan] VulkanShaderManager created");
+        if (g_VulkanShaderManager) {
+            g_VulkanShaderManager->Create();
+            Msg("[Vulkan] VulkanShaderManager created");
+        } else {
+            Msg("![Vulkan] CRITICAL: Failed to allocate VulkanShaderManager!");
+            // This is a fatal error - without shader manager, rendering is impossible
+            // But we continue to avoid crashing during initialization
+        }
     }
 
     // Create Buffer Pool (Phase 2.23)
@@ -221,12 +278,22 @@ void CRender::create()
             Swapchain.m_Extent.width, Swapchain.m_Extent.height);
     }
 
+    // Initialize viewport to normal full-screen rendering
+    rmNormal();
+    Msg("[Vulkan] Viewport initialized (rmNormal)");
+
     // Initialize portal traverser for fade rendering
     vkPortalTraverser.initialize();
     Msg("[Vulkan] PortalTraverser initialized");
 
     // Initialize sun cascade shadow maps (Phase 2.15)
     init_sun_cascades();
+
+    // ========================================================================
+    // Register frame callback (CRITICAL - without this OnFrame won't work)
+    // ========================================================================
+    static_cast<IRenderDevice&>(Device).AddSeqFrame(this, false);  // Non-multithreaded
+    Msg("[Vulkan] Frame callback registered");
 
     Msg("[Vulkan] CRender::create() complete");
 }
@@ -237,6 +304,12 @@ extern void UITextureCache_DestroyAll();
 void CRender::destroy()
 {
     Msg("[Vulkan] CRender::destroy()");
+
+    // ========================================================================
+    // Unregister frame callback (prevent crashes after destroy)
+    // ========================================================================
+    static_cast<IRenderDevice&>(Device).RemoveSeqFrame(this);
+    Msg("[Vulkan] Frame callback unregistered");
 
     // Wait for GPU to finish
     if (VulkanHW.m_Device != VK_NULL_HANDLE) {
@@ -269,6 +342,13 @@ void CRender::destroy()
         xr_delete(Models);
         Models = nullptr;
         Msg("[Vulkan] ModelPool destroyed");
+    }
+
+    // Destroy detail manager
+    if (Details) {
+        xr_delete(Details);
+        Details = nullptr;
+        Msg("[Vulkan] DetailManager destroyed");
     }
 
     // Destroy render target
@@ -390,6 +470,20 @@ void CRender::Calculate()
     if (!b_loaded) return;
 
     // ========================================================================
+    // Compute SSA thresholds from screen resolution (same as DX11 R4)
+    // ========================================================================
+    {
+        IRender_Target* T = getTarget();
+        float fov_factor = _sqr(90.f / Device.fFOV);
+        float g_fSCREEN  = float(T->get_width() * T->get_height()) * fov_factor * (EPS_S + ps_r__LOD);
+        r_ssaDISCARD     = _sqr(ps_r__ssaDISCARD)      / g_fSCREEN;
+        r_ssaDONTSORT    = _sqr(ps_r__ssaDONTSORT / 3)  / g_fSCREEN;
+        r_ssaLOD_A       = _sqr(ps_r2_ssaLOD_A   / 3)  / g_fSCREEN;
+        r_ssaLOD_B       = _sqr(ps_r2_ssaLOD_B   / 3)  / g_fSCREEN;
+        r_dtex_range     = ps_r2_df_parallax_range * g_fSCREEN / (1024.f * 768.f);
+    }
+
+    // ========================================================================
     // Phase 2: Full scene graph with Portal Visibility and HOM Occlusion
     // ========================================================================
 
@@ -450,6 +544,27 @@ void CRender::Calculate()
         {
             vkCSector* sector = (vkCSector*)vkPortalTraverser.r_sectors[s_it];
             vkRender_Visual* root = sector->root();
+
+            // Diagnostic: log root visual info once
+            static u32 diag_frame = 0;
+            if (Device.dwFrame - diag_frame > 600)
+            {
+                diag_frame = Device.dwFrame;
+                if (root)
+                {
+                    Msg("[VK-DIAG] Sector %u: root=%p type=%u frustums=%u",
+                        s_it, root, root->Type, sector->r_frustums.size());
+                    if (root->Type == MT_HIERRARHY)
+                    {
+                        vkFHierrarhyVisual* pH = (vkFHierrarhyVisual*)root;
+                        Msg("[VK-DIAG]   hierarchy children: %u", pH->children.size());
+                    }
+                }
+                else
+                {
+                    Msg("[VK-DIAG] Sector %u: root=NULL", s_it);
+                }
+            }
 
             // Process each frustum for this sector
             for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
@@ -602,15 +717,77 @@ ICF float CalcSSA(float& distSQ, Fvector& C, float R)
 }
 
 // ============================================================================
+// rimp_select_sh_static - Select shader element for static geometry
+// ============================================================================
+// Chooses appropriate shader element from visual's shader array based on:
+// - Rendering phase (normal, shadow map, etc.)
+// - Distance to camera (HQ vs LQ)
+// Returns shader element with flags (bDistort, bEmissive, bStrictB2F, etc.)
+ShaderElement* CRender::rimp_select_sh_static(dxRender_Visual* pVisual, float cdist_sq)
+{
+    // Vulkan: visuals use vkRender_Visual (not dxRender_Visual), so they don't
+    // have the DX11 ref_shader member. We return a default ShaderElement to let
+    // visuals pass through the dsgraph pipeline. Actual Vulkan shader binding
+    // happens in vkFVisual::Render() using shader_id -> Shaders[] lookup.
+    static ShaderElement* s_default = nullptr;
+    if (!s_default) {
+        s_default = xr_new<ShaderElement>();
+        s_default->flags.iPriority   = 1;
+        s_default->flags.bStrictB2F  = 0;
+        s_default->flags.bEmissive   = 0;
+        s_default->flags.bDistort    = 0;
+        s_default->flags.bWmark      = 0;
+        s_default->flags.bLandscape  = 0;
+    }
+    return s_default;
+}
+
+// ============================================================================
+// rimp_select_sh_dynamic - Select shader element for dynamic geometry
+// ============================================================================
+// Similar to rimp_select_sh_static but for dynamic objects (characters, items)
+ShaderElement* CRender::rimp_select_sh_dynamic(dxRender_Visual* pVisual, float cdist_sq)
+{
+    // Vulkan: same as rimp_select_sh_static - return default ShaderElement.
+    // Actual shader binding happens in vkFVisual::Render() via shader_id.
+    return rimp_select_sh_static(pVisual, cdist_sq);
+}
+
+// ============================================================================
 // add_Static - Add static visual with full frustum culling
 // ============================================================================
 void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
 {
     if (!pVisual) return;
 
+    // Validate pointer is readable (guard against corrupted child pointers)
+    __try {
+        volatile u32 test = pVisual->Type;
+        (void)test;
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! add_Static: corrupted visual pointer %p at frame %u", pVisual, Device.dwFrame);
+        return;
+    }
+
     // Skip if already processed this frame
     if (pVisual->vis.marker == marker) return;
     pVisual->vis.marker = marker;
+
+    // Diagnostic: count visuals processed per frame
+    static u32 diag_add_frame2 = 0;
+    static u32 diag_total = 0;
+    static u32 diag_ssa_culled = 0;
+    static u32 diag_frustum_culled = 0;
+    static u32 diag_leaf_added = 0;
+    static u32 diag_hierarchy = 0;
+    if (Device.dwFrame != diag_add_frame2) {
+        if (diag_add_frame2 != 0 && (diag_add_frame2 % 300 == 0))
+            Msg("[VK-DIAG] Frame %u stats: total=%u ssa_culled=%u frustum_culled=%u hierarchy=%u leaf_added=%u lstNormal=%u",
+                diag_add_frame2, diag_total, diag_ssa_culled, diag_frustum_culled, diag_hierarchy, diag_leaf_added, lstNormal.size());
+        diag_add_frame2 = Device.dwFrame;
+        diag_total = diag_ssa_culled = diag_frustum_culled = diag_leaf_added = diag_hierarchy = 0;
+    }
+    diag_total++;
 
     // ========================================================================
     // SSA (Screen Space Area) Culling - Skip tiny objects
@@ -619,13 +796,13 @@ void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
     // Objects with SSA < r_ssaDISCARD are too small to be visible
     float distSQ;
     float SSA = CalcSSA(distSQ, pVisual->vis.sphere.P, pVisual);
-    if (SSA <= r_ssaDISCARD) return;  // Skip tiny objects
+    if (SSA <= r_ssaDISCARD) { diag_ssa_culled++; return; }  // Skip tiny objects
 
     // ========================================================================
     // Frustum culling with plane mask
     // ========================================================================
     EFC_Visible VIS = View->testSphere(pVisual->vis.sphere.P, pVisual->vis.sphere.R, planes);
-    if (VIS == fcvNone) return;  // Completely outside frustum
+    if (VIS == fcvNone) { diag_frustum_culled++; return; }  // Completely outside frustum
 
     // ========================================================================
     // HOM visibility test (optional - already done at sector level)
@@ -640,6 +817,7 @@ void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
     {
     case MT_HIERRARHY:
         {
+            diag_hierarchy++;
             // Hierarchical visual - recursively process children
             vkFHierrarhyVisual* pV = (vkFHierrarhyVisual*)pVisual;
             for (auto child : pV->children)
@@ -658,14 +836,27 @@ void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
 
     case MT_LOD:
         {
-            // LOD visual - add to LOD queue for later rendering
-            r_dsgraph_insert_LOD(reinterpret_cast<dxRender_Visual*>(pVisual));
+            // LOD visual - render children directly (skip LOD imposter for now)
+            vkFLOD* pLOD = (vkFLOD*)pVisual;
+            for (auto child : pLOD->children)
+            {
+                if (child)
+                    add_leafs_Static((vkRender_Visual*)child);
+            }
         }
         break;
 
     default:
-        // Regular visual - add to render queue
-        r_dsgraph_insert_static(reinterpret_cast<dxRender_Visual*>(pVisual));
+        {
+            diag_leaf_added++;
+            // Leaf visual - add directly to lstNormal render queue.
+            // We bypass r_dsgraph_insert_static() because it expects dxRender_Visual*
+            // layout which is incompatible with vkRender_Visual* memory layout.
+            R_dsgraph::_NormalItem item;
+            item.ssa = SSA;
+            item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+            lstNormal.push_back(item);
+        }
         break;
     }
 }
@@ -678,6 +869,15 @@ void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
 void CRender::add_leafs_Static(vkRender_Visual* pVisual)
 {
     if (!pVisual) return;
+
+    // Validate pointer is readable
+    __try {
+        volatile u32 test = pVisual->Type;
+        (void)test;
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! add_leafs_Static: corrupted visual pointer %p at frame %u", pVisual, Device.dwFrame);
+        return;
+    }
 
     // Skip if already processed
     if (pVisual->vis.marker == marker) return;
@@ -706,11 +906,25 @@ void CRender::add_leafs_Static(vkRender_Visual* pVisual)
         break;
 
     case MT_LOD:
-        r_dsgraph_insert_LOD(reinterpret_cast<dxRender_Visual*>(pVisual));
+        {
+            // LOD visual - render children directly
+            vkFLOD* pLOD = (vkFLOD*)pVisual;
+            for (auto child : pLOD->children)
+            {
+                if (child)
+                    add_leafs_Static((vkRender_Visual*)child);
+            }
+        }
         break;
 
     default:
-        r_dsgraph_insert_static(reinterpret_cast<dxRender_Visual*>(pVisual));
+        {
+            // Leaf visual - add directly to lstNormal
+            R_dsgraph::_NormalItem item;
+            item.ssa = SSA;
+            item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+            lstNormal.push_back(item);
+        }
         break;
     }
 }
@@ -766,8 +980,26 @@ void CRender::add_Static_Simple(vkRender_Visual* pVisual)
     lstNormal.push_back(item);
 }
 
+// Crash recovery tracking — if we crash too many times in a short window,
+// stop trying and leave g_bDeviceLost permanently set.
+static u32 s_crashCount = 0;
+static u32 s_lastCrashFrame = 0;
+static constexpr u32 MAX_CRASHES_PER_WINDOW = 5;   // max crashes allowed
+static constexpr u32 CRASH_WINDOW_FRAMES   = 300;  // within this many frames
+
 void CRender::Render()
 {
+    // Skip all rendering if device is permanently lost
+    if (g_bDeviceLost) return;
+
+    // Check crash loop: if too many crashes in a short window, give up permanently
+    if (s_crashCount >= MAX_CRASHES_PER_WINDOW &&
+        (Device.dwFrame - s_lastCrashFrame) <= CRASH_WINDOW_FRAMES)
+    {
+        g_bDeviceLost = true;
+        return;
+    }
+
     VkDiagFrame("[RENDER] Render() enter");
 
     // Skip rendering if no command buffer is active (swapchain not ready, window minimized, etc.)
@@ -825,20 +1057,61 @@ void CRender::Render()
     // ========================================================================
     // Render scene - Deferred Shading Pipeline
     // ========================================================================
+    // Heap corruption check at START of render pipeline (detect game logic corruption)
+    {
+        static u32 s_heapCheck0Frame = 0;
+        if (Device.dwFrame - s_heapCheck0Frame > 100) {
+            HANDLE heap = GetProcessHeap();
+            if (!HeapValidate(heap, 0, NULL)) {
+                Msg("!!! HEAP CORRUPT detected at START of Render() at frame %u", Device.dwFrame);
+                FlushLog();
+            }
+            s_heapCheck0Frame = Device.dwFrame;
+        }
+    }
+    bool bPassCrashed = false;  // Set by __except handlers to trigger recovery
+
+    // Wait for ALL GPU work before recording render passes.
+    // G-Buffer RTs are shared across frames — NVIDIA driver internal state
+    // gets corrupted if we record barriers while previous present is still in flight.
+    // Must be here (not in Begin_Inner) because corruption occurs after Begin.
+    vkDeviceWaitIdle(VulkanHW.m_Device);
 
     // ========================================================================
     // PASS 1: Shadow Map Pass (if level is loaded)
     // ========================================================================
-    VkDiagFrame("[RENDER] PASS 1: shadows");
-    if (b_loaded && !Visuals.empty()) {
+    VkDiagFrame("[RENDER] PASS 1: shadows (DISABLED for stability test)");
+    if (g_bDeviceLost) return;
+    // TEMPORARILY DISABLED: Shadow pass crashes at ~frame 1200-3500 in render_sun_cascades()
+    // Root cause: access violation in r_dsgraph_render_graph() during shadow geometry rendering
+    // TODO: Fix shadow caster geometry iteration (possible stale visual pointers)
+    if (false && b_loaded && !Visuals.empty()) {
         // Render cascade shadow maps for directional light (sun)
-        render_sun_cascades();
+        __try {
+            VkDiagFrame("[RENDER] PASS 1a: sun cascades");
+            render_sun_cascades();
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! CRASH in render_sun_cascades() at frame %u, exception 0x%08X",
+                Device.dwFrame, GetExceptionCode());
+            FlushLog();
+            bPassCrashed = true;
+        }
 
         // Render shadow cubemaps for point lights (Phase 2.16.2)
-        for (u32 i = 0; i < Lights.package.v_point.size(); i++) {
-            light* L = Lights.package.v_point[i];
-            if (L && L->flags.bActive && L->flags.bShadow) {
-                RTarget->phase_smap_point(L);
+        if (!bPassCrashed) {
+            __try {
+                VkDiagFrame("[RENDER] PASS 1b: point shadows");
+                for (u32 i = 0; i < Lights.package.v_point.size(); i++) {
+                    light* L = Lights.package.v_point[i];
+                    if (L && L->flags.bActive && L->flags.bShadow) {
+                        RTarget->phase_smap_point(L);
+                    }
+                }
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                Msg("! CRASH in point light shadows at frame %u, exception 0x%08X",
+                    Device.dwFrame, GetExceptionCode());
+                FlushLog();
+                bPassCrashed = true;
             }
         }
     }
@@ -846,62 +1119,108 @@ void CRender::Render()
     // ========================================================================
     // PASS 2: G-Buffer Pass (geometry to MRT)
     // ========================================================================
-    // Phase 2.21: Render opaque geometry to G-Buffer (position, normal, albedo, material)
-    //
-    // This fills the G-Buffer render targets for deferred shading:
-    //   - rt_Position: Eye-space positions
-    //   - rt_Normal: Eye-space normals
-    //   - rt_Color: Albedo (diffuse color)
-    //   - rt_Material: PBR properties (metallic/roughness/SSS/AO)
-    //   - Depth buffer: For occlusion and forward pass
-    //
     VkDiagFrame("[RENDER] PASS 2: gbuffer");
+    if (g_bDeviceLost || bPassCrashed) { if (bPassCrashed) goto render_crash_recovery; return; }
     if (b_loaded && RTarget) {
-        RTarget->phase_gbuffer();
+        // Heap corruption check BEFORE gbuffer
+        {
+            static u32 s_heapCheckFrame = 0;
+            if (Device.dwFrame - s_heapCheckFrame > 100) {
+                HANDLE heap = GetProcessHeap();
+                if (!HeapValidate(heap, 0, NULL)) {
+                    Msg("!!! HEAP CORRUPT detected BEFORE phase_gbuffer at frame %u", Device.dwFrame);
+                    FlushLog();
+                }
+                s_heapCheckFrame = Device.dwFrame;
+            }
+        }
+        __try {
+            RTarget->phase_gbuffer();
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! CRASH in phase_gbuffer() at frame %u, exception 0x%08X",
+                Device.dwFrame, GetExceptionCode());
+            FlushLog();
+            bPassCrashed = true;
+        }
     }
-
-    // TODO Phase 2.22+: Advanced features
-    //   - Portal traversal: vkPortalTraverser.traverse(...)
-    //   - Depth pre-pass (optional optimization)
-    //   - HOM occlusion culling
-    //
-    // For testing: Keep test render frame for now (can be removed later)
-    // TestRenderFrame();
 
     // ========================================================================
     // PASS 3: Lighting Pass (deferred lighting)
     // ========================================================================
     VkDiagFrame("[RENDER] PASS 3: lighting");
-    if (b_loaded && RTarget) {
-        // Clear accumulator
-        RTarget->phase_accumulator();
-
-        // Render directional light with cascade shadows (all 3 cascades)
-        RTarget->accum_direct_cascades(SE_SUN_NEAR);
-        RTarget->accum_direct_cascades(SE_SUN_MIDDLE);
-        RTarget->accum_direct_cascades(SE_SUN_FAR);
-
-        // Point lights (Phase 2.16.5)
-        for (u32 i = 0; i < Lights.package.v_point.size(); i++) {
-            light* L = Lights.package.v_point[i];
-            if (L && L->flags.bActive) {
-                RTarget->accum_point(L);
+    if (g_bDeviceLost || bPassCrashed) { if (bPassCrashed) goto render_crash_recovery; return; }
+    // Heap corruption check AFTER gbuffer, BEFORE lighting
+    {
+        static u32 s_heapCheck2Frame = 0;
+        if (Device.dwFrame - s_heapCheck2Frame > 100) {
+            HANDLE heap = GetProcessHeap();
+            if (!HeapValidate(heap, 0, NULL)) {
+                Msg("!!! HEAP CORRUPT detected AFTER gbuffer / BEFORE lighting at frame %u", Device.dwFrame);
+                FlushLog();
             }
-        }
-
-        // Spot lights (Phase 2.17.5)
-        for (u32 i = 0; i < Lights.package.v_spot.size(); i++) {
-            light* L = Lights.package.v_spot[i];
-            if (L && L->flags.bActive) {
-                // First render shadow map (if light casts shadows)
-                if (L->flags.bShadow) {
-                    RTarget->phase_smap_spot(L);
-                }
-                // Then accumulate lighting
-                RTarget->accum_spot(L);
-            }
+            s_heapCheck2Frame = Device.dwFrame;
         }
     }
+    if (b_loaded && RTarget) {
+        __try {
+            // Clear accumulator
+            RTarget->phase_accumulator();
+
+            // Render directional light with cascade shadows (all 3 cascades)
+            VkDiagFrame("[RENDER] PASS 3a: sun accum");
+            RTarget->accum_direct_cascades(SE_SUN_NEAR);
+            RTarget->accum_direct_cascades(SE_SUN_MIDDLE);
+            RTarget->accum_direct_cascades(SE_SUN_FAR);
+
+            // Point lights (Phase 2.16.5)
+            VkDiagFrame("[RENDER] PASS 3b: point lights");
+            if (Lights.package.v_point.size() > 4096) {
+                Msg("! Suspicious point light count: %u — skipping", (u32)Lights.package.v_point.size());
+            } else
+            for (u32 i = 0; i < Lights.package.v_point.size(); i++) {
+                light* L = Lights.package.v_point[i];
+                if (L && L->flags.bActive) {
+                    __try {
+                        RTarget->accum_point(L);
+                    } __except(EXCEPTION_EXECUTE_HANDLER) {
+                        Msg("! CRASH in accum_point[%u] at frame %u, light=%p, exception 0x%08X",
+                            i, Device.dwFrame, L, GetExceptionCode());
+                    }
+                }
+            }
+
+            // Spot lights (Phase 2.17.5)
+            VkDiagFrame("[RENDER] PASS 3c: spot lights");
+            if (Lights.package.v_spot.size() > 4096) {
+                Msg("! Suspicious spot light count: %u — skipping", (u32)Lights.package.v_spot.size());
+            } else
+            for (u32 i = 0; i < Lights.package.v_spot.size(); i++) {
+                light* L = Lights.package.v_spot[i];
+                if (L && L->flags.bActive) {
+                    __try {
+                        // First render shadow map (if light casts shadows)
+                        if (L->flags.bShadow) {
+                            RTarget->phase_smap_spot(L);
+                        }
+                        // Then accumulate lighting
+                        RTarget->accum_spot(L);
+                    } __except(EXCEPTION_EXECUTE_HANDLER) {
+                        // Don't access L->fields here — L might be the dangling pointer
+                        Msg("! CRASH in accum_spot[%u] at frame %u, light=%p, exception 0x%08X",
+                            i, Device.dwFrame, L, GetExceptionCode());
+                    }
+                }
+            }
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! CRASH in lighting pass (outer) at frame %u, exception 0x%08X",
+                Device.dwFrame, GetExceptionCode());
+            FlushLog();
+            bPassCrashed = true;
+        }
+    }
+
+    // If any pass crashed, skip remaining passes and go to recovery
+    if (bPassCrashed) goto render_crash_recovery;
 
     // ========================================================================
     // PASS 4: Distortion Pass (PP-UI elements like magnifier)
@@ -930,9 +1249,14 @@ void CRender::Render()
     // Phase 2.18: Combine accumulated lighting with albedo and output to swapchain
     // Also applies distortion from rt_Distortion (magnifier glass effect)
     VkDiagFrame("[RENDER] PASS 5: combine");
+    if (g_bDeviceLost || bPassCrashed) { if (bPassCrashed) goto render_crash_recovery; return; }
     if (RTarget) {
         RTarget->phase_combine();
         VkDiagFrame("[RENDER] PASS 5: combine done");
+        RTarget->phase_sky();
+        VkDiagFrame("[RENDER] PASS 5.5: sky done");
+        RTarget->phase_clouds();
+        VkDiagFrame("[RENDER] PASS 5.6: clouds done");
     } else {
         // Fallback: no RTarget — clear swapchain to a solid color so it's not garbage
         VkCommandBuffer cmd = RCache.GetCommandBuffer();
@@ -988,6 +1312,7 @@ void CRender::Render()
     // PASS 6: Forward Pass (transparent objects, particles, etc.)
     // ========================================================================
     // Phase 2.19: Forward rendering для transparent objects
+    if (g_bDeviceLost || bPassCrashed) { if (bPassCrashed) goto render_crash_recovery; return; }
     VkDiagFrame("[RENDER] PASS 6: forward");
     if (RTarget) {
         RTarget->phase_forward();
@@ -996,7 +1321,8 @@ void CRender::Render()
     // Render sorted (transparent) geometry back-to-front
     r_dsgraph_render_sorted();
 
-    // TODO: Portal fade rendering: vkPortalTraverser.fade_render()
+    // Portal fade rendering (LOD transitions for distant portals)
+    vkPortalTraverser.fade_render();
 
     // ========================================================================
     // PASS 6.5: Wallmarks (blood, bullet holes, decals)
@@ -1004,6 +1330,17 @@ void CRender::Render()
     VkDiagFrame("[RENDER] PASS 6.5: wallmarks");
     if (Wallmarks) {
         Wallmarks->Render();
+    }
+
+    // ========================================================================
+    // PASS 6.6: 3D Fluid Volumes (volumetric smoke, fog, fire)
+    // ========================================================================
+    VkDiagFrame("[RENDER] PASS 6.6: 3D fluid");
+    if (b_loaded && o.volumetricfog) {
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        if (cmd != VK_NULL_HANDLE) {
+            VK::g_FluidManager.RenderFluid(cmd);
+        }
     }
 
     // ========================================================================
@@ -1052,21 +1389,95 @@ void CRender::Render()
     // Update stats
     stats.l_total = 0;
     stats.l_visible = 0;
+    return;
+
+    // ========================================================================
+    // Crash recovery: a pass crashed with access violation.
+    // Set g_bDeviceLost so End() knows to do recovery (reset cmd buffer,
+    // submit minimal frame, present).  End() will clear g_bDeviceLost
+    // after recovery, so the next frame can try rendering again.
+    //
+    // If we crash too often (MAX_CRASHES_PER_WINDOW within CRASH_WINDOW_FRAMES),
+    // leave g_bDeviceLost permanently set to avoid an infinite crash loop.
+    // ========================================================================
+render_crash_recovery:
+    {
+        u32 currentFrame = Device.dwFrame;
+        // Reset crash counter if we haven't crashed recently
+        if (currentFrame - s_lastCrashFrame > CRASH_WINDOW_FRAMES) {
+            s_crashCount = 0;
+        }
+        s_crashCount++;
+        s_lastCrashFrame = currentFrame;
+
+        Msg("! Render crash recovery: crash %u/%u at frame %u, signaling End() for cmd buffer recovery",
+            s_crashCount, MAX_CRASHES_PER_WINDOW, currentFrame);
+
+        // Signal End() to do recovery (reset cmd pool, submit minimal frame, present).
+        // End() will clear g_bDeviceLost after recovery so the next frame can try again.
+        // If s_crashCount reaches MAX_CRASHES_PER_WINDOW, the check at the top of
+        // Render() will permanently set g_bDeviceLost and stop trying.
+        g_bDeviceLost = true;
+        VulkanUI_ResetState();  // prevent EndUIPass from crashing on stale state
+        FlushLog();
+
+        // End frame stats
+        RCache.OnFrameEnd();
+        stats.l_total = 0;
+        stats.l_visible = 0;
+    }
 }
 
 void CRender::OnFrame()
 {
     // Per-frame update - called before Render()
+    // This is called by Device.seqFrame.Process(rp_Frame) every frame
 
-    // Save previous frame matrices for motion vectors
+    // ========================================================================
+    // Save previous frame matrices for temporal effects
+    // ========================================================================
+    // These are used for:
+    // - Motion blur (velocity vectors)
+    // - Temporal Anti-Aliasing (TAA)
+    // - Motion vectors for reflections
+    // - Reprojection for post-processing
     RCache.xforms.set_W_prev(RCache.xforms.get_W());
     RCache.xforms.set_V_prev(RCache.xforms.get_V());
     RCache.xforms.set_P_prev(RCache.xforms.get_P());
 
-    // Reset markers for new frame
+    // ========================================================================
+    // Reset visibility markers for new frame
+    // ========================================================================
+    // Each visual has vis.marker field compared against RImplementation.marker
+    // to prevent re-processing the same object multiple times per frame
     marker++;
 
-    // TODO: Update animations, particles, weather effects, etc.
+    // ========================================================================
+    // Update subsystems (if needed)
+    // ========================================================================
+
+    // Update model pool (LOD, animation caching)
+    // Models->OnFrame() might update LOD distances, animation states, etc.
+    // Currently Models is vkModelPool which doesn't have OnFrame() - may add later
+
+    // Update particle systems
+    // PSLibrary should update emitters, lifetime, spawning
+    // Currently PSLibrary doesn't have OnFrame() - particles update in Render()
+
+    // Update environment/weather
+    // g_pGamePersistent->Environment() updates time-of-day, fog, rain, etc.
+    // This is usually called by game logic, not renderer
+
+    // ========================================================================
+    // Statistics reset (optional)
+    // ========================================================================
+    // Some renderers reset per-frame stats here
+    // We do it in OnFrameBegin()/OnFrameEnd() instead
+
+    // TODO: If adding temporal effects (motion blur, TAA), implement here:
+    // - Update velocity buffer history
+    // - Update jitter pattern for TAA
+    // - Update temporal accumulation buffers
 }
 
 // ============================================================================
@@ -1195,29 +1606,16 @@ void CRender::flush()
 // ============================================================================
 IRenderVisual* CRender::model_Create(LPCSTR name, IReader* data)
 {
-    Msg("[Vulkan] model_Create ENTER: '%s'", name ? name : "NULL");
-
     if (!Models) {
-        Msg("[Vulkan] model_Create: Models is NULL!");
+        Msg("![Vulkan] model_Create: Models is NULL!");
         return nullptr;
     }
 
-    Msg("[Vulkan] model_Create: calling Models->Create...");
     IRenderVisual* result = Models->Create(name, data, true);
-    Msg("[Vulkan] model_Create: Models->Create returned %p", result);
 
-    // Diagnostic for skeleton models
-    if (result)
+    if (!result)
     {
-        Msg("[Vulkan] model_Create: calling dcast methods...");
-        IKinematics* K = result->dcast_PKinematics();
-        IKinematicsAnimated* KA = result->dcast_PKinematicsAnimated();
-        Msg("[Vulkan] model_Create('%s'): result=%p, dcast_PKinematics=%p, dcast_PKinematicsAnimated=%p",
-            name, result, K, KA);
-    }
-    else
-    {
-        Msg("[Vulkan] model_Create('%s'): FAILED (nullptr)", name);
+        Msg("![Vulkan] model_Create('%s'): FAILED (nullptr)", name ? name : "NULL");
     }
 
     return result;
@@ -1461,8 +1859,14 @@ void CRender::ros_destroy(IRender_ObjectSpecific*& ROS)
 // ============================================================================
 IRender_Sector* CRender::getSector(int id)
 {
-    if (id >= 0 && id < (int)Sectors.size())
-        return Sectors[id];
+    if (id >= 0 && id < (int)Sectors.size()) {
+        IRender_Sector* sector = Sectors[id];
+        // Extra safety: verify sector is valid
+        if (!sector) {
+            Msg("![Vulkan] getSector(%d): Sectors array contains nullptr at valid index!", id);
+        }
+        return sector;
+    }
     return nullptr;
 }
 
@@ -1475,13 +1879,95 @@ IRenderVisual* CRender::getVisual(int id)
 
 IRender_Sector* CRender::detectSector(const Fvector& P)
 {
-    // Simplified sector detection for Vulkan MVP.
-    // Full implementation would ray-cast against sector geometry.
-    // For now, return first available sector so portal traversal
-    // and spatial system have a valid sector to work with.
-    if (!Sectors.empty())
-        return Sectors[0];
-    return nullptr;
+    // Phase 2.26: Proper sector detection via ray-casting
+    // Based on R1 implementation but with Vulkan-specific optimizations
+
+    if (Sectors.empty())
+        return nullptr;
+
+    // ========================================================================
+    // Method 1: Ray-cast through portal geometry (most accurate)
+    // ========================================================================
+    if (rmPortals)
+    {
+        // Cast ray downward from point
+        Fvector dir;
+        dir.set(0, -1, 0);
+        float range = 500.f;
+
+        // Query portal model
+        CDB::COLLIDER Sectors_xrc;
+        Sectors_xrc.ray_options(CDB::OPT_ONLYNEAREST);
+        Sectors_xrc.ray_query(rmPortals, P, dir, range);
+
+        if (Sectors_xrc.r_count())
+        {
+            // Hit portal - determine which sector is facing the point
+            CDB::RESULT* RP = Sectors_xrc.r_begin();
+            CDB::TRI* pTri = rmPortals->get_tris() + RP->id;
+
+            // Get portal from triangle's dummy field
+            if (pTri->dummy < Portals.size())
+            {
+                vkCPortal* pPortal = (vkCPortal*)Portals[pTri->dummy];
+                if (pPortal)
+                {
+                    vkCSector* sector = pPortal->getSectorFacing(P);
+                    if (sector)
+                        return sector;
+                }
+            }
+        }
+    }
+
+    // ========================================================================
+    // Method 2: Check sector bounding boxes (fallback)
+    // ========================================================================
+    // If portal query fails, check which sector's root visual contains point
+    for (u32 i = 0; i < Sectors.size(); ++i)
+    {
+        vkCSector* sector = (vkCSector*)Sectors[i];
+        if (!sector)
+            continue;
+
+        vkRender_Visual* root = sector->root();
+        if (!root)
+            continue;
+
+        // Check if point is inside sector's bounding box
+        if (root->vis.box.contains(P))
+            return sector;
+    }
+
+    // ========================================================================
+    // Method 3: Return nearest sector (last resort)
+    // ========================================================================
+    // Find sector whose center is closest to the point
+    float min_dist_sqr = FLT_MAX;
+    vkCSector* nearest_sector = nullptr;
+
+    for (u32 i = 0; i < Sectors.size(); ++i)
+    {
+        vkCSector* sector = (vkCSector*)Sectors[i];
+        if (!sector)
+            continue;
+
+        vkRender_Visual* root = sector->root();
+        if (!root)
+            continue;
+
+        Fvector center;
+        root->vis.box.getcenter(center);
+        float dist_sqr = P.distance_to_sqr(center);
+
+        if (dist_sqr < min_dist_sqr)
+        {
+            min_dist_sqr = dist_sqr;
+            nearest_sector = sector;
+        }
+    }
+
+    return nearest_sector ? nearest_sector : Sectors[0];
 }
 
 IRender_Target* CRender::getTarget()
@@ -1542,12 +2028,22 @@ void CRender::rmNear()
     // Set viewport depth range for HUD weapon rendering (front of depth buffer)
     IRender_Target* T = getTarget();
     if (!T) return;
+
+    u32 width = T->get_width();
+    u32 height = T->get_height();
+
     RCache.m_Viewport.x = 0;
     RCache.m_Viewport.y = 0;
-    RCache.m_Viewport.width  = (float)T->get_width();
-    RCache.m_Viewport.height = (float)T->get_height();
+    RCache.m_Viewport.width  = (float)width;
+    RCache.m_Viewport.height = (float)height;
     RCache.m_Viewport.minDepth = 0.f;
     RCache.m_Viewport.maxDepth = 0.02f;
+
+    RCache.m_Scissor.offset.x = 0;
+    RCache.m_Scissor.offset.y = 0;
+    RCache.m_Scissor.extent.width = width;
+    RCache.m_Scissor.extent.height = height;
+
     RCache.ApplyViewportScissor();
 }
 
@@ -1556,12 +2052,22 @@ void CRender::rmFar()
     // Set viewport depth range for sky rendering (back of depth buffer)
     IRender_Target* T = getTarget();
     if (!T) return;
+
+    u32 width = T->get_width();
+    u32 height = T->get_height();
+
     RCache.m_Viewport.x = 0;
     RCache.m_Viewport.y = 0;
-    RCache.m_Viewport.width  = (float)T->get_width();
-    RCache.m_Viewport.height = (float)T->get_height();
+    RCache.m_Viewport.width  = (float)width;
+    RCache.m_Viewport.height = (float)height;
     RCache.m_Viewport.minDepth = 0.99999f;
     RCache.m_Viewport.maxDepth = 1.f;
+
+    RCache.m_Scissor.offset.x = 0;
+    RCache.m_Scissor.offset.y = 0;
+    RCache.m_Scissor.extent.width = width;
+    RCache.m_Scissor.extent.height = height;
+
     RCache.ApplyViewportScissor();
 }
 
@@ -1570,12 +2076,22 @@ void CRender::rmNormal()
     // Reset viewport depth range to full (normal rendering)
     IRender_Target* T = getTarget();
     if (!T) return;
+
+    u32 width = T->get_width();
+    u32 height = T->get_height();
+
     RCache.m_Viewport.x = 0;
     RCache.m_Viewport.y = 0;
-    RCache.m_Viewport.width  = (float)T->get_width();
-    RCache.m_Viewport.height = (float)T->get_height();
+    RCache.m_Viewport.width  = (float)width;
+    RCache.m_Viewport.height = (float)height;
     RCache.m_Viewport.minDepth = 0.f;
     RCache.m_Viewport.maxDepth = 1.f;
+
+    RCache.m_Scissor.offset.x = 0;
+    RCache.m_Scissor.offset.y = 0;
+    RCache.m_Scissor.extent.width = width;
+    RCache.m_Scissor.extent.height = height;
+
     RCache.ApplyViewportScissor();
 }
 

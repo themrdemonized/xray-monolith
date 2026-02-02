@@ -39,7 +39,13 @@ struct SunCascade
 	xr_vector<sun::ray> rays;          // Frustum rays for next cascade
 	bool reset_chain;                  // Reset cascade chain
 
-	SunCascade() : size(20.f), bias(0.f), reset_chain(false)
+	// Shadow atlas viewport offset (for cascades sharing one shadow map)
+	u32 posX;                          // Viewport X offset in shadow atlas
+	u32 posY;                          // Viewport Y offset in shadow atlas
+	u32 viewport_size;                 // Viewport size in pixels
+
+	SunCascade() : size(20.f), bias(0.f), reset_chain(false),
+	               posX(0), posY(0), viewport_size(1024)
 	{
 		xform.identity();
 	}

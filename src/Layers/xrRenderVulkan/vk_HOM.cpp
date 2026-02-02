@@ -169,6 +169,12 @@ public:
 
 void vkCHOM::Render_DB(CFrustum& base)
 {
+    // Safety: Verify HOM data is loaded
+    if (!m_pModel || !m_pTris)
+    {
+        return;
+    }
+
     // Update projection matrices on every frame to ensure valid HOM culling
     float view_dim = occ_dim_0;
     Fmatrix m_viewport = {
@@ -406,7 +412,15 @@ void vkCHOM::Disable()
 
 void vkCHOM::Enable()
 {
-    bEnabled = TRUE;
+    // Only enable if HOM data is actually loaded
+    if (m_pModel && m_pTris)
+    {
+        bEnabled = TRUE;
+    }
+    else
+    {
+        bEnabled = FALSE;
+    }
 }
 
 void vkCHOM::occlude(Fbox2& space)

@@ -6,6 +6,7 @@
 #include "vk_pipeline.h"
 #include "HW_Vulkan.h"
 #include "vk_descriptors.h"
+#include "vk_lighting.h"
 #include <fstream>
 
 namespace VK
@@ -33,6 +34,10 @@ size_t PipelineConfig::Hash() const
     hash ^= std::hash<u32>{}(colorAttachmentCount) << 9;
     hash ^= std::hash<u32>{}(depthFormat) << 10;
     hash ^= std::hash<bool>{}(blendEnable) << 11;
+    hash ^= std::hash<bool>{}(useDefaultVertexInput) << 20;
+    hash ^= std::hash<bool>{}(useCustomVertexInput) << 21;
+    hash ^= std::hash<u32>{}(customAttributeCount) << 22;
+    hash ^= std::hash<u32>{}(vertexStride) << 23;
 
     // Hash color formats
     for (u32 i = 0; i < colorAttachmentCount && i < 8; ++i) {
@@ -57,6 +62,10 @@ bool PipelineConfig::operator==(const PipelineConfig& other) const
     if (colorAttachmentCount != other.colorAttachmentCount) return false;
     if (depthFormat != other.depthFormat) return false;
     if (blendEnable != other.blendEnable) return false;
+    if (useDefaultVertexInput != other.useDefaultVertexInput) return false;
+    if (useCustomVertexInput != other.useCustomVertexInput) return false;
+    if (customAttributeCount != other.customAttributeCount) return false;
+    if (vertexStride != other.vertexStride) return false;
 
     for (u32 i = 0; i < colorAttachmentCount && i < 8; ++i) {
         if (colorFormats[i] != other.colorFormats[i]) return false;
@@ -137,17 +146,23 @@ void CVulkanPipelineManager::CreatePipelineLayout()
 {
     Msg("[Vulkan] Creating pipeline layout...");
 
-    // Получаем descriptor set layouts из DescriptorManager
+    // Получаем descriptor set layouts из DescriptorManager и VulkanLighting
     if (!g_DescriptorManager) {
         Msg("![Vulkan] DescriptorManager not initialized");
         return;
     }
 
-    VkDescriptorSetLayout layouts[4] = {
-        g_DescriptorManager->GetPerFrameLayout(),
-        g_DescriptorManager->GetPerMaterialLayout(),
-        g_DescriptorManager->GetPerObjectLayout(),
-        g_DescriptorManager->GetLightingLayout()
+    if (!g_VulkanLighting) {
+        Msg("![Vulkan] VulkanLighting not initialized");
+        return;
+    }
+
+    VkDescriptorSetLayout layouts[5] = {
+        g_VulkanLighting->GetGlobalLightingLayout(),      // Set 0 (GlobalLighting UBO)
+        g_DescriptorManager->GetPerMaterialLayout(),      // Set 1 (Textures)
+        g_DescriptorManager->GetPerObjectLayout(),        // Set 2 (Object data)
+        g_DescriptorManager->GetLightingLayout(),         // Set 3 (Light data)
+        g_VulkanLighting->GetMaterialConstantsLayout()    // Set 4 (MaterialConstants UBO)
     };
 
     // Push constants для shadow MVP matrix и других per-draw данных
@@ -163,14 +178,14 @@ void CVulkanPipelineManager::CreatePipelineLayout()
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = 4;
+    layoutInfo.setLayoutCount = 5;
     layoutInfo.pSetLayouts = layouts;
     layoutInfo.pushConstantRangeCount = 1;
     layoutInfo.pPushConstantRanges = &pushConstantRange;
 
     VK_CHECK(vkCreatePipelineLayout(VulkanHW.m_Device, &layoutInfo, nullptr, &m_Layout));
 
-    Msg("[Vulkan] Pipeline layout created (4 descriptor sets + 128 byte push constants)");
+    Msg("[Vulkan] Pipeline layout created (5 descriptor sets + 256 byte push constants)");
 }
 
 // Создание pipeline cache
@@ -216,34 +231,65 @@ VkPipeline CVulkanPipelineManager::GetOrCreate(const PipelineConfig& config)
     return pipeline;
 }
 
-// Default vertex input (position, texcoord, normal)
+// Default vertex input - parametric by stride:
+//
+// Layout A (stride 32 - level static geometry):
+//   Position (FLOAT3)    @ offset 0
+//   Normal   (D3DCOLOR)  @ offset 12
+//   TexCoord (SHORT2)    @ offset 24  (need /1024 in shader)
+//
+// Layout B (stride 36/40/44 - skinned meshes):
+//   Position (FLOAT3 from FLOAT4, w ignored) @ offset 0
+//   Normal   (D3DCOLOR)  @ offset 16
+//   TexCoord (FLOAT2)    @ offset 28  (native float UVs)
+//
 void CVulkanPipelineManager::GetDefaultVertexInputState(
     VkPipelineVertexInputStateCreateInfo& vertexInputInfo,
     VkVertexInputBindingDescription& binding,
-    VkVertexInputAttributeDescription attributes[3])
+    VkVertexInputAttributeDescription attributes[3],
+    u32 stride)
 {
-    // Binding description (single vertex buffer)
+    // Binding description
     binding.binding = 0;
-    binding.stride = sizeof(float) * 8;  // vec3 pos + vec2 uv + vec3 normal
+    binding.stride = stride;
     binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    // Attribute 0: Position (vec3)
+    // Attribute 0: Position (vec3) @ offset 0 (always FLOAT3, reads xyz)
     attributes[0].binding = 0;
     attributes[0].location = 0;
     attributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributes[0].offset = 0;
 
-    // Attribute 1: TexCoord (vec2)
-    attributes[1].binding = 0;
-    attributes[1].location = 1;
-    attributes[1].format = VK_FORMAT_R32G32_SFLOAT;
-    attributes[1].offset = sizeof(float) * 3;
+    if (stride == 32)
+    {
+        // Layout A: level static geometry
+        // Normal (D3DCOLOR) @ offset 12
+        attributes[1].binding = 0;
+        attributes[1].location = 1;
+        attributes[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[1].offset = 12;
 
-    // Attribute 2: Normal (vec3)
-    attributes[2].binding = 0;
-    attributes[2].location = 2;
-    attributes[2].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributes[2].offset = sizeof(float) * 5;
+        // TexCoord (SHORT2 SSCALED) @ offset 24
+        attributes[2].binding = 0;
+        attributes[2].location = 2;
+        attributes[2].format = VK_FORMAT_R16G16_SSCALED;
+        attributes[2].offset = 24;
+    }
+    else
+    {
+        // Layout B: skinned meshes (stride 36/40/44)
+        // Normal (D3DCOLOR) @ offset 16 (after FLOAT4 position)
+        attributes[1].binding = 0;
+        attributes[1].location = 1;
+        attributes[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[1].offset = 16;
+
+        // TexCoord (FLOAT2) @ offset 28
+        attributes[2].binding = 0;
+        attributes[2].location = 2;
+        attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributes[2].offset = 28;
+    }
 
     // Vertex input state
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -279,7 +325,18 @@ VkPipeline CVulkanPipelineManager::CreateGraphicsPipeline(const PipelineConfig& 
     VkVertexInputAttributeDescription attributes[3] = {};
 
     if (config.useDefaultVertexInput) {
-        GetDefaultVertexInputState(vertexInputInfo, binding, attributes);
+        GetDefaultVertexInputState(vertexInputInfo, binding, attributes, config.vertexStride);
+    } else if (config.useCustomVertexInput && config.customAttributeCount > 0) {
+        // Custom vertex input (e.g. sky box: vec3 position only)
+        binding = config.customBinding;
+        for (u32 i = 0; i < config.customAttributeCount && i < 4; ++i) {
+            attributes[i] = config.customAttributes[i];
+        }
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.vertexBindingDescriptionCount = 1;
+        vertexInputInfo.pVertexBindingDescriptions = &binding;
+        vertexInputInfo.vertexAttributeDescriptionCount = config.customAttributeCount;
+        vertexInputInfo.pVertexAttributeDescriptions = attributes;
     } else {
         // No vertex input (для fullscreen quad shader)
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;

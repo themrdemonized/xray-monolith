@@ -92,14 +92,14 @@ void CVulkanTexture::Create(u32 width, u32 height, VkFormat format, u32 mipLevel
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
     imageInfo.mipLevels = m_MipLevels;
-    imageInfo.arrayLayers = 1;
+    imageInfo.arrayLayers = m_ArrayLayers;
     imageInfo.format = format;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.flags = 0;
+    imageInfo.flags = m_bCubemap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 
     // VMA allocation info - prefer device local memory
     VmaAllocationCreateInfo allocInfo = {};
@@ -197,48 +197,52 @@ void CVulkanTexture::UploadData(const void* data, VkDeviceSize size)
     // Transition: UNDEFINED -> TRANSFER_DST
     TransitionLayout(cmd, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    // Prepare copy regions for mipmaps
+    // Prepare copy regions for mipmaps (and array layers for cubemaps)
+    // DDS cubemap layout: for each face, all mipmaps sequentially
     xr_vector<VkBufferImageCopy> regions;
     VkDeviceSize offset = 0;
-    u32 currentWidth = m_Width;
-    u32 currentHeight = m_Height;
 
-    for (u32 i = 0; i < m_MipLevels; i++) {
-        VkBufferImageCopy region = {};
-        region.bufferOffset = offset;
-        region.bufferRowLength = 0;   // Tightly packed
-        region.bufferImageHeight = 0; // Tightly packed
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = i;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-        region.imageOffset = {0, 0, 0};
-        region.imageExtent = {currentWidth, currentHeight, 1};
+    for (u32 layer = 0; layer < m_ArrayLayers; layer++) {
+        u32 currentWidth = m_Width;
+        u32 currentHeight = m_Height;
 
-        regions.push_back(region);
+        for (u32 i = 0; i < m_MipLevels; i++) {
+            VkBufferImageCopy region = {};
+            region.bufferOffset = offset;
+            region.bufferRowLength = 0;   // Tightly packed
+            region.bufferImageHeight = 0; // Tightly packed
+            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.imageSubresource.mipLevel = i;
+            region.imageSubresource.baseArrayLayer = layer;
+            region.imageSubresource.layerCount = 1;
+            region.imageOffset = {0, 0, 0};
+            region.imageExtent = {currentWidth, currentHeight, 1};
 
-        // Calculate size of current mip
-        VkDeviceSize currentSize = 0;
-        if (IsCompressedFormat(m_Format)) {
-            u32 blockSize = GetBlockSize(m_Format);
-            u32 blocksX = (currentWidth + 3) / 4;
-            u32 blocksY = (currentHeight + 3) / 4;
-            currentSize = blocksX * blocksY * blockSize;
-        } else {
-            // Bytes per pixel depends on format
-            u32 bpp = 4; // Default: RGBA8/BGRA8
-            if (m_Format == VK_FORMAT_R8_UNORM)
-                bpp = 1;
-            else if (m_Format == VK_FORMAT_R8G8_UNORM)
-                bpp = 2;
-            currentSize = currentWidth * currentHeight * bpp;
+            regions.push_back(region);
+
+            // Calculate size of current mip
+            VkDeviceSize currentSize = 0;
+            if (IsCompressedFormat(m_Format)) {
+                u32 blockSize = GetBlockSize(m_Format);
+                u32 blocksX = (currentWidth + 3) / 4;
+                u32 blocksY = (currentHeight + 3) / 4;
+                currentSize = blocksX * blocksY * blockSize;
+            } else {
+                // Bytes per pixel depends on format
+                u32 bpp = 4; // Default: RGBA8/BGRA8
+                if (m_Format == VK_FORMAT_R8_UNORM)
+                    bpp = 1;
+                else if (m_Format == VK_FORMAT_R8G8_UNORM)
+                    bpp = 2;
+                currentSize = currentWidth * currentHeight * bpp;
+            }
+
+            offset += currentSize;
+
+            // Next mip dimensions
+            if (currentWidth > 1) currentWidth /= 2;
+            if (currentHeight > 1) currentHeight /= 2;
         }
-
-        offset += currentSize;
-
-        // Next mip dimensions
-        if (currentWidth > 1) currentWidth /= 2;
-        if (currentHeight > 1) currentHeight /= 2;
     }
 
     vkCmdCopyBufferToImage(cmd, stagingBuffer.m_Buffer, m_Image,
@@ -279,7 +283,7 @@ void CVulkanTexture::TransitionLayout(VkCommandBuffer cmd, VkImageLayout oldLayo
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = m_MipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = m_ArrayLayers;
 
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
@@ -313,20 +317,17 @@ void CVulkanTexture::TransitionLayout(VkCommandBuffer cmd, VkImageLayout oldLayo
     m_CurrentLayout = newLayout;
 }
 
-// Transition layout с временным command buffer
+// Transition layout с выделенным immediate command buffer
+// Uses dedicated cmd buffer to avoid corrupting the render frame's command buffer.
 void CVulkanTexture::TransitionLayoutImmediate(VkImageLayout oldLayout, VkImageLayout newLayout)
 {
-    VkCommandBuffer cmd = CommandManager.Begin();
+    VkCommandBuffer cmd = CommandManager.BeginImmediate();
+    if (cmd == VK_NULL_HANDLE) {
+        Msg("![Vulkan] TransitionLayoutImmediate: failed to begin immediate cmd");
+        return;
+    }
     TransitionLayout(cmd, oldLayout, newLayout);
-    CommandManager.End(cmd);
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-
-    vkQueueSubmit(VulkanHW.m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(VulkanHW.m_GraphicsQueue);
+    CommandManager.EndAndSubmitImmediate(cmd);
 }
 
 // Создание ImageView
@@ -335,7 +336,7 @@ void CVulkanTexture::CreateImageView()
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_Image;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.viewType = m_bCubemap ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = m_Format;
     if (m_bAlphaSwizzle) {
         // Alpha-only texture (fonts): R channel → alpha, RGB = white
@@ -360,7 +361,7 @@ void CVulkanTexture::CreateImageView()
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = m_MipLevels;
     viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
+    viewInfo.subresourceRange.layerCount = m_ArrayLayers;
 
     VK_CHECK(vkCreateImageView(VulkanHW.m_Device, &viewInfo, nullptr, &m_ImageView));
 }
@@ -373,10 +374,17 @@ void CVulkanTexture::CreateSampler()
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
-    // Use CLAMP_TO_EDGE like R3/R4 does for UI textures
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    if (m_bCubemap) {
+        // Cubemaps must use CLAMP_TO_EDGE to avoid seam artifacts
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    } else {
+        // Use REPEAT for game textures (walls, terrain tile beyond UV [0,1])
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    }
     samplerInfo.anisotropyEnable = VK_TRUE;
     samplerInfo.maxAnisotropy = 16.0f;  // Max anisotropy
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
@@ -414,6 +422,8 @@ void CVulkanTexture::Destroy()
     m_Height = 0;
     m_MipLevels = 1;
     m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    m_bCubemap = false;
+    m_ArrayLayers = 1;
 }
 
 // Загрузка DDS
@@ -540,6 +550,103 @@ bool CVulkanTexture::LoadDDS(const char* filename)
     return true;
 }
 
+// Загрузка DDS cubemap (6 faces)
+bool CVulkanTexture::LoadDDSCubemap(const char* filename)
+{
+    IReader* F = FS.r_open(filename);
+    if (!F) {
+        Msg("![Vulkan] Failed to open cubemap texture: %s", filename);
+        return false;
+    }
+
+    // Check magic
+    u32 magic = 0;
+    F->r(&magic, 4);
+    if (magic != DDS_MAGIC) {
+        Msg("![Vulkan] Invalid DDS magic in cubemap %s", filename);
+        FS.r_close(F);
+        return false;
+    }
+
+    // Read header
+    DDS_HEADER header;
+    F->r(&header, sizeof(DDS_HEADER));
+
+    // Check for cubemap flag
+    const u32 DDSCAPS2_CUBEMAP = 0x200;
+    if (!(header.dwCaps2 & DDSCAPS2_CUBEMAP)) {
+        Msg("![Vulkan] DDS file is not a cubemap: %s (caps2=0x%X)", filename, header.dwCaps2);
+        FS.r_close(F);
+        return false;
+    }
+
+    // Determine format
+    // Use UNORM (not SRGB) because swapchain is UNORM - no sRGB conversion in pipeline.
+    // This matches D3D11/R4 behavior where textures stay in gamma space throughout.
+    VkFormat format = VK_FORMAT_UNDEFINED;
+
+    if (header.ddspf.dwFlags & DDPF_FOURCC) {
+        switch (header.ddspf.dwFourCC) {
+            case FOURCC_DXT1:
+                format = (header.ddspf.dwFlags & DDPF_ALPHAPIXELS)
+                    ? VK_FORMAT_BC1_RGBA_UNORM_BLOCK
+                    : VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+                break;
+            case FOURCC_DXT3:
+                format = VK_FORMAT_BC2_UNORM_BLOCK;
+                break;
+            case FOURCC_DXT5:
+                format = VK_FORMAT_BC3_UNORM_BLOCK;
+                break;
+            default:
+                Msg("![Vulkan] Unsupported cubemap FourCC: %X in %s", header.ddspf.dwFourCC, filename);
+                FS.r_close(F);
+                return false;
+        }
+    } else if (header.ddspf.dwFlags & DDPF_RGB) {
+        if (header.ddspf.dwRGBBitCount == 32) {
+            format = VK_FORMAT_B8G8R8A8_UNORM;
+        } else {
+            Msg("![Vulkan] Unsupported cubemap RGB bit count: %d in %s", header.ddspf.dwRGBBitCount, filename);
+            FS.r_close(F);
+            return false;
+        }
+    } else {
+        Msg("![Vulkan] Unsupported cubemap DDS format flags: %X in %s", header.ddspf.dwFlags, filename);
+        FS.r_close(F);
+        return false;
+    }
+
+    u32 width = header.dwWidth;
+    u32 height = header.dwHeight;
+    u32 mipLevels = (header.dwFlags & 0x20000) ? header.dwMipMapCount : 1;
+    if (mipLevels == 0) mipLevels = 1;
+
+    // Setup cubemap flags before Create()
+    m_bCubemap = true;
+    m_ArrayLayers = 6;
+
+    Create(width, height, format, mipLevels);
+    if (m_Image == VK_NULL_HANDLE) {
+        FS.r_close(F);
+        return false;
+    }
+
+    // Read remaining data (all 6 faces with mipmaps)
+    VkDeviceSize dataSize = F->length() - F->tell();
+    void* data = xr_malloc(dataSize);
+    F->r(data, dataSize);
+    FS.r_close(F);
+
+    // Upload all faces
+    UploadData(data, dataSize);
+    xr_free(data);
+
+    Msg("[Vulkan] Loaded cubemap DDS: %s (%dx%d, mips=%d, format=%d, caps2=0x%X, dataSize=%llu)",
+        filename, width, height, mipLevels, (int)format, header.dwCaps2, (unsigned long long)dataSize);
+    return true;
+}
+
 // Рассчет количества mip levels
 u32 CVulkanTexture::CalculateMipLevels(u32 width, u32 height)
 {
@@ -604,5 +711,73 @@ u32 CVulkanTexture::GetBlockSize(VkFormat format)
             return 0;
     }
 }
+
+//------------------------------------------------------------------------------
+// CUserTextureRegistry - $user$ texture system (Phase 0.3)
+//------------------------------------------------------------------------------
+
+void CUserTextureRegistry::Register(const char* name, CRT* rt)
+{
+    if (!name || !rt) {
+        Msg("![Vulkan] Cannot register null user texture");
+        return;
+    }
+
+    // Проверяем что имя начинается с $user$
+    if (strncmp(name, "$user$", 6) != 0) {
+        Msg("![Vulkan] User texture name must start with $user$: %s", name);
+        return;
+    }
+
+    shared_str key = name;
+
+    // Проверяем дубликаты
+    auto it = m_UserTextures.find(key);
+    if (it != m_UserTextures.end()) {
+        Msg("~[Vulkan] User texture %s already registered, replacing", name);
+    }
+
+    m_UserTextures[key] = rt;
+    Msg("[Vulkan] User texture registered: %s", name);
+}
+
+CRT* CUserTextureRegistry::Get(const char* name)
+{
+    if (!name) {
+        return nullptr;
+    }
+
+    shared_str key = name;
+    auto it = m_UserTextures.find(key);
+    if (it != m_UserTextures.end()) {
+        return it->second;
+    }
+
+    // Msg("~[Vulkan] User texture not found: %s", name);
+    return nullptr;
+}
+
+void CUserTextureRegistry::Unregister(const char* name)
+{
+    if (!name) {
+        return;
+    }
+
+    shared_str key = name;
+    auto it = m_UserTextures.find(key);
+    if (it != m_UserTextures.end()) {
+        m_UserTextures.erase(it);
+        Msg("[Vulkan] User texture unregistered: %s", name);
+    }
+}
+
+void CUserTextureRegistry::Clear()
+{
+    m_UserTextures.clear();
+    Msg("[Vulkan] All user textures cleared");
+}
+
+// Глобальный instance
+CUserTextureRegistry g_UserTextureRegistry;
 
 } // namespace VK

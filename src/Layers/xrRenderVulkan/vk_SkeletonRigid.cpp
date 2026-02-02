@@ -34,10 +34,8 @@ class IRenderable;
 void CKinematics::CalculateBones(BOOL bForceExact)
 {
 	PROF_EVENT("CKinematics::CalculateBones");
-	Msg("[VK_Skel] CalculateBones ENTER: this=%p, bForceExact=%d", this, bForceExact);
 
 	if (RDEVICE.dwTimeGlobal == UCalc_Time) {
-		Msg("[VK_Skel] Early return: UCalc_Time matches");
 		return;
 	}
 
@@ -46,7 +44,6 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 #ifdef OPTIMIZE_CALCULATE_BONES
 	if (g_bootComplete)
 	{
-		Msg("[VK_Skel] g_bootComplete=true, spatialParent=%p", spatialParent);
 		if (spatialParent)
 		{
 			auto& sphere = spatialParent->spatial.sphere;
@@ -73,19 +70,14 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 	}
 #endif
 
-	Msg("[VK_Skel] Before critical section");
 	xrCriticalSectionGuard g(UCalc_Mutex);
-	Msg("[VK_Skel] Inside critical section, calling OnCalculateBones()");
 	OnCalculateBones();
-	Msg("[VK_Skel] OnCalculateBones() done");
 
 	if (!bForceExact && (RDEVICE.dwTimeGlobal < (UCalc_Time + UCalc_Interval * update_rate_k))) {
-		Msg("[VK_Skel] Early return: timing check");
 		return;
 	}
 
 	if (Update_Visibility) {
-		Msg("[VK_Skel] Calling Visibility_Update()");
 		Visibility_Update();
 	}
 
@@ -96,13 +88,9 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 	RDEVICE.Statistic->Animation.Begin();
 #endif
 
-	Msg("[VK_Skel] Before Bone_Calculate: bones=%p, iRoot=%d", bones, iRoot);
 	if (bones && bones->size() > 0) {
-		Msg("[VK_Skel] bones->size()=%d, bones->at(iRoot)=%p", bones->size(), bones->at(iRoot));
 		Bone_Calculate(bones->at(iRoot), &Fidentity);
-		Msg("[VK_Skel] Bone_Calculate done");
 	} else {
-		Msg("! [VK_Skel] ERROR: bones is NULL or empty!");
 	}
 #ifdef DEBUG
 	check_kinematics(this, dbg_name.c_str());

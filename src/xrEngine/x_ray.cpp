@@ -215,8 +215,11 @@ extern float g_fTimeFactor;
 
 PROTECT_API void InitSettings()
 {
+	VulkanDiagWrite("[DIAG] InitSettings: ENTER");
 	string_path fname;
+	VulkanDiagWrite("[DIAG] InitSettings: before FS.update_path");
 	FS.update_path(fname, "$game_config$", "system.ltx");
+	VulkanDiagWrite("[DIAG] InitSettings: after FS.update_path");
 #ifdef DEBUG
     Msg("Updated path to system.ltx is %s", fname);
 #endif // #ifdef DEBUG
@@ -593,9 +596,13 @@ void clearDiscordPresence()
 
 void Startup()
 {
+	VulkanDiagWrite("[DIAG] Startup: ENTER");
 	InitSound1();
+	VulkanDiagWrite("[DIAG] Startup: after InitSound1");
 	execUserScript();
+	VulkanDiagWrite("[DIAG] Startup: after execUserScript");
 	InitSound2();
+	VulkanDiagWrite("[DIAG] Startup: after InitSound2");
 
 	// ...command line for auto start
 	{
@@ -647,14 +654,29 @@ void Startup()
 	// 	return;
 	// }
 
-	// DX11 path - create device and continue normally
+	// Initialize game persistent BEFORE Device.Create() because Vulkan driver
+	// allocates low address space that LuaJIT needs for its memory allocator.
+	// LuaJIT on x64 Windows requires memory in the low 2GB/4GB virtual address range.
+	// The Vulkan driver (via vkCreateInstance/vkCreateDevice) consumes this range,
+	// causing luaL_newstate() to fail with ACCESS_VIOLATION.
+	VulkanDiagWrite("[DIAG] Startup: before NEW_INSTANCE CLSID_GAME_PERSISTANT (pre-Device)");
+	g_pGamePersistent = (IGame_Persistent*)NEW_INSTANCE(CLSID_GAME_PERSISTANT);
+	VulkanDiagWrite("[DIAG] Startup: after g_pGamePersistent");
+	if (!g_pGamePersistent)
+		VulkanDiagWrite("[DIAG] Startup: WARNING - g_pGamePersistent is NULL!");
+
+	// Now create the rendering device (Vulkan instance/device/VMA)
+	VulkanDiagWrite("[DIAG] Startup: before Device.Create");
 	Device.Create();
+	VulkanDiagWrite("[DIAG] Startup: after Device.Create");
 
 	LALib.OnCreate();
+	VulkanDiagWrite("[DIAG] Startup: after LALib.OnCreate");
 	pApp = xr_new<CApplication>();
-	g_pGamePersistent = (IGame_Persistent*)NEW_INSTANCE(CLSID_GAME_PERSISTANT);
+	VulkanDiagWrite("[DIAG] Startup: after CApplication");
 	g_SpatialSpace = xr_new<ISpatial_DB>();
 	g_SpatialSpacePhysic = xr_new<ISpatial_DB>();
+	VulkanDiagWrite("[DIAG] Startup: after spatial DBs");
 
 	// Destroy LOGO
 	DestroyWindow(logoWindow);
@@ -973,11 +995,14 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 #ifdef DEDICATED_SERVER
     Debug._initialize(true);
 #else // DEDICATED_SERVER
+	VulkanDiagWrite("[DIAG] WinMain_impl: before Debug._initialize");
 	Debug._initialize(false);
+	VulkanDiagWrite("[DIAG] WinMain_impl: after Debug._initialize");
 #endif // DEDICATED_SERVER
 
 	if (!IsDebuggerPresent())
 	{
+		VulkanDiagWrite("[DIAG] WinMain_impl: before LoadLibrary kernel32");
 		HMODULE const kernel32 = LoadLibrary("kernel32.dll");
 		R_ASSERT(kernel32);
 
@@ -1030,6 +1055,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
     g_dedicated_server = true;
 #endif // DEDICATED_SERVER
 
+	VulkanDiagWrite("[DIAG] WinMain_impl: before CreateDialog logo");
 	// Title window
 	logoWindow = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_STARTUP), 0, logDlgProc);
 
@@ -1071,15 +1097,24 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 
 	// g_temporary_stuff = &trivial_encryptor::decode;
 
+	VulkanDiagWrite("[DIAG] WinMain_impl: before compute_build_id");
 	compute_build_id();
+	VulkanDiagWrite("[DIAG] WinMain_impl: before Core._initialize");
 	Core._initialize("xray", NULL, TRUE, fsgame[0] ? fsgame : NULL);
+	VulkanDiagWrite("[DIAG] WinMain_impl: after Core._initialize");
 
+	VulkanDiagWrite("[DIAG] WinMain_impl: before InitSettings");
 	InitSettings();
+	VulkanDiagWrite("[DIAG] WinMain_impl: after InitSettings");
+	VulkanDiagWrite("[DIAG] WinMain_impl: before Msg version");
 	Msg(XRAY_MONOLITH_VERSION);
+	VulkanDiagWrite("[DIAG] WinMain_impl: after Msg version");
 
 	{
+		VulkanDiagWrite("[DIAG] WinMain_impl: before FS.file_list");
 		FS_FileSet fset;
 		FS.file_list(fset, "$game_data$", FS_ListFiles, "*");
+		VulkanDiagWrite("[DIAG] WinMain_impl: after FS.file_list");
 
 		// list all files in gamedata folder
 		u32 count = 0;
@@ -1101,6 +1136,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 			}
 		}
 	}
+	VulkanDiagWrite("[DIAG] WinMain_impl: after gamedata listing");
 
 	// Adjust player & computer name for Asian
 	if (pSettings->line_exist("string_table", "no_native_input"))
@@ -1108,6 +1144,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		xr_strcpy(Core.UserName, sizeof(Core.UserName), "Player");
 		xr_strcpy(Core.CompName, sizeof(Core.CompName), "Computer");
 	}
+	VulkanDiagWrite("[DIAG] WinMain_impl: before InitEngine");
 
 #ifndef DEDICATED_SERVER
 	{
@@ -1117,13 +1154,18 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 
 		FPU::m24r();
 		InitEngine();
+		VulkanDiagWrite("[DIAG] WinMain_impl: after InitEngine");
 
 		InitInput();
+		VulkanDiagWrite("[DIAG] WinMain_impl: after InitInput");
 
 		InitConsole();
+		VulkanDiagWrite("[DIAG] WinMain_impl: after InitConsole");
 
 		Engine.External.CreateRendererList();
+		VulkanDiagWrite("[DIAG] WinMain_impl: after CreateRendererList");
 
+		VulkanDiagWrite("[DIAG] WinMain_impl: before ignore_verify/Msg");
 		LPCSTR benchName = "-batch_benchmark ";
 		if (strstr(lpCmdLine, benchName))
 		{
@@ -1158,24 +1200,31 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		};
 
 #ifndef DEDICATED_SERVER
+		VulkanDiagWrite("[DIAG] WinMain_impl: before renderer selection");
 		if (strstr(Core.Params, "-r2a"))
 			Console->Execute("renderer renderer_r2a");
 		else if (strstr(Core.Params, "-r2"))
 			Console->Execute("renderer renderer_r2");
 		else
 		{
+			VulkanDiagWrite("[DIAG] WinMain_impl: loading renderer from config");
 			CCC_LoadCFG_custom* pTmp = xr_new<CCC_LoadCFG_custom>("renderer ");
 			pTmp->Execute(Console->ConfigFile);
 			xr_delete(pTmp);
 		}
+		VulkanDiagWrite("[DIAG] WinMain_impl: after renderer selection");
 
 #else
         Console->Execute("renderer renderer_r1");
 #endif
 		//. InitInput ( );
+		VulkanDiagWrite("[DIAG] WinMain_impl: before Engine.External.Initialize");
 		Engine.External.Initialize();
+		VulkanDiagWrite("[DIAG] WinMain_impl: after Engine.External.Initialize");
 		Console->Execute("stat_memory");
+		VulkanDiagWrite("[DIAG] WinMain_impl: after stat_memory");
 
+		VulkanDiagWrite("[DIAG] WinMain_impl: before Startup");
 		Startup();
 		Core._destroy();
 
@@ -1239,10 +1288,14 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	//DllMainOpenAL32(NULL, DLL_PROCESS_ATTACH, NULL);
 	VulkanDiagWrite("[DIAG] Before DllMainXrCore");
 	DllMainXrCore(NULL, DLL_PROCESS_ATTACH, NULL);
+	VulkanDiagWrite("[DIAG] After DllMainXrCore PROCESS_ATTACH");
 	DllMainXrPhysics(NULL, DLL_PROCESS_ATTACH, NULL);
+	VulkanDiagWrite("[DIAG] After DllMainXrPhysics PROCESS_ATTACH");
 
 	DllMainXrCore(NULL, DLL_THREAD_ATTACH, NULL);
+	VulkanDiagWrite("[DIAG] After DllMainXrCore THREAD_ATTACH");
 
+	VulkanDiagWrite("[DIAG] Before WinMain_impl");
 	__try
 	{
 		WinMain_impl(hInstance, hPrevInstance, lpCmdLine, nCmdShow);

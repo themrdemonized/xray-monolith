@@ -9,6 +9,8 @@
 #include "vk_shaders.h"
 #include "vk_pipeline.h"
 #include "vk_swapchain.h"
+#include "../../xrEngine/igame_persistent.h"
+#include "../../xrEngine/Environment.h"
 
 namespace VK
 {
@@ -34,6 +36,7 @@ namespace VK
 void CRenderTarget::phase_combine()
 {
 	VkCommandBuffer cmd = RCache.GetCommandBuffer();
+	if (cmd == VK_NULL_HANDLE) return;
 
 	// ========================================================================
 	// Step 1: Get current swapchain image
@@ -52,7 +55,7 @@ void CRenderTarget::phase_combine()
 	// ========================================================================
 	VkImageMemoryBarrier barrier = {};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.srcAccessMask = 0;
+	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -66,7 +69,7 @@ void CRenderTarget::phase_combine()
 	barrier.subresourceRange.layerCount = 1;
 
 	vkCmdPipelineBarrier(cmd,
-	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	                     0, 0, nullptr, 0, nullptr, 1, &barrier);
 
@@ -79,7 +82,13 @@ void CRenderTarget::phase_combine()
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+	// Use environment sky color instead of hardcoded black
+	if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv) {
+		Fvector3& sky = g_pGamePersistent->Environment().CurrentEnv->sky_color;
+		colorAttachment.clearValue.color = {{sky.x, sky.y, sky.z, 1.0f}};
+	} else {
+		colorAttachment.clearValue.color = {{0.3f, 0.5f, 0.7f, 1.0f}};  // Fallback blue sky
+	}
 
 	VkRenderingInfo renderingInfo = {};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -133,9 +142,10 @@ void CRenderTarget::phase_combine()
 	// ========================================================================
 	// Step 6: Create combine pipeline
 	// ========================================================================
-	PipelineConfig config = {};
+	PipelineConfig config;
 	config.vertShader = vertShader;
 	config.fragShader = fragShader;
+	config.useDefaultVertexInput = false;  // Fullscreen triangle - no vertex buffer
 	config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	config.cullMode = VK_CULL_MODE_NONE;
 	config.depthTest = false;
@@ -193,10 +203,17 @@ void CRenderTarget::phase_combine()
 	} pushData;
 
 	pushData.exposure = 1.0f;
-	pushData.ambientR = 0.05f;
-	pushData.ambientG = 0.05f;
-	pushData.ambientB = 0.05f;
-	pushData.toneMappingMode = 2;  // ACES
+	if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv) {
+		Fvector3& amb = g_pGamePersistent->Environment().CurrentEnv->ambient;
+		pushData.ambientR = amb.x;
+		pushData.ambientG = amb.y;
+		pushData.ambientB = amb.z;
+	} else {
+		pushData.ambientR = 0.15f;
+		pushData.ambientG = 0.15f;
+		pushData.ambientB = 0.15f;
+	}
+	pushData.toneMappingMode = 2;  // ACES filmic tone mapping
 	pushData.vignetteInner = 0.4f;
 	pushData.vignetteOuter = 1.0f;
 	pushData.vignetteIntensity = 0.3f;

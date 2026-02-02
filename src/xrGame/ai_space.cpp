@@ -41,17 +41,35 @@ CAI_Space::CAI_Space()
 	m_doors_manager = 0;
 }
 
+static void AIDiagWrite(const char* msg) {
+	HANDLE h = CreateFileA("D:\\anomaly\\appdata\\logs\\vulkan_diag.txt",
+		FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h != INVALID_HANDLE_VALUE) {
+		DWORD written;
+		WriteFile(h, msg, (DWORD)strlen(msg), &written, NULL);
+		WriteFile(h, "\r\n", 2, &written, NULL);
+		FlushFileBuffers(h);
+		CloseHandle(h);
+	}
+}
+
 void CAI_Space::init()
 {
+	AIDiagWrite("[DIAG] CAI_Space::init ENTER");
 	if (g_dedicated_server)
 		return;
+
+	AIDiagWrite("[DIAG] CAI_Space::init: not dedicated server");
 
 #ifndef NO_SINGLE
 	VERIFY(!m_ef_storage);
 	m_ef_storage = xr_new<CEF_Storage>();
+	AIDiagWrite("[DIAG] CAI_Space::init: after CEF_Storage");
 
 	VERIFY(!m_graph_engine);
 	m_graph_engine = xr_new<CGraphEngine>(1024);
+	AIDiagWrite("[DIAG] CAI_Space::init: after CGraphEngine");
 
 	VERIFY(!m_cover_manager);
 	m_cover_manager = xr_new<CCoverManager>();
@@ -61,12 +79,16 @@ void CAI_Space::init()
 
 	VERIFY(!m_moving_objects);
 	m_moving_objects = xr_new<::moving_objects>();
+	AIDiagWrite("[DIAG] CAI_Space::init: after moving_objects");
 
 #endif //#ifndef NO_SINGLE
 
 	VERIFY(!m_script_engine);
+	AIDiagWrite("[DIAG] CAI_Space::init: before CScriptEngine");
 	m_script_engine = xr_new<CScriptEngine>();
+	AIDiagWrite("[DIAG] CAI_Space::init: after CScriptEngine");
 	script_engine().init();
+	AIDiagWrite("[DIAG] CAI_Space::init: after script_engine init");
 
 #ifndef NO_SINGLE
 	extern string4096 g_ca_stdout;

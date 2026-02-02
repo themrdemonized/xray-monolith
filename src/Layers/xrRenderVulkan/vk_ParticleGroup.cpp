@@ -9,8 +9,9 @@
 #include "stdafx.h"
 #include "vk_ParticleGroup.h"
 #include "vk_ParticleEffect.h"
+#include "rvk.h"                         // RImplementation
 #include "../xrRender/ParticleGroup.h"  // PS::CPGDef full definition
-#include "../xrRender/PSLibrary.h"       // For PSLibrary.FindPED()
+#include "../xrRender/PSLibrary.h"       // For RImplementation.PSLibrary.FindPED()
 
 // ============================================================================
 // vkCParticleGroup - Constructor
@@ -61,7 +62,7 @@ BOOL vkCParticleGroup::Compile(PS::CPGDef* def)
         }
 
         // Find particle effect definition
-        PS::CPEDef* pedDef = PSLibrary.FindPED(effectDef->m_EffectName.c_str());
+        PS::CPEDef* pedDef = RImplementation.PSLibrary.FindPED(effectDef->m_EffectName.c_str());
         if (!pedDef) {
             Msg("![Vulkan] Child effect not found: %s (in group %s)",
                 effectDef->m_EffectName.c_str(), def->m_Name.c_str());
@@ -80,11 +81,11 @@ BOOL vkCParticleGroup::Compile(PS::CPGDef* def)
         Fvector offset = {0.f, 0.f, 0.f};
         AddChild(effect, offset);
 
-        Msg("[Vulkan] Added child effect to group: %s", effectDef->m_EffectName.c_str());
+        // Msg("[Vulkan] Added child effect to group: %s", effectDef->m_EffectName.c_str());
     }
 
-    Msg("[Vulkan] Particle group compiled: %s (%u children)",
-        def->m_Name.c_str(), items.size());
+    // Msg("[Vulkan] Particle group compiled: %s (%u children)",
+    //     def->m_Name.c_str(), items.size());
 
     return TRUE;
 }
@@ -145,7 +146,7 @@ void vkCParticleGroup::Play()
         }
     }
 
-    Msg("[Vulkan] Particle group playing: %s (%u children)", Name().c_str(), items.size());
+    // Msg("[Vulkan] Particle group playing: %s (%u children)", Name().c_str(), items.size());
 }
 
 // ============================================================================
@@ -166,7 +167,7 @@ void vkCParticleGroup::Stop(BOOL bDeferredStop)
         }
     }
 
-    Msg("[Vulkan] Particle group stopped: %s", Name().c_str());
+    // Msg("[Vulkan] Particle group stopped: %s", Name().c_str());
 }
 
 // ============================================================================
@@ -203,7 +204,9 @@ u32 vkCParticleGroup::ParticlesCount()
 // ============================================================================
 float vkCParticleGroup::GetTimeLimit()
 {
-    return -1.f;  // No time limit by default
+    if (m_Def)
+        return m_Def->m_fTimeLimit;
+    return -1.f;
 }
 
 // ============================================================================

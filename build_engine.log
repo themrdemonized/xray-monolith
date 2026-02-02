@@ -1,0 +1,61 @@
+MSBuild version 17.14.23+b0019275e for .NET Framework
+
+  libvorbis_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbis_static.lib
+  libtheora_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libtheora_static.lib
+  Ensuring LuaJIT generated files exist
+  DXERR.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\DxErr.lib
+  [LuaJIT] Determine DynASM path and if platform is x64
+  [LuaJIT] Platform is x64, set -D P64
+  [LuaJIT] Running DynASM to generate host\buildvm_arch.h
+  libogg_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libogg_static.lib
+  ReShadeCompat.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\ReShadeCompat.lib
+  libvorbisfile_static.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libvorbisfile_static.lib
+  [LuaJIT] Generating lj_vm.obj and headers
+  xrCore.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCore.lib
+  imgui.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\imgui.lib
+  [LuaJIT] Generation complete
+  lib_base.c
+  lib_bit.c
+  lib_debug.c
+  lib_ffi.c
+  lib_io.c
+  lib_jit.c
+  lib_math.c
+  lib_os.c
+  lib_string.c
+  lib_table.c
+  lj_bc.c
+  lj_crecord.c
+  lj_dispatch.c
+  lj_err.c
+  lj_ffrecord.c
+  lj_opt_fold.c
+  lj_record.c
+lj_vm.obj : warning LNK4042: object specified more than once; extras ignored [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\3rd party\luajit-2\src\luajit.vcxproj]
+  luajit.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\lua51.lib
+  luabind.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\luabind.lib
+  xrNetServer.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrNetServer.lib
+  xrAPI.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrAPI.lib
+  xrCDB.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCDB.lib
+  OpenAL-new.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\OpenAL32.lib
+  xrSound.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrSound.lib
+  NVTT.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\NVTT.lib
+  default.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\ode.lib
+  libjpeg.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\libjpeg.lib
+  xrCPU_Pipe.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrCPU_Pipe.lib
+  cximage.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\CxImage.lib
+  lua_extensions.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\lua_extensions.lib
+  crypto.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\crypto.lib
+  optick.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\optick.lib
+  xrXMLParser.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrXMLParser.lib
+  xrParticles.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrParticles.lib
+  xrPhysics.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrPhysics.lib
+  xrGame.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Release\xrGame.lib
+  xrRender_Vulkan.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\x64\Vulkan\xrRender_Vulkan.lib
+     Creating library C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\..\_build\lib\ReleaseVulkan\AnomalyVulkan.lib and object C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\..\_build\lib\ReleaseVulkan\AnomalyVulkan.exp
+  Generating code
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrGame\ui\UIActorMenuInventory.cpp(588): warning C4715: 'CUIActorMenu::current_sort_mode': not all control paths return a value [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrGame\ui\UIPdaWnd.cpp(499): warning C4715: 'CUIPdaWnd::OnKeyboardAction': not all control paths return a value [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\sdk\include\jpeg\jcapimin.c(51): warning C4789: in function 'bool __cdecl CxImageJPG::Encode(class CxFile * __ptr64) __ptr64' buffer 'cinfo' of size 504 bytes will be overrun; 520 bytes will be written starting at offset 0 [C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\src\xrEngine\xrEngine.vcxproj]
+  Finished generating code
+  xrEngine.vcxproj -> C:\Users\egorb\OneDrive\Documentos\GitHub\xray-monolith\_build\_game\bin_dbg\AnomalyVulkan.exe

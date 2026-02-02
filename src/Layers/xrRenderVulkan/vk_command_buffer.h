@@ -16,18 +16,32 @@ private:
     VkCommandBuffer m_CommandBuffers[FRAMES_IN_FLIGHT];
     u32             m_CurrentFrame = 0;
 
+    // Dedicated pool+buffer for one-shot immediate operations (uploads, layout transitions)
+    // This is separate from the per-frame render command buffers to avoid conflicts.
+    VkCommandPool   m_ImmediatePool = VK_NULL_HANDLE;
+    VkCommandBuffer m_ImmediateCmd  = VK_NULL_HANDLE;
+    VkFence         m_ImmediateFence = VK_NULL_HANDLE;
+
 public:
     void Create();
     void Destroy();
 
+    // Per-frame render command buffer (used by render loop only)
     VkCommandBuffer Begin();
-    void End(VkCommandBuffer cmd);
-    void Submit(VkCommandBuffer cmd, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence fence);
+    bool End(VkCommandBuffer cmd);
+    bool Submit(VkCommandBuffer cmd, VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkFence fence);
+
+    // One-shot immediate command buffer (safe to call during rendering)
+    VkCommandBuffer BeginImmediate();
+    void            EndAndSubmitImmediate(VkCommandBuffer cmd);
 
     void NextFrame() { m_CurrentFrame = (m_CurrentFrame + 1) % FRAMES_IN_FLIGHT; }
     u32 GetCurrentFrame() const { return m_CurrentFrame; }
 
     VkCommandBuffer GetCurrentCommandBuffer() const { return m_CommandBuffers[m_CurrentFrame]; }
+    VkCommandPool   GetCurrentPool() const { return m_CommandPools[m_CurrentFrame]; }
+    VkCommandPool   GetPool(u32 index) const { return m_CommandPools[index]; }
+    void            ResetFrameCounter() { m_CurrentFrame = 0; }
 };
 
 // Глобальный экземпляр

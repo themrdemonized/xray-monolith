@@ -249,6 +249,12 @@ void CRenderTarget::Destroy()
     DestroyPointVolumeGeometry();
     DestroySpotVolumeGeometry();
 
+    // Destroy sky resources
+    DestroySkyResources();
+
+    // Destroy cloud resources
+    DestroyCloudResources();
+
     m_bCreated = false;
     m_Width = 0;
     m_Height = 0;

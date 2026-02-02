@@ -1297,6 +1297,7 @@ LPCSTR get_weather_value_string(LPCSTR name)
 
 void set_weather_value_string(LPCSTR name, LPCSTR newval)
 {
+	Msg("[Lua Weather] set_weather_value_string('%s', '%s')", name, newval);
 	CEnvDescriptor& E = *environment()->CurrentEnv;
 
 	if (0 == xr_strcmp(name, "clouds_texture"))

@@ -33,6 +33,13 @@ layout(set = 1, binding = 0) uniform sampler2D s_Diffuse;   // Albedo/Diffuse
 layout(set = 1, binding = 1) uniform sampler2D s_Normal;    // Normal map (optional)
 layout(set = 1, binding = 2) uniform sampler2D s_Specular;  // Specular/Roughness (optional)
 
+// Terrain textures (bindings 3-7) — only meaningful for terrain materials
+layout(set = 1, binding = 3) uniform sampler2D s_Mask;      // Terrain mask (RGBA = blend weights)
+layout(set = 1, binding = 4) uniform sampler2D s_DetailR;   // Detail for R channel (grass)
+layout(set = 1, binding = 5) uniform sampler2D s_DetailG;   // Detail for G channel (asphalt)
+layout(set = 1, binding = 6) uniform sampler2D s_DetailB;   // Detail for B channel (earth)
+layout(set = 1, binding = 7) uniform sampler2D s_DetailA;   // Detail for A channel (yantar)
+
 // ============================================================================
 // MVP Simplification:
 // For Phase 2.21 (MVP), мы пропускаем material system и используем white color.
@@ -41,39 +48,63 @@ layout(set = 1, binding = 2) uniform sampler2D s_Specular;  // Specular/Roughnes
 
 void main()
 {
-    // ========================================================================
-    // 1. Output Position (Eye-Space)
-    // ========================================================================
-    // Store eye-space position для lighting calculations в deferred pass.
-    // Alpha channel stores fragment depth (optional, для debug/effects).
+    // DEBUG: Output hardcoded values to verify fragments execute
     o_Position = vec4(v_PositionEye, 1.0);
 
-    // ========================================================================
-    // 2. Output Normal (Eye-Space)
-    // ========================================================================
-    // Normalize interpolated normal (interpolation может изменить length).
-    // Eye-space normals для lighting calculations.
-    //
-    // TODO Phase 2.22: Add normal mapping
-    // vec3 normalMap = texture(s_Normal, v_TexCoord).xyz * 2.0 - 1.0;
-    // vec3 N = normalize(TBN * normalMap);
-    //
     vec3 N = normalize(v_NormalEye);
-
-    // Store normal + hemi flag (alpha = 0.0 для now)
-    // Hemi будет использоваться для hemisphere lighting (indirect illumination)
     o_Normal = vec4(N, 0.0);
 
     // ========================================================================
-    // 3. Output Albedo (Diffuse Color)
+    // Terrain detection and blending
     // ========================================================================
-    // Phase 2.22: Sample diffuse texture for albedo
-    vec3 albedo = texture(s_Diffuse, v_TexCoord).rgb;
+    // Terrain materials have a valid mask texture (> 1x1).
+    // Non-terrain materials use a 1x1 white fallback for s_Mask.
+    ivec2 maskSize = textureSize(s_Mask, 0);
+    bool isTerrain = (maskSize.x > 1 && maskSize.y > 1);
 
-    // For MVP: Using white texture (1x1 fallback)
-    // Phase 2.23+ will load actual textures from gamedata
+    vec3 albedo;
 
-    // SRGB output (automatic gamma correction)
+    if (isTerrain)
+    {
+        // Base terrain color (low-res pre-blended texture)
+        vec3 base = texture(s_Diffuse, v_TexCoord).rgb;
+
+        // Sample terrain mask — RGBA channels contain blend weights
+        vec4 mask = texture(s_Mask, v_TexCoord);
+
+        // Detail textures tile at higher frequency than base UV
+        vec2 detailUV = v_TexCoord * 48.0;
+
+        // Sample 4 detail layers
+        vec3 dR = texture(s_DetailR, detailUV).rgb;
+        vec3 dG = texture(s_DetailG, detailUV).rgb;
+        vec3 dB = texture(s_DetailB, detailUV).rgb;
+        vec3 dA = texture(s_DetailA, detailUV).rgb;
+
+        // Blend detail textures by mask weights
+        float weightSum = mask.r + mask.g + mask.b + mask.a;
+        vec3 detail;
+        if (weightSum > 0.001)
+            detail = (dR * mask.r + dG * mask.g + dB * mask.b + dA * mask.a) / weightSum;
+        else
+            detail = vec3(1.0); // No mask data — neutral detail
+
+        // X-Ray terrain: base_color * detail (multiply-2x blend)
+        // base provides overall color, detail adds high-frequency texture
+        albedo = base * detail * 2.0;
+    }
+    else
+    {
+        // Regular geometry — sample diffuse texture
+        albedo = texture(s_Diffuse, v_TexCoord).rgb;
+    }
+
+    // Alpha test for foliage/tree leaves (cutout transparency)
+    float alpha = texture(s_Diffuse, v_TexCoord).a;
+    if (alpha < 0.5)
+        discard;
+
+    // Output albedo
     o_Color = vec4(albedo, 1.0);
 
     // ========================================================================

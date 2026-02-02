@@ -10,6 +10,7 @@
 #include "vk_pipeline.h"
 #include "vk_swapchain.h"
 #include "rvk.h"
+#include "vk_DetailManager.h"  // VK::CDetailManager full definition
 
 namespace VK
 {
@@ -162,9 +163,9 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
-	viewport.y = 0.0f;
+	viewport.y = (float)swapHeight;
 	viewport.width = (float)swapWidth;
-	viewport.height = (float)swapHeight;
+	viewport.height = -(float)swapHeight;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -235,6 +236,16 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	// LODs are rendered first with Z-buffer setup for proper depth
 	RImplementation.r_dsgraph_render_lods(true, true);
+
+	// ========================================================================
+	// 9.15: Render details (grass/debris)
+	// ========================================================================
+	// Details are rendered after LODs but before transparent objects
+	// Uses alpha test (not alpha blend), so they're opaque-like
+	if (RImplementation.Details)
+	{
+		RImplementation.Details->Render();
+	}
 
 	// ========================================================================
 	// 9.2: Render sorted transparent geometry (back-to-front)

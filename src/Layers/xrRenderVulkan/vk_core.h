@@ -5,12 +5,32 @@
 #pragma once
 #include "stdafx.h"
 
-// Error checking macro
+// Global device-lost flag — when set, all rendering is skipped
+// Defined in rvk.cpp, declared extern here so it's accessible from xrEngine too
+extern bool g_bDeviceLost;
+
+// Soft error checking macro — logs error, sets device-lost on fatal codes, but does NOT crash
 #define VK_CHECK(result) \
     do { \
         VkResult res = (result); \
         if (res != VK_SUCCESS) { \
-            Msg("!Vulkan error: %d at %s:%d", res, __FILE__, __LINE__); \
+            if (res == VK_ERROR_DEVICE_LOST) { \
+                if (!g_bDeviceLost) { \
+                    Msg("!Vulkan DEVICE LOST at %s:%d", __FILE__, __LINE__); \
+                    g_bDeviceLost = true; \
+                } \
+            } else { \
+                Msg("!Vulkan error: %d at %s:%d", res, __FILE__, __LINE__); \
+            } \
+        } \
+    } while(0)
+
+// Critical error checking — used for resource creation that MUST succeed
+#define VK_CHECK_CRITICAL(result) \
+    do { \
+        VkResult res = (result); \
+        if (res != VK_SUCCESS) { \
+            Msg("!Vulkan CRITICAL error: %d at %s:%d", res, __FILE__, __LINE__); \
             VERIFY(false); \
         } \
     } while(0)

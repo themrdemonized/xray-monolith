@@ -23,6 +23,9 @@
 #include "rvk.h"
 #include "vk_debug.h"
 
+// Environment descriptor render classes (shared with phase_sky/phase_clouds)
+#include "vk_env_render.h"
+
 // Forward declare stub classes
 class vkUISequenceVideoItem;
 class vkUIShader;
@@ -39,8 +42,6 @@ class vkRainRender;
 class vkLensFlareRender;
 class vkImGuiRender;
 class vkEnvironmentRender;
-class vkEnvDescriptorMixerRender;
-class vkEnvDescriptorRender;
 class vkFontRender;
 #ifdef DEBUG
 class vkObjectSpaceRender;
@@ -67,8 +68,10 @@ class vkObjectSpaceRender;
 #include "../../Include/xrRender/ObjectSpaceRender.h"
 #endif
 
-// Engine headers for font rendering
+// Engine headers for font rendering, loading screen, and environment
 #include "../../xrEngine/GameFont.h"
+#include "../../xrEngine/x_ray.h"
+#include "../../xrEngine/Environment.h"
 
 // Forward declarations
 class CApplication;
@@ -77,12 +80,96 @@ class CEffect_Thunderbolt;
 class CEffect_Rain;
 class CLensFlare;
 class CEnvironment;
-class CEnvDescriptor;
+
+// ============================================================================
+// Vectored Exception Handler — catches crashes that SEH misses
+// Writes crash address to D:/anomaly/bin/vk_crash.txt before process dies
+// ============================================================================
+static LONG WINAPI VulkanCrashHandler(EXCEPTION_POINTERS* pExInfo)
+{
+    if (!pExInfo || !pExInfo->ExceptionRecord) return EXCEPTION_CONTINUE_SEARCH;
+
+    DWORD code = pExInfo->ExceptionRecord->ExceptionCode;
+    // Only handle fatal exceptions
+    if (code != EXCEPTION_ACCESS_VIOLATION &&
+        code != EXCEPTION_STACK_OVERFLOW &&
+        code != EXCEPTION_INT_DIVIDE_BY_ZERO &&
+        code != 0xC0000374 /* heap corruption */)
+        return EXCEPTION_CONTINUE_SEARCH;
+
+    void* crashAddr = pExInfo->ExceptionRecord->ExceptionAddress;
+    void* faultAddr = (pExInfo->ExceptionRecord->NumberParameters >= 2)
+        ? (void*)pExInfo->ExceptionRecord->ExceptionInformation[1] : nullptr;
+
+    // Write to file (no allocations — use stack buffer and raw WinAPI)
+    char buf[512];
+    wsprintfA(buf,
+        "CRASH: code=0x%08X addr=%p fault=%p\r\n"
+        "RIP=%p RSP=%p RBP=%p\r\n"
+        "RAX=%p RBX=%p RCX=%p RDX=%p\r\n"
+        "RSI=%p RDI=%p R8=%p R9=%p\r\n",
+        code, crashAddr, faultAddr,
+        (void*)pExInfo->ContextRecord->Rip,
+        (void*)pExInfo->ContextRecord->Rsp,
+        (void*)pExInfo->ContextRecord->Rbp,
+        (void*)pExInfo->ContextRecord->Rax,
+        (void*)pExInfo->ContextRecord->Rbx,
+        (void*)pExInfo->ContextRecord->Rcx,
+        (void*)pExInfo->ContextRecord->Rdx,
+        (void*)pExInfo->ContextRecord->Rsi,
+        (void*)pExInfo->ContextRecord->Rdi,
+        (void*)pExInfo->ContextRecord->R8,
+        (void*)pExInfo->ContextRecord->R9);
+
+    // Resolve module name for crash address
+    char modShort[MAX_PATH] = "unknown";
+    size_t modOffset = 0;
+    HMODULE hMod = NULL;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        (LPCSTR)crashAddr, &hMod))
+    {
+        GetModuleFileNameA(hMod, modShort, MAX_PATH);
+        modOffset = (size_t)((char*)crashAddr - (char*)hMod);
+        // Extract just filename
+        char* lastSlash = strrchr(modShort, '\\');
+        if (lastSlash) memmove(modShort, lastSlash + 1, strlen(lastSlash + 1) + 1);
+    }
+
+    // Append to file (not overwrite)
+    HANDLE hFile = CreateFileA("D:\\anomaly\\bin\\vk_crash.txt",
+        GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        SetFilePointer(hFile, 0, NULL, FILE_END);
+        DWORD written;
+        char sep[64];
+        wsprintfA(sep, "\r\n--- CRASH #%d ---\r\n", GetTickCount());
+        WriteFile(hFile, sep, (DWORD)lstrlenA(sep), &written, NULL);
+        WriteFile(hFile, buf, (DWORD)lstrlenA(buf), &written, NULL);
+
+        char buf2[512];
+        wsprintfA(buf2, "Module: %s+0x%IX\r\n", modShort, modOffset);
+        WriteFile(hFile, buf2, (DWORD)lstrlenA(buf2), &written, NULL);
+
+        CloseHandle(hFile);
+    }
+
+    // Also try to log it with module info
+    __try {
+        Msg("!!! VEH CRASH: code=0x%08X %s+0x%IX fault=%p", code, modShort, modOffset, faultAddr);
+        FlushLog();
+    } __except(EXCEPTION_EXECUTE_HANDLER) {}
+
+    return EXCEPTION_CONTINUE_SEARCH;  // Let the default handler kill the process
+}
+
+static bool g_vehInstalled = false;
 struct ImDrawData;
 struct ImGuiContext;
 
 // External functions from xrRender_Vulkan.cpp
 extern "C" void VulkanUI_EndPass();
+extern "C" void VulkanUI_ResetState();
 extern "C" void VulkanUI_ReplayDeferred();
 extern "C" VkDescriptorSetLayout VulkanUI_GetDescriptorSetLayout();
 extern "C" VkDescriptorPool VulkanUI_GetDescriptorPool();
@@ -299,6 +386,9 @@ class vkRenderDeviceRender : public IRenderDeviceRender
     bool            m_bNeedsWindowReposition = false;
     u32             m_repositionW       = 0;
     u32             m_repositionH       = 0;
+    u32             m_acquireFailCount  = 0;   // consecutive AcquireNextImage failures
+    u32             m_endCrashCount     = 0;   // consecutive End() crashes
+    bool            m_bRenderDead       = false; // render permanently disabled after too many crashes
 
 public:
     void Copy(IRenderDeviceRender&) override {}
@@ -310,7 +400,13 @@ public:
     void SetupGPU(BOOL, BOOL, BOOL) override { vk_log("SetupGPU"); }
     void overdrawBegin() override {}
     void overdrawEnd() override {}
-    void DeferredLoad(BOOL) override {}
+    void DeferredLoad(BOOL bEnable) override
+    {
+        // В Vulkan текстуры грузятся on-demand через CMaterialManager
+        // Этот вызов сохранён для API совместимости с DX11
+        Msg("[Vulkan] DeferredLoad(%s) called - textures load on-demand",
+            bEnable ? "TRUE" : "FALSE");
+    }
     void ResourcesDeferredUpload() override {}
     void ResourcesDeferredUnload() override {}
     void ResourcesGetMemoryUsage(u32&, u32&, u32&, u32&) override {}
@@ -383,7 +479,45 @@ public:
         }
 
         // Step 1: Create Vulkan device (instance, physical device, logical device, VMA)
-        VulkanHW.CreateDevice(hwnd);
+        if (!VulkanHW.CreateDevice(hwnd)) {
+            vk_error("=================================================================");
+            vk_error("VULKAN RENDERER INITIALIZATION FAILED");
+            vk_error("=================================================================");
+            vk_error("");
+            vk_error("Vulkan renderer could not be initialized.");
+            vk_error("Please check the log above for detailed error information.");
+            vk_error("");
+            vk_error("Common solutions:");
+            vk_error("1. Update your GPU drivers to the latest version");
+            vk_error("2. Install Vulkan SDK from https://vulkan.lunarg.com/");
+            vk_error("3. Use DirectX renderer by launching with -dx11 flag");
+            vk_error("");
+            vk_error("=================================================================");
+
+            // Show user-friendly error dialog
+            MessageBoxA(hwnd,
+                "Failed to initialize Vulkan renderer.\n\n"
+                "Possible reasons:\n"
+                "• GPU doesn't support Vulkan 1.2/1.3\n"
+                "• Outdated GPU drivers\n"
+                "• Vulkan SDK not installed\n"
+                "• No compatible GPU detected\n\n"
+                "Solutions:\n"
+                "1. Update GPU drivers to latest version\n"
+                "   - NVIDIA: Driver 515+ (GTX 1000 series+)\n"
+                "   - AMD: Driver 21.10.1+ (RX 5000 series+)\n"
+                "   - Intel: Driver 30.0.101+ (Arc A-series)\n\n"
+                "2. Install Vulkan SDK:\n"
+                "   https://vulkan.lunarg.com/\n\n"
+                "3. Use DirectX renderer:\n"
+                "   Launch game with -dx11 flag\n\n"
+                "Check game log for detailed error information.",
+                "Vulkan Initialization Failed",
+                MB_OK | MB_ICONERROR);
+
+            m_bDeviceCreated = false;
+            return;  // Don't continue initialization
+        }
         vk_log("VulkanHW device created");
 
         // Step 2: Create swapchain
@@ -399,6 +533,13 @@ public:
         vk_log("Sync primitives created");
 
         m_bDeviceCreated = true;
+
+        // Install vectored exception handler for crash diagnostics
+        if (!g_vehInstalled) {
+            AddVectoredExceptionHandler(1, VulkanCrashHandler);
+            g_vehInstalled = true;
+            Msg("[Vulkan] Crash handler installed");
+        }
         vk_log("Create complete");
     }
 
@@ -432,7 +573,7 @@ public:
     void Begin() override
     {
 
-        if (!m_bDeviceCreated) {
+        if (!m_bDeviceCreated || m_bRenderDead) {
             return;
         }
 
@@ -461,16 +602,30 @@ public:
         FrameSync& sync = Sync.GetCurrentFrame(frameIndex);
 
         // 1. Wait for previous frame to finish on this slot
-        Sync.WaitForFence(frameIndex);
+        if (!Sync.WaitForFence(frameIndex)) {
+            m_bFrameActive = false;
+            return;
+        }
 
         // 2. Acquire next swapchain image
         m_CurrentImageIndex = Swapchain.AcquireNextImage(sync.imageAvailable);
         if (m_CurrentImageIndex == UINT32_MAX) {
-            // Swapchain out of date - need recreation
-            vk_warn("Swapchain out of date, skipping frame");
+            m_acquireFailCount++;
+            if (m_acquireFailCount >= 3) {
+                // Swapchain stuck — force full recreate
+                Msg("[Vulkan] Begin(): %u consecutive acquire failures — recreating swapchain", m_acquireFailCount);
+                vkDeviceWaitIdle(VulkanHW.m_Device);
+                Swapchain.Recreate(Swapchain.GetWidth(), Swapchain.GetHeight());
+                // Also recreate sync — semaphore may have been consumed by failed acquire
+                Sync.Destroy();
+                Sync.Create();
+                CommandManager.ResetFrameCounter();
+                m_acquireFailCount = 0;
+            }
             m_bFrameActive = false;
             return;
         }
+        m_acquireFailCount = 0;  // reset on success
 
         // 2b. Resolution sync — after swapchain recreation the extent may have
         // changed (e.g. 640x480 → 2560x1600).  Update Device dimensions and
@@ -539,88 +694,240 @@ public:
     // ========================================================================
     void End() override
     {
-        if (!m_bDeviceCreated || !m_bFrameActive)
+        if (!m_bDeviceCreated || !m_bFrameActive || m_bRenderDead)
             return;
 
+        __try {
+            End_Inner();
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            m_endCrashCount++;
+            Msg("!!! End() OUTER CATCH: crash at frame %u, exception 0x%08X (crash %u/10)",
+                Device.dwFrame, GetExceptionCode(), m_endCrashCount);
+            FlushLog();
+            if (m_endCrashCount >= 10) {
+                Msg("!!! End(): 10 consecutive crashes — DISABLING RENDER.");
+                FlushLog();
+                m_bRenderDead = true;
+                m_bFrameActive = false;
+                m_CurrentCmd = VK_NULL_HANDLE;
+                g_bDeviceLost = false;
+                ClipCursor(NULL);
+                return;
+            }
+            // Minimal cleanup — don't call Vulkan APIs since state is unknown
+            VulkanUI_ResetState();
+            m_bFrameActive = false;
+            m_CurrentCmd = VK_NULL_HANDLE;
+            g_bDeviceLost = true;  // will trigger nuclear recovery on next End()
+        }
+    }
+
+    void End_Inner()
+    {
         u32 frameIndex = CommandManager.GetCurrentFrame();
         FrameSync& sync = Sync.GetCurrentFrame(frameIndex);
 
-        // Replay deferred UI draw calls (from FrameMove, before cmd buffer was started)
-        VulkanUI_ReplayDeferred();
+        // ====================================================================
+        // Recovery path: if g_bDeviceLost was set mid-frame (e.g. crash in
+        // Render()), the command buffer is still in recording state and the
+        // fence has been reset but never signaled.  We MUST end the command
+        // buffer, submit it, and present — otherwise Vulkan sync objects are
+        // left in an inconsistent state (fence unsignaled, swapchain image
+        // unreturned) and the GPU will eventually TDR.
+        //
+        // After recovery we clear g_bDeviceLost so the next frame can try
+        // rendering again instead of staying permanently dead.
+        // ====================================================================
+        if (g_bDeviceLost) {
+            Msg("[Vulkan] End(): recovering from mid-frame crash (frame %u)", Device.dwFrame);
 
-        // End UI pass if active (before ending command buffer)
-        VulkanUI_EndPass();
+            // ============================================================
+            // Nuclear recovery: wait for ALL GPU work to finish, then
+            // destroy and recreate ALL sync objects and reset ALL command
+            // pools.  This guarantees a clean slate — no dangling fences,
+            // no half-consumed semaphores.  We sacrifice one frame (no
+            // present) but the next frame will start completely fresh.
+            // ============================================================
 
-        // Fallback: if nothing rendered to the swapchain this frame,
-        // clear it to black and transition to PRESENT_SRC so we don't present garbage.
-        if (!Swapchain.m_bRenderedThisFrame) {
-            VkImage swapImg = Swapchain.GetCurrentImage();
-            if (swapImg != VK_NULL_HANDLE) {
-                VkImageMemoryBarrier bar = {};
-                bar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                bar.srcAccessMask = 0;
-                bar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                bar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-                bar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                bar.image = swapImg;
-                bar.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                bar.subresourceRange.baseMipLevel = 0;
-                bar.subresourceRange.levelCount = 1;
-                bar.subresourceRange.baseArrayLayer = 0;
-                bar.subresourceRange.layerCount = 1;
+            // 1. Wait for everything on the GPU to complete
+            vkDeviceWaitIdle(VulkanHW.m_Device);
 
-                vkCmdPipelineBarrier(m_CurrentCmd,
-                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT,
-                    0, 0, nullptr, 0, nullptr, 1, &bar);
-
-                VkClearColorValue clearColor = {{0.0f, 0.0f, 0.0f, 1.0f}};
-                VkImageSubresourceRange range = {};
-                range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                range.baseMipLevel = 0;
-                range.levelCount = 1;
-                range.baseArrayLayer = 0;
-                range.layerCount = 1;
-                vkCmdClearColorImage(m_CurrentCmd, swapImg,
-                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
-
-                bar.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-                bar.dstAccessMask = 0;
-                bar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-                bar.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-                vkCmdPipelineBarrier(m_CurrentCmd,
-                    VK_PIPELINE_STAGE_TRANSFER_BIT,
-                    VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                    0, 0, nullptr, 0, nullptr, 1, &bar);
+            // 2. Reset ALL command pools (not just the current one)
+            //    This puts all command buffers back to initial state.
+            for (u32 i = 0; i < CVulkanCommandManager::FRAMES_IN_FLIGHT; i++) {
+                vkResetCommandPool(VulkanHW.m_Device,
+                    CommandManager.GetPool(i), 0);
             }
+
+            // 3. Recreate swapchain — acquired image was never presented,
+            //    so the swapchain is in a broken state.
+            Swapchain.Recreate(Swapchain.GetWidth(), Swapchain.GetHeight());
+
+            // 4. Destroy and recreate ALL sync objects (semaphores + fences)
+            //    Fences are recreated as SIGNALED so WaitForFence succeeds
+            //    on the very next frame.
+            Sync.Destroy();
+            Sync.Create();
+
+            // 5. Reset frame counter to slot 0 for a clean start
+            CommandManager.ResetFrameCounter();
+
+            // 6. Disconnect command buffer from RCache
+            RCache.EndCommandBuffer();
+
+            m_bFrameActive = false;
+            m_CurrentCmd = VK_NULL_HANDLE;
+            m_acquireFailCount = 0;
+
+            // Reset UI state — EndUIPass would crash on stale swapchain data
+            VulkanUI_ResetState();
+
+            // Clear device lost — allow rendering to resume next frame
+            g_bDeviceLost = false;
+            Msg("[Vulkan] End(): nuclear recovery complete (swapchain recreated), rendering will resume next frame");
+            return;
         }
 
-        // Log UI frame stats (throttled)
-        VulkanUI_LogFrameStats();
+        // ================================================================
+        // Normal End() path — wrapped in __try/__except so if anything
+        // here crashes, we trigger nuclear recovery instead of leaving
+        // sync objects in a broken state.
+        // ================================================================
+        volatile int end_step = 0;
+        __try {
+            end_step = 1;
+            // Replay deferred UI draw calls (from FrameMove, before cmd buffer was started)
+            VulkanUI_ReplayDeferred();
 
-        // Disconnect command buffer from RCache
-        RCache.EndCommandBuffer();
+            end_step = 2;
+            // End UI pass if active (before ending command buffer)
+            VulkanUI_EndPass();
 
-        // End command buffer recording
-        CommandManager.End(m_CurrentCmd);
+            end_step = 3;
+            // Fallback: if nothing rendered to the swapchain this frame,
+            // clear it to black and transition to PRESENT_SRC so we don't present garbage.
+            if (!Swapchain.m_bRenderedThisFrame) {
+                VkImage swapImg = Swapchain.GetCurrentImage();
+                if (swapImg != VK_NULL_HANDLE && m_CurrentCmd != VK_NULL_HANDLE) {
+                    VkImageMemoryBarrier bar = {};
+                    bar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                    bar.srcAccessMask = 0;
+                    bar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                    bar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    bar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                    bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                    bar.image = swapImg;
+                    bar.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    bar.subresourceRange.baseMipLevel = 0;
+                    bar.subresourceRange.levelCount = 1;
+                    bar.subresourceRange.baseArrayLayer = 0;
+                    bar.subresourceRange.layerCount = 1;
 
-        // Submit command buffer with synchronization:
-        //   Wait on: imageAvailable (swapchain image ready)
-        //   Signal:  renderFinished (rendering complete)
-        //   Fence:   inFlightFence (CPU can proceed when GPU done)
-        CommandManager.Submit(m_CurrentCmd, sync.imageAvailable, sync.renderFinished, sync.inFlightFence);
+                    vkCmdPipelineBarrier(m_CurrentCmd,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &bar);
 
-        // Present the rendered image
-        Swapchain.Present(sync.renderFinished, m_CurrentImageIndex);
+                    VkClearColorValue clearColor = {{0.0f, 0.0f, 0.0f, 1.0f}};
+                    VkImageSubresourceRange range = {};
+                    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    range.baseMipLevel = 0;
+                    range.levelCount = 1;
+                    range.baseArrayLayer = 0;
+                    range.layerCount = 1;
+                    vkCmdClearColorImage(m_CurrentCmd, swapImg,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
 
-        // Advance to next frame slot
-        CommandManager.NextFrame();
+                    bar.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                    bar.dstAccessMask = 0;
+                    bar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                    bar.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-        m_bFrameActive = false;
-        m_CurrentCmd = VK_NULL_HANDLE;
+                    vkCmdPipelineBarrier(m_CurrentCmd,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &bar);
+                }
+            }
+
+            end_step = 4;
+            // Log UI frame stats (throttled)
+            VulkanUI_LogFrameStats();
+
+            end_step = 5;
+            // Disconnect command buffer from RCache
+            RCache.EndCommandBuffer();
+
+            end_step = 6;
+            // End command buffer recording
+            if (!CommandManager.End(m_CurrentCmd)) {
+                Msg("! End(): CommandManager.End failed, skipping submit/present");
+                g_bDeviceLost = true;
+                m_bFrameActive = false;
+                m_CurrentCmd = VK_NULL_HANDLE;
+                return;
+            }
+
+            end_step = 7;
+            // Submit command buffer with synchronization
+            if (!CommandManager.Submit(m_CurrentCmd, sync.imageAvailable, sync.renderFinished, sync.inFlightFence)) {
+                Msg("! End(): CommandManager.Submit failed, skipping present");
+                g_bDeviceLost = true;
+                m_bFrameActive = false;
+                m_CurrentCmd = VK_NULL_HANDLE;
+                return;
+            }
+
+            end_step = 8;
+            // Present the rendered image
+            Swapchain.Present(sync.renderFinished, m_CurrentImageIndex);
+
+            end_step = 9;
+            // Advance to next frame slot
+            CommandManager.NextFrame();
+
+            m_bFrameActive = false;
+            m_CurrentCmd = VK_NULL_HANDLE;
+            m_endCrashCount = 0;  // success — reset consecutive crash counter
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            m_endCrashCount++;
+            Msg("! End(): CRASH at step %d in normal path at frame %u, exception 0x%08X (crash %u/10)",
+                end_step, Device.dwFrame, GetExceptionCode(), m_endCrashCount);
+            Msg("! End() steps: 1=UI_Replay 2=UI_EndPass 3=SwapClear 4=LogStats 5=EndCmdBuf 6=CmdEnd 7=Submit 8=Present 9=NextFrame");
+            FlushLog();
+
+            if (m_endCrashCount >= 10) {
+                // Too many consecutive End() crashes — disable rendering to keep game responsive
+                Msg("!!! End(): 10 consecutive crashes — DISABLING RENDER. Game will continue with black screen.");
+                Msg("!!! Check log above for step numbers to identify the root cause.");
+                FlushLog();
+                vkDeviceWaitIdle(VulkanHW.m_Device);
+                m_bRenderDead = true;
+                m_bFrameActive = false;
+                m_CurrentCmd = VK_NULL_HANDLE;
+                g_bDeviceLost = false;
+                // Release cursor so user can Alt+Tab / close the game
+                ClipCursor(NULL);
+                return;
+            }
+
+            // Do inline nuclear recovery:
+            vkDeviceWaitIdle(VulkanHW.m_Device);
+            for (u32 i = 0; i < CVulkanCommandManager::FRAMES_IN_FLIGHT; i++)
+                vkResetCommandPool(VulkanHW.m_Device, CommandManager.GetPool(i), 0);
+            Swapchain.Recreate(Swapchain.GetWidth(), Swapchain.GetHeight());
+            Sync.Destroy();
+            Sync.Create();
+            CommandManager.ResetFrameCounter();
+            RCache.EndCommandBuffer();
+            m_bFrameActive = false;
+            m_CurrentCmd = VK_NULL_HANDLE;
+            m_acquireFailCount = 0;
+            VulkanUI_ResetState();
+            g_bDeviceLost = false;
+            Msg("[Vulkan] End(): nuclear recovery after End() crash complete (swapchain recreated)");
+        }
 
         // Deferred window repositioning — safe to call here because
         // ImGui::Render() has already finished (it runs between Begin/End).
@@ -714,14 +1021,318 @@ public:
     }
 };
 
+// Loading screen text helpers (ported from dxApplicationRender)
+#define IsSpace(ch) ((ch) == ' ' || (ch) == '\t' || (ch) == '\r' || (ch) == '\n' || (ch) == ',' || (ch) == '.' || (ch) == ':' || (ch) == '!')
+
+static void parse_word(LPCSTR str, CGameFont* font, float& length, LPCSTR& next_word)
+{
+    length = 0.0f;
+    while (*str && !IsSpace(*str))
+    {
+        length += font->SizeOf_(*str);
+        ++str;
+    }
+    next_word = (*str) ? str + 1 : str;
+}
+
+static void draw_multiline_text(CGameFont* F, float fTargetWidth, LPCSTR pszText)
+{
+    if (!pszText || xr_strlen(pszText) == 0)
+        return;
+
+    LPCSTR ch = pszText;
+    float curr_word_len = 0.0f;
+    LPCSTR next_word = NULL;
+
+    float curr_len = 0.0f;
+    string512 buff;
+    buff[0] = 0;
+    while (*ch)
+    {
+        parse_word(ch, F, curr_word_len, next_word);
+        if (curr_len + curr_word_len > fTargetWidth)
+        {
+            F->OutNext(buff);
+            curr_len = 0.0f;
+            buff[0] = 0;
+        }
+        else
+        {
+            curr_len += curr_word_len;
+            strncpy_s(buff + xr_strlen(buff), sizeof(buff) - xr_strlen(buff), ch, next_word - ch);
+            ch = next_word;
+        }
+        if (0 == *next_word)
+        {
+            strncpy_s(buff + xr_strlen(buff), sizeof(buff) - xr_strlen(buff), ch, next_word - ch);
+            F->OutNext(buff);
+            break;
+        }
+    }
+}
+
 class vkApplicationRender : public IApplicationRender
 {
+    vkUIShader sh_progress;
+    vkUIShader hLevelLogo;
+    vkUIShader hLevelLogo_Add;
+
+    static u32 calc_progress_color(u32 idx, u32 total, int stage, int max_stage)
+    {
+        float kk = (float(stage + 1) / float(max_stage)) * (total);
+        float f = 1.0f / (exp((float(idx) - kk) * 0.5f) + 1.0f);
+        return color_argb_f(f, 1.0f, 1.0f, 1.0f);
+    }
+
+    void draw_quad(vkUIShader& sh, Frect& coords, float u0, float v0, float u1, float v1, u32 color)
+    {
+        UIRender->SetShader(sh);
+        UIRender->StartPrimitive(6, IUIRender::ptTriList, IUIRender::pttTL);
+        // Triangle 1: bottom-left, top-left, bottom-right
+        UIRender->PushPoint(coords.lt.x, coords.rb.y, 0, color, u0, v1);
+        UIRender->PushPoint(coords.lt.x, coords.lt.y, 0, color, u0, v0);
+        UIRender->PushPoint(coords.rb.x, coords.rb.y, 0, color, u1, v1);
+        // Triangle 2: top-left, top-right, bottom-right
+        UIRender->PushPoint(coords.lt.x, coords.lt.y, 0, color, u0, v0);
+        UIRender->PushPoint(coords.rb.x, coords.lt.y, 0, color, u1, v0);
+        UIRender->PushPoint(coords.rb.x, coords.rb.y, 0, color, u1, v1);
+        UIRender->FlushPrimitive();
+    }
+
 public:
-    void Copy(IApplicationRender&) override {}
-    void LoadBegin() override {}
-    void destroy_loading_shaders() override {}
-    void setLevelLogo(LPCSTR) override {}
-    void load_draw_internal(CApplication&) override {}
+    void Copy(IApplicationRender& _in) override
+    {
+        vkApplicationRender* other = static_cast<vkApplicationRender*>(&_in);
+        sh_progress.Copy(other->sh_progress);
+        hLevelLogo.Copy(other->hLevelLogo);
+        hLevelLogo_Add.Copy(other->hLevelLogo_Add);
+    }
+
+    void LoadBegin() override
+    {
+        sh_progress.create("hud\\default", "ui\\ui_actor_loadgame_screen");
+        hLevelLogo_Add.create("hud\\default", "ui\\ui_actor_widescreen_sidepanels.dds");
+    }
+
+    void destroy_loading_shaders() override
+    {
+        hLevelLogo.destroy();
+        sh_progress.destroy();
+        hLevelLogo_Add.destroy();
+    }
+
+    void setLevelLogo(LPCSTR pszLogoName) override
+    {
+        hLevelLogo.create("hud\\default", pszLogoName);
+    }
+
+    void load_draw_internal(CApplication& owner) override
+    {
+        if (!sh_progress.inited())
+            return;
+
+        float _w = (float)Device.dwWidth;
+        float _h = (float)Device.dwHeight;
+        bool b_ws = (_w / _h) > 1.34f;
+        bool b_16x9 = b_ws && ((_w / _h) > 1.77f);
+        float ws_k = (b_16x9) ? 0.75f : 0.8333f;
+        float ws_w = b_ws ? (b_16x9 ? 171.0f : 102.6f) : 0.0f;
+
+        float bw = 1024.0f;
+        float bh = 768.0f;
+        Fvector2 k;
+        k.set(_w / bw, _h / bh);
+
+        Fvector2 tsz;
+        tsz.set(1024, 1024);
+
+        Fvector2 back_offset;
+        if (b_ws)
+            back_offset.set(ws_w * ws_k, 0.0f);
+        else
+            back_offset.set(0.0f, 0.0f);
+
+        // --- Progress bar ---
+        {
+            Fvector2 back_tex_size, back_size;
+            Frect back_tex_coords, back_coords;
+
+            back_tex_size.set(506, 4);
+            back_size.set(506, 4);
+            if (b_ws)
+                back_size.x *= ws_k;
+
+            back_tex_coords.lt.set(0, 772);
+            back_tex_coords.rb.add(back_tex_coords.lt, back_tex_size);
+
+            back_coords.lt.set(260, 599);
+            if (b_ws)
+                back_coords.lt.x *= ws_k;
+            back_coords.lt.add(back_offset);
+
+            back_coords.rb.add(back_coords.lt, back_size);
+            back_coords.lt.mul(k);
+            back_coords.rb.mul(k);
+
+            back_tex_coords.lt.x /= tsz.x;
+            back_tex_coords.lt.y /= tsz.y;
+            back_tex_coords.rb.x /= tsz.x;
+            back_tex_coords.rb.y /= tsz.y;
+
+            u32 v_cnt = 40;
+            float pos_delta = back_coords.width() / v_cnt;
+            float tc_delta = back_tex_coords.width() / v_cnt;
+
+            // Render progress bar as triangle list: each segment = 2 triangles = 6 verts
+            UIRender->SetShader(sh_progress);
+            UIRender->StartPrimitive(v_cnt * 6, IUIRender::ptTriList, IUIRender::pttTL);
+
+            for (u32 idx = 0; idx < v_cnt; ++idx)
+            {
+                u32 clr0 = calc_progress_color(idx, v_cnt, owner.load_stage, owner.max_load_stage);
+                u32 clr1 = calc_progress_color(idx + 1, v_cnt, owner.load_stage, owner.max_load_stage);
+
+                float x0 = back_coords.lt.x + pos_delta * idx;
+                float x1 = back_coords.lt.x + pos_delta * (idx + 1);
+                float y_top = back_coords.lt.y;
+                float y_bot = back_coords.rb.y;
+                float u0 = back_tex_coords.lt.x + tc_delta * idx;
+                float u1 = back_tex_coords.lt.x + tc_delta * (idx + 1);
+                float v_top = back_tex_coords.lt.y;
+                float v_bot = back_tex_coords.rb.y;
+
+                // Triangle 1: bot-left, top-left, bot-right
+                UIRender->PushPoint(x0, y_bot, 0, clr0, u0, v_bot);
+                UIRender->PushPoint(x0, y_top, 0, clr0, u0, v_top);
+                UIRender->PushPoint(x1, y_bot, 0, clr1, u1, v_bot);
+                // Triangle 2: top-left, top-right, bot-right
+                UIRender->PushPoint(x0, y_top, 0, clr0, u0, v_top);
+                UIRender->PushPoint(x1, y_top, 0, clr1, u1, v_top);
+                UIRender->PushPoint(x1, y_bot, 0, clr1, u1, v_bot);
+            }
+
+            UIRender->FlushPrimitive();
+        }
+
+        // --- Background picture ---
+        {
+            Fvector2 back_tex_size, back_size;
+            Frect back_tex_coords, back_coords;
+
+            back_tex_size.set(1024, 768);
+            back_size.set(1024, 768);
+            if (b_ws)
+                back_size.x *= ws_k;
+
+            back_tex_coords.lt.set(0, 0);
+            back_tex_coords.rb.add(back_tex_coords.lt, back_tex_size);
+
+            back_coords.lt.set(0.f, 0.f);
+            back_coords.lt.add(back_offset);
+            back_coords.rb.add(back_coords.lt, back_size);
+
+            back_coords.lt.mul(k);
+            back_coords.rb.mul(k);
+
+            float u0 = back_tex_coords.lt.x / tsz.x;
+            float v0 = back_tex_coords.lt.y / tsz.y;
+            float u1 = back_tex_coords.rb.x / tsz.x;
+            float v1 = back_tex_coords.rb.y / tsz.y;
+
+            draw_quad(sh_progress, back_coords, u0, v0, u1, v1, 0xffffffff);
+        }
+
+        // --- Widescreen side panels ---
+        if (b_ws)
+        {
+            Fvector2 back_size;
+            Frect back_tex_coords, back_coords;
+
+            back_size.set(ws_w * ws_k, 768.0f);
+
+            // Left panel
+            if (b_16x9)
+            {
+                back_tex_coords.lt.set(0, 0);
+                back_tex_coords.rb.set(128, 768);
+            }
+            else
+            {
+                back_tex_coords.lt.set(0, 0);
+                back_tex_coords.rb.set(128, 768);
+            }
+            back_coords.lt.set(0.f, 0.f);
+            back_coords.rb.add(back_coords.lt, back_size);
+            back_coords.lt.mul(k);
+            back_coords.rb.mul(k);
+
+            draw_quad(hLevelLogo_Add, back_coords,
+                back_tex_coords.lt.x / tsz.x, back_tex_coords.lt.y / tsz.y,
+                back_tex_coords.rb.x / tsz.x, back_tex_coords.rb.y / tsz.y,
+                0xffffffff);
+
+            // Right panel
+            if (b_16x9)
+            {
+                back_tex_coords.lt.set(128, 0);
+                back_tex_coords.rb.set(256, 768);
+            }
+            else
+            {
+                back_tex_coords.lt.set(128, 0);
+                back_tex_coords.rb.set(256, 768);
+            }
+            back_coords.lt.set(1024.0f - back_size.x, 0.f);
+            back_coords.rb.add(back_coords.lt, back_size);
+            back_coords.lt.mul(k);
+            back_coords.rb.mul(k);
+
+            draw_quad(hLevelLogo_Add, back_coords,
+                back_tex_coords.lt.x / tsz.x, back_tex_coords.lt.y / tsz.y,
+                back_tex_coords.rb.x / tsz.x, back_tex_coords.rb.y / tsz.y,
+                0xffffffff);
+        }
+
+        // --- Title and tip text ---
+        VERIFY(owner.pFontSystem);
+        owner.pFontSystem->Clear();
+        owner.pFontSystem->SetColor(color_rgba(103, 103, 103, 255));
+        owner.pFontSystem->SetAligment(CGameFont::alCenter);
+        Fvector2 text_pos;
+        text_pos.set(_w / 2, 622.0f * k.y);
+        owner.pFontSystem->OutSet(text_pos.x, text_pos.y);
+        owner.pFontSystem->OutNext(owner.ls_header);
+        owner.pFontSystem->OutNext("");
+        owner.pFontSystem->OutNext(owner.ls_tip_number);
+
+        float fTargetWidth = 600.0f * k.x * (b_ws ? 0.8f : 1.0f);
+        draw_multiline_text(owner.pFontSystem, fTargetWidth, owner.ls_tip);
+
+        owner.pFontSystem->OnRender();
+
+        // --- Level-specific screenshot ---
+        if (hLevelLogo.inited())
+        {
+            Frect r;
+            r.lt.set(0, 173);
+
+            if (b_ws)
+                r.lt.x *= ws_k;
+            r.lt.add(back_offset);
+
+            Fvector2 logo_size;
+            logo_size.set(1024, 399);
+            if (b_ws)
+                logo_size.x *= ws_k;
+
+            r.rb.add(r.lt, logo_size);
+            r.lt.mul(k);
+            r.rb.mul(k);
+
+            draw_quad(hLevelLogo, r, 0.0f, 0.0f, 1.0f, 0.77926f, 0xffffffff);
+        }
+    }
+
     void KillHW() override {}
 };
 
@@ -837,22 +1448,88 @@ public:
     }
 };
 
-class vkEnvDescriptorMixerRender : public IEnvDescriptorMixerRender
-{
-public:
-    void Copy(IEnvDescriptorMixerRender&) override {}
-    void Destroy() override {}
-    void Clear() override {}
-    void lerp(IEnvDescriptorRender*, IEnvDescriptorRender*) override {}
-};
+// vkEnvDescriptorRender and vkEnvDescriptorMixerRender class definitions
+// are in vk_env_render.h. Only the non-inline methods are implemented here.
 
-class vkEnvDescriptorRender : public IEnvDescriptorRender
+void vkEnvDescriptorRender::OnDeviceCreate(CEnvDescriptor& owner)
 {
-public:
-    void Copy(IEnvDescriptorRender&) override {}
-    void OnDeviceCreate(CEnvDescriptor&) override {}
-    void OnDeviceDestroy() override {}
-};
+	Msg("[Vulkan EnvDesc] OnDeviceCreate: sky='%s' sky_env='%s' clouds='%s'",
+		owner.sky_texture_name.size() ? owner.sky_texture_name.c_str() : "(empty)",
+		owner.sky_texture_env_name.size() ? owner.sky_texture_env_name.c_str() : "(empty)",
+		owner.clouds_texture_name.size() ? owner.clouds_texture_name.c_str() : "(empty)");
+
+	// Load sky cubemap
+	if (owner.sky_texture_name.size())
+	{
+		string_path fn;
+		xr_sprintf(fn, sizeof(fn), "%s.dds", owner.sky_texture_name.c_str());
+		string_path fullPath;
+		FS.update_path(fullPath, "$game_textures$", fn);
+
+		if (!sky_texture) sky_texture = xr_new<VK::CVulkanTexture>();
+		else { sky_texture->Destroy(); }
+
+		if (!sky_texture->LoadDDSCubemap(fullPath))
+		{
+			Msg("![Vulkan EnvDesc] Sky cubemap not found: %s", owner.sky_texture_name.c_str());
+			sky_texture->Destroy();
+			xr_delete(sky_texture);
+		}
+	}
+
+	// Load sky environment cubemap (#small variant)
+	if (owner.sky_texture_env_name.size())
+	{
+		string_path fn;
+		xr_sprintf(fn, sizeof(fn), "%s.dds", owner.sky_texture_env_name.c_str());
+		string_path fullPath;
+		FS.update_path(fullPath, "$game_textures$", fn);
+
+		if (!sky_texture_env) sky_texture_env = xr_new<VK::CVulkanTexture>();
+		else { sky_texture_env->Destroy(); }
+
+		if (!sky_texture_env->LoadDDSCubemap(fullPath))
+		{
+			sky_texture_env->Destroy();
+			xr_delete(sky_texture_env);
+		}
+	}
+
+	// Load clouds 2D texture
+	if (owner.clouds_texture_name.size())
+	{
+		string_path fn;
+		xr_sprintf(fn, sizeof(fn), "%s.dds", owner.clouds_texture_name.c_str());
+		string_path fullPath;
+		FS.update_path(fullPath, "$game_textures$", fn);
+
+		if (!clouds_texture) clouds_texture = xr_new<VK::CVulkanTexture>();
+		else { clouds_texture->Destroy(); }
+
+		if (!clouds_texture->LoadDDS(fullPath))
+		{
+			Msg("![Vulkan EnvDesc] Cloud texture FAILED: %s (path: %s)", owner.clouds_texture_name.c_str(), fullPath);
+			clouds_texture->Destroy();
+			xr_delete(clouds_texture);
+		}
+		else
+		{
+			Msg("[Vulkan EnvDesc] Cloud texture OK: %s (%dx%d)", owner.clouds_texture_name.c_str(),
+				clouds_texture->GetWidth(), clouds_texture->GetHeight());
+		}
+	}
+	else
+	{
+		Msg("![Vulkan EnvDesc] clouds_texture_name is EMPTY");
+	}
+}
+
+void vkEnvDescriptorRender::OnDeviceDestroy()
+{
+	if (sky_texture)     { sky_texture->Destroy();     xr_delete(sky_texture); }
+	if (sky_texture_env) { sky_texture_env->Destroy(); xr_delete(sky_texture_env); }
+	if (clouds_texture)  { clouds_texture->Destroy();  xr_delete(clouds_texture); }
+}
 
 class vkFontRender : public IFontRender
 {
@@ -912,7 +1589,7 @@ static UITextureCacheEntry* UITextureCache_LoadAndCache(const xr_string& texture
 
 		IReader* seqFile = FS.r_open(fn);
 		if (seqFile) {
-			string256 buffer;
+			string1024 buffer;
 
 			// Read first line - could be "cycled" or FPS number
 			seqFile->r_string(buffer, sizeof(buffer));
@@ -1267,3 +1944,18 @@ FACTORY_IMPLEMENT(ObjectSpaceRender)
 #endif
 
 #undef FACTORY_IMPLEMENT
+
+// ============================================================================
+// Export RenderFactory for engine
+// ============================================================================
+extern "C" {
+    __declspec(dllexport) dxRenderFactory* GetRenderFactory() {
+        Msg("* [Vulkan] GetRenderFactory() called - returning Vulkan RenderFactory");
+        return &RenderFactoryImpl;
+    }
+
+    __declspec(dllexport) void SetupEnv() {
+        Msg("* [Vulkan] SetupEnv() called - Vulkan renderer environment setup");
+        // Vulkan-specific environment setup if needed
+    }
+}

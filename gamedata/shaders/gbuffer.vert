@@ -4,67 +4,55 @@
 // gbuffer.vert - G-Buffer Vertex Shader
 // ============================================================================
 //
-// Phase 2.21.1: G-Buffer Shaders
+// Transforms geometry vertices for deferred shading.
 //
-// Transforms geometry vertices and prepares data for deferred shading.
+// X-Ray Fmatrix is row-major. GLSL mat4 is column-major.
+// When row-major data is memcpy'd into column-major mat4, the result is
+// the TRANSPOSE of the original matrix.
 //
-// Process:
-// 1. Transform vertex to eye-space (для lighting)
-// 2. Transform vertex to clip-space (для rasterization)
-// 3. Transform normal to eye-space (для lighting)
-// 4. Pass through texture coordinates
+// X-Ray convention: result = v_row * M_rowmajor
+// With transposed matrix in GLSL: result = M_glsl * v_column
+//
+// Therefore the correct multiplication order is: mat4 * vec4
 //
 // ============================================================================
 
-// Vertex inputs (X-Ray FVF format)
-layout(location = 0) in vec3 a_Position;  // Local-space position
-layout(location = 1) in vec3 a_Normal;    // Local-space normal
-layout(location = 2) in vec2 a_TexCoord;  // Texture coordinates (UV)
+// Vertex inputs (X-Ray level geometry: pos + packed_normal + tangent + binormal + short2_uv = 32 bytes)
+layout(location = 0) in vec3 a_Position;  // Local-space position (FLOAT3)
+layout(location = 1) in vec4 a_Normal;    // Packed normal as D3DCOLOR (UBYTE4N → vec4)
+layout(location = 2) in vec2 a_TexCoord;  // Texture coordinates (SHORT2 → SSCALED, raw int16 values)
 
 // Outputs to fragment shader
-layout(location = 0) out vec3 v_PositionEye;  // Eye-space position (для lighting)
-layout(location = 1) out vec3 v_NormalEye;    // Eye-space normal (для lighting)
+layout(location = 0) out vec3 v_PositionEye;  // Eye-space position
+layout(location = 1) out vec3 v_NormalEye;    // Eye-space normal
 layout(location = 2) out vec2 v_TexCoord;     // Texture coordinates
 
-// Push constants (transformation matrices)
+// Push constants (X-Ray Fmatrix — row-major, loaded as transposed in GLSL)
 layout(push_constant) uniform PushConstants
 {
-    mat4 u_Model;       // Model matrix (local → world)
-    mat4 u_View;        // View matrix (world → eye)
-    mat4 u_Projection;  // Projection matrix (eye → clip)
+    mat4 u_Model;       // Model matrix (local -> world)
+    mat4 u_View;        // View matrix (world -> eye)
+    mat4 u_Projection;  // Projection matrix (eye -> clip)
+    float u_UVScale;    // UV scale: 1/1024 for SHORT2 (stride 32), 1.0 for FLOAT2 (stride 36+)
 } pc;
 
 void main()
 {
-    // ========================================================================
-    // 1. Transform position to world space
-    // ========================================================================
-    vec4 posWorld = pc.u_Model * vec4(a_Position, 1.0);
+    // mat4 * vec4 is correct when row-major Fmatrix is loaded into column-major mat4
+    vec4 worldPos = pc.u_Model * vec4(a_Position, 1.0);
+    vec4 eyePos   = pc.u_View * worldPos;
+    gl_Position   = pc.u_Projection * eyePos;
 
-    // ========================================================================
-    // 2. Transform position to eye space (для lighting в deferred pass)
-    // ========================================================================
-    vec4 posEye = pc.u_View * posWorld;
-    v_PositionEye = posEye.xyz;
+    v_PositionEye = eyePos.xyz;
 
-    // ========================================================================
-    // 3. Transform position to clip space (для rasterization)
-    // ========================================================================
-    gl_Position = pc.u_Projection * posEye;
+    // Unpack normal from D3DCOLOR (UBYTE4N → 0..1 range, remap to -1..1)
+    // D3DCOLOR stores as BGRA, read as RGBA via R8G8B8A8_UNORM
+    vec3 unpackedNormal = a_Normal.xyz * 2.0 - 1.0;
 
-    // ========================================================================
-    // 4. Transform normal to eye space
-    // ========================================================================
-    // Normal transformation requires normal matrix (transpose(inverse(MV)))
-    // For uniform scaling: можно использовать upper-left 3x3 of MV
-    // For non-uniform scaling: нужно вычислить normal matrix
-    //
-    // Simplified (assumes uniform scale):
-    mat3 normalMatrix = mat3(pc.u_View * pc.u_Model);
-    v_NormalEye = normalize(normalMatrix * a_Normal);
+    // Transform normal to eye-space (w=0 for direction vectors)
+    vec3 worldNormal = (pc.u_Model * vec4(unpackedNormal, 0.0)).xyz;
+    v_NormalEye      = (pc.u_View * vec4(worldNormal, 0.0)).xyz;
 
-    // ========================================================================
-    // 5. Pass through texture coordinates
-    // ========================================================================
-    v_TexCoord = a_TexCoord;
+    // UV scaling: SHORT2 needs /1024 (u_UVScale = 1/1024), FLOAT2 is direct (u_UVScale = 1.0)
+    v_TexCoord = a_TexCoord * pc.u_UVScale;
 }

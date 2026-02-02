@@ -28,8 +28,8 @@ public:
 
     FrameSync& GetCurrentFrame(u32 frameIndex) { return m_FrameSync[frameIndex]; }
 
-    void WaitForFence(u32 frameIndex);
-    void ResetFence(u32 frameIndex);
+    bool WaitForFence(u32 frameIndex);
+    bool ResetFence(u32 frameIndex);
 };
 
 // Глобальный экземпляр

@@ -407,24 +407,6 @@ void vkCWallmarksEngine::AddSkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm
 }
 
 // ============================================================================
-// Skeleton wallmark rendering helper
-// ============================================================================
-void vkCWallmarksEngine::skeleton_wm_render(intrusive_ptr<CSkeletonWallmark> wm, FVF::LIT*& V)
-{
-    // Delegate to CKinematics::RenderWallmark which fills FVF::LIT vertices
-    FVF::LIT* w_save = V;
-    try
-    {
-        wm->Parent()->RenderWallmark(wm, V);
-    }
-    catch (...)
-    {
-        Msg("! [Vulkan] Failed to render dynamic wallmark");
-        V = w_save;
-    }
-}
-
-// ============================================================================
 // Render all wallmarks (per-slot batching with individual textures)
 // ============================================================================
 void vkCWallmarksEngine::Render()

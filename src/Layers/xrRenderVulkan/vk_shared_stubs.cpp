@@ -11,6 +11,8 @@
 #pragma hdrstop
 
 #include "../xrRender/r__dsgraph_structure.h"
+#include "../xrRender/r__dsgraph_types.h"
+#include "../xrRender/FBasicVisual.h"
 #include "../xrRender/Shader.h"
 #include "rvk.h"
 #include "vk_Visual.h"
@@ -23,8 +25,21 @@
 // Include for sorting
 #include <algorithm>
 
-// Type mapping removed - use explicit casts instead
-// #define dxRender_Visual vkRender_Visual
+using namespace R_dsgraph;
+
+// CalcSSA - compute screen-space area for LOD/culling (same as DX version)
+ICF float CalcSSA(float& distSQ, Fvector& C, dxRender_Visual* V)
+{
+    float R = V->vis.sphere.R + 0;
+    distSQ = Device.vCameraPosition.distance_to_sqr(C) + EPS;
+    return R / distSQ;
+}
+
+ICF float CalcSSA(float& distSQ, Fvector& C, float R)
+{
+    distSQ = Device.vCameraPosition.distance_to_sqr(C) + EPS;
+    return R / distSQ;
+}
 
 // Forward declarations for HUD
 class CHUDManager;
@@ -55,29 +70,98 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
     if (RI.lstNormal.empty())
         return;
 
-    // ========================================================================
-    // Sort by SSA (descending = front-to-back)
-    // This optimizes early-Z rejection in the depth buffer
-    // ========================================================================
-    std::sort(RI.lstNormal.begin(), RI.lstNormal.end(),
-        [](const R_dsgraph::_NormalItem& a, const R_dsgraph::_NormalItem& b) {
-            return a.ssa > b.ssa;  // Larger SSA (closer) first
-        });
+    // Validate lstNormal size
+    u32 count = (u32)RI.lstNormal.size();
+    if (count > 100000) {
+        Msg("! render_graph: lstNormal has suspicious size %u, skipping", count);
+        RI.lstNormal.clear();
+        return;
+    }
 
-    // ========================================================================
+    // Sort by SSA (descending = front-to-back) with crash protection
+    __try {
+        std::sort(RI.lstNormal.begin(), RI.lstNormal.end(),
+            [](const R_dsgraph::_NormalItem& a, const R_dsgraph::_NormalItem& b) {
+                return a.ssa > b.ssa;
+            });
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! render_graph: CRASH in std::sort at frame %u, lstNormal size=%u",
+            Device.dwFrame, count);
+        FlushLog();
+        RI.lstNormal.clear();
+        return;
+    }
+
     // Render all items
-    // ========================================================================
     u32 renderCount = 0;
-    for (auto& item : RI.lstNormal)
+    for (u32 idx = 0; idx < RI.lstNormal.size(); ++idx)
     {
+        auto& item = RI.lstNormal[idx];
         if (!item.pVisual) continue;
 
-        // Cast to Vulkan visual type
         vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
 
-        // Render with full LOD (1.0)
-        // TODO Phase 2: Calculate actual LOD from SSA
-        pV->Render(1.0f);
+        __try {
+            // Validate pointer is readable before calling Render
+            volatile u32 typeCheck = pV->Type;
+            (void)typeCheck;
+            pV->Render(1.0f);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            // Detailed crash diagnostics
+            const char* typeName = "UNKNOWN";
+            u32 vType = 0xDEAD;
+            const char* dbgName = "<unreadable>";
+            const char* meshInfo = "n/a";
+
+            __try {
+                vType = pV->Type;
+                switch (vType) {
+                case 0: typeName = "MT_NORMAL"; break;
+                case 1: typeName = "MT_HIERRARHY"; break;
+                case 2: typeName = "MT_PROGRESSIVE"; break;
+                case 3: typeName = "MT_SKELETON_ANIM"; break;
+                case 4: typeName = "MT_SKELETON_GEOMDEF_PM"; break;
+                case 5: typeName = "MT_SKELETON_GEOMDEF_ST"; break;
+                case 6: typeName = "MT_LOD"; break;
+                case 7: typeName = "MT_TREE_ST"; break;
+                case 8: typeName = "MT_PARTICLE_EFFECT"; break;
+                case 9: typeName = "MT_PARTICLE_GROUP"; break;
+                case 10: typeName = "MT_SKELETON_RIGID"; break;
+                case 11: typeName = "MT_TREE_PM"; break;
+                default: typeName = "INVALID_TYPE"; break;
+                }
+            } __except(EXCEPTION_EXECUTE_HANDLER) { vType = 0xDEAD; }
+
+            __try {
+                if (pV->dbg_name.c_str())
+                    dbgName = pV->dbg_name.c_str();
+            } __except(EXCEPTION_EXECUTE_HANDLER) { dbgName = "<crash reading name>"; }
+
+            // Try to read mesh state for FVisual-derived types
+            static char meshBuf[256];
+            meshBuf[0] = 0;
+            __try {
+                if (vType == 0 || vType == 2 || vType == 4 || vType == 5 ||
+                    vType == 7 || vType == 11) {
+                    // These types derive from vkFVisual and have m_mesh
+                    vkFVisual* fv = reinterpret_cast<vkFVisual*>(pV);
+                    xr_sprintf(meshBuf, sizeof(meshBuf),
+                        "VB=%p IB=%p vCount=%u iCount=%u stride=%u",
+                        fv->m_mesh.p_rm_Vertices,
+                        fv->m_mesh.p_rm_Indices,
+                        fv->m_mesh.vCount,
+                        fv->m_mesh.iCount,
+                        fv->m_mesh.vStride);
+                    meshInfo = meshBuf;
+                }
+            } __except(EXCEPTION_EXECUTE_HANDLER) { meshInfo = "<crash reading mesh>"; }
+
+            Msg("! render_graph: CRASH visual[%u/%u] ptr=%p type=%u(%s) name='%s' mesh=[%s] frame=%u exc=0x%08X",
+                idx, count, pV, vType, typeName, dbgName, meshInfo,
+                Device.dwFrame, GetExceptionCode());
+            FlushLog();
+            continue;
+        }
         renderCount++;
     }
 
@@ -222,69 +306,90 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 // ============================================================================
 // r_dsgraph_insert_static - Add static visual to render queue (Vulkan)
 // ============================================================================
-// Simplified version: skips DX shader selection, adds directly to lstNormal.
-// Original DX version routes to mapNormalPasses/mapSorted/mapDistort based on
-// shader elements. Vulkan uses flat list + per-visual shader binding.
+// Routes visuals to appropriate render queues based on shader flags:
+// - bDistort → mapDistort (heat shimmer, glass refraction)
+// - bStrictB2F → mapSorted (transparent objects, back-to-front sorted)
+// - bEmissive → mapEmissive (self-illuminated, glowing objects)
+// - default → lstNormal (opaque deferred geometry)
 // ============================================================================
 void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
 {
     if (!pVisual) return;
 
-    // Work with vkRender_Visual internally, cast to/from dxRender_Visual at boundaries
-    vkRender_Visual* pVKVisual = reinterpret_cast<vkRender_Visual*>(pVisual);
-
     CRender& RI = RImplementation;
 
     // Marker check prevents duplicate processing
-    if (pVKVisual->vis.marker == RI.marker) return;
-    pVKVisual->vis.marker = RI.marker;
+    if (pVisual->vis.marker == RI.marker) return;
+    pVisual->vis.marker = RI.marker;
 
-    // Calculate SSA for culling
-    float distSQ = Device.vCameraPosition.distance_to_sqr(pVKVisual->vis.sphere.P);
-    float R = pVKVisual->vis.sphere.R;
-    float ssa = R * R / (distSQ + EPS);
+    // Calculate SSA and distance
+    float distSQ;
+    float SSA = CalcSSA(distSQ, pVisual->vis.sphere.P, pVisual);
+    if (SSA <= r_ssaDISCARD) return;
 
-    // SSA discard - skip tiny objects
-    if (ssa <= r_ssaDISCARD) return;
+    // ========================================================================
+    // Vulkan note: pVisual is actually a vkRender_Visual* (reinterpret_cast).
+    // It does NOT have the DX11 ref_shader member, so we must NOT access
+    // pVisual->shader. Distortion/emissive routing is skipped for now;
+    // all geometry goes to lstNormal (opaque deferred queue).
+    // ========================================================================
 
-    // Add to normal render list
+    // Select shader element (returns default opaque element for Vulkan)
+    ShaderElement* sh = RImplementation.rimp_select_sh_static(pVisual, distSQ);
+    if (!sh) return;
+    if (!pmask[sh->flags.iPriority / 2]) return;
+
+    // Add to normal render list (opaque deferred geometry)
     R_dsgraph::_NormalItem item;
-    item.ssa     = ssa;
-    item.pVisual = pVisual;  // Store as dxRender_Visual*
+    item.ssa     = SSA;
+    item.pVisual = pVisual;
     RI.lstNormal.push_back(item);
 }
 
 // ============================================================================
 // r_dsgraph_insert_dynamic - Add dynamic visual to render queue (Vulkan)
 // ============================================================================
-// Simplified version: skips DX shader selection and distort/HUD routing.
-// Adds dynamic objects directly to lstNormal with SSA-based culling.
+// Routes dynamic visuals (characters, items) to appropriate queues:
+// - HUD elements → mapHUD* queues
+// - Distortion → mapDistort/mapHUDDistort
+// - Transparent → mapSorted/mapHUDSorted
+// - Emissive → mapEmissive/mapHUDEmissive
+// - Opaque → lstNormal
 // ============================================================================
 void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center)
 {
     if (!pVisual) return;
 
-    // Work with vkRender_Visual internally
-    vkRender_Visual* pVKVisual = reinterpret_cast<vkRender_Visual*>(pVisual);
-
     CRender& RI = RImplementation;
 
     // Marker check prevents duplicate processing
-    if (pVKVisual->vis.marker == RI.marker) return;
-    pVKVisual->vis.marker = RI.marker;
+    if (pVisual->vis.marker == RI.marker) return;
+    pVisual->vis.marker = RI.marker;
 
-    // Calculate SSA for culling
-    float distSQ = Device.vCameraPosition.distance_to_sqr(Center);
-    float R = pVKVisual->vis.sphere.R;
-    float ssa = R * R / (distSQ + EPS);
+    // Calculate SSA and distance
+    float distSQ;
+    float SSA = CalcSSA(distSQ, Center, pVisual);
+    if (SSA <= r_ssaDISCARD) return;
 
-    // SSA discard
-    if (ssa <= r_ssaDISCARD) return;
+    // ========================================================================
+    // Vulkan note: pVisual is actually a vkRender_Visual* (reinterpret_cast).
+    // It does NOT have the DX11 ref_shader member, so we must NOT access
+    // pVisual->shader. Distortion/emissive/sorted routing is skipped;
+    // all geometry goes to lstNormal (opaque deferred queue).
+    // ========================================================================
 
-    // Add to normal render list (dynamic objects go to same queue for now)
+    // Select shader element (returns default opaque element for Vulkan)
+    ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
+    if (!sh) return;
+    if (!pmask[sh->flags.iPriority / 2]) return;
+
+    // Skip invisible objects
+    if (RI.val_bInvisible) return;
+
+    // Add to normal render list (opaque deferred geometry)
     R_dsgraph::_NormalItem item;
-    item.ssa     = ssa;
-    item.pVisual = pVisual;  // Store as dxRender_Visual*
+    item.ssa     = SSA;
+    item.pVisual = pVisual;
     RI.lstNormal.push_back(item);
 }
 
@@ -560,6 +665,10 @@ void R_dsgraph_structure::r_dsgraph_render_subspace(
     {
         vkCSector* sector = (vkCSector*)vkPortalTraverser.r_sectors[s_it];
         vkRender_Visual* root = sector->root();
+
+        // Safety: Skip sectors with no root visual
+        if (!root)
+            continue;
 
         // Process each frustum in the sector (portal-clipped frustums)
         for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
@@ -1336,5 +1445,47 @@ light* CLight_DB::Create()
 
 void CLight_DB::Update()
 {
-    // Vulkan stub - sun parameter updates not yet implemented
+    // Update sun parameters from environment
+    if (sun_original && sun_adapted)
+    {
+        light* _sun_original = (light*)sun_original._get();
+        light* _sun_adapted = (light*)sun_adapted._get();
+        CEnvDescriptor& E = *g_pGamePersistent->Environment().CurrentEnv;
+        VERIFY(_valid(E.sun_dir));
+        VERIFY2(E.sun_dir.y < 0, "Invalid sun direction settings in environment-config");
+
+        Fvector OD, OP, AD, AP;
+        OD.set(E.sun_dir).normalize();
+        OP.mad(Device.vCameraPosition, OD, -500.f);
+        AD.set(0, -.75f, 0).add(E.sun_dir);
+
+        int counter = 0;
+        while (AD.magnitude() < 0.001 && counter < 10)
+        {
+            AD.add(E.sun_dir);
+            counter++;
+        }
+        AD.normalize();
+        AP.mad(Device.vCameraPosition, AD, -500.f);
+
+        sun_original->set_rotation(OD, _sun_original->right);
+        sun_original->set_position(OP);
+        sun_original->set_color(E.sun_color.x, E.sun_color.y, E.sun_color.z);
+        sun_original->set_range(600.f);
+
+        sun_adapted->set_rotation(AD, _sun_adapted->right);
+        sun_adapted->set_position(AP);
+        sun_adapted->set_color(E.sun_color.x * ps_r2_sun_lumscale, E.sun_color.y * ps_r2_sun_lumscale,
+                               E.sun_color.z * ps_r2_sun_lumscale);
+        sun_adapted->set_range(600.f);
+
+        if (!::Render->is_sun_static())
+        {
+            sun_adapted->set_rotation(OD, _sun_original->right);
+            sun_adapted->set_position(OP);
+        }
+    }
+
+    // Clear light package — CRITICAL: must happen every frame before add_light() calls
+    package.clear();
 }

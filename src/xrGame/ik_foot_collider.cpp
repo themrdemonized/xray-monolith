@@ -150,19 +150,27 @@ IC bool get_plane_dynamic(ik_pick_result& r, Fvector& next_pos, float& next_rang
 			float dist = pick_dist;
 			IKinematics::pick_result res;
 
-			if (K->PickBone(R.O->XFORM(), res, dist, pos, pick_v, (u16)R.element))
+			__try
 			{
-				//cld.collided = true;
-				r.position.add(pos, Fvector().mul(pick_v, res.dist));
-				r.p.n.invert(res.normal);
-				r.p.d = -r.p.n.dotproduct(r.position);
-				r.triangle[0] = res.tri[0];
-				r.triangle[1] = res.tri[1];
-				r.triangle[2] = res.tri[2];
-				next_pos.set(r.position);
-				next_range = pick_dist - res.dist;
-				r.range = res.dist;
-				return true;
+				if (K->PickBone(R.O->XFORM(), res, dist, pos, pick_v, (u16)R.element))
+				{
+					//cld.collided = true;
+					r.position.add(pos, Fvector().mul(pick_v, res.dist));
+					r.p.n.invert(res.normal);
+					r.p.d = -r.p.n.dotproduct(r.position);
+					r.triangle[0] = res.tri[0];
+					r.triangle[1] = res.tri[1];
+					r.triangle[2] = res.tri[2];
+					next_pos.set(r.position);
+					next_range = pick_dist - res.dist;
+					r.range = res.dist;
+					return true;
+				}
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				// PickBone crashed — skip dynamic pick for this object
+				return false;
 			}
 		}
 	}

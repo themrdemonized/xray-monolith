@@ -387,27 +387,50 @@ bool LoadKernelScriptToGlobal(lua_State* L, const char* name)
 	return true;
 };
 
+static void StorageDiagWrite(const char* msg) {
+	HANDLE h = CreateFileA("D:\\anomaly\\appdata\\logs\\vulkan_diag.txt",
+		FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h != INVALID_HANDLE_VALUE) {
+		DWORD written;
+		WriteFile(h, msg, (DWORD)strlen(msg), &written, NULL);
+		WriteFile(h, "\r\n", 2, &written, NULL);
+		FlushFileBuffers(h);
+		CloseHandle(h);
+	}
+}
+
 BOOL lua_debug = FALSE;
 void CScriptStorage::reinit()
 {
+	StorageDiagWrite("[DIAG] CScriptStorage::reinit ENTER");
 	if (m_virtual_machine)
+	{
+		StorageDiagWrite("[DIAG] reinit: closing old lua state");
 		lua_close(m_virtual_machine);
+	}
 
+	StorageDiagWrite("[DIAG] reinit: before luaL_newstate");
 #ifdef USE_GSC_MEM_ALLOC
-    m_virtual_machine = lua_newstate(lua_alloc, NULL);
+	m_virtual_machine = lua_newstate(lua_alloc, NULL);
 #else
 	m_virtual_machine = luaL_newstate();
 #endif //-USE_GSC_MEM_ALLOC
+	StorageDiagWrite("[DIAG] reinit: after luaL_newstate");
 
 	if (!m_virtual_machine)
 	{
+		StorageDiagWrite("[DIAG] reinit: FAILED - m_virtual_machine is NULL!");
 		Msg("! ERROR : Cannot initialize script virtual machine!");
 		return;
 	}
 
+	StorageDiagWrite("[DIAG] reinit: luaL_newstate SUCCESS");
 
 #ifndef USE_LUAJIT_ONE
+	StorageDiagWrite("[DIAG] reinit: before luaL_openlibs");
 	luaL_openlibs(lua());
+	StorageDiagWrite("[DIAG] reinit: after luaL_openlibs");
 	if (strstr(Core.Params, "-nojit"))
 		luaJIT_setmode(lua(), 0, LUAJIT_MODE_ENGINE | LUAJIT_MODE_OFF);
 #else // USE_LUAJIT_ONE

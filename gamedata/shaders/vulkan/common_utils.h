@@ -1,6 +1,8 @@
 #ifndef COMMON_UTILS_H_INCLUDED
 #define COMMON_UTILS_H_INCLUDED
 
+#include "constants.h"  // Uniform buffer definitions
+
 // ============================================================================
 // common_utils.h - Utility Functions for Vulkan Renderer
 // ============================================================================

@@ -143,7 +143,7 @@ void CRenderTarget::phase_accumulator()
                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                             &clearColor, 1, &range);
 
-        Msg("[Vulkan] rt_Accumulator cleared (frame %d)", Device.dwFrame);
+        // Accumulator cleared
     }
 
     // ========================================================================
@@ -220,7 +220,7 @@ void CRenderTarget::phase_accumulator()
     // in PipelineConfig when lighting pipelines are created.
     // No dynamic blend state needed here.
 
-    Msg("[Vulkan] phase_accumulator() setup complete (additive blending ON)");
+    // phase_accumulator() setup complete
 }
 
 } // namespace VK

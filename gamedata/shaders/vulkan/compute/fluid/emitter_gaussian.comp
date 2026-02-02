@@ -1,0 +1,48 @@
+#version 450
+// 3D Fluid Gaussian Emitter
+// Injects density/temperature using Gaussian splat
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+// Input texture (current density)
+layout(set = 0, binding = 0) uniform sampler3D densityTex;
+
+// Output texture
+layout(set = 0, binding = 1, r16f) writeonly uniform image3D densityOut;
+
+// Parameters
+layout(push_constant) uniform Params {
+    vec3 center;      // Emitter center in grid space [0,1]
+    float radius;     // Gaussian radius
+    vec4 splatColor;  // Density/color to inject
+    float strength;   // Injection strength
+} params;
+
+void main() {
+    uvec3 id = gl_GlobalInvocationID;
+    uvec3 gridSize = imageSize(densityOut);
+
+    if (any(greaterThanEqual(id, gridSize))) {
+        return;
+    }
+
+    vec3 uvw = (vec3(id) + 0.5) / vec3(gridSize);
+
+    // Distance from emitter center
+    vec3 delta = uvw - params.center;
+    float distSq = dot(delta, delta);
+
+    // Gaussian falloff: exp(-dist² / radius²)
+    float gaussian = exp(-distSq / (params.radius * params.radius));
+
+    // Current density
+    float currentDensity = texture(densityTex, uvw).r;
+
+    // Add gaussian splat (blended)
+    float newDensity = currentDensity + params.splatColor.r * gaussian * params.strength;
+
+    // Clamp to reasonable range
+    newDensity = clamp(newDensity, 0.0, 10.0);
+
+    imageStore(densityOut, ivec3(id), vec4(newDensity, 0.0, 0.0, 0.0));
+}

@@ -138,7 +138,13 @@ void vkCSector::load(IReader& fs)
     {
         size = fs.find_chunk(fsP_Root);
         R_ASSERT(size == 4);
-        m_root = (vkRender_Visual*)RImplementation.getVisual(fs.r_u32());
+        u32 visual_id = fs.r_u32();
+        m_root = (vkRender_Visual*)RImplementation.getVisual(visual_id);
+
+        if (!m_root) {
+            Msg("![Vulkan] Sector::Load(): Failed to load root visual ID %u", visual_id);
+            Msg("![Vulkan] Sector will be treated as empty (no geometry)");
+        }
     }
 }
 
@@ -175,6 +181,12 @@ void vkCSector::traverse(CFrustum& F, vk_scissor& R_scissor)
             pSector = PORTAL->getSectorBack(vkPortalTraverser.i_vBase);
             if (pSector == this) continue;
             if (pSector == vkPortalTraverser.i_start) continue;
+        }
+
+        // Safety: Skip if sector is invalid
+        if (!pSector) {
+            Msg("![Vulkan] Portal traversal: null sector detected, skipping portal");
+            continue;
         }
 
         // Early-out: sphere test
@@ -244,6 +256,7 @@ void vkCSector::traverse(CFrustum& F, vk_scissor& R_scissor)
 
                 // HOM culling (slower algorithm for close portals)
                 if ((vkPortalTraverser.i_options & vkCPortalTraverser::VQ_HOM) &&
+                    RImplementation.HOM &&
                     (!RImplementation.HOM->visible(*P)))
                     continue;
             }
@@ -262,6 +275,7 @@ void vkCSector::traverse(CFrustum& F, vk_scissor& R_scissor)
 
                 // HOM culling (faster algorithm)
                 if ((vkPortalTraverser.i_options & vkCPortalTraverser::VQ_HOM) &&
+                    RImplementation.HOM &&
                     (!RImplementation.HOM->visible(scissor, depth)))
                     continue;
             }
@@ -272,6 +286,7 @@ void vkCSector::traverse(CFrustum& F, vk_scissor& R_scissor)
 
             // HOM culling
             if ((vkPortalTraverser.i_options & vkCPortalTraverser::VQ_HOM) &&
+                RImplementation.HOM &&
                 (!RImplementation.HOM->visible(*P)))
                 continue;
         }
@@ -310,7 +325,7 @@ void vkCPortalTraverser::initialize()
 
     // Create geometry with FVF::L format (position + color)
     // Uses dynamic vertex buffer for runtime triangulation
-    // TODO Phase 2.x: Implement geometry creation for Vulkan
+    // TODO: Vulkan geometry creation for portal rendering
     // f_geom.create(FVF::F_L, RCache.Vertex.Buffer(), 0);
 }
 
@@ -386,6 +401,12 @@ void vkCPortalTraverser::fade_render()
 {
     if (f_portals.empty())
         return;
+
+    // TODO: Portal fade rendering requires dynamic vertex buffer support.
+    // Skip for now until RCache.Vertex.Lock() is fully implemented for Vulkan.
+    // This only affects LOD transition fade-in/out visuals on distant portals.
+    f_portals.clear();
+    return;
 
     // Sort portals back-to-front for proper alpha blending
     std::sort(f_portals.begin(), f_portals.end(), psort_pred);

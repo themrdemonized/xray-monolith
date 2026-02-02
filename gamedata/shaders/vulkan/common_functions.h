@@ -1,6 +1,8 @@
 #ifndef COMMON_FUNCTIONS_H_INCLUDED
 #define COMMON_FUNCTIONS_H_INCLUDED
 
+#include "constants.h"  // Uniform buffer definitions
+
 // ============================================================================
 // common_functions.h - Common Lighting Functions for Vulkan Renderer
 // ============================================================================

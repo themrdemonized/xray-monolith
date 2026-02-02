@@ -570,6 +570,12 @@ extern "C" void VulkanUI_ReplayDeferred()
 	VulkanUI::ReplayDeferredUI();
 }
 
+extern "C" void VulkanUI_ResetState()
+{
+	VulkanUI::s_bUIPassActive = false;
+	VulkanUI::s_UIVertexOffset = 0;
+}
+
 extern "C" void VulkanUI_ResetFrameStats(u32 frame)
 {
 	VulkanUI::s_FrameStats.reset(frame);
@@ -1443,7 +1449,8 @@ void TestRenderFrame()
     FrameSync& sync = Sync.GetCurrentFrame(frameIndex);
 
     // 1. Ждём завершения предыдущего frame
-    Sync.WaitForFence(frameIndex);
+    if (!Sync.WaitForFence(frameIndex))
+        return;
 
     // 2. Acquire swapchain image
     u32 imageIndex = Swapchain.AcquireNextImage(sync.imageAvailable);
@@ -1802,7 +1809,10 @@ extern "C" {
         }
 
         // Шаг 1: Создаем Vulkan Device
-        VulkanHW.CreateDevice((HWND)hwnd);
+        if (!VulkanHW.CreateDevice((HWND)hwnd)) {
+            Msg("![Vulkan Test] Failed to create Vulkan device - aborting test");
+            return;
+        }
 
         // Шаг 2: Создаем Swapchain
         RECT rect;
@@ -2434,7 +2444,12 @@ extern "C" {
             // 0. Инициализация Vulkan HW (КРИТИЧЕСКИ ВАЖНО!)
             OutputDebugStringA("[Vulkan TEST] Step 0: Initializing Vulkan VulkanHW...\n");
             Msg("[Vulkan TEST] Step 0: Initializing Vulkan VulkanHW...");
-            VulkanHW.CreateDevice((HWND)hwnd);
+            if (!VulkanHW.CreateDevice((HWND)hwnd)) {
+                OutputDebugStringA("[Vulkan TEST] Step 0: FAILED - CreateDevice returned false\n");
+                Msg("![Vulkan TEST] Step 0: FAILED - CreateDevice returned false");
+                Msg("![Vulkan TEST] Aborting test - check log for details");
+                return;
+            }
             OutputDebugStringA("[Vulkan TEST] Step 0: SUCCESS\n");
             Msg("[Vulkan TEST] Step 0: Vulkan HW initialized successfully");
 

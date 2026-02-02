@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "rvk.h"
+#include "vk_R_Backend.h"       // RCache
 #include "vk_rendertarget.h"
 #include "../xrRender/light.h"  // For light class definition
 #include "../../xrEngine/igame_persistent.h"
@@ -28,23 +29,50 @@ void CRender::init_sun_cascades()
 
 	float fBias = -0.0000025f;
 
+	// ========================================================================
+	// Shadow Atlas Layout (2048x2048 total):
+	// +------------+------------+
+	// | Cascade 0  | Cascade 1  |  Top half (1024 each)
+	// | (NEAR)     | (MIDDLE)   |
+	// | 1024x1024  | 1024x1024  |
+	// +------------+------------+
+	// | Cascade 2 (FAR)         |  Bottom half (full width)
+	// | 2048x1024               |
+	// +-------------------------+
+	// ========================================================================
+
 	// Cascade 0: NEAR (0..20m by default)
 	m_sun_cascades[0].reset_chain = true;
 	m_sun_cascades[0].size = 20.f;  // ps_ssfx_shadow_cascades.x
 	m_sun_cascades[0].bias = m_sun_cascades[0].size * fBias;
+	m_sun_cascades[0].posX = 0;
+	m_sun_cascades[0].posY = 0;
+	m_sun_cascades[0].viewport_size = 1024;
 
 	// Cascade 1: MIDDLE (20..40m by default)
 	m_sun_cascades[1].size = 40.f;  // ps_ssfx_shadow_cascades.y
 	m_sun_cascades[1].bias = m_sun_cascades[1].size * fBias;
+	m_sun_cascades[1].posX = 1024;
+	m_sun_cascades[1].posY = 0;
+	m_sun_cascades[1].viewport_size = 1024;
 
 	// Cascade 2: FAR (40..160m by default)
 	m_sun_cascades[2].size = 160.f;  // ps_ssfx_shadow_cascades.z
 	m_sun_cascades[2].bias = m_sun_cascades[2].size * fBias;
+	m_sun_cascades[2].posX = 0;
+	m_sun_cascades[2].posY = 1024;
+	m_sun_cascades[2].viewport_size = 2048;  // Full width for far cascade
 
 	Msg("[Vulkan] Sun cascades initialized:");
-	Msg("[Vulkan]   - Cascade 0 (NEAR):   size=%.1f, bias=%.7f", m_sun_cascades[0].size, m_sun_cascades[0].bias);
-	Msg("[Vulkan]   - Cascade 1 (MIDDLE): size=%.1f, bias=%.7f", m_sun_cascades[1].size, m_sun_cascades[1].bias);
-	Msg("[Vulkan]   - Cascade 2 (FAR):    size=%.1f, bias=%.7f", m_sun_cascades[2].size, m_sun_cascades[2].bias);
+	Msg("[Vulkan]   - Cascade 0 (NEAR):   size=%.1f, viewport=%ux%u at (%u,%u)",
+	    m_sun_cascades[0].size, m_sun_cascades[0].viewport_size, m_sun_cascades[0].viewport_size,
+	    m_sun_cascades[0].posX, m_sun_cascades[0].posY);
+	Msg("[Vulkan]   - Cascade 1 (MIDDLE): size=%.1f, viewport=%ux%u at (%u,%u)",
+	    m_sun_cascades[1].size, m_sun_cascades[1].viewport_size, m_sun_cascades[1].viewport_size,
+	    m_sun_cascades[1].posX, m_sun_cascades[1].posY);
+	Msg("[Vulkan]   - Cascade 2 (FAR):    size=%.1f, viewport=%ux%u at (%u,%u)",
+	    m_sun_cascades[2].size, m_sun_cascades[2].viewport_size, m_sun_cascades[2].viewport_size,
+	    m_sun_cascades[2].posX, m_sun_cascades[2].posY);
 }
 
 // ============================================================================
@@ -53,9 +81,56 @@ void CRender::init_sun_cascades()
 
 void CRender::render_sun_cascades()
 {
-	// TODO: Check if sunshafts need rendering (affects last cascade reset_chain)
-	// bool b_need_to_render_sunshafts = RImplementation.Target->need_to_render_sunshafts();
+	VkCommandBuffer cmd = RCache.GetCommandBuffer();
+	if (cmd == VK_NULL_HANDLE) return;
+	if (!RTarget || RTarget->rt_smap_depth.m_Image == VK_NULL_HANDLE) return;
 
+	// Transition to clear layout
+	VkImageMemoryBarrier2 barrier = {};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+	barrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+	barrier.srcAccessMask = VK_ACCESS_2_NONE;
+	barrier.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+	barrier.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = RTarget->rt_smap_depth.m_Image;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+
+	VkDependencyInfo dependencyInfo = {};
+	dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+	dependencyInfo.imageMemoryBarrierCount = 1;
+	dependencyInfo.pImageMemoryBarriers = &barrier;
+
+	vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+
+	// Clear entire shadow atlas
+	VkClearDepthStencilValue clearDepth = {};
+	clearDepth.depth = 1.0f;
+	clearDepth.stencil = 0;
+
+	VkImageSubresourceRange range = {};
+	range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	range.baseMipLevel = 0;
+	range.levelCount = 1;
+	range.baseArrayLayer = 0;
+	range.layerCount = 1;
+
+	vkCmdClearDepthStencilImage(cmd, RTarget->rt_smap_depth.m_Image,
+	                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	                            &clearDepth, 1, &range);
+
+	// Shadow atlas cleared
+
+	// ========================================================================
+	// Render all cascades into their respective atlas regions
+	// ========================================================================
 	for (u32 i = 0; i < m_sun_cascades.size(); ++i)
 		render_sun_cascade(i);
 }
@@ -66,13 +141,14 @@ void CRender::render_sun_cascades()
 
 void CRender::render_sun_cascade(u32 cascade_ind)
 {
-	Msg("[Vulkan] render_sun_cascade(%d)", cascade_ind);
+	// render_sun_cascade
 
 	// Get sun light
 	light* sun = (light*)Lights.sun_adapted._get();
 	if (!sun)
 	{
-		Msg("![Vulkan] No sun light available");
+		static bool warned = false;
+		if (!warned) { warned = true; Msg("![Vulkan] No sun light available"); }
 		return;
 	}
 
@@ -111,7 +187,10 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 	Fmatrix ex_project, ex_full, ex_full_inverse;
 	{
 		float OLES_SUN_LIMIT = 100.f;  // Default sun distance limit
-		float _far_ = _min(OLES_SUN_LIMIT, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+		float env_far = 500.f;  // Safe default
+		if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv)
+			env_far = g_pGamePersistent->Environment().CurrentEnv->far_plane;
+		float _far_ = _min(OLES_SUN_LIMIT, env_far);
 		ex_project.build_projection(deg2rad(Device.fFOV), Device.fASPECT, VIEWPORT_NEAR, _far_);
 		ex_full.mul(ex_project, Device.mView);
 		ex_full_inverse.invert(ex_full);
@@ -251,7 +330,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 	// Store final shadow matrix
 	m_sun_cascades[cascade_ind].xform = cull_xform;
 
-	Msg("[Vulkan] Cascade %d shadow matrix computed (size=%.1f)", cascade_ind, map_size);
+	// Cascade shadow matrix computed
 
 	// ========================================================================
 	// Step 8: Render shadow map (Phase 2.15.2)
@@ -270,6 +349,6 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
 void CRender::render_sun()
 {
-	Msg("[Vulkan] render_sun() - using cascade method");
+	// render_sun() - using cascade method
 	render_sun_cascades();
 }

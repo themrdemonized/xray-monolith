@@ -43,7 +43,7 @@ public:
     ~CVulkanHW();
 
     // Основные методы (аналог DX11)
-    void CreateDevice(HWND hWnd);
+    bool CreateDevice(HWND hWnd);  // Returns true on success, false on error
     void DestroyDevice();
     void Reset(HWND hWnd);
 

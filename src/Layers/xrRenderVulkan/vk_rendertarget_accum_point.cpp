@@ -36,12 +36,19 @@ namespace VK
 
 void CRenderTarget::accum_point(light* L)
 {
-	Msg("[Vulkan] accum_point() - Point light accumulation");
+	if (!L) return;
 
-	if (!L) {
-		Msg("![Vulkan] accum_point: NULL light pointer");
-		return;
+	// Early-out: check shaders before any Vulkan commands
+	static bool s_shaders_checked = false;
+	static bool s_shaders_available = false;
+	if (!s_shaders_checked) {
+		s_shaders_checked = true;
+		VkShaderModule vs = g_ShaderManager->Load("accum_point.vert.spv");
+		VkShaderModule fs = g_ShaderManager->Load("accum_point.frag.spv");
+		s_shaders_available = (vs != VK_NULL_HANDLE && fs != VK_NULL_HANDLE);
+		if (!s_shaders_available) Msg("![Vulkan] Point light shaders not available - skipping all point lights");
 	}
+	if (!s_shaders_available) return;
 
 	VkCommandBuffer cmd = RCache.GetCommandBuffer();
 
@@ -178,7 +185,7 @@ void CRenderTarget::accum_point(light* L)
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout,
 	                        3, 1, &sets[3], 0, nullptr);  // Set 3
 
-	Msg("[Vulkan] Descriptor sets bound: G-Buffer + Point light");
+	// Descriptor sets bound
 
 	// ========================================================================
 	// Step 9: Draw sphere volume (or fullscreen quad for now)
@@ -194,7 +201,7 @@ void CRenderTarget::accum_point(light* L)
 	// Draw sphere
 	vkCmdDrawIndexed(cmd, m_PointVolumeIndexCount, 1, 0, 0, 0);
 
-	Msg("[Vulkan] Point light sphere drawn: %d indices", m_PointVolumeIndexCount);
+	// Point light sphere drawn
 
 	// ========================================================================
 	// Step 10: End rendering
@@ -206,7 +213,7 @@ void CRenderTarget::accum_point(light* L)
 	// ========================================================================
 	increment_light_marker();
 
-	Msg("[Vulkan] accum_point() complete");
+	// accum_point() complete
 }
 
 // ============================================================================
@@ -225,7 +232,7 @@ void CRenderTarget::accum_point(light* L)
 
 void CRenderTarget::setup_cubemap_matrices(light* L, Fmatrix face_matrices[6])
 {
-	Msg("[Vulkan] setup_cubemap_matrices()");
+	// setup_cubemap_matrices()
 
 	// ========================================================================
 	// Light position в world space
@@ -321,8 +328,7 @@ void CRenderTarget::setup_cubemap_matrices(light* L, Fmatrix face_matrices[6])
 		face_matrices[5].mul(proj, view);
 	}
 
-	Msg("[Vulkan] Cubemap matrices setup complete for light at (%.2f, %.2f, %.2f), range=%.2f",
-	    lightPos.x, lightPos.y, lightPos.z, L->range);
+	// Cubemap matrices setup complete
 }
 
 // ============================================================================
@@ -336,7 +342,7 @@ void CRenderTarget::setup_cubemap_matrices(light* L, Fmatrix face_matrices[6])
 void CRenderTarget::render_smap_cube_face(light* L, u32 face_index, const Fmatrix& face_matrix)
 {
 	const char* faceNames[6] = {"+X", "-X", "+Y", "-Y", "+Z", "-Z"};
-	Msg("[Vulkan] render_smap_cube_face(face %d: %s)", face_index, faceNames[face_index]);
+	// render_smap_cube_face
 
 	// ========================================================================
 	// Step 1: Get command buffer
@@ -402,7 +408,7 @@ void CRenderTarget::render_smap_cube_face(light* L, u32 face_index, const Fmatri
 	// ========================================================================
 	vkCmdEndRendering(cmd);
 
-	Msg("[Vulkan] Cubemap face %s rendered", faceNames[face_index]);
+	// Cubemap face rendered
 }
 
 // ============================================================================
@@ -415,7 +421,7 @@ void CRenderTarget::render_smap_cube_face(light* L, u32 face_index, const Fmatri
 
 void CRenderTarget::phase_smap_point(light* L)
 {
-	Msg("[Vulkan] phase_smap_point() - Rendering shadow cube for point light");
+	// phase_smap_point()
 
 	if (!L) {
 		Msg("![Vulkan] phase_smap_point: NULL light pointer");
@@ -454,7 +460,7 @@ void CRenderTarget::phase_smap_point(light* L)
 	                              VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
 	                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	Msg("[Vulkan] phase_smap_point() complete - 6 faces rendered");
+	// phase_smap_point() complete
 
 	// ========================================================================
 	// Performance Notes:

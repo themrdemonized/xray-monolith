@@ -558,6 +558,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(OutDir)$(TargetName).map</MapFileName>
     </Link>
     <Manifest>
       <AdditionalManifestFiles>$(SolutionDir)xrEngine\as-invoker-manifest-part.xml;%(AdditionalManifestFiles)</AdditionalManifestFiles>
