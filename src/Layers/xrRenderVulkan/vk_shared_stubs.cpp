@@ -191,6 +191,9 @@ void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
     if (count == 0) return;
 
     u32 renderCount = 0;
+
+    // lstMatrix now contains LEAF visuals (decomposed by add_Visual -> add_leafs_to_lstMatrix).
+    // Bones were already calculated at add-time in add_Visual().
     for (u32 idx = 0; idx < count; ++idx)
     {
         auto& item = RI.lstMatrix[idx];
@@ -199,16 +202,10 @@ void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
         vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
 
         __try {
-            // Set per-object world matrix (updates push constants)
+            // Set per-object world matrix
             RCache.set_xform_world(item.Matrix);
 
-            // Calculate bones for skeletal models
-            if (pV->Type == MT_SKELETON_ANIM || pV->Type == MT_SKELETON_RIGID) {
-                IKinematics* pK = pV->dcast_PKinematics();
-                if (pK) pK->CalculateBones(TRUE);
-            }
-
-            // Render (hierarchy/skeleton visuals recursively render children)
+            // Render the leaf visual directly
             pV->Render(1.0f);
             renderCount++;
         } __except(EXCEPTION_EXECUTE_HANDLER) {

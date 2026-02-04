@@ -450,6 +450,7 @@ public:
     // ========================================================================
     void add_leafs_Dynamic_VK(vkRender_Visual* pVisual);
     void add_leafs_HUD_VK(vkRender_Visual* pVisual);
+    void add_leafs_to_lstMatrix(vkRender_Visual* pVisual, const Fmatrix& worldMatrix, u32 depth = 0);
 
     // ========================================================================
     // Shader selection for render queue routing

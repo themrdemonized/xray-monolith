@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "vk_Detail.h"
 #include "rvk.h"
+#include "vk_material.h"  // g_MaterialManager for texture loading
 
 namespace VK
 {
@@ -17,6 +18,7 @@ CDetail::CDetail()
     m_VertexBuffer = nullptr;
     m_IndexBuffer = nullptr;
     m_Shader = nullptr;
+    m_VkTexture = nullptr;
     m_VertexCount = 0;
     m_IndexCount = 0;
     m_VertexStride = sizeof(Vertex);
@@ -46,6 +48,25 @@ void CDetail::Load(IReader* S)
 
     // Store texture name for reference
     m_Name = fnT;
+
+    // Load diffuse texture via material manager (same search order as CMaterial::LoadDiffuse)
+    if (g_MaterialManager && fnT[0])
+    {
+        m_VkTexture = g_MaterialManager->FindTexture(fnT);
+        if (!m_VkTexture)
+        {
+            string_path texPath;
+            if (FS.exist(texPath, "$level$", fnT, ".dds"))
+                m_VkTexture = g_MaterialManager->LoadTexture(fnT, texPath);
+            else if (FS.exist(texPath, "$game_textures$", fnT, ".dds"))
+                m_VkTexture = g_MaterialManager->LoadTexture(fnT, texPath);
+        }
+        if (!m_VkTexture)
+        {
+            Msg("![Vulkan] Detail texture not found: %s, using white fallback", fnT);
+            m_VkTexture = g_MaterialManager->GetWhiteTexture();
+        }
+    }
 
     // Read params
     m_Flags = S->r_u32();
@@ -158,7 +179,7 @@ void CDetail::Unload()
     }
 
     m_Shader = nullptr;
-    m_Texture = nullptr;
+    m_VkTexture = nullptr;  // Managed by g_MaterialManager, don't delete
 }
 
 } // namespace VK

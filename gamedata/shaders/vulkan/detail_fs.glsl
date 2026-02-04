@@ -18,7 +18,7 @@ layout(location = 0) out vec4 outColor;
 // ============================================================================
 // Textures
 // ============================================================================
-layout(set = 0, binding = 0) uniform sampler2D uDiffuse;
+layout(set = 1, binding = 0) uniform sampler2D uDiffuse;
 
 // ============================================================================
 // Push constants (if needed for alpha ref)

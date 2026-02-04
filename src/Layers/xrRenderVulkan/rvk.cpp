@@ -1666,6 +1666,56 @@ void CRender::set_Object(IRenderable* O)
     }
 }
 
+// ============================================================================
+// add_leafs_to_lstMatrix - Decompose hierarchy/skeleton into leaf visuals
+// for lstMatrix. Each leaf gets its own _MatrixItem with the parent's world
+// matrix. This mirrors what add_leafs_HUD_VK does for mapHUD.
+// ============================================================================
+static const u32 MAX_HIERARCHY_DEPTH = 32;
+
+void CRender::add_leafs_to_lstMatrix(vkRender_Visual* pVisual, const Fmatrix& worldMatrix, u32 depth)
+{
+    if (!pVisual) return;
+    if (depth > MAX_HIERARCHY_DEPTH) {
+        static u32 s_depthWarn = 0;
+        if (s_depthWarn < 5) {
+            Msg("! [HIER] add_leafs_to_lstMatrix: depth %u exceeded limit, visual=%p type=%u",
+                depth, pVisual, pVisual->Type);
+            s_depthWarn++;
+        }
+        return;
+    }
+
+    switch (pVisual->Type)
+    {
+    case MT_SKELETON_ANIM:
+    case MT_SKELETON_RIGID:
+    case MT_HIERRARHY:
+    {
+        xr_vector<IRenderVisual*>* children = pVisual->get_children();
+        if (children) {
+            for (auto child : *children) {
+                if (child)
+                    add_leafs_to_lstMatrix(static_cast<vkRender_Visual*>(child), worldMatrix, depth + 1);
+            }
+        }
+        return;
+    }
+
+    default:
+    {
+        R_dsgraph::_MatrixItem item;
+        item.ssa = 1.0f;
+        item.pObject = val_pObject;
+        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+        item.Matrix = worldMatrix;
+        item.PrevMatrix = worldMatrix;
+        lstMatrix.push_back(item);
+        return;
+    }
+    }
+}
+
 void CRender::add_Visual(IRenderVisual* V)
 {
     if (!V) return;
@@ -1685,7 +1735,25 @@ void CRender::add_Visual(IRenderVisual* V)
         return;
     }
 
-    // Store dynamic visual with its transform for per-object rendering
+    // For skeleton and hierarchy types: decompose into leaf visuals.
+    // Bones are calculated at add-time, leaf visuals go into lstMatrix.
+    if (pVisual->Type == MT_SKELETON_ANIM || pVisual->Type == MT_SKELETON_RIGID ||
+        pVisual->Type == MT_HIERRARHY)
+    {
+        Fmatrix worldMatrix = (val_pTransform) ? *val_pTransform : Fidentity;
+
+        // Calculate bones for skeleton types
+        if (pVisual->Type == MT_SKELETON_ANIM || pVisual->Type == MT_SKELETON_RIGID)
+        {
+            IKinematics* pK = pVisual->dcast_PKinematics();
+            if (pK) pK->CalculateBones(TRUE);
+        }
+
+        add_leafs_to_lstMatrix(pVisual, worldMatrix);
+        return;
+    }
+
+    // Leaf visual — add directly to lstMatrix
     R_dsgraph::_MatrixItem item;
     item.ssa = 1.0f;
     item.pObject = val_pObject;

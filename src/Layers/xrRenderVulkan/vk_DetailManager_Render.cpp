@@ -8,12 +8,70 @@
 #include "rvk.h"
 #include "vk_swapchain.h"
 #include "vk_pipeline.h"
+#include "vk_descriptors.h"
+#include "vk_material.h"
+#include "HW_Vulkan.h"
 #include "../xrRender/DetailFormat.h"
 #include "../../xrEngine/IGame_Persistent.h"
 #include "../../xrEngine/Environment.h"
 
 namespace VK
 {
+
+// ============================================================================
+// BindDetailTexture - Bind a detail object's texture to Set 1 (PerMaterial)
+// Allocates a fresh descriptor set each frame (pool is reset per-frame).
+// ============================================================================
+static bool BindDetailTexture(VkCommandBuffer cmd, CVulkanTexture* tex)
+{
+    if (!g_DescriptorManager || !g_MaterialManager || !tex || !tex->IsValid())
+        return false;
+
+    VkDescriptorSet descSet = g_DescriptorManager->AllocatePerMaterial();
+    if (descSet == VK_NULL_HANDLE)
+        return false;
+
+    CVulkanTexture* white = g_MaterialManager->GetWhiteTexture();
+    CVulkanTexture* defNormal = g_MaterialManager->GetDefaultNormal();
+    if (!white || !defNormal) return false;
+
+    // Fill all 8 bindings (PerMaterial layout expects 8 combined_image_sampler)
+    CVulkanTexture* textures[8] = {
+        tex,        // 0: Diffuse
+        defNormal,  // 1: Normal
+        white,      // 2: Specular
+        white,      // 3: Mask
+        white,      // 4: Detail R
+        white,      // 5: Detail G
+        white,      // 6: Detail B
+        white       // 7: Detail A
+    };
+
+    VkDescriptorImageInfo imageInfos[8] = {};
+    VkWriteDescriptorSet writes[8] = {};
+    for (int i = 0; i < 8; i++)
+    {
+        imageInfos[i].sampler = textures[i]->GetSampler();
+        imageInfos[i].imageView = textures[i]->GetView();
+        imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].dstSet = descSet;
+        writes[i].dstBinding = i;
+        writes[i].dstArrayElement = 0;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[i].descriptorCount = 1;
+        writes[i].pImageInfo = &imageInfos[i];
+    }
+
+    vkUpdateDescriptorSets(VulkanHW.GetDevice(), 8, writes, 0, nullptr);
+
+    VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout,
+        1, 1, &descSet, 0, nullptr);  // Set 1 = PerMaterial
+
+    return true;
+}
 
 // ============================================================================
 // Render - Main rendering entry point
@@ -199,6 +257,14 @@ void CDetailManager::Render()
     {
         VK::CDetail* obj = objects[obj_id];
         if (!obj || !obj->m_VertexBuffer || !obj->m_IndexBuffer)
+            continue;
+
+        // Bind this detail object's texture to Set 1 (PerMaterial)
+        // This must happen per-object since each detail type has its own texture
+        CVulkanTexture* detailTex = obj->m_VkTexture;
+        if (!detailTex && g_MaterialManager)
+            detailTex = g_MaterialManager->GetWhiteTexture();
+        if (!BindDetailTexture(cmd, detailTex))
             continue;
 
         // Render each animation type separately

@@ -454,12 +454,10 @@ bool CVulkanTexture::LoadDDS(const char* filename)
     if (header.ddspf.dwFlags & DDPF_FOURCC) {
         switch (header.ddspf.dwFourCC) {
             case FOURCC_DXT1:
-                // DXT1 может быть с альфой или без
-                if (header.ddspf.dwFlags & DDPF_ALPHAPIXELS) {
-                    format = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
-                } else {
-                    format = VK_FORMAT_BC1_RGB_UNORM_BLOCK;
-                }
+                // DXT1 always has 1-bit punch-through alpha in X-Ray engine.
+                // Many DDS files omit DDPF_ALPHAPIXELS flag but still use alpha.
+                // D3D11 always treats DXT1 as having alpha, so we do the same.
+                format = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
                 break;
             case FOURCC_DXT3:
                 format = VK_FORMAT_BC2_UNORM_BLOCK;
@@ -588,9 +586,7 @@ bool CVulkanTexture::LoadDDSCubemap(const char* filename)
     if (header.ddspf.dwFlags & DDPF_FOURCC) {
         switch (header.ddspf.dwFourCC) {
             case FOURCC_DXT1:
-                format = (header.ddspf.dwFlags & DDPF_ALPHAPIXELS)
-                    ? VK_FORMAT_BC1_RGBA_UNORM_BLOCK
-                    : VK_FORMAT_BC1_RGB_UNORM_BLOCK;
+                format = VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
                 break;
             case FOURCC_DXT3:
                 format = VK_FORMAT_BC2_UNORM_BLOCK;

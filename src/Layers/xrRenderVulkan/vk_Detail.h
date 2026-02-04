@@ -28,7 +28,7 @@ public:
 
     // Material
     VK::CVulkanShader*  m_Shader;           // Shader reference
-    ref_texture         m_Texture;          // Diffuse texture
+    VK::CVulkanTexture* m_VkTexture;        // Diffuse texture (loaded from DDS)
 
     // Rendering parameters
     u32                 m_Flags;            // Detail flags (DO_NO_WAVING etc.)

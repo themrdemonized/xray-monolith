@@ -87,12 +87,15 @@ void main()
     float sun = aInstColor.r;
     float hemi = aInstColor.a;
 
-    // Combine lighting (simple model for grass)
-    float lighting = hemi * pc.vConsts.w + sun * (1.0 - pc.vConsts.w);
+    // Combine lighting (hemi = ambient hemisphere, sun = direct sun)
+    // pc.vConsts.w = ambient weight (0.2), pc.vConsts.z = sun_dir.y
+    float lighting = hemi + sun;
 
-    // Anisotropic lighting (grass blades facing sun get more light)
-    float aniso_factor = max(0.0, pc.vConsts.z) * 0.5 + 0.5;
-    lighting *= aniso_factor;
+    // Minimum ambient floor so grass is visible at night
+    lighting = max(lighting, 0.15);
+
+    // Clamp to reasonable range
+    lighting = clamp(lighting, 0.0, 2.0);
 
     vColor = vec4(lighting, lighting, lighting, 1.0);
 
