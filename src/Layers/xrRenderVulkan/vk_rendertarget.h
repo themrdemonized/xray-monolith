@@ -100,6 +100,17 @@ public:
     void Destroy();
     void OnResize(u32 width, u32 height);
 
+    // Invalidate cached descriptor sets (call after descriptor pool reset)
+    void InvalidateDescriptorSets()
+    {
+        m_GBufferDescSet = VK_NULL_HANDLE;
+        m_SunDescSet     = VK_NULL_HANDLE;
+        m_PointDescSet   = VK_NULL_HANDLE;
+        m_SpotDescSet    = VK_NULL_HANDLE;
+        m_SkyDescSet     = VK_NULL_HANDLE;
+        m_CloudDescSet   = VK_NULL_HANDLE;
+    }
+
     // Shadow maps
     void CreateShadowMaps(u32 size);
 

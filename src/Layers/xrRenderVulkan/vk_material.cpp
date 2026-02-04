@@ -490,19 +490,27 @@ void CMaterial::DestroyDescriptorSet()
 
 void CMaterial::Bind(VkCommandBuffer cmd)
 {
-    if (m_DescriptorSet == VK_NULL_HANDLE) {
-        Msg("![Vulkan] Cannot bind material - descriptor set not created");
-        return;
-    }
+    // Descriptor pool is reset every frame, so we must re-allocate and
+    // re-update the descriptor set each time Bind() is called.
+    if (!g_DescriptorManager || !m_TexDiffuse) return;
 
-    // Bind descriptor set to Set 1 (PerMaterial)
+    VkDescriptorSet frameSet = g_DescriptorManager->AllocatePerMaterial();
+    if (frameSet == VK_NULL_HANDLE) return;
+
+    // Temporarily swap in the fresh set, update it, then bind
+    VkDescriptorSet savedSet = m_DescriptorSet;
+    m_DescriptorSet = frameSet;
+    UpdateDescriptorSet();
+    m_DescriptorSet = savedSet;
+
+    // Bind the freshly updated set to Set 1 (PerMaterial)
     VkPipelineLayout layout = g_PipelineManager->GetLayout();
     vkCmdBindDescriptorSets(cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         layout,
         1,  // Set 1 (PerMaterial)
         1,  // bind 1 set
-        &m_DescriptorSet,
+        &frameSet,
         0, nullptr);
 }
 

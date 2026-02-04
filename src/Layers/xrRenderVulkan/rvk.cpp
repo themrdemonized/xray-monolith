@@ -1201,6 +1201,10 @@ void CRender::Render()
     if (g_DescriptorManager)
         g_DescriptorManager->ResetPool();
 
+    // Invalidate cached descriptor set handles — they were freed by ResetPool()
+    if (RTarget)
+        RTarget->InvalidateDescriptorSets();
+
     // ========================================================================
     // PASS 1: Shadow Map Pass (if level is loaded)
     // ========================================================================
@@ -1335,6 +1339,34 @@ void CRender::Render()
                     }
                 }
             }
+
+            // Transition rt_Accumulator: COLOR_ATTACHMENT → SHADER_READ_ONLY
+            // (combine pass reads it as a sampled texture)
+            {
+                VkCommandBuffer cmdAccum = RCache.GetCommandBuffer();
+                if (cmdAccum != VK_NULL_HANDLE) {
+                    VkImageMemoryBarrier accumToRead = {};
+                    accumToRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                    accumToRead.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                    accumToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+                    accumToRead.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+                    accumToRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    accumToRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                    accumToRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                    accumToRead.image = RTarget->rt_Accumulator.m_Image;
+                    accumToRead.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                    accumToRead.subresourceRange.baseMipLevel = 0;
+                    accumToRead.subresourceRange.levelCount = 1;
+                    accumToRead.subresourceRange.baseArrayLayer = 0;
+                    accumToRead.subresourceRange.layerCount = 1;
+
+                    vkCmdPipelineBarrier(cmdAccum,
+                        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        0, 0, nullptr, 0, nullptr, 1, &accumToRead);
+                }
+            }
+
         } __except(EXCEPTION_EXECUTE_HANDLER) {
             Msg("! CRASH in lighting pass (outer) at frame %u, exception 0x%08X",
                 Device.dwFrame, GetExceptionCode());
