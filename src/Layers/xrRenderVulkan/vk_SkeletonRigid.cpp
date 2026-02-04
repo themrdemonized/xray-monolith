@@ -35,6 +35,31 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 {
 	PROF_EVENT("CKinematics::CalculateBones");
 
+	// Frame-limited entry diagnostics
+	static u32 s_calcDiagFrame = 0;
+	static u32 s_calcDiagCount = 0;
+	bool bDiag = (RDEVICE.dwFrame != s_calcDiagFrame) && (s_calcDiagCount < 5);
+	if (bDiag) {
+		s_calcDiagFrame = RDEVICE.dwFrame;
+		s_calcDiagCount++;
+		Msg("[CALC-BONES] Entry: this=%p bone_instances=%p bones=%p bones_count=%u dbg='%s' frame=%u",
+			this, bone_instances, bones, bones ? (u32)bones->size() : 0, dbg_name.c_str(), RDEVICE.dwFrame);
+		Msg("[CALC-BONES]   UCalc_Time=%u dwTimeGlobal=%u bForceExact=%d",
+			UCalc_Time, RDEVICE.dwTimeGlobal, bForceExact);
+	}
+
+	// Safety: allocate bone_instances if not yet created
+	// This can happen when model was loaded but Copy()/Spawn() path was skipped
+	if (!bone_instances && bones && bones->size() > 0) {
+		Msg("[SKEL-FIX] bone_instances=NULL in CalculateBones, calling IBoneInstances_Create (bones=%u, model='%s')",
+			bones->size(), dbg_name.c_str());
+		IBoneInstances_Create();
+		UCalc_Time = 0;  // Force full recalculation
+		Msg("[SKEL-FIX]   After IBoneInstances_Create: bone_instances=%p", bone_instances);
+	}
+
+	if (!bone_instances) return;  // Still null = no bones data, bail out
+
 	if (RDEVICE.dwTimeGlobal == UCalc_Time) {
 		return;
 	}

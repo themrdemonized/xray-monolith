@@ -52,6 +52,12 @@ layout(push_constant) uniform PushConstants
     float vignetteIntensity; // Vignette intensity (default: 0.3)
     float distortionScale;   // Distortion strength multiplier (default: 0.08)
     uint enableDistortion;   // 1 = enable distortion, 0 = disable
+    float sunDirX;        // Eye-space sun direction X
+    float sunDirY;        // Eye-space sun direction Y
+    float sunDirZ;        // Eye-space sun direction Z
+    float sunColorR;      // Sun color R (from environment)
+    float sunColorG;      // Sun color G (from environment)
+    float sunColorB;      // Sun color B (from environment)
 } pc;
 
 // ============================================================================
@@ -145,11 +151,11 @@ void main()
         ambient = vec3(0.15, 0.15, 0.18);  // Slight blue-ish ambient
     }
 
-    // Fallback directional sun (until light accumulation passes are fully working)
-    vec3 sunDir = normalize(vec3(0.5, 1.0, 0.3));
+    // Directional sun lighting from environment system (eye-space)
+    vec3 sunDir = normalize(vec3(pc.sunDirX, pc.sunDirY, pc.sunDirZ));
     float sunNdotL = max(dot(N, sunDir), 0.0);
-    vec3 sunColor = vec3(1.0, 0.95, 0.85);
-    vec3 directLight = sunColor * sunNdotL * 0.4;
+    vec3 sunColor = vec3(pc.sunColorR, pc.sunColorG, pc.sunColorB);
+    vec3 directLight = sunColor * sunNdotL;
 
     // Combine: (ambient + sun + accumulated) * albedo
     vec3 lighting = ambient * ao + directLight + accum;

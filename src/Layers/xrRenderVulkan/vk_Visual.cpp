@@ -10,8 +10,15 @@
 #include "vk_material.h"    // Phase 2.34: Material binding
 #include "vk_pipeline.h"    // For g_PipelineManager (pipeline switching)
 #include "vk_rendertarget.h" // For RTarget->GetGBufferPipeline()
+#include "vk_descriptors.h"  // For g_DescriptorManager (bone SSBO descriptor)
 #include "rvk.h"
+// IMPORTANT: Must use same dxRender_Visual→vkRender_Visual mapping as skeleton files
+// to ensure CKinematics memory layout matches the objects created by vkCreateKinematics()
+#define FBasicVisualH
+#define dxRender_Visual vkRender_Visual
 #include "../xrRender/SkeletonCustom.h"  // For CKinematics bone transforms
+#undef dxRender_Visual
+#undef FBasicVisualH
 #include "3DFluid/vk3DFluidVolume.h"     // Phase 0: 3D Fluid system
 
 // Factory functions for Skeleton classes (implemented in vk_Skeleton*.cpp wrapper files)
@@ -169,8 +176,8 @@ void vkFVisual::Load(const char* name, IReader* data, u32 flags)
     // Load base class data
     vkRender_Visual::Load(name, data, flags);
 
-    // Load geometry
-    LoadGeometry(data);
+    // Load geometry (pass flags for VLOAD_NOVERTICES support)
+    LoadGeometry(data, flags);
 
     // Load fast-path (optional)
     LoadFastPath(data);
@@ -325,9 +332,11 @@ void vkFVisual::Render(float LOD)
     RCache.stat.verts += m_mesh.vCount;
 }
 
-void vkFVisual::LoadGeometry(IReader* data)
+void vkFVisual::LoadGeometry(IReader* data, u32 flags)
 {
-    // Try OGF_GCONTAINER first (shared buffers - most common)
+    BOOL bNoVertices = (flags & VLOAD_NOVERTICES) != 0;
+
+    // Try OGF_GCONTAINER first (shared buffers - most common for level geometry)
     if (data->find_chunk(OGF_GCONTAINER))
     {
         // Container format:
@@ -342,40 +351,49 @@ void vkFVisual::LoadGeometry(IReader* data)
         u32 ib_offset = data->r_u32();
         u32 ib_count = data->r_u32();
 
-        m_mesh.vBase = vb_offset;
-        m_mesh.vCount = vb_count;
+        // Always load index buffer info
         m_mesh.iBase = ib_offset;
         m_mesh.iCount = ib_count;
         m_mesh.dwPrimitives = ib_count / 3;
 
-        // Get buffer references from level's shared buffer pool (Phase 2.23.3)
+        // Get IB from pool
         if (VK::g_BufferPool)
         {
-            m_mesh.p_rm_Vertices = VK::g_BufferPool->GetVertexBuffer(vb_id);
             m_mesh.p_rm_Indices = VK::g_BufferPool->GetIndexBuffer(ib_id);
-
-            if (m_mesh.p_rm_Vertices)
-                m_mesh.vStride = VK::g_BufferPool->GetVertexStride(vb_id);
-
             if (m_mesh.p_rm_Indices)
                 m_mesh.iType = VK::g_BufferPool->GetIndexType(ib_id);
+        }
 
-            if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
+        // Only load VB if not skipping vertices
+        if (!bNoVertices)
+        {
+            m_mesh.vBase = vb_offset;
+            m_mesh.vCount = vb_count;
+
+            if (VK::g_BufferPool)
             {
-                Msg("! [Vulkan] Visual '%s' geometry: VB[%u] or IB[%u] not found in pool",
-                    dbg_name.c_str(), vb_id, ib_id);
+                m_mesh.p_rm_Vertices = VK::g_BufferPool->GetVertexBuffer(vb_id);
+                if (m_mesh.p_rm_Vertices)
+                    m_mesh.vStride = VK::g_BufferPool->GetVertexStride(vb_id);
             }
         }
-        else
+
+        if (!m_mesh.p_rm_Indices)
         {
-            Msg("! [Vulkan] BufferPool not initialized!");
+            Msg("! [Vulkan] Visual '%s' geometry: IB[%u] not found in pool",
+                dbg_name.c_str(), ib_id);
+        }
+        if (!bNoVertices && !m_mesh.p_rm_Vertices)
+        {
+            Msg("! [Vulkan] Visual '%s' geometry: VB[%u] not found in pool",
+                dbg_name.c_str(), vb_id);
         }
 
         return;
     }
 
-    // Try inline vertices (OGF_VERTICES + OGF_INDICES)
-    if (data->find_chunk(OGF_VERTICES))
+    // Try inline vertices (OGF_VERTICES + OGF_INDICES) - standalone models (weapons, etc.)
+    if (!bNoVertices && data->find_chunk(OGF_VERTICES))
     {
         u32 vert_format = data->r_u32();
         u32 vert_count = data->r_u32();
@@ -1099,145 +1117,106 @@ vkSkeletonX_ST::~vkSkeletonX_ST()
 
 void vkSkeletonX_ST::Load(const char* name, IReader* data, u32 flags)
 {
-    vkFVisual::Load(name, data, flags);
-
     // ========================================================================
-    // Load bone data from OGF_VERTICES chunk
+    // Step 1: Read OGF_VERTICES first for bone analysis (like DX11's CSkeletonX::_Load)
     // ========================================================================
-    // This determines the rendering mode (single bone vs multi-bone skinning)
-    // Based on DX implementation in SkeletonX.cpp:228-400
+    R_ASSERT(data->find_chunk(OGF_VERTICES));
+    u32 dwVertType = data->r_u32();
+    u32 dwVertCount = data->r_u32();
+    void* _verts_ = data->pointer();  // Save pointer to raw skinned vertex data
 
-    data->seek(0);  // Reset to start
-    IReader* V = data->open_chunk(OGF_VERTICES);
-    if (!V) {
-        Msg("![Vulkan] vkSkeletonX_ST::Load() - no OGF_VERTICES chunk");
-        RenderMode = RM_SINGLE;
-        RMS_boneid = 0;
-        return;
-    }
-
-    u32 dwVertType = V->r_u32();
-    u32 dwVertCount = V->r_u32();
-
-    xr_vector<u16> bids;  // Bone IDs used by this mesh
+    // Analyze bones to determine RenderMode
+    xr_vector<u16> bids;
     u16 sw_bones_cnt = 0;
 
-    // Analyze vertex format to determine rendering mode
     switch (dwVertType)
     {
-    case OGF_VERTEXFORMAT_FVF_1L:  // 1-Link (1 bone per vertex)
+    case OGF_VERTEXFORMAT_FVF_1L:
     case 1:
         {
             struct vertBoned1W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u32 matrix; };
-            vertBoned1W* pVO = (vertBoned1W*)V->pointer();
-
-            // Collect all bone IDs used
+            vertBoned1W* pVO = (vertBoned1W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
             {
-                const vertBoned1W& VB = pVO[it];
-                u16 mid = (u16)VB.matrix;
-
+                u16 mid = (u16)pVO[it].matrix;
                 if (bids.end() == std::find(bids.begin(), bids.end(), mid))
                     bids.push_back(mid);
-
                 sw_bones_cnt = _max(sw_bones_cnt, mid);
             }
-
-            // Determine rendering mode based on bone count
-            if (1 == bids.size())
-            {
-                // Single bone - rigid attachment
-                RenderMode = RM_SINGLE;
-                RMS_boneid = *bids.begin();
-            }
-            else
-            {
-                // Multiple bones - GPU skinning (1 weight per vertex)
-                RenderMode = RM_SKINNING_1B;
-                RMS_bonecount = sw_bones_cnt + 1;
-                BonesUsed = (u16)bids.size();
-            }
+            if (1 == bids.size()) { RenderMode = RM_SINGLE; RMS_boneid = *bids.begin(); }
+            else { RenderMode = RM_SKINNING_1B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size(); }
         }
         break;
-
-    case OGF_VERTEXFORMAT_FVF_2L:  // 2-Link (2 bones per vertex)
+    case OGF_VERTEXFORMAT_FVF_2L:
     case 2:
         {
-            struct vertBoned2W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u16 matrix0; u16 matrix1; float w; };
-            vertBoned2W* pVO = (vertBoned2W*)V->pointer();
-
+            #pragma pack(push, 2)
+            struct vertBoned2W { u16 matrix0; u16 matrix1; Fvector P; Fvector N; Fvector T; Fvector B; float w; float u, v; };
+            #pragma pack(pop)
+            vertBoned2W* pVO = (vertBoned2W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
             {
-                const vertBoned2W& VB = pVO[it];
-                sw_bones_cnt = _max(sw_bones_cnt, VB.matrix0);
-                sw_bones_cnt = _max(sw_bones_cnt, VB.matrix1);
-
-                if (bids.end() == std::find(bids.begin(), bids.end(), VB.matrix0))
-                    bids.push_back(VB.matrix0);
-                if (bids.end() == std::find(bids.begin(), bids.end(), VB.matrix1))
-                    bids.push_back(VB.matrix1);
+                sw_bones_cnt = _max(sw_bones_cnt, pVO[it].matrix0);
+                sw_bones_cnt = _max(sw_bones_cnt, pVO[it].matrix1);
+                if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].matrix0)) bids.push_back(pVO[it].matrix0);
+                if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].matrix1)) bids.push_back(pVO[it].matrix1);
             }
-
-            RenderMode = RM_SKINNING_2B;
-            RMS_bonecount = sw_bones_cnt + 1;
-            BonesUsed = (u16)bids.size();
+            RenderMode = RM_SKINNING_2B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size();
         }
         break;
-
-    case OGF_VERTEXFORMAT_FVF_3L:  // 3-Link (3 bones per vertex)
+    case OGF_VERTEXFORMAT_FVF_3L:
     case 3:
         {
-            struct vertBoned3W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u16 m[3]; float w[2]; };
-            vertBoned3W* pVO = (vertBoned3W*)V->pointer();
-
+            #pragma pack(push, 2)
+            struct vertBoned3W { u16 m[3]; Fvector P; Fvector N; Fvector T; Fvector B; float w[2]; float u, v; };
+            #pragma pack(pop)
+            vertBoned3W* pVO = (vertBoned3W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
-            {
-                const vertBoned3W& VB = pVO[it];
-                for (int k = 0; k < 3; k++)
-                {
-                    sw_bones_cnt = _max(sw_bones_cnt, VB.m[k]);
-                    if (bids.end() == std::find(bids.begin(), bids.end(), VB.m[k]))
-                        bids.push_back(VB.m[k]);
+                for (int k = 0; k < 3; k++) {
+                    sw_bones_cnt = _max(sw_bones_cnt, pVO[it].m[k]);
+                    if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].m[k])) bids.push_back(pVO[it].m[k]);
                 }
-            }
-
-            RenderMode = RM_SKINNING_3B;
-            RMS_bonecount = sw_bones_cnt + 1;
-            BonesUsed = (u16)bids.size();
+            RenderMode = RM_SKINNING_3B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size();
         }
         break;
-
-    case OGF_VERTEXFORMAT_FVF_4L:  // 4-Link (4 bones per vertex)
+    case OGF_VERTEXFORMAT_FVF_4L:
     case 4:
         {
-            struct vertBoned4W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u16 m[4]; float w[3]; };
-            vertBoned4W* pVO = (vertBoned4W*)V->pointer();
-
+            #pragma pack(push, 2)
+            struct vertBoned4W { u16 m[4]; Fvector P; Fvector N; Fvector T; Fvector B; float w[3]; float u, v; };
+            #pragma pack(pop)
+            vertBoned4W* pVO = (vertBoned4W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
-            {
-                const vertBoned4W& VB = pVO[it];
-                for (int k = 0; k < 4; k++)
-                {
-                    sw_bones_cnt = _max(sw_bones_cnt, VB.m[k]);
-                    if (bids.end() == std::find(bids.begin(), bids.end(), VB.m[k]))
-                        bids.push_back(VB.m[k]);
+                for (int k = 0; k < 4; k++) {
+                    sw_bones_cnt = _max(sw_bones_cnt, pVO[it].m[k]);
+                    if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].m[k])) bids.push_back(pVO[it].m[k]);
                 }
-            }
-
-            RenderMode = RM_SKINNING_4B;
-            RMS_bonecount = sw_bones_cnt + 1;
-            BonesUsed = (u16)bids.size();
+            RenderMode = RM_SKINNING_4B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size();
         }
         break;
-
     default:
         Msg("![Vulkan] vkSkeletonX_ST::Load() - unknown vertex type %d", dwVertType);
-        RenderMode = RM_SINGLE;
-        RMS_boneid = 0;
+        RenderMode = RM_SINGLE; RMS_boneid = 0;
         break;
     }
 
-    V->close();
+    // ========================================================================
+    // Step 2: Load base visual WITHOUT vertices (indices only)
+    // This matches DX11: inherited1::Load(N, data, dwFlags | VLOAD_NOVERTICES)
+    // ========================================================================
+    data->seek(0);
+    vkFVisual::Load(name, data, flags | VLOAD_NOVERTICES);
+
+    // ========================================================================
+    // Step 3: Convert vertBoned* -> vertHW_* and create Vulkan VB
+    // This matches DX11's _Load_hw()
+    // ========================================================================
+    m_mesh.vBase = 0;
+    m_mesh.vCount = dwVertCount;
+    _Load_hw_VK(_verts_, dwVertType, dwVertCount);
+
+    Msg("[SKL-ST] Load '%s': mode=%u vCount=%u stride=%u bones=%u",
+        name, (u32)RenderMode, dwVertCount, m_mesh.vStride, (u32)BonesUsed);
 }
 
 void vkSkeletonX_ST::Release()
@@ -1264,91 +1243,347 @@ void vkSkeletonX_ST::Copy(vkRender_Visual* from)
 
 void vkSkeletonX_ST::Render(float LOD)
 {
+    // Frame-limited diagnostics (first 5 frames)
+    static u32 s_stDiagFrame = 0;
+    static u32 s_stDiagCount = 0;
+    bool bDiag = (Device.dwFrame != s_stDiagFrame) && (s_stDiagCount < 5);
+    if (bDiag) {
+        s_stDiagFrame = Device.dwFrame;
+        s_stDiagCount++;
+        Msg("[SKL-ST] Render: this=%p Parent=%p RenderMode=%u RMS_boneid=%u Type=%u frame=%u",
+            this, Parent, (u32)RenderMode, RMS_boneid, Type, Device.dwFrame);
+        Msg("[SKL-ST]   m_mesh.valid=%d m_pMaterial=%p",
+            m_mesh.IsValid() ? 1 : 0, m_pMaterial);
+        if (m_mesh.IsValid())
+            Msg("[SKL-ST]   VB=%p IB=%p vBase=%u vCount=%u iBase=%u iCount=%u vStride=%u",
+                m_mesh.p_rm_Vertices, m_mesh.p_rm_Indices,
+                m_mesh.vBase, m_mesh.vCount, m_mesh.iBase, m_mesh.iCount, m_mesh.vStride);
+    }
+
     // Safety check
     if (!Parent) {
-        Msg("![Vulkan] vkSkeletonX_ST::Render() - no Parent skeleton");
-        vkFVisual::Render(LOD);
+        Msg("! [SKL-ST] Parent is NULL! this=%p, skipping render.", this);
         return;
     }
 
-    // Apply bone transforms based on rendering mode
-    switch (RenderMode)
+    // Validate Parent object - check vtable pointer is not null/corrupt
     {
-    case RM_SINGLE:
-        {
-            // Single-bone rendering: multiply world matrix by bone transform
-            // This is used for rigid attachments (weapons, backpacks, etc.)
-            Fmatrix W;
-            W.mul_43(RCache.xforms.m_w, Parent->LL_GetTransform_R(RMS_boneid));
-            RCache.set_xform_world(W);
-
-            // Render with modified world matrix
-            vkFVisual::Render(LOD);
-
-            // Restore original world matrix
-            RCache.set_xform_world(RCache.xforms.m_w);
+        void* vtbl = *(void**)Parent;
+        if (!vtbl) {
+            Msg("! [SKL-ST] Parent=%p has NULL vtable! Object freed/corrupt. Skipping render.", Parent);
+            return;
         }
-        break;
 
-    case RM_SKINNING_1B:
-    case RM_SKINNING_2B:
-    case RM_SKINNING_3B:
-    case RM_SKINNING_4B:
-        {
-            // GPU skinning: build bone matrix array and pass to shader
-            // Each vertex is influenced by 1-4 bones (depending on mode)
-            // Vertex shader will blend bone transforms based on bone indices and weights
-
-            u32 bones_count = RMS_bonecount;
-            if (bones_count == 0 || bones_count > 256) {
-                Msg("![Vulkan] vkSkeletonX_ST::Render() - invalid bone count %d", bones_count);
-                vkFVisual::Render(LOD);
-                return;
-            }
-
-            // Build bone matrix array (world * bone_transform for each bone)
-            Fmatrix* bones_array = (Fmatrix*)_alloca(bones_count * sizeof(Fmatrix));
-            for (u32 i = 0; i < bones_count; i++)
-            {
-                bones_array[i].mul_43(RCache.xforms.m_w, Parent->LL_GetTransform_R(i));
-            }
-
-            // Upload bone matrices to uniform buffer
-            // This will be accessible in vertex shader as:
-            //   layout(binding = X) uniform BoneMatrices {
-            //       mat4 sbones_array[256];
-            //   };
-            RCache.set_ca(nullptr, 0, bones_count, bones_array);
-
-            // Render with GPU skinning
-            // The vertex shader will apply bone transforms:
-            //   vec4 pos = vec4(0.0);
-            //   for (int i = 0; i < BONE_COUNT; i++) {
-            //       pos += sbones_array[boneIndices[i]] * vec4(inPosition, 1.0) * boneWeights[i];
-            //   }
-            vkFVisual::Render(LOD);
+        // Check bone_instances by reading raw memory at known offset
+        // bone_instances is a protected member of CKinematics
+        // Try safe access through LL_GetBoneInstance
+        u16 boneCount = 0;
+        __try {
+            boneCount = Parent->LL_BoneCount();
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-ST] CRASH reading Parent->LL_BoneCount()! Parent=%p vtable=%p", Parent, vtbl);
+            return;
         }
-        break;
 
-    case RM_SKINNING_SOFT:
-        // CPU-side skinning (fallback for old hardware)
-        // Not implemented - this is rarely used in modern rendering
-        Msg("![Vulkan] vkSkeletonX_ST::Render() - soft skinning not implemented");
-        vkFVisual::Render(LOD);
-        break;
+        if (bDiag) {
+            Msg("[SKL-ST]   Parent=%p vtable=%p boneCount=%u", Parent, vtbl, boneCount);
+        }
 
-    default:
-        // Unknown mode - render as static
-        Msg("![Vulkan] vkSkeletonX_ST::Render() - unknown RenderMode %d", RenderMode);
-        vkFVisual::Render(LOD);
-        break;
+        // Verify bone_instances is accessible by probing bone 0
+        if (boneCount > 0) {
+            __try {
+                Fmatrix& testM = Parent->LL_GetTransform_R(0);
+                // Just read first float to verify memory is accessible
+                volatile float testVal = testM._11;
+                (void)testVal;
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                Msg("! [SKL-ST] CRASH probing Parent->LL_GetTransform_R(0)! bone_instances is likely NULL. Parent=%p boneCount=%u", Parent, boneCount);
+                Msg("! [SKL-ST]   Calling CalculateBones(TRUE) to try to fix...");
+                __try {
+                    Parent->CalculateBones(TRUE);
+                    // Try again
+                    Fmatrix& testM2 = Parent->LL_GetTransform_R(0);
+                    volatile float testVal2 = testM2._11;
+                    (void)testVal2;
+                    Msg("[SKL-ST]   CalculateBones fixed the issue! Continuing render.");
+                } __except(EXCEPTION_EXECUTE_HANDLER) {
+                    Msg("! [SKL-ST]   Still crashes after CalculateBones! Skipping render.");
+                    return;
+                }
+            }
+        }
     }
+
+    // Get current world matrix
+    Fmatrix Wold;
+    __try { Wold = RCache.xforms.m_w; } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! [SKL-ST] CRASH reading xforms"); return;
+    }
+
+    Fmatrix W;
+
+    if (RenderMode == RM_SINGLE)
+    {
+        // ====================================================================
+        // Single bone: simple rigid attachment (no GPU skinning needed)
+        // ====================================================================
+        __try {
+            W.mul_43(Wold, Parent->LL_GetTransform_R(RMS_boneid));
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-ST] CRASH in single bone transform boneid=%u", RMS_boneid);
+            return;
+        }
+
+        __try {
+            RCache.set_xform_world(W);
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            if (cmd != VK_NULL_HANDLE && layout != VK_NULL_HANDLE)
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-ST] CRASH in push constants (single)"); return;
+        }
+
+        __try {
+            vkFVisual::Render(LOD);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-ST] CRASH in vkFVisual::Render (single)"); return;
+        }
+    }
+    else if (RenderMode >= RM_SKINNING_1B && RenderMode <= RM_SKINNING_4B)
+    {
+        // ====================================================================
+        // Multi-bone GPU skinning
+        // ====================================================================
+        __try {
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            if (cmd == VK_NULL_HANDLE || layout == VK_NULL_HANDLE) return;
+
+            // 1. Upload bone matrices to SSBO
+            if (RCache.IsBoneBufferValid() && RCache.m_BoneMapped)
+            {
+                u32 boneCount = RMS_bonecount;
+                if (boneCount > CBackend::MAX_BONES)
+                    boneCount = CBackend::MAX_BONES;
+
+                for (u32 mid = 0; mid < boneCount; ++mid)
+                {
+                    __try {
+                        RCache.m_BoneMapped[mid] = Parent->LL_GetTransform_R(mid);
+                    } __except(EXCEPTION_EXECUTE_HANDLER) {
+                        RCache.m_BoneMapped[mid].identity();
+                    }
+                }
+                // Flush bone buffer (VMA coherent memory — no explicit flush needed
+                // for HOST_COHERENT, but call VMA flush for non-coherent)
+
+                static bool boneLogDone = false;
+                if (!boneLogDone) {
+                    Msg("[SKL-ST] Skinned render: bones=%u mode=%u stride=%u",
+                        boneCount, (u32)RenderMode, m_mesh.vStride);
+                    boneLogDone = true;
+                }
+            }
+
+            // 2. Bind skinned descriptor set 2 with bone SSBO
+            if (g_DescriptorManager && RCache.IsBoneBufferValid())
+            {
+                VkDescriptorSet objSet = g_DescriptorManager->AllocatePerObject();
+                if (objSet != VK_NULL_HANDLE)
+                {
+                    // Binding 1: Bone SSBO
+                    g_DescriptorManager->UpdateStorageBuffer(
+                        objSet, 1,
+                        RCache.GetBoneBuffer(),
+                        RMS_bonecount * sizeof(Fmatrix));
+
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        layout, 2, 1, &objSet, 0, nullptr);
+                }
+            }
+
+            // 3. Push world matrix and skinning mode
+            W = Wold;  // Skinned meshes use identity-like world (bones already in world space)
+            RCache.set_xform_world(W);
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+
+            // Push u_SkinMode at offset 196 (after 3 matrices + UVScale)
+            u32 skinMode = (RenderMode == RM_SKINNING_1B) ? 1u :
+                           (RenderMode == RM_SKINNING_2B) ? 2u :
+                           (RenderMode == RM_SKINNING_3B) ? 3u : 4u;
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 196, sizeof(u32), &skinMode);
+
+            // 4. Switch to skinned pipeline
+            u32 stride = m_mesh.vStride;
+            VkPipeline skinnedPipeline = RTarget->GetGBufferPipelineSkinned(stride);
+            if (skinnedPipeline == VK_NULL_HANDLE)
+            {
+                // Fallback: render with bone 0 transform only
+                W.mul_43(Wold, Parent->LL_GetTransform_R(0));
+                RCache.set_xform_world(W);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+                vkFVisual::Render(LOD);
+            }
+            else
+            {
+                VkPipeline prevPipeline = RCache.m_CurrentPipeline;
+                u32 prevStride = RCache.m_CurrentGBufStride;
+
+                RCache.set_Pipeline(skinnedPipeline);
+                RCache.m_CurrentGBufStride = stride;
+
+                // Set UV scale to 1.0 for skinned meshes (FLOAT2 UVs)
+                float uvScale = 1.0f;
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+
+                // 5. Render the mesh
+                vkFVisual::Render(LOD);
+
+                // 6. Restore non-skinned pipeline
+                if (prevPipeline != VK_NULL_HANDLE)
+                {
+                    RCache.set_Pipeline(prevPipeline);
+                    RCache.m_CurrentGBufStride = prevStride;
+                }
+            }
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-ST] CRASH in skinned render RenderMode=%u", (u32)RenderMode);
+        }
+    }
+    else
+    {
+        // Unknown mode: use world matrix as-is
+        W = Wold;
+        RCache.set_xform_world(W);
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+        if (cmd != VK_NULL_HANDLE && layout != VK_NULL_HANDLE)
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+        vkFVisual::Render(LOD);
+    }
+
+    // Restore original world matrix
+    RCache.set_xform_world(Wold);
+    VkCommandBuffer cmd2 = RCache.GetCommandBuffer();
+    VkPipelineLayout layout2 = VK::g_PipelineManager->GetLayout();
+    if (cmd2 != VK_NULL_HANDLE && layout2 != VK_NULL_HANDLE)
+        vkCmdPushConstants(cmd2, layout2, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &Wold);
 }
 
 void vkSkeletonX_ST::AfterLoad(CKinematics* parent, u16 child_idx)
 {
     SetParent(parent);
     ChildIDX = child_idx;
+}
+
+// ============================================================================
+// _Load_hw_VK - Convert vertBoned* to vertHW_* and create Vulkan VB
+// Mirrors DX11's CSkeletonX_ext::_Load_hw() from FSkinned.cpp
+// ============================================================================
+void vkSkeletonX_ST::_Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount)
+{
+    // Local bone vertex structs (matching OGF file format)
+    // Structs must match bone.h layout exactly (field order + #pragma pack(push, 2))
+#pragma pack(push, 2)
+    struct vertBoned1W { Fvector P; Fvector N; Fvector T; Fvector B; float u, v; u32 matrix; };
+    struct vertBoned2W { u16 matrix0, matrix1; Fvector P; Fvector N; Fvector T; Fvector B; float w; float u, v; };
+    struct vertBoned3W { u16 m[3]; Fvector P; Fvector N; Fvector T; Fvector B; float w[2]; float u, v; };
+    struct vertBoned4W { u16 m[4]; Fvector P; Fvector N; Fvector T; Fvector B; float w[3]; float u, v; };
+#pragma pack(pop)
+
+    switch (RenderMode)
+    {
+    case RM_SINGLE:
+    case RM_SKINNING_1B:
+    {
+        u32 vStride = sizeof(vertHW_1W);  // 36
+        vertHW_1W* dst = xr_alloc<vertHW_1W>(dwVertCount);
+        vertBoned1W* src = (vertBoned1W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++)
+        {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv, src->matrix * 3);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    case RM_SKINNING_2B:
+    {
+        u32 vStride = sizeof(vertHW_2W);  // 44
+        vertHW_2W* dst = xr_alloc<vertHW_2W>(dwVertCount);
+        vertBoned2W* src = (vertBoned2W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++)
+        {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv,
+                src->matrix0 * 3, src->matrix1 * 3, src->w);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    case RM_SKINNING_3B:
+    {
+        u32 vStride = sizeof(vertHW_3W);  // 44
+        vertHW_3W* dst = xr_alloc<vertHW_3W>(dwVertCount);
+        vertBoned3W* src = (vertBoned3W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++)
+        {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv,
+                src->m[0] * 3, src->m[1] * 3, src->m[2] * 3,
+                src->w[0], src->w[1]);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    case RM_SKINNING_4B:
+    {
+        u32 vStride = sizeof(vertHW_4W);  // 40
+        vertHW_4W* dst = xr_alloc<vertHW_4W>(dwVertCount);
+        vertBoned4W* src = (vertBoned4W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++)
+        {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv,
+                src->m[0] * 3, src->m[1] * 3, src->m[2] * 3, src->m[3] * 3,
+                src->w[0], src->w[1], src->w[2]);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    default:
+        Msg("! [SKL-ST] _Load_hw_VK: unknown RenderMode %u", (u32)RenderMode);
+        break;
+    }
 }
 
 // ============================================================================
@@ -1367,24 +1602,15 @@ vkSkeletonX_PM::~vkSkeletonX_PM()
 
 void vkSkeletonX_PM::Load(const char* name, IReader* data, u32 flags)
 {
-    vkFProgressive::Load(name, data, flags);
-
     // ========================================================================
-    // Load bone data from OGF_VERTICES chunk
+    // Step 1: Read OGF_VERTICES first for bone analysis (like DX11's CSkeletonX::_Load)
     // ========================================================================
+    R_ASSERT(data->find_chunk(OGF_VERTICES));
+    u32 dwVertType = data->r_u32();
+    u32 dwVertCount = data->r_u32();
+    void* _verts_ = data->pointer();  // Save pointer to raw skinned vertex data
 
-    data->seek(0);
-    IReader* V = data->open_chunk(OGF_VERTICES);
-    if (!V) {
-        Msg("![Vulkan] vkSkeletonX_PM::Load() - no OGF_VERTICES chunk");
-        RenderMode = RM_SINGLE;
-        RMS_boneid = 0;
-        return;
-    }
-
-    u32 dwVertType = V->r_u32();
-    u32 dwVertCount = V->r_u32();
-
+    // Analyze bones to determine RenderMode
     xr_vector<u16> bids;
     u16 sw_bones_cnt = 0;
 
@@ -1394,111 +1620,86 @@ void vkSkeletonX_PM::Load(const char* name, IReader* data, u32 flags)
     case 1:
         {
             struct vertBoned1W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u32 matrix; };
-            vertBoned1W* pVO = (vertBoned1W*)V->pointer();
-
+            vertBoned1W* pVO = (vertBoned1W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
             {
-                const vertBoned1W& VB = pVO[it];
-                u16 mid = (u16)VB.matrix;
-
+                u16 mid = (u16)pVO[it].matrix;
                 if (bids.end() == std::find(bids.begin(), bids.end(), mid))
                     bids.push_back(mid);
-
                 sw_bones_cnt = _max(sw_bones_cnt, mid);
             }
-
-            if (1 == bids.size())
-            {
-                RenderMode = RM_SINGLE;
-                RMS_boneid = *bids.begin();
-            }
-            else
-            {
-                RenderMode = RM_SKINNING_1B;
-                RMS_bonecount = sw_bones_cnt + 1;
-                BonesUsed = (u16)bids.size();
-            }
+            if (1 == bids.size()) { RenderMode = RM_SINGLE; RMS_boneid = *bids.begin(); }
+            else { RenderMode = RM_SKINNING_1B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size(); }
         }
         break;
-
     case OGF_VERTEXFORMAT_FVF_2L:
     case 2:
         {
-            struct vertBoned2W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u16 matrix0; u16 matrix1; float w; };
-            vertBoned2W* pVO = (vertBoned2W*)V->pointer();
-
+            #pragma pack(push, 2)
+            struct vertBoned2W { u16 matrix0; u16 matrix1; Fvector P; Fvector N; Fvector T; Fvector B; float w; float u, v; };
+            #pragma pack(pop)
+            vertBoned2W* pVO = (vertBoned2W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
             {
-                const vertBoned2W& VB = pVO[it];
-                sw_bones_cnt = _max(sw_bones_cnt, VB.matrix0);
-                sw_bones_cnt = _max(sw_bones_cnt, VB.matrix1);
-
-                if (bids.end() == std::find(bids.begin(), bids.end(), VB.matrix0))
-                    bids.push_back(VB.matrix0);
-                if (bids.end() == std::find(bids.begin(), bids.end(), VB.matrix1))
-                    bids.push_back(VB.matrix1);
+                sw_bones_cnt = _max(sw_bones_cnt, pVO[it].matrix0);
+                sw_bones_cnt = _max(sw_bones_cnt, pVO[it].matrix1);
+                if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].matrix0)) bids.push_back(pVO[it].matrix0);
+                if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].matrix1)) bids.push_back(pVO[it].matrix1);
             }
-
-            RenderMode = RM_SKINNING_2B;
-            RMS_bonecount = sw_bones_cnt + 1;
-            BonesUsed = (u16)bids.size();
+            RenderMode = RM_SKINNING_2B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size();
         }
         break;
-
     case OGF_VERTEXFORMAT_FVF_3L:
     case 3:
         {
-            struct vertBoned3W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u16 m[3]; float w[2]; };
-            vertBoned3W* pVO = (vertBoned3W*)V->pointer();
-
+            #pragma pack(push, 2)
+            struct vertBoned3W { u16 m[3]; Fvector P; Fvector N; Fvector T; Fvector B; float w[2]; float u, v; };
+            #pragma pack(pop)
+            vertBoned3W* pVO = (vertBoned3W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
-            {
-                const vertBoned3W& VB = pVO[it];
-                for (int k = 0; k < 3; k++)
-                {
-                    sw_bones_cnt = _max(sw_bones_cnt, VB.m[k]);
-                    if (bids.end() == std::find(bids.begin(), bids.end(), VB.m[k]))
-                        bids.push_back(VB.m[k]);
+                for (int k = 0; k < 3; k++) {
+                    sw_bones_cnt = _max(sw_bones_cnt, pVO[it].m[k]);
+                    if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].m[k])) bids.push_back(pVO[it].m[k]);
                 }
-            }
-
-            RenderMode = RM_SKINNING_3B;
-            RMS_bonecount = sw_bones_cnt + 1;
-            BonesUsed = (u16)bids.size();
+            RenderMode = RM_SKINNING_3B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size();
         }
         break;
-
     case OGF_VERTEXFORMAT_FVF_4L:
     case 4:
         {
-            struct vertBoned4W { Fvector P; Fvector3 N; Fvector3 T; Fvector3 B; Fvector2 tc; u16 m[4]; float w[3]; };
-            vertBoned4W* pVO = (vertBoned4W*)V->pointer();
-
+            #pragma pack(push, 2)
+            struct vertBoned4W { u16 m[4]; Fvector P; Fvector N; Fvector T; Fvector B; float w[3]; float u, v; };
+            #pragma pack(pop)
+            vertBoned4W* pVO = (vertBoned4W*)_verts_;
             for (u32 it = 0; it < dwVertCount; ++it)
-            {
-                const vertBoned4W& VB = pVO[it];
-                for (int k = 0; k < 4; k++)
-                {
-                    sw_bones_cnt = _max(sw_bones_cnt, VB.m[k]);
-                    if (bids.end() == std::find(bids.begin(), bids.end(), VB.m[k]))
-                        bids.push_back(VB.m[k]);
+                for (int k = 0; k < 4; k++) {
+                    sw_bones_cnt = _max(sw_bones_cnt, pVO[it].m[k]);
+                    if (bids.end() == std::find(bids.begin(), bids.end(), pVO[it].m[k])) bids.push_back(pVO[it].m[k]);
                 }
-            }
-
-            RenderMode = RM_SKINNING_4B;
-            RMS_bonecount = sw_bones_cnt + 1;
-            BonesUsed = (u16)bids.size();
+            RenderMode = RM_SKINNING_4B; RMS_bonecount = sw_bones_cnt + 1; BonesUsed = (u16)bids.size();
         }
         break;
-
     default:
         Msg("![Vulkan] vkSkeletonX_PM::Load() - unknown vertex type %d", dwVertType);
-        RenderMode = RM_SINGLE;
-        RMS_boneid = 0;
+        RenderMode = RM_SINGLE; RMS_boneid = 0;
         break;
     }
 
-    V->close();
+    // ========================================================================
+    // Step 2: Load base visual WITHOUT vertices (indices + sliding window only)
+    // ========================================================================
+    data->seek(0);
+    vkFProgressive::Load(name, data, flags | VLOAD_NOVERTICES);
+
+    // ========================================================================
+    // Step 3: Convert vertBoned* -> vertHW_* and create Vulkan VB
+    // ========================================================================
+    m_mesh.vBase = 0;
+    m_mesh.vCount = dwVertCount;
+    _Load_hw_VK(_verts_, dwVertType, dwVertCount);
+
+    Msg("[SKL-PM] Load '%s': mode=%u vCount=%u stride=%u bones=%u",
+        name, (u32)RenderMode, dwVertCount, m_mesh.vStride, (u32)BonesUsed);
 }
 
 void vkSkeletonX_PM::Release()
@@ -1525,77 +1726,325 @@ void vkSkeletonX_PM::Copy(vkRender_Visual* from)
 
 void vkSkeletonX_PM::Render(float LOD)
 {
+    // Frame-limited diagnostics (first 5 frames)
+    static u32 s_pmDiagFrame = 0;
+    static u32 s_pmDiagCount = 0;
+    bool bDiag = (Device.dwFrame != s_pmDiagFrame) && (s_pmDiagCount < 5);
+    if (bDiag) {
+        s_pmDiagFrame = Device.dwFrame;
+        s_pmDiagCount++;
+        Msg("[SKL-PM] Render: this=%p Parent=%p RenderMode=%u RMS_boneid=%u Type=%u frame=%u",
+            this, Parent, (u32)RenderMode, RMS_boneid, Type, Device.dwFrame);
+        Msg("[SKL-PM]   m_mesh.valid=%d sw_count=%u m_pMaterial=%p", m_mesh.IsValid() ? 1 : 0, sw_count, m_pMaterial);
+        if (m_mesh.IsValid())
+            Msg("[SKL-PM]   VB=%p IB=%p vBase=%u vCount=%u iBase=%u vStride=%u",
+                m_mesh.p_rm_Vertices, m_mesh.p_rm_Indices, m_mesh.vBase, m_mesh.vCount, m_mesh.iBase, m_mesh.vStride);
+    }
+
     // Safety check
     if (!Parent) {
-        Msg("![Vulkan] vkSkeletonX_PM::Render() - no Parent skeleton");
-        vkFProgressive::Render(LOD);
+        Msg("! [SKL-PM] Parent is NULL! this=%p, skipping render.", this);
         return;
     }
 
-    // Apply bone transforms based on rendering mode
-    switch (RenderMode)
+    // Validate Parent object
     {
-    case RM_SINGLE:
-        {
-            // Single-bone rendering: multiply world matrix by bone transform
-            Fmatrix W;
-            W.mul_43(RCache.xforms.m_w, Parent->LL_GetTransform_R(RMS_boneid));
-            RCache.set_xform_world(W);
-
-            // Render with modified world matrix
-            vkFProgressive::Render(LOD);
-
-            // Restore original world matrix
-            RCache.set_xform_world(RCache.xforms.m_w);
+        void* vtbl = *(void**)Parent;
+        if (!vtbl) {
+            Msg("! [SKL-PM] Parent=%p has NULL vtable! Skipping render.", Parent);
+            return;
         }
-        break;
 
-    case RM_SKINNING_1B:
-    case RM_SKINNING_2B:
-    case RM_SKINNING_3B:
-    case RM_SKINNING_4B:
-        {
-            // GPU skinning: build bone matrix array and pass to shader
-            u32 bones_count = RMS_bonecount;
-            if (bones_count == 0 || bones_count > 256) {
-                Msg("![Vulkan] vkSkeletonX_PM::Render() - invalid bone count %d", bones_count);
-                vkFProgressive::Render(LOD);
-                return;
-            }
-
-            // Build bone matrix array (world * bone_transform for each bone)
-            Fmatrix* bones_array = (Fmatrix*)_alloca(bones_count * sizeof(Fmatrix));
-            for (u32 i = 0; i < bones_count; i++)
-            {
-                bones_array[i].mul_43(RCache.xforms.m_w, Parent->LL_GetTransform_R(i));
-            }
-
-            // Upload bone matrices to uniform buffer
-            RCache.set_ca(nullptr, 0, bones_count, bones_array);
-
-            // Render with GPU skinning (progressive LOD)
-            vkFProgressive::Render(LOD);
+        u16 boneCount = 0;
+        __try {
+            boneCount = Parent->LL_BoneCount();
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-PM] CRASH reading Parent->LL_BoneCount()! Parent=%p", Parent);
+            return;
         }
-        break;
 
-    case RM_SKINNING_SOFT:
-        // CPU-side skinning not implemented
-        Msg("![Vulkan] vkSkeletonX_PM::Render() - soft skinning not implemented");
-        vkFProgressive::Render(LOD);
-        break;
+        if (bDiag) {
+            Msg("[SKL-PM]   Parent=%p vtable=%p boneCount=%u", Parent, vtbl, boneCount);
+        }
 
-    default:
-        // Unknown mode - render as static
-        Msg("![Vulkan] vkSkeletonX_PM::Render() - unknown RenderMode %d", RenderMode);
-        vkFProgressive::Render(LOD);
-        break;
+        // Probe bone_instances accessibility
+        if (boneCount > 0) {
+            __try {
+                Fmatrix& testM = Parent->LL_GetTransform_R(0);
+                volatile float testVal = testM._11;
+                (void)testVal;
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                Msg("! [SKL-PM] CRASH probing LL_GetTransform_R(0)! bone_instances NULL. Parent=%p boneCount=%u", Parent, boneCount);
+                __try {
+                    Parent->CalculateBones(TRUE);
+                    Fmatrix& testM2 = Parent->LL_GetTransform_R(0);
+                    volatile float testVal2 = testM2._11;
+                    (void)testVal2;
+                    Msg("[SKL-PM]   CalculateBones fixed it. Continuing.");
+                } __except(EXCEPTION_EXECUTE_HANDLER) {
+                    Msg("! [SKL-PM]   Still crashes after CalculateBones! Skipping.");
+                    return;
+                }
+            }
+        }
     }
+
+    // Get current world matrix
+    Fmatrix Wold;
+    __try { Wold = RCache.xforms.m_w; } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! [SKL-PM] CRASH reading RCache.xforms"); return;
+    }
+
+    Fmatrix W;
+
+    if (RenderMode == RM_SINGLE)
+    {
+        // ====================================================================
+        // Single bone: simple rigid attachment
+        // ====================================================================
+        __try {
+            W.mul_43(Wold, Parent->LL_GetTransform_R(RMS_boneid));
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-PM] CRASH in single bone transform boneid=%u", RMS_boneid);
+            return;
+        }
+
+        __try {
+            RCache.set_xform_world(W);
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            if (cmd != VK_NULL_HANDLE && layout != VK_NULL_HANDLE)
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-PM] CRASH in push constants (single)"); return;
+        }
+
+        __try {
+            vkFProgressive::Render(LOD);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-PM] CRASH in vkFProgressive::Render (single)"); return;
+        }
+    }
+    else if (RenderMode >= RM_SKINNING_1B && RenderMode <= RM_SKINNING_4B)
+    {
+        // ====================================================================
+        // Multi-bone GPU skinning
+        // ====================================================================
+        __try {
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            if (cmd == VK_NULL_HANDLE || layout == VK_NULL_HANDLE) return;
+
+            // 1. Upload bone matrices to SSBO
+            if (RCache.IsBoneBufferValid() && RCache.m_BoneMapped)
+            {
+                u32 boneCount = RMS_bonecount;
+                if (boneCount > CBackend::MAX_BONES)
+                    boneCount = CBackend::MAX_BONES;
+
+                for (u32 mid = 0; mid < boneCount; ++mid)
+                {
+                    __try {
+                        RCache.m_BoneMapped[mid] = Parent->LL_GetTransform_R(mid);
+                    } __except(EXCEPTION_EXECUTE_HANDLER) {
+                        RCache.m_BoneMapped[mid].identity();
+                    }
+                }
+
+                static bool boneLogDonePM = false;
+                if (!boneLogDonePM) {
+                    Msg("[SKL-PM] Skinned render: bones=%u mode=%u stride=%u",
+                        boneCount, (u32)RenderMode, m_mesh.vStride);
+                    boneLogDonePM = true;
+                }
+            }
+
+            // 2. Bind skinned descriptor set 2 with bone SSBO
+            if (g_DescriptorManager && RCache.IsBoneBufferValid())
+            {
+                VkDescriptorSet objSet = g_DescriptorManager->AllocatePerObject();
+                if (objSet != VK_NULL_HANDLE)
+                {
+                    g_DescriptorManager->UpdateStorageBuffer(
+                        objSet, 1,
+                        RCache.GetBoneBuffer(),
+                        RMS_bonecount * sizeof(Fmatrix));
+
+                    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        layout, 2, 1, &objSet, 0, nullptr);
+                }
+            }
+
+            // 3. Push world matrix and skinning mode
+            W = Wold;
+            RCache.set_xform_world(W);
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+
+            u32 skinMode = (RenderMode == RM_SKINNING_1B) ? 1u :
+                           (RenderMode == RM_SKINNING_2B) ? 2u :
+                           (RenderMode == RM_SKINNING_3B) ? 3u : 4u;
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 196, sizeof(u32), &skinMode);
+
+            // 4. Switch to skinned pipeline
+            u32 stride = m_mesh.vStride;
+            VkPipeline skinnedPipeline = RTarget->GetGBufferPipelineSkinned(stride);
+            if (skinnedPipeline == VK_NULL_HANDLE)
+            {
+                // Fallback: render with bone 0 transform only
+                W.mul_43(Wold, Parent->LL_GetTransform_R(0));
+                RCache.set_xform_world(W);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+                vkFProgressive::Render(LOD);
+            }
+            else
+            {
+                VkPipeline prevPipeline = RCache.m_CurrentPipeline;
+                u32 prevStride = RCache.m_CurrentGBufStride;
+
+                RCache.set_Pipeline(skinnedPipeline);
+                RCache.m_CurrentGBufStride = stride;
+
+                float uvScale = 1.0f;
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+
+                // 5. Render the progressive mesh
+                vkFProgressive::Render(LOD);
+
+                // 6. Restore non-skinned pipeline
+                if (prevPipeline != VK_NULL_HANDLE)
+                {
+                    RCache.set_Pipeline(prevPipeline);
+                    RCache.m_CurrentGBufStride = prevStride;
+                }
+            }
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! [SKL-PM] CRASH in skinned render RenderMode=%u", (u32)RenderMode);
+        }
+    }
+    else
+    {
+        // Unknown mode
+        W = Wold;
+        RCache.set_xform_world(W);
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+        if (cmd != VK_NULL_HANDLE && layout != VK_NULL_HANDLE)
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+        vkFProgressive::Render(LOD);
+    }
+
+    // Restore original world matrix
+    RCache.set_xform_world(Wold);
+    VkCommandBuffer cmd2 = RCache.GetCommandBuffer();
+    VkPipelineLayout layout2 = VK::g_PipelineManager->GetLayout();
+    if (cmd2 != VK_NULL_HANDLE && layout2 != VK_NULL_HANDLE)
+        vkCmdPushConstants(cmd2, layout2, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &Wold);
 }
 
 void vkSkeletonX_PM::AfterLoad(CKinematics* parent, u16 child_idx)
 {
     SetParent(parent);
     ChildIDX = child_idx;
+}
+
+// ============================================================================
+// _Load_hw_VK for vkSkeletonX_PM - identical logic to vkSkeletonX_ST version
+// ============================================================================
+void vkSkeletonX_PM::_Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount)
+{
+    // Structs must match bone.h layout exactly (field order + #pragma pack(push, 2))
+#pragma pack(push, 2)
+    struct vertBoned1W { Fvector P; Fvector N; Fvector T; Fvector B; float u, v; u32 matrix; };
+    struct vertBoned2W { u16 matrix0, matrix1; Fvector P; Fvector N; Fvector T; Fvector B; float w; float u, v; };
+    struct vertBoned3W { u16 m[3]; Fvector P; Fvector N; Fvector T; Fvector B; float w[2]; float u, v; };
+    struct vertBoned4W { u16 m[4]; Fvector P; Fvector N; Fvector T; Fvector B; float w[3]; float u, v; };
+#pragma pack(pop)
+
+    switch (RenderMode)
+    {
+    case RM_SINGLE:
+    case RM_SKINNING_1B:
+    {
+        u32 vStride = sizeof(vertHW_1W);
+        vertHW_1W* dst = xr_alloc<vertHW_1W>(dwVertCount);
+        vertBoned1W* src = (vertBoned1W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++) {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv, src->matrix * 3);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    case RM_SKINNING_2B:
+    {
+        u32 vStride = sizeof(vertHW_2W);
+        vertHW_2W* dst = xr_alloc<vertHW_2W>(dwVertCount);
+        vertBoned2W* src = (vertBoned2W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++) {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv, src->matrix0 * 3, src->matrix1 * 3, src->w);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    case RM_SKINNING_3B:
+    {
+        u32 vStride = sizeof(vertHW_3W);
+        vertHW_3W* dst = xr_alloc<vertHW_3W>(dwVertCount);
+        vertBoned3W* src = (vertBoned3W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++) {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv, src->m[0] * 3, src->m[1] * 3, src->m[2] * 3, src->w[0], src->w[1]);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    case RM_SKINNING_4B:
+    {
+        u32 vStride = sizeof(vertHW_4W);
+        vertHW_4W* dst = xr_alloc<vertHW_4W>(dwVertCount);
+        vertBoned4W* src = (vertBoned4W*)_verts_;
+        for (u32 i = 0; i < dwVertCount; i++) {
+            Fvector2 uv; uv.set(src->u, src->v);
+            dst[i].set(src->P, src->N, src->T, src->B, uv,
+                src->m[0] * 3, src->m[1] * 3, src->m[2] * 3, src->m[3] * 3,
+                src->w[0], src->w[1], src->w[2]);
+            src++;
+        }
+        m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
+        m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+        m_mesh.p_rm_Vertices->Upload(dst, dwVertCount * vStride);
+        m_mesh.vStride = vStride;
+        xr_free(dst);
+        break;
+    }
+    default:
+        Msg("! [SKL-PM] _Load_hw_VK: unknown RenderMode %u", (u32)RenderMode);
+        break;
+    }
 }
 
 // ============================================================================

@@ -141,6 +141,16 @@ public:
      */
     u32 GetCachedPipelineCount() const { return (u32)m_Pipelines.size(); }
 
+    /**
+     * Получить skinned vertex input state with bone attributes (public for render target)
+     */
+    void GetSkinnedVertexInputState(
+        VkPipelineVertexInputStateCreateInfo& vertexInputInfo,
+        VkVertexInputBindingDescription& binding,
+        VkVertexInputAttributeDescription attributes[6],
+        u32& attrCount,
+        u32 stride);
+
 private:
     /**
      * Создать pipeline layout из descriptor set layouts

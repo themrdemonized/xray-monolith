@@ -301,6 +301,118 @@ void CVulkanPipelineManager::GetDefaultVertexInputState(
     vertexInputInfo.pVertexAttributeDescriptions = attributes;
 }
 
+// Skinned vertex input - includes bone data attributes for GPU skinning
+//
+// Stride 36 (1W):  FLOAT4 pos(0) + D3DCOLOR normal_idx(16) + D3DCOLOR tangent(20) + D3DCOLOR binormal(24) + FLOAT2 tc(28)
+// Stride 44 (2W/3W): FLOAT4 pos(0) + D3DCOLOR normal_w0(16) + D3DCOLOR tangent_w1(20) + D3DCOLOR binormal_i2(24) + FLOAT4 tc_indices(28)
+// Stride 40 (4W):  FLOAT4 pos(0) + D3DCOLOR normal_w0(16) + D3DCOLOR tangent_w1(20) + D3DCOLOR binormal_w2(24) + FLOAT2 tc(28) + D3DCOLOR indices(36)
+//
+void CVulkanPipelineManager::GetSkinnedVertexInputState(
+    VkPipelineVertexInputStateCreateInfo& vertexInputInfo,
+    VkVertexInputBindingDescription& binding,
+    VkVertexInputAttributeDescription attributes[6],
+    u32& attrCount,
+    u32 stride)
+{
+    binding.binding = 0;
+    binding.stride = stride;
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    // Attribute 0: Position (FLOAT4) @ offset 0 — all skinned formats start with FLOAT4
+    attributes[0].binding = 0;
+    attributes[0].location = 0;
+    attributes[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    attributes[0].offset = 0;
+
+    // Attribute 1: Normal + weight/index (D3DCOLOR) @ offset 16
+    attributes[1].binding = 0;
+    attributes[1].location = 1;
+    attributes[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attributes[1].offset = 16;
+
+    if (stride == 36)
+    {
+        // 1W: 5 attributes
+        // Attr 2: TexCoord (FLOAT2) @ offset 28
+        attributes[2].binding = 0;
+        attributes[2].location = 2;
+        attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributes[2].offset = 28;
+
+        // Attr 3: Tangent (D3DCOLOR) @ offset 20
+        attributes[3].binding = 0;
+        attributes[3].location = 3;
+        attributes[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[3].offset = 20;
+
+        // Attr 4: Binormal (D3DCOLOR) @ offset 24
+        attributes[4].binding = 0;
+        attributes[4].location = 4;
+        attributes[4].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[4].offset = 24;
+
+        attrCount = 5;
+    }
+    else if (stride == 44)
+    {
+        // 2W/3W: 5 attributes, but tc is FLOAT4 (xy=tc, zw=bone indices)
+        // Attr 2: TexCoord + indices (FLOAT4) @ offset 28
+        attributes[2].binding = 0;
+        attributes[2].location = 2;
+        attributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        attributes[2].offset = 28;
+
+        // Attr 3: Tangent (D3DCOLOR) @ offset 20
+        attributes[3].binding = 0;
+        attributes[3].location = 3;
+        attributes[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[3].offset = 20;
+
+        // Attr 4: Binormal (D3DCOLOR) @ offset 24
+        attributes[4].binding = 0;
+        attributes[4].location = 4;
+        attributes[4].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[4].offset = 24;
+
+        attrCount = 5;
+    }
+    else // stride == 40 (4W)
+    {
+        // 4W: 6 attributes
+        // Attr 2: TexCoord (FLOAT2) @ offset 28
+        attributes[2].binding = 0;
+        attributes[2].location = 2;
+        attributes[2].format = VK_FORMAT_R32G32_SFLOAT;
+        attributes[2].offset = 28;
+
+        // Attr 3: Tangent (D3DCOLOR) @ offset 20
+        attributes[3].binding = 0;
+        attributes[3].location = 3;
+        attributes[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[3].offset = 20;
+
+        // Attr 4: Binormal (D3DCOLOR) @ offset 24
+        attributes[4].binding = 0;
+        attributes[4].location = 4;
+        attributes[4].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[4].offset = 24;
+
+        // Attr 5: Bone indices (D3DCOLOR) @ offset 36
+        attributes[5].binding = 0;
+        attributes[5].location = 5;
+        attributes[5].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[5].offset = 36;
+
+        attrCount = 6;
+    }
+
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &binding;
+    vertexInputInfo.vertexAttributeDescriptionCount = attrCount;
+    vertexInputInfo.pVertexAttributeDescriptions = attributes;
+}
+
 // Create graphics pipeline
 VkPipeline CVulkanPipelineManager::CreateGraphicsPipeline(const PipelineConfig& config)
 {

@@ -200,18 +200,61 @@ void CRenderTarget::phase_combine()
 		float vignetteIntensity;
 		float distortionScale;
 		u32 enableDistortion;
+		float sunDirX;
+		float sunDirY;
+		float sunDirZ;
+		float sunColorR;
+		float sunColorG;
+		float sunColorB;
 	} pushData;
 
-	pushData.exposure = 1.0f;
+	pushData.exposure = 1.8f;  // Boost overall brightness (was 1.0)
 	if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv) {
 		Fvector3& amb = g_pGamePersistent->Environment().CurrentEnv->ambient;
-		pushData.ambientR = amb.x;
-		pushData.ambientG = amb.y;
-		pushData.ambientB = amb.z;
+		// Ensure minimum ambient floor (env values can be extremely low ~0.01)
+		pushData.ambientR = _max(amb.x, 0.10f);
+		pushData.ambientG = _max(amb.y, 0.10f);
+		pushData.ambientB = _max(amb.z, 0.12f);
+
+		// Sun direction: transform world-space sun_dir to eye-space
+		Fvector3& sunDirWorld = g_pGamePersistent->Environment().CurrentEnv->sun_dir;
+		Fvector sunDirEye;
+		Device.mView.transform_dir(sunDirEye, sunDirWorld);
+		sunDirEye.normalize_safe();
+		// Negate so it points toward the sun (sun_dir points FROM sun)
+		pushData.sunDirX = -sunDirEye.x;
+		pushData.sunDirY = -sunDirEye.y;
+		pushData.sunDirZ = -sunDirEye.z;
+
+		// Sun color from environment — boost because env values are meant for
+		// the light accumulation system, not direct use in combine shader.
+		// Typical env sun_color is 0.1-0.5 range, we need ~0.5-1.5 for visible lighting.
+		Fvector3& sunCol = g_pGamePersistent->Environment().CurrentEnv->sun_color;
+		float sunBoost = 2.5f;
+		pushData.sunColorR = sunCol.x * sunBoost;
+		pushData.sunColorG = sunCol.y * sunBoost;
+		pushData.sunColorB = sunCol.z * sunBoost;
+
+		// Diagnostic: log actual env values periodically
+		static u32 s_lastLogFrame = 0;
+		if (Device.dwFrame - s_lastLogFrame > 300) {
+			s_lastLogFrame = Device.dwFrame;
+			Msg("[VK-SUN] amb=(%.3f,%.3f,%.3f) sun_dir=(%.3f,%.3f,%.3f) sun_col=(%.3f,%.3f,%.3f) eye_dir=(%.3f,%.3f,%.3f)",
+				amb.x, amb.y, amb.z,
+				sunDirWorld.x, sunDirWorld.y, sunDirWorld.z,
+				sunCol.x, sunCol.y, sunCol.z,
+				pushData.sunDirX, pushData.sunDirY, pushData.sunDirZ);
+		}
 	} else {
 		pushData.ambientR = 0.15f;
 		pushData.ambientG = 0.15f;
 		pushData.ambientB = 0.15f;
+		pushData.sunDirX = 0.0f;
+		pushData.sunDirY = 1.0f;
+		pushData.sunDirZ = 0.0f;
+		pushData.sunColorR = 0.8f;
+		pushData.sunColorG = 0.75f;
+		pushData.sunColorB = 0.65f;
 	}
 	pushData.toneMappingMode = 2;  // ACES filmic tone mapping
 	pushData.vignetteInner = 0.4f;

@@ -18,6 +18,8 @@
 #include "vk_ParticlePipeline.h"
 #include "vk_ParticleDescriptors.h"
 #include "vk_command_buffer.h"  // For CommandManager
+#include "vk_R_Backend.h"       // RCache
+#include "rvk.h"                // RImplementation
 #include "HW_Vulkan.h"
 #include "vk_material.h"
 #include "../xrRender/ParticleEffectDef.h"  // PS::CPEDef full definition
@@ -176,21 +178,26 @@ void vkCParticleEffect::Render(float LOD)
         return;
     }
 
-    // TODO: Get command buffer from current frame
-    // For now, skip actual rendering until we have proper integration
-    // VkCommandBuffer cmd = VulkanHW.GetCurrentCommandBuffer();
-
     // Calculate number of particles to render
-    // TODO: Get real particle count from ParticleManager
     u32 particleCount = ParticlesCount();
-
     if (particleCount == 0) {
-        return;  // No particles to render
+        return;
     }
 
     // Clamp to max particles
     if (particleCount > m_maxParticles) {
         particleCount = m_maxParticles;
+    }
+
+    // HUD mode handling — switch to HUD projection for muzzle flashes etc.
+    Fmatrix FTold;
+    bool bHudMode = !!GetHudMode();
+    if (bHudMode)
+    {
+        FTold = Device.mFullTransform;
+        Device.mFullTransform = Device.mFullTransformHud;
+        RCache.set_xform_project(Device.mProjectHud);
+        RImplementation.rmNear();
     }
 
     // Allocate temporary vertex buffer for particle quads
@@ -203,26 +210,30 @@ void vkCParticleEffect::Render(float LOD)
     // Update dynamic vertex buffer
     UpdateDynamicBuffer(vertices, vertexCount);
 
-    // ========================================================================
-    // FINAL RENDERING - COMMAND BUFFER INTEGRATION ✅
-    // ========================================================================
-
     // Get current command buffer
     VkCommandBuffer cmd = CommandManager.GetCurrentCommandBuffer();
     if (cmd == VK_NULL_HANDLE) {
-        Msg("![Vulkan] No command buffer available for particle rendering");
+        if (bHudMode) {
+            RImplementation.rmNormal();
+            Device.mFullTransform = FTold;
+            RCache.set_xform_project(Device.mProject);
+        }
         return;
     }
 
     // Bind all resources (pipeline, VB, descriptors, push constants)
     BindResources(cmd);
 
-    // Draw particles!
+    // Draw particles
     vkCmdDraw(cmd, vertexCount, 1, 0, 0);
 
-    // ========================================================================
-    // 🎉 PARTICLES ARE NOW RENDERING! 🎉
-    // ========================================================================
+    // Restore projection if HUD mode
+    if (bHudMode)
+    {
+        RImplementation.rmNormal();
+        Device.mFullTransform = FTold;
+        RCache.set_xform_project(Device.mProject);
+    }
 }
 
 // ============================================================================

@@ -9,6 +9,134 @@
 #include "../../Include/xrRender/RenderVisual.h"
 #include "vk_buffer.h"
 
+// Flag: skip vertex loading in base class (skinned meshes create their own VB)
+#ifndef VLOAD_NOVERTICES
+#define VLOAD_NOVERTICES (1<<0)
+#endif
+
+// ============================================================================
+// Helper: quantize float normal component [-1,+1] to u8 [0,255]
+// Matches DX11's q_N() in FSkinned.cpp
+// ============================================================================
+inline u8 vk_q_N(float v)
+{
+    int _v = clampr(iFloor((v + 1.f) * 127.5f), 0, 255);
+    return u8(_v);
+}
+
+// ============================================================================
+// Hardware vertex formats for skinned meshes
+// These match DX11's vertHW_1W/2W/3W/4W from FSkinned.cpp
+// vertBoned* (raw OGF data) is converted to these formats for GPU consumption
+// ============================================================================
+
+// 1-weight skinned vertex (36 bytes)
+struct vertHW_1W
+{
+    float _P[4];    // Position (xyz) + 1.0 (w)
+    u32   _N_I;     // Normal packed (RGB) + bone_index (A)
+    u32   _T;       // Tangent packed (RGB)
+    u32   _B;       // Binormal packed (RGB)
+    float _tc[2];   // TexCoord UV
+
+    void set(Fvector3& P, Fvector3 N, Fvector3 T, Fvector3 B, Fvector2& tc, int index)
+    {
+        N.normalize_safe();
+        T.normalize_safe();
+        B.normalize_safe();
+        _P[0] = P.x; _P[1] = P.y; _P[2] = P.z; _P[3] = 1.f;
+        _N_I = color_rgba(vk_q_N(N.x), vk_q_N(N.y), vk_q_N(N.z), u8(index));
+        _T   = color_rgba(vk_q_N(T.x), vk_q_N(T.y), vk_q_N(T.z), 0);
+        _B   = color_rgba(vk_q_N(B.x), vk_q_N(B.y), vk_q_N(B.z), 0);
+        _tc[0] = tc.x; _tc[1] = tc.y;
+    }
+};  // sizeof = 36
+static_assert(sizeof(vertHW_1W) == 36, "vertHW_1W must be 36 bytes");
+
+// 2-weight skinned vertex (44 bytes)
+struct vertHW_2W
+{
+    float _P[4];      // Position (xyz) + 1.0 (w)
+    u32   _N_w;       // Normal packed (RGB) + weight0 (A)
+    u32   _T;         // Tangent packed (RGB)
+    u32   _B;         // Binormal packed (RGB)
+    float _tc_i[4];   // tc.xy + bone_index0 (as float bits) + bone_index1 (as float bits)
+
+    void set(Fvector3& P, Fvector3 N, Fvector3 T, Fvector3 B, Fvector2& tc,
+             int index0, int index1, float w)
+    {
+        N.normalize_safe();
+        T.normalize_safe();
+        B.normalize_safe();
+        _P[0] = P.x; _P[1] = P.y; _P[2] = P.z; _P[3] = 1.f;
+        _N_w  = color_rgba(vk_q_N(N.x), vk_q_N(N.y), vk_q_N(N.z), u8(clampr(iFloor(w * 255.f + .5f), 0, 255)));
+        _T    = color_rgba(vk_q_N(T.x), vk_q_N(T.y), vk_q_N(T.z), 0);
+        _B    = color_rgba(vk_q_N(B.x), vk_q_N(B.y), vk_q_N(B.z), 0);
+        _tc_i[0] = tc.x; _tc_i[1] = tc.y;
+        // Store bone indices as s16 reinterpreted as float bits (matches DX11)
+        *(s16*)&_tc_i[2] = s16(index0);
+        *((s16*)&_tc_i[2] + 1) = 0;
+        *(s16*)&_tc_i[3] = s16(index1);
+        *((s16*)&_tc_i[3] + 1) = 0;
+    }
+};  // sizeof = 44
+static_assert(sizeof(vertHW_2W) == 44, "vertHW_2W must be 44 bytes");
+
+// 3-weight skinned vertex (44 bytes)
+struct vertHW_3W
+{
+    float _P[4];      // Position (xyz) + 1.0 (w)
+    u32   _N_w;       // Normal packed (RGB) + weight0 (A)
+    u32   _T_w;       // Tangent packed (RGB) + weight1 (A)
+    u32   _B_i;       // Binormal packed (RGB) + bone_index2 (A)
+    float _tc_i[4];   // tc.xy + bone_index0 + bone_index1
+
+    void set(Fvector3& P, Fvector3 N, Fvector3 T, Fvector3 B, Fvector2& tc,
+             int index0, int index1, int index2, float w0, float w1)
+    {
+        N.normalize_safe();
+        T.normalize_safe();
+        B.normalize_safe();
+        _P[0] = P.x; _P[1] = P.y; _P[2] = P.z; _P[3] = 1.f;
+        _N_w  = color_rgba(vk_q_N(N.x), vk_q_N(N.y), vk_q_N(N.z), u8(clampr(iFloor(w0 * 255.f + .5f), 0, 255)));
+        _T_w  = color_rgba(vk_q_N(T.x), vk_q_N(T.y), vk_q_N(T.z), u8(clampr(iFloor(w1 * 255.f + .5f), 0, 255)));
+        _B_i  = color_rgba(vk_q_N(B.x), vk_q_N(B.y), vk_q_N(B.z), u8(index2));
+        _tc_i[0] = tc.x; _tc_i[1] = tc.y;
+        *(s16*)&_tc_i[2] = s16(index0);
+        *((s16*)&_tc_i[2] + 1) = 0;
+        *(s16*)&_tc_i[3] = s16(index1);
+        *((s16*)&_tc_i[3] + 1) = 0;
+    }
+};  // sizeof = 44
+static_assert(sizeof(vertHW_3W) == 44, "vertHW_3W must be 44 bytes");
+
+// 4-weight skinned vertex (40 bytes)
+struct vertHW_4W
+{
+    float _P[4];    // Position (xyz) + 1.0 (w)
+    u32   _N_w;     // Normal packed (RGB) + weight0 (A)
+    u32   _T_w;     // Tangent packed (RGB) + weight1 (A)
+    u32   _B_w;     // Binormal packed (RGB) + weight2 (A)
+    float _tc[2];   // TexCoord UV
+    u32   _i;       // 4 bone indices packed as RGBA
+
+    void set(Fvector3& P, Fvector3 N, Fvector3 T, Fvector3 B, Fvector2& tc,
+             int index0, int index1, int index2, int index3,
+             float w0, float w1, float w2)
+    {
+        N.normalize_safe();
+        T.normalize_safe();
+        B.normalize_safe();
+        _P[0] = P.x; _P[1] = P.y; _P[2] = P.z; _P[3] = 1.f;
+        _N_w = color_rgba(vk_q_N(N.x), vk_q_N(N.y), vk_q_N(N.z), u8(clampr(iFloor(w0 * 255.f + .5f), 0, 255)));
+        _T_w = color_rgba(vk_q_N(T.x), vk_q_N(T.y), vk_q_N(T.z), u8(clampr(iFloor(w1 * 255.f + .5f), 0, 255)));
+        _B_w = color_rgba(vk_q_N(B.x), vk_q_N(B.y), vk_q_N(B.z), u8(clampr(iFloor(w2 * 255.f + .5f), 0, 255)));
+        _tc[0] = tc.x; _tc[1] = tc.y;
+        _i = color_rgba(u8(index0), u8(index1), u8(index2), u8(index3));
+    }
+};  // sizeof = 40
+static_assert(sizeof(vertHW_4W) == 40, "vertHW_4W must be 40 bytes");
+
 // Forward declarations
 namespace VK {
     class CVulkanBuffer;
@@ -145,7 +273,8 @@ public:
 
 protected:
     // Load geometry from OGF_GCONTAINER chunk
-    void LoadGeometry(IReader* data);
+    // flags: 0 = normal, VLOAD_NOVERTICES = skip vertex loading (indices only)
+    void LoadGeometry(IReader* data, u32 flags = 0);
 
     // Load fast-path geometry from OGF_FASTPATH chunk
     void LoadFastPath(IReader* data);
@@ -370,6 +499,10 @@ public:
     // Called by CKinematics::Load to link child to parent
     virtual void AfterLoad(CKinematics* parent, u16 child_idx);
     void SetParent(CKinematics* p) { Parent = p; }
+
+protected:
+    // Convert vertBoned* to vertHW_* and create Vulkan VB (matches DX11's _Load_hw)
+    void _Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount);
 };
 
 // ============================================================================
@@ -417,6 +550,10 @@ public:
     // Called by CKinematics::Load to link child to parent
     virtual void AfterLoad(CKinematics* parent, u16 child_idx);
     void SetParent(CKinematics* p) { Parent = p; }
+
+protected:
+    // Convert vertBoned* to vertHW_* and create Vulkan VB (matches DX11's _Load_hw)
+    void _Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount);
 };
 
 // ============================================================================

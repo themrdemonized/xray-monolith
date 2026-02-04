@@ -28,7 +28,10 @@
 #include "vk_material.h"
 #include "HW_Vulkan.h"
 #include "vk_R_Backend.h"
+#include "vk_Visual.h"
 #include "rvk.h"
+#include "../../Include/xrRender/Kinematics.h"
+#include <functional>
 
 namespace VK
 {
@@ -130,6 +133,82 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
     } else {
         m_GBufferPipelines[stride] = pipeline;
         Msg("[Vulkan] G-Buffer pipeline created successfully (stride %u)", stride);
+    }
+
+    return pipeline;
+}
+
+// ============================================================================
+// GetGBufferPipelineSkinned() - Get or create skinned G-Buffer pipeline
+// ============================================================================
+VkPipeline CRenderTarget::GetGBufferPipelineSkinned(u32 stride)
+{
+    // Return cached pipeline for this stride if exists
+    auto it = m_GBufferPipelinesSkinned.find(stride);
+    if (it != m_GBufferPipelinesSkinned.end())
+        return it->second;
+
+    Msg("[Vulkan] Creating skinned G-Buffer pipeline for stride %u...", stride);
+
+    // ========================================================================
+    // Step 1: Load skinned vertex shader
+    // ========================================================================
+    VkShaderModule vertShader = g_ShaderManager->Load("gbuffer_skinned.vert.spv");
+    VkShaderModule fragShader = g_ShaderManager->Load("gbuffer.frag.spv");
+
+    if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE) {
+        Msg("![Vulkan] Failed to load skinned G-Buffer shaders (stride %u)", stride);
+        return VK_NULL_HANDLE;
+    }
+
+    // ========================================================================
+    // Step 2: Configure pipeline with skinned vertex input
+    // ========================================================================
+    PipelineConfig config;
+    config.vertShader = vertShader;
+    config.fragShader = fragShader;
+    config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    config.cullMode = VK_CULL_MODE_NONE;
+    config.depthTest = true;
+    config.depthWrite = true;
+    config.depthCompareOp = VK_COMPARE_OP_LESS;
+    config.blendEnable = false;
+
+    // MRT - same as non-skinned G-Buffer
+    config.colorAttachmentCount = 4;
+    config.colorFormats[0] = VK_FORMAT_R32G32B32A32_SFLOAT;  // rt_Position
+    config.colorFormats[1] = VK_FORMAT_R32G32B32A32_SFLOAT;  // rt_Normal
+    config.colorFormats[2] = VK_FORMAT_R8G8B8A8_SRGB;        // rt_Color
+    config.colorFormats[3] = VK_FORMAT_R8G8B8A8_UNORM;       // rt_Material
+    config.depthFormat = VK_FORMAT_D32_SFLOAT;
+
+    // Use custom vertex input for skinned attributes
+    config.useDefaultVertexInput = false;
+    config.useCustomVertexInput = true;
+
+    VkVertexInputBindingDescription skinnedBinding = {};
+    VkVertexInputAttributeDescription skinnedAttrs[6] = {};
+    u32 skinnedAttrCount = 0;
+    VkPipelineVertexInputStateCreateInfo tempInfo = {};
+
+    g_PipelineManager->GetSkinnedVertexInputState(tempInfo, skinnedBinding, skinnedAttrs, skinnedAttrCount, stride);
+
+    config.customBinding = skinnedBinding;
+    for (u32 i = 0; i < skinnedAttrCount && i < 8; ++i)
+        config.customAttributes[i] = skinnedAttrs[i];
+    config.customAttributeCount = skinnedAttrCount;
+    config.vertexStride = stride;
+
+    // ========================================================================
+    // Step 3: Create pipeline
+    // ========================================================================
+    VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
+
+    if (pipeline == VK_NULL_HANDLE) {
+        Msg("![Vulkan] Failed to create skinned G-Buffer pipeline for stride %u", stride);
+    } else {
+        m_GBufferPipelinesSkinned[stride] = pipeline;
+        Msg("[Vulkan] Skinned G-Buffer pipeline created successfully (stride %u, attrs %u)", stride, skinnedAttrCount);
     }
 
     return pipeline;
@@ -472,6 +551,7 @@ void CRenderTarget::phase_gbuffer()
     // ========================================================================
     // Step 9: Scene Graph Rendering (with crash isolation)
     // ========================================================================
+    // Step 9a: Static geometry (level brushes, trees, etc.)
     __try {
         RImplementation.r_dsgraph_render_graph(0, true);
     } __except(EXCEPTION_EXECUTE_HANDLER) {
@@ -482,6 +562,123 @@ void CRenderTarget::phase_gbuffer()
             (u32)RImplementation.lstNormal.size(), GetExceptionCode());
         FlushLog();
         RImplementation.lstNormal.clear();
+    }
+
+    // Step 9b: Dynamic objects (doors, boxes, NPCs, dropped items)
+    __try {
+        RImplementation.r_dsgraph_render_dynamic(true);
+    } __except(EXCEPTION_EXECUTE_HANDLER) {
+        Msg("! phase_gbuffer: CRASH in r_dsgraph_render_dynamic at frame %u, "
+            "lstMatrix=%u, exception 0x%08X",
+            Device.dwFrame, (u32)RImplementation.lstMatrix.size(), GetExceptionCode());
+        FlushLog();
+        RImplementation.lstMatrix.clear();
+    }
+
+    // Step 9c: HUD visuals (weapons, hands) — render into G-Buffer with HUD projection
+    // mapHUD now contains LEAF visuals (vkSkeletonX_PM, vkSkeletonX_ST, vkFVisual)
+    // after hierarchy decomposition in add_leafs_HUD_VK. Bones were already calculated
+    // during the add phase. Each leaf has its own Render() with pipeline/material binding.
+    if (RImplementation.mapHUD.size() > 0)
+    {
+        __try {
+            VkPipelineLayout layout = g_PipelineManager->GetLayout();
+
+            // Switch to HUD projection (short far plane -> always in front of world)
+            Fmatrix mProjectHud = Device.mProjectHud;
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                128, sizeof(Fmatrix), &mProjectHud);
+
+            // Set viewport depth range for HUD (renders in front of everything)
+            RImplementation.rmNear();
+
+            static u32 s_hudRenderDiag = 0;
+            bool bHudDiag = (s_hudRenderDiag < 5);
+            if (bHudDiag) {
+                Msg("[HUD] phase_gbuffer: rendering %u HUD leaf visuals, frame=%u",
+                    (u32)RImplementation.mapHUD.size(), Device.dwFrame);
+                s_hudRenderDiag++;
+            }
+
+            // Render each leaf visual directly
+            for (u32 i = 0; i < RImplementation.mapHUD.size(); i++) {
+                R_dsgraph::_MatrixItemS& item = RImplementation.mapHUD[i].val;
+                if (!item.pVisual) continue;
+
+                // Leaf visuals are vkRender_Visual subclasses (vkSkeletonX_PM/ST, vkFVisual)
+                vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+
+                if (bHudDiag) {
+                    Msg("[HUD]   leaf[%u] ptr=%p type=%u matrix=(%f,%f,%f)",
+                        i, pV, pV->Type, item.Matrix._41, item.Matrix._42, item.Matrix._43);
+                }
+
+                // Set world matrix
+                RCache.set_xform_world(item.Matrix);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                    0, sizeof(Fmatrix), &item.Matrix);
+
+                // Render — each leaf type handles its own pipeline/material binding
+                __try {
+                    pV->Render(1.0f);
+                } __except(EXCEPTION_EXECUTE_HANDLER) {
+                    Msg("! [HUD] CRASH rendering leaf[%u] ptr=%p type=%u frame=%u exccode=0x%08X",
+                        i, pV, pV->Type, Device.dwFrame, GetExceptionCode());
+                }
+            }
+            RImplementation.mapHUD.clear();
+
+            // Render camera-attached HUD visuals (binoculars, scopes with custom FOV)
+            if (RImplementation.mapCamAttached.size() > 0)
+            {
+                // Camera-attached uses custom projection (83 deg FOV)
+                Fmatrix camproj;
+                camproj.build_projection(
+                    deg2rad(83.f),
+                    Device.fASPECT, VIEWPORT_NEAR,
+                    g_pGamePersistent->Environment().CurrentEnv->far_plane);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                    128, sizeof(Fmatrix), &camproj);
+
+                for (u32 i = 0; i < RImplementation.mapCamAttached.size(); i++) {
+                    R_dsgraph::_MatrixItemS& item = RImplementation.mapCamAttached[i].val;
+                    if (!item.pVisual) continue;
+
+                    vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+                    RCache.set_xform_world(item.Matrix);
+                    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                        0, sizeof(Fmatrix), &item.Matrix);
+
+                    __try {
+                        pV->Render(1.0f);
+                    } __except(EXCEPTION_EXECUTE_HANDLER) {
+                        Msg("! [HUD] CRASH rendering camAttached[%u] ptr=%p", i, pV);
+                    }
+                }
+                RImplementation.mapCamAttached.clear();
+            }
+
+            // Restore normal viewport depth range
+            RImplementation.rmNormal();
+
+            // Restore normal projection and identity world matrix
+            Fmatrix mProject = Device.mProject;
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                128, sizeof(Fmatrix), &mProject);
+            Fmatrix mIdentity;
+            mIdentity.identity();
+            RCache.set_xform_world(mIdentity);
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                0, sizeof(Fmatrix), &mIdentity);
+
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: CRASH in HUD rendering at frame %u, "
+                "mapHUD=%u, exception 0x%08X",
+                Device.dwFrame, (u32)RImplementation.mapHUD.size(), GetExceptionCode());
+            FlushLog();
+            RImplementation.mapHUD.clear();
+            RImplementation.mapCamAttached.clear();
+        }
     }
 
     // ========================================================================

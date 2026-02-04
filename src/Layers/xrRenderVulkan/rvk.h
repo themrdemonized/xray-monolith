@@ -449,6 +449,7 @@ public:
     // Dynamic visual expansion (hierarchy, particles, skeletons)
     // ========================================================================
     void add_leafs_Dynamic_VK(vkRender_Visual* pVisual);
+    void add_leafs_HUD_VK(vkRender_Visual* pVisual);
 
     // ========================================================================
     // Shader selection for render queue routing

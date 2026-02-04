@@ -291,12 +291,13 @@ void CBackend::OnDeviceCreate()
     // Create dynamic vertex stream
     Vertex.Create();
 
-    // Create bone matrix uniform buffer for skeletal animation (GPU skinning)
+    // Create bone matrix buffer for skeletal animation (GPU skinning)
     // Size = MAX_BONES * sizeof(Fmatrix) = 256 * 64 = 16KB
+    // Uses STORAGE_BUFFER_BIT because shader declares it as std430 buffer (SSBO)
     VkDeviceSize boneBufferSize = MAX_BONES * sizeof(Fmatrix);
     m_BoneBuffer.Create(
         boneBufferSize,
-        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         VMA_MEMORY_USAGE_CPU_TO_GPU  // CPU writes, GPU reads
     );
 

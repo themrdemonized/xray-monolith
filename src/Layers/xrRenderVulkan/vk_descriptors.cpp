@@ -128,17 +128,25 @@ void CVulkanDescriptorManager::CreateLayouts()
     }
 
     // ========================================================================
-    // Set 2: PerObject (world matrix, каждый объект)
+    // Set 2: PerObject (world matrix + bone matrices SSBO)
     // ========================================================================
     {
-        VkDescriptorSetLayoutBinding binding = {};
-        binding.binding = 0;
-        binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        binding.descriptorCount = 1;
-        binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        VkDescriptorSetLayoutBinding bindings[2] = {};
 
-        m_PerObjectLayout = CreateLayout(&binding, 1);
-        Msg("[Vulkan]   Set 2 (PerObject): 1 uniform buffer");
+        // Binding 0: World matrix UBO
+        bindings[0].binding = 0;
+        bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        bindings[0].descriptorCount = 1;
+        bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        // Binding 1: Bone matrices SSBO (for GPU skinning)
+        bindings[1].binding = 1;
+        bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[1].descriptorCount = 1;
+        bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        m_PerObjectLayout = CreateLayout(bindings, 2);
+        Msg("[Vulkan]   Set 2 (PerObject): 1 uniform buffer + 1 storage buffer (bones)");
     }
 
     // ========================================================================
@@ -182,7 +190,7 @@ void CVulkanDescriptorManager::CreatePool()
     // - 10000 PerObject sets (много объектов)
     // - 100 Lighting sets
 
-    VkDescriptorPoolSize poolSizes[2] = {};
+    VkDescriptorPoolSize poolSizes[3] = {};
 
     // Uniform buffers: 100 + 10000 + 100 = 10200 (PerFrame + PerObject + Lighting)
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -192,11 +200,15 @@ void CVulkanDescriptorManager::CreatePool()
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = 9600;
 
+    // Storage buffers: 10000 (PerObject bone SSBO - one per skinned object)
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].descriptorCount = 10000;
+
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;  // Позволяет vkFreeDescriptorSets
     poolInfo.maxSets = 11200;  // 100 + 1000 + 10000 + 100
-    poolInfo.poolSizeCount = 2;
+    poolInfo.poolSizeCount = 3;
     poolInfo.pPoolSizes = poolSizes;
 
     VK_CHECK(vkCreateDescriptorPool(VulkanHW.m_Device, &poolInfo, nullptr, &m_Pool));
@@ -320,6 +332,27 @@ void CVulkanDescriptorManager::UpdateBuffer(VkDescriptorSet set, u32 binding,
     write.dstBinding = binding;
     write.dstArrayElement = 0;
     write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write.descriptorCount = 1;
+    write.pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(VulkanHW.m_Device, 1, &write, 0, nullptr);
+}
+
+// Update storage buffer (SSBO) binding
+void CVulkanDescriptorManager::UpdateStorageBuffer(VkDescriptorSet set, u32 binding,
+                                                    VkBuffer buffer, VkDeviceSize size, VkDeviceSize offset)
+{
+    VkDescriptorBufferInfo bufferInfo = {};
+    bufferInfo.buffer = buffer;
+    bufferInfo.offset = offset;
+    bufferInfo.range = size;
+
+    VkWriteDescriptorSet write = {};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = set;
+    write.dstBinding = binding;
+    write.dstArrayElement = 0;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     write.descriptorCount = 1;
     write.pBufferInfo = &bufferInfo;
 

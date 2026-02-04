@@ -21,6 +21,8 @@
 #include "../../xrEngine/device.h"
 #include "../../xrEngine/IGame_Persistent.h"
 #include "../../xrEngine/Environment.h"
+#include "../../xrEngine/customhud.h"
+#include "../../Include/xrRender/Kinematics.h"
 
 // Include for sorting
 #include <algorithm>
@@ -40,10 +42,6 @@ ICF float CalcSSA(float& distSQ, Fvector& C, float R)
     distSQ = Device.vCameraPosition.distance_to_sqr(C) + EPS;
     return R / distSQ;
 }
-
-// Forward declarations for HUD
-class CHUDManager;
-extern CHUDManager* g_hud;
 
 // Backend globals
 extern CBackend RCache;
@@ -177,51 +175,133 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
         RI.lstNormal.clear();
 }
 
+// ============================================================================
+// r_dsgraph_render_dynamic - Render dynamic objects with per-object transforms
+// ============================================================================
+// Dynamic objects (doors, boxes, NPCs, weapons on ground) are stored in lstMatrix
+// with their world transform. Each object needs:
+// 1. World matrix set via RCache (push constants)
+// 2. Bone calculation for skeletal models
+// 3. Recursive Render() call
+// ============================================================================
+void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
+{
+    CRender& RI = RImplementation;
+    u32 count = RI.lstMatrix.size();
+    if (count == 0) return;
+
+    u32 renderCount = 0;
+    for (u32 idx = 0; idx < count; ++idx)
+    {
+        auto& item = RI.lstMatrix[idx];
+        if (!item.pVisual) continue;
+
+        vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+
+        __try {
+            // Set per-object world matrix (updates push constants)
+            RCache.set_xform_world(item.Matrix);
+
+            // Calculate bones for skeletal models
+            if (pV->Type == MT_SKELETON_ANIM || pV->Type == MT_SKELETON_RIGID) {
+                IKinematics* pK = pV->dcast_PKinematics();
+                if (pK) pK->CalculateBones(TRUE);
+            }
+
+            // Render (hierarchy/skeleton visuals recursively render children)
+            pV->Render(1.0f);
+            renderCount++;
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! render_dynamic: CRASH visual[%u/%u] ptr=%p type=%u frame=%u exc=0x%08X",
+                idx, count, pV, pV->Type, Device.dwFrame, GetExceptionCode());
+        }
+    }
+
+    // Restore identity world matrix for subsequent static rendering
+    RCache.set_xform_world(Fidentity);
+
+    if (_clear)
+        RI.lstMatrix.clear();
+}
+
 void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 {
     // ========================================================================
     // HUD 3D Rendering - Render weapons, hands, and HUD-mode particles
     // ========================================================================
+    // mapHUD now contains LEAF visuals (after hierarchy decomposition in
+    // add_leafs_HUD_VK). Bones were already calculated during the add phase.
 
-    if (mapHUD.size() == 0) {
+    static u32 s_hudRenderLog = 0;
+    if (s_hudRenderLog < 20) {
+        Msg("[HUD-DIAG] r_dsgraph_render_hud: mapHUD.size()=%u frame=%u", mapHUD.size(), Device.dwFrame);
+        s_hudRenderLog++;
+    }
+
+    if (mapHUD.size() == 0 && mapCamAttached.size() == 0) {
         return;  // Nothing to render
     }
 
-    // Save current transformation matrix
+    // Save current transformation matrices
     Fmatrix FTold = Device.mFullTransform;
+    Fmatrix Pold_prev = Device.mProject_prev;
 
     // Switch to HUD projection (screen space, no far clipping)
     Device.mFullTransform = Device.mFullTransformHud;
+    RCache.set_xform_project(Device.mProjectHud);
+    RCache.set_xform_project_prev(Device.mProjectHud);
 
-    // Set near clip plane for HUD (1 meter in front of camera)
+    // Rendering
     RImplementation.rmNear();
+    if (!NoPS)
+    {
+        // Render all HUD leaf visuals (weapons, hands, attachments)
+        for (u32 i = 0; i < mapHUD.size(); i++) {
+            R_dsgraph::_MatrixItemS& item = mapHUD[i].val;
+            if (!item.pVisual) continue;
 
-    // Render all HUD visuals (weapons, hands, attachments)
-    // mapHUD is a FixedMAP — iterate TNodes, access val for _MatrixItemS
-    for (u32 i = 0; i < mapHUD.size(); i++) {
-        R_dsgraph::_MatrixItemS& item = mapHUD[i].val;
-        if (!item.pVisual) continue;
+            vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+            RCache.set_xform_world(item.Matrix);
+            pV->Render(1.0f);
+        }
+        mapHUD.clear();
 
-        vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+        RImplementation.rmNormal();
 
-        // Set object transformation
-        RImplementation.set_Transform(&item.Matrix);
+        // Render camera-attached visuals (binoculars, scopes)
+        if (mapCamAttached.size() > 0)
+        {
+            RImplementation.rmNear();
 
-        // Render at full LOD
-        pV->Render(1.0f);
+            Fmatrix camproj;
+            camproj.build_projection(
+                deg2rad(83.f),
+                Device.fASPECT, VIEWPORT_NEAR,
+                g_pGamePersistent->Environment().CurrentEnv->far_plane);
+            Device.mFullTransform.mul(camproj, Device.mView);
+            RCache.set_xform_project(camproj);
+
+            for (u32 i = 0; i < mapCamAttached.size(); i++) {
+                R_dsgraph::_MatrixItemS& item = mapCamAttached[i].val;
+                if (!item.pVisual) continue;
+
+                vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+                RCache.set_xform_world(item.Matrix);
+                pV->Render(1.0f);
+            }
+            mapCamAttached.clear();
+
+            RImplementation.rmNormal();
+        }
     }
-
-    // Clear HUD render queue
-    mapHUD.clear();
 
     // Render HUD-mode particles (muzzle flashes, etc.) if enabled
-    if (!NoPS) {
-        RImplementation.RenderHUDParticles();
-    }
+    RImplementation.RenderHUDParticles();
 
-    // Restore normal projection
+    // Restore projection matrices
     Device.mFullTransform = FTold;
-    RImplementation.rmNormal();
+    RCache.set_xform_project(Device.mProject);
+    RCache.set_xform_project_prev(Pold_prev);
 }
 
 void R_dsgraph_structure::r_dsgraph_render_hud_ui()
@@ -230,32 +310,29 @@ void R_dsgraph_structure::r_dsgraph_render_hud_ui()
     // HUD UI Rendering - Active item UI overlay
     // ========================================================================
     // Renders UI elements attached to active weapon/item (crosshairs, ammo counters, etc.)
-    // Rendered in HUD projection space (2D screen overlay)
     // ========================================================================
 
     // Switch to HUD projection
     Fmatrix FTold = Device.mFullTransform;
     Device.mFullTransform = Device.mFullTransformHud;
+    RCache.set_xform_project(Device.mProjectHud);
 
     // Set near clip plane for HUD rendering
     RImplementation.rmNear();
 
     // Render active item UI (weapon crosshairs, ammo display, etc.)
-    // TODO: Implement HUD UI rendering
-    // Temporarily disabled due to undefined CHUDManager type
-    /*
-    extern CHUDManager* g_hud;
+    extern ENGINE_API CCustomHUD* g_hud;
     if (g_hud)
     {
         g_hud->RenderActiveItemUI();
     }
-    */
 
     // Restore normal clip plane
     RImplementation.rmNormal();
 
     // Restore normal projection
     Device.mFullTransform = FTold;
+    RCache.set_xform_project(Device.mProject);
 }
 
 void R_dsgraph_structure::r_dsgraph_render_cam_ui()
@@ -273,34 +350,32 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
     // Build custom projection matrix (FOV 83 degrees)
     Fmatrix camproj;
     camproj.build_projection(
-        deg2rad(83.f),                                          // FOV: 83 degrees
-        Device.fASPECT,                                         // Aspect ratio
-        VIEWPORT_NEAR,                                          // Near plane (R_VIEWPORT_NEAR)
-        g_pGamePersistent->Environment().CurrentEnv->far_plane  // Far plane
+        deg2rad(83.f),
+        Device.fASPECT,
+        VIEWPORT_NEAR,
+        g_pGamePersistent->Environment().CurrentEnv->far_plane
     );
 
     // Update full transform with custom projection
     Device.mFullTransform.mul(camproj, Device.mView);
+    RCache.set_xform_project(camproj);
 
     // Set near clip plane for camera UI
     RImplementation.rmNear();
 
     // Render camera-attached UI elements
-    // TODO: Implement camera UI rendering
-    // Temporarily disabled due to undefined CHUDManager type
-    /*
-    extern CHUDManager* g_hud;
+    extern ENGINE_API CCustomHUD* g_hud;
     if (g_hud)
     {
         g_hud->RenderCamAttachedUI();
     }
-    */
 
     // Restore normal clip plane
     RImplementation.rmNormal();
 
     // Restore normal projection
     Device.mFullTransform = FTold;
+    RCache.set_xform_project(Device.mProject);
 }
 
 // ============================================================================
@@ -529,16 +604,32 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
         // Switch to HUD projection
         Fmatrix FTold = Device.mFullTransform;
         Device.mFullTransform = Device.mFullTransformHud;
+        RCache.set_xform_project(Device.mProjectHud);
 
+        RImplementation.rmNear();
         mapHUDSorted.traverseRL(vk_sorted_render);
         mapHUDSorted.clear();
 
+        // Camera-attached sorted items (scopes, binoculars with custom FOV)
+        if (mapCamAttachedSorted.size()) {
+            Fmatrix camproj;
+            camproj.build_projection(
+                deg2rad(83.f),
+                Device.fASPECT, VIEWPORT_NEAR,
+                g_pGamePersistent->Environment().CurrentEnv->far_plane);
+            Device.mFullTransform.mul(camproj, Device.mView);
+            RCache.set_xform_project(camproj);
+
+            mapCamAttachedSorted.traverseRL(vk_sorted_render);
+            mapCamAttachedSorted.clear();
+        }
+
+        RImplementation.rmNormal();
+
         // Restore normal projection
         Device.mFullTransform = FTold;
-    }
-
-    // Camera-attached sorted items
-    if (mapCamAttachedSorted.size()) {
+        RCache.set_xform_project(Device.mProject);
+    } else if (mapCamAttachedSorted.size()) {
         mapCamAttachedSorted.traverseRL(vk_sorted_render);
         mapCamAttachedSorted.clear();
     }

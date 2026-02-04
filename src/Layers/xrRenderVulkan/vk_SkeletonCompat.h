@@ -22,11 +22,10 @@
 #include "../xrRender/Shader.h"       // For ref_shader
 
 // STEP 4: Type mappings
+// Map dxRender_Visual to vkRender_Visual so that skeleton classes
+// (CKinematics, FHierrarhyVisual) use the Vulkan visual hierarchy.
+// IMPORTANT: ALL files that include SkeletonCustom.h must use this mapping!
 #define dxRender_Visual vkRender_Visual
-
-// STEP 4b: Let shared FHierrarhyVisual be included naturally.
-// With dxRender_Visual mapped to vkRender_Visual,
-// FHierrarhyVisual will inherit from vkRender_Visual.
 
 // STEP 5-6: IRender_Mesh and ref_constant are defined in FBasicVisual.h (xrRender)
 // Don't redefine them here - let the wrapper files include the originals

@@ -712,6 +712,13 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 	RCache.set_xform_project(Device.mProject);
 }
 
+// Vulkan-only: dynamic objects with per-object transforms
+// DX renderers handle this through mapMatrix pipeline
+void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
+{
+	// No-op for DX renderers - dynamic objects go through mapMatrix/mapNormal
+}
+
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
 void R_dsgraph_structure::r_dsgraph_render_sorted()

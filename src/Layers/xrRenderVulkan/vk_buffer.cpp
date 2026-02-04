@@ -52,8 +52,9 @@ void CVulkanBuffer::Create(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemor
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = memUsage;
 
-    // Для uniform buffers включаем HOST_VISIBLE для persistent mapping
-    if (usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {
+    // Для uniform/storage buffers включаем HOST_VISIBLE для persistent mapping
+    // Storage buffers (e.g. bone SSBO) also need CPU write access for per-frame updates
+    if (usage & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
         allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                           VMA_ALLOCATION_CREATE_MAPPED_BIT;
     }
@@ -87,8 +88,8 @@ void CVulkanBuffer::Destroy()
         return;
     }
 
-    // Unmap if mapped
-    if (m_Mapped != nullptr && !(m_Usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)) {
+    // Unmap if mapped (skip for persistent-mapped uniform/storage buffers — VMA handles them)
+    if (m_Mapped != nullptr && !(m_Usage & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))) {
         Unmap();
     }
 
@@ -250,8 +251,8 @@ void CVulkanBuffer::Unmap()
         return;
     }
 
-    // Не unmap persistent-mapped uniform buffers
-    if (m_Usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT) {
+    // Не unmap persistent-mapped uniform/storage buffers
+    if (m_Usage & (VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)) {
         return;
     }
 

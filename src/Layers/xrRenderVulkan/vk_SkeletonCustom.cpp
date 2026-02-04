@@ -316,6 +316,8 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 	}
 
 	// after load process
+	Msg("[SKEL-LOAD] AfterLoad: this=%p bone_instances=%p children=%u dbg='%s'",
+		this, bone_instances, (u32)children.size(), dbg_name.c_str());
 	{
 		for (u16 child_idx = 0; child_idx < (u16)children.size(); child_idx++)
 		{
@@ -325,14 +327,17 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 			vkSkeletonX_ST* pST = dynamic_cast<vkSkeletonX_ST*>(V);
 			if (pST) {
 				pST->AfterLoad(this, child_idx);
+				Msg("[SKEL-LOAD]   child[%u] ST=%p AfterLoad(parent=%p) bone_instances=%p", child_idx, pST, this, bone_instances);
 				continue;
 			}
 			// Try vkSkeletonX_PM
 			vkSkeletonX_PM* pPM = dynamic_cast<vkSkeletonX_PM*>(V);
 			if (pPM) {
 				pPM->AfterLoad(this, child_idx);
+				Msg("[SKEL-LOAD]   child[%u] PM=%p AfterLoad(parent=%p) bone_instances=%p", child_idx, pPM, this, bone_instances);
 				continue;
 			}
+			Msg("[SKEL-LOAD]   child[%u] V=%p type=%u (not ST or PM)", child_idx, V, V->getType());
 		}
 	}
 
@@ -464,11 +469,17 @@ void CKinematics::Copy(vkRender_Visual* P)
 
 	IBoneInstances_Create();
 
+	Msg("[SKEL-COPY] Copy: this=%p bone_instances=%p bones=%u children=%u dbg='%s'",
+		this, bone_instances, bones ? (u32)bones->size() : 0, (u32)children.size(), dbg_name.c_str());
+
 	for (u32 i = 0; i < children.size(); i++)
 	{
 		CSkeletonX* child = LL_GetChild(i);
 		if (child)
+		{
 			child->SetParent(this);
+			Msg("[SKEL-COPY]   child[%u] CSkeletonX=%p SetParent(this=%p)", i, child, this);
+		}
 		else
 		{
 			// Child is not CSkeletonX (e.g. vkSkeletonX_ST inherits differently)
@@ -477,9 +488,10 @@ void CKinematics::Copy(vkRender_Visual* P)
 			if (V)
 			{
 				vkSkeletonX_ST* st = dynamic_cast<vkSkeletonX_ST*>(V);
-				if (st) { st->SetParent(this); continue; }
+				if (st) { st->SetParent(this); Msg("[SKEL-COPY]   child[%u] vkSkeletonX_ST=%p SetParent(this=%p)", i, st, this); continue; }
 				vkSkeletonX_PM* pm = dynamic_cast<vkSkeletonX_PM*>(V);
-				if (pm) { pm->SetParent(this); continue; }
+				if (pm) { pm->SetParent(this); Msg("[SKEL-COPY]   child[%u] vkSkeletonX_PM=%p SetParent(this=%p)", i, pm, this); continue; }
+				Msg("! [SKEL-COPY]   child[%u] unknown type=%p (not ST or PM!)", i, V);
 			}
 		}
 	}

@@ -42,6 +42,7 @@ extern "C" void VulkanUI_ResetState();
 #include "../../xrCDB/ISpatial.h"
 #include "../../xrCDB/xrXRC.h"  // CDB::Collider for detectSector
 #include "../../xrEngine/IGame_Level.h"  // g_pGameLevel for detectSector geometry query
+#include "../../xrEngine/customhud.h"   // g_hud for HUD rendering (Render_Last)
 
 // Direct diagnostic write for crash debugging (Win32 file I/O, bypasses Msg buffer)
 // After g_bDeviceLost, stops overwriting so the last phase before crash is preserved.
@@ -645,51 +646,92 @@ void CRender::Calculate()
     }
 
     // ========================================================================
-    // Dynamic objects from Spatial Database
+    // Dynamic objects from Spatial Database (ported from R4 render_main)
     // ========================================================================
-    // TODO: Implement dynamic object rendering with proper spatial API
-    // Currently disabled due to undefined CSpatial_SyncedData type
-    /*
     if (g_SpatialSpace && pLastSector)
     {
-        // Query all spatials in frustum
+        set_Object(0);
+
+        // Query all renderables in frustum
         lstSpatial.clear();
         g_SpatialSpace->q_frustum(lstSpatial, ISpatial_DB::O_ORDERED, STYPE_RENDERABLE, ViewBase);
 
-        // Process dynamic renderables with HOM culling
+        static u32 s_dynLog = 0;
+        if (s_dynLog < 5) {
+            Msg("[DYN-DIAG] Calculate: lstSpatial(RENDERABLE)=%u, pLastSector=%p, marker=%u",
+                lstSpatial.size(), pLastSector, vkPortalTraverser.i_marker);
+            s_dynLog++;
+        }
+
+        u32 dbg_skipped_sector = 0, dbg_skipped_marker = 0, dbg_skipped_frustum = 0, dbg_rendered = 0;
         for (u32 o_it = 0; o_it < lstSpatial.size(); o_it++)
         {
             ISpatial* spatial = lstSpatial[o_it];
             if (!spatial) continue;
 
-            CSpatial_SyncedData* renderable = (CSpatial_SyncedData*)spatial->dcast_SpatialSyncedData();
-            if (!renderable) continue;
-            if (!renderable->renderable.visual) continue;
+            spatial->spatial_updatesector();
+            vkCSector* sector = (vkCSector*)spatial->spatial.sector;
+            if (0 == sector) { dbg_skipped_sector++; continue; }
 
-            // HOM visibility test for dynamic objects
-            if (HOM && HOM->bEnabled)
+            // Skip objects in sectors not touched by portal traversal
+            if (vkPortalTraverser.i_marker != sector->r_marker) { dbg_skipped_marker++; continue; }
+
+            for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
             {
-                vis_data& v_orig = ((vkRender_Visual*)renderable->renderable.visual)->vis;
-                vis_data v_copy = v_orig;
-                v_copy.box.xform(renderable->renderable.xform);
+                CFrustum& view = sector->r_frustums[v_it];
+                if (!view.testSphere_dirty(spatial->spatial.sphere.P, spatial->spatial.sphere.R)) { dbg_skipped_frustum++; continue; }
 
-                BOOL bVisible = HOM->visible(v_copy);
-                v_orig.marker = v_copy.marker;
-                v_orig.accept_frame = v_copy.accept_frame;
-                v_orig.hom_frame = v_copy.hom_frame;
-                v_orig.hom_tested = v_copy.hom_tested;
+                if (spatial->spatial.type & STYPE_RENDERABLE)
+                {
+                    IRenderable* renderable = spatial->dcast_Renderable();
+                    if (0 == renderable) break;
 
-                if (!bVisible) continue;
+                    // HOM occlusion test
+                    if (renderable->renderable.visual)
+                    {
+                        vis_data& v_orig = ((vkRender_Visual*)renderable->renderable.visual)->vis;
+                        vis_data v_copy = v_orig;
+                        v_copy.box.xform(renderable->renderable.xform);
+                        BOOL bVisible = (HOM && HOM->bEnabled) ? HOM->visible(v_copy) : TRUE;
+                        v_orig.marker = v_copy.marker;
+                        v_orig.accept_frame = v_copy.accept_frame;
+                        v_orig.hom_frame = v_copy.hom_frame;
+                        v_orig.hom_tested = v_copy.hom_tested;
+                        if (!bVisible) break;
+                    }
+
+                    // Render the object (populates lstMatrix, mapHUD, etc.)
+                    set_Object(renderable);
+                    renderable->renderable_Render();
+                    set_Object(0);
+                    dbg_rendered++;
+                }
+                break; // exit loop on frustums (same as R4)
             }
+        }
 
-            // Add to render queue
-            r_dsgraph_insert_dynamic(
-                (vkRender_Visual*)renderable->renderable.visual,
-                renderable->spatial.sphere.P
-            );
+        if (s_dynLog <= 5) {
+            Msg("[DYN-DIAG] Results: rendered=%u skipped_nosector=%u skipped_marker=%u skipped_frustum=%u mapHUD=%u lstMatrix=%u",
+                dbg_rendered, dbg_skipped_sector, dbg_skipped_marker, dbg_skipped_frustum, mapHUD.size(), lstMatrix.size());
+        }
+
+        // HUD rendering - collect HUD visuals from game
+        if (g_pGameLevel && (phase == PHASE_NORMAL))
+        {
+            extern ENGINE_API CCustomHUD* g_hud;
+            u32 hudBefore = mapHUD.size();
+            if (g_hud)
+                g_hud->Render_Last();
+            u32 hudAfter = mapHUD.size();
+
+            static u32 s_hudFrameLog = 0;
+            if (hudAfter > 0 || (Device.dwFrame - s_hudFrameLog > 300)) {
+                Msg("[DYN-DIAG] Render_Last: g_hud=%p mapHUD before=%u after=%u frame=%u",
+                    g_hud, hudBefore, hudAfter, Device.dwFrame);
+                s_hudFrameLog = Device.dwFrame;
+            }
         }
     }
-    */
 
     // ========================================================================
     // Lights visibility with HOM culling
@@ -1236,11 +1278,11 @@ void CRender::Render()
             // Clear accumulator
             RTarget->phase_accumulator();
 
-            // Render directional light with cascade shadows (all 3 cascades)
-            VkDiagFrame("[RENDER] PASS 3a: sun accum");
-            RTarget->accum_direct_cascades(SE_SUN_NEAR);
-            RTarget->accum_direct_cascades(SE_SUN_MIDDLE);
-            RTarget->accum_direct_cascades(SE_SUN_FAR);
+            // Sun lighting is now handled in the combine shader via push constants.
+            // Cascade shadow accumulation disabled until shadow map infrastructure is ready.
+            // RTarget->accum_direct_cascades(SE_SUN_NEAR);
+            // RTarget->accum_direct_cascades(SE_SUN_MIDDLE);
+            // RTarget->accum_direct_cascades(SE_SUN_FAR);
 
             // Point lights (Phase 2.16.5)
             VkDiagFrame("[RENDER] PASS 3b: point lights");
@@ -1424,29 +1466,37 @@ void CRender::Render()
     // ========================================================================
     // PASS 7: HUD 3D Rendering (weapons, hands, HUD particles)
     // ========================================================================
+    // NOTE: HUD is now rendered inside phase_gbuffer (Step 9c) so it goes
+    // through the deferred pipeline. This pass just clears any leftover mapHUD.
     VkDiagFrame("[RENDER] PASS 7: HUD 3D");
-    r_dsgraph_render_hud(false);
+    if (mapHUD.size() > 0) {
+        Msg("! [HUD] WARNING: mapHUD=%u still has items at PASS 7 (should be 0 after gbuffer)", mapHUD.size());
+        mapHUD.clear();
+    }
+    if (mapCamAttached.size() > 0) {
+        Msg("! [HUD] WARNING: mapCamAttached=%u still has items at PASS 7", mapCamAttached.size());
+        mapCamAttached.clear();
+    }
 
     // ========================================================================
     // PASS 7.5: HUD UI Overlay (active item UI, camera-attached UI)
     // ========================================================================
     // Phase 2.28: Render HUD UI overlays with proper projection switching
     VkDiagFrame("[RENDER] PASS 7.5: HUD UI");
-    // TODO: Implement HUD UI rendering
-    // Temporarily disabled due to undefined CHUDManager type
-    /*
-    extern CHUDManager* g_hud;
-    if (g_hud)
     {
-        // Active item UI (weapon sights, scopes, etc.)
-        if (g_hud->RenderActiveItemUIQuery())
-            r_dsgraph_render_hud_ui();
+        // g_hud is CCustomHUD* (declared in customhud.h, included at top)
+        extern ENGINE_API CCustomHUD* g_hud;
+        if (g_hud)
+        {
+            // Active item UI (weapon sights, scopes, etc.)
+            if (g_hud->RenderActiveItemUIQuery())
+                r_dsgraph_render_hud_ui();
 
-        // Camera-attached UI (special effects with custom FOV)
-        if (g_hud->RenderCamAttachedUIQuery())
-            r_dsgraph_render_cam_ui();
+            // Camera-attached UI (special effects with custom FOV)
+            if (g_hud->RenderCamAttachedUIQuery())
+                r_dsgraph_render_cam_ui();
+        }
     }
-    */
 
     // ========================================================================
     // PASS 8: Post-Process Pass
@@ -1578,23 +1628,27 @@ void CRender::add_Visual(IRenderVisual* V)
 
     vkRender_Visual* pVisual = static_cast<vkRender_Visual*>(V);
 
-    // Route HUD visuals to mapHUD (rendered by r_dsgraph_render_hud)
+    // Route HUD visuals to mapHUD — decompose hierarchy into leaf visuals
     if (val_bHUD)
     {
-        R_dsgraph::_MatrixItemS item;
-        item.ssa = 1.0f;
-        item.pObject = val_pObject;
-        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
-        item.Matrix = (val_pTransform) ? *val_pTransform : Fidentity;
-        item.PrevMatrix = item.Matrix;
-        item.se = nullptr;
-
-        mapHUD.insertInAnyWay(0.f, item);
+        static u32 s_hudAddFrame = 0;
+        if (Device.dwFrame != s_hudAddFrame) {
+            Msg("[HUD-DIAG] add_Visual: val_bHUD=TRUE, visual=%p type=%u frame=%u mapHUD_before=%u",
+                pVisual, pVisual->Type, Device.dwFrame, mapHUD.size());
+            s_hudAddFrame = Device.dwFrame;
+        }
+        add_leafs_HUD_VK(pVisual);
         return;
     }
 
-    // Expand composite visuals into leaf visuals
-    add_leafs_Dynamic_VK(pVisual);
+    // Store dynamic visual with its transform for per-object rendering
+    R_dsgraph::_MatrixItem item;
+    item.ssa = 1.0f;
+    item.pObject = val_pObject;
+    item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+    item.Matrix = (val_pTransform) ? *val_pTransform : Fidentity;
+    item.PrevMatrix = item.Matrix;
+    lstMatrix.push_back(item);
 }
 
 // ============================================================================
@@ -1658,6 +1712,155 @@ void CRender::add_leafs_Dynamic_VK(vkRender_Visual* pVisual)
         item.ssa = 1.0f;  // Dynamic objects: max priority
         item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
         lstNormal.push_back(item);
+        return;
+    }
+    }
+}
+
+// ============================================================================
+// add_leafs_HUD_VK - Recursively expand HUD visuals into mapHUD/mapCamAttached
+// ============================================================================
+// Same as add_leafs_Dynamic_VK but routes leaf visuals to HUD render queues
+// instead of lstNormal. This ensures skeleton hierarchies are properly decomposed
+// so that each leaf (vkSkeletonX_PM, vkSkeletonX_ST, vkFVisual) can be rendered
+// directly with its own pipeline/material binding.
+// ============================================================================
+void CRender::add_leafs_HUD_VK(vkRender_Visual* pVisual)
+{
+    if (!pVisual) return;
+
+    // Frame-limited diagnostics (first 5 frames)
+    static u32 s_diagHudFrame = 0;
+    static u32 s_diagHudCount = 0;
+    bool bDiag = (Device.dwFrame != s_diagHudFrame) && (s_diagHudCount < 5);
+    if (bDiag) {
+        s_diagHudFrame = Device.dwFrame;
+        s_diagHudCount++;
+    }
+
+    switch (pVisual->Type)
+    {
+    case MT_PARTICLE_GROUP:
+    {
+        if (bDiag) Msg("[HUD-LEAF] ParticleGroup visual=%p", pVisual);
+        vkCParticleGroup* pG = static_cast<vkCParticleGroup*>(pVisual);
+        for (auto& item : pG->items)
+        {
+            if (item.pVisual)
+                add_leafs_HUD_VK(static_cast<vkRender_Visual*>(item.pVisual));
+        }
+        return;
+    }
+
+    case MT_HIERRARHY:
+    {
+        xr_vector<IRenderVisual*>* children = pVisual->get_children();
+        if (bDiag) Msg("[HUD-LEAF] Hierarchy visual=%p children=%u", pVisual, children ? (u32)children->size() : 0);
+        if (children) {
+            for (auto child : *children) {
+                if (child)
+                    add_leafs_HUD_VK(static_cast<vkRender_Visual*>(child));
+            }
+        }
+        return;
+    }
+
+    case MT_SKELETON_ANIM:
+    case MT_SKELETON_RIGID:
+    {
+        // Calculate bones first, then expand children
+        IKinematics* pK = pVisual->dcast_PKinematics();
+
+        if (bDiag) {
+            Msg("[HUD-LEAF] Skeleton visual=%p type=%u dcast_PKinematics=%p", pVisual, pVisual->Type, pK);
+            if (pK) {
+                Msg("[HUD-LEAF]   IKinematics=%p LL_BoneCount=%u", pK, pK->LL_BoneCount());
+            }
+        }
+
+        if (pK) {
+            pK->CalculateBones(TRUE);
+        } else {
+            Msg("! [HUD-LEAF] WARNING: dcast_PKinematics returned NULL for skeleton visual=%p type=%u!", pVisual, pVisual->Type);
+        }
+
+        xr_vector<IRenderVisual*>* children = pVisual->get_children();
+        if (bDiag && children) {
+            Msg("[HUD-LEAF]   Skeleton children count=%u", (u32)children->size());
+        }
+        if (children) {
+            for (u32 ci = 0; ci < children->size(); ci++) {
+                IRenderVisual* child = (*children)[ci];
+                if (!child) continue;
+                if (bDiag) {
+                    Msg("[HUD-LEAF]   child[%u]=%p type=%u", ci, child, child->getType());
+                }
+                add_leafs_HUD_VK(static_cast<vkRender_Visual*>(child));
+            }
+        }
+        return;
+    }
+
+    default:
+    {
+        if (bDiag) {
+            Msg("[HUD-LEAF] Leaf visual=%p type=%u -> mapHUD (val_bCamAttached=%d)", pVisual, pVisual->Type, val_bCamAttached?1:0);
+        }
+        // Leaf visual — insert into HUD render queue based on shader flags
+        // (mirrors DX11 r_dsgraph_insert_dynamic HUD routing logic)
+        R_dsgraph::_MatrixItemS item;
+        item.ssa = 1.0f;
+        item.pObject = val_pObject;
+        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+        item.Matrix = (val_pTransform) ? *val_pTransform : Fidentity;
+        item.PrevMatrix = item.Matrix;
+        item.se = nullptr;
+
+        // Lookup Vulkan shader flags for this visual
+        VK::CVulkanShader* pVKShader = nullptr;
+        if (pVisual->shader_id < (u16)Shaders.size())
+            pVKShader = Shaders[pVisual->shader_id];
+
+        bool bDistort  = pVKShader && pVKShader->m_bDistort;
+        bool bEmissive = pVKShader && pVKShader->m_bEmissive;
+        bool bSorted   = pVKShader && pVKShader->m_PipelineConfig.blendEnable;
+
+        // 1) Distortion pass (scope heat, barrel shimmer)
+        if (bDistort)
+            mapHUDDistort.insertInAnyWay(0.f, item);
+
+        // 2) Sorted transparent (scope glass, transparent parts) — back-to-front
+        if (bSorted)
+        {
+            // Emissive transparent also goes to emissive pass (collimator dots, LEDs)
+            if (bEmissive)
+            {
+                if (val_bCamAttached)
+                    mapCamAttachedEmissive.insertInAnyWay(0.f, item);
+                else
+                    mapHUDEmissive.insertInAnyWay(0.f, item);
+            }
+
+            if (val_bCamAttached)
+                mapCamAttachedSorted.insertInAnyWay(0.f, item);
+            else
+                mapHUDSorted.insertInAnyWay(0.f, item);
+            return;
+        }
+
+        // 3) Opaque HUD (weapon body, hands) — may also have emissive
+        if (bEmissive)
+        {
+            if (val_bCamAttached)
+                mapCamAttachedEmissive.insertInAnyWay(0.f, item);
+            else
+                mapHUDEmissive.insertInAnyWay(0.f, item);
+        }
+
+        if (val_bCamAttached)
+            mapCamAttached.insertInAnyWay(0.f, item);
+        else
+            mapHUD.insertInAnyWay(0.f, item);
         return;
     }
     }
@@ -1871,7 +2074,6 @@ void CRender::add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMar
 }
 
 // Include CSkeletonWallmark for intrusive_ptr wrapper
-// Prevent FBasicVisual.h from being re-included (same pattern as wrapper files)
 #define FBasicVisualH
 #define dxRender_Visual vkRender_Visual
 #include "../xrRender/SkeletonCustom.h"
@@ -2104,9 +2306,9 @@ void CRender::rmNear()
     u32 height = T->get_height();
 
     RCache.m_Viewport.x = 0;
-    RCache.m_Viewport.y = 0;
+    RCache.m_Viewport.y = (float)height;
     RCache.m_Viewport.width  = (float)width;
-    RCache.m_Viewport.height = (float)height;
+    RCache.m_Viewport.height = -(float)height;
     RCache.m_Viewport.minDepth = 0.f;
     RCache.m_Viewport.maxDepth = 0.02f;
 
@@ -2128,9 +2330,9 @@ void CRender::rmFar()
     u32 height = T->get_height();
 
     RCache.m_Viewport.x = 0;
-    RCache.m_Viewport.y = 0;
+    RCache.m_Viewport.y = (float)height;
     RCache.m_Viewport.width  = (float)width;
-    RCache.m_Viewport.height = (float)height;
+    RCache.m_Viewport.height = -(float)height;
     RCache.m_Viewport.minDepth = 0.99999f;
     RCache.m_Viewport.maxDepth = 1.f;
 
@@ -2152,9 +2354,9 @@ void CRender::rmNormal()
     u32 height = T->get_height();
 
     RCache.m_Viewport.x = 0;
-    RCache.m_Viewport.y = 0;
+    RCache.m_Viewport.y = (float)height;
     RCache.m_Viewport.width  = (float)width;
-    RCache.m_Viewport.height = (float)height;
+    RCache.m_Viewport.height = -(float)height;
     RCache.m_Viewport.minDepth = 0.f;
     RCache.m_Viewport.maxDepth = 1.f;
 
@@ -2257,7 +2459,15 @@ void CRender::ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* me
 // ============================================================================
 void CRender::RenderHUDParticles()
 {
-    // TODO: Render particles that have flRT_HUDmode flag set
-    // These are typically muzzle flashes, impact effects, etc.
-    // that should render in screen space on top of HUD objects
+    // HUD-mode particles (muzzle flashes, impact effects, etc.) are rendered
+    // through two mechanisms:
+    //
+    // 1. Primary path: Particles with HUD mode go through add_leafs_HUD_VK()
+    //    into mapHUD and are rendered in the gbuffer phase with HUD projection.
+    //
+    // 2. Self-handling: vkCParticleEffect::Render() checks GetHudMode() and
+    //    switches to HUD projection internally (matching DX11 behavior).
+    //
+    // This function is called as a safety net after mapHUD rendering.
+    // Currently no additional work needed — particles handle themselves.
 }

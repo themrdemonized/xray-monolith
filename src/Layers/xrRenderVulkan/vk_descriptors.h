@@ -65,6 +65,12 @@ public:
                       VkDeviceSize size, VkDeviceSize offset = 0);
 
     /**
+     * Update storage buffer (SSBO) binding
+     */
+    void UpdateStorageBuffer(VkDescriptorSet set, u32 binding, VkBuffer buffer,
+                             VkDeviceSize size, VkDeviceSize offset = 0);
+
+    /**
      * Update texture binding
      * @param set Descriptor set to update
      * @param binding Binding index

@@ -4,12 +4,15 @@
 
 #include "stdafx.h"
 #include "rvk.h"
-#include "../xrRender/FBasicVisual.h"
+#include "vk_Visual.h"
 #include "../xrRender/FVF.h"
+#define FBasicVisualH
+#define dxRender_Visual vkRender_Visual
 #include "../xrRender/SkeletonCustom.h"
+#undef dxRender_Visual
+#undef FBasicVisualH
 #include "vk_buffer.h"
 #include "vk_buffer_pool.h"
-#include "vk_Visual.h"
 #include "vk_ModelPool.h"
 #include "vk_sector.h"      // vkCSector, vkCPortal, vkPortalTraverser
 #include "vk_d3d_compat.h"  // D3D9 structures without d3d9.lib dependency

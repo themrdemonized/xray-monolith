@@ -156,6 +156,7 @@ public:
     VkPipeline GetShadowPipeline();                // Get or create depth-only pipeline
     VkPipeline GetShadowCubePipeline();            // Get or create cubemap shadow pipeline
     VkPipeline GetGBufferPipeline(u32 stride = 32); // Get or create G-Buffer pipeline (Phase 2.21.2)
+    VkPipeline GetGBufferPipelineSkinned(u32 stride); // Get or create skinned G-Buffer pipeline (GPU skinning)
 
     // Cubemap shadow rendering (Phase 2.16)
     void render_smap_cube_face(light* L, u32 face_index, const Fmatrix& face_matrix);  // Render one cubemap face
@@ -182,6 +183,7 @@ private:
     VkPipeline m_ShadowPipeline = VK_NULL_HANDLE;      // Depth-only pipeline for shadow maps
     VkPipeline m_ShadowCubePipeline = VK_NULL_HANDLE;  // Cubemap shadow pipeline
     xr_map<u32, VkPipeline> m_GBufferPipelines;         // G-Buffer pipelines per vertex stride
+    xr_map<u32, VkPipeline> m_GBufferPipelinesSkinned;  // Skinned G-Buffer pipelines per stride
 
     // Water pipelines
     VkPipeline m_WaterSSRPipeline = VK_NULL_HANDLE;   // Water SSR pre-pass
