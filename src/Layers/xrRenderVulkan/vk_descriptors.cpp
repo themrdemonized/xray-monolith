@@ -412,9 +412,9 @@ void CVulkanDescriptorManager::UpdateTextures(VkDescriptorSet set, u32 firstBind
 // Reset pool
 void CVulkanDescriptorManager::ResetPool()
 {
+    if (m_Pool == VK_NULL_HANDLE) return;
     VK_CHECK(vkResetDescriptorPool(VulkanHW.m_Device, m_Pool, 0));
     m_AllocatedSets = 0;
-    Msg("[Vulkan] Descriptor pool reset");
 }
 
 } // namespace VK

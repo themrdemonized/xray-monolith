@@ -471,6 +471,14 @@ void CRender::Calculate()
     // Skip if level not loaded
     if (!b_loaded) return;
 
+    // Clear per-frame maps at the start of Calculate() (before new items are added).
+    // This prevents mapHUD growing unbounded if Render() early-returns (menu, device lost).
+    mapHUD.clear();
+    mapCamAttached.clear();
+    mapHUDSorted.clear();
+    mapCamAttachedSorted.clear();
+    mapSorted.clear();
+
     // ========================================================================
     // Compute SSA thresholds from screen resolution (same as DX11 R4)
     // ========================================================================
@@ -1188,6 +1196,10 @@ void CRender::Render()
     // gets corrupted if we record barriers while previous present is still in flight.
     // Must be here (not in Begin_Inner) because corruption occurs after Begin.
     vkDeviceWaitIdle(VulkanHW.m_Device);
+
+    // Reset descriptor pool for this frame (GPU is idle, safe to recycle all sets)
+    if (g_DescriptorManager)
+        g_DescriptorManager->ResetPool();
 
     // ========================================================================
     // PASS 1: Shadow Map Pass (if level is loaded)

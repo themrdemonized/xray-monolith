@@ -65,7 +65,7 @@ uint decodeBoneIndex(float alpha_normalized)
     return uint(round(alpha_normalized * 255.0)) / 3u;
 }
 
-// Decode bone index from float field (stored as s16(bone_idx * 3) converted to float)
+// Decode bone index from float field (stored as float(bone_idx * 3))
 // Used for tc_i.z and tc_i.w in 2W/3W format
 uint decodeBoneIndexFromFloat(float value)
 {

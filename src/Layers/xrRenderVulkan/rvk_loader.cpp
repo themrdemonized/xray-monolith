@@ -233,6 +233,7 @@ void CRender::level_Unload()
     if (!b_loaded) return;
 
     Msg("[Vulkan] CRender::level_Unload()");
+    FlushLog();
 
     // ========================================================================
     // GPU Sync — wait for all in-flight commands to finish before destroying
@@ -242,10 +243,13 @@ void CRender::level_Unload()
     if (VulkanHW.m_Device != VK_NULL_HANDLE)
         vkDeviceWaitIdle(VulkanHW.m_Device);
 
+    Msg("[Vulkan] level_Unload: GPU idle OK"); FlushLog();
+
     // ========================================================================
     // 3D Fluid Manager (Phase 0)
     // ========================================================================
     g_FluidManager.Destroy();
+    Msg("[Vulkan] level_Unload: FluidManager destroyed"); FlushLog();
 
     // ========================================================================
     // Details (grass/debris)
@@ -253,20 +257,24 @@ void CRender::level_Unload()
     if (Details)
     {
         Details->Unload();
-        Msg("[Vulkan] Details unloaded");
+        Msg("[Vulkan] level_Unload: Details unloaded"); FlushLog();
     }
 
     // ========================================================================
     // Wallmarks
     // ========================================================================
+    Msg("[Vulkan] level_Unload: about to delete Wallmarks=%p", Wallmarks); FlushLog();
     if (Wallmarks) {
         xr_delete(Wallmarks);
         Wallmarks = nullptr;
     }
+    Msg("[Vulkan] level_Unload: Wallmarks deleted"); FlushLog();
 
     // ========================================================================
     // Sectors/Portals
     // ========================================================================
+    Msg("[Vulkan] level_Unload: deleting Sectors/Portals (sectors=%u portals=%u)",
+        (u32)Sectors.size(), (u32)Portals.size()); FlushLog();
     if (rmPortals) {
         xr_delete(rmPortals);
         rmPortals = nullptr;
@@ -285,19 +293,39 @@ void CRender::level_Unload()
         xr_delete(P);
     }
     Portals.clear();
+    Msg("[Vulkan] level_Unload: Sectors/Portals deleted"); FlushLog();
 
     // ========================================================================
     // Visuals
     // ========================================================================
+    Msg("[Vulkan] level_Unload: releasing %u Visuals...", (u32)Visuals.size()); FlushLog();
     for (u32 i = 0; i < Visuals.size(); i++)
     {
         if (Visuals[i]) {
             vkRender_Visual* V = static_cast<vkRender_Visual*>(Visuals[i]);
-            V->Release();
-            xr_delete(V);
+            if (i % 1000 == 0) {
+                Msg("[Vulkan] level_Unload: releasing Visual %u/%u ptr=%p type=%u",
+                    i, (u32)Visuals.size(), V, V->Type);
+                FlushLog();
+            }
+            __try {
+                V->Release();
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                Msg("! level_Unload: CRASH in Release() visual %u/%u ptr=%p type=%u exc=0x%08X",
+                    i, (u32)Visuals.size(), V, V->Type, GetExceptionCode());
+                FlushLog();
+            }
+            __try {
+                xr_delete(V);
+            } __except(EXCEPTION_EXECUTE_HANDLER) {
+                Msg("! level_Unload: CRASH in xr_delete() visual %u/%u exc=0x%08X",
+                    i, (u32)Visuals.size(), GetExceptionCode());
+                FlushLog();
+            }
         }
     }
     Visuals.clear();
+    Msg("[Vulkan] level_Unload: Visuals released"); FlushLog();
 
     // ========================================================================
     // Sliding Window Items
@@ -309,17 +337,19 @@ void CRender::level_Unload()
         }
     }
     SWIs.clear();
+    Msg("[Vulkan] level_Unload: SWIs cleared"); FlushLog();
 
     // ========================================================================
     // Shaders (Phase 2.32)
     // ========================================================================
-    // NOTE: Shaders themselves are managed by g_VulkanShaderManager
-    // We just clear the references here
     Shaders.clear();
+    Msg("[Vulkan] level_Unload: Shaders cleared"); FlushLog();
 
     // ========================================================================
     // Vertex/Index buffers
     // ========================================================================
+    Msg("[Vulkan] level_Unload: destroying VB/IB (nVB=%u xVB=%u nIB=%u xIB=%u)",
+        (u32)nVB.size(), (u32)xVB.size(), (u32)nIB.size(), (u32)xIB.size()); FlushLog();
     for (u32 i = 0; i < nVB.size(); i++) {
         if (nVB[i]) {
             nVB[i]->Destroy();
@@ -353,15 +383,17 @@ void CRender::level_Unload()
         }
     }
     xIB.clear();
+    Msg("[Vulkan] level_Unload: VB/IB destroyed"); FlushLog();
 
     // Clear model pool if requested
     if (Models) {
         Models->ClearPool(true);
     }
+    Msg("[Vulkan] level_Unload: Models pool cleared"); FlushLog();
 
     b_loaded = FALSE;
 
-    Msg("[Vulkan] level_Unload() complete");
+    Msg("[Vulkan] level_Unload() complete"); FlushLog();
 }
 
 // ============================================================================

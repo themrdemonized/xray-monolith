@@ -268,7 +268,7 @@ void CVulkanPipelineManager::GetDefaultVertexInputState(
         // Normal (D3DCOLOR) @ offset 12
         attributes[1].binding = 0;
         attributes[1].location = 1;
-        attributes[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[1].format = VK_FORMAT_B8G8R8A8_UNORM;  // D3DCOLOR is BGRA in memory
         attributes[1].offset = 12;
 
         // TexCoord (SHORT2 SSCALED) @ offset 24
@@ -283,7 +283,7 @@ void CVulkanPipelineManager::GetDefaultVertexInputState(
         // Normal (D3DCOLOR) @ offset 16 (after FLOAT4 position)
         attributes[1].binding = 0;
         attributes[1].location = 1;
-        attributes[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[1].format = VK_FORMAT_B8G8R8A8_UNORM;  // D3DCOLOR is BGRA in memory
         attributes[1].offset = 16;
 
         // TexCoord (FLOAT2) @ offset 28
@@ -327,7 +327,7 @@ void CVulkanPipelineManager::GetSkinnedVertexInputState(
     // Attribute 1: Normal + weight/index (D3DCOLOR) @ offset 16
     attributes[1].binding = 0;
     attributes[1].location = 1;
-    attributes[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attributes[1].format = VK_FORMAT_B8G8R8A8_UNORM;  // D3DCOLOR is BGRA in memory
     attributes[1].offset = 16;
 
     if (stride == 36)
@@ -342,13 +342,13 @@ void CVulkanPipelineManager::GetSkinnedVertexInputState(
         // Attr 3: Tangent (D3DCOLOR) @ offset 20
         attributes[3].binding = 0;
         attributes[3].location = 3;
-        attributes[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[3].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[3].offset = 20;
 
         // Attr 4: Binormal (D3DCOLOR) @ offset 24
         attributes[4].binding = 0;
         attributes[4].location = 4;
-        attributes[4].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[4].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[4].offset = 24;
 
         attrCount = 5;
@@ -365,13 +365,13 @@ void CVulkanPipelineManager::GetSkinnedVertexInputState(
         // Attr 3: Tangent (D3DCOLOR) @ offset 20
         attributes[3].binding = 0;
         attributes[3].location = 3;
-        attributes[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[3].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[3].offset = 20;
 
         // Attr 4: Binormal (D3DCOLOR) @ offset 24
         attributes[4].binding = 0;
         attributes[4].location = 4;
-        attributes[4].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[4].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[4].offset = 24;
 
         attrCount = 5;
@@ -388,19 +388,19 @@ void CVulkanPipelineManager::GetSkinnedVertexInputState(
         // Attr 3: Tangent (D3DCOLOR) @ offset 20
         attributes[3].binding = 0;
         attributes[3].location = 3;
-        attributes[3].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[3].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[3].offset = 20;
 
         // Attr 4: Binormal (D3DCOLOR) @ offset 24
         attributes[4].binding = 0;
         attributes[4].location = 4;
-        attributes[4].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[4].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[4].offset = 24;
 
         // Attr 5: Bone indices (D3DCOLOR) @ offset 36
         attributes[5].binding = 0;
         attributes[5].location = 5;
-        attributes[5].format = VK_FORMAT_R8G8B8A8_UNORM;
+        attributes[5].format = VK_FORMAT_B8G8R8A8_UNORM;
         attributes[5].offset = 36;
 
         attrCount = 6;

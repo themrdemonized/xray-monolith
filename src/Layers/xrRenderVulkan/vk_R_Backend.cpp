@@ -259,6 +259,9 @@ void CBackend::OnFrameBegin()
     // Reset per-frame statistics
     ZeroMemory(&stat, sizeof(stat));
 
+    // Reset bone sub-allocation offset
+    m_BoneWriteOffset = 0;
+
     // Reset transforms
     xforms.unmap();
 
@@ -292,9 +295,10 @@ void CBackend::OnDeviceCreate()
     Vertex.Create();
 
     // Create bone matrix buffer for skeletal animation (GPU skinning)
-    // Size = MAX_BONES * sizeof(Fmatrix) = 256 * 64 = 16KB
+    // Size = MAX_TOTAL_BONES * sizeof(Fmatrix) = 4096 * 64 = 256KB
+    // Supports multiple skeletons per frame via sub-allocation
     // Uses STORAGE_BUFFER_BIT because shader declares it as std430 buffer (SSBO)
-    VkDeviceSize boneBufferSize = MAX_BONES * sizeof(Fmatrix);
+    VkDeviceSize boneBufferSize = MAX_TOTAL_BONES * sizeof(Fmatrix);
     m_BoneBuffer.Create(
         boneBufferSize,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -304,8 +308,8 @@ void CBackend::OnDeviceCreate()
     if (m_BoneBuffer.IsValid() && m_BoneBuffer.IsMapped())
     {
         m_BoneMapped = (Fmatrix*)m_BoneBuffer.m_Mapped;
-        Msg("[Vulkan] Bone buffer created: %zu KB (%d bones max)",
-            boneBufferSize / 1024, MAX_BONES);
+        Msg("[Vulkan] Bone buffer created: %zu KB (%d bones per mesh, %d total slots)",
+            boneBufferSize / 1024, MAX_BONES, MAX_TOTAL_BONES);
     }
     else
     {

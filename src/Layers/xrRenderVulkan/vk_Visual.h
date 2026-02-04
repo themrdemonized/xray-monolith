@@ -73,11 +73,11 @@ struct vertHW_2W
         _T    = color_rgba(vk_q_N(T.x), vk_q_N(T.y), vk_q_N(T.z), 0);
         _B    = color_rgba(vk_q_N(B.x), vk_q_N(B.y), vk_q_N(B.z), 0);
         _tc_i[0] = tc.x; _tc_i[1] = tc.y;
-        // Store bone indices as s16 reinterpreted as float bits (matches DX11)
-        *(s16*)&_tc_i[2] = s16(index0);
-        *((s16*)&_tc_i[2] + 1) = 0;
-        *(s16*)&_tc_i[3] = s16(index1);
-        *((s16*)&_tc_i[3] + 1) = 0;
+        // Store bone indices as actual float values for Vulkan
+        // (DX11 used D3DDECLTYPE_SHORT2 which auto-converts s16->float,
+        //  but Vulkan R32G32B32A32_SFLOAT reads raw float bits)
+        _tc_i[2] = float(index0);
+        _tc_i[3] = float(index1);
     }
 };  // sizeof = 44
 static_assert(sizeof(vertHW_2W) == 44, "vertHW_2W must be 44 bytes");
@@ -102,10 +102,9 @@ struct vertHW_3W
         _T_w  = color_rgba(vk_q_N(T.x), vk_q_N(T.y), vk_q_N(T.z), u8(clampr(iFloor(w1 * 255.f + .5f), 0, 255)));
         _B_i  = color_rgba(vk_q_N(B.x), vk_q_N(B.y), vk_q_N(B.z), u8(index2));
         _tc_i[0] = tc.x; _tc_i[1] = tc.y;
-        *(s16*)&_tc_i[2] = s16(index0);
-        *((s16*)&_tc_i[2] + 1) = 0;
-        *(s16*)&_tc_i[3] = s16(index1);
-        *((s16*)&_tc_i[3] + 1) = 0;
+        // Store bone indices as actual float values for Vulkan
+        _tc_i[2] = float(index0);
+        _tc_i[3] = float(index1);
     }
 };  // sizeof = 44
 static_assert(sizeof(vertHW_3W) == 44, "vertHW_3W must be 44 bytes");
@@ -166,6 +165,9 @@ struct VK_Render_Mesh
 
     // Fast-path geometry (for shadow maps)
     VK_Render_Mesh*     m_fast = nullptr;
+
+    // Ownership flag: false when buffers are shared via Copy() (don't delete them)
+    bool                bOwnsBuffers = true;
 
     VK_Render_Mesh() = default;
     ~VK_Render_Mesh();

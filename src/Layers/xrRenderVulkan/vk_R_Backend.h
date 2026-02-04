@@ -183,9 +183,11 @@ public:
     _VertexStream_vk        Vertex;
 
     // === Bone matrices for skeletal animation (GPU skinning) ===
-    VK::CVulkanBuffer       m_BoneBuffer;           // Uniform buffer for bone matrices
+    VK::CVulkanBuffer       m_BoneBuffer;           // Storage buffer for bone matrices (SSBO)
     static const u32        MAX_BONES = 256;        // Maximum bones per mesh
+    static const u32        MAX_TOTAL_BONES = 16384; // Total bones in buffer (multiple skeletons, ~1MB)
     Fmatrix*                m_BoneMapped = nullptr; // Mapped pointer to bone data
+    u32                     m_BoneWriteOffset = 0;  // Current write offset in bones (sub-allocation)
 
     // === Transforms ===
     R_xforms_vk             xforms;
