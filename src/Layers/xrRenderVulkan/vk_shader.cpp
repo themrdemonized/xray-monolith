@@ -33,6 +33,7 @@ CVulkanShader::CVulkanShader()
     , m_bDistort(false)
     , m_bLandscape(false)
     , m_bWmark(false)
+    , m_bAlphaRef(false)
 {
     // Initialize default pipeline config
     m_PipelineConfig.depthTest = true;
@@ -75,9 +76,10 @@ void CVulkanShader::Create(LPCSTR name, LPCSTR tex_diffuse)
 
     // Check for alpha test (aref)
     if (shader_lower.find("aref") != xr_string::npos ||
-        shader_lower.find("alpha") != xr_string::npos) {
-        // Alpha test shaders need alpha blending in Vulkan
-        // (DX9 had alpha test, Vulkan uses alpha to coverage or discard in shader)
+        shader_lower.find("alpha") != xr_string::npos ||
+        shader_lower.find("trans") != xr_string::npos) {
+        // Alpha test shaders use discard in fragment shader (alphaRef > 0)
+        m_bAlphaRef = true;
         m_PipelineConfig.blendEnable = false;  // Will use shader discard for now
     }
 

@@ -107,7 +107,7 @@ void main()
     }
 
     // Alpha test (conditional via push constant)
-    // pc.u_AlphaRef > 0: enabled (e.g., 0.5 for trees/foliage cutout)
+    // pc.u_AlphaRef > 0: enabled (DX11 uses 200/255 ≈ 0.784 for def_aref)
     // pc.u_AlphaRef <= 0: disabled (solid geometry — cars, walls, etc.)
     if (pc.u_AlphaRef > 0.0)
     {

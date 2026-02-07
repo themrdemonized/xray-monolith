@@ -200,6 +200,9 @@ public:
     // Material (diffuse texture + descriptor set)
     VK::CMaterial*      m_pMaterial = nullptr;
 
+    // Alpha-test threshold: -1.0 = disabled (solid), 0.5 = enabled (foliage/aref)
+    float               m_fAlphaRef = -1.0f;
+
     // Debug name
     shared_str          dbg_name;
 

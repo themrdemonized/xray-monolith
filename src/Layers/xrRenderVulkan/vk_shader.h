@@ -67,6 +67,7 @@ public:
     bool m_bDistort;      // Distortion effect (heat shimmer)
     bool m_bLandscape;    // Landscape shader (multi-pass)
     bool m_bWmark;        // Wallmark shader (decals)
+    bool m_bAlphaRef;     // Alpha-reference shader (discard in fragment shader)
 
 public:
     CVulkanShader();

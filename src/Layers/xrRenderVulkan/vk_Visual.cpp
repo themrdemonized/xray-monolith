@@ -100,6 +100,7 @@ void vkRender_Visual::Copy(vkRender_Visual* from)
     skinning = from->skinning;
     dbg_name = from->dbg_name;
     m_pMaterial = from->m_pMaterial;
+    m_fAlphaRef = from->m_fAlphaRef;
 }
 
 void vkRender_Visual::Render(float LOD)
@@ -150,6 +151,19 @@ void vkRender_Visual::LoadTexture(IReader* data)
         {
             m_pMaterial = g_MaterialManager->CreateMaterial(texture_name);
         }
+
+        // Detect alpha-ref shader from OGF_TEXTURE shader name
+        if (shader_name[0])
+        {
+            xr_string sn_lower = shader_name;
+            std::transform(sn_lower.begin(), sn_lower.end(), sn_lower.begin(), ::tolower);
+            if (sn_lower.find("aref") != xr_string::npos ||
+                sn_lower.find("alpha") != xr_string::npos ||
+                sn_lower.find("trans") != xr_string::npos)
+            {
+                m_fAlphaRef = 200.0f / 255.0f;  // DX11 def_aref uses oAREF=200
+            }
+        }
     }
 
     // Fallback: if no OGF_TEXTURE chunk (level geometry), use shader_id from header
@@ -159,7 +173,11 @@ void vkRender_Visual::LoadTexture(IReader* data)
         {
             VK::CVulkanShader* pShader = RImplementation.Shaders[shader_id];
             if (pShader)
+            {
                 m_pMaterial = pShader->GetMaterial();
+                if (pShader->m_bAlphaRef)
+                    m_fAlphaRef = 200.0f / 255.0f;  // DX11 def_aref uses oAREF=200
+            }
         }
     }
 }
@@ -229,17 +247,25 @@ void vkFVisual::Render(float LOD)
     if (!m_mesh.IsValid())
         return;
 
-    // One-time diagnostic for bedspread (242 verts) - catches ALL render paths
-    if (m_mesh.vCount == 242) {
-        static bool s_fvDiag = false;
-        if (!s_fvDiag) {
-            s_fvDiag = true;
-            Msg("[FV-BED] vkFVisual::Render vCount=242 stride=%u vBase=%u iBase=%u iCount=%u prims=%u Type=%u",
-                m_mesh.vStride, m_mesh.vBase, m_mesh.iBase, m_mesh.iCount, m_mesh.dwPrimitives, Type);
+    // Per-visual diagnostic: log every unique stride-32 visual once
+    // Key = VB pointer XOR vBase to identify unique geometry
+    if (m_mesh.vStride == 32) {
+        static xr_set<u64> s_loggedVisuals;
+        static u32 s_logCount = 0;
+        u64 key = (u64)(uintptr_t)m_mesh.p_rm_Vertices ^ ((u64)m_mesh.vBase << 32);
+        if (s_logCount < 500 && s_loggedVisuals.find(key) == s_loggedVisuals.end()) {
+            s_loggedVisuals.insert(key);
+            s_logCount++;
             const Fmatrix& Wdbg = RCache.xforms.m_w;
-            Msg("[FV-BED]   W row0=(%.4f,%.4f,%.4f,%.4f)", Wdbg._11, Wdbg._12, Wdbg._13, Wdbg._14);
-            Msg("[FV-BED]   W row3=(%.4f,%.4f,%.4f,%.4f)", Wdbg._41, Wdbg._42, Wdbg._43, Wdbg._44);
-            Msg("[FV-BED]   currentGBufStride=%u", RCache.m_CurrentGBufStride);
+            const char* matName = (m_pMaterial && m_pMaterial->m_Name.size() > 0)
+                ? m_pMaterial->m_Name.c_str() : "<none>";
+            const char* vName = (dbg_name.size() > 0) ? dbg_name.c_str() : "<anon>";
+            Msg("[VIS-DIAG] #%u name='%s' tex='%s' stride=%u tcOff=%u vBase=%u vCount=%u iBase=%u iCount=%u pos=(%.1f,%.1f,%.1f)",
+                s_logCount, vName, matName,
+                m_mesh.vStride, m_mesh.tcOffset,
+                m_mesh.vBase, m_mesh.vCount,
+                m_mesh.iBase, m_mesh.iCount,
+                Wdbg._41, Wdbg._42, Wdbg._43);
         }
     }
 
@@ -253,6 +279,11 @@ void vkFVisual::Render(float LOD)
             if (layout != VK_NULL_HANDLE) {
                 const Fmatrix& W = RCache.xforms.m_w;
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+
+                // Per-visual alpha test: push m_fAlphaRef (offset 200)
+                // -1.0 = disabled (solid), 0.5 = enabled (foliage/aref shaders)
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                    200, sizeof(float), &m_fAlphaRef);
             }
         }
     }
@@ -276,7 +307,6 @@ void vkFVisual::Render(float LOD)
 
             // Tree positions are quantized by FTreeVisual_quant=2048, need prescale
             float uvScale = 1.0f / 2048.0f;
-            float alphaRef = 0.5f;  // Enable alpha test for tree foliage cutout
             VkCommandBuffer cmd = RCache.GetCommandBuffer();
             if (cmd != VK_NULL_HANDLE)
             {
@@ -284,9 +314,7 @@ void vkFVisual::Render(float LOD)
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                     192, sizeof(float), &uvScale);
-                vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_FRAGMENT_BIT,
-                    200, sizeof(float), &alphaRef);
+                // alphaRef is pushed per-visual above (m_fAlphaRef)
             }
 
             RCache.m_CurrentGBufStride = 12;
@@ -995,6 +1023,9 @@ void vkFTreeVisual::Load(const char* name, IReader* data, u32 flags)
 {
     vkFVisual::Load(name, data, flags);
     LoadTreeDef(data);
+
+    // Trees always need alpha test for foliage cutout
+    m_fAlphaRef = 200.0f / 255.0f;  // DX11 uses oAREF=200
 }
 
 void vkFTreeVisual::Release()
@@ -1044,34 +1075,9 @@ void vkFTreeVisual::Render(float LOD)
     Fmatrix prevW = RCache.xforms.m_w;
     RCache.xforms.m_w = xform;
 
-    // Enable alpha test for tree foliage (leaf textures have alpha=0 in transparent areas)
-    {
-        VkCommandBuffer cmd = RCache.GetCommandBuffer();
-        if (cmd != VK_NULL_HANDLE)
-        {
-            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
-            float alphaRef = 0.5f;
-            vkCmdPushConstants(cmd, layout,
-                VK_SHADER_STAGE_FRAGMENT_BIT,
-                200, sizeof(float), &alphaRef);
-        }
-    }
-
     // Render geometry (binds material, vertex/index buffers, draws)
+    // alphaRef is pushed per-visual by vkFVisual::Render() via m_fAlphaRef (set to 0.5 in Load)
     vkFVisual::Render(LOD);
-
-    // Restore alpha test to disabled for subsequent solid geometry
-    {
-        VkCommandBuffer cmd = RCache.GetCommandBuffer();
-        if (cmd != VK_NULL_HANDLE)
-        {
-            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
-            float alphaRef = -1.0f;
-            vkCmdPushConstants(cmd, layout,
-                VK_SHADER_STAGE_FRAGMENT_BIT,
-                200, sizeof(float), &alphaRef);
-        }
-    }
 
     // Restore previous world matrix for subsequent visuals
     RCache.xforms.m_w = prevW;
