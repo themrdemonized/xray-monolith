@@ -576,7 +576,8 @@ void CRender::Calculate()
     // HOM (Hierarchical Occlusion Map) - Render occluders
     // ========================================================================
     // HOM renders occluder geometry to a low-res Z-buffer for fast culling
-    if (HOM && pLastSector)
+    // TEMP DISABLED: investigating visibility culling bug (particles/grass disappear from certain angles)
+    if (false && HOM && pLastSector)
     {
         HOM->Enable();
         HOM->Render(ViewBase);
@@ -684,6 +685,41 @@ void CRender::Calculate()
             spatial->spatial_updatesector();
             vkCSector* sector = (vkCSector*)spatial->spatial.sector;
             if (0 == sector) { dbg_skipped_sector++; continue; }
+
+            // Check if this is a particle object (bypass sector/frustum checks for diagnostics)
+            bool isParticle = false;
+            if (spatial->spatial.type & STYPE_RENDERABLE)
+            {
+                IRenderable* rr = spatial->dcast_Renderable();
+                if (rr && rr->renderable.visual)
+                {
+                    u32 vtype = ((vkRender_Visual*)rr->renderable.visual)->Type;
+                    isParticle = (vtype == MT_PARTICLE_EFFECT || vtype == MT_PARTICLE_GROUP);
+                }
+            }
+
+            // DIAG: log particle culling details
+            if (isParticle)
+            {
+                static u32 s_pdiag = 0;
+                if (s_pdiag < 20) {
+                    s_pdiag++;
+                    bool markerOk = (vkPortalTraverser.i_marker == sector->r_marker);
+                    bool frustumOk = false;
+                    for (u32 v = 0; v < sector->r_frustums.size(); v++) {
+                        if (sector->r_frustums[v].testSphere_dirty(spatial->spatial.sphere.P, spatial->spatial.sphere.R))
+                        { frustumOk = true; break; }
+                    }
+                    Msg("[PARTICLE-CULL] sphere=(%.1f,%.1f,%.1f) R=%.1f sector=%p marker=%s(%u/%u) frustums=%u frustumOk=%s cam=(%.1f,%.1f,%.1f)",
+                        spatial->spatial.sphere.P.x, spatial->spatial.sphere.P.y, spatial->spatial.sphere.P.z,
+                        spatial->spatial.sphere.R,
+                        sector, markerOk ? "PASS" : "FAIL",
+                        sector->r_marker, vkPortalTraverser.i_marker,
+                        sector->r_frustums.size(),
+                        frustumOk ? "PASS" : "FAIL",
+                        Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z);
+                }
+            }
 
             // Skip objects in sectors not touched by portal traversal
             if (vkPortalTraverser.i_marker != sector->r_marker) { dbg_skipped_marker++; continue; }

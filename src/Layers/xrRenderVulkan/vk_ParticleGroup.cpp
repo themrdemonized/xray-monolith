@@ -178,11 +178,26 @@ void vkCParticleGroup::OnFrame(u32 dt)
 {
     if (!IsPlaying()) return;
 
+    Fbox box;
+    box.invalidate();
+
     for (auto& item : items) {
         if (item.pVisual) {
             item.pVisual->OnFrame(dt);
+
+            // Merge child vis box into group box
+            vis_data& childVis = item.pVisual->getVisData();
+            if (childVis.box.is_valid())
+                box.merge(childVis.box);
         }
         item.fAge += dt / 1000.f;
+    }
+
+    // Update group's vis from merged child boxes
+    if (box.is_valid())
+    {
+        vis.box.set(box);
+        vis.box.getsphere(vis.sphere.P, vis.sphere.R);
     }
 }
 
@@ -226,6 +241,12 @@ const shared_str vkCParticleGroup::Name()
 // ============================================================================
 void vkCParticleGroup::UpdateParent(const Fmatrix& m, const Fvector& velocity, BOOL bXFORM)
 {
+    static u32 s_upDiag = 0;
+    if (s_upDiag < 10) {
+        s_upDiag++;
+        Msg("[PG-UPDATEPARENT] pos=(%.1f,%.1f,%.1f) bXFORM=%d children=%u",
+            m.c.x, m.c.y, m.c.z, (int)bXFORM, (u32)items.size());
+    }
     for (auto& item : items)
     {
         if (item.pVisual)

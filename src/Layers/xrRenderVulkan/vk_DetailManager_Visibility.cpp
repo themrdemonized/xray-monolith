@@ -107,8 +107,8 @@ void CDetailManager::UpdateVisibleM()
                         continue;  // invisible-view frustum
                 }
 
-                // HOM test
-                if (!RImplementation.HOM->visible(S.vis))
+                // HOM test (temporarily disabled for grass visibility debugging)
+                if (false && !RImplementation.HOM->visible(S.vis))
                     continue;  // invisible-occlusion
 
                 // Add to visibility structures

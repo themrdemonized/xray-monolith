@@ -310,6 +310,12 @@ void vkCParticleEffect::OnFrame(u32 frame_dt)
 // ============================================================================
 void vkCParticleEffect::UpdateParent(const Fmatrix& m, const Fvector& velocity, BOOL bXFORM)
 {
+    static u32 s_upDiag = 0;
+    if (s_upDiag < 10) {
+        s_upDiag++;
+        Msg("[PE-UPDATEPARENT] pos=(%.1f,%.1f,%.1f) bXFORM=%d handle=%d actionList=%d",
+            m.c.x, m.c.y, m.c.z, (int)bXFORM, m_HandleEffect, m_HandleActionList);
+    }
     m_RT_Flags.set(flRT_XFORM, bXFORM);
     if (bXFORM) {
         m_XFORM.set(m);
