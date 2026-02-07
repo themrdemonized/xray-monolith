@@ -90,6 +90,41 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
         return;
     }
 
+    // One-shot diagnostic: log stride/type summary of lstNormal
+    {
+        static bool s_lstNormalSummary = false;
+        if (!s_lstNormalSummary) {
+            s_lstNormalSummary = true;
+            u32 typeCount[16] = {};
+            u32 strideCount32 = 0, strideCount36 = 0, strideOther = 0;
+            u32 sklInNormal = 0;
+            for (u32 i = 0; i < RI.lstNormal.size(); ++i) {
+                if (!RI.lstNormal[i].pVisual) continue;
+                vkRender_Visual* pDbg = reinterpret_cast<vkRender_Visual*>(RI.lstNormal[i].pVisual);
+                if (pDbg->Type < 16) typeCount[pDbg->Type]++;
+                // Check skeleton children in lstNormal (shouldn't happen for dynamic objects)
+                if (pDbg->Type == 5) { // MT_SKELETON_GEOMDEF_ST
+                    sklInNormal++;
+                    if (sklInNormal <= 5) {
+                        vkFVisual* fvDbg = reinterpret_cast<vkFVisual*>(pDbg);
+                        Msg("[LST-NORMAL-SKL] Skeleton child in lstNormal! idx=%u stride=%u vCount=%u name='%s'",
+                            i, fvDbg->m_mesh.vStride, fvDbg->m_mesh.vCount,
+                            pDbg->dbg_name.size() > 0 ? pDbg->dbg_name.c_str() : "<empty>");
+                    }
+                }
+                vkFVisual* fvS = reinterpret_cast<vkFVisual*>(pDbg);
+                if (pDbg->Type == 0 || pDbg->Type == 5 || pDbg->Type == 7) {
+                    if (fvS->m_mesh.vStride == 32) strideCount32++;
+                    else if (fvS->m_mesh.vStride == 36) strideCount36++;
+                    else strideOther++;
+                }
+            }
+            Msg("[LST-NORMAL-SUMMARY] total=%u MT_NORMAL=%u MT_SKEL_ST=%u MT_TREE=%u s32=%u s36=%u sOther=%u",
+                (u32)RI.lstNormal.size(), typeCount[0], typeCount[5], typeCount[7],
+                strideCount32, strideCount36, strideOther);
+        }
+    }
+
     // Render all items
     u32 renderCount = 0;
     for (u32 idx = 0; idx < RI.lstNormal.size(); ++idx)
@@ -192,6 +227,37 @@ void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
 
     u32 renderCount = 0;
 
+    // One-shot diagnostic: log ALL lstMatrix items on first call
+    {
+        static bool s_lstMatrixDump = false;
+        if (!s_lstMatrixDump && count > 0) {
+            s_lstMatrixDump = true;
+            Msg("[LST-MATRIX-DUMP] count=%u frame=%u", count, Device.dwFrame);
+            u32 typeHist[16] = {};
+            for (u32 d = 0; d < count && d < 50; ++d) {
+                if (!RI.lstMatrix[d].pVisual) continue;
+                vkRender_Visual* pDbg = reinterpret_cast<vkRender_Visual*>(RI.lstMatrix[d].pVisual);
+                if (pDbg->Type < 16) typeHist[pDbg->Type]++;
+                const char* nm = (pDbg->dbg_name.size() > 0) ? pDbg->dbg_name.c_str() : "<empty>";
+                vkFVisual* fvDbg = (pDbg->Type == 0 || pDbg->Type == 5) ?
+                    reinterpret_cast<vkFVisual*>(pDbg) : nullptr;
+                if (fvDbg) {
+                    Msg("[LST-MATRIX] [%u] Type=%u name='%s' stride=%u vCount=%u pos=(%.1f,%.1f,%.1f)",
+                        d, pDbg->Type, nm, fvDbg->m_mesh.vStride, fvDbg->m_mesh.vCount,
+                        RI.lstMatrix[d].Matrix._41, RI.lstMatrix[d].Matrix._42, RI.lstMatrix[d].Matrix._43);
+                } else {
+                    Msg("[LST-MATRIX] [%u] Type=%u name='%s' pos=(%.1f,%.1f,%.1f)",
+                        d, pDbg->Type, nm,
+                        RI.lstMatrix[d].Matrix._41, RI.lstMatrix[d].Matrix._42, RI.lstMatrix[d].Matrix._43);
+                }
+            }
+            if (count > 50)
+                Msg("[LST-MATRIX] ... and %u more items", count - 50);
+            Msg("[LST-MATRIX-TYPES] MT_NORMAL=%u MT_SKEL_ST=%u MT_SKEL_ANIM=%u MT_SKEL_RIGID=%u MT_HIER=%u",
+                typeHist[0], typeHist[5], typeHist[3], typeHist[10], typeHist[1]);
+        }
+    }
+
     // lstMatrix now contains LEAF visuals (decomposed by add_Visual -> add_leafs_to_lstMatrix).
     // Bones were already calculated at add-time in add_Visual().
     for (u32 idx = 0; idx < count; ++idx)
@@ -200,6 +266,21 @@ void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
         if (!item.pVisual) continue;
 
         vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+
+        // One-shot diagnostic: find bedspread in dynamic render list
+        {
+            static bool s_bedDynDiag = false;
+            if (!s_bedDynDiag && pV->dbg_name.size() > 0 &&
+                (strstr(pV->dbg_name.c_str(), "bedspread") || strstr(pV->dbg_name.c_str(), "matras")))
+            {
+                s_bedDynDiag = true;
+                Msg("[DYN-BED] Found '%s' in lstMatrix[%u/%u]: Type=%u ptr=%p",
+                    pV->dbg_name.c_str(), idx, count, pV->Type, pV);
+                Msg("[DYN-BED]   Matrix pos=(%.2f,%.2f,%.2f) row0=(%.4f,%.4f,%.4f,%.4f)",
+                    item.Matrix._41, item.Matrix._42, item.Matrix._43,
+                    item.Matrix._11, item.Matrix._12, item.Matrix._13, item.Matrix._14);
+            }
+        }
 
         __try {
             // Set per-object world matrix

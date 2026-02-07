@@ -139,6 +139,33 @@ inline u32 VK_GetDeclVertexSize(const D3DVERTEXELEMENT9* dcl, UINT stream = 0)
 }
 
 // ============================================================================
+// FVF (Flexible Vertex Format) Helpers
+// ============================================================================
+
+// Compute vertex stride from D3D FVF flags (mirrors D3DXGetFVFVertexSize)
+inline u32 VK_GetFVFVertexSize(u32 fvf)
+{
+    u32 size = 0;
+    switch (fvf & D3DFVF_POSITION_MASK) {
+    case D3DFVF_XYZ:    size += 12; break;
+    case D3DFVF_XYZRHW: size += 16; break;
+    case D3DFVF_XYZB1:  size += 16; break;
+    case D3DFVF_XYZB2:  size += 20; break;
+    case D3DFVF_XYZB3:  size += 24; break;
+    case D3DFVF_XYZB4:  size += 28; break;
+    case D3DFVF_XYZB5:  size += 32; break;
+    case D3DFVF_XYZW:   size += 16; break;
+    }
+    if (fvf & D3DFVF_NORMAL)   size += 12;
+    if (fvf & D3DFVF_PSIZE)    size += 4;
+    if (fvf & D3DFVF_DIFFUSE)  size += 4;
+    if (fvf & D3DFVF_SPECULAR) size += 4;
+    u32 texCount = (fvf & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
+    size += texCount * 8;  // each tex coord set = FLOAT2
+    return size;
+}
+
+// ============================================================================
 // Vulkan Format Conversion
 // ============================================================================
 

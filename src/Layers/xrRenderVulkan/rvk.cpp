@@ -1704,6 +1704,17 @@ void CRender::add_leafs_to_lstMatrix(vkRender_Visual* pVisual, const Fmatrix& wo
 
     default:
     {
+        // One-shot diagnostic: log skeleton children being added to lstMatrix
+        {
+            static u32 s_leafAddCount = 0;
+            if (s_leafAddCount < 20) {
+                s_leafAddCount++;
+                const char* nm = (pVisual->dbg_name.size() > 0) ? pVisual->dbg_name.c_str() : "<empty>";
+                Msg("[MATRIX-ADD] leaf Type=%u name='%s' depth=%u pos=(%.1f,%.1f,%.1f) ptr=%p",
+                    pVisual->Type, nm, depth,
+                    worldMatrix._41, worldMatrix._42, worldMatrix._43, pVisual);
+            }
+        }
         R_dsgraph::_MatrixItem item;
         item.ssa = 1.0f;
         item.pObject = val_pObject;
@@ -1819,6 +1830,16 @@ void CRender::add_leafs_Dynamic_VK(vkRender_Visual* pVisual)
 
     default:
     {
+        // Diagnostic: detect skeleton children entering lstNormal (no world matrix!)
+        if (pVisual->Type == 5) { // MT_SKELETON_GEOMDEF_ST
+            static u32 s_sklNormalWarn = 0;
+            if (s_sklNormalWarn < 10) {
+                s_sklNormalWarn++;
+                const char* nm = (pVisual->dbg_name.size() > 0) ? pVisual->dbg_name.c_str() : "<empty>";
+                Msg("[SKL-IN-NORMAL!] Skeleton child added to lstNormal (no matrix)! Type=%u name='%s' ptr=%p",
+                    pVisual->Type, nm, pVisual);
+            }
+        }
         // Leaf visual (geometry, particle effect, etc.) - add to render queue
         R_dsgraph::_NormalItem item;
         item.ssa = 1.0f;  // Dynamic objects: max priority

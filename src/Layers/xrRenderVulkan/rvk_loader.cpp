@@ -443,8 +443,8 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             Msg("  VB[%d]: %d verts, stride=%d, size=%d KB",
                 i, vCount, vSize, (vCount * vSize) / 1024);
 
-            // Log vertex declaration for non-standard strides
-            if (vSize != 32) {
+            // Log vertex declaration for first VB and non-standard strides
+            if (vSize != 32 || i == 0) {
                 for (u32 e = 0; e < dcl_len - 1; e++) {
                     Msg("    dcl[%d]: stream=%d offset=%d type=%d usage=%d usageIdx=%d",
                         e, dcl[e].Stream, dcl[e].Offset, dcl[e].Type, dcl[e].Usage, dcl[e].UsageIndex);

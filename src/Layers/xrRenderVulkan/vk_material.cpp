@@ -47,6 +47,8 @@ CMaterial::CMaterial()
     , m_fDetailScale(1.0f)
     , m_bTerrain(false)
     , m_DescriptorSet(VK_NULL_HANDLE)
+    , m_CachedFrame(0xFFFFFFFF)
+    , m_CachedFrameSet(VK_NULL_HANDLE)
 {
 }
 
@@ -490,21 +492,47 @@ void CMaterial::DestroyDescriptorSet()
 
 void CMaterial::Bind(VkCommandBuffer cmd)
 {
-    // Descriptor pool is reset every frame, so we must re-allocate and
-    // re-update the descriptor set each time Bind() is called.
     if (!g_DescriptorManager || !m_TexDiffuse) return;
 
-    VkDescriptorSet frameSet = g_DescriptorManager->AllocatePerMaterial();
-    if (frameSet == VK_NULL_HANDLE) return;
+    VkPipelineLayout layout = g_PipelineManager->GetLayout();
 
-    // Temporarily swap in the fresh set, update it, then bind
+    // Per-frame caching: if this material already allocated a descriptor set
+    // this frame, re-use it instead of allocating a new one.
+    // This is critical because the pool supports ~2000 material sets per frame,
+    // but there can be 7000+ draw calls sharing ~1300 unique materials.
+    if (m_CachedFrame == Device.dwFrame && m_CachedFrameSet != VK_NULL_HANDLE)
+    {
+        vkCmdBindDescriptorSets(cmd,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            layout,
+            1,  // Set 1 (PerMaterial)
+            1,  // bind 1 set
+            &m_CachedFrameSet,
+            0, nullptr);
+        return;
+    }
+
+    // Allocate fresh descriptor set for this frame
+    VkDescriptorSet frameSet = g_DescriptorManager->AllocatePerMaterial();
+    if (frameSet == VK_NULL_HANDLE) {
+        static u32 s_allocFailCount = 0;
+        if (s_allocFailCount < 10)
+            Msg("![Vulkan] PerMaterial descriptor pool exhausted (frame %u, fail #%u)",
+                Device.dwFrame, ++s_allocFailCount);
+        return;
+    }
+
+    // Temporarily swap in the fresh set, update it, then restore
     VkDescriptorSet savedSet = m_DescriptorSet;
     m_DescriptorSet = frameSet;
     UpdateDescriptorSet();
     m_DescriptorSet = savedSet;
 
-    // Bind the freshly updated set to Set 1 (PerMaterial)
-    VkPipelineLayout layout = g_PipelineManager->GetLayout();
+    // Cache for this frame
+    m_CachedFrame = Device.dwFrame;
+    m_CachedFrameSet = frameSet;
+
+    // Bind to Set 1 (PerMaterial)
     vkCmdBindDescriptorSets(cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
         layout,

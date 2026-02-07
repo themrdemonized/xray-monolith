@@ -86,6 +86,10 @@ public:
     // Descriptor set (Set 1 - PerMaterial)
     VkDescriptorSet m_DescriptorSet;
 
+    // Per-frame descriptor set caching (avoids re-allocation for shared materials)
+    u32             m_CachedFrame;      // Frame when m_CachedFrameSet was allocated
+    VkDescriptorSet m_CachedFrameSet;   // Cached descriptor set for current frame
+
 public:
     CMaterial();
     ~CMaterial();

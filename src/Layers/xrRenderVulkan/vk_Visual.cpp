@@ -11,6 +11,7 @@
 #include "vk_pipeline.h"    // For g_PipelineManager (pipeline switching)
 #include "vk_rendertarget.h" // For RTarget->GetGBufferPipeline()
 #include "vk_descriptors.h"  // For g_DescriptorManager (bone SSBO descriptor)
+#include "vk_d3d_compat.h"   // For VK_GetFVFVertexSize (FVF parsing)
 #include "rvk.h"
 // IMPORTANT: Must use same dxRender_Visual→vkRender_Visual mapping as skeleton files
 // to ensure CKinematics memory layout matches the objects created by vkCreateKinematics()
@@ -226,6 +227,34 @@ void vkFVisual::Render(float LOD)
     if (!m_mesh.IsValid())
         return;
 
+    // One-time diagnostic for bedspread (242 verts) - catches ALL render paths
+    if (m_mesh.vCount == 242) {
+        static bool s_fvDiag = false;
+        if (!s_fvDiag) {
+            s_fvDiag = true;
+            Msg("[FV-BED] vkFVisual::Render vCount=242 stride=%u vBase=%u iBase=%u iCount=%u prims=%u Type=%u",
+                m_mesh.vStride, m_mesh.vBase, m_mesh.iBase, m_mesh.iCount, m_mesh.dwPrimitives, Type);
+            const Fmatrix& Wdbg = RCache.xforms.m_w;
+            Msg("[FV-BED]   W row0=(%.4f,%.4f,%.4f,%.4f)", Wdbg._11, Wdbg._12, Wdbg._13, Wdbg._14);
+            Msg("[FV-BED]   W row3=(%.4f,%.4f,%.4f,%.4f)", Wdbg._41, Wdbg._42, Wdbg._43, Wdbg._44);
+            Msg("[FV-BED]   currentGBufStride=%u", RCache.m_CurrentGBufStride);
+        }
+    }
+
+    // Push current world matrix to GPU (push constant offset 0)
+    // The world matrix is set by the caller via RCache.set_xform_world()
+    // but that only caches it — we must push to GPU here.
+    {
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        if (cmd != VK_NULL_HANDLE) {
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            if (layout != VK_NULL_HANDLE) {
+                const Fmatrix& W = RCache.xforms.m_w;
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+            }
+        }
+    }
+
     u32 stride = m_mesh.vStride;
 
     // Handle stride=12 (trees: FLOAT3 position only, no normals/UVs)
@@ -339,6 +368,87 @@ void vkFVisual::Render(float LOD)
     RCache.stat.verts += m_mesh.vCount;
 }
 
+// ============================================================================
+// ConvertFVFToLevelFormat - Convert FVF vertex data to stride-32 level format
+// ============================================================================
+// Level-static stride-32 layout (matches pipeline expectation):
+//   FLOAT3  position   @ offset 0   (12 bytes)
+//   D3DCOLOR normal    @ offset 12  (4 bytes)
+//   D3DCOLOR tangent   @ offset 16  (4 bytes)  -- neutral 0x80808080
+//   D3DCOLOR binormal  @ offset 20  (4 bytes)  -- neutral 0x80808080
+//   SHORT2  tc0        @ offset 24  (4 bytes)  -- UV * 1024
+//   SHORT2  tc1        @ offset 28  (4 bytes)  -- lightmap, zero
+// Total: 32 bytes
+//
+static void ConvertFVFToLevelFormat(const u8* src, u8* dst, u32 vertCount, u32 fvf, u32 fvfStride)
+{
+    // Compute byte offsets of FVF components
+    u32 posOffset = 0;
+    u32 posSize = 0;
+    switch (fvf & D3DFVF_POSITION_MASK) {
+    case D3DFVF_XYZ:    posSize = 12; break;
+    case D3DFVF_XYZRHW: posSize = 16; break;
+    case D3DFVF_XYZB1:  posSize = 16; break;
+    case D3DFVF_XYZB2:  posSize = 20; break;
+    case D3DFVF_XYZB3:  posSize = 24; break;
+    case D3DFVF_XYZB4:  posSize = 28; break;
+    case D3DFVF_XYZB5:  posSize = 32; break;
+    case D3DFVF_XYZW:   posSize = 16; break;
+    default:            posSize = 12; break;
+    }
+
+    u32 off = posSize;
+    u32 normalOffset = 0;
+    bool hasNormal = false;
+    if (fvf & D3DFVF_NORMAL)  { normalOffset = off; hasNormal = true; off += 12; }
+    if (fvf & D3DFVF_PSIZE)   { off += 4; }
+    if (fvf & D3DFVF_DIFFUSE) { off += 4; }
+    if (fvf & D3DFVF_SPECULAR){ off += 4; }
+    u32 texCount = (fvf & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
+    u32 tc0Offset = off;
+    bool hasTC = (texCount > 0);
+
+    const u32 LEVEL_STRIDE = 32;
+
+    for (u32 i = 0; i < vertCount; i++)
+    {
+        const u8* sv = src + i * fvfStride;
+        u8* dv = dst + i * LEVEL_STRIDE;
+
+        // Position: copy FLOAT3 (always first 12 bytes)
+        CopyMemory(dv, sv + posOffset, 12);
+
+        // Normal: pack FLOAT3 -> D3DCOLOR
+        if (hasNormal) {
+            const float* N = (const float*)(sv + normalOffset);
+            u32 packed = color_rgba(vk_q_N(N[0]), vk_q_N(N[1]), vk_q_N(N[2]), 0);
+            CopyMemory(dv + 12, &packed, 4);
+        } else {
+            u32 upNormal = color_rgba(vk_q_N(0.f), vk_q_N(1.f), vk_q_N(0.f), 0);
+            CopyMemory(dv + 12, &upNormal, 4);
+        }
+
+        // Tangent + Binormal: neutral values
+        u32 neutral = 0x80808080u;
+        CopyMemory(dv + 16, &neutral, 4);
+        CopyMemory(dv + 20, &neutral, 4);
+
+        // TC0: convert FLOAT2 -> SHORT2 (multiply by 1024)
+        if (hasTC) {
+            const float* uv = (const float*)(sv + tc0Offset);
+            s16 su = (s16)clampr(iFloor(uv[0] * 1024.f + 0.5f), -32768, 32767);
+            s16 sv16 = (s16)clampr(iFloor(uv[1] * 1024.f + 0.5f), -32768, 32767);
+            CopyMemory(dv + 24, &su, 2);
+            CopyMemory(dv + 26, &sv16, 2);
+        } else {
+            ZeroMemory(dv + 24, 4);
+        }
+
+        // TC1 (lightmap): zero
+        ZeroMemory(dv + 28, 4);
+    }
+}
+
 void vkFVisual::LoadGeometry(IReader* data, u32 flags)
 {
     BOOL bNoVertices = (flags & VLOAD_NOVERTICES) != 0;
@@ -405,27 +515,35 @@ void vkFVisual::LoadGeometry(IReader* data, u32 flags)
         u32 vert_format = data->r_u32();
         u32 vert_count = data->r_u32();
 
-        // Calculate stride based on format
-        // TODO: Parse vertex format properly
-        m_mesh.vStride = 32; // Default assumption: position + normal + UV
+        // Compute FVF stride from format flags
+        u32 fvf_stride = VK_GetFVFVertexSize(vert_format);
+        if (fvf_stride == 0) fvf_stride = 32;
+
+        Msg("[FVF] LoadGeometry '%s': FVF=0x%X stride=%u verts=%u",
+            dbg_name.c_str(), vert_format, fvf_stride, vert_count);
+
+        // Read raw FVF vertex data
+        xr_vector<u8> raw_data(vert_count * fvf_stride);
+        data->r(raw_data.data(), raw_data.size());
+
+        // Convert FVF data to level-static stride-32 format
+        u32 level_stride = 32;
+        xr_vector<u8> converted(vert_count * level_stride);
+        ConvertFVFToLevelFormat(raw_data.data(), converted.data(), vert_count, vert_format, fvf_stride);
+
+        m_mesh.vStride = level_stride;
         m_mesh.vCount = vert_count;
         m_mesh.vBase = 0;
 
-        // Read vertex data
-        u32 data_size = vert_count * m_mesh.vStride;
-
-        // Create vertex buffer
+        // Create and upload converted vertex buffer
+        u32 data_size = vert_count * level_stride;
         m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
         m_mesh.p_rm_Vertices->Create(
             data_size,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
         );
-
-        // Read and upload vertex data
-        xr_vector<u8> vdata(data_size);
-        data->r(vdata.data(), data_size);
-        m_mesh.p_rm_Vertices->Upload(vdata.data(), data_size);
+        m_mesh.p_rm_Vertices->Upload(converted.data(), data_size);
     }
 
     if (data->find_chunk(OGF_INDICES))
@@ -709,11 +827,57 @@ void vkFProgressive::Render(float LOD)
         return;
     }
 
-    // Calculate LOD index
+    u32 stride = m_mesh.vStride;
+
+    // Validate stride
+    if (stride != 32 && stride != 36 && stride != 40 && stride != 44)
+        return;
+
+    if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
+        return;
+
+    // Push world matrix (same as vkFVisual::Render)
+    {
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        if (cmd != VK_NULL_HANDLE) {
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            if (layout != VK_NULL_HANDLE) {
+                const Fmatrix& W = RCache.xforms.m_w;
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+            }
+        }
+    }
+
+    // Switch pipeline if stride changed (same as vkFVisual::Render)
+    if (stride != RCache.m_CurrentGBufStride)
+    {
+        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride);
+        if (pipeline != VK_NULL_HANDLE)
+        {
+            RCache.set_Pipeline(pipeline);
+
+            float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
+            VkCommandBuffer cmd = RCache.GetCommandBuffer();
+            if (cmd != VK_NULL_HANDLE)
+            {
+                VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+            }
+
+            RCache.m_CurrentGBufStride = stride;
+        }
+        else
+        {
+            return;
+        }
+    }
+
+    // Calculate LOD index (invert: LOD=1 means full detail = index 0)
     u32 lod_idx = 0;
     if (LOD >= 0.f && LOD <= 1.f)
     {
-        lod_idx = iFloor(LOD * (sw_count - 1) + 0.5f);
+        lod_idx = iFloor((1.f - LOD) * (sw_count - 1) + 0.5f);
         clamp(lod_idx, 0u, sw_count - 1);
     }
 
@@ -730,17 +894,15 @@ void vkFProgressive::Render(float LOD)
     }
 
     // Bind buffers
-    if (m_mesh.p_rm_Vertices)
-        RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
-    if (m_mesh.p_rm_Indices)
-        RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
+    RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
+    RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
 
     // Draw with LOD-specific index range
     u32 start_idx = sw_offsets[lod_idx];
     u32 idx_count = sw_counts[lod_idx];
     u32 prim_count = idx_count / 3;
 
-    RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, start_idx, prim_count);
+    RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, m_mesh.iBase + start_idx, prim_count);
     RCache.stat.polys += prim_count;
     RCache.stat.verts += m_mesh.vCount;
 
@@ -766,9 +928,9 @@ void vkFProgressive::LoadSlidingWindow(IReader* data)
 
             for (u32 i = 0; i < sw_count; ++i)
             {
-                sw_offsets[i] = data->r_u32();  // offset
-                data->r_u16();                   // num_tris (unused, we calc from count)
-                sw_counts[i] = data->r_u16() * 3; // num_verts -> index count
+                sw_offsets[i] = data->r_u32();           // offset in index buffer
+                sw_counts[i] = (u32)data->r_u16() * 3;  // num_tris * 3 = index count
+                data->r_u16();                            // num_verts (skip)
             }
         }
     }
@@ -778,7 +940,7 @@ void vkFProgressive::LoadSlidingWindow(IReader* data)
         sw_count = 1;
         sw_offsets = xr_alloc<u32>(1);
         sw_counts = xr_alloc<u32>(1);
-        sw_offsets[0] = m_mesh.iBase;
+        sw_offsets[0] = 0;
         sw_counts[0] = m_mesh.iCount;
     }
 }
@@ -848,29 +1010,17 @@ void vkFTreeVisual::Render(float LOD)
         s_treeLogCounter++;
     }
 
-    // Push tree's xform as model matrix (offset 0, 64 bytes)
-    // With stride=32 VBs from level.geom, positions are already in local float coords.
-    // The xform from OGF_TREEDEF2 transforms local -> world. No prescale needed.
-    VkCommandBuffer cmd = RCache.GetCommandBuffer();
-    if (cmd != VK_NULL_HANDLE)
-    {
-        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
-        vkCmdPushConstants(cmd, layout,
-            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &xform);
-    }
+    // Set tree's xform as the world matrix so vkFVisual::Render() pushes it.
+    // With stride=32 VBs from level.geom, positions are in local coords.
+    // The xform from OGF_TREEDEF2 transforms local -> world.
+    Fmatrix prevW = RCache.xforms.m_w;
+    RCache.xforms.m_w = xform;
 
     // Render geometry (binds material, vertex/index buffers, draws)
     vkFVisual::Render(LOD);
 
-    // Restore identity model matrix for subsequent non-tree visuals
-    Fmatrix identity;
-    identity.identity();
-    if (cmd != VK_NULL_HANDLE)
-    {
-        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
-        vkCmdPushConstants(cmd, layout,
-            VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &identity);
-    }
+    // Restore previous world matrix for subsequent visuals
+    RCache.xforms.m_w = prevW;
 }
 
 void vkFTreeVisual::LoadTreeDef(IReader* data)
@@ -965,9 +1115,9 @@ void vkFTreeVisual_PM::Load(const char* name, IReader* data, u32 flags)
             sw_counts = xr_alloc<u32>(sw_count);
             for (u32 i = 0; i < sw_count; ++i)
             {
-                sw_offsets[i] = data->r_u32();
-                data->r_u16();
-                sw_counts[i] = data->r_u16() * 3;
+                sw_offsets[i] = data->r_u32();           // offset in index buffer
+                sw_counts[i] = (u32)data->r_u16() * 3;  // num_tris * 3 = index count
+                data->r_u16();                            // num_verts (skip)
             }
         }
     }
@@ -1008,38 +1158,80 @@ void vkFTreeVisual_PM::Render(float LOD)
         return;
     }
 
-    // LOD selection
+    if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
+        return;
+
+    u32 stride = m_mesh.vStride;
+
+    // Set tree's xform as world matrix so push constants get correct transform
+    Fmatrix prevW = RCache.xforms.m_w;
+    RCache.xforms.m_w = xform;
+
+    // Push world matrix to GPU
+    VkCommandBuffer cmd = RCache.GetCommandBuffer();
+    if (cmd != VK_NULL_HANDLE)
+    {
+        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+        if (layout != VK_NULL_HANDLE)
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &xform);
+    }
+
+    // Switch pipeline if stride changed
+    if (stride != RCache.m_CurrentGBufStride)
+    {
+        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride);
+        if (pipeline != VK_NULL_HANDLE)
+        {
+            RCache.set_Pipeline(pipeline);
+
+            float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
+            if (cmd != VK_NULL_HANDLE)
+            {
+                VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+            }
+
+            RCache.m_CurrentGBufStride = stride;
+        }
+        else
+        {
+            RCache.xforms.m_w = prevW;
+            return;
+        }
+    }
+
+    // LOD selection (invert: LOD=1 means full detail = index 0)
     u32 lod_idx = 0;
     if (LOD >= 0.f && LOD <= 1.f)
     {
-        lod_idx = iFloor(LOD * (sw_count - 1) + 0.5f);
+        lod_idx = iFloor((1.f - LOD) * (sw_count - 1) + 0.5f);
         clamp(lod_idx, 0u, sw_count - 1);
     }
 
     // Bind material descriptor set (Set 1)
+    if (cmd != VK_NULL_HANDLE)
     {
-        VkCommandBuffer cmd = RCache.GetCommandBuffer();
-        if (cmd != VK_NULL_HANDLE)
-        {
-            if (m_pMaterial && m_pMaterial->IsValid())
-                m_pMaterial->Bind(cmd);
-            else if (g_MaterialManager && g_MaterialManager->GetDefaultMaterial())
-                g_MaterialManager->GetDefaultMaterial()->Bind(cmd);
-        }
+        if (m_pMaterial && m_pMaterial->IsValid())
+            m_pMaterial->Bind(cmd);
+        else if (g_MaterialManager && g_MaterialManager->GetDefaultMaterial())
+            g_MaterialManager->GetDefaultMaterial()->Bind(cmd);
     }
 
-    if (m_mesh.p_rm_Vertices)
-        RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
-    if (m_mesh.p_rm_Indices)
-        RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
+    // Bind buffers and draw
+    RCache.set_Vertices(m_mesh.p_rm_Vertices->GetHandle(), m_mesh.vStride);
+    RCache.set_Indices(m_mesh.p_rm_Indices->GetHandle(), m_mesh.iType);
 
     u32 start_idx = sw_offsets[lod_idx];
     u32 idx_count = sw_counts[lod_idx];
     u32 prim_count = idx_count / 3;
 
-    RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, start_idx, prim_count);
+    RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, m_mesh.iBase + start_idx, prim_count);
     RCache.stat.polys += prim_count;
     RCache.stat.verts += m_mesh.vCount;
+
+    // Restore previous world matrix
+    RCache.xforms.m_w = prevW;
 
     last_lod = lod_idx;
 }
@@ -1267,6 +1459,88 @@ void vkSkeletonX_ST::Render(float LOD)
                 m_mesh.vBase, m_mesh.vCount, m_mesh.iBase, m_mesh.iCount, m_mesh.vStride);
     }
 
+    // Diagnostic: catch RM_SINGLE objects near camera (first 10)
+    if (Parent && RenderMode == RM_SINGLE) {
+        static u32 s_rm1NearCount = 0;
+        if (s_rm1NearCount < 10) {
+            // Check distance from camera to object
+            Fvector objPos = { RCache.xforms.m_w._41, RCache.xforms.m_w._42, RCache.xforms.m_w._43 };
+            Fvector camPos = { Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z };
+            float dist = objPos.distance_to(camPos);
+            if (dist < 30.f) {
+                s_rm1NearCount++;
+                const char* pname = (Parent->dbg_name.size() > 0) ? Parent->dbg_name.c_str() : "?";
+                Msg("[RM1-NEAR] #%u '%s' dist=%.1f stride=%u vCount=%u",
+                    s_rm1NearCount, pname, dist, m_mesh.vStride, m_mesh.vCount);
+                u16 bc = Parent->LL_BoneCount();
+                if (bc > 0 && RMS_boneid < bc) {
+                    Fmatrix boneMtx = Parent->LL_GetTransform_R(RMS_boneid);
+                    Fmatrix W; W.mul_43(RCache.xforms.m_w, boneMtx);
+                    Msg("[RM1-NEAR]   boneMtx diag=(%.4f,%.4f,%.4f) pos=(%.4f,%.4f,%.4f)",
+                        boneMtx._11, boneMtx._22, boneMtx._33, boneMtx._41, boneMtx._42, boneMtx._43);
+                    Msg("[RM1-NEAR]   W pos=(%.2f,%.2f,%.2f) scale=(%.4f,%.4f,%.4f)",
+                        W._41, W._42, W._43,
+                        sqrtf(W._11*W._11+W._12*W._12+W._13*W._13),
+                        sqrtf(W._21*W._21+W._22*W._22+W._23*W._23),
+                        sqrtf(W._31*W._31+W._32*W._32+W._33*W._33));
+                    Msg("[RM1-NEAR]   pipeline=%p curGBufStride=%u",
+                        RCache.m_CurrentPipeline, RCache.m_CurrentGBufStride);
+                }
+            }
+        }
+    }
+    // One-shot diagnostic: catch bedspread in ANY render mode
+    if (Parent) {
+        static bool s_bedSklAny = false;
+        if (!s_bedSklAny && Parent->dbg_name.size() > 0 &&
+            strstr(Parent->dbg_name.c_str(), "bedspread"))
+        {
+            s_bedSklAny = true;
+            Msg("[BED-ANY] vkSkeletonX_ST::Render bedspread child!");
+            Msg("[BED-ANY]   this=%p Parent=%p RenderMode=%u boneid=%u bonecount=%u Type=%u",
+                this, Parent, (u32)RenderMode, RMS_boneid, RMS_bonecount, Type);
+            Msg("[BED-ANY]   vCount=%u iCount=%u vBase=%u iBase=%u stride=%u VB=%p IB=%p",
+                m_mesh.vCount, m_mesh.iCount, m_mesh.vBase, m_mesh.iBase,
+                m_mesh.vStride, m_mesh.p_rm_Vertices, m_mesh.p_rm_Indices);
+            Msg("[BED-ANY]   Wold row0=(%.4f,%.4f,%.4f,%.4f) pos=(%.2f,%.2f,%.2f)",
+                RCache.xforms.m_w._11, RCache.xforms.m_w._12, RCache.xforms.m_w._13, RCache.xforms.m_w._14,
+                RCache.xforms.m_w._41, RCache.xforms.m_w._42, RCache.xforms.m_w._43);
+            // Dump bone transform for RM_SINGLE
+            if (RenderMode == RM_SINGLE) {
+                u16 bc = Parent->LL_BoneCount();
+                Msg("[BED-ANY]   boneCount=%u boneid=%u", bc, RMS_boneid);
+                if (bc > 0 && RMS_boneid < bc) {
+                    Fmatrix boneMtx = Parent->LL_GetTransform_R(RMS_boneid);
+                    Msg("[BED-ANY]   mRenderTransform (bone %u):", RMS_boneid);
+                    Msg("[BED-ANY]     r0=(%.6f,%.6f,%.6f,%.6f)", boneMtx._11, boneMtx._12, boneMtx._13, boneMtx._14);
+                    Msg("[BED-ANY]     r1=(%.6f,%.6f,%.6f,%.6f)", boneMtx._21, boneMtx._22, boneMtx._23, boneMtx._24);
+                    Msg("[BED-ANY]     r2=(%.6f,%.6f,%.6f,%.6f)", boneMtx._31, boneMtx._32, boneMtx._33, boneMtx._34);
+                    Msg("[BED-ANY]     r3=(%.6f,%.6f,%.6f,%.6f)", boneMtx._41, boneMtx._42, boneMtx._43, boneMtx._44);
+                    // Also log mTransform (before m2b_transform)
+                    Fmatrix mT = Parent->LL_GetBoneInstance(RMS_boneid).mTransform;
+                    Msg("[BED-ANY]   mTransform (bone %u):", RMS_boneid);
+                    Msg("[BED-ANY]     r0=(%.6f,%.6f,%.6f,%.6f)", mT._11, mT._12, mT._13, mT._14);
+                    Msg("[BED-ANY]     r1=(%.6f,%.6f,%.6f,%.6f)", mT._21, mT._22, mT._23, mT._24);
+                    Msg("[BED-ANY]     r2=(%.6f,%.6f,%.6f,%.6f)", mT._31, mT._32, mT._33, mT._34);
+                    Msg("[BED-ANY]     r3=(%.6f,%.6f,%.6f,%.6f)", mT._41, mT._42, mT._43, mT._44);
+                    // Combined W
+                    Fmatrix W; W.mul_43(RCache.xforms.m_w, boneMtx);
+                    Msg("[BED-ANY]   W_combined (Wold * boneMtx):");
+                    Msg("[BED-ANY]     r0=(%.6f,%.6f,%.6f,%.6f)", W._11, W._12, W._13, W._14);
+                    Msg("[BED-ANY]     r1=(%.6f,%.6f,%.6f,%.6f)", W._21, W._22, W._23, W._24);
+                    Msg("[BED-ANY]     r2=(%.6f,%.6f,%.6f,%.6f)", W._31, W._32, W._33, W._34);
+                    Msg("[BED-ANY]     r3=(%.6f,%.6f,%.6f,%.6f)", W._41, W._42, W._43, W._44);
+                    // View and Projection from Device
+                    Msg("[BED-ANY]   View pos=(%.2f,%.2f,%.2f)", Device.mView._41, Device.mView._42, Device.mView._43);
+                    Msg("[BED-ANY]   Proj _11=%.4f _22=%.4f", Device.mProject._11, Device.mProject._22);
+                    // Pipeline state
+                    Msg("[BED-ANY]   currentPipeline=%p currentGBufStride=%u",
+                        RCache.m_CurrentPipeline, RCache.m_CurrentGBufStride);
+                }
+            }
+        }
+    }
+
     // Safety check
     if (!Parent) {
         Msg("! [SKL-ST] Parent is NULL! this=%p, skipping render.", this);
@@ -1335,7 +1609,27 @@ void vkSkeletonX_ST::Render(float LOD)
         // Single bone: simple rigid attachment (no GPU skinning needed)
         // ====================================================================
         __try {
-            W.mul_43(Wold, Parent->LL_GetTransform_R(RMS_boneid));
+            Fmatrix boneMtx = Parent->LL_GetTransform_R(RMS_boneid);
+            if (bDiag) {
+                Msg("[SKL-ST]   BoneTransform(%u):", RMS_boneid);
+                Msg("[SKL-ST]     row0=(%.4f, %.4f, %.4f, %.4f)", boneMtx._11, boneMtx._12, boneMtx._13, boneMtx._14);
+                Msg("[SKL-ST]     row1=(%.4f, %.4f, %.4f, %.4f)", boneMtx._21, boneMtx._22, boneMtx._23, boneMtx._24);
+                Msg("[SKL-ST]     row2=(%.4f, %.4f, %.4f, %.4f)", boneMtx._31, boneMtx._32, boneMtx._33, boneMtx._34);
+                Msg("[SKL-ST]     row3=(%.4f, %.4f, %.4f, %.4f)", boneMtx._41, boneMtx._42, boneMtx._43, boneMtx._44);
+                Msg("[SKL-ST]   Wold:");
+                Msg("[SKL-ST]     row0=(%.4f, %.4f, %.4f, %.4f)", Wold._11, Wold._12, Wold._13, Wold._14);
+                Msg("[SKL-ST]     row1=(%.4f, %.4f, %.4f, %.4f)", Wold._21, Wold._22, Wold._23, Wold._24);
+                Msg("[SKL-ST]     row2=(%.4f, %.4f, %.4f, %.4f)", Wold._31, Wold._32, Wold._33, Wold._34);
+                Msg("[SKL-ST]     row3=(%.4f, %.4f, %.4f, %.4f)", Wold._41, Wold._42, Wold._43, Wold._44);
+            }
+            W.mul_43(Wold, boneMtx);
+            if (bDiag) {
+                Msg("[SKL-ST]   W_combined:");
+                Msg("[SKL-ST]     row0=(%.4f, %.4f, %.4f, %.4f)", W._11, W._12, W._13, W._14);
+                Msg("[SKL-ST]     row1=(%.4f, %.4f, %.4f, %.4f)", W._21, W._22, W._23, W._24);
+                Msg("[SKL-ST]     row2=(%.4f, %.4f, %.4f, %.4f)", W._31, W._32, W._33, W._34);
+                Msg("[SKL-ST]     row3=(%.4f, %.4f, %.4f, %.4f)", W._41, W._42, W._43, W._44);
+            }
         } __except(EXCEPTION_EXECUTE_HANDLER) {
             Msg("! [SKL-ST] CRASH in single bone transform boneid=%u", RMS_boneid);
             return;
@@ -1352,6 +1646,19 @@ void vkSkeletonX_ST::Render(float LOD)
         }
 
         __try {
+            // One-shot per-name diagnostic: log first RM_SINGLE render of each unique skeleton type
+            if (Parent && Parent->dbg_name.size() > 0) {
+                static std::set<std::string> s_loggedRM1;
+                std::string parentName(Parent->dbg_name.c_str());
+                if (s_loggedRM1.find(parentName) == s_loggedRM1.end()) {
+                    s_loggedRM1.insert(parentName);
+                    Msg("[RM1-DIAG] '%s': stride=%u vCount=%u iCount=%u pipeline=%p material=%p(%s) curGBufStride=%u",
+                        Parent->dbg_name.c_str(), m_mesh.vStride, m_mesh.vCount, m_mesh.iCount,
+                        RCache.m_CurrentPipeline, m_pMaterial,
+                        m_pMaterial ? (m_pMaterial->IsValid() ? "valid" : "INVALID") : "NULL",
+                        RCache.m_CurrentGBufStride);
+                }
+            }
             vkFVisual::Render(LOD);
         } __except(EXCEPTION_EXECUTE_HANDLER) {
             Msg("! [SKL-ST] CRASH in vkFVisual::Render (single)"); return;
@@ -1393,11 +1700,45 @@ void vkSkeletonX_ST::Render(float LOD)
                 RCache.m_BoneWriteOffset = boneOffset + alignedBoneCount;
                 boneWriteOK = true;
 
-                static bool boneLogDone = false;
-                if (!boneLogDone) {
-                    Msg("[SKL-ST] Skinned render: bones=%u mode=%u stride=%u offset=%u",
-                        boneCount, (u32)RenderMode, m_mesh.vStride, boneOffset);
-                    boneLogDone = true;
+                // ============================================================
+                // SKINNING DIAGNOSTICS: log first N unique skeletons
+                // ============================================================
+                {
+                    static std::set<std::string> s_loggedSkins;
+                    static u32 s_skinDiagTotal = 0;
+                    const char* pname = (Parent && Parent->dbg_name.size() > 0)
+                        ? Parent->dbg_name.c_str() : "<?>";
+                    std::string key(pname);
+                    if (s_loggedSkins.find(key) == s_loggedSkins.end() && s_skinDiagTotal < 30)
+                    {
+                        s_loggedSkins.insert(key);
+                        s_skinDiagTotal++;
+                        Msg("[SKIN-DIAG] #%u '%s' mode=%u bones=%u stride=%u vCount=%u ssboOff=%u",
+                            s_skinDiagTotal, pname, (u32)RenderMode,
+                            boneCount, m_mesh.vStride, m_mesh.vCount, boneOffset);
+                        // Dump first 8 bone matrices (diagonal + translation)
+                        u32 dumpCount = (boneCount < 8) ? boneCount : 8;
+                        for (u32 db = 0; db < dumpCount; ++db) {
+                            const Fmatrix& bm = RCache.m_BoneMapped[boneOffset + db];
+                            float scaleX = sqrtf(bm._11*bm._11 + bm._12*bm._12 + bm._13*bm._13);
+                            float scaleY = sqrtf(bm._21*bm._21 + bm._22*bm._22 + bm._23*bm._23);
+                            float scaleZ = sqrtf(bm._31*bm._31 + bm._32*bm._32 + bm._33*bm._33);
+                            Msg("[SKIN-DIAG]   bone[%u]: scale=(%.3f,%.3f,%.3f) pos=(%.3f,%.3f,%.3f)",
+                                db, scaleX, scaleY, scaleZ, bm._41, bm._42, bm._43);
+                            // Flag suspicious bones (near-zero scale = collapsed)
+                            if (scaleX < 0.01f || scaleY < 0.01f || scaleZ < 0.01f)
+                                Msg("[SKIN-DIAG]   *** WARNING: bone[%u] has near-zero scale!", db);
+                        }
+                        // Check for identity mRenderTransform (means no animation applied)
+                        const Fmatrix& bone0 = RCache.m_BoneMapped[boneOffset];
+                        if (fabsf(bone0._11 - 1.f) < 0.001f && fabsf(bone0._22 - 1.f) < 0.001f &&
+                            fabsf(bone0._33 - 1.f) < 0.001f && fabsf(bone0._41) < 0.001f &&
+                            fabsf(bone0._42) < 0.001f && fabsf(bone0._43) < 0.001f)
+                            Msg("[SKIN-DIAG]   *** bone[0] is IDENTITY - no animation?");
+                        // Log world matrix
+                        Msg("[SKIN-DIAG]   Wold pos=(%.2f,%.2f,%.2f)",
+                            Wold._41, Wold._42, Wold._43);
+                    }
                 }
             }
             else
@@ -1435,6 +1776,17 @@ void vkSkeletonX_ST::Render(float LOD)
 
                         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             layout, 2, 1, &objSet, 0, nullptr);
+                    }
+                    else
+                    {
+                        static u32 s_descFailST = 0;
+                        if (s_descFailST < 20) {
+                            s_descFailST++;
+                            const char* pn = (Parent && Parent->dbg_name.size() > 0)
+                                ? Parent->dbg_name.c_str() : "?";
+                            Msg("! [SKIN-DIAG-ST] PerObject descriptor FAILED '%s' "
+                                "mode=%u bones=%u - STALE bone data!", pn, (u32)RenderMode, boneCount);
+                        }
                     }
                 }
 
@@ -1534,8 +1886,16 @@ void vkSkeletonX_ST::_Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount)
         vertBoned1W* src = (vertBoned1W*)_verts_;
         for (u32 i = 0; i < dwVertCount; i++)
         {
+            if (dwVertCount == 242 && i < 5) {
+                Msg("[VERT-DIAG] src[%u]: P=(%.4f,%.4f,%.4f) N=(%.4f,%.4f,%.4f) uv=(%.4f,%.4f) mtx=%u",
+                    i, src->P.x, src->P.y, src->P.z, src->N.x, src->N.y, src->N.z, src->u, src->v, src->matrix);
+            }
             Fvector2 uv; uv.set(src->u, src->v);
             dst[i].set(src->P, src->N, src->T, src->B, uv, src->matrix * 3);
+            if (dwVertCount == 242 && i < 5) {
+                Msg("[VERT-DIAG] dst[%u]: P=(%.4f,%.4f,%.4f,%.4f) tc=(%.4f,%.4f)",
+                    i, dst[i]._P[0], dst[i]._P[1], dst[i]._P[2], dst[i]._P[3], dst[i]._tc[0], dst[i]._tc[1]);
+            }
             src++;
         }
         m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
@@ -1891,11 +2251,32 @@ void vkSkeletonX_PM::Render(float LOD)
                 RCache.m_BoneWriteOffset = boneOffset + alignedBoneCount;
                 boneWriteOK = true;
 
-                static bool boneLogDonePM = false;
-                if (!boneLogDonePM) {
-                    Msg("[SKL-PM] Skinned render: bones=%u mode=%u stride=%u offset=%u",
-                        boneCount, (u32)RenderMode, m_mesh.vStride, boneOffset);
-                    boneLogDonePM = true;
+                // SKINNING DIAGNOSTICS (PM)
+                {
+                    static std::set<std::string> s_loggedSkinsPM;
+                    static u32 s_skinDiagPM = 0;
+                    const char* pname = (Parent && Parent->dbg_name.size() > 0)
+                        ? Parent->dbg_name.c_str() : "<?>";
+                    std::string key(pname);
+                    if (s_loggedSkinsPM.find(key) == s_loggedSkinsPM.end() && s_skinDiagPM < 30)
+                    {
+                        s_loggedSkinsPM.insert(key);
+                        s_skinDiagPM++;
+                        Msg("[SKIN-DIAG-PM] #%u '%s' mode=%u bones=%u stride=%u vCount=%u ssboOff=%u",
+                            s_skinDiagPM, pname, (u32)RenderMode,
+                            boneCount, m_mesh.vStride, m_mesh.vCount, boneOffset);
+                        u32 dumpCount = (boneCount < 8) ? boneCount : 8;
+                        for (u32 db = 0; db < dumpCount; ++db) {
+                            const Fmatrix& bm = RCache.m_BoneMapped[boneOffset + db];
+                            float scaleX = sqrtf(bm._11*bm._11 + bm._12*bm._12 + bm._13*bm._13);
+                            float scaleY = sqrtf(bm._21*bm._21 + bm._22*bm._22 + bm._23*bm._23);
+                            float scaleZ = sqrtf(bm._31*bm._31 + bm._32*bm._32 + bm._33*bm._33);
+                            Msg("[SKIN-DIAG-PM]   bone[%u]: scale=(%.3f,%.3f,%.3f) pos=(%.3f,%.3f,%.3f)",
+                                db, scaleX, scaleY, scaleZ, bm._41, bm._42, bm._43);
+                            if (scaleX < 0.01f || scaleY < 0.01f || scaleZ < 0.01f)
+                                Msg("[SKIN-DIAG-PM]   *** WARNING: bone[%u] near-zero scale!", db);
+                        }
+                    }
                 }
             }
             else
@@ -1933,6 +2314,17 @@ void vkSkeletonX_PM::Render(float LOD)
 
                         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             layout, 2, 1, &objSet, 0, nullptr);
+                    }
+                    else
+                    {
+                        static u32 s_descFailPM = 0;
+                        if (s_descFailPM < 20) {
+                            s_descFailPM++;
+                            const char* pn = (Parent && Parent->dbg_name.size() > 0)
+                                ? Parent->dbg_name.c_str() : "?";
+                            Msg("! [SKIN-DIAG-PM] PerObject descriptor FAILED '%s' "
+                                "mode=%u bones=%u - STALE bone data!", pn, (u32)RenderMode, boneCount);
+                        }
                     }
                 }
 

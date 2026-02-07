@@ -184,9 +184,9 @@ void CVulkanDescriptorManager::CreatePool()
     Msg("[Vulkan] Creating descriptor pool...");
 
     // Подсчитываем количество каждого типа descriptor
-    // Предполагаем максимум:
-    // - 100 PerFrame sets (для multi-frame в полёте)
-    // - 1000 PerMaterial sets (много материалов)
+    // Предполагаем максимум (pool is reset every frame):
+    // - 100 PerFrame sets
+    // - 2000 PerMaterial sets (with per-frame caching: 1 set per unique material)
     // - 10000 PerObject sets (много объектов)
     // - 100 Lighting sets
 
@@ -196,9 +196,9 @@ void CVulkanDescriptorManager::CreatePool()
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = 10200;
 
-    // Combined image samplers: 1000*8 + 100*16 = 9600 (PerMaterial + Lighting shadow maps)
+    // Combined image samplers: 2000*8 + 100*16 = 17600 (PerMaterial + Lighting shadow maps)
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = 9600;
+    poolSizes[1].descriptorCount = 17600;
 
     // Storage buffers: 10000 (PerObject bone SSBO - one per skinned object)
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -207,7 +207,7 @@ void CVulkanDescriptorManager::CreatePool()
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;  // Позволяет vkFreeDescriptorSets
-    poolInfo.maxSets = 11200;  // 100 + 1000 + 10000 + 100
+    poolInfo.maxSets = 13200;  // 100 + 2000 + 10000 + 100 + 1000 reserve
     poolInfo.poolSizeCount = 3;
     poolInfo.pPoolSizes = poolSizes;
 
@@ -215,7 +215,8 @@ void CVulkanDescriptorManager::CreatePool()
 
     Msg("[Vulkan] Descriptor pool created (max sets: %u)", poolInfo.maxSets);
     Msg("[Vulkan]   - Uniform buffers: %u", poolSizes[0].descriptorCount);
-    Msg("[Vulkan]   - Texture samplers: %u", poolSizes[1].descriptorCount);
+    Msg("[Vulkan]   - Texture samplers: %u (supports %u materials/frame)",
+        poolSizes[1].descriptorCount, poolSizes[1].descriptorCount / 8);
 }
 
 // Helper для создания layout

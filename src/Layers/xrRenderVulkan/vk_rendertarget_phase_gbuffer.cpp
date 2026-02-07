@@ -538,6 +538,10 @@ void CRenderTarget::phase_gbuffer()
             0, sizeof(GBufferPushConstants),
             &pushConstants);
 
+        // Ensure RCache.xforms.m_w is identity so per-visual push constants
+        // in vkFVisual::Render() push the correct model matrix for static geometry
+        RCache.set_xform_world(mWorld);
+
         // Track current stride for per-visual pipeline switching
         RCache.m_CurrentGBufStride = 32;
     } __except(EXCEPTION_EXECUTE_HANDLER) {

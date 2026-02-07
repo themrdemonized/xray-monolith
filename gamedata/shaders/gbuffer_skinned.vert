@@ -75,6 +75,7 @@ uint decodeBoneIndexFromFloat(float value)
 void main()
 {
     vec3 pos = a_Position.xyz;
+    // B8G8R8A8_UNORM gives (Nz,Ny,Nx,bone_idx) in [0,1]; swizzle .zyx → (Nx,Ny,Nz)
     vec3 normal = a_Normal.xyz * 2.0 - 1.0;
 
     mat4 skinMatrix;
