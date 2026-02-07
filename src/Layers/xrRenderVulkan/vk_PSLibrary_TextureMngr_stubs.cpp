@@ -589,17 +589,7 @@ int CTextureDescrMngr::GetDetailTexture(shared_str const& tex_name,
     return FALSE;
 }
 
-// ============================================================================
-// dxWallMarkArray stub implementation
-// ============================================================================
-
-resptr_core<Shader, resptrcode_shader>* dxWallMarkArray::dxGenerateWallmark()
-{
-    // TODO: Generate wallmark shader
-    // For now return nullptr - wallmarks won't work but won't crash
-    Msg("[Vulkan] dxWallMarkArray::dxGenerateWallmark() - stub");
-    return nullptr;
-}
+// dxWallMarkArray: real implementation from ../xrRender/dxWallMarkArray.cpp is now linked
 
 // ============================================================================
 // STextureParams::Load - ported from xrRender/ETextureParams.cpp

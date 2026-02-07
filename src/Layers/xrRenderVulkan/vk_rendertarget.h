@@ -123,6 +123,8 @@ public:
     void phase_sky();          // Sky cubemap rendering (after combine, before forward)
     void phase_clouds();       // Cloud hemisphere rendering (after sky, before forward)
     void phase_forward();      // Phase 2.19: Forward pass (transparent objects)
+    void phase_wallmarks_begin();  // Begin wallmarks render pass (swapchain + depth read-only)
+    void phase_wallmarks_end();    // End wallmarks render pass
     void phase_postprocess();  // Phase 2.20: Post-processing (bloom, vignette, etc.)
     void phase_distortion();   // Distortion map rendering (for magnifier effect)
 
@@ -168,6 +170,7 @@ public:
     VkPipeline GetShadowCubePipeline();            // Get or create cubemap shadow pipeline
     VkPipeline GetGBufferPipeline(u32 stride = 32, u32 tcOffset = 24); // Get or create G-Buffer pipeline
     VkPipeline GetGBufferPipelineSkinned(u32 stride); // Get or create skinned G-Buffer pipeline (GPU skinning)
+    VkPipeline GetWallmarkLevelPipeline(u32 stride = 32, u32 tcOffset = 24); // Get or create wallmark-level pipeline
 
     // Cubemap shadow rendering (Phase 2.16)
     void render_smap_cube_face(light* L, u32 face_index, const Fmatrix& face_matrix);  // Render one cubemap face
@@ -195,6 +198,7 @@ private:
     VkPipeline m_ShadowCubePipeline = VK_NULL_HANDLE;  // Cubemap shadow pipeline
     xr_map<u32, VkPipeline> m_GBufferPipelines;         // G-Buffer pipelines per vertex stride
     xr_map<u32, VkPipeline> m_GBufferPipelinesSkinned;  // Skinned G-Buffer pipelines per stride
+    xr_map<u32, VkPipeline> m_WallmarkPipelines;         // Wallmark-level pipelines per stride+tcOffset
 
     // Water pipelines
     VkPipeline m_WaterSSRPipeline = VK_NULL_HANDLE;   // Water SSR pre-pass

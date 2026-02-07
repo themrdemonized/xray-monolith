@@ -114,6 +114,9 @@ private:
     bool CreateDynamicBuffer();
     void RenderSlots();
 
+    // Shader loading helper
+    static VkShaderModule LoadShaderModule(VkDevice device, const char* filename);
+
     // Per-slot texture cache entry
     struct TextureCacheEntry
     {
@@ -145,6 +148,7 @@ private:
     VkPipeline              m_pipeline = VK_NULL_HANDLE;
     VkPipelineLayout        m_pipelineLayout = VK_NULL_HANDLE;
     VkDescriptorSetLayout   m_descriptorSetLayout = VK_NULL_HANDLE;
+    VkDescriptorPool        m_descriptorPool = VK_NULL_HANDLE;
     VK::CVulkanBuffer*      m_dynamicVB = nullptr;
     bool                    m_vulkanReady = false;
     static constexpr u32    MAX_WM_VERTS = 65536;

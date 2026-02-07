@@ -561,6 +561,9 @@ void CRender::Calculate()
     lstNormal.clear();
     lstMatrix.clear();
 
+    // Enable wallmark routing (level wallmarks flagged with bWmark go to mapWmark)
+    pmask_wmark = true;
+
     // Increment marker for visibility tracking
     marker++;
 
@@ -960,6 +963,22 @@ void CRender::add_Static(vkRender_Visual* pVisual, u32 planes)
                 s_treeAddLog++;
             }
 
+            // Check if this visual is a wallmark (decal) and route to mapWmark
+            if (pmask_wmark && pVisual->shader_id < (u16)Shaders.size())
+            {
+                VK::CVulkanShader* pVKShader = Shaders[pVisual->shader_id];
+                if (pVKShader && pVKShader->m_bWmark)
+                {
+                    R_dsgraph::mapSorted_Node* N = mapWmark.insertInAnyWay(distSQ);
+                    N->val.ssa     = SSA;
+                    N->val.pObject = nullptr;
+                    N->val.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+                    N->val.Matrix  = Fidentity;
+                    N->val.se      = nullptr;
+                    break;
+                }
+            }
+
             // Leaf visual - add directly to lstNormal render queue.
             // We bypass r_dsgraph_insert_static() because it expects dxRender_Visual*
             // layout which is incompatible with vkRender_Visual* memory layout.
@@ -1037,6 +1056,22 @@ void CRender::add_leafs_Static(vkRender_Visual* pVisual)
                 Msg("[TREE-LEAF] add_leafs_Static default: type=%u name='%s' SSA=%.4f",
                     pVisual->Type, pVisual->dbg_name.c_str(), SSA);
                 s_treeLeafLog++;
+            }
+
+            // Check if this visual is a wallmark (decal) and route to mapWmark
+            if (pmask_wmark && pVisual->shader_id < (u16)Shaders.size())
+            {
+                VK::CVulkanShader* pVKShader = Shaders[pVisual->shader_id];
+                if (pVKShader && pVKShader->m_bWmark)
+                {
+                    R_dsgraph::mapSorted_Node* N = mapWmark.insertInAnyWay(distSQ);
+                    N->val.ssa     = SSA;
+                    N->val.pObject = nullptr;
+                    N->val.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+                    N->val.Matrix  = Fidentity;
+                    N->val.se      = nullptr;
+                    break;
+                }
             }
 
             // Leaf visual - add directly to lstNormal
@@ -1491,9 +1526,14 @@ void CRender::Render()
     // ========================================================================
     // PASS 6.5: Wallmarks (blood, bullet holes, decals)
     // ========================================================================
+    // Wallmarks render in their own dedicated render pass (swapchain + depth read-only).
+    // The wallmarks engine uses its own pipeline (particle-style FVF::LIT vertices),
+    // and r_dsgraph_render_wmarks() uses the wallmark-level pipeline.
     VkDiagFrame("[RENDER] PASS 6.5: wallmarks");
-    if (Wallmarks) {
+    if (RTarget && Wallmarks) {
+        RTarget->phase_wallmarks_begin();
         Wallmarks->Render();
+        RTarget->phase_wallmarks_end();
     }
 
     // ========================================================================
@@ -2201,6 +2241,7 @@ void CRender::clear_static_wallmarks()
 void CRender::add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start,
                                    const Fvector& dir, float size, float ttl, bool ignore_opt)
 {
+    if (!obj || !pArray || !xf) return;
     dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
     ref_shader* pShader = pWMA->dxGenerateWallmark();
     if (pShader) add_SkeletonWallmark(xf, (CKinematics*)obj, *pShader, start, dir, size, ttl, ignore_opt);

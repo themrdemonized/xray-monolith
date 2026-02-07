@@ -13,11 +13,12 @@
 #include "HW_Vulkan.h"
 #include "vk_buffer.h"
 #include "vk_texture.h"
-#include "vk_ParticlePipeline.h"
-#include "vk_ParticleEffect.h"       // VkParticleVertex (binary-compatible with FVF::LIT)
-#include "vk_ParticleCustom.h"       // CreateDescriptorSetLayout
-#include "vk_ParticleDescriptors.h"  // g_ParticleDescriptorPool
+#include "vk_Visual.h"
+#include "vk_swapchain.h"
 #include "vk_R_Backend.h"
+
+#include <fstream>
+#include <vector>
 #include "../../xrEngine/xr_object.h"
 #include "../../xrEngine/x_ray.h"
 #include "../../xrEngine/GameFont.h"
@@ -134,7 +135,8 @@ void vkCWallmarksEngine::static_wm_render(vkCWallmarksEngine::static_wallmark* W
     float a = W->TimeEnd() == -1.f ? 0.f : (RDEVICE.fTimeGlobal - W->TimeStart()) / W->TimeEnd();
     int aC = iFloor(a * 255.f);
     clamp(aC, 0, 255);
-    u32 C = color_rgba(128, 128, 128, aC);
+    // aC is fade progress (0=fresh, 255=expired). Invert for alpha (255=opaque, 0=transparent)
+    u32 C = color_rgba(128, 128, 128, 255 - aC);
     FVF::LIT* S = &*W->verts.begin();
     FVF::LIT* E = &*W->verts.end();
     for (; S != E; S++, V++)
@@ -156,7 +158,8 @@ void vkCWallmarksEngine::skeleton_wm_render(intrusive_ptr<CSkeletonWallmark> wm,
     float a = wm->TimeEnd() == -1.f ? 0.f : (RDEVICE.fTimeGlobal - wm->TimeStart()) / wm->TimeEnd();
     int aC = iFloor(a * 255.f);
     clamp(aC, 0, 255);
-    u32 C = color_rgba(128, 128, 128, aC);
+    // aC is fade progress (0=fresh, 255=expired). Invert for alpha (255=opaque, 0=transparent)
+    u32 C = color_rgba(128, 128, 128, 255 - aC);
 
     // Render wallmark through parent skeleton (CKinematics)
     // This will transform vertices by bone matrices and write to V
@@ -364,6 +367,14 @@ void vkCWallmarksEngine::AddStaticWallmark(CDB::TRI* pTri, const Fvector* pVerts
     const Fvector& contact_point, ref_shader hShader, float sz, float ttl,
     bool ignore_opt, float rotation)
 {
+    static bool addOnce = false;
+    if (!addOnce) {
+        Msg("[Vulkan] Wallmarks::AddStaticWallmark() called! pos=(%.1f,%.1f,%.1f) sz=%.2f shader=%s",
+            contact_point.x, contact_point.y, contact_point.z, sz,
+            hShader._get() ? "valid" : "null");
+        addOnce = true;
+    }
+
     // optimization: don't allow wallmarks more than 100m from viewer/actor
     if (!ignore_opt && contact_point.distance_to_sqr(Device.vCameraPosition) > _sqr(wallmark_range_static))
         return;
@@ -378,10 +389,10 @@ void vkCWallmarksEngine::AddSkeletonWallmark(const Fmatrix* xf, CKinematics* obj
     const Fvector& start, const Fvector& dir, float size, float ttl, bool ignore_opt)
 {
     if (::RImplementation.phase != CRender::PHASE_NORMAL) return;
+    if (!obj || !xf || size <= EPS_L) return;
     // optimization: don't allow wallmarks more than 50m from viewer/actor
     if (!ignore_opt && xf->c.distance_to_sqr(Device.vCameraPosition) > _sqr(wallmark_range_skeleton)) return;
 
-    VERIFY(obj && xf && (size > EPS_L));
     lock.Enter();
     obj->AddWallmark(xf, start, dir, sh, size, ttl);
     lock.Leave();
@@ -411,6 +422,13 @@ void vkCWallmarksEngine::AddSkeletonWallmark(intrusive_ptr<CSkeletonWallmark> wm
 // ============================================================================
 void vkCWallmarksEngine::Render()
 {
+    // One-shot diagnostics
+    static bool diagOnce = false;
+    if (!diagOnce) {
+        Msg("[Vulkan] Wallmarks::Render() called, marks.size()=%u", (u32)marks.size());
+        diagOnce = true;
+    }
+
     if (marks.empty())
         return;
 
@@ -497,16 +515,39 @@ bool vkCWallmarksEngine::InitVulkanResources()
     VkDevice device = VulkanHW.GetDevice();
     if (device == VK_NULL_HANDLE) return false;
 
-    // Create descriptor set layout (one combined image sampler, same as particles)
-    if (!vkParticleCustom::CreateDescriptorSetLayout(device, m_descriptorSetLayout)) {
-        Msg("![Vulkan] Wallmarks: failed to create descriptor layout");
-        return false;
+    // Create descriptor set layout: 1 combined image sampler at binding 0
+    {
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding = 0;
+        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binding.descriptorCount = 1;
+        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        layoutInfo.bindingCount = 1;
+        layoutInfo.pBindings = &binding;
+
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS) {
+            Msg("![Vulkan] Wallmarks: failed to create descriptor layout");
+            return false;
+        }
     }
 
-    // Initialize descriptor pool if needed
-    if (g_ParticleDescriptorPool.GetPool() == VK_NULL_HANDLE) {
-        if (!vkParticleDescriptorPool::Initialize(device)) {
-            Msg("![Vulkan] Wallmarks: failed to init descriptor pool");
+    // Create standalone descriptor pool (64 combined image samplers)
+    {
+        VkDescriptorPoolSize poolSize{};
+        poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        poolSize.descriptorCount = 64;
+
+        VkDescriptorPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.poolSizeCount = 1;
+        poolInfo.pPoolSizes = &poolSize;
+        poolInfo.maxSets = 64;
+
+        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
+            Msg("![Vulkan] Wallmarks: failed to create descriptor pool");
             return false;
         }
     }
@@ -517,7 +558,19 @@ bool vkCWallmarksEngine::InitVulkanResources()
     m_whiteTexture->CreateFromData(&whitePixel, 1, 1, VK_FORMAT_R8G8B8A8_UNORM, sizeof(u32));
 
     // Allocate and bind white fallback descriptor set
-    m_whiteDescriptorSet = vkParticleDescriptorPool::Allocate(device, m_descriptorSetLayout);
+    {
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = m_descriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &m_descriptorSetLayout;
+
+        if (vkAllocateDescriptorSets(device, &allocInfo, &m_whiteDescriptorSet) != VK_SUCCESS) {
+            Msg("![Vulkan] Wallmarks: failed to allocate white descriptor set");
+            m_whiteDescriptorSet = VK_NULL_HANDLE;
+        }
+    }
+
     if (m_whiteDescriptorSet != VK_NULL_HANDLE && m_whiteTexture->IsValid()) {
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -543,7 +596,7 @@ bool vkCWallmarksEngine::InitVulkanResources()
     }
 
     m_vulkanReady = true;
-    Msg("[Vulkan] Wallmarks: Vulkan resources initialized (per-slot textures)");
+    Msg("[Vulkan] Wallmarks: Vulkan resources initialized");
     return true;
 }
 
@@ -551,13 +604,12 @@ void vkCWallmarksEngine::DestroyVulkanResources()
 {
     VkDevice device = VulkanHW.GetDevice();
 
-    // Destroy texture cache
+    // Destroy texture cache (descriptor sets freed when pool is destroyed)
     for (auto& pair : m_textureCache) {
         if (pair.second.texture) {
             pair.second.texture->Destroy();
             delete pair.second.texture;
         }
-        // descriptor sets freed with pool
     }
     m_textureCache.clear();
 
@@ -581,6 +633,10 @@ void vkCWallmarksEngine::DestroyVulkanResources()
         if (m_pipelineLayout != VK_NULL_HANDLE) {
             vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
             m_pipelineLayout = VK_NULL_HANDLE;
+        }
+        if (m_descriptorPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
+            m_descriptorPool = VK_NULL_HANDLE;
         }
         if (m_descriptorSetLayout != VK_NULL_HANDLE) {
             vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
@@ -616,6 +672,40 @@ bool vkCWallmarksEngine::CreateDynamicBuffer()
     return true;
 }
 
+// ============================================================================
+// LoadShaderModule - Load SPIR-V binary from file
+// ============================================================================
+VkShaderModule vkCWallmarksEngine::LoadShaderModule(VkDevice device, const char* filename)
+{
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open()) {
+        Msg("![Vulkan] Wallmarks: failed to open shader: %s", filename);
+        return VK_NULL_HANDLE;
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<char> buffer(fileSize);
+    file.seekg(0);
+    file.read(buffer.data(), fileSize);
+    file.close();
+
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = buffer.size();
+    createInfo.pCode = reinterpret_cast<const uint32_t*>(buffer.data());
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        Msg("![Vulkan] Wallmarks: failed to create shader module from %s", filename);
+        return VK_NULL_HANDLE;
+    }
+
+    return shaderModule;
+}
+
+// ============================================================================
+// CreatePipeline - Standalone wallmark pipeline (no particle dependency)
+// ============================================================================
 bool vkCWallmarksEngine::CreatePipeline()
 {
     if (m_pipeline != VK_NULL_HANDLE)
@@ -624,25 +714,186 @@ bool vkCWallmarksEngine::CreatePipeline()
     VkDevice device = VulkanHW.GetDevice();
     if (device == VK_NULL_HANDLE) return false;
 
-    vkParticlePipeline pipelineBuilder;
-    ParticlePipelineConfig config;
-    config.depthTest = true;
-    config.depthWrite = false;
-    config.depthOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    config.blendOp = VK_BLEND_OP_ADD;
-    config.srcBlend = VK_BLEND_FACTOR_SRC_ALPHA;
-    config.dstBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-    config.cullMode = VK_CULL_MODE_NONE;
-    config.colorFormat = VK_FORMAT_B8G8R8A8_SRGB;
-    config.depthFormat = VK_FORMAT_D32_SFLOAT;
+    // Load wallmark-specific shaders
+    string_path vertPath, fragPath;
+    FS.update_path(vertPath, "$game_shaders$", "vulkan\\wallmark_dynamic_vs.spv");
+    FS.update_path(fragPath, "$game_shaders$", "vulkan\\wallmark_dynamic_fs.spv");
 
-    if (!pipelineBuilder.Create(device, config, m_descriptorSetLayout)) {
-        Msg("![Vulkan] Wallmarks: failed to create pipeline");
+    VkShaderModule vertModule = LoadShaderModule(device, vertPath);
+    if (vertModule == VK_NULL_HANDLE) return false;
+
+    VkShaderModule fragModule = LoadShaderModule(device, fragPath);
+    if (fragModule == VK_NULL_HANDLE) {
+        vkDestroyShaderModule(device, vertModule, nullptr);
         return false;
     }
 
-    m_pipeline = pipelineBuilder.pipeline;
-    m_pipelineLayout = pipelineBuilder.pipelineLayout;
+    // --- Pipeline layout: 1 descriptor set + 64-byte push constant ---
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(Fmatrix); // 64 bytes (mat4 viewProj)
+
+    VkPipelineLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutInfo.setLayoutCount = 1;
+    layoutInfo.pSetLayouts = &m_descriptorSetLayout;
+    layoutInfo.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = &pushConstantRange;
+
+    if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+        Msg("![Vulkan] Wallmarks: failed to create pipeline layout");
+        vkDestroyShaderModule(device, vertModule, nullptr);
+        vkDestroyShaderModule(device, fragModule, nullptr);
+        return false;
+    }
+
+    // --- Shader stages ---
+    VkPipelineShaderStageCreateInfo shaderStages[2]{};
+    shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shaderStages[0].module = vertModule;
+    shaderStages[0].pName = "main";
+
+    shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shaderStages[1].module = fragModule;
+    shaderStages[1].pName = "main";
+
+    // --- Vertex input: FVF::LIT (stride 24) ---
+    VkVertexInputBindingDescription bindingDesc{};
+    bindingDesc.binding = 0;
+    bindingDesc.stride = sizeof(FVF::LIT); // 24 bytes
+    bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription attrDescs[3]{};
+    // location 0: vec3 position (offset 0)
+    attrDescs[0].binding = 0;
+    attrDescs[0].location = 0;
+    attrDescs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrDescs[0].offset = 0;
+    // location 1: vec4 color as R8G8B8A8_UNORM (offset 12)
+    attrDescs[1].binding = 0;
+    attrDescs[1].location = 1;
+    attrDescs[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attrDescs[1].offset = 12;
+    // location 2: vec2 texcoord (offset 16)
+    attrDescs[2].binding = 0;
+    attrDescs[2].location = 2;
+    attrDescs[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attrDescs[2].offset = 16;
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDesc;
+    vertexInputInfo.vertexAttributeDescriptionCount = 3;
+    vertexInputInfo.pVertexAttributeDescriptions = attrDescs;
+
+    // --- Input assembly ---
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    // --- Viewport / scissor (dynamic) ---
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+
+    VkDynamicState dynamicStates[] = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = 2;
+    dynamicState.pDynamicStates = dynamicStates;
+
+    // --- Rasterizer ---
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.lineWidth = 1.0f;
+
+    // --- Multisampling ---
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.sampleShadingEnable = VK_FALSE;
+
+    // --- Depth stencil: test ON, write OFF, LE ---
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_FALSE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.stencilTestEnable = VK_FALSE;
+
+    // --- Color blending: srcAlpha / oneMinusSrcAlpha ---
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                          VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    // --- Dynamic rendering (VK_KHR_dynamic_rendering) ---
+    VkFormat colorFormat = Swapchain.GetFormat();
+    VkFormat depthFormat = Swapchain.m_DepthFormat;
+    VkPipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+    renderingInfo.depthAttachmentFormat = depthFormat;
+    renderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+
+    // --- Create graphics pipeline ---
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = &renderingInfo;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = m_pipelineLayout;
+    pipelineInfo.renderPass = VK_NULL_HANDLE;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+
+    VkResult result = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
+
+    // Clean up shader modules (copied into pipeline)
+    vkDestroyShaderModule(device, vertModule, nullptr);
+    vkDestroyShaderModule(device, fragModule, nullptr);
+
+    if (result != VK_SUCCESS) {
+        Msg("![Vulkan] Wallmarks: failed to create graphics pipeline (VkResult=%d)", result);
+        return false;
+    }
 
     Msg("[Vulkan] Wallmarks: pipeline created (depthTest=ON, depthWrite=OFF, alphaBlend)");
     return true;
@@ -651,30 +902,13 @@ bool vkCWallmarksEngine::CreatePipeline()
 // ============================================================================
 // Texture extraction from ref_shader
 // ============================================================================
+
+// Defined in vk_shared_stubs.cpp — retrieves texture name stored by create() stub
+extern shared_str vkGetShaderTextureName(Shader* pSh);
+
 shared_str vkCWallmarksEngine::ExtractTextureName(ref_shader& shader)
 {
-    Shader* pSh = shader._get();
-    if (!pSh) return shared_str();
-
-    ShaderElement* pShE = pSh->E[0]._get();
-    if (!pShE || pShE->passes.empty()) return shared_str();
-
-    SPass* pPass = pShE->passes[0]._get();
-    if (!pPass) return shared_str();
-
-    STextureList* pTexList = pPass->T._get();
-    if (!pTexList || pTexList->empty()) return shared_str();
-
-    // Get the first pixel shader texture (stage < 256)
-    for (auto& tex_pair : *pTexList) {
-        if (tex_pair.first < 256) {  // Pixel shader texture
-            CTexture* pTex = tex_pair.second._get();
-            if (pTex && pTex->cName.size() > 0)
-                return pTex->cName;
-        }
-    }
-
-    return shared_str();
+    return vkGetShaderTextureName(shader._get());
 }
 
 // ============================================================================
@@ -697,13 +931,14 @@ vkCWallmarksEngine::TextureCacheEntry* vkCWallmarksEngine::GetOrCreateSlotTextur
 
     TextureCacheEntry entry;
 
-    // Load DDS texture
+    // Load DDS texture via VFS (textures may be inside .db archives)
     entry.texture = new VK::CVulkanTexture();
-    string_path texturePath;
-    xr_sprintf(texturePath, sizeof(texturePath), "gamedata\\textures\\%s.dds", texName.c_str());
+    string_path fn, texturePath;
+    xr_sprintf(fn, sizeof(fn), "%s.dds", texName.c_str());
+    FS.update_path(texturePath, "$game_textures$", fn);
 
     if (!entry.texture->LoadDDS(texturePath)) {
-        Msg("[Vulkan] Wallmarks: texture not found '%s', using fallback", texturePath);
+        Msg("[Vulkan] Wallmarks: texture not found '%s' (VFS path: '%s'), using fallback", texName.c_str(), texturePath);
         entry.texture->Destroy();
         delete entry.texture;
         entry.texture = nullptr;
@@ -712,8 +947,15 @@ vkCWallmarksEngine::TextureCacheEntry* vkCWallmarksEngine::GetOrCreateSlotTextur
         return nullptr;
     }
 
-    // Allocate descriptor set
-    entry.descriptorSet = vkParticleDescriptorPool::Allocate(device, m_descriptorSetLayout);
+    // Allocate descriptor set from wallmark pool
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = m_descriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &m_descriptorSetLayout;
+
+    entry.descriptorSet = VK_NULL_HANDLE;
+    vkAllocateDescriptorSets(device, &allocInfo, &entry.descriptorSet);
     if (entry.descriptorSet == VK_NULL_HANDLE) {
         Msg("![Vulkan] Wallmarks: failed to allocate descriptor for '%s'", texName.c_str());
         entry.texture->Destroy();
@@ -752,17 +994,36 @@ vkCWallmarksEngine::TextureCacheEntry* vkCWallmarksEngine::GetOrCreateSlotTextur
 // ============================================================================
 void vkCWallmarksEngine::RenderSlots()
 {
+    static bool slotsOnce = false;
+    if (!slotsOnce) {
+        Msg("[Vulkan] Wallmarks::RenderSlots() called, marks=%u vulkanReady=%d pipeline=%p",
+            (u32)marks.size(), (int)m_vulkanReady, (void*)m_pipeline);
+        slotsOnce = true;
+    }
+
     // Lazy init Vulkan resources
     if (!m_vulkanReady) {
-        if (!InitVulkanResources()) return;
+        if (!InitVulkanResources()) {
+            Msg("![Vulkan] Wallmarks::RenderSlots - InitVulkanResources FAILED");
+            return;
+        }
     }
     if (m_pipeline == VK_NULL_HANDLE) {
-        if (!CreatePipeline()) return;
+        if (!CreatePipeline()) {
+            Msg("![Vulkan] Wallmarks::RenderSlots - CreatePipeline FAILED");
+            return;
+        }
     }
-    if (!m_dynamicVB || !m_dynamicVB->IsMapped()) return;
+    if (!m_dynamicVB || !m_dynamicVB->IsMapped()) {
+        Msg("![Vulkan] Wallmarks::RenderSlots - dynamicVB invalid (vb=%p)", (void*)m_dynamicVB);
+        return;
+    }
 
     VkCommandBuffer cmd = RCache.GetCommandBuffer();
-    if (cmd == VK_NULL_HANDLE) return;
+    if (cmd == VK_NULL_HANDLE) {
+        Msg("![Vulkan] Wallmarks::RenderSlots - no command buffer");
+        return;
+    }
 
     float ssaCLIP = r_ssaDISCARD / 4;
 
@@ -840,6 +1101,9 @@ void vkCWallmarksEngine::RenderSlots()
                 W->used_in_render = u32(-1);
 #endif
             }
+            // Skeleton wallmarks are re-submitted each frame by CKinematics;
+            // must clear after collecting vertices (matches DX11 WallmarksEngine)
+            slot->skeleton_items.clear();
         }
 
         // Record batch if this slot produced vertices
@@ -855,8 +1119,26 @@ void vkCWallmarksEngine::RenderSlots()
 
     lock.Leave();
 
-    if (batches.empty() || bufferOffset == 0)
+    if (batches.empty() || bufferOffset == 0) {
+        static bool emptyOnce = false;
+        if (!emptyOnce) {
+            Msg("[Vulkan] Wallmarks::RenderSlots - batches empty after collection (marks=%u)", (u32)marks.size());
+            // Dump slot info
+            for (auto* slot : marks) {
+                Msg("  slot: static=%u skeleton=%u shader=%s",
+                    (u32)slot->static_items.size(), (u32)slot->skeleton_items.size(),
+                    slot->shader._get() ? "valid" : "null");
+            }
+            emptyOnce = true;
+        }
         return;
+    }
+
+    static bool drawOnce = false;
+    if (!drawOnce) {
+        Msg("[Vulkan] Wallmarks::RenderSlots - drawing %u batches, %u verts", (u32)batches.size(), bufferOffset);
+        drawOnce = true;
+    }
 
     // ====================================================================
     // Flush buffer to GPU (all vertex data uploaded)
@@ -876,12 +1158,12 @@ void vkCWallmarksEngine::RenderSlots()
     vkCmdPushConstants(cmd, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
                       0, sizeof(Fmatrix), &viewProj);
 
-    // Set viewport and scissor
+    // Set viewport and scissor (flipped Y to match G-Buffer / scene passes)
     VkViewport viewport{};
     viewport.x = 0.0f;
-    viewport.y = 0.0f;
+    viewport.y = (float)Device.dwHeight;
     viewport.width = (float)Device.dwWidth;
-    viewport.height = (float)Device.dwHeight;
+    viewport.height = -(float)Device.dwHeight;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);

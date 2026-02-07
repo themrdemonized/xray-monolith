@@ -1336,15 +1336,8 @@ public:
     void KillHW() override {}
 };
 
-class vkWallMarkArray : public IWallMarkArray
-{
-public:
-    void Copy(IWallMarkArray&) override {}
-    void AppendMark(LPCSTR) override {}
-    void clear() override {}
-    bool empty() override { return true; }
-    wm_shader GenerateWallmark() override { return wm_shader(); }
-};
+// WallMarkArray: use real dxWallMarkArray from shared render code
+#include "../xrRender/dxWallMarkArray.h"
 
 class vkStatsRender : public IStatsRender
 {
@@ -1927,7 +1920,9 @@ FACTORY_IMPLEMENT(StatGraphRender)
 FACTORY_IMPLEMENT(ConsoleRender)
 FACTORY_IMPLEMENT(RenderDeviceRender)
 FACTORY_IMPLEMENT(ApplicationRender)
-FACTORY_IMPLEMENT(WallMarkArray)
+// WallMarkArray - use real dxWallMarkArray instead of empty stub
+IWallMarkArray* dxRenderFactory::CreateWallMarkArray() { return xr_new<dxWallMarkArray>(); }
+void dxRenderFactory::DestroyWallMarkArray(IWallMarkArray* p) { dxWallMarkArray* vp = static_cast<dxWallMarkArray*>(p); xr_delete(vp); }
 FACTORY_IMPLEMENT(StatsRender)
 FACTORY_IMPLEMENT(FlareRender)
 FACTORY_IMPLEMENT(ThunderboltRender)

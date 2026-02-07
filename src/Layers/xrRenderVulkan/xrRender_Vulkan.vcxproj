@@ -331,6 +331,7 @@
     <ClCompile Include="vk_shared_FHierrarhyVisual.cpp" />
     <ClCompile Include="vk_shared_Animation.cpp" />
     <ClCompile Include="..\xrRender\du_sphere.cpp" />
+    <ClCompile Include="..\xrRender\dxWallMarkArray.cpp" />
     <ClCompile Include="..\xrRender\du_cone.cpp" />
     <!-- Particle System and texture manager - Vulkan implementation -->
     <ClCompile Include="vk_PSLibrary_TextureMngr_stubs.cpp" />

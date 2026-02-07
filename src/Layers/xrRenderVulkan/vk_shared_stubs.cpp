@@ -18,6 +18,10 @@
 #include "vk_Visual.h"
 #include "vk_sector.h"
 #include "vk_R_Backend.h"
+#include "vk_pipeline.h"
+#include "vk_rendertarget.h"
+#include "vk_swapchain.h"
+#include "vk_material.h"
 #include "../../xrEngine/device.h"
 #include "../../xrEngine/IGame_Persistent.h"
 #include "../../xrEngine/Environment.h"
@@ -765,9 +769,84 @@ void R_dsgraph_structure::r_dsgraph_render_emissive(bool clear, bool renderHUD)
     }
 }
 
+// Callback for wallmark-level rendering (back-to-front, alpha blended)
+static void __fastcall vk_wallmark_render(R_dsgraph::mapSorted_Node* N)
+{
+    R_dsgraph::_MatrixItemS& item = N->val;
+    if (!item.pVisual) return;
+
+    vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+
+    VkCommandBuffer cmd = RCache.GetCommandBuffer();
+    if (cmd == VK_NULL_HANDLE) return;
+
+    VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+    if (layout == VK_NULL_HANDLE) return;
+
+    // Push world matrix (offset 0)
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+        0, sizeof(Fmatrix), &item.Matrix);
+
+    // Push per-visual alpha ref (offset 200)
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+        200, sizeof(float), &pV->m_fAlphaRef);
+
+    // Bind material (diffuse texture, descriptor set 1)
+    if (pV->m_pMaterial && pV->m_pMaterial->IsValid())
+        pV->m_pMaterial->Bind(cmd);
+    else if (g_MaterialManager && g_MaterialManager->GetDefaultMaterial())
+        g_MaterialManager->GetDefaultMaterial()->Bind(cmd);
+
+    // Cast to vkFVisual to access mesh data
+    vkFVisual* pFV = dynamic_cast<vkFVisual*>(pV);
+    if (pFV && pFV->m_mesh.p_rm_Vertices && pFV->m_mesh.p_rm_Indices)
+    {
+        RCache.set_Vertices(pFV->m_mesh.p_rm_Vertices->GetHandle(), pFV->m_mesh.vStride);
+        RCache.set_Indices(pFV->m_mesh.p_rm_Indices->GetHandle(), pFV->m_mesh.iType);
+        RCache.Render(4, pFV->m_mesh.vBase, 0, pFV->m_mesh.vCount,
+                      pFV->m_mesh.iBase, pFV->m_mesh.dwPrimitives);
+
+        RCache.stat.polys += pFV->m_mesh.dwPrimitives;
+        RCache.stat.verts += pFV->m_mesh.vCount;
+    }
+}
+
 void R_dsgraph_structure::r_dsgraph_render_wmarks()
 {
-    // TODO: Implement for Vulkan
+    if (!mapWmark.size()) return;
+
+    VkCommandBuffer cmd = RCache.GetCommandBuffer();
+    if (cmd == VK_NULL_HANDLE) { mapWmark.clear(); return; }
+
+    // Get wallmark-level pipeline (stride 32, tcOffset 24 for standard level geometry)
+    VkPipeline wmpipe = RTarget->GetWallmarkLevelPipeline(32, 24);
+    if (wmpipe == VK_NULL_HANDLE) { mapWmark.clear(); return; }
+
+    // Bind wallmark pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, wmpipe);
+
+    // Push View + Projection matrices
+    VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                       64, sizeof(Fmatrix), &Device.mView);
+    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                       128, sizeof(Fmatrix), &Device.mProject);
+
+    // Push UV scale for SHORT2 (stride-32 level geometry)
+    float uvScale = 1.0f / 1024.0f;
+    vkCmdPushConstants(cmd, layout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       192, sizeof(float), &uvScale);
+
+    static u32 s_wmarkDiag = 0;
+    if (s_wmarkDiag < 10) {
+        Msg("[Vulkan] r_dsgraph_render_wmarks: mapWmark.size()=%u", mapWmark.size());
+        s_wmarkDiag++;
+    }
+
+    // Traverse and render each wallmark visual (back-to-front for transparency)
+    mapWmark.traverseRL(vk_wallmark_render);
+    mapWmark.clear();
 }
 
 void R_dsgraph_structure::r_dsgraph_render_distort()
@@ -1079,9 +1158,21 @@ SGeometry::~SGeometry()
     // Vulkan stub - resources managed by Vulkan memory allocator
 }
 
+// Map from Shader* to texture name for Vulkan (ref_shader::create stores texture names here)
+static xr_map<Shader*, shared_str> s_vkShaderTextureMap;
+
+shared_str vkGetShaderTextureName(Shader* pSh)
+{
+    if (!pSh) return shared_str();
+    auto it = s_vkShaderTextureMap.find(pSh);
+    if (it != s_vkShaderTextureMap.end())
+        return it->second;
+    return shared_str();
+}
+
 Shader::~Shader()
 {
-    // Vulkan stub
+    s_vkShaderTextureMap.erase(this);
 }
 
 STextureList::~STextureList()
@@ -1123,7 +1214,13 @@ void resptrcode_geom::create(u32 FVF, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
 
 void resptrcode_shader::create(LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_constants, LPCSTR s_matrices)
 {
-    // Vulkan stub - shaders created via SPIR-V
+    // Vulkan: allocate a minimal Shader object so ref_shader is non-null
+    // and store the texture name for later retrieval (used by wallmarks, etc.)
+    if (!s_textures || !s_textures[0]) return;
+
+    Shader* S = xr_new<Shader>();
+    _set(S);
+    s_vkShaderTextureMap[S] = s_textures;
 }
 
 // ============================================================================

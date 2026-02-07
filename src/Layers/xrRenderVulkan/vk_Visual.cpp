@@ -22,6 +22,9 @@
 #undef FBasicVisualH
 #include "3DFluid/vk3DFluidVolume.h"     // Phase 0: 3D Fluid system
 
+// UV Diagnostic: shadow VB data for dumping UV values (defined in rvk_loader.cpp)
+extern void VBShadow_DumpUVs(VK::CVulkanBuffer* vb, u32 vBase, u32 vCount, const char* label);
+
 // Factory functions for Skeleton classes (implemented in vk_Skeleton*.cpp wrapper files)
 extern "C" void* vkCreateKinematics();
 extern "C" void* vkCreateKinematicsAnimated();
@@ -266,6 +269,13 @@ void vkFVisual::Render(float LOD)
                 m_mesh.vBase, m_mesh.vCount,
                 m_mesh.iBase, m_mesh.iCount,
                 Wdbg._41, Wdbg._42, Wdbg._43);
+
+            // UV Diagnostic: dump UV values for first 20 visuals
+            if (s_logCount <= 20 && m_mesh.p_rm_Vertices) {
+                string256 diagLabel;
+                xr_sprintf(diagLabel, "VIS#%u[%s]", s_logCount, matName);
+                VBShadow_DumpUVs(m_mesh.p_rm_Vertices, m_mesh.vBase, m_mesh.vCount, diagLabel);
+            }
         }
     }
 
@@ -284,6 +294,12 @@ void vkFVisual::Render(float LOD)
                 // -1.0 = disabled (solid), 0.5 = enabled (foliage/aref shaders)
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_FRAGMENT_BIT,
                     200, sizeof(float), &m_fAlphaRef);
+
+                // Always push uvScale to guard against stale values
+                float uvScale = (m_mesh.vStride == 32) ? (1.0f / 1024.0f) : 1.0f;
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    192, sizeof(float), &uvScale);
             }
         }
     }
@@ -883,7 +899,36 @@ void vkFProgressive::Render(float LOD)
     if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
         return;
 
-    // Push world matrix (same as vkFVisual::Render)
+    // Per-progressive-visual diagnostic: log once per unique mesh
+    {
+        static xr_set<u64> s_loggedProg;
+        static u32 s_progLogCount = 0;
+        u64 key = (u64)(uintptr_t)m_mesh.p_rm_Vertices ^ ((u64)m_mesh.vBase << 32);
+        if (s_progLogCount < 200 && s_loggedProg.find(key) == s_loggedProg.end()) {
+            s_loggedProg.insert(key);
+            s_progLogCount++;
+            const Fmatrix& Wdbg = RCache.xforms.m_w;
+            const char* matName = (m_pMaterial && m_pMaterial->m_Name.size() > 0)
+                ? m_pMaterial->m_Name.c_str() : "<none>";
+            const char* vName = (dbg_name.size() > 0) ? dbg_name.c_str() : "<anon>";
+            Msg("[PROG-DIAG] #%u name='%s' tex='%s' stride=%u tcOff=%u vBase=%u vCount=%u iBase=%u iCount=%u sw=%u LOD=%.2f alphaRef=%.3f pos=(%.1f,%.1f,%.1f)",
+                s_progLogCount, vName, matName,
+                stride, m_mesh.tcOffset,
+                m_mesh.vBase, m_mesh.vCount,
+                m_mesh.iBase, m_mesh.iCount,
+                sw_count, LOD, m_fAlphaRef,
+                Wdbg._41, Wdbg._42, Wdbg._43);
+
+            // UV Diagnostic: dump UV values for interesting visuals
+            if (m_mesh.p_rm_Vertices && stride == 32) {
+                string256 diagLabel;
+                xr_sprintf(diagLabel, "PROG#%u[%s]", s_progLogCount, matName);
+                VBShadow_DumpUVs(m_mesh.p_rm_Vertices, m_mesh.vBase, m_mesh.vCount, diagLabel);
+            }
+        }
+    }
+
+    // Push world matrix and per-visual alphaRef (same as vkFVisual::Render)
     {
         VkCommandBuffer cmd = RCache.GetCommandBuffer();
         if (cmd != VK_NULL_HANDLE) {
@@ -891,6 +936,14 @@ void vkFProgressive::Render(float LOD)
             if (layout != VK_NULL_HANDLE) {
                 const Fmatrix& W = RCache.xforms.m_w;
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+                    200, sizeof(float), &m_fAlphaRef);
+
+                // Always push uvScale to guard against stale values
+                float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    192, sizeof(float), &uvScale);
             }
         }
     }
@@ -1924,6 +1977,13 @@ void vkSkeletonX_ST::Render(float LOD)
                         RCache.set_Pipeline(prevPipeline);
                         RCache.m_CurrentGBufStride = prevStride;
                         RCache.m_CurrentGBufTcOffset = prevTcOff;
+
+                        // Restore correct uvScale for the previous pipeline
+                        // Skinned render pushed 1.0 — level VBs (stride 32) need 1/1024
+                        float restoreUvScale = (prevStride == 32) ? (1.0f / 1024.0f) : 1.0f;
+                        vkCmdPushConstants(cmd, layout,
+                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                            192, sizeof(float), &restoreUvScale);
                     }
                 }
             }
@@ -2470,6 +2530,13 @@ void vkSkeletonX_PM::Render(float LOD)
                         RCache.set_Pipeline(prevPipeline);
                         RCache.m_CurrentGBufStride = prevStride;
                         RCache.m_CurrentGBufTcOffset = prevTcOff;
+
+                        // Restore correct uvScale for the previous pipeline
+                        // Skinned render pushed 1.0 — level VBs (stride 32) need 1/1024
+                        float restoreUvScale = (prevStride == 32) ? (1.0f / 1024.0f) : 1.0f;
+                        vkCmdPushConstants(cmd, layout,
+                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                            192, sizeof(float), &restoreUvScale);
                     }
                 }
             }

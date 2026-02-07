@@ -741,4 +741,69 @@ void CRenderTarget::phase_gbuffer()
     }
 }
 
+// ============================================================================
+// GetWallmarkLevelPipeline() - Get or create wallmark-level pipeline
+// ============================================================================
+// Wallmarks are level geometry (stride-32) rendered as transparent decals
+// on top of the deferred-shaded scene. Single color output (swapchain),
+// depth test ON, depth write OFF, alpha blend, cull NONE.
+VkPipeline CRenderTarget::GetWallmarkLevelPipeline(u32 stride, u32 tcOffset)
+{
+    u32 key = stride | (tcOffset << 16);
+
+    auto it = m_WallmarkPipelines.find(key);
+    if (it != m_WallmarkPipelines.end())
+        return it->second;
+
+    Msg("[Vulkan] Creating wallmark-level pipeline for stride %u tcOffset %u...", stride, tcOffset);
+
+    // Load wallmark shaders
+    VkShaderModule vertShader = g_ShaderManager->Load("wallmark_level_vs.spv");
+    VkShaderModule fragShader = g_ShaderManager->Load("wallmark_level_fs.spv");
+
+    if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE) {
+        Msg("![Vulkan] Failed to load wallmark-level shaders (stride %u)", stride);
+        return VK_NULL_HANDLE;
+    }
+
+    PipelineConfig config;
+    config.vertShader = vertShader;
+    config.fragShader = fragShader;
+    config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    config.cullMode = VK_CULL_MODE_NONE;  // Decals can be double-sided
+
+    // Depth: test ON, write OFF (read-only during forward pass)
+    config.depthTest = true;
+    config.depthWrite = false;
+    config.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+
+    // Alpha blending (standard transparency)
+    config.blendEnable = true;
+    config.srcColorBlend = VK_BLEND_FACTOR_SRC_ALPHA;
+    config.dstColorBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    config.srcAlphaBlend = VK_BLEND_FACTOR_ONE;
+    config.dstAlphaBlend = VK_BLEND_FACTOR_ZERO;
+
+    // Single color attachment (swapchain)
+    config.colorAttachmentCount = 1;
+    config.colorFormats[0] = Swapchain.GetFormat();
+    config.depthFormat = VK_FORMAT_D32_SFLOAT;
+
+    // Same vertex input as G-Buffer (stride-32 level geometry)
+    config.useDefaultVertexInput = true;
+    config.vertexStride = stride;
+    config.tcOffset = tcOffset;
+
+    VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
+
+    if (pipeline == VK_NULL_HANDLE) {
+        Msg("![Vulkan] Failed to create wallmark-level pipeline for stride %u tcOffset %u", stride, tcOffset);
+    } else {
+        m_WallmarkPipelines[key] = pipeline;
+        Msg("[Vulkan] Wallmark-level pipeline created successfully (stride %u tcOffset %u)", stride, tcOffset);
+    }
+
+    return pipeline;
+}
+
 } // namespace VK

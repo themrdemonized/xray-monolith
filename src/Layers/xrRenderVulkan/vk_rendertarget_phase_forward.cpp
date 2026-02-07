@@ -10,6 +10,9 @@
 #include "vk_pipeline.h"
 #include "vk_swapchain.h"
 #include "rvk.h"
+
+// vk_WallmarksEngine.h NOT included here — CSkeletonWallmark dependency issues.
+// Wallmarks->Render() is called from rvk.cpp between phase_wallmarks_begin/end.
 // #include "vk_DetailManager.h"  // VK::CDetailManager full definition
 
 namespace VK
@@ -114,11 +117,11 @@ void CRenderTarget::phase_forward()
 	depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 	depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-	depthBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+	depthBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+	depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
 	depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	depthBarrier.image = rt_ZBuffer.m_Image;
+	depthBarrier.image = Swapchain.m_DepthImage;
 	depthBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 	depthBarrier.subresourceRange.baseMipLevel = 0;
 	depthBarrier.subresourceRange.levelCount = 1;
@@ -142,10 +145,10 @@ void CRenderTarget::phase_forward()
 
 	VkRenderingAttachmentInfo depthAttachment = {};
 	depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	depthAttachment.imageView = rt_ZBuffer.m_ImageView;
-	depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;  // Preserve G-Buffer depth!
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depthAttachment.imageView = Swapchain.m_DepthView;
+	depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;   // Keep existing depth
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;  // Read-only, no writes
 
 	VkRenderingInfo renderingInfo = {};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -280,15 +283,134 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	depthBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 	depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	depthBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-	depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	depthBarrier.image = rt_ZBuffer.m_Image;
+	depthBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+	depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+	depthBarrier.image = Swapchain.m_DepthImage;
 
 	vkCmdPipelineBarrier(cmd,
 	                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 	                     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 	                     0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
 
+}
+
+// ============================================================================
+// phase_wallmarks_begin() - Begin Wallmarks Render Pass
+// ============================================================================
+void CRenderTarget::phase_wallmarks_begin()
+{
+	VkCommandBuffer cmd = RCache.GetCommandBuffer();
+
+	VkImage swapchainImage = Swapchain.GetCurrentImage();
+	VkImageView swapchainView = Swapchain.GetCurrentImageView();
+	u32 swapWidth = Swapchain.GetWidth();
+	u32 swapHeight = Swapchain.GetHeight();
+
+	if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE)
+		return;
+
+	VkImage depthImage = Swapchain.m_DepthImage;
+	VkImageView depthView = Swapchain.m_DepthView;
+	if (depthImage == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE)
+		return;
+
+	// Transition images for wallmarks rendering (same pattern as sky/clouds)
+	VkImageMemoryBarrier barriers[2] = {};
+
+	// Swapchain: PRESENT_SRC -> COLOR_ATTACHMENT_OPTIMAL
+	barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barriers[0].srcAccessMask = 0;
+	barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	barriers[0].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barriers[0].image = swapchainImage;
+	barriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+	// Depth: DEPTH_ATTACHMENT_OPTIMAL -> DEPTH_READ_ONLY_OPTIMAL
+	barriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barriers[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	barriers[1].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	barriers[1].oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+	barriers[1].newLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+	barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barriers[1].image = depthImage;
+	barriers[1].subresourceRange = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
+
+	vkCmdPipelineBarrier(cmd,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+		0, 0, nullptr, 0, nullptr, 2, barriers);
+
+	// Begin rendering (swapchain + depth read-only)
+	VkRenderingAttachmentInfo colorAttachment = {};
+	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	colorAttachment.imageView = swapchainView;
+	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+	VkRenderingAttachmentInfo depthAttachment = {};
+	depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+	depthAttachment.imageView = depthView;
+	depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;  // Read-only, no writes
+
+	VkRenderingInfo renderingInfo = {};
+	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+	renderingInfo.renderArea.offset = {0, 0};
+	renderingInfo.renderArea.extent = {swapWidth, swapHeight};
+	renderingInfo.layerCount = 1;
+	renderingInfo.colorAttachmentCount = 1;
+	renderingInfo.pColorAttachments = &colorAttachment;
+	renderingInfo.pDepthAttachment = &depthAttachment;
+
+	vkCmdBeginRendering(cmd, &renderingInfo);
+}
+
+// ============================================================================
+// phase_wallmarks_end() - End Wallmarks Render Pass
+// ============================================================================
+void CRenderTarget::phase_wallmarks_end()
+{
+	VkCommandBuffer cmd = RCache.GetCommandBuffer();
+
+	vkCmdEndRendering(cmd);
+
+	VkImage swapchainImage = Swapchain.GetCurrentImage();
+
+	// Transition images back (same pattern as sky/clouds finalBarriers)
+	VkImageMemoryBarrier finalBarriers[2] = {};
+
+	// Swapchain: COLOR_ATTACHMENT -> PRESENT_SRC
+	finalBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	finalBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	finalBarriers[0].dstAccessMask = 0;
+	finalBarriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	finalBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	finalBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	finalBarriers[0].image = swapchainImage;
+	finalBarriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+	// Depth: DEPTH_READ_ONLY -> DEPTH_ATTACHMENT_OPTIMAL
+	finalBarriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	finalBarriers[1].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	finalBarriers[1].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	finalBarriers[1].oldLayout = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+	finalBarriers[1].newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+	finalBarriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	finalBarriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	finalBarriers[1].image = Swapchain.m_DepthImage;
+	finalBarriers[1].subresourceRange = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
+
+	vkCmdPipelineBarrier(cmd,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+		0, 0, nullptr, 0, nullptr, 2, finalBarriers);
 }
 
 } // namespace VK

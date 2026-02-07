@@ -34,6 +34,58 @@ using VK::g_FluidManager;
 #include "../../xrCore/stream_reader.h"
 
 // ============================================================================
+// UV Diagnostic: CPU-side shadow copies of VB data for debugging tiling issues
+// ============================================================================
+struct VBShadowEntry {
+    xr_vector<u8> data;
+    u32 stride;
+    u32 tcOffset;
+    u32 vCount;
+};
+xr_map<VK::CVulkanBuffer*, VBShadowEntry> g_VBShadowData;
+
+void VBShadow_DumpUVs(VK::CVulkanBuffer* vb, u32 vBase, u32 vCount, const char* label)
+{
+    auto it = g_VBShadowData.find(vb);
+    if (it == g_VBShadowData.end()) {
+        Msg("[UV-DIAG] %s: VB shadow not found!", label);
+        return;
+    }
+    const VBShadowEntry& e = it->second;
+    u32 stride = e.stride;
+    u32 tcOff = e.tcOffset;
+    u32 maxVert = e.vCount;
+
+    if (vBase + vCount > maxVert) {
+        Msg("[UV-DIAG] %s: vBase=%u+vCount=%u > maxVert=%u, clamping", label, vBase, vCount, maxVert);
+        if (vBase >= maxVert) return;
+        vCount = maxVert - vBase;
+    }
+
+    // Dump first 10 and last 2 UV values
+    s16 uvMinU = 32767, uvMaxU = -32768;
+    s16 uvMinV = 32767, uvMaxV = -32768;
+    u32 dumpLimit = (vCount < 12) ? vCount : 10;
+    for (u32 v = 0; v < vCount; v++) {
+        const s16* uv = (const s16*)(e.data.data() + (vBase + v) * stride + tcOff);
+        s16 u = uv[0], vv = uv[1];
+        if (u < uvMinU) uvMinU = u;
+        if (u > uvMaxU) uvMaxU = u;
+        if (vv < uvMinV) uvMinV = vv;
+        if (vv > uvMaxV) uvMaxV = vv;
+        if (v < dumpLimit || v >= vCount - 2) {
+            float fu = u / 1024.0f, fv = vv / 1024.0f;
+            Msg("[UV-DIAG] %s v[%u]: raw=(%d, %d) float=(%.4f, %.4f)",
+                label, v, u, vv, fu, fv);
+        }
+    }
+    float fMinU = uvMinU / 1024.0f, fMaxU = uvMaxU / 1024.0f;
+    float fMinV = uvMinV / 1024.0f, fMaxV = uvMaxV / 1024.0f;
+    Msg("[UV-DIAG] %s RANGE: U=[%d..%d] (%.4f..%.4f) V=[%d..%d] (%.4f..%.4f) across %u verts",
+        label, uvMinU, uvMaxU, fMinU, fMaxU, uvMinV, uvMaxV, fMinV, fMaxV, vCount);
+}
+
+// ============================================================================
 // Level Loading
 // ============================================================================
 void CRender::level_Load(IReader* fs)
@@ -469,6 +521,25 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             BYTE* pData = xr_alloc<BYTE>(vCount * vSize);
             fs->r(pData, vCount * vSize);
 
+            // UV range diagnostic: scan SHORT2 UVs to detect tiling issues
+            if (vSize == 32 && !_alternative)
+            {
+                s16 uvMinU = 32767, uvMaxU = -32768;
+                s16 uvMinV = 32767, uvMaxV = -32768;
+                for (u32 v = 0; v < vCount; v++)
+                {
+                    const s16* uv = (const s16*)(pData + v * vSize + tcOffset);
+                    if (uv[0] < uvMinU) uvMinU = uv[0];
+                    if (uv[0] > uvMaxU) uvMaxU = uv[0];
+                    if (uv[1] < uvMinV) uvMinV = uv[1];
+                    if (uv[1] > uvMaxV) uvMaxV = uv[1];
+                }
+                float fMinU = uvMinU / 1024.0f, fMaxU = uvMaxU / 1024.0f;
+                float fMinV = uvMinV / 1024.0f, fMaxV = uvMaxV / 1024.0f;
+                Msg("  VB[%d] UV range: U=[%d..%d] (%.3f..%.3f) V=[%d..%d] (%.3f..%.3f) tcOff=%u",
+                    i, uvMinU, uvMaxU, fMinU, fMaxU, uvMinV, uvMaxV, fMinV, fMaxV, tcOffset);
+            }
+
             // Create Vulkan vertex buffer
             _VB[i] = xr_new<VK::CVulkanBuffer>();
             _VB[i]->Create(
@@ -484,6 +555,18 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             // Tree visuals and normal geometry use the geom pool (stride=32 with UV/normals).
             if (VK::g_BufferPool && !_alternative) {
                 VK::g_BufferPool->RegisterVertexBuffer(i, _VB[i], vSize, tcOffset);
+            }
+
+            // UV Diagnostic: save CPU-side shadow for stride-32 VBs (non-alternative)
+            if (vSize == 32 && !_alternative) {
+                VBShadowEntry& shadow = g_VBShadowData[_VB[i]];
+                shadow.data.resize(vCount * vSize);
+                CopyMemory(shadow.data.data(), pData, vCount * vSize);
+                shadow.stride = vSize;
+                shadow.tcOffset = tcOffset;
+                shadow.vCount = vCount;
+                Msg("[UV-DIAG] Saved shadow for VB[%d] ptr=%p verts=%u stride=%u tcOff=%u",
+                    i, _VB[i], vCount, vSize, tcOffset);
             }
 
             xr_free(pData);
