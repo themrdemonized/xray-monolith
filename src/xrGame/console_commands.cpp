@@ -164,6 +164,9 @@ extern float NPCsLookAtActorMinDistance;
 extern BOOL interruptFireOnAimToggle;
 
 extern BOOL mt_UpdateWeaponSounds;
+extern BOOL mt_Scheduler;
+extern BOOL mt_calc_bones;
+extern BOOL mt_ph_commander;
 
 extern BOOL alifeObjectHangingLampIgnoreMatchConfiguration;
 
@@ -174,6 +177,9 @@ extern float IK_CALC_DIST;
 extern float IK_CALC_SSA;
 extern float IK_ALWAYS_CALC_DIST;
 extern BOOL r_optimize_calculate_bones;
+extern BOOL hud_frequent_updates;
+
+extern BOOL lua_use_functor_cache;
 
 extern CrosshairSettings g_crosshair_camera_near;
 extern CrosshairSettings g_crosshair_camera_far;
@@ -223,9 +229,6 @@ extern CrosshairSettings g_crosshair_device_far;
 	CrosshairDistanceCommands(crosshair, suffix); \
 	CrosshairOpacityCommands(crosshair, suffix); \
 	CrosshairLineCommands(crosshair, suffix)
-
-extern BOOL g_decouple_horz_recoil;
-extern BOOL g_use_non_linear_inertia;
 
 extern float recon_show_speed;
 extern float recon_hide_speed;
@@ -306,6 +309,7 @@ extern XRCORE_API full_memory_stats_callback_type g_full_memory_stats_callback;
 
 static void full_memory_stats()
 {
+	PROF_EVENT("full_memory_stats");
 	Msg("* [x-ray]: Full Memory Stats");
 	Memory.mem_compact();
 	size_t _process_heap = ::Memory.mem_usage();
@@ -313,8 +317,9 @@ static void full_memory_stats()
 	u32		_game_lua = game_lua_memory_usage();
 	u32		_render = ::Render->memory_usage();
 #endif // SEVERAL_ALLOCATORS
-    u32 _eco_strings_count = 0;
-	int _eco_strings = (int)g_pStringContainer->stat_economy(_eco_strings_count);
+	u32 _eco_strings_count = 0;
+	u32 _eco_strings_unique_count = 0;
+	int _eco_strings = (int)g_pStringContainer->stat_economy(_eco_strings_count, _eco_strings_unique_count);
 	int _eco_smem = (int)g_pSharedMemoryContainer->stat_economy();
 	u32 m_base = 0, c_base = 0, m_lmaps = 0, c_lmaps = 0;
 
@@ -332,7 +337,10 @@ static void full_memory_stats()
 	Msg("* [x-ray]: process heap[%u K], game lua[%d K], render[%d K]", _process_heap / 1024, _game_lua / 1024, _render / 1024);
 #endif // SEVERAL_ALLOCATORS
 
-	Msg("* [x-ray]: shared strings: memory[%ld K], count[%lu]", _eco_strings / 1024, _eco_strings_count);
+	Msg("* [x-ray]: shared strings: memory[%ld K], count[%lu], unique[%lu]", _eco_strings / 1024, _eco_strings_count, _eco_strings_unique_count);
+	if (_eco_strings_count != _eco_strings_unique_count)
+		Msg("! [x-ray]: shared strings, count != unique");
+
 	Msg("* [x-ray]: shared memory: memory[%ld K]", _eco_smem);
 
 	u64 DLTX_total_bytes = 0;
@@ -343,6 +351,11 @@ static void full_memory_stats()
 	
 	size_t lua_mem = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
 	Msg("* [Lua]: Memory usage: %u K", lua_mem);
+
+	if (Console)
+	{
+		Console->DumpHistoryToLog();
+	}
 
 #ifdef FS_DEBUG
 	Msg("* [x-ray]: file mapping: memory[%d K], count[%d]", g_file_mapped_memory / 1024, g_file_mapped_count);
@@ -364,6 +377,26 @@ public:
 		full_memory_stats();
 	}
 };
+
+static void shared_string_dump() {
+	g_pStringContainer->dump_console();
+}
+
+
+class CCC_SharedStringDump : public IConsole_Command
+{
+public:
+	CCC_SharedStringDump(LPCSTR N) : IConsole_Command(N)
+	{
+		bEmptyArgsHandled = TRUE;
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		shared_string_dump();
+	}
+};
+
 #ifdef DEBUG
 class CCC_MemCheckpoint : public IConsole_Command
 {
@@ -1154,7 +1187,7 @@ public:
 
 	virtual void Execute(LPCSTR /**args/**/)
 	{
-		FlushLog();
+		xrLogger::FlushLog();
 		Msg("* Log file has been saved successfully!");
 	}
 };
@@ -1166,8 +1199,8 @@ public:
 
 	virtual void Execute(LPCSTR)
 	{
-		LogFile.clear_not_free();
-		FlushLog();
+		Console->ClearLog();
+		xrLogger::FlushLog();
 		Msg("* Log file has been cleaned successfully!");
 	}
 };
@@ -1834,7 +1867,7 @@ public:
 		float time_factor = (float)atof(args);
 		clamp(time_factor, EPS, 1000.f);
 		Device.time_factor(time_factor);
-		if (!strstr(Core.Params, "-sound_constant_speed"))
+		if (!Core.ParamsData.test(ECoreParams::sound_constant_speed))
 			psSpeedOfSound = time_factor;
 	}
 
@@ -2365,12 +2398,60 @@ public:
 	}
 };
 
+// Add after other includes, before command classes
+#include "../Include/xrRender/particles_systems_library_interface.hpp"
+#include "../Layers/xrRender/PSLibrary.h"
+#include "GamePersistent.h"
+
+class CCC_Particle_TEST : public IConsole_Command
+{
+public:
+    CCC_Particle_TEST(LPCSTR N)
+        : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+    virtual void Execute(LPCSTR args)
+    {
+        if (!g_pGameLevel)
+            return;
+        if (!Level().CurrentControlEntity())
+            return;
+
+        collide::rq_result l_rq;
+        if (Level().ObjectSpace.RayPick(Device.vCameraPosition, Device.vCameraDirection, 1000.f, collide::rqtBoth, l_rq, Level().CurrentControlEntity()))
+        {
+            int count = 1;
+            string256 string;
+            string[0] = 0;
+            sscanf(args, "%s %d", &string, &count);
+            for (int i = 0; i < count; ++i)
+            {
+                auto pParticle = Particles::Details::Create(string, FALSE);
+
+                // Set up matrix and position
+                Fmatrix pos;
+                pos.identity();
+                pos.k.set(Level().CurrentControlEntity()->XFORM().k);
+                Fvector::generate_orthonormal_basis_normalized(pos.k, pos.j, pos.i);
+                pos.c.set(Fvector(Device.vCameraPosition).add(Fvector(Device.vCameraDirection).mul(l_rq.range)));
+                pParticle->UpdateParent(pos, zero_vel);
+                GamePersistent().ps_needtoplay.push_back(pParticle);
+            }
+        }
+    }
+    virtual void fill_tips(vecTips& tips, u32 mode)
+    {
+        particles_systems::library_interface const& library = GamePersistent().Environment().m_pRender->particles_systems_library();
+        for (auto pi = library.vec_all_particles().begin(); pi != library.vec_all_particles().end(); ++pi)
+            tips.push_back(pi->c_str());
+    }
+};
+
 void CCC_RegisterCommands()
 {
 	//Not needed for a singleplayer-only mod
 	//g_OptConCom.Init();
 
 	CMD1(CCC_MemStats, "stat_memory");
+	CMD1(CCC_SharedStringDump, "stat_shared_string_dump");
 #ifdef DEBUG
 	CMD1(CCC_MemCheckpoint, "stat_memory_checkpoint");
 #endif //#ifdef DEBUG
@@ -2447,6 +2528,8 @@ void CCC_RegisterCommands()
 	CMD1(CCC_DemoRecordSetDir, "demo_set_cam_direction");
 	//#endif // #ifndef MASTER_GOLD
 
+	CMD3(CCC_Mask, "mt_bullets", &g_mt_config, mtBullets);
+
 #ifndef MASTER_GOLD
 	// ai
 	CMD3(CCC_Mask, "mt_ai_vision", &g_mt_config, mtAiVision);
@@ -2454,7 +2537,6 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "mt_detail_path", &g_mt_config, mtDetailPath);
 	CMD3(CCC_Mask, "mt_object_handler", &g_mt_config, mtObjectHandler);
 	CMD3(CCC_Mask, "mt_sound_player", &g_mt_config, mtSoundPlayer);
-	CMD3(CCC_Mask, "mt_bullets", &g_mt_config, mtBullets);
 	CMD3(CCC_Mask, "mt_script_gc", &g_mt_config, mtLUA_GC);
 	CMD3(CCC_Mask, "mt_level_sounds", &g_mt_config, mtLevelSounds);
 	CMD3(CCC_Mask, "mt_alife", &g_mt_config, mtALife);
@@ -2473,6 +2555,7 @@ void CCC_RegisterCommands()
     // Moved lua_gcstep outside of DEBUG to allow for easier experimentation.
 	CMD4(CCC_Integer, "lua_gcstep", &psLUA_GCSTEP, 1, 1000);
 	CMD4(CCC_Integer, "lua_debug", &lua_debug, 0, 1);
+	CMD4(CCC_Integer, "lua_use_functor_cache", &lua_use_functor_cache, 0, 1);
 
 #ifdef DEBUG
 	CMD3(CCC_Mask, "ai_debug", &psAI_Flags, aiDebug);
@@ -2585,7 +2668,7 @@ void CCC_RegisterCommands()
 	/* AVO: changing restriction to -dbg key instead of DEBUG */
 	//#ifndef MASTER_GOLD
 #ifdef MASTER_GOLD
-	if (0 != strstr(Core.Params, "-dbg"))
+	if (0 != Core.isDebug())
 	{
 		CMD1(CCC_JumpToLevel, "jump_to_level");
 		CMD3(CCC_Mask, "g_god", &psActorFlags, AF_GODMODE);
@@ -2622,9 +2705,6 @@ void CCC_RegisterCommands()
 	CrosshairFarCommands(g_crosshair_weapon_far, "weapon_far");
 	CrosshairNearCommands(g_crosshair_device_near, "device_near");
 	CrosshairFarCommands(g_crosshair_device_far, "device_far");
-
-	CMD4(CCC_Integer, "g_decouple_horz_recoil", &g_decouple_horz_recoil, 0, 1);
-	CMD4(CCC_Integer, "g_use_non_linear_inertia", &g_use_non_linear_inertia, 0, 1);
 
 	CMD4(CCC_Float, "g_recon_show_speed", &recon_show_speed, 0.f, 20.f);
 	CMD4(CCC_Float, "g_recon_hide_speed", &recon_hide_speed, 0.f, 20.f);
@@ -2876,6 +2956,9 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "blend_move_anims", &psDeviceFlags2, rsBlendMoveAnims);
 
 	CMD4(CCC_Integer, "mt_update_weapon_sounds", &mt_UpdateWeaponSounds, 0, 1);
+	CMD4(CCC_Integer, "mt_scheduler", &mt_Scheduler, 0, 1);
+	CMD4(CCC_Integer, "mt_level_call", &mt_ph_commander, 0, 1);
+	CMD4(CCC_Integer, "mt_calc_bones", &mt_calc_bones, 0, 1);
 
 	CMD4(CCC_Integer, "spawn_antifreeze", &spawn_antifreeze, 0, 1);
 	CMD4(CCC_Integer, "spawn_antifreeze_debug", &spawn_antifreeze_debug, 0, 1);
@@ -2884,6 +2967,7 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Float, "ik_calc_ssa", &IK_CALC_SSA, 0.001f, 0.02f);
 	CMD4(CCC_Float, "ik_always_calc_dist", &IK_ALWAYS_CALC_DIST, 10, 50);
 	CMD4(CCC_Integer, "r__optimize_calculate_bones", &r_optimize_calculate_bones, 0, 1);
+	CMD4(CCC_Integer, "hud_frequent_updates", &hud_frequent_updates, 0, 1);
 
 	CMD4(CCC_Integer, "g_progressive_stamina_cost", &progressiveStaminaCost, 0, 1);
 	CMD4(CCC_Integer, "g_npcs_look_at_actor", &NPCsLookAtActor, 0, 1);
@@ -3002,7 +3086,7 @@ void CCC_RegisterCommands()
 	// New zoom delta algorithm
 	CMD4(CCC_Integer, "new_zoom_delta_algorithm", &useNewZoomDeltaAlgorithm, 0, 1);
 
-	if (strstr(Core.Params, "-dbgdev"))
+	if (Core.ParamsData.test(ECoreParams::dbgdev))
 		CMD4(CCC_Float, "g_streff", &streff, -10.f, 10.f);
 	//No need for server commands in a singleplayer-only mod
 	//register_mp_console_commands();
@@ -3034,4 +3118,6 @@ void CCC_RegisterCommands()
 	// Wallmark distances
 	CMD4(CCC_Float, "g_wallmark_range_static", &wallmark_range_static, 0.f, 1000.f);
 	CMD4(CCC_Float, "g_wallmark_range_skeleton", &wallmark_range_skeleton, 0.f, 1000.f);
+
+    CMD1(CCC_Particle_TEST,     "g_ps_test");
 }

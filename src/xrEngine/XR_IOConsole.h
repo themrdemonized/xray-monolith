@@ -7,6 +7,10 @@
 #include "../Include/xrRender/FactoryPtr.h"
 #include "../Include/xrRender/UIShader.h"
 
+#include "../xrCore/RingBuffer.h"
+#include "xr_input.h"
+#include "IInputReceiver.h" 
+
 //refs
 class ENGINE_API CGameFont;
 class ENGINE_API IConsole_Command;
@@ -82,7 +86,8 @@ enum Console_mark // (int)=char
 class ENGINE_API CConsole :
 	public pureRender,
 	public pureFrame,
-	public pureScreenResolutionChanged
+	public pureScreenResolutionChanged,
+	public IInputReceiver
 {
 public:
 	struct str_pred
@@ -96,8 +101,8 @@ public:
 	typedef xr_map<LPCSTR, IConsole_Command*, str_pred> vecCMD;
 	typedef vecCMD::iterator vecCMD_IT;
 	typedef vecCMD::const_iterator vecCMD_CIT;
-	typedef fastdelegate::FastDelegate0<void> Callback;
-	typedef xr_vector<shared_str> vecHistory;
+	typedef xr_delegate<void()> Callback;
+	typedef xr_vector<xr_string> vecHistory;
 	typedef xr_vector<shared_str> vecTips;
 	typedef xr_vector<TipString> vecTipsEx;
 
@@ -116,17 +121,21 @@ protected:
 	POINT m_mouse_pos;
 	bool m_disable_tips;
 
+	RingBuffer<xr_string, 1024> m_log_history;
+	u32 m_log_line_counter;
+	xrCriticalSection m_log_history_guard;
+
 private:
 	vecHistory m_cmd_history;
 	u32 m_cmd_history_max;
 	int m_cmd_history_idx;
-	shared_str m_last_cmd;
+	xr_string m_last_cmd;
 	BENCH_SEC_SCRAMBLEMEMBER1
 
 	vecTips m_temp_tips;
 	vecTipsEx m_tips;
 	u32 m_tips_mode;
-	shared_str m_cur_cmd;
+	xr_string m_cur_cmd;
 	int m_select_tip;
 	int m_start_tip;
 	u32 m_prev_length_str;
@@ -137,7 +146,17 @@ public:
 	virtual void Initialize();
 	virtual void Destroy();
 
+	void DumpHistoryToLog();
+
+	void AddLogEntry(LPCSTR line);
+	void ClearLog();
+
+	virtual void IR_OnKeyboardPress(int dik) override;
+	virtual void IR_OnKeyboardRelease(int dik) override;
+	virtual void IR_OnKeyboardHold(int dik) override;
+
 	virtual void OnRender();
+	virtual void IR_OnMouseWheel(int direction) override;
 	virtual void _BCL OnFrame();
 	virtual void OnScreenResolutionChanged();
 	string64 ConfigFile;
@@ -179,6 +198,11 @@ protected:
 	void OutFont(LPCSTR text, float& pos_y);
 	void Register_callbacks();
 
+	void LoadHistory();
+	void SaveHistory();
+
+	bool m_bHistoryLoaded;
+
 protected:
 	void xr_stdcall Screenshot();
 
@@ -207,7 +231,7 @@ protected:
 	void xr_stdcall GamePause();
 
 protected:
-	void add_cmd_history(shared_str const& str);
+	void add_cmd_history(const xr_string& str);
 	void next_cmd_history_idx();
 	void prev_cmd_history_idx();
 	void reset_cmd_history_idx();
