@@ -175,6 +175,14 @@ public:
     void CreateDefaultTextures();                      // Create white/black/normal fallbacks
     void DestroyDefaultTextures();                     // Release default textures
 
+    // Terrain detail texture names (loaded from shaders.xr CBlender_BmmD)
+    void LoadTerrainDetailNamesFromShaders();           // Parse shaders.xr for BmmD detail names
+    string64 m_TerrainDetailR;                         // Detail texture name for R channel
+    string64 m_TerrainDetailG;                         // Detail texture name for G channel
+    string64 m_TerrainDetailB;                         // Detail texture name for B channel
+    string64 m_TerrainDetailA;                         // Detail texture name for A channel
+    bool     m_bTerrainDetailNamesLoaded = false;
+
     CVulkanTexture* GetWhiteTexture() const { return m_WhiteTexture; }
     CVulkanTexture* GetBlackTexture() const { return m_BlackTexture; }
     CVulkanTexture* GetDefaultNormal() const { return m_DefaultNormal; }

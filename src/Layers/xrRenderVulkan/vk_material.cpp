@@ -356,14 +356,14 @@ void CMaterial::LoadTerrainTextures(LPCSTR name)
     }
 
     // ========================================================================
-    // Load 4 detail textures (default names from CBlender_BmmD)
-    // R = grass, G = asphalt, B = earth, A = yantar
+    // Load 4 detail textures (names from shaders.xr CBlender_BmmD)
+    // R = grass, G = asphalt, B = earth, A = yantar (or level-specific)
     // ========================================================================
     const char* detail_names[4] = {
-        "detail\\detail_grnd_grass",
-        "detail\\detail_grnd_asphalt",
-        "detail\\detail_grnd_earth",
-        "detail\\detail_grnd_yantar"
+        g_MaterialManager->m_TerrainDetailR,
+        g_MaterialManager->m_TerrainDetailG,
+        g_MaterialManager->m_TerrainDetailB,
+        g_MaterialManager->m_TerrainDetailA
     };
 
     CVulkanTexture** detail_ptrs[4] = {
@@ -577,6 +577,9 @@ void CMaterialManager::Create()
         Msg("[Vulkan] Texture descriptor manager created (.thm files loaded)");
     }
 
+    // Load terrain detail texture names from shaders.xr (before any materials)
+    LoadTerrainDetailNamesFromShaders();
+
     // Create default textures (white, black, normal)
     CreateDefaultTextures();
 
@@ -739,6 +742,99 @@ void CMaterialManager::DestroyTexture(CVulkanTexture* tex)
             return;
         }
     }
+}
+
+void CMaterialManager::LoadTerrainDetailNamesFromShaders()
+{
+    // Set defaults first
+    xr_strcpy(m_TerrainDetailR, "detail\\detail_grnd_grass");
+    xr_strcpy(m_TerrainDetailG, "detail\\detail_grnd_asphalt");
+    xr_strcpy(m_TerrainDetailB, "detail\\detail_grnd_earth");
+    xr_strcpy(m_TerrainDetailA, "detail\\detail_grnd_yantar");
+
+    // Try to load actual names from shaders.xr
+    string_path fname;
+    if (!FS.exist(fname, "$game_data$", "shaders.xr")) {
+        Msg("![Vulkan] shaders.xr not found - using default terrain detail names");
+        m_bTerrainDetailNamesLoaded = true;
+        return;
+    }
+
+    IReader* F = FS.r_open(fname);
+    if (!F) {
+        Msg("![Vulkan] Cannot open shaders.xr");
+        m_bTerrainDetailNamesLoaded = true;
+        return;
+    }
+
+    // Helpers to skip/read serialized properties (see properties.h):
+    // Each property in stream = u32 type + stringZ name + [data]
+    auto skip_marker = [](IReader& r) {
+        r.r_u32();        // type (xrPID_MARKER)
+        r.skip_stringZ(); // name
+    };
+    auto skip_prop = [](IReader& r, u32 data_size) {
+        r.r_u32();        // type
+        r.skip_stringZ(); // name
+        r.advance(data_size);
+    };
+    auto read_str64 = [](IReader& r, string64& out) {
+        r.r_u32();        // type (xrPID_TEXTURE)
+        r.skip_stringZ(); // name
+        r.r(&out, sizeof(string64));
+    };
+
+    // Chunk 2 = blenders
+    IReader* fs = F->open_chunk(2);
+    if (fs) {
+        IReader* chunk = nullptr;
+        int chunk_id = 0;
+
+        while ((chunk = fs->open_chunk(chunk_id)) != nullptr)
+        {
+            CBlender_DESC desc;
+            chunk->r(&desc, sizeof(desc));
+
+            if (desc.CLS == B_BmmD && desc.version >= 3)
+            {
+                // Parse binary properties manually (avoids linking CBlender_BmmD).
+                // Layout: IBlender base props, then BmmD-specific props.
+
+                // IBlender::Load() base properties:
+                skip_marker(*chunk);                         // "General"
+                skip_prop(*chunk, sizeof(xrP_Integer));      // oPriority
+                skip_prop(*chunk, sizeof(xrP_BOOL));         // oStrictSorting
+                skip_marker(*chunk);                         // "Base texture"
+                skip_prop(*chunk, sizeof(string64));          // oT_Name
+                skip_prop(*chunk, sizeof(string64));          // oT_xform
+
+                // CBlender_BmmD::Load() properties (version >= 3):
+                skip_marker(*chunk);                         // "Detail map"
+                skip_prop(*chunk, sizeof(string64));          // oT2_Name
+                skip_prop(*chunk, sizeof(string64));          // oT2_xform
+                read_str64(*chunk, m_TerrainDetailR);        // oR_Name
+                read_str64(*chunk, m_TerrainDetailG);        // oG_Name
+                read_str64(*chunk, m_TerrainDetailB);        // oB_Name
+                read_str64(*chunk, m_TerrainDetailA);        // oA_Name
+
+                Msg("[Vulkan] Terrain detail from shaders.xr (blender '%s'):", desc.cName);
+                Msg("[Vulkan]   R: %s", m_TerrainDetailR);
+                Msg("[Vulkan]   G: %s", m_TerrainDetailG);
+                Msg("[Vulkan]   B: %s", m_TerrainDetailB);
+                Msg("[Vulkan]   A: %s", m_TerrainDetailA);
+
+                chunk->close();
+                break;  // Found it, stop searching
+            }
+
+            chunk->close();
+            chunk_id++;
+        }
+        fs->close();
+    }
+
+    FS.r_close(F);
+    m_bTerrainDetailNamesLoaded = true;
 }
 
 void CMaterialManager::CreateDefaultTextures()

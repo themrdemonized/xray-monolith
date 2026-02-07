@@ -208,13 +208,13 @@ void CRenderTarget::phase_combine()
 		float sunColorB;
 	} pushData;
 
-	pushData.exposure = 1.8f;  // Boost overall brightness (was 1.0)
+	pushData.exposure = 2.2f;  // Boost brightness (compensate for missing lightmaps)
 	if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv) {
 		Fvector3& amb = g_pGamePersistent->Environment().CurrentEnv->ambient;
-		// Ensure minimum ambient floor (env values can be extremely low ~0.01)
-		pushData.ambientR = _max(amb.x, 0.10f);
-		pushData.ambientG = _max(amb.y, 0.10f);
-		pushData.ambientB = _max(amb.z, 0.12f);
+		// Raise ambient floor to compensate for missing lightmaps
+		pushData.ambientR = _max(amb.x, 0.18f);
+		pushData.ambientG = _max(amb.y, 0.18f);
+		pushData.ambientB = _max(amb.z, 0.20f);
 
 		// Sun direction: transform world-space sun_dir to eye-space
 		Fvector3& sunDirWorld = g_pGamePersistent->Environment().CurrentEnv->sun_dir;
