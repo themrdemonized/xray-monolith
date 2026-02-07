@@ -38,6 +38,7 @@ size_t PipelineConfig::Hash() const
     hash ^= std::hash<bool>{}(useCustomVertexInput) << 21;
     hash ^= std::hash<u32>{}(customAttributeCount) << 22;
     hash ^= std::hash<u32>{}(vertexStride) << 23;
+    hash ^= std::hash<u32>{}(tcOffset) << 25;
     hash ^= std::hash<u32>{}(customBindingCount) << 24;
 
     // Hash color formats
@@ -68,6 +69,7 @@ bool PipelineConfig::operator==(const PipelineConfig& other) const
     if (customAttributeCount != other.customAttributeCount) return false;
     if (customBindingCount != other.customBindingCount) return false;
     if (vertexStride != other.vertexStride) return false;
+    if (tcOffset != other.tcOffset) return false;
 
     for (u32 i = 0; i < colorAttachmentCount && i < 8; ++i) {
         if (colorFormats[i] != other.colorFormats[i]) return false;
@@ -249,7 +251,8 @@ void CVulkanPipelineManager::GetDefaultVertexInputState(
     VkPipelineVertexInputStateCreateInfo& vertexInputInfo,
     VkVertexInputBindingDescription& binding,
     VkVertexInputAttributeDescription attributes[3],
-    u32 stride)
+    u32 stride,
+    u32 tcOffset)
 {
     // Binding description
     binding.binding = 0;
@@ -264,18 +267,21 @@ void CVulkanPipelineManager::GetDefaultVertexInputState(
 
     if (stride == 32)
     {
-        // Layout A: level static geometry
-        // Normal (D3DCOLOR) @ offset 12
+        // Layout A: level static geometry (stride 32)
+        // Two sub-layouts exist:
+        //   lmap (tcOffset=24): Normal@12, TC0@24, TC1@28
+        //   vert (tcOffset=28): Normal@12, COLOR@24, TC0@28
+        // Normal (D3DCOLOR) @ offset 12 (same in both layouts)
         attributes[1].binding = 0;
         attributes[1].location = 1;
         attributes[1].format = VK_FORMAT_B8G8R8A8_UNORM;  // D3DCOLOR is BGRA in memory
         attributes[1].offset = 12;
 
-        // TexCoord (SHORT2 SSCALED) @ offset 24
+        // TexCoord (SHORT2 SSCALED) @ tcOffset (24 or 28 depending on layout)
         attributes[2].binding = 0;
         attributes[2].location = 2;
         attributes[2].format = VK_FORMAT_R16G16_SSCALED;
-        attributes[2].offset = 24;
+        attributes[2].offset = tcOffset;
     }
     else
     {
@@ -440,7 +446,7 @@ VkPipeline CVulkanPipelineManager::CreateGraphicsPipeline(const PipelineConfig& 
     VkVertexInputAttributeDescription attributes[8] = {};
 
     if (config.useDefaultVertexInput) {
-        GetDefaultVertexInputState(vertexInputInfo, binding, attributes, config.vertexStride);
+        GetDefaultVertexInputState(vertexInputInfo, binding, attributes, config.vertexStride, config.tcOffset);
     } else if (config.useCustomVertexInput && config.customAttributeCount > 0) {
         // Custom vertex input
         u32 bindingCount = 1;

@@ -443,12 +443,26 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             Msg("  VB[%d]: %d verts, stride=%d, size=%d KB",
                 i, vCount, vSize, (vCount * vSize) / 1024);
 
-            // Log vertex declaration for first VB and non-standard strides
-            if (vSize != 32 || i == 0) {
+            // Find TEXCOORD0 offset from declaration
+            // Two stride-32 layouts exist:
+            //   r1_decl_lmap: TEXCOORD0 at offset 24 (lightmapped, tc0+tc1)
+            //   r1_decl_vert: TEXCOORD0 at offset 28 (vertex-lit, COLOR0 at 24)
+            u32 tcOffset = 24;  // default: lightmapped
+            for (u32 e = 0; e < dcl_len - 1; e++) {
+                if (dcl[e].Usage == D3DDECLUSAGE_TEXCOORD && dcl[e].UsageIndex == 0) {
+                    tcOffset = dcl[e].Offset;
+                    break;
+                }
+            }
+
+            // Log vertex declaration for first VB, non-standard strides, or non-default tcOffset
+            if (vSize != 32 || i == 0 || tcOffset != 24) {
                 for (u32 e = 0; e < dcl_len - 1; e++) {
                     Msg("    dcl[%d]: stream=%d offset=%d type=%d usage=%d usageIdx=%d",
                         e, dcl[e].Stream, dcl[e].Offset, dcl[e].Type, dcl[e].Usage, dcl[e].UsageIndex);
                 }
+                if (tcOffset != 24)
+                    Msg("    ** TEXCOORD0 at non-default offset %u (vertex-lit format)", tcOffset);
             }
 
             // Read vertex data
@@ -469,7 +483,7 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
             // geomx buffers (stride=12, position-only) are for fast-path/shadows only.
             // Tree visuals and normal geometry use the geom pool (stride=32 with UV/normals).
             if (VK::g_BufferPool && !_alternative) {
-                VK::g_BufferPool->RegisterVertexBuffer(i, _VB[i], vSize);
+                VK::g_BufferPool->RegisterVertexBuffer(i, _VB[i], vSize, tcOffset);
             }
 
             xr_free(pData);

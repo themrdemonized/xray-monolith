@@ -53,14 +53,17 @@ struct GBufferPushConstants
 // ============================================================================
 // GetGBufferPipeline() - Get or create G-Buffer pipeline
 // ============================================================================
-VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
+VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride, u32 tcOffset)
 {
-    // Return cached pipeline for this stride if exists
-    auto it = m_GBufferPipelines.find(stride);
+    // Cache key encodes both stride and UV offset
+    u32 key = stride | (tcOffset << 16);
+
+    // Return cached pipeline for this stride+tcOffset if exists
+    auto it = m_GBufferPipelines.find(key);
     if (it != m_GBufferPipelines.end())
         return it->second;
 
-    Msg("[Vulkan] Creating G-Buffer pipeline for stride %u...", stride);
+    Msg("[Vulkan] Creating G-Buffer pipeline for stride %u tcOffset %u...", stride, tcOffset);
 
     // ========================================================================
     // Step 1: Load shaders (tree stride=12 uses dedicated vertex shader)
@@ -123,6 +126,7 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
         // Standard geometry: use default vertex input (pos + normal + uv)
         config.useDefaultVertexInput = true;
         config.vertexStride = stride;
+        config.tcOffset = tcOffset;
     }
 
     // ========================================================================
@@ -131,10 +135,10 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride)
     VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
 
     if (pipeline == VK_NULL_HANDLE) {
-        Msg("![Vulkan] Failed to create G-Buffer pipeline for stride %u", stride);
+        Msg("![Vulkan] Failed to create G-Buffer pipeline for stride %u tcOffset %u", stride, tcOffset);
     } else {
-        m_GBufferPipelines[stride] = pipeline;
-        Msg("[Vulkan] G-Buffer pipeline created successfully (stride %u)", stride);
+        m_GBufferPipelines[key] = pipeline;
+        Msg("[Vulkan] G-Buffer pipeline created successfully (stride %u tcOffset %u)", stride, tcOffset);
     }
 
     return pipeline;
@@ -546,8 +550,9 @@ void CRenderTarget::phase_gbuffer()
         // in vkFVisual::Render() push the correct model matrix for static geometry
         RCache.set_xform_world(mWorld);
 
-        // Track current stride for per-visual pipeline switching
+        // Track current stride/tcOffset for per-visual pipeline switching
         RCache.m_CurrentGBufStride = 32;
+        RCache.m_CurrentGBufTcOffset = 24;
     } __except(EXCEPTION_EXECUTE_HANDLER) {
         Msg("! phase_gbuffer: CRASH in pushConstants at frame %u, exc=0x%08X",
             Device.dwFrame, GetExceptionCode());

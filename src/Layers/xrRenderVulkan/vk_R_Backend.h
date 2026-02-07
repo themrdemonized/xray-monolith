@@ -178,6 +178,7 @@ public:
 
     // === G-Buffer stride tracking (for per-visual pipeline switching) ===
     u32                     m_CurrentGBufStride = 0;
+    u32                     m_CurrentGBufTcOffset = 24;  // TEXCOORD0 offset (24=lmap, 28=vert-lit)
 
     // === Dynamic vertex/index streams (for runtime geometry) ===
     _VertexStream_vk        Vertex;

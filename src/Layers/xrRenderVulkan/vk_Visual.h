@@ -153,6 +153,7 @@ struct VK_Render_Mesh
     u32                 vBase = 0;      // First vertex offset
     u32                 vCount = 0;     // Vertex count
     u32                 vStride = 0;    // Bytes per vertex
+    u32                 tcOffset = 24;  // TEXCOORD0 byte offset (24=lmap, 28=vert-lit)
 
     // Index buffer
     VK::CVulkanBuffer*  p_rm_Indices = nullptr;

@@ -51,7 +51,7 @@ public:
     //   buffer - Pointer to existing CVulkanBuffer
     //   stride - Bytes per vertex
     //
-    void RegisterVertexBuffer(u32 id, CVulkanBuffer* buffer, u32 stride);
+    void RegisterVertexBuffer(u32 id, CVulkanBuffer* buffer, u32 stride, u32 tcOffset = 24);
 
     // Register an existing index buffer with given ID.
     // Does NOT take ownership - buffer lifecycle managed by caller.
@@ -82,6 +82,9 @@ public:
     // Get index type for buffer ID
     VkIndexType GetIndexType(u32 id);
 
+    // Get TEXCOORD0 byte offset within vertex for buffer ID
+    u32 GetTexCoordOffset(u32 id);
+
     // ========================================================================
     // Statistics
     // ========================================================================
@@ -93,6 +96,7 @@ private:
     struct VertexBufferEntry {
         CVulkanBuffer* buffer = nullptr;
         u32 stride = 0;
+        u32 tcOffset = 24;  // TEXCOORD0 byte offset (24 for lmap, 28 for vert-lit)
     };
 
     // Index buffer entry

@@ -166,7 +166,7 @@ public:
     // Pipeline helpers
     VkPipeline GetShadowPipeline();                // Get or create depth-only pipeline
     VkPipeline GetShadowCubePipeline();            // Get or create cubemap shadow pipeline
-    VkPipeline GetGBufferPipeline(u32 stride = 32); // Get or create G-Buffer pipeline (Phase 2.21.2)
+    VkPipeline GetGBufferPipeline(u32 stride = 32, u32 tcOffset = 24); // Get or create G-Buffer pipeline
     VkPipeline GetGBufferPipelineSkinned(u32 stride); // Get or create skinned G-Buffer pipeline (GPU skinning)
 
     // Cubemap shadow rendering (Phase 2.16)

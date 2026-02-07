@@ -59,6 +59,7 @@ void VK_Render_Mesh::Destroy()
     p_rm_Indices = nullptr;
     m_fast = nullptr;
     vBase = vCount = vStride = 0;
+    tcOffset = 24;
     iBase = iCount = 0;
     dwPrimitives = 0;
 }
@@ -208,6 +209,7 @@ void vkFVisual::Copy(vkRender_Visual* from)
     m_mesh.vBase = src->m_mesh.vBase;
     m_mesh.vCount = src->m_mesh.vCount;
     m_mesh.vStride = src->m_mesh.vStride;
+    m_mesh.tcOffset = src->m_mesh.tcOffset;
 
     m_mesh.p_rm_Indices = src->m_mesh.p_rm_Indices;
     m_mesh.iBase = src->m_mesh.iBase;
@@ -321,17 +323,23 @@ void vkFVisual::Render(float LOD)
     if (!m_mesh.p_rm_Vertices || !m_mesh.p_rm_Indices)
         return;
 
-    // Switch G-Buffer pipeline if stride changed
-    if (stride != RCache.m_CurrentGBufStride)
+    // Switch G-Buffer pipeline if stride changed, or if stride-32 and tcOffset changed
+    // tcOffset only matters for stride-32 (two sub-layouts: lmap@24 vs vert-lit@28)
+    u32 tcOff = m_mesh.tcOffset;
+    bool needSwitch = (stride != RCache.m_CurrentGBufStride);
+    if (!needSwitch && stride == 32)
+        needSwitch = (tcOff != RCache.m_CurrentGBufTcOffset);
+
+    if (needSwitch)
     {
-        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride);
+        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride, tcOff);
         if (pipeline != VK_NULL_HANDLE)
         {
             RCache.set_Pipeline(pipeline);
 
-            // Update UV scale push constant at offset 192 + alpha ref at 196
+            // Update UV scale push constant at offset 192
+            // NOTE: do NOT override alphaRef here — the caller controls alpha test
             float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
-            float alphaRef = -1.0f;  // No alpha test for solid geometry
             VkCommandBuffer cmd = RCache.GetCommandBuffer();
             if (cmd != VK_NULL_HANDLE)
             {
@@ -339,12 +347,10 @@ void vkFVisual::Render(float LOD)
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                     192, sizeof(float), &uvScale);
-                vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_FRAGMENT_BIT,
-                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = stride;
+            RCache.m_CurrentGBufTcOffset = tcOff;
         }
         else
         {
@@ -501,7 +507,10 @@ void vkFVisual::LoadGeometry(IReader* data, u32 flags)
             {
                 m_mesh.p_rm_Vertices = VK::g_BufferPool->GetVertexBuffer(vb_id);
                 if (m_mesh.p_rm_Vertices)
+                {
                     m_mesh.vStride = VK::g_BufferPool->GetVertexStride(vb_id);
+                    m_mesh.tcOffset = VK::g_BufferPool->GetTexCoordOffset(vb_id);
+                }
             }
         }
 
@@ -858,16 +867,22 @@ void vkFProgressive::Render(float LOD)
         }
     }
 
-    // Switch pipeline if stride changed (same as vkFVisual::Render)
-    if (stride != RCache.m_CurrentGBufStride)
+    // Switch pipeline if stride changed, or if stride-32 and tcOffset changed
+    // tcOffset only matters for stride-32 (two sub-layouts: lmap@24 vs vert-lit@28)
+    u32 tcOff = m_mesh.tcOffset;
+    bool needSwitch = (stride != RCache.m_CurrentGBufStride);
+    if (!needSwitch && stride == 32)
+        needSwitch = (tcOff != RCache.m_CurrentGBufTcOffset);
+
+    if (needSwitch)
     {
-        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride);
+        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride, tcOff);
         if (pipeline != VK_NULL_HANDLE)
         {
             RCache.set_Pipeline(pipeline);
 
+            // Update UV scale only — alphaRef is controlled by the caller
             float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
-            float alphaRef = -1.0f;  // No alpha test for solid geometry
             VkCommandBuffer cmd = RCache.GetCommandBuffer();
             if (cmd != VK_NULL_HANDLE)
             {
@@ -875,12 +890,10 @@ void vkFProgressive::Render(float LOD)
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                     192, sizeof(float), &uvScale);
-                vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_FRAGMENT_BIT,
-                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = stride;
+            RCache.m_CurrentGBufTcOffset = tcOff;
         }
         else
         {
@@ -1217,28 +1230,30 @@ void vkFTreeVisual_PM::Render(float LOD)
             vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &xform);
     }
 
-    // Switch pipeline if stride changed
-    if (stride != RCache.m_CurrentGBufStride)
+    // Switch pipeline if stride changed, or if stride-32 and tcOffset changed
+    u32 tcOff = m_mesh.tcOffset;
+    bool needSwitch = (stride != RCache.m_CurrentGBufStride);
+    if (!needSwitch && stride == 32)
+        needSwitch = (tcOff != RCache.m_CurrentGBufTcOffset);
+
+    if (needSwitch)
     {
-        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride);
+        VkPipeline pipeline = RTarget->GetGBufferPipeline(stride, tcOff);
         if (pipeline != VK_NULL_HANDLE)
         {
             RCache.set_Pipeline(pipeline);
 
             float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
-            float alphaRef = -1.0f;  // No alpha test for solid geometry
             if (cmd != VK_NULL_HANDLE)
             {
                 VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
                 vkCmdPushConstants(cmd, layout,
                     VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                     192, sizeof(float), &uvScale);
-                vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_FRAGMENT_BIT,
-                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = stride;
+            RCache.m_CurrentGBufTcOffset = tcOff;
         }
         else
         {
@@ -1881,9 +1896,11 @@ void vkSkeletonX_ST::Render(float LOD)
                 {
                     VkPipeline prevPipeline = RCache.m_CurrentPipeline;
                     u32 prevStride = RCache.m_CurrentGBufStride;
+                    u32 prevTcOff = RCache.m_CurrentGBufTcOffset;
 
                     RCache.set_Pipeline(skinnedPipeline);
                     RCache.m_CurrentGBufStride = stride;
+                    RCache.m_CurrentGBufTcOffset = 28;  // Skinned meshes: UV always at offset 28
 
                     float uvScale = 1.0f;
                     float alphaRef = -1.0f;  // No alpha test for skinned geometry
@@ -1900,6 +1917,7 @@ void vkSkeletonX_ST::Render(float LOD)
                     {
                         RCache.set_Pipeline(prevPipeline);
                         RCache.m_CurrentGBufStride = prevStride;
+                        RCache.m_CurrentGBufTcOffset = prevTcOff;
                     }
                 }
             }
@@ -2424,9 +2442,11 @@ void vkSkeletonX_PM::Render(float LOD)
                 {
                     VkPipeline prevPipeline = RCache.m_CurrentPipeline;
                     u32 prevStride = RCache.m_CurrentGBufStride;
+                    u32 prevTcOff = RCache.m_CurrentGBufTcOffset;
 
                     RCache.set_Pipeline(skinnedPipeline);
                     RCache.m_CurrentGBufStride = stride;
+                    RCache.m_CurrentGBufTcOffset = 28;  // Skinned meshes: UV always at offset 28
 
                     float uvScale = 1.0f;
                     float alphaRef = -1.0f;  // No alpha test for skinned geometry
@@ -2443,6 +2463,7 @@ void vkSkeletonX_PM::Render(float LOD)
                     {
                         RCache.set_Pipeline(prevPipeline);
                         RCache.m_CurrentGBufStride = prevStride;
+                        RCache.m_CurrentGBufTcOffset = prevTcOff;
                     }
                 }
             }

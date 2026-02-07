@@ -41,7 +41,7 @@ void CBufferPool::Destroy()
     Msg("[Vulkan] BufferPool destroyed");
 }
 
-void CBufferPool::RegisterVertexBuffer(u32 id, CVulkanBuffer* buffer, u32 stride)
+void CBufferPool::RegisterVertexBuffer(u32 id, CVulkanBuffer* buffer, u32 stride, u32 tcOffset)
 {
     VERIFY(buffer != nullptr);
     VERIFY(buffer->IsValid());
@@ -50,9 +50,10 @@ void CBufferPool::RegisterVertexBuffer(u32 id, CVulkanBuffer* buffer, u32 stride
     VertexBufferEntry entry;
     entry.buffer = buffer;
     entry.stride = stride;
+    entry.tcOffset = tcOffset;
     m_VertexBuffers[id] = entry;
 
-    Msg("[Vulkan] BufferPool: Registered VB[%u] - stride %u", id, stride);
+    Msg("[Vulkan] BufferPool: Registered VB[%u] - stride %u tcOffset %u", id, stride, tcOffset);
 }
 
 void CBufferPool::RegisterIndexBuffer(u32 id, CVulkanBuffer* buffer, VkIndexType indexType)
@@ -110,6 +111,15 @@ VkIndexType CBufferPool::GetIndexType(u32 id)
         return VK_INDEX_TYPE_UINT16;
 
     return it->second.indexType;
+}
+
+u32 CBufferPool::GetTexCoordOffset(u32 id)
+{
+    auto it = m_VertexBuffers.find(id);
+    if (it == m_VertexBuffers.end())
+        return 24;  // Default: lightmapped layout
+
+    return it->second.tcOffset;
 }
 
 } // namespace VK

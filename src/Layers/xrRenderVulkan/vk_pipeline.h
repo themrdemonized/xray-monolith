@@ -55,6 +55,9 @@ struct PipelineConfig
     // Vertex stride (32 = level static, 36/40/44 = skinned meshes)
     u32 vertexStride = 32;
 
+    // TEXCOORD0 byte offset within vertex (24=lightmapped, 28=vertex-lit)
+    u32 tcOffset = 24;
+
     // Custom vertex input (used when useDefaultVertexInput = false and custom data is provided)
     bool useCustomVertexInput = false;
     VkVertexInputBindingDescription customBinding = {};
@@ -174,7 +177,8 @@ private:
         VkPipelineVertexInputStateCreateInfo& vertexInputInfo,
         VkVertexInputBindingDescription& binding,
         VkVertexInputAttributeDescription attributes[3],
-        u32 stride = 32);
+        u32 stride = 32,
+        u32 tcOffset = 24);
 
 private:
     // Pipeline layout (4 descriptor sets)
