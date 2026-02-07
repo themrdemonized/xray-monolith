@@ -6,7 +6,7 @@
 // vk_ParticleEffect.h - Vulkan particle effect rendering
 // ============================================================================
 //
-// Single particle effect implementation with CPU simulation.
+// Single particle effect implementation connected to PAPI particle system.
 // Renders particles as billboards using dynamic vertex buffer.
 //
 // ============================================================================
@@ -14,19 +14,17 @@
 #pragma once
 
 #include "vk_ParticleCustom.h"
+#include "../xrRender/ParticleEffectDef.h"
+#include "../../xrParticles/psystem.h"
+#include "../xrRender/FVF.h"
 
 namespace PS
 {
     struct CPEDef;
 }
 
-namespace VK
-{
-    class CVulkanTexture;
-}
-
 // ============================================================================
-// Particle Vertex Format (24 bytes)
+// Particle Vertex Format (24 bytes) - identical layout to FVF::LIT
 // ============================================================================
 struct VkParticleVertex
 {
@@ -34,11 +32,14 @@ struct VkParticleVertex
     uint32_t color;         // Color (4 bytes) - RGBA8 packed
     float uv[2];            // Texture coordinates (8 bytes)
 
-    // Total: 24 bytes per vertex
-
     static VkVertexInputBindingDescription GetBindingDescription();
     static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions();
 };
+
+namespace VK
+{
+    class CVulkanTexture;
+}
 
 // ============================================================================
 // vkCParticleEffect - Single particle effect
@@ -49,14 +50,16 @@ public:
     // Definition (shared, non-owned)
     PS::CPEDef* m_Def = nullptr;
 
-    // Particle manager handle
+    // PAPI handles
     int m_HandleEffect = -1;
+    int m_HandleActionList = -1;
 
     // Dynamic vertex buffer for particles
     VK::CVulkanBuffer* m_dynamicVB = nullptr;
 
     // Particle texture
     VK::CVulkanTexture* m_texture = nullptr;
+    bool m_textureLoaded = false;
 
     // Max particles that can be rendered
     u32 m_maxParticles = 10000;
@@ -64,14 +67,19 @@ public:
     // Runtime flags (flRT_Playing, flRT_HUDmode, etc.)
     Flags8 m_RT_Flags;
 
-    // Elapsed time since start
-    float m_fElapsedTime = 0.f;
+    // Elapsed time / time limit tracking (PAPI step-based)
+    float m_fElapsedLimit = 0.f;
+    s32 m_MemDT = 0;
 
-    // Time limit for this effect (if any)
-    float m_fTimeLimit = -1.f;
+    // Initial position (for non-XFORM particles)
+    Fvector m_InitialPosition;
 
     // World transformation
     Fmatrix m_XFORM;
+
+    // Callbacks
+    PS::CollisionCallback m_CollisionCallback = nullptr;
+    PS::DestroyCallback m_DestroyCallback = nullptr;
 
 public:
     vkCParticleEffect();
@@ -107,14 +115,14 @@ public:
     virtual const shared_str Name() override;
 
     // Update parent transformation (world matrix)
-    virtual void UpdateParent(const Fmatrix& m, const Fvector& velocity, BOOL bXFORM) override
-    {
-        m_XFORM = m;
-    }
+    virtual void UpdateParent(const Fmatrix& m, const Fvector& velocity, BOOL bXFORM) override;
 
     // Property Access
     PS::CPEDef* GetDefinition() const { return m_Def; }
     int GetHandleEffect() const { return m_HandleEffect; }
+
+    // Callbacks
+    void SetBirthDeadCB(PAPI::OnBirthParticleCB bc, PAPI::OnDeadParticleCB dc, void* owner, u32 p);
 
     // ========================================================================
     // Device Management
@@ -129,9 +137,11 @@ public:
 
 private:
     // Helper methods
-    void GenerateBillboardQuads(VkParticleVertex* vertices, u32 particleCount);
+    void GenerateBillboardQuads(FVF::LIT* vertices, u32 particleCount,
+                                PAPI::Particle* particles);
     void BindResources(VkCommandBuffer cmd);
-    void UpdateDynamicBuffer(VkParticleVertex* data, u32 vertexCount);
+    void UpdateDynamicBuffer(FVF::LIT* data, u32 vertexCount);
+    bool LoadParticleTexture();
 
     enum
     {

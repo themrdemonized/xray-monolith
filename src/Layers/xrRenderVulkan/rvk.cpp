@@ -2237,6 +2237,15 @@ void CRender::clear_static_wallmarks()
         Wallmarks->clear();
 }
 
+// Include CSkeletonWallmark + CKinematics for proper downcast from IKinematics*
+// MUST be before add_SkeletonWallmark so the (CKinematics*)obj cast performs
+// correct pointer adjustment for multiple inheritance (FHierrarhyVisual + IKinematics).
+#define FBasicVisualH
+#define dxRender_Visual vkRender_Visual
+#include "../xrRender/SkeletonCustom.h"
+#undef dxRender_Visual
+#undef FBasicVisualH
+
 // IKinematics + IWallMarkArray overload (called by game code for blood on animated models)
 void CRender::add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMarkArray* pArray, const Fvector& start,
                                    const Fvector& dir, float size, float ttl, bool ignore_opt)
@@ -2244,15 +2253,8 @@ void CRender::add_SkeletonWallmark(const Fmatrix* xf, IKinematics* obj, IWallMar
     if (!obj || !pArray || !xf) return;
     dxWallMarkArray* pWMA = (dxWallMarkArray*)pArray;
     ref_shader* pShader = pWMA->dxGenerateWallmark();
-    if (pShader) add_SkeletonWallmark(xf, (CKinematics*)obj, *pShader, start, dir, size, ttl, ignore_opt);
+    if (pShader) add_SkeletonWallmark(xf, static_cast<CKinematics*>(obj), *pShader, start, dir, size, ttl, ignore_opt);
 }
-
-// Include CSkeletonWallmark for intrusive_ptr wrapper
-#define FBasicVisualH
-#define dxRender_Visual vkRender_Visual
-#include "../xrRender/SkeletonCustom.h"
-#undef dxRender_Visual
-#undef FBasicVisualH
 
 void CRender::add_SkeletonWallmark_impl(const CSkeletonWallmark* wm)
 {

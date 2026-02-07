@@ -12,6 +12,8 @@
 
 #include "../xrRender/ParticleEffectDef.h"
 #include "../xrRender/ParticleGroup.h"
+#include "../../xrParticles/psystem.h"
+#include "../../xrEngine/IGame_Level.h"
 #include "vk_shader.h"  // For CVulkanShader
 
 // External Vulkan shader manager
@@ -286,6 +288,130 @@ void CPEDef::DestroyShader()
     }
 }
 
+} // close namespace PS temporarily for extern
+
+extern float ps_particle_update_coeff;
+
+namespace PS {
+
+// ============================================================================
+// GetUStep / GetFStep - update rate with console modifier
+// ============================================================================
+
+u32 CPEDef::GetUStep()
+{
+    return (u32)(m_uStep * ps_particle_update_coeff);
+}
+
+float CPEDef::GetFStep()
+{
+    return m_fStep * ps_particle_update_coeff;
+}
+
+// ============================================================================
+// SetName
+// ============================================================================
+void CPEDef::SetName(LPCSTR name)
+{
+    m_Name = name;
+}
+
+// ============================================================================
+// ExecuteAnimate - Frame animation update (ported from shared code)
+// ============================================================================
+void CPEDef::ExecuteAnimate(PAPI::Particle* particles, u32 p_cnt, float dt)
+{
+    float speedFac = m_Frame.m_fSpeed * dt;
+    for (u32 i = 0; i < p_cnt; i++)
+    {
+        PAPI::Particle& m = particles[i];
+        float f = (float(m.frame) / 255.f + ((m.flags.is(PAPI::Particle::ANIMATE_CCW)) ? -1.f : 1.f) * speedFac);
+        if (f > m_Frame.m_iFrameCount) f -= m_Frame.m_iFrameCount;
+        if (f < 0.f) f += m_Frame.m_iFrameCount;
+        m.frame = (u16)iFloor(f * 255.f);
+    }
+}
+
+// ============================================================================
+// ExecuteCollision - Particle collision with world geometry
+// ============================================================================
+// Note: In the Vulkan renderer we don't have the DX11 CParticleEffect class,
+// so the owner parameter is unused. Collision still works via raypicking.
+void CPEDef::ExecuteCollision(PAPI::Particle* particles, u32 p_cnt, float dt,
+                              CParticleEffect* owner, CollisionCallback cb)
+{
+    PAPI::pVector pt, n;
+    for (int i = p_cnt - 1; i >= 0; i--)
+    {
+        PAPI::Particle& m = particles[i];
+
+        bool pick_needed;
+        int pick_cnt = 0;
+        do
+        {
+            pick_needed = false;
+            Fvector dir;
+            dir.sub(m.pos, m.posB);
+            float dist = dir.magnitude();
+            if (dist >= EPS)
+            {
+                dir.div(dist);
+                collide::rq_result RQ;
+                collide::rq_target RT = m_Flags.is(dfCollisionDyn) ? collide::rqtBoth : collide::rqtStatic;
+                if (g_pGameLevel && g_pGameLevel->ObjectSpace.RayPick(m.posB, dir, dist, RT, RQ, NULL))
+                {
+                    pt.mad(m.posB, dir, RQ.range);
+                    if (RQ.O)
+                    {
+                        n.set(0.f, 1.f, 0.f);
+                    }
+                    else
+                    {
+                        CDB::TRI* T = g_pGameLevel->ObjectSpace.GetStaticTris() + RQ.element;
+                        Fvector* verts = g_pGameLevel->ObjectSpace.GetStaticVerts();
+                        n.mknormal(verts[T->verts[0]], verts[T->verts[1]], verts[T->verts[2]]);
+                    }
+                    pick_cnt++;
+                    if (cb && (pick_cnt == 1)) if (!cb(owner, m, pt, n)) break;
+                    if (m_Flags.is(dfCollisionDel))
+                    {
+                        // Cannot remove particle without owner handle — skip deletion
+                        // (collision-delete particles are very rare in STALKER)
+                        break;
+                    }
+                    else
+                    {
+                        float nmag = m.vel * n;
+                        PAPI::pVector vn(n * nmag);
+                        PAPI::pVector vt(m.vel - vn);
+
+                        if (vt.length2() <= m_fCollideSqrCutoff)
+                            m.vel = vt - vn * m_fCollideResilience;
+                        else
+                            m.vel = vt * m_fCollideOneMinusFriction - vn * m_fCollideResilience;
+                        m.pos = m.posB + m.vel * dt;
+                        pick_needed = true;
+                    }
+                }
+            }
+            else
+            {
+                m.pos = m.posB;
+            }
+        }
+        while (pick_needed && (pick_cnt < 2));
+    }
+}
+
+// ============================================================================
+// Save/SaveActionList/LoadActionList stubs (editor-only, not used at runtime)
+// ============================================================================
+void CPEDef::Save(IWriter& F) {}
+void CPEDef::Save2(CInifile& ini) {}
+BOOL CPEDef::SaveActionList(IWriter& F) { return TRUE; }
+BOOL CPEDef::LoadActionList(IReader& F) { return TRUE; }
+void CPEDef::Compile(EPAVec& v) {}
+
 } // namespace PS
 
 // ============================================================================
@@ -441,5 +567,9 @@ int CPGDef::Load2(CInifile& ini)
 
     return 1; // Success
 }
+
+// Save stubs (editor-only)
+void CPGDef::Save(IWriter& F) {}
+void CPGDef::Save2(CInifile& ini) {}
 
 } // namespace PS

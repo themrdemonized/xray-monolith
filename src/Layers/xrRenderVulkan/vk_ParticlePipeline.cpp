@@ -10,7 +10,6 @@
 #include "vk_ParticlePipeline.h"
 #include "vk_ParticleEffect.h"
 #include <array>
-#include <fstream>
 #include <vector>
 
 // ============================================================================
@@ -83,19 +82,17 @@ VkShaderModule vkParticlePipeline::LoadShaderModule(
     VkDevice device,
     const char* filename)
 {
-    // Read binary file
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
-    if (!file.is_open()) {
+    // Read binary file via VFS (supports .db archives)
+    IReader* reader = FS.r_open(filename);
+    if (!reader) {
         Msg("![Vulkan] Failed to open shader file: %s", filename);
         return VK_NULL_HANDLE;
     }
 
-    size_t fileSize = (size_t)file.tellg();
+    size_t fileSize = (size_t)reader->length();
     std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-    file.close();
+    reader->r(buffer.data(), (int)fileSize);
+    FS.r_close(reader);
 
     // Create shader module
     VkShaderModuleCreateInfo createInfo{};
