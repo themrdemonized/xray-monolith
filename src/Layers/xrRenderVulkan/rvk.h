@@ -191,12 +191,16 @@ public:
     // DX11 uses deeper hierarchy (VS -> GS -> PS -> Constants -> States -> Textures -> Items)
     // but Vulkan pipelines encapsulate all states, so we simplify
 
-    xr_vector<R_dsgraph::_NormalItem> lstNormal;   // Static visuals (level geometry)
-    xr_vector<R_dsgraph::_MatrixItem> lstMatrix;   // Dynamic visuals (objects with transforms)
+    xr_vector<R_dsgraph::_NormalItem> lstNormal;      // Static visuals (level geometry)
+    xr_vector<R_dsgraph::_MatrixItem> lstMatrix;      // Dynamic visuals (objects with transforms)
+    xr_vector<R_dsgraph::_NormalItem> lstParticles;   // Particle effects (rendered in forward phase)
 
     // Visibility / Frustum culling
     CFrustum ViewBase;    // Main camera frustum
     CFrustum* View;       // Current frustum pointer (for portal traversal)
+
+    // Render particles from lstParticles (forward phase only)
+    void r_dsgraph_render_particles();
 
 public:
     CRender();

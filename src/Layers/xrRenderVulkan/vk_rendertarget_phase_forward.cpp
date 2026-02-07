@@ -72,10 +72,11 @@ void CRenderTarget::phase_forward()
 	// - Отсортировать back-to-front (по distance to camera)
 	// - Render в правильном порядке
 
-	// Check if we have transparent/sorted geometry to render
+	// Check if we have transparent/sorted geometry or particles to render
 	bool hasTransparentObjects = (RImplementation.mapSorted.size() > 0) ||
 	                             (RImplementation.mapDistort.size() > 0) ||
-	                             (RImplementation.mapEmissive.size() > 0);
+	                             (RImplementation.mapEmissive.size() > 0) ||
+	                             (RImplementation.lstParticles.size() > 0);
 
 	if (!hasTransparentObjects) {
 		return;
@@ -243,8 +244,13 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	// 9.2: Render sorted transparent geometry (back-to-front)
 	// ========================================================================
-	// Glass, water surfaces, particle effects, etc.
+	// Glass, water surfaces, etc.
 	RImplementation.r_dsgraph_render_sorted();
+
+	// ========================================================================
+	// 9.2.1: Render particle effects (own pipeline, alpha-blended)
+	// ========================================================================
+	RImplementation.r_dsgraph_render_particles();
 
 	// ========================================================================
 	// 9.3: Render emissive geometry (self-illuminated objects)

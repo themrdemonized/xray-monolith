@@ -717,6 +717,25 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
     }
 }
 
+// ============================================================================
+// r_dsgraph_render_particles - Render particle effects (forward phase)
+// ============================================================================
+void CRender::r_dsgraph_render_particles()
+{
+    if (lstParticles.empty()) return;
+
+    for (u32 i = 0; i < lstParticles.size(); ++i)
+    {
+        auto& item = lstParticles[i];
+        if (!item.pVisual) continue;
+
+        vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
+        pV->Render(1.0f);
+    }
+
+    lstParticles.clear();
+}
+
 #if defined(USE_DX11)
 void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()
 {

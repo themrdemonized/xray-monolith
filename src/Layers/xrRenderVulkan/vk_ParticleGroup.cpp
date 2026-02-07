@@ -19,6 +19,7 @@
 vkCParticleGroup::vkCParticleGroup()
     : m_Def(nullptr)
 {
+    Type = MT_PARTICLE_GROUP;
     // Initialize visibility data
     vis.box.set(Fvector{-10, -10, -10}, Fvector{10, 10, 10});
     vis.sphere.P.set(0, 0, 0);
@@ -218,6 +219,18 @@ const shared_str vkCParticleGroup::Name()
         return m_Def->m_Name;
     }
     return shared_str("");
+}
+
+// ============================================================================
+// UpdateParent - Propagate world transform to all child effects
+// ============================================================================
+void vkCParticleGroup::UpdateParent(const Fmatrix& m, const Fvector& velocity, BOOL bXFORM)
+{
+    for (auto& item : items)
+    {
+        if (item.pVisual)
+            item.pVisual->UpdateParent(m, velocity, bXFORM);
+    }
 }
 
 // ============================================================================

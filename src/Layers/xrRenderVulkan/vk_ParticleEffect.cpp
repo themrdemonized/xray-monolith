@@ -21,6 +21,7 @@
 #include "vk_R_Backend.h"       // RCache
 #include "rvk.h"                // RImplementation
 #include "HW_Vulkan.h"
+#include "vk_swapchain.h"
 #include "vk_texture.h"
 #include <array>
 
@@ -71,10 +72,10 @@ std::array<VkVertexInputAttributeDescription, 3> VkParticleVertex::GetAttributeD
     attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     attributeDescriptions[0].offset = offsetof(VkParticleVertex, pos);
 
-    // Color
+    // Color (D3DCOLOR = ARGB packed as u32 → BGRA bytes on little-endian)
     attributeDescriptions[1].binding = 0;
     attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R8G8B8A8_UNORM;
+    attributeDescriptions[1].format = VK_FORMAT_B8G8R8A8_UNORM;
     attributeDescriptions[1].offset = offsetof(VkParticleVertex, color);
 
     // UV
@@ -149,6 +150,7 @@ vkCParticleEffect::vkCParticleEffect()
       m_CollisionCallback(nullptr),
       m_DestroyCallback(nullptr)
 {
+    Type = MT_PARTICLE_EFFECT;
     m_XFORM.identity();
     m_InitialPosition.set(0, 0, 0);
 
@@ -394,6 +396,16 @@ void vkCParticleEffect::Render(float LOD)
         return;
     }
 
+    // Skip draw if no texture bound (null descriptor set)
+    if (m_descriptorSet == VK_NULL_HANDLE) {
+        if (bHudMode) {
+            RImplementation.rmNormal();
+            Device.mFullTransform = FTold;
+            RCache.set_xform_project(Device.mProject);
+        }
+        return;
+    }
+
     // Bind all resources and draw
     BindResources(cmd);
     vkCmdDraw(cmd, vertexCount, 1, 0, 0);
@@ -496,8 +508,10 @@ bool vkCParticleEffect::CreatePipeline()
         }
     }
 
-    // Configure pipeline
+    // Configure pipeline - must match forward phase render target
     ParticlePipelineConfig config;
+    config.colorFormat = Swapchain.GetFormat();
+    config.depthFormat = Swapchain.m_DepthFormat;
     config.depthTest = true;     // Read depth to avoid rendering behind geometry
     config.depthWrite = false;   // Don't write depth (transparent)
     config.cullMode = VK_CULL_MODE_NONE;
@@ -624,6 +638,9 @@ void vkCParticleEffect::BindResources(VkCommandBuffer cmd)
     }
 
     // Set push constants (view-projection matrix)
+    // Vertex positions are already in world space:
+    // - non-XFORM: PAPI stores world-space positions via Transform()
+    // - XFORM: GenerateBillboardQuads() transforms by m_XFORM on CPU
     Fmatrix viewProj;
     viewProj.mul(Device.mProject, Device.mView);
     vkCmdPushConstants(

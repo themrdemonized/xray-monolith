@@ -560,6 +560,7 @@ void CRender::Calculate()
     // Clear render queues
     lstNormal.clear();
     lstMatrix.clear();
+    lstParticles.clear();
 
     // Enable wallmark routing (level wallmarks flagged with bWmark go to mapWmark)
     pmask_wmark = true;
@@ -1786,6 +1787,17 @@ void CRender::add_Visual(IRenderVisual* V)
         return;
     }
 
+    // Particle effects/groups → separate queue, rendered in forward phase
+    // World transform is propagated via UpdateParent() called by game code
+    if (pVisual->Type == MT_PARTICLE_EFFECT || pVisual->Type == MT_PARTICLE_GROUP)
+    {
+        R_dsgraph::_NormalItem item;
+        item.ssa = 1.0f;
+        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+        lstParticles.push_back(item);
+        return;
+    }
+
     // For skeleton and hierarchy types: decompose into leaf visuals.
     // Bones are calculated at add-time, leaf visuals go into lstMatrix.
     if (pVisual->Type == MT_SKELETON_ANIM || pVisual->Type == MT_SKELETON_RIGID ||
@@ -1832,6 +1844,16 @@ void CRender::add_leafs_Dynamic_VK(vkRender_Visual* pVisual)
             if (item.pVisual)
                 add_leafs_Dynamic_VK(static_cast<vkRender_Visual*>(item.pVisual));
         }
+        return;
+    }
+
+    case MT_PARTICLE_EFFECT:
+    {
+        // Particle effects go to separate queue, rendered in forward phase
+        R_dsgraph::_NormalItem item;
+        item.ssa = 1.0f;
+        item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
+        lstParticles.push_back(item);
         return;
     }
 

@@ -85,6 +85,7 @@ public:
     virtual const shared_str Name() override;
     virtual void SetHudMode(BOOL b) override { m_RT_Flags.set(flRT_HUDmode, b); }
     virtual BOOL GetHudMode() override { return m_RT_Flags.is(flRT_HUDmode); }
+    virtual void UpdateParent(const Fmatrix& m, const Fvector& velocity, BOOL bXFORM) override;
 
     // ========================================================================
     // Device Management
