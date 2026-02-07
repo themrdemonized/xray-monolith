@@ -34,6 +34,8 @@ layout(push_constant) uniform PushConstants
     mat4 u_View;        // View matrix (world -> eye)
     mat4 u_Projection;  // Projection matrix (eye -> clip)
     float u_UVScale;    // UV scale: 1/1024 for SHORT2 (stride 32), 1.0 for FLOAT2 (stride 36+)
+    float _pad196;      // offset 196: reserved (u_SkinMode in skinned shader)
+    float u_AlphaRef;   // offset 200: Alpha test threshold (-1.0 = disabled, 0.5 = enabled)
 } pc;
 
 void main()

@@ -44,8 +44,10 @@ struct GBufferPushConstants
     Fmatrix u_Model;       // Model matrix (local → world)
     Fmatrix u_View;        // View matrix (world → eye)
     Fmatrix u_Projection;  // Projection matrix (eye → clip)
-    float   u_UVScale;     // UV scale: 1/1024 for SHORT2 (stride 32), 1.0 for FLOAT2 (stride 36+)
-    // Total: 196 bytes (3 x 64 bytes + 4 bytes)
+    float   u_UVScale;     // offset 192: UV scale (1/1024 for SHORT2, 1.0 for FLOAT2)
+    u32     _pad196;       // offset 196: reserved (u_SkinMode in skinned pipeline)
+    float   u_AlphaRef;    // offset 200: Alpha test threshold (-1.0 = disabled, 0.5 = enabled)
+    // Total: 204 bytes (3 x 64 bytes + 4 + 4 + 4)
 };
 
 // ============================================================================
@@ -531,10 +533,12 @@ void CRenderTarget::phase_gbuffer()
         pushConstants.u_View = mView;
         pushConstants.u_Projection = mProjection;
         pushConstants.u_UVScale = 1.0f / 1024.0f;  // SHORT2 UV scale for stride-32
+        pushConstants._pad196 = 0;
+        pushConstants.u_AlphaRef = -1.0f;          // No alpha test for solid geometry
 
         VkPipelineLayout layout = g_PipelineManager->GetLayout();
         vkCmdPushConstants(cmd, layout,
-            VK_SHADER_STAGE_VERTEX_BIT,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
             0, sizeof(GBufferPushConstants),
             &pushConstants);
 

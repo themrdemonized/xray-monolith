@@ -27,6 +27,13 @@ layout(location = 1) out vec4 o_Normal;     // → rt_Normal   (R32G32B32A32_SFL
 layout(location = 2) out vec4 o_Color;      // → rt_Color    (R8G8B8A8_SRGB)
 layout(location = 3) out vec4 o_Material;   // → rt_Material (R8G8B8A8_UNORM)
 
+// Push constants (shared with vertex shader)
+// Offset 196 is u_SkinMode in skinned vertex shader, so u_AlphaRef goes at 200
+layout(push_constant) uniform PushConstants
+{
+    layout(offset = 200) float u_AlphaRef;   // Alpha test threshold (-1.0 = disabled, 0.5 = enabled)
+} pc;
+
 // Descriptor Set 1: Material textures (Phase 2.22)
 // PerMaterial descriptor set from DescriptorManager
 layout(set = 1, binding = 0) uniform sampler2D s_Diffuse;   // Albedo/Diffuse
@@ -99,12 +106,13 @@ void main()
         albedo = texture(s_Diffuse, v_TexCoord).rgb;
     }
 
-    // Alpha test for foliage/tree leaves (cutout transparency)
-    // Only for non-terrain geometry — terrain diffuse alpha may be < 0.5
-    if (!isTerrain)
+    // Alpha test (conditional via push constant)
+    // pc.u_AlphaRef > 0: enabled (e.g., 0.5 for trees/foliage cutout)
+    // pc.u_AlphaRef <= 0: disabled (solid geometry — cars, walls, etc.)
+    if (pc.u_AlphaRef > 0.0)
     {
         float alpha = texture(s_Diffuse, v_TexCoord).a;
-        if (alpha < 0.5)
+        if (alpha < pc.u_AlphaRef)
             discard;
     }
 

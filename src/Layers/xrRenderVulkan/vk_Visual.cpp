@@ -274,12 +274,17 @@ void vkFVisual::Render(float LOD)
 
             // Tree positions are quantized by FTreeVisual_quant=2048, need prescale
             float uvScale = 1.0f / 2048.0f;
+            float alphaRef = 0.5f;  // Enable alpha test for tree foliage cutout
             VkCommandBuffer cmd = RCache.GetCommandBuffer();
             if (cmd != VK_NULL_HANDLE)
             {
                 VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
                 vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    192, sizeof(float), &uvScale);
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_FRAGMENT_BIT,
+                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = 12;
@@ -324,14 +329,19 @@ void vkFVisual::Render(float LOD)
         {
             RCache.set_Pipeline(pipeline);
 
-            // Update UV scale push constant at offset 192
+            // Update UV scale push constant at offset 192 + alpha ref at 196
             float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
+            float alphaRef = -1.0f;  // No alpha test for solid geometry
             VkCommandBuffer cmd = RCache.GetCommandBuffer();
             if (cmd != VK_NULL_HANDLE)
             {
                 VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
                 vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    192, sizeof(float), &uvScale);
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_FRAGMENT_BIT,
+                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = stride;
@@ -857,12 +867,17 @@ void vkFProgressive::Render(float LOD)
             RCache.set_Pipeline(pipeline);
 
             float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
+            float alphaRef = -1.0f;  // No alpha test for solid geometry
             VkCommandBuffer cmd = RCache.GetCommandBuffer();
             if (cmd != VK_NULL_HANDLE)
             {
                 VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
                 vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    192, sizeof(float), &uvScale);
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_FRAGMENT_BIT,
+                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = stride;
@@ -1016,8 +1031,34 @@ void vkFTreeVisual::Render(float LOD)
     Fmatrix prevW = RCache.xforms.m_w;
     RCache.xforms.m_w = xform;
 
+    // Enable alpha test for tree foliage (leaf textures have alpha=0 in transparent areas)
+    {
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        if (cmd != VK_NULL_HANDLE)
+        {
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            float alphaRef = 0.5f;
+            vkCmdPushConstants(cmd, layout,
+                VK_SHADER_STAGE_FRAGMENT_BIT,
+                200, sizeof(float), &alphaRef);
+        }
+    }
+
     // Render geometry (binds material, vertex/index buffers, draws)
     vkFVisual::Render(LOD);
+
+    // Restore alpha test to disabled for subsequent solid geometry
+    {
+        VkCommandBuffer cmd = RCache.GetCommandBuffer();
+        if (cmd != VK_NULL_HANDLE)
+        {
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            float alphaRef = -1.0f;
+            vkCmdPushConstants(cmd, layout,
+                VK_SHADER_STAGE_FRAGMENT_BIT,
+                200, sizeof(float), &alphaRef);
+        }
+    }
 
     // Restore previous world matrix for subsequent visuals
     RCache.xforms.m_w = prevW;
@@ -1185,11 +1226,16 @@ void vkFTreeVisual_PM::Render(float LOD)
             RCache.set_Pipeline(pipeline);
 
             float uvScale = (stride == 32) ? (1.0f / 1024.0f) : 1.0f;
+            float alphaRef = -1.0f;  // No alpha test for solid geometry
             if (cmd != VK_NULL_HANDLE)
             {
                 VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
                 vkCmdPushConstants(cmd, layout,
-                    VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                    192, sizeof(float), &uvScale);
+                vkCmdPushConstants(cmd, layout,
+                    VK_SHADER_STAGE_FRAGMENT_BIT,
+                    200, sizeof(float), &alphaRef);
             }
 
             RCache.m_CurrentGBufStride = stride;
@@ -1207,6 +1253,16 @@ void vkFTreeVisual_PM::Render(float LOD)
     {
         lod_idx = iFloor((1.f - LOD) * (sw_count - 1) + 0.5f);
         clamp(lod_idx, 0u, sw_count - 1);
+    }
+
+    // Enable alpha test for tree foliage
+    if (cmd != VK_NULL_HANDLE)
+    {
+        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+        float alphaRefTree = 0.5f;
+        vkCmdPushConstants(cmd, layout,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            200, sizeof(float), &alphaRefTree);
     }
 
     // Bind material descriptor set (Set 1)
@@ -1229,6 +1285,16 @@ void vkFTreeVisual_PM::Render(float LOD)
     RCache.Render(4, m_mesh.vBase, 0, m_mesh.vCount, m_mesh.iBase + start_idx, prim_count);
     RCache.stat.polys += prim_count;
     RCache.stat.verts += m_mesh.vCount;
+
+    // Restore alpha test to disabled for subsequent solid geometry
+    if (cmd != VK_NULL_HANDLE)
+    {
+        VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+        float alphaRefOff = -1.0f;
+        vkCmdPushConstants(cmd, layout,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            200, sizeof(float), &alphaRefOff);
+    }
 
     // Restore previous world matrix
     RCache.xforms.m_w = prevW;
@@ -1820,7 +1886,13 @@ void vkSkeletonX_ST::Render(float LOD)
                     RCache.m_CurrentGBufStride = stride;
 
                     float uvScale = 1.0f;
-                    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+                    float alphaRef = -1.0f;  // No alpha test for skinned geometry
+                    vkCmdPushConstants(cmd, layout,
+                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                        192, sizeof(float), &uvScale);
+                    vkCmdPushConstants(cmd, layout,
+                        VK_SHADER_STAGE_FRAGMENT_BIT,
+                        200, sizeof(float), &alphaRef);
 
                     vkFVisual::Render(LOD);
 
@@ -2357,7 +2429,13 @@ void vkSkeletonX_PM::Render(float LOD)
                     RCache.m_CurrentGBufStride = stride;
 
                     float uvScale = 1.0f;
-                    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 192, sizeof(float), &uvScale);
+                    float alphaRef = -1.0f;  // No alpha test for skinned geometry
+                    vkCmdPushConstants(cmd, layout,
+                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                        192, sizeof(float), &uvScale);
+                    vkCmdPushConstants(cmd, layout,
+                        VK_SHADER_STAGE_FRAGMENT_BIT,
+                        200, sizeof(float), &alphaRef);
 
                     vkFProgressive::Render(LOD);
 

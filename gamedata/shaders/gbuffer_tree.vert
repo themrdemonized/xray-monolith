@@ -25,6 +25,8 @@ layout(push_constant) uniform PushConstants
     mat4 u_View;        // View matrix (world -> eye)
     mat4 u_Projection;  // Projection matrix (eye -> clip)
     float u_UVScale;    // Reused as tree position dequant scale (1/2048)
+    float _pad196;      // offset 196: reserved (u_SkinMode in skinned shader)
+    float u_AlphaRef;   // offset 200: Alpha test threshold (0.5 for trees, -1.0 = disabled)
 } pc;
 
 void main()
