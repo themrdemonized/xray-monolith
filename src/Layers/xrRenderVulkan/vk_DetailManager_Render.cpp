@@ -75,8 +75,7 @@ static bool BindDetailTexture(VkCommandBuffer cmd, CVulkanTexture* tex)
 }
 
 // ============================================================================
-// Render - Main rendering entry point
-// Ported from DX11 DetailManager.cpp::Render()
+// Render - Main rendering entry point (dispatches to GPU or CPU path)
 // ============================================================================
 void CDetailManager::Render()
 {
@@ -89,41 +88,38 @@ void CDetailManager::Render()
     if (m_Pipeline == VK_NULL_HANDLE)
         return;
 
-    // Ensure visibility is up to date
-    MT_SYNC();
-
-    // Diagnostic: log detail render state periodically
+    // Cache management (slot decompression) must run BEFORE GPU readiness check,
+    // because cache_Decompress() populates m_StagingInstances and sets m_GpuDataDirty.
+    if (m_frame_calc != RDEVICE.dwFrame)
     {
-        static u32 s_detail_diag_frame = 0;
-        if (RDEVICE.dwFrame > s_detail_diag_frame + 120)
+        MT.Enter();
+        if (m_frame_calc != RDEVICE.dwFrame)
         {
-            s_detail_diag_frame = RDEVICE.dwFrame;
-            u32 total_vis = 0;
-            u32 total_items = 0;
-            u32 valid_objs = 0;
-            for (u32 i = 0; i < objects.size(); i++)
+            if ((m_frame_rendered + 1) == RDEVICE.dwFrame)
             {
-                VK::CDetail* obj = objects[i];
-                if (obj && obj->m_VertexBuffer && obj->m_IndexBuffer)
-                    valid_objs++;
+                Fvector EYE = RDEVICE.vCameraPosition_saved;
+                int s_x = iFloor(EYE.x / dm_slot_size + .5f);
+                int s_z = iFloor(EYE.z / dm_slot_size + .5f);
+                cache_Update(s_x, s_z, EYE, dm_max_decompress);
+                m_frame_calc = RDEVICE.dwFrame;
             }
-            for (int a = 0; a < 3; a++)
-            {
-                for (u32 o = 0; o < m_visibles[a].size(); o++)
-                {
-                    total_vis += (u32)m_visibles[a][o].size();
-                    for (u32 v = 0; v < m_visibles[a][o].size(); v++)
-                    {
-                        if (m_visibles[a][o][v])
-                            total_items += (u32)m_visibles[a][o][v]->size();
-                    }
-                }
-            }
-            Msg("[Detail Render] frame=%u objs=%u valid_objs=%u vis_groups=%u items=%u m_frame_calc=%u m_frame_rendered=%u",
-                RDEVICE.dwFrame, (u32)objects.size(), valid_objs, total_vis, total_items,
-                m_frame_calc, m_frame_rendered);
         }
+        MT.Leave();
     }
+
+    // Always track frame for consecutive-frame guard, even if GPU path isn't ready yet.
+    // Without this, m_frame_rendered stays at initial 0xFFFFFFFF and the guard
+    // (m_frame_rendered + 1) == dwFrame never passes → cache_Update never runs.
+    m_frame_rendered = RDEVICE.dwFrame;
+
+    // Upload SSBO if dirty (cache_Decompress may have set m_GpuDataDirty)
+    if (m_GpuDataDirty && m_AllInstancesSSBO)
+        UploadStagingToSSBO();
+
+    // Check GPU resources are ready
+    if (!m_bGpuDrivenEnabled || !m_CullPipeline.IsValid() || !m_FinalizePipeline.IsValid()
+        || !m_AllInstancesSSBO || !m_VisibleSSBO || m_TotalGpuInstances == 0)
+        return;
 
     // Update wind animation
     float factor = g_pGamePersistent->Environment().wind_strength_factor;
@@ -137,20 +133,297 @@ void CDetailManager::Render()
 
     // Setup constants (scale, aniso, ambient)
     m_Constants.vConsts.set(
-        1.0f,                                   // scale_x
-        1.0f,                                   // scale_y
-        g_pGamePersistent->Environment().CurrentEnv->sun_dir.y,  // l_aniso (sun angle)
-        0.2f                                    // l_ambient
+        1.0f,
+        1.0f,
+        g_pGamePersistent->Environment().CurrentEnv->sun_dir.y,
+        0.2f
     );
 
-    // Get current command buffer
+    RenderGpuDriven();
+}
+
+// ============================================================================
+// RenderGpuDriven - GPU compute cull + indirect draw path
+// ============================================================================
+void CDetailManager::RenderGpuDriven()
+{
     VkCommandBuffer cmd = RCache.GetCommandBuffer();
     if (cmd == VK_NULL_HANDLE)
         return;
 
+    if (m_TotalGpuInstances == 0)
+        return;
+
     // ========================================================================
-    // Get rt_HDR and depth resources
-    // Render to rt_HDR (same as sky/clouds/forward passes)
+    // Phase 1: Update compute descriptor set with current buffer handles
+    // ========================================================================
+    {
+        VkDescriptorBufferInfo bufInfos[4] = {};
+        bufInfos[0].buffer = m_AllInstancesSSBO->GetHandle();
+        bufInfos[0].offset = 0;
+        bufInfos[0].range = VK_WHOLE_SIZE;
+
+        bufInfos[1].buffer = m_VisibleSSBO->GetHandle();
+        bufInfos[1].offset = 0;
+        bufInfos[1].range = VK_WHOLE_SIZE;
+
+        bufInfos[2].buffer = m_AtomicCounters->GetHandle();
+        bufInfos[2].offset = 0;
+        bufInfos[2].range = VK_WHOLE_SIZE;
+
+        bufInfos[3].buffer = m_IndirectCmdBuf->GetHandle();
+        bufInfos[3].offset = 0;
+        bufInfos[3].range = VK_WHOLE_SIZE;
+
+        VkWriteDescriptorSet writes[5] = {};
+        for (int i = 0; i < 4; i++)
+        {
+            writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            writes[i].dstSet = m_ComputeDescSet;
+            writes[i].dstBinding = i;
+            writes[i].dstArrayElement = 0;
+            writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            writes[i].descriptorCount = 1;
+            writes[i].pBufferInfo = &bufInfos[i];
+        }
+
+        // binding 4: HZB texture (use a dummy if not available)
+        VkDescriptorImageInfo hzbInfo = {};
+        if (m_HZBView != VK_NULL_HANDLE && m_HZBSampler != VK_NULL_HANDLE)
+        {
+            hzbInfo.imageView = m_HZBView;
+            hzbInfo.sampler = m_HZBSampler;
+            hzbInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        else
+        {
+            // Use white texture as dummy
+            CVulkanTexture* white = g_MaterialManager ? g_MaterialManager->GetWhiteTexture() : nullptr;
+            if (white && white->IsValid())
+            {
+                hzbInfo.imageView = white->GetView();
+                hzbInfo.sampler = white->GetSampler();
+                hzbInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            }
+            else
+            {
+                // Can't proceed without a valid image for binding 4
+                return;
+            }
+        }
+
+        writes[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[4].dstSet = m_ComputeDescSet;
+        writes[4].dstBinding = 4;
+        writes[4].dstArrayElement = 0;
+        writes[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[4].descriptorCount = 1;
+        writes[4].pImageInfo = &hzbInfo;
+
+        vkUpdateDescriptorSets(VulkanHW.GetDevice(), 5, writes, 0, nullptr);
+    }
+
+    // ========================================================================
+    // Phase 1.5: Build HZB from depth buffer (if available)
+    // ========================================================================
+    if (m_HZBImage != VK_NULL_HANDLE && m_HZBBuildPipeline.IsValid())
+    {
+        // Barrier: depth write -> shader read (for HZB build to sample depth)
+        VkImageMemoryBarrier depthToRead = {};
+        depthToRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        depthToRead.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        depthToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        depthToRead.oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        depthToRead.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        depthToRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthToRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthToRead.image = Swapchain.m_DepthImage;
+        depthToRead.subresourceRange = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &depthToRead);
+
+        BuildHZB(cmd);
+
+        // Barrier: HZB compute write -> cull shader read
+        VkImageMemoryBarrier hzbToRead = {};
+        hzbToRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        hzbToRead.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        hzbToRead.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        hzbToRead.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        hzbToRead.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        hzbToRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        hzbToRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        hzbToRead.image = m_HZBImage;
+        hzbToRead.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, m_HZBMipLevels, 0, 1 };
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &hzbToRead);
+
+        // Transition depth back to attachment optimal for later rendering
+        VkImageMemoryBarrier depthBack = {};
+        depthBack.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        depthBack.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        depthBack.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+        depthBack.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        depthBack.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        depthBack.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthBack.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthBack.image = Swapchain.m_DepthImage;
+        depthBack.subresourceRange = { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &depthBack);
+    }
+
+    // ========================================================================
+    // Phase 2: Pre-fill indirect commands with indexCount per object type
+    // and clear atomic counters
+    // ========================================================================
+    {
+        // Build indirect commands on CPU with correct indexCount, everything else 0
+        VkDrawIndexedIndirectCommand cmds[GPU_MAX_OBJ_TYPES] = {};
+        for (u32 i = 0; i < objects.size() && i < GPU_MAX_OBJ_TYPES; i++)
+        {
+            if (objects[i])
+                cmds[i].indexCount = objects[i]->m_IndexCount;
+        }
+        // Inline update into command buffer — matches TRANSFER_WRITE barrier below,
+        // avoids host→device sync issues. Data must be < 65536 bytes (Vulkan spec).
+        u32 cmdSize = (u32)objects.size() * sizeof(VkDrawIndexedIndirectCommand);
+        vkCmdUpdateBuffer(cmd, m_IndirectCmdBuf->GetHandle(), 0, cmdSize, cmds);
+    }
+
+    vkCmdFillBuffer(cmd, m_AtomicCounters->GetHandle(), 0, VK_WHOLE_SIZE, 0);
+
+    // Barrier: transfer writes (atomic counters clear + indirect prefill) -> compute read
+    {
+        VkBufferMemoryBarrier bars[2] = {};
+
+        bars[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bars[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bars[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        bars[0].buffer = m_AtomicCounters->GetHandle();
+        bars[0].offset = 0;
+        bars[0].size = VK_WHOLE_SIZE;
+        bars[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bars[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        bars[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bars[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bars[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        bars[1].buffer = m_IndirectCmdBuf->GetHandle();
+        bars[1].offset = 0;
+        bars[1].size = VK_WHOLE_SIZE;
+        bars[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bars[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 2, bars, 0, nullptr);
+    }
+
+    // ========================================================================
+    // Phase 3: Build push constants for compute
+    // ========================================================================
+    Fmatrix mVP;
+    mVP.mul(RDEVICE.mProject, RDEVICE.mView);
+
+    Fvector4 frustumPlanes[6];
+    ExtractFrustumPlanes(mVP, frustumPlanes);
+
+    float fade_limit = dm_fade;
+    float fade_start = 1.0f;
+    float fade_limit_sq = fade_limit * fade_limit;
+    float fade_start_sq = fade_start * fade_start;
+    float fade_range_sq = fade_limit_sq - fade_start_sq;
+
+    // Pack into push constant struct
+    struct {
+        DetailCullConstants cull;
+        DetailCullCounts    counts;
+    } pushData;
+
+    pushData.cull.viewProj = mVP;
+    for (int i = 0; i < 6; i++)
+        pushData.cull.frustumPlanes[i] = frustumPlanes[i];
+    pushData.cull.cameraPos.set(RDEVICE.vCameraPosition_saved.x,
+                                RDEVICE.vCameraPosition_saved.y,
+                                RDEVICE.vCameraPosition_saved.z, 0.0f);
+    pushData.cull.fadeParams.set(fade_start_sq, fade_limit_sq, fade_range_sq, RDEVICE.fTimeGlobal);
+
+    pushData.counts.totalInstances = m_TotalGpuInstances;
+    pushData.counts.numObjTypes = (u32)objects.size();
+    pushData.counts._pad0 = GPU_OUTPUT_CAPACITY;  // outputCapacity for section sizing
+    pushData.counts._pad1 = 0;
+
+    // ========================================================================
+    // Phase 4: Dispatch cull compute shader
+    // ========================================================================
+    m_CullPipeline.Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_ComputeLayout,
+        0, 1, &m_ComputeDescSet, 0, nullptr);
+    vkCmdPushConstants(cmd, m_ComputeLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+        0, sizeof(pushData), &pushData);
+
+    u32 groupCount = (m_TotalGpuInstances + 255) / 256;
+    vkCmdDispatch(cmd, groupCount, 1, 1);
+
+    // Barrier: compute write -> compute read (for finalize)
+    {
+        VkMemoryBarrier memBar = {};
+        memBar.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        memBar.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        memBar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memBar, 0, nullptr, 0, nullptr);
+    }
+
+    // ========================================================================
+    // Phase 5: Dispatch finalize (1 workgroup of 64 threads)
+    // ========================================================================
+    m_FinalizePipeline.Bind(cmd);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_ComputeLayout,
+        0, 1, &m_ComputeDescSet, 0, nullptr);
+    vkCmdPushConstants(cmd, m_ComputeLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+        0, sizeof(pushData), &pushData);
+    vkCmdDispatch(cmd, 1, 1, 1);
+
+    // Barrier: compute write -> vertex input + indirect read
+    {
+        VkBufferMemoryBarrier bufBars[2] = {};
+
+        bufBars[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufBars[0].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        bufBars[0].dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+        bufBars[0].buffer = m_VisibleSSBO->GetHandle();
+        bufBars[0].offset = 0;
+        bufBars[0].size = VK_WHOLE_SIZE;
+        bufBars[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufBars[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        bufBars[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bufBars[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        bufBars[1].dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        bufBars[1].buffer = m_IndirectCmdBuf->GetHandle();
+        bufBars[1].offset = 0;
+        bufBars[1].size = VK_WHOLE_SIZE;
+        bufBars[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bufBars[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            0, 0, nullptr, 2, bufBars, 0, nullptr);
+    }
+
+    // ========================================================================
+    // Phase 6: Graphics rendering (same rt_HDR + depth setup)
     // ========================================================================
     VkImage hdrImage = RTarget->rt_HDR.m_Image;
     VkImageView hdrView = RTarget->rt_HDR.m_ImageView;
@@ -165,12 +438,8 @@ void CDetailManager::Render()
     if (depthImage == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE)
         return;
 
-    // ========================================================================
-    // Transition rt_HDR: COLOR_ATTACHMENT self-barrier (execution dependency)
-    // Transition depth: DEPTH_ATTACHMENT_OPTIMAL -> keep (read + write)
-    // ========================================================================
+    // Pre-rendering barriers
     VkImageMemoryBarrier barriers[2] = {};
-
     barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -196,9 +465,7 @@ void CDetailManager::Render()
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
         0, 0, nullptr, 0, nullptr, 2, barriers);
 
-    // ========================================================================
     // Begin rendering
-    // ========================================================================
     VkRenderingAttachmentInfo colorAttachment = {};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     colorAttachment.imageView = hdrView;
@@ -224,12 +491,12 @@ void CDetailManager::Render()
 
     vkCmdBeginRendering(cmd, &renderingInfo);
 
-    // Setup viewport and scissor
+    // Viewport and scissor
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = (float)hdrHeight;
     viewport.width = (float)hdrWidth;
-    viewport.height = -(float)hdrHeight;  // Flip Y for Vulkan
+    viewport.height = -(float)hdrHeight;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -239,113 +506,70 @@ void CDetailManager::Render()
     scissor.extent = {hdrWidth, hdrHeight};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    // ========================================================================
-    // Bind pipeline and push constants
-    // ========================================================================
+    // Bind graphics pipeline and push constants
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
 
-    VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
-    vkCmdPushConstants(cmd, layout,
+    VkPipelineLayout gfxLayout = VK::g_PipelineManager->GetLayout();
+    vkCmdPushConstants(cmd, gfxLayout,
         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         0, sizeof(m_Constants), &m_Constants);
 
     // ========================================================================
-    // Render each object type
+    // Phase 7: Indirect draws per object type
+    // Each object type's visible instances are at offset objId * sectionSize
+    // in m_VisibleSSBO, with instanceCount in the indirect command buffer.
     // ========================================================================
-    m_InstanceBuffer.BeginFrame();  // Reset sub-allocation offset for this frame
+    u32 sectionSize = GPU_OUTPUT_CAPACITY / _max((u32)objects.size(), 1u);
     u32 total_draws = 0;
-    u32 total_instances = 0;
+
     for (u32 obj_id = 0; obj_id < objects.size(); obj_id++)
     {
         VK::CDetail* obj = objects[obj_id];
         if (!obj || !obj->m_VertexBuffer || !obj->m_IndexBuffer)
             continue;
 
-        // Bind this detail object's texture to Set 1 (PerMaterial)
-        // This must happen per-object since each detail type has its own texture
+        // Bind texture
         CVulkanTexture* detailTex = obj->m_VkTexture;
         if (!detailTex && g_MaterialManager)
             detailTex = g_MaterialManager->GetWhiteTexture();
         if (!BindDetailTexture(cmd, detailTex))
             continue;
 
-        // Render each animation type separately
-        for (int anim = 0; anim < 3; anim++)
-        {
-            if (m_visibles[anim].size() <= obj_id)
-                continue;
+        // Bind base mesh vertex buffer (binding 0)
+        VkBuffer vb = obj->m_VertexBuffer->GetHandle();
+        VkDeviceSize vb_offset = 0;
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &vb_offset);
 
-            xr_vector<SlotItemVec*>& vis_vec = m_visibles[anim][obj_id];
-            if (vis_vec.empty())
-                continue;
+        // Bind instance buffer from VisibleSSBO at this object's section (binding 1)
+        VkBuffer visBuf = m_VisibleSSBO->GetHandle();
+        VkDeviceSize instOffset = (VkDeviceSize)obj_id * sectionSize * sizeof(DetailInstance);
+        vkCmdBindVertexBuffers(cmd, 1, 1, &visBuf, &instOffset);
 
-            // Build instance buffer for this (object, animation) combo
-            m_InstanceBuffer.BeginUpdate();
+        // Bind index buffer
+        VkBuffer ib = obj->m_IndexBuffer->GetHandle();
+        vkCmdBindIndexBuffer(cmd, ib, 0, VK_INDEX_TYPE_UINT16);
 
-            for (u32 i = 0; i < vis_vec.size(); i++)
-            {
-                SlotItemVec* items = vis_vec[i];
-                if (!items)
-                    continue;
+        // Indirect draw — the finalize shader wrote instanceCount into the command
+        // We need to patch indexCount on CPU side since compute doesn't know it.
+        // Instead of reading back, we use vkCmdDrawIndexedIndirect with the command
+        // that has instanceCount from GPU and we pre-fill indexCount.
+        //
+        // Since the finalize shader wrote indexCount=0, we use a simpler approach:
+        // vkCmdDrawIndexedIndirect reads from the buffer. We need indexCount pre-filled.
+        // We'll use a CPU-side pre-fill of indexCount into the indirect buffer before compute.
 
-                for (SlotItemVecIt it = items->begin(); it != items->end(); ++it)
-                {
-                    SlotItem* Item = *it;
-
-                    m_InstanceBuffer.AddInstance(
-                        Item->mRotY,
-                        Item->c_sun,
-                        Item->c_hemi,
-                        Item->scale_calculated
-                    );
-                }
-            }
-
-            u32 instance_count = m_InstanceBuffer.EndUpdate();
-            if (instance_count == 0)
-                continue;
-
-            // Bind base mesh vertex buffer
-            VkBuffer vb = obj->m_VertexBuffer->GetHandle();
-            VkDeviceSize vb_offset = 0;
-            vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &vb_offset);
-
-            // Bind instance buffer at this batch's offset (NOT 0!)
-            VkBuffer ib_inst = m_InstanceBuffer.GetBuffer()->GetHandle();
-            VkDeviceSize inst_offset = m_InstanceBuffer.GetBatchOffset();
-            vkCmdBindVertexBuffers(cmd, 1, 1, &ib_inst, &inst_offset);
-
-            // Bind index buffer
-            VkBuffer ib = obj->m_IndexBuffer->GetHandle();
-            vkCmdBindIndexBuffer(cmd, ib, 0, VK_INDEX_TYPE_UINT16);
-
-            // Draw indexed instanced
-            vkCmdDrawIndexed(cmd, obj->m_IndexCount, instance_count, 0, 0, 0);
-            total_draws++;
-            total_instances += instance_count;
-        }
+        // For now, use direct draw with indirect instance count:
+        // We read instanceCount from indirect buffer via indirect draw
+        VkDeviceSize indirectOffset = obj_id * sizeof(VkDrawIndexedIndirectCommand);
+        vkCmdDrawIndexedIndirect(cmd, m_IndirectCmdBuf->GetHandle(), indirectOffset, 1,
+            sizeof(VkDrawIndexedIndirectCommand));
+        total_draws++;
     }
 
-    // Diagnostic: log draw stats
-    {
-        static u32 s_draw_diag = 0;
-        if (RDEVICE.dwFrame > s_draw_diag + 120)
-        {
-            s_draw_diag = RDEVICE.dwFrame;
-            Msg("[Detail Draw] draws=%u instances=%u pipeline=%p constants_size=%u",
-                total_draws, total_instances, (void*)m_Pipeline, (u32)sizeof(m_Constants));
-        }
-    }
-
-    // ========================================================================
-    // End rendering and transition back
-    // ========================================================================
     vkCmdEndRendering(cmd);
 
-    // Transition rt_HDR: COLOR_ATTACHMENT self-barrier (execution dependency)
-    // Depth stays in DEPTH_ATTACHMENT_OPTIMAL
+    // Post-rendering barriers
     VkImageMemoryBarrier finalBarriers[2] = {};
-
     finalBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     finalBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     finalBarriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -371,7 +595,17 @@ void CDetailManager::Render()
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
         0, 0, nullptr, 0, nullptr, 2, finalBarriers);
 
-    m_frame_rendered = RDEVICE.dwFrame;
+    // Diagnostic
+    {
+        static u32 s_gpu_diag = 0;
+        if (RDEVICE.dwFrame > s_gpu_diag + 120)
+        {
+            s_gpu_diag = RDEVICE.dwFrame;
+            Msg("[Detail GPU] draws=%u gpuInstances=%u dispatch=(%u,1,1) objTypes=%u",
+                total_draws, m_TotalGpuInstances, (m_TotalGpuInstances + 255) / 256,
+                (u32)objects.size());
+        }
+    }
 }
 
 } // namespace VK

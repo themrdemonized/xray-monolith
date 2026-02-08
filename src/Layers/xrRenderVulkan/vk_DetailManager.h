@@ -6,6 +6,7 @@
 
 #include "stdafx.h"
 #include "vk_Detail.h"
+#include "vk_compute.h"
 #include "../xrRender/detailformat.h"
 #include "../../xrCore/xrpool.h"
 
@@ -64,33 +65,39 @@ struct DetailInstance
 };
 
 // ============================================================================
-// CDetailInstanceBuffer - GPU instance buffer manager
+// GPU-driven pipeline: Extended instance data for persistent SSBO
 // ============================================================================
-class CDetailInstanceBuffer
+struct GpuDetailInstanceExt
 {
-private:
-    VK::CVulkanBuffer*  m_Buffer;       // GPU buffer
-    DetailInstance*     m_Mapped;       // CPU-mapped memory
-    u32                 m_Capacity;     // Max instances
-    u32                 m_FrameOffset;  // Current write position in frame (advances per batch)
-    u32                 m_BatchStart;   // Start of current batch within frame
-    u32                 m_BatchCount;   // Instances in current batch
+    Fvector4 row0;          // (m11*s, m12*s, m13*s, tx)
+    Fvector4 row1;          // (m21*s, m22*s, m23*s, ty)
+    Fvector4 row2;          // (m31*s, m32*s, m33*s, tz)
+    Fvector4 color;         // (sun, sun, sun, hemi)
+    u32      obj_id;        // Detail object type [0..63], 0xFFFFFFFF=dead
+    float    base_scale;    // Original scale before fade
+    float    bv_radius;     // Bounding sphere radius of object type
+    u32      _pad;          // Alignment to 80 bytes
+    // Total: 80 bytes per instance
+};
 
-public:
-    CDetailInstanceBuffer();
-    ~CDetailInstanceBuffer();
+// GPU-driven pipeline: Push constants for compute cull shader
+struct DetailCullConstants
+{
+    Fmatrix  viewProj;          // 64 bytes
+    Fvector4 frustumPlanes[6];  // 96 bytes
+    Fvector4 cameraPos;         // 16 bytes (xyz=pos, w=unused)
+    Fvector4 fadeParams;        // 16 bytes (fadeStartSq, fadeLimitSq, fadeRangeSq, time)
+    // uvec4 counts passed separately since Vulkan push constant limit is 128-256 bytes
+    // We split: 192 bytes in push constants, counts in a small UBO or separate push range
+};
 
-    void Create(u32 capacity);
-    void Destroy();
-
-    void BeginFrame();              // Reset frame offset to 0 (call once per frame)
-    void BeginUpdate();             // Start a new batch at current frame offset
-    void AddInstance(const Fmatrix& transform, float sun, float hemi, float scale);
-    u32 EndUpdate();                // Finalize batch, advance frame offset, return count
-
-    VK::CVulkanBuffer* GetBuffer() const { return m_Buffer; }
-    u32 GetBatchCount() const { return m_BatchCount; }
-    VkDeviceSize GetBatchOffset() const { return m_BatchStart * sizeof(DetailInstance); }
+// GPU-driven pipeline: Per-dispatch params (small enough for second push constant range)
+struct DetailCullCounts
+{
+    u32 totalInstances;
+    u32 numObjTypes;
+    u32 _pad0;
+    u32 _pad1;
 };
 
 // ============================================================================
@@ -116,6 +123,7 @@ public:
         Fvector     normal;
         float       alpha;          // Current alpha
         float       alpha_target;   // Target alpha (for fade)
+        u32         gpu_instance_id; // Index into persistent GPU SSBO (0xFFFFFFFF=invalid)
     };
 
     DEFINE_VECTOR(SlotItem*, SlotItemVec, SlotItemVecIt);
@@ -189,7 +197,6 @@ public:
     // ========================================================================
     // Types
     // ========================================================================
-    typedef xr_vector<xr_vector<SlotItemVec*>> vis_list;
     typedef svector<VK::CDetail*, dm_max_objects> DetailVec;
     typedef DetailVec::iterator DetailIt;
     typedef poolSS<SlotItem, 4096> PSS;
@@ -209,9 +216,6 @@ public:
 
     // Objects
     DetailVec       objects;            // Detail object models
-
-    // Visibility lists (per animation type)
-    vis_list        m_visibles[3];      // 0=still, 1=wave1, 2=wave2
 
     // Cache system
 #ifdef DETAIL_RADIUS
@@ -251,7 +255,6 @@ public:
 
 private:
     // Vulkan rendering resources
-    CDetailInstanceBuffer   m_InstanceBuffer;       // Shared instance buffer
     VkPipeline              m_Pipeline;             // Detail rendering pipeline
     bool                    m_bCreated;
 
@@ -264,6 +267,57 @@ private:
         Fvector4    vConsts;        // (scale, scale, l_aniso, l_ambient)
     };
     DetailConstants m_Constants;
+
+    // ========================================================================
+    // GPU-driven pipeline resources
+    // ========================================================================
+    // Persistent SSBO: all decompressed instances (uploaded once, updated on slot changes)
+    CVulkanBuffer*              m_AllInstancesSSBO;     // 50K × 80 bytes = 4.0 MB
+    // Compacted visible instances (output of compute cull) — used as VB binding 1
+    CVulkanBuffer*              m_VisibleSSBO;          // 50K × 64 bytes = 3.2 MB
+    // Indirect draw commands (one per object type)
+    CVulkanBuffer*              m_IndirectCmdBuf;       // 64 × 20 bytes = 1.3 KB
+    // Atomic counters for stream compaction (one per object type + base offsets)
+    CVulkanBuffer*              m_AtomicCounters;       // 128 × 4 bytes = 512 B
+
+    // CPU-side staging for SSBO upload
+    xr_vector<GpuDetailInstanceExt> m_StagingInstances;
+    u32                         m_TotalGpuInstances;    // Current count in SSBO
+    bool                        m_GpuDataDirty;         // Need to re-upload SSBO
+
+    // Compute pipeline for culling
+    CVulkanComputePipeline      m_CullPipeline;
+    CVulkanComputePipeline      m_FinalizePipeline;
+    VkPipelineLayout            m_ComputeLayout;        // Dedicated compute pipeline layout
+    VkDescriptorSetLayout       m_ComputeDescLayout;    // Descriptor set layout for compute
+    VkDescriptorPool            m_ComputeDescPool;      // Dedicated descriptor pool
+    VkDescriptorSet             m_ComputeDescSet;       // Descriptor set (re-written per frame)
+
+    // HZB (Hierarchical Z-Buffer) for occlusion culling
+    VkImage                     m_HZBImage;
+    VkDeviceMemory              m_HZBMemory;
+    VkImageView                 m_HZBView;              // View for full mip chain
+    xr_vector<VkImageView>      m_HZBMipViews;          // Per-mip views
+    VkSampler                   m_HZBSampler;
+    u32                         m_HZBWidth;
+    u32                         m_HZBHeight;
+    u32                         m_HZBMipLevels;
+    CVulkanComputePipeline      m_HZBBuildPipeline;
+    VkPipelineLayout            m_HZBBuildLayout;
+    VkDescriptorSetLayout       m_HZBBuildDescLayout;
+    VkDescriptorPool            m_HZBBuildDescPool;
+
+    // GPU path enable toggle
+    bool                        m_bGpuDrivenEnabled;
+
+    // Per-object-type base offsets for indirect draw (computed after finalize)
+    // Each obj_type gets a contiguous section of m_VisibleSSBO
+    // Max offset per obj = totalInstances / numObjTypes (approximation)
+    static const u32            GPU_MAX_INSTANCES = 50000;
+    static const u32            GPU_MAX_OBJ_TYPES = 64;
+    // Output buffer capacity: 4x input gives each of 32 types ~6250 slots
+    // After frustum+distance+HZB culling, no single type should exceed this
+    static const u32            GPU_OUTPUT_CAPACITY = 200000;
 
 public:
     CDetailManager();
@@ -293,24 +347,6 @@ public:
     int w2cg_X(int x) { return x - cache_cx + dm_size; }
     int w2cg_Z(int z) { return cache_cz - dm_size + (dm_cache_line - 1 - z); }
 
-    // ========================================================================
-    // Visibility
-    // ========================================================================
-    void UpdateVisibleM();              // Update visibility (main thread)
-    void UpdateVisibleS();              // Update visibility (secondary)
-    void details_clear();               // Clear visibility lists
-
-    // ========================================================================
-    // MT synchronization
-    // ========================================================================
-    void MT_CALC();
-    IC void MT_SYNC()
-    {
-        if (m_frame_calc == RDEVICE.dwFrame)
-            return;
-        MT_CALC();
-    }
-
 private:
     // ========================================================================
     // Vulkan-specific helpers
@@ -318,7 +354,18 @@ private:
     void CreatePipeline();              // Create detail rendering pipeline
     void DestroyPipeline();             // Destroy pipeline
     void UpdateWindAnimation();         // Update wind constants
-    void BuildInstanceData();           // Build instance buffer from visible slots
+
+    // GPU-driven pipeline helpers
+    void CreateGpuBuffers();            // Create SSBO, indirect, atomic buffers
+    void DestroyGpuBuffers();           // Destroy GPU-driven buffers
+    void CreateComputePipeline();       // Create compute cull + finalize pipelines
+    void DestroyComputePipeline();      // Destroy compute pipelines
+    void CreateHZB();                   // Create HZB texture + build pipeline
+    void DestroyHZB();                  // Destroy HZB resources
+    void UploadStagingToSSBO();         // Upload dirty staging data to GPU
+    void RenderGpuDriven();             // GPU-driven render path
+    void BuildHZB(VkCommandBuffer cmd); // Dispatch HZB build passes
+    void ExtractFrustumPlanes(const Fmatrix& viewProj, Fvector4 planes[6]);
 };
 
 // Free function for dither matrix generation (from DX11)

@@ -271,6 +271,32 @@ void CDetailManager::cache_Decompress(Slot* S)
             Item.alpha_target = 0.0f;
             Item.scale_calculated = Item.scale;
 
+            // GPU-driven: assign persistent SSBO index and populate staging
+            if (m_StagingInstances.size() < GPU_MAX_INSTANCES)
+            {
+                Item.gpu_instance_id = (u32)m_StagingInstances.size();
+
+                GpuDetailInstanceExt ext;
+                ext.row0.set(Item.mRotY._11 * Item.scale, Item.mRotY._12 * Item.scale,
+                             Item.mRotY._13 * Item.scale, Item.mRotY._41);
+                ext.row1.set(Item.mRotY._21 * Item.scale, Item.mRotY._22 * Item.scale,
+                             Item.mRotY._23 * Item.scale, Item.mRotY._42);
+                ext.row2.set(Item.mRotY._31 * Item.scale, Item.mRotY._32 * Item.scale,
+                             Item.mRotY._33 * Item.scale, Item.mRotY._43);
+                ext.color.set(Item.c_sun, Item.c_sun, Item.c_sun, Item.c_hemi);
+                ext.obj_id = DS.r_id(index);
+                ext.base_scale = Item.scale;
+                ext.bv_radius = Dobj->bv_sphere.R;
+                ext._pad = 0;
+
+                m_StagingInstances.push_back(ext);
+                m_GpuDataDirty = true;
+            }
+            else
+            {
+                Item.gpu_instance_id = 0xFFFFFFFF;
+            }
+
             // Save it
             D.G[index].items.push_back(ItemP);
         }

@@ -113,12 +113,6 @@ void CDetailManager::Load()
     Msg("  total_slots: %d", dtH.size_x * dtH.size_z);
 
     // ========================================================================
-    // Initialize visibility lists
-    // ========================================================================
-    for (u32 i = 0; i < 3; ++i)
-        m_visibles[i].resize(objects.size());
-
-    // ========================================================================
     // Initialize cache system
     // ========================================================================
 
@@ -163,12 +157,14 @@ void CDetailManager::Load()
     bwdithermap(2, dither);
 
     // ========================================================================
-    // Create instance buffer (estimate: 50K instances max)
+    // Create GPU-driven pipeline buffers and compute pipelines
     // ========================================================================
-    m_InstanceBuffer.Create(50000);
+    CreateGpuBuffers();
+    CreateComputePipeline();
+    CreateHZB();
 
     // ========================================================================
-    // Create Vulkan pipeline
+    // Create Vulkan graphics pipeline
     // ========================================================================
     CreatePipeline();
 
