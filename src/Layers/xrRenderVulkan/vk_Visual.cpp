@@ -2040,19 +2040,26 @@ void vkSkeletonX_ST::_Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount)
         u32 vStride = sizeof(vertHW_1W);  // 36
         vertHW_1W* dst = xr_alloc<vertHW_1W>(dwVertCount);
         vertBoned1W* src = (vertBoned1W*)_verts_;
+        float uvMinU = FLT_MAX, uvMaxU = -FLT_MAX;
+        float uvMinV = FLT_MAX, uvMaxV = -FLT_MAX;
         for (u32 i = 0; i < dwVertCount; i++)
         {
-            if (dwVertCount == 242 && i < 5) {
-                Msg("[VERT-DIAG] src[%u]: P=(%.4f,%.4f,%.4f) N=(%.4f,%.4f,%.4f) uv=(%.4f,%.4f) mtx=%u",
-                    i, src->P.x, src->P.y, src->P.z, src->N.x, src->N.y, src->N.z, src->u, src->v, src->matrix);
-            }
             Fvector2 uv; uv.set(src->u, src->v);
             dst[i].set(src->P, src->N, src->T, src->B, uv, src->matrix * 3);
-            if (dwVertCount == 242 && i < 5) {
-                Msg("[VERT-DIAG] dst[%u]: P=(%.4f,%.4f,%.4f,%.4f) tc=(%.4f,%.4f)",
-                    i, dst[i]._P[0], dst[i]._P[1], dst[i]._P[2], dst[i]._P[3], dst[i]._tc[0], dst[i]._tc[1]);
-            }
+            if (src->u < uvMinU) uvMinU = src->u;
+            if (src->u > uvMaxU) uvMaxU = src->u;
+            if (src->v < uvMinV) uvMinV = src->v;
+            if (src->v > uvMaxV) uvMaxV = src->v;
             src++;
+        }
+        // Log UV range for first 30 unique skinned meshes
+        {
+            static u32 s_uvDiagCount = 0;
+            if (s_uvDiagCount < 30) {
+                s_uvDiagCount++;
+                Msg("[UV-RANGE] 1W vCount=%u mode=%u U=[%.3f..%.3f] V=[%.3f..%.3f] stride=%u",
+                    dwVertCount, (u32)RenderMode, uvMinU, uvMaxU, uvMinV, uvMaxV, vStride);
+            }
         }
         m_mesh.p_rm_Vertices = xr_new<VK::CVulkanBuffer>();
         m_mesh.p_rm_Vertices->Create(dwVertCount * vStride,

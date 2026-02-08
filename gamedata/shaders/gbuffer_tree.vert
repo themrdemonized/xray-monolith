@@ -17,6 +17,7 @@ layout(location = 0) in vec3 a_Position;  // Quantized local-space position
 layout(location = 0) out vec3 v_PositionEye;  // Eye-space position
 layout(location = 1) out vec3 v_NormalEye;    // Eye-space normal
 layout(location = 2) out vec2 v_TexCoord;     // Texture coordinates
+layout(location = 3) out vec2 v_WorldPosXZ;   // World-space XZ for terrain detail tiling
 
 // Push constants (same layout as gbuffer.vert)
 layout(push_constant) uniform PushConstants
@@ -39,6 +40,7 @@ void main()
     gl_Position   = pc.u_Projection * eyePos;
 
     v_PositionEye = eyePos.xyz;
+    v_WorldPosXZ  = worldPos.xz;
 
     // Generate filler normal: world-space up vector transformed to eye-space
     v_NormalEye = (pc.u_View * vec4(0.0, 1.0, 0.0, 0.0)).xyz;

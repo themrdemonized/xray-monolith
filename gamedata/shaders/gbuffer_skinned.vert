@@ -40,6 +40,7 @@ layout(location = 5) in vec4 a_BoneIndices; // D3DCOLOR: 4 bone indices * 3 (str
 layout(location = 0) out vec3 v_PositionEye;
 layout(location = 1) out vec3 v_NormalEye;
 layout(location = 2) out vec2 v_TexCoord;
+layout(location = 3) out vec2 v_WorldPosXZ;
 
 // Push constants
 layout(push_constant) uniform PushConstants
@@ -155,6 +156,7 @@ void main()
     gl_Position   = pc.u_Projection * eyePos;
 
     v_PositionEye = eyePos.xyz;
+    v_WorldPosXZ  = worldPos.xz;
 
     vec3 worldNormal = (pc.u_Model * vec4(skinnedNormal, 0.0)).xyz;
     v_NormalEye      = (pc.u_View * vec4(worldNormal, 0.0)).xyz;

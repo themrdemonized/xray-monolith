@@ -483,30 +483,15 @@ void CTextureDescrMngr::LoadTHMThread(void* args)
 
 void CTextureDescrMngr::Load()
 {
-    Msg("[Vulkan] CTextureDescrMngr::Load() - Loading .thm files...");
+    Msg("[Vulkan] CTextureDescrMngr::Load() - Loading .thm files (synchronous)...");
 
-    // Load .thm files from two locations in parallel:
-    // 1. $game_textures$ - gamedata/textures/
-    // 2. $level$ - current level textures
+    // Load .thm files synchronously to avoid race conditions with material creation.
+    // Materials call GetBumpName() immediately after, so data must be ready.
+    LoadTHM("$game_textures$", m_texture_details, m_detail_scalers);
+    LoadTHM("$level$", m_texture_details, m_detail_scalers);
 
-    TH_LoadTHM_Vulkan* gtex = xr_new<TH_LoadTHM_Vulkan>();
-    gtex->initial = "$game_textures$";
-    gtex->s_texture_details = &m_texture_details;
-    gtex->s_detail_scalers = &m_detail_scalers;
-
-    TH_LoadTHM_Vulkan* lvl = xr_new<TH_LoadTHM_Vulkan>();
-    lvl->initial = "$level$";
-    lvl->s_texture_details = &m_texture_details;
-    lvl->s_detail_scalers = &m_detail_scalers;
-
-    // Spawn loading threads
-    thread_spawn(CTextureDescrMngr::LoadTHMThread, "Vulkan THM Loader 1", 0, gtex);
-    thread_spawn(CTextureDescrMngr::LoadTHMThread, "Vulkan THM Loader 2", 0, lvl);
-
-    // Wait a bit for threads to start
-    Sleep(5);
-
-    Msg("[Vulkan] CTextureDescrMngr::Load() - Threads spawned, loading in background");
+    Msg("[Vulkan] CTextureDescrMngr::Load() - Done, %u texture descriptors loaded",
+        (u32)m_texture_details.size());
 }
 
 void CTextureDescrMngr::UnLoad()

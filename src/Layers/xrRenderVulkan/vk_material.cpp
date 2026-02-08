@@ -200,6 +200,7 @@ void CMaterial::LoadNormal(LPCSTR name)
         // Check cache first
         m_TexNormal = g_MaterialManager->FindTexture(bump_name.c_str());
         if (m_TexNormal) {
+            Msg("[VK-BUMP] '%s' -> thm bump '%s' (cached)", name, bump_name.c_str());
             return;
         }
 
@@ -209,9 +210,11 @@ void CMaterial::LoadNormal(LPCSTR name)
             FS.exist(fn, "$game_textures$", bump_name.c_str(), ".dds")) {
             m_TexNormal = g_MaterialManager->LoadTexture(bump_name.c_str(), fn);
             if (m_TexNormal) {
+                Msg("[VK-BUMP] '%s' -> thm bump '%s' LOADED from %s", name, bump_name.c_str(), fn);
                 return;
             }
         }
+        Msg("[VK-BUMP] '%s' -> thm bump '%s' NOT FOUND on disk", name, bump_name.c_str());
     }
 
     // Fallback: Try common normal map naming conventions
@@ -225,6 +228,7 @@ void CMaterial::LoadNormal(LPCSTR name)
         // Check cache first
         m_TexNormal = g_MaterialManager->FindTexture(normal_name);
         if (m_TexNormal) {
+            Msg("[VK-BUMP] '%s' -> suffix '%s' (cached)", name, normal_name);
             return;
         }
 
@@ -232,8 +236,18 @@ void CMaterial::LoadNormal(LPCSTR name)
             FS.exist(fn, "$game_textures$", normal_name, ".dds")) {
             m_TexNormal = g_MaterialManager->LoadTexture(normal_name, fn);
             if (m_TexNormal) {
+                Msg("[VK-BUMP] '%s' -> suffix '%s' LOADED from %s", name, normal_name, fn);
                 return;
             }
+        }
+    }
+
+    // One-shot diagnostic: log first 50 materials that fall back to default normal
+    {
+        static u32 s_bumpFallbackCount = 0;
+        if (s_bumpFallbackCount < 50) {
+            s_bumpFallbackCount++;
+            Msg("[VK-BUMP] '%s' -> FALLBACK to 1x1 default (no thm bump, no _bump/_nmap/_n)", name);
         }
     }
 
@@ -500,6 +514,14 @@ void CMaterial::Bind(VkCommandBuffer cmd)
     // this frame, re-use it instead of allocating a new one.
     // This is critical because the pool supports ~2000 material sets per frame,
     // but there can be 7000+ draw calls sharing ~1300 unique materials.
+    // Push terrain detail scale (offset 204) for every material bind.
+    // Terrain materials use their .thm dt_params scale; non-terrain use fallback 48.0
+    // which is harmless since the shader skips the terrain branch for them.
+    float detailScale = (m_bTerrain && m_fDetailScale > 1.0f) ? m_fDetailScale : 48.0f;
+    vkCmdPushConstants(cmd, layout,
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        204, sizeof(float), &detailScale);
+
     if (m_CachedFrame == Device.dwFrame && m_CachedFrameSet != VK_NULL_HANDLE)
     {
         vkCmdBindDescriptorSets(cmd,

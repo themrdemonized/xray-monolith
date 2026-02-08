@@ -47,7 +47,8 @@ struct GBufferPushConstants
     float   u_UVScale;     // offset 192: UV scale (1/1024 for SHORT2, 1.0 for FLOAT2)
     u32     _pad196;       // offset 196: reserved (u_SkinMode in skinned pipeline)
     float   u_AlphaRef;    // offset 200: Alpha test threshold (-1.0 = disabled, 0.5 = enabled)
-    // Total: 204 bytes (3 x 64 bytes + 4 + 4 + 4)
+    float   u_DetailScale; // offset 204: terrain detail UV multiplier (from .thm dt_params)
+    // Total: 208 bytes (3 x 64 bytes + 4 + 4 + 4 + 4)
 };
 
 // ============================================================================
@@ -539,6 +540,7 @@ void CRenderTarget::phase_gbuffer()
         pushConstants.u_UVScale = 1.0f / 1024.0f;  // SHORT2 UV scale for stride-32
         pushConstants._pad196 = 0;
         pushConstants.u_AlphaRef = -1.0f;          // No alpha test for solid geometry
+        pushConstants.u_DetailScale = 48.0f;       // Default terrain detail scale (overridden per-material)
 
         VkPipelineLayout layout = g_PipelineManager->GetLayout();
         vkCmdPushConstants(cmd, layout,
