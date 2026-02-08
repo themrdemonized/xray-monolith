@@ -164,6 +164,17 @@ void CDetailManager::Load()
     CreateHZB();
 
     // ========================================================================
+    // GPU procedural grass generation (replaces CPU cache + GPU cull)
+    // ========================================================================
+    if (m_bGpuGenerationEnabled)
+    {
+        BakeHeightmap();
+        UploadSlotData();
+        UploadObjInfo();
+        CreateGpuGenPipeline();
+    }
+
+    // ========================================================================
     // Create Vulkan graphics pipeline
     // ========================================================================
     CreatePipeline();

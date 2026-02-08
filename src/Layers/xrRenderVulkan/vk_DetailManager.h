@@ -34,14 +34,14 @@ namespace VK
 // ============================================================================
 // Constants
 // ============================================================================
-const int dm_max_decompress = 7;
+const int dm_max_decompress = 80;
 const int dm_cache1_count = 4;
 const int dm_max_objects = 64;
 const int dm_obj_in_slot = 4;
 const float dm_slot_size = DETAIL_SLOT_SIZE;
 
 #ifndef DETAIL_RADIUS
-const int dm_size = 24;
+const int dm_size = 86;
 const int dm_cache1_line = dm_size * 2 / dm_cache1_count;
 const int dm_cache_line = dm_size + 1 + dm_size;
 const int dm_cache_size = dm_cache_line * dm_cache_line;
@@ -98,6 +98,60 @@ struct DetailCullCounts
     u32 numObjTypes;
     u32 _pad0;
     u32 _pad1;
+};
+
+// ============================================================================
+// GPU grass generation: push constants (208 bytes)
+// ============================================================================
+struct DetailGenPushConstants
+{
+    Fmatrix  viewProj;          // 64 bytes
+    Fvector4 frustumPlanes[6];  // 96 bytes
+    Fvector4 cameraPos;         // 16 bytes (xyz=pos, w=time)
+    Fvector4 fadeParams;        // 16 bytes (fadeStartSq, fadeLimitSq, fadeRangeSq, density)
+    int      slotMinSX;         // 4 bytes  — slot range min X (world slot coords)
+    int      slotMinSZ;         // 4 bytes
+    int      slotCountX;        // 4 bytes
+    int      slotCountZ;        // 4 bytes
+    // Total: 208 bytes
+};
+
+// GPU grass generation: UBO params (64 bytes, binding 7)
+struct DetailGenUBO
+{
+    float hmOriginX, hmOriginZ; // Heightmap world origin
+    float hmInvScaleX, hmInvScaleZ; // 1 / (worldSize / hmResolution) for UV
+    u32   totalPositions;       // Total dispatch threads
+    u32   numObjTypes;          // Number of detail object types
+    u32   outputCapacity;       // GPU_OUTPUT_CAPACITY
+    u32   posPerSlot;           // Positions per slot (d_size+1)^2
+    float dtOffsX, dtOffsZ;     // dtH.offs_x, dtH.offs_z (as float)
+    float dtSizeX, dtSizeZ;     // dtH.size_x, dtH.size_z (as float)
+    float slotSize;             // DETAIL_SLOT_SIZE (2.0)
+    float detailHeight;         // ps_current_detail_height
+    u32   hmWidth, hmHeight;    // Heightmap dimensions
+};
+
+// GPU grass generation: packed slot data for SSBO (32 bytes per slot)
+struct GpuSlotPacked
+{
+    float y_base;       // DetailSlot::r_ybase()
+    float y_height;     // DetailSlot::r_yheight()
+    u32   ids;          // id0:8 | id1:8 | id2:8 | id3:8
+    u32   lighting;     // c_dir:16 | c_hemi:16
+    u32   palette0;     // obj0: a0:8|a1:8|a2:8|a3:8
+    u32   palette1;     // obj1
+    u32   palette2;     // obj2
+    u32   palette3;     // obj3
+};
+
+// GPU grass generation: per-object-type info (16 bytes)
+struct GpuDetailObjInfo
+{
+    float minScale;
+    float maxScale;
+    float bvRadius;
+    u32   flags;        // DO_NO_WAVING etc.
 };
 
 // ============================================================================
@@ -282,6 +336,7 @@ private:
 
     // CPU-side staging for SSBO upload
     xr_vector<GpuDetailInstanceExt> m_StagingInstances;
+    xr_vector<u32>              m_GpuFreeList;          // Reusable SSBO slots (dead instance indices)
     u32                         m_TotalGpuInstances;    // Current count in SSBO
     bool                        m_GpuDataDirty;         // Need to re-upload SSBO
 
@@ -313,11 +368,42 @@ private:
     // Per-object-type base offsets for indirect draw (computed after finalize)
     // Each obj_type gets a contiguous section of m_VisibleSSBO
     // Max offset per obj = totalInstances / numObjTypes (approximation)
-    static const u32            GPU_MAX_INSTANCES = 50000;
+    static const u32            GPU_MAX_INSTANCES = 200000;
     static const u32            GPU_MAX_OBJ_TYPES = 64;
-    // Output buffer capacity: 4x input gives each of 32 types ~6250 slots
+    // Output buffer capacity: 2x input gives each of 32 types ~12500 slots
     // After frustum+distance+HZB culling, no single type should exceed this
-    static const u32            GPU_OUTPUT_CAPACITY = 200000;
+    static const u32            GPU_OUTPUT_CAPACITY = 400000;
+
+    // ========================================================================
+    // GPU grass generation (replaces CPU cache + cull with procedural GPU gen)
+    // ========================================================================
+    bool                        m_bGpuGenerationEnabled;
+
+    // Heightmap (R32F, baked from collision geometry)
+    VkImage                     m_HeightmapImage;
+    VkDeviceMemory              m_HeightmapMemory;  // Actually VmaAllocation
+    VkImageView                 m_HeightmapView;
+    VkSampler                   m_HeightmapSampler;
+    u32                         m_HeightmapW, m_HeightmapH;
+    float                       m_HMOriginX, m_HMOriginZ;
+    float                       m_HMWorldSizeX, m_HMWorldSizeZ;
+
+    // Slot data SSBO (entire level's DetailSlot array, packed)
+    CVulkanBuffer*              m_SlotDataSSBO;
+    u32                         m_TotalSlots;
+
+    // Object info SSBO (per object type)
+    CVulkanBuffer*              m_ObjInfoSSBO;
+
+    // Generation UBO (per-frame params)
+    CVulkanBuffer*              m_GenUBO;
+
+    // Generation compute pipeline
+    CVulkanComputePipeline      m_GenPipeline;
+    VkPipelineLayout            m_GenPipelineLayout;
+    VkDescriptorSetLayout       m_GenDescLayout;
+    VkDescriptorPool            m_GenDescPool;
+    VkDescriptorSet             m_GenDescSet;
 
 public:
     CDetailManager();
@@ -355,7 +441,7 @@ private:
     void DestroyPipeline();             // Destroy pipeline
     void UpdateWindAnimation();         // Update wind constants
 
-    // GPU-driven pipeline helpers
+    // GPU-driven pipeline helpers (legacy CPU cache path)
     void CreateGpuBuffers();            // Create SSBO, indirect, atomic buffers
     void DestroyGpuBuffers();           // Destroy GPU-driven buffers
     void CreateComputePipeline();       // Create compute cull + finalize pipelines
@@ -363,9 +449,17 @@ private:
     void CreateHZB();                   // Create HZB texture + build pipeline
     void DestroyHZB();                  // Destroy HZB resources
     void UploadStagingToSSBO();         // Upload dirty staging data to GPU
-    void RenderGpuDriven();             // GPU-driven render path
+    void RenderGpuDriven();             // GPU-driven render path (legacy)
     void BuildHZB(VkCommandBuffer cmd); // Dispatch HZB build passes
     void ExtractFrustumPlanes(const Fmatrix& viewProj, Fvector4 planes[6]);
+
+    // GPU grass generation helpers (new: zero pop-in procedural path)
+    void BakeHeightmap();               // Rasterize collision tris → R32F heightmap
+    void UploadSlotData();              // Pack DetailSlot[] → GPU SSBO
+    void UploadObjInfo();               // Pack object params → GPU SSBO
+    void CreateGpuGenPipeline();        // Create generation compute pipeline
+    void DestroyGpuGenPipeline();       // Destroy generation resources
+    void RenderGpuGenerated();          // GPU procedural generation + render path
 };
 
 // Free function for dither matrix generation (from DX11)

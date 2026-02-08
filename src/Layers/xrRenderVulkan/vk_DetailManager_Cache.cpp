@@ -96,17 +96,18 @@ void CDetailManager::cache_Task(int gx, int gz, Slot* D)
                        D->vis.box.min.z + dm_slot_size);
     D->vis.box.grow(EPS_L);
 
-    // Clear old items — mark their GPU instances as dead before destroying
+    // Clear old items — mark their GPU instances as dead and recycle slots
     for (u32 i = 0; i < dm_obj_in_slot; i++)
     {
         D->G[i].id = DS.r_id(i);
         for (u32 clr = 0; clr < D->G[i].items.size(); clr++)
         {
             SlotItem* si = D->G[i].items[clr];
-            // Mark GPU instance as dead so compute shader skips it
+            // Mark GPU instance as dead and add slot to free-list for reuse
             if (si->gpu_instance_id < m_StagingInstances.size())
             {
                 m_StagingInstances[si->gpu_instance_id].obj_id = 0xFFFFFFFF;
+                m_GpuFreeList.push_back(si->gpu_instance_id);
                 m_GpuDataDirty = true;
             }
             poolSI.destroy(si);

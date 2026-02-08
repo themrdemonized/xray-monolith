@@ -447,19 +447,19 @@ Flags32 ps_common_flags = {0};
 
 // Detail radius
 u32 ps_steep_parallax = 0;
-int ps_r__detail_radius = 49;
+int ps_r__detail_radius = 175;
 
 #ifdef DETAIL_RADIUS
-u32 dm_size = 24;
-u32 dm_cache1_line = 12;
-u32 dm_cache_line = 49;
-u32 dm_cache_size = 2401;
-float dm_fade = 47.5;
-u32 dm_current_size = 24;
-u32 dm_current_cache1_line = 12;
-u32 dm_current_cache_line = 49;
-u32 dm_current_cache_size = 2401;
-float dm_current_fade = 47.5;
+u32 dm_size = 86;
+u32 dm_cache1_line = 43;
+u32 dm_cache_line = 173;
+u32 dm_cache_size = 29929;
+float dm_fade = 171.5;
+u32 dm_current_size = 86;
+u32 dm_current_cache1_line = 43;
+u32 dm_current_cache_line = 173;
+u32 dm_current_cache_size = 29929;
+float dm_current_fade = 171.5;
 #endif
 
 float ps_current_detail_density = 0.6f;

@@ -12,6 +12,7 @@
 #include "vk_swapchain.h"     // Swapchain
 #include "vk_material.h"      // g_MaterialManager
 #include "../../xrEngine/IGame_Persistent.h"
+#include "../../xrEngine/IGame_Level.h"
 #include "../../xrEngine/Environment.h"
 
 namespace VK
@@ -133,7 +134,28 @@ CDetailManager::CDetailManager()
     m_HZBBuildLayout = VK_NULL_HANDLE;
     m_HZBBuildDescLayout = VK_NULL_HANDLE;
     m_HZBBuildDescPool = VK_NULL_HANDLE;
-    m_bGpuDrivenEnabled = true; // Enable GPU path by default
+    m_bGpuDrivenEnabled = false; // Disable legacy GPU path (replaced by GPU generation)
+
+    // GPU generation
+    m_bGpuGenerationEnabled = true; // Enable new procedural GPU generation by default
+    m_HeightmapImage = VK_NULL_HANDLE;
+    m_HeightmapMemory = VK_NULL_HANDLE;
+    m_HeightmapView = VK_NULL_HANDLE;
+    m_HeightmapSampler = VK_NULL_HANDLE;
+    m_HeightmapW = 0;
+    m_HeightmapH = 0;
+    m_HMOriginX = 0;
+    m_HMOriginZ = 0;
+    m_HMWorldSizeX = 0;
+    m_HMWorldSizeZ = 0;
+    m_SlotDataSSBO = nullptr;
+    m_ObjInfoSSBO = nullptr;
+    m_GenUBO = nullptr;
+    m_TotalSlots = 0;
+    m_GenPipelineLayout = VK_NULL_HANDLE;
+    m_GenDescLayout = VK_NULL_HANDLE;
+    m_GenDescPool = VK_NULL_HANDLE;
+    m_GenDescSet = VK_NULL_HANDLE;
 
     // Dither pattern - will be properly initialized in Load() via bwdithermap()
     Memory.mem_fill(dither, 0, sizeof(dither));
@@ -201,7 +223,10 @@ void CDetailManager::Unload()
     // Destroy Vulkan resources
     DestroyPipeline();
 
-    // Destroy GPU-driven resources
+    // Destroy GPU generation resources
+    DestroyGpuGenPipeline();
+
+    // Destroy GPU-driven resources (legacy)
     DestroyHZB();
     DestroyComputePipeline();
     DestroyGpuBuffers();
@@ -440,6 +465,7 @@ void CDetailManager::DestroyGpuBuffers()
     if (m_IndirectCmdBuf) { m_IndirectCmdBuf->Destroy(); xr_delete(m_IndirectCmdBuf); }
     if (m_AtomicCounters) { m_AtomicCounters->Destroy(); xr_delete(m_AtomicCounters); }
     m_StagingInstances.clear();
+    m_GpuFreeList.clear();
     m_TotalGpuInstances = 0;
     m_GpuDataDirty = false;
 }
@@ -1011,6 +1037,527 @@ void CDetailManager::BuildHZB(VkCommandBuffer cmd)
         // Update source dimensions for next mip
         srcW = dstW;
         srcH = dstH;
+    }
+}
+
+// ============================================================================
+// GPU grass generation: Bake heightmap from collision geometry
+// Rasterizes static collision triangles into a 2D R32F heightmap.
+// Each texel stores the maximum terrain Y at that XZ position.
+// ============================================================================
+void CDetailManager::BakeHeightmap()
+{
+    if (!g_pGameLevel)
+    {
+        Msg("![Detail GPU Gen] g_pGameLevel not available for heightmap baking");
+        return;
+    }
+
+    CDB::MODEL* model = g_pGameLevel->ObjectSpace.GetStaticModel();
+    if (!model)
+    {
+        Msg("![Detail GPU Gen] Static model not available");
+        return;
+    }
+
+    Fvector* verts = g_pGameLevel->ObjectSpace.GetStaticVerts();
+    CDB::TRI* tris = g_pGameLevel->ObjectSpace.GetStaticTris();
+    u32 triCount = model->get_tris_count();
+
+    // World bounds from detail header
+    m_HMOriginX = -(float)dtH.offs_x * dm_slot_size;
+    m_HMOriginZ = -(float)dtH.offs_z * dm_slot_size;
+    m_HMWorldSizeX = (float)dtH.size_x * dm_slot_size;
+    m_HMWorldSizeZ = (float)dtH.size_z * dm_slot_size;
+
+    // Heightmap resolution: ~1m per texel, capped at 2048
+    m_HeightmapW = _min((u32)ceilf(m_HMWorldSizeX), 2048u);
+    m_HeightmapH = _min((u32)ceilf(m_HMWorldSizeZ), 2048u);
+
+    if (m_HeightmapW == 0 || m_HeightmapH == 0)
+    {
+        Msg("![Detail GPU Gen] Invalid heightmap dimensions");
+        return;
+    }
+
+    float texelSizeX = m_HMWorldSizeX / (float)m_HeightmapW;
+    float texelSizeZ = m_HMWorldSizeZ / (float)m_HeightmapH;
+
+    // Allocate heightmap data (initialized to very low Y)
+    xr_vector<float> heightData(m_HeightmapW * m_HeightmapH, -10000.0f);
+
+    Msg("[Detail GPU Gen] Baking heightmap %ux%u from %u triangles (%.0fx%.0f m)...",
+        m_HeightmapW, m_HeightmapH, triCount, m_HMWorldSizeX, m_HMWorldSizeZ);
+
+    u32 rasterized = 0;
+
+    // Rasterize each triangle into the heightmap
+    for (u32 t = 0; t < triCount; t++)
+    {
+        CDB::TRI& T = tris[t];
+        Fvector v0 = verts[T.verts[0]];
+        Fvector v1 = verts[T.verts[1]];
+        Fvector v2 = verts[T.verts[2]];
+
+        // Skip near-vertical surfaces (walls, ceilings) — grass doesn't grow on them
+        Fvector normal;
+        normal.mknormal(v0, v1, v2);
+        if (normal.y < 0.3f) continue;  // Skip >73° slopes
+
+        // Project to heightmap pixel coordinates
+        float px0 = (v0.x - m_HMOriginX) / texelSizeX;
+        float pz0 = (v0.z - m_HMOriginZ) / texelSizeZ;
+        float px1 = (v1.x - m_HMOriginX) / texelSizeX;
+        float pz1 = (v1.z - m_HMOriginZ) / texelSizeZ;
+        float px2 = (v2.x - m_HMOriginX) / texelSizeX;
+        float pz2 = (v2.z - m_HMOriginZ) / texelSizeZ;
+
+        // Bounding box in pixel coords
+        int minPX = _max(0, (int)floorf(_min(_min(px0, px1), px2)));
+        int maxPX = _min((int)m_HeightmapW - 1, (int)ceilf(_max(_max(px0, px1), px2)));
+        int minPZ = _max(0, (int)floorf(_min(_min(pz0, pz1), pz2)));
+        int maxPZ = _min((int)m_HeightmapH - 1, (int)ceilf(_max(_max(pz0, pz1), pz2)));
+
+        // Edge vectors for barycentric test
+        float dx10 = px1 - px0, dz10 = pz1 - pz0;
+        float dx20 = px2 - px0, dz20 = pz2 - pz0;
+        float denom = dx10 * dz20 - dx20 * dz10;
+        if (_abs(denom) < 1e-6f) continue; // Degenerate triangle
+        float invDenom = 1.0f / denom;
+
+        for (int pz = minPZ; pz <= maxPZ; pz++)
+        {
+            for (int px = minPX; px <= maxPX; px++)
+            {
+                float qx = (float)px + 0.5f - px0;
+                float qz = (float)pz + 0.5f - pz0;
+
+                // Barycentric coordinates
+                float u = (qx * dz20 - qz * dx20) * invDenom;
+                float v = (dz10 * qx - dx10 * qz) * invDenom;  // Fixed: was swapped
+
+                if (u < -0.01f || v < -0.01f || (u + v) > 1.01f) continue;
+
+                // Interpolate Y
+                float y = v0.y + u * (v1.y - v0.y) + v * (v2.y - v0.y);
+
+                // Store max Y (topmost surface)
+                u32 idx = (u32)pz * m_HeightmapW + (u32)px;
+                if (y > heightData[idx])
+                    heightData[idx] = y;
+            }
+        }
+        rasterized++;
+    }
+
+    // Fill holes (texels that no triangle covered) with neighbor average
+    for (u32 z = 0; z < m_HeightmapH; z++)
+    {
+        for (u32 x = 0; x < m_HeightmapW; x++)
+        {
+            u32 idx = z * m_HeightmapW + x;
+            if (heightData[idx] > -9999.0f) continue;
+
+            // Sample neighbors
+            float sum = 0;
+            int count = 0;
+            for (int dz = -2; dz <= 2; dz++)
+            {
+                for (int dx = -2; dx <= 2; dx++)
+                {
+                    int nx = (int)x + dx, nz = (int)z + dz;
+                    if (nx < 0 || nx >= (int)m_HeightmapW || nz < 0 || nz >= (int)m_HeightmapH)
+                        continue;
+                    float h = heightData[nz * m_HeightmapW + nx];
+                    if (h > -9999.0f) { sum += h; count++; }
+                }
+            }
+            if (count > 0) heightData[idx] = sum / (float)count;
+            else heightData[idx] = 0.0f; // Fallback
+        }
+    }
+
+    Msg("[Detail GPU Gen] Rasterized %u triangles, creating GPU texture...", rasterized);
+
+    // Create VkImage (R32_SFLOAT, SAMPLED | TRANSFER_DST)
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R32_SFLOAT;
+    imageInfo.extent = { m_HeightmapW, m_HeightmapH, 1 };
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+    VmaAllocation hmAlloc;
+    VkResult res = vmaCreateImage(VulkanHW.m_Allocator, &imageInfo, &allocInfo,
+        &m_HeightmapImage, &hmAlloc, nullptr);
+    if (res != VK_SUCCESS)
+    {
+        Msg("![Detail GPU Gen] Failed to create heightmap image: %d", res);
+        m_HeightmapImage = VK_NULL_HANDLE;
+        return;
+    }
+    m_HeightmapMemory = (VkDeviceMemory)hmAlloc;
+
+    // Create image view
+    VkImageViewCreateInfo viewInfo = {};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_HeightmapImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R32_SFLOAT;
+    viewInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VK_CHECK(vkCreateImageView(VulkanHW.m_Device, &viewInfo, nullptr, &m_HeightmapView));
+
+    // Create sampler (bilinear, clamp)
+    VkSamplerCreateInfo sampInfo = {};
+    sampInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampInfo.magFilter = VK_FILTER_LINEAR;
+    sampInfo.minFilter = VK_FILTER_LINEAR;
+    sampInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    VK_CHECK(vkCreateSampler(VulkanHW.m_Device, &sampInfo, nullptr, &m_HeightmapSampler));
+
+    // Upload heightmap data via staging buffer
+    u32 dataSize = m_HeightmapW * m_HeightmapH * sizeof(float);
+    CVulkanBuffer staging;
+    staging.Create(dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO_PREFER_HOST);
+    void* mapped = staging.m_Mapped;
+    if (mapped)
+        memcpy(mapped, heightData.data(), dataSize);
+    else
+        staging.Upload(heightData.data(), dataSize, 0);
+
+    // One-shot command buffer for upload
+    VkCommandBuffer uploadCmd = VulkanHW.BeginSingleTimeCommands();
+    if (uploadCmd != VK_NULL_HANDLE)
+    {
+        // Transition to TRANSFER_DST
+        VkImageMemoryBarrier bar = {};
+        bar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        bar.srcAccessMask = 0;
+        bar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        bar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        bar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bar.image = m_HeightmapImage;
+        bar.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        vkCmdPipelineBarrier(uploadCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bar);
+
+        // Copy buffer → image
+        VkBufferImageCopy region = {};
+        region.bufferOffset = 0;
+        region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+        region.imageExtent = { m_HeightmapW, m_HeightmapH, 1 };
+        vkCmdCopyBufferToImage(uploadCmd, staging.GetHandle(), m_HeightmapImage,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+        // Transition to SHADER_READ_ONLY
+        bar.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        bar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        bar.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        vkCmdPipelineBarrier(uploadCmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bar);
+
+        VulkanHW.EndSingleTimeCommands(uploadCmd);
+    }
+    staging.Destroy();
+
+    Msg("[Detail GPU Gen] Heightmap baked: %ux%u (%.1f MB), origin=(%.0f,%.0f), size=(%.0f,%.0f)",
+        m_HeightmapW, m_HeightmapH, dataSize / (1024.f * 1024.f),
+        m_HMOriginX, m_HMOriginZ, m_HMWorldSizeX, m_HMWorldSizeZ);
+}
+
+// ============================================================================
+// GPU grass generation: Upload slot palette data as SSBO
+// ============================================================================
+void CDetailManager::UploadSlotData()
+{
+    if (!dtSlots) return;
+
+    m_TotalSlots = dtH.size_x * dtH.size_z;
+    u32 dataSize = m_TotalSlots * sizeof(GpuSlotPacked);
+
+    // Pack DetailSlot bitfields into GPU-friendly format
+    xr_vector<GpuSlotPacked> packed(m_TotalSlots);
+    for (u32 i = 0; i < m_TotalSlots; i++)
+    {
+        DetailSlot& ds = dtSlots[i];
+        GpuSlotPacked& p = packed[i];
+        p.y_base = ds.r_ybase();
+        p.y_height = ds.r_yheight();
+        p.ids = (u32)ds.id0 | ((u32)ds.id1 << 8) | ((u32)ds.id2 << 16) | ((u32)ds.id3 << 24);
+        // Pack lighting: c_dir and c_hemi as 16-bit fixed point
+        p.lighting = (u32)(ds.r_qclr(ds.c_dir, 15) * 65535.0f)
+                   | ((u32)(ds.r_qclr(ds.c_hemi, 15) * 65535.0f) << 16);
+        // Pack palettes: each object gets a0:8|a1:8|a2:8|a3:8
+        // Alpha corners are 4-bit (0-15), scale to 0-255 for GPU
+        auto packPalette = [](const DetailPalette& pal) -> u32 {
+            u32 a0 = (u32)((float)pal.a0 / 15.0f * 255.0f);
+            u32 a1 = (u32)((float)pal.a1 / 15.0f * 255.0f);
+            u32 a2 = (u32)((float)pal.a2 / 15.0f * 255.0f);
+            u32 a3 = (u32)((float)pal.a3 / 15.0f * 255.0f);
+            return a0 | (a1 << 8) | (a2 << 16) | (a3 << 24);
+        };
+        p.palette0 = packPalette(ds.palette[0]);
+        p.palette1 = packPalette(ds.palette[1]);
+        p.palette2 = packPalette(ds.palette[2]);
+        p.palette3 = packPalette(ds.palette[3]);
+    }
+
+    m_SlotDataSSBO = xr_new<CVulkanBuffer>();
+    m_SlotDataSSBO->Create(dataSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+
+    void* mapped = m_SlotDataSSBO->m_Mapped;
+    if (mapped)
+    {
+        memcpy(mapped, packed.data(), dataSize);
+        m_SlotDataSSBO->Flush();
+    }
+    else
+    {
+        m_SlotDataSSBO->Upload(packed.data(), dataSize, 0);
+    }
+
+    Msg("[Detail GPU Gen] Slot data uploaded: %u slots (%.1f KB)",
+        m_TotalSlots, dataSize / 1024.f);
+}
+
+// ============================================================================
+// GPU grass generation: Upload per-object-type info
+// ============================================================================
+void CDetailManager::UploadObjInfo()
+{
+    if (objects.empty()) return;
+
+    u32 count = (u32)objects.size();
+    u32 dataSize = count * sizeof(GpuDetailObjInfo);
+
+    xr_vector<GpuDetailObjInfo> infos(count);
+    for (u32 i = 0; i < count; i++)
+    {
+        VK::CDetail* obj = objects[i];
+        if (obj)
+        {
+            infos[i].minScale = obj->m_MinScale;
+            infos[i].maxScale = obj->m_MaxScale;
+            infos[i].bvRadius = obj->bv_sphere.R;
+            infos[i].flags = obj->m_Flags;
+        }
+        else
+        {
+            infos[i].minScale = 1.0f;
+            infos[i].maxScale = 1.0f;
+            infos[i].bvRadius = 1.0f;
+            infos[i].flags = 0;
+        }
+    }
+
+    m_ObjInfoSSBO = xr_new<CVulkanBuffer>();
+    m_ObjInfoSSBO->Create(dataSize,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+
+    void* mapped = m_ObjInfoSSBO->m_Mapped;
+    if (mapped)
+    {
+        memcpy(mapped, infos.data(), dataSize);
+        m_ObjInfoSSBO->Flush();
+    }
+    else
+    {
+        m_ObjInfoSSBO->Upload(infos.data(), dataSize, 0);
+    }
+
+    // Create GenUBO (uniform buffer for per-frame params)
+    m_GenUBO = xr_new<CVulkanBuffer>();
+    m_GenUBO->Create(sizeof(DetailGenUBO),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_HOST);
+
+    Msg("[Detail GPU Gen] Object info uploaded: %u types (%.1f KB)", count, dataSize / 1024.f);
+}
+
+// ============================================================================
+// GPU grass generation: Create compute pipeline
+// ============================================================================
+void CDetailManager::CreateGpuGenPipeline()
+{
+    if (!g_ShaderManager)
+    {
+        Msg("![Detail GPU Gen] Shader manager not ready");
+        m_bGpuGenerationEnabled = false;
+        return;
+    }
+
+    VkShaderModule genShader = g_ShaderManager->Load("detail_generate.comp.spv");
+    if (genShader == VK_NULL_HANDLE)
+    {
+        Msg("![Detail GPU Gen] Failed to load detail_generate.comp.spv");
+        m_bGpuGenerationEnabled = false;
+        return;
+    }
+
+    // Descriptor set layout: 8 bindings
+    VkDescriptorSetLayoutBinding bindings[8] = {};
+
+    // 0: Heightmap sampler
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 1: Slot data SSBO
+    bindings[1].binding = 1;
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[1].descriptorCount = 1;
+    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 2: Object info SSBO
+    bindings[2].binding = 2;
+    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[2].descriptorCount = 1;
+    bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 3: Visible instances SSBO (output)
+    bindings[3].binding = 3;
+    bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[3].descriptorCount = 1;
+    bindings[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 4: Atomic counters
+    bindings[4].binding = 4;
+    bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[4].descriptorCount = 1;
+    bindings[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 5: Indirect commands
+    bindings[5].binding = 5;
+    bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bindings[5].descriptorCount = 1;
+    bindings[5].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 6: HZB texture
+    bindings[6].binding = 6;
+    bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[6].descriptorCount = 1;
+    bindings[6].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // 7: Generation UBO
+    bindings[7].binding = 7;
+    bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[7].descriptorCount = 1;
+    bindings[7].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 8;
+    layoutInfo.pBindings = bindings;
+    VK_CHECK(vkCreateDescriptorSetLayout(VulkanHW.m_Device, &layoutInfo, nullptr, &m_GenDescLayout));
+
+    // Push constant range (208 bytes for DetailGenPushConstants)
+    VkPushConstantRange pushRange = {};
+    pushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    pushRange.offset = 0;
+    pushRange.size = sizeof(DetailGenPushConstants);
+
+    VkPipelineLayoutCreateInfo pipeLayoutInfo = {};
+    pipeLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLayoutInfo.setLayoutCount = 1;
+    pipeLayoutInfo.pSetLayouts = &m_GenDescLayout;
+    pipeLayoutInfo.pushConstantRangeCount = 1;
+    pipeLayoutInfo.pPushConstantRanges = &pushRange;
+    VK_CHECK(vkCreatePipelineLayout(VulkanHW.m_Device, &pipeLayoutInfo, nullptr, &m_GenPipelineLayout));
+
+    // Descriptor pool
+    VkDescriptorPoolSize poolSizes[3] = {};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[0].descriptorCount = 2; // heightmap + HZB
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].descriptorCount = 4; // slots + objinfo + visible + atomics + indirect (5, but indirect is also storage)
+    poolSizes[1].descriptorCount = 5;
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[2].descriptorCount = 1; // GenUBO
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = 1;
+    poolInfo.poolSizeCount = 3;
+    poolInfo.pPoolSizes = poolSizes;
+    VK_CHECK(vkCreateDescriptorPool(VulkanHW.m_Device, &poolInfo, nullptr, &m_GenDescPool));
+
+    // Allocate descriptor set
+    VkDescriptorSetAllocateInfo dsAllocInfo = {};
+    dsAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsAllocInfo.descriptorPool = m_GenDescPool;
+    dsAllocInfo.descriptorSetCount = 1;
+    dsAllocInfo.pSetLayouts = &m_GenDescLayout;
+    VK_CHECK(vkAllocateDescriptorSets(VulkanHW.m_Device, &dsAllocInfo, &m_GenDescSet));
+
+    // Create compute pipeline
+    m_GenPipeline.Create(genShader, m_GenPipelineLayout);
+
+    Msg("[Detail GPU Gen] Compute pipeline created successfully");
+}
+
+// ============================================================================
+// GPU grass generation: Destroy resources
+// ============================================================================
+void CDetailManager::DestroyGpuGenPipeline()
+{
+    m_GenPipeline.Destroy();
+
+    if (m_GenDescPool != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorPool(VulkanHW.m_Device, m_GenDescPool, nullptr);
+        m_GenDescPool = VK_NULL_HANDLE;
+        m_GenDescSet = VK_NULL_HANDLE;
+    }
+    if (m_GenPipelineLayout != VK_NULL_HANDLE)
+    {
+        vkDestroyPipelineLayout(VulkanHW.m_Device, m_GenPipelineLayout, nullptr);
+        m_GenPipelineLayout = VK_NULL_HANDLE;
+    }
+    if (m_GenDescLayout != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_GenDescLayout, nullptr);
+        m_GenDescLayout = VK_NULL_HANDLE;
+    }
+
+    if (m_SlotDataSSBO) { m_SlotDataSSBO->Destroy(); xr_delete(m_SlotDataSSBO); }
+    if (m_ObjInfoSSBO) { m_ObjInfoSSBO->Destroy(); xr_delete(m_ObjInfoSSBO); }
+    if (m_GenUBO) { m_GenUBO->Destroy(); xr_delete(m_GenUBO); }
+
+    // Heightmap
+    if (m_HeightmapView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(VulkanHW.m_Device, m_HeightmapView, nullptr);
+        m_HeightmapView = VK_NULL_HANDLE;
+    }
+    if (m_HeightmapSampler != VK_NULL_HANDLE)
+    {
+        vkDestroySampler(VulkanHW.m_Device, m_HeightmapSampler, nullptr);
+        m_HeightmapSampler = VK_NULL_HANDLE;
+    }
+    if (m_HeightmapImage != VK_NULL_HANDLE && m_HeightmapMemory != VK_NULL_HANDLE)
+    {
+        vmaDestroyImage(VulkanHW.m_Allocator, m_HeightmapImage, (VmaAllocation)m_HeightmapMemory);
+        m_HeightmapImage = VK_NULL_HANDLE;
+        m_HeightmapMemory = VK_NULL_HANDLE;
     }
 }
 
