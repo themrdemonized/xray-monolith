@@ -501,7 +501,10 @@ VkPipeline CVulkanPipelineManager::CreateGraphicsPipeline(const PipelineConfig& 
     rasterizer.lineWidth = config.lineWidth;
     rasterizer.cullMode = config.cullMode;
     rasterizer.frontFace = config.frontFace;
-    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasEnable = config.depthBiasEnable ? VK_TRUE : VK_FALSE;
+    rasterizer.depthBiasConstantFactor = config.depthBiasConstant;
+    rasterizer.depthBiasSlopeFactor = config.depthBiasSlope;
+    rasterizer.depthBiasClamp = 0.f;
 
     // ========================================================================
     // Multisample state (MSAA disabled for now)

@@ -36,6 +36,11 @@ struct PipelineConfig
     bool depthWrite = true;
     VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS;
 
+    // Depth bias (for co-planar geometry like grass on terrain)
+    bool depthBiasEnable = false;
+    float depthBiasConstant = 0.f;
+    float depthBiasSlope = 0.f;
+
     // Color attachments (для Dynamic Rendering)
     u32 colorAttachmentCount = 1;
     VkFormat colorFormats[8] = { VK_FORMAT_UNDEFINED };

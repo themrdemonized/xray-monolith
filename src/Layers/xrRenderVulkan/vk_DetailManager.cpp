@@ -52,7 +52,9 @@ CDetailInstanceBuffer::CDetailInstanceBuffer()
     m_Buffer = nullptr;
     m_Mapped = nullptr;
     m_Capacity = 0;
-    m_Count = 0;
+    m_FrameOffset = 0;
+    m_BatchStart = 0;
+    m_BatchCount = 0;
 }
 
 CDetailInstanceBuffer::~CDetailInstanceBuffer()
@@ -63,7 +65,9 @@ CDetailInstanceBuffer::~CDetailInstanceBuffer()
 void CDetailInstanceBuffer::Create(u32 capacity)
 {
     m_Capacity = capacity;
-    m_Count = 0;
+    m_FrameOffset = 0;
+    m_BatchStart = 0;
+    m_BatchCount = 0;
 
     // Create persistent mapped buffer for instance data
     u32 bufferSize = capacity * sizeof(DetailInstance);
@@ -91,23 +95,37 @@ void CDetailInstanceBuffer::Destroy()
         m_Mapped = nullptr;
     }
     m_Capacity = 0;
-    m_Count = 0;
+    m_FrameOffset = 0;
+    m_BatchStart = 0;
+    m_BatchCount = 0;
+}
+
+void CDetailInstanceBuffer::BeginFrame()
+{
+    m_FrameOffset = 0;
 }
 
 void CDetailInstanceBuffer::BeginUpdate()
 {
-    m_Count = 0;
+    m_BatchStart = m_FrameOffset;
+    m_BatchCount = 0;
 }
 
 void CDetailInstanceBuffer::AddInstance(const Fmatrix& transform, float sun, float hemi, float scale)
 {
-    if (m_Count >= m_Capacity)
+    u32 pos = m_FrameOffset + m_BatchCount;
+    if (pos >= m_Capacity)
     {
-        Msg("![Vulkan] DetailInstanceBuffer overflow: %d >= %d", m_Count, m_Capacity);
+        static u32 s_overflow_log = 0;
+        if (s_overflow_log < 5)
+        {
+            Msg("![Vulkan] DetailInstanceBuffer overflow: %d >= %d", pos, m_Capacity);
+            s_overflow_log++;
+        }
         return;
     }
 
-    DetailInstance& inst = m_Mapped[m_Count];
+    DetailInstance& inst = m_Mapped[pos];
 
     // Pack 3x4 transform matrix
     // Apply scale to rotation/scale part (upper 3x3)
@@ -118,17 +136,20 @@ void CDetailInstanceBuffer::AddInstance(const Fmatrix& transform, float sun, flo
     // Lighting (sun, sun, sun, hemi)
     inst.color.set(sun, sun, sun, hemi);
 
-    m_Count++;
+    m_BatchCount++;
 }
 
 u32 CDetailInstanceBuffer::EndUpdate()
 {
-    // Flush CPU writes to GPU (if needed by platform)
-    if (m_Buffer && m_Count > 0)
+    // Advance frame offset past this batch
+    m_FrameOffset += m_BatchCount;
+
+    // Flush CPU writes to GPU
+    if (m_Buffer && m_BatchCount > 0)
     {
         m_Buffer->Flush();
     }
-    return m_Count;
+    return m_BatchCount;
 }
 
 // ============================================================================
@@ -313,10 +334,10 @@ void CDetailManager::CreatePipeline()
     config.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     config.cullMode = VK_CULL_MODE_NONE;  // Billboards/grass don't cull
 
-    // Depth testing (read + write for correct occlusion)
+    // Depth testing
     config.depthTest = true;
     config.depthWrite = true;
-    config.depthCompareOp = VK_COMPARE_OP_LESS;
+    config.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 
     // No blending (alpha test in shader instead)
     config.blendEnable = false;

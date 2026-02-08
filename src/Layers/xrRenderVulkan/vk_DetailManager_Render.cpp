@@ -251,6 +251,7 @@ void CDetailManager::Render()
     // ========================================================================
     // Render each object type
     // ========================================================================
+    m_InstanceBuffer.BeginFrame();  // Reset sub-allocation offset for this frame
     u32 total_draws = 0;
     u32 total_instances = 0;
     for (u32 obj_id = 0; obj_id < objects.size(); obj_id++)
@@ -308,10 +309,10 @@ void CDetailManager::Render()
             VkDeviceSize vb_offset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &vb, &vb_offset);
 
-            // Bind instance buffer
+            // Bind instance buffer at this batch's offset (NOT 0!)
             VkBuffer ib_inst = m_InstanceBuffer.GetBuffer()->GetHandle();
-            VkDeviceSize ib_offset = 0;
-            vkCmdBindVertexBuffers(cmd, 1, 1, &ib_inst, &ib_offset);
+            VkDeviceSize inst_offset = m_InstanceBuffer.GetBatchOffset();
+            vkCmdBindVertexBuffers(cmd, 1, 1, &ib_inst, &inst_offset);
 
             // Bind index buffer
             VkBuffer ib = obj->m_IndexBuffer->GetHandle();

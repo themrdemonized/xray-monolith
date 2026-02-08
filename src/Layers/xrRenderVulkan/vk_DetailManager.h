@@ -72,7 +72,9 @@ private:
     VK::CVulkanBuffer*  m_Buffer;       // GPU buffer
     DetailInstance*     m_Mapped;       // CPU-mapped memory
     u32                 m_Capacity;     // Max instances
-    u32                 m_Count;        // Current count
+    u32                 m_FrameOffset;  // Current write position in frame (advances per batch)
+    u32                 m_BatchStart;   // Start of current batch within frame
+    u32                 m_BatchCount;   // Instances in current batch
 
 public:
     CDetailInstanceBuffer();
@@ -81,12 +83,14 @@ public:
     void Create(u32 capacity);
     void Destroy();
 
-    void BeginUpdate();
+    void BeginFrame();              // Reset frame offset to 0 (call once per frame)
+    void BeginUpdate();             // Start a new batch at current frame offset
     void AddInstance(const Fmatrix& transform, float sun, float hemi, float scale);
-    u32 EndUpdate();  // Returns instance count
+    u32 EndUpdate();                // Finalize batch, advance frame offset, return count
 
     VK::CVulkanBuffer* GetBuffer() const { return m_Buffer; }
-    u32 GetCount() const { return m_Count; }
+    u32 GetBatchCount() const { return m_BatchCount; }
+    VkDeviceSize GetBatchOffset() const { return m_BatchStart * sizeof(DetailInstance); }
 };
 
 // ============================================================================

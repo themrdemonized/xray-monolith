@@ -73,6 +73,7 @@ void CDetailManager::UpdateVisibleM()
             m_visibles[i][j].clear_not_free();
     }
 
+    // DEBUG: bypass ALL culling to isolate visibility vs rendering bug
     // Collect objects for rendering
     for (u32 _mz = 0; _mz < dm_cache1_line; _mz++)
     {
@@ -84,8 +85,9 @@ void CDetailManager::UpdateVisibleM()
 
             u32 mask = 0xff;
             u32 res = View.testSphere(MS.vis.sphere.P, MS.vis.sphere.R, mask);
-            if (fcvNone == res)
-                continue;  // invisible-view frustum
+            // DEBUG: don't skip any CacheSlot1
+            // if (fcvNone == res)
+            //     continue;
 
             u32 dwCC = dm_cache1_count * dm_cache1_count;
 
@@ -98,32 +100,24 @@ void CDetailManager::UpdateVisibleM()
                 if (S.empty)
                     continue;
 
-                // if upper test = fcvPartial - test inner slots
-                if (fcvPartial == res)
-                {
-                    u32 _mask = mask;
-                    u32 _res = View.testSphere(S.vis.sphere.P, S.vis.sphere.R, _mask);
-                    if (fcvNone == _res)
-                        continue;  // invisible-view frustum
-                }
-
-                // HOM test (temporarily disabled for grass visibility debugging)
-                if (false && !RImplementation.HOM->visible(S.vis))
-                    continue;  // invisible-occlusion
+                // DEBUG: skip ALL culling tests (frustum, HOM)
 
                 // Add to visibility structures
-                if (RDEVICE.dwFrame > S.frame)
+                // DEBUG: ALWAYS recalculate (ignore frame caching)
                 {
                     // Calc fade factor (per slot)
                     float dist_sq = EYE.distance_to_sqr(S.vis.sphere.P);
-                    if (dist_sq > fade_limit)
-                    {
-                        S.hidden = true;
-                        continue;
-                    }
-                    float alpha = (dist_sq < fade_start) ? 0.f : (dist_sq - fade_start) / fade_range;
+                    // DEBUG: don't skip by distance
+                    // if (dist_sq > fade_limit)
+                    // {
+                    //     S.hidden = true;
+                    //     continue;
+                    // }
+                    float alpha = (dist_sq < fade_start) ? 0.f :
+                        (dist_sq > fade_limit) ? 1.f :
+                        (dist_sq - fade_start) / fade_range;
                     float alpha_i = 1.f - alpha;
-                    float dist_sq_rcp = 1.f / dist_sq;
+                    float dist_sq_rcp = 1.f / (dist_sq + 0.001f);
 
                     S.frame = RDEVICE.dwFrame + Random.randI(15, 30);
                     for (int sp_id = 0; sp_id < dm_obj_in_slot; sp_id++)
@@ -143,23 +137,16 @@ void CDetailManager::UpdateVisibleM()
                         {
                             SlotItem& Item = *(*siIT);
                             float scale = Item.scale_calculated = Item.scale * alpha_i;
-                            float ssa = scale * scale * Rq_drcp;
-                            if (ssa < r_ssaDISCARD)
-                            {
-                                Item.alpha_target = 0;
-                                continue;
-                            }
+                            // DEBUG: don't cull by SSA
+                            // float ssa = scale * scale * Rq_drcp;
+                            // if (ssa < r_ssaDISCARD) { ... }
                             u32 vis_id = 0;
-                            if (ssa > r_ssaCHEAP) vis_id = Item.vis_ID;
 
                             sp.r_items[vis_id].push_back(*siIT);
 
-                            if (S.hidden)
-                            {
-                                Item.alpha = 0;
-                                S.hidden = false;
-                            }
+                            S.hidden = false;
                             Item.alpha_target = 1;
+                            Item.alpha = 1;
                             Item.distance = dist_sq;
                             Item.position = S.vis.sphere.P;
                         }
