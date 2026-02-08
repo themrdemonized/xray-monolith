@@ -342,9 +342,9 @@ void CDetailManager::CreatePipeline()
     // No blending (alpha test in shader instead)
     config.blendEnable = false;
 
-    // Single color attachment (forward pass to swapchain)
+    // Single color attachment (forward pass to rt_HDR)
     config.colorAttachmentCount = 1;
-    config.colorFormats[0] = Swapchain.GetFormat();
+    config.colorFormats[0] = VK_FORMAT_R16G16B16A16_SFLOAT;
     config.depthFormat = Swapchain.m_DepthFormat;
 
     // ========================================================================

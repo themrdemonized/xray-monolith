@@ -10,6 +10,7 @@
 #include "vk_pipeline.h"
 #include "vk_descriptors.h"
 #include "vk_material.h"
+#include "vk_rendertarget.h"
 #include "HW_Vulkan.h"
 #include "../xrRender/DetailFormat.h"
 #include "../../xrEngine/IGame_Persistent.h"
@@ -148,15 +149,15 @@ void CDetailManager::Render()
         return;
 
     // ========================================================================
-    // Get swapchain and depth resources
-    // Use Swapchain depth buffer (same as sky/clouds passes)
+    // Get rt_HDR and depth resources
+    // Render to rt_HDR (same as sky/clouds/forward passes)
     // ========================================================================
-    VkImage swapchainImage = Swapchain.GetCurrentImage();
-    VkImageView swapchainView = Swapchain.GetCurrentImageView();
-    u32 swapWidth = Swapchain.GetWidth();
-    u32 swapHeight = Swapchain.GetHeight();
+    VkImage hdrImage = RTarget->rt_HDR.m_Image;
+    VkImageView hdrView = RTarget->rt_HDR.m_ImageView;
+    u32 hdrWidth = RTarget->rt_HDR.m_Width;
+    u32 hdrHeight = RTarget->rt_HDR.m_Height;
 
-    if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE)
+    if (hdrImage == VK_NULL_HANDLE || hdrView == VK_NULL_HANDLE)
         return;
 
     VkImage depthImage = Swapchain.m_DepthImage;
@@ -165,19 +166,19 @@ void CDetailManager::Render()
         return;
 
     // ========================================================================
-    // Transition swapchain: PRESENT_SRC -> COLOR_ATTACHMENT_OPTIMAL
+    // Transition rt_HDR: COLOR_ATTACHMENT self-barrier (execution dependency)
     // Transition depth: DEPTH_ATTACHMENT_OPTIMAL -> keep (read + write)
     // ========================================================================
     VkImageMemoryBarrier barriers[2] = {};
 
     barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barriers[0].srcAccessMask = 0;
+    barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    barriers[0].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    barriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barriers[0].image = swapchainImage;
+    barriers[0].image = hdrImage;
     barriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
     barriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -200,7 +201,7 @@ void CDetailManager::Render()
     // ========================================================================
     VkRenderingAttachmentInfo colorAttachment = {};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = swapchainView;
+    colorAttachment.imageView = hdrView;
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -215,7 +216,7 @@ void CDetailManager::Render()
     VkRenderingInfo renderingInfo = {};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea.offset = {0, 0};
-    renderingInfo.renderArea.extent = {swapWidth, swapHeight};
+    renderingInfo.renderArea.extent = {hdrWidth, hdrHeight};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
@@ -226,16 +227,16 @@ void CDetailManager::Render()
     // Setup viewport and scissor
     VkViewport viewport = {};
     viewport.x = 0.0f;
-    viewport.y = (float)swapHeight;
-    viewport.width = (float)swapWidth;
-    viewport.height = -(float)swapHeight;  // Flip Y for Vulkan
+    viewport.y = (float)hdrHeight;
+    viewport.width = (float)hdrWidth;
+    viewport.height = -(float)hdrHeight;  // Flip Y for Vulkan
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
     VkRect2D scissor = {};
     scissor.offset = {0, 0};
-    scissor.extent = {swapWidth, swapHeight};
+    scissor.extent = {hdrWidth, hdrHeight};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     // ========================================================================
@@ -341,18 +342,18 @@ void CDetailManager::Render()
     // ========================================================================
     vkCmdEndRendering(cmd);
 
-    // Transition swapchain: COLOR_ATTACHMENT -> PRESENT_SRC
+    // Transition rt_HDR: COLOR_ATTACHMENT self-barrier (execution dependency)
     // Depth stays in DEPTH_ATTACHMENT_OPTIMAL
     VkImageMemoryBarrier finalBarriers[2] = {};
 
     finalBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     finalBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    finalBarriers[0].dstAccessMask = 0;
+    finalBarriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     finalBarriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     finalBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     finalBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    finalBarriers[0].image = swapchainImage;
+    finalBarriers[0].image = hdrImage;
     finalBarriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
     finalBarriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;

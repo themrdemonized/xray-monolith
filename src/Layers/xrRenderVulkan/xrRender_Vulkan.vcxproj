@@ -299,6 +299,7 @@
     <ClCompile Include="vk_rendertarget_phase_sky.cpp" />
     <ClCompile Include="vk_rendertarget_phase_clouds.cpp" />
     <ClCompile Include="vk_rendertarget_phase_forward.cpp" />
+    <ClCompile Include="vk_rendertarget_phase_tonemap.cpp" />
     <ClCompile Include="vk_rendertarget_phase_gbuffer.cpp" />
     <ClCompile Include="vk_rendertarget_phase_postprocess.cpp" />
     <ClCompile Include="vk_rendertarget_phase_water.cpp" />

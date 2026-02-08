@@ -50,14 +50,14 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	// Step 1: Get current swapchain image
 	// ========================================================================
-	// Forward pass рендерит поверх combine pass result
-	VkImage swapchainImage = Swapchain.GetCurrentImage();
-	VkImageView swapchainView = Swapchain.GetCurrentImageView();
-	u32 swapWidth = Swapchain.GetWidth();
-	u32 swapHeight = Swapchain.GetHeight();
+	// Forward pass рендерит поверх combine pass result into rt_HDR
+	VkImage hdrImage = RTarget->rt_HDR.m_Image;
+	VkImageView hdrView = RTarget->rt_HDR.m_ImageView;
+	u32 hdrWidth = RTarget->rt_HDR.m_Width;
+	u32 hdrHeight = RTarget->rt_HDR.m_Height;
 
-	if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE) {
-		Msg("![Vulkan] phase_forward: Invalid swapchain image");
+	if (hdrImage == VK_NULL_HANDLE || hdrView == VK_NULL_HANDLE) {
+		Msg("![Vulkan] phase_forward: Invalid rt_HDR");
 		return;
 	}
 
@@ -85,18 +85,17 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	// Step 3: Transition swapchain to COLOR_ATTACHMENT_OPTIMAL
 	// ========================================================================
-	// Swapchain уже в PRESENT_SRC_KHR после combine pass
-	// Нужно вернуть в COLOR_ATTACHMENT_OPTIMAL для forward rendering
+	// rt_HDR already in COLOR_ATTACHMENT_OPTIMAL from previous pass — execution barrier
 
 	VkImageMemoryBarrier colorBarrier = {};
 	colorBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	colorBarrier.srcAccessMask = 0;  // Previous presentation
+	colorBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	colorBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	colorBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	colorBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	colorBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	colorBarrier.image = swapchainImage;
+	colorBarrier.image = hdrImage;
 	colorBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	colorBarrier.subresourceRange.baseMipLevel = 0;
 	colorBarrier.subresourceRange.levelCount = 1;
@@ -139,7 +138,7 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	VkRenderingAttachmentInfo colorAttachment = {};
 	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.imageView = swapchainView;
+	colorAttachment.imageView = hdrView;
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;  // Preserve combine pass result!
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -154,7 +153,7 @@ void CRenderTarget::phase_forward()
 	VkRenderingInfo renderingInfo = {};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.renderArea.offset = {0, 0};
-	renderingInfo.renderArea.extent = {swapWidth, swapHeight};
+	renderingInfo.renderArea.extent = {hdrWidth, hdrHeight};
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
@@ -167,16 +166,16 @@ void CRenderTarget::phase_forward()
 	// ========================================================================
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
-	viewport.y = (float)swapHeight;
-	viewport.width = (float)swapWidth;
-	viewport.height = -(float)swapHeight;
+	viewport.y = (float)hdrHeight;
+	viewport.width = (float)hdrWidth;
+	viewport.height = -(float)hdrHeight;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(cmd, 0, 1, &viewport);
 
 	VkRect2D scissor = {};
 	scissor.offset = {0, 0};
-	scissor.extent = {swapWidth, swapHeight};
+	scissor.extent = {hdrWidth, hdrHeight};
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 	// ========================================================================
@@ -214,7 +213,7 @@ void CRenderTarget::phase_forward()
 
 	// Render targets
 	config.colorAttachmentCount = 1;
-	config.colorFormats[0] = Swapchain.GetFormat();  // Swapchain
+	config.colorFormats[0] = VK_FORMAT_R16G16B16A16_SFLOAT;  // HDR output
 	config.depthFormat = VK_FORMAT_D32_SFLOAT;          // rt_ZBuffer
 
 	VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
@@ -274,10 +273,10 @@ void CRenderTarget::phase_forward()
 	// Step 11: Transition swapchain back to PRESENT_SRC
 	// ========================================================================
 	colorBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	colorBarrier.dstAccessMask = 0;
+	colorBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	colorBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	colorBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	colorBarrier.image = swapchainImage;
+	colorBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	colorBarrier.image = hdrImage;
 
 	vkCmdPipelineBarrier(cmd,
 	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -307,12 +306,12 @@ void CRenderTarget::phase_wallmarks_begin()
 {
 	VkCommandBuffer cmd = RCache.GetCommandBuffer();
 
-	VkImage swapchainImage = Swapchain.GetCurrentImage();
-	VkImageView swapchainView = Swapchain.GetCurrentImageView();
-	u32 swapWidth = Swapchain.GetWidth();
-	u32 swapHeight = Swapchain.GetHeight();
+	VkImage hdrImage = rt_HDR.m_Image;
+	VkImageView hdrView = rt_HDR.m_ImageView;
+	u32 hdrWidth = rt_HDR.m_Width;
+	u32 hdrHeight = rt_HDR.m_Height;
 
-	if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE)
+	if (hdrImage == VK_NULL_HANDLE || hdrView == VK_NULL_HANDLE)
 		return;
 
 	VkImage depthImage = Swapchain.m_DepthImage;
@@ -320,18 +319,18 @@ void CRenderTarget::phase_wallmarks_begin()
 	if (depthImage == VK_NULL_HANDLE || depthView == VK_NULL_HANDLE)
 		return;
 
-	// Transition images for wallmarks rendering (same pattern as sky/clouds)
+	// Transition images for wallmarks rendering
 	VkImageMemoryBarrier barriers[2] = {};
 
-	// Swapchain: PRESENT_SRC -> COLOR_ATTACHMENT_OPTIMAL
+	// rt_HDR: already COLOR_ATTACHMENT — execution barrier
 	barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barriers[0].srcAccessMask = 0;
+	barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	barriers[0].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	barriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barriers[0].image = swapchainImage;
+	barriers[0].image = hdrImage;
 	barriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
 	// Depth: DEPTH_ATTACHMENT_OPTIMAL -> DEPTH_READ_ONLY_OPTIMAL
@@ -350,10 +349,10 @@ void CRenderTarget::phase_wallmarks_begin()
 		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
 		0, 0, nullptr, 0, nullptr, 2, barriers);
 
-	// Begin rendering (swapchain + depth read-only)
+	// Begin rendering (rt_HDR + depth read-only)
 	VkRenderingAttachmentInfo colorAttachment = {};
 	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.imageView = swapchainView;
+	colorAttachment.imageView = hdrView;
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -368,7 +367,7 @@ void CRenderTarget::phase_wallmarks_begin()
 	VkRenderingInfo renderingInfo = {};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.renderArea.offset = {0, 0};
-	renderingInfo.renderArea.extent = {swapWidth, swapHeight};
+	renderingInfo.renderArea.extent = {hdrWidth, hdrHeight};
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
@@ -386,20 +385,20 @@ void CRenderTarget::phase_wallmarks_end()
 
 	vkCmdEndRendering(cmd);
 
-	VkImage swapchainImage = Swapchain.GetCurrentImage();
+	VkImage hdrImage = rt_HDR.m_Image;
 
-	// Transition images back (same pattern as sky/clouds finalBarriers)
+	// Transition images back
 	VkImageMemoryBarrier finalBarriers[2] = {};
 
-	// Swapchain: COLOR_ATTACHMENT -> PRESENT_SRC
+	// rt_HDR: stay in COLOR_ATTACHMENT_OPTIMAL for next pass (tonemap)
 	finalBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	finalBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	finalBarriers[0].dstAccessMask = 0;
+	finalBarriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	finalBarriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	finalBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	finalBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	finalBarriers[0].image = swapchainImage;
+	finalBarriers[0].image = hdrImage;
 	finalBarriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
 	// Depth: DEPTH_READ_ONLY -> DEPTH_ATTACHMENT_OPTIMAL

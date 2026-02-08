@@ -113,6 +113,17 @@ void CRenderTarget::Create(u32 width, u32 height)
         false
     );
 
+    // rt_HDR: HDR intermediate render target (for future DLSS)
+    // All post-combine scene rendering goes here; tonemap reads it → swapchain
+    Msg("[Vulkan]   Creating rt_HDR...");
+    rt_HDR.Create(
+        VK_FORMAT_R16G16B16A16_SFLOAT,
+        width, height,
+        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        false
+    );
+    Msg("[Vulkan]   rt_HDR created: %dx%d R16G16B16A16_SFLOAT", width, height);
+
     // rt_Distortion: Distortion map (R8G8B8A8_UNORM)
     // R/B encode UV offset (127 = neutral), A = blur amount
     // Note: TRANSFER_DST_BIT needed for vkCmdClearColorImage in phase_distortion()
@@ -209,6 +220,7 @@ void CRenderTarget::Create(u32 width, u32 height)
     vramUsage += width * height * 8;  // rt_Accumulator (4 * half)
     vramUsage += width * height * 8;  // rt_Generic_0
     vramUsage += width * height * 8;  // rt_Generic_1
+    vramUsage += width * height * 8;  // rt_HDR (R16G16B16A16_SFLOAT)
 
     float vramMB = vramUsage / (1024.0f * 1024.0f);
     Msg("[Vulkan] G-Buffer VRAM usage: %.2f MB", vramMB);
@@ -232,6 +244,7 @@ void CRenderTarget::Destroy()
 
     rt_Generic_0.Destroy();
     rt_Generic_1.Destroy();
+    rt_HDR.Destroy();
     rt_Distortion.Destroy();
 
     // Water SSR render targets

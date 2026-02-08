@@ -1574,6 +1574,16 @@ void CRender::Render()
     }
 
     // ========================================================================
+    // PASS 6.55: Tonemap (rt_HDR → Swapchain)
+    // ========================================================================
+    // Converts HDR scene to LDR with ACES tonemapping + vignette.
+    // When DLSS is added, it will slot in before this pass.
+    VkDiagFrame("[RENDER] PASS 6.55: tonemap");
+    if (RTarget) {
+        RTarget->phase_tonemap();
+    }
+
+    // ========================================================================
     // PASS 6.6: 3D Fluid Volumes (volumetric smoke, fog, fire)
     // ========================================================================
     VkDiagFrame("[RENDER] PASS 6.6: 3D fluid");

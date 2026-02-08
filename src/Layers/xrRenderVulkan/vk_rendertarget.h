@@ -70,6 +70,10 @@ public:
     CRT rt_Generic_0;
     CRT rt_Generic_1;
 
+    // HDR intermediate render target (for future DLSS)
+    // All post-combine scene rendering goes here; tonemap pass reads it → swapchain
+    CRT rt_HDR;
+
     // Distortion map (R8G8B8A8_UNORM - R/B encode UV offset, 127=neutral)
     CRT rt_Distortion;
 
@@ -109,6 +113,7 @@ public:
         m_SpotDescSet    = VK_NULL_HANDLE;
         m_SkyDescSet     = VK_NULL_HANDLE;
         m_CloudDescSet   = VK_NULL_HANDLE;
+        m_TonemapDescSet = VK_NULL_HANDLE;
     }
 
     // Shadow maps
@@ -125,6 +130,7 @@ public:
     void phase_forward();      // Phase 2.19: Forward pass (transparent objects)
     void phase_wallmarks_begin();  // Begin wallmarks render pass (swapchain + depth read-only)
     void phase_wallmarks_end();    // End wallmarks render pass
+    void phase_tonemap();      // HDR→LDR tonemap pass (rt_HDR → swapchain)
     void phase_postprocess();  // Phase 2.20: Post-processing (bloom, vignette, etc.)
     void phase_distortion();   // Distortion map rendering (for magnifier effect)
 
@@ -225,6 +231,9 @@ private:
     CVulkanBuffer  m_CloudIB;                              // Hemisphere index buffer (480 indices)
     VkDescriptorSet m_CloudDescSet = VK_NULL_HANDLE;      // Cloud texture descriptor set
     bool m_bCloudGeometryCreated = false;
+
+    // Tonemap pass
+    VkDescriptorSet m_TonemapDescSet = VK_NULL_HANDLE;   // rt_HDR texture for tonemap pass
 
     // Point light volume geometry (Phase 2.16.4)
     VkBuffer m_PointVolumeVB = VK_NULL_HANDLE;          // Sphere vertex buffer

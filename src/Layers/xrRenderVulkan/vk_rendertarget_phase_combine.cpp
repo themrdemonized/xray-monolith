@@ -19,15 +19,16 @@ namespace VK
 // phase_combine() - Combine Pass (Deferred Shading Finalization)
 // ============================================================================
 //
-// Phase 2.18: Combine Pass + Post-Processing
+// Phase 2.18: Combine Pass
 //
 // Combine pass - финальный этап deferred shading:
 // 1. Sample rt_Accumulator (accumulated lighting)
 // 2. Sample rt_Color (albedo)
 // 3. Combine: finalColor = lighting * albedo + ambient
-// 4. Apply tone mapping (HDR -> LDR)
-// 5. Gamma correction
-// 6. Output to swapchain
+// 4. Output to rt_HDR (HDR intermediate, no tonemapping)
+//
+// Tonemapping is applied later in phase_tonemap() (rt_HDR → swapchain).
+// This allows future DLSS to slot in between rt_HDR and tonemap.
 //
 // Uses fullscreen triangle trick (no vertex buffer needed).
 //
@@ -39,29 +40,29 @@ void CRenderTarget::phase_combine()
 	if (cmd == VK_NULL_HANDLE) return;
 
 	// ========================================================================
-	// Step 1: Get current swapchain image
+	// Step 1: Get rt_HDR as render target
 	// ========================================================================
-	VkImage swapchainImage = Swapchain.GetCurrentImage();
-	VkImageView swapchainView = Swapchain.GetCurrentImageView();
-	u32 swapWidth = Swapchain.GetWidth();
-	u32 swapHeight = Swapchain.GetHeight();
+	VkImage hdrImage = rt_HDR.m_Image;
+	VkImageView hdrView = rt_HDR.m_ImageView;
+	u32 hdrWidth = rt_HDR.m_Width;
+	u32 hdrHeight = rt_HDR.m_Height;
 
-	if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE) {
+	if (hdrImage == VK_NULL_HANDLE || hdrView == VK_NULL_HANDLE) {
 		return;
 	}
 
 	// ========================================================================
-	// Step 2: Transition swapchain image to COLOR_ATTACHMENT_OPTIMAL
+	// Step 2: Transition rt_HDR to COLOR_ATTACHMENT_OPTIMAL
 	// ========================================================================
 	VkImageMemoryBarrier barrier = {};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	barrier.srcAccessMask = 0;
 	barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = swapchainImage;
+	barrier.image = hdrImage;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
@@ -69,20 +70,20 @@ void CRenderTarget::phase_combine()
 	barrier.subresourceRange.layerCount = 1;
 
 	vkCmdPipelineBarrier(cmd,
-	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	                     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	                     0, 0, nullptr, 0, nullptr, 1, &barrier);
 
 	// ========================================================================
-	// Step 3: Begin rendering to swapchain
+	// Step 3: Begin rendering to rt_HDR
 	// ========================================================================
 	VkRenderingAttachmentInfo colorAttachment = {};
 	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.imageView = swapchainView;
+	colorAttachment.imageView = hdrView;
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	// Use environment sky color instead of hardcoded black
+	// Use environment sky color as clear (HDR values, not tonemapped)
 	if (g_pGamePersistent && g_pGamePersistent->Environment().CurrentEnv) {
 		Fvector3& sky = g_pGamePersistent->Environment().CurrentEnv->sky_color;
 		colorAttachment.clearValue.color = {{sky.x, sky.y, sky.z, 1.0f}};
@@ -93,7 +94,7 @@ void CRenderTarget::phase_combine()
 	VkRenderingInfo renderingInfo = {};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.renderArea.offset = {0, 0};
-	renderingInfo.renderArea.extent = {swapWidth, swapHeight};
+	renderingInfo.renderArea.extent = {hdrWidth, hdrHeight};
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
@@ -106,15 +107,15 @@ void CRenderTarget::phase_combine()
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
-	viewport.width = (float)swapWidth;
-	viewport.height = (float)swapHeight;
+	viewport.width = (float)hdrWidth;
+	viewport.height = (float)hdrHeight;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(cmd, 0, 1, &viewport);
 
 	VkRect2D scissor = {};
 	scissor.offset = {0, 0};
-	scissor.extent = {swapWidth, swapHeight};
+	scissor.extent = {hdrWidth, hdrHeight};
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 	// ========================================================================
@@ -124,23 +125,23 @@ void CRenderTarget::phase_combine()
 	VkShaderModule fragShader = g_ShaderManager->Load("combine.frag.spv");
 
 	if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE) {
-		// Fallback: just clear screen (shaders not found)
+		// Fallback: just clear (shaders not found)
 		vkCmdEndRendering(cmd);
+		// Transition rt_HDR to SHADER_READ_ONLY for tonemap
 		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		barrier.image = swapchainImage;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.image = hdrImage;
 		vkCmdPipelineBarrier(cmd,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &barrier);
-		Swapchain.m_bRenderedThisFrame = true;
 		return;
 	}
 
 	// ========================================================================
-	// Step 6: Create combine pipeline
+	// Step 6: Create combine pipeline (output to HDR format)
 	// ========================================================================
 	PipelineConfig config;
 	config.vertShader = vertShader;
@@ -152,21 +153,20 @@ void CRenderTarget::phase_combine()
 	config.depthWrite = false;
 	config.blendEnable = false;
 	config.colorAttachmentCount = 1;
-	config.colorFormats[0] = Swapchain.GetFormat();
+	config.colorFormats[0] = VK_FORMAT_R16G16B16A16_SFLOAT;  // HDR output
 
 	VkPipeline pipeline = g_PipelineManager->GetOrCreate(config);
 	if (pipeline == VK_NULL_HANDLE) {
 		vkCmdEndRendering(cmd);
 		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		barrier.image = swapchainImage;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.image = hdrImage;
 		vkCmdPipelineBarrier(cmd,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &barrier);
-		Swapchain.m_bRenderedThisFrame = true;
 		return;
 	}
 
@@ -187,7 +187,7 @@ void CRenderTarget::phase_combine()
 	                        1, 1, &m_GBufferDescSet, 0, nullptr);
 
 	// ========================================================================
-	// Step 8: Push constants (exposure, ambient, tone mapping, vignette, distortion)
+	// Step 8: Push constants (HDR passthrough - no tonemapping or vignette)
 	// ========================================================================
 	struct CombinePushConstants {
 		float exposure;
@@ -226,9 +226,7 @@ void CRenderTarget::phase_combine()
 		pushData.sunDirY = -sunDirEye.y;
 		pushData.sunDirZ = -sunDirEye.z;
 
-		// Sun color from environment — boost because env values are meant for
-		// the light accumulation system, not direct use in combine shader.
-		// Typical env sun_color is 0.1-0.5 range, we need ~0.5-1.5 for visible lighting.
+		// Sun color from environment
 		Fvector3& sunCol = g_pGamePersistent->Environment().CurrentEnv->sun_color;
 		float sunBoost = 2.5f;
 		pushData.sunColorR = sunCol.x * sunBoost;
@@ -256,14 +254,12 @@ void CRenderTarget::phase_combine()
 		pushData.sunColorG = 0.75f;
 		pushData.sunColorB = 0.65f;
 	}
-	pushData.toneMappingMode = 2;  // ACES filmic tone mapping
-	pushData.vignetteInner = 0.4f;
+	pushData.toneMappingMode = 0;  // NO tonemapping — output raw HDR to rt_HDR
+	pushData.vignetteInner = 0.0f;
 	pushData.vignetteOuter = 1.0f;
-	pushData.vignetteIntensity = 0.3f;
+	pushData.vignetteIntensity = 0.0f;  // No vignette — moved to tonemap pass
 
 	// Distortion settings
-	// Scale: Controls how strong the magnifier glass effect is
-	// R4 uses def_distort which is typically around 0.08
 	pushData.distortionScale = 0.08f;
 	pushData.enableDistortion = 1;  // Always enable (will show neutral if no distortion)
 
@@ -282,20 +278,21 @@ void CRenderTarget::phase_combine()
 	vkCmdEndRendering(cmd);
 
 	// ========================================================================
-	// Step 11: Transition swapchain image to PRESENT_SRC
+	// Step 11: Transition rt_HDR to SHADER_READ_ONLY for subsequent passes
 	// ========================================================================
+	// Sky/clouds/details/forward will transition it back to COLOR_ATTACHMENT
+	// as needed, and finally tonemap will read it as SHADER_READ_ONLY.
+	// For now, leave in COLOR_ATTACHMENT for the next scene pass (sky).
 	barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	barrier.dstAccessMask = 0;
+	barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	barrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	barrier.image = swapchainImage;
+	barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	barrier.image = hdrImage;
 
 	vkCmdPipelineBarrier(cmd,
 	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-	                     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 	                     0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-	Swapchain.m_bRenderedThisFrame = true;
 }
 
 } // namespace VK

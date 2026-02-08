@@ -6,22 +6,22 @@
 //
 // Phase 2.18.2: Combine Shader
 //
-// Combines accumulated lighting with albedo и применяет tone mapping.
+// Combines accumulated lighting with albedo and outputs raw HDR.
+// Tonemapping is applied later in phase_tonemap (tonemap_fs.glsl).
 //
 // Process:
 // 1. Sample rt_Accumulator (accumulated lighting from all lights)
 // 2. Sample rt_Color (albedo)
 // 3. Combine: finalColor = lighting * albedo + ambient
-// 4. Apply tone mapping (HDR → LDR)
-// 5. Gamma correction (handled automatically if swapchain is SRGB)
-// 6. Output to swapchain
+// 4. Apply exposure
+// 5. Output raw HDR to rt_HDR
 //
 // ============================================================================
 
 // Input from vertex shader
 layout(location = 0) in vec2 v_TexCoord;
 
-// Output to swapchain
+// Output to rt_HDR (raw HDR, no tonemapping)
 layout(location = 0) out vec4 o_Color;
 
 // ============================================================================
@@ -59,69 +59,6 @@ layout(push_constant) uniform PushConstants
     float sunColorG;      // Sun color G (from environment)
     float sunColorB;      // Sun color B (from environment)
 } pc;
-
-// ============================================================================
-// Tone Mapping Operators
-// ============================================================================
-
-/**
- * Reinhard Tone Mapping (simple)
- *
- * Simple tone mapping operator.
- * Good for basic HDR → LDR conversion.
- * Can look washed out compared to ACES.
- */
-vec3 tonemap_reinhard(vec3 color)
-{
-    return color / (color + 1.0);
-}
-
-/**
- * ACES Filmic Tone Mapping (recommended)
- *
- * ACES (Academy Color Encoding System) approximation.
- * Film-like response, industry standard.
- * Produces cinematic look with nice color grading.
- *
- * Source: https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
- */
-vec3 tonemap_aces(vec3 x)
-{
-    float a = 2.51;
-    float b = 0.03;
-    float c = 2.43;
-    float d = 0.59;
-    float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
-
-/**
- * Uncharted 2 Tone Mapping (filmic)
- *
- * Used in Uncharted 2 game engine.
- * Good balance between realism and artistic control.
- * Slightly more saturated than ACES.
- *
- * Source: http://filmicworlds.com/blog/filmic-tonemapping-operators/
- */
-vec3 tonemap_uncharted2_partial(vec3 x)
-{
-    float A = 0.15;  // Shoulder strength
-    float B = 0.50;  // Linear strength
-    float C = 0.10;  // Linear angle
-    float D = 0.20;  // Toe strength
-    float E = 0.02;  // Toe numerator
-    float F = 0.30;  // Toe denominator
-    return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
-}
-
-vec3 tonemap_uncharted2(vec3 color)
-{
-    float W = 11.2;  // Linear white point value
-    vec3 curr = tonemap_uncharted2_partial(color * 2.0);
-    vec3 whiteScale = 1.0 / tonemap_uncharted2_partial(vec3(W));
-    return curr * whiteScale;
-}
 
 // ============================================================================
 // Main
@@ -171,53 +108,7 @@ void main()
     color *= pc.exposure;
 
     // ========================================================================
-    // 5. Apply tone mapping (HDR → LDR)
-    // ========================================================================
-    // Tone mapping converts HDR (high dynamic range) to LDR (low dynamic range)
-    // для отображения на обычных мониторах
-
-    if (pc.toneMappingMode == 1) {
-        // Reinhard
-        color = tonemap_reinhard(color);
-    } else if (pc.toneMappingMode == 2) {
-        // ACES (recommended)
-        color = tonemap_aces(color);
-    } else if (pc.toneMappingMode == 3) {
-        // Uncharted 2
-        color = tonemap_uncharted2(color);
-    }
-    // else: No tone mapping (mode == 0)
-
-    // ========================================================================
-    // 6. Apply vignette (post-process effect)
-    // ========================================================================
-    // Vignette затемняет края экрана для cinematic look
-    //
-    // Calculate distance from center
-    vec2 centerOffset = v_TexCoord - 0.5;  // Center at (0.5, 0.5)
-    float dist = length(centerOffset * vec2(1.0, 1.0));  // Can adjust aspect ratio
-
-    // Vignette falloff (smoothstep from inner to outer radius)
-    float vignette = 1.0 - smoothstep(pc.vignetteInner, pc.vignetteOuter, dist);
-    vignette = mix(1.0, vignette, pc.vignetteIntensity);  // Blend with intensity
-
-    // Apply vignette
-    color *= vignette;
-
-    // ========================================================================
-    // 7. Gamma correction
-    // ========================================================================
-    // If swapchain format is SRGB (VK_FORMAT_B8G8R8A8_SRGB), gamma correction
-    // is applied automatically by hardware.
-    //
-    // If swapchain format is UNORM (VK_FORMAT_B8G8R8A8_UNORM), we need to
-    // apply gamma correction manually:
-    // color = pow(color, vec3(1.0 / 2.2));
-    //
-    // For now: assume SRGB swapchain (automatic gamma correction)
-
-    // ========================================================================
-    // 8. Output final color
+    // 5. Output raw HDR (tonemapping applied later in phase_tonemap)
     // ========================================================================
     o_Color = vec4(color, 1.0);
 }

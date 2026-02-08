@@ -257,14 +257,14 @@ void CRenderTarget::phase_clouds()
 	m_CloudVB.Unmap();
 
 	// ========================================================================
-	// Step 2: Get swapchain and depth resources
+	// Step 2: Get rt_HDR and depth resources
 	// ========================================================================
-	VkImage swapchainImage = Swapchain.GetCurrentImage();
-	VkImageView swapchainView = Swapchain.GetCurrentImageView();
-	u32 swapWidth = Swapchain.GetWidth();
-	u32 swapHeight = Swapchain.GetHeight();
+	VkImage hdrImage = rt_HDR.m_Image;
+	VkImageView hdrView = rt_HDR.m_ImageView;
+	u32 hdrWidth = rt_HDR.m_Width;
+	u32 hdrHeight = rt_HDR.m_Height;
 
-	if (swapchainImage == VK_NULL_HANDLE || swapchainView == VK_NULL_HANDLE) return;
+	if (hdrImage == VK_NULL_HANDLE || hdrView == VK_NULL_HANDLE) return;
 
 	VkImageView depthView = Swapchain.m_DepthView;
 	VkImage depthImage = Swapchain.m_DepthImage;
@@ -275,15 +275,15 @@ void CRenderTarget::phase_clouds()
 	// ========================================================================
 	VkImageMemoryBarrier barriers[2] = {};
 
-	// Swapchain: PRESENT_SRC -> COLOR_ATTACHMENT_OPTIMAL
+	// rt_HDR: already COLOR_ATTACHMENT from previous pass — execution barrier
 	barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barriers[0].srcAccessMask = 0;
+	barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	barriers[0].oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	barriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barriers[0].image = swapchainImage;
+	barriers[0].image = hdrImage;
 	barriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
 	// Depth: DEPTH_ATTACHMENT_OPTIMAL -> DEPTH_READ_ONLY_OPTIMAL
@@ -307,7 +307,7 @@ void CRenderTarget::phase_clouds()
 	// ========================================================================
 	VkRenderingAttachmentInfo colorAttachment = {};
 	colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-	colorAttachment.imageView = swapchainView;
+	colorAttachment.imageView = hdrView;
 	colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; // Preserve sky output
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -322,7 +322,7 @@ void CRenderTarget::phase_clouds()
 	VkRenderingInfo renderingInfo = {};
 	renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
 	renderingInfo.renderArea.offset = { 0, 0 };
-	renderingInfo.renderArea.extent = { swapWidth, swapHeight };
+	renderingInfo.renderArea.extent = { hdrWidth, hdrHeight };
 	renderingInfo.layerCount = 1;
 	renderingInfo.colorAttachmentCount = 1;
 	renderingInfo.pColorAttachments = &colorAttachment;
@@ -335,16 +335,16 @@ void CRenderTarget::phase_clouds()
 	// ========================================================================
 	VkViewport viewport = {};
 	viewport.x = 0.0f;
-	viewport.y = (float)swapHeight;
-	viewport.width = (float)swapWidth;
-	viewport.height = -(float)swapHeight;
+	viewport.y = (float)hdrHeight;
+	viewport.width = (float)hdrWidth;
+	viewport.height = -(float)hdrHeight;
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	vkCmdSetViewport(cmd, 0, 1, &viewport);
 
 	VkRect2D scissor = {};
 	scissor.offset = { 0, 0 };
-	scissor.extent = { swapWidth, swapHeight };
+	scissor.extent = { hdrWidth, hdrHeight };
 	vkCmdSetScissor(cmd, 0, 1, &scissor);
 
 	// ========================================================================
@@ -379,7 +379,7 @@ void CRenderTarget::phase_clouds()
 		config.srcAlphaBlend = VK_BLEND_FACTOR_ONE;
 		config.dstAlphaBlend = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		config.colorAttachmentCount = 1;
-		config.colorFormats[0] = Swapchain.GetFormat();
+		config.colorFormats[0] = VK_FORMAT_R16G16B16A16_SFLOAT;  // HDR output
 		config.depthFormat = Swapchain.m_DepthFormat;
 
 		// Custom vertex input: CloudVertex (20 bytes stride, 3 attributes)
@@ -513,15 +513,15 @@ cleanup_barriers:
 	{
 		VkImageMemoryBarrier finalBarriers[2] = {};
 
-		// Swapchain: COLOR_ATTACHMENT_OPTIMAL -> PRESENT_SRC_KHR
+		// rt_HDR: stay in COLOR_ATTACHMENT_OPTIMAL for next pass
 		finalBarriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		finalBarriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		finalBarriers[0].dstAccessMask = 0;
+		finalBarriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		finalBarriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		finalBarriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		finalBarriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		finalBarriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		finalBarriers[0].image = swapchainImage;
+		finalBarriers[0].image = hdrImage;
 		finalBarriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
 		// Depth: DEPTH_READ_ONLY_OPTIMAL -> DEPTH_ATTACHMENT_OPTIMAL
