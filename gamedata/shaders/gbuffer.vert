@@ -26,7 +26,8 @@ layout(location = 2) in vec2 a_TexCoord;  // Texture coordinates (SHORT2 → SSC
 layout(location = 0) out vec3 v_PositionEye;  // Eye-space position
 layout(location = 1) out vec3 v_NormalEye;    // Eye-space normal
 layout(location = 2) out vec2 v_TexCoord;     // Texture coordinates
-layout(location = 3) out vec2 v_WorldPosXZ;   // World-space XZ for terrain detail tiling
+layout(location = 3) out vec3 v_WorldPos;     // World-space position (XYZ for triplanar)
+layout(location = 4) out vec3 v_WorldNormal;  // World-space normal (for triplanar blend weights)
 
 // Push constants (X-Ray Fmatrix — row-major, loaded as transposed in GLSL)
 layout(push_constant) uniform PushConstants
@@ -47,7 +48,7 @@ void main()
     gl_Position   = pc.u_Projection * eyePos;
 
     v_PositionEye = eyePos.xyz;
-    v_WorldPosXZ  = worldPos.xz;
+    v_WorldPos    = worldPos.xyz;
 
     // Unpack normal from D3DCOLOR (UBYTE4N → 0..1 range, remap to -1..1)
     // D3DCOLOR stores as BGRA, read as RGBA via R8G8B8A8_UNORM
@@ -55,6 +56,7 @@ void main()
 
     // Transform normal to eye-space (w=0 for direction vectors)
     vec3 worldNormal = (pc.u_Model * vec4(unpackedNormal, 0.0)).xyz;
+    v_WorldNormal    = worldNormal;
     v_NormalEye      = (pc.u_View * vec4(worldNormal, 0.0)).xyz;
 
     // UV scaling: SHORT2 needs /1024 (u_UVScale = 1/1024), FLOAT2 is direct (u_UVScale = 1.0)
