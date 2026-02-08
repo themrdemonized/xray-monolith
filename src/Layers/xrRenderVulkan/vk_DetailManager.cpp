@@ -1083,8 +1083,8 @@ void CDetailManager::BakeHeightmap()
     float texelSizeX = m_HMWorldSizeX / (float)m_HeightmapW;
     float texelSizeZ = m_HMWorldSizeZ / (float)m_HeightmapH;
 
-    // Allocate heightmap data (initialized to very low Y)
-    xr_vector<float> heightData(m_HeightmapW * m_HeightmapH, -10000.0f);
+    // Allocate heightmap data (initialized to very high Y — we store MIN to get ground level)
+    xr_vector<float> heightData(m_HeightmapW * m_HeightmapH, 10000.0f);
 
     Msg("[Detail GPU Gen] Baking heightmap %ux%u from %u triangles (%.0fx%.0f m)...",
         m_HeightmapW, m_HeightmapH, triCount, m_HMWorldSizeX, m_HMWorldSizeZ);
@@ -1134,16 +1134,16 @@ void CDetailManager::BakeHeightmap()
 
                 // Barycentric coordinates
                 float u = (qx * dz20 - qz * dx20) * invDenom;
-                float v = (dz10 * qx - dx10 * qz) * invDenom;  // Fixed: was swapped
+                float v = (dx10 * qz - dz10 * qx) * invDenom;
 
                 if (u < -0.01f || v < -0.01f || (u + v) > 1.01f) continue;
 
                 // Interpolate Y
                 float y = v0.y + u * (v1.y - v0.y) + v * (v2.y - v0.y);
 
-                // Store max Y (topmost surface)
+                // Store min Y (ground level, not bridges/roofs)
                 u32 idx = (u32)pz * m_HeightmapW + (u32)px;
-                if (y > heightData[idx])
+                if (y < heightData[idx])
                     heightData[idx] = y;
             }
         }
@@ -1156,7 +1156,7 @@ void CDetailManager::BakeHeightmap()
         for (u32 x = 0; x < m_HeightmapW; x++)
         {
             u32 idx = z * m_HeightmapW + x;
-            if (heightData[idx] > -9999.0f) continue;
+            if (heightData[idx] < 9999.0f) continue;  // Has valid data
 
             // Sample neighbors
             float sum = 0;
@@ -1169,7 +1169,7 @@ void CDetailManager::BakeHeightmap()
                     if (nx < 0 || nx >= (int)m_HeightmapW || nz < 0 || nz >= (int)m_HeightmapH)
                         continue;
                     float h = heightData[nz * m_HeightmapW + nx];
-                    if (h > -9999.0f) { sum += h; count++; }
+                    if (h < 9999.0f) { sum += h; count++; }
                 }
             }
             if (count > 0) heightData[idx] = sum / (float)count;

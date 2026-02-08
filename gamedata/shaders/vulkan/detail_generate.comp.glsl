@@ -347,21 +347,23 @@ void main()
         return;
 
     // ---- Get Y position ----
-    // Primary source: slot.y_base from level compiler (authoritative ground height).
-    // Heightmap refines within the slot's valid range for sub-slot precision.
-    // If heightmap disagrees (bridges, rooftops stored as max Y), trust the slot.
-    float terrainY = slot.y_base;
+    // Heightmap stores MIN Y (ground level, ignoring bridges/roofs).
+    // Fallback to slot.y_base if heightmap has no data.
 
-    vec2 hmUV;
-    hmUV.x = (rx - gen.hmParams.x) * gen.hmParams.z;
-    hmUV.y = (rz - gen.hmParams.y) * gen.hmParams.w;
+    float hmU = (rx - gen.hmParams.x) * gen.hmParams.z; // (rx - originX) * invScaleX
+    float hmV = (rz - gen.hmParams.y) * gen.hmParams.w; // (rz - originZ) * invScaleZ
+    float hmY = texture(u_Heightmap, vec2(hmU, hmV)).r;
 
-    if (hmUV.x >= 0.0 && hmUV.x <= 1.0 && hmUV.y >= 0.0 && hmUV.y <= 1.0)
+    float terrainY;
+    if (hmY < 9000.0 && hmY > -9000.0)
     {
-        float hmY = texture(u_Heightmap, hmUV).r;
-        // Only use heightmap if it's within the slot's ground range
-        if (hmY >= slot.y_base - 1.0 && hmY <= slot.y_base + slot.y_height + 1.0)
-            terrainY = hmY;
+        // Valid heightmap data — use ground-level height
+        terrainY = hmY;
+    }
+    else
+    {
+        // No data — fall back to slot.y_base
+        terrainY = slot.y_base;
     }
 
     vec3 worldPos = vec3(rx, terrainY, rz);
@@ -382,28 +384,9 @@ void main()
     if (!frustumTestSphere(worldPos, radius))
         return;
 
-    // ---- HZB occlusion culling ----
-    {
-        vec4 clipPos = pc.viewProj * vec4(worldPos, 1.0);
-        if (clipPos.w > 0.0)
-        {
-            vec2 ndc = clipPos.xy / clipPos.w;
-            vec2 uv = ndc * 0.5 + 0.5;
-
-            if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0)
-            {
-                float projRadius = radius / clipPos.w;
-                float screenRadius = projRadius * 0.5;
-                float mipLevel = max(0.0, log2(max(1.0, 1.0 / (screenRadius * 512.0))));
-
-                float hzbDepth = textureLod(u_HZB, uv, mipLevel).r;
-                float instanceDepth = clipPos.z / clipPos.w;
-
-                if (instanceDepth > hzbDepth && hzbDepth > 0.0)
-                    return;
-            }
-        }
-    }
+    // HZB occlusion culling disabled for grass — causes flickering due to
+    // temporal mismatch (HZB from previous frame vs current camera).
+    // Frustum + distance culling is sufficient for small detail objects.
 
     // ---- Fade alpha (scale-based, matches detail_cull.comp) ----
     float alpha = 1.0;
