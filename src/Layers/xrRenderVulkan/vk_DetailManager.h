@@ -370,9 +370,9 @@ private:
     // Max offset per obj = totalInstances / numObjTypes (approximation)
     static const u32            GPU_MAX_INSTANCES = 200000;
     static const u32            GPU_MAX_OBJ_TYPES = 64;
-    // Output buffer capacity: 2x input gives each of 32 types ~12500 slots
-    // After frustum+distance+HZB culling, no single type should exceed this
-    static const u32            GPU_OUTPUT_CAPACITY = 400000;
+    // Output buffer: 1.5M instances (~96MB VRAM). With ~25 types,
+    // each type gets ~60K section — enough to avoid overflow-induced flickering.
+    static const u32            GPU_OUTPUT_CAPACITY = 1500000;
 
     // ========================================================================
     // GPU grass generation (replaces CPU cache + cull with procedural GPU gen)

@@ -384,9 +384,31 @@ void main()
     if (!frustumTestSphere(worldPos, radius))
         return;
 
-    // HZB occlusion culling disabled for grass — causes flickering due to
-    // temporal mismatch (HZB from previous frame vs current camera).
-    // Frustum + distance culling is sufficient for small detail objects.
+    // ---- HZB occlusion culling ----
+    {
+        vec4 clipPos = pc.viewProj * vec4(worldPos, 1.0);
+        if (clipPos.w > 0.0)
+        {
+            vec2 ndc = clipPos.xy / clipPos.w;
+            // Y flip: viewport uses negative height, so HZB texture Y is inverted
+            vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
+
+            if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0)
+            {
+                // Select mip level where object covers ~1 HZB texel
+                float projDiameter = 2.0 * radius / clipPos.w;
+                ivec2 hzbSize = textureSize(u_HZB, 0);
+                float screenTexels = projDiameter * 0.5 * float(hzbSize.x);
+                float mipLevel = ceil(log2(max(1.0, screenTexels)));
+
+                float hzbDepth = textureLod(u_HZB, uv, mipLevel).r;
+                float instanceDepth = clipPos.z / clipPos.w;
+
+                if (instanceDepth > hzbDepth && hzbDepth > 0.0)
+                    return;
+            }
+        }
+    }
 
     // ---- Fade alpha (scale-based, matches detail_cull.comp) ----
     float alpha = 1.0;
@@ -416,14 +438,19 @@ void main()
     float c_hemi = float((slot.lighting >> 16) & 0xFFFFu) / 65535.0;
 
     // ---- Atomic append to per-obj-type section ----
-    uint localIdx = atomicAdd(atomics.counters[objId], 1u);
-
     uint outputCapacity = gen.genCounts.z;
     uint numObjTypes = gen.genCounts.y;
     uint sectionSize = outputCapacity / max(numObjTypes, 1u);
 
+    uint localIdx = atomicAdd(atomics.counters[objId], 1u);
+
     if (localIdx >= sectionSize)
+    {
+        // Over capacity — undo the increment so counter stays at sectionSize
+        // (prevents inflated instanceCount in indirect draw)
+        atomicAdd(atomics.counters[objId], 0xFFFFFFFFu); // -1
         return;
+    }
 
     uint outIdx = objId * sectionSize + localIdx;
     if (outIdx >= outputCapacity)

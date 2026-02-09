@@ -271,6 +271,11 @@ void CDetailManager::CreatePipeline()
     config.depthWrite = true;
     config.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 
+    // Depth bias to prevent Z-fighting between grass and terrain
+    config.depthBiasEnable = true;
+    config.depthBiasConstant = -2.0f;  // Push grass slightly toward camera
+    config.depthBiasSlope = -1.0f;
+
     // No blending (alpha test in shader instead)
     config.blendEnable = false;
 

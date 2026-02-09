@@ -844,8 +844,29 @@ void CDetailManager::RenderGpuGenerated()
     }
 
     // ========================================================================
-    // Phase 5: Pre-fill indirect commands + clear atomic counters
+    // Phase 5: Clear buffers + pre-fill indirect commands
     // ========================================================================
+
+    // Barrier: ensure previous frame's vertex reads of VisibleSSBO are done
+    {
+        VkBufferMemoryBarrier prevBar = {};
+        prevBar.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        prevBar.srcAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+        prevBar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        prevBar.buffer = m_VisibleSSBO->GetHandle();
+        prevBar.offset = 0;
+        prevBar.size = VK_WHOLE_SIZE;
+        prevBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        prevBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, &prevBar, 0, nullptr);
+    }
+
+    // Clear VisibleSSBO to zero (prevents stale data from previous frame)
+    vkCmdFillBuffer(cmd, m_VisibleSSBO->GetHandle(), 0, VK_WHOLE_SIZE, 0);
+
+    // Pre-fill indirect commands with indexCount per object type
     {
         VkDrawIndexedIndirectCommand cmds[GPU_MAX_OBJ_TYPES] = {};
         for (u32 i = 0; i < objects.size() && i < GPU_MAX_OBJ_TYPES; i++)
@@ -857,16 +878,17 @@ void CDetailManager::RenderGpuGenerated()
         vkCmdUpdateBuffer(cmd, m_IndirectCmdBuf->GetHandle(), 0, cmdSize, cmds);
     }
 
+    // Clear atomic counters
     vkCmdFillBuffer(cmd, m_AtomicCounters->GetHandle(), 0, VK_WHOLE_SIZE, 0);
 
-    // Barrier: transfer writes -> compute read/write
+    // Barrier: all transfer writes -> compute read/write
     {
-        VkBufferMemoryBarrier bars[2] = {};
+        VkBufferMemoryBarrier bars[3] = {};
 
         bars[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
         bars[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         bars[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-        bars[0].buffer = m_AtomicCounters->GetHandle();
+        bars[0].buffer = m_VisibleSSBO->GetHandle();
         bars[0].offset = 0;
         bars[0].size = VK_WHOLE_SIZE;
         bars[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -875,14 +897,23 @@ void CDetailManager::RenderGpuGenerated()
         bars[1].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
         bars[1].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         bars[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-        bars[1].buffer = m_IndirectCmdBuf->GetHandle();
+        bars[1].buffer = m_AtomicCounters->GetHandle();
         bars[1].offset = 0;
         bars[1].size = VK_WHOLE_SIZE;
         bars[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         bars[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 
+        bars[2].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+        bars[2].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bars[2].dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        bars[2].buffer = m_IndirectCmdBuf->GetHandle();
+        bars[2].offset = 0;
+        bars[2].size = VK_WHOLE_SIZE;
+        bars[2].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bars[2].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
         vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 2, bars, 0, nullptr);
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 3, bars, 0, nullptr);
     }
 
     // ========================================================================
