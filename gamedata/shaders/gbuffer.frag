@@ -22,12 +22,15 @@ layout(location = 1) in vec3 v_NormalEye;    // Eye-space normal (для lightin
 layout(location = 2) in vec2 v_TexCoord;     // Texture coordinates
 layout(location = 3) in vec3 v_WorldPos;     // World-space position (XYZ for triplanar)
 layout(location = 4) in vec3 v_WorldNormal;  // World-space normal (for triplanar blend weights)
+layout(location = 5) in vec4 v_CurrClipPos;  // Current clip-space position (for motion vectors)
+layout(location = 6) in vec4 v_PrevClipPos;  // Previous clip-space position (for motion vectors)
 
-// Multiple Render Targets (MRT) - 4 outputs
-layout(location = 0) out vec4 o_Position;   // → rt_Position (R32G32B32A32_SFLOAT)
-layout(location = 1) out vec4 o_Normal;     // → rt_Normal   (R32G32B32A32_SFLOAT)
-layout(location = 2) out vec4 o_Color;      // → rt_Color    (R8G8B8A8_SRGB)
-layout(location = 3) out vec4 o_Material;   // → rt_Material (R8G8B8A8_UNORM)
+// Multiple Render Targets (MRT) - 5 outputs
+layout(location = 0) out vec4 o_Position;    // → rt_Position    (R32G32B32A32_SFLOAT)
+layout(location = 1) out vec4 o_Normal;      // → rt_Normal      (R32G32B32A32_SFLOAT)
+layout(location = 2) out vec4 o_Color;       // → rt_Color       (R8G8B8A8_SRGB)
+layout(location = 3) out vec4 o_Material;    // → rt_Material    (R8G8B8A8_UNORM)
+layout(location = 4) out vec2 o_MotionVec;   // → rt_MotionVector (R16G16_SFLOAT)
 
 // Push constants (shared with vertex shader)
 // Offset 196 is u_SkinMode in skinned vertex shader, so u_AlphaRef goes at 200
@@ -36,6 +39,13 @@ layout(push_constant) uniform PushConstants
     layout(offset = 200) float u_AlphaRef;     // Alpha test threshold (-1.0 = disabled, 0.5 = enabled)
     layout(offset = 204) float u_DetailScale;  // Terrain detail UV multiplier (from .thm dt_params)
 } pc;
+
+// Descriptor Set 0: GlobalLighting UBO — only jitter needed here
+layout(std140, set = 0, binding = 0) uniform GlobalLighting
+{
+    vec4 _pad_frag[75];    // offsets 0-1199 (75 * 16 bytes, not used in this shader)
+    vec4 ssfx_jitter;      // offset 1200: (currJitterX, currJitterY, prevJitterX, prevJitterY)
+} uGlobal;
 
 // Descriptor Set 1: Material textures (Phase 2.22)
 // PerMaterial descriptor set from DescriptorManager
@@ -438,6 +448,17 @@ void main()
     float ao = 1.0;          // No occlusion
 
     o_Material = vec4(metallic, roughness, sss, ao);
+
+    // ========================================================================
+    // 5. Output Motion Vectors (NDC-space velocity)
+    // ========================================================================
+    // Camera-only motion vectors: same worldPos, different VP matrix
+    // Remove sub-pixel jitter from both frames for clean motion vectors (DLSS requirement)
+    vec2 currNDC = v_CurrClipPos.xy / v_CurrClipPos.w;
+    vec2 prevNDC = v_PrevClipPos.xy / v_PrevClipPos.w;
+    currNDC -= uGlobal.ssfx_jitter.xy;
+    prevNDC -= uGlobal.ssfx_jitter.zw;
+    o_MotionVec = (currNDC - prevNDC) * 0.5;  // [-1,1] → [-0.5,0.5] range
 
     // ========================================================================
     // Notes:

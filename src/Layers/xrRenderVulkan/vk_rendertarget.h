@@ -6,6 +6,7 @@
 #include "SH_RT_Vulkan.h"
 #include "vk_texture.h"
 #include "vk_buffer.h"
+#include "vk_compute.h"
 #include "../../xrEngine/Render.h"
 
 // === ANOMALY LUA WEATHER SYSTEM ===
@@ -61,6 +62,7 @@ public:
     CRT rt_Normal;        // R32G32B32A32_SFLOAT - Eye-space normal + hemi
     CRT rt_Color;         // R8G8B8A8_SRGB       - Albedo (sRGB for PBR)
     CRT rt_Material;      // R8G8B8A8_UNORM      - PBR: Metallic/Roughness/SSS/AO
+    CRT rt_MotionVector;  // R16G16_SFLOAT       - Screen-space motion vectors (for DLSS/TAA)
     CRT rt_Accumulator;   // R16G16B16A16_SFLOAT - Accumulated light
 
     // Depth (используем swapchain depth, но предоставляем rt_ZBuffer для совместимости)
@@ -73,6 +75,10 @@ public:
     // HDR intermediate render target (for future DLSS)
     // All post-combine scene rendering goes here; tonemap pass reads it → swapchain
     CRT rt_HDR;
+
+    // DLSS output render target (R16G16B16A16_SFLOAT at display resolution)
+    // Created only when DLSS is enabled; tonemap reads from this instead of rt_HDR
+    CRT rt_DlssOutput;
 
     // Distortion map (R8G8B8A8_UNORM - R/B encode UV offset, 127=neutral)
     CRT rt_Distortion;
@@ -90,10 +96,14 @@ public:
 
     // TODO: Spot light shadow map может использовать тот же rt_smap_depth
 
-    // Размеры
+    // Render resolution (may differ from display when DLSS is active)
     u32 m_Width  = 0;
     u32 m_Height = 0;
     u32 m_ShadowMapSize = 2048;  // Shadow map resolution
+
+    // Display resolution (swapchain size, constant regardless of DLSS)
+    u32 m_DisplayWidth  = 0;
+    u32 m_DisplayHeight = 0;
 
 public:
     CRenderTarget();
@@ -130,7 +140,9 @@ public:
     void phase_forward();      // Phase 2.19: Forward pass (transparent objects)
     void phase_wallmarks_begin();  // Begin wallmarks render pass (swapchain + depth read-only)
     void phase_wallmarks_end();    // End wallmarks render pass
-    void phase_tonemap();      // HDR→LDR tonemap pass (rt_HDR → swapchain)
+    void phase_exposure();     // Auto-exposure compute (rt_HDR → 1x1 R32F)
+    void phase_dlss();         // DLSS upscaling (rt_HDR → rt_DlssOutput)
+    void phase_tonemap();      // HDR→LDR tonemap pass (rt_HDR/rt_DlssOutput → swapchain)
     void phase_postprocess();  // Phase 2.20: Post-processing (bloom, vignette, etc.)
     void phase_distortion();   // Distortion map rendering (for magnifier effect)
 
@@ -235,6 +247,25 @@ private:
     // Tonemap pass
     VkDescriptorSet m_TonemapDescSet = VK_NULL_HANDLE;   // rt_HDR texture for tonemap pass
 
+    // Auto-exposure compute resources
+    VkImage       m_ExposureImage = VK_NULL_HANDLE;      // 1x1 R32F
+    VmaAllocation m_ExposureAlloc = VK_NULL_HANDLE;
+    VkImageView   m_ExposureView  = VK_NULL_HANDLE;
+    VkSampler     m_ExposureSampler = VK_NULL_HANDLE;
+
+    VkBuffer      m_HistogramBuffer = VK_NULL_HANDLE;    // 256 * uint SSBO
+    VmaAllocation m_HistogramAlloc  = VK_NULL_HANDLE;
+
+    VkDescriptorSetLayout m_ExposureHistDescLayout = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_ExposureAvgDescLayout  = VK_NULL_HANDLE;
+    VkPipelineLayout      m_ExposureHistPipeLayout = VK_NULL_HANDLE;
+    VkPipelineLayout      m_ExposureAvgPipeLayout  = VK_NULL_HANDLE;
+    VkDescriptorPool      m_ExposureDescPool       = VK_NULL_HANDLE;
+    VkDescriptorSet       m_ExposureHistDescSet    = VK_NULL_HANDLE;
+    VkDescriptorSet       m_ExposureAvgDescSet     = VK_NULL_HANDLE;
+    CVulkanComputePipeline m_ExposureHistPipeline;
+    CVulkanComputePipeline m_ExposureAvgPipeline;
+
     // Point light volume geometry (Phase 2.16.4)
     VkBuffer m_PointVolumeVB = VK_NULL_HANDLE;          // Sphere vertex buffer
     VmaAllocation m_PointVolumeVBAlloc = VK_NULL_HANDLE;
@@ -280,6 +311,15 @@ public:
     void CreateCloudGeometry();
     void DestroyCloudResources();
     CVulkanTexture* GetOrCreateFallbackCloud();
+
+    // Auto-exposure resources
+    void CreateExposureResources();
+    void DestroyExposureResources();
+    bool m_bExposureReady = false;
+
+    // DLSS output render target
+    void CreateDlssOutput(u32 displayW, u32 displayH);
+    void DestroyDlssOutput();
 
     // IRender_Target interface implementation
     void set_blur(float f) override {}

@@ -12,9 +12,9 @@
 // Targets (MRT) for deferred shading.
 //
 // Process:
-// 1. Begin rendering to 4 MRT + depth (Position, Normal, Color, Material)
+// 1. Begin rendering to 5 MRT + depth (Position, Normal, Color, Material, MotionVector)
 // 2. Load G-Buffer shaders (gbuffer.vert.spv, gbuffer.frag.spv)
-// 3. Configure pipeline (4 color attachments, depth test, backface culling)
+// 3. Configure pipeline (5 color attachments, depth test, backface culling)
 // 4. Render all level geometry (visuals, models)
 // 5. Fill G-Buffer textures for lighting pass
 //
@@ -29,6 +29,7 @@
 #include "HW_Vulkan.h"
 #include "vk_R_Backend.h"
 #include "vk_Visual.h"
+#include "vk_lighting.h"
 #include "rvk.h"
 #include "../../Include/xrRender/Kinematics.h"
 #include <functional>
@@ -42,7 +43,7 @@ namespace VK
 struct GBufferPushConstants
 {
     Fmatrix u_Model;       // Model matrix (local → world)
-    Fmatrix u_View;        // View matrix (world → eye)
+    Fmatrix u_PrevModel;   // Previous frame model matrix (for per-object motion vectors)
     Fmatrix u_Projection;  // Projection matrix (eye → clip)
     float   u_UVScale;     // offset 192: UV scale (1/1024 for SHORT2, 1.0 for FLOAT2)
     u32     _pad196;       // offset 196: reserved (u_SkinMode in skinned pipeline)
@@ -97,12 +98,13 @@ VkPipeline CRenderTarget::GetGBufferPipeline(u32 stride, u32 tcOffset)
     // No blending (opaque geometry only)
     config.blendEnable = false;
 
-    // Multiple Render Targets (MRT) - 4 color attachments
-    config.colorAttachmentCount = 4;
+    // Multiple Render Targets (MRT) - 5 color attachments
+    config.colorAttachmentCount = 5;
     config.colorFormats[0] = VK_FORMAT_R32G32B32A32_SFLOAT;  // rt_Position
     config.colorFormats[1] = VK_FORMAT_R32G32B32A32_SFLOAT;  // rt_Normal
     config.colorFormats[2] = VK_FORMAT_R8G8B8A8_SRGB;        // rt_Color
     config.colorFormats[3] = VK_FORMAT_R8G8B8A8_UNORM;       // rt_Material
+    config.colorFormats[4] = VK_FORMAT_R16G16_SFLOAT;        // rt_MotionVector
     config.depthFormat = VK_FORMAT_D32_SFLOAT;               // Depth buffer
 
     if (stride == 12)
@@ -182,11 +184,12 @@ VkPipeline CRenderTarget::GetGBufferPipelineSkinned(u32 stride)
     config.blendEnable = false;
 
     // MRT - same as non-skinned G-Buffer
-    config.colorAttachmentCount = 4;
+    config.colorAttachmentCount = 5;
     config.colorFormats[0] = VK_FORMAT_R32G32B32A32_SFLOAT;  // rt_Position
     config.colorFormats[1] = VK_FORMAT_R32G32B32A32_SFLOAT;  // rt_Normal
     config.colorFormats[2] = VK_FORMAT_R8G8B8A8_SRGB;        // rt_Color
     config.colorFormats[3] = VK_FORMAT_R8G8B8A8_UNORM;       // rt_Material
+    config.colorFormats[4] = VK_FORMAT_R16G16_SFLOAT;        // rt_MotionVector
     config.depthFormat = VK_FORMAT_D32_SFLOAT;
 
     // Use custom vertex input for skinned attributes
@@ -252,21 +255,23 @@ void CRenderTarget::phase_gbuffer()
     VkImage imgNorm = rt_Normal.GetImage();
     VkImage imgColor = rt_Color.GetImage();
     VkImage imgMat = rt_Material.GetImage();
+    VkImage imgMV = rt_MotionVector.GetImage();
     VkImageView viewPos = rt_Position.GetView();
     VkImageView viewNorm = rt_Normal.GetView();
     VkImageView viewColor = rt_Color.GetView();
     VkImageView viewMat = rt_Material.GetView();
+    VkImageView viewMV = rt_MotionVector.GetView();
     VkImageView viewDepth = Swapchain.m_DepthView;
     VkImage imgDepth = Swapchain.m_DepthImage;
 
-    if (!imgPos || !imgNorm || !imgColor || !imgMat) {
-        Msg("! phase_gbuffer: NULL RT image at frame %u: pos=%p norm=%p col=%p mat=%p",
-            Device.dwFrame, imgPos, imgNorm, imgColor, imgMat);
+    if (!imgPos || !imgNorm || !imgColor || !imgMat || !imgMV) {
+        Msg("! phase_gbuffer: NULL RT image at frame %u: pos=%p norm=%p col=%p mat=%p mv=%p",
+            Device.dwFrame, imgPos, imgNorm, imgColor, imgMat, imgMV);
         return;
     }
-    if (!viewPos || !viewNorm || !viewColor || !viewMat) {
-        Msg("! phase_gbuffer: NULL RT view at frame %u: pos=%p norm=%p col=%p mat=%p",
-            Device.dwFrame, viewPos, viewNorm, viewColor, viewMat);
+    if (!viewPos || !viewNorm || !viewColor || !viewMat || !viewMV) {
+        Msg("! phase_gbuffer: NULL RT view at frame %u: pos=%p norm=%p col=%p mat=%p mv=%p",
+            Device.dwFrame, viewPos, viewNorm, viewColor, viewMat, viewMV);
         return;
     }
     if (!imgDepth || !viewDepth) {
@@ -279,10 +284,11 @@ void CRenderTarget::phase_gbuffer()
     bool bDiag = (Device.dwFrame - s_lastDiagFrame > 500);
     if (bDiag) {
         Msg("[gbuf-diag] frame=%u cmd=%p rt_pos(img=%p view=%p) rt_norm(img=%p view=%p) "
-            "rt_col(img=%p view=%p) rt_mat(img=%p view=%p) depth(img=%p view=%p) size=%ux%u created=%d",
+            "rt_col(img=%p view=%p) rt_mat(img=%p view=%p) rt_mv(img=%p view=%p) depth(img=%p view=%p) size=%ux%u created=%d",
             Device.dwFrame, cmd,
             imgPos, viewPos, imgNorm, viewNorm,
             imgColor, viewColor, imgMat, viewMat,
+            imgMV, viewMV,
             imgDepth, viewDepth, m_Width, m_Height, (int)m_bCreated);
         s_lastDiagFrame = Device.dwFrame;
     }
@@ -332,6 +338,15 @@ void CRenderTarget::phase_gbuffer()
         }
 
         __try {
+            vkGetImageMemoryRequirements(VulkanHW.m_Device, imgMV, &memReq);
+        } __except(EXCEPTION_EXECUTE_HANDLER) {
+            Msg("! phase_gbuffer: rt_MotionVector image INVALID at frame %u, img=%p",
+                Device.dwFrame, imgMV);
+            FlushLog();
+            imagesValid = false;
+        }
+
+        __try {
             vkGetImageMemoryRequirements(VulkanHW.m_Device, imgDepth, &memReq);
         } __except(EXCEPTION_EXECUTE_HANDLER) {
             Msg("! phase_gbuffer: depth image INVALID at frame %u, img=%p",
@@ -351,7 +366,7 @@ void CRenderTarget::phase_gbuffer()
     // Step 3: Transition render targets to COLOR_ATTACHMENT_OPTIMAL
     // ========================================================================
     __try {
-        VkImageMemoryBarrier barriers[4] = {};
+        VkImageMemoryBarrier barriers[5] = {};
 
         // Wait for previous frame's shader reads AND color writes to complete
         // before transitioning. oldLayout=UNDEFINED is OK since we CLEAR every frame.
@@ -372,11 +387,12 @@ void CRenderTarget::phase_gbuffer()
         barriers[1] = barriers[0]; barriers[1].image = imgNorm;
         barriers[2] = barriers[0]; barriers[2].image = imgColor;
         barriers[3] = barriers[0]; barriers[3].image = imgMat;
+        barriers[4] = barriers[0]; barriers[4].image = imgMV;
 
         vkCmdPipelineBarrier(cmd,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            0, 0, nullptr, 0, nullptr, 4, barriers);
+            0, 0, nullptr, 0, nullptr, 5, barriers);
     } __except(EXCEPTION_EXECUTE_HANDLER) {
         Msg("! phase_gbuffer: CRASH in color barrier at frame %u, exc=0x%08X",
             Device.dwFrame, GetExceptionCode());
@@ -416,10 +432,10 @@ void CRenderTarget::phase_gbuffer()
     }
 
     // ========================================================================
-    // Step 5: Begin rendering to G-Buffer (4 MRT + depth)
+    // Step 5: Begin rendering to G-Buffer (5 MRT + depth)
     // ========================================================================
     __try {
-        VkRenderingAttachmentInfo colorAttachments[4] = {};
+        VkRenderingAttachmentInfo colorAttachments[5] = {};
 
         colorAttachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         colorAttachments[0].imageView = viewPos;
@@ -449,6 +465,13 @@ void CRenderTarget::phase_gbuffer()
         colorAttachments[3].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         colorAttachments[3].clearValue.color = {{0.0f, 0.5f, 0.0f, 1.0f}};
 
+        colorAttachments[4].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        colorAttachments[4].imageView = viewMV;
+        colorAttachments[4].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachments[4].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachments[4].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachments[4].clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+
         VkRenderingAttachmentInfo depthAttachment = {};
         depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         depthAttachment.imageView = viewDepth;
@@ -462,16 +485,16 @@ void CRenderTarget::phase_gbuffer()
         renderingInfo.renderArea.offset = {0, 0};
         renderingInfo.renderArea.extent = {m_Width, m_Height};
         renderingInfo.layerCount = 1;
-        renderingInfo.colorAttachmentCount = 4;
+        renderingInfo.colorAttachmentCount = 5;
         renderingInfo.pColorAttachments = colorAttachments;
         renderingInfo.pDepthAttachment = &depthAttachment;
 
         vkCmdBeginRendering(cmd, &renderingInfo);
     } __except(EXCEPTION_EXECUTE_HANDLER) {
         Msg("! phase_gbuffer: CRASH in vkCmdBeginRendering at frame %u, exc=0x%08X "
-            "views: pos=%p norm=%p col=%p mat=%p depth=%p size=%ux%u",
+            "views: pos=%p norm=%p col=%p mat=%p mv=%p depth=%p size=%ux%u",
             Device.dwFrame, GetExceptionCode(),
-            viewPos, viewNorm, viewColor, viewMat, viewDepth, m_Width, m_Height);
+            viewPos, viewNorm, viewColor, viewMat, viewMV, viewDepth, m_Width, m_Height);
         FlushLog();
         return;
     }
@@ -525,17 +548,35 @@ void CRenderTarget::phase_gbuffer()
     }
 
     // ========================================================================
+    // Step 7.5: Bind GlobalLighting UBO (Set 0) for vertex shader View matrix
+    // ========================================================================
+    if (VK::g_VulkanLighting) {
+        VkDescriptorSet globalDS = VK::g_VulkanLighting->GetGlobalLightingDescriptorSet();
+        if (globalDS != VK_NULL_HANDLE) {
+            VkPipelineLayout layout = VK::g_PipelineManager->GetLayout();
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                layout, 0, 1, &globalDS, 0, nullptr);
+        }
+    }
+
+    // ========================================================================
     // Step 8: Push constants (including UV scale for stride-32 default)
     // ========================================================================
     __try {
         Fmatrix mView = Device.mView;
         Fmatrix mProjection = Device.mProject;
+        // Apply sub-pixel jitter to projection for DLSS/TAA
+        if (RImplementation.m_Jitter.enabled)
+        {
+            mProjection._31 += RImplementation.m_Jitter.current.x;
+            mProjection._32 += RImplementation.m_Jitter.current.y;
+        }
         Fmatrix mWorld;
         mWorld.identity();
 
         GBufferPushConstants pushConstants;
         pushConstants.u_Model = mWorld;
-        pushConstants.u_View = mView;
+        pushConstants.u_PrevModel = mWorld;  // Identity for static geometry = no object motion
         pushConstants.u_Projection = mProjection;
         pushConstants.u_UVScale = 1.0f / 1024.0f;  // SHORT2 UV scale for stride-32
         pushConstants._pad196 = 0;
@@ -600,7 +641,13 @@ void CRenderTarget::phase_gbuffer()
             VkPipelineLayout layout = g_PipelineManager->GetLayout();
 
             // Switch to HUD projection (short far plane -> always in front of world)
+            // Apply same sub-pixel jitter as main projection for correct DLSS motion vectors
             Fmatrix mProjectHud = Device.mProjectHud;
+            if (RImplementation.m_Jitter.enabled)
+            {
+                mProjectHud._31 += RImplementation.m_Jitter.current.x;
+                mProjectHud._32 += RImplementation.m_Jitter.current.y;
+            }
             vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
                 128, sizeof(Fmatrix), &mProjectHud);
 
@@ -628,10 +675,9 @@ void CRenderTarget::phase_gbuffer()
                         i, pV, pV->Type, item.Matrix._41, item.Matrix._42, item.Matrix._43);
                 }
 
-                // Set world matrix
+                // Set world matrix and previous model matrix so pV->Render() pushes correct values
                 RCache.set_xform_world(item.Matrix);
-                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
-                    0, sizeof(Fmatrix), &item.Matrix);
+                RCache.set_xform_world_prev(item.PrevMatrix);
 
                 // Render — each leaf type handles its own pipeline/material binding
                 __try {
@@ -661,8 +707,7 @@ void CRenderTarget::phase_gbuffer()
 
                     vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
                     RCache.set_xform_world(item.Matrix);
-                    vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
-                        0, sizeof(Fmatrix), &item.Matrix);
+                    RCache.set_xform_world_prev(item.PrevMatrix);
 
                     __try {
                         pV->Render(1.0f);
@@ -676,7 +721,7 @@ void CRenderTarget::phase_gbuffer()
             // Restore normal viewport depth range
             RImplementation.rmNormal();
 
-            // Restore normal projection and identity world matrix
+            // Restore normal projection and identity world/prevModel matrices
             Fmatrix mProject = Device.mProject;
             vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
                 128, sizeof(Fmatrix), &mProject);
@@ -685,6 +730,8 @@ void CRenderTarget::phase_gbuffer()
             RCache.set_xform_world(mIdentity);
             vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
                 0, sizeof(Fmatrix), &mIdentity);
+            vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT,
+                64, sizeof(Fmatrix), &mIdentity);
 
         } __except(EXCEPTION_EXECUTE_HANDLER) {
             Msg("! phase_gbuffer: CRASH in HUD rendering at frame %u, "
@@ -712,7 +759,7 @@ void CRenderTarget::phase_gbuffer()
     // Step 11: Transition render targets to SHADER_READ_ONLY
     // ========================================================================
     __try {
-        VkImageMemoryBarrier barriers[4] = {};
+        VkImageMemoryBarrier barriers[5] = {};
 
         barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -731,11 +778,12 @@ void CRenderTarget::phase_gbuffer()
         barriers[1] = barriers[0]; barriers[1].image = imgNorm;
         barriers[2] = barriers[0]; barriers[2].image = imgColor;
         barriers[3] = barriers[0]; barriers[3].image = imgMat;
+        barriers[4] = barriers[0]; barriers[4].image = imgMV;
 
         vkCmdPipelineBarrier(cmd,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0, 0, nullptr, 0, nullptr, 4, barriers);
+            0, 0, nullptr, 0, nullptr, 5, barriers);
     } __except(EXCEPTION_EXECUTE_HANDLER) {
         Msg("! phase_gbuffer: CRASH in final barrier at frame %u, exc=0x%08X",
             Device.dwFrame, GetExceptionCode());

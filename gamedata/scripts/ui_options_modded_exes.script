@@ -1,11 +1,54 @@
---- Options menu extension
+--- Options menu extension - injects DLSS controls into Video > Basic
 
--- UI entrypoint
-function on_xml_read()
-	ui_options_base = ui_options.init_opt_base
-	ui_options.init_opt_base = function()
-		ui_options_base()
-		table.insert(ui_options.options, options_modded_exes.GROUP)
+-- Hook ui_options.init_opt_base to add DLSS settings after resolution
+local ui_options_base = ui_options.init_opt_base
+ui_options.init_opt_base = function()
+	ui_options_base()
+
+	-- Inject DLSS settings into Video > Basic, after resolution
+	for idx, grp in ipairs(ui_options.options) do
+		if grp.id == "video" then
+			for sidx, sub in ipairs(grp.gr) do
+				if sub.id == "basic" then
+					local gr = sub.gr
+					local insert_pos = nil
+					for i, item in ipairs(gr) do
+						if item.id == "resolution" then
+							insert_pos = i
+							break
+						end
+					end
+					if insert_pos then
+						table.insert(gr, insert_pos + 1, {
+							id = "dlss_quality",
+							type = "list",
+							val = 0,
+							cmd = "r__dlss_quality",
+							content = {
+								{"off", "dlss_off"},
+								{"dlaa", "dlss_dlaa"},
+								{"quality", "dlss_quality"},
+								{"balanced", "dlss_balanced"},
+								{"performance", "dlss_performance"},
+								{"ultra_performance", "dlss_ultra_performance"},
+							},
+						})
+						table.insert(gr, insert_pos + 2, {
+							id = "dlss_preset",
+							type = "list",
+							val = 0,
+							cmd = "r__dlss_preset",
+							content = {
+								{"default", "dlss_preset_default"},
+								{"transformer", "dlss_preset_transformer"},
+							},
+						})
+					end
+					break
+				end
+			end
+			break
+		end
 	end
-	ui_options.init_opt_base()
 end
+ui_options.init_opt_base()

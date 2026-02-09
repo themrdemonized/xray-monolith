@@ -36,7 +36,7 @@ _G.convert_class_name = function(obj)
 	end
 end
 
--- используется для выявления сигнатур функций которые заложены в xr_conditions
+-- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ xr_conditions
 _G.printf_xrscript = function(fmt, ...)
 	log(debug.traceback(1))
 	printf(fmt, ...)
@@ -659,37 +659,7 @@ _G.alife_clone_weapon = function(se_obj, section, parent_id)
 end
 
 -- Patch _G functions to recognize new weapon classes
-IsWeapon = _G.IsWeapon
-_G.IsWeapon = function(o, c)
-	if IsWeapon(o, c) then
-		return true
-	end
-
-	if not (c) then
-		c = o and o:clsid()
-	end
-	local weapon_classes = {
-		[clsid.wpn_ssrs] 				= true,
-		[clsid.wpn_ssrs_s] 				= true,
-	}
-	return c and weapon_classes[c] or false
-end
-
-IsLauncher = _G.IsLauncher
-_G.IsLauncher = function(o, c)
-	if IsLauncher(o, c) then
-		return true
-	end
-
-	if not (c) then
-		c = o and o:clsid()
-	end
-	local launcher = {
-		[clsid.wpn_ssrs] 				= true,
-		[clsid.wpn_ssrs_s] 				= true,
-	}
-	return c and launcher[c] or false
-end
+-- Disabled: clsid.wpn_ssrs / wpn_ssrs_s not available in Vulkan build
 
 -- VodoXleb: get_object_squad fix
 function _G.get_object_squad(object,caller)

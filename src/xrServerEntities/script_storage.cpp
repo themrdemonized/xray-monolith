@@ -1049,6 +1049,9 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 //#ifdef DEBUG
 		if (strstr(Core.Params, "-dbg")) print_output(lua(),caScriptName,l_iErrorCode);
 //#endif
+		// Always log the Lua error for script loading failures
+		if (lua_isstring(lua(), -1))
+			Msg("! [LUA ERROR] %s : %s", caScriptName, lua_tostring(lua(), -1));
 		on_error(lua());
 		lua_settop(lua(), start);
 		return (false);

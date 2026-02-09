@@ -1,4 +1,4 @@
---- Particles options tree
+--- Graphics options tree (grass shadows etc.)
 
 -- Import smart constructors
 options_builder.import_into(this)

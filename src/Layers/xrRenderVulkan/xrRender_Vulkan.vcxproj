@@ -98,7 +98,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;XRRENDER_VULKAN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;C:\VulkanSDK\1.4.335.0\Include;..\..\3rd party\vma;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;C:\VulkanSDK\1.4.335.0\Include;..\..\3rd party\vma;C:\DLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
       <ExceptionHandling>false</ExceptionHandling>
@@ -106,8 +106,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Verified;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;C:\VulkanSDK\1.4.335.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Verified;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;C:\VulkanSDK\1.4.335.0\Lib;C:\DLSS\lib\Windows_x86_64\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;nvsdk_ngx_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
@@ -119,7 +119,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;XRRENDER_VULKAN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;C:\VulkanSDK\1.4.335.0\Include;..\..\3rd party\vma;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;C:\VulkanSDK\1.4.335.0\Include;..\..\3rd party\vma;C:\DLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
       <ExceptionHandling>false</ExceptionHandling>
@@ -129,8 +129,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Verified;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;C:\VulkanSDK\1.4.335.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Verified;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;C:\VulkanSDK\1.4.335.0\Lib;C:\DLSS\lib\Windows_x86_64\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;nvsdk_ngx_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
@@ -140,7 +140,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;XRRENDER_VULKAN_EXPORTS;USE_VERIFY_IN_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;C:\VulkanSDK\1.4.335.0\Include;..\..\3rd party\vma;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;C:\VulkanSDK\1.4.335.0\Include;..\..\3rd party\vma;C:\DLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
       <ExceptionHandling>false</ExceptionHandling>
@@ -148,8 +148,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Verified;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;C:\VulkanSDK\1.4.335.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Verified;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;C:\VulkanSDK\1.4.335.0\Lib;C:\DLSS\lib\Windows_x86_64\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;nvsdk_ngx_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
@@ -161,7 +161,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;XRRENDER_VULKAN_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;$(VULKAN_SDK)\Include;..\..\3rd party\vma;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\..\xrCore;..\..\xrEngine;..\..\Include;$(xrSdkDir)include;$(VULKAN_SDK)\Include;..\..\3rd party\vma;C:\DLSS\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <ConformanceMode>false</ConformanceMode>
       <ExceptionHandling>false</ExceptionHandling>
@@ -172,8 +172,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Vulkan;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(xrSdkDir)libraries\x64;$(xrLibDir);$(xrGameDir)bin_dbg\x64\Vulkan;$(xrGameDir)bin_dbg;$(SolutionDir)x64\Release;$(VULKAN_SDK)\Lib;C:\DLSS\lib\Windows_x86_64\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;nvsdk_ngx_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
@@ -231,6 +231,7 @@
     <ClInclude Include="vk_ParticleGroup.h" />
     <ClInclude Include="vk_ParticlePipeline.h" />
     <ClInclude Include="vk_ParticleTextures.h" />
+    <ClInclude Include="vk_dlss.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -300,6 +301,7 @@
     <ClCompile Include="vk_rendertarget_phase_clouds.cpp" />
     <ClCompile Include="vk_rendertarget_phase_forward.cpp" />
     <ClCompile Include="vk_rendertarget_phase_tonemap.cpp" />
+    <ClCompile Include="vk_rendertarget_phase_exposure.cpp" />
     <ClCompile Include="vk_rendertarget_phase_gbuffer.cpp" />
     <ClCompile Include="vk_rendertarget_phase_postprocess.cpp" />
     <ClCompile Include="vk_rendertarget_phase_water.cpp" />
@@ -344,6 +346,8 @@
     <ClCompile Include="vk_ParticleEffect.cpp" />
     <ClCompile Include="vk_ParticleGroup.cpp" />
     <ClCompile Include="vk_ParticlePipeline.cpp" />
+    <ClCompile Include="vk_dlss.cpp" />
+    <ClCompile Include="vk_rendertarget_phase_dlss.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\3rd party\crypto\crypto.vcxproj">

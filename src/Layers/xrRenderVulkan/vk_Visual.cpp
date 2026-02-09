@@ -289,6 +289,8 @@ void vkFVisual::Render(float LOD)
             if (layout != VK_NULL_HANDLE) {
                 const Fmatrix& W = RCache.xforms.m_w;
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
+                const Fmatrix& Wprev = RCache.xforms.m_w_prev;
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 64, sizeof(Fmatrix), &Wprev);
 
                 // Per-visual alpha test: push m_fAlphaRef (offset 200)
                 // -1.0 = disabled (solid), 0.5 = enabled (foliage/aref shaders)
@@ -1122,18 +1124,21 @@ void vkFTreeVisual::Render(float LOD)
         s_treeLogCounter++;
     }
 
-    // Set tree's xform as the world matrix so vkFVisual::Render() pushes it.
-    // With stride=32 VBs from level.geom, positions are in local coords.
-    // The xform from OGF_TREEDEF2 transforms local -> world.
+    // Set tree's xform as both current and previous world matrix.
+    // Trees are static objects — their model matrix doesn't change between frames,
+    // so u_PrevModel must equal u_Model for correct motion vectors (camera-only motion).
+    // Without this, u_PrevModel stays at identity → DLSS sees huge false motion.
     Fmatrix prevW = RCache.xforms.m_w;
+    Fmatrix prevWprev = RCache.xforms.m_w_prev;
     RCache.xforms.m_w = xform;
+    RCache.xforms.m_w_prev = xform;
 
     // Render geometry (binds material, vertex/index buffers, draws)
-    // alphaRef is pushed per-visual by vkFVisual::Render() via m_fAlphaRef (set to 0.5 in Load)
     vkFVisual::Render(LOD);
 
-    // Restore previous world matrix for subsequent visuals
+    // Restore previous matrices for subsequent visuals
     RCache.xforms.m_w = prevW;
+    RCache.xforms.m_w_prev = prevWprev;
 }
 
 void vkFTreeVisual::LoadTreeDef(IReader* data)
@@ -1824,20 +1829,26 @@ void vkSkeletonX_ST::Render(float LOD)
             u32 alignedBoneCount = (boneCount + 3u) & ~3u; // round up to multiple of 4
             bool boneWriteOK = false;
 
+            // Need 2x bones: current [0..N) + previous [N..2N) for DLSS motion vectors
+            u32 totalAligned = alignedBoneCount * 2;
+
             if (RCache.IsBoneBufferValid() && RCache.m_BoneMapped &&
-                (boneOffset + boneCount) <= CBackend::MAX_TOTAL_BONES)
+                (boneOffset + totalAligned) <= CBackend::MAX_TOTAL_BONES)
             {
                 for (u32 mid = 0; mid < boneCount; ++mid)
                 {
                     __try {
                         RCache.m_BoneMapped[boneOffset + mid] = Parent->LL_GetTransform_R(mid);
+                        RCache.m_BoneMapped[boneOffset + alignedBoneCount + mid] =
+                            Parent->LL_GetBoneInstance(u16(mid)).mRenderTransform_prev;
                     } __except(EXCEPTION_EXECUTE_HANDLER) {
                         RCache.m_BoneMapped[boneOffset + mid].identity();
+                        RCache.m_BoneMapped[boneOffset + alignedBoneCount + mid].identity();
                     }
                 }
 
-                // Advance write offset for next skeleton
-                RCache.m_BoneWriteOffset = boneOffset + alignedBoneCount;
+                // Advance write offset for next skeleton (current + previous)
+                RCache.m_BoneWriteOffset = boneOffset + totalAligned;
                 boneWriteOK = true;
 
                 // ============================================================
@@ -1911,7 +1922,7 @@ void vkSkeletonX_ST::Render(float LOD)
                         g_DescriptorManager->UpdateStorageBuffer(
                             objSet, 1,
                             RCache.GetBoneBuffer(),
-                            boneCount * sizeof(Fmatrix),
+                            totalAligned * sizeof(Fmatrix),
                             ssboOffset);
 
                         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1930,7 +1941,7 @@ void vkSkeletonX_ST::Render(float LOD)
                     }
                 }
 
-                // 3. Push world matrix and skinning mode
+                // 3. Push world matrix, skinning mode, and bone count
                 W = Wold;
                 RCache.set_xform_world(W);
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
@@ -1939,6 +1950,7 @@ void vkSkeletonX_ST::Render(float LOD)
                                (RenderMode == RM_SKINNING_2B) ? 2u :
                                (RenderMode == RM_SKINNING_3B) ? 3u : 4u;
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 196, sizeof(u32), &skinMode);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 208, sizeof(u32), &alignedBoneCount);
 
                 // 4. Switch to skinned pipeline
                 u32 stride = m_mesh.vStride;
@@ -2399,19 +2411,25 @@ void vkSkeletonX_PM::Render(float LOD)
             u32 alignedBoneCount = (boneCount + 3u) & ~3u;
             bool boneWriteOK = false;
 
+            // Need 2x bones: current [0..N) + previous [N..2N) for DLSS motion vectors
+            u32 totalAligned = alignedBoneCount * 2;
+
             if (RCache.IsBoneBufferValid() && RCache.m_BoneMapped &&
-                (boneOffset + boneCount) <= CBackend::MAX_TOTAL_BONES)
+                (boneOffset + totalAligned) <= CBackend::MAX_TOTAL_BONES)
             {
                 for (u32 mid = 0; mid < boneCount; ++mid)
                 {
                     __try {
                         RCache.m_BoneMapped[boneOffset + mid] = Parent->LL_GetTransform_R(mid);
+                        RCache.m_BoneMapped[boneOffset + alignedBoneCount + mid] =
+                            Parent->LL_GetBoneInstance(u16(mid)).mRenderTransform_prev;
                     } __except(EXCEPTION_EXECUTE_HANDLER) {
                         RCache.m_BoneMapped[boneOffset + mid].identity();
+                        RCache.m_BoneMapped[boneOffset + alignedBoneCount + mid].identity();
                     }
                 }
 
-                RCache.m_BoneWriteOffset = boneOffset + alignedBoneCount;
+                RCache.m_BoneWriteOffset = boneOffset + totalAligned;
                 boneWriteOK = true;
 
                 // SKINNING DIAGNOSTICS (PM)
@@ -2472,7 +2490,7 @@ void vkSkeletonX_PM::Render(float LOD)
                         g_DescriptorManager->UpdateStorageBuffer(
                             objSet, 1,
                             RCache.GetBoneBuffer(),
-                            boneCount * sizeof(Fmatrix),
+                            totalAligned * sizeof(Fmatrix),
                             ssboOffset);
 
                         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -2491,7 +2509,7 @@ void vkSkeletonX_PM::Render(float LOD)
                     }
                 }
 
-                // 3. Push world matrix and skinning mode
+                // 3. Push world matrix, skinning mode, and bone count
                 W = Wold;
                 RCache.set_xform_world(W);
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Fmatrix), &W);
@@ -2500,6 +2518,7 @@ void vkSkeletonX_PM::Render(float LOD)
                                (RenderMode == RM_SKINNING_2B) ? 2u :
                                (RenderMode == RM_SKINNING_3B) ? 3u : 4u;
                 vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 196, sizeof(u32), &skinMode);
+                vkCmdPushConstants(cmd, layout, VK_SHADER_STAGE_VERTEX_BIT, 208, sizeof(u32), &alignedBoneCount);
 
                 // 4. Switch to skinned pipeline
                 u32 stride = m_mesh.vStride;

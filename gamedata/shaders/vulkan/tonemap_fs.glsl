@@ -20,6 +20,9 @@ layout(location = 0) out vec4 o_Color;
 // Set 1, binding 0: rt_HDR (HDR scene)
 layout(set = 1, binding = 0) uniform sampler2D s_hdr;
 
+// Set 1, binding 1: Auto-exposure (1x1 R32F)
+layout(set = 1, binding = 1) uniform sampler2D s_exposure;
+
 // Push constants (matches TonemapPushConstants in C++)
 layout(push_constant) uniform PushConstants
 {
@@ -76,8 +79,9 @@ void main()
 {
     vec3 color = texture(s_hdr, v_TexCoord).rgb;
 
-    // 1. Apply exposure
-    color *= pc.exposure;
+    // 1. Apply exposure (from auto-exposure compute shader)
+    float autoExposure = texture(s_exposure, vec2(0.5)).r;
+    color *= autoExposure;
 
     // 2. Apply tone mapping (HDR -> LDR)
     if (pc.toneMappingMode == 1) {

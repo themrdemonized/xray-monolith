@@ -421,6 +421,7 @@ void CScriptEngine::init()
 
 #ifdef XRGAME_EXPORTS
 	load_common_scripts();
+	process_file_if_exists("ui_options_modded_exes", false);
 #endif
 	m_stack_level = lua_gettop(lua());
 }

@@ -42,16 +42,29 @@ layout(location = 1) out vec3 v_NormalEye;
 layout(location = 2) out vec2 v_TexCoord;
 layout(location = 3) out vec3 v_WorldPos;
 layout(location = 4) out vec3 v_WorldNormal;
+layout(location = 5) out vec4 v_CurrClipPos;  // Current clip-space position (for motion vectors)
+layout(location = 6) out vec4 v_PrevClipPos;  // Previous clip-space position (for motion vectors)
 
 // Push constants
 layout(push_constant) uniform PushConstants
 {
     mat4 u_Model;       // offset 0: Model matrix (local -> world)
-    mat4 u_View;        // offset 64: View matrix (world -> eye)
+    mat4 u_PrevModel;   // offset 64: Previous frame model matrix (for per-object motion vectors)
     mat4 u_Projection;  // offset 128: Projection matrix (eye -> clip)
     float u_UVScale;    // offset 192: UV scale (always 1.0 for skinned)
     uint u_SkinMode;    // offset 196: 1=1W, 2=2W, 3=3W, 4=4W
+    float _pad0;        // offset 200: (alphaRef - fragment only)
+    float _pad1;        // offset 204: (detailScale - fragment only)
+    uint u_BoneCount;   // offset 208: aligned bone count (prev bones start at bones[u_BoneCount])
 } pc;
+
+// GlobalLighting UBO (Set 0, Binding 0) — View matrix + prevVP
+layout(std140, set = 0, binding = 0) uniform GlobalLighting
+{
+    vec4 _pad_global[95];   // offsets 0-1519 (not used in this shader)
+    mat4 m_prevVP;          // offset 1520: Previous frame ViewProjection
+    mat4 m_View;            // offset 1584: Current frame View matrix
+} uGlobal;
 
 // Bone matrices SSBO (set 2, binding 1)
 layout(std430, set = 2, binding = 1) readonly buffer BoneMatrices
@@ -81,23 +94,22 @@ void main()
     vec3 normal = a_Normal.xyz * 2.0 - 1.0;
 
     mat4 skinMatrix;
+    mat4 prevSkinMatrix;
+    uint BC = pc.u_BoneCount; // previous bones start at bones[BC]
 
     if (pc.u_SkinMode == 1u)
     {
         // ====================================================================
         // 1-bone skinning (stride 36)
-        // Bone index in a_Normal.a (as index * 3, UBYTE4N)
         // ====================================================================
         uint boneIdx = decodeBoneIndex(a_Normal.a);
-        skinMatrix = bones[boneIdx];
+        skinMatrix     = bones[boneIdx];
+        prevSkinMatrix = bones[boneIdx + BC];
     }
     else if (pc.u_SkinMode == 2u)
     {
         // ====================================================================
         // 2-bone skinning (stride 44)
-        // Weight: a_Normal.a = w0, w1 = 1 - w0
-        // Indices: tc_i.z = bone_index0*3 (float), tc_i.w = bone_index1*3 (float)
-        //   accessed via a_TexCoordExt.zw (location 2 is FLOAT4 for stride 44)
         // ====================================================================
         float w0 = a_Normal.a;
         float w1 = 1.0 - w0;
@@ -105,15 +117,13 @@ void main()
         uint idx0 = decodeBoneIndexFromFloat(a_TexCoordExt.z);
         uint idx1 = decodeBoneIndexFromFloat(a_TexCoordExt.w);
 
-        skinMatrix = bones[idx0] * w0 + bones[idx1] * w1;
+        skinMatrix     = bones[idx0]      * w0 + bones[idx1]      * w1;
+        prevSkinMatrix = bones[idx0 + BC] * w0 + bones[idx1 + BC] * w1;
     }
     else if (pc.u_SkinMode == 3u)
     {
         // ====================================================================
         // 3-bone skinning (stride 44)
-        // Weights: a_Normal.a = w0, a_Tangent.a = w1, w2 = 1 - w0 - w1
-        // Indices: tc_i.z = idx0*3 (float), tc_i.w = idx1*3 (float),
-        //          a_Binormal.a = idx2*3 (UBYTE4N)
         // ====================================================================
         float w0 = a_Normal.a;
         float w1 = a_Tangent.a;
@@ -123,15 +133,13 @@ void main()
         uint idx1 = decodeBoneIndexFromFloat(a_TexCoordExt.w);
         uint idx2 = decodeBoneIndex(a_Binormal.a);
 
-        skinMatrix = bones[idx0] * w0 + bones[idx1] * w1 + bones[idx2] * w2;
+        skinMatrix     = bones[idx0]      * w0 + bones[idx1]      * w1 + bones[idx2]      * w2;
+        prevSkinMatrix = bones[idx0 + BC] * w0 + bones[idx1 + BC] * w1 + bones[idx2 + BC] * w2;
     }
     else // pc.u_SkinMode == 4u
     {
         // ====================================================================
         // 4-bone skinning (stride 40)
-        // Weights: a_Normal.a = w0, a_Tangent.a = w1, a_Binormal.a = w2
-        //          w3 = 1 - w0 - w1 - w2
-        // Indices: a_BoneIndices RGBA = 4 bone indices * 3 (UBYTE4N)
         // ====================================================================
         float w0 = a_Normal.a;
         float w1 = a_Tangent.a;
@@ -143,25 +151,32 @@ void main()
         uint idx2 = decodeBoneIndex(a_BoneIndices.b);
         uint idx3 = decodeBoneIndex(a_BoneIndices.a);
 
-        skinMatrix = bones[idx0] * w0 + bones[idx1] * w1
-                   + bones[idx2] * w2 + bones[idx3] * w3;
+        skinMatrix     = bones[idx0]      * w0 + bones[idx1]      * w1
+                       + bones[idx2]      * w2 + bones[idx3]      * w3;
+        prevSkinMatrix = bones[idx0 + BC] * w0 + bones[idx1 + BC] * w1
+                       + bones[idx2 + BC] * w2 + bones[idx3 + BC] * w3;
     }
 
-    // Apply skinning transform
-    vec4 skinnedPos = skinMatrix * vec4(pos, 1.0);
-    vec3 skinnedNormal = mat3(skinMatrix) * normal;
+    // Apply skinning transforms
+    vec4 skinnedPos     = skinMatrix * vec4(pos, 1.0);
+    vec4 prevSkinnedPos = prevSkinMatrix * vec4(pos, 1.0);
+    vec3 skinnedNormal  = mat3(skinMatrix) * normal;
 
     // Transform through MVP
     vec4 worldPos = pc.u_Model * skinnedPos;
-    vec4 eyePos   = pc.u_View * worldPos;
+    vec4 eyePos   = uGlobal.m_View * worldPos;
     gl_Position   = pc.u_Projection * eyePos;
+
+    // Motion vectors: current and previous clip-space positions
+    v_CurrClipPos = gl_Position;
+    v_PrevClipPos = uGlobal.m_prevVP * (pc.u_PrevModel * prevSkinnedPos);
 
     v_PositionEye = eyePos.xyz;
     v_WorldPos    = worldPos.xyz;
 
     vec3 worldNormal = (pc.u_Model * vec4(skinnedNormal, 0.0)).xyz;
     v_WorldNormal    = worldNormal;
-    v_NormalEye      = (pc.u_View * vec4(worldNormal, 0.0)).xyz;
+    v_NormalEye      = (uGlobal.m_View * vec4(worldNormal, 0.0)).xyz;
 
     // UV is always in .xy
     v_TexCoord = a_TexCoordExt.xy * pc.u_UVScale;

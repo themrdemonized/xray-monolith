@@ -132,14 +132,45 @@ bool CVulkanHW::CreateLogicalDevice()
     deviceFeatures.features.wideLines = VK_TRUE;
     deviceFeatures.pNext = &features12;
 
+    // Build final extension list: required + optional NGX extensions if available
+    std::vector<const char*> enabledExtensions(g_DeviceExtensions, g_DeviceExtensions + g_DeviceExtensionCount);
+
+    // Check which optional NGX extensions are supported
+    {
+        u32 extCount = 0;
+        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> availableExts(extCount);
+        vkEnumerateDeviceExtensionProperties(m_PhysicalDevice, nullptr, &extCount, availableExts.data());
+
+        u32 ngxFound = 0;
+        for (u32 i = 0; i < g_NgxDeviceExtensionCount; i++) {
+            bool found = false;
+            for (const auto& ext : availableExts) {
+                if (strcmp(g_NgxDeviceExtensions[i], ext.extensionName) == 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                enabledExtensions.push_back(g_NgxDeviceExtensions[i]);
+                ngxFound++;
+                Msg("[Vulkan] NGX extension enabled: %s", g_NgxDeviceExtensions[i]);
+            } else {
+                Msg("[Vulkan] NGX extension not available: %s", g_NgxDeviceExtensions[i]);
+            }
+        }
+        g_bNgxExtensionsEnabled = (ngxFound == g_NgxDeviceExtensionCount);
+        Msg("[Vulkan] NGX extensions: %u/%u available", ngxFound, g_NgxDeviceExtensionCount);
+    }
+
     // Device create info
     VkDeviceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.pNext = &deviceFeatures;
     createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.enabledExtensionCount = g_DeviceExtensionCount;
-    createInfo.ppEnabledExtensionNames = g_DeviceExtensions;
+    createInfo.enabledExtensionCount = static_cast<u32>(enabledExtensions.size());
+    createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
     #ifdef DEBUG
     createInfo.enabledLayerCount = g_ValidationLayerCount;

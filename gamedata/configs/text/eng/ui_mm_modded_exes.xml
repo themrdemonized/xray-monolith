@@ -40,6 +40,38 @@
 	<string id="ui_mm_graphics_modded_exes">
 		<text>Graphics</text>
 	</string>
+
+	<!-- DLSS (shown in Video > Basic) -->
+	<string id="ui_mm_video_basic_dlss_quality">
+		<text>DLSS Mode</text>
+	</string>
+	<string id="ui_mm_video_basic_dlss_preset">
+		<text>DLSS AI Model</text>
+	</string>
+	<string id="ui_mm_lst_dlss_off">
+		<text>Off</text>
+	</string>
+	<string id="ui_mm_lst_dlss_dlaa">
+		<text>DLAA</text>
+	</string>
+	<string id="ui_mm_lst_dlss_quality">
+		<text>Quality</text>
+	</string>
+	<string id="ui_mm_lst_dlss_balanced">
+		<text>Balanced</text>
+	</string>
+	<string id="ui_mm_lst_dlss_performance">
+		<text>Performance</text>
+	</string>
+	<string id="ui_mm_lst_dlss_ultra_performance">
+		<text>Ultra Performance</text>
+	</string>
+	<string id="ui_mm_lst_dlss_preset_default">
+		<text>Default (CNN)</text>
+	</string>
+	<string id="ui_mm_lst_dlss_preset_transformer">
+		<text>Transformer (DLSS 4)</text>
+	</string>
 	<string id="ui_mm_ssfx_grass_shadows_x">
 		<text>Grass shadows Cascades</text>
 	</string>

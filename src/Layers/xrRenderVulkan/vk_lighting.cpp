@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "vk_lighting.h"
 #include "vk_rendertarget.h"
+#include "rvk.h"  // CRender for m_Jitter access
 #include "HW_Vulkan.h"
 #include "vk_shaders.h"
 #include "vk_pipeline.h"
@@ -745,7 +746,7 @@ void CVulkanLighting::CreateGlobalLightingUBO()
     uboBinding.binding = 0;
     uboBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uboBinding.descriptorCount = 1;
-    uboBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    uboBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     uboBinding.pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -1177,7 +1178,13 @@ void CVulkanLighting::UpdateGlobalLightingUBO()
 
     // TAA jitter and parameters
     extern Fvector4 ps_ssfx_taa;
-    ubo.ssfx_jitter.set(0, 0, 0, 0);  // TODO: Calculate jitter from frame number
+    // Sub-pixel jitter for DLSS/TAA: xy = current frame, zw = previous frame (NDC)
+    ubo.ssfx_jitter.set(
+        RImplementation.m_Jitter.current.x,
+        RImplementation.m_Jitter.current.y,
+        RImplementation.m_Jitter.previous.x,
+        RImplementation.m_Jitter.previous.y
+    );
     ubo.ssfx_taa = ps_ssfx_taa;
 
     extern Fvector4 ps_ssfx_rain_1;
@@ -1227,7 +1234,24 @@ void CVulkanLighting::UpdateGlobalLightingUBO()
     ubo.ssfx_int_grass_params_1 = ps_ssfx_int_grass_params_1;
     ubo.ssfx_int_grass_params_2 = ps_ssfx_int_grass_params_2;
 
-    ubo.reserved_global[0].set(0, 0, 0, 0);
+    // ========================================================================
+    // MOTION VECTORS: Previous frame ViewProjection matrix (offset 1520)
+    // ========================================================================
+    // The previous VP must include the previous frame's jitter so that
+    // motion vectors = (currNDC_jittered - prevNDC_jittered) contain only
+    // actual object motion, not the jitter delta.
+    {
+        Fmatrix prevProj = Device.mProject_prev;
+        if (RImplementation.m_Jitter.enabled)
+        {
+            prevProj._31 += RImplementation.m_Jitter.previous.x;
+            prevProj._32 += RImplementation.m_Jitter.previous.y;
+        }
+        Fmatrix prevVP;
+        prevVP.mul(prevProj, Device.mView_prev);
+        ubo.m_prevVP = prevVP;
+        ubo.m_View = Device.mView;
+    }
 
     // ========================================================================
     // Copy to mapped memory

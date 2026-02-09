@@ -61,6 +61,17 @@ inline const char* g_DeviceExtensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
 
+// Optional device extensions for NVIDIA NGX (DLSS)
+inline const char* g_NgxDeviceExtensions[] = {
+    VK_NVX_BINARY_IMPORT_EXTENSION_NAME,
+    VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME,
+    VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
+};
+inline constexpr u32 g_NgxDeviceExtensionCount = sizeof(g_NgxDeviceExtensions) / sizeof(g_NgxDeviceExtensions[0]);
+
+// Set to true by CreateLogicalDevice() if all NGX extensions were enabled
+inline bool g_bNgxExtensionsEnabled = false;
+
 inline constexpr u32 g_DeviceExtensionCount = sizeof(g_DeviceExtensions) / sizeof(g_DeviceExtensions[0]);
 
 // Forward declarations

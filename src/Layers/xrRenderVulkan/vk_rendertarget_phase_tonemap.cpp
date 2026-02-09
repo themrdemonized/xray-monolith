@@ -10,19 +10,22 @@
 #include "vk_pipeline.h"
 #include "vk_swapchain.h"
 #include "vk_descriptors.h"
+#include "vk_dlss.h"
 
 namespace VK
 {
 
 // ============================================================================
-// phase_tonemap() - HDR to LDR Tonemap Pass (rt_HDR → Swapchain)
+// phase_tonemap() - HDR to LDR Tonemap Pass (rt_HDR/rt_DlssOutput → Swapchain)
 // ============================================================================
 //
-// Final pass before UI: reads rt_HDR (HDR scene), applies ACES tonemapping,
-// vignette, and gamma correction, then outputs to swapchain (LDR).
+// Final pass before UI: reads HDR input, applies ACES tonemapping, vignette,
+// and gamma correction, then outputs to swapchain (LDR).
 //
-// When DLSS is added later, it slots in between rt_HDR and this pass:
-//   ... → forward(→rt_HDR) → DLSS(rt_HDR→rt_Upscaled) → tonemap(rt_Upscaled→swapchain)
+// When DLSS is active:
+//   ... → forward(→rt_HDR) → DLSS(rt_HDR→rt_DlssOutput) → tonemap(rt_DlssOutput→swapchain)
+// When DLSS is off:
+//   ... → forward(→rt_HDR) → tonemap(rt_HDR→swapchain)
 //
 // Uses fullscreen triangle trick (no vertex buffer needed).
 //
@@ -45,42 +48,57 @@ void CRenderTarget::phase_tonemap()
 		return;
 	}
 
-	VkImage hdrImage = rt_HDR.m_Image;
+	// Choose input source: DLSS output (display res) or rt_HDR (render res)
+	bool bDlssActive = g_DlssManager.IsFeatureCreated() && rt_DlssOutput.m_Image != VK_NULL_HANDLE;
+	CRT& tonemapInput = bDlssActive ? rt_DlssOutput : rt_HDR;
+
+	VkImage hdrImage = tonemapInput.m_Image;
 	if (hdrImage == VK_NULL_HANDLE) {
 		return;
 	}
 
 	// ========================================================================
-	// Step 2: Transition rt_HDR to SHADER_READ_ONLY (tonemap reads it)
+	// Step 2: Transition swapchain to COLOR_ATTACHMENT
 	// ========================================================================
-	VkImageMemoryBarrier barriers[2] = {};
-
-	// rt_HDR: COLOR_ATTACHMENT → SHADER_READ_ONLY
-	barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barriers[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	barriers[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	barriers[0].oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	barriers[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barriers[0].image = hdrImage;
-	barriers[0].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+	// NOTE: When DLSS is active, rt_DlssOutput is already in SHADER_READ_ONLY
+	// (transitioned by phase_dlss). When DLSS is off, rt_HDR transition to
+	// SHADER_READ_ONLY is done by phase_exposure(). Fallback here if exposure
+	// is not ready and DLSS is not active.
+	if (!m_bExposureReady && !bDlssActive)
+	{
+		VkImageMemoryBarrier hdrBarrier = {};
+		hdrBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		hdrBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		hdrBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		hdrBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		hdrBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		hdrBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		hdrBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		hdrBarrier.image = hdrImage;
+		hdrBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+		vkCmdPipelineBarrier(cmd,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+			0, 0, nullptr, 0, nullptr, 1, &hdrBarrier);
+	}
 
 	// Swapchain: UNDEFINED → COLOR_ATTACHMENT
-	barriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barriers[1].srcAccessMask = 0;
-	barriers[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	barriers[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	barriers[1].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barriers[1].image = swapImage;
-	barriers[1].subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
-	vkCmdPipelineBarrier(cmd,
-	                     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-	                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-	                     0, 0, nullptr, 0, nullptr, 2, barriers);
+	{
+		VkImageMemoryBarrier swapBarrier = {};
+		swapBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		swapBarrier.srcAccessMask = 0;
+		swapBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		swapBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		swapBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		swapBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		swapBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		swapBarrier.image = swapImage;
+		swapBarrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+		vkCmdPipelineBarrier(cmd,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+			0, 0, nullptr, 0, nullptr, 1, &swapBarrier);
+	}
 
 	// ========================================================================
 	// Step 3: Begin rendering to swapchain
@@ -189,21 +207,40 @@ void CRenderTarget::phase_tonemap()
 	// ========================================================================
 	// Step 7: Bind descriptor set (rt_HDR as input texture)
 	// ========================================================================
-	// Allocate a PerMaterial descriptor set and bind rt_HDR at binding 0
+	// Allocate a PerMaterial descriptor set and bind tonemap input + exposure
 	if (g_DescriptorManager) {
 		VkDescriptorSet tonemapDesc = g_DescriptorManager->AllocatePerMaterial();
 		if (tonemapDesc != VK_NULL_HANDLE) {
-			// Bind rt_HDR image view + sampler at binding 0
+			// Binding 0: tonemap input (rt_DlssOutput when DLSS active, rt_HDR otherwise)
 			VkDescriptorImageInfo hdrImageInfo = {};
-			hdrImageInfo.sampler = rt_HDR.GetSampler();
-			hdrImageInfo.imageView = rt_HDR.m_ImageView;
+			hdrImageInfo.sampler = tonemapInput.GetSampler();
+			hdrImageInfo.imageView = tonemapInput.m_ImageView;
 			hdrImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+			// Binding 1: auto-exposure (1x1 R32F) or fallback to rt_HDR if not ready
+			VkDescriptorImageInfo exposureImageInfo = {};
+			if (m_bExposureReady && m_ExposureView != VK_NULL_HANDLE && m_ExposureSampler != VK_NULL_HANDLE)
+			{
+				exposureImageInfo.sampler = m_ExposureSampler;
+				exposureImageInfo.imageView = m_ExposureView;
+				exposureImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			}
+			else
+			{
+				// Fallback: bind rt_HDR (shader will read some HDR value, but push constant
+				// exposure was 2.2 before — the default in the exposure image handles this)
+				exposureImageInfo = hdrImageInfo;
+			}
 
 			// Fill all 8 PerMaterial bindings (layout expects 8 combined_image_sampler)
 			VkDescriptorImageInfo imageInfos[8] = {};
 			VkWriteDescriptorSet writes[8] = {};
+			imageInfos[0] = hdrImageInfo;
+			imageInfos[1] = exposureImageInfo;
+			for (int i = 2; i < 8; i++) {
+				imageInfos[i] = hdrImageInfo;  // Unused bindings point to rt_HDR
+			}
 			for (int i = 0; i < 8; i++) {
-				imageInfos[i] = hdrImageInfo;  // All point to rt_HDR (only binding 0 is used)
 				writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 				writes[i].dstSet = tonemapDesc;
 				writes[i].dstBinding = i;

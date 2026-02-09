@@ -125,7 +125,10 @@ layout(set = 0, binding = 0) uniform GlobalLighting {
     vec4 ssfx_grass_interactive;
     vec4 ssfx_int_grass_params_1;
     vec4 ssfx_int_grass_params_2;
-    vec4 reserved_global[1];
+
+    // ========== MOTION VECTORS (offset 1520-1647) ==========
+    mat4 m_prevVP;              // offset 1520: Previous frame ViewProjection matrix
+    mat4 m_View;                // offset 1584: Current frame View matrix
 } uGlobal;
 
 // Convenience accessors (for compatibility with common_functions.h)

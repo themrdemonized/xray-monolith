@@ -478,6 +478,20 @@ int opt_static = 2;
 int opt_dynamic = 2;
 
 // ============================================================================
+// DLSS quality mode
+// ============================================================================
+u32 ps_r__dlss_quality = 0;  // 0=off, 1=DLAA, 2=Quality, 3=Balanced, 4=Performance, 5=UltraPerf
+xr_token qdlss_quality_token[] = {
+    {"off", 0}, {"dlaa", 1}, {"quality", 2}, {"balanced", 3},
+    {"performance", 4}, {"ultra_performance", 5}, {0, 0}
+};
+
+u32 ps_r__dlss_preset = 0;  // 0=Default (CNN), 1=Transformer (DLSS 4)
+xr_token qdlss_preset_token[] = {
+    {"default", 0}, {"transformer", 1}, {0, 0}
+};
+
+// ============================================================================
 // Additional symbols required by xrGame
 // ============================================================================
 
@@ -1202,6 +1216,10 @@ void xrRender_initconsole()
     CMD3(CCC_Mask, "r__enable_grass_shadow", &psDeviceFlags2, rsGrassShadow);
     CMD3(CCC_Mask, "r__no_scale_on_fade", &psDeviceFlags2, rsNoScale);
 #endif
+
+    // DLSS quality mode and render preset
+    CMD3(CCC_Token, "r__dlss_quality", &ps_r__dlss_quality, qdlss_quality_token);
+    CMD3(CCC_Token, "r__dlss_preset", &ps_r__dlss_preset, qdlss_preset_token);
 
     Msg("* [Vulkan] xrRender_initconsole: Registered %d console commands", Console->Commands.size());
 }

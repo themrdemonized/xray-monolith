@@ -218,9 +218,12 @@ private:
         Fvector4 ssfx_grass_interactive; // 1472 - Interactive grass
         Fvector4 ssfx_int_grass_params_1; // 1488
         Fvector4 ssfx_int_grass_params_2; // 1504
-        Fvector4 reserved_global[1];  // 1520-1535 - Reserved
 
-        // TOTAL: 1536 bytes (96 × vec4)
+        // ========== MOTION VECTORS (offset 1520-1647) ==========
+        Fmatrix m_prevVP;        // 1520 - Previous frame ViewProjection matrix (64 bytes)
+        Fmatrix m_View;          // 1584 - Current frame View matrix (moved from push constants)
+
+        // TOTAL: 1648 bytes
     };
 
     // Vulkan resources for GlobalLighting UBO
@@ -234,8 +237,10 @@ private:
 
     // Methods
     void CreateGlobalLightingUBO();
-    void UpdateGlobalLightingUBO();
     void DestroyGlobalLightingUBO();
+public:
+    void UpdateGlobalLightingUBO();
+private:
 
     // Temporary storage for inverse view matrix
     Fmatrix m_invV;

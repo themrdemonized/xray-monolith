@@ -40,6 +40,37 @@
 	<string id="ui_mm_graphics_modded_exes">
 		<text>Графика</text>
 	</string>
+		<!-- DLSS (показывается в Видео > Основное) -->
+	<string id="ui_mm_video_basic_dlss_quality">
+		<text>Режим DLSS</text>
+	</string>
+	<string id="ui_mm_video_basic_dlss_preset">
+		<text>ИИ модель DLSS</text>
+	</string>
+	<string id="ui_mm_lst_dlss_off">
+		<text>Выкл</text>
+	</string>
+	<string id="ui_mm_lst_dlss_dlaa">
+		<text>DLAA</text>
+	</string>
+	<string id="ui_mm_lst_dlss_quality">
+		<text>Качество</text>
+	</string>
+	<string id="ui_mm_lst_dlss_balanced">
+		<text>Баланс</text>
+	</string>
+	<string id="ui_mm_lst_dlss_performance">
+		<text>Производительность</text>
+	</string>
+	<string id="ui_mm_lst_dlss_ultra_performance">
+		<text>Супер производительность</text>
+	</string>
+		<string id="ui_mm_lst_dlss_preset_default">
+		<text>По умолчанию (CNN)</text>
+	</string>
+	<string id="ui_mm_lst_dlss_preset_transformer">
+		<text>Трансформер (DLSS 4)</text>
+	</string>
 	<string id="ui_mm_ssfx_grass_shadows_x">
 		<text>Тени травы кол-во каскадов</text>
 	</string>

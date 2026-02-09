@@ -287,8 +287,9 @@ void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
         }
 
         __try {
-            // Set per-object world matrix
+            // Set per-object world matrix and previous frame matrix
             RCache.set_xform_world(item.Matrix);
+            RCache.xforms.set_W_prev(item.PrevMatrix);
 
             // Render the leaf visual directly
             pV->Render(1.0f);
@@ -301,6 +302,7 @@ void R_dsgraph_structure::r_dsgraph_render_dynamic(bool _clear)
 
     // Restore identity world matrix for subsequent static rendering
     RCache.set_xform_world(Fidentity);
+    RCache.xforms.set_W_prev(Fidentity);
 
     if (_clear)
         RI.lstMatrix.clear();
@@ -344,6 +346,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
             vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
             RCache.set_xform_world(item.Matrix);
+            RCache.set_xform_world_prev(item.PrevMatrix);
             pV->Render(1.0f);
         }
         mapHUD.clear();
@@ -369,6 +372,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
                 vkRender_Visual* pV = reinterpret_cast<vkRender_Visual*>(item.pVisual);
                 RCache.set_xform_world(item.Matrix);
+                RCache.set_xform_world_prev(item.PrevMatrix);
                 pV->Render(1.0f);
             }
             mapCamAttached.clear();

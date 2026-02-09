@@ -18,6 +18,7 @@ extern "C" void VulkanUI_ResetState();
 #include "vk_sync.h"
 #include "vk_rendertarget.h"
 #include "vk_shaders.h"
+#include "vk_lighting.h"
 #include "vk_descriptors.h"
 #include "vk_pipeline.h"
 #include "vk_buffer.h"
@@ -36,6 +37,7 @@ extern "C" void VulkanUI_ResetState();
 #include "../xrRender/dxWallMarkArray.h"
 #include "../xrRender/dxUIShader.h"
 #include "3DFluid/vk3DFluidManager.h"  // Phase 0: 3D Fluid system
+#include "vk_dlss.h"                   // DLSS integration
 #include "../xrRender/FBasicVisual.h"  // dxRender_Visual full definition
 #include "../xrRender/PSLibrary.h"
 #include "../../Include/xrRender/Kinematics.h"
@@ -126,6 +128,19 @@ extern float ps_r2_df_parallax_range;
 // External test render function (temporary)
 extern void TestRenderFrame();
 
+// Halton sequence: quasi-random low-discrepancy sequence for TAA/DLSS jitter
+// base=2 for X, base=3 for Y
+static float Halton(int index, int base)
+{
+    float f = 1.0f, r = 0.0f;
+    while (index > 0) {
+        f /= (float)base;
+        r += f * (float)(index % base);
+        index /= base;
+    }
+    return r;
+}
+
 // ============================================================================
 // CRender - Constructor/Destructor
 // ============================================================================
@@ -181,6 +196,12 @@ CRender::CRender()
     o.distortion_enabled = 1;
     o.advancedpp = 1;
     o.ssfx_water = 1;
+
+    VulkanDiagWriteRvk("[DIAG] CRender ctor: step 5b - jitter");
+    m_Jitter.current.set(0, 0);
+    m_Jitter.previous.set(0, 0);
+    m_Jitter.phase = 0;
+    m_Jitter.enabled = true;
 
     VulkanDiagWriteRvk("[DIAG] CRender ctor: step 6 - stats");
     memset(&stats, 0, sizeof(stats));  // memset instead of ZeroMemory (static init safe)
@@ -280,6 +301,9 @@ void CRender::create()
             Swapchain.m_Extent.width, Swapchain.m_Extent.height);
     }
 
+    // Initialize DLSS (graceful fallback if NGX not available)
+    g_DlssManager.Init();
+
     // Initialize viewport to normal full-screen rendering
     rmNormal();
     Msg("[Vulkan] Viewport initialized (rmNormal)");
@@ -352,6 +376,9 @@ void CRender::destroy()
         Details = nullptr;
         Msg("[Vulkan] DetailManager destroyed");
     }
+
+    // Shutdown DLSS before destroying render targets
+    g_DlssManager.Shutdown();
 
     // Destroy render target
     if (RTarget) {
@@ -470,6 +497,10 @@ void CRender::Calculate()
 {
     // Skip if level not loaded
     if (!b_loaded) return;
+
+    // Swap previous-frame matrices: curr becomes prev for this frame's MV computation
+    m_PrevFrameMatrices.swap(m_CurrFrameMatrices);
+    m_CurrFrameMatrices.clear();
 
     // Clear per-frame maps at the start of Calculate() (before new items are added).
     // This prevents mapHUD growing unbounded if Render() early-returns (menu, device lost).
@@ -1237,6 +1268,90 @@ void CRender::Render()
     RCache.set_xform_view_prev(Device.mView_prev);
     RCache.set_xform_project_prev(Device.mProject_prev);
 
+    // ========================================================================
+    // DLSS: handle quality/preset changes BEFORE any rendering
+    // ========================================================================
+    // Must happen before jitter and GBuffer so all render targets are the
+    // correct size when passes begin recording commands.
+    if (RTarget && g_DlssManager.IsAvailable())
+    {
+        static u32 s_LastDlssQuality = 0;
+        static u32 s_LastDlssPreset = 0;
+        u32 curQuality = ps_r__dlss_quality;
+        u32 curPreset  = ps_r__dlss_preset;
+
+        bool bQualityChanged = (curQuality != s_LastDlssQuality);
+        bool bPresetChanged  = (curPreset != s_LastDlssPreset) && (curQuality != DLSS_OFF);
+
+        if (bQualityChanged || bPresetChanged)
+        {
+            vkDeviceWaitIdle(VulkanHW.m_Device);
+
+            if (curQuality == DLSS_OFF)
+            {
+                g_DlssManager.DestroyFeature();
+                RTarget->DestroyDlssOutput();
+                u32 dispW = Swapchain.m_Extent.width;
+                u32 dispH = Swapchain.m_Extent.height;
+                RTarget->OnResize(dispW, dispH);
+                Msg("[DLSS] Disabled — render targets restored to %dx%d", dispW, dispH);
+            }
+            else
+            {
+                u32 dispW = Swapchain.m_Extent.width;
+                u32 dispH = Swapchain.m_Extent.height;
+                u32 renW = 0, renH = 0;
+                g_DlssManager.GetOptimalResolution(dispW, dispH, curQuality, renW, renH);
+
+                if (bQualityChanged)
+                {
+                    RTarget->OnResize(renW, renH);
+                    RTarget->CreateDlssOutput(dispW, dispH);
+
+                    if (RTarget->m_bExposureReady)
+                    {
+                        RTarget->DestroyExposureResources();
+                        RTarget->CreateExposureResources();
+                    }
+                }
+
+                g_DlssManager.CreateFeature(renW, renH, dispW, dispH, curQuality);
+                Msg("[DLSS] Quality=%d Preset=%d: render %dx%d → display %dx%d",
+                    curQuality, curPreset, renW, renH, dispW, dispH);
+            }
+
+            s_LastDlssQuality = curQuality;
+            s_LastDlssPreset  = curPreset;
+        }
+    }
+
+    // ========================================================================
+    // DLSS Jitter: compute sub-pixel offset for this frame
+    // ========================================================================
+    {
+        m_Jitter.previous = m_Jitter.current;
+
+        if (m_Jitter.enabled && RTarget)
+        {
+            m_Jitter.phase = (m_Jitter.phase + 1) % 16;
+            int idx = m_Jitter.phase + 1; // 1-based (0 gives 0,0)
+
+            // Jitter in pixel space [-0.5, 0.5]
+            float jx = Halton(idx, 2) - 0.5f;
+            float jy = Halton(idx, 3) - 0.5f;
+
+            // Convert to NDC: 1 pixel = 2/resolution in NDC
+            float w = (float)RTarget->m_Width;
+            float h = (float)RTarget->m_Height;
+            m_Jitter.current.x = jx * 2.0f / w;
+            m_Jitter.current.y = jy * 2.0f / h;
+        }
+        else
+        {
+            m_Jitter.current.set(0.0f, 0.0f);
+        }
+    }
+
     // World matrix starts as identity (will be set per-object)
     Fmatrix identity;
     identity.identity();
@@ -1334,6 +1449,10 @@ void CRender::Render()
                 s_heapCheckFrame = Device.dwFrame;
             }
         }
+        // Update GlobalLighting UBO before gbuffer so m_View is available to vertex shaders
+        if (VK::g_VulkanLighting)
+            VK::g_VulkanLighting->UpdateGlobalLightingUBO();
+
         __try {
             RTarget->phase_gbuffer();
         } __except(EXCEPTION_EXECUTE_HANDLER) {
@@ -1574,10 +1693,27 @@ void CRender::Render()
     }
 
     // ========================================================================
-    // PASS 6.55: Tonemap (rt_HDR → Swapchain)
+    // PASS 6.52: Auto-Exposure compute (rt_HDR → 1x1 R32F)
+    // ========================================================================
+    VkDiagFrame("[RENDER] PASS 6.52: auto-exposure");
+    if (RTarget && RTarget->m_bExposureReady) {
+        RTarget->phase_exposure();
+    }
+
+    // ========================================================================
+    // PASS 6.54: DLSS Upscaling (rt_HDR → rt_DlssOutput)
+    // ========================================================================
+    // Execute DLSS upscaling if feature is active (quality changes handled at frame start).
+    VkDiagFrame("[RENDER] PASS 6.54: DLSS");
+    if (RTarget && g_DlssManager.IsFeatureCreated())
+    {
+        RTarget->phase_dlss();
+    }
+
+    // ========================================================================
+    // PASS 6.55: Tonemap (rt_HDR/rt_DlssOutput → Swapchain)
     // ========================================================================
     // Converts HDR scene to LDR with ACES tonemapping + vignette.
-    // When DLSS is added, it will slot in before this pass.
     VkDiagFrame("[RENDER] PASS 6.55: tonemap");
     if (RTarget) {
         RTarget->phase_tonemap();
@@ -1807,7 +1943,13 @@ void CRender::add_leafs_to_lstMatrix(vkRender_Visual* pVisual, const Fmatrix& wo
         item.pObject = val_pObject;
         item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
         item.Matrix = worldMatrix;
-        item.PrevMatrix = worldMatrix;
+        if (val_pObject) {
+            auto it = m_PrevFrameMatrices.find(val_pObject);
+            item.PrevMatrix = (it != m_PrevFrameMatrices.end()) ? it->second : worldMatrix;
+            m_CurrFrameMatrices[val_pObject] = worldMatrix;
+        } else {
+            item.PrevMatrix = worldMatrix;
+        }
         lstMatrix.push_back(item);
         return;
     }
@@ -1868,7 +2010,13 @@ void CRender::add_Visual(IRenderVisual* V)
     item.pObject = val_pObject;
     item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
     item.Matrix = (val_pTransform) ? *val_pTransform : Fidentity;
-    item.PrevMatrix = item.Matrix;
+    if (val_pObject) {
+        auto it = m_PrevFrameMatrices.find(val_pObject);
+        item.PrevMatrix = (it != m_PrevFrameMatrices.end()) ? it->second : item.Matrix;
+        m_CurrFrameMatrices[val_pObject] = item.Matrix;
+    } else {
+        item.PrevMatrix = item.Matrix;
+    }
     lstMatrix.push_back(item);
 }
 
@@ -2054,7 +2202,13 @@ void CRender::add_leafs_HUD_VK(vkRender_Visual* pVisual)
         item.pObject = val_pObject;
         item.pVisual = reinterpret_cast<dxRender_Visual*>(pVisual);
         item.Matrix = (val_pTransform) ? *val_pTransform : Fidentity;
-        item.PrevMatrix = item.Matrix;
+        if (val_pObject) {
+            auto it = m_PrevFrameMatrices.find(val_pObject);
+            item.PrevMatrix = (it != m_PrevFrameMatrices.end()) ? it->second : item.Matrix;
+            m_CurrFrameMatrices[val_pObject] = item.Matrix;
+        } else {
+            item.PrevMatrix = item.Matrix;
+        }
         item.se = nullptr;
 
         // Lookup Vulkan shader flags for this visual
@@ -2590,12 +2744,10 @@ void CRender::rmFar()
 
 void CRender::rmNormal()
 {
-    // Reset viewport depth range to full (normal rendering)
-    IRender_Target* T = getTarget();
-    if (!T) return;
-
-    u32 width = T->get_width();
-    u32 height = T->get_height();
+    // Use display (swapchain) resolution for viewport — UI and present must
+    // always target the full window, not the DLSS internal render resolution.
+    u32 width  = Swapchain.m_Extent.width;
+    u32 height = Swapchain.m_Extent.height;
 
     RCache.m_Viewport.x = 0;
     RCache.m_Viewport.y = (float)height;

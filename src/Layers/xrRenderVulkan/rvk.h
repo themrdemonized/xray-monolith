@@ -195,6 +195,10 @@ public:
     xr_vector<R_dsgraph::_MatrixItem> lstMatrix;      // Dynamic visuals (objects with transforms)
     xr_vector<R_dsgraph::_NormalItem> lstParticles;   // Particle effects (rendered in forward phase)
 
+    // Per-object previous-frame matrix tracking (for DLSS motion vectors)
+    xr_map<IRenderable*, Fmatrix> m_PrevFrameMatrices;
+    xr_map<IRenderable*, Fmatrix> m_CurrFrameMatrices;
+
     // Visibility / Frustum culling
     CFrustum ViewBase;    // Main camera frustum
     CFrustum* View;       // Current frustum pointer (for portal traversal)
@@ -438,6 +442,16 @@ public:
     // Shadow rendering methods (called by RenderTarget)
     // ========================================================================
     xr_vector<VK::SunCascade> m_sun_cascades;  // Sun cascade data (accessed by RenderTarget)
+
+    // ========================================================================
+    // DLSS Sub-pixel Jitter
+    // ========================================================================
+    struct {
+        Fvector2 current;    // Current frame jitter in NDC [-1,1]
+        Fvector2 previous;   // Previous frame jitter in NDC [-1,1]
+        u32      phase;      // Frame counter for Halton sequence (0..15, wraps)
+        bool     enabled;    // Toggle (default true)
+    } m_Jitter = {};
 
     void render_shadow_geometry(u32 cascade_ind);  // Render shadow caster geometry for cascade
     void render_shadow_geometry(const Fmatrix& viewProj, const Fvector& light_pos, float light_range);  // Generic shadow rendering for spot

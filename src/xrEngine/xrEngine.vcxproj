@@ -549,8 +549,8 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>xrRender_Vulkan.lib;vulkan-1.lib;vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;$(OutDir)$(Platform)\Vulkan\;$(OutDir)$(Platform)\Release\;$(SolutionDir)3rd party\luajit-2\src\;$(XRAY_16X_LIBS)OpenAutomate\libraries;$(SolutionDir)..\lib\$(Platform)\Release;$(SolutionDir)$(Platform)\Release;$(xrSdkDir)libraries\x64;$(xrLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xrRender_Vulkan.lib;vulkan-1.lib;nvsdk_ngx_d.lib;vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;C:\DLSS\lib\Windows_x86_64\x64;$(OutDir)$(Platform)\Vulkan\;$(OutDir)$(Platform)\Release\;$(SolutionDir)3rd party\luajit-2\src\;$(XRAY_16X_LIBS)OpenAutomate\libraries;$(SolutionDir)..\lib\$(Platform)\Release;$(SolutionDir)$(Platform)\Release;$(xrSdkDir)libraries\x64;$(xrLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
       <AdditionalOptions>/ignore:4099</AdditionalOptions>
