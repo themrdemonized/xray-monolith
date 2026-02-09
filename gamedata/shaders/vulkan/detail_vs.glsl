@@ -34,6 +34,7 @@ layout(push_constant) uniform DetailConstants
     vec4 vWave;             // (freq_x, freq_z, speed, time)
     vec4 vWind;             // (dir.x, 0, dir.z, amplitude)
     vec4 vConsts;           // (scale_x, scale_y, l_aniso, l_ambient)
+    vec4 vInteractors[4];   // xyz=pos, w=radius (0=unused). [0]=player, [1-3]=NPCs
 } pc;
 
 // ============================================================================
@@ -58,6 +59,37 @@ vec3 ApplyWind(vec3 pos, float height)
 }
 
 // ============================================================================
+// Character interaction — grass bends away from player/NPCs
+// ============================================================================
+vec3 ApplyInteraction(vec3 pos, float height)
+{
+    if (height < 0.01) return pos;  // Base vertices stay fixed
+
+    for (int i = 0; i < 4; i++)
+    {
+        float radius = pc.vInteractors[i].w;
+        if (radius < 0.01) continue;  // Unused slot
+
+        vec2 delta = pos.xz - pc.vInteractors[i].xz;
+        float dist = length(delta);
+
+        if (dist < radius && dist > 0.01)
+        {
+            float t = 1.0 - dist / radius;
+            float strength = t * t;  // Quadratic falloff — natural feel
+
+            vec2 pushDir = delta / dist;  // Away from character
+            float pushAmount = strength * height * 0.7;
+
+            pos.xz += pushDir * pushAmount;
+            pos.y -= pushAmount * 0.25;  // Slight droop as grass bends
+        }
+    }
+
+    return pos;
+}
+
+// ============================================================================
 // Main vertex shader
 // ============================================================================
 void main()
@@ -75,6 +107,9 @@ void main()
 
     // Apply wind animation
     worldPos = ApplyWind(worldPos, aHeight);
+
+    // Apply character interaction (grass bends away)
+    worldPos = ApplyInteraction(worldPos, aHeight);
 
     // Transform to clip space
     gl_Position = pc.mViewProj * vec4(worldPos, 1.0);

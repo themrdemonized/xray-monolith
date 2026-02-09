@@ -14,6 +14,8 @@
 #include "HW_Vulkan.h"
 #include "../xrRender/DetailFormat.h"
 #include "../../xrEngine/IGame_Persistent.h"
+#include "../../xrEngine/IGame_Level.h"
+#include "../../xrEngine/xr_object.h"
 #include "../../xrEngine/Environment.h"
 
 namespace VK
@@ -102,6 +104,70 @@ void CDetailManager::Render()
         m_Constants.mViewProj = mVP;
         m_Constants.vConsts.set(1.0f, 1.0f,
             g_pGamePersistent->Environment().CurrentEnv->sun_dir.y, 0.2f);
+
+        // Grass interaction: player + up to 3 nearest NPCs/mutants
+        {
+            Fvector camPos = RDEVICE.vCameraPosition_saved;
+            m_Constants.vInteractors[0].set(camPos.x, camPos.y, camPos.z, 1.2f);
+
+            // Clear NPC slots
+            for (u32 s = 1; s < MAX_GRASS_INTERACTORS; s++)
+                m_Constants.vInteractors[s].set(0, 0, 0, 0);
+
+            // Find up to 3 nearest visible NPCs within interaction range
+            if (g_pGameLevel)
+            {
+                const float MAX_NPC_DIST_SQ = 15.f * 15.f; // 15m max
+                CObject* playerEnt = g_pGameLevel->CurrentEntity();
+
+                // Track 3 closest NPCs (insertion sort by distance)
+                struct { float distSq; CObject* obj; } closest[3];
+                for (int c = 0; c < 3; c++) { closest[c].distSq = MAX_NPC_DIST_SQ; closest[c].obj = nullptr; }
+
+                u32 objCount = g_pGameLevel->Objects.o_count();
+                for (u32 i = 0; i < objCount; i++)
+                {
+                    CObject* O = g_pGameLevel->Objects.o_get_by_iterator(i);
+                    if (!O || O == playerEnt) continue;
+                    if (!O->getVisible()) continue;
+
+                    Fvector pos = O->Position();
+                    float dx = pos.x - camPos.x;
+                    float dz = pos.z - camPos.z;
+                    float dSq = dx * dx + dz * dz;
+
+                    if (dSq >= closest[2].distSq) continue;
+
+                    // Insert into sorted array
+                    if (dSq < closest[0].distSq)
+                    {
+                        closest[2] = closest[1]; closest[1] = closest[0];
+                        closest[0].distSq = dSq; closest[0].obj = O;
+                    }
+                    else if (dSq < closest[1].distSq)
+                    {
+                        closest[2] = closest[1];
+                        closest[1].distSq = dSq; closest[1].obj = O;
+                    }
+                    else
+                    {
+                        closest[2].distSq = dSq; closest[2].obj = O;
+                    }
+                }
+
+                for (int c = 0; c < 3; c++)
+                {
+                    if (closest[c].obj)
+                    {
+                        Fvector p = closest[c].obj->Position();
+                        float r = closest[c].obj->Radius();
+                        r = _max(r, 0.5f); // minimum interaction radius
+                        r = _min(r, 2.0f); // cap to avoid huge pushback
+                        m_Constants.vInteractors[1 + c].set(p.x, p.y, p.z, r);
+                    }
+                }
+            }
+        }
 
         RenderGpuGenerated();
         return;

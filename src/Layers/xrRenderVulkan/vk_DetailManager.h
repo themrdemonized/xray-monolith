@@ -313,13 +313,15 @@ private:
     bool                    m_bCreated;
 
     // Push constants for shaders
+    static const u32 MAX_GRASS_INTERACTORS = 4;
     struct DetailConstants
     {
-        Fmatrix     mViewProj;      // View-projection matrix
-        Fvector4    vWave;          // (freq_x, freq_z, speed, time)
-        Fvector4    vWind;          // (dir.x, 0, dir.z, amplitude)
-        Fvector4    vConsts;        // (scale, scale, l_aniso, l_ambient)
-    };
+        Fmatrix     mViewProj;      // View-projection matrix          64B
+        Fvector4    vWave;          // (freq_x, freq_z, speed, time)   16B
+        Fvector4    vWind;          // (dir.x, 0, dir.z, amplitude)    16B
+        Fvector4    vConsts;        // (scale, scale, l_aniso, l_amb)  16B
+        Fvector4    vInteractors[MAX_GRASS_INTERACTORS]; // xyz=pos, w=radius (0=unused) 64B
+    };  // Total: 176 bytes (within 256B push constant limit of modern GPUs)
     DetailConstants m_Constants;
 
     // ========================================================================
