@@ -172,6 +172,7 @@ void CDetailManager::Load()
         UploadSlotData();
         UploadObjInfo();
         CreateGpuGenPipeline();
+        CreateTrailMap();
     }
 
     // ========================================================================

@@ -813,7 +813,7 @@ void CDetailManager::RenderGpuGenerated()
         uboInfo.offset = 0;
         uboInfo.range = sizeof(DetailGenUBO);
 
-        VkWriteDescriptorSet writes[8] = {};
+        VkWriteDescriptorSet writes[9] = {};
 
         // binding 0: heightmap sampler
         writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -850,7 +850,36 @@ void CDetailManager::RenderGpuGenerated()
         writes[7].descriptorCount = 1;
         writes[7].pBufferInfo = &uboInfo;
 
-        vkUpdateDescriptorSets(VulkanHW.GetDevice(), 8, writes, 0, nullptr);
+        // binding 8: Trail map sampler
+        VkDescriptorImageInfo trailInfo = {};
+        if (m_TrailView != VK_NULL_HANDLE && m_TrailSampler != VK_NULL_HANDLE)
+        {
+            trailInfo.imageView = m_TrailView;
+            trailInfo.sampler = m_TrailSampler;
+            trailInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        }
+        else
+        {
+            // Use white texture as dummy
+            CVulkanTexture* white = g_MaterialManager ? g_MaterialManager->GetWhiteTexture() : nullptr;
+            if (white && white->IsValid())
+            {
+                trailInfo.imageView = white->GetView();
+                trailInfo.sampler = white->GetSampler();
+                trailInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            }
+            else
+                return;
+        }
+
+        writes[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[8].dstSet = m_GenDescSet;
+        writes[8].dstBinding = 8;
+        writes[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[8].descriptorCount = 1;
+        writes[8].pImageInfo = &trailInfo;
+
+        vkUpdateDescriptorSets(VulkanHW.GetDevice(), 9, writes, 0, nullptr);
     }
 
     // ========================================================================
@@ -907,6 +936,63 @@ void CDetailManager::RenderGpuGenerated()
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
             0, 0, nullptr, 0, nullptr, 1, &depthBack);
+    }
+
+    // ========================================================================
+    // Phase 4.5: Dispatch trail map update (fade + stamp interactors)
+    // ========================================================================
+    if (m_TrailImage != VK_NULL_HANDLE && m_TrailPipeline.IsValid())
+    {
+        // Barrier: previous gen compute read → trail compute write
+        VkImageMemoryBarrier trailBar = {};
+        trailBar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        trailBar.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        trailBar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        trailBar.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+        trailBar.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        trailBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        trailBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        trailBar.image = m_TrailImage;
+        trailBar.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &trailBar);
+
+        // Build trail push constants
+        TrailPushConstants trailPC;
+        for (u32 i = 0; i < MAX_GRASS_INTERACTORS; i++)
+            trailPC.interactors[i] = m_Constants.vInteractors[i];
+        trailPC.originX = m_HMOriginX;
+        trailPC.originZ = m_HMOriginZ;
+        trailPC.texelSizeX = m_HMWorldSizeX / (float)m_HeightmapW;
+        trailPC.texelSizeZ = m_HMWorldSizeZ / (float)m_HeightmapH;
+
+        // Fade: half-life ~15 seconds. fadeRate = pow(0.5, dt/15)
+        float dt = RDEVICE.fTimeDelta;
+        trailPC.fadeRate = powf(0.5f, dt / 15.0f);
+        trailPC.mapW = m_HeightmapW;
+        trailPC.mapH = m_HeightmapH;
+        trailPC._pad = 0;
+
+        m_TrailPipeline.Bind(cmd);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_TrailPipelineLayout,
+            0, 1, &m_TrailDescSet, 0, nullptr);
+        vkCmdPushConstants(cmd, m_TrailPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT,
+            0, sizeof(trailPC), &trailPC);
+
+        u32 trailGroupsX = (m_HeightmapW + 15) / 16;
+        u32 trailGroupsY = (m_HeightmapH + 15) / 16;
+        vkCmdDispatch(cmd, trailGroupsX, trailGroupsY, 1);
+
+        // Barrier: trail compute write → gen compute read (sampling)
+        trailBar.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        trailBar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(cmd,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &trailBar);
     }
 
     // ========================================================================

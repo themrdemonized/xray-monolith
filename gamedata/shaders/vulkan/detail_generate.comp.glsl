@@ -73,6 +73,9 @@ layout(set = 0, binding = 5) buffer IndirectCommands {
 // HZB texture for occlusion culling
 layout(set = 0, binding = 6) uniform sampler2D u_HZB;
 
+// Trail map (R16F, same resolution/coverage as heightmap)
+layout(set = 0, binding = 8) uniform sampler2D u_TrailMap;
+
 // ============================================================================
 // Push constants
 // ============================================================================
@@ -456,12 +459,21 @@ void main()
     if (outIdx >= outputCapacity)
         return;
 
+    // ---- Sample trail map (grass memory) ----
+    // Trail map shares the same UV space as the heightmap
+    float trailValue = 0.0;
+    {
+        vec2 trailUV = vec2(hmU, hmV);
+        if (trailUV.x >= 0.0 && trailUV.x <= 1.0 && trailUV.y >= 0.0 && trailUV.y <= 1.0)
+            trailValue = texture(u_TrailMap, trailUV).r;
+    }
+
     // ---- Write output instance ----
     DetailInstance inst;
     inst.row0 = vec4( cs * s, 0.0,    sn * s, worldPos.x);
     inst.row1 = vec4( 0.0,    s,      0.0,    worldPos.y);
     inst.row2 = vec4(-sn * s, 0.0,    cs * s, worldPos.z);
-    inst.color = vec4(c_dir, c_dir, c_dir, c_hemi);
+    inst.color = vec4(c_dir, trailValue, c_dir, c_hemi);
 
     visInst.instances[outIdx] = inst;
 }

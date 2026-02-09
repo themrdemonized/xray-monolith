@@ -16,7 +16,7 @@ layout(location = 2) in float aHeight;     // Normalized height [0..1] for wind
 layout(location = 3) in vec4 aInstRow0;    // Transform matrix row 0
 layout(location = 4) in vec4 aInstRow1;    // Transform matrix row 1
 layout(location = 5) in vec4 aInstRow2;    // Transform matrix row 2
-layout(location = 6) in vec4 aInstColor;   // (sun, sun, sun, hemi)
+layout(location = 6) in vec4 aInstColor;   // (sun, trail, sun, hemi)
 
 // ============================================================================
 // Output to fragment shader
@@ -110,6 +110,18 @@ void main()
 
     // Apply character interaction (grass bends away)
     worldPos = ApplyInteraction(worldPos, aHeight);
+
+    // Apply trail memory (grass stays pressed where characters walked)
+    float trail = aInstColor.g;
+    if (trail > 0.01 && aHeight > 0.01)
+    {
+        // Press grass down proportionally to trail intensity and vertex height
+        float pressDown = trail * aHeight * 0.6;
+        worldPos.y -= pressDown;
+
+        // Slight outward lean (makes pressed grass look more natural)
+        worldPos.xz += normalize(aPos.xz + vec2(0.001)) * trail * aHeight * 0.1;
+    }
 
     // Transform to clip space
     gl_Position = pc.mViewProj * vec4(worldPos, 1.0);

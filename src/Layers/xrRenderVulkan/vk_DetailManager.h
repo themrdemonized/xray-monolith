@@ -132,6 +132,21 @@ struct DetailGenUBO
     u32   hmWidth, hmHeight;    // Heightmap dimensions
 };
 
+// GPU grass trail: push constants for trail compute (96 bytes)
+struct TrailPushConstants
+{
+    Fvector4 interactors[4]; // xyz=pos, w=radius             64B
+    float    originX;        // World X of texel [0,0]         4B
+    float    originZ;        // World Z of texel [0,0]         4B
+    float    texelSizeX;     // World m per texel X            4B
+    float    texelSizeZ;     // World m per texel Z            4B
+    float    fadeRate;        // pow(0.5, dt/halfLife)          4B
+    u32      mapW;           // Trail map width in texels      4B
+    u32      mapH;           // Trail map height in texels     4B
+    float    _pad;           //                                4B
+    // Total: 96 bytes
+};
+
 // GPU grass generation: packed slot data for SSBO (32 bytes per slot)
 struct GpuSlotPacked
 {
@@ -407,6 +422,17 @@ private:
     VkDescriptorPool            m_GenDescPool;
     VkDescriptorSet             m_GenDescSet;
 
+    // Trail map (grass memory — characters leave footprints that fade over time)
+    VkImage                     m_TrailImage;           // R16F, same size as heightmap
+    VmaAllocation               m_TrailAlloc;
+    VkImageView                 m_TrailView;
+    VkSampler                   m_TrailSampler;
+    CVulkanComputePipeline      m_TrailPipeline;
+    VkPipelineLayout            m_TrailPipelineLayout;
+    VkDescriptorSetLayout       m_TrailDescLayout;
+    VkDescriptorPool            m_TrailDescPool;
+    VkDescriptorSet             m_TrailDescSet;
+
 public:
     CDetailManager();
     virtual ~CDetailManager();
@@ -462,6 +488,8 @@ private:
     void CreateGpuGenPipeline();        // Create generation compute pipeline
     void DestroyGpuGenPipeline();       // Destroy generation resources
     void RenderGpuGenerated();          // GPU procedural generation + render path
+    void CreateTrailMap();              // Create trail map image + compute pipeline
+    void DestroyTrailMap();             // Destroy trail map resources
 };
 
 // Free function for dither matrix generation (from DX11)

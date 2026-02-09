@@ -157,6 +157,16 @@ CDetailManager::CDetailManager()
     m_GenDescPool = VK_NULL_HANDLE;
     m_GenDescSet = VK_NULL_HANDLE;
 
+    // Trail map
+    m_TrailImage = VK_NULL_HANDLE;
+    m_TrailAlloc = VK_NULL_HANDLE;
+    m_TrailView = VK_NULL_HANDLE;
+    m_TrailSampler = VK_NULL_HANDLE;
+    m_TrailPipelineLayout = VK_NULL_HANDLE;
+    m_TrailDescLayout = VK_NULL_HANDLE;
+    m_TrailDescPool = VK_NULL_HANDLE;
+    m_TrailDescSet = VK_NULL_HANDLE;
+
     // Dither pattern - will be properly initialized in Load() via bwdithermap()
     Memory.mem_fill(dither, 0, sizeof(dither));
 
@@ -223,7 +233,8 @@ void CDetailManager::Unload()
     // Destroy Vulkan resources
     DestroyPipeline();
 
-    // Destroy GPU generation resources
+    // Destroy trail map and GPU generation resources
+    DestroyTrailMap();
     DestroyGpuGenPipeline();
 
     // Destroy GPU-driven resources (legacy)
@@ -1417,8 +1428,8 @@ void CDetailManager::CreateGpuGenPipeline()
         return;
     }
 
-    // Descriptor set layout: 8 bindings
-    VkDescriptorSetLayoutBinding bindings[8] = {};
+    // Descriptor set layout: 9 bindings (0-7 existing + 8 trail map)
+    VkDescriptorSetLayoutBinding bindings[9] = {};
 
     // 0: Heightmap sampler
     bindings[0].binding = 0;
@@ -1468,9 +1479,15 @@ void CDetailManager::CreateGpuGenPipeline()
     bindings[7].descriptorCount = 1;
     bindings[7].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    // 8: Trail map sampler
+    bindings[8].binding = 8;
+    bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[8].descriptorCount = 1;
+    bindings[8].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 8;
+    layoutInfo.bindingCount = 9;
     layoutInfo.pBindings = bindings;
     VK_CHECK(vkCreateDescriptorSetLayout(VulkanHW.m_Device, &layoutInfo, nullptr, &m_GenDescLayout));
 
@@ -1491,10 +1508,9 @@ void CDetailManager::CreateGpuGenPipeline()
     // Descriptor pool
     VkDescriptorPoolSize poolSizes[3] = {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 2; // heightmap + HZB
+    poolSizes[0].descriptorCount = 3; // heightmap + HZB + trail map
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = 4; // slots + objinfo + visible + atomics + indirect (5, but indirect is also storage)
-    poolSizes[1].descriptorCount = 5;
+    poolSizes[1].descriptorCount = 5; // slots + objinfo + visible + atomics + indirect
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[2].descriptorCount = 1; // GenUBO
 
@@ -1563,6 +1579,215 @@ void CDetailManager::DestroyGpuGenPipeline()
         vmaDestroyImage(VulkanHW.m_Allocator, m_HeightmapImage, (VmaAllocation)m_HeightmapMemory);
         m_HeightmapImage = VK_NULL_HANDLE;
         m_HeightmapMemory = VK_NULL_HANDLE;
+    }
+}
+
+// ============================================================================
+// Trail map: Create image + compute pipeline for grass footprint memory
+// Same resolution/coverage as the heightmap for shared UV computation.
+// ============================================================================
+void CDetailManager::CreateTrailMap()
+{
+    if (m_HeightmapW == 0 || m_HeightmapH == 0)
+    {
+        Msg("![Detail Trail] Heightmap not ready, cannot create trail map");
+        return;
+    }
+
+    // Create R16F image (SAMPLED for gen compute, STORAGE for trail compute, TRANSFER_DST for initial clear)
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.format = VK_FORMAT_R16_SFLOAT;
+    imageInfo.extent = { m_HeightmapW, m_HeightmapH, 1 };
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+    VkResult res = vmaCreateImage(VulkanHW.m_Allocator, &imageInfo, &allocInfo,
+        &m_TrailImage, &m_TrailAlloc, nullptr);
+    if (res != VK_SUCCESS)
+    {
+        Msg("![Detail Trail] Failed to create trail image: %d", res);
+        m_TrailImage = VK_NULL_HANDLE;
+        return;
+    }
+
+    // Create image view
+    VkImageViewCreateInfo viewInfo = {};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = m_TrailImage;
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = VK_FORMAT_R16_SFLOAT;
+    viewInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+    VK_CHECK(vkCreateImageView(VulkanHW.m_Device, &viewInfo, nullptr, &m_TrailView));
+
+    // Create sampler (bilinear, clamp — for gen compute sampling)
+    VkSamplerCreateInfo sampInfo = {};
+    sampInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampInfo.magFilter = VK_FILTER_LINEAR;
+    sampInfo.minFilter = VK_FILTER_LINEAR;
+    sampInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    VK_CHECK(vkCreateSampler(VulkanHW.m_Device, &sampInfo, nullptr, &m_TrailSampler));
+
+    // Clear image to 0 and transition to GENERAL layout
+    VkCommandBuffer uploadCmd = VulkanHW.BeginSingleTimeCommands();
+    if (uploadCmd != VK_NULL_HANDLE)
+    {
+        // Transition to TRANSFER_DST
+        VkImageMemoryBarrier bar = {};
+        bar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        bar.srcAccessMask = 0;
+        bar.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        bar.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        bar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        bar.image = m_TrailImage;
+        bar.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        vkCmdPipelineBarrier(uploadCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bar);
+
+        // Clear to 0
+        VkClearColorValue clearColor = {};
+        clearColor.float32[0] = 0.0f;
+        VkImageSubresourceRange range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+        vkCmdClearColorImage(uploadCmd, m_TrailImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            &clearColor, 1, &range);
+
+        // Transition to GENERAL (for compute read/write)
+        bar.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        bar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        bar.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        bar.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+        vkCmdPipelineBarrier(uploadCmd, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bar);
+
+        VulkanHW.EndSingleTimeCommands(uploadCmd);
+    }
+
+    // ---- Trail compute pipeline ----
+    VkShaderModule trailShader = g_ShaderManager->Load("detail_trail.comp.spv");
+    if (trailShader == VK_NULL_HANDLE)
+    {
+        Msg("![Detail Trail] Failed to load detail_trail.comp.spv");
+        return;
+    }
+
+    // Descriptor set layout: 1 binding (storage image)
+    VkDescriptorSetLayoutBinding trailBinding = {};
+    trailBinding.binding = 0;
+    trailBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    trailBinding.descriptorCount = 1;
+    trailBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutCreateInfo trailLayoutInfo = {};
+    trailLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    trailLayoutInfo.bindingCount = 1;
+    trailLayoutInfo.pBindings = &trailBinding;
+    VK_CHECK(vkCreateDescriptorSetLayout(VulkanHW.m_Device, &trailLayoutInfo, nullptr, &m_TrailDescLayout));
+
+    // Push constant range
+    VkPushConstantRange trailPush = {};
+    trailPush.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    trailPush.offset = 0;
+    trailPush.size = sizeof(TrailPushConstants);
+
+    VkPipelineLayoutCreateInfo trailPipeLayout = {};
+    trailPipeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    trailPipeLayout.setLayoutCount = 1;
+    trailPipeLayout.pSetLayouts = &m_TrailDescLayout;
+    trailPipeLayout.pushConstantRangeCount = 1;
+    trailPipeLayout.pPushConstantRanges = &trailPush;
+    VK_CHECK(vkCreatePipelineLayout(VulkanHW.m_Device, &trailPipeLayout, nullptr, &m_TrailPipelineLayout));
+
+    // Descriptor pool (1 storage image)
+    VkDescriptorPoolSize trailPoolSize = {};
+    trailPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    trailPoolSize.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo trailPoolInfo = {};
+    trailPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    trailPoolInfo.maxSets = 1;
+    trailPoolInfo.poolSizeCount = 1;
+    trailPoolInfo.pPoolSizes = &trailPoolSize;
+    VK_CHECK(vkCreateDescriptorPool(VulkanHW.m_Device, &trailPoolInfo, nullptr, &m_TrailDescPool));
+
+    // Allocate descriptor set
+    VkDescriptorSetAllocateInfo trailDsAlloc = {};
+    trailDsAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    trailDsAlloc.descriptorPool = m_TrailDescPool;
+    trailDsAlloc.descriptorSetCount = 1;
+    trailDsAlloc.pSetLayouts = &m_TrailDescLayout;
+    VK_CHECK(vkAllocateDescriptorSets(VulkanHW.m_Device, &trailDsAlloc, &m_TrailDescSet));
+
+    // Write descriptor: trail image as storage
+    VkDescriptorImageInfo trailImgInfo = {};
+    trailImgInfo.imageView = m_TrailView;
+    trailImgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    VkWriteDescriptorSet trailWrite = {};
+    trailWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    trailWrite.dstSet = m_TrailDescSet;
+    trailWrite.dstBinding = 0;
+    trailWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    trailWrite.descriptorCount = 1;
+    trailWrite.pImageInfo = &trailImgInfo;
+    vkUpdateDescriptorSets(VulkanHW.m_Device, 1, &trailWrite, 0, nullptr);
+
+    // Create compute pipeline
+    m_TrailPipeline.Create(trailShader, m_TrailPipelineLayout);
+
+    u32 trailSizeKB = m_HeightmapW * m_HeightmapH * 2 / 1024;
+    Msg("[Detail Trail] Trail map created: %ux%u R16F (%uKB), compute pipeline ready",
+        m_HeightmapW, m_HeightmapH, trailSizeKB);
+}
+
+void CDetailManager::DestroyTrailMap()
+{
+    m_TrailPipeline.Destroy();
+
+    if (m_TrailDescPool != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorPool(VulkanHW.m_Device, m_TrailDescPool, nullptr);
+        m_TrailDescPool = VK_NULL_HANDLE;
+        m_TrailDescSet = VK_NULL_HANDLE;
+    }
+    if (m_TrailPipelineLayout != VK_NULL_HANDLE)
+    {
+        vkDestroyPipelineLayout(VulkanHW.m_Device, m_TrailPipelineLayout, nullptr);
+        m_TrailPipelineLayout = VK_NULL_HANDLE;
+    }
+    if (m_TrailDescLayout != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_TrailDescLayout, nullptr);
+        m_TrailDescLayout = VK_NULL_HANDLE;
+    }
+    if (m_TrailView != VK_NULL_HANDLE)
+    {
+        vkDestroyImageView(VulkanHW.m_Device, m_TrailView, nullptr);
+        m_TrailView = VK_NULL_HANDLE;
+    }
+    if (m_TrailSampler != VK_NULL_HANDLE)
+    {
+        vkDestroySampler(VulkanHW.m_Device, m_TrailSampler, nullptr);
+        m_TrailSampler = VK_NULL_HANDLE;
+    }
+    if (m_TrailImage != VK_NULL_HANDLE && m_TrailAlloc != VK_NULL_HANDLE)
+    {
+        vmaDestroyImage(VulkanHW.m_Allocator, m_TrailImage, m_TrailAlloc);
+        m_TrailImage = VK_NULL_HANDLE;
+        m_TrailAlloc = VK_NULL_HANDLE;
     }
 }
 
