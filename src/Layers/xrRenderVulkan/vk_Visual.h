@@ -509,6 +509,15 @@ public:
 protected:
     // Convert vertBoned* to vertHW_* and create Vulkan VB (matches DX11's _Load_hw)
     void _Load_hw_VK(void* _verts_, u32 dwVertType, u32 dwVertCount);
+
+private:
+    // Render() decomposition helpers
+    bool DiagnoseRender();                                      // one-shot diagnostics, returns bDiag flag
+    bool ValidateParent(bool bDiag);                            // safety checks, returns false if render should abort
+    void RenderSingleBone(const Fmatrix& Wold, float LOD, bool bDiag);  // RM_SINGLE path
+    void RenderSkinned(const Fmatrix& Wold, float LOD);        // GPU skinning path (1B/2B/3B/4B)
+    void RenderFallback(const Fmatrix& Wold, float LOD);       // unknown mode fallback
+    void RestoreWorldMatrix(const Fmatrix& Wold);               // restore original world matrix
 };
 
 // ============================================================================
@@ -588,6 +597,14 @@ public:
     virtual void Release() override;
     virtual void Render(float LOD) override;
 };
+
+// ============================================================================
+// Shared skinned vertex loading
+// Converts vertBoned* (OGF format) to vertHW_* and uploads to GPU buffer.
+// renderMode: RM_SINGLE/RM_SKINNING_1B/2B/3B/4B from skeleton classes
+// diagTag: optional tag for diagnostic messages (e.g. "SKL-ST", "SKL-PM")
+// ============================================================================
+void vkLoadSkinnedVertices(VK_Render_Mesh& mesh, u16 renderMode, void* verts, u32 vertCount, const char* diagTag = nullptr);
 
 // ============================================================================
 // Factory function - creates visual based on type
