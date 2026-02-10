@@ -70,7 +70,7 @@ void storage::collect_garbage()
 	{
 		static IC bool predicate(::description* const & object)
 		{
-			if (object->m_ref_count)
+			if (object->intrusive_ref_count())
 				return (false);
 
 			if (Device.dwTimeGlobal < object->m_last_time_dec + time_to_delete)

@@ -11,7 +11,7 @@
 class CSpaceRestrictionBridge;
 class CSpaceRestrictor;
 
-template <typename _1, typename _2>
+template <typename _1>
 class intrusive_ptr;
 
 namespace RestrictionSpace
@@ -22,7 +22,7 @@ namespace RestrictionSpace
 
 namespace SpaceRestrictionHolder
 {
-	typedef intrusive_ptr<CSpaceRestrictionBridge, RestrictionSpace::CTimeIntrusiveBase> CBaseRestrictionPtr;
+	typedef intrusive_ptr<CSpaceRestrictionBridge> CBaseRestrictionPtr;
 };
 
 class CSpaceRestrictionHolder

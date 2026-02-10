@@ -40,7 +40,7 @@ void show_restriction(const shared_str& restrictions)
 		Msg("     %s", _GetItem(*restrictions, i, temp));
 }
 
-typedef intrusive_ptr<CSpaceRestriction, RestrictionSpace::CTimeIntrusiveBase> CRestrictionPtr;
+typedef intrusive_ptr<CSpaceRestriction> CRestrictionPtr;
 
 void show_restriction(const CRestrictionPtr& restriction)
 {
@@ -108,7 +108,7 @@ IC void CSpaceRestrictionManager::collect_garbage()
 	SPACE_RESTRICTIONS::iterator E = m_space_restrictions.end();
 	for (; I != E;)
 	{
-		if (!(*I).second->m_ref_count && (Device.dwTimeGlobal >= (*I).second->m_last_time_dec + time_to_delete))
+		if (!(*I).second->intrusive_ref_count() && (Device.dwTimeGlobal >= (*I).second->m_last_time_dec + time_to_delete))
 		{
 			J = I;
 			++I;

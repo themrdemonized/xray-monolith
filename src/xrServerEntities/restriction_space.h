@@ -10,7 +10,7 @@
 
 namespace RestrictionSpace
 {
-	struct CTimeIntrusiveBase : public intrusive_base
+	struct CTimeIntrusiveBase : public intrusive_base_deferred
 	{
 		u32 m_last_time_dec;
 
@@ -18,8 +18,7 @@ namespace RestrictionSpace
 		{
 		}
 
-		template <typename T>
-		IC void _release(T* object)
+		IC void on_deferred_release()
 		{
 			m_last_time_dec = Device.dwTimeGlobal;
 		}

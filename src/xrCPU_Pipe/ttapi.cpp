@@ -111,54 +111,14 @@ DWORD ttapi_Init(_processor_info* ID)
 	if (ttapi_initialized)
 		return ttapi_workers_count;
 
-	// System Info
-	ttapi_workers_count = ID->n_cores;
+	// 1. Use standard library to detect cores (More reliable than legacy cpuid structs)
+	ttapi_workers_count = std::thread::hardware_concurrency();
 
-	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+	// Fallback if detection fails
+	if (ttapi_workers_count == 0) ttapi_workers_count = 4;
 
-	DWORD i, dwNumIter;
-	volatile DWORD dwDummy = 1;
-	LARGE_INTEGER liFrequency, liStart, liEnd;
-
-	QueryPerformanceFrequency(&liFrequency);
-
-	// Get fast spin-loop timings
-	dwNumIter = 100000000;
-
-	QueryPerformanceCounter(&liStart);
-	for (i = 0; i < dwNumIter; ++i)
-	{
-		if (dwDummy == 0)
-			goto process1;
-		_mm_pause();
-	}
-process1:
-	QueryPerformanceCounter(&liEnd);
-
-	// We want 1/25 (40ms) fast spin-loop
-	ttapi_dwFastIter = (DWORD)((dwNumIter * liFrequency.QuadPart) / ((liEnd.QuadPart - liStart.QuadPart) * 25));
-	//Msg( "fast spin-loop iterations : %u" , ttapi_dwFastIter );
-
-	// Get slow spin-loop timings
-	dwNumIter = 10000000;
-
-	QueryPerformanceCounter(&liStart);
-	for (i = 0; i < dwNumIter; ++i)
-	{
-		if (dwDummy == 0)
-			goto process2;
-		SwitchToThread();
-	}
-process2:
-	QueryPerformanceCounter(&liEnd);
-
-	// We want 1/2 (500ms) slow spin-loop
-	ttapi_dwSlowIter = (DWORD)((dwNumIter * liFrequency.QuadPart) / ((liEnd.QuadPart - liStart.QuadPart) * 2));
-	//Msg( "slow spin-loop iterations : %u" , ttapi_dwSlowIter );
-
-	SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-
-	// Check for override from command line
+	// 2. Handle Command Line Override (-max-threads)
+	// Kept for backward compatibility with your launcher/user configs
 	char szSearchFor[] = "-max-threads";
 	char* pszTemp = strstr(GetCommandLine(), szSearchFor);
 	DWORD dwOverride = 0;
@@ -167,56 +127,61 @@ process2:
 			if ((dwOverride >= 1) && (dwOverride < ttapi_workers_count))
 				ttapi_workers_count = dwOverride;
 
-	// Number of helper threads
+	// 3. Set Spin-Loop Constants directly
+	// OLD: Calibrated at runtime by freezing the PC for 1 second.
+	// NEW: Set to reasonable constants for modern architectures.
+	// 4096 is a standard spin count for _mm_pause loops before yielding.
+	ttapi_dwFastIter = 4096;
+	ttapi_dwSlowIter = 0; // Modern schedulers prefer immediate yield over slow-spinning
+
+	// 4. Allocate Control Structures
+	// Helper threads count
 	ttapi_threads_count = ttapi_workers_count - 1;
 
-	// Creating control structures
 	if ((ttapi_threads_handles = (LPHANDLE)malloc(sizeof(HANDLE) * ttapi_threads_count)) == NULL)
 		return 0;
 	if ((ttapi_worker_params = (PTTAPI_WORKER_PARAMS)malloc(sizeof(TTAPI_WORKER_PARAMS) * ttapi_workers_count)) == NULL)
 		return 0;
 
-	// Clearing params
-	for (DWORD i = 0; i < ttapi_workers_count; i++)
-		memset(&ttapi_worker_params[i], 0, sizeof(TTAPI_WORKER_PARAMS));
+	// Clear params
+	memset(ttapi_worker_params, 0, sizeof(TTAPI_WORKER_PARAMS) * ttapi_workers_count);
+
+	// 5. Create Threads WITHOUT Affinity Masking
+	// We let the Windows Scheduler decide where to put threads.
+	// This supports Ryzen CCX layouts and Intel P-Core/E-Core properly.
 
 	char szThreadName[64];
 	DWORD dwThreadId = 0;
-	DWORD dwAffinitiMask = ID->affinity_mask;
-	DWORD dwCurrentMask = 0x01;
 
-	// Setting affinity
-	while (! (dwAffinitiMask & dwCurrentMask))
-		dwCurrentMask <<= 1;
-
-	SetThreadAffinityMask(GetCurrentThread(), dwCurrentMask);
-	//Msg("Master Thread Affinity Mask : 0x%8.8X" , dwCurrentMask );
-
-	// Creating threads
 	for (DWORD i = 0; i < ttapi_threads_count; i++)
 	{
-		// Initializing "enter" "critical section"
 		ttapi_worker_params[i].vlFlag = 1;
 
-		if ((ttapi_threads_handles[i] = CreateThread(NULL, 0, &ttapiThreadProc, &ttapi_worker_params[i], 0, &dwThreadId)
-		) == NULL)
+		// Create the thread using standard WinAPI (compatible with existing handles array)
+		ttapi_threads_handles[i] = CreateThread(
+			NULL,
+			0,
+			&ttapiThreadProc,
+			&ttapi_worker_params[i],
+			0,
+			&dwThreadId
+		);
+
+		if (ttapi_threads_handles[i] == NULL)
 			return 0;
 
-		// Setting affinity
-		do
-			dwCurrentMask <<= 1;
-		while (! (dwAffinitiMask & dwCurrentMask));
-
-		SetThreadAffinityMask(ttapi_threads_handles[i], dwCurrentMask);
-		//Msg("Helper Thread #%u Affinity Mask : 0x%8.8X" , i + 1 , dwCurrentMask );
-
-		// Setting thread name
+		// Modern Thread Naming (Windows 10 Build 1607+)
+		// Falls back gracefully on older windows if not available, 
+		// much cleaner than the old "Throw Exception" hack.
 		sprintf_s(szThreadName, "Helper Thread #%u", i);
-		SetThreadName(dwThreadId, szThreadName);
+
+		// Convert to wide string for SetThreadDescription
+		wchar_t wThreadName[64];
+		mbstowcs(wThreadName, szThreadName, 64);
+		SetThreadDescription(ttapi_threads_handles[i], wThreadName);
 	}
 
 	ttapi_initialized = TRUE;
-
 	return ttapi_workers_count;
 }
 

@@ -56,6 +56,9 @@ std::chrono::duration<float> time_span;
 ENGINE_API float refresh_rate = 0;
 #endif // ECO_RENDER
 
+BOOL psLua_ParallelGC = TRUE;
+int psLua_ParallelGC_CallAmount = 25;
+
 
 BOOL CRenderDevice::Begin()
 {
@@ -200,6 +203,26 @@ void mt_Thread(void* ptr)
 		START_PROFILE("Process seqFrameMT");
 		device.seqFrameMT.Process(rp_Frame);
 		STOP_PROFILE;
+
+		// demonized: While Renderer prepares frame and GPU renders it, use time opportunity to repeatedly call Lua GC with small step value
+		// Reduces stutters since less work will be done in main GC step or no work at all
+		{
+			PROF_EVENT("seqLuaGC");
+			if (psLua_ParallelGC && Device.LuaGC)
+			{
+				// Do at least once
+				do
+				{
+					Device.LuaGCCount++;
+					if (Device.LuaGC(false) == 1) // 1 informs that GC cycle is complete
+					{
+						Device.LuaGCDone = true;
+						break;
+					}
+
+				} while (Device.isRendering && Device.LuaGCCount < psLua_ParallelGC_CallAmount);
+			}
+		}
 
 		START_PROFILE("Synchronization");
 		// now we give control to device - signals that we are ended our work
@@ -407,6 +430,10 @@ void CRenderDevice::on_idle()
 	mProject_saved = mProject;
 	STOP_PROFILE;
 
+	Device.isRendering = true;
+	Device.LuaGCCount = 0;
+	Device.LuaGCDone = false;
+
 	// *** Resume threads
 	// Capture end point - thread must run only ONE cycle
 	// Release start point - allow thread to run
@@ -462,6 +489,8 @@ void CRenderDevice::on_idle()
 	Statistic->RenderTOTAL_Real.FrameEnd();
 	Statistic->RenderTOTAL.accum = Statistic->RenderTOTAL_Real.accum;
 #endif // #ifndef DEDICATED_SERVER
+	Device.isRendering = false;
+
 	// *** Suspend threads
 	// Capture startup point
 	// Release end point - allow thread to wait for startup point
@@ -478,6 +507,12 @@ void CRenderDevice::on_idle()
 			Device.seqParallel[pit]();
 		Device.seqParallel.clear_not_free();
 		seqFrameMT.Process(rp_Frame);
+	}
+
+	if (psLua_ParallelGC && Device.LuaGC && !Device.LuaGCDone)
+	{
+		PROF_EVENT("LuaGC Cleanup");
+		Device.LuaGC(true);
 	}
 
 #ifdef DEDICATED_SERVER

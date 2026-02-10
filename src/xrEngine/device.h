@@ -218,6 +218,13 @@ public:
 	CRegistrator<pureDeviceReset> seqDeviceReset;
 	xr_vector<fastdelegate::FastDelegate0<>> seqParallel;
 
+	bool isRendering;
+
+	// LuaGC
+	int LuaGCCount;
+	bool LuaGCDone;
+	fastdelegate::FastDelegate1<const bool, int> LuaGC;
+
 	// Dependent classes
 	//CResourceManager* Resources;
 

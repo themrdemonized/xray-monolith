@@ -144,6 +144,18 @@ u16	GetSpawnInfo(NET_Packet &P, u16 &parent_id, shared_str& section)
 #endif
 //-AVO
 
+// Define a helper struct to hold the heavy data
+struct ProcessNetPacket : public intrusive_base_nonatomic
+{
+	NET_Packet P;
+};
+
+struct ProcessGameEventsData : ProcessNetPacket
+{
+	prefetch_event E;
+	NET_Packet PRespond;
+};
+
 namespace crash_saving {
 	extern void(*save_impl)();
 	static bool g_isSaving = false;
@@ -156,7 +168,8 @@ namespace crash_saving {
 
 		int saveCount = -1;
 		g_isSaving = true;
-		NET_Packet net_packet;
+		auto data = make_intrusive<ProcessNetPacket>();
+		NET_Packet& net_packet = data->P;
 		net_packet.w_begin(M_SAVE_GAME);
 
 		std::string path = "fatal_ctd_save_";
@@ -264,6 +277,9 @@ CLevel::CLevel() :
 #endif
 
 	Msg("%s", Core.Params);
+
+	// demonized: bind LuaGC call to be available in device.cpp
+	Device.LuaGC = fastdelegate::FastDelegate1<const bool, int>(&CLevel::LuaGC);
 	//crash_saving::save_impl = crash_saving::_save_impl; // CLevel ready, we can save now
 }
 
@@ -477,7 +493,8 @@ void CLevel::cl_Process_Event(u16 dest, u16 type, NET_Packet& P)
 #ifdef SPAWN_ANTIFREEZE
 bool CLevel::PostponedSpawnFind(u16 id, const NET_Event& E) const
 {
-	NET_Packet P;
+	auto data = make_intrusive<ProcessNetPacket>();
+	NET_Packet& P = data->P;
 	E.implication(P);
 	return PostponedSpawnFind(id, P);
 }
@@ -508,7 +525,8 @@ int CLevel::GetSpawnEventPriority(const NET_Event& e) const
 		return 0;
 
 	if (e.ID == M_SPAWN) {
-		NET_Packet P;
+		auto data = make_intrusive<ProcessNetPacket>();
+		NET_Packet& P = data->P;
 		e.implication(P);
 
 		u16 parent_id = 0;
@@ -628,8 +646,9 @@ void CLevel::ProcessSpawnEvents()
 
 	for (const auto& E : events_to_process)
 	{
+		auto data = make_intrusive<ProcessNetPacket>();
 		u16 ID, dest, type;
-		NET_Packet P;
+		NET_Packet& P = data->P;
 		ID = E.ID;
 		dest = E.destination;
 		type = E.type;
@@ -689,7 +708,9 @@ void CLevel::ProcessGameEvents()
 			u16 ID = it->ID;
 			u16 dest = it->destination;
 			u16 type = it->type;
-			NET_Packet P;
+
+			auto data = make_intrusive<ProcessGameEventsData>();
+			auto& P = data->P;
 			it->implication(P);
 
 //AVO: spawn antifreeze implementation, originally by alpet, reritten by demonized
@@ -782,11 +803,11 @@ void CLevel::ProcessGameEvents()
 
 						if (!models.empty())
 						{
-							prefetch_event E;
-							E.p = std::move(P);
-							E.models = std::move(models);
+							auto& E = data->E;
+							E.p = P;
+							E.models = models;
 
-							events_to_prefetch.push_back(std::move(E));
+							events_to_prefetch.push_back(E);
 
 							if (spawn_antifreeze_debug) Msg("[ProcessGameEvents] added M_SPAWN to prefetch_events: section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
 							it++; // Move to next event
@@ -840,7 +861,7 @@ void CLevel::ProcessGameEvents()
 							break;
 						OActor->MoveActor(NewPos, NewDir);
 					}
-					NET_Packet PRespond;
+					auto& PRespond = data->PRespond;
 					PRespond.w_begin(M_MOVE_PLAYERS_RESPOND);
 					Send(PRespond, net_flags(TRUE, TRUE));
 					break;
@@ -1133,11 +1154,47 @@ void CLevel::OnFrame()
 }
 
 int psLUA_GCSTEP = 300;
+int psLua_ParallelGCStep = 75;
+extern BOOL psLua_ParallelGC;
+BOOL psLua_ParallelGC_debug = FALSE;
 
 void CLevel::script_gc()
 {
-	PROF_EVENT();
-	lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);
+	if (!(psLua_ParallelGC && Device.LuaGC))
+	{	
+		PROF_EVENT();	
+		lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);
+	}
+}
+
+// demonized: called from Device, via Device.LuaGC pointer
+int CLevel::LuaGC(const bool cleanup)
+{
+	if (cleanup)
+	{
+		// Call cleanup only if memory is at the limit, check every 30 frames
+		static int mem_kb = 0;
+
+		if (psLua_ParallelGC_debug)
+		{
+			mem_kb = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
+			Msg("[Lua] CLevel::LuaGC mem_kb %llu, times performed %d", mem_kb, Device.LuaGCCount);
+		}
+		else if (Device.dwFrame % 30 == 0)
+			mem_kb = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
+
+		if (mem_kb > 90000)
+		{
+			if (psLua_ParallelGC_debug)
+				Msg("![Lua] CLevel::LuaGC cleanup");
+
+			return lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);
+		}
+
+		return 0;
+	}
+	else
+		return lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLua_ParallelGCStep);
 }
 
 #ifdef DEBUG_PRECISE_PATH
