@@ -1,6 +1,6 @@
 // xrRenderVulkan - Vulkan renderer for X-Ray Engine
 // Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
-// SPDX-License-Identifier: MIT
+// Licensed under the same terms as X-Ray Engine (see root License.txt)
 
 // Vulkan Renderer - Shared code stubs
 // These are temporary stubs for shared xrRender code that the Vulkan renderer

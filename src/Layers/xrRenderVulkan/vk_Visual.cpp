@@ -1,9 +1,10 @@
 // xrRenderVulkan - Vulkan renderer for X-Ray Engine
 // Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
-// SPDX-License-Identifier: MIT
+// Licensed under the same terms as X-Ray Engine (see root License.txt)
 
 #include "stdafx.h"
 #include "vk_Visual.h"
+#include <unordered_map>
 #include "vk_R_Backend.h"
 #include "vk_buffer_pool.h"
 #include "vk_shader.h"      // Phase 2.34: Shader binding
@@ -1832,6 +1833,25 @@ void vkSkeletonX_ST::Render(float LOD)
             // Need 2x bones: current [0..N) + previous [N..2N) for DLSS motion vectors
             u32 totalAligned = alignedBoneCount * 2;
 
+            // Save previous bone transforms for motion vectors (matching SkeletonX.cpp logic)
+            // CRITICAL: Must happen BEFORE reading mRenderTransform_prev below!
+            // Track which skeletons have been saved this frame
+            static std::unordered_map<IKinematics*, u32> s_savedFrames;
+            auto it = s_savedFrames.find(Parent);
+            if (it == s_savedFrames.end() || it->second != Device.dwFrame)
+            {
+                s_savedFrames[Parent] = Device.dwFrame;
+
+                // NOTE: Can't access Matrix_Prev/Matrix_Temp (protected), but we CAN access bone instances
+                // Save bone matrices for next frame's motion vectors
+                for (u16 b = 0; b < Parent->LL_BoneCount(); b++)
+                {
+                    CBoneInstance& Bone = Parent->LL_GetBoneInstance(b);
+                    Bone.mRenderTransform_prev.set(Bone.mRenderTransform_temp);
+                    Bone.mRenderTransform_temp.set(Bone.mRenderTransform);
+                }
+            }
+
             if (RCache.IsBoneBufferValid() && RCache.m_BoneMapped &&
                 (boneOffset + totalAligned) <= CBackend::MAX_TOTAL_BONES)
             {
@@ -2413,6 +2433,25 @@ void vkSkeletonX_PM::Render(float LOD)
 
             // Need 2x bones: current [0..N) + previous [N..2N) for DLSS motion vectors
             u32 totalAligned = alignedBoneCount * 2;
+
+            // Save previous bone transforms for motion vectors (matching SkeletonX.cpp logic)
+            // CRITICAL: Must happen BEFORE reading mRenderTransform_prev below!
+            // Track which skeletons have been saved this frame
+            static std::unordered_map<IKinematics*, u32> s_savedFrames;
+            auto it = s_savedFrames.find(Parent);
+            if (it == s_savedFrames.end() || it->second != Device.dwFrame)
+            {
+                s_savedFrames[Parent] = Device.dwFrame;
+
+                // NOTE: Can't access Matrix_Prev/Matrix_Temp (protected), but we CAN access bone instances
+                // Save bone matrices for next frame's motion vectors
+                for (u16 b = 0; b < Parent->LL_BoneCount(); b++)
+                {
+                    CBoneInstance& Bone = Parent->LL_GetBoneInstance(b);
+                    Bone.mRenderTransform_prev.set(Bone.mRenderTransform_temp);
+                    Bone.mRenderTransform_temp.set(Bone.mRenderTransform);
+                }
+            }
 
             if (RCache.IsBoneBufferValid() && RCache.m_BoneMapped &&
                 (boneOffset + totalAligned) <= CBackend::MAX_TOTAL_BONES)

@@ -1,6 +1,6 @@
 // xrRenderVulkan - Vulkan renderer for X-Ray Engine
 // Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
-// SPDX-License-Identifier: MIT
+// Licensed under the same terms as X-Ray Engine (see root License.txt)
 
 #include "stdafx.h"
 #include "rvk.h"
@@ -1331,7 +1331,14 @@ void CRender::Render()
     {
         m_Jitter.previous = m_Jitter.current;
 
-        if (m_Jitter.enabled && RTarget)
+        // Determine if jitter should be applied:
+        // 0 = off (no jitter)
+        // 1 = auto (jitter only when DLSS is active)
+        // 2 = force (always jitter, for TAA)
+        bool bDlssActive = (ps_r__dlss_quality != DLSS_OFF);
+        bool bApplyJitter = (ps_r__jitter_mode == 2) || (ps_r__jitter_mode == 1 && bDlssActive);
+
+        if (m_Jitter.enabled && bApplyJitter && RTarget)
         {
             m_Jitter.phase = (m_Jitter.phase + 1) % 16;
             int idx = m_Jitter.phase + 1; // 1-based (0 gives 0,0)

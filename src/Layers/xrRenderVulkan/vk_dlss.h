@@ -1,6 +1,6 @@
 // xrRenderVulkan - Vulkan renderer for X-Ray Engine
 // Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
-// SPDX-License-Identifier: MIT
+// Licensed under the same terms as X-Ray Engine (see root License.txt)
 
 #pragma once
 #include "vk_core.h"
@@ -14,6 +14,7 @@
 // Console variables (defined in vk_console.cpp)
 extern u32 ps_r__dlss_quality;
 extern u32 ps_r__dlss_preset;
+extern u32 ps_r__jitter_mode;  // 0=off, 1=auto (DLSS only), 2=force (TAA)
 
 // DLSS quality enum matching console variable
 enum eDlssQuality : u32 {

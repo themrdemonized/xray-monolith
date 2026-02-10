@@ -1,6 +1,6 @@
 // xrRenderVulkan - Vulkan renderer for X-Ray Engine
 // Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
-// SPDX-License-Identifier: MIT
+// Licensed under the same terms as X-Ray Engine (see root License.txt)
 
 // Vulkan Render Console Variables
 // All render console variables required by xrGame
@@ -489,6 +489,15 @@ xr_token qdlss_quality_token[] = {
 u32 ps_r__dlss_preset = 0;  // 0=Default (CNN), 1=Transformer (DLSS 4)
 xr_token qdlss_preset_token[] = {
     {"default", 0}, {"transformer", 1}, {0, 0}
+};
+
+// ============================================================================
+// TAA/DLSS Jitter Control
+// ============================================================================
+// 0=disabled, 1=auto (enabled when DLSS is active), 2=force enabled (for TAA)
+u32 ps_r__jitter_mode = 1;
+xr_token qjitter_mode_token[] = {
+    {"off", 0}, {"auto", 1}, {"force", 2}, {0, 0}
 };
 
 // ============================================================================
