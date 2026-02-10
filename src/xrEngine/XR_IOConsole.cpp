@@ -15,6 +15,12 @@
 
 #include "../Include/xrRender/UIRender.h"
 
+//VodoXleb:export console execute callback
+#include "../../xrServerEntities/script_engine.h"
+#include "../../xrGame/ai_space.h"
+#include <luabind/functor.hpp>
+//end of VodoXleb
+
 //#include "securom_api.h"
 
 static float const UI_BASE_WIDTH = 1024.0f;
@@ -38,6 +44,10 @@ static u32 const tips_scroll_pos_color = color_rgba(70, 70, 70, 240);
 
 
 ENGINE_API CConsole* Console = NULL;
+
+//VodoXleb:export console execute callback
+extern ENGINE_API BOOL g_bootComplete;
+//--VodoXleb
 
 extern char const* const ioc_prompt;
 char const* const ioc_prompt = ">>> ";
@@ -584,6 +594,15 @@ void CConsole::ExecuteCommand(LPCSTR cmd_str, bool record_cmd)
 	xr_strcpy(edt, str_size + 1, cmd_str);
 	edt[str_size] = 0;
 
+	if (g_bootComplete)
+	{
+		::luabind::functor<bool> funct;
+		if (ai().script_engine().functor("_G.CConsole__BeforeExecuteCallback", funct))
+		{
+			if (funct(cmd_str))
+				return;
+		}
+	}
 	text_editor::remove_spaces(edt);
 	if (edt[0] == 0)
 	{

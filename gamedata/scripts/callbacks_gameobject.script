@@ -469,6 +469,15 @@ _G.CAI_Stalker__PathBuildFailCallback = function(npc)
 	return flags.ret_value
 end
 
+--Intercepts any console call (from scripts and handwritten alike)
+--setting ret_value to true will consume console command
+AddScriptCallback("on_before_console_execute")
+_G.CConsole__BeforeExecuteCallback = function(str)
+	local flags = {ret_value = false}
+	SendScriptCallback("on_before_console_execute",str,flags)
+	return flags.ret_value
+end
+
 -- Improve NPCs pathfinding by reducing actual anomaly damage radius
 -- Works only when npc:get_enable_anomalies_pathfinding() == true or ai_die_in_anomalies cvar is 1
 function is_outside_damage_radius(zone, obj)
