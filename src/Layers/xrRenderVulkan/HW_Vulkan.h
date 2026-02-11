@@ -31,6 +31,9 @@ public:
     // Capabilities (аналог Caps из DX11)
     VulkanCaps Caps;
 
+    // Bindless descriptor indexing support (Vulkan 1.2 core)
+    bool m_bBindlessSupported = false;
+
     // Window handle (аналог m_hWnd из DX11)
     HWND m_hWnd = nullptr;
 

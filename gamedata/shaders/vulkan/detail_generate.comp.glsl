@@ -473,7 +473,7 @@ void main()
     inst.row0 = vec4( cs * s, 0.0,    sn * s, worldPos.x);
     inst.row1 = vec4( 0.0,    s,      0.0,    worldPos.y);
     inst.row2 = vec4(-sn * s, 0.0,    cs * s, worldPos.z);
-    inst.color = vec4(c_dir, trailValue, c_dir, c_hemi);
+    inst.color = vec4(c_dir, trailValue, float(objId), c_hemi);
 
     visInst.instances[outIdx] = inst;
 }

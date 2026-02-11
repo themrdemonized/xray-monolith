@@ -1,5 +1,5 @@
 #version 450
-// xrRenderVulkan - Detail vertex shader (grass/debris)
+// xrRenderVulkan - Detail vertex shader (bindless multi-draw variant)
 // Copyright (c) 2024-2026 Egor Babushkin (https://github.com/babasha)
 // SPDX-License-Identifier: MIT
 
@@ -24,6 +24,7 @@ layout(location = 6) in vec4 aInstColor;   // (sun, trail, objId, hemi)
 layout(location = 0) out vec2 vUV;
 layout(location = 1) out vec4 vColor;
 layout(location = 2) out float vHeight;
+layout(location = 3) out flat float vTexIdx;
 
 // ============================================================================
 // Push constants
@@ -42,16 +43,13 @@ layout(push_constant) uniform DetailConstants
 // ============================================================================
 vec3 ApplyWind(vec3 pos, float height)
 {
-    // Wind only affects upper part (based on height parameter)
-    float wind_factor = height * height;  // Quadratic falloff
+    float wind_factor = height * height;
 
-    // Wave motion (2 frequencies for more natural look)
     float phase1 = pos.x * pc.vWave.x + pos.z * pc.vWave.y + pc.vWave.w * pc.vWave.z;
     float phase2 = pos.x * pc.vWave.y * 0.7 + pos.z * pc.vWave.x * 1.3 - pc.vWave.w * pc.vWave.z * 0.5;
 
     float wave = sin(phase1) * 0.6 + sin(phase2) * 0.4;
 
-    // Wind displacement
     vec3 wind_dir = normalize(vec3(pc.vWind.x, 0.0, pc.vWind.z));
     vec3 displacement = wind_dir * wave * pc.vWind.w * wind_factor;
 
@@ -63,12 +61,12 @@ vec3 ApplyWind(vec3 pos, float height)
 // ============================================================================
 vec3 ApplyInteraction(vec3 pos, float height)
 {
-    if (height < 0.01) return pos;  // Base vertices stay fixed
+    if (height < 0.01) return pos;
 
     for (int i = 0; i < 4; i++)
     {
         float radius = pc.vInteractors[i].w;
-        if (radius < 0.01) continue;  // Unused slot
+        if (radius < 0.01) continue;
 
         vec2 delta = pos.xz - pc.vInteractors[i].xz;
         float dist = length(delta);
@@ -76,13 +74,13 @@ vec3 ApplyInteraction(vec3 pos, float height)
         if (dist < radius && dist > 0.01)
         {
             float t = 1.0 - dist / radius;
-            float strength = t * t;  // Quadratic falloff — natural feel
+            float strength = t * t;
 
-            vec2 pushDir = delta / dist;  // Away from character
+            vec2 pushDir = delta / dist;
             float pushAmount = strength * height * 0.7;
 
             pos.xz += pushDir * pushAmount;
-            pos.y -= pushAmount * 0.25;  // Slight droop as grass bends
+            pos.y -= pushAmount * 0.25;
         }
     }
 
@@ -115,11 +113,8 @@ void main()
     float trail = aInstColor.g;
     if (trail > 0.01 && aHeight > 0.01)
     {
-        // Press grass down proportionally to trail intensity and vertex height
         float pressDown = trail * aHeight * 0.6;
         worldPos.y -= pressDown;
-
-        // Slight outward lean (makes pressed grass look more natural)
         worldPos.xz += normalize(aPos.xz + vec2(0.001)) * trail * aHeight * 0.1;
     }
 
@@ -129,21 +124,15 @@ void main()
     // Pass UV coordinates
     vUV = aUV;
 
+    // Pass texture index from instance data (objId stored in color.b)
+    vTexIdx = aInstColor.b;
+
     // Calculate lighting
-    // sun = directional, hemi = ambient
     float sun = aInstColor.r;
     float hemi = aInstColor.a;
-
-    // Combine lighting (hemi = ambient hemisphere, sun = direct sun)
-    // pc.vConsts.w = ambient weight (0.2), pc.vConsts.z = sun_dir.y
     float lighting = hemi + sun;
-
-    // Minimum ambient floor so grass is visible at night
     lighting = max(lighting, 0.15);
-
-    // Clamp to reasonable range
     lighting = clamp(lighting, 0.0, 2.0);
-
     vColor = vec4(lighting, lighting, lighting, 1.0);
 
     // Pass height for debugging/effects

@@ -11,6 +11,8 @@
 #include "vk_pipeline.h"      // g_PipelineManager
 #include "vk_swapchain.h"     // Swapchain
 #include "vk_material.h"      // g_MaterialManager
+#include "vk_descriptors.h"   // g_DescriptorManager
+#include "vk_lighting.h"      // g_VulkanLighting
 #include "../../xrEngine/IGame_Persistent.h"
 #include "../../xrEngine/IGame_Level.h"
 #include "../../xrEngine/Environment.h"
@@ -113,28 +115,10 @@ CDetailManager::CDetailManager()
     m_bCreated = false;
     Memory.mem_fill(&m_Constants, 0, sizeof(m_Constants));
 
-    // GPU-driven pipeline
-    m_AllInstancesSSBO = nullptr;
+    // GPU pipeline shared resources
     m_VisibleSSBO = nullptr;
     m_IndirectCmdBuf = nullptr;
     m_AtomicCounters = nullptr;
-    m_TotalGpuInstances = 0;
-    m_GpuDataDirty = false;
-    m_ComputeLayout = VK_NULL_HANDLE;
-    m_ComputeDescLayout = VK_NULL_HANDLE;
-    m_ComputeDescPool = VK_NULL_HANDLE;
-    m_ComputeDescSet = VK_NULL_HANDLE;
-    m_HZBImage = VK_NULL_HANDLE;
-    m_HZBMemory = VK_NULL_HANDLE;
-    m_HZBView = VK_NULL_HANDLE;
-    m_HZBSampler = VK_NULL_HANDLE;
-    m_HZBWidth = 0;
-    m_HZBHeight = 0;
-    m_HZBMipLevels = 0;
-    m_HZBBuildLayout = VK_NULL_HANDLE;
-    m_HZBBuildDescLayout = VK_NULL_HANDLE;
-    m_HZBBuildDescPool = VK_NULL_HANDLE;
-    m_bGpuDrivenEnabled = false; // Disable legacy GPU path (replaced by GPU generation)
 
     // GPU generation
     m_bGpuGenerationEnabled = true; // Enable new procedural GPU generation by default
@@ -156,6 +140,17 @@ CDetailManager::CDetailManager()
     m_GenDescLayout = VK_NULL_HANDLE;
     m_GenDescPool = VK_NULL_HANDLE;
     m_GenDescSet = VK_NULL_HANDLE;
+
+    // Bindless multi-draw
+    m_bMultiDrawEnabled = false;
+    m_MergedVB = nullptr;
+    m_MergedIB = nullptr;
+    Memory.mem_fill(m_ObjGeomInfo, 0, sizeof(m_ObjGeomInfo));
+    m_BindlessTexLayout = VK_NULL_HANDLE;
+    m_BindlessTexPool = VK_NULL_HANDLE;
+    m_BindlessTexSet = VK_NULL_HANDLE;
+    m_BindlessPipelineLayout = VK_NULL_HANDLE;
+    m_BindlessPipeline = VK_NULL_HANDLE;
 
     // Trail map
     m_TrailImage = VK_NULL_HANDLE;
@@ -231,15 +226,14 @@ void CDetailManager::Unload()
     dtSlots = nullptr;
 
     // Destroy Vulkan resources
+    DestroyBindlessPipeline();
+    DestroyBindlessDescriptors();
+    DestroyMergedGeometry();
     DestroyPipeline();
 
     // Destroy trail map and GPU generation resources
     DestroyTrailMap();
     DestroyGpuGenPipeline();
-
-    // Destroy GPU-driven resources (legacy)
-    DestroyHZB();
-    DestroyComputePipeline();
     DestroyGpuBuffers();
 
     m_bCreated = false;
@@ -429,16 +423,7 @@ void CDetailManager::UpdateWindAnimation()
 // ============================================================================
 void CDetailManager::CreateGpuBuffers()
 {
-    // Persistent SSBO: all instances (STORAGE + TRANSFER_DST for upload)
-    m_AllInstancesSSBO = xr_new<CVulkanBuffer>();
-    m_AllInstancesSSBO->Create(
-        GPU_MAX_INSTANCES * sizeof(GpuDetailInstanceExt),
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
-    );
-
     // Visible SSBO: compacted output (STORAGE for compute write + VERTEX_BUFFER for draw)
-    // Sized at GPU_OUTPUT_CAPACITY (4x input) so each of 32 types gets ~6250 slots
     m_VisibleSSBO = xr_new<CVulkanBuffer>();
     m_VisibleSSBO->Create(
         GPU_OUTPUT_CAPACITY * sizeof(DetailInstance),
@@ -462,12 +447,7 @@ void CDetailManager::CreateGpuBuffers()
         VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     );
 
-    m_StagingInstances.reserve(GPU_MAX_INSTANCES);
-    m_TotalGpuInstances = 0;
-    m_GpuDataDirty = false;
-
-    Msg("[Detail GPU] Buffers created: allSSBO=%.1fMB visSSBO=%.1fMB indirect=%.1fKB counters=%.1fKB sectionSize=%u",
-        (GPU_MAX_INSTANCES * sizeof(GpuDetailInstanceExt)) / (1024.f * 1024.f),
+    Msg("[Detail GPU] Buffers created: visSSBO=%.1fMB indirect=%.1fKB counters=%.1fKB sectionSize=%u",
         (GPU_OUTPUT_CAPACITY * sizeof(DetailInstance)) / (1024.f * 1024.f),
         (GPU_MAX_OBJ_TYPES * sizeof(VkDrawIndexedIndirectCommand)) / 1024.f,
         (GPU_MAX_OBJ_TYPES * 2 * sizeof(u32)) / 1024.f,
@@ -476,198 +456,13 @@ void CDetailManager::CreateGpuBuffers()
 
 void CDetailManager::DestroyGpuBuffers()
 {
-    if (m_AllInstancesSSBO) { m_AllInstancesSSBO->Destroy(); xr_delete(m_AllInstancesSSBO); }
     if (m_VisibleSSBO) { m_VisibleSSBO->Destroy(); xr_delete(m_VisibleSSBO); }
     if (m_IndirectCmdBuf) { m_IndirectCmdBuf->Destroy(); xr_delete(m_IndirectCmdBuf); }
     if (m_AtomicCounters) { m_AtomicCounters->Destroy(); xr_delete(m_AtomicCounters); }
-    m_StagingInstances.clear();
-    m_GpuFreeList.clear();
-    m_TotalGpuInstances = 0;
-    m_GpuDataDirty = false;
 }
 
 // ============================================================================
-// GPU-driven pipeline: Upload staging vector to persistent SSBO
-// ============================================================================
-void CDetailManager::UploadStagingToSSBO()
-{
-    if (!m_GpuDataDirty || !m_AllInstancesSSBO || m_StagingInstances.empty())
-        return;
-
-    u32 uploadSize = (u32)m_StagingInstances.size() * sizeof(GpuDetailInstanceExt);
-    if (uploadSize > m_AllInstancesSSBO->GetSize())
-    {
-        Msg("![Detail GPU] SSBO upload size %u exceeds buffer %llu", uploadSize, m_AllInstancesSSBO->GetSize());
-        return;
-    }
-
-    // SSBO is host-visible + persistently mapped (VMA creates storage buffers with MAPPED_BIT).
-    // Write directly to mapped pointer — avoids staging buffer alloc + GPU wait every frame.
-    void* mapped = m_AllInstancesSSBO->m_Mapped;
-    if (mapped)
-    {
-        memcpy(mapped, m_StagingInstances.data(), uploadSize);
-        m_AllInstancesSSBO->Flush();
-    }
-    else
-    {
-        // Fallback: buffer not mapped (shouldn't happen for storage buffers)
-        m_AllInstancesSSBO->Upload(m_StagingInstances.data(), uploadSize, 0);
-    }
-
-    m_TotalGpuInstances = (u32)m_StagingInstances.size();
-    m_GpuDataDirty = false;
-
-    static u32 s_upload_log = 0;
-    if (s_upload_log < 5 || (s_upload_log % 100 == 0))
-    {
-        Msg("[Detail GPU] Uploaded %u instances (%.1f KB) to SSBO (direct-mapped)",
-            m_TotalGpuInstances, uploadSize / 1024.f);
-    }
-    s_upload_log++;
-}
-
-// ============================================================================
-// GPU-driven pipeline: Compute pipeline creation
-// ============================================================================
-void CDetailManager::CreateComputePipeline()
-{
-    if (!g_ShaderManager)
-    {
-        Msg("![Detail GPU] Shader manager not initialized, skipping compute pipeline");
-        return;
-    }
-
-    // Load compute shaders
-    VkShaderModule cullShader = g_ShaderManager->Load("detail_cull.comp.spv");
-    VkShaderModule finalizeShader = g_ShaderManager->Load("detail_cull_finalize.comp.spv");
-
-    if (cullShader == VK_NULL_HANDLE || finalizeShader == VK_NULL_HANDLE)
-    {
-        Msg("![Detail GPU] Failed to load compute shaders, GPU path disabled");
-        m_bGpuDrivenEnabled = false;
-        return;
-    }
-
-    // ========================================================================
-    // Descriptor set layout: 5 bindings
-    // ========================================================================
-    VkDescriptorSetLayoutBinding bindings[5] = {};
-
-    // binding 0: AllInstances SSBO (readonly)
-    bindings[0].binding = 0;
-    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[0].descriptorCount = 1;
-    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    // binding 1: VisibleSSBO (writeonly)
-    bindings[1].binding = 1;
-    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[1].descriptorCount = 1;
-    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    // binding 2: AtomicCounters (read/write)
-    bindings[2].binding = 2;
-    bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[2].descriptorCount = 1;
-    bindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    // binding 3: IndirectCmdBuf (writeonly)
-    bindings[3].binding = 3;
-    bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bindings[3].descriptorCount = 1;
-    bindings[3].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    // binding 4: HZB texture (sampled, optional — nullptr initially)
-    bindings[4].binding = 4;
-    bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    bindings[4].descriptorCount = 1;
-    bindings[4].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 5;
-    layoutInfo.pBindings = bindings;
-
-    VK_CHECK(vkCreateDescriptorSetLayout(VulkanHW.m_Device, &layoutInfo, nullptr, &m_ComputeDescLayout));
-
-    // ========================================================================
-    // Push constant range: DetailCullConstants (192 bytes) + DetailCullCounts (16 bytes)
-    // ========================================================================
-    VkPushConstantRange pushRange = {};
-    pushRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    pushRange.offset = 0;
-    pushRange.size = sizeof(DetailCullConstants) + sizeof(DetailCullCounts);
-
-    VkPipelineLayoutCreateInfo pipeLayoutInfo = {};
-    pipeLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeLayoutInfo.setLayoutCount = 1;
-    pipeLayoutInfo.pSetLayouts = &m_ComputeDescLayout;
-    pipeLayoutInfo.pushConstantRangeCount = 1;
-    pipeLayoutInfo.pPushConstantRanges = &pushRange;
-
-    VK_CHECK(vkCreatePipelineLayout(VulkanHW.m_Device, &pipeLayoutInfo, nullptr, &m_ComputeLayout));
-
-    // ========================================================================
-    // Descriptor pool (own pool, not global)
-    // ========================================================================
-    VkDescriptorPoolSize poolSizes[2] = {};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[0].descriptorCount = 4;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = 1;
-
-    VkDescriptorPoolCreateInfo poolInfo = {};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets = 1;
-    poolInfo.poolSizeCount = 2;
-    poolInfo.pPoolSizes = poolSizes;
-
-    VK_CHECK(vkCreateDescriptorPool(VulkanHW.m_Device, &poolInfo, nullptr, &m_ComputeDescPool));
-
-    // Allocate descriptor set
-    VkDescriptorSetAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = m_ComputeDescPool;
-    allocInfo.descriptorSetCount = 1;
-    allocInfo.pSetLayouts = &m_ComputeDescLayout;
-
-    VK_CHECK(vkAllocateDescriptorSets(VulkanHW.m_Device, &allocInfo, &m_ComputeDescSet));
-
-    // ========================================================================
-    // Create compute pipelines
-    // ========================================================================
-    m_CullPipeline.Create(cullShader, m_ComputeLayout);
-    m_FinalizePipeline.Create(finalizeShader, m_ComputeLayout);
-
-    Msg("[Detail GPU] Compute pipelines created successfully");
-}
-
-void CDetailManager::DestroyComputePipeline()
-{
-    m_CullPipeline.Destroy();
-    m_FinalizePipeline.Destroy();
-
-    if (m_ComputeDescPool != VK_NULL_HANDLE)
-    {
-        vkDestroyDescriptorPool(VulkanHW.m_Device, m_ComputeDescPool, nullptr);
-        m_ComputeDescPool = VK_NULL_HANDLE;
-        m_ComputeDescSet = VK_NULL_HANDLE;
-    }
-    if (m_ComputeLayout != VK_NULL_HANDLE)
-    {
-        vkDestroyPipelineLayout(VulkanHW.m_Device, m_ComputeLayout, nullptr);
-        m_ComputeLayout = VK_NULL_HANDLE;
-    }
-    if (m_ComputeDescLayout != VK_NULL_HANDLE)
-    {
-        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_ComputeDescLayout, nullptr);
-        m_ComputeDescLayout = VK_NULL_HANDLE;
-    }
-}
-
-// ============================================================================
-// GPU-driven pipeline: Frustum plane extraction from view-projection matrix
+// Frustum plane extraction from view-projection matrix
 // ============================================================================
 void CDetailManager::ExtractFrustumPlanes(const Fmatrix& m, Fvector4 planes[6])
 {
@@ -696,363 +491,6 @@ void CDetailManager::ExtractFrustumPlanes(const Fmatrix& m, Fvector4 planes[6])
             planes[i].z *= inv;
             planes[i].w *= inv;
         }
-    }
-}
-
-// ============================================================================
-// GPU-driven pipeline: HZB creation
-// ============================================================================
-void CDetailManager::CreateHZB()
-{
-    if (!g_ShaderManager)
-    {
-        Msg("![Detail GPU] Shader manager not ready, skipping HZB creation");
-        m_HZBImage = VK_NULL_HANDLE;
-        return;
-    }
-
-    // HZB is half the depth buffer resolution
-    m_HZBWidth = Swapchain.GetWidth() / 2;
-    m_HZBHeight = Swapchain.GetHeight() / 2;
-    if (m_HZBWidth == 0 || m_HZBHeight == 0)
-    {
-        Msg("![Detail GPU] Invalid swapchain size for HZB");
-        m_HZBImage = VK_NULL_HANDLE;
-        return;
-    }
-
-    // Calculate mip levels
-    m_HZBMipLevels = 1;
-    {
-        u32 w = m_HZBWidth, h = m_HZBHeight;
-        while (w > 1 || h > 1)
-        {
-            w = _max(w / 2, 1u);
-            h = _max(h / 2, 1u);
-            m_HZBMipLevels++;
-        }
-    }
-    m_HZBMipLevels = _min(m_HZBMipLevels, 12u); // Cap at 12 mips
-
-    // Create HZB image (R32_SFLOAT, STORAGE | SAMPLED)
-    VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = VK_FORMAT_R32_SFLOAT;
-    imageInfo.extent = { m_HZBWidth, m_HZBHeight, 1 };
-    imageInfo.mipLevels = m_HZBMipLevels;
-    imageInfo.arrayLayers = 1;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-
-    VmaAllocation hzbAlloc;
-    VkResult res = vmaCreateImage(VulkanHW.m_Allocator, &imageInfo, &allocInfo,
-        &m_HZBImage, &hzbAlloc, nullptr);
-    if (res != VK_SUCCESS)
-    {
-        Msg("![Detail GPU] Failed to create HZB image: %d", res);
-        m_HZBImage = VK_NULL_HANDLE;
-        return;
-    }
-    // We store the allocation handle in m_HZBMemory cast... but VmaAllocation is not VkDeviceMemory.
-    // For proper cleanup we need to track the VmaAllocation. Store it as m_HZBMemory reinterpreted.
-    // This is a simplification — in production code, store VmaAllocation separately.
-    m_HZBMemory = (VkDeviceMemory)hzbAlloc;
-
-    // Create full mip chain view
-    VkImageViewCreateInfo viewInfo = {};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = m_HZBImage;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R32_SFLOAT;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = m_HZBMipLevels;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    VK_CHECK(vkCreateImageView(VulkanHW.m_Device, &viewInfo, nullptr, &m_HZBView));
-
-    // Create per-mip views for storage image writes
-    m_HZBMipViews.resize(m_HZBMipLevels);
-    for (u32 mip = 0; mip < m_HZBMipLevels; mip++)
-    {
-        VkImageViewCreateInfo mipViewInfo = viewInfo;
-        mipViewInfo.subresourceRange.baseMipLevel = mip;
-        mipViewInfo.subresourceRange.levelCount = 1;
-        VK_CHECK(vkCreateImageView(VulkanHW.m_Device, &mipViewInfo, nullptr, &m_HZBMipViews[mip]));
-    }
-
-    // Create sampler (nearest, clamp)
-    VkSamplerCreateInfo samplerInfo = {};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_NEAREST;
-    samplerInfo.minFilter = VK_FILTER_NEAREST;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.maxLod = (float)m_HZBMipLevels;
-
-    VK_CHECK(vkCreateSampler(VulkanHW.m_Device, &samplerInfo, nullptr, &m_HZBSampler));
-
-    // ========================================================================
-    // Create HZB build compute pipeline
-    // ========================================================================
-    VkShaderModule hzbShader = g_ShaderManager->Load("hzb_build.comp.spv");
-    if (hzbShader == VK_NULL_HANDLE)
-    {
-        Msg("![Detail GPU] Failed to load hzb_build.comp.spv, HZB occlusion disabled");
-        // HZB image exists but won't be built — cull shader will get dummy values
-        return;
-    }
-
-    // Descriptor set layout: 2 bindings (src sampler + dst storage image)
-    VkDescriptorSetLayoutBinding hzbBindings[2] = {};
-    hzbBindings[0].binding = 0;
-    hzbBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    hzbBindings[0].descriptorCount = 1;
-    hzbBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    hzbBindings[1].binding = 1;
-    hzbBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    hzbBindings[1].descriptorCount = 1;
-    hzbBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    VkDescriptorSetLayoutCreateInfo hzbLayoutInfo = {};
-    hzbLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    hzbLayoutInfo.bindingCount = 2;
-    hzbLayoutInfo.pBindings = hzbBindings;
-    VK_CHECK(vkCreateDescriptorSetLayout(VulkanHW.m_Device, &hzbLayoutInfo, nullptr, &m_HZBBuildDescLayout));
-
-    // Push constants for HZB build (32 bytes)
-    VkPushConstantRange hzbPush = {};
-    hzbPush.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    hzbPush.offset = 0;
-    hzbPush.size = 32; // ivec2 srcSize, ivec2 dstSize, uint srcMip, uint dstMip, uint isFirstPass, uint _pad
-
-    VkPipelineLayoutCreateInfo hzbPipeLayout = {};
-    hzbPipeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    hzbPipeLayout.setLayoutCount = 1;
-    hzbPipeLayout.pSetLayouts = &m_HZBBuildDescLayout;
-    hzbPipeLayout.pushConstantRangeCount = 1;
-    hzbPipeLayout.pPushConstantRanges = &hzbPush;
-    VK_CHECK(vkCreatePipelineLayout(VulkanHW.m_Device, &hzbPipeLayout, nullptr, &m_HZBBuildLayout));
-
-    // Descriptor pool for HZB build (need multiple sets for multiple mip passes)
-    VkDescriptorPoolSize hzbPoolSizes[2] = {};
-    hzbPoolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    hzbPoolSizes[0].descriptorCount = m_HZBMipLevels;
-    hzbPoolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    hzbPoolSizes[1].descriptorCount = m_HZBMipLevels;
-
-    VkDescriptorPoolCreateInfo hzbPoolInfo = {};
-    hzbPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    hzbPoolInfo.maxSets = m_HZBMipLevels;
-    hzbPoolInfo.poolSizeCount = 2;
-    hzbPoolInfo.pPoolSizes = hzbPoolSizes;
-    VK_CHECK(vkCreateDescriptorPool(VulkanHW.m_Device, &hzbPoolInfo, nullptr, &m_HZBBuildDescPool));
-
-    // Create pipeline
-    m_HZBBuildPipeline.Create(hzbShader, m_HZBBuildLayout);
-
-    Msg("[Detail GPU] HZB created: %ux%u, %u mips, %.1f KB",
-        m_HZBWidth, m_HZBHeight, m_HZBMipLevels,
-        (m_HZBWidth * m_HZBHeight * 4 * 4 / 3) / 1024.f);
-}
-
-void CDetailManager::DestroyHZB()
-{
-    for (auto& view : m_HZBMipViews)
-    {
-        if (view != VK_NULL_HANDLE)
-            vkDestroyImageView(VulkanHW.m_Device, view, nullptr);
-    }
-    m_HZBMipViews.clear();
-
-    if (m_HZBView != VK_NULL_HANDLE)
-    {
-        vkDestroyImageView(VulkanHW.m_Device, m_HZBView, nullptr);
-        m_HZBView = VK_NULL_HANDLE;
-    }
-    if (m_HZBSampler != VK_NULL_HANDLE)
-    {
-        vkDestroySampler(VulkanHW.m_Device, m_HZBSampler, nullptr);
-        m_HZBSampler = VK_NULL_HANDLE;
-    }
-    if (m_HZBImage != VK_NULL_HANDLE && m_HZBMemory != VK_NULL_HANDLE)
-    {
-        // m_HZBMemory is actually a VmaAllocation cast to VkDeviceMemory
-        vmaDestroyImage(VulkanHW.m_Allocator, m_HZBImage, (VmaAllocation)m_HZBMemory);
-        m_HZBImage = VK_NULL_HANDLE;
-        m_HZBMemory = VK_NULL_HANDLE;
-    }
-    else
-    {
-        if (m_HZBImage != VK_NULL_HANDLE)
-        {
-            vkDestroyImage(VulkanHW.m_Device, m_HZBImage, nullptr);
-            m_HZBImage = VK_NULL_HANDLE;
-        }
-        m_HZBMemory = VK_NULL_HANDLE;
-    }
-
-    m_HZBBuildPipeline.Destroy();
-    if (m_HZBBuildLayout != VK_NULL_HANDLE)
-    {
-        vkDestroyPipelineLayout(VulkanHW.m_Device, m_HZBBuildLayout, nullptr);
-        m_HZBBuildLayout = VK_NULL_HANDLE;
-    }
-    if (m_HZBBuildDescLayout != VK_NULL_HANDLE)
-    {
-        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_HZBBuildDescLayout, nullptr);
-        m_HZBBuildDescLayout = VK_NULL_HANDLE;
-    }
-    if (m_HZBBuildDescPool != VK_NULL_HANDLE)
-    {
-        vkDestroyDescriptorPool(VulkanHW.m_Device, m_HZBBuildDescPool, nullptr);
-        m_HZBBuildDescPool = VK_NULL_HANDLE;
-    }
-}
-
-void CDetailManager::BuildHZB(VkCommandBuffer cmd)
-{
-    if (m_HZBImage == VK_NULL_HANDLE || !m_HZBBuildPipeline.IsValid())
-        return;
-    if (m_HZBMipViews.empty() || m_HZBMipLevels == 0)
-        return;
-    if (m_HZBBuildDescPool == VK_NULL_HANDLE)
-        return;
-
-    // Reset descriptor pool — we allocate per-mip sets each frame, pool has maxSets = m_HZBMipLevels
-    vkResetDescriptorPool(VulkanHW.m_Device, m_HZBBuildDescPool, 0);
-
-    // Transition entire HZB image to GENERAL layout for compute storage writes
-    {
-        VkImageMemoryBarrier bar = {};
-        bar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        bar.srcAccessMask = 0;
-        bar.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        bar.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        bar.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-        bar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        bar.image = m_HZBImage;
-        bar.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, m_HZBMipLevels, 0, 1 };
-
-        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &bar);
-    }
-
-    m_HZBBuildPipeline.Bind(cmd);
-
-    // Build each mip level
-    u32 srcW = Swapchain.GetWidth();
-    u32 srcH = Swapchain.GetHeight();
-
-    for (u32 mip = 0; mip < m_HZBMipLevels; mip++)
-    {
-        u32 dstW = _max(m_HZBWidth >> mip, 1u);
-        u32 dstH = _max(m_HZBHeight >> mip, 1u);
-
-        // Allocate descriptor set for this pass
-        VkDescriptorSet passSet;
-        VkDescriptorSetAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = m_HZBBuildDescPool;
-        allocInfo.descriptorSetCount = 1;
-        allocInfo.pSetLayouts = &m_HZBBuildDescLayout;
-        if (vkAllocateDescriptorSets(VulkanHW.m_Device, &allocInfo, &passSet) != VK_SUCCESS)
-            break;
-
-        // Source: depth buffer for mip 0, previous HZB mip for mip > 0
-        VkDescriptorImageInfo srcInfo = {};
-        if (mip == 0)
-        {
-            // Use depth buffer as source
-            srcInfo.imageView = Swapchain.m_DepthView;
-            srcInfo.sampler = m_HZBSampler;
-            srcInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-        }
-        else
-        {
-            // Use previous HZB mip as source
-            srcInfo.imageView = m_HZBMipViews[mip - 1];
-            srcInfo.sampler = m_HZBSampler;
-            srcInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        }
-
-        // Destination: current HZB mip
-        VkDescriptorImageInfo dstInfo = {};
-        dstInfo.imageView = m_HZBMipViews[mip];
-        dstInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-        VkWriteDescriptorSet writes[2] = {};
-        writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[0].dstSet = passSet;
-        writes[0].dstBinding = 0;
-        writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        writes[0].descriptorCount = 1;
-        writes[0].pImageInfo = &srcInfo;
-
-        writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writes[1].dstSet = passSet;
-        writes[1].dstBinding = 1;
-        writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        writes[1].descriptorCount = 1;
-        writes[1].pImageInfo = &dstInfo;
-
-        vkUpdateDescriptorSets(VulkanHW.m_Device, 2, writes, 0, nullptr);
-
-        // Push constants
-        struct {
-            int srcSizeX, srcSizeY;
-            int dstSizeX, dstSizeY;
-            u32 srcMip, dstMip, isFirstPass, _pad;
-        } hzbPush;
-        hzbPush.srcSizeX = (int)srcW;
-        hzbPush.srcSizeY = (int)srcH;
-        hzbPush.dstSizeX = (int)dstW;
-        hzbPush.dstSizeY = (int)dstH;
-        hzbPush.srcMip = (mip == 0) ? 0 : mip - 1;
-        hzbPush.dstMip = mip;
-        hzbPush.isFirstPass = (mip == 0) ? 1 : 0;
-        hzbPush._pad = 0;
-
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, m_HZBBuildLayout,
-            0, 1, &passSet, 0, nullptr);
-        vkCmdPushConstants(cmd, m_HZBBuildLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(hzbPush), &hzbPush);
-
-        u32 groupsX = (dstW + 7) / 8;
-        u32 groupsY = (dstH + 7) / 8;
-        vkCmdDispatch(cmd, groupsX, groupsY, 1);
-
-        // Barrier between mip levels: compute write -> compute read
-        {
-            VkImageMemoryBarrier mipBar = {};
-            mipBar.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            mipBar.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-            mipBar.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            mipBar.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-            mipBar.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-            mipBar.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            mipBar.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            mipBar.image = m_HZBImage;
-            mipBar.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, mip, 1, 0, 1 };
-
-            vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &mipBar);
-        }
-
-        // Update source dimensions for next mip
-        srcW = dstW;
-        srcH = dstH;
     }
 }
 
@@ -1751,6 +1189,372 @@ void CDetailManager::CreateTrailMap()
     u32 trailSizeKB = m_HeightmapW * m_HeightmapH * 2 / 1024;
     Msg("[Detail Trail] Trail map created: %ux%u R16F (%uKB), compute pipeline ready",
         m_HeightmapW, m_HeightmapH, trailSizeKB);
+}
+
+// ============================================================================
+// Merged VB/IB: Concatenate all object geometries into single buffers
+// ============================================================================
+void CDetailManager::CreateMergedGeometry()
+{
+    if (objects.empty()) return;
+
+    u32 numObj = (u32)objects.size();
+    u32 totalVertices = 0;
+    u32 totalIndices = 0;
+
+    // Pass 1: compute per-type offsets
+    for (u32 i = 0; i < numObj && i < GPU_MAX_OBJ_TYPES; i++)
+    {
+        VK::CDetail* obj = objects[i];
+        m_ObjGeomInfo[i].vertexOffset = (s32)totalVertices;
+        m_ObjGeomInfo[i].firstIndex = totalIndices;
+        m_ObjGeomInfo[i].indexCount = obj ? obj->m_IndexCount : 0;
+        totalVertices += obj ? obj->m_VertexCount : 0;
+        totalIndices += obj ? obj->m_IndexCount : 0;
+    }
+
+    if (totalVertices == 0 || totalIndices == 0)
+    {
+        Msg("![Detail Bindless] No geometry to merge");
+        return;
+    }
+
+    u32 vbSize = totalVertices * sizeof(VK::CDetail::Vertex); // 24 bytes per vertex
+    u32 ibSize = totalIndices * sizeof(u16);
+
+    // Create merged buffers
+    m_MergedVB = xr_new<CVulkanBuffer>();
+    m_MergedVB->Create(vbSize,
+        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+
+    m_MergedIB = xr_new<CVulkanBuffer>();
+    m_MergedIB->Create(ibSize,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE);
+
+    // Copy from per-object buffers into merged buffers
+    VkCommandBuffer cmd = VulkanHW.BeginSingleTimeCommands();
+    if (cmd != VK_NULL_HANDLE)
+    {
+        for (u32 i = 0; i < numObj && i < GPU_MAX_OBJ_TYPES; i++)
+        {
+            VK::CDetail* obj = objects[i];
+            if (!obj || !obj->m_VertexBuffer || !obj->m_IndexBuffer)
+                continue;
+
+            // Copy VB
+            VkBufferCopy vbCopy = {};
+            vbCopy.srcOffset = 0;
+            vbCopy.dstOffset = (VkDeviceSize)m_ObjGeomInfo[i].vertexOffset * sizeof(VK::CDetail::Vertex);
+            vbCopy.size = (VkDeviceSize)obj->m_VertexCount * sizeof(VK::CDetail::Vertex);
+            vkCmdCopyBuffer(cmd, obj->m_VertexBuffer->GetHandle(), m_MergedVB->GetHandle(), 1, &vbCopy);
+
+            // Copy IB
+            VkBufferCopy ibCopy = {};
+            ibCopy.srcOffset = 0;
+            ibCopy.dstOffset = (VkDeviceSize)m_ObjGeomInfo[i].firstIndex * sizeof(u16);
+            ibCopy.size = (VkDeviceSize)obj->m_IndexCount * sizeof(u16);
+            vkCmdCopyBuffer(cmd, obj->m_IndexBuffer->GetHandle(), m_MergedIB->GetHandle(), 1, &ibCopy);
+        }
+        VulkanHW.EndSingleTimeCommands(cmd);
+    }
+
+    Msg("[Detail Bindless] Merged geometry: %u verts (%.1f KB), %u indices (%.1f KB), %u types",
+        totalVertices, vbSize / 1024.f, totalIndices, ibSize / 1024.f, numObj);
+}
+
+void CDetailManager::DestroyMergedGeometry()
+{
+    if (m_MergedVB) { m_MergedVB->Destroy(); xr_delete(m_MergedVB); }
+    if (m_MergedIB) { m_MergedIB->Destroy(); xr_delete(m_MergedIB); }
+}
+
+// ============================================================================
+// Bindless texture descriptor set: sampler2D array for all object textures
+// ============================================================================
+void CDetailManager::CreateBindlessDescriptors()
+{
+    if (objects.empty() || !g_MaterialManager) return;
+
+    u32 numObj = _min((u32)objects.size(), (u32)GPU_MAX_OBJ_TYPES);
+
+    // Layout: binding 0 = sampler2D[GPU_MAX_OBJ_TYPES], PARTIALLY_BOUND
+    VkDescriptorSetLayoutBinding binding = {};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    binding.descriptorCount = GPU_MAX_OBJ_TYPES;
+    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
+    VkDescriptorSetLayoutBindingFlagsCreateInfo flagsInfo = {};
+    flagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    flagsInfo.bindingCount = 1;
+    flagsInfo.pBindingFlags = &bindingFlags;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.pNext = &flagsInfo;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &binding;
+    VK_CHECK(vkCreateDescriptorSetLayout(VulkanHW.m_Device, &layoutInfo, nullptr, &m_BindlessTexLayout));
+
+    // Pool: 1 set, GPU_MAX_OBJ_TYPES samplers
+    VkDescriptorPoolSize poolSize = {};
+    poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = GPU_MAX_OBJ_TYPES;
+
+    VkDescriptorPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = 1;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    VK_CHECK(vkCreateDescriptorPool(VulkanHW.m_Device, &poolInfo, nullptr, &m_BindlessTexPool));
+
+    // Allocate descriptor set
+    VkDescriptorSetAllocateInfo dsAlloc = {};
+    dsAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    dsAlloc.descriptorPool = m_BindlessTexPool;
+    dsAlloc.descriptorSetCount = 1;
+    dsAlloc.pSetLayouts = &m_BindlessTexLayout;
+    VK_CHECK(vkAllocateDescriptorSets(VulkanHW.m_Device, &dsAlloc, &m_BindlessTexSet));
+
+    // Write all object textures into array
+    CVulkanTexture* white = g_MaterialManager->GetWhiteTexture();
+    xr_vector<VkDescriptorImageInfo> imageInfos(numObj);
+    xr_vector<VkWriteDescriptorSet> writes(numObj);
+
+    for (u32 i = 0; i < numObj; i++)
+    {
+        CVulkanTexture* tex = (objects[i] && objects[i]->m_VkTexture) ? objects[i]->m_VkTexture : white;
+
+        imageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfos[i].imageView = tex->GetView();
+        imageInfos[i].sampler = tex->GetSampler();
+
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].pNext = nullptr;
+        writes[i].dstSet = m_BindlessTexSet;
+        writes[i].dstBinding = 0;
+        writes[i].dstArrayElement = i;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[i].descriptorCount = 1;
+        writes[i].pImageInfo = &imageInfos[i];
+        writes[i].pBufferInfo = nullptr;
+        writes[i].pTexelBufferView = nullptr;
+    }
+
+    vkUpdateDescriptorSets(VulkanHW.m_Device, numObj, writes.data(), 0, nullptr);
+
+    Msg("[Detail Bindless] Texture array descriptor created: %u textures", numObj);
+}
+
+void CDetailManager::DestroyBindlessDescriptors()
+{
+    if (m_BindlessTexPool != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorPool(VulkanHW.m_Device, m_BindlessTexPool, nullptr);
+        m_BindlessTexPool = VK_NULL_HANDLE;
+        m_BindlessTexSet = VK_NULL_HANDLE;
+    }
+    if (m_BindlessTexLayout != VK_NULL_HANDLE)
+    {
+        vkDestroyDescriptorSetLayout(VulkanHW.m_Device, m_BindlessTexLayout, nullptr);
+        m_BindlessTexLayout = VK_NULL_HANDLE;
+    }
+}
+
+// ============================================================================
+// Bindless pipeline: custom layout with texture array at set 1
+// ============================================================================
+void CDetailManager::CreateBindlessPipeline()
+{
+    if (!g_ShaderManager || !VK::g_PipelineManager || !g_DescriptorManager)
+    {
+        Msg("![Detail Bindless] Managers not initialized");
+        return;
+    }
+    if (!VK::g_VulkanLighting)
+    {
+        Msg("![Detail Bindless] Lighting not initialized");
+        return;
+    }
+
+    // Load bindless shaders
+    VkShaderModule vertShader = g_ShaderManager->Load("detail_vs_bindless.spv");
+    VkShaderModule fragShader = g_ShaderManager->Load("detail_fs_bindless.spv");
+    if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE)
+    {
+        Msg("![Detail Bindless] Failed to load bindless shaders, multi-draw disabled");
+        return;
+    }
+
+    // Create pipeline layout: same as shared layout, but set 1 = bindless texture array
+    VkDescriptorSetLayout layouts[5] = {
+        VK::g_VulkanLighting->GetGlobalLightingLayout(),      // Set 0
+        m_BindlessTexLayout,                                   // Set 1 (texture array)
+        g_DescriptorManager->GetPerObjectLayout(),             // Set 2
+        g_DescriptorManager->GetLightingLayout(),              // Set 3
+        VK::g_VulkanLighting->GetMaterialConstantsLayout()     // Set 4
+    };
+
+    VkPushConstantRange pushRange = {};
+    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushRange.offset = 0;
+    pushRange.size = 256;
+
+    VkPipelineLayoutCreateInfo pipeLayoutInfo = {};
+    pipeLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeLayoutInfo.setLayoutCount = 5;
+    pipeLayoutInfo.pSetLayouts = layouts;
+    pipeLayoutInfo.pushConstantRangeCount = 1;
+    pipeLayoutInfo.pPushConstantRanges = &pushRange;
+    VK_CHECK(vkCreatePipelineLayout(VulkanHW.m_Device, &pipeLayoutInfo, nullptr, &m_BindlessPipelineLayout));
+
+    // Create graphics pipeline (same config as m_Pipeline, different layout + shaders)
+    // --- Shader stages ---
+    VkPipelineShaderStageCreateInfo shaderStages[2] = {};
+    shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shaderStages[0].module = vertShader;
+    shaderStages[0].pName = "main";
+    shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shaderStages[1].module = fragShader;
+    shaderStages[1].pName = "main";
+
+    // --- Vertex input (same as CreatePipeline) ---
+    VkVertexInputBindingDescription bindings[2] = {};
+    bindings[0].binding = 0;
+    bindings[0].stride = 24;
+    bindings[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    bindings[1].binding = 1;
+    bindings[1].stride = sizeof(VK::DetailInstance);
+    bindings[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+    VkVertexInputAttributeDescription attrs[7] = {};
+    // loc 0: vec3 aPos
+    attrs[0] = { 0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0 };
+    // loc 1: vec2 aUV
+    attrs[1] = { 1, 0, VK_FORMAT_R32G32_SFLOAT, 12 };
+    // loc 2: float aHeight
+    attrs[2] = { 2, 0, VK_FORMAT_R32_SFLOAT, 20 };
+    // loc 3-6: instance data
+    attrs[3] = { 3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 0 };
+    attrs[4] = { 4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 16 };
+    attrs[5] = { 5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 32 };
+    attrs[6] = { 6, 1, VK_FORMAT_R32G32B32A32_SFLOAT, 48 };
+
+    VkPipelineVertexInputStateCreateInfo vertexInput = {};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInput.vertexBindingDescriptionCount = 2;
+    vertexInput.pVertexBindingDescriptions = bindings;
+    vertexInput.vertexAttributeDescriptionCount = 7;
+    vertexInput.pVertexAttributeDescriptions = attrs;
+
+    // --- Input assembly ---
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    // --- Viewport/scissor (dynamic) ---
+    VkPipelineViewportStateCreateInfo viewportState = {};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+
+    // --- Rasterization ---
+    VkPipelineRasterizationStateCreateInfo rasterizer = {};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_TRUE;
+    rasterizer.depthBiasConstantFactor = -2.0f;
+    rasterizer.depthBiasSlopeFactor = -1.0f;
+
+    // --- Multisampling ---
+    VkPipelineMultisampleStateCreateInfo multisampling = {};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    // --- Depth/stencil ---
+    VkPipelineDepthStencilStateCreateInfo depthStencil = {};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+
+    // --- Color blend ---
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = {};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    // --- Dynamic state ---
+    VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkPipelineDynamicStateCreateInfo dynamicState = {};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = 2;
+    dynamicState.pDynamicStates = dynamicStates;
+
+    // --- Dynamic rendering ---
+    VkFormat colorFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    VkPipelineRenderingCreateInfo renderingInfo = {};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+    renderingInfo.depthAttachmentFormat = Swapchain.m_DepthFormat;
+
+    // --- Create pipeline ---
+    VkGraphicsPipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = &renderingInfo;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInput;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = m_BindlessPipelineLayout;
+    pipelineInfo.renderPass = VK_NULL_HANDLE;
+
+    VkResult res = vkCreateGraphicsPipelines(VulkanHW.m_Device, VK_NULL_HANDLE,
+        1, &pipelineInfo, nullptr, &m_BindlessPipeline);
+    if (res != VK_SUCCESS)
+    {
+        Msg("![Detail Bindless] Failed to create bindless pipeline: %d", res);
+        m_BindlessPipeline = VK_NULL_HANDLE;
+        return;
+    }
+
+    m_bMultiDrawEnabled = true;
+    Msg("[Detail Bindless] Pipeline created - multi-draw indirect ENABLED");
+}
+
+void CDetailManager::DestroyBindlessPipeline()
+{
+    if (m_BindlessPipeline != VK_NULL_HANDLE)
+    {
+        vkDestroyPipeline(VulkanHW.m_Device, m_BindlessPipeline, nullptr);
+        m_BindlessPipeline = VK_NULL_HANDLE;
+    }
+    if (m_BindlessPipelineLayout != VK_NULL_HANDLE)
+    {
+        vkDestroyPipelineLayout(VulkanHW.m_Device, m_BindlessPipelineLayout, nullptr);
+        m_BindlessPipelineLayout = VK_NULL_HANDLE;
+    }
+    m_bMultiDrawEnabled = false;
 }
 
 void CDetailManager::DestroyTrailMap()

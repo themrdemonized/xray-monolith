@@ -65,42 +65,6 @@ struct DetailInstance
 };
 
 // ============================================================================
-// GPU-driven pipeline: Extended instance data for persistent SSBO
-// ============================================================================
-struct GpuDetailInstanceExt
-{
-    Fvector4 row0;          // (m11*s, m12*s, m13*s, tx)
-    Fvector4 row1;          // (m21*s, m22*s, m23*s, ty)
-    Fvector4 row2;          // (m31*s, m32*s, m33*s, tz)
-    Fvector4 color;         // (sun, sun, sun, hemi)
-    u32      obj_id;        // Detail object type [0..63], 0xFFFFFFFF=dead
-    float    base_scale;    // Original scale before fade
-    float    bv_radius;     // Bounding sphere radius of object type
-    u32      _pad;          // Alignment to 80 bytes
-    // Total: 80 bytes per instance
-};
-
-// GPU-driven pipeline: Push constants for compute cull shader
-struct DetailCullConstants
-{
-    Fmatrix  viewProj;          // 64 bytes
-    Fvector4 frustumPlanes[6];  // 96 bytes
-    Fvector4 cameraPos;         // 16 bytes (xyz=pos, w=unused)
-    Fvector4 fadeParams;        // 16 bytes (fadeStartSq, fadeLimitSq, fadeRangeSq, time)
-    // uvec4 counts passed separately since Vulkan push constant limit is 128-256 bytes
-    // We split: 192 bytes in push constants, counts in a small UBO or separate push range
-};
-
-// GPU-driven pipeline: Per-dispatch params (small enough for second push constant range)
-struct DetailCullCounts
-{
-    u32 totalInstances;
-    u32 numObjTypes;
-    u32 _pad0;
-    u32 _pad1;
-};
-
-// ============================================================================
 // GPU grass generation: push constants (208 bytes)
 // ============================================================================
 struct DetailGenPushConstants
@@ -192,7 +156,6 @@ public:
         Fvector     normal;
         float       alpha;          // Current alpha
         float       alpha_target;   // Target alpha (for fade)
-        u32         gpu_instance_id; // Index into persistent GPU SSBO (0xFFFFFFFF=invalid)
     };
 
     DEFINE_VECTOR(SlotItem*, SlotItemVec, SlotItemVecIt);
@@ -340,52 +303,15 @@ private:
     DetailConstants m_Constants;
 
     // ========================================================================
-    // GPU-driven pipeline resources
+    // GPU pipeline shared resources
     // ========================================================================
-    // Persistent SSBO: all decompressed instances (uploaded once, updated on slot changes)
-    CVulkanBuffer*              m_AllInstancesSSBO;     // 50K × 80 bytes = 4.0 MB
-    // Compacted visible instances (output of compute cull) — used as VB binding 1
-    CVulkanBuffer*              m_VisibleSSBO;          // 50K × 64 bytes = 3.2 MB
+    // Compacted visible instances (output of compute gen) — used as VB binding 1
+    CVulkanBuffer*              m_VisibleSSBO;          // GPU_OUTPUT_CAPACITY × 64 bytes
     // Indirect draw commands (one per object type)
     CVulkanBuffer*              m_IndirectCmdBuf;       // 64 × 20 bytes = 1.3 KB
     // Atomic counters for stream compaction (one per object type + base offsets)
     CVulkanBuffer*              m_AtomicCounters;       // 128 × 4 bytes = 512 B
 
-    // CPU-side staging for SSBO upload
-    xr_vector<GpuDetailInstanceExt> m_StagingInstances;
-    xr_vector<u32>              m_GpuFreeList;          // Reusable SSBO slots (dead instance indices)
-    u32                         m_TotalGpuInstances;    // Current count in SSBO
-    bool                        m_GpuDataDirty;         // Need to re-upload SSBO
-
-    // Compute pipeline for culling
-    CVulkanComputePipeline      m_CullPipeline;
-    CVulkanComputePipeline      m_FinalizePipeline;
-    VkPipelineLayout            m_ComputeLayout;        // Dedicated compute pipeline layout
-    VkDescriptorSetLayout       m_ComputeDescLayout;    // Descriptor set layout for compute
-    VkDescriptorPool            m_ComputeDescPool;      // Dedicated descriptor pool
-    VkDescriptorSet             m_ComputeDescSet;       // Descriptor set (re-written per frame)
-
-    // HZB (Hierarchical Z-Buffer) for occlusion culling
-    VkImage                     m_HZBImage;
-    VkDeviceMemory              m_HZBMemory;
-    VkImageView                 m_HZBView;              // View for full mip chain
-    xr_vector<VkImageView>      m_HZBMipViews;          // Per-mip views
-    VkSampler                   m_HZBSampler;
-    u32                         m_HZBWidth;
-    u32                         m_HZBHeight;
-    u32                         m_HZBMipLevels;
-    CVulkanComputePipeline      m_HZBBuildPipeline;
-    VkPipelineLayout            m_HZBBuildLayout;
-    VkDescriptorSetLayout       m_HZBBuildDescLayout;
-    VkDescriptorPool            m_HZBBuildDescPool;
-
-    // GPU path enable toggle
-    bool                        m_bGpuDrivenEnabled;
-
-    // Per-object-type base offsets for indirect draw (computed after finalize)
-    // Each obj_type gets a contiguous section of m_VisibleSSBO
-    // Max offset per obj = totalInstances / numObjTypes (approximation)
-    static const u32            GPU_MAX_INSTANCES = 200000;
     static const u32            GPU_MAX_OBJ_TYPES = 64;
     // Output buffer: 1.5M instances (~96MB VRAM). With ~25 types,
     // each type gets ~60K section — enough to avoid overflow-induced flickering.
@@ -421,6 +347,26 @@ private:
     VkDescriptorSetLayout       m_GenDescLayout;
     VkDescriptorPool            m_GenDescPool;
     VkDescriptorSet             m_GenDescSet;
+
+    // ========================================================================
+    // Bindless multi-draw indirect (single draw call for all object types)
+    // ========================================================================
+    bool                        m_bMultiDrawEnabled;
+
+    // Merged geometry buffers (all object types concatenated)
+    CVulkanBuffer*              m_MergedVB;
+    CVulkanBuffer*              m_MergedIB;
+    struct ObjGeomInfo { u32 firstIndex; s32 vertexOffset; u32 indexCount; };
+    ObjGeomInfo                 m_ObjGeomInfo[GPU_MAX_OBJ_TYPES];
+
+    // Bindless texture descriptor set (persistent, NOT reset per-frame)
+    VkDescriptorSetLayout       m_BindlessTexLayout;
+    VkDescriptorPool            m_BindlessTexPool;
+    VkDescriptorSet             m_BindlessTexSet;
+
+    // Bindless graphics pipeline (uses texture array instead of per-material rebind)
+    VkPipelineLayout            m_BindlessPipelineLayout;
+    VkPipeline                  m_BindlessPipeline;
 
     // Trail map (grass memory — characters leave footprints that fade over time)
     VkImage                     m_TrailImage;           // R16F, same size as heightmap
@@ -469,16 +415,9 @@ private:
     void DestroyPipeline();             // Destroy pipeline
     void UpdateWindAnimation();         // Update wind constants
 
-    // GPU-driven pipeline helpers (legacy CPU cache path)
+    // GPU buffer helpers
     void CreateGpuBuffers();            // Create SSBO, indirect, atomic buffers
-    void DestroyGpuBuffers();           // Destroy GPU-driven buffers
-    void CreateComputePipeline();       // Create compute cull + finalize pipelines
-    void DestroyComputePipeline();      // Destroy compute pipelines
-    void CreateHZB();                   // Create HZB texture + build pipeline
-    void DestroyHZB();                  // Destroy HZB resources
-    void UploadStagingToSSBO();         // Upload dirty staging data to GPU
-    void RenderGpuDriven();             // GPU-driven render path (legacy)
-    void BuildHZB(VkCommandBuffer cmd); // Dispatch HZB build passes
+    void DestroyGpuBuffers();           // Destroy GPU buffers
     void ExtractFrustumPlanes(const Fmatrix& viewProj, Fvector4 planes[6]);
 
     // GPU grass generation helpers (new: zero pop-in procedural path)
@@ -490,6 +429,14 @@ private:
     void RenderGpuGenerated();          // GPU procedural generation + render path
     void CreateTrailMap();              // Create trail map image + compute pipeline
     void DestroyTrailMap();             // Destroy trail map resources
+
+    // Bindless multi-draw helpers
+    void CreateMergedGeometry();        // Concatenate all object VB/IB into merged buffers
+    void DestroyMergedGeometry();       // Destroy merged buffers
+    void CreateBindlessDescriptors();   // Create texture array descriptor set
+    void DestroyBindlessDescriptors();  // Destroy bindless descriptor resources
+    void CreateBindlessPipeline();      // Create pipeline with bindless layout
+    void DestroyBindlessPipeline();     // Destroy bindless pipeline
 };
 
 // Free function for dither matrix generation (from DX11)

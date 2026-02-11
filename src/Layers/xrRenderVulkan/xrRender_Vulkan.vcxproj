@@ -195,6 +195,7 @@
     <ClInclude Include="vk_buffer.h" />
     <ClInclude Include="vk_buffer_pool.h" />
     <ClInclude Include="vk_buffer_utils.h" />
+    <ClInclude Include="vk_barriers.h" />
     <ClInclude Include="vk_vertex_formats.h" />
     <ClInclude Include="vk_texture.h" />
     <ClInclude Include="vk_compute.h" />
@@ -266,6 +267,7 @@
     <ClCompile Include="vk_buffer.cpp" />
     <ClCompile Include="vk_buffer_pool.cpp" />
     <ClCompile Include="vk_buffer_utils.cpp" />
+    <ClCompile Include="vk_barriers.cpp" />
     <ClCompile Include="vk_vertex_formats.cpp" />
     <ClCompile Include="vk_texture.cpp" />
     <ClCompile Include="vk_compute.cpp" />

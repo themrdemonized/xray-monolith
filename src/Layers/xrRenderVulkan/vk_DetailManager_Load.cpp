@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "vk_DetailManager.h"
 #include "rvk.h"
+#include "HW_Vulkan.h"
 #include "../xrRender/DetailFormat.h"
 
 namespace VK
@@ -160,8 +161,6 @@ void CDetailManager::Load()
     // Create GPU-driven pipeline buffers and compute pipelines
     // ========================================================================
     CreateGpuBuffers();
-    CreateComputePipeline();
-    CreateHZB();
 
     // ========================================================================
     // GPU procedural grass generation (replaces CPU cache + GPU cull)
@@ -176,9 +175,19 @@ void CDetailManager::Load()
     }
 
     // ========================================================================
-    // Create Vulkan graphics pipeline
+    // Create Vulkan graphics pipeline (fallback path)
     // ========================================================================
     CreatePipeline();
+
+    // ========================================================================
+    // Bindless multi-draw indirect (single draw call for all object types)
+    // ========================================================================
+    if (VulkanHW.m_bBindlessSupported && m_bGpuGenerationEnabled)
+    {
+        CreateMergedGeometry();
+        CreateBindlessDescriptors();
+        CreateBindlessPipeline();
+    }
 
     // ========================================================================
     // Load swing parameters from config (same as DX11)

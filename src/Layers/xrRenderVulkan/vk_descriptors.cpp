@@ -418,6 +418,107 @@ void CVulkanDescriptorManager::ResetPool()
     m_AllocatedSets = 0;
 }
 
+// ============================================================================
+// DescriptorWriter implementation
+// ============================================================================
+
+DescriptorWriter::DescriptorWriter(VkDescriptorSet set) : m_Set(set)
+{
+    ZeroMemory(m_Writes, sizeof(m_Writes));
+    ZeroMemory(m_BufferInfos, sizeof(m_BufferInfos));
+    ZeroMemory(m_ImageInfos, sizeof(m_ImageInfos));
+}
+
+DescriptorWriter& DescriptorWriter::UniformBuffer(u32 binding, VkBuffer buf,
+    VkDeviceSize size, VkDeviceSize offset)
+{
+    VERIFY(m_Count < MAX_WRITES);
+    u32 i = m_Count++;
+
+    m_BufferInfos[i].buffer = buf;
+    m_BufferInfos[i].offset = offset;
+    m_BufferInfos[i].range  = size;
+
+    m_Writes[i].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    m_Writes[i].dstSet          = m_Set;
+    m_Writes[i].dstBinding      = binding;
+    m_Writes[i].dstArrayElement = 0;
+    m_Writes[i].descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    m_Writes[i].descriptorCount = 1;
+    m_Writes[i].pBufferInfo     = &m_BufferInfos[i];
+
+    return *this;
+}
+
+DescriptorWriter& DescriptorWriter::StorageBuffer(u32 binding, VkBuffer buf,
+    VkDeviceSize size, VkDeviceSize offset)
+{
+    VERIFY(m_Count < MAX_WRITES);
+    u32 i = m_Count++;
+
+    m_BufferInfos[i].buffer = buf;
+    m_BufferInfos[i].offset = offset;
+    m_BufferInfos[i].range  = size;
+
+    m_Writes[i].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    m_Writes[i].dstSet          = m_Set;
+    m_Writes[i].dstBinding      = binding;
+    m_Writes[i].dstArrayElement = 0;
+    m_Writes[i].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    m_Writes[i].descriptorCount = 1;
+    m_Writes[i].pBufferInfo     = &m_BufferInfos[i];
+
+    return *this;
+}
+
+DescriptorWriter& DescriptorWriter::ImageSampler(u32 binding, VkImageView view,
+    VkSampler sampler, VkImageLayout layout)
+{
+    VERIFY(m_Count < MAX_WRITES);
+    u32 i = m_Count++;
+
+    m_ImageInfos[i].imageView   = view;
+    m_ImageInfos[i].sampler     = sampler;
+    m_ImageInfos[i].imageLayout = layout;
+
+    m_Writes[i].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    m_Writes[i].dstSet          = m_Set;
+    m_Writes[i].dstBinding      = binding;
+    m_Writes[i].dstArrayElement = 0;
+    m_Writes[i].descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    m_Writes[i].descriptorCount = 1;
+    m_Writes[i].pImageInfo      = &m_ImageInfos[i];
+
+    return *this;
+}
+
+DescriptorWriter& DescriptorWriter::StorageImage(u32 binding, VkImageView view,
+    VkImageLayout layout)
+{
+    VERIFY(m_Count < MAX_WRITES);
+    u32 i = m_Count++;
+
+    m_ImageInfos[i].imageView   = view;
+    m_ImageInfos[i].sampler     = VK_NULL_HANDLE;
+    m_ImageInfos[i].imageLayout = layout;
+
+    m_Writes[i].sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    m_Writes[i].dstSet          = m_Set;
+    m_Writes[i].dstBinding      = binding;
+    m_Writes[i].dstArrayElement = 0;
+    m_Writes[i].descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    m_Writes[i].descriptorCount = 1;
+    m_Writes[i].pImageInfo      = &m_ImageInfos[i];
+
+    return *this;
+}
+
+void DescriptorWriter::Flush()
+{
+    if (m_Count > 0)
+        vkUpdateDescriptorSets(VulkanHW.m_Device, m_Count, m_Writes, 0, nullptr);
+}
+
 } // namespace VK
 
 // Глобальный экземпляр

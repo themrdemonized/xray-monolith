@@ -125,9 +125,6 @@ extern float ps_r2_ssaLOD_A;
 extern float ps_r2_ssaLOD_B;
 extern float ps_r2_df_parallax_range;
 
-// External test render function (temporary)
-extern void TestRenderFrame();
-
 // Halton sequence: quasi-random low-discrepancy sequence for TAA/DLSS jitter
 // base=2 for X, base=3 for Y
 static float Halton(int index, int base)

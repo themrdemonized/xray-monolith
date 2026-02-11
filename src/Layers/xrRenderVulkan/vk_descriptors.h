@@ -128,6 +128,33 @@ private:
     bool m_bCreated = false;
 };
 
+// ============================================================================
+// DescriptorWriter - fluent builder for batched descriptor updates
+// Stack-allocated, zero heap. Call Flush() to commit all writes at once.
+// ============================================================================
+class DescriptorWriter
+{
+    static const u32 MAX_WRITES = 16;
+    VkDescriptorSet          m_Set;
+    VkWriteDescriptorSet     m_Writes[MAX_WRITES];
+    VkDescriptorBufferInfo   m_BufferInfos[MAX_WRITES];
+    VkDescriptorImageInfo    m_ImageInfos[MAX_WRITES];
+    u32                      m_Count = 0;
+
+public:
+    explicit DescriptorWriter(VkDescriptorSet set);
+
+    DescriptorWriter& UniformBuffer(u32 binding, VkBuffer buf, VkDeviceSize size,
+        VkDeviceSize offset = 0);
+    DescriptorWriter& StorageBuffer(u32 binding, VkBuffer buf, VkDeviceSize size,
+        VkDeviceSize offset = 0);
+    DescriptorWriter& ImageSampler(u32 binding, VkImageView view, VkSampler sampler,
+        VkImageLayout layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    DescriptorWriter& StorageImage(u32 binding, VkImageView view,
+        VkImageLayout layout = VK_IMAGE_LAYOUT_GENERAL);
+    void Flush();
+};
+
 } // namespace VK
 
 // Глобальный экземпляр

@@ -124,6 +124,33 @@ bool CVulkanHW::CreateLogicalDevice()
     features12.bufferDeviceAddress = VK_TRUE;
     features12.pNext = &features13;
 
+    // Query descriptor indexing support for bindless textures
+    {
+        VkPhysicalDeviceVulkan12Features supported12 = {};
+        supported12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+        VkPhysicalDeviceFeatures2 supported = {};
+        supported.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        supported.pNext = &supported12;
+        vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &supported);
+
+        m_bBindlessSupported =
+            supported12.descriptorBindingPartiallyBound &&
+            supported12.runtimeDescriptorArray &&
+            supported12.shaderSampledImageArrayNonUniformIndexing;
+
+        if (m_bBindlessSupported)
+        {
+            features12.descriptorBindingPartiallyBound = VK_TRUE;
+            features12.runtimeDescriptorArray = VK_TRUE;
+            features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+            Msg("[Vulkan] Bindless descriptor indexing: ENABLED");
+        }
+        else
+        {
+            Msg("[Vulkan] Bindless descriptor indexing: NOT SUPPORTED (fallback to per-type loop)");
+        }
+    }
+
     // Device features
     VkPhysicalDeviceFeatures2 deviceFeatures = {};
     deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;

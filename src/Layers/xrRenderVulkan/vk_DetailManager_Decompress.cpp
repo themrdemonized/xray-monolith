@@ -271,42 +271,6 @@ void CDetailManager::cache_Decompress(Slot* S)
             Item.alpha_target = 0.0f;
             Item.scale_calculated = Item.scale;
 
-            // GPU-driven: assign SSBO index (reuse dead slot or append)
-            {
-                GpuDetailInstanceExt ext;
-                ext.row0.set(Item.mRotY._11 * Item.scale, Item.mRotY._12 * Item.scale,
-                             Item.mRotY._13 * Item.scale, Item.mRotY._41);
-                ext.row1.set(Item.mRotY._21 * Item.scale, Item.mRotY._22 * Item.scale,
-                             Item.mRotY._23 * Item.scale, Item.mRotY._42);
-                ext.row2.set(Item.mRotY._31 * Item.scale, Item.mRotY._32 * Item.scale,
-                             Item.mRotY._33 * Item.scale, Item.mRotY._43);
-                ext.color.set(Item.c_sun, Item.c_sun, Item.c_sun, Item.c_hemi);
-                ext.obj_id = DS.r_id(index);
-                ext.base_scale = Item.scale;
-                ext.bv_radius = Dobj->bv_sphere.R;
-                ext._pad = 0;
-
-                if (!m_GpuFreeList.empty())
-                {
-                    // Reuse a dead instance slot
-                    u32 reused = m_GpuFreeList.back();
-                    m_GpuFreeList.pop_back();
-                    Item.gpu_instance_id = reused;
-                    m_StagingInstances[reused] = ext;
-                }
-                else if (m_StagingInstances.size() < GPU_MAX_INSTANCES)
-                {
-                    // Append new slot
-                    Item.gpu_instance_id = (u32)m_StagingInstances.size();
-                    m_StagingInstances.push_back(ext);
-                }
-                else
-                {
-                    Item.gpu_instance_id = 0xFFFFFFFF;
-                }
-                m_GpuDataDirty = true;
-            }
-
             // Save it
             D.G[index].items.push_back(ItemP);
         }
