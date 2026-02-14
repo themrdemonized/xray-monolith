@@ -477,6 +477,7 @@ void CWeaponMagazined::ReloadMagazine()
 	m_needReload = false;
 	m_BriefInfo_CalcFrame = 0;
 
+	//устранить осечку при перезарядке
 	if (IsMisfire())
 	{
 		bMisfire = false;
