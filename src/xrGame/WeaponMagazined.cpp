@@ -477,10 +477,18 @@ void CWeaponMagazined::ReloadMagazine()
 	m_needReload = false;
 	m_BriefInfo_CalcFrame = 0;
 
-	//устранить осечку при перезарядке
 	if (IsMisfire())
 	{
 		bMisfire = false;
+
+		if (iAmmoElapsed > 0 && !m_magazine.empty())
+		{
+			m_magazine.pop_back(); 
+			--iAmmoElapsed;       
+
+			VERIFY((u32)iAmmoElapsed == m_magazine.size());
+		}
+
 		if (bClearJamOnly)
 		{
 			bClearJamOnly = false;
