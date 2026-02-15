@@ -52,6 +52,14 @@ struct S2DVert
 #define UI_FRUSTUM_SAFE			(UI_FRUSTUM_MAXPLANES*4)
 typedef svector<S2DVert,UI_FRUSTUM_SAFE> sPoly2D;
 
+struct CustomShape
+{
+	sPoly2D poly;
+	LPCSTR shader_name;
+	LPCSTR texture_name;
+	u32 texture_color;
+};
+
 class C2DFrustum
 {
 	svector<Fplane2,FRUSTUM_MAXPLANES> planes;
