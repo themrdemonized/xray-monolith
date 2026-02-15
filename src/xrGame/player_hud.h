@@ -326,6 +326,7 @@ public:
 	void StopAllBlendAnms(bool bForce);
 	float SetBlendAnmTime(LPCSTR name, float time);
 	void render_hud(IDSGraphManager* DM);
+	void render_legs(IDSGraphManager* DM);
 	void render_item_ui();
 	bool render_item_ui_query();
 	u32 anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part = u16(-1));
@@ -397,6 +398,18 @@ private:
 public:
 	IKinematicsAnimated* m_model;
 	IKinematicsAnimated* m_model_2;
+
+	IKinematicsAnimated* m_legs_model;   
+	Fmatrix                 m_legs_transform; 
+	shared_str              m_legs_visual_name; 
+	shared_str              m_current_legs_anim;
+
+	float m_legs_fwd_offset = -0.75f;
+	float m_legs_y_offset = 0.0f;
+	float m_legs_side_offset = 0.25f;
+	shared_str m_legs_anim_idle = "lancew_legs_idle";
+
+	float m_legs_yaw;
 	Fvector m_adjust_offset[2][10]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount, aim for attach, alt aim for attach
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
 	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui
