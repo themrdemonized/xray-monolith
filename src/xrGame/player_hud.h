@@ -33,6 +33,54 @@ struct player_hud_motion_container
 	void load(IKinematicsAnimated* model, const shared_str& sect);
 };
 
+struct legs_config
+{
+	float fwd_offset;
+	float y_offset;
+	float side_offset;
+	float crouch_y_offset;
+
+	float yaw_speed_moving;
+	float yaw_speed_idle;
+	float accel_factor;
+	float accel_angle;
+
+	float strafe_roll;
+
+	float bob_speed_walk;
+	float bob_speed_sprint;
+	float bob_speed_crouch;
+	float bob_amount_walk;
+	float bob_amount_sprint;
+	float bob_amount_crouch;
+
+	float idle_sway_speed;
+	float idle_sway_amount;
+
+	float land_duration;
+	float land_squat;
+
+	float pos_smooth_time;
+
+	float y_smooth_speed;
+
+	shared_str anim_sprint;
+	shared_str anim_walk_fwd;
+	shared_str anim_walk_back;
+	shared_str anim_strafe_left;
+	shared_str anim_strafe_right;
+	shared_str anim_crouch_fwd;
+	shared_str anim_crouch_back;
+	shared_str anim_crouch_left;
+	shared_str anim_crouch_right;
+	shared_str anim_idle;
+	shared_str anim_crouch_idle;
+	shared_str anim_climb;
+	shared_str anim_jump;
+
+	float anim_blend_time;
+};
+
 struct hand_motions
 {
 	shared_str section;
@@ -399,6 +447,7 @@ public:
 	IKinematicsAnimated* m_model;
 	IKinematicsAnimated* m_model_2;
 
+
 	// LEGS 
 	void update_legs(const Fmatrix& cam_trans); 
 	void delete_legs_model();
@@ -408,6 +457,45 @@ public:
 	shared_str              m_current_legs_anim;
 	float   m_legs_yaw_current;
 	Fvector m_legs_pos_current;
+
+	legs_config m_legs_cfg;
+	void load_legs_config(const shared_str& sect);
+
+	float m_legs_target_yaw;
+	float m_legs_current_yaw;
+	bool  m_legs_yaw_initialized;
+
+	// Приземление
+	bool  m_legs_was_airborne;
+	float m_legs_land_timer;
+	float m_legs_land_duration;
+
+	// Idle покачивание
+	float m_legs_idle_timer;
+
+	// Наклон корпуса при стрейфах
+	float m_legs_current_roll;
+
+	// Bobbing при ходьбе
+	float m_legs_bob_timer;
+	float m_legs_bob_amount;
+
+	// Плавная смена высоты (присед)
+	float m_legs_current_y_offset;
+	float m_legs_target_y_offset;
+
+	// Инерция движения (плавное торможение позиции)
+	Fvector m_legs_velocity;
+	Fvector m_legs_smooth_pos;
+	bool    m_legs_pos_initialized;
+
+	bool m_legs_hide_by_wall;
+
+	float m_legs_ray_timer;
+	float m_legs_cached_fwd_offset;
+
+	float m_legs_wall_hide_y;
+	float m_legs_cached_wall_hide;
 
 	float m_legs_fwd_offset = -0.75f;
 	float m_legs_y_offset = 0.0f;
@@ -460,3 +548,4 @@ public:
 };
 
 extern player_hud* g_player_hud;
+extern BOOL g_legs_enabled;

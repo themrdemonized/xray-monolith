@@ -11083,6 +11083,9 @@
     </ClCompile>
     <ClCompile Include="searchlight_script.cpp" />
     <ClCompile Include="searchlight_struct.cpp" />
+    <ClCompile Include="player_hud_legs.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Explosive.h">

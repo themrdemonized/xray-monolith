@@ -134,6 +134,7 @@ extern BOOL g_allow_silencer_hide_tracer;
 
 //demonized: new console vars
 extern BOOL firstPersonDeath;
+extern BOOL g_legs_enabled;
 extern BOOL pseudogiantCanDamageObjects;
 extern BOOL use_english_text_for_missing_translations;
 namespace crash_saving {
@@ -3058,6 +3059,10 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "first_person_death_position_smoothing", &firstPersonDeathPositionSmoothing, 1, 30);
 	CMD4(CCC_Integer, "first_person_death_direction_smoothing", &firstPersonDeathDirectionSmoothing, 1, 60);
 	CMD4(CCC_Float, "first_person_death_near_plane_offset", &viewportNearOffset, -.1f, .5f);
+
+	//legs 
+
+	CMD4(CCC_Integer, "g_legs", &g_legs_enabled, 0, 1);
 
 	// PDA commands
 	CMD4(CCC_Integer, "pda_map_zoom_in_to_mouse", &pda_map_zoom_in_to_mouse, 0, 1);
