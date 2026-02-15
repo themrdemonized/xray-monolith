@@ -34,8 +34,7 @@ class cover :
 	{
 	public:
 		typedef intrusive_ptr<
-			smart_cover::description,
-			detail::intrusive_base_time
+			smart_cover::description
 		> DescriptionPtr;
 		typedef std::pair<
 			loophole const*,

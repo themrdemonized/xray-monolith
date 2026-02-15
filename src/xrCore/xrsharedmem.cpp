@@ -15,7 +15,7 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 	// search a place to insert
 	u8 storage[4 * sizeof(u32)];
 	smem_value* value = (smem_value*)storage;
-	value->dwReference = 0;
+	value->dwReference.store(0, std::memory_order_relaxed);
 	value->dwCRC = dwCRC;
 	value->dwLength = dwLength;
 	cdb::iterator it = std::lower_bound(container.begin(), container.end(), value, smem_search);
@@ -45,7 +45,7 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
                                                , "storage: smem"
 #endif // DEBUG_MEMORY_NAME
 		);
-		result->dwReference = 0;
+		result->dwReference.store(0, std::memory_order_relaxed);
 		result->dwCRC = dwCRC;
 		result->dwLength = dwLength;
 		CopyMemory(result->value, ptr, dwLength);
@@ -62,7 +62,7 @@ void smem_container::clean()
 	cs.Enter();
 	cdb::iterator it = container.begin();
 	cdb::iterator end = container.end();
-	for (; it != end; it++) if (0 == (*it)->dwReference) xr_free(*it);
+	for (; it != end; it++) if (0 == (*it)->dwReference.load(std::memory_order_relaxed)) xr_free(*it);
 	container.erase(remove(container.begin(), container.end(), (smem_value*)0), container.end());
 	if (container.empty()) container.clear();
 	cs.Leave();
@@ -75,7 +75,7 @@ void smem_container::dump()
 	cdb::iterator end = container.end();
 	FILE* F = fopen("x:\\$smem_dump$.txt", "w");
 	for (; it != end; it++)
-		fprintf(F, "%4u : crc[%6x], %u bytes\n", (*it)->dwReference, (*it)->dwCRC, (*it)->dwLength);
+		fprintf(F, "%4u : crc[%6x], %u bytes\n", (*it)->dwReference.load(std::memory_order_relaxed), (*it)->dwCRC, (*it)->dwLength);
 	fclose(F);
 	cs.Leave();
 }
@@ -93,7 +93,7 @@ u32 smem_container::stat_economy()
 	{
 		counter -= 16;
 		counter -= node_size;
-		counter += s64((s64((*it)->dwReference) - 1) * s64((*it)->dwLength));
+		counter += s64((s64((*it)->dwReference.load(std::memory_order_relaxed)) - 1) * s64((*it)->dwLength));
 	}
 	cs.Leave();
 

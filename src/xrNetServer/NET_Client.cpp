@@ -1177,7 +1177,6 @@ void sync_thread(void* P)
 {
 	PROF_EVENT();
 
-	SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_TIME_CRITICAL);
 	IPureClient* C = (IPureClient*)P;
 	C->Sync_Thread();
 }

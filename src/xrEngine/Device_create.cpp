@@ -163,14 +163,40 @@ void CRenderDevice::ConnectToRender()
 
 extern u32 g_screenmode;
 extern void GetMonitorResolution(u32& horizontal, u32& vertical);
+extern void GetMonitorPosition(int& x, int& y);
 
 PROTECT_API void CRenderDevice::Create()
 {
 	//SECUROM_MARKER_SECURITY_ON(4)
 
 	if (b_is_Ready) return; // prevent double call
-	Statistic = xr_new<CStats>();
 
+	u32 w, h;
+	GetMonitorResolution(w, h);
+	int monX, monY;
+	GetMonitorPosition(monX, monY);
+	if (psCurrentVidMode[0] == 0 || psCurrentVidMode[1] == 0)
+	{
+		psCurrentVidMode[0] = w;
+		psCurrentVidMode[1] = h;
+	}
+
+	DWORD style;
+	if (g_screenmode == 0)
+	{
+		style = WS_OVERLAPPEDWINDOW;
+		w = psCurrentVidMode[0];
+		h = psCurrentVidMode[1];
+	}
+	else
+	{
+		style = WS_POPUP;
+	}
+
+	SetWindowLongPtr(m_hWnd, GWL_STYLE, style);
+	SetWindowPos(m_hWnd, HWND_TOP, monX, monY, w, h, SWP_FRAMECHANGED);
+
+	Statistic = xr_new<CStats>();
 #ifdef DEBUG
     cdb_clRAY = &Statistic->clRAY; // total: ray-testing
     cdb_clBOX = &Statistic->clBOX; // total: box query
@@ -202,18 +228,12 @@ PROTECT_API void CRenderDevice::Create()
 		true
 	);
 
-	if (g_screenmode == 1)
-	{
-		u32 w, h;
-		GetMonitorResolution(w, h);
-		SetWindowLongPtr(Device.m_hWnd, GWL_STYLE, WS_VISIBLE | WS_POPUP);
-		SetWindowPos(Device.m_hWnd, HWND_TOP, 0, 0, w, h, SWP_FRAMECHANGED);
-	}
-
 	DisableProcessWindowsGhosting();
 
 	RECT winRect;
 	GetClientRect(m_hWnd, &winRect);
+	clientWidth = winRect.right;
+	clientHeight = winRect.bottom;
 	MapWindowPoints(m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
 	ClipCursor(&winRect);
 	SetActiveWindow(m_hWnd);

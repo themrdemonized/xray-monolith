@@ -50,7 +50,7 @@ void CBlender_Compile::r_dx10Texture(LPCSTR ResourceName, LPCSTR texture)
 	fix_texture_name(TexName);
 
 	// Find index
-	ref_constant C = ctable.get(ResourceName);
+	R_constant* C = ctable.get(ResourceName);
 	//VERIFY(C);
 	if (!C) return;
 
@@ -121,7 +121,7 @@ u32 CBlender_Compile::r_dx10Sampler(LPCSTR ResourceName)
 
 	// Find index
 	//ref_constant C			= ctable.get(ResourceName);
-	ref_constant C = ctable.get(name);
+	R_constant* C = ctable.get(name);
 	//VERIFY(C);
 	if (!C) return u32(-1);
 

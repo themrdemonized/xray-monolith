@@ -11,3 +11,5 @@ ipch/
 *.psess
 *.vsp
 *.vspx
+
+!.editorconfig

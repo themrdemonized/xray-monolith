@@ -210,7 +210,7 @@ IC void CSpaceRestrictionHolder::collect_garbage()
 	RESTRICTIONS::iterator E = m_restrictions.end();
 	for (; I != E;)
 	{
-		if (!(*I).second->shape() && !(*I).second->m_ref_count && (Device.dwTimeGlobal >= (*I).second->m_last_time_dec +
+		if (!(*I).second->shape() && !(*I).second->intrusive_ref_count() && (Device.dwTimeGlobal >= (*I).second->m_last_time_dec +
 			time_to_delete))
 		{
 			J = I;

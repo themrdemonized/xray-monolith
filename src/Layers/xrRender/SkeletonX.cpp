@@ -125,8 +125,8 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 	case RM_SKINNING_4B:
 		{
 			// Transfer matrices ( current and previous )
-			ref_constant array = RCache.get_c(s_bones_array_const);
-			ref_constant array_prev = RCache.get_c(s_bones_array_prev_const);
+			R_constant* array = RCache.get_c(s_bones_array_const);
+			R_constant* array_prev = RCache.get_c(s_bones_array_prev_const);
 
 			u32 count = RMS_bonecount;
 			for (u32 mid = 0; mid < count; mid++)

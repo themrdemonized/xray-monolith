@@ -1,6 +1,5 @@
-#ifndef xrsharedmemH
-#define xrsharedmemH
 #pragma once
+#include "_thread_types.h"
 
 #pragma pack(push,4)
 //////////////////////////////////////////////////////////////////////////
@@ -8,7 +7,7 @@
 #pragma warning(disable : 4200)
 struct XRCORE_API smem_value
 {
-	u32 dwReference;
+	xr_atomic_u32 dwReference;
 	u32 dwCRC;
 	u32 dwLength;
 	u32 _align_16;
@@ -73,15 +72,14 @@ protected:
 	void _dec()
 	{
 		if (0 == p_) return;
-		p_->dwReference--;
-		if (0 == p_->dwReference) p_ = 0;
+		if (p_->dwReference.fetch_sub(1, std::memory_order_acq_rel) == 1) p_ = 0;
 	}
 
 public:
 	void _set(ref_smem const& rhs)
 	{
 		smem_value* v = rhs.p_;
-		if (0 != v) v->dwReference++;
+		if (0 != v) v->dwReference.fetch_add(1, std::memory_order_relaxed);
 		_dec();
 		p_ = v;
 	}
@@ -102,7 +100,7 @@ public:
 	void create(u32 dwCRC, u32 dwLength, T* ptr)
 	{
 		smem_value* v = g_pSharedMemoryContainer->dock(dwCRC, dwLength * sizeof(T), ptr);
-		if (0 != v) v->dwReference++;
+		if (0 != v) v->dwReference.fetch_add(1, std::memory_order_relaxed);
 		_dec();
 		p_ = v;
 	}
@@ -137,7 +135,7 @@ public:
 	u32 ref_count()
 	{
 		if (0 == p_) return 0;
-		else return p_->dwReference;
+		else return p_->dwReference.load(std::memory_order_relaxed);
 	}
 };
 
@@ -166,5 +164,3 @@ template <class T>
 IC void swap(ref_smem<T>& lhs, ref_smem<T>& rhs) { lhs.swap(rhs); }
 
 #pragma pack(pop)
-
-#endif

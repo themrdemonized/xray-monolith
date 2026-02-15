@@ -138,7 +138,7 @@ namespace xr_imgui
     void ide::OnScreenResolutionChanged()
     {
         ImGuiIO& io = ImGui::GetIO();
-        io.DisplaySize = { static_cast<float>(Device.dwWidth), static_cast<float>(Device.dwHeight) };
+        io.DisplaySize = { static_cast<float>(Device.clientWidth), static_cast<float>(Device.clientHeight) };
     }
 
     void ide::OnFrame()

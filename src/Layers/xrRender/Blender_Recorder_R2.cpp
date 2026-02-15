@@ -52,7 +52,7 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _ps, bool bFog, BOOL bZtest, BO
 void CBlender_Compile::r_Constant(LPCSTR name, R_constant_setup* s)
 {
 	R_ASSERT(s);
-	ref_constant C = ctable.get(name);
+	R_constant* C = ctable.get(name);
 	if (C) C->handler = s;
 }
 
@@ -80,7 +80,7 @@ u32 CBlender_Compile::i_Sampler(LPCSTR _name)
 	fix_texture_name(name);
 
 	// Find index
-	ref_constant C = ctable.get(name);
+	R_constant* C = ctable.get(name);
 	if (!C) return u32(-1);
 
 	R_ASSERT(C->type == RC_sampler);

@@ -526,6 +526,7 @@ public:
 };
 
 extern void GetMonitorResolution(u32& horizontal, u32& vertical);
+extern void GetMonitorPosition(int& x, int& y);
 
 class CCC_Screenmode : public CCC_Token
 {
@@ -536,6 +537,9 @@ public:
 	{
 		u32 prev_mode = g_screenmode;
 		CCC_Token::Execute(args);
+
+		if (!Device.b_is_Ready)
+			return;
 
 		if ((prev_mode != g_screenmode))
 		{
@@ -562,27 +566,15 @@ public:
 			// but the fixes make no sense and contradicts MSDN, and this isn't a major priority since ResizeBuffers is called
 			// immediately after (before our Present call) so it works, just so stupid
 
-			bool windowed_to_fullscreen = ((prev_mode == 0) || (prev_mode == 1)) && (g_screenmode == 2);
-			bool fullscreen_to_windowed = (prev_mode == 2) && ((g_screenmode == 0) || (g_screenmode == 1));
-			bool reset_required		    = windowed_to_fullscreen || fullscreen_to_windowed;
-			if (Device.b_is_Ready && reset_required) {
+			if (Device.b_is_Ready) {
 				Device.Reset();
-			}
-
-			if (g_screenmode == 0 || g_screenmode == 1)
-			{
-				u32 w, h;
-				GetMonitorResolution(w, h);
-				SetWindowLongPtr(Device.m_hWnd, GWL_STYLE, WS_VISIBLE | WS_POPUP);
-				SetWindowPos(Device.m_hWnd, HWND_TOP, 0, 0, w, h, SWP_FRAMECHANGED);
-
-				if (g_screenmode == 0)
-					SetWindowLongPtr(Device.m_hWnd, GWL_STYLE, WS_VISIBLE | WS_OVERLAPPEDWINDOW);
 			}
 		}
 
 		RECT winRect;
 		GetClientRect(Device.m_hWnd, &winRect);
+		Device.clientWidth = winRect.right;
+		Device.clientHeight = winRect.bottom;
 		MapWindowPoints(Device.m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
 		ClipCursor(&winRect);
 	}

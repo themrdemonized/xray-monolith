@@ -35,11 +35,30 @@ bool /*_declspec(dllexport)*/ SupportsAdvancedRendering();
 
 bool /*_declspec(dllexport)*/ SupportsAdvancedRendering()
 {
+	// Save DPI awareness context — Direct3DCreate9() can change the thread's
+	// DPI context, which later causes SetWindowPos to use the wrong scale on
+	// secondary monitors with different DPI.
+	typedef HANDLE(WINAPI* pfnSetThreadDpiAwarenessContext)(HANDLE);
+	pfnSetThreadDpiAwarenessContext fnSetCtx = NULL;
+	HANDLE prevDpiContext = NULL;
+	HMODULE user32 = GetModuleHandleA("user32.dll");
+	if (user32)
+	{
+		fnSetCtx = (pfnSetThreadDpiAwarenessContext)GetProcAddress(user32, "SetThreadDpiAwarenessContext");
+		if (fnSetCtx)
+			prevDpiContext = fnSetCtx(/*DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2*/ (HANDLE)-4);
+	}
+
 	D3DCAPS9 caps;
 	CHW _HW;
 	_HW.CreateD3D();
 	_HW.pD3D->GetDeviceCaps(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, &caps);
 	_HW.DestroyD3D();
+
+	// Restore DPI awareness context
+	if (fnSetCtx && prevDpiContext)
+		fnSetCtx(prevDpiContext);
+
 	u16 ps_ver_major = u16(u32(u32(caps.PixelShaderVersion) & u32(0xf << 8ul)) >> 8);
 
 	if (ps_ver_major < 3)
