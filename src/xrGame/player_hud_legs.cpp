@@ -135,15 +135,35 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 	}
 
 	PIItem outfit = pActor->inventory().ItemFromSlot(OUTFIT_SLOT);
-	shared_str legs_sect = "actor_legs_default";
+	shared_str current_outfit_sect = outfit ? outfit->object().cNameSect() : shared_str("");
+
+	if (m_legs_last_outfit_sect != current_outfit_sect)
+	{
+		m_legs_config_warned = false;
+		m_legs_last_outfit_sect = current_outfit_sect;
+	}
+
+	shared_str legs_sect = "";
+	bool has_legs_config = false;
 
 	if (outfit)
 	{
-		shared_str outfit_sect = outfit->object().cNameSect();
+		shared_str outfit_sect = current_outfit_sect;
 
 		if (pSettings->line_exist(outfit_sect, "legs_visual_sect"))
 		{
-			legs_sect = pSettings->r_string(outfit_sect, "legs_visual_sect");
+			shared_str candidate = pSettings->r_string(outfit_sect, "legs_visual_sect");
+			if (pSettings->section_exist(candidate))
+			{
+				legs_sect = candidate;
+				has_legs_config = true;
+			}
+			else if (!m_legs_config_warned)
+			{
+				Msg("! [player_hud] legs_visual_sect [%s] referenced by outfit [%s] does not exist, legs disabled",
+					candidate.c_str(), outfit_sect.c_str());
+				m_legs_config_warned = true;
+			}
 		}
 		else
 		{
@@ -151,19 +171,74 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 			xr_sprintf(auto_sect, "%s_legs", outfit_sect.c_str());
 
 			if (pSettings->section_exist(auto_sect))
+			{
 				legs_sect = auto_sect;
+				has_legs_config = true;
+			}
 			else if (pSettings->line_exist(outfit_sect, "legs_visual"))
+			{
 				legs_sect = outfit_sect;
+				has_legs_config = true;
+			}
+			else if (!m_legs_config_warned)
+			{
+				Msg("~ [player_hud] no legs config found for outfit [%s] (tried [%s], legs_visual_sect, legs_visual), legs disabled for this outfit",
+					outfit_sect.c_str(), auto_sect);
+				m_legs_config_warned = true;
+			}
+		}
+	}
+	else
+	{
+		if (pSettings->section_exist("actor_legs_default"))
+		{
+			legs_sect = "actor_legs_default";
+			has_legs_config = true;
+		}
+		else if (!m_legs_config_warned)
+		{
+			Msg("~ [player_hud] section [actor_legs_default] not found, legs disabled");
+			m_legs_config_warned = true;
 		}
 	}
 
-	shared_str new_visual = READ_IF_EXISTS(pSettings, r_string, legs_sect, "visual", "sm\\actor_legs\\no_outfit");
+	if (!has_legs_config)
+	{
+		delete_legs_model();
+		return;
+	}
+
+	if (!pSettings->line_exist(legs_sect, "visual"))
+	{
+		if (!m_legs_config_warned)
+		{
+			Msg("! [player_hud] legs section [%s] has no 'visual' field, legs disabled", legs_sect.c_str());
+			m_legs_config_warned = true;
+		}
+		delete_legs_model();
+		return;
+	}
+
+	shared_str new_visual = pSettings->r_string(legs_sect, "visual");
 
 	if (!m_legs_model || (m_legs_visual_name != new_visual))
 	{
 		delete_legs_model();
 
-		m_legs_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(new_visual.c_str()));
+		IKinematicsAnimated* created = smart_cast<IKinematicsAnimated*>(::Render->model_Create(new_visual.c_str()));
+		if (!created)
+		{
+			if (!m_legs_config_warned)
+			{
+				Msg("! [player_hud] failed to create legs model [%s] from section [%s], legs disabled",
+					new_visual.c_str(), legs_sect.c_str());
+				m_legs_config_warned = true;
+			}
+			m_legs_model = nullptr;
+			return;
+		}
+
+		m_legs_model = created;
 		m_legs_visual_name = new_visual;
 
 		load_legs_config(legs_sect);
@@ -334,11 +409,30 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 	else
 		m_legs_bob_timer = 0.f;
 
-	// float bob_y = _sin(m_legs_bob_timer) * m_legs_bob_amount;
+	float bob_y = _sin(m_legs_bob_timer) * m_legs_bob_amount;
 
-	m_legs_target_y_offset = m_legs_cfg.y_offset;
+	float idle_bob_y = 0.f;
+	if (!is_moving && !is_airborne)
+	{
+		m_legs_idle_timer += dt;
+		idle_bob_y = _sin(m_legs_idle_timer * m_legs_cfg.idle_sway_speed) * m_legs_cfg.idle_sway_amount;
+	}
+	else
+	{
+		m_legs_idle_timer = 0.f;
+	}
 
+	float land_squat = 0.f;
+	if (m_legs_land_timer > 0.f)
+	{
+		float t = m_legs_land_timer / m_legs_cfg.land_duration;
+		land_squat = -_sin(t * PI) * m_legs_cfg.land_squat;
+	}
+
+	m_legs_target_y_offset = is_crouch ? m_legs_cfg.crouch_y_offset : m_legs_cfg.y_offset;
 	m_legs_current_y_offset = lerp(m_legs_current_y_offset, m_legs_target_y_offset, dt * m_legs_cfg.y_smooth_speed);
+
+	float total_y_offset = m_legs_current_y_offset + bob_y + idle_bob_y + land_squat;
 
 	Fvector target_pos;
 	target_pos.set(cam_trans.c.x, pActor->Position().y, cam_trans.c.z);
@@ -366,7 +460,7 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 	m_legs_transform.identity();
 	m_legs_transform.setHPB(m_legs_current_yaw, 0, m_legs_current_roll);
 
-	m_legs_transform.c.set(m_legs_smooth_pos.x, pActor->Position().y + m_legs_cfg.y_offset, m_legs_smooth_pos.z);
+	m_legs_transform.c.set(m_legs_smooth_pos.x, pActor->Position().y + total_y_offset, m_legs_smooth_pos.z);
 
 	Fvector v_fwd, v_right;
 	v_fwd.set(m_legs_transform.k);

@@ -465,26 +465,20 @@ public:
 	float m_legs_current_yaw;
 	bool  m_legs_yaw_initialized;
 
-	// Приземление
 	bool  m_legs_was_airborne;
 	float m_legs_land_timer;
 	float m_legs_land_duration;
 
-	// Idle покачивание
 	float m_legs_idle_timer;
 
-	// Наклон корпуса при стрейфах
 	float m_legs_current_roll;
 
-	// Bobbing при ходьбе
 	float m_legs_bob_timer;
 	float m_legs_bob_amount;
 
-	// Плавная смена высоты (присед)
 	float m_legs_current_y_offset;
 	float m_legs_target_y_offset;
 
-	// Инерция движения (плавное торможение позиции)
 	Fvector m_legs_velocity;
 	Fvector m_legs_smooth_pos;
 	bool    m_legs_pos_initialized;
@@ -501,6 +495,9 @@ public:
 	float m_legs_y_offset = 0.0f;
 	float m_legs_side_offset = 0.25f;
 	shared_str m_legs_anim_idle = "lancew_legs_idle";
+
+	bool m_legs_config_warned;  
+	shared_str m_legs_last_outfit_sect; 
 
 	float m_legs_yaw;
 	// LEGS END
