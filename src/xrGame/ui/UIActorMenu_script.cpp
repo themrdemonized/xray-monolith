@@ -368,7 +368,8 @@ void CUIActorMenu::script_register(lua_State* L)
 		.def_readonly("m_QuickSlotText1", &CUIMainIngameWnd::m_QuickSlotText1)
 		.def_readonly("m_QuickSlotText2", &CUIMainIngameWnd::m_QuickSlotText2)
 		.def_readonly("m_QuickSlotText3", &CUIMainIngameWnd::m_QuickSlotText3)
-		.def_readonly("m_QuickSlotText4", &CUIMainIngameWnd::m_QuickSlotText4),
+		.def_readonly("m_QuickSlotText4", &CUIMainIngameWnd::m_QuickSlotText4)
+		.def("SetCustomShape", &CUIMainIngameWnd::SetCustomShape),
 
 		class_<CUIZoneMap>("CUIZoneMap")
 		.def(constructor<>())
