@@ -225,12 +225,27 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 	{
 		delete_legs_model();
 
-		IKinematicsAnimated* created = smart_cast<IKinematicsAnimated*>(::Render->model_Create(new_visual.c_str()));
-		if (!created)
+		IRenderVisual* raw_visual = ::Render->model_Create(new_visual.c_str());
+		if (!raw_visual)
 		{
 			if (!m_legs_config_warned)
 			{
 				Msg("! [player_hud] failed to create legs model [%s] from section [%s], legs disabled",
+					new_visual.c_str(), legs_sect.c_str());
+				m_legs_config_warned = true;
+			}
+			m_legs_model = nullptr;
+			return;
+		}
+
+		IKinematicsAnimated* created = smart_cast<IKinematicsAnimated*>(raw_visual);
+		if (!created)
+		{
+			::Render->model_Delete(raw_visual);
+
+			if (!m_legs_config_warned)
+			{
+				Msg("! [player_hud] legs model [%s] from section [%s] is not animated (IKinematicsAnimated cast failed), legs disabled",
 					new_visual.c_str(), legs_sect.c_str());
 				m_legs_config_warned = true;
 			}
@@ -423,9 +438,10 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 	}
 
 	float land_squat = 0.f;
-	if (m_legs_land_timer > 0.f)
+	if (m_legs_land_timer > 0.f && m_legs_cfg.land_duration > EPS)
 	{
 		float t = m_legs_land_timer / m_legs_cfg.land_duration;
+		t = clampr(t, 0.f, 1.f);
 		land_squat = -_sin(t * PI) * m_legs_cfg.land_squat;
 	}
 
