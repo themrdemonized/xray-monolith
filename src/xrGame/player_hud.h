@@ -399,10 +399,15 @@ public:
 	IKinematicsAnimated* m_model;
 	IKinematicsAnimated* m_model_2;
 
+	// LEGS 
+	void update_legs(const Fmatrix& cam_trans); 
+	void delete_legs_model();
 	IKinematicsAnimated* m_legs_model;   
 	Fmatrix                 m_legs_transform; 
 	shared_str              m_legs_visual_name; 
 	shared_str              m_current_legs_anim;
+	float   m_legs_yaw_current;
+	Fvector m_legs_pos_current;
 
 	float m_legs_fwd_offset = -0.75f;
 	float m_legs_y_offset = 0.0f;
@@ -410,6 +415,8 @@ public:
 	shared_str m_legs_anim_idle = "lancew_legs_idle";
 
 	float m_legs_yaw;
+	// LEGS END
+
 	Fvector m_adjust_offset[2][10]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount, aim for attach, alt aim for attach
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
 	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui

@@ -1099,116 +1099,122 @@ const Fvector player_hud::attach_pos(u8 part) const
 extern float g_freelook_z_offset;
 extern float psHUD_FOV;
 
-void player_hud::update(const Fmatrix& cam_trans)
+void player_hud::delete_legs_model()
+{
+	if (!m_legs_model)
+		return;
+
+	IRenderVisual* v = m_legs_model->dcast_RenderVisual();
+	if (v)
+		::Render->model_Delete(v);
+
+	m_legs_model = nullptr;
+	m_legs_visual_name = "";
+	m_current_legs_anim = "";
+}
+
+void player_hud::update_legs(const Fmatrix& cam_trans)
 {
 	CActor* pActor = g_actor;
-	if (pActor)
+	if (!pActor) return;
+
+	if (pActor->Holder() == nullptr)
 	{
-		if (pActor->Holder() == nullptr)
-		{
-			PIItem outfit = pActor->inventory().ItemFromSlot(OUTFIT_SLOT);
-			shared_str legs_sect = "actor_legs_default";
+		PIItem outfit = pActor->inventory().ItemFromSlot(OUTFIT_SLOT);
+		shared_str legs_sect = "actor_legs_default";
 
-			if (outfit) {
-				shared_str outfit_sect = outfit->object().cNameSect();
+		if (outfit) {
+			shared_str outfit_sect = outfit->object().cNameSect();
 
-				if (pSettings->line_exist(outfit_sect, "legs_visual_sect")) {
-					legs_sect = pSettings->r_string(outfit_sect, "legs_visual_sect");
-				}
-				else {
-					string256 auto_sect;
-					xr_sprintf(auto_sect, "%s_legs", outfit_sect.c_str());
-
-					if (pSettings->section_exist(auto_sect)) 
-					{
-						legs_sect = auto_sect;
-					}
-					else if (pSettings->line_exist(outfit_sect, "legs_visual")) {
-						legs_sect = outfit_sect; 
-					}
-				}
+			if (pSettings->line_exist(outfit_sect, "legs_visual_sect")) {
+				legs_sect = pSettings->r_string(outfit_sect, "legs_visual_sect");
 			}
+			else {
+				string256 auto_sect;
+				xr_sprintf(auto_sect, "%s_legs", outfit_sect.c_str());
 
-			shared_str new_visual = READ_IF_EXISTS(pSettings, r_string, legs_sect, "visual", "sm\\actor_legs\\no_outfit");
-
-			if (!m_legs_model || (m_legs_visual_name != new_visual))
-			{
-				if (m_legs_model) {
-					IRenderVisual* v = m_legs_model->dcast_RenderVisual();
-					::Render->model_Delete(v);
-					m_legs_model = nullptr;
+				if (pSettings->section_exist(auto_sect))
+				{
+					legs_sect = auto_sect;
 				}
-				m_legs_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(new_visual.c_str()));
-				m_legs_visual_name = new_visual;
-				m_current_legs_anim = "";
-
-				m_legs_fwd_offset = READ_IF_EXISTS(pSettings, r_float, legs_sect, "fwd_offset", -0.75f);
-				m_legs_y_offset = READ_IF_EXISTS(pSettings, r_float, legs_sect, "y_offset", 0.0f);
-				m_legs_side_offset = READ_IF_EXISTS(pSettings, r_float, legs_sect, "side_offset", 0.25f);
-
-				// debug 
-				// Msg("- LEGS_HUD: Model updated to [%s] from section [%s]", new_visual.c_str(), legs_sect.c_str());
-			}
-
-			if (m_legs_model)
-			{
-				u32 state = pActor->MovingState();
-				shared_str anim_name;
-
-				if (state & mcClimb)      anim_name = "lancew_legs_idle";
-				else if (state & mcJump)  anim_name = "lancew_legs_jump_idle";
-				else if (state & mcSprint) anim_name = READ_IF_EXISTS(pSettings, r_string, legs_sect, "anim_sprint", "lancew_legs_sprint");
-				else if (state & mcAnyMove) {
-					anim_name = (state & mcCrouch) ? "lancew_legs_moving_c" : "lancew_legs_moving";
+				else if (pSettings->line_exist(outfit_sect, "legs_visual")) {
+					legs_sect = outfit_sect;
 				}
-				else {
-					anim_name = (state & mcCrouch) ? "lancew_legs_idle_c" : "lancew_legs_idle";
-				}
-
-				if (m_current_legs_anim != anim_name) {
-					m_legs_model->PlayCycle(anim_name.c_str());
-					m_current_legs_anim = anim_name;
-				}
-
-				m_legs_transform.identity();
-
-				float yaw, pitch;
-				cam_trans.k.getHP(yaw, pitch);
-				m_legs_transform.setHPB(yaw, 0, 0);
-
-				m_legs_transform.c.set(cam_trans.c.x, pActor->Position().y, cam_trans.c.z);
-
-				float fwd_offset = m_legs_fwd_offset;
-				float right_offset = 0.0f;
-
-				if (state & mcLLookout) right_offset = -m_legs_side_offset;
-				if (state & mcRLookout) right_offset = m_legs_side_offset;
-
-				Fvector v_fwd, v_right;
-				v_fwd.set(m_legs_transform.k);
-				v_right.set(m_legs_transform.i);
-
-				m_legs_transform.c.mad(v_fwd, fwd_offset);
-				m_legs_transform.c.mad(v_right, right_offset);
-				m_legs_transform.c.y += m_legs_y_offset;
-
-				m_legs_model->UpdateTracks();
-				IKinematics* K = m_legs_model->dcast_PKinematics();
-				K->CalculateBones_Invalidate();
-				K->CalculateBones(TRUE);
 			}
 		}
-		else
+
+		shared_str new_visual = READ_IF_EXISTS(pSettings, r_string, legs_sect, "visual", "sm\\actor_legs\\no_outfit");
+
+		if (!m_legs_model || (m_legs_visual_name != new_visual))
 		{
-			if (m_legs_model) {
-				IRenderVisual* v = m_legs_model->dcast_RenderVisual();
-				::Render->model_Delete(v);
-				m_legs_model = nullptr;
-				m_legs_visual_name = nullptr;
-				m_current_legs_anim = "";
+			delete_legs_model();
+
+			m_legs_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(new_visual.c_str()));
+			m_legs_visual_name = new_visual;
+
+			m_legs_fwd_offset = READ_IF_EXISTS(pSettings, r_float, legs_sect, "fwd_offset", -0.65f);
+			m_legs_y_offset = READ_IF_EXISTS(pSettings, r_float, legs_sect, "y_offset", 0.0f);
+			m_legs_side_offset = READ_IF_EXISTS(pSettings, r_float, legs_sect, "side_offset", 0.25f);
+		}
+
+		if (m_legs_model)
+		{
+			u32 state = pActor->MovingState();
+			shared_str anim_name;
+
+			if (state & mcClimb)       anim_name = "lancew_legs_idle";
+			else if (state & mcJump)   anim_name = "lancew_legs_jump_idle";
+			else if (state & mcSprint) anim_name = READ_IF_EXISTS(pSettings, r_string, legs_sect, "anim_sprint", "lancew_legs_sprint");
+			else if (state & mcAnyMove) {
+				anim_name = (state & mcCrouch) ? "lancew_legs_moving_c" : "lancew_legs_moving";
 			}
+			else {
+				anim_name = (state & mcCrouch) ? "leg_crouch_idle" : "leg_stand_idle";
+			}
+
+			if (m_current_legs_anim != anim_name) {
+				m_legs_model->PlayCycle(anim_name.c_str());
+				m_current_legs_anim = anim_name;
+			}
+
+			m_legs_transform.identity();
+
+			float yaw, pitch;
+			cam_trans.k.getHP(yaw, pitch);
+			m_legs_transform.setHPB(yaw, 0, 0);
+
+			m_legs_transform.c.set(cam_trans.c.x, pActor->Position().y, cam_trans.c.z);
+
+			float fwd_offset = m_legs_fwd_offset;
+			float right_offset = 0.0f;
+
+			if (state & mcLLookout) right_offset = -m_legs_side_offset;
+			if (state & mcRLookout) right_offset = m_legs_side_offset;
+
+			Fvector v_fwd, v_right;
+			v_fwd.set(m_legs_transform.k);
+			v_right.set(m_legs_transform.i);
+
+			m_legs_transform.c.mad(v_fwd, fwd_offset);
+			m_legs_transform.c.mad(v_right, right_offset);
+			m_legs_transform.c.y += m_legs_y_offset;
+
+			m_legs_model->UpdateTracks();
+			IKinematics* K = m_legs_model->dcast_PKinematics();
+			K->CalculateBones_Invalidate();
+			K->CalculateBones(TRUE);
 		}
 	}
+	else
+	{
+		delete_legs_model();
+	}
+}
+
+
+void player_hud::update(const Fmatrix& cam_trans)
+{
+   update_legs(cam_trans);
 
 	Fmatrix trans = cam_trans;
 	Fmatrix trans_b = cam_trans;
