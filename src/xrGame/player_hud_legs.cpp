@@ -111,8 +111,6 @@ void player_hud::delete_legs_model()
 	m_legs_bob_amount = 0.f;
 	m_legs_current_y_offset = 0.f;
 	m_legs_velocity.set(0, 0, 0);
-	m_legs_ray_timer = 0.f;
-	m_legs_hide_by_wall = false;
 }
 
 void player_hud::update_legs(const Fmatrix& cam_trans)
@@ -445,7 +443,7 @@ void player_hud::update_legs(const Fmatrix& cam_trans)
 		land_squat = -_sin(t * PI) * m_legs_cfg.land_squat;
 	}
 
-	m_legs_target_y_offset = is_crouch ? m_legs_cfg.crouch_y_offset : m_legs_cfg.y_offset;
+	m_legs_target_y_offset = m_legs_cfg.y_offset;
 	m_legs_current_y_offset = lerp(m_legs_current_y_offset, m_legs_target_y_offset, dt * m_legs_cfg.y_smooth_speed);
 
 	float total_y_offset = m_legs_current_y_offset + bob_y + idle_bob_y + land_squat;
