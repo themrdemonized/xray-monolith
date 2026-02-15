@@ -67,11 +67,6 @@ public:
 	CUITextWnd* m_QuickSlotText2;
 	CUITextWnd* m_QuickSlotText3;
 	CUITextWnd* m_QuickSlotText4;
-
-	std::vector<Fvector2> custom_shape_pts;
-	void SetCustomShape(const ::luabind::object& pts);
-	void DrawCustomShape();
-
 protected:
 	// 5 статиков для отображения иконок:
 	// - сломанного оружия(only mp)

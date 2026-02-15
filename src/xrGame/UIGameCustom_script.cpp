@@ -24,6 +24,7 @@ void CUIGameCustom::script_register(lua_State* L)
 		.def("RemoveDialogToRender", &CUIGameCustom::RemoveDialogToRender)
 		.def("AddCustomStatic", &CUIGameCustom::AddCustomStatic)
 		.def("RemoveCustomStatic", &CUIGameCustom::RemoveCustomStatic)
+		.def("AddCustomShapeToRender", &CUIGameCustom::AddCustomShapeToRender)
 		.def("HideActorMenu", &CUIGameCustom::HideActorMenu)
 		//Alundaio
 		.def("UpdateActorMenu", &CUIGameCustom::UpdateActorMenu)

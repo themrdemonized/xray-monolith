@@ -312,67 +312,6 @@ void CUIMainIngameWnd::Draw()
 	UIMotionIcon->Show(tmp);
 
 	RenderQuickInfos();
-	DrawCustomShape();
-}
-
-void CUIMainIngameWnd::SetCustomShape(const ::luabind::object& pts)
-{
-	custom_shape_pts.clear();
-
-	size_t table_size = 0;
-	for (auto i = pts.begin(); i != pts.end(); ++i) {
-		table_size++;
-	}
-
-	for (int i = 1; i <= table_size; i++) {
-		Fvector2 pt = ::luabind::object_cast<Fvector2>(pts[i]);
-		custom_shape_pts.push_back(pt);
-	}
-}
-
-void CUIMainIngameWnd::DrawCustomShape()
-{
-	size_t point_count = custom_shape_pts.size();
-	if (point_count < 3) {
-		return;
-	}
-
-	// Find bounding box
-	float min_x = custom_shape_pts[0].x, max_x = custom_shape_pts[0].x;
-	float min_y = custom_shape_pts[0].y, max_y = custom_shape_pts[0].y;
-	for (size_t i = 1; i < point_count; ++i) {
-		if (custom_shape_pts[i].x < min_x) min_x = custom_shape_pts[i].x;
-		if (custom_shape_pts[i].x > max_x) max_x = custom_shape_pts[i].x;
-		if (custom_shape_pts[i].y < min_y) min_y = custom_shape_pts[i].y;
-		if (custom_shape_pts[i].y > max_y) max_y = custom_shape_pts[i].y;
-	}
-	float width = max_x - min_x;
-	float height = max_y - min_y;
-
-	// Precompute UVs
-    std::vector<Fvector2> uvs(point_count);
-	for (size_t i = 0; i < point_count; ++i) {
-		uvs[i].x = (custom_shape_pts[i].x - min_x) / width;
-		uvs[i].y = (custom_shape_pts[i].y - min_y) / height;
-	}
-
-	ui_shader shader;
-	LPCSTR res_shname = UIRender->UpdateShaderName("ui\\ui_global_map", "hud\\default");
-	shader->create(res_shname, "ui\\ui_global_map");
-	UIRender->SetShader(*shader);
-
-	UIRender->StartPrimitive(point_count * 3, IUIRender::ePrimitiveType::ptTriList, IUIRender::ePointType::pttTL);
-
-	u32 color = color_rgba(255, 255, 255, 127);
-
-	for (u32 idx = 0; idx < point_count - 2; ++idx)
-	{
-		UIRender->PushPoint(custom_shape_pts[0].x, custom_shape_pts[0].y, 0, color, uvs[0].x, uvs[0].y);
-		UIRender->PushPoint(custom_shape_pts[idx + 2].x, custom_shape_pts[idx + 2].y, 0, color, uvs[idx + 2].x, uvs[idx + 2].y);
-		UIRender->PushPoint(custom_shape_pts[idx + 1].x, custom_shape_pts[idx + 1].y, 0, color, uvs[idx + 1].x, uvs[idx + 1].y);
-	}
-
-	UIRender->FlushPrimitive();
 }
 
 void CUIMainIngameWnd::SetMPChatLog(CUIWindow* pChat, CUIWindow* pLog)

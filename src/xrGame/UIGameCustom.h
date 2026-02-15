@@ -131,6 +131,10 @@ public:
 	void RemoveCustomStatic(const char* id);
 	void CommonMessageOut(const char* text);
 
+	std::vector<sPoly2D> custom_shapes;
+	void AddCustomShapeToRender(const ::luabind::object& pts);
+	void DrawCustomShapes();
+
 	virtual void ChangeTotalMoneyIndicator(const char* newMoneyString)
 	{
 	}
