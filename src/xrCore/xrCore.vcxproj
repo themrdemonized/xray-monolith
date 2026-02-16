@@ -590,7 +590,6 @@
     <ClInclude Include="FS_internal.h" />
     <ClInclude Include="FTimer.h" />
     <ClInclude Include="intrusive_ptr.h" />
-    <ClInclude Include="intrusive_ptr_inline.h" />
     <ClInclude Include="LocatorAPI.h" />
     <ClInclude Include="LocatorAPI_defs.h" />
     <CustomBuild Include="LocatorAPI_Notifications.h">
@@ -670,6 +669,7 @@
     <ClInclude Include="_sphere.h" />
     <ClInclude Include="_std_extensions.h" />
     <ClInclude Include="_stl_extensions.h" />
+    <ClInclude Include="_thread_types.h" />
     <ClInclude Include="_types.h" />
     <ClInclude Include="_type_traits.h" />
     <ClInclude Include="_vector2.h" />

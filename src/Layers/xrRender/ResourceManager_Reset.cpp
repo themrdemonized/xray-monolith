@@ -103,7 +103,7 @@ void mdump(C c)
 {
 	if (0 == c.size()) return;
 	for (C::iterator I = c.begin(); I != c.end(); I++)
-		Msg("*        : %3d: %s", I->second->dwReference, I->second->cName.c_str());
+		Msg("*        : %3d: %s", I->second->dwReference.load(std::memory_order_relaxed), I->second->cName.c_str());
 }
 
 CResourceManager::~CResourceManager()

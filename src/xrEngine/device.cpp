@@ -56,6 +56,9 @@ std::chrono::duration<float> time_span;
 ENGINE_API float refresh_rate = 0;
 #endif // ECO_RENDER
 
+BOOL psLua_ParallelGC = TRUE;
+int psLua_ParallelGC_CallAmount = 25;
+
 
 BOOL CRenderDevice::Begin()
 {
@@ -201,6 +204,26 @@ void mt_Thread(void* ptr)
 		device.seqFrameMT.Process(rp_Frame);
 		STOP_PROFILE;
 
+		// demonized: While Renderer prepares frame and GPU renders it, use time opportunity to repeatedly call Lua GC with small step value
+		// Reduces stutters since less work will be done in main GC step or no work at all
+		{
+			PROF_EVENT("seqLuaGC");
+			if (psLua_ParallelGC && Device.LuaGC)
+			{
+				// Do at least once
+				do
+				{
+					Device.LuaGCCount++;
+					if (Device.LuaGC(false) == 1) // 1 informs that GC cycle is complete
+					{
+						Device.LuaGCDone = true;
+						break;
+					}
+
+				} while (Device.isRendering && Device.LuaGCCount < psLua_ParallelGC_CallAmount);
+			}
+		}
+
 		START_PROFILE("Synchronization");
 		// now we give control to device - signals that we are ended our work
 		device.mt_csEnter.Leave();
@@ -246,14 +269,24 @@ ENGINE_API xr_list<LOADING_EVENT> g_loading_events;
 
 extern bool IsMainMenuActive(); //ECO_RENDER add
 
+static HMONITOR g_StartupMonitor = NULL;
+void InitMonitor()
+{
+	if (!g_StartupMonitor)
+	{
+		POINT cursorPos;
+		GetCursorPos(&cursorPos);
+		g_StartupMonitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTOPRIMARY);
+	}
+}
+
 void GetMonitorResolution(u32& horizontal, u32& vertical)
 {
-	HMONITOR hMonitor = MonitorFromWindow(
-		Device.m_hWnd, MONITOR_DEFAULTTOPRIMARY);
+	InitMonitor();
 
 	MONITORINFO mi;
 	mi.cbSize = sizeof(mi);
-	if (GetMonitorInfoA(hMonitor, &mi))
+	if (GetMonitorInfoA(g_StartupMonitor, &mi))
 	{
 		horizontal = mi.rcMonitor.right - mi.rcMonitor.left;
 		vertical = mi.rcMonitor.bottom - mi.rcMonitor.top;
@@ -265,6 +298,24 @@ void GetMonitorResolution(u32& horizontal, u32& vertical)
 		GetWindowRect(hDesktop, &desktop);
 		horizontal = desktop.right - desktop.left;
 		vertical = desktop.bottom - desktop.top;
+	}
+}
+
+void GetMonitorPosition(int& x, int& y)
+{
+	InitMonitor();
+
+	MONITORINFO mi;
+	mi.cbSize = sizeof(mi);
+	if (GetMonitorInfoA(g_StartupMonitor, &mi))
+	{
+		x = mi.rcMonitor.left;
+		y = mi.rcMonitor.top;
+	}
+	else
+	{
+		x = 0;
+		y = 0;
 	}
 }
 
@@ -407,6 +458,10 @@ void CRenderDevice::on_idle()
 	mProject_saved = mProject;
 	STOP_PROFILE;
 
+	Device.isRendering = true;
+	Device.LuaGCCount = 0;
+	Device.LuaGCDone = false;
+
 	// *** Resume threads
 	// Capture end point - thread must run only ONE cycle
 	// Release start point - allow thread to run
@@ -462,6 +517,8 @@ void CRenderDevice::on_idle()
 	Statistic->RenderTOTAL_Real.FrameEnd();
 	Statistic->RenderTOTAL.accum = Statistic->RenderTOTAL_Real.accum;
 #endif // #ifndef DEDICATED_SERVER
+	Device.isRendering = false;
+
 	// *** Suspend threads
 	// Capture startup point
 	// Release end point - allow thread to wait for startup point
@@ -478,6 +535,12 @@ void CRenderDevice::on_idle()
 			Device.seqParallel[pit]();
 		Device.seqParallel.clear_not_free();
 		seqFrameMT.Process(rp_Frame);
+	}
+
+	if (psLua_ParallelGC && Device.LuaGC && !Device.LuaGCDone)
+	{
+		PROF_EVENT("LuaGC Cleanup");
+		Device.LuaGC(true);
 	}
 
 #ifdef DEDICATED_SERVER
@@ -581,8 +644,8 @@ void CRenderDevice::Run()
 	thread_spawn(mt_DiscordThread, "X-RAY Discord thread", 0, 0);
 	// Message cycle
 	seqAppStart.Process(rp_AppStart);
-
 	m_pRender->ClearTarget();
+	SetForegroundWindow(m_hWnd);
 	message_loop();
 	seqAppEnd.Process(rp_AppEnd);
 	// Stop Balance-Thread

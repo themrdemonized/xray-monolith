@@ -88,6 +88,8 @@ private:
 
 	xr_vector<ref_texture> m_necessary;
 	// misc
+	xrCriticalSection creationGuard;
+
 public:
 	CTextureDescrMngr m_textures_description;
 	//.	CInifile*											m_textures_description;

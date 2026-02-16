@@ -237,6 +237,36 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.02.15**
+
+MT:
+  * Fixed bug with swapping textures
+
+**2026.02.14**
+
+Main:
+  * Ported new GC procedure from MT branch
+  * Ported critical section locking on resources creation and deletion from MT branch
+
+Main and MT:
+  * Spawn Antifreeze: Fixed possible `stack overflow` crash
+  * Removed all dynamic thread affinity and process priority changes inside the engine, the game launches with normal priority
+  * Removed 1 second pause on splash screen
+  * `_mm_pause` spin count is `4096`
+  * Simplified code when using separate key for underbarrel grenade launcher, should be less buggy
+  * Minor performance increase by optimizing getting `R_constant` pointers
+  * erepb:
+    * various window related fixes, consistent window creation, center splash, multimonitor support, correct cursor limits (https://github.com/themrdemonized/xray-monolith/pull/418)
+    * fix race in refcount (https://github.com/themrdemonized/xray-monolith/pull/426) (https://github.com/themrdemonized/xray-monolith/pull/429)
+  * Tosox: Installation based instance mutex, Allow multiple game instances (https://github.com/themrdemonized/xray-monolith/pull/424)
+
+MT:
+  * Fixed volumetric lights rendering
+  * Fixed flickering shadows from omni lights when using SSS
+  * Fixed possible crash related to visual manager when entity is destroyed
+  * Rain and Particle Manager uses less strict atomics
+  * knallpsi: Console commands history, scroll console with mouse wheel, fixed browsing commands history with arrows (https://github.com/themrdemonized/xray-monolith/pull/423)
+
 **2026.02.08**
 
 Main and MT:
@@ -1712,3 +1742,4 @@ override = true
 
 * Exported distance_to_xz_sqr() function of Fvector
 * Redesigned duplicate section error, it will additionally print what file adds the section in the first place in addition to the file that has the duplicate
+

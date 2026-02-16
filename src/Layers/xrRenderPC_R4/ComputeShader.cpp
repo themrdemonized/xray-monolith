@@ -34,7 +34,7 @@ ComputeShader::~ComputeShader()
 		m_Samplers[i]->Release();
 }
 
-u32 GetCB(ref_constant C)
+u32 GetCB(R_constant* C)
 {
 	return (C->destination & RC_dest_pixel_cb_index_mask) >> RC_dest_pixel_cb_index_shift;
 }
@@ -42,8 +42,8 @@ u32 GetCB(ref_constant C)
 
 ComputeShader& ComputeShader::set_c(shared_str name, const Fvector4& value)
 {
-	ref_constant c = m_ctable->get(name);
-	m_ctable->m_CBTable[GetCB(c)].second->set(&*c, c->ps, value);
+	R_constant* c = m_ctable->get(name);
+	m_ctable->m_CBTable[GetCB(c)].second->set(c, c->ps, value);
 	return *this;
 }
 

@@ -27,7 +27,7 @@ void CInifile::Destroy(CInifile* ini)
 	xr_delete(ini);
 }
 
-bool sect_pred(const CInifile::Sect* x, LPCSTR val)
+bool sect_pred(const CInifile::Sect* x, LPCSTR val) noexcept
 {
 	return xr_strcmp(*x->Name, val) < 0;
 };

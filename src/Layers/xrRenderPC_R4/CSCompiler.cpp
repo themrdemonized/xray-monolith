@@ -109,7 +109,7 @@ CSCompiler& CSCompiler::defSampler(LPCSTR ResourceName, const D3D_SAMPLER_DESC& 
 {
 	VERIFY(ResourceName);
 
-	ref_constant C = m_constants.get(ResourceName);
+	R_constant* C = m_constants.get(ResourceName);
 	if (!C) return *this;
 
 	R_ASSERT(C->type == RC_sampler);
@@ -130,7 +130,7 @@ CSCompiler& CSCompiler::defOutput(LPCSTR ResourceName, ref_rt rt)
 	VERIFY(ResourceName);
 	if (!rt) return *this;
 
-	ref_constant C = m_constants.get(ResourceName);
+	R_constant* C = m_constants.get(ResourceName);
 	if (!C) return *this;
 
 	R_ASSERT(C->type == RC_dx11UAV);
@@ -150,7 +150,7 @@ CSCompiler& CSCompiler::defTexture(LPCSTR ResourceName, ref_texture texture)
 	if (!texture) return *this;
 
 	// Find index
-	ref_constant C = m_constants.get(ResourceName);
+	R_constant* C = m_constants.get(ResourceName);
 	if (!C) return *this;
 
 	R_ASSERT(C->type == RC_dx10texture);

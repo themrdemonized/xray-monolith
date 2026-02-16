@@ -1,0 +1,36 @@
+# Top-most EditorConfig file
+root = true
+
+# All files
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+# C++ Files
+[*.{cpp,h,hpp,c,cc}]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# Braces on next line
+cpp_indent_braces = false
+cpp_new_line_before_open_brace_block = all
+cpp_new_line_before_open_brace_function = all
+cpp_new_line_before_open_brace_type = all
+cpp_new_line_before_open_brace_lambda = all
+cpp_new_line_before_catch = true
+cpp_new_line_before_else = true
+cpp_new_line_before_finally = true
+
+# Header Guard Preferences
+# This encourages the use of #pragma once over old-school #ifndef guards
+cpp_header_guard_style = pragma_once
+
+# Visual Studio Specific Analyzers (Clang-Tidy)
+# Ensures #pragma once is at the very top of the file
+cpp_clang_tidy_checks = -*,llvm-header-guard,readability-misplaced-array-index
+
+# x64 Specific Performance Hints
+# Encourages using size_t over u32 for memory sizes/offsets
+cpp_analyze_local_variable_naming_convention = size_t_for_sizes

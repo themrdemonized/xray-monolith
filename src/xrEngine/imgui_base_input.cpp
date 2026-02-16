@@ -102,8 +102,8 @@ namespace xr_imgui
         io.MouseDrawCursor = false;
 
         Fvector2 pos = { io.MousePos.x, io.MousePos.y };
-        pos.x = iFloor(pos.x * (UI_BASE_WIDTH / (float)Device.dwWidth));
-        pos.y = iFloor(pos.y * (UI_BASE_HEIGHT / (float)Device.dwHeight));
+        pos.x = iFloor(pos.x * (UI_BASE_WIDTH / (float)Device.clientWidth));
+        pos.y = iFloor(pos.y * (UI_BASE_HEIGHT / (float)Device.clientHeight));
 
         GetUICursor().SetUICursorPosition(pos);
 

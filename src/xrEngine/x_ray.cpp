@@ -75,6 +75,8 @@ float discord_update_rate = .5f;
 bool use_reshade = false;
 extern bool init_reshade();
 extern void unregister_reshade();
+extern void GetMonitorResolution(u32& horizontal, u32& vertical);
+extern void GetMonitorPosition(int& x, int& y);
 
 //ImGui
 #pragma comment(lib, "imgui.lib")
@@ -587,7 +589,6 @@ void Startup()
 	}
 
 	// Initialize APP
-	ShowWindow(Device.m_hWnd, SW_SHOWNORMAL);
 	Device.Create();
 
 	LALib.OnCreate();
@@ -948,20 +949,33 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	// Check for another instance
 #ifdef NO_MULTI_INSTANCES
 #define STALKER_PRESENCE_MUTEX "Local\\STALKER-COP"
+	char exePath[MAX_PATH] = {};
+	DWORD bytes = GetModuleFileNameA(NULL, exePath, MAX_PATH);
+	exePath[MAX_PATH - 1] = '\0';
+	if (bytes == 0)
+		return 2;
 
-	HANDLE hCheckPresenceMutex = INVALID_HANDLE_VALUE;
-	hCheckPresenceMutex = OpenMutex(READ_CONTROL, FALSE, STALKER_PRESENCE_MUTEX);
-	if (hCheckPresenceMutex == NULL)
+	// Strip filename and focus on installation directory
+	char* cut = strrchr(exePath, '\\');
+	if (cut)
+		*cut = '\0';
+
+	// Normalize
+	xr_strlwr(exePath);
+
+	// Create hash
+	u32 pathHash = path_crc32(exePath, xr_strlen(exePath));
+
+	// Create unique mutex name  
+	string256 mutexName = {};
+	xr_sprintf(mutexName, sizeof(mutexName), STALKER_PRESENCE_MUTEX"_%08x", pathHash);
+
+	HANDLE hCheckPresenceMutex = CreateMutex(NULL, TRUE, mutexName);
+	if (!hCheckPresenceMutex)
+		return 2;
+
+	if (GetLastError() == ERROR_ALREADY_EXISTS)
 	{
-		// New mutex
-		hCheckPresenceMutex = CreateMutex(NULL, FALSE, STALKER_PRESENCE_MUTEX);
-		if (hCheckPresenceMutex == NULL)
-			// Shit happens
-			return 2;
-	}
-	else
-	{
-		// Already running
 		CloseHandle(hCheckPresenceMutex);
 		return 1;
 	}
@@ -976,6 +990,15 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	HWND logoPicture = GetDlgItem(logoWindow, IDC_STATIC_LOGO);
 	RECT logoRect;
 	GetWindowRect(logoPicture, &logoRect);
+	int splashW = logoRect.right - logoRect.left;
+	int splashH = logoRect.bottom - logoRect.top;
+
+	u32 screenW, screenH;
+	int monX, monY;
+	GetMonitorResolution(screenW, screenH);
+	GetMonitorPosition(monX, monY);
+	int x = monX + (screenW - splashW) / 2;
+	int y = monY + (screenH - splashH) / 2;
 
 	SetWindowPos(
 		logoWindow,
@@ -984,11 +1007,11 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 #else
         HWND_NOTOPMOST,
 #endif // NDEBUG
-		0,
-		0,
-		logoRect.right - logoRect.left,
-		logoRect.bottom - logoRect.top,
-		SWP_NOMOVE | SWP_SHOWWINDOW // | SWP_NOSIZE
+		x,
+		y,
+		splashW,
+		splashH,
+		SWP_SHOWWINDOW
 	);
 
 	UpdateWindow(logoWindow);
@@ -1174,10 +1197,39 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      char* lpCmdLine,
                      int nCmdShow)
 {
-	// Initialize LuaJIT low-memory pool FIRST, before any DLLs load and fragment
+  // Initialize LuaJIT low-memory pool FIRST, before any DLLs load and fragment
 	// the lower 2GB address space.
 	XR_EARLY_INIT();
-
+  
+	// Enable per-monitor DPI awareness so GetMonitorInfo returns real pixel sizes.
+	// Without this, monitors with different DPI scaling report wrong resolutions
+	// (e.g. a 1920x1080 secondary monitor reports 2400x1290 when primary is at 125%).
+	// Uses dynamic loading since _WIN32_WINNT is too old for these APIs.
+	// Try Win10 1703+ API first, fall back to Win 8.1+ API, silently skip on Win 7 or older.
+	{
+		bool dpi_set = false;
+		HMODULE user32 = GetModuleHandleA("user32.dll");
+		if (user32)
+		{
+			typedef BOOL(WINAPI* pfnSetProcessDpiAwarenessContext)(HANDLE);
+			auto fn = (pfnSetProcessDpiAwarenessContext)GetProcAddress(user32, "SetProcessDpiAwarenessContext");
+			if (fn)
+				dpi_set = fn(/*DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2*/ (HANDLE)-4) != FALSE;
+		}
+		if (!dpi_set)
+		{
+			HMODULE shcore = LoadLibraryA("Shcore.dll");
+			if (shcore)
+			{
+				typedef HRESULT(WINAPI* pfnSetProcessDpiAwareness)(int);
+				auto fn = (pfnSetProcessDpiAwareness)GetProcAddress(shcore, "SetProcessDpiAwareness");
+				if (fn)
+					fn(/*PROCESS_PER_MONITOR_DPI_AWARE*/ 2);
+				FreeLibrary(shcore);
+			}
+		}
+	}
+  
 	//DllMainOpenAL32(NULL, DLL_PROCESS_ATTACH, NULL);
 	DllMainXrCore(NULL, DLL_PROCESS_ATTACH, NULL);
 	DllMainXrPhysics(NULL, DLL_PROCESS_ATTACH, NULL);

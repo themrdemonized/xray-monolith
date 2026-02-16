@@ -759,10 +759,10 @@ ICF void CBackend::ApplyRTandZB()
 
 IC void CBackend::get_ConstantDirect(shared_str& n, u32 DataSize, void** pVData, void** pGData, void** pPData)
 {
-	ref_constant C = get_c(n);
+	R_constant* C = get_c(n);
 
 	if (C)
-		constants.access_direct(&*C, DataSize, pVData, pGData, pPData);
+		constants.access_direct(C, DataSize, pVData, pGData, pPData);
 	else
 	{
 		if (pVData) *pVData = 0;
