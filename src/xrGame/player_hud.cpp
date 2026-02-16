@@ -707,8 +707,7 @@ player_hud::player_hud()
 	m_model = nullptr;
 	m_model_2 = nullptr;
 
-	m_legs_model = nullptr;
-	m_legs_transform.identity();
+	m_legs_controller.destroy();
 
 	m_attached_items[0] = nullptr;
 	m_attached_items[1] = nullptr;
@@ -769,11 +768,7 @@ player_hud::~player_hud()
 	::Render->model_Delete(v);
 	m_model_2 = nullptr;
 
-	if (m_legs_model) {
-		v = m_legs_model->dcast_RenderVisual();
-		::Render->model_Delete(v);
-		m_legs_model = nullptr;
-	}
+	m_legs_controller.destroy();
 
 	delete_data(m_hand_motions);
 	delete_data(m_script_layers);

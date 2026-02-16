@@ -4,6 +4,7 @@
 #include "../Include/xrRender/Kinematics.h"
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "actor_defs.h"
+#include "player_hud_legs.h"
 
 #define SCOPE_ATTACH_IDX 2
 
@@ -31,54 +32,6 @@ struct player_hud_motion_container
 	xr_vector<player_hud_motion> m_anims;
 	player_hud_motion* find_motion(const shared_str& name);
 	void load(IKinematicsAnimated* model, const shared_str& sect);
-};
-
-struct legs_config
-{
-	float fwd_offset;
-	float y_offset;
-	float side_offset;
-	float crouch_y_offset;
-
-	float yaw_speed_moving;
-	float yaw_speed_idle;
-	float accel_factor;
-	float accel_angle;
-
-	float strafe_roll;
-
-	float bob_speed_walk;
-	float bob_speed_sprint;
-	float bob_speed_crouch;
-	float bob_amount_walk;
-	float bob_amount_sprint;
-	float bob_amount_crouch;
-
-	float idle_sway_speed;
-	float idle_sway_amount;
-
-	float land_duration;
-	float land_squat;
-
-	float pos_smooth_time;
-
-	float y_smooth_speed;
-
-	shared_str anim_sprint;
-	shared_str anim_walk_fwd;
-	shared_str anim_walk_back;
-	shared_str anim_strafe_left;
-	shared_str anim_strafe_right;
-	shared_str anim_crouch_fwd;
-	shared_str anim_crouch_back;
-	shared_str anim_crouch_left;
-	shared_str anim_crouch_right;
-	shared_str anim_idle;
-	shared_str anim_crouch_idle;
-	shared_str anim_climb;
-	shared_str anim_jump;
-
-	float anim_blend_time;
 };
 
 struct hand_motions
@@ -135,7 +88,7 @@ struct movement_layer
 			active = true;
 			return;
 		}
-		
+
 		anm->Play(bLoop);
 		active = true;
 	}
@@ -240,20 +193,17 @@ enum EBoneCallbackParam
 	r_finger0 = 0,
 	r_finger01,
 	r_finger02,
-	//bip01_r_finger1,
-	//bip01_r_finger11,
-	//bip01_r_finger12,
 };
 
 struct hud_item_measures
 {
-	enum { e_fire_point=(1 << 0), e_fire_point2=(1 << 1), e_shell_point=(1 << 2), e_16x9_mode_now=(1 << 3), e_fire_point_silencer=(1 << 4) };
+	enum { e_fire_point = (1 << 0), e_fire_point2 = (1 << 1), e_shell_point = (1 << 2), e_16x9_mode_now = (1 << 3), e_fire_point_silencer = (1 << 4) };
 
 	Flags8 m_prop_flags;
 
-	Fvector m_item_attach[2]; // pos,rot
-	Fvector m_hands_offset[2][8]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount --#SM+#--
-	Fvector m_strafe_offset[4][2]; // pos,rot,data1,data2/ normal,aim-GL	 --#SM+#--
+	Fvector m_item_attach[2];
+	Fvector m_hands_offset[2][8];
+	Fvector m_strafe_offset[4][2];
 
 	u16 m_fire_bone;
 	Fvector m_fire_point_offset;
@@ -265,7 +215,7 @@ struct hud_item_measures
 	u16 m_shell_bone;
 	Fvector m_shell_point_offset;
 
-	Fvector m_hands_attach[2]; //pos,rot
+	Fvector m_hands_attach[2];
 
 	void load(const shared_str& sect_name, IKinematics* K);
 
@@ -283,7 +233,7 @@ struct hud_item_measures
 		Fvector4 m_offset_LRUD_aim;
 	};
 
-	inertion_params m_inertion_params; //--#SM+#--
+	inertion_params m_inertion_params;
 
 	struct shooting_params
 	{
@@ -296,7 +246,7 @@ struct hud_item_measures
 		float m_min_LRUD_power;
 	};
 
-	shooting_params m_shooting_params; //--#SM+#--
+	shooting_params m_shooting_params;
 
 	float m_fFreelookZOffset;
 	bool m_bLeadGunLeftHand;
@@ -312,14 +262,14 @@ struct attachable_hud_item
 	u16 m_attach_place_idx;
 	hud_item_measures m_measures;
 
-	//runtime positioning
 	Fmatrix m_attach_offset;
 	Fmatrix m_item_transform;
 
 	player_hud_motion_container* m_hand_motions;
 
-	attachable_hud_item(player_hud* pparent): m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
-	                                          m_model(nullptr), m_attach_place_idx(0) {}
+	attachable_hud_item(player_hud* pparent) : m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
+		m_model(nullptr), m_attach_place_idx(0) {
+	}
 	~attachable_hud_item();
 	void load(const shared_str& sect_name);
 	void update(bool bForce);
@@ -331,27 +281,21 @@ struct attachable_hud_item
 	void set_bone_visible(const shared_str& bone_name, BOOL bVisibility, BOOL bSilent = FALSE);
 	void debug_draw_firedeps();
 	player_hud_motion* find_motion(const shared_str& anm_name);
-	//hands bind position
+
 	Fvector& hands_attach_pos();
 	Fvector& hands_attach_rot();
-
-	//hands runtime offset
 	Fvector& hands_offset_pos();
 	Fvector& hands_offset_rot();
-
 	Fvector& aim_offset_pos();
 	Fvector& aim_offset_rot();
-
 	Fvector& alt_aim_offset_pos();
 	Fvector& alt_aim_offset_rot();
-
 	Fvector& attach_base_offset_pos();
 	Fvector& attach_base_offset_rot();
 	Fvector& attach_mount_offset_pos();
 	Fvector& attach_mount_offset_rot();
 	float attach_scale();
 
-	//props
 	u32 m_upd_firedeps_frame;
 	void tune(Ivector values);
 	u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float speed = 0, bool bMixIn2 = true);
@@ -396,7 +340,6 @@ public:
 	Fmatrix m_item_pos;
 	u8 m_attach_idx;
 
-	//Movement animation layers: 0 = aim_walk, 1 = aim_crouch, 2 = crouch, 3 = walk, 4 = run, 5 = sprint
 	xr_vector<movement_layer*> m_movement_layers;
 	xr_vector<script_layer*> m_script_layers;
 
@@ -436,6 +379,7 @@ public:
 	u32 motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md);
 	void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
 	bool inertion_allowed();
+
 private:
 	const Fvector attach_rot(u8 part) const;
 	const Fvector attach_pos(u8 part) const;
@@ -443,70 +387,21 @@ private:
 	xr_vector<u16> m_ancors;
 	attachable_hud_item* m_attached_items[3];
 	static void _BCL FingerCallback(CBoneInstance* B);
+
 public:
 	IKinematicsAnimated* m_model;
 	IKinematicsAnimated* m_model_2;
 
+	player_legs_controller m_legs_controller;
 
-	// LEGS 
-	void update_legs(const Fmatrix& cam_trans); 
+	void update_legs(const Fmatrix& cam_trans);
 	void delete_legs_model();
-	IKinematicsAnimated* m_legs_model;   
-	Fmatrix                 m_legs_transform; 
-	shared_str              m_legs_visual_name; 
-	shared_str              m_current_legs_anim;
-	float   m_legs_yaw_current;
-	Fvector m_legs_pos_current;
 
-	legs_config m_legs_cfg;
-	void load_legs_config(const shared_str& sect);
-
-	float m_legs_target_yaw;
-	float m_legs_current_yaw;
-	bool  m_legs_yaw_initialized;
-
-	bool  m_legs_was_airborne;
-	float m_legs_land_timer;
-	float m_legs_land_duration;
-
-	float m_legs_idle_timer;
-
-	float m_legs_current_roll;
-
-	float m_legs_bob_timer;
-	float m_legs_bob_amount;
-
-	float m_legs_current_y_offset;
-	float m_legs_target_y_offset;
-
-	Fvector m_legs_velocity;
-	Fvector m_legs_smooth_pos;
-	bool    m_legs_pos_initialized;
-
-	bool m_legs_hide_by_wall;
-
-	float m_legs_ray_timer;
-	float m_legs_cached_fwd_offset;
-
-	float m_legs_wall_hide_y;
-	float m_legs_cached_wall_hide;
-
-	float m_legs_fwd_offset = -0.75f;
-	float m_legs_y_offset = 0.0f;
-	float m_legs_side_offset = 0.25f;
-	shared_str m_legs_anim_idle = "lancew_legs_idle";
-
-	bool m_legs_config_warned;  
-	shared_str m_legs_last_outfit_sect; 
-
-	float m_legs_yaw;
-	// LEGS END
-
-	Fvector m_adjust_offset[2][10]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount, aim for attach, alt aim for attach
-	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
-	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui
+	Fvector m_adjust_offset[2][10];
+	Fvector m_adjust_obj[2];
+	Fvector m_adjust_ui_offset[2];
 	Fvector m_adjust_firepoint_shell[2][2];
-	xr_map<EBoneCallbackParam, BoneCallbackParams*> m_bone_callback_params; // bonename,params
+	xr_map<EBoneCallbackParam, BoneCallbackParams*> m_bone_callback_params;
 	int m_edit_attachment;
 	float m_adjust_zoom_factor[3];
 	float m_adjust_scale;
@@ -521,25 +416,11 @@ public:
 			m_bone_callback_params[r_finger01]->m_current.set(0.f, 0.f, 0.f);
 			m_bone_callback_params[r_finger02]->m_current.set(0.f, 0.f, 0.f);
 		}
-		
+
 		m_bone_callback_params[r_finger0]->m_target.set(0.f, 0.f, 0.f);
 		m_bone_callback_params[r_finger01]->m_target.set(0.f, 0.f, 0.f);
 		m_bone_callback_params[r_finger02]->m_target.set(0.f, 0.f, 0.f);
 	}
-
-	/*void reset_triggerfinger(bool bForce)
-	{
-		if (bForce)
-		{
-			m_bone_callback_params[bip01_r_finger1]->m_current.set(0.f, 0.f, 0.f);
-			m_bone_callback_params[bip01_r_finger11]->m_current.set(0.f, 0.f, 0.f);
-			m_bone_callback_params[bip01_r_finger12]->m_current.set(0.f, 0.f, 0.f);
-		}
-
-		m_bone_callback_params[bip01_r_finger1]->m_target.set(0.f, 0.f, 0.f);
-		m_bone_callback_params[bip01_r_finger11]->m_target.set(0.f, 0.f, 0.f);
-		m_bone_callback_params[bip01_r_finger12]->m_target.set(0.f, 0.f, 0.f);
-	}*/
 
 	DECLARE_SCRIPT_REGISTER_FUNCTION
 };
