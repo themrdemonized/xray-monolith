@@ -119,13 +119,13 @@ void CUIGameCustom::AddCustomShapeToRender(const ::luabind::object& lua_shape)
 
 	::luabind::object lua_poly = lua_shape["poly"];
 
-	int table_size = 0;
+	int poly_size = 0;
 	for (auto i = lua_poly.begin(); i != lua_poly.end(); ++i) {
-		table_size++;
+		poly_size++;
 	}
-	shape.poly.resize(table_size);
+	shape.poly.resize(poly_size);
 
-	for (int i = 1; i <= table_size; i++) {
+	for (int i = 1; i <= poly_size; i++) {
 		::luabind::object lua_point = lua_poly[i];
 		shape.poly[i - 1].pt = ::luabind::object_cast<Fvector2>(lua_point["pt"]);
 		shape.poly[i - 1].uv = ::luabind::object_cast<Fvector2>(lua_point["uv"]);
@@ -142,8 +142,7 @@ void CUIGameCustom::DrawCustomShapes()
 		CustomShape shape = custom_shapes[i];
 
 		ui_shader shader;
-		LPCSTR res_shname = UIRender->UpdateShaderName(shape.texture_name, shape.shader_name);
-		shader->create(res_shname, shape.texture_name);
+		shader->create(shape.shader_name, shape.texture_name);
 		UIRender->SetShader(*shader);
 
 		UIRender->StartPrimitive(shape.poly.size() * 3, IUIRender::ePrimitiveType::ptTriList, IUIRender::ePointType::pttTL);
