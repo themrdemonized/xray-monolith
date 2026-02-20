@@ -98,6 +98,13 @@ float CIKLimbsController::LegLengthShiftLimit(float current_shift, const SCalcul
 			if (shift_down < s_down)
 				shift_down = s_down;
 		}
+
+	if (Actor() == m_object) {
+		if (Actor()->active_cam() == EActorCameras::eacFirstEye) {
+			clamp(shift_down, -0.1f, 0.1f);
+		}
+	}
+
 	return shift_down;
 }
 
@@ -193,6 +200,13 @@ bool CIKLimbsController::PredictObjectShift(const SCalculateData cd[max_size])
 
 	if (predict_time_shift < EPS_S)
 		predict_time_shift = Device.fTimeDelta;
+
+	if (Actor() == m_object) {
+		if (Actor()->active_cam() == EActorCameras::eacFirstEye) {
+			clamp(predict_shift, -0.1f, 0.1f);
+		}
+	}
+
 	_object_shift.set_taget(predict_shift, predict_time_shift);
 	return true;
 }
