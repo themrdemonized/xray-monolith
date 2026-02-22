@@ -237,6 +237,29 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.02.22**
+
+Main and MT:
+  * Spawn Antifreeze more safety features
+  * Remove stutter when raising PDA by iterating actual se_stalker and se_monster objects instead of whole alife in function `pda.calculate_rankings()`
+  * damoldavskiy: Easing and correct scaling for .anms, custom pivot points (https://github.com/themrdemonized/xray-monolith/pull/436)
+
+MT:
+  * Fixed buggy lighting on objects in DX8
+  * Separate SRW locks instead of single CS for resources creation and deletion
+  * Reorganized resources data to use unordered sets instead of vectors for faster lookup
+  * More safety features for visual memory manager
+  * Light refactor of building and rendering `dsgraph` items
+  * `mt_task_manager` console command to toggle Task Manager between main and second thread, default is 0, main thread
+  * More safety in `phase_ssfx_sss_ext`, should be less crashy
+  * Parallel GC runs in parallel to Physics and Sound Processing instead of after them, gives GC more time to work for more effectiveness
+  * knallpsi: support for .peak volumetric lights by LVutner (https://github.com/themrdemonized/xray-monolith/pull/430)
+    * How to enable .peak?
+      0. Recommended to install SSS before this
+      1. Download and install shaders from www.moddb.com/mods/stalker-anomaly/addons/peak-volumetrics-1-1
+      2. Type `pfx_volumetric_mode 1` in console or enable .peak volumetrics in Modded Exes options -> Visual -> Graphics
+      3. Optionally tune volumetric lights intensity in SSS MCM options
+
 **2026.02.15**
 
 MT:

@@ -1224,10 +1224,36 @@ void player_hud::update(const Fmatrix& cam_trans)
 		Fmatrix blend = anm->XFORM();
 
 		if (anm->m_part == 0 || anm->m_part == 2)
-			m_transform.mulB_43(blend);
+        {
+			IKinematics* K = m_model->dcast_PKinematics();
+			u16 bone_id = K ? K->LL_BoneID(anm->m_pivot_bone) : u16(-1);
+			if (bone_id != u16(-1))
+			{
+				Fmatrix B = K->LL_GetTransform(bone_id);
+				Fmatrix invB; invB.invert(B);
+				Fmatrix tmp; tmp.mul_43(B, blend);
+				tmp.mulB_43(invB);
+				m_transform.mulB_43(tmp);
+			}
+			else
+				m_transform.mulB_43(blend);
+        }
 
 		if (anm->m_part == 1 || anm->m_part == 2)
-			m_transform_2.mulB_43(blend);
+        {
+			IKinematics* K = m_model_2->dcast_PKinematics();
+			u16 bone_id = K ? K->LL_BoneID(anm->m_pivot_bone) : u16(-1);
+			if (bone_id != u16(-1))
+			{
+				Fmatrix B = K->LL_GetTransform(bone_id);
+				Fmatrix invB; invB.invert(B);
+				Fmatrix tmp; tmp.mul_43(B, blend);
+				tmp.mulB_43(invB);
+				m_transform_2.mulB_43(tmp);
+			}
+			else
+				m_transform_2.mulB_43(blend);
+        }
 	}
 
 	bool need_blend[2];
@@ -1371,7 +1397,7 @@ void player_hud::updateMovementLayerState()
 	}
 }
 
-void player_hud::PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bool bLooped, bool no_restart)
+void player_hud::PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bool bLooped, bool no_restart, LPCSTR pivot_bone)
 {
 	for (script_layer* anm : m_script_layers)
 	{
@@ -1392,11 +1418,12 @@ void player_hud::PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bo
 			anm->anm->Speed() = speed;
 			anm->m_power = power;
 			anm->active = true;
+            anm->m_pivot_bone = pivot_bone;
 			return;
 		}
 	}
 
-	script_layer* anm = xr_new<script_layer>(name, part, speed, power, bLooped);
+	script_layer* anm = xr_new<script_layer>(name, part, speed, power, bLooped, pivot_bone);
 	m_script_layers.push_back(anm);
 }
 

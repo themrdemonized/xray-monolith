@@ -1546,9 +1546,9 @@ bool AllowHudMotion()
 	return g_player_hud->allow_script_anim();
 }
 
-void PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bool bLooped, bool no_restart)
+void PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bool bLooped, bool no_restart, LPCSTR pivot_bone)
 {
-	g_player_hud->PlayBlendAnm(name, part, speed, power, bLooped, no_restart);
+	g_player_hud->PlayBlendAnm(name, part, speed, power, bLooped, no_restart, pivot_bone);
 }
 
 void StopBlendAnm(LPCSTR name, bool bForce)

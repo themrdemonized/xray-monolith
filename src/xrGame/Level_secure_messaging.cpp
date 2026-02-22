@@ -11,6 +11,7 @@ void CLevel::OnSecureMessage(NET_Packet& P)
 	u32 real_checksum = 0;
 	P.r_u32(real_checksum);
 	VERIFY(checksum == real_checksum); //cheater tries to change incoming data packet - need crash
+    xrSRWLockGuard g(prefetch_lock);
 	game_events->insert(dec_packet); //if checksum != real_checksum will be delayed crash ...
 }
 

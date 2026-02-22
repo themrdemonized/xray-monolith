@@ -239,9 +239,9 @@ namespace Feel
 						VERIFY(!fis_zero(RD.dir.magnitude()));
 
 #ifdef SPATIAL_CHANGE
-						if (g_pGameLevel->ObjectSpace.RayQuery(RQR, RD, feel_vision_callback, &feel_params, feel_vision_test_callback, NULL))
+					    if (g_pGameLevel->ObjectSpace.RayQuery(RQR, RD, feel_vision_callback, &feel_params, feel_vision_test_callback, const_cast<CObject*>(m_owner)))
 #else
-						if (g_pGameLevel->ObjectSpace.RayQuery(RQR, RD, feel_vision_callback, &feel_params, NULL, NULL))
+					    if (g_pGameLevel->ObjectSpace.RayQuery(RQR, RD, feel_vision_callback, &feel_params, NULL, const_cast<CObject*>(m_owner)))
 #endif
 						{
 							I->Cache_vis = feel_params.vis;
