@@ -74,7 +74,7 @@ bool CAbstractObjectManager::is_useful(T* object) const
 
 	// 2. Access the component via the intrusive_ptr
 	// We take a const reference to avoid atomic ref-count churn
-	const ISpatialShared spatial = object->SpatialComponent;
+	const ISpatialShared& spatial = object->SpatialComponent;
 
 	// 3. Check if the component exists (is_useful requires a spatial presence)
 	if (!spatial) return false;

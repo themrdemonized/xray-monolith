@@ -82,7 +82,7 @@ CPatrolPath& CPatrolPath::load_from_config(CInifile* ini_paths, LPCSTR patrol_na
 		for (xr_string link : links)
 		{
 			// Link current point to target points
-			std::pair<u32, float> link_info = parse_point_link(patrol_name, link, vertex_ids_by_name);
+			xr_pair<u32, float> link_info = parse_point_link(patrol_name, link, vertex_ids_by_name);
 			add_edge(idx, link_info.first, link_info.second);
 			Msg("[PP] Linked %d to %d with a probability of %f", link_info.first, idx, link_info.second);
 		}
@@ -93,7 +93,7 @@ CPatrolPath& CPatrolPath::load_from_config(CInifile* ini_paths, LPCSTR patrol_na
 	return (*this);
 }
 
-std::pair<u32, float> CPatrolPath::parse_point_link(LPCSTR patrol_name, xr_string link, xr_map<shared_str, u32> vertex_ids_by_name)
+xr_pair<u32, float> CPatrolPath::parse_point_link(LPCSTR patrol_name, xr_string link, xr_map<shared_str, u32> vertex_ids_by_name)
 {
 	Msg("[PP] Linking %s", link.c_str());
 

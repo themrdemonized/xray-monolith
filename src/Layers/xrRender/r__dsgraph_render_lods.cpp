@@ -16,14 +16,11 @@ xr_vector<int> lstLODgroups;
 void CDSGraphManager::r_dsgraph_render_lods(bool _setup_zb, bool _clear)
 {
 	PROF_EVENT("LODS: Render");
-	if (RGraph.mapLOD.empty())
+	if (!RGraph.mapLOD.size())
 		return;
 
-    static auto sortFuncReverse = [](const auto& a, const auto& b) { return b < a; };
-	if (_setup_zb)
-        std::sort(RGraph.mapLOD.begin(), RGraph.mapLOD.end());
-    else
-        std::sort(RGraph.mapLOD.begin(), RGraph.mapLOD.end(), sortFuncReverse);
+	if (!_setup_zb)
+		std::reverse(RGraph.mapLOD.begin(), RGraph.mapLOD.end());
 
 	// *** Fill VB and generate groups
 	u32 shid = _setup_zb ? SE_R1_LMODELS : SE_R1_NORMAL_LQ;

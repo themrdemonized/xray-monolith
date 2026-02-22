@@ -45,18 +45,6 @@ BOOL reclaim(xr_vector<T*>& vec, const T* ptr)
 	return FALSE;
 }
 
-template <class T, class H, class E>
-BOOL reclaim(xr_unordered_set<T*, H, E>& vec, const T* ptr)
-{
-    return (BOOL)vec.erase(const_cast<T*>(ptr));
-}
-
-template <class T, class H, class E>
-BOOL reclaim(xr_unordered_flat_set<T*, H, E>& vec, const T* ptr)
-{
-    return (BOOL)vec.erase(const_cast<T*>(ptr));
-}
-
 //--------------------------------------------------------------------------------------------------------------
 IBlender* CResourceManager::_GetBlender(LPCSTR Name)
 {
@@ -106,7 +94,7 @@ void CResourceManager::ED_UpdateBlender(LPCSTR Name, IBlender* data)
 	}
 	else
 	{
-		m_blenders.emplace(xr_strdup(Name), data);
+		m_blenders.insert(mk_pair(xr_strdup(Name), data));
 	}
 }
 
@@ -157,22 +145,23 @@ ShaderElement* CResourceManager::_CreateElement(ShaderElement& S)
 {
 	if (S.passes.empty()) return 0;
 
-	xrSRWLockGuard guard(shaderGuard);
+	xrCriticalSectionGuard guard(creationGuard);
 
 	// Search equal in shaders array
-    auto it = v_elements.find(S);
-    if (it != v_elements.end()) return *it;
+	for (u32 it = 0; it < v_elements.size(); it++)
+		if (S.equal(*(v_elements[it]))) return v_elements[it];
 
 	// Create _new_ entry
 	ShaderElement* N = xr_new<ShaderElement>(S);
+	//N->_copy(S);
 	N->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-	v_elements.insert(N);
+	v_elements.push_back(N);
 	return N;
 }
 
 void CResourceManager::_DeleteElement(const ShaderElement* S)
 {
-	xrSRWLockGuard guard(shaderGuard);
+	xrCriticalSectionGuard guard(creationGuard);
 	if (0 == (S->dwFlags & xr_resource_flagged::RF_REGISTERED)) return;
 	if (reclaim(v_elements, S)) return;
 	Msg("! ERROR: Failed to find compiled 'shader-element'");
@@ -181,6 +170,8 @@ void CResourceManager::_DeleteElement(const ShaderElement* S)
 Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_constants,
                                       LPCSTR s_matrices)
 {
+	xrCriticalSectionGuard guard(creationGuard);
+
 	CBlender_Compile C;
 	Shader S;
 
@@ -277,12 +268,9 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 	}
 
 	// Search equal in shaders array
-    {
-        xrSRWLockGuard guard(shaderGuard);
-        auto it = v_shaders.find(&S);
-            if (it != v_shaders.end()) return *it;
-    }
-    
+	for (u32 it = 0; it < v_shaders.size(); it++)
+		if (S.equal(v_shaders[it])) return v_shaders[it];
+
 	// Create _new_ entry
 	Shader* ResultShader = _CreateShader(&S);
 	return ResultShader;
@@ -384,7 +372,7 @@ void CResourceManager::Delete(const Shader* S)
 	if (0 == (S->dwFlags & xr_resource_flagged::RF_REGISTERED))
 		return;
 
-	xrSRWLockGuard guard(shaderGuard);
+	xrCriticalSectionGuard guard(creationGuard);
 
 	if (reclaim(v_shaders, S))
 		return;
@@ -445,16 +433,21 @@ void	CResourceManager::ED_UpdateTextures(AStringVec* names)
 
 Shader* CResourceManager::_CreateShader(Shader* InShader)
 {
-	xrSRWLockGuard guard(shaderGuard);
+	xrCriticalSectionGuard guard(creationGuard);
 
 	// Search equal in shaders array
-    auto it = v_shaders.find(InShader);
-    if (it != v_shaders.end()) return *it;
+	for (Shader* it : v_shaders)
+	{
+		if (InShader->equal(it))
+			return it;
+	}
 
 	// Create _new_ entry
 	Shader* N = xr_new<Shader>(*InShader);
+	//N->_copy(*InShader);
 	N->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-	v_shaders.insert(N);
+	v_shaders.push_back(N);
+
 	return N;
 }
 
@@ -492,7 +485,7 @@ void CResourceManager::_DumpMemoryUsage()
 		{
 			u32 m = I->second->flags.MemoryUsage;
 			shared_str n = I->second->cName;
-			mtex.insert(mk_pair(m, mk_pair(I->second->dwReference.load(std::memory_order_relaxed), n)));
+			mtex.insert(mk_pair(m, mk_pair((u32)I->second->dwReference, n)));
 		}
 	}
 

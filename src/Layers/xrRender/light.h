@@ -46,10 +46,8 @@ public:
 	int omnipart_num;
 	int sss_id;
 	int sss_refresh;
-    int sss_remove_latency;
 	s8 sss_priority;
 	bool sss_is_playerlight;
-    xr_delegate<void(light*)> sss_on_light_destroy;
 
 	light* omipart_parent;
 	float distance;

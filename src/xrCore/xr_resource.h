@@ -1,7 +1,6 @@
 #pragma once
 #include "_thread_types.h"
 #include <fast_dynamic_cast/fast_dynamic_cast.hpp>
-#include "_thread_types.h"
 
 // resource itself, the base class for all derived resources
 class XRCORE_API xr_resource
@@ -10,11 +9,11 @@ public:
 	enum { RF_REGISTERED = 1 << 0 };
 
 public:
-	xr_atomic_u32 dwReference;
+	u32 dwReference;
 
-	xr_resource() : dwReference(0) {}
-	xr_resource(const xr_resource&) : dwReference(0) {}
-	xr_resource& operator=(const xr_resource&) { return *this; }
+	xr_resource() : dwReference(0)
+	{
+	}
 };
 
 class XRCORE_API xr_resource_flagged : public xr_resource
@@ -63,19 +62,20 @@ protected:
 	void _inc()
 	{
 		if (0 == p_) return;
-		p_->dwReference.fetch_add(1, std::memory_order_relaxed);
+		p_->dwReference++;
 	}
 
 	void _dec()
 	{
 		if (0 == p_) return;
-		if (p_->dwReference.fetch_sub(1, std::memory_order_acq_rel) == 1) xr_delete(p_);
+		p_->dwReference--;
+		if (0 == p_->dwReference) xr_delete(p_);
 	}
 
 public:
 	ICF void _set(T* rhs)
 	{
-		if (0 != rhs) rhs->dwReference.fetch_add(1, std::memory_order_relaxed);
+		if (0 != rhs) rhs->dwReference++;
 		_dec();
 		p_ = rhs;
 	}

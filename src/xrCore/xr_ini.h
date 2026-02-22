@@ -24,7 +24,7 @@ public:
 		// Insertion index will determine what kv pair in overrides will win even if the depth is the same
 		u32 insertionIndex;
 
-		bool operator<(const Item& other) const noexcept
+		bool operator<(const Item& other) const
 		{
 			return xr_strcmp(*first, *other.first) < 0;
 		}
@@ -37,13 +37,13 @@ public:
 		// Allows for searching by string-likes (string, char*,...) in set
 		using is_transparent = void;
 
-		bool operator() (const Item& x, const Item& y) const noexcept
+		bool operator() (const Item& x, const Item& y) const
 		{
 			return xr_strcmp(*x.first, *y.first) < 0;
 		}
 
 		template <typename T>
-		bool operator() (const Item& x, const T& y) const noexcept
+		bool operator() (const Item& x, const T& y) const
 		{
 			if constexpr (std::is_same_v<T, shared_str>)
 				return xr_strcmp(*x.first, *y) < 0;
@@ -52,7 +52,7 @@ public:
 		}
 
 		template <typename T>
-		bool operator() (const T& x, const Item& y) const noexcept
+		bool operator() (const T& x, const Item& y) const
 		{
 			if constexpr (std::is_same_v<T, shared_str>)
 				return xr_strcmp(*x, *y.first) < 0;

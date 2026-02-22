@@ -297,14 +297,12 @@ void CEffect_Rain::UpdateItems()
 		if (one.dwTime_Hit < Device.dwTimeGlobal)
 		{
 			Hit(one.Phit);
-			if (current_items.load(std::memory_order_relaxed) > desired_items)
-				current_items.fetch_sub(1, std::memory_order_relaxed); // Hit something
+			if (current_items > desired_items) current_items--; // Hit something
 		}
 		if (one.dwTime_Life < Device.dwTimeGlobal)
 		{
 			Born(one, rain_radius, _drop_speed);
-			if (current_items.load(std::memory_order_relaxed) > desired_items)
-				current_items.fetch_sub(1, std::memory_order_relaxed); // Out of life ( invalidated, never hit something, etc. )
+			if (current_items > desired_items) current_items--; // Out of life ( invalidated, never hit something, etc. )
 		}
 
 		// последняя дельта ??

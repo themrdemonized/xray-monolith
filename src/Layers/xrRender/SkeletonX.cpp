@@ -129,8 +129,8 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 		{
 			PROF_EVENT("RM_SKINNING");
 			// Transfer matrices ( current and previous )
-			R_constant* array = RCache.get_c(s_bones_array_const);
-			R_constant* array_prev = RImplementation.phase == RImplementation.PHASE_NORMAL ? RCache.get_c(s_bones_array_prev_const) : array;
+			ref_constant array = RCache.get_c(s_bones_array_const);
+			ref_constant array_prev = RImplementation.phase == RImplementation.PHASE_NORMAL ? RCache.get_c(s_bones_array_prev_const) : array;
 
 			{
 				PROF_EVENT("SEND_MATRICES");

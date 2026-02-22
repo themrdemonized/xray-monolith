@@ -17,7 +17,7 @@ private:
 	static const int P_o_count = P_o_line * P_o_line;
 
 	//
-	typedef R_dsgraph::DSGraphItem<dxRender_Visual*, false> NODE;
+	typedef R_dsgraph::DSGraphItem<dxRender_Visual*> NODE;
 
 	struct recv
 	{

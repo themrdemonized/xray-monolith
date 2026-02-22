@@ -853,7 +853,7 @@ void CWeaponMagazinedWGrenade::PlayAnimIdle()
 
 			if (m_bGrenadeMode)
 			{
-				if (act_state == 0 || psDeviceFlags2.test(rsBlendMoveAnims))
+				if (act_state == 0)
 					iAmmoElapsed == 0 && HudAnimationExist("anm_idle_empty_g")
 					? PlayHUDMotion("anm_idle_empty_g", TRUE, NULL, GetState())
 					: PlayHUDMotion("anm_idle_g", TRUE, NULL, GetState());
@@ -878,7 +878,7 @@ void CWeaponMagazinedWGrenade::PlayAnimIdle()
 			}
 			else
 			{
-				if (act_state == 0 || psDeviceFlags2.test(rsBlendMoveAnims))
+				if (act_state == 0)
 					iAmmoElapsed == 0 && HudAnimationExist("anm_idle_empty_w_gl")
 						? PlayHUDMotion("anm_idle_empty_w_gl", TRUE, NULL, GetState())
 						: PlayHUDMotion("anm_idle_w_gl", TRUE, NULL, GetState());

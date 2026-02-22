@@ -67,7 +67,7 @@ public:
 		}
 
 		// test items
-		for (ISpatialShared S : N->items)
+		for (ISpatialShared& S : N->items)
 		{
 			if (!S.get()) continue;
 			if (mask != (S->spatial.type & mask)) continue;

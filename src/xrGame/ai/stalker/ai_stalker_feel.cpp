@@ -111,5 +111,5 @@ void CAI_Stalker::feel_touch_delete(CObject* O)
 	if (i == m_ignored_touched_objects.end())
 		return;
 
-	m_ignored_touched_objects.erase_fast(i);
+	m_ignored_touched_objects.erase(i);
 }

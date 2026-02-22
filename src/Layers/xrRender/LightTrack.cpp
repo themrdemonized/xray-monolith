@@ -468,7 +468,7 @@ void CROS_impl::prepare_lights(Fvector& position, IRenderable* O)
 #endif
 		for (u32 o_it = 0; o_it < lstSpatial.size(); o_it++)
 		{
-			ISpatialShared spatial = lstSpatial[o_it];
+			ISpatialShared& spatial = lstSpatial[o_it];
 			light* source = (light*)(spatial->dcast_Light());
 			VERIFY(source); // sanity check
 			float R = radius + source->range;

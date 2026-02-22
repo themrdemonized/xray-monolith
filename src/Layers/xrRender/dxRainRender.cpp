@@ -87,12 +87,8 @@ void dxRainRender::Render(CEffect_Rain& owner)
 	u32 desired_items = iFloor(0.01f * (1.f + factor * 99.0f) * float(rain_max_particles));
 
 	// Get to the desired items
-	u32 local_current = current_items.load(std::memory_order_relaxed);
-	if (local_current < desired_items)
-	{
-		u32 delta = desired_items - local_current;
-		current_items.fetch_add(delta, std::memory_order_relaxed);
-	}	
+	if (current_items < desired_items)
+		current_items += desired_items - current_items;
 
 	// visual
 	float factor_visual = factor / 2.f + .5f;

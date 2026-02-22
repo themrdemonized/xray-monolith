@@ -37,30 +37,15 @@ inline void xr_parallel_sort(Data& data, Body functor)
 {
 	concurrency::parallel_sort(std::begin(data), std::end(data), functor);
 }
-template<typename Data>
-inline void xr_parallel_sort(Data& data)
-{
-	concurrency::parallel_sort(std::begin(data), std::end(data));
-}
 
 template<typename Data, typename Body>
 inline void xr_sort(Data& data, Body functor)
 {
 	std::sort(std::begin(data), std::end(data), functor);
 }
-template<typename Data>
-inline void xr_sort(Data& data)
-{
-    std::sort(std::begin(data), std::end(data));
-}
 
 template<typename Data, typename Body>
 inline void xr_stable_sort(Data& data, Body functor)
 {
 	std::stable_sort(std::begin(data), std::end(data), functor);
-}
-template<typename Data>
-inline void xr_stable_sort(Data& data)
-{
-    std::stable_sort(std::begin(data), std::end(data));
 }

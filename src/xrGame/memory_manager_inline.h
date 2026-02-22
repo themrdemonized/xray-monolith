@@ -30,12 +30,6 @@ IC void CMemoryManager::fill_enemies(const xr_vector<T>* objects, const _predica
 	}
 }
 
-template <typename T, typename _predicate>
-IC void CMemoryManager::fill_enemies(const xr_shared_ptr<xr_vector<T>> objects, const _predicate& predicate) const
-{
-    fill_enemies(objects.get(), predicate);
-}
-
 template <typename _predicate>
 IC void CMemoryManager::fill_enemies(const _predicate& predicate) const
 {

@@ -33,7 +33,7 @@ public:
 			return;
 
 		// test items
-		for (ISpatialShared S : N->items)
+		for (ISpatialShared& S : N->items)
 		{
 			if (!S.get()) continue;
 			if (0 == (S->spatial.type & mask))

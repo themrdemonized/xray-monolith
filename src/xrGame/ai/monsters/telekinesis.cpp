@@ -112,7 +112,7 @@ void CTelekinesis::remove_object(TELE_OBJECTS_IT it)
 	xr_delete(*it);
 
 	// удалить
-	objects.erase_fast(it);
+	objects.erase(it);
 
 	// проверить на полную деактивацию
 	if (objects.empty())

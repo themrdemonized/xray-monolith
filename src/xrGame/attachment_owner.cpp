@@ -115,7 +115,7 @@ void CAttachmentOwner::detach(CInventoryItem* inventory_item)
 		if ((*I)->item().object().ID() == inventory_item->object().ID())
 		{
 			CAttachableItem* ai = *I;
-			m_attached_objects.erase_fast(I);
+			m_attached_objects.erase(I);
 			ai->afterDetach();
 			if (m_attached_objects.empty())
 			{

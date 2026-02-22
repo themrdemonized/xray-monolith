@@ -79,7 +79,7 @@ void CLightProjector::set_object(IRenderable* O, IDSGraphManager& DM)
 
 		if (current)
 		{
-			ISpatialShared spatial = O->SpatialComponent;
+			ISpatialShared& spatial = O->SpatialComponent;
 			if (0 == spatial) current = 0;
 			else
 			{
@@ -144,9 +144,8 @@ void r_dsgraph_render_R1_box(xr_vector<dxRender_Visual*>& lstVisuals, CSector* _
 	lstVisuals.clear();
 	lstVisuals.push_back(S->root());
 
-	for (u32 i = 0; i < lstVisuals.size(); ++i)
+	for (dxRender_Visual* V : lstVisuals)
 	{
-        auto V = lstVisuals[i];
 		// Visual is 100% visible - simply add it
 		switch (V->Type)
 		{
@@ -393,7 +392,7 @@ void CLightProjector::calculate()
 		BB.set(min, max);
 		R.UVclamp_min.set(min).add(.05f); // shrink a little
 		R.UVclamp_max.set(max).sub(.05f); // shrink a little
-		ISpatialShared spatial = O->SpatialComponent;
+		ISpatialShared& spatial = O->SpatialComponent;
 		if (spatial)
 		{
 			spatial->spatial_updatesector();

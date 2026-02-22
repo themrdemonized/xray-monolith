@@ -110,14 +110,14 @@ CVisualMemoryManager::CVisualMemoryManager(vision_client* client)
 	m_client = client;
 	initialize();
 
-	m_objectsShared = xr_make_shared<VISIBLES>();
+	m_objects = xr_new<VISIBLES>();
 }
 
 void CVisualMemoryManager::initialize()
 {
 	m_max_object_count = 128;
 	m_enabled = true;
-	m_objectsShared.reset();
+	m_objects = 0;
 }
 
 CVisualMemoryManager::~CVisualMemoryManager()
@@ -127,16 +127,15 @@ CVisualMemoryManager::~CVisualMemoryManager()
 	if (!m_client)
 		return;
 
-    m_objectsShared.reset();
+	xr_delete(m_objects);
 }
 
 void CVisualMemoryManager::reinit()
 {
 	if (!m_client)
-        m_objectsShared.reset();
+		m_objects = 0;
 	else
 	{
-        auto m_objects = m_objectsShared;
 		VERIFY(m_objects);
 		m_objects->clear();
 	}
@@ -191,7 +190,6 @@ IC const CVisionParameters& CVisualMemoryManager::current_state() const
 
 u32 CVisualMemoryManager::visible_object_time_last_seen(const CObject* object) const
 {
-    auto m_objects = m_objectsShared;
 	VISIBLES::iterator I = std::find(m_objects->begin(), m_objects->end(), object_id(object));
 	if (I != m_objects->end())
 		return (I->m_level_time);
@@ -201,7 +199,6 @@ u32 CVisualMemoryManager::visible_object_time_last_seen(const CObject* object) c
 
 bool CVisualMemoryManager::visible_right_now(const CGameObject* game_object) const
 {
-    auto m_objects = m_objectsShared;
 	if (!m_objects)
 	{
 		// --> owner is dead
@@ -213,8 +210,8 @@ bool CVisualMemoryManager::visible_right_now(const CGameObject* game_object) con
 		return false;
 	}
 
-	VISIBLES::const_iterator I = std::find(m_objects->begin(), m_objects->end(), object_id(game_object));
-	if ((m_objects->end() == I))
+	VISIBLES::const_iterator I = std::find(objects().begin(), objects().end(), object_id(game_object));
+	if ((objects().end() == I))
 		return (false);
 
 	if (!(*I).visible(mask()))
@@ -228,7 +225,6 @@ bool CVisualMemoryManager::visible_right_now(const CGameObject* game_object) con
 
 bool CVisualMemoryManager::visible_now(const CGameObject* game_object) const
 {
-    auto m_objects = m_objectsShared;
 	if (!m_objects)
 	{
 		// --> owner is dead
@@ -240,13 +236,12 @@ bool CVisualMemoryManager::visible_now(const CGameObject* game_object) const
 		return false;
 	}
 
-	VISIBLES::const_iterator I = std::find(m_objects->begin(), m_objects->end(), object_id(game_object));
-	return ((m_objects->end() != I) && (*I).visible(mask()));
+	VISIBLES::const_iterator I = std::find(objects().begin(), objects().end(), object_id(game_object));
+	return ((objects().end() != I) && (*I).visible(mask()));
 }
 
 void CVisualMemoryManager::enable(const CObject* object, bool enable)
 {
-    auto m_objects = m_objectsShared;
 	VISIBLES::iterator J = std::find(m_objects->begin(), m_objects->end(), object_id(object));
 	if (J == m_objects->end())
 		return;
@@ -519,7 +514,6 @@ void CVisualMemoryManager::add_visible_object(const CObject* object, float time_
 
 	//	START_PROFILE("Memory Manager/visuals/update/add_visibles/find_object_by_id")
 	self = m_object;
-    auto m_objects = m_objectsShared;
 	J = std::find(m_objects->begin(), m_objects->end(), object_id(game_object));
 	//	STOP_PROFILE
 
@@ -562,7 +556,6 @@ void CVisualMemoryManager::add_visible_object(const CObject* object, float time_
 
 void CVisualMemoryManager::add_visible_object(const CVisibleObject visible_object)
 {
-    auto m_objects = m_objectsShared;
 	if (should_ignore_object(visible_object.m_object))
 	{
 		return;
@@ -587,7 +580,6 @@ void CVisualMemoryManager::add_visible_object(const CVisibleObject visible_objec
 #ifdef DEBUG
 void CVisualMemoryManager::check_visibles	() const
 {
-    auto m_objects = m_objectsShared;
 	squad_mask_type						mask = this->mask();
 	xr_vector<CVisibleObject>::iterator	I = m_objects->begin();
 	xr_vector<CVisibleObject>::iterator	E = m_objects->end();
@@ -670,7 +662,6 @@ struct CVisibleObjectPredicateEx
 
 void CVisualMemoryManager::remove_links(CObject* object)
 {
-    auto m_objects = m_objectsShared;
 	{
 		VERIFY(m_objects);
 		VISIBLES::iterator I = std::find_if(m_objects->begin(), m_objects->end(), CVisibleObjectPredicateEx(object));
@@ -687,7 +678,6 @@ void CVisualMemoryManager::remove_links(CObject* object)
 
 CVisibleObject* CVisualMemoryManager::visible_object(const CGameObject* game_object)
 {
-    auto m_objects = m_objectsShared;
 	VISIBLES::iterator I = std::find_if(m_objects->begin(), m_objects->end(), CVisibleObjectPredicateEx(game_object));
 	if (I == m_objects->end())
 		return (0);
@@ -704,7 +694,6 @@ IC squad_mask_type CVisualMemoryManager::mask() const
 
 void CVisualMemoryManager::update(float time_delta)
 {
-    auto m_objects = m_objectsShared;
 	START_PROFILE("Memory Manager/visuals/update")
 		clear_delayed_objects();
 
@@ -837,12 +826,10 @@ void CVisualMemoryManager::save(NET_Packet& packet) const
 	if (!m_object->g_Alive())
 		return;
 
-    auto m_objects = m_objectsShared;
-
 	//	Msg("before saving object %s[%d]", m_object->cName().c_str(), packet.w_tell() );
 	u32 count = 0;
-	VISIBLES::const_iterator I = m_objects->begin();
-	VISIBLES::const_iterator const E = m_objects->end();
+	VISIBLES::const_iterator I = objects().begin();
+	VISIBLES::const_iterator const E = objects().end();
 	for (; I != E; ++I)
 	{
 		if (is_object_valuable_to_save(m_object, *I))
@@ -854,7 +841,7 @@ void CVisualMemoryManager::save(NET_Packet& packet) const
 	if (!count)
 		return;
 
-	for (I = m_objects->begin(); I != E; ++I)
+	for (I = objects().begin(); I != E; ++I)
 	{
 		if (!is_object_valuable_to_save(m_object, *I))
 			continue;

@@ -39,8 +39,8 @@ SVS::~SVS()
 //	SPS
 SPS::~SPS()
 {
+	_RELEASE(ps);
 	DEV->_DeletePS(this);
-    _RELEASE(ps);
 }
 
 #if defined(USE_DX10) || defined(USE_DX11)
@@ -48,27 +48,27 @@ SPS::~SPS()
 //	SGS
 SGS::~SGS()
 {
+	_RELEASE(gs);
 	DEV->_DeleteGS(this);
-    _RELEASE(gs);
 }
 
 #	ifdef USE_DX11
 SHS::~SHS()
 {
+	_RELEASE(sh);
 	DEV->_DeleteHS(this);
-    _RELEASE(sh);
 }
 
 SDS::~SDS()
 {
+	_RELEASE(sh);
 	DEV->_DeleteDS(this);
-    _RELEASE(sh);
 }
 
 SCS::~SCS()
 {
+	_RELEASE(sh);
 	DEV->_DeleteCS(this);
-    _RELEASE(sh);
 }
 #	endif
 
@@ -83,8 +83,8 @@ SInputSignature::SInputSignature(ID3DBlob* pBlob)
 
 SInputSignature::~SInputSignature()
 {
+	_RELEASE(signature);
 	DEV->_DeleteInputSignature(this);
-    _RELEASE(signature);
 }
 #endif	//	USE_DX10
 
@@ -92,8 +92,8 @@ SInputSignature::~SInputSignature()
 //	SState
 SState::~SState()
 {
+	_RELEASE(state);
 	DEV->_DeleteState(this);
-    _RELEASE(state);
 }
 
 ///////////////////////////////////////////////////////////////////////

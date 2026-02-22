@@ -28,39 +28,20 @@ public:
 
 	void* AccessDirect(R_constant_load& L, u32 DataSize);
 
-    static u32 GetReflectionCRC(ID3DShaderReflectionConstantBuffer* pTable)
-    {
-        D3D_SHADER_BUFFER_DESC Desc;
-        if (FAILED(pTable->GetDesc(&Desc))) return 0;
-
-        // We only need the type descriptions to calculate the CRC
-        xr_vector<D3D_SHADER_TYPE_DESC> temp_members(Desc.Variables);
-        for (u32 i = 0; i < Desc.Variables; ++i)
-        {
-            ID3DShaderReflectionVariable* pVar = pTable->GetVariableByIndex(i);
-            ID3DShaderReflectionType* pType = pVar->GetType();
-            pType->GetDesc(&temp_members[i]);
-        }
-
-        return crc32(temp_members.data(), Desc.Variables * sizeof(D3D_SHADER_TYPE_DESC));
-    }
-
 private:
 	Fvector4* Access(u16 offset);
 
-public:
+private:
 	shared_str m_strBufferName;
 	D3D_CBUFFER_TYPE m_eBufferType;
 
 	//	Buffer data description
-    u32 m_uiBufferSize; //	Cache buffer size for debug validation
 	u32 m_uiMembersCRC;
-    xr_vector<D3D_SHADER_TYPE_DESC> m_MembersList;
-
-private:
+	xr_vector<D3D_SHADER_TYPE_DESC> m_MembersList;
 	xr_vector<shared_str> m_MembersNames;
 
 	ID3DBuffer* m_pBuffer;
+	u32 m_uiBufferSize; //	Cache buffer size for debug validation
 	void* m_pBufferData;
 	bool m_bChanged;
 

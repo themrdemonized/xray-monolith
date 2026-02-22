@@ -567,7 +567,7 @@ void CALifeUpdateManager::remove_restriction(ALife::_OBJECT_ID id, ALife::_OBJEC
 				return;
 			}
 
-			creature->m_dynamic_out_restrictions.erase_fast(I);
+			creature->m_dynamic_out_restrictions.erase(I);
 
 			break;
 		}
@@ -584,7 +584,7 @@ void CALifeUpdateManager::remove_restriction(ALife::_OBJECT_ID id, ALife::_OBJEC
 				return;
 			}
 
-			creature->m_dynamic_in_restrictions.erase_fast(I);
+			creature->m_dynamic_in_restrictions.erase(I);
 
 			break;
 		}

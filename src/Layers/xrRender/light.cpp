@@ -36,7 +36,6 @@ light::light()
 	omnipart_num = 0;
 	sss_id = -1;
 	sss_refresh = 0;
-    sss_remove_latency = 0;
 
 
 #if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
@@ -71,8 +70,6 @@ light::~light()
 #endif // (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
 	ignore_object = nullptr;
 	for (int f=0; f<6; f++) decor_object[f] = nullptr;
-    if (sss_on_light_destroy)
-        sss_on_light_destroy(this);
 }
 
 void light::destroy(bool deffered)
@@ -551,7 +548,8 @@ void light::export_()
 					L->flags.bActive = flags.bActive;
 
 					//	Igor: add volumetric support
-                    L->set_volumetric(flags.bVolumetric);
+					if (ps_ssfx_volumetric.x <= 0)
+						L->set_volumetric(flags.bVolumetric);
 
 					L->set_volumetric_quality(m_volumetric_quality);
 					L->set_volumetric_intensity(m_volumetric_intensity);

@@ -238,18 +238,15 @@ void CRender::render_lights(light_Package& LP)
 					if (L->flags.bVolumetric && RImplementation.o.advancedpp && ps_r2_ls_flags.is(R2FLAG_VOLUMETRIC_LIGHTS))
 					{
 #ifdef USE_DX11
+						// Current Resolution
 						float w = float(Device.dwWidth);
 						float h = float(Device.dwHeight);
 
+						// Adjust resolution
 						if (RImplementation.o.ssfx_volumetric)
-							Target->set_viewport_size(HW.pContext, w / RImplementation.o.volsize, h / RImplementation.o.volsize);
+							Target->set_viewport_size(HW.pContext, w / 8, h / 8);
 #endif
-
-						if (ps_pfx_volumetric_mode == 1)
-							Target->accum_volumetric_lv(L);
-						else
-							Target->accum_volumetric(L);
-
+						Target->accum_volumetric(L);
 #ifdef USE_DX11
 						// Restore resolution
 						if (RImplementation.o.ssfx_volumetric)

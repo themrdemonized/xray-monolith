@@ -101,7 +101,7 @@ const xr_vector<MemorySpace::CVisibleObject>& CScriptGameObject::memory_visible_
 		                                make_string("CGameObject [%s]: cannot access class member memory_visible_objects!", object().cNameSect().c_str()).c_str());
 		NODEFAULT;
 	}
-	return (*monster->memory().visual().objects().get());
+	return (monster->memory().visual().objects());
 }
 
 const xr_vector<MemorySpace::CSoundObject>& CScriptGameObject::memory_sound_objects() const

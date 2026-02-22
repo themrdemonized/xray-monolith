@@ -144,18 +144,6 @@ u16	GetSpawnInfo(NET_Packet &P, u16 &parent_id, shared_str& section)
 #endif
 //-AVO
 
-// Define a helper struct to hold the heavy data
-struct ProcessNetPacket : public intrusive_base_nonatomic
-{
-	NET_Packet P;
-};
-
-struct ProcessGameEventsData : ProcessNetPacket
-{
-	prefetch_event E;
-	NET_Packet PRespond;
-};
-
 namespace crash_saving {
 	extern void(*save_impl)();
 	static bool g_isSaving = false;
@@ -168,8 +156,7 @@ namespace crash_saving {
 
 		int saveCount = -1;
 		g_isSaving = true;
-		auto data = make_intrusive<ProcessNetPacket>();
-		NET_Packet& net_packet = data->P;
+		NET_Packet net_packet;
 		net_packet.w_begin(M_SAVE_GAME);
 
 		xr_string path = "fatal_ctd_save_";
@@ -499,8 +486,7 @@ void CLevel::cl_Process_Event(u16 dest, u16 type, NET_Packet& P)
 #ifdef SPAWN_ANTIFREEZE
 bool CLevel::PostponedSpawnFind(u16 id, const NET_Event& E) const
 {
-	auto data = make_intrusive<ProcessNetPacket>();
-	NET_Packet& P = data->P;
+	NET_Packet P;
 	E.implication(P);
 	return PostponedSpawnFind(id, P);
 }
@@ -531,8 +517,7 @@ int CLevel::GetSpawnEventPriority(const NET_Event& e) const
 		return 0;
 
 	if (e.ID == M_SPAWN) {
-		auto data = make_intrusive<ProcessNetPacket>();
-		NET_Packet& P = data->P;
+		NET_Packet P;
 		e.implication(P);
 
 		u16 parent_id = 0;
@@ -652,9 +637,8 @@ void CLevel::ProcessSpawnEvents()
 
 	for (const auto& E : events_to_process)
 	{
-		auto data = make_intrusive<ProcessNetPacket>();
 		u16 ID, dest, type;
-		NET_Packet& P = data->P;
+		NET_Packet P;
 		ID = E.ID;
 		dest = E.destination;
 		type = E.type;
@@ -714,9 +698,7 @@ void CLevel::ProcessGameEvents()
 			u16 ID = it->ID;
 			u16 dest = it->destination;
 			u16 type = it->type;
-
-			auto data = make_intrusive<ProcessGameEventsData>();
-			auto& P = data->P;
+			NET_Packet P;
 			it->implication(P);
 
 //AVO: spawn antifreeze implementation, originally by alpet, reritten by demonized
@@ -809,11 +791,11 @@ void CLevel::ProcessGameEvents()
 
 						if (!models.empty())
 						{
-							auto& E = data->E;
-							E.p = P;
-							E.models = models;
+							prefetch_event E;
+							E.p = std::move(P);
+							E.models = std::move(models);
 
-							events_to_prefetch.push_back(E);
+							events_to_prefetch.push_back(std::move(E));
 
 							if (spawn_antifreeze_debug) Msg("[ProcessGameEvents] added M_SPAWN to prefetch_events: section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
 							it++; // Move to next event
@@ -867,7 +849,7 @@ void CLevel::ProcessGameEvents()
 							break;
 						OActor->MoveActor(NewPos, NewDir);
 					}
-					auto& PRespond = data->PRespond;
+					NET_Packet PRespond;
 					PRespond.w_begin(M_MOVE_PLAYERS_RESPOND);
 					Send(PRespond, net_flags(TRUE, TRUE));
 					break;
@@ -956,7 +938,6 @@ void CLevel::MakeReconnect()
 }
 
 BOOL mt_ph_commander = FALSE;
-BOOL mt_TaskManager = FALSE;
 void CLevel::OnFrame()
 {
 	PROF_EVENT("CLevel::OnFrame()");
@@ -1021,11 +1002,7 @@ void CLevel::OnFrame()
 			Device.seqParallel.push_back(xr_make_delegate(m_map_manager, &CMapManager::Update));
 		else
 			MapManager().Update();
-
-        if (!mt_TaskManager && Device.dwPrecacheFrame == 0)
-            GameTaskManager()->UpdateTasks();
 	}
-
 	// Inherited update
 	inherited::OnFrame();
 	// Draw client/server stats
@@ -1159,7 +1136,7 @@ void CLevel::OnFrame()
 int psLUA_GCSTEP = 300;
 int psLua_ParallelGCStep = 75;
 extern BOOL psLua_ParallelGC;
-BOOL psLua_ParallelGC_debug = FALSE;
+BOOL psLua_ParallelGC_debug;
 
 void CLevel::script_gc()
 {

@@ -161,7 +161,7 @@ void cdkey_ban_list::unban_player_by_index(size_t const index)
 		return;
 	}
 	xr_delete(m_ban_list[index]);
-	m_ban_list.erase_fast(m_ban_list.begin() + index);
+	m_ban_list.erase(m_ban_list.begin() + index);
 	save();
 }
 

@@ -62,13 +62,12 @@ using render_allocator = xr_allocator;
 #endif // USE_DOUG_LEA_ALLOCATOR_FOR_RENDER
 
 class dxRender_Visual;
-struct SPass;
 
 // #define	USE_RESOURCE_DEBUGGER
 
 namespace R_dsgraph
 {
-	template<typename T, bool Reverse>
+	template<typename T>
 	struct DSGraphItem
 	{
 		T sortKey;
@@ -78,20 +77,6 @@ namespace R_dsgraph
 		Fmatrix* pMatrix = nullptr;
 		ShaderElement* pSE = nullptr;
 		bool b_hud_mode = false;
-
-        DSGraphItem(T key, float _ssa, IRenderable* obj, dxRender_Visual* vis,
-            Fmatrix* mat, ShaderElement* se, bool hud)
-            : sortKey(key), ssa(_ssa), pObject(obj), pVisual(vis),
-            pMatrix(mat), pSE(se), b_hud_mode(hud) {
-        }
-
-        bool operator<(const DSGraphItem& other) const noexcept
-        {
-            if constexpr (Reverse)
-                return other.sortKey < sortKey;
-            else
-                return sortKey < other.sortKey;
-        }
 	};
 
 #if defined(USE_DX10) || defined(USE_DX11)	//	DX10 needs shader signature to propperly bind deometry to shader
@@ -106,117 +91,54 @@ namespace R_dsgraph
 #endif	//	USE_DX10
 	using ps_type = ID3DPixelShader*;
 
-	template<typename T, bool Reverse>
-	using mapDSGraphItems = xr_vector<DSGraphItem<T, Reverse>, typename render_allocator::template helper<DSGraphItem<T, Reverse>>::result>;
+	template<typename T>
+	using mapDSGraphItems = xr_vector<DSGraphItem<T>, typename render_allocator::template helper<DSGraphItem<T>>::result>;
 
-	template<typename T, bool Reverse>
-	using mapDSGraphItemsMap = FixedMAP<T, DSGraphItem<T, Reverse>, render_allocator>;
+	template<typename T>
+	using mapDSGraphItemsMap = FixedMAP<T, DSGraphItem<T>, render_allocator>;
 
-	struct alignas(16) RenderPacketSortKey
+	struct RenderPacketSortKey
 	{
 		// Calculated key for sorting
 		u64 high; // VS, GS, PS, HS
 		u64 low; // DS, Constants, State, Textures
 
-		bool operator<(const RenderPacketSortKey& other) const noexcept
+		bool operator<(const RenderPacketSortKey& other) const
 		{
 			if (high != other.high)
 				return high < other.high;
 			return low < other.low;
 		}
 
-		bool operator!=(const RenderPacketSortKey& other) const noexcept
+		bool operator!=(const RenderPacketSortKey& other) const
 		{
 			return (high != other.high) || (low != other.low);
 		}
-
-        bool operator==(const RenderPacketSortKey& other) const noexcept
-        {
-            return (high == other.high) && (low == other.low);
-        }
 	};
 
 	struct RenderPacket
 	{
 		// Sorting key
-        RenderPacketSortKey sortKey;
+		RenderPacketSortKey sortKey;
 
 		// Visual data
-		DSGraphItem<u32, false> item;
+		DSGraphItem<dxRender_Visual*> item;
 
 		// Pointers to resources (previously keys in FixedMAPs)
-        ID3DState* pState;
-
 #if defined(USE_DX10) || defined(USE_DX11)
+		vs_type pVS;
 		gs_type pGS;
 #else
-        u64 _unused_pad_gs;
+		vs_type pVS;
 #endif
-
 #ifdef USE_DX11
 		hs_type pHS;
 		ds_type pDS;
-#else
-        u64 _unused_pad_hs, _unused_pad_ds;
 #endif
-
-        vs_type pVS;
 		ps_type pPS;
-        R_constant_table* pCS;
+		R_constant_table* pCS;
+		ID3DState* pState;
 		STextureList* pTextures;
-
-        RenderPacket(const DSGraphItem<u32, false>& _item, const SPass& pass) : item(_item)
-        {
-            // Extract resource pointers from shader pass (previously used as map keys)
-#if defined(USE_DX10) || defined(USE_DX11)
-            pVS = &*pass.vs;
-            pGS = pass.gs->gs;
-#else
-            pVS = pass.vs->vs;
-#endif
-
-            pPS = pass.ps->ps;
-
-#ifdef USE_DX11
-            pHS = pass.hs->sh;
-            pDS = pass.ds->sh;
-#endif
-
-            pCS = pass.constants._get();
-            pState = pass.state->state;
-            pTextures = pass.T._get();
-
-            // Build sort key
-            // Optimized grouping based on profiling, example:
-            // States:4, GS:0, HS:0, DS:0 they are pretty much unused and/or unchanged
-            // VS:13, PS:28, CS:93, Tex:179. Grouping based on increasing change of state
-            // Low key is used just for sorting
-            u64 keyHigh = 0;
-            u64 keyLow = 0;
-
-            keyHigh |= ((u64)pState >> 4 & 0xFFFF) << 48;
-
-#if defined(USE_DX10) || defined(USE_DX11)
-            keyHigh |= ((u64)pGS >> 4 & 0xFFFF) << 32;
-#endif
-
-#ifdef USE_DX11
-            keyHigh |= ((u64)pHS >> 4 & 0xFFFF) << 16;
-            keyHigh |= ((u64)pDS >> 4 & 0xFFFF);
-#endif
-
-            keyLow |= ((u64)pVS >> 4 & 0xFFFF) << 48;
-            keyLow |= ((u64)pPS >> 4 & 0xFFFF) << 32;
-            keyLow |= ((u64)pCS >> 4 & 0xFFFF) << 16;
-            keyLow |= ((u64)pTextures >> 4 & 0xFFFF);
-
-            sortKey = { keyHigh, keyLow };
-        }
-
-        bool operator<(const RenderPacket& other) const noexcept
-        {
-            return sortKey < other.sortKey;
-        }
 	};
 
 	using RenderQueue = xr_vector<RenderPacket, render_allocator::helper<RenderPacket>::result>;
@@ -224,34 +146,34 @@ namespace R_dsgraph
 
 	struct DynamicSceneRgraph
 	{
-		template<typename T, bool Reverse1, bool Reverse2, bool Reverse3, bool Reverse4>
+		template<typename T>
 		struct mapSorted
 		{
-			mapDSGraphItems<T, Reverse1> Sorted;
+			mapDSGraphItems<T> Sorted;
 
-			mapDSGraphItems<T, Reverse2> Wmark;
-			mapDSGraphItems<T, Reverse3> Emissive;
-			mapDSGraphItems<T, Reverse4> Distort;
+			mapDSGraphItems<T> Wmark;
+			mapDSGraphItems<T> Emissive;
+			mapDSGraphItems<T> Distort;
 		};
 
-		mapSorted<float, true, false, false, true> mapStaticSorted;
-		mapSorted<float, true, false, false, true> mapDynamicSorted;
+		mapSorted<float> mapStaticSorted;
+		mapSorted<float> mapDynamicSorted;
 
 		RenderQueueArray mapStaticPasses;
 		RenderQueueArray mapDynamicPasses;
 
-		mapDSGraphItems<float, false> mapHUD;
-		mapSorted<float, true, false, false, false> mapHUDSorted;
+		mapDSGraphItems<float> mapHUD;
+		mapSorted<float> mapHUDSorted;
 
-		mapDSGraphItems<float, false> mapLOD;
+		mapDSGraphItems<float> mapLOD;
 
 		// Anomaly
-		mapDSGraphItems<float, false> mapCamAttached;
-		mapSorted<float, true, false, false, false> mapCamAttachedSorted;
-		mapDSGraphItems<float, false> mapWater;
+		mapDSGraphItems<float> mapCamAttached;
+		mapSorted<float> mapCamAttachedSorted;
+		mapDSGraphItems<float> mapWater;
 #ifdef USE_DX11
-		mapDSGraphItems<float, true> mapScopeHUDSorted;
-		mapDSGraphItems<float, false> mapScopeHUD;
+		mapDSGraphItems<float> mapScopeHUDSorted;
+		mapDSGraphItems<float> mapScopeHUD;
 #endif
 		template<bool free = true>
 		IC void clear_graph(RenderQueueArray& queue, u32 _priority)

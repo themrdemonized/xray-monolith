@@ -596,7 +596,7 @@ void dx103DFluidRenderer::CalculateLighting(const dx103DFluidData& FluidData, Fo
 	// Determine visibility for dynamic part of scene
 	for (u32 i = 0; i < iNumRenderables; ++i)
 	{
-		ISpatialShared spatial = m_lstRenderables[i];
+		ISpatialShared& spatial = m_lstRenderables[i];
 
 		// Light
 		light* pLight = (light*)spatial->dcast_Light();

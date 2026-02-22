@@ -1,10 +1,14 @@
-#pragma once
+#ifndef XRENGINE_ISPATIAL_H_INCLUDED
+#define XRENGINE_ISPATIAL_H_INCLUDED
 
+//#pragma once
 #include <memory>
 #include "../xrCore/xrPool.h"
 
 #include "xr_collide_defs.h"
 #include "../xrCore/intrusive_ptr.h"
+
+#pragma pack(push,4)
 
 /*
 Requirements:
@@ -276,3 +280,7 @@ public:
 XRCDB_API extern ISpatial_DB* g_SpatialSpace;
 XRCDB_API extern ISpatial_DB* g_SpatialSpacePhysic;
 XRCDB_API extern ISpatial_DB* g_SpatialSpaceLights;
+
+#pragma pack(pop)
+
+#endif // #ifndef XRENGINE_ISPATIAL_H_INCLUDED

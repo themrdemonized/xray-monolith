@@ -139,7 +139,7 @@ void Vision::feel_vision_query(Fmatrix& mFull, Fvector& P)
 	seen.clear_and_reserve();
 	for (u32 o_it = 0; o_it < r_spatial.size(); o_it++)
 	{
-		ISpatialShared spatial = r_spatial[o_it];
+		ISpatialShared& spatial = r_spatial[o_it];
 		CObject* object = spatial->dcast_CObject();
 		if (object && feel_vision_isRelevant(object)) seen.push_back(object);
 	}
@@ -293,7 +293,7 @@ void Vision::o_trace(Fvector& P, float dt, float vis_threshold, const VisionSnap
 
 			bool collision_found = false;
 
-			for (ISpatialShared Ptr : r_spatial)
+			for (ISpatialShared& Ptr : r_spatial)
 			{
 				CObject const* object = Ptr->dcast_CObject();
 

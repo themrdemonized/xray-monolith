@@ -134,6 +134,7 @@ extern BOOL g_allow_silencer_hide_tracer;
 
 //demonized: new console vars
 extern BOOL firstPersonDeath;
+extern BOOL g_legs_enabled;
 extern BOOL pseudogiantCanDamageObjects;
 extern BOOL use_english_text_for_missing_translations;
 namespace crash_saving {
@@ -171,7 +172,6 @@ extern BOOL mt_UpdateWeaponSounds;
 extern BOOL mt_Scheduler;
 extern BOOL mt_calc_bones;
 extern BOOL mt_ph_commander;
-extern BOOL mt_TaskManager;
 extern int SchedulerBatchSize;
 extern BOOL SchedulerLog;
 
@@ -361,11 +361,6 @@ static void full_memory_stats()
 	
 	size_t lua_mem = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
 	Msg("* [Lua]: Memory usage: %u K", lua_mem);
-
-	/*if (Console)
-	{
-		Console->DumpHistoryToLog();
-	}*/
 
 #ifdef FS_DEBUG
 	Msg("* [x-ray]: file mapping: memory[%d K], count[%d]", g_file_mapped_memory / 1024, g_file_mapped_count);
@@ -2978,8 +2973,7 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "mt_update_weapon_sounds", &mt_UpdateWeaponSounds, 0, 1);
 	CMD4(CCC_Integer, "mt_scheduler", &mt_Scheduler, 0, 1);
 	CMD4(CCC_Integer, "mt_level_call", &mt_ph_commander, 0, 1);
-    CMD4(CCC_Integer, "mt_calc_bones", &mt_calc_bones, 0, 1);
-    CMD4(CCC_Integer, "mt_task_manager", &mt_TaskManager, 0, 1);
+	CMD4(CCC_Integer, "mt_calc_bones", &mt_calc_bones, 0, 1);
 
 	CMD4(CCC_Integer, "scheduler_batch_size", &SchedulerBatchSize, 32, 256);
 	CMD4(CCC_Integer, "scheduler_log", &SchedulerLog, 0, 1);
@@ -3065,6 +3059,10 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "first_person_death_position_smoothing", &firstPersonDeathPositionSmoothing, 1, 30);
 	CMD4(CCC_Integer, "first_person_death_direction_smoothing", &firstPersonDeathDirectionSmoothing, 1, 60);
 	CMD4(CCC_Float, "first_person_death_near_plane_offset", &viewportNearOffset, -.1f, .5f);
+
+	//legs 
+
+	CMD4(CCC_Integer, "g_legs", &g_legs_enabled, 0, 1);
 
 	// PDA commands
 	CMD4(CCC_Integer, "pda_map_zoom_in_to_mouse", &pda_map_zoom_in_to_mouse, 0, 1);

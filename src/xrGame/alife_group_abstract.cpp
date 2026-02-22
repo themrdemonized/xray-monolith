@@ -175,7 +175,7 @@ void CSE_ALifeGroupAbstract::try_switch_offline()
 		// detach object from the group
 		tpGroupMember->set_health(0.f);
 		tpGroupMember->m_bDirectControl = true;
-		m_tpMembers.erase_fast(m_tpMembers.begin() + i);
+		m_tpMembers.erase(m_tpMembers.begin() + i);
 		tpGroupMember->m_bOnline = false;
 		CSE_ALifeInventoryItem* item = smart_cast<CSE_ALifeInventoryItem*>(tpGroupMember);
 		if (item && item->attached())

@@ -10,9 +10,6 @@ using std::swap;
 #include <array>
 #include <forward_list>
 #include <type_traits>
-#include <utility>
-#include <stdexcept>
-#include <initializer_list>
 #include "_type_traits.h"
 
 #ifdef __BORLANDC__
@@ -358,14 +355,14 @@ using xr_pair = robin_hood::pair<K, V>;
 template <typename K, class V, class Hasher = xr_hash<K>>
 using xr_unordered_map = robin_hood::unordered_node_map<K, V, Hasher>;
 
-template <class T, class Hasher = xr_hash<T>, class Equal = std::equal_to<T>>
-using xr_unordered_set = robin_hood::unordered_node_set<T, Hasher, Equal>;
+template <class T, class Hasher = xr_hash<T>>
+using xr_unordered_set = robin_hood::unordered_node_set<T, Hasher>;
 
-template <typename K, class V, class Hasher = xr_hash<K>, class Equal = std::equal_to<K>>
-using xr_unordered_flat_map = robin_hood::unordered_flat_map<K, V, Hasher, Equal>;
+template <typename K, class V, class Hasher = xr_hash<K>>
+using xr_unordered_flat_map = robin_hood::unordered_flat_map<K, V, Hasher>;
 
-template <class T, class Hasher = xr_hash<T>, class Equal = std::equal_to<T>>
-using xr_unordered_flat_set = robin_hood::unordered_flat_set<T, Hasher, Equal>;
+template <class T, class Hasher = xr_hash<T>>
+using xr_unordered_flat_set = robin_hood::unordered_flat_set<T, Hasher>;
 
 #else
 
@@ -530,171 +527,6 @@ public:
 	u32 size() const { return (u32)__super::size(); }
 };
 
-// Insertion order map
-template <typename Key, typename T>
-class xr_ordered_map {
-public:
-    // --- Standard std::map Typedefs ---
-    using key_type = Key;
-    using mapped_type = T;
-    // VERY IMPORTANT: const Key prevents modifying the key via list iterators
-    using value_type = std::pair<const Key, T>;
-    using size_type = size_t;
-    using difference_type = ptrdiff_t;
-
-    using list_type = xr_list<value_type>;
-    using iterator = typename list_type::iterator;
-    using const_iterator = typename list_type::const_iterator;
-    using reverse_iterator = typename list_type::reverse_iterator;
-    using const_reverse_iterator = typename list_type::const_reverse_iterator;
-
-    using map_type = xr_map<Key, iterator>;
-
-private:
-    list_type m_sequence;
-    map_type  m_lookup;
-
-public:
-    // --- Construction & Assignment ---
-    xr_ordered_map() = default;
-    ~xr_ordered_map() = default;
-
-    xr_ordered_map(const xr_ordered_map& other) {
-        for (const auto& pair : other.m_sequence) {
-            insert(pair);
-        }
-    }
-
-    xr_ordered_map(xr_ordered_map&& other) noexcept
-        : m_sequence(std::move(other.m_sequence)), m_lookup(std::move(other.m_lookup)) {
-    }
-
-    xr_ordered_map(std::initializer_list<value_type> init) {
-        for (const auto& val : init) {
-            insert(val);
-        }
-    }
-
-    xr_ordered_map& operator=(const xr_ordered_map& other) {
-        if (this != &other) {
-            clear();
-            for (const auto& pair : other.m_sequence) insert(pair);
-        }
-        return *this;
-    }
-
-    xr_ordered_map& operator=(xr_ordered_map&& other) noexcept {
-        if (this != &other) {
-            m_sequence = std::move(other.m_sequence);
-            m_lookup = std::move(other.m_lookup);
-        }
-        return *this;
-    }
-
-    // --- Iterators (Preserves Insertion Order) ---
-    iterator               begin()        noexcept { return m_sequence.begin(); }
-    const_iterator         begin()  const noexcept { return m_sequence.begin(); }
-    const_iterator         cbegin() const noexcept { return m_sequence.cbegin(); }
-
-    iterator               end()          noexcept { return m_sequence.end(); }
-    const_iterator         end()    const noexcept { return m_sequence.end(); }
-    const_iterator         cend()   const noexcept { return m_sequence.cend(); }
-
-    reverse_iterator       rbegin()       noexcept { return m_sequence.rbegin(); }
-    const_reverse_iterator rbegin() const noexcept { return m_sequence.rbegin(); }
-    reverse_iterator       rend()         noexcept { return m_sequence.rend(); }
-    const_reverse_iterator rend()   const noexcept { return m_sequence.rend(); }
-
-    // --- Capacity ---
-    bool      empty() const noexcept { return m_sequence.empty(); }
-    size_type size()  const noexcept { return m_sequence.size(); }
-
-    // --- Modifiers ---
-    void clear() noexcept {
-        m_lookup.clear();
-        m_sequence.clear();
-    }
-
-    std::pair<iterator, bool> insert(const value_type& value) {
-        auto map_it = m_lookup.find(value.first);
-        if (map_it != m_lookup.end()) {
-            return { map_it->second, false };
-        }
-        m_sequence.push_back(value);
-        iterator list_it = std::prev(m_sequence.end());
-        m_lookup.insert({ value.first, list_it });
-        return { list_it, true };
-    }
-
-    template <typename... Args>
-    std::pair<iterator, bool> emplace(Args&&... args) {
-        // Construct element temporarily to check key
-        value_type val(std::forward<Args>(args)...);
-        return insert(std::move(val));
-    }
-
-    // Erase by key: O(log N) lookup + O(1) unlinking
-    size_type erase(const key_type& key) {
-        auto map_it = m_lookup.find(key);
-        if (map_it == m_lookup.end()) return 0;
-
-        m_sequence.erase(map_it->second);
-        m_lookup.erase(map_it);
-        return 1;
-    }
-
-    // Erase by iterator: O(log N) map lookup + O(1) unlinking
-    iterator erase(const_iterator pos) {
-        if (pos == m_sequence.end()) return m_sequence.end();
-
-        auto next_it = std::next(pos);
-        m_lookup.erase(pos->first);
-        m_sequence.erase(pos);
-        return next_it;
-    }
-
-    void swap(xr_ordered_map& other) noexcept {
-        m_sequence.swap(other.m_sequence);
-        m_lookup.swap(other.m_lookup);
-    }
-
-    // --- Lookup ---
-    iterator find(const key_type& key) {
-        auto map_it = m_lookup.find(key);
-        return (map_it != m_lookup.end()) ? map_it->second : m_sequence.end();
-    }
-
-    const_iterator find(const key_type& key) const {
-        auto map_it = m_lookup.find(key);
-        return (map_it != m_lookup.end()) ? map_it->second : m_sequence.end();
-    }
-
-    size_type count(const key_type& key) const {
-        return m_lookup.find(key) != m_lookup.end() ? 1 : 0;
-    }
-
-    mapped_type& at(const key_type& key) {
-        auto map_it = m_lookup.find(key);
-        if (map_it == m_lookup.end()) throw std::out_of_range("xr_ordered_map::at: key not found");
-        return map_it->second->second;
-    }
-
-    const mapped_type& at(const key_type& key) const {
-        auto map_it = m_lookup.find(key);
-        if (map_it == m_lookup.end()) throw std::out_of_range("xr_ordered_map::at: key not found");
-        return map_it->second->second;
-    }
-
-    mapped_type& operator[](const key_type& key) {
-        auto map_it = m_lookup.find(key);
-        if (map_it == m_lookup.end()) {
-            auto res = insert(value_type(key, mapped_type()));
-            return res.first->second;
-        }
-        return map_it->second->second;
-    }
-};
-
 #ifdef STLPORT
 template <typename V, class _HashFcn = std::hash<V>, class _EqualKey = std::equal_to<V>, typename allocator = xalloc<V> > class xr_hash_set : public std::hash_set < V, _HashFcn, _EqualKey, allocator > { public: u32 size() const { return (u32)__super::size(); } };
 template <typename V, class _HashFcn = std::hash<V>, class _EqualKey = std::equal_to<V>, typename allocator = xalloc<V> > class xr_hash_multiset : public std::hash_multiset < V, _HashFcn, _EqualKey, allocator > { public: u32 size() const { return (u32)__super::size(); } };
@@ -718,12 +550,12 @@ inline std::pair<_Ty1, _Ty2> mk_pair(_Ty1 _Val1, _Ty2 _Val2) { return (std::pair
 
 struct pred_str
 {
-	IC bool operator()(const char* x, const char* y) const noexcept { return xr_strcmp(x, y) < 0; }
+	IC bool operator()(const char* x, const char* y) const { return xr_strcmp(x, y) < 0; }
 };
 
 struct pred_stri
 {
-	IC bool operator()(const char* x, const char* y) const noexcept { return stricmp(x, y) < 0; }
+	IC bool operator()(const char* x, const char* y) const { return stricmp(x, y) < 0; }
 };
 
 // STL extensions
@@ -737,8 +569,6 @@ struct pred_stri
 #define DEFINE_VECTOR(T,N,I) typedef xr_vector< T > N; typedef N::iterator I;
 #define DEFINE_MAP(K,T,N,I) typedef xr_map< K , T > N; typedef N::iterator I;
 #define DEFINE_MAP_PRED(K,T,N,I,P) typedef xr_map< K, T, P > N; typedef N::iterator I;
-#define DEFINE_UNORDERED_FLAT_MAP_PRED(K,T,N,I,P) typedef xr_unordered_flat_map< K, T, P > N; typedef N::iterator I;
-#define DEFINE_UNORDERED_FLAT_MAP_PRED_EQUAL(K,T,N,I,P,E) typedef xr_unordered_flat_map< K, T, P, E > N; typedef N::iterator I;
 #define DEFINE_MMAP(K,T,N,I) typedef xr_multimap< K, T > N; typedef N::iterator I;
 #define DEFINE_SVECTOR(T,C,N,I) typedef svector< T, C > N; typedef N::iterator I;
 #define DEFINE_SET(T,N,I) typedef xr_set< T > N; typedef N::iterator I;

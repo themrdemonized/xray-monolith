@@ -41,7 +41,7 @@ public:
 	void remove_links(CObject* object);
 
 public:
-    IC void set_squad_objects(VISIBLES* objects);
+	IC void set_squad_objects(VISIBLES* objects);
 	IC void set_squad_objects(SOUNDS* objects);
 	IC void set_squad_objects(HITS* objects);
 

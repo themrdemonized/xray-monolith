@@ -221,22 +221,6 @@ DECLARE_SPECIALIZATION(CObject, ISpatial, dcast_CObject)
 template < typename _Ty >
 using clean_type_t = typename std::remove_cv_t<std::remove_reference_t<std::remove_pointer_t< _Ty >>>;
 
-template <typename T, typename = void>
-struct is_smart_ptr : std::false_type {};
-
-template <typename T>
-struct is_smart_ptr<intrusive_ptr<T>> : std::true_type {};
-
-template <typename T>
-struct is_smart_ptr<xr_shared_ptr<T>> : std::true_type {};
-
-template <typename T>
-struct is_smart_ptr<xr_unique_ptr<T>> : std::true_type {};
-
-// Helper variable template
-template <typename T>
-inline constexpr bool is_smart_ptr_v = is_smart_ptr<std::remove_cv_t<std::remove_reference_t<T>>>::value;
-
 #pragma warning(push)
 #pragma warning(disable : 4702)
 template < typename _To, typename _From >
@@ -264,18 +248,10 @@ template < typename _To, typename _From, typename = std::enable_if_t<!std::is_sa
 __forceinline _To smart_cast(_From& ref)
 {
     using _ToPtr = std::add_pointer_t<std::remove_reference_t<_To>>;
-    if constexpr (is_smart_ptr_v<_From>)
-    {
-        auto casted_ptr = smart_cast<_ToPtr>(ref.get());
-        if (!casted_ptr) throw std::bad_cast{};
-        return *casted_ptr;
-    }
-    else // It's just a regular object/engine-class
-    {
-        auto casted_ptr = smart_cast<_ToPtr>(&ref);
-        if (!casted_ptr) throw std::bad_cast{};
-        return *casted_ptr;
-    }
+    auto casted_ptr = smart_cast<_ToPtr>(&ref);
+    if (!casted_ptr)
+        throw std::bad_cast{};
+    return *casted_ptr;
 };
 
 // const T&
@@ -283,31 +259,11 @@ template < typename _To, typename _From, typename = std::enable_if_t<!std::is_sa
 __forceinline _To smart_cast(const _From& ref)
 {
     using _ToPtr = std::add_pointer_t<std::remove_reference_t<_To>>;
-    if constexpr (is_smart_ptr_v<_From>)
-    {
-        auto casted_ptr = smart_cast<_ToPtr>(const_cast<_From*>(ref.get()));
-        if (!casted_ptr) throw std::bad_cast{};
-        return *casted_ptr;
-    }
-    else // It's just a regular object/engine-class
-    {
-        auto casted_ptr = smart_cast<_ToPtr>(const_cast<_From*>(&ref));
-        if (!casted_ptr) throw std::bad_cast{};
-        return *casted_ptr;
-    }
+    auto casted_ptr = smart_cast<_ToPtr>(const_cast<_From*>(&ref));
+    if (!casted_ptr)
+        throw std::bad_cast{};
+    return *casted_ptr;
 };
-
-// intrusive_ptr -> intrusive_ptr
-template <typename _To, typename _From>
-__forceinline intrusive_ptr<_To> smart_cast(intrusive_ptr<_From>& ptr)
-{
-    return intrusive_ptr<_To>(smart_cast<_To*>(ptr.get()));
-}
-template <typename _To, typename _From>
-__forceinline intrusive_ptr<_To> smart_cast(const intrusive_ptr<_From>& ptr)
-{
-    return intrusive_ptr<_To>(smart_cast<_To*>(ptr.get()));
-}
 
 // T -> T
 template < typename _To >

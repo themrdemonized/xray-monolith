@@ -583,7 +583,7 @@ void CControlAnimationBase::UpdateAnimCount()
 			});
 			if (it == m_tReplacedAnims.end())
 				break;
-			m_tReplacedAnims.erase_fast(it);
+			m_tReplacedAnims.erase(it);
 		}
 	}
 }

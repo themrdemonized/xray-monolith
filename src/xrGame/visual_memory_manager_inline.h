@@ -8,16 +8,14 @@
 
 #pragma once
 
-IC xr_shared_ptr<CVisualMemoryManager::VISIBLES> CVisualMemoryManager::objects() const
+IC const CVisualMemoryManager::VISIBLES& CVisualMemoryManager::objects() const
 {
-    if (!this || !m_objectsShared)
-        return nullptr;
-	return m_objectsShared;
+	return (*m_objects);
 }
 
-IC xr_shared_ptr<CVisualMemoryManager::VISIBLES> CVisualMemoryManager::objectsPtr() const
+IC const CVisualMemoryManager::VISIBLES* CVisualMemoryManager::objectsPtr() const
 {
-	return objects();
+	return m_objects;
 }
 
 IC const CVisualMemoryManager::RAW_VISIBLES& CVisualMemoryManager::raw_objects() const
@@ -32,29 +30,9 @@ IC const CVisualMemoryManager::NOT_YET_VISIBLES& CVisualMemoryManager::not_yet_v
 
 IC void CVisualMemoryManager::set_squad_objects(VISIBLES* squad_objects)
 {
-    if (squad_objects)
-    {
-        // Use null deleter since owning object can delete this vector
-        m_objectsShared = xr_make_shared_with_deleter(squad_objects, [](VISIBLES*) {});
-    }
-    else
-    {
-        m_objectsShared.reset();
-        m_not_yet_visible_objects.clear();
-    }
-}
-
-IC void CVisualMemoryManager::set_squad_objects(xr_shared_ptr<VISIBLES> squad_objects)
-{
-    if (squad_objects)
-    {
-        m_objectsShared = squad_objects;
-    }
-    else
-    {
-        m_objectsShared.reset();
-        m_not_yet_visible_objects.clear();
-    }
+	m_objects = squad_objects;
+	if (!m_objects)
+		m_not_yet_visible_objects.clear();
 }
 
 IC float CVisualMemoryManager::visibility_threshold() const

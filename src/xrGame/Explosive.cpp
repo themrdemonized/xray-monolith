@@ -448,7 +448,7 @@ void CExplosive::Explode()
 	m_blasted_objects.clear();
 	for (u32 o_it = 0; o_it < ISpatialResult.size(); o_it++)
 	{
-		ISpatialShared spatial = ISpatialResult[o_it];
+		ISpatialShared& spatial = ISpatialResult[o_it];
 		//		feel_touch_new(spatial->dcast_CObject());
 
 		CPhysicsShellHolder* pGameObject = smart_cast<CPhysicsShellHolder*>(spatial->dcast_CObject());

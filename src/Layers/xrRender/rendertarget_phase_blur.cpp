@@ -361,8 +361,8 @@ void CRenderTarget::phase_ssfx_volumetric_blur()
 	p0.set(0.0f, 0.0f);
 	p1.set(1.0f, 1.0f);
 
-	// Volumetric always at volsize res, default 1/8
-	set_viewport_size(HW.pContext, w / RImplementation.o.volsize, h / RImplementation.o.volsize);
+	// Volumetric always at 1/8 res
+	set_viewport_size(HW.pContext, w / 8, h / 8);
 
 	ref_rt* rt_VolBlur[2] = { &rt_ssfx_volumetric_tmp, &rt_ssfx_volumetric };
 	int pixelsize[4] = { 0, 1, 1, 2 }; // half pixel + pixelsize
@@ -385,7 +385,7 @@ void CRenderTarget::phase_ssfx_volumetric_blur()
 
 		// Draw COLOR
 		RCache.set_Element(s_ssfx_volumetric_blur->E[b % 2]);
-		RCache.set_c("blur_setup", w / RImplementation.o.volsize, h / RImplementation.o.volsize, pixelsize[b], pixelscale[b]);
+		RCache.set_c("blur_setup", w / 8, h / 8, pixelsize[b], pixelscale[b]);
 		RCache.set_Geometry(g_combine);
 		RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
 	}
@@ -633,16 +633,6 @@ void CRenderTarget::phase_ssfx_sss_ext(light_Package& LP)
 	static shared_str strLights("lights_data");
 	static light* LightSlot[8];
 	static u32 sss_currentframe;
-
-    static auto OnLightDestroy = [](light* l)
-    {
-        for (int i = 0; i < 8; i++)
-        {
-            if (LightSlot[i] == l)
-                LightSlot[i] = nullptr;
-        }
-    };
-
 	void* LightData;
 
 	//Constants
@@ -767,8 +757,6 @@ void CRenderTarget::phase_ssfx_sss_ext(light_Package& LP)
 					LightSlot[FreeSlot] = L;
 
 					L->sss_id = FreeSlot;
-                    L->sss_remove_latency = 0;
-                    L->sss_on_light_destroy.bind(OnLightDestroy);
 
 					if (L->flags.type == IRender_Light::OMNIPART)
 						L->sss_refresh = true;
@@ -813,22 +801,14 @@ void CRenderTarget::phase_ssfx_sss_ext(light_Package& LP)
 				// Remove Light
 				if (!LightSlot[slot]->flags.bActive || Remove)
 				{
-                    // demonized: keep the light pointer for some frames to eliminate flicker, but also check if its actually been disabled
-                    LightSlot[slot]->sss_remove_latency++;
-                    if (!LightSlot[slot]->flags.bActive || LightSlot[slot]->sss_remove_latency > 5)
-                    {
-                        if (LightSlot[slot]->flags.type == IRender_Light::OMNIPART)
-                            LightSlot[slot]->sss_refresh = true;
+					if (LightSlot[slot]->flags.type == IRender_Light::OMNIPART)
+						LightSlot[slot]->sss_refresh = true;
 
-                        LightSlot[slot]->sss_id = -1;
-                        LightSlot[slot]->sss_on_light_destroy.clear();
-                        LightSlot[slot] = NULL;
-                    }
+					LightSlot[slot]->sss_id = -1;
+					LightSlot[slot] = NULL;
 				}
 				else
 				{
-                    LightSlot[slot]->sss_remove_latency = 0;                  
-
 					// Update Light
 					Fvector L_pos;
 

@@ -744,7 +744,7 @@ void CCustomZone::feel_touch_delete(CObject* O)
 	if (it != m_ObjectInfoMap.end())
 	{
 		exit_Zone(*it);
-		m_ObjectInfoMap.erase_fast(it);
+		m_ObjectInfoMap.erase(it);
 	}
 }
 
@@ -1452,7 +1452,7 @@ void CCustomZone::net_Relcase(CObject* O)
 	if (it != m_ObjectInfoMap.end())
 	{
 		exit_Zone(*it);
-		m_ObjectInfoMap.erase_fast(it);
+		m_ObjectInfoMap.erase(it);
 	}
 	if (GO->ID() == m_owner_id) m_owner_id = u32(-1);
 

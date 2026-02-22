@@ -250,15 +250,15 @@ void CBinocularsVision::Update()
 	}
 	if (!pActor) return;
 	//-----------------------------------------------------
-	auto vVisibles = pActor->memory().visual().objects();
+	const CVisualMemoryManager::VISIBLES& vVisibles = pActor->memory().visual().objects();
 
 	VIS_OBJECTS_IT it = m_active_objects.begin();
 	for (; it != m_active_objects.end(); ++it)
 		(*it)->m_flags.set(flVisObjNotValid, TRUE);
 
 
-	auto v_it = vVisibles->begin();
-	for (; v_it != vVisibles->end(); ++v_it)
+	CVisualMemoryManager::VISIBLES::const_iterator v_it = vVisibles.begin();
+	for (; v_it != vVisibles.end(); ++v_it)
 	{
 		const CObject* _object_ = (*v_it).m_object;
 		if (!pActor->memory().visual().visible_right_now(smart_cast<const CGameObject*>(_object_)))

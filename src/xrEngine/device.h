@@ -1,3 +1,5 @@
+﻿#ifndef xr_device
+#define xr_device
 #pragma once
 
 // Note:
@@ -34,6 +36,8 @@
 
 class engine_impl;
 
+#pragma pack(push,4)
+
 class IRenderDevice
 {
 public:
@@ -47,8 +51,6 @@ class ENGINE_API CRenderDeviceData
 public:
 	u32 dwWidth;
 	u32 dwHeight;
-	u32 clientWidth;
-	u32 clientHeight;
 
 	u32 dwPrecacheFrame;
 	BOOL b_is_Ready;
@@ -136,6 +138,7 @@ class ENGINE_API CRenderDeviceBase :
 public:
 };
 
+#pragma pack(pop)
 // refs
 class ENGINE_API CRenderDevice : public CRenderDeviceBase
 {
@@ -549,3 +552,4 @@ public:
 };
 
 extern ENGINE_API CLoadScreenRenderer load_screen_renderer;
+#endif

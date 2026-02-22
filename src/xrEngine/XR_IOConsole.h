@@ -8,8 +8,6 @@
 #include "../Include/xrRender/UIShader.h"
 
 #include "../xrCore/RingBuffer.h"
-#include "xr_input.h"
-#include "IInputReceiver.h" 
 
 //refs
 class ENGINE_API CGameFont;
@@ -86,8 +84,7 @@ enum Console_mark // (int)=char
 class ENGINE_API CConsole :
 	public pureRender,
 	public pureFrame,
-	public pureScreenResolutionChanged,
-	public IInputReceiver
+	public pureScreenResolutionChanged
 {
 public:
 	struct str_pred
@@ -146,17 +143,10 @@ public:
 	virtual void Initialize();
 	virtual void Destroy();
 
-	void DumpHistoryToLog();
-
 	void AddLogEntry(LPCSTR line);
 	void ClearLog();
 
-	virtual void IR_OnKeyboardPress(int dik) override;
-	virtual void IR_OnKeyboardRelease(int dik) override;
-	virtual void IR_OnKeyboardHold(int dik) override;
-
 	virtual void OnRender();
-	virtual void IR_OnMouseWheel(int direction) override;
 	virtual void _BCL OnFrame();
 	virtual void OnScreenResolutionChanged();
 	string64 ConfigFile;
@@ -197,11 +187,6 @@ protected:
 	void DrawRect(Frect const& r, u32 color);
 	void OutFont(LPCSTR text, float& pos_y);
 	void Register_callbacks();
-
-	void LoadHistory();
-	void SaveHistory();
-
-	bool m_bHistoryLoaded;
 
 protected:
 	void xr_stdcall Screenshot();

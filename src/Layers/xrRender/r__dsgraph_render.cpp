@@ -28,15 +28,27 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 	return _sqrt(clampr((ssa - r_ssaGLOD_end) / (r_ssaGLOD_start - r_ssaGLOD_end), 0.f, 1.f));
 }
 
-template<typename T, bool Reverse>
-void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear)
+template<typename T>
+void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T>& graph, bool _clear, bool reverse)
 {
-    if (graph.empty())
-        return;
+	static auto sortFunc = [](const R_dsgraph::DSGraphItem<T>& a, const R_dsgraph::DSGraphItem<T>& b) { return a.sortKey < b.sortKey; };
+	static auto sortFuncReverse = [](const R_dsgraph::DSGraphItem<T>& a, const R_dsgraph::DSGraphItem<T>& b) { return a.sortKey > b.sortKey; };
+	if (reverse)
+	{
+		if (graph.size() >= 4096)
+			xr_parallel_sort(graph, sortFuncReverse);
+		else
+			xr_sort(graph, sortFuncReverse);
+	}
+	else
+	{
+		if (graph.size() >= 4096)
+			xr_parallel_sort(graph, sortFunc);
+		else
+			xr_sort(graph, sortFunc);
+	}
 
-    xr_sort(graph);
-
-	for (auto& item : graph)
+	for (R_dsgraph::DSGraphItem<T>& item : graph)
 	{
 		dxRender_Visual* V = item.pVisual;
 		VERIFY(V && V->shader._get());
@@ -68,10 +80,14 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 			continue;
 
 		// 1. Sort by generated sort key to replicate previous fixed map behaviour
+		static auto sortFunc = [](const RenderPacket& a, const RenderPacket& b)
+		{
+			return a.sortKey < b.sortKey;
+		};
 		if (queue.size() >= 4096)
-			xr_parallel_sort(queue);
+			xr_parallel_sort(queue, sortFunc);
 		else
-			xr_sort(queue);
+			xr_sort(queue, sortFunc);
 
 		// 2. Render
 		vs_type pVS = nullptr;
@@ -91,68 +107,74 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 		ID3DState* pState = nullptr;
 		STextureList* pTextures = nullptr;
 
-        u64 high = 0;
+		RenderPacketSortKey key = { 0, 0 };
 
-        for (auto& packet : queue)
-        {
-            auto& currentKey = packet.sortKey;
-            if (currentKey.high != high)
-            {
-                high = currentKey.high;
+		for (auto& packet : queue)
+		{
+			auto& currentKey = packet.sortKey;
+			if (currentKey.high != key.high)
+			{
+				key.high = currentKey.high;
 
-                if (packet.pState != pState)
-                {
-                    pState = packet.pState;
-                    RCache.set_States(pState);
-                }
+				if (packet.pVS != pVS)
+				{
+					pVS = packet.pVS;
+					RCache.set_VS(pVS);
+				}
 
 #if defined(USE_DX10) || defined(USE_DX11)
-                if (packet.pGS != pGS)
-                {
-                    pGS = packet.pGS;
-                    RCache.set_GS(pGS);
-                }
+				if (packet.pGS != pGS)
+				{
+					pGS = packet.pGS;
+					RCache.set_GS(pGS);
+				}
 #endif
+
+				if (packet.pPS != pPS)
+				{
+					pPS = packet.pPS;
+					RCache.set_PS(pPS);
+				}
 
 #ifdef USE_DX11
-                if (packet.pHS != pHS)
-                {
-                    pHS = packet.pHS;
-                    RCache.set_HS(pHS);
-                }
-                if (packet.pDS != pDS)
-                {
-                    pDS = packet.pDS;
-                    RCache.set_DS(pDS);
-                }
+				if (packet.pHS != pHS)
+				{
+					pHS = packet.pHS;
+					RCache.set_HS(pHS);
+				}
 #endif
-            }
+			}
 
-            // Compare low key stuff regardless, too high collision probability
-            if (packet.pVS != pVS)
-            {
-                pVS = packet.pVS;
-                RCache.set_VS(pVS);
-            }
+			if (currentKey.low != key.low)
+			{
+				key.low = currentKey.low;
+#ifdef USE_DX11
+				if (packet.pDS != pDS)
+				{
+					pDS = packet.pDS;
+					RCache.set_DS(pDS);
+				}
+#endif
 
-            if (packet.pPS != pPS)
-            {
-                pPS = packet.pPS;
-                RCache.set_PS(pPS);
-            }
+				if (packet.pCS != pCS)
+				{
+					pCS = packet.pCS;
+					RCache.set_Constants(pCS);
+				}
 
-            if (packet.pCS != pCS)
-            {
-                pCS = packet.pCS;
-                RCache.set_Constants(pCS);
-            }
+				if (packet.pState != pState)
+				{
+					pState = packet.pState;
+					RCache.set_States(pState);
+				}
 
-            if (packet.pTextures != pTextures)
-            {
-                pTextures = packet.pTextures;
-                RCache.set_Textures(pTextures);
-                RImplementation.apply_lmaterial();
-            }
+				if (packet.pTextures != pTextures)
+				{
+					pTextures = packet.pTextures;
+					RCache.set_Textures(pTextures);
+					RImplementation.apply_lmaterial();
+				}
+			}
 
 			auto& item = packet.item;
 			if (!static_geometry)
@@ -245,8 +267,8 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 	{
 		PROF_EVENT("r_dsgraph_render_sorted");
 		// Rendering
-		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, true);
-		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, true);
+		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, true, true);
+		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, true, true);
 	}
 
 	if (render_hud)
@@ -260,7 +282,7 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 		CHudInitializer initializer(2);
 
 		// Rendering
-		r_dsgraph_render_graph_sorted(RGraph.mapCamAttachedSorted.Sorted, true);
+		r_dsgraph_render_graph_sorted(RGraph.mapCamAttachedSorted.Sorted, true, true);
 		RImplementation.rmNormal();
 	}
 }
@@ -284,7 +306,7 @@ void CDSGraphManager::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shad
 
 	// Rendering
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapScopeHUDSorted, true);
+	r_dsgraph_render_graph_sorted(RGraph.mapScopeHUDSorted, true, true);
 	RImplementation.rmNormal();
 }
 #endif
@@ -298,7 +320,7 @@ void CDSGraphManager::r_dsgraph_render_sorted_hud()
 	CHudInitializer initializer(true);
 
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Sorted, true);
+	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Sorted, true, true);
 	RImplementation.rmNormal();
 }
 
@@ -318,7 +340,7 @@ void CDSGraphManager::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Emissive, clear);
 	
 	if (renderHUD)
-		r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Sorted, false);
+		r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Sorted, false, true);
 
 	RImplementation.rmNormal();
 #endif
@@ -328,8 +350,9 @@ void CDSGraphManager::r_dsgraph_render_water_ssr()
 {
 #ifdef USE_DX11
 	PROF_EVENT("r_dsgraph_render_water_ssr");
-	std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end());
-	for (auto& N : RGraph.mapWater)
+	static auto sortFunc = [](const R_dsgraph::DSGraphItem<float>& a, const R_dsgraph::DSGraphItem<float>& b) { return a.sortKey < b.sortKey; };
+	std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end(), sortFunc);
+	for (R_dsgraph::DSGraphItem<float>& N : RGraph.mapWater)
 	{
 		dxRender_Visual* V = N.pVisual;
 		VERIFY(V);
@@ -354,8 +377,9 @@ void CDSGraphManager::r_dsgraph_render_water_ssr()
 void CDSGraphManager::r_dsgraph_render_water()
 {
 	PROF_EVENT("r_dsgraph_render_water_ssr");
-    std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end());
-    for (auto& N : RGraph.mapWater)
+	static auto sortFunc = [](const R_dsgraph::DSGraphItem<float>& a, const R_dsgraph::DSGraphItem<float>& b) { return a.sortKey < b.sortKey; };
+	std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end(), sortFunc);
+	for (R_dsgraph::DSGraphItem<float>& N : RGraph.mapWater)
 	{
 		dxRender_Visual* V = N.pVisual;
 		VERIFY(V);
@@ -405,8 +429,8 @@ void CDSGraphManager::r_dsgraph_render_distort()
 {
 	PROF_EVENT("r_dsgraph_render_distort");
 	// Rendering
-	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Distort, true);
-	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Distort, true);
+	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Distort, true, true);
+	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Distort, true, true);
 	//	HACK: Calculate this only once
 	CHudInitializer initalizer(true);
 
@@ -446,7 +470,7 @@ void CDSGraphManager::r_dsgraph_capture_lights()
 	);
 
 #if	RENDER==R_R1
-	std::sort(lstLights.begin(), lstLights.end(), [](const ISpatialShared& _1, const ISpatialShared& _2) noexcept
+	std::sort(lstLights.begin(), lstLights.end(), [](ISpatialShared& _1, ISpatialShared& _2)
 	{
 		if (!_1.get() || !_2.get()) return false;
 
@@ -454,7 +478,7 @@ void CDSGraphManager::r_dsgraph_capture_lights()
 	});
 #endif
 
-	for (ISpatialShared spatial : lstLights)
+	for (ISpatialShared& spatial : lstLights)
 	{
 		if (0 == spatial) continue; spatial->spatial_updatesector();
 		CSector* sector = (CSector*)spatial->spatial.sector;
@@ -499,7 +523,7 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 #if	RENDER==R_R1
 			if (i_mask[CDSGraphManager::fl_normal])//normal phase
 			{
-				std::sort(lstRenderables.begin(), lstRenderables.end(), [](const ISpatialShared& _1, const ISpatialShared& _2) noexcept
+				std::sort(lstRenderables.begin(), lstRenderables.end(), [](ISpatialShared& _1, ISpatialShared& _2)
 				{
 					if (!_1.get() || !_2.get()) return false;
 
@@ -545,7 +569,7 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 			// Determine visibility for dynamic part of scene
 			for (u32 o_it = 0; o_it < lstRenderables.size(); o_it++)
 			{
-				ISpatialShared spatial = lstRenderables[o_it];
+				ISpatialShared& spatial = lstRenderables[o_it];
 				if (0 == spatial) continue;
 				CSector* sector = (CSector*)spatial->spatial.sector;
 				if (0 == sector) continue;

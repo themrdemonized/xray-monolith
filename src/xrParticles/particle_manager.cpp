@@ -76,15 +76,14 @@ void CParticleManager::DestroyEffect(int effect_id)
 
 int	CParticleManager::CreateActionList()
 {
+	xrSRWLockGuard guard(m_action_guard);
 	int actionId = m_action_counter++;
 
-	while (ActionIter.load(std::memory_order_acquire) != 0)
+	while (ActionIter != 0)
 	{
-		_mm_pause();
-		std::this_thread::yield();
+		std::this_thread::sleep_for(std::chrono::milliseconds(0));
 	}
 
-	xrSRWLockGuard guard(m_action_guard);
 	auto ActionResultPair = m_alist_map.emplace(actionId, xr_new<ParticleActions>());
 	R_ASSERT2(ActionResultPair.second, "Can't create particle action with global counter");
 
@@ -93,22 +92,14 @@ int	CParticleManager::CreateActionList()
 
 void CParticleManager::DestroyActionList(int alist_id)
 {
-	SharedParticleActions to_delete;
+	xrSRWLockGuard guard(m_action_guard);
+
+	while (ActionIter != 0)
 	{
-		xrSRWLockGuard guard(m_action_guard);
-		auto it = m_alist_map.find(alist_id);
-		if (it != m_alist_map.end())
-		{
-			to_delete = it->second; // Keep a ref so it doesn't die yet
-			m_alist_map.erase(it);
-		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(0));
 	}
 
-	while (ActionIter.load(std::memory_order_acquire) != 0)
-	{
-		_mm_pause();
-		std::this_thread::yield();
-	}
+	m_alist_map.erase(alist_id);
 }
 
 // control
@@ -120,7 +111,7 @@ void CParticleManager::PlayEffect(int effect_id, int alist_id)
 	if (!particleAction)
 		return; // ERROR
 
-	ActionIter.fetch_add(1, std::memory_order_relaxed);
+	ActionIter++;
 
 	// Step through all the actions in the action list.
 	for (PAVecIt it = particleAction->begin(); it != particleAction->end(); ++it)
@@ -140,7 +131,7 @@ void CParticleManager::PlayEffect(int effect_id, int alist_id)
 		}
 	}
 
-	ActionIter.fetch_sub(1, std::memory_order_release);
+	ActionIter--;
 }
 
 void CParticleManager::StopEffect(int effect_id, int alist_id, BOOL deffered)
@@ -152,7 +143,7 @@ void CParticleManager::StopEffect(int effect_id, int alist_id, BOOL deffered)
 		return; // ERROR
 
 	// Step through all the actions in the action list.
-	ActionIter.fetch_add(1, std::memory_order_relaxed);
+	ActionIter++;
 	for (PAVecIt it = particleAction->begin(); it != particleAction->end(); ++it)
 	{
 		switch ((*it)->type)
@@ -162,7 +153,7 @@ void CParticleManager::StopEffect(int effect_id, int alist_id, BOOL deffered)
 			break;
 		}
 	}
-	ActionIter.fetch_sub(1, std::memory_order_release);
+	ActionIter--;
 
 	if (!deffered)
 	{

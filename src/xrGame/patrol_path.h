@@ -42,7 +42,7 @@ public:
 	IC const CVertex* point(const Fvector& position) const;
 
 private:
-    std::pair<u32, float> CPatrolPath::parse_point_link(LPCSTR patrol_name, xr_string link, xr_map<shared_str, u32> vertex_ids_by_name);
+	xr_pair<u32, float> CPatrolPath::parse_point_link(LPCSTR patrol_name, xr_string link, xr_map<shared_str, u32> vertex_ids_by_name);
 
 #ifdef DEBUG
 public:

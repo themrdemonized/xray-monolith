@@ -7,16 +7,14 @@
 
 #include "stdafx.h"
 #include "XR_IOConsole.h"
-#include "line_editor.h"
 
 
 void CConsole::add_cmd_history(const xr_string& str)
 {
-	if (str.empty()) return;
-
-	if (!m_cmd_history.empty() && m_cmd_history.back() == str)
+	if (str.size() == 0)
+	{
 		return;
-
+	}
 	m_cmd_history.push_back(str);
 	if (m_cmd_history.size() > m_cmd_history_max)
 	{
@@ -27,33 +25,18 @@ void CConsole::add_cmd_history(const xr_string& str)
 void CConsole::next_cmd_history_idx()
 {
 	--m_cmd_history_idx;
-
-	if (m_cmd_history_idx < -1)
+	if (m_cmd_history_idx < 0)
 	{
-		m_cmd_history_idx = -1;
+		m_cmd_history_idx = 0;
 	}
-}
-
-void CConsole::IR_OnMouseWheel(int direction)
-{
-	if (!bVisible) return;
-
-	if (direction > 0)
-		scroll_delta += 3; 
-	else
-		scroll_delta -= 3;
-
-	if (scroll_delta < 0) scroll_delta = 0;
 }
 
 void CConsole::prev_cmd_history_idx()
 {
-	if (m_cmd_history.empty()) return;
-
 	++m_cmd_history_idx;
 	if (m_cmd_history_idx >= (int)m_cmd_history.size())
 	{
-		m_cmd_history_idx = (int)m_cmd_history.size() - 1;
+		m_cmd_history_idx = m_cmd_history.size() - 1;
 	}
 }
 

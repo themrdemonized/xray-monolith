@@ -170,11 +170,11 @@ void CCameraLook2::Update(Fvector& point, Fvector&)
 		//autoaim
 		if (pInput->iGetAsyncKeyState(cam_dik))
 		{
-			auto vVisibles = Actor()->memory().visual().objects();
-			auto v_it = vVisibles->begin();
+			const CVisualMemoryManager::VISIBLES& vVisibles = Actor()->memory().visual().objects();
+			CVisualMemoryManager::VISIBLES::const_iterator v_it = vVisibles.begin();
 			float _nearest_dst = flt_max;
 
-			for (; v_it != vVisibles->end(); ++v_it)
+			for (; v_it != vVisibles.end(); ++v_it)
 			{
 				const CObject* _object_ = (*v_it).m_object;
 				if (!Actor()->memory().visual().visible_now(smart_cast<const CGameObject*>(_object_))) continue;

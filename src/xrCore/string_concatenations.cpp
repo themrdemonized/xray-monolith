@@ -1,18 +1,15 @@
 #include "stdafx.h"
 #include "string_concatenations.h"
 
-bool XRCORE_API _strconcatSingle(char*& destPtr, char* pDestEnd, const char* src)
+int XRCORE_API _strconcatSingle(char*& destPtr, char* pDestEnd, const char* Str)
 {
-    if (!src) return true;
-
-    // We stop at pDestEnd - 1 to ensure space for the null terminator
-    while (*src && (destPtr < (pDestEnd - 1)))
-    {
-        *destPtr++ = *src++;
-    }
-
-    // Return true if we reached the end of the source string successfully
-    return (*src == '\0');
+	char* TargetStrCursor = const_cast<char*> (Str);
+	for (; *TargetStrCursor && destPtr < pDestEnd; destPtr++, TargetStrCursor++)
+	{
+		*destPtr = *TargetStrCursor;
+	}
+	R_ASSERT3(!(*TargetStrCursor), "Failed to concatenate string", Str);
+	return 0;
 }
 
 namespace xray

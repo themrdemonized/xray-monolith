@@ -13,7 +13,7 @@ void CResourceManager::OnDeviceDestroy(BOOL)
 	// Matrices
 	for (map_Matrix::iterator m = m_matrices.begin(); m != m_matrices.end(); m++)
 	{
-		R_ASSERT(1==m->second->dwReference.load(std::memory_order_relaxed));
+		R_ASSERT(1==m->second->dwReference);
 		xr_delete(m->second);
 	}
 	m_matrices.clear();
@@ -21,7 +21,7 @@ void CResourceManager::OnDeviceDestroy(BOOL)
 	// Constants
 	for (map_Constant::iterator c = m_constants.begin(); c != m_constants.end(); c++)
 	{
-		R_ASSERT(1==c->second->dwReference.load(std::memory_order_relaxed));
+		R_ASSERT(1==c->second->dwReference);
 		xr_delete(c->second);
 	}
 	m_constants.clear();
@@ -120,7 +120,7 @@ void CResourceManager::OnDeviceCreate(IReader* F)
 				chunk->seek(0);
 				B->Load(*chunk, desc.version);
 
-				std::pair<map_BlenderIt, bool> I = m_blenders.emplace(xr_strdup(desc.cName), B);
+				std::pair<map_BlenderIt, bool> I = m_blenders.insert(mk_pair(xr_strdup(desc.cName), B));
 				R_ASSERT2(I.second, "shader.xr - found duplicate name!!!");
 			}
 			chunk->close();

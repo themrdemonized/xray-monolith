@@ -252,16 +252,6 @@ xr_shared_ptr<T> xr_make_shared(Args&&... args)
 	return std::allocate_shared<T>(alloc, std::forward<Args>(args)...);
 }
 
-// Support for objects already created with a custom deleter
-// Useful for the "Null Deleter" or specialized engine cleanup
-template <class T, class D>
-xr_shared_ptr<T> xr_make_shared_with_deleter(T* ptr, D deleter)
-{
-    xr_allocator_shared_helper<T> alloc;
-    // We use the constructor here because allocate_shared doesn't take deleters
-    return xr_shared_ptr<T>(ptr, deleter, alloc);
-}
-
 template <typename T, typename... ARGS>
 xr_unique_ptr<T> xr_make_unique(ARGS&&... args)
 {

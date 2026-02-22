@@ -181,12 +181,6 @@ void CRenderTarget::accum_spot(light* L)
 	u_DBT_disable();
 }
 
-// Stub to use vanilla
-void CRenderTarget::accum_volumetric_lv(light* L)
-{
-    accum_volumetric(L);
-}
-
 void CRenderTarget::accum_volumetric(light* L)
 {
 	//if (L->flags.type != IRender_Light::SPOT) return;

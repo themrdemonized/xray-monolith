@@ -1,4 +1,4 @@
-#include "pch_script.h"
+﻿#include "pch_script.h"
 #include "entity_alive.h"
 #include "inventoryowner.h"
 #include "inventory.h"
@@ -803,6 +803,7 @@ void CEntityAlive::fill_hit_bone_surface_areas() const
 {
 	xrSRWLockGuard guard(&m_hit_bone_lock, false);
 	VERIFY(!m_hit_bone_surface_areas_actual);
+	m_hit_bone_surface_areas_actual = true;
 
 	IKinematics* const kinematics = smart_cast<IKinematics*>(Visual());
 	VERIFY(kinematics);
@@ -845,7 +846,6 @@ void CEntityAlive::fill_hit_bone_surface_areas() const
 	}
 
 	std::sort(m_hit_bone_surface_areas.begin(), m_hit_bone_surface_areas.end(), sort_surface_area_predicate());
-    m_hit_bone_surface_areas_actual = true;
 }
 
 BOOL g_ai_use_old_vision = 0;

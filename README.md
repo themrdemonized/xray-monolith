@@ -237,59 +237,6 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
-**2026.02.22**
-
-Main and MT:
-  * Spawn Antifreeze more safety features
-  * Remove stutter when raising PDA by iterating actual se_stalker and se_monster objects instead of whole alife in function `pda.calculate_rankings()`
-  * damoldavskiy: Easing and correct scaling for .anms, custom pivot points (https://github.com/themrdemonized/xray-monolith/pull/436)
-
-MT:
-  * Fixed buggy lighting on objects in DX8
-  * Separate SRW locks instead of single CS for resources creation and deletion
-  * Reorganized resources data to use unordered sets instead of vectors for faster lookup
-  * More safety features for visual memory manager
-  * Light refactor of building and rendering `dsgraph` items
-  * `mt_task_manager` console command to toggle Task Manager between main and second thread, default is 0, main thread
-  * More safety in `phase_ssfx_sss_ext`, should be less crashy
-  * Parallel GC runs in parallel to Physics and Sound Processing instead of after them, gives GC more time to work for more effectiveness
-  * knallpsi: support for .peak volumetric lights by LVutner (https://github.com/themrdemonized/xray-monolith/pull/430)
-    * How to enable .peak?
-      0. Recommended to install SSS before this
-      1. Download and install shaders from www.moddb.com/mods/stalker-anomaly/addons/peak-volumetrics-1-1
-      2. Type `pfx_volumetric_mode 1` in console or enable .peak volumetrics in Modded Exes options -> Visual -> Graphics
-      3. Optionally tune volumetric lights intensity in SSS MCM options
-
-**2026.02.15**
-
-MT:
-  * Fixed bug with swapping textures
-
-**2026.02.14**
-
-Main:
-  * Ported new GC procedure from MT branch
-  * Ported critical section locking on resources creation and deletion from MT branch
-
-Main and MT:
-  * Spawn Antifreeze: Fixed possible `stack overflow` crash
-  * Removed all dynamic thread affinity and process priority changes inside the engine, the game launches with normal priority
-  * Removed 1 second pause on splash screen
-  * `_mm_pause` spin count is `4096`
-  * Simplified code when using separate key for underbarrel grenade launcher, should be less buggy
-  * Minor performance increase by optimizing getting `R_constant` pointers
-  * erepb:
-    * various window related fixes, consistent window creation, center splash, multimonitor support, correct cursor limits (https://github.com/themrdemonized/xray-monolith/pull/418)
-    * fix race in refcount (https://github.com/themrdemonized/xray-monolith/pull/426) (https://github.com/themrdemonized/xray-monolith/pull/429)
-  * Tosox: Installation based instance mutex, Allow multiple game instances (https://github.com/themrdemonized/xray-monolith/pull/424)
-
-MT:
-  * Fixed volumetric lights rendering
-  * Fixed flickering shadows from omni lights when using SSS
-  * Fixed possible crash related to visual manager when entity is destroyed
-  * Rain and Particle Manager uses less strict atomics
-  * knallpsi: Console commands history, scroll console with mouse wheel, fixed browsing commands history with arrows (https://github.com/themrdemonized/xray-monolith/pull/423)
-
 **2026.02.08**
 
 Main and MT:

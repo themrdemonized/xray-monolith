@@ -53,7 +53,7 @@ BOOL CObjectSpace::_RayTest(const Fvector& start, const Fvector& dir, float rang
 		// Determine visibility for dynamic part of scene
 		for (u32 o_it = 0; o_it < CObjectSpaceThreadData::r_spatial.size(); o_it++)
 		{
-			ISpatialShared spatial = CObjectSpaceThreadData::r_spatial[o_it];
+			ISpatialShared& spatial = CObjectSpaceThreadData::r_spatial[o_it];
 			CObject* collidable = spatial->dcast_CObject();
 			if (collidable && (collidable != ignore_object) && collidable->collidable.model)
 			{
@@ -167,7 +167,7 @@ BOOL CObjectSpace::_RayPick(const Fvector& start, const Fvector& dir, float rang
 		// Determine visibility for dynamic part of scene
 		for (u32 o_it = 0; o_it < CObjectSpaceThreadData::r_spatial.size(); o_it++)
 		{
-			ISpatialShared spatial = CObjectSpaceThreadData::r_spatial[o_it];
+			ISpatialShared& spatial = CObjectSpaceThreadData::r_spatial[o_it];
 			CObject* collidable = spatial->dcast_CObject();
 			if (0 == collidable) continue;
 

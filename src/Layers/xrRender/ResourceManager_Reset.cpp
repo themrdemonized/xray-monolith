@@ -14,8 +14,8 @@ void CResourceManager::reset_begin()
 	::Render->reset_begin();
 
 	// destroy state-blocks
-	for (const auto& v_state: v_states)
-	    _RELEASE(v_state->state);
+	for (u32 _it = 0; _it < v_states.size(); _it++)
+	_RELEASE(v_states[_it]->state);
 
 	// destroy RTs
 	for (map_RTIt rt_it = m_rtargets.begin(); rt_it != m_rtargets.end(); rt_it++)
@@ -45,8 +45,9 @@ void CResourceManager::reset_end()
 
 	// remark geom's which point to dynamic VB/IB
 	{
-		for (auto _G : v_geoms)
+		for (u32 _it = 0; _it < v_geoms.size(); _it++)
 		{
+			SGeometry* _G = v_geoms[_it];
 			if (_G->vb == RCache.Vertex.old_pVB)
 				_G->vb = RCache.Vertex.Buffer();
 
@@ -84,11 +85,11 @@ void CResourceManager::reset_end()
 
 	// create state-blocks
 	{
-		for (const auto& v_state : v_states)
+		for (u32 _it = 0; _it < v_states.size(); _it++)
 #if defined(USE_DX10) || defined(USE_DX11)
-			v_state->state = ID3DState::Create(v_state->state_code);
+			v_states[_it]->state = ID3DState::Create(v_states[_it]->state_code);
 #else	//	USE_DX10
-			v_state->state = v_state->state_code.record();
+			v_states[_it]->state = v_states[_it]->state_code.record();
 #endif	//	USE_DX10
 	}
 
@@ -102,7 +103,7 @@ void mdump(C c)
 {
 	if (0 == c.size()) return;
 	for (C::iterator I = c.begin(); I != c.end(); I++)
-		Msg("*        : %3d: %s", I->second->dwReference.load(std::memory_order_relaxed), I->second->cName.c_str());
+		Msg("*        : %3d: %s", (u32)I->second->dwReference, I->second->cName.c_str());
 }
 
 CResourceManager::~CResourceManager()

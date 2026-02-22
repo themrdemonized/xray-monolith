@@ -202,10 +202,6 @@ void CRender::create()
 
 	Engine.External.SetSkinningMode();
 	m_MSAASample = -1;
-    o.volsize = 8;
-	if (Core.ParamsData.test(ECoreParams::volumetric1)) o.volsize = 1;
-    if (Core.ParamsData.test(ECoreParams::volumetric2)) o.volsize = 2;
-    if (Core.ParamsData.test(ECoreParams::volumetric4)) o.volsize = 4;
 
 	// hardware
 	o.smapsize = 2048;

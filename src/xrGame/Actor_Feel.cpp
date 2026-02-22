@@ -189,7 +189,7 @@ void CActor::PickupModeUpdate_COD(pickup_result_t pickup_result)
 
 	for (u32 o_it = 0; o_it < ISpatialResult.size(); o_it++)
 	{
-		ISpatialShared spatial = ISpatialResult[o_it];
+		ISpatialShared& spatial = ISpatialResult[o_it];
 		CInventoryItem* pIItem = smart_cast<CInventoryItem*>(spatial->dcast_CObject());
 
 		if (0 == pIItem) continue;
@@ -294,7 +294,7 @@ void CActor::Check_for_AutoPickUp()
 	// Determine visibility for dynamic part of scene
 	for (u32 o_it = 0; o_it < ISpatialResult.size(); o_it++)
 	{
-		ISpatialShared spatial = ISpatialResult[o_it];
+		ISpatialShared& spatial = ISpatialResult[o_it];
 		CInventoryItem* pIItem = smart_cast<CInventoryItem*>(spatial->dcast_CObject());
 
 		if (0 == pIItem) continue;

@@ -7374,6 +7374,9 @@
     <ClInclude Include="..\3rd party\fastdelegate\fastdelegate.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="player_hud_legs.h">
+      <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -11083,6 +11086,9 @@
     </ClCompile>
     <ClCompile Include="searchlight_script.cpp" />
     <ClCompile Include="searchlight_struct.cpp" />
+    <ClCompile Include="player_hud_legs.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Explosive.h">

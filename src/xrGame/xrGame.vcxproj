@@ -1438,6 +1438,7 @@
     <ClInclude Include="ph_shell_interface.h" />
     <ClInclude Include="player_account.h" />
     <ClInclude Include="player_hud.h" />
+    <ClInclude Include="player_hud_legs.h" />
     <ClInclude Include="player_name_modifyer.h" />
     <ClInclude Include="player_spot_params.h" />
     <ClInclude Include="player_state_achilles_heel.h" />
@@ -2987,6 +2988,7 @@
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
+    <ClCompile Include="player_hud_legs.cpp" />
     <ClCompile Include="script_imgui_script.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

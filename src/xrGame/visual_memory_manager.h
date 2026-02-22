@@ -44,7 +44,7 @@ private:
 
 private:
 	RAW_VISIBLES m_visible_objects;
-	xr_shared_ptr<VISIBLES> m_objectsShared;
+	VISIBLES* m_objects;
 	NOT_YET_VISIBLES m_not_yet_visible_objects;
 
 private:
@@ -99,7 +99,6 @@ public:
 
 public:
 	IC void set_squad_objects(xr_vector<CVisibleObject>* squad_objects);
-    IC void set_squad_objects(xr_shared_ptr<xr_vector<CVisibleObject>> squad_objects);
 	CVisibleObject* visible_object(const CGameObject* game_object);
 
 public:
@@ -127,8 +126,8 @@ public:
 	IC void enable(bool value);
 
 public:
-	IC xr_shared_ptr<VISIBLES> objects() const;
-	IC xr_shared_ptr<VISIBLES> objectsPtr() const;
+	IC const VISIBLES& objects() const;
+	IC const VISIBLES* objectsPtr() const;
 	IC const RAW_VISIBLES& raw_objects() const;
 	IC const NOT_YET_VISIBLES& not_yet_visible_objects() const;
 	IC const CVisionParameters& current_state() const;

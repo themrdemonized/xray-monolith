@@ -1993,7 +1993,7 @@ void CCar::PhDataUpdate(float step)
 		SDoor* D = m_doors_update[k];
 		if (!D->update)
 		{
-			m_doors_update.erase_fast(m_doors_update.begin() + k);
+			m_doors_update.erase(m_doors_update.begin() + k);
 			--k;
 		}
 		else

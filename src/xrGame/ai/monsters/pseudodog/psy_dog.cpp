@@ -96,7 +96,7 @@ void CPsyDog::unregister_phantom(CPsyDogPhantom* phantom)
 	}
 
 	VERIFY(it != m_storage.end());
-	m_storage.erase_fast(it);
+	m_storage.erase(it);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -70,7 +70,8 @@ void XRay::Engine::CalculateBonesThread()
 	static xr_vector<SpatialSnapshot> spatialsSnapshot;
 	spatialsSnapshot.clear();
 	{
-		for (ISpatialShared spatial : spatials)
+		xrSRWLockGuard g(g_SpatialSpace->db_lock);
+		for (ISpatialShared& spatial : spatials)
 		{
 			if (!spatial)
 				continue;
@@ -86,7 +87,7 @@ void XRay::Engine::CalculateBonesThread()
 		}
 	}
 
-	static auto sortFunc = [](const SpatialSnapshot& _1, const SpatialSnapshot& _2) noexcept
+	static auto sortFunc = [](const SpatialSnapshot& _1, const SpatialSnapshot& _2)
 	{
 		return _1.P.distance_to_sqr(Device.vCameraPosition_saved) < _2.P.distance_to_sqr(Device.vCameraPosition_saved);
 	};
@@ -139,30 +140,28 @@ void XRay::Engine::GameThread()
 		Device.seqParallel.clear();
 	}
 
-    // demonized: While Renderer prepares frame and GPU renders it, use time opportunity to repeatedly call Lua GC with small step value
-    // Reduces stutters since less work will be done in main GC step or no work at all
-    static auto LuaGC = []()
-    {
-        if (psLua_ParallelGC && Device.LuaGC)
-        {
-            PROF_EVENT("seqLuaGC");
-            // Do at least once
-            do
-            {
-                Device.LuaGCCount++;
-                if (Device.LuaGC(false) == 1) // 1 informs that GC cycle is complete
-                {
-                    Device.LuaGCDone = true;
-                    break;
-                }
-
-            } while (Device.isRendering && Device.LuaGCCount < psLua_ParallelGC_CallAmount);
-        }
-    };
-    Device.secondary_tasks.run(LuaGC);
-
 	{
 		PROF_EVENT("seqFrameMT");
 		Device.seqFrameMT.Process(rp_Frame);
+	}
+
+	// demonized: While Renderer prepares frame and GPU renders it, use time opportunity to repeatedly call Lua GC with small step value
+	// Reduces stutters since less work will be done in main GC step or no work at all
+	{
+		PROF_EVENT("seqLuaGC");
+		if (psLua_ParallelGC && Device.LuaGC)
+		{
+			// Do at least once
+			do
+			{
+				Device.LuaGCCount++;
+				if (Device.LuaGC(false) == 1) // 1 informs that GC cycle is complete
+				{
+					Device.LuaGCDone = true;
+					break;
+				}
+
+			} while (Device.isRendering && Device.LuaGCCount < psLua_ParallelGC_CallAmount);
+		}
 	}
 }

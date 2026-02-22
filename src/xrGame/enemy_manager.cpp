@@ -196,7 +196,7 @@ void CEnemyManager::remove_links(CObject* object)
 	// we just use the pinter itself, we can just statically cast object
 	OBJECTS::iterator I = std::find(m_objects.begin(), m_objects.end(), (CEntityAlive*)object);
 	if (I != m_objects.end())
-		m_objects.erase_fast(I);
+		m_objects.erase(I);
 
 	if (m_last_enemy == object)
 		m_last_enemy = 0;

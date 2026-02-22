@@ -213,7 +213,7 @@ void CMonsterSquad::unlock_cover(u32 node)
 {
 	NODES_VECTOR_IT it = std::find(m_locked_covers.begin(), m_locked_covers.end(), node);
 	if (it != m_locked_covers.end())
-		m_locked_covers.erase_fast(it);
+		m_locked_covers.erase(it);
 }
 
 u8 CMonsterSquad::get_index(CEntity* m_object)
@@ -262,7 +262,7 @@ void CMonsterSquad::unlock_corpse(const CEntityAlive* corpse)
 {
 	CORPSES_VECTOR_IT it = std::find(m_locked_corpses.begin(), m_locked_corpses.end(), corpse);
 	if (it != m_locked_corpses.end())
-		m_locked_corpses.erase_fast(it);
+		m_locked_corpses.erase(it);
 }
 
 //////////////////////////////////////////////////////////////////////////
