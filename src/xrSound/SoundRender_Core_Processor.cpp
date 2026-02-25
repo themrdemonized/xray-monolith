@@ -7,7 +7,6 @@
 #include "SoundRender_TargetA.h"
 #include "SoundRender_Source.h"
 #include "SoundRender_CoreA.h"
-#include <AL/efx-presets.h>
 
 CSoundRender_Emitter* CSoundRender_Core::i_play(ref_sound* S, BOOL _loop, float delay)
 {

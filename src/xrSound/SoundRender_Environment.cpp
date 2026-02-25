@@ -195,7 +195,43 @@ void CSoundRender_Environment::save(IWriter* fs)
 	fs->w_u32(Environment);
 }
 
-//////////////////////////////////////////////////////////////////////////
+//EFXEAXREVERBPROPERTIES//////////////////////////////////////////////////////////////////////////
+
+void EFXEAXREVERBPROPERTIES::lerp(const EFXEAXREVERBPROPERTIES& A, const EFXEAXREVERBPROPERTIES& B, float f)
+{
+	float fi = 1.f - f;
+
+    flDensity = A.flDensity*fi + B.flDensity*f;
+    flDiffusion = A.flDiffusion*fi + B.flDiffusion*f;
+    flGain = A.flGain*fi + B.flGain*f;
+    flGainHF = A.flGainHF*fi + B.flGainHF*f;
+    flGainLF = A.flGainLF*fi + B.flGainLF*f;
+    flDecayTime = A.flDecayTime*fi + B.flDecayTime*f;
+    flDecayHFRatio = A.flDecayHFRatio*fi + B.flDecayHFRatio*f;
+    flDecayLFRatio = A.flDecayLFRatio*fi + B.flDecayLFRatio*f;
+    flReflectionsGain = A.flReflectionsGain*fi + B.flReflectionsGain*f;
+    flReflectionsDelay = A.flReflectionsDelay*fi + B.flReflectionsDelay*f;
+    flReflectionsPan[3] = A.flReflectionsPan[3]*fi + B.flReflectionsPan[3]*f;
+    flLateReverbGain = A.flLateReverbGain*fi + B.flLateReverbGain*f;
+    flLateReverbDelay = A.flLateReverbDelay*fi + B.flLateReverbDelay*f;
+    flLateReverbPan[3] = A.flLateReverbPan[3]*fi + B.flLateReverbPan[3]*f;
+    flEchoTime = A.flEchoTime*fi + B.flEchoTime*f;
+    flEchoDepth = A.flEchoDepth*fi + B.flEchoDepth*f;
+    flModulationTime = A.flModulationTime*fi + B.flModulationTime*f;
+    flModulationDepth = A.flModulationDepth*fi + B.flModulationDepth*f;
+    flAirAbsorptionGainHF = A.flAirAbsorptionGainHF*fi + B.flAirAbsorptionGainHF*f;
+    flHFReference = A.flHFReference*fi + B.flHFReference*f;
+    flLFReference = A.flLFReference*fi + B.flLFReference*f;
+    flRoomRolloffFactor = A.flRoomRolloffFactor*fi + B.flRoomRolloffFactor*f;
+    
+    if (f>0.5f) {
+        iDecayHFLimit = B.iDecayHFLimit;
+    } else {
+        iDecayHFLimit = A.iDecayHFLimit;
+    }
+}
+
+//SoundEnvironment_LIB//////////////////////////////////////////////////////////////////////////
 void SoundEnvironment_LIB::Load(LPCSTR name)
 {
 	R_ASSERT(library.empty());

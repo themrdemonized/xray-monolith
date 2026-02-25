@@ -40,7 +40,6 @@ XRSOUND_API extern float psSoundOcclusionScale;
 XRSOUND_API extern Flags32 psSoundFlags;
 XRSOUND_API extern int psSoundTargets;
 XRSOUND_API extern float snd_efx_environment_change_time;
-XRSOUND_API extern float snd_efx_overwrite;
 XRSOUND_API extern float psSpeedOfSound;
 XRSOUND_API extern int psSoundCacheSizeMB;
 XRSOUND_API extern xr_token* snd_devices_token;

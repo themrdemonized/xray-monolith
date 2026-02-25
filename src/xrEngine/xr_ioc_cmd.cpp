@@ -945,6 +945,11 @@ float scope_fog_sharp = 4.0f;
 int scope_2dtexactive = 0.0;
 Fvector3 ssfx_wetness_multiplier = Fvector3().set(1.0f, 0.3f, 0.0f);
 
+extern int reverb_overwrite;
+extern int reverb_overwrite_lerp_preset_A;
+extern int reverb_overwrite_lerp_preset_B;
+extern float reverb_overwrite_lerp_alpha;
+
 void CCC_Register()
 {
 	// General
@@ -1039,13 +1044,17 @@ void CCC_Register()
 	CMD1(CCC_VID_Reset, "vid_restart");
 
 	// Sound
+
 	CMD2(CCC_Float, "snd_volume_eff", &psSoundVEffects);
 	CMD2(CCC_Float, "snd_volume_music", &psSoundVMusic);
 	CMD1(CCC_SND_Restart, "snd_restart");
 	CMD3(CCC_Mask, "snd_acceleration", &psSoundFlags, ss_Hardware);
 	CMD3(CCC_Mask, "snd_efx", &psSoundFlags, ss_EFX);
-	CMD4(CCC_Integer, "snd_efx_overwrite", &snd_efx_overwrite, -1, 10);
-	CMD4(CCC_Float, "snd_efx_environment_change_time", &snd_efx_environment_change_time, 0.f, 3.f);
+	CMD4(CCC_Integer, "snd_efx_reverb_overwrite", &reverb_overwrite, -1, 1024);
+    CMD4(CCC_Integer, "snd_efx_reverb_overwrite_lerp_preset_A", &reverb_overwrite_lerp_preset_A, -1, 1024);
+    CMD4(CCC_Integer, "snd_efx_reverb_overwrite_lerp_preset_B", &reverb_overwrite_lerp_preset_B, -1, 1024);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_lerp_alpha", &reverb_overwrite_lerp_alpha, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_environment_change_time", &snd_efx_environment_change_time, 0.f, 3.f);
 	CMD4(CCC_Integer, "snd_targets", &psSoundTargets, 32, 1024);
 	CMD4(CCC_Integer, "snd_cache_size", &psSoundCacheSizeMB, 8, 256);
 

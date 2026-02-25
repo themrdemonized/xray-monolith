@@ -26,7 +26,6 @@ float psSoundVMusicFactor = 1.f;
 int psSoundCacheSizeMB = 256;
 
 float snd_efx_environment_change_time = 1.66f;
-int snd_efx_overwrite = 0;
 
 CSoundRender_Core* SoundRender = nullptr;
 CSound_manager_interface* Sound = nullptr;

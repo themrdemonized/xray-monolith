@@ -5,7 +5,7 @@
 
 #ifndef EFXEAXREVERBPROPERTIES_DEFINED
 #define EFXEAXREVERBPROPERTIES_DEFINED
-typedef struct {
+typedef struct EFXEAXREVERBPROPERTIES_s {
     float flDensity;
     float flDiffusion;
     float flGain;
@@ -29,6 +29,9 @@ typedef struct {
     float flLFReference;
     float flRoomRolloffFactor;
     int   iDecayHFLimit;
+
+    void lerp(const EFXEAXREVERBPROPERTIES_s& A, const EFXEAXREVERBPROPERTIES_s& B, float f);
+
 } EFXEAXREVERBPROPERTIES, *LPEFXEAXREVERBPROPERTIES;
 #endif
 
