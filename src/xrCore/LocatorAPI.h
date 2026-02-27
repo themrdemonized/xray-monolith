@@ -98,6 +98,19 @@ public:
 		flPrintLTX = (1 << 10),
 	};
 
+    struct pending_file_entry
+    {
+        string_path     name;
+        u32             vfs;
+        u32             crc;
+        u32             ptr;
+        u32             size_real;
+        u32             size_compressed;
+        u32             modif;
+    };
+
+    void RegisterBatch(xr_vector<pending_file_entry>& entries);
+
 	Flags32 m_Flags;
 	u32 dwAllocGranularity;
 	u32 dwOpenCounter;
