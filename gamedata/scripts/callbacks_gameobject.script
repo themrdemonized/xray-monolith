@@ -537,6 +537,11 @@ function actor_on_first_update_prefetch()
 	end, db.actor)
 end
 
+-- Update ranks on first update
+function actor_on_first_update_calculate_rankings()
+	pda.calculate_rankings()
+end
+
 -- Force update close enough traders
 local function t2c(t)
 	if not t then return nil end
@@ -569,6 +574,7 @@ end
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+	RegisterScriptCallback("actor_on_first_update", actor_on_first_update_calculate_rankings)
 
 	-- Prefetch callbacks. Disabled for now, conflict with SSS
 	-- RegisterScriptCallback("actor_item_to_slot", actor_item_to_slot_prefetch)
