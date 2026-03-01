@@ -55,8 +55,9 @@ typedef svector<S2DVert,UI_FRUSTUM_SAFE> sPoly2D;
 struct CustomShape
 {
 	sPoly2D poly;
-	LPCSTR shader_name;
-	LPCSTR texture_name;
+    ui_shader shader;
+    std::string shader_name;
+	std::string texture_name;
 	u32 texture_color;
 };
 
