@@ -711,3 +711,27 @@ _G.log = function(str)
         LuaPanda.printToVSCode(str,1,2)
     end
 end
+
+
+-- VECTORS
+
+-- Global VEC_ZERO is being mutated by some vanilla scripts which can cause bugs.
+-- Therefore VEC_ZERO should no longer be used as long as vanilla functions
+-- aren't fixed!
+-- Use this function instead to get a zero vector that can also be mutated
+_G.vec_zero = function()
+	return vector():set(0,0,0)
+end
+
+-- Same issue prolly applies to VEC_X/Y/Z too
+_G.vec_x = function()
+	return vector():set(1,0,0)
+end
+
+_G.vec_y = function()
+	return vector():set(0,1,0)
+end
+
+_G.vec_z = function()
+	return vector():set(0,0,1)
+end

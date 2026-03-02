@@ -674,3 +674,16 @@ function trade_manager.trade_init(npc, cfg)
     
     trade_profile.resupply_time = reup_time
 end
+
+-- Private_Pirate: fix VEC_ZERO being mutated by stationary machine gun init function
+ph_minigun.action_mgun.__init = function(self, obj, storage)
+--	printf("mgun <state>: init.")
+	self.object = obj
+	self.mgun = self.object:get_car()
+	self.st = storage
+	self.start_direction = self.object:direction()
+	self.start_look_pos = vector():(0,0,0)
+	self.start_look_pos.x = self.object:position().x + 5*math.sin(self.start_direction.x)
+	self.start_look_pos.z = self.object:position().z + 5*math.cos(self.start_direction.x)
+	self.start_look_pos.y = self.object:position().y
+end
