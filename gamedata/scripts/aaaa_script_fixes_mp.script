@@ -675,8 +675,8 @@ function trade_manager.trade_init(npc, cfg)
     trade_profile.resupply_time = reup_time
 end
 
--- Private_Pirate: fix VEC_ZERO being mutated by stationary machine gun init function
-ph_minigun.action_mgun.__init = function(self, obj, storage)
+-- Private_Pirate: fix VEC_ZERO being mutated
+function ph_minigun.action_mgun.__init(self, obj, storage)
 --	printf("mgun <state>: init.")
 	self.object = obj
 	self.mgun = self.object:get_car()
@@ -687,3 +687,74 @@ ph_minigun.action_mgun.__init = function(self, obj, storage)
 	self.start_look_pos.z = self.object:position().z + 5*math.cos(self.start_direction.x)
 	self.start_look_pos.y = self.object:position().y
 end
+
+function xr_campfire_point.action_point_campfire.activate_scheme(self)
+	local vid,look
+	if (self.st.smart) then
+ 		local fires = db.campfire_table_by_smart_names[self.st.smart]
+		if (fires and not is_empty(fires)) then
+			local campfire
+			local t = {}
+			local function create_campfire_point(pos,dir)
+				local radius = 8
+				local vertex_id = 4294967295
+				local tmp_pos = vector():set(0,0,0)
+				while (vertex_id >= 4294967295) do
+					tmp_pos.x = pos.x + dir.x * radius
+					tmp_pos.z = pos.z + dir.z * radius
+					tmp_pos.y = pos.y
+
+					vertex_id = level.vertex_id(tmp_pos)
+					if (vertex_id >= 4294967295 or xr_campfire_point.used_vids[vertex_id]) then
+						if (radius > 1) then
+							radius = radius - 1
+						else
+							break
+						end
+					end
+				end
+				return vertex_id
+			end
+			for id,binder in pairs(fires) do
+				if (binder.object) then 
+					local dir = vector():set(binder.object:direction())
+					local pos = binder.object:position()
+					t[#t+1] = pos
+					for i=1,6 do
+						vid = create_campfire_point(pos,vector_rotate_y(dir,i*60))
+						look = pos
+						if (vid and vid < 4294967295 and not xr_campfire_point.used_vids[vid]) then 
+							break 
+						end
+					end
+				end
+				if (vid and vid < 4294967295 and not xr_campfire_point.used_vids[vid]) then 
+					break 
+				end
+			end
+			
+			-- fallback no camp or all space is taken
+			if (vid == nil or vid >= 4294967295 or xr_campfire_point.used_vids[vid]) then
+				local pos = t and #t > 0 and t[math.random(#t)] or self.object:position()
+				vid = utils_obj.find_random_cover(self.object,pos,5,15)
+				look = pos
+			end
+		end
+	end
+	
+	-- fallback if no campfires
+	if (vid == nil or vid >= 4294967295 or xr_campfire_point.used_vids[vid]) then
+		local smart = self.st.smart and SIMBOARD:get_smart_by_name(self.st.smart) or xr_gulag.get_npc_smart(self.object)
+		local pos = smart and smart.position or self.object:position()
+		vid = utils_obj.find_random_cover(self.object,pos,5,15)
+		look = pos
+	end
+	
+	self.st.signals = {}
+	self.st.look_position = look
+	self.st.vid = utils_obj.send_to_nearest_accessible_vertex(self.object,vid or self.object:level_vertex_id())
+	state_mgr.set_state(self.object,xr_logic.pick_section_from_condlist(db.actor, self.object, self.st.reach_movement))
+	
+	xr_campfire_point.used_vids[self.st.vid] = true
+end
+-- Private_Pirate END
