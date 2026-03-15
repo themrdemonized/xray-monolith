@@ -9,6 +9,9 @@
 #include "pch_script.h"
 #include "game_graph.h"
 #include "ai_space.h"
+#include "graph_engine.h"
+#include "graph_engine_space.h"
+#include "xrServer_Objects_ALife_Monsters.h"
 
 using namespace luabind;
 
@@ -50,6 +53,13 @@ GameGraph::LEVEL_MAP const& get_levels(CGameGraph const* graph)
 	return graph->header().levels();
 }
 
+bool script_graph_reachable(const CGameGraph* graph, u32 from_id, u32 to_id, CSE_ALifeOnlineOfflineGroup* squad)
+{
+	xr_vector<u32> path;
+	GraphEngineSpace::CGameVertexParams params(squad->m_tpaTerrain);
+	return ai().graph_engine().search(*graph, from_id, to_id, &path, params);
+}
+
 #pragma optimize("s",on)
 void CGameGraph::script_register(lua_State* L)
 {
@@ -67,7 +77,8 @@ void CGameGraph::script_register(lua_State* L)
 		.def("valid_vertex_id", &CGameGraph::valid_vertex_id)
 		.def("vertex", &CGameGraph::vertex)
 		.def("vertex_id", &CGameGraph::vertex_id)
-		.def("levels", &get_levels, return_stl_iterator),
+		.def("levels", &get_levels, return_stl_iterator)
+		.def("graph_reachable", &script_graph_reachable),
 
 		class_<CVertex>("GameGraph__CVertex")
 		.def("level_point", &CVertex__level_point)
