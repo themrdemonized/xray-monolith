@@ -80,6 +80,10 @@ ENGINE_API
 extern float psHUD_FOV_def;
 extern float psSqueezeVelocity;
 
+// Stepped time simulation
+extern BOOL g_sim_time_stepped;
+extern int  g_sim_time_step_minutes;
+
 // Lua
 extern int psLUA_GCSTEP;
 extern int psLua_ParallelGCStep;
@@ -2428,6 +2432,9 @@ void CCC_RegisterCommands()
 	CMD1(CCC_ALifeSwitchDistance, "al_switch_distance");		// set switch distance
 	CMD1(CCC_ALifeSwitchFactor, "al_switch_factor");		// set switch factor
 #endif // #ifndef MASTER_GOLD
+
+	CMD4(CCC_Integer, "sim_time_stepped",  &g_sim_time_stepped,      0,  1);
+	CMD4(CCC_Integer, "sim_time_step",     &g_sim_time_step_minutes,  1, 60);
 
 	CMD1(CCC_ALifeProcessTime, "al_process_time"); // set process time
 	CMD1(CCC_ALifeObjectsPerUpdate, "al_objects_per_update"); // set process time

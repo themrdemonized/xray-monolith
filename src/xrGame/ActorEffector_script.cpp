@@ -3,6 +3,7 @@
 #include "script_engine.h"
 #include "ActorEffector.h"
 #include "../xrEngine/ObjectAnimator.h"
+#include "alife_simulator.h"
 
 void CAnimatorCamEffectorScriptCB::ProcessIfInvalid(SCamEffectorInfo& info)
 {
@@ -20,12 +21,19 @@ void CAnimatorCamEffectorScriptCB::ProcessIfInvalid(SCamEffectorInfo& info)
 BOOL CAnimatorCamEffectorScriptCB::Valid()
 {
 	BOOL res = inherited::Valid();
-	if (!res && cb_name.size())
+	if (!res)
 	{
-		::luabind::functor<LPCSTR> fl;
-		R_ASSERT(ai().script_engine().functor<LPCSTR>(*cb_name,fl));
-		fl();
-		cb_name = "";
+		// Defer Lua callback until time skip simulation finishes.
+		if (ai().get_alife() && ai().alife().time_skip_active())
+			return TRUE;
+
+		if (cb_name.size())
+		{
+			::luabind::functor<LPCSTR> fl;
+			R_ASSERT(ai().script_engine().functor<LPCSTR>(*cb_name,fl));
+			fl();
+			cb_name = "";
+		}
 	}
 	return res;
 }

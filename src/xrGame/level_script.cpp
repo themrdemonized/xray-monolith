@@ -69,6 +69,9 @@ extern ENGINE_API float ps_r2_sun_shafts_value;
 bool g_block_all_except_movement;
 bool g_actor_allow_ladder = true;
 
+BOOL g_sim_time_stepped      = FALSE;
+int  g_sim_time_step_minutes = 15;
+
 LPCSTR command_line()
 {
 	return (Core.Params);
@@ -287,11 +290,13 @@ void change_game_time(u32 days, u32 hours, u32 mins)
 	game_sv_Single* tpGame = smart_cast<game_sv_Single *>(Level().Server->game);
 	if (tpGame && ai().get_alife())
 	{
-		u32 value = days * 86400 + hours * 3600 + mins * 60;
-		float fValue = static_cast<float>(value);
-		value *= 1000; //msec		
-		g_pGamePersistent->Environment().ChangeGameTime(fValue);
-		tpGame->alife().time_manager().change_game_time(value);
+		u32 total_sec = days * 86400 + hours * 3600 + mins * 60;
+		u32 total_ms  = total_sec * 1000;
+		g_pGamePersistent->Environment().ChangeGameTime(static_cast<float>(total_sec));
+		if (g_sim_time_stepped && g_sim_time_step_minutes > 0)
+			tpGame->alife().time_skip_begin(total_ms, (u32)g_sim_time_step_minutes * 60 * 1000);
+		else
+			tpGame->alife().time_manager().change_game_time(total_ms);
 	}
 }
 

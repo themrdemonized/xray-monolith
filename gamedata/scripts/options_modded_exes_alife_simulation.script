@@ -1,0 +1,14 @@
+--- ALife simulation options
+
+-- Import smart constructors
+options_builder.import_into(this)
+
+PAGE = page {
+	{ id = "alife_simulation" },
+	list_bool { id = "sim_time_stepped" },
+	track {
+		id = "sim_time_step",
+		def = 15,
+		step = 1,
+	},
+}

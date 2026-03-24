@@ -111,6 +111,9 @@ void CScriptGameObject::GiveGameNews(LPCSTR caption, LPCSTR news, LPCSTR texture
 void CScriptGameObject::GiveGameNews(LPCSTR caption, LPCSTR news, LPCSTR texture_name, int delay, int show_time,
                                      int type)
 {
+	CInventoryOwner* io = smart_cast<CInventoryOwner*>(&object());
+	if (io && io->HasInfo("sleep_active"))
+		return;
 	_give_news(caption, news, texture_name, delay, show_time, type);
 }
 

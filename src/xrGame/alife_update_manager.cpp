@@ -8,6 +8,14 @@
 
 #include "stdafx.h"
 #include "alife_update_manager.h"
+#include "ui_base.h"
+#include "ui_defs.h"
+#include "../xrEngine/GameFont.h"
+#include "../xrEngine/CameraManager.h"
+#include "../xrEngine/EffectorPP.h"
+#include "ActorEffector.h"
+#include "ai_space.h"
+#include "script_engine.h"
 #include "alife_simulator_header.h"
 #include "alife_time_manager.h"
 #include "alife_graph_registry.h"
@@ -17,6 +25,7 @@
 #include "ef_storage.h"
 #include "xrserver.h"
 #include "level.h"
+#include "Actor.h"
 #include "graph_engine.h"
 #include "../xrEngine/x_ray.h"
 #include "restriction_space.h"
@@ -71,6 +80,16 @@ CALifeUpdateManager::CALifeUpdateManager(xrServer* server, LPCSTR section) :
 	m_objects_per_update = pSettings->r_u32(section, "objects_per_update");
 	m_changing_level = false;
 	m_first_time = true;
+
+	m_time_skip_active    = false;
+	m_time_skip_step_ms   = 0;
+	m_time_skip_remaining = 0;
+	m_time_skip_total_ms  = 0;
+	m_time_skip_step_idx  = 0;
+	m_time_skip_saved_opu = 0;
+	m_time_skip_actor     = nullptr;
+	m_time_skip_pp_type   = EEffectorPPType(0);
+	m_time_skip_start_ms  = 0;
 }
 
 CALifeUpdateManager::~CALifeUpdateManager()
@@ -116,11 +135,147 @@ void CALifeUpdateManager::update()
 	update_scheduled(false);
 }
 
+// Exclusive full-black PP effector active during simulation.
+class CTimeSkipBlackout : public CEffectorPP
+{
+public:
+	CTimeSkipBlackout(EEffectorPPType type)
+		: CEffectorPP(type, flt_max, true)
+	{
+		bOverlap = false;
+	}
+	virtual BOOL Valid()           override { return TRUE; }
+	virtual BOOL Process(SPPInfo&) override { return TRUE; }
+};
+
+void CALifeUpdateManager::time_skip_begin(u32 total_ms, u32 step_ms)
+{
+	if (!initialized() || step_ms == 0 || total_ms == 0 || m_time_skip_active)
+		return;
+
+	u32 total_steps = (total_ms + step_ms - 1) / step_ms;
+	Msg("[sim_time] BEGIN (per-frame) total_ms=%u step_ms=%u steps=%u scheduled=%u",
+		total_ms, step_ms, total_steps, (u32)scheduled().objects().size());
+
+	for (const auto& kv : graph().level().objects())
+	{
+		CSE_ALifeDynamicObject* obj = kv.second;
+		if (obj->m_bOnline && obj->cast_online_offline_group())
+			remove_online(obj);
+	}
+
+	time_manager().set_time_factor(time_manager().time_factor());
+
+	m_time_skip_actor     = smart_cast<CActor*>(Level().Objects.net_Find(graph().actor()->ID));
+	m_time_skip_step_ms   = step_ms;
+	m_time_skip_total_ms  = total_ms;
+	m_time_skip_remaining = total_ms;
+	m_time_skip_step_idx  = 0;
+	m_time_skip_saved_opu = m_objects_per_update;
+	m_time_skip_start_ms  = Device.TimerAsync();
+	m_time_skip_active    = true;
+	Device.seqFrame.Add (this, REG_PRIORITY_LOW);
+	Device.seqRender.Add(this, REG_PRIORITY_LOW - 2);
+
+	if (m_time_skip_actor)
+	{
+		m_time_skip_pp_type = m_time_skip_actor->Cameras().RequestPPEffectorId();
+		m_time_skip_actor->Cameras().AddPPEffector(
+			xr_new<CTimeSkipBlackout>(m_time_skip_pp_type));
+	}
+
+	Msg("[sim_time] actor: %s", m_time_skip_actor ? "found" : "not found");
+}
+
+bool CALifeUpdateManager::time_skip_tick()
+{
+	if (!m_time_skip_active)
+		return true;
+
+	u32 cur       = (m_time_skip_step_ms < m_time_skip_remaining) ? m_time_skip_step_ms : m_time_skip_remaining;
+	u32 sched_cnt = (u32)scheduled().objects().size();
+	objects_per_update(sched_cnt);
+	time_manager().change_game_time(cur);
+	update_scheduled(false);
+	++m_time_skip_step_idx;
+	m_time_skip_remaining -= cur;
+
+	// Fire actor_on_update callbacks directly (skip actor_binder:update logic).
+	{
+		lua_State* L = ai().script_engine().lua();
+		lua_getglobal(L, "SendScriptCallback");
+		if (lua_isfunction(L, -1))
+		{
+			lua_pushstring(L, "actor_on_update");
+			lua_pushnil(L);                        // binder (mods use db.actor)
+			lua_pushnumber(L, Device.dwTimeDelta);  // delta
+			lua_pcall(L, 3, 0, 0);
+		}
+		else
+			lua_pop(L, 1);
+	}
+
+	Msg("[sim_time] tick %u/%u  sched=%u",
+		m_time_skip_step_idx,
+		(m_time_skip_total_ms + m_time_skip_step_ms - 1) / m_time_skip_step_ms,
+		sched_cnt);
+
+	if (m_time_skip_remaining == 0)
+	{
+		time_skip_finish();
+		return true;
+	}
+	return false;
+}
+
+void CALifeUpdateManager::time_skip_finish()
+{
+	if (!m_time_skip_active)
+		return;
+	m_time_skip_active = false;
+	Device.seqFrame.Remove (this);
+	Device.seqRender.Remove(this);
+	if (m_time_skip_actor)
+		m_time_skip_actor->Cameras().RemovePPEffector(m_time_skip_pp_type);
+	objects_per_update(m_time_skip_saved_opu);
+	update_switch();
+	u32 elapsed = Device.TimerAsync() - m_time_skip_start_ms;
+	Msg("[sim_time] END  steps=%u  elapsed=%ums", m_time_skip_step_idx, elapsed);
+}
+
+void CALifeUpdateManager::OnFrame()
+{
+	if (m_time_skip_active)
+		time_skip_tick();
+}
+
+void CALifeUpdateManager::OnRender()
+{
+	if (!m_time_skip_active)
+		return;
+
+	CGameFont* pFont = UI().Font().pFontGraffiti22Russian;
+	if (!pFont)
+		return;
+
+	Fvector2 pos;
+	pos.set(UI_BASE_WIDTH * 0.5f, UI_BASE_HEIGHT * 0.75f);
+	UI().ClientToScreenScaled(pos);
+
+	string64 buf;
+	xr_sprintf(buf, "Advancing time %u / %u", m_time_skip_step_idx, time_skip_total());
+
+	pFont->SetColor(0xFFFFFFFF);
+	pFont->SetAligment(CGameFont::alCenter);
+	pFont->Out(pos.x, pos.y, buf);
+	pFont->OnRender();
+}
+
 void CALifeUpdateManager::shedule_Update(u32 dt)
 {
 	ISheduled::shedule_Update(dt);
 
-	if (!initialized())
+	if (!initialized() || m_time_skip_active)
 		return;
 
 	if (!m_first_time && g_mt_config.test(mtALife))

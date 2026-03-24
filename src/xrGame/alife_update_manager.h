@@ -11,20 +11,37 @@
 #include "alife_switch_manager.h"
 #include "alife_surge_manager.h"
 #include "alife_storage_manager.h"
+#include "../xrEngine/pure.h"
+#include "../xrEngine/CameraDefs.h"
 
 namespace RestrictionSpace
 {
 	enum ERestrictorTypes;
 }
 
+class CActor;
+
 class CALifeUpdateManager :
 	public CALifeSwitchManager,
 	public CALifeSurgeManager,
 	public CALifeStorageManager,
-	public ISheduled
+	public ISheduled,
+	public pureFrame,
+	public pureRender
 {
 private:
 	bool m_first_time;
+
+	// Per-frame time skip state
+	bool            m_time_skip_active;
+	u32             m_time_skip_step_ms;
+	u32             m_time_skip_remaining;
+	u32             m_time_skip_total_ms;
+	u32             m_time_skip_step_idx;
+	u32             m_time_skip_saved_opu;
+	CActor*         m_time_skip_actor;
+	EEffectorPPType m_time_skip_pp_type;
+	u32             m_time_skip_start_ms;
 
 protected:
 	u64 m_max_process_time;
@@ -49,6 +66,16 @@ public:
 	virtual bool shedule_Needed() { return true; };
 	void update_switch();
 	void update_scheduled(bool init_ef = true);
+	void time_skip_begin  (u32 total_ms, u32 step_ms);
+private:
+	bool time_skip_tick   ();
+	void time_skip_finish ();
+public:
+	virtual void OnFrame  ();
+	virtual void OnRender ();
+	u32  time_skip_step   () const { return m_time_skip_step_idx; }
+	u32  time_skip_total  () const { return m_time_skip_step_ms ? (m_time_skip_total_ms + m_time_skip_step_ms - 1) / m_time_skip_step_ms : 0; }
+	bool time_skip_active () const { return m_time_skip_active; }
 	void load(LPCSTR game_name = 0, bool no_assert = false, bool new_only = false);
 	bool load_game(LPCSTR game_name, bool no_assert = false);
 	IC float update_monster_factor() const;

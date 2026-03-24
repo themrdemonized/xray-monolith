@@ -818,6 +818,26 @@
 		<text>Monster stuck fix (BAD FOR FPS) (monster_stuck_fix)</text>
 	</string>
 
+	<!-- ALife Simulation -->
+	<string id="ui_mm_menu_alife_simulation">
+		<text>ALife Simulation</text>
+	</string>
+	<string id="ui_mm_alife_simulation_modded_exes">
+		<text>ALife Simulation</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_stepped">
+		<text>Stepped time simulation during sleep/wait (sim_time_stepped)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_stepped_desc">
+		<text>Forces squads offline during time skips so they move via ALife brain instead of freezing in place. Squads near the player are brought back online when the skip ends.</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_step">
+		<text>Simulation step size in game-minutes (sim_time_step)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_step_desc">
+		<text>Size of each ALife update step during sleep. Smaller = more accurate squad movement at higher CPU cost. Example: 8h at 10min step = 48 passes.</text>
+	</string>
+
 	<!-- Saves -->
 	<string id="ui_mm_saves_modded_exes">
 		<text>Saves</text>

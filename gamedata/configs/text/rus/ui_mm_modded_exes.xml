@@ -815,7 +815,27 @@
 	</string>
 	<string id="ui_mm_modded_exes_gameplay_monsters_monster_stuck_fix">
 		<text>Фикс застревающих монстров (проседает FPS) (monster_stuck_fix)</text>
-	</string>	
+	</string>
+
+	<!-- ALife Simulation -->
+	<string id="ui_mm_menu_alife_simulation">
+		<text>ALife Симуляция</text>
+	</string>
+	<string id="ui_mm_alife_simulation_modded_exes">
+		<text>ALife Симуляция</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_stepped">
+		<text>Пошаговая симуляция времени во время сна/ожидания (sim_time_stepped)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_stepped_desc">
+		<text>Принудительно переводит отряды в офлайн во время пропуска времени, чтобы они перемещались с помощью ALife-логики, а не замирали на месте. Отряды рядом с игроком возвращаются в онлайн после завершения пропуска времени.</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_step">
+		<text>Шаг симуляции в минутах (sim_time_step)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_alife_simulation_sim_time_step_desc">
+		<text>Размер каждого шага обновления ALife во время сна. Меньше — более точное перемещение отрядов, но выше нагрузка на CPU. Пример: 8 часов при шаге 10 минут = 48 итераций.</text>
+	</string>
 
 
 	<!-- Saves -->
