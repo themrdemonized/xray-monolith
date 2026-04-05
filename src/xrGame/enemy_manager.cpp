@@ -158,8 +158,8 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	float distance = m_object->Position().distance_to_sqr(object->Position());
 	return (
 		penalty +
-		distance / 100.f +
-		ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f
+		distance / 100.f
+		// + ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f //SkyKi: Removed to stop AI from locking onto heavily armed targets (like the player) across the map
 	);
 #else // USE_EVALUATOR
 	float					distance = m_object->Position().distance_to_sqr(object->Position());
