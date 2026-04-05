@@ -63,7 +63,7 @@ bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 	if (!entity_alive->g_Alive())
 		return (false);
 
-	if ((entity_alive->SpatialComponent->spatial.type & STYPE_VISIBLEFORAI) != STYPE_VISIBLEFORAI)
+	if ((entity_alive->spatial.type & STYPE_VISIBLEFORAI) != STYPE_VISIBLEFORAI)
 		return (false);
 
 	if ((m_object->ID() == entity_alive->ID()) || !m_object->is_relation_enemy(entity_alive))
@@ -200,7 +200,7 @@ void CEnemyManager::remove_links(CObject* object)
 	// we just use the pinter itself, we can just statically cast object
 	OBJECTS::iterator I = std::find(m_objects.begin(), m_objects.end(), (CEntityAlive*)object);
 	if (I != m_objects.end())
-		m_objects.erase_fast(I);
+		m_objects.erase(I);
 
 	if (m_last_enemy == object)
 		m_last_enemy = 0;
