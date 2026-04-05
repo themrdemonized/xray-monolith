@@ -18,6 +18,12 @@
 #include "ai_debug.h"
 #include "ai/stalker/ai_stalker.h"
 #include "stalker_movement_manager_smart_cover.h"
+#include "memory_manager.h"
+#include "enemy_manager.h"
+#include "hit_memory_manager.h"
+#include "visual_memory_manager.h"
+#include "agent_manager.h"
+#include "agent_member_manager.h"
 
 float g_smart_cover_factor = 1.f;
 
@@ -166,6 +172,26 @@ void CCoverEvaluatorFarFromEnemy::evaluate_smart_cover(smart_cover::cover const*
 // CCoverEvaluatorBest
 //////////////////////////////////////////////////////////////////////////
 
+void CCoverEvaluatorBest::setup(const Fvector& enemy_position, float min_enemy_distance, float max_enemy_distance, float deviation)
+{
+	inherited::setup(enemy_position, min_enemy_distance, max_enemy_distance, deviation);
+	
+	m_secondary_threats.clear();
+	
+	if (m_stalker) {
+		const CEntityAlive* primary_enemy = m_stalker->memory().enemy().selected();
+		
+		for (const CEntityAlive* enemy : m_stalker->memory().enemy().objects()) {
+			if (!enemy || enemy == primary_enemy || !enemy->g_Alive()) 
+				continue;
+
+			if (m_stalker->memory().hit().hit(enemy) || m_stalker->memory().visual().visible_now(enemy)) {
+				m_secondary_threats.push_back(enemy->Position());
+			}
+		}
+	}
+}
+
 bool CCoverEvaluatorBest::threat_on_the_way(Fvector const& cover_position) const
 {
 	Fvector const start_to_cover = Fvector().sub(cover_position, m_start_position);
@@ -179,13 +205,22 @@ bool CCoverEvaluatorBest::threat_on_the_way(Fvector const& cover_position) const
 	float const start_to_threat_magnitude = start_to_threat.magnitude();
 	float const cos_alpha = projection / start_to_threat_magnitude;
 	float const angle = acosf(cos_alpha);
-	if (angle >= PI_DIV_6)
-		return (false);
+	
+	if (angle < PI_DIV_6 && projection <= start_to_cover_magnitude * 1.5f)
+		return (true);
 
-	if (projection > start_to_cover_magnitude * 1.5f)
-		return (false);
+	for (const Fvector& sec_pos : m_secondary_threats) {
+		Fvector const start_to_sec_threat = Fvector().sub(sec_pos, m_start_position);
+		float sec_projection = start_to_cover_direction.dotproduct(start_to_sec_threat);
+		float sec_magnitude = start_to_sec_threat.magnitude();
+		float sec_cos_alpha = sec_projection / sec_magnitude;
+		float sec_angle = acosf(sec_cos_alpha);
+		
+		if (sec_angle < PI_DIV_6 && sec_projection <= start_to_cover_magnitude * 1.5f)
+			return (true);
+	}
 
-	return (true);
+	return (false);
 }
 
 void CCoverEvaluatorBest::evaluate_cover(const CCoverPoint* cover_point, float weight)
@@ -219,6 +254,30 @@ void CCoverEvaluatorBest::evaluate_cover(const CCoverPoint* cover_point, float w
 	float value = cover_value;
 	if (ai().level_graph().neighbour_in_direction(direction, cover_point->level_vertex_id()))
 		value += 10.f;
+
+	for (const Fvector& sec_pos : m_secondary_threats) {
+		Fvector sec_dir;
+		float sec_y, sec_p;
+		sec_dir.sub(sec_pos, cover_point->position());
+		sec_dir.getHP(sec_y, sec_p);
+		sec_y = angle_normalize(sec_y);
+
+		float sec_high = ai().level_graph().high_cover_in_direction(sec_y, cover_point->level_vertex_id());
+		float sec_low  = ai().level_graph().low_cover_in_direction(sec_y, cover_point->level_vertex_id());
+		
+		value += (_min(sec_high, sec_low) * 1.5f); 
+	}
+
+	if (m_stalker && m_stalker->agent_manager().member().members().size() > 1) {
+		for (auto& it : m_stalker->agent_manager().member().members()) {
+			CAI_Stalker* teammate = &it->object();
+			if (teammate->ID() == m_stalker->ID()) continue;
+			
+			if (teammate->Position().distance_to_sqr(cover_point->position()) < 2.25f) {
+				value += 1000.f;
+			}
+		}
+	}
 
 	value /= weight;
 

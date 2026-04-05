@@ -27,6 +27,7 @@
 #include "stalker_movement_manager_smart_cover.h"
 #include "sound_player.h"
 #include "stalker_planner.h"
+#include "agent_manager.h"
 #include "agent_member_manager.h"
 #include "agent_location_manager.h"
 #include "danger_cover_location.h"
@@ -38,6 +39,7 @@
 #include "stalker_animation_manager.h"
 #include "hit_memory_manager.h"
 #include "level_path_manager.h"
+#include "level_graph.h"
 
 #define DISABLE_COVER_BEFORE_DETOUR
 
@@ -512,8 +514,7 @@ void CStalkerActionTakeCover::initialize()
 	inherited::initialize();
 
 	m_body_state = object().movement().body_state();
-	//	m_movement_type								= Random.randI(2) ? eMovementTypeRun : eMovementTypeWalk;
-	m_movement_type = eMovementTypeWalk;
+	m_movement_type = eMovementTypeRun;
 
 	object().movement().set_desired_direction(0);
 	object().movement().set_path_type(MovementManager::ePathTypeLevelPath);
@@ -596,7 +597,33 @@ void CStalkerActionTakeCover::execute()
 	}
 	else
 	{
-		object().movement().set_nearest_accessible_position();
+		bool teammate_cover_found = false;
+		if (object().agent_manager().member().members().size() > 1) {
+			for (auto& it : object().agent_manager().member().members()) {
+				CAI_Stalker* teammate = &it->object();
+				if (teammate->ID() == object().ID()) continue;
+				
+				if (teammate->memory().enemy().selected()) {
+					Fvector teammate_pos = teammate->Position();
+					Fvector teammate_dir = teammate->Direction();
+					
+					Fvector stack_pos;
+					stack_pos.mad(teammate_pos, teammate_dir, -1.2f);
+					
+					u32 target_vertex_id = ai().level_graph().vertex_id(stack_pos);
+					if (ai().level_graph().valid_vertex_id(target_vertex_id) && ai().level_graph().is_accessible(target_vertex_id)) {
+						object().movement().set_level_dest_vertex(target_vertex_id);
+						object().movement().set_desired_position(&stack_pos);
+						teammate_cover_found = true;
+						break;
+					}
+				}
+			}
+		}
+		
+		if (!teammate_cover_found) {
+			object().movement().set_nearest_accessible_position();
+		}
 		object().brain().affect_cover(true);
 	}
 
@@ -610,25 +637,58 @@ void CStalkerActionTakeCover::execute()
 	if (object().memory().visual().visible_now(enemy))
 	{
 		object().sight().setup(CSightAction(enemy, true, true));
-		fire();
+		
+		// Self-Preservation Logic: Only shoot while exposed if the threat is right in our face.
+		// Otherwise, keep the weapon ready but prioritize running to cover!
+		if (object().Position().distance_to(enemy->Position()) < 15.f)
+			fire();
+		else
+			aim_ready();
 	}
 	else
 	{
 		aim_ready();
-		//Alundaio: Prevent stalkers from staring at floor or ceiling for this action
-		u32 const level_time = object().memory().visual().visible_object_time_last_seen(mem_object.m_object);
-		if (Device.dwTimeGlobal >= level_time + 3000 && _abs(
-			object().Position().y - mem_object.m_object_params.m_position.y) > 3.5f)
-		{
-			Fvector3 Vpos = {
-				mem_object.m_object_params.m_position.x, object().Position().y + 1.f,
-				mem_object.m_object_params.m_position.z
-			};
-			object().sight().setup(CSightAction(SightManager::eSightTypePosition, Vpos, true));
+		
+		bool stacked = false;
+		if (object().agent_manager().member().members().size() > 1) {
+			for (auto& it : object().agent_manager().member().members()) {
+				CAI_Stalker* teammate = &it->object();
+				if (teammate->ID() == object().ID()) continue;
+				
+				if (teammate->Position().distance_to_sqr(object().Position()) < 4.0f && teammate->memory().enemy().selected()) {
+					Fvector teammate_aim = teammate->Direction();
+					float yaw, pitch;
+					teammate_aim.getHP(yaw, pitch);
+					
+					// Offset by 45 degrees (alternate left/right based on ID)
+					if (object().ID() % 2 == 0) yaw += PI_DIV_4;
+					else yaw -= PI_DIV_4;
+					
+					Fvector offset_aim;
+					offset_aim.setHP(yaw, pitch);
+					object().sight().setup(CSightAction(SightManager::eSightTypeDirection, offset_aim, true));
+					stacked = true;
+					break;
+				}
+			}
 		}
-		else
-			object().sight().setup(CSightAction(SightManager::eSightTypePosition, mem_object.m_object_params.m_position,
-			                                    true));
+
+		if (!stacked) {
+			//Alundaio: Prevent stalkers from staring at floor or ceiling for this action
+			u32 const level_time = object().memory().visual().visible_object_time_last_seen(mem_object.m_object);
+			if (Device.dwTimeGlobal >= level_time + 3000 && _abs(
+				object().Position().y - mem_object.m_object_params.m_position.y) > 3.5f)
+			{
+				Fvector3 Vpos = {
+					mem_object.m_object_params.m_position.x, object().Position().y + 1.f,
+					mem_object.m_object_params.m_position.z
+				};
+				object().sight().setup(CSightAction(SightManager::eSightTypePosition, Vpos, true));
+			}
+			else
+				object().sight().setup(CSightAction(SightManager::eSightTypePosition, mem_object.m_object_params.m_position,
+													true));
+		}
 	}
 }
 
