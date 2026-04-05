@@ -181,13 +181,29 @@ void CCoverEvaluatorBest::setup(const Fvector& enemy_position, float min_enemy_d
 	if (m_stalker) {
 		const CEntityAlive* primary_enemy = m_stalker->memory().enemy().selected();
 		
+		struct ThreatData {
+			Fvector pos;
+			float dist_sqr;
+		};
+		xr_vector<ThreatData> temp_threats;
+		
 		for (const CEntityAlive* enemy : m_stalker->memory().enemy().objects()) {
 			if (!enemy || enemy == primary_enemy || !enemy->g_Alive()) 
 				continue;
 
 			if (m_stalker->memory().hit().hit(enemy) || m_stalker->memory().visual().visible_now(enemy)) {
-				m_secondary_threats.push_back(enemy->Position());
+				temp_threats.push_back({enemy->Position(), m_stalker->Position().distance_to_sqr(enemy->Position())});
 			}
+		}
+		
+		std::sort(temp_threats.begin(), temp_threats.end(), [](const ThreatData& a, const ThreatData& b) {
+			return a.dist_sqr < b.dist_sqr;
+		});
+		
+		int count = 0;
+		for (const auto& t : temp_threats) {
+			m_secondary_threats.push_back(t.pos);
+			if (++count >= 3) break;
 		}
 	}
 }
