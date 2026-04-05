@@ -27,9 +27,9 @@
 #include "agent_manager.h"
 #include "agent_enemy_manager.h"
 
-static const u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 3000;
-static const u32 ENEMY_INERTIA_TIME_TO_ACTOR = 0;
-static const u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 6000;
+static const u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 600;
+static const u32 ENEMY_INERTIA_TIME_TO_ACTOR = 600;
+static const u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 600;
 
 #ifdef _DEBUG
 bool g_enemy_manager_second_update	 = false;
@@ -59,10 +59,11 @@ bool CEnemyManager::is_useful(const CEntityAlive* entity_alive) const
 int enemy_manager_useful_cache_time = 250;
 bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 {
+	PROF_EVENT("CEnemyManager::useful");
 	if (!entity_alive->g_Alive())
 		return (false);
 
-	if ((entity_alive->spatial.type & STYPE_VISIBLEFORAI) != STYPE_VISIBLEFORAI)
+	if ((entity_alive->SpatialComponent->spatial.type & STYPE_VISIBLEFORAI) != STYPE_VISIBLEFORAI)
 		return (false);
 
 	if ((m_object->ID() == entity_alive->ID()) || !m_object->is_relation_enemy(entity_alive))
@@ -110,10 +111,6 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 {
 	//	Msg						("[%6d] enemy manager %s evaluates %s",Device.dwTimeGlobal,*m_object->cName(),*object->cName());
 
-	const CActor* actor = smart_cast<const CActor*>(object);
-	if (actor)
-		m_ready_to_save = false;
-
 	const CAI_Stalker* stalker = smart_cast<const CAI_Stalker*>(object);
 	bool wounded = stalker ? stalker->wounded(&m_object->movement().restrictions()) : false;
 	if (wounded)
@@ -130,27 +127,16 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	// if we are hit
 	if (object->ID() == m_object->memory().hit().last_hit_object_id())
 	{
-		if (actor)
-			penalty -= 1500.f;
-		else
-			penalty -= 500.f;
+		penalty -= 1500.f;
 	}
 
 	// if we see object
 	if (m_object->memory().visual().visible_now(object))
 		penalty -= 1000.f;
 
-	// if object is actor and he/she sees us
-	if (actor) {
-		if (actor->memory().visual().visible_now(m_object))
-			penalty -= 900.f;
-	}
-	else {
-		// if object is npc and it sees us
-		const CCustomMonster	*monster = smart_cast<const CCustomMonster*>(object);
-		if (monster && monster->memory().visual().visible_now(m_object))
-			penalty -= 300.f;
-	}
+	// if object sees us
+	if (object->visual_memory() && object->visual_memory()->visible_now(m_object))
+		penalty -= 900.f;
 
 #ifdef USE_EVALUATOR
 	ai().ef_storage().non_alife().member_item() = 0;
@@ -214,7 +200,7 @@ void CEnemyManager::remove_links(CObject* object)
 	// we just use the pinter itself, we can just statically cast object
 	OBJECTS::iterator I = std::find(m_objects.begin(), m_objects.end(), (CEntityAlive*)object);
 	if (I != m_objects.end())
-		m_objects.erase(I);
+		m_objects.erase_fast(I);
 
 	if (m_last_enemy == object)
 		m_last_enemy = 0;
