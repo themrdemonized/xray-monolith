@@ -127,7 +127,12 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	// if we are hit
 	if (object->ID() == m_object->memory().hit().last_hit_object_id())
 	{
-		penalty -= 1500.f;
+		float hit_dist = m_object->Position().distance_to(object->Position());
+		
+		if (hit_dist < 30.f)
+			penalty -= 1000.f;
+		else
+			penalty -= 100.f;
 	}
 
 	// if we see object
