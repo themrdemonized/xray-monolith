@@ -24,7 +24,7 @@
 
 using namespace StalkerSpace;
 
-const float start_fire_angle_difference = PI_DIV_8;
+const float start_fire_angle_difference = PI_DIV_3; // SkyKi: Increased from PI_DIV_8 (22.5 deg) to PI_DIV_3 (60 deg) for faster reaction times
 
 CStalkerActionCombatBase::CStalkerActionCombatBase(CAI_Stalker* object, LPCSTR action_name) :
 	inherited(object, action_name)

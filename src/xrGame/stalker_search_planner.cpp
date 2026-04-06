@@ -84,5 +84,5 @@ void CStalkerSearchPlanner::add_actions()
 	add_condition(action, eWorldPropertyAmbushLocationReached, true);
 	add_effect(action, eWorldPropertyPureEnemy, false);
 	add_operator(eWorldOperatorHoldAmbushLocation, action);
-	action->set_inertia_time(15000);
+	action->set_inertia_time(3000); // SkyKi: Reduced from 15s to 3s
 }

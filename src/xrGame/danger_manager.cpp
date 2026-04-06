@@ -299,9 +299,11 @@ void CDangerManager::add(const CSoundObject& object)
 		bool do_add = true;
 		if (object.m_object)
 		{
-			const CActor* actor = smart_cast<const CActor*>(object.m_object);
-			if (actor && !m_object->is_relation_enemy(actor))
-				do_add = false;
+			// SkyKi: Allow companions and neutrals to hear the player's pain sounds!
+			// This forces them to react instantly when the player is ambushed by mutants.
+			// const CActor* actor = smart_cast<const CActor*>(object.m_object);
+			// if (actor && !m_object->is_relation_enemy(actor))
+			// 	do_add = false;
 		}
 		if (do_add)
 			add(CDangerObject(obj, object.m_object_params.m_position, object.m_level_time,

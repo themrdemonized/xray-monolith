@@ -660,7 +660,9 @@ bool CAI_Stalker::ready_to_detour()
 	if (!weapon)
 		return (false);
 
-	return (weapon->GetAmmoElapsed() > weapon->GetAmmoMagSize() / 2);
+	// SkyKi: Lowered the detour threshold from 50% (MagSize / 2) to 20% (MagSize / 5) 
+	// to prevent NPCs from constantly stopping a push just to reload.
+	return (weapon->GetAmmoElapsed() > weapon->GetAmmoMagSize() / 5);
 }
 
 class ray_query_param

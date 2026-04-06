@@ -50,7 +50,7 @@
 const float TEMP_DANGER_DISTANCE = 5.f;
 const u32 TEMP_DANGER_INTERVAL = 120000;
 
-const float CLOSE_MOVE_DISTANCE = -10.f;
+const float CLOSE_MOVE_DISTANCE = 1.5f; // SkyKi: Fixed negative distance bug
 
 const u32 CROUCH_LOOK_OUT_DELTA = 5000;
 
@@ -424,7 +424,7 @@ void CStalkerActionGetReadyToKill::execute()
 	if (m_affect_properties)
 		aim_ready();
 	else
-		aim_ready_force_full();
+		aim_ready(); // SkyKi: Replaced aim_ready_force_full() to prevent compulsive topping-off before pushing
 
 	if (object().movement().path_completed())
 		object().best_cover_can_try_advance();
@@ -734,7 +734,7 @@ void CStalkerActionLookOut::initialize()
 		aim_ready();
 	else
 	{
-		aim_ready_force_full();
+		aim_ready(); // SkyKi: Replaced aim_ready_force_full() to prevent compulsive topping-off when unable to detour
 		object().movement().set_movement_type(eMovementTypeStand);
 	}
 
@@ -803,7 +803,9 @@ void CStalkerActionLookOut::execute()
 	object().best_cover(mem_object.m_object_params.m_position);
 	//-Alundaio
 
-	if (current_cover(m_object) >= 3.f)
+	// SkyKi: Check actual distance to target instead of hardcoded 3m to prevent staring at walls
+	float dist_to_enemy = object().Position().distance_to(mem_object.m_object_params.m_position);
+	if (current_cover(m_object) >= dist_to_enemy)
 	{
 		object().movement().set_nearest_accessible_position();
 		m_storage->set_property(eWorldPropertyLookedOut, true);
@@ -866,7 +868,7 @@ void CStalkerActionHoldPosition::initialize()
 
 	aim_ready();
 
-	set_inertia_time(1000 + ::Random32.random(2000));
+	set_inertia_time(500 + ::Random32.random(500)); // SkyKi: Reduced from 1-3s to 0.5-1s
 	object().brain().affect_cover(true);
 }
 
