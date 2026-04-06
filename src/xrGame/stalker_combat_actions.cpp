@@ -588,6 +588,22 @@ void CStalkerActionTakeCover::execute()
 	const CCoverPoint* point = object().best_cover(position);
 	if (point)
 	{
+		// SkyKi: If the nearest cover is too far away (> 15 meters) and the enemy is visible,
+		// abort the run and drop to a knee to return fire where we stand!
+		if (object().memory().visual().visible_now(enemy) && object().Position().distance_to(point->position()) > 15.f)
+		{
+			object().movement().set_movement_type(eMovementTypeStand);
+			object().movement().set_body_state(eBodyStateCrouch);
+			object().movement().set_nearest_accessible_position();
+			
+			if (fire_make_sense())
+				fire();
+			else
+				aim_ready();
+				
+			return; // Abort further take_cover movement logic
+		}
+
 		setup_cover(*point);
 
 		if (object().movement().path_completed() && object().Position().distance_to(point->position()) < 1.f)
@@ -638,9 +654,9 @@ void CStalkerActionTakeCover::execute()
 	{
 		object().sight().setup(CSightAction(enemy, true, true));
 		
-		// Self-Preservation Logic: Only shoot while exposed if the threat is right in our face.
-		// Otherwise, keep the weapon ready but prioritize running to cover!
-		if (object().Position().distance_to(enemy->Position()) < 15.f)
+		// SkyKi: Removed 15m restriction. NPCs caught in the open will now lay down suppressive fire 
+		// at the enemy while sprinting to cover, forcing the player to take cover as well!
+		if (fire_make_sense())
 			fire();
 		else
 			aim_ready();
