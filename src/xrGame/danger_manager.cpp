@@ -203,13 +203,14 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 	case CDangerObject::eDangerTypeBulletRicochet:
 		{
 			// I perceived bullet(knife) ricochet
-			result += 3000.f;
+			// Drastically increase the priority of near-misses so AI reacts to being shot at immediately.
+			result += 1500.f;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttackSound:
 		{
 			// someone is shooting
-			result += 2500.f;
+			result += 1500.f;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityAttacked:

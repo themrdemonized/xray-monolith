@@ -992,26 +992,27 @@ void CObjectActionThrowMissile::initialize()
 
 	object().inventory().Action(kWPN_ZOOM, CMD_START);
 
+	// SkyKi: Speed up the grenade throwing animation significantly by reducing inertia_time delays
 	float distance = object().throw_target().distance_to(object().Position());
 	if (distance > 45)
 	{
-		set_inertia_time(2500);
+		set_inertia_time(1000);
 		return;
 	}
 
 	if (distance > 30)
 	{
-		set_inertia_time(2000);
+		set_inertia_time(750);
 		return;
 	}
 
 	if (distance > 15)
 	{
-		set_inertia_time(1500);
+		set_inertia_time(500);
 		return;
 	}
 
-	set_inertia_time(1000);
+	set_inertia_time(250);
 }
 
 void CObjectActionThrowMissile::execute()

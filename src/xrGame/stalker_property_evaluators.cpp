@@ -448,7 +448,10 @@ _value_type CStalkerPropertyEvaluatorEnemyCriticallyWounded::evaluate()
 
 CStalkerPropertyEvaluatorShouldThrowGrenade::CStalkerPropertyEvaluatorShouldThrowGrenade(
 	CAI_Stalker* object, LPCSTR evaluator_name) :
-	inherited(object ? object->lua_game_object() : 0, evaluator_name)
+	inherited(object ? object->lua_game_object() : 0, evaluator_name),
+	m_last_enemy_id(u16(-1)),
+	m_last_enemy_position(Fvector().set(0.f, 0.f, 0.f)),
+	m_enemy_camp_start_time(0)
 {
 }
 
@@ -481,15 +484,40 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 	if (!enemy->human_being())
 		return (false);
 
-	if (object().memory().visual().visible_now(enemy))
-		return (false);
-
 	// do not throw grenades when object is not in our memory (how this can be?)
 	CMemoryInfo mem_object = object().memory().memory(enemy);
 	if (!mem_object.m_object)
 		return (false);
 
 	Fvector const& position = mem_object.m_object_params.m_position;
+
+	bool is_camping = false;
+	u16 current_enemy_id = enemy->ID();
+	if (m_last_enemy_id != current_enemy_id)
+	{
+		m_last_enemy_id = current_enemy_id;
+		m_last_enemy_position = position;
+		m_enemy_camp_start_time = Device.dwTimeGlobal;
+	}
+	else
+	{
+		if (m_last_enemy_position.distance_to_sqr(position) < _sqr(3.0f))
+		{
+			if (Device.dwTimeGlobal - m_enemy_camp_start_time > 8000)
+			{
+				is_camping = true;
+			}
+		}
+		else
+		{
+			m_last_enemy_position = position;
+			m_enemy_camp_start_time = Device.dwTimeGlobal;
+		}
+	}
+
+	if (!is_camping && object().memory().visual().visible_now(enemy))
+		return (false);
+
 	u32 const& enemy_vertex_id = mem_object.m_object_params.m_level_vertex_id;
 	if (object().Position().distance_to_sqr(position) < _sqr(10.f))
 		return (false);

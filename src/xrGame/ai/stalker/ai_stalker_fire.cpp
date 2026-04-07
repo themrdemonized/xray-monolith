@@ -1194,7 +1194,8 @@ void CAI_Stalker::update_throw_params()
 		return;
 	}
 
-	float time = ThrowMinVelTime(m_throw_velocity, physics_world()->Gravity());
+	// Multiply by 0.35f to significantly speed up the grenade flight and flatten the trajectory
+	float time = ThrowMinVelTime(m_throw_velocity, physics_world()->Gravity()) * 0.35f;
 	TransferenceToThrowVel(m_throw_velocity, time, physics_world()->Gravity());
 
 	check_throw_trajectory(time);

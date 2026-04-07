@@ -1618,7 +1618,9 @@ void CStalkerCombatActionThrowGrenade::execute()
 	                                               -object().movement().m_head.current.pitch);
 	float const cos_alpha = head_direction.dotproduct(enemy_direction);
 
-	if (_abs(acosf(cos_alpha)) >= PI_DIV_8)
+	// Relaxed head alignment check from PI_DIV_8 (22.5 deg) to PI_DIV_6 (30 deg)
+	// This reduces the delay but prevents throwing it sideways into a wall (which PI_DIV_3 caused)
+	if (_abs(acosf(cos_alpha)) >= PI_DIV_6)
 		return;
 
 	object().throw_target(enemy_position, enemy_vertex_id, const_cast<CEntityAlive*>(enemy));
