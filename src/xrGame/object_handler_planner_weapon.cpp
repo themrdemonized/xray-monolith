@@ -383,12 +383,12 @@ void CObjectHandlerPlanner::add_operators(CWeapon* weapon)
 	add_operator(uid(id, eWorldOperatorGetAmmo2), action);
 
 	// Drastically reduce AI reaction time and burst fire delay
-	this->action(uid(id, eWorldOperatorAim1)).set_inertia_time(150);
-	this->action(uid(id, eWorldOperatorAim2)).set_inertia_time(150);
-	this->action(uid(id, eWorldOperatorAimingReady1)).set_inertia_time(150);
-	this->action(uid(id, eWorldOperatorAimingReady2)).set_inertia_time(150);
-	this->action(uid(id, eWorldOperatorAimForceFull1)).set_inertia_time(150);
-	this->action(uid(id, eWorldOperatorAimForceFull2)).set_inertia_time(150);
+	this->action(uid(id, eWorldOperatorAim1)).set_inertia_time(250);
+	this->action(uid(id, eWorldOperatorAim2)).set_inertia_time(250);
+	this->action(uid(id, eWorldOperatorAimingReady1)).set_inertia_time(250);
+	this->action(uid(id, eWorldOperatorAimingReady2)).set_inertia_time(250);
+	this->action(uid(id, eWorldOperatorAimForceFull1)).set_inertia_time(250);
+	this->action(uid(id, eWorldOperatorAimForceFull2)).set_inertia_time(250);
 	this->action(uid(id, eWorldOperatorQueueWait1)).set_inertia_time(100);
 	this->action(uid(id, eWorldOperatorQueueWait2)).set_inertia_time(100);
 }

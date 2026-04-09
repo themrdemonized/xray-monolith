@@ -204,13 +204,13 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 		{
 			// I perceived bullet(knife) ricochet
 			// Drastically increase the priority of near-misses so AI reacts to being shot at immediately.
-			result += 1500.f;
+			result += 2000.f;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttackSound:
 		{
 			// someone is shooting
-			result += 1500.f;
+			result += 2000.f;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityAttacked:

@@ -359,7 +359,7 @@ float CVisualMemoryManager::get_visible_value(const CGameObject* game_object, fl
 		return (current_state().m_visibility_threshold);
 
 	// Artificially speeds up how quickly AI recognizes enemies that step into their field of view
-	const float visibility_boost = 1.5f;
+	const float visibility_boost = 2.0f;
 
 	//Alundaio: hijack not_yet_visible_object to lua
 	::luabind::functor<float> funct;

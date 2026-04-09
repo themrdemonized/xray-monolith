@@ -996,23 +996,23 @@ void CObjectActionThrowMissile::initialize()
 	float distance = object().throw_target().distance_to(object().Position());
 	if (distance > 45)
 	{
-		set_inertia_time(1000);
+		set_inertia_time(2000);
 		return;
 	}
 
 	if (distance > 30)
 	{
-		set_inertia_time(750);
+		set_inertia_time(1500);
 		return;
 	}
 
 	if (distance > 15)
 	{
-		set_inertia_time(500);
+		set_inertia_time(1000);
 		return;
 	}
 
-	set_inertia_time(250);
+	set_inertia_time(500);
 }
 
 void CObjectActionThrowMissile::execute()

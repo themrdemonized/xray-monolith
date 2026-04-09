@@ -501,7 +501,7 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 	}
 	else
 	{
-		if (m_last_enemy_position.distance_to_sqr(position) < _sqr(3.0f))
+		if (m_last_enemy_position.distance_to_sqr(position) < _sqr(10.0f))
 		{
 			if (Device.dwTimeGlobal - m_enemy_camp_start_time > 8000)
 			{
