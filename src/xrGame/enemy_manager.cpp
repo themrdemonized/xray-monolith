@@ -27,13 +27,15 @@
 #include "agent_manager.h"
 #include "agent_enemy_manager.h"
 
-static const u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 600;
-static const u32 ENEMY_INERTIA_TIME_TO_ACTOR = 600;
-static const u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 600;
+static const u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 3000;
+static const u32 ENEMY_INERTIA_TIME_TO_ACTOR = 0;
+static const u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 6000;
 
 #ifdef _DEBUG
 bool g_enemy_manager_second_update	 = false;
 #endif // _DEBUG
+
+extern BOOL g_alife_combat_overhaul; // SkyKi
 
 #define USE_EVALUATOR
 
@@ -56,10 +58,11 @@ bool CEnemyManager::is_useful(const CEntityAlive* entity_alive) const
 	return (m_object->useful(this, entity_alive));
 }
 
-int enemy_manager_useful_cache_time = 250;
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
+int enemy_manager_useful_cache_time = 200;
 bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 {
-	PROF_EVENT("CEnemyManager::useful");
 	if (!entity_alive->g_Alive())
 		return (false);
 
@@ -87,17 +90,17 @@ bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 
     // demonized: Cache useful checks to avoid expensive Lua calls
     u32 current_time = Device.dwTimeGlobal;
-    auto it = m_useful_cache.find(entity_alive->ID());
-
-    if (it != m_useful_cache.end() && (current_time < it->second.check_time))
-        return it->second.result;
+    auto& cache = m_useful_cache[entity_alive->ID()]; // create if not exists
+    if (current_time < cache.check_time)
+        return cache.result;
 
     bool result = (m_useful_callback ? m_useful_callback(m_object->lua_game_object(), entity_alive->lua_game_object()) : true);
 
     // Add id based jitter so that next updates will be spread between frames for different entities
     int jitter = (entity_alive->ID() % 97 + 1) * (entity_alive->ID() & 1 ? -1 : 1);
     u32 next_time = current_time + _max(0, enemy_manager_useful_cache_time + jitter);
-    m_useful_cache[entity_alive->ID()] = { next_time, result };
+    cache.result = result;
+    cache.check_time = next_time;
 
 	return result;
 }
@@ -110,6 +113,10 @@ float CEnemyManager::do_evaluate(const CEntityAlive* object) const
 float CEnemyManager::evaluate(const CEntityAlive* object) const
 {
 	//	Msg						("[%6d] enemy manager %s evaluates %s",Device.dwTimeGlobal,*m_object->cName(),*object->cName());
+
+	const CActor* actor = smart_cast<const CActor*>(object);
+	if (actor && !g_alife_combat_overhaul)
+		m_ready_to_save = false; // SkyKi
 
 	const CAI_Stalker* stalker = smart_cast<const CAI_Stalker*>(object);
 	bool wounded = stalker ? stalker->wounded(&m_object->movement().restrictions()) : false;
@@ -124,50 +131,70 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 
 	float penalty = 10000.f;
 
-	// if we are hit
-	if (object->ID() == m_object->memory().hit().last_hit_object_id())
+	if (g_alife_combat_overhaul)
 	{
-		float hit_dist = m_object->Position().distance_to(object->Position());
-		
-		// In CQB (< 30m), the distance score variance is only 0 to 9 points.
-		// A tiny -5 penalty ensures they turn to a flanker at 15m, 
-		// but WON'T ignore a guy actively fighting them at 5m just because they got shot!
-		if (hit_dist < 30.f)
-			penalty -= 5.f;
-			
-		// For medium/long range, give a standard 100m aggro advantage
-		// so they still react to snipers if they aren't busy with a close target.
-		else
-			penalty -= 100.f;
+		float distance = m_object->Position().distance_to_sqr(object->Position());
+
+		if (object->ID() == m_object->memory().hit().last_hit_object_id())
+		{
+			if (distance < 30.f * 30.f)
+				penalty -= 5.f;
+			else
+				penalty -= 100.f;
+		}
+
+		if (m_object->memory().visual().visible_now(object))
+			penalty -= 900.f;
+
+		return (penalty + distance / 100.f); // SkyKi: Removed VictoryProbability
 	}
+	else
+	{
+		// if we are hit
+		if (object->ID() == m_object->memory().hit().last_hit_object_id())
+		{
+			if (actor)
+				penalty -= 1500.f;
+			else
+				penalty -= 500.f;
+		}
 
-	// if we see object
-	if (m_object->memory().visual().visible_now(object))
-		penalty -= 1000.f;
+		// if we see object
+		if (m_object->memory().visual().visible_now(object))
+			penalty -= 1000.f;
 
-	// if object sees us
-	if (object->visual_memory() && object->visual_memory()->visible_now(m_object))
-		penalty -= 900.f;
+		// if object is actor and he/she sees us
+		if (actor) {
+			if (actor->memory().visual().visible_now(m_object))
+				penalty -= 900.f;
+		}
+		else {
+			// if object is npc and it sees us
+			const CCustomMonster	*monster = smart_cast<const CCustomMonster*>(object);
+			if (monster && monster->memory().visual().visible_now(m_object))
+				penalty -= 300.f;
+		}
 
 #ifdef USE_EVALUATOR
-	ai().ef_storage().non_alife().member_item() = 0;
-	ai().ef_storage().non_alife().enemy_item() = 0;
-	ai().ef_storage().non_alife().member() = m_object;
-	ai().ef_storage().non_alife().enemy() = object;
+		ai().ef_storage().non_alife().member_item() = 0;
+		ai().ef_storage().non_alife().enemy_item() = 0;
+		ai().ef_storage().non_alife().member() = m_object;
+		ai().ef_storage().non_alife().enemy() = object;
 
-	float distance = m_object->Position().distance_to_sqr(object->Position());
-	return (
-		penalty +
-		distance / 100.f
-		// + ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f //SkyKi: Removed to stop AI from locking onto heavily armed targets (like the player) across the map
-	);
+		float distance = m_object->Position().distance_to_sqr(object->Position());
+		return (
+			penalty +
+			distance / 100.f +
+			ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f
+		);
 #else // USE_EVALUATOR
-	float					distance = m_object->Position().distance_to_sqr(object->Position());
-	return					(
-		1000.f*(visible ? 0.f : 1.f) +
-		distance
-	);
+		float					distance = m_object->Position().distance_to_sqr(object->Position());
+		return					(
+			1000.f*(visible ? 0.f : 1.f) +
+			distance
+		);
 #endif // USE_EVALUATOR
+	}
 }
 
 bool CEnemyManager::expedient(const CEntityAlive* object) const
@@ -273,12 +300,12 @@ bool CEnemyManager::change_from_wounded(const CEntityAlive* current, const CEnti
 IC bool CEnemyManager::enemy_inertia(const CEntityAlive* previous_enemy) const
 {
 	if (smart_cast<CActor const*>(m_selected))
-		return (Device.dwTimeGlobal <= (m_last_enemy_change + ENEMY_INERTIA_TIME_TO_ACTOR));
+		return (Device.dwTimeGlobal <= (m_last_enemy_change + (g_alife_combat_overhaul ? 600 : ENEMY_INERTIA_TIME_TO_ACTOR))); // SkyKi
 
 	if (previous_enemy && smart_cast<CActor const*>(previous_enemy))
-		return (Device.dwTimeGlobal <= (m_last_enemy_change + ENEMY_INERTIA_TIME_FROM_ACTOR));
+		return (Device.dwTimeGlobal <= (m_last_enemy_change + (g_alife_combat_overhaul ? 600 : ENEMY_INERTIA_TIME_FROM_ACTOR))); // SkyKi
 
-	return (Device.dwTimeGlobal <= (m_last_enemy_change + ENEMY_INERTIA_TIME_TO_SOMEBODY));
+	return (Device.dwTimeGlobal <= (m_last_enemy_change + (g_alife_combat_overhaul ? 600 : ENEMY_INERTIA_TIME_TO_SOMEBODY))); // SkyKi
 }
 
 void CEnemyManager::on_enemy_change(const CEntityAlive* previous_enemy)

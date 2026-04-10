@@ -39,6 +39,8 @@
 
 using namespace StalkerDecisionSpace;
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 typedef CStalkerPropertyEvaluator::_value_type _value_type;
 
 const float wounded_enemy_reached_distance = 3.f;
@@ -449,9 +451,9 @@ _value_type CStalkerPropertyEvaluatorEnemyCriticallyWounded::evaluate()
 CStalkerPropertyEvaluatorShouldThrowGrenade::CStalkerPropertyEvaluatorShouldThrowGrenade(
 	CAI_Stalker* object, LPCSTR evaluator_name) :
 	inherited(object ? object->lua_game_object() : 0, evaluator_name),
-	m_last_enemy_id(u16(-1)),
-	m_last_enemy_position(Fvector().set(0.f, 0.f, 0.f)),
-	m_enemy_camp_start_time(0)
+	m_last_enemy_id(u16(-1)), // SkyKi
+	m_last_enemy_position(Fvector().set(0.f, 0.f, 0.f)), // SkyKi
+	m_enemy_camp_start_time(0) // SkyKi
 {
 }
 
@@ -490,35 +492,44 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 		return (false);
 
 	Fvector const& position = mem_object.m_object_params.m_position;
+	u32 const& enemy_vertex_id = mem_object.m_object_params.m_level_vertex_id;
 
-	bool is_camping = false;
-	u16 current_enemy_id = enemy->ID();
-	if (m_last_enemy_id != current_enemy_id)
+	if (g_alife_combat_overhaul)
 	{
-		m_last_enemy_id = current_enemy_id;
-		m_last_enemy_position = position;
-		m_enemy_camp_start_time = Device.dwTimeGlobal;
-	}
-	else
-	{
-		if (m_last_enemy_position.distance_to_sqr(position) < _sqr(10.0f))
+		// SkyKi: Detect camping enemies to flush them out with grenades
+		bool is_camping = false;
+		u16 current_enemy_id = enemy->ID();
+		if (m_last_enemy_id != current_enemy_id)
 		{
-			if (Device.dwTimeGlobal - m_enemy_camp_start_time > 8000)
-			{
-				is_camping = true;
-			}
-		}
-		else
-		{
+			m_last_enemy_id = current_enemy_id;
 			m_last_enemy_position = position;
 			m_enemy_camp_start_time = Device.dwTimeGlobal;
 		}
+		else
+		{
+			if (m_last_enemy_position.distance_to_sqr(position) < _sqr(10.0f))
+			{
+				if (Device.dwTimeGlobal - m_enemy_camp_start_time > 8000)
+				{
+					is_camping = true;
+				}
+			}
+			else
+			{
+				m_last_enemy_position = position;
+				m_enemy_camp_start_time = Device.dwTimeGlobal;
+			}
+		}
+
+		if (!is_camping && object().memory().visual().visible_now(enemy))
+			return (false);
+	}
+	else
+	{
+		if (object().memory().visual().visible_now(enemy))
+			return (false);
 	}
 
-	if (!is_camping && object().memory().visual().visible_now(enemy))
-		return (false);
-
-	u32 const& enemy_vertex_id = mem_object.m_object_params.m_level_vertex_id;
 	if (object().Position().distance_to_sqr(position) < _sqr(10.f))
 		return (false);
 

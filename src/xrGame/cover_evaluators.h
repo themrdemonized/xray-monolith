@@ -120,18 +120,15 @@ class CCoverEvaluatorBest : public CCoverEvaluatorCloseToEnemy
 protected:
 	typedef CCoverEvaluatorCloseToEnemy inherited;
 
-	// NEW: Cache for secondary threat positions
-	xr_vector<Fvector> m_secondary_threats;
-
 private:
 	bool threat_on_the_way(Fvector const& cover_position) const;
 
 public:
+	xr_vector<Fvector> m_secondary_threats; // SkyKi
+	virtual void setup(const Fvector& enemy_position, float min_enemy_distance, float max_enemy_distance, float deviation = 0.f); // SkyKi
+
+public:
 	IC CCoverEvaluatorBest(CRestrictedObject* object);
-	
-	// NEW: Override setup to cache secondary threats
-	virtual void setup(const Fvector& enemy_position, float min_enemy_distance, float max_enemy_distance, float deviation = 0.f);
-	
 	virtual void evaluate_cover(const CCoverPoint* cover_point, float weight);
 	virtual void evaluate_smart_cover(smart_cover::cover const* smart_cover, float const& weight);
 };

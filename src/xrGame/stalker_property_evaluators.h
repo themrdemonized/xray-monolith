@@ -317,6 +317,11 @@ class CStalkerPropertyEvaluatorShouldThrowGrenade : public CStalkerPropertyEvalu
 protected:
 	typedef CStalkerPropertyEvaluator inherited;
 
+	// SkyKi: Camping detection variables
+	u16 m_last_enemy_id;
+	Fvector m_last_enemy_position;
+	u32 m_enemy_camp_start_time;
+
 public:
 	CStalkerPropertyEvaluatorShouldThrowGrenade(CAI_Stalker* object = 0, LPCSTR evaluator_name = "");
 	virtual _value_type evaluate();

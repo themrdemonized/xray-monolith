@@ -55,6 +55,8 @@
 #include "script_hit.h"
 #include "../../xrServerEntities/script_engine.h"
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 using namespace StalkerSpace;
 
 
@@ -662,7 +664,7 @@ bool CAI_Stalker::ready_to_detour()
 
 	// SkyKi: Lowered the detour threshold from 50% (MagSize / 2) to 20% (MagSize / 5) 
 	// to prevent NPCs from constantly stopping a push just to reload.
-	return (weapon->GetAmmoElapsed() > weapon->GetAmmoMagSize() / 5);
+	return (weapon->GetAmmoElapsed() > weapon->GetAmmoMagSize() / (g_alife_combat_overhaul ? 5 : 2)); // SkyKi
 }
 
 class ray_query_param
@@ -1194,8 +1196,8 @@ void CAI_Stalker::update_throw_params()
 		return;
 	}
 
-	// Multiply by 0.35f to significantly speed up the grenade flight and flatten the trajectory
-	float time = ThrowMinVelTime(m_throw_velocity, physics_world()->Gravity()) * 0.35f;
+	// SkyKi: Multiply by 0.35f to significantly speed up the grenade flight and flatten the trajectory
+	float time = ThrowMinVelTime(m_throw_velocity, physics_world()->Gravity()) * (g_alife_combat_overhaul ? 0.35f : 1.0f); // SkyKi
 	TransferenceToThrowVel(m_throw_velocity, time, physics_world()->Gravity());
 
 	check_throw_trajectory(time);

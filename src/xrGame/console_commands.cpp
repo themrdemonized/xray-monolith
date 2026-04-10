@@ -165,6 +165,8 @@ extern BOOL useSeparateUBGLKeybind;
 extern int g_nearwall;
 extern int g_nearwall_trace;
 extern BOOL drawPickupItemNames;
+// SkyKi: Engine flag for advanced combat targets
+BOOL g_alife_combat_overhaul = 0;
 extern BOOL fun_allowed;
 extern BOOL progressiveStaminaCost;
 extern BOOL NPCsLookAtActor;
@@ -3073,6 +3075,9 @@ void CCC_RegisterCommands()
 
 	// Draw pickup item names
 	CMD4(CCC_Integer, "g_draw_pickup_item_names", &drawPickupItemNames, 0, 1);
+
+	// SkyKi: ALife Combat Overhaul
+	CMD4(CCC_Integer, "alife_combat_overhaul", &g_alife_combat_overhaul, 0, 1);
 
 	// Wallmark distances
 	CMD4(CCC_Float, "g_wallmark_range_static", &wallmark_range_static, 0.f, 1000.f);

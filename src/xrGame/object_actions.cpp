@@ -19,6 +19,8 @@
 #include "stalker_animation_manager.h"
 #include "object_handler_planner.h"
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 //////////////////////////////////////////////////////////////////////////
 // CObjectActionCommand
 //////////////////////////////////////////////////////////////////////////
@@ -992,27 +994,28 @@ void CObjectActionThrowMissile::initialize()
 
 	object().inventory().Action(kWPN_ZOOM, CMD_START);
 
-	// SkyKi: Speed up the grenade throwing animation significantly by reducing inertia_time delays
 	float distance = object().throw_target().distance_to(object().Position());
+	
+	// SkyKi: Speed up the grenade throwing animation significantly by reducing inertia_time delays
 	if (distance > 45)
 	{
-		set_inertia_time(2000);
+		set_inertia_time(g_alife_combat_overhaul ? 2000 : 2500); // SkyKi
 		return;
 	}
 
 	if (distance > 30)
 	{
-		set_inertia_time(1500);
+		set_inertia_time(g_alife_combat_overhaul ? 1500 : 2000); // SkyKi
 		return;
 	}
 
 	if (distance > 15)
 	{
-		set_inertia_time(1000);
+		set_inertia_time(g_alife_combat_overhaul ? 1000 : 1500); // SkyKi
 		return;
 	}
 
-	set_inertia_time(500);
+	set_inertia_time(g_alife_combat_overhaul ? 500 : 1000); // SkyKi
 }
 
 void CObjectActionThrowMissile::execute()
