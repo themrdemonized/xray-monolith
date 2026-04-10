@@ -17,8 +17,8 @@ class CAI_Stalker;
 
 struct cached_useful
 {
-    u32 check_time;
-    bool result;
+    u32 check_time = 0;
+    bool result = false;
 };
 
 class CEnemyManager : public CObjectManager<const CEntityAlive>

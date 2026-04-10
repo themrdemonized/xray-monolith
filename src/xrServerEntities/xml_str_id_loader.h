@@ -108,10 +108,11 @@ const typename ITEM_DATA* CSXML_IdToIndex::GetById(const shared_str& str_id, boo
 	if (m_pItemDataVector->end() == it)
 	{
 		int i = 0;
+        Msg("item with id [%s] not found in files:", str_id.c_str());
 		for (T_VECTOR::iterator it = m_pItemDataVector->begin(); m_pItemDataVector->end() != it; ++it, i++)
 			Msg("[%d]=[%s]", i, *(*it).id);
 
-		R_ASSERT3(no_assert, "item not found, id", *str_id);
+		R_ASSERT3(no_assert, "item not found, id", str_id.c_str());
 		return NULL;
 	}
 
