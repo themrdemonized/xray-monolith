@@ -202,7 +202,7 @@ void player_legs_controller::copy_bones_from_actor(CActor* actor, bool isShadowP
     
 }
 
-float legs_fwd_offset = -0.55f;
+float legs_fwd_offset = -0.5f;
 BOOL legs_attach_to_camera = TRUE;
 extern int showActorBody;
 extern xr_unordered_set<CDemoRecord*> pDemoRecords;

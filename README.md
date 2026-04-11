@@ -237,12 +237,23 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
-**2026.04.02 (Prerelease)**
+**2026.04.06**
+
+* MT:
+  * Wallmarks
+    * Restore `! Failed to render dynamic wallmark` try-catch block, fixes crashes with certain script mods
+    * Disable `g_wallmark_range_static` and `g_wallmark_range_skeleton` commands, they are unused
+  * Alternative solution to fix of complete lockup of engine due to calculating bones in separate thread, fixes `HudItem.cpp (551): CHudItem::UpdateCL` crash
+  * `CVisualMemoryManager::visible_object` nullptr check in `m_objects`
+
+**2026.04.05 (Prerelease)**
 
 * Main and MT:
   * Legs: Fix rendering attachment shadows with multiple light sources
   * BusyHandsDebug: Do not engage if `db.actor` is nil, doesn't matter at this point
   * DXML: Safer Lua callback, fixes possible crashes such as when throwing grenades with right mouse button
+  * `duplicate_story_id_crash` console command to disable crash on `"Specified story object is already in the Story registry!"` error
+  * GhenTuong: CWeaponStatMgun: Introduce field "on_range_fov" to change gunner visibility range. Export lua game object functions (https://github.com/themrdemonized/xray-monolith/pull/498)
 
 * MT:
   * Revert "Wallmarks: Increase MAX_TRIS from 16384 to 32768"
@@ -252,7 +263,15 @@ How to compile exes:
     * `net_RelCase` for bullet manager
     * `empty()` checks for restrictions
     * Possibly fixes random crashes when an object is destroyed while mt scheduler is processing objects
-  * Wallmarks: static pool uses `xr_deque`, possibly fixes issues with Blood Pools mod
+  * Wallmarks refactoring
+    * Static wallmarks are grouped by sectors. Only visible sectors will render wallmarks
+    * Update wallmarks lifetime before rendering, simplify rendering loop
+    * Removal of skeleton wallmarks on object's `net_destroy`, fixes floating wallmarks in the air or stretched wallmarks artifacts
+    * Remove distance check when adding wallmarks to render queue, fixes absent wallmarks on objects that were killed more than 50 meters away
+    * `r_wallmarks_ssa_k` console command to limit rendering distance of wallmarks, default 40. More value means LESS rendering distance
+  * Fixed excessive smearing when using SSS with motion vectors
+  * Update global Feel::Vision data when an object changes it visuals, possibly fixes crashes related to `get_new_local_point_on_mesh`
+  * Possible fix of complete lockup of engine due to calculating bones in separate thread
 
 **2026.03.29**
 
