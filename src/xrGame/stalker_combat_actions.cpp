@@ -595,7 +595,8 @@ void CStalkerActionTakeCover::execute()
 		{
 			// SkyKi: If the nearest cover is too far away (> 15 meters) and the enemy is visible,
 			// abort the run and drop to a knee to return fire where we stand!
-			if (object().memory().visual().visible_now(enemy) && object().Position().distance_to(point->position()) > 15.f)
+			// SkyKi: optimized to distance_to_sqr
+			if (object().memory().visual().visible_now(enemy) && object().Position().distance_to_sqr(point->position()) > 225.f)
 			{
 				object().movement().set_movement_type(eMovementTypeStand);
 				object().movement().set_body_state(eBodyStateCrouch);
@@ -1700,7 +1701,9 @@ void CStalkerCombatActionThrowGrenade::execute()
 	                                               -object().movement().m_head.current.pitch);
 	float const cos_alpha = head_direction.dotproduct(enemy_direction);
 
-	if (_abs(acosf(cos_alpha)) >= (g_alife_combat_overhaul ? PI_DIV_6 : PI_DIV_8)) // SkyKi
+	// SkyKi: direct cosine comparison to avoid acosf
+	float const cos_threshold = g_alife_combat_overhaul ? 0.866025f : 0.923880f;
+	if (cos_alpha <= cos_threshold)
 		return;
 
 	object().throw_target(enemy_position, enemy_vertex_id, const_cast<CEntityAlive*>(enemy));

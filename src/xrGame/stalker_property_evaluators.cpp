@@ -507,7 +507,7 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 		}
 		else
 		{
-			if (m_last_enemy_position.distance_to_sqr(position) < _sqr(10.0f))
+			if (m_last_enemy_position.distance_to_sqr(position) < 100.0f) // SkyKi
 			{
 				if (Device.dwTimeGlobal - m_enemy_camp_start_time > 8000)
 				{
@@ -530,7 +530,7 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 			return (false);
 	}
 
-	if (object().Position().distance_to_sqr(position) < _sqr(10.f))
+	if (object().Position().distance_to_sqr(position) < 100.f) // SkyKi
 		return (false);
 
 	if (!object().agent_manager().member().can_throw_grenade(position))

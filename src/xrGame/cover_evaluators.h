@@ -125,6 +125,9 @@ private:
 
 public:
 	xr_vector<Fvector> m_secondary_threats; // SkyKi
+	struct ThreatData { Fvector pos; float dist_sqr; }; // SkyKi
+	xr_vector<ThreatData> m_temp_threats; // SkyKi
+	xr_vector<Fvector> m_teammate_positions; // SkyKi
 	virtual void setup(const Fvector& enemy_position, float min_enemy_distance, float max_enemy_distance, float deviation = 0.f); // SkyKi
 
 public:

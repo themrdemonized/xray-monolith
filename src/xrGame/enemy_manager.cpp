@@ -137,7 +137,7 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 
 		if (object->ID() == m_object->memory().hit().last_hit_object_id())
 		{
-			if (distance < 30.f * 30.f)
+			if (distance < 900.f) // SkyKi
 				penalty -= 5.f;
 			else
 				penalty -= 100.f;
@@ -146,7 +146,7 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 		if (m_object->memory().visual().visible_now(object))
 			penalty -= 900.f;
 
-		return (penalty + distance / 100.f); // SkyKi: Removed VictoryProbability
+		return (penalty + distance * 0.01f); // SkyKi
 	}
 	else
 	{
