@@ -19,6 +19,15 @@
 #include "ai/stalker/ai_stalker.h"
 #include "stalker_movement_manager_smart_cover.h"
 
+#include "memory_manager.h" // SkyKi
+#include "enemy_manager.h" // SkyKi
+#include "hit_memory_manager.h" // SkyKi
+#include "visual_memory_manager.h" // SkyKi
+#include "agent_manager.h" // SkyKi
+#include "agent_member_manager.h" // SkyKi
+
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 float g_smart_cover_factor = 1.f;
 
 CCoverEvaluatorBase::CCoverEvaluatorBase(CRestrictedObject* object)
@@ -166,6 +175,56 @@ void CCoverEvaluatorFarFromEnemy::evaluate_smart_cover(smart_cover::cover const*
 // CCoverEvaluatorBest
 //////////////////////////////////////////////////////////////////////////
 
+void CCoverEvaluatorBest::setup(const Fvector& enemy_position, float min_enemy_distance, float max_enemy_distance, float deviation) // SkyKi
+{
+	inherited::setup(enemy_position, min_enemy_distance, max_enemy_distance, deviation);
+
+	if (g_alife_combat_overhaul)
+	{
+		m_secondary_threats.clear();
+		
+		if (m_stalker) {
+			const CEntityAlive* primary_enemy = m_stalker->memory().enemy().selected();
+			
+			m_temp_threats.clear();
+			
+			for (const CEntityAlive* enemy : m_stalker->memory().enemy().objects()) {
+				if (!enemy || enemy == primary_enemy || !enemy->g_Alive()) 
+					continue;
+
+				if (m_stalker->memory().hit().hit(enemy) || m_stalker->memory().visual().visible_now(enemy)) {
+					m_temp_threats.push_back({enemy->Position(), m_stalker->Position().distance_to_sqr(enemy->Position())});
+				}
+			}
+			
+			// SkyKi: Use std::partial_sort to efficiently find the top 3 secondary threats
+			size_t num_threats = m_temp_threats.size() < 3 ? m_temp_threats.size() : 3;
+			std::partial_sort(m_temp_threats.begin(), m_temp_threats.begin() + num_threats, m_temp_threats.end(), [](const ThreatData& a, const ThreatData& b) {
+				return a.dist_sqr < b.dist_sqr;
+			});
+			
+			int count = 0;
+			for (const auto& t : m_temp_threats) {
+				m_secondary_threats.push_back(t.pos);
+				if (++count >= 3) break;
+			}
+			
+			m_teammate_positions.clear();
+			if (m_stalker->agent_manager().member().members().size() > 1) {
+				for (auto& it : m_stalker->agent_manager().member().members()) {
+					CAI_Stalker* teammate = &it->object();
+					if (teammate->ID() != m_stalker->ID()) {
+						// SkyKi: track only teammates within 30 meters to optimize iteration
+						if (m_stalker->Position().distance_to_sqr(teammate->Position()) < 900.f) {
+							m_teammate_positions.push_back(teammate->Position());
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 bool CCoverEvaluatorBest::threat_on_the_way(Fvector const& cover_position) const
 {
 	Fvector const start_to_cover = Fvector().sub(cover_position, m_start_position);
@@ -178,14 +237,33 @@ bool CCoverEvaluatorBest::threat_on_the_way(Fvector const& cover_position) const
 	float const projection = start_to_cover_direction.dotproduct(start_to_threat);
 	float const start_to_threat_magnitude = start_to_threat.magnitude();
 	float const cos_alpha = projection / start_to_threat_magnitude;
-	float const angle = acosf(cos_alpha);
-	if (angle >= PI_DIV_6)
-		return (false);
+	// SkyKi: direct cosine comparison to avoid acosf
+	
+	bool threat_found = false;
+	if (cos_alpha > 0.866025f && projection <= start_to_cover_magnitude * 1.5f)
+		threat_found = true;
 
-	if (projection > start_to_cover_magnitude * 1.5f)
-		return (false);
+	if (g_alife_combat_overhaul && !threat_found) // SkyKi
+	{
+		for (const Fvector& threat : m_secondary_threats)
+		{
+			Fvector const start_to_sec_threat = Fvector().sub(threat, m_start_position);
+			float const sec_projection = start_to_cover_direction.dotproduct(start_to_sec_threat);
+			float const sec_threat_magnitude = start_to_sec_threat.magnitude();
+			if (sec_threat_magnitude > EPS_L)
+			{
+				float const sec_cos_alpha = sec_projection / sec_threat_magnitude;
+				// SkyKi: direct cosine comparison to avoid acosf
+				if (sec_cos_alpha > 0.866025f && sec_projection <= start_to_cover_magnitude * 1.5f)
+				{
+					threat_found = true;
+					break;
+				}
+			}
+		}
+	}
 
-	return (true);
+	return threat_found;
 }
 
 void CCoverEvaluatorBest::evaluate_cover(const CCoverPoint* cover_point, float weight)
@@ -219,6 +297,35 @@ void CCoverEvaluatorBest::evaluate_cover(const CCoverPoint* cover_point, float w
 	float value = cover_value;
 	if (ai().level_graph().neighbour_in_direction(direction, cover_point->level_vertex_id()))
 		value += 10.f;
+
+	// SkyKi: Early-out check to skip secondary loops if already worse than m_best_value
+	if ((value / weight) > m_best_value)
+		return;
+
+	if (g_alife_combat_overhaul) // SkyKi
+	{
+		for (const Fvector& threat : m_secondary_threats)
+		{
+			Fvector sec_dir;
+			float sec_y, sec_p;
+			sec_dir.sub(threat, cover_point->position());
+			sec_dir.getHP(sec_y, sec_p);
+			sec_y = angle_normalize(sec_y);
+
+			float sec_high_cover = ai().level_graph().high_cover_in_direction(sec_y, cover_point->level_vertex_id());
+			float sec_low_cover = ai().level_graph().low_cover_in_direction(sec_y, cover_point->level_vertex_id());
+			float sec_cover = _min(sec_high_cover, sec_low_cover);
+			value += sec_cover * 0.5f;
+		}
+
+		for (const Fvector& teammate_pos : m_teammate_positions)
+		{
+			if (teammate_pos.distance_to_sqr(cover_point->position()) < 2.25f)
+			{
+				value += 1000.f; // SkyKi: Massive penalty to prevent stacking on top of each other
+			}
+		}
+	}
 
 	value /= weight;
 

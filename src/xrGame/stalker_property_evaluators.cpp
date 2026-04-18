@@ -39,6 +39,8 @@
 
 using namespace StalkerDecisionSpace;
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 typedef CStalkerPropertyEvaluator::_value_type _value_type;
 
 const float wounded_enemy_reached_distance = 3.f;
@@ -448,7 +450,10 @@ _value_type CStalkerPropertyEvaluatorEnemyCriticallyWounded::evaluate()
 
 CStalkerPropertyEvaluatorShouldThrowGrenade::CStalkerPropertyEvaluatorShouldThrowGrenade(
 	CAI_Stalker* object, LPCSTR evaluator_name) :
-	inherited(object ? object->lua_game_object() : 0, evaluator_name)
+	inherited(object ? object->lua_game_object() : 0, evaluator_name),
+	m_last_enemy_id(u16(-1)), // SkyKi
+	m_last_enemy_position(Fvector().set(0.f, 0.f, 0.f)), // SkyKi
+	m_enemy_camp_start_time(0) // SkyKi
 {
 }
 
@@ -481,9 +486,6 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 	if (!enemy->human_being())
 		return (false);
 
-	if (object().memory().visual().visible_now(enemy))
-		return (false);
-
 	// do not throw grenades when object is not in our memory (how this can be?)
 	CMemoryInfo mem_object = object().memory().memory(enemy);
 	if (!mem_object.m_object)
@@ -491,7 +493,44 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 
 	Fvector const& position = mem_object.m_object_params.m_position;
 	u32 const& enemy_vertex_id = mem_object.m_object_params.m_level_vertex_id;
-	if (object().Position().distance_to_sqr(position) < _sqr(10.f))
+
+	if (g_alife_combat_overhaul)
+	{
+		// SkyKi: Detect camping enemies to flush them out with grenades
+		bool is_camping = false;
+		u16 current_enemy_id = enemy->ID();
+		if (m_last_enemy_id != current_enemy_id)
+		{
+			m_last_enemy_id = current_enemy_id;
+			m_last_enemy_position = position;
+			m_enemy_camp_start_time = Device.dwTimeGlobal;
+		}
+		else
+		{
+			if (m_last_enemy_position.distance_to_sqr(position) < 100.0f) // SkyKi
+			{
+				if (Device.dwTimeGlobal - m_enemy_camp_start_time > 8000)
+				{
+					is_camping = true;
+				}
+			}
+			else
+			{
+				m_last_enemy_position = position;
+				m_enemy_camp_start_time = Device.dwTimeGlobal;
+			}
+		}
+
+		if (!is_camping && object().memory().visual().visible_now(enemy))
+			return (false);
+	}
+	else
+	{
+		if (object().memory().visual().visible_now(enemy))
+			return (false);
+	}
+
+	if (object().Position().distance_to_sqr(position) < 100.f) // SkyKi
 		return (false);
 
 	if (!object().agent_manager().member().can_throw_grenade(position))

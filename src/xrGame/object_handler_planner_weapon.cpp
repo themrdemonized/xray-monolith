@@ -15,6 +15,8 @@
 #include "object_handler_planner_impl.h"
 #include "ai/stalker/ai_stalker.h"
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 using namespace ObjectHandlerSpace;
 
 void CObjectHandlerPlanner::add_evaluators(CWeapon* weapon)
@@ -382,12 +384,13 @@ void CObjectHandlerPlanner::add_operators(CWeapon* weapon)
 	add_effect(action, id, eWorldPropertyAmmo2, true);
 	add_operator(uid(id, eWorldOperatorGetAmmo2), action);
 
-	this->action(uid(id, eWorldOperatorAim1)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAim2)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimingReady1)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimingReady2)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimForceFull1)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimForceFull2)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorQueueWait1)).set_inertia_time(300);
-	this->action(uid(id, eWorldOperatorQueueWait2)).set_inertia_time(300);
+	// SkyKi: Drastically reduce AI reaction time and burst fire delay
+	this->action(uid(id, eWorldOperatorAim1)).set_inertia_time(g_alife_combat_overhaul ? 250 : 500); // SkyKi
+	this->action(uid(id, eWorldOperatorAim2)).set_inertia_time(g_alife_combat_overhaul ? 250 : 500); // SkyKi
+	this->action(uid(id, eWorldOperatorAimingReady1)).set_inertia_time(g_alife_combat_overhaul ? 250 : 500); // SkyKi
+	this->action(uid(id, eWorldOperatorAimingReady2)).set_inertia_time(g_alife_combat_overhaul ? 250 : 500); // SkyKi
+	this->action(uid(id, eWorldOperatorAimForceFull1)).set_inertia_time(g_alife_combat_overhaul ? 250 : 500); // SkyKi
+	this->action(uid(id, eWorldOperatorAimForceFull2)).set_inertia_time(g_alife_combat_overhaul ? 250 : 500); // SkyKi
+	this->action(uid(id, eWorldOperatorQueueWait1)).set_inertia_time(g_alife_combat_overhaul ? 100 : 300); // SkyKi
+	this->action(uid(id, eWorldOperatorQueueWait2)).set_inertia_time(g_alife_combat_overhaul ? 100 : 300); // SkyKi
 }

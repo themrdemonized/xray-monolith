@@ -16,6 +16,8 @@
 #include "actor.h"
 #include "object_broker.h"
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 struct CDangerPredicate
 {
 	const CObject* m_object;
@@ -203,13 +205,14 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 	case CDangerObject::eDangerTypeBulletRicochet:
 		{
 			// I perceived bullet(knife) ricochet
-			result += 3000.f;
+			// SkyKi: Drastically increase the priority of near-misses so AI reacts to being shot at immediately.
+			result += (g_alife_combat_overhaul ? 2000.f : 3000.f); // SkyKi
 			break;
 		}
 	case CDangerObject::eDangerTypeAttackSound:
 		{
 			// someone is shooting
-			result += 2500.f;
+			result += (g_alife_combat_overhaul ? 2000.f : 2500.f); // SkyKi
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityAttacked:
@@ -299,8 +302,10 @@ void CDangerManager::add(const CSoundObject& object)
 		bool do_add = true;
 		if (object.m_object)
 		{
+			// SkyKi: Allow companions and neutrals to hear the player's pain sounds!
+			// This forces them to react instantly when the player is ambushed by mutants.
 			const CActor* actor = smart_cast<const CActor*>(object.m_object);
-			if (actor && !m_object->is_relation_enemy(actor))
+			if (actor && !m_object->is_relation_enemy(actor) && !g_alife_combat_overhaul) // SkyKi
 				do_add = false;
 		}
 		if (do_add)

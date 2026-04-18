@@ -39,6 +39,8 @@
  //Alundaio
 //-Alundaio
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 void SetActorVisibility(u16 who, float value);
 
 struct SRemoveOfflinePredicate
@@ -358,12 +360,15 @@ float CVisualMemoryManager::get_visible_value(const CGameObject* game_object, fl
 	if (distance <= always_visible_distance + EPS_L)
 		return (current_state().m_visibility_threshold);
 
+	// SkyKi: Artificially speeds up how quickly AI recognizes enemies that step into their field of view
+	const float visibility_boost = g_alife_combat_overhaul ? 2.0f : 1.0f; // SkyKi
+
 	//Alundaio: hijack not_yet_visible_object to lua
 	::luabind::functor<float> funct;
 	if (ai().script_engine().functor("visual_memory_manager.get_visible_value", funct))
 		return (funct(m_object ? m_object->lua_game_object() : 0, game_object ? game_object->lua_game_object() : 0,
 		              time_delta, current_state().m_time_quant, luminocity, current_state().m_velocity_factor,
-		              object_velocity, distance, object_distance, always_visible_distance));
+		              object_velocity, distance, object_distance, always_visible_distance) * visibility_boost); // SkyKi
 	//-Alundaio
 
 	return (
@@ -373,7 +378,7 @@ float CVisualMemoryManager::get_visible_value(const CGameObject* game_object, fl
 		(1.f + current_state().m_velocity_factor * object_velocity) *
 		(distance - object_distance) /
 		(distance - always_visible_distance)
-	);
+	) * visibility_boost; // SkyKi
 }
 
 CNotYetVisibleObject* CVisualMemoryManager::not_yet_visible_object(const CGameObject* game_object)

@@ -124,6 +124,13 @@ private:
 	bool threat_on_the_way(Fvector const& cover_position) const;
 
 public:
+	xr_vector<Fvector> m_secondary_threats; // SkyKi
+	struct ThreatData { Fvector pos; float dist_sqr; }; // SkyKi
+	xr_vector<ThreatData> m_temp_threats; // SkyKi
+	xr_vector<Fvector> m_teammate_positions; // SkyKi
+	virtual void setup(const Fvector& enemy_position, float min_enemy_distance, float max_enemy_distance, float deviation = 0.f); // SkyKi
+
+public:
 	IC CCoverEvaluatorBest(CRestrictedObject* object);
 	virtual void evaluate_cover(const CCoverPoint* cover_point, float weight);
 	virtual void evaluate_smart_cover(smart_cover::cover const* smart_cover, float const& weight);

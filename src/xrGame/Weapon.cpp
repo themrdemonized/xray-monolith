@@ -38,6 +38,8 @@
 #include "pch_script.h"
 #include "script_game_object.h"
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 #define WEAPON_REMOVE_TIME		60000
 #define ROTATION_TIME			0.25f
 
@@ -1777,6 +1779,10 @@ float CWeapon::GetConditionMisfireProbability() const
 BOOL CWeapon::CheckForMisfire()
 {
 	if (OnClient()) return FALSE;
+
+	// SkyKi: Disable engine-side misfire for NPCs to control it strictly via Lua scripts.
+	if (g_alife_combat_overhaul && !smart_cast<CActor*>(H_Parent()))
+		return FALSE;
 
 	float rnd = ::Random.randF(0.f, 1.f);
 	float mp = GetConditionMisfireProbability();

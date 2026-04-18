@@ -27,6 +27,7 @@
 #include "stalker_movement_manager_smart_cover.h"
 #include "sound_player.h"
 #include "stalker_planner.h"
+#include "agent_manager.h" // SkyKi
 #include "agent_member_manager.h"
 #include "agent_location_manager.h"
 #include "danger_cover_location.h"
@@ -38,6 +39,9 @@
 #include "stalker_animation_manager.h"
 #include "hit_memory_manager.h"
 #include "level_path_manager.h"
+#include "level_graph.h" // SkyKi
+
+extern BOOL g_alife_combat_overhaul; // SkyKi
 
 #define DISABLE_COVER_BEFORE_DETOUR
 
@@ -48,7 +52,7 @@
 const float TEMP_DANGER_DISTANCE = 5.f;
 const u32 TEMP_DANGER_INTERVAL = 120000;
 
-const float CLOSE_MOVE_DISTANCE = -10.f;
+const float CLOSE_MOVE_DISTANCE = g_alife_combat_overhaul ? 1.5f : -10.f; // SkyKi
 
 const u32 CROUCH_LOOK_OUT_DELTA = 5000;
 
@@ -422,7 +426,7 @@ void CStalkerActionGetReadyToKill::execute()
 	if (m_affect_properties)
 		aim_ready();
 	else
-		aim_ready_force_full();
+		if (g_alife_combat_overhaul) aim_ready(); else aim_ready_force_full(); // SkyKi
 
 	if (object().movement().path_completed())
 		object().best_cover_can_try_advance();
@@ -513,7 +517,7 @@ void CStalkerActionTakeCover::initialize()
 
 	m_body_state = object().movement().body_state();
 	//	m_movement_type								= Random.randI(2) ? eMovementTypeRun : eMovementTypeWalk;
-	m_movement_type = eMovementTypeWalk;
+	m_movement_type = g_alife_combat_overhaul ? eMovementTypeRun : eMovementTypeWalk; // SkyKi
 
 	object().movement().set_desired_direction(0);
 	object().movement().set_path_type(MovementManager::ePathTypeLevelPath);
@@ -569,66 +573,209 @@ void CStalkerActionTakeCover::execute()
 	if (!mem_object.m_object)
 		return;
 
+	if (g_alife_combat_overhaul) // SkyKi
+	{
 #ifdef COMBAT_BODY_STATE_OVERRIDE
-	EWorldOperators wo = eWorldOperatorTakeCover;
-	EBodyState body_state = eBodyStateStand;
+		EWorldOperators wo = eWorldOperatorTakeCover;
+		EBodyState body_state = eBodyStateStand;
 #endif
 
-	if (object().movement().detail().distance_to_target() > CLOSE_MOVE_DISTANCE)
+		if (object().movement().detail().distance_to_target() > CLOSE_MOVE_DISTANCE)
 #ifdef COMBAT_BODY_STATE_OVERRIDE
-		object().movement().set_body_state(object().movement().body_state_combat_override(wo, body_state));
+			object().movement().set_body_state(object().movement().body_state_combat_override(wo, body_state));
 #else
-		object().movement().set_body_state(eBodyStateStand);
+			object().movement().set_body_state(eBodyStateStand);
 #endif
-	else
-		object().movement().set_movement_type(m_movement_type);
-
-	Fvector position = mem_object.m_object_params.m_position;
-	const CCoverPoint* point = object().best_cover(position);
-	if (point)
-	{
-		setup_cover(*point);
-
-		if (object().movement().path_completed() && object().Position().distance_to(point->position()) < 1.f)
-			object().brain().affect_cover(true);
 		else
-			object().brain().affect_cover(false);
-	}
-	else
-	{
-		object().movement().set_nearest_accessible_position();
-		object().brain().affect_cover(true);
-	}
+			object().movement().set_movement_type(m_movement_type);
 
-	if (object().movement().path_completed())
-	{
-		// && (object().memory().enemy().selected()->Position().distance_to_sqr(object().Position()) >= 10.f))
-		object().best_cover_can_try_advance();
-		m_storage->set_property(eWorldPropertyInCover, true);
-	}
-
-	if (object().memory().visual().visible_now(enemy))
-	{
-		object().sight().setup(CSightAction(enemy, true, true));
-		fire();
-	}
-	else
-	{
-		aim_ready();
-		//Alundaio: Prevent stalkers from staring at floor or ceiling for this action
-		u32 const level_time = object().memory().visual().visible_object_time_last_seen(mem_object.m_object);
-		if (Device.dwTimeGlobal >= level_time + 3000 && _abs(
-			object().Position().y - mem_object.m_object_params.m_position.y) > 3.5f)
+		Fvector position = mem_object.m_object_params.m_position;
+		const CCoverPoint* point = object().best_cover(position);
+		if (point)
 		{
-			Fvector3 Vpos = {
-				mem_object.m_object_params.m_position.x, object().Position().y + 1.f,
-				mem_object.m_object_params.m_position.z
-			};
-			object().sight().setup(CSightAction(SightManager::eSightTypePosition, Vpos, true));
+			// SkyKi: If the nearest cover is too far away (> 15 meters) and the enemy is visible,
+			// abort the run and drop to a knee to return fire where we stand!
+			// SkyKi: optimized to distance_to_sqr
+			if (object().memory().visual().visible_now(enemy) && object().Position().distance_to_sqr(point->position()) > 225.f)
+			{
+				object().movement().set_movement_type(eMovementTypeStand);
+				object().movement().set_body_state(eBodyStateCrouch);
+				object().movement().set_nearest_accessible_position();
+				
+				if (fire_make_sense())
+					fire();
+				else
+					aim_ready();
+					
+				return; // Abort further take_cover movement logic
+			}
+
+			setup_cover(*point);
+
+			if (object().movement().path_completed() && object().Position().distance_to(point->position()) < 1.f)
+				object().brain().affect_cover(true);
+			else
+				object().brain().affect_cover(false);
 		}
 		else
-			object().sight().setup(CSightAction(SightManager::eSightTypePosition, mem_object.m_object_params.m_position,
-			                                    true));
+		{
+			bool teammate_cover_found = false;
+			if (object().agent_manager().member().members().size() > 1) {
+				for (auto& it : object().agent_manager().member().members()) {
+					CAI_Stalker* teammate = &it->object();
+					if (teammate->ID() == object().ID()) continue;
+					
+					if (teammate->memory().enemy().selected()) {
+						Fvector teammate_pos = teammate->Position();
+						Fvector teammate_dir = teammate->Direction();
+						
+						Fvector stack_pos;
+						stack_pos.mad(teammate_pos, teammate_dir, -1.2f);
+						
+						u32 target_vertex_id = ai().level_graph().vertex_id(stack_pos);
+						if (ai().level_graph().valid_vertex_id(target_vertex_id) && ai().level_graph().is_accessible(target_vertex_id)) {
+							object().movement().set_level_dest_vertex(target_vertex_id);
+							object().movement().set_desired_position(&stack_pos);
+							teammate_cover_found = true;
+							break;
+						}
+					}
+				}
+			}
+			
+			if (!teammate_cover_found) {
+				object().movement().set_nearest_accessible_position();
+			}
+			object().brain().affect_cover(true);
+		}
+
+		if (object().movement().path_completed())
+		{
+			// && (object().memory().enemy().selected()->Position().distance_to_sqr(object().Position()) >= 10.f))
+			object().best_cover_can_try_advance();
+			m_storage->set_property(eWorldPropertyInCover, true);
+		}
+
+		if (object().memory().visual().visible_now(enemy))
+		{
+			object().sight().setup(CSightAction(enemy, true, true));
+			
+			// SkyKi: Removed 15m restriction. NPCs caught in the open will now lay down suppressive fire 
+			// at the enemy while sprinting to cover, forcing the player to take cover as well!
+			if (fire_make_sense())
+				fire();
+			else
+				aim_ready();
+		}
+		else
+		{
+			aim_ready();
+			
+			bool stacked = false;
+			if (object().agent_manager().member().members().size() > 1) {
+				for (auto& it : object().agent_manager().member().members()) {
+					CAI_Stalker* teammate = &it->object();
+					if (teammate->ID() == object().ID()) continue;
+					
+					if (teammate->Position().distance_to_sqr(object().Position()) < 4.0f && teammate->memory().enemy().selected()) {
+						Fvector teammate_aim = teammate->Direction();
+						float yaw, pitch;
+						teammate_aim.getHP(yaw, pitch);
+						
+						// Offset by 45 degrees (alternate left/right based on ID)
+						if (object().ID() % 2 == 0) yaw += PI_DIV_4;
+						else yaw -= PI_DIV_4;
+						
+						Fvector offset_aim;
+						offset_aim.setHP(yaw, pitch);
+						object().sight().setup(CSightAction(SightManager::eSightTypeDirection, offset_aim, true));
+						stacked = true;
+						break;
+					}
+				}
+			}
+
+			if (!stacked) {
+				//Alundaio: Prevent stalkers from staring at floor or ceiling for this action
+				u32 const level_time = object().memory().visual().visible_object_time_last_seen(mem_object.m_object);
+				if (Device.dwTimeGlobal >= level_time + 3000 && _abs(
+					object().Position().y - mem_object.m_object_params.m_position.y) > 3.5f)
+				{
+					Fvector3 Vpos = {
+						mem_object.m_object_params.m_position.x, object().Position().y + 1.f,
+						mem_object.m_object_params.m_position.z
+					};
+					object().sight().setup(CSightAction(SightManager::eSightTypePosition, Vpos, true));
+				}
+				else
+					object().sight().setup(CSightAction(SightManager::eSightTypePosition, mem_object.m_object_params.m_position,
+														true));
+			}
+		}
+	}
+	else // SkyKi
+	{
+#ifdef COMBAT_BODY_STATE_OVERRIDE
+		EWorldOperators wo = eWorldOperatorTakeCover;
+		EBodyState body_state = eBodyStateStand;
+#endif
+
+		if (object().movement().detail().distance_to_target() > CLOSE_MOVE_DISTANCE)
+#ifdef COMBAT_BODY_STATE_OVERRIDE
+			object().movement().set_body_state(object().movement().body_state_combat_override(wo, body_state));
+#else
+			object().movement().set_body_state(eBodyStateStand);
+#endif
+		else
+			object().movement().set_movement_type(m_movement_type);
+
+		Fvector position = mem_object.m_object_params.m_position;
+		const CCoverPoint* point = object().best_cover(position);
+		if (point)
+		{
+			setup_cover(*point);
+
+			if (object().movement().path_completed() && object().Position().distance_to(point->position()) < 1.f)
+				object().brain().affect_cover(true);
+			else
+				object().brain().affect_cover(false);
+		}
+		else
+		{
+			object().movement().set_nearest_accessible_position();
+			object().brain().affect_cover(true);
+		}
+
+		if (object().movement().path_completed())
+		{
+			// && (object().memory().enemy().selected()->Position().distance_to_sqr(object().Position()) >= 10.f))
+			object().best_cover_can_try_advance();
+			m_storage->set_property(eWorldPropertyInCover, true);
+		}
+
+		if (object().memory().visual().visible_now(enemy))
+		{
+			object().sight().setup(CSightAction(enemy, true, true));
+			fire();
+		}
+		else
+		{
+			aim_ready();
+			//Alundaio: Prevent stalkers from staring at floor or ceiling for this action
+			u32 const level_time = object().memory().visual().visible_object_time_last_seen(mem_object.m_object);
+			if (Device.dwTimeGlobal >= level_time + 3000 && _abs(
+				object().Position().y - mem_object.m_object_params.m_position.y) > 3.5f)
+			{
+				Fvector3 Vpos = {
+					mem_object.m_object_params.m_position.x, object().Position().y + 1.f,
+					mem_object.m_object_params.m_position.z
+				};
+				object().sight().setup(CSightAction(SightManager::eSightTypePosition, Vpos, true));
+			}
+			else
+				object().sight().setup(CSightAction(SightManager::eSightTypePosition, mem_object.m_object_params.m_position,
+				                                    true));
+		}
 	}
 }
 
@@ -674,7 +821,7 @@ void CStalkerActionLookOut::initialize()
 		aim_ready();
 	else
 	{
-		aim_ready_force_full();
+		if (g_alife_combat_overhaul) aim_ready(); else aim_ready_force_full(); // SkyKi
 		object().movement().set_movement_type(eMovementTypeStand);
 	}
 
@@ -743,11 +890,25 @@ void CStalkerActionLookOut::execute()
 	object().best_cover(mem_object.m_object_params.m_position);
 	//-Alundaio
 
-	if (current_cover(m_object) >= 3.f)
+	if (g_alife_combat_overhaul) // SkyKi
 	{
-		object().movement().set_nearest_accessible_position();
-		m_storage->set_property(eWorldPropertyLookedOut, true);
-		return;
+		// SkyKi: Check actual distance to target instead of hardcoded 3m to prevent staring at walls
+		float dist_to_enemy = object().Position().distance_to(mem_object.m_object_params.m_position);
+		if (current_cover(m_object) >= dist_to_enemy)
+		{
+			object().movement().set_nearest_accessible_position();
+			m_storage->set_property(eWorldPropertyLookedOut, true);
+			return;
+		}
+	}
+	else // SkyKi
+	{
+		if (current_cover(m_object) >= 3.f)
+		{
+			object().movement().set_nearest_accessible_position();
+			m_storage->set_property(eWorldPropertyLookedOut, true);
+			return;
+		}
 	}
 
 	Fvector position = mem_object.m_object_params.m_position;
@@ -806,7 +967,7 @@ void CStalkerActionHoldPosition::initialize()
 
 	aim_ready();
 
-	set_inertia_time(1000 + ::Random32.random(2000));
+	set_inertia_time(g_alife_combat_overhaul ? 500 + ::Random32.random(500) : 1000 + ::Random32.random(2000)); // SkyKi
 	object().brain().affect_cover(true);
 }
 
@@ -1540,7 +1701,9 @@ void CStalkerCombatActionThrowGrenade::execute()
 	                                               -object().movement().m_head.current.pitch);
 	float const cos_alpha = head_direction.dotproduct(enemy_direction);
 
-	if (_abs(acosf(cos_alpha)) >= PI_DIV_8)
+	// SkyKi: direct cosine comparison to avoid acosf
+	float const cos_threshold = g_alife_combat_overhaul ? 0.866025f : 0.923880f;
+	if (cos_alpha <= cos_threshold)
 		return;
 
 	object().throw_target(enemy_position, enemy_vertex_id, const_cast<CEntityAlive*>(enemy));

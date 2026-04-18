@@ -16,6 +16,8 @@
 #include "stalker_property_evaluators.h"
 #include "stalker_search_actions.h"
 
+extern BOOL g_alife_combat_overhaul; // SkyKi
+
 using namespace StalkerDecisionSpace;
 
 CStalkerSearchPlanner::CStalkerSearchPlanner(CAI_Stalker* object, LPCSTR action_name) :
@@ -84,5 +86,5 @@ void CStalkerSearchPlanner::add_actions()
 	add_condition(action, eWorldPropertyAmbushLocationReached, true);
 	add_effect(action, eWorldPropertyPureEnemy, false);
 	add_operator(eWorldOperatorHoldAmbushLocation, action);
-	action->set_inertia_time(15000);
+	action->set_inertia_time(g_alife_combat_overhaul ? 3000 : 15000); // SkyKi: Reduced from 15s to 3s
 }
