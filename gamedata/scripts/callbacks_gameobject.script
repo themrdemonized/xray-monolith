@@ -590,6 +590,105 @@ function LuaFatalErrorUI:OnMsgNo()
 	device():pause(false)
 end
 
+-- Orleon: Add 'actor_on_item_sell' and 'actor_on_item_buy' callbacks
+AddScriptCallback("actor_on_item_sell")
+AddScriptCallback("actor_on_item_buy")
+ui_inventory_UIInventory_TMode_Sell = ui_inventory.UIInventory.TMode_Sell
+ui_inventory.UIInventory.TMode_Sell = function(self)
+	self:Print(nil, "TMode_Sell")
+
+	local npc = self:GetPartner()
+	if (not npc) then
+		return
+	end
+
+	local cc = self.CC["actor_trade"]
+	if (not cc) then
+		return
+	end
+
+	-- Calculate full price
+	local tot_cost = 0
+	for idx,ci in pairs(cc.cell) do
+		tot_cost = tot_cost + cc:GetCellCost(ci)
+	end
+	tot_cost = math.floor(tot_cost)
+
+	-- Don't processed if NPC doesn't have enough money
+	if npc:money() < tot_cost then
+		self.message_box:InitMessageBox("message_box_ok")
+		self.message_box:SetText(game.translate_string("not_enough_money_partner"))
+		self.message_box:ShowDialog(true)
+		return
+	end
+
+	-- Transfer items
+	for id, idx in pairs(cc.indx_id) do
+		local ci = cc:GetCell_ID(id)
+		if ci then
+			local obj = level.object_by_id(id)
+			local sell_cost = utils_item.get_item_cost(obj, cc.trade_profile)
+			self:On_Item_Exchange(db.actor, npc, obj)
+			SendScriptCallback("actor_on_item_sell", obj, sell_cost, npc)
+		end
+	end
+
+	-- Transfer money
+	db.actor:give_money(tot_cost)
+	npc:give_money(-tot_cost)
+
+	-- Update UI
+	self.update_info = true
+end
+
+ui_inventory_UIInventory_TMode_Buy = ui_inventory.UIInventory.TMode_Buy
+ui_inventory.UIInventory.TMode_Buy = function(self)
+	self:Print(nil, "TMode_Buy")
+
+	local npc = self:GetPartner()
+	if (not npc) then
+		return
+	end
+
+	local cc = self.CC["npc_trade"]
+	if (not cc) then
+		return
+	end
+
+	-- Calculate full price
+	local tot_cost = 0
+	for idx,ci in pairs(cc.cell) do
+		tot_cost = tot_cost + cc:GetCellCost(ci)
+	end
+	tot_cost = math.floor(tot_cost)
+
+	-- Don't processed if player doesn't have enough money
+	if db.actor:money() < tot_cost then
+		self.message_box:InitMessageBox("message_box_ok")
+		self.message_box:SetText(game.translate_string("not_enough_money_actor"))
+		self.message_box:ShowDialog(true)
+		return
+	end
+
+	-- Transfer items
+	for id, idx in pairs(cc.indx_id) do
+		local ci = cc:GetCell_ID(id)
+		if ci then
+			local obj = level.object_by_id(id)
+			local buy_cost = utils_item.get_item_cost(obj, cc.trade_profile)
+			self:On_Item_Exchange(npc, db.actor, obj)
+			SendScriptCallback("actor_on_item_buy", obj, buy_cost, npc)
+		end
+	end
+
+	-- Transfer money
+	npc:give_money(tot_cost)
+	db.actor:give_money(-tot_cost)
+
+	-- Update UI
+	self.update_info = true
+end
+
 function on_game_start()
 	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
 	RegisterScriptCallback("ActorMenu_on_item_after_move", ActorMenu_on_item_after_move)
