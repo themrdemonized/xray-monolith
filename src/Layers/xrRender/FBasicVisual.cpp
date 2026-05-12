@@ -45,6 +45,7 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 	dbg_name = N;
 	dbg_id = 1;
 	skinning = ::Render->m_skinning;
+    hud = ::Render->hud_loading;
 
 	// header
 	VERIFY(data);
@@ -145,7 +146,10 @@ void dxRender_Visual::SetShaderTexture(LPCSTR s_shader, LPCSTR s_texture)
 	}
 
 	::Render->m_skinning = skinning;
-	shader.create(*dbg_shader, *dbg_texture);
+    bool prev_hud = ::Render->hud_loading;
+    ::Render->hud_loading = hud;
+    shader.create(*dbg_shader, *dbg_texture);
+    ::Render->hud_loading = prev_hud;
 }
 
 void dxRender_Visual::ResetShaderTexture()
@@ -172,4 +176,5 @@ void dxRender_Visual::Copy(dxRender_Visual* pFrom)
 	PCOPY(dbg_texture);
 	PCOPY(dbg_texture_def);
 	PCOPY(skinning);
+    PCOPY(hud);
 }

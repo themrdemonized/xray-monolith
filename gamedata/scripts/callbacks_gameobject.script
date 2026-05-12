@@ -513,10 +513,15 @@ end
 AddScriptCallback("on_luabind_fatal_error")
 local LuaFatalErrorUIInstance = nil
 local on_luabind_fatal_error_triggered = false
+local in_main_menu = false
 _G.COnLuaBindFatalError = function(offender)
 	-- Don't engage when actor is gone, it doesn't matter at this point
 	-- The engine would still log the error
 	if not db.actor then
+		return
+	end
+
+	if in_main_menu then
 		return
 	end
 
@@ -588,6 +593,14 @@ end
 
 function LuaFatalErrorUI:OnMsgNo()
 	device():pause(false)
+end
+
+function main_menu_on_init()
+	in_main_menu = true
+end
+
+function main_menu_on_quit()
+	in_main_menu = false
 end
 
 -- Orleon: Add 'actor_on_item_sell' and 'actor_on_item_buy' callbacks
@@ -690,6 +703,8 @@ ui_inventory.UIInventory.TMode_Buy = function(self)
 end
 
 function on_game_start()
+	RegisterScriptCallback("main_menu_on_init", main_menu_on_init)
+	RegisterScriptCallback("main_menu_on_quit", main_menu_on_quit)
 	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
 	RegisterScriptCallback("ActorMenu_on_item_after_move", ActorMenu_on_item_after_move)
 	RegisterScriptCallback("game_object_on_net_spawn", game_object_on_net_spawn)

@@ -145,6 +145,8 @@ class XRPHYSICS_API CPhysicsElement :
 {
 public:
 	u16 m_SelfID;
+    float m_fScale;
+    virtual void SetScale(float scale) = 0;
 	virtual CPhysicsShell* PhysicsShell() = 0;
 	virtual void set_ContactCallback(ContactCallbackFun* callback) = 0;
 	virtual IPhysicsShellHolder* PhysicsRefObject() = 0;

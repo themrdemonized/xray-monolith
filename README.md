@@ -235,6 +235,30 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.05.12 (Prerelease)**
+
+* Main and MT:
+  * First Person Death improvements:
+    * Increase collision size of `bip01_head` on death to prevent camera clipping into the ground
+    * `first_person_death_head_scale` cvar to adjust
+  * `BusyHandsDebug`: do not engage UI when busy hands was triggered while in main menu
+  * damiansirbu: Guard empty m_members in CSE_ALifeOnlineOfflineGroup::update and synchronize_location (https://github.com/themrdemonized/xray-monolith/pull/527)
+  * Lucy: Fix models not compiling the correct shader when set_shader is used (https://github.com/themrdemonized/xray-monolith/pull/529)
+
+* MT:
+  * Lights:
+    * Increase lower limit of `r2_slight_fade` cvar to increase lights' fadeout with distance
+    * `r2_shadow_lod_min` cvar to hard limit lights' rendering distance independently of `r2_slight_fade`, more value will limit rendering distance sooner, default 0.02
+    * `r2_shadow_omnipart_vischeck` to enable visibility checks for additional 6 lights that are created for each point light, increases performance by not rendering invisible lights, default enabled
+    * Removed while loop in light visibility tests, the visibility result will be retrieved next frame. Pending results are treated as visible.
+  * Emissive objects won't have SSA check applied to render them further without noticeable pop-in
+  * `CPHSimpleCharacter::UpdateDynamicDamage` has try catch block to hopefully not crash
+  * Crash fix on `TTestDepthCallback` error
+  * `ph_ref_object` safety checks
+  * Fix flickering grass on some systems, ensures that MT_CALC finishes before render.
+  * Fixed `r2_mt 0` behaviour with grass
+  * Restored multithreaded HOM with additional thread safety
+  * Reduced possibility of UI crashes by reserving UI elements capacity a bit
 
 **2026.05.08**
 

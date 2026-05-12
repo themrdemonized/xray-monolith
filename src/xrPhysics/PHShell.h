@@ -158,6 +158,10 @@ public:
 
 	virtual void applyImpulse(const Fvector& dir, float val);
 	virtual void _BCL applyGravityAccel(const Fvector& accel);
+
+    float m_fScale;
+    virtual void SetScale(float scale);
+
 	virtual void setTorque(const Fvector& torque);
 	virtual void setForce(const Fvector& force);
 
