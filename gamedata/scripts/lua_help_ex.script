@@ -65,6 +65,9 @@
         g_decouple_horz_recoil // calculate horz recoil independently of vert recoil
         g_use_non_linear_inertia // enable non linear weapon inertia movement
 
+        ai_dispersion_novice_k [0; 10] // Stalker NPC weapon-dispersion scale on top of vanilla rank curve, at rank 0; live per shot. Default 1.0 (identity).
+        ai_dispersion_experienced_k [0; 10] // Stalker NPC weapon-dispersion scale on top of vanilla rank curve, at rank 100; live per shot. Default 1.0 (identity).
+
     }
 
     lua extensions {

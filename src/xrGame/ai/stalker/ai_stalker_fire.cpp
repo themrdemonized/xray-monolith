@@ -71,11 +71,18 @@ static float const min_throw_distance = 10.f;
 
 float g_dispersion_base = 1.0f;
 float g_dispersion_factor = 1.0f;
+float g_ai_dispersion_novice_k = 1.0f;
+float g_ai_dispersion_experienced_k = 1.0f;
 
 float CAI_Stalker::GetWeaponAccuracy() const
 {
 	float base = PI / 180.f;
 	base *= m_fRankDisperison;
+	// cvar-driven rank-curve scale on top of vanilla, identity at defaults (1.0 / 1.0)
+	CHARACTER_RANK_VALUE rank = Rank();
+	clamp(rank, 0, 100);
+	float rank_k = float(rank) / 100.f;
+	base *= g_ai_dispersion_experienced_k * rank_k + g_ai_dispersion_novice_k * (1.f - rank_k);
 	CWeapon* W = smart_cast<CWeapon*>(inventory().ActiveItem());
 
 	if (!movement().path_completed())

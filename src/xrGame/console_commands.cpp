@@ -3025,6 +3025,12 @@ void CCC_RegisterCommands()
 	extern float g_ai_aim_max_angle;
 	CMD4(CCC_Float, "ai_aim_max_angle", &g_ai_aim_max_angle, 0.f, 10.f*PI);
 
+	extern float g_ai_dispersion_novice_k;
+	CMD4(CCC_Float, "ai_dispersion_novice_k", &g_ai_dispersion_novice_k, 0.f, 10.f);
+
+	extern float g_ai_dispersion_experienced_k;
+	CMD4(CCC_Float, "ai_dispersion_experienced_k", &g_ai_dispersion_experienced_k, 0.f, 10.f);
+
 #ifdef DEBUG
 	extern BOOL g_debug_doors;
 	CMD4(CCC_Integer, "ai_debug_doors", &g_debug_doors, 0, 1);
