@@ -954,6 +954,18 @@
 	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_move_to_cover_run_desc">
 		<text>If enabled, NPCs will run instead of walk when taking cover during combat. This makes firefights more dynamic and prevents NPCs from slowly walking while under fire.</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_novice_k">
+		<text>AI Dispersion Scale at Rank 0 (ai_dispersion_novice_k)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_novice_k_desc">
+		<text>Multiplier applied on top of the vanilla rank-dispersion curve at rank 0 (novice).\n \nDefault: 1.0 (no change from vanilla).\n \nLower values reduce low-rank NPC dispersion; higher values increase it. Applies on every NPC's next shot.</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_experienced_k">
+		<text>AI Dispersion Scale at Rank 100 (ai_dispersion_experienced_k)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_experienced_k_desc">
+		<text>Multiplier applied on top of the vanilla rank-dispersion curve at rank 100 (legend tier; cvar name follows the vanilla LTX naming convention).\n \nDefault: 1.0 (no change from vanilla).\n \nLower values reduce high-rank NPC dispersion; higher values increase it. Applies on every NPC's next shot.</text>
+	</string>
 
 	<!-- Monsters -->
 	<string id="ui_mm_menu_monsters">

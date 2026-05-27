@@ -135,4 +135,21 @@ PAGE = page {
 		def = false,
 		cmd = "ai_move_to_cover_run",
 	},
+	line {},
+	track {
+		id = "ai_dispersion_novice_k",
+		def = 1.0,
+		min = 0.0,
+		max = 10.0,
+		step = 0.1,
+		cmd = "ai_dispersion_novice_k",
+	},
+	track {
+		id = "ai_dispersion_experienced_k",
+		def = 1.0,
+		min = 0.0,
+		max = 10.0,
+		step = 0.1,
+		cmd = "ai_dispersion_experienced_k",
+	},
 }

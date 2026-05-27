@@ -953,6 +953,18 @@
 	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_move_to_cover_run_desc">
 		<text>≈сли включено, NPC будут бежать, а не идти шагом при поиске укрыти€ во врем€ бо€. Ёто делает перестрелки более динамичными и не дает NPC медленно прогуливатьс€ под огнем.</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_novice_k">
+		<text>ћножитель разброса »» при ранге 0 (ai_dispersion_novice_k)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_novice_k_desc">
+		<text>ћножитель, примен€емый поверх стандартной кривой разброса по рангу при ранге 0 (новичок).\n \nѕо умолчанию: 1.0 (без изменений относительно оригинала).\n \nЅолее низкие значени€ уменьшают разброс у NPC низкого ранга, а более высокие увеличивают его. ѕримен€етс€ при следующем выстреле каждого NPC.</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_experienced_k">
+		<text>ћножитель разброса »» при ранге 100 (ai_dispersion_experienced_k)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_dispersion_experienced_k_desc">
+		<text>ћножитель, примен€емый поверх стандартной кривой разброса по рангу при ранге 100 (легенда; им€ cvar соответствует названию переменной в стандартном LTX).\n \nѕо умолчанию: 1.0 (без изменений относительно оригинала).\n \nЅолее низкие значени€ уменьшают разброс у NPC высокого ранга, а более высокие увеличивают его. ѕримен€етс€ при следующем выстреле каждого NPC.</text>
+	</string>
 
 	<!-- Monsters -->
 	<string id="ui_mm_menu_monsters">
