@@ -66,7 +66,6 @@ protected:
 	xrCriticalSection m_api_cs;
 	volatile BOOL m_bUpdateThreadRun;
 	volatile BOOL m_bUpdateThreadExited;
-	volatile BOOL m_heavy_load_active;
 	Fvector m_snap_P;
 	Fvector m_snap_D;
 	Fvector m_snap_N;
@@ -111,7 +110,8 @@ public:
 	virtual bool has_playing_emitter_for_owner(ref_sound_data* owner) const override;
 	virtual bool reconcile_emitter_feedback(ref_sound_data* owner) override;
 	virtual bool has_playing_persistent() const override;
-	virtual void set_heavy_load_active(bool active) override;
+	virtual void set_thread_enabled(bool enabled) override;
+	virtual bool thread_enabled() const override;
 
     // Called by CSoundRender_Emitter::set_persistent
     void anchor_persistent(CSoundRender_Emitter* E);

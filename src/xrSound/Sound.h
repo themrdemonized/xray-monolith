@@ -423,7 +423,8 @@ public:
 	virtual bool has_playing_emitter_for_owner(ref_sound_data* owner) const = 0;
 	virtual bool reconcile_emitter_feedback(ref_sound_data* owner) = 0;
 	virtual bool has_playing_persistent() const = 0;
-	virtual void set_heavy_load_active(bool active) = 0;
+	virtual void set_thread_enabled(bool enabled) = 0; // mt_sound: run OpenAL updates on the worker thread (1) or the main thread (0)
+	virtual bool thread_enabled() const = 0;
 	virtual int pause_emitters(bool val) = 0;
 
 	virtual void play(ref_sound& S, CObject* O, u32 flags = 0, float delay = 0.f) = 0;

@@ -7,6 +7,7 @@
 
 #include "../xrEngine/pure.h"
 #include "../xrEngine/XR_IOConsole.h"
+#include "../xrEngine/defines.h"
 #include "../xrCore/_math.h"
 
 #include <AL/efx.h>
@@ -67,8 +68,7 @@ void SoundRender_UpdateThread(void*)
 
 	while (SoundRender->m_bUpdateThreadRun)
 	{
-		const u32 sleep_ms = SoundRender->m_heavy_load_active ? 10u : SOUND_BG_SLEEP_MS;
-		Sleep(sleep_ms);
+		Sleep(SOUND_BG_SLEEP_MS);
 		if (!SoundRender->bReady)
 			continue;
 
@@ -539,7 +539,8 @@ void CSoundRender_CoreA::_initialize(int stage)
 			}
 		}
 #ifndef _EDITOR
-		update_thread_start();
+		if (psDeviceFlags.test(mtSound))
+			update_thread_start();
 #endif
 	}
 }

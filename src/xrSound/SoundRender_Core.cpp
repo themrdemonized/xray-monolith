@@ -51,7 +51,6 @@ CSoundRender_Core::CSoundRender_Core()
 	bLocked = FALSE;
 	m_bUpdateThreadRun = FALSE;
 	m_bUpdateThreadExited = TRUE;
-	m_heavy_load_active = FALSE;
 	m_snap_P.set(0, 0, 0);
 	m_snap_D.set(0, 0, 1);
 	m_snap_N.set(0, 1, 0);
@@ -305,9 +304,22 @@ void CSoundRender_Core::restart_emitters()
 			i_start(s_emitters[eit]);
 }
 
-void CSoundRender_Core::set_heavy_load_active(bool active)
+void CSoundRender_Core::set_thread_enabled(bool enabled)
 {
-	m_heavy_load_active = active ? TRUE : FALSE;
+	// Toggle the dedicated sound thread at runtime. When disabled the main thread
+	// performs the OpenAL updates directly (original, single-threaded behaviour).
+	if (enabled)
+	{
+		if (bPresent && bReady)
+			update_thread_start();
+	}
+	else
+		update_thread_stop();
+}
+
+bool CSoundRender_Core::thread_enabled() const
+{
+	return m_bUpdateThreadRun != FALSE;
 }
 
 bool CSoundRender_Core::use_background_update() const

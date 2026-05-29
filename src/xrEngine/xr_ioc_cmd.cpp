@@ -966,6 +966,19 @@ public:
 	}
 };
 
+class CCC_SndMT : public CCC_Mask
+{
+public:
+	CCC_SndMT(LPCSTR N, Flags32* V, u32 M) : CCC_Mask(N, V, M) {};
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Mask::Execute(args);
+		if (Sound)
+			Sound->set_thread_enabled(GetValue() != FALSE);
+	}
+};
+
 class CCC_Editor : public IConsole_Command
 {
 public:
@@ -1035,7 +1048,7 @@ void CCC_Register()
 	CMD1(CCC_LoadCFG, "cfg_load");
 
 	CMD3(CCC_Mask, "mt_particles", &psDeviceFlags, mtParticles);
-	CMD3(CCC_Mask, "mt_sound", &psDeviceFlags, mtSound);
+	CMD3(CCC_SndMT, "mt_sound", &psDeviceFlags, mtSound);
 
 #ifdef DEBUG
     CMD1(CCC_MotionsStat, "stat_motions");

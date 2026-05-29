@@ -361,11 +361,6 @@ void CRenderDevice::on_idle()
 	else g_bEnableStatGather = FALSE;
 	STOP_PROFILE;
 
-#ifndef DEDICATED_SERVER
-	if (::Sound)
-		::Sound->set_heavy_load_active(g_loading_events.size() > 0 || dwPrecacheFrame > 0);
-#endif
-
 	if (g_loading_events.size())
 	{
 		{
