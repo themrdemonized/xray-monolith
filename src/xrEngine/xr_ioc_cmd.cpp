@@ -12,6 +12,7 @@
 #include "CustomHUD.h"
 
 #include "../Include/xrRender/RenderDeviceRender.h"
+#include "../xrSound/Sound.h"
 
 #include "xr_object.h"
 #include "MonitorList.h"
@@ -599,6 +600,18 @@ public:
 	}
 };
 
+class CCC_SndStopPersistent : public IConsole_Command
+{
+public:
+	CCC_SndStopPersistent(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (Sound)
+			Sound->stop_persistent_emitters();
+	}
+};
+
 //-----------------------------------------------------------------------
 float ps_gamma = 1.f, ps_brightness = 1.f, ps_contrast = 1.f;
 
@@ -1022,6 +1035,7 @@ void CCC_Register()
 	CMD1(CCC_LoadCFG, "cfg_load");
 
 	CMD3(CCC_Mask, "mt_particles", &psDeviceFlags, mtParticles);
+	CMD3(CCC_Mask, "mt_sound", &psDeviceFlags, mtSound);
 
 #ifdef DEBUG
     CMD1(CCC_MotionsStat, "stat_motions");
@@ -1038,7 +1052,6 @@ void CCC_Register()
     CMD1(CCC_DbgStrCheck, "dbg_str_check");
     CMD1(CCC_DbgStrDump, "dbg_str_dump");
 
-    CMD3(CCC_Mask, "mt_sound", &psDeviceFlags, mtSound);
     CMD3(CCC_Mask, "mt_physics", &psDeviceFlags, mtPhysics);
     CMD3(CCC_Mask, "mt_network", &psDeviceFlags, mtNetwork);
 
@@ -1118,6 +1131,7 @@ void CCC_Register()
 	CMD2(CCC_Float, "snd_volume_eff", &psSoundVEffects);
 	CMD2(CCC_Float, "snd_volume_music", &psSoundVMusic);
 	CMD1(CCC_SND_Restart, "snd_restart");
+	CMD1(CCC_SndStopPersistent, "snd_stop_persistent");
 	CMD3(CCC_Mask, "snd_acceleration", &psSoundFlags, ss_Hardware);
 	CMD3(CCC_Mask, "snd_efx", &psSoundFlags, ss_EFX);
 	CMD4(CCC_Float, "snd_efx_environment_change_time", &snd_efx_environment_change_time, 0.f, 3.f);

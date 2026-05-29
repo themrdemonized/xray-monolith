@@ -74,18 +74,12 @@ IC bool CScriptSound::IsPlaying() const
 {
 	//  commented for comfort work with -nosound command line option
 	//	VERIFY				(m_sound._handle());
-	return (!!m_sound._feedback());
+	return m_sound.has_playing_emitter();
 }
 
 IC void CScriptSound::AttachTail(LPCSTR caSoundName)
 {
 	m_sound.attach_tail(caSoundName);
-}
-
-IC void CScriptSound::Stop()
-{
-	VERIFY(m_sound._handle());
-	m_sound.stop();
 }
 
 IC void CScriptSound::StopDeffered()

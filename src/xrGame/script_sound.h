@@ -12,6 +12,7 @@
 #include "ai_sounds.h"
 
 class CScriptGameObject;
+class CSound_emitter;
 
 class CScriptSound
 {
@@ -33,7 +34,7 @@ public:
 	void PlayNoFeedback(CScriptGameObject* object, u32 flags/*!< Looping */, float delay/*!< Delay */, Fvector pos,
 	                    float vol, float freq);
 	IC void AttachTail(LPCSTR caSoundName);
-	IC void Stop();
+	void Stop();
 	IC void StopDeffered();
 	IC void SetPosition(const Fvector& position);
 	IC void SetFrequency(float frequency);
@@ -48,6 +49,16 @@ public:
 	IC const float GetMaxDistance() const;
 	IC const float GetVolume() const;
 	IC bool IsPlaying() const;
+	void set_persistent(bool bPersist);
+	void set_persistent(bool bPersist, bool bPersistInMenu);
+	bool is_persistent() const;
+	bool is_persistent_in_menu() const;
+
+private:
+	void apply_pending_persistent();
+	CSound_emitter* active_emitter(bool reconcile = true);
+	bool m_bPersistentPending = false;
+	bool m_bPersistentInMenuPending = true;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

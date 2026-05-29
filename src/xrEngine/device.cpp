@@ -121,7 +121,9 @@ void CRenderDevice::End(void)
 #endif // #ifdef INGAME_EDITOR
 	if (dwPrecacheFrame)
 	{
-		::Sound->set_master_volume(0.f);
+		// Level precache mutes the OpenAL listener; skip while persistent PDA/music plays
+		if (::Sound && !::Sound->has_playing_persistent())
+			::Sound->set_master_volume(0.f);
 		dwPrecacheFrame--;
 
 		if (!dwPrecacheFrame)
@@ -359,6 +361,11 @@ void CRenderDevice::on_idle()
 	else g_bEnableStatGather = FALSE;
 	STOP_PROFILE;
 
+#ifndef DEDICATED_SERVER
+	if (::Sound)
+		::Sound->set_heavy_load_active(g_loading_events.size() > 0 || dwPrecacheFrame > 0);
+#endif
+
 	if (g_loading_events.size())
 	{
 		{
@@ -366,6 +373,11 @@ void CRenderDevice::on_idle()
 			if (g_loading_events.front()())
 				g_loading_events.pop_front();
 		}
+		// Keep listener snapshot fresh; SoundRender_UpdateThread refills OpenAL buffers
+#ifndef DEDICATED_SERVER
+		if (::Sound)
+			::Sound->update(Device.vCameraPosition, Device.vCameraDirection, Device.vCameraTop);
+#endif
 		PROF_EVENT("LoadDraw");
 		pApp->LoadDraw();
 		return;

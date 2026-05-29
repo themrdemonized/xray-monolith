@@ -11,7 +11,7 @@ u32 psCurrentVidMode[2] = {0, 0};
 u32 psCurrentBPP = 32;
 // release version always has "mt_*" enabled
 Flags32 psDeviceFlags = {
-	rsFullscreen | rsDetails | mtPhysics | mtSound | mtNetwork | rsDrawStatic | rsDrawDynamic | mtParticles
+	rsFullscreen | rsDetails | mtPhysics | mtNetwork | rsDrawStatic | rsDrawDynamic | mtParticles
 };
 
 // textures

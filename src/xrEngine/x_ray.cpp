@@ -1395,8 +1395,8 @@ CApplication::CApplication()
 	// Register us
 	Device.seqFrame.Add(this, REG_PRIORITY_HIGH + 1000);
 
-	if (psDeviceFlags.test(mtSound)) Device.seqFrameMT.Add(&SoundProcessor);
-	else Device.seqFrame.Add(&SoundProcessor);
+	// OpenAL updates run on SoundRender_UpdateThread; main thread only refreshes listener snapshot
+	Device.seqFrame.Add(&SoundProcessor);
 
 	Console->Show();
 
@@ -1414,7 +1414,6 @@ CApplication::~CApplication()
 	// font
 	xr_delete(pFontSystem);
 
-	Device.seqFrameMT.Remove(&SoundProcessor);
 	Device.seqFrame.Remove(&SoundProcessor);
 	Device.seqFrame.Remove(this);
 

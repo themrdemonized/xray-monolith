@@ -37,6 +37,11 @@ void CSoundRender_Emitter::start(ref_sound* _owner, BOOL _loop, float delay)
 void CSoundRender_Emitter::i_stop()
 {
 	bRewind = FALSE;
+	if (b_persistent)
+	{
+		SoundRender->release_persistent(this);
+		b_persistent = false;
+	}
 	if (target) SoundRender->i_stop(this);
 	if (owner_data)
 	{

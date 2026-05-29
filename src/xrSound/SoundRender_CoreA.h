@@ -19,6 +19,7 @@ class CSoundRender_CoreA : public CSoundRender_Core
 {
 	typedef CSoundRender_Core inherited;
 	friend class CNotificationClient;
+	friend void SoundRender_UpdateThread(void*);
 	
 	ALCdevice* pDevice;
 	ALCcontext* pContext;
@@ -97,6 +98,8 @@ public:
 	virtual void switch_device(LPCSTR device_name) override;
 
 	virtual void set_master_volume(float f);
+
+	void bind_context();
 
 	virtual const Fvector& listener_position() { return Listener.position; }
 

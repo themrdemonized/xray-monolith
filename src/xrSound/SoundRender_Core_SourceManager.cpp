@@ -32,7 +32,7 @@ void CSoundRender_Core::i_destroy_source(CSoundRender_Source* S)
 
 void CSoundRender_Core::i_create_all_sources()
 {
-	PROF_EVENT();
+	PROF_EVENT("CSoundRender_Core::i_create_all_sources");
 	CTimer T;
 	T.Start();
 

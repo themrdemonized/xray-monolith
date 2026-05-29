@@ -31,7 +31,8 @@ public:
 
 private:
 	bool need_preplay_update;
-
+	bool b_persistent; // survives level unload when true
+	bool b_persistent_in_menu;
 public:
 #ifdef DEBUG
 	u32							dbg_ID;
@@ -59,6 +60,11 @@ public:
 	BOOL bMoved;
 	BOOL b2D;
 	bool bIntro;
+	// CSound_emitter overrides
+	virtual void set_persistent(bool bPersist) override;
+	virtual bool is_persistent() const override { return b_persistent; }
+	virtual void set_persistent_in_menu(bool bPersistInMenu) override { b_persistent_in_menu = bPersistInMenu; }
+	virtual bool is_persistent_in_menu() const override { return b_persistent_in_menu; }
 	BOOL bStopping;
 	BOOL bRewind;
 	float fTimeStarted; // time of "Start"

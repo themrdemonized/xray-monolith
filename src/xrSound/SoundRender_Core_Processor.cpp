@@ -18,7 +18,7 @@ CSoundRender_Emitter* CSoundRender_Core::i_play(ref_sound* S, BOOL _loop, float 
 	return E;
 }
 
-void CSoundRender_Core::update(const Fvector& P, const Fvector& D, const Fvector& N)
+void CSoundRender_Core::update_impl(const Fvector& P, const Fvector& D, const Fvector& N)
 {
 	u32 it;
 

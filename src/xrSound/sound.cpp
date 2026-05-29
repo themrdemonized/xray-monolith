@@ -29,6 +29,8 @@ void CSound_manager_interface::_create(int stage)
 
 void CSound_manager_interface::_destroy()
 {
+	if (Sound)
+		Sound->stop_persistent_emitters();
 	Sound->_clear();
 	xr_delete(SoundRender);
 	Sound = 0;

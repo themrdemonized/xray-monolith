@@ -3,6 +3,7 @@
 #include "SoundRender.h"
 #include "SoundRender_Environment.h"
 #include "SoundRender_Cache.h"
+#include "../xrCore/xrSyncronize.h"
 
 class CNotificationClient;
 
@@ -56,6 +57,29 @@ protected:
 	CSoundRender_Environment s_user_environment;
 
 	int m_iPauseCounter;
+
+    // Persistent sound support
+    // One entry per persistent emitter: keeps owner_data alive across level GC.
+    xr_vector<ref_sound_data_ptr> s_persistent_refs;
+
+	// Background OpenAL update (level load blocks main thread for seconds at a time)
+	xrCriticalSection m_api_cs;
+	volatile BOOL m_bUpdateThreadRun;
+	volatile BOOL m_bUpdateThreadExited;
+	volatile BOOL m_heavy_load_active;
+	Fvector m_snap_P;
+	Fvector m_snap_D;
+	Fvector m_snap_N;
+
+	void update_impl(const Fvector& P, const Fvector& D, const Fvector& N);
+	void sound_api_enter();
+	void sound_api_leave();
+	bool use_background_update() const;
+
+	static bool emitter_belongs_to_owner(CSoundRender_Emitter* E, ref_sound_data* owner);
+	CSoundRender_Emitter* find_emitter_for_owner(ref_sound_data* owner, bool playing_only) const;
+
+	friend void SoundRender_UpdateThread(void*);
 public:
 	// Cache
 	CSoundRender_Cache cache;
@@ -82,6 +106,16 @@ public:
 	virtual void stop_emitters();
 	virtual void restart_emitters();
 	virtual int pause_emitters(bool val);
+    virtual void stop_persistent_emitters() override;
+	virtual void stop_emitters_for_owner(ref_sound_data* owner) override;
+	virtual bool has_playing_emitter_for_owner(ref_sound_data* owner) const override;
+	virtual bool reconcile_emitter_feedback(ref_sound_data* owner) override;
+	virtual bool has_playing_persistent() const override;
+	virtual void set_heavy_load_active(bool active) override;
+
+    // Called by CSoundRender_Emitter::set_persistent
+    void anchor_persistent(CSoundRender_Emitter* E);
+    void release_persistent(CSoundRender_Emitter* E);
 
 	virtual void play(ref_sound& S, CObject* O, u32 flags = 0, float delay = 0.f);
 	virtual void play_at_pos(ref_sound& S, CObject* O, const Fvector& pos, u32 flags = 0, float delay = 0.f);
@@ -93,7 +127,9 @@ public:
 	virtual void set_geometry_occ(CDB::MODEL* M);
 	virtual void set_handler(sound_event* E);
 
-	virtual void update(const Fvector& P, const Fvector& D, const Fvector& N);
+	virtual void update(const Fvector& P, const Fvector& D, const Fvector& N) override;
+	void update_thread_start();
+	void update_thread_stop();
 	virtual void update_events();
 	virtual void statistic(CSound_stats* dest, CSound_stats_ext* ext);
 
