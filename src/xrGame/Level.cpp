@@ -688,9 +688,9 @@ void CLevel::ProcessSpawnEvents()
             if (spawn_data_it->second.hasAlifeObject)
             {
                 auto obj = ai().alife().objects().object(obj_id);
-                if (!obj)
+                if (!obj || !obj->m_bOnline)
                 {
-                    if (spawn_antifreeze_debug) Msg("![ProcessSpawnEvents] object was in alife, but now is not, do not spawn, section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
+                    if (spawn_antifreeze_debug) Msg("![ProcessSpawnEvents] object absent or offline, do not spawn, section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
                     continue;
                 }
             }
