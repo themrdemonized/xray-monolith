@@ -13,6 +13,9 @@
 #include "../../script_game_object.h"
 #include "../../stalker_planner.h"
 
+extern bool get_ai_unlimited_ammo();
+extern void set_ai_unlimited_ammo(bool);
+
 using namespace luabind;
 
 #pragma optimize("s",on)
@@ -188,6 +191,9 @@ void CAI_Stalker::script_register(lua_State* L)
 		],
 
 		class_<CAI_Stalker, CGameObject>("CAI_Stalker")
-		.def(constructor<>())
+		.def(constructor<>()),
+
+		def("get_ai_unlimited_ammo", &::get_ai_unlimited_ammo),
+		def("set_ai_unlimited_ammo", &::set_ai_unlimited_ammo)
 	];
 }
