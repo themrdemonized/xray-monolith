@@ -1494,7 +1494,9 @@ void CAI_Stalker::aim_target(Fvector& result, const CGameObject* object)
 	u16 bone_id = kinematics->LL_BoneID(*m_aim_bone_id);
 	VERIFY2(bone_id != BI_NONE, make_string("Cannot find bone %s", bone_id));
 
-	kinematics->LL_GetBoneWorldPosition(bone_id, object->XFORM(), result);
+	Fmatrix bone_transform;
+	bone_transform.mul_43(object->XFORM(), kinematics->LL_GetTransform(bone_id));
+	result.set(bone_transform.c);
 }
 
 BOOL CAI_Stalker::AlwaysTheCrow()

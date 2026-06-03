@@ -85,6 +85,7 @@ class CWeaponShotEffector;
 struct SBoneProtections;
 class CDangerLocation;
 class CRestrictedObject;
+struct SHit;
 
 class CAI_Stalker :
 	public CCustomMonster,
@@ -214,7 +215,7 @@ public:
 	virtual void feel_touch_new(CObject* O);
 	virtual void feel_touch_delete(CObject* O);
 	void on_ownership_reject(CObject* O, bool just_before_destroy);
-	virtual void renderable_Render(IDSGraphManager* DM);
+	virtual void renderable_Render();
 	virtual void Exec_Look(float dt);
 	virtual void Hit(SHit* pHDS);
 	virtual void PHHit(SHit& H);
@@ -228,7 +229,7 @@ public:
 	bool LookAtActorLuaResult = true;
 
 #ifdef DEBUG
-	virtual void						OnHUDDraw							(CCustomHUD* hud, IDSGraphManager* DM);
+	virtual void						OnHUDDraw	(CCustomHUD* hud);
 	virtual void						OnRender							();
 			void						debug_text							();
 			bool						m_dbg_hud_draw						;
@@ -639,8 +640,8 @@ public:
 	IC float auto_queue_fire_dist_med() const;
 	IC float auto_queue_fire_dist_far() const;
 public:
-	typedef xr_delegate<void (const CCoverPoint*, const CCoverPoint*)> on_best_cover_changed_delegate;
-	typedef xr_delegate<bool (SHit const*)> HitCallback;
+	typedef fastdelegate::FastDelegate<void (const CCoverPoint*, const CCoverPoint*)> on_best_cover_changed_delegate;
+	typedef fastdelegate::FastDelegate<bool (SHit const*)> HitCallback;
 
 private:
 	typedef xr_vector<on_best_cover_changed_delegate> cover_delegates;
@@ -829,7 +830,7 @@ public:
 	bool use_smart_covers_only() const;
 
 public:
-	typedef xr_delegate<void (Fmatrix&)> EyeMatrixCallback;
+	typedef fastdelegate::FastDelegate<void (Fmatrix&)> EyeMatrixCallback;
 
 private:
 	virtual BOOL AlwaysTheCrow();

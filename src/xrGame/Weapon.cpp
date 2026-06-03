@@ -218,8 +218,8 @@ void CWeapon::UpdateXForm()
 	V->CalculateBones_Invalidate();
 	// V->CalculateBones(TRUE);
 
-	Fmatrix& mL = V->LL_GetTransform_safed(u16(boneL));
-	Fmatrix& mR = V->LL_GetTransform_safed(u16(boneR));
+	Fmatrix& mL = V->LL_GetTransform(u16(boneL));
+	Fmatrix& mR = V->LL_GetTransform(u16(boneR));
 	// Calculate
 	Fmatrix mRes;
 	Fvector R, D, N;
@@ -1399,7 +1399,7 @@ bool CWeapon::need_renderable()
 	return !Device.m_SecondViewport.IsSVPFrame() && !(IsZoomed() && ZoomTexture() && !IsRotatingToZoom());
 }
 
-void CWeapon::renderable_Render(IDSGraphManager* DM)
+void CWeapon::renderable_Render()
 {
 	//UpdateXForm();
 
@@ -1409,7 +1409,7 @@ void CWeapon::renderable_Render(IDSGraphManager* DM)
 	else
 		RenderHud(TRUE);
 
-	inherited::renderable_Render(DM);
+	inherited::renderable_Render();
 
 	//нарисовать подсветку
 	RenderLight();

@@ -67,7 +67,9 @@ bool CSightManager::aim_target(Fvector& my_position, Fvector& aim_target, const 
 			LPCSTR aim_bone = m_object->m_default_aim_bone.size() ? m_object->m_default_aim_bone.c_str() : "bip01_spine1";
 			u16 bone_id = kinematics->LL_BoneID(aim_bone);
 			if (bone_id == BI_NONE) bone_id = kinematics->LL_BoneID("bip01_spine1"); // fallback
-			kinematics->LL_GetBoneWorldPosition(bone_id, object->XFORM(), aim_target);
+			Fmatrix bone_transform;
+			bone_transform.mul_43(object->XFORM(), kinematics->LL_GetTransform(bone_id));
+			aim_target.set(bone_transform.c);
 		}
 
 		if (m_object->g_Alive())
@@ -108,7 +110,7 @@ bool CSightManager::aim_target(Fvector& my_position, Fvector& aim_target, const 
 		return (false);
 
 	if (GO->cast_actor())
-		m_object->Visual()->dcast_PKinematics()->CalculateBBox(FALSE);
+		m_object->Visual()->dcast_PKinematics()->CalculateBones(FALSE);
 
 	m_object->Center(my_position);
 #if 1

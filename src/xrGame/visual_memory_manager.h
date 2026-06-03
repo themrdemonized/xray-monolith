@@ -78,7 +78,7 @@ public:
 public:
 	u32 visible_object_time_last_seen(const CObject* object) const;
 
-protected:
+public:
 	void add_not_yet_visible_object(const CNotYetVisibleObject& not_yet_visible_object);
 	CNotYetVisibleObject* not_yet_visible_object(const CGameObject* game_object);
 
