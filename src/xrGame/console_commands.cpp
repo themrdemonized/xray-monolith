@@ -2733,7 +2733,21 @@ void CCC_RegisterCommands()
     extern u32 g_ai_aim_queue_inertia_time;
     CMD4(CCC_Integer, "ai_aim_inertia_time", (int*)&g_ai_aim_inertia_time, 0, 10000);
     CMD4(CCC_Integer, "ai_aim_queue_inertia_time", (int*)&g_ai_aim_queue_inertia_time, 0, 10000);
-    CMD4(CCC_Float, "ai_danger_ricochet_score", &g_ai_danger_ricochet_score, 0.0f, 10000.0f);
+    CMD4(CCC_Float, "ai_danger_ricochet_score",        &g_ai_danger_ricochet_score,        0.f, 10000.f);
+    extern float g_ai_danger_attack_sound_score;
+    extern float g_ai_danger_entity_attacked_score;
+    extern float g_ai_danger_entity_death_score;
+    extern float g_ai_danger_corpse_score;
+    extern float g_ai_danger_attacked_score;
+    extern float g_ai_danger_grenade_score;
+    extern float g_ai_danger_enemy_sound_score;
+    CMD4(CCC_Float, "ai_danger_attack_sound_score",    &g_ai_danger_attack_sound_score,    0.f, 10000.f);
+    CMD4(CCC_Float, "ai_danger_entity_attacked_score", &g_ai_danger_entity_attacked_score, 0.f, 10000.f);
+    CMD4(CCC_Float, "ai_danger_entity_death_score",    &g_ai_danger_entity_death_score,    0.f, 10000.f);
+    CMD4(CCC_Float, "ai_danger_corpse_score",          &g_ai_danger_corpse_score,          0.f, 10000.f);
+    CMD4(CCC_Float, "ai_danger_attacked_score",        &g_ai_danger_attacked_score,        0.f, 10000.f);
+    CMD4(CCC_Float, "ai_danger_grenade_score",         &g_ai_danger_grenade_score,         0.f, 10000.f);
+    CMD4(CCC_Float, "ai_danger_enemy_sound_score",     &g_ai_danger_enemy_sound_score,     0.f, 10000.f);
 	
 	extern BOOL g_ai_move_to_cover_run;
 	CMD4(CCC_Integer, "ai_move_to_cover_run", &g_ai_move_to_cover_run, 0, 1);

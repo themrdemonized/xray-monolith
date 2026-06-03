@@ -16,7 +16,14 @@
 #include "actor.h"
 #include "object_broker.h"
 
-float g_ai_danger_ricochet_score = 3000.f;
+float g_ai_danger_ricochet_score      = 3000.f;
+float g_ai_danger_attack_sound_score  = 2500.f;
+float g_ai_danger_entity_attacked_score = 2000.f;
+float g_ai_danger_entity_death_score  = 3000.f;
+float g_ai_danger_corpse_score        = 2250.f;
+float g_ai_danger_attacked_score      = 2000.f;
+float g_ai_danger_grenade_score       = 1000.f;
+float g_ai_danger_enemy_sound_score   = 1000.f;
 
 struct CDangerPredicate
 {
@@ -211,43 +218,43 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 	case CDangerObject::eDangerTypeAttackSound:
 		{
 			// someone is shooting
-			result += 2500.f;
+			result += g_ai_danger_attack_sound_score;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityAttacked:
 		{
 			// someone is hit
-			result += 2000.f;
+			result += g_ai_danger_entity_attacked_score;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityDeath:
 		{
 			// someone becomes dead
-			result += 3000.f;
+			result += g_ai_danger_entity_death_score;
 			break;
 		}
 	case CDangerObject::eDangerTypeFreshEntityCorpse:
 		{
 			// I see a corpse
-			result += 2250.f;
+			result += g_ai_danger_corpse_score;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttacked:
 		{
 			// someone is attacked
-			result += 2000.f;
+			result += g_ai_danger_attacked_score;
 			break;
 		}
 	case CDangerObject::eDangerTypeGrenade:
 		{
 			// grenade to explode nearby
-			result += 1000.f;
+			result += g_ai_danger_grenade_score;
 			break;
 		}
 	case CDangerObject::eDangerTypeEnemySound:
 		{
-			// grenade to explode nearby
-			result += 1000.f;
+			// enemy sound nearby
+			result += g_ai_danger_enemy_sound_score;
 			break;
 		}
 	default: NODEFAULT;

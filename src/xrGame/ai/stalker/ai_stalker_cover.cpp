@@ -293,15 +293,22 @@ void CAI_Stalker::on_enemy_change(const CEntityAlive* enemy)
 
 void CAI_Stalker::on_danger_location_add(const CDangerLocation& location)
 {
-	if (!m_best_cover)
-		return;
+	const bool in_open = !m_best_cover;
+	const bool cover_threatened = !in_open &&
+		m_best_cover->position().distance_to_sqr(location.position()) <= _sqr(location.m_radius);
 
-	if (m_best_cover->position().distance_to_sqr(location.position()) <= _sqr(location.m_radius))
+	if (cover_threatened)
 	{
 #ifdef _DEBUG
 		//		Msg								("* [%6d][%s] on_danger_add",Device.dwTimeGlobal,*cName());
 #endif
 		m_best_cover_actual = false;
+	}
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnDangerLocationAdd", funct))
+			funct(lua_game_object(), location.position(), location.m_radius, in_open, cover_threatened);
 	}
 }
 

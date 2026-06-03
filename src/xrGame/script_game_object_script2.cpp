@@ -144,6 +144,7 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("who_hit_section_name", SAFE_WRAP(&CScriptGameObject::WhoHitSectionName))
 
 		.def("rank", SAFE_WRAP(&CScriptGameObject::GetRank))
+		.def("rank_name", SAFE_WRAP(&CScriptGameObject::GetRankName))
 		.def("command", SAFE_WRAP(&CScriptGameObject::AddAction))
 		.def("action", SAFE_WRAP(&CScriptGameObject::GetCurrentAction), adopt<result>())
 		.def("object_count", SAFE_WRAP(&CScriptGameObject::GetInventoryObjectCount))

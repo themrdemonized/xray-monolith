@@ -350,6 +350,16 @@ _G.CAI_Stalker__OnCriticallyWounded = function(npc, hit, bone_id)
 	SendScriptCallback("npc_on_critically_wounded", npc, hit, bone_id)
 end
 
+-- NPC danger location added callback. Fires when any danger (bullets, grenade, death, sound)
+-- is registered near the NPC. in_open=true when NPC has no cover point selected.
+-- cover_threatened=true when the danger overlaps the NPC's current cover position.
+-- Use npc:best_cover_invalidate() to force cover re-evaluation.
+-- Use npc:rank_name() to scale reaction threshold by rank.
+AddScriptCallback("npc_on_danger_location_add")
+_G.CAI_Stalker__OnDangerLocationAdd = function(npc, pos, radius, in_open, cover_threatened)
+	SendScriptCallback("npc_on_danger_location_add", npc, pos, radius, in_open, cover_threatened)
+end
+
 -- NPC enemy selected/lost callback. new_enemy is nil on target loss
 AddScriptCallback("npc_on_enemy_selected")
 _G.CAI_Stalker__OnEnemySelected = function(npc, new_enemy)

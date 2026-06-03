@@ -66,6 +66,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("active_sound_count", SAFE_WRAP((int (CScriptGameObject::*)())(&CScriptGameObject::active_sound_count)))
 		.def("active_sound_count", SAFE_WRAP((int (CScriptGameObject::*)(bool))(&CScriptGameObject::active_sound_count)))
 		.def("best_cover", SAFE_WRAP(&CScriptGameObject::best_cover))
+		.def("best_cover_invalidate", SAFE_WRAP(&CScriptGameObject::best_cover_invalidate))
 		.def("safe_cover", SAFE_WRAP(&CScriptGameObject::safe_cover))
 		.def("spawn_ini", SAFE_WRAP(&CScriptGameObject::spawn_ini))
 		.def("memory_remove_links", SAFE_WRAP(&CScriptGameObject::memory_remove_links))

@@ -582,6 +582,30 @@ CHARACTER_RANK_VALUE CScriptGameObject::GetRank()
 		return (stalker->Rank());
 }
 
+LPCSTR CScriptGameObject::GetRankName()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member GetRankName!");
+		return ("");
+	}
+	return (*stalker->CharacterInfo().Rank().id());
+}
+
+void CScriptGameObject::best_cover_invalidate()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member best_cover_invalidate!");
+		return;
+	}
+	stalker->best_cover_invalidate();
+}
+
 void CScriptGameObject::set_desired_position()
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
