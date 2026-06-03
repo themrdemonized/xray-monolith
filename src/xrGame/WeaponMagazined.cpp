@@ -23,6 +23,7 @@
 #include "script_game_object.h"
 #include "player_hud.h"
 #include "HudSound.h"
+#include "ai/stalker/ai_stalker.h"
 
 #include "../build_config_defines.h"
 #include "WeaponRG6.h"
@@ -1883,7 +1884,10 @@ void CWeaponMagazined::OnH_A_Chield()
 
 void CWeaponMagazined::SetQueueSize(int size)
 {
-	m_iQueueSize = size;
+	if (H_Parent() && smart_cast<CAI_Stalker*>(H_Parent()) && GetCurrentFireMode() == -1)
+		m_iQueueSize = -1;
+	else
+		m_iQueueSize = size;
 };
 
 float CWeaponMagazined::GetWeaponDeterioration()
