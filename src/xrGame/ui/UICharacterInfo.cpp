@@ -116,6 +116,9 @@ void CUICharacterInfo::Init_IconInfoItem(CUIXml& xml_doc, LPCSTR item_str, UIIte
 		CUIStatic* pItem = m_icons[type] = xr_new<CUIStatic>();
 		CUIXmlInit::InitStatic(xml_doc, item_str, 0, pItem);
 
+		if (type == eIcon)
+			pItem->SetCoverTexture(true);
+
 		//.		pItem->ClipperOn();
 		pItem->Show(true);
 		pItem->Enable(true);
