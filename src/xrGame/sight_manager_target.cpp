@@ -86,7 +86,7 @@ bool CSightManager::aim_target(Fvector& my_position, Fvector& aim_target, const 
 					if (wpn)
 					{
 						// Calculate effective bullet speed
-						// bullet_speed = wpn->GetBaseDispersionedBulletsSpeed();
+						bullet_speed = wpn->GetBulletSpeed();
 					}
 
 					if (bullet_speed > 0.1f)

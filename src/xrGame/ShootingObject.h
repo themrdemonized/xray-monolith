@@ -57,11 +57,11 @@ protected:
 	                        bool send_hit,
 	                        int iShotNum = 0);
 	void SetBulletSpeed(float new_speed) { m_fStartBulletSpeed = new_speed; }
-	float GetBulletSpeed() { return m_fStartBulletSpeed; }
 
 	virtual void FireStart();
 	virtual void FireEnd();
 public:
+	float GetBulletSpeed() { return m_fStartBulletSpeed; }
 	IC BOOL IsWorking() const { return bWorking; }
 	virtual BOOL ParentMayHaveAimBullet() { return FALSE; }
 	virtual bool SOParentIsActor() { return false; }

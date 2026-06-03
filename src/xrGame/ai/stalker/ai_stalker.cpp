@@ -1251,7 +1251,7 @@ void CAI_Stalker::Think()
 			{
 				brain().update(update_delta);
 			}
-			/*catch (::luabind::cast_failed &message) 
+/*			catch (::luabind::cast_failed &message) 
 			{
 				Msg						("! Expression \"%s\" from ::luabind::object to %s", message.what(), message.info()->name());
 			}
@@ -1261,7 +1261,7 @@ void CAI_Stalker::Think()
 			}*/
 			catch (...) 
 			{
-				//Msg						("! unknown exception occured");
+				Msg						("! unknown exception occured");
 			}
 		STOP_PROFILE
 
@@ -1488,11 +1488,25 @@ void CAI_Stalker::aim_target(Fvector& result, const CGameObject* object)
 {
 	VERIFY(m_aim_bone_id.size());
 
+	shared_str current_aim_bone = m_aim_bone_id;
+
+	if (best_weapon())
+	{
+		CWeapon* wpn = smart_cast<CWeapon*>(best_weapon());
+		if (wpn && pSettings->line_exist(wpn->cNameSect(), "weapon_class"))
+		{
+			if (xr_strcmp(pSettings->r_string(wpn->cNameSect(), "weapon_class"), "sniper_rifle") == 0)
+			{
+				current_aim_bone = "bip01_head";
+			}
+		}
+	}
+
 	IKinematics* kinematics = PKinematics(object->Visual());
 	VERIFY(kinematics);
 
-	u16 bone_id = kinematics->LL_BoneID(*m_aim_bone_id);
-	VERIFY2(bone_id != BI_NONE, make_string("Cannot find bone %s", bone_id));
+	u16 bone_id = kinematics->LL_BoneID(*current_aim_bone);
+	VERIFY2(bone_id != BI_NONE, make_string("Cannot find bone %s", current_aim_bone.c_str()));
 
 	Fmatrix bone_transform;
 	bone_transform.mul_43(object->XFORM(), kinematics->LL_GetTransform(bone_id));
