@@ -283,6 +283,7 @@ extern float movement_manager_move_along_path_query_pos_threshold_sqr;
 ENGINE_API extern float g_console_sensitive;
 
 extern BOOL g_auto_reload;
+BOOL g_launcher_dynamic_range_zoom = TRUE;
 u32 g_dead_body_collision = 1;
 
 extern int RESTRICTION_REBUILD_SMOOTH_FRAMES;
@@ -2761,6 +2762,7 @@ void CCC_RegisterCommands()
 	CrosshairFarCommands(g_crosshair_device_far, "device_far");
 
 	CMD4(CCC_Integer, "g_decouple_horz_recoil", &g_decouple_horz_recoil, 0, 1);
+	CMD4(CCC_Integer, "g_launcher_dynamic_range_zoom", &g_launcher_dynamic_range_zoom, 0, 1);
 	CMD4(CCC_Integer, "g_use_non_linear_inertia", &g_use_non_linear_inertia, 0, 1);
 
     extern XRPHYSICS_API BOOL g_clamp_actor_camera_collision;
