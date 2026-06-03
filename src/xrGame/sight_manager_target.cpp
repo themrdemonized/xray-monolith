@@ -14,6 +14,11 @@
 #include "ai_space.h"
 #include "ai/stalker/ai_stalker_space.h"
 #include "detail_path_manager.h"
+#include "Weapon.h"
+#include "CharacterPhysicsSupport.h"
+#include "PHMovementControl.h"
+#include "inventory.h"
+#include "specific_character.h"
 
 void CSightManager::SetPointLookAngles(const Fvector& tPosition, float& yaw, float& pitch, Fvector const& look_position,
                                        const CGameObject* object)
@@ -59,9 +64,43 @@ bool CSightManager::aim_target(Fvector& my_position, Fvector& aim_target, const 
 		else
 		{
 			IKinematics* kinematics = PKinematics(object->Visual());
-			u16 bone_id = kinematics->LL_BoneID("bip01_head");
+			LPCSTR aim_bone = m_object->m_default_aim_bone.size() ? m_object->m_default_aim_bone.c_str() : "bip01_spine1";
+			u16 bone_id = kinematics->LL_BoneID(aim_bone);
+			if (bone_id == BI_NONE) bone_id = kinematics->LL_BoneID("bip01_spine1"); // fallback
 			kinematics->LL_GetBoneWorldPosition(bone_id, object->XFORM(), aim_target);
 		}
+
+		if (m_object->g_Alive())
+		{
+			CEntityAlive* entity = smart_cast<CEntityAlive*>(GO);
+			if (entity && entity->character_physics_support() && entity->character_physics_support()->movement())
+			{
+				Fvector target_vel = entity->character_physics_support()->movement()->GetVelocity();
+				if (target_vel.magnitude() > 0.1f)
+				{
+					float distance = m_object->Position().distance_to(aim_target);
+					float bullet_speed = 800.f; // fallback
+					CWeapon* wpn = smart_cast<CWeapon*>(m_object->inventory().ActiveItem());
+					if (wpn)
+					{
+						// Calculate effective bullet speed
+						// bullet_speed = wpn->GetBaseDispersionedBulletsSpeed();
+					}
+
+					if (bullet_speed > 0.1f)
+					{
+						float time_to_hit = distance / bullet_speed;
+						float lead_factor = m_object->Rank() / 1000.f; // Max rank ~1000 usually
+						clamp(lead_factor, 0.f, 1.f);
+
+						Fvector lead_offset;
+						lead_offset.mul(target_vel, time_to_hit * lead_factor);
+						aim_target.add(lead_offset);
+					}
+				}
+			}
+		}
+
 		return (true);
 	}
 

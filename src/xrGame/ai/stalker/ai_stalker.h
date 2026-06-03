@@ -113,17 +113,6 @@ private:
 private:
 	SBoneProtections* m_boneHitProtection;
 
-	// weapon dispersion
-private:
-	float m_disp_walk_stand;
-	float m_disp_walk_crouch;
-	float m_disp_run_stand;
-	float m_disp_run_crouch;
-	float m_disp_stand_stand;
-	float m_disp_stand_crouch;
-	float m_disp_stand_stand_zoom;
-	float m_disp_stand_crouch_zoom;
-
 private:
 	float m_power_fx_factor;
 
@@ -823,6 +812,8 @@ public:
 
 private:
 	shared_str m_aim_bone_id;
+public:
+	shared_str m_default_aim_bone;
 
 public:
 	void aim_bone_id(shared_str const& bone_id);

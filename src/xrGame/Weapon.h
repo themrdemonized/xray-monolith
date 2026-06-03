@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "../xrphysics/PhysicsShell.h"
 #include "weaponammo.h"
@@ -1132,12 +1132,6 @@ private:
 	bool install_upgrade_addon(LPCSTR section, bool test);
 protected:
 	virtual bool install_upgrade_impl(LPCSTR section, bool test);
-
-private:
-	float m_hit_probability[egdCount];
-
-public:
-	const float& hit_probability() const;
 
 private:
 	Fvector m_overriden_activation_speed;

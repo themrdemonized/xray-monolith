@@ -860,13 +860,6 @@ void CWeapon::Load(LPCSTR section)
 	// momopate
 	m_bSilencedTracers = READ_IF_EXISTS(pSettings, r_bool, section, "silenced_tracers", false);
 
-	string256 temp;
-	for (int i = egdNovice; i < egdCount; ++i)
-	{
-		strconcat(sizeof(temp), temp, "hit_probability_", get_token_name(difficulty_type_token, i));
-		m_hit_probability[i] = READ_IF_EXISTS(pSettings, r_float, section, temp, 1.f);
-	}
-
 	m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, section, "scope_dynamic_zoom", FALSE);
 	m_zoom_params.m_sUseZoomPostprocess = 0;
 	m_zoom_params.m_sUseBinocularVision = 0;
@@ -1759,35 +1752,21 @@ float CWeapon::GetConditionMisfireProbability() const
 	// modified by Peacemaker [17.10.08]
 	//	if(GetCondition() > 0.95f)
 	//		return 0.0f;
-    float result = 0.0f;
 	if (GetCondition() > misfireStartCondition)
-        result = 0.0f;
-	else if (GetCondition() < misfireEndCondition)
-        result = misfireEndProbability;
-    else
-    {
-        //	float mis = misfireProbability+powf(1.f-GetCondition(), 3.f)*misfireConditionK;
-        result = misfireStartProbability + (
-            (misfireStartCondition - GetCondition()) * // condition goes from 1.f to 0.f
-            (misfireEndProbability - misfireStartProbability) / // probability goes from 0.f to 1.f
-            ((misfireStartCondition == misfireEndCondition)
-                ? // !!!say "No" to devision by zero
-                misfireStartCondition
-                : (misfireStartCondition - misfireEndCondition))
-            );
-        
-    }
-    if (!smart_cast<CActor*>(H_Parent()))
-    {
-        ::luabind::functor<float> funct;
-        if (ai().script_engine().functor("xr_weapon_jam.GetConditionMisfireProbability", funct))
-        {
-            auto gobj = smart_cast<CGameObject*>(H_Parent());
-            result = funct(lua_game_object(), gobj ? gobj->lua_game_object() : nullptr, result);
-        }
-    }
-    clamp(result, 0.0f, 1.f);
-	return result;
+		return 0.0f;
+	if (GetCondition() < misfireEndCondition)
+		return misfireEndProbability;
+	//	float mis = misfireProbability+powf(1.f-GetCondition(), 3.f)*misfireConditionK;
+	float mis = misfireStartProbability + (
+		(misfireStartCondition - GetCondition()) * // condition goes from 1.f to 0.f
+		(misfireEndProbability - misfireStartProbability) / // probability goes from 0.f to 1.f
+		((misfireStartCondition == misfireEndCondition)
+			 ? // !!!say "No" to devision by zero
+			 misfireStartCondition
+			 : (misfireStartCondition - misfireEndCondition))
+	);
+	clamp(mis, 0.0f, 0.99f);
+	return mis;
 }
 
 BOOL CWeapon::CheckForMisfire()
@@ -3142,12 +3121,6 @@ void CWeapon::debug_draw_firedeps()
             render.draw_aabb(get_LastSP(),		0.005f,0.005f,0.005f,D3DCOLOR_XRGB(0,255,0));
     }
 #endif // DEBUG
-}
-
-const float& CWeapon::hit_probability() const
-{
-	VERIFY((g_SingleGameDifficulty >= egdNovice) && (g_SingleGameDifficulty <= egdMaster));
-	return (m_hit_probability[egdNovice]);
 }
 
 void CWeapon::OnStateSwitch(u32 S, u32 oldState)

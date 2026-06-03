@@ -314,15 +314,6 @@ void CAI_Stalker::reload(LPCSTR section)
 	if (!already_dead())
 		movement().reload(section);
 
-	m_disp_walk_stand = pSettings->r_float(section, "disp_walk_stand");
-	m_disp_walk_crouch = pSettings->r_float(section, "disp_walk_crouch");
-	m_disp_run_stand = pSettings->r_float(section, "disp_run_stand");
-	m_disp_run_crouch = pSettings->r_float(section, "disp_run_crouch");
-	m_disp_stand_stand = pSettings->r_float(section, "disp_stand_stand");
-	m_disp_stand_crouch = pSettings->r_float(section, "disp_stand_crouch");
-	m_disp_stand_stand_zoom = pSettings->r_float(section, "disp_stand_stand_zoom");
-	m_disp_stand_crouch_zoom = pSettings->r_float(section, "disp_stand_crouch_zoom");
-
 	m_can_select_weapon = true;
 
 	LPCSTR queue_sect = pSettings->r_string(*cNameSect(), "fire_queue_section");
@@ -655,6 +646,8 @@ void CAI_Stalker::Load(LPCSTR section)
 	m_pPhysics_support->in_Load(section);
 
 	m_can_select_items = !!pSettings->r_bool(section, "can_select_items");
+	
+	m_default_aim_bone = pSettings->line_exist(section, "default_aim_bone") ? pSettings->r_string(section, "default_aim_bone") : "bip01_spine1";
 }
 
 BOOL CAI_Stalker::net_Spawn(CSE_Abstract* DC)

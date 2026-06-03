@@ -835,6 +835,9 @@ public:
 	void aim_bone_id(LPCSTR value);
 	LPCSTR aim_bone_id() const;
 
+	float weapon_accuracy() const;
+	void set_queue_size(int size);
+
 	void register_in_combat();
 	void unregister_in_combat();
 	CCoverPoint const* find_best_cover(Fvector position_to_cover_from);

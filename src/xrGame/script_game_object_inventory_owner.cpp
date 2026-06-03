@@ -1942,6 +1942,31 @@ LPCSTR CScriptGameObject::aim_bone_id() const
 	return (stalker->aim_bone_id().c_str());
 }
 
+float CScriptGameObject::weapon_accuracy() const
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			make_string("CAI_Stalker [%s]: cannot access class member weapon_accuracy!", object().cNameSect().c_str()).c_str());
+		return 0.f;
+	}
+
+	return stalker->GetWeaponAccuracy();
+}
+
+void CScriptGameObject::set_queue_size(int size)
+{
+	CWeaponMagazined* weapon = smart_cast<CWeaponMagazined*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			make_string("CWeaponMagazined [%s]: cannot access class member set_queue_size!", object().cNameSect().c_str()).c_str());
+		return;
+	}
+	weapon->SetQueueSize(size);
+}
+
 void CScriptGameObject::register_in_combat()
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
