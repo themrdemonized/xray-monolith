@@ -344,6 +344,41 @@ _G.CNPCBeforeLookAtActor = function(npc, distance)
 	return flags.ret_value
 end
 
+-- npc_on_enemy_selected
+-- Fires when an NPC acquires or loses its selected enemy.
+-- new_enemy is nil when the NPC loses its target.
+AddScriptCallback("npc_on_enemy_selected")
+function _G.CAI_Stalker__OnEnemySelected(npc, new_enemy)
+	SendScriptCallback("npc_on_enemy_selected", npc, new_enemy)
+end
+
+-- npc_on_combat_action_changed
+-- Fires when the NPC's GOAP combat planner transitions to a new action.
+-- old_op and new_op are EWorldOperators integers:
+--   TakeCover=21, LookOut=22, HoldPosition=23, DetourEnemy=25, SearchEnemy=26
+AddScriptCallback("npc_on_combat_action_changed")
+function _G.CAI_Stalker__OnCombatActionChanged(npc, old_op, new_op)
+	SendScriptCallback("npc_on_combat_action_changed", npc, old_op, new_op)
+end
+
+-- npc_on_hit_reaction
+-- Fires after an NPC is hit and damage is applied.
+-- is_in_cover indicates whether brain().affect_cover() was true at time of hit.
+-- Mods can call npc:best_cover_invalidate() to force repositioning.
+AddScriptCallback("npc_on_hit_reaction")
+function _G.CAI_Stalker__OnHitReaction(npc, hit, bone_id, is_in_cover)
+	SendScriptCallback("npc_on_hit_reaction", npc, hit, bone_id, is_in_cover)
+end
+
+-- npc_on_take_cover_destination
+-- Fires when TakeCover selects a cover point (only when a real cover point is found,
+-- NOT when falling back to teammate stacking or nearest accessible position).
+-- cover_pos is the Fvector position of the chosen cover point.
+AddScriptCallback("npc_on_take_cover_destination")
+function _G.CAI_Stalker__OnTakeCoverDestination(npc, cover_pos, enemy)
+	SendScriptCallback("npc_on_take_cover_destination", npc, cover_pos, enemy)
+end
+
 -- actor_on_task_callback
 AddScriptCallback("actor_on_task_callback")
 task_callback = task_manager.task_callback

@@ -591,6 +591,17 @@ void CStalkerActionTakeCover::execute()
 	{
 		setup_cover(*point);
 
+		{
+			::luabind::functor<void> funct;
+			if (ai().script_engine().functor("_G.CAI_Stalker__OnTakeCoverDestination", funct))
+			{
+				const CEntityAlive* enemy = object().memory().enemy().selected();
+				funct(object().lua_game_object(),
+				      point->position(),
+				      enemy ? enemy->lua_game_object() : nullptr);
+			}
+		}
+
 		if (object().movement().path_completed() && object().Position().distance_to(point->position()) < 1.f)
 			object().brain().affect_cover(true);
 		else
