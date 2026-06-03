@@ -50,11 +50,9 @@ extern BOOL g_ai_move_to_cover_run;
 float g_ai_cover_detour_radius  = 5.f;
 u32   g_ai_cover_detour_time     = 120000;
 
-const float CLOSE_MOVE_DISTANCE = 1.5f;
-
-const u32 CROUCH_LOOK_OUT_DELTA = 5000;
-
-static const u32 s_wait_enemy_in_smart_cover_time = 30 * 1000;
+float g_ai_close_move_distance         = 1.5f;
+u32   g_ai_crouch_look_out_delta       = 5000;
+u32   g_ai_wait_in_smart_cover_time    = 30000;
 
 using namespace StalkerSpace;
 using namespace StalkerDecisionSpace;
@@ -375,10 +373,10 @@ void CStalkerActionGetReadyToKill::execute()
 #ifdef COMBAT_BODY_STATE_OVERRIDE
 	EWorldOperators wo = eWorldOperatorGetReadyToKill;
 	EBodyState body_state = eBodyStateStand;
-	if (object().movement().detail().distance_to_target() > CLOSE_MOVE_DISTANCE)
+	if (object().movement().detail().distance_to_target() > g_ai_close_move_distance)
 		object().movement().set_body_state(object().movement().body_state_combat_override(wo, body_state));
 #else
-	if (object().movement().detail().distance_to_target() > CLOSE_MOVE_DISTANCE)
+	if (object().movement().detail().distance_to_target() > g_ai_close_move_distance)
 		object().movement().set_body_state(eBodyStateStand);
 #endif
 	//	else {
@@ -576,7 +574,7 @@ void CStalkerActionTakeCover::execute()
 	EBodyState body_state = eBodyStateStand;
 #endif
 
-	if (object().movement().detail().distance_to_target() > CLOSE_MOVE_DISTANCE)
+	if (object().movement().detail().distance_to_target() > g_ai_close_move_distance)
 #ifdef COMBAT_BODY_STATE_OVERRIDE
 		object().movement().set_body_state(object().movement().body_state_combat_override(wo, body_state));
 #else
@@ -686,7 +684,7 @@ void CStalkerActionLookOut::initialize()
 {
 	inherited::initialize();
 
-	if (Device.dwTimeGlobal >= m_last_change_time + CROUCH_LOOK_OUT_DELTA)
+	if (Device.dwTimeGlobal >= m_last_change_time + g_ai_crouch_look_out_delta)
 	{
 		m_storage->set_property(eWorldPropertyUseCrouchToLookOut, !!m_crouch_look_out_random.random(2));
 		m_last_change_time = Device.dwTimeGlobal;
@@ -1652,7 +1650,7 @@ void CStalkerCombatActionSmartCover::execute()
 		return;
 
 	u32 const level_time = object().memory().visual().visible_object_time_last_seen(enemy);
-	if (level_time + s_wait_enemy_in_smart_cover_time >= Device.dwTimeGlobal)
+	if (level_time + g_ai_wait_in_smart_cover_time >= Device.dwTimeGlobal)
 		return;
 
 	if (

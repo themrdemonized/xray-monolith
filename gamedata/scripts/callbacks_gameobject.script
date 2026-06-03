@@ -360,6 +360,48 @@ _G.CAI_Stalker__OnDangerLocationAdd = function(npc, pos, radius, in_open, cover_
 	SendScriptCallback("npc_on_danger_location_add", npc, pos, radius, in_open, cover_threatened)
 end
 
+-- NPC weapon shot start callback. weapon is the weapon being fired
+AddScriptCallback("npc_on_weapon_shot_start")
+_G.CAI_Stalker__OnWeaponShotStart = function(npc, weapon)
+	SendScriptCallback("npc_on_weapon_shot_start", npc, weapon)
+end
+
+-- NPC weapon shot stop callback. Fires when the NPC stops firing
+AddScriptCallback("npc_on_weapon_shot_stop")
+_G.CAI_Stalker__OnWeaponShotStop = function(npc)
+	SendScriptCallback("npc_on_weapon_shot_stop", npc)
+end
+
+-- NPC grenade throw gate. Return false to prevent the throw. Use npc:rank_name() to scale by rank
+-- Note: only fires when throw trajectory is clear, after engine validity checks pass
+AddScriptCallback("npc_on_should_throw")
+_G.CAI_Stalker__ShouldThrow = function(npc)
+	local flags = { ret_value = true }
+	SendScriptCallback("npc_on_should_throw", npc, flags)
+	return flags.ret_value
+end
+
+-- NPC grenade throw force override. Return a float to override throw force. Uses _g lowercase convention (return-value hook)
+-- Lower values = shorter throw range. Use npc:rank_name() to scale by rank
+_g.CAI_Stalker__GetMissileThrowForce = function(npc, base_force)
+	local flags = { ret_value = base_force }
+	SendScriptCallback("npc_on_missile_throw_force", npc, base_force, flags)
+	return flags.ret_value
+end
+AddScriptCallback("npc_on_missile_throw_force")
+
+-- NPC wounded/killed an enemy callback. victim is the enemy that was wounded or killed
+AddScriptCallback("npc_on_enemy_wounded_or_killed")
+_G.CAI_Stalker__OnEnemyWoundedOrKilled = function(npc, victim)
+	SendScriptCallback("npc_on_enemy_wounded_or_killed", npc, victim)
+end
+
+-- NPC squad member death reaction callback. member is the affected member, is_alive=true if wounded (not dead)
+AddScriptCallback("npc_on_member_death_reaction")
+_G.CAI_Stalker__OnMemberDeathReaction = function(npc, member, is_alive)
+	SendScriptCallback("npc_on_member_death_reaction", npc, member, is_alive)
+end
+
 -- NPC enemy selected/lost callback. new_enemy is nil on target loss
 AddScriptCallback("npc_on_enemy_selected")
 _G.CAI_Stalker__OnEnemySelected = function(npc, new_enemy)

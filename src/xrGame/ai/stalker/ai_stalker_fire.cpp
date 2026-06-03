@@ -951,6 +951,12 @@ void CAI_Stalker::on_weapon_shot_start(CWeapon* weapon)
 {
 	weapon_shot_effector().SetRndSeed(m_weapon_shot_random_seed);
 	weapon_shot_effector().Shot(weapon);
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnWeaponShotStart", funct))
+			funct(lua_game_object(), weapon ? weapon->lua_game_object() : nullptr);
+	}
 }
 
 void CAI_Stalker::on_weapon_shot_update()
@@ -959,6 +965,11 @@ void CAI_Stalker::on_weapon_shot_update()
 
 void CAI_Stalker::on_weapon_shot_stop()
 {
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnWeaponShotStop", funct))
+			funct(lua_game_object());
+	}
 }
 
 void CAI_Stalker::on_weapon_shot_remove(CWeapon* weapon)
@@ -1064,7 +1075,13 @@ bool CAI_Stalker::use_throw_randomness()
 float CAI_Stalker::missile_throw_force()
 {
 	update_throw_params();
-	return (m_throw_velocity.magnitude());
+	float force = m_throw_velocity.magnitude();
+
+	::luabind::functor<float> funct;
+	if (ai().script_engine().functor("_g.CAI_Stalker__GetMissileThrowForce", funct))
+		force = funct(lua_game_object(), force);
+
+	return force;
 }
 
 void CAI_Stalker::compute_throw_miss(u32 const vertex_id)
@@ -1371,6 +1388,12 @@ void CAI_Stalker::on_enemy_wounded_or_killed(const CAI_Stalker* wounded_or_kille
 		return;
 
 	sound().play(eStalkerSoundEnemyKilledOrWounded);
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnEnemyWoundedOrKilled", funct))
+			funct(lua_game_object(), wounded_or_killed->lua_game_object());
+	}
 }
 
 bool CAI_Stalker::can_kill_member()
