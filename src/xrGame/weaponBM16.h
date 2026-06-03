@@ -8,6 +8,8 @@ class CWeaponBM16 : public CWeaponShotgun
 	typedef CWeaponShotgun inherited;
 
 public:
+	virtual CWeaponBM16* cast_weapon_bm16() { return this; }
+
 	virtual ~CWeaponBM16();
 	virtual void Load(LPCSTR section);
 

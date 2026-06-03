@@ -50,6 +50,8 @@ protected:
 protected:
 	virtual void LoadFireParams(LPCSTR section);
 public:
+	virtual CWeaponKnife* cast_weapon_knife() { return this; }
+
 	CWeaponKnife();
 	virtual ~CWeaponKnife();
 

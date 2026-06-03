@@ -14,6 +14,8 @@ private:
 protected:
 	bool m_bVision;
 public:
+	virtual CWeaponBinoculars* cast_weapon_binoculars() { return this; }
+
 	CWeaponBinoculars();
 	virtual ~CWeaponBinoculars();
 

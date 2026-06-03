@@ -11,6 +11,8 @@ class CWeaponRPG7 : public CWeaponCustomPistol,
 private:
 	typedef CWeaponCustomPistol inherited;
 public:
+	virtual CWeaponRPG7* cast_weapon_rpg7() { return this; }
+
 	CWeaponRPG7();
 	virtual ~CWeaponRPG7();
 

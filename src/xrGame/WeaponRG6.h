@@ -11,6 +11,8 @@ class CWeaponRG6 : public CRocketLauncher,
 	typedef CWeaponShotgun inheritedSG;
 
 public:
+	virtual CWeaponRG6* cast_weapon_rg6() { return this; }
+
 	virtual ~CWeaponRG6();
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
 	virtual void Load(LPCSTR section);

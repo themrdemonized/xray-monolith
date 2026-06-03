@@ -11,6 +11,8 @@ class CWeaponMagazinedWGrenade : public CWeaponMagazined,
 {
 	typedef CWeaponMagazined inherited;
 public:
+	virtual CWeaponMagazinedWGrenade* cast_weapon_magazined_w_grenade() { return this; }
+
 	CWeaponMagazinedWGrenade(ESoundTypes eSoundType = SOUND_TYPE_WEAPON_SUBMACHINEGUN);
 	virtual ~CWeaponMagazinedWGrenade();
 
