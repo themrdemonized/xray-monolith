@@ -801,7 +801,7 @@
 		<text>Use first-person firing direction when in third-person (g_firedir_third_person)</text>
 	</string>
 	<string id="ui_mm_modded_exes_gameplay_3d_ballistics_g_launcher_dynamic_range_zoom">
-		<text>Ballistic aim assist when zoomed: arc grenades and rockets toward the crosshair. Affects UBGL, RG6 and SSRS. Not hand-thrown grenades. (g_launcher_dynamic_range_zoom)</text>
+		<text>Arc launcher projectiles to crosshair when zoomed. Affects UBGL, RG6, SSRS. (g_launcher_dynamic_range_zoom)</text>
 	</string>
 	<string id="ui_mm_modded_exes_gameplay_3d_ballistics_g_nearwall">
 		<text>Weapon near-wall offset behaviour (g_nearwall)</text>
