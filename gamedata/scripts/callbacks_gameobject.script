@@ -344,38 +344,27 @@ _G.CNPCBeforeLookAtActor = function(npc, distance)
 	return flags.ret_value
 end
 
--- npc_on_enemy_selected
--- Fires when an NPC acquires or loses its selected enemy.
--- new_enemy is nil when the NPC loses its target.
+-- NPC enemy selected/lost callback. new_enemy is nil on target loss
 AddScriptCallback("npc_on_enemy_selected")
-function _G.CAI_Stalker__OnEnemySelected(npc, new_enemy)
+_G.CAI_Stalker__OnEnemySelected = function(npc, new_enemy)
 	SendScriptCallback("npc_on_enemy_selected", npc, new_enemy)
 end
 
--- npc_on_combat_action_changed
--- Fires when the NPC's GOAP combat planner transitions to a new action.
--- old_op and new_op are EWorldOperators integers:
---   TakeCover=21, LookOut=22, HoldPosition=23, DetourEnemy=25, SearchEnemy=26
+-- NPC combat GOAP action transition callback. old_op and new_op are EWorldOperators integers
 AddScriptCallback("npc_on_combat_action_changed")
-function _G.CAI_Stalker__OnCombatActionChanged(npc, old_op, new_op)
+_G.CAI_Stalker__OnCombatActionChanged = function(npc, old_op, new_op)
 	SendScriptCallback("npc_on_combat_action_changed", npc, old_op, new_op)
 end
 
--- npc_on_hit_reaction
--- Fires after an NPC is hit and damage is applied.
--- is_in_cover indicates whether brain().affect_cover() was true at time of hit.
--- Mods can call npc:best_cover_invalidate() to force repositioning.
+-- NPC hit reaction callback, fires after damage is applied. is_in_cover reflects brain().affect_cover() at time of hit
 AddScriptCallback("npc_on_hit_reaction")
-function _G.CAI_Stalker__OnHitReaction(npc, hit, bone_id, is_in_cover)
+_G.CAI_Stalker__OnHitReaction = function(npc, hit, bone_id, is_in_cover)
 	SendScriptCallback("npc_on_hit_reaction", npc, hit, bone_id, is_in_cover)
 end
 
--- npc_on_take_cover_destination
--- Fires when TakeCover selects a cover point (only when a real cover point is found,
--- NOT when falling back to teammate stacking or nearest accessible position).
--- cover_pos is the Fvector position of the chosen cover point.
+-- NPC TakeCover destination callback. Only fires when a real cover point is found, not on fallback paths
 AddScriptCallback("npc_on_take_cover_destination")
-function _G.CAI_Stalker__OnTakeCoverDestination(npc, cover_pos, enemy)
+_G.CAI_Stalker__OnTakeCoverDestination = function(npc, cover_pos, enemy)
 	SendScriptCallback("npc_on_take_cover_destination", npc, cover_pos, enemy)
 end
 
