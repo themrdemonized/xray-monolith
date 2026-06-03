@@ -1,9 +1,9 @@
-# xray-monolith AI Hook System — Context Document
+# xray-monolith AI Hook System - Context Document
 ## Branch: `personal/ai-hooks` (fork: TheLostInPlace/xray-monolith)
 
 This document describes all AI-related Lua hooks, new Lua exports, and console variables
 added to the `personal/ai-hooks` branch of xray-monolith (STALKER Anomaly modded exes fork).
-This branch is NOT upstreamed — it lives on the personal fork only.
+This branch is NOT upstreamed - it lives on the personal fork only.
 
 The working PR (#560, branch `all-in-one-vs2022-wpo`) only contains `g_launcher_dynamic_range_zoom`.
 Everything in this document is exclusive to `personal/ai-hooks`.
@@ -14,7 +14,7 @@ Everything in this document is exclusive to `personal/ai-hooks`.
 
 All Lua↔engine hooks follow one of two patterns established in the codebase:
 
-**Pattern A — Return-value hook** (`_g` lowercase)
+**Pattern A - Return-value hook** (`_g` lowercase)
 The engine calls a global Lua function and uses its return value to replace or modify a
 computed result. If the global does not exist, the engine's default is used unchanged.
 ```lua
@@ -24,7 +24,7 @@ _g.CAI_Stalker__GetWeaponAccuracy = function(npc, weapon, base, body_state, move
 end
 ```
 
-**Pattern B — Notification/gate hook** (`_G` uppercase + `SendScriptCallback`)
+**Pattern B - Notification/gate hook** (`_G` uppercase + `SendScriptCallback`)
 The engine calls a global, which fans out to any registered Lua listeners via
 `SendScriptCallback`. Gate hooks use a `flags` table with `ret_value` to allow
 cancellation. Scripts subscribe with `RegisterScriptCallback`.
@@ -35,7 +35,7 @@ end)
 ```
 
 **Key rule on globals vs per-NPC behavior:**
-Console variables are GLOBAL — they affect all NPCs simultaneously. For rank-based or
+Console variables are GLOBAL - they affect all NPCs simultaneously. For rank-based or
 per-NPC behavior, handle the logic entirely inside the Lua callback using `npc:rank_name()`
 and `npc:best_cover_invalidate()`. Never change a global console var per-NPC.
 
@@ -58,7 +58,7 @@ Returns the stable rank id string directly from `CharacterInfo`.
 Returns the level object name (`cName()`) of the smart cover the NPC is currently occupying.
 - **Returns:** level object name string, e.g. `"smart_cover_window_01"`, or `""` if not in a smart cover
 - **Returns `""`** on non-stalker objects (no error logged)
-- **Use for:** squad coordination — detect when two NPCs have selected the same smart cover
+- **Use for:** squad coordination - detect when two NPCs have selected the same smart cover
 - **Pair with:** `npc:get_current_loophole_id()` to identify the exact position within the cover
 - **Source:** `script_game_object3.cpp` → `GetCurrentSmartCoverName()`
 
@@ -87,14 +87,14 @@ Forces the NPC to re-evaluate its cover point on the next update cycle.
 **Fires:** `CEnemyManager::try_change_enemy()` when `selected()` changes
 **Notes:**
 - `new_enemy` is `nil` when the NPC loses its target (target dropped, killed, etc.)
-- Only fires on actual transitions — not every frame
+- Only fires on actual transitions - not every frame
 - Replaces per-frame polling of `npc:best_enemy()` in `npc_on_update`
 - Guarded: never fires during first planner initialization
 
 ```lua
 RegisterScriptCallback("npc_on_enemy_selected", function(npc, new_enemy)
     if not new_enemy then
-        -- NPC lost its target — could retreat, regroup, etc.
+        -- NPC lost its target - could retreat, regroup, etc.
     end
 end)
 ```
@@ -166,7 +166,7 @@ end)
 
 ```lua
 RegisterScriptCallback("npc_on_critically_wounded", function(npc, hit, bone_id)
-    -- NPC just went critical — play audio, trigger retreat logic, etc.
+    -- NPC just went critical - play audio, trigger retreat logic, etc.
 end)
 ```
 
@@ -178,9 +178,9 @@ end)
 **Fires:** `CAI_Stalker::on_best_cover_changed()` after internal cover delegates run
 **Notes:**
 - `cover_pos` is a `vector` of the new cover point position, or `nil` when NPC loses its cover entirely
-- `is_smart_cover` — `true` if the new cover point is a smart cover position
-- `smart_cover_name` — level object `cName()` of the smart cover (`""` if not a smart cover)
-- Fires on EVERY cover change, including during normal patrol — not combat-exclusive
+- `is_smart_cover` - `true` if the new cover point is a smart cover position
+- `smart_cover_name` - level object `cName()` of the smart cover (`""` if not a smart cover)
+- Fires on EVERY cover change, including during normal patrol - not combat-exclusive
 - Use `npc:get_current_smart_cover_name()` and `npc:get_current_loophole_id()` inside the
   callback to get detailed position info for squad coordination
 
@@ -218,9 +218,9 @@ end)
 **Notes:**
 - `base_min` is the engine-computed minimum distance (post weapon-type switch, pre-clamp)
 - Set `flags.ret_value` to override. This is the MINIMUM distance from enemy a cover point must be
-- Sniper rifles default to `ai_cover_sniper_min_dist` (20m) — overriding allows rank-based scaling
+- Sniper rifles default to `ai_cover_sniper_min_dist` (20m) - overriding allows rank-based scaling
 - Clamped internally: min is always ≤ max after both hooks run
-- **Do NOT assign `_g.CAI_Stalker__GetMinCombatDist` directly** — use `RegisterScriptCallback`
+- **Do NOT assign `_g.CAI_Stalker__GetMinCombatDist` directly** - use `RegisterScriptCallback`
 
 ### `npc_on_get_max_combat_dist`
 **Signature:** `(npc, base_max, flags)` → `flags.ret_value` (float)
@@ -231,7 +231,7 @@ end)
 - `base_max` is the engine-computed maximum distance (post weapon-type switch, pre-clamp)
 - Set `flags.ret_value` to override. This is the MAXIMUM distance from enemy a cover point must be
 - Shotguns default to `ai_cover_shotgun_max_dist` (5m); pistols to `ai_cover_pistol_max_dist` (10m)
-- **Do NOT assign `_g.CAI_Stalker__GetMaxCombatDist` directly** — use `RegisterScriptCallback`
+- **Do NOT assign `_g.CAI_Stalker__GetMaxCombatDist` directly** - use `RegisterScriptCallback`
 
 ```lua
 -- Rank-based weapon switching via cover distance: force snipers to use distant cover,
@@ -262,7 +262,7 @@ end)
 - `cover_pos` is a `vector` (Fvector) of the selected cover point position
 - `enemy` may be `nil` if no enemy is currently selected
 - **This is an observe-only hook.** Cover-point replacement (passing a different vertex id
-  back) is not yet supported — it would require exposing `setup_cover()` or a write-back
+  back) is not yet supported - it would require exposing `setup_cover()` or a write-back
   channel. Primary uses: debug logging, playing audio when NPC starts moving to cover,
   analytics
 
@@ -292,15 +292,15 @@ end)
 - Enemy sound (`ai_danger_enemy_sound_score`)
 
 **Parameters:**
-- `pos` — `vector` position of the danger
-- `radius` — float radius of the danger zone
-- `in_open` — `true` when NPC has no cover point selected (standing in the open)
-- `cover_threatened` — `true` when the danger overlaps the NPC's current cover position
+- `pos` - `vector` position of the danger
+- `radius` - float radius of the danger zone
+- `in_open` - `true` when NPC has no cover point selected (standing in the open)
+- `cover_threatened` - `true` when the danger overlaps the NPC's current cover position
 - Both `false` simultaneously means: NPC has cover, danger is nearby but not overlapping
-  their cover point — the most common and usually ignorable case. The early-return
+  their cover point - the most common and usually ignorable case. The early-return
   `if not (in_open or cover_threatened) then return end` in the example handles this
 
-**PERFORMANCE WARNING — READ BEFORE USING:**
+**PERFORMANCE WARNING - READ BEFORE USING:**
 This hook fires for every danger type for every NPC in range. In a firefight with 10+ NPCs
 this is 50–100+ callbacks per second. Callbacks registered here MUST use per-NPC timestamp
 throttling. `string` operations, `pairs()` table iteration, and `db.storage` lookups are
@@ -325,7 +325,7 @@ RegisterScriptCallback("npc_on_danger_location_add", function(npc, pos, radius, 
     npc:best_cover_invalidate()
 end)
 
--- Clean up when NPC goes offline (not necessarily dead — alife cycle).
+-- Clean up when NPC goes offline (not necessarily dead - alife cycle).
 -- Counter resets on offline transition; counts do NOT accumulate across online/offline cycles.
 RegisterScriptCallback("game_object_on_net_destroy", function(obj)
     npc_danger_next[obj:id()] = nil
@@ -339,7 +339,7 @@ end)
 **Pattern:** B (notification)
 **Fires:** `CAI_Stalker::on_weapon_shot_start()` when NPC begins firing a burst
 **Notes:**
-- `weapon` is the `CScriptGameObject` of the weapon being fired (may be nil — guard for this)
+- `weapon` is the `CScriptGameObject` of the weapon being fired (may be nil - guard for this)
 - Fires at the START of each burst, not each individual shot
 - Pair with `npc_on_weapon_shot_stop` to measure burst length
 - Use for rank-based burst fire: force cover after N milliseconds of continuous fire
@@ -377,7 +377,7 @@ end)
 ### `npc_on_should_throw`
 **Signature:** `(npc, flags)` → `flags.ret_value` (bool)
 **Pattern:** B (gate hook)
-**Fires:** `CStalkerPropertyEvaluatorThrowGrenade::evaluate()` — in the EVALUATOR, not the
+**Fires:** `CStalkerPropertyEvaluatorThrowGrenade::evaluate()` - in the EVALUATOR, not the
 action executor. This means blocking here prevents `eWorldPropertyShouldThrowGrenade` from
 ever being set TRUE, so the GOAP planner never routes to ThrowGrenade. No stale world
 properties result from cancellation.
@@ -386,7 +386,7 @@ properties result from cancellation.
 - Set `flags.ret_value = false` to cancel the throw entirely
 - Does NOT fire when trajectory is obstructed (engine already blocks that)
 - If a grenade throw is already in progress (grenade slot is active item), the evaluator
-  returns `true` immediately without calling this hook — an in-flight throw cannot be cancelled
+  returns `true` immediately without calling this hook - an in-flight throw cannot be cancelled
 
 ```lua
 RegisterScriptCallback("npc_on_should_throw", function(npc, flags)
@@ -407,7 +407,7 @@ end)
 **Pattern:** A-style via B (return-value via flags table)
 **Engine global:** `_g.CAI_Stalker__GetMissileThrowForce`
 **Fires:** `CAI_Stalker::missile_throw_force()` after throw velocity is computed
-**How to use:** Call `RegisterScriptCallback("npc_on_missile_throw_force", ...)` — do NOT
+**How to use:** Call `RegisterScriptCallback("npc_on_missile_throw_force", ...)` - do NOT
 assign `_g.CAI_Stalker__GetMissileThrowForce` directly. The `_g` global is already wired
 in `callbacks_gameobject.script` to dispatch to the callback. Overwriting the `_g` global
 directly would bypass all other registered listeners.
@@ -459,13 +459,13 @@ end)
 `if (Device.dwTimeGlobal < reaction.m_time + TOLLS_INTERVAL) return;` runs before the
 hook fires. Guaranteed maximum 1 fire per 2000ms per NPC regardless of incoming hits.
 **Notes:**
-- `member` is the squad member who went down (may be nil in edge cases — always guard)
+- `member` is the squad member who went down (may be nil in edge cases - always guard)
 - `is_alive = true` means the member was wounded (still alive), `false` means killed
 - Use for rank-based morale: novices panic and seek cover, veterans hold position
 
 ```lua
 RegisterScriptCallback("npc_on_member_death_reaction", function(npc, member, is_alive)
-    if is_alive then return end  -- wounded, not dead — ignore for simple morale
+    if is_alive then return end  -- wounded, not dead - ignore for simple morale
     local rank = npc:rank_name()
     if rank == "novice" or rank == "experienced" then
         npc:best_cover_invalidate() -- low-rank NPCs panic when squadmates are killed
@@ -478,15 +478,15 @@ end)
 ## Console Variables
 
 All variables take effect immediately (read at execution time, not cached).
-All variables are saved to `user.ltx` on game exit and default to original hardcoded values —
+All variables are saved to `user.ltx` on game exit and default to original hardcoded values -
 existing saves see zero behavior change.
-Changing them affects ALL NPCs globally — use Lua callbacks for per-NPC scaling.
+Changing them affects ALL NPCs globally - use Lua callbacks for per-NPC scaling.
 
 ### Danger Perception Multipliers
 Multipliers on the base danger scores inside `CDangerManager::do_evaluate()`.
 Formula: `(base_score * multiplier) * 10 + time_since_perceived`.
 `1.0` = original engine behaviour. `0.0` = NPC ignores that danger type entirely. `2.0` = twice as urgent.
-The base scores (3000 / 2500 / 2000 / 3000 / 2250 / 2000 / 1000 / 1000) remain hardcoded — only the
+The base scores (3000 / 2500 / 2000 / 3000 / 2250 / 2000 / 1000 / 1000) remain hardcoded - only the
 multiplier is tunable, preserving the relative priorities between types at default.
 
 | Variable | Default | Min | Max | Trigger |
@@ -504,7 +504,7 @@ multiplier is tunable, preserving the relative priorities between types at defau
 
 ### Fire Decision (`fire_make_sense()`)
 Controls when the engine considers it worthwhile to fire at a last-known position.
-All read inside `fire_make_sense()` at call-time — changes via `get_console():execute()` are immediate.
+All read inside `fire_make_sense()` at call-time - changes via `get_console():execute()` are immediate.
 
 | Variable | Default | Min | Max | Effect |
 |---|---|---|---|---|
@@ -535,7 +535,7 @@ Set by weapon type by default. Override per-NPC with `npc_on_get_min_combat_dist
 
 **Engine note:** Min of `_max_dist` vars is `3.0m = MIN_SUITABLE_ENEMY_DISTANCE`. Below this the cover
 evaluator receives a degenerate zero-width range and the cover search will always fail.
-`ai_cover_sniper_min_dist` min is `0.0` — zero means "use engine default 3m minimum" with no extra constraint.
+`ai_cover_sniper_min_dist` min is `0.0` - zero means "use engine default 3m minimum" with no extra constraint.
 
 | Variable | Default | Min | Max | Effect |
 |---|---|---|---|---|
@@ -564,7 +564,7 @@ through to the teammate-stacking fallback.
 
 ---
 
-## Composing Hooks Together — Rank-Based Reactive AI
+## Composing Hooks Together - Rank-Based Reactive AI
 
 This is the concrete use case that motivated the entire branch. All of this was previously
 impossible from Lua. The composite example uses five hooks together.
@@ -652,8 +652,8 @@ These were already in the engine and are documented here for completeness.
 **Multi-mod warning for Pattern A hooks:** `_g.CAI_Stalker__GetWeaponAccuracy` and
 `_g.update_best_weapon` are direct global assignments (Pattern A). If two mods both assign
 the same `_g` global, the last one loaded wins and silently stomps the other. If multiple
-mods need to modify the same value, coordinate via a shared chaining pattern — each mod
-reads the current `_g` global, wraps it, and re-assigns — or follow the `npc_on_missile_throw_force`
+mods need to modify the same value, coordinate via a shared chaining pattern - each mod
+reads the current `_g` global, wraps it, and re-assigns - or follow the `npc_on_missile_throw_force`
 model (Pattern A-via-B) where all listeners cooperate through `flags.ret_value` via
 `SendScriptCallback`.
 
@@ -663,12 +663,12 @@ model (Pattern A-via-B) where all listeners cooperate through `flags.ret_value` 
 
 These were investigated against the C++ source and confirmed hardcoded with no Lua entry point:
 
-- **Dynamic cover** — Cover points in X-Ray are static, pre-baked into the nav mesh at level compile time. NPCs cannot dynamically use cars, barrels, or world objects as cover unless cover points were authored around them at level design time. This is a fundamental engine limitation, not addressable from Lua or C++ hooks
-- **Cover scoring** — `best_cover_value()` and the cover evaluators are pure C++. `npc:best_cover()` queries the result but cannot change scoring. The distance constraints (now exposed via `npc_on_get_min/max_combat_dist`) influence which cover points are considered, but not how they are ranked within the valid set
-- **GOAP world property flags** — `eWorldPropertyInCover` etc. are internal C++ state with no read/write API
-- **Flanking target selection** — `CStalkerActionDetourEnemy` uses hardcoded angle constants
-- **Script movement during combat** — Any `set_dest_level_vertex_id()` from `npc_on_update` is overwritten every frame by the combat action's own path. These calls are no-ops during active combat
-- **FIRE_MAKE_SENSE_INTERVAL per-NPC** — Now a global console var (`ai_fire_make_sense_interval`), but still global; cannot be set per-NPC from Lua
+- **Dynamic cover** - Cover points in X-Ray are static, pre-baked into the nav mesh at level compile time. NPCs cannot dynamically use cars, barrels, or world objects as cover unless cover points were authored around them at level design time. This is a fundamental engine limitation, not addressable from Lua or C++ hooks
+- **Cover scoring** - `best_cover_value()` and the cover evaluators are pure C++. `npc:best_cover()` queries the result but cannot change scoring. The distance constraints (now exposed via `npc_on_get_min/max_combat_dist`) influence which cover points are considered, but not how they are ranked within the valid set
+- **GOAP world property flags** - `eWorldPropertyInCover` etc. are internal C++ state with no read/write API
+- **Flanking target selection** - `CStalkerActionDetourEnemy` uses hardcoded angle constants
+- **Script movement during combat** - Any `set_dest_level_vertex_id()` from `npc_on_update` is overwritten every frame by the combat action's own path. These calls are no-ops during active combat
+- **FIRE_MAKE_SENSE_INTERVAL per-NPC** - Now a global console var (`ai_fire_make_sense_interval`), but still global; cannot be set per-NPC from Lua
 
 ---
 
@@ -695,11 +695,11 @@ gamedata/scripts/callbacks_gameobject.script     all _G.* hook wiring and AddScr
 **Thread safety:**
 - All hooks fire on the main game thread
 - `npc_on_danger_location_add` is dispatched via `CAgentLocationManager::add()` which is
-  synchronous on the main thread — safe for all standard Lua operations including in the MT build
+  synchronous on the main thread - safe for all standard Lua operations including in the MT build
 - No console var is read or written from a secondary thread
 
 **Save compatibility:**
-- All console vars default to the exact original hardcoded values they replace — existing
+- All console vars default to the exact original hardcoded values they replace - existing
   saves see zero behavior change
 - Console vars are written to `user.ltx` on game exit. A fresh install without these vars
   in `user.ltx` uses the C++ defaults, which are identical to the original engine behavior
