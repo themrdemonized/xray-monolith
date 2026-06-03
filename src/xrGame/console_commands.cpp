@@ -2742,6 +2742,27 @@ void CCC_RegisterCommands()
     CMD4(CCC_Float, "ai_reload_threshold", &g_ai_reload_threshold, 0.01f, 1.0f);
     CMD4(CCC_Float, "ai_aim_fire_angle", &g_ai_aim_fire_angle, 0.0f, PI);
 
+    extern u32   g_ai_fire_make_sense_interval;
+    extern float g_ai_fire_precise_dist;
+    extern float g_ai_fire_floor_dist;
+    extern float g_ai_fire_near_dist;
+    extern float g_ai_cover_danger_radius;
+    extern u32   g_ai_cover_danger_ttl;
+    extern float g_ai_cover_detour_radius;
+    extern u32   g_ai_cover_detour_ttl;
+    extern float g_ai_cover_unknown_radius;
+    extern u32   g_ai_cover_unknown_ttl;
+    CMD4(CCC_Integer, "ai_fire_make_sense_interval", (int*)&g_ai_fire_make_sense_interval, 0, 60000);
+    CMD4(CCC_Float,   "ai_fire_precise_dist",        &g_ai_fire_precise_dist,              0.f, 50.f);
+    CMD4(CCC_Float,   "ai_fire_floor_dist",          &g_ai_fire_floor_dist,                0.f, 20.f);
+    CMD4(CCC_Float,   "ai_fire_near_dist",           &g_ai_fire_near_dist,                 0.f, 20.f);
+    CMD4(CCC_Float,   "ai_cover_danger_radius",      &g_ai_cover_danger_radius,            0.f, 50.f);
+    CMD4(CCC_Integer, "ai_cover_danger_ttl",         (int*)&g_ai_cover_danger_ttl,         0, 600000);
+    CMD4(CCC_Float,   "ai_cover_detour_radius",      &g_ai_cover_detour_radius,            0.f, 50.f);
+    CMD4(CCC_Integer, "ai_cover_detour_ttl",         (int*)&g_ai_cover_detour_ttl,         0, 600000);
+    CMD4(CCC_Float,   "ai_cover_unknown_radius",     &g_ai_cover_unknown_radius,           0.f, 50.f);
+    CMD4(CCC_Integer, "ai_cover_unknown_ttl",        (int*)&g_ai_cover_unknown_ttl,        0, 600000);
+
 	CMD3(CCC_Mask, "g_firepos", &psActorFlags, AF_FIREPOS);
 	CMD3(CCC_Mask, "g_firepos_zoom", &psActorFlags, AF_FIREPOS_ZOOM);
 	CMD3(CCC_Mask, "g_firedir_third_person", &psActorFlags, AF_FIREDIR_THIRD_PERSON);

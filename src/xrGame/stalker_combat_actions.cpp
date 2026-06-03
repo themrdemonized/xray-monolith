@@ -47,8 +47,8 @@ extern BOOL g_ai_move_to_cover_run;
 #	define TEST_MENTAL_STATE
 #endif // DEBUG
 
-const float TEMP_DANGER_DISTANCE = 5.f;
-const u32 TEMP_DANGER_INTERVAL = 120000;
+float g_ai_cover_detour_radius  = 5.f;
+u32   g_ai_cover_detour_ttl     = 120000;
 
 const float CLOSE_MOVE_DISTANCE = 1.5f;
 
@@ -958,8 +958,8 @@ void CStalkerActionDetourEnemy::initialize()
 			xr_new<CDangerCoverLocation>(
 				object().agent_manager().member().member(m_object).cover(),
 				Device.dwTimeGlobal,
-				TEMP_DANGER_INTERVAL,
-				TEMP_DANGER_DISTANCE
+				g_ai_cover_detour_ttl,
+				g_ai_cover_detour_radius
 				, object().agent_manager().member().mask(&object())
 			)
 		);

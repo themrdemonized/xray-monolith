@@ -59,13 +59,13 @@ using namespace StalkerSpace;
 
 float g_ai_reload_threshold = 0.5f;
 
-static float const DANGER_DISTANCE = 3.f;
-static u32 const DANGER_INTERVAL = 120000;
+float g_ai_cover_danger_radius      = 3.f;
+u32   g_ai_cover_danger_ttl         = 120000;
 
-static float const PRECISE_DISTANCE = 2.5f;
-static float const FLOOR_DISTANCE = 2.f;
-static float const NEAR_DISTANCE = 2.5f;
-static u32 const FIRE_MAKE_SENSE_INTERVAL = 10000;
+float g_ai_fire_precise_dist        = 2.5f;
+float g_ai_fire_floor_dist          = 2.f;
+float g_ai_fire_near_dist           = 2.5f;
+u32   g_ai_fire_make_sense_interval = 10000;
 
 static float const min_throw_distance = 10.f;
 
@@ -331,8 +331,8 @@ void CAI_Stalker::Hit(SHit* pHDS)
 				(HDS.initiator()->ID() != ID()) && !fis_zero(HDS.damage()) && brain().affect_cover())
 			{
 				agent_manager().location().add(
-					xr_new<CDangerCoverLocation>(cover, Device.dwTimeGlobal, DANGER_INTERVAL,
-					                             DANGER_DISTANCE));
+					xr_new<CDangerCoverLocation>(cover, Device.dwTimeGlobal, g_ai_cover_danger_ttl,
+					                             g_ai_cover_danger_radius));
 			}
 		}
 
@@ -390,6 +390,15 @@ void CAI_Stalker::Hit(SHit* pHDS)
 						CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(HDS.who);
 						if (stalker && stalker->g_Alive())
 							stalker->on_critical_wound_initiator(this);
+					}
+
+					{
+						::luabind::functor<void> funct;
+						if (ai().script_engine().functor("_G.CAI_Stalker__OnCriticallyWounded", funct))
+						{
+							CScriptHit tLuaHit(&HDS);
+							funct(this->lua_game_object(), &tLuaHit, HDS.boneID);
+						}
 					}
 				}
 			}
@@ -898,13 +907,13 @@ bool CAI_Stalker::fire_make_sense()
 	if (!enemy)
 		return (false);
 
-	if ((pick_distance() + PRECISE_DISTANCE) < Position().distance_to(enemy->Position()))
+	if ((pick_distance() + g_ai_fire_precise_dist) < Position().distance_to(enemy->Position()))
 		return (false);
 
-	if (_abs(Position().y - enemy->Position().y) > FLOOR_DISTANCE)
+	if (_abs(Position().y - enemy->Position().y) > g_ai_fire_floor_dist)
 		return (false);
 
-	if (pick_distance() < NEAR_DISTANCE)
+	if (pick_distance() < g_ai_fire_near_dist)
 		return (false);
 
 	if (memory().visual().visible_right_now(enemy))
@@ -914,7 +923,7 @@ bool CAI_Stalker::fire_make_sense()
 	if (last_time_seen == u32(-1))
 		return (false);
 
-	if (Device.dwTimeGlobal > last_time_seen + FIRE_MAKE_SENSE_INTERVAL)
+	if (Device.dwTimeGlobal > last_time_seen + g_ai_fire_make_sense_interval)
 		return (false);
 
 	// if we do not have a weapon

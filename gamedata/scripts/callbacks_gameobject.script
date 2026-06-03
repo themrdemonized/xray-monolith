@@ -344,6 +344,12 @@ _G.CNPCBeforeLookAtActor = function(npc, distance)
 	return flags.ret_value
 end
 
+-- NPC critically wounded callback, fires once on first critical wound transition
+AddScriptCallback("npc_on_critically_wounded")
+_G.CAI_Stalker__OnCriticallyWounded = function(npc, hit, bone_id)
+	SendScriptCallback("npc_on_critically_wounded", npc, hit, bone_id)
+end
+
 -- NPC enemy selected/lost callback. new_enemy is nil on target loss
 AddScriptCallback("npc_on_enemy_selected")
 _G.CAI_Stalker__OnEnemySelected = function(npc, new_enemy)
