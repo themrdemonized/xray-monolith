@@ -78,59 +78,9 @@ float CAI_Stalker::GetWeaponAccuracy() const
 	base *= m_fRankDisperison;
 	CWeapon* W = smart_cast<CWeapon*>(inventory().ActiveItem());
 
-	if (!movement().path_completed())
+	if (W)
 	{
-		if (movement().movement_type() == eMovementTypeWalk)
-		{
-			if (movement().body_state() == eBodyStateStand)
-			{
-				base *= (m_disp_walk_stand * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_walk_crouch * g_dispersion_factor + g_dispersion_base);
-			}
-		}
-		else if (movement().movement_type() == eMovementTypeRun)
-		{
-			if (movement().body_state() == eBodyStateStand)
-			{
-				base *= (m_disp_run_stand * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_run_crouch * g_dispersion_factor + g_dispersion_base);
-			}
-		}
-	}
-	else
-	{
-		bool hasScope = W && W->IsScopeAttached();
-
-		if (movement().body_state() == eBodyStateStand)
-		{
-			if (zoom_state() && hasScope)
-			{
-				base *= (m_disp_stand_stand_zoom * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_stand_stand * g_dispersion_factor + g_dispersion_base);
-			}
-		}
-		else if (movement().body_state() == eBodyStateCrouch)
-		{
-			if (zoom_state() && hasScope)
-			{
-				base *= (m_disp_stand_crouch_zoom * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_stand_crouch * g_dispersion_factor + g_dispersion_base);
-			}
-		}
-		else
-			base *= (m_disp_run_stand * g_dispersion_factor + g_dispersion_base); // fallback to worst aim if state could not determined, this should never happen (tm)
+		base *= g_dispersion_base;
 	}
 
 	::luabind::functor<float> func;
@@ -279,7 +229,7 @@ void CAI_Stalker::Hit(SHit* pHDS)
 
 	float hit_power = HDS.power * m_fRankImmunity;
 
-	if (strstr(Core.Params, "-dbgbullet"))
+	if (Core.ParamsData.test(ECoreParams::dbgbullet))
 		Msg("CAI_Stalker::Hit hit_type=%d | hit_power(%f)*m_fRankImmunity(%f) = %f", (u32)HDS.hit_type, HDS.power,
 		    m_fRankImmunity, hit_power);
 
@@ -297,7 +247,7 @@ void CAI_Stalker::Hit(SHit* pHDS)
 				hit_power *= d_hit_power;
 				VERIFY(hit_power>=0.0f);
 
-				if (strstr(Core.Params, "-dbgbullet"))
+				if (Core.ParamsData.test(ECoreParams::dbgbullet))
 					Msg("CAI_Stalker::Hit AP(%f) > BoneArmor(%f) [HitFracNpc=%f] modified hit_power=%f", ap, BoneArmor,
 					    m_boneHitProtection->m_fHitFracNpc, hit_power);
 			}
@@ -306,7 +256,7 @@ void CAI_Stalker::Hit(SHit* pHDS)
 				hit_power *= m_boneHitProtection->m_fHitFracNpc;
 				//HDS.add_wound = false;
 
-				if (strstr(Core.Params, "-dbgbullet"))
+				if (Core.ParamsData.test(ECoreParams::dbgbullet))
 					Msg("CAI_Stalker::Hit AP(%f) > BoneArmor(%f) [HitFracNpc=%f] modified hit_power=%f", ap, BoneArmor,
 					    m_boneHitProtection->m_fHitFracNpc, hit_power);
 			}
@@ -322,6 +272,25 @@ void CAI_Stalker::Hit(SHit* pHDS)
 
 	if (g_Alive())
 	{
+
+		{
+			const CEntityAlive *entity_alive = smart_cast<const CEntityAlive*>(pHDS->initiator());
+			if(entity_alive && entity_alive->g_Alive() && tfGetRelationType(entity_alive) == ALife::eRelationTypeEnemy)
+			{
+				movement().set_mental_state(eMentalStateDanger);
+				if (!memory().visual().visible_now(entity_alive))
+				{
+					CNotYetVisibleObject		new_object;
+					new_object.m_object			= smart_cast<const CGameObject*>(pHDS->initiator());
+					new_object.m_value			= 1.0f;
+					new_object.m_prev_time		= Device.dwTimeGlobal-1;
+					new_object.m_update_time	= Device.dwTimeGlobal;
+					memory().visual().add_not_yet_visible_object(new_object);
+					memory().visual().add_visible_object(pHDS->initiator(), Device.fTimeDelta);
+				}
+			}
+		}
+
 		bool already_critically_wounded = critically_wounded();
 
 		if (!already_critically_wounded)
@@ -804,12 +773,16 @@ void CAI_Stalker::update_can_kill_info()
 	if (m_pick_frame_id == Device.dwFrame)
 		return;
 
+	if (!inventory().ActiveItem())
+		return;
+
+	PROF_EVENT("update_can_kill_info");
+
 	m_pick_frame_id = Device.dwFrame;
 	m_can_kill_member = false;
 	m_can_kill_enemy = false;
 
 	Fvector position, direction;
-	VERIFY(inventory().ActiveItem());
 	g_fireParams(0, position, direction);
 	can_kill_entity_from(position, direction, start_pick_distance());
 }

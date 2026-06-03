@@ -454,7 +454,9 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("sniper_fire_mode", SAFE_WRAP((bool (CScriptGameObject::*)() const)&CScriptGameObject::sniper_fire_mode))
 
 		.def("aim_bone_id", SAFE_WRAP((void (CScriptGameObject::*)(LPCSTR))&CScriptGameObject::aim_bone_id))
-		.def("aim_bone_id", SAFE_WRAP((LPCSTR (CScriptGameObject::*)() const)&CScriptGameObject::aim_bone_id))
+			.def("aim_bone_id", SAFE_WRAP((LPCSTR (CScriptGameObject::*)() const)&CScriptGameObject::aim_bone_id))
+			.def("weapon_accuracy", &CScriptGameObject::weapon_accuracy)
+			.def("set_queue_size", &CScriptGameObject::set_queue_size)
 
 		.def("actor_look_at_point", &CScriptGameObject::ActorLookAtPoint)
 		.def("actor_stop_look_at_point", &CScriptGameObject::ActorStopLookAtPoint)
