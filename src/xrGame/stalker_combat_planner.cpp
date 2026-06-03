@@ -99,11 +99,12 @@ void CStalkerCombatPlanner::execute()
 
 void CStalkerCombatPlanner::update()
 {
-	const u32 previous_action_id = initialized() ? current_action_id() : u32(-1);
+	const bool was_initialized = initialized();
+	const u32 previous_action_id = was_initialized ? current_action_id() : u32(-1);
 
 	inherited::update();
 
-	if (initialized() && current_action_id() != previous_action_id)
+	if (was_initialized && initialized() && current_action_id() != previous_action_id)
 	{
 		::luabind::functor<void> funct;
 		if (ai().script_engine().functor("_G.CAI_Stalker__OnCombatActionChanged", funct))

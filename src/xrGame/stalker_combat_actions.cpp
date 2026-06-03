@@ -48,7 +48,7 @@ extern BOOL g_ai_move_to_cover_run;
 #endif // DEBUG
 
 float g_ai_cover_detour_radius  = 5.f;
-u32   g_ai_cover_detour_ttl     = 120000;
+u32   g_ai_cover_detour_time     = 120000;
 
 const float CLOSE_MOVE_DISTANCE = 1.5f;
 
@@ -958,7 +958,7 @@ void CStalkerActionDetourEnemy::initialize()
 			xr_new<CDangerCoverLocation>(
 				object().agent_manager().member().member(m_object).cover(),
 				Device.dwTimeGlobal,
-				g_ai_cover_detour_ttl,
+				g_ai_cover_detour_time,
 				g_ai_cover_detour_radius
 				, object().agent_manager().member().mask(&object())
 			)

@@ -2743,25 +2743,25 @@ void CCC_RegisterCommands()
     CMD4(CCC_Float, "ai_aim_fire_angle", &g_ai_aim_fire_angle, 0.0f, PI);
 
     extern u32   g_ai_fire_make_sense_interval;
-    extern float g_ai_fire_precise_dist;
-    extern float g_ai_fire_floor_dist;
-    extern float g_ai_fire_near_dist;
+    extern float g_ai_fire_range_extension;
+    extern float g_ai_fire_max_height_diff;
+    extern float g_ai_fire_min_dist;
     extern float g_ai_cover_danger_radius;
-    extern u32   g_ai_cover_danger_ttl;
+    extern u32   g_ai_cover_danger_time;
     extern float g_ai_cover_detour_radius;
-    extern u32   g_ai_cover_detour_ttl;
+    extern u32   g_ai_cover_detour_time;
     extern float g_ai_cover_unknown_radius;
-    extern u32   g_ai_cover_unknown_ttl;
+    extern u32   g_ai_cover_unknown_time;
     CMD4(CCC_Integer, "ai_fire_make_sense_interval", (int*)&g_ai_fire_make_sense_interval, 0, 60000);
-    CMD4(CCC_Float,   "ai_fire_precise_dist",        &g_ai_fire_precise_dist,              0.f, 50.f);
-    CMD4(CCC_Float,   "ai_fire_floor_dist",          &g_ai_fire_floor_dist,                0.f, 20.f);
-    CMD4(CCC_Float,   "ai_fire_near_dist",           &g_ai_fire_near_dist,                 0.f, 20.f);
+    CMD4(CCC_Float,   "ai_fire_range_extension",     &g_ai_fire_range_extension,           0.f, 50.f);
+    CMD4(CCC_Float,   "ai_fire_max_height_diff",     &g_ai_fire_max_height_diff,           0.f, 20.f);
+    CMD4(CCC_Float,   "ai_fire_min_dist",            &g_ai_fire_min_dist,                  0.f, 20.f);
     CMD4(CCC_Float,   "ai_cover_danger_radius",      &g_ai_cover_danger_radius,            0.f, 50.f);
-    CMD4(CCC_Integer, "ai_cover_danger_ttl",         (int*)&g_ai_cover_danger_ttl,         0, 600000);
+    CMD4(CCC_Integer, "ai_cover_danger_time",        (int*)&g_ai_cover_danger_time,        0, 600000);
     CMD4(CCC_Float,   "ai_cover_detour_radius",      &g_ai_cover_detour_radius,            0.f, 50.f);
-    CMD4(CCC_Integer, "ai_cover_detour_ttl",         (int*)&g_ai_cover_detour_ttl,         0, 600000);
+    CMD4(CCC_Integer, "ai_cover_detour_time",        (int*)&g_ai_cover_detour_time,        0, 600000);
     CMD4(CCC_Float,   "ai_cover_unknown_radius",     &g_ai_cover_unknown_radius,           0.f, 50.f);
-    CMD4(CCC_Integer, "ai_cover_unknown_ttl",        (int*)&g_ai_cover_unknown_ttl,        0, 600000);
+    CMD4(CCC_Integer, "ai_cover_unknown_time",       (int*)&g_ai_cover_unknown_time,       0, 600000);
 
 	CMD3(CCC_Mask, "g_firepos", &psActorFlags, AF_FIREPOS);
 	CMD3(CCC_Mask, "g_firepos_zoom", &psActorFlags, AF_FIREPOS_ZOOM);

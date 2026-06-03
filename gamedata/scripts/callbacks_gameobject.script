@@ -356,7 +356,7 @@ _G.CAI_Stalker__OnEnemySelected = function(npc, new_enemy)
 	SendScriptCallback("npc_on_enemy_selected", npc, new_enemy)
 end
 
--- NPC combat GOAP action transition callback. old_op and new_op are EWorldOperators integers
+-- NPC combat GOAP action transition callback. old_op and new_op match stalker_ids.action_* values
 AddScriptCallback("npc_on_combat_action_changed")
 _G.CAI_Stalker__OnCombatActionChanged = function(npc, old_op, new_op)
 	SendScriptCallback("npc_on_combat_action_changed", npc, old_op, new_op)

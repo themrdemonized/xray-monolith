@@ -60,11 +60,11 @@ using namespace StalkerSpace;
 float g_ai_reload_threshold = 0.5f;
 
 float g_ai_cover_danger_radius      = 3.f;
-u32   g_ai_cover_danger_ttl         = 120000;
+u32   g_ai_cover_danger_time         = 120000;
 
-float g_ai_fire_precise_dist        = 2.5f;
-float g_ai_fire_floor_dist          = 2.f;
-float g_ai_fire_near_dist           = 2.5f;
+float g_ai_fire_range_extension        = 2.5f;
+float g_ai_fire_max_height_diff          = 2.f;
+float g_ai_fire_min_dist           = 2.5f;
 u32   g_ai_fire_make_sense_interval = 10000;
 
 static float const min_throw_distance = 10.f;
@@ -331,7 +331,7 @@ void CAI_Stalker::Hit(SHit* pHDS)
 				(HDS.initiator()->ID() != ID()) && !fis_zero(HDS.damage()) && brain().affect_cover())
 			{
 				agent_manager().location().add(
-					xr_new<CDangerCoverLocation>(cover, Device.dwTimeGlobal, g_ai_cover_danger_ttl,
+					xr_new<CDangerCoverLocation>(cover, Device.dwTimeGlobal, g_ai_cover_danger_time,
 					                             g_ai_cover_danger_radius));
 			}
 		}
@@ -426,6 +426,7 @@ void CAI_Stalker::Hit(SHit* pHDS)
 
 	inherited::Hit(&HDS);
 
+	if (g_Alive())
 	{
 		::luabind::functor<void> funct;
 		if (ai().script_engine().functor("_G.CAI_Stalker__OnHitReaction", funct))
@@ -907,13 +908,13 @@ bool CAI_Stalker::fire_make_sense()
 	if (!enemy)
 		return (false);
 
-	if ((pick_distance() + g_ai_fire_precise_dist) < Position().distance_to(enemy->Position()))
+	if ((pick_distance() + g_ai_fire_range_extension) < Position().distance_to(enemy->Position()))
 		return (false);
 
-	if (_abs(Position().y - enemy->Position().y) > g_ai_fire_floor_dist)
+	if (_abs(Position().y - enemy->Position().y) > g_ai_fire_max_height_diff)
 		return (false);
 
-	if (pick_distance() < g_ai_fire_near_dist)
+	if (pick_distance() < g_ai_fire_min_dist)
 		return (false);
 
 	if (memory().visual().visible_right_now(enemy))

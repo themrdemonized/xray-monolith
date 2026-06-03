@@ -27,7 +27,7 @@
 using namespace StalkerDecisionSpace;
 
 float g_ai_cover_unknown_radius = 5.f;
-u32   g_ai_cover_unknown_ttl    = 120000;
+u32   g_ai_cover_unknown_time    = 120000;
 
 //////////////////////////////////////////////////////////////////////////
 // CStalkerActionDangerUnknownTakeCover
@@ -158,7 +158,7 @@ void CStalkerActionDangerUnknownSearch::execute()
 			xr_new<CDangerCoverLocation>(
 				object().agent_manager().member().member(&object()).cover(),
 				Device.dwTimeGlobal,
-				g_ai_cover_unknown_ttl,
+				g_ai_cover_unknown_time,
 				g_ai_cover_unknown_radius
 			)
 		);
