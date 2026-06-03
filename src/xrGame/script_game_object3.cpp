@@ -29,6 +29,8 @@
 #include "hit_memory_manager.h"
 #include "sight_manager.h"
 #include "stalker_movement_manager_smart_cover.h"
+#include "smart_cover.h"
+#include "smart_cover_loophole.h"
 #include "movement_manager_space.h"
 #include "detail_path_manager_space.h"
 #include "level_debug.h"
@@ -604,6 +606,36 @@ void CScriptGameObject::best_cover_invalidate()
 		return;
 	}
 	stalker->best_cover_invalidate();
+}
+
+LPCSTR CScriptGameObject::GetCurrentSmartCoverName()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member GetCurrentSmartCoverName!");
+		return ("");
+	}
+	smart_cover::cover const* cover = stalker->get_current_smart_cover();
+	if (!cover)
+		return ("");
+	return (*cover->object().cName());
+}
+
+LPCSTR CScriptGameObject::GetCurrentLoopholeId()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member GetCurrentLoopholeId!");
+		return ("");
+	}
+	smart_cover::loophole const* loophole = stalker->get_current_loophole();
+	if (!loophole)
+		return ("");
+	return (*loophole->id());
 }
 
 void CScriptGameObject::set_desired_position()

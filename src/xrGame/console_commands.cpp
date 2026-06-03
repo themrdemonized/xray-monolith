@@ -2781,6 +2781,19 @@ void CCC_RegisterCommands()
     extern u32   g_ai_crouch_look_out_delta;
     extern u32   g_ai_wait_in_smart_cover_time;
     CMD4(CCC_Float,   "ai_close_move_distance",      &g_ai_close_move_distance,            0.f,  20.f);
+
+    extern float g_ai_cover_search_near_radius;
+    extern float g_ai_cover_search_far_radius;
+    extern float g_ai_cover_pistol_max_dist;
+    extern float g_ai_cover_shotgun_max_dist;
+    extern float g_ai_cover_sniper_min_dist;
+    extern float g_ai_cover_default_max_dist;
+    CMD4(CCC_Float, "ai_cover_search_near_radius", &g_ai_cover_search_near_radius, 1.f,  100.f);
+    CMD4(CCC_Float, "ai_cover_search_far_radius",  &g_ai_cover_search_far_radius,  1.f,  200.f);
+    CMD4(CCC_Float, "ai_cover_pistol_max_dist",    &g_ai_cover_pistol_max_dist,    0.f,  50.f);
+    CMD4(CCC_Float, "ai_cover_shotgun_max_dist",   &g_ai_cover_shotgun_max_dist,   0.f,  50.f);
+    CMD4(CCC_Float, "ai_cover_sniper_min_dist",    &g_ai_cover_sniper_min_dist,    0.f,  200.f);
+    CMD4(CCC_Float, "ai_cover_default_max_dist",   &g_ai_cover_default_max_dist,   0.f,  100.f);
     CMD4(CCC_Integer, "ai_crouch_look_out_delta",    (int*)&g_ai_crouch_look_out_delta,    0,    30000);
     CMD4(CCC_Integer, "ai_wait_in_smart_cover_time", (int*)&g_ai_wait_in_smart_cover_time, 0,    120000);
 

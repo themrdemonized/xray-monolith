@@ -426,6 +426,37 @@ _G.CAI_Stalker__OnTakeCoverDestination = function(npc, cover_pos, enemy)
 	SendScriptCallback("npc_on_take_cover_destination", npc, cover_pos, enemy)
 end
 
+-- NPC cover point changed callback.
+-- cover_pos is nil when NPC loses its cover point entirely.
+-- is_smart_cover=true when the new cover is a smart cover position.
+-- smart_cover_name is the level object name of the smart cover (empty string if not a smart cover).
+-- Use npc:get_current_smart_cover_name() and npc:get_current_loophole_id() for coordination.
+AddScriptCallback("npc_on_best_cover_changed")
+_G.CAI_Stalker__OnBestCoverChanged = function(npc, cover_pos, is_smart_cover, smart_cover_name)
+	SendScriptCallback("npc_on_best_cover_changed", npc, cover_pos, is_smart_cover, smart_cover_name)
+end
+
+-- NPC minimum combat engagement distance override (Pattern A, _g lowercase).
+-- Returns the minimum distance from enemy at which this NPC will accept a cover point.
+-- Snipers use a high min (they need distance to fire effectively).
+-- Default is computed from ef_weapon_type and ai_cover_sniper_min_dist / MIN_SUITABLE_ENEMY_DISTANCE.
+_g.CAI_Stalker__GetMinCombatDist = function(npc, base_min)
+	local flags = { ret_value = base_min }
+	SendScriptCallback("npc_on_get_min_combat_dist", npc, base_min, flags)
+	return flags.ret_value
+end
+AddScriptCallback("npc_on_get_min_combat_dist")
+
+-- NPC maximum combat engagement distance override (Pattern A, _g lowercase).
+-- Returns the maximum distance from enemy at which this NPC will accept a cover point.
+-- Shotgunners use a low max (close cover only). Default computed from ef_weapon_type.
+_g.CAI_Stalker__GetMaxCombatDist = function(npc, base_max)
+	local flags = { ret_value = base_max }
+	SendScriptCallback("npc_on_get_max_combat_dist", npc, base_max, flags)
+	return flags.ret_value
+end
+AddScriptCallback("npc_on_get_max_combat_dist")
+
 -- actor_on_task_callback
 AddScriptCallback("actor_on_task_callback")
 task_callback = task_manager.task_callback

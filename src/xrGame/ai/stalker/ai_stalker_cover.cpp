@@ -28,6 +28,13 @@
 
 extern const float MIN_SUITABLE_ENEMY_DISTANCE = 3.f;
 
+float g_ai_cover_search_near_radius = 10.f;
+float g_ai_cover_search_far_radius  = 30.f;
+float g_ai_cover_pistol_max_dist    = 10.f;
+float g_ai_cover_shotgun_max_dist   = 5.f;
+float g_ai_cover_sniper_min_dist    = 20.f;
+float g_ai_cover_default_max_dist   = 20.f;
+
 #ifdef _DEBUG
 static int g_advance_search_count		= 0;
 static int g_near_cover_search_count	= 0;
@@ -67,6 +74,18 @@ void CAI_Stalker::on_best_cover_changed(const CCoverPoint* new_cover, const CCov
 	cover_delegates::const_iterator E = m_cover_delegates.end();
 	for (; I != E; ++I)
 		(*I)(new_cover, old_cover);
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnBestCoverChanged", funct))
+		{
+			const bool is_smart = new_cover && new_cover->m_is_smart_cover;
+			LPCSTR cover_name = "";
+			if (is_smart)
+				cover_name = *static_cast<smart_cover::cover const*>(new_cover)->object().cName();
+			funct(lua_game_object(), new_cover ? &new_cover->position() : nullptr, is_smart, cover_name);
+		}
+	}
 }
 
 void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& maximum_enemy_distance)
@@ -75,35 +94,41 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 	maximum_enemy_distance = 170.f;
 
 	if (!best_weapon())
-		return;
+		goto apply_hooks;
 
-	int weapon_type = best_weapon()->object().ef_weapon_type();
-	switch (weapon_type)
 	{
-		// pistols
-	case 5:
+		int weapon_type = best_weapon()->object().ef_weapon_type();
+		switch (weapon_type)
 		{
-			maximum_enemy_distance = 10.f;
+			// pistols
+		case 5:
+			maximum_enemy_distance = g_ai_cover_pistol_max_dist;
+			break;
+			// shotguns
+		case 9:
+			maximum_enemy_distance = g_ai_cover_shotgun_max_dist;
+			break;
+			// sniper rifles
+		case 11:
+		case 12:
+			minimum_enemy_distance = g_ai_cover_sniper_min_dist;
+			break;
+		default:
+			maximum_enemy_distance = g_ai_cover_default_max_dist;
 			break;
 		}
-		// shotguns
-	case 9:
-		{
-			maximum_enemy_distance = 5.f;
-			break;
-		}
-		// sniper rifles
-	case 11:
-	case 12:
-		{
-			minimum_enemy_distance = 20.f;
-			break;
-		}
-	default:
-		{
-			maximum_enemy_distance = 20.f;
-			break;
-		}
+	}
+
+apply_hooks:
+	{
+		::luabind::functor<float> min_funct;
+		if (ai().script_engine().functor("_g.CAI_Stalker__GetMinCombatDist", min_funct))
+			minimum_enemy_distance = min_funct(lua_game_object(), minimum_enemy_distance);
+	}
+	{
+		::luabind::functor<float> max_funct;
+		if (ai().script_engine().functor("_g.CAI_Stalker__GetMaxCombatDist", max_funct))
+			maximum_enemy_distance = max_funct(lua_game_object(), maximum_enemy_distance);
 	}
 
 	minimum_enemy_distance = _min(minimum_enemy_distance, maximum_enemy_distance);
@@ -138,7 +163,7 @@ const CCoverPoint* CAI_Stalker::find_best_cover(const Fvector& position_to_cover
 	}
 
 	m_ce_best->setup(position_to_cover_from, minimum_enemy_distance, maximum_enemy_distance, minimum_enemy_distance);
-	const CCoverPoint* point = ai().cover_manager().best_cover(Position(), 10.f, *m_ce_best,
+	const CCoverPoint* point = ai().cover_manager().best_cover(Position(), g_ai_cover_search_near_radius, *m_ce_best,
 	                                                           CStalkerMovementRestrictor(this, true));
 	if (point)
 		return (point);
@@ -147,7 +172,7 @@ const CCoverPoint* CAI_Stalker::find_best_cover(const Fvector& position_to_cover
 	++g_far_cover_search_count;
 #endif
 	m_ce_best->setup(position_to_cover_from, minimum_enemy_distance, maximum_enemy_distance, minimum_enemy_distance);
-	point = ai().cover_manager().best_cover(Position(), 30.f, *m_ce_best, CStalkerMovementRestrictor(this, true));
+	point = ai().cover_manager().best_cover(Position(), g_ai_cover_search_far_radius, *m_ce_best, CStalkerMovementRestrictor(this, true));
 	return (point);
 }
 

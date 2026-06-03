@@ -617,6 +617,8 @@ public:
 	CHARACTER_RANK_VALUE GetRank();
 	LPCSTR GetRankName();
 	void best_cover_invalidate();
+	LPCSTR GetCurrentSmartCoverName();
+	LPCSTR GetCurrentLoopholeId();
 	void play_sound(u32 internal_type);
 	void play_sound(u32 internal_type, u32 max_start_time);
 	void play_sound(u32 internal_type, u32 max_start_time, u32 min_start_time);
