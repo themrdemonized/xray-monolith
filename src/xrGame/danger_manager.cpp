@@ -16,14 +16,16 @@
 #include "actor.h"
 #include "object_broker.h"
 
-float g_ai_danger_ricochet_score      = 3000.f;
-float g_ai_danger_attack_sound_score  = 2500.f;
-float g_ai_danger_entity_attacked_score = 2000.f;
-float g_ai_danger_entity_death_score  = 3000.f;
-float g_ai_danger_corpse_score        = 2250.f;
-float g_ai_danger_attacked_score      = 2000.f;
-float g_ai_danger_grenade_score       = 1000.f;
-float g_ai_danger_enemy_sound_score   = 1000.f;
+// Danger perception multipliers. 1.0 = original engine behaviour.
+// Applied as: base_score * multiplier. 0.0 disables that danger type entirely.
+float g_ai_danger_ricochet_mult         = 1.f;
+float g_ai_danger_attack_sound_mult     = 1.f;
+float g_ai_danger_entity_attacked_mult  = 1.f;
+float g_ai_danger_entity_death_mult     = 1.f;
+float g_ai_danger_corpse_mult           = 1.f;
+float g_ai_danger_attacked_mult         = 1.f;
+float g_ai_danger_grenade_mult          = 1.f;
+float g_ai_danger_enemy_sound_mult      = 1.f;
 
 struct CDangerPredicate
 {
@@ -212,49 +214,49 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 	case CDangerObject::eDangerTypeBulletRicochet:
 		{
 			// I perceived bullet(knife) ricochet
-			result += g_ai_danger_ricochet_score;
+			result += 3000.f * g_ai_danger_ricochet_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttackSound:
 		{
 			// someone is shooting
-			result += g_ai_danger_attack_sound_score;
+			result += 2500.f * g_ai_danger_attack_sound_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityAttacked:
 		{
 			// someone is hit
-			result += g_ai_danger_entity_attacked_score;
+			result += 2000.f * g_ai_danger_entity_attacked_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityDeath:
 		{
 			// someone becomes dead
-			result += g_ai_danger_entity_death_score;
+			result += 3000.f * g_ai_danger_entity_death_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeFreshEntityCorpse:
 		{
 			// I see a corpse
-			result += g_ai_danger_corpse_score;
+			result += 2250.f * g_ai_danger_corpse_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttacked:
 		{
 			// someone is attacked
-			result += g_ai_danger_attacked_score;
+			result += 2000.f * g_ai_danger_attacked_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeGrenade:
 		{
 			// grenade to explode nearby
-			result += g_ai_danger_grenade_score;
+			result += 1000.f * g_ai_danger_grenade_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeEnemySound:
 		{
 			// enemy sound nearby
-			result += g_ai_danger_enemy_sound_score;
+			result += 1000.f * g_ai_danger_enemy_sound_mult;
 			break;
 		}
 	default: NODEFAULT;
