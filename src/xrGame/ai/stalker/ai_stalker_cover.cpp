@@ -93,9 +93,7 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 	minimum_enemy_distance = MIN_SUITABLE_ENEMY_DISTANCE;
 	maximum_enemy_distance = 170.f;
 
-	if (!best_weapon())
-		goto apply_hooks;
-
+	if (best_weapon())
 	{
 		int weapon_type = best_weapon()->object().ef_weapon_type();
 		switch (weapon_type)
@@ -119,16 +117,31 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 		}
 	}
 
-apply_hooks:
 	{
 		::luabind::functor<float> min_funct;
 		if (ai().script_engine().functor("_g.CAI_Stalker__GetMinCombatDist", min_funct))
-			minimum_enemy_distance = min_funct(lua_game_object(), minimum_enemy_distance);
+		{
+			float result = min_funct(lua_game_object(), minimum_enemy_distance);
+			if (_valid(result) && result >= 0.f)
+				minimum_enemy_distance = result;
+			else
+				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+				                                "CAI_Stalker [%s]: _g.CAI_Stalker__GetMinCombatDist returned invalid value %f, ignoring",
+				                                *cName(), result);
+		}
 	}
 	{
 		::luabind::functor<float> max_funct;
 		if (ai().script_engine().functor("_g.CAI_Stalker__GetMaxCombatDist", max_funct))
-			maximum_enemy_distance = max_funct(lua_game_object(), maximum_enemy_distance);
+		{
+			float result = max_funct(lua_game_object(), maximum_enemy_distance);
+			if (_valid(result) && result >= 0.f)
+				maximum_enemy_distance = result;
+			else
+				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+				                                "CAI_Stalker [%s]: _g.CAI_Stalker__GetMaxCombatDist returned invalid value %f, ignoring",
+				                                *cName(), result);
+		}
 	}
 
 	minimum_enemy_distance = _min(minimum_enemy_distance, maximum_enemy_distance);

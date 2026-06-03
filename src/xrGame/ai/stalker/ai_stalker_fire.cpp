@@ -1079,7 +1079,15 @@ float CAI_Stalker::missile_throw_force()
 
 	::luabind::functor<float> funct;
 	if (ai().script_engine().functor("_g.CAI_Stalker__GetMissileThrowForce", funct))
-		force = funct(lua_game_object(), force);
+	{
+		float result = funct(lua_game_object(), force);
+		if (_valid(result) && result > 0.f)
+			force = result;
+		else
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			                                "CAI_Stalker [%s]: _g.CAI_Stalker__GetMissileThrowForce returned invalid value %f (must be > 0), ignoring",
+			                                *cName(), result);
+	}
 
 	return force;
 }
@@ -1392,7 +1400,14 @@ void CAI_Stalker::on_enemy_wounded_or_killed(const CAI_Stalker* wounded_or_kille
 	{
 		::luabind::functor<void> funct;
 		if (ai().script_engine().functor("_G.CAI_Stalker__OnEnemyWoundedOrKilled", funct))
-			funct(lua_game_object(), wounded_or_killed->lua_game_object());
+		{
+			if (wounded_or_killed)
+				funct(lua_game_object(), wounded_or_killed->lua_game_object());
+			else
+				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+				                                "CAI_Stalker [%s]: OnEnemyWoundedOrKilled called with null victim, skipping Lua hook",
+				                                *cName());
+		}
 	}
 }
 
