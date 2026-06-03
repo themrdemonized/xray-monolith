@@ -611,8 +611,23 @@ void SArtefactDetectorsSupport::UpdateOnFrame()
 		float cosa = v.dotproduct(dir);
 		if (v.square_magnitude() < (0.7f * 0.7f) || (cosa < cos_et))
 		{
-			Fvector power = dir;
-			power.y += 1.0f;
+            Fvector power = dir;
+
+            {
+                Fvector start = m_parent->Position();
+                Fvector dir_down;
+                dir_down.set(0, -1, 0);
+                const float ground_check_dist = 0.75f;
+
+                collide::rq_result R;
+                if (Level().ObjectSpace.RayPick(start, dir_down, ground_check_dist, collide::rqtBoth, R, m_parent)) {
+                    if (R.range <= ground_check_dist) {
+                        power.y += 1.0f;
+                    }
+                }
+            }
+
+            //power.y += 1.0f;
 			power.mul(m_path_moving_force);
 			m_parent->m_pPhysicsShell->applyGravityAccel(power);
 		}
