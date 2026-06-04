@@ -52,14 +52,23 @@ void CDetailManager::hw_Load_Geom()
 	clamp(hw_BatchSize, (u32)0, (u32)64);
 	Msg("* [DETAILS] VertexConsts(%d), Batch(%d)", u32(HW.Caps.geometry.dwRegisters), hw_BatchSize);
 
+	//	On DX10/11 we draw with hardware instancing (DrawIndexedInstanced), so the geometry
+	//	buffers hold a single copy of each mesh and the per-instance transform is fetched in
+	//	the vertex shader via SV_InstanceID. The legacy DX9 path still bakes hw_BatchSize copies.
+#if defined(USE_DX10) || defined(USE_DX11)
+	const u32 dwCopies = 1;
+#else
+	const u32 dwCopies = hw_BatchSize;
+#endif
+
 	// Pre-process objects
 	u32 dwVerts = 0;
 	u32 dwIndices = 0;
 	for (u32 o = 0; o < objects.size(); o++)
 	{
 		const CDetail& D = *objects[o];
-		dwVerts += D.number_vertices * hw_BatchSize;
-		dwIndices += D.number_indices * hw_BatchSize;
+		dwVerts += D.number_vertices * dwCopies;
+		dwIndices += D.number_indices * dwCopies;
 	}
 	u32 vSize = sizeof(vertHW);
 	Msg("* [DETAILS] %d v(%d), %d p", dwVerts, vSize, dwIndices / 3);
@@ -90,7 +99,7 @@ void CDetailManager::hw_Load_Geom()
 		for (u32 o = 0; o < objects.size(); o++)
 		{
 			const CDetail& D = *objects[o];
-			for (u32 batch = 0; batch < hw_BatchSize; batch++)
+			for (u32 batch = 0; batch < dwCopies; batch++)
 			{
 				u32 mid = batch * c_size;
 				for (u32 v = 0; v < D.number_vertices; v++)
@@ -130,7 +139,7 @@ void CDetailManager::hw_Load_Geom()
 		{
 			const CDetail& D = *objects[o];
 			u16 offset = 0;
-			for (u32 batch = 0; batch < hw_BatchSize; batch++)
+			for (u32 batch = 0; batch < dwCopies; batch++)
 			{
 				for (u32 i = 0; i < u32(D.number_indices); i++)
 					*pI++ = u16(u16(D.indices[i]) + u16(offset));

@@ -322,13 +322,10 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 						dwBatch ++;
 						if (dwBatch == hw_BatchSize)
 						{
-							// flush
 							Device.Statistic->RenderDUMP_DT_Count += dwBatch;
-							u32 dwCNT_verts = dwBatch * Object.number_vertices;
-							u32 dwCNT_prims = (dwBatch * Object.number_indices) / 3;
-							//RCache.get_ConstantCache_Vertex().b_dirty				=	TRUE;
-							//RCache.get_ConstantCache_Vertex().get_array_f().dirty	(c_base,c_base+dwBatch*4);
-							RCache.Render(D3DPT_TRIANGLELIST, vOffset, 0, dwCNT_verts, iOffset, dwCNT_prims);
+							u32 dwCNT_verts = dwBatch * Object.number_vertices; // for stats only
+							RCache.RenderInstanced(D3DPT_TRIANGLELIST, dwBatch, vOffset, 0, Object.number_vertices,
+							                       iOffset, Object.number_indices / 3);
 							RCache.stat.r.s_details.add(dwCNT_verts);
 
 							// restart
@@ -350,11 +347,9 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 				if (dwBatch)
 				{
 					Device.Statistic->RenderDUMP_DT_Count += dwBatch;
-					u32 dwCNT_verts = dwBatch * Object.number_vertices;
-					u32 dwCNT_prims = (dwBatch * Object.number_indices) / 3;
-					//RCache.get_ConstantCache_Vertex().b_dirty				=	TRUE;
-					//RCache.get_ConstantCache_Vertex().get_array_f().dirty	(c_base,c_base+dwBatch*4);
-					RCache.Render(D3DPT_TRIANGLELIST, vOffset, 0, dwCNT_verts, iOffset, dwCNT_prims);
+					u32 dwCNT_verts = dwBatch * Object.number_vertices; // for stats only
+					RCache.RenderInstanced(D3DPT_TRIANGLELIST, dwBatch, vOffset, 0, Object.number_vertices,
+					                       iOffset, Object.number_indices / 3);
 					RCache.stat.r.s_details.add(dwCNT_verts);
 				}
 			}
@@ -371,7 +366,7 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 					vis.clear_not_free();
 			}
 		}
-		vOffset += hw_BatchSize * Object.number_vertices;
-		iOffset += hw_BatchSize * Object.number_indices;
+		vOffset += Object.number_vertices;
+		iOffset += Object.number_indices;
 	}
 }
