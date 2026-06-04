@@ -558,6 +558,8 @@
         function memory_remove_links(game_object)
         function get_object_visible_distance(game_object)
         function get_object_luminocity(game_object)
+        bool affect_cover() // Returns true when the NPC considers itself in a tactically covered position (physically arrived at cover). Set by combat actions, reset on action transition. Use in BeforeHitCallback to detect hits in the open.
+        void best_cover_invalidate() // Forces the NPC to re-evaluate its best cover point on the next tick. Call after affect_cover() returns false on a hit to make the NPC seek new cover.
 
         // Space Restrictors
         function force_set_restrictor_type(number)
