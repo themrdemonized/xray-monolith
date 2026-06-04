@@ -425,16 +425,6 @@ void CAI_Stalker::Hit(SHit* pHDS)
 	//conditions().health()			= 1.f;
 
 	inherited::Hit(&HDS);
-
-	if (g_Alive())
-	{
-		::luabind::functor<void> funct;
-		if (ai().script_engine().functor("_G.CAI_Stalker__OnHitReaction", funct))
-		{
-			CScriptHit tLuaHit(&HDS);
-			funct(this->lua_game_object(), &tLuaHit, HDS.boneID, brain().affect_cover());
-		}
-	}
 }
 
 void CAI_Stalker::HitSignal(float amount, Fvector& vLocalDir, CObject* who, s16 element)

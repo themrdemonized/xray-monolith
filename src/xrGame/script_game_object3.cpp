@@ -597,6 +597,19 @@ LPCSTR CScriptGameObject::GetRankName()
 	return (*stalker->CharacterInfo().Rank().id());
 }
 
+bool CScriptGameObject::affect_cover() const
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] affect_cover() called on non-stalker object",
+		                                object().cNameSect_str());
+		return (false);
+	}
+	return (stalker->brain().affect_cover());
+}
+
 void CScriptGameObject::best_cover_invalidate()
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());

@@ -414,12 +414,6 @@ _G.CAI_Stalker__OnCombatActionChanged = function(npc, old_op, new_op)
 	SendScriptCallback("npc_on_combat_action_changed", npc, old_op, new_op)
 end
 
--- NPC hit reaction callback, fires after damage is applied. is_in_cover reflects brain().affect_cover() at time of hit
-AddScriptCallback("npc_on_hit_reaction")
-_G.CAI_Stalker__OnHitReaction = function(npc, hit, bone_id, is_in_cover)
-	SendScriptCallback("npc_on_hit_reaction", npc, hit, bone_id, is_in_cover)
-end
-
 -- NPC TakeCover destination callback. Only fires when a real cover point is found, not on fallback paths
 AddScriptCallback("npc_on_take_cover_destination")
 _G.CAI_Stalker__OnTakeCoverDestination = function(npc, cover_pos, enemy)

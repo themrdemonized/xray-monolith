@@ -616,6 +616,7 @@ public:
 	void set_sight(const MemorySpace::CMemoryInfo* memory_object, bool torso_look);
 	CHARACTER_RANK_VALUE GetRank();
 	LPCSTR GetRankName();
+	bool affect_cover() const;
 	void best_cover_invalidate();
 	LPCSTR GetCurrentSmartCoverName();
 	LPCSTR GetCurrentLoopholeId();
