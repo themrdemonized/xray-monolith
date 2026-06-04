@@ -65,6 +65,43 @@
         g_decouple_horz_recoil // calculate horz recoil independently of vert recoil
         g_use_non_linear_inertia // enable non linear weapon inertia movement
 
+        // Combat AI - fire/suppression logic
+        ai_fire_make_sense_interval [0; 20000] // How long (ms) NPCs fire at last known position after losing sight. 0 = fire only while visible. Default 10000
+        ai_fire_range_extension [0; 10] // Extra metres past pick_distance where suppression fire still makes sense. Default 2.5
+        ai_fire_max_height_diff [0; 8] // Max vertical gap (m) between NPC and enemy for fire to make sense. Default 2.0
+        ai_fire_min_dist [0; 20] // Minimum pick_distance (m) required for fire to make sense. Default 2.5
+
+        // Combat AI - cover danger zones
+        ai_cover_danger_radius [0; 15] // Danger zone radius (m) when NPC is shot while in cover. Default 3.0
+        ai_cover_danger_time [0; 300000] // Duration (ms) of that danger flag. Default 120000
+        ai_cover_detour_radius [0; 15] // Danger zone radius (m) when NPC flanks. Default 5.0
+        ai_cover_detour_time [0; 300000] // Duration (ms) of that danger flag. Default 120000
+        ai_cover_unknown_radius [0; 15] // Danger zone radius (m) on unknown threats. Default 5.0
+        ai_cover_unknown_time [0; 300000] // Duration (ms) of that danger flag. Default 120000
+
+        // Combat AI - cover selection distances
+        ai_cover_search_near_radius [1; 30] // First-pass cover search radius (m). Default 10.0
+        ai_cover_search_far_radius [1; 80] // Fallback cover search radius (m). Default 30.0
+        ai_cover_pistol_max_dist [3; 50] // Max cover distance (m) for pistol wielders. Default 10.0
+        ai_cover_shotgun_max_dist [3; 20] // Max cover distance (m) for shotgun wielders. Default 5.0
+        ai_cover_sniper_min_dist [0; 80] // Min cover distance (m) for sniper wielders. 0 = no minimum. Default 20.0
+        ai_cover_default_max_dist [3; 50] // Max cover distance (m) for all other weapons. Default 20.0
+
+        // Combat AI - timing and movement
+        ai_close_move_distance [0; 6] // Distance (m) at which TakeCover switches from running to in-place movement. Default 1.5
+        ai_crouch_look_out_delta [0; 12000] // LookOut crouch/stand randomization interval (ms). Default 5000
+        ai_wait_in_smart_cover_time [0; 120000] // How long (ms) NPC waits at smart cover before giving up. Default 30000
+
+        // Combat AI - danger perception multipliers (1.0 = original, 0.0 = disabled, 5.0 = 5x urgency)
+        ai_danger_ricochet_mult [0.0; 5.0] // Bullet ricochet danger urgency multiplier. Default 1.0 (base score 3000)
+        ai_danger_attack_sound_mult [0.0; 5.0] // Gunshot sound danger urgency multiplier. Default 1.0 (base score 2500)
+        ai_danger_entity_attacked_mult [0.0; 5.0] // Ally hit danger urgency multiplier. Default 1.0 (base score 2000)
+        ai_danger_entity_death_mult [0.0; 5.0] // Entity death danger urgency multiplier. Default 1.0 (base score 3000)
+        ai_danger_corpse_mult [0.0; 5.0] // Fresh corpse danger urgency multiplier. Default 1.0 (base score 2250)
+        ai_danger_attacked_mult [0.0; 5.0] // Being attacked danger urgency multiplier. Default 1.0 (base score 2000)
+        ai_danger_grenade_mult [0.0; 5.0] // Grenade danger urgency multiplier. Default 1.0 (base score 1000)
+        ai_danger_enemy_sound_mult [0.0; 5.0] // Enemy sound danger urgency multiplier. Default 1.0 (base score 1000)
+
     }
 
     lua extensions {
@@ -560,6 +597,9 @@
         function get_object_luminocity(game_object)
         bool affect_cover() // Returns true when the NPC considers itself in a tactically covered position (physically arrived at cover). Set by combat actions, reset on action transition. Use in BeforeHitCallback to detect hits in the open.
         void best_cover_invalidate() // Forces the NPC to re-evaluate its best cover point on the next tick. Call after affect_cover() returns false on a hit to make the NPC seek new cover.
+        string rank_name() // Returns rank id string from CharacterInfo: "novice", "experienced", "veteran", "master", "expert". More reliable than rank() since raw integer thresholds vary per modpack.
+        string get_current_smart_cover_name() // Returns cName() of the smart cover the NPC is currently occupying, or "" if none.
+        string get_current_loophole_id() // Returns the loophole id within the current smart cover, or "" if none.
 
         // Space Restrictors
         function force_set_restrictor_type(number)
