@@ -511,6 +511,7 @@ void CStalkerActionTakeCover::initialize()
 {
 	inherited::initialize();
 
+	m_last_notified_cover = nullptr;
 	m_body_state = object().movement().body_state();
 	//	m_movement_type								= Random.randI(2) ? eMovementTypeRun : eMovementTypeWalk;
 	m_movement_type = g_ai_move_to_cover_run ? eMovementTypeRun : eMovementTypeWalk;
@@ -589,7 +590,9 @@ void CStalkerActionTakeCover::execute()
 	{
 		setup_cover(*point);
 
+		if (point != m_last_notified_cover)
 		{
+			m_last_notified_cover = point;
 			::luabind::functor<void> funct;
 			if (ai().script_engine().functor("_G.CAI_Stalker__OnTakeCoverDestination", funct))
 			{

@@ -118,6 +118,7 @@ protected:
 private:
 	MonsterSpace::EBodyState m_body_state;
 	MonsterSpace::EMovementType m_movement_type;
+	const CCoverPoint* m_last_notified_cover;
 
 public:
 	CStalkerActionTakeCover(CAI_Stalker* object, LPCSTR action_name = "");

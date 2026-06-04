@@ -109,7 +109,8 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 			// sniper rifles
 		case 11:
 		case 12:
-			minimum_enemy_distance = g_ai_cover_sniper_min_dist;
+			if (g_ai_cover_sniper_min_dist > 0.f)
+				minimum_enemy_distance = g_ai_cover_sniper_min_dist;
 			break;
 		default:
 			maximum_enemy_distance = g_ai_cover_default_max_dist;
