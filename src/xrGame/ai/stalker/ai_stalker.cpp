@@ -74,11 +74,8 @@ using namespace StalkerSpace;
 
 extern int g_AI_inactive_time;
 
-// Gated by set_ai_unlimited_ammo(bool) Lua binding. Default 1 = vanilla.
+// Console cvar g_ai_unlimited_ammo gates the stalker infinite-ammo path. Default 1 = vanilla.
 int g_ai_unlimited_ammo = 1;
-
-bool get_ai_unlimited_ammo() { return g_ai_unlimited_ammo != 0; }
-void set_ai_unlimited_ammo(bool b) { g_ai_unlimited_ammo = b ? 1 : 0; }
 
 CAI_Stalker::CAI_Stalker() :
 	m_sniper_update_rate(false),

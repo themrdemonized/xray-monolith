@@ -110,9 +110,6 @@
         ClrSetR(number argb, number r)
         ClrSetG(number argb, number g)
         ClrSetB(number argb, number b)
-
-        bool get_ai_unlimited_ammo() -- reads the global stalker-NPC infinite-ammo gate
-        void set_ai_unlimited_ammo(bool) -- false disables the eTraderFlagInfiniteAmmo path engine-wide for stalker NPCs: reload draws from real inventory boxes, GetSuitableAmmoTotal returns actual count, planner box top-up and OnItemDrop ammo respawn are skipped. Default vanilla (true). Actor unaffected. Not save-persisted; call on game start.
     }
 
     get_console() {
