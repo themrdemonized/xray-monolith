@@ -227,6 +227,12 @@ public:
 	u32 hw_BatchSize;
 	ID3DVertexBuffer* hw_VB;
 	ID3DIndexBuffer* hw_IB;
+#if defined(USE_DX10) || defined(USE_DX11)
+	// DX10/11 instancing
+	// One record = 5 float4 (3x4 transform rows + color + terrain-normal/alpha) = 80b
+	enum { hw_InstanceStride = 5 * sizeof(Fvector4), hw_InstanceCapacity = 1 << 17 };
+	ID3DVertexBuffer* hw_instanceVB;
+#endif
 	ref_constant hwc_consts;
 	ref_constant hwc_wave;
 	ref_constant hwc_wind;

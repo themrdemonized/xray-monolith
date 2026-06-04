@@ -92,6 +92,14 @@ void CDetailManager::hw_Render()
 	// Setup geometry and DMA
 	RCache.set_Geometry(hw_Geom);
 
+	// Bind the per-instance vertex stream to slot 1 (filled per-pass in hw_Render_dump).
+	// The backend only tracks slot 0, so we bind slot 1 directly each frame.
+	{
+		UINT istride = hw_InstanceStride;
+		UINT ioffset = 0;
+		HW.pContext->IASetVertexBuffers(1, 1, &hw_instanceVB, &istride, &ioffset);
+	}
+
 	// Wave0
 	float scale = 1.f / float(quant);
 	Fvector4 wave, prev_wave;
@@ -167,10 +175,6 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 
 	Device.Statistic->RenderDUMP_DT_Count = 0;
 
-	// Matrices and offsets
-	u32 vOffset = 0;
-	u32 iOffset = 0;
-
 	vis_list& list = m_visibles[var_id];
 
 	CEnvDescriptor& desc = *g_pGamePersistent->Environment().CurrentEnv;
@@ -180,179 +184,81 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 	c_ambient.set(desc.ambient.x, desc.ambient.y, desc.ambient.z);
 	c_hemi.set(desc.hemi_color.x, desc.hemi_color.y, desc.hemi_color.z);
 
-	// Iterate
+	// One per-instance record: 3x4 transform rows + color + terrain-normal/alpha (80 bytes,
+	// matches dwDecl slot-1 layout and hw_InstanceStride).
+	struct InstanceHW { Fvector4 m0, m1, m2, c0, data; };
+	struct DrawRange { u32 instBase, instCount, vOffset, iOffset, prims; };
+	DrawRange ranges[dm_max_objects];
+
+	// ---- FILL: pack all visible instances of this variant into the instance VB (one map) ----
+	void* pInstData;
+#ifdef USE_DX11
+	D3D11_MAPPED_SUBRESOURCE mapped;
+	CHK_DX(HW.pContext->Map(hw_instanceVB, 0, D3D_MAP_WRITE_DISCARD, 0, &mapped));
+	pInstData = mapped.pData;
+#else
+	CHK_DX(hw_instanceVB->Map(D3D_MAP_WRITE_DISCARD, 0, &pInstData));
+#endif
+	InstanceHW* pInst = (InstanceHW*)pInstData;
+
+	u32 instTotal = 0;
+	u32 vOffset = 0;
+	u32 iOffset = 0;
 	for (u32 O = 0; O < objects.size(); O++)
 	{
 		CDetail& Object = *objects[O];
+		ranges[O].vOffset = vOffset;
+		ranges[O].iOffset = iOffset;
+		ranges[O].prims = Object.number_indices / 3;
+		ranges[O].instBase = instTotal;
+		ranges[O].instCount = 0;
+
 		xr_vector<SlotItemVec*>& vis = list[O];
 		if (!vis.empty())
 		{
-			for (u32 iPass = 0; iPass < Object.shader->E[lod_id]->passes.size(); ++iPass)
+			xr_vector<SlotItemVec*>::iterator _vI = vis.begin();
+			xr_vector<SlotItemVec*>::iterator _vE = vis.end();
+			for (; _vI != _vE; _vI++)
 			{
-				// Setup matrices + colors (and flush it as necessary)
-				//RCache.set_Element				(Object.shader->E[lod_id]);
-				RCache.set_Element(Object.shader->E[lod_id], iPass);
-				RImplementation.apply_lmaterial();
-
-				//	This could be cached in the corresponding consatant buffer
-				//	as it is done for DX9
-				RCache.set_c(strConsts, consts);
-				RCache.set_c(strWave, wave);
-				RCache.set_c(strDir2D, wind);
-				RCache.set_c(strXForm, Device.mFullTransform);
-				RCache.set_c(strGrassAlign, ps_ssfx_terrain_grass_align);
-
-				RCache.set_c(strWavePrev, prev_wave);
-				RCache.set_c(strDir2DPrev, prev_wind);
-
-				if (ps_ssfx_grass_interactive.y > 0)
+				SlotItemVec* items = *_vI;
+				SlotItemVecIt _iI = items->begin();
+				SlotItemVecIt _iE = items->end();
+				for (; _iI != _iE; _iI++)
 				{
-					RCache.set_c(strGrassSetup, ps_ssfx_int_grass_params_1);
+					SlotItem& Instance = **_iI;
 
-					Fvector4* c_grass;
-					{
-						void* GrassData;
-						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
-						c_grass = (Fvector4*)GrassData;
-					}
-					VERIFY(c_grass);
+					Instance.alpha += GoToValue(Instance.alpha, Instance.alpha_target);
 
-					if (c_grass)
-					{
-						c_grass[0].set(player_pos);
-						c_grass[16].set(0.0f, -99.0f, 0.0f, 1.0f);
+					float scale = Instance.scale_calculated;
 
-						for (int Bend = 1; Bend < BendersQty; Bend++)
-						{
-							c_grass[Bend].set(GData.pos[Bend].x, GData.pos[Bend].y, GData.pos[Bend].z, GData.radius_curr[Bend]);
-							c_grass[Bend + 16].set(GData.dir[Bend].x, GData.dir[Bend].y, GData.dir[Bend].z, GData.str[Bend]);
-						}
-					}
+					// Sort of fade using the scale
+					// fade_distance == -1 use light_position to define "fade", anything else uses fade_distance
+					if (fade_distance <= -1)
+						scale *= 1.0f - Instance.position.distance_to_xz_sqr(light_position) * 0.005f;
+					else if (Instance.distance > fade_distance)
+						scale *= 1.0f - abs(Instance.distance - fade_distance) * 0.005f;
 
-					Fvector4* c_prev_grass;
-					{
-						void* prev_GrassData;
-						RCache.get_ConstantDirect(strPrevPos, BendersQty * sizeof(Fvector4) * 2, &prev_GrassData, 0, 0);
-						c_prev_grass = (Fvector4*)prev_GrassData;
-					}
-					VERIFY(c_prev_grass);
+					if (scale <= 0 || Instance.alpha <= 0)
+						break;
 
-					if (c_prev_grass)
-					{
-						for (int Bend = 0; Bend < BendersQty; Bend++)
-						{
-							c_prev_grass[Bend].set(GData.prev_pos[Bend]);
-							c_prev_grass[Bend + 16].set(GData.prev_dir[Bend]);
-						}
-					}
+					if (instTotal >= (u32)hw_InstanceCapacity)
+						break;
+
+					// Build matrix ( 3x4 matrix ) + color + terrain-normal/alpha
+					Fmatrix& M = Instance.mRotY;
+					InstanceHW& R = pInst[instTotal];
+					R.m0.set(M._11 * scale, M._21 * scale, M._31 * scale, M._41);
+					R.m1.set(M._12 * scale, M._22 * scale, M._32 * scale, M._42);
+					R.m2.set(M._13 * scale, M._23 * scale, M._33 * scale, M._43);
+					R.c0.set(Instance.c_sun, Instance.c_sun, Instance.c_sun, Instance.c_hemi);
+					R.data.set(Instance.normal.x, Instance.normal.y, Instance.normal.z, Instance.alpha);
+					instTotal++;
 				}
-
-				Fvector4* c_ExData = 0;
-				{
-					void* pExtraData;
-					RCache.get_ConstantDirect(strExData, hw_BatchSize * sizeof(Fvector4), &pExtraData, 0, 0);
-					c_ExData = (Fvector4*)pExtraData;
-				}
-				VERIFY(c_ExData);
-
-				//ref_constant constArray = RCache.get_c(strArray);
-				//VERIFY(constArray);
-
-				//u32			c_base				= x_array->vs.index;
-				//Fvector4*	c_storage			= RCache.get_ConstantCache_Vertex().get_array_f().access(c_base);
-				Fvector4* c_storage = 0;
-				//	Map constants to memory directly
-				{
-					void* pVData;
-					RCache.get_ConstantDirect(strArray,
-					                          hw_BatchSize * sizeof(Fvector4) * 4,
-					                          &pVData, 0, 0);
-					c_storage = (Fvector4*)pVData;
-				}
-				VERIFY(c_storage);
-
-				u32 dwBatch = 0;
-
-				xr_vector<SlotItemVec*>::iterator _vI = vis.begin();
-				xr_vector<SlotItemVec*>::iterator _vE = vis.end();
-				for (; _vI != _vE; _vI++)
-				{
-					SlotItemVec* items = *_vI;
-					SlotItemVecIt _iI = items->begin();
-					SlotItemVecIt _iE = items->end();
-					for (; _iI != _iE; _iI++)
-					{
-						SlotItem& Instance = **_iI;
-						u32 base = dwBatch * 4;
-
-						Instance.alpha += GoToValue(Instance.alpha, Instance.alpha_target);
-
-						float scale = Instance.scale_calculated;
-
-						// Sort of fade using the scale
-						// fade_distance == -1 use light_position to define "fade", anything else uses fade_distance
-						if (fade_distance <= -1)
-							scale *= 1.0f - Instance.position.distance_to_xz_sqr(light_position) * 0.005f;
-						else if (Instance.distance > fade_distance)
-							scale *= 1.0f - abs(Instance.distance - fade_distance) * 0.005f;
-
-						if (scale <= 0 || Instance.alpha <= 0)
-							break;
-
-						// Build matrix ( 3x4 matrix, last row - color )
-						//float scale = Instance.scale_calculated;
-						Fmatrix& M = Instance.mRotY;
-						c_storage[base + 0].set(M._11 * scale, M._21 * scale, M._31 * scale, M._41);
-						c_storage[base + 1].set(M._12 * scale, M._22 * scale, M._32 * scale, M._42);
-						c_storage[base + 2].set(M._13 * scale, M._23 * scale, M._33 * scale, M._43);
-						//RCache.set_ca(&*constArray, base+0, M._11*scale,	M._21*scale,	M._31*scale,	M._41	);
-						//RCache.set_ca(&*constArray, base+1, M._12*scale,	M._22*scale,	M._32*scale,	M._42	);
-						//RCache.set_ca(&*constArray, base+2, M._13*scale,	M._23*scale,	M._33*scale,	M._43	);
-
-						// Build color
-						// R2 only needs hemisphere
-						float h = Instance.c_hemi;
-						float s = Instance.c_sun;
-						c_storage[base + 3].set(s, s, s, h);
-
-						if (c_ExData)
-							c_ExData[dwBatch].set(Instance.normal.x, Instance.normal.y, Instance.normal.z, Instance.alpha);
-
-						//RCache.set_ca(&*constArray, base+3, s,				s,				s,				h		);
-						dwBatch ++;
-						if (dwBatch == hw_BatchSize)
-						{
-							Device.Statistic->RenderDUMP_DT_Count += dwBatch;
-							u32 dwCNT_verts = dwBatch * Object.number_vertices; // for stats only
-							RCache.RenderInstanced(D3DPT_TRIANGLELIST, dwBatch, vOffset, 0, Object.number_vertices,
-							                       iOffset, Object.number_indices / 3);
-							RCache.stat.r.s_details.add(dwCNT_verts);
-
-							// restart
-							dwBatch = 0;
-
-							//	Remap constants to memory directly (just in case anything goes wrong)
-							{
-								void* pVData;
-								RCache.get_ConstantDirect(strArray,
-								                          hw_BatchSize * sizeof(Fvector4) * 4,
-								                          &pVData, 0, 0);
-								c_storage = (Fvector4*)pVData;
-							}
-							VERIFY(c_storage);
-						}
-					}
-				}
-				// flush if nessecary
-				if (dwBatch)
-				{
-					Device.Statistic->RenderDUMP_DT_Count += dwBatch;
-					u32 dwCNT_verts = dwBatch * Object.number_vertices; // for stats only
-					RCache.RenderInstanced(D3DPT_TRIANGLELIST, dwBatch, vOffset, 0, Object.number_vertices,
-					                       iOffset, Object.number_indices / 3);
-					RCache.stat.r.s_details.add(dwCNT_verts);
-				}
+				if (instTotal >= (u32)hw_InstanceCapacity)
+					break;
 			}
+			ranges[O].instCount = instTotal - ranges[O].instBase;
+
 			// Clean up
 			// KD: we must not clear vis on r2 since we want details shadows
 			if (ps_ssfx_grass_shadows.x <= 0)
@@ -368,5 +274,79 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 		}
 		vOffset += Object.number_vertices;
 		iOffset += Object.number_indices;
+	}
+
+#ifdef USE_DX11
+	HW.pContext->Unmap(hw_instanceVB, 0);
+#else
+	hw_instanceVB->Unmap();
+#endif
+
+	if (instTotal == 0)
+		return;
+
+	// ---- DRAW: set element + globals once (all detail objects share one shader), then one
+	//      hardware-instanced draw per mesh type using StartInstanceLocation. No per-draw CB churn. ----
+	ShaderElement* E = &*objects[0]->shader->E[lod_id];
+	for (u32 iPass = 0; iPass < E->passes.size(); ++iPass)
+	{
+		RCache.set_Element(E, iPass);
+		RImplementation.apply_lmaterial();
+
+		RCache.set_c(strConsts, consts);
+		RCache.set_c(strWave, wave);
+		RCache.set_c(strDir2D, wind);
+		RCache.set_c(strXForm, Device.mFullTransform);
+		RCache.set_c(strGrassAlign, ps_ssfx_terrain_grass_align);
+		RCache.set_c(strWavePrev, prev_wave);
+		RCache.set_c(strDir2DPrev, prev_wind);
+
+		if (ps_ssfx_grass_interactive.y > 0)
+		{
+			RCache.set_c(strGrassSetup, ps_ssfx_int_grass_params_1);
+
+			Fvector4* c_grass;
+			{
+				void* GrassData;
+				RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
+				c_grass = (Fvector4*)GrassData;
+			}
+			if (c_grass)
+			{
+				c_grass[0].set(player_pos);
+				c_grass[16].set(0.0f, -99.0f, 0.0f, 1.0f);
+
+				for (int Bend = 1; Bend < BendersQty; Bend++)
+				{
+					c_grass[Bend].set(GData.pos[Bend].x, GData.pos[Bend].y, GData.pos[Bend].z, GData.radius_curr[Bend]);
+					c_grass[Bend + 16].set(GData.dir[Bend].x, GData.dir[Bend].y, GData.dir[Bend].z, GData.str[Bend]);
+				}
+			}
+
+			Fvector4* c_prev_grass;
+			{
+				void* prev_GrassData;
+				RCache.get_ConstantDirect(strPrevPos, BendersQty * sizeof(Fvector4) * 2, &prev_GrassData, 0, 0);
+				c_prev_grass = (Fvector4*)prev_GrassData;
+			}
+			if (c_prev_grass)
+			{
+				for (int Bend = 0; Bend < BendersQty; Bend++)
+				{
+					c_prev_grass[Bend].set(GData.prev_pos[Bend]);
+					c_prev_grass[Bend + 16].set(GData.prev_dir[Bend]);
+				}
+			}
+		}
+
+		for (u32 O = 0; O < objects.size(); O++)
+		{
+			if (ranges[O].instCount == 0)
+				continue;
+			RCache.RenderInstanced(D3DPT_TRIANGLELIST, ranges[O].instCount, ranges[O].vOffset, 0,
+			                       objects[O]->number_vertices, ranges[O].iOffset, ranges[O].prims, ranges[O].instBase);
+			Device.Statistic->RenderDUMP_DT_Count += ranges[O].instCount;
+			RCache.stat.r.s_details.add(ranges[O].instCount * objects[O]->number_vertices);
+		}
 	}
 }

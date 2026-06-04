@@ -328,7 +328,7 @@ IC void CBackend::Render(D3DPRIMITIVETYPE T, u32 baseV, u32 startV, u32 countV, 
 }
 
 IC void CBackend::RenderInstanced(D3DPRIMITIVETYPE T, u32 instanceCount, u32 baseV, u32 startV, u32 countV, u32 startI,
-                                  u32 PC)
+                                  u32 PC, u32 startInstance)
 {
 	D3D_PRIMITIVE_TOPOLOGY Topology = TranslateTopology(T);
 	u32 iIndexCount = GetIndexCount(T, PC);
@@ -354,7 +354,7 @@ IC void CBackend::RenderInstanced(D3DPRIMITIVETYPE T, u32 instanceCount, u32 bas
 	//	State manager may alter constants
 	constants.flush();
 
-	HW.pContext->DrawIndexedInstanced(iIndexCount, instanceCount, startI, baseV, 0);
+	HW.pContext->DrawIndexedInstanced(iIndexCount, instanceCount, startI, baseV, startInstance);
 
 	PGO(Msg("PGO:DIPInst:%dv/%df x%d",countV,PC,instanceCount));
 }

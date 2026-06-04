@@ -85,6 +85,9 @@ CDetailManager::CDetailManager()
 	hw_BatchSize = 0;
 	hw_VB = 0;
 	hw_IB = 0;
+#if defined(USE_DX10) || defined(USE_DX11)
+	hw_instanceVB = 0;
+#endif
 	m_time_rot_1 = 0;
 	m_time_rot_2 = 0;
 	m_time_pos = 0;

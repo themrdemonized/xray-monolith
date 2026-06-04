@@ -17,12 +17,28 @@ const int quant = 16384;
 const int c_hdr = 10;
 const int c_size = 4;
 
+#if defined(USE_DX10) || defined(USE_DX11)
+// Slot 0 = per-vertex mesh data; slot 1 = per-instance data (marked PER_INSTANCE by
+// ConvertVertexDeclaration since Stream>=1)
+static D3DVERTEXELEMENT9 dwDecl[] =
+{
+	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},    // pos
+	{0, 12, D3DDECLTYPE_SHORT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0},   // uv,t,mid
+	{1, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1},    // inst m0
+	{1, 16, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 2},   // inst m1
+	{1, 32, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 3},   // inst m2
+	{1, 48, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 4},   // inst color
+	{1, 64, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 5},   // inst exdata
+	D3DDECL_END()
+};
+#else
 static D3DVERTEXELEMENT9 dwDecl[] =
 {
 	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // pos
 	{0, 12, D3DDECLTYPE_SHORT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0}, // uv
 	D3DDECL_END()
 };
+#endif
 
 #pragma pack(push,1)
 struct vertHW
@@ -157,6 +173,21 @@ void CDetailManager::hw_Load_Geom()
 
 	// Declare geometry
 	hw_Geom.create(dwDecl, hw_VB, hw_IB);
+
+#if defined(USE_DX10) || defined(USE_DX11)
+	// Dynamic per-instance vertex buffer (slot 1) - filled each pass in hw_Render_dump
+	{
+		D3D_BUFFER_DESC idesc;
+		ZeroMemory(&idesc, sizeof(idesc));
+		idesc.ByteWidth = hw_InstanceCapacity * hw_InstanceStride;
+		idesc.Usage = D3D_USAGE_DYNAMIC;
+		idesc.BindFlags = D3D_BIND_VERTEX_BUFFER;
+		idesc.CPUAccessFlags = D3D_CPU_ACCESS_WRITE;
+		R_CHK(HW.pDevice->CreateBuffer(&idesc, 0, &hw_instanceVB));
+		HW.stats_manager.increment_stats_vb(hw_instanceVB);
+		Msg("* [DETAILS] InstanceVB(%dK), cap(%d)", (hw_InstanceCapacity * hw_InstanceStride) / 1024, hw_InstanceCapacity);
+	}
+#endif
 }
 
 void CDetailManager::hw_Unload()
@@ -167,6 +198,10 @@ void CDetailManager::hw_Unload()
 	HW.stats_manager.decrement_stats_ib(hw_IB);
 	_RELEASE(hw_IB);
 	_RELEASE(hw_VB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	HW.stats_manager.decrement_stats_vb(hw_instanceVB);
+	_RELEASE(hw_instanceVB);
+#endif
 }
 
 #if !defined(USE_DX10) && !defined(USE_DX11)
