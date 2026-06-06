@@ -220,6 +220,25 @@ public:
 	}
 };
 
+class CCC_DumpCVars : public IConsole_Command
+{
+public:
+	CCC_DumpCVars(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; }
+
+	virtual void Execute(LPCSTR args)
+	{
+		Log("- --- Console variables: start ---");
+		for (const auto& command : Console->Commands)
+		{
+			IConsole_Command::TStatus status;
+			command.second->Status(status);
+			if (status[0])
+				Msg("%s %s", command.second->Name(), status);
+		}
+		Log("- --- Console variables: end ---");
+	}
+};
+
 
 XRCORE_API void _dump_open_files(int mode);
 
@@ -1016,6 +1035,7 @@ void CCC_Register()
 	CMD1(CCC_Disconnect, "disconnect");
 	CMD1(CCC_SaveCFG, "cfg_save");
 	CMD1(CCC_LoadCFG, "cfg_load");
+	CMD1(CCC_DumpCVars, "dump_cvar");
 
 #ifdef DEBUG
     CMD1(CCC_MotionsStat, "stat_motions");
