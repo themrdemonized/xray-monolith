@@ -953,6 +953,12 @@
 	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_move_to_cover_run_desc">
 		<text>Если включено, NPC будут бежать, а не идти шагом при поиске укрытия во время боя. Это делает перестрелки более динамичными и не дает NPC медленно прогуливаться под огнем.</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_enhanced_vision">
+		<text>Усиленное зрение (ai_enhanced_vision)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_enhanced_vision_desc">
+		<text>Если включено, NPC будут считать врагов видимыми более агрессивно, возможно видя сквозь стены.</text>
+	</string>
 
 	<!-- Monsters -->
 	<string id="ui_mm_menu_monsters">
@@ -1101,10 +1107,10 @@
 	<string id="ui_mm_modded_exes_optimizations_r2_shadow_omnipart_vischeck_desc">
 		<text>Повышает производительность за счет проверки видимости источников света, созданных из точечных источников, и не рендеринга невидимых источников</text>
 	</string>
-	<string id="ui_mm_modded_exes_optimizations_r2_shadow_omnipart_vischeck">
+	<string id="ui_mm_modded_exes_optimizations_r__hom_dynamic">
 		<text>Проверка видимости через HOM для динамических объектов (r__hom_dynamic)</text>
 	</string>
-	<string id="ui_mm_modded_exes_optimizations_r2_shadow_omnipart_vischeck_desc">
+	<string id="ui_mm_modded_exes_optimizations_r__hom_dynamic_desc">
 		<text>Может повысить производительность благодаря проверке видимости через HOM</text>
 	</string>
 	
