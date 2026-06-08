@@ -24,6 +24,18 @@
 const float dbgOffset = 0.f;
 const int dbgItems = 128;
 
+
+ICF float dm_grass_instance_hash(float x, float z)
+{
+	s32 ix = iFloor(x * 137.f);
+	s32 iz = iFloor(z * 137.f);
+	u32 h = u32(ix) * 73856093u ^ u32(iz) * 19349663u;
+	h ^= h >> 13;
+	h *= 0x85ebca6bu;
+	h ^= h >> 16;
+	return float(h & 0xFFFFFFu) * (1.f / float(0x1000000));
+}
+
 //--------------------------------------------------- Decompression
 static int magic4x4[4][4] =
 {
@@ -349,6 +361,25 @@ void CDetailManager::UpdateVisibleM()
 					float alpha_i = 1.f - alpha;
 					float dist_sq_rcp = 1.f / dist_sq;
 
+					// Distance density falloff falls to zero after power curve knee
+                    // 0 at knee -> 1 at edge
+                    // curve > 1: drops fast right after the knee then a long tail
+                    // curve < 1: holds then cliffs at the edge
+                    // curve = 1: linear
+					float keepP = 1.f;
+					{
+						float knee = ps_r__Detail_density_knee;
+						float dist_frac = _sqrt(dist_sq) / dm_fade;
+						if (dist_frac >= 1.f)
+							keepP = 0.f;
+						else if (dist_frac > knee && knee < 1.f)
+						{
+                            
+							float t = (dist_frac - knee) / (1.f - knee);
+							keepP = powf(1.f - t, ps_r__Detail_density_curve);
+						}
+					}
+
 					S.frame = RDEVICE.dwFrame + Random.randI(15, 30);
 					for (int sp_id = 0; sp_id < dm_obj_in_slot; sp_id++)
 					{
@@ -371,6 +402,13 @@ void CDetailManager::UpdateVisibleM()
 								              : (Item.scale_calculated = Item.scale * alpha_i);
 							float ssa = psDeviceFlags2.test(rsNoScale) ? scale : scale * scale * Rq_drcp;
 							if (ssa < r_ssaDISCARD)
+							{
+								Item.alpha_target = 0;
+								continue;
+							}
+							// Distance density falloff: drop this instance if its stable hash
+							// exceeds the slot's keep-probability. 
+							if (keepP < 1.f && dm_grass_instance_hash(Item.mRotY.c.x, Item.mRotY.c.z) > keepP)
 							{
 								Item.alpha_target = 0;
 								continue;
