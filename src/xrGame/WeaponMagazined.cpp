@@ -1049,7 +1049,7 @@ void CWeaponMagazined::switch2_Fire()
 #endif // DEBUG
 
 	m_bStopedAfterQueueFired = false;
-	m_bFireSingleShot = true;
+	m_bFireSingleShot = (m_iQueueSize >= 0);
 	m_iShotNum = 0;
 
 	if ((OnClient() || Level().IsDemoPlay()) && !IsWorking())
@@ -1873,16 +1873,28 @@ bool CWeaponMagazined::SwitchMode()
 void CWeaponMagazined::OnH_A_Chield()
 {
 	if (m_bHasDifferentFireModes)
-	{
-		CActor* actor = smart_cast<CActor*>(H_Parent());
-		if (!actor) SetQueueSize(-1);
-		else SetQueueSize(GetCurrentFireMode());
-	};
+		SetQueueSize(GetCurrentFireMode());
+	else if (!ParentIsActor())
+		SetQueueSize(WEAPON_ININITE_QUEUE);
+
 	inherited::OnH_A_Chield();
 };
 
 void CWeaponMagazined::SetQueueSize(int size)
 {
+	if (m_bHasDifferentFireModes)
+	{
+		s8 const mode = (s8)GetCurrentFireMode();
+		m_iQueueSize = (mode < 0) ? WEAPON_ININITE_QUEUE : mode;
+		return;
+	}
+
+	if (!ParentIsActor())
+	{
+		m_iQueueSize = WEAPON_ININITE_QUEUE;
+		return;
+	}
+
 	m_iQueueSize = size;
 };
 

@@ -78,60 +78,32 @@ float CAI_Stalker::GetWeaponAccuracy() const
 	base *= m_fRankDisperison;
 	CWeapon* W = smart_cast<CWeapon*>(inventory().ActiveItem());
 
-	if (!movement().path_completed())
+	bool hasScope = W && W->IsScopeAttached();
+
+	if (movement().body_state() == eBodyStateStand)
 	{
-		if (movement().movement_type() == eMovementTypeWalk)
+		if (zoom_state() && hasScope)
 		{
-			if (movement().body_state() == eBodyStateStand)
-			{
-				base *= (m_disp_walk_stand * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_walk_crouch * g_dispersion_factor + g_dispersion_base);
-			}
+			base *= (m_disp_stand_stand_zoom * g_dispersion_factor + g_dispersion_base);
 		}
-		else if (movement().movement_type() == eMovementTypeRun)
+		else
 		{
-			if (movement().body_state() == eBodyStateStand)
-			{
-				base *= (m_disp_run_stand * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_run_crouch * g_dispersion_factor + g_dispersion_base);
-			}
+			base *= (m_disp_stand_stand * g_dispersion_factor + g_dispersion_base);
+		}
+	}
+	else if (movement().body_state() == eBodyStateCrouch)
+	{
+		if (zoom_state() && hasScope)
+		{
+			base *= (m_disp_stand_crouch_zoom * g_dispersion_factor + g_dispersion_base);
+		}
+		else
+		{
+			base *= (m_disp_stand_crouch * g_dispersion_factor + g_dispersion_base);
 		}
 	}
 	else
-	{
-		bool hasScope = W && W->IsScopeAttached();
-
-		if (movement().body_state() == eBodyStateStand)
-		{
-			if (zoom_state() && hasScope)
-			{
-				base *= (m_disp_stand_stand_zoom * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_stand_stand * g_dispersion_factor + g_dispersion_base);
-			}
-		}
-		else if (movement().body_state() == eBodyStateCrouch)
-		{
-			if (zoom_state() && hasScope)
-			{
-				base *= (m_disp_stand_crouch_zoom * g_dispersion_factor + g_dispersion_base);
-			}
-			else
-			{
-				base *= (m_disp_stand_crouch * g_dispersion_factor + g_dispersion_base);
-			}
-		}
-		else
-			base *= (m_disp_run_stand * g_dispersion_factor + g_dispersion_base); // fallback to worst aim if state could not determined, this should never happen (tm)
-	}
+		base *= (m_disp_stand_stand * g_dispersion_factor + g_dispersion_base);
 
 	::luabind::functor<float> func;
 	if (ai().script_engine().functor("_g.CAI_Stalker__GetWeaponAccuracy", func))

@@ -585,6 +585,8 @@ void CAI_Stalker::reload(LPCSTR section)
 			READ_IF_EXISTS(pSettings, r_float, *cNameSect(), "auto_queue_fire_dist_far", 30.0f);
 	}
 	m_power_fx_factor = pSettings->r_float(section, "power_fx_factor");
+
+	aim_bone_id(READ_IF_EXISTS(pSettings, r_string, section, "default_aim_bone", "bip01_spine1"));
 }
 
 void CAI_Stalker::Die(CObject* who)
@@ -1491,17 +1493,22 @@ shared_str const& CAI_Stalker::aim_bone_id() const
 	return (m_aim_bone_id);
 }
 
+void aim_target(shared_str const& aim_bone_id, Fvector& result, const CGameObject* object)
+{
+	IKinematics* kinematics = PKinematics(object->Visual());
+	VERIFY(kinematics);
+
+	u16 bone_id = kinematics->LL_BoneID(aim_bone_id);
+	VERIFY2(bone_id != BI_NONE, make_string("Cannot find bone %s", *aim_bone_id));
+
+	kinematics->LL_GetBoneWorldPosition(bone_id, object->XFORM(), result);
+}
+
 void CAI_Stalker::aim_target(Fvector& result, const CGameObject* object)
 {
 	VERIFY(m_aim_bone_id.size());
 
-	IKinematics* kinematics = PKinematics(object->Visual());
-	VERIFY(kinematics);
-
-	u16 bone_id = kinematics->LL_BoneID(*m_aim_bone_id);
-	VERIFY2(bone_id != BI_NONE, make_string("Cannot find bone %s", bone_id));
-
-	kinematics->LL_GetBoneWorldPosition(bone_id, object->XFORM(), result);
+	::aim_target(m_aim_bone_id, result, object);
 }
 
 BOOL CAI_Stalker::AlwaysTheCrow()

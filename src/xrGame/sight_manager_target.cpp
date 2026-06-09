@@ -14,6 +14,116 @@
 #include "ai_space.h"
 #include "ai/stalker/ai_stalker_space.h"
 #include "detail_path_manager.h"
+#include "actor.h"
+#include "weapon.h"
+#include "CharacterPhysicsSupport.h"
+#include "../xrEngine/CameraBase.h"
+
+namespace
+{
+bool get_object_velocity(Fvector& velocity, const CGameObject* object)
+{
+	velocity.set(0.f, 0.f, 0.f);
+
+	if (CActor* actor = smart_cast<CActor*>(const_cast<CGameObject*>(object)))
+	{
+		if (actor->character_physics_support() && actor->character_physics_support()->movement())
+		{
+			velocity = actor->character_physics_support()->movement()->GetVelocity();
+			return !fis_zero(velocity.square_magnitude());
+		}
+	}
+	else if (CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(const_cast<CGameObject*>(object)))
+	{
+		if (stalker->character_physics_support() && stalker->character_physics_support()->movement())
+		{
+			velocity = stalker->character_physics_support()->movement()->GetVelocity();
+			return !fis_zero(velocity.square_magnitude());
+		}
+	}
+	else if (object->ps_Size() >= 2)
+	{
+		const Fvector& prev = object->ps_Element(object->ps_Size() - 2).vPosition;
+		const Fvector& curr = object->ps_Element(object->ps_Size() - 1).vPosition;
+		velocity.sub(curr, prev);
+		if (Device.fTimeDelta > EPS_L)
+			velocity.div(Device.fTimeDelta);
+		return !fis_zero(velocity.square_magnitude());
+	}
+
+	return false;
+}
+
+float compute_lead_time(Fvector const& to_target, Fvector const& target_velocity, float bullet_speed)
+{
+	const float a = target_velocity.square_magnitude() - bullet_speed * bullet_speed;
+	const float b = 2.f * to_target.dotproduct(target_velocity);
+	const float c = to_target.square_magnitude();
+
+	if (c < EPS_L)
+		return 0.f;
+
+	if (fis_zero(a, EPS_L))
+	{
+		if (fis_zero(b, EPS_L))
+			return _sqrt(c) / bullet_speed;
+
+		const float t = -c / b;
+		return t > 0.f ? t : _sqrt(c) / bullet_speed;
+	}
+
+	const float discriminant = b * b - 4.f * a * c;
+	if (discriminant < 0.f)
+		return _sqrt(c) / bullet_speed;
+
+	const float sqrt_d = _sqrt(discriminant);
+	const float inv_2a = 0.5f / a;
+	float lead_time = flt_max;
+
+	const float t1 = (-b - sqrt_d) * inv_2a;
+	const float t2 = (-b + sqrt_d) * inv_2a;
+
+	if (t1 > EPS_L)
+		lead_time = t1;
+	if (t2 > EPS_L && t2 < lead_time)
+		lead_time = t2;
+
+	if (lead_time == flt_max || lead_time <= 0.f)
+		lead_time = _sqrt(c) / bullet_speed;
+
+	return lead_time;
+}
+
+void apply_velocity_leading(Fvector& target_pos, Fvector const& my_position, const CGameObject* target,
+                            CAI_Stalker& shooter)
+{
+	Fvector target_velocity;
+	if (!get_object_velocity(target_velocity, target))
+		return;
+
+	float bullet_speed = 1000.f;
+	if (CWeapon* weapon = smart_cast<CWeapon*>(shooter.inventory().ActiveItem()))
+	{
+		LPCSTR const sect = *weapon->cNameSect();
+		if (pSettings->line_exist(sect, "bullet_speed"))
+			bullet_speed = pSettings->r_float(sect, "bullet_speed");
+	}
+
+	if (bullet_speed < EPS_L)
+		return;
+
+	Fvector to_target;
+	to_target.sub(target_pos, my_position);
+
+	const float lead_time = compute_lead_time(to_target, target_velocity, bullet_speed);
+	if (lead_time <= EPS_L)
+		return;
+
+	Fvector lead_offset;
+	lead_offset.mul(target_velocity, lead_time);
+	target_pos.add(lead_offset);
+}
+} // namespace
 
 void CSightManager::SetPointLookAngles(const Fvector& tPosition, float& yaw, float& pitch, Fvector const& look_position,
                                        const CGameObject* object)
@@ -36,8 +146,9 @@ void CSightManager::SetPointLookAngles(const Fvector& tPosition, float& yaw, flo
 	pitch *= -1;
 }
 
-#include "actor.h"
-#include "../xrEngine/CameraBase.h"
+
+void aim_target(shared_str const& aim_bone_id, Fvector& result, const CGameObject* object);
+
 
 bool CSightManager::aim_target(Fvector& my_position, Fvector& aim_target, const CGameObject* object) const
 {
@@ -57,11 +168,7 @@ bool CSightManager::aim_target(Fvector& my_position, Fvector& aim_target, const 
 		if (GO->cast_actor() && GO->cast_actor()->HUDview())
 			aim_target = GO->cast_actor()->cam_Active()->vPosition;
 		else
-		{
-			IKinematics* kinematics = PKinematics(object->Visual());
-			u16 bone_id = kinematics->LL_BoneID("bip01_head");
-			kinematics->LL_GetBoneWorldPosition(bone_id, object->XFORM(), aim_target);
-		}
+			::aim_target("bip01_spine1", aim_target, object);
 		return (true);
 	}
 
@@ -102,6 +209,10 @@ void CSightManager::SetFirePointLookAngles(const Fvector& tPosition, float& yaw,
 	{
 		target = tPosition;
 		my_position = look_position;
+	}
+	else if (object)
+	{
+		apply_velocity_leading(target, my_position, object, this->object());
 	}
 
 	target.sub(my_position);
