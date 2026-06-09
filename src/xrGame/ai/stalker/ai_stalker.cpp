@@ -585,6 +585,8 @@ void CAI_Stalker::reload(LPCSTR section)
 			READ_IF_EXISTS(pSettings, r_float, *cNameSect(), "auto_queue_fire_dist_far", 30.0f);
 	}
 	m_power_fx_factor = pSettings->r_float(section, "power_fx_factor");
+
+	aim_bone_id(READ_IF_EXISTS(pSettings, r_string, section, "default_aim_bone", "bip01_spine1"));
 }
 
 void CAI_Stalker::Die(CObject* who)
