@@ -228,6 +228,22 @@ public:
 	u32 hw_BatchSize;
 	ID3DVertexBuffer* hw_VB;
 	ID3DIndexBuffer* hw_IB;
+#if defined(USE_DX10) || defined(USE_DX11)
+	// DX10/11 instancing
+	// One record = one cache line: 3x4 transform rows (3 float4) + half4 (terrain normal
+	// xyz + alpha) + half4 (sun, hemi, spare, spare) = 64b
+	enum { hw_InstanceStride = 64, hw_InstanceCapacity = 1 << 18 };
+	ID3DVertexBuffer* hw_instanceVB;
+
+    // instead of filling the instance buffer multiple times per frame, we will
+    // just fill it once and then re-draw from it with offsets using the ranges below.
+    // this required moving the scale fade into the VS.
+
+	u32 hw_frame_filled;
+	u32 hw_inst_base[3][dm_max_objects];
+	u32 hw_inst_count[3][dm_max_objects];
+	void hw_Fill_Instances();
+#endif
 	ref_constant hwc_consts;
 	ref_constant hwc_wave;
 	ref_constant hwc_wind;

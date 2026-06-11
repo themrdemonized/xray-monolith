@@ -142,8 +142,19 @@ namespace dx10BufferUtils
 			descOut.Format = ConvertVertexFormat((D3DDECLTYPE)descIn.Type);
 			descOut.InputSlot = descIn.Stream;
 			descOut.AlignedByteOffset = descIn.Offset;
-			descOut.InputSlotClass = D3D_INPUT_PER_VERTEX_DATA;
-			descOut.InstanceDataStepRate = 0;
+			//	Convention: stream 0 = per-vertex; stream >= 1 = per-instance (step rate 1).
+			//	Nothing else in the engine binds a second vertex stream, so this is safe; it
+			//	enables hardware-instanced detail/grass rendering (see CDetailManager).
+			if (descIn.Stream >= 1)
+			{
+				descOut.InputSlotClass = D3D_INPUT_PER_INSTANCE_DATA;
+				descOut.InstanceDataStepRate = 1;
+			}
+			else
+			{
+				descOut.InputSlotClass = D3D_INPUT_PER_VERTEX_DATA;
+				descOut.InstanceDataStepRate = 0;
+			}
 		}
 
 		ZeroMemory(&declOut[iDeclSize], sizeof(declOut[iDeclSize]));

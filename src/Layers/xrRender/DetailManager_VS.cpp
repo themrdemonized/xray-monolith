@@ -17,12 +17,28 @@ const int quant = 16384;
 const int c_hdr = 10;
 const int c_size = 4;
 
+#if defined(USE_DX10) || defined(USE_DX11)
+
+// grass vertices are now compressed to in 64b record per instance, which should be exactly one cache line
+static D3DVERTEXELEMENT9 dwDecl[] =
+{
+	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},     // pos
+	{0, 12, D3DDECLTYPE_SHORT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0},    // uv,t,mid
+	{1, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1},     // inst m0
+	{1, 16, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 2},    // inst m1
+	{1, 32, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 3},    // inst m2
+	{1, 48, D3DDECLTYPE_FLOAT16_4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 4}, // inst terrain normal xyz + alpha
+	{1, 56, D3DDECLTYPE_FLOAT16_4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 5}, // inst sun + hemi (zw spare)
+	D3DDECL_END()
+};
+#else
 static D3DVERTEXELEMENT9 dwDecl[] =
 {
 	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // pos
 	{0, 12, D3DDECLTYPE_SHORT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0}, // uv
 	D3DDECL_END()
 };
+#endif
 
 #pragma pack(push,1)
 struct vertHW
@@ -52,14 +68,23 @@ void CDetailManager::hw_Load_Geom()
 	clamp(hw_BatchSize, (u32)0, (u32)64);
 	Msg("* [DETAILS] VertexConsts(%d), Batch(%d)", u32(HW.Caps.geometry.dwRegisters), hw_BatchSize);
 
+	//	On DX10/11 we draw with hardware instancing (DrawIndexedInstanced), so the geometry
+	//	buffers hold a single copy of each mesh and the per-instance transform is fetched in
+	//	the vertex shader via SV_InstanceID. The legacy DX9 path still bakes hw_BatchSize copies.
+#if defined(USE_DX10) || defined(USE_DX11)
+	const u32 dwCopies = 1;
+#else
+	const u32 dwCopies = hw_BatchSize;
+#endif
+
 	// Pre-process objects
 	u32 dwVerts = 0;
 	u32 dwIndices = 0;
 	for (u32 o = 0; o < objects.size(); o++)
 	{
 		const CDetail& D = *objects[o];
-		dwVerts += D.number_vertices * hw_BatchSize;
-		dwIndices += D.number_indices * hw_BatchSize;
+		dwVerts += D.number_vertices * dwCopies;
+		dwIndices += D.number_indices * dwCopies;
 	}
 	u32 vSize = sizeof(vertHW);
 	Msg("* [DETAILS] %d v(%d), %d p", dwVerts, vSize, dwIndices / 3);
@@ -90,7 +115,7 @@ void CDetailManager::hw_Load_Geom()
 		for (u32 o = 0; o < objects.size(); o++)
 		{
 			const CDetail& D = *objects[o];
-			for (u32 batch = 0; batch < hw_BatchSize; batch++)
+			for (u32 batch = 0; batch < dwCopies; batch++)
 			{
 				u32 mid = batch * c_size;
 				for (u32 v = 0; v < D.number_vertices; v++)
@@ -130,7 +155,7 @@ void CDetailManager::hw_Load_Geom()
 		{
 			const CDetail& D = *objects[o];
 			u16 offset = 0;
-			for (u32 batch = 0; batch < hw_BatchSize; batch++)
+			for (u32 batch = 0; batch < dwCopies; batch++)
 			{
 				for (u32 i = 0; i < u32(D.number_indices); i++)
 					*pI++ = u16(u16(D.indices[i]) + u16(offset));
@@ -148,6 +173,22 @@ void CDetailManager::hw_Load_Geom()
 
 	// Declare geometry
 	hw_Geom.create(dwDecl, hw_VB, hw_IB);
+
+#if defined(USE_DX10) || defined(USE_DX11)
+	// Dynamic per-instance vertex buffer (slot 1) - filled each pass in hw_Render_dump
+	{
+		D3D_BUFFER_DESC idesc;
+		ZeroMemory(&idesc, sizeof(idesc));
+		idesc.ByteWidth = hw_InstanceCapacity * hw_InstanceStride;
+		idesc.Usage = D3D_USAGE_DYNAMIC;
+		idesc.BindFlags = D3D_BIND_VERTEX_BUFFER;
+		idesc.CPUAccessFlags = D3D_CPU_ACCESS_WRITE;
+		R_CHK(HW.pDevice->CreateBuffer(&idesc, 0, &hw_instanceVB));
+		HW.stats_manager.increment_stats_vb(hw_instanceVB);
+		hw_frame_filled = u32(-1);
+		Msg("* [DETAILS] InstanceVB(%dK), cap(%d)", (hw_InstanceCapacity * hw_InstanceStride) / 1024, hw_InstanceCapacity);
+	}
+#endif
 }
 
 void CDetailManager::hw_Unload()
@@ -158,6 +199,10 @@ void CDetailManager::hw_Unload()
 	HW.stats_manager.decrement_stats_ib(hw_IB);
 	_RELEASE(hw_IB);
 	_RELEASE(hw_VB);
+#if defined(USE_DX10) || defined(USE_DX11)
+	HW.stats_manager.decrement_stats_vb(hw_instanceVB);
+	_RELEASE(hw_instanceVB);
+#endif
 }
 
 #if !defined(USE_DX10) && !defined(USE_DX11)
