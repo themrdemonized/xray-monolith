@@ -18,17 +18,17 @@ const int c_hdr = 10;
 const int c_size = 4;
 
 #if defined(USE_DX10) || defined(USE_DX11)
-// Slot 0 = per-vertex mesh data; slot 1 = per-instance data (marked PER_INSTANCE by
-// ConvertVertexDeclaration since Stream>=1)
+
+// grass vertices are now compressed to in 64b record per instance, which should be exactly one cache line
 static D3DVERTEXELEMENT9 dwDecl[] =
 {
-	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},    // pos
-	{0, 12, D3DDECLTYPE_SHORT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0},   // uv,t,mid
-	{1, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1},    // inst m0
-	{1, 16, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 2},   // inst m1
-	{1, 32, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 3},   // inst m2
-	{1, 48, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 4},   // inst color
-	{1, 64, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 5},   // inst exdata
+	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},     // pos
+	{0, 12, D3DDECLTYPE_SHORT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0},    // uv,t,mid
+	{1, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1},     // inst m0
+	{1, 16, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 2},    // inst m1
+	{1, 32, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 3},    // inst m2
+	{1, 48, D3DDECLTYPE_FLOAT16_4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 4}, // inst terrain normal xyz + alpha
+	{1, 56, D3DDECLTYPE_FLOAT16_4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 5}, // inst sun + hemi (zw spare)
 	D3DDECL_END()
 };
 #else
@@ -185,6 +185,7 @@ void CDetailManager::hw_Load_Geom()
 		idesc.CPUAccessFlags = D3D_CPU_ACCESS_WRITE;
 		R_CHK(HW.pDevice->CreateBuffer(&idesc, 0, &hw_instanceVB));
 		HW.stats_manager.increment_stats_vb(hw_instanceVB);
+		hw_frame_filled = u32(-1);
 		Msg("* [DETAILS] InstanceVB(%dK), cap(%d)", (hw_InstanceCapacity * hw_InstanceStride) / 1024, hw_InstanceCapacity);
 	}
 #endif
