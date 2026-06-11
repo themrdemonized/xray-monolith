@@ -360,7 +360,11 @@
         void set_cam_custom_position_direction(Fvector position, Fvector direction, int smoothing)
         void set_cam_custom_position_direction(Fvector position, Fvector direction)
         void remove_cam_custom_position_direction()
-		
+
+        // Removes all engine-spawned per-animation HUD camera effectors
+        // Scripted effectors added via add_cam_effector are not touched.
+        void remove_hud_motion_cam_effectors()
+
         game_object get_target_obj(ETraceTarget)
         game_object get_target_obj()
         number get_target_dist(ETraceTarget)
