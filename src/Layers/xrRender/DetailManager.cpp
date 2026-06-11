@@ -99,6 +99,7 @@ CDetailManager::CDetailManager()
 	hw_IB = 0;
 #if defined(USE_DX10) || defined(USE_DX11)
 	hw_instanceVB = 0;
+	hw_frame_filled = u32(-1);
 #endif
 	m_time_rot_1 = 0;
 	m_time_rot_2 = 0;
@@ -450,6 +451,22 @@ void CDetailManager::UpdateVisibleM()
 			}
 		}
 	}
+	// Sort each object's visible slot-parts front-to-back so draws rasterize near
+	// grass first, helping with early-z
+	for (u32 vid = 0; vid < 3; ++vid)
+	{
+		vis_list& list = m_visibles[vid];
+		for (u32 O = 0; O < list.size(); O++)
+		{
+			xr_vector<SlotItemVec*>& vis = list[O];
+			if (vis.size() > 1)
+				std::sort(vis.begin(), vis.end(), [](const SlotItemVec* a, const SlotItemVec* b)
+				{
+					return a->front()->distance < b->front()->distance;
+				});
+		}
+	}
+
 	RDEVICE.Statistic->RenderDUMP_DT_VIS.End();
 }
 
