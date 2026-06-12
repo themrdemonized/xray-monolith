@@ -108,7 +108,7 @@ void CUIButton::DrawTexture()
 			m_UIStaticItem.SetPos(rect.left + PUSH_OFFSET_RIGHT + m_TextureOffset.x,
 			                      rect.top + PUSH_OFFSET_DOWN + m_TextureOffset.y);
 
-		if (m_bStretchTexture)
+		if (GetStretchTexture())
 			m_UIStaticItem.SetSize(Fvector2().set(rect.width(), rect.height()));
 		else
 			m_UIStaticItem.SetSize(Fvector2().set(m_UIStaticItem.GetTextureRect().width(),

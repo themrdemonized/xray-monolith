@@ -37,6 +37,7 @@ void CUIRankingsCoC::init_from_xml(CUIXml& xml, u8 index, bool bUnique)
 	m_name = UIHelper::CreateTextWnd(xml, "name", this);
 	m_descr = UIHelper::CreateTextWnd(xml, "descr", this);
 	m_icon = UIHelper::CreateStatic(xml, "icon", this);
+	m_icon->SetCoverTexture(true);
 	m_hint = UIHelper::CreateHint(xml, "hint_wnd");
 	//m_border	= UIHelper::CreateStatic(xml, "border", this);
 

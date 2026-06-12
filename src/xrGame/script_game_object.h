@@ -615,6 +615,11 @@ public:
 	void set_sight(CScriptGameObject* object_to_look, bool torso_look, bool fire_object, bool no_pitch);
 	void set_sight(const MemorySpace::CMemoryInfo* memory_object, bool torso_look);
 	CHARACTER_RANK_VALUE GetRank();
+	LPCSTR GetRankName();
+	bool affect_cover() const;
+	void best_cover_invalidate();
+	LPCSTR GetCurrentSmartCoverName();
+	LPCSTR GetCurrentLoopholeId();
 	void play_sound(u32 internal_type);
 	void play_sound(u32 internal_type, u32 max_start_time);
 	void play_sound(u32 internal_type, u32 max_start_time, u32 min_start_time);

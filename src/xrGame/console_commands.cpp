@@ -212,7 +212,7 @@ int g_ai_grenade_throw_delay_base = 1000;
 int g_ai_grenade_throw_delay_step = 500;
 extern u32 g_ai_aim_inertia_time;
 extern u32 g_ai_aim_queue_inertia_time;
-extern float g_ai_danger_ricochet_score;
+extern float g_ai_danger_ricochet_mult;
 BOOL g_ai_move_to_cover_run = FALSE;
 
 extern CrosshairSettings g_crosshair_camera_near;
@@ -283,6 +283,7 @@ extern float movement_manager_move_along_path_query_pos_threshold_sqr;
 ENGINE_API extern float g_console_sensitive;
 
 extern BOOL g_auto_reload;
+BOOL g_launcher_dynamic_range_zoom = TRUE;
 u32 g_dead_body_collision = 1;
 
 extern int RESTRICTION_REBUILD_SMOOTH_FRAMES;
@@ -2732,7 +2733,23 @@ void CCC_RegisterCommands()
     extern u32 g_ai_aim_queue_inertia_time;
     CMD4(CCC_Integer, "ai_aim_inertia_time", (int*)&g_ai_aim_inertia_time, 0, 10000);
     CMD4(CCC_Integer, "ai_aim_queue_inertia_time", (int*)&g_ai_aim_queue_inertia_time, 0, 10000);
-    CMD4(CCC_Float, "ai_danger_ricochet_score", &g_ai_danger_ricochet_score, 0.0f, 10000.0f);
+    // Danger perception multipliers: 1.0 = original engine behaviour, 0.0 = disabled, 5.0 = 5x urgency
+    extern float g_ai_danger_ricochet_mult;
+    extern float g_ai_danger_attack_sound_mult;
+    extern float g_ai_danger_entity_attacked_mult;
+    extern float g_ai_danger_entity_death_mult;
+    extern float g_ai_danger_corpse_mult;
+    extern float g_ai_danger_attacked_mult;
+    extern float g_ai_danger_grenade_mult;
+    extern float g_ai_danger_enemy_sound_mult;
+    CMD4(CCC_Float, "ai_danger_ricochet_mult",         &g_ai_danger_ricochet_mult,         0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_attack_sound_mult",     &g_ai_danger_attack_sound_mult,     0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_entity_attacked_mult",  &g_ai_danger_entity_attacked_mult,  0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_entity_death_mult",     &g_ai_danger_entity_death_mult,     0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_corpse_mult",           &g_ai_danger_corpse_mult,           0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_attacked_mult",         &g_ai_danger_attacked_mult,         0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_grenade_mult",          &g_ai_danger_grenade_mult,          0.f, 5.f);
+    CMD4(CCC_Float, "ai_danger_enemy_sound_mult",      &g_ai_danger_enemy_sound_mult,      0.f, 5.f);
 	
 	extern BOOL g_ai_move_to_cover_run;
 	CMD4(CCC_Integer, "ai_move_to_cover_run", &g_ai_move_to_cover_run, 0, 1);
@@ -2740,6 +2757,60 @@ void CCC_RegisterCommands()
     CMD4(CCC_Float, "ai_vision_speed_boost", &g_ai_vision_speed_boost, 0.1f, 10.0f);
     CMD4(CCC_Float, "ai_reload_threshold", &g_ai_reload_threshold, 0.01f, 1.0f);
     CMD4(CCC_Float, "ai_aim_fire_angle", &g_ai_aim_fire_angle, 0.0f, PI);
+
+    extern u32   g_ai_fire_make_sense_interval;
+    extern float g_ai_fire_range_extension;
+    extern float g_ai_fire_max_height_diff;
+    extern float g_ai_fire_min_dist;
+    extern float g_ai_cover_danger_radius;
+    extern u32   g_ai_cover_danger_time;
+    extern float g_ai_cover_detour_radius;
+    extern u32   g_ai_cover_detour_time;
+    extern float g_ai_cover_unknown_radius;
+    extern u32   g_ai_cover_unknown_time;
+    // 0 = fire only while enemy visible; default 10000ms; max 20000ms (20s is already extreme)
+    CMD4(CCC_Integer, "ai_fire_make_sense_interval", (int*)&g_ai_fire_make_sense_interval, 0, 20000);
+    // extra metres past pick_distance where suppression fire still makes sense; default 2.5m
+    CMD4(CCC_Float,   "ai_fire_range_extension",     &g_ai_fire_range_extension,           0.f, 10.f);
+    // max vertical gap between NPC and enemy for fire to make sense; default 2.0m (~2 floors max)
+    CMD4(CCC_Float,   "ai_fire_max_height_diff",     &g_ai_fire_max_height_diff,           0.f, 8.f);
+    // minimum pick_distance required for fire to make sense; default 2.5m
+    CMD4(CCC_Float,   "ai_fire_min_dist",            &g_ai_fire_min_dist,                  0.f, 20.f);
+    // cover danger zone radius/duration when NPC is shot in cover; default 3.0m / 120s
+    CMD4(CCC_Float,   "ai_cover_danger_radius",      &g_ai_cover_danger_radius,            0.f, 15.f);
+    CMD4(CCC_Integer, "ai_cover_danger_time",        (int*)&g_ai_cover_danger_time,        0, 300000);
+    // cover danger zone when NPC abandons cover to flank; default 5.0m / 120s
+    CMD4(CCC_Float,   "ai_cover_detour_radius",      &g_ai_cover_detour_radius,            0.f, 15.f);
+    CMD4(CCC_Integer, "ai_cover_detour_time",        (int*)&g_ai_cover_detour_time,        0, 300000);
+    // cover danger zone on unknown threat (grenade, sound); default 5.0m / 120s
+    CMD4(CCC_Float,   "ai_cover_unknown_radius",     &g_ai_cover_unknown_radius,           0.f, 15.f);
+    CMD4(CCC_Integer, "ai_cover_unknown_time",       (int*)&g_ai_cover_unknown_time,       0, 300000);
+
+    extern float g_ai_close_move_distance;
+    extern u32   g_ai_crouch_look_out_delta;
+    extern u32   g_ai_wait_in_smart_cover_time;
+    // 0 = always in-place movement; default 1.5m
+    CMD4(CCC_Float,   "ai_close_move_distance",      &g_ai_close_move_distance,            0.f,  6.f);
+
+    extern float g_ai_cover_search_near_radius;
+    extern float g_ai_cover_search_far_radius;
+    extern float g_ai_cover_pistol_max_dist;
+    extern float g_ai_cover_shotgun_max_dist;
+    extern float g_ai_cover_sniper_min_dist;
+    extern float g_ai_cover_default_max_dist;
+    // min 1.0 ensures search radius is never degenerate; default 10m / 30m
+    CMD4(CCC_Float, "ai_cover_search_near_radius", &g_ai_cover_search_near_radius, 1.f,  30.f);
+    CMD4(CCC_Float, "ai_cover_search_far_radius",  &g_ai_cover_search_far_radius,  1.f,  80.f);
+    // min 3.0 = MIN_SUITABLE_ENEMY_DISTANCE; below that the cover evaluator gets degenerate inputs
+    CMD4(CCC_Float, "ai_cover_pistol_max_dist",    &g_ai_cover_pistol_max_dist,    3.f,  50.f);
+    CMD4(CCC_Float, "ai_cover_shotgun_max_dist",   &g_ai_cover_shotgun_max_dist,   3.f,  20.f);
+    // 0.0 = use engine default min (3m); max 80m covers any realistic sniper scenario
+    CMD4(CCC_Float, "ai_cover_sniper_min_dist",    &g_ai_cover_sniper_min_dist,    0.f,  80.f);
+    CMD4(CCC_Float, "ai_cover_default_max_dist",   &g_ai_cover_default_max_dist,   3.f,  50.f);
+    // 0 = randomize every LookOut init; default 5000ms; max 12000ms (~12s is very cautious)
+    CMD4(CCC_Integer, "ai_crouch_look_out_delta",    (int*)&g_ai_crouch_look_out_delta,    0,    12000);
+    // 0 = leave immediately; default 30000ms (30s); max 120000ms (2min)
+    CMD4(CCC_Integer, "ai_wait_in_smart_cover_time", (int*)&g_ai_wait_in_smart_cover_time, 0,    120000);
 
 	CMD3(CCC_Mask, "g_firepos", &psActorFlags, AF_FIREPOS);
 	CMD3(CCC_Mask, "g_firepos_zoom", &psActorFlags, AF_FIREPOS_ZOOM);
@@ -2761,6 +2832,7 @@ void CCC_RegisterCommands()
 	CrosshairFarCommands(g_crosshair_device_far, "device_far");
 
 	CMD4(CCC_Integer, "g_decouple_horz_recoil", &g_decouple_horz_recoil, 0, 1);
+	CMD4(CCC_Integer, "g_launcher_dynamic_range_zoom", &g_launcher_dynamic_range_zoom, 0, 1);
 	CMD4(CCC_Integer, "g_use_non_linear_inertia", &g_use_non_linear_inertia, 0, 1);
 
     extern XRPHYSICS_API BOOL g_clamp_actor_camera_collision;

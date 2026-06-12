@@ -160,6 +160,9 @@ bool CUIXmlInit::InitStatic(CUIXml& xml_doc, LPCSTR path,
 	InitTexture(xml_doc, path, index, pWnd);
 	InitTextureOffset(xml_doc, path, index, pWnd);
 
+	bool cover_flag = xml_doc.ReadAttribInt(path, index, "cover", 0) ? true : false;
+	pWnd->SetCoverTexture(cover_flag);
+
 	int flag = xml_doc.ReadAttribInt(path, index, "heading", 0);
 	pWnd->EnableHeading((flag) ? true : false);
 

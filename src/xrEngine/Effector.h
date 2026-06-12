@@ -49,4 +49,5 @@ public:
 	};
 	virtual BOOL AllowProcessingIfInvalid() { return FALSE; }
 	virtual bool AbsolutePositioning() { return false; }
+    virtual bool IsHudMotionEffector() const { return false; }
 };

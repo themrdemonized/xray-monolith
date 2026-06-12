@@ -686,7 +686,7 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 			if (FS.exist(ce_path, "$game_anims$", anm_name))
 			{
 				int rand = ::Random.randI(5000, 10000);
-				CAnimatorCamEffector* e = xr_new<CAnimatorCamEffector>();
+				CAnimatorCamEffector* e = xr_new<CHudMotionCamEffector>();
 				e->SetType(ECamEffectorType(rand));
 				e->SetHudAffect(false);
 				e->SetCyclic(false);
