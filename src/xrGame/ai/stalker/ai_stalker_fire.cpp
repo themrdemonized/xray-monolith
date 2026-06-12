@@ -1068,7 +1068,7 @@ float CAI_Stalker::missile_throw_force()
 	float force = m_throw_velocity.magnitude();
 
 	::luabind::functor<float> funct;
-	if (ai().script_engine().functor("_g.CAI_Stalker__GetMissileThrowForce", funct))
+	if (ai().script_engine().functor("_G.CAI_Stalker__GetMissileThrowForce", funct))
 	{
 		float result = funct(lua_game_object(), force);
 		if (_valid(result) && result > 0.f)

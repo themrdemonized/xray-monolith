@@ -381,9 +381,9 @@ _G.CAI_Stalker__ShouldThrow = function(npc)
 	return flags.ret_value
 end
 
--- NPC grenade throw force override. Return a float to override throw force. Uses _g lowercase convention (return-value hook)
+-- NPC grenade throw force override. Return a float to override throw force.
 -- Lower values = shorter throw range. Use npc:rank_name() to scale by rank
-_g.CAI_Stalker__GetMissileThrowForce = function(npc, base_force)
+_G.CAI_Stalker__GetMissileThrowForce = function(npc, base_force)
 	local flags = { ret_value = base_force }
 	SendScriptCallback("npc_on_missile_throw_force", npc, base_force, flags)
 	return flags.ret_value
@@ -430,21 +430,21 @@ _G.CAI_Stalker__OnBestCoverChanged = function(npc, cover_pos, is_smart_cover, sm
 	SendScriptCallback("npc_on_best_cover_changed", npc, cover_pos, is_smart_cover, smart_cover_name)
 end
 
--- NPC minimum combat engagement distance override (Pattern A, _g lowercase).
+-- NPC minimum combat engagement distance override
 -- Returns the minimum distance from enemy at which this NPC will accept a cover point.
 -- Snipers use a high min (they need distance to fire effectively).
 -- Default is computed from ef_weapon_type and ai_cover_sniper_min_dist / MIN_SUITABLE_ENEMY_DISTANCE.
-_g.CAI_Stalker__GetMinCombatDist = function(npc, base_min)
+_G.CAI_Stalker__GetMinCombatDist = function(npc, base_min)
 	local flags = { ret_value = base_min }
 	SendScriptCallback("npc_on_get_min_combat_dist", npc, base_min, flags)
 	return flags.ret_value
 end
 AddScriptCallback("npc_on_get_min_combat_dist")
 
--- NPC maximum combat engagement distance override (Pattern A, _g lowercase).
+-- NPC maximum combat engagement distance override
 -- Returns the maximum distance from enemy at which this NPC will accept a cover point.
 -- Shotgunners use a low max (close cover only). Default computed from ef_weapon_type.
-_g.CAI_Stalker__GetMaxCombatDist = function(npc, base_max)
+_G.CAI_Stalker__GetMaxCombatDist = function(npc, base_max)
 	local flags = { ret_value = base_max }
 	SendScriptCallback("npc_on_get_max_combat_dist", npc, base_max, flags)
 	return flags.ret_value

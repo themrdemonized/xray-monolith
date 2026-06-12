@@ -120,7 +120,7 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 
 	{
 		::luabind::functor<float> min_funct;
-		if (ai().script_engine().functor("_g.CAI_Stalker__GetMinCombatDist", min_funct))
+		if (ai().script_engine().functor("_G.CAI_Stalker__GetMinCombatDist", min_funct))
 		{
 			float result = min_funct(lua_game_object(), minimum_enemy_distance);
 			if (_valid(result) && result >= 0.f)
@@ -133,7 +133,7 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 	}
 	{
 		::luabind::functor<float> max_funct;
-		if (ai().script_engine().functor("_g.CAI_Stalker__GetMaxCombatDist", max_funct))
+		if (ai().script_engine().functor("_G.CAI_Stalker__GetMaxCombatDist", max_funct))
 		{
 			float result = max_funct(lua_game_object(), maximum_enemy_distance);
 			if (_valid(result) && result >= 0.f)
@@ -145,8 +145,8 @@ void CAI_Stalker::compute_enemy_distances(float& minimum_enemy_distance, float& 
 		}
 	}
 
-	minimum_enemy_distance = _min(minimum_enemy_distance, maximum_enemy_distance);
-	maximum_enemy_distance = _max(minimum_enemy_distance, maximum_enemy_distance);
+    if (minimum_enemy_distance > maximum_enemy_distance)
+        std::swap(minimum_enemy_distance, maximum_enemy_distance);
 }
 
 const CCoverPoint* CAI_Stalker::find_best_cover(const Fvector& position_to_cover_from)
