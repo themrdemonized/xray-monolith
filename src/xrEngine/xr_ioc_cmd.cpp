@@ -224,6 +224,25 @@ public:
 	}
 };
 
+class CCC_DumpCVars : public IConsole_Command
+{
+public:
+	CCC_DumpCVars(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; }
+
+	virtual void Execute(LPCSTR args)
+	{
+		Log("- --- Console variables: start ---");
+		for (const auto& command : Console->Commands)
+		{
+			IConsole_Command::TStatus status;
+			command.second->Status(status);
+			if (status[0])
+				Msg("%s %s", command.second->Name(), status);
+		}
+		Log("- --- Console variables: end ---");
+	}
+};
+
 
 XRCORE_API void _dump_open_files(int mode);
 
@@ -987,6 +1006,7 @@ ENGINE_API float hit_modifier = 1.0f;
 
 extern float g_dispersion_base;
 extern float g_dispersion_factor;
+extern int g_ai_unlimited_ammo;
 float g_AimLookFactor = 1.f;
 
 int ps_framelimiter = 0;
@@ -1020,6 +1040,7 @@ void CCC_Register()
 	CMD1(CCC_Disconnect, "disconnect");
 	CMD1(CCC_SaveCFG, "cfg_save");
 	CMD1(CCC_LoadCFG, "cfg_load");
+	CMD1(CCC_DumpCVars, "dump_cvar");
 
 	CMD3(CCC_Mask, "mt_particles", &psDeviceFlags, mtParticles);
 
@@ -1065,6 +1086,7 @@ void CCC_Register()
 
 	CMD4(CCC_Float, "g_dispersion_base", &g_dispersion_base, 0.0f, 5.0f);
 	CMD4(CCC_Float, "g_dispersion_factor", &g_dispersion_factor, 0.1f, 10.0f);
+	CMD4(CCC_Integer, "g_ai_unlimited_ammo", &g_ai_unlimited_ammo, 0, 1);
 
 	// Render device states
 	CMD4(CCC_Integer, "r__supersample", &ps_r__Supersample, 1, 4);

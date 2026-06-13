@@ -21,6 +21,32 @@ CUIStaticItem::CUIStaticItem()
 	vHeadingPivot.set(0, 0);
 	vHeadingOffset.set(0, 0);
 	dwColor = 0xffffffff;
+	m_fit = tfFill;
+}
+
+void CUIStaticItem::ComputeRenderUV(Frect& uv) const
+{
+	uv = TextureRect;
+	if (m_fit != tfCover)
+		return;
+
+	float rw = TextureRect.width();
+	float rh = TextureRect.height();
+	if (rw <= 0.0f || rh <= 0.0f || vSize.y <= 0.0f)
+		return;
+
+	float aspect = vSize.x / vSize.y;
+	float vw = rw;
+	float vh = rh;
+	if (rw / rh > aspect)
+		vw = rh * aspect;
+	else
+		vh = rw / aspect;
+
+	uv.x1 = TextureRect.x1 + (rw - vw) * 0.5f;
+	uv.y1 = TextureRect.y1 + (rh - vh) * 0.5f;
+	uv.x2 = uv.x1 + vw;
+	uv.y2 = uv.y1 + vh;
 }
 
 void CUIStaticItem::ResetHeadingPivot()
@@ -65,8 +91,10 @@ void CUIStaticItem::RenderInternal(const Fvector2& in_pos)
 	RBp.add(pos);
 
 	//текстурные координаты
-	LTt.set(TextureRect.x1 / ts.x, TextureRect.y1 / ts.y);
-	RBt.set(TextureRect.x2 / ts.x, TextureRect.y2 / ts.y);
+	Frect uv;
+	ComputeRenderUV(uv);
+	LTt.set(uv.x1 / ts.x, uv.y1 / ts.y);
+	RBt.set(uv.x2 / ts.x, uv.y2 / ts.y);
 
 	float offset = -0.5f;
 	if (UI().m_currentPointType == IUIRender::pttLIT)
@@ -138,8 +166,10 @@ void CUIStaticItem::RenderInternal(float angle)
 	offset.add(vHeadingOffset);
 
 	Fvector2 LTt, RBt;
-	LTt.set(TextureRect.x1 / ts.x + hp.x, TextureRect.y1 / ts.y + hp.y);
-	RBt.set(TextureRect.x2 / ts.x + hp.x, TextureRect.y2 / ts.y + hp.y);
+	Frect uv;
+	ComputeRenderUV(uv);
+	LTt.set(uv.x1 / ts.x + hp.x, uv.y1 / ts.y + hp.y);
+	RBt.set(uv.x2 / ts.x + hp.x, uv.y2 / ts.y + hp.y);
 
 	float kx = UI().get_current_kx();
 

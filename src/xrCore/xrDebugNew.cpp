@@ -810,6 +810,9 @@ LONG WINAPI UnhandledFilter(_EXCEPTION_POINTERS* pExceptionInfo)
 	//    BuildStackTrace(pExceptionInfo);
 	*pExceptionInfo->ContextRecord = save;
 
+    if (Debug.get_crashhandler())
+        Debug.get_crashhandler()();
+
 	if (shared_str_initialized)
 		Msg("stack trace:\n");
 

@@ -235,6 +235,23 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.06.12**
+* Main and MT:
+  * Disable shadow casting and volumetric for signal lights and hanging lamps, conflict with SSS
+  * Log all console variables on game start and crash
+  * damiansirbu: `g_ai_unlimited_ammo` cvar to toggle unlimited ammo for NPCs (https://github.com/themrdemonized/xray-monolith/pull/557)
+  * erepb: fix portraits stretch (https://github.com/themrdemonized/xray-monolith/pull/561)
+  * TheLostInPlace: 
+    * Add `g_launcher_dynamic_range_zoom` console variable to toggle ballistic aim assist (https://github.com/themrdemonized/xray-monolith/pull/560)
+    * Lua Combat AI Hook System (https://github.com/themrdemonized/xray-monolith/pull/563)
+  * lulnope: floating artefact fix (https://github.com/themrdemonized/xray-monolith/pull/562)
+  * Leyths: Detail textures: add v4 format (14-bit ids, up to 16383 objects), read v3+v4 (https://github.com/themrdemonized/xray-monolith/pull/564)
+  * Priler: Add `level.remove_hud_motion_cam_effectors()` for cancelling per-animation HUD camera effectors (https://github.com/themrdemonized/xray-monolith/pull/568)
+
+* MT:
+  * Address crash `xr_collide_form.cpp (263): CCF_Skeleton::_RayQuery`
+  * Address crash `UIDialogHolder.cpp (266): CDialogHolder::OnFrame [error][      87] : The parameter is incorrect.`
+
 **2026.06.05**
 * Main and MT:
   * Bugfixes to Modded Exes options

@@ -39,6 +39,12 @@ static u32 const tips_scroll_pos_color = color_rgba(70, 70, 70, 240);
 
 ENGINE_API CConsole* Console = NULL;
 
+static void DumpConsoleVariablesOnCrash()
+{
+	if (Console)
+		Console->Execute("dump_cvar");
+}
+
 extern char const* const ioc_prompt;
 char const* const ioc_prompt = ">>> ";
 
@@ -227,6 +233,7 @@ void CConsole::Initialize()
 	// Commands
 	extern void CCC_Register();
 	CCC_Register();
+	Debug.set_crashhandler(&DumpConsoleVariablesOnCrash);
 }
 
 CConsole::~CConsole()
@@ -241,6 +248,9 @@ CConsole::~CConsole()
 
 void CConsole::Destroy()
 {
+	if (Debug.get_crashhandler() == &DumpConsoleVariablesOnCrash)
+		Debug.set_crashhandler(nullptr);
+
 	xr_delete(pFont);
 	xr_delete(pFont2);
 	Commands.clear();

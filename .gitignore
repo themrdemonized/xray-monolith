@@ -31,6 +31,10 @@ src/3rd party/luajit-2/src/*.obj
 src/3rd party/luajit-2/src/*.pdb
 src/3rd party/luajit-2/src/host/*.exe
 
+# compressor runtime artifacts
+compressor/engine.log
+compressor/mod/
+
 # emacs temp file
 \#*\#
 *~

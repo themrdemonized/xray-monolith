@@ -4,57 +4,26 @@
 #define _DETAIL_FORMAT_H_
 #pragma pack(push,1)
 
-#define DETAIL_VERSION		3
+// Detail format: v3 (legacy, 6-bit ids, 16B slot) + v4 (14-bit ids, 20B slot).
+// Layout is shared byte-for-byte across engine, SDK and the details compiler.
+#define DETAIL_VERSION_3	3			// legacy: 6-bit ids, 16-byte slot
+#define DETAIL_VERSION_4	4			// new:    14-bit ids, 20-byte slot
+#define DETAIL_VERSION		DETAIL_VERSION_4	// default for newly written files
+
 #define DETAIL_SLOT_SIZE	2.f
 #define DETAIL_SLOT_SIZE_2	DETAIL_SLOT_SIZE*0.5f
 
 //	int s_x	= iFloor			(EYE.x/slot_size+.5f)+offs_x;		// [0...size_x)
 //	int s_z	= iFloor			(EYE.z/slot_size+.5f)+offs_z;		// [0...size_z)
 
-
 /*
-0 - Header(version,obj_count(max255),size_x,size_z,min_x,min_z)
+0 - Header(version,obj_count,size_x,size_z,min_x,min_z)
 1 - Objects
 	0
 	1
-	2
 	..
 	obj_count-1
 2 - slots
-
-	CMemoryWriter F;
-    m_Header.object_count=m_Objects.size();
-	// header
-	F.w_chunk		(DETMGR_CHUNK_HEADER,&m_Header,sizeof(DetailHeader));
-    // objects
-	F.open_chunk		(DETMGR_CHUNK_OBJECTS);
-    for (DOIt it=m_Objects.begin(); it!=m_Objects.end(); it++){
-		F.open_chunk	(it-m_Objects.begin());
-        (*it)->Export	(F);
-	    F.close_chunk	();
-    }
-    F.close_chunk		();
-    // slots
-	F.open_chunk		(DETMGR_CHUNK_SLOTS);
-	F.write				(m_Slots.begin(),m_Slots.size()*sizeof(DetailSlot));
-    F.close_chunk		();
-
-    F.SaveTo			(fn,0);
-*/
-/*
-// detail object
-	char*			shader;
-	char*			texture;
-
-	u32				flag;
-	float			min_scale;
-	float	 		max_scale;
-
-	u32				vert_count;
-	u32				index_count;
-
-	fvfVertexIn*	vertices;
-	u16*			indices;
 */
 
 #define DO_NO_WAVING	0x0001
@@ -75,22 +44,45 @@ struct DetailPalette
 	u16 a3:4;
 };
 
-struct DetailSlot // was(4+4+3*4+2 = 22b), now(8+2*4=16b)
+// LEGACY v3 slot — 16 bytes, 6-bit ids. Used only to read/expand v3 files.
+struct DetailSlot_v3
 {
-	u32 y_base : 12; // 11	// 1 unit = 20 cm, low = -200m, high = 4096*20cm - 200 = 619.2m
-	u32 y_height: 8; // 20	// 1 unit = 10 cm, low = 0,     high = 256*10 ~= 25.6m
-	u32 id0 : 6; // 26	// 0x3F(63) = empty
-	u32 id1 : 6; // 32	// 0x3F(63) = empty
-	u32 id2 : 6; // 38	// 0x3F(63) = empty
-	u32 id3 : 6; // 42	// 0x3F(63) = empty
-	u32 c_dir : 4; // 48	// 0..1 q
-	u32 c_hemi : 4; // 52	// 0..1 q
-	u32 c_r : 4; // 56	// rgb = 4.4.4
-	u32 c_g : 4; // 60	// rgb = 4.4.4
-	u32 c_b : 4; // 64	// rgb = 4.4.4
-	DetailPalette palette [4];
-public:
+	u32 y_base  : 12;
+	u32 y_height: 8;
+	u32 id0     : 6;	// 0x3F = empty
+	u32 id1     : 6;
+	u32 id2     : 6;
+	u32 id3     : 6;
+	u32 c_dir   : 4;
+	u32 c_hemi  : 4;
+	u32 c_r     : 4;
+	u32 c_g     : 4;
+	u32 c_b     : 4;
+	DetailPalette palette[4];
 	enum { ID_Empty = 0x3f };
+};
+
+// v4 slot — 20 bytes, 14-bit ids. Fields reordered to pack into 3 x u32 with no
+// waste. Also the in-memory working type the engine renders from.
+struct DetailSlot
+{
+	// --- u32 #0 : 14 + 14 + 4 = 32 ---
+	u32 id0     : 14;	// 0x3FFF = empty
+	u32 id1     : 14;	// 0x3FFF = empty
+	u32 c_dir   : 4;	// 0..1 q
+	// --- u32 #1 : 14 + 14 + 4 = 32 ---
+	u32 id2     : 14;	// 0x3FFF = empty
+	u32 id3     : 14;	// 0x3FFF = empty
+	u32 c_hemi  : 4;	// 0..1 q
+	// --- u32 #2 : 12 + 8 + 4 + 4 + 4 = 32 ---
+	u32 y_base  : 12;	// 1 unit = 20 cm, low = -200m, high = 4096*20cm - 200 = 619.2m
+	u32 y_height: 8;	// 1 unit = 10 cm, low = 0,     high = 256*10 ~= 25.6m
+	u32 c_r     : 4;	// rgb = 4.4.4
+	u32 c_g     : 4;
+	u32 c_b     : 4;
+	DetailPalette palette[4];
+public:
+	enum { ID_Empty = 0x3fff };
 
 public:
 	void w_y(float base, float height)
@@ -115,7 +107,6 @@ public:
 	};
 	float r_qclr(u32 v, u32 range) { return float(v) / float(range); }
 
-	//	static void		verify		()						{	VERIFY(16==sizeof(DetailSlot));	}
 	void color_editor()
 	{
 		c_dir = w_qclr(0.5f, 15);
@@ -125,14 +116,14 @@ public:
 		c_b = w_qclr(0.f, 15);
 	}
 
-	u8 r_id(u32 idx)
+	u16 r_id(u32 idx)
 	{
 		switch (idx)
 		{
-		case 0: return (u8)id0;
-		case 1: return (u8)id1;
-		case 2: return (u8)id2;
-		case 3: return (u8)id3;
+		case 0: return (u16)id0;
+		case 1: return (u16)id1;
+		case 2: return (u16)id2;
+		case 3: return (u16)id3;
 		default: NODEFAULT;
 		}
 #ifdef DEBUG
@@ -140,7 +131,7 @@ public:
 #endif
 	}
 
-	void w_id(u32 idx, u8 val)
+	void w_id(u32 idx, u16 val)
 	{
 		switch (idx)
 		{
@@ -157,5 +148,34 @@ public:
 	}
 };
 
+static_assert(sizeof(DetailSlot_v3) == 16, "DetailSlot_v3 must be 16 bytes");
+static_assert(sizeof(DetailSlot)    == 20, "DetailSlot must pack to 20 bytes");
+
+// v3 <-> v4 conversion (used only at the file I/O boundary).
+// Every field copies 1:1; only the empty-id sentinel is remapped.
+inline u16 _detail_id_v3_to_v4(u32 v) { return (v == DetailSlot_v3::ID_Empty) ? (u16)DetailSlot::ID_Empty : (u16)v; }
+inline u32 _detail_id_v4_to_v3(u32 v) { return (v == DetailSlot::ID_Empty)    ? (u32)DetailSlot_v3::ID_Empty : (v & 0x3f); }
+
+inline void expand_v3(DetailSlot& d, const DetailSlot_v3& s)	// read path: v3 -> working
+{
+	d.y_base = s.y_base;  d.y_height = s.y_height;
+	d.id0 = _detail_id_v3_to_v4(s.id0);  d.id1 = _detail_id_v3_to_v4(s.id1);
+	d.id2 = _detail_id_v3_to_v4(s.id2);  d.id3 = _detail_id_v3_to_v4(s.id3);
+	d.c_dir = s.c_dir;  d.c_hemi = s.c_hemi;
+	d.c_r = s.c_r;  d.c_g = s.c_g;  d.c_b = s.c_b;
+	for (int i = 0; i < 4; ++i) d.palette[i] = s.palette[i];
+}
+
+inline void pack_v3(DetailSlot_v3& d, const DetailSlot& s)	// write path: working -> v3
+{
+	// only valid when all ids <= 62 (a <=63-object level); caller guarantees this
+	d.y_base = s.y_base;  d.y_height = s.y_height;
+	d.id0 = _detail_id_v4_to_v3(s.id0);  d.id1 = _detail_id_v4_to_v3(s.id1);
+	d.id2 = _detail_id_v4_to_v3(s.id2);  d.id3 = _detail_id_v4_to_v3(s.id3);
+	d.c_dir = s.c_dir;  d.c_hemi = s.c_hemi;
+	d.c_r = s.c_r;  d.c_g = s.c_g;  d.c_b = s.c_b;
+	for (int i = 0; i < 4; ++i) d.palette[i] = s.palette[i];
+}
+
 #pragma pack(pop)
-#endif // _DEBUG
+#endif //_DETAIL_FORMAT_H_

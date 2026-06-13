@@ -200,8 +200,9 @@ void CDetailManager::Load()
 
 	// Header
 	dtFS->r_chunk_safe(0, &dtH, sizeof(dtH));
-	R_ASSERT(dtH.version == DETAIL_VERSION);
+	R_ASSERT(dtH.version == DETAIL_VERSION_3 || dtH.version == DETAIL_VERSION_4);
 	u32 m_count = dtH.object_count;
+	R_ASSERT(m_count <= (u32)dm_max_objects);
 
 	// Models
 	IReader* m_fs = dtFS->open_chunk(1);
@@ -215,9 +216,21 @@ void CDetailManager::Load()
 	}
 	m_fs->close();
 
-	// Get pointer to database (slots)
+	// Slots: copy into a heap-owned wide (v4) array, expanding v3 slots on the fly.
+	u32 slot_count = dtH.size_x * dtH.size_z;
+	dtSlots = xr_alloc<DetailSlot>(slot_count);
 	IReader* m_slots = dtFS->open_chunk(2);
-	dtSlots = (DetailSlot*)m_slots->pointer();
+	if (dtH.version == DETAIL_VERSION_4)
+	{
+		R_ASSERT(m_slots->length() >= slot_count * sizeof(DetailSlot));
+		memcpy(dtSlots, m_slots->pointer(), slot_count * sizeof(DetailSlot));
+	}
+	else // DETAIL_VERSION_3: 16-byte slots -> expand into 20-byte working slots
+	{
+		R_ASSERT(m_slots->length() >= slot_count * sizeof(DetailSlot_v3));
+		const DetailSlot_v3* src = (const DetailSlot_v3*)m_slots->pointer();
+		for (u32 i = 0; i < slot_count; ++i) expand_v3(dtSlots[i], src[i]);
+	}
 	m_slots->close();
 
 	// Initialize 'vis' and 'cache'
@@ -273,6 +286,7 @@ void CDetailManager::Unload()
 	m_visibles[2].clear();
 	FS.r_close(dtFS);
 	dtFS = 0;
+	xr_free(dtSlots); // heap-owned wide slot array (was a VFS alias pre-v4)
 }
 
 extern ECORE_API float r_ssaDISCARD;
