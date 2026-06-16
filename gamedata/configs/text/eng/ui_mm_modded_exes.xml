@@ -954,6 +954,12 @@
 	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_move_to_cover_run_desc">
 		<text>If enabled, NPCs will run instead of walk when taking cover during combat. This makes firefights more dynamic and prevents NPCs from slowly walking while under fire.</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_enhanced_vision">
+		<text>Stalkers Enhanced Vision (ai_enhanced_vision)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_stalkers_ai_enhanced_vision_desc">
+		<text>If enabled, NPCs will have less restrictions to consider an enemy visible, possibly resulting in seeing through walls.</text>
+	</string>
 
 	<!-- Monsters -->
 	<string id="ui_mm_menu_monsters">
@@ -1104,10 +1110,10 @@
 	<string id="ui_mm_modded_exes_optimizations_r2_shadow_omnipart_vischeck_desc">
 		<text>Increases performance by checking visibility for lights that are created from point lights and skipping invisible of those ones</text>
 	</string>
-	<string id="ui_mm_modded_exes_optimizations_r2_shadow_omnipart_vischeck">
+	<string id="ui_mm_modded_exes_optimizations_r__hom_dynamic">
 		<text>HOM visibility test for dynamic objects (r__hom_dynamic)</text>
 	</string>
-	<string id="ui_mm_modded_exes_optimizations_r2_shadow_omnipart_vischeck_desc">
+	<string id="ui_mm_modded_exes_optimizations_r__hom_dynamic_desc">
 		<text>Might increase performance by checking visibility via HOM for dynamic objects</text>
 	</string>
 

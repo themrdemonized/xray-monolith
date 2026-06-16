@@ -3,7 +3,7 @@
 -- Import smart constructors
 options_builder.import_into(this)
 
-PAGE = page {
+PAGE = filter_false(page {
 	{ id = "stalkers" },
 	list_bool { id = "g_npcs_look_at_actor" },
 	track {
@@ -133,4 +133,7 @@ PAGE = page {
 	list_bool {
 		id = "ai_move_to_cover_run",
 	},
-}
+	get_item_if_exists(list_bool {
+		id = "ai_enhanced_vision",
+	}),
+})

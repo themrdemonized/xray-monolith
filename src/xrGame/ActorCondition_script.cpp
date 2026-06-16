@@ -129,6 +129,7 @@ void CActorCondition::script_register(lua_State *L)
 			.def("GetSatiety", &CActorCondition::GetSatiety)
 			.def("SetPsyBar", &CActorCondition::SetPsyBar)
 			.def("GetPsyBar", &CActorCondition::GetPsyBar)
+			.def("GetAlcohol", &CActorCondition::GetAlcohol) // demonized
 			.def("BoostMaxWeight", &CActorCondition::BoostMaxWeight)
 			.def("BoostHpRestore", &CActorCondition::BoostHpRestore)
 			.def("BoostPowerRestore", &CActorCondition::BoostPowerRestore)
