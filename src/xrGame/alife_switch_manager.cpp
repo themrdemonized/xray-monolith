@@ -23,11 +23,11 @@
 
 using namespace ALife;
 
-struct remove_non_savable_predicate
+struct remove_non_alife_controlled_predicate
 {
 	xrServer* m_server;
 
-	IC remove_non_savable_predicate(xrServer* server)
+	IC remove_non_alife_controlled_predicate(xrServer* server)
 	{
 		VERIFY(server);
 		m_server = server;
@@ -36,10 +36,7 @@ struct remove_non_savable_predicate
 	IC bool operator()(const ALife::_OBJECT_ID& id) const
 	{
 		CSE_Abstract* object = m_server->game->get_entity_from_eid(id);
-		VERIFY(object);
-		CSE_ALifeObject* alife_object = smart_cast<CSE_ALifeObject*>(object);
-		VERIFY(alife_object);
-		return (!alife_object->can_save());
+		return (!object || !object->m_bALifeControl);
 	}
 };
 
@@ -79,7 +76,17 @@ void CALifeSwitchManager::remove_online(CSE_ALifeDynamicObject* object, bool upd
 	START_PROFILE("ALife/switch/remove_online")
 		object->m_bOnline = false;
 
+		// Drop client-only children (m_bALifeControl=false, e.g. an online npc's
+		// bolt): they aren't in objects(), so add_offline_impl can't handle them.
 		m_saved_chidren = object->children;
+		m_saved_chidren.erase(
+			std::remove_if(
+				m_saved_chidren.begin(),
+				m_saved_chidren.end(),
+				remove_non_alife_controlled_predicate(&server())
+			),
+			m_saved_chidren.end()
+		);
 
 		server().Perform_destroy(object, net_flags(TRUE,TRUE));
 		VERIFY(object->children.empty());
