@@ -17,9 +17,9 @@ const int quant = 16384;
 const int c_hdr = 10;
 const int c_size = 4;
 
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifdef USE_DX11
 
-// grass vertices are now compressed to in 64b record per instance, which should be exactly one cache line
+// DX11 instancing: slot 0 = single mesh copy, slot 1 = per-instance 64b record (one cache line)
 static D3DVERTEXELEMENT9 dwDecl[] =
 {
 	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0},     // pos
@@ -32,6 +32,7 @@ static D3DVERTEXELEMENT9 dwDecl[] =
 	D3DDECL_END()
 };
 #else
+// DX10 (R3) and DX9: single stream, per-vertex 'mid' selects the transform from array[mid]
 static D3DVERTEXELEMENT9 dwDecl[] =
 {
 	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // pos
@@ -68,10 +69,11 @@ void CDetailManager::hw_Load_Geom()
 	clamp(hw_BatchSize, (u32)0, (u32)64);
 	Msg("* [DETAILS] VertexConsts(%d), Batch(%d)", u32(HW.Caps.geometry.dwRegisters), hw_BatchSize);
 
-	//	On DX10/11 we draw with hardware instancing (DrawIndexedInstanced), so the geometry
-	//	buffers hold a single copy of each mesh and the per-instance transform is fetched in
-	//	the vertex shader via SV_InstanceID. The legacy DX9 path still bakes hw_BatchSize copies.
-#if defined(USE_DX10) || defined(USE_DX11)
+	//	On DX11 we draw with hardware instancing (DrawIndexedInstanced), so the geometry
+	//	buffers hold a single copy of each mesh and the per-instance transform comes from a
+	//	per-instance vertex stream. DX10 (R3) has no instancing here, so it bakes hw_BatchSize
+	//	copies and selects the transform per-vertex via 'mid' (like the legacy DX9 path).
+#ifdef USE_DX11
 	const u32 dwCopies = 1;
 #else
 	const u32 dwCopies = hw_BatchSize;
@@ -174,7 +176,7 @@ void CDetailManager::hw_Load_Geom()
 	// Declare geometry
 	hw_Geom.create(dwDecl, hw_VB, hw_IB);
 
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifdef USE_DX11
 	// Dynamic per-instance vertex buffer (slot 1) - filled each pass in hw_Render_dump
 	{
 		D3D_BUFFER_DESC idesc;
@@ -199,7 +201,7 @@ void CDetailManager::hw_Unload()
 	HW.stats_manager.decrement_stats_ib(hw_IB);
 	_RELEASE(hw_IB);
 	_RELEASE(hw_VB);
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifdef USE_DX11
 	HW.stats_manager.decrement_stats_vb(hw_instanceVB);
 	_RELEASE(hw_instanceVB);
 #endif

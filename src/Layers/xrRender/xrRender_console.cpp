@@ -131,7 +131,7 @@ float ps_r__Detail_height = 1.0f;
 // within 'knee' (a FRACTION of the grass radius dm_fade / r__detail_radius), then
 // falls to zero at the radius edge along a power curve. Auto-covers the field at any
 // radius. knee>=1.0 disables it.
-float ps_r__Detail_density_knee = 0.30f; // radius fraction kept fully dense (1.0 = off)
+float ps_r__Detail_density_knee = 1.00f; // radius fraction kept fully dense (1.0 -> linear/vanilla SSA distribution)
 float ps_r__Detail_density_curve = 2.00f; // falloff exponent: >1 drop hard after knee, <1 hold then cliff at edge, 1 linear
 float ps_r__Detail_rainbow_hemi = 0.75f;
 
