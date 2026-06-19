@@ -1,10 +1,10 @@
 #include "stdafx.h"
 
-void CRenderTarget::phase_smap_direct(light* L, u32 sub_phase)
+void CRenderTarget::phase_smap_direct(light* L, ref_rt smap, u32 sub_phase)
 {
 	//	TODO: DX10: Check thst we will never need old SMap implementation
 	// Targets
-	if (RImplementation.o.HW_smap) u_setrt(rt_smap_surf, NULL, NULL, rt_smap_depth->pZRT);
+	if (RImplementation.o.HW_smap) u_setrt(rt_smap_surf, NULL, NULL, smap->pZRT);
 		//else								u_setrt	(rt_smap_surf, NULL, NULL, rt_smap_ZB);
 	else
 		VERIFY(!"Use HW SMap only for DX10!");
@@ -12,7 +12,7 @@ void CRenderTarget::phase_smap_direct(light* L, u32 sub_phase)
 
 	//	Don't have rect clear for DX10
 	//	TODO: DX9:	Full clear must be faster for the near phase for SLI
-	//	inobody clears this buffer _this_ frame.
+	//	inobody clears this buffer _this_ frame
 	// Clear
 	//if (SE_SUN_NEAR==sub_phase)			{
 	// optimized clear
@@ -27,7 +27,7 @@ void CRenderTarget::phase_smap_direct(light* L, u32 sub_phase)
 	//	CHK_DX							(HW.pDevice->Clear( 0L, NULL, D3DCLEAR_ZBUFFER,	0xFFFFFFFF, 1.0f, 0L));
 	//}
 
-	HW.pContext->ClearDepthStencilView(rt_smap_depth->pZRT, D3D_CLEAR_DEPTH, 1.0f, 0L);
+	// pip: smap clear moved out to phase_smap_spot_clear(smap), called before this
 
 	//	Prepare viewport for shadow map rendering
 	if (sub_phase != SE_SUN_RAIN_SMAP)

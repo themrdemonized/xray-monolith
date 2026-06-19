@@ -15,6 +15,7 @@
 #include "CameraRecoil.h"
 
 #include "NewZoomFlag.h"
+#include <Layers/xrRender/xrRender_console.h>
 
 class CEntity;
 class ENGINE_API CMotionDef;
@@ -86,8 +87,12 @@ public:
 
 	float CWeapon::GetSecondVPFov() const;
 	IC float GetZRotatingFactor()    const { return m_zoom_params.m_fZoomRotationFactor; }
-	IC float GetSecondVPZoomFactor() const { return m_zoom_params.m_fSecondVPFovFactor; }
-	IC float IsSecondVPZoomPresent() const { return GetSecondVPZoomFactor() > 0.005f; }
+	IC float GetSecondVPZoomFactor() const { return GetZoomFactor(); }
+	float IsSecondVPZoomPresent() {
+		return scope_svp_enabled
+			&& GetSecondVPZoomFactor() > 0.005f
+			&& GetSVPCameraMatrix(Fmatrix());
+	}
 
 	// Up
 	// Magazine system & etc
@@ -113,6 +118,7 @@ public:
 	virtual void HUD_VisualBulletUpdate(bool force = false, int force_idx = -1);
 
 	void UpdateSecondVP();
+	bool CWeapon::GetSVPCameraMatrix(Fmatrix& camera);
 
 	virtual void UpdateCL();
 	virtual void shedule_Update(u32 dt);
@@ -378,6 +384,7 @@ protected:
 		bool m_bZoomDofEnabled;
 		bool m_bIsZoomModeNow;
 		float m_fCurrentZoomFactor;
+		float m_fZoomTargetFactor; // pip smooth-zoom target, the current factor eases toward this
 		float m_fZoomRotateTime;
 		float m_fBaseZoomFactor;
 		float m_fScopeZoomFactor;
@@ -430,6 +437,7 @@ public:
 	IC void SetZoomFactor(float f)
 	{
 		m_zoom_params.m_fCurrentZoomFactor = f;
+		m_zoom_params.m_fZoomTargetFactor = f; // pip keep the smooth-zoom target synced, only scroll pushes it ahead
 	}
 
 	virtual float CurrentZoomFactor();

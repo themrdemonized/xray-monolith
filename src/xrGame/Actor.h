@@ -374,7 +374,8 @@ protected:
 	void cam_SetFreelook();
 	void cam_UnsetFreelook();
 	bool CanUseFreelook();
-	float currentFOV();
+	float currentFOV(bool wantSVPFov);
+	bool scopeCameraMatrix(Fmatrix& camera);
 
 	// Cameras
 	CCameraBase* cameras[eacMaxCam];

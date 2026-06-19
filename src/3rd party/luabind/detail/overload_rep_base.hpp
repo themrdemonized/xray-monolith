@@ -32,7 +32,11 @@ extern "C"
 namespace luabind::detail
 {
 	// this class represents a specific overload of a member-function.
-    template class LUABIND_API std::function<int(lua_State*)>;
+}
+// clangd wants an explicit std template instantiation in a namespace enclosing std, no MSVC effect
+template class LUABIND_API std::function<int(lua_State*)>;
+namespace luabind::detail
+{
 
 	struct LUABIND_API overload_rep_base
 	{

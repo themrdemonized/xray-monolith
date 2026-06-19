@@ -36,6 +36,6 @@ enum ESingleGameDifficulty
 };
 
 extern ESingleGameDifficulty g_SingleGameDifficulty;
-xr_token difficulty_type_token [ ];
+extern xr_token difficulty_type_token [ ];	// extern: clang rejects sizeless array def (real def is in the .cpp); MSVC tolerated it
 
 typedef enum_exporter<ESingleGameDifficulty> CScriptGameDifficulty;

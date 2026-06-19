@@ -485,18 +485,6 @@ void CCameraManager::ApplyDevice(float _viewport_near)
 	// projection
 	Device.fFOV = m_cam_info.fFov;
 	Device.fASPECT = m_cam_info.fAspect;
-	//--#SM+# Begin-- +SecondVP+
-	// Recalculate scene FOV for SecondVP frame
-	if (Device.m_SecondViewport.IsSVPFrame())
-	{
-		// For the second viewport, set FOV from HUD shader constants
-		Device.fFOV = g_pGamePersistent->m_pGShaderConstants->hud_params.y;
-
-		// Mark the second viewport camera as ready
-		Device.m_SecondViewport.isCamReady = true;
-	}
-	else
-		Device.m_SecondViewport.isCamReady = false;
 
 	Device.mProject.build_projection(deg2rad(Device.fFOV), m_cam_info.fAspect, _viewport_near, m_cam_info.fFar);
 	Device.mProjectHud.build_projection(deg2rad(psHUD_FOV * 83.f), Device.fASPECT, R_VIEWPORT_NEAR, m_cam_info.fFar);

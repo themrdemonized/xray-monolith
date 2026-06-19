@@ -37,6 +37,42 @@ void CRenderTarget::DoAsyncScreenshot()
 
 float hclip(float v, float dim) { return 2.f * v / dim - 1.f; }
 
+extern ECORE_API int scope_debug; // pip: r__scope_debug (xrRender_console.cpp)
+
+// pip r__scope_debug texture grid, tiles the scope image, motion vectors, prev-frame and shadowmap, main view only
+void CRenderTarget::phase_scope_debug()
+{
+	if (scope_debug && !Device.m_SecondViewport.IsSVPFrame())
+	{
+		u32 Offset = 0;
+		u32 C = color_rgba(0, 0, 0, 255);
+
+		float d_Z = EPS_S;
+		float d_W = 1.0f;
+		float w = float(Device.dwWidth);
+		float h = float(Device.dwHeight);
+
+		Fvector2 p0, p1;
+		p0.set(0.0f, 0.0f);
+		p1.set(1.0f, 1.0f);
+
+		RCache.set_CullMode(CULL_NONE);
+		RCache.set_Stencil(FALSE);
+
+		// Fullscreen triangle
+		int triangles = 1;
+		FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(triangles * 3, g_combine->vb_stride, Offset);
+		pv->set(0, float(h * 2), d_Z, d_W, C, p0.x, p1.y * 2); pv++;
+		pv->set(0, 0, d_Z, d_W, C, p0.x, p0.y); pv++;
+		pv->set(float(w * 2), 0, d_Z, d_W, C, p1.x * 2, p0.y); pv++;
+		RCache.Vertex.Unlock(triangles * 3, g_combine->vb_stride);
+
+		RCache.set_Geometry(g_combine);
+		RCache.set_Element(s_scope_debug->E[1]);
+		RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, triangles * 3, 0, triangles);
+	}
+}
+
 void CRenderTarget::phase_combine()
 {
 	PIX_EVENT(phase_combine);
@@ -82,42 +118,35 @@ void CRenderTarget::phase_combine()
 	// Save previus and current matrices
 	Fvector2 m_blur_scale;
 	{
-		static Fmatrix m_saved_viewproj;
+		static Fmatrix m_saved_viewproj[2];
+		static Fvector3 saved_position[2];
+		GetPrevious()->Position_previous.set(saved_position[Device.m_SecondViewport.IsSVPFrame()]);
+		saved_position[Device.m_SecondViewport.IsSVPFrame()].set(Device.vCameraPosition);
 
-		if (!Device.m_SecondViewport.IsSVPFrame())
-		{
-			static Fvector3 saved_position;
-			Position_previous.set(saved_position);
-			saved_position.set(Device.vCameraPosition);
-
-			Matrix_previous.mul(m_saved_viewproj, Device.mInvView);
-			Matrix_current.set(Device.mProject);
-			m_saved_viewproj.set(Device.mFullTransform);
-		}
+		GetPrevious()->Matrix_previous.mul(m_saved_viewproj[Device.m_SecondViewport.IsSVPFrame()], Device.mInvView);
+		GetPrevious()->Matrix_current.set(Device.mProject);
+		m_saved_viewproj[Device.m_SecondViewport.IsSVPFrame()].set(Device.mFullTransform);
 		float scale = ps_r2_mblur / 2.f;
 		m_blur_scale.set(scale, -scale).div(12.f);
 	}
 
 	{
-		// Disable when rendering SecondViewport
-		if (!Device.m_SecondViewport.IsSVPFrame())
+		// pip AO and IL run for the SVP too, the SVP ambient is multiplied by ssfx_ao so without this it goes black
+		// Clear RT
+		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
+		HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
+
+		if (RImplementation.o.ssfx_ao && ps_ssfx_ao.y > 0)
 		{
-			// Clear RT
-			FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-			HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
-			HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
+			ssfx_PrevPos_Requiered = true;
+			phase_ssfx_ao(); // [SSFX] - New AO Phase
+		}
 
-			if (RImplementation.o.ssfx_ao && ps_ssfx_ao.y > 0)
-			{
-				ssfx_PrevPos_Requiered = true;
-				phase_ssfx_ao(); // [SSFX] - New AO Phase
-			}
-
-			if (RImplementation.o.ssfx_il && ps_ssfx_il.y > 0)
-			{
-				ssfx_PrevPos_Requiered = true;
-				phase_ssfx_il(); // [SSFX] - New IL Phase
-			}
+		if (RImplementation.o.ssfx_il && ps_ssfx_il.y > 0)
+		{
+			ssfx_PrevPos_Requiered = true;
+			phase_ssfx_il(); // [SSFX] - New IL Phase
 		}
 	}
 
@@ -151,7 +180,7 @@ void CRenderTarget::phase_combine()
 		g_pGamePersistent->Environment().RenderSky();
 
 		//	Igor: Render clouds before compine without Z-test
-		//	to avoid siluets. HOwever, it's a bit slower process.
+		//	to avoid siluets. HOwever, it's a bit slower process
 		g_pGamePersistent->Environment().RenderClouds();
 
 		//	Moved to shader!
@@ -328,14 +357,15 @@ void CRenderTarget::phase_combine()
 	else
 		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
-	if (RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
+	// pip run SSR for the SVP too, its buffers are per-target so the scope reflects like the main view
+	if (RImplementation.o.ssfx_ssr)
 	{
 		ssfx_PrevPos_Requiered = true;
 		phase_ssfx_ssr(); // [SSFX] - New SSR Phase
 	}
 
-	// [SSFX] - Water SSR rendering
-	if (RImplementation.o.ssfx_water && !Device.m_SecondViewport.IsSVPFrame())
+	// [SSFX] - Water SSR rendering, SVP included so scope water reflects
+	if (RImplementation.o.ssfx_water)
 	{
 		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
@@ -511,12 +541,41 @@ void CRenderTarget::phase_combine()
 		phase_ssfx_fog_scattering();
 	}
 
-	if (RImplementation.o.ssfx_motionblur && ps_ssfx_motionblur.y > 0)
+	// pip with DLSS on, skip the SVP engine AA/post so rt_Generic_0 stays aliased + jittered for the eval
+	// (DLSS reconstructs), main + gate 0 keep the stock AA path unchanged. only ever true on the SVP frame
+	const bool svp_dlss_skip_aa = (ps_r__svp_dlss != 0 && Device.m_SecondViewport.IsSVPFrame());
+
+	// pip TAA before motion blur and the scope lens paint, both would corrupt the frame and motion vectors
+	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0 && !svp_dlss_skip_aa)
+	{
+		phase_ssfx_taa();
+	}
+
+	if (RImplementation.o.ssfx_motionblur && ps_ssfx_motionblur.y > 0 && !svp_dlss_skip_aa)
 	{
 		phase_ssfx_motion_blur();
 	}
 
-	if (scope_3D_fake_enabled)
+	// pip finish the lens with blur and SMAA before capturing it, every SVP buffer is per-target so the main view is untouched
+	if (Device.m_SecondViewport.IsSVPFrame())
+	{
+		if (!svp_dlss_skip_aa) // pip DLSS reconstructs, skip the SVP blur + SMAA so the eval gets the aliased frame
+		{
+			phase_blur();
+			if (ps_smaa_quality)
+			{
+				phase_smaa();
+				RCache.set_Stencil(FALSE);
+			}
+		}
+		phase_svp_capture();
+		return;
+	}
+
+	// pip run the reticle composite when a magnifier or a 1x reflex/eyepiece was captured
+	if (scope_3D_fake_enabled
+		|| (scope_svp_enabled && (Device.m_SecondViewport.IsSVPActive()
+			|| !RImplementation.mapReflexHUDSorted.empty() || !RImplementation.mapScopeHUDSorted.empty())))
 	{
 		phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 	}
@@ -575,16 +634,13 @@ void CRenderTarget::phase_combine()
         RCache.set_Stencil(FALSE);
     }    
 	
-	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0)
-	{
-		phase_ssfx_taa();
-	}
+	// pip: TAA moved up (before the scope lens paint), see the note above the scope block
 
 	if (ssfx_PrevPos_Requiered)
 		HW.pContext->CopyResource(rt_ssfx_prevPos->pTexture->surface_get(), rt_Position->pTexture->surface_get());
 
 	// PP enabled ?
-	//	Render to RT texture to be able to copy RT even in windowed mode.
+	//	Render to RT texture to be able to copy RT even in windowed mode
 	BOOL PP_Complex = u_need_PP() | (BOOL)RImplementation.m_bMakeAsyncSS;
 	if (_menu_pp) PP_Complex = FALSE;
 
@@ -689,8 +745,8 @@ void CRenderTarget::phase_combine()
 		RCache.set_c("e_barrier", ps_r2_aa_barier.x, ps_r2_aa_barier.y, ps_r2_aa_barier.z, 0);
 		RCache.set_c("e_weights", ps_r2_aa_weight.x, ps_r2_aa_weight.y, ps_r2_aa_weight.z, 0);
 		RCache.set_c("e_kernel", ps_r2_aa_kernel, ps_r2_aa_kernel, ps_r2_aa_kernel, 0);
-		RCache.set_c("m_current", Matrix_current);
-		RCache.set_c("m_previous", Matrix_previous);
+		RCache.set_c("m_current", GetPrevious()->Matrix_current);
+		RCache.set_c("m_previous", GetPrevious()->Matrix_previous);
 		RCache.set_c("m_blur", m_blur_scale.x, m_blur_scale.y, 0, 0);
 		/////lvutner		
 		RCache.set_c("mask_control", ps_r2_mask_control.x, ps_r2_mask_control.y, ps_r2_mask_control.z, ps_r2_mask_control.w);

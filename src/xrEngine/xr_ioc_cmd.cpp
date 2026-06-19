@@ -1009,6 +1009,8 @@ int ps_framelimiter = 0;
 extern u32 g_crosshair_color;
 float g_freelook_z_offset;
 float g_ironsights_factor = 1.25f;
+float g_zoom_smooth = 12.f; // pip dynamic-scope zoom smoothing rate, 0 is instant, eases the scroll-zoom between steps
+float g_zoom_analog = 0.f; // pip dynamic-scope analog zoom, 0 is off, higher is more fine steps across the zoom range
 
 // crookr fake scope params (sorry)
 float scope_fog_interp = 0.15f;
@@ -1232,6 +1234,8 @@ void CCC_Register()
 		CMD4(CCC_Float, "g_freelook_z_offset_factor", &g_freelook_z_offset, -3.f, 3.f);
 
 	CMD4(CCC_Float, "g_ironsights_zoom_factor", &g_ironsights_factor, 1.f, 2.f);
+	CMD4(CCC_Float, "g_zoom_smooth", &g_zoom_smooth, 0.f, 60.f); // pip dynamic-scope zoom smoothing, 0 is off
+	CMD4(CCC_Float, "g_zoom_analog", &g_zoom_analog, 0.f, 200.f); // pip dynamic-scope analog zoom granularity, 0 is off
 	CMD4(CCC_Vector3, "ssfx_wetness_multiplier", &ssfx_wetness_multiplier, Fvector3().set(0.1f, 0.1f, 0.0f), Fvector3().set(20.0f, 20.0f, 0.0f));
 
 	// - CrookR

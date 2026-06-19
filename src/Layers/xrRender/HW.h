@@ -74,6 +74,9 @@ public:
 	IDXGISwapChain1*        m_pSwapChain;
 	ID3D11RenderTargetView*	pBaseRT;	//	combine with DX9 pBaseRT via typedef
 	ID3D11DepthStencilView*	pBaseZB;
+	// persistent swapchain RTV/DSV, SetActive clobbers pBaseRT/pBaseZB so the main target restores from these
+	ID3D11RenderTargetView*	secret_pBaseRT = nullptr;
+	ID3D11DepthStencilView*	secret_pBaseZB = nullptr;
 	ID3DUserDefinedAnnotation* pAnnotation;
 
 	CHWCaps					Caps;

@@ -1510,5 +1510,11 @@ void CHW::UpdateViews()
     R_CHK(R);
 
     pDepthStencil->Release();
+
+#if defined(USE_DX11)
+    // pip snapshot the true swapchain RTV/DSV, SetActive uses these for the main target so a clobbered pBaseRT never sticks
+    secret_pBaseRT = pBaseRT;
+    secret_pBaseZB = pBaseZB;
+#endif
 }
 #endif

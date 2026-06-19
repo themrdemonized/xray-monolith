@@ -11,6 +11,8 @@ private:
 public:
 	ref_light sun_original;
 	ref_light sun_adapted;
+	xr_vector<ref_light> sun_cascades; // pip: one sun light per cascade
+	ref_light rain_light;              // pip: persistent rain shadow light
 	light_Package package;
 public:
 	void add_light(light* L);

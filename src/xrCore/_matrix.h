@@ -664,6 +664,16 @@ public:
 		return *this;
 	}
 
+	IC void decompose_projection(T& fFov, T& fAspect, T& fNearPlane, T& fFarPlane) {
+		T Q = _33;
+		T w = _11;
+		T h = _22;
+		fNearPlane = _43 / -Q;
+		fFarPlane = (fNearPlane * Q) / (Q - 1.0f);
+		fAspect = w / h;
+		fFov = 2.0 * atanf(1.0f / h);
+	}
+
 	IC SelfRef build_projection_ortho(T w, T h, T zn, T zf)
 	{
 		_11 = T(2) / w;

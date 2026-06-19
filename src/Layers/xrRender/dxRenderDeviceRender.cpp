@@ -401,14 +401,11 @@ void dxRenderDeviceRender::End()
 	}
 # endif
 
-	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady) {
-		HW.m_pSwapChain->Present(present_interval, present_flags);
-	}
+	HW.m_pSwapChain->Present(present_interval, present_flags);
 #else //!USE_DX10 || USE_DX11
 	CHK_DX(HW.pDevice->EndScene());
 
-	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady)
-		HW.pDevice->Present(NULL, NULL, NULL, NULL);
+	HW.pDevice->Present(NULL, nullptr, NULL, nullptr);
 #endif //-USE_DX10
 	//HRESULT _hr		= HW.pDevice->Present( NULL, NULL, NULL, NULL );
 	//if				(D3DERR_DEVICELOST==_hr)	return;			// we will handle this later

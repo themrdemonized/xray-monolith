@@ -184,6 +184,13 @@ extern ECORE_API Fvector ps_r2_drops_control; // r2-only
 extern ECORE_API int ps_r2_nightvision;
 extern ECORE_API int scope_fake_enabled; //crookr
 extern ECORE_API int scope_3D_fake_enabled; // Redotix99: for 3D Shader Based Scopes
+extern ECORE_API int scope_svp_enabled;		// Second Viewport scopes
+extern ECORE_API float ps_r__svp_render_scale;	// scope viewport render scale, applied when TargetSVP is built
+extern ECORE_API int ps_r__svp_dlss;			// SVP DLSS-SR master gate
+extern ECORE_API int r__gpu_markers;			// RenderDoc: per-batch GPU debug events + resource naming
+extern ECORE_API int r__shader_debug;			// RenderDoc: compile shaders with D3DCOMPILE_DEBUG | SKIP_OPTIMIZATION
+extern ECORE_API Fvector4 scope_objective_lens_offset;
+extern ECORE_API int scope_debug;
 extern ECORE_API int ps_r2_heatvision;			//--DSR-- HeatVision
 extern ECORE_API int heat_vision_cooldown;		//--DSR-- HeatVision
 extern ECORE_API float heat_vision_cooldown_time;	//--DSR-- HeatVision

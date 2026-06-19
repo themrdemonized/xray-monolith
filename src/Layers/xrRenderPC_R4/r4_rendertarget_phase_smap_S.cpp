@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-void CRenderTarget::phase_smap_spot_clear()
+void CRenderTarget::phase_smap_spot_clear(ref_rt smap)
 {
 	/*
 	if (RImplementation.b_HW_smap)		u_setrt	(rt_smap_surf, NULL, NULL, rt_smap_d_depth->pRT);
@@ -8,7 +8,7 @@ void CRenderTarget::phase_smap_spot_clear()
 	CHK_DX								(HW.pDevice->Clear( 0L, NULL, D3DCLEAR_ZBUFFER,	0xffffffff,	1.0f, 0L));
 	*/
 
-	HW.pContext->ClearDepthStencilView(rt_smap_depth->pZRT, D3D_CLEAR_DEPTH, 1.0f, 0L);
+	HW.pContext->ClearDepthStencilView(smap->pZRT, D3D_CLEAR_DEPTH, 1.0f, 0L);
 }
 
 void CRenderTarget::phase_smap_spot(light* L)
@@ -19,6 +19,7 @@ void CRenderTarget::phase_smap_spot(light* L)
 		//else								u_setrt	(rt_smap_surf, NULL, NULL, rt_smap_ZB);
 	else
 		VERIFY(!"Use HW SMap only for DX10!");
+	SRVSManager.SetPSResource(0, nullptr); // pip: drop stale SRV before SMAP render
 	D3D_VIEWPORT VP = {(float)L->X.S.posX, (float)L->X.S.posY, (float)L->X.S.size, (float)L->X.S.size, 0, 1};
 	//CHK_DX								(HW.pDevice->SetViewport(&VP));
 	HW.pContext->RSSetViewports(1, &VP);

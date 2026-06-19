@@ -457,7 +457,16 @@ void CRenderDevice::on_idle()
 	mFullTransformHud.mul(mProjectHud, mView);
 	m_pRender->SetCacheXform(mView, mProject);
 
-	// Previous frame data -- 
+	// per-viewport camera storage, advance previous and set current main at index 0
+	// matrices[1] is the SVP, filled by svpCamera in the render layer
+	Device.matrices_previous[0] = Device.matrices[0];
+	Device.matrices_previous[1] = Device.matrices[1];
+
+	Device.matrices[0].mView = mView;
+	Device.matrices[0].mProject = mProject;
+	Device.matrices[0].mProjectHud = mProjectHud;
+
+	// previous frame data
 	mView_prev = mView_saved;
 	mProject_prev = mProject_saved;
 	//mFullTransform_prev = mFullTransform_saved; // Unused?
@@ -948,12 +957,22 @@ void CLoadScreenRenderer::OnRender()
 
 void CRenderDevice::CSecondVPParams::SetSVPActive(bool bState) //--#SM+#-- +SecondVP+
 {
+	if (bState && !isActive)
+		dlss_reset_next = true; // pip DLSS history reset on ADS-in
 	isActive = bState;
-	if (g_pGamePersistent != NULL)
+	if (g_pGamePersistent != nullptr)
 		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.z = (isActive ? 1.0f : 0.0f);
 }
 
-bool CRenderDevice::CSecondVPParams::IsSVPFrame() //--#SM+#-- +SecondVP+
+void CRenderDevice::prepare_matrices()
 {
-	return IsSVPActive() && Device.dwFrame % frameDelay == 0;
+	auto svp = m_SecondViewport.IsSVPFrame();
+	// per-viewport previous-frame matrices for motion vectors, index 0 main and 1 SVP
+	mView_prev = Device.matrices_previous[svp].mView;
+	mProject_prev = Device.matrices_previous[svp].mProject;
+
+	m_pRender->SetCacheXform_prev(mView_prev, mProject_prev);
+
+	// grass and wind prev-frame saving stays once-per-frame in the device frame matrix fn
+	// prepare_matrices runs many times per frame and wind prev=saved saved=cur is not idempotent
 }

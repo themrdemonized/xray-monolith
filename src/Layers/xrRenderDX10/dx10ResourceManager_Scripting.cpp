@@ -631,6 +631,11 @@ ShaderElement* CBlender_Compile::_lua_Compile(LPCSTR namesp, LPCSTR name)
 	bool bFirstPass = false;
 	adopt_compiler ac = adopt_compiler(this, bFirstPass);
 	element(ac, t_0, t_1, t_d);
+
+	// pip flag reflex reticle blenders scopelense 10 so they route to draw_reflex, GAMMA 4.17 dropped the .s flag
+	if (E.flags.iScopeLense == 0 && namesp && strstr(namesp, "models_reflex_reticle") == namesp)
+		E.flags.iScopeLense = 10;
+
 	r_End();
 	ShaderElement* _r = dxRenderDeviceRender::Instance().Resources->_CreateElement(E);
 	return _r;

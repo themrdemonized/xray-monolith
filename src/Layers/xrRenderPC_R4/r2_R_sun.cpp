@@ -127,7 +127,7 @@ BOOL LineIntersection2D(D3DXVECTOR2* result, const D3DXVECTOR2* lineA, const D3D
 ///////////////////////////////////////////////////////////////////////////
 //  PlaneIntersection
 //    computes the point where three planes intersect
-//    returns whether or not the point exists.
+//    returns whether or not the point exists
 static inline BOOL PlaneIntersection(D3DXVECTOR3* intersectPt, const D3DXPLANE* p0, const D3DXPLANE* p1,
                                      const D3DXPLANE* p2)
 {
@@ -476,7 +476,7 @@ void CRender::render_sun()
 	                                            fuckingsun->direction.z);
 
 	//  these are the limits specified by the physical camera
-	//  gamma is the "tilt angle" between the light and the view direction.
+	//  gamma is the "tilt angle" between the light and the view direction
 	float m_fCosGamma = m_lightDir.x * m_View._13 +
 		m_lightDir.y * m_View._23 +
 		m_lightDir.z * m_View._33;
@@ -486,7 +486,7 @@ void CRender::render_sun()
 	FPU::m64r();
 	if (_abs(m_fCosGamma) < 0.99f && ps_r2_ls_flags.test(R2FLAG_SUN_TSM))
 	{
-		//  get the near and the far plane (points) in eye space.
+		//  get the near and the far plane (points) in eye space
 		D3DXVECTOR3 frustumPnts[8];
 
 		Frustum eyeFrustum(&m_Projection); // autocomputes all the extrema points
@@ -497,9 +497,9 @@ void CRender::render_sun()
 			frustumPnts[i + 4] = eyeFrustum.pntList[(i << 1) | 0x1]; // near plane
 		}
 
-		//   we need to transform the eye into the light's post-projective space.
+		//   we need to transform the eye into the light's post-projective space
 		//   however, the sun is a directional light, so we first need to find an appropriate
-		//   rotate/translate matrix, before constructing an ortho projection.
+		//   rotate/translate matrix, before constructing an ortho projection
 		//   this matrix is a variant of "light space" from LSPSMs, with the Y and Z axes permuted
 
 		D3DXVECTOR3 leftVector, upVector, viewVector;
@@ -537,7 +537,7 @@ void CRender::render_sun()
 		BoundingBox frustumBox(frustumPnts, sizeof(frustumPnts) / sizeof(D3DXVECTOR3));
 
 		//  also - transform the shadow caster bounding boxes into light projective space.  we want to translate along the Z axis so that
-		//  all shadow casters are in front of the near plane.
+		//  all shadow casters are in front of the near plane
 		D3DXVECTOR2 depthbounds = BuildTSMProjectionMatrix_caster_depth_bounds(lightSpaceBasis);
 
 		float min_z = min(depthbounds.x, frustumBox.minPt.z);
@@ -596,7 +596,7 @@ void CRender::render_sun()
 		//  this matrix transforms the center line to y=0.
 		//  since Top and Base are orthogonal to Center, we can skip computing the convex hull, and instead
 		//  just find the view frustum X-axis extrema.  The most negative is Top, the most positive is Base
-		//  Point Q (trapezoid projection point) will be a point on the y=0 line.
+		//  Point Q (trapezoid projection point) will be a point on the y=0 line
 		D3DXMatrixMultiply(&trapezoid_space, &xlate_center, &rot_center);
 		D3DXVec3TransformCoordArray(frustumPnts, sizeof(D3DXVECTOR3), frustumPnts, sizeof(D3DXVECTOR3),
 		                            &trapezoid_space, sizeof(frustumPnts) / sizeof(D3DXVECTOR3));
@@ -622,7 +622,7 @@ void CRender::render_sun()
 		frustumAABB2D.minPt.y *= y_scale;
 		frustumAABB2D.maxPt.y *= y_scale;
 
-		//  compute eta.
+		//  compute eta
 		float lambda = frustumAABB2D.maxPt.x - frustumAABB2D.minPt.x;
 		float delta_proj = m_fTSM_Delta * lambda; //focusPt.x - frustumAABB2D.minPt.x;
 		const float xi = -0.6f; // - 0.6f;  // 80% line
@@ -671,7 +671,7 @@ void CRender::render_sun()
 
 		float z_aspect = (frustumBox.maxPt.z - frustumBox.minPt.z) / (frustumAABB2D.maxPt.y - frustumAABB2D.minPt.y);
 
-		//  perform a 2DH projection to 'unsqueeze' the top line.
+		//  perform a 2DH projection to 'unsqueeze' the top line
 		D3DXMATRIX trapezoid_projection(xf / (xf - xn), 0.f, 0.f, 1.f,
 		                                0.f, 1.f / max_slope, 0.f, 0.f,
 		                                0.f, 0.f, 1.f / (z_aspect * max_slope), 0.f,
@@ -793,7 +793,7 @@ void CRender::render_sun()
 		bool bSpecial = mapNormalPasses[1][0].size() || mapMatrixPasses[1][0].size() || mapSorted.size();
 		if (bNormal || bSpecial)
 		{
-			Target->phase_smap_direct(fuckingsun, SE_SUN_FAR);
+			Target->phase_smap_direct(fuckingsun, Target->rt_smap_depth, SE_SUN_FAR);
 			RCache.set_xform_world(Fidentity);
 			RCache.set_xform_view(Fidentity);
 			RCache.set_xform_project(fuckingsun->X.D.combine);
@@ -1035,7 +1035,7 @@ void CRender::render_sun_near()
 		bool bSpecial = mapNormalPasses[1][0].size() || mapMatrixPasses[1][0].size() || mapSorted.size();
 		if (bNormal || bSpecial)
 		{
-			Target->phase_smap_direct(fuckingsun, SE_SUN_NEAR);
+			Target->phase_smap_direct(fuckingsun, Target->rt_smap_depth, SE_SUN_NEAR);
 			RCache.set_xform_world(Fidentity);
 			RCache.set_xform_view(Fidentity);
 			RCache.set_xform_project(fuckingsun->X.D.combine);
@@ -1110,22 +1110,55 @@ void CRender::init_cacades()
 	/// 	m_sun_cascades[m_sun_cascades.size()-1].size = 80;
 }
 
+void CRender::shadowmap_sun_cascades()
+{
+	PIX_EVENT(SHADOWMAP_SUN_CASCADES);
+
+	// FIXME: Shader does not respect light atlas bounds, which prevents usage of a combined light atlas
+}
+
 void CRender::render_sun_cascades()
 {
+	PIX_EVENT(RENDER_SUN_CASCADES);
+
 	bool b_need_to_render_sunshafts = RImplementation.Target->need_to_render_sunshafts();
 	bool last_cascade_chain_mode = m_sun_cascades.back().reset_chain;
 	if (b_need_to_render_sunshafts)
 		m_sun_cascades[m_sun_cascades.size() - 1].reset_chain = true;
 
+	// pip build the shadow map on the main view then accumulate the sun into the SVP and main view per cascade
 	for (u32 i = 0; i < m_sun_cascades.size(); ++i)
+	{
+		TargetMain->SetActive();
+		shadowmap_sun_cascade(i);
+
+		if (Device.m_SecondViewport.IsSVPActive())
+		{
+			TargetSVP->SetActive();
+			render_sun_cascade(i);
+		}
+		TargetMain->SetActive();
 		render_sun_cascade(i);
+	}
 
 	if (b_need_to_render_sunshafts)
 		m_sun_cascades[m_sun_cascades.size() - 1].reset_chain = last_cascade_chain_mode;
+
+	// pip: blend the accumulated direct light per viewport (moved here from renderSun)
+	if (Device.m_SecondViewport.IsSVPActive())
+	{
+		TargetSVP->SetActive();
+		TargetSVP->accum_direct_blend();
+	}
+	TargetMain->SetActive();
+	TargetMain->accum_direct_blend();
 }
 
-void CRender::render_sun_cascade(u32 cascade_ind)
+void CRender::shadowmap_sun_cascade(u32 cascade_ind)
 {
+	PIX_EVENT(SHADOWMAP_SUN_CASCADE);
+
+	Lights.sun_adapted = Lights.sun_cascades[cascade_ind];
 	light* fuckingsun = (light*)Lights.sun_adapted._get();
 
 	// calculate view-frustum bounds in world space
@@ -1196,7 +1229,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
 		t_cuboid light_cuboid;
 		{
-			// Initialize the first cascade rays, then each cascade will initialize rays for next one.
+			// Initialize the first cascade rays, then each cascade will initialize rays for next one
 			if (cascade_ind == 0 || m_sun_cascades[cascade_ind].reset_chain)
 			{
 				Fvector3 near_p, edge_vec;
@@ -1294,7 +1327,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 		Fvector cam_shifted = L_pos;
 		cam_shifted.add(lightXZshift);
 
-		// rebuild the view transform with the shift.
+		// rebuild the view transform with the shift
 		mdir_View.identity();
 		mdir_View.build_camera_dir(cam_shifted, L_dir, L_up);
 		cull_xform.identity();
@@ -1355,6 +1388,11 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 		FPU::m24r();
 	}
 
+	auto smap = Target->rt_smap_depth;
+
+	// pip: clear the smap explicitly (phase_smap_direct no longer clears it)
+	Target->phase_smap_spot_clear(smap);
+
 	// Begin SMAP-render
 	{
 		bool bSpecialFull = mapNormalPasses[1][0].size() || mapMatrixPasses[1][0].size() || mapSorted.size();
@@ -1379,7 +1417,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 		bool bSpecial = mapNormalPasses[1][0].size() || mapMatrixPasses[1][0].size() || mapSorted.size();
 		if (bNormal || bSpecial)
 		{
-			Target->phase_smap_direct(fuckingsun, SE_SUN_FAR);
+			Target->phase_smap_direct(fuckingsun, smap, SE_SUN_FAR);
 			RCache.set_xform_world(Fidentity);
 			RCache.set_xform_view(Fidentity);
 			RCache.set_xform_project(fuckingsun->X.D.combine);
@@ -1406,26 +1444,47 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 		r_pmask(true, false);
 	}
 
-	// Accumulate
-	Target->phase_accumulator();
-
 	if (Target->use_minmax_sm_this_frame())
 	{
 		PIX_EVENT(SE_SUN_NEAR_MINMAX_GENERATE);
 		Target->create_minmax_SM();
 	}
 
-	PIX_EVENT(SE_SUN_NEAR);
+	// Restore XForms
+	RCache.set_xform_world(Fidentity);
+	RCache.set_xform_view(Device.mView);
+	RCache.set_xform_project(Device.mProject);
+}
 
-	if (cascade_ind == 0)
-		Target->accum_direct_cascade(SE_SUN_NEAR, m_sun_cascades[cascade_ind].xform, m_sun_cascades[cascade_ind].xform,
-		                             m_sun_cascades[cascade_ind].bias);
-	else if (cascade_ind < m_sun_cascades.size() - 1)
-		Target->accum_direct_cascade(SE_SUN_MIDDLE, m_sun_cascades[cascade_ind].xform,
-		                             m_sun_cascades[cascade_ind - 1].xform, m_sun_cascades[cascade_ind].bias);
-	else
-		Target->accum_direct_cascade(SE_SUN_FAR, m_sun_cascades[cascade_ind].xform,
-		                             m_sun_cascades[cascade_ind - 1].xform, m_sun_cascades[cascade_ind].bias);
+// pip: sun accumulate half, re-callable per viewport against the shared shadow map
+void CRender::render_sun_cascade(u32 cascade_ind)
+{
+	PIX_EVENT(RENDER_SUN_CASCADE);
+
+	Lights.sun_adapted = Lights.sun_cascades[cascade_ind];
+	light* fuckingsun = (light*)Lights.sun_adapted._get();
+
+	RCache.set_xform_world(Fidentity);
+	RCache.set_xform_view(Fidentity);
+	RCache.set_xform_project(fuckingsun->X.D.combine);
+
+	// Accumulate
+	{
+		PIX_EVENT(SE_SUN_ACCUMULATE);
+		Target->phase_accumulator();
+
+		PIX_EVENT(SE_SUN_NEAR);
+
+		if (cascade_ind == 0)
+			Target->accum_direct_cascade(SE_SUN_NEAR, m_sun_cascades[cascade_ind].xform, m_sun_cascades[cascade_ind].xform,
+			                             m_sun_cascades[cascade_ind].bias);
+		else if (cascade_ind < m_sun_cascades.size() - 1)
+			Target->accum_direct_cascade(SE_SUN_MIDDLE, m_sun_cascades[cascade_ind].xform,
+			                             m_sun_cascades[cascade_ind - 1].xform, m_sun_cascades[cascade_ind].bias);
+		else
+			Target->accum_direct_cascade(SE_SUN_FAR, m_sun_cascades[cascade_ind].xform,
+			                             m_sun_cascades[cascade_ind - 1].xform, m_sun_cascades[cascade_ind].bias);
+	}
 
 	// Restore XForms
 	RCache.set_xform_world(Fidentity);

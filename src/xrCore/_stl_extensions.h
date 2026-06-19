@@ -157,6 +157,12 @@ private:
 public:
 	typedef allocator allocator_type;
 
+	// clangd compatibility, no MSVC effect, surface the dependent-base member types used unqualified below
+	// conforming clang can't find them via the std::vector base so xr_vector would collapse to int
+	typedef typename inherited::const_reference const_reference;
+	typedef typename inherited::reference reference;
+	typedef typename inherited::size_type size_type;
+
 public:
 	xr_vector() : inherited()
 	{

@@ -8,6 +8,7 @@
 #include "flod.h"
 #include "particlegroup.h"
 #include "FTreeVisual.h"
+#include "xrRender_console.h" // pip: scope_svp_enabled (legacy r__svpscope 0 tagging)
 
 using namespace R_dsgraph;
 
@@ -36,6 +37,60 @@ ICF float CalcSSA(float& distSQ, Fvector& C, float R)
 void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center)
 {
 	CRender& RI = RImplementation;
+
+	auto sh = pVisual->shader._get() ? pVisual->shader->E[0]._get() : nullptr;
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes
+	// pip the scope lens ==3 and reflex ==10 carry their flag on E[0], pulled out before culling while the HUD draws
+	if (nullptr != sh && sh->flags.iScopeLense > 0)
+	{
+		if (scope_svp_enabled != 0)
+		{
+			// pip always capture the ==3 lens and ==10 reflex ignoring culling
+			// scope-depth-write reads mapScopeHUDSorted[0] to derive the eyepiece that flips IsSVPActive
+			if (RImplementation.Target->bCaptureScopeLens)
+			{
+				if (sh->flags.iScopeLense == 3 && mapScopeHUDSorted.empty())
+				{
+					float distSQ;
+					float SSA = CalcSSA(distSQ, Center, pVisual);
+					mapSorted_Node N;
+					N.val.ssa = 0;
+					N.val.pObject = RI.val_pObject;
+					N.val.pVisual = pVisual;
+					N.val.Matrix = *RI.val_pTransform;
+					N.val.se = sh; // also read by the legacy lens render, unused by gc64 draw_scope
+					mapScopeHUDSorted.push_back(N);
+				}
+				else if (sh->flags.iScopeLense == 10)
+				{
+					// pip dedup per visual, the HUD inserts the same reflex many times
+					for (const mapSorted_Node& n : mapReflexHUDSorted)
+						if (n.val.pVisual == pVisual)
+							return;
+					float distSQ;
+					float SSA = CalcSSA(distSQ, Center, pVisual);
+					mapSorted_Node N;
+					N.val.ssa = 0;
+					N.val.pObject = RI.val_pObject;
+					N.val.pVisual = pVisual;
+					N.val.Matrix = *RI.val_pTransform;
+					N.val.se = sh;
+					mapReflexHUDSorted.push_back(N);
+				}
+			}
+			// ==3 lens and ==10 reflex are fully handled by the gc64 capture above -> done
+			if (sh->flags.iScopeLense == 3 || sh->flags.iScopeLense == 10)
+				return;
+
+			// pip ==1 back-glass and ==2 zwrite, a real SVP composites the whole lens so skip them
+			// a fake optic needs them the legacy way so fall through below
+			if (Device.m_SecondViewport.IsSVPActive())
+				return;
+			// fake 1x scope at svpscope 1 or 2, fall through to the legacy switch below
+		}
+		// pip: svpscope 0 or a fake optic: fall through to the legacy switch below
+	}
+#endif
 
 	if (pVisual->vis.marker == RI.marker) return;
 	pVisual->vis.marker = RI.marker;
@@ -66,7 +121,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	}
 
 	// Select shader
-	ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
+	sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
 	if (0 == sh) return;
 	if (!pmask[sh->flags.iPriority / 2]) return;
 
@@ -74,11 +129,14 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 
-#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
-	switch (sh->flags.iScopeLense) {	
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes
+	// pip no real SVP, restore the legacy tagging, ==1 back-glass to HUD, ==2 to rt_ssfx_temp, ==3 to mapScopeHUDSorted
+	if (!Device.m_SecondViewport.IsSVPActive())
+	{
+		switch (sh->flags.iScopeLense)
+		{
 		case 0:
 			break;
-
 		case 1: {
 			mapHUD_Node* N = mapHUD.insertInAnyWay(EPS);
 			N->val.ssa = SSA;
@@ -86,22 +144,10 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.pVisual = pVisual;
 			N->val.Matrix = *RI.val_pTransform;
 			N->val.se = sh;
-
-			// SSS: Deprecated
-			/*if (!sh->passes[0]->ps->hud_disabled)
-			{
-				HUDMask_Node* N2 = HUDMask.insertInAnyWay(EPS);
-				N2->val.ssa = SSA;
-				N2->val.pObject = RI.val_pObject;
-				N2->val.pVisual = pVisual;
-				N2->val.Matrix = *RI.val_pTransform;
-				N2->val.se = sh;
-			}*/
 			return;
 		}
-
 		case 2: {
-			mapHUD_Node * N = mapScopeHUD.insertInAnyWay(distSQ);
+			mapHUD_Node* N = mapScopeHUD.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
@@ -109,15 +155,19 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			N->val.se = sh;
 			return;
 		}
-
 		case 3: {
-			mapSorted_Node * N = mapScopeHUDSorted.insertInAnyWay(distSQ);
-			N->val.ssa = SSA;
-			N->val.pObject = RI.val_pObject;
-			N->val.pVisual = pVisual;
-			N->val.Matrix = *RI.val_pTransform;
-			N->val.se = sh;
+			if (mapScopeHUDSorted.empty())
+			{
+				mapSorted_Node N;
+				N.val.ssa = SSA;
+				N.val.pObject = RI.val_pObject;
+				N.val.pVisual = pVisual;
+				N.val.Matrix = *RI.val_pTransform;
+				N.val.se = sh;
+				mapScopeHUDSorted.push_back(N);
+			}
 			return;
+		}
 		}
 	}
 #endif
@@ -368,7 +418,7 @@ void R_dsgraph_structure::r_dsgraph_insert_static(dxRender_Visual* pVisual)
 #if RENDER==R_R4
 	if (sh->flags.isWater && RImplementation.o.ssfx_water)
 	{
-		mapWater_Node* N = mapWater.insertInAnyWay(distSQ);
+		mapWater_Node* N = mapWater[Device.m_SecondViewport.IsSVPFrame()].insertInAnyWay(distSQ);
 		N->val.ssa = SSA;
 		N->val.pObject = NULL;
 		N->val.pVisual = pVisual;

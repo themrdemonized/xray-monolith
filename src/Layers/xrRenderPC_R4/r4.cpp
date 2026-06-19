@@ -10,6 +10,7 @@
 #include "../xrRender/dxRenderDeviceRender.h"
 #include "../xrRender/dxWallMarkArray.h"
 #include "../xrRender/dxUIShader.h"
+#include "../xrRender/xrRender_console.h" // r__shader_debug (RenderDoc HLSL debug build)
 
 #include "../xrRenderDX10/3DFluid/dx103DFluidManager.h"
 #include "../xrRender/ShaderResourceTraits.h"
@@ -19,6 +20,22 @@
 #include "D3DX10Core.h"
 
 CRender RImplementation;
+
+// pip SVP scene render extent, EXACT svp_height at gate 0 (byte-identical to stock, no scale and no
+// even rounding), scaled + even-rounded for the upscaler only once the DLSS scaffolding is on
+u32 svp_render_extent()
+{
+	if (ps_r__svp_dlss == 0)
+		return Device.svp_height();
+	float eff = ps_r__svp_render_scale;
+	clamp(eff, 0.5f, 1.0f);
+	if (eff >= 1.0f)
+		return Device.svp_height(); // no downscale, full res so the eval is a pass-through CopyResource
+	u32 e = u32(Device.svp_height() * eff) & ~1u; // even side for the upscaler
+	if (e < 2)
+		e = 2;
+	return e;
+}
 
 //////////////////////////////////////////////////////////////////////////
 class CGlow : public IRender_Glow
@@ -529,7 +546,13 @@ void CRender::create()
 
 	m_bMakeAsyncSS = false;
 
-	Target = xr_new<CRenderTarget>(); // Main target
+	TargetMain = xr_new<CRenderTarget>("main", Device.dwWidth, Device.dwHeight);
+	// pip SVP side from svp_render_extent, full svp_height at gate 0, render_scale-reduced at gate != 0
+	u32 svp_side = svp_render_extent();
+	if (svp_side < 64) svp_side = 64;
+	TargetSVP = xr_new<CRenderTarget>("svp", svp_side, svp_side);
+	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset, SVP (re)created incl. resolution change
+	TargetMain->SetActive();
 
 	Models = xr_new<CModelPool>();
 	PSLibrary.OnCreate();
@@ -570,7 +593,8 @@ void CRender::destroy()
 
 	HWOCC.occq_destroy();
 	xr_delete(Models);
-	xr_delete(Target);
+	xr_delete(TargetMain);
+	xr_delete(TargetSVP);
 	PSLibrary.OnDestroy();
 	Device.seqFrame.Remove(this);
 	r_dsgraph_destroy();
@@ -606,7 +630,8 @@ void CRender::reset_begin()
 	}
 	//-AVO
 
-	xr_delete(Target);
+	xr_delete(TargetMain);
+	xr_delete(TargetSVP);
 	HWOCC.occq_destroy();
 	//_RELEASE					(q_sync_point[1]);
 	//_RELEASE					(q_sync_point[0]);
@@ -630,7 +655,13 @@ void CRender::reset_end()
 	//R_CHK						(HW.pDevice->CreateQuery(D3DQUERYTYPE_EVENT,&q_sync_point[1]));
 	HWOCC.occq_create(occq_size);
 
-	Target = xr_new<CRenderTarget>();
+	TargetMain = xr_new<CRenderTarget>("main", Device.dwWidth, Device.dwHeight);
+	// pip SVP side from svp_render_extent, full svp_height at gate 0, render_scale-reduced at gate != 0
+	u32 svp_side = svp_render_extent();
+	if (svp_side < 64) svp_side = 64;
+	TargetSVP = xr_new<CRenderTarget>("svp", svp_side, svp_side);
+	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset, SVP (re)created incl. resolution change
+	TargetMain->SetActive();
 
 	//AVO: let's reload details while changed details options on vid_restart
 	if (b_loaded && ((dm_current_size != dm_size) || (ps_r__Detail_density != ps_current_detail_density) || (
@@ -1714,7 +1745,7 @@ HRESULT CRender::shader_compile(
 		++len;
 	}
 
-	//Useful shit. 
+	//Useful shit
 	if (HW.Caps.id_vendor == 0x1002) //AMD hardware
 	{
 		defines[def_it].Name = "INT_RENDER_AMD";
@@ -2029,7 +2060,9 @@ HRESULT CRender::shader_compile(
 		xr_strcat(file_name, temp_file_name);
 	}
 
-	if (FS.exist(file_name))
+	// r__shader_debug: skip the cache read and recompile, the cache is keyed by source CRC not flags,
+	// so a cached optimized blob would otherwise shadow the debug build
+	if (!r__shader_debug && FS.exist(file_name))
 	{
 		IReader* file = FS.r_open(file_name);
 		if (file->length() > 4)
@@ -2052,6 +2085,10 @@ HRESULT CRender::shader_compile(
 		includer Includer;
 		LPD3DBLOB pShaderBuf = NULL;
 		LPD3DBLOB pErrorBuf = NULL;
+		// r__shader_debug: emit debug info + skip optimization so RenderDoc can step the HLSL source
+		DWORD compileFlags = Flags;
+		if (r__shader_debug)
+			compileFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 		_result =
 			D3DCompile(
 				pSrcData,
@@ -2059,20 +2096,24 @@ HRESULT CRender::shader_compile(
 				"", //NULL, //LPCSTR pFileName,	//	NVPerfHUD bug workaround.
 				defines, &Includer, pFunctionName,
 				pTarget,
-				Flags, 0,
+				compileFlags, 0,
 				&pShaderBuf,
 				&pErrorBuf
 			);
 
 		if (SUCCEEDED(_result))
 		{
-			IWriter* file = FS.w_open(file_name);
+			// don't cache the debug blob, keyed by source CRC, it would later load as if it were a normal build
+			if (!r__shader_debug)
+			{
+				IWriter* file = FS.w_open(file_name);
 
-			u32 const crc = crc32(pShaderBuf->GetBufferPointer(), pShaderBuf->GetBufferSize());
+				u32 const crc = crc32(pShaderBuf->GetBufferPointer(), pShaderBuf->GetBufferSize());
 
-			file->w_u32(crc);
-			file->w(pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize());
-			FS.w_close(file);
+				file->w_u32(crc);
+				file->w(pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize());
+				FS.w_close(file);
+			}
 
 			_result = create_shader(pTarget, (DWORD*)pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize(),
 			                        file_name, result, o.disasm);

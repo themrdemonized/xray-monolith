@@ -174,7 +174,9 @@ public:
 	CModelPool* Models;
 	CWallmarksEngine* Wallmarks;
 
-	CRenderTarget* Target; // Render-target
+	CRenderTarget* Target; // Render-target (currently-active, set by SetActive)
+	CRenderTarget* TargetMain; // Full-screen main viewport
+	CRenderTarget* TargetSVP; // Second viewport (square, dwHeight/2) for true-PiP scopes
 
 	CLight_DB Lights;
 	CLight_Compute_XFORM_and_VIS LR;
@@ -216,19 +218,30 @@ public:
 	IRender_Sector* rimp_detectSector(Fvector& P, Fvector& D);
 	void render_main(Fmatrix& mCombined, bool _fportals);
 	void render_forward();
-	void render_Reticle();
 	void render_smap_direct(Fmatrix& mCombined);
 	void render_indirect(light* L);
-	void render_lights(light_Package& LP);
+	void render_lights_shadowmaps(light_Package& LP); // pip: build-once shadow atlas
+	void render_lights(light_Package& LP);            // pip: accumulate-only (re-callable)
 	void render_sun();
 	void render_sun_near();
 	void render_sun_filtered();
 	void render_menu();
+	bool is_raining();      // pip: rain density gate (shared by build + accumulate)
+	void shadowmap_rain();  // pip: rain shadow-map build half
 	void render_rain();
 
-	void render_sun_cascade(u32 cascade_ind);
+	BOOL bSUN; // computed once per frame in Render, read by renderGBuffer and renderSun
+	void renderGBuffer();
+	void combineLightingAndBloom();
+	void renderSun();
+	void renderShadowmaps();
+	void combineGBuffer();
+
+	void render_sun_cascade(u32 cascade_ind);          // pip: sun accumulate half
+	void shadowmap_sun_cascade(u32 cascade_ind);       // pip: sun shadow-map build half
 	void init_cacades();
 	void render_sun_cascades();
+	void shadowmap_sun_cascades();                     // pip: placeholder (combined atlas TODO)
 
 public:
 	ShaderElement* rimp_select_sh_static(dxRender_Visual* pVisual, float cdist_sq);
@@ -327,8 +340,9 @@ public:
 	virtual IRenderVisual* getVisual(int id);
 	virtual IRender_Sector* detectSector(const Fvector& P);
 	virtual IRender_Target* getTarget();
+	void SetMatrices(Fmatrix view, Fmatrix projection, Fmatrix projection_hud);
 
-	// Main 
+	// Main
 	virtual void flush();
 	virtual void set_Object(IRenderable* O);
 	virtual void add_Occluder(Fbox2& bb_screenspace); // mask screen region as oclluded

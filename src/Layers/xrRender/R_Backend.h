@@ -175,6 +175,7 @@ private:
 
 	// Lists
 	STextureList* T;
+	xr_map<shared_str, ref_texture> textureOverrides; // SVP per-target RT name remap
 	SMatrixList* M;
 	SConstantList* C;
 
@@ -194,8 +195,8 @@ private:
 	CMatrix*						matrices	[8	];	// matrices are supported only for FFP
 #endif
 
-	void Invalidate();
 public:
+	void Invalidate();
 	struct _stats
 	{
 		u32 polys;
@@ -273,6 +274,7 @@ public:
 
 	void set_Textures(STextureList* T);
 	IC void set_Textures(ref_texture_list& T) { set_Textures(&*T); }
+	void override_Texture(shared_str name, ref_texture texture);
 
 #ifdef _EDITOR
 	IC	void						set_Matrices		(SMatrixList* M);

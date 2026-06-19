@@ -58,6 +58,7 @@ public:
 		fsValid = (1 << 2),
 
 		fsMultibyte = (1 << 3),
+		fsShadow = (1 << 4), // pip: draw a dark drop shadow under the glyphs so they stay readable
 
 		fsForceDWORD = u32(-1)
 	};

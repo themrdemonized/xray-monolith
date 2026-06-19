@@ -310,6 +310,9 @@ void execUserScript()
 {
 	Console->Execute("default_controls");
 	Console->ExecuteScript(Console->ConfigFile);
+	// re-apply the debug launch flags after user.ltx so a saved value can't reset them
+	if (strstr(Core.Params, "-gpu_markers")) Console->Execute("r__gpu_markers 1");
+	if (strstr(Core.Params, "-shader_debug")) Console->Execute("r__shader_debug 1");
 	Console->Execute("dump_cvar");
 }
 

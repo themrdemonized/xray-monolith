@@ -33,6 +33,7 @@
 #ifdef INGAME_EDITOR
 # include "../Include/editor/interfaces.hpp"
 #endif // #ifdef INGAME_EDITOR
+#include "../Include/xrRender/Kinematics.h"
 
 class engine_impl;
 
@@ -62,6 +63,9 @@ public:
 
 	// Engine flow-control
 	u32 dwFrame;
+
+	// used for cache clearing when in SVP mode
+	u32 dwViewport = 0;
 
 	float fTimeDelta;
 	float fTimeGlobal;
@@ -96,6 +100,17 @@ public:
 	float fFOV;
 	float fASPECT;
 	float ViewportNear = 0.2f;
+
+	// Data for the main camera (1), and svp camera (2)
+	struct MatrixData {
+		Fmatrix mView;
+		Fmatrix mProject;
+		Fmatrix mProjectHud;
+	};
+
+	MatrixData matrices[2];
+	MatrixData matrices_previous[2];
+
 protected:
 
 	u32 Timer_MM_Delta;
@@ -135,24 +150,48 @@ class ENGINE_API CRenderDevice : public CRenderDeviceBase
 public:
 	class ENGINE_API CSecondVPParams //--#SM+#-- +SecondVP+
 	{
-		bool isActive; // Oeaa aeoeaaoee ?aiaa?a ai aoi?ie au?ii?o
-		u8 frameDelay;  // Ia eaeii eaa?a n iiiaioa i?ioeiai ?aiaa?a ai aoi?ie au?ii?o iu ia?i?i iiaue
-						  //(ia ii?ao auou iaiuoa 2 - ea?aue aoi?ie eaa?, ?ai aieuoa oai aieaa ieceee FPS ai aoi?ii au?ii?oa)
+		bool isActive; // Is the second viewport currently active
 
 	public:
-		bool isCamReady; // Oeaa aioiaiinoe eaia?u (FOV, iiceoey, e o.i) e ?aiaa?o aoi?iai au?ii?oa
+		struct Lens { Fmatrix m_W; float radius; };
+		Lens eyepiece;
+		Lens objective;
 
+		Fvector3 w_ffp;
+		Fvector3 w_sfp;
+
+		// Objective lens screen space bounding box (FIXME: Hardcoded to 50% screen size)
+		Irect computeRect(float width, float height) {
+			Fvector v = { width, height };
+
+			auto c = Fvector(v).mul(0.5);
+			auto s = v.y * 0.5;
+			auto hs = s * 0.5;
+
+			auto min = Fvector(c).sub(hs);
+			auto max = Fvector(c).add(hs);
+
+			return { static_cast<int>(min.x), static_cast<int>(min.y), static_cast<int>(max.x), static_cast<int>(max.y) };
+		}
+
+		bool isSVPFrame = false;
 		IC bool IsSVPActive() { return isActive; }
 		void SetSVPActive(bool bState);
-		bool    IsSVPFrame();
+		bool IsSVPFrame() { return isSVPFrame; }
 
-		IC u8 GetSVPFrameDelay() { return frameDelay; }
-		void  SetSVPFrameDelay(u8 iDelay)
-		{
-			frameDelay = iDelay;
-			clamp<u8>(frameDelay, 2, u8(-1));
-		}
-	};	
+		// Fetch the bone matrix of `v` from renderable skeleton (set in r4)
+		//    No longer required once scope calculations are moved into r4
+		std::function<bool(IKinematics* k, IRenderVisual* v, Fmatrix& m)> get_bone_matrix;
+		std::function<void()> update_lens_params;
+
+		// pip DLSS-SR scaffolding, all inert at gate 0. cached SVP scene constants refreshed at the
+		// svpCamera tail (single render thread, written then read same frame) for the eval inputs
+		float svp_near = 0.f, svp_far = 0.f, svp_fov = 0.f, svp_aspect = 1.f;
+		Fvector svp_cam_pos = {}, svp_up = {}, svp_right = {}, svp_fwd = {};
+		Fvector2 svp_jitter_px = {}; // raw sub-pixel jitter baked into matrices[1].mProject, {0,0} at gate 0
+		bool m_lens_prev_valid = false; // edge state for the lens-appears reset trigger
+		bool dlss_reset_next = false; // history reset for the eval, set by the triggers, read+cleared at the seam
+	};
 	
 private:
 	// Main objects used for creating and rendering the 3D scene
@@ -208,6 +247,7 @@ public:
 	}
 
 	void DumpResourcesMemoryUsage() { m_pRender->ResourcesDumpMemoryUsage(); }
+	void prepare_matrices();
 public:
 	// Registrators
 	//CRegistrator <pureRender > seqRender;
@@ -257,6 +297,10 @@ public:
 
 	CSecondVPParams m_SecondViewport;	//--#SM+#-- +SecondVP+
 
+	// FIXME: Use chaindesc (Macro)
+	u32 svp_width() { return svp_height(); }
+	u32 svp_height() { return dwHeight >> 1; }
+
 	//float fFOV;
 	//float fASPECT;
 
@@ -283,8 +327,6 @@ public:
 		m_bNearer = FALSE;
 		
 		m_SecondViewport.SetSVPActive(false);
-		m_SecondViewport.SetSVPFrameDelay(2);
-		m_SecondViewport.isCamReady = false;			
 	};
 
 	void Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason);

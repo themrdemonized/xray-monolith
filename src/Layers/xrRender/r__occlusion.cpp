@@ -101,6 +101,9 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 	//	Igor: prevent release crash if we issue too many queries
 	if (ID == iInvalidHandle) return 0xFFFFFFFF;
 
+	// pip after a device reset used[] is rebuilt but lights keep a stale query_id, treat out-of-bounds as visible
+	if (ID >= used.size()) return 0xFFFFFFFF;
+
 	occq_result fragments = 0;
 	HRESULT hr;
 	// CHK_DX		(used[ID].Q->GetData(&fragments,sizeof(fragments),D3DGETDATA_FLUSH));

@@ -38,3 +38,11 @@ compressor/mod/
 # emacs temp file
 \#*\#
 *~
+# pip docs and tools stay local
+/docs/
+/tools/
+
+# build + tooling artifacts
+*Release/
+compressor/*.db0
+compile_commands.json

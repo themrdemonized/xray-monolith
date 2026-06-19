@@ -35,6 +35,9 @@ void dxFontRender::OnRender(CGameFont& owner)
 		owner.uFlags |= CGameFont::fsValid;
 	}
 
+	// pip optional dark drop shadow, pass 0 lays a black offset copy of every glyph, pass 1 draws the real text on top
+	const bool bShadow = (owner.uFlags & CGameFont::fsShadow) != 0;
+	for (int pass = bShadow ? 0 : 1; pass <= 1; pass++)
 	for (u32 i = 0; i < owner.strings.size();)
 	{
 		// calculate first-fit
@@ -70,8 +73,10 @@ void dxFontRender::OnRender(CGameFont& owner)
 
 			if (len)
 			{
-				float X = float(iFloor(PS.x));
-				float Y = float(iFloor(PS.y));
+				// pip: shadow pass nudges the glyph down-right, offset scales with text height
+				float shadow_off = (pass == 0) ? _max(1.f, PS.height * 0.08f) : 0.f;
+				float X = float(iFloor(PS.x)) + shadow_off;
+				float Y = float(iFloor(PS.y)) + shadow_off;
 				float S = PS.height * g_current_font_scale.y;
 				float Y2 = Y + S;
 				float fSize = 0;
@@ -90,8 +95,9 @@ void dxFontRender::OnRender(CGameFont& owner)
 				}
 
 				u32 clr, clr2;
-				clr2 = clr = PS.c;
-				if (owner.uFlags & CGameFont::fsGradient)
+				// pip: shadow pass paints pure black but keeps the glyph alpha
+				clr2 = clr = (pass == 0) ? (PS.c & 0xFF000000) : PS.c;
+				if (pass == 1 && (owner.uFlags & CGameFont::fsGradient))
 				{
 					u32 _R = color_get_R(clr) / 2;
 					u32 _G = color_get_G(clr) / 2;

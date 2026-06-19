@@ -5,6 +5,14 @@
 #include "../../xrEngine/xr_object.h"
 
 #include "../xrRender/QueryHelper.h"
+#include "../../Include/xrAPI/xrAPI.h"          // pip: DRender (debug-line backend for the scope_debug overlays)
+#include "../../Include/xrRender/DebugRender.h" // pip: IDebugRender::add_lines
+#if defined(USE_DX11)
+#include "../../../gamedata/shaders/r3/scope_defines.h" // SCOPE_PHASE_* (kept in sync with the shader)
+#endif
+
+// pip SVP combine widens the NVG tube radius via shader_param_7.y, declared locally
+extern Fvector4 ps_dev_param_7;
 
 IC bool pred_sp_sort(ISpatial* _1, ISpatial* _2)
 {
@@ -147,7 +155,9 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 		}
 		if (g_pGameLevel && (phase == PHASE_NORMAL))
 		{
+			Target->bCaptureScopeLens = true;  // pip: capture the scope lens only during the player HUD render
 			g_hud->Render_Last(); // HUD
+			Target->bCaptureScopeLens = false;
 			if (g_hud->RenderActiveItemUIQuery())
 				r_dsgraph_render_hud_ui();
 			if (g_hud->RenderCamAttachedUIQuery())
@@ -159,7 +169,9 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 		set_Object(0);
 		if (g_pGameLevel && (phase == PHASE_NORMAL))
 		{
+			Target->bCaptureScopeLens = true;  // pip: capture the scope lens only during the player HUD render
 			g_hud->Render_Last(); // HUD
+			Target->bCaptureScopeLens = false;
 			if (g_hud->RenderActiveItemUIQuery())
 				r_dsgraph_render_hud_ui();
 			if (g_hud->RenderCamAttachedUIQuery())
@@ -256,7 +268,7 @@ void CRender::Render()
 	// Configure
 	RImplementation.o.distortion = FALSE; // disable distorion
 	Fcolor sun_color = ((light*)Lights.sun_adapted._get())->color;
-	BOOL bSUN = ps_r2_ls_flags.test(R2FLAG_SUN) && (u_diffuse2s(sun_color.r, sun_color.g, sun_color.b)>EPS) && !strstr(Core.Params, "-r4_dev");
+	bSUN = ps_r2_ls_flags.test(R2FLAG_SUN) && (u_diffuse2s(sun_color.r, sun_color.g, sun_color.b)>EPS) && !strstr(Core.Params, "-r4_dev");
 	if (o.sunstatic) bSUN = FALSE;
 	// Msg						("sstatic: %s, sun: %s",o.sunstatic?;"true":"false", bSUN?"true":"false");
 
@@ -296,7 +308,7 @@ void CRender::Render()
 	}
 	else
 	{
-		Target->phase_scene_prepare();
+		// pip phase_scene_prepare runs per viewport in renderGBuffer so the SVP clears its own depth
 	}
 
 	//*******
@@ -324,18 +336,285 @@ void CRender::Render()
 	//CHK_DX										(q_sync_point[q_sync_count]->Issue(D3DISSUE_END));
 	CHK_DX(EndQuery(q_sync_point[q_sync_count]));
 
+
+	mapScopeHUDSorted.clear();
+	mapReflexHUDSorted.clear();
+	Device.m_SecondViewport.eyepiece.radius = 0;
+	Device.m_SecondViewport.objective.radius = 0;
+
+	auto mainCameraPos = Device.vCameraPosition;
+	TargetMain->SetActive();
+	{
+		PIX_EVENT(DRAW_MAIN);
+		renderGBuffer();
+	}
+
+	if (Device.m_SecondViewport.IsSVPActive())
+	{
+		TargetSVP->SetActive();
+		{
+			PIX_EVENT(DRAW_SVP);
+			// SVP HACK: use the main frame view position so the SVP traverses the same sector
+			Device.vCameraPosition = mainCameraPos;
+			renderGBuffer();
+		}
+	}
+
+	// Sun shadow cascades build once (main); render_sun_cascades accumulates per viewport
+	{
+		PIX_EVENT(RENDER_SUN);
+		TargetMain->SetActive();
+		renderSun();
+	}
+
+	// Emissive + bloom-emissive, per viewport
+	{
+		PIX_EVENT(COMBINE_GBUFFER_CONT);
+		TargetMain->SetActive();
+		combineLightingAndBloom();
+		if (Device.m_SecondViewport.IsSVPActive())
+		{
+			TargetSVP->SetActive();
+			combineLightingAndBloom();
+		}
+	}
+
+	// Point/spot shadow atlas build once (main)
+	{
+		PIX_EVENT(DRAW_SHADOWMAPS);
+		TargetMain->SetActive();
+		renderShadowmaps();
+	}
+
+	// Deferred light accumulation + combine, inverted order (svp -> main)
+	if (Device.m_SecondViewport.IsSVPActive())
+	{
+		TargetSVP->SetActive();
+		{
+			PIX_EVENT(COMBINE_SVP);
+			// NVG shader is required but its tube overlay is not, so widen the tube radius to the
+			// max that does not break the shader for the SVP combine
+			auto nvg_tube_radius = ps_dev_param_7.y;
+			ps_dev_param_7.y = 0.99f;
+			combineGBuffer();
+			ps_dev_param_7.y = nvg_tube_radius;
+		}
+	}
+
+	TargetMain->SetActive();
+	{
+		PIX_EVENT(COMBINE_MAIN);
+		combineGBuffer();
+	}
+
+	Target->phase_scope_debug(); // pip: r__scope_debug texture-inspector grid (main view, after combine)
+
+	if (Details)
+		Details->details_clear();
+
+	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
+}
+
+// pip scope_debug 2 overlay, draws the eyepiece, objective and camera lenses in world space
+void debug_scope(Fmatrix scope_camera)
+{
+	auto dbg_line = [](const Fvector& a, const Fvector& b, u32 color, bool bHud) {
+		Fvector v[2] = { a, b };
+		u16 idx[2] = { 0, 1 };
+		DRender->add_lines(v, 2, idx, 1, color, bHud);
+	};
+
+	auto draw_circle = [&](Fmatrix m, u32 color, bool bHud) {
+		const int n = 100;
+		Fvector v0 = { 0, 0, 0 };
+		for (int i = 0; i <= n; i++) {
+			float angle = float(i) / float(n) * PI * 2.0f;
+			Fvector v1 = { cosf(angle), sinf(angle), 0.f };
+			m.transform(v1);
+			if (i > 0) dbg_line(v0, v1, color, bHud);
+			v0 = v1;
+		}
+	};
+
+	auto draw_lens = [&](CRenderDevice::CSecondVPParams::Lens lens, u32 color) {
+		draw_circle(Fmatrix(lens.m_W).mulB_43(Fmatrix().scale(lens.radius, lens.radius, 0.f)), color, true);
+		Fvector v0 = { 0, 0, 0 }, v1 = { 0, 0, 100 };
+		lens.m_W.transform(v0);
+		lens.m_W.transform(v1);
+		dbg_line(v0, v1, color, true);
+		// draw the lens up-vector as a radial spoke so a roll about the optical axis shows
+		Fvector u0 = { 0, 0, 0 }, u1 = { 0, lens.radius, 0 };
+		lens.m_W.transform(u0);
+		lens.m_W.transform(u1);
+		dbg_line(u0, u1, color, true);
+	};
+
+	auto draw_camera = [&](u32 color) {
+		const float cm = 1.0f / 100.0f;
+		draw_circle(Fmatrix(scope_camera).mulB_43(Fmatrix().scale(.25f * cm, .25f * cm, 0.f)), color, true);
+	};
+
+	auto p = Device.m_SecondViewport;
+	draw_lens(p.eyepiece, 0xff0000ff);   // eyepiece blue
+	draw_lens(p.objective, 0xffffff00);  // objective yellow
+	draw_camera(0xffffffff);             // scope cam white
+}
+
+// pip STUB sub-pixel jitter for the SVP scene projection (DLSS scaffolding), swap for Ascii's
+// shared helper. Halton(2,3), 16-sample phase, returns a centered offset in [-0.5,0.5] px
+static float svp_halton(u32 i, u32 b)
+{
+	float f = 1.0f, r = 0.0f;
+	while (i > 0) { f /= (float)b; r += f * (float)(i % b); i /= b; }
+	return r;
+}
+static Fvector2 svp_jitter_offset(u32 frame)
+{
+	const u32 phase = 16; // TODO match Ascii's confirmed sequence length
+	u32 i = (frame % phase) + 1; // Halton is 1-based
+	Fvector2 o;
+	o.set(svp_halton(i, 2) - 0.5f, svp_halton(i, 3) - 0.5f);
+	return o;
+}
+// apply a pixel jitter to a projection by shifting the post-perspective NDC center, the axis/sign/
+// remap convention lives here so the eval swap is one line
+static void svp_apply_jitter(Fmatrix& proj, Fvector2 px, float w, float h)
+{
+	proj.m[2][0] += 2.0f * px.x / w;  // NDC x, clip.x gains z * this, the w-divide cancels z
+	proj.m[2][1] -= 2.0f * px.y / h;  // NDC y, negated for texture-down
+}
+
+// pip build the SVP camera into matrices[1] from the lens and the weapon SVP zoom factor
+void svpCamera()
+{
+	float svp_fov = g_pGamePersistent->m_pGShaderConstants->hud_params.y * 0.75f;
+	// pip floor svp_fov, near-0 breaks the camera math
+	if (svp_fov < 1.0f) svp_fov = 1.0f;
+	float _, fov, fNearPlane, fFarPlane;
+	Device.matrices[0].mProject.decompose_projection(fov, _, fNearPlane, fFarPlane);
+
+	auto mm = Device.matrices[0];
+	auto params = Device.m_SecondViewport;
+
+	// Project the eyepiece top/bottom into NDC to find the extra magnification needed to
+	// correct the on-screen scope size
+	Fvector4 top, bot;
+	Fmatrix m_WVP = Fmatrix().mul(mm.mProjectHud, Fmatrix().mul(mm.mView, params.eyepiece.m_W));
+	m_WVP.transform(top, { 0, params.eyepiece.radius, 0, 1 });
+	m_WVP.transform(bot, { 0, -params.eyepiece.radius, 0, 1 });
+	top.div(top.w);
+	bot.div(bot.w);
+	float scope_height_NDC = abs(top.y - bot.y);
+	float screen_height_NDC = 2.0f;
+	float ratio_magnification = screen_height_NDC / scope_height_NDC;
+
+	// The magnification of the scope (1X 4X etc)
+	float scope_magnification = fov / deg2rad(svp_fov);
+
+	// pip expose the engine magnification as a fallback curMag when no 3DSS config sets the cvar
+	extern float g_pip_scope_magnification;
+	extern float g_pip_scope_min_mag;
+	extern float g_pip_scope_max_mag;
+	if (svp_fov > EPS)
+	{
+		g_pip_scope_magnification = scope_magnification;
+		// pip derive a min/max magnification from hud_fov_params so variable reticles get a real range
+		// pip on a fixed scope x equals y so min equals max
+		const Fvector4& fovp = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
+		g_pip_scope_max_mag = (fovp.x > EPS) ? fov / deg2rad(fovp.x * 0.75f) : scope_magnification;
+		g_pip_scope_min_mag = (fovp.y > EPS) ? fov / deg2rad(fovp.y * 0.75f) : scope_magnification;
+	}
+
+	// The fov we render at to get the correct zoom
+	float vFov = 2.0f * atan(tan(fov * 0.5f) / (ratio_magnification * scope_magnification));
+
+	// The fov for camera placement
+	float vFovMagOnly = 2.0f * atan(tan(fov * 0.5f) / scope_magnification);
+
+	auto camera_offset_from_vfov_and_radius = [](float vFov, float radius) -> float {
+		return radius / tan(vFov / 2.0f);
+	};
+
+	auto near_plane = fNearPlane;
+	auto m_W_svpcam = params.eyepiece.m_W; // default: place the camera on the eyepiece
+	if (scope_svp_enabled >= 2 && params.objective.radius > EPS) {
+		// place the camera for the objective lens
+		auto d = camera_offset_from_vfov_and_radius(vFovMagOnly, params.objective.radius);
+		m_W_svpcam = Fmatrix().mul(params.objective.m_W, Fmatrix().translate(0, 0, -d));
+		near_plane = d;
+	}
+
+	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // u32/u32 == 1 (square)
+
+	float fNearPlane_hud, fFarPlane_hud;
+	Device.matrices[0].mProject.decompose_projection(_, _, fNearPlane_hud, fFarPlane_hud);
+	auto svp_proj = Fmatrix().build_projection(vFov, aspect, near_plane, fFarPlane);
+	auto svp_proj_hud = Fmatrix().build_projection(vFov, aspect, near_plane, fFarPlane_hud);
+
+	// pip DLSS jitter the SVP scene projection (gated), {0,0} otherwise, applied to mProject only
+	Device.m_SecondViewport.svp_jitter_px.set(0, 0);
+	if (ps_r__svp_dlss != 0)
+	{
+		const u32 jf = Device.dwFrame; // latch once, single render thread, 1:1 with rendered frames
+		Fvector2 jpx = svp_jitter_offset(jf);
+		svp_apply_jitter(svp_proj, jpx, (float)RImplementation.TargetSVP->Width, (float)RImplementation.TargetSVP->Height);
+		Device.m_SecondViewport.svp_jitter_px = jpx;
+	}
+
+	if (scope_debug >= 2 && params.eyepiece.radius > EPS)
+		debug_scope(m_W_svpcam); // pip: lens/camera overlay, skip when no real lens so it clears on detach
+
+	Device.matrices[1].mView.invert(m_W_svpcam);
+	Device.matrices[1].mProject = svp_proj;
+	Device.matrices[1].mProjectHud = svp_proj_hud;
+
+	// pip cache the SVP scene constants for the DLSS eval inputs (single render thread, written then read
+	// the same frame, inert at gate 0). svp_fov is radians from the projection, the basis is the camera world
+	{
+		auto& vp = Device.m_SecondViewport;
+		Device.matrices[1].mProject.decompose_projection(vp.svp_fov, vp.svp_aspect, vp.svp_near, vp.svp_far);
+		vp.svp_cam_pos = m_W_svpcam.c;
+		vp.svp_right = m_W_svpcam.i;
+		vp.svp_up = m_W_svpcam.j;
+		vp.svp_fwd = m_W_svpcam.k;
+		// pip DLSS reset when the lens first becomes valid, render-thread edge state, inert at gate 0
+		bool lens_valid = (vp.eyepiece.radius > EPS);
+		if (lens_valid && !vp.m_lens_prev_valid)
+			vp.dlss_reset_next = true;
+		vp.m_lens_prev_valid = lens_valid;
+	}
+}
+
+void CRender::renderGBuffer()
+{
+	PIX_EVENT(RENDER_GBUFFER);
+	Device.dwViewport++; // pip: per-viewport cache counter
 	//******* Main calc - DEFERRER RENDERER
 	// Main calc
 	Device.Statistic->RenderCALC.Begin();
+	// pip time the scope cull
+	const bool svp_calc = Device.m_SecondViewport.IsSVPFrame();
+	if (svp_calc) Device.Statistic->RenderCALC_SVP.Begin();
 	r_pmask(true, false, true); // enable priority "0",+ capture wmarks
-	if (bSUN) set_Recorder(&main_coarse_structure);
+	// pip capture the coarse structure for sun cascades on the main view only
+	if (bSUN && Target == TargetMain) set_Recorder(&main_coarse_structure);
 	else set_Recorder(NULL);
 	phase = PHASE_NORMAL;
-	render_main(Device.mFullTransform, true);
+
+	// pip build the cull frustum from the main camera view so the SVP traverses the player sector
+	// for the main target this equals Device.mFullTransform so main culling is unchanged
+	Fmatrix main_ft = Fmatrix().mul(Device.mProject, Device.matrices[0].mView);
+	ViewBase.CreateFromMatrix(main_ft, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+	View = 0;
+	render_main(main_ft, true);
 	set_Recorder(NULL);
 	r_pmask(true, false); // disable priority "1"
+	if (svp_calc) Device.Statistic->RenderCALC_SVP.End();
 	Device.Statistic->RenderCALC.End();
-	
+
+	// pip clear and bind this target gbuffer and depth per viewport so the SVP clears its own depth
+	Target->phase_scene_prepare();
+
 	/*if (RImplementation.o.ssfx_core) // SSS23: DEPRECATED
 	{
 		// HUD Masking rendering
@@ -374,6 +653,12 @@ void CRender::Render()
 	BOOL split_the_scene_to_minimize_wait = FALSE;
 	if (ps_r2_ls_flags.test(R2FLAG_EXP_SPLIT_SCENE)) split_the_scene_to_minimize_wait = TRUE;
 
+	// pip no real SVP here so render the HUD late so the legacy lens samples a clean scene
+	const bool late_hud = (Target == TargetMain) && !Device.m_SecondViewport.IsSVPActive();
+
+	// pip nonzero means this optic drives a magnified Second Viewport, a fake 1x optic reads 0 and skips the scope prep
+	const bool has_svp_zoom = (g_pGamePersistent->m_pGShaderConstants->hud_params.y > 0.005f);
+
 	//******* Main render :: PART-0	-- first
 	if (!split_the_scene_to_minimize_wait)
 	{
@@ -392,12 +677,68 @@ void CRender::Render()
 		PIX_EVENT(DEFER_PART0_SPLIT);
 		// level, SPLIT
 		Target->phase_scene_begin();
+
+		// pip draw the HUD early so the scope lens depth lands before the scene gbuffer
+		{
+			PIX_EVENT(RENDER_HUD_EARLY);
+
+			// pip scope gbuffer prep, only for a magnified optic, a fake 1x optic gets none
+			if (Target == TargetMain && scope_svp_enabled != 0 && has_svp_zoom)
+			{
+				{
+					PIX_EVENT(SCOPE_WRITE_LENS_DEPTH);
+					// pip derive the eyepiece and write the lens depth, a real SVP writes near depth plus
+					// stencil 0x3 plus the magnified gbuffer, a fake 1x optic writes far depth only
+					Target->draw_scope(Target->s_scope_depth_write, [&](auto N) -> void {
+						if (!late_hud)
+						{
+							RCache.set_Stencil(TRUE, D3DCMP_ALWAYS, 0x3, 0x3, 0x3, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
+							RCache.set_c("scope_phase", SCOPE_PHASE_GBUFFER);
+							RCache.set_c("scope_depth_value", 0.f);
+						}
+						else
+						{
+							RImplementation.rmNormal();
+							RCache.set_Stencil(FALSE);
+							RCache.set_c("scope_phase", SCOPE_PHASE_DEPTHWRITE);
+							RCache.set_c("scope_depth_value", 1.f);
+						}
+					});
+				}
+
+				svpCamera();
+			}
+
+			// pip HUD early only for a real SVP, a no-SVP scope draws it late so it can't leak into the lens
+			if (!late_hud)
+			{
+				PIX_EVENT(RENDER_HUD);
+				RCache.set_ZFunc(D3DCMP_LESS);
+				r_dsgraph_render_hud();
+				RCache.set_ZFunc(D3DCMP_LESSEQUAL);
+			}
+
+			if (Target == TargetMain && scope_svp_enabled != 0 && has_svp_zoom && !Device.m_SecondViewport.IsSVPActive())
+			{
+				PIX_EVENT(SCOPE_HOLEPUNCH);
+				// pip clear the lens near depth back to far so the scene and skybox fill the opening
+				Target->draw_scope(Target->s_scope_depth_write, [&](auto _) -> void {
+					RImplementation.rmNormal();
+					RCache.set_Stencil(TRUE, D3DCMP_EQUAL, 0x3, 0x3, 0x3, D3DSTENCILOP_KEEP, D3DSTENCILOP_ZERO, D3DSTENCILOP_KEEP);
+					RCache.set_c("scope_phase", SCOPE_PHASE_DEPTHWRITE);
+					RCache.set_c("scope_depth_value", 1.f);
+				});
+			}
+		}
+
+		Target->phase_scene_begin();
 		r_dsgraph_render_graph(0);
 		Target->disable_aniso();
 	}
 
-	//  Redotix99: for 3D Shader Based Scopes 	
-	if (scope_3D_fake_enabled)
+	//  Redotix99: for 3D Shader Based Scopes
+	// pip copy the scene depth for the legacy lens shader, any no-SVP scope
+	if (late_hud && scope_3D_fake_enabled)
 	{
 		ID3D11Resource* zbuffer_res;
 		HW.pBaseZB->GetResource(&zbuffer_res);
@@ -405,53 +746,49 @@ void CRender::Render()
 	}
 
 	//******* Occlusion testing of volume-limited light-sources
-	Target->phase_occq();
-	LP_normal.clear();
-	LP_pending.clear();
-	if (RImplementation.o.dx10_msaa)
-		RCache.set_ZB(RImplementation.Target->rt_MSAADepth->pZRT);
+	// pip build the light list once for the main viewport, the SVP gbuffer reuses it
+	// gc64 swaps the occq LP_normal/LP_pending split for a vis_update filter, shadowed lights kept when visible
 	{
-		PIX_EVENT(DEFER_TEST_LIGHT_VIS);
-		// perform tests
-		u32 count = 0;
-		light_Package& LP = Lights.package;
+		bool locked = scope_debug == 4;
 
-		// stats
-		stats.l_shadowed = LP.v_shadowed.size();
-		stats.l_unshadowed = LP.v_point.size() + LP.v_spot.size();
-		stats.l_total = stats.l_shadowed + stats.l_unshadowed;
-
-		// perform tests
-		count = _max(count, LP.v_point.size());
-		count = _max(count, LP.v_spot.size());
-		count = _max(count, LP.v_shadowed.size());
-		for (u32 it = 0; it < count; it++)
+		if (!locked)
 		{
-			if (it < LP.v_point.size())
+			if (Target == TargetMain)
 			{
-				light* L = LP.v_point[it];
-				L->vis_prepare();
-				if (L->vis.pending) LP_pending.v_point.push_back(L);
-				else LP_normal.v_point.push_back(L);
+				auto LP = &Lights.package;
+				LP_normal.clear();
+				for (auto L : LP->v_shadowed)
+				{
+					L->vis_update();
+					if (L->vis.visible)
+						LP_normal.v_shadowed.push_back(L);
+					else if (scope_debug >= 3)
+					{
+						// pip: grey direction/range vector for each culled shadowed light (r__scope_debug 3+)
+						Fvector v[2] = { L->position, Fvector(L->direction).mul(L->range).add(L->position) };
+						u16 idx[2] = { 0, 1 };
+						DRender->add_lines(v, 2, idx, 1, 0xff999999, false);
+					}
+				}
+				for (auto L : LP->v_point) LP_normal.v_point.push_back(L);
+				for (auto L : LP->v_spot) LP_normal.v_spot.push_back(L);
+
+				// stats
+				stats.l_shadowed = LP_normal.v_shadowed.size();
+				stats.l_unshadowed = LP_normal.v_point.size() + LP_normal.v_spot.size();
+				stats.l_total = stats.l_shadowed + stats.l_unshadowed;
 			}
-			if (it < LP.v_spot.size())
+
 			{
-				light* L = LP.v_spot[it];
-				L->vis_prepare();
-				if (L->vis.pending) LP_pending.v_spot.push_back(L);
-				else LP_normal.v_spot.push_back(L);
-			}
-			if (it < LP.v_shadowed.size())
-			{
-				light* L = LP.v_shadowed[it];
-				L->vis_prepare();
-				if (L->vis.pending) LP_pending.v_shadowed.push_back(L);
-				else LP_normal.v_shadowed.push_back(L);
+				PIX_EVENT(DEFER_TEST_LIGHT_VIS);
+				Target->phase_occq();
+
+				auto LP = &Lights.package;
+				for (auto L : LP->v_shadowed)
+					L->vis_prepare();
 			}
 		}
 	}
-	LP_normal.sort();
-	LP_pending.sort();
 
 	//******* Main render :: PART-1 (second)
 	if (split_the_scene_to_minimize_wait)
@@ -478,9 +815,11 @@ void CRender::Render()
 			RCache.set_Z(TRUE);
 		}
 
-		// level
+		// level, a real SVP already drew the HUD early for the scope lens depth
 		Target->phase_scene_begin();
-		r_dsgraph_render_hud();
+		// pip a no-SVP scope draws the HUD here after the scene so the world fills the lens before the z-write
+		if (late_hud)
+			r_dsgraph_render_hud();
 		r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
@@ -496,24 +835,7 @@ void CRender::Render()
 		Wallmarks->Render(); // wallmarks has priority as normal geometry
 	}
 
-	// Update incremental shadowmap-visibility solver
-	{
-		PIX_EVENT(DEFER_FLUSH_OCCLUSION);
-		u32 it = 0;
-		for (it = 0; it < Lights_LastFrame.size(); it++)
-		{
-			if (0 == Lights_LastFrame[it]) continue ;
-			try
-			{
-				Lights_LastFrame[it]->svis.flushoccq();
-			}
-			catch (...)
-			{
-				Msg("! Failed to flush-OCCq on light [%d] %X", it, *(u32*)(&Lights_LastFrame[it]));
-			}
-		}
-		Lights_LastFrame.clear();
-	}
+	// pip the incremental svis flush loop is gone, render_lights_shadowmaps uses vis_update/phase_occq
 
 	// full screen pass to mark msaa-edge pixels in highest stencil bit
 	if (RImplementation.o.dx10_msaa)
@@ -522,27 +844,27 @@ void CRender::Render()
 		Target->mark_msaa_edges();
 	}
 
-	//	TODO: DX10: Implement DX10 rain.
+	//	TODO: DX10: Implement DX10 rain
+	// pip rain shadow-map builds on the main view only, rain accumulation re-runs per viewport
 	if (ps_r2_ls_flags.test(R3FLAG_DYN_WET_SURF))
 	{
 		PIX_EVENT(DEFER_RAIN);
+		if (!Device.m_SecondViewport.IsSVPFrame())
+			shadowmap_rain();
 		render_rain();
 	}
 
 	{
-		// Save previus and current matrices
+		// save previous and current matrices, per-viewport history gc64
 		{
-			static Fmatrix mm_saved_viewproj;
+			static Fmatrix mm_saved_viewproj[2];
 
-			if (!Device.m_SecondViewport.IsSVPFrame())
-			{
-				Target->Matrix_previous.mul(mm_saved_viewproj, Device.mInvView);
-				Target->Matrix_current.set(Device.mProject);
-				mm_saved_viewproj.set(Device.mFullTransform);
-			}
+			Target->GetPrevious()->Matrix_previous.mul(mm_saved_viewproj[Device.m_SecondViewport.IsSVPFrame()], Device.mInvView);
+			Target->GetPrevious()->Matrix_current.set(Device.mProject);
+			mm_saved_viewproj[Device.m_SecondViewport.IsSVPFrame()].set(Device.mFullTransform);
 		}
 
-		if (RImplementation.o.ssfx_sss && !Device.m_SecondViewport.IsSVPFrame())
+		if (RImplementation.o.ssfx_sss) // pip: SSS shadows run per viewport (no SVP guard)
 		{
 			static bool sss_rendered, sss_extended_rendered;
 
@@ -579,22 +901,31 @@ void CRender::Render()
 			}
 		}
 	}
+}
 
+// pip build the sun cascades once, render_sun_cascades builds the shadow map on the main view
+// and accumulates and blends the sun per viewport, the legacy R2FLAGEXT_SUN_OLD path is gone
+void CRender::renderSun()
+{
 	// Directional light - fucking sun
-	if (bSUN) //bSUN && Device.dwFrame & 1 --Delayed sun update. Worth to check it in future
+	if (bSUN)
 	{
 		PIX_EVENT(DEFER_SUN);
 		RImplementation.stats.l_visible ++;
-		if (!ps_r2_ls_flags_ext.is(R2FLAGEXT_SUN_OLD))
-			render_sun_cascades();
-		else
-		{
-			render_sun_near();
-			render_sun();
-			render_sun_filtered();
-		}
-		Target->accum_direct_blend();
+		render_sun_cascades();
 	}
+}
+
+// pip emissive self-illumination plus bloom emissive, run per viewport
+void CRender::combineLightingAndBloom()
+{
+	// FIXME (gc64): SVP hack, force SRVSManager to unbind the first slot before each emissive
+	// pass. Required until more robust per-target state invalidation is in place
+	auto unbind_s_base = []() -> void {
+		ID3D11ShaderResourceView* crv[1] = { nullptr };
+		HW.pContext->PSSetShaderResources(0, 1, crv);
+		SRVSManager.SetPSResource(0, nullptr);
+	};
 
 	{
 		PIX_EVENT(DEFER_SELF_ILLUM);
@@ -612,6 +943,9 @@ void CRender::Render()
 		//RCache.set_Stencil				(TRUE,D3DCMP_ALWAYS,0x00,0xff,0xff,D3DSTENCILOP_KEEP,D3DSTENCILOP_REPLACE,D3DSTENCILOP_KEEP);
 		RCache.set_CullMode(CULL_CCW);
 		RCache.set_ColorWriteEnable();
+
+		unbind_s_base();
+
 		RImplementation.r_dsgraph_render_emissive(RImplementation.o.ssfx_bloom ? false : true);
 	}
 
@@ -621,21 +955,33 @@ void CRender::Render()
 		FLOAT ColorRGBA[4] = { 0,0,0,0 };
 		HW.pContext->ClearRenderTargetView(Target->rt_ssfx_bloom_emissive->pRT, ColorRGBA);
 		Target->u_setrt(Target->rt_ssfx_bloom_emissive, NULL, NULL, !RImplementation.o.dx10_msaa ? HW.pBaseZB : Target->rt_MSAADepth->pZRT);
+
+		unbind_s_base();
+
 		RImplementation.r_dsgraph_render_emissive(true, true);
 	}
+}
+
+// pip build the point/spot shadow-map atlas once for the main viewport, combineGBuffer accumulates per viewport
+void CRender::renderShadowmaps()
+{
+	PIX_EVENT(RENDER_SHADOWMAPS);
+	render_lights_shadowmaps(LP_normal);
+}
+
+// pip per-viewport deferred light accumulation, volumetric blur and final combine
+// runs svp before main, render_lights here is accumulate-only
+void CRender::combineGBuffer()
+{
+	PIX_EVENT(COMBINE_GBUFFER);
+	Device.dwViewport++;
 
 	// Lighting, non dependant on OCCQ
 	{
-		PIX_EVENT(DEFER_LIGHT_NO_OCCQ);
+		PIX_EVENT(DEFERRED_LIGHTS);
 		Target->phase_accumulator();
 		HOM.Disable();
 		render_lights(LP_normal);
-	}
-
-	// Lighting, dependant on OCCQ
-	{
-		PIX_EVENT(DEFER_LIGHT_OCCQ);
-		render_lights(LP_pending);
 	}
 
 	{
@@ -648,11 +994,6 @@ void CRender::Render()
 		PIX_EVENT(DEFER_LIGHT_COMBINE);
 		Target->phase_combine();
 	}
-
-	if (Details)
-		Details->details_clear();
-
-	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 
 void CRender::render_forward()
@@ -661,13 +1002,13 @@ void CRender::render_forward()
 	RImplementation.o.distortion = RImplementation.o.distortion_enabled; // enable distorion
 
 	//******* Main render - second order geometry (the one, that doesn't support deffering)
-	//.todo: should be done inside "combine" with estimation of of luminance, tone-mapping, etc.
+	//.todo: should be done inside "combine" with estimation of of luminance, tone-mapping, etc
 	{
 		// level
 		r_pmask(false, true); // enable priority "1"
 		phase = PHASE_NORMAL;
 		render_main(Device.mFullTransform, false); //
-		//	Igor: we don't want to render old lods on next frame.
+		//	Igor: we don't want to render old lods on next frame
 		mapLOD.clear();
 		r_dsgraph_render_graph(1); // normal level, secondary priority
 		PortalTraverser.fade_render(); // faded-portals
@@ -678,16 +1019,7 @@ void CRender::render_forward()
 	RImplementation.o.distortion = FALSE; // disable distorion
 }
 
-// Redotix99: for 3D Shader Based Scopes
-void CRender::render_Reticle()
-{
-	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
-	RImplementation.o.distortion = RImplementation.o.distortion_enabled;
-
-	r_dsgraph_render_ScopeSorted();
-
-	RImplementation.o.distortion = FALSE;
-}
+// pip render_Reticle removed, the scope lens is painted by CRenderTarget::phase_3DSSReticle
 
 void CRender::RenderToTarget(RRT target)
 {

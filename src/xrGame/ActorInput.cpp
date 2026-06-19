@@ -455,7 +455,8 @@ void CActor::IR_OnMouseMove(int dx, int dy)
 	const float LookFactor = GetLookFactor();
 
 	CCameraBase* C = cameras[cam_active];
-    float scale = (C->f_fov / g_fov) * (psMouseSens * sens_multiple) * psMouseSensScale / 50.f / LookFactor;
+	auto fov = cam_active == eacFirstEye ? Actor()->currentFOV(true) : C->f_fov;
+    float scale = (fov / g_fov) * (psMouseSens * sens_multiple) * psMouseSensScale / 50.f / LookFactor;
 	if (dx)
 	{
 		float d = float(dx) * scale;

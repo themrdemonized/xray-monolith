@@ -7,6 +7,7 @@
 #include "../../xrEngine/CustomHUD.h"
 
 #include "FBasicVisual.h"
+#include "xrRender_console.h" // pip: scope_svp_enabled / scope_3D_fake_enabled (legacy r__svpscope 0 path)
 
 using namespace R_dsgraph;
 
@@ -75,6 +76,10 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 	VERIFY(N);
 	dxRender_Visual* V = N->val.pVisual;
 	VERIFY(V && V->shader._get());
+#if defined(USE_DX11) // PIX_EVENT_F is DX11/R4 only
+	// per-batch marker (r__gpu_markers); lense = iScopeLense (1 back-glass, 2 zwrite, 3 reticle, 10 reflex)
+	PIX_EVENT_F("L1[lense=%d] V=%p se=%p", N->val.se ? (int)N->val.se->flags.iScopeLense : -1, (void*)V, (void*)N->val.se);
+#endif
 	RCache.set_Element(N->val.se);
 	RCache.set_xform_world(N->val.Matrix);
 	RImplementation.apply_object(N->val.pObject);
@@ -95,11 +100,11 @@ void __fastcall water_node_ssr(mapSorted_Node* N)
 	RImplementation.apply_object(N->val.pObject);
 	RImplementation.apply_lmaterial();
 
-	RCache.set_c("cam_pos", RImplementation.Target->Position_previous.x, RImplementation.Target->Position_previous.y, RImplementation.Target->Position_previous.z, 0.0f);
+	RCache.set_c("cam_pos", RImplementation.Target->GetPrevious()->Position_previous.x, RImplementation.Target->GetPrevious()->Position_previous.y, RImplementation.Target->GetPrevious()->Position_previous.z, 0.0f);
 
 	// Previous matrix data
-	RCache.set_c("m_current", RImplementation.Target->Matrix_current);
-	RCache.set_c("m_previous", RImplementation.Target->Matrix_previous);
+	RCache.set_c("m_current", RImplementation.Target->GetPrevious()->Matrix_current);
+	RCache.set_c("m_previous", RImplementation.Target->GetPrevious()->Matrix_previous);
 
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 #endif
@@ -364,6 +369,9 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 {
 	//PIX_EVENT(r_dsgraph_render_graph);
 	Device.Statistic->RenderDUMP.Begin();
+	// pip: split out the scope viewport's submit time
+	const bool svp_dump = Device.m_SecondViewport.IsSVPFrame();
+	if (svp_dump) Device.Statistic->RenderDUMP_SVP.Begin();
 
 	// **************************************************** NORMAL
 	// Perform sorting based on ScreenSpaceArea
@@ -570,6 +578,7 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 		if (_clear) vs.clear();
 	}
 
+	if (svp_dump) Device.Statistic->RenderDUMP_SVP.End();
 	Device.Statistic->RenderDUMP.End();
 }
 
@@ -597,13 +606,14 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 		mapHUD.clear();
 
 		rmNormal();
-		
-#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 
-		if (scope_3D_fake_enabled)
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes
+		// pip legacy ==2 depth-write for a no-SVP scope, draws the back-glass
+		if (!Device.m_SecondViewport.IsSVPActive() && scope_3D_fake_enabled)
 		{
-			RCache.set_RT(RImplementation.Target->rt_ssfx_temp->pRT, 3); // Render scope_3D to any buffer
-			
+			PIX_EVENT_F("scope_zwrite_legacy -> rt_ssfx_temp"); // RenderDoc: the ==2 depth-write batch(es)
+			RCache.set_RT(RImplementation.Target->rt_ssfx_temp->pRT, 3); // zwrite to scratch, no motion vectors
+
 			mapScopeHUD.traverseLR(sorted_L1);
 
 			if (!RImplementation.o.ssfx_motionvectors)
@@ -756,28 +766,7 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	RCache.set_xform_project(Device.mProject);
 }
 
-#if defined(USE_DX11)
-//////////////////////////////////////////////////////////////////////////
-// strict-sorted render
-void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	
-{
-	// Change projection
-	Fmatrix FTold = Device.mFullTransform;
-
-	Device.mFullTransform = Device.mFullTransformHud;
-	RCache.set_xform_project(Device.mProjectHud);
-
-	// Rendering
-	rmNear();
-	mapScopeHUDSorted.traverseRL(sorted_L1);
-	mapScopeHUDSorted.clear();
-	rmNormal();
-
-	// Restore projection
-	Device.mFullTransform = FTold;
-	RCache.set_xform_project(Device.mProject);
-}
-#endif
+// pip r_dsgraph_render_ScopeSorted removed, the lens is painted by CRenderTarget::draw_scope
 
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
@@ -816,13 +805,14 @@ void R_dsgraph_structure::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 
 void R_dsgraph_structure::r_dsgraph_render_water_ssr()
 {
-	mapWater.traverseLR(water_node_ssr);
+	mapWater[Device.m_SecondViewport.IsSVPFrame()].traverseLR(water_node_ssr);
 }
 
 void R_dsgraph_structure::r_dsgraph_render_water()
 {
-	mapWater.traverseLR(water_node);
-	mapWater.clear();
+	const bool svp = Device.m_SecondViewport.IsSVPFrame();
+	mapWater[svp].traverseLR(water_node);
+	mapWater[svp].clear();
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -267,7 +267,7 @@ class cl_eye_P : public R_constant_setup
 static cl_eye_P binder_eye_P;
 
 // interpolated eye position (crookr scope parallax)
-// We can improve this by clamping the magnitude of the travel here instead of in-shader. 
+// We can improve this by clamping the magnitude of the travel here instead of in-shader
 // it would fix the issue with the fog "sticking" when moving too far off center
 extern float scope_fog_interp;
 extern float scope_fog_travel;
@@ -428,6 +428,32 @@ static class s3ds_param_4 : public R_constant_setup
 		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, ps_s3ds_param_4.w);
 	}
 }    s3ds_param_4;
+
+// pip: for passing scope magnification information (curMag/minMag/maxMag/fov)
+extern Fvector4 ps_shader_scope_params;
+extern float g_pip_scope_magnification; // pip: engine fallback magnification (svpCamera)
+extern float g_pip_scope_min_mag;       // pip: fallback min magnification (least zoom, widest FOV)
+extern float g_pip_scope_max_mag;       // pip: fallback max magnification (most zoom, narrowest FOV)
+static class shader_scope_params : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		// 3DSS Lua sets minMag .y > 0 when a magnifications config exists, use it then
+		// with no config fall back to the engine magnification range so variable reticles animate with zoom
+		// w stays 0, digitalZoom reads it as a FOV only on the non-SVP fake path
+		if (ps_shader_scope_params.y > 0.f)
+			RCache.set_c(C, ps_shader_scope_params.x, ps_shader_scope_params.y, ps_shader_scope_params.z, ps_shader_scope_params.w);
+		else
+		{
+			// curMag tracks the live zoom, minMag and maxMag are the scope range endpoints
+			// on a fixed scope they are equal so the reticle stays at base size
+			const float cur = g_pip_scope_magnification;
+			const float mn  = (g_pip_scope_min_mag > 0.f) ? g_pip_scope_min_mag : cur;
+			const float mx  = (g_pip_scope_max_mag > 0.f) ? g_pip_scope_max_mag : cur;
+			RCache.set_c(C, cur, mn, mx, 0.0f);
+		}
+	}
+}    shader_scope_params;
 
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
@@ -1515,6 +1541,7 @@ void CBlender_Compile::SetMapping()
 	r_Constant("s3ds_param_2", &s3ds_param_2);
 	r_Constant("s3ds_param_3", &s3ds_param_3);
 	r_Constant("s3ds_param_4", &s3ds_param_4);
+	r_Constant("shader_scope_params", &shader_scope_params); // pip: scope magnification
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);

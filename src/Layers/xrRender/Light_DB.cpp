@@ -21,6 +21,8 @@ void CLight_DB::Load(IReader* fs)
 	// Lights itself
 	sun_original = NULL;
 	sun_adapted = NULL;
+	rain_light = Create();   // pip: persistent rain shadow light
+	sun_cascades.clear();    // pip: rebuilt below (one light per cascade)
 	{
 		F = fs->open_chunk(fsL_LIGHT_DYNAMIC);
 
@@ -55,12 +57,17 @@ void CLight_DB::Load(IReader* fs)
 				L->set_shadow(true);
 				L->set_rotation(Ldata.direction, tmp_R);
 
-				// copy to env-sun
-				sun_adapted = L = Create();
-				L->flags.bStatic = true;
-				L->set_type(IRender_Light::DIRECT);
-				L->set_shadow(true);
-				L->set_rotation(Ldata.direction, tmp_R);
+				// copy to env-sun, pip: one light per sun cascade
+				for (int ci = 0; ci < 3; ci++)
+				{
+					sun_cascades.push_back(L = Create());
+					L->flags.bStatic = true;
+					L->set_type(IRender_Light::DIRECT);
+					L->set_shadow(true);
+					L->set_rotation(Ldata.direction, tmp_R);
+				}
+				// all cascades are identical at load and Update reassigns every one, use a deterministic in-range element
+				sun_adapted = sun_cascades.back();
 			}
 			else
 			{
@@ -164,7 +171,11 @@ void CLight_DB::Unload()
 	v_static.clear();
 	v_hemi.clear();
 	sun_original.destroy();
+	for (auto s : sun_cascades)
+		s.destroy();
+	sun_cascades.clear();
 	sun_adapted.destroy();
+	rain_light.destroy();
 }
 
 light* CLight_DB::Create()
@@ -203,7 +214,6 @@ void CLight_DB::Update()
 	if (sun_original && sun_adapted)
 	{
 		light* _sun_original = (light*)sun_original._get();
-		light* _sun_adapted = (light*)sun_adapted._get();
 		CEnvDescriptor& E = *g_pGamePersistent->Environment().CurrentEnv;
 		VERIFY(_valid(E.sun_dir));
 #ifdef DEBUG
@@ -244,17 +254,23 @@ void CLight_DB::Update()
 		sun_original->set_position(OP);
 		sun_original->set_color(E.sun_color.x, E.sun_color.y, E.sun_color.z);
 		sun_original->set_range(600.f);
-		sun_adapted->set_rotation(AD, _sun_adapted->right);
-		sun_adapted->set_position(AP);
-		sun_adapted->set_color(E.sun_color.x * ps_r2_sun_lumscale * ps_r2_sun_lumscale_color.x,
-                               E.sun_color.y * ps_r2_sun_lumscale * ps_r2_sun_lumscale_color.y,
-		                       E.sun_color.z * ps_r2_sun_lumscale * ps_r2_sun_lumscale_color.z);
-		sun_adapted->set_range(600.f);
-
-		if (!::Render->is_sun_static())
+		// pip: update every sun cascade light identically
+		for (auto s : sun_cascades)
 		{
-			sun_adapted->set_rotation(OD, _sun_original->right);
-			sun_adapted->set_position(OP);
+			light* _sun_adapted = (light*)s._get();
+
+			s->set_rotation(AD, _sun_adapted->right);
+			s->set_position(AP);
+			s->set_color(E.sun_color.x * ps_r2_sun_lumscale * ps_r2_sun_lumscale_color.x,
+			             E.sun_color.y * ps_r2_sun_lumscale * ps_r2_sun_lumscale_color.y,
+			             E.sun_color.z * ps_r2_sun_lumscale * ps_r2_sun_lumscale_color.z);
+			s->set_range(600.f);
+
+			if (!::Render->is_sun_static())
+			{
+				s->set_rotation(OD, _sun_original->right);
+				s->set_position(OP);
+			}
 		}
 	}
 

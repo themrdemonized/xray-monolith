@@ -126,8 +126,10 @@ void CStats::Show()
 
 		RenderTOTAL.FrameEnd();
 		RenderCALC.FrameEnd();
+		RenderCALC_SVP.FrameEnd();
 		RenderCALC_HOM.FrameEnd();
 		RenderDUMP.FrameEnd();
+		RenderDUMP_SVP.FrameEnd();
 		RenderDUMP_RT.FrameEnd();
 		RenderDUMP_SKIN.FrameEnd();
 		RenderDUMP_Wait.FrameEnd();
@@ -234,7 +236,9 @@ void CStats::Show()
 		F.SetColor(0xFFFFFFFF);
 
 		F.OutSet(0, 0);
+		F.SetColor(0xFF40E0FF); // pip: headline perf, relevant to our render work
 		F.OutNext("FPS/RFPS:    %3.1f/%3.1f", fFPS, fRFPS);
+		F.SetColor(0xFFFFFFFF);
 		F.OutNext("TPS:         %2.2f M", fTPS);
 		m_pRender->OutData1(F);
 		//F.OutNext ("VERT:        %d/%d", RCache.stat.verts,RCache.stat.calls?RCache.stat.verts/RCache.stat.calls:0);
@@ -284,11 +288,18 @@ void CStats::Show()
 
 #undef  PPP
 #define PPP(a) (100.f*float(a)/float(RenderTOTAL.result))
+		// pip tint the render-perf signals we watch for SVP work, total, cull, submit and the SVP rows
+		F.SetColor(0xFF40E0FF);
 		F.OutNext("*** RENDER:  %2.2fms", RenderTOTAL.result);
 		F.OutNext("R_CALC:      %2.2fms, %2.1f%%", RenderCALC.result, PPP(RenderCALC.result));
+		F.OutNext("  SVP:       %2.2fms, %2.1f%%", RenderCALC_SVP.result, PPP(RenderCALC_SVP.result));
+		F.SetColor(0xFFFFFFFF);
 		F.OutNext("  HOM:       %2.2fms, %d", RenderCALC_HOM.result, RenderCALC_HOM.count);
 		F.OutNext("  Skeletons: %2.2fms, %d", Animation.result, Animation.count);
+		F.SetColor(0xFF40E0FF);
 		F.OutNext("R_DUMP:      %2.2fms, %2.1f%%", RenderDUMP.result, PPP(RenderDUMP.result));
+		F.OutNext("  SVP:       %2.2fms, %2.1f%%", RenderDUMP_SVP.result, PPP(RenderDUMP_SVP.result));
+		F.SetColor(0xFFFFFFFF);
 		F.OutNext("  Wait-L:    %2.2fms", RenderDUMP_Wait.result);
 		F.OutNext("  Wait-S:    %2.2fms", RenderDUMP_Wait_S.result);
 		F.OutNext("  Skinning:  %2.2fms", RenderDUMP_SKIN.result);
@@ -440,8 +451,10 @@ void CStats::Show()
 
 		RenderTOTAL.FrameStart();
 		RenderCALC.FrameStart();
+		RenderCALC_SVP.FrameStart();
 		RenderCALC_HOM.FrameStart();
 		RenderDUMP.FrameStart();
+		RenderDUMP_SVP.FrameStart();
 		RenderDUMP_RT.FrameStart();
 		RenderDUMP_SKIN.FrameStart();
 		RenderDUMP_Wait.FrameStart();
@@ -496,7 +509,7 @@ void CStats::OnDeviceCreate()
 
 	// if (!strstr(Core.Params, "-dedicated"))
 #ifndef DEDICATED_SERVER
-	pFont = xr_new<CGameFont>("stat_font", CGameFont::fsDeviceIndependent);
+	pFont = xr_new<CGameFont>("stat_font", CGameFont::fsDeviceIndependent | CGameFont::fsShadow); // pip: shadow for readability
 #endif
 
 	if (!pSettings->section_exist("evaluation")

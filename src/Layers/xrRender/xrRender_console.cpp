@@ -284,6 +284,16 @@ Fvector4 heat_vision_args_2 = { .0f, .0f, .0f, .0f };
 //crookr
 int scope_fake_enabled = 1;
 int scope_3D_fake_enabled = 0; // Redotix99: for 3D Shader Based Scopes
+int scope_svp_enabled = 0;
+float ps_r__svp_render_scale = 1.0f; // SVP render scale, inert at gate 0 (forced 1.0), the DLSS input extent when r__svp_dlss != 0
+int ps_r__svp_dlss = 0; // SVP DLSS-SR master gate, 0 = stock (render_scale inert), nonzero = scaffolding active
+Fvector4 scope_objective_lens_offset = { .0f, .0f, .0f, .0f };
+int scope_debug = 0;
+// RenderDoc instrumentation, default off
+// r__gpu_markers: per-batch GPU events + resource naming, runtime-toggleable
+// r__shader_debug: HLSL debug build (D3DCOMPILE_DEBUG, no optimization), needs a shaders_cache clear + reload
+int r__gpu_markers = 0;
+int r__shader_debug = 0;
 //string32 scope_fake_texture = "wpn\\wpn_crosshair_pso1";
 
 float ps_r2_ss_sunshafts_length = 1.f;
@@ -381,6 +391,10 @@ Fvector4 ps_s3ds_param_1 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_2 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
+Fvector4 ps_shader_scope_params = { 0, 0, 0, 0 }; // pip scope magnification curMag/minMag/maxMag/fov, set by the 3DSS lua
+float g_pip_scope_magnification = 0.f; // pip engine-computed magnification, fallback when nothing sets the cvar
+float g_pip_scope_min_mag = 0.f; // pip scope min magnification from hud_fov_params
+float g_pip_scope_max_mag = 0.f; // pip scope max magnification from hud_fov_params
 
 float hud_fov_aim_factor = 0;
 
@@ -629,7 +643,7 @@ public:
 #if defined(USE_DX10) || defined(USE_DX11)
 		//	TODO: DX10: Implement mip bias control
 		//VERIFY(!"apply not implmemented.");
-		//Done. Thanks for reminding me.
+		//Done. Thanks for reminding me
 		SSManager.SetMipLODBias(*value);
 #else	//	USE_DX10
 		for (u32 i = 0; i < HW.Caps.raster.dwStages; i++)
@@ -1301,6 +1315,18 @@ void xrRender_initconsole()
 
 	CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1); //crookr for fake scope
 	CMD4(CCC_Integer, "r__3Dfakescope", &scope_3D_fake_enabled, 0, 1); // Redotix99: for 3D Shader Based Scopes
+#if defined(USE_DX11)
+	// true PiP scope cvars are DX11-only, do not register them on the DX10/9/8 renderers (the backing
+	// vars keep their 0 defaults so the shared code still reads them as off)
+	CMD4(CCC_Integer, "r__svpscope", &scope_svp_enabled, 0, 2);
+	CMD4(CCC_Float, "r__svp_render_scale", &ps_r__svp_render_scale, 0.4f, 1.0f); // takes effect on vid_restart
+	CMD4(CCC_Integer, "r__svp_dlss", &ps_r__svp_dlss, 0, 1); // SVP DLSS-SR scaffolding gate, takes effect on vid_restart
+	CMD4(CCC_Integer, "r__scope_debug", &scope_debug, 0, 4);
+#endif
+	CMD4(CCC_Integer, "r__gpu_markers", &r__gpu_markers, 0, 1);   // per-batch events + resource names
+	CMD4(CCC_Integer, "r__shader_debug", &r__shader_debug, 0, 1); // HLSL debug build, clear shaders_cache + reload
+
+	// pip gpu_markers and shader_debug are forced on in execUserScript after user.ltx loads
 
 	CMD4(CCC_Integer, "r__heatvision", &ps_r2_heatvision, 0, 1); //--DSR-- HeatVision
 	CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS); //Terrain Z Prepass @Zagolski
@@ -1338,6 +1364,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "shader_scope_params", &ps_shader_scope_params, tw2_min, tw2_max); // pip: magnification cvar (set by 3DSS Lua)
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
 	

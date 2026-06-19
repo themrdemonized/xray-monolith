@@ -47,13 +47,14 @@ public:
 	R_dsgraph::mapHUD_T mapHUDSorted;
 	R_dsgraph::mapHUD_T mapCamAttachedSorted;
 #if defined(USE_DX11)
-	R_dsgraph::mapScopeHUD_T mapScopeHUD;	//  Redotix99: for 3D Shader Based Scopes
-	R_dsgraph::mapScopeHUD_T mapScopeHUDSorted;
+	R_dsgraph::mapScopeHUD_T mapScopeHUD;	//  Redotix99: for 3D Shader Based Scopes (legacy ==2 zwrite, r__svpscope 0 only)
+	xr_vector<R_dsgraph::mapSorted_Node> mapScopeHUDSorted;	//  Redotix99: for 3D Shader Based Scopes (PiP: gc64 vector + reflex split)
+	xr_vector<R_dsgraph::mapSorted_Node> mapReflexHUDSorted;
 #endif
 	R_dsgraph::mapLandscape_T mapLandscape;
 	//R_dsgraph::HUDMask_T HUDMask; // SSS 23: Deprecated
 	R_dsgraph::HUDMask_T HUDMaskCamAttached;
-	R_dsgraph::mapWater_T mapWater;
+	R_dsgraph::mapWater_T mapWater[2]; // pip: per viewport (main, SVP)
 
 #if RENDER!=R_R1
 	R_dsgraph::mapSorted_T										mapWmark;			// sorted
@@ -190,7 +191,7 @@ public:
 		mapLandscape.destroy();
 		//HUDMask.destroy(); // SSS 23: Deprecated
 		HUDMaskCamAttached.destroy();
-		mapWater.destroy();
+		for (auto& w : mapWater) w.destroy();
 
 #if RENDER!=R_R1
 		mapWmark.destroy();

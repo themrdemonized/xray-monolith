@@ -2,7 +2,13 @@
 
 #include "../xrRender/ColorMapManager.h"
 #include "../xrRender/light_db.h"
+#include <functional> // pip: draw_scope bind
+#include "SvpDlss.h" // pip SVP DLSS-SR input contract
 class light;
+
+// pip SVP scene render extent, EXACT svp_height at gate 0 (byte-identical to stock), scaled +
+// even-rounded for the upscaler only once r__svp_dlss != 0, so r__svp_render_scale is inert at gate 0
+u32 svp_render_extent();
 
 //#define DU_SPHERE_NUMVERTEX 92
 //#define DU_SPHERE_NUMFACES	180
@@ -101,6 +107,10 @@ public:
 	xr_vector<Fplane>												dbg_planes;
 #endif
 
+	// HW baseRT/baseZB
+	ID3D11RenderTargetView* baseRT;
+	ID3D11DepthStencilView* baseZB;
+
 	// MRT-path
 	ref_rt rt_Depth; // Z-buffer like - initial depth
 	ref_rt rt_MSAADepth; // z-buffer for MSAA deferred shading
@@ -125,6 +135,7 @@ public:
 	resptr_core<CRT, resptrcode_crt> rt_Generic_temp;
 
 	ref_rt rt_secondVP;	// 32bit		(r,g,b,a) --//#SM+#-- +SecondVP+
+	bool m_svp_dlss_built = false; // pip this SVP target was built with the DLSS gate on (UAV + display-res rt_secondVP)
 
 
 	ref_rt rt_fakescope;	// crookr fakescope
@@ -220,14 +231,27 @@ public:
 	ref_shader s_ssfx_ao;
 	//ref_shader s_ssfx_hud[5]; // SSS23: DEPRECATED
 
-	Fmatrix Matrix_previous, Matrix_current;
-	//Fmatrix Matrix_HUD_previous, Matrix_HUD_current;
-	Fvector3 Position_previous;
-	//bool RVelocity;
+	// pip per-viewport motion-vector history, Previous[0] main and Previous[1] SVP
+	// GetPrevious selects by IsSVPFrame so the SVP keeps its own temporal history
+	struct PreviousData {
+		Fmatrix Matrix_previous, Matrix_current;
+		//Fmatrix Matrix_HUD_previous, Matrix_HUD_current;
+		Fvector3 Position_previous;
+		//bool RVelocity;
+	} Previous[2];
 
-	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
+	PreviousData* GetPrevious() {
+		return &Previous[Device.m_SecondViewport.IsSVPFrame()];
+	}
+
+	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes (LEGACY r__svpscope 0 fallback depth copy)
+	ref_texture t_reticle; // pip: per-lens reticle art bound for the scope color shader ($user$reticle)
 
 	ref_shader s_ssfx_dumb;
+
+	ref_shader s_scope_color_write; // pip: lens COLOR phases (IMAGE/RETICLE/SHADOW/LENS) glue
+	ref_shader s_scope_debug;       // pip: r__scope_debug texture-inspector grid glue
+	ref_shader s_scope_depth_write; // pip: GBUFFER lens depth-write + holepunch glue
 
 	//	Igor: for async screenshots
 	ID3DTexture2D* t_ss_async; //32bit		(r,g,b,a) is situated in the system memory
@@ -242,6 +266,9 @@ public:
 	ref_texture t_noise_mipped;
 private:
 	// OCCq
+
+	ref_rt rt_baseRT;
+	ref_rt rt_baseZB;
 
 	ref_shader s_occq;
 	ref_shader s_sunshafts;
@@ -390,9 +417,18 @@ private:
 	//	Igor: used for volumetric lights
 	bool m_bHasActiveVolumetric;
 	bool m_bHasActiveVolumetric_spot;
+
+	xr_list<std::pair<ref_texture, ref_rt>> RenderTargetRemaps;
+
 public:
+	// The size at creation (PiP: svpCamera reads TargetSVP->Width/Height for the square aspect)
+	const u32 Width;
+	const u32 Height;
+
 	CRenderTarget();
+	CRenderTarget(LPCSTR name, u32 width, u32 height);
 	~CRenderTarget();
+	void SetActive(bool force = false);
 	void accum_point_geom_create();
 	void accum_point_geom_destroy();
 	void accum_omnip_geom_create();
@@ -427,6 +463,11 @@ public:
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
 	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
+	void draw_scope(ref_shader se, std::function<void(R_dsgraph::mapSorted_Node* N)> bind); // pip: lens re-draw primitive
+	void draw_reflex(); // pip: reflex-sight re-draw (mapReflexHUDSorted)
+	void phase_svp_capture(); // pip: CopyResource SVP rt_Generic_0 -> rt_secondVP, or the DLSS seam at gate != 0
+	void EvalSVP_DLSS(const SvpDlssInputs& in); // pip DLSS-SR eval, bilinear-passthrough stub for now
+	bool bCaptureScopeLens = false; // pip: true only while the player HUD draws (gates lens capture)
 	void phase_lut();
 	void phase_smaa();
 	void phase_scene_prepare();
@@ -437,9 +478,9 @@ public:
 	void phase_hdao();
 	void phase_downsamp();
 	void phase_wallmarks();
-	void phase_smap_direct(light* L, u32 sub_phase);
+	void phase_smap_direct(light* L, ref_rt smap, u32 sub_phase); // pip: explicit target smap
 	void phase_smap_direct_tsh(light* L, u32 sub_phase);
-	void phase_smap_spot_clear();
+	void phase_smap_spot_clear(ref_rt smap);                      // pip: clear the given smap
 	void phase_smap_spot(light* L);
 	void phase_smap_spot_tsh(light* L);
 	void phase_accumulator();
@@ -498,6 +539,7 @@ public:
 	void phase_bloom();
 	void phase_luminance();
 	void phase_combine();
+	void phase_scope_debug(); // pip: r__scope_debug texture-inspector grid (gated, main view only)
 	void phase_combine_volumetric();
 	void phase_pp();
 
@@ -523,7 +565,7 @@ public:
 		color_map_manager.SetTextures(tex0, tex1);
 	}
 
-	//	Need to reset stencil only when marker overflows.
+	//	Need to reset stencil only when marker overflows
 	//	Don't clear when render for the first time
 	void reset_light_marker(bool bResetStencil = false);
 	void increment_light_marker();

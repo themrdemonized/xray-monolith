@@ -271,6 +271,8 @@ public:
 	u32 section_count() const;
 	BOOL section_exist(LPCSTR S) const;
 	BOOL section_exist(const shared_str& S) const;
+	// pip direct parents of a section, override map first then base
+	const RStringVec* get_section_parents(const shared_str& S) const;
 	Root& sections() { return DATA; }
 	Root const& sections() const { return DATA; }
 

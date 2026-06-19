@@ -30,8 +30,8 @@ public:
 	Fmatrix mTransform; // final x-form matrix (local to model)
 	Fmatrix mTransformHidden; // hidden x-form matrix (local to model)
 	Fmatrix mRenderTransform; // final x-form matrix (model_base -> bone -> model)
-	Fmatrix mRenderTransform_prev; // Prev x-form matrix
-	Fmatrix mRenderTransform_temp; // Temp var
+	Fmatrix mRenderTransform_prev[2]; // Prev x-form matrix, per viewport (main, SVP)
+	Fmatrix mRenderTransform_temp[2]; // Temp var, per viewport
 private:
 	BoneCallback Callback;
 	void* Callback_Param;

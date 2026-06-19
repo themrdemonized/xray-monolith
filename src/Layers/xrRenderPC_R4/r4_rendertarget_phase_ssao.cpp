@@ -203,8 +203,8 @@ void CRenderTarget::phase_ssfx_ao()
 	RCache.set_Element(s_ssfx_ao->E[0]);
 	RCache.set_c("ao_setup", ps_ssfx_ao);
 
-	RCache.set_c("m_current", Matrix_current);
-	RCache.set_c("m_previous", Matrix_previous);
+	RCache.set_c("m_current", GetPrevious()->Matrix_current);
+	RCache.set_c("m_previous", GetPrevious()->Matrix_previous);
 
 	RCache.set_Geometry(g_combine);
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
@@ -344,8 +344,8 @@ void CRenderTarget::phase_ssfx_il()
 	//Set pass
 	RCache.set_Element(s_ssfx_ao->E[3]);
 	RCache.set_c("ao_setup", ps_ssfx_il);
-	RCache.set_c("m_current", Matrix_current);
-	RCache.set_c("m_previous", Matrix_previous);
+	RCache.set_c("m_current", GetPrevious()->Matrix_current);
+	RCache.set_c("m_previous", GetPrevious()->Matrix_previous);
 	RCache.set_Geometry(g_combine);
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
 

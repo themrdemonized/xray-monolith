@@ -58,9 +58,11 @@ public:
 	CStatTimer RenderTOTAL; //
 	CStatTimer RenderTOTAL_Real;
 	CStatTimer RenderCALC; // portal traversal, frustum culling, entities "renderable_Render"
+	CStatTimer RenderCALC_SVP; // scope viewport's own cull, shows what sharing the main traversal would save
 	CStatTimer RenderCALC_HOM; // HOM rendering
 	CStatTimer Animation; // skeleton calculation
 	CStatTimer RenderDUMP; // actual primitive rendering
+	CStatTimer RenderDUMP_SVP; // scope viewport's own primitive submit
 	CStatTimer RenderDUMP_Wait; // ...waiting something back (queries results, etc.)
 	CStatTimer RenderDUMP_Wait_S; // ...frame-limit sync
 	CStatTimer RenderDUMP_RT; // ...render-targets
