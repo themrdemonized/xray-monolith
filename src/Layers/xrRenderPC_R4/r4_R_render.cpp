@@ -9,6 +9,7 @@
 #include "../xrRender/QueryHelper.h"
 #include "../../Include/xrAPI/xrAPI.h"          // pip DRender, the debug-line backend for the scope_debug world overlay
 #include "../../Include/xrRender/DebugRender.h" // pip IDebugRender::add_lines
+#include "../xrRender/SkeletonX.h"              // pip CSkeletonX for the skinned lens bone transform
 
 // set all per-viewport camera globals from an explicit view/proj/proj_hud
 // called by SetActive, the main path still uses on_idle
@@ -90,6 +91,7 @@ void debug_scope(Fmatrix scope_camera)
 	draw_lens(p.eyepiece, 0xff0000ff);   // eyepiece blue
 	draw_lens(p.objective, 0xffffff00);  // objective yellow
 	draw_camera(0xffffffff);             // scope cam white
+
 }
 
 // pip STUB sub-pixel jitter for the SVP scene projection (DLSS scaffolding), swap for Ascii's
@@ -181,6 +183,25 @@ void svpCamera()
 		near_plane = d;
 	}
 
+	// pip force the SVP camera up to world up so a canted scope renders upright, the optical axis (k) is
+	// kept, an upright scope is unchanged since its up already matches world up
+	{
+		Fvector fwd, wup, right, up;
+		fwd.set(m_W_svpcam.k.x, m_W_svpcam.k.y, m_W_svpcam.k.z);
+		fwd.normalize();
+		wup.set(0.f, 1.f, 0.f);
+		right.crossproduct(wup, fwd);
+		if (right.magnitude() > EPS_S)
+		{
+			right.normalize();
+			up.crossproduct(fwd, right);
+			up.normalize();
+			m_W_svpcam.i.x = right.x; m_W_svpcam.i.y = right.y; m_W_svpcam.i.z = right.z;
+			m_W_svpcam.j.x = up.x;    m_W_svpcam.j.y = up.y;    m_W_svpcam.j.z = up.z;
+			m_W_svpcam.k.x = fwd.x;   m_W_svpcam.k.y = fwd.y;   m_W_svpcam.k.z = fwd.z;
+		}
+	}
+
 	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // square == 1
 
 	float fNearPlane_hud, fFarPlane_hud;
@@ -264,13 +285,25 @@ void CRender::deriveScopeLens()
 		if (!N.pVisual || !N.pMatrix)
 			continue;
 
-		auto S = N.pVisual->getVisData().sphere;
-		Fmatrix m_W = *N.pMatrix;
-		m_W.mulB_43(Fmatrix().translate(S.P));
+		// a skinned scope lens is positioned by its bone, the captured matrix is only the kinematics
+		// root, fold in the lens bone skinning matrix so the eyepiece follows the glass on ADS and sway
+		Fmatrix lensX = *N.pMatrix;
+		if (CSkeletonX* sk = fast_dynamic_cast<CSkeletonX*>(N.pVisual))
+		{
+			Fmatrix boneR;
+			if (sk->SVP_LensBoneXform(boneR))
+				lensX.mulB_43(boneR);
+		}
+
+		auto& V = N.pVisual->getVisData();
+		Fvector c;
+		V.box.getcenter(c); // AABB center fits a flat lens disc tighter than the bounding sphere center
+		Fmatrix m_W = lensX;
+		m_W.mulB_43(Fmatrix().translate(c));
 
 		auto* p = &Device.m_SecondViewport;
 		p->eyepiece.m_W = m_W;
-		p->eyepiece.radius = S.R;
+		p->eyepiece.radius = V.sphere.R;
 
 		if (p->eyepiece.radius > EPS)
 		{

@@ -90,14 +90,36 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	// NOTE: Invisible elements exist only in R1
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes
-	// pip true-PiP scope capture, grab only the FIRST eyepiece lens (==3) for the SVP composite, and
+	// pip true-PiP scope capture, keep the eye-nearest eyepiece lens (==3) for the SVP composite, and
 	// once the SVP is active drop the back-glass (==1) / zwrite (==2) since the SVP draws the whole lens
 	if (Device.true_pip_on && sh->flags.iScopeLense > 0)
 	{
 		if (sh->flags.iScopeLense == 3)
 		{
-			if (RGraph.mapScopeHUDSorted.empty())
-				RGraph.mapScopeHUDSorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			// a scope can flag several lens surfaces (objective + ocular), keep the one in front of the
+			// eye and nearest it (the ocular the player looks through) so the SVP camera does not flip
+			auto& M = RGraph.mapScopeHUDSorted;
+			Fvector lp, to;
+			xform->transform_tiny(lp, pVisual->getVisData().sphere.P);
+			to.sub(lp, Device.vCameraPosition);
+			const float in_front = to.dotproduct(Device.vCameraDirection);
+			const float score = (in_front > 0.f) ? to.square_magnitude() : (to.square_magnitude() + 1.0e6f);
+
+			bool keep = M.empty();
+			if (!keep)
+			{
+				auto& f = M.front();
+				Fvector ep, te;
+				f.pMatrix->transform_tiny(ep, f.pVisual->getVisData().sphere.P);
+				te.sub(ep, Device.vCameraPosition);
+				const float fscore = (te.dotproduct(Device.vCameraDirection) > 0.f) ? te.square_magnitude() : (te.square_magnitude() + 1.0e6f);
+				keep = score < fscore;
+			}
+			if (keep)
+			{
+				M.clear();
+				M.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			}
 			return;
 		}
 		if (sh->flags.iScopeLense == 10)

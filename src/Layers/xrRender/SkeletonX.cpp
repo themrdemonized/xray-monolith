@@ -504,6 +504,23 @@ void get_pos_bones(const vertBoned4W& vert, Fvector& p, CKinematics* Parent)
 	p.add(P3);
 }
 
+// pip object-space render (skinning) matrix of the lens bone, the SVP eyepiece uses it so a skinned
+// scope lens follows its bone through ADS and sway instead of the kinematics root
+bool CSkeletonX::SVP_LensBoneXform(Fmatrix& out)
+{
+	if (!Parent)
+		return false;
+	u16 bone;
+	if (RenderMode == RM_SINGLE)
+		bone = (u16)RMS_boneid;
+	else if (BonesUsed.size())
+		bone = BonesUsed[0];
+	else
+		return false;
+	out = Parent->LL_GetBoneInstance(bone).mRenderTransform;
+	return true;
+}
+
 //-----------------------------------------------------------------------------------------------------
 // Wallmarks
 //-----------------------------------------------------------------------------------------------------
