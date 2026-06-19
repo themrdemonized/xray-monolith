@@ -368,7 +368,7 @@
     <ClCompile>
       <AdditionalIncludeDirectories>include;src;src\nvcore;src\nvtt\squish;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions</EnableEnhancedInstructionSet>
       <DisableSpecificWarnings>4005</DisableSpecificWarnings>
       <ExceptionHandling>false</ExceptionHandling>
       <WholeProgramOptimization>true</WholeProgramOptimization>
