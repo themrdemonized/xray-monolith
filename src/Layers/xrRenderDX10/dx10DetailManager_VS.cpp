@@ -51,6 +51,7 @@ float GoToValue(float& current, float go_to)
 	return current < go_to ? r_value : -r_value;
 }
 
+#ifdef USE_DX11
 // f32 -> f16 (round-to-nearest; inputs are tame: [-1..1] normals, [0..1] scalars)
 ICF u16 dm_f32tof16(float v)
 {
@@ -78,6 +79,7 @@ struct InstanceHW
 };
 #pragma pack(pop)
 static_assert(sizeof(InstanceHW) == CDetailManager::hw_InstanceStride, "InstanceHW must match hw_InstanceStride");
+#endif
 
 void CDetailManager::hw_Load_Shaders()
 {
@@ -123,6 +125,7 @@ void CDetailManager::hw_Render(light* L)
 	RCache.set_xform_world(Fidentity);
 	RCache.set_Geometry(hw_Geom);
 
+#ifdef USE_DX11
 	// bind the per-instance vertex stream to slot 1 (filled once per frame in hw_Fill_Instances)
 	{
 		UINT istride = hw_InstanceStride;
@@ -136,6 +139,10 @@ void CDetailManager::hw_Render(light* L)
 		Device.Statistic->RenderDUMP_DT_Count = 0; // accumulates across phases this frame
 		hw_Fill_Instances();
 	}
+#else
+	// DX10 (R3): no instancing - the baked-copies path fills the 'array' constant per dump
+	Device.Statistic->RenderDUMP_DT_Count = 0; // accumulates across this frame's dumps
+#endif
 
 	// Wave0
 	float scale = 1.f / float(quant);
@@ -171,6 +178,7 @@ void CDetailManager::hw_Render(light* L)
 	RCache.set_CullMode(CULL_CCW);
 }
 
+#ifdef USE_DX11
 void CDetailManager::hw_Fill_Instances()
 {
     // packs all the visible instances into a contiguous instance buffer with a single map
@@ -255,6 +263,7 @@ void CDetailManager::hw_Fill_Instances()
 
 	hw_frame_filled = Device.dwFrame;
 }
+#endif // USE_DX11 (hw_Fill_Instances)
 
 void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave, const Fvector4& wind,
 									const Fvector4& prev_wave, const Fvector4& prev_wind, u32 var_id, u32 lod_id, light* L)
@@ -287,15 +296,6 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 
 	static shared_str strGrassAlign("grass_align");
 
-	// phase scale fading (now applied in the vs)
-	static shared_str strFadeParams("dt_fade_params");
-
-	u32 total = 0;
-	for (u32 obj = 0; obj < objects.size(); obj++)
-		total += hw_inst_count[var_id][obj];
-	if (total == 0)
-		return;
-
 	// grass benders data
 	IGame_Persistent::grass_data& GData = g_pGamePersistent->grass_shader_data;
 	Fvector4 player_pos = { 0, 0, 0, 0 };
@@ -304,6 +304,16 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 	// add player if the grass is interactive
 	if (ps_ssfx_grass_interactive.x > 0)
 		player_pos.set(Device.vCameraPosition.x, Device.vCameraPosition.y, Device.vCameraPosition.z, -1);
+
+#ifdef USE_DX11
+	// phase scale fading (now applied in the vs)
+	static shared_str strFadeParams("dt_fade_params");
+
+	u32 total = 0;
+	for (u32 obj = 0; obj < objects.size(); obj++)
+		total += hw_inst_count[var_id][obj];
+	if (total == 0)
+		return;
 
 	// fade mode (mirrors the legacy CPU-side formulas, see DetailManager.cpp):
     // x = 1: camera-distance fade vs y (squared distance threshold);
@@ -401,4 +411,143 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 			iOffset += Object.number_indices;
 		}
 	}
+#else
+	// DX10/R3 has no hardware instancing support. Bake hw_BatchSize mesh copies (see hw_Load_Geom)
+	// and, per batch, fill the 'array' constant with hw_BatchSize transforms - 3 matrix rows
+	// (scale baked into mRotY_calculated) + (sun,sun,sun,hemi). The VS picks its transform via
+	// the per-vertex 'mid'
+	static shared_str strArray("array");
+
+	vis_list& list = m_visibles[var_id];
+
+	// per-instance light-range cull on shadow passes (no VS light-fade on DX10)
+	const bool bIsSMAP = (RImplementation.phase == CRender::PHASE_SMAP && L != nullptr);
+	const float cull_sqr_range = bIsSMAP ? _sqr(L->range) : 0.0f;
+
+	u32 vOffset = 0;
+	u32 iOffset = 0;
+	for (u32 O = 0; O < objects.size(); O++)
+	{
+		CDetail& Object = *objects[O];
+		xr_vector<SlotItemVec*>& vis = list[O];
+		if (!vis.empty())
+		{
+			ShaderElement* E = Object.shader->E[lod_id]._get();
+			u32 passCount = E ? (u32)E->passes.size() : 0;
+			for (u32 iPass = 0; iPass < passCount; ++iPass)
+			{
+				RCache.set_Element(E, iPass);
+				RImplementation.apply_lmaterial();
+
+				RCache.set_c(strConsts, consts);
+				RCache.set_c(strWave, wave);
+				RCache.set_c(strDir2D, wind);
+				RCache.set_c(strXForm, Device.mFullTransform);
+				RCache.set_c(strGrassAlign, ps_ssfx_terrain_grass_align);
+				RCache.set_c(strWavePrev, prev_wave);
+				RCache.set_c(strDir2DPrev, prev_wind);
+
+				if (ps_ssfx_grass_interactive.y > 0)
+				{
+					RCache.set_c(strGrassSetup, ps_ssfx_int_grass_params_1);
+
+					Fvector4* c_grass;
+					{
+						void* GrassData;
+						RCache.get_ConstantDirect(strPos, BendersQty * sizeof(Fvector4) * 2, &GrassData, 0, 0);
+						c_grass = (Fvector4*)GrassData;
+					}
+					if (c_grass)
+					{
+						c_grass[0].set(player_pos);
+						c_grass[16].set(0.0f, -99.0f, 0.0f, 1.0f);
+
+						for (int Bend = 1; Bend < BendersQty; Bend++)
+						{
+							c_grass[Bend].set(GData.pos[Bend].x, GData.pos[Bend].y, GData.pos[Bend].z, GData.radius_curr[Bend]);
+							c_grass[Bend + 16].set(GData.dir[Bend].x, GData.dir[Bend].y, GData.dir[Bend].z, GData.str[Bend]);
+						}
+					}
+
+					Fvector4* c_prev_grass;
+					{
+						void* prev_GrassData;
+						RCache.get_ConstantDirect(strPrevPos, BendersQty * sizeof(Fvector4) * 2, &prev_GrassData, 0, 0);
+						c_prev_grass = (Fvector4*)prev_GrassData;
+					}
+					if (c_prev_grass)
+					{
+						for (int Bend = 0; Bend < BendersQty; Bend++)
+						{
+							c_prev_grass[Bend].set(GData.prev_pos[Bend]);
+							c_prev_grass[Bend + 16].set(GData.prev_dir[Bend]);
+						}
+					}
+				}
+
+				u32 dwBatch = 0;
+				Fvector4* c_storage = nullptr;
+				for (SlotItemVec* items : vis)
+				{
+					for (SlotItem* pInstance : *items)
+					{
+						SlotItem& Instance = *pInstance;
+
+						if (bIsSMAP && L->position.distance_to_sqr(Instance.position) >= cull_sqr_range)
+							continue;
+
+						// (re)acquire the constant storage at the start of each batch
+						if (dwBatch == 0)
+						{
+							void* pData;
+							RCache.get_ConstantDirect(strArray, hw_BatchSize * 4 * sizeof(Fvector4), &pData, 0, 0);
+							c_storage = (Fvector4*)pData;
+						}
+						if (!c_storage)
+							continue;
+
+						u32 base = dwBatch * 4;
+						Fmatrix& M = Instance.mRotY_calculated;
+						c_storage[base + 0].set(M._11, M._21, M._31, M._41);
+						c_storage[base + 1].set(M._12, M._22, M._32, M._42);
+						c_storage[base + 2].set(M._13, M._23, M._33, M._43);
+						const float s = Instance.c_sun;
+						const float h = Instance.c_hemi;
+						c_storage[base + 3].set(s, s, s, h);
+
+						if (++dwBatch == hw_BatchSize)
+						{
+							Device.Statistic->RenderDUMP_DT_Count += dwBatch;
+							u32 dwCNT_verts = dwBatch * Object.number_vertices;
+							u32 dwCNT_prims = (dwBatch * Object.number_indices) / 3;
+							RCache.Render(D3DPT_TRIANGLELIST, vOffset, 0, dwCNT_verts, iOffset, dwCNT_prims);
+							RCache.stat.r.s_details.add(dwCNT_verts);
+							dwBatch = 0;
+						}
+					}
+				}
+
+				// flush the remainder
+				if (dwBatch)
+				{
+					Device.Statistic->RenderDUMP_DT_Count += dwBatch;
+					u32 dwCNT_verts = dwBatch * Object.number_vertices;
+					u32 dwCNT_prims = (dwBatch * Object.number_indices) / 3;
+					RCache.Render(D3DPT_TRIANGLELIST, vOffset, 0, dwCNT_verts, iOffset, dwCNT_prims);
+					RCache.stat.r.s_details.add(dwCNT_verts);
+				}
+			}
+
+			// Clear the visible list when grass shadows are off; with shadows on, details_clear()
+			// clears once at frame end after all shadow passes have drawn from these lists.
+			if (ps_ssfx_grass_shadows.x <= 0)
+			{
+				if (!psDeviceFlags2.test(rsGrassShadow) || RImplementation.PHASE_NORMAL == RImplementation.phase)
+					vis.clear_not_free();
+			}
+		}
+		vOffset += hw_BatchSize * Object.number_vertices;
+		iOffset += hw_BatchSize * Object.number_indices;
+	}
+#endif
 }

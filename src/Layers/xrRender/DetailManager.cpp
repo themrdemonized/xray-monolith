@@ -99,7 +99,7 @@ CDetailManager::CDetailManager()
 	hw_BatchSize = 0;
 	hw_VB = 0;
 	hw_IB = 0;
-#if defined(USE_DX10) || defined(USE_DX11)
+#ifdef USE_DX11
 	hw_instanceVB = 0;
 	hw_frame_filled = u32(-1);
 #endif
