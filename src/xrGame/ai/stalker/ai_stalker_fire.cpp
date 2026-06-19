@@ -59,13 +59,13 @@ using namespace StalkerSpace;
 
 float g_ai_reload_threshold = 0.5f;
 
-static float const DANGER_DISTANCE = 3.f;
-static u32 const DANGER_INTERVAL = 120000;
+float g_ai_cover_danger_radius      = 3.f;
+u32   g_ai_cover_danger_time         = 120000;
 
-static float const PRECISE_DISTANCE = 2.5f;
-static float const FLOOR_DISTANCE = 2.f;
-static float const NEAR_DISTANCE = 2.5f;
-static u32 const FIRE_MAKE_SENSE_INTERVAL = 10000;
+float g_ai_fire_range_extension        = 2.5f;
+float g_ai_fire_max_height_diff          = 2.f;
+float g_ai_fire_min_dist           = 2.5f;
+u32   g_ai_fire_make_sense_interval = 10000;
 
 static float const min_throw_distance = 10.f;
 
@@ -350,8 +350,8 @@ void CAI_Stalker::Hit(SHit* pHDS)
 				(HDS.initiator()->ID() != ID()) && !fis_zero(HDS.damage()) && brain().affect_cover())
 			{
 				agent_manager().location().add(
-					xr_new<CDangerCoverLocation>(cover, Device.dwTimeGlobal, DANGER_INTERVAL,
-					                             DANGER_DISTANCE));
+					xr_new<CDangerCoverLocation>(cover, Device.dwTimeGlobal, g_ai_cover_danger_time,
+					                             g_ai_cover_danger_radius));
 			}
 		}
 
@@ -409,6 +409,15 @@ void CAI_Stalker::Hit(SHit* pHDS)
 						CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(HDS.who);
 						if (stalker && stalker->g_Alive())
 							stalker->on_critical_wound_initiator(this);
+					}
+
+					{
+						::luabind::functor<void> funct;
+						if (ai().script_engine().functor("_G.CAI_Stalker__OnCriticallyWounded", funct))
+						{
+							CScriptHit tLuaHit(&HDS);
+							funct(this->lua_game_object(), &tLuaHit, HDS.boneID);
+						}
 					}
 				}
 			}
@@ -912,13 +921,13 @@ bool CAI_Stalker::fire_make_sense()
 	if (!enemy)
 		return (false);
 
-	if ((pick_distance() + PRECISE_DISTANCE) < Position().distance_to(enemy->Position()))
+	if ((pick_distance() + g_ai_fire_range_extension) < Position().distance_to(enemy->Position()))
 		return (false);
 
-	if (_abs(Position().y - enemy->Position().y) > FLOOR_DISTANCE)
+	if (_abs(Position().y - enemy->Position().y) > g_ai_fire_max_height_diff)
 		return (false);
 
-	if (pick_distance() < NEAR_DISTANCE)
+	if (pick_distance() < g_ai_fire_min_dist)
 		return (false);
 
 	if (memory().visual().visible_right_now(enemy))
@@ -928,7 +937,7 @@ bool CAI_Stalker::fire_make_sense()
 	if (last_time_seen == u32(-1))
 		return (false);
 
-	if (Device.dwTimeGlobal > last_time_seen + FIRE_MAKE_SENSE_INTERVAL)
+	if (Device.dwTimeGlobal > last_time_seen + g_ai_fire_make_sense_interval)
 		return (false);
 
 	// if we do not have a weapon
@@ -955,6 +964,12 @@ void CAI_Stalker::on_weapon_shot_start(CWeapon* weapon)
 {
 	weapon_shot_effector().SetRndSeed(m_weapon_shot_random_seed);
 	weapon_shot_effector().Shot(weapon);
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnWeaponShotStart", funct))
+			funct(lua_game_object(), weapon ? weapon->lua_game_object() : nullptr);
+	}
 }
 
 void CAI_Stalker::on_weapon_shot_update()
@@ -963,6 +978,11 @@ void CAI_Stalker::on_weapon_shot_update()
 
 void CAI_Stalker::on_weapon_shot_stop()
 {
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnWeaponShotStop", funct))
+			funct(lua_game_object());
+	}
 }
 
 void CAI_Stalker::on_weapon_shot_remove(CWeapon* weapon)
@@ -1068,7 +1088,21 @@ bool CAI_Stalker::use_throw_randomness()
 float CAI_Stalker::missile_throw_force()
 {
 	update_throw_params();
-	return (m_throw_velocity.magnitude());
+	float force = m_throw_velocity.magnitude();
+
+	::luabind::functor<float> funct;
+	if (ai().script_engine().functor("_G.CAI_Stalker__GetMissileThrowForce", funct))
+	{
+		float result = funct(lua_game_object(), force);
+		if (_valid(result) && result > 0.f)
+			force = result;
+		else
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			                                "CAI_Stalker [%s]: _g.CAI_Stalker__GetMissileThrowForce returned invalid value %f (must be > 0), ignoring",
+			                                *cName(), result);
+	}
+
+	return force;
 }
 
 void CAI_Stalker::compute_throw_miss(u32 const vertex_id)
@@ -1375,6 +1409,19 @@ void CAI_Stalker::on_enemy_wounded_or_killed(const CAI_Stalker* wounded_or_kille
 		return;
 
 	sound().play(eStalkerSoundEnemyKilledOrWounded);
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnEnemyWoundedOrKilled", funct))
+		{
+			if (wounded_or_killed)
+				funct(lua_game_object(), wounded_or_killed->lua_game_object());
+			else
+				ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+				                                "CAI_Stalker [%s]: OnEnemyWoundedOrKilled called with null victim, skipping Lua hook",
+				                                *cName());
+		}
+	}
 }
 
 bool CAI_Stalker::can_kill_member()

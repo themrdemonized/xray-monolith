@@ -19,6 +19,8 @@
 #include "stalker_animation_manager.h"
 #include "object_handler_planner.h"
 
+extern int g_ai_unlimited_ammo;
+
 //////////////////////////////////////////////////////////////////////////
 // CObjectActionCommand
 //////////////////////////////////////////////////////////////////////////
@@ -183,7 +185,7 @@ void CObjectActionReload::initialize()
 	VERIFY(m_item);
 	VERIFY(object().inventory().ActiveItem());
 	VERIFY(object().inventory().ActiveItem()->object().ID() == m_item->object().ID());
-	if (object().infinite_ammo())
+	if (g_ai_unlimited_ammo && object().infinite_ammo())
 	{
 		CWeapon* weapon = smart_cast<CWeapon*>(&m_item->object());
 		VERIFY(weapon);

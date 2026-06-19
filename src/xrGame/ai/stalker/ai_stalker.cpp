@@ -74,6 +74,9 @@ using namespace StalkerSpace;
 
 extern int g_AI_inactive_time;
 
+// Console cvar g_ai_unlimited_ammo gates the stalker infinite-ammo path. Default 1 = vanilla.
+int g_ai_unlimited_ammo = 1;
+
 CAI_Stalker::CAI_Stalker() :
 	m_sniper_update_rate(false),
 	m_sniper_fire_mode(false),
@@ -1541,7 +1544,7 @@ bool CAI_Stalker::can_fire_right_now()
 
 bool CAI_Stalker::unlimited_ammo()
 {
-	return infinite_ammo() && CObjectHandler::planner().object().g_Alive();
+	return g_ai_unlimited_ammo && infinite_ammo() && CObjectHandler::planner().object().g_Alive();
 }
 
 void CAI_Stalker::ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect)

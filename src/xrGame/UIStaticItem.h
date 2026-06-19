@@ -15,6 +15,8 @@ public:
         flNoShaderCache = (1 << 4),
 	};
 
+	enum ETextureFit { tfFill = 0, tfCover };
+
 	Frect TextureRect;
 	Fvector2 vHeadingPivot;
 	Fvector2 vHeadingOffset;
@@ -24,6 +26,7 @@ public:
 	Fvector2 vPos;
 	Fvector2 vSize;
 	u32 dwColor;
+	ETextureFit m_fit;
 #ifdef DEBUG
 	shared_str		dbg_tex_name;
 #endif
@@ -62,6 +65,9 @@ public:
 
 	const Frect& GetTextureRect() const { return TextureRect; };
 
+	void SetTextureFit(ETextureFit f) { m_fit = f; }
+	ETextureFit GetTextureFit() const { return m_fit; }
+
 	IC Fvector2 GetSize() { return vSize; }
 
 	void SetHeadingPivot(const Fvector2& p, const Fvector2& offset, bool fixedLT);
@@ -74,6 +80,8 @@ public:
     }
 
 private:
+	// render-time UV: the atlas region, cropped to the geometry aspect when in cover mode
+	void ComputeRenderUV(Frect& uv) const;
 	void RenderInternal(const Fvector2& pos);
 	void RenderInternal(float angle);
 };

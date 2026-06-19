@@ -40,6 +40,7 @@ void CUIPdaMsgListItem::InitPdaMsgListItem(const Fvector2& size)
 	CUIXmlInit xml_init;
 	AttachChild(&UIIcon);
 	xml_init.InitStatic(uiXml, "icon_static", 0, &UIIcon);
+	UIIcon.SetCoverTexture(true);
 
 	AttachChild(&UITimeText);
 	xml_init.InitTextWnd(uiXml, "time_static", 0, &UITimeText);

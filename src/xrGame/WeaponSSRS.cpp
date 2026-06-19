@@ -1,5 +1,7 @@
 ﻿#include "stdafx.h"
 #include "WeaponSSRS.h"
+
+extern BOOL g_launcher_dynamic_range_zoom;
 #include "entity.h"
 #include "explosiveRocket.h"
 #include "level.h"
@@ -307,7 +309,7 @@ void CWeaponSSRS::state_Fire(float dt)
 			Fvector::generate_orthonormal_basis(launch_matrix.k, launch_matrix.j, launch_matrix.i);
 			launch_matrix.c.set(p1);
 
-			if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()))
+			if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()) && g_launcher_dynamic_range_zoom)
 			{
 				H_Parent()->setEnabled(FALSE);
 				setEnabled(FALSE);

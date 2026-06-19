@@ -29,6 +29,8 @@
 #include "hit_memory_manager.h"
 #include "sight_manager.h"
 #include "stalker_movement_manager_smart_cover.h"
+#include "smart_cover.h"
+#include "smart_cover_loophole.h"
 #include "movement_manager_space.h"
 #include "detail_path_manager_space.h"
 #include "level_debug.h"
@@ -580,6 +582,77 @@ CHARACTER_RANK_VALUE CScriptGameObject::GetRank()
 	}
 	else
 		return (stalker->Rank());
+}
+
+LPCSTR CScriptGameObject::GetRankName()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] rank_name() called on non-stalker object",
+		                                object().cNameSect_str());
+		return ("");
+	}
+	return (*stalker->CharacterInfo().Rank().id());
+}
+
+bool CScriptGameObject::affect_cover() const
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] affect_cover() called on non-stalker object",
+		                                object().cNameSect_str());
+		return (false);
+	}
+	return (stalker->brain().affect_cover());
+}
+
+void CScriptGameObject::best_cover_invalidate()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] best_cover_invalidate() called on non-stalker object",
+		                                object().cNameSect_str());
+		return;
+	}
+	stalker->best_cover_invalidate();
+}
+
+LPCSTR CScriptGameObject::GetCurrentSmartCoverName()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] get_current_smart_cover_name() called on non-stalker object",
+		                                object().cNameSect_str());
+		return ("");
+	}
+	smart_cover::cover const* cover = stalker->get_current_smart_cover();
+	if (!cover)
+		return ("");
+	return (*cover->object().cName());
+}
+
+LPCSTR CScriptGameObject::GetCurrentLoopholeId()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] get_current_loophole_id() called on non-stalker object",
+		                                object().cNameSect_str());
+		return ("");
+	}
+	smart_cover::loophole const* loophole = stalker->get_current_loophole();
+	if (!loophole)
+		return ("");
+	return (*loophole->id());
 }
 
 void CScriptGameObject::set_desired_position()

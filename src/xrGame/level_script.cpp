@@ -962,6 +962,12 @@ bool check_cam_effector(int id)
 	return false;
 }
 
+void remove_hud_motion_cam_effectors()
+{
+	CActor* actor = Actor();
+	if (actor)
+		actor->Cameras().RemoveHudMotionEffectors();
+}
 
 float get_snd_volume()
 {
@@ -2614,6 +2620,7 @@ void CLevel::script_register(lua_State* L)
 
 			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool, bool))& set_cam_position_direction)),
+			def("remove_hud_motion_cam_effectors", &remove_hud_motion_cam_effectors),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),

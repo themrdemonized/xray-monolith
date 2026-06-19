@@ -509,6 +509,16 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 	if (!object().throw_enabled())
 		return (false);
 
+	// Lua hook: allow scripts to cancel the throw (e.g. rank-based grenade denial)
+	{
+		::luabind::functor<bool> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__ShouldThrow", funct))
+		{
+			if (!funct(object().lua_game_object()))
+				return (false);
+		}
+	}
+
 	// do throw grenade
 	return (true);
 #endif // #if 1

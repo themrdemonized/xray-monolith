@@ -344,6 +344,113 @@ _G.CNPCBeforeLookAtActor = function(npc, distance)
 	return flags.ret_value
 end
 
+-- NPC critically wounded callback, fires once on first critical wound transition
+AddScriptCallback("npc_on_critically_wounded")
+_G.CAI_Stalker__OnCriticallyWounded = function(npc, hit, bone_id)
+	SendScriptCallback("npc_on_critically_wounded", npc, hit, bone_id)
+end
+
+-- NPC danger location added callback. Fires when any danger (bullets, grenade, death, sound)
+-- is registered near the NPC. in_open=true when NPC has no cover point selected.
+-- cover_threatened=true when the danger overlaps the NPC's current cover position.
+-- Use npc:best_cover_invalidate() to force cover re-evaluation.
+-- Use npc:rank_name() to scale reaction threshold by rank.
+AddScriptCallback("npc_on_danger_location_add")
+_G.CAI_Stalker__OnDangerLocationAdd = function(npc, pos, radius, in_open, cover_threatened)
+	SendScriptCallback("npc_on_danger_location_add", npc, pos, radius, in_open, cover_threatened)
+end
+
+-- NPC weapon shot start callback. weapon is the weapon being fired
+AddScriptCallback("npc_on_weapon_shot_start")
+_G.CAI_Stalker__OnWeaponShotStart = function(npc, weapon)
+	SendScriptCallback("npc_on_weapon_shot_start", npc, weapon)
+end
+
+-- NPC weapon shot stop callback. Fires when the NPC stops firing
+AddScriptCallback("npc_on_weapon_shot_stop")
+_G.CAI_Stalker__OnWeaponShotStop = function(npc)
+	SendScriptCallback("npc_on_weapon_shot_stop", npc)
+end
+
+-- NPC grenade throw gate. Return false to prevent the throw. Use npc:rank_name() to scale by rank
+-- Note: only fires when throw trajectory is clear, after engine validity checks pass
+AddScriptCallback("npc_on_should_throw")
+_G.CAI_Stalker__ShouldThrow = function(npc)
+	local flags = { ret_value = true }
+	SendScriptCallback("npc_on_should_throw", npc, flags)
+	return flags.ret_value
+end
+
+-- NPC grenade throw force override. Return a float to override throw force.
+-- Lower values = shorter throw range. Use npc:rank_name() to scale by rank
+_G.CAI_Stalker__GetMissileThrowForce = function(npc, base_force)
+	local flags = { ret_value = base_force }
+	SendScriptCallback("npc_on_missile_throw_force", npc, base_force, flags)
+	return flags.ret_value
+end
+AddScriptCallback("npc_on_missile_throw_force")
+
+-- NPC wounded/killed an enemy callback. victim is the enemy that was wounded or killed
+AddScriptCallback("npc_on_enemy_wounded_or_killed")
+_G.CAI_Stalker__OnEnemyWoundedOrKilled = function(npc, victim)
+	SendScriptCallback("npc_on_enemy_wounded_or_killed", npc, victim)
+end
+
+-- NPC squad member death reaction callback. member is the affected member, is_alive=true if wounded (not dead)
+AddScriptCallback("npc_on_member_death_reaction")
+_G.CAI_Stalker__OnMemberDeathReaction = function(npc, member, is_alive)
+	SendScriptCallback("npc_on_member_death_reaction", npc, member, is_alive)
+end
+
+-- NPC enemy selected/lost callback. new_enemy is nil on target loss
+AddScriptCallback("npc_on_enemy_selected")
+_G.CAI_Stalker__OnEnemySelected = function(npc, new_enemy)
+	SendScriptCallback("npc_on_enemy_selected", npc, new_enemy)
+end
+
+-- NPC combat GOAP action transition callback. old_op and new_op match stalker_ids.action_* values
+AddScriptCallback("npc_on_combat_action_changed")
+_G.CAI_Stalker__OnCombatActionChanged = function(npc, old_op, new_op)
+	SendScriptCallback("npc_on_combat_action_changed", npc, old_op, new_op)
+end
+
+-- NPC TakeCover destination callback. Only fires when a real cover point is found, not on fallback paths
+AddScriptCallback("npc_on_take_cover_destination")
+_G.CAI_Stalker__OnTakeCoverDestination = function(npc, cover_pos, enemy)
+	SendScriptCallback("npc_on_take_cover_destination", npc, cover_pos, enemy)
+end
+
+-- NPC cover point changed callback.
+-- cover_pos is nil when NPC loses its cover point entirely.
+-- is_smart_cover=true when the new cover is a smart cover position.
+-- smart_cover_name is the level object name of the smart cover (empty string if not a smart cover).
+-- Use npc:get_current_smart_cover_name() and npc:get_current_loophole_id() for coordination.
+AddScriptCallback("npc_on_best_cover_changed")
+_G.CAI_Stalker__OnBestCoverChanged = function(npc, cover_pos, is_smart_cover, smart_cover_name)
+	SendScriptCallback("npc_on_best_cover_changed", npc, cover_pos, is_smart_cover, smart_cover_name)
+end
+
+-- NPC minimum combat engagement distance override
+-- Returns the minimum distance from enemy at which this NPC will accept a cover point.
+-- Snipers use a high min (they need distance to fire effectively).
+-- Default is computed from ef_weapon_type and ai_cover_sniper_min_dist / MIN_SUITABLE_ENEMY_DISTANCE.
+_G.CAI_Stalker__GetMinCombatDist = function(npc, base_min)
+	local flags = { ret_value = base_min }
+	SendScriptCallback("npc_on_get_min_combat_dist", npc, base_min, flags)
+	return flags.ret_value
+end
+AddScriptCallback("npc_on_get_min_combat_dist")
+
+-- NPC maximum combat engagement distance override
+-- Returns the maximum distance from enemy at which this NPC will accept a cover point.
+-- Shotgunners use a low max (close cover only). Default computed from ef_weapon_type.
+_G.CAI_Stalker__GetMaxCombatDist = function(npc, base_max)
+	local flags = { ret_value = base_max }
+	SendScriptCallback("npc_on_get_max_combat_dist", npc, base_max, flags)
+	return flags.ret_value
+end
+AddScriptCallback("npc_on_get_max_combat_dist")
+
 -- actor_on_task_callback
 AddScriptCallback("actor_on_task_callback")
 task_callback = task_manager.task_callback

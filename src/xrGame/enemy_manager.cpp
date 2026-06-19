@@ -440,6 +440,13 @@ void CEnemyManager::try_change_enemy()
 
 	if (selected() != previous_selected)
 		m_object->on_enemy_change(previous_selected);
+
+	if (selected() != previous_selected)
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnEnemySelected", funct))
+			funct(m_object->lua_game_object(), selected() ? selected()->lua_game_object() : nullptr);
+	}
 }
 
 void CEnemyManager::update()

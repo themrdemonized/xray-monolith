@@ -157,6 +157,8 @@ public:
 	// demonized: removecameffector by pointer
 	void RemoveCamEffector(CEffectorCam* ef);
 
+	void RemoveHudMotionEffectors();
+
 	ECamEffectorType RequestCamEffectorId();
 	EEffectorPPType RequestPPEffectorId();
 	CEffectorPP* GetPPEffector(EEffectorPPType type);
