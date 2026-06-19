@@ -1,0 +1,52 @@
+--- Picture in Picture scope options tree
+
+-- Import smart constructors
+options_builder.import_into(this)
+
+PAGE = page {
+	{ id = "pip" },
+
+	list_enum {
+		id = "r__svpscope",
+		content = {
+			"OFF",
+			"Eyepiece",
+			"Objective"
+		},
+	},
+	track {
+		id = "g_zoom_smooth",
+		def = 12,
+		min = 0,
+		max = 60,
+		step = 1,
+	},
+	track {
+		id = "g_zoom_analog",
+		def = 0,
+		min = 0,
+		max = 200,
+		step = 5,
+	},
+
+	line {},
+
+	track {
+		id = "r__svp_render_scale",
+		def = 1.0,
+		min = 0.4,
+		max = 1.0,
+		step = 0.05,
+	},
+	list_bool { id = "r__svp_dlss" },
+
+	line {},
+
+	track {
+		id = "r__scope_debug",
+		def = 0,
+		min = 0,
+		max = 4,
+		step = 1,
+	},
+}
