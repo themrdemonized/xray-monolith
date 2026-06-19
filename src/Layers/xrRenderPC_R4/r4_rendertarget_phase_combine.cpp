@@ -105,8 +105,9 @@ void CRenderTarget::phase_combine()
 	}
 
 	{
-		// Disable when rendering SecondViewport
-		if (!Device.m_SecondViewport.IsSVPFrame())
+		// pip AO + IL must run for the true-PiP SVP or its shadows go near-black (no ambient/indirect
+		// fill), the legacy fake-SVP frame still skips them (stock !IsSVPFrame) so off is unchanged
+		if (Device.true_pip_on || !Device.m_SecondViewport.IsSVPFrame())
 		{
 			// Clear RT
 			FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -334,14 +335,17 @@ void CRenderTarget::phase_combine()
 	else
 		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
-	if (RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
+	// pip the SVP runs SSR + water like the main view, off + legacy fake-SVP keep the stock skip,
+	// r_dsgraph_render_water keeps the shared mapWater for the next viewport (cleared below)
+	const bool svp_pass = Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp;
+	if (RImplementation.o.ssfx_ssr && (svp_pass || !Device.m_SecondViewport.IsSVPFrame()))
 	{
 		ssfx_PrevPos_Requiered = true;
 		phase_ssfx_ssr(); // [SSFX] - New SSR Phase
 	}
 
-	// [SSFX] - Water SSR rendering
-	if (RImplementation.o.ssfx_water && !Device.m_SecondViewport.IsSVPFrame())
+	// [SSFX] - Water SSR rendering, SVP included so the scope water reflects
+	if (RImplementation.o.ssfx_water && (svp_pass || !Device.m_SecondViewport.IsSVPFrame()))
 	{
 		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
@@ -381,8 +385,10 @@ void CRenderTarget::phase_combine()
 		u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
 
 	// Final water rendering ( All the code above can be omitted if the Water module isn't installed )
+	// pip the SVP renders the water surface but must NOT clear the shared mapWater (it runs before the
+	// main combine) so it keeps the list for the main pass which then clears it, off/main always clears
 	RCache.set_xform_world(Fidentity);
-	RImplementation.GMBase.r_dsgraph_render_water();
+	RImplementation.GMBase.r_dsgraph_render_water(!svp_pass);
 	
 	{
 		if (RImplementation.o.ssfx_rain)
@@ -519,18 +525,38 @@ void CRenderTarget::phase_combine()
 		phase_ssfx_fog_scattering();
 	}
 
-	if (RImplementation.o.ssfx_motionblur && ps_ssfx_motionblur.y > 0)
+	// pip with DLSS on, skip the SVP engine AA/post so rt_Generic_0$svp stays aliased + jittered for the
+	// eval (DLSS does its own reconstruction), main + off + gate-0 keep the stock AA path unchanged
+	const bool svp_dlss_skip_aa = (ps_r__svp_dlss != 0 && Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp);
+
+	// pip the SVP runs TAA before motion blur + the lens paint so it reprojects with the SVP's own
+	// motion vectors, the main view keeps its TAA at the end (below)
+	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0 &&
+		Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp && !svp_dlss_skip_aa)
+	{
+		phase_ssfx_taa();
+	}
+
+	if (RImplementation.o.ssfx_motionblur && ps_ssfx_motionblur.y > 0 && !svp_dlss_skip_aa)
 	{
 		phase_ssfx_motion_blur();
 	}
 
-	if (scope_3D_fake_enabled)
+	// pip composite the lens once on the MAIN view only, whenever a 3DSS scope is aimed under true_pip
+	// (magnified or a 1x reflex/eyepiece was captured), true_pip off keeps the stock scope_3D_fake_enabled gate
+	if (this == RImplementation.TargetMain
+		&& (scope_3D_fake_enabled
+			|| (Device.true_pip_on
+				&& (Device.m_SecondViewport.IsSVPActive()
+					|| !RImplementation.GMBase.RGraph.mapReflexHUDSorted.empty()
+					|| !RImplementation.GMBase.RGraph.mapScopeHUDSorted.empty()))))
 	{
-		phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
+		phase_3DSSReticle(); // Redotix99 3D Shader Based Scopes / pip true-PiP lens composite
 	}
 
-	//Compute blur textures
-	if (!Device.m_SecondViewport.IsSVPFrame()) // Temp fix for blur buffer and SVP
+	// Compute blur textures, pip run it for the SVP too so the scope lens is anti-aliased like the main
+	// view (its buffers are per-target), off keeps the stock !IsSVPFrame skip
+	if ((Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp && !svp_dlss_skip_aa) || !Device.m_SecondViewport.IsSVPFrame())
 		phase_blur();
 
 	//Compute bloom (new)
@@ -576,14 +602,16 @@ void CRenderTarget::phase_combine()
 	}
 
     //SMAA
-	if (ps_smaa_quality)
+	if (ps_smaa_quality && !svp_dlss_skip_aa) // pip skip on the DLSS SVP pass (eval reconstructs)
 	{
         //PIX_EVENT(SMAA);
         phase_smaa();
         RCache.set_Stencil(FALSE);
-    }    
+    }
 	
-	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0)
+	// main + off path TAA at the stock position (the true-PiP SVP ran its TAA early, above)
+	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0 &&
+		!(Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp))
 	{
 		phase_ssfx_taa();
 	}

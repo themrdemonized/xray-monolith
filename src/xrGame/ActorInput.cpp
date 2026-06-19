@@ -455,7 +455,10 @@ void CActor::IR_OnMouseMove(int dx, int dy)
 	const float LookFactor = GetLookFactor();
 
 	CCameraBase* C = cameras[cam_active];
-    float scale = (C->f_fov / g_fov) * (psMouseSens * sens_multiple) * psMouseSensScale / 50.f / LookFactor;
+	// pip when the SVP is active the main view stays wide, so first-eye sensitivity must track the SVP
+	// zoom fov instead of C->f_fov, off (no SVP) keeps the stock C->f_fov so mouse feel is unchanged
+	float fov = (cam_active == eacFirstEye && Device.m_SecondViewport.IsSVPActive()) ? currentFOV(true) : C->f_fov;
+    float scale = (fov / g_fov) * (psMouseSens * sens_multiple) * psMouseSensScale / 50.f / LookFactor;
 	if (dx)
 	{
 		float d = float(dx) * scale;

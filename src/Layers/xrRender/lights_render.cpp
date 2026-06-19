@@ -2,6 +2,9 @@
 #include "../../xrEngine/xr_object.h"
 #include "FBasicVisual.h"
 #include "SkeletonCustom.h"
+#include "../../Include/xrAPI/xrAPI.h"          // pip DRender, debug-line backend for r__scope_debug 3+
+#include "../../Include/xrRender/DebugRender.h" // pip IDebugRender::add_lines
+#include "xrRender_console.h"                   // pip scope_debug
 
 extern int ps_r2_shadow_omnipart_vischeck;
 
@@ -94,6 +97,13 @@ void CRender::render_lights(light_Package& LP)
 				if (!L->vis.visible)
 				{
 					RImplementation.stats.ls_shadowed_invisible_skipped++;
+					if (scope_debug >= 3)
+					{
+						// pip grey world direction/range vector for each culled shadowed light (r__scope_debug 3+)
+						Fvector v[2] = { L->position, Fvector(L->direction).mul(L->range).add(L->position) };
+						u16 idx[2] = { 0, 1 };
+						DRender->add_lines(v, 2, idx, 1, 0xff999999, false);
+					}
 					return true;
 				}
 
@@ -241,32 +251,41 @@ void CRender::render_lights(light_Package& LP)
 			{
 				PROF_EVENT("ACCUM_SPOT");
 				stats.ls_shadowed_rendered += (u32)L_spot_s.size();
-				for (light* L : L_spot_s)
+				// pip shared-shadow, this group's smaps are built on the main atlas, accumulate the
+				// group into the main viewport then replay it into the SVP (the hook re-points the atlas
+				// at the main maps so the SVP reads them, no second smap render)
+				auto accum_group = [&]
 				{
-					Target->accum_spot(L);
-					render_indirect(L);
-					if (L->flags.bVolumetric && RImplementation.o.advancedpp && ps_r2_ls_flags.is(R2FLAG_VOLUMETRIC_LIGHTS))
+					for (light* L : L_spot_s)
 					{
+						Target->accum_spot(L);
+						render_indirect(L);
+						if (L->flags.bVolumetric && RImplementation.o.advancedpp && ps_r2_ls_flags.is(R2FLAG_VOLUMETRIC_LIGHTS))
+						{
 #ifdef USE_DX11
-						float w = float(Device.dwWidth);
-						float h = float(Device.dwHeight);
+							float w = float(Device.dwWidth);
+							float h = float(Device.dwHeight);
 
-						if (RImplementation.o.ssfx_volumetric)
-							Target->set_viewport_size(HW.pContext, w / RImplementation.o.volsize, h / RImplementation.o.volsize);
+							if (RImplementation.o.ssfx_volumetric)
+								Target->set_viewport_size(HW.pContext, w / RImplementation.o.volsize, h / RImplementation.o.volsize);
 #endif
 
-						if (ps_pfx_volumetric_mode == 1)
-							Target->accum_volumetric_lv(L);
-						else
-							Target->accum_volumetric(L);
+							if (ps_pfx_volumetric_mode == 1)
+								Target->accum_volumetric_lv(L);
+							else
+								Target->accum_volumetric(L);
 
 #ifdef USE_DX11
-						// Restore resolution
-						if (RImplementation.o.ssfx_volumetric)
-							Target->set_viewport_size(HW.pContext, w, h);
+							// Restore resolution
+							if (RImplementation.o.ssfx_volumetric)
+								Target->set_viewport_size(HW.pContext, w, h);
 #endif
+						}
 					}
-				}
+				};
+				accum_group();
+				if (Device.m_SecondViewport.dual_accum)
+					Device.m_SecondViewport.dual_accum(accum_group);
 
 				L_spot_s.clear();
 			}
@@ -282,19 +301,25 @@ void CRender::render_lights(light_Package& LP)
 #if defined(USE_DX10) || defined(USE_DX11)
 			PIX_EVENT(POINT_LIGHTS_ACCUM_UNSH);
 #endif
-			// Point lighting (unshadowed, if left)
+			// Point lighting (unshadowed, if left), pip accumulate into both viewports (no smap)
 			if (!LP.v_point.empty())
 			{
-				for (light* L : LP.v_point)
+				auto accum_point = [&]
 				{
-					L->vis_update();
-					if (!L->vis.visible)
-						continue;
+					for (light* L : LP.v_point)
+					{
+						L->vis_update();
+						if (!L->vis.visible)
+							continue;
 
-					Target->accum_point(L);
-					++stats.ls_unshadowed_point_rendered;
-					render_indirect(L);
-				}
+						Target->accum_point(L);
+						++stats.ls_unshadowed_point_rendered;
+						render_indirect(L);
+					}
+				};
+				accum_point();
+				if (Device.m_SecondViewport.dual_accum)
+					Device.m_SecondViewport.dual_accum(accum_point);
 				LP.v_point.clear();
 			}
 		}
@@ -302,19 +327,25 @@ void CRender::render_lights(light_Package& LP)
 #if defined(USE_DX10) || defined(USE_DX11)
 			PIX_EVENT(SPOT_LIGHTS_ACCUM_UNSH);
 #endif
-			// Spot lighting (unshadowed, if left)
+			// Spot lighting (unshadowed, if left), pip accumulate into both viewports (no smap)
 			if (!LP.v_spot.empty())
 			{
-				for (light* L : LP.v_spot)
+				auto accum_spot = [&]
 				{
-					L->vis_update();
-					if (!L->vis.visible)
-						continue;
+					for (light* L : LP.v_spot)
+					{
+						L->vis_update();
+						if (!L->vis.visible)
+							continue;
 
-					Target->accum_spot(L);
-					++stats.ls_unshadowed_spot_rendered;
-					render_indirect(L);
-				}
+						Target->accum_spot(L);
+						++stats.ls_unshadowed_spot_rendered;
+						render_indirect(L);
+					}
+				};
+				accum_spot();
+				if (Device.m_SecondViewport.dual_accum)
+					Device.m_SecondViewport.dual_accum(accum_spot);
 				LP.v_spot.clear();
 			}
 		}

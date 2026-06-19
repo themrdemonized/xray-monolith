@@ -120,6 +120,7 @@ CWeapon::CWeapon()
 	m_APk = 1.0f;
 
 	m_zoom_params.m_fCurrentZoomFactor = g_fov;
+	m_zoom_params.m_fZoomTargetFactor = g_fov;
 	m_zoom_params.m_fZoomRotationFactor = 0.f;
 	m_zoom_params.m_pVision = NULL;
 	m_zoom_params.m_pNight_vision = NULL;
@@ -339,6 +340,12 @@ void CWeapon::UpdateZoomParams() {
 				m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, GetScopeName(), "scope_dynamic_zoom", false);
 				m_zoom_params.m_fMinBaseZoomFactor = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "min_scope_zoom_factor", 200.0f);
 				stepCount = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "zoom_step_count", 0);
+			} else {
+				// pip honor the scope's own zoom config on non-modular hosts too, OR in scope_dynamic_zoom
+				// (never disable what the weapon/upgrade enabled) and adopt the scope's min/step when present
+				m_zoom_params.m_bUseDynamicZoom = m_zoom_params.m_bUseDynamicZoom || READ_IF_EXISTS(pSettings, r_bool, GetScopeName(), "scope_dynamic_zoom", false);
+				m_zoom_params.m_fMinBaseZoomFactor = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "min_scope_zoom_factor", m_zoom_params.m_fMinBaseZoomFactor);
+				stepCount = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "zoom_step_count", stepCount);
 			}
 		} else
 		{
@@ -347,6 +354,23 @@ void CWeapon::UpdateZoomParams() {
 		if (stepCount == 0)
 			stepCount = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "zoom_step_count", 0);
 		m_zoom_params.m_fZoomStepCount = stepCount;
+	}
+
+	// pip recover a section-variant scope's max zoom, X-Ray's multi-parent merge lets the FIRST parent
+	// win so a base weapon's scope_zoom_factor=0 can override the scope's real value, only fires on the
+	// invalid (0) case and reads it back from the parent that still carries a valid one
+	if (m_zoom_params.m_bUseDynamicZoom && m_zoom_params.m_fScopeZoomFactor < 1.0f)
+	{
+		float recovered = 0.0f;
+		if (const RStringVec* parents = pSettings->get_section_parents(cNameSect()))
+			for (const shared_str& p : *parents)
+			{
+				float v = READ_IF_EXISTS(pSettings, r_float, p.c_str(), "scope_zoom_factor", 0.0f);
+				if (v >= 1.0f)
+					recovered = v; // last valid parent wins; the scope _s settings is the inheriting one
+			}
+		// 20.0 last-resort cap if no parent carries a usable value, so the lens still cannot break
+		m_zoom_params.m_fScopeZoomFactor = (recovered >= 1.0f ? recovered : 20.0f) / zoom_multiple;
 	}
 
 	if (IsZoomed()) {
@@ -502,9 +526,14 @@ void CWeapon::SetZoomType(u8 new_zoom_type)
     {
         funct(this->lua_game_object(), previous_zoom_type, m_zoomtype);
     }
+
+	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset on magnification change (logic thread)
+	UpdateSecondVP(); // pip re-evaluate SVP activation when the zoom type changes
 }
 
 extern float g_ironsights_factor;
+extern float g_zoom_smooth; // pip dynamic-scope zoom smoothing rate (xr_ioc_cmd.cpp)
+extern float g_zoom_analog; // pip dynamic-scope analog zoom granularity (xr_ioc_cmd.cpp)
 
 // new easing for hud_fov_aim_factor
 inline float easeInQuart(float x)
@@ -1333,6 +1362,24 @@ bool CWeapon::AllowBore()
 void CWeapon::UpdateCL()
 {
 	inherited::UpdateCL();
+
+	// pip ease the dynamic-scope zoom toward its scroll target so the view + reticle glide between
+	// magnification steps instead of snapping, scroll (ZoomInc/ZoomDec) moves m_fZoomTargetFactor and
+	// this catches the current factor up, g_zoom_smooth 0 = off (instant, the old stepped feel)
+	if (g_zoom_smooth > 0.f && m_zoom_params.m_bUseDynamicZoom && IsZoomed())
+	{
+		float& cur = m_zoom_params.m_fCurrentZoomFactor;
+		const float tgt = m_zoom_params.m_fZoomTargetFactor;
+		if (fsimilar(cur, tgt, 0.001f))
+			cur = tgt;
+		else
+		{
+			float a = g_zoom_smooth * Device.fTimeDelta;
+			if (a > 1.f) a = 1.f;
+			cur += (tgt - cur) * a;
+		}
+	}
+
 	UpdateHUDAddonsVisibility();
 	//ïîäñâåòêà îò âûñòðåëà
 	UpdateLight();
@@ -1403,7 +1450,10 @@ void CWeapon::EnableActorNVisnAfterZoom()
 
 bool CWeapon::need_renderable()
 {
-	return !Device.m_SecondViewport.IsSVPFrame() && !(IsZoomed() && ZoomTexture() && !IsRotatingToZoom());
+	// pip with an objective lens the weapon must render so the SVP sees it through the scope tube
+	bool svp_has_objective_lens = (scope_svp_enabled >= 2 && Device.m_SecondViewport.objective.radius > EPS);
+	bool not_in_scope = !Device.m_SecondViewport.IsSVPFrame() && !(IsZoomed() && ZoomTexture() && !IsRotatingToZoom());
+	return svp_has_objective_lens || not_in_scope;
 }
 
 void CWeapon::renderable_Render(IDSGraphManager* DM)
@@ -2109,6 +2159,8 @@ void CWeapon::OnZoomIn()
 	}
 
 	g_player_hud->updateMovementLayerState();
+
+	UpdateSecondVP(); // pip re-evaluate SVP activation on ADS-in
 }
 
 void CWeapon::OnZoomOut()
@@ -2120,6 +2172,7 @@ void CWeapon::OnZoomOut()
     }
     
 	m_zoom_params.m_fCurrentZoomFactor = g_fov;
+	m_zoom_params.m_fZoomTargetFactor = g_fov; // pip snap the smooth-zoom target on ADS-out
 
 	GamePersistent().RestoreEffectorDOF();
 
@@ -3231,47 +3284,85 @@ float CWeapon::GetMinScopeZoomFactor() const
 
 void CWeapon::ZoomInc()
 {
-	if (!IsScopeAttached()) return;
+	// pip do NOT gate on IsScopeAttached, section-variant / integrated scopes (scope_status 0, e.g. the
+	// DVL + razorhd) read their zoom from the weapon section and report no attached scope, which killed
+	// the scroll wheel on them, the dynamic-zoom check below is the real gate (false with no zoomable scope)
 	if (!m_zoom_params.m_bUseDynamicZoom) return;
+	const bool smooth = g_zoom_smooth > 0.f;
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+	// pip when smoothing, advance from the TARGET (the current factor is mid-glide) so rapid scrolls accumulate
+	float base = smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
 
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, base * power, m_zoom_params.m_fMinBaseZoomFactor);
 	} else {
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 	}
 
-	float f = GetZoomFactor() * power - delta;
-	if (useNewZoomDeltaAlgorithm)
-		f = GetZoomFactor() * power * delta;
+	float f;
+	if (g_zoom_analog > 0.f)
+	{
+		// pip continuous/analog, step by a fine fraction of the FOV range (ignoring the config step
+		// count + delta algorithm) so any magnification in the scope's range is reachable
+		float fine = (min_zoom_factor - m_zoom_params.m_fScopeZoomFactor * power) / g_zoom_analog;
+		f = base * power - fine;
+	}
+	else
+	{
+		f = base * power - delta;
+		if (useNewZoomDeltaAlgorithm)
+			f = base * power * delta;
+	}
 
 	clamp(f, m_zoom_params.m_fScopeZoomFactor * power, min_zoom_factor);
-	SetZoomFactor(f / power);
+	if (smooth)
+		m_zoom_params.m_fZoomTargetFactor = f / power; // pip target, UpdateCL eases the current factor toward it
+	else
+		SetZoomFactor(f / power);
 
 	m_fRTZoomFactor = GetZoomFactor() * power;
 }
 
 void CWeapon::ZoomDec()
 {
-	if (!IsScopeAttached()) return;
+	// pip do NOT gate on IsScopeAttached, section-variant / integrated scopes (scope_status 0, e.g. the
+	// DVL + razorhd) read their zoom from the weapon section and report no attached scope, which killed
+	// the scroll wheel on them, the dynamic-zoom check below is the real gate (false with no zoomable scope)
 	if (!m_zoom_params.m_bUseDynamicZoom) return;
+	const bool smooth = g_zoom_smooth > 0.f;
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+	// pip when smoothing, advance from the TARGET (the current factor is mid-glide) so rapid scrolls accumulate
+	float base = smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
 
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, base * power, m_zoom_params.m_fMinBaseZoomFactor);
 	} else {
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 	}
 
-	float f = GetZoomFactor() * power + delta;
-	if (useNewZoomDeltaAlgorithm)
-		f = GetZoomFactor() * power / std::max(delta, 0.001f);
+	float f;
+	if (g_zoom_analog > 0.f)
+	{
+		// pip continuous/analog, step by a fine fraction of the FOV range (ignoring the config step
+		// count + delta algorithm) so any magnification in the scope's range is reachable
+		float fine = (min_zoom_factor - m_zoom_params.m_fScopeZoomFactor * power) / g_zoom_analog;
+		f = base * power + fine;
+	}
+	else
+	{
+		f = base * power + delta;
+		if (useNewZoomDeltaAlgorithm)
+			f = base * power / std::max(delta, 0.001f);
+	}
 
 	clamp(f, m_zoom_params.m_fScopeZoomFactor * power, min_zoom_factor);
-	SetZoomFactor(f / power);
-	
+	if (smooth)
+		m_zoom_params.m_fZoomTargetFactor = f / power; // pip target, UpdateCL eases the current factor toward it
+	else
+		SetZoomFactor(f / power);
+
 	m_fRTZoomFactor = GetZoomFactor() * power;
 }
 
@@ -3301,21 +3392,49 @@ u32 CWeapon::Cost() const
 	return res;
 }
 
-float CWeapon::GetSecondVPFov() const
-{
-	if (m_zoom_params.m_bUseDynamicZoom && IsSecondVPZoomPresent())
-		return (m_fRTZoomFactor / 100.f) * g_fov;
-
-	return GetSecondVPZoomFactor() * g_fov;
-}
-
 void CWeapon::UpdateSecondVP()
 {
 	if (!(ParentIsActor() && (m_pInventory != NULL) && (m_pInventory->ActiveItem() == this)))
 		return;
 
 	CActor* pActor = smart_cast<CActor*>(H_Parent());
-	Device.m_SecondViewport.SetSVPActive(m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && m_zoom_params.m_fZoomRotationFactor > 0.05f);
+	if (!scope_svp_enabled)
+	{
+		// legacy fake-SVP, stock activation condition unchanged
+		Device.m_SecondViewport.SetSVPActive(m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && m_zoom_params.m_fZoomRotationFactor > 0.05f);
+		return;
+	}
+
+	// pip true SVP, the scope_debug force-path still needs IsZoomed so a debug cvar can't drive it off-ADS
+	Device.m_SecondViewport.SetSVPActive((scope_debug && IsSecondVPZoomPresent() && IsZoomed())
+		|| (m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && IsZoomed()));
+}
+
+// pip places the SVP camera on the scope eyepiece (or behind the objective lens for scope_svp_enabled 2)
+// returns false until the lens depth pass has derived the eyepiece (radius > EPS)
+bool CWeapon::GetSVPCameraMatrix(Fmatrix& camera)
+{
+	if (Device.m_SecondViewport.eyepiece.radius > EPS)
+	{
+		// guns are often mesh-scaled, so the eyepiece radius is the only reliable unit
+		Fvector4 o = Fvector4(scope_objective_lens_offset).mul(Device.m_SecondViewport.eyepiece.radius);
+
+		if (Device.m_SecondViewport.objective.radius < EPS)
+		{
+			// no objective captured, place the camera on the eyepiece
+			camera.set(Device.m_SecondViewport.eyepiece.m_W);
+			return true;
+		}
+
+		// move the camera back so min magnification fills the objective lens
+		auto l = o.w / tan(deg2rad(GetMinScopeZoomFactor() * 0.75) / 2.0);
+		o.z -= l;
+
+		camera.mul(Device.m_SecondViewport.eyepiece.m_W, Fmatrix().translate({o.x, o.y, o.z}));
+		return true;
+	}
+
+	return false;
 }
 
 Fmatrix CWeapon::RayTransform()

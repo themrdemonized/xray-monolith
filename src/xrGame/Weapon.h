@@ -15,6 +15,7 @@
 #include "CameraRecoil.h"
 
 #include "NewZoomFlag.h"
+#include "../Layers/xrRender/xrRender_console.h" // pip scope_svp_enabled for the SVP zoom accessors
 
 class CEntity;
 class ENGINE_API CMotionDef;
@@ -89,10 +90,17 @@ public:
 		return inherited::net_SaveRelevant();
 	}
 
-	float CWeapon::GetSecondVPFov() const;
 	IC float GetZRotatingFactor()    const { return m_zoom_params.m_fZoomRotationFactor; }
-	IC float GetSecondVPZoomFactor() const { return m_zoom_params.m_fSecondVPFovFactor; }
-	IC float IsSecondVPZoomPresent() const { return GetSecondVPZoomFactor() > 0.005f; }
+	// pip when scope_svp_enabled the SVP zoom comes from the live zoom factor, else the legacy scope_lense_fov key
+	IC float GetSecondVPZoomFactor() const { return scope_svp_enabled ? GetZoomFactor() : m_zoom_params.m_fSecondVPFovFactor; }
+	// pip on -> require a real captured scope lens, off -> the legacy fake-SVP presence test, unchanged
+	float IsSecondVPZoomPresent()
+	{
+		if (!scope_svp_enabled)
+			return GetSecondVPZoomFactor() > 0.005f;
+		Fmatrix tmp;
+		return GetSecondVPZoomFactor() > 0.005f && GetSVPCameraMatrix(tmp);
+	}
 
 	// Up
 	// Magazine system & etc
@@ -118,6 +126,7 @@ public:
 	virtual void HUD_VisualBulletUpdate(bool force = false, int force_idx = -1);
 
 	void UpdateSecondVP();
+	bool GetSVPCameraMatrix(Fmatrix& camera); // pip SVP camera from the captured scope lens
 
 	virtual void UpdateCL();
 	virtual void shedule_Update(u32 dt);
@@ -383,6 +392,7 @@ protected:
 		bool m_bZoomDofEnabled;
 		bool m_bIsZoomModeNow;
 		float m_fCurrentZoomFactor;
+		float m_fZoomTargetFactor; // pip smooth-zoom target, the current factor eases toward this (dynamic scopes)
 		float m_fZoomRotateTime;
 		float m_fBaseZoomFactor;
 		float m_fScopeZoomFactor;
@@ -435,6 +445,7 @@ public:
 	IC void SetZoomFactor(float f)
 	{
 		m_zoom_params.m_fCurrentZoomFactor = f;
+		m_zoom_params.m_fZoomTargetFactor = f; // pip keep the smooth-zoom target synced, only scroll (ZoomInc/Dec) pushes it ahead
 	}
 
 	virtual float CurrentZoomFactor();

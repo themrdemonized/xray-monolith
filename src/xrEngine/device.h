@@ -7,6 +7,9 @@
 //class ENGINE_API CResourceManager;
 //class ENGINE_API CGammaControl;
 
+#include <functional>
+#include <atomic>
+
 #include "pure.h"
 //#include "hw.h"
 #include "../xrcore/ftimer.h"
@@ -59,6 +62,11 @@ public:
 	// Engine flow-control
 	u32 dwFrame;
 
+	// cache-clear key, bumped per viewport in SVP mode
+	u32 dwViewport = 0;
+	// sampled once per frame from r__svpscope, gates the hybrid IsSVPFrame
+	bool true_pip_on = false;
+
 	float fTimeDelta;
 	float fTimeGlobal;
 	u32 dwTimeDelta;
@@ -104,6 +112,16 @@ public:
 	float fFOV;
 	float fASPECT;
 	float ViewportNear = 0.2f;
+
+	// per-viewport camera data, [0] = main, [1] = SVP
+	struct MatrixData
+	{
+		Fmatrix mView;
+		Fmatrix mProject;
+		Fmatrix mProjectHud;
+	};
+	MatrixData matrices[2];
+	MatrixData matrices_previous[2];
 protected:
 
 	u32 Timer_MM_Delta;
@@ -158,6 +176,42 @@ public:
 		{
 			frameDelay = iDelay;
 			clamp<u8>(frameDelay, 2, u8(-1));
+		}
+
+		// true PiP additions
+		struct Lens { Fmatrix m_W; float radius; };
+		Lens eyepiece;
+		Lens objective;
+		Fvector3 w_ffp;
+		Fvector3 w_sfp;
+
+		// pip DLSS-SR scaffolding, all inert at gate 0. cached SVP scene constants refreshed at the
+		// svpCamera tail (render thread, written then read same frame) for the eval inputs
+		float svp_near = 0.f, svp_far = 0.f, svp_fov = 0.f, svp_aspect = 1.f;
+		Fvector svp_cam_pos = {}, svp_up = {}, svp_right = {}, svp_fwd = {};
+		Fvector2 svp_jitter_px = {}; // raw sub-pixel jitter baked into matrices[1].mProject, {0,0} at gate 0
+		bool m_lens_prev_valid = false; // render-thread edge state for the lens-appears reset trigger
+		// history reset for the eval, set by the triggers (logic + render threads), consumed render-side
+		// at the seam via exchange, atomic because the logic-thread writers race the render-thread read
+		std::atomic<bool> dlss_reset_next{ false };
+
+		// set by the double-pass, read by the hybrid IsSVPFrame when true_pip is on
+		bool m_render_pass_is_svp = false;
+
+		// pip shared-shadow hook, called as accum(); if (dual_accum) dual_accum(accum), the lambda
+		// re-accumulates the shadow unit into the SVP, null for R2/R3 and when PiP is off
+		std::function<void(const std::function<void()>&)> dual_accum;
+
+		// objective lens screen-space box (50% screen, hardcoded for now)
+		Irect computeRect(float width, float height)
+		{
+			Fvector v = { width, height };
+			auto c = Fvector(v).mul(0.5f);
+			auto s = v.y * 0.5f;
+			auto hs = s * 0.5f;
+			auto min = Fvector(c).sub(hs);
+			auto max = Fvector(c).add(hs);
+			return { static_cast<int>(min.x), static_cast<int>(min.y), static_cast<int>(max.x), static_cast<int>(max.y) };
 		}
 	};	
 	
@@ -215,6 +269,7 @@ public:
 	}
 
 	void DumpResourcesMemoryUsage() { m_pRender->ResourcesDumpMemoryUsage(); }
+	void prepare_matrices();
 public:
 	// Registrators
 	//CRegistrator <pureRender > seqRender;
@@ -270,6 +325,10 @@ public:
 	Fmatrix mInvFullTransform;
 
 	CSecondVPParams m_SecondViewport;	//--#SM+#-- +SecondVP+
+
+	// SVP target is square, half the main height per side
+	u32 svp_width() { return svp_height(); }
+	u32 svp_height() { return dwHeight >> 1; }
 
 	//float fFOV;
 	//float fASPECT;

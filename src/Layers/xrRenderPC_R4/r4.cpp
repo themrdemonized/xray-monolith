@@ -10,6 +10,7 @@
 #include "../xrRender/dxRenderDeviceRender.h"
 #include "../xrRender/dxWallMarkArray.h"
 #include "../xrRender/dxUIShader.h"
+#include "../xrRender/xrRender_console.h" // r__shader_debug
 
 #include "../xrRenderDX10/3DFluid/dx103DFluidManager.h"
 #include "../xrRender/ShaderResourceTraits.h"
@@ -529,6 +530,8 @@ void CRender::create()
 	m_bMakeAsyncSS = false;
 
 	Target = xr_new<CRenderTarget>(); // Main target
+	TargetMain = Target;
+	TargetSVP = nullptr; // created lazily on first SVP use
 
 	Models = xr_new<CModelPool>();
 	PSLibrary.OnCreate();
@@ -553,9 +556,48 @@ void CRender::destroy()
 	HWOCC.occq_destroy();
 	xr_delete(Models);
 	xr_delete(Target);
+	TargetMain = nullptr;
+	xr_delete(TargetSVP); // pip: only non-null if an SVP pass ran
 	PSLibrary.OnDestroy();
 	Device.seqFrame.Remove(this);
 	Device.ModelDefferClear = nullptr;
+}
+
+// pip SVP scene render extent, EXACT svp_height at gate 0 (byte-identical to stock, no scale and no
+// even rounding), scaled + even-rounded for the upscaler only once the DLSS scaffolding is on
+u32 svp_render_extent()
+{
+	if (ps_r__svp_dlss == 0)
+		return Device.svp_height();
+	float eff = ps_r__svp_render_scale;
+	clamp(eff, 0.5f, 1.0f);
+	if (eff >= 1.0f)
+		return Device.svp_height(); // no downscale, full res so the eval is a pass-through (CopyResource)
+	u32 e = u32(Device.svp_height() * eff) & ~1u; // even side for the upscaler
+	if (e < 2)
+		e = 2;
+	return e;
+}
+
+// pip allocate the square SVP target the first time an SVP pass runs, with PiP off this is never
+// called so the SVP RTs cost nothing, the scene render uses svp_render_extent (display-res at gate 0)
+void CRender::EnsureTargetSVP()
+{
+	if (TargetMain)
+		TargetMain->EnsureScopeShaders(); // pip load the lens glue shaders on first aim (idempotent)
+	if (TargetSVP)
+	{
+		// pip recreate the SVP target if the DLSS gate flipped, the gbuffer (render extent) + rt_secondVP
+		// (UAV) only change at gate != 0, so a 0<->nonzero toggle rebuilds it here on the render thread
+		if ((ps_r__svp_dlss != 0) == TargetSVP->m_svp_dlss_built)
+			return;
+		xr_delete(TargetSVP);
+	}
+	u32 svp_side = svp_render_extent();
+	if (svp_side < 64)
+		svp_side = 64;
+	TargetSVP = xr_new<CRenderTarget>("svp", svp_side, svp_side);
+	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset, SVP surface (re)created incl. res change
 }
 
 void CRender::reset_begin()
@@ -570,6 +612,8 @@ void CRender::reset_begin()
 	//-AVO
 
 	xr_delete(Target);
+	TargetMain = nullptr;
+	xr_delete(TargetSVP); // pip: drop the SVP target across vid_restart, re-lazy-alloc after reset
 	HWOCC.occq_destroy();
 }
 
@@ -578,6 +622,7 @@ void CRender::reset_end()
 	HWOCC.occq_create(occq_size);
 
 	Target = xr_new<CRenderTarget>();
+	TargetMain = Target;
 
 	//AVO: let's reload details while changed details options on vid_restart
 	if (b_loaded && ((dm_current_size != dm_size) || (ps_r__Detail_density != ps_current_detail_density) || (
@@ -1990,7 +2035,9 @@ HRESULT CRender::shader_compile(
 		xr_strcat(file_name, temp_file_name);
 	}
 
-	if (FS.exist(file_name))
+	// r__shader_debug skips the cache read and recompiles, the cache is keyed by source CRC not flags
+	// so a cached optimized blob would otherwise shadow the debug build
+	if (!r__shader_debug && FS.exist(file_name))
 	{
 		IReader* file = FS.r_open(file_name);
 		if (file->length() > 4)
@@ -2013,6 +2060,10 @@ HRESULT CRender::shader_compile(
 		includer Includer;
 		LPD3DBLOB pShaderBuf = NULL;
 		LPD3DBLOB pErrorBuf = NULL;
+		// r__shader_debug emits debug info + skips optimization so RenderDoc can step the HLSL source
+		DWORD compileFlags = Flags;
+		if (r__shader_debug)
+			compileFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 		_result =
 			D3DCompile(
 				pSrcData,
@@ -2020,20 +2071,24 @@ HRESULT CRender::shader_compile(
 				"", //NULL, //LPCSTR pFileName,	//	NVPerfHUD bug workaround.
 				defines, &Includer, pFunctionName,
 				pTarget,
-				Flags, 0,
+				compileFlags, 0,
 				&pShaderBuf,
 				&pErrorBuf
 			);
 
 		if (SUCCEEDED(_result))
 		{
-			IWriter* file = FS.w_open(file_name);
+			// don't cache the debug blob, keyed by source CRC, it would later load as if it were a normal build
+			if (!r__shader_debug)
+			{
+				IWriter* file = FS.w_open(file_name);
 
-			u32 const crc = crc32(pShaderBuf->GetBufferPointer(), pShaderBuf->GetBufferSize());
+				u32 const crc = crc32(pShaderBuf->GetBufferPointer(), pShaderBuf->GetBufferSize());
 
-			file->w_u32(crc);
-			file->w(pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize());
-			FS.w_close(file);
+				file->w_u32(crc);
+				file->w(pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize());
+				FS.w_close(file);
+			}
 
 			_result = create_shader(pTarget, (DWORD*)pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize(),
 			                        file_name, result, o.disasm);

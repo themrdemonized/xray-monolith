@@ -501,7 +501,7 @@ void CCameraManager::ApplyDevice(float _viewport_near)
 	Device.fASPECT = m_cam_info.fAspect;
 	//--#SM+# Begin-- +SecondVP+
 	// Recalculate scene FOV for SecondVP frame
-	if (Device.m_SecondViewport.IsSVPFrame())
+	if (!Device.true_pip_on && Device.m_SecondViewport.IsSVPFrame())
 	{
 		// For the second viewport, set FOV from HUD shader constants
 		Device.fFOV = g_pGamePersistent->m_pGShaderConstants->hud_params.y;

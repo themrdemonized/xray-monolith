@@ -1,0 +1,39 @@
+// DO NOT EDIT, OR INCLUDE IN MODS
+
+#include "scope_common.h"
+
+// Forward declare functions for better error messages
+float scope_custom_depth(float4 hpos);
+#include "scope_custom_depth.h"
+
+// Add to surface depth to handle precision issues
+#define EPSILON 0.0001f
+
+// If >= 0, write a specific fixed depth
+//   used for setting near and far rendering distance
+uniform float scope_depth_value;
+
+struct PSOutput
+{
+    float4 g_position : SV_Target0;
+    float4 g_diffuse  : SV_Target1;
+    float4 g_velocity : SV_Target3;
+	float depth : SV_Depth; // TODO: Change to SV_DepthGreaterEqual
+};
+
+PSOutput main(v_out I)
+{
+    float depth = 
+        scope_phase & SCOPE_PHASE_CUSTOM_DEPTH ? scope_custom_depth(I.hpos)
+      : scope_phase & SCOPE_PHASE_DEPTHWRITE ? scope_depth_value
+      : I.hpos.z;
+   
+	PSOutput output;
+    output.depth = depth;
+
+    output.g_position = float4(0,0,depth,0);    // only care about depth
+    output.g_velocity = float4(0,0,1,1);
+    output.g_diffuse  = float4(0,0,0,1);
+        
+    return output;
+}

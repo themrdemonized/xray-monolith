@@ -38,3 +38,7 @@ compressor/mod/
 # emacs temp file
 \#*\#
 *~
+
+# local-only, kept out of the repo
+/tools/
+/docs/

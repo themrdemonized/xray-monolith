@@ -89,8 +89,32 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
 
-#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
-	switch (sh->flags.iScopeLense) {	
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes
+	// pip true-PiP scope capture, grab only the FIRST eyepiece lens (==3) for the SVP composite, and
+	// once the SVP is active drop the back-glass (==1) / zwrite (==2) since the SVP draws the whole lens
+	if (Device.true_pip_on && sh->flags.iScopeLense > 0)
+	{
+		if (sh->flags.iScopeLense == 3)
+		{
+			if (RGraph.mapScopeHUDSorted.empty())
+				RGraph.mapScopeHUDSorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			return;
+		}
+		if (sh->flags.iScopeLense == 10)
+		{
+			// dedup per visual, the HUD capture inserts the same reflex mesh many times per frame and
+			// draw_reflex would otherwise draw it hundreds of times
+			for (const auto& n : RGraph.mapReflexHUDSorted)
+				if (n.pVisual == pVisual)
+					return;
+			RGraph.mapReflexHUDSorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			return;
+		}
+		if (Device.m_SecondViewport.IsSVPActive())
+			return; // the SVP composite draws the whole lens, skip the back-glass / zwrite
+		// a fake / not-yet-active optic, fall through to the legacy ==1/==2 handling below
+	}
+	switch (sh->flags.iScopeLense) {
 		case 0:
 			break;
 

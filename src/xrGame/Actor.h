@@ -377,7 +377,8 @@ protected:
 	void cam_SetFreelook();
 	void cam_UnsetFreelook();
 	bool CanUseFreelook();
-	float currentFOV();
+	float currentFOV(bool wantSVPFov = false); // pip wantSVPFov true returns the zoomed fov, false keeps the main view wide while the SVP zooms
+	bool scopeCameraMatrix(Fmatrix& camera); // pip the active weapon's SVP camera, false if none
 
 	// Cameras
 	CCameraBase* cameras[eacMaxCam];

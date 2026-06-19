@@ -18,4 +18,9 @@ public:
 
 #endif	//	DEBUG
 
+// PIX_EVENT_F is implemented only on DX11/R4 (dx10EventWrapper.h), no-op here so shared files still build
+#ifndef PIX_EVENT_F
+#define PIX_EVENT_F(...)	{;}
+#endif
+
 #endif	//	dxPixEventWrapper_included

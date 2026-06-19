@@ -1,4 +1,8 @@
 #include "stdafx.h"
+#include "FBasicVisual.h" // pip dxRender_Visual (GetTexture/Render) for draw_scope
+#if defined(USE_DX11)
+#include "../../../gamedata/shaders/r3/scope_defines.h" // SCOPE_PHASE_* (kept in sync with the shader)
+#endif
 
 void CRenderTarget::phase_nightvision()
 {
@@ -199,8 +203,318 @@ void CRenderTarget::phase_heatvision()
 //--DSR-- HeatVision_start
 
 #if defined(USE_DX11)	//  Redotix99: for 3D Shader Based Scopes 		(sorry for using the nightvision phase file)
+// pip load the scope glue shaders lazily on first PiP use, they ship in the PiP mod (gamedata/shaders/r3)
+void CRenderTarget::EnsureScopeShaders()
+{
+	if (m_scope_shaders_ready)
+		return;
+	s_scope_color_write.create("scope_color_write");
+	s_scope_depth_write.create("scope_depth_write");
+	s_scope_debug.create("scope_debug");
+	m_scope_shaders_ready = true;
+}
+
+// pip r__scope_debug overlay, a top-left grid of the main + SVP views, their ssfx buffers (prev-frame,
+// prev-pos, motion vectors) and the shadow map, main viewport only, binds each $main/$svp RT by name
+void CRenderTarget::phase_scope_debug()
+{
+	if (!scope_debug || Device.m_SecondViewport.IsSVPFrame())
+		return;
+
+	EnsureScopeShaders();
+	if (!s_scope_debug)
+		return;
+
+	// snapshot the finished main view so the overlay can sample it without reading the RT it draws into
+	HW.pContext->CopyResource(rt_secondVP->pSurface, rt_Generic_0->pSurface);
+
+	auto M = RImplementation.TargetMain;
+	auto S = RImplementation.TargetSVP;
+	auto bind = [](LPCSTR name, ref_rt& rt)
+	{
+		if (!rt)
+			return;
+		ref_texture t;
+		t.create(name);
+		t->surface_set(rt->pTexture->surface_get());
+	};
+	bind("$user$viewport2$main", M->rt_secondVP);
+	bind("$user$ssfx_prev_p$main", M->rt_Position); // no MT prev-pos buffer, show the gbuffer position
+	bind("$user$ssfx_motion_vectors$main", M->rt_ssfx_motion_vectors);
+	bind("$user$ssfx_prev_frame$main", M->rt_ssfx_prev_frame);
+	bind("$user$smap_depth", M->rt_smap_depth);
+	if (S)
+	{
+		bind("$user$viewport2$svp", S->rt_secondVP);
+		bind("$user$ssfx_prev_p$svp", S->rt_Position);
+		bind("$user$ssfx_motion_vectors$svp", S->rt_ssfx_motion_vectors);
+		bind("$user$ssfx_prev_frame$svp", S->rt_ssfx_prev_frame);
+	}
+	// the bind cache keys on CTexture identity so the remaps above are invisible to it
+	RCache.Invalidate();
+
+	// draw onto the CURRENT target phase_combine left bound (the final LDR image), not a fresh RT or the
+	// following HUD/UI passes would render offscreen
+	RCache.set_CullMode(CULL_NONE);
+	RCache.set_Stencil(FALSE);
+
+	u32 Offset = 0;
+	u32 C = color_rgba(0, 0, 0, 255);
+	float d_Z = EPS_S;
+	float d_W = 1.0f;
+	float w = float(Device.dwWidth);
+	float h = float(Device.dwHeight);
+
+	// fullscreen triangle, the shader discards everything outside the top-left quarter grid
+	FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(3, g_combine->vb_stride, Offset);
+	pv->set(0, h * 2, d_Z, d_W, C, 0.f, 2.f); pv++;
+	pv->set(0, 0, d_Z, d_W, C, 0.f, 0.f); pv++;
+	pv->set(w * 2, 0, d_Z, d_W, C, 2.f, 0.f); pv++;
+	RCache.Vertex.Unlock(3, g_combine->vb_stride);
+
+	RCache.set_Geometry(g_combine);
+	RCache.set_Element(s_scope_debug->E[1]);
+	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
+}
+
+// pip stash the SVP combined color in rt_secondVP so the scope lens can sample it
+void CRenderTarget::phase_svp_capture()
+{
+	PIX_EVENT(PHASE_SCOPE_SVP_CAPTURE);
+	if (ps_r__svp_dlss != 0)
+	{
+		// pip DLSS seam, assemble the eval inputs from this SVP target + the cached constants + the
+		// exchanged reset flag, then run EvalSVP_DLSS (bilinear stub for now, the SL eval replaces it)
+		SvpDlssInputs in;
+		auto& vp = Device.m_SecondViewport;
+		in.viewport_id = 1; // stable SVP handle for DLSS history (main = 0), NOT the per-frame dwViewport
+		in.color_srv = rt_Generic_0->pTexture->get_SRView();
+		in.render_extent = { (u32)Width, (u32)Height };
+		in.depth_srv = rt_baseZB ? rt_baseZB->pTexture->get_SRView() : nullptr;
+		in.mvec_srv = rt_ssfx_motion_vectors->pTexture->get_SRView();
+		in.out_rtv = rt_secondVP->pRT;
+		in.out_uav = rt_secondVP->pUAView;
+		in.display_extent = { (u32)Width, (u32)Height }; // stub rt_secondVP follows the render extent, Ascii makes it display-res
+		in.view = Device.matrices[1].mView;
+		in.proj = Device.matrices[1].mProject;
+		in.view_proj.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
+		in.prev_view = Device.matrices_previous[1].mView;
+		in.prev_proj = Device.matrices_previous[1].mProject;
+		in.prev_view_proj.mul(Device.matrices_previous[1].mProject, Device.matrices_previous[1].mView);
+		in.jitter_px = vp.svp_jitter_px;
+		in.near_plane = vp.svp_near; in.far_plane = vp.svp_far; in.fov = vp.svp_fov; in.aspect = vp.svp_aspect;
+		in.cam_pos = vp.svp_cam_pos; in.up = vp.svp_up; in.right = vp.svp_right; in.fwd = vp.svp_fwd;
+		in.reset = vp.dlss_reset_next.exchange(false);
+		EvalSVP_DLSS(in);
+		return;
+	}
+	HW.pContext->CopyResource(rt_secondVP->pSurface, rt_Generic_0->pSurface);
+}
+
+// pip DLSS-SR eval, CURRENT body is a passthrough stub. TODO: Ascii replaces this whole body with the
+// Streamline SL eval, the SvpDlssInputs signature and the seam call are frozen, no sl::/NGX symbols here.
+// the stub keeps rt_secondVP at the SVP render extent so a straight copy works and the scope lens upscales
+// it to the on-screen lens (sharp at render_scale 1.0, soft below). Ascii makes rt_secondVP display-res +
+// UAV (out_rtv) and his eval reconstructs the display image into it
+void CRenderTarget::EvalSVP_DLSS(const SvpDlssInputs& in)
+{
+	// post-eval state restore (for the future SL eval, the stub needs none, no CS work): after a real eval
+	// call RImplementation.Target->SetActive(true) (RCache.Invalidate + full RT/ZB/SRV rebind, mirrors
+	// phase_3DSSReticle) then explicitly unbind CS SRV/UAV/shader, RCache does not track the CS stage
+	// (UNCONFIRMED, Ascii to verify), RCache is render-thread-local so the restore is single-threaded
+	HW.pContext->CopyResource(rt_secondVP->pSurface, rt_Generic_0->pSurface);
+}
+
+// pip render the captured lens meshes with shader se, the bind callback sets the scope_phase
+// (IMAGE/RETICLE/SHADOW/LENS) that scope_color_write composites into the lens
+void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
+{
+	auto elem = se ? se->E[0] : nullptr;
+	if (!elem)
+		return;
+
+	Fmatrix FTold = Device.mFullTransform;
+	Device.mFullTransform = Device.mFullTransformHud;
+	RCache.set_xform_project(Device.mProjectHud);
+	RImplementation.rmNear();
+
+	for (auto& N : RImplementation.GMBase.RGraph.mapScopeHUDSorted)
+	{
+		dxRender_Visual* V = N.pVisual;
+		if (!V || !N.pMatrix)
+			continue;
+
+		CTexture* tex = V->GetTexture();
+		// per-lens marker, names the reticle source texture so a capture shows which texture each
+		// scope_color_write draw samples as s_reticle (gated on r__gpu_markers)
+		PIX_EVENT_F("scope_lens tex=%s", tex ? tex->cName.c_str() : "none");
+		if (tex)
+			t_reticle->surface_set(tex->surface_get());
+
+		RCache.set_Element(elem);
+		RCache.set_xform_world(*N.pMatrix);
+		RImplementation.apply_object(N.pObject);
+		RImplementation.apply_lmaterial();
+
+		RCache.set_c("scope_svp", (int)Device.m_SecondViewport.IsSVPActive());
+		RCache.set_c("scope_debug", (int)scope_debug);
+		Fvector pt = {0, 0, 0};
+		Device.m_SecondViewport.eyepiece.m_W.transform(pt);
+		RCache.set_c("scope_w_eyepiece", pt.x, pt.y, pt.z, 1.0f);
+		const Fvector& w_ffp = Device.m_SecondViewport.w_ffp;
+		const Fvector& w_sfp = Device.m_SecondViewport.w_sfp;
+		RCache.set_c("scope_w_ffp", w_ffp.x, w_ffp.y, w_ffp.z, 1.0f);
+		RCache.set_c("scope_w_sfp", w_sfp.x, w_sfp.y, w_sfp.z, 1.0f);
+
+		bind();
+		V->Render(0);
+	}
+
+	RImplementation.rmNormal();
+	Device.mFullTransform = FTold;
+	RCache.set_xform_project(Device.mProject);
+}
+
+// pip render reflex-sight lenses (iScopeLense==10) with their own shaders, no-op for an eyepiece-only scope
+void CRenderTarget::draw_reflex()
+{
+	PIX_EVENT_F("RENDER_REFLEX_SIGHTS x%u", (u32)RImplementation.GMBase.RGraph.mapReflexHUDSorted.size());
+
+	Fmatrix FTold = Device.mFullTransform;
+	Device.mFullTransform = Device.mFullTransformHud;
+	RCache.set_xform_project(Device.mProjectHud);
+	RImplementation.rmNear();
+
+	for (auto& N : RImplementation.GMBase.RGraph.mapReflexHUDSorted)
+	{
+		if (!N.pVisual || !N.pSE || !N.pMatrix)
+			continue;
+		RCache.set_Element(N.pSE);
+		RCache.set_xform_world(*N.pMatrix);
+		RImplementation.apply_object(N.pObject);
+		RImplementation.apply_lmaterial();
+		N.pVisual->Render(0);
+	}
+
+	RImplementation.rmNormal();
+	Device.mFullTransform = FTold;
+	RCache.set_xform_project(Device.mProject);
+}
+
 void CRenderTarget::phase_3DSSReticle()
 {
+	PIX_EVENT(PHASE_SCOPE_RETICLE);
+
+	// pip reticle pipeline, draw_reflex (the red dot) runs at 1x and magnified, the eyepiece-lens
+	// composite only runs when the magnifier is engaged (IsSVPActive), true_pip off uses the legacy path
+	if (Device.true_pip_on)
+	{
+		EnsureScopeShaders(); // glue shaders (lazy)
+
+		const bool svp = Device.m_SecondViewport.IsSVPActive() && RImplementation.TargetSVP;
+		auto M = RImplementation.TargetMain;
+		auto S = RImplementation.TargetSVP;
+
+		// the scope shader reads generic2 as the gbuffer position for the holepunch/depth
+		HW.pContext->CopyResource(rt_Generic_2->pTexture->surface_get(), RImplementation.Target->rt_Position->pTexture->surface_get());
+
+		u_setrt(RImplementation.Target->rt_Generic_0, nullptr, RImplementation.Target->rt_Position, RImplementation.Target->baseZB);
+		RCache.set_CullMode(CULL_CCW);
+		RCache.set_Stencil(FALSE);
+		RCache.set_ColorWriteEnable();
+
+		draw_reflex(); // reflex / red dot, both 1x and magnifier
+
+		// composite the eyepiece lens when magnified or a 1x eyepiece was captured, magnified samples
+		// the SVP image, 1x / fake-PiP samples a main-frame copy, a pure reflex optic captures no ==3
+		if (svp || (!RImplementation.GMBase.RGraph.mapScopeHUDSorted.empty() && Device.m_SecondViewport.eyepiece.radius > EPS))
+		{
+			// fake-PiP, off-SVP the lens reads a copy of the finished main frame (magnified already filled rt_secondVP)
+			if (!svp)
+				HW.pContext->CopyResource(M->rt_secondVP->pSurface, M->rt_Generic_0->pSurface);
+
+			// JITTERFIX, cancel the TAA jitter in the VS so the lens edge has no ring
+			{ PIX_EVENT(SCOPE_PHASE_JITTERFIX); draw_scope(s_scope_color_write, []() { RCache.set_c("scope_phase", SCOPE_PHASE_JITTERFIX); }); }
+
+			// point the stock-named textures at this viewport's RTs, the SVP image when magnified else
+			// the main-frame copy + the main gbuffer (rt_Generic_2 already holds the copied position)
+			auto remap = [](LPCSTR name, ref_rt& target) {
+				ref_texture t;
+				t.create(name);
+				t->surface_set(target->pTexture->surface_get());
+			};
+			remap(r2_RT_secondVP, svp ? S->rt_secondVP : M->rt_secondVP);
+			remap(r2_RT_generic2, svp ? S->rt_Position : M->rt_Generic_2);
+			remap(r2_RT_heat,     svp ? S->rt_Heat : M->rt_Heat);
+			// invalidate so the IMAGE pass picks up the remapped surfaces (the bind cache keys on CTexture identity)
+			RCache.Invalidate();
+
+			u_setrt(M->rt_Generic_0, nullptr, M->rt_Position, M->baseZB);
+			RCache.set_CullMode(CULL_CCW);
+			RCache.set_Stencil(FALSE);
+			RCache.set_ColorWriteEnable();
+
+			// IMAGE, the magnified SVP scene (or the main frame under fake-PiP)
+			{ PIX_EVENT(SCOPE_PHASE_IMAGE);
+			draw_scope(s_scope_color_write, [svp]() {
+				RCache.set_c("scope_phase", SCOPE_PHASE_IMAGE);
+				auto ts = svp ? RImplementation.TargetSVP : RImplementation.TargetMain;
+				Fvector4 sr; sr.set((float)ts->Width, (float)ts->Height, 1.0f / (float)ts->Width, 1.0f / (float)ts->Height);
+				RCache.set_c("screen_res", sr);
+				auto tm = RImplementation.TargetMain;
+				Fvector4 outr; outr.set((float)tm->Width, (float)tm->Height, 1.0f / (float)tm->Width, 1.0f / (float)tm->Height);
+				RCache.set_c("output_res", outr);
+				// lens roll, project the objective up-vector to screen so the reticle stays upright
+				Fvector up = {0, 1, 0};
+				Device.m_SecondViewport.objective.m_W.transform_dir(up);
+				Device.mView.transform_dir(up);
+				up.z = 0.0f;
+				up.normalize();
+				float angle = acosf(up.dotproduct({0, 1, 0})) * (up.x > 0 ? 1.0f : -1.0f);
+				RCache.set_c("hack_tex_angle", angle);
+			});
+			}
+
+			// restore the stock textures for the reticle/shadow/lens draws
+			M->SetActive(true);
+			u_setrt(M->rt_Generic_0, nullptr, M->rt_Position, M->baseZB);
+			RCache.set_CullMode(CULL_CCW);
+			RCache.set_Stencil(FALSE);
+			RCache.set_ColorWriteEnable();
+
+			{ PIX_EVENT(SCOPE_PHASE_RETICLE); draw_scope(s_scope_color_write, []() { RCache.set_c("scope_phase", SCOPE_PHASE_RETICLE); }); }
+			{ PIX_EVENT(SCOPE_PHASE_SHADOW);  draw_scope(s_scope_color_write, []() { RCache.set_c("scope_phase", SCOPE_PHASE_SHADOW); }); }
+			{ PIX_EVENT(SCOPE_PHASE_LENS);    draw_scope(s_scope_color_write, []() { RCache.set_c("scope_phase", SCOPE_PHASE_LENS); }); }
+
+			// CUSTOM_DEPTH, let the scope override depth so DOF focuses on the lens image
+			{ PIX_EVENT(SCOPE_PHASE_CUSTOM_DEPTH);
+			u_setrt(RImplementation.Target->rt_Position, 0, 0, 0, RImplementation.Target->baseZB);
+			draw_scope(s_scope_depth_write, []() {
+				RCache.set_c("scope_phase", SCOPE_PHASE_DEPTHWRITE | SCOPE_PHASE_CUSTOM_DEPTH);
+				RCache.set_c("scope_depth_value", 1.0f);
+			});
+			}
+
+			// re-draw the reflex on top of the composited lens, the IMAGE pass painted over the first
+			// draw_reflex and the magnified image carries no reticle of its own, drawn at the main-view
+			// position so it lands centered in the lens
+			u_setrt(M->rt_Generic_0, nullptr, M->rt_Position, M->baseZB);
+			RCache.set_CullMode(CULL_CCW);
+			RCache.set_Stencil(FALSE);
+			RCache.set_ColorWriteEnable();
+			draw_reflex();
+		}
+
+		// clear the capture maps, nothing else clears them in the true_pip path and a stale entry would
+		// leave the lens floating after a weapon-model swap (deriveScopeLens already read them this frame)
+		RImplementation.GMBase.RGraph.mapScopeHUDSorted.clear();
+		RImplementation.GMBase.RGraph.mapReflexHUDSorted.clear();
+
+		u_setrt(RImplementation.Target->rt_Generic_0, RImplementation.Target->rt_Position, 0, HW.pBaseZB);
+		return;
+	}
+
+	// legacy 3D-fake / fake-SVP reticle, the stock path when true_pip is off
 	HW.pContext->CopyResource(rt_Generic_2->pTexture->surface_get(), RImplementation.Target->rt_Position->pTexture->surface_get());
 
 	HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());

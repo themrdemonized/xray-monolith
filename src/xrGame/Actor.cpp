@@ -1098,7 +1098,7 @@ void CActor::g_Physics(Fvector& _accel, float jump, float dt)
 float g_fov = 55.0f;
 extern float g_ironsights_factor;
 
-float CActor::currentFOV()
+float CActor::currentFOV(bool wantSVPFov)
 {
 	if (!psHUD_Flags.is(HUD_WEAPON | HUD_WEAPON_RT | HUD_WEAPON_RT2))
 		return g_fov;
@@ -1112,6 +1112,10 @@ float CActor::currentFOV()
 	{
 		if (pWeapon->GetZoomFactor() == 0)
 			return atan(tan(g_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180);
+		// pip when the SVP renders the zoom, the main view stays wide (the zoom lives in the scope image),
+		// wantSVPFov asks for the real zoomed fov (svpCamera, mouse sensitivity)
+		else if (Device.m_SecondViewport.IsSVPActive() && !wantSVPFov)
+			return g_fov;
 		else
 			return pWeapon->GetZoomFactor() * (0.75f);
 	}
@@ -1119,6 +1123,15 @@ float CActor::currentFOV()
 	{
 		return g_fov;
 	}
+}
+
+bool CActor::scopeCameraMatrix(Fmatrix& camera)
+{
+	CWeapon* pWeapon = smart_cast<CWeapon*>(inventory().ActiveItem());
+	if (pWeapon)
+		return pWeapon->GetSVPCameraMatrix(camera);
+	camera = Device.mInvView;
+	return false;
 }
 
 #include "UI\UIInventoryUtilities.h"

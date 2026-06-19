@@ -429,6 +429,29 @@ static class s3ds_param_4 : public R_constant_setup
 	}
 }    s3ds_param_4;
 
+// scope magnification (curMag/minMag/maxMag/fov), from the 3DSS Lua cvar or the engine fallback
+extern Fvector4 ps_shader_scope_params;
+extern float g_pip_scope_magnification;
+extern float g_pip_scope_min_mag;
+extern float g_pip_scope_max_mag;
+static class shader_scope_params : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		// when the 3DSS Lua set minMag (.y > 0) use the cvar, else fall back to the engine
+		// magnification range so variable reticles still animate with zoom
+		if (ps_shader_scope_params.y > 0.f)
+			RCache.set_c(C, ps_shader_scope_params.x, ps_shader_scope_params.y, ps_shader_scope_params.z, ps_shader_scope_params.w);
+		else
+		{
+			const float cur = g_pip_scope_magnification;
+			const float mn = (g_pip_scope_min_mag > 0.f) ? g_pip_scope_min_mag : cur;
+			const float mx = (g_pip_scope_max_mag > 0.f) ? g_pip_scope_max_mag : cur;
+			RCache.set_c(C, cur, mn, mx, 0.0f);
+		}
+	}
+}    shader_scope_params;
+
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
 {
@@ -1515,6 +1538,7 @@ void CBlender_Compile::SetMapping()
 	r_Constant("s3ds_param_2", &s3ds_param_2);
 	r_Constant("s3ds_param_3", &s3ds_param_3);
 	r_Constant("s3ds_param_4", &s3ds_param_4);
+	r_Constant("shader_scope_params", &shader_scope_params); // scope magnification
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);

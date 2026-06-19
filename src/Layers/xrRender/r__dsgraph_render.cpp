@@ -293,7 +293,17 @@ void CDSGraphManager::r_dsgraph_render_sorted_hud()
 {
 	PROF_EVENT("r_dsgraph_render_sorted_hud");
 #if	RENDER==R_R4
-	HW.pContext->CopyResource(RImplementation.Target->rt_Accumulator->pSurface, RImplementation.Target->rt_Generic_0->pSurface);
+	{
+		// guard the seed CopyResource, it is a silent no-op + debug-layer spam when accum and generic0
+		// formats mismatch (MSAA vs 1x, or HDR-off A8 vs A16F)
+		auto* dst = (ID3DTexture2D*)RImplementation.Target->rt_Accumulator->pSurface;
+		auto* src = (ID3DTexture2D*)RImplementation.Target->rt_Generic_0->pSurface;
+		D3D_TEXTURE2D_DESC dd, sd;
+		dst->GetDesc(&dd);
+		src->GetDesc(&sd);
+		if (dd.Format == sd.Format && dd.SampleDesc.Count == sd.SampleDesc.Count && dd.Width == sd.Width && dd.Height == sd.Height)
+			HW.pContext->CopyResource(dst, src);
+	}
 #endif
 	CHudInitializer initializer(true);
 
@@ -351,7 +361,7 @@ void CDSGraphManager::r_dsgraph_render_water_ssr()
 #endif
 }
 
-void CDSGraphManager::r_dsgraph_render_water()
+void CDSGraphManager::r_dsgraph_render_water(bool clearGraph)
 {
 	PROF_EVENT("r_dsgraph_render_water_ssr");
     std::sort(RGraph.mapWater.begin(), RGraph.mapWater.end());
@@ -378,7 +388,10 @@ void CDSGraphManager::r_dsgraph_render_water()
 
 		V->Render(calcLOD(N.ssa, V->vis.sphere.R));
 	}
-	RGraph.mapWater.clear();
+	// pip keep the shared captured water list for the next viewport, only the final (main) pass clears
+	// it, the SVP combine runs first and must not consume mapWater or the main loses its periphery water
+	if (clearGraph)
+		RGraph.mapWater.clear();
 }
 
 //////////////////////////////////////////////////////////////////////////

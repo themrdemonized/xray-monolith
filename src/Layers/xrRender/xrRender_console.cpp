@@ -5,6 +5,7 @@
 #include	"dxRenderDeviceRender.h"
 
 #include "../../build_config_defines.h"
+#include "Debug/renderdoc_app.h" // r__rdc_capture
 
 u32 ps_Preset = 2;
 xr_token qpreset_token [ ] = {
@@ -289,6 +290,16 @@ Fvector4 heat_vision_args_2 = { .0f, .0f, .0f, .0f };
 //crookr
 int scope_fake_enabled = 1;
 int scope_3D_fake_enabled = 0; // Redotix99: for 3D Shader Based Scopes
+int scope_svp_enabled = 0; // true PiP second viewport scope (0 off, 1 eyepiece, 2 objective)
+float ps_r__svp_render_scale = 1.0f; // SVP render scale, 1.0 keeps the dwHeight/2 per side
+int ps_r__svp_dlss = 0; // SVP DLSS-SR master gate, 0 = stock (render_scale inert), nonzero = scaffolding active
+Fvector4 scope_objective_lens_offset = { .0f, .0f, .0f, .0f };
+int scope_debug = 0;
+// RenderDoc instrumentation, default off
+// r__gpu_markers: per-batch GPU events + resource naming, runtime-toggleable
+// r__shader_debug: HLSL debug build (D3DCOMPILE_DEBUG, no optimization), needs a shaders_cache clear + reload
+int r__gpu_markers = 0;
+int r__shader_debug = 0;
 //string32 scope_fake_texture = "wpn\\wpn_crosshair_pso1";
 
 float ps_r2_ss_sunshafts_length = 1.f;
@@ -386,6 +397,10 @@ Fvector4 ps_s3ds_param_1 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_2 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
+Fvector4 ps_shader_scope_params = { 0, 0, 0, 0 }; // scope magnification (curMag/minMag/maxMag/fov), set by the 3DSS Lua
+float g_pip_scope_magnification = 0.f; // engine fallback magnification when the Lua has not set the cvar
+float g_pip_scope_min_mag = 0.f; // fallback min magnification (least zoom, widest fov) from hud_fov_params
+float g_pip_scope_max_mag = 0.f; // fallback max magnification (most zoom, narrowest fov)
 
 float hud_fov_aim_factor = 0;
 
@@ -697,6 +712,46 @@ public:
 				Msg("* material set to [%s]-[%s], with lerp of [%f]", name[m0], name[m1], frc);
 			}
 		}
+	}
+};
+
+// RenderDoc in-application capture trigger, no-op when RenderDoc is not attached
+// renderdoc.dll is only present in the process when the game is launched under RenderDoc
+static void rdc_trigger_capture(u32 frames)
+{
+	HMODULE mod = GetModuleHandleA("renderdoc.dll");
+	if (!mod)
+	{
+		Msg("~ r__rdc_capture: RenderDoc not attached (renderdoc.dll not loaded)");
+		return;
+	}
+
+	pRENDERDOC_GetAPI getApi = (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
+	if (!getApi)
+		return;
+
+	RENDERDOC_API_1_1_2* api = nullptr;
+	if (getApi(eRENDERDOC_API_Version_1_1_2, (void**)&api) != 1 || !api)
+		return;
+
+	if (frames > 1)
+		api->TriggerMultiFrameCapture(frames);
+	else
+		api->TriggerCapture();
+
+	Msg("~ r__rdc_capture: queued capture of %u frame(s)", frames > 1 ? frames : 1);
+}
+
+class CCC_RdcCapture : public IConsole_Command
+{
+public:
+	CCC_RdcCapture(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		u32 frames = 0;
+		sscanf(args, "%u", &frames);
+		rdc_trigger_capture(frames);
 	}
 };
 
@@ -1090,6 +1145,7 @@ void xrRender_initconsole()
 
 	// Common
 	CMD1(CCC_Screenshot, "screenshot");
+	CMD1(CCC_RdcCapture, "r__rdc_capture"); // trigger a RenderDoc frame capture, no-op without RenderDoc
 
 	//	Igor: just to test bug with rain/particles corruption
 	CMD1(CCC_RestoreQuadIBData, "r_restore_quad_ib_data");
@@ -1321,6 +1377,18 @@ void xrRender_initconsole()
 
 	CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1); //crookr for fake scope
 	CMD4(CCC_Integer, "r__3Dfakescope", &scope_3D_fake_enabled, 0, 1); // Redotix99: for 3D Shader Based Scopes
+#if defined(USE_DX11)
+	// true PiP scope cvars are DX11-only, do not register them on the DX10/9/8 renderers (the backing
+	// vars keep their 0 defaults so the shared code still reads them as off)
+	CMD4(CCC_Integer, "r__svpscope", &scope_svp_enabled, 0, 2);
+	CMD4(CCC_Float, "r__svp_render_scale", &ps_r__svp_render_scale, 0.4f, 1.0f); // takes effect on vid_restart
+	CMD4(CCC_Integer, "r__svp_dlss", &ps_r__svp_dlss, 0, 1); // SVP DLSS-SR scaffolding gate, 0 = stock
+	CMD4(CCC_Integer, "r__scope_debug", &scope_debug, 0, 4);
+#endif
+	CMD4(CCC_Integer, "r__gpu_markers", &r__gpu_markers, 0, 1); // per-batch events + resource names
+	CMD4(CCC_Integer, "r__shader_debug", &r__shader_debug, 0, 1); // HLSL debug build, clear shaders_cache + reload
+	// -gpu_markers / -shader_debug are forced on in execUserScript() after user.ltx loads
+	// forcing them at registration would be pointless, the config runs later and resets them
 
 	CMD4(CCC_Integer, "r__heatvision", &ps_r2_heatvision, 0, 1); //--DSR-- HeatVision
 	CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS); //Terrain Z Prepass @Zagolski
@@ -1358,6 +1426,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "shader_scope_params", &ps_shader_scope_params, tw2_min, tw2_max); // scope magnification
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
 	

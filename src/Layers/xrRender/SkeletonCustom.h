@@ -126,8 +126,8 @@ protected:
 	SkeletonWMVec wallmarks;
 	u32 wm_frame;
 	u32 CurrentFrame;
-	Fmatrix	Matrix_Prev;
-	Fmatrix Matrix_Temp;
+	Fmatrix	Matrix_Prev[2]; // per viewport (main, SVP)
+	Fmatrix Matrix_Temp[2];
 
 	// Globals
 	CInifile* pUserData;

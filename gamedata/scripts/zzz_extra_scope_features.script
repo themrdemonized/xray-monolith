@@ -1,0 +1,405 @@
+--[[ 
+to add magnifications via DLTX (check console after zooming weapon for names)
+
+section search priority is attached_scope, then item section
+magnifications takes a comma separated list of 
+exact zoom   : N
+variable zoom: M-N
+
+Anomaly equivalents \/
+scope_zoom_factor 15 , dynamic_zoom no  -> magnifications = 4
+scope_zoom_factor 7.5, dynamic_zoom yes -> magnifications = 1-8
+
+No anomaly equivalent \/
+toggle between exact zooms              -> magnifications = 2, 4, 8
+combination of the above                -> magnifications = 2-8, 16
+]]--
+
+local options = { -- Delay the zoom in until the optic is (near) centered 
+                  -- Gives the eye a distraction and may feel closer to pip
+                  only_zoom_when_rotated = false     
+
+                  -- makes dynamic zoom seem more like a dial, but feels detached/laggy
+                , use_linear_smoothzoom  = false    
+                }
+
+function scope_zoom_factor_to_magnification_3dss(szf)
+    if szf then
+        return szf < 1 and 1 or 120 / szf
+    end
+end
+
+local TO_RADIANS = 3.14159 / 180
+local TO_DEGREES = 1 / TO_RADIANS
+local PI = 3.14159;
+
+-- Find fov that would result in magnification in screen space
+--    if you change this, you must provide matching tc calculations in the shader
+function mag_to_fov(cur_fov, magnification)
+    return (2 * math.atan( math.tan(cur_fov/2) * (1/magnification) ))
+end
+
+function mag_between_fovs(x, y)
+    return 1 / (math.tan(y/2) / math.tan(x/2))
+end
+
+function fov_to_zoomfactor(fov)
+	return fov * TO_DEGREES / 0.75
+end
+
+function zoomfactor_to_fov(zf)
+	return zf * 0.75 * TO_RADIANS
+end
+
+local floatg = "(%d*%.?%d*)"
+
+local token = function(s) return "%s*" .. s end
+local p_mag   = token(floatg)
+local p_mag_dzoom = token(floatg) .. token("-") .. token(floatg)
+local p_mag_szoom = token(floatg) .. token(",") .. token(floatg)
+function parse_magnifications(str)
+    str = str:gsub("%s+", "")
+    local min,max = str:match(p_mag_dzoom)
+    if min and max then
+        return {min = tonumber(min), max = tonumber(max)}
+    end
+    
+    local min,max = str:match(p_mag_szoom)
+    if min and max then
+        return {min = tonumber(min), max = tonumber(max), zoom_step_count = 1}
+    end
+
+    local fixed = str:match(p_mag)
+    if fixed then
+        return {min = tonumber(fixed), max = tonumber(fixed)}
+    end
+
+    return nil
+end
+
+function read_3dss(o, section, alt)
+    local max = scope_zoom_factor_to_magnification_3dss(ini_sys:r_float_ex(section, alt and "scope_zoom_factor_alt" or "scope_zoom_factor"))
+    local min = scope_zoom_factor_to_magnification_3dss(ini_sys:r_float_ex(section, alt and "min_scope_zoom_factor_alt" or "min_scope_zoom_factor"))
+    local magnification = ini_sys:r_float_ex(section, alt and "magnification_alt" or "magnification")
+    local min_magnification = ini_sys:r_float_ex(section, alt and "min_magnification_alt" or "min_magnification")
+    local dzoomb = ini_sys:r_bool_ex(section, alt and "scope_dynamic_zoom_alt" or "scope_dynamic_zoom")
+    local dzooms = ini_sys:r_string_ex(section, alt and "scope_dynamic_zoom_alt" or "scope_dynamic_zoom")
+    local dzoom = dzoomb or (dzooms == "on")
+    local zoom_step_count = ini_sys:r_float_ex(section, "zoom_step_count")
+    local scope_objective_lens_offset = ini_sys:r_string_ex(section, "scope_objective_lens_offset")
+    local lewd_lens_hide_bone = ini_sys:r_string_ex(section, "lewd_lens_hide_bone")
+
+    local m = parse_magnifications(ini_sys:r_string_ex(section, "magnifications") or "")
+    if m and m.min and m.max then 
+        o.min = m.min or o.min
+        o.max = m.max or o.max
+        o.zoom_step_count = m.zoom_step_count or o.zoom_step_count
+    elseif magnification then
+        min_magnification = dzoom and (min_magnification or 1)
+                          or magnification
+        o.min = min_magnification and tonumber(min_magnification) or o.min
+        o.max = magnification and tonumber(magnification) or o.max
+    elseif max then
+        min = dzoom and (min or 1)
+            or max
+        o.min = min and tonumber(min) or o.min
+        o.max = max and tonumber(max) or o.max
+        o.legacy_config = true
+    end
+    o.zoom_step_count = zoom_step_count or o.zoom_step_count
+    o.scope_objective_lens_offset = scope_objective_lens_offset or o.scope_objective_lens_offset
+    o.lewd_lens_hide_bone = lewd_lens_hide_bone or o.lewd_lens_hide_bone
+    return o;
+end
+
+function _active_2d_scope()
+    local item = db.actor:active_item()
+    local weapon = item and item:cast_Weapon()
+    if weapon then 
+        if not weapon:IsZoomed() then
+            return nil
+        end
+        local zoomtype = weapon:GetZoomType()
+
+        local scope = zoomtype == 0 and utils_item.get_attached_scope(item)
+        local isAlt = zoomtype ~= 0
+
+        if isAlt then
+            return nil
+        end
+
+        local section = scope or item:section()
+        local r = {}
+        read_3dss(r, section, isAlt)
+        r.section = section
+        r.zoomtype = zoomtype
+
+        return r;
+    end
+end
+
+local property_cache = {}
+
+-- Taken from weapon_cover_tilt.script
+function IsBinoc(sec)
+	return 	SYS_GetParam(0, sec, "ammo_class", "") == "ammo_binoc"
+	or 		SYS_GetParam(0, sec, "class", "") == "WP_BINOC"
+end
+
+function active_2d_scope()
+    local item = db.actor:active_item()
+    local weapon = item and item:cast_Weapon()
+    local key = item and get_item_key(item)
+
+    if item and IsBinoc(item:section()) then
+        return -- Don't handle binoculars at all
+    end
+    if key and (weapon and weapon:IsZoomed()) then
+        if not property_cache[key] then
+            local r = _active_2d_scope()
+            if not r then
+                return nil
+            end
+            debug("New item seen: " .. key)
+            GetZoomFactor = function(self) 
+                return 60 / r.zoom_target 
+            end
+            r.key = key
+            r.zoom_current = 0
+            r.zoom_target = 0
+            property_cache[key] = r
+        end
+        return property_cache[key]
+    end
+end
+
+function get_item_key(item) 
+    local weapon = item and item:cast_Weapon()
+    if not weapon then
+        return nil
+    end
+    local id       = item:id()
+    local zoomtype = weapon:GetZoomType()
+    local section  = zoomtype == 0
+                        and utils_item.get_attached_scope(item)
+                        or  item:section()
+    local upgrades = ""
+
+    item:iterate_installed_upgrades(function(upgrade_section) upgrades = upgrades .. "+" .. upgrade_section end)
+    return id .. ":" .. zoomtype .. ":" .. section .. ":" .. upgrades
+end
+
+function current_magnification(info, wantTarget)
+    local isValid = info.zoom_target and info.zoom_current and info.min and info.max
+    return isValid and ((wantTarget and info.zoom_target or info.zoom_current) * (info.max - info.min) + info.min)
+        or nil
+end
+
+local last_key = nil
+function actor_on_update() 
+    
+    local item = db.actor:active_item()
+    local weapon = item and item:cast_Weapon()
+
+    local info = active_2d_scope()
+    if info and item and weapon then 
+        if last_key ~= info.key then
+            debug("Aim type changed: " .. (last_key or "nil") .. " -> " .. (info and info.key or "nil"))
+            last_key = info.key
+            print_optic_detail(info) 
+        end
+
+        local delta = device().f_time_delta           	
+        local src = clamp(10 * delta, 0, 1);
+        local dst = 1 - src;
+        info.zoom_current = info.zoom_current * dst + info.zoom_target * src;
+
+        local magnification = current_magnification(info)
+        if not magnification then
+            return
+        end
+
+        local min_magnification = info.min
+        local max_magnification = info.max
+
+        local scope_factor = get_console():get_float("scope_factor")
+        local is_svp = get_console():get_string("r__svpscope") ~= "0";
+
+        if is_svp then 
+            local player_fov = get_console():get_float("fov") * TO_RADIANS
+            local target_fov = mag_to_fov(player_fov, magnification)
+            weapon:SetZoomFactor(fov_to_zoomfactor(target_fov))
+            exec_console_cmd("shader_scope_params " .. magnification .. ", " .. min_magnification .. ", " .. max_magnification .. ", " .. -1.0)
+        else
+            local max_pip_magnification = (ui_mcm and ui_mcm.get("3d_scopes/zoom_factor")) or (1.0/scope_factor);
+            local pip_magnification = math.min( magnification
+                                              , max_pip_magnification)
+
+
+            local remaining_magnification = magnification / pip_magnification
+            
+            local player_fov = get_console():get_float("fov") * TO_RADIANS
+            local target_fov = mag_to_fov(player_fov, magnification)
+            
+
+            local fov_factor = mag_to_fov( player_fov
+                                         , remaining_magnification)
+
+            local zoom_factor  = options.only_zoom_when_rotated
+                and weapon:GetInertionAimFactor() > 0.001 and fov_to_zoomfactor(player_fov)
+                or fov_to_zoomfactor(fov_factor)
+            weapon:SetZoomFactor(zoom_factor)
+            exec_console_cmd("shader_scope_params " .. magnification .. ", " .. min_magnification .. ", " .. max_magnification .. ", " .. target_fov)
+        end
+    end
+end
+
+function isFixed(info, zc)
+    local cur = info.magnifications[math.floor(zc+0.01)]
+    return cur.l == cur.h
+end
+
+-- If wantClamp is false, the zoom will wrap.  Useful to support a "cycle zoom" keybind
+function change_zoom(info, direction, wantClamp)
+    if info then
+        local steps = info.zoom_step_count or get_console():get_float("zoom_step_count") or 100;   -- If it find neither, make it obvious that something is broken
+	    local delta = 1.0 / steps;
+
+        function clampOrWrap(v, min, max)
+            return wantClamp
+                and clamp(v, min, max)
+                or (v > max and min)
+                or (v < min and max)
+                or v
+        end
+
+        info.zoom_target_old = info.zoom_target;        
+        info.zoom_target = clamp(info.zoom_target + direction*delta, 0, 1);
+        debug("Zoom target %: %s", info.zoom_target)
+    end
+end
+
+function on_mouse_wheel(scroll_dir, flags) 
+    local info = active_2d_scope()
+    if info and current_magnification(info) and scroll_dir and (not actor_menu.inventory_opened())then
+        local i = get_console():get_bool("mouse_wheel_invert_zoom") and -1 or 1
+
+        change_zoom(info, i*(scroll_dir*2-1), true)
+
+        flags.ret_value = false
+    end
+end
+local mwheel_supported_ver	= 20230701
+local mwheel_avail 			= MODDED_EXES_VERSION and (MODDED_EXES_VERSION >= mwheel_supported_ver)
+
+function print_optic_detail(info) 
+    function f(n)
+        return n 
+            and (math.floor(n) == n
+                    and tostring(n)
+                    or string.format("%.1f", n))
+            or "nil"
+    end
+
+    local snap_type = info.zoom_step_count == 1 and "," or "-"
+    local mag_string = info.min == info.max and f(info.max)
+        or  f(info.min) .. snap_type .. f(info.max)
+
+    log( "Weapon".. (info.legacy_config and "[LEGACY]" or "") ..": " .. info.section
+         .. " | Magnification: " .. mag_string 
+         .. " | key: " .. info.key
+         .. " | objective-lens: " .. (info.scope_objective_lens_offset or "nil")
+        )
+end
+
+function disable_conflicting_scripts()
+    local drop = function(...) end
+    if scopes_as_binocs then
+        -- sets the zoom factor, which overrides our fixes
+        scopes_as_binocs.actor_on_update = drop
+    end
+    if zoomed_out_scope_draw then
+        zoomed_out_scope_draw.actor_on_weapon_zoom_in = drop
+        zoomed_out_scope_draw.actor_on_weapon_zoom_out = drop
+    end
+    if fakelens then 
+        fakelens.actor_on_update = drop
+    end
+
+    if zzz_mspizza_Godis_ZoomCalc then
+        zzz_mspizza_Godis_ZoomCalc.actor_on_weapon_zoom_in = drop;
+        zzz_mspizza_Godis_ZoomCalc.actor_on_weapon_zoom_type_changed = drop;
+
+    end
+
+    if zzz_mspizzaZoomCalc then
+        zzz_mspizzaZoomCalc.actor_on_weapon_zoom_in = function() end
+    end
+end
+
+function on_game_start()
+    if not get_console():get_string("scope_objective_lens_offset") then
+        printf("dev/svp exes not installed")
+        return
+    end
+    disable_conflicting_scripts()    
+
+    -- Allows mods like dynamic zoom click to work
+    CWeapon.GetZoomFactor = function(...)
+        local info = active_2d_scope()
+        if info then 
+            local current_mag = current_magnification(info, true)
+            local v = info and current_mag and (60 / current_mag) or 0
+            return v;
+        else 
+            return get_console():get_float("fov") / 0.75;
+        end
+    end
+
+	RegisterScriptCallback("actor_on_update", actor_on_update)
+    if mwheel_avail then
+		RegisterScriptCallback("on_mouse_wheel",on_mouse_wheel)
+	end
+
+    add_scope_radii('wpn_crosshair_bino', 1.0)
+
+    local last_info
+    RegisterScriptCallback("actor_on_weapon_zoom_out", function()
+        if last_info then
+            last_info.scope_objective_lens_offset = get_console():get_string("scope_objective_lens_offset")
+        end
+    end)
+
+    function aim_changed()
+        local info = active_2d_scope()
+        last_info = info
+        if info then
+            print_optic_detail(info)
+
+            exec_console_cmd("scope_objective_lens_offset " .. (info.scope_objective_lens_offset or "0,0,0,0"))
+
+
+            local item = db.actor:active_item()
+            local weapon = item and item:cast_Weapon()
+
+            actor_on_update()
+        end
+    end
+
+    RegisterScriptCallback("actor_on_weapon_zoom_in", aim_changed)
+    RegisterScriptCallback("actor_on_weapon_zoom_type_changed", aim_changed)
+end
+
+function debug(...)
+    if false and DEV_DEBUG then
+        printf(...)
+    end
+end
+
+function log(...)
+    printf(...)
+end
+
+function error(fmt, ...)
+    printf("ERROR: " .. fmt, ...)
+end

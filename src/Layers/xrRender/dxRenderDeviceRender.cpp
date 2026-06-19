@@ -407,13 +407,14 @@ void dxRenderDeviceRender::End()
 	}
 # endif
 
-	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady) {
+	// true PiP presents every frame, legacy suppresses on the hidden SVP frame
+	if (Device.true_pip_on || (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady)) {
 		HW.m_pSwapChain->Present(present_interval, present_flags);
 	}
 #else //!USE_DX10 || USE_DX11
 	CHK_DX(HW.pDevice->EndScene());
 
-	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady)
+	if (Device.true_pip_on || (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady))
 		HW.pDevice->Present(NULL, NULL, NULL, NULL);
 #endif //-USE_DX10
 	//HRESULT _hr		= HW.pDevice->Present( NULL, NULL, NULL, NULL );

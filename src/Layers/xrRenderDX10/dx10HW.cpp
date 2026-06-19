@@ -1507,5 +1507,12 @@ void CHW::UpdateViews()
     R_CHK(R);
 
     pDepthStencil->Release();
+
+#if defined(USE_DX11)
+    // snapshot the true swapchain RTV/DSV, re-run on resize, SetActive (R4) restores the main
+    // target from these so a clobbered pBaseRT from the SVP pass never sticks
+    secret_pBaseRT = pBaseRT;
+    secret_pBaseZB = pBaseZB;
+#endif
 }
 #endif

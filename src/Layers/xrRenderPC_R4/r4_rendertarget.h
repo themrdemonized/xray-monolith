@@ -1,8 +1,14 @@
 #pragma once
 
+#include <functional> // pip draw_scope phase bind callback
 #include "../xrRender/ColorMapManager.h"
 #include "../xrRender/light_db.h"
+#include "SvpDlss.h" // pip SVP DLSS-SR input contract
 class light;
+
+// pip SVP scene render extent for the color/depth/MV targets, full display-res (svp_height) at gate 0
+// so r__svp_render_scale is inert until the DLSS scaffolding is active (r__svp_dlss != 0)
+u32 svp_render_extent();
 
 //#define DU_SPHERE_NUMVERTEX 92
 //#define DU_SPHERE_NUMFACES	180
@@ -101,6 +107,14 @@ public:
 	xr_vector<Fplane>												dbg_planes;
 #endif
 
+	// PiP base RT/ZB, main = HW.secret_pBaseRT, SVP renders into its own rt_baseRT/baseZB
+	ID3D11RenderTargetView* baseRT;
+	ID3D11DepthStencilView* baseZB;
+	ref_rt rt_baseRT;
+	ref_rt rt_baseZB;
+	// SVP RTs are created $svp-suffixed and remapped over the stock names in SetActive
+	xr_vector<std::pair<ref_texture, ref_rt>> RenderTargetRemaps;
+
 	// MRT-path
 	ref_rt rt_Depth; // Z-buffer like - initial depth
 	ref_rt rt_MSAADepth; // z-buffer for MSAA deferred shading
@@ -163,6 +177,7 @@ public:
 	// env
 	ref_texture t_envmap_0; // env-0
 	ref_texture t_envmap_1; // env-1
+	ref_texture t_reticle; // pip per-lens reticle art bound for the scope color shader ($user$reticle)
 
 	// smap
 	ref_rt rt_smap_surf; // 32bit,		color
@@ -228,6 +243,15 @@ public:
 	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
 
 	ref_shader s_ssfx_dumb;
+
+	// pip scope lens glue shaders, created lazily (never at init) so a setup without the PiP mod is unaffected
+	ref_shader s_scope_color_write;
+	ref_shader s_scope_depth_write;
+	ref_shader s_scope_debug; // pip r__scope_debug on-screen multi-view inspector overlay
+	bool m_scope_shaders_ready = false;
+	bool m_svp_dlss_built = false; // pip this SVP target was built with the DLSS gate on (toggle-recreate key)
+	void EnsureScopeShaders();
+	void phase_scope_debug(); // pip draw the scope debug overlay (main+SVP views, ssfx, smap), main only
 
 	//	Igor: for async screenshots
 	ID3DTexture2D* t_ss_async; //32bit		(r,g,b,a) is situated in the system memory
@@ -391,8 +415,14 @@ private:
 	bool m_bHasActiveVolumetric;
 	bool m_bHasActiveVolumetric_spot;
 public:
+	// dims at creation, the SVP target is square so svpCamera reads these for its aspect
+	const u32 Width;
+	const u32 Height;
+
 	CRenderTarget();
+	CRenderTarget(LPCSTR name, u32 width, u32 height);
 	~CRenderTarget();
+	void SetActive(bool force = false);
 	void accum_point_geom_create();
 	void accum_point_geom_destroy();
 	void accum_omnip_geom_create();
@@ -427,6 +457,10 @@ public:
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
 	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
+	void phase_svp_capture(); // pip copy the SVP combined color into rt_secondVP for the lens to sample
+	void draw_scope(ref_shader se, std::function<void()> bind); // pip render the scope lens meshes forcing se per phase
+	void EvalSVP_DLSS(const SvpDlssInputs& in); // pip DLSS-SR eval, bilinear-passthrough stub for now (Task 7)
+	void draw_reflex(); // pip render reflex-sight lenses (mapReflexHUDSorted) with their own shaders
 	void phase_lut();
 	void phase_smaa();
 	void phase_scene_prepare();
