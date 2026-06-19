@@ -223,7 +223,8 @@ function actor_on_update()
         local max_magnification = info.max
 
         local scope_factor = get_console():get_float("scope_factor")
-        local is_svp = get_console():get_string("r__svpscope") ~= "0";
+        local svp = get_console():get_string("r__svpscope")
+        local is_svp = svp ~= nil and svp ~= "0"; -- nil = cvar hidden on DX9/DX10, treat as not SVP (same as "0")
 
         if is_svp then 
             local player_fov = get_console():get_float("fov") * TO_RADIANS
