@@ -544,6 +544,25 @@ void svpCamera()
 		near_plane = d;
 	}
 
+	// pip force the SVP camera up to world up so a canted scope renders upright, the optical axis (k) is
+	// kept, an upright scope is unchanged since its up already matches world up
+	{
+		Fvector fwd, wup, right, up;
+		fwd.set(m_W_svpcam.k.x, m_W_svpcam.k.y, m_W_svpcam.k.z);
+		fwd.normalize();
+		wup.set(0.f, 1.f, 0.f);
+		right.crossproduct(wup, fwd);
+		if (right.magnitude() > EPS_S)
+		{
+			right.normalize();
+			up.crossproduct(fwd, right);
+			up.normalize();
+			m_W_svpcam.i.x = right.x; m_W_svpcam.i.y = right.y; m_W_svpcam.i.z = right.z;
+			m_W_svpcam.j.x = up.x;    m_W_svpcam.j.y = up.y;    m_W_svpcam.j.z = up.z;
+			m_W_svpcam.k.x = fwd.x;   m_W_svpcam.k.y = fwd.y;   m_W_svpcam.k.z = fwd.z;
+		}
+	}
+
 	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // u32/u32 == 1 (square)
 
 	float fNearPlane_hud, fFarPlane_hud;

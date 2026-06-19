@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "xrRender_console.h"   // scope_debug, scope_objective_lens_offset
 #include "FBasicVisual.h"       // dxRender_Visual (PiP draw_scope)
+#include "SkeletonX.h"          // CSkeletonX (PiP lens bone skinning matrix)
 
 #if defined(USE_DX11)
 #include "../../../gamedata/shaders/r3/scope_defines.h" // SCOPE_PHASE_* (kept in sync with the shader)
@@ -296,12 +297,23 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void(R_dsgraph::mapS
 			p->eyepiece.radius = 0.f;
 			p->objective.radius = 0.f;
 
-			auto S = N.val.pVisual->getVisData().sphere;
+			// a skinned scope lens is positioned by its bone, the captured matrix is only the kinematics
+			// root, fold in the lens bone skinning matrix so the eyepiece follows the glass on ADS and sway
 			auto m_W = RCache.get_xform_world();
-			m_W.mulB_43(Fmatrix().translate(S.P));
+			if (CSkeletonX* sk = fast_dynamic_cast<CSkeletonX*>(N.val.pVisual))
+			{
+				Fmatrix boneR;
+				if (sk->SVP_LensBoneXform(boneR))
+					m_W.mulB_43(boneR);
+			}
+
+			auto& Vd = V->getVisData();
+			Fvector c;
+			Vd.box.getcenter(c); // AABB center fits a flat lens disc tighter than the bounding sphere center
+			m_W.mulB_43(Fmatrix().translate(c));
 
 			p->eyepiece.m_W = m_W;
-			p->eyepiece.radius = S.R;
+			p->eyepiece.radius = Vd.sphere.R;
 
 			if (p->eyepiece.radius > EPS)
 			{

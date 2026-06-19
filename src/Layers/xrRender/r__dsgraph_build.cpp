@@ -49,17 +49,40 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 			// scope-depth-write reads mapScopeHUDSorted[0] to derive the eyepiece that flips IsSVPActive
 			if (RImplementation.Target->bCaptureScopeLens)
 			{
-				if (sh->flags.iScopeLense == 3 && mapScopeHUDSorted.empty())
+				if (sh->flags.iScopeLense == 3)
 				{
-					float distSQ;
-					float SSA = CalcSSA(distSQ, Center, pVisual);
-					mapSorted_Node N;
-					N.val.ssa = 0;
-					N.val.pObject = RI.val_pObject;
-					N.val.pVisual = pVisual;
-					N.val.Matrix = *RI.val_pTransform;
-					N.val.se = sh; // also read by the legacy lens render, unused by gc64 draw_scope
-					mapScopeHUDSorted.push_back(N);
+					// a scope can flag several lens surfaces (objective + ocular), keep the one in front of the
+					// eye and nearest it (the ocular the player looks through) so the SVP camera does not flip
+					auto& M = mapScopeHUDSorted;
+					Fvector lp, to;
+					RI.val_pTransform->transform_tiny(lp, pVisual->getVisData().sphere.P);
+					to.sub(lp, Device.vCameraPosition);
+					const float in_front = to.dotproduct(Device.vCameraDirection);
+					const float score = (in_front > 0.f) ? to.square_magnitude() : (to.square_magnitude() + 1.0e6f);
+
+					bool keep = M.empty();
+					if (!keep)
+					{
+						auto& f = M.front();
+						Fvector ep, te;
+						f.val.Matrix.transform_tiny(ep, f.val.pVisual->getVisData().sphere.P);
+						te.sub(ep, Device.vCameraPosition);
+						const float fscore = (te.dotproduct(Device.vCameraDirection) > 0.f) ? te.square_magnitude() : (te.square_magnitude() + 1.0e6f);
+						keep = score < fscore;
+					}
+					if (keep)
+					{
+						M.clear();
+						float distSQ;
+						float SSA = CalcSSA(distSQ, Center, pVisual);
+						mapSorted_Node N;
+						N.val.ssa = 0;
+						N.val.pObject = RI.val_pObject;
+						N.val.pVisual = pVisual;
+						N.val.Matrix = *RI.val_pTransform;
+						N.val.se = sh;
+						M.push_back(N);
+					}
 				}
 				else if (sh->flags.iScopeLense == 10)
 				{

@@ -99,6 +99,7 @@ protected:
 	                       u16 bone_id, u32 iBase, u32 iCount) =0;
 public:
 	BOOL has_visible_bones();
+	bool SVP_LensBoneXform(Fmatrix& out); // pip lens bone object-space skinning matrix for the SVP eyepiece
 
 	//--DSR-- SilencerOverheat_start
 	BOOL has_bone_id(u16 bone_id)
