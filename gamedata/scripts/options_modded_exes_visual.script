@@ -4,6 +4,7 @@ local page_ui_hud = options_modded_exes_ui_hud.PAGE
 local page_crosshair = options_modded_exes_crosshair.PAGE
 local page_hdr10 = options_modded_exes_hdr10.PAGE
 local page_3d_scopes = options_modded_exes_3d_scopes.PAGE
+local page_pip = options_modded_exes_pip.PAGE
 local page_particles = options_modded_exes_particles.PAGE
 local page_graphics = options_modded_exes_graphics.PAGE
 
@@ -17,6 +18,7 @@ GROUP = group {
 	page_ui_hud,
 	page_crosshair,
 	page_3d_scopes,
+	page_pip,
 	page_particles,
 	page_hdr10,
 }
