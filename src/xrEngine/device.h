@@ -195,6 +195,7 @@ public:
 		// pass turns it into a black crescent that grows on the side your aim has wandered off-axis
 		Fvector4 svp_eyebox = { 0.f, 0.f, 0.f, 0.f };
 		Fvector svp_bore_fwd = {}; // true (un-stabilized) lens forward, captured before the Stage-1 reduction
+		Fvector svp_smooth_fwd = {}; // pip recoil smoothing, low pass EMA of the SVP camera forward to filter recoil shake
 
 		bool dlss_reset_next = false; // history reset for the eval, set by the triggers, read+cleared at the seam
 	};

@@ -366,6 +366,35 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void(R_dsgraph::mapS
 					}
 				}
 
+				// pip recoil smoothing, low pass the SVP camera forward so high frequency recoil shake from any
+				// source (including add_cam_effector recoil mods that recoil_comp can't see) is filtered out of
+				// the magnified view, orientation only, EMA toward the smoothed forward, resets on a big jump
+				extern float ps_r__svp_recoil_smooth;
+				if (ps_r__svp_recoil_smooth > EPS)
+				{
+					Fvector cf; cf.set(p->eyepiece.m_W.k); cf.normalize();
+					Fvector& sf = p->svp_smooth_fwd;
+					if (sf.magnitude() < EPS_S || sf.dotproduct(cf) < 0.9f)
+						sf.set(cf); // first frame, or a big jump (weapon switch or scoping back in), no catch up
+					else
+					{
+						const float tau = 0.35f * ps_r__svp_recoil_smooth; // larger = harder low pass, more lag
+						float a = (tau > EPS) ? Device.fTimeDelta / tau : 1.f;
+						if (a > 1.f) a = 1.f;
+						Fvector tgt; tgt.lerp(sf, cf, a); sf.set(tgt); sf.normalize();
+					}
+					Fvector wup = {0.f, 1.f, 0.f}, right, up;
+					right.crossproduct(wup, sf);
+					if (right.magnitude() > EPS_S)
+					{
+						right.normalize();
+						up.crossproduct(sf, right); up.normalize();
+						p->eyepiece.m_W.i.set(right);
+						p->eyepiece.m_W.j.set(up);
+						p->eyepiece.m_W.k.set(sf);
+					}
+				}
+
 				// Guns often have their mesh directly scaled, so the lens is the only reliable
 				// unit of measurement, derive the objective lens from it
 				Fvector4 o = Fvector4(scope_objective_lens_offset).mul(p->eyepiece.radius);
