@@ -475,6 +475,63 @@ void CRenderTarget::phase_3DSSReticle()
 			});
 			}
 
+			// pip additive lens FX, redraw the lens mesh over the composited disc with edge chromatic
+			// aberration, barrel distortion and exit-pupil dimming, a NEW PiP shader that never touches
+			// 3DSS. two passes ping-pong rt_Generic_0 <-> rt_Generic_temp so no RT is sampled while bound
+			// for output (no CopyResource from a live RT), gated, off leaves the composited disc untouched
+			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !s_scope_lensfx)
+				s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
+			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && s_scope_lensfx)
+			{
+				extern float g_pip_scope_magnification;
+				const float mag = g_pip_scope_magnification;
+				const float st = ps_r__svp_lensfx ? ps_r__svp_lensfx_strength : 0.f; // lens FX off but eye-box on -> no tunnel/blur
+				// exit-pupil global dim, brightness falls as (REF/mag)^2 (the exit pupil shrinks with zoom),
+				// clamped to a usable floor and scaled by strength (1.0 at st 0)
+				const float REF = 4.0f;
+				float ep = (REF * REF) / (mag * mag);
+				if (ep > 1.0f) ep = 1.0f; else if (ep < 0.40f) ep = 0.40f;
+				ep = 1.0f + (ep - 1.0f) * st;
+				// screen_res is stateful, the IMAGE pass left it at the SVP res, this pass samples a
+				// main-sized RT with main-frame pixel coords, so reset it to the main target res
+				const float sw = (float)M->Width, sh = (float)M->Height;
+				ref_texture src;
+				src.create("$user$pip_lensfx_src");
+
+				// pass 1, FX the disc into the scratch RT sampling the live composited frame
+				src->surface_set(M->rt_Generic_0->pTexture->surface_get());
+				RCache.Invalidate();
+				u_setrt(M->rt_Generic_temp, nullptr, nullptr, M->baseZB);
+				RCache.set_CullMode(CULL_CCW);
+				RCache.set_Stencil(FALSE);
+				RCache.set_ColorWriteEnable();
+				draw_scope(s_scope_lensfx, [ep, st, sw, sh, mag]() {
+					RCache.set_c("scope_phase", 0); // scope_vertex.vs only jitters hpos under JITTERFIX, keep it clean
+					RCache.set_c("screen_res", sw, sh, 1.0f / sw, 1.0f / sh);
+					// lens model constants, all live cvars. params: CA, barrel, tunnel floor, exit-pupil
+					RCache.set_c("lensfx_params",  ps_r__svp_lens_ca, ps_r__svp_lens_distort, ps_r__svp_lens_floor, ep);
+					RCache.set_c("lensfx_params2", mag, ps_r__svp_lens_vigk, ps_r__svp_lens_refmag, st);
+					RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, 0.0f, 0.0f, 0.0f);
+					// dynamic eye-box crescent: xy = engine-computed bore-vs-aim drift, z = strength (r__svp_eyebox), w = gain
+					const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
+					RCache.set_c("lensfx_eyebox", eb.x, eb.y, ps_r__svp_eyebox, ps_r__svp_eyebox_shift);
+					RCache.set_c("lensfx_ctrl", 0.0f, 0.0f, 0.0f, 0.0f);
+				});
+
+				// pass 2, copy the FX'd disc back into the main frame sampling the scratch RT
+				src->surface_set(M->rt_Generic_temp->pTexture->surface_get());
+				RCache.Invalidate();
+				u_setrt(M->rt_Generic_0, nullptr, nullptr, M->baseZB);
+				RCache.set_CullMode(CULL_CCW);
+				RCache.set_Stencil(FALSE);
+				RCache.set_ColorWriteEnable();
+				draw_scope(s_scope_lensfx, [sw, sh]() {
+					RCache.set_c("scope_phase", 0); // keep hpos un-jittered for the copy-back too
+					RCache.set_c("screen_res", sw, sh, 1.0f / sw, 1.0f / sh);
+					RCache.set_c("lensfx_ctrl", 1.0f, 0.0f, 0.0f, 0.0f);
+				});
+			}
+
 			// restore the stock textures for the reticle/shadow/lens draws
 			M->SetActive(true);
 			u_setrt(M->rt_Generic_0, nullptr, M->rt_Position, M->baseZB);

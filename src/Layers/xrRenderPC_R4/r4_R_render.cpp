@@ -202,6 +202,10 @@ void svpCamera()
 		}
 	}
 
+	// pip steady-scope stabilization is applied earlier in deriveScopeLens, to the shared eyepiece/
+	// objective transforms, so the SVP camera (m_W_svpcam, from eyepiece.m_W) and the focal-plane
+	// sampling are reduced consistently and never drift apart (the cause of the earlier black ring)
+
 	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // square == 1
 
 	float fNearPlane_hud, fFarPlane_hud;
@@ -237,6 +241,13 @@ void svpCamera()
 		vp.svp_right = m_W_svpcam.i;
 		vp.svp_up = m_W_svpcam.j;
 		vp.svp_fwd = m_W_svpcam.k;
+
+		// pip eye-box drift, the true bore vs the aim as a screen-space offset (tan units). project the
+		// captured true bore into the main view, perspective-divide -> NDC offset from center (0 on aim)
+		Fvector bv; bv.set(vp.svp_bore_fwd);
+		Device.matrices[0].mView.transform_dir(bv); // world -> view space
+		const float bz = (bv.z > EPS) ? bv.z : EPS;
+		vp.svp_eyebox.set(bv.x / bz, bv.y / bz, ps_r__svp_eyebox, 0.f);
 	}
 }
 
@@ -307,6 +318,65 @@ void CRender::deriveScopeLens()
 
 		if (p->eyepiece.radius > EPS)
 		{
+			// pip capture the true bore (lens forward) before any stabilization reduces it, for the
+			// dynamic eye-box shadow (the optic's off-axis amount = this true bore vs the player aim)
+			p->svp_bore_fwd.set(p->eyepiece.m_W.k); p->svp_bore_fwd.normalize();
+
+			// pip steady-scope, scale down the magnified weapon sway by blending the lens orientation
+			// toward the player aim, applied to the eyepiece BEFORE the objective and focal planes derive
+			// from it so the SVP camera and the disc sampling stay consistent (no content-vs-sampling
+			// mismatch, the cause of the earlier black ring). instant blend, no temporal lag, off is 1:1
+			if (ps_r__svp_stabilize > EPS)
+			{
+				const float keep = 1.0f - ps_r__svp_stabilize; // fraction of the real sway retained
+				Fvector aim; aim.set(Device.vCameraDirection); aim.normalize();
+				Fvector f; f.set(p->eyepiece.m_W.k); f.normalize();
+				f.lerp(aim, f, keep); f.normalize(); // blend bone forward toward aim
+				Fvector wup = {0.f, 1.f, 0.f}, right, up;
+				right.crossproduct(wup, f);
+				if (right.magnitude() > EPS_S)
+				{
+					right.normalize();
+					up.crossproduct(f, right); up.normalize();
+					p->eyepiece.m_W.i.set(right);
+					p->eyepiece.m_W.j.set(up);
+					p->eyepiece.m_W.k.set(f);
+				}
+			}
+
+			// pip recoil-steady scope: during fire the SVP renders from the weapon bone, which carries the
+			// weapon's own recoil ANIMATION on top of the camera recoil, so a PiP scope jumps far more than a
+			// 3D-shader scope (just the main view magnified) and you cannot see. pull the SVP camera
+			// (orientation AND position) toward the MAIN camera in proportion to the live recoil, so the scope
+			// tracks your view like a shader scope. SVP-only, the real recoil is untouched (recoil mods safe).
+			// blended on the eyepiece like the stabilization so the SVP camera and the disc sampling stay consistent
+			extern float g_pip_recoil_vert, g_pip_recoil_horz;
+			if (ps_r__svp_recoil_comp > EPS)
+			{
+				const float REF = 0.06f; // recoil angle (rad) at which the scope fully follows the view
+				float rmag = _sqrt(g_pip_recoil_vert * g_pip_recoil_vert + g_pip_recoil_horz * g_pip_recoil_horz);
+				float blend = (rmag / REF) * ps_r__svp_recoil_comp;
+				if (blend > 1.f) blend = 1.f;
+				if (blend > EPS)
+				{
+					Fvector aimf; aimf.set(Device.vCameraDirection); aimf.normalize();
+					Fvector f;    f.set(p->eyepiece.m_W.k); f.normalize();
+					Fvector nf;   nf.lerp(f, aimf, blend); nf.normalize();
+					Fvector wup = {0.f, 1.f, 0.f}, right, up;
+					right.crossproduct(wup, nf);
+					if (right.magnitude() > EPS_S)
+					{
+						right.normalize();
+						up.crossproduct(nf, right); up.normalize();
+						p->eyepiece.m_W.i.set(right);
+						p->eyepiece.m_W.j.set(up);
+						p->eyepiece.m_W.k.set(nf);
+						Fvector pos; pos.lerp(p->eyepiece.m_W.c, Device.vCameraPosition, blend);
+						p->eyepiece.m_W.c.set(pos);
+					}
+				}
+			}
+
 			// guns are often mesh-scaled, so the eyepiece radius is the only reliable unit
 			Fvector4 o = Fvector4(scope_objective_lens_offset).mul(p->eyepiece.radius);
 			p->objective.m_W.mul(p->eyepiece.m_W, Fmatrix().translate({o.x, o.y, o.z}));

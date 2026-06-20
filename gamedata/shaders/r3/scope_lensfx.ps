@@ -1,0 +1,102 @@
+// PiP additive lens FX, a NEW PiP-owned shader, NOT a 3DSS file and never edits one. redraws the
+// eyepiece lens mesh sampling the already-composited frame with edge chromatic aberration, barrel
+// distortion and exit-pupil dimming so the scope reads like glass instead of a flat camera feed.
+// the lens mesh is the mask, tc0 gives a roll/cant-robust radial coord, ddx/ddy of the radius give
+// the screen-space outward direction, so no per-lens center/radius constant is needed.
+
+#include "common.h"
+#include "scope_common.h"
+
+Texture2D s_lensfx_src;
+
+uniform float4 lensfx_params;  // x chromatic aberration, y barrel distortion, z tunnel dim floor, w exit pupil
+uniform float4 lensfx_params2; // x magnification, y tunnel close rate (vigK), z reference mag, w strength
+uniform float4 lensfx_params3; // x radial blur amount (UV)
+uniform float4 lensfx_eyebox;  // xy = bore-vs-aim drift (tan units), z = strength (r__svp_eyebox), w = drift gain (signed)
+uniform float4 lensfx_ctrl;    // x pass, 0 = apply FX, 1 = straight copy back
+
+float4 main(v_out I) : SV_Target
+{
+	float2 uv = I.hpos.xy * screen_res.zw;
+
+	// smp_rtlinear (CLAMP + LINEAR) is the engine render-target sampler, CLAMP so the offset CA/warp
+	// samples never wrap at the frame edge, LINEAR pairs cleanly with SampleLevel. SampleLevel at LOD 0
+	// since the source is a single-mip RT and the FX coords below carry ddx/ddy (an implicit-gradient
+	// Sample would be second-order and fragile)
+
+	// pass 1 wrote the FX into the scratch RT over only the lens pixels, pass 2 copies those same
+	// pixels back, sampling at the pixel's own uv so no edge bleed
+	if (lensfx_ctrl.x > 0.5)
+		return float4(s_lensfx_src.SampleLevel(smp_rtlinear, uv, 0.0).rgb, 1.0);
+
+	// --- lens model: a magnification iris/tunnel closes in from the rim; the encroaching ring
+	// is barrel-distorted + radially blurred but stays VISIBLE (dims to a floor, not black). one `edge`
+	// factor drives it all, and its onset shrinks with magnification. all tunables are engine cvars. ---
+	float2 c  = I.tc0 - 0.5;
+	float  rr = length(c);
+	float  r  = saturate(rr * 2.0); // 0 at lens center, 1 at the edge
+
+	// screen-space outward direction from the lens radial gradient, robust to a canted/rolled lens
+	float2 g   = float2(ddx(rr), ddy(rr));
+	float2 dir = (dot(g, g) > 1e-12) ? normalize(g) : float2(0.0, 0.0);
+
+	float  mag    = lensfx_params2.x;
+	float  vigK   = lensfx_params2.y;
+	float  refMag = max(lensfx_params2.z, 1.0);
+	float  st     = lensfx_params2.w;
+	float  blurA  = lensfx_params3.x;
+	const  float VIG_R0 = 0.85, VIG_RMIN = 0.25;
+
+	// tunnel: clear-zone radius shrinks as magnification rises past the reference, clamped to a min
+	// upper clamp stays below 1.0 so smoothstep(vigR,1,r) never hits a 0-width (NaN) range at low mag
+	float vigR = clamp(VIG_R0 - vigK * (mag - refMag) / refMag, VIG_RMIN, 0.995);
+	float edge = smoothstep(vigR, 1.0, r) * st; // 0 in the clear centre -> 1 at the rim
+
+	float rimfade = saturate((1.0 - r) * 6.0);   // keep CA off the lens-body boundary (no colored rim)
+	float ca   = lensfx_params.x * (0.25 * step(1e-4, st) + edge) * rimfade; // base CA only when the lens FX is on
+	float warp = lensfx_params.y * edge;         // barrel, pull edge samples toward center
+	float2 base = uv - dir * warp;
+
+	// radial (zoom) blur: smear taps along the lens radius, biased INWARD so they never sample past the
+	// disc into the surrounding frame. concentrated in the ring by `edge`.
+	float  bstep = blurA * edge;
+	float3 col;
+	if (bstep > 1e-5)
+	{
+		col = float3(0.0, 0.0, 0.0);
+		[unroll] for (int i = 0; i < 7; i++)
+		{
+			float2 o = dir * (bstep * (float(i) - 6.0) * 0.5); // 0 .. -3*bstep, inward only
+			col.r += s_lensfx_src.SampleLevel(smp_rtlinear, base + o + dir * ca, 0.0).r;
+			col.g += s_lensfx_src.SampleLevel(smp_rtlinear, base + o,            0.0).g;
+			col.b += s_lensfx_src.SampleLevel(smp_rtlinear, base + o - dir * ca, 0.0).b;
+		}
+		col *= (1.0 / 7.0);
+	}
+	else
+	{
+		col.r = s_lensfx_src.SampleLevel(smp_rtlinear, base + dir * ca, 0.0).r;
+		col.g = s_lensfx_src.SampleLevel(smp_rtlinear, base,            0.0).g;
+		col.b = s_lensfx_src.SampleLevel(smp_rtlinear, base - dir * ca, 0.0).b;
+	}
+
+	// light: the tunnel ring darkens to a visible floor (lensfx_params.z) times the global exit-pupil
+	// dim (lensfx_params.w). at strength 0 edge -> 0, so dim -> 1 and the disc is untouched.
+	float dim = lerp(1.0, lensfx_params.z, edge);
+	col *= dim * lensfx_params.w;
+
+	// --- dynamic eye-box scope shadow: clear when the aim sits on the bore, a dark crescent grows as the
+	// aim drifts off-axis (engine-supplied drift in lensfx_eyebox.xy) and the eye box tightens with
+	// magnification (high power = crescent on less drift). independent of the lens FX strength above. ---
+	if (lensfx_eyebox.z > 0.0)
+	{
+		const float EB_REF = 4.0;
+		float2 lc   = c * 2.0;                                               // lens-local [-1,1]
+		float2 eoff = lensfx_eyebox.xy * (lensfx_eyebox.w * (mag / EB_REF)); // drift * (gain * mag tightening)
+		float  err  = length(lc + eoff);
+		float  eb   = 1.0 - smoothstep(1.0, 1.35, err);                      // 1 clear inside, 0 in the crescent
+		col *= lerp(1.0, eb, lensfx_eyebox.z);
+	}
+
+	return float4(col, 1.0);
+}

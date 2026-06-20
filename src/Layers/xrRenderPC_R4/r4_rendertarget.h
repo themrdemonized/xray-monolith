@@ -248,6 +248,7 @@ public:
 	ref_shader s_scope_color_write;
 	ref_shader s_scope_depth_write;
 	ref_shader s_scope_debug; // pip r__scope_debug on-screen multi-view inspector overlay
+	ref_shader s_scope_lensfx; // pip r__svp_lensfx additive lens FX (CA, distortion, exit-pupil dimming)
 	bool m_scope_shaders_ready = false;
 	bool m_svp_dlss_built = false; // pip this SVP target was built with the DLSS gate on (toggle-recreate key)
 	void EnsureScopeShaders();

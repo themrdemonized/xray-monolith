@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<w>
+	<lens_fx_panel x="24" y="226" width="324" height="262">
+		<texture color="0xDD0B0F14">ui_pop_up_active_back</texture>
+		<text_main x="14" y="10" width="300" height="246" complex_mode="1">
+			<text font="letterica16" align="l" r="200" g="232" b="255"/>
+		</text_main>
+	</lens_fx_panel>
+</w>

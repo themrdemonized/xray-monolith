@@ -338,6 +338,70 @@
 	<string id="ui_mm_modded_exes_visual_pip_r__scope_debug_desc">
 		<text>Developer overlay, draws the derived eyepiece, objective and camera lenses in the world</text>
 	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lensfx">
+		<text>Lens FX (r__svp_lensfx)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lensfx_desc">
+		<text>Engine scope-lens effects: magnification tunnel, radial edge blur, barrel distortion and dimming. Tune live in-scope with the tuner, or set the values here</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_menu_key">
+		<text>Lens FX Tuner Open Key</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_menu_key_desc">
+		<text>Key that opens the in-scope lens FX tuner overlay. Arrow keys move and adjust, the mouse wheel zooms</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lensfx_strength">
+		<text>Lens FX Strength</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lensfx_strength_desc">
+		<text>Master strength of the lens effects, 0 is off</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_blur">
+		<text>Lens FX Radial Blur</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_blur_desc">
+		<text>Radial (zoom) blur of the lens edge ring</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_distort">
+		<text>Lens FX Barrel Distortion</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_distort_desc">
+		<text>Barrel warp of the lens edge ring</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_floor">
+		<text>Lens FX Tunnel Floor</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_floor_desc">
+		<text>Brightness the tunnel ring darkens to, above 0 keeps the ring visible</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_refmag">
+		<text>Lens FX Tunnel Ref Mag</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_refmag_desc">
+		<text>Magnification at/below which the tunnel is fully open, higher-power scopes close down</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_vigk">
+		<text>Lens FX Tunnel Rate</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_vigk_desc">
+		<text>How fast the tunnel closes as magnification rises</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_ca">
+		<text>Lens FX Chromatic Aberration</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_lens_ca_desc">
+		<text>Color fringing in the lens edge ring</text>
+	</string>
+	<string id="ui_mm_lst_NumpadStar"><text>Numpad *</text></string>
+	<string id="ui_mm_lst_Backslash"><text>Backslash \</text></string>
+	<string id="ui_mm_lst_RBracket"><text>Right Bracket ]</text></string>
+	<string id="ui_mm_lst_Home"><text>Home</text></string>
+	<string id="ui_mm_lst_Insert"><text>Insert</text></string>
+	<string id="ui_mm_lst_Delete"><text>Delete</text></string>
+	<string id="ui_mm_lst_End"><text>End</text></string>
+	<string id="ui_mm_lst_F8"><text>F8</text></string>
+	<string id="ui_mm_lst_F9"><text>F9</text></string>
+	<string id="ui_mm_lst_NumpadSlash"><text>Numpad /</text></string>
 	<string id="ui_mm_lst_Eyepiece">
 		<text>Eyepiece</text>
 	</string>
