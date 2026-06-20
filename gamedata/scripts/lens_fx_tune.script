@@ -1,0 +1,139 @@
+-- Scope lens FX tuner. A HUD overlay (AddDialogToRender, so it NEVER drops ADS) to live-edit the
+-- r__svp_lens_* cvars and drive the scope zoom while scoped in. The open key is set in
+-- Modded Exes > Picture in Picture (a dropdown -> r__svp_lens_menu_key). Arrow keys drive the panel.
+
+-- open-key dropdown index -> DIK. ORDER MUST MATCH the list in options_modded_exes_pip.script.
+local KEY_MAP = {
+	DIK_keys.DIK_MULTIPLY, DIK_keys.DIK_BACKSLASH, DIK_keys.DIK_RBRACKET, DIK_keys.DIK_HOME,
+	DIK_keys.DIK_INSERT, DIK_keys.DIK_DELETE, DIK_keys.DIK_END, DIK_keys.DIK_F8,
+	DIK_keys.DIK_F9, DIK_keys.DIK_DIVIDE,
+}
+local SEL_UP,  SEL_DN  = DIK_keys.DIK_UP,    DIK_keys.DIK_DOWN
+local ADJ_DN,  ADJ_UP  = DIK_keys.DIK_LEFT,  DIK_keys.DIK_RIGHT
+local ZOOM_IN, ZOOM_OUT = DIK_keys.DIK_PRIOR, DIK_keys.DIK_NEXT  -- Page Up / Down (the mouse wheel also zooms)
+
+local params = {
+	{ cmd="r__svp_lensfx",          name="enable",       val=1,      min=0, max=1,    step=1,      fmt="%.0f", int=true },
+	{ cmd="r__svp_lensfx_strength", name="strength",     val=1.0,    min=0, max=2,    step=0.05,   fmt="%.2f" },
+	{ cmd="r__svp_lens_blur",       name="radial blur",  val=0.0040, min=0, max=0.03, step=0.0005, fmt="%.4f" },
+	{ cmd="r__svp_lens_distort",    name="barrel",       val=0.0040, min=0, max=0.05, step=0.0005, fmt="%.4f" },
+	{ cmd="r__svp_lens_floor",      name="tunnel floor", val=0.10,   min=0, max=1,    step=0.02,   fmt="%.2f" },
+	{ cmd="r__svp_lens_refmag",     name="ref mag",      val=6.0,    min=1, max=16,   step=0.5,    fmt="%.1f" },
+	{ cmd="r__svp_lens_vigk",       name="tunnel rate",  val=1.5,    min=0, max=4,    step=0.1,    fmt="%.2f" },
+	{ cmd="r__svp_lens_ca",         name="chroma ab",    val=0.0018, min=0, max=0.02, step=0.0005, fmt="%.4f" },
+}
+
+local sel = 1
+local HUD = nil
+
+local function clamp(v, lo, hi) if v < lo then return lo elseif v > hi then return hi else return v end end
+local function push(p) exec_console_cmd(p.cmd .. " " .. string.format("%g", p.val)) end
+
+-- sync the panel FROM the live cvars (so it agrees with the PiP options page / previous edits)
+local function read_all()
+	for _, p in ipairs(params) do
+		local v = p.int and get_console():get_integer(p.cmd) or get_console():get_float(p.cmd)
+		if v ~= nil then p.val = v end
+	end
+end
+
+local function open_key()
+	local idx = get_console():get_integer("r__svp_lens_menu_key") or 0
+	return KEY_MAP[idx + 1] or KEY_MAP[1]
+end
+
+local function scope_weapon()
+	if not db.actor then return nil end
+	local it = db.actor:active_item()
+	if not it then return nil end
+	return it:cast_Weapon()
+end
+
+class "HUDLensFX" (CUIScriptWnd)
+
+function HUDLensFX:__init() super()
+	self:SetAutoDelete(true)
+	self.xml = CScriptXmlInit()
+	self.xml:ParseFile("ui_lens_fx_tune.xml")
+	self.panel = self.xml:InitStatic("lens_fx_panel", self)
+	self.text  = self.xml:InitTextWnd("lens_fx_panel:text_main", self.panel)
+	self.tmr = 0
+end
+
+function HUDLensFX:Update()
+	CUIScriptWnd.Update(self)
+	local tg = time_global()
+	if self.tmr > tg then return end
+	self.tmr = tg + 100
+	self:Refresh()
+end
+
+function HUDLensFX:Refresh()
+	local L = {}
+	L[#L+1] = "LENS FX TUNER   (toggle key to close)"
+	L[#L+1] = ""
+	for i, p in ipairs(params) do
+		L[#L+1] = string.format("%s %-13s %s", (i == sel) and ">" or " ", p.name, string.format(p.fmt, p.val))
+	end
+	L[#L+1] = ""
+	local w = scope_weapon()
+	if w then
+		L[#L+1] = string.format("zoom factor %.1f   [max %.1f / min %.1f]", w:GetZoomFactor(), w:CurrentZoomFactor(), w:GetMinScopeZoomFactor())
+	else
+		L[#L+1] = "zoom: (no scope weapon in hand)"
+	end
+	L[#L+1] = "[Up/Dn] pick  [Lt/Rt] adjust  [PgUp/Dn] zoom"
+	self.text:SetText(table.concat(L, "\n"))
+end
+
+function HUDLensFX:__finalize() end
+
+local function show()
+	if HUD == nil then
+		HUD = HUDLensFX()
+		get_hud():AddDialogToRender(HUD)
+		HUD:Refresh()
+	end
+end
+
+local function hide()
+	if HUD ~= nil then
+		get_hud():RemoveDialogToRender(HUD)
+		HUD = nil
+	end
+end
+
+local function on_key_press(key)
+	if not db.actor then return end
+	if key == open_key() then
+		if HUD == nil then
+			read_all()
+			for _, p in ipairs(params) do if p.cmd == "r__svp_lensfx" then p.val = 1 ; push(p) end end -- show the effect while tuning
+			local w = scope_weapon()
+			if w and w:IsZoomEnabled() then w:OnZoomIn() end -- force scope on open
+			show()
+		else
+			hide()
+		end
+		return
+	end
+	if HUD == nil then return end
+	if key == SEL_UP then
+		sel = sel - 1 ; if sel < 1 then sel = #params end
+	elseif key == SEL_DN then
+		sel = sel + 1 ; if sel > #params then sel = 1 end
+	elseif key == ADJ_DN or key == ADJ_UP then
+		local p = params[sel]
+		p.val = clamp(p.val + ((key == ADJ_UP) and p.step or -p.step), p.min, p.max)
+		push(p)
+	elseif key == ZOOM_IN or key == ZOOM_OUT then
+		local w = scope_weapon()
+		if w then if key == ZOOM_IN then w:ZoomInc() else w:ZoomDec() end end
+	end
+	if HUD then HUD:Refresh() end
+end
+
+function on_game_start()
+	RegisterScriptCallback("on_key_press", on_key_press)
+	RegisterScriptCallback("actor_on_net_destroy", hide)
+end

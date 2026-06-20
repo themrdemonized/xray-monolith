@@ -544,8 +544,7 @@ void svpCamera()
 		near_plane = d;
 	}
 
-	// pip force the SVP camera up to world up so a canted scope renders upright, the optical axis (k) is
-	// kept, an upright scope is unchanged since its up already matches world up
+	// pip force the SVP camera up to world up so a canted scope renders upright (optical axis k is kept)
 	{
 		Fvector fwd, wup, right, up;
 		fwd.set(m_W_svpcam.k.x, m_W_svpcam.k.y, m_W_svpcam.k.z);
@@ -562,6 +561,8 @@ void svpCamera()
 			m_W_svpcam.k.x = fwd.x;   m_W_svpcam.k.y = fwd.y;   m_W_svpcam.k.z = fwd.z;
 		}
 	}
+
+	// pip stabilization/recoil-comp run in the eyepiece derive so the camera and disc sampling stay consistent
 
 	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // u32/u32 == 1 (square)
 
@@ -596,6 +597,14 @@ void svpCamera()
 		vp.svp_right = m_W_svpcam.i;
 		vp.svp_up = m_W_svpcam.j;
 		vp.svp_fwd = m_W_svpcam.k;
+
+		// pip eye-box drift, the true bore vs the aim as a screen-space offset (tan units). project the
+		// captured true bore into the main view, perspective-divide -> NDC offset from center (0 on aim)
+		Fvector bv; bv.set(vp.svp_bore_fwd);
+		Device.matrices[0].mView.transform_dir(bv); // world -> view space
+		const float bz = (bv.z > EPS) ? bv.z : EPS;
+		vp.svp_eyebox.set(bv.x / bz, bv.y / bz, ps_r__svp_eyebox, 0.f);
+
 		// pip DLSS reset when the lens first becomes valid, render-thread edge state, inert at gate 0
 		bool lens_valid = (vp.eyepiece.radius > EPS);
 		if (lens_valid && !vp.m_lens_prev_valid)

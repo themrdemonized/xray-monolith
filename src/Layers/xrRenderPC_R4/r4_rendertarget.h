@@ -252,6 +252,7 @@ public:
 	ref_shader s_scope_color_write; // pip: lens COLOR phases (IMAGE/RETICLE/SHADOW/LENS) glue
 	ref_shader s_scope_debug;       // pip: r__scope_debug texture-inspector grid glue
 	ref_shader s_scope_depth_write; // pip: GBUFFER lens depth-write + holepunch glue
+	ref_shader s_scope_lensfx; // pip r__svp_lensfx additive lens FX (CA, distortion, exit-pupil dimming)
 
 	//	Igor: for async screenshots
 	ID3DTexture2D* t_ss_async; //32bit		(r,g,b,a) is situated in the system memory

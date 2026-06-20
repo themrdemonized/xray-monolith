@@ -187,6 +187,19 @@ extern ECORE_API int scope_3D_fake_enabled; // Redotix99: for 3D Shader Based Sc
 extern ECORE_API int scope_svp_enabled;		// Second Viewport scopes
 extern ECORE_API float ps_r__svp_render_scale;	// scope viewport render scale, applied when TargetSVP is built
 extern ECORE_API int ps_r__svp_dlss;			// SVP DLSS-SR master gate
+extern ECORE_API float ps_r__svp_stabilize; // SVP image-stabilization strength, 0 = 1:1 bore
+extern ECORE_API int ps_r__svp_lensfx; // SVP lens FX (CA, distortion, exit-pupil dimming) on/off
+extern ECORE_API float ps_r__svp_lensfx_strength; // SVP lens FX strength scale
+extern ECORE_API float ps_r__svp_eyebox; // SVP dynamic eye-box scope shadow strength, 0 = off
+extern ECORE_API float ps_r__svp_lens_ca;      // lens FX (engine pass): chromatic aberration
+extern ECORE_API float ps_r__svp_lens_distort; // lens FX (engine pass): barrel distortion
+extern ECORE_API float ps_r__svp_lens_floor;   // lens FX (engine pass): tunnel ring brightness floor
+extern ECORE_API float ps_r__svp_lens_refmag;  // lens FX (engine pass): tunnel reference magnification
+extern ECORE_API float ps_r__svp_lens_vigk;    // lens FX (engine pass): tunnel close rate vs magnification
+extern ECORE_API float ps_r__svp_lens_blur;    // lens FX (engine pass): radial edge blur amount
+extern ECORE_API int   ps_r__svp_lens_menu_key; // lens FX in-game tuner open key (index into the PiP-page dropdown)
+extern ECORE_API float ps_r__svp_eyebox_shift; // SVP eye-box crescent drift gain (signed, negative flips the side)
+extern ECORE_API float ps_r__svp_recoil_comp; // SVP recoil-steady scope: fraction of camera recoil cancelled (0-1)
 extern ECORE_API int r__gpu_markers;			// RenderDoc: per-batch GPU debug events + resource naming
 extern ECORE_API int r__shader_debug;			// RenderDoc: compile shaders with D3DCOMPILE_DEBUG | SKIP_OPTIMIZATION
 extern ECORE_API Fvector4 scope_objective_lens_offset;

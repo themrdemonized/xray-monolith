@@ -317,6 +317,55 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void(R_dsgraph::mapS
 
 			if (p->eyepiece.radius > EPS)
 			{
+				// pip capture the true bore before stabilization reduces it (for the eye-box shadow)
+				p->svp_bore_fwd.set(p->eyepiece.m_W.k); p->svp_bore_fwd.normalize();
+
+				// pip steady-scope: blend the lens orientation toward aim to reduce magnified sway (off = 1:1)
+				if (ps_r__svp_stabilize > EPS)
+				{
+					const float keep = 1.0f - ps_r__svp_stabilize; // fraction of the real sway retained
+					Fvector aim; aim.set(Device.vCameraDirection); aim.normalize();
+					Fvector f; f.set(p->eyepiece.m_W.k); f.normalize();
+					f.lerp(aim, f, keep); f.normalize(); // blend bone forward toward aim
+					Fvector wup = {0.f, 1.f, 0.f}, right, up;
+					right.crossproduct(wup, f);
+					if (right.magnitude() > EPS_S)
+					{
+						right.normalize();
+						up.crossproduct(f, right); up.normalize();
+						p->eyepiece.m_W.i.set(right);
+						p->eyepiece.m_W.j.set(up);
+						p->eyepiece.m_W.k.set(f);
+					}
+				}
+
+				// pip recoil-steady scope: blend the SVP camera orientation toward the main view during fire so a PiP
+				// scope tracks your aim, not the weapon bone (SVP-only). orientation only - position drifts the mag.
+				extern float g_pip_recoil_vert, g_pip_recoil_horz;
+				if (ps_r__svp_recoil_comp > EPS)
+				{
+					const float REF = 0.06f; // recoil angle (rad) at which the scope fully follows the view
+					float rmag = _sqrt(g_pip_recoil_vert * g_pip_recoil_vert + g_pip_recoil_horz * g_pip_recoil_horz);
+					float blend = (rmag / REF) * ps_r__svp_recoil_comp;
+					if (blend > 1.f) blend = 1.f;
+					if (blend > EPS)
+					{
+						Fvector aimf; aimf.set(Device.vCameraDirection); aimf.normalize();
+						Fvector f;    f.set(p->eyepiece.m_W.k); f.normalize();
+						Fvector nf;   nf.lerp(f, aimf, blend); nf.normalize();
+						Fvector wup = {0.f, 1.f, 0.f}, right, up;
+						right.crossproduct(wup, nf);
+						if (right.magnitude() > EPS_S)
+						{
+							right.normalize();
+							up.crossproduct(nf, right); up.normalize();
+							p->eyepiece.m_W.i.set(right);
+							p->eyepiece.m_W.j.set(up);
+							p->eyepiece.m_W.k.set(nf);
+						}
+					}
+				}
+
 				// Guns often have their mesh directly scaled, so the lens is the only reliable
 				// unit of measurement, derive the objective lens from it
 				Fvector4 o = Fvector4(scope_objective_lens_offset).mul(p->eyepiece.radius);
@@ -476,6 +525,60 @@ void CRenderTarget::phase_3DSSReticle()
 			float angle = acos(up.dotproduct({ 0,1,0 })) * (up.x > 0 ? 1 : -1);
 
 			RCache.set_c("hack_tex_angle", angle);
+		});
+	}
+
+	// pip lens FX: re-sample the composited disc through scope_lensfx (CA, barrel, dimming, eye-box).
+	// two passes ping-pong rt_Generic_0 <-> rt_Generic_temp so no RT is read while bound for output
+	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !s_scope_lensfx)
+		s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
+	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && s_scope_lensfx)
+	{
+		auto* M = RImplementation.TargetMain;
+		extern float g_pip_scope_magnification;
+		const float mag = g_pip_scope_magnification;
+		const float st = ps_r__svp_lensfx ? ps_r__svp_lensfx_strength : 0.f; // lens FX off but eye-box on -> no tunnel/blur
+		// exit-pupil dim: brightness ~ (REF/mag)^2, floored, scaled by strength
+		const float REF = 4.0f;
+		float ep = (REF * REF) / (mag * mag);
+		if (ep > 1.0f) ep = 1.0f; else if (ep < 0.40f) ep = 0.40f;
+		ep = 1.0f + (ep - 1.0f) * st;
+		// reset screen_res to the main target res (the IMAGE pass left it at SVP res)
+		const float sw = (float)M->Width, sh = (float)M->Height;
+		ref_texture src;
+		src.create("$user$pip_lensfx_src");
+
+		// pass 1, FX the disc into the scratch RT sampling the live composited frame
+		src->surface_set(M->rt_Generic_0->pTexture->surface_get());
+		RCache.Invalidate();
+		u_setrt(M->rt_Generic_temp, nullptr, nullptr, M->baseZB);
+		RCache.set_CullMode(CULL_CCW);
+		RCache.set_Stencil(FALSE);
+		RCache.set_ColorWriteEnable();
+		draw_scope(s_scope_lensfx, [ep, st, sw, sh, mag](auto N) {
+			RCache.set_c("scope_phase", 0); // scope_vertex.vs only jitters hpos under JITTERFIX, keep it clean
+			RCache.set_c("screen_res", sw, sh, 1.0f / sw, 1.0f / sh);
+			// lens model constants, all live cvars. params: CA, barrel, tunnel floor, exit-pupil
+			RCache.set_c("lensfx_params",  ps_r__svp_lens_ca, ps_r__svp_lens_distort, ps_r__svp_lens_floor, ep);
+			RCache.set_c("lensfx_params2", mag, ps_r__svp_lens_vigk, ps_r__svp_lens_refmag, st);
+			RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, 0.0f, 0.0f, 0.0f);
+			// dynamic eye-box crescent: xy = engine-computed bore-vs-aim drift, z = strength (r__svp_eyebox), w = gain
+			const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
+			RCache.set_c("lensfx_eyebox", eb.x, eb.y, ps_r__svp_eyebox, ps_r__svp_eyebox_shift);
+			RCache.set_c("lensfx_ctrl", 0.0f, 0.0f, 0.0f, 0.0f);
+		});
+
+		// pass 2, copy the FX'd disc back into the main frame sampling the scratch RT
+		src->surface_set(M->rt_Generic_temp->pTexture->surface_get());
+		RCache.Invalidate();
+		u_setrt(M->rt_Generic_0, nullptr, nullptr, M->baseZB);
+		RCache.set_CullMode(CULL_CCW);
+		RCache.set_Stencil(FALSE);
+		RCache.set_ColorWriteEnable();
+		draw_scope(s_scope_lensfx, [sw, sh](auto N) {
+			RCache.set_c("scope_phase", 0); // keep hpos un-jittered for the copy-back too
+			RCache.set_c("screen_res", sw, sh, 1.0f / sw, 1.0f / sh);
+			RCache.set_c("lensfx_ctrl", 1.0f, 0.0f, 0.0f, 0.0f);
 		});
 	}
 

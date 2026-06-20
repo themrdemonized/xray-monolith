@@ -287,6 +287,20 @@ int scope_3D_fake_enabled = 0; // Redotix99: for 3D Shader Based Scopes
 int scope_svp_enabled = 0;
 float ps_r__svp_render_scale = 1.0f; // SVP render scale, inert at gate 0 (forced 1.0), the DLSS input extent when r__svp_dlss != 0
 int ps_r__svp_dlss = 0; // SVP DLSS-SR master gate, 0 = stock (render_scale inert), nonzero = scaffolding active
+float ps_r__svp_stabilize = 0.0f; // SVP sway reduction, blends the lens toward the aim, 0 = full sway, 1 = tracks aim
+int ps_r__svp_lensfx = 0; // SVP lens FX (edge CA, barrel distortion, exit-pupil dimming), off by default (3DSS already does CA)
+float ps_r__svp_lensfx_strength = 1.0f; // SVP lens FX strength scale
+float ps_r__svp_eyebox = 0.0f; // SVP dynamic eye-box scope shadow (crescent grows as the bore drifts off aim), 0 = off
+// lens model (engine scope_lensfx pass, gated by r__svp_lensfx). harness-tuned defaults, all live-tunable.
+float ps_r__svp_lens_ca      = 0.0018f; // chromatic aberration in the ring
+float ps_r__svp_lens_distort = 0.0040f; // barrel distortion in the ring
+float ps_r__svp_lens_floor   = 0.10f;   // tunnel ring brightness floor (>0 = ring still visible)
+float ps_r__svp_lens_refmag  = 6.0f;    // reference magnification (tunnel fully open at/below)
+float ps_r__svp_lens_vigk    = 1.5f;    // tunnel close rate vs magnification
+float ps_r__svp_lens_blur    = 0.0040f; // radial edge blur amount (UV)
+int   ps_r__svp_lens_menu_key = 0; // lens FX tuner open key, index into the PiP-page key dropdown (0 = numpad *)
+float ps_r__svp_eyebox_shift = 8.0f; // eye-box crescent drift gain (signed, negative flips the crescent side)
+float ps_r__svp_recoil_comp = 0.0f; // recoil-steady scope: fraction of camera recoil cancelled from the SVP (0 = off)
 Fvector4 scope_objective_lens_offset = { .0f, .0f, .0f, .0f };
 int scope_debug = 0;
 // RenderDoc instrumentation, default off
@@ -393,6 +407,7 @@ Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 Fvector4 ps_shader_scope_params = { 0, 0, 0, 0 }; // pip scope magnification curMag/minMag/maxMag/fov, set by the 3DSS lua
 float g_pip_scope_magnification = 0.f; // pip engine-computed magnification, fallback when nothing sets the cvar
+float g_pip_recoil_vert = 0.f, g_pip_recoil_horz = 0.f; // pip camera recoil offset (rad), set by the actor each frame, read by the SVP camera derive (recoil-steady scope)
 float g_pip_scope_min_mag = 0.f; // pip scope min magnification from hud_fov_params
 float g_pip_scope_max_mag = 0.f; // pip scope max magnification from hud_fov_params
 
@@ -1321,6 +1336,19 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__svpscope", &scope_svp_enabled, 0, 2);
 	CMD4(CCC_Float, "r__svp_render_scale", &ps_r__svp_render_scale, 0.4f, 1.0f); // takes effect on vid_restart
 	CMD4(CCC_Integer, "r__svp_dlss", &ps_r__svp_dlss, 0, 1); // SVP DLSS-SR scaffolding gate, takes effect on vid_restart
+	CMD4(CCC_Float, "r__svp_stabilize", &ps_r__svp_stabilize, 0.0f, 1.0f); // SVP sway reduction, 0 = full sway, 1 = tracks aim
+	CMD4(CCC_Integer, "r__svp_lensfx", &ps_r__svp_lensfx, 0, 1); // SVP lens FX, 0 = off
+	CMD4(CCC_Float, "r__svp_lensfx_strength", &ps_r__svp_lensfx_strength, 0.0f, 2.0f); // SVP lens FX strength
+	CMD4(CCC_Float, "r__svp_eyebox", &ps_r__svp_eyebox, 0.0f, 1.0f); // SVP dynamic eye-box scope shadow
+	CMD4(CCC_Float, "r__svp_lens_ca",      &ps_r__svp_lens_ca,      0.0f, 0.02f); // lens FX: chromatic aberration
+	CMD4(CCC_Float, "r__svp_lens_distort", &ps_r__svp_lens_distort, 0.0f, 0.05f); // lens FX: barrel distortion
+	CMD4(CCC_Float, "r__svp_lens_floor",   &ps_r__svp_lens_floor,   0.0f, 1.0f);  // lens FX: tunnel ring floor
+	CMD4(CCC_Float, "r__svp_lens_refmag",  &ps_r__svp_lens_refmag,  1.0f, 16.0f); // lens FX: tunnel reference mag
+	CMD4(CCC_Float, "r__svp_lens_vigk",    &ps_r__svp_lens_vigk,    0.0f, 4.0f);  // lens FX: tunnel close rate
+	CMD4(CCC_Float, "r__svp_lens_blur",    &ps_r__svp_lens_blur,    0.0f, 0.03f); // lens FX: radial edge blur
+	CMD4(CCC_Integer, "r__svp_lens_menu_key", &ps_r__svp_lens_menu_key, 0, 9); // lens FX tuner open key (PiP-page dropdown index)
+	CMD4(CCC_Float, "r__svp_eyebox_shift", &ps_r__svp_eyebox_shift, -25.0f, 25.0f); // eye-box crescent drift gain (- flips side)
+	CMD4(CCC_Float, "r__svp_recoil_comp", &ps_r__svp_recoil_comp, 0.0f, 1.0f); // recoil-steady scope (0 = off, 1 = full cancel)
 	CMD4(CCC_Integer, "r__scope_debug", &scope_debug, 0, 4);
 #endif
 	CMD4(CCC_Integer, "r__gpu_markers", &r__gpu_markers, 0, 1);   // per-batch events + resource names

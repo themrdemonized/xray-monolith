@@ -190,6 +190,12 @@ public:
 		Fvector svp_cam_pos = {}, svp_up = {}, svp_right = {}, svp_fwd = {};
 		Fvector2 svp_jitter_px = {}; // raw sub-pixel jitter baked into matrices[1].mProject, {0,0} at gate 0
 		bool m_lens_prev_valid = false; // edge state for the lens-appears reset trigger
+
+		// pip eye-box drift: xy = bore-vs-aim offset (tan units), z = strength (r__svp_eyebox); the lens-FX
+		// pass turns it into a black crescent that grows on the side your aim has wandered off-axis
+		Fvector4 svp_eyebox = { 0.f, 0.f, 0.f, 0.f };
+		Fvector svp_bore_fwd = {}; // true (un-stabilized) lens forward, captured before the Stage-1 reduction
+
 		bool dlss_reset_next = false; // history reset for the eval, set by the triggers, read+cleared at the seam
 	};
 	
