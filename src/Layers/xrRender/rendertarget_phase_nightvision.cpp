@@ -557,11 +557,15 @@ void CRenderTarget::phase_3DSSReticle()
 		});
 	}
 
-	// pip lens FX: re-sample the composited disc through scope_lensfx (CA, barrel, dimming, eye-box).
-	// two passes ping-pong rt_Generic_0 <-> rt_Generic_temp so no RT is read while bound for output
-	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !s_scope_lensfx)
+	// pip lens FX, resample the composited disc through scope_lensfx (CA, barrel, dimming, eye box)
+	// two passes swap rt_Generic_0 and rt_Generic_temp so no RT is read while bound for output
+	// thermals (3DSS s3ds_image_type 2 or 3, in ps_s3ds_param_3.x) skip it, the feed is an electronic
+	// screen with no optical exit pupil so tunnel, dim and eye box make no sense on them
+	extern Fvector4 ps_s3ds_param_3;
+	const bool lens_thermal = ps_s3ds_param_3.x > 1.5f;
+	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && !s_scope_lensfx)
 		s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
-	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && s_scope_lensfx)
+	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && s_scope_lensfx)
 	{
 		auto* M = RImplementation.TargetMain;
 		extern float g_pip_scope_magnification;
