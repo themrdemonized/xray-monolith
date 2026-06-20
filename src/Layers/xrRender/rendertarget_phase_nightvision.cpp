@@ -404,13 +404,17 @@ void CRenderTarget::phase_3DSSReticle()
 {
 	PIX_EVENT(PHASE_SCOPE_RETICLE);
 
-	// pip reticle pipeline, draw_reflex (the red dot) runs at 1x and magnified, the eyepiece-lens
+	// pip reticle pipeline, draw_reflex (the red dot) runs at 1x and magnified, the eyepiece lens
 	// composite only runs when the magnifier is engaged (IsSVPActive), true_pip off uses the legacy path
-	if (Device.true_pip_on)
+	// take the PiP path only when the active optic can drive the SVP (active SVP or a real captured
+	// ocular lens), a reflex thermal or alt optic that captures nothing falls through to render_Reticle
+	// below so it renders the stock way instead of see through
+	const bool svp = Device.m_SecondViewport.IsSVPActive() && RImplementation.TargetSVP;
+	const bool has_lens = !RImplementation.GMBase.RGraph.mapScopeHUDSorted.empty() && Device.m_SecondViewport.eyepiece.radius > EPS;
+	if (Device.true_pip_on && (svp || has_lens))
 	{
 		EnsureScopeShaders(); // glue shaders (lazy)
 
-		const bool svp = Device.m_SecondViewport.IsSVPActive() && RImplementation.TargetSVP;
 		auto M = RImplementation.TargetMain;
 		auto S = RImplementation.TargetSVP;
 
@@ -474,11 +478,15 @@ void CRenderTarget::phase_3DSSReticle()
 			});
 			}
 
-			// pip lens FX: re-sample the composited disc through scope_lensfx (CA, barrel, dimming, eye-box).
-			// two passes ping-pong rt_Generic_0 <-> rt_Generic_temp so no RT is read while bound for output
-			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !s_scope_lensfx)
+			// pip lens FX, resample the composited disc through scope_lensfx (CA, barrel, dimming, eye box)
+			// two passes swap rt_Generic_0 and rt_Generic_temp so no RT is read while bound for output
+			// thermals (3DSS s3ds_image_type 2 or 3, in ps_s3ds_param_3.x) skip it, the feed is an electronic
+			// screen with no optical exit pupil so tunnel, dim and eye box make no sense on them
+			extern Fvector4 ps_s3ds_param_3;
+			const bool lens_thermal = ps_s3ds_param_3.x > 1.5f;
+			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && !s_scope_lensfx)
 				s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
-			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && s_scope_lensfx)
+			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && s_scope_lensfx)
 			{
 				extern float g_pip_scope_magnification;
 				const float mag = g_pip_scope_magnification;
@@ -578,5 +586,19 @@ void CRenderTarget::phase_3DSSReticle()
 	RCache.set_ColorWriteEnable();
 
 	RImplementation.render_Reticle();
+
+	// pip red dot reflexes are captured into mapReflexHUDSorted under true_pip (and removed from the scope
+	// bucket render_Reticle draws), so draw them here for the fallback optics on top of the thermal, does
+	// nothing when true_pip is off and the map is empty so the stock path is unchanged
+	u_setrt(RImplementation.Target->rt_Generic_0, RImplementation.Target->rt_Position, 0, HW.pBaseZB);
+	RCache.set_CullMode(CULL_CCW);
+	RCache.set_Stencil(FALSE);
+	RCache.set_ColorWriteEnable();
+	draw_reflex();
+
+	// pip clear the PiP capture maps on the fallback too, under true_pip they may be populated and the
+	// PiP path (skipped here) is the only other place that clears them, avoids a floating lens after a swap
+	RImplementation.GMBase.RGraph.mapScopeHUDSorted.clear();
+	RImplementation.GMBase.RGraph.mapReflexHUDSorted.clear();
 };
 #endif
