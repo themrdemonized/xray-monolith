@@ -307,6 +307,7 @@ float ps_r__svp_lens_blur    = 0.0040f; // radial edge blur amount (UV)
 int   ps_r__svp_lens_menu_key = 0; // lens FX tuner open key, index into the PiP-page key dropdown (0 = numpad *)
 float ps_r__svp_eyebox_shift = 8.0f; // eye-box crescent drift gain (signed, negative flips the crescent side)
 float ps_r__svp_recoil_comp = 0.0f; // recoil-steady scope: fraction of camera recoil cancelled from the SVP (0 = off)
+float ps_r__svp_recoil_hold = 0.0f; // recoil-steady HUD: damps the recoil inertion dip so the scope body stays on the eyeline (0 = off)
 Fvector4 scope_objective_lens_offset = { .0f, .0f, .0f, .0f };
 int scope_debug = 0;
 // RenderDoc instrumentation, default off
@@ -1411,6 +1412,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__svp_lens_menu_key", &ps_r__svp_lens_menu_key, 0, 9); // lens FX tuner open key (PiP-page dropdown index)
 	CMD4(CCC_Float, "r__svp_eyebox_shift", &ps_r__svp_eyebox_shift, -25.0f, 25.0f); // eye-box crescent drift gain (- flips side)
 	CMD4(CCC_Float, "r__svp_recoil_comp", &ps_r__svp_recoil_comp, 0.0f, 1.0f); // recoil-steady scope (0 = off, 1 = full cancel)
+	CMD4(CCC_Float, "r__svp_recoil_hold", &ps_r__svp_recoil_hold, 0.0f, 1.0f); // recoil-steady HUD scope position (0 = off, 1 = full hold)
 	CMD4(CCC_Integer, "r__scope_debug", &scope_debug, 0, 4);
 #endif
 	CMD4(CCC_Integer, "r__gpu_markers", &r__gpu_markers, 0, 1); // per-batch events + resource names

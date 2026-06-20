@@ -124,8 +124,7 @@ static void svp_apply_jitter(Fmatrix& proj, Fvector2 px, float w, float h)
 void svpCamera()
 {
 	float svp_fov = g_pGamePersistent->m_pGShaderConstants->hud_params.y * 0.75f;
-	// pip defensive floor, a near-0 svp_fov makes the vFov / camera-offset tan() math blow up and breaks
-	// the lens, the zoom factor is normally clamped game-side but this guards the render path too
+	// pip floor svp_fov: a near-0 value blows up the vFov/offset tan() math
 	if (svp_fov < 1.0f) svp_fov = 1.0f;
 	float _, fov, fNearPlane, fFarPlane;
 	Device.matrices[0].mProject.decompose_projection(fov, _, fNearPlane, fFarPlane);
@@ -148,16 +147,14 @@ void svpCamera()
 	// the magnification of the scope (1X 4X etc)
 	float scope_magnification = fov / deg2rad(svp_fov);
 
-	// expose the engine magnification so the shader has a sane curMag with no 3DSS config, the
-	// binder uses it only when nothing set the cvar so configured setups keep their values
+	// expose engine magnification so the shader has a curMag with no 3DSS config
 	extern float g_pip_scope_magnification;
 	extern float g_pip_scope_min_mag;
 	extern float g_pip_scope_max_mag;
 	if (svp_fov > EPS)
 	{
 		g_pip_scope_magnification = scope_magnification;
-		// derive the range from hud_fov_params so variable reticles get a real min/max instead of
-		// a collapsed point, x is the most-zoomed fov mapping to max mag, on a fixed scope x == y
+		// derive min/max mag from hud_fov_params for variable reticles (fixed scope: x == y)
 		const Fvector4& fovp = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
 		g_pip_scope_max_mag = (fovp.x > EPS) ? fov / deg2rad(fovp.x * 0.75f) : scope_magnification;
 		g_pip_scope_min_mag = (fovp.y > EPS) ? fov / deg2rad(fovp.y * 0.75f) : scope_magnification;
@@ -183,8 +180,7 @@ void svpCamera()
 		near_plane = d;
 	}
 
-	// pip force the SVP camera up to world up so a canted scope renders upright, the optical axis (k) is
-	// kept, an upright scope is unchanged since its up already matches world up
+	// pip force the SVP camera up to world up so a canted scope renders upright (optical axis k is kept)
 	{
 		Fvector fwd, wup, right, up;
 		fwd.set(m_W_svpcam.k.x, m_W_svpcam.k.y, m_W_svpcam.k.z);
@@ -202,9 +198,7 @@ void svpCamera()
 		}
 	}
 
-	// pip steady-scope stabilization is applied earlier in deriveScopeLens, to the shared eyepiece/
-	// objective transforms, so the SVP camera (m_W_svpcam, from eyepiece.m_W) and the focal-plane
-	// sampling are reduced consistently and never drift apart (the cause of the earlier black ring)
+	// pip stabilization/recoil-comp run in deriveScopeLens so the camera and disc sampling stay consistent
 
 	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // square == 1
 
@@ -251,8 +245,7 @@ void svpCamera()
 	}
 }
 
-// pip front/second focal-plane world points from the eyepiece/objective, the scope shader projects
-// the SVP image through them (scope_w_ffp/sfp), without these the IMAGE UV collapses to a flat color
+// pip front/second focal-plane world points (scope_w_ffp/sfp); the scope shader projects the SVP image through them
 void ffp_sfp()
 {
 	auto e = Device.m_SecondViewport.eyepiece;
@@ -318,14 +311,10 @@ void CRender::deriveScopeLens()
 
 		if (p->eyepiece.radius > EPS)
 		{
-			// pip capture the true bore (lens forward) before any stabilization reduces it, for the
-			// dynamic eye-box shadow (the optic's off-axis amount = this true bore vs the player aim)
+			// pip capture the true bore before stabilization reduces it (for the eye-box shadow)
 			p->svp_bore_fwd.set(p->eyepiece.m_W.k); p->svp_bore_fwd.normalize();
 
-			// pip steady-scope, scale down the magnified weapon sway by blending the lens orientation
-			// toward the player aim, applied to the eyepiece BEFORE the objective and focal planes derive
-			// from it so the SVP camera and the disc sampling stay consistent (no content-vs-sampling
-			// mismatch, the cause of the earlier black ring). instant blend, no temporal lag, off is 1:1
+			// pip steady-scope: blend the lens orientation toward aim to reduce magnified sway (off = 1:1)
 			if (ps_r__svp_stabilize > EPS)
 			{
 				const float keep = 1.0f - ps_r__svp_stabilize; // fraction of the real sway retained
@@ -344,12 +333,8 @@ void CRender::deriveScopeLens()
 				}
 			}
 
-			// pip recoil-steady scope: during fire the SVP renders from the weapon bone, which carries the
-			// weapon's own recoil ANIMATION on top of the camera recoil, so a PiP scope jumps far more than a
-			// 3D-shader scope (just the main view magnified) and you cannot see. pull the SVP camera
-			// (orientation AND position) toward the MAIN camera in proportion to the live recoil, so the scope
-			// tracks your view like a shader scope. SVP-only, the real recoil is untouched (recoil mods safe).
-			// blended on the eyepiece like the stabilization so the SVP camera and the disc sampling stay consistent
+			// pip recoil-steady scope: blend the SVP camera orientation toward the main view during fire so a PiP
+			// scope tracks your aim, not the weapon bone (SVP-only). orientation only - position drifts the mag.
 			extern float g_pip_recoil_vert, g_pip_recoil_horz;
 			if (ps_r__svp_recoil_comp > EPS)
 			{
@@ -371,8 +356,6 @@ void CRender::deriveScopeLens()
 						p->eyepiece.m_W.i.set(right);
 						p->eyepiece.m_W.j.set(up);
 						p->eyepiece.m_W.k.set(nf);
-						Fvector pos; pos.lerp(p->eyepiece.m_W.c, Device.vCameraPosition, blend);
-						p->eyepiece.m_W.c.set(pos);
 					}
 				}
 			}

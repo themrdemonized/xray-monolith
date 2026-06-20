@@ -283,8 +283,7 @@ void CRenderTarget::phase_svp_capture()
 	PIX_EVENT(PHASE_SCOPE_SVP_CAPTURE);
 	if (ps_r__svp_dlss != 0)
 	{
-		// pip DLSS seam, assemble the eval inputs from this SVP target + the cached constants + the
-		// exchanged reset flag, then run EvalSVP_DLSS (bilinear stub for now, the SL eval replaces it)
+		// pip DLSS seam: assemble SvpDlssInputs from the SVP target + cached consts, then EvalSVP_DLSS (stub for now)
 		SvpDlssInputs in;
 		auto& vp = Device.m_SecondViewport;
 		in.viewport_id = 1; // stable SVP handle for DLSS history (main = 0), NOT the per-frame dwViewport
@@ -475,10 +474,8 @@ void CRenderTarget::phase_3DSSReticle()
 			});
 			}
 
-			// pip additive lens FX, redraw the lens mesh over the composited disc with edge chromatic
-			// aberration, barrel distortion and exit-pupil dimming, a NEW PiP shader that never touches
-			// 3DSS. two passes ping-pong rt_Generic_0 <-> rt_Generic_temp so no RT is sampled while bound
-			// for output (no CopyResource from a live RT), gated, off leaves the composited disc untouched
+			// pip lens FX: re-sample the composited disc through scope_lensfx (CA, barrel, dimming, eye-box).
+			// two passes ping-pong rt_Generic_0 <-> rt_Generic_temp so no RT is read while bound for output
 			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !s_scope_lensfx)
 				s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
 			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && s_scope_lensfx)
@@ -486,14 +483,12 @@ void CRenderTarget::phase_3DSSReticle()
 				extern float g_pip_scope_magnification;
 				const float mag = g_pip_scope_magnification;
 				const float st = ps_r__svp_lensfx ? ps_r__svp_lensfx_strength : 0.f; // lens FX off but eye-box on -> no tunnel/blur
-				// exit-pupil global dim, brightness falls as (REF/mag)^2 (the exit pupil shrinks with zoom),
-				// clamped to a usable floor and scaled by strength (1.0 at st 0)
+				// exit-pupil dim: brightness ~ (REF/mag)^2, floored, scaled by strength
 				const float REF = 4.0f;
 				float ep = (REF * REF) / (mag * mag);
 				if (ep > 1.0f) ep = 1.0f; else if (ep < 0.40f) ep = 0.40f;
 				ep = 1.0f + (ep - 1.0f) * st;
-				// screen_res is stateful, the IMAGE pass left it at the SVP res, this pass samples a
-				// main-sized RT with main-frame pixel coords, so reset it to the main target res
+				// reset screen_res to the main target res (the IMAGE pass left it at SVP res)
 				const float sw = (float)M->Width, sh = (float)M->Height;
 				ref_texture src;
 				src.create("$user$pip_lensfx_src");
