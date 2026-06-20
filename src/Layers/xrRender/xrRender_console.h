@@ -205,6 +205,8 @@ extern ECORE_API int   ps_r__svp_lens_menu_key; // lens FX in-game tuner open ke
 extern ECORE_API float ps_r__svp_eyebox_shift; // SVP eye-box crescent drift gain (signed, negative flips the side)
 extern ECORE_API float ps_r__svp_recoil_comp; // SVP recoil-steady scope: fraction of camera recoil cancelled from the scope (0-1)
 extern ECORE_API float ps_r__svp_recoil_hold; // SVP recoil-steady HUD: damps the recoil inertion dip so the scope body stays on the eyeline (0-1)
+extern ECORE_API float ps_r__svp_recoil_smooth; // svp recoil smoothing, low pass the SVP camera direction (0 to 1)
+extern ECORE_API float ps_r__svp_zoom_smooth; // svp zoom smoothing, low pass the SVP magnification (0 to 1)
 extern ECORE_API Fvector4 scope_objective_lens_offset;
 extern ECORE_API int scope_debug;
 extern ECORE_API int r__gpu_markers; // RenderDoc: per-batch GPU debug events + resource naming
