@@ -585,6 +585,18 @@ void CRender::renderGBuffer(bool clearGraph)
 	// label the pass so the SVP (scope) gbuffer is distinguishable from the main one in a capture
 	PIX_EVENT_F("RENDER_GBUFFER[%s]", Target == TargetMain ? "MAIN" : "SVP");
 	Device.dwViewport++; // pip per-viewport cache counter
+
+	// pip cull the SVP geometry to the scope frustum, the captured graph is main-frustum so the SVP
+	// otherwise re-submits the whole world through a cone that sees a fraction. SVP pass + cvar only
+	extern int ps_r__svp_cull;
+	const bool svp_cull = (Target == TargetSVP) && Device.true_pip_on && ps_r__svp_cull;
+	if (svp_cull)
+	{
+		Fmatrix svp_full;
+		svp_full.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
+		CDSGraphManager::svp_cull_begin(svp_full);
+	}
+
 	phase = PHASE_NORMAL;
 	Target->phase_scene_prepare(); // clears + binds this viewport's gbuffer and depth
 
@@ -664,6 +676,9 @@ void CRender::renderGBuffer(bool clearGraph)
 		if (Details) Details->Render();
 		Target->phase_scene_end();
 	}
+
+	if (svp_cull)
+		CDSGraphManager::svp_cull_end(); // pip end SVP cull, the shared shadow/light passes below are unaffected
 
 	// Wall marks
 	if (Wallmarks)

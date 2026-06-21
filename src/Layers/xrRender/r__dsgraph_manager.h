@@ -75,6 +75,11 @@ public:
 
 	void AddToRenderQueue(R_dsgraph::RenderQueue& queue, const R_dsgraph::DSGraphItem<u32, false>& item, const SPass& pass);
 	void r_dsgraph_render_graph(R_dsgraph::RenderQueueArray& queue, u32 _priority, bool _clear = true, bool static_geometry = true);
+
+	// pip SVP geometry cull, active only between begin/end which renderGBuffer brackets around the SVP pass
+	static void svp_cull_begin(Fmatrix& full_xform);
+	static void svp_cull_end();
+	static bool svp_cull_reject(dxRender_Visual* V, Fmatrix* M);
 	IC void r_dsgraph_render_graph(u32 _priority, bool _clear = true)
 	{
 		r_dsgraph_render_static(_priority, _clear);

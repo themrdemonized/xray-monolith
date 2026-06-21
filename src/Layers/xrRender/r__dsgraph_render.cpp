@@ -28,6 +28,48 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 	return _sqrt(clampr((ssa - r_ssaGLOD_end) / (r_ssaGLOD_start - r_ssaGLOD_end), 0.f, 1.f));
 }
 
+// pip SVP geometry cull. the scene is captured against the MAIN frustum and rendered twice; the SVP
+// re-submits the whole main-frustum set though its magnified cone sees only a fraction, so reject items
+// fully outside the SVP frustum before the draw. active only between svp_cull_begin/end, which
+// renderGBuffer brackets around the SVP gbuffer pass, so the main view and non-PiP/non-MT are untouched.
+// the frustum is built from the same matrices[1] SetActive renders the SVP with, so it culls exactly
+// what the GPU would clip
+static CFrustum s_svp_cull_frustum;
+static bool s_svp_cull_on = false;
+
+void CDSGraphManager::svp_cull_begin(Fmatrix& full_xform)
+{
+	s_svp_cull_frustum.CreateFromMatrix(full_xform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+	s_svp_cull_on = true;
+}
+
+void CDSGraphManager::svp_cull_end()
+{
+	s_svp_cull_on = false;
+}
+
+bool CDSGraphManager::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
+{
+	if (!s_svp_cull_on || !V)
+		return false;
+	Fvector wc;
+	float wr;
+	if (M)
+	{
+		// dynamic: vis.sphere is object-space, place it + scale the radius by the world matrix
+		M->transform_tiny(wc, V->vis.sphere.P);
+		const float sc2 = _max(_max(M->i.square_magnitude(), M->j.square_magnitude()), M->k.square_magnitude());
+		wr = V->vis.sphere.R * _sqrt(sc2);
+	}
+	else
+	{
+		// static: no per-item matrix, the geometry (and so vis.sphere) is already in world space
+		wc.set(V->vis.sphere.P);
+		wr = V->vis.sphere.R;
+	}
+	return !s_svp_cull_frustum.testSphere_dirty(wc, wr);
+}
+
 template<typename T, bool Reverse>
 void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear)
 {
@@ -38,6 +80,7 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 
 	for (auto& item : graph)
 	{
+		if (svp_cull_reject(item.pVisual, item.pMatrix)) continue; // pip skip off-cone SVP geometry
 		dxRender_Visual* V = item.pVisual;
 		VERIFY(V && V->shader._get());
 		RCache.set_Element(item.pSE);
@@ -95,6 +138,7 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 
         for (auto& packet : queue)
         {
+            if (svp_cull_reject(packet.item.pVisual, packet.item.pMatrix)) continue; // pip skip off-cone SVP geometry
             auto& currentKey = packet.sortKey;
             if (currentKey.high != high)
             {
