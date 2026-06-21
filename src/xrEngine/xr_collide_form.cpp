@@ -151,7 +151,11 @@ void CCF_Skeleton::BuildState()
 		}
 	}
 
-    xrCriticalSectionGuard g(K->UCalc_Mutex);
+    // Non-blocking: BuildState runs inside the IK callback from CalculateBones, which already
+    // holds the current skeleton's UCalc_Mutex; a blocking acquire of this neighbour skeleton's
+    // lock could cross-lock two objects in opposite order on two threads (AB-BA deadlock). If
+    // it's mid-recalc elsewhere, read its 1-frame-stale transforms instead of blocking.
+    xrCriticalSectionTryGuard g(K->UCalc_Mutex);
 	for (ElementVecIt I = elements.begin(); I != elements.end(); I++)
 	{
 		if (!I->valid()) continue;

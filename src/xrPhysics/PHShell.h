@@ -290,6 +290,7 @@ public:
 	virtual bool HasTracedGeoms() { return !m_traced_geoms.empty(); }
 
 	virtual void SetPrefereExactIntegration();
+	virtual void SetForceExactIntegration();
 	virtual void CutVelocity(float l_limit, float a_limit);
 	///////////	//////////////////////////////////////////////////////////////////////////////////////////
 	void CreateSpace();

@@ -295,6 +295,11 @@ _value_type CStalkerPropertyEvaluatorAnomaly::evaluate()
 	if (!m_object->undetected_anomaly())
 		return (false);
 
+	// infinite/super long bolts throwing issue workaround: do not start another cycle
+	// exclusion: while physically inside a zone so anomaly avoidance keeps working
+	if (!m_object->inside_anomaly() && Device.dwTimeGlobal < m_object->m_anomaly_detect_suppress_until)
+		return (false);
+
 	if (!m_object->memory().enemy().selected())
 		return (true);
 

@@ -1620,6 +1620,11 @@ void CPHShell::SetPrefereExactIntegration()
 	CPHObject::SetPrefereExactIntegration();
 }
 
+void CPHShell::SetForceExactIntegration()
+{
+	CPHObject::SetForceExactIntegration();
+}
+
 void CPHShell::add_Element(CPhysicsElement* E)
 {
 	CPHElement* ph_element = cast_PHElement(E);

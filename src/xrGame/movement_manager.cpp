@@ -141,6 +141,16 @@ GameGraph::_GRAPH_ID CMovementManager::game_dest_vertex_id() const
 
 void CMovementManager::set_level_dest_vertex(u32 const& level_vertex_id)
 {
+	if (!ai().level_graph().valid_vertex_id(level_vertex_id))
+	{
+		Msg(
+			"! [CMovementManager::set_level_dest_vertex] ignoring invalid level vertex id [%u] for object [%s]",
+			level_vertex_id,
+			object().cName().c_str()
+		);
+		return;
+	}
+
 	VERIFY2(restrictions().accessible(level_vertex_id), *object().cName());
 	level_path().set_dest_vertex(level_vertex_id);
 	m_path_actuality = m_path_actuality && level_path().actual();

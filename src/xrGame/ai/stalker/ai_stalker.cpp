@@ -100,6 +100,9 @@ CAI_Stalker::CAI_Stalker() :
 #endif // DEBUG
 	m_registered_in_combat_on_migration = false;
 
+	m_anomaly_detect_start_time = 0;
+	m_anomaly_detect_suppress_until = 0;
+
 	// LookAtActor feature
 	savedOrientation.set(0.f, 0.f, 0.f);
 	dTimeFSeen = Device.dwTimeGlobal + 1000;

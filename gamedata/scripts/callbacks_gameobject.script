@@ -473,6 +473,20 @@ _G.CExplosiveItem__OnExplode = function(obj)
 	SendScriptCallback("explosive_item_on_explode", obj)
 end
 
+-- car hit callback
+-- car - the car that was hit, who - initiator (may be nil), shit - CScriptHit, boneId - hit bone
+AddScriptCallback("car_on_hit")
+_G.CCar__OnHit = function(car, who, shit, boneId)
+	SendScriptCallback("car_on_hit", car, who, shit, boneId)
+end
+
+-- car weapon fired callback
+-- car - the car whose mounted weapon fired a shot
+AddScriptCallback("car_on_weapon_fired")
+_G.CCar__OnWeaponFired = function(car)
+	SendScriptCallback("car_on_weapon_fired", car)
+end
+
 -- nearest item to pickup callback
 -- obj can be nil
 AddScriptCallback("actor_on_update_pickup")

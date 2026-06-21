@@ -225,6 +225,9 @@
     <ClCompile Include="crc32.cpp">
       <Filter>shared memory/string library</Filter>
     </ClCompile>
+    <ClCompile Include="ShaderSourceCRC.cpp">
+      <Filter>shared memory/string library</Filter>
+    </ClCompile>
     <ClCompile Include="xr_shared.cpp">
       <Filter>shared memory/string library</Filter>
     </ClCompile>
@@ -593,6 +596,9 @@
     </ClInclude>
     <ClInclude Include="ScopeLock.hpp">
       <Filter>Threading</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderSourceCRC.h">
+      <Filter>shared memory/string library</Filter>
     </ClInclude>
     <ClInclude Include="..\3rd party\stackwalker\include\StackWalker.h">
       <Filter>Debug core</Filter>

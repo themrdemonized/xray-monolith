@@ -35,6 +35,9 @@ const float default_k_w = 0.05f;
 
 
 extern const u16 max_joint_allowed_for_exeact_integration = 30;
+// budget for islands that FORCE exact integration (script opt-in); ceiling keeps a force-flagged
+// island merged into a large pile from stepping the O(n^3) solver
+extern const u16 max_joint_allowed_for_forced_exact_integration = 96;
 
 //base	params
 const float base_fixed_step = 0.02f;

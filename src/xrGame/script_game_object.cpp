@@ -384,6 +384,157 @@ u32 CScriptGameObject::get_current_patrol_point_index()
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 
+// demonized: manipulate hud fire bone/point data per weapon, must be called each time hud item changes or disappears
+static attachable_hud_item* get_script_hud_item(CScriptGameObject* object, LPCSTR member)
+{
+    CHudItem* item = smart_cast<CHudItem*>(&object->object());
+    attachable_hud_item* hud_item = item ? item->HudItemData() : nullptr;
+    if (!hud_item)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CGameObject : cannot access class member %s!", member);
+        return nullptr;
+    }
+
+    return hud_item;
+}
+
+static void validate_and_set_hud_fire_bone(attachable_hud_item* item, u16 bone_id, u16& target, Flags8::TYPE flag)
+{
+    if (!item || !item->m_model)
+        return;
+
+    if (bone_id == BI_NONE || bone_id >= item->m_model->LL_BoneCount())
+    {
+        Msg("![%s] Invalid HUD fire bone id %u", item->m_sect_name.c_str(), bone_id);
+        return;
+    }
+
+    target = bone_id;
+    item->m_measures.m_prop_flags.set(flag, TRUE);
+}
+
+Fvector CScriptGameObject::hud_fire_point()
+{
+	attachable_hud_item* item = get_script_hud_item(this, "hud_fire_point");
+	return item ? item->m_measures.m_fire_point_offset : Fvector().set(0.f, 0.f, 0.f);
+}
+
+Fvector CScriptGameObject::hud_fire_point2()
+{
+	attachable_hud_item* item = get_script_hud_item(this, "hud_fire_point2");
+	return item ? item->m_measures.m_fire_point2_offset : Fvector().set(0.f, 0.f, 0.f);
+}
+
+Fvector CScriptGameObject::hud_fire_point_silencer()
+{
+	attachable_hud_item* item = get_script_hud_item(this, "hud_fire_point_silencer");
+	return item ? item->m_measures.m_fire_point_silencer : Fvector().set(0.f, 0.f, 0.f);
+}
+
+void CScriptGameObject::set_hud_fire_point(Fvector value)
+{
+	attachable_hud_item* item = get_script_hud_item(this, "set_hud_fire_point");
+	if (!item)
+		return;
+
+	item->m_measures.m_fire_point_offset = value;
+}
+
+void CScriptGameObject::set_hud_fire_point2(Fvector value)
+{
+	attachable_hud_item* item = get_script_hud_item(this, "set_hud_fire_point2");
+	if (!item)
+		return;
+
+	item->m_measures.m_fire_point2_offset = value;
+}
+
+void CScriptGameObject::set_hud_fire_point_silencer(Fvector value)
+{
+	attachable_hud_item* item = get_script_hud_item(this, "set_hud_fire_point_silencer");
+	if (!item)
+		return;
+
+	item->m_measures.m_fire_point_silencer = value;
+	item->m_measures.m_prop_flags.set(hud_item_measures::e_fire_point_silencer, TRUE);
+}
+
+u16 CScriptGameObject::hud_fire_bone()
+{
+	attachable_hud_item* item = get_script_hud_item(this, "hud_fire_bone");
+	return item && item->m_measures.m_prop_flags.test(hud_item_measures::e_fire_point) ? item->m_measures.m_fire_bone : BI_NONE;
+}
+
+u16 CScriptGameObject::hud_fire_bone2()
+{
+	attachable_hud_item* item = get_script_hud_item(this, "hud_fire_bone2");
+	return item && item->m_measures.m_prop_flags.test(hud_item_measures::e_fire_point2) ? item->m_measures.m_fire_bone2 : BI_NONE;
+}
+
+u16 CScriptGameObject::hud_fire_bone_silencer()
+{
+	attachable_hud_item* item = get_script_hud_item(this, "hud_fire_bone_silencer");
+	return item ? item->m_measures.m_fire_bone_silencer : BI_NONE;
+}
+
+LPCSTR CScriptGameObject::hud_fire_bone_name()
+{
+	return bone_name(hud_fire_bone(), true);
+}
+
+LPCSTR CScriptGameObject::hud_fire_bone2_name()
+{
+	return bone_name(hud_fire_bone2(), true);
+}
+
+LPCSTR CScriptGameObject::hud_fire_bone_silencer_name()
+{
+	return bone_name(hud_fire_bone_silencer(), true);
+}
+
+void CScriptGameObject::set_hud_fire_bone(u16 bone_id)
+{
+	attachable_hud_item* item = get_script_hud_item(this, "set_hud_fire_bone");
+	if (!item)
+		return;
+
+	validate_and_set_hud_fire_bone(item, bone_id, item->m_measures.m_fire_bone, hud_item_measures::e_fire_point);
+}
+
+void CScriptGameObject::set_hud_fire_bone(LPCSTR bone_name)
+{
+	set_hud_fire_bone(bone_id(bone_name, true));
+}
+
+void CScriptGameObject::set_hud_fire_bone2(u16 bone_id)
+{
+	attachable_hud_item* item = get_script_hud_item(this, "set_hud_fire_bone2");
+	if (!item)
+		return;
+
+	validate_and_set_hud_fire_bone(item, bone_id, item->m_measures.m_fire_bone2, hud_item_measures::e_fire_point2);
+}
+
+void CScriptGameObject::set_hud_fire_bone2(LPCSTR bone_name)
+{
+	set_hud_fire_bone2(bone_id(bone_name, true));
+}
+
+void CScriptGameObject::set_hud_fire_bone_silencer(u16 bone_id)
+{
+	attachable_hud_item* item = get_script_hud_item(this, "set_hud_fire_bone_silencer");
+	if (!item)
+		return;
+
+	validate_and_set_hud_fire_bone(item, bone_id, item->m_measures.m_fire_bone_silencer, hud_item_measures::e_fire_point_silencer);
+}
+
+void CScriptGameObject::set_hud_fire_bone_silencer(LPCSTR bone_name)
+{
+	set_hud_fire_bone_silencer(bone_id(bone_name, true));
+}
+
 u16 CScriptGameObject::bone_id(LPCSTR bone_name, bool bHud)
 {
 	IKinematics* k = nullptr;

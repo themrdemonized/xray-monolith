@@ -22,11 +22,11 @@
 #include "stalker_velocity_holder.h"
 #include "stalker_velocity_collection.h"
 #include "stalker_animation_manager.h"
+#include "stalker_planner.h"
 #include "smart_cover_animation_selector.h"
 
 #ifdef DEBUG
 #	include "stalker_decision_space.h"
-#	include "stalker_planner.h"
 #	include "script_game_object.h"
 #	include "stalker_combat_planner.h"
 #endif // DEBUG
@@ -288,8 +288,22 @@ void stalker_movement_manager_base::setup_movement_params(stalker_movement_param
 		if (!restrictions().accessible(*movement_params.desired_position()))
 		{
 			Fvector temp;
-			level_path().set_dest_vertex(restrictions().accessible_nearest(*movement_params.desired_position(), temp));
-			detail().set_dest_position(temp);
+			const u32 nearest_vertex_id =
+				restrictions().accessible_nearest(*movement_params.desired_position(), temp);
+			if (!ai().level_graph().valid_vertex_id(nearest_vertex_id))
+			{
+				Msg(
+					"! [stalker_movement_manager_base::setup_movement_params] cannot find an accessible "
+					"destination vertex for object [%s], forcing standstill",
+					object().cName().c_str()
+				);
+				movement_params.m_movement_type = eMovementTypeStand;
+			}
+            else
+            {
+                level_path().set_dest_vertex(nearest_vertex_id);
+                detail().set_dest_position(temp);
+            }			
 		}
 		else
 			detail().set_dest_position(*movement_params.desired_position());
@@ -302,23 +316,73 @@ void stalker_movement_manager_base::setup_movement_params(stalker_movement_param
 			(movement_params.m_path_type != MovementManager::ePathTypeNoPath)
 		)
 		{
-			if (!restrictions().accessible(level_path().dest_vertex_id()))
+			u32 dest_vertex_id = level_path().dest_vertex_id();
+			if (!ai().level_graph().valid_vertex_id(dest_vertex_id))
+			{
+				LPCSTR action_name = "<not initialized>";
+				if (object().brain().initialized())
+				{
+					LPCSTR current_action_name = object().brain().current_action().m_action_name;
+					action_name = current_action_name ? current_action_name : "<unnamed>";
+				}
+
+				const u32 current_vertex_id = object().ai_location().level_vertex_id();
+				Msg(
+					"! [stalker_movement_manager_base::setup_movement_params] invalid destination vertex [%u], "
+					"object [%s], action [%s], current vertex [%u]",
+					dest_vertex_id,
+					object().cName().c_str(),
+					action_name,
+					current_vertex_id
+				);
+
+				if (ai().level_graph().valid_vertex_id(current_vertex_id))
+				{
+					set_nearest_accessible_position(object().Position(), current_vertex_id);
+					dest_vertex_id = level_path().dest_vertex_id();
+				}
+
+				if (!ai().level_graph().valid_vertex_id(dest_vertex_id))
+				{
+					Msg(
+						"! [stalker_movement_manager_base::setup_movement_params] cannot recover destination "
+						"vertex for object [%s], forcing standstill",
+						object().cName().c_str()
+					);
+					movement_params.m_movement_type = eMovementTypeStand;
+					return;
+				}
+			}
+
+			if (!restrictions().accessible(dest_vertex_id))
 			{
 				Fvector temp;
-				level_path().set_dest_vertex(
-					restrictions().accessible_nearest(ai().level_graph().vertex_position(level_path().dest_vertex_id()),
-					                                  temp));
-				detail().set_dest_position(temp);
+				const u32 nearest_vertex_id =
+					restrictions().accessible_nearest(ai().level_graph().vertex_position(dest_vertex_id), temp);
+				if (!ai().level_graph().valid_vertex_id(nearest_vertex_id))
+				{
+					Msg(
+						"! [stalker_movement_manager_base::setup_movement_params] cannot find an accessible "
+						"vertex near destination [%u] for object [%s], forcing standstill",
+						dest_vertex_id,
+						object().cName().c_str()
+					);
+					movement_params.m_movement_type = eMovementTypeStand;
+				}
+                else
+                {
+                    level_path().set_dest_vertex(nearest_vertex_id);
+                    detail().set_dest_position(temp);
+                }
 			}
 			else
 			{
-				u32 vertex_id = level_path().dest_vertex_id();
-				Fvector vertex_position = ai().level_graph().vertex_position(level_path().dest_vertex_id());
+				Fvector vertex_position = ai().level_graph().vertex_position(dest_vertex_id);
 				VERIFY2(
 					restrictions().accessible(vertex_position) || show_restrictions(&restrictions()),
 					make_string(
 						"vertex_id[%d],position[%f][%f][%f],object[%s]",
-						vertex_id,
+						dest_vertex_id,
 						VPUSH(vertex_position),
 						*object().cName()
 					)
@@ -589,6 +653,17 @@ void stalker_movement_manager_base::set_nearest_accessible_position()
 
 void stalker_movement_manager_base::set_nearest_accessible_position(Fvector desired_position, u32 level_vertex_id)
 {
+	if (!ai().level_graph().valid_vertex_id(level_vertex_id))
+	{
+		Msg(
+			"! [stalker_movement_manager_base::set_nearest_accessible_position] invalid source vertex [%u] "
+			"for object [%s]",
+			level_vertex_id,
+			object().cName().c_str()
+		);
+		return;
+	}
+
 	if (!ai().level_graph().inside(level_vertex_id, desired_position))
 		desired_position = ai().level_graph().vertex_position(level_vertex_id);
 	else
@@ -597,6 +672,16 @@ void stalker_movement_manager_base::set_nearest_accessible_position(Fvector desi
 	if (!restrictions().accessible(desired_position))
 	{
 		level_vertex_id = restrictions().accessible_nearest(Fvector().set(desired_position), desired_position);
+		if (!ai().level_graph().valid_vertex_id(level_vertex_id))
+		{
+			Msg(
+				"! [stalker_movement_manager_base::set_nearest_accessible_position] cannot find an accessible "
+				"vertex for object [%s]",
+				object().cName().c_str()
+			);
+			return;
+		}
+
 		VERIFY(restrictions().accessible(level_vertex_id));
 		VERIFY(restrictions().accessible(desired_position));
 	}
@@ -606,6 +691,16 @@ void stalker_movement_manager_base::set_nearest_accessible_position(Fvector desi
 		{
 			level_vertex_id = restrictions().accessible_nearest(ai().level_graph().vertex_position(level_vertex_id),
 			                                                    desired_position);
+			if (!ai().level_graph().valid_vertex_id(level_vertex_id))
+			{
+				Msg(
+					"! [stalker_movement_manager_base::set_nearest_accessible_position] cannot find an "
+					"accessible replacement vertex for object [%s]",
+					object().cName().c_str()
+				);
+				return;
+			}
+
 			VERIFY(restrictions().accessible(level_vertex_id));
 			VERIFY(restrictions().accessible(desired_position));
 		}

@@ -1002,6 +1002,9 @@ public:
 	bool get_enable_anomalies_damage();
 	void set_enable_anomalies_damage(bool v);
 
+	// priler: returns true if a non-radioactive restrictor zone is currently touching this character
+	bool inside_anomaly();
+
 	//Weapon
 	void Weapon_AddonAttach(CScriptGameObject* item);
 	void Weapon_AddonDetach(LPCSTR item_section, bool b_spawn_item = true);
@@ -1039,6 +1042,24 @@ public:
 	u32 PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f);
 	void SwitchState(u32 state);
 	u32 GetState();
+	Fvector hud_fire_point();
+	Fvector hud_fire_point2();
+	Fvector hud_fire_point_silencer();
+	void set_hud_fire_point(Fvector value);
+	void set_hud_fire_point2(Fvector value);
+	void set_hud_fire_point_silencer(Fvector value);
+	u16 hud_fire_bone();
+	u16 hud_fire_bone2();
+	u16 hud_fire_bone_silencer();
+	LPCSTR hud_fire_bone_name();
+	LPCSTR hud_fire_bone2_name();
+	LPCSTR hud_fire_bone_silencer_name();
+	void set_hud_fire_bone(u16 bone_id);
+	void set_hud_fire_bone(LPCSTR bone_name);
+	void set_hud_fire_bone2(u16 bone_id);
+	void set_hud_fire_bone2(LPCSTR bone_name);
+	void set_hud_fire_bone_silencer(u16 bone_id);
+	void set_hud_fire_bone_silencer(LPCSTR bone_name);
 	//Works for anything with visual
 	u16 bone_id(LPCSTR bone_name, bool bHud);
 	u16 bone_id(LPCSTR bone_name) { return bone_id(bone_name, false); }

@@ -119,7 +119,9 @@ xr_token screenshot_mode_token [ ] = {
 extern int psSkeletonUpdate;
 extern float r__dtex_range;
 
-Flags32 ps_r__common_flags = {/*RFLAG_NO_RAM_TEXTURES*/ RFLAG_HOM_DYNAMIC}; // All renders
+//RFLAG_NO_RAM_TEXTURES
+//RFLAG_HOM_DYNAMIC
+Flags32 ps_r__common_flags = {0}; // All renders
 
 //int		ps_r__Supersample			= 1		;
 int ps_r__LightSleepFrames = 10;
