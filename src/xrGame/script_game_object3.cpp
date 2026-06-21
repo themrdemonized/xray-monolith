@@ -2140,5 +2140,16 @@ void CScriptGameObject::set_enable_anomalies_damage(bool v)
 	}
 	stalker->m_enable_anomalies_damage = v;
 }
+bool CScriptGameObject::inside_anomaly()
+{
+	auto stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CGameObject : cannot call inside_anomaly (not a CAI_Stalker)!");
+		return false;
+	}
+	return stalker->inside_anomaly();
+}
 #endif
 //-Alundaio

@@ -307,6 +307,10 @@ public:
 	bool undetected_anomaly();
 	bool inside_anomaly();
 
+	// anomaly detection (bolt throwing) state
+	u32 m_anomaly_detect_start_time;
+	u32 m_anomaly_detect_suppress_until;
+
 private:
 	bool m_can_kill_member;
 	bool m_can_kill_enemy;

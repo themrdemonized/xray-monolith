@@ -88,6 +88,8 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 		.def("apply_torque",
 			(void (cphysics_shell_scripted::*)(float, float, float))(&cphysics_shell_scripted::applyTorque))
 
+		.def("set_force_exact_integration", &cphysics_shell_scripted::setForceExactIntegration)
+
 		.def("get_element_by_bone_name",
 		     (cphysics_element_scripted*(cphysics_shell_scripted::*)(LPCSTR))(&cphysics_shell_scripted::get_Element))
 		.def("get_element_by_bone_id",

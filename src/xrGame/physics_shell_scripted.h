@@ -19,6 +19,9 @@ public:
 
 	void applyForce(float x, float y, float z) { physics_impl().applyForce(x, y, z); }
 
+	// island exact-integration opt-in (see CPHIsland::Step)
+	void setForceExactIntegration() { physics_impl().SetForceExactIntegration(); }
+
 	// demonized: applyTorque
 	void applyTorque(float x, float y, float z) { physics_impl().applyTorque(x, y, z); }
 

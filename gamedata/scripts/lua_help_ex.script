@@ -442,6 +442,34 @@
         void apply_torque(float roll, float yaw, float pitch)
 		void set_linear_vel(vector)
 		void set_angular_vel(vector)
+        void set_force_exact_integration() // step this object's physics island with the exact solver
+                                           // (dWorldStep) bypassing the 30-joint budget that gates the
+                                           // vehicles' default preference (capped at 96 island joints).
+                                           // Needed by >4-wheel vehicles: wheel+contact joints exceed
+                                           // 30, silently demoting them to quickstep, which cannot
+                                           // transmit wheel motor torque into a heavy hull.
+    }
+
+    // obj:get_car()
+    class CCar {
+        function GetSpeed() -> float // signed forward m/s, negative = reversing
+        function SetTargetSpeed(float mps) // speed governor, negative = reverse
+        function ClearTargetSpeed()
+        function SetThrottle(float k) // 0..1 drive torque scale
+        function SetSteer(float k) // -1..1, + = right
+        function GetWheelFriction() -> float // wheel-ground friction multiplier (mu_factor)
+        function SetWheelFriction(float k)
+        function Transmission(number gear) // 0 = reverse, 1..N = forward gears
+        function TransmissionUp()
+        function TransmissionDown()
+        function CurrentTransmission() -> number
+        function RefWheelMaxSpeed() -> float
+        function EnginePower() -> float
+        function EngineCurTorque() -> float
+        function DoorOpen(number bone_id) / DoorClose / DoorUse / DoorSwitch
+        function IsDoor(number bone_id) -> bool
+
+        callbacks (see callbacks_gameobject.script): car_on_hit, car_on_weapon_fired
     }
 
     class Fvector {
@@ -592,6 +620,7 @@
         function set_enable_anomalies_pathfinding(bool)
         function get_enable_anomalies_damage()
         function set_enable_anomalies_damage(bool)
+        function inside_anomaly()
         function angle()
         function force_set_angle(Fvector angle, bool bActivate)
         function set_enable_movement_collision(bool)
@@ -658,6 +687,27 @@
         function set_bone_visible(string bone_name, bool bVisibility, bool bRecursive, bool bHud)
 
         function list_bones(bool bHud = false)
+
+        // HUD item fire points/bones
+        Fvector hud_fire_point()
+        Fvector hud_fire_point2()
+        Fvector hud_fire_point_silencer()
+        void set_hud_fire_point(Fvector value)
+        void set_hud_fire_point2(Fvector value)
+        void set_hud_fire_point_silencer(Fvector value)
+
+        u16 hud_fire_bone_id()
+        u16 hud_fire_bone2_id()
+        u16 hud_fire_bone_silencer_id()
+        string hud_fire_bone_name()
+        string hud_fire_bone2_name()
+        string hud_fire_bone_silencer_name()
+        void set_hud_fire_bone(u16 id)
+        void set_hud_fire_bone(string bone_name)
+        void set_hud_fire_bone2(u16 id)
+        void set_hud_fire_bone2(string bone_name)
+        void set_hud_fire_bone_silencer(u16 id)
+        void set_hud_fire_bone_silencer(string bone_name)
 
         // Torch
         function update_torch()

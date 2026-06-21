@@ -62,9 +62,14 @@ bool CCar::bfAssignMovement(CScriptEntityAction* tpEntityAction)
 	u32 l_tInput = tpEntityAction->m_tMovementAction.m_tInputKeys;
 
 	vfProcessInputKey(kFWD, !!(l_tInput & CScriptMovementAction::eInputKeyForward));
-	vfProcessInputKey(kBACK, !!(l_tInput & CScriptMovementAction::eInputKeyBack));
-	vfProcessInputKey(kL_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyLeft));
-	vfProcessInputKey(kR_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyRight));
+	// While governed, throttle/brake/steer are owned by SetTargetSpeed/SetSteer; the action only
+	// holds the engine on and the drive gear engaged, so its back/steer keys must not reassert.
+	if (!m_speed_governed)
+	{
+		vfProcessInputKey(kBACK, !!(l_tInput & CScriptMovementAction::eInputKeyBack));
+		vfProcessInputKey(kL_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyLeft));
+		vfProcessInputKey(kR_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyRight));
+	}
 	vfProcessInputKey(kACCEL, !!(l_tInput & CScriptMovementAction::eInputKeyShiftUp));
 	vfProcessInputKey(kCROUCH, !!(l_tInput & CScriptMovementAction::eInputKeyShiftDown));
 	vfProcessInputKey(kJUMP, !!(l_tInput & CScriptMovementAction::eInputKeyBreaks));
@@ -373,4 +378,10 @@ Fvector CCar::CurrentVel()
 	m_pPhysicsShell->get_LinearVel(lin_vel);
 
 	return lin_vel;
+}
+
+float CCar::GetSpeed()
+{
+	Fvector v = CurrentVel();
+	return v.dotproduct(XFORM().k);
 }

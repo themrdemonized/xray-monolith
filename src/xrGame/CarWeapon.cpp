@@ -9,6 +9,7 @@
 #include "xr_level_controller.h"
 #include "game_object_space.h"
 #include "holder_custom.h"
+#include "script_game_object.h"
 
 void CCarWeapon::BoneCallbackX(CBoneInstance* B)
 {
@@ -249,6 +250,10 @@ void CCarWeapon::OnShot()
 	//	OnShellDrop				(m_fire_pos, zero_vel);
 
 	HUD_SOUND_ITEM::PlaySound(m_sndShot, m_fire_pos, m_object, false);
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CCar__OnWeaponFired", funct))
+		funct(m_object->lua_game_object());
 }
 
 void CCarWeapon::Action(u16 id, u32 flags)

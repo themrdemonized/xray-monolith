@@ -25,9 +25,8 @@ PAGE = filter_false(page {
 	}),
 	get_item_if_exists(list_bool { id = "mt_calc_bones"}),
 	list_bool { id = "mt_update_weapon_sounds" },
-	list_bool { id = "r__optimize_torch" },
-	list_bool { id = "r2_shadow_omnipart_vischeck" },
-	check { id = "r__hom_dynamic" },
+	get_item_if_exists(list_bool { id = "r__optimize_torch" }),
+	get_item_if_exists(list_bool { id = "r2_shadow_omnipart_vischeck" }),
 
 	line{},
 
@@ -37,18 +36,18 @@ PAGE = filter_false(page {
 		def = 400,
 		step = 10,
 	},
-	get_item_if_exists(list_bool { id = "lua_parallel_gc"}),
-	get_item_if_exists(track {
+	list_bool { id = "lua_parallel_gc"},
+	track {
 		id = "lua_parallel_gcstep",
 		def = 75,
 		step = 5,
-	}),
-	get_item_if_exists(track {
+	},
+	track {
 		id = "lua_parallel_gc_call_amount",
 		def = 25,
 		step = 1,
-	}),
-	get_item_if_exists(list_bool { id = "lua_parallel_gc_debug" }),
+	},
+	list_bool { id = "lua_parallel_gc_debug" },
 
 	line{},
 
@@ -77,4 +76,5 @@ PAGE = filter_false(page {
 	get_item_if_exists(list_bool { id = "mt_level_call" }),
 	get_item_if_exists(list_bool { id = "mt_task_manager"}),
 	get_item_if_exists(list_bool { id = "mt_ui"}),
+	get_item_if_exists(check { id = "r__hom_dynamic" }),
 })

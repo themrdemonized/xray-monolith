@@ -236,6 +236,7 @@ public:
 		void SteerRight();
 		void SteerLeft();
 		void SteerIdle();
+		void SteerTo(float k);
 		void Limit();
 
 		void Load(LPCSTR /*section*/)
@@ -466,6 +467,9 @@ private:
 
 	float m_steering_speed;
 	float m_ref_radius;
+	bool m_speed_governed;
+	float m_target_speed;
+	float m_throttle;
 	size_t m_current_transmission_num;
 	///////////////////////////////////////////////////
 	CCarLights m_lights;
@@ -644,6 +648,17 @@ public:
 	float FireDirDiff();
 	bool isObjectVisible(CScriptGameObject* O);
 	Fvector CurrentVel();
+	float GetSpeed();
+	void SetTargetSpeed(float mps);
+	void ClearTargetSpeed();
+	void SetThrottle(float k);
+	void SetSteer(float k);
+	// wheel-ground friction multiplier (SWheelCollisionParams::mu_factor)
+	float GetWheelFriction();
+	void SetWheelFriction(float mu_factor);
+	bool IsSpeedGoverned() const { return m_speed_governed; }
+	float ThrottleFactor() const { return m_throttle; }
+	float DriveRefSpeed();
 	virtual float GetfHealth() const { return CEntity::GetfHealth(); };
 	virtual float SetfHealth(float value) { return CEntity::SetfHealth(value); };
 

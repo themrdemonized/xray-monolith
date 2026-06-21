@@ -27,6 +27,7 @@
         firepos - Disables g_firepos / g_firepos_zoom for this weapon if set to false.
         aimpos - Disables g_aimpos / g_aimpos_zoom for this weapon if set to false.
         ai_rpm - Set RPM of weapon for AI (only for SSRS)
+        motion_mark_reload - Specify motion mark to trigger reload logic, when empty or unspecified uses any motion mark like vanilla code
         modular_attachments - enable modular attachments (https://github.com/themrdemonized/xray-monolith/pull/135)
         modular_scope_group - section which is used to define available scopes (modular attachments)
         inv_scope_x - ui x offset for weapon scope mount (modular attachments)

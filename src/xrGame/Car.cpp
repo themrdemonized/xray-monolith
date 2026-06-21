@@ -98,6 +98,9 @@ CCar::CCar()
 	m_car_weapon = NULL;
 	m_power_neutral_factor = 0.25f;
 	m_steer_angle = 0.f;
+	m_speed_governed = false;
+	m_target_speed = 0.f;
+	m_throttle = 1.f;
 #ifdef DEBUG
 	InitDebug();
 #endif
@@ -723,6 +726,15 @@ void CCar::Hit(SHit* pHDS)
 #endif
 
 	inherited::Hit(&HDS);
+
+	::luabind::functor<void> hitFunct;
+	if (ai().script_engine().functor("_G.CCar__OnHit", hitFunct))
+	{
+		const CGameObject* whoGO = smart_cast<const CGameObject*>(HDS.who);
+		CScriptHit tLuaHit(&HDS);
+		hitFunct(lua_game_object(), whoGO ? whoGO->lua_game_object() : (CScriptGameObject*)0, &tLuaHit, HDS.boneID);
+	}
+
 	if (!CDelayedActionFuse::isActive())
 	{
 		CDelayedActionFuse::CheckCondition(GetfHealth());
@@ -1344,6 +1356,25 @@ void CCar::SteerIdle()
 	for (; i != e; ++i)
 		i->SteerIdle();
 	e_state_steer = idle;
+}
+
+void CCar::SetSteer(float k)
+{
+	if (k < -1.f) k = -1.f;
+	else if (k > 1.f) k = 1.f;
+	if (_abs(k) < 0.01f)
+	{
+		SteerIdle();
+		return;
+	}
+	b_wheels_limited = true;
+	m_pPhysicsShell->Enable();
+	xr_vector<SWheelSteer>::iterator i, e;
+	i = m_steering_wheels.begin();
+	e = m_steering_wheels.end();
+	for (; i != e; ++i)
+		i->SteerTo(k);
+	e_state_steer = (k > 0.f) ? right : left;
 }
 
 void CCar::LimitWheels()
@@ -1982,7 +2013,7 @@ void CCar::PhDataUpdate(float step)
 	//if(fwp)
 	{
 		UpdatePower();
-		if (b_engine_on && !b_starting && m_current_rpm < m_min_rpm)Stall();
+		if (b_engine_on && !b_starting && m_current_rpm < m_min_rpm && !m_speed_governed)Stall();
 	}
 
 	if (bkp)
@@ -2208,6 +2239,45 @@ u16 CCar::Initiator()
 float CCar::RefWheelMaxSpeed()
 {
 	return m_max_rpm / m_current_gear_ratio;
+}
+
+float CCar::DriveRefSpeed()
+{
+	if (!m_speed_governed) return RefWheelMaxSpeed();
+	float max_w = _abs(RefWheelMaxSpeed());
+	float w = m_target_speed / m_ref_radius;
+	if (w > max_w) return max_w;
+	if (w < -max_w) return -max_w;
+	return w;
+}
+
+void CCar::SetTargetSpeed(float mps)
+{
+	m_target_speed = mps;
+	m_speed_governed = true;
+}
+
+void CCar::ClearTargetSpeed()
+{
+	m_speed_governed = false;
+}
+
+float CCar::GetWheelFriction()
+{
+	if (m_wheels_map.empty()) return 0.f;
+	return m_wheels_map.begin()->second.collision_params.mu_factor;
+}
+
+void CCar::SetWheelFriction(float mu_factor)
+{
+	xr_map<u16, SWheel>::iterator i = m_wheels_map.begin(), e = m_wheels_map.end();
+	for (; i != e; ++i)
+		i->second.collision_params.mu_factor = mu_factor;
+}
+
+void CCar::SetThrottle(float k)
+{
+	m_throttle = (k < 0.f) ? 0.f : (k > 1.f ? 1.f : k);
 }
 
 float CCar::EngineCurTorque()
