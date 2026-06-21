@@ -287,7 +287,7 @@ int scope_3D_fake_enabled = 0; // Redotix99: for 3D Shader Based Scopes
 int scope_svp_enabled = 0;
 float ps_r__svp_render_scale = 1.0f; // SVP render scale, inert at gate 0 (forced 1.0), the DLSS input extent when r__svp_dlss != 0
 int ps_r__svp_dlss = 0; // SVP DLSS-SR master gate, 0 = stock (render_scale inert), nonzero = scaffolding active
-float ps_r__svp_stabilize = 0.0f; // SVP sway reduction, blends the lens toward the aim, 0 = full sway, 1 = tracks aim
+float ps_r__svp_stabilize = 1.0f; // SVP sway reduction, blends the lens toward the aim, 0 = full sway, 1 = tracks aim
 int ps_r__svp_lensfx = 0; // SVP lens FX (edge CA, barrel distortion, exit-pupil dimming), off by default (3DSS already does CA)
 float ps_r__svp_lensfx_strength = 1.0f; // SVP lens FX strength scale
 float ps_r__svp_eyebox = 0.0f; // SVP dynamic eye-box scope shadow (crescent grows as the bore drifts off aim), 0 = off
@@ -299,12 +299,16 @@ float ps_r__svp_lens_refmag  = 6.0f;    // reference magnification (tunnel fully
 float ps_r__svp_lens_vigk    = 1.5f;    // tunnel close rate vs magnification
 float ps_r__svp_lens_blur    = 0.0040f; // radial edge blur amount (UV)
 int   ps_r__svp_lens_menu_key = 0; // lens FX tuner open key, index into the PiP-page key dropdown (0 = numpad *)
-float ps_r__svp_eyebox_shift = 8.0f; // eye-box crescent drift gain (signed, negative flips the crescent side)
-float ps_r__svp_recoil_comp = 0.0f; // recoil-steady scope: fraction of camera recoil cancelled from the SVP (0 = off)
-float ps_r__svp_recoil_hold = 0.0f; // recoil-steady HUD: damps the recoil inertion dip so the scope body stays on the eyeline (0 = off)
-float ps_r__svp_recoil_smooth = 0.0f; // svp recoil smoothing, low pass the SVP camera direction to filter shake from any recoil source (0 = off)
-float ps_r__svp_zoom_smooth = 0.0f; // svp zoom smoothing, low pass the SVP magnification to absorb per shot FOV punches (0 = off)
+float ps_r__svp_eyebox_shift = 0.0f; // eye-box crescent drift gain (signed, negative flips the crescent side)
+float ps_r__svp_pupil_boost = 6.0f; // svp enlarge the scope exit pupil so recoil does not black out the lens (0 = off)
+float ps_r__svp_zoom_smooth = 1.0f; // svp zoom smoothing, low pass the SVP magnification against per shot FOV punches (0 = off)
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP resubmits the whole main frustum world otherwise (1 = on)
+int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
+int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water and SSR, 1 flat water and SSR (default), 2 flat water no SSR
+int ps_r__svp_skip_volumetric = 0; // svp skip volumetric lights on the scope pass, subtle at magnification (0 = keep)
+int ps_r__svp_skip_grass = 0; // svp skip grass and details on the scope pass, near grass is mostly off a zoomed cone (0 = keep)
+int ps_r__svp_sss_sun = 0; // svp compute the scope SSS pass and keep the sun contact shadow term, expensive (0 = off)
+int ps_r__svp_cull_grass = 1; // svp cull grass instances to the scope cone instead of replaying the whole main field (1 = on)
 Fvector4 scope_objective_lens_offset = { .0f, .0f, .0f, .0f };
 int scope_debug = 0;
 // RenderDoc instrumentation, default off
@@ -411,7 +415,6 @@ Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 Fvector4 ps_shader_scope_params = { 0, 0, 0, 0 }; // pip scope magnification curMag/minMag/maxMag/fov, set by the 3DSS lua
 float g_pip_scope_magnification = 0.f; // pip engine-computed magnification, fallback when nothing sets the cvar
-float g_pip_recoil_vert = 0.f, g_pip_recoil_horz = 0.f; // pip camera recoil offset (rad), set by the actor each frame, read by the SVP camera derive (recoil-steady scope)
 float g_pip_scope_min_mag = 0.f; // pip scope min magnification from hud_fov_params
 float g_pip_scope_max_mag = 0.f; // pip scope max magnification from hud_fov_params
 
@@ -1352,11 +1355,15 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_lens_blur",    &ps_r__svp_lens_blur,    0.0f, 0.03f); // lens FX: radial edge blur
 	CMD4(CCC_Integer, "r__svp_lens_menu_key", &ps_r__svp_lens_menu_key, 0, 9); // lens FX tuner open key (PiP-page dropdown index)
 	CMD4(CCC_Float, "r__svp_eyebox_shift", &ps_r__svp_eyebox_shift, -25.0f, 25.0f); // eye-box crescent drift gain (- flips side)
-	CMD4(CCC_Float, "r__svp_recoil_comp", &ps_r__svp_recoil_comp, 0.0f, 1.0f); // recoil-steady scope (0 = off, 1 = full cancel)
-	CMD4(CCC_Float, "r__svp_recoil_hold", &ps_r__svp_recoil_hold, 0.0f, 1.0f); // recoil-steady HUD scope position (0 = off, 1 = full hold)
-	CMD4(CCC_Float, "r__svp_recoil_smooth", &ps_r__svp_recoil_smooth, 0.0f, 1.0f); // svp recoil smoothing, scope direction (0 = off, 1 = max)
+	CMD4(CCC_Float, "r__svp_pupil_boost", &ps_r__svp_pupil_boost, 0.0f, 8.0f); // svp enlarge the scope exit pupil so recoil does not black out the lens (0 = off)
 	CMD4(CCC_Float, "r__svp_zoom_smooth", &ps_r__svp_zoom_smooth, 0.0f, 1.0f); // svp zoom smoothing (0 = off, 1 = max)
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
+	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
+	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)
+	CMD4(CCC_Integer, "r__svp_skip_volumetric", &ps_r__svp_skip_volumetric, 0, 1); // svp skip volumetric lights on the scope
+	CMD4(CCC_Integer, "r__svp_skip_grass", &ps_r__svp_skip_grass, 0, 1); // svp skip grass and details on the scope
+	CMD4(CCC_Integer, "r__svp_sss_sun", &ps_r__svp_sss_sun, 0, 1); // svp SSS sun contact shadows on the scope
+	CMD4(CCC_Integer, "r__svp_cull_grass", &ps_r__svp_cull_grass, 0, 1); // svp cull grass to the scope cone
 	CMD4(CCC_Integer, "r__scope_debug", &scope_debug, 0, 4);
 #endif
 	CMD4(CCC_Integer, "r__gpu_markers", &r__gpu_markers, 0, 1);   // per-batch events + resource names

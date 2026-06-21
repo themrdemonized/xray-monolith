@@ -214,10 +214,11 @@ public:
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
 
 	// pip SVP geometry cull, active only between begin and end which renderGBuffer brackets around the SVP pass
-	static void svp_cull_begin(Fmatrix& full_xform);
+	static void svp_cull_begin(Fmatrix& full_xform, bool cull_world);
 	static void svp_cull_end();
 	static bool svp_cull_active();
 	static bool svp_cull_reject(dxRender_Visual* V, Fmatrix* M);
+	static bool svp_cull_reject_sphere(const Fvector& c, float r);
 
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();

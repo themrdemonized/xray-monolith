@@ -636,15 +636,17 @@ void CRender::renderGBuffer()
 	PIX_EVENT(RENDER_GBUFFER);
 	Device.dwViewport++; // pip: per-viewport cache counter
 
-	// pip cull the SVP geometry to the scope frustum, the captured graph is main frustum so the SVP
-	// otherwise resubmits the whole world through a cone that sees a fraction. SVP pass and cvar only
-	extern int ps_r__svp_cull;
-	const bool svp_cull = (Target == TargetSVP) && Device.m_SecondViewport.IsSVPActive() && ps_r__svp_cull;
-	if (svp_cull)
+	// pip cull the SVP geometry to the scope cone, the captured graph is main frustum so the SVP would
+	// otherwise resubmit the whole world through a cone that sees a fraction
+	extern int ps_r__svp_cull, ps_r__svp_skip_grass, ps_r__svp_cull_grass;
+	const bool svp_pass = (Target == TargetSVP) && Device.m_SecondViewport.IsSVPActive();
+	const bool svp_cull = svp_pass && ps_r__svp_cull;
+	const bool svp_cull_grass = svp_pass && ps_r__svp_cull_grass && !ps_r__svp_skip_grass;
+	if (svp_cull || svp_cull_grass)
 	{
 		Fmatrix svp_full;
 		svp_full.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
-		svp_cull_begin(svp_full);
+		svp_cull_begin(svp_full, svp_cull);
 	}
 
 	//******* Main calc - DEFERRER RENDERER
@@ -726,7 +728,8 @@ void CRender::renderGBuffer()
 		r_dsgraph_render_hud();
 		r_dsgraph_render_graph(0);
 		r_dsgraph_render_lods(true, true);
-		if (Details) Details->Render();
+		// pip r__svp_skip_grass drops the near grass field on the scope pass (mostly off a zoomed cone)
+		if (Details && !(svp_pass && ps_r__svp_skip_grass)) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
 	}
@@ -879,12 +882,13 @@ void CRender::renderGBuffer()
 		if (late_hud)
 			r_dsgraph_render_hud();
 		r_dsgraph_render_lods(true, true);
-		if (Details) Details->Render();
+		// pip r__svp_skip_grass drops the near grass field on the scope pass (mostly off a zoomed cone)
+		if (Details && !(svp_pass && ps_r__svp_skip_grass)) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
 	}
 
-	if (svp_cull)
+	if (svp_cull || svp_cull_grass)
 		svp_cull_end(); // pip end SVP cull, the wallmarks and the shared shadow and light passes run after
 
 	// Wall marks

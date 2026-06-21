@@ -401,7 +401,13 @@ static class s3ds_param_1 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, ps_s3ds_param_1.z, ps_s3ds_param_1.w);
+		// pip enlarge the scope exit pupil (.z) for PiP so recoil does not black out the lens, the 3DSS
+		// shadow disc scales with it
+		float exit_pupil = ps_s3ds_param_1.z;
+		extern float ps_r__svp_pupil_boost;
+		if (ps_r__svp_pupil_boost > 0.f && Device.m_SecondViewport.IsSVPActive())
+			exit_pupil *= (1.f + ps_r__svp_pupil_boost);
+		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, exit_pupil, ps_s3ds_param_1.w);
 	}
 }    s3ds_param_1;
 
@@ -1130,7 +1136,10 @@ static class ssfx_issvp : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, Device.m_SecondViewport.IsSVPFrame(), 0, 0, 0);
+		// pip force_water_reflect and force_svp_sss make this read 0 so the water and sun take their non SVP path
+		const bool force0 = Device.m_SecondViewport.force_water_reflect || Device.m_SecondViewport.force_svp_sss;
+		const float issvp = force0 ? 0.f : float(Device.m_SecondViewport.IsSVPFrame());
+		RCache.set_c(C, issvp, 0, 0, 0);
 	}
 }    ssfx_issvp;
 

@@ -28,19 +28,22 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 // the frustum is built from the same matrices[1] SetActive renders the SVP with so it culls exactly
 // what the GPU would clip
 static CFrustum s_svp_cull_frustum;
-static bool s_svp_cull_on = false;
+static bool s_svp_cull_on = false;    // frustum armed for this SVP gbuffer pass
+static bool s_svp_cull_world = false; // also reject world geometry, grass culling can arm the frustum alone
 static int s_svp_cull_tested = 0, s_svp_cull_culled = 0; // temp diagnostic, strip once the numbers check out
 
-void R_dsgraph_structure::svp_cull_begin(Fmatrix& full_xform)
+void R_dsgraph_structure::svp_cull_begin(Fmatrix& full_xform, bool cull_world)
 {
 	s_svp_cull_frustum.CreateFromMatrix(full_xform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
 	s_svp_cull_on = true;
+	s_svp_cull_world = cull_world;
 	s_svp_cull_tested = 0; s_svp_cull_culled = 0; // temp diagnostic
 }
 
 void R_dsgraph_structure::svp_cull_end()
 {
 	s_svp_cull_on = false;
+	s_svp_cull_world = false;
 	Msg("[SVPCULL] tested=%d culled=%d (%.0f%%)", s_svp_cull_tested, s_svp_cull_culled,
 		s_svp_cull_tested ? 100.f * s_svp_cull_culled / s_svp_cull_tested : 0.f); // temp diagnostic
 }
@@ -50,9 +53,19 @@ bool R_dsgraph_structure::svp_cull_active()
 	return s_svp_cull_on;
 }
 
+// grass cull, the detail manager replays the main frustum field on the SVP pass, reject instances off
+// the scope cone, the radius covers a blade so the root can sit a little outside without popping
+bool R_dsgraph_structure::svp_cull_reject_sphere(const Fvector& c, float r)
+{
+	if (!s_svp_cull_on)
+		return false;
+	Fvector wc = c;
+	return !s_svp_cull_frustum.testSphere_dirty(wc, r);
+}
+
 bool R_dsgraph_structure::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
 {
-	if (!s_svp_cull_on || !V)
+	if (!s_svp_cull_on || !s_svp_cull_world || !V)
 		return false;
 	s_svp_cull_tested++; // temp diagnostic
 	Fvector wc;

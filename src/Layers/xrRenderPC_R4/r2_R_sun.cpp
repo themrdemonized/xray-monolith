@@ -1135,7 +1135,11 @@ void CRender::render_sun_cascades()
 		if (Device.m_SecondViewport.IsSVPActive())
 		{
 			TargetSVP->SetActive();
+			// pip force_svp_sss makes ssfx_issvp read 0 so the scope sun keeps the SSS contact term, gated by r__svp_sss_sun
+			extern int ps_r__svp_sss_sun;
+			Device.m_SecondViewport.force_svp_sss = (ps_r__svp_sss_sun != 0);
 			render_sun_cascade(i);
+			Device.m_SecondViewport.force_svp_sss = false;
 		}
 		TargetMain->SetActive();
 		render_sun_cascade(i);

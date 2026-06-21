@@ -357,15 +357,16 @@ void CRenderTarget::phase_combine()
 	else
 		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
-	// pip run SSR for the SVP too, its buffers are per-target so the scope reflects like the main view
-	if (RImplementation.o.ssfx_ssr)
+	// pip the deferred SSR runs on the scope at levels 0 and 1 (reflective surfaces), skipped at 2 (matte)
+	const bool svp_pass = Device.m_SecondViewport.IsSVPFrame();
+	if (RImplementation.o.ssfx_ssr && (!svp_pass || ps_r__svp_skip_ssr < 2))
 	{
 		ssfx_PrevPos_Requiered = true;
 		phase_ssfx_ssr(); // [SSFX] - New SSR Phase
 	}
 
-	// [SSFX] - Water SSR rendering, SVP included so scope water reflects
-	if (RImplementation.o.ssfx_water)
+	// pip water SSR only at level 0, the reflective water below needs it, the SSS shader discards it otherwise
+	if (RImplementation.o.ssfx_water && (!svp_pass || ps_r__svp_skip_ssr == 0))
 	{
 		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
@@ -405,8 +406,12 @@ void CRenderTarget::phase_combine()
 		u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
 
 	// Final water rendering ( All the code above can be omitted if the Water module isn't installed )
+	// pip the SSS water shader flattens the scope water (ssfx_issvp), force_water_reflect turns the
+	// reflection back on for the SVP draw at level 0
+	Device.m_SecondViewport.force_water_reflect = svp_pass && (ps_r__svp_skip_ssr == 0);
 	RCache.set_xform_world(Fidentity);
 	RImplementation.r_dsgraph_render_water();
+	Device.m_SecondViewport.force_water_reflect = false;
 	
 	{
 		if (RImplementation.o.ssfx_rain)
@@ -456,15 +461,19 @@ void CRenderTarget::phase_combine()
 
 	//	Igor: for volumetric lights
 	//	combine light volume here
-	if (RImplementation.o.ssfx_volumetric)
+	// pip r__svp_skip_volumetric drops god rays on the scope pass (subtle at magnification)
+	if (!(svp_pass && ps_r__svp_skip_volumetric))
 	{
-		if (m_bHasActiveVolumetric || m_bHasActiveVolumetric_spot)
-			phase_combine_volumetric();
-	}
-	else
-	{
-		if (m_bHasActiveVolumetric)
-			phase_combine_volumetric();
+		if (RImplementation.o.ssfx_volumetric)
+		{
+			if (m_bHasActiveVolumetric || m_bHasActiveVolumetric_spot)
+				phase_combine_volumetric();
+		}
+		else
+		{
+			if (m_bHasActiveVolumetric)
+				phase_combine_volumetric();
+		}
 	}
 
 	// Perform blooming filter and distortion if needed
@@ -551,7 +560,9 @@ void CRenderTarget::phase_combine()
 		phase_ssfx_taa();
 	}
 
-	if (RImplementation.o.ssfx_motionblur && ps_ssfx_motionblur.y > 0 && !svp_dlss_skip_aa)
+	// pip r__svp_skip_motionblur drops motion blur on the scope pass, magnified blur is an artifact
+	if (RImplementation.o.ssfx_motionblur && ps_ssfx_motionblur.y > 0 && !svp_dlss_skip_aa
+		&& !(svp_pass && ps_r__svp_skip_motionblur))
 	{
 		phase_ssfx_motion_blur();
 	}
