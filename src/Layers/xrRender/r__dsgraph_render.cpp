@@ -21,6 +21,60 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 	return _sqrt(clampr((ssa - r_ssaGLOD_end) / (r_ssaGLOD_start - r_ssaGLOD_end), 0.f, 1.f));
 }
 
+// pip SVP geometry cull. the scene is captured against the main frustum and rendered twice, the SVP
+// resubmits the whole main frustum set though its magnified cone sees only a fraction, so reject items
+// fully outside the SVP frustum before the draw. active only between svp_cull_begin and svp_cull_end
+// which renderGBuffer brackets around the SVP gbuffer pass, so the main view and non PiP stay untouched.
+// the frustum is built from the same matrices[1] SetActive renders the SVP with so it culls exactly
+// what the GPU would clip
+static CFrustum s_svp_cull_frustum;
+static bool s_svp_cull_on = false;
+static int s_svp_cull_tested = 0, s_svp_cull_culled = 0; // temp diagnostic, strip once the numbers check out
+
+void R_dsgraph_structure::svp_cull_begin(Fmatrix& full_xform)
+{
+	s_svp_cull_frustum.CreateFromMatrix(full_xform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+	s_svp_cull_on = true;
+	s_svp_cull_tested = 0; s_svp_cull_culled = 0; // temp diagnostic
+}
+
+void R_dsgraph_structure::svp_cull_end()
+{
+	s_svp_cull_on = false;
+	Msg("[SVPCULL] tested=%d culled=%d (%.0f%%)", s_svp_cull_tested, s_svp_cull_culled,
+		s_svp_cull_tested ? 100.f * s_svp_cull_culled / s_svp_cull_tested : 0.f); // temp diagnostic
+}
+
+bool R_dsgraph_structure::svp_cull_active()
+{
+	return s_svp_cull_on;
+}
+
+bool R_dsgraph_structure::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
+{
+	if (!s_svp_cull_on || !V)
+		return false;
+	s_svp_cull_tested++; // temp diagnostic
+	Fvector wc;
+	float wr;
+	if (M)
+	{
+		// dynamic, vis.sphere is object space, place it and scale the radius by the world matrix
+		M->transform_tiny(wc, V->vis.sphere.P);
+		const float sc2 = _max(_max(M->i.square_magnitude(), M->j.square_magnitude()), M->k.square_magnitude());
+		wr = V->vis.sphere.R * _sqrt(sc2);
+	}
+	else
+	{
+		// static, no per item matrix, the geometry and so its vis.sphere is already in world space
+		wc.set(V->vis.sphere.P);
+		wr = V->vis.sphere.R;
+	}
+	const bool rejected = !s_svp_cull_frustum.testSphere_dirty(wc, wr);
+	if (rejected) s_svp_cull_culled++; // temp diagnostic
+	return rejected;
+}
+
 // NORMAL
 IC bool cmp_normal_items(const _NormalItem& N1, const _NormalItem& N2)
 {
@@ -35,6 +89,7 @@ void __fastcall mapNormal_Render(mapNormalItems& N)
 	for (; I != E; I++)
 	{
 		_NormalItem& Ni = *I;
+		if (R_dsgraph_structure::svp_cull_reject(Ni.pVisual, nullptr)) continue; // pip skip off cone SVP geometry
 		float LOD = calcLOD(Ni.ssa, Ni.pVisual->vis.sphere.R);
 #ifdef USE_DX11
 		RCache.LOD.set_LOD(LOD);
@@ -57,6 +112,7 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 	for (; I != E; I++)
 	{
 		_MatrixItem& Ni = *I;
+		if (R_dsgraph_structure::svp_cull_reject(Ni.pVisual, &Ni.Matrix)) continue; // pip skip off cone SVP geometry
 		RCache.set_xform_world(Ni.Matrix);
 		RImplementation.apply_object(Ni.pObject);
 		RImplementation.apply_lmaterial();

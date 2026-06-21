@@ -20,6 +20,14 @@ void R_dsgraph_structure::r_dsgraph_render_lods(bool _setup_zb, bool _clear)
 	else mapLOD.getRL(lstLODs); // back-to-front
 	if (lstLODs.empty()) return;
 
+	// pip cull off cone imposters before they batch, a per item skip would corrupt the imposter batch fill
+	if (svp_cull_active())
+	{
+		lstLODs.erase(std::remove_if(lstLODs.begin(), lstLODs.end(),
+			[](const R_dsgraph::_LodItem& P) { return R_dsgraph_structure::svp_cull_reject(P.pVisual, nullptr); }), lstLODs.end());
+		if (lstLODs.empty()) return;
+	}
+
 	// *** Fill VB and generate groups
 	u32 shid = _setup_zb ? SE_R1_LMODELS : SE_R1_NORMAL_LQ;
 	FLOD* firstV = (FLOD*)lstLODs[0].pVisual;

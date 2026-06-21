@@ -635,6 +635,18 @@ void CRender::renderGBuffer()
 {
 	PIX_EVENT(RENDER_GBUFFER);
 	Device.dwViewport++; // pip: per-viewport cache counter
+
+	// pip cull the SVP geometry to the scope frustum, the captured graph is main frustum so the SVP
+	// otherwise resubmits the whole world through a cone that sees a fraction. SVP pass and cvar only
+	extern int ps_r__svp_cull;
+	const bool svp_cull = (Target == TargetSVP) && Device.m_SecondViewport.IsSVPActive() && ps_r__svp_cull;
+	if (svp_cull)
+	{
+		Fmatrix svp_full;
+		svp_full.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
+		svp_cull_begin(svp_full);
+	}
+
 	//******* Main calc - DEFERRER RENDERER
 	// Main calc
 	Device.Statistic->RenderCALC.Begin();
@@ -871,6 +883,9 @@ void CRender::renderGBuffer()
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
 	}
+
+	if (svp_cull)
+		svp_cull_end(); // pip end SVP cull, the wallmarks and the shared shadow and light passes run after
 
 	// Wall marks
 	if (Wallmarks)

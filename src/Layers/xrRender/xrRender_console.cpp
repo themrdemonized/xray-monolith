@@ -304,6 +304,7 @@ float ps_r__svp_recoil_comp = 0.0f; // recoil-steady scope: fraction of camera r
 float ps_r__svp_recoil_hold = 0.0f; // recoil-steady HUD: damps the recoil inertion dip so the scope body stays on the eyeline (0 = off)
 float ps_r__svp_recoil_smooth = 0.0f; // svp recoil smoothing, low pass the SVP camera direction to filter shake from any recoil source (0 = off)
 float ps_r__svp_zoom_smooth = 0.0f; // svp zoom smoothing, low pass the SVP magnification to absorb per shot FOV punches (0 = off)
+int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP resubmits the whole main frustum world otherwise (1 = on)
 Fvector4 scope_objective_lens_offset = { .0f, .0f, .0f, .0f };
 int scope_debug = 0;
 // RenderDoc instrumentation, default off
@@ -1355,6 +1356,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_recoil_hold", &ps_r__svp_recoil_hold, 0.0f, 1.0f); // recoil-steady HUD scope position (0 = off, 1 = full hold)
 	CMD4(CCC_Float, "r__svp_recoil_smooth", &ps_r__svp_recoil_smooth, 0.0f, 1.0f); // svp recoil smoothing, scope direction (0 = off, 1 = max)
 	CMD4(CCC_Float, "r__svp_zoom_smooth", &ps_r__svp_zoom_smooth, 0.0f, 1.0f); // svp zoom smoothing (0 = off, 1 = max)
+	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__scope_debug", &scope_debug, 0, 4);
 #endif
 	CMD4(CCC_Integer, "r__gpu_markers", &r__gpu_markers, 0, 1);   // per-batch events + resource names
