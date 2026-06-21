@@ -2678,11 +2678,6 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 				-1.f * fShootingBackwOffset * m_fBACKW_ShootingFactor
 			};
 
-			// pip: hold the scope steady on the eyeline while a PiP scope is up (SVP-only, default off)
-			extern float ps_r__svp_recoil_hold;
-			if (ps_r__svp_recoil_hold > 0.f && Device.m_SecondViewport.IsSVPActive())
-				curr_offs.mul(1.f - (ps_r__svp_recoil_hold > 1.f ? 1.f : ps_r__svp_recoil_hold));
-
 			m_shoot_shake_mat.translate_over(curr_offs);
 			trans.mulB_43(m_shoot_shake_mat);
 		}
@@ -2978,11 +2973,6 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 
 	Fvector curr_offs;
 	curr_offs = {fLR_lim * -1.f * m_fLR_InertiaFactor, fUD_lim * m_fUD_InertiaFactor, 0.0f};
-
-	// pip: hold inertion too while a PiP scope is up (SVP-only, default off)
-	extern float ps_r__svp_recoil_hold;
-	if (ps_r__svp_recoil_hold > 0.f && Device.m_SecondViewport.IsSVPActive())
-		curr_offs.mul(1.f - (ps_r__svp_recoil_hold > 1.f ? 1.f : ps_r__svp_recoil_hold));
 
 	// PrivatePirate: rotate inertia offset around Z axis to compensate roll
 	Fmatrix R;

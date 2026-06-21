@@ -1140,16 +1140,6 @@ void CActor::UpdateCL()
 {
 	PROF_EVENT("CActor UpdateCL");
 
-	// pip expose the camera recoil angle for the recoil-steady scope (the SVP camera reads these globals).
-	// weapon_recoil_delta_angle returns {0,0,0} when no shot effector is active, so this self-resets on stop
-	if (Level().CurrentViewEntity() == this)
-	{
-		extern float g_pip_recoil_vert, g_pip_recoil_horz;
-		Fvector rda = weapon_recoil_delta_angle();
-		g_pip_recoil_vert = rda.x;
-		g_pip_recoil_horz = rda.y;
-	}
-
 	if (g_Alive() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)

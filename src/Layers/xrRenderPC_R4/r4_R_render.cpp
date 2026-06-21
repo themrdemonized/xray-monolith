@@ -351,62 +351,6 @@ void CRender::deriveScopeLens()
 				}
 			}
 
-			// pip recoil-steady scope: blend the SVP camera orientation toward the main view during fire so a PiP
-			// scope tracks your aim, not the weapon bone (SVP-only). orientation only - position drifts the mag.
-			extern float g_pip_recoil_vert, g_pip_recoil_horz;
-			if (ps_r__svp_recoil_comp > EPS)
-			{
-				const float REF = 0.06f; // recoil angle (rad) at which the scope fully follows the view
-				float rmag = _sqrt(g_pip_recoil_vert * g_pip_recoil_vert + g_pip_recoil_horz * g_pip_recoil_horz);
-				float blend = (rmag / REF) * ps_r__svp_recoil_comp;
-				if (blend > 1.f) blend = 1.f;
-				if (blend > EPS)
-				{
-					Fvector aimf; aimf.set(Device.vCameraDirection); aimf.normalize();
-					Fvector f;    f.set(p->eyepiece.m_W.k); f.normalize();
-					Fvector nf;   nf.lerp(f, aimf, blend); nf.normalize();
-					Fvector wup = {0.f, 1.f, 0.f}, right, up;
-					right.crossproduct(wup, nf);
-					if (right.magnitude() > EPS_S)
-					{
-						right.normalize();
-						up.crossproduct(nf, right); up.normalize();
-						p->eyepiece.m_W.i.set(right);
-						p->eyepiece.m_W.j.set(up);
-						p->eyepiece.m_W.k.set(nf);
-					}
-				}
-			}
-
-			// pip recoil smoothing, low pass the SVP camera forward so high frequency recoil shake from any
-			// source (including add_cam_effector recoil mods that recoil_comp can't see) is filtered out of
-			// the magnified view, orientation only, EMA toward the smoothed forward, resets on a big jump
-			extern float ps_r__svp_recoil_smooth;
-			if (ps_r__svp_recoil_smooth > EPS)
-			{
-				Fvector cf; cf.set(p->eyepiece.m_W.k); cf.normalize();
-				Fvector& sf = p->svp_smooth_fwd;
-				if (sf.magnitude() < EPS_S || sf.dotproduct(cf) < 0.9f)
-					sf.set(cf); // first frame, or a big jump (weapon switch or scoping back in), no catch up
-				else
-				{
-					const float tau = 0.35f * ps_r__svp_recoil_smooth; // larger = harder low pass, more lag
-					float a = (tau > EPS) ? Device.fTimeDelta / tau : 1.f;
-					if (a > 1.f) a = 1.f;
-					Fvector tgt; tgt.lerp(sf, cf, a); sf.set(tgt); sf.normalize();
-				}
-				Fvector wup = {0.f, 1.f, 0.f}, right, up;
-				right.crossproduct(wup, sf);
-				if (right.magnitude() > EPS_S)
-				{
-					right.normalize();
-					up.crossproduct(sf, right); up.normalize();
-					p->eyepiece.m_W.i.set(right);
-					p->eyepiece.m_W.j.set(up);
-					p->eyepiece.m_W.k.set(sf);
-				}
-			}
-
 			// guns are often mesh-scaled, so the eyepiece radius is the only reliable unit
 			Fvector4 o = Fvector4(scope_objective_lens_offset).mul(p->eyepiece.radius);
 			p->objective.m_W.mul(p->eyepiece.m_W, Fmatrix().translate({o.x, o.y, o.z}));
@@ -569,7 +513,10 @@ void CRender::Render()
 		{
 			TargetSVP->SetActive();   // SVP gbuffer + accumulator (and, for now, the SVP shadow atlas)
 			share_main_smaps();       // re-point the shadow atlas at the main maps the generation built
+			extern int ps_r__svp_sss_sun;
+			Device.m_SecondViewport.force_svp_sss = (ps_r__svp_sss_sun != 0); // sun keeps the SSS contact term
 			accum();                  // accumulate this unit into the SVP, reading the shared maps
+			Device.m_SecondViewport.force_svp_sss = false;
 			TargetMain->SetActive();  // restore for the next unit's generation on the main atlas
 		};
 	}
@@ -586,15 +533,17 @@ void CRender::renderGBuffer(bool clearGraph)
 	PIX_EVENT_F("RENDER_GBUFFER[%s]", Target == TargetMain ? "MAIN" : "SVP");
 	Device.dwViewport++; // pip per-viewport cache counter
 
-	// pip cull the SVP geometry to the scope frustum, the captured graph is main-frustum so the SVP
-	// otherwise re-submits the whole world through a cone that sees a fraction. SVP pass + cvar only
-	extern int ps_r__svp_cull;
-	const bool svp_cull = (Target == TargetSVP) && Device.true_pip_on && ps_r__svp_cull;
-	if (svp_cull)
+	// pip cull the SVP geometry to the scope cone, the captured graph is main frustum so the SVP would
+	// otherwise resubmit the whole world through a cone that sees a fraction
+	extern int ps_r__svp_cull, ps_r__svp_skip_grass, ps_r__svp_cull_grass;
+	const bool svp_pass = (Target == TargetSVP) && Device.true_pip_on;
+	const bool svp_cull = svp_pass && ps_r__svp_cull;
+	const bool svp_cull_grass = svp_pass && ps_r__svp_cull_grass && !ps_r__svp_skip_grass;
+	if (svp_cull || svp_cull_grass)
 	{
 		Fmatrix svp_full;
 		svp_full.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
-		CDSGraphManager::svp_cull_begin(svp_full);
+		CDSGraphManager::svp_cull_begin(svp_full, svp_cull);
 	}
 
 	phase = PHASE_NORMAL;
@@ -673,11 +622,12 @@ void CRender::renderGBuffer(bool clearGraph)
 			}
 		}
 		GMBase.r_dsgraph_render_lods(true, clearGraph);
-		if (Details) Details->Render();
+		// pip r__svp_skip_grass drops the near-grass field on the scope pass (mostly off a zoomed cone)
+		if (Details && !(svp_pass && ps_r__svp_skip_grass)) Details->Render();
 		Target->phase_scene_end();
 	}
 
-	if (svp_cull)
+	if (svp_cull || svp_cull_grass)
 		CDSGraphManager::svp_cull_end(); // pip end SVP cull, the shared shadow/light passes below are unaffected
 
 	// Wall marks
@@ -714,9 +664,23 @@ void CRender::renderGBuffer(bool clearGraph)
 				Target->Matrix_current.set(Device.mProject);
 				mm_saved_viewproj.set(Device.mFullTransform);
 			}
+			else if (svp_pass)
+			{
+				// pip the scope water SSR and SSDO reproject against these, the setter blocks are main only so
+				// the SVP would accumulate against stale matrices, build them from the per viewport matrices
+				Fmatrix svp_prev_full, svp_inv_view, svp_prev_inv_view;
+				svp_prev_full.mul(Device.matrices_previous[1].mProject, Device.matrices_previous[1].mView);
+				svp_inv_view.invert(Device.matrices[1].mView);
+				Target->Matrix_previous.mul(svp_prev_full, svp_inv_view);
+				Target->Matrix_current.set(Device.matrices[1].mProject);
+				svp_prev_inv_view.invert(Device.matrices_previous[1].mView);
+				Target->Position_previous.set(svp_prev_inv_view.c);
+			}
 		}
 
-		if (RImplementation.o.ssfx_sss && !Device.m_SecondViewport.IsSVPFrame())
+		// pip the SVP skips its own SSS pass, r__svp_sss_sun computes it so the scope sun keeps the contact term
+		extern int ps_r__svp_sss_sun;
+		if (RImplementation.o.ssfx_sss && (!Device.m_SecondViewport.IsSVPFrame() || (svp_pass && ps_r__svp_sss_sun)))
 		{
 			static bool sss_rendered, sss_extended_rendered;
 

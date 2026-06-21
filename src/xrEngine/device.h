@@ -196,7 +196,6 @@ public:
 		// pass turns it into a black crescent that grows on the side your aim has wandered off-axis
 		Fvector4 svp_eyebox = { 0.f, 0.f, 0.f, 0.f };
 		Fvector svp_bore_fwd = {}; // true (un-stabilized) lens forward, captured before the Stage-1 reduction
-		Fvector svp_smooth_fwd = {}; // pip recoil smoothing, low pass EMA of the SVP camera forward to filter recoil shake
 
 		// history reset for the eval, set by the triggers (logic + render threads), consumed render-side
 		// at the seam via exchange, atomic because the logic-thread writers race the render-thread read
@@ -204,6 +203,13 @@ public:
 
 		// set by the double-pass, read by the hybrid IsSVPFrame when true_pip is on
 		bool m_render_pass_is_svp = false;
+
+		// pip set only around the SVP water surface draw, makes ssfx_issvp read 0 so the SSS water shader
+		// uses the SVP reflection instead of its flat-scope fallback (ssfx_water.ps reflection = turbidity)
+		bool force_water_reflect = false;
+
+		// pip set around the SVP sun accum, makes ssfx_issvp read 0 so the sun keeps the SSS contact term
+		bool force_svp_sss = false;
 
 		// pip shared-shadow hook, called as accum(); if (dual_accum) dual_accum(accum), the lambda
 		// re-accumulates the shadow unit into the SVP, null for R2/R3 and when PiP is off
