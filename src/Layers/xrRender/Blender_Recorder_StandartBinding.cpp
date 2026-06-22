@@ -405,8 +405,20 @@ static class s3ds_param_1 : public R_constant_setup
 		// shadow disc scales with it
 		float exit_pupil = ps_s3ds_param_1.z;
 		extern float ps_r__svp_pupil_boost;
+		extern float ps_r__svp_pupil_track;
 		if (ps_r__svp_pupil_boost > 0.f && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())
-			exit_pupil *= (1.f + ps_r__svp_pupil_boost);
+		{
+			float boost = ps_r__svp_pupil_boost;
+			if (ps_r__svp_pupil_track > 0.f)
+			{
+				// pip adaptive: open the pupil only as far as the bore has drifted off the aim, so the scope
+				// stays tight when steady and opens just enough under recoil (svp_eyebox.xy = bore off-axis)
+				const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
+				const float offaxis = _sqrt(eb.x * eb.x + eb.y * eb.y);
+				boost *= clampr(offaxis * ps_r__svp_pupil_track, 0.f, 1.f);
+			}
+			exit_pupil *= (1.f + boost);
+		}
 		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, exit_pupil, ps_s3ds_param_1.w);
 	}
 }    s3ds_param_1;
