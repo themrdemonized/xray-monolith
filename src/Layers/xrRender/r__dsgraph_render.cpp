@@ -30,22 +30,17 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 static CFrustum s_svp_cull_frustum;
 static bool s_svp_cull_on = false;    // frustum armed for this SVP gbuffer pass
 static bool s_svp_cull_world = false; // also reject world geometry, grass culling can arm the frustum alone
-static int s_svp_cull_tested = 0, s_svp_cull_culled = 0; // temp diagnostic, strip once the numbers check out
-
 void R_dsgraph_structure::svp_cull_begin(Fmatrix& full_xform, bool cull_world)
 {
 	s_svp_cull_frustum.CreateFromMatrix(full_xform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
 	s_svp_cull_on = true;
 	s_svp_cull_world = cull_world;
-	s_svp_cull_tested = 0; s_svp_cull_culled = 0; // temp diagnostic
 }
 
 void R_dsgraph_structure::svp_cull_end()
 {
 	s_svp_cull_on = false;
 	s_svp_cull_world = false;
-	Msg("[SVPCULL] tested=%d culled=%d (%.0f%%)", s_svp_cull_tested, s_svp_cull_culled,
-		s_svp_cull_tested ? 100.f * s_svp_cull_culled / s_svp_cull_tested : 0.f); // temp diagnostic
 }
 
 bool R_dsgraph_structure::svp_cull_active()
@@ -67,7 +62,6 @@ bool R_dsgraph_structure::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
 {
 	if (!s_svp_cull_on || !s_svp_cull_world || !V)
 		return false;
-	s_svp_cull_tested++; // temp diagnostic
 	Fvector wc;
 	float wr;
 	if (M)
@@ -83,9 +77,7 @@ bool R_dsgraph_structure::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
 		wc.set(V->vis.sphere.P);
 		wr = V->vis.sphere.R;
 	}
-	const bool rejected = !s_svp_cull_frustum.testSphere_dirty(wc, wr);
-	if (rejected) s_svp_cull_culled++; // temp diagnostic
-	return rejected;
+	return !s_svp_cull_frustum.testSphere_dirty(wc, wr);
 }
 
 // NORMAL
@@ -1094,6 +1086,7 @@ void __fastcall pLandscape_0(mapLandscape_Node *N)
 	VERIFY(N);
 	dxRender_Visual *V = N->val.pVisual;
 	VERIFY(V && V->shader._get());
+	if (R_dsgraph_structure::svp_cull_reject(V, nullptr)) return; // pip skip off cone SVP terrain
 	RCache.set_Element(N->val.se, 0);
 	float LOD = calcLOD(N->val.ssa, V->vis.sphere.R);
 #ifdef USE_DX11
@@ -1107,6 +1100,7 @@ void __fastcall pLandscape_1(mapLandscape_Node *N)
 	VERIFY(N);
 	dxRender_Visual *V = N->val.pVisual;
 	VERIFY(V && V->shader._get());
+	if (R_dsgraph_structure::svp_cull_reject(V, nullptr)) return; // pip skip off cone SVP terrain
 	RCache.set_Element(N->val.se, 1);
 	RImplementation.apply_lmaterial();
 	float LOD = calcLOD(N->val.ssa, V->vis.sphere.R);

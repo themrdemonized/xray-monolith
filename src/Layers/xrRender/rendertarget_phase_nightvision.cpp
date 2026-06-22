@@ -299,7 +299,9 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void(R_dsgraph::mapS
 
 			// a skinned scope lens is positioned by its bone, the captured matrix is only the kinematics
 			// root, fold in the lens bone skinning matrix so the eyepiece follows the glass on ADS and sway
-			auto m_W = RCache.get_xform_world();
+			// base off the captured per lens matrix like MT, get_xform_world here is read after V->Render and
+			// lands ~15cm off the captured root, that mismatch placed the eyepiece high and blacked the exit pupil
+			auto m_W = N.val.Matrix;
 			if (CSkeletonX* sk = fast_dynamic_cast<CSkeletonX*>(N.val.pVisual))
 			{
 				Fmatrix boneR;

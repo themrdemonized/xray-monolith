@@ -303,6 +303,7 @@ float ps_r__svp_eyebox_shift = 0.0f; // eye-box crescent drift gain (signed, neg
 float ps_r__svp_pupil_boost = 6.0f; // svp enlarge the scope exit pupil so recoil does not black out the lens (0 = off)
 float ps_r__svp_zoom_smooth = 1.0f; // svp zoom smoothing, low pass the SVP magnification against per shot FOV punches (0 = off)
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP resubmits the whole main frustum world otherwise (1 = on)
+int ps_r__svp_occlude = 0; // svp rebuild the HOM occlusion map from the scope cone so geometry behind walls is culled at the magnified resolution, helps indoors and urban, near useless in open forest (0 = off)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water and SSR, 1 flat water and SSR (default), 2 flat water no SSR
 int ps_r__svp_skip_volumetric = 0; // svp skip volumetric lights on the scope pass, subtle at magnification (0 = keep)
@@ -1358,6 +1359,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_pupil_boost", &ps_r__svp_pupil_boost, 0.0f, 8.0f); // svp enlarge the scope exit pupil so recoil does not black out the lens (0 = off)
 	CMD4(CCC_Float, "r__svp_zoom_smooth", &ps_r__svp_zoom_smooth, 0.0f, 1.0f); // svp zoom smoothing (0 = off, 1 = max)
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
+	CMD4(CCC_Integer, "r__svp_occlude", &ps_r__svp_occlude, 0, 1); // svp cone-accurate occlusion cull, helps indoors (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)
 	CMD4(CCC_Integer, "r__svp_skip_volumetric", &ps_r__svp_skip_volumetric, 0, 1); // svp skip volumetric lights on the scope

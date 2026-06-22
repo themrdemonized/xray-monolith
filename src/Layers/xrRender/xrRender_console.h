@@ -202,6 +202,7 @@ extern ECORE_API float ps_r__svp_eyebox_shift; // SVP eye-box crescent drift gai
 extern ECORE_API float ps_r__svp_pupil_boost; // svp enlarge the scope exit pupil so recoil does not black out the lens (0 to 8)
 extern ECORE_API float ps_r__svp_zoom_smooth; // svp zoom smoothing, low pass the SVP magnification (0 to 1)
 extern ECORE_API int ps_r__svp_cull; // svp frustum cull the scope geometry (0 = off, 1 = on)
+extern ECORE_API int ps_r__svp_occlude; // svp cone-accurate occlusion cull (0 = off, 1 = on)
 extern ECORE_API int ps_r__svp_skip_motionblur; // svp skip motion blur on the scope pass
 extern ECORE_API int ps_r__svp_skip_ssr; // svp scope reflections level (0 reflective, 1 flat + SSR, 2 matte)
 extern ECORE_API int ps_r__svp_skip_volumetric; // svp skip volumetric lights on the scope pass

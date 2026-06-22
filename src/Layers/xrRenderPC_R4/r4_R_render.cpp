@@ -352,11 +352,31 @@ void CRender::Render()
 	if (Device.m_SecondViewport.IsSVPActive())
 	{
 		TargetSVP->SetActive();
+
+		// pip optional cone occlusion. the shared HOM is 64x64 over the main 68deg view so within the ~4.5deg
+		// scope cone it spans a few pixels and culls nothing. rebuild it from the cone, restore the main HOM
+		// after. conservative and off by default, no help outdoors where there are no occluders
+		extern int ps_r__svp_occlude;
+		const bool svp_occlude = ps_r__svp_occlude && Device.m_SecondViewport.eyepiece.radius > EPS;
+		if (svp_occlude)
+		{
+			Fmatrix svp_ft; svp_ft.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
+			CFrustum svp_hom; svp_hom.CreateFromMatrix(svp_ft, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+			HOM.Render(svp_hom);
+		}
+
 		{
 			PIX_EVENT(DRAW_SVP);
 			// SVP HACK: use the main frame view position so the SVP traverses the same sector
 			Device.vCameraPosition = mainCameraPos;
 			renderGBuffer();
+		}
+
+		if (svp_occlude)
+		{
+			Fmatrix main_ft; main_ft.mul(Device.matrices[0].mProject, Device.matrices[0].mView);
+			CFrustum main_hom; main_hom.CreateFromMatrix(main_ft, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
+			HOM.Render(main_hom); // restore main occlusion for the sun and light passes that follow
 		}
 	}
 
