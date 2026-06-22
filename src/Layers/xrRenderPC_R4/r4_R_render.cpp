@@ -561,6 +561,17 @@ void svpCamera()
 		const Fvector4& fovp = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
 		g_pip_scope_max_mag = (fovp.x > EPS) ? fov / deg2rad(fovp.x * 0.75f) : scope_magnification;
 		g_pip_scope_min_mag = (fovp.y > EPS) ? fov / deg2rad(fovp.y * 0.75f) : scope_magnification;
+
+		// pip drive the 3DSS reticle magnification (shader_scope_params curMag/minMag/maxMag) from the
+		// engine so the FFP reticle scales with zoom even when the 3DSS zoom script stops updating it
+		extern int ps_r__svp_reticle_mag;
+		if (ps_r__svp_reticle_mag)
+		{
+			extern Fvector4 ps_shader_scope_params;
+			ps_shader_scope_params.x = g_pip_scope_magnification;
+			ps_shader_scope_params.y = g_pip_scope_min_mag;
+			ps_shader_scope_params.z = g_pip_scope_max_mag;
+		}
 	}
 
 	// The fov we render at to get the correct zoom
