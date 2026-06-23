@@ -62,21 +62,13 @@ bool R_dsgraph_structure::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
 {
 	if (!s_svp_cull_on || !s_svp_cull_world || !V)
 		return false;
-	Fvector wc;
-	float wr;
+	// dynamic skinned sub-visual spheres are baked at the rest pose and do not track the animated bones, so a
+	// close NPC (a bent head, a hood) reads outside the cone and gets dropped. only ~57 objects, skip the cull
 	if (M)
-	{
-		// dynamic, vis.sphere is object space, place it and scale the radius by the world matrix
-		M->transform_tiny(wc, V->vis.sphere.P);
-		const float sc2 = _max(_max(M->i.square_magnitude(), M->j.square_magnitude()), M->k.square_magnitude());
-		wr = V->vis.sphere.R * _sqrt(sc2);
-	}
-	else
-	{
-		// static, no per item matrix, the geometry and so its vis.sphere is already in world space
-		wc.set(V->vis.sphere.P);
-		wr = V->vis.sphere.R;
-	}
+		return false;
+	// static, no per item matrix, the geometry and so its vis.sphere is already in world space
+	Fvector wc; wc.set(V->vis.sphere.P);
+	float wr = V->vis.sphere.R;
 	return !s_svp_cull_frustum.testSphere_dirty(wc, wr);
 }
 
