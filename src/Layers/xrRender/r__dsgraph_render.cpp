@@ -70,21 +70,14 @@ bool CDSGraphManager::svp_cull_reject(dxRender_Visual* V, Fmatrix* M)
 {
 	if (!s_svp_cull_on || !s_svp_cull_world || !V)
 		return false;
-	Fvector wc;
-	float wr;
+	// dynamic objects carry a matrix, their vis.sphere is baked at the rest pose and does not track the
+	// animated bones, so per-sub-visual culling drops parts of close skinned NPCs (face, hood). they are
+	// few (~57) and cheap to keep, only the static world (null matrix) is worth culling
 	if (M)
-	{
-		// dynamic: vis.sphere is object-space, place it + scale the radius by the world matrix
-		M->transform_tiny(wc, V->vis.sphere.P);
-		const float sc2 = _max(_max(M->i.square_magnitude(), M->j.square_magnitude()), M->k.square_magnitude());
-		wr = V->vis.sphere.R * _sqrt(sc2);
-	}
-	else
-	{
-		// static: no per-item matrix, the geometry (and so vis.sphere) is already in world space
-		wc.set(V->vis.sphere.P);
-		wr = V->vis.sphere.R;
-	}
+		return false;
+	// static: no per-item matrix, the geometry (and so vis.sphere) is already in world space
+	Fvector wc; wc.set(V->vis.sphere.P);
+	float wr = V->vis.sphere.R;
 	return !s_svp_cull_frustum.testSphere_dirty(wc, wr);
 }
 
@@ -306,9 +299,11 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 {
 	{
 		PROF_EVENT("r_dsgraph_render_sorted");
-		// Rendering
-		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, true);
-		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, true);
+		// Rendering, pip the SVP combine runs first and must not consume the shared sorted list (glass,
+		// water, translucent), only the final main pass clears it or the main loses all translucent geometry
+		const bool clear_sorted = !Device.m_SecondViewport.m_render_pass_is_svp;
+		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, clear_sorted);
+		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, clear_sorted);
 	}
 
 	if (render_hud)
@@ -462,14 +457,17 @@ void CDSGraphManager::r_dsgraph_render_wmarks()
 {
 	PROF_EVENT("r_dsgraph_render_wmarks");
 #if	RENDER!=R_R1
-	// Rendering
-	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Wmark);
-	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Wmark);
+	// Rendering, pip the MAIN gbuffer renders wmarks before the SVP gbuffer (unlike the SVP-first combine),
+	// so the LAST consumer clears: the SVP pass when a scope is up, otherwise the main
+	const bool clear_wmark = Device.m_SecondViewport.m_render_pass_is_svp ||
+		!(Device.true_pip_on && Device.m_SecondViewport.IsSVPActive());
+	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Wmark, clear_wmark);
+	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Wmark, clear_wmark);
 	//	HACK: Calculate this only once
 	CHudInitializer initalizer(true);
 
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Wmark);
+	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Wmark, clear_wmark);
 	RImplementation.rmNormal();
 #endif
 }
