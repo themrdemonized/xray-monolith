@@ -101,7 +101,11 @@ void debug_scope(Fmatrix scope_camera)
 
 	auto& p = Device.m_SecondViewport;
 	draw_lens(p.eyepiece, 0xff0000ff);   // eyepiece blue
-	draw_lens(p.objective, 0xffffff00);  // objective yellow
+	// objective yellow at the CAMERA (the real entrance the scope views from). the stored p.objective.m_W
+	// is a forward math intermediate (it derives the camera pull-back d), not the visible front lens
+	CRenderDevice::CSecondVPParams::Lens objAtCam = p.objective;
+	objAtCam.m_W = scope_camera;
+	draw_lens(objAtCam, 0xffffff00);     // objective yellow (at the camera/entrance)
 	draw_camera(0xffffffff);             // scope cam white
 	// pip magenta cube at the live SVP camera position, updates each frame so the camera move between
 	// svpscope 1 (eyepiece) and 2 (objective) is obvious at a glance
@@ -218,21 +222,11 @@ void svpCamera()
 	if (scope_svp_enabled >= 2 && params.objective.radius > EPS)
 	{
 		// place the camera for the objective lens
-		auto d = camera_offset_from_vfov_and_radius(vFovMagOnly, params.objective.radius);
+		auto d = camera_offset_from_vfov_and_radius(vFovMagOnly, params.eyepiece.radius * 1.4f);
 		m_W_svpcam = Fmatrix().mul(params.objective.m_W, Fmatrix().translate(0, 0, -d));
 		near_plane = d;
 	}
 
-	// pip diag: confirm the SVP camera placement per mode (forward offset from the eyepiece, in eyepiece
-	// radii). mode 1 = on the eyepiece (~0), mode 2 = objective pushed back by d (net depends on the mag)
-	if (scope_debug >= 2)
-	{
-		Fvector off; off.sub(m_W_svpcam.c, params.eyepiece.m_W.c);
-		Fvector ax; ax.set(params.eyepiece.m_W.k); ax.normalize();
-		const float rr = params.eyepiece.radius;
-		Msg("[truepip] svpcam: mode=%d cam_fwd_off=%.2fr |off|=%.2fr near=%.4f obj_r=%.2fr",
-			scope_svp_enabled, rr > 0.f ? off.dotproduct(ax) / rr : 0.f, rr > 0.f ? off.magnitude() / rr : 0.f, near_plane, rr > 0.f ? params.objective.radius / rr : 0.f);
-	}
 
 	// pip force the SVP camera up to world up so a canted scope renders upright (optical axis k is kept)
 	{
@@ -397,14 +391,14 @@ void CRender::deriveScopeLens()
 			// automatic objective distance (geomscan): scan the HUD geometry snapshot (taken before
 			// render_hud cleared the lists) for the forward-most on-axis node + its radius = the
 			// objective glass plane, in eyepiece radii. clamped, fed to the geometric fallback below
-			float geom_front = -1.f, gb1 = -1.f, gb2 = -1.f, gb3 = -1.f;
+			float geom_front = -1.f;
 			{
 				const Fvector eye = p->eyepiece.m_W.c;
 				Fvector axis; axis.set(p->svp_bore_fwd); axis.normalize();
 				const float rr = p->eyepiece.radius;
 				if (rr > EPS)
 				{
-					float f1 = -1e9f, f2 = -1e9f, f3 = -1e9f, fr = -1e9f;
+					float fr = -1e9f;
 					for (auto& g : g_pip_hud_geom)
 					{
 						Fvector wc; wc.set(g.x, g.y, g.z);
@@ -413,20 +407,14 @@ void CRender::deriveScopeLens()
 						if (fwd <= 0.f) continue;
 						Fvector proj; proj.mad(eye, axis, fwd);
 						const float perp = wc.distance_to(proj);
-						if (perp < rr * 1.0f && fwd > f1) f1 = fwd;
-						if (perp < rr * 2.0f && fwd > f2) f2 = fwd;
-						if (perp < rr * 3.5f && fwd > f3) f3 = fwd;
 						if (perp < rr * 2.0f && (fwd + g.w) > fr) fr = fwd + g.w;
 					}
-					if (f1 > -1e8f) gb1 = f1 / rr;
-					if (f2 > -1e8f) gb2 = f2 / rr;
-					if (f3 > -1e8f) gb3 = f3 / rr;
 					if (fr > 0.f) { geom_front = fr / rr; if (geom_front < 4.f) geom_front = 4.f; else if (geom_front > 30.f) geom_front = 30.f; }
 				}
 			}
 
 			bool have_obj = false;
-			float dbg_cand_r = -1.f, dbg_cand_dist = -1.f; // scope_debug objective-capture trace
+			float dbg_cand_dist = -1.f; // objective-capture distance test (kept: used by the capture gate below)
 			for (auto& N : GMBase.RGraph.mapScopeHUDObjective)
 			{
 				if (!N.pVisual || !N.pMatrix)
@@ -441,7 +429,6 @@ void CRender::deriveScopeLens()
 				auto& OV = N.pVisual->getVisData();
 				Fvector oc; OV.box.getcenter(oc);
 				Fvector ow; oX.transform_tiny(ow, oc);
-				dbg_cand_r = OV.sphere.R;
 				dbg_cand_dist = ow.distance_to(p->eyepiece.m_W.c);
 				// distinct from the eyepiece (a single-lens scope captures the same disc for both)
 				if (OV.sphere.R > EPS && dbg_cand_dist > p->eyepiece.radius * 0.5f)
@@ -463,28 +450,7 @@ void CRender::deriveScopeLens()
 				p->objective.m_W = p->eyepiece.m_W;
 				const float dist_r = (geom_front > 0.f ? geom_front : 14.0f) * ps_r__svp_obj_dist;
 				p->objective.m_W.c.mad(fwd, p->eyepiece.radius * dist_r);
-				p->objective.radius = p->eyepiece.radius * ps_r__svp_obj_size;
-			}
-			if (scope_debug >= 2)
-			{
-				extern char g_pip_scope_section[128];
-				extern char g_pip_weapon_section[128];
-				extern float g_pip_scope_magnification;
-				Msg("[truepip] === scope='%s' weapon='%s' mag=%.2f === (set scope_debug 3 for the full bone dump)", g_pip_scope_section, g_pip_weapon_section, g_pip_scope_magnification);
-				Msg("[truepip] objcap: n=%u eye_r=%.4f cand_r=%.4f cand_dist=%.4f have_obj=%d obj_r=%.4f",
-					(u32)GMBase.RGraph.mapScopeHUDObjective.size(), p->eyepiece.radius, dbg_cand_r, dbg_cand_dist, have_obj ? 1 : 0, p->objective.radius);
-				// does the captured lens visual encode any length, or is it a flat disc?
-				Fvector lbsz; lbsz.sub(V.box.max, V.box.min);
-				Msg("[truepip] lensbox: ext=(%.4f,%.4f,%.4f) sphereR=%.4f (flat disc if one axis ~0)", lbsz.x, lbsz.y, lbsz.z, V.sphere.R);
-				// can the objective be auto-found from the parent skeleton (bbox + on-axis/named forward bone)?
-				if (sk)
-					sk->SVP_DiagScope(*N.pMatrix, p->eyepiece.m_W.c, p->svp_bore_fwd, p->eyepiece.radius, scope_debug >= 3);
-
-				// geomscan (computed above, drives the objective distance): forward-most on-axis HUD geometry
-				// at three cylinder widths + the front used. have_obj 1 means the mesh had a real objective
-				Msg("[truepip] geomscan: n=%u @1r=%.1fr @2r=%.1fr @3.5r=%.1fr | auto_front=%.1fr used=%s",
-					(u32)g_pip_hud_geom.size(), gb1, gb2, gb3, geom_front,
-					have_obj ? "mesh-objective" : (geom_front > 0.f ? "geomscan" : "fixed-14r"));
+				p->objective.radius = p->eyepiece.radius * ps_r__svp_obj_size; // eyepiece-relative objective radius (one global knob): the front-node geomscan swung ~6x conflating glass vs bell housing, eyepiece radius is the only mesh-scale-stable unit
 			}
 			ffp_sfp(); // focal-plane points for the scope shader
 		}

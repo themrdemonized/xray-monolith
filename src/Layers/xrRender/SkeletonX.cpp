@@ -521,45 +521,6 @@ bool CSkeletonX::SVP_LensBoneXform(Fmatrix& out)
 	return true;
 }
 
-// pip TEMP DIAGNOSTIC: probe whether the objective can be auto-found from the parent skeleton. logs the
-// parent visual bbox (is it the scope or the whole HUD?), and scans every bone for the forward-most one
-// (along the optical axis) and the forward-most one that is ON-axis (a candidate objective lens bone).
-// distances are reported in eyepiece radii (the mesh-scale-robust unit). strip once the approach is chosen
-void CSkeletonX::SVP_DiagScope(const Fmatrix& localToWorld, const Fvector& eyeW, const Fvector& axisW, float eyeR, bool dumpBones)
-{
-	if (!Parent || eyeR <= 0.f)
-		return;
-	const u16 nb = Parent->LL_BoneCount();
-	const Fbox& pb = Parent->getVisData().box;
-	Fvector psz; psz.sub(pb.max, pb.min);
-
-	float fwdmost = -1e9f, fb_perp = 0.f; int fb = -1;
-	float onaxis = -1e9f, ob_perp = 0.f; int ob = -1;
-	float named_fwd = -1e9f; int named = -1; // hacky probe: a bone whose NAME hints at the objective/front lens
-	for (u16 b = 0; b < nb; ++b)
-	{
-		Fvector bl = Parent->LL_GetBoneInstance(b).mRenderTransform.c;
-		Fvector bw; localToWorld.transform_tiny(bw, bl);
-		Fvector d; d.sub(bw, eyeW);
-		const float fwd = d.dotproduct(axisW);
-		if (fwd <= 0.f)
-			continue;
-		Fvector proj; proj.mad(eyeW, axisW, fwd);
-		const float perp = bw.distance_to(proj);
-		if (fwd > fwdmost) { fwdmost = fwd; fb = b; fb_perp = perp; }
-		if (perp < eyeR * 2.5f && fwd > onaxis) { onaxis = fwd; ob = b; ob_perp = perp; }
-		LPCSTR bn = Parent->LL_BoneName_dbg(b);
-		if (bn && (strstr(bn, "obj") || strstr(bn, "front") || strstr(bn, "lens") || strstr(bn, "glass") || strstr(bn, "ocular")))
-			if (fwd > named_fwd) { named_fwd = fwd; named = b; }
-		if (dumpBones && perp < eyeR * 6.f)
-			Msg("[truepip]   bone %u '%s' fwd=%.1fr perp=%.1fr", b, bn ? bn : "?", fwd / eyeR, perp / eyeR);
-	}
-	Msg("[truepip] scopediag: nbones=%u parentbox=%.1fr | fwdmost b=%d '%s' fwd=%.1fr perp=%.1fr | onaxis b=%d '%s' fwd=%.1fr | named b=%d '%s' fwd=%.1fr",
-		nb, (psz.magnitude() / eyeR),
-		fb, (fb >= 0 ? Parent->LL_BoneName_dbg(fb) : "-"), (fwdmost / eyeR), (fb_perp / eyeR),
-		ob, (ob >= 0 ? Parent->LL_BoneName_dbg(ob) : "-"), (ob >= 0 ? onaxis / eyeR : -1.f),
-		named, (named >= 0 ? Parent->LL_BoneName_dbg(named) : "-"), (named >= 0 ? named_fwd / eyeR : -1.f));
-}
 
 //-----------------------------------------------------------------------------------------------------
 // Wallmarks

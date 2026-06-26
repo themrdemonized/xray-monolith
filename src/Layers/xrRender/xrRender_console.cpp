@@ -303,8 +303,6 @@ float ps_r__svp_eyebox = 0.0f; // SVP dynamic eye-box scope shadow (crescent gro
 // parallax shadow for optical scopes and draws an exit-pupil clear-zone vignette in scope_lensfx so
 // minor movement no longer crescents. optics pushed per scope by the bridge (or set in console to tune).
 float ps_r__svp_truepip = 0.0f;      // master strength, 0 = off (3DSS shadow + pupil_boost path intact)
-float ps_r__svp_optics_er = 89.0f;   // active scope eye relief (mm), scales eye-offset sensitivity
-float ps_r__svp_optics_obj = 40.0f;  // active scope objective diameter (mm), exit pupil = obj / live mag
 float ps_r__svp_optics_soft = 0.15f; // eye-box falloff width (outerRadius - innerRadius, lens-local)
 float ps_r__svp_optics_gain = 1.0f;  // eye-offset sensitivity multiplier (crescent onset speed)
 int ps_r__truepip_recoil = 2;        // gate the SCRIPT recoil mod (GAMMA Enhanced Recoil): 0 normal, 1 off in true-PiP, 2 off always (clean-bed test default); base engine recoil untouched
@@ -312,7 +310,7 @@ int ps_r__truepip_recoil = 2;        // gate the SCRIPT recoil mod (GAMMA Enhanc
 // along the optical axis from the eyepiece). lengths are in eyepiece radii (the only mesh-scale-robust
 // unit); refined per scope from real objective_mm later
 float ps_r__svp_obj_dist = 1.0f;     // svpscope 2 objective: scale on the AUTO geomscan front distance (1.0 = raw auto; fixed 14r fallback when geomscan finds nothing)
-float ps_r__svp_obj_size = 1.4f;     // objective lens radius, in eyepiece radii
+float ps_r__svp_obj_size = 0.65f;    // svpscope 2 objective radius = eyepiece_radius * this (eyepiece-relative, one global knob across all scopes)
 // lens model (engine scope_lensfx pass, gated by r__svp_lensfx). harness-tuned defaults, all live-tunable.
 float ps_r__svp_lens_ca      = 0.0018f; // chromatic aberration in the ring
 float ps_r__svp_lens_distort = 0.0040f; // barrel distortion in the ring
@@ -439,8 +437,6 @@ Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
 Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 Fvector4 ps_shader_scope_params = { 0, 0, 0, 0 }; // scope magnification (curMag/minMag/maxMag/fov), set by the 3DSS Lua
 float g_pip_scope_magnification = 0.f; // engine fallback magnification when the Lua has not set the cvar
-char g_pip_scope_section[128] = {0};  // pip active scope section, diag bridge set game-side in UpdateSecondVP
-char g_pip_weapon_section[128] = {0}; // pip active weapon section, diag bridge set game-side in UpdateSecondVP
 float g_pip_scope_min_mag = 0.f; // fallback min magnification (least zoom, widest fov) from hud_fov_params
 float g_pip_scope_max_mag = 0.f; // fallback max magnification (most zoom, narrowest fov)
 
@@ -1430,8 +1426,6 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_lensfx_strength", &ps_r__svp_lensfx_strength, 0.0f, 2.0f); // SVP lens FX strength
 	CMD4(CCC_Float, "r__svp_eyebox", &ps_r__svp_eyebox, 0.0f, 1.0f); // SVP dynamic eye-box scope shadow (3DSS Override)
 	CMD4(CCC_Float, "r__svp_truepip", &ps_r__svp_truepip, 0.0f, 1.0f); // truepip physical eye-box (own pass, suppress 3DSS shadow)
-	CMD4(CCC_Float, "r__svp_optics_er", &ps_r__svp_optics_er, 10.0f, 300.0f); // active scope eye relief (mm)
-	CMD4(CCC_Float, "r__svp_optics_obj", &ps_r__svp_optics_obj, 5.0f, 100.0f); // active scope objective (mm)
 	CMD4(CCC_Float, "r__svp_optics_soft", &ps_r__svp_optics_soft, 0.02f, 0.6f); // truepip eye-box falloff width
 	CMD4(CCC_Float, "r__svp_optics_gain", &ps_r__svp_optics_gain, 0.0f, 5.0f); // truepip eye-offset sensitivity
 	CMD4(CCC_Integer, "r__truepip_recoil", &ps_r__truepip_recoil, 0, 2); // script recoil gate: 0 normal, 1 off in true-PiP, 2 off always

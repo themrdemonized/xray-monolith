@@ -94,17 +94,6 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	// once the SVP is active drop the back-glass (==1) / zwrite (==2) since the SVP draws the whole lens
 	if (Device.true_pip_on && sh->flags.iScopeLense > 0)
 	{
-		// pip TEMP DIAGNOSTIC: log every scope-lens surface (all iScopeLense types) and where it sits, to
-		// see if the objective glass is flagged anything we can auto-capture. strip once decided
-		extern int scope_debug;
-		if (scope_debug >= 2)
-		{
-			Fvector lp; xform->transform_tiny(lp, pVisual->getVisData().sphere.P);
-			Fvector to; to.sub(lp, Device.vCameraPosition);
-			const float fwd = to.dotproduct(Device.vCameraDirection);
-			Fvector proj; proj.mad(Device.vCameraPosition, Device.vCameraDirection, fwd);
-			Msg("[truepip] lenssurf: type=%d r=%.4f fwd=%.4f perp=%.4f", (int)sh->flags.iScopeLense, pVisual->getVisData().sphere.R, fwd, lp.distance_to(proj));
-		}
 		if (sh->flags.iScopeLense == 3)
 		{
 			// a scope can flag several lens surfaces (objective + ocular). keep the one in front of the eye

@@ -3409,15 +3409,6 @@ void CWeapon::UpdateSecondVP()
 	Device.m_SecondViewport.SetSVPActive((scope_debug && IsSecondVPZoomPresent() && IsZoomed())
 		|| (m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && IsZoomed()));
 
-	// pip diagnostics: publish the active scope/weapon section so the render-side scope logs name it
-	if (Device.m_SecondViewport.IsSVPActive())
-	{
-		extern char g_pip_scope_section[128];
-		extern char g_pip_weapon_section[128];
-		xr_strcpy(g_pip_weapon_section, *cNameSect());
-		const shared_str sn = GetScopeName();
-		xr_strcpy(g_pip_scope_section, *sn ? *sn : "(none)");
-	}
 }
 
 // pip places the SVP camera on the scope eyepiece (or behind the objective lens for scope_svp_enabled 2)

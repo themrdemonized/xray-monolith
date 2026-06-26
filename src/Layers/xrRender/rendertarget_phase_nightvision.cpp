@@ -520,15 +520,22 @@ void CRenderTarget::phase_3DSSReticle()
 					const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
 					if (ps_r__svp_truepip > 0.f)
 					{
-						// exit pupil = objective / live mag; innerRadius (clear zone) scales with exit pupil
-						// vs the human pupil (~3.5mm) so low mag / big objective is forgiving and high mag is
-						// fussy; eyeOffset = drift * eye relief (ref 89mm) * gain shifts the bright disc
-						const float HUMAN_PUPIL = 3.5f;
-						const float xp = ps_r__svp_optics_obj / (mag > 0.1f ? mag : 0.1f);
-						float innerR = 0.30f * (xp / HUMAN_PUPIL) + 0.25f;
-						if (innerR < 0.25f) innerR = 0.25f; else if (innerR > 0.60f) innerR = 0.60f;
+						// fully-auto physical eye-box from REAL geometry: eye relief = main-camera -> eyepiece
+						// distance, objective from the scope geometry, exit pupil = objective / live mag. the
+						// clear zone (innerR) grows with the exit pupil (low mag forgiving, high mag fussy) and
+						// the eye offset is the real bore-vs-aim drift scaled into exit-pupil radii. inputs are
+						// real geometry, only optics_gain (feel) + optics_soft (falloff width) are tunables
+						auto& vp = Device.m_SecondViewport;
+						const float R = (vp.eyepiece.radius > 1e-5f) ? vp.eyepiece.radius : 1e-5f;
+						const float Robj = (vp.objective.radius > 1e-5f) ? vp.objective.radius : (R * 1.4f);
+						const float L = vp.eyepiece.m_W.c.distance_to(Device.vCameraPosition); // eye relief (world)
+						const float m = (mag > 0.1f) ? mag : 0.1f;
+						const float xp_ratio = (Robj / m) / R;             // exit-pupil radius / eyepiece radius
+						float innerR = 0.30f * xp_ratio + 0.30f;           // bigger exit pupil -> bigger clear zone
+						if (innerR < 0.28f) innerR = 0.28f; else if (innerR > 0.62f) innerR = 0.62f;
 						const float outerR = innerR + ps_r__svp_optics_soft;
-						const float k = (ps_r__svp_optics_er / 89.0f) * 3.0f * ps_r__svp_optics_gain;
+						const float K = (L * m) / Robj;                    // eye offset per unit drift (exit-pupil radii)
+						const float k = K * 0.10f * ps_r__svp_optics_gain; // -> lens-local bright-circle shift
 						RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, outerR);
 						RCache.set_c("lensfx_ctrl", 0.0f, 1.0f, ps_r__svp_truepip, 0.0f);
 					}
