@@ -148,23 +148,6 @@ void svpCamera()
 	float _, fov, fNearPlane, fFarPlane;
 	Device.matrices[0].mProject.decompose_projection(fov, _, fNearPlane, fFarPlane);
 
-	// pip zoom smoothing, some recoil mods punch the main FOV per shot which flutters the scope
-	// magnification (fov over svp_fov), low pass fov so the scope zoom holds steady through full auto
-	extern float ps_r__svp_zoom_smooth;
-	if (ps_r__svp_zoom_smooth > EPS)
-	{
-		static float s_smooth_fov = 0.f;
-		if (s_smooth_fov < EPS || _abs(s_smooth_fov - fov) > 0.5f)
-			s_smooth_fov = fov; // init, or snap on a real FOV change (vid_restart or fov setting)
-		else
-		{
-			const float tau = 0.50f * ps_r__svp_zoom_smooth; // heavy, zoom shouldn't change mid burst so no downside
-			float a = (tau > EPS) ? Device.fTimeDelta / tau : 1.f;
-			if (a > 1.f) a = 1.f;
-			s_smooth_fov += (fov - s_smooth_fov) * a;
-		}
-		fov = s_smooth_fov;
-	}
 
 	auto mm = Device.matrices[0];
 	auto& params = Device.m_SecondViewport;

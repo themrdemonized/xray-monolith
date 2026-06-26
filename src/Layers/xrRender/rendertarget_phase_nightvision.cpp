@@ -528,16 +528,36 @@ void CRenderTarget::phase_3DSSReticle()
 						auto& vp = Device.m_SecondViewport;
 						const float R = (vp.eyepiece.radius > 1e-5f) ? vp.eyepiece.radius : 1e-5f;
 						const float Robj = (vp.objective.radius > 1e-5f) ? vp.objective.radius : (R * 1.4f);
-						const float L = vp.eyepiece.m_W.c.distance_to(Device.vCameraPosition); // eye relief (world)
 						const float m = (mag > 0.1f) ? mag : 0.1f;
-						const float xp_ratio = (Robj / m) / R;             // exit-pupil radius / eyepiece radius
+						// REAL per-scope optics from the 3DSS config (s3ds_param_1.y = eye relief cm, .z = exit-pupil /
+						// ocular diameter ratio), set per scope by the 3DSS Lua and already live on the engine global.
+						// fall back to scope geometry when a scope has no 3DSS optics entry (.z stays 0)
+						extern Fvector4 ps_s3ds_param_1;
+						extern float ps_r__svp_optics_real;
+						const bool use_real = (ps_r__svp_optics_real > 0.f && ps_s3ds_param_1.z > 1e-4f);
+						float xp_ratio;
+						if (use_real)
+						{
+							const float xp_static = ps_s3ds_param_1.z; // real exit-pupil / ocular ratio (static per scope)
+							extern int ps_r__svp_optics_zoomvig; extern float ps_r__svp_optics_zoomvig_blend;
+							if (ps_r__svp_optics_zoomvig != 0)
+							{
+								const float xp_zoom = xp_static / m; // exit pupil tightens as magnification rises (geom-style zoom vignette), per-scope base from the real exit pupil
+								float b = ps_r__svp_optics_zoomvig_blend; b = (b < 0.f) ? 0.f : ((b > 1.f) ? 1.f : b);
+								xp_ratio = xp_static + (xp_zoom - xp_static) * b; // lerp(static, zoom-scaled, blend)
+							}
+							else xp_ratio = xp_static;
+						}
+						else xp_ratio = (Robj / m) / R; // geometry fallback (exit-pupil radius / ocular radius)
+						const float L = use_real ? (ps_s3ds_param_1.y * 0.01f) : vp.eyepiece.m_W.c.distance_to(Device.vCameraPosition); // eye relief: real cm->world or camera->eyepiece
 						float innerR = 0.30f * xp_ratio + 0.30f;           // bigger exit pupil -> bigger clear zone
 						if (innerR < 0.28f) innerR = 0.28f; else if (innerR > 0.62f) innerR = 0.62f;
 						const float outerR = innerR + ps_r__svp_optics_soft;
-						const float K = (L * m) / Robj;                    // eye offset per unit drift (exit-pupil radii)
-						const float k = K * 0.10f * ps_r__svp_optics_gain; // -> lens-local bright-circle shift
+						const float K = L / (xp_ratio * R);                // eye offset per unit drift; = (L*m)/Robj for the geometry path
+						const float k = K * (use_real ? 0.80f : 0.10f) * ps_r__svp_optics_gain; // -> lens-local bright-circle shift. the real eye-relief K runs ~8x below the geometric camera->eyepiece proxy, so the real path uses a bigger base for a comparable tunnel-vision shift at gain 1 (per-scope variation preserved)
 						RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, outerR);
 						RCache.set_c("lensfx_ctrl", 0.0f, 1.0f, ps_r__svp_truepip, 0.0f);
+						{ extern int scope_debug; if (scope_debug >= 2) Msg("[truepip] optics: %s er=%.2fcm xp=%.2f innerR=%.2f K=%.1f mag=%.2f", use_real ? "REAL" : "geom", use_real ? ps_s3ds_param_1.y : L * 100.f, xp_ratio, innerR, K, m); } // TEMP verify, strip after confirm
 					}
 					else
 					{

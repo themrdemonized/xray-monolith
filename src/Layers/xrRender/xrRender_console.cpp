@@ -305,6 +305,9 @@ float ps_r__svp_eyebox = 0.0f; // SVP dynamic eye-box scope shadow (crescent gro
 float ps_r__svp_truepip = 0.0f;      // master strength, 0 = off (3DSS shadow + pupil_boost path intact)
 float ps_r__svp_optics_soft = 0.15f; // eye-box falloff width (outerRadius - innerRadius, lens-local)
 float ps_r__svp_optics_gain = 1.0f;  // eye-offset sensitivity multiplier (crescent onset speed)
+float ps_r__svp_optics_real = 1.0f;  // 1 = real per-scope eye-relief + exit-pupil from the 3DSS config (s3ds_param_1.y/.z), 0 = derive the eye-box from scope geometry
+int   ps_r__svp_optics_zoomvig = 1;  // toggle: magnification-scaled eye-box vignette, the tube darkening tightens as you zoom (real path only), 0 = static real exit-pupil
+float ps_r__svp_optics_zoomvig_blend = 1.0f; // zoom-vignette blend: 0 = static real exit-pupil, 1 = full magnification-scaled (exit-pupil / mag)
 int ps_r__truepip_recoil = 2;        // gate the SCRIPT recoil mod (GAMMA Enhanced Recoil): 0 normal, 1 off in true-PiP, 2 off always (clean-bed test default); base engine recoil untouched
 // svpscope 2 geometric objective (single-lens scopes have no distinct front lens to capture, derive it
 // along the optical axis from the eyepiece). lengths are in eyepiece radii (the only mesh-scale-robust
@@ -320,10 +323,7 @@ float ps_r__svp_lens_vigk    = 1.5f;    // tunnel close rate vs magnification
 float ps_r__svp_lens_blur    = 0.0040f; // radial edge blur amount (UV)
 int   ps_r__svp_lens_menu_key = 0; // lens FX tuner open key, index into the PiP-page key dropdown (0 = numpad *)
 float ps_r__svp_eyebox_shift = 0.0f; // eye-box crescent drift gain (signed, negative flips the crescent side)
-float ps_r__svp_pupil_boost = 6.0f; // svp enlarge the scope exit pupil so recoil does not black out the lens (0 = off)
-float ps_r__svp_pupil_track = 0.0f; // svp adaptive pupil, ramp pupil_boost with the bore off-axis drift so the scope stays tight when steady and opens only under recoil (0 = constant boost)
 int ps_r__svp_reticle_mag = 1; // svp drive the 3DSS reticle magnification (shader_scope_params) from the engine so the FFP reticle scales even when the 3DSS zoom script freezes it (0 = leave to the script)
-float ps_r__svp_zoom_smooth = 1.0f; // svp zoom smoothing, low pass the SVP magnification against per shot FOV punches (0 = off)
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water + SSR, 1 flat water + SSR (default), 2 flat water + no SSR
@@ -1428,6 +1428,9 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_truepip", &ps_r__svp_truepip, 0.0f, 1.0f); // truepip physical eye-box (own pass, suppress 3DSS shadow)
 	CMD4(CCC_Float, "r__svp_optics_soft", &ps_r__svp_optics_soft, 0.02f, 0.6f); // truepip eye-box falloff width
 	CMD4(CCC_Float, "r__svp_optics_gain", &ps_r__svp_optics_gain, 0.0f, 5.0f); // truepip eye-offset sensitivity
+	CMD4(CCC_Float, "r__svp_optics_real", &ps_r__svp_optics_real, 0.0f, 1.0f); // truepip real per-scope optics (3DSS eye-relief + exit-pupil) vs geometry
+	CMD4(CCC_Integer, "r__svp_optics_zoomvig", &ps_r__svp_optics_zoomvig, 0, 1); // truepip magnification-scaled eye-box vignette toggle
+	CMD4(CCC_Float, "r__svp_optics_zoomvig_blend", &ps_r__svp_optics_zoomvig_blend, 0.0f, 1.0f); // truepip zoom-vignette blend (static .. mag-scaled)
 	CMD4(CCC_Integer, "r__truepip_recoil", &ps_r__truepip_recoil, 0, 2); // script recoil gate: 0 normal, 1 off in true-PiP, 2 off always
 	CMD4(CCC_Float, "r__svp_obj_dist", &ps_r__svp_obj_dist, 0.0f, 3.0f); // svpscope 2 objective: scale on the auto geomscan front distance
 	CMD4(CCC_Float, "r__svp_obj_size", &ps_r__svp_obj_size, 0.1f, 6.0f); // svpscope 2 geometric objective: objective radius (eyepiece radii)
@@ -1439,10 +1442,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_lens_blur",    &ps_r__svp_lens_blur,    0.0f, 0.03f); // lens FX: radial edge blur
 	CMD4(CCC_Integer, "r__svp_lens_menu_key", &ps_r__svp_lens_menu_key, 0, 9); // lens FX tuner open key (PiP-page dropdown index)
 	CMD4(CCC_Float, "r__svp_eyebox_shift", &ps_r__svp_eyebox_shift, -25.0f, 25.0f); // eye-box crescent drift gain (- flips side)
-	CMD4(CCC_Float, "r__svp_pupil_boost", &ps_r__svp_pupil_boost, 0.0f, 8.0f); // svp enlarge the scope exit pupil so recoil does not black out the lens (0 = off)
-	CMD4(CCC_Float, "r__svp_pupil_track", &ps_r__svp_pupil_track, 0.0f, 50.0f); // svp adaptive pupil sensitivity, ramps pupil_boost with bore off-axis drift (0 = constant boost)
 	CMD4(CCC_Integer, "r__svp_reticle_mag", &ps_r__svp_reticle_mag, 0, 1); // svp engine-drive the 3DSS reticle magnification so the FFP reticle scales (1 = on)
-	CMD4(CCC_Float, "r__svp_zoom_smooth", &ps_r__svp_zoom_smooth, 0.0f, 1.0f); // svp zoom smoothing (0 = off, 1 = max)
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)

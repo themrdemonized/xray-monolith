@@ -198,6 +198,9 @@ extern ECORE_API float ps_r__svp_eyebox; // SVP dynamic eye-box scope shadow str
 extern ECORE_API float ps_r__svp_truepip;     // truepip physical eye-box master strength (0 = off)
 extern ECORE_API float ps_r__svp_optics_soft; // truepip eye-box falloff width (lens-local)
 extern ECORE_API float ps_r__svp_optics_gain; // truepip eye-offset sensitivity multiplier
+extern ECORE_API float ps_r__svp_optics_real; // truepip real per-scope optics from 3DSS config (1) vs geometry (0)
+extern ECORE_API int ps_r__svp_optics_zoomvig; // truepip magnification-scaled eye-box vignette toggle
+extern ECORE_API float ps_r__svp_optics_zoomvig_blend; // truepip zoom-vignette blend (static .. mag-scaled)
 extern ECORE_API int ps_r__truepip_recoil; // script-recoil gate (0 normal, 1 off in true-PiP, 2 off always)
 extern ECORE_API float ps_r__svp_obj_dist; // svpscope 2 geometric objective: scope length forward (eyepiece radii)
 extern ECORE_API float ps_r__svp_obj_size; // svpscope 2 geometric objective: objective radius (eyepiece radii)
@@ -209,7 +212,6 @@ extern ECORE_API float ps_r__svp_lens_vigk;    // lens FX (engine pass): tunnel 
 extern ECORE_API float ps_r__svp_lens_blur;    // lens FX (engine pass): radial edge blur amount
 extern ECORE_API int   ps_r__svp_lens_menu_key; // lens FX in-game tuner open key (index into the PiP-page dropdown)
 extern ECORE_API float ps_r__svp_eyebox_shift; // SVP eye-box crescent drift gain (signed, negative flips the side)
-extern ECORE_API float ps_r__svp_zoom_smooth; // svp zoom smoothing, low pass the SVP magnification (0 to 1)
 extern ECORE_API int ps_r__svp_cull; // svp frustum cull the scope geometry (0 = off, 1 = on)
 extern ECORE_API int ps_r__svp_skip_motionblur; // svp skip motion blur on the scope pass
 extern ECORE_API int ps_r__svp_skip_ssr; // svp skip SSR + water on the scope pass
