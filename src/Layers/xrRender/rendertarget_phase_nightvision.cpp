@@ -557,7 +557,6 @@ void CRenderTarget::phase_3DSSReticle()
 						const float k = K * (use_real ? 0.80f : 0.10f) * ps_r__svp_optics_gain; // -> lens-local bright-circle shift. the real eye-relief K runs ~8x below the geometric camera->eyepiece proxy, so the real path uses a bigger base for a comparable tunnel-vision shift at gain 1 (per-scope variation preserved)
 						RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, outerR);
 						RCache.set_c("lensfx_ctrl", 0.0f, 1.0f, ps_r__svp_truepip, 0.0f);
-						{ extern int scope_debug; if (scope_debug >= 2) Msg("[truepip] optics: %s er=%.2fcm xp=%.2f innerR=%.2f K=%.1f mag=%.2f", use_real ? "REAL" : "geom", use_real ? ps_s3ds_param_1.y : L * 100.f, xp_ratio, innerR, K, m); } // TEMP verify, strip after confirm
 					}
 					else
 					{
