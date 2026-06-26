@@ -1,0 +1,49 @@
+-- truepip recoil gate
+-- Neutralizes the GAMMA "Enhanced Recoil" (grok_bo_enhanced_recoil) per-shot camera/pp/fov kick.
+-- The base Anomaly weapon recoil (engine + weapon .ltx) is NOT touched, so you tune against vanilla
+-- recoil. This is a runtime monkey-patch, it does not edit the recoil mod's files.
+--
+-- Controlled by the engine cvar r__truepip_recoil:
+--   0 = mod recoil normal
+--   1 = mod recoil off only while a true-PiP scope is active (final-release behaviour)
+--   2 = mod recoil off always (clean-bed testing, current default)
+
+local _orig_shoot_effect
+
+local function get_mode()
+	local ok, v = pcall(function() return get_console():get_integer("r__truepip_recoil") end)
+	if ok and v ~= nil then
+		return v
+	end
+	return 2 -- cvar missing -> default to clean-bed off
+end
+
+local function recoil_blocked()
+	local mode = get_mode()
+	if mode <= 0 then
+		return false
+	end
+	if mode >= 2 then
+		return true
+	end
+	-- mode 1: block only under a true-PiP scope (an SVP scope mode set + the weapon zoomed)
+	local ok, svp = pcall(function() return get_console():get_integer("r__svpscope") end)
+	if not (ok and svp and svp > 0) then
+		return false
+	end
+	return axr_main ~= nil and axr_main.weapon_is_zoomed == true
+end
+
+function gated_shoot_effect(sect)
+	if recoil_blocked() then
+		return
+	end
+	return _orig_shoot_effect(sect)
+end
+
+function on_game_start()
+	if grok_bo_enhanced_recoil and grok_bo_enhanced_recoil.shoot_effect and not _orig_shoot_effect then
+		_orig_shoot_effect = grok_bo_enhanced_recoil.shoot_effect
+		grok_bo_enhanced_recoil.shoot_effect = gated_shoot_effect
+	end
+end

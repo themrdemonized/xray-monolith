@@ -85,10 +85,23 @@ float4 main(v_out I) : SV_Target
 	float dim = lerp(1.0, lensfx_params.z, edge);
 	col *= dim * lensfx_params.w;
 
-	// --- dynamic eye-box scope shadow: clear when the aim sits on the bore, a dark crescent grows as the
-	// aim drifts off-axis (engine-supplied drift in lensfx_eyebox.xy) and the eye box tightens with
-	// magnification (high power = crescent on less drift). independent of the lens FX strength above. ---
-	if (lensfx_eyebox.z > 0.0)
+	// --- eye-box scope shadow. truepip canonical model (lensfx_ctrl.y > 0.5): a bright exit-pupil disc
+	// whose clear-zone radius is innerRadius; the eye offset shifts the disc center, so a crescent grows
+	// on the far side and the image blacks out as the eye leaves the disc. small offsets stay inside the
+	// clear zone -> no shadow (fixes the punishing minor-movement crescent). the legacy crescent (else)
+	// is kept for the non-truepip path. ---
+	if (lensfx_ctrl.y > 0.5)
+	{
+		// c is lens-local with the disc edge near |c| = 0.5. eyeOffset shifts the bright disc center,
+		// innerRadius = clear zone (exit-pupil sized), outerRadius = falloff edge, strength in ctrl.z
+		float2 eoff   = lensfx_eyebox.xy;
+		float  innerR = lensfx_eyebox.z;
+		float  outerR = lensfx_eyebox.w;
+		float  d   = length(c - eoff);
+		float  vig = smoothstep(innerR, outerR, d);  // 0 inside the clear disc, 1 past the falloff
+		col *= lerp(1.0, 1.0 - vig, lensfx_ctrl.z);
+	}
+	else if (lensfx_eyebox.z > 0.0)
 	{
 		const float EB_REF = 4.0;
 		float2 lc   = c * 2.0;                                               // lens-local [-1,1]

@@ -94,31 +94,64 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	// once the SVP is active drop the back-glass (==1) / zwrite (==2) since the SVP draws the whole lens
 	if (Device.true_pip_on && sh->flags.iScopeLense > 0)
 	{
+		// pip TEMP DIAGNOSTIC: log every scope-lens surface (all iScopeLense types) and where it sits, to
+		// see if the objective glass is flagged anything we can auto-capture. strip once decided
+		extern int scope_debug;
+		if (scope_debug >= 2)
+		{
+			Fvector lp; xform->transform_tiny(lp, pVisual->getVisData().sphere.P);
+			Fvector to; to.sub(lp, Device.vCameraPosition);
+			const float fwd = to.dotproduct(Device.vCameraDirection);
+			Fvector proj; proj.mad(Device.vCameraPosition, Device.vCameraDirection, fwd);
+			Msg("[truepip] lenssurf: type=%d r=%.4f fwd=%.4f perp=%.4f", (int)sh->flags.iScopeLense, pVisual->getVisData().sphere.R, fwd, lp.distance_to(proj));
+		}
 		if (sh->flags.iScopeLense == 3)
 		{
-			// a scope can flag several lens surfaces (objective + ocular), keep the one in front of the
-			// eye and nearest it (the ocular the player looks through) so the SVP camera does not flip
-			auto& M = RGraph.mapScopeHUDSorted;
+			// a scope can flag several lens surfaces (objective + ocular). keep the one in front of the eye
+			// and nearest it (the ocular the player looks through) for the SVP composite, and separately
+			// keep the FARTHEST in-front surface (the objective) as real geometry for the svpscope-2 camera
 			Fvector lp, to;
 			xform->transform_tiny(lp, pVisual->getVisData().sphere.P);
 			to.sub(lp, Device.vCameraPosition);
-			const float in_front = to.dotproduct(Device.vCameraDirection);
-			const float score = (in_front > 0.f) ? to.square_magnitude() : (to.square_magnitude() + 1.0e6f);
+			const bool ahead = to.dotproduct(Device.vCameraDirection) > 0.f;
+			const float score = ahead ? to.square_magnitude() : (to.square_magnitude() + 1.0e6f);
 
-			bool keep = M.empty();
-			if (!keep)
+			// ocular = nearest in-front lens (the SVP composite surface, also the drawn lens)
+			auto& M = RGraph.mapScopeHUDSorted;
+			bool keep_oc = M.empty();
+			if (!keep_oc)
 			{
 				auto& f = M.front();
 				Fvector ep, te;
 				f.pMatrix->transform_tiny(ep, f.pVisual->getVisData().sphere.P);
 				te.sub(ep, Device.vCameraPosition);
 				const float fscore = (te.dotproduct(Device.vCameraDirection) > 0.f) ? te.square_magnitude() : (te.square_magnitude() + 1.0e6f);
-				keep = score < fscore;
+				keep_oc = score < fscore;
 			}
-			if (keep)
+			if (keep_oc)
 			{
 				M.clear();
 				M.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			}
+
+			// objective = farthest in-front lens (front of the scope), geometry only for the camera, never drawn
+			if (ahead)
+			{
+				auto& O = RGraph.mapScopeHUDObjective;
+				bool keep_obj = O.empty();
+				if (!keep_obj)
+				{
+					auto& f = O.front();
+					Fvector op, te;
+					f.pMatrix->transform_tiny(op, f.pVisual->getVisData().sphere.P);
+					te.sub(op, Device.vCameraPosition);
+					keep_obj = (te.dotproduct(Device.vCameraDirection) > 0.f) && (score > te.square_magnitude());
+				}
+				if (keep_obj)
+				{
+					O.clear();
+					O.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+				}
 			}
 			return;
 		}

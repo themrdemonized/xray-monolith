@@ -404,9 +404,21 @@ static class s3ds_param_1 : public R_constant_setup
 		// pip enlarge the scope exit pupil (.z) for PiP so recoil does not black out the lens, the 3DSS
 		// shadow disc scales with it
 		float exit_pupil = ps_s3ds_param_1.z;
+		extern float ps_r__svp_truepip;
 		extern float ps_r__svp_pupil_boost;
 		extern float ps_r__svp_pupil_track;
-		if (ps_r__svp_pupil_boost > 0.f && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())
+		const bool pip = Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
+		// truepip owns the eye-box in the scope_lensfx pass, so suppress the 3DSS parallax shadow for
+		// OPTICAL scopes by driving EXIT_PUPIL wide (project collapses exit_pupil_tc -> 0.5 so
+		// sample_shadow never closes). thermals (image_type 2/3) and see-through keep the 3DSS shadow,
+		// they are electronic feeds with no optical exit pupil and the own pass skips them as well
+		const bool thermal = ps_s3ds_param_3.x > 1.5f;
+		const bool see_through = (int(ps_s3ds_param_4.w) & (1 << 2)) != 0; // ST_SEE_THROUGH
+		if (ps_r__svp_truepip > 0.f && pip && !thermal && !see_through)
+		{
+			exit_pupil = ps_s3ds_param_1.z + 12.f;
+		}
+		else if (ps_r__svp_pupil_boost > 0.f && pip)
 		{
 			float boost = ps_r__svp_pupil_boost;
 			if (ps_r__svp_pupil_track > 0.f)

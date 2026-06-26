@@ -195,6 +195,14 @@ extern ECORE_API float ps_r__svp_stabilize; // SVP image-stabilization strength,
 extern ECORE_API int ps_r__svp_lensfx; // SVP lens FX (CA, distortion, exit-pupil dimming) on/off
 extern ECORE_API float ps_r__svp_lensfx_strength; // SVP lens FX strength scale
 extern ECORE_API float ps_r__svp_eyebox; // SVP dynamic eye-box scope shadow strength (3DSS Override), 0 = off
+extern ECORE_API float ps_r__svp_truepip;     // truepip physical eye-box master strength (0 = off)
+extern ECORE_API float ps_r__svp_optics_er;   // active scope eye relief (mm)
+extern ECORE_API float ps_r__svp_optics_obj;  // active scope objective diameter (mm)
+extern ECORE_API float ps_r__svp_optics_soft; // truepip eye-box falloff width (lens-local)
+extern ECORE_API float ps_r__svp_optics_gain; // truepip eye-offset sensitivity multiplier
+extern ECORE_API int ps_r__truepip_recoil; // script-recoil gate (0 normal, 1 off in true-PiP, 2 off always)
+extern ECORE_API float ps_r__svp_obj_dist; // svpscope 2 geometric objective: scope length forward (eyepiece radii)
+extern ECORE_API float ps_r__svp_obj_size; // svpscope 2 geometric objective: objective radius (eyepiece radii)
 extern ECORE_API float ps_r__svp_lens_ca;      // lens FX (engine pass): chromatic aberration
 extern ECORE_API float ps_r__svp_lens_distort; // lens FX (engine pass): barrel distortion
 extern ECORE_API float ps_r__svp_lens_floor;   // lens FX (engine pass): tunnel ring brightness floor

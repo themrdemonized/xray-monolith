@@ -484,9 +484,9 @@ void CRenderTarget::phase_3DSSReticle()
 			// screen with no optical exit pupil so tunnel, dim and eye box make no sense on them
 			extern Fvector4 ps_s3ds_param_3;
 			const bool lens_thermal = ps_s3ds_param_3.x > 1.5f;
-			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && !s_scope_lensfx)
+			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f || ps_r__svp_truepip > 0.f) && !lens_thermal && !s_scope_lensfx)
 				s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
-			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && s_scope_lensfx)
+			if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f || ps_r__svp_truepip > 0.f) && !lens_thermal && s_scope_lensfx)
 			{
 				extern float g_pip_scope_magnification;
 				const float mag = g_pip_scope_magnification;
@@ -515,10 +515,28 @@ void CRenderTarget::phase_3DSSReticle()
 					RCache.set_c("lensfx_params",  ps_r__svp_lens_ca, ps_r__svp_lens_distort, ps_r__svp_lens_floor, ep);
 					RCache.set_c("lensfx_params2", mag, ps_r__svp_lens_vigk, ps_r__svp_lens_refmag, st);
 					RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, 0.0f, 0.0f, 0.0f);
-					// dynamic eye-box crescent: xy = engine-computed bore-vs-aim drift, z = strength (r__svp_eyebox), w = gain
+					// eye-box: truepip canonical (exit-pupil clear zone + eye-relief-scaled offset) or the
+					// legacy crescent. svp_eyebox.xy = engine bore-vs-aim drift (tan)
 					const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
-					RCache.set_c("lensfx_eyebox", eb.x, eb.y, ps_r__svp_eyebox, ps_r__svp_eyebox_shift);
-					RCache.set_c("lensfx_ctrl", 0.0f, 0.0f, 0.0f, 0.0f);
+					if (ps_r__svp_truepip > 0.f)
+					{
+						// exit pupil = objective / live mag; innerRadius (clear zone) scales with exit pupil
+						// vs the human pupil (~3.5mm) so low mag / big objective is forgiving and high mag is
+						// fussy; eyeOffset = drift * eye relief (ref 89mm) * gain shifts the bright disc
+						const float HUMAN_PUPIL = 3.5f;
+						const float xp = ps_r__svp_optics_obj / (mag > 0.1f ? mag : 0.1f);
+						float innerR = 0.30f * (xp / HUMAN_PUPIL) + 0.25f;
+						if (innerR < 0.25f) innerR = 0.25f; else if (innerR > 0.60f) innerR = 0.60f;
+						const float outerR = innerR + ps_r__svp_optics_soft;
+						const float k = (ps_r__svp_optics_er / 89.0f) * 3.0f * ps_r__svp_optics_gain;
+						RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, outerR);
+						RCache.set_c("lensfx_ctrl", 0.0f, 1.0f, ps_r__svp_truepip, 0.0f);
+					}
+					else
+					{
+						RCache.set_c("lensfx_eyebox", eb.x, eb.y, ps_r__svp_eyebox, ps_r__svp_eyebox_shift);
+						RCache.set_c("lensfx_ctrl", 0.0f, 0.0f, 0.0f, 0.0f);
+					}
 				});
 
 				// pass 2, copy the FX'd disc back into the main frame sampling the scratch RT
@@ -568,6 +586,7 @@ void CRenderTarget::phase_3DSSReticle()
 		// clear the capture maps, nothing else clears them in the true_pip path and a stale entry would
 		// leave the lens floating after a weapon-model swap (deriveScopeLens already read them this frame)
 		RImplementation.GMBase.RGraph.mapScopeHUDSorted.clear();
+		RImplementation.GMBase.RGraph.mapScopeHUDObjective.clear();
 		RImplementation.GMBase.RGraph.mapReflexHUDSorted.clear();
 
 		u_setrt(RImplementation.Target->rt_Generic_0, RImplementation.Target->rt_Position, 0, HW.pBaseZB);
@@ -599,6 +618,7 @@ void CRenderTarget::phase_3DSSReticle()
 	// pip clear the PiP capture maps on the fallback too, under true_pip they may be populated and the
 	// PiP path (skipped here) is the only other place that clears them, avoids a floating lens after a swap
 	RImplementation.GMBase.RGraph.mapScopeHUDSorted.clear();
+	RImplementation.GMBase.RGraph.mapScopeHUDObjective.clear();
 	RImplementation.GMBase.RGraph.mapReflexHUDSorted.clear();
 };
 #endif
