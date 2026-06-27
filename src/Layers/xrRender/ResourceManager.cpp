@@ -473,6 +473,88 @@ void CResourceManager::Evict()
 #endif	//	USE_DX10
 }
 
+
+void CResourceManager::EvictStalledTextures(u32 max_age_frames) {
+#if defined(USE_DX11)
+  Msg("* [TexEvict] pass called, frame=%u", RDEVICE.dwFrame);
+  if (!RDEVICE.b_is_Ready)
+    return;
+
+  u32 cur_frame = RDEVICE.dwFrame;
+  u32 evicted = 0;
+  u32 evicted_kb = 0;
+  u32 skip_user = 0;
+  u32 skip_name = 0;
+  u32 skip_unloaded = 0;
+  u32 skip_refs = 0;
+  u32 skip_recent = 0;
+
+  // Persistent cursor so successive calls cycle through the map
+  // instead of restarting from the beginning each time.
+  static xr_string s_evict_cursor;
+  const u32 batch_size = 50;
+
+  creationGuard.Enter();
+
+  map_Texture::iterator I;
+  if (s_evict_cursor.empty()) {
+    I = m_textures.begin();
+  } else {
+    I = m_textures.lower_bound(s_evict_cursor.c_str());
+    if (I == m_textures.end())
+      I = m_textures.begin(); // wrap around to start
+  }
+
+  u32 scanned = 0;
+  for (; I != m_textures.end() && scanned < batch_size; ++I, ++scanned) {
+    CTexture *tex = I->second;
+
+    // $user$ textures (render targets, user-managed) already carry bUser=true
+    if (tex->flags.bUser) {
+      skip_user++;
+      continue;
+    }
+
+    // UI textures — PDA, inventory icons, etc. — must never be evicted
+    LPCSTR name = I->first;
+    if (strncmp(name, "ui\\", 3) == 0 || strncmp(name, "ui/", 3) == 0) {
+      skip_name++;
+      continue;
+    }
+
+    if (!tex->flags.bLoaded) {
+      skip_unloaded++;
+      continue;
+    }
+    if (tex->dwReference.load(std::memory_order_relaxed) > 1) {
+      u32 refs = tex->dwReference.load(std::memory_order_relaxed);
+      if (refs > 2)
+        Msg("* [TexEvict] stuck: [%4d] %s", refs, tex->cName.c_str());
+      skip_refs++;
+      continue;
+    }
+    if (cur_frame - tex->dwLastUsedFrame < max_age_frames) {
+      skip_recent++;
+      continue;
+    }
+
+    evicted_kb += tex->flags.MemoryUsage / 1024;
+    tex->Unload();
+    evicted++;
+  }
+
+  // Save position for next call; empty string means restart from beginning
+  s_evict_cursor = (I != m_textures.end()) ? xr_string(I->first) : xr_string();
+
+  creationGuard.Leave();
+
+  Msg("* [TexEvict] frame=%u total=%u scanned=%u evicted=%u skip_user=%u "
+      "skip_name=%u skip_unloaded=%u skip_refs=%u skip_recent=%u freed_kb=%u",
+      cur_frame, (u32)m_textures.size(), scanned, evicted, skip_user, skip_name,
+      skip_unloaded, skip_refs, skip_recent, evicted_kb);
+#endif
+}
+
 /*
 BOOL	CResourceManager::_GetDetailTexture(LPCSTR Name,LPCSTR& T, R_constant_setup* &CS)
 {

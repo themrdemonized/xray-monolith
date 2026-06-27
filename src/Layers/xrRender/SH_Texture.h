@@ -11,7 +11,7 @@ class CGIFAnimationPlayer;
 class ECORE_API CTexture : public xr_resource_named
 {
 public:
-	//	Since DX10 allows up to 128 unique textures, 
+	//	Since DX10 allows up to 128 unique textures,
 	//	distance between enum values should be at leas 128
 	enum ResourceShaderType //	Don't change this since it's hardware-dependent
 	{
@@ -90,6 +90,9 @@ public: //	Public class members (must be encapsulated furthur)
 		u32					bLoadedAsStaging: 1;
 #endif	//	USE_DX10
 	} flags;
+
+
+    u32 dwLastUsedFrame = 0; // frame index of last Apply() call — used for eviction
 
 	fastdelegate::FastDelegate1<u32> bind;
 

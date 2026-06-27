@@ -162,6 +162,7 @@ void CTexture::apply_gif(u32 dwStage)
 
 void CTexture::apply_normal(u32 dwStage)
 {
+    dwLastUsedFrame = Device.dwFrame;
 	CHK_DX(HW.pDevice->SetTexture(dwStage,pSurface));
 };
 

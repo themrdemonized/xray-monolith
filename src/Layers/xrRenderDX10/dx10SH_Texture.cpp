@@ -228,6 +228,8 @@ void CTexture::ProcessStaging()
 
 void CTexture::Apply(u32 dwStage)
 {
+	dwLastUsedFrame = RDEVICE.dwFrame;
+
 	if (flags.bLoadedAsStaging)
 		ProcessStaging();
 
