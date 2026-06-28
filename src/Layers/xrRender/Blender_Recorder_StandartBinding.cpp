@@ -401,25 +401,8 @@ static class s3ds_param_1 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		// pip enlarge the scope exit pupil (.z) for PiP so recoil does not black out the lens, the 3DSS
-		// shadow disc scales with it
-		float exit_pupil = ps_s3ds_param_1.z;
-		extern float ps_r__svp_pupil_boost;
-		extern float ps_r__svp_pupil_track;
-		if (ps_r__svp_pupil_boost > 0.f && Device.m_SecondViewport.IsSVPActive())
-		{
-			float boost = ps_r__svp_pupil_boost;
-			if (ps_r__svp_pupil_track > 0.f)
-			{
-				// pip adaptive: open the pupil only as far as the bore has drifted off the aim, so the scope
-				// stays tight when steady and opens just enough under recoil (svp_eyebox.xy = bore off-axis)
-				const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
-				const float offaxis = _sqrt(eb.x * eb.x + eb.y * eb.y);
-				boost *= clampr(offaxis * ps_r__svp_pupil_track, 0.f, 1.f);
-			}
-			exit_pupil *= (1.f + boost);
-		}
-		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, exit_pupil, ps_s3ds_param_1.w);
+		// pip pass-through, true-pip suppresses the 3DSS parallax shadow via the s3ds_param_4 SETTINGS gate
+		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, ps_s3ds_param_1.z, ps_s3ds_param_1.w);
 	}
 }    s3ds_param_1;
 
@@ -427,7 +410,18 @@ static class s3ds_param_2 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, ps_s3ds_param_2.w);
+		// pip kill the 3DSS fisheye/barrel for true-pip OPTICAL scopes, the fisheye magnitude is
+		// V_tangent * mas_scale(), mas_scale = (s3ds_param_2.w % 0.01) * 1000 (the sub-0.01 fractional)
+		// strip that fractional so mas_scale -> 0 (fisheye becomes identity, the reticle parallax flattens
+		// too), leaving zoom_factor() = .w - .w%0.01 untouched, thermals + see-through keep the stock look
+		float w = ps_s3ds_param_2.w;
+		extern float ps_r__svp_truepip;
+		extern int scope_svp_enabled;
+		const bool thermal = ps_s3ds_param_3.x > 1.5f;
+		const bool see_through = (int(ps_s3ds_param_4.w) & (1 << 2)) != 0;
+		if (ps_r__svp_truepip > 0.f && scope_svp_enabled != 0 && !thermal && !see_through)
+			w = w - fmodf(w, 0.01f); // strip mas_scale -> fisheye off
+		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, w);
 	}
 }    s3ds_param_2;
 
@@ -443,7 +437,22 @@ static class s3ds_param_4 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, ps_s3ds_param_4.w);
+		// truepip: gate off the 3DSS funky-2D for optical scopes by clearing SETTINGS bits: parallax shadow
+		// (our eye-box owns it), chromatism, nvg blur, keep see-through + thermal pixelation, thermals untouched
+		float settings = ps_s3ds_param_4.w;
+		extern float ps_r__svp_truepip;
+		extern int scope_svp_enabled;
+		const bool pip = (scope_svp_enabled != 0);
+		const bool thermal = ps_s3ds_param_3.x > 1.5f;
+		if (ps_r__svp_truepip > 0.f && pip && !thermal)
+		{
+			int s = (int)settings;
+			s &= ~(1 << 1); // ST_PARALLAX_SHADOW
+			s &= ~(1 << 4); // ST_CHROMATISM
+			s &= ~(1 << 0); // ST_NVG_BLUR
+			settings = (float)s;
+		}
+		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, settings);
 	}
 }    s3ds_param_4;
 

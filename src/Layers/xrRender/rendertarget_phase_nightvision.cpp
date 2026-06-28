@@ -341,11 +341,38 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void(R_dsgraph::mapS
 					}
 				}
 
-				// Guns often have their mesh directly scaled, so the lens is the only reliable
-				// unit of measurement, derive the objective lens from it
-				Fvector4 o = Fvector4(scope_objective_lens_offset).mul(p->eyepiece.radius);
-				p->objective.m_W.mul(p->eyepiece.m_W, Fmatrix().translate({ o.x, o.y, o.z }));
-				p->objective.radius = o.w;
+				// objective: prefer the REAL front lens from the mesh (mapScopeHUDObjective) placed along the
+				// stabilized optical axis, else derive it a fixed scope-length forward of the eyepiece (eyepiece radii)
+				extern float ps_r__svp_obj_dist, ps_r__svp_obj_size;
+				bool have_obj = false;
+				for (auto& ON : RImplementation.mapScopeHUDObjective)
+				{
+					if (!ON.val.pVisual) break;
+					Fmatrix oX = ON.val.Matrix;
+					if (CSkeletonX* osk = fast_dynamic_cast<CSkeletonX*>(ON.val.pVisual))
+					{
+						Fmatrix oboneR;
+						if (osk->SVP_LensBoneXform(oboneR)) oX.mulB_43(oboneR);
+					}
+					auto& OV = ON.val.pVisual->getVisData();
+					Fvector oc; OV.box.getcenter(oc);
+					Fvector ow; oX.transform_tiny(ow, oc);
+					if (OV.sphere.R > EPS && ow.distance_to(p->eyepiece.m_W.c) > p->eyepiece.radius * 0.5f) // distinct from the eyepiece
+					{
+						p->objective.m_W = p->eyepiece.m_W; // stabilized optical axis
+						p->objective.m_W.c.set(ow);          // real front-lens world position
+						p->objective.radius = OV.sphere.R;
+						have_obj = true;
+					}
+					break;
+				}
+				if (!have_obj)
+				{
+					Fvector ofwd; ofwd.set(p->eyepiece.m_W.k); ofwd.normalize();
+					p->objective.m_W = p->eyepiece.m_W;
+					p->objective.m_W.c.mad(ofwd, p->eyepiece.radius * 14.0f * ps_r__svp_obj_dist);
+					p->objective.radius = p->eyepiece.radius * ps_r__svp_obj_size;
+				}
 
 				ffp_sfp();
 			}
@@ -508,10 +535,11 @@ void CRenderTarget::phase_3DSSReticle()
 	// thermals (3DSS s3ds_image_type 2 or 3, in ps_s3ds_param_3.x) skip it, the feed is an electronic
 	// screen with no optical exit pupil so tunnel, dim and eye box make no sense on them
 	extern Fvector4 ps_s3ds_param_3;
+	extern float ps_r__svp_truepip;
 	const bool lens_thermal = ps_s3ds_param_3.x > 1.5f;
-	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && !s_scope_lensfx)
+	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f || ps_r__svp_truepip > 0.f) && !lens_thermal && !s_scope_lensfx)
 		s_scope_lensfx.create("scope_lensfx"); // lazy + isolated, a bad compile cannot touch the working scope shaders
-	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f) && !lens_thermal && s_scope_lensfx)
+	if ((ps_r__svp_lensfx || ps_r__svp_eyebox > 0.f || ps_r__svp_truepip > 0.f) && !lens_thermal && s_scope_lensfx)
 	{
 		auto* M = RImplementation.TargetMain;
 		extern float g_pip_scope_magnification;
@@ -540,11 +568,56 @@ void CRenderTarget::phase_3DSSReticle()
 			// lens model constants, all live cvars. params: CA, barrel, tunnel floor, exit-pupil
 			RCache.set_c("lensfx_params",  ps_r__svp_lens_ca, ps_r__svp_lens_distort, ps_r__svp_lens_floor, ep);
 			RCache.set_c("lensfx_params2", mag, ps_r__svp_lens_vigk, ps_r__svp_lens_refmag, st);
-			RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, 0.0f, 0.0f, 0.0f);
-			// dynamic eye-box crescent: xy = engine-computed bore-vs-aim drift, z = strength (r__svp_eyebox), w = gain
+			extern float ps_r__svp_dof; extern float ps_r__svp_dof_onset;
+			RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, ps_r__svp_dof, ps_r__svp_dof_onset, 0.0f);
+			extern float ps_r__svp_glass_dirt; extern float ps_r__svp_glass_rim;
+			RCache.set_c("lensfx_glass", ps_r__svp_glass_dirt, ps_r__svp_glass_rim, 8.0f, 0.0f);
+			extern float ps_r__svp_lens_fringe; extern float ps_r__svp_lens_vignette; extern float ps_r__svp_lens_vignette_r;
+			RCache.set_c("lensfx_optics", ps_r__svp_lens_fringe, 0.0f, ps_r__svp_lens_vignette, ps_r__svp_lens_vignette_r);
+			// eye-box: truepip canonical (exit-pupil clear zone + eye-relief-scaled offset) or the
+			// legacy crescent, svp_eyebox.xy = engine bore-vs-aim drift (tan)
 			const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
-			RCache.set_c("lensfx_eyebox", eb.x, eb.y, ps_r__svp_eyebox, ps_r__svp_eyebox_shift);
-			RCache.set_c("lensfx_ctrl", 0.0f, 0.0f, 0.0f, 0.0f);
+			if (ps_r__svp_truepip > 0.f)
+			{
+				extern float ps_r__svp_optics_gain, ps_r__svp_optics_soft;
+				auto& vp = Device.m_SecondViewport;
+				const float R = (vp.eyepiece.radius > 1e-5f) ? vp.eyepiece.radius : 1e-5f;
+				const float Robj = (vp.objective.radius > 1e-5f) ? vp.objective.radius : (R * 1.4f);
+				const float m = (mag > 0.1f) ? mag : 0.1f;
+				// real per-scope optics from the 3DSS config (s3ds_param_1.y = eye relief cm, .z = exit-pupil /
+				// ocular ratio), fall back to scope geometry when a scope has no 3DSS optics entry (.z stays 0)
+				extern Fvector4 ps_s3ds_param_1;
+				extern float ps_r__svp_optics_real;
+				const bool use_real = (ps_r__svp_optics_real > 0.f && ps_s3ds_param_1.z > 1e-4f);
+				float xp_ratio;
+				if (use_real)
+				{
+					const float xp_static = ps_s3ds_param_1.z;
+					extern int ps_r__svp_optics_zoomvig; extern float ps_r__svp_optics_zoomvig_blend;
+					if (ps_r__svp_optics_zoomvig != 0)
+					{
+						const float xp_zoom = xp_static / m; // exit pupil tightens as magnification rises
+						float b = ps_r__svp_optics_zoomvig_blend; b = (b < 0.f) ? 0.f : ((b > 1.f) ? 1.f : b);
+						xp_ratio = xp_static + (xp_zoom - xp_static) * b;
+					}
+					else xp_ratio = xp_static;
+				}
+				else xp_ratio = (Robj / m) / R; // geometry fallback (exit-pupil radius / ocular radius)
+				const float L = use_real ? (ps_s3ds_param_1.y * 0.01f) : vp.eyepiece.m_W.c.distance_to(Device.vCameraPosition);
+				float innerR = 0.30f * xp_ratio + 0.30f; // bigger exit pupil -> bigger clear zone
+				if (innerR < 0.28f) innerR = 0.28f; else if (innerR > 0.62f) innerR = 0.62f;
+				const float K = L / (xp_ratio * R); // eye offset per unit drift
+				const float k = K * (use_real ? 0.80f : 0.10f) * ps_r__svp_optics_gain;
+				extern float ps_r__svp_eyebox_aspect, ps_r__svp_eyebox_relief, ps_r__svp_eyebox_relief_size, ps_r__svp_eyebox_relief_soft;
+				RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, ps_r__svp_optics_soft);
+				RCache.set_c("lensfx_eyebox2", ps_r__svp_eyebox_relief_size, ps_r__svp_eyebox_relief_soft, ps_r__svp_eyebox_aspect, ps_r__svp_eyebox_relief);
+				RCache.set_c("lensfx_ctrl", 0.0f, 1.0f, ps_r__svp_truepip, 0.0f);
+			}
+			else
+			{
+				RCache.set_c("lensfx_eyebox", eb.x, eb.y, ps_r__svp_eyebox, ps_r__svp_eyebox_shift);
+				RCache.set_c("lensfx_ctrl", 0.0f, 0.0f, 0.0f, 0.0f);
+			}
 		});
 
 		// pass 2, copy the FX'd disc back into the main frame sampling the scratch RT

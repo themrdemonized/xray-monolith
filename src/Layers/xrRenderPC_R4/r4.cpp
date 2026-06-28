@@ -27,7 +27,28 @@ CRender RImplementation;
 u32 svp_render_extent()
 {
 	if (ps_r__svp_dlss == 0)
-		return Device.svp_height();
+	{
+		// base SVP square = full svp_height, or (adaptive) just past the on-screen eyepiece disc so we never
+		// rasterise pixels the lens cannot show. supersample then scales the chosen base up
+		u32 base = Device.svp_height();
+		extern float ps_r__svp_adaptive_res, ps_r__svp_supersample;
+		if (ps_r__svp_adaptive_res > 0.f)
+		{
+			const float d = Device.m_SecondViewport.svp_disc_applied;
+			if (d > 1.0f)
+			{
+				u32 want = u32(d * ps_r__svp_adaptive_res) & ~1u; // disc * margin, even side
+				if (want < 256) want = 256;                       // floor, never degenerate on a tiny ocular
+				if (want < base) base = want;                     // never upscale past full-res
+			}
+		}
+		float ss = ps_r__svp_supersample;
+		clamp(ss, 1.0f, 2.0f);
+		if (base == Device.svp_height() && ss <= 1.0f)
+			return Device.svp_height(); // exact stock, byte-identical (off == unchanged)
+		u32 e = u32(base * ss) & ~1u;
+		return (e < 2) ? 2 : e;
+	}
 	float eff = ps_r__svp_render_scale;
 	clamp(eff, 0.5f, 1.0f);
 	if (eff >= 1.0f)

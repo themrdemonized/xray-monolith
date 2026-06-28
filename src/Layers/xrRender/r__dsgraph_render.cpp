@@ -30,6 +30,19 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 static CFrustum s_svp_cull_frustum;
 static bool s_svp_cull_on = false;    // frustum armed for this SVP gbuffer pass
 static bool s_svp_cull_world = false; // also reject world geometry, grass culling can arm the frustum alone
+
+// pip SVP LOD: the captured ssa is the MAIN-frustum screen area, scale it to the SVP's true pixel coverage
+// so a low-res, low-mag scope picks coarser LODs (matched to what it can resolve). armed only for the SVP
+// gbuffer pass, so the main view is untouched
+static float s_svp_ssa_scale = 1.f;
+static bool s_svp_lod_on = false;
+ICF float svp_ssa(float ssa) { return s_svp_lod_on ? ssa * s_svp_ssa_scale : ssa; }
+
+// pip SVP small-object cull. the gbuffer is draw-call bound, so skip items whose main-frustum ssa is below
+// a threshold pre-scaled for the SVP's coverage (set per pass), removing tiny distant clutter from the
+// re-render. 0 = off. only the SVP gbuffer arms it, so the main view is untouched
+static float s_svp_ssa_cull = 0.f;
+
 void R_dsgraph_structure::svp_cull_begin(Fmatrix& full_xform, bool cull_world)
 {
 	s_svp_cull_frustum.CreateFromMatrix(full_xform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
@@ -41,6 +54,19 @@ void R_dsgraph_structure::svp_cull_end()
 {
 	s_svp_cull_on = false;
 	s_svp_cull_world = false;
+}
+
+void R_dsgraph_structure::svp_set_lod_scale(float s)
+{
+	s_svp_ssa_scale = s;
+	s_svp_lod_on = (s < 0.999f); // active only when it actually lowers detail
+}
+
+// strength scales the LOD-out ssa, cov divides it back to a main-frustum ssa so the loop can test item.ssa
+// directly. higher strength culls bigger items, lower cov (low mag) culls more (objects are tiny in the scope)
+void R_dsgraph_structure::svp_set_ssa_cull(float strength, float cov)
+{
+	s_svp_ssa_cull = (strength > 0.f && cov > 1e-4f) ? (r_ssaGLOD_end * strength / cov) : 0.f;
 }
 
 bool R_dsgraph_structure::svp_cull_active()
@@ -87,7 +113,8 @@ void __fastcall mapNormal_Render(mapNormalItems& N)
 	{
 		_NormalItem& Ni = *I;
 		if (R_dsgraph_structure::svp_cull_reject(Ni.pVisual, nullptr)) continue; // pip skip off cone SVP geometry
-		float LOD = calcLOD(Ni.ssa, Ni.pVisual->vis.sphere.R);
+		if (s_svp_ssa_cull > 0.f && Ni.ssa < s_svp_ssa_cull) continue; // pip skip tiny objects in the SVP
+		float LOD = calcLOD(svp_ssa(Ni.ssa), Ni.pVisual->vis.sphere.R);
 #ifdef USE_DX11
 		RCache.LOD.set_LOD(LOD);
 #endif
@@ -110,11 +137,12 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 	{
 		_MatrixItem& Ni = *I;
 		if (R_dsgraph_structure::svp_cull_reject(Ni.pVisual, &Ni.Matrix)) continue; // pip skip off cone SVP geometry
+		if (s_svp_ssa_cull > 0.f && Ni.ssa < s_svp_ssa_cull) continue; // pip skip tiny objects in the SVP
 		RCache.set_xform_world(Ni.Matrix);
 		RImplementation.apply_object(Ni.pObject);
 		RImplementation.apply_lmaterial();
 
-		float LOD = calcLOD(Ni.ssa, Ni.pVisual->vis.sphere.R);
+		float LOD = calcLOD(svp_ssa(Ni.ssa), Ni.pVisual->vis.sphere.R);
 #ifdef USE_DX11
 		RCache.LOD.set_LOD(LOD);
 #endif

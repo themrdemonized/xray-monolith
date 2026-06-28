@@ -338,6 +338,7 @@ void CRender::Render()
 
 
 	mapScopeHUDSorted.clear();
+	mapScopeHUDObjective.clear();
 	mapReflexHUDSorted.clear();
 	Device.m_SecondViewport.eyepiece.radius = 0;
 	Device.m_SecondViewport.objective.radius = 0;
@@ -513,24 +514,6 @@ void svpCamera()
 	float _, fov, fNearPlane, fFarPlane;
 	Device.matrices[0].mProject.decompose_projection(fov, _, fNearPlane, fFarPlane);
 
-	// pip zoom smoothing, some recoil mods punch the main FOV per shot which flutters the scope
-	// magnification (fov over svp_fov), low pass fov so the scope zoom holds steady through full auto
-	extern float ps_r__svp_zoom_smooth;
-	if (ps_r__svp_zoom_smooth > EPS)
-	{
-		static float s_smooth_fov = 0.f;
-		if (s_smooth_fov < EPS || _abs(s_smooth_fov - fov) > 0.5f)
-			s_smooth_fov = fov; // init, or snap on a real FOV change (vid_restart or fov setting)
-		else
-		{
-			const float tau = 0.50f * ps_r__svp_zoom_smooth; // heavy, zoom shouldn't change mid burst so no downside
-			float a = (tau > EPS) ? Device.fTimeDelta / tau : 1.f;
-			if (a > 1.f) a = 1.f;
-			s_smooth_fov += (fov - s_smooth_fov) * a;
-		}
-		fov = s_smooth_fov;
-	}
-
 	auto mm = Device.matrices[0];
 	auto params = Device.m_SecondViewport;
 
@@ -586,9 +569,13 @@ void svpCamera()
 
 	auto near_plane = fNearPlane;
 	auto m_W_svpcam = params.eyepiece.m_W; // default: place the camera on the eyepiece
-	if (scope_svp_enabled >= 2 && params.objective.radius > EPS) {
-		// place the camera for the objective lens
-		auto d = camera_offset_from_vfov_and_radius(vFovMagOnly, params.objective.radius);
+	// svpscope 2 objective camera is disabled on this branch: the scope composite paints the magnified result
+	// onto the eyepiece lens without reprojecting from the objective view, so an objective-placed camera lands
+	// the disc offset from the ocular (a second circle). fall back to the eyepiece camera so svpscope 2 == 1.
+	// the objective derivation stays (unused here) for a future reprojection-aware path
+	const bool use_objective_cam = false;
+	if (use_objective_cam && scope_svp_enabled >= 2 && params.objective.radius > EPS) {
+		auto d = camera_offset_from_vfov_and_radius(vFovMagOnly, params.eyepiece.radius * 1.4f);
 		m_W_svpcam = Fmatrix().mul(params.objective.m_W, Fmatrix().translate(0, 0, -d));
 		near_plane = d;
 	}
@@ -678,6 +665,21 @@ void CRender::renderGBuffer()
 		Fmatrix svp_full;
 		svp_full.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
 		svp_cull_begin(svp_full, svp_cull);
+	}
+	// pip SVP coverage = (mag * svp_side / main_height)^2, capped at 1: the fraction of the main view's
+	// pixel area an object covers in the scope. feeds the LOD scale and the small-object cull threshold
+	extern float ps_r__svp_lod, ps_r__svp_cull_ssa;
+	if (svp_pass && TargetSVP && (ps_r__svp_lod > 0.f || ps_r__svp_cull_ssa > 0.f))
+	{
+		extern float g_pip_scope_magnification;
+		const float mh = (float)Device.dwHeight;
+		float cov = (mh > 1.f) ? (g_pip_scope_magnification * (float)TargetSVP->Width / mh) : 1.f;
+		cov *= cov;
+		if (cov > 1.f) cov = 1.f;
+		if (ps_r__svp_lod > 0.f)
+			svp_set_lod_scale(1.f + (cov - 1.f) * ps_r__svp_lod);
+		if (ps_r__svp_cull_ssa > 0.f)
+			svp_set_ssa_cull(ps_r__svp_cull_ssa, cov);
 	}
 
 	//******* Main calc - DEFERRER RENDERER
@@ -921,6 +923,11 @@ void CRender::renderGBuffer()
 
 	if (svp_cull || svp_cull_grass)
 		svp_cull_end(); // pip end SVP cull, the wallmarks and the shared shadow and light passes run after
+	if (svp_pass)
+	{
+		svp_set_lod_scale(1.f); // pip restore full LOD + no cull before the shared light passes
+		svp_set_ssa_cull(0.f, 1.f);
+	}
 
 	// Wall marks
 	if (Wallmarks)

@@ -49,6 +49,7 @@ public:
 #if defined(USE_DX11)
 	R_dsgraph::mapScopeHUD_T mapScopeHUD;	//  Redotix99: for 3D Shader Based Scopes (legacy ==2 zwrite, r__svpscope 0 only)
 	xr_vector<R_dsgraph::mapSorted_Node> mapScopeHUDSorted;	//  Redotix99: for 3D Shader Based Scopes (PiP: gc64 vector + reflex split)
+	xr_vector<R_dsgraph::mapSorted_Node> mapScopeHUDObjective; // pip the FRONT (objective) scope lens, real geometry for the svpscope-2 camera, never drawn
 	xr_vector<R_dsgraph::mapSorted_Node> mapReflexHUDSorted;
 #endif
 	R_dsgraph::mapLandscape_T mapLandscape;
@@ -219,6 +220,8 @@ public:
 	static bool svp_cull_active();
 	static bool svp_cull_reject(dxRender_Visual* V, Fmatrix* M);
 	static bool svp_cull_reject_sphere(const Fvector& c, float r);
+	static void svp_set_lod_scale(float s); // pip SVP LOD: scale captured ssa to the SVP's pixel coverage
+	static void svp_set_ssa_cull(float strength, float cov); // pip SVP small-object cull threshold
 
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();

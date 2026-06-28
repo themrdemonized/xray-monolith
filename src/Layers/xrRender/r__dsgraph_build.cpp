@@ -83,6 +83,32 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 						N.val.se = sh;
 						M.push_back(N);
 					}
+
+						// objective = farthest in-front lens (front of the scope), geometry only for the camera, never drawn
+						if (in_front > 0.f)
+						{
+							auto& O = mapScopeHUDObjective;
+							bool keep_obj = O.empty();
+							if (!keep_obj)
+							{
+								auto& f = O.front();
+								Fvector op, te;
+								f.val.Matrix.transform_tiny(op, f.val.pVisual->getVisData().sphere.P);
+								te.sub(op, Device.vCameraPosition);
+								keep_obj = (te.dotproduct(Device.vCameraDirection) > 0.f) && (score > te.square_magnitude());
+							}
+							if (keep_obj)
+							{
+								O.clear();
+								mapSorted_Node N2;
+								N2.val.ssa = 0;
+								N2.val.pObject = RI.val_pObject;
+								N2.val.pVisual = pVisual;
+								N2.val.Matrix = *RI.val_pTransform;
+								N2.val.se = sh;
+								O.push_back(N2);
+							}
+						}
 				}
 				else if (sh->flags.iScopeLense == 10)
 				{

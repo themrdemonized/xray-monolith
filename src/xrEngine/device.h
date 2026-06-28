@@ -195,6 +195,8 @@ public:
 		// pass turns it into a black crescent that grows on the side your aim has wandered off-axis
 		Fvector4 svp_eyebox = { 0.f, 0.f, 0.f, 0.f };
 		Fvector svp_bore_fwd = {}; // true (un-stabilized) lens forward, captured before the Stage-1 reduction
+		float svp_disc_px = 0.f; // pip on-screen eyepiece disc diameter (px), learned in the lens composite
+		float svp_disc_applied = 0.f; // pip disc px the SVP target is sized to, locked at ADS-in so it never resizes mid-ADS
 
 		bool dlss_reset_next = false; // history reset for the eval, set by the triggers, read+cleared at the seam
 

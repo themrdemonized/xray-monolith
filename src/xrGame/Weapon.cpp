@@ -1442,7 +1442,10 @@ void CWeapon::EnableActorNVisnAfterZoom()
 
 bool CWeapon::need_renderable()
 {
-	bool svp_has_objective_lens = (scope_svp_enabled >= 2 && Device.m_SecondViewport.objective.radius > EPS);
+	// svpscope 2 objective mode is disabled on this branch (the objective camera is neutered in svpCamera), so
+	// the weapon must NOT force-render into the SVP frame, that is what drew the scope/objective ring into the
+	// magnified view. svpscope 2 now behaves as svpscope 1
+	bool svp_has_objective_lens = false;
 	bool not_in_scope = !Device.m_SecondViewport.IsSVPFrame() && !(IsZoomed() && ZoomTexture() && !IsRotatingToZoom());
 
 	return svp_has_objective_lens || not_in_scope;

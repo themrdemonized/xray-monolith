@@ -13,7 +13,20 @@ uniform float4 lensfx_params;  // x chromatic aberration, y barrel distortion, z
 uniform float4 lensfx_params2; // x magnification, y tunnel close rate (vigK), z reference mag, w strength
 uniform float4 lensfx_params3; // x radial blur amount (UV)
 uniform float4 lensfx_eyebox;  // xy = bore-vs-aim drift (tan units), z = strength (r__svp_eyebox), w = drift gain (signed)
+uniform float4 lensfx_eyebox2; // two-zone eyebox: x = eye-relief radius, y = eye-relief softness, z = ellipse aspect, w = eye-relief strength
+uniform float4 lensfx_glass;   // dirty-glass lens: x = dirt/grunge strength, y = edge rim strength, z = grunge tile
+uniform float4 lensfx_optics;  // x = radial chromatic fringing, y = reserved, z = vignette darkening, w = vignette onset radius
 uniform float4 lensfx_ctrl;    // x pass, 0 = apply FX, 1 = straight copy back
+
+// cheap 2-octave value noise for the dirty-glass grunge (procedural, no texture dependency)
+float lfx_hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+float lfx_noise(float2 p)
+{
+	float2 i = floor(p), f = frac(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return lerp(lerp(lfx_hash(i), lfx_hash(i + float2(1.0, 0.0)), f.x),
+	            lerp(lfx_hash(i + float2(0.0, 1.0)), lfx_hash(i + float2(1.0, 1.0)), f.x), f.y);
+}
 
 float4 main(v_out I) : SV_Target
 {
@@ -54,6 +67,7 @@ float4 main(v_out I) : SV_Target
 
 	float rimfade = saturate((1.0 - r) * 6.0);   // keep CA off the lens-body boundary (no colored rim)
 	float ca   = lensfx_params.x * (0.25 * step(1e-4, st) + edge) * rimfade; // base CA only when the lens FX is on
+	ca += lensfx_optics.x * 0.008 * r * r * rimfade; // radial colour fringing, grows to the edge (always-on, not tunnel-gated)
 	float warp = lensfx_params.y * edge;         // barrel, pull edge samples toward center
 	float2 base = uv - dir * warp;
 
@@ -85,10 +99,67 @@ float4 main(v_out I) : SV_Target
 	float dim = lerp(1.0, lensfx_params.z, edge);
 	col *= dim * lensfx_params.w;
 
-	// --- dynamic eye-box scope shadow: clear when the aim sits on the bore, a dark crescent grows as the
-	// aim drifts off-axis (engine-supplied drift in lensfx_eyebox.xy) and the eye box tightens with
-	// magnification (high power = crescent on less drift). independent of the lens FX strength above. ---
-	if (lensfx_eyebox.z > 0.0)
+	// scope body ring blur (field curvature): a defocus that grows toward the lens edge (rim softens, center
+	// stays sharp), inward-biased disc so it never samples past the rim, lensfx_params3.y = strength, .z = onset
+	float ringF = smoothstep(min(lensfx_params3.z, 0.92), 1.0, r); // clamp onset so the band never collapses to 0 width
+	float ringStep = lensfx_params3.y * ringF;
+	if (ringStep > 1e-5)
+	{
+		float2 dc = base - dir * ringStep;
+		float3 rb = float3(0.0, 0.0, 0.0);
+		[unroll] for (int k = 0; k < 24; k++)
+		{
+			float fk = (float)k + 0.5;
+			float rad = sqrt(fk / 24.0) * ringStep; // filled sunflower disc -> smooth defocus, not a bokeh ring
+			float ang = fk * 2.39996323;            // golden angle
+			rb += s_lensfx_src.SampleLevel(smp_rtlinear, dc + float2(cos(ang), sin(ang)) * rad, 0.0).rgb;
+		}
+		col = lerp(col, rb * (1.0 / 24.0), ringF);
+	}
+
+	// dirty-glass lens: procedural grunge + a soft edge rim so the ocular reads like glass, gated, default off
+	if (lensfx_glass.x > 0.0 || lensfx_glass.y > 0.0)
+	{
+		float2 gp     = I.tc0 * max(lensfx_glass.z, 1.0);
+		float  grunge = saturate(lfx_noise(gp) * 0.65 + lfx_noise(gp * 2.7) * 0.35);
+		col *= lerp(1.0, 0.7 + 0.3 * grunge, lensfx_glass.x);   // grime: smudges subtly darken the feed
+		float  glassRim = smoothstep(0.42, 0.5, rr);           // the lens-glass rim catches a soft highlight
+		col += lensfx_glass.y * glassRim * (0.4 + 0.6 * grunge);
+	}
+
+	// lens vignette: radial darkening from the onset radius out to the rim, independent of the tunnel
+	if (lensfx_optics.z > 0.0)
+	{
+		float vg = smoothstep(lensfx_optics.w, 1.0, r);
+		col *= lerp(1.0, 1.0 - lensfx_optics.z, vg);
+	}
+
+	// eye-box scope shadow, truepip model (lensfx_ctrl.y > 0.5): a bright exit-pupil disc, the eye offset
+	// shifts its center so a crescent grows as the eye leaves the clear zone (small offsets stay inside ->
+	// no shadow), the legacy crescent (else) is kept for the non-truepip path
+	if (lensfx_ctrl.y > 0.5)
+	{
+		// two-zone eyebox: a tight exit-pupil disc AND a larger soft eye-relief disc, each elliptical and
+		// shifted by the eye drift, visible where both are clear, relief 0 + aspect 1 == single-zone fallback
+		float2 eoff       = lensfx_eyebox.xy;
+		float  innerR     = lensfx_eyebox.z;
+		float  softP      = lensfx_eyebox.w;
+		float  reliefR    = lensfx_eyebox2.x;
+		float  reliefSoft = lensfx_eyebox2.y;
+		float  aspect     = max(lensfx_eyebox2.z, 1e-3);
+		float  reliefStr  = lensfx_eyebox2.w;
+		float2 asp = float2(aspect, 1.0 / aspect);              // wide-and-short ellipse when aspect > 1
+
+		float  dP = length((c - eoff) / asp);                   // zone 1: exit pupil (the tight shadow)
+		float  vP = smoothstep(innerR, innerR + softP, dP);
+
+		float  dR = length((c - eoff * 0.5) / asp);             // zone 2: eye relief (larger, softer, drifts less)
+		float  vR = smoothstep(reliefR, reliefR + reliefSoft, dR) * reliefStr;
+
+		float  vis = (1.0 - vP) * (1.0 - vR);                   // image clear where BOTH zones are clear
+		col *= lerp(1.0, vis, lensfx_ctrl.z);
+	}
+	else if (lensfx_eyebox.z > 0.0)
 	{
 		const float EB_REF = 4.0;
 		float2 lc   = c * 2.0;                                               // lens-local [-1,1]

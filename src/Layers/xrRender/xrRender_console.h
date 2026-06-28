@@ -186,11 +186,36 @@ extern ECORE_API int scope_fake_enabled; //crookr
 extern ECORE_API int scope_3D_fake_enabled; // Redotix99: for 3D Shader Based Scopes
 extern ECORE_API int scope_svp_enabled;		// Second Viewport scopes
 extern ECORE_API float ps_r__svp_render_scale;	// scope viewport render scale, applied when TargetSVP is built
+extern ECORE_API float ps_r__svp_supersample; // SVP supersample factor (SSAA the magnified image), 1.0 = off
+extern ECORE_API int ps_r__svp_diag; // SVP perf diagnostics log (0 = off)
+extern ECORE_API float ps_r__svp_adaptive_res; // adaptive SVP resolution margin (0 = off)
+extern ECORE_API float ps_r__svp_lod; // SVP LOD reduction strength (0 = off)
+extern ECORE_API float ps_r__svp_cull_ssa; // SVP small-object cull strength (0 = off)
 extern ECORE_API int ps_r__svp_dlss;			// SVP DLSS-SR master gate
 extern ECORE_API float ps_r__svp_stabilize; // SVP image-stabilization strength, 0 = 1:1 bore
 extern ECORE_API int ps_r__svp_lensfx; // SVP lens FX (CA, distortion, exit-pupil dimming) on/off
 extern ECORE_API float ps_r__svp_lensfx_strength; // SVP lens FX strength scale
 extern ECORE_API float ps_r__svp_eyebox; // SVP dynamic eye-box scope shadow strength, 0 = off
+extern ECORE_API float ps_r__svp_truepip;     // truepip physical eye-box master strength (0 = off)
+extern ECORE_API float ps_r__svp_optics_soft; // truepip eye-box falloff width (lens-local)
+extern ECORE_API float ps_r__svp_optics_gain; // truepip eye-offset sensitivity multiplier
+extern ECORE_API float ps_r__svp_optics_real; // truepip real per-scope optics from 3DSS config (1) vs geometry (0)
+extern ECORE_API int ps_r__svp_optics_zoomvig; // truepip magnification-scaled eye-box vignette toggle
+extern ECORE_API float ps_r__svp_optics_zoomvig_blend; // truepip zoom-vignette blend (static .. mag-scaled)
+extern ECORE_API float ps_r__svp_eyebox_aspect;      // two-zone eyebox ellipse stretch (1 = circular)
+extern ECORE_API float ps_r__svp_eyebox_relief;      // two-zone eyebox eye-relief zone strength (0 = single-zone)
+extern ECORE_API float ps_r__svp_eyebox_relief_size; // two-zone eyebox eye-relief clear radius
+extern ECORE_API float ps_r__svp_eyebox_relief_soft; // two-zone eyebox eye-relief softness
+extern ECORE_API float ps_r__svp_glass_dirt; // dirty-glass lens grunge strength
+extern ECORE_API float ps_r__svp_glass_rim;  // dirty-glass lens edge rim strength
+extern ECORE_API float ps_r__svp_lens_fringe;     // lens radial chromatic fringing, 0 = off
+extern ECORE_API float ps_r__svp_lens_vignette;   // lens radial vignette darkening, 0 = off
+extern ECORE_API float ps_r__svp_lens_vignette_r; // lens vignette onset radius (0 center .. 1 rim)
+extern ECORE_API float ps_r__svp_dof; // scope body ring blur strength
+extern ECORE_API float ps_r__svp_dof_onset; // ring blur onset radius
+extern ECORE_API int ps_r__truepip_recoil; // script-recoil gate (0 normal, 1 off in true-PiP, 2 off always)
+extern ECORE_API float ps_r__svp_obj_dist; // svpscope 2 geometric objective: scope length forward (eyepiece radii)
+extern ECORE_API float ps_r__svp_obj_size; // svpscope 2 geometric objective: objective radius (eyepiece radii)
 extern ECORE_API float ps_r__svp_lens_ca;      // lens FX (engine pass): chromatic aberration
 extern ECORE_API float ps_r__svp_lens_distort; // lens FX (engine pass): barrel distortion
 extern ECORE_API float ps_r__svp_lens_floor;   // lens FX (engine pass): tunnel ring brightness floor
@@ -199,8 +224,6 @@ extern ECORE_API float ps_r__svp_lens_vigk;    // lens FX (engine pass): tunnel 
 extern ECORE_API float ps_r__svp_lens_blur;    // lens FX (engine pass): radial edge blur amount
 extern ECORE_API int   ps_r__svp_lens_menu_key; // lens FX in-game tuner open key (index into the PiP-page dropdown)
 extern ECORE_API float ps_r__svp_eyebox_shift; // SVP eye-box crescent drift gain (signed, negative flips the side)
-extern ECORE_API float ps_r__svp_pupil_boost; // svp enlarge the scope exit pupil so recoil does not black out the lens (0 to 8)
-extern ECORE_API float ps_r__svp_zoom_smooth; // svp zoom smoothing, low pass the SVP magnification (0 to 1)
 extern ECORE_API int ps_r__svp_cull; // svp frustum cull the scope geometry (0 = off, 1 = on)
 extern ECORE_API int ps_r__svp_occlude; // svp cone-accurate occlusion cull (0 = off, 1 = on)
 extern ECORE_API int ps_r__svp_skip_motionblur; // svp skip motion blur on the scope pass
