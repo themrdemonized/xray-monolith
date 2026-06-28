@@ -26,12 +26,10 @@ local function recoil_blocked()
 	if mode >= 2 then
 		return true
 	end
-	-- mode 1: block only under a true-PiP scope (an SVP scope mode set + the weapon zoomed)
-	local ok, svp = pcall(function() return get_console():get_integer("r__svpscope") end)
-	if not (ok and svp and svp > 0) then
-		return false
-	end
-	return axr_main ~= nil and axr_main.weapon_is_zoomed == true
+	-- mode 1: block only when a real PiP scope is actually rendering via the second viewport, reflex,
+	-- iron and non-PiP scopes never activate it
+	local ok, active = pcall(function() return is_svp_active() end)
+	return ok and active == true
 end
 
 function gated_shoot_effect(sect)

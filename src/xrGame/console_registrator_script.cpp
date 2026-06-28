@@ -2,6 +2,7 @@
 #include "console_registrator.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/xr_ioc_cmd.h"
+#include "../xrEngine/device.h"
 #include "ai_space.h"
 #include "script_engine.h"
 #include "../xrSound/Sound.h"
@@ -82,12 +83,19 @@ void execute_console_command_deferred(CConsole* c, LPCSTR string_to_execute)
 	return table;
 }
 
+// pip true if a real PiP scope is rendering via the second viewport (reflex/iron/non-PiP sights never set it)
+bool is_svp_active()
+{
+	return Device.m_SecondViewport.IsSVPActive();
+}
+
 #pragma optimize("s",on)
 void console_registrator::script_register(lua_State* L)
 {
 	module(L)
 	[
 		def("get_console", &console),
+		def("is_svp_active", &is_svp_active),
 
 		class_<CConsole>("CConsole")
 		.def("execute", &CConsole::Execute)
