@@ -234,6 +234,7 @@ public:
 	void DeferredUnload();
 	void Evict();
     void EvictStalledTextures(u32 max_age_frames = 1800);
+    void EvictAllTextures();
 	void StoreNecessaryTextures();
 	void DestroyNecessaryTextures();
 	void Dump(bool bBrief);

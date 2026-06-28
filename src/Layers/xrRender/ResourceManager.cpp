@@ -566,6 +566,44 @@ void CResourceManager::EvictStalledTextures(u32 max_age_frames) {
 #endif
 }
 
+void CResourceManager::EvictAllTextures()
+{
+#if defined(USE_DX11)
+    Msg("* [TexEvict] EvictAllTextures called, frame=%u", RDEVICE.dwFrame);
+    if (!RDEVICE.b_is_Ready) return;
+
+    u32 evicted    = 0;
+    u32 evicted_kb = 0;
+    u32 skip_user  = 0;
+    u32 skip_name  = 0;
+    u32 skip_unloaded = 0;
+
+    creationGuard.Enter();
+
+    for (map_Texture::iterator I = m_textures.begin(); I != m_textures.end(); ++I) {
+        CTexture* tex = I->second;
+
+        if (tex->flags.bUser)                                              { skip_user++;     continue; }
+        if (tex->cName.size() && strstr(tex->cName.c_str(), "$user$"))    { skip_user++;     continue; }
+        if (tex->cName.size() && strstr(tex->cName.c_str(), "$null"))     { skip_user++;     continue; }
+        if (!tex->flags.bLoaded)                                           { skip_unloaded++; continue; }
+
+        LPCSTR name = I->first;
+        if (strncmp(name, "ui\\", 3) == 0 || strncmp(name, "ui/", 3) == 0)
+            { skip_name++; continue; }
+
+        evicted_kb += tex->flags.MemoryUsage / 1024;
+        tex->Unload();
+        evicted++;
+    }
+
+    creationGuard.Leave();
+
+    Msg("* [TexEvict] EvictAll: total=%u evicted=%u skip_user=%u skip_name=%u skip_unloaded=%u freed_kb=%u",
+        (u32)m_textures.size(), evicted, skip_user, skip_name, skip_unloaded, evicted_kb);
+#endif
+}
+
 /*
 BOOL	CResourceManager::_GetDetailTexture(LPCSTR Name,LPCSTR& T, R_constant_setup* &CS)
 {
