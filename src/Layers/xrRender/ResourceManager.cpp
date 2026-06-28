@@ -508,14 +508,25 @@ void CResourceManager::EvictStalledTextures(u32 max_age_frames) {
   u32 scanned = 0;
   for (; I != m_textures.end() && scanned < batch_size; ++I, ++scanned) {
     CTexture *tex = I->second;
-
-    // $user$ textures (render targets, user-managed) already carry bUser=true
     if (tex->flags.bUser) {
       skip_user++;
       continue;
     }
+    if (tex->cName.size() && strstr(tex->cName.c_str(), "$user$")) {
+      skip_user++;
+      continue;
+    }
+    if (tex->cName.size() && strstr(tex->cName.c_str(), "$null")) {
+      skip_user++;
+      continue;
+    }
+    if (!tex->flags.bLoaded) {
+      skip_unloaded++;
+      continue;
+    }
+    // $user$ textures (render targets, user-managed) already carry bUser=true
 
-    // UI textures — PDA, inventory icons, etc. — must never be evicted
+    // UI extures — PDA, inventory icons, etc. — must never be evicted
     LPCSTR name = I->first;
     if (strncmp(name, "ui\\", 3) == 0 || strncmp(name, "ui/", 3) == 0) {
       skip_name++;

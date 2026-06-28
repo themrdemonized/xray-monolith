@@ -56,6 +56,9 @@ CTexture::~CTexture()
 
 void CTexture::surface_set(ID3DBaseTexture* surf)
 {
+
+    if (cName.size() && strstr(cName.c_str(), "$user$"))
+        flags.bUser = true;
 	if (surf) surf->AddRef();
 	_RELEASE(pSurface);
 	_RELEASE(m_pSRView);
@@ -594,7 +597,7 @@ void CTexture::Load()
 			// pSurface->SetPriority	(PRIORITY_NORMAL);
 			flags.MemoryUsage = mem;
 		}
-		
+
 		if (pSurface && bCreateView)
 			CHK_DX(HW.pDevice->CreateShaderResourceView(pSurface, NULL, &m_pSRView));
 	}
