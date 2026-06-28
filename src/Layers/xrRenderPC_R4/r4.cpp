@@ -569,7 +569,28 @@ void CRender::destroy()
 u32 svp_render_extent()
 {
 	if (ps_r__svp_dlss == 0)
-		return Device.svp_height();
+	{
+		// base SVP square = full display-derived svp_height, or (adaptive) just past the on-screen eyepiece
+		// disc so we never rasterise pixels the lens cannot show. supersample then scales the chosen base up
+		u32 base = Device.svp_height();
+		extern float ps_r__svp_adaptive_res;
+		if (ps_r__svp_adaptive_res > 0.f)
+		{
+			const float d = Device.m_SecondViewport.svp_disc_applied;
+			if (d > 1.0f)
+			{
+				u32 want = u32(d * ps_r__svp_adaptive_res) & ~1u; // disc * margin, even side
+				if (want < 256) want = 256;                       // floor: never degenerate on a tiny/far ocular
+				if (want < base) base = want;                     // never UPSCALE past full-res (big oculars clamp to no-op)
+			}
+		}
+		float ss = ps_r__svp_supersample;
+		clamp(ss, 1.0f, 2.0f);
+		if (base == Device.svp_height() && ss <= 1.0f)
+			return Device.svp_height(); // exact stock, byte-identical (off == unchanged)
+		u32 e = u32(base * ss) & ~1u;
+		return (e < 2) ? 2 : e;
+	}
 	float eff = ps_r__svp_render_scale;
 	clamp(eff, 0.5f, 1.0f);
 	if (eff >= 1.0f)
@@ -586,19 +607,24 @@ void CRender::EnsureTargetSVP()
 {
 	if (TargetMain)
 		TargetMain->EnsureScopeShaders(); // pip load the lens glue shaders on first aim (idempotent)
-	if (TargetSVP)
-	{
-		// pip recreate the SVP target if the DLSS gate flipped, the gbuffer (render extent) + rt_secondVP
-		// (UAV) only change at gate != 0, so a 0<->nonzero toggle rebuilds it here on the render thread
-		if ((ps_r__svp_dlss != 0) == TargetSVP->m_svp_dlss_built)
-			return;
-		xr_delete(TargetSVP);
-	}
 	u32 svp_side = svp_render_extent();
 	if (svp_side < 64)
 		svp_side = 64;
+	if (TargetSVP)
+	{
+		// pip recreate if the DLSS gate flipped (gbuffer + rt_secondVP UAV change at gate != 0) or the
+		// supersample factor changed the size, so r__svp_supersample applies live (no vid_restart)
+		const bool gate_ok = ((ps_r__svp_dlss != 0) == TargetSVP->m_svp_dlss_built);
+		const bool size_ok = (TargetSVP->Width == svp_side);
+		if (gate_ok && size_ok)
+			return;
+		xr_delete(TargetSVP);
+	}
 	TargetSVP = xr_new<CRenderTarget>("svp", svp_side, svp_side);
 	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset, SVP surface (re)created incl. res change
+	extern int ps_r__svp_diag; extern float ps_r__svp_supersample;
+	if (ps_r__svp_diag)
+		Msg("[SVP-ALLOC] svp_side=%u (svp_height=%u supersample=%.2f dlss=%d)", svp_side, Device.svp_height(), ps_r__svp_supersample, ps_r__svp_dlss);
 }
 
 void CRender::reset_begin()

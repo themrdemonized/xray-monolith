@@ -38,6 +38,18 @@ static CFrustum s_svp_cull_frustum;
 static bool s_svp_cull_on = false;    // frustum armed for this SVP gbuffer pass
 static bool s_svp_cull_world = false; // also reject world geometry, grass culling can arm the frustum alone
 
+// pip SVP LOD: the captured ssa is the MAIN-frustum screen area, scale it to the SVP's true pixel coverage
+// so a low-res, low-mag scope picks coarser LODs (matched to what it can resolve). armed only for the SVP
+// gbuffer pass, so the main view is untouched
+static float s_svp_ssa_scale = 1.f;
+static bool s_svp_lod_on = false;
+ICF float svp_ssa(float ssa) { return s_svp_lod_on ? ssa * s_svp_ssa_scale : ssa; }
+
+// pip SVP small-object cull. the gbuffer is draw-call bound, so skip items whose main-frustum ssa is below
+// a threshold pre-scaled for the SVP's coverage (set per pass), removing tiny distant clutter from the
+// re-render. 0 = off. only the SVP gbuffer arms it, so the main view is untouched
+static float s_svp_ssa_cull = 0.f;
+
 void CDSGraphManager::svp_cull_begin(Fmatrix& full_xform, bool cull_world)
 {
 	s_svp_cull_frustum.CreateFromMatrix(full_xform, FRUSTUM_P_LRTB + FRUSTUM_P_FAR);
@@ -49,6 +61,19 @@ void CDSGraphManager::svp_cull_end()
 {
 	s_svp_cull_on = false;
 	s_svp_cull_world = false;
+}
+
+void CDSGraphManager::svp_set_lod_scale(float s)
+{
+	s_svp_ssa_scale = s;
+	s_svp_lod_on = (s < 0.999f); // active only when it actually lowers detail
+}
+
+// strength scales the LOD-out ssa, cov divides it back to a main-frustum ssa so the loop can test item.ssa
+// directly. higher strength culls bigger items, lower cov (low mag) culls more (objects are tiny in the scope)
+void CDSGraphManager::svp_set_ssa_cull(float strength, float cov)
+{
+	s_svp_ssa_cull = (strength > 0.f && cov > 1e-4f) ? (r_ssaGLOD_end * strength / cov) : 0.f;
 }
 
 bool CDSGraphManager::svp_cull_active()
@@ -92,6 +117,7 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 	for (auto& item : graph)
 	{
 		if (svp_cull_reject(item.pVisual, item.pMatrix)) continue; // pip skip off-cone SVP geometry
+		if (s_svp_ssa_cull > 0.f && item.ssa < s_svp_ssa_cull) continue; // pip skip tiny objects in the SVP
 		dxRender_Visual* V = item.pVisual;
 		VERIFY(V && V->shader._get());
 		RCache.set_Element(item.pSE);
@@ -102,7 +128,7 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 		//{
 		//	//new feature
 		//}
-		V->Render(calcLOD(item.ssa, V->vis.sphere.R));
+		V->Render(calcLOD(svp_ssa(item.ssa), V->vis.sphere.R));
 	}
 
 	if (_clear)
@@ -150,6 +176,7 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
         for (auto& packet : queue)
         {
             if (svp_cull_reject(packet.item.pVisual, packet.item.pMatrix)) continue; // pip skip off-cone SVP geometry
+            if (s_svp_ssa_cull > 0.f && packet.item.ssa < s_svp_ssa_cull) continue; // pip skip tiny objects in the SVP
             auto& currentKey = packet.sortKey;
             if (currentKey.high != high)
             {
@@ -217,7 +244,7 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 				RImplementation.apply_lmaterial();
 			}
 
-			float LOD = calcLOD(item.ssa, item.pVisual->vis.sphere.R);
+			float LOD = calcLOD(svp_ssa(item.ssa), item.pVisual->vis.sphere.R);
 #ifdef USE_DX11
 			RCache.LOD.set_LOD(LOD);
 #endif

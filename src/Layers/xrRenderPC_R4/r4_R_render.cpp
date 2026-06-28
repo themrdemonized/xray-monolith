@@ -101,7 +101,7 @@ void debug_scope(Fmatrix scope_camera)
 
 	auto& p = Device.m_SecondViewport;
 	draw_lens(p.eyepiece, 0xff0000ff);   // eyepiece blue
-	// objective yellow at the CAMERA (the real entrance the scope views from). the stored p.objective.m_W
+	// objective yellow at the CAMERA (the real entrance the scope views from), the stored p.objective.m_W
 	// is a forward math intermediate (it derives the camera pull-back d), not the visible front lens
 	CRenderDevice::CSecondVPParams::Lens objAtCam = p.objective;
 	objAtCam.m_W = scope_camera;
@@ -367,13 +367,13 @@ void CRender::deriveScopeLens()
 				}
 			}
 
-			// pip objective: prefer the REAL front lens captured from the mesh (mapScopeHUDObjective).
+			// pip objective: prefer the REAL front lens captured from the mesh (mapScopeHUDObjective)
 			// place it at the real front-lens position but along the (stabilized) optical axis so the
-			// orientation stays consistent with the eyepiece. fall back to the legacy fixed offset only
+			// orientation stays consistent with the eyepiece, fall back to the legacy fixed offset only
 			// when the scope flags a single lens surface (objective == ocular)
 			// automatic objective distance (geomscan): scan the HUD geometry snapshot (taken before
 			// render_hud cleared the lists) for the forward-most on-axis node + its radius = the
-			// objective glass plane, in eyepiece radii. clamped, fed to the geometric fallback below
+			// objective glass plane, in eyepiece radii, clamped, fed to the geometric fallback below
 			float geom_front = -1.f;
 			{
 				const Fvector eye = p->eyepiece.m_W.c;
@@ -397,7 +397,7 @@ void CRender::deriveScopeLens()
 			}
 
 			bool have_obj = false;
-			float dbg_cand_dist = -1.f; // objective-capture distance test (kept: used by the capture gate below)
+			float dbg_cand_dist = -1.f; // objective-capture distance, used by the capture gate below
 			for (auto& N : GMBase.RGraph.mapScopeHUDObjective)
 			{
 				if (!N.pVisual || !N.pMatrix)
@@ -427,7 +427,7 @@ void CRender::deriveScopeLens()
 			{
 				// no distinct objective lens in the mesh (single-lens scope, the common case), derive it
 				// geometrically along the optical axis: a scope length forward of the eyepiece, sized
-				// relative to it. eyepiece radius is the only mesh-scale-robust unit, refined per scope
+				// relative to it, eyepiece radius is the only mesh-scale-robust unit, refined per scope
 				// from real objective_mm later
 				Fvector fwd; fwd.set(p->eyepiece.m_W.k); fwd.normalize();
 				p->objective.m_W = p->eyepiece.m_W;
@@ -572,6 +572,12 @@ void CRender::Render()
 	// pip double-pass, the captured graph renders once for the main viewport and, when a scope drives
 	// the SVP, a second time into TargetSVP, true_pip off keeps the single stock main pass
 	const bool svp = Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
+	// pip lock the adaptive SVP size at ADS-in (svp false -> true) from the disc learned on the last aim, so the
+	// target is sized once per aim and never resized mid-ADS (the live disc keeps learning for next time)
+	static bool s_prev_svp = false;
+	if (svp && !s_prev_svp)
+		Device.m_SecondViewport.svp_disc_applied = Device.m_SecondViewport.svp_disc_px;
+	s_prev_svp = svp;
 	// pip allocate the SVP target before the main pass derives the camera into it (lazy, only while a
 	// PiP scope is aimed, never when off)
 	if (Device.true_pip_on && g_pGamePersistent &&
@@ -595,7 +601,7 @@ void CRender::Render()
 			share_main_smaps();       // re-point the shadow atlas at the main maps the generation built
 			extern int ps_r__svp_sss_sun;
 			Device.m_SecondViewport.force_svp_sss = (ps_r__svp_sss_sun != 0); // sun keeps the SSS contact term
-			accum();                  // accumulate this unit into the SVP, reading the shared maps
+			{ PIX_EVENT(SVP_ACCUM); accum(); } // SVP marginal lighting cost: accumulate this unit into the SVP (shared maps)
 			Device.m_SecondViewport.force_svp_sss = false;
 			TargetMain->SetActive();  // restore for the next unit's generation on the main atlas
 		};
@@ -624,6 +630,21 @@ void CRender::renderGBuffer(bool clearGraph)
 		Fmatrix svp_full;
 		svp_full.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
 		CDSGraphManager::svp_cull_begin(svp_full, svp_cull);
+	}
+	// pip SVP coverage = (mag * svp_side / main_height)^2, capped at 1: the fraction of the main view's
+	// pixel area an object covers in the scope. feeds the LOD scale and the small-object cull threshold
+	extern float ps_r__svp_lod, ps_r__svp_cull_ssa;
+	if (svp_pass && TargetSVP && (ps_r__svp_lod > 0.f || ps_r__svp_cull_ssa > 0.f))
+	{
+		extern float g_pip_scope_magnification;
+		const float mh = (float)Device.dwHeight;
+		float cov = (mh > 1.f) ? (g_pip_scope_magnification * (float)TargetSVP->Width / mh) : 1.f;
+		cov *= cov;
+		if (cov > 1.f) cov = 1.f;
+		if (ps_r__svp_lod > 0.f)
+			CDSGraphManager::svp_set_lod_scale(1.f + (cov - 1.f) * ps_r__svp_lod);
+		if (ps_r__svp_cull_ssa > 0.f)
+			CDSGraphManager::svp_set_ssa_cull(ps_r__svp_cull_ssa, cov);
 	}
 
 	phase = PHASE_NORMAL;
@@ -718,6 +739,11 @@ void CRender::renderGBuffer(bool clearGraph)
 
 	if (svp_cull || svp_cull_grass)
 		CDSGraphManager::svp_cull_end(); // pip end SVP cull, the shared shadow/light passes below are unaffected
+	if (svp_pass)
+	{
+		CDSGraphManager::svp_set_lod_scale(1.f); // pip restore full LOD + no cull before the shared light passes
+		CDSGraphManager::svp_set_ssa_cull(0.f, 1.f);
+	}
 
 	// Wall marks
 	if (Wallmarks)
@@ -934,13 +960,16 @@ void CRender::render_forward()
 
 	//******* Main render - second order geometry (the one, that doesn't support deffering)
 	//.todo: should be done inside "combine" with estimation of of luminance, tone-mapping, etc.
+	// pip the SVP combine runs before the main combine, so it must not clear the shared priority-1 forward
+	// lists or the main view loses its forward geometry (anomaly smoke, blended fx). only the main pass clears
+	const bool fwd_clear = !Device.m_SecondViewport.m_render_pass_is_svp;
 	{
 		// level
 		phase = PHASE_NORMAL;
 		//	Igor: we don't want to render old lods on next frame.
-		GMBase.r_dsgraph_render_static(1); // normal level, secondary priority
+		GMBase.r_dsgraph_render_static(1, fwd_clear); // normal level, secondary priority
 		CParticlesAsync::Wait();
-		GMBase.r_dsgraph_render_dynamic(1);
+		GMBase.r_dsgraph_render_dynamic(1, fwd_clear);
 		GMBase.fade_render(); // faded-portals
 		GMBase.r_dsgraph_render_sorted(false); // strict-sorted geoms
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts

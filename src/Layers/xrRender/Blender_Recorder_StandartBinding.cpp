@@ -401,8 +401,7 @@ static class s3ds_param_1 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		// pip pass-through. true-pip suppresses the 3DSS parallax shadow via the s3ds_param_4 SETTINGS
-		// gate now (clears ST_PARALLAX_SHADOW), so the old exit-pupil widening + the dead pupil_boost path are gone
+		// pip pass-through, true-pip suppresses the 3DSS parallax shadow via the s3ds_param_4 SETTINGS gate
 		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, ps_s3ds_param_1.z, ps_s3ds_param_1.w);
 	}
 }    s3ds_param_1;
@@ -411,7 +410,17 @@ static class s3ds_param_2 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, ps_s3ds_param_2.w);
+		// pip kill the 3DSS fisheye/barrel for true-pip OPTICAL scopes, the fisheye magnitude is
+		// V_tangent * mas_scale(), mas_scale = (s3ds_param_2.w % 0.01) * 1000 (the sub-0.01 fractional)
+		// strip that fractional so mas_scale -> 0 (fisheye becomes identity, the reticle parallax flattens
+		// too), leaving zoom_factor() = .w - .w%0.01 untouched, thermals + see-through keep the stock look
+		float w = ps_s3ds_param_2.w;
+		extern float ps_r__svp_truepip;
+		const bool thermal = ps_s3ds_param_3.x > 1.5f;
+		const bool see_through = (int(ps_s3ds_param_4.w) & (1 << 2)) != 0;
+		if (ps_r__svp_truepip > 0.f && Device.true_pip_on && !thermal && !see_through)
+			w = w - fmodf(w, 0.01f); // strip mas_scale -> fisheye off
+		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, w);
 	}
 }    s3ds_param_2;
 
@@ -427,16 +436,16 @@ static class s3ds_param_4 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		// truepip: gate OFF the 3DSS funky 2D for OPTICAL scopes by clearing the SETTINGS bits -- parallax
-		// shadow (our eye-box owns it, this makes the 3DSS shadow fade to exactly 0 at full ADS, fully
-		// robust), chromatism, nvg blur. keep SEE_THROUGH + THERMAL_PIXELATION (functional); thermals and
-		// see-through scopes keep everything
+		// truepip: gate off the 3DSS funky-2D for optical scopes by clearing SETTINGS bits: parallax shadow
+		// (our eye-box owns it), chromatism, nvg blur, keep see-through + thermal pixelation, thermals untouched
 		float settings = ps_s3ds_param_4.w;
 		extern float ps_r__svp_truepip;
-		const bool pip = Device.true_pip_on; // IsSVPActive() is false at 3DSS shader-bind time so the old gate never fired, true_pip_on (svpscope on) is the right discriminator for optical scopes
+		// true_pip_on, not IsSVPActive (which is false at 3DSS shader-bind time)
+		const bool pip = Device.true_pip_on;
 		const bool thermal = ps_s3ds_param_3.x > 1.5f;
 		const bool see_through = (int(ps_s3ds_param_4.w) & (1 << 2)) != 0; // ST_SEE_THROUGH
-		if (ps_r__svp_truepip > 0.f && pip && !thermal) // SEE_THROUGH (bit 2) is on for nearly all scopes (the see-around-the-tube feature), so it must not block the gate; the gate preserves bit 2 anyway, only clearing shadow/chroma/nvg
+		// don't gate on see_through: bit 2 is on for nearly all scopes, the gate preserves it anyway
+		if (ps_r__svp_truepip > 0.f && pip && !thermal)
 		{
 			int s = (int)settings;
 			s &= ~(1 << 1); // ST_PARALLAX_SHADOW

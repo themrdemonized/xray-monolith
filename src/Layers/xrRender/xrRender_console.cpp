@@ -294,25 +294,41 @@ int scope_fake_enabled = 1;
 int scope_3D_fake_enabled = 0; // Redotix99: for 3D Shader Based Scopes
 int scope_svp_enabled = 0; // true PiP second viewport scope (0 off, 1 eyepiece, 2 objective)
 float ps_r__svp_render_scale = 1.0f; // SVP render scale, 1.0 keeps the dwHeight/2 per side
+float ps_r__svp_supersample = 1.0f; // SVP supersample: render the SVP square larger so the eyepiece downsamples it (SSAA), 1.0 = off, 2.0 = 4x SVP pixels
+int ps_r__svp_diag = 0; // SVP perf diagnostics: throttled log of [SVP-RES] over-render ratio + [SVP-ALLOC] target size while scoped, 0 = off
+float ps_r__svp_adaptive_res = 1.2f; // adaptive SVP resolution: size the SVP render to the on-screen eyepiece disc * this margin. 0 = off (full svp_height), 1.0 = render exactly at the disc (sharpest, mild pan shimmer), 1.2 = keep ~1.2x SSAA. big oculars clamp to no-op
+float ps_r__svp_lod = 0.0f; // SVP LOD reduction strength [0..1]: scale the scope's LOD selection to its true pixel coverage (coarser at low mag, capped at the main view so zoomed detail is never worse). 0 = off
+float ps_r__svp_cull_ssa = 4.0f; // SVP small-object cull strength: skip scope geometry below this * the LOD-out ssa, scaled by magnification (tiny distant clutter at low mag). 0 = off, higher = more aggressive
 int ps_r__svp_dlss = 0; // SVP DLSS-SR master gate, 0 = stock (render_scale inert), nonzero = scaffolding active
 float ps_r__svp_stabilize = 1.0f; // SVP sway reduction, blends the lens toward the aim, 0 = full sway, 1 = tracks aim
 int ps_r__svp_lensfx = 0; // SVP lens FX (edge CA, barrel distortion, exit-pupil dimming), off by default (3DSS already does CA)
 float ps_r__svp_lensfx_strength = 1.0f; // SVP lens FX strength scale
 float ps_r__svp_eyebox = 0.0f; // SVP dynamic eye-box scope shadow (crescent grows as the bore drifts off aim), 3DSS Override, 0 = off
-// truepip physical eye-box (own-pass canonical model, gated by r__svp_truepip). suppresses the 3DSS
-// parallax shadow for optical scopes and draws an exit-pupil clear-zone vignette in scope_lensfx so
-// minor movement no longer crescents. optics pushed per scope by the bridge (or set in console to tune).
-float ps_r__svp_truepip = 0.0f;      // master strength, 0 = off (3DSS shadow + pupil_boost path intact)
+// truepip physical eye-box (own-pass canonical model, gated by r__svp_truepip), suppresses the 3DSS
+// parallax shadow for optical scopes and draws an exit-pupil clear-zone vignette in scope_lensfx,
+// optics pushed per scope by the bridge (or set in console to tune)
+float ps_r__svp_truepip = 0.0f;      // master strength, 0 = off (stock 3DSS parallax shadow)
 float ps_r__svp_optics_soft = 0.15f; // eye-box falloff width (outerRadius - innerRadius, lens-local)
 float ps_r__svp_optics_gain = 1.0f;  // eye-offset sensitivity multiplier (crescent onset speed)
 float ps_r__svp_optics_real = 1.0f;  // 1 = real per-scope eye-relief + exit-pupil from the 3DSS config (s3ds_param_1.y/.z), 0 = derive the eye-box from scope geometry
 int   ps_r__svp_optics_zoomvig = 1;  // toggle: magnification-scaled eye-box vignette, the tube darkening tightens as you zoom (real path only), 0 = static real exit-pupil
 float ps_r__svp_optics_zoomvig_blend = 1.0f; // zoom-vignette blend: 0 = static real exit-pupil, 1 = full magnification-scaled (exit-pupil / mag)
-int ps_r__truepip_recoil = 2;        // gate the SCRIPT recoil mod (GAMMA Enhanced Recoil): 0 normal, 1 off in true-PiP, 2 off always (clean-bed test default); base engine recoil untouched
+float ps_r__svp_eyebox_aspect = 1.0f;        // two-zone eyebox: clear-zone ellipse stretch, 1 = circular, >1 = wide-and-short
+float ps_r__svp_eyebox_relief = 0.0f;        // two-zone eyebox: eye-relief (secondary) zone strength, 0 = single-zone (current look, zero regression)
+float ps_r__svp_eyebox_relief_size = 0.5f;   // two-zone eyebox: eye-relief clear-zone radius (lens-local)
+float ps_r__svp_eyebox_relief_soft = 0.25f;  // two-zone eyebox: eye-relief falloff softness
+float ps_r__svp_glass_dirt = 0.0f;           // dirty-glass lens: faint procedural grunge/smudge on the ocular, 0 = off
+float ps_r__svp_glass_rim = 0.0f;            // dirty-glass lens: soft highlight rim at the lens-glass edge, 0 = off
+float ps_r__svp_lens_fringe = 0.0f;          // radial chromatic fringing: RGB split that grows toward the lens edge, 0 = off
+float ps_r__svp_lens_vignette = 0.0f;        // lens vignette: radial darkening toward the rim, independent of the magnification tunnel, 0 = off
+float ps_r__svp_lens_vignette_r = 0.6f;      // lens vignette onset radius (0 center .. 1 rim) where darkening begins
+float ps_r__svp_dof = 0.040f;        // scope body ring blur: field-curvature defocus that grows toward the lens edge (0 = off), rim softens, aimed-at center stays sharp
+float ps_r__svp_dof_onset = 0.55f;   // ring blur onset radius (0 center .. 1 edge), where the edge defocus begins
+int ps_r__truepip_recoil = 2;        // gate the SCRIPT recoil mod (grok_bo_enhanced_recoil): 0 normal, 1 off in true-PiP, 2 off always, base engine recoil untouched
 // svpscope 2 geometric objective (single-lens scopes have no distinct front lens to capture, derive it
-// along the optical axis from the eyepiece). lengths are in eyepiece radii (the only mesh-scale-robust
-// unit); refined per scope from real objective_mm later
-float ps_r__svp_obj_dist = 1.0f;     // svpscope 2 objective: scale on the AUTO geomscan front distance (1.0 = raw auto; fixed 14r fallback when geomscan finds nothing)
+// along the optical axis from the eyepiece), lengths are in eyepiece radii (the only mesh-scale-robust
+// unit), refined per scope from real objective_mm later
+float ps_r__svp_obj_dist = 1.0f;     // svpscope 2 objective: scale on the AUTO geomscan front distance (1.0 = raw auto, fixed 14r fallback when geomscan finds nothing)
 float ps_r__svp_obj_size = 0.65f;    // svpscope 2 objective radius = eyepiece_radius * this (eyepiece-relative, one global knob across all scopes)
 // lens model (engine scope_lensfx pass, gated by r__svp_lensfx). harness-tuned defaults, all live-tunable.
 float ps_r__svp_lens_ca      = 0.0018f; // chromatic aberration in the ring
@@ -1420,6 +1436,11 @@ void xrRender_initconsole()
 	// vars keep their 0 defaults so the shared code still reads them as off)
 	CMD4(CCC_Integer, "r__svpscope", &scope_svp_enabled, 0, 2);
 	CMD4(CCC_Float, "r__svp_render_scale", &ps_r__svp_render_scale, 0.4f, 1.0f); // takes effect on vid_restart
+	CMD4(CCC_Float, "r__svp_supersample", &ps_r__svp_supersample, 1.0f, 2.0f); // SSAA the magnified scope image, 1.0 = off (4x SVP cost at 2.0)
+	CMD4(CCC_Integer, "r__svp_diag", &ps_r__svp_diag, 0, 1); // SVP perf diagnostics log (0 = off)
+	CMD4(CCC_Float, "r__svp_adaptive_res", &ps_r__svp_adaptive_res, 0.0f, 2.0f); // size SVP render to the eyepiece disc * margin (0 = off, 1.2 recommended)
+	CMD4(CCC_Float, "r__svp_lod", &ps_r__svp_lod, 0.0f, 1.0f); // SVP LOD reduction strength (0 = off)
+	CMD4(CCC_Float, "r__svp_cull_ssa", &ps_r__svp_cull_ssa, 0.0f, 8.0f); // SVP small-object cull strength (0 = off)
 	CMD4(CCC_Integer, "r__svp_dlss", &ps_r__svp_dlss, 0, 1); // SVP DLSS-SR scaffolding gate, 0 = stock
 	CMD4(CCC_Float, "r__svp_stabilize", &ps_r__svp_stabilize, 0.0f, 1.0f); // SVP sway reduction, 0 = full sway, 1 = tracks aim
 	CMD4(CCC_Integer, "r__svp_lensfx", &ps_r__svp_lensfx, 0, 1); // SVP lens FX, 0 = off
@@ -1431,6 +1452,17 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_optics_real", &ps_r__svp_optics_real, 0.0f, 1.0f); // truepip real per-scope optics (3DSS eye-relief + exit-pupil) vs geometry
 	CMD4(CCC_Integer, "r__svp_optics_zoomvig", &ps_r__svp_optics_zoomvig, 0, 1); // truepip magnification-scaled eye-box vignette toggle
 	CMD4(CCC_Float, "r__svp_optics_zoomvig_blend", &ps_r__svp_optics_zoomvig_blend, 0.0f, 1.0f); // truepip zoom-vignette blend (static .. mag-scaled)
+	CMD4(CCC_Float, "r__svp_dof", &ps_r__svp_dof, 0.0f, 0.10f); // scope body ring blur strength (0 = off)
+	CMD4(CCC_Float, "r__svp_dof_onset", &ps_r__svp_dof_onset, 0.0f, 1.0f); // ring blur onset radius
+	CMD4(CCC_Float, "r__svp_eyebox_aspect", &ps_r__svp_eyebox_aspect, 0.3f, 3.0f); // two-zone eyebox ellipse stretch (1 = circular)
+	CMD4(CCC_Float, "r__svp_eyebox_relief", &ps_r__svp_eyebox_relief, 0.0f, 1.0f); // two-zone eyebox eye-relief zone strength (0 = single-zone)
+	CMD4(CCC_Float, "r__svp_eyebox_relief_size", &ps_r__svp_eyebox_relief_size, 0.1f, 1.0f); // two-zone eyebox eye-relief clear radius
+	CMD4(CCC_Float, "r__svp_eyebox_relief_soft", &ps_r__svp_eyebox_relief_soft, 0.02f, 0.6f); // two-zone eyebox eye-relief softness
+	CMD4(CCC_Float, "r__svp_glass_dirt", &ps_r__svp_glass_dirt, 0.0f, 1.0f); // dirty-glass lens grunge strength (0 = off)
+	CMD4(CCC_Float, "r__svp_glass_rim", &ps_r__svp_glass_rim, 0.0f, 1.0f); // dirty-glass lens edge rim strength (0 = off)
+	CMD4(CCC_Float, "r__svp_lens_fringe", &ps_r__svp_lens_fringe, 0.0f, 1.0f); // lens radial chromatic fringing (0 = off)
+	CMD4(CCC_Float, "r__svp_lens_vignette", &ps_r__svp_lens_vignette, 0.0f, 1.0f); // lens radial vignette darkening (0 = off)
+	CMD4(CCC_Float, "r__svp_lens_vignette_r", &ps_r__svp_lens_vignette_r, 0.0f, 1.0f); // lens vignette onset radius (0 center .. 1 rim)
 	CMD4(CCC_Integer, "r__truepip_recoil", &ps_r__truepip_recoil, 0, 2); // script recoil gate: 0 normal, 1 off in true-PiP, 2 off always
 	CMD4(CCC_Float, "r__svp_obj_dist", &ps_r__svp_obj_dist, 0.0f, 3.0f); // svpscope 2 objective: scale on the auto geomscan front distance
 	CMD4(CCC_Float, "r__svp_obj_size", &ps_r__svp_obj_size, 0.1f, 6.0f); // svpscope 2 geometric objective: objective radius (eyepiece radii)

@@ -96,7 +96,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	{
 		if (sh->flags.iScopeLense == 3)
 		{
-			// a scope can flag several lens surfaces (objective + ocular). keep the one in front of the eye
+			// a scope can flag several lens surfaces (objective + ocular), keep the one in front of the eye
 			// and nearest it (the ocular the player looks through) for the SVP composite, and separately
 			// keep the FARTHEST in-front surface (the objective) as real geometry for the svpscope-2 camera
 			Fvector lp, to;

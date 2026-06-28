@@ -80,6 +80,8 @@ public:
 	static void svp_cull_begin(Fmatrix& full_xform, bool cull_world);
 	static void svp_cull_end();
 	static bool svp_cull_active();
+	static void svp_set_lod_scale(float s); // pip SVP LOD: scale captured ssa to the SVP's pixel coverage
+	static void svp_set_ssa_cull(float strength, float cov); // pip SVP small-object cull threshold
 	static bool svp_cull_reject(dxRender_Visual* V, Fmatrix* M);
 	static bool svp_cull_reject_sphere(const Fvector& c, float r);
 	IC void r_dsgraph_render_graph(u32 _priority, bool _clear = true)

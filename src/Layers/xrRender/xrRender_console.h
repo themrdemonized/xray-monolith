@@ -190,6 +190,11 @@ extern ECORE_API int scope_fake_enabled; //crookr
 extern ECORE_API int scope_3D_fake_enabled; // Redotix99: for 3D Shader Based Scopes
 extern ECORE_API int scope_svp_enabled;
 extern ECORE_API float ps_r__svp_render_scale;
+extern ECORE_API float ps_r__svp_supersample; // SVP supersample factor (SSAA the magnified image), 1.0 = off
+extern ECORE_API int ps_r__svp_diag; // SVP perf diagnostics log (0 = off)
+extern ECORE_API float ps_r__svp_adaptive_res; // adaptive SVP resolution margin (0 = off)
+extern ECORE_API float ps_r__svp_lod; // SVP LOD reduction strength (0 = off)
+extern ECORE_API float ps_r__svp_cull_ssa; // SVP small-object cull strength (0 = off)
 extern ECORE_API int ps_r__svp_dlss; // SVP DLSS-SR master gate
 extern ECORE_API float ps_r__svp_stabilize; // SVP image-stabilization strength, 0 = 1:1 bore
 extern ECORE_API int ps_r__svp_lensfx; // SVP lens FX (CA, distortion, exit-pupil dimming) on/off
@@ -201,6 +206,17 @@ extern ECORE_API float ps_r__svp_optics_gain; // truepip eye-offset sensitivity 
 extern ECORE_API float ps_r__svp_optics_real; // truepip real per-scope optics from 3DSS config (1) vs geometry (0)
 extern ECORE_API int ps_r__svp_optics_zoomvig; // truepip magnification-scaled eye-box vignette toggle
 extern ECORE_API float ps_r__svp_optics_zoomvig_blend; // truepip zoom-vignette blend (static .. mag-scaled)
+extern ECORE_API float ps_r__svp_eyebox_aspect;      // two-zone eyebox ellipse stretch (1 = circular)
+extern ECORE_API float ps_r__svp_eyebox_relief;      // two-zone eyebox eye-relief zone strength (0 = single-zone)
+extern ECORE_API float ps_r__svp_eyebox_relief_size; // two-zone eyebox eye-relief clear radius
+extern ECORE_API float ps_r__svp_eyebox_relief_soft; // two-zone eyebox eye-relief softness
+extern ECORE_API float ps_r__svp_glass_dirt; // dirty-glass lens grunge strength
+extern ECORE_API float ps_r__svp_glass_rim;  // dirty-glass lens edge rim strength
+extern ECORE_API float ps_r__svp_lens_fringe;     // lens radial chromatic fringing, 0 = off
+extern ECORE_API float ps_r__svp_lens_vignette;   // lens radial vignette darkening, 0 = off
+extern ECORE_API float ps_r__svp_lens_vignette_r; // lens vignette onset radius (0 center .. 1 rim)
+extern ECORE_API float ps_r__svp_dof; // scope body ring blur strength
+extern ECORE_API float ps_r__svp_dof_onset; // ring blur onset radius
 extern ECORE_API int ps_r__truepip_recoil; // script-recoil gate (0 normal, 1 off in true-PiP, 2 off always)
 extern ECORE_API float ps_r__svp_obj_dist; // svpscope 2 geometric objective: scope length forward (eyepiece radii)
 extern ECORE_API float ps_r__svp_obj_size; // svpscope 2 geometric objective: objective radius (eyepiece radii)

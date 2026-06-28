@@ -1,9 +1,9 @@
 -- truepip recoil gate
--- Neutralizes the GAMMA "Enhanced Recoil" (grok_bo_enhanced_recoil) per-shot camera/pp/fov kick.
--- The base Anomaly weapon recoil (engine + weapon .ltx) is NOT touched, so you tune against vanilla
--- recoil. This is a runtime monkey-patch, it does not edit the recoil mod's files.
+-- neutralizes the enhanced-recoil script mod (grok_bo_enhanced_recoil) per-shot camera/pp/fov kick
+-- the base Anomaly weapon recoil (engine + weapon .ltx) is NOT touched, so you tune against vanilla
+-- recoil, this is a runtime monkey-patch, it does not edit the recoil mod's files
 --
--- Controlled by the engine cvar r__truepip_recoil:
+-- controlled by the engine cvar r__truepip_recoil:
 --   0 = mod recoil normal
 --   1 = mod recoil off only while a true-PiP scope is active (final-release behaviour)
 --   2 = mod recoil off always (clean-bed testing, current default)

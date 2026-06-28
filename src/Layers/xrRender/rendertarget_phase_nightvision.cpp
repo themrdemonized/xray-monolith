@@ -478,7 +478,47 @@ void CRenderTarget::phase_3DSSReticle()
 			});
 			}
 
-			// pip lens FX, resample the composited disc through scope_lensfx (CA, barrel, dimming, eye box)
+
+				// latch the on-screen eyepiece disc px for adaptive SVP resolution: track up to the fully-raised
+				// disc, hold against per-frame jitter, re-latch on a scope swap
+				if (svp && RImplementation.TargetSVP && Device.m_SecondViewport.eyepiece.radius > EPS)
+				{
+					auto& vpd = Device.m_SecondViewport;
+					const Fmatrix& MH = Device.mFullTransformHud;
+					auto toPx = [&](const Fvector& wp, float& sx, float& sy) {
+						const float x  = wp.x*MH._11 + wp.y*MH._21 + wp.z*MH._31 + MH._41;
+						const float y  = wp.x*MH._12 + wp.y*MH._22 + wp.z*MH._32 + MH._42;
+						const float w  = wp.x*MH._14 + wp.y*MH._24 + wp.z*MH._34 + MH._44;
+						const float iw = (fabsf(w) > 1e-6f) ? 1.0f/w : 0.0f;
+						sx = (x*iw*0.5f + 0.5f) * (float)M->Width;
+						sy = (1.0f - (y*iw*0.5f + 0.5f)) * (float)M->Height;
+					};
+					Fvector ei, li; li.set(vpd.eyepiece.radius, 0.f, 0.f);
+					vpd.eyepiece.m_W.transform_tiny(ei, li);
+					float cx, cy, ix, iy; toPx(vpd.eyepiece.m_W.c, cx, cy); toPx(ei, ix, iy);
+					const float disc = 2.0f * sqrtf((ix-cx)*(ix-cx) + (iy-cy)*(iy-cy)); // on-screen disc diameter px
+					if (disc > 1.f && disc == disc) // ignore NaN / degenerate
+					{
+						float& latched = vpd.svp_disc_px;
+						if (latched <= 0.f || disc > latched + 24.f)   // first frame, or the scope is still raising
+							latched = disc;
+						else if (disc < latched * 0.85f)               // big drop, swapped to a smaller scope
+							latched = disc;
+					}
+					extern int ps_r__svp_diag;
+					static u32 s_svpres_t = 0;
+					if (ps_r__svp_diag && disc > 1.f && Device.dwTimeGlobal - s_svpres_t > 700)
+					{
+						s_svpres_t = Device.dwTimeGlobal;
+						const u32 sres = RImplementation.TargetSVP->Width;
+						extern float g_pip_scope_magnification; extern float ps_r__svp_adaptive_res;
+						const float lin = (float)sres / disc;
+						Msg("[SVP-RES] mag=%.1f svp=%ux%u disc=%.0fpx latch=%.0f adapt=%.2f overrender=%.2fx_linear %.2fx_area",
+							g_pip_scope_magnification, sres, sres, disc, vpd.svp_disc_px, ps_r__svp_adaptive_res, lin, lin*lin);
+					}
+				}
+
+				// pip lens FX, resample the composited disc through scope_lensfx (CA, barrel, dimming, eye box)
 			// two passes swap rt_Generic_0 and rt_Generic_temp so no RT is read while bound for output
 			// thermals (3DSS s3ds_image_type 2 or 3, in ps_s3ds_param_3.x) skip it, the feed is an electronic
 			// screen with no optical exit pupil so tunnel, dim and eye box make no sense on them
@@ -514,23 +554,28 @@ void CRenderTarget::phase_3DSSReticle()
 					// lens model constants, all live cvars. params: CA, barrel, tunnel floor, exit-pupil
 					RCache.set_c("lensfx_params",  ps_r__svp_lens_ca, ps_r__svp_lens_distort, ps_r__svp_lens_floor, ep);
 					RCache.set_c("lensfx_params2", mag, ps_r__svp_lens_vigk, ps_r__svp_lens_refmag, st);
-					RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, 0.0f, 0.0f, 0.0f);
+					extern float ps_r__svp_dof; extern float ps_r__svp_dof_onset;
+					RCache.set_c("lensfx_params3", ps_r__svp_lens_blur, ps_r__svp_dof, ps_r__svp_dof_onset, 0.0f);
+						extern float ps_r__svp_glass_dirt; extern float ps_r__svp_glass_rim;
+						RCache.set_c("lensfx_glass", ps_r__svp_glass_dirt, ps_r__svp_glass_rim, 8.0f, 0.0f);
+						extern float ps_r__svp_lens_fringe; extern float ps_r__svp_lens_vignette; extern float ps_r__svp_lens_vignette_r;
+						RCache.set_c("lensfx_optics", ps_r__svp_lens_fringe, 0.0f, ps_r__svp_lens_vignette, ps_r__svp_lens_vignette_r);
 					// eye-box: truepip canonical (exit-pupil clear zone + eye-relief-scaled offset) or the
-					// legacy crescent. svp_eyebox.xy = engine bore-vs-aim drift (tan)
+					// legacy crescent, svp_eyebox.xy = engine bore-vs-aim drift (tan)
 					const Fvector4& eb = Device.m_SecondViewport.svp_eyebox;
 					if (ps_r__svp_truepip > 0.f)
 					{
 						// fully-auto physical eye-box from REAL geometry: eye relief = main-camera -> eyepiece
-						// distance, objective from the scope geometry, exit pupil = objective / live mag. the
+						// distance, objective from the scope geometry, exit pupil = objective / live mag, the
 						// clear zone (innerR) grows with the exit pupil (low mag forgiving, high mag fussy) and
-						// the eye offset is the real bore-vs-aim drift scaled into exit-pupil radii. inputs are
+						// the eye offset is the real bore-vs-aim drift scaled into exit-pupil radii, inputs are
 						// real geometry, only optics_gain (feel) + optics_soft (falloff width) are tunables
 						auto& vp = Device.m_SecondViewport;
 						const float R = (vp.eyepiece.radius > 1e-5f) ? vp.eyepiece.radius : 1e-5f;
 						const float Robj = (vp.objective.radius > 1e-5f) ? vp.objective.radius : (R * 1.4f);
 						const float m = (mag > 0.1f) ? mag : 0.1f;
 						// REAL per-scope optics from the 3DSS config (s3ds_param_1.y = eye relief cm, .z = exit-pupil /
-						// ocular diameter ratio), set per scope by the 3DSS Lua and already live on the engine global.
+						// ocular diameter ratio), set per scope by the 3DSS Lua and already live on the engine global
 						// fall back to scope geometry when a scope has no 3DSS optics entry (.z stays 0)
 						extern Fvector4 ps_s3ds_param_1;
 						extern float ps_r__svp_optics_real;
@@ -552,10 +597,13 @@ void CRenderTarget::phase_3DSSReticle()
 						const float L = use_real ? (ps_s3ds_param_1.y * 0.01f) : vp.eyepiece.m_W.c.distance_to(Device.vCameraPosition); // eye relief: real cm->world or camera->eyepiece
 						float innerR = 0.30f * xp_ratio + 0.30f;           // bigger exit pupil -> bigger clear zone
 						if (innerR < 0.28f) innerR = 0.28f; else if (innerR > 0.62f) innerR = 0.62f;
-						const float outerR = innerR + ps_r__svp_optics_soft;
-						const float K = L / (xp_ratio * R);                // eye offset per unit drift; = (L*m)/Robj for the geometry path
-						const float k = K * (use_real ? 0.80f : 0.10f) * ps_r__svp_optics_gain; // -> lens-local bright-circle shift. the real eye-relief K runs ~8x below the geometric camera->eyepiece proxy, so the real path uses a bigger base for a comparable tunnel-vision shift at gain 1 (per-scope variation preserved)
-						RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, outerR);
+						// exit-pupil softness now rides in lensfx_eyebox.w, the shader builds the falloff as innerR..innerR+softP
+						const float K = L / (xp_ratio * R);                // eye offset per unit drift, = (L*m)/Robj for the geometry path
+						// k = lens-local bright-circle shift per unit drift (real path 0.80, geometry path 0.10)
+						const float k = K * (use_real ? 0.80f : 0.10f) * ps_r__svp_optics_gain;
+						extern float ps_r__svp_eyebox_aspect, ps_r__svp_eyebox_relief, ps_r__svp_eyebox_relief_size, ps_r__svp_eyebox_relief_soft;
+							RCache.set_c("lensfx_eyebox", eb.x * k, eb.y * k, innerR, ps_r__svp_optics_soft);
+							RCache.set_c("lensfx_eyebox2", ps_r__svp_eyebox_relief_size, ps_r__svp_eyebox_relief_soft, ps_r__svp_eyebox_aspect, ps_r__svp_eyebox_relief);
 						RCache.set_c("lensfx_ctrl", 0.0f, 1.0f, ps_r__svp_truepip, 0.0f);
 					}
 					else
