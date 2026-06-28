@@ -8,6 +8,8 @@
 
 #include "../xrRender/QueryHelper.h"
 
+#include	"../xrRender/dxRenderDeviceRender.h"
+
 void CRender::render_menu()
 {
 	PIX_EVENT(render_menu);
@@ -91,6 +93,10 @@ void CRender::Render()
 		m_bFirstFrameAfterReset = false;
 		return;
 	}
+
+	// Periodic texture eviction — runs every 600 frames (~10s at 60fps)
+	if ((Device.dwFrame % 600) == 0)
+		dxRenderDeviceRender::Instance().Resources->EvictStalledTextures();
 
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
 

@@ -201,6 +201,7 @@ void CTexture::apply_normal(u32 dwStage)
 	{
 		SwitchToThread();
 	}
+	dwLastUsedFrame = Device.dwFrame;
 	CHK_DX(HW.pDevice->SetTexture(dwStage,pSurface));
 };
 

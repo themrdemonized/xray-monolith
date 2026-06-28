@@ -93,6 +93,8 @@ public: //	Public class members (must be encapsulated furthur)
 #endif	//	USE_DX10
 	} flags;
 
+    u32 dwLastUsedFrame = 0; // frame index of last Apply() call — used for eviction
+
 	xr_delegate<void(u32)> bind;
 
 

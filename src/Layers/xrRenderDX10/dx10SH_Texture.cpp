@@ -62,6 +62,9 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 	{
 		SwitchToThread();
 	}
+
+	if (cName.size() && strstr(cName.c_str(), "$user$"))
+		flags.bUser = true;
 	if (surf) surf->AddRef();
 	_RELEASE(pSurface);
 	_RELEASE(m_pSRView);
@@ -251,6 +254,8 @@ void CTexture::Apply(u32 dwStage)
 	{
 		SwitchToThread();
 	}
+	dwLastUsedFrame = RDEVICE.dwFrame;
+
 	if (flags.bLoadedAsStaging)
 		ProcessStaging();
 
