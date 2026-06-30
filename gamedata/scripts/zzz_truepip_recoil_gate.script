@@ -5,8 +5,8 @@
 --
 -- controlled by the engine cvar r__truepip_recoil:
 --   0 = mod recoil normal
---   1 = mod recoil off only while a true-PiP scope is active (final-release behaviour)
---   2 = mod recoil off always (clean-bed testing, current default)
+--   1 = mod recoil off only while a true-PiP scope is active (final-release behaviour, default)
+--   2 = mod recoil off always (clean-bed testing)
 
 local _orig_shoot_effect
 
@@ -15,7 +15,7 @@ local function get_mode()
 	if ok and v ~= nil then
 		return v
 	end
-	return 2 -- cvar missing -> default to clean-bed off
+	return 1 -- cvar missing (non-PiP engine) -> is_svp_active absent so the recoil mod runs untouched
 end
 
 local function recoil_blocked()

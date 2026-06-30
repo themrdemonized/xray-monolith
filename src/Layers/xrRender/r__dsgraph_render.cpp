@@ -117,7 +117,7 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 	for (auto& item : graph)
 	{
 		if (svp_cull_reject(item.pVisual, item.pMatrix)) continue; // pip skip off-cone SVP geometry
-		if (s_svp_ssa_cull > 0.f && item.ssa < s_svp_ssa_cull) continue; // pip skip tiny objects in the SVP
+		if (s_svp_ssa_cull > 0.f && !item.pMatrix && item.ssa < s_svp_ssa_cull) continue; // pip skip tiny STATIC clutter only (null matrix), never dynamic NPCs/items (matrix carriers)
 		dxRender_Visual* V = item.pVisual;
 		VERIFY(V && V->shader._get());
 		RCache.set_Element(item.pSE);
@@ -176,7 +176,7 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
         for (auto& packet : queue)
         {
             if (svp_cull_reject(packet.item.pVisual, packet.item.pMatrix)) continue; // pip skip off-cone SVP geometry
-            if (s_svp_ssa_cull > 0.f && packet.item.ssa < s_svp_ssa_cull) continue; // pip skip tiny objects in the SVP
+            if (s_svp_ssa_cull > 0.f && !packet.item.pMatrix && packet.item.ssa < s_svp_ssa_cull) continue; // pip skip tiny STATIC clutter only (null matrix), never dynamic NPCs/items (matrix carriers)
             auto& currentKey = packet.sortKey;
             if (currentKey.high != high)
             {

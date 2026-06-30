@@ -184,7 +184,13 @@ void svpCamera()
 			if (ps_r__svp_reticle_mag)
 			{
 				extern Fvector4 ps_shader_scope_params;
-				ps_shader_scope_params.x = g_pip_scope_magnification;
+				extern float ps_r__svp_reticle_curmag; // FFP scale multiplier (0 -> 1.0)
+				// the custom 3DSS reticle (scope_custom_reticle.h) sizes off current_zoom = (curMag-minMag)*0.4+1.
+				// feeding scope_mag directly gives only 0.4*scope_mag+0.6 -> ~half size (2D gets the rest from its
+				// FOV-zoomed glass, which PiP lacks). solve curMag so current_zoom = scope_mag * scale (full FFP).
+				const float _rscale = (ps_r__svp_reticle_curmag > 0.01f) ? ps_r__svp_reticle_curmag : 1.0f;
+				const float _target_cz = g_pip_scope_magnification * _rscale;
+				ps_shader_scope_params.x = g_pip_scope_min_mag + (_target_cz - 1.0f) / 0.4f;
 				ps_shader_scope_params.y = g_pip_scope_min_mag;
 				ps_shader_scope_params.z = g_pip_scope_max_mag;
 			}

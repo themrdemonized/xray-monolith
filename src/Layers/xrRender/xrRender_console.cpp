@@ -324,7 +324,7 @@ float ps_r__svp_lens_vignette = 0.0f;        // lens vignette: radial darkening 
 float ps_r__svp_lens_vignette_r = 0.6f;      // lens vignette onset radius (0 center .. 1 rim) where darkening begins
 float ps_r__svp_dof = 0.040f;        // scope body ring blur: field-curvature defocus that grows toward the lens edge (0 = off), rim softens, aimed-at center stays sharp
 float ps_r__svp_dof_onset = 0.55f;   // ring blur onset radius (0 center .. 1 edge), where the edge defocus begins
-int ps_r__truepip_recoil = 2;        // gate the SCRIPT recoil mod (grok_bo_enhanced_recoil): 0 normal, 1 off in true-PiP, 2 off always, base engine recoil untouched
+int ps_r__truepip_recoil = 1;        // gate the SCRIPT recoil mod (grok_bo_enhanced_recoil): 0 normal, 1 off in true-PiP (default), 2 off always, base engine recoil untouched
 // svpscope 2 geometric objective (single-lens scopes have no distinct front lens to capture, derive it
 // along the optical axis from the eyepiece), lengths are in eyepiece radii (the only mesh-scale-robust
 // unit), refined per scope from real objective_mm later
@@ -340,6 +340,7 @@ float ps_r__svp_lens_blur    = 0.0040f; // radial edge blur amount (UV)
 int   ps_r__svp_lens_menu_key = 0; // lens FX tuner open key, index into the PiP-page key dropdown (0 = numpad *)
 float ps_r__svp_eyebox_shift = 0.0f; // eye-box crescent drift gain (signed, negative flips the crescent side)
 int ps_r__svp_reticle_mag = 1; // svp drive the 3DSS reticle magnification (shader_scope_params) from the engine so the FFP reticle scales even when the 3DSS zoom script freezes it (0 = leave to the script)
+float ps_r__svp_reticle_curmag = 0.f; // svp reticle FFP scale multiplier: target current_zoom = scope_mag * this (curMag solved from it). 0 = 1.0 (full FFP). raise if the reticle is still small, lower if too big
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water + SSR, 1 flat water + SSR (default), 2 flat water + no SSR
@@ -1475,6 +1476,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__svp_lens_menu_key", &ps_r__svp_lens_menu_key, 0, 9); // lens FX tuner open key (PiP-page dropdown index)
 	CMD4(CCC_Float, "r__svp_eyebox_shift", &ps_r__svp_eyebox_shift, -25.0f, 25.0f); // eye-box crescent drift gain (- flips side)
 	CMD4(CCC_Integer, "r__svp_reticle_mag", &ps_r__svp_reticle_mag, 0, 1); // svp engine-drive the 3DSS reticle magnification so the FFP reticle scales (1 = on)
+	CMD4(CCC_Float, "r__svp_reticle_curmag", &ps_r__svp_reticle_curmag, 0.0f, 8.0f); // svp reticle FFP scale multiplier, target current_zoom = scope_mag * this (0 = 1.0 full FFP)
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)

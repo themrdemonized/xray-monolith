@@ -133,7 +133,15 @@ local function on_key_press(key)
 	if HUD then HUD:Refresh() end
 end
 
+-- the tuner reads/writes r__svp_lens_* cvars and runs off on_key_press (every keystroke). on a non-PiP
+-- engine those cvars do not exist, so stay fully inert unless a matched PiP exe registered them
+local function pip_engine_present()
+	local ok, b = pcall(function() return get_console():get_variable_bounds("r__svpscope") end)
+	return ok and b ~= nil and b.max ~= nil
+end
+
 function on_game_start()
+	if not pip_engine_present() then return end
 	RegisterScriptCallback("on_key_press", on_key_press)
 	RegisterScriptCallback("actor_on_net_destroy", hide)
 end
