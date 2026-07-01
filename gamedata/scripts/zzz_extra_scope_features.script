@@ -333,6 +333,12 @@ function disable_conflicting_scripts()
 
     end
 
+    -- drop the real 3DSS zoom controller (Zoom_control, not _ZoomCalc) so this script owns zoom
+    if zzz_mspizza_Godis_Zoom_control then
+        zzz_mspizza_Godis_Zoom_control.actor_on_weapon_zoom_in = drop;
+        zzz_mspizza_Godis_Zoom_control.actor_on_weapon_zoom_type_changed = drop;
+    end
+
     if zzz_mspizzaZoomCalc then
         zzz_mspizzaZoomCalc.actor_on_weapon_zoom_in = function() end
     end

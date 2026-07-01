@@ -192,9 +192,6 @@ public:
 		Fvector2 svp_jitter_px = {}; // raw sub-pixel jitter baked into matrices[1].mProject, {0,0} at gate 0
 		bool m_lens_prev_valid = false; // render-thread edge state for the lens-appears reset trigger
 
-		// pip eye-box drift: xy = bore-vs-aim offset (tan units), z = strength (r__svp_eyebox); the lens-FX
-		// pass turns it into a black crescent that grows on the side your aim has wandered off-axis
-		Fvector4 svp_eyebox = { 0.f, 0.f, 0.f, 0.f };
 		Fvector svp_bore_fwd = {}; // true (un-stabilized) lens forward, captured before the Stage-1 reduction
 		float svp_disc_px = 0.f; // pip on-screen eyepiece disc diameter (px), learned in the lens composite
 		float svp_disc_applied = 0.f; // pip disc px the SVP target is sized to, locked at ADS-in so it never resizes mid-ADS
@@ -593,6 +590,14 @@ private:
 
 extern ENGINE_API CRenderDevice Device;
 extern ENGINE_API CRenderDevice* DevicePtr;
+
+// pip clear a draw-list shared across the main + SVP passes only on the last pass to drain it
+// svp_first = SVP pass drains before main (combine order), false = main first (gbuffer/wmark order)
+inline bool svp_clear_shared_list(bool svp_first)
+{
+	if (!(Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())) return true;
+	return svp_first ? !Device.m_SecondViewport.m_render_pass_is_svp : Device.m_SecondViewport.m_render_pass_is_svp;
+}
 
 #ifndef _EDITOR
 #define RDEVICE Device

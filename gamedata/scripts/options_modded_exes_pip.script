@@ -58,21 +58,6 @@ local _full = page {
 		step = 1,
 	},
 
-	line {},
-
-	-- Lens FX (engine scope_lensfx pass). Tune live in-scope with the tuner (open key below), or set here.
-	list_bool { id = "r__svp_lensfx" },
-	list_enum {
-		id = "r__svp_lens_menu_key",
-		content = { "NumpadStar", "Backslash", "RBracket", "Home", "Insert", "Delete", "End", "F8", "F9", "NumpadSlash" },
-	},
-	track { id = "r__svp_lensfx_strength", def = 1.0,    min = 0.0, max = 2.0,  step = 0.05 },
-	track { id = "r__svp_lens_blur",       def = 0.0040, min = 0.0, max = 0.03, step = 0.0005 },
-	track { id = "r__svp_lens_distort",    def = 0.0040, min = 0.0, max = 0.05, step = 0.0005 },
-	track { id = "r__svp_lens_floor",      def = 0.10,   min = 0.0, max = 1.0,  step = 0.02 },
-	track { id = "r__svp_lens_refmag",     def = 6.0,    min = 1.0, max = 16.0, step = 0.5 },
-	track { id = "r__svp_lens_vigk",       def = 1.5,    min = 0.0, max = 4.0,  step = 0.1 },
-	track { id = "r__svp_lens_ca",         def = 0.0018, min = 0.0, max = 0.02, step = 0.0005 },
 }
 
 -- expose the controls only on a matched PiP engine; otherwise an empty page so the menu never reads the missing cvars

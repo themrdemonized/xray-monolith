@@ -410,15 +410,11 @@ static class s3ds_param_2 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		// pip kill the 3DSS fisheye/barrel for true-pip OPTICAL scopes, the fisheye magnitude is
-		// V_tangent * mas_scale(), mas_scale = (s3ds_param_2.w % 0.01) * 1000 (the sub-0.01 fractional)
-		// strip that fractional so mas_scale -> 0 (fisheye becomes identity, the reticle parallax flattens
-		// too), leaving zoom_factor() = .w - .w%0.01 untouched, thermals + see-through keep the stock look
+		// r__svp_clean_optics strips the 3DSS fisheye/barrel (mas_scale fractional), keeps zoom_factor + see-through scopes
 		float w = ps_s3ds_param_2.w;
-		extern float ps_r__svp_truepip;
-		const bool thermal = ps_s3ds_param_3.x > 1.5f;
+		extern int ps_r__svp_clean_optics;
 		const bool see_through = (int(ps_s3ds_param_4.w) & (1 << 2)) != 0;
-		if (ps_r__svp_truepip > 0.f && Device.true_pip_on && !thermal && !see_through)
+		if (ps_r__svp_clean_optics && Device.true_pip_on && ps_s3ds_param_3.x <= 1.5f && !see_through)
 			w = w - fmodf(w, 0.01f); // strip mas_scale -> fisheye off
 		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, w);
 	}
@@ -436,38 +432,44 @@ static class s3ds_param_4 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		// truepip: gate off the 3DSS funky-2D for optical scopes by clearing SETTINGS bits: parallax shadow
-		// (our eye-box owns it), chromatism, nvg blur, keep see-through + thermal pixelation, thermals untouched
+		// r__svp_clean_optics strips the 3DSS fake cosmetics (parallax shadow, chromatism, nvg blur), thermals kept
 		float settings = ps_s3ds_param_4.w;
-		extern float ps_r__svp_truepip;
-		// true_pip_on, not IsSVPActive (which is false at 3DSS shader-bind time)
-		const bool pip = Device.true_pip_on;
-		const bool thermal = ps_s3ds_param_3.x > 1.5f;
-		const bool see_through = (int(ps_s3ds_param_4.w) & (1 << 2)) != 0; // ST_SEE_THROUGH
-		// don't gate on see_through: bit 2 is on for nearly all scopes, the gate preserves it anyway
-		if (ps_r__svp_truepip > 0.f && pip && !thermal)
+		extern int ps_r__svp_clean_optics;
+		if (ps_r__svp_clean_optics && Device.true_pip_on && ps_s3ds_param_3.x <= 1.5f)
 		{
 			int s = (int)settings;
-			s &= ~(1 << 1); // ST_PARALLAX_SHADOW
-			s &= ~(1 << 4); // ST_CHROMATISM
-			s &= ~(1 << 0); // ST_NVG_BLUR
+			s &= ~(1 << 1); s &= ~(1 << 4); s &= ~(1 << 0); // ST_PARALLAX_SHADOW, ST_CHROMATISM, ST_NVG_BLUR
 			settings = (float)s;
 		}
 		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, settings);
 	}
 }    s3ds_param_4;
 
-// scope magnification (curMag/minMag/maxMag/fov), from the 3DSS Lua cvar or the engine fallback
+// scope magnification (curMag/minMag/maxMag/fov), pip overrides with the engine range, else 3DSS Lua passthrough
 extern Fvector4 ps_shader_scope_params;
 extern float g_pip_scope_magnification;
 extern float g_pip_scope_min_mag;
 extern float g_pip_scope_max_mag;
+extern float g_pip_scope_ratio;
 static class shader_scope_params : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		// when the 3DSS Lua set minMag (.y > 0) use the cvar, else fall back to the engine
-		// magnification range so variable reticles still animate with zoom
+#if 1 // pip drive curMag/minMag so the reticle current_zoom lands on mag/min (matches the 2D reticle)
+		if (Device.true_pip_on && g_pip_scope_magnification > 0.01f)
+		{
+			// curMag = ratio*scope bounds the exit-pupil shadow, minMag solved so current_zoom = mag/min
+			const float r = g_pip_scope_ratio;
+			const float mn_eng = (g_pip_scope_min_mag > 0.01f) ? g_pip_scope_min_mag : g_pip_scope_magnification;
+			const float zoom_ratio = g_pip_scope_magnification / mn_eng; // 1.0 at min zoom, scope zoom ratio at max
+			const float cur = r * g_pip_scope_magnification;
+			float mn = cur - (zoom_ratio - 1.0f) * 2.5f; // (cur - mn) * 0.4 + 1 == zoom_ratio
+			if (mn < 0.f) mn = 0.f;
+			const float mx = r * ((g_pip_scope_max_mag > 0.01f) ? g_pip_scope_max_mag : g_pip_scope_magnification);
+			RCache.set_c(C, cur, mn, mx, ps_shader_scope_params.w);
+		}
+		else
+#endif
 		if (ps_shader_scope_params.y > 0.f)
 			RCache.set_c(C, ps_shader_scope_params.x, ps_shader_scope_params.y, ps_shader_scope_params.z, ps_shader_scope_params.w);
 		else

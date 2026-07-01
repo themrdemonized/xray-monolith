@@ -326,9 +326,8 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 {
 	{
 		PROF_EVENT("r_dsgraph_render_sorted");
-		// Rendering, pip the SVP combine runs first and must not consume the shared sorted list (glass,
-		// water, translucent), only the final main pass clears it or the main loses all translucent geometry
-		const bool clear_sorted = !Device.m_SecondViewport.m_render_pass_is_svp;
+		// combine order, only the last pass (main) clears the shared sorted list, else main loses translucents
+		const bool clear_sorted = svp_clear_shared_list(true);
 		r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Sorted, clear_sorted);
 		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, clear_sorted);
 	}
@@ -484,10 +483,8 @@ void CDSGraphManager::r_dsgraph_render_wmarks()
 {
 	PROF_EVENT("r_dsgraph_render_wmarks");
 #if	RENDER!=R_R1
-	// Rendering, pip the MAIN gbuffer renders wmarks before the SVP gbuffer (unlike the SVP-first combine),
-	// so the LAST consumer clears: the SVP pass when a scope is up, otherwise the main
-	const bool clear_wmark = Device.m_SecondViewport.m_render_pass_is_svp ||
-		!(Device.true_pip_on && Device.m_SecondViewport.IsSVPActive());
+	// gbuffer order, main drains wmarks first so the last pass (SVP when scoped) clears
+	const bool clear_wmark = svp_clear_shared_list(false);
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Wmark, clear_wmark);
 	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Wmark, clear_wmark);
 	//	HACK: Calculate this only once
@@ -504,14 +501,16 @@ void CDSGraphManager::r_dsgraph_render_wmarks()
 void CDSGraphManager::r_dsgraph_render_distort()
 {
 	PROF_EVENT("r_dsgraph_render_distort");
+	// combine order, main clears distort last, else main loses distortion + the bDistort-gated screen filters
+	const bool _clear = svp_clear_shared_list(true);
 	// Rendering
-	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Distort, true);
-	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Distort, true);
+	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Distort, _clear);
+	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Distort, _clear);
 	//	HACK: Calculate this only once
 	CHudInitializer initalizer(true);
 
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Distort);
+	r_dsgraph_render_graph_sorted(RGraph.mapHUDSorted.Distort, _clear);
 	RImplementation.rmNormal();
 }
 

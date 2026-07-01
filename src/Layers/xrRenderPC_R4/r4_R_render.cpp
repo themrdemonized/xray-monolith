@@ -171,29 +171,16 @@ void svpCamera()
 	extern float g_pip_scope_magnification;
 	extern float g_pip_scope_min_mag;
 	extern float g_pip_scope_max_mag;
+	extern float g_pip_scope_ratio;
 	if (svp_fov > EPS)
 	{
 		g_pip_scope_magnification = scope_magnification;
+		// eyepiece-fit factor, rated on-screen magnification = ratio * scope, clamped for degenerate geometry
+		g_pip_scope_ratio = (ratio_magnification > 0.5f) ? ((ratio_magnification < 8.f) ? ratio_magnification : 8.f) : 1.f;
 		// derive min/max mag from hud_fov_params for variable reticles (fixed scope: x == y)
 		const Fvector4& fovp = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
 		g_pip_scope_max_mag = (fovp.x > EPS) ? fov / deg2rad(fovp.x * 0.75f) : scope_magnification;
 		g_pip_scope_min_mag = (fovp.y > EPS) ? fov / deg2rad(fovp.y * 0.75f) : scope_magnification;
-			// pip drive the 3DSS reticle magnification (shader_scope_params curMag/minMag/maxMag) from the
-			// engine so the FFP reticle scales with zoom even when the 3DSS zoom script stops updating it
-			extern int ps_r__svp_reticle_mag;
-			if (ps_r__svp_reticle_mag)
-			{
-				extern Fvector4 ps_shader_scope_params;
-				extern float ps_r__svp_reticle_curmag; // FFP scale multiplier (0 -> 1.0)
-				// the custom 3DSS reticle (scope_custom_reticle.h) sizes off current_zoom = (curMag-minMag)*0.4+1.
-				// feeding scope_mag directly gives only 0.4*scope_mag+0.6 -> ~half size (2D gets the rest from its
-				// FOV-zoomed glass, which PiP lacks). solve curMag so current_zoom = scope_mag * scale (full FFP).
-				const float _rscale = (ps_r__svp_reticle_curmag > 0.01f) ? ps_r__svp_reticle_curmag : 1.0f;
-				const float _target_cz = g_pip_scope_magnification * _rscale;
-				ps_shader_scope_params.x = g_pip_scope_min_mag + (_target_cz - 1.0f) / 0.4f;
-				ps_shader_scope_params.y = g_pip_scope_min_mag;
-				ps_shader_scope_params.z = g_pip_scope_max_mag;
-			}
 	}
 
 	// the fov we render at to get the correct zoom
@@ -217,7 +204,9 @@ void svpCamera()
 	}
 
 
-	// pip force the SVP camera up to world up so a canted scope renders upright (optical axis k is kept)
+	// pip roll_stabilize: level the SVP camera to world up so a canted scope renders upright (0 = realistic tilt)
+	extern int ps_r__svp_roll_stabilize;
+	if (ps_r__svp_roll_stabilize)
 	{
 		Fvector fwd, wup, right, up;
 		fwd.set(m_W_svpcam.k.x, m_W_svpcam.k.y, m_W_svpcam.k.z);
@@ -272,13 +261,6 @@ void svpCamera()
 		vp.svp_right = m_W_svpcam.i;
 		vp.svp_up = m_W_svpcam.j;
 		vp.svp_fwd = m_W_svpcam.k;
-
-		// pip eye-box drift, the true bore vs the aim as a screen-space offset (tan units). project the
-		// captured true bore into the main view, perspective-divide -> NDC offset from center (0 on aim)
-		Fvector bv; bv.set(vp.svp_bore_fwd);
-		Device.matrices[0].mView.transform_dir(bv); // world -> view space
-		const float bz = (bv.z > EPS) ? bv.z : EPS;
-		vp.svp_eyebox.set(bv.x / bz, bv.y / bz, ps_r__svp_eyebox, 0.f);
 	}
 }
 
@@ -966,9 +948,8 @@ void CRender::render_forward()
 
 	//******* Main render - second order geometry (the one, that doesn't support deffering)
 	//.todo: should be done inside "combine" with estimation of of luminance, tone-mapping, etc.
-	// pip the SVP combine runs before the main combine, so it must not clear the shared priority-1 forward
-	// lists or the main view loses its forward geometry (anomaly smoke, blended fx). only the main pass clears
-	const bool fwd_clear = !Device.m_SecondViewport.m_render_pass_is_svp;
+	// combine order, main clears the shared priority-1 forward lists last (keeps smoke + blended fx)
+	const bool fwd_clear = svp_clear_shared_list(true);
 	{
 		// level
 		phase = PHASE_NORMAL;
