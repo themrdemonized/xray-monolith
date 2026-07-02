@@ -991,6 +991,27 @@ void CRender::renderSceneLighting(BOOL bSUN, bool svp)
 
 	phase = PHASE_NORMAL;
 
+	// pip gated self-illum replay into the SVP before the main drain touches the shared list
+	extern int ps_r__svp_emissive;
+	if (svp && ps_r__svp_emissive)
+	{
+		PIX_EVENT(SVP_SELF_ILLUM);
+		TargetSVP->SetActive();
+		TargetSVP->phase_accumulator();
+		RCache.set_xform_project(Device.mProject);
+		RCache.set_xform_view(Device.mView);
+		if (!RImplementation.o.dx10_msaa)
+			RCache.set_Stencil(TRUE, D3DCMP_ALWAYS, 0x01, 0xff, 0xff, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE,
+			                   D3DSTENCILOP_KEEP);
+		else
+			RCache.set_Stencil(TRUE, D3DCMP_ALWAYS, 0x01, 0xff, 0x7f, D3DSTENCILOP_KEEP, D3DSTENCILOP_REPLACE,
+			                   D3DSTENCILOP_KEEP);
+		RCache.set_CullMode(CULL_CCW);
+		RCache.set_ColorWriteEnable();
+		GMBase.r_dsgraph_render_emissive(false);
+		TargetMain->SetActive();
+	}
+
 	// emissive runs on the main viewport only (active here), the SVP skips self-illum (minor) so it does
 	// not re-render + clear the shared GMBase emissive list that the main pass still needs
 	{
