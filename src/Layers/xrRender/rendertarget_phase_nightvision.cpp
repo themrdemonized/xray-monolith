@@ -236,7 +236,8 @@ void CRenderTarget::phase_scope_debug()
 			return;
 		ref_texture t;
 		t.create(name);
-		t->surface_set(rt->pTexture->surface_get());
+		// raw pSurface, surface_get would AddRef a reference nobody releases (per-frame leak)
+		t->surface_set(rt->pSurface);
 	};
 	bind("$user$viewport2$main", M->rt_secondVP);
 	bind("$user$ssfx_prev_p$main", M->rt_Position); // no MT prev-pos buffer, show the gbuffer position
@@ -348,7 +349,12 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
 		// scope_color_write draw samples as s_reticle (gated on r__gpu_markers)
 		PIX_EVENT_F("scope_lens tex=%s", tex ? tex->cName.c_str() : "none");
 		if (tex)
-			t_reticle->surface_set(tex->surface_get());
+		{
+			// surface_get AddRefs (and services staging), release the ref once the alias holds its own
+			ID3DBaseTexture* s = tex->surface_get();
+			t_reticle->surface_set(s);
+			_RELEASE(s);
+		}
 
 		RCache.set_Element(elem);
 		RCache.set_xform_world(*N.pMatrix);
@@ -448,7 +454,8 @@ void CRenderTarget::phase_3DSSReticle()
 			auto remap = [](LPCSTR name, ref_rt& target) {
 				ref_texture t;
 				t.create(name);
-				t->surface_set(target->pTexture->surface_get());
+				// raw pSurface, surface_get would AddRef a reference nobody releases (per-frame leak)
+				t->surface_set(target->pSurface);
 			};
 			remap(r2_RT_secondVP, svp ? S->rt_secondVP : M->rt_secondVP);
 			remap(r2_RT_generic2, svp ? S->rt_Position : M->rt_Generic_2);
