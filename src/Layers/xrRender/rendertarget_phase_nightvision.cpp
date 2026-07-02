@@ -308,6 +308,8 @@ void CRenderTarget::phase_svp_capture()
 		EvalSVP_DLSS(in);
 		return;
 	}
+	// rt_secondVP alpha is garbage (nothing writes it) and must stay UNREAD, the scope shaders sample
+	// .rgb only and the lens composite blends srcalpha with its OWN forced o.a, never the source alpha
 	HW.pContext->CopyResource(rt_secondVP->pSurface, rt_Generic_0->pSurface);
 }
 
