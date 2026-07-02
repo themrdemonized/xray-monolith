@@ -258,14 +258,14 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 
 //////////////////////////////////////////////////////////////////////////
 // HUD render
-void CDSGraphManager::r_dsgraph_render_hud()
+void CDSGraphManager::r_dsgraph_render_hud(bool _clear)
 {
 	PROF_EVENT("r_dsgraph_render_hud");
 	CHudInitializer initializer(true);
 
 	// Rendering
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapHUD);
+	r_dsgraph_render_graph_sorted(RGraph.mapHUD, _clear);
 
 	RImplementation.rmNormal();
 
@@ -295,6 +295,15 @@ void CDSGraphManager::r_dsgraph_render_hud()
 
 		RImplementation.rmNormal();
 	}
+}
+
+// pip drain only the weapon list into the scope image, the caller owns the view/projection
+void CDSGraphManager::r_dsgraph_render_hud_svp()
+{
+	PROF_EVENT("r_dsgraph_render_hud_svp");
+	RImplementation.rmNear();
+	r_dsgraph_render_graph_sorted(RGraph.mapHUD);
+	RImplementation.rmNormal();
 }
 
 void CDSGraphManager::r_dsgraph_render_hud_ui()

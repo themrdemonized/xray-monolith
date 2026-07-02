@@ -161,6 +161,8 @@ void svpCamera()
 	top.div(top.w);
 	bot.div(bot.w);
 	float scope_height_NDC = abs(top.y - bot.y);
+	// ADS transition frames can project the eyepiece to a degenerate height, floor it
+	if (scope_height_NDC < 0.001f) scope_height_NDC = 0.001f;
 	float screen_height_NDC = 2.0f;
 	float ratio_magnification = screen_height_NDC / scope_height_NDC;
 
@@ -203,6 +205,16 @@ void svpCamera()
 		near_plane = d;
 	}
 
+	// pip near-eye camera: render the scope from the main eye center of projection so the magnified
+	// image shares the eye viewpoint, orientation stays the optical axis
+	extern int ps_r__svp_near_eye;
+	if (ps_r__svp_near_eye)
+	{
+		Fmatrix eyeW; eyeW.invert(Device.matrices[0].mView);
+		m_W_svpcam = params.eyepiece.m_W;
+		m_W_svpcam.c.set(eyeW.c); // true eye position, near-field parallax matches the outside view
+		near_plane = fNearPlane;
+	}
 
 	// pip roll_stabilize: level the SVP camera to world up so a canted scope renders upright (0 = realistic tilt)
 	extern int ps_r__svp_roll_stabilize;
@@ -261,6 +273,101 @@ void svpCamera()
 		vp.svp_right = m_W_svpcam.i;
 		vp.svp_up = m_W_svpcam.j;
 		vp.svp_fwd = m_W_svpcam.k;
+	}
+
+	// pip eyebox eye follower: a virtual eye chases the exit pupil in view space with a critically
+	// damped spring, the lag in exit pupil radii is the shader eye-drift (the svp_eyebox constant)
+	{
+		extern float ps_r__svp_eyebox_lag;
+		extern Fvector4 ps_s3ds_param_1;
+		static Fvector s_eye = {0, 0, 0}, s_vel = {0, 0, 0};
+		static u32 s_frame = 0;
+		// the exit pupil sits one real eye relief behind the ocular along the optical axis
+		const float er_m = (ps_s3ds_param_1.y > 0.01f) ? ps_s3ds_param_1.y * 0.01f : 0.04f;
+		Fvector ax; ax.set(params.eyepiece.m_W.k); ax.normalize();
+		Fvector exit_w; exit_w.set(params.eyepiece.m_W.c); exit_w.mad(ax, -er_m);
+		Fvector p; Device.matrices[0].mView.transform_tiny(p, exit_w);
+		float dt = Device.fTimeDelta;
+		if (dt > 0.1f) dt = 0.1f;
+		const bool fresh = (Device.dwFrame != s_frame + 1);
+		s_frame = Device.dwFrame;
+		if (fresh || ps_r__svp_eyebox_lag <= 0.001f || dt <= 0.f)
+		{
+			// snap on ADS-in or with the eyebox off so raising the scope never flashes
+			s_eye.set(p);
+			s_vel.set(0.f, 0.f, 0.f);
+			params.svp_eyebox_drift.set(0.f, 0.f);
+		}
+		else
+		{
+			const float w = 2.f / ps_r__svp_eyebox_lag;
+			const float ex = expf(-w * dt);
+			Fvector x0; x0.sub(s_eye, p);
+			Fvector tmp; tmp.set(s_vel); tmp.mad(x0, w); tmp.mul(dt);
+			Fvector xt; xt.set(x0); xt.add(tmp);
+			s_eye.set(p); s_eye.mad(xt, ex);
+			s_vel.mad(tmp, -w); s_vel.mul(ex);
+			// normalize the lateral lag by the real per-scope exit pupil radius
+			const float xp = (ps_s3ds_param_1.z > 0.01f) ? ps_s3ds_param_1.z : 0.3f;
+			const float ocular_r = (params.eyepiece.radius > EPS) ? params.eyepiece.radius : 0.014f;
+			const float pupil_r = ocular_r * xp;
+			Fvector lag; lag.sub(s_eye, p);
+			params.svp_eyebox_drift.set(lag.x / pupil_r, lag.y / pupil_r);
+		}
+	}
+
+	// pip optics diagnostic: throttled [SVPCOP] log of the camera center-of-projection offset from the
+	// eye, settled frames only (ADS transitions blow up ratio_magnification)
+	extern int ps_r__svp_cop_diag;
+	if (ps_r__svp_cop_diag && params.eyepiece.radius > EPS
+		&& ratio_magnification > 1.0f && ratio_magnification < 4.0f)
+	{
+		static u32 s_last_ms = 0;
+		static float s_last_mag = 0.f;
+		const float eff_mag = ratio_magnification * scope_magnification;
+		const bool mag_moved = (s_last_mag < EPS) || (fabsf(eff_mag - s_last_mag) > 0.03f * s_last_mag);
+		if (Device.dwTimeGlobal - s_last_ms > 400 || mag_moved)
+		{
+			s_last_ms = Device.dwTimeGlobal;
+			s_last_mag = eff_mag;
+			Fmatrix eyeW; eyeW.invert(Device.matrices[0].mView);
+			Fvector camdir; camdir.set(eyeW.k); camdir.normalize();
+			Fvector d; d.sub(m_W_svpcam.c, eyeW.c);
+			const float fwd = d.dotproduct(camdir);
+			Fvector fwd_v; fwd_v.set(camdir); fwd_v.mul(fwd);
+			Fvector lat_v; lat_v.sub(d, fwd_v);
+			Fvector eyefwd; eyefwd.set(params.eyepiece.m_W.k); eyefwd.normalize();
+			Fvector od; od.sub(params.objective.m_W.c, params.eyepiece.m_W.c);
+			extern int ps_r__svp_near_eye;
+			Msg("[SVPCOP] mode=%d ne=%d mag=%.3f eff=%.3f min=%.3f max=%.3f ratio=%.3f svpfov=%.2f vfov=%.2f cop_cm=%.2f fwd_cm=%.2f lat_cm=%.2f eye_r_cm=%.2f obj_fwd_cm=%.2f obj_r_cm=%.2f drift=%.3f",
+				scope_svp_enabled, ps_r__svp_near_eye, scope_magnification, eff_mag, g_pip_scope_min_mag, g_pip_scope_max_mag, ratio_magnification,
+				svp_fov, rad2deg(vFov), d.magnitude() * 100.f, fwd * 100.f, lat_v.magnitude() * 100.f,
+				params.eyepiece.radius * 100.f, od.dotproduct(eyefwd) * 100.f, params.objective.radius * 100.f,
+				sqrtf(params.svp_eyebox_drift.x * params.svp_eyebox_drift.x + params.svp_eyebox_drift.y * params.svp_eyebox_drift.y));
+		}
+	}
+
+	// pip one-shot config fingerprint on the first scoped frame so any tester log diffs against ours
+	{
+		static bool s_cfg_logged = false;
+		if (!s_cfg_logged)
+		{
+			s_cfg_logged = true;
+			extern float ps_r__svp_render_scale, ps_r__svp_supersample, ps_r__svp_adaptive_res, ps_r__svp_lod,
+				ps_r__svp_cull_ssa, ps_r__svp_stabilize, ps_r__svp_obj_dist, ps_r__svp_obj_size,
+				ps_r__svp_eyebox_lag, ps_r__svp_eyebox_dark;
+			extern int ps_r__svp_dlss, ps_r__svp_cull, ps_r__svp_cull_grass, ps_r__svp_skip_grass,
+				ps_r__svp_skip_motionblur, ps_r__svp_skip_ssr, ps_r__svp_skip_volumetric, ps_r__svp_sss_sun,
+				ps_r__svp_clean_optics, ps_r__truepip_recoil;
+			extern int ps_r__svp_roll_stabilize;
+			Msg("[SVP-CFG] build %s mode=%d ne=%d clean=%d roll=%d stab=%.2f scale=%.2f ss=%.2f ares=%.2f lod=%.2f cull=%d ssa=%.1f cullgrass=%d skipgrass=%d skipmb=%d skipssr=%d skipvol=%d sss=%d objd=%.2f objs=%.2f lag=%.3f dark=%.2f dlss=%d recoil=%d",
+				__DATE__, scope_svp_enabled, ps_r__svp_near_eye, ps_r__svp_clean_optics, ps_r__svp_roll_stabilize,
+				ps_r__svp_stabilize, ps_r__svp_render_scale, ps_r__svp_supersample, ps_r__svp_adaptive_res,
+				ps_r__svp_lod, ps_r__svp_cull, ps_r__svp_cull_ssa, ps_r__svp_cull_grass, ps_r__svp_skip_grass,
+				ps_r__svp_skip_motionblur, ps_r__svp_skip_ssr, ps_r__svp_skip_volumetric, ps_r__svp_sss_sun,
+				ps_r__svp_obj_dist, ps_r__svp_obj_size, ps_r__svp_eyebox_lag, ps_r__svp_eyebox_dark,
+				ps_r__svp_dlss, ps_r__truepip_recoil);
+		}
 	}
 }
 
@@ -707,7 +814,8 @@ void CRender::renderGBuffer(bool clearGraph)
 				snap(GMBase.RGraph.mapHUDSorted.Sorted);
 				snap(GMBase.RGraph.mapHUD);
 			}
-			GMBase.r_dsgraph_render_hud();
+			// keep the weapon list when an SVP pass follows, the scope image drains it second
+			GMBase.r_dsgraph_render_hud(clearGraph);
 
 			// pip derive the scope lens from the captured HUD, then build the SVP camera (matrices[1])
 			// so TargetSVP->SetActive can read it before the SVP pass, only while a PiP scope is aimed
@@ -719,9 +827,37 @@ void CRender::renderGBuffer(bool clearGraph)
 					svpCamera();
 			}
 		}
+		else if (svp_pass) // pip the weapon renders through the scope at low mag, one unit inside and out
+		{
+			extern float g_pip_scope_magnification;
+			auto& vp = Device.m_SecondViewport;
+			// high mag would show a sharp muzzle a real scope defocuses away, so gate to low power
+			if (g_pip_scope_magnification < 3.0f && vp.eyepiece.radius > EPS)
+			{
+				// a scope only sees forward of its entrance pupil, the near plane at the objective
+				// clips the tube/receiver/hands and leaves the barrel and attachments
+				Fvector od; od.sub(vp.objective.m_W.c, vp.svp_cam_pos);
+				float near_obj = od.magnitude();
+				if (near_obj < 0.10f) near_obj = 0.10f;
+				Fmatrix hud_proj;
+				hud_proj.build_projection(vp.svp_fov, vp.svp_aspect, near_obj, vp.svp_far);
+				RCache.set_xform_project(hud_proj);
+				GMBase.r_dsgraph_render_hud_svp();
+				RCache.set_xform_project(Device.matrices[1].mProject);
+			}
+			else
+				GMBase.RGraph.mapHUD.clear(); // consume the deferred main-pass clear
+		}
 		GMBase.r_dsgraph_render_lods(true, clearGraph);
 		// pip r__svp_skip_grass drops the near-grass field on the scope pass (mostly off a zoomed cone)
-		if (Details && !(svp_pass && ps_r__svp_skip_grass)) Details->Render();
+		if (Details && !(svp_pass && ps_r__svp_skip_grass))
+		{
+			// keep the grass visible set on the main drain when the SVP pass draws it second
+			extern bool g_svp_defer_detail_clear;
+			g_svp_defer_detail_clear = (!svp_pass && !clearGraph && !ps_r__svp_skip_grass);
+			Details->Render();
+			g_svp_defer_detail_clear = false;
+		}
 		Target->phase_scene_end();
 	}
 

@@ -364,6 +364,10 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
 		const Fvector& w_sfp = Device.m_SecondViewport.w_sfp;
 		RCache.set_c("scope_w_ffp", w_ffp.x, w_ffp.y, w_ffp.z, 1.0f);
 		RCache.set_c("scope_w_sfp", w_sfp.x, w_sfp.y, w_sfp.z, 1.0f);
+		// pip eyebox: eye drift (exit pupil radii) + soft-drift opacity for the patched 3DSS shadow
+		extern float ps_r__svp_eyebox_dark;
+		const Fvector2& drift = Device.m_SecondViewport.svp_eyebox_drift;
+		RCache.set_c("svp_eyebox", drift.x, drift.y, ps_r__svp_eyebox_dark, 0.f);
 
 		bind();
 		V->Render(0);

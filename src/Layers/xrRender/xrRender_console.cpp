@@ -296,6 +296,7 @@ int scope_svp_enabled = 0; // true PiP second viewport scope (0 off, 1 eyepiece,
 float ps_r__svp_render_scale = 1.0f; // SVP render scale, 1.0 keeps the dwHeight/2 per side
 float ps_r__svp_supersample = 1.0f; // SVP supersample: render the SVP square larger so the eyepiece downsamples it (SSAA), 1.0 = off, 2.0 = 4x SVP pixels
 int ps_r__svp_diag = 0; // SVP perf diagnostics: throttled log of [SVP-RES] over-render ratio + [SVP-ALLOC] target size while scoped, 0 = off
+int ps_r__svp_cop_diag = 0; // svp throttled [SVPCOP] log of the camera center-of-projection offset from the eye plus mag/lens geometry, 0 = off
 float ps_r__svp_adaptive_res = 1.2f; // adaptive SVP resolution: size the SVP render to the on-screen eyepiece disc * this margin. 0 = off (full svp_height), 1.0 = render exactly at the disc (sharpest, mild pan shimmer), 1.2 = keep ~1.2x SSAA. big oculars clamp to no-op
 float ps_r__svp_lod = 0.0f; // SVP LOD reduction strength [0..1]: scale the scope's LOD selection to its true pixel coverage (coarser at low mag, capped at the main view so zoomed detail is never worse). 0 = off
 float ps_r__svp_cull_ssa = 4.0f; // SVP small-object cull strength: skip scope geometry below this * the LOD-out ssa, scaled by magnification (tiny distant clutter at low mag). 0 = off, higher = more aggressive
@@ -309,6 +310,9 @@ float ps_r__svp_obj_dist = 1.0f;     // svpscope 2 objective: scale on the AUTO 
 float ps_r__svp_obj_size = 0.65f;    // svpscope 2 objective radius = eyepiece_radius * this (eyepiece-relative, one global knob across all scopes)
 int ps_r__svp_roll_stabilize = 0; // svp level the scope world on lean/cant (0 = realistic image tilts with the cant, default; 1 = leveled)
 int ps_r__svp_clean_optics = 1; // svp strip the 3DSS fake cosmetics (parallax shadow, chromatism, nvg blur, fisheye) for a clean scope (1 = stripped, default; 0 = full 3DSS look)
+int ps_r__svp_near_eye = 1; // svp render the scope from the main eye center of projection so inside and outside share one viewpoint (0 = camera on the ocular/objective)
+float ps_r__svp_eyebox_lag = 0.035f; // svp eyebox eye catch-up time in seconds, bigger = heavier eye = more shadow on fast moves, 0 = eyebox off
+float ps_r__svp_eyebox_dark = 0.9f; // svp eyebox shadow opacity on small eye drift, it only goes opaque when the eye loses the lens
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water + SSR, 1 flat water + SSR (default), 2 flat water + no SSR
@@ -1408,6 +1412,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_render_scale", &ps_r__svp_render_scale, 0.4f, 1.0f); // takes effect on vid_restart
 	CMD4(CCC_Float, "r__svp_supersample", &ps_r__svp_supersample, 1.0f, 2.0f); // SSAA the magnified scope image, 1.0 = off (4x SVP cost at 2.0)
 	CMD4(CCC_Integer, "r__svp_diag", &ps_r__svp_diag, 0, 1); // SVP perf diagnostics log (0 = off)
+	CMD4(CCC_Integer, "r__svp_cop_diag", &ps_r__svp_cop_diag, 0, 1); // svp camera optics geometry log (0 = off)
 	CMD4(CCC_Float, "r__svp_adaptive_res", &ps_r__svp_adaptive_res, 0.0f, 2.0f); // size SVP render to the eyepiece disc * margin (0 = off, 1.2 recommended)
 	CMD4(CCC_Float, "r__svp_lod", &ps_r__svp_lod, 0.0f, 1.0f); // SVP LOD reduction strength (0 = off)
 	CMD4(CCC_Float, "r__svp_cull_ssa", &ps_r__svp_cull_ssa, 0.0f, 8.0f); // SVP small-object cull strength (0 = off)
@@ -1418,6 +1423,9 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_obj_size", &ps_r__svp_obj_size, 0.1f, 6.0f); // svpscope 2 geometric objective: objective radius (eyepiece radii)
 	CMD4(CCC_Integer, "r__svp_roll_stabilize", &ps_r__svp_roll_stabilize, 0, 1); // svp keep the scope world level on lean/cant (0 = realistic image-tilts-with-cant)
 	CMD4(CCC_Integer, "r__svp_clean_optics", &ps_r__svp_clean_optics, 0, 1); // strip 3DSS fake cosmetics (parallax shadow/chromatism/nvg blur/fisheye), 0 = full look
+	CMD4(CCC_Integer, "r__svp_near_eye", &ps_r__svp_near_eye, 0, 1); // svp near-eye camera (shared eye COP), 0 = camera on the lens
+	CMD4(CCC_Float, "r__svp_eyebox_lag", &ps_r__svp_eyebox_lag, 0.0f, 0.2f); // svp eyebox eye catch-up time seconds (0 = off)
+	CMD4(CCC_Float, "r__svp_eyebox_dark", &ps_r__svp_eyebox_dark, 0.0f, 1.0f); // svp eyebox soft-drift shadow opacity
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)

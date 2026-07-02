@@ -103,7 +103,8 @@ public:
 	template<typename T, bool Reverse>
 	void r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear = true);
 	void r_dsgraph_capture_hud();
-	void r_dsgraph_render_hud();
+	void r_dsgraph_render_hud(bool _clear = true);
+	void r_dsgraph_render_hud_svp();
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted(bool render_hud = true);
