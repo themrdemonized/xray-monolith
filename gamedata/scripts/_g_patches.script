@@ -681,6 +681,21 @@ _G.alife_clone_weapon = function(se_obj, section, parent_id)
 end
 
 -- Patch _G functions to recognize new weapon classes
+-- Builds a clsid lookup set from a list of clsid values, silently skipping any
+-- that are nil (e.g. a weapon class registered by another mod/exe build that
+-- hasn't populated the `clsid` table yet at this point in the load order).
+-- Table constructors like { [clsid.some_class] = true } throw "table index is
+-- nil" if that clsid doesn't exist yet, so we build the set defensively instead.
+local function build_clsid_set(...)
+	local set = {}
+	for _, c in ipairs({...}) do
+		if c then
+			set[c] = true
+		end
+	end
+	return set
+end
+
 IsWeapon = _G.IsWeapon
 _G.IsWeapon = function(o, c)
 	if IsWeapon(o, c) then
@@ -690,10 +705,7 @@ _G.IsWeapon = function(o, c)
 	if not (c) then
 		c = o and o:clsid()
 	end
-	local weapon_classes = {
-		[clsid.wpn_ssrs] 				= true,
-		[clsid.wpn_ssrs_s] 				= true,
-	}
+	local weapon_classes = build_clsid_set(clsid.wpn_ssrs, clsid.wpn_ssrs_s)
 	return c and weapon_classes[c] or false
 end
 
@@ -706,10 +718,7 @@ _G.IsLauncher = function(o, c)
 	if not (c) then
 		c = o and o:clsid()
 	end
-	local launcher = {
-		[clsid.wpn_ssrs] 				= true,
-		[clsid.wpn_ssrs_s] 				= true,
-	}
+	local launcher = build_clsid_set(clsid.wpn_ssrs, clsid.wpn_ssrs_s)
 	return c and launcher[c] or false
 end
 
