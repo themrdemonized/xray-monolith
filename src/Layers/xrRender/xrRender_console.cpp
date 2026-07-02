@@ -315,6 +315,8 @@ float ps_r__svp_eyebox_lag = 0.035f; // svp eyebox eye catch-up time in seconds,
 float ps_r__svp_eyebox_dark = 0.9f; // svp eyebox shadow opacity on small eye drift, it only goes opaque when the eye loses the lens
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
+int ps_r__svp_skip_dof = 0; // svp skip the scope-internal dof pass, main dof still covers the composited lens (0 = current doubled behavior)
+int ps_r__svp_skip_lut = 0; // svp skip the scope-internal lut grade, main grade still covers the composited lens (0 = current doubled behavior)
 int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water + SSR, 1 flat water + SSR (default), 2 flat water + no SSR
 int ps_r__svp_skip_volumetric = 0; // svp skip volumetric lights on the scope pass, subtle at magnification (0 = keep)
 int ps_r__svp_skip_grass = 0; // svp skip grass/details on the scope pass, near grass is mostly off a zoomed cone (0 = keep)
@@ -1428,6 +1430,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_eyebox_dark", &ps_r__svp_eyebox_dark, 0.0f, 1.0f); // svp eyebox soft-drift shadow opacity
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
+	CMD4(CCC_Integer, "r__svp_skip_dof", &ps_r__svp_skip_dof, 0, 1); // svp scope-internal dof once-only gate
+	CMD4(CCC_Integer, "r__svp_skip_lut", &ps_r__svp_skip_lut, 0, 1); // svp scope-internal lut once-only gate
 	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)
 	CMD4(CCC_Integer, "r__svp_skip_volumetric", &ps_r__svp_skip_volumetric, 0, 1); // svp skip volumetric lights on the scope
 	CMD4(CCC_Integer, "r__svp_skip_grass", &ps_r__svp_skip_grass, 0, 1); // svp skip grass/details on the scope

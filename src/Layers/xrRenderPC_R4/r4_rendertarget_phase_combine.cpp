@@ -581,12 +581,17 @@ void CRenderTarget::phase_combine()
 		phase_pp_bloom();
 	}
 	
-	if (ps_r2_ls_flags.test(R2FLAG_DOF))
-	{	
+	// pip dof/lut run in the SVP combine AND again over the composited lens in the main pass, the
+	// skip cvars land each exactly once on scope pixels (default 0 keeps the current doubled look)
+	extern int ps_r__svp_skip_dof, ps_r__svp_skip_lut;
+	const bool svp_pass_now = Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp;
+	if (ps_r2_ls_flags.test(R2FLAG_DOF) && !(svp_pass_now && ps_r__svp_skip_dof))
+	{
 		phase_dof();
 	}
 
-	phase_lut();	
+	if (!(svp_pass_now && ps_r__svp_skip_lut))
+		phase_lut();
 
 	if(ps_r2_mask_control.x > 0)
 	{
