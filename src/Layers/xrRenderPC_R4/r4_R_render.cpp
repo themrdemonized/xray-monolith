@@ -689,8 +689,23 @@ void CRender::Render()
 	if (svp)
 	{
 		EnsureTargetSVP();
+		// pip CPU-side cost probe for the SVP gbuffer, throttled log while r__svp_diag is on
+		extern int ps_r__svp_diag;
+		CTimer svp_t; svp_t.Start();
+		const u32 calls0 = RCache.stat.calls;
+		const u32 verts0 = RCache.stat.verts;
 		TargetSVP->SetActive();
 		renderGBuffer(true);
+		if (ps_r__svp_diag)
+		{
+			static u32 s_perf_ms = 0;
+			if (Device.dwTimeGlobal - s_perf_ms > 1000)
+			{
+				s_perf_ms = Device.dwTimeGlobal;
+				Msg("[SVP-PERF] gbuffer %.2fms calls %u verts %uk", svp_t.GetElapsed_sec() * 1000.f,
+					RCache.stat.calls - calls0, (RCache.stat.verts - verts0) / 1000);
+			}
+		}
 		TargetMain->SetActive(); // shadow generation + main accumulation run on the main target
 
 		// pip install the dual-accumulate hook, each shadow unit builds its map once on the main atlas
