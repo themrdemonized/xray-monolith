@@ -664,6 +664,8 @@ void CRender::Render()
 	Device.m_SecondViewport.eyepiece.radius = 0;
 	Device.m_SecondViewport.objective.radius = 0;
 
+	// pip a stale hook must never survive into this frame (it captures this + TargetSVP)
+	Device.m_SecondViewport.dual_accum = nullptr;
 	// pip double-pass, the captured graph renders once for the main viewport and, when a scope drives
 	// the SVP, a second time into TargetSVP, true_pip off keeps the single stock main pass
 	bool svp = Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
