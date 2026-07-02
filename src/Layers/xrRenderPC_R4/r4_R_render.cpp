@@ -666,7 +666,7 @@ void CRender::Render()
 
 	// pip double-pass, the captured graph renders once for the main viewport and, when a scope drives
 	// the SVP, a second time into TargetSVP, true_pip off keeps the single stock main pass
-	const bool svp = Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
+	bool svp = Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
 	// pip lock the adaptive SVP size at ADS-in (svp false -> true) from the disc learned on the last aim, so the
 	// target is sized once per aim and never resized mid-ADS (the live disc keeps learning for next time)
 	static bool s_prev_svp = false;
@@ -678,6 +678,9 @@ void CRender::Render()
 	if (Device.true_pip_on && g_pGamePersistent &&
 		g_pGamePersistent->m_pGShaderConstants->hud_params.y > 0.005f)
 		EnsureTargetSVP();
+	// creation can fail at VRAM exhaustion, fall back to the single stock pass this frame
+	if (svp && !TargetSVP)
+		svp = false;
 	if (Device.true_pip_on)
 		TargetMain->SetActive();
 	renderGBuffer(!svp); // keep the priority-0 graph when an SVP pass follows

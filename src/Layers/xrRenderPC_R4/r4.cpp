@@ -621,6 +621,18 @@ void CRender::EnsureTargetSVP()
 		xr_delete(TargetSVP);
 	}
 	TargetSVP = xr_new<CRenderTarget>("svp", svp_side, svp_side);
+	// CHK_DX is a no-op so a VRAM-exhausted creation fails silently, never keep a half-built target
+	const bool svp_rt_ok = TargetSVP->rt_secondVP && TargetSVP->rt_secondVP->pSurface
+		&& TargetSVP->rt_baseRT && TargetSVP->rt_baseRT->pRT
+		&& TargetSVP->rt_baseZB && TargetSVP->rt_baseZB->pZRT
+		&& TargetSVP->rt_Color && TargetSVP->rt_Color->pRT
+		&& TargetSVP->rt_Position && TargetSVP->rt_Position->pRT;
+	if (!svp_rt_ok)
+	{
+		Msg("! [SVP-ALLOC] SVP target creation FAILED (out of VRAM?), scope pass disabled");
+		xr_delete(TargetSVP);
+		return;
+	}
 	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset, SVP surface (re)created incl. res change
 	extern int ps_r__svp_diag; extern float ps_r__svp_supersample;
 	if (ps_r__svp_diag)
