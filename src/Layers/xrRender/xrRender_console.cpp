@@ -315,6 +315,8 @@ int ps_r__svp_bloom = 1; // svp bloom on the scope pass so magnified bright sour
 int ps_r__svp_local_exposure = 1; // svp scope-local eye adaptation, the image grades by the scope's own measured exposure (0 = main exposure)
 float ps_r__svp_exposure_bias = 0.0f; // svp local-exposure bias in stops
 int ps_r__svp_light_capture = 1; // svp capture lights for the scope cone past the main frustum/fog cull (0 = main-view lights only)
+float ps_r__svp_twilight = 1.0f; // svp exit-pupil twilight dimming: zooming shrinks the exit pupil below the dark-adapted eye and the image dims, day scenes unaffected (0 = off)
+float ps_r__svp_parallax = 1.0f; // svp true-scale reticle parallax: 1.0 = the real ~0.15 mrad at full eye deflection (sub-pixel), 0 = pinned center
 float ps_r__svp_near_blur = 1.0f; // svp near-field defocus strength on the scope image (svpscope 2, 0 = off)
 float ps_r__svp_hud_sway_comp = 1.0f; // svp magnified-barrel sway compensation (0 = raw physical)
 int ps_r__svp_hud_full = 1; // svp full-barrel, skip the scope body and pull the near plane to the eye (0 = clip at the objective)
@@ -1436,6 +1438,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__svp_local_exposure", &ps_r__svp_local_exposure, 0, 1); // svp scope-local eye adaptation
 	CMD4(CCC_Float, "r__svp_exposure_bias", &ps_r__svp_exposure_bias, -3.0f, 3.0f); // svp local-exposure bias in stops
 	CMD4(CCC_Integer, "r__svp_light_capture", &ps_r__svp_light_capture, 0, 1); // svp scope-cone light capture
+	CMD4(CCC_Float, "r__svp_twilight", &ps_r__svp_twilight, 0.0f, 1.0f); // svp exit-pupil twilight dimming strength (0 = off)
+	CMD4(CCC_Float, "r__svp_parallax", &ps_r__svp_parallax, 0.0f, 10.0f); // svp true-scale reticle parallax, 1 = physical sub-pixel (0 = pinned)
 	CMD4(CCC_Float, "r__svp_near_blur", &ps_r__svp_near_blur, 0.0f, 3.0f); // svp near-field defocus strength (0 = off)
 	CMD4(CCC_Float, "r__svp_hud_sway_comp", &ps_r__svp_hud_sway_comp, 0.0f, 1.0f); // svp magnified-barrel sway comp (0 = raw physical)
 	CMD4(CCC_Integer, "r__svp_hud_full", &ps_r__svp_hud_full, 0, 1); // svp full-barrel (0 = clip at the objective)

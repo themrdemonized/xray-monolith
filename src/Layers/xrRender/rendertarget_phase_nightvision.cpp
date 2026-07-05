@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "FBasicVisual.h" // pip dxRender_Visual (GetTexture/Render) for draw_scope
+#include "../../xrEngine/igame_persistent.h" // pip env-driven eye pupil for the exit-pupil twilight dimming
+#include "../../xrEngine/environment.h"
 #if defined(USE_DX11)
 #include "../../../gamedata/shaders/r3/scope_defines.h" // SCOPE_PHASE_* (kept in sync with the shader)
 #endif
@@ -417,13 +419,54 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
 			const float dist = _max(ed.magnitude(), 0.02f);
 			float kg = 2.f * Device.m_SecondViewport.eyepiece.radius / dist;
 			clamp(kg, 0.02f, 3.f);
-			RCache.set_c("svp_optics", kg, 0.f, 0.f, 0.f);
+			// y = true-scale parallax, the real reticle shift is ~0.15 mrad at full eye deflection
+			extern float ps_r__svp_parallax;
+			extern float g_pip_scope_magnification;
+			extern float g_pip_scope_ratio;
+			float par = 0.f;
+			if (ps_r__svp_parallax > 0.f && g_pip_scope_magnification > 0.01f)
+			{
+				const float eff_mag = _max(g_pip_scope_ratio * g_pip_scope_magnification, 1.f);
+				const float hfov = deg2rad(_max(Device.fFOV, 1.f));
+				par = ps_r__svp_parallax * 0.00075f * kg * eff_mag / hfov;
+			}
+			RCache.set_c("svp_optics", kg, par, 0.f, 0.f);
 		}
 		// pip scope-local exposure, x = 0 off else 2^bias
 		{
 			extern int ps_r__svp_local_exposure;
 			extern float ps_r__svp_exposure_bias;
-			RCache.set_c("svp_exposure", ps_r__svp_local_exposure ? powf(2.f, ps_r__svp_exposure_bias) : 0.f, 0.f, 0.f, 0.f);
+			// y = exit-pupil twilight dimming, exit pupil (ocular*ratio shrunk by zoom) vs the
+			// env-adapted eye pupil squared, electronic sights exempt
+			extern float ps_r__svp_twilight;
+			extern Fvector4 ps_s3ds_param_1;
+			extern Fvector4 ps_s3ds_param_3;
+			extern float g_pip_scope_magnification;
+			extern float g_pip_scope_min_mag;
+			float dim = 0.f;
+			if (ps_r__svp_twilight > 0.f && ps_s3ds_param_3.x < 0.5f && g_pip_scope_magnification > 0.01f && g_pGamePersistent)
+			{
+				const float mn = (g_pip_scope_min_mag > 0.01f) ? g_pip_scope_min_mag : g_pip_scope_magnification;
+				const float xp = (ps_s3ds_param_1.z > 0.01f) ? ps_s3ds_param_1.z : 0.5f;
+				const float ep_mm = xp * Device.m_SecondViewport.eyepiece.radius * 2000.f * (mn / g_pip_scope_magnification);
+				CEnvDescriptor& E = *g_pGamePersistent->Environment().CurrentEnv;
+				const float envb = 0.299f * E.sun_color.x + 0.587f * E.sun_color.y + 0.114f * E.sun_color.z
+					+ 0.5f * (0.299f * E.hemi_color.x + 0.587f * E.hemi_color.y + 0.114f * E.hemi_color.z);
+				const float pupil = 6.f - 3.5f * _min(envb / 0.6f, 1.f);
+				const float d = _min(_sqr(ep_mm / pupil), 1.f);
+				dim = 1.f + (_max(d, 0.25f) - 1.f) * _min(ps_r__svp_twilight, 1.f);
+				extern int ps_r__svp_diag;
+				if (ps_r__svp_diag)
+				{
+					static u32 s_twl_ms = 0;
+					if (Device.dwTimeGlobal - s_twl_ms > 1000)
+					{
+						s_twl_ms = Device.dwTimeGlobal;
+						Msg("[SVP-TWL] ep %.1fmm pupil %.1fmm env %.2f dim %.2f", ep_mm, pupil, envb, dim);
+					}
+				}
+			}
+			RCache.set_c("svp_exposure", ps_r__svp_local_exposure ? powf(2.f, ps_r__svp_exposure_bias) : 0.f, dim, 0.f, 0.f);
 		}
 
 		bind();

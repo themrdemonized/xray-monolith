@@ -391,13 +391,14 @@ void svpCamera()
 			extern int ps_r__svp_roll_stabilize;
 			extern int ps_r__svp_hud_fov_match;
 			extern int ps_r__svp_hud_full;
-			Msg("[SVP-CFG] build %s mode=%d fovm=%d hfull=%d nblur=%.1f swc=%.1f clean=%d bs=%d roll=%d scale=%.2f ss=%.2f ares=%.2f lod=%.2f cull=%d ssa=%.1f cullgrass=%d skipgrass=%d skipmb=%d skipssr=%d skipvol=%d sss=%d objd=%.2f objs=%.2f dlss=%d recoil=%d",
+			extern float ps_r__svp_twilight, ps_r__svp_parallax;
+			Msg("[SVP-CFG] build %s mode=%d fovm=%d hfull=%d nblur=%.1f swc=%.1f clean=%d bs=%d roll=%d scale=%.2f ss=%.2f ares=%.2f lod=%.2f cull=%d ssa=%.1f cullgrass=%d skipgrass=%d skipmb=%d skipssr=%d skipvol=%d sss=%d objd=%.2f objs=%.2f dlss=%d recoil=%d twl=%.2f par=%.2f",
 				__DATE__, scope_svp_enabled, ps_r__svp_hud_fov_match, ps_r__svp_hud_full, ps_r__svp_near_blur, ps_r__svp_hud_sway_comp, ps_r__svp_clean_optics, ps_r__svp_boresight, ps_r__svp_roll_stabilize,
 				ps_r__svp_render_scale, ps_r__svp_supersample, ps_r__svp_adaptive_res,
 				ps_r__svp_lod, ps_r__svp_cull, ps_r__svp_cull_ssa, ps_r__svp_cull_grass, ps_r__svp_skip_grass,
 				ps_r__svp_skip_motionblur, ps_r__svp_skip_ssr, ps_r__svp_skip_volumetric, ps_r__svp_sss_sun,
 				ps_r__svp_obj_dist, ps_r__svp_obj_size,
-				ps_r__svp_dlss, ps_r__truepip_recoil);
+				ps_r__svp_dlss, ps_r__truepip_recoil, ps_r__svp_twilight, ps_r__svp_parallax);
 		}
 	}
 }
