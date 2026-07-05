@@ -419,6 +419,12 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
 			clamp(kg, 0.02f, 3.f);
 			RCache.set_c("svp_optics", kg, 0.f, 0.f, 0.f);
 		}
+		// pip scope-local exposure, x = 0 off else 2^bias
+		{
+			extern int ps_r__svp_local_exposure;
+			extern float ps_r__svp_exposure_bias;
+			RCache.set_c("svp_exposure", ps_r__svp_local_exposure ? powf(2.f, ps_r__svp_exposure_bias) : 0.f, 0.f, 0.f, 0.f);
+		}
 
 		bind();
 		V->Render(0);
@@ -505,6 +511,14 @@ void CRenderTarget::phase_3DSSReticle()
 			remap(r2_RT_secondVP, svp ? S->rt_secondVP : M->rt_secondVP);
 			remap(r2_RT_generic2, svp ? S->rt_Position : M->rt_Generic_2);
 			remap(r2_RT_heat,     svp ? S->rt_Heat : M->rt_Heat);
+			// pip the scope's own measured exposure for the local-exposure image grade
+			{
+				ref_texture t;
+				t.create("$user$svp_tonemap");
+				ID3DBaseTexture* s = (svp ? S : M)->t_LUM_dest->surface_get();
+				t->surface_set(s);
+				_RELEASE(s);
+			}
 			// invalidate so the IMAGE pass picks up the remapped surfaces (the bind cache keys on CTexture identity)
 			RCache.Invalidate();
 

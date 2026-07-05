@@ -571,7 +571,10 @@ void CRenderTarget::phase_combine()
 	//Compute bloom (new)
 	if (RImplementation.o.ssfx_bloom)
 	{
-		if (!Device.m_SecondViewport.IsSVPFrame())
+		// pip run bloom on the SVP pass too so magnified bright sources flare (per-target buffers)
+		extern int ps_r__svp_bloom;
+		if ((Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp && ps_r__svp_bloom)
+			|| !Device.m_SecondViewport.IsSVPFrame())
 			phase_ssfx_bloom();
 		else
 			HW.pContext->ClearRenderTargetView(rt_ssfx_bloom1->pRT, ColorRGBA);

@@ -311,6 +311,10 @@ int ps_r__svp_roll_stabilize = 0; // svp level the scope world on lean/cant (0 =
 int ps_r__svp_clean_optics = 1; // svp strip the 3DSS fake cosmetics (parallax shadow, chromatism, nvg blur, fisheye) for a clean scope (1 = stripped, default; 0 = full 3DSS look)
 int ps_r__svp_boresight = 0; // svp auto-boresight onto the ballistic point (opt-in, 0 = raw authored pose)
 int ps_r__svp_hud_fov_match = 2; // svp barrel mapping: 2 magnifies with the wheel, 1 fixed 1:1 window, 0 legacy
+int ps_r__svp_bloom = 1; // svp bloom on the scope pass so magnified bright sources flare (0 = off)
+int ps_r__svp_local_exposure = 1; // svp scope-local eye adaptation, the image grades by the scope's own measured exposure (0 = main exposure)
+float ps_r__svp_exposure_bias = 0.0f; // svp local-exposure bias in stops
+int ps_r__svp_light_capture = 1; // svp capture lights for the scope cone past the main frustum/fog cull (0 = main-view lights only)
 float ps_r__svp_near_blur = 1.0f; // svp near-field defocus strength on the scope image (svpscope 2, 0 = off)
 float ps_r__svp_hud_sway_comp = 1.0f; // svp magnified-barrel sway compensation (0 = raw physical)
 int ps_r__svp_hud_full = 1; // svp full-barrel, skip the scope body and pull the near plane to the eye (0 = clip at the objective)
@@ -1428,6 +1432,10 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__svp_clean_optics", &ps_r__svp_clean_optics, 0, 1); // strip 3DSS fake cosmetics (parallax shadow/chromatism/nvg blur/fisheye), 0 = full look
 	CMD4(CCC_Integer, "r__svp_boresight", &ps_r__svp_boresight, 0, 1); // svp auto-boresight (0 = raw authored pose)
 	CMD4(CCC_Integer, "r__svp_hud_fov_match", &ps_r__svp_hud_fov_match, 0, 2); // svp barrel mapping: 2 magnified, 1 window, 0 legacy
+	CMD4(CCC_Integer, "r__svp_bloom", &ps_r__svp_bloom, 0, 1); // svp bloom on the scope pass
+	CMD4(CCC_Integer, "r__svp_local_exposure", &ps_r__svp_local_exposure, 0, 1); // svp scope-local eye adaptation
+	CMD4(CCC_Float, "r__svp_exposure_bias", &ps_r__svp_exposure_bias, -3.0f, 3.0f); // svp local-exposure bias in stops
+	CMD4(CCC_Integer, "r__svp_light_capture", &ps_r__svp_light_capture, 0, 1); // svp scope-cone light capture
 	CMD4(CCC_Float, "r__svp_near_blur", &ps_r__svp_near_blur, 0.0f, 3.0f); // svp near-field defocus strength (0 = off)
 	CMD4(CCC_Float, "r__svp_hud_sway_comp", &ps_r__svp_hud_sway_comp, 0.0f, 1.0f); // svp magnified-barrel sway comp (0 = raw physical)
 	CMD4(CCC_Integer, "r__svp_hud_full", &ps_r__svp_hud_full, 0, 1); // svp full-barrel (0 = clip at the objective)
