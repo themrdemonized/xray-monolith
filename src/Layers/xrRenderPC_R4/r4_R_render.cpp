@@ -939,8 +939,9 @@ void CRender::renderGBuffer(bool clearGraph)
 				}
 				if (near_obj < 0.10f) near_obj = 0.10f;
 				// full-barrel 1: skip the scope body and pull the near plane to the eye, the near-blur
-				// eats the close mass. 2 (default): skip the body, keep the front-plane clip, nothing
-				// behind the front lens renders. thermals read the gbuffer, always front-plane
+				// eats the close mass. 2 (default): see FROM the entrance pupil, the camera slides to
+				// the front plane so nothing behind the front lens can render and the barrel ahead
+				// keeps its full mesh (no cut plane). thermals read the gbuffer, front-plane clip
 				extern int ps_r__svp_hud_full;
 				extern float ps_r__svp_near_blur;
 				extern bool g_svp_hud_skip_scope;
@@ -1002,7 +1003,21 @@ void CRender::renderGBuffer(bool clearGraph)
 							Fvector nudge; nudge.set(r); nudge.mul(k * ed.magnitude());
 							at.add(nudge);
 						}
-						hud_view.build_camera(vp.svp_cam_pos, at, vp.eyepiece.m_W.j);
+						// mode 2: slide the camera up the (nudged) aim ray to the front plane,
+						// the cut cross-section lands at the camera where it never shows
+						Fvector pos = vp.svp_cam_pos;
+						if (hud_full && ps_r__svp_hud_full >= 2 && near_obj > 0.11f)
+						{
+							Fvector dir; dir.sub(at, pos);
+							if (dir.magnitude() > EPS)
+							{
+								dir.normalize();
+								pos.mad(dir, near_obj);
+								at.set(pos); at.add(dir);
+								near_obj = 0.08f;
+							}
+						}
+						hud_view.build_camera(pos, at, vp.eyepiece.m_W.j);
 					}
 				}
 				Fmatrix hud_proj;
