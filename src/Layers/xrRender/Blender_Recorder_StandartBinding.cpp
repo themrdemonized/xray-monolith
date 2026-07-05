@@ -441,10 +441,6 @@ static class s3ds_param_4 : public R_constant_setup
 			s &= ~(1 << 1); s &= ~(1 << 4); s &= ~(1 << 0); // ST_PARALLAX_SHADOW, ST_CHROMATISM, ST_NVG_BLUR
 			settings = (float)s;
 		}
-		// ST_PIP_PRECISE (bit 5): mesh-tangent reticle center under true PiP, off by default
-		extern int ps_r__svp_reticle_precise;
-		if (ps_r__svp_reticle_precise && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())
-			settings = (float)((int)settings | (1 << 5));
 		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, settings);
 	}
 }    s3ds_param_4;

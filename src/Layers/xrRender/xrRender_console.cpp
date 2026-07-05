@@ -309,7 +309,6 @@ float ps_r__svp_obj_dist = 1.0f;     // svpscope 2 objective: scale on the AUTO 
 float ps_r__svp_obj_size = 0.65f;    // svpscope 2 objective radius = eyepiece_radius * this (eyepiece-relative, one global knob across all scopes)
 int ps_r__svp_roll_stabilize = 0; // svp level the scope world on lean/cant (0 = realistic image tilts with the cant, default; 1 = leveled)
 int ps_r__svp_clean_optics = 1; // svp strip the 3DSS fake cosmetics (parallax shadow, chromatism, nvg blur, fisheye) for a clean scope (1 = stripped, default; 0 = full 3DSS look)
-int ps_r__svp_reticle_precise = 0; // svp ST_PIP_PRECISE settings bit for reticle shaders (experimental, 0 = off)
 int ps_r__svp_boresight = 0; // svp auto-boresight onto the ballistic point (opt-in, 0 = raw authored pose)
 int ps_r__svp_hud_fov_match = 2; // svp barrel mapping: 2 magnifies with the wheel, 1 fixed 1:1 window, 0 legacy
 float ps_r__svp_near_blur = 1.0f; // svp near-field defocus strength on the scope image (svpscope 2, 0 = off)
@@ -1427,7 +1426,6 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_obj_size", &ps_r__svp_obj_size, 0.1f, 6.0f); // svpscope 2 geometric objective: objective radius (eyepiece radii)
 	CMD4(CCC_Integer, "r__svp_roll_stabilize", &ps_r__svp_roll_stabilize, 0, 1); // svp keep the scope world level on lean/cant (0 = realistic image-tilts-with-cant)
 	CMD4(CCC_Integer, "r__svp_clean_optics", &ps_r__svp_clean_optics, 0, 1); // strip 3DSS fake cosmetics (parallax shadow/chromatism/nvg blur/fisheye), 0 = full look
-	CMD4(CCC_Integer, "r__svp_reticle_precise", &ps_r__svp_reticle_precise, 0, 1); // svp precise reticle center (0 = old cotangent)
 	CMD4(CCC_Integer, "r__svp_boresight", &ps_r__svp_boresight, 0, 1); // svp auto-boresight (0 = raw authored pose)
 	CMD4(CCC_Integer, "r__svp_hud_fov_match", &ps_r__svp_hud_fov_match, 0, 2); // svp barrel mapping: 2 magnified, 1 window, 0 legacy
 	CMD4(CCC_Float, "r__svp_near_blur", &ps_r__svp_near_blur, 0.0f, 3.0f); // svp near-field defocus strength (0 = off)
