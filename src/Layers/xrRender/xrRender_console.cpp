@@ -319,7 +319,7 @@ float ps_r__svp_twilight = 1.0f; // svp exit-pupil twilight dimming: zooming shr
 float ps_r__svp_parallax = 1.0f; // svp true-scale reticle parallax: 1.0 = the real ~0.15 mrad at full eye deflection (sub-pixel), 0 = pinned center
 float ps_r__svp_near_blur = 1.0f; // svp near-field defocus strength on the scope image (svpscope 2, 0 = off)
 float ps_r__svp_hud_sway_comp = 1.0f; // svp magnified-barrel sway compensation (0 = raw physical)
-int ps_r__svp_hud_full = 1; // svp full-barrel, skip the scope body and pull the near plane to the eye (0 = clip at the objective)
+int ps_r__svp_hud_full = 2; // svp barrel visibility: 2 = front-plane clip, nothing behind the front lens renders (default), 1 = full barrel from the eye + near-blur, 0 = objective clip with the body rendered
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_dof = 0; // svp skip the scope-internal dof pass, main dof still covers the composited lens (0 = current doubled behavior)
@@ -1442,7 +1442,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_parallax", &ps_r__svp_parallax, 0.0f, 10.0f); // svp true-scale reticle parallax, 1 = physical sub-pixel (0 = pinned)
 	CMD4(CCC_Float, "r__svp_near_blur", &ps_r__svp_near_blur, 0.0f, 3.0f); // svp near-field defocus strength (0 = off)
 	CMD4(CCC_Float, "r__svp_hud_sway_comp", &ps_r__svp_hud_sway_comp, 0.0f, 1.0f); // svp magnified-barrel sway comp (0 = raw physical)
-	CMD4(CCC_Integer, "r__svp_hud_full", &ps_r__svp_hud_full, 0, 1); // svp full-barrel (0 = clip at the objective)
+	CMD4(CCC_Integer, "r__svp_hud_full", &ps_r__svp_hud_full, 0, 2); // svp barrel: 2 front-plane clip (default), 1 full barrel from the eye, 0 objective clip + body
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_dof", &ps_r__svp_skip_dof, 0, 1); // svp scope-internal dof once-only gate

@@ -300,6 +300,7 @@ void CDSGraphManager::r_dsgraph_render_hud(bool _clear)
 
 // pip drain only the weapon list into the scope image, the caller owns the view/projection
 bool g_svp_hud_skip_scope = false; // full-barrel mode drops the scope body so the near plane can sit at the eye
+float g_svp_hud_front_m = 0.f; // scope-body front extent along the axis from the eyepiece (m), clip-ons push it past the objective
 void CDSGraphManager::r_dsgraph_render_hud_svp()
 {
 	PROF_EVENT("r_dsgraph_render_hud_svp");
@@ -316,15 +317,18 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 		const float len2 = ax.square_magnitude();
 		const float tube = _sqrt(len2);
 		const float rcyl = std::max(vp.eyepiece.radius, vp.objective.radius) * 1.75f + 0.01f;
-		const bool skip_ok = g_svp_hud_skip_scope && len2 > EPS && vp.eyepiece.radius > EPS;
+		const bool measure_ok = len2 > EPS && vp.eyepiece.radius > EPS;
+		const bool skip_ok = g_svp_hud_skip_scope && measure_ok;
+		float front = 0.f;
 		extern int ps_r__svp_cop_diag;
 		static u32 s_hud_diag_ms = 0;
 		const bool diag = ps_r__svp_cop_diag && (Device.dwTimeGlobal - s_hud_diag_ms > 3000);
 		if (diag)
 		{
 			s_hud_diag_ms = Device.dwTimeGlobal;
-			Msg("[SVP-HUD] tube=%.1fcm rcyl=%.1fcm cap=%.1fcm items=%u skip_ok=%d",
-				tube * 100.f, rcyl * 100.f, tube * 1.75f * 100.f, (u32)graph.size(), (int)skip_ok);
+			Msg("[SVP-HUD] tube=%.1fcm rcyl=%.1fcm cap=%.1fcm items=%u skip_ok=%d front=%.1fcm",
+				tube * 100.f, rcyl * 100.f, tube * 1.75f * 100.f, (u32)graph.size(), (int)skip_ok,
+				g_svp_hud_front_m * 100.f);
 		}
 		for (auto& item : graph)
 		{
@@ -333,7 +337,7 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 			VERIFY(V && V->shader._get());
 			bool drop = false;
 			float t = 0.f, rad = -1.f;
-			if (skip_ok && item.pMatrix)
+			if (measure_ok && item.pMatrix)
 			{
 				// skinned parts (addon scopes) sit at their bone, the rest-pose sphere lies elsewhere
 				Fmatrix W = *item.pMatrix;
@@ -355,7 +359,13 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 				// little off-axis by the bracket arm, the size cap keeps barrel/body meshes safe
 				const float R = V->vis.sphere.R;
 				const bool wrap = (rad < R * 0.6f) && (R < tube * 0.45f);
-				drop = (R < tube * 1.75f) && (t > -0.6f && t < 1.4f) && (rad < rcyl || wrap);
+				// clip-on optics sit coaxial PAST the objective, the tight radial keeps the
+				// under-slung barrel out of this branch
+				const bool clipon = (t >= 1.4f && t < 2.6f) && (rad < rcyl * 0.8f);
+				drop = (R < tube * 1.75f) &&
+					(clipon || ((t > -0.6f && t < 1.4f) && (rad < rcyl || wrap)));
+				if (drop)
+					front = _max(front, t * tube + R);
 			}
 			if (diag)
 			{
@@ -363,13 +373,15 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 				Msg("[SVP-HUD] %s t=%.2f rad=%.1fcm R=%.1fcm %s", drop ? "SKIP" : "keep",
 					t, rad * 100.f, V->vis.sphere.R * 100.f, tx ? tx->cName.c_str() : "?");
 			}
-			if (drop) continue;
+			if (drop && skip_ok) continue;
 			RCache.set_Element(item.pSE);
 			RCache.set_xform_world(*item.pMatrix);
 			RImplementation.apply_object(item.pObject);
 			RImplementation.apply_lmaterial();
 			V->Render(calcLOD(svp_ssa(item.ssa), V->vis.sphere.R));
 		}
+		// consumed by next frame's near plane (built before this pass runs)
+		g_svp_hud_front_m = front;
 		graph.clear();
 	}
 	RCache.set_xform_world(Fidentity);

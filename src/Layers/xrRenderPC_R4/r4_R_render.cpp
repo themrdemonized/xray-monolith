@@ -929,17 +929,27 @@ void CRender::renderGBuffer(bool clearGraph)
 				// clips the tube/receiver/hands and leaves the barrel and attachments
 				Fvector od; od.sub(vp.objective.m_W.c, vp.svp_cam_pos);
 				float near_obj = od.magnitude();
+				// clip-on optics extend the front lens past the host objective, the measured body
+				// extent (last frame) moves the plane with them
+				extern float g_svp_hud_front_m;
+				if (g_svp_hud_front_m > EPS)
+				{
+					Fvector ec; ec.sub(vp.eyepiece.m_W.c, vp.svp_cam_pos);
+					near_obj = _max(near_obj, ec.magnitude() + g_svp_hud_front_m);
+				}
 				if (near_obj < 0.10f) near_obj = 0.10f;
-				// full-barrel: skip the scope body meshes and pull the near plane to the eye, the
-				// near-blur eats the close mass. thermals read the gbuffer, keep the objective clip
+				// full-barrel 1: skip the scope body and pull the near plane to the eye, the near-blur
+				// eats the close mass. 2 (default): skip the body, keep the front-plane clip, nothing
+				// behind the front lens renders. thermals read the gbuffer, always front-plane
 				extern int ps_r__svp_hud_full;
 				extern float ps_r__svp_near_blur;
 				extern bool g_svp_hud_skip_scope;
 				extern Fvector4 ps_s3ds_param_3;
 				const bool thermal = ps_s3ds_param_3.x >= 1.5f;
-				const bool hud_full = ps_r__svp_hud_full && !thermal && ps_r__svp_near_blur > 0.01f
+				const bool hud_full = ps_r__svp_hud_full && !thermal
+					&& (ps_r__svp_hud_full >= 2 || ps_r__svp_near_blur > 0.01f)
 					&& vp.objective.radius > EPS;
-				if (hud_full)
+				if (hud_full && ps_r__svp_hud_full == 1)
 					near_obj = 0.08f;
 				// mode 2 = the world fov (barrel magnifies with the wheel), mode 1 window =
 				// tan(hud/2)/ratio, a 1:1 continuation of the outside hud render
