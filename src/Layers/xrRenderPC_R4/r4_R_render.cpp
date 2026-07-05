@@ -444,9 +444,15 @@ static xr_vector<Fvector4> g_pip_hud_geom; // pip diag: snapshot of HUD geometry
 void CRender::deriveScopeLens()
 {
 	// multi-lens weapons carry several scope-lens meshes (markswitch variants, addon + builtin),
-	// pick the aimed one (nearest the camera ray), plain iteration latched whichever came last
+	// pick the aimed one: visible lens bone, nearest the camera ray. hidden markswitch lenses sit
+	// on the same axis closer to the eye and must never win
 	const void* best = nullptr;
 	{
+		extern int ps_r__svp_cop_diag;
+		static u32 s_lens_diag_ms = 0;
+		const bool diag = ps_r__svp_cop_diag && (Device.dwTimeGlobal - s_lens_diag_ms > 3000);
+		if (diag)
+			s_lens_diag_ms = Device.dwTimeGlobal;
 		float best_score = 1e9f;
 		const Fvector cam_p = Device.vCameraPosition;
 		const Fvector cam_f = Device.vCameraDirection;
@@ -455,9 +461,11 @@ void CRender::deriveScopeLens()
 			if (!N.pVisual || !N.pMatrix)
 				continue;
 			Fmatrix lensX = *N.pMatrix;
+			bool bone_vis = true;
 			CSkeletonX* sk = fast_dynamic_cast<CSkeletonX*>(N.pVisual);
 			if (sk)
 			{
+				bone_vis = sk->SVP_LensBoneVisible();
 				Fmatrix boneR;
 				if (sk->SVP_LensBoneXform(boneR))
 					lensX.mulB_43(boneR);
@@ -471,7 +479,14 @@ void CRender::deriveScopeLens()
 				continue;
 			d.div(dist);
 			const float fwd = d.dotproduct(cam_f);
-			if (fwd < 0.2f)
+			if (diag)
+			{
+				auto tx = N.pVisual->GetTexture();
+				Msg("[SVP-LENS] %s dist=%.1fcm fwd=%.3f r=%.1fcm %s",
+					bone_vis ? "vis " : "HIDE", dist * 100.f, fwd, V.sphere.R * 100.f,
+					tx ? tx->cName.c_str() : "?");
+			}
+			if (!bone_vis || fwd < 0.2f)
 				continue;
 			const float score = (1.f - fwd) + dist * 0.02f;
 			if (score < best_score)

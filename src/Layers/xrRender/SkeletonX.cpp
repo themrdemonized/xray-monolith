@@ -521,6 +521,21 @@ bool CSkeletonX::SVP_LensBoneXform(Fmatrix& out)
 	return true;
 }
 
+// pip lens bone visibility, hidden markswitch lens meshes must not win the eyepiece pick
+bool CSkeletonX::SVP_LensBoneVisible()
+{
+	if (!Parent)
+		return true;
+	u16 bone;
+	if (RenderMode == RM_SINGLE)
+		bone = (u16)RMS_boneid;
+	else if (BonesUsed.size())
+		bone = BonesUsed[0];
+	else
+		return true;
+	return !!Parent->LL_GetBoneVisible(bone);
+}
+
 
 //-----------------------------------------------------------------------------------------------------
 // Wallmarks

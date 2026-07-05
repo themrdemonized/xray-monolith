@@ -11,6 +11,7 @@
 
 #include "fhierrarhyvisual.h"
 #include "SkeletonCustom.h"
+#include "SkeletonX.h"
 #include "../../xrEngine/fmesh.h"
 #include "flod.h"
 
@@ -334,7 +335,16 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 			float t = 0.f, rad = -1.f;
 			if (skip_ok && item.pMatrix)
 			{
-				Fvector c; item.pMatrix->transform_tiny(c, V->vis.sphere.P);
+				// skinned parts (addon scopes) sit at their bone, the rest-pose sphere lies elsewhere
+				Fmatrix W = *item.pMatrix;
+				CSkeletonX* sk = fast_dynamic_cast<CSkeletonX*>(V);
+				if (sk)
+				{
+					Fmatrix boneR;
+					if (sk->SVP_LensBoneXform(boneR))
+						W.mulB_43(boneR);
+				}
+				Fvector c; W.transform_tiny(c, V->vis.sphere.P);
 				Fvector ac; ac.sub(c, A);
 				t = ac.dotproduct(ax) / len2;
 				// radial distance to the axis LINE, the ocular stack (eyecup, rear housing) sits
