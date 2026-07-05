@@ -299,7 +299,7 @@ void CDSGraphManager::r_dsgraph_render_hud(bool _clear)
 }
 
 // pip drain only the weapon list into the scope image, the caller owns the view/projection
-bool g_svp_hud_skip_scope = false; // full-barrel mode drops the scope body so the near plane can sit at the eye
+int g_svp_hud_skip_scope = 0; // hud_full mode: 1 drops the scope body, 2 also drops pieces fully behind the front lens
 float g_svp_hud_front_m = 0.f; // scope-body front extent along the axis from the eyepiece (m), clip-ons push it past the objective
 void CDSGraphManager::r_dsgraph_render_hud_svp()
 {
@@ -366,6 +366,11 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 					(clipon || ((t > -0.6f && t < 1.4f) && (rad < rcyl || wrap)));
 				if (drop)
 					front = _max(front, t * tube + R);
+				// mode 2: a scope sees nothing behind its front lens, drop pieces wholly behind
+				// the plane (lasers, rear attachments), pieces spanning it (barrel) render whole
+				if (!drop && g_svp_hud_skip_scope >= 2 &&
+					(t * tube + R) < _max(tube, g_svp_hud_front_m))
+					drop = true;
 			}
 			if (diag)
 			{

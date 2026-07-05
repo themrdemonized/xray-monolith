@@ -938,19 +938,19 @@ void CRender::renderGBuffer(bool clearGraph)
 					near_obj = _max(near_obj, ec.magnitude() + g_svp_hud_front_m);
 				}
 				if (near_obj < 0.10f) near_obj = 0.10f;
-				// full-barrel 1: skip the scope body and pull the near plane to the eye, the near-blur
-				// eats the close mass. 2 (default): see FROM the entrance pupil, the camera slides to
-				// the front plane so nothing behind the front lens can render and the barrel ahead
-				// keeps its full mesh (no cut plane). thermals read the gbuffer, front-plane clip
+				// full-barrel from the eye, near-blur eats the close mass, no cut plane. mode 2
+				// (default) also drops every piece wholly behind the front lens in the piece scan
+				// (lasers, rear attachments), spanning pieces (barrel, rail) render whole.
+				// thermals read the gbuffer, hard front-plane clip
 				extern int ps_r__svp_hud_full;
 				extern float ps_r__svp_near_blur;
-				extern bool g_svp_hud_skip_scope;
+				extern int g_svp_hud_skip_scope;
 				extern Fvector4 ps_s3ds_param_3;
 				const bool thermal = ps_s3ds_param_3.x >= 1.5f;
 				const bool hud_full = ps_r__svp_hud_full && !thermal
 					&& (ps_r__svp_hud_full >= 2 || ps_r__svp_near_blur > 0.01f)
 					&& vp.objective.radius > EPS;
-				if (hud_full && ps_r__svp_hud_full == 1)
+				if (hud_full)
 					near_obj = 0.08f;
 				// mode 2 = the world fov (barrel magnifies with the wheel), mode 1 window =
 				// tan(hud/2)/ratio, a 1:1 continuation of the outside hud render
@@ -1003,30 +1003,16 @@ void CRender::renderGBuffer(bool clearGraph)
 							Fvector nudge; nudge.set(r); nudge.mul(k * ed.magnitude());
 							at.add(nudge);
 						}
-						// mode 2: slide the camera up the (nudged) aim ray to the front plane,
-						// the cut cross-section lands at the camera where it never shows
-						Fvector pos = vp.svp_cam_pos;
-						if (hud_full && ps_r__svp_hud_full >= 2 && near_obj > 0.11f)
-						{
-							Fvector dir; dir.sub(at, pos);
-							if (dir.magnitude() > EPS)
-							{
-								dir.normalize();
-								pos.mad(dir, near_obj);
-								at.set(pos); at.add(dir);
-								near_obj = 0.08f;
-							}
-						}
-						hud_view.build_camera(pos, at, vp.eyepiece.m_W.j);
+						hud_view.build_camera(vp.svp_cam_pos, at, vp.eyepiece.m_W.j);
 					}
 				}
 				Fmatrix hud_proj;
 				hud_proj.build_projection(hud_fov, vp.svp_aspect, near_obj, vp.svp_far);
 				RCache.set_xform_view(hud_view);
 				RCache.set_xform_project(hud_proj);
-				g_svp_hud_skip_scope = hud_full;
+				g_svp_hud_skip_scope = hud_full ? ps_r__svp_hud_full : 0;
 				GMBase.r_dsgraph_render_hud_svp();
-				g_svp_hud_skip_scope = false;
+				g_svp_hud_skip_scope = 0;
 				RCache.set_xform_view(Device.matrices[1].mView);
 				RCache.set_xform_project(Device.matrices[1].mProject);
 			}
