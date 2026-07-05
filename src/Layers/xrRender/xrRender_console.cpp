@@ -296,12 +296,11 @@ int scope_svp_enabled = 0; // true PiP second viewport scope (0 off, 1 eyepiece,
 float ps_r__svp_render_scale = 1.0f; // SVP render scale, 1.0 keeps the dwHeight/2 per side
 float ps_r__svp_supersample = 1.0f; // SVP supersample: render the SVP square larger so the eyepiece downsamples it (SSAA), 1.0 = off, 2.0 = 4x SVP pixels
 int ps_r__svp_diag = 0; // SVP perf diagnostics: throttled log of [SVP-RES] over-render ratio + [SVP-ALLOC] target size while scoped, 0 = off
-int ps_r__svp_cop_diag = 0; // svp throttled [SVPCOP] log of the camera center-of-projection offset from the eye plus mag/lens geometry, 0 = off
+int ps_r__svp_cop_diag = 0; // svp optics diagnostics, 1 = throttled [SVPCOP]/[SVP-HUD]/[SVP-BARREL], 2 = adds the per-frame [SVP-AIM] reticle-vs-screen-center delta
 float ps_r__svp_adaptive_res = 1.2f; // adaptive SVP resolution: size the SVP render to the on-screen eyepiece disc * this margin. 0 = off (full svp_height), 1.0 = render exactly at the disc (sharpest, mild pan shimmer), 1.2 = keep ~1.2x SSAA. big oculars clamp to no-op
 float ps_r__svp_lod = 0.0f; // SVP LOD reduction strength [0..1]: scale the scope's LOD selection to its true pixel coverage (coarser at low mag, capped at the main view so zoomed detail is never worse). 0 = off
 float ps_r__svp_cull_ssa = 4.0f; // SVP small-object cull strength: skip scope geometry below this * the LOD-out ssa, scaled by magnification (tiny distant clutter at low mag). 0 = off, higher = more aggressive
 int ps_r__svp_dlss = 0; // SVP DLSS-SR master gate, 0 = stock (render_scale inert), nonzero = scaffolding active
-float ps_r__svp_stabilize = 0.0f; // SVP sway reduction, blends the CAPTURE camera toward aim, 0 = full sway (gc64 default, image tracks the raw-mesh reticle), 1 = tracks aim (steadier image but the reticle drifts vs the image under sway). opt-in
 int ps_r__truepip_recoil = 1;        // gate the SCRIPT recoil mod (grok_bo_enhanced_recoil): 0 normal, 1 off in true-PiP (default), 2 off always, base engine recoil untouched
 // svpscope 2 geometric objective (single-lens scopes have no distinct front lens to capture, derive it
 // along the optical axis from the eyepiece), lengths are in eyepiece radii (the only mesh-scale-robust
@@ -310,9 +309,12 @@ float ps_r__svp_obj_dist = 1.0f;     // svpscope 2 objective: scale on the AUTO 
 float ps_r__svp_obj_size = 0.65f;    // svpscope 2 objective radius = eyepiece_radius * this (eyepiece-relative, one global knob across all scopes)
 int ps_r__svp_roll_stabilize = 0; // svp level the scope world on lean/cant (0 = realistic image tilts with the cant, default; 1 = leveled)
 int ps_r__svp_clean_optics = 1; // svp strip the 3DSS fake cosmetics (parallax shadow, chromatism, nvg blur, fisheye) for a clean scope (1 = stripped, default; 0 = full 3DSS look)
-int ps_r__svp_near_eye = 1; // svp render the scope from the main eye center of projection so inside and outside share one viewpoint (0 = camera on the ocular/objective)
-float ps_r__svp_eyebox_lag = 0.035f; // svp eyebox eye catch-up time in seconds, bigger = heavier eye = more shadow on fast moves, 0 = eyebox off
-float ps_r__svp_eyebox_dark = 0.9f; // svp eyebox shadow opacity on small eye drift, it only goes opaque when the eye loses the lens
+int ps_r__svp_reticle_precise = 0; // svp ST_PIP_PRECISE settings bit for reticle shaders (experimental, 0 = off)
+int ps_r__svp_boresight = 0; // svp auto-boresight onto the ballistic point (opt-in, 0 = raw authored pose)
+int ps_r__svp_hud_fov_match = 2; // svp barrel mapping: 2 magnifies with the wheel, 1 fixed 1:1 window, 0 legacy
+float ps_r__svp_near_blur = 1.0f; // svp near-field defocus strength on the scope image (svpscope 2, 0 = off)
+float ps_r__svp_hud_sway_comp = 1.0f; // svp magnified-barrel sway compensation (0 = raw physical)
+int ps_r__svp_hud_full = 1; // svp full-barrel, skip the scope body and pull the near plane to the eye (0 = clip at the objective)
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_dof = 0; // svp skip the scope-internal dof pass, main dof still covers the composited lens (0 = current doubled behavior)
@@ -1415,20 +1417,22 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__svp_render_scale", &ps_r__svp_render_scale, 0.4f, 1.0f); // takes effect on vid_restart
 	CMD4(CCC_Float, "r__svp_supersample", &ps_r__svp_supersample, 1.0f, 2.0f); // SSAA the magnified scope image, 1.0 = off (4x SVP cost at 2.0)
 	CMD4(CCC_Integer, "r__svp_diag", &ps_r__svp_diag, 0, 1); // SVP perf diagnostics log (0 = off)
-	CMD4(CCC_Integer, "r__svp_cop_diag", &ps_r__svp_cop_diag, 0, 1); // svp camera optics geometry log (0 = off)
+	CMD4(CCC_Integer, "r__svp_cop_diag", &ps_r__svp_cop_diag, 0, 2); // svp optics log (1 = throttled, 2 = + per-frame [SVP-AIM])
 	CMD4(CCC_Float, "r__svp_adaptive_res", &ps_r__svp_adaptive_res, 0.0f, 2.0f); // size SVP render to the eyepiece disc * margin (0 = off, 1.2 recommended)
 	CMD4(CCC_Float, "r__svp_lod", &ps_r__svp_lod, 0.0f, 1.0f); // SVP LOD reduction strength (0 = off)
 	CMD4(CCC_Float, "r__svp_cull_ssa", &ps_r__svp_cull_ssa, 0.0f, 8.0f); // SVP small-object cull strength (0 = off)
 	CMD4(CCC_Integer, "r__svp_dlss", &ps_r__svp_dlss, 0, 1); // SVP DLSS-SR scaffolding gate, 0 = stock
-	CMD4(CCC_Float, "r__svp_stabilize", &ps_r__svp_stabilize, 0.0f, 1.0f); // SVP sway reduction, 0 = full sway, 1 = tracks aim
 	CMD4(CCC_Integer, "r__truepip_recoil", &ps_r__truepip_recoil, 0, 2); // script recoil gate: 0 normal, 1 off in true-PiP, 2 off always
 	CMD4(CCC_Float, "r__svp_obj_dist", &ps_r__svp_obj_dist, 0.0f, 3.0f); // svpscope 2 objective: scale on the auto geomscan front distance
 	CMD4(CCC_Float, "r__svp_obj_size", &ps_r__svp_obj_size, 0.1f, 6.0f); // svpscope 2 geometric objective: objective radius (eyepiece radii)
 	CMD4(CCC_Integer, "r__svp_roll_stabilize", &ps_r__svp_roll_stabilize, 0, 1); // svp keep the scope world level on lean/cant (0 = realistic image-tilts-with-cant)
 	CMD4(CCC_Integer, "r__svp_clean_optics", &ps_r__svp_clean_optics, 0, 1); // strip 3DSS fake cosmetics (parallax shadow/chromatism/nvg blur/fisheye), 0 = full look
-	CMD4(CCC_Integer, "r__svp_near_eye", &ps_r__svp_near_eye, 0, 1); // svp near-eye camera (shared eye COP), 0 = camera on the lens
-	CMD4(CCC_Float, "r__svp_eyebox_lag", &ps_r__svp_eyebox_lag, 0.0f, 0.2f); // svp eyebox eye catch-up time seconds (0 = off)
-	CMD4(CCC_Float, "r__svp_eyebox_dark", &ps_r__svp_eyebox_dark, 0.0f, 1.0f); // svp eyebox soft-drift shadow opacity
+	CMD4(CCC_Integer, "r__svp_reticle_precise", &ps_r__svp_reticle_precise, 0, 1); // svp precise reticle center (0 = old cotangent)
+	CMD4(CCC_Integer, "r__svp_boresight", &ps_r__svp_boresight, 0, 1); // svp auto-boresight (0 = raw authored pose)
+	CMD4(CCC_Integer, "r__svp_hud_fov_match", &ps_r__svp_hud_fov_match, 0, 2); // svp barrel mapping: 2 magnified, 1 window, 0 legacy
+	CMD4(CCC_Float, "r__svp_near_blur", &ps_r__svp_near_blur, 0.0f, 3.0f); // svp near-field defocus strength (0 = off)
+	CMD4(CCC_Float, "r__svp_hud_sway_comp", &ps_r__svp_hud_sway_comp, 0.0f, 1.0f); // svp magnified-barrel sway comp (0 = raw physical)
+	CMD4(CCC_Integer, "r__svp_hud_full", &ps_r__svp_hud_full, 0, 1); // svp full-barrel (0 = clip at the objective)
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_dof", &ps_r__svp_skip_dof, 0, 1); // svp scope-internal dof once-only gate

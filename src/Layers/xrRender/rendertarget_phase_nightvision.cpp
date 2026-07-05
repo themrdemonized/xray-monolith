@@ -211,6 +211,7 @@ void CRenderTarget::EnsureScopeShaders()
 	s_scope_color_write.create("scope_color_write");
 	s_scope_depth_write.create("scope_depth_write");
 	s_scope_debug.create("scope_debug");
+	s_svp_nearblur.create("svp_nearblur");
 	m_scope_shaders_ready = true;
 }
 
@@ -308,6 +309,43 @@ void CRenderTarget::phase_svp_capture()
 		EvalSVP_DLSS(in);
 		return;
 	}
+	// pip near-field defocus replaces the plain copy in the realism mode, thermal sensors keep
+	// full depth of field so they take the plain copy
+	extern float ps_r__svp_near_blur;
+	extern Fvector4 ps_s3ds_param_3;
+	if (ps_r__svp_near_blur > 0.01f && scope_svp_enabled >= 2 && ps_s3ds_param_3.x < 1.5f
+		&& rt_Position && rt_secondVP->pRT)
+	{
+		EnsureScopeShaders();
+		if (s_svp_nearblur)
+		{
+			{
+				ref_texture t; t.create("$user$svp_nearblur_src");
+				t->surface_set(rt_Generic_0->pSurface);
+			}
+			{
+				ref_texture t; t.create("$user$svp_nearblur_pos");
+				t->surface_set(rt_Position->pSurface);
+			}
+			u_setrt(Width, Height, rt_secondVP->pRT, nullptr, nullptr, nullptr);
+			const float w = float(Width), h = float(Height);
+			u32 Offset = 0;
+			const float d_Z = EPS_S, d_W = 1.f;
+			const u32 C = color_rgba(255, 255, 255, 255);
+			FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(3, g_combine->vb_stride, Offset);
+			pv->set(0, h * 2, d_Z, d_W, C, 0.f, 2.f); pv++;
+			pv->set(0, 0, d_Z, d_W, C, 0.f, 0.f); pv++;
+			pv->set(w * 2, 0, d_Z, d_W, C, 2.f, 0.f); pv++;
+			RCache.Vertex.Unlock(3, g_combine->vb_stride);
+			RCache.set_Geometry(g_combine);
+			RCache.set_Element(s_svp_nearblur->E[1]);
+			// set_c is stateful, screen_res must be the SVP dims for the SV_Position uv
+			RCache.set_c("screen_res", w, h, 1.f / w, 1.f / h);
+			RCache.set_c("svp_nearblur_params", 2.5f, 0.8f, h * 0.02f * ps_r__svp_near_blur, 1.f);
+			RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
+			return;
+		}
+	}
 	// rt_secondVP alpha is garbage (nothing writes it) and must stay UNREAD, the scope shaders sample
 	// .rgb only and the lens composite blends srcalpha with its OWN forced o.a, never the source alpha
 	HW.pContext->CopyResource(rt_secondVP->pSurface, rt_Generic_0->pSurface);
@@ -372,10 +410,15 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
 		const Fvector& w_sfp = Device.m_SecondViewport.w_sfp;
 		RCache.set_c("scope_w_ffp", w_ffp.x, w_ffp.y, w_ffp.z, 1.0f);
 		RCache.set_c("scope_w_sfp", w_sfp.x, w_sfp.y, w_sfp.z, 1.0f);
-		// pip eyebox: eye drift (exit pupil radii) + soft-drift opacity for the patched 3DSS shadow
-		extern float ps_r__svp_eyebox_dark;
-		const Fvector2& drift = Device.m_SecondViewport.svp_eyebox_drift;
-		RCache.set_c("svp_eyebox", drift.x, drift.y, ps_r__svp_eyebox_dark, 0.f);
+		// pip reticle collimator geometry 2*ocular_radius/eye_distance, the shader rebuilds the
+		// authored reticle magnification as a centered field under true PiP
+		{
+			Fvector ed; ed.sub(Device.m_SecondViewport.eyepiece.m_W.c, Device.vCameraPosition);
+			const float dist = _max(ed.magnitude(), 0.02f);
+			float kg = 2.f * Device.m_SecondViewport.eyepiece.radius / dist;
+			clamp(kg, 0.02f, 3.f);
+			RCache.set_c("svp_optics", kg, 0.f, 0.f, 0.f);
+		}
 
 		bind();
 		V->Render(0);

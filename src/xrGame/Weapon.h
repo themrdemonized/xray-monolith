@@ -93,13 +93,14 @@ public:
 	IC float GetZRotatingFactor()    const { return m_zoom_params.m_fZoomRotationFactor; }
 	// pip when scope_svp_enabled the SVP zoom comes from the live zoom factor, else the legacy scope_lense_fov key
 	IC float GetSecondVPZoomFactor() const { return scope_svp_enabled ? GetZoomFactor() : m_zoom_params.m_fSecondVPFovFactor; }
-	// pip on -> require a real captured scope lens, off -> the legacy fake-SVP presence test, unchanged
+	// pip on -> a real captured ocular is the presence signal, zoom-0 tube sights (1x thermal/nv)
+	// re-image at 1x instead of falling to the fake screen-window path. off -> legacy test, unchanged
 	float IsSecondVPZoomPresent()
 	{
 		if (!scope_svp_enabled)
 			return GetSecondVPZoomFactor() > 0.005f;
 		Fmatrix tmp;
-		return GetSecondVPZoomFactor() > 0.005f && GetSVPCameraMatrix(tmp);
+		return GetSVPCameraMatrix(tmp);
 	}
 
 	// Up

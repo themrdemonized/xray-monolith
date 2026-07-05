@@ -143,10 +143,11 @@ static void svp_apply_jitter(Fmatrix& proj, Fvector2 px, float w, float h)
 void svpCamera()
 {
 	float svp_fov = g_pGamePersistent->m_pGShaderConstants->hud_params.y * 0.75f;
-	// pip floor svp_fov: a near-0 value blows up the vFov/offset tan() math
-	if (svp_fov < 1.0f) svp_fov = 1.0f;
 	float _, fov, fNearPlane, fFarPlane;
 	Device.matrices[0].mProject.decompose_projection(fov, _, fNearPlane, fFarPlane);
+	// a zoom-0 tube sight (1x thermal/nv) has no zoom fov and re-images at 1x, the near-0 value
+	// would also blow up the vFov/offset tan() math
+	if (svp_fov < 1.0f) svp_fov = rad2deg(fov);
 
 
 	auto mm = Device.matrices[0];
@@ -188,32 +189,14 @@ void svpCamera()
 	// the fov we render at to get the correct zoom
 	float vFov = 2.0f * atan(tan(fov * 0.5f) / (ratio_magnification * scope_magnification));
 
-	// the fov for camera placement
-	float vFovMagOnly = 2.0f * atan(tan(fov * 0.5f) / scope_magnification);
-
-	auto camera_offset_from_vfov_and_radius = [](float vFov, float radius) -> float {
-		return radius / tan(vFov / 2.0f);
-	};
-
 	auto near_plane = fNearPlane;
-	auto m_W_svpcam = params.eyepiece.m_W; // default place the camera on the eyepiece
-	if (scope_svp_enabled >= 2 && params.objective.radius > EPS)
-	{
-		// place the camera for the objective lens
-		auto d = camera_offset_from_vfov_and_radius(vFovMagOnly, params.eyepiece.radius * 1.4f);
-		m_W_svpcam = Fmatrix().mul(params.objective.m_W, Fmatrix().translate(0, 0, -d));
-		near_plane = d;
-	}
-
-	// pip near-eye camera: render the scope from the main eye center of projection so the magnified
-	// image shares the eye viewpoint, orientation stays the optical axis
-	extern int ps_r__svp_near_eye;
-	if (ps_r__svp_near_eye)
+	auto m_W_svpcam = params.eyepiece.m_W; // svpscope 1 places the camera on the eyepiece
+	// svpscope 2: scope rendered from the eye center of projection, orientation stays the
+	// optical axis, near-field parallax matches the outside view
+	if (scope_svp_enabled >= 2)
 	{
 		Fmatrix eyeW; eyeW.invert(Device.matrices[0].mView);
-		m_W_svpcam = params.eyepiece.m_W;
-		m_W_svpcam.c.set(eyeW.c); // true eye position, near-field parallax matches the outside view
-		near_plane = fNearPlane;
+		m_W_svpcam.c.set(eyeW.c);
 	}
 
 	// pip roll_stabilize: level the SVP camera to world up so a canted scope renders upright (0 = realistic tilt)
@@ -236,7 +219,6 @@ void svpCamera()
 		}
 	}
 
-	// pip stabilization/recoil-comp run in deriveScopeLens so the camera and disc sampling stay consistent
 
 	auto aspect = RImplementation.TargetSVP->Width / RImplementation.TargetSVP->Height; // square == 1
 
@@ -275,47 +257,6 @@ void svpCamera()
 		vp.svp_fwd = m_W_svpcam.k;
 	}
 
-	// pip eyebox eye follower: a virtual eye chases the exit pupil in view space with a critically
-	// damped spring, the lag in exit pupil radii is the shader eye-drift (the svp_eyebox constant)
-	{
-		extern float ps_r__svp_eyebox_lag;
-		extern Fvector4 ps_s3ds_param_1;
-		static Fvector s_eye = {0, 0, 0}, s_vel = {0, 0, 0};
-		static u32 s_frame = 0;
-		// the exit pupil sits one real eye relief behind the ocular along the optical axis
-		const float er_m = (ps_s3ds_param_1.y > 0.01f) ? ps_s3ds_param_1.y * 0.01f : 0.04f;
-		Fvector ax; ax.set(params.eyepiece.m_W.k); ax.normalize();
-		Fvector exit_w; exit_w.set(params.eyepiece.m_W.c); exit_w.mad(ax, -er_m);
-		Fvector p; Device.matrices[0].mView.transform_tiny(p, exit_w);
-		float dt = Device.fTimeDelta;
-		if (dt > 0.1f) dt = 0.1f;
-		const bool fresh = (Device.dwFrame != s_frame + 1);
-		s_frame = Device.dwFrame;
-		if (fresh || ps_r__svp_eyebox_lag <= 0.001f || dt <= 0.f)
-		{
-			// snap on ADS-in or with the eyebox off so raising the scope never flashes
-			s_eye.set(p);
-			s_vel.set(0.f, 0.f, 0.f);
-			params.svp_eyebox_drift.set(0.f, 0.f);
-		}
-		else
-		{
-			const float w = 2.f / ps_r__svp_eyebox_lag;
-			const float ex = expf(-w * dt);
-			Fvector x0; x0.sub(s_eye, p);
-			Fvector tmp; tmp.set(s_vel); tmp.mad(x0, w); tmp.mul(dt);
-			Fvector xt; xt.set(x0); xt.add(tmp);
-			s_eye.set(p); s_eye.mad(xt, ex);
-			s_vel.mad(tmp, -w); s_vel.mul(ex);
-			// normalize the lateral lag by the real per-scope exit pupil radius
-			const float xp = (ps_s3ds_param_1.z > 0.01f) ? ps_s3ds_param_1.z : 0.3f;
-			const float ocular_r = (params.eyepiece.radius > EPS) ? params.eyepiece.radius : 0.014f;
-			const float pupil_r = ocular_r * xp;
-			Fvector lag; lag.sub(s_eye, p);
-			params.svp_eyebox_drift.set(lag.x / pupil_r, lag.y / pupil_r);
-		}
-	}
-
 	// pip optics diagnostic: throttled [SVPCOP] log of the camera center-of-projection offset from the
 	// eye, settled frames only (ADS transitions blow up ratio_magnification)
 	extern int ps_r__svp_cop_diag;
@@ -338,12 +279,100 @@ void svpCamera()
 			Fvector lat_v; lat_v.sub(d, fwd_v);
 			Fvector eyefwd; eyefwd.set(params.eyepiece.m_W.k); eyefwd.normalize();
 			Fvector od; od.sub(params.objective.m_W.c, params.eyepiece.m_W.c);
-			extern int ps_r__svp_near_eye;
-			Msg("[SVPCOP] mode=%d ne=%d mag=%.3f eff=%.3f min=%.3f max=%.3f ratio=%.3f svpfov=%.2f vfov=%.2f cop_cm=%.2f fwd_cm=%.2f lat_cm=%.2f eye_r_cm=%.2f obj_fwd_cm=%.2f obj_r_cm=%.2f drift=%.3f",
-				scope_svp_enabled, ps_r__svp_near_eye, scope_magnification, eff_mag, g_pip_scope_min_mag, g_pip_scope_max_mag, ratio_magnification,
+			// signed scope cant vs world up, proves whether lean actually rolls the weapon on a rig
+			float cant = 0.f;
+			{
+				Fvector jup; jup.set(params.eyepiece.m_W.j); jup.normalize();
+				Fvector lvl; lvl.set(0.f, 1.f, 0.f); lvl.mad(eyefwd, -lvl.dotproduct(eyefwd));
+				if (lvl.magnitude() > EPS)
+				{
+					lvl.normalize();
+					Fvector cx; cx.crossproduct(lvl, jup);
+					cant = rad2deg(atan2f(cx.dotproduct(eyefwd), lvl.dotproduct(jup)));
+				}
+			}
+			Msg("[SVPCOP] mode=%d mag=%.3f eff=%.3f min=%.3f max=%.3f ratio=%.3f svpfov=%.2f vfov=%.2f cop_cm=%.2f fwd_cm=%.2f lat_cm=%.2f eye_r_cm=%.2f obj_fwd_cm=%.2f obj_r_cm=%.2f cant=%.1f",
+				scope_svp_enabled, scope_magnification, eff_mag, g_pip_scope_min_mag, g_pip_scope_max_mag, ratio_magnification,
 				svp_fov, rad2deg(vFov), d.magnitude() * 100.f, fwd * 100.f, lat_v.magnitude() * 100.f,
 				params.eyepiece.radius * 100.f, od.dotproduct(eyefwd) * 100.f, params.objective.radius * 100.f,
-				sqrtf(params.svp_eyebox_drift.x * params.svp_eyebox_drift.x + params.svp_eyebox_drift.y * params.svp_eyebox_drift.y));
+				cant);
+
+			// barrel-continuity probe: one weapon-fixed point (the objective) through both pipelines,
+			// a steady delta while sway swings = static projection mismatch, delta tracking sway = lag
+			if (params.svp_disc_px > 1.f && params.svp_fov > EPS)
+			{
+				auto to_px = [](const Fvector& w, const Fmatrix& v, const Fmatrix& pr, float W, float H, Fvector2& o) -> bool {
+					Fmatrix vpm; vpm.mul(pr, v);
+					Fvector4 c; vpm.transform(c, {w.x, w.y, w.z, 1});
+					if (c.w < EPS) return false;
+					o.set((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
+					return true;
+				};
+				float dt_cd = camdir.dotproduct(eyefwd);
+				clamp(dt_cd, -1.f, 1.f);
+				const float sway = rad2deg(acosf(dt_cd));
+				float hud_fov_d = params.svp_fov;
+				extern int ps_r__svp_hud_fov_match;
+				if (ps_r__svp_hud_fov_match == 1 && g_pip_scope_ratio > EPS)
+				{
+					float hf, _a2, _n2, _f2;
+					Device.matrices[0].mProjectHud.decompose_projection(hf, _a2, _n2, _f2);
+					if (hf > EPS) hud_fov_d = 2.f * atanf(tanf(hf * 0.5f) / g_pip_scope_ratio);
+				}
+				Fmatrix hp; hp.build_projection(hud_fov_d, params.svp_aspect, 0.10f, params.svp_far);
+				Fmatrix hv = Device.matrices[1].mView;
+				Fvector hvd; hvd.sub(params.eyepiece.m_W.c, m_W_svpcam.c);
+				if (ps_r__svp_hud_fov_match && hvd.magnitude() > 0.01f)
+					hv.build_camera(m_W_svpcam.c, params.eyepiece.m_W.c, params.eyepiece.m_W.j);
+				Fvector2 px_out, uv_in, px_disc;
+				if (to_px(params.objective.m_W.c, Device.matrices[0].mView, Device.matrices[0].mProjectHud, float(Device.dwWidth), float(Device.dwHeight), px_out)
+					&& to_px(params.objective.m_W.c, hv, hp, 1.f, 1.f, uv_in)
+					&& to_px(params.eyepiece.m_W.c, Device.matrices[0].mView, Device.matrices[0].mProjectHud, float(Device.dwWidth), float(Device.dwHeight), px_disc))
+				{
+					const float bx = px_disc.x + (uv_in.x - 0.5f) * params.svp_disc_px;
+					const float by = px_disc.y + (uv_in.y - 0.5f) * params.svp_disc_px;
+					Msg("[SVP-BARREL] sway=%.2fdeg fovmatch=%d out=(%.0f,%.0f) in=(%.0f,%.0f) delta=(%.0f,%.0f)px",
+						sway, ps_r__svp_hud_fov_match, px_out.x, px_out.y, bx, by, bx - px_out.x, by - px_out.y);
+				}
+			}
+		}
+	}
+
+	// pip [SVP-AIM] per-frame reticle-vs-screen-center delta (r__svp_cop_diag 2): the reticle rides
+	// the optic (disc center), bullets follow the camera ray to the screen center, d = the live gap
+	if (ps_r__svp_cop_diag >= 2 && params.eyepiece.radius > EPS)
+	{
+		Fmatrix vpm; vpm.mul(Device.matrices[0].mProjectHud, Device.matrices[0].mView);
+		Fvector4 rc; vpm.transform(rc, {params.eyepiece.m_W.c.x, params.eyepiece.m_W.c.y, params.eyepiece.m_W.c.z, 1});
+		if (rc.w > EPS)
+		{
+			const float rx = (rc.x / rc.w * 0.5f + 0.5f) * float(Device.dwWidth);
+			const float ry = (0.5f - rc.y / rc.w * 0.5f) * float(Device.dwHeight);
+			const float dx = rx - float(Device.dwWidth) * 0.5f;
+			const float dy = ry - float(Device.dwHeight) * 0.5f;
+			Msg("[SVP-AIM] reticle=(%.1f,%.1f) d=(%.1f,%.1f)px |d|=%.1f", rx, ry, dx, dy, sqrtf(dx * dx + dy * dy));
+		}
+
+		// visual confirm for the same question: GREEN cross = the ballistic point (the camera ray,
+		// where bullets go), RED cross = the scope reticle center (the optic), both hud-projected
+		{
+			Fmatrix eyeW2; eyeW2.invert(Device.matrices[0].mView);
+			Fvector fwd; fwd.set(eyeW2.k); fwd.normalize();
+			Fvector ex; ex.sub(params.eyepiece.m_W.c, eyeW2.c);
+			const float depth = ex.magnitude();
+			Fvector ctr; ctr.set(eyeW2.c); ctr.mad(fwd, depth);
+			const float s = depth * 0.02f;
+			auto cross = [&](const Fvector& p, u32 color) {
+				Fvector a, b;
+				a.set(p); a.mad(eyeW2.i, -s); b.set(p); b.mad(eyeW2.i, s);
+				Fvector v1[2] = { a, b }; u16 i1[2] = { 0, 1 };
+				DRender->add_lines(v1, 2, i1, 1, color, true);
+				a.set(p); a.mad(eyeW2.j, -s); b.set(p); b.mad(eyeW2.j, s);
+				Fvector v2[2] = { a, b }; u16 i2[2] = { 0, 1 };
+				DRender->add_lines(v2, 2, i2, 1, color, true);
+			};
+			cross(ctr, 0xff00ff00);
+			cross(params.eyepiece.m_W.c, 0xffff0000);
 		}
 	}
 
@@ -354,18 +383,21 @@ void svpCamera()
 		{
 			s_cfg_logged = true;
 			extern float ps_r__svp_render_scale, ps_r__svp_supersample, ps_r__svp_adaptive_res, ps_r__svp_lod,
-				ps_r__svp_cull_ssa, ps_r__svp_stabilize, ps_r__svp_obj_dist, ps_r__svp_obj_size,
-				ps_r__svp_eyebox_lag, ps_r__svp_eyebox_dark;
+				ps_r__svp_cull_ssa, ps_r__svp_obj_dist, ps_r__svp_obj_size,
+				ps_r__svp_near_blur, ps_r__svp_hud_sway_comp;
 			extern int ps_r__svp_dlss, ps_r__svp_cull, ps_r__svp_cull_grass, ps_r__svp_skip_grass,
 				ps_r__svp_skip_motionblur, ps_r__svp_skip_ssr, ps_r__svp_skip_volumetric, ps_r__svp_sss_sun,
 				ps_r__svp_clean_optics, ps_r__truepip_recoil;
 			extern int ps_r__svp_roll_stabilize;
-			Msg("[SVP-CFG] build %s mode=%d ne=%d clean=%d roll=%d stab=%.2f scale=%.2f ss=%.2f ares=%.2f lod=%.2f cull=%d ssa=%.1f cullgrass=%d skipgrass=%d skipmb=%d skipssr=%d skipvol=%d sss=%d objd=%.2f objs=%.2f lag=%.3f dark=%.2f dlss=%d recoil=%d",
-				__DATE__, scope_svp_enabled, ps_r__svp_near_eye, ps_r__svp_clean_optics, ps_r__svp_roll_stabilize,
-				ps_r__svp_stabilize, ps_r__svp_render_scale, ps_r__svp_supersample, ps_r__svp_adaptive_res,
+			extern int ps_r__svp_hud_fov_match;
+			extern int ps_r__svp_hud_full;
+			extern int ps_r__svp_reticle_precise;
+			Msg("[SVP-CFG] build %s mode=%d fovm=%d hfull=%d nblur=%.1f swc=%.1f clean=%d prec=%d bs=%d roll=%d scale=%.2f ss=%.2f ares=%.2f lod=%.2f cull=%d ssa=%.1f cullgrass=%d skipgrass=%d skipmb=%d skipssr=%d skipvol=%d sss=%d objd=%.2f objs=%.2f dlss=%d recoil=%d",
+				__DATE__, scope_svp_enabled, ps_r__svp_hud_fov_match, ps_r__svp_hud_full, ps_r__svp_near_blur, ps_r__svp_hud_sway_comp, ps_r__svp_clean_optics, ps_r__svp_reticle_precise, ps_r__svp_boresight, ps_r__svp_roll_stabilize,
+				ps_r__svp_render_scale, ps_r__svp_supersample, ps_r__svp_adaptive_res,
 				ps_r__svp_lod, ps_r__svp_cull, ps_r__svp_cull_ssa, ps_r__svp_cull_grass, ps_r__svp_skip_grass,
 				ps_r__svp_skip_motionblur, ps_r__svp_skip_ssr, ps_r__svp_skip_volumetric, ps_r__svp_sss_sun,
-				ps_r__svp_obj_dist, ps_r__svp_obj_size, ps_r__svp_eyebox_lag, ps_r__svp_eyebox_dark,
+				ps_r__svp_obj_dist, ps_r__svp_obj_size,
 				ps_r__svp_dlss, ps_r__truepip_recoil);
 		}
 	}
@@ -412,9 +444,48 @@ static xr_vector<Fvector4> g_pip_hud_geom; // pip diag: snapshot of HUD geometry
 
 void CRender::deriveScopeLens()
 {
+	// multi-lens weapons carry several scope-lens meshes (markswitch variants, addon + builtin),
+	// pick the aimed one (nearest the camera ray), plain iteration latched whichever came last
+	const void* best = nullptr;
+	{
+		float best_score = 1e9f;
+		const Fvector cam_p = Device.vCameraPosition;
+		const Fvector cam_f = Device.vCameraDirection;
+		for (auto& N : GMBase.RGraph.mapScopeHUDSorted)
+		{
+			if (!N.pVisual || !N.pMatrix)
+				continue;
+			Fmatrix lensX = *N.pMatrix;
+			CSkeletonX* sk = fast_dynamic_cast<CSkeletonX*>(N.pVisual);
+			if (sk)
+			{
+				Fmatrix boneR;
+				if (sk->SVP_LensBoneXform(boneR))
+					lensX.mulB_43(boneR);
+			}
+			auto& V = N.pVisual->getVisData();
+			Fvector c; V.box.getcenter(c);
+			Fvector cw; lensX.transform_tiny(cw, c);
+			Fvector d; d.sub(cw, cam_p);
+			const float dist = d.magnitude();
+			if (dist < 0.01f)
+				continue;
+			d.div(dist);
+			const float fwd = d.dotproduct(cam_f);
+			if (fwd < 0.2f)
+				continue;
+			const float score = (1.f - fwd) + dist * 0.02f;
+			if (score < best_score)
+			{
+				best_score = score;
+				best = &N;
+			}
+		}
+	}
+
 	for (auto& N : GMBase.RGraph.mapScopeHUDSorted)
 	{
-		if (!N.pVisual || !N.pMatrix)
+		if (&N != best)
 			continue;
 
 		// a skinned scope lens is positioned by its bone, the captured matrix is only the kinematics
@@ -440,30 +511,8 @@ void CRender::deriveScopeLens()
 
 		if (p->eyepiece.radius > EPS)
 		{
-			// pip capture the true bore before stabilization reduces it (for the eye-box shadow)
-			p->svp_bore_fwd.set(p->eyepiece.m_W.k); p->svp_bore_fwd.normalize();
-
-			// pip steady-scope: blend the lens orientation toward aim to reduce magnified sway (off = 1:1)
-			if (ps_r__svp_stabilize > EPS)
-			{
-				const float keep = 1.0f - ps_r__svp_stabilize; // fraction of the real sway retained
-				Fvector aim; aim.set(Device.vCameraDirection); aim.normalize();
-				Fvector f; f.set(p->eyepiece.m_W.k); f.normalize();
-				f.lerp(aim, f, keep); f.normalize(); // blend bone forward toward aim
-				Fvector wup = {0.f, 1.f, 0.f}, right, up;
-				right.crossproduct(wup, f);
-				if (right.magnitude() > EPS_S)
-				{
-					right.normalize();
-					up.crossproduct(f, right); up.normalize();
-					p->eyepiece.m_W.i.set(right);
-					p->eyepiece.m_W.j.set(up);
-					p->eyepiece.m_W.k.set(f);
-				}
-			}
-
 			// pip objective: prefer the REAL front lens captured from the mesh (mapScopeHUDObjective)
-			// place it at the real front-lens position but along the (stabilized) optical axis so the
+			// place it at the real front-lens position but along the optical axis so the
 			// orientation stays consistent with the eyepiece, fall back to the legacy fixed offset only
 			// when the scope flags a single lens surface (objective == ocular)
 			// automatic objective distance (geomscan): scan the HUD geometry snapshot (taken before
@@ -472,7 +521,7 @@ void CRender::deriveScopeLens()
 			float geom_front = -1.f;
 			{
 				const Fvector eye = p->eyepiece.m_W.c;
-				Fvector axis; axis.set(p->svp_bore_fwd); axis.normalize();
+				Fvector axis; axis.set(p->eyepiece.m_W.k); axis.normalize();
 				const float rr = p->eyepiece.radius;
 				if (rr > EPS)
 				{
@@ -837,10 +886,12 @@ void CRender::renderGBuffer(bool clearGraph)
 			// keep the weapon list when an SVP pass follows, the scope image drains it second
 			GMBase.r_dsgraph_render_hud(clearGraph);
 
-			// pip derive the scope lens from the captured HUD, then build the SVP camera (matrices[1])
-			// so TargetSVP->SetActive can read it before the SVP pass, only while a PiP scope is aimed
+			// pip derive the scope lens then build the SVP camera (matrices[1]) while a PiP scope
+			// is aimed, zoom-0 tube sights have no zoom fov so ADS + a captured lens also qualifies
 			if (scope_svp_enabled && g_pGamePersistent &&
-				g_pGamePersistent->m_pGShaderConstants->hud_params.y > 0.005f)
+				(g_pGamePersistent->m_pGShaderConstants->hud_params.y > 0.005f
+					|| (g_pGamePersistent->m_pGShaderConstants->hud_params.x > 0.05f
+						&& !GMBase.RGraph.mapScopeHUDSorted.empty())))
 			{
 				deriveScopeLens();
 				if (Device.m_SecondViewport.eyepiece.radius > EPS && TargetSVP)
@@ -850,19 +901,93 @@ void CRender::renderGBuffer(bool clearGraph)
 		else if (svp_pass) // pip the weapon renders through the scope at low mag, one unit inside and out
 		{
 			extern float g_pip_scope_magnification;
+			extern float g_pip_scope_ratio;
+			extern int ps_r__svp_hud_fov_match;
 			auto& vp = Device.m_SecondViewport;
-			// high mag would show a sharp muzzle a real scope defocuses away, so gate to low power
-			if (g_pip_scope_magnification < 3.0f && vp.eyepiece.radius > EPS)
+			// svpscope 2 only. mode 2 leaves the narrowing cone naturally at mag, the window
+			// modes need the low-power gate (a 1:1 barrel never leaves)
+			const float eff_mag = g_pip_scope_ratio * g_pip_scope_magnification;
+			const bool barrel_mag = (ps_r__svp_hud_fov_match >= 2);
+			if (scope_svp_enabled >= 2 && (barrel_mag || eff_mag < 3.0f) && vp.eyepiece.radius > EPS)
 			{
 				// a scope only sees forward of its entrance pupil, the near plane at the objective
 				// clips the tube/receiver/hands and leaves the barrel and attachments
 				Fvector od; od.sub(vp.objective.m_W.c, vp.svp_cam_pos);
 				float near_obj = od.magnitude();
 				if (near_obj < 0.10f) near_obj = 0.10f;
+				// full-barrel: skip the scope body meshes and pull the near plane to the eye, the
+				// near-blur eats the close mass. thermals read the gbuffer, keep the objective clip
+				extern int ps_r__svp_hud_full;
+				extern float ps_r__svp_near_blur;
+				extern bool g_svp_hud_skip_scope;
+				extern Fvector4 ps_s3ds_param_3;
+				const bool thermal = ps_s3ds_param_3.x >= 1.5f;
+				const bool hud_full = ps_r__svp_hud_full && !thermal && ps_r__svp_near_blur > 0.01f
+					&& vp.objective.radius > EPS;
+				if (hud_full)
+					near_obj = 0.08f;
+				// mode 2 = the world fov (barrel magnifies with the wheel), mode 1 window =
+				// tan(hud/2)/ratio, a 1:1 continuation of the outside hud render
+				float hud_fov = vp.svp_fov;
+				if (ps_r__svp_hud_fov_match == 1 && g_pip_scope_ratio > EPS)
+				{
+					float hf, _a, _n, _f;
+					Device.matrices[0].mProjectHud.decompose_projection(hf, _a, _n, _f);
+					if (hf > EPS)
+						hud_fov = 2.f * atanf(tanf(hf * 0.5f) / g_pip_scope_ratio);
+				}
+				// anchor on the live ocular: look from the eye through the eyepiece center so the image
+				// center lands on the disc's screen position for any eye-off-axis sway
+				Fmatrix hud_view = Device.matrices[1].mView;
+				if (ps_r__svp_hud_fov_match >= 1)
+				{
+					Fvector ed; ed.sub(vp.eyepiece.m_W.c, vp.svp_cam_pos);
+					if (ed.magnitude() > 0.01f)
+					{
+						Fvector at = vp.eyepiece.m_W.c;
+						// sway comp: steer the camera through (M-1)/M of the transient so fast motion
+						// maps 1:1 against the outside barrel, the settled pose keeps full magnification
+						extern float ps_r__svp_hud_sway_comp;
+						if (barrel_mag && ps_r__svp_hud_sway_comp > 0.001f && near_obj > 0.11f
+							&& g_pip_scope_ratio > EPS && vp.svp_fov > EPS)
+						{
+							Fvector adir = ed; adir.normalize();
+							Fvector bdir = od; bdir.normalize();
+							Fvector rel; rel.sub(bdir, adir);
+							static Fvector s_rel = {0, 0, 0};
+							static u32 s_relframe = 0;
+							const bool gap = (Device.dwFrame != s_relframe + 1);
+							s_relframe = Device.dwFrame;
+							float dt = Device.fTimeDelta;
+							if (dt > 0.1f) dt = 0.1f;
+							if (gap || dt <= 0.f)
+								s_rel.set(rel);
+							else
+							{
+								Fvector d; d.sub(rel, s_rel);
+								s_rel.mad(d, 1.f - expf(-dt / 0.06f));
+							}
+							Fvector r; r.sub(rel, s_rel);
+							float hf2, _a3, _n3, _f3;
+							Device.matrices[0].mProjectHud.decompose_projection(hf2, _a3, _n3, _f3);
+							// barrel on-screen magnification vs the outside hud render
+							float me = tanf(hf2 * 0.5f) / (g_pip_scope_ratio * tanf(vp.svp_fov * 0.5f));
+							clamp(me, 0.25f, 8.f);
+							const float k = (me - 1.f) / me * ps_r__svp_hud_sway_comp;
+							Fvector nudge; nudge.set(r); nudge.mul(k * ed.magnitude());
+							at.add(nudge);
+						}
+						hud_view.build_camera(vp.svp_cam_pos, at, vp.eyepiece.m_W.j);
+					}
+				}
 				Fmatrix hud_proj;
-				hud_proj.build_projection(vp.svp_fov, vp.svp_aspect, near_obj, vp.svp_far);
+				hud_proj.build_projection(hud_fov, vp.svp_aspect, near_obj, vp.svp_far);
+				RCache.set_xform_view(hud_view);
 				RCache.set_xform_project(hud_proj);
+				g_svp_hud_skip_scope = hud_full;
 				GMBase.r_dsgraph_render_hud_svp();
+				g_svp_hud_skip_scope = false;
+				RCache.set_xform_view(Device.matrices[1].mView);
 				RCache.set_xform_project(Device.matrices[1].mProject);
 			}
 			else

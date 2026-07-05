@@ -610,7 +610,9 @@ void CRenderTarget::phase_combine()
 		phase_heatvision();
 	//--DSR-- HeatVision_end
 
-	if (scope_fake_enabled)
+	// pip the physical scope renders the sight when the true-PiP SVP is live, the 2D shader-scope
+	// overlay (crookr fakescope) would paint its own floating reticle over the rigid image
+	if (scope_fake_enabled && !(Device.true_pip_on && Device.m_SecondViewport.IsSVPActive()))
 	{
 		phase_fakescope(); //crookr
 	}

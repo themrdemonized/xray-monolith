@@ -196,8 +196,8 @@ extern ECORE_API float ps_r__svp_adaptive_res; // adaptive SVP resolution margin
 extern ECORE_API float ps_r__svp_lod; // SVP LOD reduction strength (0 = off)
 extern ECORE_API float ps_r__svp_cull_ssa; // SVP small-object cull strength (0 = off)
 extern ECORE_API int ps_r__svp_dlss; // SVP DLSS-SR master gate
-extern ECORE_API float ps_r__svp_stabilize; // SVP image-stabilization strength, 0 = 1:1 bore
 extern ECORE_API int ps_r__truepip_recoil; // script-recoil gate (0 normal, 1 off in true-PiP, 2 off always)
+extern ECORE_API int ps_r__svp_boresight; // svp auto-boresight (0 = raw authored pose)
 extern ECORE_API float ps_r__svp_obj_dist; // svpscope 2 geometric objective: scope length forward (eyepiece radii)
 extern ECORE_API float ps_r__svp_obj_size; // svpscope 2 geometric objective: objective radius (eyepiece radii)
 extern ECORE_API int ps_r__svp_cull; // svp frustum cull the scope geometry (0 = off, 1 = on)

@@ -441,6 +441,10 @@ static class s3ds_param_4 : public R_constant_setup
 			s &= ~(1 << 1); s &= ~(1 << 4); s &= ~(1 << 0); // ST_PARALLAX_SHADOW, ST_CHROMATISM, ST_NVG_BLUR
 			settings = (float)s;
 		}
+		// ST_PIP_PRECISE (bit 5): mesh-tangent reticle center under true PiP, off by default
+		extern int ps_r__svp_reticle_precise;
+		if (ps_r__svp_reticle_precise && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())
+			settings = (float)((int)settings | (1 << 5));
 		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, settings);
 	}
 }    s3ds_param_4;
@@ -466,7 +470,9 @@ static class shader_scope_params : public R_constant_setup
 			float mn = cur - (zoom_ratio - 1.0f) * 2.5f; // (cur - mn) * 0.4 + 1 == zoom_ratio
 			if (mn < 0.01f) mn = 0.01f; // floor above zero, the shader divides by minMag
 			const float mx = r * ((g_pip_scope_max_mag > 0.01f) ? g_pip_scope_max_mag : g_pip_scope_magnification);
-			RCache.set_c(C, cur, mn, mx, ps_shader_scope_params.w);
+			// w = -2 is the true-PiP sentinel, the legacy Lua writes -1 so patched shaders gate on
+			// w < -1.5 and stay inert at svpscope 0
+			RCache.set_c(C, cur, mn, mx, Device.m_SecondViewport.IsSVPActive() ? -2.f : ps_shader_scope_params.w);
 		}
 		else
 #endif

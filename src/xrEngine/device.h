@@ -192,8 +192,6 @@ public:
 		Fvector2 svp_jitter_px = {}; // raw sub-pixel jitter baked into matrices[1].mProject, {0,0} at gate 0
 		bool m_lens_prev_valid = false; // render-thread edge state for the lens-appears reset trigger
 
-		Fvector svp_bore_fwd = {}; // true (un-stabilized) lens forward, captured before the Stage-1 reduction
-		Fvector2 svp_eyebox_drift = {}; // pip eyebox eye-vs-exit-pupil lag in exit pupil radii, written in svpCamera, read at the scope bind
 		float svp_disc_px = 0.f; // pip on-screen eyepiece disc diameter (px), learned in the lens composite
 		float svp_disc_applied = 0.f; // pip disc px the SVP target is sized to, locked at ADS-in so it never resizes mid-ADS
 

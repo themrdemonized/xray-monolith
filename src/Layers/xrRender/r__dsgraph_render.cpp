@@ -298,11 +298,71 @@ void CDSGraphManager::r_dsgraph_render_hud(bool _clear)
 }
 
 // pip drain only the weapon list into the scope image, the caller owns the view/projection
+bool g_svp_hud_skip_scope = false; // full-barrel mode drops the scope body so the near plane can sit at the eye
 void CDSGraphManager::r_dsgraph_render_hud_svp()
 {
 	PROF_EVENT("r_dsgraph_render_hud_svp");
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapHUD);
+	auto& graph = RGraph.mapHUD;
+	if (!graph.empty())
+	{
+		std::sort(graph.begin(), graph.end());
+		// the scope body hugs the eyepiece-objective axis, everything else on the weapon (barrel,
+		// sights, hands) sits off-axis. the size cap keeps a merged whole-gun mesh from matching
+		const auto& vp = Device.m_SecondViewport;
+		const Fvector A = vp.eyepiece.m_W.c;
+		Fvector ax; ax.sub(vp.objective.m_W.c, A);
+		const float len2 = ax.square_magnitude();
+		const float tube = _sqrt(len2);
+		const float rcyl = std::max(vp.eyepiece.radius, vp.objective.radius) * 1.75f + 0.01f;
+		const bool skip_ok = g_svp_hud_skip_scope && len2 > EPS && vp.eyepiece.radius > EPS;
+		extern int ps_r__svp_cop_diag;
+		static u32 s_hud_diag_ms = 0;
+		const bool diag = ps_r__svp_cop_diag && (Device.dwTimeGlobal - s_hud_diag_ms > 3000);
+		if (diag)
+		{
+			s_hud_diag_ms = Device.dwTimeGlobal;
+			Msg("[SVP-HUD] tube=%.1fcm rcyl=%.1fcm cap=%.1fcm items=%u skip_ok=%d",
+				tube * 100.f, rcyl * 100.f, tube * 1.75f * 100.f, (u32)graph.size(), (int)skip_ok);
+		}
+		for (auto& item : graph)
+		{
+			if (svp_cull_reject(item.pVisual, item.pMatrix)) continue; // pip skip off-cone SVP geometry
+			dxRender_Visual* V = item.pVisual;
+			VERIFY(V && V->shader._get());
+			bool drop = false;
+			float t = 0.f, rad = -1.f;
+			if (skip_ok && item.pMatrix)
+			{
+				Fvector c; item.pMatrix->transform_tiny(c, V->vis.sphere.P);
+				Fvector ac; ac.sub(c, A);
+				t = ac.dotproduct(ax) / len2;
+				// radial distance to the axis LINE, the ocular stack (eyecup, rear housing) sits
+				// on-axis behind the eyepiece and must match too or it shows as rings in the image
+				Fvector p; p.set(A); p.mad(ax, t);
+				rad = p.distance_to(c);
+				// mounts/clamps WRAP the tube (sphere contains the axis) with the center pulled a
+				// little off-axis by the bracket arm, the size cap keeps barrel/body meshes safe
+				const float R = V->vis.sphere.R;
+				const bool wrap = (rad < R * 0.6f) && (R < tube * 0.45f);
+				drop = (R < tube * 1.75f) && (t > -0.6f && t < 1.4f) && (rad < rcyl || wrap);
+			}
+			if (diag)
+			{
+				auto tx = V->GetTexture();
+				Msg("[SVP-HUD] %s t=%.2f rad=%.1fcm R=%.1fcm %s", drop ? "SKIP" : "keep",
+					t, rad * 100.f, V->vis.sphere.R * 100.f, tx ? tx->cName.c_str() : "?");
+			}
+			if (drop) continue;
+			RCache.set_Element(item.pSE);
+			RCache.set_xform_world(*item.pMatrix);
+			RImplementation.apply_object(item.pObject);
+			RImplementation.apply_lmaterial();
+			V->Render(calcLOD(svp_ssa(item.ssa), V->vis.sphere.R));
+		}
+		graph.clear();
+	}
+	RCache.set_xform_world(Fidentity);
 	RImplementation.rmNormal();
 }
 

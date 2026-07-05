@@ -220,6 +220,81 @@ void attachable_hud_item::set_bone_visible(const shared_str& bone_name, BOOL bVi
 		m_model->LL_SetBoneVisible(bone_id, bVisibility, TRUE);
 }
 
+// pip auto-boresight: learn the settled optic-vs-camera-ray pose bias and rotate the whole hud
+// root about the eye so mesh, reticle and image land on the ballistic point as one unit
+static void svp_boresight(Fmatrix& trans, Fmatrix& trans_b)
+{
+	static Fvector2 s_corr = {0.f, 0.f};
+	static Fvector s_prev_fwd = {0.f, 0.f, 1.f};
+	static float s_weight = 0.f;
+	static u32 s_frame = 0;
+
+	extern ECORE_API int ps_r__svp_boresight;
+	if (!ps_r__svp_boresight || !scope_svp_enabled)
+		return;
+	auto& vp = Device.m_SecondViewport;
+	const bool gap = (Device.dwFrame != s_frame + 1);
+	s_frame = Device.dwFrame;
+	if (gap)
+	{
+		s_corr.set(0.f, 0.f);
+		s_weight = 0.f;
+		s_prev_fwd.set(trans.k);
+	}
+
+	const Fvector cp = trans.c;
+	const Fvector cf = trans.k;
+	const Fvector cr = trans.i;
+	const Fvector cu = trans.j;
+	const bool active = vp.IsSVPActive() && vp.eyepiece.radius > EPS;
+
+	// settled = the gaze is quiet, so the residual is pose bias, not sway
+	float cdot = cf.dotproduct(s_prev_fwd);
+	clamp(cdot, -1.f, 1.f);
+	const float ang_vel = acosf(cdot) / _max(Device.fTimeDelta, 0.001f);
+	s_prev_fwd.set(cf);
+
+	if (active)
+	{
+		Fvector d; d.sub(vp.eyepiece.m_W.c, cp);
+		if (d.magnitude() > 0.01f)
+		{
+			d.normalize();
+			const float fwd = d.dotproduct(cf);
+			const float yaw = atan2f(d.dotproduct(cr), fwd);
+			const float pit = atan2f(d.dotproduct(cu), fwd);
+			if (fwd > 0.5f && ang_vel < deg2rad(6.f)
+				&& fabsf(yaw) < deg2rad(1.5f) && fabsf(pit) < deg2rad(1.5f))
+			{
+				// residual of the corrected pose, the integrator walks onto the true bias
+				const float k = 1.f - expf(-Device.fTimeDelta / 0.8f);
+				s_corr.x += yaw * k;
+				s_corr.y += pit * k;
+				clamp(s_corr.x, -deg2rad(1.5f), deg2rad(1.5f));
+				clamp(s_corr.y, -deg2rad(1.5f), deg2rad(1.5f));
+			}
+		}
+	}
+
+	// fade the correction in and out so ADS transitions never pop
+	const float wk = 1.f - expf(-Device.fTimeDelta / 0.15f);
+	s_weight += ((active ? 1.f : 0.f) - s_weight) * wk;
+	const float ax = -s_corr.x * s_weight;
+	const float ay = s_corr.y * s_weight;
+	if (fabsf(ax) < 1e-5f && fabsf(ay) < 1e-5f)
+		return;
+
+	// rotate about the eye: v' = (v - p)R + p, row-vector form c = p - pR
+	Fmatrix R, Rp;
+	R.rotation(cu, ax);
+	Rp.rotation(cr, ay);
+	R.mulA_43(Rp);
+	Fvector pr; R.transform_tiny(pr, cp);
+	R.c.sub(cp, pr);
+	trans.mulB_43(R);
+	trans_b.mulB_43(R);
+}
+
 void attachable_hud_item::update(bool bForce)
 {
 	if (!bForce && m_upd_firedeps_frame == Device.dwFrame) return;
@@ -1081,6 +1156,7 @@ void player_hud::update(const Fmatrix& cam_trans)
 {
 	Fmatrix trans = cam_trans;
 	Fmatrix trans_b = cam_trans;
+	svp_boresight(trans, trans_b); // pip rotate the whole hud root onto the ballistic point
 	CWeapon* wep = smart_cast<CWeapon*>(Actor()->inventory().ActiveItem());
 
 	float& control_factor = Actor()->freelook_cam_control;
