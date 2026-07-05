@@ -45,4 +45,4 @@ compressor/mod.db0
 
 # local-only, kept out of the repo
 /tools/
-/docs/
+/docs/src/vswhere.exe
