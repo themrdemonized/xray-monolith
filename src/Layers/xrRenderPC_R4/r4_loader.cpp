@@ -20,11 +20,33 @@
 #include <malloc.h>
 #pragma warning(pop)
 
+namespace
+{
+shared_str cached_level_name;
+bool release_cached_level = false;
+}
+
 void CRender::level_Load(IReader* fs)
 {
 	CTimer level_timer;
 	level_timer.Start();
 	R_ASSERT(0!=g_pGameLevel);
+	if (b_loaded)
+	{
+		if (cached_level_name.equal(g_pGameLevel->name()))
+		{
+			Msg("* [LEVEL CACHE] R4 hit: %s", cached_level_name.c_str());
+			Wallmarks->clear();
+			pLastSector = nullptr;
+			vLastCameraPos.set(0.f, 0.f, 0.f);
+			return;
+		}
+
+		Msg("* [LEVEL CACHE] R4 miss: %s -> %s", cached_level_name.c_str(), g_pGameLevel->name().c_str());
+		release_cached_level = true;
+		level_Unload();
+		release_cached_level = false;
+	}
 	R_ASSERT(!b_loaded);
 
 	// Begin
@@ -232,6 +254,7 @@ void CRender::level_Load(IReader* fs)
 
 	// signal loaded
 	b_loaded = TRUE;
+	cached_level_name = g_pGameLevel->name();
 	Msg("* [LEVEL LOAD] R4 total: %d ms", level_timer.GetElapsed_ms());
 }
 
@@ -239,6 +262,11 @@ void CRender::level_Unload()
 {
 	if (0 == g_pGameLevel) return;
 	if (!b_loaded) return;
+	if (!release_cached_level)
+	{
+		Msg("* [LEVEL CACHE] R4 retained: %s", cached_level_name.c_str());
+		return;
+	}
 
 	dxRenderDeviceRender::Instance().Resources->WaitForTextureLoads();
 
@@ -320,6 +348,7 @@ void CRender::level_Unload()
 	}
 
 	b_loaded = FALSE;
+	cached_level_name = nullptr;
 }
 
 void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
