@@ -38,6 +38,46 @@ using namespace ALife;
 
 extern string_path g_last_saved_game;
 
+namespace
+{
+struct prepared_save
+{
+	xr_task_group task;
+	xr_vector<u8> data;
+	xr_string name;
+	string_path file_name{};
+	bool active = false;
+	bool valid = false;
+} g_prepared_save;
+}
+
+void CALifeStorageManager::prepare_load(LPCSTR save_name)
+{
+	g_prepared_save.task.wait();
+	g_prepared_save.data.clear();
+	g_prepared_save.name = save_name;
+	g_prepared_save.active = true;
+	g_prepared_save.valid = false;
+	CSavedGameWrapper::saved_game_full_name(save_name, g_prepared_save.file_name);
+
+	g_prepared_save.task.run([]()
+	{
+		IReader* stream = FS.r_open(g_prepared_save.file_name);
+		if (!stream || !CSavedGameWrapper::valid_saved_game(*stream))
+		{
+			if (stream)
+				FS.r_close(stream);
+			return;
+		}
+
+		u32 source_count = stream->r_u32();
+		g_prepared_save.data.resize(source_count);
+		rtc_decompress(g_prepared_save.data.data(), source_count, stream->pointer(), stream->length() - 3 * sizeof(u32));
+		FS.r_close(stream);
+		g_prepared_save.valid = true;
+	});
+}
+
 CALifeStorageManager::~CALifeStorageManager()
 {
 	*g_last_saved_game = 0;
@@ -147,6 +187,17 @@ void CALifeStorageManager::load(void* buffer, const u32& buffer_size, LPCSTR fil
 	CALifeObjectRegistry::OBJECT_REGISTRY::iterator I;
 	for (I = B; I != E; ++I)
 	{
+		CSE_ALifeCreatureActor* actor = smart_cast<CSE_ALifeCreatureActor*>((*I).second);
+		if (actor)
+		{
+			graph().prepare_current_level(actor);
+			break;
+		}
+	}
+	VERIFY(I != E);
+
+	for (I = B; I != E; ++I)
+	{
 		ALife::_OBJECT_ID id = (*I).second->ID;
 		(*I).second->ID = server().PerformIDgen(id);
 		VERIFY(id == (*I).second->ID);
@@ -194,17 +245,18 @@ bool CALifeStorageManager::load(LPCSTR save_name_no_check)
 	xr_strcpy(g_last_saved_game, save_name);
 	xr_strcpy(g_bug_report_file, file_name);
 
-	IReader* stream;
-	stream = FS.r_open(file_name);
-	if (!stream)
+	const bool prepared = g_prepared_save.active && g_prepared_save.name == save_name;
+	IReader* stream = prepared ? nullptr : FS.r_open(file_name);
+	if (!prepared && !stream)
 	{
 		Msg("* Cannot find saved game %s", file_name);
 		xr_strcpy(m_save_name, save);
 		return (false);
 	}
 
-	CHECK_OR_EXIT(CSavedGameWrapper::valid_saved_game(*stream),
-	              make_string("%s\nSaved game version mismatch or saved game is corrupted",file_name));
+	if (!prepared)
+		CHECK_OR_EXIT(CSavedGameWrapper::valid_saved_game(*stream),
+		              make_string("%s\nSaved game version mismatch or saved game is corrupted",file_name));
 	/*
 		string512					temp;
 		strconcat					(sizeof(temp),temp,CStringTable().translate("st_loading_saved_game").c_str()," \"",save_name,SAVE_EXTENSION,"\"");
@@ -215,12 +267,24 @@ bool CALifeStorageManager::load(LPCSTR save_name_no_check)
 	unload();
 	reload(m_section);
 
-	u32 source_count = stream->r_u32();
-	void* source_data = xr_malloc(source_count);
-	rtc_decompress(source_data, source_count, stream->pointer(), stream->length() - 3 * sizeof(u32));
-	FS.r_close(stream);
-	load(source_data, source_count, file_name);
-	xr_free(source_data);
+	if (prepared)
+	{
+		g_prepared_save.task.wait();
+		CHECK_OR_EXIT(g_prepared_save.valid,
+		              make_string("%s\nSaved game version mismatch or saved game is corrupted",file_name));
+		load(g_prepared_save.data.data(), g_prepared_save.data.size(), file_name);
+		g_prepared_save.data.clear();
+		g_prepared_save.active = false;
+	}
+	else
+	{
+		u32 source_count = stream->r_u32();
+		void* source_data = xr_malloc(source_count);
+		rtc_decompress(source_data, source_count, stream->pointer(), stream->length() - 3 * sizeof(u32));
+		FS.r_close(stream);
+		load(source_data, source_count, file_name);
+		xr_free(source_data);
+	}
 
 	groups().on_after_game_load();
 

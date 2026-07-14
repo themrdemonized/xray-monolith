@@ -818,6 +818,7 @@ static bool unlocalRegex(xr_set<xr_string>& unlocals, xr_string& s, const std::r
 
 bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 {
+	static xr_map<xr_string, xr_vector<char>> script_source_cache;
 	if (!unlocalizerPassed) {
 		auto file_list = FS.file_list_open("$game_config$", "unlocalizers\\", FS_RootOnly | FS_ListFiles);
 		if (!file_list) {
@@ -874,17 +875,26 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 	}
 	int start = lua_gettop(lua());
 	string_path l_caLuaFileName;
-	IReader* l_tpFileReader = FS.r_open(caScriptName);
-
-	if (!l_tpFileReader)
+	auto cached_source = script_source_cache.find(caScriptName);
+	if (cached_source == script_source_cache.end())
 	{
-		script_log(eLuaMessageTypeError, "Cannot open file \"%s\"", caScriptName);
-		return (false);
+		IReader* reader = FS.r_open(caScriptName);
+		if (!reader)
+		{
+			script_log(eLuaMessageTypeError, "Cannot open file \"%s\"", caScriptName);
+			return (false);
+		}
+
+		xr_vector<char>& source = script_source_cache[caScriptName];
+		source.resize(reader->length());
+		CopyMemory(source.data(), reader->pointer(), reader->length());
+		FS.r_close(reader);
+		cached_source = script_source_cache.find(caScriptName);
 	}
 
 	// Unlocalize variables in the script defined by unlocalizers map
-	auto scriptContents = static_cast<LPCSTR>(l_tpFileReader->pointer());
-	auto scriptLength = (size_t)l_tpFileReader->length();
+	LPCSTR scriptContents = cached_source->second.data();
+	auto scriptLength = cached_source->second.size();
 	bool unlocalPerformed = false;
 	xr_string unlocalizerResult;
 	xr_string loweredNameSpaceName = caNameSpaceName;
@@ -894,12 +904,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 
 		// Get contents of the script file and split by lines
 		xr_vector<xr_string> tokens;
-		xr_string temp;
-		while (!l_tpFileReader->eof())
-		{
-			char c = l_tpFileReader->r_u8();
-			temp += c;
-		}
+		xr_string temp(scriptContents, scriptLength);
 
 		std::stringstream stringStream(std::string(temp.c_str()));
 		xr_string line;
@@ -997,8 +1002,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 	if (unlocalPerformed) {
 		bufferLoaded = load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
 	} else {
-		l_tpFileReader->rewind();
-		bufferLoaded = load_buffer(lua(), static_cast<LPCSTR>(l_tpFileReader->pointer()), (size_t)l_tpFileReader->length(), l_caLuaFileName, caNameSpaceName);
+		bufferLoaded = load_buffer(lua(), scriptContents, scriptLength, l_caLuaFileName, caNameSpaceName);
 	}
 
 	if (!bufferLoaded)
@@ -1007,10 +1011,8 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 		//		lua_pop		(lua(),4);
 		//		VERIFY		(lua_gettop(lua()) == start - 3);
 		lua_settop(lua(), start);
-		FS.r_close(l_tpFileReader);
 		return (false);
 	}
-	FS.r_close(l_tpFileReader);
 
 	int errFuncId = -1;
 #ifdef USE_DEBUGGER

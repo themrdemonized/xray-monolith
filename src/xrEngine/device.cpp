@@ -635,7 +635,10 @@ void CRenderDevice::Run()
 	thread_spawn(mt_DiscordThread, "X-RAY Discord thread", 0, 0);
 
 	// Message cycle
+	CTimer app_start_timer;
+	app_start_timer.Start();
 	seqAppStart.Process(rp_AppStart);
+	Msg("* [STARTUP] app start callbacks: %d ms", app_start_timer.GetElapsed_ms());
 
 	//m_pRender->ClearTarget();
 	SetForegroundWindow(m_hWnd);

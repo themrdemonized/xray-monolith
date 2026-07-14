@@ -203,7 +203,8 @@ XRCORE_API void _dump_open_files(int mode)
 
 CLocatorAPI::CLocatorAPI()
 #ifdef PROFILE_CRITICAL_SECTIONS
-    :m_auth_lock(MUTEX_PROFILE_ID(CLocatorAPI::m_auth_lock))
+	: m_scan_lock(MUTEX_PROFILE_ID(CLocatorAPI::m_scan_lock)),
+	  m_auth_lock(MUTEX_PROFILE_ID(CLocatorAPI::m_auth_lock))
 #endif // PROFILE_CRITICAL_SECTIONS
 {
 	m_Flags.zero();
@@ -223,6 +224,7 @@ CLocatorAPI::~CLocatorAPI()
 
 void CLocatorAPI::Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real, u32 size_compressed, u32 modif)
 {
+	xrCriticalSectionGuard guard(m_scan_lock);
 	//Msg("Register[%d] [%s]",vfs,name);
 	string256 temp_file_name;
 	xr_strcpy(temp_file_name, sizeof(temp_file_name), name);
@@ -461,6 +463,7 @@ void CLocatorAPI::archive::close()
 
 void CLocatorAPI::ProcessArchive(LPCSTR _path)
 {
+	xrCriticalSectionGuard guard(m_scan_lock);
 	// find existing archive
 	shared_str path = _path;
 
@@ -535,7 +538,7 @@ bool CLocatorAPI::load_all_unloaded_archives()
 }
 
 
-void CLocatorAPI::ProcessOne(LPCSTR path, const _finddata_t& entry)
+void CLocatorAPI::ProcessOne(LPCSTR path, const _finddata_t& entry, u32 parallel_depth)
 {
 	string_path N;
 	xr_strcpy(N, sizeof(N), path);
@@ -551,7 +554,7 @@ void CLocatorAPI::ProcessOne(LPCSTR path, const _finddata_t& entry)
 		if (0 == xr_strcmp(entry.name, "..")) return;
 		xr_strcat(N, "\\");
 		Register(N, 0xffffffff, 0, 0, entry.size, entry.size, (u32)entry.time_write);
-		Recurse(N);
+		Recurse(N, parallel_depth ? parallel_depth - 1 : 0);
 	}
 	else
 	{
@@ -596,7 +599,7 @@ bool ignore_path(const char* _path)
 		return true;
 }
 
-bool CLocatorAPI::Recurse(const char* path)
+bool CLocatorAPI::Recurse(const char* path, u32 parallel_depth)
 {
 	string_path scanPath;
 	xr_strcpy(scanPath, sizeof(scanPath), path);
@@ -610,8 +613,8 @@ bool CLocatorAPI::Recurse(const char* path)
 	intptr_t handle = _findfirst(scanPath, &findData);
 	if (handle == -1)
 		return false;
-	rec_files.reserve(256);
-	size_t oldSize = rec_files.size();
+	FFVec files;
+	files.reserve(256);
 	intptr_t done = handle;
 	while (done != -1)
 	{
@@ -628,17 +631,21 @@ bool CLocatorAPI::Recurse(const char* path)
 			ignore = ignore_name(findData.name);
 		}
 		if (!ignore)
-			rec_files.push_back(findData);
+			files.push_back(findData);
 		done = _findnext(handle, &findData);
 	}
 	_findclose(handle);
-	size_t newSize = rec_files.size();
-	if (newSize > oldSize)
+	if (!files.empty())
 	{
-		std::sort(rec_files.begin() + oldSize, rec_files.end(), pred_str_ff);
-		for (size_t i = oldSize; i < newSize; i++)
-			ProcessOne(path, rec_files[i]);
-		rec_files.erase(rec_files.begin() + oldSize, rec_files.end());
+		std::sort(files.begin(), files.end(), pred_str_ff);
+		if (parallel_depth)
+			xr_parallel_foreach(files.begin(), files.end(), [this, path, parallel_depth](const _finddata_t& entry)
+			{
+				ProcessOne(path, entry, parallel_depth);
+			});
+		else
+			for (const _finddata_t& entry : files)
+				ProcessOne(path, entry);
 	}
 	// insert self
 	if (path && path[0] != 0)
@@ -780,6 +787,8 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 		const char *lp_add, *lp_def, *lp_capt;
 		string16 b_v;
 		string4096 temp;
+		xr_vector<xr_string> recursive_roots;
+		u32 skipped_scans = 0;
 
 		while (!pFSltx->eof())
 		{
@@ -829,7 +838,23 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 
 			FS_Path* P = new FS_Path((p_it != pathes.end()) ? p_it->second->m_Path : root, lp_add, lp_def, lp_capt, fl);
 			bNoRecurse = !(fl & FS_Path::flRecurse);
-			Recurse(P->m_Path);
+			bool already_scanned = false;
+			for (const xr_string& scanned_root : recursive_roots)
+			{
+				if (!_strnicmp(P->m_Path, scanned_root.c_str(), scanned_root.size()))
+				{
+					already_scanned = true;
+					break;
+				}
+			}
+			if (already_scanned)
+				++skipped_scans;
+			else
+			{
+				Recurse(P->m_Path, bNoRecurse ? 0 : 1);
+				if (fl & FS_Path::flRecurse)
+					recursive_roots.emplace_back(P->m_Path);
+			}
 			auto I = pathes.insert(std::make_pair(xr_strdup(id), P));
 #ifndef DEBUG
 			m_Flags.set(flCacheFiles, FALSE);
@@ -837,6 +862,7 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 
 			//CHECK_OR_EXIT		(I.second,"The file 'fsgame.ltx' is corrupted (it contains duplicated lines).\nPlease reinstall the game or fix the problem manually.");
 		}
+		Msg("FS: skipped %u duplicate alias scans", skipped_scans);
 		r_close(pFSltx);
 		R_ASSERT(path_exist("$app_data_root$"));
 	};

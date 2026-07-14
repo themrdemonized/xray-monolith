@@ -22,6 +22,8 @@
 
 void CRender::level_Load(IReader* fs)
 {
+	CTimer level_timer;
+	level_timer.Start();
 	R_ASSERT(0!=g_pGameLevel);
 	R_ASSERT(!b_loaded);
 
@@ -33,11 +35,20 @@ void CRender::level_Load(IReader* fs)
 	// Shaders
 	//	g_pGamePersistent->LoadTitle		("st_loading_shaders");
 	g_pGamePersistent->LoadTitle();
+	struct shader_description
+	{
+		xr_string shader;
+		xr_string textures;
+	};
+	xr_vector<shader_description> unique_shaders;
+	xr_vector<u32> shader_indices;
 	{
 		chunk = fs->open_chunk(fsL_SHADERS);
 		R_ASSERT2(chunk, "Level doesn't builded correctly.");
 		u32 count = chunk->r_u32();
 		Shaders.resize(count);
+		shader_indices.assign(count, u32(-1));
+		xr_map<xr_string, u32> unique_indices;
 		for (u32 i = 0; i < count; i++) // skip first shader as "reserved" one
 		{
 			string512 n_sh, n_tlist;
@@ -48,75 +59,188 @@ void CRender::level_Load(IReader* fs)
 			LPSTR delim = strchr(n_sh, '/');
 			*delim = 0;
 			xr_strcpy(n_tlist, delim + 1);
-			Shaders[i] = dxRenderDeviceRender::Instance().Resources->Create(n_sh, n_tlist);
+
+			xr_string key = n_sh;
+			key += '\n';
+			key += n_tlist;
+			auto existing = unique_indices.find(key);
+			if (existing != unique_indices.end())
+			{
+				shader_indices[i] = existing->second;
+				continue;
+			}
+
+			shader_indices[i] = static_cast<u32>(unique_shaders.size());
+			unique_indices.emplace(std::move(key), shader_indices[i]);
+			unique_shaders.push_back({n_sh, n_tlist});
 		}
 		chunk->close();
 	}
 
+	CTimer shader_timer;
+	shader_timer.Start();
+	xr_vector<ref_shader> compiled_shaders(unique_shaders.size());
+	xr_vector<u32> lua_shaders;
+	xr_vector<u32> cpp_shaders;
+	for (u32 i = 0; i < unique_shaders.size(); ++i)
+		(dxRenderDeviceRender::Instance().Resources->_lua_HasShader(unique_shaders[i].shader.c_str()) ? lua_shaders : cpp_shaders)
+			.push_back(i);
+
+	xr_task_group lua_shader_load_task;
+	lua_shader_load_task.run([&]()
+	{
+		for (u32 i : lua_shaders)
+			compiled_shaders[i] = dxRenderDeviceRender::Instance().Resources->CreateLevelShader(
+				unique_shaders[i].shader.c_str(), unique_shaders[i].textures.c_str());
+	});
+	xr_task_group cpp_shader_load_tasks;
+	auto start_cpp_shader_load = [&]()
+	{
+		lua_shader_load_task.wait();
+		const u32 task_count = _min(4u, static_cast<u32>(cpp_shaders.size()));
+		for (u32 task = 0; task < task_count; ++task)
+			cpp_shader_load_tasks.run([&, task, task_count]()
+			{
+				for (u32 j = task; j < cpp_shaders.size(); j += task_count)
+				{
+					u32 i = cpp_shaders[j];
+					compiled_shaders[i] = dxRenderDeviceRender::Instance().Resources->CreateLevelShader(
+						unique_shaders[i].shader.c_str(), unique_shaders[i].textures.c_str());
+				}
+			});
+	};
+	auto finish_shader_load = [&]()
+	{
+		cpp_shader_load_tasks.wait();
+		for (u32 i = 0; i < shader_indices.size(); ++i)
+			if (shader_indices[i] != u32(-1))
+				Shaders[i] = compiled_shaders[shader_indices[i]];
+		Msg("* [LEVEL LOAD] R4 shaders: %d ms (%d unique, %d lua, %d cpp)", shader_timer.GetElapsed_ms(),
+			static_cast<u32>(unique_shaders.size()), static_cast<u32>(lua_shaders.size()),
+			static_cast<u32>(cpp_shaders.size()));
+	};
+
 	// Components
 	Wallmarks = xr_new<CWallmarksEngine>();
 	Details = xr_new<CDetailManager>();
+	xr_task_group early_environment_tasks;
+	early_environment_tasks.run([this]()
+	{
+		CTimer timer;
+		timer.Start();
+		Load3DFluid();
+		Msg("* [LEVEL LOAD] R4 fluid: %d ms", timer.GetElapsed_ms());
+	});
+	early_environment_tasks.run([this]()
+	{
+		CTimer timer;
+		timer.Start();
+		HOM.Load();
+		Msg("* [LEVEL LOAD] R4 HOM: %d ms", timer.GetElapsed_ms());
+	});
 
 	if (!g_dedicated_server)
 	{
 		// VB,IB,SWI
 		//		g_pGamePersistent->LoadTitle("st_loading_geometry");
 		g_pGamePersistent->LoadTitle();
+		CTimer geometry_timer;
+		geometry_timer.Start();
+		xr_task_group geometry_load_tasks;
+		geometry_load_tasks.run([this]()
 		{
+			CTimer timer;
+			timer.Start();
 			CStreamReader* geom = FS.rs_open("$level$", "level.geom");
 			R_ASSERT2(geom, "level.geom");
 			LoadBuffers(geom,FALSE);
 			LoadSWIs(geom);
 			FS.r_close(geom);
-		}
+			Msg("* [LEVEL LOAD] R4 level.geom: %d ms", timer.GetElapsed_ms());
+		});
 
 		//...and alternate/fast geometry
+		geometry_load_tasks.run([this]()
 		{
+			CTimer timer;
+			timer.Start();
 			CStreamReader* geom = FS.rs_open("$level$", "level.geomx");
 			R_ASSERT2(geom, "level.geomX");
 			LoadBuffers(geom,TRUE);
 			FS.r_close(geom);
-		}
+			Msg("* [LEVEL LOAD] R4 level.geomx: %d ms", timer.GetElapsed_ms());
+		});
+		start_cpp_shader_load();
+		geometry_load_tasks.wait();
+		Msg("* [LEVEL LOAD] R4 geometry barrier: %d ms", geometry_timer.GetElapsed_ms());
+		finish_shader_load();
+
+		xr_task_group visual_load_tasks;
+		visual_load_tasks.run([this]()
+		{
+			CTimer timer;
+			timer.Start();
+			Details->Load();
+			Msg("* [LEVEL LOAD] R4 details: %d ms", timer.GetElapsed_ms());
+		});
 
 		// Visuals
 		//		g_pGamePersistent->LoadTitle("st_loading_spatial_db");
 		g_pGamePersistent->LoadTitle();
-		chunk = fs->open_chunk(fsL_VISUALS);
-		LoadVisuals(chunk);
-		chunk->close();
+		IReader* visuals = fs->open_chunk(fsL_VISUALS);
+		visual_load_tasks.run([this, visuals]()
+		{
+			CTimer timer;
+			timer.Start();
+			LoadVisuals(visuals);
+			visuals->close();
+			Msg("* [LEVEL LOAD] R4 visuals: %d ms", timer.GetElapsed_ms());
+		});
 
-		// Details
-		//		g_pGamePersistent->LoadTitle("st_loading_details");
-		g_pGamePersistent->LoadTitle();
-		Details->Load();
+		visual_load_tasks.wait();
+	}
+	else
+	{
+		start_cpp_shader_load();
+		finish_shader_load();
 	}
 
 	// Sectors
 	//	g_pGamePersistent->LoadTitle("st_loading_sectors_portals");
 	g_pGamePersistent->LoadTitle();
+	CTimer sectors_timer;
+	sectors_timer.Start();
 	LoadSectors(fs);
+	Msg("* [LEVEL LOAD] R4 sectors: %d ms", sectors_timer.GetElapsed_ms());
 
-	// 3D Fluid
-	Load3DFluid();
-
-	// HOM
-	HOM.Load();
+	early_environment_tasks.wait();
+	xr_task_group environment_load_tasks;
 
 	// Lights
 	// pApp->LoadTitle			("Loading lights...");
-	LoadLights(fs);
+	environment_load_tasks.run([this, fs]()
+	{
+		CTimer timer;
+		timer.Start();
+		LoadLights(fs);
+		Msg("* [LEVEL LOAD] R4 lights: %d ms", timer.GetElapsed_ms());
+	});
+	environment_load_tasks.wait();
 
 	// End
 	pApp->LoadEnd();
 
 	// signal loaded
 	b_loaded = TRUE;
+	Msg("* [LEVEL LOAD] R4 total: %d ms", level_timer.GetElapsed_ms());
 }
 
 void CRender::level_Unload()
 {
 	if (0 == g_pGameLevel) return;
 	if (!b_loaded) return;
+
+	dxRenderDeviceRender::Instance().Resources->WaitForTextureLoads();
 
 	GMBase.clear();
 	GMRainWet.clear();
@@ -207,6 +331,9 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
 	xr_vector<VertexDeclarator>& _DC = _alternative ? xDC : nDC;
 	xr_vector<ID3DVertexBuffer*>& _VB = _alternative ? xVB : nVB;
 	xr_vector<ID3DIndexBuffer*>& _IB = _alternative ? xIB : nIB;
+	xr_task_group buffer_creation_tasks;
+	xr_vector<xr_vector<u8>> vertex_data;
+	xr_vector<xr_vector<u8>> index_data;
 
 	// Vertex buffers
 	{
@@ -216,6 +343,7 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
 		u32 count = fs->r_u32();
 		_DC.resize(count);
 		_VB.resize(count);
+		vertex_data.resize(count);
 		u32 bufferSize = (MAXD3DDECLLENGTH + 1) * sizeof(D3DVERTEXELEMENT9);
 		D3DVERTEXELEMENT9* dcl = (D3DVERTEXELEMENT9*)_alloca(bufferSize);
 		for (u32 i = 0; i < count; i++)
@@ -243,14 +371,18 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
 			//_VB[i]->Unlock		();
 			//	TODO: DX10: Check fragmentation.
 			//	Check if buffer is less then 2048 kb
-			BYTE* pData = xr_alloc<BYTE>(vCount * vSize);
-			fs->r(pData, vCount * vSize);
-			dx10BufferUtils::CreateVertexBuffer(&_VB[i], pData, vCount * vSize);
-			xr_free(pData);
+			vertex_data[i].resize(vCount * vSize);
+			fs->r(vertex_data[i].data(), vertex_data[i].size());
 
 			//			fs->advance			(vCount*vSize);
 		}
 		fs->close();
+
+		for (u32 i = 0; i < count; ++i)
+			buffer_creation_tasks.run([&, i]()
+			{
+				dx10BufferUtils::CreateVertexBuffer(&_VB[i], vertex_data[i].data(), static_cast<UINT>(vertex_data[i].size()));
+			});
 	}
 
 	// Index buffers
@@ -258,6 +390,7 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
 		CStreamReader* fs = base_fs->open_chunk(fsL_IB);
 		u32 count = fs->r_u32();
 		_IB.resize(count);
+		index_data.resize(count);
 		for (u32 i = 0; i < count; i++)
 		{
 			u32 iCount = fs->r_u32();
@@ -273,15 +406,21 @@ void CRender::LoadBuffers(CStreamReader* base_fs, BOOL _alternative)
 
 			//	TODO: DX10: Check fragmentation.
 			//	Check if buffer is less then 2048 kb
-			BYTE* pData = xr_alloc<BYTE>(iCount * 2);
-			fs->r(pData, iCount * 2);
-			dx10BufferUtils::CreateIndexBuffer(&_IB[i], pData, iCount * 2);
-			xr_free(pData);
+			index_data[i].resize(iCount * 2);
+			fs->r(index_data[i].data(), index_data[i].size());
 
 			//			fs().advance		(iCount*2);
 		}
 		fs->close();
+
+		for (u32 i = 0; i < count; ++i)
+			buffer_creation_tasks.run([&, i]()
+			{
+				dx10BufferUtils::CreateIndexBuffer(&_IB[i], index_data[i].data(), static_cast<UINT>(index_data[i].size()));
+			});
 	}
+
+	buffer_creation_tasks.wait();
 }
 
 void CRender::LoadVisuals(IReader* fs)

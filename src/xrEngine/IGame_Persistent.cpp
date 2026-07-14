@@ -86,10 +86,6 @@ void IGame_Persistent::OnAppDeactivate()
 
 void IGame_Persistent::OnAppStart()
 {
-#ifndef _EDITOR
-	Environment().load();
-#endif
-
 	// Texture Prefetch Config
 	string_path file_name;
 	m_textures_prefetch_config =

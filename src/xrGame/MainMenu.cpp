@@ -231,6 +231,7 @@ void CMainMenu::Activate(bool bActivate)
             Console->Execute("stat_memory");
 
 		Device.seqRender.Add(this, 4); // 1-console 2-cursor 3-tutorial
+		LogStartupMenuReady();
 
 	}
 	else
@@ -291,6 +292,8 @@ void CMainMenu::Activate(bool bActivate)
 
 bool CMainMenu::ReloadUI()
 {
+	CTimer timer;
+	timer.Start();
 	if (m_startDialog)
 	{
 		if (m_startDialog->IsShown())
@@ -310,6 +313,7 @@ bool CMainMenu::ReloadUI()
 	m_startDialog->ShowDialog(true);
 
 	m_activatedScreenRatio = (float)Device.dwWidth / (float)Device.dwHeight > (UI_BASE_WIDTH / UI_BASE_HEIGHT + 0.01f);
+	Msg("* [STARTUP] main menu ReloadUI: %d ms", timer.GetElapsed_ms());
 	return true;
 }
 

@@ -171,8 +171,6 @@ void CResourceManager::_DeleteElement(const ShaderElement* S)
 Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_constants,
                                       LPCSTR s_matrices)
 {
-	xrCriticalSectionGuard guard(creationGuard);
-
 	CBlender_Compile C;
 	Shader S;
 
@@ -264,13 +262,10 @@ Shader* CResourceManager::_cpp_Create(IBlender* B, LPCSTR s_shader, LPCSTR s_tex
 	// Hacky way to remove from the HUD mask transparent stuff. ( Let's try something better later... )
 	if (::Render->hud_loading)
 	{
+		xrCriticalSectionGuard guard(creationGuard);
 		if (strstr(s_shader, "lens"))
 			S.E[0]->passes[0]->ps->hud_disabled = TRUE;
 	}
-
-	// Search equal in shaders array
-	for (u32 it = 0; it < v_shaders.size(); it++)
-		if (S.equal(v_shaders[it])) return v_shaders[it];
 
 	// Create _new_ entry
 	Shader* ResultShader = _CreateShader(&S);
@@ -366,6 +361,26 @@ Shader* CResourceManager::Create(LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_co
 		return NULL;
 	}
 	//#endif
+}
+
+Shader* CResourceManager::CreateLevelShader(LPCSTR s_shader, LPCSTR s_textures)
+{
+	xr_string key = s_shader;
+	key += '\n';
+	key += s_textures;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		auto cached = m_level_shader_cache.find(key);
+		if (cached != m_level_shader_cache.end())
+			return cached->second._get();
+	}
+
+	Shader* shader = Create(s_shader, s_textures);
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		m_level_shader_cache.emplace(std::move(key), ref_shader(shader));
+	}
+	return shader;
 }
 
 void CResourceManager::Delete(const Shader* S)

@@ -85,6 +85,7 @@ private:
 	xr_vector<SPass*> v_passes;
 	xr_vector<ShaderElement*> v_elements;
 	xr_vector<Shader*> v_shaders;
+	xr_map<xr_string, ref_shader> m_level_shader_cache;
 
 	xr_vector<ref_texture> m_necessary;
 	// misc
@@ -216,6 +217,7 @@ public:
 
 	// Creation/Destroying
 	Shader* Create(LPCSTR s_shader = 0, LPCSTR s_textures = 0, LPCSTR s_constants = 0, LPCSTR s_matrices = 0);
+	Shader* CreateLevelShader(LPCSTR s_shader, LPCSTR s_textures);
 	Shader* Create(IBlender* B, LPCSTR s_shader = 0, LPCSTR s_textures = 0, LPCSTR s_constants = 0,
 	               LPCSTR s_matrices = 0);
 	void Delete(const Shader* S);
@@ -231,6 +233,7 @@ public:
 	void DeferredLoad(BOOL E) { bDeferredLoad = E; }
 	void DeferredUpload();
 	void DeferredUnload();
+	void WaitForTextureLoads();
 	void UnloadAllTexturesOnLevelUnload();
 	void Evict();
     void EvictStalledTextures();

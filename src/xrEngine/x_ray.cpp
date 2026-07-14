@@ -66,6 +66,18 @@ rpc_info discord_gameinfo;
 rpc_strings discord_strings;
 float discord_update_rate = .5f;
 
+static ULONGLONG startup_begin_time;
+
+void LogStartupMenuReady()
+{
+	static bool logged = false;
+	if (!logged)
+	{
+		logged = true;
+		Msg("* [STARTUP] total to main menu: %llu ms", GetTickCount64() - startup_begin_time);
+	}
+}
+
 //UTF-8 (ICU)
 #pragma comment(lib, "icuuc.lib")
 //#pragma comment(lib, "sicuuc.lib")
@@ -586,6 +598,10 @@ void clearDiscordPresence()
 
 void Startup()
 {
+	CTimer startup_timer;
+	CTimer phase_timer;
+	startup_timer.Start();
+	phase_timer.Start();
 #ifndef DEDICATED_SERVER
 	fill_vid_monitor_list();
 #endif
@@ -593,6 +609,7 @@ void Startup()
 	InitSound1();
 	execUserScript();
 	InitSound2();
+	Msg("* [STARTUP] sound and user config: %d ms", phase_timer.GetElapsed_ms());
 
 #ifndef DEDICATED_SERVER
 	{
@@ -643,14 +660,18 @@ void Startup()
 	}
 
 	// Initialize APP
+	phase_timer.Start();
 	Device.Create();
+	Msg("* [STARTUP] render device: %d ms", phase_timer.GetElapsed_ms());
 
+	phase_timer.Start();
 	LALib.OnCreate();
 	pApp = xr_new<CApplication>();
 	g_pGamePersistent = (IGame_Persistent*)NEW_INSTANCE(CLSID_GAME_PERSISTANT);
 	g_SpatialSpace = xr_new<ISpatial_DB>();
 	g_SpatialSpacePhysic = xr_new<ISpatial_DB>();
 	g_SpatialSpaceLights = xr_new<ISpatial_DB>();
+	Msg("* [STARTUP] application and game persistent: %d ms", phase_timer.GetElapsed_ms());
 
 	// Destroy LOGO
 	DestroyWindow(logoWindow);
@@ -665,6 +686,7 @@ void Startup()
 		Msg("[ReShade]: Loaded compatibility addon");
 	else
 		Msg("[ReShade]: ReShade not installed or version too old - didn't load compatibility addon");
+	Msg("* [STARTUP] before main loop: %d ms", startup_timer.GetElapsed_ms());
 
 	// Main cycle
 	Msg("* [x-ray]: Starting Main Loop");
@@ -1095,12 +1117,18 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	// g_temporary_stuff = &trivial_encryptor::decode;
 
 	compute_build_id();
+	ULONGLONG early_phase_time = GetTickCount64();
 	Core._initialize("xray", NULL, TRUE, fsgame[0] ? fsgame : NULL);
+	Msg("* [STARTUP] core and filesystem: %llu ms", GetTickCount64() - early_phase_time);
 
+	CTimer startup_phase_timer;
+	startup_phase_timer.Start();
 	InitSettings();
+	Msg("* [STARTUP] settings: %d ms", startup_phase_timer.GetElapsed_ms());
 	Msg(XRAY_MONOLITH_VERSION);
 
 	{
+		startup_phase_timer.Start();
 		FS_FileSet fset;
 		FS.file_list(fset, "$game_data$", FS_ListFiles, "*");
 
@@ -1123,6 +1151,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 				break;
 			}
 		}
+		Msg("* [STARTUP] gamedata listing: %d ms", startup_phase_timer.GetElapsed_ms());
 	}
 
 	// Adjust player & computer name for Asian
@@ -1139,6 +1168,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 #endif // DEDICATED_SERVER
 
 		FPU::m24r();
+		startup_phase_timer.Start();
 		InitEngine();
 
 		InitInput();
@@ -1146,6 +1176,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		InitConsole();
 
 		Engine.External.CreateRendererList();
+		Msg("* [STARTUP] engine/input/console: %d ms", startup_phase_timer.GetElapsed_ms());
 
 		LPCSTR benchName = "-batch_benchmark ";
 		if (strstr(lpCmdLine, benchName))
@@ -1187,6 +1218,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		};
 
 #ifndef DEDICATED_SERVER
+		startup_phase_timer.Start();
 		if (Core.ParamsData.test(ECoreParams::r2a))
 			Console->Execute("renderer renderer_r2a");
 		else if (Core.ParamsData.test(ECoreParams::r2))
@@ -1197,11 +1229,14 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 			pTmp->Execute(Console->ConfigFile);
 			xr_delete(pTmp);
 		}
+		Msg("* [STARTUP] renderer config: %d ms", startup_phase_timer.GetElapsed_ms());
 #else
         Console->Execute("renderer renderer_r1");
 #endif
 		//. InitInput ( );
+		startup_phase_timer.Start();
 		Engine.External.Initialize();
+		Msg("* [STARTUP] renderer DLL: %d ms", startup_phase_timer.GetElapsed_ms());
 		Console->Execute("stat_memory_async");
 
 		Startup();
@@ -1263,6 +1298,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      char* lpCmdLine,
                      int nCmdShow)
 {
+	startup_begin_time = GetTickCount64();
   // Initialize LuaJIT low-memory pool FIRST, before any DLLs load and fragment
 	// the lower 2GB address space.
 	XR_EARLY_INIT();
@@ -1542,6 +1578,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 }
 
 static CTimer phase_timer;
+static CTimer total_load_timer;
 extern ENGINE_API BOOL g_appLoaded = FALSE;
 //AVO: used by SPAWN_ANTIFREEZE (by alpet)
 extern ENGINE_API BOOL g_bootComplete = FALSE;
@@ -1552,6 +1589,7 @@ void CApplication::LoadBegin()
 	ll_dwReference++;
 	if (1 == ll_dwReference)
 	{
+		total_load_timer.Start();
 		g_appLoaded = FALSE;
 
 		//AVO:
@@ -1573,6 +1611,7 @@ void CApplication::LoadEnd()
 	ll_dwReference--;
 	if (0 == ll_dwReference)
 	{
+		Msg("* total loading time: %d ms", total_load_timer.GetElapsed_ms());
 		Msg("* phase time: %d ms", phase_timer.GetElapsed_ms());
 		Msg("* phase cmem: %lld K", Memory.mem_usage() / 1024);
 		Console->Execute("stat_memory");

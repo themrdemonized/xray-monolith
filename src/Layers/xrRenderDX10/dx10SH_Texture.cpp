@@ -444,6 +444,7 @@ void CTexture::Preload()
 void CTexture::Load()
 {
 	PROF_EVENT("CTexture::Load");
+	xrCriticalSectionGuard guard(loadGuard);
 
 	if (flags.bLoaded || flags.bLoading) return;
 	flags.bLoading = true;

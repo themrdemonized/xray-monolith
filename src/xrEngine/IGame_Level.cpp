@@ -92,6 +92,8 @@ xrCriticalSection lloadcs;
 bool IGame_Level::Load(u32 dwNum)
 {
 	PROF_EVENT("IGame_Level::Load");
+	CTimer level_timer;
+	level_timer.Start();
 	xrCriticalSectionGuard guard(&lloadcs);
 	if (bReady) return TRUE;
 	extern xr_task_group prefetch_task;
@@ -116,29 +118,52 @@ bool IGame_Level::Load(u32 dwNum)
 	fs.r_chunk_safe(fsL_HEADER, &H, sizeof(H));
 	R_ASSERT2(XRCL_PRODUCTION_VERSION == H.XRLC_version, "Incompatible level version.");
 
-	// CForms
-	// g_pGamePersistent->LoadTitle ("st_loading_cform");
-	g_pGamePersistent->LoadTitle();
-	ObjectSpace.Load( [](Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt, void* params){g_pGameLevel->Load_GameSpecific_CFORM(T, Tcnt);});
-	//Sound->set_geometry_occ ( &Static );
-	Sound->set_geometry_occ(ObjectSpace.GetStaticModel());
-	Sound->set_handler(_sound_event);
-
-	pApp->LoadSwitch();
-
-
 	// HUD + Environment
 	if (!g_hud)
 		g_hud = (CCustomHUD*)NEW_INSTANCE(CLSID_HUDMANAGER);
 
+	g_pGamePersistent->Environment().mods_load();
+	g_pGamePersistent->LoadTitle();
+
+	// CFORM and game-specific navigation data use independent level files and
+	// publish to separate subsystems, so overlap them with renderer loading.
+	xr_task_group level_load_tasks;
+	level_load_tasks.run([this]()
+	{
+		CTimer timer;
+		timer.Start();
+		ObjectSpace.Load([](Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt, void* params)
+		{
+			g_pGameLevel->Load_GameSpecific_CFORM(T, Tcnt);
+		});
+		Msg("* [LEVEL LOAD] CFORM: %d ms", timer.GetElapsed_ms());
+	});
+	level_load_tasks.run([this]()
+	{
+		CTimer timer;
+		timer.Start();
+		R_ASSERT(Load_GameSpecific_Before());
+		Msg("* [LEVEL LOAD] game-specific before: %d ms", timer.GetElapsed_ms());
+	});
+
+	pApp->LoadSwitch();
+
 	// Render-level Load
+	CTimer render_timer;
+	render_timer.Start();
 	Render->level_Load(LL_Stream);
+	Msg("* [LEVEL LOAD] renderer: %d ms", render_timer.GetElapsed_ms());
+	CTimer barrier_timer;
+	barrier_timer.Start();
+	level_load_tasks.wait();
+	Msg("* [LEVEL LOAD] CFORM/AI barrier: %d ms", barrier_timer.GetElapsed_ms());
+
+	Sound->set_geometry_occ(ObjectSpace.GetStaticModel());
+	Sound->set_handler(_sound_event);
 	// tscreate.FrameEnd ();
 	// Msg ("* S-CREATE: %f ms, %d times",tscreate.result,tscreate.count);
 
 	// Objects
-	g_pGamePersistent->Environment().mods_load();
-	R_ASSERT(Load_GameSpecific_Before());
 	Objects.Load();
 	//. ANDY R_ASSERT (Load_GameSpecific_After ());
 
@@ -151,6 +176,7 @@ bool IGame_Level::Load(u32 dwNum)
 #endif
 
 	Device.seqFrame.Add(this);
+	Msg("* [LEVEL LOAD] total: %d ms", level_timer.GetElapsed_ms());
 
 	//SECUROM_MARKER_PERFORMANCE_OFF(10)
 

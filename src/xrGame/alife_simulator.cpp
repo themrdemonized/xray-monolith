@@ -47,14 +47,16 @@ CALifeSimulator::CALifeSimulator(xrServer* server, shared_str* command_line) :
 	CALifeSimulatorBase(server, alife_section)
 {
 	PROF_EVENT("CALifeSimulator::CALifeSimulator");
+	typedef IGame_Persistent::params params;
+	params& p = g_pGamePersistent->m_game_params;
+	if (!xr_strcmp(p.m_new_or_load, "load"))
+		CALifeStorageManager::prepare_load(p.m_game_or_spawn);
+
 	restart_all();
 
 	ai().set_alife(this);
 
 	setup_command_line(command_line);
-
-	typedef IGame_Persistent::params params;
-	params& p = g_pGamePersistent->m_game_params;
 
 	R_ASSERT2(
 		xr_strlen(p.m_game_or_spawn) &&

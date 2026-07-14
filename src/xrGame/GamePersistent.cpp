@@ -155,13 +155,26 @@ extern void init_game_globals();
 
 void CGamePersistent::OnAppStart()
 {
-	// load game materials
+	CTimer timer;
+	timer.Start();
+	xr_task_group environment_task;
+#ifndef _EDITOR
+	environment_task.run([this]() { Environment().load(); });
+#endif
 	GMLib.Load();
+	Msg("* [STARTUP] game materials: %d ms", timer.GetElapsed_ms());
+	timer.Start();
 	init_game_globals();
+	Msg("* [STARTUP] game globals: %d ms", timer.GetElapsed_ms());
+	timer.Start();
+	environment_task.wait();
 	inherited::OnAppStart();
+	Msg("* [STARTUP] environment barrier and config: %d ms", timer.GetElapsed_ms());
+	timer.Start();
 	m_pUI_core = xr_new<ui_core>();
 	m_pMainMenu = xr_new<CMainMenu>();
 	m_pWallmarksManager = xr_new<ScriptWallmarksManager>();
+	Msg("* [STARTUP] UI and main menu objects: %d ms", timer.GetElapsed_ms());
 }
 
 

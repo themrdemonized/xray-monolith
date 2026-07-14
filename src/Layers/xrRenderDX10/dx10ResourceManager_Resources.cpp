@@ -55,6 +55,16 @@ void CResourceManager::_DeleteCS(const SCS* CS)
 
 void fix_texture_name(LPSTR fn);
 
+static xrCriticalSection shaderCreationGuards[64];
+
+static xrCriticalSection& shader_creation_guard(LPCSTR name)
+{
+	u32 hash = 2166136261u;
+	for (; *name; ++name)
+		hash = (hash ^ u8(*name)) * 16777619u;
+	return shaderCreationGuards[hash % std::size(shaderCreationGuards)];
+}
+
 template <class T>
 BOOL reclaim(xr_vector<T*>& vec, const T* ptr)
 {
@@ -143,7 +153,6 @@ void CResourceManager::_DeletePass(const SPass* P)
 //--------------------------------------------------------------------------------------------------------------
 SVS* CResourceManager::_CreateVS(LPCSTR _name)
 {
-	xrCriticalSectionGuard guard(creationGuard);
 	xr_string res_name = _name;
 
 	const int m_skinning = Engine.External.GetSkinningMode();
@@ -154,18 +163,23 @@ SVS* CResourceManager::_CreateVS(LPCSTR _name)
 
 	LPCSTR name = res_name.c_str();
 	LPSTR N = LPSTR(name);
-	map_VS::iterator I = m_vs.find(N);
-	if (I != m_vs.end()) return I->second;
-	else
+	xrCriticalSectionGuard shader_guard(shader_creation_guard(name));
 	{
-		SVS* _vs = xr_new<SVS>();
-		_vs->skinning = m_skinning;
-		_vs->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-		m_vs.insert(mk_pair(_vs->set_name(name), _vs));
+		xrCriticalSectionGuard guard(creationGuard);
+		map_VS::iterator I = m_vs.find(N);
+		if (I != m_vs.end()) return I->second;
+	}
+
+	SVS* _vs = xr_new<SVS>();
+	_vs->skinning = m_skinning;
+	_vs->dwFlags |= xr_resource_flagged::RF_REGISTERED;
+	_vs->set_name(name);
 		//_vs->vs				= NULL;
 		//_vs->signature		= NULL;
 		if (0 == stricmp(_name, "null"))
 		{
+			xrCriticalSectionGuard guard(creationGuard);
+			m_vs.insert(mk_pair(*_vs->cName, _vs));
 			return _vs;
 		}
 
@@ -227,8 +241,11 @@ SVS* CResourceManager::_CreateVS(LPCSTR _name)
 			make_string("Shader compilation failed, check your log file for additional information.")
 		);
 
-		return _vs;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		m_vs.insert(mk_pair(*_vs->cName, _vs));
 	}
+	return _vs;
 }
 
 void CResourceManager::_DeleteVS(const SVS* vs)
@@ -260,7 +277,6 @@ void CResourceManager::_DeleteVS(const SVS* vs)
 //--------------------------------------------------------------------------------------------------------------
 SPS* CResourceManager::_CreatePS(LPCSTR _name)
 {
-	xrCriticalSectionGuard guard(creationGuard);
 	string_path name;
 	xr_strcpy(name, _name);
 	if (0 == ::Render->m_MSAASample) xr_strcat(name, "_0");
@@ -272,16 +288,21 @@ SPS* CResourceManager::_CreatePS(LPCSTR _name)
 	if (6 == ::Render->m_MSAASample) xr_strcat(name, "_6");
 	if (7 == ::Render->m_MSAASample) xr_strcat(name, "_7");
 	LPSTR N = LPSTR(name);
-	map_PS::iterator I = m_ps.find(N);
-	if (I != m_ps.end()) return I->second;
-	else
+	xrCriticalSectionGuard shader_guard(shader_creation_guard(name));
 	{
-		SPS* _ps = xr_new<SPS>();
-		_ps->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-		m_ps.insert(mk_pair(_ps->set_name(name), _ps));
+		xrCriticalSectionGuard guard(creationGuard);
+		map_PS::iterator I = m_ps.find(N);
+		if (I != m_ps.end()) return I->second;
+	}
+
+	SPS* _ps = xr_new<SPS>();
+	_ps->dwFlags |= xr_resource_flagged::RF_REGISTERED;
+	_ps->set_name(name);
 		if (0 == stricmp(_name, "null"))
 		{
 			_ps->ps = NULL;
+			xrCriticalSectionGuard guard(creationGuard);
+			m_ps.insert(mk_pair(*_ps->cName, _ps));
 			return _ps;
 		}
 
@@ -357,8 +378,11 @@ SPS* CResourceManager::_CreatePS(LPCSTR _name)
 			make_string("Shader compilation failed, check your log file for additional information.")
 		);
 
-		return _ps;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		m_ps.insert(mk_pair(*_ps->cName, _ps));
 	}
+	return _ps;
 }
 
 void CResourceManager::_DeletePS(const SPS* ps)
@@ -621,6 +645,12 @@ void CResourceManager::DeleteGeom(const SGeometry* Geom)
 
 //--------------------------------------------------------------------------------------------------------------
 xr_task_group textures_load_tasks;
+
+void CResourceManager::WaitForTextureLoads()
+{
+	textures_load_tasks.wait();
+}
+
 CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
 {
 	PROF_EVENT("_CreateTexture");

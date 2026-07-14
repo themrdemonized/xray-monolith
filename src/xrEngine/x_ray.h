@@ -74,6 +74,7 @@ public:
 };
 
 extern ENGINE_API CApplication* pApp;
+extern ENGINE_API void LogStartupMenuReady();
 
 //Discord
 struct rpc_info

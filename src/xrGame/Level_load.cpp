@@ -23,8 +23,6 @@ extern ENGINE_API bool g_dedicated_server;
 bool CLevel::Load_GameSpecific_Before()
 {
 	// AI space
-	//	g_pGamePersistent->LoadTitle		("st_loading_ai_objects");
-	g_pGamePersistent->LoadTitle();
 	string_path fn_game;
 
 	if (GamePersistent().GameType() == eGameIDSingle && !ai().get_alife() && FS.exist(fn_game, "$level$", "level.ai") &&
@@ -49,10 +47,15 @@ bool CLevel::Load_GameSpecific_Before()
 bool CLevel::Load_GameSpecific_After()
 {
 	R_ASSERT(m_StaticParticles.empty());
+	xr_task_group resource_load_tasks;
+
 	// loading static particles
-	string_path fn_game;
-	if (FS.exist(fn_game, "$level$", "level.ps_static"))
+	resource_load_tasks.run([this]()
 	{
+		string_path fn_game;
+		if (!FS.exist(fn_game, "$level$", "level.ps_static"))
+			return;
+
 		IReader* F = FS.r_open(fn_game);
 
 		u32 chunk = 0;
@@ -92,10 +95,15 @@ bool CLevel::Load_GameSpecific_After()
 			}
 		}
 		FS.r_close(F);
-	}
+	});
 
-	if (!g_dedicated_server)
+	resource_load_tasks.run([this]()
 	{
+		if (g_dedicated_server)
+			return;
+
+		string_path fn_game;
+
 		// loading static sounds
 		VERIFY(m_level_sound_manager);
 		m_level_sound_manager->Load();
@@ -168,7 +176,9 @@ bool CLevel::Load_GameSpecific_After()
 			}
 			FS.r_close(F);
 		}
-	}
+	});
+
+	resource_load_tasks.wait();
 
 	if (!g_dedicated_server)
 	{

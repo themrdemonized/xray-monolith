@@ -1970,12 +1970,12 @@ HRESULT CRender::shader_compile(
 	FS.update_path(folder_name, "$game_shaders$", folder);
 	xr_strcat(folder_name, "\\");
 
-	m_file_set.clear();
-	FS.file_list(m_file_set, folder_name, FS_ListFiles | FS_RootOnly, "*");
+	FS_FileSet file_set;
+	FS.file_list(file_set, folder_name, FS_ListFiles | FS_RootOnly, "*");
 
 	string_path temp_file_name, file_name;
 	bool const useGeneratedShaderCache =
-		psDeviceFlags2.test(rsPrecompiledShaders) || !match_shader_id(name, sh_name, m_file_set, temp_file_name);
+		psDeviceFlags2.test(rsPrecompiledShaders) || !match_shader_id(name, sh_name, file_set, temp_file_name);
 	if (useGeneratedShaderCache)
 	{
 		string_path file;

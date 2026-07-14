@@ -73,13 +73,14 @@ private:
 	files_set m_files;
 	BOOL bNoRecurse;
 
+	xrCriticalSection m_scan_lock;
 	xrCriticalSection m_auth_lock;
 	u64 m_auth_code;
 
 	void Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real, u32 size_compressed, u32 modif);
 	void ProcessArchive(LPCSTR path);
-	void ProcessOne(LPCSTR path, const _finddata_t& entry);
-	bool Recurse(LPCSTR path);
+	void ProcessOne(LPCSTR path, const _finddata_t& entry, u32 parallel_depth = 0);
+	bool Recurse(LPCSTR path, u32 parallel_depth = 0);
 
 	files_it file_find_it(LPCSTR n);
 public:
