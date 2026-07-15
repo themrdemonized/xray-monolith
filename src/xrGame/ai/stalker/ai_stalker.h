@@ -834,6 +834,12 @@ private:
 	float m_fire_queue_size_k;
 	float m_fire_queue_interval_k;
 
+	// Per-NPC best-cover re-pick hysteresis, read in update_best_cover_actuality: a candidate cover must
+	// beat the current one by MORE than this margin to force a re-pick. Negative = unset -> vanilla 1.f.
+	// Raising it damps the marginal-gain lateral re-picking (the strafe between covers) and lets a flank
+	// hold; the separate enemy-proximity invalidator still relocates a genuinely compromised cover.
+	float m_cover_actuality_hysteresis;
+
 public:
 	IC void sniper_update_rate(bool value);
 	IC bool sniper_update_rate() const;
@@ -849,6 +855,9 @@ public:
 	IC void  set_fire_queue_scale(float size_k, float interval_k);
 	IC float fire_queue_size_k() const;
 	IC float fire_queue_interval_k() const;
+
+	IC void  set_cover_hysteresis(float value);
+	IC float cover_actuality_hysteresis() const;
 
 private:
 	shared_str m_aim_bone_id;

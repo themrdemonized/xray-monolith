@@ -1929,6 +1929,19 @@ void CScriptGameObject::set_aim_params(float max_angle, float min_angle, float m
 	stalker->set_aim_params(max_angle, min_angle, min_speed, predict_time);
 }
 
+void CScriptGameObject::set_cover_hysteresis(float value)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member set_cover_hysteresis!");
+		return;
+	}
+
+	stalker->set_cover_hysteresis(value);
+}
+
 void CScriptGameObject::set_fire_queue_scale(float size_k, float interval_k)
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());

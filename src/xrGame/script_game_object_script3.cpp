@@ -458,6 +458,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 
 		.def("set_aim_params", SAFE_WRAP(&CScriptGameObject::set_aim_params))
 		.def("set_fire_queue_scale", SAFE_WRAP(&CScriptGameObject::set_fire_queue_scale))
+		.def("set_cover_hysteresis", SAFE_WRAP(&CScriptGameObject::set_cover_hysteresis))
 		.def("can_kill_enemy", SAFE_WRAP(&CScriptGameObject::can_kill_enemy))
 		.def("can_kill_member", SAFE_WRAP(&CScriptGameObject::can_kill_member))
 		.def("fire_make_sense", SAFE_WRAP(&CScriptGameObject::fire_make_sense))

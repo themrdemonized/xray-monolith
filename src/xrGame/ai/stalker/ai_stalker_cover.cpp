@@ -244,7 +244,7 @@ void CAI_Stalker::update_best_cover_actuality(const Fvector& position_to_cover_f
 	}
 
 	float cover_value = best_cover_value(position_to_cover_from);
-	if (cover_value >= m_best_cover_value + 1.f)
+	if (cover_value >= m_best_cover_value + cover_actuality_hysteresis())
 	{
 		m_best_cover_actual = false;
 #if 0//def _DEBUG

@@ -175,6 +175,19 @@ IC float CAI_Stalker::aim_predict_time() const
 	return (m_aim_predict_time < 0.f ? g_aim_predict_time : m_aim_predict_time);
 }
 
+IC void CAI_Stalker::set_cover_hysteresis(float value)
+{
+	m_cover_actuality_hysteresis = value;
+}
+
+// Negative = unset: the vanilla 1.0 re-pick margin. Raise per-NPC to hold a cover through marginal
+// score gains (stops the lateral strafe and lets a flank commit); the enemy-proximity invalidator in
+// update_best_cover_actuality is separate and still relocates a genuinely compromised cover.
+IC float CAI_Stalker::cover_actuality_hysteresis() const
+{
+	return (m_cover_actuality_hysteresis < 0.f ? 1.f : m_cover_actuality_hysteresis);
+}
+
 IC void CAI_Stalker::set_fire_queue_scale(float size_k, float interval_k)
 {
 	m_fire_queue_size_k     = size_k;
