@@ -274,21 +274,10 @@ void CALifeUpdateManager::new_game(LPCSTR save_name)
 	can_register_objects(false);
 	spawn_new_objects();
 	can_register_objects(true);
-	try
-	{
-		start_current_level_object_resources(graph().actor());
-
-		CALifeObjectRegistry::OBJECT_REGISTRY::iterator I = objects().objects().begin();
-		CALifeObjectRegistry::OBJECT_REGISTRY::iterator E = objects().objects().end();
-		for (; I != E; ++I)
-			(*I).second->on_register();
-		finish_current_level_object_resources();
-	}
-	catch (...)
-	{
-		cleanup_current_level_object_resources();
-		throw;
-	}
+	CALifeObjectRegistry::OBJECT_REGISTRY::iterator I = objects().objects().begin();
+	CALifeObjectRegistry::OBJECT_REGISTRY::iterator E = objects().objects().end();
+	for (; I != E; ++I)
+		(*I).second->on_register();
 
 #ifdef DEBUG
 	save								(save_name);

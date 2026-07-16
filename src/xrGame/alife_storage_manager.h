@@ -11,7 +11,6 @@
 #include "alife_simulator_base.h"
 
 class NET_Packet;
-class CSE_ALifeCreatureActor;
 
 class CALifeStorageManager : public virtual CALifeSimulatorBase
 {
@@ -22,9 +21,6 @@ protected:
 protected:
 	string_path m_save_name;
 	LPCSTR m_section;
-	void start_current_level_object_resources(CSE_ALifeCreatureActor* actor);
-	void finish_current_level_object_resources();
-	void cleanup_current_level_object_resources();
 
 private:
 	void prepare_objects_for_save();
