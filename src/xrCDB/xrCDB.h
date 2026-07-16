@@ -102,6 +102,7 @@ namespace CDB
 		static void build_thread(void*);
 		void build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc = NULL, void* bcp = NULL);
 		void build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc = NULL, void* bcp = NULL);
+		void swap(MODEL& other);
 		u32 memory();
 	};
 

@@ -12,6 +12,9 @@
 
 void CLevel::cl_Process_Spawn(NET_Packet& P)
 {
+	#ifdef SPAWN_ANTIFREEZE
+	PublishPreparedClientSpawnResource(P);
+	#endif
 	// Begin analysis
 	shared_str s_name;
 	P.r_stringZ(s_name);

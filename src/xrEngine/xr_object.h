@@ -314,6 +314,7 @@ public:
 	virtual void net_Relcase(CObject* O)
 	{
 	}; // destroy all links to another objects
+	virtual bool net_RelcaseNeeded() const { return true; }
 
 	// Position stack
 	IC u32 ps_Size() const { return PositionStack.size(); }

@@ -928,6 +928,7 @@ void CLocatorAPI::_destroy()
 
 const CLocatorAPI::file* CLocatorAPI::exist(const char* fn)
 {
+	xrCriticalSectionGuard guard(m_scan_lock);
 	files_it it = file_find_it(fn);
 	return (it != m_files.end()) ? &(*it) : 0;
 }
@@ -1346,6 +1347,7 @@ void CLocatorAPI::copy_file_to_build(T*& r, LPCSTR source_name)
 
 bool CLocatorAPI::check_for_file(LPCSTR path, LPCSTR _fname, string_path& fname, const file*& desc)
 {
+	xrCriticalSectionGuard guard(m_scan_lock);
 	// проверить нужно ли пересканировать пути
 	check_pathes();
 

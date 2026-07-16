@@ -161,6 +161,7 @@ bool CALifeUpdateManager::change_level(NET_Packet& net_packet)
 {
 	if (m_changing_level)
 		return (false);
+	pApp->LoadSessionBegin("level-change");
 
 #ifdef	ENGINE_LUA_ALIFE_UPDAGE_MANAGER_CALLBACKS
 	::luabind::functor<void> funct;
@@ -194,6 +195,17 @@ bool CALifeUpdateManager::change_level(NET_Packet& net_packet)
 	net_packet.r(&graph().actor()->m_tNodeID, sizeof(graph().actor()->m_tNodeID));
 	net_packet.r_vec3(graph().actor()->o_Position);
 	net_packet.r_vec3(graph().actor()->o_Angle);
+	if (ai().game_graph().valid_vertex_id(graph().actor()->m_tGraphID))
+	{
+		const GameGraph::_LEVEL_ID destination_level =
+			ai().game_graph().vertex(graph().actor()->m_tGraphID)->level_id();
+		xr_string destination_path = FS.get_path("$game_levels$")->m_Path;
+		destination_path += *ai().game_graph().header().level(destination_level).name();
+		destination_path += "\\";
+		pApp->LoadSessionSetScenario(::Render->level_StaticCacheReady(destination_path.c_str()) ?
+			"visited-transition" : "unseen-transition");
+		::Render->level_Prepare(destination_path.c_str());
+	}
 
 	Level().ClientSave();
 
@@ -262,11 +274,21 @@ void CALifeUpdateManager::new_game(LPCSTR save_name)
 	can_register_objects(false);
 	spawn_new_objects();
 	can_register_objects(true);
+	try
+	{
+		start_current_level_object_resources(graph().actor());
 
-	CALifeObjectRegistry::OBJECT_REGISTRY::iterator I = objects().objects().begin();
-	CALifeObjectRegistry::OBJECT_REGISTRY::iterator E = objects().objects().end();
-	for (; I != E; ++I)
-		(*I).second->on_register();
+		CALifeObjectRegistry::OBJECT_REGISTRY::iterator I = objects().objects().begin();
+		CALifeObjectRegistry::OBJECT_REGISTRY::iterator E = objects().objects().end();
+		for (; I != E; ++I)
+			(*I).second->on_register();
+		finish_current_level_object_resources();
+	}
+	catch (...)
+	{
+		cleanup_current_level_object_resources();
+		throw;
+	}
 
 #ifdef DEBUG
 	save								(save_name);
@@ -274,8 +296,6 @@ void CALifeUpdateManager::new_game(LPCSTR save_name)
 
 	Msg("* New game is successfully created!");
 }
-
-extern xr_task_group level_load;
 
 void CALifeUpdateManager::load(LPCSTR game_name, bool no_assert, bool new_only)
 {
@@ -304,7 +324,18 @@ void CALifeUpdateManager::load(LPCSTR game_name, bool no_assert, bool new_only)
 #endif
 	//	g_pGamePersistent->LoadTitle		("st_server_connecting");
 	g_pGamePersistent->LoadTitle(true, g_pGameLevel->name());
-	level_load.wait();
+	// Immutable level data was prepared in parallel with ALife/Lua. Publish it
+	// only now, after the Lua lifecycle has completed, on the owner thread.
+	try
+	{
+		graph().finish_level_load();
+	}
+	catch (...)
+	{
+		::Render->level_AbortAsyncLoad();
+		throw;
+	}
+	pApp->LoadSessionPhaseEnd(LoadSessionNativeLevel);
 }
 
 void CALifeUpdateManager::reload(LPCSTR section)

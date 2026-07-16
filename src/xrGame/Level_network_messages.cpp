@@ -16,6 +16,7 @@
 #include "file_transfer.h"
 #include "message_filter.h"
 #include "../xrphysics/iphworld.h"
+#include "../xrEngine/x_ray.h"
 
 extern LPCSTR map_ver_string;
 
@@ -308,6 +309,8 @@ void CLevel::ClientReceive()
 		case M_LOAD_GAME:
 		case M_CHANGE_LEVEL:
 			{
+				if (m_type == M_LOAD_GAME)
+					pApp->LoadSessionBegin("load-game");
 #ifdef DEBUG
 				Msg("--- Changing level message received...");
 #endif // #ifdef DEBUG
@@ -324,6 +327,7 @@ void CLevel::ClientReceive()
 						CSavedGameWrapper wrapper(saved_name);
 						if (wrapper.level_id() == ai().level_graph().level_id())
 						{
+							pApp->LoadSessionSetScenario("quickload");
 							Engine.Event.Defer("Game:QuickLoad", size_t(xr_strdup(saved_name)), 0);
 
 							break;

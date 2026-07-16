@@ -139,9 +139,11 @@ void CRenderDevice::End(void)
 			}
 			::Sound->set_master_volume(1.f);
 
-			m_pRender->ResourcesDestroyNecessaryTextures();
-
-			Msg("* [x-ray]: Handled Necessary Textures Destruction");
+			if (!pApp || !pApp->LoadSessionActive())
+			{
+				m_pRender->ResourcesDestroyNecessaryTextures();
+				Msg("* [x-ray]: Handled Necessary Textures Destruction");
+			}
 			Memory.mem_compact();
 			//Msg("* MEMORY USAGE: %lld K", Memory.mem_usage() / 1024);
 			//Msg("* End of synchronization A[%d] R[%d]", b_is_Active, b_is_Ready);
@@ -184,6 +186,8 @@ void CRenderDevice::PreCache(u32 amount, bool b_draw_loadscreen, bool b_wait_use
 	if (m_pRender->GetForceGPU_REF())
 		amount = 0;
 #endif
+	if (pApp)
+		pApp->LoadSessionPrecacheBegin();
 
 	dwPrecacheFrame = dwPrecacheTotal = amount;
 	if (amount && !precache_light && g_pGameLevel && g_loading_events.empty())

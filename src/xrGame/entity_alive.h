@@ -197,6 +197,7 @@ public:
 
 	virtual CVisualMemoryManager* visual_memory() const { return (0); }
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 
 public:
 	virtual Fvector predict_position(const float& time_to_check) const;

@@ -37,10 +37,11 @@ CTexture::CTexture()
 	seqMSPF = 0;
 	flags.MemoryUsage = 0;
 	flags.bLoaded = false;
-	flags.bLoading = false;
 	flags.bUser = false;
 	flags.seqCycles = FALSE;
 	m_material = 1.0f;
+	loadState.store(LoadStateUnloaded, std::memory_order_relaxed);
+	loadKind.store(0, std::memory_order_relaxed);
 	bind = xr_make_delegate(this, &CTexture::apply_load);
 }
 
@@ -54,10 +55,7 @@ CTexture::~CTexture()
 
 void CTexture::surface_set(ID3DBaseTexture* surf)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (surf) surf->AddRef();
 
 	_RELEASE(pSurface);
@@ -67,10 +65,7 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 
 ID3DBaseTexture* CTexture::surface_get()
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (pSurface) pSurface->AddRef();
 	return pSurface;
 }
@@ -86,7 +81,7 @@ void CTexture::PostLoad()
 
 void CTexture::apply_load(u32 dwStage)
 {
-    if (!flags.bLoaded) Load();
+    if (!is_loaded()) Load();
     else PostLoad();
     if (bind == xr_make_delegate(this, &CTexture::apply_load))
     {
@@ -103,10 +98,7 @@ void CTexture::apply_load(u32 dwStage)
 
 void CTexture::apply_theora(u32 dwStage)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (pTheora->Update(m_play_time != 0xFFFFFFFF ? m_play_time : RDEVICE.dwTimeContinual))
 	{
 		R_ASSERT(D3DRTYPE_TEXTURE == pSurface->GetType());
@@ -132,10 +124,7 @@ void CTexture::apply_theora(u32 dwStage)
 
 void CTexture::apply_avi(u32 dwStage)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (pAVI->NeedUpdate())
 	{
 		R_ASSERT(D3DRTYPE_TEXTURE == pSurface->GetType());
@@ -158,10 +147,7 @@ void CTexture::apply_avi(u32 dwStage)
 
 void CTexture::apply_seq(u32 dwStage)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	// SEQ
 	u32 frame = RDEVICE.dwTimeContinual / seqMSPF; //RDEVICE.dwTimeGlobal
 	u32 frame_data = seqDATA.size();
@@ -181,10 +167,7 @@ void CTexture::apply_seq(u32 dwStage)
 
 void CTexture::apply_gif(u32 dwStage)
 {
-    while (flags.bLoading)
-    {
-	SwitchToThread();
-    }
+    wait_for_loading();
     if (gifPlayer->UpdateFrame())
     {
         const CGIFAnimationPlayer::Frame* const gifFrame = gifPlayer->GetActiveFrame();
@@ -197,10 +180,7 @@ void CTexture::apply_gif(u32 dwStage)
 
 void CTexture::apply_normal(u32 dwStage)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	dwLastUsedFrame = Device.dwFrame;
 	CHK_DX(HW.pDevice->SetTexture(dwStage,pSurface));
 };
@@ -211,17 +191,119 @@ void CTexture::Preload()
 	m_material = DEV->m_textures_description.GetMaterial(cName);
 }
 
+bool CTexture::TryQueueLoad()
+{
+	u32 expected = LoadStateUnloaded;
+	return loadState.compare_exchange_strong(expected, LoadStateQueued, std::memory_order_acq_rel,
+		std::memory_order_acquire);
+}
+
+void CTexture::CancelQueuedLoad()
+{
+	u32 expected = LoadStateQueued;
+	loadState.compare_exchange_strong(expected, LoadStateUnloaded, std::memory_order_acq_rel,
+		std::memory_order_acquire);
+}
+
+bool CTexture::CanLoadAsync() const
+{
+	u32 kind = loadKind.load(std::memory_order_acquire);
+	if (!kind)
+	{
+		string_path path;
+		kind = FS.exist(path, "$game_textures$", *cName, ".ogm") ||
+			FS.exist(path, "$game_textures$", *cName, ".avi") ||
+			FS.exist(path, "$game_textures$", *cName, ".seq") ||
+			FS.exist(path, "$game_textures$", *cName, ".gif") ? 2u : 1u;
+		loadKind.store(kind, std::memory_order_release);
+	}
+	return kind == 1;
+}
+
+bool CTexture::is_loaded() const
+{
+	return loadState.load(std::memory_order_acquire) == LoadStateLoaded;
+}
+
+void CTexture::wait_for_loading() const
+{
+	for (;;)
+	{
+		const u32 state = loadState.load(std::memory_order_acquire);
+		if (state != LoadStateQueued && state != LoadStateLoading && state != LoadStateUnloading)
+			return;
+		if (state == LoadStateQueued && DEV && DEV->IsTextureOwnerThread())
+		{
+			const_cast<CTexture*>(this)->Load();
+			continue;
+		}
+		SwitchToThread();
+	}
+}
+
+bool CTexture::BeginLoad(bool queued)
+{
+	for (;;)
+	{
+		u32 expected = queued ? LoadStateQueued : LoadStateUnloaded;
+		if (loadState.compare_exchange_strong(expected, LoadStateLoading, std::memory_order_acq_rel,
+			std::memory_order_acquire))
+		{
+			return true;
+		}
+		if (!queued && expected == LoadStateQueued)
+		{
+			expected = LoadStateQueued;
+			if (loadState.compare_exchange_strong(expected, LoadStateLoading, std::memory_order_acq_rel,
+				std::memory_order_acquire))
+			{
+				return true;
+			}
+		}
+
+		if (expected == LoadStateLoaded || expected == LoadStateFailed || (queued && expected == LoadStateUnloaded))
+			return false;
+
+		wait_for_loading();
+	}
+}
+
+void CTexture::FinishLoad()
+{
+	flags.bLoaded = true;
+	loadState.store(LoadStateLoaded, std::memory_order_release);
+}
+
+void CTexture::FailLoad()
+{
+	loadState.store(LoadStateUnloading, std::memory_order_release);
+	ReleaseLoadedData();
+	loadState.store(LoadStateFailed, std::memory_order_release);
+}
+
 void CTexture::Load()
 {
+	Load(false);
+}
+
+void CTexture::LoadQueued()
+{
+	Load(true);
+}
+
+void CTexture::Load(bool queued)
+{
 	PROF_EVENT("CTexture::Load");
-	if (flags.bLoaded || flags.bLoading) return;
-	flags.bLoading = true;
+	if (!BeginLoad(queued))
+		return;
+	try
+	{
+
 	flags.bLoaded = false;
 	desc_cache = 0;
 	if (pSurface)
 	{
-		flags.bLoading = false;
-		flags.bLoaded = true;
+		FinishLoad();
 		return;
 	}
 
@@ -229,15 +311,13 @@ void CTexture::Load()
 	flags.MemoryUsage = 0;
 	if (0==_stricmp(*cName,"$null"))
 	{
-		flags.bLoading = false;
-		flags.bLoaded = true;
+		FinishLoad();
 		return;
 	}
 	if (0!=strstr(*cName,"$user$"))	
 	{
 		flags.bUser	= true;
-		flags.bLoading = false;
-		flags.bLoaded = true;
+		FinishLoad();
 		return;
 	}
 
@@ -384,21 +464,39 @@ void CTexture::Load()
 		//#endif
 	}
 	PostLoad();
-	flags.bLoading = false;
-	flags.bLoaded = true;
+	FinishLoad();
+	}
+	catch (...)
+	{
+		FailLoad();
+		throw;
+	}
 }
 
 void CTexture::Unload()
 {
-	while (flags.bLoading)
+	for (;;)
 	{
-		SwitchToThread();
+		u32 state = loadState.load(std::memory_order_acquire);
+		if (state == LoadStateUnloaded || state == LoadStateFailed)
+			return;
+		if (state == LoadStateQueued || state == LoadStateLoading || state == LoadStateUnloading)
+		{
+			wait_for_loading();
+			continue;
+		}
+		if (loadState.compare_exchange_strong(state, LoadStateUnloading, std::memory_order_acq_rel,
+			std::memory_order_acquire))
+		{
+			break;
+		}
 	}
+	ReleaseLoadedData();
+	loadState.store(LoadStateUnloaded, std::memory_order_release);
+}
 
-	// Already unloaded or never loaded: nothing to do.
-	if (!flags.bLoaded)
-		return;
-
+void CTexture::ReleaseLoadedData()
+{
 #ifdef DEBUG
 	string_path				msg_buff;
 	xr_sprintf				(msg_buff,sizeof(msg_buff),"* Unloading texture [%s] pSurface RefCount=",cName.c_str());
@@ -438,10 +536,7 @@ void CTexture::Unload()
 
 void CTexture::desc_update()
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	desc_cache = pSurface;
 	if (pSurface && (D3DRTYPE_TEXTURE == pSurface->GetType()))
 	{
@@ -452,36 +547,24 @@ void CTexture::desc_update()
 
 void CTexture::video_Play(BOOL looped, u32 _time)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (pTheora) pTheora->Play(looped, (_time != 0xFFFFFFFF) ? (m_play_time = _time) : RDEVICE.dwTimeContinual);
 }
 
 void CTexture::video_Pause(BOOL state)
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (pTheora) pTheora->Pause(state);
 }
 
 void CTexture::video_Stop()
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	if (pTheora) pTheora->Stop();
 }
 
 BOOL CTexture::video_IsPlaying()
 {
-	while (flags.bLoading)
-	{
-		SwitchToThread();
-	}
+	wait_for_loading();
 	return (pTheora) ? pTheora->IsPlaying() : FALSE;
 }

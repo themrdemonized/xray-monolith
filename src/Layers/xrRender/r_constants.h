@@ -219,6 +219,7 @@ public:
 
 	BOOL equal(R_constant_table& C);
 	BOOL equal(R_constant_table* C) { return equal(*C); }
+	u64 hash() const;
 	BOOL empty() { return 0 == table.size(); }
 
 };

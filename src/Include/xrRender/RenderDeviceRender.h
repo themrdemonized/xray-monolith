@@ -38,13 +38,17 @@ public:
 
 	//	Resources control
 	virtual void DeferredLoad(BOOL E) = 0;
+	virtual void ResourcesPrepareLoad() = 0;
 	virtual void ResourcesDeferredUpload() = 0;
 	virtual void ResourcesDeferredUnload() = 0;
 	virtual void ResourcesGetMemoryUsage(u32& m_base, u32& c_base, u32& m_lmaps, u32& c_lmaps) = 0;
 	virtual void ResourcesDestroyNecessaryTextures() = 0;
 	virtual void ResourcesStoreNecessaryTextures() = 0;
 	virtual void ResourcesDumpMemoryUsage() = 0;
-	virtual void ResourcesPrefetchCreateTexture(LPCSTR name) = 0;
+	virtual void ResourcesPrefetchCreateTexture(LPCSTR name, LPCSTR canonical_level_path = nullptr) = 0;
+	virtual u64 ResourcesBeginLoadGeneration() = 0;
+	virtual void ResourcesAbortLoadGeneration(u64 generation) = 0;
+	virtual void ResourcesFinalizeLoadGeneration(u64 generation) = 0;
 
 	//	HWSupport
 	virtual bool HWSupportsShaderYUV2RGB() = 0;

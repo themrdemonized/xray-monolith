@@ -58,6 +58,12 @@ CHOM::~CHOM()
 #endif
 }
 
+CHOM::StaticData::~StaticData()
+{
+	xr_delete(model);
+	xr_free(tris);
+}
+
 #pragma pack(push,4)
 struct HOM_poly
 {
@@ -78,17 +84,35 @@ IC float Area(Fvector& v0, Fvector& v1, Fvector& v2)
 
 void CHOM::Load()
 {
+	StaticData data;
+	Prepare(data);
+	Resume(data);
+}
+
+void CHOM::Prepare(StaticData& data)
+{
 	// Find and open file
 	string_path fName;
 	FS.update_path(fName, "$level$", "level.hom");
-	if (!FS.exist(fName))
+	Prepare(fName, data);
+}
+
+void CHOM::Prepare(LPCSTR canonical_level_path, StaticData& data)
+{
+	R_ASSERT(!data.model && !data.tris);
+	xr_string fName = canonical_level_path ? canonical_level_path : "";
+	if (!fName.empty() && fName.back() != '\\' && fName.back() != '/')
+		fName += '\\';
+	if (fName.size() < 9 || xr_strcmp(fName.c_str() + fName.size() - 9, "level.hom"))
+		fName += "level.hom";
+	if (!FS.exist(fName.c_str()))
 	{
-		Msg(" WARNING: Occlusion map '%s' not found.", fName);
+		Msg(" WARNING: Occlusion map '%s' not found.", fName.c_str());
 		return;
 	}
-	Msg("* Loading HOM: %s", fName);
+	Msg("* Loading HOM: %s", fName.c_str());
 
-	IReader* fs = FS.r_open(fName);
+	IReader* fs = FS.r_open(fName.c_str());
 	IReader* S = fs->open_chunk(1);
 
 	// Load tris and merge them
@@ -105,19 +129,19 @@ void CHOM::Load()
 	CL.calc_adjacency(adjacency);
 
 	// Create RASTER-triangles
-	m_pTris = xr_alloc<occTri>(u32(CL.getTS()));
+	data.tris = xr_alloc<occTri>(u32(CL.getTS()));
 	for (u32 it = 0; it < CL.getTS(); it++)
 	{
 		CDB::TRI& clT = CL.getT()[it];
-		occTri& rT = m_pTris[it];
+		occTri& rT = data.tris[it];
 
 		Fvector& v0 = CL.getV()[clT.verts[0]];
 		Fvector& v1 = CL.getV()[clT.verts[1]];
 		Fvector& v2 = CL.getV()[clT.verts[2]];
 
-		rT.adjacent[0] = (0xffffffff == adjacency[3 * it + 0]) ? ((occTri*)(-1)) : (m_pTris + adjacency[3 * it + 0]);
-		rT.adjacent[1] = (0xffffffff == adjacency[3 * it + 1]) ? ((occTri*)(-1)) : (m_pTris + adjacency[3 * it + 1]);
-		rT.adjacent[2] = (0xffffffff == adjacency[3 * it + 2]) ? ((occTri*)(-1)) : (m_pTris + adjacency[3 * it + 2]);
+		rT.adjacent[0] = (0xffffffff == adjacency[3 * it + 0]) ? ((occTri*)(-1)) : (data.tris + adjacency[3 * it + 0]);
+		rT.adjacent[1] = (0xffffffff == adjacency[3 * it + 1]) ? ((occTri*)(-1)) : (data.tris + adjacency[3 * it + 1]);
+		rT.adjacent[2] = (0xffffffff == adjacency[3 * it + 2]) ? ((occTri*)(-1)) : (data.tris + adjacency[3 * it + 2]);
 		rT.flags = clT.dummy;
 		rT.area = Area(v0, v1, v2);
 
@@ -132,21 +156,16 @@ void CHOM::Load()
 	}
 
 	// Create AABB-tree
-	m_pModel = xr_new<CDB::MODEL>();
-	m_pModel->build(CL.getV(), int(CL.getVS()), CL.getT(), int(CL.getTS()));
-	bEnabled = TRUE;
+	data.model = xr_new<CDB::MODEL>();
+	data.model->build(CL.getV(), int(CL.getVS()), CL.getT(), int(CL.getTS()));
+	data.enabled = TRUE;
 	S->close();
 	FS.r_close(fs);
-
-	if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
-	{
-		// MT-HOM (@front)
-		Device.seqParallelRender.push_back(xr_make_delegate(this, &CHOM::MT_RENDER));
-	}
 }
 
 void CHOM::Unload()
 {
+	xrCriticalSectionGuard guard(m_mt_render_guard);
 	xr_delete(m_pModel);
 	xr_free(m_pTris);
 	bEnabled = FALSE;
@@ -154,6 +173,38 @@ void CHOM::Unload()
 	auto I = std::find(Device.seqParallelRender.begin(), Device.seqParallelRender.end(), xr_make_delegate(this, &CHOM::MT_RENDER));
 	if (I != Device.seqParallelRender.end())
 		Device.seqParallelRender.erase(I);
+}
+
+void CHOM::Suspend(StaticData& data)
+{
+	xrCriticalSectionGuard guard(m_mt_render_guard);
+	auto callback = xr_make_delegate(this, &CHOM::MT_RENDER);
+	auto iterator = std::find(Device.seqParallelRender.begin(), Device.seqParallelRender.end(), callback);
+	if (iterator != Device.seqParallelRender.end())
+		Device.seqParallelRender.erase(iterator);
+
+	R_ASSERT(!data.model && !data.tris);
+	data.model = m_pModel;
+	data.tris = m_pTris;
+	data.enabled = bEnabled;
+	m_pModel = nullptr;
+	m_pTris = nullptr;
+	bEnabled = FALSE;
+}
+
+void CHOM::Resume(StaticData& data)
+{
+	xrCriticalSectionGuard guard(m_mt_render_guard);
+	R_ASSERT(!m_pModel && !m_pTris);
+	m_pModel = data.model;
+	m_pTris = data.tris;
+	bEnabled = data.enabled;
+	data.model = nullptr;
+	data.tris = nullptr;
+	data.enabled = FALSE;
+	MT_frame_rendered.store(0, std::memory_order_release);
+	if (m_pModel && ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
+		Device.seqParallelRender.push_back(xr_make_delegate(this, &CHOM::MT_RENDER));
 }
 
 class pred_fb

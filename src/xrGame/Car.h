@@ -628,6 +628,7 @@ public:
 	virtual BOOL net_Relevant() { return getLocal(); }; // relevant for export to server
 	virtual BOOL UsedAI_Locations();
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	// Input
 	virtual void OnMouseMove(int x, int y);
 	virtual void OnKeyboardPress(int dik);

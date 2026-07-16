@@ -20,6 +20,8 @@ private:
 	Objects destroy_queue;
 	Objects objects_active;
 	Objects objects_sleeping;
+	Objects objects_relcase_active;
+	Objects objects_relcase_sleeping;
 	Objects m_crows[2];
 	u32 m_owner_thread_id;
 
@@ -86,9 +88,11 @@ public:
 
 	void o_crow(CObject* O);
 	void o_remove(Objects& v, CObject* O);
+	void o_remove_relcase(Objects& v, CObject* O);
 	void o_activate(CObject* O);
 	void o_sleep(CObject* O);
 	IC u32 o_count() { return objects_active.size() + objects_sleeping.size(); };
+	IC bool destroy_queues_empty() const { return force_destroy_queue.empty() && destroy_queue.empty(); }
 	IC CObject* o_get_by_iterator(u32 _it)
 	{
 		if (_it < objects_active.size()) return objects_active[_it];

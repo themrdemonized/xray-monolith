@@ -609,11 +609,22 @@ CEnvAmbient* CEnvironment::AppendEnvAmb(const shared_str& sect)
 
 void CEnvironment::mods_load()
 {
-	Modifiers.clear_and_free();
-	string_path path;
-	if (FS.exist(path, "$level$", "level.env_mod"))
+	xr_vector<CEnvModifier> prepared;
+	PrepareLevelModifiers(FS.get_path("$level$")->m_Path, prepared);
+	CommitLevelModifiers(prepared);
+}
+
+void CEnvironment::PrepareLevelModifiers(LPCSTR canonical_level_path, xr_vector<CEnvModifier>& result)
+{
+	result.clear_and_free();
+	xr_string path = canonical_level_path ? canonical_level_path : "";
+	if (!path.empty() && path.back() != '\\' && path.back() != '/')
+		path += '\\';
+	path += "level.env_mod";
+	if (FS.exist(path.c_str()))
 	{
-		IReader* fs = FS.r_open(path);
+		IReader* fs = FS.r_open(path.c_str());
+		R_ASSERT3(fs, "Cannot open level environment modifiers", path.c_str());
 		u32 id = 0;
 		u32 ver = 0x0015;
 		u32 sz;
@@ -628,13 +639,18 @@ void CEnvironment::mods_load()
 			{
 				CEnvModifier E;
 				E.load(fs, ver);
-				Modifiers.push_back(E);
+				result.push_back(E);
 			}
 			id++;
 		}
 		FS.r_close(fs);
 	}
+}
 
+void CEnvironment::CommitLevelModifiers(xr_vector<CEnvModifier>& prepared)
+{
+	Modifiers.swap(prepared);
+	prepared.clear_and_free();
 	load_level_specific_ambients();
 }
 

@@ -7,26 +7,33 @@
 #include "light_db.h"
 
 CLight_DB::CLight_DB()
+	: rain_light(nullptr), m_prepared(false)
 {
 }
 
 CLight_DB::~CLight_DB()
 {
+	if (m_prepared || rain_light || sun_original || sun_adapted || !v_static.empty() || !v_hemi.empty())
+		Unload();
 }
 
 void CLight_DB::Load(IReader* fs)
 {
-	IReader* F = 0;
+	IReader* reader = fs->open_chunk(fsL_LIGHT_DYNAMIC);
+	R_ASSERT(reader);
+	LoadDynamic(*reader, true);
+	reader->close();
+}
 
+void CLight_DB::LoadDynamic(IReader& reader, bool publish)
+{
 	// Lights itself
 	sun_original = NULL;
 	sun_adapted = NULL;
-	rain_light = xr_new<light>();
+	rain_light = xr_new<light>(publish);
 	rain_light->set_type(IRender_Light::DIRECT);
 	{
-		F = fs->open_chunk(fsL_LIGHT_DYNAMIC);
-
-		u32 size = F->length();
+		u32 size = reader.length();
 		u32 element = sizeof(Flight) + 4;
 		u32 count = size / element;
 		VERIFY(count*element == size);
@@ -34,7 +41,7 @@ void CLight_DB::Load(IReader* fs)
 		for (u32 i = 0; i < count; i++)
 		{
 			Flight Ldata;
-			light* L = Create();
+			light* L = Create(publish);
 			L->flags.bStatic = true;
 			L->set_type(IRender_Light::POINT);
 
@@ -44,8 +51,8 @@ void CLight_DB::Load(IReader* fs)
 			L->set_shadow(true);
 #endif
 			u32 controller = 0;
-			F->r(&controller, 4);
-			F->r(&Ldata, sizeof(Flight));
+			reader.r(&controller, 4);
+			reader.r(&Ldata, sizeof(Flight));
 			if (Ldata.type == D3DLIGHT_DIRECTIONAL)
 			{
 				Fvector tmp_R;
@@ -58,7 +65,7 @@ void CLight_DB::Load(IReader* fs)
 				L->set_rotation(Ldata.direction, tmp_R);
 
 				// copy to env-sun
-				sun_adapted = L = Create();
+				sun_adapted = L = Create(publish);
 				L->flags.bStatic = true;
 				L->set_type(IRender_Light::DIRECT);
 				L->set_shadow(true);
@@ -76,12 +83,11 @@ void CLight_DB::Load(IReader* fs)
 				L->set_rotation(tmp_D, tmp_R);
 				L->set_range(Ldata.range);
 				L->set_color(Ldata.diffuse);
-				L->set_active(true);
+				if (publish)
+					L->set_active(true);
 				//				R_ASSERT			(L->spatial.sector	);
 			}
 		}
-
-		F->close();
 	}
 	R_ASSERT2(sun_original && sun_adapted, "Where is sun?");
 
@@ -110,70 +116,144 @@ void CLight_DB::LoadHemi()
 	if (FS.exist(fn_game, "$level$", "build.lights"))
 	{
 		IReader* F = FS.r_open(fn_game);
-
+		IReader* chunk = F->open_chunk(1); //Hemispheric light chunk
+		if (chunk)
 		{
-			IReader* chunk = F->open_chunk(1); //Hemispheric light chunk
-
-			if (chunk)
-			{
-				u32 size = chunk->length();
-				u32 element = sizeof(R_Light);
-				u32 count = size / element;
-				VERIFY(count*element == size);
-				v_hemi.reserve(count);
-				for (u32 i = 0; i < count; i++)
-				{
-					R_Light Ldata;
-
-					chunk->r(&Ldata, sizeof(R_Light));
-
-					if (Ldata.type == D3DLIGHT_POINT)
-						//if (Ldata.type!=0)
-					{
-						light* L = Create();
-						L->flags.bStatic = true;
-						L->set_type(IRender_Light::POINT);
-
-						Fvector tmp_D, tmp_R;
-						tmp_D.set(0, 0, -1); // forward
-						tmp_R.set(1, 0, 0); // right
-
-						// point
-						v_hemi.push_back(L);
-						L->set_position(Ldata.position);
-						L->set_rotation(tmp_D, tmp_R);
-						L->set_range(Ldata.range);
-						L->set_color(Ldata.diffuse.x, Ldata.diffuse.y, Ldata.diffuse.z);
-						L->set_active(true);
-						L->set_attenuation_params(Ldata.attenuation0, Ldata.attenuation1, Ldata.attenuation2,
-						                          Ldata.falloff);
-						L->SpatialComponent->spatial.type = STYPE_LIGHTSOURCEHEMI;
-						//				R_ASSERT			(L->spatial.sector	);
-					}
-				}
-
-				chunk->close();
-			}
+			LoadHemi(*chunk, true);
+			chunk->close();
 		}
-
 		FS.r_close(F);
+	}
+}
+
+void CLight_DB::LoadHemi(IReader& reader, bool publish)
+{
+	u32 size = reader.length();
+	u32 element = sizeof(R_Light);
+	u32 count = size / element;
+	VERIFY(count*element == size);
+	v_hemi.reserve(count);
+	for (u32 i = 0; i < count; i++)
+	{
+		R_Light Ldata;
+		reader.r(&Ldata, sizeof(R_Light));
+		if (Ldata.type != D3DLIGHT_POINT)
+			continue;
+
+		light* L = Create(publish);
+		L->flags.bStatic = true;
+		L->set_type(IRender_Light::POINT);
+		Fvector tmp_D, tmp_R;
+		tmp_D.set(0, 0, -1);
+		tmp_R.set(1, 0, 0);
+		v_hemi.push_back(L);
+		L->set_position(Ldata.position);
+		L->set_rotation(tmp_D, tmp_R);
+		L->set_range(Ldata.range);
+		L->set_color(Ldata.diffuse.x, Ldata.diffuse.y, Ldata.diffuse.z);
+		if (publish)
+			L->set_active(true);
+		L->set_attenuation_params(Ldata.attenuation0, Ldata.attenuation1, Ldata.attenuation2, Ldata.falloff);
+		L->SpatialComponent->spatial.type = STYPE_LIGHTSOURCEHEMI;
 	}
 }
 #endif
 
+void CLight_DB::LoadPrepared(const xr_vector<u8>& dynamic, const xr_vector<u8>& hemi)
+{
+	Prepare(dynamic, hemi);
+	CommitPrepared();
+}
+
+void CLight_DB::Prepare(const xr_vector<u8>& dynamic, const xr_vector<u8>& hemi)
+{
+	R_ASSERT(!dynamic.empty());
+	R_ASSERT(!m_prepared && v_static.empty() && v_hemi.empty() && !sun_original && !sun_adapted && !rain_light);
+	m_prepared = true;
+	IReader dynamic_reader(const_cast<u8*>(dynamic.data()), static_cast<int>(dynamic.size()));
+	LoadDynamic(dynamic_reader, false);
+#if RENDER != R_R1
+	if (!hemi.empty())
+	{
+		IReader hemi_reader(const_cast<u8*>(hemi.data()), static_cast<int>(hemi.size()));
+		LoadHemi(hemi_reader, false);
+	}
+#endif
+}
+
+void CLight_DB::CommitPrepared()
+{
+	R_ASSERT(m_prepared && rain_light && sun_original && sun_adapted);
+	rain_light->publish_for_render();
+	((light*)sun_original._get())->publish_for_render();
+	((light*)sun_adapted._get())->publish_for_render();
+	for (ref_light& item : v_static)
+		((light*)item._get())->publish_for_render();
+	for (ref_light& item : v_hemi)
+		((light*)item._get())->publish_for_render();
+	Resume();
+	m_prepared = false;
+}
+
+void CLight_DB::PrepareForCache()
+{
+	R_ASSERT(!m_prepared && rain_light && sun_original && sun_adapted);
+	m_prepared = true;
+#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+	RImplementation.LP_normal.clear();
+	RImplementation.LP_pending.clear();
+#endif
+	rain_light->reset_for_cache();
+	((light*)sun_original._get())->reset_for_cache();
+	((light*)sun_adapted._get())->reset_for_cache();
+	for (ref_light& item : v_static)
+		((light*)item._get())->reset_for_cache();
+	for (ref_light& item : v_hemi)
+		((light*)item._get())->reset_for_cache();
+}
+
 void CLight_DB::Unload()
 {
+	Suspend();
 	v_static.clear();
 	v_hemi.clear();
 	sun_original.destroy();
 	sun_adapted.destroy();
-	rain_light->destroy(false);
+	if (rain_light)
+		rain_light->destroy(false);
 	rain_light = nullptr;
+	m_prepared = false;
 }
 
-light* CLight_DB::Create()
+void CLight_DB::Suspend()
 {
-	light* L = xr_new<light>();
+	for (ref_light& item : v_static)
+		((light*)item._get())->set_active(false);
+	for (ref_light& item : v_hemi)
+		((light*)item._get())->set_active(false);
+}
+
+void CLight_DB::Resume()
+{
+	for (ref_light& item : v_static)
+		((light*)item._get())->set_active(true);
+	for (ref_light& item : v_hemi)
+		((light*)item._get())->set_active(true);
+}
+
+void CLight_DB::Swap(CLight_DB& other)
+{
+	v_static.swap(other.v_static);
+	v_hemi.swap(other.v_hemi);
+	std::swap(sun_original, other.sun_original);
+	std::swap(sun_adapted, other.sun_adapted);
+	std::swap(rain_light, other.rain_light);
+	std::swap(m_prepared, other.m_prepared);
+}
+
+light* CLight_DB::Create(bool publish)
+{
+	light* L = xr_new<light>(publish);
 	L->flags.bStatic = false;
 	L->flags.bActive = false;
 	L->flags.bShadow = true;

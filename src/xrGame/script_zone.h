@@ -26,6 +26,7 @@ public:
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
 	virtual void net_Destroy();
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	virtual void shedule_Update(u32 dt);
 	virtual void feel_touch_new(CObject* O);
 	virtual void feel_touch_delete(CObject* O);

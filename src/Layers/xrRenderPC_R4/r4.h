@@ -18,6 +18,7 @@
 #include "../xrRender/light_db.h"
 #include "../xrRender/LightTrack.h"
 #include "../xrRender/r_sun_cascades.h"
+#include "../xrRenderDX10/3DFluid/dx103DFluidData.h"
 
 #include "../../xrEngine/irenderable.h"
 #include "../../xrEngine/fmesh.h"
@@ -206,13 +207,80 @@ public:
 
 private:
 	// Loading / Unloading
-	void LoadBuffers(CStreamReader* fs, BOOL _alternative);
-	void LoadVisuals(IReader* fs);
+	struct LevelShaderDescription
+	{
+		xr_string shader;
+		xr_string textures;
+	};
+	struct LevelStaticPackage;
+	struct VisualGeometrySource
+	{
+		const xr_vector<VertexDeclarator>* normal_declarations;
+		const xr_vector<VertexDeclarator>* fast_declarations;
+		const xr_vector<ID3DVertexBuffer*>* normal_vertex_buffers;
+		const xr_vector<ID3DVertexBuffer*>* fast_vertex_buffers;
+		const xr_vector<ID3DIndexBuffer*>* normal_index_buffers;
+		const xr_vector<ID3DIndexBuffer*>* fast_index_buffers;
+		const xr_vector<FSlideWindowItem>* swis;
+	};
+	static thread_local const VisualGeometrySource* m_visual_geometry_source;
+	static thread_local const xr_vector<dxRender_Visual*>* m_visual_table_source;
+	xr_vector<LevelStaticPackage*> m_level_cache;
+	LevelStaticPackage* m_prepared_level_geometry = nullptr;
+	shared_str m_active_level_key;
+	u64 m_active_level_identity = 0;
+	xr_task_group m_level_prepare_tasks;
+	NativeLoadExecutor::Batch m_level_prepare_batch;
+	shared_str m_prepared_level_path;
+	u64 m_level_prepare_generation = 0;
+	u32 m_level_prepare_started_at = 0;
+	xr_vector<LevelShaderDescription> m_level_shader_descriptions;
+	xr_vector<ref_shader> m_level_shader_cpp_results;
+	xr_vector<ref_shader> m_level_shader_owner_results;
+	xr_vector<LevelShaderDescription> m_active_level_shader_descriptions;
+	xr_vector<ref_shader> m_active_level_shader_cpp_results;
+	xr_vector<u32> m_active_level_shader_indices;
+	u64 m_level_shader_identity = 0;
+	bool m_level_shader_owner_required = false;
+	CHOM::StaticData m_level_prepared_hom;
+	xr_vector<u8> m_level_prepared_lights_dynamic;
+	xr_vector<u8> m_level_prepared_lights_hemi;
+	CLight_DB* m_level_prepared_lights = nullptr;
+	xr_vector<u8> m_active_level_lights_dynamic;
+	xr_vector<u8> m_active_level_lights_hemi;
+	xr_vector<u8> m_level_prepared_portals;
+	xr_vector<xr_vector<u8>> m_level_prepared_sectors;
+	CDB::MODEL* m_level_prepared_portals_model = nullptr;
+	xr_vector<dx103DFluidData::PreparedData> m_level_fluid_descriptors;
+	xr_vector<dxRender_Visual*> m_level_prepared_visuals;
+	xr_vector<u8> m_level_prepared_visual_data;
+	IReader* m_level_owner_reader = nullptr;
+	xr_atomic_bool m_level_async_failed;
+	bool m_level_cache_attach_pending = false;
+	bool m_level_prepared_sectors_ready = false;
+	bool m_level_prepared_visuals_ready = false;
+
+	void CommitLevelShaderComponentsOwner();
+	void CommitLevelEnvironmentOwner();
+	void LoadBuffers(CStreamReader* fs, xr_vector<VertexDeclarator>& declarations,
+		xr_vector<ID3DVertexBuffer*>& vertex_buffers, xr_vector<ID3DIndexBuffer*>& index_buffers);
+	void PrepareVisuals(IReader* fs, xr_vector<dxRender_Visual*>& visuals, const VisualGeometrySource* geometry);
+	void LinkPreparedVisuals(IReader* fs, xr_vector<dxRender_Visual*>& visuals);
+	void LoadVisualLeaf(dxRender_Visual* visual, IReader* chunk, const VisualGeometrySource* geometry);
+	void DiscardPreparedVisuals();
 	void LoadLights(IReader* fs);
 	void LoadPortals(IReader* fs);
 	void LoadSectors(IReader* fs);
-	void LoadSWIs(CStreamReader* fs);
-	void Load3DFluid();
+	void LoadPreparedSectors();
+	void LoadSWIs(CStreamReader* fs, xr_vector<FSlideWindowItem>& swis);
+	void Commit3DFluid();
+	void Remove3DFluid();
+	void WaitLevelPrepare();
+	LevelStaticPackage* DetachLevelStaticPackage();
+	bool RestoreLevelStaticPackage(const shared_str& key, u64 identity);
+	void ReleaseLevelCache();
+	void EvictLevelCacheUnderPressure();
+	void DestroyActiveLevel();
 
 public:
 	IRender_Sector* rimp_detectSector(Fvector& P, Fvector& D);
@@ -309,8 +377,13 @@ public:
 
 	virtual void level_Load(IReader*);
 	virtual void level_Unload();
+	virtual bool level_StaticCacheReady(LPCSTR canonical_level_path);
+	virtual void level_Prepare(LPCSTR canonical_level_path);
+	virtual void level_InvalidateStaticCache();
+	virtual void level_BeginAsyncLoad();
+	virtual void level_AbortAsyncLoad();
 
-	ID3DBaseTexture* texture_load(LPCSTR fname, u32& msize, bool bStaging = false);
+	ID3DBaseTexture* texture_load(LPCSTR fname, u32& msize, bool bStaging = false, LPCSTR resolvedPath = nullptr);
 	virtual HRESULT shader_compile(
 		LPCSTR name,
 		DWORD const* pSrcData,
@@ -375,6 +448,10 @@ public:
 	virtual void model_Logging(BOOL bEnable) { Models->Logging(bEnable); }
 	virtual void models_Prefetch();
 	virtual void models_PrefetchOne(LPCSTR name, bool assert = true);
+	virtual void model_CollectTextures(LPCSTR name, LPCSTR canonical_level_path,
+		xr_vector<xr_string>& textures) override;
+	virtual bool models_PrefetchPrepared(LPCSTR name, LPCSTR canonical_level_path, bool assert = true) override;
+	virtual void models_InvalidatePrepared() override;
 	virtual void models_Clear(BOOL b_complete);
 	virtual bool models_Exists(LPCSTR name);
 	

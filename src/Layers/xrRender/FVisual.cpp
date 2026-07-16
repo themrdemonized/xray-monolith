@@ -101,7 +101,10 @@ void Fvisual::Load(const char* N, IReader* data, u32 dwFlags)
 			m_fast->p_rm_Indices->AddRef();
 
 			// geom
-			m_fast->rm_geom.create(fmt, m_fast->p_rm_Vertices, m_fast->p_rm_Indices);
+			if (g_defer_visual_shader_creation)
+				m_fast->DeferGeometry(fmt);
+			else
+				m_fast->rm_geom.create(fmt, m_fast->p_rm_Vertices, m_fast->p_rm_Indices);
 		}
 #endif // (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
 	}
@@ -206,7 +209,20 @@ void Fvisual::Load(const char* N, IReader* data, u32 dwFlags)
 	if (dwFlags & VLOAD_NOVERTICES)
 		return;
 	else
-		rm_geom.create(vFormat, p_rm_Vertices, p_rm_Indices);
+	{
+		if (g_defer_visual_shader_creation)
+			DeferGeometry(vFormat);
+		else
+			rm_geom.create(vFormat, p_rm_Vertices, p_rm_Indices);
+	}
+}
+
+void Fvisual::CommitShaderTexture()
+{
+	CommitGeometry();
+	if (m_fast)
+		m_fast->CommitGeometry();
+	dxRender_Visual::CommitShaderTexture();
 }
 
 void Fvisual::Render(float)

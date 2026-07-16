@@ -8,7 +8,10 @@
 void CResourceManager::OnDeviceDestroy(BOOL)
 {
 	if (RDEVICE.b_is_Ready) return;
+	WaitForTextureLoads();
 	m_level_shader_cache.clear();
+	m_level_shader_jobs.clear();
+	m_reduceLodTextureList.clear();
 	m_textures_description.UnLoad();
 
 	// Matrices
@@ -131,6 +134,14 @@ void CResourceManager::OnDeviceCreate(IReader* F)
 	}
 
 	m_textures_description.Load();
+	m_reduceLodTextureList.clear();
+	if (pSettings && pSettings->section_exist("reduce_lod_texture_list"))
+	{
+		const CInifile::Sect& section = pSettings->r_section("reduce_lod_texture_list");
+		m_reduceLodTextureList.reserve(section.Data.size());
+		for (CInifile::SectCIt item = section.Data.begin(); item != section.Data.end(); ++item)
+			m_reduceLodTextureList.push_back(item->first);
+	}
 }
 
 void CResourceManager::OnDeviceCreate(LPCSTR shName)
@@ -155,6 +166,7 @@ void CResourceManager::OnDeviceCreate(LPCSTR shName)
 
 void CResourceManager::StoreNecessaryTextures()
 {
+	xrCriticalSectionGuard guard(creationGuard);
 	if (!m_necessary.empty())
 		return;
 
@@ -176,4 +188,9 @@ void CResourceManager::StoreNecessaryTextures()
 void CResourceManager::DestroyNecessaryTextures()
 {
 	m_necessary.clear();
+	xr_map<CTexture*, ref_texture> prefetched;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		prefetched.swap(m_prefetchedTextures);
+	}
 }

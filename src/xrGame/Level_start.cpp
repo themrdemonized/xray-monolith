@@ -157,17 +157,20 @@ bool CLevel::net_start2()
 	PROF_EVENT("CLevel::net_start2");
 	if (net_start_result_total && m_caServerOptions.size())
 	{
+		pApp->LoadSessionPhaseBegin(LoadSessionServerLua);
 		GameDescriptionData game_descr;
 		if ((m_connect_server_err = Server->Connect(m_caServerOptions, game_descr)) != xrServer::ErrNoError)
 		{
 			net_start_result_total = false;
 			Msg("! Failed to start server.");
+			pApp->LoadSessionPhaseEnd(LoadSessionServerLua);
 			return true;
 		}
 		Server->SLS_Default();
 		map_data.m_name = Server->level_name(m_caServerOptions);
 		if (!g_dedicated_server)
 			g_pGamePersistent->LoadTitle(true, map_data.m_name);
+		pApp->LoadSessionPhaseEnd(LoadSessionServerLua);
 	}
 	return true;
 }
@@ -275,6 +278,7 @@ bool CLevel::net_start6()
 	else
 	{
 		Msg("! Failed to start client. Check the connection or level existance.");
+		pApp->LoadSessionCancel("net start failed");
 
 		if (m_connect_server_err == xrServer::ErrConnect && !psNET_direct_connect && !g_dedicated_server)
 		{

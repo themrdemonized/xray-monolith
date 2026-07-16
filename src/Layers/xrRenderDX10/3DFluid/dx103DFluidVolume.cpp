@@ -11,11 +11,13 @@ dx103DFluidVolume::~dx103DFluidVolume()
 {
 }
 
-void dx103DFluidVolume::Load(LPCSTR N, IReader* data, u32 dwFlags)
+void dx103DFluidVolume::Prepare(IReader* data, PreparedData& prepared)
 {
-	//	Uncomment this if choose to read from OGF
-	//	dxRender_Visual::Load		(N,data,dwFlags);
+	dx103DFluidData::Prepare(data, prepared);
+}
 
+void dx103DFluidVolume::InitializeVisual()
+{
 	//	Create shader for correct sort while rendering
 	//	shader name can't start from a digit
 	shader.create("fluid3d_stub", "water\\water_ryaska1");
@@ -24,21 +26,34 @@ void dx103DFluidVolume::Load(LPCSTR N, IReader* data, u32 dwFlags)
 	m_Geom.create(FVF::F_LIT, RCache.Vertex.Buffer(), RCache.QuadIB);
 
 	Type = MT_3DFLUIDVOLUME;
+}
+
+void dx103DFluidVolume::UpdateVisibility()
+{
+	const Fmatrix& transform = m_FluidData.GetTransform();
+	vis.box.min = Fvector3().set(-0.5f, -0.5f, -0.5f);
+	vis.box.max = Fvector3().set(0.5f, 0.5f, 0.5f);
+	vis.box.xform(transform);
+	vis.box.getcenter(vis.sphere.P);
+	vis.sphere.R = vis.box.getradius();
+}
+
+void dx103DFluidVolume::Load(LPCSTR N, IReader* data, u32 dwFlags)
+{
+	//	Uncomment this if choose to read from OGF
+	//	dxRender_Visual::Load		(N,data,dwFlags);
+	InitializeVisual();
 
 	//	Version 3>
 	m_FluidData.Load(data);
+	UpdateVisibility();
+}
 
-	//	Prepare transform
-	const Fmatrix& Transform = m_FluidData.GetTransform();
-
-	//	Update visibility data
-	vis.box.min = Fvector3().set(-0.5f, -0.5f, -0.5f);
-	vis.box.max = Fvector3().set(0.5f, 0.5f, 0.5f);
-
-	vis.box.xform(Transform);
-
-	vis.box.getcenter(vis.sphere.P);
-	vis.sphere.R = vis.box.getradius();
+void dx103DFluidVolume::LoadPrepared(const PreparedData& prepared)
+{
+	InitializeVisual();
+	m_FluidData.LoadPrepared(prepared);
+	UpdateVisibility();
 
 	/*
 		//	Version 2

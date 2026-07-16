@@ -99,6 +99,19 @@ BOOL SimulatorStates::equal(SimulatorStates& S)
 	return TRUE;
 }
 
+u64 SimulatorStates::hash() const
+{
+	u64 result = 1469598103934665603ull;
+	const u8* bytes = reinterpret_cast<const u8*>(States.data());
+	const size_t size = States.size() * sizeof(State);
+	for (size_t i = 0; i < size; ++i)
+	{
+		result ^= bytes[i];
+		result *= 1099511628211ull;
+	}
+	return result;
+}
+
 void SimulatorStates::clear()
 {
 	States.clear();

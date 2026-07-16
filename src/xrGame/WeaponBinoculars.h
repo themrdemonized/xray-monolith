@@ -42,6 +42,7 @@ public:
 	virtual CWeaponBinoculars* cast_weapon_binoculars() { return this; }
 	virtual bool GetBriefInfo(II_BriefInfo& info);
 	virtual void net_Relcase(CObject* object);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 protected:
 	CBinocularsVision* m_binoc_vision;
 

@@ -40,6 +40,12 @@ public:
 
 class CLevelSoundManager
 {
+public:
+	struct PreparedData
+	{
+		xr_vector<xr_vector<u8>> static_sound_chunks;
+	};
+private:
 	DEFINE_VECTOR(SStaticSound, StaticSoundsVec, StaticSoundsVecIt);
 	StaticSoundsVec m_StaticSounds;
 	DEFINE_VECTOR(SMusicTrack, MusicTrackVec, MusicTrackVecIt);
@@ -49,6 +55,8 @@ class CLevelSoundManager
 	int m_CurrentTrack;
 public:
 	CLevelSoundManager();
+	void Prepare(LPCSTR canonical_level_path, PreparedData& data) const;
+	void Commit(const PreparedData& data);
 	void Load();
 	void Unload();
 	void __stdcall Update();

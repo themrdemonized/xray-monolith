@@ -71,12 +71,16 @@ void resptrcode_shader::create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, 
 //////////////////////////////////////////////////////////////////////////
 void resptrcode_geom::create(u32 FVF, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
 {
-	_set(DEV->CreateGeom(FVF, vb, ib));
+	ref_geom keep_alive;
+	DEV->CreateGeom(FVF, vb, ib, &keep_alive);
+	_set(keep_alive);
 }
 
 void resptrcode_geom::create(D3DVERTEXELEMENT9* decl, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
 {
-	_set(DEV->CreateGeom(decl, vb, ib));
+	ref_geom keep_alive;
+	DEV->CreateGeom(decl, vb, ib, &keep_alive);
+	_set(keep_alive);
 }
 
 //////////////////////////////////////////////////////////////////////

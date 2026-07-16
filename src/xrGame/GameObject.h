@@ -186,6 +186,7 @@ public:
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
 	virtual void net_Destroy();
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return false; }
 	virtual void UpdateCL();
 	virtual void OnChangeVisual();
 	//object serialization

@@ -47,7 +47,7 @@ BOOL reclaim(xr_vector<T*>& vec, const T* ptr)
 }
 
 //--------------------------------------------------------------------------------------------------------------
-SState* CResourceManager::_CreateState(SimulatorStates& state_code)
+SState* CResourceManager::_CreateState(SimulatorStates& state_code, ref_state* keep_alive)
 {
 	xrCriticalSectionGuard guard(creationGuard);
 	// Search equal state-code 
@@ -75,7 +75,7 @@ void CResourceManager::_DeleteState(const SState* state)
 }
 
 //--------------------------------------------------------------------------------------------------------------
-SPass* CResourceManager::_CreatePass(const SPass& proto)
+SPass* CResourceManager::_CreatePass(const SPass& proto, ref_pass* keep_alive)
 {
 	xrCriticalSectionGuard guard(creationGuard);
 	for (u32 it = 0; it < v_passes.size(); it++)
@@ -146,7 +146,7 @@ void CResourceManager::_DeleteDecl(const SDeclaration* dcl)
 
 //--------------------------------------------------------------------------------------------------------------
 #ifndef _EDITOR
-SVS* CResourceManager::_CreateVS(LPCSTR _name)
+SVS* CResourceManager::_CreateVS(LPCSTR _name, ref_vs* keep_alive)
 {
 	xrCriticalSectionGuard guard(creationGuard);
 	xr_string res_name = _name;
@@ -241,7 +241,7 @@ void CResourceManager::_DeleteVS(const SVS* vs)
 
 #ifndef _EDITOR
 //--------------------------------------------------------------------------------------------------------------
-SPS* CResourceManager::_CreatePS(LPCSTR name)
+SPS* CResourceManager::_CreatePS(LPCSTR name, ref_ps* keep_alive)
 {
 	LPSTR N = LPSTR(name);
 	xrCriticalSectionGuard guard(creationGuard);
@@ -335,7 +335,7 @@ void CResourceManager::_DeletePS(const SPS* ps)
 	Msg("! ERROR: Failed to find compiled pixel-shader '%s'", *ps->cName);
 }
 
-R_constant_table* CResourceManager::_CreateConstantTable(R_constant_table& C)
+R_constant_table* CResourceManager::_CreateConstantTable(R_constant_table& C, ref_ctable* keep_alive)
 {
 	if (C.empty()) return NULL;
 
@@ -411,7 +411,8 @@ void CResourceManager::DBG_VerifyGeoms()
 	*/
 }
 
-SGeometry* CResourceManager::CreateGeom(D3DVERTEXELEMENT9* decl, IDirect3DVertexBuffer9* vb, IDirect3DIndexBuffer9* ib)
+SGeometry* CResourceManager::CreateGeom(D3DVERTEXELEMENT9* decl, IDirect3DVertexBuffer9* vb, IDirect3DIndexBuffer9* ib,
+	ref_geom* keep_alive)
 {
 	xrCriticalSectionGuard guard(creationGuard);
 	R_ASSERT(decl && vb);
@@ -436,12 +437,13 @@ SGeometry* CResourceManager::CreateGeom(D3DVERTEXELEMENT9* decl, IDirect3DVertex
 	return Geom;
 }
 
-SGeometry* CResourceManager::CreateGeom(u32 FVF, IDirect3DVertexBuffer9* vb, IDirect3DIndexBuffer9* ib)
+SGeometry* CResourceManager::CreateGeom(u32 FVF, IDirect3DVertexBuffer9* vb, IDirect3DIndexBuffer9* ib,
+	ref_geom* keep_alive)
 {
 	D3DVERTEXELEMENT9 dcl [MAX_FVF_DECL_SIZE];
 	xrCriticalSectionGuard guard(creationGuard);
 	CHK_DX(D3DXDeclaratorFromFVF(FVF,dcl));
-	SGeometry* g = CreateGeom(dcl, vb, ib);
+	SGeometry* g = CreateGeom(dcl, vb, ib, keep_alive);
 	return g;
 }
 
@@ -454,13 +456,11 @@ void CResourceManager::DeleteGeom(const SGeometry* Geom)
 }
 
 //--------------------------------------------------------------------------------------------------------------
-xr_task_group textures_load_tasks;
-CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
+ref_texture CResourceManager::_CreateTexture(LPCSTR _Name, bool prefetch, LPCSTR canonical_level_path)
 {
 	// DBG_VerifyTextures	();
-	if (0 == xr_strcmp(_Name, "null")) return 0;
+	if (0 == xr_strcmp(_Name, "null")) return ref_texture();
 	R_ASSERT(_Name && _Name[0]);
-	xrCriticalSectionGuard guard(creationGuard);
 	string_path Name;
 	xr_strcpy(Name, _Name); //. andy if (strext(Name)) *strext(Name)=0;
 	fix_texture_name(Name);
@@ -469,28 +469,40 @@ CTexture* CResourceManager::_CreateTexture(LPCSTR _Name)
 	simplify_texture(Name);
 #endif	//	DEBUG
 
-	// ***** first pass - search already loaded texture
-	LPSTR N = LPSTR(Name);
-	map_TextureIt I = m_textures.find(N);
-	if (I != m_textures.end()) return I->second;
-	else
+	ref_texture texture;
+	bool queueLoad = false;
 	{
-		CTexture* T = xr_new<CTexture>();
-		T->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-		m_textures.insert(mk_pair(T->set_name(Name), T));
-		T->Preload();
-		if (Device.b_is_Ready)
+		xrCriticalSectionGuard guard(creationGuard);
+		map_TextureIt I = m_textures.find(Name);
+		if (I != m_textures.end())
 		{
-			static DWORD this_thread_id = 0;
-			this_thread_id = GetCurrentThreadId();
-			textures_load_tasks.run([=]()
-			{
-				if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
-				T->Load();
-			});
+			texture = ref_texture(I->second);
 		}
-		return T;
+		else
+		{
+			CTexture* T = xr_new<CTexture>();
+			T->dwFlags |= xr_resource_flagged::RF_REGISTERED;
+			m_textures.insert(mk_pair(T->set_name(Name), T));
+			T->Preload();
+			texture = ref_texture(T);
+		}
+
+		if (prefetch)
+			m_prefetchedTextures.emplace(texture._get(), texture);
+		else
+			m_prefetchedTextures.erase(texture._get());
+
+		queueLoad = Device.b_is_Ready;
+		if (!queueLoad && !texture->is_loaded())
+		{
+			m_deferredTextureLoads.push_back(texture);
+		}
 	}
+
+	if (queueLoad)
+		QueueTextureLoad(texture);
+
+	return texture;
 }
 
 void CResourceManager::_DeleteTexture(const CTexture* T)
@@ -598,7 +610,7 @@ bool cmp_tl(const std::pair<u32, ref_texture>& _1, const std::pair<u32, ref_text
 	return _1.first < _2.first;
 }
 
-STextureList* CResourceManager::_CreateTextureList(STextureList& L)
+STextureList* CResourceManager::_CreateTextureList(STextureList& L, ref_texture_list* keep_alive)
 {
 	xrCriticalSectionGuard guard(creationGuard);
 	std::sort(L.begin(), L.end(), cmp_tl);
@@ -722,7 +734,7 @@ public:
 	}
 };
 
-SVS*	CResourceManager::_CreateVS		(LPCSTR _name)
+SVS*	CResourceManager::_CreateVS		(LPCSTR _name, ref_vs* keep_alive)
 {
 	string_path			name;
 	xr_strcpy				(name,_name);
@@ -837,7 +849,7 @@ SVS*	CResourceManager::_CreateVS		(LPCSTR _name)
 }
 
 //--------------------------------------------------------------------------------------------------------------
-SPS*	CResourceManager::_CreatePS			(LPCSTR name)
+SPS*	CResourceManager::_CreatePS			(LPCSTR name, ref_ps* keep_alive)
 {
 	LPSTR N				= LPSTR(name);
 	map_PS::iterator I	= m_ps.find	(N);

@@ -8,6 +8,7 @@
 #include "stdafx.h"
 #include "igame_level.h"
 #include "igame_persistent.h"
+#include "Render.h"
 
 #include "dedicated_server_only.h"
 #include "no_single.h"
@@ -693,6 +694,11 @@ void Startup()
 	//Memory.mem_usage();
 
 	Device.Run();
+	if (pApp && pApp->LoadSessionActive())
+	{
+		try { pApp->LoadSessionCancel("main loop stopped"); }
+		catch (...) { Msg("! [load-session] cleanup failed after main loop stopped"); }
+	}
 
 	// Discord
 	clearDiscordPresence();
@@ -1411,6 +1417,7 @@ void _InitializeFont(CGameFont*& F, LPCSTR section, u32 flags)
 CApplication::CApplication()
 {
 	ll_dwReference = 0;
+	ZeroMemory(&m_load_session, sizeof(m_load_session));
 
 	max_load_stage = 0;
 
@@ -1471,6 +1478,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuit)
 	{
+		LoadSessionCancel("quit");
 		g_SASH.EndBenchmark();
 
 		PostQuitMessage(0);
@@ -1486,6 +1494,10 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 		PROF_EVENT("CApplication::OnEvent: eStart");
 		LPSTR op_server = LPSTR(P1);
 		LPSTR op_client = LPSTR(P2);
+		IGame_Persistent::params game_params;
+		game_params.parse_cmd_line(op_server ? op_server : "");
+		LoadSessionStartEvent(!xr_strcmp(game_params.m_new_or_load, "new") ? "new-game" :
+			!xr_strcmp(game_params.m_new_or_load, "load") ? "menu-save" : "start");
 		Level_Current = u32(-1);
 		R_ASSERT(0 == g_pGameLevel);
 		R_ASSERT(0 != g_pGamePersistent);
@@ -1524,6 +1536,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	}
 	else if (E == eDisconnect)
 	{
+		LoadSessionPhaseBegin(LoadSessionTeardown);
 		ls_header[0] = '\0';
 		ls_tip_number[0] = '\0';
 		ls_tip[0] = '\0';
@@ -1543,6 +1556,9 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 		}
 		R_ASSERT(0 != g_pGamePersistent);
 		g_pGamePersistent->Disconnect();
+		LoadSessionPhaseEnd(LoadSessionTeardown);
+		if (!Engine.Event.Peek("KERNEL:start"))
+			LoadSessionCancel("disconnect");
 	}
 	else if (E == eConsole)
 	{
@@ -1553,6 +1569,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	else if (E == eStartMPDemo)
 	{
 		LPSTR demo_file = LPSTR(P1);
+		LoadSessionStartEvent("mp-demo");
 
 		R_ASSERT(0 == g_pGameLevel);
 		R_ASSERT(0 != g_pGamePersistent);
@@ -1583,6 +1600,222 @@ extern ENGINE_API BOOL g_appLoaded = FALSE;
 //AVO: used by SPAWN_ANTIFREEZE (by alpet)
 extern ENGINE_API BOOL g_bootComplete = FALSE;
 //-AVO
+
+void CApplication::LoadSessionBegin(LPCSTR scenario)
+{
+	if (m_load_session.active)
+		LoadSessionCancel("superseded");
+
+	ZeroMemory(&m_load_session, sizeof(m_load_session));
+	m_load_session.started_at = Device.TimerAsync();
+	m_load_session.client_event_hash = 14695981039346656037ULL;
+	xr_strcpy(m_load_session.scenario, scenario ? scenario : "unknown");
+	try
+	{
+		m_load_session.native_generation = NativeLoadExecutor::Instance().BeginGeneration();
+		if (Device.m_pRender)
+			m_load_session.resource_generation = Device.m_pRender->ResourcesBeginLoadGeneration();
+	}
+	catch (...)
+	{
+		NativeLoadExecutor::Instance().CancelGeneration(m_load_session.native_generation);
+		ZeroMemory(&m_load_session, sizeof(m_load_session));
+		throw;
+	}
+	m_load_session.active = true;
+	Msg("* [load-session] begin scenario=%s", m_load_session.scenario);
+}
+
+void CApplication::LoadSessionContinue(LPCSTR scenario)
+{
+	if (!m_load_session.active)
+		LoadSessionBegin(scenario);
+}
+
+void CApplication::LoadSessionExpectReconnect()
+{
+	if (m_load_session.active)
+		m_load_session.reconnect_pending = true;
+}
+
+void CApplication::LoadSessionStartEvent(LPCSTR scenario)
+{
+	if (m_load_session.active && m_load_session.reconnect_pending)
+	{
+		m_load_session.reconnect_pending = false;
+		return;
+	}
+	LoadSessionBegin(scenario);
+}
+
+void CApplication::LoadSessionCancel(LPCSTR reason)
+{
+	if (!m_load_session.active)
+		return;
+
+	std::exception_ptr failure;
+	try
+	{
+		if (m_load_session.native_generation)
+			NativeLoadExecutor::Instance().CancelGeneration(m_load_session.native_generation);
+	}
+	catch (...)
+	{
+		failure = std::current_exception();
+	}
+	if (::Render)
+		::Render->level_AbortAsyncLoad();
+	try
+	{
+		if (Device.m_pRender && m_load_session.resource_generation)
+			Device.m_pRender->ResourcesAbortLoadGeneration(m_load_session.resource_generation);
+	}
+	catch (...)
+	{
+		if (!failure)
+			failure = std::current_exception();
+	}
+	try
+	{
+		if (Device.m_pRender)
+			Device.m_pRender->ResourcesDestroyNecessaryTextures();
+	}
+	catch (...)
+	{
+		if (!failure)
+			failure = std::current_exception();
+	}
+	Msg("* [load-session] cancelled scenario=%s after %u ms (%s)", m_load_session.scenario,
+		Device.TimerAsync() - m_load_session.started_at, reason ? reason : "unknown");
+	ZeroMemory(&m_load_session, sizeof(m_load_session));
+	if (failure)
+		std::rethrow_exception(failure);
+}
+
+void CApplication::LoadSessionSetScenario(LPCSTR scenario)
+{
+	if (m_load_session.active && scenario)
+		xr_strcpy(m_load_session.scenario, scenario);
+}
+
+void CApplication::LoadSessionPhaseBegin(ELoadSessionPhase phase)
+{
+	if (!m_load_session.active || phase >= LoadSessionPhaseCount || m_load_session.phase_running[phase])
+		return;
+
+	m_load_session.phase_running[phase] = true;
+	m_load_session.phase_started_at[phase] = Device.TimerAsync();
+}
+
+void CApplication::LoadSessionPhaseEnd(ELoadSessionPhase phase)
+{
+	if (!m_load_session.active || phase >= LoadSessionPhaseCount || !m_load_session.phase_running[phase])
+		return;
+
+	m_load_session.phase_elapsed[phase] += Device.TimerAsync() - m_load_session.phase_started_at[phase];
+	m_load_session.phase_running[phase] = false;
+}
+
+void CApplication::LoadSessionPrecacheBegin()
+{
+	if (!m_load_session.active)
+		return;
+
+	m_load_session.precache_started = true;
+	m_load_session.precache_started_at = Device.TimerAsync();
+}
+
+void CApplication::LoadSessionRecordClientEvent(
+	bool spawn, u16 destination, u16 type, const void* packet_data, u32 packet_size)
+{
+	if (!m_load_session.active)
+		return;
+
+	auto append = [this](const void* data, u32 size)
+	{
+		const u8* bytes = static_cast<const u8*>(data);
+		for (u32 i = 0; i < size; ++i)
+		{
+			m_load_session.client_event_hash ^= bytes[i];
+			m_load_session.client_event_hash *= 1099511628211ULL;
+		}
+	};
+
+	const u8 kind = spawn ? 1 : 2;
+	append(&kind, sizeof(kind));
+	if (spawn)
+	{
+		R_ASSERT(packet_data && packet_size <= NET_PacketSizeLimit);
+		NET_Packet packet;
+		packet.B.count = packet_size;
+		CopyMemory(packet.B.data, packet_data, packet_size);
+		u16 message;
+		packet.r_begin(message);
+		shared_str section;
+		packet.r_stringZ(section);
+		string256 replacement;
+		packet.r_stringZ(replacement);
+		packet.r_u8();
+		packet.r_u8();
+		Fvector position;
+		Fvector angle;
+		packet.r_vec3(position);
+		packet.r_vec3(angle);
+		packet.r_u16();
+		const u16 object_id = packet.r_u16();
+		const u16 parent_id = packet.r_u16();
+		append(&object_id, sizeof(object_id));
+		append(&parent_id, sizeof(parent_id));
+		append(section.c_str(), xr_strlen(section.c_str()));
+		++m_load_session.client_spawn_count;
+	}
+	else
+	{
+		append(&destination, sizeof(destination));
+		append(&type, sizeof(type));
+		++m_load_session.client_event_count;
+	}
+}
+
+void CApplication::LoadSessionTryFinish(bool level_ready, bool control_ready, bool queues_drained)
+{
+	if (!m_load_session.active || !m_load_session.precache_started || Device.dwPrecacheFrame ||
+		!g_loading_events.empty() || !level_ready || !control_ready || !queues_drained)
+		return;
+
+	LoadSessionPhaseBegin(LoadSessionResourceWait);
+	try
+	{
+		if (m_load_session.native_generation)
+			NativeLoadExecutor::Instance().FinalizeGeneration(m_load_session.native_generation);
+	}
+	catch (...)
+	{
+		if (Device.m_pRender && m_load_session.resource_generation)
+			Device.m_pRender->ResourcesAbortLoadGeneration(m_load_session.resource_generation);
+		throw;
+	}
+	if (Device.m_pRender && m_load_session.resource_generation)
+		Device.m_pRender->ResourcesFinalizeLoadGeneration(m_load_session.resource_generation);
+	if (Device.m_pRender)
+		Device.m_pRender->ResourcesDestroyNecessaryTextures();
+	LoadSessionPhaseEnd(LoadSessionResourceWait);
+
+	const u32 now = Device.TimerAsync();
+	Msg("* [load-session] engine ready scenario=%s: %u ms", m_load_session.scenario,
+		now - m_load_session.started_at);
+	Msg("* [load-session] client order: hash=%016llx, spawns=%u, events=%u",
+		m_load_session.client_event_hash, m_load_session.client_spawn_count, m_load_session.client_event_count);
+	Msg("* [load-session] phases: teardown=%u ms, server/lua=%u ms, native level=%u ms, "
+		"resource wait=%u ms, client spawn=%u ms, final precache=%u ms",
+		m_load_session.phase_elapsed[LoadSessionTeardown],
+		m_load_session.phase_elapsed[LoadSessionServerLua],
+		m_load_session.phase_elapsed[LoadSessionNativeLevel],
+		m_load_session.phase_elapsed[LoadSessionResourceWait],
+		m_load_session.phase_elapsed[LoadSessionClientSpawn],
+		now - m_load_session.precache_started_at);
+	m_load_session.active = false;
+}
 
 void CApplication::LoadBegin()
 {

@@ -65,6 +65,9 @@ void IGame_Level::net_Stop()
 {
     for (int i = 0; i < 6; i++)
     {
+		if (Objects.o_count() == 0 && Objects.destroy_queues_empty())
+			break;
+
         Objects.Update(false);
         Objects.ProcessDestroyQueue();
     }
@@ -96,8 +99,6 @@ bool IGame_Level::Load(u32 dwNum)
 	level_timer.Start();
 	xrCriticalSectionGuard guard(&lloadcs);
 	if (bReady) return TRUE;
-	extern xr_task_group prefetch_task;
-	prefetch_task.wait();
 	//SECUROM_MARKER_PERFORMANCE_ON(10)
 
 	// Initialize level data
@@ -122,40 +123,99 @@ bool IGame_Level::Load(u32 dwNum)
 	if (!g_hud)
 		g_hud = (CCustomHUD*)NEW_INSTANCE(CLSID_HUDMANAGER);
 
-	g_pGamePersistent->Environment().mods_load();
+	if (!Load_Prepared_Environment())
+		g_pGamePersistent->Environment().mods_load();
 	g_pGamePersistent->LoadTitle();
 
 	// CFORM and game-specific navigation data use independent level files and
 	// publish to separate subsystems, so overlap them with renderer loading.
-	xr_task_group level_load_tasks;
-	level_load_tasks.run([this]()
+	NativeLoadExecutor& load_executor = NativeLoadExecutor::Instance();
+	NativeLoadExecutor::Batch level_load_batch = load_executor.BeginBatch(load_executor.CurrentGeneration());
+	xr_task_group fallback_level_tasks;
+	auto submit_level_task = [&load_executor, &level_load_batch, &fallback_level_tasks](
+		NativeLoadPriority priority, auto&& work)
+	{
+		if (level_load_batch.Valid())
+			load_executor.Submit(level_load_batch, priority, std::forward<decltype(work)>(work));
+		else
+			fallback_level_tasks.run(std::forward<decltype(work)>(work));
+	};
+	ObjectSpace.Load([](Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt, void* params)
+	{
+		g_pGameLevel->Load_GameSpecific_CFORM(T, Tcnt);
+	});
+	submit_level_task(NativeLoadPriority::Geometry, [this]()
 	{
 		CTimer timer;
 		timer.Start();
-		ObjectSpace.Load([](Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt, void* params)
-		{
-			g_pGameLevel->Load_GameSpecific_CFORM(T, Tcnt);
-		});
+		ObjectSpace.GetStaticModel()->syncronize();
 		Msg("* [LEVEL LOAD] CFORM: %d ms", timer.GetElapsed_ms());
 	});
-	level_load_tasks.run([this]()
+	bool level_tasks_drained = false;
+	auto drain_level_tasks = [&]()
 	{
-		CTimer timer;
-		timer.Start();
-		R_ASSERT(Load_GameSpecific_Before());
-		Msg("* [LEVEL LOAD] game-specific before: %d ms", timer.GetElapsed_ms());
-	});
+		if (level_tasks_drained)
+			return;
+		std::exception_ptr failure;
+		try
+		{
+			if (level_load_batch.Valid())
+				load_executor.Wait(level_load_batch);
+		}
+		catch (...)
+		{
+			failure = std::current_exception();
+		}
+		try
+		{
+			fallback_level_tasks.wait();
+		}
+		catch (...)
+		{
+			if (!failure)
+				failure = std::current_exception();
+		}
+		level_tasks_drained = true;
+		if (failure)
+			std::rethrow_exception(failure);
+	};
+	struct level_task_drain_guard
+	{
+		std::function<void()> drain;
+		~level_task_drain_guard()
+		{
+			try { drain(); } catch (...) {}
+		}
+	} task_drain_guard{drain_level_tasks};
+	CTimer game_specific_before_timer;
+	game_specific_before_timer.Start();
+	R_ASSERT(Load_GameSpecific_Before());
+	Msg("* [LEVEL LOAD] game-specific before: %d ms", game_specific_before_timer.GetElapsed_ms());
 
 	pApp->LoadSwitch();
 
-	// Render-level Load
+	// R4 internally submits immutable prepare work to NativeLoadExecutor. Keep
+	// the orchestration itself on the render owner because LoadTitle and the
+	// prepared registry commits touch the loading screen/immediate context.
 	CTimer render_timer;
 	render_timer.Start();
-	Render->level_Load(LL_Stream);
+	Render->level_BeginAsyncLoad();
+	try
+	{
+		Render->level_Load(LL_Stream);
+	}
+	catch (...)
+	{
+		const std::exception_ptr failure = std::current_exception();
+		Render->level_AbortAsyncLoad();
+		try { drain_level_tasks(); } catch (...) {}
+		FS.r_close(LL_Stream);
+		std::rethrow_exception(failure);
+	}
 	Msg("* [LEVEL LOAD] renderer: %d ms", render_timer.GetElapsed_ms());
 	CTimer barrier_timer;
 	barrier_timer.Start();
-	level_load_tasks.wait();
+	drain_level_tasks();
 	Msg("* [LEVEL LOAD] CFORM/AI barrier: %d ms", barrier_timer.GetElapsed_ms());
 
 	Sound->set_geometry_occ(ObjectSpace.GetStaticModel());

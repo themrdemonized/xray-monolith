@@ -24,6 +24,7 @@ public:
 	virtual void Load(LPCSTR N, IReader* data, u32 dwFlags);
 	virtual void Copy(dxRender_Visual* pFrom);
 	virtual void Release();
+	virtual void CommitShaderTexture();
 
 	FTreeVisual(void);
 	virtual ~FTreeVisual(void);

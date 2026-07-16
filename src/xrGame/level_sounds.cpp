@@ -159,19 +159,41 @@ CLevelSoundManager::CLevelSoundManager()
 
 void CLevelSoundManager::Load()
 {
-	// static level sounds
-	VERIFY(m_StaticSounds.empty());
-	string_path fn;
-	if (FS.exist(fn, "$level$", "level.snd_static"))
+	PreparedData data;
+	Prepare(FS.get_path("$level$")->m_Path, data);
+	Commit(data);
+}
+
+void CLevelSoundManager::Prepare(LPCSTR canonical_level_path, PreparedData& data) const
+{
+	xr_string file_name = canonical_level_path;
+	if (!file_name.empty() && file_name.back() != '\\' && file_name.back() != '/')
+		file_name += '\\';
+	file_name += "level.snd_static";
+	if (FS.exist(file_name.c_str()))
 	{
-		IReader* F = FS.r_open(fn);
+		IReader* F = FS.r_open(file_name.c_str());
 		u32 chunk = 0;
 		for (IReader* OBJ = F->open_chunk_iterator(chunk); OBJ; OBJ = F->open_chunk_iterator(chunk, OBJ))
 		{
-			m_StaticSounds.push_back(SStaticSound());
-			m_StaticSounds.back().Load(*OBJ);
+			data.static_sound_chunks.emplace_back();
+			xr_vector<u8>& bytes = data.static_sound_chunks.back();
+			bytes.resize(OBJ->length());
+			OBJ->r(bytes.data(), bytes.size());
 		}
 		FS.r_close(F);
+	}
+}
+
+void CLevelSoundManager::Commit(const PreparedData& data)
+{
+	// Sound objects and their backend registrations stay on the owner thread.
+	VERIFY(m_StaticSounds.empty());
+	for (const xr_vector<u8>& bytes : data.static_sound_chunks)
+	{
+		IReader reader(const_cast<u8*>(bytes.data()), bytes.size());
+		m_StaticSounds.emplace_back();
+		m_StaticSounds.back().Load(reader);
 	}
 
 	// music

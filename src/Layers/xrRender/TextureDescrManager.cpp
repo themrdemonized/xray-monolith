@@ -35,24 +35,6 @@ void fix_texture_thm_name(LPSTR fn)
 		*_ext = 0;
 }
 
-struct TH_LoadTHM
-{
-	using map_TD = xr_map<shared_str, CTextureDescrMngr::texture_desc>;
-	using map_CS = xr_map<shared_str, cl_dt_scaler*>;
-
-	LPCSTR initial;
-	map_TD& s_texture_details;
-	map_CS& s_detail_scalers;
-};
-
-void CTextureDescrMngr::LoadTHMThread(void* args)
-{
-	PROF_EVENT();
-
-	TH_LoadTHM* p = (TH_LoadTHM*)args;
-	LoadTHM(p->initial, p->s_texture_details, p->s_detail_scalers);
-}
-
 void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers)
 {
 	PROF_EVENT();
@@ -124,15 +106,97 @@ void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_C
 
 void CTextureDescrMngr::Load()
 {
-	TH_LoadTHM* gtex = new TH_LoadTHM({"$game_textures$", m_texture_details, m_detail_scalers});
-	TH_LoadTHM* lvl = new TH_LoadTHM({"$level$", m_texture_details, m_detail_scalers});
-	thread_spawn(LoadTHMThread, "X-Ray THM Loader 1", 0, gtex);
-	thread_spawn(LoadTHMThread, "X-Ray THM Loader 2", 0, lvl);
-	Sleep(5);
+	map_TD gameDetails;
+	map_TD levelDetails;
+	map_CS gameScalers;
+	map_CS levelScalers;
+	std::exception_ptr gameFailure;
+	std::exception_ptr levelFailure;
+
+	xr_task_group scans;
+	scans.run([&]()
+	{
+		try
+		{
+			LoadTHM("$game_textures$", gameDetails, gameScalers);
+		}
+		catch (...)
+		{
+			gameFailure = std::current_exception();
+		}
+	});
+	scans.run([&]()
+	{
+		try
+		{
+			LoadTHM("$level$", levelDetails, levelScalers);
+		}
+		catch (...)
+		{
+			levelFailure = std::current_exception();
+		}
+	});
+	scans.wait();
+
+	auto clearTemporary = [](map_TD& details, map_CS& scalers)
+	{
+		for (auto& item : details)
+		{
+			xr_delete(item.second.m_assoc);
+			xr_delete(item.second.m_spec);
+		}
+		for (auto& item : scalers)
+			xr_delete(item.second);
+		details.clear();
+		scalers.clear();
+	};
+
+	if (gameFailure || levelFailure)
+	{
+		clearTemporary(gameDetails, gameScalers);
+		clearTemporary(levelDetails, levelScalers);
+		std::rethrow_exception(gameFailure ? gameFailure : levelFailure);
+	}
+
+	xrSRWLockGuard dataGuard(m_data_lock);
+	auto merge = [&](map_TD& details, map_CS& scalers)
+	{
+		for (auto& item : details)
+		{
+			texture_desc& destination = m_texture_details[item.first];
+			xr_delete(destination.m_assoc);
+			xr_delete(destination.m_spec);
+			destination.m_assoc = item.second.m_assoc;
+			destination.m_spec = item.second.m_spec;
+			item.second.m_assoc = nullptr;
+			item.second.m_spec = nullptr;
+
+			auto sourceScaler = scalers.find(item.first);
+			if (sourceScaler == scalers.end())
+				continue;
+			cl_dt_scaler*& destinationScaler = m_detail_scalers[item.first];
+			if (destinationScaler)
+			{
+				destinationScaler->scale = sourceScaler->second->scale;
+				xr_delete(sourceScaler->second);
+			}
+			else
+			{
+				destinationScaler = sourceScaler->second;
+			}
+			sourceScaler->second = nullptr;
+		}
+		clearTemporary(details, scalers);
+	};
+
+	// Level THMs override game THMs deterministically, as intended by the old two-source load.
+	merge(gameDetails, gameScalers);
+	merge(levelDetails, levelScalers);
 }
 
 void CTextureDescrMngr::UnLoad()
 {
+	xrSRWLockGuard dataGuard(m_data_lock);
 	for (auto& it : m_texture_details)
 	{
 		xr_delete(it.second.m_assoc);
@@ -143,6 +207,7 @@ void CTextureDescrMngr::UnLoad()
 
 CTextureDescrMngr::~CTextureDescrMngr()
 {
+	xrSRWLockGuard dataGuard(m_data_lock);
 	map_CS::iterator I = m_detail_scalers.begin();
 	map_CS::iterator E = m_detail_scalers.end();
 
@@ -154,6 +219,7 @@ CTextureDescrMngr::~CTextureDescrMngr()
 
 shared_str CTextureDescrMngr::GetBumpName(const shared_str& tex_name) const
 {
+	xrSRWLockGuard dataGuard(m_data_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -167,6 +233,7 @@ shared_str CTextureDescrMngr::GetBumpName(const shared_str& tex_name) const
 
 BOOL CTextureDescrMngr::UseSteepParallax(const shared_str& tex_name) const
 {
+	xrSRWLockGuard dataGuard(m_data_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -180,6 +247,7 @@ BOOL CTextureDescrMngr::UseSteepParallax(const shared_str& tex_name) const
 
 float CTextureDescrMngr::GetMaterial(const shared_str& tex_name) const
 {
+	xrSRWLockGuard dataGuard(m_data_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -193,6 +261,7 @@ float CTextureDescrMngr::GetMaterial(const shared_str& tex_name) const
 
 void CTextureDescrMngr::GetTextureUsage(const shared_str& tex_name, BOOL& bDiffuse, BOOL& bBump) const
 {
+	xrSRWLockGuard dataGuard(m_data_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -207,6 +276,7 @@ void CTextureDescrMngr::GetTextureUsage(const shared_str& tex_name, BOOL& bDiffu
 
 BOOL CTextureDescrMngr::GetDetailTexture(const shared_str& tex_name, LPCSTR& res, R_constant_setup* & CS) const
 {
+	xrSRWLockGuard dataGuard(m_data_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{

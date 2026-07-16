@@ -1,6 +1,7 @@
 #include "pch_script.h"
 #include "gamepersistent.h"
 #include "../xrEngine/fmesh.h"
+#include "../xrEngine/x_ray.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/gamemtllib.h"
 #include "../Include/xrRender/Kinematics.h"
@@ -802,6 +803,8 @@ void CGamePersistent::OnEvent(EVENT E, u64 P1, u64 P2)
 	if (E == eQuickLoad)
 	{
 		PROF_EVENT("eQuickLoad");
+		pApp->LoadSessionContinue("quickload");
+		pApp->LoadSessionSetScenario("quickload");
 		if (Device.Paused())
 			Device.Pause(FALSE, TRUE, TRUE, "eQuickLoad");
 
@@ -820,10 +823,14 @@ void CGamePersistent::OnEvent(EVENT E, u64 P1, u64 P2)
 
 		LPSTR saved_name = (LPSTR)(P1);
 
+		pApp->LoadSessionPhaseBegin(LoadSessionTeardown);
 		Level().remove_objects();
+		pApp->LoadSessionPhaseEnd(LoadSessionTeardown);
 		game_sv_Single* game = smart_cast<game_sv_Single*>(Level().Server->game);
 		R_ASSERT(game);
+		pApp->LoadSessionPhaseBegin(LoadSessionServerLua);
 		game->restart_simulator(saved_name);
+		pApp->LoadSessionPhaseEnd(LoadSessionServerLua);
 		xr_free(saved_name);
 		return;
 	}

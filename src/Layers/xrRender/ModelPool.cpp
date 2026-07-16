@@ -27,6 +27,132 @@
 	#include "IGame_Persistent.h"
 #endif
 
+namespace
+{
+xr_string NormalizeModelName(LPCSTR source)
+{
+	if (!source || !source[0])
+		return {};
+	string_path name;
+	xr_strcpy(name, source);
+	xr_strlwr(name);
+	for (LPSTR cursor = name; *cursor; ++cursor)
+		if (*cursor == '/')
+			*cursor = '\\';
+	LPSTR extension = strext(name);
+	if (extension && !xr_strcmp(extension, ".ogf"))
+		*extension = 0;
+	return name;
+}
+
+void AppendTextureList(LPCSTR source, xr_vector<xr_string>& textures)
+{
+	for (int index = 0, count = _GetItemCount(source, ','); index < count; ++index)
+	{
+		string_path texture;
+		_GetItem(source, index, texture, ',');
+		xr_strlwr(texture);
+		for (LPSTR cursor = texture; *cursor; ++cursor)
+			if (*cursor == '/')
+				*cursor = '\\';
+		if (texture[0] && xr_strcmp(texture, "null") && xr_strcmp(texture, "$null"))
+			textures.emplace_back(texture);
+	}
+}
+
+bool ResolveModelFile(LPCSTR source, LPCSTR canonical_level_path, xr_string& resolved)
+{
+	const xr_string model = NormalizeModelName(source);
+	if (model.empty())
+		return false;
+	string_path file_name;
+	xr_strcpy(file_name, model.c_str());
+	if (!strext(file_name))
+		xr_strcat(file_name, ".ogf");
+	if (canonical_level_path && canonical_level_path[0])
+	{
+		resolved = canonical_level_path;
+		if (resolved.back() != '\\' && resolved.back() != '/')
+			resolved += '\\';
+		resolved += file_name;
+		if (FS.exist(resolved.c_str()))
+			return true;
+	}
+	string_path mesh_path;
+	if (!FS.exist(mesh_path, "$game_meshes$", file_name))
+		return false;
+	resolved = mesh_path;
+	return true;
+}
+
+void CollectModelTextures(LPCSTR source, LPCSTR canonical_level_path, xr_vector<xr_string>& textures,
+	xr_set<xr_string>& visited);
+
+void CollectModelReaderTextures(IReader& data, LPCSTR canonical_level_path, xr_vector<xr_string>& textures,
+	xr_set<xr_string>& visited)
+{
+	if (data.find_chunk(OGF_TEXTURE))
+	{
+		string256 texture_list;
+		string256 shader;
+		data.r_stringZ(texture_list, sizeof(texture_list));
+		data.r_stringZ(shader, sizeof(shader));
+		AppendTextureList(texture_list, textures);
+	}
+	if (IReader* lod = data.open_chunk(OGF_S_LODS))
+	{
+		string_path lod_name;
+		lod->r_string(lod_name, sizeof(lod_name));
+		lod->close();
+		CollectModelTextures(lod_name, canonical_level_path, textures, visited);
+	}
+	IReader* children = data.open_chunk(OGF_CHILDREN);
+	if (!children)
+		return;
+	for (u32 index = 0;; ++index)
+	{
+		IReader* child = children->open_chunk(index);
+		if (!child)
+			break;
+		CollectModelReaderTextures(*child, canonical_level_path, textures, visited);
+		child->close();
+	}
+	children->close();
+}
+
+void CollectModelTextures(LPCSTR source, LPCSTR canonical_level_path, xr_vector<xr_string>& textures,
+	xr_set<xr_string>& visited)
+{
+	const xr_string model = NormalizeModelName(source);
+	if (model.empty() || !visited.insert(model).second)
+		return;
+	xr_string path;
+	if (!ResolveModelFile(model.c_str(), canonical_level_path, path))
+		return;
+	IReader* reader = FS.r_open(path.c_str());
+	if (!reader)
+		return;
+	CollectModelReaderTextures(*reader, canonical_level_path, textures, visited);
+	FS.r_close(reader);
+}
+}
+
+CModelPool::ModelBlueprint::ModelBlueprint()
+	: completed(CreateEvent(nullptr, TRUE, FALSE, nullptr)), preparedVisual(nullptr), found(false)
+{
+	R_ASSERT(completed);
+}
+
+CModelPool::ModelBlueprint::~ModelBlueprint()
+{
+	if (preparedVisual)
+	{
+		preparedVisual->Release();
+		xr_delete(preparedVisual);
+	}
+	CloseHandle(completed);
+}
+
 dxRender_Visual* CModelPool::Instance_Create(u32 type)
 {
 	dxRender_Visual* V = NULL;
@@ -202,6 +328,8 @@ dxRender_Visual* CModelPool::Instance_Register(LPCSTR N, dxRender_Visual* V)
 
 void CModelPool::Destroy()
 {
+	InvalidateBlueprints();
+
 	// Pool
 	Pool.clear();
 
@@ -248,6 +376,12 @@ CModelPool::~CModelPool()
 {
 	Destroy();
 	xr_delete(g_pMotionsContainer);
+}
+
+void CModelPool::InvalidateBlueprints()
+{
+	xrCriticalSectionGuard guard(modelBlueprintLock);
+	modelBlueprints.clear();
 }
 
 dxRender_Visual* CModelPool::Instance_Find(LPCSTR N)
@@ -491,6 +625,197 @@ void CModelPool::Prefetch_One(LPCSTR N, bool assert)
 	dxRender_Visual* V = Create(N, 0, assert);
 	if (V)
 		Delete(V,FALSE);
+}
+
+xr_shared_ptr<CModelPool::ModelBlueprint> CModelPool::PrepareBlueprint(LPCSTR name, LPCSTR canonical_level_path)
+{
+	const xr_string normalized = NormalizeModelName(name);
+	xr_string resolved_path;
+	const bool resolved = ResolveModelFile(name, canonical_level_path, resolved_path);
+	xr_string key = normalized;
+	key += '\n';
+	key += resolved ? resolved_path : (canonical_level_path ? canonical_level_path : "");
+	std::transform(key.begin(), key.end(), key.begin(), [](char value)
+	{
+		return value == '/' ? '\\' : char(tolower(u8(value)));
+	});
+	if (resolved)
+		if (const CLocatorAPI::file* file = FS.exist(resolved_path.c_str()))
+		{
+			string128 identity;
+			xr_sprintf(identity, "\n%08x:%08x:%08x:%08x", file->crc, file->size_real,
+				file->size_compressed, file->modif);
+			key += identity;
+		}
+
+	xr_shared_ptr<ModelBlueprint> blueprint;
+	bool producer = false;
+	{
+		xrCriticalSectionGuard guard(modelBlueprintLock);
+		auto found = modelBlueprints.find(key);
+		if (found != modelBlueprints.end())
+			blueprint = found->second;
+		else
+		{
+			blueprint = xr_make_shared<ModelBlueprint>();
+			modelBlueprints.emplace(std::move(key), blueprint);
+			producer = true;
+		}
+	}
+
+	if (producer)
+	{
+		try
+		{
+			if (resolved)
+			{
+				IReader* source = FS.r_open(resolved_path.c_str());
+				if (source)
+				{
+					int size = 0;
+					try
+					{
+						size = source->length();
+						R_ASSERT(size > 0);
+						blueprint->data.resize(size);
+						CopyMemory(blueprint->data.data(), source->pointer(), size);
+					}
+					catch (...)
+					{
+						FS.r_close(source);
+						throw;
+					}
+					FS.r_close(source);
+					blueprint->found = true;
+
+					xr_set<xr_string> visited;
+					visited.insert(normalized);
+					IReader texture_reader(blueprint->data.data(), size);
+					CollectModelReaderTextures(texture_reader, canonical_level_path, blueprint->textures, visited);
+
+#if RENDER == R_R4
+					IReader header_reader(blueprint->data.data(), size);
+					ogf_header header;
+					R_ASSERT(header_reader.r_chunk_safe(OGF_HEADER, &header, sizeof(header)));
+					IReader container_reader(blueprint->data.data(), size);
+					const bool references_level_geometry = container_reader.find_chunk(OGF_GCONTAINER) ||
+						container_reader.find_chunk(OGF_VCONTAINER) || container_reader.find_chunk(OGF_ICONTAINER) ||
+						container_reader.find_chunk(OGF_FASTPATH);
+					IReader local_geometry_reader(blueprint->data.data(), size);
+					const bool has_local_geometry = local_geometry_reader.find_chunk(OGF_VERTICES) &&
+						local_geometry_reader.find_chunk(OGF_INDICES);
+					if (!references_level_geometry && has_local_geometry &&
+						(header.type == MT_NORMAL || header.type == MT_PROGRESSIVE))
+					{
+						blueprint->preparedVisual = Instance_Create(header.type);
+						const bool previous_defer = g_defer_visual_shader_creation;
+						g_defer_visual_shader_creation = true;
+						try
+						{
+							IReader visual_reader(blueprint->data.data(), size);
+							blueprint->preparedVisual->Load(normalized.c_str(), &visual_reader, 0);
+						}
+						catch (...)
+						{
+							g_defer_visual_shader_creation = previous_defer;
+							throw;
+						}
+						g_defer_visual_shader_creation = previous_defer;
+					}
+#endif
+				}
+			}
+			std::sort(blueprint->textures.begin(), blueprint->textures.end());
+			blueprint->textures.erase(std::unique(blueprint->textures.begin(), blueprint->textures.end()),
+				blueprint->textures.end());
+		}
+		catch (...)
+		{
+			blueprint->failure = std::current_exception();
+			SetEvent(blueprint->completed);
+			throw;
+		}
+		SetEvent(blueprint->completed);
+	}
+	else
+	{
+		WaitForSingleObject(blueprint->completed, INFINITE);
+		if (blueprint->failure)
+			std::rethrow_exception(blueprint->failure);
+	}
+	return blueprint;
+}
+
+void CModelPool::CollectTextures(LPCSTR name, LPCSTR canonical_level_path, xr_vector<xr_string>& textures)
+{
+	xr_shared_ptr<ModelBlueprint> blueprint = PrepareBlueprint(name, canonical_level_path);
+	textures.insert(textures.end(), blueprint->textures.begin(), blueprint->textures.end());
+	std::sort(textures.begin(), textures.end());
+	textures.erase(std::unique(textures.begin(), textures.end()), textures.end());
+}
+
+bool CModelPool::PrefetchPrepared(LPCSTR name, LPCSTR canonical_level_path, bool assert)
+{
+	xr_shared_ptr<ModelBlueprint> blueprint = PrepareBlueprint(name, canonical_level_path);
+	if (!blueprint->found)
+	{
+		if (assert)
+			Prefetch_One(name, true);
+		return false;
+	}
+
+	xrCriticalSectionGuard guard(blueprint->commitLock);
+	const xr_string normalized = NormalizeModelName(name);
+	dxRender_Visual* prepared = blueprint->preparedVisual;
+	blueprint->preparedVisual = nullptr;
+	if (Instance_Find(normalized.c_str()))
+	{
+		if (prepared)
+		{
+			prepared->Release();
+			xr_delete(prepared);
+		}
+	}
+	else
+	{
+		dxRender_Visual* base = prepared;
+		try
+		{
+			if (base)
+				base->CommitShaderTexture();
+			else
+			{
+				IReader data(blueprint->data.data(), static_cast<int>(blueprint->data.size()));
+				const BOOL previous_allow_children_duplicate = bAllowChildrenDuplicate;
+				bAllowChildrenDuplicate = FALSE;
+				try
+				{
+					base = Instance_Load(normalized.c_str(), &data, FALSE);
+				}
+				catch (...)
+				{
+					bAllowChildrenDuplicate = previous_allow_children_duplicate;
+					throw;
+				}
+				bAllowChildrenDuplicate = previous_allow_children_duplicate;
+			}
+			g_pGamePersistent->RegisterModel(base);
+			Instance_Register(normalized.c_str(), base);
+			base = nullptr;
+		}
+		catch (...)
+		{
+			if (base)
+			{
+				base->Release();
+				xr_delete(base);
+			}
+			throw;
+		}
+	}
+
+	Prefetch_One(normalized.c_str(), assert);
+	return true;
 }
 
 bool CModelPool::Exists(LPCSTR N)

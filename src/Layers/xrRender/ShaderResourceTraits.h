@@ -73,8 +73,8 @@ inline CResourceManager::map_HS& CResourceManager::GetShaderMap() { return m_hs;
 template <>
 inline CResourceManager::map_CS& CResourceManager::GetShaderMap() { return m_cs; }
 
-template <typename T>
-inline T* CResourceManager::CreateShader(const char* name)
+template <typename T, typename Ref>
+inline T* CResourceManager::CreateShader(const char* name, Ref* keep_alive)
 {
 	xrCriticalSectionGuard guard(creationGuard);
 	ShaderTypeTraits<T>::MapType& sh_map = GetShaderMap<ShaderTypeTraits<T>::MapType>();
@@ -82,7 +82,11 @@ inline T* CResourceManager::CreateShader(const char* name)
 	ShaderTypeTraits<T>::MapType::iterator I = sh_map.find(N);
 
 	if (I != sh_map.end())
+	{
+		if (keep_alive)
+			*keep_alive = I->second;
 		return I->second;
+	}
 	else
 	{
 		T* sh = xr_new<T>();
@@ -92,6 +96,8 @@ inline T* CResourceManager::CreateShader(const char* name)
 		if (0 == stricmp(name, "null"))
 		{
 			sh->sh = NULL;
+			if (keep_alive)
+				*keep_alive = sh;
 			return sh;
 		}
 
@@ -127,6 +133,8 @@ inline T* CResourceManager::CreateShader(const char* name)
 			make_string("Shader compilation failed, check your log file for additional information.")
 		);
 
+		if (keep_alive)
+			*keep_alive = sh;
 		return sh;
 	}
 }

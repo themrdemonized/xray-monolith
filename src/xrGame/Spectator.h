@@ -74,6 +74,7 @@ public:
 	virtual CSpectator* cast_spectator() { return this; }
 
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	void GetSpectatorString(string1024& pStr);
 
 

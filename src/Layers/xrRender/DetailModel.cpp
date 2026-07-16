@@ -79,13 +79,16 @@ void CDetail::transfer(Fmatrix& mXform, fvfVertexOut* vDest, u32 C, u16* iDest, 
 	}
 }
 
-void CDetail::Load(IReader* S)
+void CDetail::Load(IReader* S, bool create_shader)
 {
 	// Shader
 	string256 fnT, fnS;
 	S->r_stringZ(fnS, sizeof(fnS));
 	S->r_stringZ(fnT, sizeof(fnT));
-	shader.create(fnS, fnT);
+	m_shader_name = fnS;
+	m_texture_name = fnT;
+	if (create_shader)
+		CommitShader();
 
 	// Params
 	m_Flags.assign(S->r_u32());
@@ -120,6 +123,17 @@ void CDetail::Load(IReader* S)
 #ifndef _EDITOR
 	Optimize();
 #endif
+}
+
+void CDetail::CommitShader()
+{
+	if (!shader && m_shader_name.size())
+		shader.create(m_shader_name.c_str(), m_texture_name.c_str());
+}
+
+void CDetail::SuspendShader()
+{
+	shader = nullptr;
 }
 
 #ifndef _EDITOR

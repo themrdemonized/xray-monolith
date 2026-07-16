@@ -28,7 +28,11 @@ class XRCDB_API CObjectSpace
 private:
 	CDB::MODEL Static;
 	Fbox m_BoundingVolume;
+	shared_str m_static_cache_key;
+	u64 m_static_cache_identity = 0;
+	bool m_static_materials_remapped = false;
 public:
+	static void PrepareStatic(LPCSTR level_path);
 #ifdef DEBUG
 	FactoryPtr<IObjectSpaceRender> *m_pRender;
 #endif

@@ -135,6 +135,7 @@ public:
 
 	virtual void net_Destroy();
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	virtual void shedule_Update(u32 dt);
 	virtual void UpdateCL();
 	virtual void Hit(SHit* pHDS);
