@@ -6,6 +6,9 @@
 
 namespace
 {
+constexpr u32 StartupSoundIdleMs = 250;
+constexpr u32 RuntimeSoundIdleMs = 10;
+
 void NormalizeSourceName(LPCSTR name, string256& id)
 {
 	xr_strcpy(id, name);
@@ -123,6 +126,7 @@ void CSoundRender_Core::build_source_prefetch_manifest()
 		m_source_prefetch_order.push_back(job);
 		m_source_prefetch_by_id.insert({job->id, job});
 	}
+	m_source_prefetch_remaining = u32(m_source_prefetch_jobs.size());
 
 	std::sort(m_source_prefetch_order.begin(), m_source_prefetch_order.end(),
 		[](const SoundPrefetchJob* left, const SoundPrefetchJob* right)
@@ -179,7 +183,7 @@ void CSoundRender_Core::source_prefetch_worker()
 		const bool succeeded = error.empty();
 		finish_source_prepare(*job, std::move(prepared), std::move(error));
 		if (succeeded)
-			Sleep(1);
+			Sleep(m_source_prefetch_idle_ms.load(std::memory_order_relaxed));
 	}
 
 	{
@@ -196,6 +200,9 @@ void CSoundRender_Core::finish_source_prepare(
 {
 	{
 		std::lock_guard<std::mutex> lock(m_source_prefetch_mutex);
+		R_ASSERT(job.state == ESourcePrefetchState::Preparing);
+		R_ASSERT(m_source_prefetch_remaining);
+		--m_source_prefetch_remaining;
 		if (error.empty())
 		{
 			job.prepared = std::move(prepared);
@@ -248,13 +255,7 @@ CSoundRender_Source* CSoundRender_Core::commit_source_locked(SoundPrefetchJob& j
 
 u32 CSoundRender_Core::source_prefetch_remaining_locked() const
 {
-	u32 remaining = 0;
-	for (const SoundPrefetchJob* job : m_source_prefetch_jobs)
-	{
-		if (job->state == ESourcePrefetchState::Queued || job->state == ESourcePrefetchState::Preparing)
-			++remaining;
-	}
-	return remaining;
+	return m_source_prefetch_remaining;
 }
 
 u64 CSoundRender_Core::source_prefetch_hash_locked() const
@@ -287,8 +288,12 @@ u64 CSoundRender_Core::source_prefetch_hash_locked() const
 void CSoundRender_Core::source_prefetch_start()
 {
 	std::unique_lock<std::mutex> lock(m_source_prefetch_mutex);
-	if (!m_source_prefetch_enabled || m_source_prefetch_shutdown || m_source_prefetch_running ||
+	if (!m_source_prefetch_enabled || m_source_prefetch_shutdown ||
 		m_source_prefetch_failure || source_prefetch_remaining_locked() == 0)
+		return;
+	m_source_prefetch_idle_ms.store(
+		m_source_prefetch_started_at ? RuntimeSoundIdleMs : StartupSoundIdleMs, std::memory_order_relaxed);
+	if (m_source_prefetch_running)
 		return;
 
 	if (m_source_prefetch_thread.joinable())
@@ -388,4 +393,7 @@ void CSoundRender_Core::clear_source_prefetch()
 	m_source_prefetch_jobs.clear();
 	m_source_prefetch_order.clear();
 	m_source_prefetch_by_id.clear();
+	m_source_prefetch_cursor = 0;
+	m_source_prefetch_remaining = 0;
+	m_source_prefetch_idle_ms.store(0, std::memory_order_relaxed);
 }

@@ -6,6 +6,158 @@
 #include "SoundRender_Core.h"
 #include "SoundRender_Source.h"
 
+namespace
+{
+constexpr size_t OggPageHeaderSize = 27;
+constexpr size_t OggMaximumPageSize = OggPageHeaderSize + 255 + 255 * 255;
+
+bool ReadOggPage(const u8* data, size_t size, size_t offset, ogg_page& page, size_t& next)
+{
+	if (offset > size || size - offset < OggPageHeaderSize || memcmp(data + offset, "OggS", 4) || data[offset + 4])
+		return false;
+
+	const size_t segment_count = data[offset + 26];
+	const size_t header_size = OggPageHeaderSize + segment_count;
+	if (header_size > size - offset)
+		return false;
+
+	size_t body_size = 0;
+	for (size_t i = 0; i < segment_count; ++i)
+		body_size += data[offset + OggPageHeaderSize + i];
+	if (body_size > size - offset - header_size)
+		return false;
+
+	page.header = const_cast<unsigned char*>(data + offset);
+	page.header_len = static_cast<long>(header_size);
+	page.body = const_cast<unsigned char*>(data + offset + header_size);
+	page.body_len = static_cast<long>(body_size);
+	next = offset + header_size + body_size;
+
+	unsigned char checked_header[OggPageHeaderSize + 255];
+	CopyMemory(checked_header, page.header, header_size);
+	ogg_page checked_page = page;
+	checked_page.header = checked_header;
+	ogg_page_checksum_set(&checked_page);
+	if (memcmp(checked_header + 22, page.header + 22, 4))
+		return false;
+	return true;
+}
+
+bool ReadSingleStreamPcmTotal(
+	const u8* data, size_t size, const OggVorbis_File& vorbis_file, vorbis_info& info, s64& pcm_total)
+{
+	if (!data || size < OggPageHeaderSize)
+		return false;
+
+	const int serial = vorbis_file.current_serialno;
+	ogg_stream_state stream{};
+	if (ogg_stream_init(&stream, serial))
+		return false;
+
+	bool valid = true;
+	u32 header_packets = 0;
+	long last_block = -1;
+	s64 accumulated = 0;
+	s64 initial_pcm = -1;
+	size_t offset = 0;
+	while (offset < size)
+	{
+		ogg_page page{};
+		size_t next = 0;
+		if (!ReadOggPage(data, size, offset, page, next))
+		{
+			valid = false;
+			break;
+		}
+		offset = next;
+		if (header_packets >= 3 && ogg_page_bos(&page))
+		{
+			valid = false;
+			break;
+		}
+		if (ogg_page_serialno(&page) != serial)
+			continue;
+		if (ogg_stream_pagein(&stream, &page))
+		{
+			valid = false;
+			break;
+		}
+
+		bool setup_completed_on_page = false;
+		for (;;)
+		{
+			ogg_packet packet{};
+			const int packet_result = ogg_stream_packetout(&stream, &packet);
+			if (!packet_result)
+				break;
+			if (packet_result < 0)
+			{
+				valid = false;
+				break;
+			}
+			if (header_packets < 3)
+			{
+				++header_packets;
+				setup_completed_on_page = header_packets == 3;
+				continue;
+			}
+			if (setup_completed_on_page)
+			{
+				valid = false;
+				break;
+			}
+
+			const long block = vorbis_packet_blocksize(&info, &packet);
+			if (block < 0)
+			{
+				valid = false;
+				break;
+			}
+			if (last_block != -1)
+				accumulated += (last_block + block) >> 2;
+			last_block = block;
+		}
+		if (!valid)
+			break;
+
+		const s64 granule = ogg_page_granulepos(&page);
+		if (header_packets >= 3 && last_block != -1 && granule >= 0)
+		{
+			initial_pcm = _max(s64(0), granule - accumulated);
+			break;
+		}
+	}
+	ogg_stream_clear(&stream);
+	if (!valid || initial_pcm < 0)
+		return false;
+
+	const size_t tail_begin = size > OggMaximumPageSize ? size - OggMaximumPageSize : 0;
+	s64 final_pcm = -1;
+	for (size_t tail = size - OggPageHeaderSize;; --tail)
+	{
+		if (data[tail] == 'O')
+		{
+			ogg_page page{};
+			size_t next = 0;
+			if (ReadOggPage(data, size, tail, page, next) && next == size && ogg_page_eos(&page))
+			{
+				if (ogg_page_serialno(&page) != serial)
+					return false;
+				final_pcm = ogg_page_granulepos(&page);
+				break;
+			}
+		}
+		if (tail == tail_begin)
+			break;
+	}
+	if (final_pcm < initial_pcm)
+		return false;
+
+	pcm_total = final_pcm - initial_pcm;
+	return true;
+}
+}
+
 //	SEEK_SET	0	File beginning
 //	SEEK_CUR	1	Current file pointer position
 //	SEEK_END	2	End-of-file
@@ -80,7 +232,10 @@ bool CSoundRender_Source::prepare(
 		return false;
 	}
 
-	const int open_result = ov_open_callbacks(wave, &ovf, NULL, 0, ovc);
+	const u8* wave_data = static_cast<const u8*>(wave->pointer());
+	const size_t wave_size = wave->length();
+	// Headers and comments do not require libvorbisfile's full seekable-open pass.
+	const int open_result = ov_test_callbacks(wave, &ovf, NULL, 0, ovc);
 	if (open_result)
 	{
 		FS.r_close(wave);
@@ -96,8 +251,28 @@ bool CSoundRender_Source::prepare(
 		error = make_string("Invalid source info: %s", path).c_str();
 		return false;
 	}
+	s64 pcm_total = 0;
+	if (!ReadSingleStreamPcmTotal(wave_data, wave_size, ovf, *ovi, pcm_total))
+	{
+		// Chained, multiplexed and unusual streams retain the original full parser.
+		const int finish_result = ov_test_open(&ovf);
+		if (finish_result)
+		{
+			FS.r_close(wave);
+			error = make_string("Invalid OGG stream (%d): %s", finish_result, path).c_str();
+			return false;
+		}
+		ovi = ov_info(&ovf, -1);
+		if (!ovi)
+		{
+			ov_clear(&ovf);
+			FS.r_close(wave);
+			error = make_string("Invalid source info: %s", path).c_str();
+			return false;
+		}
+		pcm_total = ov_pcm_total(&ovf, -1);
+	}
 	//R_ASSERT3(ovi->rate == 44100, "Invalid source rate:", pname.c_str());
-
 	if (ovi->rate != 44100)
 	{
 		if (log_warnings)
@@ -108,6 +283,13 @@ bool CSoundRender_Source::prepare(
 		FS.r_close(wave);
 		return true;
 	}
+	if (pcm_total < 0)
+	{
+		ov_clear(&ovf);
+		FS.r_close(wave);
+		error = make_string("Invalid PCM length: %s", path).c_str();
+		return false;
+	}
 
 #ifdef DEBUG
     if (log_warnings && ovi->channels == 2)
@@ -117,23 +299,13 @@ bool CSoundRender_Source::prepare(
 #endif // #ifdef DEBUG
 
 	ZeroMemory(&prepared.format, sizeof(WAVEFORMATEX));
-
 	prepared.format.nSamplesPerSec = ovi->rate; //44100;
 	prepared.format.wFormatTag = WAVE_FORMAT_PCM;
 	prepared.format.nChannels = u16(ovi->channels);
 	prepared.format.wBitsPerSample = 16;
-
 	prepared.format.nBlockAlign = prepared.format.wBitsPerSample / 8 * prepared.format.nChannels;
 	prepared.format.nAvgBytesPerSec = prepared.format.nSamplesPerSec * prepared.format.nBlockAlign;
 
-	s64 pcm_total = ov_pcm_total(&ovf, -1);
-	if (pcm_total < 0)
-	{
-		ov_clear(&ovf);
-		FS.r_close(wave);
-		error = make_string("Invalid PCM length: %s", path).c_str();
-		return false;
-	}
 	prepared.bytes_total = u32(pcm_total * prepared.format.nBlockAlign);
 	prepared.time_total = s_f_def_source_footer + prepared.bytes_total / float(prepared.format.nAvgBytesPerSec);
 

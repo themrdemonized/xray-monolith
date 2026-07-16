@@ -265,37 +265,25 @@ void IGame_Level::OnRender()
 	// Level render, only when no client output required
 	if (!g_dedicated_server)
 	{
+		const bool measure_precache = pApp && pApp->LoadSessionMeasurePrecache();
+		u64 calculate_ticks = 0;
+		u64 render_ticks = 0;
 		{
 			PROF_EVENT("IGame_Level::OnRender: Calculate");
+			const u64 started_at = measure_precache ? CPU::QPC() : 0;
 			Render->Calculate();
+			if (measure_precache)
+				calculate_ticks = CPU::QPC() - started_at;
 		}
-		bool render_world = true;
-#ifdef STATIC_RENDERER_R4
-		bool record_world = false;
-		u32 render_started_at = 0;
-		if (pApp)
-		{
-			record_world = pApp->LoadSessionActive() && pApp->LoadSessionPrecacheStarted() &&
-				Device.dwPrecacheFrame && Device.dwPrecacheTotal == 60;
-			if (record_world)
-			{
-				render_world = pApp->LoadSessionShouldRenderPrecacheWorld(
-					Device.dwPrecacheFrame, Device.dwPrecacheTotal);
-				if (render_world)
-					render_started_at = Device.TimerAsync();
-			}
-		}
-#endif
-		if (render_world)
 		{
 			PROF_EVENT("IGame_Level::OnRender: Render");
+			const u64 started_at = measure_precache ? CPU::QPC() : 0;
 			Render->Render();
+			if (measure_precache)
+				render_ticks = CPU::QPC() - started_at;
 		}
-#ifdef STATIC_RENDERER_R4
-		if (record_world)
-			pApp->LoadSessionRecordPrecacheWorld(
-				render_world, render_world ? Device.TimerAsync() - render_started_at : 0);
-#endif
+		if (measure_precache)
+			pApp->LoadSessionRecordPrecacheLevel(calculate_ticks, render_ticks);
 	}
 	else
 	{

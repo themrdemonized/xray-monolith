@@ -39,12 +39,14 @@ class CSoundRender_Core : public CSound_manager_interface
 	std::mutex m_source_prefetch_mutex;
 	std::condition_variable m_source_prefetch_changed;
 	std::thread m_source_prefetch_thread;
+	std::atomic<u32> m_source_prefetch_idle_ms{0};
 	size_t m_source_prefetch_cursor = 0;
 	u32 m_source_prefetch_started_at = 0;
 	u32 m_source_prefetch_prepared = 0;
 	u32 m_source_prefetch_promoted = 0;
 	u32 m_source_prefetch_waited_ms = 0;
 	u32 m_source_prefetch_failed = 0;
+	u32 m_source_prefetch_remaining = 0;
 	bool m_source_prefetch_enabled = false;
 	bool m_source_prefetch_pause = true;
 	bool m_source_prefetch_running = false;

@@ -1615,8 +1615,6 @@ void CApplication::LoadSessionBegin(LPCSTR scenario)
 {
 	if (m_load_session.active)
 		LoadSessionCancel("superseded");
-	if (Sound)
-		Sound->source_prefetch_pause();
 
 	ZeroMemory(&m_load_session, sizeof(m_load_session));
 	m_load_session.started_at = Device.TimerAsync();
@@ -1636,6 +1634,8 @@ void CApplication::LoadSessionBegin(LPCSTR scenario)
 	}
 	m_load_session.active = true;
 	Msg("* [load-session] begin scenario=%s", m_load_session.scenario);
+	if (Sound)
+		Sound->source_prefetch_pause();
 }
 
 void CApplication::LoadSessionContinue(LPCSTR scenario)
@@ -1735,51 +1735,67 @@ void CApplication::LoadSessionPrecacheBegin()
 
 	m_load_session.precache_started = true;
 	m_load_session.precache_started_at = Device.TimerAsync();
-	m_load_session.precache_logical_frames = 0;
-	m_load_session.precache_world_rendered = 0;
-	m_load_session.precache_world_skipped = 0;
-	m_load_session.precache_world_render_ms = 0;
+	m_load_session.precache_frames = 0;
+	m_load_session.precache_level_calls = 0;
+	m_load_session.precache_loadscreen_calls = 0;
+	m_load_session.precache_present_calls = 0;
+	m_load_session.precache_wall_ticks = 0;
+	m_load_session.precache_frame_move_ticks = 0;
+	m_load_session.precache_seq_render_ticks = 0;
+	m_load_session.precache_end_ticks = 0;
+	m_load_session.precache_present_ticks = 0;
+	m_load_session.precache_secondary_wait_ticks = 0;
+	m_load_session.precache_level_calculate_ticks = 0;
+	m_load_session.precache_level_render_ticks = 0;
+	m_load_session.precache_loadscreen_ticks = 0;
 }
 
-bool CApplication::LoadSessionShouldRenderPrecacheWorld(u32 remaining, u32 total) const
+bool CApplication::LoadSessionMeasurePrecache() const
 {
-	if (!m_load_session.active || !m_load_session.precache_started || !remaining || total != 60)
-		return true;
-
-	if (!xr_strcmp(m_load_session.scenario, "quickload") ||
-		!xr_strcmp(m_load_session.scenario, "visited-transition"))
-	{
-		return remaining == 1;
-	}
-
-	if (!xr_strcmp(m_load_session.scenario, "menu-save") ||
-		!xr_strcmp(m_load_session.scenario, "unseen-transition") ||
-		!xr_strcmp(m_load_session.scenario, "new-game"))
-	{
-		return (remaining - 1) % 5 == 0;
-	}
-
-	return true;
+	return m_load_session.active && m_load_session.precache_started &&
+		Device.dwPrecacheFrame && Device.dwPrecacheTotal == 60;
 }
 
-void CApplication::LoadSessionRecordPrecacheWorld(bool rendered, u32 elapsed_ms)
+void CApplication::LoadSessionRecordPrecacheFrame(u64 wall_ticks, u64 frame_move_ticks,
+	u64 seq_render_ticks, u64 end_ticks, u64 secondary_wait_ticks)
 {
-	if (!m_load_session.active || !m_load_session.precache_started ||
-		!Device.dwPrecacheFrame || Device.dwPrecacheTotal != 60)
-	{
+	if (!m_load_session.active || !m_load_session.precache_started)
 		return;
-	}
 
-	++m_load_session.precache_logical_frames;
-	if (rendered)
-	{
-		++m_load_session.precache_world_rendered;
-		m_load_session.precache_world_render_ms += elapsed_ms;
-	}
-	else
-	{
-		++m_load_session.precache_world_skipped;
-	}
+	++m_load_session.precache_frames;
+	m_load_session.precache_wall_ticks += wall_ticks;
+	m_load_session.precache_frame_move_ticks += frame_move_ticks;
+	m_load_session.precache_seq_render_ticks += seq_render_ticks;
+	m_load_session.precache_end_ticks += end_ticks;
+	m_load_session.precache_secondary_wait_ticks += secondary_wait_ticks;
+}
+
+void CApplication::LoadSessionRecordPrecacheLevel(u64 calculate_ticks, u64 render_ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_level_calls;
+	m_load_session.precache_level_calculate_ticks += calculate_ticks;
+	m_load_session.precache_level_render_ticks += render_ticks;
+}
+
+void CApplication::LoadSessionRecordPrecacheLoadscreen(u64 ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_loadscreen_calls;
+	m_load_session.precache_loadscreen_ticks += ticks;
+}
+
+void CApplication::LoadSessionRecordPrecachePresent(u64 ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_present_calls;
+	m_load_session.precache_present_ticks += ticks;
 }
 
 void CApplication::LoadSessionRecordClientEvent(
@@ -1864,18 +1880,39 @@ void CApplication::LoadSessionTryFinish(bool level_ready, bool control_ready, bo
 	Msg("* [load-session] client order: hash=%016llx, spawns=%u, events=%u",
 		m_load_session.client_event_hash, m_load_session.client_spawn_count, m_load_session.client_event_count);
 	Msg("* [load-session] phases: teardown=%u ms, server/lua=%u ms, native level=%u ms, "
-		"resource wait=%u ms, client spawn=%u ms, final precache=%u ms, "
-		"precache frames=%u, world render=%u, skipped=%u, world render time=%u ms",
+		"resource wait=%u ms, client spawn=%u ms, final precache=%u ms",
 		m_load_session.phase_elapsed[LoadSessionTeardown],
 		m_load_session.phase_elapsed[LoadSessionServerLua],
 		m_load_session.phase_elapsed[LoadSessionNativeLevel],
 		m_load_session.phase_elapsed[LoadSessionResourceWait],
 		m_load_session.phase_elapsed[LoadSessionClientSpawn],
-		now - m_load_session.precache_started_at,
-		m_load_session.precache_logical_frames,
-		m_load_session.precache_world_rendered,
-		m_load_session.precache_world_skipped,
-		m_load_session.precache_world_render_ms);
+		now - m_load_session.precache_started_at);
+	const auto to_ms = [](u64 ticks)
+	{
+		return double(ticks) * 1000.0 / double(CPU::qpc_freq);
+	};
+	const u64 serial_ticks = m_load_session.precache_frame_move_ticks +
+		m_load_session.precache_seq_render_ticks + m_load_session.precache_end_ticks +
+		m_load_session.precache_secondary_wait_ticks;
+	const u64 serial_other_ticks = m_load_session.precache_wall_ticks > serial_ticks ?
+		m_load_session.precache_wall_ticks - serial_ticks : 0;
+	const u64 measured_render_ticks = m_load_session.precache_level_calculate_ticks +
+		m_load_session.precache_level_render_ticks + m_load_session.precache_loadscreen_ticks;
+	const u64 render_other_ticks = m_load_session.precache_seq_render_ticks > measured_render_ticks ?
+		m_load_session.precache_seq_render_ticks - measured_render_ticks : 0;
+	Msg("* [load-session] precache perf: frames=%u, calls(level/loadscreen/present)=%u/%u/%u, "
+		"wall=%.2f ms, frame move=%.2f ms, seq render=%.2f ms, level calculate/render=%.2f/%.2f ms, "
+		"loadscreen=%.2f ms, render other=%.2f ms, end/present=%.2f/%.2f ms, "
+		"secondary wait=%.2f ms, serial other=%.2f ms",
+		m_load_session.precache_frames, m_load_session.precache_level_calls,
+		m_load_session.precache_loadscreen_calls, m_load_session.precache_present_calls,
+		to_ms(m_load_session.precache_wall_ticks), to_ms(m_load_session.precache_frame_move_ticks),
+		to_ms(m_load_session.precache_seq_render_ticks),
+		to_ms(m_load_session.precache_level_calculate_ticks),
+		to_ms(m_load_session.precache_level_render_ticks), to_ms(m_load_session.precache_loadscreen_ticks),
+		to_ms(render_other_ticks), to_ms(m_load_session.precache_end_ticks),
+		to_ms(m_load_session.precache_present_ticks),
+		to_ms(m_load_session.precache_secondary_wait_ticks), to_ms(serial_other_ticks));
 	m_load_session.active = false;
 	if (Sound)
 		Sound->source_prefetch_start();

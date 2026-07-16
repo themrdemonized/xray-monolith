@@ -114,7 +114,7 @@ void CRenderDevice::End(void)
 	PROF_EVENT("Render: End");
 
 #ifndef DEDICATED_SERVER
-
+	const bool measure_precache = pApp && pApp->LoadSessionMeasurePrecache();
 
 #ifdef INGAME_EDITOR
     bool load_finished = false;
@@ -169,7 +169,10 @@ void CRenderDevice::End(void)
 	// Present goes here, so call OA Frame end.
 	if (g_SASH.IsBenchmarkRunning())
 		g_SASH.DisplayFrame(Device.fTimeGlobal);
+	const u64 present_started_at = measure_precache ? CPU::QPC() : 0;
 	m_pRender->End();
+	if (measure_precache)
+		pApp->LoadSessionRecordPrecachePresent(CPU::QPC() - present_started_at);
 
 # ifdef INGAME_EDITOR
     if (load_finished && m_editor)
@@ -394,7 +397,15 @@ void CRenderDevice::on_idle()
 		Device.seqParallelBeforRender.clear();
 	}
 
+	const bool precache_before_frame = pApp && pApp->LoadSessionMeasurePrecache();
+	const u64 frame_started_at = precache_before_frame ? CPU::QPC() : 0;
 	FrameMove();
+	const bool measure_precache_frame = pApp && pApp->LoadSessionMeasurePrecache();
+	const u64 frame_move_finished_at = measure_precache_frame ? CPU::QPC() : 0;
+	const u64 measured_frame_started_at = precache_before_frame ? frame_started_at : frame_move_finished_at;
+	const u64 frame_move_ticks = precache_before_frame ? frame_move_finished_at - frame_started_at : 0;
+	u64 seq_render_ticks = 0;
+	u64 end_ticks = 0;
 
     if (g_pGamePersistent != nullptr)
     {
@@ -518,7 +529,10 @@ void CRenderDevice::on_idle()
 	if (b_is_Active && Begin())
 	{
 		START_PROFILE("Process seqRender");
+		const u64 seq_render_started_at = measure_precache_frame ? CPU::QPC() : 0;
 		seqRender.Process(rp_Render);
+		if (measure_precache_frame)
+			seq_render_ticks = CPU::QPC() - seq_render_started_at;
 		STOP_PROFILE;
 
 		if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size())
@@ -527,7 +541,10 @@ void CRenderDevice::on_idle()
 			Statistic->Show();
 		}
 
+		const u64 end_started_at = measure_precache_frame ? CPU::QPC() : 0;
 		End();
+		if (measure_precache_frame)
+			end_ticks = CPU::QPC() - end_started_at;
 	}
 	Statistic->RenderTOTAL_Real.End();
 	Statistic->RenderTOTAL_Real.FrameEnd();
@@ -535,7 +552,14 @@ void CRenderDevice::on_idle()
 #endif 
 	Device.isRendering = false;
 
+	const u64 secondary_wait_started_at = measure_precache_frame ? CPU::QPC() : 0;
 	secondary_tasks.wait();
+	if (measure_precache_frame)
+	{
+		const u64 frame_finished_at = CPU::QPC();
+		pApp->LoadSessionRecordPrecacheFrame(frame_finished_at - measured_frame_started_at,
+			frame_move_ticks, seq_render_ticks, end_ticks, frame_finished_at - secondary_wait_started_at);
+	}
 
 	if (psLua_ParallelGC_debug && psLua_ParallelGC && Device.LuaGCDebug)
 	{
@@ -909,7 +933,11 @@ void CLoadScreenRenderer::OnRender()
 {
 	PROF_EVENT();
 
+	const bool measure_precache = pApp && pApp->LoadSessionMeasurePrecache();
+	const u64 started_at = measure_precache ? CPU::QPC() : 0;
 	pApp->load_draw_internal();
+	if (measure_precache)
+		pApp->LoadSessionRecordPrecacheLoadscreen(CPU::QPC() - started_at);
 }
 
 void CRenderDevice::CSecondVPParams::SetSVPActive(bool bState) //--#SM+#-- +SecondVP+
