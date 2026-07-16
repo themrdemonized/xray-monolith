@@ -63,45 +63,147 @@ public:
 	}
 };
 
-struct InitialFileData
+class CStartupLooseReader final : public IReader
 {
-	u32 vfs;
-	u32 crc;
-	u32 ptr;
-	u32 size_real;
-	u32 size_compressed;
-	u32 modif;
-};
+	xr_shared_ptr<const xr_vector<u8>> owner;
 
-struct InitialNameHash
-{
-	size_t operator()(const xr_string& value) const
+public:
+	explicit CStartupLooseReader(xr_shared_ptr<const xr_vector<u8>> data)
+		: IReader(const_cast<u8*>(data->data()), static_cast<int>(data->size())), owner(std::move(data))
 	{
-		size_t result = sizeof(size_t) == 8 ? size_t(14695981039346656037ull) : size_t(2166136261u);
-		const size_t prime = sizeof(size_t) == 8 ? size_t(1099511628211ull) : size_t(16777619u);
-		for (const unsigned char character : value)
-		{
-			result ^= character;
-			result *= prime;
-		}
-		return result;
 	}
 };
-
-struct StartupArchiveRange
-{
-	u32 begin;
-	u32 end;
-};
-
-struct StartupMemoryRange
-{
-	void* address;
-	SIZE_T size;
-};
-
-using PrefetchVirtualMemoryFn = BOOL(WINAPI*)(HANDLE, ULONG_PTR, StartupMemoryRange*, ULONG);
 }
+
+struct CLocatorAPI::StartupLooseCache
+{
+	enum class State : u8
+	{
+		Queued,
+		Loading,
+		Ready,
+		Failed
+	};
+
+	struct Entry
+	{
+		xr_string name;
+		u32 size = 0;
+		u32 modif = 0;
+		State state = State::Queued;
+		bool valid = true;
+		xr_shared_ptr<const xr_vector<u8>> data;
+	};
+
+	using EntryPtr = xr_shared_ptr<Entry>;
+
+	std::mutex mutex;
+	std::condition_variable changed;
+	xr_map<xr_string, EntryPtr> entries;
+	xr_vector<EntryPtr> queue;
+	size_t next = 0;
+	bool stopping = false;
+	xr_task_group workers;
+	std::atomic<u32> workers_remaining{0};
+	std::atomic<u32> prepared{0};
+	std::atomic<u32> failed{0};
+	std::atomic<u32> promoted{0};
+	std::atomic<u64> demand_wait_ms{0};
+
+	static xr_shared_ptr<const xr_vector<u8>> Read(const Entry& entry)
+	{
+		HANDLE file = CreateFileA(entry.name.c_str(), GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+		if (file == INVALID_HANDLE_VALUE)
+			return {};
+		BY_HANDLE_FILE_INFORMATION before;
+		if (!GetFileInformationByHandle(file, &before) || before.nFileSizeHigh || before.nFileSizeLow != entry.size)
+		{
+			CloseHandle(file);
+			return {};
+		}
+
+		auto buffer = xr_make_shared<xr_vector<u8>>();
+		buffer->resize(entry.size);
+		u32 total_read = 0;
+		while (total_read < entry.size)
+		{
+			DWORD bytes_read = 0;
+			if (!ReadFile(file, buffer->data() + total_read, entry.size - total_read, &bytes_read, nullptr) || !bytes_read)
+				break;
+			total_read += bytes_read;
+		}
+		BY_HANDLE_FILE_INFORMATION after;
+		const bool unchanged = GetFileInformationByHandle(file, &after) && !after.nFileSizeHigh &&
+			after.nFileSizeLow == entry.size &&
+			CompareFileTime(&before.ftLastWriteTime, &after.ftLastWriteTime) == 0;
+		CloseHandle(file);
+
+		if (total_read != entry.size || !unchanged)
+			return {};
+
+		return buffer;
+	}
+
+	void Load(const EntryPtr& entry)
+	{
+		xr_shared_ptr<const xr_vector<u8>> data;
+		try
+		{
+			data = Read(*entry);
+		}
+		catch (...)
+		{
+		}
+
+		{
+			std::lock_guard<std::mutex> guard(mutex);
+			if (entry->valid && data)
+			{
+				entry->data = std::move(data);
+				entry->state = State::Ready;
+				++prepared;
+			}
+			else
+			{
+				entry->state = State::Failed;
+				++failed;
+			}
+		}
+		changed.notify_all();
+	}
+
+	void Worker()
+	{
+		for (;;)
+		{
+			EntryPtr entry;
+			{
+				std::lock_guard<std::mutex> guard(mutex);
+				while (!stopping && next < queue.size())
+				{
+					entry = queue[next++];
+					if (entry->valid && entry->state == State::Queued)
+					{
+						entry->state = State::Loading;
+						break;
+					}
+					entry.reset();
+				}
+				if (stopping || !entry)
+					break;
+			}
+			Load(entry);
+		}
+
+		if (workers_remaining.fetch_sub(1) == 1)
+		{
+			Msg("* [STARTUP/VFS] loose-cache prepared=%u failed=%u promoted=%u demand-wait=%llu ms",
+				prepared.load(), failed.load(), promoted.load(), demand_wait_ms.load());
+		}
+	}
+};
 
 #ifdef _EDITOR
 # define FSLTX "fs.ltx"
@@ -282,8 +384,7 @@ CLocatorAPI::CLocatorAPI()
 #endif // PROFILE_CRITICAL_SECTIONS
 {
 	m_Flags.zero();
-	m_initial_build = false;
-	m_initial_archive_index_ms = 0;
+	m_startup_loose_cache = nullptr;
 	// get page size
 	SYSTEM_INFO sys_inf;
 	GetSystemInfo(&sys_inf);
@@ -300,20 +401,12 @@ CLocatorAPI::~CLocatorAPI()
 
 void CLocatorAPI::Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real, u32 size_compressed, u32 modif)
 {
-	if (m_initial_build)
-	{
-		string256 normalized_name;
-		xr_strcpy(normalized_name, sizeof(normalized_name), name);
-		xr_strlwr(normalized_name);
-		m_initial_files.push_back({normalized_name, vfs, crc, ptr, size_real, size_compressed, modif & (~u32(0x3))});
-		return;
-	}
-
 	xrCriticalSectionGuard guard(m_scan_lock);
 	//Msg("Register[%d] [%s]",vfs,name);
 	string256 temp_file_name;
 	xr_strcpy(temp_file_name, sizeof(temp_file_name), name);
 	xr_strlwr(temp_file_name);
+	InvalidateStartupLooseCache(temp_file_name);
 
 	// Register file
 	file desc;
@@ -374,108 +467,139 @@ void CLocatorAPI::Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real
 	}
 }
 
-void CLocatorAPI::CommitInitialFiles(u64 scan_started_at)
+void CLocatorAPI::StartStartupLooseCache()
 {
-	using InitialFileMap = xr_unordered_map<xr_string, InitialFileData, InitialNameHash>;
-	using InitialFileMapEntry = InitialFileMap::value_type;
+	R_ASSERT(!m_startup_loose_cache);
+	auto* cache = xr_new<StartupLooseCache>();
+	u64 total_bytes = 0;
 
-	m_initial_build = false;
-	InitialFileMap merged;
-	merged.reserve(m_initial_files.size());
-	u32 replacements = 0;
-
-	const u64 replay_started_at = GetTickCount64();
-	for (const InitialFileRecord& record : m_initial_files)
+	for (LPCSTR alias : {"$game_config$", "$game_scripts$"})
 	{
-		InitialFileData data = {
-			record.vfs, record.crc, record.ptr, record.size_real, record.size_compressed, record.modif
-		};
-		auto existing = merged.find(record.name);
-		if (existing != merged.end())
-		{
-			// Register replaces an existing descriptor and deliberately skips parent synthesis.
-			existing->second = data;
-			++replacements;
+		const PathPairIt path = pathes.find(alias);
+		if (path == pathes.end())
 			continue;
-		}
 
-		merged.emplace(record.name, data);
+		xr_string prefix = path->second->m_Path;
+		std::transform(prefix.begin(), prefix.end(), prefix.begin(),
+			[](unsigned char character) { return static_cast<char>(tolower(character)); });
 
-		string_path temp;
-		xr_strcpy(temp, sizeof(temp), record.name.c_str());
-		string_path path;
-		string_path folder;
-		u32 vfs_id = record.vfs;
-		while (temp[0] && temp[1])
+		for (const file& desc : m_files)
 		{
-			_splitpath(temp, path, folder, nullptr, nullptr);
-			xr_strcat(path, folder);
-			if (merged.find(path) == merged.end())
+			if (desc.vfs != u32(-1) || !desc.size_real || strncmp(desc.name, prefix.c_str(), prefix.size()) != 0)
+				continue;
+
+			auto entry = xr_make_shared<StartupLooseCache::Entry>();
+			entry->name = desc.name;
+			entry->size = desc.size_real;
+			entry->modif = desc.modif;
+			if (cache->entries.emplace(entry->name, entry).second)
 			{
-				// Preserve Register's folder quirks: inherited crc and first-parent vfs.
-				InitialFileData folder_data = data;
-				folder_data.vfs = vfs_id;
-				folder_data.ptr = 0;
-				folder_data.size_real = 0;
-				folder_data.size_compressed = 0;
-				folder_data.modif = u32(-1);
-				merged.emplace(path, folder_data);
+				cache->queue.push_back(std::move(entry));
+				total_bytes += desc.size_real;
 			}
-			xr_strcpy(temp, sizeof(temp), path);
-			if (xr_strlen(temp))
-				temp[xr_strlen(temp) - 1] = 0;
-			vfs_id = 0xffffffff;
 		}
 	}
-	const u64 replay_ms = GetTickCount64() - replay_started_at;
 
-	const u64 sort_started_at = GetTickCount64();
-	xr_vector<const InitialFileMapEntry*> sorted;
-	sorted.reserve(merged.size());
-	for (const InitialFileMapEntry& entry : merged)
-		sorted.push_back(&entry);
-	std::sort(sorted.begin(), sorted.end(), [](const InitialFileMapEntry* left, const InitialFileMapEntry* right)
+	if (cache->queue.empty())
 	{
-		return xr_strcmp(left->first.c_str(), right->first.c_str()) < 0;
-	});
-	const u64 sort_ms = GetTickCount64() - sort_started_at;
-
-	const u64 commit_started_at = GetTickCount64();
-	R_ASSERT(m_files.empty());
-	files_set committed;
-	auto hint = committed.end();
-	for (const InitialFileMapEntry* entry : sorted)
-	{
-		const InitialFileData& source = entry->second;
-		file desc = {
-			xr_strdup(entry->first.c_str()), source.vfs, source.crc, source.ptr, source.size_real,
-			source.size_compressed, source.modif
-		};
-		hint = committed.emplace_hint(hint, desc);
-	}
-	m_files.swap(committed);
-	const u64 commit_ms = GetTickCount64() - commit_started_at;
-
-	u32 catalog_hash = 0;
-	for (const file& entry : m_files)
-	{
-		catalog_hash = crc32(entry.name, xr_strlen(entry.name) + 1, catalog_hash);
-		catalog_hash = crc32(&entry.vfs, sizeof(entry.vfs), catalog_hash);
-		catalog_hash = crc32(&entry.crc, sizeof(entry.crc), catalog_hash);
-		catalog_hash = crc32(&entry.ptr, sizeof(entry.ptr), catalog_hash);
-		catalog_hash = crc32(&entry.size_real, sizeof(entry.size_real), catalog_hash);
-		catalog_hash = crc32(&entry.size_compressed, sizeof(entry.size_compressed), catalog_hash);
-		catalog_hash = crc32(&entry.modif, sizeof(entry.modif), catalog_hash);
+		xr_delete(cache);
+		return;
 	}
 
-	const u64 scan_total_ms = replay_started_at - scan_started_at;
-	const u64 discovery_ms = scan_total_ms > m_initial_archive_index_ms
-		? scan_total_ms - m_initial_archive_index_ms
-		: 0;
-	Msg("* [STARTUP/VFS] discovery=%llu ms index=%llu ms replay=%llu ms sort=%llu ms commit=%llu ms files=%u replacements=%u catalog=%08x",
-		discovery_ms, m_initial_archive_index_ms, replay_ms, sort_ms, commit_ms, m_files.size(), replacements, catalog_hash);
+	m_startup_loose_cache = cache;
+	const u32 worker_count = std::min<u32>(2, static_cast<u32>(cache->queue.size()));
+	cache->workers_remaining = worker_count;
+	Msg("* [STARTUP/VFS] loose-cache queued=%u bytes=%llu workers=%u",
+		static_cast<u32>(cache->queue.size()), total_bytes, worker_count);
+	for (u32 worker = 0; worker < worker_count; ++worker)
+		cache->workers.run([cache] { cache->Worker(); });
+}
 
-	m_initial_files.clear_and_free();
+void CLocatorAPI::StopStartupLooseCache()
+{
+	StartupLooseCache* cache = m_startup_loose_cache;
+	if (!cache)
+		return;
+
+	{
+		std::lock_guard<std::mutex> guard(cache->mutex);
+		cache->stopping = true;
+	}
+	cache->changed.notify_all();
+	cache->workers.wait();
+	m_startup_loose_cache = nullptr;
+	xr_delete(cache);
+}
+
+void CLocatorAPI::InvalidateStartupLooseCache(LPCSTR name)
+{
+	StartupLooseCache* cache = m_startup_loose_cache;
+	if (!cache)
+		return;
+	string_path normalized;
+	xr_strcpy(normalized, sizeof(normalized), name);
+	xr_strlwr(normalized);
+
+	{
+		std::lock_guard<std::mutex> guard(cache->mutex);
+		const auto entry = cache->entries.find(normalized);
+		if (entry == cache->entries.end())
+			return;
+		entry->second->valid = false;
+		entry->second->state = StartupLooseCache::State::Failed;
+		entry->second->data.reset();
+		cache->entries.erase(entry);
+	}
+	cache->changed.notify_all();
+}
+
+bool CLocatorAPI::OpenStartupLooseCache(IReader*& reader, LPCSTR name, const file& desc)
+{
+	StartupLooseCache* cache = m_startup_loose_cache;
+	if (!cache)
+		return false;
+
+	StartupLooseCache::EntryPtr entry;
+	bool load = false;
+	{
+		std::unique_lock<std::mutex> guard(cache->mutex);
+		const auto found = cache->entries.find(name);
+		if (cache->stopping || found == cache->entries.end())
+			return false;
+		entry = found->second;
+		if (!entry->valid || entry->size != desc.size_real || entry->modif != desc.modif)
+			return false;
+
+		if (entry->state == StartupLooseCache::State::Queued)
+		{
+			entry->state = StartupLooseCache::State::Loading;
+			++cache->promoted;
+			load = true;
+		}
+		else if (entry->state == StartupLooseCache::State::Loading)
+		{
+			const u64 started_at = GetTickCount64();
+			cache->changed.wait(guard, [&entry]
+			{
+				return !entry->valid || entry->state != StartupLooseCache::State::Loading;
+			});
+			cache->demand_wait_ms += GetTickCount64() - started_at;
+		}
+	}
+
+	if (load)
+		cache->Load(entry);
+
+	xr_shared_ptr<const xr_vector<u8>> data;
+	{
+		std::lock_guard<std::mutex> guard(cache->mutex);
+		if (!entry->valid || entry->state != StartupLooseCache::State::Ready)
+			return false;
+		data = entry->data;
+	}
+
+	reader = xr_new<CStartupLooseReader>(std::move(data));
+	return true;
 }
 
 IReader* open_chunk(void* ptr, u32 ID)
@@ -529,8 +653,6 @@ IReader* open_chunk(void* ptr, u32 ID)
 
 void CLocatorAPI::LoadArchive(archive& A, LPCSTR entrypoint)
 {
-	const u64 initial_index_started_at = m_initial_build ? GetTickCount64() : 0;
-
 	// Create base path
 	string_path fs_entry_point;
 	fs_entry_point[0] = 0;
@@ -625,8 +747,6 @@ void CLocatorAPI::LoadArchive(archive& A, LPCSTR entrypoint)
 		Register(full, A.vfs_idx, crc, ptr, size_real, size_compr, 0);
 	}
 	hdr->close();
-	if (m_initial_build)
-		m_initial_archive_index_ms += GetTickCount64() - initial_index_started_at;
 
 	// if(g_temporary_stuff_subst)
 	// g_temporary_stuff = g_temporary_stuff_subst;
@@ -685,113 +805,6 @@ xr_shared_ptr<CLocatorAPI::ArchiveDataView> CLocatorAPI::GetArchiveDataView(arch
 	xr_shared_ptr<ArchiveDataView> view = xr_make_shared<ArchiveDataView>(base, A.size, A.path.c_str());
 	std::atomic_store(&A.data_view, view);
 	return view;
-}
-
-void CLocatorAPI::PrefetchStartupFiles()
-{
-	const auto prefetch = reinterpret_cast<PrefetchVirtualMemoryFn>(
-		GetProcAddress(GetModuleHandleA("kernel32.dll"), "PrefetchVirtualMemory"));
-	if (!prefetch)
-	{
-		Msg("* [STARTUP/VFS] read-ahead unavailable");
-		return;
-	}
-
-	xr_vector<xr_string> prefixes;
-	for (LPCSTR alias : {"$game_config$", "$game_scripts$"})
-	{
-		const PathPairIt path = pathes.find(alias);
-		if (path == pathes.end())
-			continue;
-		prefixes.emplace_back(path->second->m_Path);
-		std::transform(prefixes.back().begin(), prefixes.back().end(), prefixes.back().begin(),
-			[](unsigned char character) { return static_cast<char>(tolower(character)); });
-	}
-	if (prefixes.empty())
-		return;
-
-	xr_vector<xr_vector<StartupArchiveRange>> archive_ranges(m_archives.size());
-	u32 file_count = 0;
-	for (const file& entry : m_files)
-	{
-		if (entry.vfs == u32(-1) || entry.vfs >= archive_ranges.size() || entry.size_compressed == 0)
-			continue;
-
-		bool selected = false;
-		for (const xr_string& prefix : prefixes)
-		{
-			if (strncmp(entry.name, prefix.c_str(), prefix.size()) == 0)
-			{
-				selected = true;
-				break;
-			}
-		}
-		if (!selected)
-			continue;
-
-		const u64 end = u64(entry.ptr) + entry.size_compressed;
-		if (entry.ptr >= m_archives[entry.vfs].size || end > m_archives[entry.vfs].size)
-			continue;
-		archive_ranges[entry.vfs].push_back({entry.ptr, static_cast<u32>(end)});
-		++file_count;
-	}
-
-	SYSTEM_INFO system_info;
-	GetSystemInfo(&system_info);
-	const u32 page_size = system_info.dwPageSize;
-	const u64 started_at = GetTickCount64();
-	u32 range_count = 0;
-	u32 failed_calls = 0;
-	u64 byte_count = 0;
-
-	for (u32 archive_index = 0; archive_index < archive_ranges.size(); ++archive_index)
-	{
-		xr_vector<StartupArchiveRange>& ranges = archive_ranges[archive_index];
-		if (ranges.empty())
-			continue;
-
-		const xr_shared_ptr<ArchiveDataView> view = GetArchiveDataView(m_archives[archive_index]);
-		if (!view)
-			continue;
-
-		std::sort(ranges.begin(), ranges.end(), [](const StartupArchiveRange& left, const StartupArchiveRange& right)
-		{
-			return left.begin < right.begin;
-		});
-
-		xr_vector<StartupArchiveRange> merged;
-		merged.reserve(ranges.size());
-		for (StartupArchiveRange range : ranges)
-		{
-			range.begin = (range.begin / page_size) * page_size;
-			const u64 aligned_end = ((u64(range.end) + page_size - 1) / page_size) * page_size;
-			range.end = static_cast<u32>(std::min<u64>(aligned_end, view->size));
-			if (merged.empty() || range.begin > merged.back().end)
-				merged.push_back(range);
-			else if (range.end > merged.back().end)
-				merged.back().end = range.end;
-		}
-
-		xr_vector<StartupMemoryRange> memory_ranges;
-		memory_ranges.reserve(merged.size());
-		for (const StartupArchiveRange& range : merged)
-		{
-			memory_ranges.push_back({static_cast<u8*>(view->base) + range.begin, range.end - range.begin});
-			byte_count += range.end - range.begin;
-		}
-		range_count += memory_ranges.size();
-
-		constexpr u32 ranges_per_call = 1024;
-		for (u32 offset = 0; offset < memory_ranges.size(); offset += ranges_per_call)
-		{
-			const u32 count = std::min<u32>(ranges_per_call, memory_ranges.size() - offset);
-			if (!prefetch(GetCurrentProcess(), count, memory_ranges.data() + offset, 0))
-				++failed_calls;
-		}
-	}
-
-	Msg("* [STARTUP/VFS] read-ahead=%llu ms files=%u ranges=%u bytes=%llu failed=%u",
-		GetTickCount64() - started_at, file_count, range_count, byte_count, failed_calls);
 }
 
 void CLocatorAPI::ProcessArchive(LPCSTR _path)
@@ -972,7 +985,7 @@ bool CLocatorAPI::Recurse(const char* path, u32 parallel_depth)
 	if (!files.empty())
 	{
 		std::sort(files.begin(), files.end(), pred_str_ff);
-		if (parallel_depth && !m_initial_build)
+		if (parallel_depth)
 			xr_parallel_foreach(files.begin(), files.end(), [this, path, parallel_depth](const _finddata_t& entry)
 			{
 				ProcessOne(path, entry, parallel_depth);
@@ -1096,11 +1109,6 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 	size_t M1 = Memory.mem_usage();
 
 	m_Flags.set(flags, TRUE);
-	m_initial_build = true;
-	m_initial_archive_index_ms = 0;
-	m_initial_files.clear_not_free();
-	const u64 initial_scan_started_at = GetTickCount64();
-
 	// scan root directory
 	bNoRecurse = TRUE;
 	string4096 buf;
@@ -1205,9 +1213,6 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 		R_ASSERT(path_exist("$app_data_root$"));
 	};
 
-	CommitInitialFiles(initial_scan_started_at);
-	PrefetchStartupFiles();
-
 	Msg("File System Ready...");
 	size_t M2 = Memory.mem_usage();
 	Msg("FS: %d files cached %d archives, %lldKb memory used.", m_files.size(), m_archives.size(), (M2 - M1) / 1024);
@@ -1239,10 +1244,12 @@ void CLocatorAPI::_initialize(u32 flags, LPCSTR target_folder, LPCSTR fs_name)
 	{
 		xrLogger::OpenLogFile();
 	}
+	StartStartupLooseCache();
 }
 
 void CLocatorAPI::_destroy()
 {
+	StopStartupLooseCache();
 	xrLogger::CloseLog();
 
 	for (files_it I = m_files.begin(); I != m_files.end(); I++)
@@ -1507,6 +1514,9 @@ void CLocatorAPI::check_cached_files(LPSTR fname, const u32& fname_size, const f
 
 void CLocatorAPI::file_from_cache_impl(IReader*& R, LPSTR fname, const file& desc)
 {
+	if (OpenStartupLooseCache(R, fname, desc))
+		return;
+
 	if (desc.size_real < 16 * 1024)
 	{
 		R = xr_new<CFileReader>(fname);
@@ -1873,6 +1883,7 @@ BOOL CLocatorAPI::dir_delete(LPCSTR path, LPCSTR nm, BOOL remove_files)
 			{
 				// const char* entry_begin = entry.name+base_len;
 				if (!remove_files) return FALSE;
+				InvalidateStartupLooseCache(entry.name);
 				unlink(entry.name);
 				m_files.erase(cur_item);
 			}
@@ -1906,6 +1917,7 @@ void CLocatorAPI::file_delete(LPCSTR path, LPCSTR nm)
 	if (I != m_files.end())
 	{
 		// remove file
+		InvalidateStartupLooseCache(I->name);
 		unlink(I->name);
 		char* str = LPSTR(I->name);
 		xr_free(str);
@@ -1940,6 +1952,7 @@ void CLocatorAPI::file_rename(LPCSTR src, LPCSTR dest, bool bOwerwrite)
 		if (D != m_files.end())
 		{
 			if (!bOwerwrite) return;
+			InvalidateStartupLooseCache(D->name);
 			unlink(D->name);
 			char* str = LPSTR(D->name);
 			xr_free(str);
@@ -1947,6 +1960,7 @@ void CLocatorAPI::file_rename(LPCSTR src, LPCSTR dest, bool bOwerwrite)
 		}
 
 		file new_desc = *S;
+		InvalidateStartupLooseCache(S->name);
 		// remove existing item
 		char* str = LPSTR(S->name);
 		xr_free(str);

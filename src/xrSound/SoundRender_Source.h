@@ -9,6 +9,14 @@ struct OggVorbis_File;
 
 struct PreparedSoundSource
 {
+	enum class Warning : u8
+	{
+		None,
+		InvalidRate,
+		InvalidComment,
+		MissingComment
+	};
+
 	xr_string path;
 	WAVEFORMATEX format{};
 	float time_total = 0.f;
@@ -19,6 +27,7 @@ struct PreparedSoundSource
 	float max_ai_distance = 300.f;
 	u32 game_type = 0;
 	bool loaded = false;
+	Warning warning = Warning::None;
 };
 
 class XRSOUND_EDITOR_API CSoundRender_Source : public CSound_source
@@ -49,7 +58,7 @@ public:
 	void load_prepared(LPCSTR name, const PreparedSoundSource& prepared);
 	void unload();
 	void decompress(u32 line, OggVorbis_File* ovf);
-	static bool prepare(LPCSTR path, PreparedSoundSource& prepared, xr_string& error);
+	static bool prepare(LPCSTR path, PreparedSoundSource& prepared, xr_string& error, bool log_warnings = true);
 	static void resolve_path(LPCSTR name, xr_string& path);
 
 	virtual float length_sec() const { return fTimeTotal; }

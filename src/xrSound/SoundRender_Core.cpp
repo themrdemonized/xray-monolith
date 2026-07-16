@@ -81,7 +81,10 @@ void CSoundRender_Core::_initialize(int stage)
 	bReady = TRUE;
 
 	if (Core.ParamsData.test(ECoreParams::prefetch_sounds))
+	{
 		build_source_prefetch_manifest();
+		source_prefetch_start();
+	}
 }
 
 extern xr_vector<u8> g_target_temp_data;

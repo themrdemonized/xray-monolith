@@ -142,7 +142,8 @@ void CSoundRender_Core::source_prefetch_worker()
 {
 	_initialize_cpu_thread();
 	thread_name("Sound prefetch");
-	SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
+	if (!SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN))
+		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL);
 
 	for (;;)
 	{
@@ -169,13 +170,16 @@ void CSoundRender_Core::source_prefetch_worker()
 		xr_string error;
 		try
 		{
-			CSoundRender_Source::prepare(job->path.c_str(), prepared, error);
+			CSoundRender_Source::prepare(job->path.c_str(), prepared, error, false);
 		}
 		catch (...)
 		{
 			error = make_string("Unhandled exception while preparing sound: %s", job->path.c_str()).c_str();
 		}
+		const bool succeeded = error.empty();
 		finish_source_prepare(*job, std::move(prepared), std::move(error));
+		if (succeeded)
+			Sleep(1);
 	}
 
 	{
@@ -222,6 +226,20 @@ CSoundRender_Source* CSoundRender_Core::commit_source_locked(SoundPrefetchJob& j
 	}
 
 	CSoundRender_Source* source = xr_new<CSoundRender_Source>();
+	switch (job.prepared.warning)
+	{
+	case PreparedSoundSource::Warning::InvalidRate:
+		Msg("! Warning: Invalid source rate: %s", job.path.c_str());
+		break;
+	case PreparedSoundSource::Warning::InvalidComment:
+		Log("! Invalid ogg-comment version, file: ", job.path.c_str());
+		break;
+	case PreparedSoundSource::Warning::MissingComment:
+		Log("! Missing ogg-comment, file: ", job.path.c_str());
+		break;
+	default:
+		break;
+	}
 	source->load_prepared(job.id.c_str(), job.prepared);
 	s_sources.insert({job.id, source});
 	job.state = ESourcePrefetchState::Committed;

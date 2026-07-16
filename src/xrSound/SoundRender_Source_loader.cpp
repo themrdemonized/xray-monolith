@@ -61,7 +61,8 @@ void CSoundRender_Source::decompress(u32 line, OggVorbis_File* ovf)
 	i_decompress_fr(ovf, dest, left);
 }
 
-bool CSoundRender_Source::prepare(LPCSTR path, PreparedSoundSource& prepared, xr_string& error)
+bool CSoundRender_Source::prepare(
+	LPCSTR path, PreparedSoundSource& prepared, xr_string& error, bool log_warnings)
 {
 	PROF_EVENT("Sound: Load ogg");
 	prepared = PreparedSoundSource{};
@@ -99,14 +100,17 @@ bool CSoundRender_Source::prepare(LPCSTR path, PreparedSoundSource& prepared, xr
 
 	if (ovi->rate != 44100)
 	{
-		Msg("! Warning: Invalid source rate: %s", path);
+		if (log_warnings)
+			Msg("! Warning: Invalid source rate: %s", path);
+		else
+			prepared.warning = PreparedSoundSource::Warning::InvalidRate;
 		ov_clear(&ovf);
 		FS.r_close(wave);
 		return true;
 	}
 
 #ifdef DEBUG
-    if (ovi->channels == 2)
+    if (log_warnings && ovi->channels == 2)
     {
         Msg("stereo sound source [%s]", path);
     }
@@ -164,18 +168,22 @@ bool CSoundRender_Source::prepare(LPCSTR path, PreparedSoundSource& prepared, xr
 		} 
 		else
 		{
-			if (Core.isDebug())
+			if (log_warnings && Core.isDebug())
 			{
 				Log("! Invalid ogg-comment version, file: ", path);
 			}
+			else if (!log_warnings && Core.isDebug())
+				prepared.warning = PreparedSoundSource::Warning::InvalidComment;
 		}
 	}
 	else
 	{
-		if (Core.isDebug())
+		if (log_warnings && Core.isDebug())
 		{
 			Log("! Missing ogg-comment, file: ", path);
 		}
+		else if (!log_warnings && Core.isDebug())
+			prepared.warning = PreparedSoundSource::Warning::MissingComment;
 	}
 	if (prepared.max_ai_distance < 0.1f || prepared.max_distance < 0.1f)
 	{
