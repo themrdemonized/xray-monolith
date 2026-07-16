@@ -61,86 +61,112 @@ void CSoundRender_Source::decompress(u32 line, OggVorbis_File* ovf)
 	i_decompress_fr(ovf, dest, left);
 }
 
-bool CSoundRender_Source::LoadWave(LPCSTR pName)
+bool CSoundRender_Source::prepare(LPCSTR path, PreparedSoundSource& prepared, xr_string& error)
 {
 	PROF_EVENT("Sound: Load ogg");
-	pname = pName;
+	prepared = PreparedSoundSource{};
+	prepared.path = path;
 
 	// Load file into memory and parse WAV-format
 	OggVorbis_File ovf;
 	ov_callbacks ovc = {ov_read_func, ov_seek_func, ov_close_func, ov_tell_func};
-	IReader* wave = FS.r_open(pname.c_str());
-	R_ASSERT3(wave&&wave->length(), "Can't open wave file:", pname.c_str());
-	ov_open_callbacks(wave, &ovf,NULL, 0, ovc);
+	IReader* wave = FS.r_open(path);
+	if (!wave || !wave->length())
+	{
+		if (wave)
+			FS.r_close(wave);
+		error = make_string("Can't open wave file: %s", path).c_str();
+		return false;
+	}
+
+	const int open_result = ov_open_callbacks(wave, &ovf, NULL, 0, ovc);
+	if (open_result)
+	{
+		FS.r_close(wave);
+		error = make_string("Invalid OGG stream (%d): %s", open_result, path).c_str();
+		return false;
+	}
 
 	vorbis_info* ovi = ov_info(&ovf, -1);
-	// verify
-	R_ASSERT3(ovi, "Invalid source info:", pname.c_str());
+	if (!ovi)
+	{
+		ov_clear(&ovf);
+		FS.r_close(wave);
+		error = make_string("Invalid source info: %s", path).c_str();
+		return false;
+	}
 	//R_ASSERT3(ovi->rate == 44100, "Invalid source rate:", pname.c_str());
 
 	if (ovi->rate != 44100)
 	{
-		Msg("! Warning: Invalid source rate: %s", pname.c_str());
+		Msg("! Warning: Invalid source rate: %s", path);
 		ov_clear(&ovf);
 		FS.r_close(wave);
-		return false;
+		return true;
 	}
 
 #ifdef DEBUG
     if (ovi->channels == 2)
     {
-        Msg("stereo sound source [%s]", pname.c_str());
+        Msg("stereo sound source [%s]", path);
     }
 #endif // #ifdef DEBUG
 
-	ZeroMemory(&m_wformat, sizeof( WAVEFORMATEX ));
+	ZeroMemory(&prepared.format, sizeof(WAVEFORMATEX));
 
-	m_wformat.nSamplesPerSec = (ovi->rate); //44100;
-	m_wformat.wFormatTag = WAVE_FORMAT_PCM;
-	m_wformat.nChannels = u16(ovi->channels);
-	m_wformat.wBitsPerSample = 16;
+	prepared.format.nSamplesPerSec = ovi->rate; //44100;
+	prepared.format.wFormatTag = WAVE_FORMAT_PCM;
+	prepared.format.nChannels = u16(ovi->channels);
+	prepared.format.wBitsPerSample = 16;
 
-	m_wformat.nBlockAlign = m_wformat.wBitsPerSample / 8 * m_wformat.nChannels;
-	m_wformat.nAvgBytesPerSec = m_wformat.nSamplesPerSec * m_wformat.nBlockAlign;
+	prepared.format.nBlockAlign = prepared.format.wBitsPerSample / 8 * prepared.format.nChannels;
+	prepared.format.nAvgBytesPerSec = prepared.format.nSamplesPerSec * prepared.format.nBlockAlign;
 
 	s64 pcm_total = ov_pcm_total(&ovf, -1);
-	dwBytesTotal = u32(pcm_total * m_wformat.nBlockAlign);
-	fTimeTotal = s_f_def_source_footer + dwBytesTotal / float(m_wformat.nAvgBytesPerSec);
+	if (pcm_total < 0)
+	{
+		ov_clear(&ovf);
+		FS.r_close(wave);
+		error = make_string("Invalid PCM length: %s", path).c_str();
+		return false;
+	}
+	prepared.bytes_total = u32(pcm_total * prepared.format.nBlockAlign);
+	prepared.time_total = s_f_def_source_footer + prepared.bytes_total / float(prepared.format.nAvgBytesPerSec);
 
 	vorbis_comment* ovm = ov_comment(&ovf, -1);
-	if (ovm->comments)
+	if (ovm && ovm->comments && ovm->user_comments[0] && ovm->comment_lengths[0] >= sizeof(u32))
 	{
 		IReader F(ovm->user_comments[0], ovm->comment_lengths[0]);
 		u32 vers = F.r_u32();
-		if (vers == 0x0001)
+		if (vers == 0x0001 && ovm->comment_lengths[0] >= 16)
 		{
-			m_fMinDist = F.r_float();
-			m_fMaxDist = F.r_float();
-			m_fBaseVolume = 1.0f;
-			m_uGameType = F.r_u32();
-			m_fMaxAIDist = m_fMaxDist;
+			prepared.min_distance = F.r_float();
+			prepared.max_distance = F.r_float();
+			prepared.base_volume = 1.0f;
+			prepared.game_type = F.r_u32();
+			prepared.max_ai_distance = prepared.max_distance;
 		}
-		else if (vers == 0x0002)
+		else if (vers == 0x0002 && ovm->comment_lengths[0] >= 20)
 		{
-			m_fMinDist = F.r_float();
-			m_fMaxDist = F.r_float();
-			m_fBaseVolume = F.r_float();
-			m_uGameType = F.r_u32();
-			m_fMaxAIDist = m_fMaxDist;
+			prepared.min_distance = F.r_float();
+			prepared.max_distance = F.r_float();
+			prepared.base_volume = F.r_float();
+			prepared.game_type = F.r_u32();
+			prepared.max_ai_distance = prepared.max_distance;
 		}
-		else if (vers == OGG_COMMENT_VERSION)
+		else if (vers == OGG_COMMENT_VERSION && ovm->comment_lengths[0] >= 24)
 		{
-			m_fMinDist = F.r_float();
-			m_fMaxDist = F.r_float();
-			m_fBaseVolume = F.r_float();
-			m_uGameType = F.r_u32();
-			m_fMaxAIDist = F.r_float();
+			prepared.min_distance = F.r_float();
+			prepared.max_distance = F.r_float();
+			prepared.base_volume = F.r_float();
+			prepared.game_type = F.r_u32();
+			prepared.max_ai_distance = F.r_float();
 		} 
 		else
 		{
 			if (Core.isDebug())
 			{
-				Log("! Invalid ogg-comment version, file: ", pname.c_str());
+				Log("! Invalid ogg-comment version, file: ", path);
 			}
 		}
 	}
@@ -148,15 +174,62 @@ bool CSoundRender_Source::LoadWave(LPCSTR pName)
 	{
 		if (Core.isDebug())
 		{
-			Log("! Missing ogg-comment, file: ", pname.c_str());
+			Log("! Missing ogg-comment, file: ", path);
 		}
 	}
-	R_ASSERT3((m_fMaxAIDist >= 0.1f) && (m_fMaxDist >= 0.1f), "Invalid max distance.", pname.c_str());
+	if (prepared.max_ai_distance < 0.1f || prepared.max_distance < 0.1f)
+	{
+		ov_clear(&ovf);
+		FS.r_close(wave);
+		error = make_string("Invalid max distance: %s", path).c_str();
+		return false;
+	}
 
 	ov_clear(&ovf);
 	FS.r_close(wave);
+	prepared.loaded = true;
 
 	return true;
+}
+
+bool CSoundRender_Source::LoadWave(LPCSTR path)
+{
+	PreparedSoundSource prepared;
+	xr_string error;
+	R_ASSERT3(prepare(path, prepared, error), "Can't prepare sound source", error.c_str());
+	load_prepared(fname.c_str(), prepared);
+	return prepared.loaded;
+}
+
+void CSoundRender_Source::resolve_path(LPCSTR name, xr_string& path)
+{
+	string_path fn;
+	strconcat(sizeof(fn), fn, name, ".ogg");
+	if (!FS.exist("$level$", fn))
+		FS.update_path(fn, "$game_sounds$", fn);
+
+	if (!FS.exist(fn))
+	{
+		Msg("! Can't find sound '%s'", name);
+		FS.update_path(fn, "$game_sounds$", "$no_sound.ogg");
+	}
+	path = fn;
+}
+
+void CSoundRender_Source::load_prepared(LPCSTR name, const PreparedSoundSource& prepared)
+{
+	fname = name;
+	pname = prepared.path.c_str();
+	m_wformat = prepared.format;
+	fTimeTotal = prepared.time_total;
+	dwBytesTotal = prepared.bytes_total;
+	m_fBaseVolume = prepared.base_volume;
+	m_fMinDist = prepared.min_distance;
+	m_fMaxDist = prepared.max_distance;
+	m_fMaxAIDist = prepared.max_ai_distance;
+	m_uGameType = prepared.game_type;
+	if (prepared.loaded)
+		SoundRender->cache.cat_create(CAT, dwBytesTotal);
 }
 
 void CSoundRender_Source::load(LPCSTR name)
@@ -167,20 +240,12 @@ void CSoundRender_Source::load(LPCSTR name)
 	if (strext(N)) *strext(N) = 0;
 
 	fname = N;
-
-	strconcat(sizeof(fn), fn, N, ".ogg");
-	if (!FS.exist("$level$", fn))
-		FS.update_path(fn, "$game_sounds$", fn);
-
-	if (!FS.exist(fn)){ 
-		{
-			Msg("! Can't find sound '%s'", name);
-			FS.update_path(fn, "$game_sounds$", "$no_sound.ogg");
-		}
-    }
+	xr_string path;
+	resolve_path(N, path);
+	xr_strcpy(fn, path.c_str());
 
 	if (LoadWave(fn))
-		SoundRender->cache.cat_create(CAT, dwBytesTotal);
+		return;
 }
 
 void CSoundRender_Source::unload()

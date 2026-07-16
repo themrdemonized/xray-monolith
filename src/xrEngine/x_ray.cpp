@@ -77,6 +77,8 @@ void LogStartupMenuReady()
 		logged = true;
 		Msg("* [STARTUP] total to main menu: %llu ms", GetTickCount64() - startup_begin_time);
 	}
+	if (Sound && (!pApp || !pApp->LoadSessionActive()))
+		Sound->source_prefetch_start();
 }
 
 //UTF-8 (ICU)
@@ -694,6 +696,8 @@ void Startup()
 	//Memory.mem_usage();
 
 	Device.Run();
+	if (Sound)
+		Sound->source_prefetch_stop();
 	if (pApp && pApp->LoadSessionActive())
 	{
 		try { pApp->LoadSessionCancel("main loop stopped"); }
@@ -1478,6 +1482,8 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuit)
 	{
+		if (Sound)
+			Sound->source_prefetch_stop();
 		LoadSessionCancel("quit");
 		g_SASH.EndBenchmark();
 
@@ -1558,7 +1564,11 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 		g_pGamePersistent->Disconnect();
 		LoadSessionPhaseEnd(LoadSessionTeardown);
 		if (!Engine.Event.Peek("KERNEL:start"))
+		{
 			LoadSessionCancel("disconnect");
+			if (Sound)
+				Sound->source_prefetch_start();
+		}
 	}
 	else if (E == eConsole)
 	{
@@ -1605,6 +1615,8 @@ void CApplication::LoadSessionBegin(LPCSTR scenario)
 {
 	if (m_load_session.active)
 		LoadSessionCancel("superseded");
+	if (Sound)
+		Sound->source_prefetch_pause();
 
 	ZeroMemory(&m_load_session, sizeof(m_load_session));
 	m_load_session.started_at = Device.TimerAsync();
@@ -1815,6 +1827,8 @@ void CApplication::LoadSessionTryFinish(bool level_ready, bool control_ready, bo
 		m_load_session.phase_elapsed[LoadSessionClientSpawn],
 		now - m_load_session.precache_started_at);
 	m_load_session.active = false;
+	if (Sound)
+		Sound->source_prefetch_start();
 }
 
 void CApplication::LoadBegin()
@@ -1919,6 +1933,8 @@ void CApplication::OnFrame()
 	PROF_EVENT();
 
 	Engine.Event.OnFrame();
+	if (Sound)
+		Sound->source_prefetch_poll();
 	g_SpatialSpace->update();
 	g_SpatialSpacePhysic->update();
 }
