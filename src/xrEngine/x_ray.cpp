@@ -1735,6 +1735,51 @@ void CApplication::LoadSessionPrecacheBegin()
 
 	m_load_session.precache_started = true;
 	m_load_session.precache_started_at = Device.TimerAsync();
+	m_load_session.precache_logical_frames = 0;
+	m_load_session.precache_world_rendered = 0;
+	m_load_session.precache_world_skipped = 0;
+	m_load_session.precache_world_render_ms = 0;
+}
+
+bool CApplication::LoadSessionShouldRenderPrecacheWorld(u32 remaining, u32 total) const
+{
+	if (!m_load_session.active || !m_load_session.precache_started || !remaining || total != 60)
+		return true;
+
+	if (!xr_strcmp(m_load_session.scenario, "quickload") ||
+		!xr_strcmp(m_load_session.scenario, "visited-transition"))
+	{
+		return remaining == 1;
+	}
+
+	if (!xr_strcmp(m_load_session.scenario, "menu-save") ||
+		!xr_strcmp(m_load_session.scenario, "unseen-transition") ||
+		!xr_strcmp(m_load_session.scenario, "new-game"))
+	{
+		return (remaining - 1) % 5 == 0;
+	}
+
+	return true;
+}
+
+void CApplication::LoadSessionRecordPrecacheWorld(bool rendered, u32 elapsed_ms)
+{
+	if (!m_load_session.active || !m_load_session.precache_started ||
+		!Device.dwPrecacheFrame || Device.dwPrecacheTotal != 60)
+	{
+		return;
+	}
+
+	++m_load_session.precache_logical_frames;
+	if (rendered)
+	{
+		++m_load_session.precache_world_rendered;
+		m_load_session.precache_world_render_ms += elapsed_ms;
+	}
+	else
+	{
+		++m_load_session.precache_world_skipped;
+	}
 }
 
 void CApplication::LoadSessionRecordClientEvent(
@@ -1819,13 +1864,18 @@ void CApplication::LoadSessionTryFinish(bool level_ready, bool control_ready, bo
 	Msg("* [load-session] client order: hash=%016llx, spawns=%u, events=%u",
 		m_load_session.client_event_hash, m_load_session.client_spawn_count, m_load_session.client_event_count);
 	Msg("* [load-session] phases: teardown=%u ms, server/lua=%u ms, native level=%u ms, "
-		"resource wait=%u ms, client spawn=%u ms, final precache=%u ms",
+		"resource wait=%u ms, client spawn=%u ms, final precache=%u ms, "
+		"precache frames=%u, world render=%u, skipped=%u, world render time=%u ms",
 		m_load_session.phase_elapsed[LoadSessionTeardown],
 		m_load_session.phase_elapsed[LoadSessionServerLua],
 		m_load_session.phase_elapsed[LoadSessionNativeLevel],
 		m_load_session.phase_elapsed[LoadSessionResourceWait],
 		m_load_session.phase_elapsed[LoadSessionClientSpawn],
-		now - m_load_session.precache_started_at);
+		now - m_load_session.precache_started_at,
+		m_load_session.precache_logical_frames,
+		m_load_session.precache_world_rendered,
+		m_load_session.precache_world_skipped,
+		m_load_session.precache_world_render_ms);
 	m_load_session.active = false;
 	if (Sound)
 		Sound->source_prefetch_start();

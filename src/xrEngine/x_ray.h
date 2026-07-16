@@ -57,6 +57,10 @@ private:
 		u64 client_event_hash;
 		u32 client_spawn_count;
 		u32 client_event_count;
+		u32 precache_logical_frames;
+		u32 precache_world_rendered;
+		u32 precache_world_skipped;
+		u32 precache_world_render_ms;
 		u32 phase_started_at[LoadSessionPhaseCount];
 		u32 phase_elapsed[LoadSessionPhaseCount];
 		bool phase_running[LoadSessionPhaseCount];
@@ -98,6 +102,8 @@ public:
 	void LoadSessionPhaseBegin(ELoadSessionPhase phase);
 	void LoadSessionPhaseEnd(ELoadSessionPhase phase);
 	void LoadSessionPrecacheBegin();
+	bool LoadSessionShouldRenderPrecacheWorld(u32 remaining, u32 total) const;
+	void LoadSessionRecordPrecacheWorld(bool rendered, u32 elapsed_ms);
 	void LoadSessionRecordClientEvent(bool spawn, u16 destination, u16 type, const void* packet_data, u32 packet_size);
 	void LoadSessionTryFinish(bool level_ready, bool control_ready, bool queues_drained);
 	bool LoadSessionActive() const { return m_load_session.active; }

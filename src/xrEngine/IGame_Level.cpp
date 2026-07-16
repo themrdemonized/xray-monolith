@@ -269,10 +269,33 @@ void IGame_Level::OnRender()
 			PROF_EVENT("IGame_Level::OnRender: Calculate");
 			Render->Calculate();
 		}
+		bool render_world = true;
+#ifdef STATIC_RENDERER_R4
+		bool record_world = false;
+		u32 render_started_at = 0;
+		if (pApp)
+		{
+			record_world = pApp->LoadSessionActive() && pApp->LoadSessionPrecacheStarted() &&
+				Device.dwPrecacheFrame && Device.dwPrecacheTotal == 60;
+			if (record_world)
+			{
+				render_world = pApp->LoadSessionShouldRenderPrecacheWorld(
+					Device.dwPrecacheFrame, Device.dwPrecacheTotal);
+				if (render_world)
+					render_started_at = Device.TimerAsync();
+			}
+		}
+#endif
+		if (render_world)
 		{
 			PROF_EVENT("IGame_Level::OnRender: Render");
 			Render->Render();
 		}
+#ifdef STATIC_RENDERER_R4
+		if (record_world)
+			pApp->LoadSessionRecordPrecacheWorld(
+				render_world, render_world ? Device.TimerAsync() - render_started_at : 0);
+#endif
 	}
 	else
 	{
