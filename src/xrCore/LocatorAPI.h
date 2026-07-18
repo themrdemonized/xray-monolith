@@ -19,6 +19,8 @@ class XRCORE_API CLocatorAPI
 {
 	friend class FS_Path;
 public:
+	struct ArchiveDataView;
+
 	struct file
 	{
 		LPCSTR name; // low-case name
@@ -37,8 +39,10 @@ public:
 		u32 size;
 		CInifile* header;
 		u32 vfs_idx;
+		xr_shared_ptr<ArchiveDataView> data_view;
+		bool data_view_failed;
 
-		archive() : hSrcFile(NULL), hSrcMap(NULL), header(NULL), size(0), vfs_idx(u32(-1))
+		archive() : hSrcFile(NULL), hSrcMap(NULL), header(NULL), size(0), vfs_idx(u32(-1)), data_view_failed(false)
 		{
 		}
 
@@ -51,6 +55,19 @@ public:
 	void LoadArchive(archive& A, LPCSTR entrypoint = NULL);
 
 private:
+	struct InitialFileRecord
+	{
+		xr_string name;
+		u32 vfs;
+		u32 crc;
+		u32 ptr;
+		u32 size_real;
+		u32 size_compressed;
+		u32 modif;
+	};
+
+	struct StartupLooseCache;
+
 	struct file_pred
 	{
 		IC bool operator()(const file& x, const file& y) const
@@ -73,13 +90,24 @@ private:
 	files_set m_files;
 	BOOL bNoRecurse;
 
+	xrCriticalSection m_scan_lock;
 	xrCriticalSection m_auth_lock;
 	u64 m_auth_code;
+	bool m_initial_build;
+	u64 m_initial_archive_index_ms;
+	xr_vector<InitialFileRecord> m_initial_files;
+	StartupLooseCache* m_startup_loose_cache;
 
 	void Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real, u32 size_compressed, u32 modif);
+	void CommitInitialFiles(u64 scan_started_at);
+	xr_shared_ptr<ArchiveDataView> GetArchiveDataView(archive& archive);
+	void StartStartupLooseCache();
+	void StopStartupLooseCache();
+	void InvalidateStartupLooseCache(LPCSTR name);
+	bool OpenStartupLooseCache(IReader*& reader, LPCSTR name, const file& desc);
 	void ProcessArchive(LPCSTR path);
-	void ProcessOne(LPCSTR path, const _finddata_t& entry);
-	bool Recurse(LPCSTR path);
+	void ProcessOne(LPCSTR path, const _finddata_t& entry, u32 parallel_depth = 0);
+	bool Recurse(LPCSTR path, u32 parallel_depth = 0);
 
 	files_it file_find_it(LPCSTR n);
 public:

@@ -13,6 +13,8 @@
 #include "../../xrEngine/fmesh.h"
 #include "dxRenderDeviceRender.h"
 
+ECORE_API thread_local bool g_defer_visual_shader_creation = false;
+
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -23,10 +25,33 @@ IRender_Mesh::~IRender_Mesh()
 	_RELEASE(p_rm_Indices);
 }
 
+void IRender_Mesh::DeferGeometry(D3DVERTEXELEMENT9* decl)
+{
+	R_ASSERT(decl);
+	u32 index = 0;
+	do
+	{
+		R_ASSERT(index < MAX_FVF_DECL_SIZE);
+		pending_decl[index] = decl[index];
+	} while (pending_decl[index++].Stream != 0xff);
+	geom_commit_pending = true;
+}
+
+void IRender_Mesh::CommitGeometry()
+{
+	if (!geom_commit_pending)
+		return;
+	rm_geom.create(pending_decl, p_rm_Vertices, p_rm_Indices);
+	geom_commit_pending = false;
+}
+
 dxRender_Visual::dxRender_Visual()
 {
 	Type = 0;
 	shader = 0;
+	shader_commit_pending = false;
+	shader_id_pending = 0;
+	shader_id_source = 0;
 	vis.clear();
 }
 
@@ -45,7 +70,9 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 	dbg_name = N;
 	dbg_id = 1;
 	skinning = Engine.External.GetSkinningMode();
-	hud = ::Render->hud_loading;
+	// Static level visuals are prepared on workers and are always world geometry.
+	// Avoid reading the owner-only HUD mode concurrently with HUD/model creation.
+	hud = g_defer_visual_shader_creation ? false : ::Render->hud_loading;
 
 	// header
 	VERIFY(data);
@@ -55,7 +82,14 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 		R_ASSERT2(hdr.format_version==xrOGF_FormatVersion, "Invalid visual version");
 		Type = hdr.type;
 		//if (hdr.shader_id)	shader	= ::Render->getShader	(hdr.shader_id);
-		if (hdr.shader_id) shader = ::RImplementation.getShader(hdr.shader_id);
+		if (hdr.shader_id)
+		{
+			shader_id_source = hdr.shader_id;
+			if (g_defer_visual_shader_creation)
+				shader_id_pending = hdr.shader_id;
+			else
+				shader = ::RImplementation.getShader(hdr.shader_id);
+		}
 		vis.box.set(hdr.bb.min, hdr.bb.max);
 		vis.sphere.set(hdr.bs.c, hdr.bs.r);
 	}
@@ -145,11 +179,41 @@ void dxRender_Visual::SetShaderTexture(LPCSTR s_shader, LPCSTR s_texture)
 		dbg_texture = s_texture;
 	}
 
+	if (g_defer_visual_shader_creation)
+	{
+		shader_commit_pending = true;
+		return;
+	}
+	shader_commit_pending = true;
+	CommitShaderTexture();
+}
+
+void dxRender_Visual::CommitShaderTexture()
+{
+	if (!shader_commit_pending && !shader_id_pending)
+		return;
+	if (shader_id_pending)
+	{
+		shader = ::RImplementation.getShader(shader_id_pending);
+		shader_id_pending = 0;
+	}
+	if (!shader_commit_pending)
+		return;
 	Engine.External.SetSkinningMode(skinning);
     	bool prev_hud = ::Render->hud_loading;
     	::Render->hud_loading = hud;
     	shader.create(*dbg_shader, *dbg_texture);
     	::Render->hud_loading = prev_hud;
+	shader_commit_pending = false;
+}
+
+void dxRender_Visual::SuspendShaderTexture()
+{
+	shader = nullptr;
+	if (shader_id_source)
+		shader_id_pending = shader_id_source;
+	else if (dbg_shader.size())
+		shader_commit_pending = true;
 }
 
 void dxRender_Visual::ResetShaderTexture()
@@ -177,4 +241,7 @@ void dxRender_Visual::Copy(dxRender_Visual* pFrom)
 	PCOPY(dbg_texture_def);
 	PCOPY(skinning);
     PCOPY(hud);
+	PCOPY(shader_commit_pending);
+	PCOPY(shader_id_pending);
+	PCOPY(shader_id_source);
 }

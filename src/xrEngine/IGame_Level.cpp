@@ -65,6 +65,9 @@ void IGame_Level::net_Stop()
 {
     for (int i = 0; i < 6; i++)
     {
+		if (Objects.o_count() == 0 && Objects.destroy_queues_empty())
+			break;
+
         Objects.Update(false);
         Objects.ProcessDestroyQueue();
     }
@@ -92,10 +95,10 @@ xrCriticalSection lloadcs;
 bool IGame_Level::Load(u32 dwNum)
 {
 	PROF_EVENT("IGame_Level::Load");
+	CTimer level_timer;
+	level_timer.Start();
 	xrCriticalSectionGuard guard(&lloadcs);
 	if (bReady) return TRUE;
-	extern xr_task_group prefetch_task;
-	prefetch_task.wait();
 	//SECUROM_MARKER_PERFORMANCE_ON(10)
 
 	// Initialize level data
@@ -116,29 +119,111 @@ bool IGame_Level::Load(u32 dwNum)
 	fs.r_chunk_safe(fsL_HEADER, &H, sizeof(H));
 	R_ASSERT2(XRCL_PRODUCTION_VERSION == H.XRLC_version, "Incompatible level version.");
 
-	// CForms
-	// g_pGamePersistent->LoadTitle ("st_loading_cform");
-	g_pGamePersistent->LoadTitle();
-	ObjectSpace.Load( [](Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt, void* params){g_pGameLevel->Load_GameSpecific_CFORM(T, Tcnt);});
-	//Sound->set_geometry_occ ( &Static );
-	Sound->set_geometry_occ(ObjectSpace.GetStaticModel());
-	Sound->set_handler(_sound_event);
-
-	pApp->LoadSwitch();
-
-
 	// HUD + Environment
 	if (!g_hud)
 		g_hud = (CCustomHUD*)NEW_INSTANCE(CLSID_HUDMANAGER);
 
-	// Render-level Load
-	Render->level_Load(LL_Stream);
+	if (!Load_Prepared_Environment())
+		g_pGamePersistent->Environment().mods_load();
+	g_pGamePersistent->LoadTitle();
+
+	// CFORM and game-specific navigation data use independent level files and
+	// publish to separate subsystems, so overlap them with renderer loading.
+	NativeLoadExecutor& load_executor = NativeLoadExecutor::Instance();
+	NativeLoadExecutor::Batch level_load_batch = load_executor.BeginBatch(load_executor.CurrentGeneration());
+	xr_task_group fallback_level_tasks;
+	auto submit_level_task = [&load_executor, &level_load_batch, &fallback_level_tasks](
+		NativeLoadPriority priority, auto&& work)
+	{
+		if (level_load_batch.Valid())
+			load_executor.Submit(level_load_batch, priority, std::forward<decltype(work)>(work));
+		else
+			fallback_level_tasks.run(std::forward<decltype(work)>(work));
+	};
+	ObjectSpace.Load([](Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt, void* params)
+	{
+		g_pGameLevel->Load_GameSpecific_CFORM(T, Tcnt);
+	});
+	submit_level_task(NativeLoadPriority::Geometry, [this]()
+	{
+		CTimer timer;
+		timer.Start();
+		ObjectSpace.GetStaticModel()->syncronize();
+		Msg("* [LEVEL LOAD] CFORM: %d ms", timer.GetElapsed_ms());
+	});
+	bool level_tasks_drained = false;
+	auto drain_level_tasks = [&]()
+	{
+		if (level_tasks_drained)
+			return;
+		std::exception_ptr failure;
+		try
+		{
+			if (level_load_batch.Valid())
+				load_executor.Wait(level_load_batch);
+		}
+		catch (...)
+		{
+			failure = std::current_exception();
+		}
+		try
+		{
+			fallback_level_tasks.wait();
+		}
+		catch (...)
+		{
+			if (!failure)
+				failure = std::current_exception();
+		}
+		level_tasks_drained = true;
+		if (failure)
+			std::rethrow_exception(failure);
+	};
+	struct level_task_drain_guard
+	{
+		std::function<void()> drain;
+		~level_task_drain_guard()
+		{
+			try { drain(); } catch (...) {}
+		}
+	} task_drain_guard{drain_level_tasks};
+	CTimer game_specific_before_timer;
+	game_specific_before_timer.Start();
+	R_ASSERT(Load_GameSpecific_Before());
+	Msg("* [LEVEL LOAD] game-specific before: %d ms", game_specific_before_timer.GetElapsed_ms());
+
+	pApp->LoadSwitch();
+
+	// R4 internally submits immutable prepare work to NativeLoadExecutor. Keep
+	// the orchestration itself on the render owner because LoadTitle and the
+	// prepared registry commits touch the loading screen/immediate context.
+	CTimer render_timer;
+	render_timer.Start();
+	Render->level_BeginAsyncLoad();
+	try
+	{
+		Render->level_Load(LL_Stream);
+	}
+	catch (...)
+	{
+		const std::exception_ptr failure = std::current_exception();
+		Render->level_AbortAsyncLoad();
+		try { drain_level_tasks(); } catch (...) {}
+		FS.r_close(LL_Stream);
+		std::rethrow_exception(failure);
+	}
+	Msg("* [LEVEL LOAD] renderer: %d ms", render_timer.GetElapsed_ms());
+	CTimer barrier_timer;
+	barrier_timer.Start();
+	drain_level_tasks();
+	Msg("* [LEVEL LOAD] CFORM/AI barrier: %d ms", barrier_timer.GetElapsed_ms());
+
+	Sound->set_geometry_occ(ObjectSpace.GetStaticModel());
+	Sound->set_handler(_sound_event);
 	// tscreate.FrameEnd ();
 	// Msg ("* S-CREATE: %f ms, %d times",tscreate.result,tscreate.count);
 
 	// Objects
-	g_pGamePersistent->Environment().mods_load();
-	R_ASSERT(Load_GameSpecific_Before());
 	Objects.Load();
 	//. ANDY R_ASSERT (Load_GameSpecific_After ());
 
@@ -151,6 +236,7 @@ bool IGame_Level::Load(u32 dwNum)
 #endif
 
 	Device.seqFrame.Add(this);
+	Msg("* [LEVEL LOAD] total: %d ms", level_timer.GetElapsed_ms());
 
 	//SECUROM_MARKER_PERFORMANCE_OFF(10)
 
@@ -179,14 +265,25 @@ void IGame_Level::OnRender()
 	// Level render, only when no client output required
 	if (!g_dedicated_server)
 	{
+		const bool measure_precache = pApp && pApp->LoadSessionMeasurePrecache();
+		u64 calculate_ticks = 0;
+		u64 render_ticks = 0;
 		{
 			PROF_EVENT("IGame_Level::OnRender: Calculate");
+			const u64 started_at = measure_precache ? CPU::QPC() : 0;
 			Render->Calculate();
+			if (measure_precache)
+				calculate_ticks = CPU::QPC() - started_at;
 		}
 		{
 			PROF_EVENT("IGame_Level::OnRender: Render");
+			const u64 started_at = measure_precache ? CPU::QPC() : 0;
 			Render->Render();
+			if (measure_precache)
+				render_ticks = CPU::QPC() - started_at;
 		}
+		if (measure_precache)
+			pApp->LoadSessionRecordPrecacheLevel(calculate_ticks, render_ticks);
 	}
 	else
 	{

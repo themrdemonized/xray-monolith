@@ -153,6 +153,7 @@ typename void CSXML_IdToIndex::InitInternal()
 	string_path xml_file;
 	int count = _GetItemCount(file_str);
 	int index = 0;
+	xr_unordered_flat_set<shared_str> ids;
 	for (int it = 0; it < count; ++it)
 	{
 		_GetItem(file_str, it, xml_file);
@@ -176,17 +177,11 @@ typename void CSXML_IdToIndex::InitInternal()
 
 
 			//проверетить ID на уникальность
-			T_VECTOR::iterator t_it = m_pItemDataVector->begin();
-			for (; m_pItemDataVector->end() != t_it; ++t_it)
-			{
-				if (shared_str((*t_it).id) == shared_str(item_name))
-					break;
-			}
-
-			R_ASSERT3(m_pItemDataVector->end() == t_it, "duplicate item id", item_name);
+			const shared_str itemId = item_name;
+			R_ASSERT3(ids.emplace(itemId).second, "duplicate item id", item_name);
 
 			ITEM_DATA data;
-			data.id = item_name;
+			data.id = itemId;
 			data.index = index;
 			data.pos_in_file = i;
 			//.				data.file_name		= xml_file;

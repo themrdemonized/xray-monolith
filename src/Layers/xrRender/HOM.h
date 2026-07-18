@@ -29,8 +29,20 @@ private:
 
 	void Render_DB(CFrustum& base);
 public:
+	struct StaticData
+	{
+		CDB::MODEL* model = nullptr;
+		occTri* tris = nullptr;
+		BOOL enabled = FALSE;
+		~StaticData();
+	};
+
 	void Load();
+	void Prepare(StaticData& data);
+	void Prepare(LPCSTR canonical_level_path, StaticData& data);
 	void Unload();
+	void Suspend(StaticData& data);
+	void Resume(StaticData& data);
 	void Render(CFrustum& base);
 	void Render_ZB();
 	//	void					Debug		();

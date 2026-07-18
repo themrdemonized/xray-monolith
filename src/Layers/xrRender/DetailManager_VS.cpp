@@ -39,10 +39,11 @@ short QC(float v)
 	return short(t & 0xffff);
 }
 
-void CDetailManager::hw_Load()
+void CDetailManager::hw_Load(bool create_shaders)
 {
 	hw_Load_Geom();
-	hw_Load_Shaders();
+	if (create_shaders)
+		hw_Load_Shaders();
 }
 
 void CDetailManager::hw_Load_Geom()

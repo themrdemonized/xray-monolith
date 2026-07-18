@@ -87,24 +87,35 @@ void FTreeVisual::Load(const char* N, IReader* data, u32 dwFlags)
 	}
 
 	// Geom
-	rm_geom.create(vFormat, p_rm_Vertices, p_rm_Indices);
+	if (g_defer_visual_shader_creation)
+		DeferGeometry(vFormat);
+	else
+		rm_geom.create(vFormat, p_rm_Vertices, p_rm_Indices);
 
 	// Get constants
-	m_xform = "m_xform";
-	m_xform_v = "m_xform_v";
-	c_consts = "consts";
-	c_wave = "wave";
-	c_wind = "wind";
-	c_c_bias = "c_bias";
-	c_c_scale = "c_scale";
-	c_c_sun = "c_sun";
+	static std::once_flag constants_once;
+	std::call_once(constants_once, []
+	{
+		m_xform = "m_xform";
+		m_xform_v = "m_xform_v";
+		c_consts = "consts";
+		c_wave = "wave";
+		c_wind = "wind";
+		c_c_bias = "c_bias";
+		c_c_scale = "c_scale";
+		c_c_sun = "c_sun";
+		c_prev_wave = "prev_wave";
+		c_prev_wind = "prev_wind";
+		c_c_PrevBendersPos = "benders_prevpos";
+		c_c_BendersPos = "benders_pos";
+		c_c_BendersSetup = "benders_setup";
+	});
+}
 
-	c_prev_wave = "prev_wave";
-	c_prev_wind = "prev_wind";
-
-	c_c_PrevBendersPos = "benders_prevpos";
-	c_c_BendersPos = "benders_pos";
-	c_c_BendersSetup = "benders_setup";
+void FTreeVisual::CommitShaderTexture()
+{
+	CommitGeometry();
+	dxRender_Visual::CommitShaderTexture();
 }
 
 struct FTreeVisual_setup

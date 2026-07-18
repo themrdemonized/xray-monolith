@@ -161,6 +161,7 @@ public:
 	virtual void net_Export(NET_Packet& P); // export to server
 	virtual void net_Import(NET_Packet& P); // import from server
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 
 	virtual void SelectAnimation(const Fvector& _view, const Fvector& _move, float speed) = 0;
 

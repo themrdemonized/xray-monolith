@@ -52,11 +52,14 @@ protected:
 	TERRAIN_REGISTRY m_terrain[GameGraph::LOCATION_TYPE_COUNT][GameGraph::LOCATION_COUNT];
 	CALifeLevelRegistry* m_level;
 	CSE_ALifeCreatureActor* m_actor;
+	bool m_level_load_started;
+	int m_level_id;
 	float m_process_time;
 	xr_vector<CSE_ALifeDynamicObject*> m_temp;
 
 protected:
 	void setup_current_level();
+	void start_level_load();
 	template <typename F, typename C>
 	IC void iterate(C& c, const F& f);
 
@@ -64,6 +67,8 @@ public:
 	CALifeGraphRegistry();
 	virtual ~CALifeGraphRegistry();
 	void on_load();
+	void prepare_current_level(CSE_ALifeCreatureActor* actor);
+	void finish_level_load();
 	void update(CSE_ALifeDynamicObject* object);
 	void attach(CSE_Abstract& object, CSE_ALifeInventoryItem* item, GameGraph::_GRAPH_ID game_vertex_id,
 	            bool alife_query = true, bool add_children = true);

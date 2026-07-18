@@ -295,7 +295,21 @@ public:
 public:
 	// options
 	bool hud_loading;
-	s32 m_MSAASample;
+	class MSAASampleThreadLocal
+	{
+		static s32& value()
+		{
+			static thread_local s32 sample = -1;
+			return sample;
+		}
+	public:
+		operator s32() const { return value(); }
+		MSAASampleThreadLocal& operator=(s32 sample)
+		{
+			value() = sample;
+			return *this;
+		}
+	} m_MSAASample;
 
 	BENCH_SEC_SCRAMBLEMEMBER1
 
@@ -319,6 +333,11 @@ public:
 
 	virtual void level_Load(IReader*) = 0;
 	virtual void level_Unload() = 0;
+	virtual bool level_StaticCacheReady(LPCSTR canonical_level_path) { return false; }
+	virtual void level_Prepare(LPCSTR canonical_level_path) {}
+	virtual void level_InvalidateStaticCache() {}
+	virtual void level_BeginAsyncLoad() {}
+	virtual void level_AbortAsyncLoad() {}
 
 	virtual size_t SectorsCount() { return size_t(0); }
 
@@ -398,6 +417,14 @@ public:
 	virtual void model_Logging(BOOL bEnable) = 0;
 	virtual void models_Prefetch() = 0;
 	virtual void models_PrefetchOne(LPCSTR name, bool assert = true) = 0;
+	virtual void model_CollectTextures(LPCSTR name, LPCSTR canonical_level_path,
+		xr_vector<xr_string>& textures) {}
+	virtual bool models_PrefetchPrepared(LPCSTR name, LPCSTR canonical_level_path, bool assert = true)
+	{
+		models_PrefetchOne(name, assert);
+		return true;
+	}
+	virtual void models_InvalidatePrepared() {}
 	virtual void models_Clear(BOOL b_complete) = 0; 
 	virtual bool models_Exists(LPCSTR name) = 0;
 	

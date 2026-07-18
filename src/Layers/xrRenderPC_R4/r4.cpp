@@ -199,6 +199,8 @@ extern ENGINE_API BOOL r2_advanced_pp; //	advanced post process and effects
 // Just two static storage
 void CRender::create()
 {
+	CTimer startupTimer;
+	startupTimer.Start();
 	Device.seqFrame.Add(this,REG_PRIORITY_HIGH + 0x12345678);
 
 	Engine.External.SetSkinningMode();
@@ -529,25 +531,55 @@ void CRender::create()
 
 	m_bMakeAsyncSS = false;
 
+	const u32 setupMs = startupTimer.GetElapsed_ms();
+	string_path particleLibraryPath;
+	FS.update_path(particleLibraryPath, "$game_data$", "particles.xr");
+	bool particleLoadResult = false;
+	xr_task_group particlePrepare;
+	particlePrepare.run([this, &particleLoadResult, particleLibraryPath]()
+	{
+		particleLoadResult = PSLibrary.LoadDefinitions(particleLibraryPath);
+	});
 	Target = xr_new<CRenderTarget>(); // Main target
+	const u32 targetMs = startupTimer.GetElapsed_ms() - setupMs;
 
 	Models = xr_new<CModelPool>();
-	PSLibrary.OnCreate();
+	const u32 modelsMs = startupTimer.GetElapsed_ms() - setupMs - targetMs;
+	particlePrepare.wait();
+	PSLibrary.FinalizeLoad();
+	const u32 particlesMs = startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs;
 	HWOCC.occq_create(occq_size);
+	const u32 occlusionMs = startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs;
 
 	rmNormal();
+	const u32 viewportMs =
+		startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs - occlusionMs;
 
 	GMBase.initialize();
+	const u32 geometryMs =
+		startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs - occlusionMs - viewportMs;
 	FluidManager.Initialize(70, 70, 70);
 	//	FluidManager.Initialize( 100, 100, 100 );
+	const u32 fluidMs = startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs - occlusionMs -
+		viewportMs - geometryMs;
 	FluidManager.SetScreenSize(Device.dwWidth, Device.dwHeight);
 
 	Device.ModelDefferClear = xr_make_delegate(Models, &CModelPool::DeleteQueuedDeffer);
+	const u32 supportMs = startupTimer.GetElapsed_ms() - setupMs - targetMs;
+	Msg("* [STARTUP/RENDER R4] setup=%u target=%u support=%u total=%u ms",
+		setupMs, targetMs, supportMs, startupTimer.GetElapsed_ms());
+	Msg("* [STARTUP/RENDER SUPPORT] models=%u particles=%u occlusion=%u viewport=%u geometry=%u fluid=%u ms",
+		modelsMs, particlesMs, occlusionMs, viewportMs, geometryMs, fluidMs);
 }
 
 void CRender::destroy()
 {
 	m_bMakeAsyncSS = false;
+	WaitLevelPrepare();
+	m_prepared_level_path = nullptr;
+	DiscardPreparedVisuals();
+	DestroyActiveLevel();
+	ReleaseLevelCache();
 	FluidManager.Destroy();
 	GMBase.destroy();
 
@@ -561,6 +593,11 @@ void CRender::destroy()
 
 void CRender::reset_begin()
 {
+	WaitLevelPrepare();
+	m_prepared_level_path = nullptr;
+	Models->InvalidateBlueprints();
+	ReleaseLevelCache();
+
 	//AVO: let's reload details while changed details options on vid_restart
 	if (b_loaded && ((dm_current_size != dm_size) || (ps_r__Detail_density != ps_current_detail_density) || (
 		ps_r__Detail_height != ps_current_detail_height)))
@@ -690,6 +727,15 @@ IRenderVisual* CRender::model_CreateParticles(LPCSTR name)
 
 void CRender::models_Prefetch() { Models->Prefetch(); }
 void CRender::models_PrefetchOne(LPCSTR name, bool assert) { Models->Prefetch_One(name, assert); }
+void CRender::model_CollectTextures(LPCSTR name, LPCSTR canonical_level_path, xr_vector<xr_string>& textures)
+{
+	Models->CollectTextures(name, canonical_level_path, textures);
+}
+bool CRender::models_PrefetchPrepared(LPCSTR name, LPCSTR canonical_level_path, bool assert)
+{
+	return Models->PrefetchPrepared(name, canonical_level_path, assert);
+}
+void CRender::models_InvalidatePrepared() { Models->InvalidateBlueprints(); }
 void CRender::models_Clear(BOOL b_complete) { Models->ClearPool(b_complete); }
 bool CRender::models_Exists(LPCSTR name) { return Models->Exists(name); }
 
@@ -717,12 +763,27 @@ IRender_Sector* CRender::getSectorActive() { return pLastSector; }
 
 IRenderVisual* CRender::getVisual(int id)
 {
+	if (m_visual_table_source)
+	{
+		VERIFY(id < int(m_visual_table_source->size()));
+		return (*m_visual_table_source)[id];
+	}
 	VERIFY(id<int(Visuals.size()));
 	return Visuals[id];
 }
 
+thread_local const CRender::VisualGeometrySource* CRender::m_visual_geometry_source = nullptr;
+thread_local const xr_vector<dxRender_Visual*>* CRender::m_visual_table_source = nullptr;
+
 D3DVERTEXELEMENT9* CRender::getVB_Format(int id, BOOL _alt)
 {
+	if (m_visual_geometry_source)
+	{
+		const xr_vector<VertexDeclarator>& declarations = _alt ?
+			*m_visual_geometry_source->fast_declarations : *m_visual_geometry_source->normal_declarations;
+		VERIFY(id < int(declarations.size()));
+		return const_cast<VertexDeclarator&>(declarations[id]).begin();
+	}
 	if (_alt)
 	{
 		VERIFY(id<int(xDC.size()));
@@ -737,6 +798,13 @@ D3DVERTEXELEMENT9* CRender::getVB_Format(int id, BOOL _alt)
 
 ID3DVertexBuffer* CRender::getVB(int id, BOOL _alt)
 {
+	if (m_visual_geometry_source)
+	{
+		const xr_vector<ID3DVertexBuffer*>& buffers = _alt ?
+			*m_visual_geometry_source->fast_vertex_buffers : *m_visual_geometry_source->normal_vertex_buffers;
+		VERIFY(id < int(buffers.size()));
+		return buffers[id];
+	}
 	if (_alt)
 	{
 		VERIFY(id<int(xVB.size()));
@@ -751,6 +819,13 @@ ID3DVertexBuffer* CRender::getVB(int id, BOOL _alt)
 
 ID3DIndexBuffer* CRender::getIB(int id, BOOL _alt)
 {
+	if (m_visual_geometry_source)
+	{
+		const xr_vector<ID3DIndexBuffer*>& buffers = _alt ?
+			*m_visual_geometry_source->fast_index_buffers : *m_visual_geometry_source->normal_index_buffers;
+		VERIFY(id < int(buffers.size()));
+		return buffers[id];
+	}
 	if (_alt)
 	{
 		VERIFY(id<int(xIB.size()));
@@ -765,6 +840,11 @@ ID3DIndexBuffer* CRender::getIB(int id, BOOL _alt)
 
 FSlideWindowItem* CRender::getSWI(int id)
 {
+	if (m_visual_geometry_source)
+	{
+		VERIFY(id < int(m_visual_geometry_source->swis->size()));
+		return const_cast<FSlideWindowItem*>(&(*m_visual_geometry_source->swis)[id]);
+	}
 	VERIFY(id<int(SWIs.size()));
 	return &SWIs[id];
 }
@@ -883,6 +963,7 @@ void CRender::rmNormal()
 CRender::CRender()
 	: m_bFirstFrameAfterReset(false)
 {
+	m_level_async_failed.store(false, std::memory_order_relaxed);
 	init_cacades();
 }
 
@@ -1073,7 +1154,8 @@ static HRESULT create_shader(
 			CHK_DX(D3DGetInputSignatureBlob(buffer, buffer_size, &pSignatureBlob));
 			VERIFY(pSignatureBlob);
 
-			svs_result->signature = dxRenderDeviceRender::Instance().Resources->_CreateInputSignature(pSignatureBlob);
+			dxRenderDeviceRender::Instance().Resources->_CreateInputSignature(pSignatureBlob,
+				&svs_result->signature);
 
 			_RELEASE(pSignatureBlob);
 
@@ -1232,8 +1314,30 @@ public:
 	}
 };
 
+using ShaderVariantNames = xr_vector<xr_string>;
+
+static xr_shared_ptr<ShaderVariantNames> indexed_shader_variants(LPCSTR folder)
+{
+	static xrCriticalSection* lock = xr_new<xrCriticalSection>();
+	static xr_map<xr_string, xr_shared_ptr<ShaderVariantNames>>* cache =
+		xr_new<xr_map<xr_string, xr_shared_ptr<ShaderVariantNames>>>();
+	xrCriticalSectionGuard guard(*lock);
+	auto found = cache->find(folder);
+	if (found != cache->end())
+		return found->second;
+
+	auto names = xr_make_shared<ShaderVariantNames>();
+	FS_FileSet files;
+	FS.file_list(files, folder, FS_ListFiles | FS_RootOnly, "*");
+	names->reserve(files.size());
+	for (const FS_File& file : files)
+		names->push_back(file.name.c_str());
+	cache->emplace(folder, names);
+	return names;
+}
+
 static inline bool match_shader_id(LPCSTR const debug_shader_id, LPCSTR const full_shader_id,
-                                   FS_FileSet const& file_set, string_path& result);
+	ShaderVariantNames const& file_set, string_path& result);
 
 HRESULT CRender::shader_compile(
 	LPCSTR name,
@@ -1264,6 +1368,8 @@ HRESULT CRender::shader_compile(
 	char c_ssr_quality[32];
 	char c_rain_quality[32];
 	char c_inter_grass[32];
+	char c_msaa_sample[2];
+	char c_msaa_samples[2];
 
 	char sh_name[MAX_PATH] = "";
 
@@ -1459,10 +1565,9 @@ HRESULT CRender::shader_compile(
 
 	if (o.dx10_msaa)
 	{
-		static char def[ 256 ];
 		//if( m_MSAASample < 0 )
 		//{
-		def[0] = '0';
+		c_msaa_sample[0] = '0';
 		//	sh_name[len]='0'; ++len;
 		//}
 		//else
@@ -1470,9 +1575,9 @@ HRESULT CRender::shader_compile(
 		//	def[0]= '0' + char(m_MSAASample);
 		//	sh_name[len]='0' + char(m_MSAASample); ++len;
 		//}
-		def[1] = 0;
+		c_msaa_sample[1] = 0;
 		defines[def_it].Name = "ISAMPLE";
-		defines[def_it].Definition = def;
+		defines[def_it].Definition = c_msaa_sample;
 		def_it ++;
 		sh_name[len] = '0';
 		++len;
@@ -1833,12 +1938,10 @@ HRESULT CRender::shader_compile(
 		sh_name[len] = '1';
 		++len;
 
-		static char samples[2];
-
 		defines[def_it].Name = "MSAA_SAMPLES";
-		samples[0] = char(o.dx10_msaa_samples) + '0';
-		samples[1] = 0;
-		defines[def_it].Definition = samples;
+		c_msaa_samples[0] = char(o.dx10_msaa_samples) + '0';
+		c_msaa_samples[1] = 0;
+		defines[def_it].Definition = c_msaa_samples;
 		def_it ++;
 		sh_name[len] = '0' + char(o.dx10_msaa_samples);
 		++len;
@@ -1970,12 +2073,13 @@ HRESULT CRender::shader_compile(
 	FS.update_path(folder_name, "$game_shaders$", folder);
 	xr_strcat(folder_name, "\\");
 
-	m_file_set.clear();
-	FS.file_list(m_file_set, folder_name, FS_ListFiles | FS_RootOnly, "*");
-
 	string_path temp_file_name, file_name;
-	bool const useGeneratedShaderCache =
-		psDeviceFlags2.test(rsPrecompiledShaders) || !match_shader_id(name, sh_name, m_file_set, temp_file_name);
+	bool useGeneratedShaderCache = psDeviceFlags2.test(rsPrecompiledShaders);
+	if (!useGeneratedShaderCache)
+	{
+		const xr_shared_ptr<ShaderVariantNames> file_set = indexed_shader_variants(folder_name);
+		useGeneratedShaderCache = !match_shader_id(name, sh_name, *file_set, temp_file_name);
+	}
 	if (useGeneratedShaderCache)
 	{
 		string_path file;
@@ -1995,7 +2099,7 @@ HRESULT CRender::shader_compile(
 
 	u32 source_crc = 0;
 	if (useGeneratedShaderCache)
-		source_crc = getShaderSourceCrc32(pSrcData, SrcDataLen, ::Render->getShaderPath());
+		source_crc = getShaderSourceCrc32Cached(pSrcData, SrcDataLen, ::Render->getShaderPath(), name, pTarget);
 
 	if (FS.exist(file_name))
 	{
@@ -2114,7 +2218,7 @@ static inline bool match_shader(LPCSTR const debug_shader_id, LPCSTR const full_
 }
 
 static inline bool match_shader_id(LPCSTR const debug_shader_id, LPCSTR const full_shader_id,
-                                   FS_FileSet const& file_set, string_path& result)
+	ShaderVariantNames const& file_set, string_path& result)
 {
 #if 0
 	strcpy_s					( result, "" );
@@ -2123,26 +2227,26 @@ static inline bool match_shader_id(LPCSTR const debug_shader_id, LPCSTR const fu
 #ifdef DEBUG
 	LPCSTR temp					= "";
 	bool found					= false;
-	FS_FileSet::const_iterator	i = file_set.begin();
-	FS_FileSet::const_iterator	const e = file_set.end();
+	ShaderVariantNames::const_iterator	i = file_set.begin();
+	ShaderVariantNames::const_iterator	const e = file_set.end();
 	for ( ; i != e; ++i ) {
-		if ( match_shader(debug_shader_id, full_shader_id, (*i).name.c_str(), (*i).name.size() ) ) {
+		if ( match_shader(debug_shader_id, full_shader_id, i->c_str(), i->size() ) ) {
 			VERIFY				( !found );
 			found				= true;
-			temp				= (*i).name.c_str();
+			temp				= i->c_str();
 		}
 	}
 
 	xr_strcpy					( result, temp );
 	return						found;
 #else // #ifdef DEBUG
-	FS_FileSet::const_iterator i = file_set.begin();
-	FS_FileSet::const_iterator const e = file_set.end();
+	ShaderVariantNames::const_iterator i = file_set.begin();
+	ShaderVariantNames::const_iterator const e = file_set.end();
 	for (; i != e; ++i)
 	{
-		if (match_shader(debug_shader_id, full_shader_id, (*i).name.c_str(), (*i).name.size()))
+		if (match_shader(debug_shader_id, full_shader_id, i->c_str(), i->size()))
 		{
-			xr_strcpy(result, (*i).name.c_str());
+			xr_strcpy(result, i->c_str());
 			return true;
 		}
 	}

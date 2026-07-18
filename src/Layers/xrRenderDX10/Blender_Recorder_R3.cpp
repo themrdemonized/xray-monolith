@@ -213,17 +213,17 @@ void CBlender_Compile::r_Pass(LPCSTR _vs, LPCSTR _gs, LPCSTR _ps, bool bFog, BOO
 	PassSET_LightFog(FALSE, bFog);
 
 	// Create shaders
-	SPS* ps = DEV->_CreatePS(_ps);
-	SVS* vs = DEV->_CreateVS(_vs);
-	SGS* gs = DEV->_CreateGS(_gs);
-	dest.ps = ps;
-	dest.vs = vs;
-	dest.gs = gs;
+	DEV->_CreatePS(_ps, &dest.ps);
+	DEV->_CreateVS(_vs, &dest.vs);
+	DEV->_CreateGS(_gs, &dest.gs);
+	SPS* ps = dest.ps._get();
+	SVS* vs = dest.vs._get();
+	SGS* gs = dest.gs._get();
 #ifdef USE_DX11
-	dest.hs = DEV->_CreateHS("null");
-	dest.ds = DEV->_CreateDS("null");
+	DEV->_CreateHS("null", &dest.hs);
+	DEV->_CreateDS("null", &dest.ds);
 	// LVutner: add _CreateCS
-	dest.cs = DEV->_CreateCS("null");
+	DEV->_CreateCS("null", &dest.cs);
 #endif
 	ctable.merge(&ps->constants);
 	ctable.merge(&vs->constants);
@@ -243,8 +243,8 @@ void CBlender_Compile::r_TessPass(LPCSTR vs, LPCSTR hs, LPCSTR ds, LPCSTR gs, LP
 {
 	r_Pass(vs, gs, ps, bFog, bZtest, bZwrite, bABlend, abSRC, abDST, aTest, aRef);
 
-	dest.hs = DEV->_CreateHS(hs);
-	dest.ds = DEV->_CreateDS(ds);
+	DEV->_CreateHS(hs, &dest.hs);
+	DEV->_CreateDS(ds, &dest.ds);
 
 	ctable.merge(&dest.hs->constants);
 	ctable.merge(&dest.ds->constants);
@@ -254,7 +254,7 @@ void CBlender_Compile::r_ComputePass(LPCSTR cs)
 {
 	ctable.clear();
 
-	dest.cs = DEV->_CreateCS(cs);
+	DEV->_CreateCS(cs, &dest.cs);
 
 	ctable.merge(&dest.cs->constants);
 }
@@ -263,11 +263,13 @@ void CBlender_Compile::r_ComputePass(LPCSTR cs)
 void CBlender_Compile::r_End()
 {
 	SetMapping();
-	dest.constants = DEV->_CreateConstantTable(ctable);
-	dest.state = DEV->_CreateState(RS.GetContainer());
-	dest.T = DEV->_CreateTextureList(passTextures);
+	DEV->_CreateConstantTable(ctable, &dest.constants);
+	DEV->_CreateState(RS.GetContainer(), &dest.state);
+	DEV->_CreateTextureList(passTextures, &dest.T);
 	dest.C = 0;
 	ref_matrix_list temp(0);
-	SH->passes.push_back(DEV->_CreatePass(dest));
+	ref_pass pass;
+	DEV->_CreatePass(dest, &pass);
+	SH->passes.push_back(pass);
 	//SH->passes.push_back	(DEV->_CreatePass(dest.state,dest.ps,dest.vs,dest.gs,dest.constants,dest.T,temp,dest.C));
 }

@@ -4,6 +4,16 @@
 // refs
 class ENGINE_API CGameFont;
 
+enum ELoadSessionPhase
+{
+	LoadSessionTeardown,
+	LoadSessionServerLua,
+	LoadSessionNativeLevel,
+	LoadSessionResourceWait,
+	LoadSessionClientSpawn,
+	LoadSessionPhaseCount
+};
+
 #include "../Include/xrRender/FactoryPtr.h"
 #include "../Include/xrRender/ApplicationRender.h"
 
@@ -33,6 +43,37 @@ private:
 	int load_stage;
 
 	u32 ll_dwReference;
+
+	struct SLoadSession
+	{
+		bool active;
+		bool precache_started;
+		bool reconnect_pending;
+		string32 scenario;
+		u32 started_at;
+		u32 precache_started_at;
+		u64 native_generation;
+		u64 resource_generation;
+		u64 client_event_hash;
+		u32 client_spawn_count;
+		u32 client_event_count;
+		u32 precache_frames;
+		u32 precache_level_calls;
+		u32 precache_loadscreen_calls;
+		u32 precache_present_calls;
+		u64 precache_wall_ticks;
+		u64 precache_frame_move_ticks;
+		u64 precache_seq_render_ticks;
+		u64 precache_end_ticks;
+		u64 precache_present_ticks;
+		u64 precache_secondary_wait_ticks;
+		u64 precache_level_calculate_ticks;
+		u64 precache_level_render_ticks;
+		u64 precache_loadscreen_ticks;
+		u32 phase_started_at[LoadSessionPhaseCount];
+		u32 phase_elapsed[LoadSessionPhaseCount];
+		bool phase_running[LoadSessionPhaseCount];
+	} m_load_session;
 private:
 	EVENT eQuit;
 	EVENT eStart;
@@ -61,6 +102,25 @@ public:
 	void LoadStage();
 	void LoadSwitch();
 	void LoadDraw();
+	void LoadSessionBegin(LPCSTR scenario);
+	void LoadSessionContinue(LPCSTR scenario);
+	void LoadSessionExpectReconnect();
+	void LoadSessionStartEvent(LPCSTR scenario);
+	void LoadSessionCancel(LPCSTR reason);
+	void LoadSessionSetScenario(LPCSTR scenario);
+	void LoadSessionPhaseBegin(ELoadSessionPhase phase);
+	void LoadSessionPhaseEnd(ELoadSessionPhase phase);
+	void LoadSessionPrecacheBegin();
+	bool LoadSessionMeasurePrecache() const;
+	void LoadSessionRecordPrecacheFrame(u64 wall_ticks, u64 frame_move_ticks, u64 seq_render_ticks,
+		u64 end_ticks, u64 secondary_wait_ticks);
+	void LoadSessionRecordPrecacheLevel(u64 calculate_ticks, u64 render_ticks);
+	void LoadSessionRecordPrecacheLoadscreen(u64 ticks);
+	void LoadSessionRecordPrecachePresent(u64 ticks);
+	void LoadSessionRecordClientEvent(bool spawn, u16 destination, u16 type, const void* packet_data, u32 packet_size);
+	void LoadSessionTryFinish(bool level_ready, bool control_ready, bool queues_drained);
+	bool LoadSessionActive() const { return m_load_session.active; }
+	bool LoadSessionPrecacheStarted() const { return m_load_session.precache_started; }
 
 	virtual void OnEvent(EVENT E, u64 P1, u64 P2);
 
@@ -74,6 +134,7 @@ public:
 };
 
 extern ENGINE_API CApplication* pApp;
+extern ENGINE_API void LogStartupMenuReady();
 
 //Discord
 struct rpc_info

@@ -1,6 +1,7 @@
 #include "pch_script.h"
 #include "gamepersistent.h"
 #include "../xrEngine/fmesh.h"
+#include "../xrEngine/x_ray.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/gamemtllib.h"
 #include "../Include/xrRender/Kinematics.h"
@@ -155,13 +156,32 @@ extern void init_game_globals();
 
 void CGamePersistent::OnAppStart()
 {
-	// load game materials
-	GMLib.Load();
+	CTimer timer;
+	timer.Start();
+	xr_task_group nativeTasks;
+	u32 materialsMs = 0;
+#ifndef _EDITOR
+	nativeTasks.run([this]() { Environment().load(); });
+#endif
+	nativeTasks.run([&materialsMs]()
+	{
+		CTimer materialsTimer;
+		materialsTimer.Start();
+		GMLib.Load();
+		materialsMs = materialsTimer.GetElapsed_ms();
+	});
+	timer.Start();
 	init_game_globals();
+	Msg("* [STARTUP] game globals: %d ms", timer.GetElapsed_ms());
+	timer.Start();
+	nativeTasks.wait();
 	inherited::OnAppStart();
+	Msg("* [STARTUP] native barrier: wait=%d materials-work=%u ms", timer.GetElapsed_ms(), materialsMs);
+	timer.Start();
 	m_pUI_core = xr_new<ui_core>();
 	m_pMainMenu = xr_new<CMainMenu>();
 	m_pWallmarksManager = xr_new<ScriptWallmarksManager>();
+	Msg("* [STARTUP] UI and main menu objects: %d ms", timer.GetElapsed_ms());
 }
 
 
@@ -789,6 +809,8 @@ void CGamePersistent::OnEvent(EVENT E, u64 P1, u64 P2)
 	if (E == eQuickLoad)
 	{
 		PROF_EVENT("eQuickLoad");
+		pApp->LoadSessionContinue("quickload");
+		pApp->LoadSessionSetScenario("quickload");
 		if (Device.Paused())
 			Device.Pause(FALSE, TRUE, TRUE, "eQuickLoad");
 
@@ -807,10 +829,14 @@ void CGamePersistent::OnEvent(EVENT E, u64 P1, u64 P2)
 
 		LPSTR saved_name = (LPSTR)(P1);
 
+		pApp->LoadSessionPhaseBegin(LoadSessionTeardown);
 		Level().remove_objects();
+		pApp->LoadSessionPhaseEnd(LoadSessionTeardown);
 		game_sv_Single* game = smart_cast<game_sv_Single*>(Level().Server->game);
 		R_ASSERT(game);
+		pApp->LoadSessionPhaseBegin(LoadSessionServerLua);
 		game->restart_simulator(saved_name);
+		pApp->LoadSessionPhaseEnd(LoadSessionServerLua);
 		xr_free(saved_name);
 		return;
 	}

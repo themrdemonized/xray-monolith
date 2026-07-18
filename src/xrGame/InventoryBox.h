@@ -23,6 +23,7 @@ public:
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
 	virtual void net_Destroy();
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	void AddAvailableItems(TIItemContainer& items_container) const;
 	IC bool IsEmpty() const { return m_items.empty(); }
 	virtual void UpdateCL();

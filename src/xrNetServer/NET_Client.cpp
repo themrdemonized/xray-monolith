@@ -237,6 +237,12 @@ void INetQueue::Release()
 	//cs.Leave		();
 }
 
+bool INetQueue::Empty()
+{
+	xrCriticalSectionGuard guard(cs);
+	return ready.empty();
+}
+
 //
 const u32 syncQueueSize = 512;
 const int syncSamples = 256;

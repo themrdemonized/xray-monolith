@@ -37,6 +37,7 @@ class demo_info;
 class CDebugRenderer;
 class DBG_ScriptObject;
 class script_attachment;
+struct level_game_specific_prepare;
 
 extern float g_fov;
 
@@ -69,6 +70,7 @@ class CLevel :
 {
 #include "Level_network_Demo.h"
 	void ClearAllObjects();
+	void ShutdownGameSpecificPrepare();
 private:
 #ifdef DEBUG
     bool m_bSynchronization = false;
@@ -77,6 +79,7 @@ private:
 protected:
 	typedef IGame_Level inherited;
 	CLevelSoundManager* m_level_sound_manager = nullptr;
+	level_game_specific_prepare* m_game_specific_prepare = nullptr;
 	CSpaceRestrictionManager* m_space_restriction_manager = nullptr;
 	CSeniorityHierarchyHolder* m_seniority_hierarchy_holder = nullptr;
 	CClientSpawnManager* m_client_spawn_manager = nullptr;
@@ -222,6 +225,8 @@ public:
     virtual bool Load(u32 dwNum);
 	virtual bool Load_GameSpecific_Before();
 	virtual bool Load_GameSpecific_After();
+	virtual bool Load_Prepared_Environment();
+	void BeginGameSpecificPrepare(LPCSTR canonical_level_path);
 	virtual void Load_GameSpecific_CFORM(CDB::TRI* T, u32 count);
 	// Events
 	virtual void OnEvent(EVENT E, u64 P1, u64 P2);
@@ -261,12 +266,28 @@ public:
 	prefetch_event_queue* prefetch_events = nullptr;
 	models_set* prefetched_models = nullptr;
 	xrSRWLock prefetch_lock;
+	bool spawn_prefetch_busy = false;
+	struct prepared_client_spawn_resource
+	{
+		shared_str section;
+		u16 parent_id = u16(-1);
+		shared_str actual_visual;
+		shared_str ltx_visual;
+		xr_string level_path;
+	};
+	xrCriticalSection prepared_client_spawn_guard;
+	xr_map<u16, prepared_client_spawn_resource> prepared_client_spawn_resources;
+	void RegisterPreparedClientSpawnResource(u16 id, u16 parent_id, const shared_str& section,
+		const shared_str& actual_visual, const shared_str& ltx_visual, LPCSTR canonical_level_path);
+	bool PublishPreparedClientSpawnResource(NET_Packet& packet);
     bool PostponedSpawn(u16 id);
 	void ProcessSpawnEvents();
 	static void ProcessPrefetchEvents(void* args);
 	void SortSpawnEventsQueue();
 private:
 	bool closeSignal = false;
+	HANDLE prefetch_thread_signal = nullptr;
+	HANDLE prefetch_thread_stopped = nullptr;
 	int GetSpawnEventPriority(const NET_Event& e) const;
 	bool PostponedSpawnFind(u16 id, const NET_Event& E) const;
 	bool PostponedSpawnFind(u16 id, NET_Packet& P) const;

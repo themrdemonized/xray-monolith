@@ -3,6 +3,7 @@
 #include "xrEngine/FDemoPlay.h"
 #include "xrEngine/Environment.h"
 #include "xrEngine/IGame_Persistent.h"
+#include "xrEngine/x_ray.h"
 #include "ParticlesObject.h"
 #include "Level.h"
 #include "HUDManager.h"
@@ -80,31 +81,6 @@ u32 lvInterpSteps = 0;
 #ifdef SPAWN_ANTIFREEZE
 BOOL spawn_antifreeze = TRUE;
 BOOL spawn_antifreeze_debug = FALSE;
-static HANDLE prefetch_thread_signal;
-
-static void unpausePrefetchThreadSignal()
-{
-	//if (spawn_antifreeze_debug) Msg("prefetch_thread_signal Set");
-	SetEvent(prefetch_thread_signal);
-}
-
-static void pausePrefetchThreadSignal()
-{
-	//if (spawn_antifreeze_debug) Msg("prefetch_thread_signal Reset");
-	ResetEvent(prefetch_thread_signal);
-}
-
-static void closePrefetchThreadSignal()
-{
-	if (spawn_antifreeze_debug) Msg("prefetch_thread_signal Close");
-	CloseHandle(prefetch_thread_signal);
-}
-
-static void createPrefetchThreadSignal()
-{
-	if (spawn_antifreeze_debug) Msg("prefetch_thread_signal CreateEvent");
-	prefetch_thread_signal = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-}
 
 struct spawn_and_prefetch_events
 {
@@ -114,6 +90,9 @@ struct spawn_and_prefetch_events
     models_set* prefetched_models = nullptr;
     bool* closeSignal = nullptr;
     xrSRWLock* prefetch_lock = nullptr;
+    bool* busy = nullptr;
+	HANDLE signal = nullptr;
+	HANDLE stopped = nullptr;
 };
 
 u16	GetSpawnInfo(NET_Packet& P, u16& parent_id, shared_str& section)
@@ -142,6 +121,47 @@ u16	GetSpawnInfo(NET_Packet& P, u16& parent_id, shared_str& section)
     P.r_pos = 0;
     return id;
 }
+
+void CLevel::RegisterPreparedClientSpawnResource(u16 id, u16 parent_id, const shared_str& section,
+	const shared_str& actual_visual, const shared_str& ltx_visual, LPCSTR canonical_level_path)
+{
+	prepared_client_spawn_resource resource;
+	resource.section = section;
+	resource.parent_id = parent_id;
+	resource.actual_visual = actual_visual;
+	resource.ltx_visual = ltx_visual;
+	resource.level_path = canonical_level_path ? canonical_level_path : "";
+	xrCriticalSectionGuard guard(prepared_client_spawn_guard);
+	prepared_client_spawn_resources[id] = std::move(resource);
+}
+
+bool CLevel::PublishPreparedClientSpawnResource(NET_Packet& packet)
+{
+	NET_Packet copy = packet;
+	u16 parent_id;
+	shared_str section;
+	const u16 id = GetSpawnInfo(copy, parent_id, section);
+	prepared_client_spawn_resource resource;
+	{
+		xrCriticalSectionGuard guard(prepared_client_spawn_guard);
+		auto found = prepared_client_spawn_resources.find(id);
+		if (found == prepared_client_spawn_resources.end())
+			return false;
+		resource = std::move(found->second);
+		prepared_client_spawn_resources.erase(found);
+	}
+	if (resource.parent_id != parent_id || resource.section != section)
+		return false;
+
+	bool actual_published = false;
+	if (resource.actual_visual.size())
+		actual_published = ::Render->models_PrefetchPrepared(resource.actual_visual.c_str(),
+			resource.level_path.c_str(), false);
+	if (!actual_published && resource.ltx_visual.size() && resource.ltx_visual != resource.actual_visual)
+		actual_published = ::Render->models_PrefetchPrepared(
+			resource.ltx_visual.c_str(), resource.level_path.c_str(), false);
+	return actual_published;
+}
 #endif
 //-AVO
 
@@ -153,7 +173,7 @@ struct ProcessNetPacket : public intrusive_base_nonatomic
 
 struct ProcessGameEventsData : ProcessNetPacket
 {
-    prefetch_event E;
+	prefetch_event E;
     NET_Packet PRespond;
 };
 
@@ -278,8 +298,11 @@ CLevel::CLevel() :
     spawn_events_data = xr_new<spawn_events_data_map>();
     prefetch_events = xr_new<prefetch_event_queue>();
     prefetched_models = xr_new<models_set>();
-    auto events = new spawn_and_prefetch_events({ spawn_events, spawn_events_data, prefetch_events, prefetched_models, &closeSignal, &prefetch_lock });
-    createPrefetchThreadSignal();
+	prefetch_thread_signal = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+	prefetch_thread_stopped = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+	R_ASSERT(prefetch_thread_signal && prefetch_thread_stopped);
+    auto events = new spawn_and_prefetch_events({ spawn_events, spawn_events_data, prefetch_events, prefetched_models,
+		&closeSignal, &prefetch_lock, &spawn_prefetch_busy, prefetch_thread_signal, prefetch_thread_stopped });
     thread_spawn(ProcessPrefetchEvents, "Pre-Spawn Prefetcher Thread", 0, events);
     Msg("CLevel::CLevel() Spawn Antifreeze initialized");
 #endif
@@ -299,6 +322,7 @@ CLevel::~CLevel()
     delete_data(hud_zones_list);
     hud_zones_list = nullptr;
     Msg("- Destroying level");
+	ShutdownGameSpecificPrepare();
     Engine.Event.Handler_Detach(eEntitySpawn, this);
     Engine.Event.Handler_Detach(eEnvironment, this);
     Engine.Event.Handler_Detach(eChangeTrack, this);
@@ -332,17 +356,26 @@ CLevel::~CLevel()
     delete_data(m_debug_render_queue);
     if (!g_dedicated_server)
         ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
-    xr_delete(game);
-    xr_delete(game_events);
 
 #ifdef SPAWN_ANTIFREEZE
-    xr_delete(spawn_events);
-    xr_delete(spawn_events_data);
-    xr_delete(prefetch_events);
-    xr_delete(prefetched_models);
-    closeSignal = true; // signal ProcessPrefetchEvents thread to exit
-    unpausePrefetchThreadSignal();
+	{
+		xrSRWLockGuard g(prefetch_lock);
+		closeSignal = true;
+	}
+	SetEvent(prefetch_thread_signal);
+	R_ASSERT(WAIT_OBJECT_0 == WaitForSingleObject(prefetch_thread_stopped, INFINITE));
+	CloseHandle(prefetch_thread_signal);
+	CloseHandle(prefetch_thread_stopped);
+	prefetch_thread_signal = nullptr;
+	prefetch_thread_stopped = nullptr;
+	xr_delete(spawn_events);
+	xr_delete(spawn_events_data);
+	xr_delete(prefetch_events);
+	xr_delete(prefetched_models);
 #endif
+
+    xr_delete(game);
+    xr_delete(game_events);
 
     xr_delete(m_pBulletManager);
     xr_delete(pStatGraphR);
@@ -570,69 +603,73 @@ void CLevel::ProcessPrefetchEvents(void* args)
     auto prefetched_models = events->prefetched_models;
     auto closeSignal = events->closeSignal;
     auto prefetch_lock = events->prefetch_lock;
+    auto busy = events->busy;
+	auto signal = events->signal;
+	auto stopped = events->stopped;
 
     while (true)
     {
-        WaitForSingleObject(prefetch_thread_signal, INFINITE); // wait for prefetch queue event to be signaled
-
-        if (*closeSignal == true)
-        {
-            if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] closeSignal received, destroying thread");
-            closePrefetchThreadSignal();
-            delete events;
-            return;
-        }
-
-        {
-            xrSRWLockGuard g(prefetch_lock, true);
-            if (prefetch_events->empty())
-            {
-                if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] called, but prefetch_events queue is empty");
-                pausePrefetchThreadSignal();
-                continue;
-            }
-        }
+        WaitForSingleObject(signal, INFINITE); // wait for prefetch queue event to be signaled
 
         PROF_EVENT("ProcessPrefetchEvents")
             prefetch_event_queue saved_prefetch_events;
+		bool close = false;
         {
             xrSRWLockGuard g(prefetch_lock);
-            if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] started, queue size %d", prefetch_events->size());
-            saved_prefetch_events.swap(*prefetch_events); // move the events to temp queue, so we can continue processing prefetch_events in the main thread
-            pausePrefetchThreadSignal();
+			close = *closeSignal;
+			if (!close)
+			{
+				if (prefetch_events->empty())
+				{
+					if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] called, but prefetch_events queue is empty");
+				}
+				else
+				{
+					if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] started, queue size %d", prefetch_events->size());
+					saved_prefetch_events.swap(*prefetch_events); // move the events to temp queue, so we can continue processing prefetch_events in the main thread
+					*busy = true;
+				}
+				ResetEvent(signal);
+			}
         }
 
-        for (const auto& E : saved_prefetch_events)
-        {
-            for (const auto& model : E.models)
-            {
-                bool not_prefetched = false;
+		if (close)
+		{
+			if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] closeSignal received, destroying thread");
+			delete events;
+			SetEvent(stopped);
+			return;
+		}
 
-                {
-                    xrSRWLockGuard g(prefetch_lock, true);
-                    not_prefetched = prefetched_models->find(model) == prefetched_models->end();
-                }
+		if (saved_prefetch_events.empty())
+			continue;
 
-                if (not_prefetched)
-                {
-                    if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] Prefetching model '%s' for spawn event", model.c_str());
-                    ::Render->models_PrefetchOne(model.c_str(), false);
+		for (const auto& E : saved_prefetch_events)
+		{
+			for (const auto& model : E.models)
+			{
+				bool not_prefetched = false;
+				{
+					xrSRWLockGuard g(prefetch_lock, true);
+					not_prefetched = prefetched_models->find(model) == prefetched_models->end();
+				}
+				if (!not_prefetched)
+					continue;
 
-                    {
-                        xrSRWLockGuard g(prefetch_lock);
-                        prefetched_models->insert(model); // add model to prefetched models set to avoid double prefetching
-                    }
-                }
-            }
-        }
+				::Render->models_PrefetchOne(model.c_str(), false);
+				xrSRWLockGuard g(prefetch_lock);
+				prefetched_models->insert(model);
+			}
+		}
 
-        {
+		{
             xrSRWLockGuard g(prefetch_lock);
             for (auto& E : saved_prefetch_events)
             {
                 spawn_events->insert(E.p); // reinsert the event to spawn_events queue for further processing
                 spawn_events_data->emplace(E.id, E); // store the prefetch event data for later use in ProcessSpawnEvents
             }
+			*busy = false;
 
             if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] finished, spawn_events queue size %d", spawn_events->queue.size());
         }
@@ -707,9 +744,21 @@ void CLevel::ProcessSpawnEvents()
 			}
 		}
 
+		// Model publication can enter renderer Lua shader lookup. It must stay
+		// on the owner thread and immediately precede the original spawn.
+		if (spawn_data_it != spawn_events_data_copy.end())
+		{
+			for (const xr_string& model : spawn_data_it->second.models)
+			{
+				if (prefetched_models->insert(model).second)
+					::Render->models_PrefetchOne(model.c_str(), false);
+			}
+		}
+
 	spawn:
 		u16 dummy16;
 		P.r_begin(dummy16);
+		pApp->LoadSessionRecordClientEvent(true, 0, 0, P.B.data, P.B.count);
 		cl_Process_Spawn(P);
 	}
 }
@@ -834,14 +883,11 @@ void CLevel::ProcessGameEvents()
 						{
 							auto& E = data->E;
 							E.p = P;
-							E.models = models;
-                            E.id = obj_id;
-                            E.hasAlifeObject = obj != nullptr;
-
-							events_to_prefetch.push_back(E);
-
-							if (spawn_antifreeze_debug) Msg("[ProcessGameEvents] added M_SPAWN to prefetch_events: section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
-							it++; // Move to next event
+							E.models = std::move(models);
+							E.id = obj_id;
+							E.hasAlifeObject = obj != nullptr;
+							events_to_prefetch.push_back(std::move(E));
+							++it;
 							continue;
 						}
 					}					
@@ -868,12 +914,14 @@ void CLevel::ProcessGameEvents()
 
 					u16 dummy16;
 					P.r_begin(dummy16);
+					pApp->LoadSessionRecordClientEvent(true, 0, 0, P.B.data, P.B.count);
 					cl_Process_Spawn(P);
 					break;
 				}
 			case M_EVENT:
 				{
 					PROF_EVENT("ProcessGameEvents M_EVENT");
+					pApp->LoadSessionRecordClientEvent(false, dest, type, P.B.data, P.B.count);
 					cl_Process_Event(dest, type, P);
 					break;
 				}
@@ -930,8 +978,10 @@ void CLevel::ProcessGameEvents()
 	if (!events_to_prefetch.empty())
 	{
 		xrSRWLockGuard g(prefetch_lock);
-		prefetch_events->insert(prefetch_events->end(), events_to_prefetch.begin(), events_to_prefetch.end());
-		unpausePrefetchThreadSignal();
+		prefetch_events->insert(prefetch_events->end(),
+			std::make_move_iterator(events_to_prefetch.begin()),
+			std::make_move_iterator(events_to_prefetch.end()));
+		SetEvent(prefetch_thread_signal);
 	}
 #endif
 
@@ -957,6 +1007,7 @@ void CLevel::MakeReconnect()
 {
 	if (!Engine.Event.Peek("KERNEL:disconnect"))
 	{
+		pApp->LoadSessionExpectReconnect();
 		Engine.Event.Defer("KERNEL:disconnect");
 		char const* server_options = nullptr;
 		char const* client_options = nullptr;
@@ -1020,26 +1071,57 @@ void CLevel::OnFrame()
 	}
 	else
 	{
+		const bool measure_client_spawn = pApp->LoadSessionActive() && pApp->LoadSessionPrecacheStarted();
+		if (measure_client_spawn)
+			pApp->LoadSessionPhaseBegin(LoadSessionClientSpawn);
 		Device.Statistic->netClient1.Begin();
 		ClientReceive();
 		Device.Statistic->netClient1.End();
-	}
-	
-	ProcessGameEvents();
+
+		ProcessGameEvents();
 #ifdef SPAWN_ANTIFREEZE
-	{
-		bool queueEmpty = false;
 		{
-			xrSRWLockGuard g(prefetch_lock);
-			queueEmpty = spawn_events->queue.empty();
+			bool queueEmpty = false;
+			{
+				xrSRWLockGuard g(prefetch_lock);
+				queueEmpty = spawn_events->queue.empty();
+			}
+			if (!queueEmpty)
+			{
+				SortSpawnEventsQueue();
+				ProcessSpawnEvents();
+			}
 		}
-		if (!queueEmpty)
-		{
-			SortSpawnEventsQueue();
-			ProcessSpawnEvents();
-		}
-	}
 #endif
+		if (measure_client_spawn)
+			pApp->LoadSessionPhaseEnd(LoadSessionClientSpawn);
+	}
+
+	const auto load_queues_drained = [this]()
+	{
+		if (!net_msg_Empty() || !Objects.destroy_queues_empty())
+			return false;
+#ifdef SPAWN_ANTIFREEZE
+		xrSRWLockGuard g(prefetch_lock, true);
+		return game_events->queue.empty() && game_spawn_queue.empty() && spawn_events->queue.empty() &&
+			prefetch_events->empty() && spawn_events_data->empty() && !spawn_prefetch_busy;
+#else
+		return game_events->queue.empty() && game_spawn_queue.empty();
+#endif
+	};
+
+	const bool control_ready = g_dedicated_server ||
+		(CurrentControlEntity() != nullptr && (GameID() != eGameIDSingle || g_actor != nullptr));
+	bool queues_drained = load_queues_drained();
+	if (!g_dedicated_server && pApp->LoadSessionActive() && pApp->LoadSessionPrecacheStarted() &&
+		!Device.dwPrecacheFrame && g_loading_events.empty() && bReady && control_ready && queues_drained)
+	{
+		pApp->LoadSessionPhaseBegin(LoadSessionResourceWait);
+		Device.m_pRender->ResourcesDeferredUpload();
+		pApp->LoadSessionPhaseEnd(LoadSessionResourceWait);
+		queues_drained = load_queues_drained();
+	}
+	pApp->LoadSessionTryFinish(bReady, control_ready, queues_drained);
 
 	if (m_bNeed_CrPr)
 		make_NetCorrectionPrediction();

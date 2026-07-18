@@ -3,6 +3,7 @@
 
 #include "xr_input.h"
 #include "IInputReceiver.h"
+#include "x_ray.h"
 //#include "../include/editor/ide.hpp"
 
 #ifndef _EDITOR
@@ -242,7 +243,8 @@ void CInput::KeyUpdate()
 	if (b_altF4) return;
 
 #ifndef _EDITOR
-	if (Device.dwPrecacheFrame == 0)
+	const bool dispatch_input = !Device.dwPrecacheFrame && !(pApp && pApp->LoadSessionActive());
+	if (dispatch_input)
 #endif
 	{
 		for (u32 i = 0; i < dwElements; i++)
@@ -449,8 +451,9 @@ void CInput::MouseUpdate()
 	};
 
 #ifndef _EDITOR
-	if (Device.dwPrecacheFrame)
-		return;
+	const bool dispatch_input = !Device.dwPrecacheFrame && !(pApp && pApp->LoadSessionActive());
+#else
+	const bool dispatch_input = true;
 #endif
 	BOOL mouse_prev[COUNT_MOUSE_BUTTONS];
 
@@ -486,99 +489,104 @@ void CInput::MouseUpdate()
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[0] = TRUE;
-				cbStack.back()->IR_OnMousePress(bSwitched ? 1 : 0);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(bSwitched ? 1 : 0);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[0] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(bSwitched ? 1 : 0);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(bSwitched ? 1 : 0);
 			}
 			break;
 		case DIMOFS_BUTTON1:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[1] = TRUE;
-				cbStack.back()->IR_OnMousePress(bSwitched ? 0 : 1);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(bSwitched ? 0 : 1);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[1] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(bSwitched ? 0 : 1);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(bSwitched ? 0 : 1);
 			}
 			break;
 		case DIMOFS_BUTTON2:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[2] = TRUE;
-				cbStack.back()->IR_OnMousePress(2);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(2);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[2] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(2);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(2);
 			}
 			break;
 		case DIMOFS_BUTTON3:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[3] = TRUE;
-				cbStack.back()->IR_OnMousePress(3);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(3);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[3] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(3);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(3);
 			}
 			break;
 		case DIMOFS_BUTTON4:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[4] = TRUE;
-				cbStack.back()->IR_OnMousePress(4);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(4);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[4] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(4);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(4);
 			}
 			break;
 		case DIMOFS_BUTTON5:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[5] = TRUE;
-				cbStack.back()->IR_OnMousePress(5);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(5);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[5] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(5);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(5);
 			}
 			break;
 		case DIMOFS_BUTTON6:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[6] = TRUE;
-				cbStack.back()->IR_OnMousePress(6);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(6);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[6] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(6);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(6);
 			}
 			break;
 		case DIMOFS_BUTTON7:
 			if (od[i].dwData & 0x80)
 			{
 				mouseState[7] = TRUE;
-				cbStack.back()->IR_OnMousePress(7);
+				if (dispatch_input) cbStack.back()->IR_OnMousePress(7);
 			}
 			if (!(od[i].dwData & 0x80))
 			{
 				mouseState[7] = FALSE;
-				cbStack.back()->IR_OnMouseRelease(7);
+				if (dispatch_input) cbStack.back()->IR_OnMouseRelease(7);
 			}
 			break;
 		}
+	}
+	if (!dispatch_input)
+	{
+		ZeroMemory(timeStamp, sizeof(timeStamp));
+		return;
 	}
 
 	if (mouseState[0] && mouse_prev[0])

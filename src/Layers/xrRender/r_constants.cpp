@@ -292,3 +292,32 @@ BOOL R_constant_table::equal(R_constant_table& C)
 
 	return TRUE;
 }
+
+u64 R_constant_table::hash() const
+{
+	u64 result = 1469598103934665603ull;
+	auto mix = [&result](u64 value)
+	{
+		for (u32 i = 0; i < sizeof(value); ++i)
+		{
+			result ^= static_cast<u8>(value >> (i * 8));
+			result *= 1099511628211ull;
+		}
+	};
+	for (const ref_constant& reference : table)
+	{
+		const R_constant& constant = *reference;
+		for (LPCSTR name = constant.name.c_str(); name && *name; ++name)
+		{
+			result ^= static_cast<u8>(*name);
+			result *= 1099511628211ull;
+		}
+		mix(constant.type);
+		mix(constant.destination);
+		mix((u64(constant.ps.index) << 16) | constant.ps.cls);
+		mix((u64(constant.vs.index) << 16) | constant.vs.cls);
+		mix((u64(constant.samp.index) << 16) | constant.samp.cls);
+		mix(reinterpret_cast<uintptr_t>(constant.handler));
+	}
+	return result;
+}

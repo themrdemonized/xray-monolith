@@ -184,7 +184,19 @@ public:
 		return (m_tID_Generator.vfFreeID(ID, time));
 	}
 
-	void Perform_connect_spawn(CSE_Abstract* E, xrClientData* to, NET_Packet& P);
+	struct PreparedClientSpawn
+	{
+		CSE_Abstract* entity;
+		shared_str section;
+		shared_str actual_visual;
+		shared_str ltx_visual;
+		xr_vector<xr_string> textures;
+		NativeLoadExecutor::Batch resource_batch;
+		u16 id;
+		u16 parent_id;
+	};
+	void Prepare_connect_spawn(CSE_Abstract* E, xr_vector<PreparedClientSpawn>& prepared);
+	void Perform_connect_spawn(const PreparedClientSpawn& prepared, xrClientData* to, NET_Packet& P);
 	void Perform_transfer(NET_Packet& PR, NET_Packet& PT, CSE_Abstract* what, CSE_Abstract* from, CSE_Abstract* to);
 	void Perform_reject(CSE_Abstract* what, CSE_Abstract* from, int delta);
 	void Perform_destroy(CSE_Abstract* tpSE_Abstract, u32 mode);

@@ -43,6 +43,7 @@ public:
 	void set_TSS(u32 a, u32 b, u32 c);
 	void set_SAMP(u32 a, u32 b, u32 c);
 	BOOL equal(SimulatorStates& S);
+	u64 hash() const;
 	void clear();
 	IDirect3DStateBlock9* record();
 #if defined(USE_DX10) || defined(USE_DX11)

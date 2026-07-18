@@ -126,7 +126,10 @@ bool CLevel::net_start_client3()
 
 		deny_m_spawn = FALSE;
 		// Load level
-		R_ASSERT2(Load(level_id), "Loading failed.");
+		pApp->LoadSessionPhaseBegin(LoadSessionNativeLevel);
+		const bool level_loaded = Load(level_id);
+		pApp->LoadSessionPhaseEnd(LoadSessionNativeLevel);
+		R_ASSERT2(level_loaded, "Loading failed.");
 		map_data.m_level_geom_crc32 = 0;
 		if (!IsGameTypeSingle())
 			CalculateLevelCrc32();
@@ -226,8 +229,10 @@ bool CLevel::net_start_client5()
 			//Device.Resources->DeferredLoad	(FALSE);
 			Device.m_pRender->DeferredLoad(FALSE);
 			//Device.Resources->DeferredUpload	();
+			pApp->LoadSessionPhaseBegin(LoadSessionResourceWait);
 			Device.m_pRender->ResourcesDeferredUpload();
 			LL_CheckTextures();
+			pApp->LoadSessionPhaseEnd(LoadSessionResourceWait);
 		}
 		sended_request_connection_data = FALSE;
 		deny_m_spawn = TRUE;

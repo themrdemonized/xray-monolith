@@ -69,6 +69,7 @@ public:
 
 	float effective_radius(float nearest_shape_radius);
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	virtual void OnEvent(NET_Packet& P, u16 type);
 
 	float GetMaxPower() { return m_fMaxPower; }

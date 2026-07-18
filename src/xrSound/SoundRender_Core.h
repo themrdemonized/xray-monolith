@@ -3,11 +3,66 @@
 #include "SoundRender.h"
 #include "SoundRender_Environment.h"
 #include "SoundRender_Cache.h"
+#include "SoundRender_Source.h"
+
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 class CNotificationClient;
 
 class CSoundRender_Core : public CSound_manager_interface
 {
+	enum class ESourcePrefetchState : u8
+	{
+		Queued,
+		Preparing,
+		Ready,
+		Committed,
+		Failed
+	};
+
+	struct SoundPrefetchJob
+	{
+		xr_string id;
+		xr_string path;
+		xr_string error;
+		u32 vfs = u32(-1);
+		u32 offset = 0;
+		ESourcePrefetchState state = ESourcePrefetchState::Queued;
+		PreparedSoundSource prepared;
+	};
+
+	xr_vector<SoundPrefetchJob*> m_source_prefetch_jobs;
+	xr_vector<SoundPrefetchJob*> m_source_prefetch_order;
+	xr_unordered_map<xr_string, SoundPrefetchJob*> m_source_prefetch_by_id;
+	std::mutex m_source_prefetch_mutex;
+	std::condition_variable m_source_prefetch_changed;
+	std::thread m_source_prefetch_thread;
+	std::atomic<u32> m_source_prefetch_idle_ms{0};
+	size_t m_source_prefetch_cursor = 0;
+	u32 m_source_prefetch_started_at = 0;
+	u32 m_source_prefetch_prepared = 0;
+	u32 m_source_prefetch_promoted = 0;
+	u32 m_source_prefetch_waited_ms = 0;
+	u32 m_source_prefetch_failed = 0;
+	u32 m_source_prefetch_remaining = 0;
+	bool m_source_prefetch_enabled = false;
+	bool m_source_prefetch_pause = true;
+	bool m_source_prefetch_running = false;
+	bool m_source_prefetch_shutdown = false;
+	bool m_source_prefetch_completion_pending = false;
+	bool m_source_prefetch_completion_logged = false;
+	SoundPrefetchJob* m_source_prefetch_failure = nullptr;
+
+	void source_prefetch_worker();
+	void build_source_prefetch_manifest();
+	void clear_source_prefetch();
+	void finish_source_prepare(SoundPrefetchJob& job, PreparedSoundSource&& prepared, xr_string&& error);
+	CSoundRender_Source* commit_source_locked(SoundPrefetchJob& job);
+	u32 source_prefetch_remaining_locked() const;
+	u64 source_prefetch_hash_locked() const;
+
 	volatile BOOL bLocked;
 protected:
 	virtual void _create_data(ref_sound_data& S, LPCSTR fName, esound_type sound_type, int game_type);
@@ -125,7 +180,11 @@ public:
 	virtual BOOL is_ready() { return bReady; }
 
 	virtual void object_relcase(CObject* obj);
-	void i_create_all_sources();
+	virtual void source_prefetch_start() override;
+	virtual void source_prefetch_pause() override;
+	virtual void source_prefetch_prepare(const xr_vector<xr_string>& sources) override;
+	virtual void source_prefetch_stop() override;
+	virtual void source_prefetch_poll() override;
 
 	virtual float get_occlusion_to(const Fvector& hear_pt, const Fvector& snd_pt, float dispersion = 0.2f);
 	float get_occlusion(Fvector& P, float R, Fvector* occ) override;

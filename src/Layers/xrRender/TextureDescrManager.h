@@ -5,7 +5,6 @@
 #include "ETextureParams.h"
 
 class cl_dt_scaler;
-struct TH_LoadTHM;
 
 class CTextureDescrMngr
 {
@@ -49,9 +48,9 @@ public:
 private:
 	map_TD m_texture_details;
 	map_CS m_detail_scalers;
+	mutable xrSRWLock m_data_lock;
 
 	static void LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers);
-	static void LoadTHMThread(void* args);
 
 public:
 	~CTextureDescrMngr();

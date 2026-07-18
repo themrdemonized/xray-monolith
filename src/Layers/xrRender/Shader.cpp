@@ -68,15 +68,28 @@ void resptrcode_shader::create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, 
 	_set(DEV->Create(B, s_shader, s_textures, s_constants, s_matrices));
 }
 
+void resptrcode_shader::create_parallel(
+	IBlender* B, LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_constants, LPCSTR s_matrices)
+{
+#ifdef SPAWN_ANTIFREEZE
+	xrCriticalSectionGuard g(shaderCreate_cs);
+#endif
+	_set(DEV->Create(B, s_shader, s_textures, s_constants, s_matrices));
+}
+
 //////////////////////////////////////////////////////////////////////////
 void resptrcode_geom::create(u32 FVF, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
 {
-	_set(DEV->CreateGeom(FVF, vb, ib));
+	ref_geom keep_alive;
+	DEV->CreateGeom(FVF, vb, ib, &keep_alive);
+	_set(keep_alive);
 }
 
 void resptrcode_geom::create(D3DVERTEXELEMENT9* decl, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
 {
-	_set(DEV->CreateGeom(decl, vb, ib));
+	ref_geom keep_alive;
+	DEV->CreateGeom(decl, vb, ib, &keep_alive);
+	_set(keep_alive);
 }
 
 //////////////////////////////////////////////////////////////////////

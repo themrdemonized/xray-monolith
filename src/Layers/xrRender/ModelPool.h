@@ -57,6 +57,22 @@ private:
 	BOOL bAllowChildrenDuplicate;
 	xrCriticalSection deffered_del_lock;
 	xrSRWLock ModelsLock;
+	struct ModelBlueprint
+	{
+		HANDLE completed;
+		xrCriticalSection commitLock;
+		xr_vector<xr_string> textures;
+		xr_vector<u8> data;
+		dxRender_Visual* preparedVisual;
+		bool found;
+		std::exception_ptr failure;
+
+		ModelBlueprint();
+		~ModelBlueprint();
+	};
+	xrCriticalSection modelBlueprintLock;
+	xr_map<xr_string, xr_shared_ptr<ModelBlueprint>> modelBlueprints;
+	xr_shared_ptr<ModelBlueprint> PrepareBlueprint(LPCSTR name, LPCSTR canonical_level_path);
 
 	void Destroy();
 public:
@@ -84,6 +100,9 @@ public:
 
 	void Prefetch();
 	void Prefetch_One(LPCSTR N, bool assert = true);
+	void CollectTextures(LPCSTR name, LPCSTR canonical_level_path, xr_vector<xr_string>& textures);
+	bool PrefetchPrepared(LPCSTR name, LPCSTR canonical_level_path, bool assert = true);
+	void InvalidateBlueprints();
 	bool Exists(LPCSTR N);
 	void ClearPool(BOOL b_complete);
 

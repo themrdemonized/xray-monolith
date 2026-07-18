@@ -235,7 +235,7 @@ public:
 	ref_constant hwc_s_consts;
 	ref_constant hwc_s_xform;
 	ref_constant hwc_s_array;
-	void hw_Load();
+	void hw_Load(bool create_shaders = true);
 	void hw_Load_Geom();
 	void hw_Load_Shaders();
 	void hw_Unload();
@@ -263,8 +263,15 @@ public:
 	int w2cg_X(int x) { return x - cache_cx + dm_size; }
 	int w2cg_Z(int z) { return cache_cz - dm_size + (dm_cache_line - 1 - z); }
 
-	void Load();
+	static void SnapshotSwing(SSwingValue* values);
+	void Load(bool publish = true, bool create_shaders = true, LPCSTR canonical_level_path = nullptr,
+		const SSwingValue* swing_values = nullptr);
+	void CommitShaders();
+	void SuspendShaders();
+	void Publish();
 	void Unload();
+	void Suspend();
+	void Resume();
 	void Render();
 
 	/// MT stuff

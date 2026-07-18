@@ -92,30 +92,43 @@ void dx103DFluidData::DestroyRTTextureAndViews(int rtIndex)
 	_RELEASE(m_pRenderTargetViews[rtIndex]);
 }
 
-void dx103DFluidData::Load(IReader* data)
+void dx103DFluidData::Prepare(IReader* data, PreparedData& prepared)
 {
 	//	Version 3
-
-	xr_string Profile;
-	data->r_string(Profile);
+	data->r_string(prepared.profile);
 
 	//	Prepare transform
-	data->r(&m_Transform, sizeof(m_Transform));
+	data->r(&prepared.transform, sizeof(prepared.transform));
 
 	//	Read obstacles
 	u32 uiObstCnt = data->r_u32();
-	m_Obstacles.reserve(uiObstCnt);
+	prepared.obstacles.resize(uiObstCnt);
 	for (u32 i = 0; i < uiObstCnt; ++i)
-	{
-		Fmatrix ObstTransform;
-		data->r(&ObstTransform, sizeof(ObstTransform));
-		m_Obstacles.push_back(ObstTransform);
-	}
+		data->r(&prepared.obstacles[i], sizeof(prepared.obstacles[i]));
 
-	ParseProfile(Profile);
+	ParseProfile(prepared.profile, prepared);
 }
 
-void dx103DFluidData::ParseProfile(const xr_string& Profile)
+void dx103DFluidData::Load(IReader* data)
+{
+	PreparedData prepared;
+	Prepare(data, prepared);
+	LoadPrepared(prepared);
+}
+
+void dx103DFluidData::LoadPrepared(const PreparedData& prepared)
+{
+	m_Transform = prepared.transform;
+	m_Obstacles = prepared.obstacles;
+	m_Emitters = prepared.emitters;
+	m_Settings = prepared.settings;
+
+#ifdef DEBUG
+	FluidManager.RegisterFluidData(this, prepared.profile);
+#endif
+}
+
+void dx103DFluidData::ParseProfile(const xr_string& Profile, PreparedData& prepared)
 {
 	string_path fn;
 	FS.update_path(fn, "$game_config$", Profile.c_str());
@@ -124,11 +137,11 @@ void dx103DFluidData::ParseProfile(const xr_string& Profile)
 
 	Msg("Reading fog volume config: %s", fn);
 
-	m_Settings.m_SimulationType = ST_FOG;
-	m_Settings.m_fHemi = 0.2f;
-	m_Settings.m_fConfinementScale = 0.06f;
-	m_Settings.m_fDecay = 0.994f;
-	m_Settings.m_fGravityBuoyancy = 0.0f;
+	prepared.settings.m_SimulationType = ST_FOG;
+	prepared.settings.m_fHemi = 0.2f;
+	prepared.settings.m_fConfinementScale = 0.06f;
+	prepared.settings.m_fDecay = 0.994f;
+	prepared.settings.m_fGravityBuoyancy = 0.0f;
 
 	Fmatrix WorldToFluid;
 	{
@@ -148,35 +161,35 @@ void dx103DFluidData::ParseProfile(const xr_string& Profile)
 		//	Actually it is mul(Translate, Scale).
 		//	Our matrix multiplication is not correct.
 		TranslateScale.mul(Scale, Translate);
-		InvFluidTranform.invert(m_Transform);
+		InvFluidTranform.invert(prepared.transform);
 		WorldToFluid.mul(TranslateScale, InvFluidTranform);
 	}
 
 	//	Read Volume data
 	if (ini.line_exist("volume", "Type"))
-		m_Settings.m_SimulationType = (SimulationType)ini.r_token("volume", "Type", simulation_type_token);
+		prepared.settings.m_SimulationType = (SimulationType)ini.r_token("volume", "Type", simulation_type_token);
 
 	if (ini.line_exist("volume", "Hemi"))
-		m_Settings.m_fHemi = ini.r_float("volume", "Hemi");
+		prepared.settings.m_fHemi = ini.r_float("volume", "Hemi");
 
 	if (ini.line_exist("volume", "ConfinementScale"))
-		m_Settings.m_fConfinementScale = ini.r_float("volume", "ConfinementScale");
+		prepared.settings.m_fConfinementScale = ini.r_float("volume", "ConfinementScale");
 
 	if (ini.line_exist("volume", "Decay"))
-		m_Settings.m_fDecay = ini.r_float("volume", "Decay");
+		prepared.settings.m_fDecay = ini.r_float("volume", "Decay");
 
 	if (ini.line_exist("volume", "GravityBuoyancy"))
-		m_Settings.m_fGravityBuoyancy = ini.r_float("volume", "GravityBuoyancy");
+		prepared.settings.m_fGravityBuoyancy = ini.r_float("volume", "GravityBuoyancy");
 
 
 	u32 iEmittersNum = ini.r_u32("volume", "EmittersNum");
 
-	m_Emitters.resize(iEmittersNum);
+	prepared.emitters.resize(iEmittersNum);
 
 	for (u32 i = 0; i < iEmittersNum; ++i)
 	{
 		string32 EmitterSectionName;
-		CEmitter& Emitter = m_Emitters[i];
+		CEmitter& Emitter = prepared.emitters[i];
 		ZeroMemory(&Emitter, sizeof(Emitter));
 		xr_sprintf(EmitterSectionName, "emitter%02d", i);
 
@@ -218,17 +231,18 @@ void dx103DFluidData::ParseProfile(const xr_string& Profile)
 		}
 	}
 
-	//	Allow real-time config reload
-#ifdef	DEBUG
-	FluidManager.RegisterFluidData(this, Profile);
-#endif	//	DEBUG
 }
 
 //	Allow real-time config reload
 #ifdef	DEBUG
 void dx103DFluidData::ReparseProfile(const xr_string &Profile)
 {
-	m_Emitters.clear_not_free();
-	ParseProfile(Profile);
+	PreparedData prepared;
+	prepared.profile = Profile;
+	prepared.transform = m_Transform;
+	ParseProfile(Profile, prepared);
+	m_Settings = prepared.settings;
+	m_Emitters.swap(prepared.emitters);
+	FluidManager.RegisterFluidData(this, Profile);
 }
 #endif	//	DEBUG

@@ -110,6 +110,7 @@ public:
 	virtual bool Load(u32 dwNum);
 	virtual bool Load_GameSpecific_Before() { return TRUE; }; // before object loading
 	virtual bool Load_GameSpecific_After() { return TRUE; }; // after object loading
+	virtual bool Load_Prepared_Environment() { return false; }
 	virtual void Load_GameSpecific_CFORM(CDB::TRI* T, u32 count) = 0;
 
 	virtual void _BCL OnFrame(void);

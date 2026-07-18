@@ -6,7 +6,7 @@
 
 extern int ps_r2_shadow_omnipart_vischeck;
 
-light::light()
+light::light(bool publish)
 {
 	ISpatialOwner::spatial_create(g_SpatialSpaceLights, this, STYPE_LIGHTSOURCE);
 	//ISpatialOwner::spatial_create(g_SpatialSpace, this, STYPE_LIGHTSOURCE);
@@ -38,7 +38,14 @@ light::light()
 	omnipart_num = 0;
 	sss_id = -1;
 	sss_refresh = 0;
-    sss_remove_latency = 0;
+	sss_remove_latency = 0;
+	sss_priority = 0;
+	sss_is_playerlight = false;
+	m_published = publish;
+	omipart_parent = nullptr;
+	distance = 0.f;
+	distance_lpos = 0.f;
+	m_moving_frames = 0;
 
 
 #if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
@@ -49,11 +56,17 @@ light::light()
 	CHK_DX(CreateQuery(&vis.Q, D3DQUERYTYPE_OCCLUSION));
 	vis.visible = true;
 	vis.pending = false;
+	vis.smap_ID = 0;
+	vis.distance = 0.f;
+	m_xform_frame = u32(-1);
+	m_parent_p_frame = u32(-1);
+	m_parent_u_frame = u32(-1);
 	m_sectors = {};
 	X.S.posX = 0;
 	X.S.posY = 0;
 	X.S.size = SMAP_adapt_max;
-	RImplementation.v_all_lights.emplace(this);
+	if (m_published)
+		RImplementation.v_all_lights.emplace(this);
 #endif // (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
 }
 
@@ -61,7 +74,8 @@ light::~light()
 {
 	m_parent = nullptr;
 #if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
-	RImplementation.v_all_lights.erase(this);
+	if (m_published)
+		RImplementation.v_all_lights.erase(this);
 	for (int f = 0; f < 6; f++) xr_delete(omnipart[f]);
 	_RELEASE(vis.Q);
 #endif // (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
@@ -80,6 +94,11 @@ light::~light()
 void light::destroy(bool deffered)
 {
 	set_active(false);
+	if (!m_published)
+	{
+		xr_delete(this);
+		return;
+	}
 	if (deffered)
 	{
 		if (std::find(RImplementation.v_all_lights_dque.begin(), RImplementation.v_all_lights_dque.end(), this) == RImplementation.v_all_lights_dque.end())
@@ -87,6 +106,70 @@ void light::destroy(bool deffered)
 	}
 	else
 		xr_delete(this);
+}
+
+void light::publish_for_render()
+{
+	if (m_published)
+		return;
+#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+	RImplementation.v_all_lights.emplace(this);
+	m_published = true;
+	for (light* child : omnipart)
+		if (child)
+			child->publish_for_render();
+#else
+	m_published = true;
+#endif
+}
+
+void light::reset_for_cache()
+{
+	set_active(false);
+	if (sss_on_light_destroy)
+		sss_on_light_destroy(this);
+	sss_on_light_destroy.clear();
+	sss_id = -1;
+	sss_refresh = 0;
+	sss_remove_latency = 0;
+	sss_priority = 0;
+	sss_is_playerlight = false;
+	frame_render = 0;
+	m_moving_frames = 0;
+	omnipart_num = 0;
+	omipart_parent = nullptr;
+	SpatialComponent->spatial.sector = nullptr;
+#if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
+	for (light* child : omnipart)
+		if (child)
+			child->reset_for_cache();
+	if (m_published)
+	{
+		RImplementation.v_all_lights.erase(this);
+		m_published = false;
+	}
+	vis.frame2test = 0;
+	vis.visible = true;
+	vis.pending = false;
+	vis.smap_ID = 0;
+	vis.distance = 0.f;
+	m_xform_frame = 0;
+	m_parent_p_frame = 0;
+	m_parent_u_frame = 0;
+	distance = 0.f;
+	distance_lpos = 0.f;
+	indirect.clear_and_free();
+#if !defined(XRCPU_PIPE_EXPORTS) && !defined(_EDITOR)
+	GMLight.clear();
+#endif
+#if !defined(XRCPU_PIPE_EXPORTS)
+	xrCriticalSectionGuard guard(&sectors_lc);
+	m_sectors.clear();
+#endif
+#else
+	m_published = false;
+#endif
+	hom.clear();
 }
 
 #if (RENDER==R_R2) || (RENDER==R_R3) || (RENDER==R_R4)
@@ -223,7 +306,7 @@ void light::set_shadow(bool b)
 			{
 				for (int f=0; f<6; f++)
 				{
-					omnipart[f] = xr_new<light>();
+					omnipart[f] = xr_new<light>(m_published);
 					omnipart[f]->m_parent = this;
 					omnipart[f]->set_type(IRender_Light::OMNIPART);
 					omnipart[f]->set_shadow(true);
@@ -333,6 +416,12 @@ void light::spatial_move()
 				SpatialComponent->spatial.sphere.R = fSphereR;
 			}
 			break;
+	}
+
+	if (!m_published)
+	{
+		m_moving_frames = 0;
+		return;
 	}
 
 	// update spatial DB

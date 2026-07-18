@@ -28,6 +28,7 @@ public:
 	virtual void net_Export(NET_Packet& P) { CInventoryItemObject::net_Export(P); }
 	virtual void net_Import(NET_Packet& P) { CInventoryItemObject::net_Import(P); }
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	virtual CGameObject* cast_game_object() { return this; }
 	virtual CExplosive* cast_explosive() { return this; }
 	virtual IDamageSource* cast_IDamageSource() { return CExplosive::cast_IDamageSource(); }

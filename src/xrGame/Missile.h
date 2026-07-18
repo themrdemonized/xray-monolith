@@ -68,6 +68,7 @@ protected:
 
 	//для сети
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 protected:
 
 	//время нахождения в текущем состоянии

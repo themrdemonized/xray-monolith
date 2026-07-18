@@ -31,11 +31,22 @@ public:
 		SimulationType m_SimulationType;
 	};
 
+	struct PreparedData
+	{
+		xr_string profile;
+		Fmatrix transform;
+		xr_vector<Fmatrix> obstacles;
+		xr_vector<dx103DFluidEmitters::CEmitter> emitters;
+		Settings settings;
+	};
+
 public:
 	dx103DFluidData();
 	~dx103DFluidData();
 
+	static void Prepare(IReader* data, PreparedData& prepared);
 	void Load(IReader* data);
+	void LoadPrepared(const PreparedData& prepared);
 
 	void SetTexture(eVolumePrivateRT id, ID3DTexture3D* pT)
 	{
@@ -81,7 +92,7 @@ private:
 	void CreateRTTextureAndViews(int rtIndex, D3D_TEXTURE3D_DESC TexDesc);
 	void DestroyRTTextureAndViews(int rtIndex);
 
-	void ParseProfile(const xr_string& Profile);
+	static void ParseProfile(const xr_string& Profile, PreparedData& prepared);
 
 private:
 	Fmatrix m_Transform;

@@ -60,6 +60,7 @@ IGame_Persistent::IGame_Persistent()
 
 IGame_Persistent::~IGame_Persistent()
 {
+	WaitGamePrefetch();
 	xr_delete(PerlinNoise1D);
 	RDEVICE.seqFrame.Remove(this);
 	RDEVICE.seqAppStart.Remove(this);
@@ -86,10 +87,6 @@ void IGame_Persistent::OnAppDeactivate()
 
 void IGame_Persistent::OnAppStart()
 {
-#ifndef _EDITOR
-	Environment().load();
-#endif
-
 	// Texture Prefetch Config
 	string_path file_name;
 	m_textures_prefetch_config =
@@ -174,24 +171,71 @@ void IGame_Persistent::OnGameStart()
 }
 
 xr_task_group prefetch_task;
+NativeLoadExecutor::Batch prefetch_batch;
+
+void WaitGamePrefetch()
+{
+	NativeLoadExecutor::Batch batch = prefetch_batch;
+	prefetch_batch = {};
+	if (batch.Valid())
+		NativeLoadExecutor::Instance().Wait(batch);
+	prefetch_task.wait();
+}
+
 #ifndef _EDITOR
 void IGame_Persistent::Prefetch()
 {
+	WaitGamePrefetch();
 	Msg("* [x-ray]: Prefetching Data");
 	// prefetch game objects & models
 	float p_time = 1000.f * Device.GetTimerGlobal()->GetElapsed_sec();
 	size_t mem_0 = Memory.mem_usage();
 
 	PROF_EVENT("Prefetch");
-	static DWORD this_thread_id = 0;
-	this_thread_id = GetCurrentThreadId();
-	prefetch_task.run([this]()
+	struct texture_folder
 	{
-		{
-			PROF_EVENT("Prefetch Loading models");
-			Log("Loading models...");
-			Render->models_Prefetch();
-		}
+		shared_str name;
+		bool recursive;
+	};
+	xr_vector<texture_folder> texture_folders;
+	xr_vector<shared_str> texture_names;
+	xr_vector<shared_str> object_visuals;
+	if (m_textures_prefetch_config->section_exist("prefetch_folders"))
+	{
+		const CInifile::Sect& section = m_textures_prefetch_config->r_section("prefetch_folders");
+		texture_folders.reserve(section.Data.size());
+		for (CInifile::SectCIt item = section.Data.begin(); item != section.Data.end(); ++item)
+			texture_folders.push_back({item->first, item->second.size() && !xr_strcmp(*item->second, "*")});
+	}
+	if (m_textures_prefetch_config->section_exist("prefetch_textures"))
+	{
+		const CInifile::Sect& section = m_textures_prefetch_config->r_section("prefetch_textures");
+		texture_names.reserve(section.Data.size());
+		for (CInifile::SectCIt item = section.Data.begin(); item != section.Data.end(); ++item)
+			texture_names.push_back(item->first);
+	}
+	string256 object_section;
+	strconcat(sizeof(object_section), object_section, "prefetch_objects_", m_game_params.m_game_type);
+	if (pSettings->section_exist(object_section))
+	{
+		const CInifile::Sect& section = pSettings->r_section(object_section);
+		for (CInifile::SectCIt item = section.Data.begin(); item != section.Data.end(); ++item)
+			if (pSettings->section_exist(item->first.c_str()) &&
+				pSettings->line_exist(item->first.c_str(), "visual"))
+				object_visuals.push_back(pSettings->r_string(item->first.c_str(), "visual"));
+	}
+
+	NativeLoadExecutor& executor = NativeLoadExecutor::Instance();
+	prefetch_batch = executor.BeginBatch(executor.CurrentGeneration());
+	auto submit = [&executor](NativeLoadPriority priority, auto&& work)
+	{
+		if (prefetch_batch.Valid())
+			executor.Submit(prefetch_batch, priority, std::forward<decltype(work)>(work));
+		else
+			prefetch_task.run(std::forward<decltype(work)>(work));
+	};
+	submit(NativeLoadPriority::ShaderTexture, [texture_folders, texture_names]()
+	{
 		{
 			PROF_EVENT("Loading textures");
 			Log("Loading textures...");
@@ -208,57 +252,46 @@ void IGame_Persistent::Prefetch()
 						Device.m_pRender->ResourcesPrefetchCreateTexture(it->name.c_str());
 				};
 
-			if (m_textures_prefetch_config->section_exist("prefetch_folders"))
+			for (const texture_folder& item : texture_folders)
 			{
-				CInifile::Sect const& sect_f = m_textures_prefetch_config->r_section("prefetch_folders");
-				for (CInifile::SectCIt I = sect_f.Data.begin(); I != sect_f.Data.end(); I++)
+				if (item.recursive)
 				{
-					if (I->second.size() && !xr_strcmp(*I->second, "*"))
+					string_path folder;
+					FS.update_path(folder, "$game_textures$", item.name.c_str());
+					xr_strcat(folder, sizeof(folder), "\\");
+					xr_vector<LPSTR>* subfolders = FS.file_list_open(folder, FS_ListFolders);
+					if (subfolders)
 					{
-						string_path folder;
-						FS.update_path(folder, "$game_textures$", *I->first);
-						xr_strcat(folder, sizeof(folder), "\\");
-
-						xr_vector<LPSTR>* subfolders = FS.file_list_open(folder, FS_ListFolders);
-
-						if (subfolders == nullptr)
-						{
-							FS.file_list_close(subfolders);
-							continue;
-						}
-
 						for (LPSTR subfolder : *subfolders)
 						{
 							string_path path;
 							strconcat(sizeof(path), path, folder, subfolder);
-
 							loadFileFolder(path);
 						}
-
-						FS.file_list_close(subfolders);
 					}
-
-					loadFileFolder(*I->first);
+					FS.file_list_close(subfolders);
 				}
+				loadFileFolder(item.name.c_str());
 			}
 
-			if (m_textures_prefetch_config->section_exist("prefetch_textures"))
-			{
-				CInifile::Sect const& sect = m_textures_prefetch_config->r_section("prefetch_textures");
-				for (CInifile::SectCIt I = sect.Data.begin(); I != sect.Data.end(); I++)
-					Device.m_pRender->ResourcesPrefetchCreateTexture(I->first.c_str());
-			}
-
-			Device.m_pRender->ResourcesDeferredUpload();
+			for (const shared_str& texture : texture_names)
+				Device.m_pRender->ResourcesPrefetchCreateTexture(texture.c_str());
 		}
 	});
-	{
-		// prefetch game objects & models
-		PROF_EVENT("Loading objects");
-		Log("Loading objects...");
-		ObjectPool.prefetch();
-	}
+	for (const shared_str& visual : object_visuals)
+		submit(NativeLoadPriority::Spawn, [visual]()
+		{
+			xr_vector<xr_string> textures;
+			Render->model_CollectTextures(visual.c_str(), nullptr, textures);
+			for (const xr_string& texture : textures)
+				Device.m_pRender->ResourcesPrefetchCreateTexture(texture.c_str());
+		});
 
+	// Model creation can enter renderer Lua shader lookup. Keep it on the
+	// original owner thread while pure texture discovery/loading overlaps it.
+	PROF_EVENT("Prefetch Loading models");
+	Log("Loading models...");
+	Render->models_Prefetch();
 	Msg("* [x-ray]: Prefetched Data");
 	p_time = 1000.f * Device.GetTimerGlobal()->GetElapsed_sec() - p_time;
 	size_t p_mem = Memory.mem_usage() - mem_0;
@@ -272,6 +305,7 @@ void IGame_Persistent::Prefetch()
 void IGame_Persistent::OnGameEnd()
 {
 #ifndef _EDITOR
+	WaitGamePrefetch();
 	ObjectPool.clear();
 	Render->models_Clear(TRUE);
 #endif
@@ -338,6 +372,8 @@ void IGame_Persistent::destroy_particles(bool all_particles)
 void IGame_Persistent::OnAssetsChanged()
 {
 #ifndef _EDITOR
+	if (pApp && pApp->LoadSessionActive())
+		pApp->LoadSessionCancel("assets changed");
 	Device.m_pRender->OnAssetsChanged(); //Resources->m_textures_description.Load();
 #endif
 }

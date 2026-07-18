@@ -18,6 +18,7 @@ public:
 	NET_Packet* Create(const NET_Packet& _other);
 	NET_Packet* Retreive();
 	void Release();
+	bool Empty();
 	inline void Lock() { cs.Enter(); };
 	inline void Unlock() { cs.Leave(); };
 };
@@ -98,6 +99,7 @@ public:
 	IC void StartProcessQueue() { net_Queue.Lock(); }; // WARNING ! after Start mast be End !!! <-
 	IC virtual NET_Packet* net_msg_Retreive() { return net_Queue.Retreive(); }; //							|
 	IC void net_msg_Release() { net_Queue.Release(); }; //							|
+	IC bool net_msg_Empty() { return net_Queue.Empty(); }
 	IC void EndProcessQueue() { net_Queue.Unlock(); }; //							<-
 
 	// send

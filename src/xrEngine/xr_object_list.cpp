@@ -34,6 +34,8 @@ CObjectList::~CObjectList()
 {
 	R_ASSERT(objects_active.empty());
 	R_ASSERT(objects_sleeping.empty());
+	R_ASSERT(objects_relcase_active.empty());
+	R_ASSERT(objects_relcase_sleeping.empty());
     ProcessDestroyQueueImpl(force_destroy_queue);
     ProcessDestroyQueueImpl(destroy_queue);
     R_ASSERT(destroy_queue.empty());
@@ -84,11 +86,25 @@ void CObjectList::o_remove(Objects& v, CObject* O)
 	//. Msg("---o_remove[%s][%d]", O->cName().c_str(), O->ID() );
 }
 
+void CObjectList::o_remove_relcase(Objects& v, CObject* O)
+{
+	VERIFY(O->net_RelcaseNeeded());
+	if (!v.empty() && v.back() == O)
+		v.pop_back();
+	else
+		o_remove(v, O);
+}
+
 void CObjectList::o_activate(CObject* O)
 {
 	VERIFY(O && O->processing_enabled());
 	o_remove(objects_sleeping, O);
 	objects_active.push_back(O);
+	if (O->net_RelcaseNeeded())
+	{
+		o_remove_relcase(objects_relcase_sleeping, O);
+		objects_relcase_active.push_back(O);
+	}
 	O->MakeMeCrow();
 }
 
@@ -97,6 +113,11 @@ void CObjectList::o_sleep(CObject* O)
 	VERIFY(O && !O->processing_enabled());
 	o_remove(objects_active, O);
 	objects_sleeping.push_back(O);
+	if (O->net_RelcaseNeeded())
+	{
+		o_remove_relcase(objects_relcase_active, O);
+		objects_relcase_sleeping.push_back(O);
+	}
 	O->MakeMeCrow();
 }
 
@@ -284,10 +305,10 @@ void CObjectList::ProcessDestroyQueueImpl(Objects& queue)
         for (int it = queue.size() - 1; it >= 0; it--)
         {
             auto obj = queue[it];
-            for (const auto oit : objects_active)
+            for (const auto oit : objects_relcase_active)
                 oit->net_Relcase(obj);
 
-            for (const auto oit : objects_sleeping)
+            for (const auto oit : objects_relcase_sleeping)
                 oit->net_Relcase(obj);
 
             if (Sound)
@@ -424,7 +445,8 @@ return (it==map_NETID.end())?0:it->second;
 */
 void CObjectList::Load()
 {
-	R_ASSERT(/*map_NETID.empty() &&*/ objects_active.empty() && force_destroy_queue.empty() && destroy_queue.empty() && objects_sleeping.empty());
+	R_ASSERT(/*map_NETID.empty() &&*/ objects_active.empty() && force_destroy_queue.empty() && destroy_queue.empty() &&
+		objects_sleeping.empty() && objects_relcase_active.empty() && objects_relcase_sleeping.empty());
 }
 
 void CObjectList::ClearProcessDestroyQueueFromDevice()
@@ -479,6 +501,8 @@ void CObjectList::Unload()
     // Clear the destroy_queues from dangling pointers
     force_destroy_queue.clear();
     destroy_queue.clear();
+	R_ASSERT(objects_relcase_active.empty());
+	R_ASSERT(objects_relcase_sleeping.empty());
 }
 
 CObject* CObjectList::Create(LPCSTR name)
@@ -487,7 +511,11 @@ CObject* CObjectList::Create(LPCSTR name)
 	// Msg("CObjectList::Create [%x]%s", O, name);
 
     if (O)
+	{
 	    objects_sleeping.push_back(O);
+		if (O->net_RelcaseNeeded())
+			objects_relcase_sleeping.push_back(O);
+	}
 
 	return O;
 }
@@ -512,11 +540,13 @@ void CObjectList::Destroy(CObject* O)
 		VERIFY(std::find(crows.begin(), crows.end(), O) == crows.end());
 	}
 
-	// active/inactive
-	Objects::iterator _i = std::find(objects_active.begin(), objects_active.end(), O);
-	if (_i != objects_active.end())
+	// Full teardown queues objects in active/sleeping order and destroys them in
+	// reverse order. Keep the stable-erase fallback for every other path.
+	if (!objects_active.empty() && objects_active.back() == O)
 	{
-		objects_active.erase(_i);
+		objects_active.pop_back();
+		if (O->net_RelcaseNeeded())
+			o_remove_relcase(objects_relcase_active, O);
 		VERIFY(std::find(objects_active.begin(), objects_active.end(), O) == objects_active.end());
 		VERIFY(
 			std::find(
@@ -526,16 +556,44 @@ void CObjectList::Destroy(CObject* O)
 			) == objects_sleeping.end()
 		);
 	}
+	else if (!objects_sleeping.empty() && objects_sleeping.back() == O)
+	{
+		objects_sleeping.pop_back();
+		if (O->net_RelcaseNeeded())
+			o_remove_relcase(objects_relcase_sleeping, O);
+		VERIFY(std::find(objects_active.begin(), objects_active.end(), O) == objects_active.end());
+		VERIFY(std::find(objects_sleeping.begin(), objects_sleeping.end(), O) == objects_sleeping.end());
+	}
 	else
 	{
-		Objects::iterator _ii = std::find(objects_sleeping.begin(), objects_sleeping.end(), O);
-		if (_ii != objects_sleeping.end())
+		Objects::iterator _i = std::find(objects_active.begin(), objects_active.end(), O);
+		if (_i != objects_active.end())
 		{
-			objects_sleeping.erase(_ii);
-			VERIFY(std::find(objects_sleeping.begin(), objects_sleeping.end(), O) == objects_sleeping.end());
+			objects_active.erase(_i);
+			if (O->net_RelcaseNeeded())
+				o_remove_relcase(objects_relcase_active, O);
+			VERIFY(std::find(objects_active.begin(), objects_active.end(), O) == objects_active.end());
+			VERIFY(
+				std::find(
+					objects_sleeping.begin(),
+					objects_sleeping.end(),
+					O
+				) == objects_sleeping.end()
+			);
 		}
 		else
-			FATAL("! Unregistered object being destroyed");
+		{
+			Objects::iterator _ii = std::find(objects_sleeping.begin(), objects_sleeping.end(), O);
+			if (_ii != objects_sleeping.end())
+			{
+				objects_sleeping.erase(_ii);
+				if (O->net_RelcaseNeeded())
+					o_remove_relcase(objects_relcase_sleeping, O);
+				VERIFY(std::find(objects_sleeping.begin(), objects_sleeping.end(), O) == objects_sleeping.end());
+			}
+			else
+				FATAL("! Unregistered object being destroyed");
+		}
 	}
 
 	g_pGamePersistent->ObjectPool.destroy(O);

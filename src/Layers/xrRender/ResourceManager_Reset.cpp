@@ -10,6 +10,10 @@
 
 void CResourceManager::reset_begin()
 {
+	NativeLoadExecutor::Instance().WaitCurrentGenerationIdle();
+	WaitForTextureLoads();
+	InvalidateTextureSourceCache();
+
 	// destroy everything, renderer may use
 	::Render->reset_begin();
 
@@ -108,12 +112,76 @@ void mdump(C c)
 
 CResourceManager::~CResourceManager()
 {
+	WaitForTextureLoads();
 	DestroyNecessaryTextures();
+	m_deferredTextureLoads.clear();
+	m_ownerTextureLoads.clear();
+	m_prefetchedTextures.clear();
 	Dump(false);
+}
+
+void CResourceManager::InvalidateTextureSourceCache()
+{
+	xrCriticalSectionGuard guard(textureSourceGuard);
+	m_textureSourceCache.clear();
+}
+
+void CResourceManager::InvalidateLevelShaderCache()
+{
+	xr_map<xr_string, ref_shader> cache;
+	for (;;)
+	{
+		xr_vector<xr_shared_ptr<level_shader_job>> jobs;
+		{
+			xrCriticalSectionGuard guard(creationGuard);
+			if (m_level_shader_jobs.empty())
+			{
+				cache.swap(m_level_shader_cache);
+				break;
+			}
+			jobs.reserve(m_level_shader_jobs.size());
+			for (const auto& item : m_level_shader_jobs)
+				jobs.push_back(item.second);
+		}
+		for (const xr_shared_ptr<level_shader_job>& job : jobs)
+			WaitForSingleObject(job->completed, INFINITE);
+	}
+	cache.clear();
+}
+
+void CResourceManager::ReleaseLevelShaderCache(LPCSTR canonical_level_path, u64 recipe_identity)
+{
+	if (!canonical_level_path || !canonical_level_path[0])
+		return;
+
+	string32 identity;
+	xr_sprintf(identity, "%016llx", recipe_identity);
+	xr_string suffix = "\n";
+	suffix += canonical_level_path;
+	suffix += '\n';
+	suffix += identity;
+
+	xr_map<xr_string, ref_shader> released;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		for (auto item = m_level_shader_cache.begin(); item != m_level_shader_cache.end();)
+		{
+			const xr_string& key = item->first;
+			if (key.size() < suffix.size() || key.compare(key.size() - suffix.size(), suffix.size(), suffix))
+			{
+				++item;
+				continue;
+			}
+			released.emplace(item->first, item->second);
+			item = m_level_shader_cache.erase(item);
+		}
+	}
+	released.clear();
 }
 
 void CResourceManager::Dump(bool bBrief)
 {
+	xrCriticalSectionGuard guard(creationGuard);
 	Msg("* RM_Dump: textures  : %d", m_textures.size());
 	if (!bBrief) mdump(m_textures);
 	Msg("* RM_Dump: rtargets  : %d", m_rtargets.size());

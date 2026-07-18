@@ -34,6 +34,7 @@ public:
 
 protected:
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	virtual void UpdateCLChild();
 
 	//гравитационный удар по всем объектам в зоне досягаемости

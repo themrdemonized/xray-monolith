@@ -513,7 +513,6 @@ BOOL CResourceManager::_lua_HasShader(LPCSTR s_shader)
 
 Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 {
-	xrCriticalSectionGuard guard(creationGuard);
 	CBlender_Compile C;
 	Shader S;
 
@@ -604,16 +603,7 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 		S.E[4] = C._lua_Compile(s_shader, "l_special");
 	}
 
-	// Search equal in shaders array
-	for (u32 it = 0; it < v_shaders.size(); it++)
-		if (S.equal(v_shaders[it])) return v_shaders[it];
-
-	// Create _new_ entry
-	Shader* N = xr_new<Shader>(S);
-	//N->_copy(S);
-	N->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-	v_shaders.push_back(N);
-	return N;
+	return _CreateShader(&S);
 }
 
 ShaderElement* CBlender_Compile::_lua_Compile(LPCSTR namesp, LPCSTR name)

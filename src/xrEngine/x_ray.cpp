@@ -8,6 +8,7 @@
 #include "stdafx.h"
 #include "igame_level.h"
 #include "igame_persistent.h"
+#include "Render.h"
 
 #include "dedicated_server_only.h"
 #include "no_single.h"
@@ -65,6 +66,20 @@ bool use_discord = true;
 rpc_info discord_gameinfo;
 rpc_strings discord_strings;
 float discord_update_rate = .5f;
+
+static ULONGLONG startup_begin_time;
+
+void LogStartupMenuReady()
+{
+	static bool logged = false;
+	if (!logged)
+	{
+		logged = true;
+		Msg("* [STARTUP] total to main menu: %llu ms", GetTickCount64() - startup_begin_time);
+	}
+	if (Sound && (!pApp || !pApp->LoadSessionActive()))
+		Sound->source_prefetch_start();
+}
 
 //UTF-8 (ICU)
 #pragma comment(lib, "icuuc.lib")
@@ -202,14 +217,35 @@ extern float g_fTimeFactor;
 PROTECT_API void InitSettings()
 {
 	PROF_EVENT("InitSettings");
-	string_path fname;
-	FS.update_path(fname, "$game_config$", "system.ltx");
+	string_path systemPath;
+	string_path gamePath;
+	FS.update_path(systemPath, "$game_config$", "system.ltx");
+	FS.update_path(gamePath, "$game_config$", "game.ltx");
 #ifdef DEBUG
-    Msg("Updated path to system.ltx is %s", fname);
+    Msg("Updated path to system.ltx is %s", systemPath);
 #endif // #ifdef DEBUG
-	pSettings = xr_new<CInifile>(fname, TRUE);
+
+	CInifile* systemSettings = nullptr;
+	CInifile* gameSettings = nullptr;
+	xr_task_group settingsTasks;
+	settingsTasks.run([&]() { systemSettings = xr_new<CInifile>(systemPath, TRUE); });
+	settingsTasks.run([&]() { gameSettings = xr_new<CInifile>(gamePath, TRUE); });
+	try
+	{
+		settingsTasks.wait();
+	}
+	catch (...)
+	{
+		xr_delete(systemSettings);
+		xr_delete(gameSettings);
+		throw;
+	}
+	pSettings = systemSettings;
+	pGameIni = gameSettings;
 	CHECK_OR_EXIT(0 != pSettings->section_count(),
-	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", fname));
+	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", systemPath));
+	CHECK_OR_EXIT(0 != pGameIni->section_count(),
+	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", gamePath));
 
 	xr_auth_strings_t tmp_ignore_pathes;
 	xr_auth_strings_t tmp_check_pathes;
@@ -219,18 +255,13 @@ PROTECT_API void InitSettings()
 	CInifile::allow_include_func_t tmp_functor;
 	tmp_functor.bind(&tmp_excluder, &path_excluder_predicate::is_allow_include);
 	pSettingsAuth = xr_new<CInifile>(
-		fname,
+		systemPath,
 		TRUE,
 		TRUE,
 		FALSE,
 		0,
 		tmp_functor
 	);
-
-	FS.update_path(fname, "$game_config$", "game.ltx");
-	pGameIni = xr_new<CInifile>(fname, TRUE);
-	CHECK_OR_EXIT(0 != pGameIni->section_count(),
-	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", fname));
 
 	g_fTimeFactor = pSettings->r_float("alife", "time_factor");
 }
@@ -586,6 +617,10 @@ void clearDiscordPresence()
 
 void Startup()
 {
+	CTimer startup_timer;
+	CTimer phase_timer;
+	startup_timer.Start();
+	phase_timer.Start();
 #ifndef DEDICATED_SERVER
 	fill_vid_monitor_list();
 #endif
@@ -593,6 +628,7 @@ void Startup()
 	InitSound1();
 	execUserScript();
 	InitSound2();
+	Msg("* [STARTUP] sound and user config: %d ms", phase_timer.GetElapsed_ms());
 
 #ifndef DEDICATED_SERVER
 	{
@@ -643,14 +679,20 @@ void Startup()
 	}
 
 	// Initialize APP
+	if (Sound)
+		Sound->source_prefetch_pause();
+	phase_timer.Start();
 	Device.Create();
+	Msg("* [STARTUP] render device: %d ms", phase_timer.GetElapsed_ms());
 
+	phase_timer.Start();
 	LALib.OnCreate();
 	pApp = xr_new<CApplication>();
 	g_pGamePersistent = (IGame_Persistent*)NEW_INSTANCE(CLSID_GAME_PERSISTANT);
 	g_SpatialSpace = xr_new<ISpatial_DB>();
 	g_SpatialSpacePhysic = xr_new<ISpatial_DB>();
 	g_SpatialSpaceLights = xr_new<ISpatial_DB>();
+	Msg("* [STARTUP] application and game persistent: %d ms", phase_timer.GetElapsed_ms());
 
 	// Destroy LOGO
 	DestroyWindow(logoWindow);
@@ -665,12 +707,20 @@ void Startup()
 		Msg("[ReShade]: Loaded compatibility addon");
 	else
 		Msg("[ReShade]: ReShade not installed or version too old - didn't load compatibility addon");
+	Msg("* [STARTUP] before main loop: %d ms", startup_timer.GetElapsed_ms());
 
 	// Main cycle
 	Msg("* [x-ray]: Starting Main Loop");
 	//Memory.mem_usage();
 
 	Device.Run();
+	if (Sound)
+		Sound->source_prefetch_stop();
+	if (pApp && pApp->LoadSessionActive())
+	{
+		try { pApp->LoadSessionCancel("main loop stopped"); }
+		catch (...) { Msg("! [load-session] cleanup failed after main loop stopped"); }
+	}
 
 	// Discord
 	clearDiscordPresence();
@@ -1095,12 +1145,18 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	// g_temporary_stuff = &trivial_encryptor::decode;
 
 	compute_build_id();
+	ULONGLONG early_phase_time = GetTickCount64();
 	Core._initialize("xray", NULL, TRUE, fsgame[0] ? fsgame : NULL);
+	Msg("* [STARTUP] core and filesystem: %llu ms", GetTickCount64() - early_phase_time);
 
+	CTimer startup_phase_timer;
+	startup_phase_timer.Start();
 	InitSettings();
+	Msg("* [STARTUP] settings: %d ms", startup_phase_timer.GetElapsed_ms());
 	Msg(XRAY_MONOLITH_VERSION);
 
 	{
+		startup_phase_timer.Start();
 		FS_FileSet fset;
 		FS.file_list(fset, "$game_data$", FS_ListFiles, "*");
 
@@ -1123,6 +1179,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 				break;
 			}
 		}
+		Msg("* [STARTUP] gamedata listing: %d ms", startup_phase_timer.GetElapsed_ms());
 	}
 
 	// Adjust player & computer name for Asian
@@ -1139,6 +1196,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 #endif // DEDICATED_SERVER
 
 		FPU::m24r();
+		startup_phase_timer.Start();
 		InitEngine();
 
 		InitInput();
@@ -1146,6 +1204,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		InitConsole();
 
 		Engine.External.CreateRendererList();
+		Msg("* [STARTUP] engine/input/console: %d ms", startup_phase_timer.GetElapsed_ms());
 
 		LPCSTR benchName = "-batch_benchmark ";
 		if (strstr(lpCmdLine, benchName))
@@ -1187,6 +1246,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		};
 
 #ifndef DEDICATED_SERVER
+		startup_phase_timer.Start();
 		if (Core.ParamsData.test(ECoreParams::r2a))
 			Console->Execute("renderer renderer_r2a");
 		else if (Core.ParamsData.test(ECoreParams::r2))
@@ -1197,11 +1257,14 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 			pTmp->Execute(Console->ConfigFile);
 			xr_delete(pTmp);
 		}
+		Msg("* [STARTUP] renderer config: %d ms", startup_phase_timer.GetElapsed_ms());
 #else
         Console->Execute("renderer renderer_r1");
 #endif
 		//. InitInput ( );
+		startup_phase_timer.Start();
 		Engine.External.Initialize();
+		Msg("* [STARTUP] renderer DLL: %d ms", startup_phase_timer.GetElapsed_ms());
 		Console->Execute("stat_memory_async");
 
 		Startup();
@@ -1263,6 +1326,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      char* lpCmdLine,
                      int nCmdShow)
 {
+	startup_begin_time = GetTickCount64();
   // Initialize LuaJIT low-memory pool FIRST, before any DLLs load and fragment
 	// the lower 2GB address space.
 	XR_EARLY_INIT();
@@ -1375,6 +1439,7 @@ void _InitializeFont(CGameFont*& F, LPCSTR section, u32 flags)
 CApplication::CApplication()
 {
 	ll_dwReference = 0;
+	ZeroMemory(&m_load_session, sizeof(m_load_session));
 
 	max_load_stage = 0;
 
@@ -1435,6 +1500,9 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuit)
 	{
+		if (Sound)
+			Sound->source_prefetch_stop();
+		LoadSessionCancel("quit");
 		g_SASH.EndBenchmark();
 
 		PostQuitMessage(0);
@@ -1450,6 +1518,10 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 		PROF_EVENT("CApplication::OnEvent: eStart");
 		LPSTR op_server = LPSTR(P1);
 		LPSTR op_client = LPSTR(P2);
+		IGame_Persistent::params game_params;
+		game_params.parse_cmd_line(op_server ? op_server : "");
+		LoadSessionStartEvent(!xr_strcmp(game_params.m_new_or_load, "new") ? "new-game" :
+			!xr_strcmp(game_params.m_new_or_load, "load") ? "menu-save" : "start");
 		Level_Current = u32(-1);
 		R_ASSERT(0 == g_pGameLevel);
 		R_ASSERT(0 != g_pGamePersistent);
@@ -1488,6 +1560,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	}
 	else if (E == eDisconnect)
 	{
+		LoadSessionPhaseBegin(LoadSessionTeardown);
 		ls_header[0] = '\0';
 		ls_tip_number[0] = '\0';
 		ls_tip[0] = '\0';
@@ -1507,6 +1580,13 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 		}
 		R_ASSERT(0 != g_pGamePersistent);
 		g_pGamePersistent->Disconnect();
+		LoadSessionPhaseEnd(LoadSessionTeardown);
+		if (!Engine.Event.Peek("KERNEL:start"))
+		{
+			LoadSessionCancel("disconnect");
+			if (Sound)
+				Sound->source_prefetch_start();
+		}
 	}
 	else if (E == eConsole)
 	{
@@ -1517,6 +1597,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 	else if (E == eStartMPDemo)
 	{
 		LPSTR demo_file = LPSTR(P1);
+		LoadSessionStartEvent("mp-demo");
 
 		R_ASSERT(0 == g_pGameLevel);
 		R_ASSERT(0 != g_pGamePersistent);
@@ -1542,16 +1623,325 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 }
 
 static CTimer phase_timer;
+static CTimer total_load_timer;
 extern ENGINE_API BOOL g_appLoaded = FALSE;
 //AVO: used by SPAWN_ANTIFREEZE (by alpet)
 extern ENGINE_API BOOL g_bootComplete = FALSE;
 //-AVO
+
+void CApplication::LoadSessionBegin(LPCSTR scenario)
+{
+	if (m_load_session.active)
+		LoadSessionCancel("superseded");
+
+	ZeroMemory(&m_load_session, sizeof(m_load_session));
+	m_load_session.started_at = Device.TimerAsync();
+	m_load_session.client_event_hash = 14695981039346656037ULL;
+	xr_strcpy(m_load_session.scenario, scenario ? scenario : "unknown");
+	try
+	{
+		m_load_session.native_generation = NativeLoadExecutor::Instance().BeginGeneration();
+		if (Device.m_pRender)
+			m_load_session.resource_generation = Device.m_pRender->ResourcesBeginLoadGeneration();
+	}
+	catch (...)
+	{
+		NativeLoadExecutor::Instance().CancelGeneration(m_load_session.native_generation);
+		ZeroMemory(&m_load_session, sizeof(m_load_session));
+		throw;
+	}
+	m_load_session.active = true;
+	Msg("* [load-session] begin scenario=%s", m_load_session.scenario);
+	if (Sound)
+		Sound->source_prefetch_pause();
+}
+
+void CApplication::LoadSessionContinue(LPCSTR scenario)
+{
+	if (!m_load_session.active)
+		LoadSessionBegin(scenario);
+}
+
+void CApplication::LoadSessionExpectReconnect()
+{
+	if (m_load_session.active)
+		m_load_session.reconnect_pending = true;
+}
+
+void CApplication::LoadSessionStartEvent(LPCSTR scenario)
+{
+	if (m_load_session.active && m_load_session.reconnect_pending)
+	{
+		m_load_session.reconnect_pending = false;
+		return;
+	}
+	LoadSessionBegin(scenario);
+}
+
+void CApplication::LoadSessionCancel(LPCSTR reason)
+{
+	if (!m_load_session.active)
+		return;
+
+	std::exception_ptr failure;
+	try
+	{
+		if (m_load_session.native_generation)
+			NativeLoadExecutor::Instance().CancelGeneration(m_load_session.native_generation);
+	}
+	catch (...)
+	{
+		failure = std::current_exception();
+	}
+	if (::Render)
+		::Render->level_AbortAsyncLoad();
+	try
+	{
+		if (Device.m_pRender && m_load_session.resource_generation)
+			Device.m_pRender->ResourcesAbortLoadGeneration(m_load_session.resource_generation);
+	}
+	catch (...)
+	{
+		if (!failure)
+			failure = std::current_exception();
+	}
+	try
+	{
+		if (Device.m_pRender)
+			Device.m_pRender->ResourcesDestroyNecessaryTextures();
+	}
+	catch (...)
+	{
+		if (!failure)
+			failure = std::current_exception();
+	}
+	Msg("* [load-session] cancelled scenario=%s after %u ms (%s)", m_load_session.scenario,
+		Device.TimerAsync() - m_load_session.started_at, reason ? reason : "unknown");
+	ZeroMemory(&m_load_session, sizeof(m_load_session));
+	if (failure)
+		std::rethrow_exception(failure);
+}
+
+void CApplication::LoadSessionSetScenario(LPCSTR scenario)
+{
+	if (m_load_session.active && scenario)
+		xr_strcpy(m_load_session.scenario, scenario);
+}
+
+void CApplication::LoadSessionPhaseBegin(ELoadSessionPhase phase)
+{
+	if (!m_load_session.active || phase >= LoadSessionPhaseCount || m_load_session.phase_running[phase])
+		return;
+
+	m_load_session.phase_running[phase] = true;
+	m_load_session.phase_started_at[phase] = Device.TimerAsync();
+}
+
+void CApplication::LoadSessionPhaseEnd(ELoadSessionPhase phase)
+{
+	if (!m_load_session.active || phase >= LoadSessionPhaseCount || !m_load_session.phase_running[phase])
+		return;
+
+	m_load_session.phase_elapsed[phase] += Device.TimerAsync() - m_load_session.phase_started_at[phase];
+	m_load_session.phase_running[phase] = false;
+}
+
+void CApplication::LoadSessionPrecacheBegin()
+{
+	if (!m_load_session.active)
+		return;
+
+	m_load_session.precache_started = true;
+	m_load_session.precache_started_at = Device.TimerAsync();
+	m_load_session.precache_frames = 0;
+	m_load_session.precache_level_calls = 0;
+	m_load_session.precache_loadscreen_calls = 0;
+	m_load_session.precache_present_calls = 0;
+	m_load_session.precache_wall_ticks = 0;
+	m_load_session.precache_frame_move_ticks = 0;
+	m_load_session.precache_seq_render_ticks = 0;
+	m_load_session.precache_end_ticks = 0;
+	m_load_session.precache_present_ticks = 0;
+	m_load_session.precache_secondary_wait_ticks = 0;
+	m_load_session.precache_level_calculate_ticks = 0;
+	m_load_session.precache_level_render_ticks = 0;
+	m_load_session.precache_loadscreen_ticks = 0;
+}
+
+bool CApplication::LoadSessionMeasurePrecache() const
+{
+	return m_load_session.active && m_load_session.precache_started &&
+		Device.dwPrecacheFrame && Device.dwPrecacheTotal == 60;
+}
+
+void CApplication::LoadSessionRecordPrecacheFrame(u64 wall_ticks, u64 frame_move_ticks,
+	u64 seq_render_ticks, u64 end_ticks, u64 secondary_wait_ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_frames;
+	m_load_session.precache_wall_ticks += wall_ticks;
+	m_load_session.precache_frame_move_ticks += frame_move_ticks;
+	m_load_session.precache_seq_render_ticks += seq_render_ticks;
+	m_load_session.precache_end_ticks += end_ticks;
+	m_load_session.precache_secondary_wait_ticks += secondary_wait_ticks;
+}
+
+void CApplication::LoadSessionRecordPrecacheLevel(u64 calculate_ticks, u64 render_ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_level_calls;
+	m_load_session.precache_level_calculate_ticks += calculate_ticks;
+	m_load_session.precache_level_render_ticks += render_ticks;
+}
+
+void CApplication::LoadSessionRecordPrecacheLoadscreen(u64 ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_loadscreen_calls;
+	m_load_session.precache_loadscreen_ticks += ticks;
+}
+
+void CApplication::LoadSessionRecordPrecachePresent(u64 ticks)
+{
+	if (!m_load_session.active || !m_load_session.precache_started)
+		return;
+
+	++m_load_session.precache_present_calls;
+	m_load_session.precache_present_ticks += ticks;
+}
+
+void CApplication::LoadSessionRecordClientEvent(
+	bool spawn, u16 destination, u16 type, const void* packet_data, u32 packet_size)
+{
+	if (!m_load_session.active)
+		return;
+
+	auto append = [this](const void* data, u32 size)
+	{
+		const u8* bytes = static_cast<const u8*>(data);
+		for (u32 i = 0; i < size; ++i)
+		{
+			m_load_session.client_event_hash ^= bytes[i];
+			m_load_session.client_event_hash *= 1099511628211ULL;
+		}
+	};
+
+	const u8 kind = spawn ? 1 : 2;
+	append(&kind, sizeof(kind));
+	if (spawn)
+	{
+		R_ASSERT(packet_data && packet_size <= NET_PacketSizeLimit);
+		NET_Packet packet;
+		packet.B.count = packet_size;
+		CopyMemory(packet.B.data, packet_data, packet_size);
+		u16 message;
+		packet.r_begin(message);
+		shared_str section;
+		packet.r_stringZ(section);
+		string256 replacement;
+		packet.r_stringZ(replacement);
+		packet.r_u8();
+		packet.r_u8();
+		Fvector position;
+		Fvector angle;
+		packet.r_vec3(position);
+		packet.r_vec3(angle);
+		packet.r_u16();
+		const u16 object_id = packet.r_u16();
+		const u16 parent_id = packet.r_u16();
+		append(&object_id, sizeof(object_id));
+		append(&parent_id, sizeof(parent_id));
+		append(section.c_str(), xr_strlen(section.c_str()));
+		++m_load_session.client_spawn_count;
+	}
+	else
+	{
+		append(&destination, sizeof(destination));
+		append(&type, sizeof(type));
+		++m_load_session.client_event_count;
+	}
+}
+
+void CApplication::LoadSessionTryFinish(bool level_ready, bool control_ready, bool queues_drained)
+{
+	if (!m_load_session.active || !m_load_session.precache_started || Device.dwPrecacheFrame ||
+		!g_loading_events.empty() || !level_ready || !control_ready || !queues_drained)
+		return;
+
+	LoadSessionPhaseBegin(LoadSessionResourceWait);
+	try
+	{
+		if (m_load_session.native_generation)
+			NativeLoadExecutor::Instance().FinalizeGeneration(m_load_session.native_generation);
+	}
+	catch (...)
+	{
+		if (Device.m_pRender && m_load_session.resource_generation)
+			Device.m_pRender->ResourcesAbortLoadGeneration(m_load_session.resource_generation);
+		throw;
+	}
+	if (Device.m_pRender && m_load_session.resource_generation)
+		Device.m_pRender->ResourcesFinalizeLoadGeneration(m_load_session.resource_generation);
+	if (Device.m_pRender)
+		Device.m_pRender->ResourcesDestroyNecessaryTextures();
+	LoadSessionPhaseEnd(LoadSessionResourceWait);
+
+	const u32 now = Device.TimerAsync();
+	Msg("* [load-session] engine ready scenario=%s: %u ms", m_load_session.scenario,
+		now - m_load_session.started_at);
+	Msg("* [load-session] client order: hash=%016llx, spawns=%u, events=%u",
+		m_load_session.client_event_hash, m_load_session.client_spawn_count, m_load_session.client_event_count);
+	Msg("* [load-session] phases: teardown=%u ms, server/lua=%u ms, native level=%u ms, "
+		"resource wait=%u ms, client spawn=%u ms, final precache=%u ms",
+		m_load_session.phase_elapsed[LoadSessionTeardown],
+		m_load_session.phase_elapsed[LoadSessionServerLua],
+		m_load_session.phase_elapsed[LoadSessionNativeLevel],
+		m_load_session.phase_elapsed[LoadSessionResourceWait],
+		m_load_session.phase_elapsed[LoadSessionClientSpawn],
+		now - m_load_session.precache_started_at);
+	const auto to_ms = [](u64 ticks)
+	{
+		return double(ticks) * 1000.0 / double(CPU::qpc_freq);
+	};
+	const u64 serial_ticks = m_load_session.precache_frame_move_ticks +
+		m_load_session.precache_seq_render_ticks + m_load_session.precache_end_ticks +
+		m_load_session.precache_secondary_wait_ticks;
+	const u64 serial_other_ticks = m_load_session.precache_wall_ticks > serial_ticks ?
+		m_load_session.precache_wall_ticks - serial_ticks : 0;
+	const u64 measured_render_ticks = m_load_session.precache_level_calculate_ticks +
+		m_load_session.precache_level_render_ticks + m_load_session.precache_loadscreen_ticks;
+	const u64 render_other_ticks = m_load_session.precache_seq_render_ticks > measured_render_ticks ?
+		m_load_session.precache_seq_render_ticks - measured_render_ticks : 0;
+	Msg("* [load-session] precache perf: frames=%u, calls(level/loadscreen/present)=%u/%u/%u, "
+		"wall=%.2f ms, frame move=%.2f ms, seq render=%.2f ms, level calculate/render=%.2f/%.2f ms, "
+		"loadscreen=%.2f ms, render other=%.2f ms, end/present=%.2f/%.2f ms, "
+		"secondary wait=%.2f ms, serial other=%.2f ms",
+		m_load_session.precache_frames, m_load_session.precache_level_calls,
+		m_load_session.precache_loadscreen_calls, m_load_session.precache_present_calls,
+		to_ms(m_load_session.precache_wall_ticks), to_ms(m_load_session.precache_frame_move_ticks),
+		to_ms(m_load_session.precache_seq_render_ticks),
+		to_ms(m_load_session.precache_level_calculate_ticks),
+		to_ms(m_load_session.precache_level_render_ticks), to_ms(m_load_session.precache_loadscreen_ticks),
+		to_ms(render_other_ticks), to_ms(m_load_session.precache_end_ticks),
+		to_ms(m_load_session.precache_present_ticks),
+		to_ms(m_load_session.precache_secondary_wait_ticks), to_ms(serial_other_ticks));
+	m_load_session.active = false;
+	if (Sound)
+		Sound->source_prefetch_start();
+}
 
 void CApplication::LoadBegin()
 {
 	ll_dwReference++;
 	if (1 == ll_dwReference)
 	{
+		total_load_timer.Start();
 		g_appLoaded = FALSE;
 
 		//AVO:
@@ -1573,6 +1963,7 @@ void CApplication::LoadEnd()
 	ll_dwReference--;
 	if (0 == ll_dwReference)
 	{
+		Msg("* total loading time: %d ms", total_load_timer.GetElapsed_ms());
 		Msg("* phase time: %d ms", phase_timer.GetElapsed_ms());
 		Msg("* phase cmem: %lld K", Memory.mem_usage() / 1024);
 		Console->Execute("stat_memory");
@@ -1647,6 +2038,8 @@ void CApplication::OnFrame()
 	PROF_EVENT();
 
 	Engine.Event.OnFrame();
+	if (Sound)
+		Sound->source_prefetch_poll();
 	g_SpatialSpace->update();
 	g_SpatialSpacePhysic->update();
 }

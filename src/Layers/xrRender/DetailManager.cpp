@@ -97,13 +97,23 @@ CDetailManager::CDetailManager()
 
 #ifdef DETAIL_RADIUS
 	// KD: variable detail radius
-	dm_size = dm_current_size;
-	dm_cache_line = dm_current_cache_line;
-	dm_cache1_line = dm_current_cache1_line;
-	dm_cache_size = dm_current_cache_size;
-	dm_fade = dm_current_fade;
-	ps_r__Detail_density = ps_current_detail_density;
-	ps_r__Detail_height = ps_current_detail_height;
+	// The early level package is prepared while the previous level may still
+	// render. Do not write shared recipe globals when the requested recipe is
+	// already active; this keeps the worker-side constructor read-only.
+	if (dm_size != dm_current_size)
+		dm_size = dm_current_size;
+	if (dm_cache_line != dm_current_cache_line)
+		dm_cache_line = dm_current_cache_line;
+	if (dm_cache1_line != dm_current_cache1_line)
+		dm_cache1_line = dm_current_cache1_line;
+	if (dm_cache_size != dm_current_cache_size)
+		dm_cache_size = dm_current_cache_size;
+	if (dm_fade != dm_current_fade)
+		dm_fade = dm_current_fade;
+	if (ps_r__Detail_density != ps_current_detail_density)
+		ps_r__Detail_density = ps_current_detail_density;
+	if (ps_r__Detail_height != ps_current_detail_height)
+		ps_r__Detail_height = ps_current_detail_height;
 	cache_level1 = (CacheSlot1**)Memory.mem_alloc(dm_cache1_line * sizeof(CacheSlot1*)
 #ifdef USE_MEMORY_MONITOR
         , "CDetailManager::cache_level1"
@@ -185,18 +195,46 @@ void dump	(CDetailManager::vis_list& lst)
 	}
 }
 */
-void CDetailManager::Load()
+void CDetailManager::SnapshotSwing(SSwingValue* values)
+{
+	R_ASSERT(values);
+	values[0].amp1 = pSettings->r_float("details", "swing_normal_amp1");
+	values[0].amp2 = pSettings->r_float("details", "swing_normal_amp2");
+	values[0].rot1 = pSettings->r_float("details", "swing_normal_rot1");
+	values[0].rot2 = pSettings->r_float("details", "swing_normal_rot2");
+	values[0].speed = pSettings->r_float("details", "swing_normal_speed");
+	values[1].amp1 = pSettings->r_float("details", "swing_fast_amp1");
+	values[1].amp2 = pSettings->r_float("details", "swing_fast_amp2");
+	values[1].rot1 = pSettings->r_float("details", "swing_fast_rot1");
+	values[1].rot2 = pSettings->r_float("details", "swing_fast_rot2");
+	values[1].speed = pSettings->r_float("details", "swing_fast_speed");
+}
+
+void CDetailManager::Load(bool publish, bool create_shaders, LPCSTR canonical_level_path,
+	const SSwingValue* swing_values)
 {
 	// Open file stream
-	if (!FS.exist("$level$", "level.details"))
+	xr_string fn;
+	if (canonical_level_path && canonical_level_path[0])
+	{
+		fn = canonical_level_path;
+		if (fn.back() != '\\' && fn.back() != '/')
+			fn += '\\';
+		fn += "level.details";
+	}
+	else
+	{
+		string_path resolved;
+		FS.update_path(resolved, "$level$", "level.details");
+		fn = resolved;
+	}
+	if (!FS.exist(fn.c_str()))
 	{
 		dtFS = NULL;
 		return;
 	}
 
-	string_path fn;
-	FS.update_path(fn, "$level$", "level.details");
-	dtFS = FS.r_open(fn);
+	dtFS = FS.r_open(fn.c_str());
 
 	// Header
 	dtFS->r_chunk_safe(0, &dtH, sizeof(dtH));
@@ -210,7 +248,7 @@ void CDetailManager::Load()
 	{
 		CDetail* dt = xr_new<CDetail>();
 		IReader* S = m_fs->open_chunk(m_id);
-		dt->Load(S);
+		dt->Load(S, create_shaders);
 		objects.push_back(dt);
 		S->close();
 	}
@@ -241,36 +279,48 @@ void CDetailManager::Load()
 	bwdithermap(2, dither);
 
 	// Hardware specific optimizations
-	if (UseVS()) hw_Load();
+	if (UseVS()) hw_Load(create_shaders);
 	else soft_Load();
 
-	// swing desc
-	// normal
-	swing_desc[0].amp1 = pSettings->r_float("details", "swing_normal_amp1");
-	swing_desc[0].amp2 = pSettings->r_float("details", "swing_normal_amp2");
-	swing_desc[0].rot1 = pSettings->r_float("details", "swing_normal_rot1");
-	swing_desc[0].rot2 = pSettings->r_float("details", "swing_normal_rot2");
-	swing_desc[0].speed = pSettings->r_float("details", "swing_normal_speed");
-	// fast
-	swing_desc[1].amp1 = pSettings->r_float("details", "swing_fast_amp1");
-	swing_desc[1].amp2 = pSettings->r_float("details", "swing_fast_amp2");
-	swing_desc[1].rot1 = pSettings->r_float("details", "swing_fast_rot1");
-	swing_desc[1].rot2 = pSettings->r_float("details", "swing_fast_rot2");
-	swing_desc[1].speed = pSettings->r_float("details", "swing_fast_speed");
+	if (swing_values)
+		CopyMemory(swing_desc, swing_values, sizeof(swing_desc));
+	else
+		SnapshotSwing(swing_desc);
 
-	if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
+	if (publish)
+		Publish();
+}
+
+void CDetailManager::CommitShaders()
+{
+	for (CDetail* detail : objects)
+		detail->CommitShader();
+	if (UseVS())
+		hw_Load_Shaders();
+}
+
+void CDetailManager::SuspendShaders()
+{
+	for (CDetail* detail : objects)
+		detail->SuspendShader();
+}
+
+void CDetailManager::Publish()
+{
+	if (dtFS && ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
 	{
-		// MT-details (@front)
-		Device.seqParallelRender.push_back(xr_make_delegate(this, &CDetailManager::MT_CALC));
+		auto callback = xr_make_delegate(this, &CDetailManager::MT_CALC);
+		if (std::find(Device.seqParallelRender.begin(), Device.seqParallelRender.end(), callback) ==
+			Device.seqParallelRender.end())
+		{
+			Device.seqParallelRender.push_back(callback);
+		}
 	}
 }
 #endif
 void CDetailManager::Unload()
 {
-	auto I = std::find(Device.seqParallelRender.begin(), Device.seqParallelRender.end(), xr_make_delegate(this, &CDetailManager::MT_CALC));
-
-	if (I != Device.seqParallelRender.end())
-		Device.seqParallelRender.erase(I);
+	Suspend();
 
 	if (UseVS()) hw_Unload();
 	else soft_Unload();
@@ -287,6 +337,61 @@ void CDetailManager::Unload()
 	FS.r_close(dtFS);
 	dtFS = 0;
 	xr_free(dtSlots); // heap-owned wide slot array (was a VFS alias pre-v4)
+}
+
+void CDetailManager::Suspend()
+{
+	auto I = std::find(Device.seqParallelRender.begin(), Device.seqParallelRender.end(),
+		xr_make_delegate(this, &CDetailManager::MT_CALC));
+	if (I != Device.seqParallelRender.end())
+		Device.seqParallelRender.erase(I);
+	xrCriticalSectionGuard guard(m_mt_calc_guard);
+}
+
+void CDetailManager::Resume()
+{
+	if (!dtFS)
+		return;
+	xrCriticalSectionGuard guard(m_mt_calc_guard);
+	cache_task.clear();
+	for (u32 visible = 0; visible < 3; ++visible)
+		for (auto& model : m_visibles[visible])
+			model.clear();
+	for (u32 i = 0; i < dm_cache_size; ++i)
+	{
+		Slot& slot = cache_pool[i];
+		slot.type = stReady;
+		slot.frame = 0;
+		slot.vis.hom_frame = 0;
+		slot.vis.hom_tested = 0;
+		for (SlotPart& part : slot.G)
+			for (SlotItemVec& items : part.r_items)
+				items.clear();
+	}
+	cache_Initialize();
+	for (u32 z = 0; z < dm_cache1_line; ++z)
+		for (u32 x = 0; x < dm_cache1_line; ++x)
+		{
+			CacheSlot1& cache_slot = cache_level1[z][x];
+			cache_slot.empty = TRUE;
+			cache_slot.vis.clear();
+			for (Slot** slot : cache_slot.slots)
+			{
+				cache_slot.vis.box.merge((*slot)->vis.box);
+				if (!(*slot)->empty)
+					cache_slot.empty = FALSE;
+			}
+			cache_slot.vis.box.getsphere(cache_slot.vis.sphere.P, cache_slot.vis.sphere.R);
+		}
+	m_frame_calc = 0;
+	m_frame_rendered.store(Device.dwFrame, std::memory_order_release);
+	if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
+	{
+		auto I = std::find(Device.seqParallelRender.begin(), Device.seqParallelRender.end(),
+			xr_make_delegate(this, &CDetailManager::MT_CALC));
+		if (I == Device.seqParallelRender.end())
+			Device.seqParallelRender.push_back(xr_make_delegate(this, &CDetailManager::MT_CALC));
+	}
 }
 
 extern ECORE_API float r_ssaDISCARD;

@@ -33,6 +33,21 @@ void CLevel::remove_objects()
 	PROF_EVENT("remove_objects");
 	if (!IsGameTypeSingle()) Msg("CLevel::remove_objects - Start");
 	BOOL b_stored = psDeviceFlags.test(rsDisableObjectsAsCrows);
+	const auto load_queues_drained = [this]()
+	{
+		if (Objects.o_count() != 0 || !Objects.destroy_queues_empty() || !game_spawn_queue.empty() ||
+			!net_msg_Empty())
+		{
+			return false;
+		}
+#ifdef SPAWN_ANTIFREEZE
+		xrSRWLockGuard guard(prefetch_lock, true);
+		return game_events->queue.empty() && !spawn_prefetch_busy && prefetch_events->empty() &&
+			spawn_events->queue.empty() && spawn_events_data->empty();
+#else
+		return game_events->queue.empty();
+#endif
+	};
 
 	int loop = 5;
 	while (loop)
@@ -62,9 +77,18 @@ void CLevel::remove_objects()
 			Msg						("Update objects list...");
 #endif // #ifdef DEBUG
 			Objects.dump_all_objects();
+
+			// Direct single-player delivery is synchronous. Once every visible
+			// queue is drained, the remaining passes are empty; preserve their
+			// only cumulative side effect by advancing the frame counter.
+			if (IsGameTypeSingle() && psNET_direct_connect && load_queues_drained())
+			{
+				Device.dwFrame += 19 - i;
+				break;
+			}
 		}
 
-		if (Objects.o_count() == 0)
+		if (load_queues_drained())
 			break;
 		else
 		{

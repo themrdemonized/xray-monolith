@@ -15,7 +15,10 @@
 #include "mainmenu.h"
 #include "object_factory.h"
 #include "alife_object_registry.h"
+#include "saved_game_wrapper.h"
+#include "level.h"
 #include "../xrEngine/xr_ioconsole.h"
+#include "../xrEngine/Render.h"
 
 #ifdef DEBUG
 #	include "moving_objects.h"
@@ -47,14 +50,27 @@ CALifeSimulator::CALifeSimulator(xrServer* server, shared_str* command_line) :
 	CALifeSimulatorBase(server, alife_section)
 {
 	PROF_EVENT("CALifeSimulator::CALifeSimulator");
+	typedef IGame_Persistent::params params;
+	params& p = g_pGamePersistent->m_game_params;
+	if (!xr_strcmp(p.m_new_or_load, "load"))
+	{
+		CSavedGameWrapper saved_game(p.m_game_or_spawn);
+		if (saved_game.level_name() && saved_game.level_name()[0])
+		{
+			xr_string level_path = FS.get_path("$game_levels$")->m_Path;
+			level_path += saved_game.level_name();
+			level_path += "\\";
+			::Render->level_Prepare(level_path.c_str());
+			Level().BeginGameSpecificPrepare(level_path.c_str());
+		}
+		CALifeStorageManager::prepare_load(p.m_game_or_spawn);
+	}
+
 	restart_all();
 
 	ai().set_alife(this);
 
 	setup_command_line(command_line);
-
-	typedef IGame_Persistent::params params;
-	params& p = g_pGamePersistent->m_game_params;
 
 	R_ASSERT2(
 		xr_strlen(p.m_game_or_spawn) &&

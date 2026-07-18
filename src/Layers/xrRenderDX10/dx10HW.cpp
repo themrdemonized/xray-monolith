@@ -301,11 +301,18 @@ extern u32 g_screenmode;
 
 void CHW::CreateDevice(HWND hwnd, bool move_window)
 {
+#if defined(USE_DX11)
+    CTimer startupTimer;
+    startupTimer.Start();
+#endif
 #if defined(USE_DX10) || defined(USE_DX11)
     m_hWnd = hwnd;
 #endif
     m_move_window = move_window;
     CreateD3D();
+#if defined(USE_DX11)
+    const u32 factoryMs = startupTimer.GetElapsed_ms();
+#endif
 
     /* Partially implemented dynamic load
     typedef HRESULT _D3DxxCreateDeviceAndSwapChain(
@@ -581,7 +588,9 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     _RELEASE(context);
 
     // create swapchain
+    const u32 deviceMs = startupTimer.GetElapsed_ms() - factoryMs;
     R_CHK(m_pFactory->CreateSwapChainForHwnd(pDevice, m_hWnd, &sd, &sd_fullscreen, NULL, &m_pSwapChain));
+    const u32 swapchainMs = startupTimer.GetElapsed_ms() - factoryMs - deviceMs;
 
     // setup colorspace
     // HDR10 (U10 output) -> DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020
@@ -609,6 +618,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     _RELEASE(swapchain3);
 
     R_CHK(pContext->QueryInterface(__uuidof(ID3DUserDefinedAnnotation), (void**)&pAnnotation));
+    const u32 setupMs = startupTimer.GetElapsed_ms() - factoryMs - deviceMs - swapchainMs;
 
 #else
 	R = D3DX10CreateDeviceAndSwapChain(m_pAdapter,
@@ -700,6 +710,11 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
         Reset(hwnd);
         fill_vid_mode_list(this);
     }
+#if defined(USE_DX11)
+    const u32 viewsMs = startupTimer.GetElapsed_ms() - factoryMs - deviceMs - swapchainMs - setupMs;
+    Msg("* [STARTUP/RENDER HW] factory=%u device=%u swapchain=%u setup=%u views=%u total=%u ms",
+        factoryMs, deviceMs, swapchainMs, setupMs, viewsMs, startupTimer.GetElapsed_ms());
+#endif
     
 
     // #ifndef _EDITOR

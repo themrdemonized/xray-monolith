@@ -70,6 +70,7 @@ public:
 	virtual void net_Export(NET_Packet& P);
 	virtual void net_Import(NET_Packet& P);
 	virtual void net_Relcase(CObject* object) override;
+	virtual bool net_RelcaseNeeded() const override { return true; }
 
 	virtual CWeapon* cast_weapon() { return this; }
 	virtual CWeaponBinoculars* cast_weapon_binoculars() { return nullptr; }

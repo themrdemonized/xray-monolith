@@ -353,6 +353,8 @@ public:
 
 	void mods_load();
 	void mods_unload();
+	static void PrepareLevelModifiers(LPCSTR canonical_level_path, xr_vector<CEnvModifier>& result);
+	void CommitLevelModifiers(xr_vector<CEnvModifier>& prepared);
 
 	void OnFrame();
 	void lerp(float& current_weight);

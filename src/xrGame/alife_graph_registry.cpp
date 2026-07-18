@@ -9,16 +9,18 @@
 #include "stdafx.h"
 #include "alife_graph_registry.h"
 #include "../xrEngine/x_ray.h"
+#include "../xrEngine/IGame_Persistent.h"
 #include "level.h"
 
 using namespace ALife;
 
-xr_task_group level_load;
 CALifeGraphRegistry::CALifeGraphRegistry()
 {
 	m_level = 0;
 	m_process_time = 0;
 	m_actor = 0;
+	m_level_load_started = false;
+	m_level_id = -1;
 }
 
 CALifeGraphRegistry::~CALifeGraphRegistry()
@@ -69,18 +71,9 @@ void CALifeGraphRegistry::update(CSE_ALifeDynamicObject* object)
 
 void CALifeGraphRegistry::setup_current_level()
 {
-	u8 level_id = ai().game_graph().vertex(actor()->m_tGraphID)->level_id();
+	start_level_load();
 
-	GameGraph::LEVEL_MAP::const_iterator I = ai().game_graph().header().levels().find(level_id);
-	Level().set_name((*I).second.name());
-	int levelid = pApp->Level_ID(*(*I).second.name(), "1.0", true);
-	static DWORD this_thread_id = 0;
-	this_thread_id = GetCurrentThreadId();
-	level_load.run([=]()
-	{
-		if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
-		Level().Load(levelid);
-	});
+	u8 level_id = ai().game_graph().vertex(actor()->m_tGraphID)->level_id();
 
 	m_level = xr_new<CALifeLevelRegistry>(level_id);
 	level().set_process_time(m_process_time);
@@ -101,11 +94,53 @@ void CALifeGraphRegistry::setup_current_level()
 
 		m_temp.clear();
 	}
+
+	GameGraph::LEVEL_MAP::const_iterator I = ai().game_graph().header().levels().find(level_id);
 	R_ASSERT2(ai().game_graph().header().levels().end() != I, "Graph point level ID not found!");
 
 	int id = pApp->Level_ID(*(*I).second.name(), "1.0", true);
 	VERIFY3(id >= 0, "Level is corrupted or doesn't exist", *(*I).second.name());
 	ai().load(*(*I).second.name());
+}
+
+void CALifeGraphRegistry::prepare_current_level(CSE_ALifeCreatureActor* actor)
+{
+	VERIFY(actor);
+	m_actor = actor;
+	start_level_load();
+}
+
+void CALifeGraphRegistry::start_level_load()
+{
+	if (m_level_load_started)
+		return;
+
+	m_level_load_started = true;
+	pApp->LoadSessionPhaseBegin(LoadSessionNativeLevel);
+	u8 level_id = ai().game_graph().vertex(actor()->m_tGraphID)->level_id();
+
+	GameGraph::LEVEL_MAP::const_iterator I = ai().game_graph().header().levels().find(level_id);
+	Level().set_name((*I).second.name());
+	m_level_id = pApp->Level_ID(*(*I).second.name(), "1.0", true);
+	xr_string level_path = FS.get_path("$game_levels$")->m_Path;
+	level_path += *(*I).second.name();
+	level_path += "\\";
+	::Render->level_Prepare(level_path.c_str());
+	Level().BeginGameSpecificPrepare(level_path.c_str());
+	// Drain startup producers while still on owner. The actual level commit is
+	// deferred until ALife/Lua has finished; only immutable prepare runs now.
+	WaitGamePrefetch();
+	Device.m_pRender->ResourcesPrepareLoad();
+	if (Level().bReady)
+		Msg("* [LEVEL PREPARE] static level already active; native level load skipped");
+}
+
+void CALifeGraphRegistry::finish_level_load()
+{
+	if (!m_level_load_started || Level().bReady)
+		return;
+	R_ASSERT(m_level_id >= 0);
+	R_ASSERT(Level().Load(m_level_id));
 }
 
 void CALifeGraphRegistry::attach(CSE_Abstract& object, CSE_ALifeInventoryItem* item,

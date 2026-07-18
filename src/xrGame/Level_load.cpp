@@ -20,11 +20,90 @@
 
 extern ENGINE_API bool g_dedicated_server;
 
+struct level_prepared_particle
+{
+	shared_str name;
+	Fmatrix transform;
+};
+
+struct level_game_specific_prepare
+{
+	NativeLoadExecutor::Batch batch;
+	NativeLoadExecutor::Batch environment_batch;
+	xr_task_group fallback_tasks;
+	xr_task_group fallback_environment_tasks;
+	xr_vector<level_prepared_particle> particles;
+	xr_vector<CEnvModifier> environment_modifiers;
+	CLevelSoundManager::PreparedData sounds;
+	xr_vector<u8> sound_environment;
+	xr_vector<u8> sound_occlusion;
+	xr_vector<shared_str> random_sounds;
+	xr_string level_path;
+	u32 game_type = 0;
+	bool has_sound_environment = false;
+	bool has_sound_occlusion = false;
+	bool environment_committed = false;
+	bool committed = false;
+
+	void wait_environment()
+	{
+		if (environment_batch.Valid())
+			NativeLoadExecutor::Instance().Wait(environment_batch);
+		fallback_environment_tasks.wait();
+	}
+
+	void wait()
+	{
+		std::exception_ptr failure;
+		try
+		{
+			wait_environment();
+		}
+		catch (...)
+		{
+			failure = std::current_exception();
+		}
+		try
+		{
+			if (batch.Valid())
+				NativeLoadExecutor::Instance().Wait(batch);
+			fallback_tasks.wait();
+		}
+		catch (...)
+		{
+			if (!failure)
+				failure = std::current_exception();
+		}
+		if (failure)
+			std::rethrow_exception(failure);
+	}
+};
+
+namespace
+{
+xr_string level_resource_path(LPCSTR canonical_level_path, LPCSTR file_name)
+{
+	xr_string path = canonical_level_path;
+	if (!path.empty() && path.back() != '\\' && path.back() != '/')
+		path += '\\';
+	path += file_name;
+	return path;
+}
+
+void read_level_resource(LPCSTR canonical_level_path, LPCSTR file_name, xr_vector<u8>& bytes)
+{
+	const xr_string path = level_resource_path(canonical_level_path, file_name);
+	IReader* reader = FS.r_open(path.c_str());
+	R_ASSERT3(reader, "Cannot open level resource", path.c_str());
+	bytes.resize(reader->length());
+	reader->r(bytes.data(), bytes.size());
+	FS.r_close(reader);
+}
+}
+
 bool CLevel::Load_GameSpecific_Before()
 {
 	// AI space
-	//	g_pGamePersistent->LoadTitle		("st_loading_ai_objects");
-	g_pGamePersistent->LoadTitle();
 	string_path fn_game;
 
 	if (GamePersistent().GameType() == eGameIDSingle && !ai().get_alife() && FS.exist(fn_game, "$level$", "level.ai") &&
@@ -46,19 +125,69 @@ bool CLevel::Load_GameSpecific_Before()
 	return (TRUE);
 }
 
-bool CLevel::Load_GameSpecific_After()
+void CLevel::BeginGameSpecificPrepare(LPCSTR canonical_level_path)
 {
-	R_ASSERT(m_StaticParticles.empty());
-	// loading static particles
-	string_path fn_game;
-	if (FS.exist(fn_game, "$level$", "level.ps_static"))
+	R_ASSERT(canonical_level_path && canonical_level_path[0]);
+	xr_string level_path = canonical_level_path;
+	if (!level_path.empty() && level_path.back() != '\\' && level_path.back() != '/')
+		level_path += '\\';
+	if (m_game_specific_prepare)
 	{
-		IReader* F = FS.r_open(fn_game);
+		R_ASSERT3(!stricmp(m_game_specific_prepare->level_path.c_str(), level_path.c_str()),
+			"Level prepare target changed", level_path.c_str());
+		return;
+	}
+
+	level_game_specific_prepare* prepared = xr_new<level_game_specific_prepare>();
+	prepared->level_path = std::move(level_path);
+	prepared->game_type = u32(g_pGamePersistent->m_game_params.m_e_game_type);
+	NativeLoadExecutor& executor = NativeLoadExecutor::Instance();
+	prepared->batch = executor.BeginBatch(executor.CurrentGeneration());
+	prepared->environment_batch = executor.BeginBatch(executor.CurrentGeneration());
+	m_game_specific_prepare = prepared;
+	auto submit = [prepared, &executor](NativeLoadPriority priority, auto&& work)
+	{
+		if (prepared->batch.Valid())
+			executor.Submit(prepared->batch, priority, std::forward<decltype(work)>(work));
+		else
+			prepared->fallback_tasks.run(std::forward<decltype(work)>(work));
+	};
+	auto submit_environment = [prepared, &executor](auto&& work)
+	{
+		if (prepared->environment_batch.Valid())
+			executor.Submit(prepared->environment_batch, NativeLoadPriority::Environment,
+				std::forward<decltype(work)>(work));
+		else
+			prepared->fallback_environment_tasks.run(std::forward<decltype(work)>(work));
+	};
+
+	submit_environment([prepared]()
+	{
+		CEnvironment::PrepareLevelModifiers(prepared->level_path.c_str(), prepared->environment_modifiers);
+	});
+
+	// pSettings is snapshotted on the owner thread. Workers below only own
+	// file readers, byte buffers and strings.
+	if (pSettings->section_exist("sounds_random"))
+	{
+		const CInifile::Sect& section = pSettings->r_section("sounds_random");
+		prepared->random_sounds.reserve(section.Data.size());
+		for (CInifile::SectCIt it = section.Data.begin(); it != section.Data.end(); ++it)
+			prepared->random_sounds.push_back(it->first);
+	}
+
+	submit(NativeLoadPriority::Environment, [prepared]()
+	{
+		const xr_string file_name = level_resource_path(prepared->level_path.c_str(), "level.ps_static");
+		if (!FS.exist(file_name.c_str()))
+			return;
+
+		IReader* F = FS.r_open(file_name.c_str());
+		R_ASSERT3(F, "Cannot open level resource", file_name.c_str());
 
 		u32 chunk = 0;
 		string256 ref_name;
 		Fmatrix transform;
-		Fvector zero_vel = {0.f, 0.f, 0.f};
 		u32 ver = 0;
 		for (IReader* OBJ = F->open_chunk_iterator(chunk); OBJ; OBJ = F->open_chunk_iterator(chunk, OBJ))
 		{
@@ -83,95 +212,121 @@ bool CLevel::Load_GameSpecific_After()
 			transform.c.y += 0.01f;
 
 
-			if ((g_pGamePersistent->m_game_params.m_e_game_type & EGameIDs(gametype_usage)) || (ver == 0))
+			if ((prepared->game_type & u32(gametype_usage)) || (ver == 0))
 			{
-				auto pStaticParticles = Particles::Details::Create(ref_name,FALSE,false);
-				pStaticParticles->UpdateParent(transform, zero_vel);
-				pStaticParticles->Play(false);
-				m_StaticParticles.push_back(pStaticParticles);
+				prepared->particles.push_back({ref_name, transform});
 			}
 		}
 		FS.r_close(F);
+	});
+
+	submit(NativeLoadPriority::Environment, [this, prepared]()
+	{
+		if (!g_dedicated_server)
+			m_level_sound_manager->Prepare(prepared->level_path.c_str(), prepared->sounds);
+	});
+
+	submit(NativeLoadPriority::Environment, [prepared]()
+	{
+		if (g_dedicated_server)
+			return;
+		const xr_string environment = level_resource_path(prepared->level_path.c_str(), "level.snd_env");
+		prepared->has_sound_environment = FS.exist(environment.c_str());
+		if (prepared->has_sound_environment)
+			read_level_resource(prepared->level_path.c_str(), "level.snd_env", prepared->sound_environment);
+		const xr_string occlusion = level_resource_path(prepared->level_path.c_str(), "level.som");
+		prepared->has_sound_occlusion = FS.exist(occlusion.c_str());
+		if (prepared->has_sound_occlusion)
+			read_level_resource(prepared->level_path.c_str(), "level.som", prepared->sound_occlusion);
+	});
+}
+
+bool CLevel::Load_Prepared_Environment()
+{
+	if (!m_game_specific_prepare)
+		return false;
+
+	level_game_specific_prepare& prepared = *m_game_specific_prepare;
+	if (!prepared.environment_committed)
+	{
+		prepared.wait_environment();
+		g_pGamePersistent->Environment().CommitLevelModifiers(prepared.environment_modifiers);
+		prepared.environment_committed = true;
+	}
+	return true;
+}
+
+void CLevel::ShutdownGameSpecificPrepare()
+{
+	if (!m_game_specific_prepare)
+		return;
+
+	try
+	{
+		m_game_specific_prepare->wait();
+	}
+	catch (...)
+	{
+	}
+	xr_delete(m_game_specific_prepare);
+}
+
+bool CLevel::Load_GameSpecific_After()
+{
+	if (m_game_specific_prepare && m_game_specific_prepare->committed)
+		return TRUE;
+	R_ASSERT(m_StaticParticles.empty());
+	if (!m_game_specific_prepare)
+		BeginGameSpecificPrepare(FS.get_path("$level$")->m_Path);
+
+	level_game_specific_prepare& prepared = *m_game_specific_prepare;
+	prepared.wait();
+	const xr_vector<shared_str>& random_sounds = prepared.random_sounds;
+
+	Fvector zero_vel = {0.f, 0.f, 0.f};
+	for (const level_prepared_particle& particle : prepared.particles)
+	{
+		auto instance = Particles::Details::Create(particle.name.c_str(), FALSE, false);
+		instance->UpdateParent(particle.transform, zero_vel);
+		instance->Play(false);
+		m_StaticParticles.push_back(instance);
 	}
 
 	if (!g_dedicated_server)
 	{
-		// loading static sounds
 		VERIFY(m_level_sound_manager);
-		m_level_sound_manager->Load();
-
-		// loading sound environment
-		if (FS.exist(fn_game, "$level$", "level.snd_env"))
+		m_level_sound_manager->Commit(prepared.sounds);
+		if (prepared.has_sound_environment)
 		{
-			IReader* F = FS.r_open(fn_game);
-			::Sound->set_geometry_env(F);
-			FS.r_close(F);
+			IReader reader(prepared.sound_environment.data(), prepared.sound_environment.size());
+			::Sound->set_geometry_env(&reader);
 		}
 		else
-		{
-			// demonized: reset sound environment if the map doesn't have it, so that the next map won't be using environment of the previous one
 			::Sound->set_geometry_env(nullptr);
-		}
-		// loading SOM
-		if (FS.exist(fn_game, "$level$", "level.som"))
+		if (prepared.has_sound_occlusion)
 		{
-			IReader* F = FS.r_open(fn_game);
-			::Sound->set_geometry_som(F);
-			FS.r_close(F);
+			IReader reader(prepared.sound_occlusion.data(), prepared.sound_occlusion.size());
+			::Sound->set_geometry_som(&reader);
 		}
 		else
-		{
-			// demonized: same here
 			::Sound->set_geometry_som(nullptr);
-		}
 
-		// loading random (around player) sounds
-		if (pSettings->section_exist("sounds_random"))
+		Sounds_Random.reserve(random_sounds.size());
+		for (const shared_str& name : random_sounds)
 		{
-			CInifile::Sect& S = pSettings->r_section("sounds_random");
-			Sounds_Random.reserve(S.Data.size());
-			for (CInifile::SectCIt I = S.Data.begin(); S.Data.end() != I; ++I)
-			{
-				Sounds_Random.push_back(ref_sound());
-				Sound->create(Sounds_Random.back(), *I->first, st_Effect, sg_SourceType);
-			}
+			Sounds_Random.emplace_back();
+			Sound->create(Sounds_Random.back(), name.c_str(), st_Effect, sg_SourceType);
+		}
+		if (!random_sounds.empty())
+		{
 			Sounds_Random_dwNextTime = Device.TimerAsync() + 50000;
 			Sounds_Random_Enabled = FALSE;
 		}
 
 		if (g_pGamePersistent->pEnvironment)
-		{
 			if (CEffect_Rain* rain = g_pGamePersistent->pEnvironment->eff_Rain)
-			{
 				rain->InvalidateState();
-			}
-		}
 
-		if (FS.exist(fn_game, "$level$", "level.fog_vol"))
-		{
-			IReader* F = FS.r_open(fn_game);
-			u16 version = F->r_u16();
-			if (version == 2)
-			{
-				u32 cnt = F->r_u32();
-
-				Fmatrix volume_matrix;
-				for (u32 i = 0; i < cnt; ++i)
-				{
-					F->r(&volume_matrix, sizeof(volume_matrix));
-					u32 sub_cnt = F->r_u32();
-					for (u32 is = 0; is < sub_cnt; ++is)
-					{
-						F->r(&volume_matrix, sizeof(volume_matrix));
-					}
-				}
-			}
-			FS.r_close(F);
-		}
-	}
-
-	if (!g_dedicated_server)
-	{
 		// loading scripts
 		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
 
@@ -189,6 +344,12 @@ bool CLevel::Load_GameSpecific_After()
 	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(), game->GetEnvironmentGameTimeFactor());
 
 	HUD().SetRenderable(true);
+	prepared.committed = true;
+	prepared.particles.clear();
+	prepared.sounds.static_sound_chunks.clear();
+	prepared.sound_environment.clear();
+	prepared.sound_occlusion.clear();
+	prepared.random_sounds.clear();
 
 	return TRUE;
 }

@@ -35,8 +35,31 @@ public:
 
 	void Preload();
 	void Load();
+	void LoadQueued();
 	void PostLoad();
 	void Unload(void);
+	void Bind(u32 stage)
+	{
+		wait_for_loading();
+		bind(stage);
+	}
+	bool TryQueueLoad();
+	void CancelQueuedLoad();
+	bool CanLoadAsync() const;
+	bool is_loaded() const;
+	void wait_for_loading() const;
+#if defined(USE_DX10) || defined(USE_DX11)
+	enum ELoadKind : u32
+	{
+		LoadKindUnknown,
+		LoadKindDds,
+		LoadKindOgm,
+		LoadKindAvi,
+		LoadKindSequence,
+		LoadKindGif,
+	};
+	void SetLoadSource(LPCSTR logical_name, LPCSTR resolved_path, ELoadKind kind);
+#endif
 	//	void								Apply			(u32 dwStage);
 
 	void surface_set(ID3DBaseTexture* surf);
@@ -69,7 +92,21 @@ public:
 #endif	//	USE_DX10
 
 private:
-	IC void wait_for_loading() const { while (flags.bLoading){SwitchToThread();} }
+	enum ELoadState : u32
+	{
+		LoadStateUnloaded,
+		LoadStateQueued,
+		LoadStateLoading,
+		LoadStateLoaded,
+		LoadStateUnloading,
+		LoadStateFailed,
+	};
+
+	void Load(bool queued);
+	bool BeginLoad(bool queued);
+	void FinishLoad();
+	void FailLoad();
+	void ReleaseLoadedData();
 	IC BOOL desc_valid() { wait_for_loading(); return pSurface==desc_cache; }
 	IC void desc_enshure() { wait_for_loading(); if (!desc_valid()) desc_update(); }
 	void desc_update();
@@ -84,7 +121,6 @@ public: //	Public class members (must be encapsulated furthur)
 	struct
 	{
 		u32 bLoaded : 1;
-		u32 bLoading : 1;
 		u32 bUser : 1;
 		u32 seqCycles : 1;
 		u32 MemoryUsage : 27;
@@ -92,6 +128,8 @@ public: //	Public class members (must be encapsulated furthur)
 		u32					bLoadedAsStaging: 1;
 #endif	//	USE_DX10
 	} flags;
+	xr_atomic_u32 loadState;
+	mutable xr_atomic_u32 loadKind;
 
     u32 dwLastUsedFrame = 0; // frame index of last Apply() call — used for eviction
 
@@ -125,6 +163,8 @@ private:
 
 #if defined(USE_DX10) || defined(USE_DX11)
 	ID3DShaderResourceView*			m_pSRView;
+	shared_str m_loadName;
+	shared_str m_resolvedSourcePath;
 	// Sequence view data
 	xr_vector<ID3DShaderResourceView*>m_seqSRView;
 #endif	//	USE_DX10
@@ -134,8 +174,8 @@ struct resptrcode_texture : public resptr_base<CTexture>
 {
 	void create(LPCSTR _name);
 	void destroy() { _set(NULL); }
-	shared_str bump_get() { while (_get() && _get()->flags.bLoading) { SwitchToThread(); }return _get()->m_bumpmap; }
-	bool bump_exist() { while (_get() && _get()->flags.bLoading) { SwitchToThread(); }return 0!=bump_get().size(); }
+	shared_str bump_get() { return _get() ? _get()->m_bumpmap : shared_str(); }
+	bool bump_exist() { return 0 != bump_get().size(); }
 };
 
 typedef resptr_core<CTexture, resptrcode_texture>

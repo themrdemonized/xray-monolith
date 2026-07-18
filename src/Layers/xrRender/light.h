@@ -50,6 +50,7 @@ public:
 	s8 sss_priority;
 	bool sss_is_playerlight;
     xr_delegate<void(light*)> sss_on_light_destroy;
+	bool m_published;
 
 	light* omipart_parent;
 	float distance;
@@ -206,9 +207,11 @@ public:
 
 	float get_LOD();
 
-	light();
+	explicit light(bool publish = true);
 	virtual ~light();
 	virtual void destroy(bool deffered = true);
+	void publish_for_render();
+	void reset_for_cache();
 };
 
 #endif // #define LAYERS_XRRENDER_LIGHT_H_INCLUDED

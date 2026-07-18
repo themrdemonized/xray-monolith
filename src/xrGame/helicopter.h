@@ -294,6 +294,7 @@ public:
 	{
 	};
 	virtual void net_Relcase(CObject* O);
+	virtual bool net_RelcaseNeeded() const override { return true; }
 	virtual void save(NET_Packet& output_packet);
 	virtual void load(IReader& input_packet);
 
