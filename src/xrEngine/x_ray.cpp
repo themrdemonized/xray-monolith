@@ -679,6 +679,8 @@ void Startup()
 	}
 
 	// Initialize APP
+	if (Sound)
+		Sound->source_prefetch_pause();
 	phase_timer.Start();
 	Device.Create();
 	Msg("* [STARTUP] render device: %d ms", phase_timer.GetElapsed_ms());

@@ -3,6 +3,7 @@
 
 #include "SoundRender_Core.h"
 #include "SoundRender_Source.h"
+#include <chrono>
 
 namespace
 {
@@ -183,7 +184,14 @@ void CSoundRender_Core::source_prefetch_worker()
 		const bool succeeded = error.empty();
 		finish_source_prepare(*job, std::move(prepared), std::move(error));
 		if (succeeded)
-			Sleep(m_source_prefetch_idle_ms.load(std::memory_order_relaxed));
+		{
+			std::unique_lock<std::mutex> lock(m_source_prefetch_mutex);
+			m_source_prefetch_changed.wait_for(lock,
+				std::chrono::milliseconds(m_source_prefetch_idle_ms.load(std::memory_order_relaxed)), [this]()
+				{
+					return m_source_prefetch_pause || m_source_prefetch_shutdown || m_source_prefetch_failure;
+				});
+		}
 	}
 
 	{
@@ -340,6 +348,63 @@ void CSoundRender_Core::source_prefetch_pause()
 	if (m_source_prefetch_enabled)
 		Msg("* [SOUND PREFETCH] paused: prepared=%u, promoted=%u, remaining=%u",
 			m_source_prefetch_prepared, m_source_prefetch_promoted, source_prefetch_remaining_locked());
+}
+
+void CSoundRender_Core::source_prefetch_prepare(const xr_vector<xr_string>& sources)
+{
+	if (!m_source_prefetch_enabled || sources.empty())
+		return;
+	{
+		std::lock_guard<std::mutex> lock(m_source_prefetch_mutex);
+		if (m_source_prefetch_shutdown || m_source_prefetch_failure)
+			return;
+	}
+
+	CTimer timer;
+	timer.Start();
+	xr_parallel_for(0u, static_cast<u32>(sources.size()), [&](u32 index)
+	{
+		string256 id;
+		NormalizeSourceName(sources[index].c_str(), id);
+
+		SoundPrefetchJob* job = nullptr;
+		bool producer = false;
+		{
+			std::unique_lock<std::mutex> lock(m_source_prefetch_mutex);
+			const auto found = m_source_prefetch_by_id.find(id);
+			if (found == m_source_prefetch_by_id.end())
+				return;
+
+			job = found->second;
+			if (job->state == ESourcePrefetchState::Queued)
+			{
+				job->state = ESourcePrefetchState::Preparing;
+				++m_source_prefetch_promoted;
+				producer = true;
+			}
+			else if (job->state == ESourcePrefetchState::Preparing)
+				return;
+			else
+				return;
+		}
+
+		if (!producer)
+			return;
+
+		PreparedSoundSource prepared;
+		xr_string error;
+		try
+		{
+			CSoundRender_Source::prepare(job->path.c_str(), prepared, error, false);
+		}
+		catch (...)
+		{
+			error = make_string("Unhandled exception while preparing sound: %s", job->path.c_str()).c_str();
+		}
+		finish_source_prepare(*job, std::move(prepared), std::move(error));
+	});
+	Msg("* [SOUND PREFETCH] requested sources prepared: requested=%u time=%u ms",
+		static_cast<u32>(sources.size()), timer.GetElapsed_ms());
 }
 
 void CSoundRender_Core::source_prefetch_stop()

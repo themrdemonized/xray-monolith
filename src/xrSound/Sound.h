@@ -434,6 +434,7 @@ public:
 	virtual const Fvector& listener_position() = 0;
 	virtual void source_prefetch_start() = 0;
 	virtual void source_prefetch_pause() = 0;
+	virtual void source_prefetch_prepare(const xr_vector<xr_string>& sources) = 0;
 	virtual void source_prefetch_stop() = 0;
 	virtual void source_prefetch_poll() = 0;
 #ifdef __BORLANDC__

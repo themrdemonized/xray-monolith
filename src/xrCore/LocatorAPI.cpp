@@ -617,12 +617,13 @@ void CLocatorAPI::StartStartupLooseCache()
 	auto* cache = xr_new<StartupLooseCache>();
 	u64 total_bytes = 0;
 
-	for (LPCSTR alias : {"$game_config$", "$game_scripts$"})
+	for (LPCSTR alias : {"$game_config$", "$game_scripts$", "$game_textures$"})
 	{
 		const PathPairIt path = pathes.find(alias);
 		if (path == pathes.end())
 			continue;
 
+		const bool texture_thm = xr_strcmp(alias, "$game_textures$") == 0;
 		xr_string prefix = path->second->m_Path;
 		std::transform(prefix.begin(), prefix.end(), prefix.begin(),
 			[](unsigned char character) { return static_cast<char>(tolower(character)); });
@@ -631,6 +632,12 @@ void CLocatorAPI::StartStartupLooseCache()
 		{
 			if (desc.vfs != u32(-1) || !desc.size_real || strncmp(desc.name, prefix.c_str(), prefix.size()) != 0)
 				continue;
+			if (texture_thm)
+			{
+				LPCSTR extension = strext(desc.name);
+				if (!extension || xr_strcmp(extension, ".thm") != 0)
+					continue;
+			}
 
 			auto entry = xr_make_shared<StartupLooseCache::Entry>();
 			entry->name = desc.name;
@@ -651,7 +658,9 @@ void CLocatorAPI::StartStartupLooseCache()
 	}
 
 	m_startup_loose_cache = cache;
-	const u32 worker_count = std::min<u32>(2, static_cast<u32>(cache->queue.size()));
+	const u32 worker_count = std::min<u32>(
+		std::max(2u, std::thread::hardware_concurrency() / 2),
+		std::min<u32>(8, static_cast<u32>(cache->queue.size())));
 	cache->workers_remaining = worker_count;
 	Msg("* [STARTUP/VFS] loose-cache queued=%u bytes=%llu workers=%u",
 		static_cast<u32>(cache->queue.size()), total_bytes, worker_count);

@@ -872,6 +872,12 @@ void CEnvironment::load_weather_effects()
 
 void CEnvironment::load()
 {
+	CTimer startupTimer;
+	startupTimer.Start();
+	u32 soundPrepareMs = 0;
+	u32 weatherMs = 0;
+	u32 effectsMs = 0;
+
 	if (!CurrentEnv)
 		create_mixer();
 
@@ -881,9 +887,45 @@ void CEnvironment::load()
 	if (!eff_LensFlare) eff_LensFlare = xr_new<CLensFlare>();
 	if (!eff_Thunderbolt) eff_Thunderbolt = xr_new<CEffect_Thunderbolt>();
 
+	if (Sound)
+	{
+		xr_vector<xr_string> sounds;
+		auto collect_list = [&sounds](CInifile* config, LPCSTR key)
+		{
+			string_path sound;
+			for (const auto& section : config->sections())
+			{
+				if (!config->line_exist(section.Name, key))
+					continue;
+				LPCSTR values = config->r_string(section.Name, key);
+				const u32 count = _GetItemCount(values);
+				for (u32 index = 0; index < count; ++index)
+					sounds.emplace_back(_GetItem(values, index, sound));
+			}
+		};
+		auto collect_values = [&sounds](CInifile* config, LPCSTR key)
+		{
+			for (const auto& section : config->sections())
+				if (config->line_exist(section.Name, key))
+					sounds.emplace_back(config->r_string(section.Name, key));
+		};
+		collect_list(m_sound_channels_config, "sounds");
+		collect_values(m_effects_config, "sound");
+		collect_values(m_thunderbolts_config, "sound");
+		std::sort(sounds.begin(), sounds.end());
+		sounds.erase(std::unique(sounds.begin(), sounds.end()), sounds.end());
+		Sound->source_prefetch_prepare(sounds);
+	}
+	soundPrepareMs = startupTimer.GetElapsed_ms();
+
 	load_weathers();
+	weatherMs = startupTimer.GetElapsed_ms() - soundPrepareMs;
 	load_weather_effects();
+	effectsMs = startupTimer.GetElapsed_ms() - soundPrepareMs - weatherMs;
 	load_sun();
+	Msg("* [STARTUP/ENV LOAD] sounds=%u weather=%u effects=%u sun=%u total=%u ms",
+		soundPrepareMs, weatherMs, effectsMs,
+		startupTimer.GetElapsed_ms() - soundPrepareMs - weatherMs - effectsMs, startupTimer.GetElapsed_ms());
 }
 
 void CEnvironment::unload()

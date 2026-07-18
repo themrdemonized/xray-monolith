@@ -71,6 +71,9 @@ void resptrcode_shader::create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, 
 void resptrcode_shader::create_parallel(
 	IBlender* B, LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_constants, LPCSTR s_matrices)
 {
+#ifdef SPAWN_ANTIFREEZE
+	xrCriticalSectionGuard g(shaderCreate_cs);
+#endif
 	_set(DEV->Create(B, s_shader, s_textures, s_constants, s_matrices));
 }
 

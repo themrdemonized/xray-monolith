@@ -24,7 +24,7 @@ void DestroyPSs(PSVec& lst)
 	// Device.Resources->Delete(*it);
 }
 
-void CreateSounds(SoundVec& lst, LPCSTR buf)
+void CollectSoundNames(xr_vector<xr_string>& sounds, LPCSTR buf)
 {
 	string128 tmp;
 	int cnt = _GetItemCount(buf);
@@ -45,18 +45,29 @@ void CreateSounds(SoundVec& lst, LPCSTR buf)
 				string128 name;
 				xr_strcpy(name, sizeof(name), (*it).name.c_str());
 				*strext(name) = 0;
-
-				ref_sound snd;
-				snd.create(name, st_Effect, sg_SourceType);
-				lst.push_back(snd);
+				xr_strlwr(name);
+				sounds.emplace_back(name);
 			}
 		}
 		else
 		{
-			ref_sound snd;
-			snd.create(tmp, st_Effect, sg_SourceType);
-			lst.push_back(snd);
+			if (strext(tmp))
+				*strext(tmp) = 0;
+			xr_strlwr(tmp);
+			sounds.emplace_back(tmp);
 		}
+	}
+}
+
+void CreateSounds(SoundVec& lst, LPCSTR buf)
+{
+	xr_vector<xr_string> names;
+	CollectSoundNames(names, buf);
+	for (const xr_string& name : names)
+	{
+		ref_sound snd;
+		snd.create(name.c_str(), st_Effect, sg_SourceType);
+		lst.push_back(snd);
 	}
 }
 
@@ -118,17 +129,14 @@ void SGameMtlPair::Load(IReader& fs)
 	R_ASSERT(fs.find_chunk(GAMEMTLPAIR_CHUNK_BREAKING));
 	fs.r_stringZ(buf);
 	BreakingSoundsStr = buf.c_str();
-	CreateSounds(BreakingSounds, *buf);
 
 	R_ASSERT(fs.find_chunk(GAMEMTLPAIR_CHUNK_STEP));
 	fs.r_stringZ(buf);
 	StepSoundsStr = buf.c_str();
-	CreateSounds(StepSounds, *buf);
 
 	R_ASSERT(fs.find_chunk(GAMEMTLPAIR_CHUNK_COLLIDE));
 	fs.r_stringZ(buf);
 	CollideSoundsStr = buf.c_str();
-	CreateSounds(CollideSounds, *buf);
 	fs.r_stringZ(buf);
 	CollideParticlesStr = buf.c_str();
 	CreatePSs(CollideParticles, *buf);
@@ -151,4 +159,18 @@ void SGameMtlPair::CreateParticlesImpl(PSVec& particles, LPCSTR str) {
 void SGameMtlPair::CreateMarksImpl(IWallMarkArray* marks, LPCSTR str) {
 	marks->clear();
 	CreateMarks(marks, str);
+}
+
+void SGameMtlPair::CollectSoundNames(xr_vector<xr_string>& sounds) const
+{
+	::CollectSoundNames(sounds, BreakingSoundsStr.c_str());
+	::CollectSoundNames(sounds, StepSoundsStr.c_str());
+	::CollectSoundNames(sounds, CollideSoundsStr.c_str());
+}
+
+void SGameMtlPair::CreateSoundResources()
+{
+	CreateSoundsImpl(BreakingSounds, BreakingSoundsStr.c_str());
+	CreateSoundsImpl(StepSounds, StepSoundsStr.c_str());
+	CreateSoundsImpl(CollideSounds, CollideSoundsStr.c_str());
 }

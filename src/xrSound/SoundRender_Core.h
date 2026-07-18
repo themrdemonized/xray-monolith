@@ -182,6 +182,7 @@ public:
 	virtual void object_relcase(CObject* obj);
 	virtual void source_prefetch_start() override;
 	virtual void source_prefetch_pause() override;
+	virtual void source_prefetch_prepare(const xr_vector<xr_string>& sources) override;
 	virtual void source_prefetch_stop() override;
 	virtual void source_prefetch_poll() override;
 
