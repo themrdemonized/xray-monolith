@@ -57,7 +57,7 @@ void fix_texture_name(LPSTR fn);
 
 static xrCriticalSection shaderCreationGuards[64];
 
-static xrCriticalSection& shader_creation_guard(LPCSTR name)
+ECORE_API xrCriticalSection& shader_creation_guard(LPCSTR name)
 {
 	u32 hash = 2166136261u;
 	for (; *name; ++name)
@@ -491,70 +491,77 @@ void CResourceManager::_DeletePS(const SPS* ps)
 //--------------------------------------------------------------------------------------------------------------
 SGS* CResourceManager::_CreateGS(LPCSTR name, ref_gs* keep_alive)
 {
-	xrCriticalSectionGuard guard(creationGuard);
+	xrCriticalSectionGuard shader_guard(shader_creation_guard(name));
 	LPSTR N = LPSTR(name);
-	map_GS::iterator I = m_gs.find(N);
-	if (I != m_gs.end())
 	{
-		if (keep_alive)
-			*keep_alive = I->second;
-		return I->second;
-	}
-	else
-	{
-		SGS* _gs = xr_new<SGS>();
-		_gs->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-		m_gs.insert(mk_pair(_gs->set_name(name), _gs));
-		if (0 == stricmp(name, "null"))
+		xrCriticalSectionGuard guard(creationGuard);
+		map_GS::iterator I = m_gs.find(N);
+		if (I != m_gs.end())
 		{
-			_gs->gs = NULL;
+			if (keep_alive)
+				*keep_alive = I->second;
+			return I->second;
+		}
+	}
+
+	SGS* _gs = xr_new<SGS>();
+	_gs->dwFlags |= xr_resource_flagged::RF_REGISTERED;
+	_gs->set_name(name);
+	if (0 == stricmp(name, "null"))
+	{
+		{
+			xrCriticalSectionGuard guard(creationGuard);
+			m_gs.insert(mk_pair(*_gs->cName, _gs));
 			if (keep_alive)
 				*keep_alive = _gs;
-			return _gs;
 		}
-
-		// Open file
-		string_path cname;
-		strconcat(sizeof(cname), cname, ::Render->getShaderPath(), name, ".gs");
-		FS.update_path(cname, "$game_shaders$", cname);
-
-		// duplicate and zero-terminate
-		IReader* file = FS.r_open(cname);
-		//	TODO: DX10: HACK: Implement all shaders. Remove this for PS
-		if (!file)
-		{
-			string1024 tmp;
-			//	TODO: HACK: Test failure
-			//Memory.mem_compact();
-			xr_sprintf(tmp, "DX10: %s is missing. Replace with stub_default.gs", cname);
-			Msg(tmp);
-			strconcat(sizeof(cname), cname, ::Render->getShaderPath(), "stub_default", ".gs");
-			FS.update_path(cname, "$game_shaders$", cname);
-			file = FS.r_open(cname);
-		}
-
-		R_ASSERT2(file, cname);
-
-		// Select target
-		LPCSTR c_target = "gs_4_0";
-		LPCSTR c_entry = "main";
-
-		HRESULT const _hr = ::Render->shader_compile(name, (DWORD const*)file->pointer(), file->length(), c_entry,
-		                                             c_target, D3D10_SHADER_PACK_MATRIX_ROW_MAJOR, (void*&)_gs);
-
-		VERIFY(SUCCEEDED(_hr));
-
-		FS.r_close(file);
-
-		CHECK_OR_EXIT(
-			!FAILED(_hr),
-			make_string("Shader compilation failed, check your log file for additional information.")
-		);
-
-		if (keep_alive)
-			*keep_alive = _gs;
+		_gs->gs = NULL;
 		return _gs;
 	}
+
+	// Open file
+	string_path cname;
+	strconcat(sizeof(cname), cname, ::Render->getShaderPath(), name, ".gs");
+	FS.update_path(cname, "$game_shaders$", cname);
+
+	// duplicate and zero-terminate
+	IReader* file = FS.r_open(cname);
+	//	TODO: DX10: HACK: Implement all shaders. Remove this for PS
+	if (!file)
+	{
+		string1024 tmp;
+		xr_sprintf(tmp, "DX10: %s is missing. Replace with stub_default.gs", cname);
+		Msg(tmp);
+		strconcat(sizeof(cname), cname, ::Render->getShaderPath(), "stub_default", ".gs");
+		FS.update_path(cname, "$game_shaders$", cname);
+		file = FS.r_open(cname);
+	}
+
+	R_ASSERT2(file, cname);
+
+	// Select target
+	LPCSTR c_target = "gs_4_0";
+	LPCSTR c_entry = "main";
+
+	HRESULT const _hr = ::Render->shader_compile(name, (DWORD const*)file->pointer(), file->length(), c_entry,
+	                                             c_target, D3D10_SHADER_PACK_MATRIX_ROW_MAJOR, (void*&)_gs);
+
+	VERIFY(SUCCEEDED(_hr));
+
+	FS.r_close(file);
+
+	CHECK_OR_EXIT(
+		!FAILED(_hr),
+		make_string("Shader compilation failed, check your log file for additional information.")
+	);
+
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		m_gs.insert(mk_pair(*_gs->cName, _gs));
+		if (keep_alive)
+			*keep_alive = _gs;
+	}
+	return _gs;
 }
 
 void CResourceManager::_DeleteGS(const SGS* gs)

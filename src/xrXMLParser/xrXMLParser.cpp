@@ -3,7 +3,7 @@
 
 #include "xrXMLParser.h"
 
-extern void XMLLuaCallback(CXml &m_xml, LPCSTR xml_string);
+extern bool XMLLuaCallback(CXml& m_xml, LPCSTR xml_string, xr_string& transformed);
 
 XRXMLPARSER_API CXml::CXml()
 	: m_root(NULL),
@@ -131,16 +131,11 @@ void CXml::Load(LPCSTR path, LPCSTR xml_filename)
 	W.w_stringZ("");
 	FS.r_close(F);
 
-	m_Doc.Parse(&m_Doc, (LPCSTR)W.pointer());
-	if (m_Doc.Error())
-	{
-		string1024 str;
-		xr_sprintf(str, "XML file:%s value:%s errDescr:%s", m_xml_file_name, m_Doc.Value(), m_Doc.ErrorDesc());
-		R_ASSERT2(false, str);
-	}
-
-	m_root = m_Doc.FirstChildElement();
-	XMLLuaCallback(*this, (LPCSTR)W.pointer());
+	xr_string transformed;
+	const LPCSTR source = XMLLuaCallback(*this, (LPCSTR)W.pointer(), transformed)
+		? transformed.c_str()
+		: (LPCSTR)W.pointer();
+	LoadFromString(source);
 }
 
 void CXml::LoadFromString(LPCSTR xml_string)

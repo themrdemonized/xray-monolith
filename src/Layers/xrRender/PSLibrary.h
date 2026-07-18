@@ -17,9 +17,17 @@ namespace PS
 
 class ECORE_API CPSLibrary : public particles_systems::library_interface
 {
+	friend class CRender;
+
 	PS::PEDVec m_PEDs;
 	PS::PGDVec m_PGDs;
 	xr_vector<shared_str> m_all_ps;
+	u32 m_prepare_loose_ms = 0;
+	u32 m_prepare_library_ms = 0;
+	u32 m_prepare_sort_ms = 0;
+
+	bool LoadDefinitions(LPCSTR nm);
+	void FinalizeLoad();
 
 #ifdef _EDITOR
     AnsiString			m_CurrentParticles;

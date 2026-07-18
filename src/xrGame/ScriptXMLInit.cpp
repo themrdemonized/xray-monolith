@@ -52,17 +52,19 @@ LPCSTR clearBOM(LPCSTR s) {
 
 // demonized
 // Send XML file contents to Lua for edit
-void XMLLuaCallback(CXml &m_xml, LPCSTR xml_string) {
-    if (!xml_string) return;
-    if (xr_strlen(xml_string) == 0) return;
+bool XMLLuaCallback(CXml& m_xml, LPCSTR xml_string, xr_string& transformed) {
+    if (!xml_string) return false;
+    if (xr_strlen(xml_string) == 0) return false;
 	xml_string = clearBOM(xml_string);
 	::luabind::functor<LPCSTR> funct;
 	if (ai().script_engine().functor("_G.COnXmlRead", funct))
 	{
 		LPCSTR res = funct(m_xml.m_xml_file_name, xml_string);
-		//Msg("XMLLuaCallback, xml %s, contents %s", m_xml.m_xml_file_name, res);
-		m_xml.LoadFromString(res);
+		R_ASSERT(res);
+		transformed = res;
+		return true;
 	}
+	return false;
 }
 
 void CScriptXmlInit::ParseFile(LPCSTR xml_file)

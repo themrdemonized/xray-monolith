@@ -199,6 +199,8 @@ extern ENGINE_API BOOL r2_advanced_pp; //	advanced post process and effects
 // Just two static storage
 void CRender::create()
 {
+	CTimer startupTimer;
+	startupTimer.Start();
 	Device.seqFrame.Add(this,REG_PRIORITY_HIGH + 0x12345678);
 
 	Engine.External.SetSkinningMode();
@@ -529,20 +531,45 @@ void CRender::create()
 
 	m_bMakeAsyncSS = false;
 
+	const u32 setupMs = startupTimer.GetElapsed_ms();
+	string_path particleLibraryPath;
+	FS.update_path(particleLibraryPath, "$game_data$", "particles.xr");
+	bool particleLoadResult = false;
+	xr_task_group particlePrepare;
+	particlePrepare.run([this, &particleLoadResult, particleLibraryPath]()
+	{
+		particleLoadResult = PSLibrary.LoadDefinitions(particleLibraryPath);
+	});
 	Target = xr_new<CRenderTarget>(); // Main target
+	const u32 targetMs = startupTimer.GetElapsed_ms() - setupMs;
 
 	Models = xr_new<CModelPool>();
-	PSLibrary.OnCreate();
+	const u32 modelsMs = startupTimer.GetElapsed_ms() - setupMs - targetMs;
+	particlePrepare.wait();
+	PSLibrary.FinalizeLoad();
+	const u32 particlesMs = startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs;
 	HWOCC.occq_create(occq_size);
+	const u32 occlusionMs = startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs;
 
 	rmNormal();
+	const u32 viewportMs =
+		startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs - occlusionMs;
 
 	GMBase.initialize();
+	const u32 geometryMs =
+		startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs - occlusionMs - viewportMs;
 	FluidManager.Initialize(70, 70, 70);
 	//	FluidManager.Initialize( 100, 100, 100 );
+	const u32 fluidMs = startupTimer.GetElapsed_ms() - setupMs - targetMs - modelsMs - particlesMs - occlusionMs -
+		viewportMs - geometryMs;
 	FluidManager.SetScreenSize(Device.dwWidth, Device.dwHeight);
 
 	Device.ModelDefferClear = xr_make_delegate(Models, &CModelPool::DeleteQueuedDeffer);
+	const u32 supportMs = startupTimer.GetElapsed_ms() - setupMs - targetMs;
+	Msg("* [STARTUP/RENDER R4] setup=%u target=%u support=%u total=%u ms",
+		setupMs, targetMs, supportMs, startupTimer.GetElapsed_ms());
+	Msg("* [STARTUP/RENDER SUPPORT] models=%u particles=%u occlusion=%u viewport=%u geometry=%u fluid=%u ms",
+		modelsMs, particlesMs, occlusionMs, viewportMs, geometryMs, fluidMs);
 }
 
 void CRender::destroy()
@@ -2046,11 +2073,13 @@ HRESULT CRender::shader_compile(
 	FS.update_path(folder_name, "$game_shaders$", folder);
 	xr_strcat(folder_name, "\\");
 
-	const xr_shared_ptr<ShaderVariantNames> file_set = indexed_shader_variants(folder_name);
-
 	string_path temp_file_name, file_name;
-	bool const useGeneratedShaderCache =
-		psDeviceFlags2.test(rsPrecompiledShaders) || !match_shader_id(name, sh_name, *file_set, temp_file_name);
+	bool useGeneratedShaderCache = psDeviceFlags2.test(rsPrecompiledShaders);
+	if (!useGeneratedShaderCache)
+	{
+		const xr_shared_ptr<ShaderVariantNames> file_set = indexed_shader_variants(folder_name);
+		useGeneratedShaderCache = !match_shader_id(name, sh_name, *file_set, temp_file_name);
+	}
 	if (useGeneratedShaderCache)
 	{
 		string_path file;

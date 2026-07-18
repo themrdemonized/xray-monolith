@@ -57,12 +57,15 @@ void CResourceManager::OnDeviceCreate(IReader* F)
 {
 	if (!RDEVICE.b_is_Ready) return;
 
+	CTimer startupTimer;
+	startupTimer.Start();
 	string256 name;
 
 #ifndef _EDITOR
 	// scripting
 	LS_Load();
 #endif
+	const u32 scriptingMs = startupTimer.GetElapsed_ms();
 	IReader* fs = 0;
 	// Load constants
 	fs = F->open_chunk(0);
@@ -133,7 +136,9 @@ void CResourceManager::OnDeviceCreate(IReader* F)
 		fs->close();
 	}
 
+	const u32 libraryMs = startupTimer.GetElapsed_ms() - scriptingMs;
 	m_textures_description.Load();
+	const u32 texturesMs = startupTimer.GetElapsed_ms() - scriptingMs - libraryMs;
 	m_reduceLodTextureList.clear();
 	if (pSettings && pSettings->section_exist("reduce_lod_texture_list"))
 	{
@@ -142,6 +147,9 @@ void CResourceManager::OnDeviceCreate(IReader* F)
 		for (CInifile::SectCIt item = section.Data.begin(); item != section.Data.end(); ++item)
 			m_reduceLodTextureList.push_back(item->first);
 	}
+	const u32 settingsMs = startupTimer.GetElapsed_ms() - scriptingMs - libraryMs - texturesMs;
+	Msg("* [STARTUP/RENDER RESOURCES] scripting=%u library=%u textures=%u settings=%u total=%u ms",
+		scriptingMs, libraryMs, texturesMs, settingsMs, startupTimer.GetElapsed_ms());
 }
 
 void CResourceManager::OnDeviceCreate(LPCSTR shName)

@@ -14,6 +14,8 @@ struct lua_State;
 
 class dx10ConstantBuffer;
 
+ECORE_API xrCriticalSection& shader_creation_guard(LPCSTR name);
+
 // defs
 class ECORE_API CResourceManager
 {

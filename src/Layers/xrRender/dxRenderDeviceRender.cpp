@@ -152,11 +152,17 @@ void dxRenderDeviceRender::SetupStates()
 
 void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 {
+	CTimer startupTimer;
+	startupTimer.Start();
+
 	// Signal everyone - device created
 	RCache.OnDeviceCreate();
 	m_Gamma.Update();
+	const u32 backendMs = startupTimer.GetElapsed_ms();
 	Resources->OnDeviceCreate(shName);
+	const u32 resourcesMs = startupTimer.GetElapsed_ms() - backendMs;
 	::Render->create();
+	const u32 rendererMs = startupTimer.GetElapsed_ms() - backendMs - resourcesMs;
 	Device.Statistic->OnDeviceCreate();
 
 	//#ifndef DEDICATED_SERVER
@@ -168,12 +174,18 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 		DUImpl.OnDeviceCreate();
 	}
 	//#endif
+	const u32 utilitiesMs = startupTimer.GetElapsed_ms() - backendMs - resourcesMs - rendererMs;
+	Msg("* [STARTUP/RENDER CREATE] backend=%u resources=%u renderer=%u utilities=%u total=%u ms",
+		backendMs, resourcesMs, rendererMs, utilitiesMs, startupTimer.GetElapsed_ms());
 }
 
 void dxRenderDeviceRender::Create(HWND hWnd, u32& dwWidth, u32& dwHeight, float& fWidth_2, float& fHeight_2,
                                   bool move_window)
 {
+	CTimer startupTimer;
+	startupTimer.Start();
 	HW.CreateDevice(hWnd, move_window);
+	const u32 hardwareMs = startupTimer.GetElapsed_ms();
 #if defined(USE_DX11)
 	dwWidth = HW.m_ChainDesc.Width;
 	dwHeight = HW.m_ChainDesc.Height;
@@ -187,6 +199,8 @@ void dxRenderDeviceRender::Create(HWND hWnd, u32& dwWidth, u32& dwHeight, float&
 	fWidth_2 = float(dwWidth / 2);
 	fHeight_2 = float(dwHeight / 2);
 	Resources = xr_new<CResourceManager>();
+	Msg("* [STARTUP/RENDER DEVICE] hardware=%u manager=%u total=%u ms", hardwareMs,
+		startupTimer.GetElapsed_ms() - hardwareMs, startupTimer.GetElapsed_ms());
 }
 
 void dxRenderDeviceRender::SetupGPU(BOOL bForceGPU_SW, BOOL bForceGPU_NonPure, BOOL bForceGPU_REF)

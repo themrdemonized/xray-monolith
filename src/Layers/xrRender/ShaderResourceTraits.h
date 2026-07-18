@@ -76,67 +76,74 @@ inline CResourceManager::map_CS& CResourceManager::GetShaderMap() { return m_cs;
 template <typename T, typename Ref>
 inline T* CResourceManager::CreateShader(const char* name, Ref* keep_alive)
 {
-	xrCriticalSectionGuard guard(creationGuard);
+	xrCriticalSectionGuard shader_guard(shader_creation_guard(name));
 	ShaderTypeTraits<T>::MapType& sh_map = GetShaderMap<ShaderTypeTraits<T>::MapType>();
 	LPSTR N = LPSTR(name);
-	ShaderTypeTraits<T>::MapType::iterator I = sh_map.find(N);
-
-	if (I != sh_map.end())
 	{
-		if (keep_alive)
-			*keep_alive = I->second;
-		return I->second;
-	}
-	else
-	{
-		T* sh = xr_new<T>();
-
-		sh->dwFlags |= xr_resource_flagged::RF_REGISTERED;
-		sh_map.insert(mk_pair(sh->set_name(name), sh));
-		if (0 == stricmp(name, "null"))
+		xrCriticalSectionGuard guard(creationGuard);
+		typename ShaderTypeTraits<T>::MapType::iterator I = sh_map.find(N);
+		if (I != sh_map.end())
 		{
-			sh->sh = NULL;
+			if (keep_alive)
+				*keep_alive = I->second;
+			return I->second;
+		}
+	}
+
+	T* sh = xr_new<T>();
+	sh->dwFlags |= xr_resource_flagged::RF_REGISTERED;
+	sh->set_name(name);
+	if (0 == stricmp(name, "null"))
+	{
+		{
+			xrCriticalSectionGuard guard(creationGuard);
+			sh_map.insert(mk_pair(*sh->cName, sh));
 			if (keep_alive)
 				*keep_alive = sh;
-			return sh;
 		}
-
-		string_path shName;
-		const char* pchr = strchr(name, '(');
-		ptrdiff_t strSize = pchr ? pchr - name : xr_strlen(name);
-		strncpy(shName, name, strSize);
-		shName[strSize] = 0;
-
-		// Open file
-		string_path cname;
-		strconcat(sizeof(cname), cname, ::Render->getShaderPath(),/*name*/shName, ShaderTypeTraits<T>::GetShaderExt());
-		FS.update_path(cname, "$game_shaders$", cname);
-
-		// duplicate and zero-terminate
-		IReader* file = FS.r_open(cname);
-		R_ASSERT2(file, cname);
-
-		// Select target
-		LPCSTR c_target = ShaderTypeTraits<T>::GetCompilationTarget();
-		LPCSTR c_entry = "main";
-
-		// Compile
-		HRESULT const _hr = ::Render->shader_compile(name, (DWORD const*)file->pointer(), file->length(), c_entry,
-		                                             c_target, D3D10_SHADER_PACK_MATRIX_ROW_MAJOR, (void*&)sh);
-
-		FS.r_close(file);
-
-		VERIFY(SUCCEEDED(_hr));
-
-		CHECK_OR_EXIT(
-			!FAILED(_hr),
-			make_string("Shader compilation failed, check your log file for additional information.")
-		);
-
-		if (keep_alive)
-			*keep_alive = sh;
+		sh->sh = NULL;
 		return sh;
 	}
+
+	string_path shName;
+	const char* pchr = strchr(name, '(');
+	ptrdiff_t strSize = pchr ? pchr - name : xr_strlen(name);
+	strncpy(shName, name, strSize);
+	shName[strSize] = 0;
+
+	// Open file
+	string_path cname;
+	strconcat(sizeof(cname), cname, ::Render->getShaderPath(),/*name*/shName, ShaderTypeTraits<T>::GetShaderExt());
+	FS.update_path(cname, "$game_shaders$", cname);
+
+	// duplicate and zero-terminate
+	IReader* file = FS.r_open(cname);
+	R_ASSERT2(file, cname);
+
+	// Select target
+	LPCSTR c_target = ShaderTypeTraits<T>::GetCompilationTarget();
+	LPCSTR c_entry = "main";
+
+	// Compile
+	HRESULT const _hr = ::Render->shader_compile(name, (DWORD const*)file->pointer(), file->length(), c_entry,
+	                                             c_target, D3D10_SHADER_PACK_MATRIX_ROW_MAJOR, (void*&)sh);
+
+	FS.r_close(file);
+
+	VERIFY(SUCCEEDED(_hr));
+
+	CHECK_OR_EXIT(
+		!FAILED(_hr),
+		make_string("Shader compilation failed, check your log file for additional information.")
+	);
+
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		sh_map.insert(mk_pair(*sh->cName, sh));
+		if (keep_alive)
+			*keep_alive = sh;
+	}
+	return sh;
 }
 
 template <typename T>

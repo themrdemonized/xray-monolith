@@ -217,14 +217,35 @@ extern float g_fTimeFactor;
 PROTECT_API void InitSettings()
 {
 	PROF_EVENT("InitSettings");
-	string_path fname;
-	FS.update_path(fname, "$game_config$", "system.ltx");
+	string_path systemPath;
+	string_path gamePath;
+	FS.update_path(systemPath, "$game_config$", "system.ltx");
+	FS.update_path(gamePath, "$game_config$", "game.ltx");
 #ifdef DEBUG
-    Msg("Updated path to system.ltx is %s", fname);
+    Msg("Updated path to system.ltx is %s", systemPath);
 #endif // #ifdef DEBUG
-	pSettings = xr_new<CInifile>(fname, TRUE);
+
+	CInifile* systemSettings = nullptr;
+	CInifile* gameSettings = nullptr;
+	xr_task_group settingsTasks;
+	settingsTasks.run([&]() { systemSettings = xr_new<CInifile>(systemPath, TRUE); });
+	settingsTasks.run([&]() { gameSettings = xr_new<CInifile>(gamePath, TRUE); });
+	try
+	{
+		settingsTasks.wait();
+	}
+	catch (...)
+	{
+		xr_delete(systemSettings);
+		xr_delete(gameSettings);
+		throw;
+	}
+	pSettings = systemSettings;
+	pGameIni = gameSettings;
 	CHECK_OR_EXIT(0 != pSettings->section_count(),
-	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", fname));
+	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", systemPath));
+	CHECK_OR_EXIT(0 != pGameIni->section_count(),
+	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", gamePath));
 
 	xr_auth_strings_t tmp_ignore_pathes;
 	xr_auth_strings_t tmp_check_pathes;
@@ -234,18 +255,13 @@ PROTECT_API void InitSettings()
 	CInifile::allow_include_func_t tmp_functor;
 	tmp_functor.bind(&tmp_excluder, &path_excluder_predicate::is_allow_include);
 	pSettingsAuth = xr_new<CInifile>(
-		fname,
+		systemPath,
 		TRUE,
 		TRUE,
 		FALSE,
 		0,
 		tmp_functor
 	);
-
-	FS.update_path(fname, "$game_config$", "game.ltx");
-	pGameIni = xr_new<CInifile>(fname, TRUE);
-	CHECK_OR_EXIT(0 != pGameIni->section_count(),
-	              make_string("Cannot find file %s.\nReinstalling application may fix this problem.", fname));
 
 	g_fTimeFactor = pSettings->r_float("alife", "time_factor");
 }

@@ -158,19 +158,25 @@ void CGamePersistent::OnAppStart()
 {
 	CTimer timer;
 	timer.Start();
-	xr_task_group environment_task;
+	xr_task_group nativeTasks;
+	u32 materialsMs = 0;
 #ifndef _EDITOR
-	environment_task.run([this]() { Environment().load(); });
+	nativeTasks.run([this]() { Environment().load(); });
 #endif
-	GMLib.Load();
-	Msg("* [STARTUP] game materials: %d ms", timer.GetElapsed_ms());
+	nativeTasks.run([&materialsMs]()
+	{
+		CTimer materialsTimer;
+		materialsTimer.Start();
+		GMLib.Load();
+		materialsMs = materialsTimer.GetElapsed_ms();
+	});
 	timer.Start();
 	init_game_globals();
 	Msg("* [STARTUP] game globals: %d ms", timer.GetElapsed_ms());
 	timer.Start();
-	environment_task.wait();
+	nativeTasks.wait();
 	inherited::OnAppStart();
-	Msg("* [STARTUP] environment barrier and config: %d ms", timer.GetElapsed_ms());
+	Msg("* [STARTUP] native barrier: wait=%d materials-work=%u ms", timer.GetElapsed_ms(), materialsMs);
 	timer.Start();
 	m_pUI_core = xr_new<ui_core>();
 	m_pMainMenu = xr_new<CMainMenu>();

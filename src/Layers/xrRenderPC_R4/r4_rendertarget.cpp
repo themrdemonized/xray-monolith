@@ -349,6 +349,8 @@ void generate_jitter(DWORD* dest, u32 elem_count)
 
 CRenderTarget::CRenderTarget()
 {
+	CTimer startupTimer;
+	startupTimer.Start();
 	u32 SampleCount = 1;
 
 	if (ps_r_ssao_mode != 2/*hdao*/)
@@ -652,53 +654,61 @@ CRenderTarget::CRenderTarget()
 			rt_Generic_2.create(r2_RT_generic2, w, h, D3DFMT_A16B16G16R16F, SampleCount);
 	}
 
+	const u32 initialTargetsMs = startupTimer.GetElapsed_ms();
 	xr_task_group startup_shader_tasks;
 	startup_shader_tasks.run([this]()
-	{
-		s_hdr10_bloom_downsample.create(b_hdr10_bloom_downsample, "hdr10_bloom_downsample");
-		s_hdr10_bloom_blur.create(b_hdr10_bloom_blur, "hdr10_bloom_blur");
-		s_hdr10_bloom_upsample.create(b_hdr10_bloom_upsample, "hdr10_bloom_upsample");
-		s_hdr10_lens_flare_downsample.create(b_hdr10_lens_flare_downsample, "hdr10_lens_flare_downsample");
-		s_hdr10_lens_flare_fgen.create(b_hdr10_lens_flare_fgen, "hdr10_lens_flare_fgen");
-		s_hdr10_lens_flare_blur.create(b_hdr10_lens_flare_blur, "hdr10_lens_flare_blur");
-		s_hdr10_lens_flare_upsample.create(b_hdr10_lens_flare_upsample, "hdr10_lens_flare_upsample");
-	});
+		{ s_hdr10_bloom_downsample.create_parallel(b_hdr10_bloom_downsample, "hdr10_bloom_downsample"); });
 	startup_shader_tasks.run([this]()
-	{
-		s_sunshafts.create(b_sunshafts, "r2\\sunshafts");
-		s_blur.create(b_blur, "r2\\blur");
-		s_pp_bloom.create(b_pp_bloom, "r2\\pp_bloom");
-		s_dof.create(b_dof, "r2\\dof");
-		s_gasmask_drops.create(b_gasmask_drops, "r2\\gasmask_drops");
-		s_gasmask_dudv.create(b_gasmask_dudv, "r2\\gasmask_dudv");
-		s_nightvision.create(b_nightvision, "r2\\nightvision");
-		s_fakescope.create(b_fakescope, "r2\\fakescope");
-		s_heatvision.create(b_heatvision, "r2\\heatvision");
-		s_lut.create(b_lut, "r2\\lut");
-		s_occq.create(b_occq, "r2\\occq");
-	});
+		{ s_hdr10_bloom_blur.create_parallel(b_hdr10_bloom_blur, "hdr10_bloom_blur"); });
 	startup_shader_tasks.run([this]()
-	{
-		s_ssfx_fog_scattering.create(b_ssfx_fog_scattering, "ssfx_fog_scattering");
-		s_ssfx_motion_blur.create(b_ssfx_motion_blur, "ssfx_motion_blur");
-		s_ssfx_taa.create(b_ssfx_taa, "ssfx_taa");
-		s_ssfx_rain.create(b_ssfx_rain, "ssfx_rain");
-		s_ssfx_bloom.create(b_ssfx_bloom, "ssfx_bloom");
-		s_ssfx_bloom_lens.create(b_ssfx_bloom_lens, "ssfx_bloom_flares");
-		s_ssfx_bloom_downsample.create(b_ssfx_bloom_downsample, "ssfx_bloom_downsample");
-		s_ssfx_bloom_upsample.create(b_ssfx_bloom_upsample, "ssfx_bloom_upsample");
-		s_ssfx_sss_ext.create(b_ssfx_sss_ext, "ssfx_sss_ext");
-		s_ssfx_sss.create(b_ssfx_sss, "ssfx_sss");
-		s_ssfx_ssr.create(b_ssfx_ssr, "ssfx_ssr");
-		s_ssfx_volumetric_blur.create(b_ssfx_volumetric_blur, "ssfx_volumetric_blur");
-	});
+		{ s_hdr10_bloom_upsample.create_parallel(b_hdr10_bloom_upsample, "hdr10_bloom_upsample"); });
 	startup_shader_tasks.run([this]()
-	{
-		s_ssfx_water_ssr.create("ssfx_water_ssr");
-		s_ssfx_water.create("ssfx_water");
-		s_ssfx_water_blur.create(b_ssfx_water_blur, "ssfx_water_blur");
-		s_ssfx_ao.create(b_ssfx_ao, "ssfx_ao");
-	});
+		{ s_hdr10_lens_flare_downsample.create_parallel(b_hdr10_lens_flare_downsample, "hdr10_lens_flare_downsample"); });
+	startup_shader_tasks.run([this]()
+		{ s_hdr10_lens_flare_fgen.create_parallel(b_hdr10_lens_flare_fgen, "hdr10_lens_flare_fgen"); });
+	startup_shader_tasks.run([this]()
+		{ s_hdr10_lens_flare_blur.create_parallel(b_hdr10_lens_flare_blur, "hdr10_lens_flare_blur"); });
+	startup_shader_tasks.run([this]()
+		{ s_hdr10_lens_flare_upsample.create_parallel(b_hdr10_lens_flare_upsample, "hdr10_lens_flare_upsample"); });
+
+	startup_shader_tasks.run([this]() { s_sunshafts.create_parallel(b_sunshafts, "r2\\sunshafts"); });
+	startup_shader_tasks.run([this]() { s_blur.create_parallel(b_blur, "r2\\blur"); });
+	startup_shader_tasks.run([this]() { s_pp_bloom.create_parallel(b_pp_bloom, "r2\\pp_bloom"); });
+	startup_shader_tasks.run([this]() { s_dof.create_parallel(b_dof, "r2\\dof"); });
+	startup_shader_tasks.run([this]()
+		{ s_gasmask_drops.create_parallel(b_gasmask_drops, "r2\\gasmask_drops"); });
+	startup_shader_tasks.run([this]()
+		{ s_gasmask_dudv.create_parallel(b_gasmask_dudv, "r2\\gasmask_dudv"); });
+	startup_shader_tasks.run([this]() { s_nightvision.create_parallel(b_nightvision, "r2\\nightvision"); });
+	startup_shader_tasks.run([this]() { s_fakescope.create_parallel(b_fakescope, "r2\\fakescope"); });
+	startup_shader_tasks.run([this]() { s_heatvision.create_parallel(b_heatvision, "r2\\heatvision"); });
+	startup_shader_tasks.run([this]() { s_lut.create_parallel(b_lut, "r2\\lut"); });
+	startup_shader_tasks.run([this]() { s_occq.create_parallel(b_occq, "r2\\occq"); });
+
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_fog_scattering.create_parallel(b_ssfx_fog_scattering, "ssfx_fog_scattering"); });
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_motion_blur.create_parallel(b_ssfx_motion_blur, "ssfx_motion_blur"); });
+	startup_shader_tasks.run([this]() { s_ssfx_taa.create_parallel(b_ssfx_taa, "ssfx_taa"); });
+	startup_shader_tasks.run([this]() { s_ssfx_rain.create_parallel(b_ssfx_rain, "ssfx_rain"); });
+	startup_shader_tasks.run([this]() { s_ssfx_bloom.create_parallel(b_ssfx_bloom, "ssfx_bloom"); });
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_bloom_lens.create_parallel(b_ssfx_bloom_lens, "ssfx_bloom_flares"); });
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_bloom_downsample.create_parallel(b_ssfx_bloom_downsample, "ssfx_bloom_downsample"); });
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_bloom_upsample.create_parallel(b_ssfx_bloom_upsample, "ssfx_bloom_upsample"); });
+	startup_shader_tasks.run([this]() { s_ssfx_sss_ext.create_parallel(b_ssfx_sss_ext, "ssfx_sss_ext"); });
+	startup_shader_tasks.run([this]() { s_ssfx_sss.create_parallel(b_ssfx_sss, "ssfx_sss"); });
+	startup_shader_tasks.run([this]() { s_ssfx_ssr.create_parallel(b_ssfx_ssr, "ssfx_ssr"); });
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_volumetric_blur.create_parallel(b_ssfx_volumetric_blur, "ssfx_volumetric_blur"); });
+
+	s_ssfx_water_ssr.create("ssfx_water_ssr");
+	s_ssfx_water.create("ssfx_water");
+	startup_shader_tasks.run([this]()
+		{ s_ssfx_water_blur.create_parallel(b_ssfx_water_blur, "ssfx_water_blur"); });
+	startup_shader_tasks.run([this]() { s_ssfx_ao.create_parallel(b_ssfx_ao, "ssfx_ao"); });
 	// SSS 23: Deprecated
 	/*string32 cskin_buffer;
 	for (int skin_num = 0; skin_num < 5; skin_num++)
@@ -721,41 +731,46 @@ CRenderTarget::CRenderTarget()
 		if (RImplementation.o.dx10_minmax_sm)
 		{
 			rt_smap_depth_minmax.create(r2_RT_smap_depth_minmax, size / 4, size / 4, D3DFMT_R32F);
-			CBlender_createminmax TempBlender;
-			s_create_minmax_sm.create(&TempBlender, "null");
+			startup_shader_tasks.run([this]()
+			{
+				CBlender_createminmax blender;
+				s_create_minmax_sm.create_parallel(&blender, "null");
+			});
 		}
 
 		//rt_smap_surf.create			(r2_RT_smap_surf,			size,size,nullrt		);
 		//rt_smap_ZB					= NULL;
-		startup_shader_tasks.run([this]()
+		startup_shader_tasks.run([this]() { s_accum_mask.create_parallel(b_accum_mask, "r3\\accum_mask"); });
+		startup_shader_tasks.run([this]() { s_accum_direct.create_parallel(b_accum_direct, "r3\\accum_direct"); });
+		if (RImplementation.o.dx10_msaa)
 		{
-			s_accum_mask.create(b_accum_mask, "r3\\accum_mask");
-			s_accum_direct.create(b_accum_direct, "r3\\accum_direct");
+			const int bound = RImplementation.o.dx10_msaa_opt ? 1 : RImplementation.o.dx10_msaa_samples;
+			for (int i = 0; i < bound; ++i)
+			{
+				startup_shader_tasks.run([this, i]()
+					{ s_accum_direct_msaa[i].create_parallel(b_accum_direct_msaa[i], "r3\\accum_direct"); });
+				startup_shader_tasks.run([this, i]()
+					{ s_accum_mask_msaa[i].create_parallel(b_accum_mask_msaa[i], "r3\\accum_direct"); });
+			}
+		}
+		if (RImplementation.o.advancedpp)
+		{
+			s_accum_direct_volumetric.create("accum_volumetric_sun_nomsaa");
+			if (RImplementation.o.dx10_minmax_sm)
+				s_accum_direct_volumetric_minmax.create("accum_volumetric_sun_nomsaa_minmax");
 			if (RImplementation.o.dx10_msaa)
 			{
-				int bound = RImplementation.o.dx10_msaa_opt ? 1 : RImplementation.o.dx10_msaa_samples;
+				const int bound = RImplementation.o.dx10_msaa_opt ? 1 : RImplementation.o.dx10_msaa_samples;
 				for (int i = 0; i < bound; ++i)
 				{
-					s_accum_direct_msaa[i].create(b_accum_direct_msaa[i], "r3\\accum_direct");
-					s_accum_mask_msaa[i].create(b_accum_mask_msaa[i], "r3\\accum_direct");
+					static LPCSTR names[] = {"accum_volumetric_sun_msaa0", "accum_volumetric_sun_msaa1",
+						"accum_volumetric_sun_msaa2", "accum_volumetric_sun_msaa3",
+						"accum_volumetric_sun_msaa4", "accum_volumetric_sun_msaa5",
+						"accum_volumetric_sun_msaa6", "accum_volumetric_sun_msaa7"};
+					s_accum_direct_volumetric_msaa[i].create(names[i]);
 				}
 			}
-			if (RImplementation.o.advancedpp)
-			{
-				s_accum_direct_volumetric.create("accum_volumetric_sun_nomsaa");
-				if (RImplementation.o.dx10_minmax_sm)
-					s_accum_direct_volumetric_minmax.create("accum_volumetric_sun_nomsaa_minmax");
-				if (RImplementation.o.dx10_msaa)
-				{
-					static LPCSTR snames[] = {"accum_volumetric_sun_msaa0", "accum_volumetric_sun_msaa1",
-						"accum_volumetric_sun_msaa2", "accum_volumetric_sun_msaa3", "accum_volumetric_sun_msaa4",
-						"accum_volumetric_sun_msaa5", "accum_volumetric_sun_msaa6", "accum_volumetric_sun_msaa7"};
-					int bound = RImplementation.o.dx10_msaa_opt ? 1 : RImplementation.o.dx10_msaa_samples;
-					for (int i = 0; i < bound; ++i)
-						s_accum_direct_volumetric_msaa[i].create(snames[i]);
-				}
-			}
-		});
+		}
 	}
 	else
 	{
@@ -774,43 +789,43 @@ CRenderTarget::CRenderTarget()
 	//	RAIN
 	//	TODO: DX10: Create resources only when DX10 rain is enabled.
 	//	Or make DX10 rain switch dynamic?
+	startup_shader_tasks.run([this]()
 	{
-		CBlender_rain TempBlender;
-		s_rain.create(&TempBlender, "null");
-
-		if (RImplementation.o.dx10_msaa)
+		CBlender_rain blender;
+		s_rain.create_parallel(&blender, "null");
+	});
+	if (RImplementation.o.dx10_msaa)
+	{
+		const int bound = RImplementation.o.dx10_msaa_opt ? 1 : RImplementation.o.dx10_msaa_samples;
+		for (int i = 0; i < bound; ++i)
 		{
-			static LPCSTR SampleDefs[] = {"0", "1", "2", "3", "4", "5", "6", "7"};
-			CBlender_rain_msaa TempBlender[8];
-
-			int bound = RImplementation.o.dx10_msaa_samples;
-
-			if (RImplementation.o.dx10_msaa_opt)
-				bound = 1;
-
-			for (int i = 0; i < bound; ++i)
+			startup_shader_tasks.run([this, i]()
 			{
-				TempBlender[i].SetDefine("ISAMPLE", SampleDefs[i]);
-				s_rain_msaa[i].create(&TempBlender[i], "null");
-				s_accum_spot_msaa[i].create(b_accum_spot_msaa[i], "r2\\accum_spot_s", "lights\\lights_spot01");
-				s_accum_point_msaa[i].create(b_accum_point_msaa[i], "r2\\accum_point_s");
-				//s_accum_volume_msaa[i].create(b_accum_direct_volumetric_msaa[i], "lights\\lights_spot01");
-				s_accum_volume_msaa[i].create(b_accum_volumetric_msaa[i], "lights\\lights_spot01");
-				s_combine_msaa[i].create(b_combine_msaa[i], "r2\\combine");
-			}
+				static LPCSTR sampleDefinitions[] = {"0", "1", "2", "3", "4", "5", "6", "7"};
+				CBlender_rain_msaa blender;
+				blender.SetDefine("ISAMPLE", sampleDefinitions[i]);
+				s_rain_msaa[i].create_parallel(&blender, "null");
+				s_accum_spot_msaa[i].create_parallel(
+					b_accum_spot_msaa[i], "r2\\accum_spot_s", "lights\\lights_spot01");
+				s_accum_point_msaa[i].create_parallel(b_accum_point_msaa[i], "r2\\accum_point_s");
+				s_accum_volume_msaa[i].create_parallel(b_accum_volumetric_msaa[i], "lights\\lights_spot01");
+				s_combine_msaa[i].create_parallel(b_combine_msaa[i], "r2\\combine");
+			});
 		}
 	}
 
 	if (RImplementation.o.dx10_msaa)
 	{
-		CBlender_msaa TempBlender;
-
-		s_mark_msaa_edges.create(&TempBlender, "null");
+		startup_shader_tasks.run([this]()
+		{
+			CBlender_msaa blender;
+			s_mark_msaa_edges.create_parallel(&blender, "null");
+		});
 	}
 
 	// POINT
 	{
-		startup_shader_tasks.run([this]() { s_accum_point.create(b_accum_point, "r2\\accum_point_s"); });
+		startup_shader_tasks.run([this]() { s_accum_point.create_parallel(b_accum_point, "r2\\accum_point_s"); });
 		accum_point_geom_create();
 		g_accum_point.create(D3DFVF_XYZ, g_accum_point_vb, g_accum_point_ib);
 		accum_omnip_geom_create();
@@ -821,14 +836,14 @@ CRenderTarget::CRenderTarget()
 	{
 		startup_shader_tasks.run([this]()
 		{
-			s_accum_spot.create(b_accum_spot, "r2\\accum_spot_s", "lights\\lights_spot01");
+			s_accum_spot.create_parallel(b_accum_spot, "r2\\accum_spot_s", "lights\\lights_spot01");
 		});
 		accum_spot_geom_create();
 		g_accum_spot.create(D3DFVF_XYZ, g_accum_spot_vb, g_accum_spot_ib);
 	}
 
 	{
-		startup_shader_tasks.run([this]() { s_accum_volume.create("accum_volumetric", "lights\\lights_spot01"); });
+		s_accum_volume.create("accum_volumetric", "lights\\lights_spot01");
 		accum_volumetric_geom_create();
 		g_accum_volumetric.create(D3DFVF_XYZ, g_accum_volumetric_vb, g_accum_volumetric_ib);
 	}
@@ -836,18 +851,14 @@ CRenderTarget::CRenderTarget()
 
 	// REFLECTED
 	{
-		startup_shader_tasks.run([this]() { s_accum_reflected.create(b_accum_reflected, "r2\\accum_refl"); });
+		startup_shader_tasks.run([this]()
+			{ s_accum_reflected.create_parallel(b_accum_reflected, "r2\\accum_refl"); });
 		if (RImplementation.o.dx10_msaa)
 		{
-			int bound = RImplementation.o.dx10_msaa_samples;
-
-			if (RImplementation.o.dx10_msaa_opt)
-				bound = 1;
-
+			const int bound = RImplementation.o.dx10_msaa_opt ? 1 : RImplementation.o.dx10_msaa_samples;
 			for (int i = 0; i < bound; ++i)
-			{
-				s_accum_reflected_msaa[i].create(b_accum_reflected_msaa[i], "null");
-			}
+				startup_shader_tasks.run([this, i]()
+					{ s_accum_reflected_msaa[i].create_parallel(b_accum_reflected_msaa[i], "null"); });
 		}
 	}
 
@@ -864,17 +875,15 @@ CRenderTarget::CRenderTarget()
 		rt_Bloom_2.create(r2_RT_bloom2, w, h, fmt);
 		g_bloom_build.create(fvf_build, RCache.Vertex.Buffer(), RCache.QuadIB);
 		g_bloom_filter.create(fvf_filter, RCache.Vertex.Buffer(), RCache.QuadIB);
-		startup_shader_tasks.run([this]()
+		s_bloom_dbg_1.create("effects\\screen_set", r2_RT_bloom1);
+		s_bloom_dbg_2.create("effects\\screen_set", r2_RT_bloom2);
+		startup_shader_tasks.run([this]() { s_bloom.create_parallel(b_bloom, "r2\\bloom"); });
+		if (RImplementation.o.dx10_msaa)
 		{
-			s_bloom_dbg_1.create("effects\\screen_set", r2_RT_bloom1);
-			s_bloom_dbg_2.create("effects\\screen_set", r2_RT_bloom2);
-			s_bloom.create(b_bloom, "r2\\bloom");
-			if (RImplementation.o.dx10_msaa)
-			{
-				s_bloom_msaa.create(b_bloom_msaa, "r2\\bloom");
-				s_postprocess_msaa.create(b_postprocess_msaa, "r2\\post");
-			}
-		});
+			startup_shader_tasks.run([this]() { s_bloom_msaa.create_parallel(b_bloom_msaa, "r2\\bloom"); });
+			startup_shader_tasks.run([this]()
+				{ s_postprocess_msaa.create_parallel(b_postprocess_msaa, "r2\\post"); });
+		}
 		f_bloom_factor = 0.5f;
 	}
 
@@ -886,14 +895,14 @@ CRenderTarget::CRenderTarget()
 		rt_smaa_edgetex.create(r2_RT_smaa_edgetex, w, h, D3DFMT_A8R8G8B8);
 		rt_smaa_blendtex.create(r2_RT_smaa_blendtex, w, h, D3DFMT_A8R8G8B8);
 
-		startup_shader_tasks.run([this]() { s_smaa.create(b_smaa, "r3\\smaa"); });
+		startup_shader_tasks.run([this]() { s_smaa.create_parallel(b_smaa, "r3\\smaa"); });
 	}
 
 	// TONEMAP
 	{
 		rt_LUM_64.create(r2_RT_luminance_t64, 64, 64, D3DFMT_A16B16G16R16F);
 		rt_LUM_8.create(r2_RT_luminance_t8, 8, 8, D3DFMT_A16B16G16R16F);
-		startup_shader_tasks.run([this]() { s_luminance.create(b_luminance, "r2\\luminance"); });
+		startup_shader_tasks.run([this]() { s_luminance.create_parallel(b_luminance, "r2\\luminance"); });
 		f_luminance_adapt = 0.5f;
 
 		t_LUM_src.create(r2_RT_luminance_src);
@@ -930,7 +939,7 @@ CRenderTarget::CRenderTarget()
 		D3DFORMAT fmt = HW.Caps.id_vendor == 0x10DE ? D3DFMT_R32F : D3DFMT_R16F;
 		rt_half_depth.create(r2_RT_half_depth, w, h, fmt);
 
-		startup_shader_tasks.run([this]() { s_ssao.create(b_ssao, "r2\\ssao"); });
+		startup_shader_tasks.run([this]() { s_ssao.create_parallel(b_ssao, "r2\\ssao"); });
 	}
 
 	//if (RImplementation.o.ssao_blur_on)
@@ -957,9 +966,9 @@ CRenderTarget::CRenderTarget()
 		rt_ssao_temp.create(r2_RT_ssao_temp, w, h, D3DFMT_R16F, 1, true);
 		startup_shader_tasks.run([this]()
 		{
-			s_hdao_cs.create(b_hdao_cs, "r2\\ssao");
+			s_hdao_cs.create_parallel(b_hdao_cs, "r2\\ssao");
 			if (RImplementation.o.dx10_msaa)
-				s_hdao_cs_msaa.create(b_hdao_msaa_cs, "r2\\ssao");
+				s_hdao_cs_msaa.create_parallel(b_hdao_msaa_cs, "r2\\ssao");
 		});
 	}
 
@@ -970,14 +979,11 @@ CRenderTarget::CRenderTarget()
 			{0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // pos+uv
 			D3DDECL_END()
 		};
-		startup_shader_tasks.run([this]()
-		{
-			s_combine.create(b_combine, "r2\\combine");
-			s_combine_volumetric.create("combine_volumetric");
-			s_combine_dbg_0.create("effects\\screen_set", r2_RT_smap_surf);
-			s_combine_dbg_1.create("effects\\screen_set", r2_RT_luminance_t8);
-			s_combine_dbg_Accumulator.create("effects\\screen_set", r2_RT_accum);
-		});
+		startup_shader_tasks.run([this]() { s_combine.create_parallel(b_combine, "r2\\combine"); });
+		s_combine_volumetric.create("combine_volumetric");
+		s_combine_dbg_0.create("effects\\screen_set", r2_RT_smap_surf);
+		s_combine_dbg_1.create("effects\\screen_set", r2_RT_luminance_t8);
+		s_combine_dbg_Accumulator.create("effects\\screen_set", r2_RT_accum);
 		g_combine_VP.create(dwDecl, RCache.Vertex.Buffer(), RCache.QuadIB);
 		g_combine.create(FVF::F_TL, RCache.Vertex.Buffer(), RCache.QuadIB);
 		g_combine_2UV.create(FVF::F_TL2uv, RCache.Vertex.Buffer(), RCache.QuadIB);
@@ -1281,18 +1287,22 @@ CRenderTarget::CRenderTarget()
 	}
 
 	// PP
-	startup_shader_tasks.run([this]() { s_postprocess.create("postprocess"); });
+	s_postprocess.create("postprocess");
 	g_postprocess.create(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_SPECULAR | D3DFVF_TEX3, RCache.Vertex.Buffer(),
 	                     RCache.QuadIB);
 
 	// Menu
-	startup_shader_tasks.run([this]() { s_menu.create("distort"); });
+	s_menu.create("distort");
 	g_menu.create(FVF::F_TL, RCache.Vertex.Buffer(), RCache.QuadIB);
+	const u32 overlappedWorkMs = startupTimer.GetElapsed_ms() - initialTargetsMs;
 	startup_shader_tasks.wait();
+	const u32 shaderWaitMs = startupTimer.GetElapsed_ms() - initialTargetsMs - overlappedWorkMs;
 
 	//
 	dwWidth = Device.dwWidth;
 	dwHeight = Device.dwHeight;
+	Msg("* [STARTUP/RENDER TARGET] initial=%u overlap=%u shader-wait=%u total=%u ms",
+		initialTargetsMs, overlappedWorkMs, shaderWaitMs, startupTimer.GetElapsed_ms());
 }
 
 CRenderTarget::~CRenderTarget()

@@ -102,96 +102,49 @@ CEnvironment::CEnvironment() :
 	// tsky0 = Device.Resources->_CreateTexture("$user$sky0");
 	// tsky1 = Device.Resources->_CreateTexture("$user$sky1");
 
-	string_path file_name;
-	m_ambients_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\ambients.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_sound_channels_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\sound_channels.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_effects_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\effects.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_suns_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\suns.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_sun_pos_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\sun_positions.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_thunderbolt_collections_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\thunderbolt_collections.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
-	m_thunderbolts_config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\thunderbolts.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
+	CTimer configTimer;
+	configTimer.Start();
+	static LPCSTR configNames[] = {
+		"environment\\ambients.ltx",
+		"environment\\sound_channels.ltx",
+		"environment\\effects.ltx",
+		"environment\\suns.ltx",
+		"environment\\sun_positions.ltx",
+		"environment\\thunderbolt_collections.ltx",
+		"environment\\thunderbolts.ltx",
+		"environment\\environment.ltx"
+	};
+	CInifile* configs[std::size(configNames)] = {};
+	xr_task_group configTasks;
+	for (u32 index = 0; index < std::size(configNames); ++index)
+	{
+		configTasks.run([&, index]()
+		{
+			string_path fileName;
+			configs[index] = xr_new<CInifile>(
+				FS.update_path(fileName, "$game_config$", configNames[index]), TRUE, TRUE, FALSE);
+		});
+	}
+	try
+	{
+		configTasks.wait();
+	}
+	catch (...)
+	{
+		for (CInifile*& config : configs)
+			xr_delete(config);
+		throw;
+	}
 
-	CInifile* config =
-		xr_new<CInifile>(
-			FS.update_path(
-				file_name,
-				"$game_config$",
-				"environment\\environment.ltx"
-			),
-			TRUE,
-			TRUE,
-			FALSE
-		);
+	m_ambients_config = configs[0];
+	m_sound_channels_config = configs[1];
+	m_effects_config = configs[2];
+	m_suns_config = configs[3];
+	m_sun_pos_config = configs[4];
+	m_thunderbolt_collections_config = configs[5];
+	m_thunderbolts_config = configs[6];
+	CInifile* config = configs[7];
+	Msg("* [STARTUP/ENV] configs=%u ms", configTimer.GetElapsed_ms());
 	// params
 	p_var_alt = deg2rad(config->r_float("environment", "altitude"));
 	p_var_long = deg2rad(config->r_float("environment", "delta_longitude"));

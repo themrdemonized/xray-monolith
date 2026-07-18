@@ -68,6 +68,12 @@ void resptrcode_shader::create(IBlender* B, LPCSTR s_shader, LPCSTR s_textures, 
 	_set(DEV->Create(B, s_shader, s_textures, s_constants, s_matrices));
 }
 
+void resptrcode_shader::create_parallel(
+	IBlender* B, LPCSTR s_shader, LPCSTR s_textures, LPCSTR s_constants, LPCSTR s_matrices)
+{
+	_set(DEV->Create(B, s_shader, s_textures, s_constants, s_matrices));
+}
+
 //////////////////////////////////////////////////////////////////////////
 void resptrcode_geom::create(u32 FVF, ID3DVertexBuffer* vb, ID3DIndexBuffer* ib)
 {

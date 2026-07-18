@@ -55,6 +55,17 @@ public:
 	void LoadArchive(archive& A, LPCSTR entrypoint = NULL);
 
 private:
+	struct InitialFileRecord
+	{
+		xr_string name;
+		u32 vfs;
+		u32 crc;
+		u32 ptr;
+		u32 size_real;
+		u32 size_compressed;
+		u32 modif;
+	};
+
 	struct StartupLooseCache;
 
 	struct file_pred
@@ -82,9 +93,13 @@ private:
 	xrCriticalSection m_scan_lock;
 	xrCriticalSection m_auth_lock;
 	u64 m_auth_code;
+	bool m_initial_build;
+	u64 m_initial_archive_index_ms;
+	xr_vector<InitialFileRecord> m_initial_files;
 	StartupLooseCache* m_startup_loose_cache;
 
 	void Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real, u32 size_compressed, u32 modif);
+	void CommitInitialFiles(u64 scan_started_at);
 	xr_shared_ptr<ArchiveDataView> GetArchiveDataView(archive& archive);
 	void StartStartupLooseCache();
 	void StopStartupLooseCache();

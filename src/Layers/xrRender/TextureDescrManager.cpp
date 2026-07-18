@@ -42,26 +42,44 @@ void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_C
 	FS_FileSet flist;
 	FS.file_list(flist, initial, FS_ListFiles, "*.thm");
 
-	STextureParams tp;
-	string_path fn;
-
+	struct PreparedThm
+	{
+		xr_string file;
+		xr_string name;
+		STextureParams parameters;
+	};
+	xr_vector<PreparedThm> prepared(flist.size());
+	u32 sourceIndex = 0;
 	for (const FS_File& fs_iter : flist)
 	{
-		FS.update_path(fn, initial, fs_iter.name.c_str());
-		IReader* F = FS.r_open(fn);
-		xr_strcpy(fn, fs_iter.name.c_str());
-		fix_texture_thm_name(fn);
+		PreparedThm& result = prepared[sourceIndex++];
+		result.file = fs_iter.name.c_str();
+		string_path name;
+		xr_strcpy(name, fs_iter.name.c_str());
+		fix_texture_thm_name(name);
+		result.name = name;
+	}
 
+	xr_parallel_for(0u, static_cast<u32>(prepared.size()), [&](u32 index)
+	{
+		PreparedThm& result = prepared[index];
+		string_path path;
+		FS.update_path(path, initial, result.file.c_str());
+		IReader* F = FS.r_open(path);
 		R_ASSERT(F->find_chunk(THM_CHUNK_TYPE));
 		F->r_u32();
-		tp.Clear();
-		tp.Load(*F);
+		result.parameters.Load(*F);
 		FS.r_close(F);
+	});
+
+	for (const PreparedThm& result : prepared)
+	{
+		const STextureParams& tp = result.parameters;
 		if (STextureParams::ttImage == tp.type || STextureParams::ttTerrain == tp.type || STextureParams::ttNormalMap ==
 			tp.type)
 		{
-			texture_desc& desc = s_texture_details[fn];
-			cl_dt_scaler*& dts = s_detail_scalers[fn];
+			texture_desc& desc = s_texture_details[result.name.c_str()];
+			cl_dt_scaler*& dts = s_detail_scalers[result.name.c_str()];
 
 			if (tp.detail_name.size() && tp.flags.is_any(STextureParams::flDiffuseDetail | STextureParams::flBumpDetail)
 			)
