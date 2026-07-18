@@ -27,13 +27,16 @@ void CCartridge::Load(LPCSTR section, u8 LocalAmmoType, float ap_mod)
 {
 	m_ammoSect = section;
 	m_LocalAmmoType = LocalAmmoType;
-	param_s.kDist = pSettings->r_float(section, "k_dist");
-	param_s.kDisp = pSettings->r_float(section, "k_disp");
-	param_s.kHit = pSettings->r_float(section, "k_hit");
+	// Optional reads with the SCartridgeParam::Init() neutral defaults, mirroring CWeaponAmmo::Load
+	// below - this site is reached through a weapon's ammo_class (magazine fill / chambering), so
+	// both loaders must tolerate a section missing a key or the CTD stays reachable.
+	param_s.kDist = READ_IF_EXISTS(pSettings, r_float, section, "k_dist", 1.0f);
+	param_s.kDisp = READ_IF_EXISTS(pSettings, r_float, section, "k_disp", 1.0f);
+	param_s.kHit = READ_IF_EXISTS(pSettings, r_float, section, "k_hit", 1.0f);
 	//.	param_s.kCritical			= pSettings->r_float(section, "k_hit_critical");
-	param_s.kImpulse = pSettings->r_float(section, "k_impulse");
+	param_s.kImpulse = READ_IF_EXISTS(pSettings, r_float, section, "k_impulse", 1.0f);
 	//m_kPierce				= pSettings->r_float(section, "k_pierce");
-	param_s.kAP = pSettings->r_float(section, "k_ap");
+	param_s.kAP = READ_IF_EXISTS(pSettings, r_float, section, "k_ap", 0.0f);
 	param_s.kAP *= ap_mod;
 	param_s.k_cam_dispersion = READ_IF_EXISTS(pSettings, r_float, section, "k_cam_dispersion", 1.0f);
 	param_s.u8ColorID = READ_IF_EXISTS(pSettings, r_u8, section, "tracer_color_ID", 0);
@@ -112,13 +115,17 @@ void CWeaponAmmo::Load(LPCSTR section)
 {
 	inherited::Load(section);
 
-	cartridge_param.kDist = pSettings->r_float(section, "k_dist");
-	cartridge_param.kDisp = pSettings->r_float(section, "k_disp");
-	cartridge_param.kHit = pSettings->r_float(section, "k_hit");
+	// Optional reads with the SCartridgeParam::Init() neutral defaults (WeaponAmmo.h:15-27). A strict
+	// r_float here is an unavoidable CTD the moment anything spawns a section missing the key
+	// (loot, trade, alife_create - observed on ammo_dyno, a packed dormant section missing k_ap);
+	// one malformed ammo section in the loaded configs should not crash the game on spawn.
+	cartridge_param.kDist = READ_IF_EXISTS(pSettings, r_float, section, "k_dist", 1.0f);
+	cartridge_param.kDisp = READ_IF_EXISTS(pSettings, r_float, section, "k_disp", 1.0f);
+	cartridge_param.kHit = READ_IF_EXISTS(pSettings, r_float, section, "k_hit", 1.0f);
 	//.	cartridge_param.kCritical	= pSettings->r_float(section, "k_hit_critical");
-	cartridge_param.kImpulse = pSettings->r_float(section, "k_impulse");
+	cartridge_param.kImpulse = READ_IF_EXISTS(pSettings, r_float, section, "k_impulse", 1.0f);
 	//m_kPierce				= pSettings->r_float(section, "k_pierce");
-	cartridge_param.kAP = pSettings->r_float(section, "k_ap");
+	cartridge_param.kAP = READ_IF_EXISTS(pSettings, r_float, section, "k_ap", 0.0f);
 	cartridge_param.u8ColorID = READ_IF_EXISTS(pSettings, r_u8, section, "tracer_color_ID", 0);
 
 	if (pSettings->line_exist(section, "k_air_resistance"))
