@@ -228,8 +228,7 @@ void CMainMenu::Activate(bool bActivate)
 			CCameraManager::ResetPP();
 		};
 		Device.seqRender.Add(this, 4); // 1-console 2-cursor 3-tutorial
-		if (Sound)
-			Sound->source_prefetch_start();
+		LogStartupMenuReady();
 
 		Console->Execute("stat_memory");
 	}

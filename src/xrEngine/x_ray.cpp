@@ -66,6 +66,20 @@ rpc_info discord_gameinfo;
 rpc_strings discord_strings;
 float discord_update_rate = .5f;
 
+static ULONGLONG startup_begin_time;
+
+void LogStartupMenuReady()
+{
+	static bool logged = false;
+	if (!logged)
+	{
+		logged = true;
+		Msg("* [STARTUP] total to main menu: %llu ms", GetTickCount64() - startup_begin_time);
+	}
+	if (Sound)
+		Sound->source_prefetch_start();
+}
+
 //UTF-8 (ICU)
 #pragma comment(lib, "icuuc.lib")
 //#pragma comment(lib, "sicuuc.lib")
@@ -1249,6 +1263,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      char* lpCmdLine,
                      int nCmdShow)
 {
+	startup_begin_time = GetTickCount64();
   // Initialize LuaJIT low-memory pool FIRST, before any DLLs load and fragment
 	// the lower 2GB address space.
 	XR_EARLY_INIT();
