@@ -193,6 +193,8 @@ public:
 	void CreateSoundsImpl(SoundVec& sounds, LPCSTR str);
 	void CreateParticlesImpl(PSVec& particles, LPCSTR str);
 	void CreateMarksImpl(IWallMarkArray* marks, LPCSTR str);
+	void CollectSoundNames(xr_vector<xr_string>& sounds) const;
+	void CreateSoundResources();
 
 
 #ifdef GM_NON_GAME
