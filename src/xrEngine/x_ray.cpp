@@ -633,6 +633,8 @@ void Startup()
 	}
 
 	// Initialize APP
+	if (Sound)
+		Sound->source_prefetch_pause();
 	Device.Create();
 
 	LALib.OnCreate();
@@ -660,6 +662,8 @@ void Startup()
 	Memory.mem_usage();
 
 	Device.Run();
+	if (Sound)
+		Sound->source_prefetch_stop();
 
 	// Discord
 	clearDiscordPresence();
@@ -1417,6 +1421,8 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuit)
 	{
+		if (Sound)
+			Sound->source_prefetch_stop();
 		g_SASH.EndBenchmark();
 
 		PostQuitMessage(0);
@@ -1533,6 +1539,8 @@ void CApplication::LoadBegin()
 	ll_dwReference++;
 	if (1 == ll_dwReference)
 	{
+		if (Sound)
+			Sound->source_prefetch_pause();
 		g_appLoaded = FALSE;
 
 		//AVO:
@@ -1568,6 +1576,8 @@ void CApplication::destroy_loading_shaders()
 
 	//AVO:
 	g_bootComplete = TRUE;
+	if (Sound)
+		Sound->source_prefetch_start();
 	//-AVO
 
 	//hLevelLogo.destroy ();
@@ -1628,6 +1638,8 @@ void CApplication::OnFrame()
 	PROF_EVENT();
 
 	Engine.Event.OnFrame();
+	if (Sound)
+		Sound->source_prefetch_poll();
 	g_SpatialSpace->update();
 	g_SpatialSpacePhysic->update();
 	if (g_pGameLevel)
