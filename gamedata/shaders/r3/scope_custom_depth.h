@@ -24,3 +24,11 @@ float scope_custom_depth(float4 hpos) {
         ? hpos.z
         : NO_BLUR;
 }
+
+// true pip clips the far stamp to the glass disc so the housing keeps its
+// real gbuffer depth for weapon dof, nvg and fake pip keep the whole mesh
+float scope_custom_depth(float4 hpos, float2 tc0) {
+    if (shader_scope_params.w < -1.5 && floor(shader_param_8.x) == 0)
+        clip(1.0 - length((tc0 - 0.5) * 2.0));
+    return scope_custom_depth(hpos);
+}

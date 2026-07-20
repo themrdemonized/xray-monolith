@@ -925,17 +925,17 @@ static class dev_param_8 : public R_constant_setup
 	}
 }    dev_param_8;
 
-// pip the sss aim dof reads the scope content depth and smears the whole frame, off while scoped
-static bool svp_scoped_now()
+// pip sss weapon dof while scoped rides r__svp_wpn_dof, 0 zeroes the constants
+static bool svp_wpn_dof_off()
 {
-	return Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
+	return !ps_r__svp_wpn_dof && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive();
 }
 
 static class ssfx_wpn_dof_1 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		if (svp_scoped_now())
+		if (svp_wpn_dof_off())
 		{
 			RCache.set_c(C, 0.f, 0.f, 0.f, 0.f);
 			return;
@@ -948,7 +948,7 @@ static class ssfx_wpn_dof_2 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		if (svp_scoped_now())
+		if (svp_wpn_dof_off())
 		{
 			RCache.set_c(C, 0.f, 0, 0, 0);
 			return;

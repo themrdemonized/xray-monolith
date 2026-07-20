@@ -113,6 +113,7 @@ int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, ma
 int ps_r__svp_skip_hud_distort = 1; // svp skip hud-layer distortion on the scope pass, the muzzle heat billboard sits on the entrance pupil and warps the image (1 = skip)
 // note r__svp_distort_guard owns the lens footprint in the main view, 0 here shows warp there only with the guard also 0
 int ps_r__svp_skip_dof = 0; // svp skip the scope-internal dof pass, main dof still covers the composited lens (0 = current doubled behavior)
+int ps_r__svp_wpn_dof = 1; // svp pass the sss weapon dof constants through while scoped, 0 zeroes them like before
 int ps_r__svp_skip_lut = 0; // svp skip the scope-internal lut grade, main grade still covers the composited lens (0 = current doubled behavior)
 int ps_r__svp_emissive = 1; // svp replay self-illum geometry into the scope image so lamps glow through the scope (0 = main-only emissive)
 int ps_r__svp_skip_ssr = 1; // svp scope reflections, 0 reflective water + SSR, 1 flat water + SSR (default), 2 flat water + no SSR
@@ -200,6 +201,7 @@ void svp_console_init()
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_hud_distort", &ps_r__svp_skip_hud_distort, 0, 1); // svp skip hud-layer distortion on the scope
 	CMD4(CCC_Integer, "r__svp_skip_dof", &ps_r__svp_skip_dof, 0, 1); // svp scope-internal dof once-only gate
+	CMD4(CCC_Integer, "r__svp_wpn_dof", &ps_r__svp_wpn_dof, 0, 1); // svp sss weapon dof while scoped
 	CMD4(CCC_Integer, "r__svp_skip_lut", &ps_r__svp_skip_lut, 0, 1); // svp scope-internal lut once-only gate
 	CMD4(CCC_Integer, "r__svp_emissive", &ps_r__svp_emissive, 0, 1); // svp self-illum in the scope image
 	CMD4(CCC_Integer, "r__svp_skip_ssr", &ps_r__svp_skip_ssr, 0, 2); // svp scope reflections level (0 expensive, 1 regular, 2 cheapest)

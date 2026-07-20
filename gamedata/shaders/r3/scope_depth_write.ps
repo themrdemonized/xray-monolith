@@ -4,6 +4,7 @@
 
 // Forward declare functions for better error messages
 float scope_custom_depth(float4 hpos);
+float scope_custom_depth(float4 hpos, float2 tc0);
 #include "scope_custom_depth.h"
 
 // Add to surface depth to handle precision issues
@@ -24,7 +25,7 @@ struct PSOutput
 PSOutput main(v_out I)
 {
     float depth = 
-        scope_phase & SCOPE_PHASE_CUSTOM_DEPTH ? scope_custom_depth(I.hpos)
+        scope_phase & SCOPE_PHASE_CUSTOM_DEPTH ? scope_custom_depth(I.hpos, I.tc0)
       : scope_phase & SCOPE_PHASE_DEPTHWRITE ? scope_depth_value
       : I.hpos.z;
    

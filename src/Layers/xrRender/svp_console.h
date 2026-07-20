@@ -57,6 +57,7 @@ extern ECORE_API int ps_r__svp_corner_mask;
 extern ECORE_API int ps_r__svp_skip_motionblur;
 extern ECORE_API int ps_r__svp_skip_hud_distort;
 extern ECORE_API int ps_r__svp_skip_dof;
+extern ECORE_API int ps_r__svp_wpn_dof;
 extern ECORE_API int ps_r__svp_skip_lut;
 extern ECORE_API int ps_r__svp_emissive;
 extern ECORE_API int ps_r__svp_skip_ssr;
