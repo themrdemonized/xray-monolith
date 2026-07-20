@@ -117,10 +117,14 @@ static class shader_scope_params : public R_constant_setup
 			const float r = g_pip_scope_ratio;
 			const float mn_eng = (g_pip_scope_min_mag > 0.01f) ? g_pip_scope_min_mag : g_pip_scope_magnification;
 			const float zoom_ratio = g_pip_scope_magnification / mn_eng; // 1.0 at min zoom, scope zoom ratio at max
-			const float cur = r * g_pip_scope_magnification;
-			float mn = cur - (zoom_ratio - 1.0f) * 2.5f; // (cur - mn) * 0.4 + 1 == zoom_ratio
-			if (mn < 0.01f) mn = 0.01f; // floor above zero, the shader divides by minMag
-			const float mx = r * ((g_pip_scope_max_mag > 0.01f) ? g_pip_scope_max_mag : g_pip_scope_magnification);
+			const float cur0 = r * g_pip_scope_magnification;
+			const float span = (zoom_ratio - 1.0f) * 2.5f; // (cur - mn) * 0.4 + 1 == zoom_ratio
+			// the shader divides by minMag so it stays above zero, scaling cur and mx by the
+			// same factor keeps the zoom span and the dial ratio exact instead of a floor
+			const float k = (cur0 < span + 0.01f) ? (span + 0.01f) / cur0 : 1.0f;
+			const float cur = cur0 * k;
+			const float mn = cur - span;
+			const float mx = k * r * ((g_pip_scope_max_mag > 0.01f) ? g_pip_scope_max_mag : g_pip_scope_magnification);
 			// w = -2 is the true-PiP sentinel, the legacy Lua writes -1 so patched shaders gate on
 			// w < -1.5 and stay inert at svpscope 0
 			RCache.set_c(C, cur, mn, mx, Device.m_SecondViewport.IsSVPActive() ? -2.f : ps_shader_scope_params.w);

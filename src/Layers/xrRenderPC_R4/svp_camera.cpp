@@ -353,8 +353,10 @@ void svpCamera()
 	};
 	if (flat_window)
 	{
-		scope_magnification = fov_aim / window_fov(g_pGamePersistent->m_pGShaderConstants->hud_params.y > 1.f
-			? g_pGamePersistent->m_pGShaderConstants->hud_params.y : svp_fov);
+		// authored mag flat optics keep the clean optical mag, only the see-through panel takes the subtense ratio
+		if (!params.svp_authored_mag)
+			scope_magnification = fov_aim / window_fov(g_pGamePersistent->m_pGShaderConstants->hud_params.y > 1.f
+				? g_pGamePersistent->m_pGShaderConstants->hud_params.y : svp_fov);
 		ratio_magnification = 1.f;
 	}
 	else
@@ -444,11 +446,11 @@ void svpCamera()
 		g_pip_scope_ratio = ratio_use;
 		// derive min/max mag from hud_fov_params for variable reticles (fixed scope: x == y)
 		const Fvector4& fovp = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
-		// the config bounds ride the 75 base and rescale to the aim fov, the dynamic min
-		// already derives from the aim fov and passes through
+		// the 75-base bounds rescale to the aim fov, authored mins are 75-base too,
+		// only the legacy optical-model min already rides the aim fov and passes through
 		const float fscale = rad2deg(fov_aim) / 75.f;
-		const float yscale = (_abs(fovp.y - fovp.x) < 0.01f) ? fscale : 1.f;
-		if (flat_window)
+		const float yscale = (_abs(fovp.y - fovp.x) < 0.01f || params.svp_min_75base) ? fscale : 1.f;
+		if (flat_window && !params.svp_authored_mag)
 		{
 			g_pip_scope_max_mag = (fovp.x > EPS) ? fov_aim / window_fov(fovp.x * fscale) : scope_magnification;
 			g_pip_scope_min_mag = (fovp.y > EPS) ? fov_aim / window_fov(fovp.y * yscale) : scope_magnification;
@@ -464,7 +466,18 @@ void svpCamera()
 	float vFov = 2.0f * atan(tan(fov * 0.5f) / (ratio_use * scope_magnification));
 	// flat window renders exactly the panel subtense (tan-correct, the mag division is not)
 	if (flat_window)
-		vFov = fov / scope_magnification;
+	{
+		if (params.svp_authored_mag)
+		{
+			// authored mag flat optic renders the floor panel subtense then the optical mag crops in
+			const Fvector4& fovp = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
+			const float fscale = rad2deg(fov_aim) / 75.f;
+			const float yscale = (_abs(fovp.y - fovp.x) < 0.01f) ? fscale : 1.f;
+			vFov = window_fov(fovp.y * yscale) / scope_magnification;
+		}
+		else
+			vFov = fov / scope_magnification;
+	}
 
 	auto near_plane = fNearPlane;
 	auto m_W_svpcam = params.eyepiece.m_W; // svpscope 1 places the camera on the eyepiece
@@ -771,7 +784,7 @@ void svpCamera()
 			s_cfg_logged = true;
 			ps_r__svp_report = 0;
 			// build fingerprint header first, testers diff their log against this
-			Msg("[SVP-CFG] build %s mode=%d", __DATE__, scope_svp_enabled);
+			PipMsg("[SVP-CFG] build %s mode=%d", __DATE__, scope_svp_enabled);
 			// generate the cvar list from the console registry so it never drifts from the registered
 			// set, every r__svp_/g_svp_/s3ds_ command with its live value grouped about eight per line
 			if (Console)
@@ -785,9 +798,9 @@ void svpCamera()
 					IConsole_Command::TStatus st; st[0] = 0; c.second->Status(st);
 					char tok[288]; xr_sprintf(tok, "%s%s=%s", grp ? " " : "", nm, st);
 					xr_strcat(line, tok);
-					if (++grp == 8) { Msg("[SVP-CFG] %s", line); line[0] = 0; grp = 0; }
+					if (++grp == 8) { PipMsg("[SVP-CFG] %s", line); line[0] = 0; grp = 0; }
 				}
-				if (line[0]) Msg("[SVP-CFG] %s", line);
+				if (line[0]) PipMsg("[SVP-CFG] %s", line);
 				// aa state read the same registry way, ssfx_taa is the script-driven taa control
 				IConsole_Command::TStatus a_taa, a_aa, a_ker; a_taa[0] = a_aa[0] = a_ker[0] = 0;
 				auto st_of = [](const char* name, IConsole_Command::TStatus& out) {
@@ -795,7 +808,7 @@ void svpCamera()
 					if (it != Console->Commands.end()) it->second->Status(out);
 				};
 				st_of("ssfx_taa", a_taa); st_of("r2_aa", a_aa); st_of("r2_aa_kernel", a_ker);
-				Msg("[SVP-CFG] aa ssfx_taa=%s r2_aa=%s r2_aa_kernel=%s", a_taa, a_aa, a_ker);
+				PipMsg("[SVP-CFG] aa ssfx_taa=%s r2_aa=%s r2_aa_kernel=%s", a_taa, a_aa, a_ker);
 			}
 
 			// pip [SVP-FILES] shader source truth: where each scope file resolves from (loose or which
@@ -825,7 +838,7 @@ void svpCamera()
 					const CLocatorAPI::file* f = FS.exist("$game_shaders$", rel);
 					if (!f)
 					{
-						Msg("[SVP-FILES] %-32s MISSING", fn);
+						PipMsg("[SVP-FILES] %-32s MISSING", fn);
 						continue;
 					}
 					u32 crc = 0;
@@ -853,23 +866,23 @@ void svpCamera()
 					const char* src = "loose";
 					if (f->vfs != 0xffffffff && f->vfs < FS.m_archives.size())
 						src = FS.m_archives[f->vfs].path.c_str();
-					Msg("[SVP-FILES] %-32s %6u bytes crc %08x ver[%s] %s", fn, f->size_real, crc, ver, src);
+					PipMsg("[SVP-FILES] %-32s %6u bytes crc %08x ver[%s] %s", fn, f->size_real, crc, ver, src);
 				}
 				// shipped precompiled blobs load with no source crc and shadow every source edit
 				FS_FileSet blobs;
 				string_path bdir;
 				FS.update_path(bdir, "$game_shaders$", "r3\objects\r4\scope_color_write.ps\\");
 				FS.file_list(blobs, bdir, FS_ListFiles | FS_RootOnly, "*");
-				Msg("[SVP-FILES] dispatcher precompiled blobs %u, rs_precompiled_shaders %d",
+				PipMsg("[SVP-FILES] dispatcher precompiled blobs %u, rs_precompiled_shaders %d",
 					(u32)blobs.size(), psDeviceFlags2.test(rsPrecompiledShaders) ? 1 : 0);
 				u32 n_arch = 0;
 				for (const auto& A : FS.m_archives)
 					if (strstr(A.path.c_str(), "mods"))
 					{
-						Msg("[SVP-FILES] mounted mods archive %s", A.path.c_str());
+						PipMsg("[SVP-FILES] mounted mods archive %s", A.path.c_str());
 						++n_arch;
 					}
-				Msg("[SVP-FILES] mods archives mounted %u", n_arch);
+				PipMsg("[SVP-FILES] mods archives mounted %u", n_arch);
 			}
 		}
 	}

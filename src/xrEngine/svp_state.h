@@ -77,6 +77,8 @@ public:
 	float svp_mag = 0.f; // current scope magnification for the zoom scaled trigger, 0 unknown
 	float svp_fov_scale = 1.f; // config zoom factors ride the 75 base, this rescales them to the live fov, 1 for script authored
 	float svp_aim_fov = 0.f; // steady wide main view fov (deg) through a pip scope, the mag reads it so recoil fov punches never wobble it, 0 unset
+	bool svp_authored_mag = false; // pip flat optic carries authored mags, keep the clean optical mag not the panel subtense ratio
+	bool svp_min_75base = false; // pip the min zoom bound was computed in the 75 base so it rescales to the aim fov
 
 	// pip live ballistic ray of the active weapon (logic thread writes, render diag reads)
 	Fvector fire_ray_pos = {};
