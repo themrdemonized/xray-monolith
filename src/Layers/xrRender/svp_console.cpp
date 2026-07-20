@@ -78,6 +78,7 @@ int ps_r__svp_thermal_sim = 1; // svp digital-sensor sim on thermal displays: se
 float ps_r__svp_twilight = 1.0f; // svp exit-pupil twilight dimming: zooming shrinks the exit pupil below the dark-adapted eye and the image dims, day scenes unaffected (0 = off)
 float ps_r__svp_parallax = 0.0f; // svp reticle parallax, 0 = pinned center (default), 1 = the real eye deflection response
 float ps_r__svp_near_blur = 1.0f; // svp near-field defocus strength on the scope image (svpscope 2, 0 = off)
+int ps_r__svp_nearblur_scatter = 0; // svp near-blur composite, 0 = gather default look, 1 = scatter accumulator
 float ps_r__svp_focus_m = 100.0f; // svp parallax focus distance in meters, objects off this plane defocus by the thin lens law
 int ps_r__svp_authored_optics = 1; // svp use the authored per-scope scope_objective_lens_offset for the front plane + defocus aperture (0 = measured geometry only)
 int ps_r__svp_measured_optics = 0; // svp fill the objective offset + mm from mesh detection when authored ltx is absent (0 = authored/live only, byte-identical)
@@ -105,6 +106,8 @@ float ps_r__svp_sharpen_inner = 0.0f; // svp sharpen inner crisp-zone radius bef
 float ps_r__svp_nvg_bleach = 0.0f; // svp NVG highlight bleach roll-off, replaces the hard clamp so bright sources compress not clip (0 = off, stock)
 float ps_r__svp_nvg_sensitivity = 1.0f; // svp NVG bleach onset sensitivity, higher rolls off dimmer sources
 int ps_r__svp_hud_full = 2; // svpscope 1 body skip only, mode 2 clips at the pupil camera near plane instead renders (default), 1 = full barrel from the eye + near-blur, 0 = objective clip with the body rendered
+int ps_r__svp_near_pupil = 0; // svp mode 2 push the scope near clip to the pupil front plane so behind-pupil barrel falls behind it (0 = main-view near plane)
+int ps_r__svp_drain_clip = 0; // svp clip the drained barrel wholly behind the authored objective plane, w2 near-blur dissolves the surviving sliver (0 = drain the whole barrel)
 int ps_r__svp_cull = 1; // svp cull the scope geometry to the scope frustum, the SVP re-submits the whole main-frustum world otherwise (1 = on)
 int ps_r__svp_skip_motionblur = 0; // svp skip motion blur on the scope pass, magnified blur is an artifact and a small cost (0 = keep)
 int ps_r__svp_skip_hud_distort = 1; // svp skip hud-layer distortion on the scope pass, the muzzle heat billboard sits on the entrance pupil and warps the image (1 = skip)
@@ -164,6 +167,7 @@ void svp_console_init()
 	CMD4(CCC_Float, "r__svp_twilight", &ps_r__svp_twilight, 0.0f, 1.0f); // svp exit-pupil twilight dimming strength (0 = off)
 	CMD4(CCC_Float, "r__svp_parallax", &ps_r__svp_parallax, 0.0f, 10.0f); // svp true-scale reticle parallax, 1 = physical sub-pixel (0 = pinned)
 	CMD4(CCC_Float, "r__svp_near_blur", &ps_r__svp_near_blur, 0.0f, 3.0f); // svp near-field defocus strength (0 = off)
+	CMD4(CCC_Integer, "r__svp_nearblur_scatter", &ps_r__svp_nearblur_scatter, 0, 1); // svp near-blur composite (0 = gather default, 1 = scatter)
 	CMD4(CCC_Float, "r__svp_focus_m", &ps_r__svp_focus_m, 10.0f, 1000.0f); // svp parallax focus distance m (fixed-parallax scopes sit at 100)
 	CMD4(CCC_Integer, "r__svp_authored_optics", &ps_r__svp_authored_optics, 0, 1); // svp use authored per-scope objective offset for front plane + aperture (0 = measured only)
 		CMD4(CCC_Integer, "r__svp_measured_optics", &ps_r__svp_measured_optics, 0, 1); // measured lens geometry fills unauthored optics (0 = off, authored/live only)
@@ -190,6 +194,8 @@ void svp_console_init()
 	CMD4(CCC_Float, "r__svp_nvg_bleach", &ps_r__svp_nvg_bleach, 0.0f, 1.0f); // svp NVG highlight bleach roll-off (0 = off, stock clamp)
 	CMD4(CCC_Float, "r__svp_nvg_sensitivity", &ps_r__svp_nvg_sensitivity, 0.1f, 4.0f); // svp NVG bleach onset sensitivity
 	CMD4(CCC_Integer, "r__svp_hud_full", &ps_r__svp_hud_full, 0, 2); // svp barrel: 2 front-plane clip (default), 1 full barrel from the eye, 0 objective clip + body
+	CMD4(CCC_Integer, "r__svp_near_pupil", &ps_r__svp_near_pupil, 0, 1); // svp mode 2 push the near clip to the pupil front plane (0 = main-view near)
+	CMD4(CCC_Integer, "r__svp_drain_clip", &ps_r__svp_drain_clip, 0, 1); // svp clip the drained barrel behind the authored objective plane (0 = whole barrel)
 	CMD4(CCC_Integer, "r__svp_cull", &ps_r__svp_cull, 0, 1); // svp frustum cull the scope geometry (1 = on)
 	CMD4(CCC_Integer, "r__svp_skip_motionblur", &ps_r__svp_skip_motionblur, 0, 1); // svp skip motion blur on the scope
 	CMD4(CCC_Integer, "r__svp_skip_hud_distort", &ps_r__svp_skip_hud_distort, 0, 1); // svp skip hud-layer distortion on the scope

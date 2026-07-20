@@ -45,6 +45,16 @@ static class svp_glass_binder : public R_constant_setup
 	}
 } binder_svp_glass;
 
+// near-blur composite selector, x = scatter mode (0 gather default, 1 scatter accumulator)
+static class svp_nearblur_binder : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		extern int ps_r__svp_nearblur_scatter;
+		RCache.set_c(C, ps_r__svp_nearblur_scatter ? 1.f : 0.f, 0.f, 0.f, 0.f);
+	}
+} binder_svp_nearblur;
+
 // glass environment data, x = veiling glare (sun near the scope boresight scatters off the coatings), y = rain
 static class svp_env_binder : public R_constant_setup
 {
@@ -151,6 +161,7 @@ static const struct { const char* name; R_constant_setup* setup; } s_svp_binders
 	{ "svp_glass", &binder_svp_glass }, // pip glass optics tunables
 	{ "svp_env", &binder_svp_env }, // pip glass environment data (glare, rain)
 	{ "ssfx_issvp", &ssfx_issvp },
+	{ "svp_nearblur_mode", &binder_svp_nearblur }, // pip near-blur composite selector
 };
 
 void RegisterSvpConstants(CBlender_Compile& dst)

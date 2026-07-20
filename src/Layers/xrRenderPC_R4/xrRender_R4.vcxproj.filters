@@ -846,6 +846,9 @@
     <ClCompile Include="svp_optics.cpp">
       <Filter>Core_Target</Filter>
     </ClCompile>
+    <ClCompile Include="svp_nearblur.cpp">
+      <Filter>Core_Target</Filter>
+    </ClCompile>
     <ClCompile Include="svp_camera.cpp">
       <Filter>Core</Filter>
     </ClCompile>

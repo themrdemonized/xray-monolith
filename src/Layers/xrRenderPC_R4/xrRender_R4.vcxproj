@@ -777,6 +777,7 @@
     <ClCompile Include="r4.cpp" />
     <ClCompile Include="svp_target.cpp" />
     <ClCompile Include="svp_optics.cpp" />
+    <ClCompile Include="svp_nearblur.cpp" />
     <ClCompile Include="svp_camera.cpp" />
     <ClCompile Include="svp_stats.cpp" />
     <ClCompile Include="r4_loader.cpp" />

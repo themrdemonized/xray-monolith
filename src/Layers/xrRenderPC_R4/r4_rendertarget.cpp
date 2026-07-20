@@ -674,6 +674,20 @@ CRenderTarget::CRenderTarget(LPCSTR name, u32 width, u32 height)
 			rt_ui_pda = createUnique(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
 		}
 
+		// pip mipped svp color source, feeds the near-blur prefilter so each sparse ring area-averages
+		if (!isMain)
+		{
+			D3D_TEXTURE2D_DESC md;
+			rt_secondVP->pSurface->GetDesc(&md);
+			md.MipLevels = 0;
+			md.BindFlags = D3D_BIND_SHADER_RESOURCE | D3D_BIND_RENDER_TARGET;
+			md.MiscFlags = D3D_RESOURCE_MISC_GENERATE_MIPS;
+			md.CPUAccessFlags = 0;
+			R_CHK(HW.pDevice->CreateTexture2D(&md, 0, &m_svp_nb_mip_surf));
+			m_svp_nb_mip_tex = dxRenderDeviceRender::Instance().Resources->_CreateTexture("$user$svp_nb_mip");
+			m_svp_nb_mip_tex->surface_set(m_svp_nb_mip_surf);
+		}
+
 		// TODO: R11G11B10F? needs another horrible hack + cast + update to converter function
 		if (RImplementation.o.dx11_hdr10) {
 			rt_HDR10_HalfRes[0] = createUnique(r4_RT_HDR10_halfres0, w/2,  h/2,  D3DFMT_A16B16G16R16F);

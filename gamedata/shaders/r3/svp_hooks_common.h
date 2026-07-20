@@ -31,7 +31,7 @@ uniform float4 svp_glass2; // engine glass optics 2, x = coating, y = heat mirag
 #endif
 #ifndef SVP_GLASS3_DECLARED
 #define SVP_GLASS3_DECLARED
-uniform float4 svp_glass3; // engine glass optics 3, x = sharpen amount, y = free, z = sharpen radial falloff, w = sharpen inner crisp radius
+uniform float4 svp_glass3; // engine glass optics 3, x = sharpen amount, y = field-stop onset, z = sharpen radial falloff, w = sharpen inner crisp radius
 #endif
 #ifndef SVP_GLASS4_DECLARED
 #define SVP_GLASS4_DECLARED

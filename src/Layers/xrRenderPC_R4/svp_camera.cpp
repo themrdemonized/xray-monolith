@@ -501,6 +501,11 @@ void svpCamera()
 				m_W_svpcam.c.mad(ri, off.x * params.eyepiece.radius);
 				m_W_svpcam.c.mad(up, off.y * params.eyepiece.radius);
 			}
+			// mode 2 pushes the scope near clip to the pupil front plane so behind-pupil barrel
+			// falls behind it, world geometry sits far past this
+			extern int ps_r__svp_near_pupil;
+			if (ps_r__svp_near_pupil && front_use > near_plane)
+				near_plane = front_use;
 		}
 		extern int ps_r__svp_cop_diag;
 		static u32 s_frontcam_ms = 0;
@@ -663,7 +668,7 @@ void svpCamera()
 				auto to_px = [](const Fvector& w, const Fmatrix& v, const Fmatrix& pr, float W, float H, Fvector2& o) -> bool {
 					Fmatrix vpm; vpm.mul(pr, v);
 					Fvector4 c; vpm.transform(c, {w.x, w.y, w.z, 1});
-					if (c.w < EPS) return false;
+					if (!_valid(c.w) || c.w < EPS) return false;
 					o.set((c.x / c.w * 0.5f + 0.5f) * W, (0.5f - c.y / c.w * 0.5f) * H);
 					return true;
 				};
@@ -690,8 +695,27 @@ void svpCamera()
 				{
 					const float bx = px_disc.x + (uv_in.x - 0.5f) * disc_px_probe;
 					const float by = px_disc.y + (uv_in.y - 0.5f) * disc_px_probe;
-					PipMsg("[SVP-BARREL] sway=%.2fdeg fovmatch=%d out=(%.0f,%.0f) in=(%.0f,%.0f) delta=(%.0f,%.0f)px",
-						sway, ps_r__svp_hud_fov_match, px_out.x, px_out.y, bx, by, bx - px_out.x, by - px_out.y);
+					// near-field coc at the objective probe from the near-blur thin-lens formula, in svp px
+					// covered means the blur radius spans the pipeline mismatch at the disc rim
+					extern float ps_r__svp_near_blur, ps_r__svp_focus_m;
+					const float omm = Device.m_SecondViewport.svp_opt_obj_mm;
+					const float A = (omm > 0.01f) ? omm * 0.001f : 0.024f;
+					const float vfov = (Device.m_SecondViewport.svp_fov > 0.01f) ? Device.m_SecondViewport.svp_fov : 0.35f;
+					const float k = A * (float)Device.svp_height() / vfov * _min(ps_r__svp_near_blur, 3.f);
+					const float z = od.dotproduct(eyefwd);
+					const float coc = k * _max(1.f / _max(z, 0.05f) - 1.f / _max(ps_r__svp_focus_m, 1.f), 0.f);
+					Fvector2 rdir; rdir.set(uv_in.x - 0.5f, uv_in.y - 0.5f);
+					const float rlen = sqrtf(rdir.x * rdir.x + rdir.y * rdir.y);
+					Fvector2 rim;
+					if (rlen > EPS)
+						rim.set(px_disc.x + rdir.x / rlen * 0.5f * disc_px_probe, px_disc.y + rdir.y / rlen * 0.5f * disc_px_probe);
+					else
+						rim.set(px_disc.x, px_disc.y);
+					const float mismatch = sqrtf((bx - px_out.x) * (bx - px_out.x) + (by - px_out.y) * (by - px_out.y));
+					const int covered = (coc >= mismatch) ? 1 : 0;
+					PipMsg("[SVP-BARREL] sway=%.2fdeg fovmatch=%d out=(%.0f,%.0f) in=(%.0f,%.0f) delta=(%.0f,%.0f)px rim=(%.0f,%.0f) coc=%.0fpx mismatch=%.0fpx covered=%d",
+						sway, ps_r__svp_hud_fov_match, px_out.x, px_out.y, bx, by, bx - px_out.x, by - px_out.y,
+						rim.x, rim.y, coc, mismatch, covered);
 				}
 			}
 		}

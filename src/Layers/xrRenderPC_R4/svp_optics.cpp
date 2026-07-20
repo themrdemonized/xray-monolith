@@ -183,60 +183,8 @@ void CRenderTarget::phase_svp_capture()
 		EvalSVP_DLSS(in);
 		return;
 	}
-	// pip near-field defocus replaces the plain copy in the realism mode, thermal sensors keep
-	// full depth of field so they take the plain copy
-	extern float ps_r__svp_near_blur;
-	extern Fvector4 ps_s3ds_param_3;
-	extern int ps_markswitch_current;
-	// thermal keeps full DoF only while its overlay is on, markswitch >= 2 falls back to a plain
-	// relayed image that should defocus like any optic
-	const bool thermal_active = svp_thermal_active(ps_s3ds_param_3.x, ps_markswitch_current);
-	if (ps_r__svp_near_blur > 0.01f && scope_svp_enabled >= 2 && !thermal_active
-		&& rt_Position && rt_secondVP->pRT)
-	{
-		EnsureScopeShaders();
-		if (s_svp_nearblur)
-		{
-			{
-				ref_texture t; t.create("$user$svp_nearblur_src");
-				t->surface_set(rt_Generic_0->pSurface);
-			}
-			{
-				ref_texture t; t.create("$user$svp_nearblur_pos");
-				t->surface_set(rt_Position->pSurface);
-			}
-			u_setrt(Width, Height, rt_secondVP->pRT, nullptr, nullptr, nullptr);
-			const float w = float(Width), h = float(Height);
-			u32 Offset = 0;
-			const float d_Z = EPS_S, d_W = 1.f;
-			const u32 C = color_rgba(255, 255, 255, 255);
-			FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(3, g_combine->vb_stride, Offset);
-			pv->set(0, h * 2, d_Z, d_W, C, 0.f, 2.f); pv++;
-			pv->set(0, 0, d_Z, d_W, C, 0.f, 0.f); pv++;
-			pv->set(w * 2, 0, d_Z, d_W, C, 2.f, 0.f); pv++;
-			RCache.Vertex.Unlock(3, g_combine->vb_stride);
-			RCache.set_Geometry(g_combine);
-			RCache.set_Element(s_svp_nearblur->E[1]);
-			// set_c is stateful, screen_res must be the SVP dims for the SV_Position uv
-			RCache.set_c("screen_res", w, h, 1.f / w, 1.f / h);
-			// near-field defocus by the real thin-lens CoC of the objective aperture
-			// y = k in px*m (CoC px = k * (1/z - 1/focus))
-			{
-				extern float ps_r__svp_focus_m;
-				const float omm = svp_objective_mm();
-				const float A = (omm > 0.01f) ? omm * 0.001f : 0.024f; // typical 24mm when no per-scope data
-				const float vfov = (Device.m_SecondViewport.svp_fov > 0.01f) ? Device.m_SecondViewport.svp_fov : 0.35f;
-				const float k = A * h / vfov * _min(ps_r__svp_near_blur, 3.f);
-				// the near field ends at the real muzzle, per weapon, clamped to the old design bound
-				float md = 1.5f;
-				if (Device.m_SecondViewport.muzzle_pos.square_magnitude() > EPS)
-					md = clampr(Device.m_SecondViewport.muzzle_pos.distance_to(Device.vCameraPosition), 0.5f, 3.f);
-				RCache.set_c("svp_nearblur_params", _max(ps_r__svp_focus_m, 1.f), k, h * 0.06f, md);
-			}
-			RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 3, 0, 1);
-			return;
-		}
-	}
+	// pip near-field defocus, thermal falls through to the plain copy
+	if (svp_nearblur_pass()) return;
 	// rt_secondVP alpha is garbage (nothing writes it) and must stay UNREAD, the scope shaders sample
 	// .rgb only and the lens composite blends srcalpha with its OWN forced o.a, never the source alpha
 	HW.pContext->CopyResource(rt_secondVP->pSurface, rt_Generic_0->pSurface);
@@ -503,9 +451,26 @@ void CRenderTarget::draw_scope(ref_shader se, std::function<void()> bind)
 						/ Device.m_SecondViewport.svp_panel_aspect;
 				RCache.set_c("svp_glass2", ps_r__svp_coating, mirage, 0.f, vcrop);
 				Device.m_SecondViewport.svp_panel_vcrop = vcrop; // pip binocular bracket mapping reads it
-				// pip glass3: x = sharpen amount, y = free, z = sharpen radial falloff, w = sharpen inner crisp radius
+				// pip glass3: x = sharpen amount, y = field-stop onset, z = sharpen radial falloff, w = sharpen inner crisp radius
 				extern float ps_r__svp_sharpen, ps_r__svp_sharpen_falloff, ps_r__svp_sharpen_inner;
-				RCache.set_c("svp_glass3", ps_r__svp_sharpen, 0.f, ps_r__svp_sharpen_falloff, ps_r__svp_sharpen_inner);
+				// pip field-stop onset, the stop sits at the field edge and the exit pupil
+				// blurs it by a penumbra whose inner half shows inside the field, 1 = off
+				float fs_onset = 1.f;
+				{
+					extern float g_pip_scope_magnification;
+					extern Fvector4 ps_s3ds_param_1;
+					const float fs_omm = svp_objective_mm();
+					const float fs_fov = Device.m_SecondViewport.svp_fov;
+					if (fs_omm > 0.01f && g_pip_scope_magnification > 0.01f && fs_fov > 0.01f)
+					{
+						const float ep_r = fs_omm * 0.0005f / g_pip_scope_magnification;
+						const float er = _max(ps_s3ds_param_1.y * 0.01f, 0.05f);
+						const float app_half = g_pip_scope_magnification * fs_fov * 0.5f;
+						const float penumbra = _min(atanf(ep_r / er) / app_half, 1.f);
+						fs_onset = 1.f - 0.5f * penumbra;
+					}
+				}
+				RCache.set_c("svp_glass3", ps_r__svp_sharpen, fs_onset, ps_r__svp_sharpen_falloff, ps_r__svp_sharpen_inner);
 				// pip glass4: x = nvg bleach roll-off, y = nvg auto-gain, w = shadow swing envelope
 				extern float ps_r__svp_nvg_bleach, ps_r__svp_nvg_sensitivity;
 				RCache.set_c("svp_glass4", ps_r__svp_nvg_bleach, ps_r__svp_nvg_sensitivity, 0.f,

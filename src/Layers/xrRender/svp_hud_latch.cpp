@@ -198,6 +198,7 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 			dxRender_Visual* V = item.pVisual;
 			VERIFY(V && V->shader._get());
 			bool drop = false;
+			bool clip_obj = false;
 			float t = 0.f, rad = -1.f;
 			if (measure_ok && item.pMatrix)
 			{
@@ -243,14 +244,20 @@ void CDSGraphManager::r_dsgraph_render_hud_svp()
 				const float plane = (g_svp_hud_front_m > EPS) ? g_svp_hud_front_m : tube;
 				if (!drop && g_svp_hud_skip_scope >= 2 && (t * tube + R) < plane)
 					drop = true;
+				// the objective clip drops the barrel wholly behind the authored front lens, w2
+				// near-blur dissolves the surviving forward sliver edge
+				extern int ps_r__svp_drain_clip;
+				if (ps_r__svp_drain_clip && vp.svp_opt_offset.z > EPS && vp.eyepiece.radius > EPS
+					&& (t * tube + R) < vp.svp_opt_offset.z * vp.eyepiece.radius)
+					clip_obj = true;
 			}
 			if (diag)
 			{
 				auto tx = V->GetTexture();
-				PipMsg("[SVP-HUD] %s t=%.2f rad=%.1fcm R=%.1fcm %s", drop ? "SKIP" : "keep",
+				PipMsg("[SVP-HUD] %s t=%.2f rad=%.1fcm R=%.1fcm %s", (drop || clip_obj) ? "SKIP" : "keep",
 					t, rad * 100.f, V->vis.sphere.R * 100.f, tx ? tx->cName.c_str() : "?");
 			}
-			if (drop && skip_ok) continue;
+			if ((drop && skip_ok) || clip_obj) continue;
 			RCache.set_Element(item.pSE);
 			RCache.set_xform_world(*svp_pose_of(item.pMatrix));
 			RImplementation.apply_object(item.pObject);

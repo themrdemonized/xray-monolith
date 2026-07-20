@@ -27,4 +27,21 @@ float4 svp_shadow_soften(float4 shadow)
 	return shadow;
 }
 
+// the ocular field stop, a static rim vignette where the physical field ends
+// onset rides the exit-pupil geometry and the field-curve control widens the edge
+float svp_field_stop_alpha(Scope S)
+{
+	if (shader_scope_params.w < -1.5 && svp_glass.y > 0.001 && RETICLE_TYPE != RT_FLAT_SCREEN)
+	{
+		float onset = svp_glass3.y;
+		float band = (1.0 - onset) * svp_glass.y;
+		if (band > 0.0)
+		{
+			float r = length((S.tc0.xy - 0.5) * 2.0);
+			return saturate((r - onset) / band);
+		}
+	}
+	return 0.0;
+}
+
 #endif

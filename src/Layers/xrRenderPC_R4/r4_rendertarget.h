@@ -139,6 +139,8 @@ public:
 	resptr_core<CRT, resptrcode_crt> rt_Generic_temp;
 
 	ref_rt rt_secondVP;	// 32bit		(r,g,b,a) --//#SM+#-- +SecondVP+
+	ID3DTexture2D* m_svp_nb_mip_surf = nullptr; // pip mip-prefiltered svp color for near-blur
+	ref_texture m_svp_nb_mip_tex; // pip holds the all-mip srv for GenerateMips
 
 
 	ref_rt rt_fakescope;	// crookr fakescope
@@ -464,6 +466,7 @@ public:
 	void phase_heatvision(); //--DSR-- HeatVision
 	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 	void phase_svp_capture(); // pip copy the SVP combined color into rt_secondVP for the lens to sample
+	bool svp_nearblur_pass(); // pip near-field defocus dispatch, true when it ran else the caller copies
 	void draw_scope(ref_shader se, std::function<void()> bind); // pip render the scope lens meshes forcing se per phase
 	void EvalSVP_DLSS(const SvpDlssInputs& in); // pip DLSS-SR eval, bilinear-passthrough stub for now (Task 7)
 	void draw_reflex(bool svp = false); // pip render reflex-sight lenses (mapReflexHUDSorted), svp draws them through the entrance-pupil camera
