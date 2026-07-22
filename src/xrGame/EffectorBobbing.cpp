@@ -122,6 +122,7 @@ CFPCamEffector::CFPCamEffector() : CEffectorCam(eCEUser, INT_MAX) {
 	m_Position.set(0, 0, 0);
 	m_customSmoothing = 0;
 	hudEnabled = false;
+	m_fov = -1.0f;
 }
 
 // EMA smoothing for changing values, frame independent
@@ -171,5 +172,9 @@ BOOL CFPCamEffector::ProcessCam(SCamEffectorInfo& info)
 	info.n.set(m_Camera.j);
 	info.d.set(m_Camera.k);
 	info.p.set(m_Camera.c);
+
+	if (m_fov > 0.0f)
+		info.fFov = m_fov;
+
 	return TRUE;
 }

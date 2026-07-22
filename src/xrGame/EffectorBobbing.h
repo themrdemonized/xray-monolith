@@ -43,10 +43,12 @@ public:
 	Fmatrix m_Camera;
 	bool hudEnabled = false;
 	unsigned int m_customSmoothing; // 0 - use FPDeath smoothing params, no custom smoothing
+	float m_fov; // <=0 no override, mirrors CAnimatorCamEffector fov
 	virtual void ema(Fvector& current, Fvector& target, unsigned int steps);
-	
+
 public:
 	CFPCamEffector();
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
+	void SetFov(float val) { m_fov = val; }
 
 };

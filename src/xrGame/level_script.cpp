@@ -927,6 +927,42 @@ void remove_cam_position_direction()
 	actor->removeFPCam();
 }
 
+// fov clamp bounds match the fov console command, console_commands.cpp line 2664
+const float g_cam_custom_fov_min = 5.0f;
+const float g_cam_custom_fov_max = 180.0f;
+
+// Override fov on the active FPCam effector, <=0 clears it
+void set_cam_custom_fov(float fov)
+{
+	CActor* actor = Actor();
+	if (!actor || !actor->m_FPCam)
+		return;
+
+	if (fov <= 0.0f)
+	{
+		actor->m_FPCam->SetFov(-1.0f);
+		return;
+	}
+
+	clamp(fov, g_cam_custom_fov_min, g_cam_custom_fov_max);
+	actor->m_FPCam->SetFov(fov);
+}
+
+void remove_cam_custom_fov()
+{
+	CActor* actor = Actor();
+	if (!actor || !actor->m_FPCam)
+		return;
+
+	actor->m_FPCam->SetFov(-1.0f);
+}
+
+bool is_cam_custom_active()
+{
+	CActor* actor = Actor();
+	return actor && actor->m_FPCam;
+}
+
 void remove_cam_effector(int id)
 {
 	Actor()->Cameras().RemoveCamEffector((ECamEffectorType)id);
@@ -2625,6 +2661,11 @@ void CLevel::script_register(lua_State* L)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),
 			def("remove_cam_custom_position_direction", &remove_cam_position_direction),
+
+			// Override fov on the active FPCam effector, <=0 clears it
+			def("set_cam_custom_fov", &set_cam_custom_fov),
+			def("remove_cam_custom_fov", &remove_cam_custom_fov),
+			def("is_cam_custom_active", &is_cam_custom_active),
 
 			def("remove_cam_effector", &remove_cam_effector),
 			def("set_cam_effector_factor", &set_cam_effector_factor),
