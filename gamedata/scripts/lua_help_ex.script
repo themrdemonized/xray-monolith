@@ -374,6 +374,12 @@
         void set_cam_custom_position_direction(Fvector position, Fvector direction)
         void remove_cam_custom_position_direction()
 
+        // Fov override in degrees, clamped to the fov cvar range, applies to the active FPCam
+        // remove_cam_custom_position_direction also resets this since it destroys the effector
+        void set_cam_custom_fov(float fovDeg)
+        void remove_cam_custom_fov()
+        bool is_cam_custom_active()
+
         // Removes all engine-spawned per-animation HUD camera effectors
         // Scripted effectors added via add_cam_effector are not touched.
         void remove_hud_motion_cam_effectors()
