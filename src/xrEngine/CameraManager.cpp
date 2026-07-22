@@ -245,6 +245,22 @@ void CCameraManager::RemoveCamEffector(CEffectorCam* ef)
 	}
 }
 
+void CCameraManager::RepositionCamEffector(CEffectorCam* ef)
+{
+	for (EffectorCamIt it = m_EffectorsCam.begin(); it != m_EffectorsCam.end(); it++)
+	{
+		if (*it == ef)
+		{
+			m_EffectorsCam.erase(it);
+			if (ef->AbsolutePositioning())
+				m_EffectorsCam.push_back(ef);
+			else
+				m_EffectorsCam.push_front(ef);
+			return;
+		}
+	}
+}
+
 void CCameraManager::RemoveHudMotionEffectors()
 {
 	for (EffectorCamIt it = m_EffectorsCam.begin(); it != m_EffectorsCam.end();)

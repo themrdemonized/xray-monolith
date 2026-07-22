@@ -96,6 +96,7 @@ public:
 public:
 	void initFPCam();
 	void removeFPCam();
+	void OnFPCamReleased();
 
 public:
 	virtual BOOL AlwaysTheCrow() { return TRUE; }
