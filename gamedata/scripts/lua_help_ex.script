@@ -373,12 +373,20 @@
         void set_cam_custom_position_direction(Fvector position, Fvector direction, int smoothing)
         void set_cam_custom_position_direction(Fvector position, Fvector direction)
         void remove_cam_custom_position_direction()
+        // Smoothed release, hands the camera back to the base pose over smoothing ema steps then self-removes
+        void remove_cam_custom_position_direction(float smoothing)
 
         // Fov override in degrees, clamped to the fov cvar range, applies to the active FPCam
         // remove_cam_custom_position_direction also resets this since it destroys the effector
         void set_cam_custom_fov(float fovDeg)
         void remove_cam_custom_fov()
         bool is_cam_custom_active()
+
+        // Exclusive positioning pushes the FPCam to the back of the effector list, applied live
+        void set_cam_custom_exclusive(bool exclusive)
+        // Current FPCam target pose, pair with is_cam_custom_active, zero vectors when inactive
+        Fvector get_cam_custom_position()
+        Fvector get_cam_custom_direction()
 
         // Removes all engine-spawned per-animation HUD camera effectors
         // Scripted effectors added via add_cam_effector are not touched.

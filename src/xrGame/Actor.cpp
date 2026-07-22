@@ -3055,11 +3055,18 @@ void CActor::initFPCam()
 {
 	if (!m_FPCam) {
 		m_FPCam = xr_new<CFPCamEffector>();
+		m_FPCam->m_on_b_remove_callback = SBaseEffector::CB_ON_B_REMOVE(this, &CActor::OnFPCamReleased);
 		Cameras().AddCamEffector(m_FPCam);
 	}
 }
 
-void CActor::removeFPCam() 
+// clears the dangling pointer when the effector self-removes during a smoothed release
+void CActor::OnFPCamReleased()
+{
+	m_FPCam = NULL;
+}
+
+void CActor::removeFPCam()
 {
 	if (m_FPCam) {
 		Cameras().RemoveCamEffector(m_FPCam);

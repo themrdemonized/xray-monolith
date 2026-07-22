@@ -123,6 +123,8 @@ CFPCamEffector::CFPCamEffector() : CEffectorCam(eCEUser, INT_MAX) {
 	m_customSmoothing = 0;
 	hudEnabled = false;
 	m_fov = -1.0f;
+	m_exclusive = false;
+	m_releasing = false;
 }
 
 // EMA smoothing for changing values, frame independent
@@ -147,9 +149,16 @@ void CFPCamEffector::ema(Fvector &current, Fvector &target, unsigned int steps) 
 
 BOOL CFPCamEffector::ProcessCam(SCamEffectorInfo& info)
 {
-	// Set target camera
+	// Target camera, normal mode drives to the scripted pose, releasing mode drives to the incoming base pose
 	Fmatrix temp;
-	temp.identity().setHPB(m_HPB.x, m_HPB.y, m_HPB.z).translate_over(m_Position);
+	if (m_releasing) {
+		temp.identity();
+		temp.j.set(info.n);
+		temp.k.set(info.d);
+		temp.c.set(info.p);
+	} else {
+		temp.identity().setHPB(m_HPB.x, m_HPB.y, m_HPB.z).translate_over(m_Position);
+	}
 
 	// Smooth out transition between current camera and target
 	if (m_customSmoothing) {
@@ -175,6 +184,13 @@ BOOL CFPCamEffector::ProcessCam(SCamEffectorInfo& info)
 
 	if (m_fov > 0.0f)
 		info.fFov = m_fov;
+
+	// Self-remove once the released camera has converged onto the base pose
+	if (m_releasing &&
+		m_Camera.c.similar(temp.c) &&
+		m_Camera.k.similar(temp.k) &&
+		m_Camera.j.similar(temp.j))
+		return FALSE;
 
 	return TRUE;
 }
