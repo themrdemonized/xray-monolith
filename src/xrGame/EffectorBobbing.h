@@ -46,6 +46,9 @@ public:
 	float m_fov; // <=0 no override, mirrors CAnimatorCamEffector fov
 	bool m_exclusive; // true pushes the effector to the back of the list for exclusive positioning
 	bool m_releasing; // smoothed handoff to the base pose then self-remove
+	bool m_hud_pin; // freezes the viewmodel anchor at a captured base pose while true
+	bool m_hud_pin_captured; // set once the manager snapshots the base pose
+	SCamEffectorInfo m_hud_pin_pose; // held hud pose reapplied every pinned frame
 	virtual void ema(Fvector& current, Fvector& target, unsigned int steps);
 
 public:

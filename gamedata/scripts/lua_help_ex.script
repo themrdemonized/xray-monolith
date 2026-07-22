@@ -388,6 +388,10 @@
         Fvector get_cam_custom_position()
         Fvector get_cam_custom_direction()
 
+        // Pin holds the viewmodel at the base pose captured on enable, weapon and hands go stationary, pin wins over hud affect
+        // Holds while the FPCam lives, disable clears it so a later enable recaptures, no-op without an active FPCam
+        void set_cam_custom_hud_pin(bool enable)
+
         // Removes all engine-spawned per-animation HUD camera effectors
         // Scripted effectors added via add_cam_effector are not touched.
         void remove_hud_motion_cam_effectors()

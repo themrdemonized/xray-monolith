@@ -6,6 +6,7 @@
 #include "../xrEngine/ObjectAnimator.h"
 #include "object_broker.h"
 #include "actor.h"
+#include "EffectorBobbing.h"
 
 void AddEffector(CActor* A, int type, const shared_str& sect_name)
 {
@@ -464,7 +465,24 @@ bool similar_cam_info(const SCamEffectorInfo& c1, const SCamEffectorInfo& c2)
 void CActorCameraManager::UpdateCamEffectors()
 {
 	m_cam_info_hud = m_cam_info;
+
+	// hud pin freezes the viewmodel anchor while this actor FPCam is live and pinned
+	CActor* pin_actor = Actor();
+	CFPCamEffector* pin_cam = (pin_actor && &pin_actor->Cameras() == this) ? pin_actor->m_FPCam : NULL;
+	const bool hud_pinned = pin_cam && pin_cam->m_hud_pin;
+	if (hud_pinned && !pin_cam->m_hud_pin_captured)
+	{
+		pin_cam->m_hud_pin_pose = m_cam_info_hud;
+		pin_cam->m_hud_pin_captured = true;
+	}
+	// hold the pose by value, the effector can free itself inside the update
+	SCamEffectorInfo hud_pin_pose = hud_pinned ? pin_cam->m_hud_pin_pose : m_cam_info_hud;
+
 	inherited::UpdateCamEffectors();
+
+	// pin wins over hud affect deltas so the frozen anchor holds
+	if (hud_pinned)
+		m_cam_info_hud = hud_pin_pose;
 
 	m_cam_info_hud.d.normalize();
 	m_cam_info_hud.n.normalize();
