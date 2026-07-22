@@ -125,6 +125,8 @@ CFPCamEffector::CFPCamEffector() : CEffectorCam(eCEUser, INT_MAX) {
 	m_fov = -1.0f;
 	m_exclusive = false;
 	m_releasing = false;
+	m_hud_pin = false;
+	m_hud_pin_captured = false;
 }
 
 // EMA smoothing for changing values, frame independent

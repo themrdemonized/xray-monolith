@@ -1018,6 +1018,19 @@ Fvector get_cam_custom_direction()
 	return actor->m_FPCam->m_HPB;
 }
 
+// Pin freezes the viewmodel anchor at the base pose captured on enable, pin wins over hud affect motion
+// disabling clears the capture so a later enable snapshots fresh, no-op without an active FPCam
+void set_cam_custom_hud_pin(bool enable)
+{
+	CActor* actor = Actor();
+	if (!actor || !actor->m_FPCam)
+		return;
+
+	actor->m_FPCam->m_hud_pin = enable;
+	if (!enable)
+		actor->m_FPCam->m_hud_pin_captured = false;
+}
+
 void remove_cam_effector(int id)
 {
 	Actor()->Cameras().RemoveCamEffector((ECamEffectorType)id);
@@ -2725,6 +2738,7 @@ void CLevel::script_register(lua_State* L)
 			def("set_cam_custom_exclusive", &set_cam_custom_exclusive),
 			def("get_cam_custom_position", &get_cam_custom_position),
 			def("get_cam_custom_direction", &get_cam_custom_direction),
+			def("set_cam_custom_hud_pin", &set_cam_custom_hud_pin),
 
 			def("remove_cam_effector", &remove_cam_effector),
 			def("set_cam_effector_factor", &set_cam_effector_factor),
