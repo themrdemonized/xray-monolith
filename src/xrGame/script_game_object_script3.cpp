@@ -68,6 +68,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("set_hit_redirect", SAFE_WRAP(&CScriptGameObject::set_hit_redirect))
 		.def("set_view_distance_factor", SAFE_WRAP(&CScriptGameObject::set_view_distance_factor))
 		.def("set_health_restore_boost", SAFE_WRAP(&CScriptGameObject::set_health_restore_boost))
+		.def("set_movement_hold", SAFE_WRAP(&CScriptGameObject::set_movement_hold))
 		.def("active_sound_count", SAFE_WRAP((int (CScriptGameObject::*)())(&CScriptGameObject::active_sound_count)))
 		.def("active_sound_count", SAFE_WRAP((int (CScriptGameObject::*)(bool))(&CScriptGameObject::active_sound_count)))
 		.def("best_cover", SAFE_WRAP(&CScriptGameObject::best_cover))
