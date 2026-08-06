@@ -155,6 +155,7 @@ public:
 
 	virtual void IR_OnMouseWheel(int direction);
 
+	CUIDialogWnd* ModalOverStartDialog();
 	bool OnRenderPPUI_query();
 	void OnRenderPPUI_main();
 	void OnRenderPPUI_PP();
