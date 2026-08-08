@@ -64,6 +64,9 @@ class ui_core : public CDeviceResetNotifier
 	Fvector2 m_scale_;
 	Fvector2* m_current_scale;
 
+	// Clip-frustum stack: base is the screen frustum, tighter convex polys push on top (twin of m_Scissors).
+	xr_stack<const C2DFrustum*> m_clip_stack;
+
 public:
 	xr_stack<Frect> m_Scissors;
 
@@ -82,6 +85,10 @@ public:
 
 	const C2DFrustum& ScreenFrustum() const { return (m_bPostprocess) ? m_2DFrustumPP : m_2DFrustum; }
 	C2DFrustum& ScreenFrustumLIT() { return m_FrustumLIT; }
+	const C2DFrustum& ActiveClipFrustum() const { return m_clip_stack.empty() ? ScreenFrustum() : *m_clip_stack.top(); }
+	void PushClipFrustum(const C2DFrustum* f) { m_clip_stack.push(f); }
+	void PopClipFrustum() { m_clip_stack.pop(); }
+	bool HasCustomClip() const { return !m_clip_stack.empty(); }
 	void PushScissor(const Frect& r, bool overlapped = false);
 	void PopScissor();
 

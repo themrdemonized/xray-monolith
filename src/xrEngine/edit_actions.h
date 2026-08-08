@@ -35,13 +35,14 @@ namespace text_editor
 		typedef fastdelegate::FastDelegate0<void> Callback;
 
 	public:
-		callback_base(Callback const& callback, key_state state);
+		callback_base(Callback const& callback, u32 const dik, key_state state);
 		virtual ~callback_base();
 		virtual void on_key_press(line_edit_control* const control);
 
 	protected:
 		key_state m_run_state;
 		Callback m_callback;
+        u32 m_dik;
 	}; // class callback_base
 
 	// -------------------------------------------------------------------------------------------------

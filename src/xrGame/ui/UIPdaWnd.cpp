@@ -115,11 +115,47 @@ void CUIPdaWnd::Init()
 	CUIXmlInit::InitTabControl(uiXml, "tab", 0, UITabControl);
 	UITabControl->SetMessageTarget(this);
 
+	RebuildExtraTabs();
+
 	UINoice = xr_new<CUIStatic>();
 	UINoice->SetAutoDelete(true);
 	CUIXmlInit::InitStatic(uiXml, "noice_static", 0, UINoice);
 
 	//	RearrangeTabButtons		(UITabControl);
+}
+
+void CUIPdaWnd::RebuildExtraTabs()
+{
+	if (!UITabControl)
+		return;
+
+	shared_str active = UITabControl->GetActiveId();
+
+	UITabControl->RemoveDynamicTabs();
+	::luabind::functor<void> build_tabs;
+	if (ai().script_engine().functor("pda_dynamic_tabs.build_extra_tabs", build_tabs))
+		build_tabs(UITabControl);
+	UITabControl->RecalcScroll();
+
+	if (active.size())
+	{
+		CUITabButton* btn = UITabControl->GetButtonById(active);
+		if (btn && !btn->m_dynamic)
+		{
+			UITabControl->EnsureVisible(active);
+			return;
+		}
+		if (!btn)
+		{
+			TABS_VECTOR* tabs = UITabControl->GetButtonsVector();
+			active = tabs->empty() ? "" : (*tabs)[0]->m_btn_id;
+		}
+		if (active.size())
+		{
+			UITabControl->ResetTab();
+			UITabControl->SetActiveTab(active);
+		}
+	}
 }
 
 void CUIPdaWnd::SetPdaXml(LPCSTR xml)

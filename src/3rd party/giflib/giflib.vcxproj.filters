@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="dgif_lib.c" />
+    <ClCompile Include="egif_lib.c" />
+    <ClCompile Include="gif_err.c" />
+    <ClCompile Include="gifalloc.c" />
+    <ClCompile Include="gif_font.c" />
+    <ClCompile Include="gif_hash.c" />
+    <ClCompile Include="openbsd-reallocarray.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gif_hash.h" />
+    <ClInclude Include="gif_lib.h" />
+    <ClInclude Include="gif_lib_private.h" />
+  </ItemGroup>
+</Project>

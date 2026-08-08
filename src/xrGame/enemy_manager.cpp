@@ -27,9 +27,10 @@
 #include "agent_manager.h"
 #include "agent_enemy_manager.h"
 
-static const u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 3000;
-static const u32 ENEMY_INERTIA_TIME_TO_ACTOR = 0;
-static const u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 6000;
+u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 3000;
+u32 ENEMY_INERTIA_TIME_TO_ACTOR = 0;
+u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 6000;
+
 
 #ifdef _DEBUG
 bool g_enemy_manager_second_update	 = false;
@@ -56,6 +57,7 @@ bool CEnemyManager::is_useful(const CEntityAlive* entity_alive) const
 	return (m_object->useful(this, entity_alive));
 }
 
+int enemy_manager_useful_cache_time = 200;
 bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 {
 	if (!entity_alive->g_Alive())
@@ -79,7 +81,25 @@ bool CEnemyManager::useful(const CEntityAlive* entity_alive) const
 	)
 		return (false);
 
-	return (m_useful_callback ? m_useful_callback(m_object->lua_game_object(), entity_alive->lua_game_object()) : true);
+    // Disable caching if time is negative for testing
+    if (enemy_manager_useful_cache_time < 0)
+        return (m_useful_callback ? m_useful_callback(m_object->lua_game_object(), entity_alive->lua_game_object()) : true);
+
+    // demonized: Cache useful checks to avoid expensive Lua calls
+    u32 current_time = Device.dwTimeGlobal;
+    auto& cache = m_useful_cache[entity_alive->ID()]; // create if not exists
+    if (current_time < cache.check_time)
+        return cache.result;
+
+    bool result = (m_useful_callback ? m_useful_callback(m_object->lua_game_object(), entity_alive->lua_game_object()) : true);
+
+    // Add id based jitter so that next updates will be spread between frames for different entities
+    int jitter = (entity_alive->ID() % 97 + 1) * (entity_alive->ID() & 1 ? -1 : 1);
+    u32 next_time = current_time + _max(0, enemy_manager_useful_cache_time + jitter);
+    cache.result = result;
+    cache.check_time = next_time;
+
+	return result;
 }
 
 float CEnemyManager::do_evaluate(const CEntityAlive* object) const
@@ -111,10 +131,18 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	// if we are hit
 	if (object->ID() == m_object->memory().hit().last_hit_object_id())
 	{
-		if (actor)
-			penalty -= 1500.f;
+		float hit_dist = m_object->Position().distance_to(object->Position());
+		
+		// In CQB (< 30m), the distance score variance is only 0 to 9 points.
+		// A tiny -5 penalty ensures they turn to a flanker at 15m, 
+		// but WON'T ignore a guy actively fighting them at 5m just because they got shot!
+		if (hit_dist < 30.f)
+			penalty -= 5.f;
+			
+		// For medium/long range, give a standard 100m aggro advantage
+		// so they still react to snipers if they aren't busy with a close target.
 		else
-			penalty -= 500.f;
+			penalty -= 100.f;
 	}
 
 	// if we see object
@@ -142,8 +170,8 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	float distance = m_object->Position().distance_to_sqr(object->Position());
 	return (
 		penalty +
-		distance / 100.f +
-		ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f
+		distance / 100.f
+		// + ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f //SkyKi: Removed to stop AI from locking onto heavily armed targets (like the player) across the map
 	);
 #else // USE_EVALUATOR
 	float					distance = m_object->Position().distance_to_sqr(object->Position());
@@ -411,6 +439,13 @@ void CEnemyManager::try_change_enemy()
 
 	if (selected() != previous_selected)
 		m_object->on_enemy_change(previous_selected);
+
+	if (selected() != previous_selected)
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnEnemySelected", funct))
+			funct(m_object->lua_game_object(), selected() ? selected()->lua_game_object() : nullptr);
+	}
 }
 
 void CEnemyManager::update()

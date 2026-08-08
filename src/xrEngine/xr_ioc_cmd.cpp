@@ -14,6 +14,7 @@
 #include "../Include/xrRender/RenderDeviceRender.h"
 
 #include "xr_object.h"
+#include "MonitorList.h"
 
 xr_token* vid_quality_token = NULL;
 
@@ -216,6 +217,25 @@ public:
 		Log("Key: Enter  / NumEnter      === Execute current command ");
 
 		Log("- --- Command listing: end ----");
+	}
+};
+
+class CCC_DumpCVars : public IConsole_Command
+{
+public:
+	CCC_DumpCVars(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; }
+
+	virtual void Execute(LPCSTR args)
+	{
+		Log("- --- Console variables: start ---");
+		for (const auto& command : Console->Commands)
+		{
+			IConsole_Command::TStatus status;
+			command.second->Status(status);
+			if (status[0])
+				Msg("%s %s", command.second->Name(), status);
+		}
+		Log("- --- Console variables: end ---");
 	}
 };
 
@@ -473,8 +493,11 @@ public:
 		int cnt = sscanf(args, "%dx%d", &_w, &_h);
 		if (cnt == 2)
 		{
+			const bool changed = (psCurrentVidMode[0] != _w) || (psCurrentVidMode[1] != _h);
 			psCurrentVidMode[0] = _w;
 			psCurrentVidMode[1] = _h;
+			if (changed && Device.b_is_Ready)
+				Device.Reset();
 		}
 		else
 		{
@@ -813,6 +836,64 @@ public:
 	}
 };
 #endif
+
+
+#ifndef DEDICATED_SERVER
+class CCC_VidMonitor : public CCC_Token
+{
+	typedef CCC_Token inherited;
+	u32 _dummy;
+public:
+	CCC_VidMonitor(LPCSTR N) : inherited(N, &_dummy, NULL)
+	{
+		bLowerCaseArgs = FALSE;
+	}
+
+	virtual ~CCC_VidMonitor()
+	{
+	}
+
+	virtual void Execute(LPCSTR args) override
+	{
+		if (!Device.b_is_Ready)
+		{
+			vid_monitor_name = args;
+			ResetStartupMonitor();
+			return;
+		}
+
+		vid_monitor_name = args;
+
+		HMONITOR h = ResolveSelectedMonitor();
+		if (!h)
+		{
+			POINT p;
+			GetCursorPos(&p);
+			h = MonitorFromPoint(p, MONITOR_DEFAULTTOPRIMARY);
+		}
+
+		if (!Device.ChangeOutputMonitor(h))
+			Msg("! vid_monitor: live switch unavailable; restart to apply '%s'", args);
+	}
+
+	virtual void Status(TStatus& S)
+	{
+		xr_strcpy(S, sizeof(S), vid_monitor_name.c_str());
+	}
+
+	virtual xr_token* GetToken()
+	{
+		tokens = vid_monitor_token;
+		return inherited::GetToken();
+	}
+
+	virtual void Save(IWriter* F)
+	{
+		F->w_printf("%s %s\r\n", cName, vid_monitor_name.c_str());
+	}
+};
+#endif
+
 //-----------------------------------------------------------------------
 class CCC_ExclusiveMode : public IConsole_Command
 {
@@ -921,6 +1002,7 @@ ENGINE_API float hit_modifier = 1.0f;
 
 extern float g_dispersion_base;
 extern float g_dispersion_factor;
+extern int g_ai_unlimited_ammo;
 float g_AimLookFactor = 1.f;
 
 int ps_framelimiter = 0;
@@ -954,6 +1036,7 @@ void CCC_Register()
 	CMD1(CCC_Disconnect, "disconnect");
 	CMD1(CCC_SaveCFG, "cfg_save");
 	CMD1(CCC_LoadCFG, "cfg_load");
+	CMD1(CCC_DumpCVars, "dump_cvar");
 
 #ifdef DEBUG
     CMD1(CCC_MotionsStat, "stat_motions");
@@ -996,6 +1079,7 @@ void CCC_Register()
 
 	CMD4(CCC_Float, "g_dispersion_base", &g_dispersion_base, 0.0f, 5.0f);
 	CMD4(CCC_Float, "g_dispersion_factor", &g_dispersion_factor, 0.1f, 10.0f);
+	CMD4(CCC_Integer, "g_ai_unlimited_ammo", &g_ai_unlimited_ammo, 0, 1);
 
 	// Render device states
 	CMD4(CCC_Integer, "r__supersample", &ps_r__Supersample, 1, 4);
@@ -1028,6 +1112,9 @@ void CCC_Register()
 
 	// General video control
 	CMD1(CCC_VidMode, "vid_mode");
+#ifndef DEDICATED_SERVER
+	CMD1(CCC_VidMonitor, "vid_monitor");
+#endif
 
 #ifdef DEBUG
     CMD3(CCC_Token, "vid_bpp", &psCurrentBPP, vid_bpp_token);
@@ -1058,6 +1145,31 @@ void CCC_Register()
 	// Doppler effect power
 	CMD4(CCC_Float, "snd_doppler_power", &soundSmoothingParams::power, 0.f, 5.f);
 	CMD4(CCC_SoundParamsSmoothing, "snd_doppler_smoothing", &soundSmoothingParams::steps, 1, 100);
+
+    // EFX Reverb overwrite
+    CMD4(CCC_Integer, "snd_efx_reverb_overwrite", &reverb_overwrite, FALSE, TRUE);
+
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_density", &psReverbDensity, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_diffusion", &psReverbDiffusion, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_gain", &psReverbGain, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_gain_hf", &psReverbGainHF, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_gain_lf", &psReverbGainLF, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_decay_time", &psReverbDecayTime, 0.1f, 20.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_decay_hf_ratio", &psReverbDecayHFRatio, 0.1f, 20.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_decay_lf_ratio", &psReverbDecayLFRatio, 0.1f, 20.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_reflections_gain", &psReverbReflectionsGain, 0.f, 3.16f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_reflections_delay", &psReverbReflectionsDelay, 0.f, 0.3f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_late_reverb_gain", &psReverbLateReverbGain, 0.f, 10.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_late_reverb_delay", &psReverbLateReverbDelay, 0.f, 0.1f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_echo_time", &psReverbEchoTime, 0.075f, 0.25f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_echo_depth", &psReverbEchoDepth, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_modulation_time", &psReverbModulationTime, 0.04f, 4.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_modulation_depth", &psReverbModulationDepth, 0.f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_air_absorption_gain_hf", &psReverbAirAbsorptionGainHF, 0.892f, 1.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_hf_reference", &psReverbHFReference, 1000.f, 20000.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_lf_reference", &psReverbLFReference, 20.f, 1000.f);
+    CMD4(CCC_Float, "snd_efx_reverb_overwrite_room_rolloff_factor", &psReverbRoomRolloffFactor, 0.f, 10.f);
+    CMD4(CCC_Integer, "snd_efx_reverb_overwrite_decay_hf_limit", &psReverbDecayHFLimit, FALSE, TRUE);
 
 #ifdef DEBUG
     CMD3(CCC_Mask, "snd_stats", &g_stats_flags, st_sound);

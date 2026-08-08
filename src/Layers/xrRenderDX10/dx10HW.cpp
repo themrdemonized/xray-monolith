@@ -47,6 +47,7 @@ CHW::CHW() :
     //	hD3D(NULL),
 	//pD3D(NULL),
 	m_pAdapter(0),
+	m_pOutput(nullptr),
 	pDevice(NULL),
 #if defined(USE_DX11)
 	m_move_window(true),
@@ -70,6 +71,70 @@ CHW::~CHW()
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
+
+void CHW::AcquireDefaultOutput()
+{
+    VERIFY(m_pAdapter);
+    R_CHK(m_pAdapter->EnumOutputs(0, &m_pOutput));
+}
+
+IDXGIOutput* CHW::FindOutputOnCurrentAdapter(HMONITOR hMon)
+{
+    if (!m_pAdapter || !hMon)
+        return nullptr;
+
+    UINT oi = 0;
+    IDXGIOutput* pOut = nullptr;
+    while (m_pAdapter->EnumOutputs(oi, &pOut) != DXGI_ERROR_NOT_FOUND)
+    {
+        DXGI_OUTPUT_DESC desc;
+        if (SUCCEEDED(pOut->GetDesc(&desc)) && desc.Monitor == hMon)
+        {
+            return pOut;
+        }
+        _RELEASE(pOut);
+        ++oi;
+    }
+    return nullptr;
+}
+
+#if defined(USE_DX11)
+void CHW::SelectAdapterAndOutput(HMONITOR hTargetMonitor)
+{
+    m_pAdapter = nullptr;
+    m_pOutput  = nullptr;
+
+    // Iterate adapters x outputs; pick the pair whose output owns hTargetMonitor.
+    for (UINT ai = 0;; ++ai)
+    {
+        IDXGIAdapter1* adapter = nullptr;
+        if (m_pFactory->EnumAdapters1(ai, &adapter) == DXGI_ERROR_NOT_FOUND)
+            break;
+
+        for (UINT oi = 0;; ++oi)
+        {
+            IDXGIOutput* output = nullptr;
+            if (adapter->EnumOutputs(oi, &output) == DXGI_ERROR_NOT_FOUND)
+                break;
+
+            DXGI_OUTPUT_DESC desc;
+            if (SUCCEEDED(output->GetDesc(&desc)) && desc.Monitor == hTargetMonitor)
+            {
+                m_pAdapter = adapter;
+                m_pOutput  = output;
+                return;
+            }
+            output->Release();
+        }
+        adapter->Release();
+    }
+
+    Msg("!HW: selected monitor not found on any adapter, falling back to default");
+    R_CHK(m_pFactory->EnumAdapters1(0, &m_pAdapter));
+    AcquireDefaultOutput();
+}
+#endif
+
 void CHW::CreateD3D()
 {
     /*	Partially implemented dynamic load
@@ -100,6 +165,7 @@ void CHW::CreateD3D()
 #endif
 
     m_pAdapter    = 0;
+    m_pOutput     = nullptr;
     m_bUsePerfhud = false;
 
 #ifndef MASTER_GOLD
@@ -117,6 +183,7 @@ void CHW::CreateD3D()
 		if(!wcscmp(desc.Description,L"NVIDIA PerfHUD"))
 		{
             m_bUsePerfhud = true;
+            AcquireDefaultOutput();
             break;
 		}
 		else
@@ -130,9 +197,42 @@ void CHW::CreateD3D()
 
     if (!m_pAdapter) {
 #if defined(USE_DX11)
-        m_pFactory->EnumAdapters1(0, &m_pAdapter);
+        SelectAdapterAndOutput(MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY));
 #elif defined(USE_DX10)
-        pFactory->EnumAdapters(0, &m_pAdapter);
+        const HMONITOR hTarget = MonitorFromWindow(m_hWnd, MONITOR_DEFAULTTOPRIMARY);
+        bool found = false;
+        for (UINT ai = 0; !found; ++ai)
+        {
+            IDXGIAdapter* adapter = nullptr;
+            if (pFactory->EnumAdapters(ai, &adapter) == DXGI_ERROR_NOT_FOUND)
+                break;
+
+            for (UINT oi = 0; !found; ++oi)
+            {
+                IDXGIOutput* output = nullptr;
+                if (adapter->EnumOutputs(oi, &output) == DXGI_ERROR_NOT_FOUND)
+                    break;
+
+                DXGI_OUTPUT_DESC desc;
+                if (SUCCEEDED(output->GetDesc(&desc)) && desc.Monitor == hTarget)
+                {
+                    m_pAdapter = adapter;
+                    m_pOutput  = output;
+                    found = true;
+                    break;
+                }
+                output->Release();
+            }
+            if (!found)
+                adapter->Release();
+        }
+
+        if (!found)
+        {
+            Msg("!HW: selected monitor not found on any adapter, falling back to default (DX10)");
+            R_CHK(pFactory->EnumAdapters(0, &m_pAdapter));
+            AcquireDefaultOutput();
+        }
 #endif
     }
 
@@ -185,6 +285,9 @@ void CHW::DestroyD3D()
 {
     //_RELEASE					(this->pD3D);
 
+    _SHOW_REF("refCount:m_pOutput", m_pOutput);
+    _RELEASE(m_pOutput);
+
     _SHOW_REF("refCount:m_pAdapter", m_pAdapter);
     _RELEASE(m_pAdapter);
 
@@ -200,7 +303,7 @@ extern u32 g_screenmode;
 
 void CHW::CreateDevice(HWND hwnd, bool move_window)
 {
-#ifdef USE_DX11
+#if defined(USE_DX10) || defined(USE_DX11)
     m_hWnd = hwnd;
 #endif
     m_move_window = move_window;
@@ -700,7 +803,7 @@ void CHW::Reset(HWND hwnd)
         SetForegroundWindow(hwnd);
     }
 
-    m_pSwapChain->SetFullscreenState(!bWindowed, NULL);
+    m_pSwapChain->SetFullscreenState(!bWindowed, bWindowed ? NULL : m_pOutput);
 
 #if defined(USE_DX11)
     selectResolution(cd.Width, cd.Height, bWindowed);
@@ -937,22 +1040,18 @@ DXGI_RATIONAL CHW::selectRefresh(u32 dwWidth, u32 dwHeight, DXGI_FORMAT fmt)
 
     xr_vector<DXGI_MODE_DESC> modes;
 
-    IDXGIOutput* pOutput;
-    m_pAdapter->EnumOutputs(0, &pOutput);
-    VERIFY(pOutput);
+    VERIFY(m_pOutput);
 
 	UINT num = 0;
     DXGI_FORMAT format = fmt;
 	UINT flags = 0;
 
     // Get the number of display modes available
-    pOutput->GetDisplayModeList(format, flags, &num, 0);
+    m_pOutput->GetDisplayModeList(format, flags, &num, 0);
 
     // Get the list of display modes
     modes.resize(num);
-    pOutput->GetDisplayModeList(format, flags, &num, &modes.front());
-
-    _RELEASE(pOutput);
+    m_pOutput->GetDisplayModeList(format, flags, &num, &modes.front());
 
 	for (u32 i = 0; i < num; ++i)
 	{
@@ -991,12 +1090,8 @@ void CHW::OnAppActivate()
 
 	if (m_pSwapChain && !is_windowed)
 	{
-#if defined(USE_DX11)
         ShowWindow(m_hWnd, SW_RESTORE);
-#elif defined(USE_DX10)
-        ShowWindow(m_ChainDesc.OutputWindow, SW_RESTORE);
-#endif
-        m_pSwapChain->SetFullscreenState(TRUE, NULL);
+        m_pSwapChain->SetFullscreenState(TRUE, m_pOutput);
 
 #ifdef USE_DX11
         if (!strstr(Core.Params, dxgiOld)) {
@@ -1070,11 +1165,7 @@ void CHW::OnAppDeactivate()
         UpdateViews();
 #endif
 
-#if defined(USE_DX11)
         ShowWindow(m_hWnd, SW_MINIMIZE);
-#elif defined(USE_DX10)
-        ShowWindow(m_ChainDesc.OutputWindow, SW_MINIMIZE);
-#endif
     }
 }
 
@@ -1268,23 +1359,18 @@ void fill_vid_mode_list(CHW* _hw)
 	xr_vector<LPCSTR> _tmp;
     xr_vector<DXGI_MODE_DESC> modes;
 
-    IDXGIOutput* pOutput;
-    //_hw->m_pSwapChain->GetContainingOutput(&pOutput);
-    _hw->m_pAdapter->EnumOutputs(0, &pOutput);
-    VERIFY(pOutput);
+    VERIFY(_hw->m_pOutput);
 
 	UINT num = 0;
 	DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	UINT flags = 0;
 
     // Get the number of display modes available
-	pOutput->GetDisplayModeList(format, flags, &num, 0);
+	_hw->m_pOutput->GetDisplayModeList(format, flags, &num, 0);
 
     // Get the list of display modes
 	modes.resize(num);
-	pOutput->GetDisplayModeList(format, flags, &num, &modes.front());
-
-    _RELEASE(pOutput);
+	_hw->m_pOutput->GetDisplayModeList(format, flags, &num, &modes.front());
 
 	for (u32 i = 0; i < num; ++i)
 	{

@@ -102,7 +102,7 @@ void CPatrolPathStorage::load_from_config()
 	for (CInifile::Root::iterator i = paths.begin(), ie = paths.end(); i != ie; ++i)
 	{
 		// Get patrol path name
-		LPCSTR patrol_name = (*i)->Name.c_str();
+		LPCSTR patrol_name = (*i).Name.c_str();
 
 		Msg("[PP] Reading section %s", patrol_name);
 

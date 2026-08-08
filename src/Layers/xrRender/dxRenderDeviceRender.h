@@ -70,6 +70,7 @@ public:
 	virtual void SetCacheXform(Fmatrix& mView, Fmatrix& mProject);
 	virtual void SetCacheXform_prev(Fmatrix& mView, Fmatrix& mProject);
 	virtual void OnAssetsChanged();
+	virtual bool SwitchOutputMonitor(HMONITOR hTargetMon, HWND hWnd, u32 g_screenmode, u32& vidModeW, u32& vidModeH);
 
 public:
 	CResourceManager* Resources;

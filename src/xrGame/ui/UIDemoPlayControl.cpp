@@ -39,7 +39,7 @@ CUIDemoPlayControl::CUIDemoPlayControl()
 	AttachChild(m_all_players);
 	m_all_players->SetWindowName("all_players_pbox");
 
-	m_rewind_type = xr_new<CUIPropertiesBox>(m_all_players);
+	m_rewind_type = xr_new<CUIPropertiesBox>();
 	AttachChild(m_rewind_type);
 	m_rewind_type->SetWindowName("rewind_types_pbox");
 
@@ -245,7 +245,20 @@ void CUIDemoPlayControl::OnRewindTypeSelected(CUIWindow* w, void* d)
 		return;
 	}
 
-	m_rewind_type->ShowSubMenu();
+	Frect rect = m_pbox_rect;
+	Fvector2 pos = m_rewind_type->GetWndPos();
+	pos.y += tmp_item->GetWndPos().y + tmp_item->GetHeight() / 2.0f;
+	float right_limit = pos.x + m_rewind_type->GetWidth() + m_all_players->GetWidth();
+	if (right_limit < rect.x2)
+	{
+		rect.x1 = pos.x;
+		pos.x += m_rewind_type->GetWidth();
+	}
+	else
+	{
+		rect.x2 = pos.x;
+	}
+	m_all_players->Show(rect, pos);
 }
 
 void CUIDemoPlayControl::OnRewindPlayerSelected(CUIWindow* w, void* d)
@@ -253,6 +266,8 @@ void CUIDemoPlayControl::OnRewindPlayerSelected(CUIWindow* w, void* d)
 	VERIFY(m_all_players);
 	CUIListBoxItem* tmp_item = m_all_players->GetClickedItem();
 	VERIFY(tmp_item);
+
+	m_rewind_type->Hide(); // old mechanism auto-closed the type box; do it explicitly now
 
 	u32 tmp_item_tag = tmp_item->GetTAG();
 	if (tmp_item_tag == 0)

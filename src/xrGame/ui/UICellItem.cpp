@@ -53,39 +53,39 @@ CUICellItem::~CUICellItem()
 
 void CUICellItem::init()
 {
-	static CUIXml uiXml;
-	static bool is_xml_ready = false;
+    static CUIXml uiXml;
+    static bool isXmlReady = false;
 
-	if (!is_xml_ready)
-	{
-		uiXml.Load(CONFIG_PATH, UI_PATH, "actor_menu_item.xml");
-		is_xml_ready = true;
-	}
+    if (!isXmlReady)
+    {
+        uiXml.Load(CONFIG_PATH, UI_PATH, "actor_menu_item.xml");
+        isXmlReady = true;
+    }
 
-	m_text = xr_new<CUIStatic>();
-	m_text->SetAutoDelete(true);
-	AttachChild(m_text);
-	CUIXmlInit::InitStatic(uiXml, "cell_item_text", 0, m_text);
-	m_text->Show(false);
+    m_text = xr_new<CUIStatic>();
+    m_text->SetAutoDelete(true);
+    AttachChild(m_text);
+    CUIXmlInit::InitStatic(uiXml, "cell_item_text", 0, m_text);
+    m_text->Show(false);
 
-	/*	m_mark					= xr_new<CUIStatic>();
-		m_mark->SetAutoDelete	( true );
-		AttachChild				( m_mark );
-		CUIXmlInit::InitStatic	( uiXml, "cell_item_mark", 0, m_mark );
-		m_mark->Show			( false );*/
+    /*	m_mark					= xr_new<CUIStatic>();
+        m_mark->SetAutoDelete	( true );
+        AttachChild				( m_mark );
+        CUIXmlInit::InitStatic	( uiXml, "cell_item_mark", 0, m_mark );
+        m_mark->Show			( false );*/
 
-	m_upgrade = xr_new<CUIStatic>();
-	m_upgrade->SetAutoDelete(true);
-	AttachChild(m_upgrade);
-	CUIXmlInit::InitStatic(uiXml, "cell_item_upgrade", 0, m_upgrade);
-	m_upgrade_pos = m_upgrade->GetWndPos();
-	m_upgrade->Show(false);
+    m_upgrade = xr_new<CUIStatic>();
+    m_upgrade->SetAutoDelete(true);
+    AttachChild(m_upgrade);
+    CUIXmlInit::InitStatic(uiXml, "cell_item_upgrade", 0, m_upgrade);
+    m_upgrade_pos = m_upgrade->GetWndPos();
+    m_upgrade->Show(false);
 
-	m_pConditionState = xr_new<CUIProgressBar>();
-	m_pConditionState->SetAutoDelete(true);
-	AttachChild(m_pConditionState);
-	CUIXmlInit::InitProgressBar(uiXml, "condition_progess_bar", 0, m_pConditionState);
-	m_pConditionState->Show(true);
+    m_pConditionState = xr_new<CUIProgressBar>();
+    m_pConditionState->SetAutoDelete(true);
+    AttachChild(m_pConditionState);
+    CUIXmlInit::InitProgressBar(uiXml, "condition_progess_bar", 0, m_pConditionState);
+    m_pConditionState->Show(true);
 }
 
 void CUICellItem::Draw()

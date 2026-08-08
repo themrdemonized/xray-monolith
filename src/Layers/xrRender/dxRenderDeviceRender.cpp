@@ -453,3 +453,143 @@ void dxRenderDeviceRender::OnAssetsChanged()
 	Resources->m_textures_description.UnLoad();
 	Resources->m_textures_description.Load();
 }
+
+extern ENGINE_API void SetStartupMonitor(HMONITOR h);
+extern XRAPI_API xr_token* vid_mode_token;
+#if defined(USE_DX11) || defined(USE_DX10)
+void fill_vid_mode_list(CHW* _hw);
+void free_vid_mode_list();
+#endif
+
+// Windowed: keep user's pick if present in vid_mode_token, else monitor native.
+// Borderless/fullscreen: always monitor native.  Moves the window to match.
+// Caller must have set HW.m_pOutput / vid_mode_token to reflect the target
+// monitor before calling.
+static void FinalizeMonitorGeometry(const MONITORINFO& mi, HWND hWnd,
+                                    u32 g_screenmode_,
+                                    u32& vidModeW, u32& vidModeH)
+{
+    const int monX = mi.rcMonitor.left;
+    const int monY = mi.rcMonitor.top;
+    const int monW = mi.rcMonitor.right  - mi.rcMonitor.left;
+    const int monH = mi.rcMonitor.bottom - mi.rcMonitor.top;
+
+    u32 finalW = (u32)monW;
+    u32 finalH = (u32)monH;
+    if (g_screenmode_ == 0)
+    {
+        string32 cur_buf;
+        xr_sprintf(cur_buf, sizeof(cur_buf), "%ux%u", vidModeW, vidModeH);
+        for (xr_token* t = vid_mode_token; t && t->name; ++t)
+        {
+            if (!xr_strcmp(t->name, cur_buf))
+            {
+                finalW = vidModeW;
+                finalH = vidModeH;
+                break;
+            }
+        }
+    }
+    vidModeW = finalW;
+    vidModeH = finalH;
+
+    int wx, wy, ww = (int)finalW, wh = (int)finalH;
+    if (g_screenmode_ == 0)
+    {
+        wx = monX + (monW - ww) / 2;
+        wy = monY + (monH - wh) / 2;
+    }
+    else
+    {
+        wx = monX;
+        wy = monY;
+    }
+    SetWindowPos(hWnd, HWND_TOP, wx, wy, ww, wh,
+                 SWP_FRAMECHANGED | SWP_NOCOPYBITS | SWP_DRAWFRAME);
+}
+
+bool dxRenderDeviceRender::SwitchOutputMonitor(HMONITOR hTargetMon, HWND hWnd,
+                                               u32 g_screenmode_,
+                                               u32& vidModeW, u32& vidModeH)
+{
+    if (hTargetMon == NULL)
+        return false;
+
+    MONITORINFO mi;
+    mi.cbSize = sizeof(mi);
+    if (!GetMonitorInfoA(hTargetMon, &mi))
+    {
+        Msg("! vid_monitor: GetMonitorInfoA failed for target monitor");
+        return false;
+    }
+
+#if defined(USE_DX11) || defined(USE_DX10)
+    IDXGIOutput* new_output = HW.FindOutputOnCurrentAdapter(hTargetMon);
+    if (!new_output)
+    {
+        Msg("! vid_monitor: target monitor is not on the current adapter, restart to apply");
+        return false;
+    }
+
+    SetStartupMonitor(hTargetMon);
+
+    if (g_screenmode_ == 2)
+        HW.m_pSwapChain->SetFullscreenState(FALSE, NULL); // best-effort
+
+    _RELEASE(HW.m_pOutput);
+    HW.m_pOutput = new_output;
+
+    free_vid_mode_list();
+    fill_vid_mode_list(&HW);
+
+    FinalizeMonitorGeometry(mi, hWnd, g_screenmode_, vidModeW, vidModeH);
+    Msg("* vid_monitor: output swapped, final mode %ux%u", vidModeW, vidModeH);
+    return true;
+
+#elif !defined(USE_DX10) && !defined(USE_DX11)
+    UINT target_adapter = UINT(-1);
+    for (UINT a = 0; a < HW.pD3D->GetAdapterCount(); ++a)
+    {
+        if (HW.pD3D->GetAdapterMonitor(a) == hTargetMon)
+        {
+            target_adapter = a;
+            break;
+        }
+    }
+    if (target_adapter == UINT(-1))
+    {
+        Msg("! vid_monitor: target monitor not found among D3D9 adapters, restart to apply");
+        return false;
+    }
+
+    if (target_adapter != HW.DevAdapter)
+    {
+        D3DADAPTER_IDENTIFIER9 id_cur, id_new;
+        HRESULT hr1 = HW.pD3D->GetAdapterIdentifier(HW.DevAdapter, 0, &id_cur);
+        HRESULT hr2 = HW.pD3D->GetAdapterIdentifier(target_adapter,  0, &id_new);
+        const bool same_gpu = SUCCEEDED(hr1) && SUCCEEDED(hr2)
+                           && memcmp(&id_cur.DeviceIdentifier,
+                                     &id_new.DeviceIdentifier,
+                                     sizeof(GUID)) == 0;
+        if (!same_gpu)
+        {
+            Msg("! vid_monitor: target monitor is on a different D3D9 adapter, restart to apply");
+            return false;
+        }
+    }
+    if (g_screenmode_ == 2)
+    {
+        Msg("! vid_monitor: DX9 exclusive fullscreen across monitors requires restart to apply");
+        return false;
+    }
+
+    SetStartupMonitor(hTargetMon);
+
+    FinalizeMonitorGeometry(mi, hWnd, g_screenmode_, vidModeW, vidModeH);
+    Msg("* vid_monitor: DX9 output swapped, final mode %ux%u", vidModeW, vidModeH);
+    return true;
+
+#else
+    return false;
+#endif
+}

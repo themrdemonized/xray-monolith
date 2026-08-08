@@ -37,6 +37,7 @@
 #include "../Layers/xrRender/xrRender_console.h"
 #include "pch_script.h"
 #include "script_game_object.h"
+#include "ai/stalker/ai_stalker.h"
 
 #define WEAPON_REMOVE_TIME		60000
 #define ROTATION_TIME			0.25f
@@ -1017,6 +1018,12 @@ BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
 	SetState(E->wpn_state);
 	SetNextState(E->wpn_state);
 
+    if (!m_ammoTypes[m_ammoType].c_str())
+    {
+        Msg("![%s] ERROR: CWeapon::net_Spawn: m_ammoTypes[m_ammoType] is invalid, m_ammoTypes.size %d, m_ammoType %d", Name(), m_ammoTypes.size(), m_ammoType);
+        m_ammoType = 0;
+    }
+
 	m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, m_APk);
 	if (iAmmoElapsed)
 	{
@@ -1751,21 +1758,35 @@ float CWeapon::GetConditionMisfireProbability() const
 	// modified by Peacemaker [17.10.08]
 	//	if(GetCondition() > 0.95f)
 	//		return 0.0f;
+    float result = 0.0f;
 	if (GetCondition() > misfireStartCondition)
-		return 0.0f;
-	if (GetCondition() < misfireEndCondition)
-		return misfireEndProbability;
-	//	float mis = misfireProbability+powf(1.f-GetCondition(), 3.f)*misfireConditionK;
-	float mis = misfireStartProbability + (
-		(misfireStartCondition - GetCondition()) * // condition goes from 1.f to 0.f
-		(misfireEndProbability - misfireStartProbability) / // probability goes from 0.f to 1.f
-		((misfireStartCondition == misfireEndCondition)
-			 ? // !!!say "No" to devision by zero
-			 misfireStartCondition
-			 : (misfireStartCondition - misfireEndCondition))
-	);
-	clamp(mis, 0.0f, 0.99f);
-	return mis;
+        result = 0.0f;
+	else if (GetCondition() < misfireEndCondition)
+        result = misfireEndProbability;
+    else
+    {
+        //	float mis = misfireProbability+powf(1.f-GetCondition(), 3.f)*misfireConditionK;
+        result = misfireStartProbability + (
+            (misfireStartCondition - GetCondition()) * // condition goes from 1.f to 0.f
+            (misfireEndProbability - misfireStartProbability) / // probability goes from 0.f to 1.f
+            ((misfireStartCondition == misfireEndCondition)
+                ? // !!!say "No" to devision by zero
+                misfireStartCondition
+                : (misfireStartCondition - misfireEndCondition))
+            );
+        
+    }
+    if (!smart_cast<CActor*>(H_Parent()))
+    {
+        ::luabind::functor<float> funct;
+        if (ai().script_engine().functor("xr_weapon_jam.GetConditionMisfireProbability", funct))
+        {
+            auto gobj = smart_cast<CGameObject*>(H_Parent());
+            result = funct(lua_game_object(), gobj ? gobj->lua_game_object() : nullptr, result);
+        }
+    }
+    clamp(result, 0.0f, 1.f);
+	return result;
 }
 
 BOOL CWeapon::CheckForMisfire()
@@ -3128,6 +3149,26 @@ void CWeapon::OnStateSwitch(u32 S, u32 oldState)
 {
 	inherited::OnStateSwitch(S, oldState);
 	m_BriefInfo_CalcFrame = 0;
+
+	// NPC reload edges for Lua (npc_on_weapon_reload_start / _stop). Actor reloads already surface
+	// through the actor binder callback (actor_on_weapon_reload); a stalker's reload was observable
+	// only by polling get_state() == eReload per tick. Fired here because every weapon type converges
+	// on CWeapon::OnStateSwitch - the tri-state shotgun path skips CWeaponMagazined's override for
+	// S == eReload. Best-effort stop edge: a weapon detached mid-reload (death, drop) loses its
+	// stalker parent and fires nothing - get_state() stays the authoritative read.
+	if (S != oldState && (S == eReload || oldState == eReload))
+	{
+		CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(H_Parent());
+		if (stalker)
+		{
+			::luabind::functor<void> funct;
+			LPCSTR fname = (S == eReload)
+				? "_G.CAI_Stalker__OnWeaponReloadStart"
+				: "_G.CAI_Stalker__OnWeaponReloadStop";
+			if (ai().script_engine().functor(fname, funct))
+				funct(stalker->lua_game_object(), lua_game_object());
+		}
+	}
 
 	if (GetState() == eReload)
 	{

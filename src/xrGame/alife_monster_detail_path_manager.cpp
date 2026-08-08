@@ -123,6 +123,11 @@ void CALifeMonsterDetailPathManager::make_inactual()
 
 void CALifeMonsterDetailPathManager::actualize()
 {
+	GameGraph::_GRAPH_ID old_next_gv = GameGraph::_GRAPH_ID(-1);
+	float old_walked = m_walked_distance;
+	if (m_path.size() > 1)
+		old_next_gv = (GameGraph::_GRAPH_ID)m_path[m_path.size() - 2];
+
 	m_path.clear();
 
 	typedef GraphEngineSpace::CGameVertexParams CGameVertexParams;
@@ -183,9 +188,13 @@ void CALifeMonsterDetailPathManager::actualize()
 		return;
 	}
 
-	m_walked_distance = 0.f;
 	std::reverse(m_path.begin(), m_path.end());
 	VERIFY(m_path.back() == object().get_object().m_tGraphID);
+
+	if (m_path.size() > 1 && (GameGraph::_GRAPH_ID)m_path[m_path.size() - 2] == old_next_gv)
+		m_walked_distance = old_walked;
+	else
+		m_walked_distance = 0.f;
 }
 
 void CALifeMonsterDetailPathManager::update(const ALife::_TIME_ID& time_delta)

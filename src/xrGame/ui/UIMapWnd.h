@@ -21,6 +21,7 @@ class CGameTask;
 class CUIXml;
 class UIHint;
 class CUIPropertiesBox;
+class CUIListBoxItem;
 
 DEFINE_MAP(shared_str, CUICustomMap*, GameMaps, GameMapsPairIt);
 
@@ -103,6 +104,21 @@ public:
 	void MoveScrollV(float dy);
 	void MoveScrollH(float dx);
 	void ActivatePropertiesBox(CUIWindow* w);
+	void ActivatePropertiesBox(const xr_vector<CMapSpot*>& spots);
+
+private:
+	void GatherSpotsUnderCursor(CMapSpot* clicked, xr_vector<CMapSpot*>& out);
+	void AddSpotProperties(CUIPropertiesBox* box, u16 id, const shared_str& level, LPCSTR hint);
+	u16  AddRightClickMapProperties(CMapSpot* top, shared_str& out_level);
+
+	struct SPropertyOwner { CUIListBoxItem* item; u16 id; shared_str level; shared_str hint; };
+	xr_vector<SPropertyOwner> m_property_owners;
+	void TagSubmenuOwners(CUIPropertiesBox* box, CUIListBoxItem* owner_item, u16 id, const shared_str& level, const shared_str& hint);
+
+	// DIRTY HACK
+	// Never shown; absorbs the items mods re-add when the add-properties callback is
+	// replayed at click time to rebuild their per-spot dispatch state (see SendMessage).
+	CUIPropertiesBox* m_UIScratchBox;
 
 public:
 	CUICustomMap* m_tgtMap;

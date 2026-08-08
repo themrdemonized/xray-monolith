@@ -1014,6 +1014,9 @@ public:
 	float GetZoomRotateTime() { return m_zoom_params.m_fZoomRotateTime; }
 	virtual void SetZoomRotateTime(float val) { m_zoom_params.m_fZoomRotateTime = val; }
 
+    // verdatim
+    virtual void ForceSetZoomType(float val) { m_zoomtype = val; }
+
 protected:
 	int iAmmoElapsed; // ammo in magazine, currently
 	int iMagazineSize; // size (in bullets) of magazine

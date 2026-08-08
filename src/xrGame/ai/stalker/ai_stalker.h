@@ -307,6 +307,10 @@ public:
 	bool undetected_anomaly();
 	bool inside_anomaly();
 
+	// anomaly detection (bolt throwing) state
+	u32 m_anomaly_detect_start_time;
+	u32 m_anomaly_detect_suppress_until;
+
 private:
 	bool m_can_kill_member;
 	bool m_can_kill_enemy;
@@ -813,11 +817,38 @@ private:
 	bool m_sniper_update_rate;
 	bool m_sniper_fire_mode;
 
+	// Per-NPC aim params, read per frame in CSightManager::Exec_Look (swing speed + firing cone)
+	// and CSightAction (target lead). Negative = unset: the getters fall back to the live console
+	// vars (ai_aim_min_speed / ai_aim_min_angle / ai_aim_max_angle / ai_aim_predict_time), so an
+	// unset NPC and existing cvar consumers keep exact vanilla behavior. set_aim_params with a
+	// negative component reverts that component to the global.
+	float m_aim_min_speed;
+	float m_aim_min_angle;
+	float m_aim_max_angle;
+	float m_aim_predict_time;
+
+	// Per-NPC fire-queue scaling, applied in CStalkerActionCombatBase::select_queue_params to the
+	// burst size and inter-burst interval the combat planner rolls (scaled size clamps to >= 1).
+	// Negative = unset: the getters return 1.0 and the planner fires exact vanilla queues. Script
+	// set_item queues, the death mag dump and player weapons are deliberately not touched.
+	float m_fire_queue_size_k;
+	float m_fire_queue_interval_k;
+
 public:
 	IC void sniper_update_rate(bool value);
 	IC bool sniper_update_rate() const;
 	IC void sniper_fire_mode(bool value);
 	IC bool sniper_fire_mode() const;
+
+	IC void  set_aim_params(float max_angle, float min_angle, float min_speed, float predict_time);
+	IC float aim_min_speed() const;
+	IC float aim_min_angle() const;
+	IC float aim_max_angle() const;
+	IC float aim_predict_time() const;
+
+	IC void  set_fire_queue_scale(float size_k, float interval_k);
+	IC float fire_queue_size_k() const;
+	IC float fire_queue_interval_k() const;
 
 private:
 	shared_str m_aim_bone_id;

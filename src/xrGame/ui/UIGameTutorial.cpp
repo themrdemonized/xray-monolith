@@ -98,6 +98,7 @@ CUISequencer::CUISequencer()
 	m_flags.zero();
 }
 
+extern BOOL g_bootComplete;
 void CUISequencer::Start(LPCSTR tutor_name)
 {
 	VERIFY(m_sequencer_items.size()==0);
@@ -106,8 +107,19 @@ void CUISequencer::Start(LPCSTR tutor_name)
 
 	m_UIWindow = xr_new<CUIWindow>();
 
-	CUIXml uiXml;
-	uiXml.Load(CONFIG_PATH, UI_PATH, "game_tutorials.xml");
+    static CUIXml uiXml;
+    static bool uiXmlLoaded;
+    if (uiXmlLoaded && g_bootComplete)
+    {
+        uiXml.SetLocalRoot(uiXml.GetRoot());
+    }
+    else
+    {
+        uiXmlLoaded = true;
+        uiXml.ClearInternal();
+        uiXml.Load(CONFIG_PATH, UI_PATH, "game_tutorials.xml");
+        uiXml.SetLocalRoot(uiXml.GetRoot());
+    }
 
 	int items_count = uiXml.GetNodesNum(tutor_name, 0, "item");
 	VERIFY(items_count>0);

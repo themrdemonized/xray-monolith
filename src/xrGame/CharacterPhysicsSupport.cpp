@@ -71,7 +71,7 @@ IC bool is_imotion(interactive_motion* im)
 
 CCharacterPhysicsSupport::~CCharacterPhysicsSupport()
 {
-	set_collision_hit_callback(0);
+	xr_delete(m_collision_hit_callback);
 	if (m_flags.test(fl_skeleton_in_shell))
 	{
 		if (m_physics_skeleton)
@@ -887,7 +887,10 @@ BOOL dbg_draw_ragdoll_spawn = FALSE;
 #endif
 void CCharacterPhysicsSupport::ActivateShell(CObject* who)
 {
-	R_ASSERT(_valid(m_EntityAlife.Position( )));
+    if (!_valid(m_EntityAlife.Position()))
+    {
+        Debug.fatal(DEBUG_INFO, "CCharacterPhysicsSupport::ActivateShell Fatal error, invalid position for m_EntityAlife %s, id %d, x %.5f, y %.5f, z %.5f", m_EntityAlife.cNameSect().c_str(), m_EntityAlife.ID(), m_EntityAlife.Position().x, m_EntityAlife.Position().y, m_EntityAlife.Position().z);
+    }
 	Fvector start;
 	start.set(m_EntityAlife.Position());
 	Fvector velocity;

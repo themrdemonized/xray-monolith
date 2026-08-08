@@ -56,6 +56,8 @@ void CBurer::reinit()
 void CBurer::net_Destroy()
 {
 	inherited::net_Destroy();
+    CTelekinesis::remove_object_callbacks();
+	CTelekinesis::deactivate();
 }
 
 void CBurer::reload(LPCSTR section)
@@ -486,14 +488,14 @@ void CBurer::Die(CObject* who)
 		com_man().ta_deactivate();
 	}
 
-	CTelekinesis::Deactivate();
+    CTelekinesis::remove_object_callbacks();
+	CTelekinesis::deactivate();
 }
 
 void CBurer::net_Relcase(CObject* O)
 {
 	inherited::net_Relcase(O);
-
-	TTelekinesis::remove_links(O);
+    CTelekinesis::remove_links(O);
 }
 
 #ifdef DEBUG

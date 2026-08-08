@@ -23,7 +23,8 @@ class CPHIslandFlags
 	enum
 	{
 		stActive = 1 << 0,
-		flPrefereExactIntegration = 1 << 1
+		flPrefereExactIntegration = 1 << 1,
+		flForceExactIntegration = 1 << 2
 	};
 
 public:
@@ -43,6 +44,12 @@ public:
 	IC void uset_prefere_exact_integration() { flags.set(flPrefereExactIntegration,FALSE); }
 
 	IC BOOL is_exact_integration_prefeared() { return flags.test(flPrefereExactIntegration << shift_to_variable); }
+
+	// force overrides the joint budget that gates the prefere flag (capped, see CPHIsland::Step)
+	IC void set_force_exact_integration() { flags.set(flForceExactIntegration,TRUE); }
+	IC void uset_force_exact_integration() { flags.set(flForceExactIntegration,FALSE); }
+
+	IC BOOL is_exact_integration_forced() { return flags.test(flForceExactIntegration << shift_to_variable); }
 
 	IC void merge(CPHIslandFlags& aflags)
 	{
@@ -269,6 +276,7 @@ public:
 	}
 
 	void SetPrefereExactIntegration() { m_flags.set_prefere_exact_integration(); }
+	void SetForceExactIntegration() { m_flags.set_force_exact_integration(); }
 	void Step(dReal step);
 	void Enable();
 	void Repair();

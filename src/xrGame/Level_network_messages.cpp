@@ -310,6 +310,10 @@ void CLevel::ClientReceive()
 #ifdef DEBUG
 				Msg("--- Changing level message received...");
 #endif // #ifdef DEBUG
+                Msg("Device.LuaGC clear");
+                Device.LuaGC.clear();
+                Device.LuaGCDebug.clear();
+
 				if (m_type == M_LOAD_GAME)
 				{
 					string256 saved_name;

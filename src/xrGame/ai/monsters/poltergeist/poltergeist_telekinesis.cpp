@@ -292,22 +292,30 @@ struct SCollisionHitCallback :
 
 {
 	//	CollisionHitCallbackFun				*m_collision_hit_callback																																						;
-	CPhysicsShellHolder* m_object;
+	CPoltergeist* m_object;
 	float m_pmt_object_collision_damage;
+    bool done = false;
 
-	SCollisionHitCallback(CPhysicsShellHolder* object, float pmt_object_collision_damage):
-		m_object(object), m_pmt_object_collision_damage(pmt_object_collision_damage)
+	SCollisionHitCallback(CPoltergeist* obj, float pmt_object_collision_damage):
+		m_object(obj), m_pmt_object_collision_damage(pmt_object_collision_damage)
 	{
-		VERIFY(object);
+		VERIFY(obj);
 	}
 
-	void call(IPhysicsShellHolder* obj, float min_cs, float max_cs, float& cs, float& hl, ICollisionDamageInfo* di)
+	void call(CObject*& obj, float min_cs, float max_cs, float& cs, float& hl, ICollisionDamageInfo* di) override
 	{
-		if (cs > min_cs * 0.5f)
-			hl = m_pmt_object_collision_damage;
-		VERIFY(m_object);
+        if (done) return;
+        done = true;
+
+        obj = nullptr;
+
+        if (cs > min_cs * 0.5f)
+        {
+            hl = m_pmt_object_collision_damage;
+            obj = m_object;
+        }
+
 		di->SetInitiated();
-		m_object->set_collision_hit_callback(0); //delete this!!
 	}
 };
 
@@ -319,15 +327,13 @@ void CPolterTele::tele_fire_objects()
 		//if (tele_object.get_state() != TS_Fire) {
 		if ((tele_object.get_state() == TS_Raise) || (tele_object.get_state() == TS_Keep))
 		{
-			Fvector enemy_pos;
-			enemy_pos = get_head_position(Actor());
 			CPhysicsShellHolder* hobj = tele_object.get_object();
-
 			VERIFY(hobj);
-			hobj->set_collision_hit_callback(xr_new<SCollisionHitCallback>(hobj, m_pmt_object_collision_damage));
-			m_object->CTelekinesis::fire_t(tele_object.get_object(), enemy_pos,
-			                               tele_object.get_object()->Position().distance_to(enemy_pos) /
-			                               m_pmt_fly_velocity);
+
+            const Fvector enemy_pos = get_head_position(Actor());
+            const float fire_time = hobj->Position().distance_to(enemy_pos) / m_pmt_fly_velocity;
+			hobj->set_collision_hit_callback(xr_new<SCollisionHitCallback>(m_object, m_pmt_object_collision_damage));
+			m_object->CTelekinesis::fire_t(hobj, enemy_pos, fire_time);
 			return;
 		}
 	}

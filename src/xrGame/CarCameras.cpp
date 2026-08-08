@@ -34,7 +34,7 @@ void CCar::cam_Update(float dt, float fov)
 	//bool							owner = !!Owner();
 
 #ifdef CAR_NEW
-	u16 bone_id = (IsCameraZoom() && (m_camera_bone_aim != BI_NONE)) ? m_camera_bone_aim : m_camera_bone_def;
+    u16 bone_id = GetCameraBone();
 	if (bone_id != BI_NONE)
 	{
 		Fvector D = Fvector().set(0, 0, 0);
@@ -62,7 +62,7 @@ void CCar::cam_Update(float dt, float fov)
 		break;
 		}
 
-		cam->f_fov = fov / (IsCameraZoom() ? m_zoom_factor_aim : m_zoom_factor_def);
+		cam->f_fov = fov / GetZoomFactor();
 		cam->Update(P, D);
 		Level().Cameras().UpdateFromCamera(cam);
 		return;

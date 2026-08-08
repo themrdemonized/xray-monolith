@@ -108,7 +108,7 @@ void CPlanner::update()
 
 	if (initialized())
 	{
-		if (current_action_id() != solution().front())
+		if (current_action_id() != solution().front() && allow_action_switch(current_action_id(), solution().front()))
 		{
 			current_action().finalize();
 			m_current_action_id = solution().front();

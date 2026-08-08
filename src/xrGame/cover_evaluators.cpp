@@ -17,6 +17,9 @@
 #include "smart_cover_loophole.h"
 #include "ai_debug.h"
 #include "ai/stalker/ai_stalker.h"
+#include "agent_manager.h"
+#include "agent_member_manager.h"
+#include "member_order.h"
 #include "stalker_movement_manager_smart_cover.h"
 
 float g_smart_cover_factor = 1.f;
@@ -219,6 +222,18 @@ void CCoverEvaluatorBest::evaluate_cover(const CCoverPoint* cover_point, float w
 	float value = cover_value;
 	if (ai().level_graph().neighbour_in_direction(direction, cover_point->level_vertex_id()))
 		value += 10.f;
+
+	if (m_stalker && m_stalker->agent_manager().member().members().size() > 1) {
+		for (auto& it : m_stalker->agent_manager().member().members()) {
+			CAI_Stalker* teammate = &it->object();
+			if (teammate->ID() == m_stalker->ID()) continue;
+			
+			// 1.5m squared is 2.25f. Huge penalty if a teammate is already hiding here.
+			if (teammate->Position().distance_to_sqr(cover_point->position()) < 2.25f) {
+				value += 1000.f;
+			}
+		}
+	}
 
 	value /= weight;
 

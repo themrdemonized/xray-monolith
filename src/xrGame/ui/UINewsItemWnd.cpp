@@ -24,6 +24,7 @@ void CUINewsItemWnd::Init(CUIXml& uiXml, LPCSTR start_from)
 	uiXml.SetLocalRoot(node);
 
 	m_UIImage = UIHelper::CreateStatic(uiXml, "image", this);
+	m_UIImage->SetCoverTexture(true);
 	m_UICaption = UIHelper::CreateTextWnd(uiXml, "caption_static", this);
 	m_UIText = UIHelper::CreateTextWnd(uiXml, "text_static", this);
 	m_UIDate = UIHelper::CreateTextWnd(uiXml, "date_static", this);

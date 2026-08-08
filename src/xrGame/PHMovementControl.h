@@ -152,6 +152,7 @@ public:
 	BOOL gcontact_Was; // Приземление
 	float gcontact_Power; // Насколько сильно ударились
 	float gcontact_HealthLost; // Скоко здоровья потеряли
+    CObject* gcontact_Initiator; // Кто инициатор удара
 
 public:
 	void AllocateCharacterObject(CharacterType type);

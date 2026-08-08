@@ -26,6 +26,8 @@ public:
 	// деактивировать все объекты
 	void deactivate();
 
+    void remove_object_callbacks();
+
 	//clear objects (does not call release, but call switch to TS_None)
 	void clear_deactivate();
 	// clear 

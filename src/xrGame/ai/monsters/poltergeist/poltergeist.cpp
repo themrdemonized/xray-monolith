@@ -371,7 +371,11 @@ BOOL CPoltergeist::net_Spawn(CSE_Abstract* DC)
 	VERIFY(character_physics_support()->movement());
 	character_physics_support()->movement()->DestroyCharacter();
 	// спаунится нивидимым
-	setVisible(false);
+    if (g_Alive())
+	    setVisible(false);
+    else
+        setVisible(true);
+
 	ability()->on_hide();
 
 	return (TRUE);
@@ -380,6 +384,7 @@ BOOL CPoltergeist::net_Spawn(CSE_Abstract* DC)
 void CPoltergeist::net_Destroy()
 {
 	inherited::net_Destroy();
+    CTelekinesis::remove_object_callbacks();
 	CTelekinesis::deactivate();
 	Energy::disable();
 
@@ -408,6 +413,7 @@ void CPoltergeist::Die(CObject* who)
 	}
 
 	inherited::Die(who);
+    CTelekinesis::remove_object_callbacks();
 	CTelekinesis::deactivate();
 	Energy::disable();
 

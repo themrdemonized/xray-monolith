@@ -4,6 +4,7 @@
 #include "../Include/xrRender/Kinematics.h"
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "actor_defs.h"
+#include "player_hud_legs.h"
 
 #define SCOPE_ATTACH_IDX 2
 
@@ -87,7 +88,7 @@ struct movement_layer
 			active = true;
 			return;
 		}
-		
+
 		anm->Play(bLoop);
 		active = true;
 	}
@@ -239,7 +240,7 @@ enum EBoneCallbackParam
 
 struct hud_item_measures
 {
-	enum { e_fire_point=(1 << 0), e_fire_point2=(1 << 1), e_shell_point=(1 << 2), e_16x9_mode_now=(1 << 3), e_fire_point_silencer=(1 << 4) };
+	enum { e_fire_point = (1 << 0), e_fire_point2 = (1 << 1), e_shell_point = (1 << 2), e_16x9_mode_now = (1 << 3), e_fire_point_silencer = (1 << 4) };
 
 	Flags8 m_prop_flags;
 
@@ -275,7 +276,7 @@ struct hud_item_measures
 		Fvector4 m_offset_LRUD_aim;
 	};
 
-	inertion_params m_inertion_params; //--#SM+#--
+	inertion_params m_inertion_params;
 
 	struct shooting_params
 	{
@@ -288,7 +289,7 @@ struct hud_item_measures
 		float m_min_LRUD_power;
 	};
 
-	shooting_params m_shooting_params; //--#SM+#--
+	shooting_params m_shooting_params;
 
 	float m_fFreelookZOffset;
 	bool m_bLeadGunLeftHand;
@@ -310,8 +311,9 @@ struct attachable_hud_item
 
 	player_hud_motion_container* m_hand_motions;
 
-	attachable_hud_item(player_hud* pparent): m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
-	                                          m_model(nullptr), m_attach_place_idx(0) {}
+	attachable_hud_item(player_hud* pparent) : m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),
+		m_model(nullptr), m_attach_place_idx(0) {
+	}
 	~attachable_hud_item();
 	void load(const shared_str& sect_name);
 	void update(bool bForce);
@@ -427,6 +429,7 @@ public:
 	u32 motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md);
 	void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
 	bool inertion_allowed();
+
 private:
 	const Fvector attach_rot(u8 part) const;
 	const Fvector attach_pos(u8 part) const;
@@ -434,12 +437,14 @@ private:
 	xr_vector<u16> m_ancors;
 	attachable_hud_item* m_attached_items[3];
 	static void _BCL FingerCallback(CBoneInstance* B);
+
 public:
 	IKinematicsAnimated* m_model;
 	IKinematicsAnimated* m_model_2;
 	Fvector m_adjust_offset[2][10]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount, aim for attach, alt aim for attach
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself
 	Fvector m_adjust_ui_offset[2]; // pos,rot; used for custom device ui
+
 	Fvector m_adjust_firepoint_shell[2][2];
 	xr_map<EBoneCallbackParam, BoneCallbackParams*> m_bone_callback_params; // bonename,params
 	int m_edit_attachment;

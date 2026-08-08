@@ -117,24 +117,27 @@ void ALDeviceList::Enumerate()
 		xr_strcpy(m_defaultDeviceName, DeviceNameList[0].c_str());
 		Msg("SOUND: OpenAL: system  default SndDevice name is %s", m_defaultDeviceName);
 
-		index = 0;
-		// go through device list (each device terminated with a single nullptr, list terminated with double nullptr)
-		for (size_t Iter = 0; Iter < DeviceOALNameList.size(); Iter++)
+		if (DeviceNameList.size() > 1)
 		{
-			const char* Device = DeviceOALNameList[Iter];
-			ALCdevice* device = alcOpenDevice(Device);
-			if (device)
+			index = 0;
+			// go through device list (each device terminated with a single nullptr, list terminated with double nullptr)
+			for (size_t Iter = 0; Iter < DeviceOALNameList.size(); Iter++)
 			{
-				if ((Device != nullptr) && xr_strlen(Device) > 0) {
-					alcGetIntegerv(device, ALC_MAJOR_VERSION, sizeof(int), &ALmajor);
-					alcGetIntegerv(device, ALC_MINOR_VERSION, sizeof(int), &ALminor);
-					alcGetIntegerv(device, ALC_EFX_MAJOR_VERSION, sizeof(int), &EFXmajor);
-					alcGetIntegerv(device, ALC_EFX_MINOR_VERSION, sizeof(int), &EFXminor);
+				const char* Device = DeviceOALNameList[Iter];
+				ALCdevice* device = alcOpenDevice(Device);
+				if (device)
+				{
+					if ((Device != nullptr) && xr_strlen(Device) > 0) {
+						alcGetIntegerv(device, ALC_MAJOR_VERSION, sizeof(int), &ALmajor);
+						alcGetIntegerv(device, ALC_MINOR_VERSION, sizeof(int), &ALminor);
+						alcGetIntegerv(device, ALC_EFX_MAJOR_VERSION, sizeof(int), &EFXmajor);
+						alcGetIntegerv(device, ALC_EFX_MINOR_VERSION, sizeof(int), &EFXminor);
 
-					m_devices.push_back(ALDeviceDesc(DeviceNameList[Iter].c_str(), Device, ALminor, ALmajor, EFXminor, EFXmajor));
-					++index;
+						m_devices.push_back(ALDeviceDesc(DeviceNameList[Iter].c_str(), Device, ALminor, ALmajor, EFXminor, EFXmajor));
+						++index;
+					}
+					alcCloseDevice(device);
 				}
-				alcCloseDevice(device);
 			}
 		}
 	}

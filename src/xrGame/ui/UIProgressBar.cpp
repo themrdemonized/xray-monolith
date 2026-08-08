@@ -11,6 +11,7 @@ CUIProgressBar::CUIProgressBar(void)
 	m_bBackgroundPresent = false;
 	m_bUseColor = false;
 	m_bUseGradient = true;
+    m_bSnapNoDelay = false;
 
 	AttachChild(&m_UIBackgroundItem);
 	AttachChild(&m_UIProgressItem);
@@ -95,6 +96,12 @@ void CUIProgressBar::Update()
 		_val = _min(_abs(_val), _abs(_diff));
 		_val *= _sign(_diff);
 		m_ProgressPos.x += _val;
+
+        if (m_bSnapNoDelay)
+        {
+            m_ProgressPos.x = m_ProgressPos.y;
+        }
+
 		UpdateProgressBar();
 	}
 }

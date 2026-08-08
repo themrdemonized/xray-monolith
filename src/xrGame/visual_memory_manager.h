@@ -58,6 +58,7 @@ private:
 	u32 m_max_object_count;
 	bool m_enabled;
 	u32 m_last_update_time;
+	float m_vision_speed = 1.0f; // per-NPC vision-speed factor; scales get_visible_value (1.0 = vanilla). Deliberately not reset in reinit()/reload(): persists while online, re-set from script on spawn.
 
 public:
 	void add_visible_object(const CObject* object, float time_delta, bool fictitious = false);
@@ -66,6 +67,8 @@ protected:
 	IC void fill_object(CVisibleObject& visible_object, const CGameObject* game_object);
 	bool should_ignore_object(CObject const* object) const;
 	void add_visible_object(const CVisibleObject visible_object);
+
+public:
 	float object_visible_distance(const CGameObject* game_object, float& object_distance) const;
 	float object_luminocity(const CGameObject* game_object) const;
 	float get_visible_value(const CGameObject* game_object, float distance, float object_distance, float time_delta,
@@ -125,6 +128,8 @@ public:
 public:
 	IC bool enabled() const;
 	IC void enable(bool value);
+	void set_vision_speed(float value) { m_vision_speed = (value < 0.f) ? 0.f : value; }
+	float vision_speed() const { return (m_vision_speed); }
 
 public:
 	IC const VISIBLES& objects() const;

@@ -39,6 +39,7 @@ public:
 	int sss_refresh;
 	s8 sss_priority;
 	bool sss_is_playerlight;
+    fastdelegate::FastDelegate1<light*, void> sss_on_light_destroy;
 
 	light* omipart_parent;
 	float distance;
@@ -132,8 +133,8 @@ public:
 	virtual void set_volumetric_intensity(float fValue) { m_volumetric_intensity = ps_ssfx_volumetric.y; }
 	virtual void set_volumetric_distance(float fValue) { m_volumetric_distance = 1.0f; }
 
-	virtual void set_position(const Fvector& P);
-	virtual void set_rotation(const Fvector& D, const Fvector& R);
+	virtual void set_position(const Fvector& P, const float eps = EPS);
+	virtual void set_rotation(const Fvector& D, const Fvector& R, const float eps = EPS);
 	virtual void set_cone(float angle);
 	virtual void set_range(float R);
 

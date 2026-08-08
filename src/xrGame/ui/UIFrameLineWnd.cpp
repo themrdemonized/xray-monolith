@@ -64,6 +64,29 @@ void draw_rect(Fvector2 LTp, Fvector2 RBp, Fvector2 LTt, Fvector2 RBt, u32 clr, 
 	LTt.div(ts);
 	RBt.div(ts);
 
+	// Frame-lines push their vertices directly, so a custom clip must be applied here in software
+	if (UI().HasCustomClip())
+	{
+		sPoly2D S;
+		S.resize(4);
+		S[0].set(LTp.x, LTp.y, LTt.x, LTt.y);
+		S[1].set(RBp.x, LTp.y, RBt.x, LTt.y);
+		S[2].set(RBp.x, RBp.y, RBt.x, RBt.y);
+		S[3].set(LTp.x, RBp.y, LTt.x, RBt.y);
+		sPoly2D D;
+		sPoly2D* R = UI().ActiveClipFrustum().ClipPoly(S, D);
+		if (R && R->size())
+		{
+			for (u32 k = 0; k < R->size() - 2; ++k)
+			{
+				UIRender->PushPoint((*R)[0].pt.x, (*R)[0].pt.y, 0, clr, (*R)[0].uv.x, (*R)[0].uv.y);
+				UIRender->PushPoint((*R)[k + 1].pt.x, (*R)[k + 1].pt.y, 0, clr, (*R)[k + 1].uv.x, (*R)[k + 1].uv.y);
+				UIRender->PushPoint((*R)[k + 2].pt.x, (*R)[k + 2].pt.y, 0, clr, (*R)[k + 2].uv.x, (*R)[k + 2].uv.y);
+			}
+		}
+		return;
+	}
+
 	UIRender->PushPoint(LTp.x, LTp.y, 0, clr, LTt.x, LTt.y);
 	UIRender->PushPoint(RBp.x, RBp.y, 0, clr, RBt.x, RBt.y);
 	UIRender->PushPoint(LTp.x, RBp.y, 0, clr, LTt.x, RBt.y);
@@ -105,6 +128,9 @@ void CUIFrameLineWnd::DrawElements()
 		if (back_len > 0.0f)
 			prim_count += 6 * iCeil(back_len / m_tex_rect[flBack].height());
 	}
+
+	if (UI().HasCustomClip())
+		prim_count = (prim_count / 6) * UI().ActiveClipFrustum().ClipBudget(4);
 
 	UIRender->StartPrimitive(prim_count, IUIRender::ptTriList, UI().m_currentPointType);
 

@@ -30,6 +30,8 @@ protected:
 	u32 m_last_render_frame;
 	void UpdateProgressBar();
 
+    bool m_bSnapNoDelay;
+
 public:
 	bool m_bUseColor;
 	bool m_bUseGradient;
@@ -60,11 +62,15 @@ public:
 
 	void SetProgressPos(float _Pos);
 	float GetProgressPos() { return m_ProgressPos.y; }
+    void SnapProgressPos() { m_ProgressPos.x = m_ProgressPos.y; }
 
     CUIStatic& GetProgressStatic() { return m_UIProgressItem; }
 
 	void ShowBackground(bool status) { m_bBackgroundPresent = status; }
 	bool IsShownBackground() { return m_bBackgroundPresent; }
+
+    bool GetSnapNoDelay() { return m_bSnapNoDelay; }
+    void SetSnapNoDelay(bool status) { m_bSnapNoDelay = status; }
 
 	virtual void SetColor(u32 color) { m_UIProgressItem.SetTextureColor(color); }
 	

@@ -89,6 +89,7 @@ CWeaponStatMgun::CWeaponStatMgun()
 	m_single_shot_wpn = FALSE;
 	m_unlimited_ammo = true;
 	m_reload_consume_callback = nullptr;
+	m_shot_effector._set("");
 
 	m_next_ammoType_on_reload.reset();
 	m_ammoType = 0;
@@ -97,6 +98,7 @@ CWeaponStatMgun::CWeaponStatMgun()
 
 	fireDispersionOwnerScale = 1.0F;
 	m_on_before_use_callback = nullptr;
+    m_on_range_fov_callback = "";
 #endif
 
 	m_firing_disabled = false;
@@ -220,6 +222,7 @@ void CWeaponStatMgun::Load(LPCSTR section)
 	m_single_shot_wpn = !!READ_IF_EXISTS(pSettings, r_bool, section, "is_single_shot_wpn", FALSE);
 	m_unlimited_ammo = !!READ_IF_EXISTS(pSettings, r_bool, section, "unlimited_ammo", false);
 	m_reload_consume_callback = READ_IF_EXISTS(pSettings, r_string, section, "reload_consume", nullptr);
+	m_shot_effector._set(READ_IF_EXISTS(pSettings, r_string, section, "shot_effector", ""));
 
 	m_ammoTypes.clear();
 	LPCSTR ammo_class = pSettings->r_string(section, "ammo_class");
@@ -244,6 +247,10 @@ void CWeaponStatMgun::Load(LPCSTR section)
 	{
 		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "");
 	}
+    if (pSettings->line_exist(cNameSect_str(), "on_range_fov"))
+    {
+        m_on_range_fov_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_range_fov", "");
+    }
 
 	UpdateBulletVisibility(iAmmoElapsed);
 
@@ -258,7 +265,7 @@ void CWeaponStatMgun::Load(LPCSTR section)
 			_GetItem(str, i, sec);
 			if (strlen(sec))
 			{
-				m_barrels.push_back(SStmBarrel(this, sec));
+				m_barrels.emplace_back(this, sec);
 				m_barrels.back().Load(cNameSect_str());
 			}
 		}
@@ -932,7 +939,18 @@ bool CWeaponStatMgun::attach_Actor(CGameObject* actor)
 
 	if (OwnerActor())
 	{
-		OnCameraChange(eCamFirst);
+		switch (OwnerActor()->active_cam())
+		{
+		case eacFirstEye:
+			OnCameraChange(eCamFirst);
+			break;
+		case eacLookAt:
+			OnCameraChange(eCamChase);
+			break;
+		default:
+			OnCameraChange(eCamFirst);
+			break;
+		}
 		Camera()->yaw = m_cur_y_rot;
 		Camera()->pitch = m_cur_x_rot;
 	}
@@ -964,6 +982,7 @@ void CWeaponStatMgun::detach_Actor()
 	Action(eWpnActivate, 0);
 	SetFeelVisionIgnore(false);
 	m_anim_weapon.Play(SStmAnimWeapon::eStmAnimWeapon_idle);
+	m_anim_weapon.HandRemove();
 #else
 	Owner()->setVisible(1);
 	inheritedHolder::detach_Actor();
@@ -1087,18 +1106,6 @@ bool CWeaponStatMgun::Use(const Fvector &pos, const Fvector &dir, const Fvector 
 
 void CWeaponStatMgun::OnCameraChange(u16 type)
 {
-	if (OwnerActor())
-	{
-		if (type == eCamFirst)
-		{
-			Owner()->setVisible(FALSE);
-		}
-		else
-		{
-			Owner()->setVisible(TRUE);
-		}
-	}
-
 	if (active_camera == nullptr)
 	{
 		active_camera = camera[type];
@@ -1123,6 +1130,20 @@ void CWeaponStatMgun::OnCameraChange(u16 type)
 			cam->yaw = active_camera->yaw + ang.x;
 		}
 		active_camera = camera[type];
+	}
+
+	if (OwnerActor())
+	{
+		if (Camera()->tag == eCamFirst)
+		{
+			OwnerActor()->setVisible(FALSE);
+			m_anim_weapon.HandCreate();
+		}
+		else
+		{
+			OwnerActor()->setVisible(TRUE);
+			m_anim_weapon.HandRemove();
+		}
 	}
 }
 

@@ -109,34 +109,35 @@ static void createPrefetchThreadSignal()
 struct spawn_and_prefetch_events
 {
 	NET_Queue_Event* spawn_events = nullptr;
-	prefetch_event_queue* prefetch_events = nullptr;
-	models_set* prefetched_models = nullptr;
-	bool* closeSignal = nullptr;
-	xrSRWLock* prefetch_lock = nullptr;
+    spawn_events_data_map* spawn_events_data = nullptr;
+    prefetch_event_queue* prefetch_events = nullptr;
+    models_set* prefetched_models = nullptr;
+    bool* closeSignal = nullptr;
+    xrSRWLock* prefetch_lock = nullptr;
 };
 
-u16	GetSpawnInfo(NET_Packet &P, u16 &parent_id, shared_str& section)
+u16	GetSpawnInfo(NET_Packet& P, u16& parent_id, shared_str& section)
 {
     u16 dummy16, id;
     P.r_begin(dummy16);
 
     shared_str s_name;
     P.r_stringZ(s_name);
-	section = s_name;
+    section = s_name;
 
-	string256 temp;
-	P.r_stringZ(temp);
+    string256 temp;
+    P.r_stringZ(temp);
 
-	u8 temp_gt, s_RP;
-	Fvector o_Position, o_Angle;
-	u16 RespawnTime;
-	P.r_u8(temp_gt/*s_gameid*/);
-	P.r_u8(s_RP);
-	P.r_vec3(o_Position);
-	P.r_vec3(o_Angle);
-	P.r_u16(RespawnTime);
-	P.r_u16(id);
-	P.r_u16(parent_id);
+    u8 temp_gt, s_RP;
+    Fvector o_Position, o_Angle;
+    u16 RespawnTime;
+    P.r_u8(temp_gt/*s_gameid*/);
+    P.r_u8(s_RP);
+    P.r_vec3(o_Position);
+    P.r_vec3(o_Angle);
+    P.r_u16(RespawnTime);
+    P.r_u16(id);
+    P.r_u16(parent_id);
 
     P.r_pos = 0;
     return id;
@@ -147,38 +148,38 @@ u16	GetSpawnInfo(NET_Packet &P, u16 &parent_id, shared_str& section)
 // Define a helper struct to hold the heavy data
 struct ProcessNetPacket : public intrusive_base_nonatomic
 {
-	NET_Packet P;
+    NET_Packet P;
 };
 
 struct ProcessGameEventsData : ProcessNetPacket
 {
-	prefetch_event E;
-	NET_Packet PRespond;
+    prefetch_event E;
+    NET_Packet PRespond;
 };
 
 namespace crash_saving {
-	extern void(*save_impl)();
-	static bool g_isSaving = false;
-	int saveCountMax = 10;
+    extern void(*save_impl)();
+    static bool g_isSaving = false;
+    int saveCountMax = 10;
 
-	void _save_impl()
-	{
-		if (g_isSaving) return;
-		if (saveCountMax <= 0) return;
+    void _save_impl()
+    {
+        if (g_isSaving) return;
+        if (saveCountMax <= 0) return;
 
-		int saveCount = -1;
-		g_isSaving = true;
-		auto data = make_intrusive<ProcessNetPacket>();
-		NET_Packet& net_packet = data->P;
-		net_packet.w_begin(M_SAVE_GAME);
+        int saveCount = -1;
+        g_isSaving = true;
+        auto data = make_intrusive<ProcessNetPacket>();
+        NET_Packet& net_packet = data->P;
+        net_packet.w_begin(M_SAVE_GAME);
 
 		std::string path = "fatal_ctd_save_";
 		std::string path_mask(path);
 		std::string path_ext = ".scop";
 		path_mask.append("*").append(path_ext);
 
-		FS_FileSet fset_temp;
-		FS.file_list(fset_temp, "$game_saves$", FS_ListFiles | FS_RootOnly, path_mask.c_str());
+        FS_FileSet fset_temp;
+        FS.file_list(fset_temp, "$game_saves$", FS_ListFiles | FS_RootOnly, path_mask.c_str());
 
 		std::vector<FS_File> fset(fset_temp.begin(), fset_temp.end());
 		struct {
@@ -188,7 +189,7 @@ namespace crash_saving {
 		} sortFilesDesc;
 		std::sort(fset.begin(), fset.end(), sortFilesDesc);
 
-		//Msg("save mask %s", path_mask.c_str());
+        //Msg("save mask %s", path_mask.c_str());
 
 		for (auto &file : fset)
 		{
@@ -197,7 +198,7 @@ namespace crash_saving {
 			std::string name_string(name);
 			name_string.erase(name_string.length() - path_ext.length());
 
-			//Msg("found save file %s, save_name %s", name, name_string.c_str());
+            //Msg("found save file %s, save_name %s", name, name_string.c_str());
 
 			try {
 				//Msg("save number %s", name_string.substr(path.length()).c_str());
@@ -209,78 +210,76 @@ namespace crash_saving {
 			}
 		}
 
-		saveCount++;
-		if (saveCount >= saveCountMax) {
-			saveCount = 0;
-		}
+        saveCount++;
+        if (saveCount >= saveCountMax) {
+            saveCount = 0;
+        }
 
-		path.append(std::to_string(saveCount));
-		net_packet.w_stringZ(path.c_str());
-		net_packet.w_u8(1);
-		CLevel& level = Level();
-		if (&level != nullptr)
-		{
-			level.Send(net_packet, net_flags(1));
-		}
+        path.append(std::to_string(saveCount));
+        net_packet.w_stringZ(path.c_str());
+        net_packet.w_u8(1);
+        CLevel& level = Level();
+        if (&level != nullptr)
+        {
+            level.Send(net_packet, net_flags(1));
+        }
 
-	}
+    }
 }
 
 CLevel::CLevel() :
-	IPureClient(Device.GetTimerGlobal())
+    IPureClient(Device.GetTimerGlobal())
 #ifdef PROFILE_CRITICAL_SECTIONS
-, DemoCS(MUTEX_PROFILE_ID(DemoCS))
+    , DemoCS(MUTEX_PROFILE_ID(DemoCS))
 #endif
 {
 	g_bDebugEvents = strstr(Core.Params, "-debug_ge") != nullptr;
 	game_events = xr_new<NET_Queue_Event>();
 
-	eChangeRP = Engine.Event.Handler_Attach("LEVEL:ChangeRP", this);
-	eDemoPlay = Engine.Event.Handler_Attach("LEVEL:PlayDEMO", this);
-	eChangeTrack = Engine.Event.Handler_Attach("LEVEL:PlayMusic", this);
-	eEnvironment = Engine.Event.Handler_Attach("LEVEL:Environment", this);
-	eEntitySpawn = Engine.Event.Handler_Attach("LEVEL:spawn", this);
-	m_pBulletManager = xr_new<CBulletManager>();
-	if (!g_dedicated_server)
-	{
-		m_map_manager = xr_new<CMapManager>();
-		m_game_task_manager = xr_new<CGameTaskManager>();
-	}
-	m_dwDeltaUpdate = u32(fixed_step * 1000);
-	m_seniority_hierarchy_holder = xr_new<CSeniorityHierarchyHolder>();
-	if (!g_dedicated_server)
-	{
-		m_level_sound_manager = xr_new<CLevelSoundManager>();
-		m_space_restriction_manager = xr_new<CSpaceRestrictionManager>();
-		m_client_spawn_manager = xr_new<CClientSpawnManager>();
-		m_autosave_manager = xr_new<CAutosaveManager>();
+    eChangeRP = Engine.Event.Handler_Attach("LEVEL:ChangeRP", this);
+    eDemoPlay = Engine.Event.Handler_Attach("LEVEL:PlayDEMO", this);
+    eChangeTrack = Engine.Event.Handler_Attach("LEVEL:PlayMusic", this);
+    eEnvironment = Engine.Event.Handler_Attach("LEVEL:Environment", this);
+    eEntitySpawn = Engine.Event.Handler_Attach("LEVEL:spawn", this);
+    m_pBulletManager = xr_new<CBulletManager>();
+    if (!g_dedicated_server)
+    {
+        m_map_manager = xr_new<CMapManager>();
+        m_game_task_manager = xr_new<CGameTaskManager>();
+    }
+    m_dwDeltaUpdate = u32(fixed_step * 1000);
+    m_seniority_hierarchy_holder = xr_new<CSeniorityHierarchyHolder>();
+    if (!g_dedicated_server)
+    {
+        m_level_sound_manager = xr_new<CLevelSoundManager>();
+        m_space_restriction_manager = xr_new<CSpaceRestrictionManager>();
+        m_client_spawn_manager = xr_new<CClientSpawnManager>();
+        m_autosave_manager = xr_new<CAutosaveManager>();
         m_debug_renderer = xr_new<CDebugRenderer>();
 #ifdef DEBUG
         m_level_debug = xr_new<CLevelDebug>();
 #endif
-	}
-	m_ph_commander = xr_new<CPHCommander>();
-	m_ph_commander_scripts = xr_new<CPHCommander>();
-	pObjects4CrPr.clear();
-	pActors4CrPr.clear();
-	g_player_hud = xr_new<player_hud>();
-	g_player_hud->load_default();
+    }
+    m_ph_commander = xr_new<CPHCommander>();
+    m_ph_commander_scripts = xr_new<CPHCommander>();
+    pObjects4CrPr.clear();
+    pActors4CrPr.clear();
+    g_player_hud = xr_new<player_hud>();
+    g_player_hud->load_default();
 
 #ifdef SPAWN_ANTIFREEZE
-	spawn_events = xr_new<NET_Queue_Event>();
-	prefetch_events = xr_new<prefetch_event_queue>();
-	prefetched_models = xr_new<models_set>();
-	auto events = new spawn_and_prefetch_events({ spawn_events, prefetch_events, prefetched_models, &closeSignal, &prefetch_lock });
-	createPrefetchThreadSignal();
-	thread_spawn(ProcessPrefetchEvents, "Pre-Spawn Prefetcher Thread", 0, events);
-	Msg("CLevel::CLevel() Spawn Antifreeze initialized");
+    spawn_events = xr_new<NET_Queue_Event>();
+    spawn_events_data = xr_new<spawn_events_data_map>();
+    prefetch_events = xr_new<prefetch_event_queue>();
+    prefetched_models = xr_new<models_set>();
+    auto events = new spawn_and_prefetch_events({ spawn_events, spawn_events_data, prefetch_events, prefetched_models, &closeSignal, &prefetch_lock });
+    createPrefetchThreadSignal();
+    thread_spawn(ProcessPrefetchEvents, "Pre-Spawn Prefetcher Thread", 0, events);
+    Msg("CLevel::CLevel() Spawn Antifreeze initialized");
 #endif
 
-	Msg("%s", Core.Params);
-
-	// demonized: bind LuaGC call to be available in device.cpp
-	Device.LuaGC = fastdelegate::FastDelegate1<const bool, int>(&CLevel::LuaGC);
-	//crash_saving::save_impl = crash_saving::_save_impl; // CLevel ready, we can save now
+    Msg("%s", Core.Params);
+    //crash_saving::save_impl = crash_saving::_save_impl; // CLevel ready, we can save now
 }
 
 extern CAI_Space* g_ai_space;
@@ -323,325 +322,333 @@ CLevel::~CLevel()
 	xr_delete(m_client_spawn_manager);
 	xr_delete(m_autosave_manager);
     xr_delete(m_debug_renderer);
-	delete_data(m_debug_render_queue);
-	if (!g_dedicated_server)
-		ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
-	xr_delete(game);
-	xr_delete(game_events);
+    delete_data(m_debug_render_queue);
+    if (!g_dedicated_server)
+        ai().script_engine().remove_script_process(ScriptEngine::eScriptProcessorLevel);
+    xr_delete(game);
+    xr_delete(game_events);
 
 #ifdef SPAWN_ANTIFREEZE
-	xr_delete(spawn_events);
-	xr_delete(prefetch_events);
-	xr_delete(prefetched_models);
-	closeSignal = true; // signal ProcessPrefetchEvents thread to exit
-	unpausePrefetchThreadSignal();
+    xr_delete(spawn_events);
+    xr_delete(spawn_events_data);
+    xr_delete(prefetch_events);
+    xr_delete(prefetched_models);
+    closeSignal = true; // signal ProcessPrefetchEvents thread to exit
+    unpausePrefetchThreadSignal();
 #endif
 
-	xr_delete(m_pBulletManager);
-	xr_delete(pStatGraphR);
-	xr_delete(pStatGraphS);
-	xr_delete(m_ph_commander);
-	xr_delete(m_ph_commander_scripts);
-	pObjects4CrPr.clear();
-	pActors4CrPr.clear();
-	ai().unload();
+    xr_delete(m_pBulletManager);
+    xr_delete(pStatGraphR);
+    xr_delete(pStatGraphS);
+    xr_delete(m_ph_commander);
+    xr_delete(m_ph_commander_scripts);
+    pObjects4CrPr.clear();
+    pActors4CrPr.clear();
+    ai().unload();
 #ifdef DEBUG
     xr_delete(m_level_debug);
 #endif
-	xr_delete(m_map_manager);
-	delete_data(m_game_task_manager);
-	// here we clean default trade params
-	// because they should be new for each saved/loaded game
-	// and I didn't find better place to put this code in
-	// XXX nitrocaster: find better place for this clean()
-	CTradeParameters::clean();
-	if (g_tutorial && g_tutorial->m_pStoredInputReceiver == this)
-		g_tutorial->m_pStoredInputReceiver = nullptr;
-	if (g_tutorial2 && g_tutorial2->m_pStoredInputReceiver == this)
-		g_tutorial2->m_pStoredInputReceiver = nullptr;
-	if (IsDemoPlay())
-	{
-		StopPlayDemo();
-		if (m_reader)
-		{
-			FS.r_close(m_reader);
-			m_reader = nullptr;
-		}
-	}
-	xr_delete(m_msg_filter);
-	xr_delete(m_demoplay_control);
-	xr_delete(m_demo_info);
-	if (IsDemoSave())
-	{
-		StopSaveDemo();
-	}
-	deinit_compression();
+    xr_delete(m_map_manager);
+    delete_data(m_game_task_manager);
+    // here we clean default trade params
+    // because they should be new for each saved/loaded game
+    // and I didn't find better place to put this code in
+    // XXX nitrocaster: find better place for this clean()
+    CTradeParameters::clean();
+    if (g_tutorial && g_tutorial->m_pStoredInputReceiver == this)
+        g_tutorial->m_pStoredInputReceiver = nullptr;
+    if (g_tutorial2 && g_tutorial2->m_pStoredInputReceiver == this)
+        g_tutorial2->m_pStoredInputReceiver = nullptr;
+    if (IsDemoPlay())
+    {
+        StopPlayDemo();
+        if (m_reader)
+        {
+            FS.r_close(m_reader);
+            m_reader = nullptr;
+        }
+    }
+    xr_delete(m_msg_filter);
+    xr_delete(m_demoplay_control);
+    xr_delete(m_demo_info);
+    if (IsDemoSave())
+    {
+        StopSaveDemo();
+    }
+    deinit_compression();
 }
 
 shared_str CLevel::name() const
 {
-	return map_data.m_name;
+    return map_data.m_name;
 }
 
 void CLevel::GetLevelInfo(CServerInfo* si)
 {
-	if (Server && game)
-	{
-		Server->GetServerInfo(si);
-	}
+    if (Server && game)
+    {
+        Server->GetServerInfo(si);
+    }
 }
 
 void CLevel::PrefetchSound(LPCSTR name)
 {
-	// preprocess sound name
-	string_path tmp;
-	xr_strcpy(tmp, name);
-	xr_strlwr(tmp);
-	if (strext(tmp))
-		*strext(tmp) = 0;
-	shared_str snd_name = tmp;
-	// find in registry
-	SoundRegistryMapIt it = sound_registry.find(snd_name);
-	// if find failed - preload sound
-	if (it == sound_registry.end())
-		sound_registry[snd_name].create(snd_name.c_str(), st_Effect, sg_SourceType);
+    // preprocess sound name
+    string_path tmp;
+    xr_strcpy(tmp, name);
+    xr_strlwr(tmp);
+    if (strext(tmp))
+        *strext(tmp) = 0;
+    shared_str snd_name = tmp;
+    // find in registry
+    SoundRegistryMapIt it = sound_registry.find(snd_name);
+    // if find failed - preload sound
+    if (it == sound_registry.end())
+        sound_registry[snd_name].create(snd_name.c_str(), st_Effect, sg_SourceType);
 }
 
 // Game interface ////////////////////////////////////////////////////
 int CLevel::get_RPID(LPCSTR /**name/**/)
 {
-	/*
-	// Gain access to string
-	LPCSTR	params = pLevel->r_string("respawn_point",name);
-	if (0==params)	return -1;
+    /*
+    // Gain access to string
+    LPCSTR	params = pLevel->r_string("respawn_point",name);
+    if (0==params)	return -1;
 
-	// Read data
-	Fvector4	pos;
-	int			team;
-	sscanf		(params,"%f,%f,%f,%d,%f",&pos.x,&pos.y,&pos.z,&team,&pos.w); pos.y += 0.1f;
+    // Read data
+    Fvector4	pos;
+    int			team;
+    sscanf		(params,"%f,%f,%f,%d,%f",&pos.x,&pos.y,&pos.z,&team,&pos.w); pos.y += 0.1f;
 
-	// Search respawn point
-	svector<Fvector4,maxRP>	&rp = Level().get_team(team).RespawnPoints;
-	for (int i=0; i<(int)(rp.size()); ++i)
-	if (pos.similar(rp[i],EPS_L))	return i;
-	*/
-	return -1;
+    // Search respawn point
+    svector<Fvector4,maxRP>	&rp = Level().get_team(team).RespawnPoints;
+    for (int i=0; i<(int)(rp.size()); ++i)
+    if (pos.similar(rp[i],EPS_L))	return i;
+    */
+    return -1;
 }
 
 bool g_bDebugEvents = false;
 
 void CLevel::cl_Process_Event(u16 dest, u16 type, NET_Packet& P)
 {
-	// Msg("--- event[%d] for [%d]",type,dest);
-	CObject* O = Objects.net_Find(dest);
-	if (0 == O)
-	{
+    // Msg("--- event[%d] for [%d]",type,dest);
+    CObject* O = Objects.net_Find(dest);
+    if (0 == O)
+    {
 #ifdef DEBUG
         Msg("* WARNING: c_EVENT[%d] to [%d]: unknown dest", type, dest);
 #endif
-		return;
-	}
-	CGameObject* GO = smart_cast<CGameObject*>(O);
-	if (!GO)
-	{
+        return;
+    }
+    CGameObject* GO = smart_cast<CGameObject*>(O);
+    if (!GO)
+    {
 #ifndef MASTER_GOLD
         Msg("! ERROR: c_EVENT[%d] : non-game-object", dest);
 #endif
-		return;
-	}
-	if (type != GE_DESTROY_REJECT)
-	{
-		if (type == GE_DESTROY)
-		{
-			Game().OnDestroy(GO);
-		}
-		GO->OnEvent(P, type);
-	}
-	else
-	{
-		// handle GE_DESTROY_REJECT here
-		u32 pos = P.r_tell();
-		u16 id = P.r_u16();
-		P.r_seek(pos);
-		bool ok = true;
-		CObject* D = Objects.net_Find(id);
-		if (0 == D)
-		{
+        return;
+    }
+    if (type != GE_DESTROY_REJECT)
+    {
+        if (type == GE_DESTROY)
+        {
+            Game().OnDestroy(GO);
+        }
+        GO->OnEvent(P, type);
+    }
+    else
+    {
+        // handle GE_DESTROY_REJECT here
+        u32 pos = P.r_tell();
+        u16 id = P.r_u16();
+        P.r_seek(pos);
+        bool ok = true;
+        CObject* D = Objects.net_Find(id);
+        if (0 == D)
+        {
 #ifndef MASTER_GOLD
             Msg("! ERROR: c_EVENT[%d] : unknown dest", id);
 #endif
-			ok = false;
-		}
-		CGameObject* GD = smart_cast<CGameObject*>(D);
-		if (!GD)
-		{
+            ok = false;
+        }
+        CGameObject* GD = smart_cast<CGameObject*>(D);
+        if (!GD)
+        {
 #ifndef MASTER_GOLD
             Msg("! ERROR: c_EVENT[%d] : non-game-object", id);
 #endif
-			ok = false;
-		}
-		GO->OnEvent(P, GE_OWNERSHIP_REJECT);
-		if (ok)
-		{
-			Game().OnDestroy(GD);
-			GD->OnEvent(P, GE_DESTROY);
-		}
-	}
+            ok = false;
+        }
+        GO->OnEvent(P, GE_OWNERSHIP_REJECT);
+        if (ok)
+        {
+            Game().OnDestroy(GD);
+            GD->OnEvent(P, GE_DESTROY);
+        }
+    }
 }
 
 //AVO: used by SPAWN_ANTIFREEZE (by alpet, edited by demonized)
 #ifdef SPAWN_ANTIFREEZE
 bool CLevel::PostponedSpawnFind(u16 id, const NET_Event& E) const
 {
-	auto data = make_intrusive<ProcessNetPacket>();
-	NET_Packet& P = data->P;
-	E.implication(P);
-	return PostponedSpawnFind(id, P);
+    auto data = make_intrusive<ProcessNetPacket>();
+    NET_Packet& P = data->P;
+    E.implication(P);
+    return PostponedSpawnFind(id, P);
 }
 
 bool CLevel::PostponedSpawnFind(u16 id, NET_Packet& P) const
 {
-	u16 parent_id;
-	shared_str section;
-	return id == GetSpawnInfo(P, parent_id, section);
+    u16 parent_id;
+    shared_str section;
+    return id == GetSpawnInfo(P, parent_id, section);
 }
 
 bool CLevel::PostponedSpawn(u16 id)
 {
-	PROF_EVENT("ProcessGameEvents PostponedSpawn");
+    PROF_EVENT("ProcessGameEvents PostponedSpawn");
 
-	xrSRWLockGuard g(prefetch_lock, true);
-	auto queue = prefetch_events;
-	auto it = std::find_if(queue->begin(), queue->end(), [id, this](prefetch_event& E) { return PostponedSpawnFind(id, E.p); });
+    xrSRWLockGuard g(prefetch_lock, true);
+    auto queue = prefetch_events;
+    auto it = std::find_if(queue->begin(), queue->end(), [id, this](prefetch_event& E) { return PostponedSpawnFind(id, E.p); });
 
-	auto& queue2 = spawn_events->queue;
-	auto it2 = std::find_if(queue2.begin(), queue2.end(), [id, this](const NET_Event& E) { return PostponedSpawnFind(id, E); });
-	return it != queue->end() || it2 != queue2.end();
+    auto& queue2 = spawn_events->queue;
+    auto it2 = std::find_if(queue2.begin(), queue2.end(), [id, this](const NET_Event& E) { return PostponedSpawnFind(id, E); });
+    return it != queue->end() || it2 != queue2.end();
 }
 
 int CLevel::GetSpawnEventPriority(const NET_Event& e) const
 {
-	if (e.ID == M_EVENT)
-		return 0;
+    if (e.ID == M_EVENT)
+        return 0;
 
-	if (e.ID == M_SPAWN) {
-		auto data = make_intrusive<ProcessNetPacket>();
-		NET_Packet& P = data->P;
-		e.implication(P);
+    if (e.ID == M_SPAWN) {
+        auto data = make_intrusive<ProcessNetPacket>();
+        NET_Packet& P = data->P;
+        e.implication(P);
 
-		u16 parent_id = 0;
-		shared_str section;
-		GetSpawnInfo(P, parent_id, section);
-		if (parent_id < 0xFFFF)
-			return 1;
+        u16 parent_id = 0;
+        shared_str section;
+        GetSpawnInfo(P, parent_id, section);
+        if (parent_id < 0xFFFF)
+            return 1;
 
-		return 2;
-	}
+        return 2;
+    }
 
-	return 0;
+    return 0;
 }
 
 bool CLevel::SpawnEventCompare(const NET_Event& a, const NET_Event& b) const
 {
-	return GetSpawnEventPriority(a) > GetSpawnEventPriority(b);
+    return GetSpawnEventPriority(a) > GetSpawnEventPriority(b);
 }
 
 // demonized: If called manually, be aware of ProcessPrefetchEvents thread, which may modify spawn_events queue at the same time, maybe fix later
 void CLevel::SortSpawnEventsQueue()
 {
-	xrSRWLockGuard g(prefetch_lock);
-	auto& queue = spawn_events->queue;
-	std::stable_sort(queue.begin(), queue.end(), [this](const NET_Event& a, const NET_Event& b) { return SpawnEventCompare(a, b); });
+    xrSRWLockGuard g(prefetch_lock);
+    auto& queue = spawn_events->queue;
+    std::stable_sort(queue.begin(), queue.end(), [this](const NET_Event& a, const NET_Event& b) { return SpawnEventCompare(a, b); });
 }
 
 void CLevel::ProcessPrefetchEvents(void* args)
 {
-	auto events = reinterpret_cast<spawn_and_prefetch_events*>(args);
-	auto spawn_events = events->spawn_events;
-	auto prefetch_events = events->prefetch_events;
-	auto prefetched_models = events->prefetched_models;
-	auto closeSignal = events->closeSignal;	
-	auto prefetch_lock = events->prefetch_lock;
+    auto events = reinterpret_cast<spawn_and_prefetch_events*>(args);
+    auto spawn_events = events->spawn_events;
+    auto spawn_events_data = events->spawn_events_data;
+    auto prefetch_events = events->prefetch_events;
+    auto prefetched_models = events->prefetched_models;
+    auto closeSignal = events->closeSignal;
+    auto prefetch_lock = events->prefetch_lock;
 
-	while (true)
-	{
-		WaitForSingleObject(prefetch_thread_signal, INFINITE); // wait for prefetch queue event to be signaled
+    while (true)
+    {
+        WaitForSingleObject(prefetch_thread_signal, INFINITE); // wait for prefetch queue event to be signaled
 
-		if (*closeSignal == true)
-		{
-			if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] closeSignal received, destroying thread");
-			closePrefetchThreadSignal();
-			delete events;
-			return;
-		}
+        if (*closeSignal == true)
+        {
+            if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] closeSignal received, destroying thread");
+            closePrefetchThreadSignal();
+            delete events;
+            return;
+        }
 
-		{
-			xrSRWLockGuard g(prefetch_lock, true);
-			if (prefetch_events->empty())
-			{
-				if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] called, but prefetch_events queue is empty");
-				pausePrefetchThreadSignal();
-				continue;
-			}
-		}
+        {
+            xrSRWLockGuard g(prefetch_lock, true);
+            if (prefetch_events->empty())
+            {
+                if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] called, but prefetch_events queue is empty");
+                pausePrefetchThreadSignal();
+                continue;
+            }
+        }
 
-		PROF_EVENT("ProcessPrefetchEvents")
-		prefetch_event_queue saved_prefetch_events;
-		{
-			xrSRWLockGuard g(prefetch_lock);
-			if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] started, queue size %d", prefetch_events->size());
-			saved_prefetch_events.swap(*prefetch_events); // move the events to temp queue, so we can continue processing prefetch_events in the main thread
-			pausePrefetchThreadSignal();
-		}
+        PROF_EVENT("ProcessPrefetchEvents")
+            prefetch_event_queue saved_prefetch_events;
+        {
+            xrSRWLockGuard g(prefetch_lock);
+            if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] started, queue size %d", prefetch_events->size());
+            saved_prefetch_events.swap(*prefetch_events); // move the events to temp queue, so we can continue processing prefetch_events in the main thread
+            pausePrefetchThreadSignal();
+        }
 
-		for (const auto& E : saved_prefetch_events)
-		{
-			for (const auto& model : E.models)
-			{
-				bool not_prefetched = false;
+        for (const auto& E : saved_prefetch_events)
+        {
+            for (const auto& model : E.models)
+            {
+                bool not_prefetched = false;
 
-				{
-					xrSRWLockGuard g(prefetch_lock, true);
-					not_prefetched = prefetched_models->find(model) == prefetched_models->end();
-				}
+                {
+                    xrSRWLockGuard g(prefetch_lock, true);
+                    not_prefetched = prefetched_models->find(model) == prefetched_models->end();
+                }
 
-				if (not_prefetched)
-				{
-					if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] Prefetching model '%s' for spawn event", model.c_str());
-					::Render->models_PrefetchOne(model.c_str(), false);
+                if (not_prefetched)
+                {
+                    if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] Prefetching model '%s' for spawn event", model.c_str());
+                    ::Render->models_PrefetchOne(model.c_str(), false);
 
-					{
-						xrSRWLockGuard g(prefetch_lock);
-						prefetched_models->insert(model); // add model to prefetched models set to avoid double prefetching
-					}
-				}
-			}
-		}
+                    {
+                        xrSRWLockGuard g(prefetch_lock);
+                        prefetched_models->insert(model); // add model to prefetched models set to avoid double prefetching
+                    }
+                }
+            }
+        }
 
-		{
-			xrSRWLockGuard g(prefetch_lock);
-			for (auto& E : saved_prefetch_events)
-			{
-				spawn_events->insert(E.p); // reinsert the event to spawn_events queue for further processing
-			}
+        {
+            xrSRWLockGuard g(prefetch_lock);
+            for (auto& E : saved_prefetch_events)
+            {
+                spawn_events->insert(E.p); // reinsert the event to spawn_events queue for further processing
+                spawn_events_data->emplace(E.id, E); // store the prefetch event data for later use in ProcessSpawnEvents
+            }
 
-			if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] finished, spawn_events queue size %d", spawn_events->queue.size());
-		}
-	}
+            if (spawn_antifreeze_debug) Msg("[ProcessPrefetchEvents] finished, spawn_events queue size %d", spawn_events->queue.size());
+        }
+    }
 }
 
 // demonized: If called manually, be aware of ProcessPrefetchEvents thread, which may modify spawn_events queue at the same time, maybe fix later
 void CLevel::ProcessSpawnEvents()
 {
-	PROF_EVENT("ProcessSpawnEvents");
+    PROF_EVENT("ProcessSpawnEvents");
 
-	xr_vector<NET_Event> events_to_process;
+    xr_vector<NET_Event> events_to_process;
+    spawn_events_data_map spawn_events_data_copy;
 	{
 		xrSRWLockGuard g(prefetch_lock);
 		if (!spawn_events->queue.empty())
 		{
 			events_to_process.swap(spawn_events->queue);
 		}
+        if (!spawn_events_data->empty())
+        {
+            spawn_events_data_copy.swap(*spawn_events_data);
+        }
 	}
 
 	for (const auto& E : events_to_process)
@@ -667,7 +674,22 @@ void CLevel::ProcessSpawnEvents()
 			goto spawn;
 		}
 
-		// demonized: If there is a parent of this object, check if its still in alife
+        // If the object was in alife, but now its absent, skip it
+        auto spawn_data_it = spawn_events_data_copy.find(obj_id);
+        if (spawn_data_it != spawn_events_data_copy.end())
+        {
+            if (spawn_data_it->second.hasAlifeObject)
+            {
+                auto obj = ai().alife().objects().object(obj_id);
+                if (!obj || !obj->m_bOnline)
+                {
+                    if (spawn_antifreeze_debug) Msg("![ProcessSpawnEvents] object absent or offline, do not spawn, section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
+                    continue;
+                }
+            }
+        }        
+
+		// If there is a parent of this object, check if its still in alife
 		if (parent_id != 0xffff)
 		{
 			auto parent_obj = ai().alife().objects().object(parent_id);
@@ -806,6 +828,8 @@ void CLevel::ProcessGameEvents()
 							auto& E = data->E;
 							E.p = P;
 							E.models = models;
+                            E.id = obj_id;
+                            E.hasAlifeObject = obj != nullptr;
 
 							events_to_prefetch.push_back(E);
 
@@ -1156,7 +1180,7 @@ void CLevel::OnFrame()
 int psLUA_GCSTEP = 300;
 int psLua_ParallelGCStep = 75;
 extern BOOL psLua_ParallelGC;
-BOOL psLua_ParallelGC_debug = FALSE;
+extern BOOL psLua_ParallelGC_debug;
 
 void CLevel::script_gc()
 {
@@ -1167,34 +1191,26 @@ void CLevel::script_gc()
 	}
 }
 
-// demonized: called from Device, via Device.LuaGC pointer
-int CLevel::LuaGC(const bool cleanup)
+// demonized: bind LuaGC call to be available in device.cpp
+bool CLevel::Load(u32 dwNum)
 {
-	if (cleanup)
-	{
-		// Call cleanup only if memory is at the limit, check every 30 frames
-		static int mem_kb = 0;
+    inherited::Load(dwNum);
+    Msg("Device.LuaGC bind");
+    Device.LuaGC = fastdelegate::FastDelegate0<int>(&CLevel::LuaGC);
+    Device.LuaGCDebug = fastdelegate::FastDelegate0<void>(&CLevel::LuaGCDebug);
+    return true;
+}
 
-		if (psLua_ParallelGC_debug)
-		{
-			mem_kb = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
-			Msg("[Lua] CLevel::LuaGC mem_kb %llu, times performed %d", mem_kb, Device.LuaGCCount);
-		}
-		else if (Device.dwFrame % 30 == 0)
-			mem_kb = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
-
-		if (mem_kb > 90000)
-		{
-			if (psLua_ParallelGC_debug)
-				Msg("![Lua] CLevel::LuaGC cleanup");
-
-			return lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);
-		}
-
-		return 0;
-	}
-	else
-		return lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLua_ParallelGCStep);
+// demonized: called from Device, via Device.LuaGC pointer
+int CLevel::LuaGC()
+{
+    return lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLua_ParallelGCStep);
+}
+void CLevel::LuaGCDebug()
+{
+    static int mem_kb = 0;
+    mem_kb = lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0);
+    Msg("[Lua] CLevel::LuaGCDebug mem_kb %llu, times performed %d", mem_kb, Device.LuaGCCount);
 }
 
 #ifdef DEBUG_PRECISE_PATH

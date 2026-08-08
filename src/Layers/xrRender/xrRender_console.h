@@ -168,6 +168,7 @@ extern ECORE_API float ps_r2_sun_depth_near_bias; // -0.0001f
 extern ECORE_API float ps_r2_sun_lumscale; // 0.5f
 extern ECORE_API float ps_r2_sun_lumscale_hemi; // 1.0f
 extern ECORE_API float ps_r2_sun_lumscale_amb; // 1.0f
+extern ECORE_API Fvector3 ps_r2_sun_lumscale_color;
 extern ECORE_API float ps_r2_zfill; // .1f
 
 extern ECORE_API float ps_r2_dhemi_sky_scale; // 1.5f

@@ -22,14 +22,6 @@ void CCar::OnMouseMove(int dx, int dy)
 {
 	if (Remote()) return;
 
-#ifdef CAR_NEW
-	if (m_type == eCarTypeFly)
-	{
-		Fly_OnMouseMove(dx, dy);
-		return;
-	}
-#endif
-
 	CCameraBase* C = active_camera;
 	float scale = (C->f_fov / g_fov) * psMouseSens * psMouseSensScale / 50.f;
 	if (dx)
@@ -52,6 +44,13 @@ void CCar::OnMouseMove(int dx, int dy)
 		pos.mad(cam_dir, RQ.range>3.f ? RQ.range : 30.f);
 		SetParam(CCarWeapon::eWpnDesiredPos, pos);
 	};
+
+#ifdef CAR_NEW
+    if (m_visual_camera.IsEnable())
+    {
+        m_visual_camera.OnMouseMove(dx, dy);
+    }
+#endif
 }
 
 bool CCar::bfAssignMovement(CScriptEntityAction* tpEntityAction)
@@ -62,9 +61,14 @@ bool CCar::bfAssignMovement(CScriptEntityAction* tpEntityAction)
 	u32 l_tInput = tpEntityAction->m_tMovementAction.m_tInputKeys;
 
 	vfProcessInputKey(kFWD, !!(l_tInput & CScriptMovementAction::eInputKeyForward));
-	vfProcessInputKey(kBACK, !!(l_tInput & CScriptMovementAction::eInputKeyBack));
-	vfProcessInputKey(kL_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyLeft));
-	vfProcessInputKey(kR_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyRight));
+	// While governed, throttle/brake/steer are owned by SetTargetSpeed/SetSteer; the action only
+	// holds the engine on and the drive gear engaged, so its back/steer keys must not reassert.
+	if (!m_speed_governed)
+	{
+		vfProcessInputKey(kBACK, !!(l_tInput & CScriptMovementAction::eInputKeyBack));
+		vfProcessInputKey(kL_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyLeft));
+		vfProcessInputKey(kR_STRAFE, !!(l_tInput & CScriptMovementAction::eInputKeyRight));
+	}
 	vfProcessInputKey(kACCEL, !!(l_tInput & CScriptMovementAction::eInputKeyShiftUp));
 	vfProcessInputKey(kCROUCH, !!(l_tInput & CScriptMovementAction::eInputKeyShiftDown));
 	vfProcessInputKey(kJUMP, !!(l_tInput & CScriptMovementAction::eInputKeyBreaks));
@@ -152,23 +156,25 @@ void CCar::OnKeyboardPress(int cmd)
 	if (Remote()) return;
 
 #ifdef CAR_NEW
-	if (m_on_key_board_callback && strlen(m_on_key_board_callback))
-	{
-		::luabind::functor<bool> lua_function;
-		if (ai().script_engine().functor(m_on_key_board_callback, lua_function))
-		{
-			if (lua_function(lua_game_object(), cmd, true) == false)
-			{
-				return;
-			}
-		}
-	}
+    switch (cmd)
+    {
+    case kWPN_ZOOM:
+        if (!psActorFlags.test(AF_AIM_TOGGLE))
+        {
+            m_zoom_status = true;
+        }
+        else
+        {
+            m_zoom_status = (m_zoom_status) ? false : true;
+        }
+        break;
+    }
 
-	if (m_type == eCarTypeFly)
-	{
-		Fly_OnKeyboardPress(cmd);
-		return;
-	}
+    if (m_car_drone)
+    {
+        CCarDrone_OnKeyboardPress(cmd);
+        return;
+    }
 #endif
 
 	switch (cmd)
@@ -213,21 +219,19 @@ void CCar::OnKeyboardRelease(int cmd)
 	if (Remote()) return;
 
 #ifdef CAR_NEW
-	if (m_on_key_board_callback && strlen(m_on_key_board_callback))
-	{
-		::luabind::functor<bool> lua_function;
-		if (ai().script_engine().functor(m_on_key_board_callback, lua_function))
-		{
-			if (lua_function(lua_game_object(), cmd, false) == false)
-			{
-				return;
-			}
-		}
-	}
+    switch (cmd)
+    {
+    case kWPN_ZOOM:
+        if (!psActorFlags.test(AF_AIM_TOGGLE))
+        {
+            m_zoom_status = false;
+        }
+        break;
+    }
 
-	if (m_type == eCarTypeFly)
+	if (m_car_drone)
 	{
-		Fly_OnKeyboardRelease(cmd);
+		CCarDrone_OnKeyboardRelease(cmd);
 		return;
 	}
 #endif
@@ -257,11 +261,11 @@ void CCar::OnKeyboardHold(int cmd)
 	if (Remote()) return;
 
 #ifdef CAR_NEW
-	if (m_type == eCarTypeFly)
-	{
-		Fly_OnKeyboardHold(cmd);
-		return;
-	}
+    if (m_car_drone)
+    {
+        CCarDrone_OnKeyboardHold(cmd);
+        return;
+    }
 #endif
 
 	switch (cmd)
@@ -373,4 +377,10 @@ Fvector CCar::CurrentVel()
 	m_pPhysicsShell->get_LinearVel(lin_vel);
 
 	return lin_vel;
+}
+
+float CCar::GetSpeed()
+{
+	Fvector v = CurrentVel();
+	return v.dotproduct(XFORM().k);
 }

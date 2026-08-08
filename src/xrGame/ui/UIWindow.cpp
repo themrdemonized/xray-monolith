@@ -204,7 +204,7 @@ void CUIWindow::Update()
 		Fvector2 temp = GetUICursor().GetCursorPosition();
 		Frect r;
 		GetAbsoluteRect(r);
-		cursor_on_window = !!r.in(temp);
+		cursor_on_window = !!r.in(temp) && HitClipPass(temp);
 		// RECEIVE and LOST focus
 		if (m_bCursorOverWindow != cursor_on_window)
 		{
@@ -376,7 +376,7 @@ bool CUIWindow::OnMouseAction(float x, float y, EUIMessages mouse_action)
 	{
 		CUIWindow* w = (*it);
 		Frect wndRect = w->GetWndRect();
-		if (wndRect.in(cursor_pos))
+		if (wndRect.in(cursor_pos) && w->HitClipPass(GetUICursor().GetCursorPosition()))
 		{
 			if (w->IsEnabled())
 			{

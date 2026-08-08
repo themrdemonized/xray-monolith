@@ -4,6 +4,7 @@
 #include "render.h"
 #include "IGame_Persistent.h"
 #include "xr_IOConsole.h"
+#include "MonitorList.h"
 
 void CRenderDevice::_Destroy(BOOL bKeepTextures)
 {
@@ -62,6 +63,7 @@ extern void unregister_reshade();
 extern u32 g_screenmode;
 extern void GetMonitorResolution(u32& horizontal, u32& vertical);
 extern void GetMonitorPosition(int& x, int& y);
+extern ENGINE_API u32 psCurrentVidMode[];
 
 void CRenderDevice::Reset(bool precache)
 {
@@ -121,4 +123,82 @@ void CRenderDevice::Reset(bool precache)
 
 	m_imgui.OnDeviceResetEnd();
 	use_reshade = init_reshade();
+}
+
+bool CRenderDevice::ChangeOutputMonitor(HMONITOR hTargetMon)
+{
+	static bool s_swap_in_progress = false;
+	if (!b_is_Ready)
+		return false;
+	if (s_swap_in_progress)
+		return false;
+	if (IsIconic(m_hWnd))
+	{
+		Msg("* vid_monitor: window is minimised, deferring monitor switch to restart");
+		return false;
+	}
+
+	if (hTargetMon == GetStartupMonitor())
+	{
+		Msg("* vid_monitor: already on target monitor, no-op");
+		return true;
+	}
+
+	struct SwapGuard
+	{
+		bool& flag;
+		SwapGuard(bool& f) : flag(f) { flag = true; }
+		~SwapGuard() { flag = false; }
+	} guard(s_swap_in_progress);
+
+	if (use_reshade)
+		unregister_reshade();
+	use_reshade = false;
+
+	m_imgui.OnDeviceResetBegin();
+	ShowCursor(TRUE);
+
+	u32 dwWidth_before  = dwWidth;
+	u32 dwHeight_before = dwHeight;
+
+	bool switched = m_pRender->SwitchOutputMonitor(hTargetMon, m_hWnd,
+	                                               g_screenmode,
+	                                               psCurrentVidMode[0], psCurrentVidMode[1]);
+
+	if (!switched)
+	{
+		m_imgui.OnDeviceResetEnd();
+		ShowCursor(FALSE);
+		use_reshade = init_reshade();
+		return false;
+	}
+
+	m_pRender->Reset(m_hWnd, dwWidth, dwHeight, fWidth_2, fHeight_2);
+
+	if (g_pGamePersistent)
+		g_pGamePersistent->Environment().bNeed_re_create_env = TRUE;
+
+	_SetupStates();
+	PreCache(20, true, false);
+
+	seqDeviceReset.Process(rp_DeviceReset);
+
+	if (dwWidth_before != dwWidth || dwHeight_before != dwHeight)
+		seqResolutionChanged.Process(rp_ScreenResolutionChanged);
+
+#ifndef DEDICATED_SERVER
+	ShowCursor(FALSE);
+	RECT winRect;
+	GetClientRect(m_hWnd, &winRect);
+	clientWidth  = winRect.right;
+	clientHeight = winRect.bottom;
+	MapWindowPoints(m_hWnd, nullptr, reinterpret_cast<LPPOINT>(&winRect), 2);
+	ClipCursor(&winRect);
+#endif
+
+	m_imgui.OnDeviceResetEnd();
+	use_reshade = init_reshade();
+
+	Msg("* vid_monitor: live switch succeeded");
+	return true;
 }

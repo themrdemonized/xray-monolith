@@ -93,6 +93,7 @@ public:
 	static bool print_output(lua_State* L, LPCSTR caScriptName, int iErorCode = 0);
 	static void print_error(lua_State* L, int iErrorCode);
 	virtual void on_error(lua_State* L) = 0;
+    void DebuggerAttach();
 
 #ifdef LUA_DEBUG_PRINT //DEBUG
 public:

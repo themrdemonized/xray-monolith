@@ -464,11 +464,28 @@ void CScriptStorage::reinit()
 			LoadKernelScriptToGlobal(lua(), "LuaPanda.lua");
 		}
 	}
-	
+
 	if (strstr(Core.Params, "-_g"))
 		file_header = file_header_new; //AVO: I get fatal crash at the start if this is used
 	else
 		file_header = file_header_old;
+}
+
+void CScriptStorage::DebuggerAttach()
+{
+    const char* S = "debugger_attach()";
+    shared_str m_script_name = "console command";
+    int l_iErrorCode = luaL_loadbuffer(lua(), S, xr_strlen(S), "@console_command");
+
+    if (!l_iErrorCode) {
+        l_iErrorCode = lua_pcall(lua(), 0, 0, 0);
+        if (l_iErrorCode) {
+            print_output(lua(), *m_script_name, l_iErrorCode);
+            return;
+        }
+    }
+
+    print_output(lua(), *m_script_name, l_iErrorCode);
 }
 
 int CScriptStorage::vscript_log(ScriptStorage::ELuaMessageType tLuaMessageType, LPCSTR caFormat, va_list marker)
@@ -603,7 +620,7 @@ void CScriptStorage::print_stack()
 			if (!xr_strcmp(l_tDebugInfo.what, "C"))
 			{
 				script_log_no_stack(ScriptStorage::eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);
-				//script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);  
+				//script_log(ScriptStorage::eLuaMessageTypeError, "%2d : [C  ] %s", i, l_tDebugInfo.name);
 			}
 			else
 			{
@@ -837,7 +854,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 				sections_type::const_iterator e = sections.end();
 				for (; i != e; ++i)
 				{
-					auto sectionName = std::string((*i)->Name.c_str());
+					auto sectionName = std::string((*i).Name.c_str());
 					toLowerCase(sectionName);
 					if (unlocalizers.find(sectionName) == unlocalizers.end()) {
 
@@ -845,7 +862,7 @@ bool CScriptStorage::do_file(LPCSTR caScriptName, LPCSTR caNameSpaceName)
 						unlocalizers[sectionName].clear();
 						Msg("creating unlocalizer for script %s", sectionName.c_str());
 					}
-					auto& data = (*i)->Data;
+					auto& data = (*i).Data;
 					for (auto& item : data) {
 						unlocalizers[sectionName].insert(std::string(item.first.c_str()));
 						Msg("adding variable %s for unlocalizer for script %s", item.first.c_str(), sectionName.c_str());

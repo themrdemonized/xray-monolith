@@ -15,6 +15,9 @@
 #include "object_handler_planner_impl.h"
 #include "ai/stalker/ai_stalker.h"
 
+u32 g_ai_aim_inertia_time = 500;
+u32 g_ai_aim_queue_inertia_time = 300;
+
 using namespace ObjectHandlerSpace;
 
 void CObjectHandlerPlanner::add_evaluators(CWeapon* weapon)
@@ -382,12 +385,12 @@ void CObjectHandlerPlanner::add_operators(CWeapon* weapon)
 	add_effect(action, id, eWorldPropertyAmmo2, true);
 	add_operator(uid(id, eWorldOperatorGetAmmo2), action);
 
-	this->action(uid(id, eWorldOperatorAim1)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAim2)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimingReady1)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimingReady2)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimForceFull1)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorAimForceFull2)).set_inertia_time(500);
-	this->action(uid(id, eWorldOperatorQueueWait1)).set_inertia_time(300);
-	this->action(uid(id, eWorldOperatorQueueWait2)).set_inertia_time(300);
+	this->action(uid(id, eWorldOperatorAim1)).set_inertia_time(g_ai_aim_inertia_time);
+	this->action(uid(id, eWorldOperatorAim2)).set_inertia_time(g_ai_aim_inertia_time);
+	this->action(uid(id, eWorldOperatorAimingReady1)).set_inertia_time(g_ai_aim_inertia_time);
+	this->action(uid(id, eWorldOperatorAimingReady2)).set_inertia_time(g_ai_aim_inertia_time);
+	this->action(uid(id, eWorldOperatorAimForceFull1)).set_inertia_time(g_ai_aim_inertia_time);
+	this->action(uid(id, eWorldOperatorAimForceFull2)).set_inertia_time(g_ai_aim_inertia_time);
+	this->action(uid(id, eWorldOperatorQueueWait1)).set_inertia_time(g_ai_aim_queue_inertia_time);
+	this->action(uid(id, eWorldOperatorQueueWait2)).set_inertia_time(g_ai_aim_queue_inertia_time);
 }

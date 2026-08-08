@@ -111,6 +111,12 @@ namespace text_editor
 		return (GetKeyState(VK_CAPITAL) & 1) != 0;
 	}
 
+    // demonized: use DISABLED numlock for scrolling, like in normal apps
+    bool line_edit_control::get_num_lock_state()
+    {
+        return (GetKeyState(VK_NUMLOCK) & 1) == 0;
+    }
+
 	void line_edit_control::update_key_states()
 	{
 		m_key_state.zero();
@@ -122,6 +128,7 @@ namespace text_editor
 		set_key_state(ks_LAlt, !!pInput->iGetAsyncKeyState(DIK_LALT));
 		set_key_state(ks_RAlt, !!pInput->iGetAsyncKeyState(DIK_RALT));
 		set_key_state(ks_CapsLock, text_editor::get_caps_lock_state());
+        set_key_state(ks_NumLock, get_num_lock_state());
 	}
 
 	void line_edit_control::clear_states()
@@ -199,6 +206,16 @@ namespace text_editor
 			assign_callback(DIK_RIGHT, ks_free, Callback(this, &line_edit_control::move_pos_right));
 			assign_callback(DIK_LEFT, ks_Ctrl, Callback(this, &line_edit_control::move_pos_left_word));
 			assign_callback(DIK_RIGHT, ks_Ctrl, Callback(this, &line_edit_control::move_pos_right_word));
+
+            //Antglobes: Include support for numpad keys only when numlock is toggle on
+            //home=7, 1=end, 4=left, 6=right
+            assign_callback(DIK_NUMPAD7, ks_NumLock, Callback(this, &line_edit_control::move_pos_home));
+            assign_callback(DIK_NUMPAD1, ks_NumLock, Callback(this, &line_edit_control::move_pos_end));
+            assign_callback(DIK_NUMPAD4, ks_NumLock, Callback(this, &line_edit_control::move_pos_left));
+            assign_callback(DIK_NUMPAD6, ks_NumLock, Callback(this, &line_edit_control::move_pos_right));
+            assign_callback(DIK_NUMPAD4, ks_NumLk_Ctrl, Callback(this, &line_edit_control::move_pos_left_word));
+            assign_callback(DIK_NUMPAD6, ks_NumLk_Ctrl, Callback(this, &line_edit_control::move_pos_right_word));
+
 		}
 		else
 		{
@@ -230,6 +247,15 @@ namespace text_editor
 
 			assign_callback(DIK_LSHIFT, ks_Ctrl, Callback(this, &line_edit_control::SwitchKL));
 			assign_callback(DIK_LSHIFT, ks_Alt, Callback(this, &line_edit_control::SwitchKL));
+
+            //Antglobes
+            assign_callback(DIK_NUMPAD7, ks_NumLock, Callback(this, &line_edit_control::move_pos_home));
+            assign_callback(DIK_NUMPAD1, ks_NumLock, Callback(this, &line_edit_control::move_pos_end));
+            assign_callback(DIK_NUMPAD4, ks_NumLock, Callback(this, &line_edit_control::move_pos_left));
+            assign_callback(DIK_NUMPAD6, ks_NumLock, Callback(this, &line_edit_control::move_pos_right));
+            assign_callback(DIK_NUMPAD4, ks_NumLk_Ctrl, Callback(this, &line_edit_control::move_pos_left_word));
+            assign_callback(DIK_NUMPAD6, ks_NumLk_Ctrl, Callback(this, &line_edit_control::move_pos_right_word));
+
 		} // if mode
 
 		create_key_state(DIK_LSHIFT, ks_LShift);
@@ -238,6 +264,7 @@ namespace text_editor
 		create_key_state(DIK_RCONTROL, ks_RCtrl);
 		create_key_state(DIK_LALT, ks_LAlt);
 		create_key_state(DIK_RALT, ks_RAlt);
+        create_key_state(DIK_NUMLOCK, ks_NumLock);
 	}
 
 	void line_edit_control::assign_char_pairs(init_mode mode)
@@ -372,7 +399,7 @@ namespace text_editor
 	{
 		VERIFY(dik < DIK_COUNT);
 		Base* prev_action = m_actions[dik];
-		m_actions[dik] = xr_new<text_editor::callback_base>(callback, state);
+		m_actions[dik] = xr_new<text_editor::callback_base>(callback, dik, state);
 		m_actions[dik]->on_assign(prev_action);
 	}
 

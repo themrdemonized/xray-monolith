@@ -411,6 +411,9 @@
     <ClInclude Include="device.h">
       <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
     </ClInclude>
+    <ClInclude Include="MonitorList.h">
+      <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
+    </ClInclude>
     <ClInclude Include="StatGraph.h">
       <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
     </ClInclude>
@@ -488,6 +491,9 @@
     </ClInclude>
     <ClInclude Include="imgui_helper.h">
       <Filter>Interfaces\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="GIFResource.h">
+      <Filter>Render\Execution &amp; 3D\Shaders\Textures</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -713,6 +719,9 @@
     <ClCompile Include="device.cpp">
       <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
     </ClCompile>
+    <ClCompile Include="MonitorList.cpp">
+      <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
+    </ClCompile>
     <ClCompile Include="Device_create.cpp">
       <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
     </ClCompile>
@@ -796,6 +805,9 @@
     </ClCompile>
     <ClCompile Include="imgui_helper.cpp">
       <Filter>Interfaces\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="GIFResource.cpp">
+      <Filter>Render\Execution &amp; 3D\Shaders\Textures</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

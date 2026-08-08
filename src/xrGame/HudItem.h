@@ -215,6 +215,7 @@ public:
 	virtual void on_a_hud_attach();
 	virtual void on_b_hud_detach();
 	IC BOOL HudInertionEnabled() const { return m_huditem_flags.test(fl_inertion_enable); }
+	IC void SetHudInertionEnabled(BOOL B) { m_huditem_flags.set(fl_inertion_enable, B); }
 	IC BOOL HudInertionAllowed() const { return m_huditem_flags.test(fl_inertion_allow); }
 	virtual float GetInertionAimFactor() { return 1.f; }; //--#SM+#--
 	virtual void render_hud_mode()

@@ -295,6 +295,11 @@ _value_type CStalkerPropertyEvaluatorAnomaly::evaluate()
 	if (!m_object->undetected_anomaly())
 		return (false);
 
+	// infinite/super long bolts throwing issue workaround: do not start another cycle
+	// exclusion: while physically inside a zone so anomaly avoidance keeps working
+	if (!m_object->inside_anomaly() && Device.dwTimeGlobal < m_object->m_anomaly_detect_suppress_until)
+		return (false);
+
 	if (!m_object->memory().enemy().selected())
 		return (true);
 
@@ -508,6 +513,16 @@ _value_type CStalkerPropertyEvaluatorShouldThrowGrenade::evaluate()
 	// do not throw grenades when throw trajectory is obstructed
 	if (!object().throw_enabled())
 		return (false);
+
+	// Lua hook: allow scripts to cancel the throw (e.g. rank-based grenade denial)
+	{
+		::luabind::functor<bool> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__ShouldThrow", funct))
+		{
+			if (!funct(object().lua_game_object()))
+				return (false);
+		}
+	}
 
 	// do throw grenade
 	return (true);

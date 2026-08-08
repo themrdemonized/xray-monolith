@@ -27,6 +27,8 @@
 #include "object_handler_planner_impl.h"
 #include "effectorshot.h"
 
+extern int g_ai_unlimited_ammo;
+
 CObjectHandler::CObjectHandler()
 {
 	m_planner = xr_new<CObjectHandlerPlanner>();
@@ -110,7 +112,7 @@ void CObjectHandler::OnItemDrop(CInventoryItem* inventory_item, bool just_before
 
 	m_inventory_actual = false;
 
-	if (m_infinite_ammo && planner().object().g_Alive() && !inventory_item->useful_for_NPC())
+	if (g_ai_unlimited_ammo && m_infinite_ammo && planner().object().g_Alive() && !inventory_item->useful_for_NPC())
 	{
 		CWeaponAmmo* weapon_ammo = smart_cast<CWeaponAmmo*>(inventory_item);
 		if (weapon_ammo)

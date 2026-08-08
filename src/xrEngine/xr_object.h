@@ -241,6 +241,16 @@ public:
 public:
 	virtual Fvector get_new_local_point_on_mesh(u16& bone_id) const;
 	virtual Fvector get_last_local_point_on_mesh(Fvector const& last_point, u16 bone_id) const;
+
+#ifdef CBULLETMANAGER_EX
+protected:
+    /* Bullets also check if they hit the mesh of the viusal model, not just bone hitboxes. */
+    bool BulletCheckVisual;
+
+public:
+    bool GetBulletCheckVisual() { return BulletCheckVisual; }
+    void SetBulletCheckVisual(bool value) { BulletCheckVisual = value; }
+#endif
 };
 
 #pragma pack(pop)

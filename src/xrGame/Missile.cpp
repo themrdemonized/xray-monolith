@@ -40,9 +40,15 @@ void create_force_progress()
 #endif
 
 	VERIFY(!g_MissileForceShape);
-	CUIXml uiXml;
-	uiXml.Load(CONFIG_PATH, UI_PATH, "grenade.xml");
-
+	static CUIXml uiXml;
+    static bool uiXmlLoaded = false;
+    if (uiXmlLoaded)
+        uiXml.SetLocalRoot(uiXml.GetRoot());
+    else
+    {
+        uiXmlLoaded = true;
+        uiXml.Load(CONFIG_PATH, UI_PATH, "grenade.xml");
+    }
 
 	CUIXmlInit xml_init;
 	g_MissileForceShape = xr_new<CUIProgressShape>();
@@ -638,6 +644,9 @@ bool CMissile::Action(u16 cmd, u32 flags)
 
 	case kWPN_ZOOM:
 		{
+            if (!g_MissileForceShape)
+                create_force_progress();
+
 			m_constpower = false;
 			if (flags & CMD_START)
 			{

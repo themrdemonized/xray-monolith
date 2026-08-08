@@ -50,6 +50,7 @@ CUIMapWnd::CUIMapWnd()
 	m_scroll_mode = false;
 	m_nav_timing = Device.dwTimeGlobal;
 	hint_wnd = NULL;
+	m_UIScratchBox = NULL;
 	g_map_wnd = this;
 }
 
@@ -199,6 +200,13 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	AttachChild(m_UIPropertiesBox);
 	m_UIPropertiesBox->Hide();
 	m_UIPropertiesBox->SetWindowName("property_box");
+
+	m_UIScratchBox = xr_new<CUIPropertiesBox>();
+	m_UIScratchBox->SetAutoDelete(true);
+	m_UIScratchBox->InitPropertiesBox(Fvector2().set(0, 0), Fvector2().set(300, 300));
+	AttachChild(m_UIScratchBox);
+	m_UIScratchBox->Hide();
+	m_UIScratchBox->SetWindowName("property_box_scratch");
 }
 
 void CUIMapWnd::Show(bool status)
@@ -326,6 +334,19 @@ void CUIMapWnd::MoveMap(Fvector2 const& pos_delta)
 	GlobalMap()->MoveWndDelta(pos_delta);
 	UpdateScroll();
 	HideCurHint();
+
+	// Cancel any in-progress zoom/pan easing. Without this the action planner
+	// would lerp the map rect back toward m_desiredMapRect on the next Update,
+	// fighting the user's drag input and causing visible bounce-back.
+	Frect vis_rect = ActiveMapRect();
+	vis_rect.getcenter(m_tgtCenter);
+	Fvector2 pos;
+	GlobalMap()->GetAbsolutePos(pos);
+	m_tgtCenter.sub(pos);
+	m_tgtCenter.div(GlobalMap()->GetCurrentZoom());
+	m_ActionPlanner->m_storage.set_property(1, true);
+	m_ActionPlanner->m_storage.set_property(2, false);
+	m_ActionPlanner->m_storage.set_property(3, false);
 }
 
 void CUIMapWnd::Draw()
@@ -353,6 +374,9 @@ void CUIMapWnd::MapLocationRelcase(CMapLocation* ml)
 
 void CUIMapWnd::DrawHint()
 {
+	if (m_UIPropertiesBox && m_UIPropertiesBox->IsShown())
+		return;
+
 	CUIWindow* owner = m_map_location_hint->GetOwner();
 	if (owner)
 	{
@@ -440,9 +464,7 @@ bool CUIMapWnd::OnMouseAction(float x, float y, EUIMessages mouse_action)
 		case WINDOW_MOUSE_MOVE:
 			if (pInput->iGetAsyncBtnState(0))
 			{
-				GlobalMap()->MoveWndDelta(GetUICursor().GetCursorPositionDelta());
-				UpdateScroll();
-				HideCurHint();
+				MoveMap(GetUICursor().GetCursorPositionDelta());
 				return true;
 			}
 			break;
@@ -536,6 +558,27 @@ void CUIMapWnd::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 	CUIWndCallback::OnEvent(pWnd, msg, pData);
 	if (pWnd == m_UIPropertiesBox && msg == PROPERTY_CLICKED && m_UIPropertiesBox->GetClickedItem())
 	{
+		CUIListBoxItem* clicked = m_UIPropertiesBox->GetClickedItem();
+		for (const SPropertyOwner& o : m_property_owners)
+		{
+			if (o.item == clicked)
+			{
+				// Mods rebuild their dispatch state (stored target id, label->action maps)
+				// inside pda.property_box_add_properties; after a merged multi-spot build it
+				// reflects the last spot enumerated. Replay it for the clicked item's owner
+				// so click handlers see the state a single-spot right-click would have left.
+				if (o.id != u16(65535))
+				{
+					m_UIScratchBox->RemoveAll();
+					AddSpotProperties(m_UIScratchBox, o.id, o.level, o.hint.c_str());
+					m_UIScratchBox->RemoveAll();
+				}
+				::luabind::functor<void> setctx;
+				if (ai().script_engine().functor("pda.set_map_spot_context", setctx))
+					setctx(o.id, o.level.c_str());
+				break;
+			}
+		}
 		::luabind::functor<void> funct;
 		if (ai().script_engine().functor("pda.property_box_clicked", funct))
 			funct(m_UIPropertiesBox);
@@ -569,18 +612,170 @@ Fvector2 CUIMapWnd::GetGlobalMapCoordsForMouse()
 	return pos_abs;
 }
 
+// First readable line of a map hint, stripped of %c[...] color codes.
+static void clean_hint_title(LPCSTR hint, string256& out)
+{
+	out[0] = 0;
+	if (!hint || 0 == xr_strcmp(hint, "no hint")) // map_spots XML default for hintless spots
+		return;
+
+	xr_string s = hint;
+	for (size_t b; (b = s.find("%c[")) != xr_string::npos;)
+	{
+		size_t e = s.find(']', b);
+		if (e == xr_string::npos)
+			break;
+		s.erase(b, e - b + 1);
+	}
+	for (size_t p; (p = s.find("\\n")) != xr_string::npos;)
+		s.replace(p, 2, "\n");
+
+	size_t start = s.find_first_not_of(" \t\r\n");
+	if (start == xr_string::npos)
+		return;
+	size_t end = s.find('\n', start);
+	s = s.substr(start, end == xr_string::npos ? xr_string::npos : end - start);
+	s.erase(s.find_last_not_of(" \t\r") + 1);
+
+	const size_t max_len = 50;
+	if (s.length() > max_len)
+		s = s.substr(0, max_len - 3) + "...";
+
+	xr_strcpy(out, s.c_str());
+}
+
+void CUIMapWnd::GatherSpotsUnderCursor(CMapSpot* clicked, xr_vector<CMapSpot*>& out)
+{
+	CUIWindow* parent = clicked ? clicked->GetParent() : NULL;
+	if (!parent)
+	{
+		if (clicked)
+			out.push_back(clicked);
+		return;
+	}
+
+	Fvector2 cur = GetUICursor().GetCursorPosition();
+	auto& children = parent->GetChildWndList();
+	for (auto it = children.rbegin(); it != children.rend(); ++it)
+	{
+		CMapSpot* sp = smart_cast<CMapSpot*>(*it);
+		if (!sp || !sp->MapLocation())
+			continue;
+		Frect r;
+		sp->GetAbsoluteRect(r);
+		if (!r.in(cur))
+			continue;
+		u16 id = sp->MapLocation()->ObjectID();
+		if (std::none_of(out.begin(), out.end(),
+		                 [id](CMapSpot* o) { return o->MapLocation()->ObjectID() == id; }))
+			out.push_back(sp);
+	}
+	if (out.empty())
+		out.push_back(clicked);
+}
+
+void CUIMapWnd::AddSpotProperties(CUIPropertiesBox* box, u16 id, const shared_str& level, LPCSTR hint)
+{
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("pda.property_box_add_properties", funct))
+		funct(box, id, (LPCSTR)level.c_str(), hint);
+}
+
+void CUIMapWnd::TagSubmenuOwners(CUIPropertiesBox* box, CUIListBoxItem* owner_item, u16 id, const shared_str& level, const shared_str& hint)
+{
+	auto& subs = box->GetItemSubmenus();
+	auto it = subs.find(owner_item);
+	if (it == subs.end())
+		return;
+	CUIPropertiesBox* sub = it->second;
+	for (u32 i = 0, n = sub->GetItemsCount(); i < n; ++i)
+	{
+		CUIListBoxItem* leaf = sub->GetItemByIDX(i);
+		m_property_owners.push_back({leaf, id, level, hint});
+		TagSubmenuOwners(sub, leaf, id, level, hint);
+	}
+}
+
 void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 {
+	xr_vector<CMapSpot*> spots;
+	CMapSpot* clicked = smart_cast<CMapSpot*>(w);
+	if (clicked)
+		GatherSpotsUnderCursor(clicked, spots);
+	ActivatePropertiesBox(spots);
+}
+
+void CUIMapWnd::ActivatePropertiesBox(const xr_vector<CMapSpot*>& spots)
+{
 	m_UIPropertiesBox->RemoveAll();
-	::luabind::functor<void> funct;
-	CMapSpot* sp = nullptr;
-	if (ai().script_engine().functor("pda.property_box_add_properties", funct))
+	m_property_owners.clear();
+
+	for (CMapSpot* sp : spots)
 	{
-		sp = smart_cast<CMapSpot*>(w);
-		if (sp)
-			funct(m_UIPropertiesBox, sp->MapLocation()->ObjectID(), (LPCSTR)sp->MapLocation()->GetLevelName().c_str(),
-			      (LPCSTR)sp->MapLocation()->GetHint());
+		if (!sp || !sp->MapLocation())
+			continue;
+		u16 id = sp->MapLocation()->ObjectID();
+		shared_str level = sp->MapLocation()->GetLevelName();
+		LPCSTR hint = sp->MapLocation()->GetHint();
+
+		string256 title;
+		clean_hint_title(hint, title);
+		u32 before = m_UIPropertiesBox->GetItemsCount();
+		CUIListBoxItem* header = m_UIPropertiesBox->AddHeader(title[0] ? title : level.c_str());
+		AddSpotProperties(m_UIPropertiesBox, id, level, hint);
+		u32 after = m_UIPropertiesBox->GetItemsCount();
+
+		if (after == before + 1)
+		{
+			m_UIPropertiesBox->RemoveItem(header);
+			continue;
+		}
+		for (u32 i = before + 1; i < after; ++i)
+		{
+			CUIListBoxItem* root_item = m_UIPropertiesBox->GetItemByIDX(i);
+			m_property_owners.push_back({root_item, id, level, hint});
+			TagSubmenuOwners(m_UIPropertiesBox, root_item, id, level, hint);
+		}
 	}
+
+	{
+		CMapSpot* top = spots.empty() ? NULL : spots.front();
+		shared_str pos_level;
+		shared_str pos_hint = (top && top->MapLocation()) ? top->MapLocation()->GetHint() : NULL;
+		u32 before = m_UIPropertiesBox->GetItemsCount();
+		u16 pos_id = AddRightClickMapProperties(top, pos_level);
+		u32 after = m_UIPropertiesBox->GetItemsCount();
+		for (u32 i = before; i < after; ++i)
+		{
+			CUIListBoxItem* root_item = m_UIPropertiesBox->GetItemByIDX(i);
+			m_property_owners.push_back({root_item, pos_id, pos_level, pos_hint});
+			TagSubmenuOwners(m_UIPropertiesBox, root_item, pos_id, pos_level, pos_hint);
+		}
+	}
+
+	if (m_UIPropertiesBox->GetItemsCount() > 0)
+	{
+		m_UIPropertiesBox->AutoUpdateSize();
+
+		Fvector2 cursor_pos;
+		Frect vis_rect;
+
+		GetAbsoluteRect(vis_rect);
+		Frect bound = ActiveMapRect();
+		bound.x1 -= vis_rect.lt.x;
+		bound.x2 -= vis_rect.lt.x;
+		bound.y1 -= vis_rect.lt.y;
+		bound.y2 -= vis_rect.lt.y;
+		cursor_pos = GetUICursor().GetCursorPosition();
+		cursor_pos.sub(vis_rect.lt);
+		m_UIPropertiesBox->Show(bound, cursor_pos);
+	}
+}
+
+u16 CUIMapWnd::AddRightClickMapProperties(CMapSpot* top, shared_str& out_level)
+{
+	u16 obj_id = (top && top->MapLocation()) ? top->MapLocation()->ObjectID() : u16(65535);
+	out_level = (top && top->MapLocation()) ? top->MapLocation()->GetLevelName() : shared_str("");
 
 	// demonized: possibility to click trigger properties box anywhere on the map with right click
 	::luabind::functor<void> rcFunct;
@@ -744,8 +939,8 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 			table["global_map_pos"] = pos_abs;
 			table["pos"] = lm_real_pos;
 			table["level_name"] = lm_name;
-			table["object_id"] = sp ? sp->MapLocation()->ObjectID() : 65535;
-			table["hint"] = sp ? sp->MapLocation()->GetHint() : NULL;
+			table["object_id"] = obj_id;
+			table["hint"] = (top && top->MapLocation()) ? top->MapLocation()->GetHint() : NULL;
 			table["lvid"] = lm_lvid;
 			table["gvid"] = lm_gvid;
 
@@ -754,19 +949,7 @@ void CUIMapWnd::ActivatePropertiesBox(CUIWindow* w)
 		}
 	}
 
-
-	if (m_UIPropertiesBox->GetItemsCount() > 0)
-	{
-		m_UIPropertiesBox->AutoUpdateSize();
-
-		Fvector2 cursor_pos;
-		Frect vis_rect;
-
-		GetAbsoluteRect(vis_rect);
-		cursor_pos = GetUICursor().GetCursorPosition();
-		cursor_pos.sub(vis_rect.lt);
-		m_UIPropertiesBox->Show(vis_rect, cursor_pos);
-	}
+	return obj_id;
 }
 
 CUICustomMap* CUIMapWnd::GetMapByIdx(u16 idx)
@@ -978,14 +1161,21 @@ void CUIMapWnd::Reset()
 void CUIMapWnd::SpotSelected(CUIWindow* w)
 {
 	CMapSpot* sp = smart_cast<CMapSpot*>(w);
-	if (!sp)
+	if (!sp || !sp->MapLocation())
 	{
 		return;
 	}
+	CMapLocation* ml = sp->MapLocation();
 
-	CGameTask* t = Level().GameTaskManager().HasGameTask(sp->MapLocation(), true);
+	CGameTask* t = Level().GameTaskManager().HasGameTask(ml, true);
 	if (t)
 	{
 		Level().GameTaskManager().SetActiveTask(t);
 	}
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("pda.map_spot_selected", funct))
+		funct(ml->ObjectID(),
+			ml->GetLevelName().c_str(),
+			ml->spot_type);
 }

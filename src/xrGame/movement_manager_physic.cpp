@@ -92,7 +92,7 @@ bool CMovementManager::move_along_path() const
 	if (!enabled())
 		return (false);
 
-	if (!actual())
+	if (!actual() && !m_allow_rebuild_smoothing)
 		return (false);
 
 	//	if (path_completed())
@@ -210,6 +210,8 @@ Fvector CMovementManager::path_position(const float& time_to_check)
 	);
 }
 
+float movement_manager_move_along_path_query_pos_threshold = 0.25f;
+float movement_manager_move_along_path_query_pos_threshold_sqr = 0.25f * 0.25f;
 void CMovementManager::move_along_path(CPHMovementControl* movement_control, Fvector& dest_position, float time_delta)
 {
 	START_PROFILE("Build Path/Move Along Path")
@@ -291,11 +293,15 @@ void CMovementManager::move_along_path(CPHMovementControl* movement_control, Fve
 		Device.Statistic->Physics.Begin();
 
 		// получить физ. объекты в радиусе
-		m_nearest_objects.clear_not_free();
-		Level().ObjectSpace.GetNearest(m_nearest_objects, dest_position,
-		                               DISTANCE_PHISICS_ENABLE_CHARACTERS + (movement_control->IsCharacterEnabled()
-			                                                                     ? 0.5f
-			                                                                     : 0.f), &object());
+        if (m_nearest_objects_query_pos.distance_to_sqr(dest_position) > movement_manager_move_along_path_query_pos_threshold_sqr)
+        {
+            m_nearest_objects.clear_not_free();
+            Level().ObjectSpace.GetNearest(m_nearest_objects, dest_position,
+                DISTANCE_PHISICS_ENABLE_CHARACTERS + movement_manager_move_along_path_query_pos_threshold + (movement_control->IsCharacterEnabled()
+                    ? 0.5f
+                    : 0.f), &object());
+            m_nearest_objects_query_pos = dest_position;
+        }
 
 		// установить позицию
 		VERIFY(dist >= 0.f);

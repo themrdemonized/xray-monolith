@@ -85,6 +85,11 @@ IC void play_cycle(IKinematicsAnimated* CA, const MotionID& m, u8 channel, CBlen
 			power *= g_params.reduce_power_factor;
 	}
 	CBlend* B = (CA->PlayCycle(m, mixin, 0, 0, channel));
+    if (!B)
+    {
+        Msg("! [character_hit_animations.cpp] play_cycle failed to play motion [m.slot %d: m.idx %d]", m.slot, m.idx);
+        return;
+    }
 	B->blendAmount = power;
 	B->blendPower = power;
 	blend_block = B;

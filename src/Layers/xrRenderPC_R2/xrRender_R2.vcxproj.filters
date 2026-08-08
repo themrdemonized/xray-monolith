@@ -681,6 +681,9 @@
     <ClInclude Include="..\..\Include\xrRender\ImGuiRender.h">
       <Filter>Interfase implementations\ImGuiRender</Filter>
     </ClInclude>
+    <ClInclude Include="..\xrRender\gifPlayer.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -1240,6 +1243,9 @@
     </ClCompile>
     <ClCompile Include="..\xrRender\dxImGuiRender.cpp">
       <Filter>Interfase implementations\ImGuiRender</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xrRender\gifPlayer.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

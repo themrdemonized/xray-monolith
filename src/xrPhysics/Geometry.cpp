@@ -633,6 +633,12 @@ float CSphereGeom::radius()
 	return m_sphere.R;
 }
 
+void CSphereGeom::set_radius(float r)
+{
+    m_sphere.R = r;
+    dGeomSphereSetRadius(geom(), m_sphere.R);
+}
+
 void CSphereGeom::get_Extensions(const Fvector& axis, float center_prg, float& lo_ext, float& hi_ext) const
 {
 	VERIFY(m_geom_transform);
@@ -720,6 +726,18 @@ void CCylinderGeom::get_Extensions(const Fvector& axis, float center_prg, float&
 void CCylinderGeom::set_radius(float r)
 {
 	m_cylinder.m_radius = r;
+	VERIFY(geom());
+	dGeomCylinderSetParams(geom(), m_cylinder.m_radius, m_cylinder.m_height);
+}
+
+float CCylinderGeom::height()
+{
+    return m_cylinder.m_height;
+}
+
+void CCylinderGeom::set_height(float h)
+{
+	m_cylinder.m_height = h;
 	VERIFY(geom());
 	dGeomCylinderSetParams(geom(), m_cylinder.m_radius, m_cylinder.m_height);
 }

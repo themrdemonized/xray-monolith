@@ -53,7 +53,9 @@ void CUIListBox::script_register(lua_State* L)
 		.def("GetTextItem", &CUIListBoxItem::GetTextItem)
 		.def("AddTextField", &CUIListBoxItem::AddTextField)
 		.def("AddIconField", &CUIListBoxItem::AddIconField)
-		.def("SetTextColor", &CUIListBoxItem::SetTextColor),
+		.def("SetTextColor", &CUIListBoxItem::SetTextColor)
+		.def("GetTAG", &CUIListBoxItem::GetTAG)
+		.def("SetTAG", &CUIListBoxItem::SetTAG),
 
 		class_<CUIListBoxItemMsgChain, CUIListBoxItem, CUIListBoxItemMsgChainWrapper>("CUIListBoxItemMsgChain")
 		.def(constructor<float>()),

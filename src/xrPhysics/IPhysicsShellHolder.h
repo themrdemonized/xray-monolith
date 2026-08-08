@@ -6,7 +6,7 @@ class IDamageSource;
 class IKinematics;
 class CPhysicsShell;
 class IPHCapture;
-class IPhysicsShellHolder;
+class CObject;
 class CPHSoundPlayer;
 class ICollisionDamageReceiver;
 class ICollisionForm;
@@ -14,7 +14,7 @@ class ICollisionForm;
 class ICollisionHitCallback
 {
 public:
-	virtual void call(IPhysicsShellHolder* obj, float min_cs, float max_cs, float& cs, float& hl,
+	virtual void call(CObject*& obj, float min_cs, float max_cs, float& cs, float& hl,
 	                  ICollisionDamageInfo* di) = 0;
 
 	virtual ~ICollisionHitCallback()

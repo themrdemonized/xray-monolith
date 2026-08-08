@@ -131,6 +131,9 @@ void CScriptGameObject::script_register(lua_State* L)
 			value("item_to_slot", int(GameObject::eItemToSlot)),
 			value("item_to_ruck", int(GameObject::eItemToRuck)),
 #endif
+#ifdef NET_SPAWN_AFTER_CALLBACKS
+			value("net_spawn_after", int(GameObject::eNetSpawnAfter)),
+#endif
 			//-AVO
 			value("on_foot_step", int(GameObject::eOnFootStep)),
 

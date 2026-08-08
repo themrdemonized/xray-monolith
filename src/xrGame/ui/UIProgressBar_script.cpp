@@ -27,5 +27,8 @@ void CUIProgressBar::script_register(lua_State* L)
 
 		// NLTP_ASHES
 		.def("GetProgressStatic", &CUIProgressBar::GetProgressStatic)
+		.def("GetSnapNoDelay", &CUIProgressBar::GetSnapNoDelay)
+		.def("SetSnapNoDelay", &CUIProgressBar::SetSnapNoDelay)
+		.def("SnapProgressPos", &CUIProgressBar::SnapProgressPos)
 	];
 }

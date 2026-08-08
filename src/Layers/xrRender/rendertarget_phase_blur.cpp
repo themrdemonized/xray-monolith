@@ -633,6 +633,16 @@ void CRenderTarget::phase_ssfx_sss_ext(light_Package& LP)
 	static shared_str strLights("lights_data");
 	static light* LightSlot[8];
 	static u32 sss_currentframe;
+
+    static auto OnLightDestroy = [](light* l)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if (LightSlot[i] == l)
+                LightSlot[i] = nullptr;
+        }
+    };
+
 	void* LightData;
 
 	//Constants
@@ -757,6 +767,7 @@ void CRenderTarget::phase_ssfx_sss_ext(light_Package& LP)
 					LightSlot[FreeSlot] = L;
 
 					L->sss_id = FreeSlot;
+                    L->sss_on_light_destroy.bind(OnLightDestroy);
 
 					if (L->flags.type == IRender_Light::OMNIPART)
 						L->sss_refresh = true;
@@ -804,8 +815,9 @@ void CRenderTarget::phase_ssfx_sss_ext(light_Package& LP)
 					if (LightSlot[slot]->flags.type == IRender_Light::OMNIPART)
 						LightSlot[slot]->sss_refresh = true;
 
-					LightSlot[slot]->sss_id = -1;
-					LightSlot[slot] = NULL;
+                    LightSlot[slot]->sss_id = -1;
+                    LightSlot[slot]->sss_on_light_destroy.clear();
+                    LightSlot[slot] = NULL;
 				}
 				else
 				{

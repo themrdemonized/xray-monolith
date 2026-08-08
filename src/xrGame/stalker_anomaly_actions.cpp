@@ -135,7 +135,11 @@ void CStalkerActionDetectAnomaly::initialize()
 {
 	inherited::initialize();
 	object().sound().remove_active_sounds(u32(eStalkerSoundMaskNoHumming));
-	m_inertia_time = 15000 + ::Random32.random(5000);
+	m_inertia_time = 5000 + ::Random32.random(3000);
+
+	// infinite/super long bolts throwing issue workaround: capture start time
+	if (object().m_anomaly_detect_start_time == 0)
+		object().m_anomaly_detect_start_time = Device.dwTimeGlobal;
 
 	Fvector result;
 	object().eye_matrix.transform_tiny(result, Fvector().set(0.f, 0.f, 10.f));
@@ -157,11 +161,24 @@ void CStalkerActionDetectAnomaly::execute()
 {
 	inherited::execute();
 
-	if (completed() || object().memory().enemy().selected())
+	// completion measured against the persisted stalker-level start, not the
+	// per-activation timer, so re-init at a zone boundary cannot extend it
+	bool const window_expired =
+		object().m_anomaly_detect_start_time + m_inertia_time <= Device.dwTimeGlobal;
+
+	if (window_expired || object().memory().enemy().selected())
 	{
+		// on any end, arm a cooldown and reset the start so the next detect
+		// re-stamps cleanly
+		object().m_anomaly_detect_suppress_until = Device.dwTimeGlobal + 60000;
+		object().m_anomaly_detect_start_time = 0;
 		set_property(eWorldPropertyAnomaly, false);
 		return;
 	}
 
-	object().CObjectHandler::set_goal(eObjectActionFire1, object().inventory().ItemFromSlot(BOLT_SLOT));
+	// NPC bolts doesn't persist through saves. Don't gate the cycle on ammo, 
+	// or loaded NPCs break. thus skip empty throws; cooldown handles the rest
+	PIItem bolt = object().inventory().ItemFromSlot(BOLT_SLOT);
+	if (bolt)
+		object().CObjectHandler::set_goal(eObjectActionFire1, bolt);
 }

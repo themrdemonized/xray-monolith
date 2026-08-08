@@ -834,6 +834,21 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 
 			xr_strcat(nm, ".omf");
 			loadOMF(nm);
+
+            //load extra stalker animations
+            if (strstr(nm, "stalker_animation.omf"))
+            {
+                FS_FileSet extra_anims;
+                FS.file_list(extra_anims, "$game_meshes$", FS_ListFiles, "actors\\modded_stalker_animations\\*.omf");
+
+                if (!extra_anims.empty())
+                {
+                    for (auto it = extra_anims.begin(); it != extra_anims.end(); ++it)
+                    {
+                        loadOMF(it->name.c_str());
+                    }
+                }
+            }
 		}
 	}
 	else if (data->find_chunk(OGF_S_MOTION_REFS2))
@@ -861,6 +876,21 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 
 			xr_strcat(nm, ".omf");
 			loadOMF(nm);
+
+            //load extra stalker animations
+            if (strstr(nm, "stalker_animation.omf"))
+            {
+                FS_FileSet extra_anims;
+                FS.file_list(extra_anims, "$game_meshes$", FS_ListFiles, "actors\\modded_stalker_animations\\*.omf");
+
+                if (!extra_anims.empty())
+                {
+                    for (auto it = extra_anims.begin(); it != extra_anims.end(); ++it)
+                    {
+                        loadOMF(it->name.c_str());
+                    }
+                }
+            }
 		}
 	}
 	else

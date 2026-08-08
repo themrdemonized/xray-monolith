@@ -70,6 +70,8 @@ CPHElement::CPHElement() //aux
 	m_mass.setZero();
 	m_mass_center.set(0, 0, 0);
 	m_volume = 0.f;
+
+    m_fScale = 1.f;
 }
 
 void CPHElement::add_Box(const Fobb& V)
@@ -1725,6 +1727,58 @@ void CPHElement::ActivatingPos(const Fmatrix& BoneTransform)
 	VERIFY_RMATRIX(BoneTransform);
 	VERIFY(valid_pos(BoneTransform.c, phBoundaries));
 	return;
+}
+
+void CPHElement::SetScale(float scale)
+{
+    if (m_fScale == scale) return;
+
+    float prev_scale = m_fScale;
+    m_fScale = scale;
+
+    Fvector center = local_mass_Center();
+    center.div(prev_scale).mul(m_fScale);
+    set_local_mass_center(center);
+
+    for (int i = 0; i < numberOfGeoms(); ++i)
+    {
+        CODEGeom* geom = Geom(i);
+        if (!geom) continue;
+
+        CBoxGeom* box = smart_cast<CBoxGeom*>(geom);
+        CSphereGeom* sphere = smart_cast<CSphereGeom*>(geom);
+        CCylinderGeom* cylinder = smart_cast<CCylinderGeom*>(geom);
+
+        if (box)
+        {
+            Fvector half_size;
+            box->get_size(half_size);
+            half_size.div(prev_scale);
+            half_size.mul(scale);
+            box->set_size(half_size);
+        }
+
+        if (sphere)
+        {
+            sphere->set_radius(sphere->radius() / prev_scale);
+            sphere->set_radius(sphere->radius() * scale);
+        }
+
+        if (cylinder)
+        {
+            cylinder->set_radius(cylinder->radius() / prev_scale);
+            cylinder->set_radius(cylinder->radius() * scale);
+            cylinder->set_height(cylinder->height() / prev_scale);
+            cylinder->set_height(cylinder->height() * scale);
+        }
+
+        Fvector scaled_pos = geom->local_center();
+        scaled_pos.mul(scale);
+        scaled_pos.sub(center);
+
+        //geom->clear_motion_history(true);
+        dGeomSetPosition(geom->geom(), scaled_pos.x, scaled_pos.y, scaled_pos.z);
+    }
 }
 
 #ifdef DEBUG

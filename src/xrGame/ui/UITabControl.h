@@ -5,6 +5,7 @@
 #include "UIOptionsItem.h"
 
 class CUITabButton;
+class CUITabScrollArrows;
 
 DEF_VECTOR(TABS_VECTOR, CUITabButton*)
 
@@ -23,6 +24,9 @@ public:
 	virtual bool IsChangedOptValue() const; // backup!=current
 
 	virtual bool OnKeyboardAction(int dik, EUIMessages keyboard_action);
+	virtual bool OnMouseAction(float x, float y, EUIMessages mouse_action);
+	virtual void Draw();
+	virtual void Update();
 	virtual void OnTabChange(const shared_str& sCur, const shared_str& sPrev);
 	virtual void OnStaticFocusReceive(CUIWindow* pWnd);
 	virtual void OnStaticFocusLost(CUIWindow* pWnd);
@@ -32,6 +36,19 @@ public:
 	bool AddItem(CUITabButton* pButton);
 
 	void RemoveAll();
+
+	// Dynamic, id-aware tab add (the legacy 4-arg AddItem leaves m_btn_id empty). Inserts after the
+	// tab named by after_id (NULL/""/unknown -> appended); geometry and art copy the strip's own
+	// tabs, so it fails on a control that has no tabs yet. Tab width is fixed, so a too-long caption
+	// may clip. Call RecalcScroll after.
+	bool AddTab(LPCSTR id, LPCSTR caption, LPCSTR after_id);
+	// Remove the AddTab-added tabs, restoring the XML positions. Call RecalcScroll afterwards.
+	void RemoveDynamicTabs();
+
+	void RecalcScroll();
+	void ScrollBy(float dx);
+	void EnsureVisible(const shared_str& id);
+	bool CanScroll() const;
 
 	virtual void SendMessage(CUIWindow* pWnd, s16 msg, void* pData);
 	virtual void Enable(bool status);
@@ -70,6 +87,28 @@ protected:
 
 	bool m_bAcceleratorsEnable;
 	shared_str m_opt_backup_value;
+
+	float m_content_w;
+	float m_strip_w;
+
+	CUITabScrollArrows* m_arrows;
+
+	float m_view_left;
+	float m_view_right;
+
+	float m_margin;
+
+	bool InsertItem(CUITabButton* pButton, u32 at);
+	CUITabButton* FirstStripTab() const;
+	float StripPitch(const CUITabButton* t) const;
+	float Tuck(const CUITabButton* t) const;
+	void DrawTabsClipped();
+	void ApplyStripHitClips();
+	float CurrentScroll() const;
+	float MaxScroll() const;
+	void ApplyScroll(float scroll);
+	void ClampScroll(float scroll);
+	float ScrollStep() const;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

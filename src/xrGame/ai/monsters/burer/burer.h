@@ -22,9 +22,6 @@ public:
 	u32 last_hit_frame;
 	u32 time_last_scan;
 
-
-	typedef CTelekinesis TTelekinesis;
-
 	struct GraviObject
 	{
 		bool active;

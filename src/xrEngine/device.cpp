@@ -44,6 +44,10 @@ ENGINE_API BOOL g_bRendering = FALSE;
 BOOL g_bLoaded = FALSE;
 ref_light precache_light = 0;
 
+BOOL psLua_ParallelGC = TRUE;
+BOOL psLua_ParallelGC_debug = FALSE;
+int psLua_ParallelGC_CallAmount = 25;
+
 extern discord::Core* discord_core;
 extern bool use_discord;
 
@@ -55,10 +59,6 @@ std::chrono::high_resolution_clock::time_point tlastf = std::chrono::high_resolu
 std::chrono::duration<float> time_span;
 ENGINE_API float refresh_rate = 0;
 #endif // ECO_RENDER
-
-BOOL psLua_ParallelGC = TRUE;
-int psLua_ParallelGC_CallAmount = 25;
-
 
 BOOL CRenderDevice::Begin()
 {
@@ -214,7 +214,7 @@ void mt_Thread(void* ptr)
 				do
 				{
 					Device.LuaGCCount++;
-					if (Device.LuaGC(false) == 1) // 1 informs that GC cycle is complete
+					if (Device.LuaGC() == 1) // 1 informs that GC cycle is complete
 					{
 						Device.LuaGCDone = true;
 						break;
@@ -270,14 +270,46 @@ ENGINE_API xr_list<LOADING_EVENT> g_loading_events;
 extern bool IsMainMenuActive(); //ECO_RENDER add
 
 static HMONITOR g_StartupMonitor = NULL;
-void InitMonitor()
+
+#include "MonitorList.h"
+
+static void InitMonitor()
 {
-	if (!g_StartupMonitor)
+	if (g_StartupMonitor)
+		return;
+
+	HMONITOR chosen = ResolveSelectedMonitor();
+	if (chosen)
 	{
-		POINT cursorPos;
-		GetCursorPos(&cursorPos);
-		g_StartupMonitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTOPRIMARY);
+		MONITORINFO mi;
+		mi.cbSize = sizeof(mi);
+		if (GetMonitorInfoA(chosen, &mi))
+		{
+			g_StartupMonitor = chosen;
+			return;
+		}
+		Msg("! vid_monitor: resolved handle is invalid, using Auto");
 	}
+
+	POINT cursorPos;
+	GetCursorPos(&cursorPos);
+	g_StartupMonitor = MonitorFromPoint(cursorPos, MONITOR_DEFAULTTOPRIMARY);
+}
+
+ENGINE_API void ResetStartupMonitor()
+{
+	g_StartupMonitor = NULL;
+}
+
+ENGINE_API void SetStartupMonitor(HMONITOR h)
+{
+	g_StartupMonitor = h;
+}
+
+ENGINE_API HMONITOR GetStartupMonitor()
+{
+	InitMonitor();
+	return g_StartupMonitor;
 }
 
 void GetMonitorResolution(u32& horizontal, u32& vertical)
@@ -537,10 +569,9 @@ void CRenderDevice::on_idle()
 		seqFrameMT.Process(rp_Frame);
 	}
 
-	if (psLua_ParallelGC && Device.LuaGC && !Device.LuaGCDone)
+	if (psLua_ParallelGC_debug && psLua_ParallelGC && Device.LuaGCDebug)
 	{
-		PROF_EVENT("LuaGC Cleanup");
-		Device.LuaGC(true);
+		Device.LuaGCDebug();
 	}
 
 #ifdef DEDICATED_SERVER
@@ -662,6 +693,9 @@ u32 app_inactive_time_start = 0;
 void CRenderDevice::FrameMove()
 {
 	PROF_EVENT();
+
+	if (InterlockedExchange(&g_monitor_list_dirty, 0))
+		refresh_vid_monitor_list();
 
 	dwFrame++;
 	Core.dwFrame = dwFrame;

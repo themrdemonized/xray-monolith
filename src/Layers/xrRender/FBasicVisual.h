@@ -67,6 +67,7 @@ public:
 	vis_data vis; // visibility-data
 	ref_shader shader; // pipe state, shared
 	s32 skinning;
+    bool hud;
 
 	virtual void Render(float LOD)
 	{

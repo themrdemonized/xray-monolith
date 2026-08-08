@@ -16,6 +16,17 @@
 #include "actor.h"
 #include "object_broker.h"
 
+// Danger perception multipliers. 1.0 = original engine behaviour.
+// Applied as: base_score * multiplier. 0.0 disables that danger type entirely.
+float g_ai_danger_ricochet_mult         = 1.f;
+float g_ai_danger_attack_sound_mult     = 1.f;
+float g_ai_danger_entity_attacked_mult  = 1.f;
+float g_ai_danger_entity_death_mult     = 1.f;
+float g_ai_danger_corpse_mult           = 1.f;
+float g_ai_danger_attacked_mult         = 1.f;
+float g_ai_danger_grenade_mult          = 1.f;
+float g_ai_danger_enemy_sound_mult      = 1.f;
+
 struct CDangerPredicate
 {
 	const CObject* m_object;
@@ -203,49 +214,49 @@ float CDangerManager::do_evaluate(const CDangerObject& object) const
 	case CDangerObject::eDangerTypeBulletRicochet:
 		{
 			// I perceived bullet(knife) ricochet
-			result += 3000.f;
+			result += 3000.f * g_ai_danger_ricochet_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttackSound:
 		{
 			// someone is shooting
-			result += 2500.f;
+			result += 2500.f * g_ai_danger_attack_sound_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityAttacked:
 		{
 			// someone is hit
-			result += 2000.f;
+			result += 2000.f * g_ai_danger_entity_attacked_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeEntityDeath:
 		{
 			// someone becomes dead
-			result += 3000.f;
+			result += 3000.f * g_ai_danger_entity_death_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeFreshEntityCorpse:
 		{
 			// I see a corpse
-			result += 2250.f;
+			result += 2250.f * g_ai_danger_corpse_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeAttacked:
 		{
 			// someone is attacked
-			result += 2000.f;
+			result += 2000.f * g_ai_danger_attacked_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeGrenade:
 		{
 			// grenade to explode nearby
-			result += 1000.f;
+			result += 1000.f * g_ai_danger_grenade_mult;
 			break;
 		}
 	case CDangerObject::eDangerTypeEnemySound:
 		{
-			// grenade to explode nearby
-			result += 1000.f;
+			// enemy sound nearby
+			result += 1000.f * g_ai_danger_enemy_sound_mult;
 			break;
 		}
 	default: NODEFAULT;
@@ -296,16 +307,8 @@ void CDangerManager::add(const CSoundObject& object)
 
 	if ((object.m_sound_type & SOUND_TYPE_INJURING) == SOUND_TYPE_INJURING)
 	{
-		bool do_add = true;
-		if (object.m_object)
-		{
-			const CActor* actor = smart_cast<const CActor*>(object.m_object);
-			if (actor && !m_object->is_relation_enemy(actor))
-				do_add = false;
-		}
-		if (do_add)
-			add(CDangerObject(obj, object.m_object_params.m_position, object.m_level_time,
-			                  CDangerObject::eDangerTypeEntityAttacked, CDangerObject::eDangerPerceiveTypeSound));
+		add(CDangerObject(obj, object.m_object_params.m_position, object.m_level_time,
+		                  CDangerObject::eDangerTypeEntityAttacked, CDangerObject::eDangerPerceiveTypeSound));
 		return;
 	}
 

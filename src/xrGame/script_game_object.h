@@ -183,6 +183,17 @@ public:
 	virtual ~CScriptGameObject();
 	operator CObject*();
 
+    IC bool is_valid() const
+    {
+        // If the pointer was never set, it's obviously invalid.
+        if (!m_game_object) return false;
+
+        // Check lua game object pointer back-reference. If it doesn't point to this, then the object was likely deleted and the pointer is now dangling.
+        if (m_game_object->lua_game_object() != this) return false;
+
+        return true;
+    }
+
 	CGameObject& object() const;
 	CScriptGameObject* Parent() const;
 	void Hit(CScriptHit* tLuaHit);
@@ -295,6 +306,8 @@ public:
 
 	void ChangeTeam(u8 team, u8 squad, u8 group);
 	void SetVisualMemoryEnabled(bool enabled);
+    float GetObjectVisibleDistance(const CScriptGameObject* obj);
+    float GetObjectLuminocity(const CScriptGameObject* obj);
 
 	// CAI_Stalker
 	CScriptGameObject* GetCurrentWeapon() const;
@@ -602,6 +615,11 @@ public:
 	void set_sight(CScriptGameObject* object_to_look, bool torso_look, bool fire_object, bool no_pitch);
 	void set_sight(const MemorySpace::CMemoryInfo* memory_object, bool torso_look);
 	CHARACTER_RANK_VALUE GetRank();
+	LPCSTR GetRankName();
+	bool affect_cover() const;
+	void best_cover_invalidate();
+	LPCSTR GetCurrentSmartCoverName();
+	LPCSTR GetCurrentLoopholeId();
 	void play_sound(u32 internal_type);
 	void play_sound(u32 internal_type, u32 max_start_time);
 	void play_sound(u32 internal_type, u32 max_start_time, u32 min_start_time);
@@ -686,6 +704,7 @@ public:
 	// CustomZone
 	void EnableAnomaly();
 	void DisableAnomaly();
+    bool IsEnabledAnomaly();
 	void ChangeAnomalyIdlePart(LPCSTR name, bool bIdleLight);
 	float GetAnomalyPower();
 	void SetAnomalyPower(float p);
@@ -818,11 +837,19 @@ public:
 	void sniper_fire_mode(bool value);
 	bool sniper_fire_mode() const;
 
+	void set_aim_params(float max_angle, float min_angle, float min_speed, float predict_time);
+	void set_fire_queue_scale(float size_k, float interval_k);
+	void set_vision_speed(float value);
+	bool can_kill_enemy();
+	bool can_kill_member();
+	bool fire_make_sense();
+
 	void aim_bone_id(LPCSTR value);
 	LPCSTR aim_bone_id() const;
 
 	void register_in_combat();
 	void unregister_in_combat();
+	void make_enemy_visible(CScriptGameObject* enemy);
 	CCoverPoint const* find_best_cover(Fvector position_to_cover_from);
 
 	// approved by Dima smart covers functions
@@ -889,6 +916,7 @@ public:
 	bool is_door_blocked_by_npc() const;
 	bool is_weapon_going_to_be_strapped(CScriptGameObject const* object) const;
 
+    ::luabind::object g_fireParams();
 
 #ifdef GAME_OBJECT_TESTING_EXPORTS
 	//AVO: functions for object testing
@@ -973,11 +1001,18 @@ public:
 	u8 GetRestrictionType();
 	void SetRestrictionType(u8 typ);
 
+	// demonized: SetRestrictionType with unregistering restrictor if type is 0
+	void ForceSetRestrictionType(u8 typ);
+	void InvalidateRestrictions();
+
 	// demonized: add getters and setters for pathfinding for npcs around anomalies and damage for npcs
 	bool get_enable_anomalies_pathfinding();
 	void set_enable_anomalies_pathfinding(bool v);
 	bool get_enable_anomalies_damage();
 	void set_enable_anomalies_damage(bool v);
+
+	// priler: returns true if a non-radioactive restrictor zone is currently touching this character
+	bool inside_anomaly();
 
 	//Weapon
 	void Weapon_AddonAttach(CScriptGameObject* item);
@@ -1016,6 +1051,26 @@ public:
 	u32 PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f);
 	void SwitchState(u32 state);
 	u32 GetState();
+	Fvector hud_fire_point();
+	Fvector hud_fire_point2();
+	Fvector hud_fire_point_silencer();
+	void set_hud_fire_point(Fvector value);
+	void set_hud_fire_point2(Fvector value);
+	void set_hud_fire_point_silencer(Fvector value);
+	u16 hud_fire_bone();
+	u16 hud_fire_bone2();
+	u16 hud_fire_bone_silencer();
+	LPCSTR hud_fire_bone_name();
+	LPCSTR hud_fire_bone2_name();
+	LPCSTR hud_fire_bone_silencer_name();
+	void set_hud_fire_bone(u16 bone_id);
+	void set_hud_fire_bone(LPCSTR bone_name);
+	void set_hud_fire_bone2(u16 bone_id);
+	void set_hud_fire_bone2(LPCSTR bone_name);
+	void set_hud_fire_bone_silencer(u16 bone_id);
+	void set_hud_fire_bone_silencer(LPCSTR bone_name);
+	bool hud_inertion_enabled() const;
+	void set_hud_inertion_enabled(bool value);
 	//Works for anything with visual
 	u16 bone_id(LPCSTR bone_name, bool bHud);
 	u16 bone_id(LPCSTR bone_name) { return bone_id(bone_name, false); }
@@ -1053,6 +1108,11 @@ public:
 	u16 bone_parent(LPCSTR bone_name) { return bone_parent(bone_id(bone_name), false); }
 
 	::luabind::object list_bones(bool bHud = false);
+
+#ifdef CBULLETMANAGER_EX
+    bool GetBulletCheckVisual();
+    void SetBulletCheckVisual(bool value);
+#endif
 
 	bool IsBoneVisible(LPCSTR bone_name, bool bHud = false);	
 	void SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive = true, bool bHud = false);	
@@ -1171,6 +1231,107 @@ public:
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };
+
+extern BOOL lua_busy_hands_debug;
+extern xr_vector<xr_string> get_lua_stack(lua_State* L);
+
+// Default: Assume the class DOES NOT have is_valid()
+template <typename T, typename = void>
+struct has_is_valid : std::false_type {};
+
+// Specialization: If T->is_valid() compiles, this becomes true
+template <typename T>
+struct has_is_valid<T, std::void_t<decltype(std::declval<T>()->is_valid())>> : std::true_type {};
+
+struct SafeWrapBase
+{
+    template <typename Ret>
+    static Ret handle_invalid()
+    {
+        // This part is never reached because we crash the game,
+        // but we need to satisfy the compiler.
+        if constexpr (std::is_reference_v<Ret>)
+        {
+            return *static_cast<std::remove_reference_t<Ret>*>(nullptr);
+        }
+        else
+        {
+            return Ret();
+        }
+    }
+
+    static void log(LPCSTR error)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "[BusyHandsDebug] Error: %s", error);
+    }
+
+    static void log_and_callback(LPCSTR error)
+    {
+        log(error);
+        ai().script_engine().lua_error_not_crash(ai().script_engine().lua());
+    }
+
+    // This generic function accepts ANY instance type (const or non-const) 
+    // and ANY member function pointer type.
+    template <typename InstanceT, typename FuncT, typename... Args>
+    static auto execute(InstanceT instance, FuncT memFunc, Args&&... args)
+        -> decltype((instance->*memFunc)(std::forward<Args>(args)...))
+    {
+        if (lua_busy_hands_debug)
+        {
+            bool is_valid = false;
+
+            if (instance != nullptr)
+            {
+                if constexpr (has_is_valid<InstanceT>::value)
+                    // The class has is_valid(), so we use it
+                    is_valid = instance->is_valid();
+                else
+                    // The class does NOT have is_valid(), so being non-null is good enough
+                    is_valid = true;
+            }
+
+            // Send one last call to Lua to warn users that Lua is about to die
+            if (!is_valid)
+                log_and_callback("Accessing destroyed object");
+        }
+
+        // Sayonara
+        return (instance->*memFunc)(std::forward<Args>(args)...);
+    }
+};
+
+// The primary template (just a declaration)
+template <typename FuncSignature, FuncSignature MemFunc>
+struct SafeWrap;
+
+// 1. Generalized specialization for NON-CONST methods
+template <typename T, typename Ret, typename... Args, Ret(T::* MemFunc)(Args...)>
+struct SafeWrap<Ret(T::*)(Args...), MemFunc> : SafeWrapBase
+{
+    // T is deduced as the class (e.g., CScriptGameObject)
+    using type = Ret(*)(T*, Args...);
+
+    static Ret call(T* instance, Args... args)
+    {
+        return execute(instance, MemFunc, std::forward<Args>(args)...);
+    }
+};
+
+// 2. Generalized specialization for CONST methods
+template <typename T, typename Ret, typename... Args, Ret(T::* MemFunc)(Args...) const>
+struct SafeWrap<Ret(T::*)(Args...) const, MemFunc> : SafeWrapBase
+{
+    // T is deduced as the class, but we use const T* for the instance
+    using type = Ret(*)(const T*, Args...);
+
+    static Ret call(const T* instance, Args... args)
+    {
+        return execute(instance, MemFunc, std::forward<Args>(args)...);
+    }
+};
+
+#define SAFE_WRAP(func) static_cast<typename SafeWrap<decltype(func), func>::type>(SafeWrap<decltype(func), func>::call)
 
 extern void sell_condition(CScriptIniFile* ini_file, LPCSTR section);
 extern void sell_condition(float friend_factor, float enemy_factor);

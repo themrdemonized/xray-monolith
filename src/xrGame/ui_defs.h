@@ -65,14 +65,33 @@ class C2DFrustum
 {
 	svector<Fplane2,FRUSTUM_MAXPLANES> planes;
 	Frect m_rect;
+	bool m_force_clip; // when true, ClipPoly always runs even if the poly is fully inside m_rect
 public:
+	C2DFrustum() : m_force_clip(false) {}
 	void CreateFromRect(const Frect& rect);
 	sPoly2D* ClipPoly(sPoly2D& S, sPoly2D& D) const;
-	void Clear() 
+	void AddClipPlane(const Fvector2& pt, const Fvector2& n)
+	{
+		Fplane2 p;
+		p.build(pt, n);
+		planes.push_back(p);
+		m_force_clip = true;
+	}
+	// Half-plane clip along directed edge a->b: keeps the LEFT side -- points p with (b-a) x (p-a) > 0.
+	// n is the outward normal (toward the discarded side);
+	void AddEdgePlane(const Fvector2& a, const Fvector2& b)
+	{
+		Fvector2 dir;
+		dir.sub(b, a);
+		AddClipPlane(a, Fvector2().set(dir.y, -dir.x));
+	}
+	void Clear()
 	{
 		if (planes.size())
 			planes.clear();
+		m_force_clip = false;
 	}
+	u32 ClipBudget(u32 src_verts) const { return 3 * (src_verts + (u32)planes.size() - 2); }
 };
 
 extern ENGINE_API BOOL g_bRendering;

@@ -37,7 +37,7 @@ public:
 
 	virtual void set_active(bool);
 	virtual bool get_active();
-	virtual void set_position(const Fvector& P);
+	virtual void set_position(const Fvector& P, const float eps = EPS_L);
 	virtual void set_direction(const Fvector& P);
 	virtual void set_radius(float R);
 	virtual void set_texture(LPCSTR name);

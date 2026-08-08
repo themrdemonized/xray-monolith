@@ -18,6 +18,8 @@
 
 using namespace StalkerDecisionSpace;
 
+u32 ENEMY_INERTIA_TIME_SEARCH = 15000;
+
 CStalkerSearchPlanner::CStalkerSearchPlanner(CAI_Stalker* object, LPCSTR action_name) :
 	inherited(object, action_name)
 {
@@ -84,5 +86,5 @@ void CStalkerSearchPlanner::add_actions()
 	add_condition(action, eWorldPropertyAmbushLocationReached, true);
 	add_effect(action, eWorldPropertyPureEnemy, false);
 	add_operator(eWorldOperatorHoldAmbushLocation, action);
-	action->set_inertia_time(15000);
+	action->set_inertia_time(ENEMY_INERTIA_TIME_SEARCH);
 }

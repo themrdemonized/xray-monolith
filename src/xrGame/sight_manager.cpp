@@ -161,20 +161,20 @@ void CSightManager::Exec_Look(float time_delta)
 
 		m_object->angle_lerp_bounds(body.current.yaw, body.target.yaw,
 		                            select_speed(angle_difference(body.current.yaw, body.target.yaw), body_speed,
-		                                         g_ai_aim_min_speed, g_ai_aim_min_angle, g_ai_aim_max_angle),
+		                                         m_object->aim_min_speed(), m_object->aim_min_angle(), m_object->aim_max_angle()),
 		                            time_delta);
 		m_object->angle_lerp_bounds(body.current.pitch, body.target.pitch,
 		                            select_speed(angle_difference(body.current.pitch, body.target.pitch), body_speed,
-		                                         g_ai_aim_min_speed, g_ai_aim_min_angle, g_ai_aim_max_angle),
+		                                         m_object->aim_min_speed(), m_object->aim_min_angle(), m_object->aim_max_angle()),
 		                            time_delta);
 
 		m_object->angle_lerp_bounds(head.current.yaw, head.target.yaw,
 		                            select_speed(angle_difference(head.current.yaw, head.target.yaw), head_speed,
-		                                         g_ai_aim_min_speed, g_ai_aim_min_angle, g_ai_aim_max_angle),
+		                                         m_object->aim_min_speed(), m_object->aim_min_angle(), m_object->aim_max_angle()),
 		                            time_delta);
 		m_object->angle_lerp_bounds(head.current.pitch, head.target.pitch,
 		                            select_speed(angle_difference(head.current.pitch, head.target.pitch), head_speed,
-		                                         g_ai_aim_min_speed, g_ai_aim_min_angle, g_ai_aim_max_angle),
+		                                         m_object->aim_min_speed(), m_object->aim_min_angle(), m_object->aim_max_angle()),
 		                            time_delta);
 
 #ifdef DEBUG

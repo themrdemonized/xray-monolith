@@ -22,6 +22,9 @@ CPhysicsShell* actor_camera_shell = NULL;
 #ifdef	DEBUG
 BOOL dbg_draw_camera_collision = FALSE;
 #endif
+// Console-toggleable clamp on the actor camera collision box (off by default).
+// See set_camera_collision() below for the rationale.
+XRPHYSICS_API BOOL g_clamp_actor_camera_collision = FALSE;
 static bool cam_collided = false;
 static bool cam_step = false;
 extern dJointGroupID ContactGroup;
@@ -206,6 +209,22 @@ void set_camera_collision(const Fvector& box_size, const Fmatrix& xform, CPhysic
 	Fvector bs = box_size;
 	bs.z = box_size.z * 2.f;
 	bs.y = box_size.y * 1.5f;
+
+	// HIGH-FOV DOORWAY-SNAG FIX (gated by g_clamp_actor_camera_collision, default off):
+	// box_size is sized from FOV-driven viewport-near-plane geometry (see get_viewport_geom
+	// + tviewport_size). At FOV ≥ ~85 the resulting world-collision box gets large enough
+	// to catch on doorframes/corridors, halting actor movement for ~1s while up to 100
+	// correction steps push the actor back. When enabled, clamp the world-box dimensions
+	// to the values they would have had at FOV ~75. Only the world-collision box geometry
+	// is clamped; the character-vs-character cylinder below still uses the original
+	// box_size.x for its radius, so NPC/mutant interactions are unchanged.
+	if (g_clamp_actor_camera_collision)
+	{
+		const float kCamCollisionMaxY = 0.23f; // 0.3 * tan(75/2 deg) ≈ FOV 75 vertical
+		const float kCamCollisionMaxX = 0.10f; // generous clamp; widescreen x is naturally small
+		if (bs.y > kCamCollisionMaxY) bs.y = kCamCollisionMaxY;
+		if (bs.x > kCamCollisionMaxX) bs.x = kCamCollisionMaxX;
+	}
 
 	box->set_size(bs);
 	Fmatrix m = Fidentity;

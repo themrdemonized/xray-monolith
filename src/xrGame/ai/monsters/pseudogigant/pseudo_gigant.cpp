@@ -24,6 +24,8 @@
 // demonized: Flag for damaging NPCs and other objects by the stomp attack
 BOOL pseudogiantCanDamageObjects = 1;
 
+// Verdatim: Flag for allowing falling state to count for dodging Earthquake ability 
+BOOL pseudogiantDodgeWhileFalling = 0;
 
 CPseudoGigant::CPseudoGigant()
 {
@@ -373,6 +375,7 @@ void CPseudoGigant::on_threaten_execute()
 	CActor* pA = const_cast<CActor *>(smart_cast<const CActor *>(EnemyMan.get_enemy()));
 	if (!pA) return;
 	if ((pA->MovingState() & ACTOR_DEFS::mcJump) != 0) return;
+    if (pseudogiantDodgeWhileFalling && (pA->MovingState() & ACTOR_DEFS::mcFall) != 0) return;
 
 	float dist_to_enemy = pA->Position().distance_to(Position());
 	float hit_value;

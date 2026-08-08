@@ -88,6 +88,8 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 		.def("apply_torque",
 			(void (cphysics_shell_scripted::*)(float, float, float))(&cphysics_shell_scripted::applyTorque))
 
+		.def("set_force_exact_integration", &cphysics_shell_scripted::setForceExactIntegration)
+
 		.def("get_element_by_bone_name",
 		     (cphysics_element_scripted*(cphysics_shell_scripted::*)(LPCSTR))(&cphysics_shell_scripted::get_Element))
 		.def("get_element_by_bone_id",
@@ -107,7 +109,9 @@ void cphysics_shell_scripted::script_register(lua_State* L)
 		.def("is_breaking_blocked", &cphysics_shell_scripted::IsBreakingBlocked)
 		.def("is_breakable", &cphysics_shell_scripted::isBreakable)
 		.def("get_linear_vel", &cphysics_shell_scripted::get_LinearVel)
+		.def("set_linear_vel", &cphysics_shell_scripted::set_LinearVel)
 		.def("get_angular_vel", &cphysics_shell_scripted::get_AngularVel)
+		.def("set_angular_vel", &cphysics_shell_scripted::set_AngularVel)
 		.def("freeze", &cphysics_shell_scripted::freeze)
 		.def("unfreeze", &cphysics_shell_scripted::unfreeze)
 	];

@@ -1,18 +1,30 @@
 #include "StdAfx.h"
 #include "UITabControl.h"
 #include "UITabButton.h"
+#include "UITabScrollArrows.h"
+#include "UI3tButton.h"
+#include "UIStatic.h"
 
 CUITabControl::CUITabControl()
 	: m_cGlobalTextColor(0xFFFFFFFF),
 	  m_cActiveTextColor(0xFFFFFFFF),
 	  m_cActiveButtonColor(0xFFFFFFFF),
 	  m_cGlobalButtonColor(0xFFFFFFFF),
-	  m_bAcceleratorsEnable(true)
+	  m_bAcceleratorsEnable(true),
+	  m_content_w(0.0f),
+	  m_strip_w(0.0f),
+	  m_view_left(0.0f),
+	  m_view_right(0.0f),
+	  m_margin(0.0f),
+	  m_arrows(NULL)
 {
+	m_arrows = xr_new<CUITabScrollArrows>();
+	m_arrows->Init(this, this);
 }
 
 CUITabControl::~CUITabControl()
 {
+	xr_delete(m_arrows); // detaches the arrow widgets while this parent is still valid
 	RemoveAll();
 }
 
@@ -70,13 +82,52 @@ bool CUITabControl::AddItem(LPCSTR pItemName, LPCSTR pTexName, Fvector2 pos, Fve
 
 bool CUITabControl::AddItem(CUITabButton* pButton)
 {
+	return InsertItem(pButton, m_TabsArr.size());
+}
+
+bool CUITabControl::InsertItem(CUITabButton* pButton, u32 at)
+{
 	pButton->SetAutoDelete(true);
 	pButton->Show(true);
 	pButton->Enable(true);
 	pButton->SetButtonAsSwitch(true);
 
 	AttachChild(pButton);
-	m_TabsArr.push_back(pButton);
+	m_TabsArr.insert(m_TabsArr.begin() + at, pButton);
+	// Seam geometry (pitch = width - overlap + margin) is authored: overlap is the drawn end cap (from the
+	// art), the leftover pitch is the strip margin, fixed once from the XML rest positions before any scroll.
+	// Seed from the first two non-parked non-dynamic tabs
+	// (index-agnostic, so a parked zero-width stub anywhere in the strip can't defeat it); every later strip
+	// tab inherits it; dynamic tabs arrive pre-seeded (AddTab copies the reference tab's). Non-dynamic tabs
+	// are only ever appended, so `pButton` is the second such tab when the count first reaches 2. The strip
+	// is assumed to be single-overlap packed from layout x 0 -- laying it out that way is the caller's
+	// responsibility. Each tab then owns its shape.
+	if (!pButton->m_dynamic && pButton->GetWndSize().x > 0.0f)
+	{
+		CUITabButton* first = NULL;
+		u32 strip_n = 0;
+		for (u32 i = 0; i < m_TabsArr.size(); ++i)
+		{
+			CUITabButton* t = m_TabsArr[i];
+			if (t->m_dynamic || t->GetWndSize().x <= 0.0f)
+				continue;
+			if (!first)
+				first = t;
+			++strip_n;
+		}
+		if (strip_n == 2)
+		{
+			// Split the authored pitch: overlap is the drawn end cap (from the art); the leftover is the strip
+			// margin. Deriving overlap as width - pitch would fold the gap in (that value is overlap - margin).
+			const float overlap = first->CapOverlapUI();
+			const float pitch = pButton->GetWndPos().x - first->GetWndPos().x;
+			m_margin = pitch - (first->GetWndSize().x - overlap);
+			first->SetOverlap(overlap);
+			pButton->SetOverlap(overlap);
+		}
+		else if (strip_n > 2)
+			pButton->SetOverlap(first->Overlap()); // inherit the strip overlap
+	}
 	R_ASSERT(pButton->m_btn_id.size());
 	return true;
 }
@@ -89,10 +140,30 @@ void CUITabControl::RemoveAll()
 		DetachChild(*it);
 	}
 	m_TabsArr.clear();
+	m_content_w = 0.0f;
+	m_margin = 0.0f;
+	if (m_arrows)
+		m_arrows->Show(false);
 }
 
 void CUITabControl::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 {
+	// Scroll-arrow clicks (handled before the accelerator gate so they work regardless of mode)
+	if (BUTTON_CLICKED == msg)
+	{
+		const int side = m_arrows->SideOf(pWnd);
+		if (side == CUITabScrollArrows::eLeft)
+		{
+			ScrollBy(-ScrollStep());
+			return;
+		}
+		if (side == CUITabScrollArrows::eRight)
+		{
+			ScrollBy(ScrollStep());
+			return;
+		}
+	}
+
 	if (!GetAcceleratorsMode())
 		return;
 
@@ -165,6 +236,7 @@ void CUITabControl::SetActiveTab(const shared_str& sNewTab)
 	OnTabChange(m_sPushedId, m_sPrevPushedId);
 
 	m_sPrevPushedId = m_sPushedId;
+	EnsureVisible(m_sPushedId);
 }
 
 bool CUITabControl::OnKeyboardAction(int dik, EUIMessages keyboard_action)

@@ -99,7 +99,17 @@ void CStalkerCombatPlanner::execute()
 
 void CStalkerCombatPlanner::update()
 {
+	const bool was_initialized = initialized();
+	const u32 previous_action_id = was_initialized ? current_action_id() : u32(-1);
+
 	inherited::update();
+
+	if (was_initialized && initialized() && current_action_id() != previous_action_id)
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnCombatActionChanged", funct))
+			funct(object().lua_game_object(), previous_action_id, current_action_id());
+	}
 
 	object().react_on_grenades();
 	object().react_on_member_death();
@@ -108,6 +118,20 @@ void CStalkerCombatPlanner::update()
 	//	VERIFY							(enemy);
 	//	const CAI_Stalker				*stalker = smart_cast<const CAI_Stalker*>(enemy);
 	//	m_last_wounded					= stalker && stalker->wounded();
+}
+
+bool CStalkerCombatPlanner::allow_action_switch(const _action_id_type& from_action_id, const _action_id_type& to_action_id)
+{
+	// Veto gate, fired BEFORE the planner swaps actions (npc_on_combat_action_changed fires after an
+	// allowed swap). A Lua subscriber may return false to keep the current action (e.g. suppress the
+	// take_cover <-> look_out oscillation); no subscriber = vanilla. Re-asked each brain update while
+	// the proposed switch stays denied. A denied swap produces no transition, so the changed-callback
+	// stays silent for it.
+	luabind::functor<bool> funct;
+	if (ai().script_engine().functor("_G.CAI_Stalker__AllowCombatActionSwitch", funct))
+		return (funct(object().lua_game_object(), (u32)from_action_id, (u32)to_action_id));
+
+	return (true);
 }
 
 void CStalkerCombatPlanner::initialize()

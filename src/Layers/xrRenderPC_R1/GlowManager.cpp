@@ -54,9 +54,9 @@ void CGlow::set_active(bool a)
 
 bool CGlow::get_active() { return flags.bActive; }
 
-void CGlow::set_position(const Fvector& P)
+void CGlow::set_position(const Fvector& P, const float eps)
 {
-	if (position.similar(P)) return;
+	if (position.similar(P, eps)) return;
 	position.set(P);
 	spatial_move();
 };

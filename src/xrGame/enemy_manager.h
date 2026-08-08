@@ -15,6 +15,12 @@
 
 class CAI_Stalker;
 
+struct cached_useful
+{
+    u32 check_time = 0;
+    bool result = false;
+};
+
 class CEnemyManager : public CObjectManager<const CEntityAlive>
 {
 public:
@@ -24,6 +30,7 @@ public:
 
 private:
 	CCustomMonster* m_object;
+    mutable xr_unordered_flat_map<u16, cached_useful> m_useful_cache;
 	CAI_Stalker* m_stalker;
 	float m_ignore_monster_threshold;
 	float m_max_ignore_distance;

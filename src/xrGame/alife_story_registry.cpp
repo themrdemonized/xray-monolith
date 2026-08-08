@@ -16,6 +16,7 @@ CALifeStoryRegistry::~CALifeStoryRegistry()
 {
 }
 
+BOOL duplicate_story_id_crash = TRUE;
 void CALifeStoryRegistry::add(ALife::_STORY_ID id, CSE_ALifeDynamicObject* object, bool no_assert)
 {
 	if (id == INVALID_STORY_ID)
@@ -28,7 +29,10 @@ void CALifeStoryRegistry::add(ALife::_STORY_ID id, CSE_ALifeDynamicObject* objec
 	ALife::STORY_P_PAIR_IT I = m_objects.find(id);
 	if (I != m_objects.end())
 	{
-		R_ASSERT2(no_assert, "Specified story object is already in the Story registry!");
+        if (duplicate_story_id_crash)
+		    R_ASSERT4(no_assert, "Specified story object is already in the Story registry!", std::to_string(id).c_str(), object->name_replace());
+        else
+            Msg("![CALifeStoryRegistry::add] Specified story object is already in the Story registry! item ID [%u], Object [%s]", id, object->name_replace());
 		return;
 	}
 

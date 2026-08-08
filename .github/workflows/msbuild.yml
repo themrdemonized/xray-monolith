@@ -335,6 +335,8 @@ jobs:
         mv ${{env.DX10AVX}}_mt_exe/*.exe release_mt/bin
         mv ${{env.DX9AVX}}_mt_exe/*.exe release_mt/bin
         mv ${{env.DX8AVX}}_mt_exe/*.exe release_mt/bin
+        unzip ${{env.DX11}}_mt_pdb/*.zip -d release_mt/bin
+        unzip ${{env.DX11AVX}}_mt_pdb/*.zip -d release_mt/bin
 
         cd release
         zip -r 'STALKER-Anomaly-modded-exes_${{steps.datetime.outputs.today}}.zip' ./*

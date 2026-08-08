@@ -810,6 +810,14 @@ namespace luabind { namespace detail
 			{
 				obj = static_cast<object_rep*>(lua_touserdata(L, index));
 				assert((obj != nullptr) && "internal error, please report"); // internal error
+
+                // Add error handling there
+                if (obj == nullptr)
+                {
+                    error_callback_fun e = get_error_callback_not_crash();
+                    if (e) e(L);
+                }
+
 				crep = obj->crep();
 			}
 			assert(crep);

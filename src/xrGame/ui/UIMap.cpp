@@ -5,11 +5,15 @@
 #include "../map_spot.h"
 #include "UIMap.h"
 #include "UIMapWnd.h"
+#include "UIStatic.h"
+#include "../string_table.h"
 #include "../../xrEngine/xr_input.h"		//remove me !!!
 
 const u32 activeLocalMapColor = 0xffffffff; //0xffc80000;
 const u32 inactiveLocalMapColor = 0xffffffff; //0xff438cd1;
 const u32 ourLevelMapColor = 0xffffffff;
+
+BOOL pda_show_map_labels = TRUE;
 
 
 CUICustomMap::CUICustomMap()
@@ -386,11 +390,21 @@ float CUIGlobalMap::CalcOpenRect(const Fvector2& center_point, Frect& map_desire
 CUILevelMap::CUILevelMap(CUIMapWnd* p)
 {
 	m_mapWnd = p;
+	m_label = nullptr;
+	m_label_scale_max = 0.0f;
+	m_label_offset.set(0.0f, 0.0f);
 	Show(false);
 }
 
 CUILevelMap::~CUILevelMap()
 {
+	if (m_label)
+	{
+		if (m_label->GetParent() == this)
+			DetachChild(m_label);
+		xr_delete(m_label);
+		m_label = nullptr;
+	}
 }
 
 void CUILevelMap::Draw()
@@ -398,6 +412,9 @@ void CUILevelMap::Draw()
 	if (MapWnd())
 	{
 		float gmz = MapWnd()->GlobalMap()->GetCurrentZoom().x;
+		if (m_label && m_label_scale_max > 0.0f)
+			m_label->SetVisible(!!pda_show_map_labels && (gmz < m_label_scale_max));
+
 		for (WINDOW_LIST_it it = m_ChildWndList.begin(); m_ChildWndList.end() != it; ++it)
 		{
 			CMapSpot* sp = smart_cast<CMapSpot*>((*it));
@@ -433,6 +450,35 @@ void CUILevelMap::Init_internal(const shared_str& name, CInifile& pLtx, const sh
 	tmp.z *= UI().get_current_kx();
 	m_GlobalRect.set(tmp.x, tmp.y, tmp.z, tmp.w);
 
+	if (pGameIni->line_exist(MapName(), "label"))
+	{
+		LPCSTR label_id = pGameIni->r_string(MapName(), "label");
+		m_label_scale_max = pGameIni->line_exist(MapName(), "label_scale_max")
+			? pGameIni->r_float(MapName(), "label_scale_max")
+			: 0.0f;
+
+		// label_color = R, G, B, A — ints 0-255. Alpha omitted defaults to 255
+		// (per r_color/sscanf), not the engine default of 180, so authors who
+		// want partial transparency must spell out the 4th component.
+		u32 label_color = color_argb(180, 230, 220, 200);
+		if (pGameIni->line_exist(MapName(), "label_color"))
+			label_color = pGameIni->r_color(MapName(), "label_color");
+
+		if (pGameIni->line_exist(MapName(), "label_offset_x"))
+			m_label_offset.x = pGameIni->r_float(MapName(), "label_offset_x");
+		if (pGameIni->line_exist(MapName(), "label_offset_y"))
+			m_label_offset.y = pGameIni->r_float(MapName(), "label_offset_y");
+
+		CStringTable str_tbl;
+		m_label = xr_new<CUITextWnd>();
+		m_label->SetFont(UI().Font().pFontLetterica18Russian);
+		m_label->SetTextColor(label_color);
+		m_label->SetTextAlignment(CGameFont::alCenter);
+		m_label->SetText(*str_tbl.translate(label_id));
+		m_label->SetWidth(180.0f);
+		m_label->AdjustHeightToText();
+		AttachChild(m_label);
+	}
 
 #ifdef DEBUG
 	float kw = m_GlobalRect.width	()	/	BoundRect().width	();
@@ -469,6 +515,16 @@ void CUILevelMap::UpdateSpots()
 			(*it).location->UpdateLevelMap(this);
 		}
 	}
+
+	std::stable_sort(m_ChildWndList.begin(), m_ChildWndList.end(),
+		[](CUIWindow* a, CUIWindow* b) {
+			CMapSpot* sa = smart_cast<CMapSpot*>(a);
+			CMapSpot* sb = smart_cast<CMapSpot*>(b);
+			int la = sa ? sa->get_location_level() : 0;
+			int lb = sb ? sb->get_location_level() : 0;
+			return la < lb;
+		}
+	);
 }
 
 Frect CUILevelMap::CalcWndRectOnGlobal()
@@ -502,6 +558,24 @@ void CUILevelMap::Update()
 	SetWndRect(rect);
 
 	inherited::Update();
+
+	// UpdateSpots() calls DetachAll() each frame, so the label must be
+	// re-attached after inherited::Update() runs or it won't draw.
+	if (m_label)
+	{
+		float lw = m_label->GetWidth();
+		float lh = m_label->GetHeight();
+		// Offset is in global_rect units (scaled by zoom so it stays anchored);
+		// X also scaled by UI kx since global_rect X is kx-scaled at load.
+		// Y inverted because engine screen Y grows downward.
+		float gmz = MapWnd()->GlobalMap()->GetCurrentZoom().x;
+		float kx  = UI().get_current_kx();
+		m_label->SetWndPos(Fvector2().set(
+			(rect.width()  - lw) * 0.5f + m_label_offset.x * gmz * kx,
+			(rect.height() - lh) * 0.5f - m_label_offset.y * gmz));
+		if (!m_label->GetParent())
+			AttachChild(m_label);
+	}
 
 	if (m_bCursorOverWindow)
 	{

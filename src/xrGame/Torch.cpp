@@ -304,6 +304,7 @@ void CTorch::SwitchLightOnly()
 	}
 }
 
+extern BOOL r_optimize_torch = TRUE;
 void CTorch::UpdateCL()
 {
 	inherited::UpdateCL();
@@ -348,6 +349,7 @@ void CTorch::UpdateCL()
 
 		if (actor)
 		{
+            float eps = 0.001f;
 			if (actor->active_cam() == eacLookAt)
 			{
 				m_prev_hp.x = angle_inertion_var(m_prev_hp.x, -actor->cam_Active()->yaw, m_torch_inertion_speed_min,
@@ -374,11 +376,11 @@ void CTorch::UpdateCL()
 				offset.mad(actorcam->Right(), m_torch_offset.x);
 				offset.mad(actorcam->Up(), m_torch_offset.y);
 				offset.mad(actorcam->Direction(), m_torch_offset.z);
-				light_render->set_position(offset);
-				light_omni->set_position(offset);
-				glow_render->set_position(actorcam->vPosition);
-				light_render->set_rotation(actorcam->Direction(), actorcam->Right());
-				light_omni->set_rotation(actorcam->Direction(), actorcam->Right());
+				light_render->set_position(offset, eps);
+				light_omni->set_position(offset, eps);
+				glow_render->set_position(actorcam->vPosition, eps);
+				light_render->set_rotation(actorcam->Direction(), actorcam->Right(), eps);
+				light_omni->set_rotation(actorcam->Direction(), actorcam->Right(), eps);
 				glow_render->set_direction(actorcam->Direction());
 			}
 			else
@@ -387,30 +389,33 @@ void CTorch::UpdateCL()
 				offset.mad(M.i, m_torch_offset.x);
 				offset.mad(M.j, m_torch_offset.y);
 				offset.mad(M.k, m_torch_offset.z);
-				light_render->set_position(offset);
-				glow_render->set_position(M.c);
-				light_render->set_rotation(dir, right);
-				light_omni->set_position(M.c);
-				light_omni->set_rotation(dir, right);
+				light_render->set_position(offset, eps);
+				glow_render->set_position(M.c, eps);
+                light_omni->set_position(M.c, eps);
+				light_render->set_rotation(dir, right, eps);
+				light_omni->set_rotation(dir, right, eps);
 				glow_render->set_direction(dir);
 			}
 		} // if(actor)
 		else
 		{
+            float dist = Device.GetPerceivedDist(M.c);
+            float eps = r_optimize_torch ? clampr<float>(dist * 0.002f, 0.01f, 0.12f) : 0.001f;
+            float d_eps = r_optimize_torch ? 0.01f : 0.001f;
 			if (can_use_dynamic_lights())
 			{
-				light_render->set_position(M.c);
-				light_render->set_rotation(M.k, M.i);
+				light_render->set_position(M.c, eps);
+				light_render->set_rotation(M.k, M.i, d_eps);
 
 				Fvector offset = M.c;
 				offset.mad(M.i, m_omni_offset.x);
 				offset.mad(M.j, m_omni_offset.y);
 				offset.mad(M.k, m_omni_offset.z);
-				light_omni->set_position(M.c);
-				light_omni->set_rotation(M.k, M.i);
-			} //if (can_use_dynamic_lights()) 
+				light_omni->set_position(M.c, eps);
+				light_omni->set_rotation(M.k, M.i, d_eps);
+			} 
 
-			glow_render->set_position(M.c);
+			glow_render->set_position(M.c, eps);
 			glow_render->set_direction(M.k);
 		}
 	} //if(HParent())

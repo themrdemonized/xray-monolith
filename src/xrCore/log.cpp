@@ -105,7 +105,7 @@ void AddOne(const char* split)
 		if (logTimestamps) {
 			std::string c = "";
 			if (t.length() > 0 && is_console_mark((Console_mark)t[0])) {
-				c = t[0];
+				c += t[0];
 				c += " ";
 				t.erase(0, 1);
 			}

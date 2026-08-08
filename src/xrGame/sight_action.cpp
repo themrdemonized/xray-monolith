@@ -380,8 +380,7 @@ void CSightAction::predict_object_position(bool use_exact_position)
 				offset.y = 0.f;
 				Fvector const velocity = Fvector(offset).div(
 					float(current_position.dwTime - previous_position.dwTime) / 1000.f);
-				extern float g_aim_predict_time;
-				float const predict_time = g_aim_predict_time; //*Device.fTimeDelta;
+				float const predict_time = m_object->aim_predict_time(); //*Device.fTimeDelta;
 				m_vector3d.mad(velocity, predict_time);
 			}
 		}

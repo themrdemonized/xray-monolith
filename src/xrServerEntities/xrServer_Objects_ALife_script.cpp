@@ -123,6 +123,9 @@ void CSE_ALifeLevelChanger::script_register(lua_State* L)
 			"cse_alife_level_changer",
 			CSE_ALifeSpaceRestrictor
 		)
+		.def_readonly("dest_game_vertex_id",  &CSE_ALifeLevelChanger::m_tNextGraphID)
+		.def_readonly("dest_level_vertex_id", &CSE_ALifeLevelChanger::m_dwNextNodeID)
+		.def_readonly("dest_position",        &CSE_ALifeLevelChanger::m_tNextPosition)
 	];
 }
 

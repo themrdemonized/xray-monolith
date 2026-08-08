@@ -19,7 +19,7 @@ extern PNTAVM ntavm;
 // Луаджит выделяет память кусками, кратными 128К
 // Поэтому сделаю два пула по эти размеры
 #define CHUNK_SIZE (64 * 1024)
-#define CHUNK_COUNT 4096
+#define CHUNK_COUNT 8192
 
 #define CHUNKS_FROM_SIZE(x) ((x + CHUNK_SIZE - 1) / CHUNK_SIZE)
 

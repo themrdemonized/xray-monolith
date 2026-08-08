@@ -125,7 +125,7 @@ void CGameMtlLibrary::Load()
 			SGameMtl* M;
 
 			auto material = std::find_if(materials.begin(), materials.end(), [&sec](const SGameMtl* m) {
-				return xr_strcmp(m->m_Name, sec->Name) == 0;
+				return xr_strcmp(m->m_Name, sec.Name) == 0;
 			});
 			if (material == materials.end()) {
 				M = xr_new<SGameMtl>();
@@ -137,7 +137,7 @@ void CGameMtlLibrary::Load()
 					}
 				}
 				M->ID = ++biggestId;
-				M->m_Name = sec->Name;
+				M->m_Name = sec.Name;
 				materials.push_back(M);
 
 				Msg("[materials.ltx] Adding new material %s, id %d", M->m_Name.c_str(), M->ID);
@@ -244,7 +244,7 @@ void CGameMtlLibrary::Load()
 		for (const auto& sec : materialsLtx->sections()) {
 			SGameMtlPair* M;
 			
-			std::string secStr = sec->Name.c_str();
+			std::string secStr = sec.Name.c_str();
 			auto materials = splitStringMulti(secStr, "@", false, true);
 			if (materials.size() < 2) {
 				Msg("![material_pairs.ltx] encountered wrongly defined pair %s, two materials are required", secStr.c_str());
@@ -288,32 +288,32 @@ void CGameMtlLibrary::Load()
 				Msg("[material_pairs.ltx] Changing existing material pair %s | %s, id %d", GetMaterialByID(M->GetMtl0())->m_Name.c_str(), GetMaterialByID(M->GetMtl1())->m_Name.c_str(), M->ID);
 			}
 
-			if (materialsLtx->line_exist(sec->Name, "breaking_sounds")) {
-				auto s = materialsLtx->r_string(sec->Name, "breaking_sounds");
+			if (materialsLtx->line_exist(sec.Name, "breaking_sounds")) {
+				auto s = materialsLtx->r_string(sec.Name, "breaking_sounds");
 				M->BreakingSoundsStr = s ? s : "";
 				M->OwnProps.set(SGameMtlPair::flBreakingSounds, 1);
 				M->CreateSoundsImpl(M->BreakingSounds, s);
 			}
-			if (materialsLtx->line_exist(sec->Name, "step_sounds")) {
-				auto s = materialsLtx->r_string(sec->Name, "step_sounds");
+			if (materialsLtx->line_exist(sec.Name, "step_sounds")) {
+				auto s = materialsLtx->r_string(sec.Name, "step_sounds");
 				M->StepSoundsStr = s ? s : "";
 				M->OwnProps.set(SGameMtlPair::flStepSounds, 1);
 				M->CreateSoundsImpl(M->StepSounds, s);
 			}
-			if (materialsLtx->line_exist(sec->Name, "collide_sounds")) {
-				auto s = materialsLtx->r_string(sec->Name, "collide_sounds");
+			if (materialsLtx->line_exist(sec.Name, "collide_sounds")) {
+				auto s = materialsLtx->r_string(sec.Name, "collide_sounds");
 				M->CollideSoundsStr = s ? s : "";
 				M->OwnProps.set(SGameMtlPair::flCollideSounds, 1);
 				M->CreateSoundsImpl(M->CollideSounds, s);
 			}
-			if (materialsLtx->line_exist(sec->Name, "collide_particles")) {
-				auto s = materialsLtx->r_string(sec->Name, "collide_particles");
+			if (materialsLtx->line_exist(sec.Name, "collide_particles")) {
+				auto s = materialsLtx->r_string(sec.Name, "collide_particles");
 				M->CollideParticlesStr = s ? s : "";
 				M->OwnProps.set(SGameMtlPair::flCollideParticles, 1);
 				M->CreateParticlesImpl(M->CollideParticles, s);
 			}
-			if (materialsLtx->line_exist(sec->Name, "collide_marks")) {
-				auto s = materialsLtx->r_string(sec->Name, "collide_marks");
+			if (materialsLtx->line_exist(sec.Name, "collide_marks")) {
+				auto s = materialsLtx->r_string(sec.Name, "collide_marks");
 				M->CollideMarksStr = s ? s : "";
 				M->OwnProps.set(SGameMtlPair::flCollideMarks, 1);
 				M->CreateMarksImpl(&*M->m_pCollideMarks, s);

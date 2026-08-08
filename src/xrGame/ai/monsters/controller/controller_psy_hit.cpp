@@ -241,9 +241,24 @@ void CControllerPsyHit::death_glide_start()
 	CEffectorCam* ce = Actor()->Cameras().GetCamEffector(eCEControllerPsyHit);
 	VERIFY(!ce);
 
+    // demonized: replace m_object->Position() with position of eye bone
 	Fvector src_pos = Actor()->cam_Active()->vPosition;
-	Fvector target_pos = m_object->Position();
-	target_pos.y += 1.2f;
+    IKinematics* k = m_object->Visual() ? m_object->Visual()->dcast_PKinematics() : nullptr;
+    u16 bone_id = BI_NONE;
+    if (k)
+    {
+        bone_id = k->LL_BoneID("eye_left");
+        if (bone_id == BI_NONE)
+            bone_id = k->LL_BoneID("eye_right");
+        if (bone_id == BI_NONE)
+            bone_id = k->LL_BoneID("bip01_head");
+        if (bone_id == BI_NONE)
+            k = nullptr; // Use m_object position
+    }
+
+    Fmatrix m;
+    Fvector target_pos = k ? m.mul_43(m_object->XFORM(), k->LL_GetTransform(bone_id)).c : m_object->Position();
+	target_pos.y += k ? 0.f : 1.4f;
 
 	Fvector dir;
 	dir.sub(target_pos, src_pos);
@@ -251,14 +266,16 @@ void CControllerPsyHit::death_glide_start()
 	float dist = dir.magnitude();
 	dir.normalize();
 
+    // demonized: disable actor_psy_immunity affecting camera behaviour of controller attack, very buggy
+    // Finetune target_pos a bit
+	//float const actor_psy_immunity = Actor()->conditions().GetHitImmunity(ALife::eHitTypeTelepatic);
+    //target_pos.mad(src_pos, dir, 0.01f + actor_psy_immunity * (dist - 4.8f));
+    //float const base_fov = g_fov;
+    //float const dest_fov = g_fov - (g_fov - 10.f) * actor_psy_immunity;
 
-	float const actor_psy_immunity = Actor()->conditions().GetHitImmunity(ALife::eHitTypeTelepatic);
-
-	target_pos.mad(src_pos, dir, 0.01f + actor_psy_immunity * (dist - 4.8f));
-
-
+	target_pos.mad(target_pos, dir, -_min(3.5f, dist * 0.75f));
 	float const base_fov = g_fov;
-	float const dest_fov = g_fov - (g_fov - 10.f) * actor_psy_immunity;
+	float const dest_fov = 10.f;
 
 	Actor()->Cameras().AddCamEffector(xr_new<CControllerPsyHitCamEffector>(eCEControllerPsyHit, src_pos, target_pos,
 	                                                                       m_man->animation().motion_time(

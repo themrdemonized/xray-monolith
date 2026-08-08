@@ -24,7 +24,7 @@
 
 using namespace StalkerSpace;
 
-const float start_fire_angle_difference = PI_DIV_8;
+float g_ai_aim_fire_angle = PI_DIV_8; // Replaced start_fire_angle_difference constant for Modded Exes config
 
 CStalkerActionCombatBase::CStalkerActionCombatBase(CAI_Stalker* object, LPCSTR action_name) :
 	inherited(object, action_name)
@@ -60,7 +60,7 @@ void CStalkerActionCombatBase::fire()
 	float yaw, pitch;
 	direction.getHP(yaw, pitch);
 	const MonsterSpace::SBoneRotation& current_angles = object().movement().head_orientation();
-	if (angle_difference(-yaw, current_angles.current.yaw) > start_fire_angle_difference)
+	if (angle_difference(-yaw, current_angles.current.yaw) > g_ai_aim_fire_angle)
 	{
 		aim_ready();
 		return;
@@ -237,6 +237,20 @@ void CStalkerActionCombatBase::select_queue_params(const float& distance, u32& m
 				max_queue_interval = object().auto_max_queue_interval_close();
 			}
 		}
+	}
+
+	// Per-NPC fire-queue scaling (set_fire_queue_scale, unset = 1.0). Applied to the band the
+	// weapon type + distance selected above, so any [fire_queue_params] retune stays respected;
+	// the object handler re-rolls from these scaled bounds. Size clamps to >= 1 so a scale below
+	// one degrades to single shots, never to silence.
+	float const size_k = object().fire_queue_size_k();
+	float const interval_k = object().fire_queue_interval_k();
+	if ((size_k != 1.f) || (interval_k != 1.f))
+	{
+		min_queue_size = _max(u32(1), u32(float(min_queue_size) * size_k + .5f));
+		max_queue_size = _max(min_queue_size, u32(float(max_queue_size) * size_k + .5f));
+		min_queue_interval = u32(float(min_queue_interval) * interval_k + .5f);
+		max_queue_interval = _max(min_queue_interval, u32(float(max_queue_interval) * interval_k + .5f));
 	}
 }
 

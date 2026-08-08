@@ -538,6 +538,41 @@ void CEnvironment::lerp(float& current_weight)
 	//Msg("Puddles amount: %f", wetness_factor);
 }
 
+void CEnvironment::set_lerp(float current_weight)
+{
+    if (!Current[0] || !Current[1])
+        return;
+
+    float t0 = Current[0]->exec_time;
+    float t1 = Current[1]->exec_time;
+
+    clamp(current_weight, 0.f, 1.f);
+
+    // Preserve the interval length between descriptors
+    float interval_length;
+
+    if (t0 > t1)
+    {
+        // Wrapped time range
+        interval_length = (DAY_LENGTH - t0) + t1;
+    }
+    else
+    {
+        // Normal time range
+        interval_length = t1 - t0;
+    }
+
+    if (fis_zero(interval_length, EPS))
+        return;
+
+    // Position Current[0] such that fGameTime falls at current_weight position
+    float new_t0 = NormalizeTime(fGameTime - current_weight * interval_length);
+    float new_t1 = NormalizeTime(new_t0 + interval_length);
+
+    Current[0]->exec_time = new_t0;
+    Current[1]->exec_time = new_t1;
+}
+
 void CEnvironment::OnFrame()
 {
 #ifdef _EDITOR

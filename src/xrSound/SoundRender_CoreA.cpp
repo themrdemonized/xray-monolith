@@ -8,6 +8,32 @@
 #include "../xrEngine/pure.h"
 #include "../xrEngine/XR_IOConsole.h"
 
+#include <AL/efx.h>
+
+BOOL reverb_overwrite = FALSE;
+
+float psReverbDensity                = AL_EAXREVERB_DEFAULT_DENSITY;
+float psReverbDiffusion              = AL_EAXREVERB_DEFAULT_DIFFUSION;
+float psReverbGain                   = AL_EAXREVERB_DEFAULT_GAIN;
+float psReverbGainHF                 = AL_EAXREVERB_DEFAULT_GAINHF;
+float psReverbGainLF                 = AL_EAXREVERB_DEFAULT_GAINLF;
+float psReverbDecayTime              = AL_EAXREVERB_DEFAULT_DECAY_TIME;
+float psReverbDecayHFRatio           = AL_EAXREVERB_DEFAULT_DECAY_HFRATIO;
+float psReverbDecayLFRatio           = AL_EAXREVERB_DEFAULT_DECAY_LFRATIO;
+float psReverbReflectionsGain        = AL_EAXREVERB_DEFAULT_REFLECTIONS_GAIN;
+float psReverbReflectionsDelay       = AL_EAXREVERB_DEFAULT_REFLECTIONS_DELAY;
+float psReverbLateReverbGain         = AL_EAXREVERB_DEFAULT_LATE_REVERB_GAIN;
+float psReverbLateReverbDelay        = AL_EAXREVERB_DEFAULT_LATE_REVERB_DELAY;
+float psReverbEchoTime               = AL_EAXREVERB_DEFAULT_ECHO_TIME;
+float psReverbEchoDepth              = AL_EAXREVERB_DEFAULT_ECHO_DEPTH;
+float psReverbModulationTime         = AL_EAXREVERB_DEFAULT_MODULATION_TIME;
+float psReverbModulationDepth        = AL_EAXREVERB_DEFAULT_MODULATION_DEPTH;
+float psReverbAirAbsorptionGainHF    = AL_EAXREVERB_DEFAULT_AIR_ABSORPTION_GAINHF;
+float psReverbHFReference            = AL_EAXREVERB_DEFAULT_HFREFERENCE;
+float psReverbLFReference            = AL_EAXREVERB_DEFAULT_LFREFERENCE;
+float psReverbRoomRolloffFactor      = AL_EAXREVERB_DEFAULT_ROOM_ROLLOFF_FACTOR;
+BOOL  psReverbDecayHFLimit           = AL_EAXREVERB_DEFAULT_DECAY_HFLIMIT;
+
 namespace soundSmoothingParams {
 	float distanceBasedDelayPower = 1.f;
 	float distanceBasedDelayMinDistance = 50.f;
@@ -145,33 +171,62 @@ void CSoundRender_CoreA::commit()
 
 void CSoundRender_CoreA::set_listener(const CSoundRender_Environment& env)
 {
-	A_CHK(alEffectf(effect, AL_EAXREVERB_DIFFUSION, env.EnvironmentDiffusion));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_GAIN, env.Room));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_GAINHF, env.RoomHF));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_TIME, env.DecayTime));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_HFRATIO, env.DecayHFRatio));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_GAIN, env.Reflections));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_DELAY, env.ReflectionsDelay));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_GAIN, env.Reverb));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_AIR_ABSORPTION_GAINHF, env.AirAbsorptionHF));
-	A_CHK(alEffectf(effect, AL_EAXREVERB_ROOM_ROLLOFF_FACTOR, env.RoomRolloffFactor));
+    // Reverb overwrite
+    if (reverb_overwrite) {
+		A_CHK(alEffectf(effect, AL_EAXREVERB_DENSITY, psReverbDensity));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DIFFUSION, psReverbDiffusion));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_GAIN, psReverbGain));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_GAINHF, psReverbGainHF));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_GAINLF, psReverbGainLF));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_TIME, psReverbDecayTime));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_HFRATIO, psReverbDecayHFRatio));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_LFRATIO, psReverbDecayLFRatio));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_GAIN, psReverbReflectionsGain));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_DELAY, psReverbReflectionsDelay));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_GAIN, psReverbLateReverbGain));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_DELAY, psReverbLateReverbDelay));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_ECHO_TIME, psReverbEchoTime));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_ECHO_DEPTH, psReverbEchoDepth));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_MODULATION_TIME, psReverbModulationTime));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_MODULATION_DEPTH, psReverbModulationDepth));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_AIR_ABSORPTION_GAINHF, psReverbAirAbsorptionGainHF));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_HFREFERENCE, psReverbHFReference));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_LFREFERENCE, psReverbLFReference));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_ROOM_ROLLOFF_FACTOR, psReverbRoomRolloffFactor));
+        A_CHK(alEffecti(effect, AL_EAXREVERB_DECAY_HFLIMIT, psReverbDecayHFLimit));
+    }
+    ////
+    else 
+    {
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DIFFUSION, env.EnvironmentDiffusion));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_GAIN, env.Room));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_GAINHF, env.RoomHF));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_TIME, env.DecayTime));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_HFRATIO, env.DecayHFRatio));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_GAIN, env.Reflections));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_DELAY, env.ReflectionsDelay));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_GAIN, env.Reverb));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_AIR_ABSORPTION_GAINHF, env.AirAbsorptionHF));
+        A_CHK(alEffectf(effect, AL_EAXREVERB_ROOM_ROLLOFF_FACTOR, env.RoomRolloffFactor));
 
-	if (env.version == sndenv_ver_extended)
-	{
-			A_CHK(alEffectf(effect, AL_EAXREVERB_GAINLF, env.RoomLF));
-			//A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_PAN, *env.ReflectionsPan));
-			//A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_PAN, *env.ReverbPan));
-			A_CHK(alEffecti(effect, AL_EAXREVERB_DECAY_HFLIMIT, env.DecayHFLimit));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_ECHO_TIME, env.EchoTime));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_ECHO_DEPTH, env.EchoDepth));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_DELAY, env.ReverbDelay));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_LFRATIO, env.DecayLFRatio));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_MODULATION_TIME, env.ModulationTime));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_MODULATION_DEPTH, env.ModulationDepth));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_HFREFERENCE, env.HFReference));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_LFREFERENCE, env.LFReference));
-			A_CHK(alEffectf(effect, AL_EAXREVERB_DENSITY, env.Density));
-	}
+        if (env.version == sndenv_ver_extended)
+        {
+                A_CHK(alEffectf(effect, AL_EAXREVERB_GAINLF, env.RoomLF));
+                //A_CHK(alEffectf(effect, AL_EAXREVERB_REFLECTIONS_PAN, *env.ReflectionsPan));
+                //A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_PAN, *env.ReverbPan));
+                A_CHK(alEffecti(effect, AL_EAXREVERB_DECAY_HFLIMIT, env.DecayHFLimit));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_ECHO_TIME, env.EchoTime));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_ECHO_DEPTH, env.EchoDepth));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_LATE_REVERB_DELAY, env.ReverbDelay));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_DECAY_LFRATIO, env.DecayLFRatio));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_MODULATION_TIME, env.ModulationTime));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_MODULATION_DEPTH, env.ModulationDepth));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_HFREFERENCE, env.HFReference));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_LFREFERENCE, env.LFReference));
+                A_CHK(alEffectf(effect, AL_EAXREVERB_DENSITY, env.Density));
+        }
+    }
+
 }
 
 void CSoundRender_CoreA::get_listener(CSoundRender_Environment& env)
@@ -213,6 +268,10 @@ void CSoundRender_CoreA::refresh_devices()
 
 	pDeviceList->Enumerate();
 	Msg("SOUND: OpenAL: Device list refreshed, %d devices found", pDeviceList->GetNumDevices());
+
+	if (pDeviceList->GetNumDevices() == 0)
+		return;
+
 	const ALDeviceDesc* pDeviceDesc = pDeviceList->GetDeviceDescByName(snd_device_name.c_str());
 	if (!pDeviceDesc)
     {
@@ -224,6 +283,9 @@ void CSoundRender_CoreA::refresh_devices()
 void CSoundRender_CoreA::default_device_changed()
 {
     if (!pDeviceList)
+        return;
+
+    if (pDeviceList->GetNumDevices() == 0)
         return;
 
     if (_stricmp(snd_device_name.c_str(), pDeviceList->GetDefaultDeviceName()) == 0)

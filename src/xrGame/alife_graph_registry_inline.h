@@ -14,6 +14,11 @@ IC CALifeLevelRegistry& CALifeGraphRegistry::level() const
 	return (*m_level);
 }
 
+IC bool CALifeGraphRegistry::level_exists() const
+{
+	return (!!m_level);
+}
+
 IC void CALifeGraphRegistry::change(CSE_ALifeDynamicObject* object, GameGraph::_GRAPH_ID tGraphPointID,
                                     GameGraph::_GRAPH_ID tNextGraphPointID)
 {

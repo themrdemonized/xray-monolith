@@ -240,6 +240,7 @@ float ps_r2_sun_depth_near_bias = 0.00001f; // -0.00005f
 float ps_r2_sun_lumscale = 1.0f; // 1.0f
 float ps_r2_sun_lumscale_hemi = 1.0f; // 1.0f
 float ps_r2_sun_lumscale_amb = 1.0f;
+Fvector3 ps_r2_sun_lumscale_color = { 1.f, 1.f, 1.f };
 float ps_r2_gmaterial = 2.2f; // 
 float ps_r2_zfill = 0.25f; // .1f
 
@@ -1209,6 +1210,9 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_sun_lumscale", &ps_r2_sun_lumscale, -1.0, +3.0);
 	CMD4(CCC_Float, "r2_sun_lumscale_hemi", &ps_r2_sun_lumscale_hemi, 0.0, +3.0);
 	CMD4(CCC_Float, "r2_sun_lumscale_amb", &ps_r2_sun_lumscale_amb, 0.0, +3.0);
+
+    // demonized: possibility to tune sun color
+    CMD4(CCC_Vector3, "r2_sun_lumscale_color", &ps_r2_sun_lumscale_color, Fvector3().set(0, 0, 0), Fvector3().set(1, 1, 1));
 
 	CMD3(CCC_Mask, "r2_aa", &ps_r2_ls_flags, R2FLAG_AA);
 	CMD4(CCC_Float, "r2_aa_kernel", &ps_r2_aa_kernel, 0.3f, 0.7f);

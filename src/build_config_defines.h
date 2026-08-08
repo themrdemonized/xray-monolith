@@ -9,6 +9,7 @@
 #define MOUSE_INPUT_CALLBACKS							// (eMouseMove, eMouseWheel)
 #define ENGINE_LUA_ALIFE_STORAGE_MANAGER_CALLBACKS		// calls lua functions from engine in a script named alife_storage_manager.script  (alife_storage_manager.CALifeStorageManager_save) and (alife_storage_manager.CALifeStorageManager_load)
 #define ENGINE_LUA_ALIFE_UPDAGE_MANAGER_CALLBACKS		// calls lua function named on_before_change_level and on_after_new_game in _G.script when enabled
+#define NET_SPAWN_AFTER_CALLBACKS                       // calls lua function subscribed to eNetSpawnAfter right after net_Spawn returning true. Level_network_spawn.cpp
 //-CALLBACKS
 
 // SCRIPTS:
@@ -48,6 +49,7 @@
 #define PROJECTOR_NEW									// Upgrade CProjector.
 #define SPATIAL_CHANGE									// Upgrade spatial and feel_vision.
 #define EXPLOSIVE_CHANGE								// Upgrade CExplosive and its relatives.
+#define CBULLETMANAGER_EX                               // Upgrade CBulletManager.
 
 /*LAYERED_SND_SHOOT by Alundaio
 When defined, it will allow you to play a group of sounds from a specified section for snd_shoot.

@@ -90,7 +90,8 @@ void CDamageManager::load_section(LPCSTR section, CInifile const* ini)
 			// read all except default line
 			VERIFY(m_object);
 			int bone = kinematics->LL_BoneID(i->first);
-			R_ASSERT2(BI_NONE != bone, *(*i).first);
+            if (BI_NONE == bone)
+                Debug.fatal(DEBUG_INFO, "!CDamageManager::load_section ERROR: BI_NONE == bone, section %s, bone %s", section, i->first.c_str());
 			CBoneInstance& bone_instance = kinematics->LL_GetBoneInstance(u16(bone));
 			bone_instance.set_param(0, (float)atof(_GetItem(*(*i).second, 0, buffer)));
 			bone_instance.set_param(1, (float)atoi(_GetItem(*(*i).second, 1, buffer)));

@@ -27,10 +27,13 @@ namespace text_editor
 		ks_LAlt = u32(1) << 4,
 		ks_RAlt = u32(1) << 5,
 		ks_CapsLock = u32(1) << 6,
+        ks_NumLock = u32(1) << 7,
 
 		ks_Shift = u32(ks_LShift | ks_RShift),
 		ks_Ctrl = u32(ks_LCtrl | ks_RCtrl),
 		ks_Alt = u32(ks_LAlt | ks_RAlt),
+        ks_NumLk_Ctrl = u32(ks_NumLock | ks_Ctrl),
+        ks_NumLk_Alt = u32(ks_NumLock | ks_Alt),
 
 		ks_force = u32(-1)
 	}; // enum key_state
@@ -84,6 +87,7 @@ namespace text_editor
 		void set_edit(LPCSTR str);
 		void set_selected_mode(bool status) { m_unselected_mode = !status; }
 		bool get_selected_mode() const { return !m_unselected_mode; }
+        bool get_num_lock_state();
 
 	private:
 		line_edit_control(line_edit_control const&);

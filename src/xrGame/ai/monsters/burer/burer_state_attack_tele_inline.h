@@ -272,8 +272,9 @@ void CStateBurerAttackTele<Object>::FireAllToEnemy()
 		return;
 	}
 
-	Fvector enemy_pos;
-	enemy_pos = get_head_position(const_cast<CEntityAlive*>(object->EnemyMan.get_enemy()));
+    CEntityAlive* const enemy = const_cast<CEntityAlive*>(object->EnemyMan.get_enemy());
+    const bool is_actor = enemy->cast_actor() != nullptr;
+	const Fvector enemy_pos = get_head_position(enemy);
 
 	for (u32 i = 0; i < object->CTelekinesis::get_objects_count(); ++i)
 	{
@@ -284,9 +285,12 @@ void CStateBurerAttackTele<Object>::FireAllToEnemy()
 		{
 			continue;
 		}
+
 		float const dist_to_enemy = cur_object->Position().distance_to(enemy_pos);
 		float const fire_time = dist_to_enemy / object->m_tele_fly_velocity;
 
+        SCollisionHitCallback* const hit_callback = is_actor ? xr_new<SCollisionHitCallback>(object) : nullptr;
+        cur_object->set_collision_hit_callback(hit_callback);
 		object->CTelekinesis::fire_t(cur_object, enemy_pos, fire_time);
 
 		u32 const new_num_objects = object->CTelekinesis::get_objects_count();
@@ -346,12 +350,14 @@ void CStateBurerAttackTele<Object>::ExecuteTeleContinue()
 template <typename Object>
 void CStateBurerAttackTele<Object>::ExecuteTeleFire()
 {
-	Fvector enemy_pos;
-	enemy_pos = get_head_position(const_cast<CEntityAlive*>(object->EnemyMan.get_enemy()));
+    CEntityAlive* const enemy = const_cast<CEntityAlive*>(object->EnemyMan.get_enemy());
+	const Fvector enemy_pos = get_head_position(enemy);
 
 	float const dist_to_enemy = selected_object->Position().distance_to(enemy_pos);
 	float const fire_time = dist_to_enemy / object->m_tele_fly_velocity;
 
+    SCollisionHitCallback* const hit_callback = enemy->cast_actor() ? xr_new<SCollisionHitCallback>(object) : nullptr;
+    selected_object->set_collision_hit_callback(hit_callback);
 	object->CTelekinesis::fire_t(selected_object, enemy_pos, fire_time);
 
 	object->StopTeleObjectParticle(selected_object);

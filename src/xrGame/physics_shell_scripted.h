@@ -19,6 +19,9 @@ public:
 
 	void applyForce(float x, float y, float z) { physics_impl().applyForce(x, y, z); }
 
+	// island exact-integration opt-in (see CPHIsland::Step)
+	void setForceExactIntegration() { physics_impl().SetForceExactIntegration(); }
+
 	// demonized: applyTorque
 	void applyTorque(float x, float y, float z) { physics_impl().applyTorque(x, y, z); }
 
@@ -40,7 +43,9 @@ public:
 	bool IsBreakingBlocked() { return physics_impl().IsBreakingBlocked(); }
 	bool isBreakable() { return physics_impl().isBreakable(); }
 	void get_LinearVel(Fvector& velocity) const { physics_impl().get_LinearVel(velocity); }
+	void set_LinearVel(Fvector& velocity) { physics_impl().set_LinearVel(velocity); }
 	void get_AngularVel(Fvector& velocity) const { physics_impl().get_AngularVel(velocity); }
+	void set_AngularVel(Fvector& velocity) { physics_impl().set_AngularVel(velocity); }
 	void freeze();
 	void unfreeze();
 DECLARE_SCRIPT_REGISTER_FUNCTION

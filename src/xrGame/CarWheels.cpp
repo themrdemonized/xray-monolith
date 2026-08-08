@@ -235,13 +235,16 @@ void CCar::SWheelDrive::Init()
 
 void CCar::SWheelDrive::Drive()
 {
-	float cur_speed = pwheel->car->RefWheelMaxSpeed() / gear_factor;
+	float cur_speed = pwheel->car->DriveRefSpeed() / gear_factor;
 	pwheel->ApplyDriveAxisVel(pos_fvd * cur_speed);
 }
 
 void CCar::SWheelDrive::UpdatePower()
 {
-	pwheel->ApplyDriveAxisTorque(pwheel->car->RefWheelCurTorque() / gear_factor);
+	CCar* c = pwheel->car;
+	if (c->IsSpeedGoverned() && c->e_state_drive == CCar::drive)
+		pwheel->ApplyDriveAxisVel(pos_fvd * c->DriveRefSpeed() / gear_factor);
+	pwheel->ApplyDriveAxisTorque(c->RefWheelCurTorque() / gear_factor * c->ThrottleFactor());
 }
 
 void CCar::SWheelDrive::Neutral()
@@ -345,6 +348,23 @@ void CCar::SWheelSteer::SteerIdle()
 			pwheel->SetSteerLoLimit(0.f);
 			pwheel->ApplySteerAxisVel(-pwheel->car->m_steering_speed);
 		}
+	}
+}
+
+void CCar::SWheelSteer::SteerTo(float k)
+{
+	limited = true;
+	float a = _abs(k);
+	bool use_hi = (k > 0.f) ? (pos_right > 0) : (pos_right < 0);
+	if (use_hi)
+	{
+		pwheel->SetSteerHiLimit(hi_limit * a);
+		pwheel->ApplySteerAxisVel(pwheel->car->m_steering_speed);
+	}
+	else
+	{
+		pwheel->SetSteerLoLimit(lo_limit * a);
+		pwheel->ApplySteerAxisVel(-pwheel->car->m_steering_speed);
 	}
 }
 

@@ -184,24 +184,24 @@ int CScriptEngine::lua_panic(lua_State* L)
 }
 
 // demonized: get lua stack in array
-static std::vector<std::string> get_lua_stack(lua_State* L)
+xr_vector<xr_string> get_lua_stack(lua_State* L)
 {
-	std::vector<std::string> res;
+	xr_vector<xr_string> res;
 	lua_Debug l_tDebugInfo;
 	for (int i = 0; lua_getstack(L, i, &l_tDebugInfo); ++i)
 	{
 		lua_getinfo(L, "nSlu", &l_tDebugInfo);
 		if (!l_tDebugInfo.name)
 		{
-			res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, ""));
+			res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, "").c_str());
 		} else
 		{
 			if (!xr_strcmp(l_tDebugInfo.what, "C"))
 			{
-				res.push_back(make_string("%2d : [C  ] %s", i, l_tDebugInfo.name));
+				res.push_back(make_string("%2d : [C  ] %s", i, l_tDebugInfo.name).c_str());
 			} else
 			{
-				res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name));
+				res.push_back(make_string("%2d : [%s] %s(%d) : %s", i, l_tDebugInfo.what, l_tDebugInfo.short_src, l_tDebugInfo.currentline, l_tDebugInfo.name).c_str());
 			}
 		}
 	}
@@ -216,9 +216,9 @@ void CScriptEngine::lua_error(lua_State* L)
 
 	// demonized: print first line with lua error
 	auto stack = get_lua_stack(L);
-	std::string lua_error_line = "";
+	xr_string lua_error_line = "";
 	for (auto const& s : stack) {
-		if (s.find("[Lua]") != std::string::npos) {
+		if (s.find("[Lua]") != xr_string::npos) {
 			lua_error_line = s;
 			break;
 		}
@@ -234,6 +234,30 @@ void CScriptEngine::lua_error(lua_State* L)
 #endif
 }
 
+extern BOOL lua_busy_hands_debug;
+void CScriptEngine::lua_error_not_crash(lua_State* L)
+{
+    if (!lua_busy_hands_debug)
+        return;
+
+    ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "[BusyHandsDebug] Runtime Error");
+    auto stack = get_lua_stack(ai().script_engine().lua());
+
+    xr_string lua_error_line = "";
+    for (auto const& s : stack)
+    {
+        if (s.find("[Lua]") != xr_string::npos)
+        {
+            lua_error_line = s;
+            break;
+        }
+    }
+
+    ::luabind::functor<void> funct;
+    if (ai().script_engine().functor("_G.COnLuaBindFatalError", funct))
+        funct(lua_error_line.c_str());
+}
+
 void printLuaStack()
 {
 	ai().script_engine().print_stack();
@@ -247,9 +271,9 @@ int CScriptEngine::lua_pcall_failed(lua_State* L)
 
 	// demonized: print first line with lua error
 	auto stack = get_lua_stack(L);
-	std::string lua_error_line = "";
+	xr_string lua_error_line = "";
 	for (auto const& s : stack) {
-		if (s.find("[Lua]") != std::string::npos) {
+		if (s.find("[Lua]") != xr_string::npos) {
 			lua_error_line = s;
 			break;
 		}
@@ -290,6 +314,7 @@ void CScriptEngine::setup_callbacks()
 	{
 #if !XRAY_EXCEPTIONS
 		::luabind::set_error_callback(CScriptEngine::lua_error);
+        ::luabind::set_error_callback_not_crash(CScriptEngine::lua_error_not_crash);
 #endif
 
 		::luabind::set_pcall_callback(CScriptEngine::lua_pcall_failed);
@@ -402,6 +427,10 @@ void CScriptEngine::init()
 	load_common_scripts();
 #endif
 	m_stack_level = lua_gettop(lua());
+
+    if (strstr(Core.Params, "-ldbg")) {
+        CScriptStorage::DebuggerAttach();
+    }
 }
 
 void CScriptEngine::remove_script_process(const EScriptProcessors& process_id)

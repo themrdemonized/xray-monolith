@@ -288,8 +288,11 @@ void CALifeSimulatorBase::release(CSE_Abstract* abstract, bool alife_query)
 		for (; I != E; ++I)
 		{
 			CSE_ALifeDynamicObject* child = objects().object(*I, true);
-			if (!child)
-				continue;
+            if (!child)
+            {
+                Msg("! [CALifeSimulatorBase::release] Object [%d][%s] has non-existent child [%d]", object->ID, object->name_replace(), *I);
+                continue;
+            }
 
 			release(child, alife_query);
 		}

@@ -25,6 +25,7 @@ extern float world_damping;
 
 //extern const float	mass_limit										;
 extern const u16 max_joint_allowed_for_exeact_integration;
+extern const u16 max_joint_allowed_for_forced_exact_integration;
 extern XRPHYSICS_API const float default_world_gravity;
 extern XRPHYSICS_API float phTimefactor;
 extern XRPHYSICS_API int phIterations;

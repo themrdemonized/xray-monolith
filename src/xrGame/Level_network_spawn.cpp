@@ -178,6 +178,13 @@ void CLevel::g_sv_Spawn(CSE_Abstract* E)
 			cl_Process_Event(E->ID_Parent, GE_OWNERSHIP_TAKE, GEN);
 			//*/
 		}
+
+#ifdef NET_SPAWN_AFTER_CALLBACKS
+        if (smart_cast<CGameObject*>(O))
+        {
+            smart_cast<CGameObject*>(O)->callback(GameObject::eNetSpawnAfter)();
+        }
+#endif
 	}
 
 	/*if (E->s_flags.is(M_SPAWN_UPDATE)) {

@@ -281,6 +281,18 @@ void CActor::IR_OnMouseWheel(int direction)
 		return;
 	}
 
+#ifdef CAR_NEW
+    if (m_holder)
+    {
+        CCar* car = smart_cast<CCar*>(m_holder);
+        if (car && car->IsScopeEnable())
+        {
+            car->ScopeOnMouseWheel(direction);
+            return;
+        }
+    }
+#endif
+
 	if (mouseWheelInvertZoom) {
 		if (inventory().Action((direction > 0) ? (u16)kWPN_ZOOM_DEC : (u16)kWPN_ZOOM_INC, CMD_START)) return;
 	} else {

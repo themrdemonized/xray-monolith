@@ -703,19 +703,48 @@ int luabind::detail::class_rep::function_dispatcher(lua_State* L)
 	try
 	{
 
-#endif
+#else
+        bool success = true;
+        try
+        {
 
-		const overload_rep& o = rep->overloads()[match_index];
+            const overload_rep& o = rep->overloads()[match_index];
 
-        if (force_static_call && !o.has_static())
-		{
-			lua_pushstring(L, "pure virtual function called");
+            if (force_static_call && !o.has_static())
+            {
+                lua_pushstring(L, "pure virtual function called");
+            }
+            else
+            {
+                return o.call(L, force_static_call != 0);
+            }
         }
-		else
-		{
-	        return o.call(L, force_static_call != 0);
-		}
+        catch (...)
+        {
+            auto cb = get_error_callback_not_crash();
+            if (cb)
+            {
+                cb(L);
+            }
+            success = false;
+        }
 
+        if (!success)
+        {
+            // Execute it any way to not crash in game
+            const overload_rep& o = rep->overloads()[match_index];
+
+            if (force_static_call && !o.has_static())
+            {
+                lua_pushstring(L, "pure virtual function called");
+            }
+            else
+            {
+                return o.call(L, force_static_call != 0);
+            }
+        }
+        
+#endif
 #ifndef LUABIND_NO_EXCEPTIONS
 
 	}

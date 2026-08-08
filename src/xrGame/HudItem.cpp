@@ -202,6 +202,12 @@ void CHudItem::OnStateSwitch(u32 S, u32 oldState)
 	}
 
 	g_player_hud->updateMovementLayerState();
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CHudItem__OnStateSwitch", funct))
+	{
+		funct(smart_cast<CGameObject*>(this)->lua_game_object(), S, oldState);
+	}
 }
 
 void CHudItem::OnAnimationEnd(u32 state)

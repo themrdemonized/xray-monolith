@@ -209,9 +209,10 @@ void CMapActionZoomControl::init_internal()
 	bool bMove = !fis_zero(dist, EPS_L);
 	bool bZoom = !fsimilar(m_targetZoom, m_object->GlobalMap()->GetCurrentZoom().x, EPS_L);
 	m_endMovingTime = Device.fTimeGlobal;
-	if (bZoom && bMove) m_endMovingTime += _max(map_zoom_time, dist / map_resize_speed);
-	else if (bZoom) m_endMovingTime += map_zoom_time;
-	else if (bMove) m_endMovingTime += _max(dist / map_resize_speed, min_move_time);
+	// Cap duration at map_zoom_time. The original dist/map_resize_speed scaling produced
+	// multi-second eases on enlarged maps, which blocked user pan during the ease.
+	if (bZoom) m_endMovingTime += map_zoom_time;
+	else if (bMove) m_endMovingTime += _min(_max(dist / map_resize_speed, min_move_time), map_zoom_time);
 }
 
 void CMapActionZoomControl::update_target_state()

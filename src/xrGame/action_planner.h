@@ -94,6 +94,10 @@ public:
 	virtual ~CActionPlanner();
 	virtual void setup(_object_type* object);
 	virtual void update();
+	// Called at the action-switch decision point in update() (action_planner_inline.h), only when a
+	// switch is proposed (current != solution front). Default allows every switch; a derived planner
+	// may veto to keep the current action executing. Base behavior = vanilla for every planner.
+	virtual bool allow_action_switch(const _action_id_type& /*from_action_id*/, const _action_id_type& /*to_action_id*/) { return (true); }
 	virtual void finalize();
 	IC COperator& action(const _action_id_type& action_id);
 	IC CConditionEvaluator& evaluator(const _condition_type& evaluator_id);

@@ -58,6 +58,7 @@ public:
 	virtual ~CUITaskWnd();
 	virtual void SendMessage(CUIWindow* pWnd, s16 msg, void* pData);
 	void Init();
+	CUIMapWnd* GetMapWnd() const { return m_pMapWnd; }
 	virtual void Update();
 	virtual void Draw();
 	void DrawHint();

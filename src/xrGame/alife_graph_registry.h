@@ -75,6 +75,7 @@ public:
 	IC void change(CSE_ALifeDynamicObject* object, GameGraph::_GRAPH_ID game_vertex_id,
 	               GameGraph::_GRAPH_ID next_game_vertex_id);
 	IC CALifeLevelRegistry& level() const;
+	IC bool level_exists() const;
 	IC void set_process_time(const float& process_time);
 	IC CSE_ALifeCreatureActor* actor() const;
 	IC const GRAPH_REGISTRY& objects() const;

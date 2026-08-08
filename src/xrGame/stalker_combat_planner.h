@@ -40,6 +40,7 @@ public:
 	virtual ~CStalkerCombatPlanner();
 	virtual void setup(CAI_Stalker* object, CPropertyStorage* storage);
 	virtual void update();
+	virtual bool allow_action_switch(const _action_id_type& from_action_id, const _action_id_type& to_action_id);
 	virtual void initialize();
 	virtual void execute();
 	virtual void finalize();

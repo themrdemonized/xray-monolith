@@ -21,6 +21,7 @@ void S2DVert::rotate_pt(const Fvector2& pivot, const float cosA, const float sin
 void C2DFrustum::CreateFromRect(const Frect& rect)
 {
 	m_rect.set(float(rect.x1), float(rect.y1), float(rect.x2), float(rect.y2));
+	m_force_clip = false;
 	planes.resize(4);
 	planes[0].build(rect.lt, Fvector2().set(-1, 0));
 	planes[1].build(rect.lt, Fvector2().set(0, -1));
@@ -42,7 +43,7 @@ sPoly2D* C2DFrustum::ClipPoly(sPoly2D& S, sPoly2D& D) const
 
 	sPoly2D* src = &D;
 	sPoly2D* dest = &S;
-	if (!bFullTest) return dest;
+	if (!bFullTest && !m_force_clip) return dest;
 
 	for (u32 i = 0; i < planes.size(); i++)
 	{

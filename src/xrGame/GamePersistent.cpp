@@ -364,7 +364,10 @@ void CGamePersistent::WeathersUpdate()
 
 					ambient_particles = CParticlesObject::Create(eff->particles.c_str(), FALSE, false);
 					Fvector pos;
-					pos.add(Device.vCameraPosition, eff->offset);
+                    Fvector offset = eff->offset;
+                    offset.x += Random.randF(0.5f, 5.f) * (Random.randF(0.f, 1.f) < 0.5f ? -1.f : 1.f);
+                    offset.z += Random.randF(0.5f, 5.f) * (Random.randF(0.f, 1.f) < 0.5f ? -1.f : 1.f);
+					pos.add(Device.vCameraPosition, offset);
 					ambient_particles->play_at_pos(pos);
 					if (eff->sound._handle()) eff->sound.play_at_pos(0, pos);
 
@@ -516,6 +519,11 @@ void CGamePersistent::update_logo_intro()
 	}
 }
 
+namespace crash_saving {
+    extern void (*save_impl)();
+    extern void _save_impl();
+}
+
 void CGamePersistent::game_loaded()
 {
 	if (Device.dwPrecacheFrame <= 2)
@@ -551,20 +559,28 @@ void CGamePersistent::game_loaded()
 		{
 			Msg("intro_start game_loaded");
 
+            // demonized: Reset mouse state on loading the game
+            pInput->resetMouseState();
+
 			::luabind::functor<void> funct;
 			if (ai().script_engine().functor("_G.OnLoadingScreenKeyPrompt", funct))
 			{
 				funct();
 			}
+
+            // demonized
+            // Enable crash saving here
+            crash_saving::save_impl = &crash_saving::_save_impl;
+
+            // Callback for when player dismisses loading screen after "Press Any Key to Continue" pressed
+            if (ai().script_engine().functor("_G.OnLoadingScreenDismissed", funct))
+            {
+                funct();
+            }
 		}
 
 		m_intro_event = 0;
 	}
-}
-
-namespace crash_saving {
-	extern void (*save_impl)();
-	extern void _save_impl();
 }
 
 void CGamePersistent::update_game_loaded()

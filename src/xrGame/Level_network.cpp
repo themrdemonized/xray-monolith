@@ -163,6 +163,10 @@ void CLevel::net_Stop()
 		xr_delete(Server);
 	}
 
+    Msg("Device.LuaGC clear");
+    Device.LuaGC.clear();
+    Device.LuaGCDebug.clear();
+
 	if (!g_dedicated_server)
 		ai().script_engine().collect_all_garbage();
 

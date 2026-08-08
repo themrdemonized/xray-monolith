@@ -1,4 +1,4 @@
-﻿#include "pch_script.h"
+#include "pch_script.h"
 #include "entity_alive.h"
 #include "inventoryowner.h"
 #include "inventory.h"
@@ -726,8 +726,8 @@ CPHSoundPlayer* CEntityAlive::ph_sound_player()
 ICollisionHitCallback* CEntityAlive::get_collision_hit_callback()
 {
 	CCharacterPhysicsSupport* cs = character_physics_support();
-	if (cs)return cs->get_collision_hit_callback();
-	else return false;
+	if (cs) return cs->get_collision_hit_callback();
+	return nullptr;
 }
 
 void CEntityAlive::set_collision_hit_callback(ICollisionHitCallback* cc)
@@ -882,7 +882,8 @@ Fvector CEntityAlive::get_new_local_point_on_mesh(u16& bone_id) const
 	float const selected_area = m_hit_bones_random.randF(hit_bones_surface_area);
 
 	i = m_hit_bone_surface_areas.begin();
-	for (float accumulator = 0.f; i != e; ++i)
+    float accumulator = 0.f;
+	for (; i != e; ++i)
 	{
 		if (!kinematics->LL_GetBoneVisible((*i).first))
 			continue;
@@ -896,7 +897,12 @@ Fvector CEntityAlive::get_new_local_point_on_mesh(u16& bone_id) const
 			break;
 	}
 
-	VERIFY2(i != e, make_string("m_hit_bone_surface_areas[%d]", m_hit_bone_surface_areas.size()));
+    if (i == e)
+    {
+        Msg("![CEntityAlive::get_new_local_point_on_mesh] ERROR, iterated through all m_hit_bone_surface_areas[%d] but accumulator %.5f < selected_area %.5f", m_hit_bone_surface_areas.size(), accumulator, selected_area);
+        return inherited::get_new_local_point_on_mesh(bone_id);
+    }
+	
 	SBoneShape const& shape = kinematics->LL_GetData((*i).first).shape;
 	bone_id = (*i).first;
 	Fvector result = Fvector().set(flt_max, flt_max, flt_max);

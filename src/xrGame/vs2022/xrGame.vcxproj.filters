@@ -6057,6 +6057,9 @@
     <ClInclude Include="..\CarLights.h">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClInclude>
+    <ClInclude Include="..\CarDrone.h">
+      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
+    </ClInclude>
     <ClInclude Include="..\CarWeapon.h">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
     </ClInclude>
@@ -6865,6 +6868,9 @@
       <Filter>UI\UIWindows\ProgressBar</Filter>
     </ClInclude>
     <ClInclude Include="..\ui\UITabButton.h">
+      <Filter>UI\UIWindows\TabControl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ui\UITabScrollArrows.h">
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClInclude>
     <ClInclude Include="..\ui\UITabControl.h">
@@ -9704,6 +9710,9 @@
     <ClCompile Include="..\DBG_Car.cpp">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClCompile>
+    <ClCompile Include="..\CarDrone.cpp">
+      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
+    </ClCompile>
     <ClCompile Include="..\CarWeapon.cpp">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
     </ClCompile>
@@ -10533,6 +10542,12 @@
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClCompile>
     <ClCompile Include="..\ui\UITabControl.cpp">
+      <Filter>UI\UIWindows\TabControl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ui\UITabControl_scroll.cpp">
+      <Filter>UI\UIWindows\TabControl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ui\UITabScrollArrows.cpp">
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClCompile>
     <ClCompile Include="..\ui\UITabControl_script.cpp">

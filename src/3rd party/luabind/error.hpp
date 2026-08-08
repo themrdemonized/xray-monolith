@@ -77,9 +77,11 @@ namespace luabind
 	typedef void(*error_callback_fun)(lua_State*);
 	typedef void(*cast_failed_callback_fun)(lua_State*, LUABIND_TYPE_INFO);
 
-	LUABIND_API void set_error_callback(error_callback_fun e);
+    LUABIND_API void set_error_callback(error_callback_fun e);
+    LUABIND_API void set_error_callback_not_crash(error_callback_fun e);
 	LUABIND_API void set_cast_failed_callback(cast_failed_callback_fun c);
-	LUABIND_API error_callback_fun get_error_callback();
+    LUABIND_API error_callback_fun get_error_callback();
+    LUABIND_API error_callback_fun get_error_callback_not_crash();
 	LUABIND_API cast_failed_callback_fun get_cast_failed_callback();
 
 #endif

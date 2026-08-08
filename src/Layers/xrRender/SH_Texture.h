@@ -6,6 +6,7 @@
 
 class ENGINE_API CAviPlayerCustom;
 class CTheoraSurface;
+class CGIFAnimationPlayer;
 
 class ECORE_API CTexture : public xr_resource_named
 {
@@ -29,6 +30,7 @@ public:
 	void __stdcall apply_theora(u32 stage);
 	void __stdcall apply_avi(u32 stage);
 	void __stdcall apply_seq(u32 stage);
+    void __stdcall apply_gif(u32 stage);
 	void __stdcall apply_normal(u32 stage);
 
 	void Preload();
@@ -114,6 +116,8 @@ private:
 	// Description
 	ID3DBaseTexture* desc_cache;
 	D3D_TEXTURE2D_DESC desc;
+
+    CGIFAnimationPlayer* gifPlayer;
 
 #if defined(USE_DX10) || defined(USE_DX11)
 	ID3DShaderResourceView*			m_pSRView;

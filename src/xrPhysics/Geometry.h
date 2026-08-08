@@ -191,6 +191,7 @@ public:
 	CSphereGeom(const Fsphere& sphere);
 	virtual float volume();
 	virtual float radius();
+    virtual void set_radius(float r);
 	virtual void get_Extensions(const Fvector& axis, float center_prg, float& lo_ext, float& hi_ext) const;
 
 	virtual void get_max_area_dir_bt(Fvector& dir)
@@ -229,6 +230,9 @@ public:
 	virtual dGeomID create();
 	virtual void set_build_position(const Fvector& ref_point);
 	void set_radius(float r);
+
+    virtual float height();
+    void set_height(float h);
 private:
 #ifdef	DEBUG
 	virtual		void		dbg_draw			( float scale, u32 color, Flags32 flags ) const;

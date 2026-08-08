@@ -57,8 +57,11 @@ struct prefetch_event
 {  
     NET_Packet p;  
 	models_set models;
+    u16 id;
+    bool hasAlifeObject;
 };
 using prefetch_event_queue = xr_vector<prefetch_event>;
+using spawn_events_data_map = xr_unordered_flat_map<u16, prefetch_event>;
 
 class CLevel :
 	public IGame_Level,
@@ -215,6 +218,7 @@ public:
 	virtual void net_Stop();
 	virtual bool net_Start_client(const char* name);
 	virtual void net_Update();
+    virtual bool Load(u32 dwNum);
 	virtual bool Load_GameSpecific_Before();
 	virtual bool Load_GameSpecific_After();
 	virtual void Load_GameSpecific_CFORM(CDB::TRI* T, u32 count);
@@ -252,6 +256,7 @@ public:
 #ifdef SPAWN_ANTIFREEZE
 public:
 	NET_Queue_Event* spawn_events = nullptr;
+    spawn_events_data_map* spawn_events_data = nullptr;
 	prefetch_event_queue* prefetch_events = nullptr;
 	models_set* prefetched_models = nullptr;
 	xrSRWLock prefetch_lock;
@@ -303,7 +308,8 @@ public:
 	IC CAutosaveManager& autosave_manager();
     IC CDebugRenderer& debug_renderer();
 	void __stdcall script_gc(); // GC-cycle
-	static int __stdcall LuaGC(const bool cleanup); // GC that will called from Device via Device.LuaGC
+    static int LuaGC(); // GC that will called from Device via Device.LuaGC
+    static void LuaGCDebug(); // GC that will called from Device via Device.LuaGCDebug
 	IC CPHCommander& ph_commander();
 	IC CPHCommander& ph_commander_scripts();
 	IC CPHCommander& ph_commander_physics_worldstep();

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "MonitorList.h"
 
 bool CRenderDevice::on_message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT& result)
 {
@@ -72,6 +73,10 @@ bool CRenderDevice::on_message(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 	case WM_INPUTLANGCHANGE:
 		Device.imgui().UpdateInputLang();
+		return false;
+
+	case WM_DISPLAYCHANGE:
+		InterlockedExchange(&g_monitor_list_dirty, 1);
 		return false;
 	}
 

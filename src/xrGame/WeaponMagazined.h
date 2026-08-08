@@ -34,6 +34,7 @@ protected:
 	bool m_sounds_enabled;
 	bool m_nextFireMode;
 	bool m_needReload;
+    bool m_pendingShot;
 	// General
 	//кадр момента пересчета UpdateSounds
 	u32 dwUpdateSounds_Frame = 0;

@@ -35,9 +35,9 @@ namespace dx10BufferUtils
 	{
 		D3D_BUFFER_DESC desc;
 		desc.ByteWidth = DataSize;
-		desc.Usage = D3D_USAGE_DEFAULT;// D3D_USAGE_DYNAMIC;
+		desc.Usage = D3D_USAGE_DYNAMIC;
 		desc.BindFlags = D3D_BIND_CONSTANT_BUFFER;
-		desc.CPUAccessFlags = 0;// D3D_CPU_ACCESS_WRITE;
+		desc.CPUAccessFlags = D3D_CPU_ACCESS_WRITE;
 		desc.MiscFlags = 0;
 
 		HRESULT res = HW.pDevice->CreateBuffer( &desc, 0, ppBuffer);

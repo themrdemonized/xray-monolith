@@ -29,6 +29,8 @@
 #include "../../danger_manager.h"
 #include "../../visual_memory_manager.h"
 #include "../../agent_enemy_manager.h"
+#include "../../script_game_object.h"
+#include "../../ai_space.h"
 
 const u32 TOLLS_INTERVAL = 2000;
 const u32 GRENADE_INTERVAL = 0 * 1000;
@@ -166,6 +168,14 @@ void CAI_Stalker::react_on_member_death()
 			sound().play(StalkerSpace::eStalkerSoundTolls, 3000, 2000);
 		else
 			sound().play(StalkerSpace::eStalkerSoundWounded, 3000, 2000);
+	}
+
+	{
+		::luabind::functor<void> funct;
+		if (ai().script_engine().functor("_G.CAI_Stalker__OnMemberDeathReaction", funct))
+			funct(lua_game_object(),
+			      reaction.m_member ? reaction.m_member->lua_game_object() : nullptr,
+			      reaction.m_member ? reaction.m_member->g_Alive() : false);
 	}
 
 	reaction.clear();

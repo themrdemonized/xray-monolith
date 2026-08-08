@@ -30,7 +30,8 @@ namespace luabind
 		pcall_callback_fun pcall_callback = 0;
 		pregister_callback_fun pregister_callback = 0;
 #ifdef LUABIND_NO_EXCEPTIONS
-		error_callback_fun error_callback = 0;
+        error_callback_fun error_callback = 0;
+        error_callback_fun error_callback_not_crash = 0;
 		cast_failed_callback_fun cast_failed_callback = 0;
 #endif
 	}
@@ -46,6 +47,11 @@ namespace luabind
 		error_callback = e;
 	}
 
+    void set_error_callback_not_crash(error_callback_fun e)
+    {
+        error_callback_not_crash = e;
+    }
+
 	void set_cast_failed_callback(cast_failed_callback_fun c)
 	{
 		cast_failed_callback = c;
@@ -55,6 +61,11 @@ namespace luabind
 	{
 		return error_callback;
 	}
+
+    error_callback_fun get_error_callback_not_crash()
+    {
+        return error_callback_not_crash;
+    }
 
 	cast_failed_callback_fun get_cast_failed_callback()
 	{

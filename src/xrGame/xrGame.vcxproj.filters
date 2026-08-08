@@ -6054,6 +6054,9 @@
     <ClInclude Include="CarLights.h">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClInclude>
+    <ClInclude Include="CarDrone.h">
+      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
+    </ClInclude>
     <ClInclude Include="CarWeapon.h">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
     </ClInclude>
@@ -6849,6 +6852,9 @@
     <ClInclude Include="ui\UITabButton.h">
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClInclude>
+    <ClInclude Include="ui\UITabScrollArrows.h">
+      <Filter>UI\UIWindows\TabControl</Filter>
+    </ClInclude>
     <ClInclude Include="ui\UITabControl.h">
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClInclude>
@@ -7385,6 +7391,9 @@
     </ClInclude>
     <ClInclude Include="..\3rd party\fastdelegate\fastdelegate.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="player_hud_legs.h">
+      <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -9701,6 +9710,9 @@
     <ClCompile Include="DBG_Car.cpp">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClCompile>
+    <ClCompile Include="CarDrone.cpp">
+      <Filter>Core\Client\Objects\vehicles\Car\CarDrone</Filter>
+    </ClCompile>
     <ClCompile Include="CarWeapon.cpp">
       <Filter>Core\Client\Objects\vehicles\Car\CarWeapon</Filter>
     </ClCompile>
@@ -10526,6 +10538,12 @@
     <ClCompile Include="ui\UITabControl.cpp">
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClCompile>
+    <ClCompile Include="ui\UITabControl_scroll.cpp">
+      <Filter>UI\UIWindows\TabControl</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\UITabScrollArrows.cpp">
+      <Filter>UI\UIWindows\TabControl</Filter>
+    </ClCompile>
     <ClCompile Include="ui\UITabControl_script.cpp">
       <Filter>UI\UIWindows\TabControl</Filter>
     </ClCompile>
@@ -11092,6 +11110,9 @@
     </ClCompile>
     <ClCompile Include="script_imgui_script.cpp">
       <Filter>UI\Common\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="player_hud_legs.cpp">
+      <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

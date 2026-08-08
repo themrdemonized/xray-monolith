@@ -20,6 +20,7 @@
 #ifdef DEBUG
 #include "phdebug.h"
 #endif
+BOOL disableActorBodyRotationDelay = TRUE;
 static const float s_fLandingTime1 = 0.1f; // через сколько снять флаг Landing1 (т.е. включить следующую анимацию)
 static const float s_fLandingTime2 = 0.3f; // через сколько снять флаг Landing2 (т.е. включить следующую анимацию)
 static const float s_fJumpTime = 0.3f;
@@ -410,7 +411,13 @@ void CActor::g_Orientate(u32 mstate_rl, float dt)
 	}
 
 	// lerp angle for "effect" and capture torso data from camera
-	angle_lerp(r_model_yaw_delta, calc_yaw, PI_MUL_4, dt);
+	float scale_yaw_offset = 1.0f;
+
+	if (cam_active == eacFirstEye && g_player_hud && m_legs_controller.is_active()) {
+		scale_yaw_offset = 0.15f;
+	}
+
+	angle_lerp(r_model_yaw_delta, calc_yaw * scale_yaw_offset, PI_MUL_4 * scale_yaw_offset, dt);
 
 	// build matrix
 	Fmatrix mXFORM;
@@ -525,31 +532,40 @@ void CActor::g_cl_Orientate(u32 mstate_rl, float dt)
 		r_torso.pitch = unaffected_r_torso.pitch + dangle.x;
 	}
 
-	// если есть движение - выровнять модель по камере
-	if (mstate_rl & mcAnyMove)
-	{
-		r_model_yaw = angle_normalize(r_torso.yaw);
-		mstate_real &= ~mcTurn;
-	}
-	else
-	{
-		// if camera rotated more than 45 degrees - align model with it
-		float ty = angle_normalize(r_torso.yaw);
-		if (_abs(r_model_yaw - ty) > PI_DIV_4 - 30)
-		{
-			r_model_yaw_dest = ty;
-			// 
-			mstate_real |= mcTurn;
-		}
-		if (_abs(r_model_yaw - r_model_yaw_dest) < EPS_L)
-		{
-			mstate_real &= ~mcTurn;
-		}
-		if (mstate_rl & mcTurn)
-		{
-			angle_lerp(r_model_yaw, r_model_yaw_dest, PI_MUL_2, dt);
-		}
-	}
+    if (disableActorBodyRotationDelay || Device.time_factor() < 1)
+    {
+        r_model_yaw = angle_normalize(r_torso.yaw);
+        r_model_yaw_dest = r_model_yaw;
+        mstate_real &= ~mcTurn;
+    }
+    else
+    {
+        // если есть движение - выровнять модель по камере
+        if (mstate_rl & mcAnyMove)
+        {
+            r_model_yaw = angle_normalize(r_torso.yaw);
+            mstate_real &= ~mcTurn;
+        }
+        else
+        {
+            // if camera rotated more than 45 degrees - align model with it
+            float ty = angle_normalize(r_torso.yaw);
+            if (_abs(r_model_yaw - ty) > PI_DIV_4 - 30)
+            {
+                r_model_yaw_dest = ty;
+                // 
+                mstate_real |= mcTurn;
+            }
+            if (_abs(r_model_yaw - r_model_yaw_dest) < EPS_L)
+            {
+                mstate_real &= ~mcTurn;
+            }
+            if (mstate_rl & mcTurn)
+            {
+                angle_lerp(r_model_yaw, r_model_yaw_dest, PI_MUL_2, dt);
+            }
+        }
+    }
 }
 
 void CActor::g_sv_Orientate(u32 /**mstate_rl/**/, float /**dt/**/)

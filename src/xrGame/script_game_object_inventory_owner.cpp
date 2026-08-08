@@ -678,6 +678,33 @@ u32 CScriptGameObject::Money()
 	return pOurOwner->get_money();
 }
 
+// Safe give money, ensuring no overflow or underflow occurs
+IC void GiveMoneySafe(CInventoryOwner* owner, int money, bool bSendEvent)
+{
+    u32 current_money = owner->get_money();
+    if (money > 0)
+    {
+        u32 u_money = static_cast<u32>(money);
+
+        // Overflow check: If adding money pushes it past the max u32 limit
+        if (std::numeric_limits<u32>::max() - current_money < u_money)
+            owner->set_money(std::numeric_limits<u32>::max(), bSendEvent); // Cap at maximum
+        else
+            owner->set_money(current_money + u_money, bSendEvent);
+    }
+    else if (money < 0)
+    {
+        // Safe conversion of negative int to unsigned, guarding against INT_MIN trap
+        u32 u_deduction = static_cast<u32>(std::abs(static_cast<long long>(money)));
+
+        // Underflow check: If deducting money pushes it below 0
+        if (current_money < u_deduction)
+            owner->set_money(0, bSendEvent); // Cap at bankruptcy (0)
+        else
+            owner->set_money(current_money - u_deduction, bSendEvent);
+    }
+}
+
 void CScriptGameObject::TransferMoney(int money, CScriptGameObject* pForWho)
 {
 	if (!pForWho)
@@ -690,14 +717,17 @@ void CScriptGameObject::TransferMoney(int money, CScriptGameObject* pForWho)
 	CInventoryOwner* pOtherOwner = smart_cast<CInventoryOwner*>(&pForWho->object());
 	VERIFY(pOtherOwner);
 
-	if (pOurOwner->get_money() - money < 0)
+	if (pOurOwner->get_money() < money)
 	{
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "Character does not have enought money");
 		return;
 	}
 
-	pOurOwner->set_money(pOurOwner->get_money() - money, true);
-	pOtherOwner->set_money(pOtherOwner->get_money() + money, true);
+    // Leave negative money transfer possibility intact, unknown how it is used in 3rd party
+    u32 current_money = pOurOwner->get_money();
+    GiveMoneySafe(pOurOwner, -money, true);
+    int transfered_money = pOurOwner->get_money() - current_money;
+    GiveMoneySafe(pOtherOwner, transfered_money, true);
 }
 
 void CScriptGameObject::GiveMoney(int money)
@@ -705,7 +735,7 @@ void CScriptGameObject::GiveMoney(int money)
 	CInventoryOwner* pOurOwner = smart_cast<CInventoryOwner*>(&object());
 	VERIFY(pOurOwner);
 
-	pOurOwner->set_money(pOurOwner->get_money() + money, true);
+    GiveMoneySafe(pOurOwner, money, true);
 }
 
 
@@ -1886,6 +1916,79 @@ bool CScriptGameObject::sniper_fire_mode() const
 	return (stalker->sniper_fire_mode());
 }
 
+void CScriptGameObject::set_aim_params(float max_angle, float min_angle, float min_speed, float predict_time)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member set_aim_params!");
+		return;
+	}
+
+	stalker->set_aim_params(max_angle, min_angle, min_speed, predict_time);
+}
+
+void CScriptGameObject::set_fire_queue_scale(float size_k, float interval_k)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member set_fire_queue_scale!");
+		return;
+	}
+
+	stalker->set_fire_queue_scale(size_k, interval_k);
+}
+
+bool CScriptGameObject::can_kill_enemy()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member can_kill_enemy!");
+		return (false);
+	}
+
+	// Callable from script at any time; the engine's own readers (CObjectActionFire) only run
+	// with a weapon out. No active item = no fire point, so no shot clearance to compute.
+	if (!stalker->inventory().ActiveItem())
+		return (false);
+
+	return (stalker->can_kill_enemy());
+}
+
+bool CScriptGameObject::can_kill_member()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member can_kill_member!");
+		return (false);
+	}
+
+	if (!stalker->inventory().ActiveItem())
+		return (false);
+
+	return (stalker->can_kill_member());
+}
+
+bool CScriptGameObject::fire_make_sense()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member fire_make_sense!");
+		return (false);
+	}
+
+	return (stalker->fire_make_sense());
+}
+
 void CScriptGameObject::aim_bone_id(LPCSTR bone_id)
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
@@ -1936,6 +2039,39 @@ void CScriptGameObject::unregister_in_combat()
 	}
 
 	stalker->agent_manager().member().unregister_in_combat(stalker);
+}
+
+// Force-plant enemy as a visible-memory object on this stalker (CMemoryManager::
+// make_object_visible_somewhen - the same call the engine uses when distributing wounded
+// targets across a squad, agent_enemy_manager.cpp). Enemy selection scores a currently seen
+// enemy far above hit/sound memory, so an enemy injected only via hit memory never wins
+// selection; this puts him in the seen class, where the engine's nearest-seen logic takes over.
+void CScriptGameObject::make_enemy_visible(CScriptGameObject* enemy)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member make_enemy_visible!");
+		return;
+	}
+
+	if (!enemy)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : make_enemy_visible : enemy is nil!");
+		return;
+	}
+
+	const CEntityAlive* entity = smart_cast<const CEntityAlive*>(&enemy->object());
+	if (!entity)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : make_enemy_visible : enemy is not an alive entity!");
+		return;
+	}
+
+	stalker->memory().make_object_visible_somewhen(entity);
 }
 
 CCoverPoint const* CScriptGameObject::find_best_cover(Fvector position_to_cover_from)

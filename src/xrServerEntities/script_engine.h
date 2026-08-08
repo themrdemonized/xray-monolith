@@ -83,6 +83,7 @@ public:
 	virtual void unload();
 	static int lua_panic(lua_State* L);
 	static void lua_error(lua_State* L);
+	static void lua_error_not_crash(lua_State* L);
 	static int lua_pcall_failed(lua_State* L);
 #ifdef DEBUG
 	static	void				lua_hook_call				(lua_State *L, lua_Debug *dbg);

@@ -16,6 +16,7 @@
 #include "stalker_animation_manager.h"
 #include "sight_manager.h"
 #include "stalker_planner.h"
+#include "CameraFirstEye.h"
 
 #include "../Include/xrRender/Kinematics.h"
 #include "../xrphysics/PhysicsShell.h"
@@ -336,32 +337,16 @@ void CWeaponStatMgun::AddShotEffector()
 {
 	if (OwnerActor())
 	{
-#if 0
-		CameraRecoil camera_recoil;
-		camera_recoil.MaxAngleVert = camMaxAngle;
-		camera_recoil.RelaxSpeed = camRelaxSpeed;
-		camera_recoil.MaxAngleHorz = deg2rad(20.0f);
-		camera_recoil.StepAngleHorz = deg2rad(1.15f);
-		camera_recoil.DispersionFrac = 0.0f;
-		CCameraShotEffector *E = smart_cast<CCameraShotEffector *>(Cameras().GetCamEffector(eCEShot));
-		if (E == nullptr)
+#ifdef STATIONARYMGUN_NEW
+        if (Camera() && (Camera()->tag == eCamFirst) && m_shot_effector.size() && xr_strcmp(m_shot_effector, "nil"))
 		{
-			E = (CCameraShotEffector *)OwnerActor()->Cameras().AddCamEffector(xr_new<CCameraShotEffector>(camera_recoil));
+			CAnimatorCamEffector *E = xr_new<CAnimatorCamEffector>();
+			E->SetType((ECamEffectorType)STM_SHOT_EFFECTOR);
+			E->SetHudAffect(false);
+			E->SetCyclic(false);
+			E->Start(m_shot_effector.c_str());
+			OwnerActor()->Cameras().AddCamEffector(E);
 		}
-		else
-		{
-			if (E->m_WeaponID != weapon->ID())
-			{
-				E->Initialize(camera_recoil);
-			}
-			else
-			{
-				E->UpdateCameraRecoil(camera_recoil);
-			}
-		}
-		R_ASSERT(E);
-		E->Initialize(camera_recoil);
-		E->Shot2(0.01f);
 #else
 		CCameraShotEffector* S = smart_cast<CCameraShotEffector*>(OwnerActor()->Cameras().GetCamEffector(eCEShot));
 		CameraRecoil camera_recoil;

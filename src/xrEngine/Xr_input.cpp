@@ -371,7 +371,7 @@ bool CInput::dik_to_text(int dik, bool shift, bool caps, bool ctrl, bool alt, bo
 		ks[VK_CONTROL] = 0x80;
 		ks[VK_MENU] = 0x80;
 	}
-
+    
 	wchar_t wbuf[8] = {};
 	const int rc = ToUnicodeEx(vk, scan, ks, wbuf, (int)std::size(wbuf), 0, hkl);
 

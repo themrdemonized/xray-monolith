@@ -225,7 +225,8 @@ public:
 	// LuaGC
 	int LuaGCCount;
 	bool LuaGCDone;
-	fastdelegate::FastDelegate1<const bool, int> LuaGC;
+	fastdelegate::FastDelegate0<int> LuaGC;
+	fastdelegate::FastDelegate0<void> LuaGCDebug;
 
 	// Dependent classes
 	//CResourceManager* Resources;
@@ -314,6 +315,8 @@ public:
 	void Run(void);
 	void Destroy(void);
 	void Reset(bool precache = true);
+
+	bool ChangeOutputMonitor(HMONITOR hTargetMon);
 
 	void Initialize(void);
 	void ShutDown(void);

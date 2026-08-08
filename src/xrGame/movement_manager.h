@@ -158,6 +158,7 @@ protected:
 
 protected:
 	NEAREST_OBJECTS m_nearest_objects;
+    Fvector m_nearest_objects_query_pos;
 
 protected:
 	float m_speed;
@@ -177,6 +178,8 @@ private:
 	bool m_extrapolate_path;
 	bool m_build_at_once;
 	bool m_wait_for_distributed_computation;
+	u32 m_restriction_rebuild_smooth_frames;
+	bool m_allow_rebuild_smoothing;
 
 public:
 	CGameVertexParams* m_base_game_selector;

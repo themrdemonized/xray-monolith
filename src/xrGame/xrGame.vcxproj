@@ -984,6 +984,7 @@
     <ClInclude Include="Car.h" />
     <ClInclude Include="CarDamageParticles.h" />
     <ClInclude Include="CarLights.h" />
+    <ClInclude Include="CarDrone.h" />
     <ClInclude Include="CarWeapon.h" />
     <ClInclude Include="car_memory.h" />
     <ClInclude Include="cdkey_ban_list.h" />
@@ -1438,6 +1439,7 @@
     <ClInclude Include="ph_shell_interface.h" />
     <ClInclude Include="player_account.h" />
     <ClInclude Include="player_hud.h" />
+    <ClInclude Include="player_hud_legs.h" />
     <ClInclude Include="player_name_modifyer.h" />
     <ClInclude Include="player_spot_params.h" />
     <ClInclude Include="player_state_achilles_heel.h" />
@@ -1913,6 +1915,7 @@
     <ClInclude Include="ui\UISubLine.h" />
     <ClInclude Include="ui\UITabButton.h" />
     <ClInclude Include="ui\UITabButtonMP.h" />
+    <ClInclude Include="ui\UITabScrollArrows.h" />
     <ClInclude Include="ui\UITabControl.h" />
     <ClInclude Include="ui\UITalkDialogWnd.h" />
     <ClInclude Include="ui\UITalkWnd.h" />
@@ -2664,6 +2667,7 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <ClCompile Include="CarSound.cpp" />
+    <ClCompile Include="CarDrone.cpp" />
     <ClCompile Include="CarWeapon.cpp" />
     <ClCompile Include="CarWheels.cpp" />
     <ClCompile Include="car_memory.cpp" />
@@ -2979,6 +2983,7 @@
     <ClCompile Include="ik_foot_collider.cpp" />
     <ClCompile Include="ik_limb_state.cpp" />
     <ClCompile Include="ik_object_shift.cpp" />
+    <ClCompile Include="player_hud_legs.cpp" />
     <ClCompile Include="script_imgui_script.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
@@ -4112,6 +4117,8 @@
     <ClCompile Include="ui\UITabButton.cpp" />
     <ClCompile Include="ui\UITabButtonMP.cpp" />
     <ClCompile Include="ui\UITabControl.cpp" />
+    <ClCompile Include="ui\UITabControl_scroll.cpp" />
+    <ClCompile Include="ui\UITabScrollArrows.cpp" />
     <ClCompile Include="ui\UITabControl_script.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

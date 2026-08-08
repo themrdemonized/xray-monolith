@@ -31,11 +31,14 @@
 using namespace MovementManager;
 
 const float verify_distance = 15.f;
+int RESTRICTION_REBUILD_SMOOTH_FRAMES = 20;
 
 CMovementManager::CMovementManager(CCustomMonster* object)
 {
 	VERIFY(object);
 	m_object = object;
+	m_restriction_rebuild_smooth_frames = 0;
+	m_allow_rebuild_smoothing = false;
 }
 
 CMovementManager::~CMovementManager()
@@ -89,6 +92,8 @@ void CMovementManager::reinit()
 	m_speed = 0.f;
 	m_old_desirable_speed = 0.f;
 	m_build_at_once = false;
+	m_restriction_rebuild_smooth_frames = 0;
+	m_allow_rebuild_smoothing = false;
 
 	enable_movement(true);
 	game_selector().reinit(&ai().game_graph());
@@ -353,6 +358,8 @@ void CMovementManager::on_restrictions_change()
 {
 	//	Msg								("[%6d][%s][on_restrictions_change]",Device.dwTimeGlobal,*object().cName());
 	m_path_actuality = false;
+	m_restriction_rebuild_smooth_frames = RESTRICTION_REBUILD_SMOOTH_FRAMES;
+	m_allow_rebuild_smoothing = false;
 	level_path_builder().remove();
 	detail_path_builder().remove();
 	level_path().on_restrictions_change();
@@ -377,6 +384,17 @@ void CMovementManager::on_frame(CPHMovementControl* movement_control, Fvector& d
 		(m_path_state != ePathStatePathCompleted)
 	)
 		update_path();
+
+	m_allow_rebuild_smoothing =
+		!actual() &&
+		(m_restriction_rebuild_smooth_frames > 0) &&
+		!detail().path().empty() &&
+		(detail().curr_travel_point_index() < detail().path().size() - 1) &&
+		!detail().completed(object().Position(), true);
+	if (m_allow_rebuild_smoothing)
+		--m_restriction_rebuild_smooth_frames;
+	else if (actual())
+		m_restriction_rebuild_smooth_frames = 0;
 
 	move_along_path(movement_control, dest_position, object().client_update_fdelta());
 

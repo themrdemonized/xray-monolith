@@ -173,13 +173,13 @@ namespace mp_anticheat
 		for (CInifile::RootIt sit = received.sections().begin(),
 		                      siet = received.sections().end(); sit != siet; ++sit)
 		{
-			CInifile::Sect* tmp_sect = *sit;
-			if (tmp_sect->Name == cd_info_secion)
+			CInifile::Sect& tmp_sect = *sit;
+			if (tmp_sect.Name == cd_info_secion)
 				continue;
-			if (tmp_sect->Name == active_params_section)
+			if (tmp_sect.Name == active_params_section)
 				continue;
 
-			diff_str = get_section_diff(tmp_sect, active_params, dst_diff);
+			diff_str = get_section_diff(&tmp_sect, active_params, dst_diff);
 			if (diff_str)
 			{
 				return diff_str;

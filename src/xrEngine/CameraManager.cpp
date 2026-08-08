@@ -240,6 +240,31 @@ void CCameraManager::RemoveCamEffector(CEffectorCam* ef)
 	}
 }
 
+void CCameraManager::RemoveHudMotionEffectors()
+{
+	for (EffectorCamIt it = m_EffectorsCam.begin(); it != m_EffectorsCam.end();)
+	{
+		if ((*it)->IsHudMotionEffector())
+		{
+			OnEffectorReleased(*it);
+			it = m_EffectorsCam.erase(it);
+		}
+		else
+			++it;
+	}
+
+	for (EffectorCamIt it = m_EffectorsCam_added_deffered.begin(); it != m_EffectorsCam_added_deffered.end();)
+	{
+		if ((*it)->IsHudMotionEffector())
+		{
+			OnEffectorReleased(*it);
+			it = m_EffectorsCam_added_deffered.erase(it);
+		}
+		else
+			++it;
+	}
+}
+
 CEffectorPP* CCameraManager::GetPPEffector(EEffectorPPType type)
 {
 	for (EffectorPPIt it = m_EffectorsPP.begin(); it != m_EffectorsPP.end(); it++)

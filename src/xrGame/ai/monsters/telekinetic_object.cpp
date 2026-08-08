@@ -16,8 +16,8 @@
 CTelekineticObject::CTelekineticObject()
 {
 	state = TS_None;
-	object = 0;
-	telekinesis = 0;
+	object = nullptr;
+	telekinesis = nullptr;
 	m_rotate = false;
 }
 

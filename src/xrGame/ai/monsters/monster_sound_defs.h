@@ -45,4 +45,4 @@ namespace MonsterSound
 	};
 };
 
-#define DEFAULT_SAMPLE_COUNT	16
+#define DEFAULT_SAMPLE_COUNT	32

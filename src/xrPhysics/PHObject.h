@@ -63,6 +63,7 @@ protected:
 	void UnsetRayMotions() { m_flags.set(fl_ray_motions,FALSE); }
 
 	void SetPrefereExactIntegration() { m_island.SetPrefereExactIntegration(); }
+	void SetForceExactIntegration() { m_island.SetForceExactIntegration(); }
 
 
 	CPHObject* SelfPointer() { return this; }

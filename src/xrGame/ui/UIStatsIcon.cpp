@@ -65,6 +65,7 @@ void CUIStatsIcon::InitTexInfo()
 void CUIStatsIcon::FreeTexInfo()
 {
 	// ranks
+    /*
 	for (int i = RANK_0; i <= RANK_4; i++)
 	{
 		m_tex_info[i][0].sh->destroy();
@@ -74,6 +75,7 @@ void CUIStatsIcon::FreeTexInfo()
 	m_tex_info[ARTEFACT][1].sh->destroy();
 	m_tex_info[DEATH][0].sh->destroy();
 	m_tex_info[DEATH][1].sh->destroy();
+    */
 }
 
 void CUIStatsIcon::SetValue(LPCSTR str)

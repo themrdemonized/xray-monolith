@@ -103,7 +103,7 @@ BOOL CProjector::net_Spawn(CSE_Abstract* DC)
 				_GetItem(str, idx, sec);
 				if (sec && strlen(sec))
 				{
-					m_lights.push_back(SProjectorLight(this, sec));
+					m_lights.emplace_back(this, sec);
 					SProjectorLight &I = m_lights.back();
 					I.Load(ini, ini->section_exist(sec) ? sec : def);
 					continue;
@@ -123,7 +123,7 @@ BOOL CProjector::net_Spawn(CSE_Abstract* DC)
 				_GetItem(str, idx, sec);
 				if (sec && strlen(sec) && ini->section_exist(sec))
 				{
-					m_controls.push_back(SProjectorControl(this, sec));
+					m_controls.emplace_back(this, sec);
 					SProjectorControl &I = m_controls.back();
 					I.Load(ini, sec);
 					continue;

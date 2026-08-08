@@ -96,6 +96,10 @@ void CWeaponAK74::script_register	(lua_State *L)
 
 			.def("GetInertionAimFactor", &CWeapon::GetInertionAimFactor)
 
+			.def("get_CurrentFirePoint", &CWeapon::get_CurrentFirePoint)
+			.def("get_CurrentFirePoint2", &CWeapon::get_CurrentFirePoint2)
+			.def("get_CurrentFirePointSilencer", &CWeapon::get_CurrentFirePointSilencer)
+
 			// Setters
 			.def("SetFireDispersion", &CWeapon::SetFireDispersionScript)
 			.def("SetMisfireStartCondition", &CWeapon::SetMisfireStartCondition)
@@ -132,6 +136,9 @@ void CWeaponAK74::script_register	(lua_State *L)
 			// momopate
 			.def("GetZoomRotateTime", &CWeapon::GetZoomRotateTime)
 			.def("SetZoomRotateTime", &CWeapon::SetZoomRotateTime)
+
+            // verdatim
+            .def("ForceSetZoomType", &CWeapon::ForceSetZoomType)
 
 			// demonized: World model on stalkers adjustments
 			.def("Set_mOffset", &CWeapon::set_mOffset)

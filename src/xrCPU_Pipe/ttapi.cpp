@@ -118,7 +118,7 @@ DWORD ttapi_Init(_processor_info* ID)
 	if (ttapi_workers_count == 0) ttapi_workers_count = 4;
 
 	// 2. Handle Command Line Override (-max-threads)
-	// Kept for backward compatibility with your launcher/user configs
+	// Kept for backward compatibility with launcher/user configs
 	char szSearchFor[] = "-max-threads";
 	char* pszTemp = strstr(GetCommandLine(), szSearchFor);
 	DWORD dwOverride = 0;
@@ -147,9 +147,7 @@ DWORD ttapi_Init(_processor_info* ID)
 	memset(ttapi_worker_params, 0, sizeof(TTAPI_WORKER_PARAMS) * ttapi_workers_count);
 
 	// 5. Create Threads WITHOUT Affinity Masking
-	// We let the Windows Scheduler decide where to put threads.
-	// This supports Ryzen CCX layouts and Intel P-Core/E-Core properly.
-
+	// let the Windows Scheduler decide where to put threads.
 	char szThreadName[64];
 	DWORD dwThreadId = 0;
 
@@ -174,11 +172,6 @@ DWORD ttapi_Init(_processor_info* ID)
 		// Falls back gracefully on older windows if not available, 
 		// much cleaner than the old "Throw Exception" hack.
 		sprintf_s(szThreadName, "Helper Thread #%u", i);
-
-		// Convert to wide string for SetThreadDescription
-		wchar_t wThreadName[64];
-		mbstowcs(wThreadName, szThreadName, 64);
-		SetThreadDescription(ttapi_threads_handles[i], wThreadName);
 	}
 
 	ttapi_initialized = TRUE;

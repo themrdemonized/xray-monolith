@@ -851,6 +851,14 @@ BOOL CBulletManager::firetrace_callback(collide::rq_result& result, LPVOID param
 	if (!kinematics)
 		return (FALSE);
 
+#ifdef CBULLETMANAGER_EX
+    if (result.O->GetBulletCheckVisual() && !bullet_manager.ValidateHitDynamicVisualMesh(bullet, result, collide_position, data.max_distance))
+    {
+        /* Ignore this hit and allow the bullet to continue flying. */
+        return TRUE;
+    }
+#endif
+
 	CBoneData const& bone_data = kinematics->LL_GetData((u16)result.element);
 	bullet_manager.RegisterEvent(EVENT_HIT, TRUE, &bullet, collide_position, result, bone_data.game_mtl_idx);
 	return (FALSE);
@@ -879,6 +887,9 @@ bool CBulletManager::trajectory_check_error(
 
 	bullet_test_callback_data data;
 	data.pBullet = &bullet;
+#ifdef CBULLETMANAGER_EX
+    data.max_distance = distance;
+#endif
 #if 1//def DEBUG
 	data.high_time = high;
 #endif // #ifdef DEBUG
@@ -1357,3 +1368,16 @@ void CBulletManager::RegisterEvent(EventType Type, BOOL _dynamic, SBullet* bulle
 		break;
 	}
 }
+
+#ifdef CBULLETMANAGER_EX
+bool CBulletManager::ValidateHitDynamicVisualMesh(SBullet& B, collide::rq_result& R, Fvector& collide_position, float range)
+{
+    IKinematics::pick_result res;
+    if (R.O->Visual()->dcast_PKinematics()->PickBone(R.O->XFORM(), res, range, B.bullet_pos, B.dir, (u16)R.element))
+    {
+        collide_position.mad(B.bullet_pos, B.dir, res.dist);
+        return true;
+    }
+    return false;
+}
+#endif

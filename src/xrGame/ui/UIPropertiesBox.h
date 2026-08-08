@@ -13,7 +13,7 @@ class CUIPropertiesBox :
 private:
 	typedef CUIFrameWindow inherited;
 public:
-	CUIPropertiesBox(CUIPropertiesBox* sub_property_box = NULL);
+	CUIPropertiesBox();
 	virtual ~CUIPropertiesBox();
 
 	void InitPropertiesBox(Fvector2 pos, Fvector2 size);
@@ -24,7 +24,13 @@ public:
 
 	bool AddItem(LPCSTR str, void* pData = NULL, u32 tag_value = 0);
 	bool AddItem_script(LPCSTR str) { return AddItem(str); };
+	bool AddItem_script_tag(LPCSTR str, u32 tag_value) { return AddItem(str, NULL, tag_value); };
+	void AddHeader_script(LPCSTR str) { AddHeader(str); };
 	u32 GetItemsCount() { return m_UIListWnd.GetSize(); };
+	CUIListBoxItem* GetItemByIDX(int idx) { return m_UIListWnd.GetItemByIDX(idx); }
+	const xr_map<CUIListBoxItem*, CUIPropertiesBox*>& GetItemSubmenus() const { return m_item_submenus; }
+	CUIListBoxItem* AddHeader(LPCSTR str);
+	void RemoveItem(CUIListBoxItem* itm);
 	void RemoveItemByTAG(u32 tag_value);
 	void RemoveAll();
 
@@ -38,17 +44,25 @@ public:
 
 	void AutoUpdateSize();
 
-	void ShowSubMenu();
-	void xr_stdcall OnItemReceivedFocus(CUIWindow* w, void* d);
+	// Hover-expanding submenus, Lua-fed. Creates and owns a child box under `label`,
+	// returns a borrowed pointer for Lua to populate (see AddSubmenu in the .cpp).
+	CUIPropertiesBox* AddSubmenu(LPCSTR label);
 protected:
 	CUIListBox m_UIListWnd;
 private:
-	//I must not hide this menu, and my child sub menu must hide me...
-	CUIPropertiesBox* m_sub_property_box;
-	void SetParentSubMenu(CUIPropertiesBox* parent_menu) { m_parent_sub_menu = parent_menu; };
 	Frect m_last_show_rect;
-	CUIPropertiesBox* m_parent_sub_menu; //warning !!! dubling pointers to the same object !!!
-	CUIWindow* m_item_sub_menu_initiator; //fills in ShowSubMenu
+
+	// per-item hover submenus
+	xr_map<CUIListBoxItem*, CUIPropertiesBox*> m_item_submenus;
+	CUIPropertiesBox* m_active_submenu;
+	CUIListBoxItem* m_active_sub_item;
+	CUIPropertiesBox* m_parent_menu;
+	u32 m_submenu_close_at;
+
+	void ShowSubMenuForItem(CUIListBoxItem* item);
+	void HideActiveSubmenu();
+	void ClearSubmenus();
+	bool CursorOverTree();
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

@@ -635,6 +635,19 @@ void CCustomMonster::update_range_fov(float& new_range, float& new_fov, float st
 	float current_far_plane = GamePersistent().Environment().CurrentEnv->far_plane;
 	// 300=standart, 50=super-fog
 
+#ifdef HOLDERCUSTOM_NEW
+    if (cast_stalker() && cast_stalker()->Holder())
+    {
+#ifdef STATIONARYMGUN_NEW
+        CWeaponStatMgun* stm = smart_cast<CWeaponStatMgun*>(cast_stalker()->Holder());
+        if (stm)
+        {
+            stm->OverrideRangeFOV(cast_game_object(), start_range);
+        }
+#endif
+    }
+#endif
+
 	new_fov = start_fov;
 	new_range =
 		start_range

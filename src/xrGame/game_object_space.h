@@ -96,6 +96,10 @@ namespace GameObject
 		eOnWeaponLowered,
 		eOnWeaponRaised,
 
+#ifdef NET_SPAWN_AFTER_CALLBACKS
+        eNetSpawnAfter,
+#endif
+
 		eDummy = u32(-1),
 	};
 };

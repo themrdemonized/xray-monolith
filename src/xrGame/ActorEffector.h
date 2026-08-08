@@ -100,6 +100,12 @@ public:
 	virtual void ProcessIfInvalid(SCamEffectorInfo& info);
 };
 
+class CHudMotionCamEffector : public CAnimatorCamEffector
+{
+public:
+	virtual bool IsHudMotionEffector() const { return true; }
+};
+
 class CAnimatorCamLerpEffector : public CAnimatorCamEffector
 {
 protected:

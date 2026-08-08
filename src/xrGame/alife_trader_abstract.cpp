@@ -265,8 +265,6 @@ void add_offline_impl(CSE_ALifeDynamicObject* object, const xr_vector<ALife::_OB
 		if (!child->can_save())
 		{
 			object->alife().release(child);
-			--i;
-			--n;
 			continue;
 		}
 

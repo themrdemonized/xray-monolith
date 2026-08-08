@@ -29,6 +29,8 @@
 #include "hit_memory_manager.h"
 #include "sight_manager.h"
 #include "stalker_movement_manager_smart_cover.h"
+#include "smart_cover.h"
+#include "smart_cover_loophole.h"
 #include "movement_manager_space.h"
 #include "detail_path_manager_space.h"
 #include "level_debug.h"
@@ -146,6 +148,45 @@ void CScriptGameObject::SetVisualMemoryEnabled(bool enabled)
 		                                "CCustomMonster: cannot access class member ChangeTeam!");
 	else
 		custom_monster->memory().visual().enable(enabled);
+}
+
+void CScriptGameObject::set_vision_speed(float value)
+{
+	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
+	if (!custom_monster)
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CCustomMonster : cannot access class member set_vision_speed!");
+	else
+		custom_monster->memory().visual().set_vision_speed(value);
+}
+
+float CScriptGameObject::GetObjectVisibleDistance(const CScriptGameObject* obj)
+{
+    if (obj == nullptr)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
+    }
+    CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
+    if (custom_monster == nullptr)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
+    }
+    float distance = 0.0F;
+    return custom_monster->visual_memory()->object_visible_distance(&obj->object(), distance);
+}
+
+float CScriptGameObject::GetObjectLuminocity(const CScriptGameObject* obj)
+{
+    if (obj == nullptr)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
+    }
+    CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
+    if (custom_monster == nullptr)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
+    }
+    return custom_monster->visual_memory()->object_luminocity(&obj->object());
 }
 
 CScriptGameObject* CScriptGameObject::GetEnemy() const
@@ -551,6 +592,77 @@ CHARACTER_RANK_VALUE CScriptGameObject::GetRank()
 	}
 	else
 		return (stalker->Rank());
+}
+
+LPCSTR CScriptGameObject::GetRankName()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] rank_name() called on non-stalker object",
+		                                object().cNameSect_str());
+		return ("");
+	}
+	return (*stalker->CharacterInfo().Rank().id());
+}
+
+bool CScriptGameObject::affect_cover() const
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] affect_cover() called on non-stalker object",
+		                                object().cNameSect_str());
+		return (false);
+	}
+	return (stalker->brain().affect_cover());
+}
+
+void CScriptGameObject::best_cover_invalidate()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] best_cover_invalidate() called on non-stalker object",
+		                                object().cNameSect_str());
+		return;
+	}
+	stalker->best_cover_invalidate();
+}
+
+LPCSTR CScriptGameObject::GetCurrentSmartCoverName()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] get_current_smart_cover_name() called on non-stalker object",
+		                                object().cNameSect_str());
+		return ("");
+	}
+	smart_cover::cover const* cover = stalker->get_current_smart_cover();
+	if (!cover)
+		return ("");
+	return (*cover->object().cName());
+}
+
+LPCSTR CScriptGameObject::GetCurrentLoopholeId()
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CGameObject: [%s] get_current_loophole_id() called on non-stalker object",
+		                                object().cNameSect_str());
+		return ("");
+	}
+	smart_cover::loophole const* loophole = stalker->get_current_loophole();
+	if (!loophole)
+		return ("");
+	return (*loophole->id());
 }
 
 void CScriptGameObject::set_desired_position()
@@ -1023,6 +1135,13 @@ void CScriptGameObject::DisableAnomaly()
 	zone->ZoneDisable();
 }
 
+bool CScriptGameObject::IsEnabledAnomaly()
+{
+    CCustomZone* zone = smart_cast<CCustomZone*>(&object());
+    THROW(zone);
+    return zone->IsEnabled();
+}
+
 void CScriptGameObject::ChangeAnomalyIdlePart(LPCSTR name, bool bIdleLight)
 {
 	CCustomZone* zone = smart_cast<CCustomZone*>(&object());
@@ -1427,6 +1546,28 @@ bool CScriptGameObject::is_weapon_going_to_be_strapped(CScriptGameObject const* 
 	}
 
 	return stalker->is_weapon_going_to_be_strapped(&object->object());
+}
+
+::luabind::object CScriptGameObject::g_fireParams()
+{
+    ::luabind::object lua_table = ::luabind::newtable(ai().script_engine().lua());
+    Fvector pos, dir;
+    if (object().cast_actor())
+    {
+        object().cast_actor()->g_fireParams(nullptr, pos, dir);
+        lua_table["pos"] = pos;
+        lua_table["dir"] = dir;
+        return lua_table;
+    }
+    if (object().cast_stalker())
+    {
+        object().cast_stalker()->g_fireParams(nullptr, pos, dir);
+        lua_table["pos"] = pos;
+        lua_table["dir"] = dir;
+        return lua_table;
+    }
+    ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : object invalid.");
+    return lua_table;
 }
 
 //Alundaio:
@@ -1939,6 +2080,53 @@ void CScriptGameObject::SetRestrictionType(u8 typ)
 	}
 }
 
+void CScriptGameObject::ForceSetRestrictionType(u8 typ)
+{
+	CSpaceRestrictor* restr = smart_cast<CSpaceRestrictor*>(&object());
+	if (!restr)
+		return;
+
+	RestrictionSpace::ERestrictorTypes new_type = RestrictionSpace::ERestrictorTypes(typ);
+	switch (new_type)
+	{
+	    case RestrictionSpace::eDefaultRestrictorTypeNone:
+	    case RestrictionSpace::eDefaultRestrictorTypeOut:
+	    case RestrictionSpace::eDefaultRestrictorTypeIn:
+	    case RestrictionSpace::eRestrictorTypeNone:
+	    case RestrictionSpace::eRestrictorTypeIn:
+	    case RestrictionSpace::eRestrictorTypeOut:
+		    break;
+	    default:
+		    ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			    make_string("CGameObject [%s]: invalid restrictor type [%u]!", object().cNameSect().c_str(), typ).c_str());
+		    return;
+	}
+
+	RestrictionSpace::ERestrictorTypes old_type = RestrictionSpace::ERestrictorTypes(restr->m_space_restrictor_type);
+    if (old_type == new_type)
+        return;
+
+	if (old_type != RestrictionSpace::eRestrictorTypeNone)
+		Level().space_restriction_manager().unregister_restrictor(restr);
+
+	restr->m_space_restrictor_type = typ;
+	if (new_type != RestrictionSpace::eRestrictorTypeNone)
+		Level().space_restriction_manager().register_restrictor(restr, new_type);
+}
+
+void CScriptGameObject::InvalidateRestrictions()
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			make_string("CGameObject [%s]: cannot invalidate restrictions (not a CCustomMonster)!", object().cNameSect().c_str()).c_str());
+		return;
+	}
+
+	monster->movement().restrictions().actual(false);
+}
+
 // demonized: add getters and setters for pathfinding for npcs around anomalies and damage for npcs
 bool CScriptGameObject::get_enable_anomalies_pathfinding()
 {
@@ -1983,6 +2171,17 @@ void CScriptGameObject::set_enable_anomalies_damage(bool v)
 		return;
 	}
 	stalker->m_enable_anomalies_damage = v;
+}
+bool CScriptGameObject::inside_anomaly()
+{
+	auto stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+			"CGameObject : cannot call inside_anomaly (not a CAI_Stalker)!");
+		return false;
+	}
+	return stalker->inside_anomaly();
 }
 #endif
 //-Alundaio

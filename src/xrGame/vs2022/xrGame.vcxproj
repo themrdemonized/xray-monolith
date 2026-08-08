@@ -973,6 +973,7 @@
     <ClInclude Include="..\Car.h" />
     <ClInclude Include="..\CarDamageParticles.h" />
     <ClInclude Include="..\CarLights.h" />
+    <ClInclude Include="..\CarDrone.h" />
     <ClInclude Include="..\CarWeapon.h" />
     <ClInclude Include="..\car_memory.h" />
     <ClInclude Include="..\cdkey_ban_list.h" />
@@ -1905,6 +1906,7 @@
     <ClInclude Include="..\ui\UISubLine.h" />
     <ClInclude Include="..\ui\UITabButton.h" />
     <ClInclude Include="..\ui\UITabButtonMP.h" />
+    <ClInclude Include="..\ui\UITabScrollArrows.h" />
     <ClInclude Include="..\ui\UITabControl.h" />
     <ClInclude Include="..\ui\UITalkDialogWnd.h" />
     <ClInclude Include="..\ui\UITalkWnd.h" />
@@ -2658,6 +2660,7 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <ClCompile Include="..\CarSound.cpp" />
+    <ClCompile Include="..\CarDrone.cpp" />
     <ClCompile Include="..\CarWeapon.cpp" />
     <ClCompile Include="..\CarWheels.cpp" />
     <ClCompile Include="..\car_memory.cpp" />
@@ -4101,6 +4104,8 @@
     <ClCompile Include="..\ui\UITabButton.cpp" />
     <ClCompile Include="..\ui\UITabButtonMP.cpp" />
     <ClCompile Include="..\ui\UITabControl.cpp" />
+    <ClCompile Include="..\ui\UITabControl_scroll.cpp" />
+    <ClCompile Include="..\ui\UITabScrollArrows.cpp" />
     <ClCompile Include="..\ui\UITabControl_script.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

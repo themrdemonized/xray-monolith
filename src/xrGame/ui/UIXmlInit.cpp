@@ -160,6 +160,9 @@ bool CUIXmlInit::InitStatic(CUIXml& xml_doc, LPCSTR path,
 	InitTexture(xml_doc, path, index, pWnd);
 	InitTextureOffset(xml_doc, path, index, pWnd);
 
+	bool cover_flag = xml_doc.ReadAttribInt(path, index, "cover", 0) ? true : false;
+	pWnd->SetCoverTexture(cover_flag);
+
 	int flag = xml_doc.ReadAttribInt(path, index, "heading", 0);
 	pWnd->EnableHeading((flag) ? true : false);
 
@@ -562,6 +565,11 @@ bool CUIXmlInit::InitProgressBar(CUIXml& xml_doc, LPCSTR path,
 	else if (stricmp(mode_str, "down") == 0) { mode = CUIProgressBar::om_down; }
 
 	pWnd->InitProgressBar(pos, size, mode);
+
+    if (xml_doc.ReadAttribInt(path, index, "snap_no_delay") == 1)
+    {
+        pWnd->SetSnapNoDelay(true);
+    }
 
 	float min = xml_doc.ReadAttribFlt(path, index, "min");
 	float max = xml_doc.ReadAttribFlt(path, index, "max");

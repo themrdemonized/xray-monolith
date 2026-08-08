@@ -118,8 +118,8 @@ BOOL CHangingLamp::net_Spawn(CSE_Abstract* DC)
 	def_clr = clr;
 
 	light_render = ::Render->light_create();
-	light_render->set_shadow(!!lamp->flags.is(CSE_ALifeObjectHangingLamp::flCastShadow));
-	light_render->set_volumetric(!!lamp->flags.is(CSE_ALifeObjectHangingLamp::flVolumetric));
+	light_render->set_shadow(READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "shadow", !!lamp->flags.is(CSE_ALifeObjectHangingLamp::flCastShadow)));
+	light_render->set_volumetric(READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "volumetric", !!lamp->flags.is(CSE_ALifeObjectHangingLamp::flVolumetric)));
 	light_render->set_type(lamp->flags.is(CSE_ALifeObjectHangingLamp::flTypeSpot)
 		                       ? IRender_Light::SPOT
 		                       : IRender_Light::POINT);
@@ -145,7 +145,8 @@ BOOL CHangingLamp::net_Spawn(CSE_Abstract* DC)
 		ambient_power = lamp->m_ambient_power;
 		light_ambient = ::Render->light_create();
 		light_ambient->set_type(IRender_Light::POINT);
-		light_ambient->set_shadow(false);
+        light_ambient->set_shadow(READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "ambient_shadow", false));
+        light_ambient->set_volumetric(READ_IF_EXISTS(pSettings, r_bool, cNameSect(), "ambient_volumetric", false));
 		clr.mul_rgb(ambient_power);
 		light_ambient->set_range(lamp->m_ambient_radius);
 		light_ambient->set_color(clr);

@@ -107,7 +107,7 @@ void CCar::SCarSound::UpdateDrive()
 {
 	VERIFY(!physics_world()->Processing());
 #ifdef CAR_NEW
-	if (pcar->GetType() == CCar::eCarTypeFly)
+	if (pcar->CarDrone())
 	{
 		snd_engine.set_frequency(1.0F);
 		SetSoundPosition(snd_engine);

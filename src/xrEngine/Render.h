@@ -61,8 +61,8 @@ public:
 	virtual void set_indirect(bool)
 	{
 	};
-	virtual void set_position(const Fvector& P) = 0;
-	virtual void set_rotation(const Fvector& D, const Fvector& R) = 0;
+	virtual void set_position(const Fvector& P, const float eps = EPS) = 0;
+	virtual void set_rotation(const Fvector& D, const Fvector& R, const float eps = EPS) = 0;
 	virtual void set_cone(float angle) = 0;
 	virtual void set_range(float R) = 0;
 	virtual void set_virtual_size(float R) = 0;
@@ -89,7 +89,7 @@ class ENGINE_API IRender_Glow : public xr_resource
 public:
 	virtual void set_active(bool) = 0;
 	virtual bool get_active() = 0;
-	virtual void set_position(const Fvector& P) = 0;
+	virtual void set_position(const Fvector& P, const float eps = EPS_L) = 0;
 	virtual void set_direction(const Fvector& P) = 0;
 	virtual void set_radius(float R) = 0;
 	virtual void set_texture(LPCSTR name) = 0;
