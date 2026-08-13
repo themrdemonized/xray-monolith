@@ -74,6 +74,11 @@ bool CUIDialogWndEx::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	return inherited::OnKeyboardAction(dik, keyboard_action);
 }
 
+bool CUIDialogWndEx::OnMouseAction(float x, float y, EUIMessages mouse_action)
+{
+	return inherited::OnMouseAction(x, y, mouse_action);
+}
+
 void CUIDialogWndEx::Update()
 {
 	inherited::Update();

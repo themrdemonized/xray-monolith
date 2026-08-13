@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "inventory.h"
 #include "weapon.h"
 #include "actor.h"
@@ -169,6 +169,7 @@ bool CInventory::ActivateNextItemInActiveSlot()
 	new_item->object().u_EventGen(P, GEG_PLAYER_ITEM2SLOT, new_item->object().H_Parent()->ID());
 	P.w_u16(new_item->object().ID());
 	P.w_u16(m_iActiveSlot);
+	P.w_u8(0); // do activate
 	new_item->object().u_EventSend(P);
 
 	//activate

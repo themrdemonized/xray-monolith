@@ -136,6 +136,7 @@ public:
 	void set_movement_position(const Fvector& pos);
 	void ForceTransform(const Fmatrix& m);
 	void set_use_hit_anims(bool v) { m_flags.set(fl_use_hit_anims, (BOOL)v); }
+	bool is_hit_anim_playing() const { return m_hit_animations.is_hit_anim_playing(); }
 	//////////////////base hierarchi methods///////////////////////////////////////////////////
 	void CreateCharacterSafe();
 	void CreateCharacter();

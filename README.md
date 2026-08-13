@@ -235,6 +235,19 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.08.09**
+* Main and MT:
+  * Expose AttachChild without the adopt policy (so lua windows can be attached to engine windows), fix https://github.com/themrdemonized/xray-monolith/issues/624
+  * [Feature Request] Expose scroll hooks in CUIScrollView/CUIScrollBar, fix https://github.com/themrdemonized/xray-monolith/issues/621
+  * damiansirbu:
+    * per-NPC view-distance factor setter (https://github.com/themrdemonized/xray-monolith/pull/627)
+    * per-NPC passive health-restore boost setter (https://github.com/themrdemonized/xray-monolith/pull/628)
+    * `npc:is_hit_anim_playing hit-flinch` reader (https://github.com/themrdemonized/xray-monolith/pull/629)
+  * lulnope: Expose script control on whether to activate item on move_to_slot or not (https://github.com/themrdemonized/xray-monolith/pull/631)
+
+* MT:
+  * Fix SSS Bloom affecting HUD elements
+
 **2026.07.31**
 * Main and MT:
   * Fix issue https://github.com/themrdemonized/xray-monolith/issues/622

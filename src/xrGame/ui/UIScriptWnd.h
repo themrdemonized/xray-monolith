@@ -28,6 +28,7 @@ public:
 	void AddCallback(LPCSTR control_id, s16 event, const ::luabind::functor<void>& functor,
 	                 const ::luabind::object& object);
 	virtual void Update();
+	virtual bool OnMouseAction(float x, float y, EUIMessages mouse_action);
 	virtual bool OnKeyboardAction(int dik, EUIMessages keyboard_action);
 	virtual bool Dispatch(int cmd, int param) { return true; }
 	/*

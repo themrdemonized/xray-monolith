@@ -137,6 +137,7 @@ void CBolt::PutNextToSlot()
 				pNext->u_EventGen(P, GEG_PLAYER_ITEM2SLOT, pNext->H_Parent()->ID());
 				P.w_u16(pNext->ID());
 				P.w_u16(pNext->BaseSlot());
+                P.w_u8(0); // do activate
 				pNext->u_EventSend(P);
 				m_pInventory->SetActiveSlot(pNext->BaseSlot());
 			}

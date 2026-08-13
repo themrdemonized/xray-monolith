@@ -16,6 +16,16 @@ struct CWrapperBase : public T, public ::luabind::wrap_base
 		return ptr->self_type::inherited::OnKeyboardAction(dik, keyboard_action);
 	}
 
+	virtual bool OnMouseAction(float x, float y, EUIMessages mouse_action)
+	{
+		return call_member<bool>(this, "OnMouse", x, y, mouse_action);
+	}
+
+	static bool OnMouse_static(inherited* ptr, float x, float y, EUIMessages mouse_action)
+	{
+		return ptr->self_type::inherited::OnMouseAction(x, y, mouse_action);
+	}
+
 	virtual void Update()
 	{
 		call_member<void>(this, "Update");

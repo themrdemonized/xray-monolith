@@ -164,6 +164,7 @@ void CUIWindow::script_register(lua_State* L)
 		class_<CUIWindow>("CUIWindow")
 		.def(constructor<>())
 		.def("AttachChild", &CUIWindow::AttachChild, adopt<2>())
+		.def("AttachChildKeepOwner", &CUIWindow::AttachChild)
 		.def("DetachChild", &CUIWindow::DetachChild)
 		.def("SetAutoDelete", &CUIWindow::SetAutoDelete)
 		.def("IsAutoDelete", &CUIWindow::IsAutoDelete)
@@ -270,6 +271,8 @@ void CUIWindow::script_register(lua_State* L)
 			value("WINDOW_LBUTTON_UP", int(WINDOW_LBUTTON_UP)),
 			value("WINDOW_RBUTTON_UP", int(WINDOW_RBUTTON_UP)),
 			value("WINDOW_MOUSE_MOVE", int(WINDOW_MOUSE_MOVE)),
+			value("WINDOW_MOUSE_WHEEL_UP", int(WINDOW_MOUSE_WHEEL_UP)),
+			value("WINDOW_MOUSE_WHEEL_DOWN", int(WINDOW_MOUSE_WHEEL_DOWN)),
 			value("WINDOW_LBUTTON_DB_CLICK", int(WINDOW_LBUTTON_DB_CLICK)),
 			value("WINDOW_KEY_PRESSED", int(WINDOW_KEY_PRESSED)),
 			value("WINDOW_KEY_RELEASED", int(WINDOW_KEY_RELEASED)),

@@ -141,7 +141,10 @@ void character_hit_animation_controller::PlayHitMotion(const Fvector& dir, const
 		play_cycle(CA, hit_downl, 3, block_blends[6], 1);
 
 	if (!IsEffected(bi, *K))
+	{
+		stamp_hit_anim_end();
 		return;
+	}
 	if (torqu.x < 0)
 		play_cycle(CA, turn_right, 2, block_blends[4], rotational_ammount);
 	else
@@ -165,6 +168,32 @@ void character_hit_animation_controller::PlayHitMotion(const Fvector& dir, const
 		play_cycle(CA, bkhit_motion, 2, block_blends[3], _abs(dr.z));
 
 	CA->LL_SetChannelFactor(2, g_params.anim_channel_factor);
+	stamp_hit_anim_end();
+}
+
+void character_hit_animation_controller::stamp_hit_anim_end() const
+{
+	float max_remaining = 0.f;
+	for (u16 i = 0; num_anims > i; ++i)
+	{
+		CBlend* B = block_blends[i];
+		if (!B || B->blend_state() == CBlend::eFREE_SLOT)
+			continue;
+		const float speed = B->speed > EPS ? B->speed : 1.f;
+		const float remaining = (B->timeTotal - B->timeCurrent) / speed;
+		if (remaining > max_remaining)
+			max_remaining = remaining;
+	}
+	if (max_remaining <= 0.f)
+		return;
+	const u32 end_ms = Device.dwTimeGlobal + u32(max_remaining * 1000.f);
+	if (end_ms > m_hit_anim_end_ms)
+		m_hit_anim_end_ms = end_ms;
+}
+
+bool character_hit_animation_controller::is_hit_anim_playing() const
+{
+	return Device.dwTimeGlobal < m_hit_anim_end_ms;
 }
 
 bool character_hit_animation_controller::IsEffected(u16 bi, IKinematics& ca) const

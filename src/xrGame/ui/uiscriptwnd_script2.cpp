@@ -24,6 +24,7 @@ export_class script_register_ui_window2(export_class&& instance)
 {
 	return std::move(instance)
 		.def("OnKeyboard", &BaseType::OnKeyboardAction, &WrapType::OnKeyboard_static)
+		.def("OnMouse", &BaseType::OnMouseAction, &WrapType::OnMouse_static)
 		.def("Update", &BaseType::Update, &WrapType::Update_static)
 		.def("Dispatch", &BaseType::Dispatch, &WrapType::Dispatch_static);
 }

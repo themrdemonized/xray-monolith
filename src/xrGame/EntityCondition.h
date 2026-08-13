@@ -246,6 +246,8 @@ protected:
 
 	SConditionChangeV m_change_v;
 
+	float m_health_restore_boost = 0.0f;
+
 	float m_fMinWoundSize;
 	bool m_bIsBleeding; //есть кровотечение
 
@@ -300,4 +302,7 @@ public:
 	IC float& hit_bone_scale() { return (m_fHitBoneScale); }
 	IC float& wound_bone_scale() { return (m_fWoundBoneScale); }
 	virtual SConditionChangeV& change_v();
+
+	IC void set_health_restore_boost(float value) { m_health_restore_boost = (value < 0.f) ? 0.f : value; }
+	IC float health_restore_boost() const { return (m_health_restore_boost); }
 };

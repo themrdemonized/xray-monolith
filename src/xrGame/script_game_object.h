@@ -441,7 +441,7 @@ public:
 	u32 Money();
 	void MakeItemActive(CScriptGameObject* pItem);
 	void MoveItemToRuck(CScriptGameObject* pItem);
-	void MoveItemToSlot(CScriptGameObject* pItem, u16 slot_id);
+	void MoveItemToSlot(CScriptGameObject* pItem, u16 slot_id, bool doNotActivate);
 	void MoveItemToBelt(CScriptGameObject* pItem);
 	void ItemAllowTrade(CScriptGameObject* pItem);
 	void ItemDenyTrade(CScriptGameObject* pItem);
@@ -840,9 +840,12 @@ public:
 	void set_aim_params(float max_angle, float min_angle, float min_speed, float predict_time);
 	void set_fire_queue_scale(float size_k, float interval_k);
 	void set_vision_speed(float value);
+	void set_view_distance_factor(float value);
+	void set_health_restore_boost(float value);
 	bool can_kill_enemy();
 	bool can_kill_member();
 	bool fire_make_sense();
+	bool is_hit_anim_playing();
 
 	void aim_bone_id(LPCSTR value);
 	LPCSTR aim_bone_id() const;

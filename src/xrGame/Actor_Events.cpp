@@ -240,7 +240,8 @@ void CActor::OnEvent(NET_Packet& P, u16 type)
 			case GEG_PLAYER_ITEM2SLOT:
 				{
 					u16 slot_id = P.r_u16();
-					inventory().Slot(slot_id, iitem);
+                    bool bDoNotActivate = P.r_u8() == 1; // conservatively preserve old behaviour unless very specifically (value == 1) requested otherwise
+					inventory().Slot(slot_id, iitem, bDoNotActivate);
 				}
 				break; //2
 			case GEG_PLAYER_ITEM2BELT:

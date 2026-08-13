@@ -659,10 +659,13 @@
         function get_actor_default_action_for_object()
 		function set_actor_box_y_offset(u32 box_num, float offset) --box_num:0 for stand, 1 for crouch, 2 for prone;
         function g_fireParams()
+        function move_to_slot(game_object* pItem, number slot_id, bool doNotActivate)
 
         // Stalker and Monster
         function invalidate_restrictions()
         void set_vision_speed(float factor) // Per-object vision-speed factor multiplied into get_visible_value on top of the ai_vision_speed_boost cvar. 1.0 = vanilla, higher spots faster, negative clamps to 0. Persists while online; re-set on spawn (memory manager is rebuilt when the NPC comes back online).
+        void set_view_distance_factor(float factor) // Per-object view-DISTANCE factor, the range sibling of set_vision_speed: multiplies object_visible_distance's return, composing with the per-state max_view_distance LTX multiplier. 1.0 = vanilla, higher sees farther, negative clamps to 0. Persists while online; re-set on spawn.
+        void set_health_restore_boost(float value) // Per-object additive passive health-restore boost: adds value to the condition's m_fV_HealthRestore velocity applied every UpdateHealth while alive (base ~0.00003/s for stalkers), so the entity regenerates HP over time with no item. 0 = vanilla, higher = faster idle regen, negative clamps to 0. Stalkers and monsters (any CEntityAlive). Persists while online; re-set on spawn (condition rebuilt on re-online).
 
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
@@ -682,6 +685,7 @@
         bool can_kill_enemy() // Engine posture-aware shot clearance: fire-point ray (with safety-angle probes) reaches the NPC's current selected enemy. False when no weapon is out. At most one recompute per frame (shared cache with the engine friendly-fire gate).
         bool can_kill_member() // As can_kill_enemy but true when the ray would hit a squad member (friendly fire). False when no weapon is out.
         bool fire_make_sense() // Engine fire-discipline gate for the current selected enemy: occlusion before target (pick_distance + ai_fire_range_extension), floor gap (ai_fire_max_height_diff), point-blank (ai_fire_min_dist), unseen enemy only within ai_fire_make_sense_interval and with an automatic weapon.
+        bool is_hit_anim_playing() // True while the engine's additive hit flinch (PlayHitMotion) is still blending on this entity - one clock compare against the end time stamped when the flinch played, no blend walk. Any alive entity with character physics support (stalkers, monsters); false otherwise.
         bool affect_cover() // Returns true when the NPC considers itself in a tactically covered position (physically arrived at cover). Set by combat actions, reset on action transition. Use in BeforeHitCallback to detect hits in the open.
         void best_cover_invalidate() // Forces the NPC to re-evaluate its best cover point on the next tick. Call after affect_cover() returns false on a hit to make the NPC seek new cover.
         void make_enemy_visible(game_object enemy) // Force-plant enemy as a VISIBLE-memory object on this stalker (CMemoryManager::make_object_visible_somewhen - the engine's own squad wounded-target distribution call). Enemy selection scores "currently seen" far above hit/sound memory, so a shooter injected only via hit memory never wins selection; this puts him in the seen class where the engine's nearest-seen logic takes over. Visibility then decays through normal memory rules. Stalker receiver, alive-entity argument, no-op with an error log otherwise.

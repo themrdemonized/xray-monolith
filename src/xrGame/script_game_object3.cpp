@@ -27,6 +27,7 @@
 #include "visual_memory_manager.h"
 #include "sound_memory_manager.h"
 #include "hit_memory_manager.h"
+#include "EntityCondition.h"
 #include "sight_manager.h"
 #include "stalker_movement_manager_smart_cover.h"
 #include "smart_cover.h"
@@ -158,6 +159,26 @@ void CScriptGameObject::set_vision_speed(float value)
 		                                "CCustomMonster : cannot access class member set_vision_speed!");
 	else
 		custom_monster->memory().visual().set_vision_speed(value);
+}
+
+void CScriptGameObject::set_view_distance_factor(float value)
+{
+	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
+	if (!custom_monster)
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CCustomMonster : cannot access class member set_view_distance_factor!");
+	else
+		custom_monster->memory().visual().set_view_distance_factor(value);
+}
+
+void CScriptGameObject::set_health_restore_boost(float value)
+{
+	CEntityAlive* entity_alive = smart_cast<CEntityAlive*>(&object());
+	if (!entity_alive)
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CEntityAlive : cannot access class member set_health_restore_boost!");
+	else
+		entity_alive->conditions().set_health_restore_boost(value);
 }
 
 float CScriptGameObject::GetObjectVisibleDistance(const CScriptGameObject* obj)

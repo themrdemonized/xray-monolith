@@ -639,7 +639,7 @@ void CEntityCondition::UpdateHealth()
 	float bleeding_speed = BleedingSpeed() * m_fDeltaTime * change_v().m_fV_Bleeding;
 	m_bIsBleeding = fis_zero(bleeding_speed) ? false : true;
 	m_fDeltaHealth -= CanBeHarmed() ? bleeding_speed : 0;
-	m_fDeltaHealth += m_fDeltaTime * change_v().m_fV_HealthRestore;
+	m_fDeltaHealth += m_fDeltaTime * (change_v().m_fV_HealthRestore + m_health_restore_boost);
 
 	VERIFY(_valid(m_fDeltaHealth));
 	ChangeBleeding(change_v().m_fV_WoundIncarnation * m_fDeltaTime);
