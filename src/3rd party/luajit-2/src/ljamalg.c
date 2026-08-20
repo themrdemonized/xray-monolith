@@ -41,6 +41,8 @@
 #include "lj_debug.c"
 #include "lj_state.c"
 #include "lj_dispatch.c"
+#include "lj_profile.c"
+#include "lj_allocprof.c"
 #include "lj_vmevent.c"
 #include "lj_vmmath.c"
 #include "lj_strscan.c"

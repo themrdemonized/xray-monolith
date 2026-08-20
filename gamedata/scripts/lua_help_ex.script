@@ -133,6 +133,21 @@
         table.random(t)
     }
 
+    jit.profile { // profiler-enabled build only; backported LuaJIT 2.1 timer sampler, GC64-free so saves stay compatible
+        jit.profile.start(string mode, function(thread, int samples, string vmstate)) // mode "iN" = sample every N ms; vmstate one of N/I/C/G/J; errors if jit.allocprof is running
+        jit.profile.stop()
+        string jit.profile.dumpstack(thread, string fmt, int depth) // "name@src:line;..." leaf-first; fmt accepted but ignored (fixed format)
+    }
+
+    jit.allocprof { // profiler-enabled build only; per-function allocation attribution, jit.off() recommended for exact attribution
+        jit.allocprof.start(int depth = 1) // byte-sampled (Poisson interval); depth>1 also captures full stacks for a flamegraph; errors if jit.profile is running
+        jit.allocprof.stop()
+        table jit.allocprof.dump(bool stacks, bool reset) // {{key=,bytes=},...} + dropped/pending/drains/seen; reset clears tables but keeps capturing
+        int jit.allocprof.usage() // 0..100 fill of the fullest aggregation table, snapshot before it reaches 100
+        jit.allocprof.pause() // disarm the hook to build a snapshot report at full speed
+        jit.allocprof.resume() // re-arm and continue capturing
+    }
+
     globals {
         string dik_to_keyname(number dik, boolean localize)
         int get_modded_exes_version() // Returns modded exes version in integer format

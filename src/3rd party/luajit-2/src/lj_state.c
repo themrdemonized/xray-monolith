@@ -26,6 +26,10 @@
 #include "lj_vm.h"
 #include "lj_lex.h"
 #include "lj_alloc.h"
+#if LJ_HASPROFILE
+#include "lj_allocprof.h"
+#include "luajit.h"
+#endif
 
 /* -- Stack handling ------------------------------------------------------ */
 
@@ -236,12 +240,16 @@ LUA_API void lua_close(lua_State *L)
   global_State *g = G(L);
   int i;
   L = mainthread(g);  /* Only the main thread can be closed. */
+#if LJ_HASPROFILE
+  luaJIT_profile_stop(L);  /* Stop the timer thread before the VM goes away. */
+  lj_allocprof_stop(L);
+#endif
   lj_func_closeuv(L, tvref(L->stack));
   lj_gc_separateudata(g, 1);  /* Separate udata which have GC metamethods. */
 #if LJ_HASJIT
   G2J(g)->flags &= ~JIT_F_ON;
   G2J(g)->state = LJ_TRACE_IDLE;
-  lj_dispatch_update(g);
+  lj_dispatch_update(g, 0);
 #endif
   for (i = 0;;) {
     hook_enter(g);
