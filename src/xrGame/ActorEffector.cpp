@@ -164,6 +164,7 @@ CAnimatorCamEffector::CAnimatorCamEffector()
 	m_bAbsolutePositioning = false;
 	m_fov = -1.0f;
 	m_power = 1.f;
+    m_speed = 1.f;
 }
 
 CAnimatorCamEffector::~CAnimatorCamEffector()
@@ -174,6 +175,7 @@ CAnimatorCamEffector::~CAnimatorCamEffector()
 void CAnimatorCamEffector::Start(LPCSTR fn)
 {
 	m_objectAnimator->Load(fn);
+    m_objectAnimator->Speed() = m_speed;
 	m_objectAnimator->Play(Cyclic());
 	fLifeTime = m_objectAnimator->GetLength();
 }
