@@ -2830,6 +2830,30 @@ void CScriptGameObject::SetActorLookoutCoef(float val)
 	pActor->m_fLookoutFactor = val;
 }
 
+// verdatim: set damage stagger time factor
+float CScriptGameObject::GetActorDamageStaggerTimeFactor() const
+{
+    CActor* pActor = smart_cast<CActor*>(&object());
+    if (!pActor)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CActor : cannot access class member GetActorDamageStaggerTimeFactor!");
+        return (false);
+    }
+    return (pActor->DamageStaggerTimeFactor);
+}
+void CScriptGameObject::SetActorDamageStaggerTimeFactor(float val)
+{
+    CActor* pActor = smart_cast<CActor*>(&object());
+    if (!pActor)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CActor : cannot access class member SetActorDamageStaggerTimeFactor!");
+        return;
+    }
+    pActor->DamageStaggerTimeFactor = val;
+}
+
 // demonized: Additional exports
 float CScriptGameObject::GetActorCrouchCoef() const
 {
