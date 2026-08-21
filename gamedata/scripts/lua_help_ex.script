@@ -402,6 +402,9 @@
         // Scripted effectors added via add_cam_effector are not touched.
         void remove_hud_motion_cam_effectors()
 
+        // level.add_cam_effector, but contains one more variable that dictates the speed of the cam effector, returns anim length
+        float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam_fov, bool b_hud, float power, float speed)
+
         game_object get_target_obj(ETraceTarget)
         game_object get_target_obj()
         number get_target_dist(ETraceTarget)
