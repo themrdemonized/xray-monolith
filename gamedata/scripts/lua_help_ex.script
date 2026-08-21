@@ -671,6 +671,8 @@
 		function set_actor_box_y_offset(u32 box_num, float offset) -- box_num: 0 for stand, 1 for crouch, 2 for prone;
         function g_fireParams()
         function move_to_slot(game_object* pItem, number slot_id, bool doNotActivate)
+        function get_actor_damage_stagger_time_factor() // returns the damage stagger time factor that scales the slow down from mutant hit
+        function seet_actor_damage_stagger_time_factor(float val) // writes to the damage stagger time factor variable that scales the slow down from mutant hit
 
         // Stalker and Monster
         function invalidate_restrictions()
