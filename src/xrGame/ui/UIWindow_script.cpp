@@ -1,17 +1,49 @@
 #include "pch_script.h"
 #include "UIWindow.h"
-#include "UIFrameWindow.h"
-#include "UIFrameLineWnd.h"
-#include "UIDialogWnd.h"
 #include "UIDialogHolder.h"
-#include "../GamePersistent.h"
-//#include "UILabel.h"
-#include "UIMMShniaga.h"
 #include "UITextureMaster.h"
-#include "UIScrollView.h"
-#include "UIHint.h"
+#include "../GamePersistent.h"
 #include "../ScriptXMLInit.h"
 #include "../UICursor.h"
+
+// Sub-classes of CUIWindow exported to the script engine (see UI_WINDOW_SUBCLASSES)
+#include "ServerList.h"
+#include "UI3tButton.h"
+#include "UIActorMenu.h"
+#include "UIAnimatedStatic.h"
+#include "UIButton.h"
+#include "UICheckButton.h"
+#include "UIComboBox.h"
+#include "UICustomEdit.h"
+#include "UICustomSpin.h"
+#include "UIDialogWnd.h"
+#include "UIEditBox.h"
+#include "UIFrameLineWnd.h"
+#include "UIFrameWindow.h"
+#include "UIHint.h"
+#include "UIHudStatesWnd.h"
+#include "UIListBox.h"
+#include "UIListBoxItem.h"
+#include "UIListBoxItemMsgChain.h"
+#include "UIMainIngameWnd.h"
+#include "UIMapInfo.h"
+#include "UIMapList.h"
+#include "UIMessageBox.h"
+#include "UIMessageBoxEx.h"
+#include "UIMessagesWindow.h"
+#include "UIMMShniaga.h"
+#include "UIMotionIcon.h"
+#include "UIPdaWnd.h"
+#include "UIProgressBar.h"
+#include "UIPropertiesBox.h"
+#include "UIScriptWnd.h"
+#include "UIScrollView.h"
+#include "UISpinNum.h"
+#include "UISpinText.h"
+#include "UIStatic.h"
+#include "UITabButton.h"
+#include "UITabControl.h"
+#include "UITrackBar.h"
 
 CFontManager& mngr()
 {
@@ -131,6 +163,69 @@ void SetCursorPosition_script(Fvector2& pos)
 	GetUICursor().SetUICursorPosition(pos);
 }
 
+// -----------------------------------------------------------------------------
+// Every sub-class of CUIWindow exported to the script engine gets a
+// CUIWindow:cast_<name>() method, so that a window obtained as a plain
+// CUIWindow (through FindChild for instance) can be used as what it really is.
+// The cast returns nil when the window is not of that type.
+// To expose one more sub-class, add it to the list below and include its header.
+// -----------------------------------------------------------------------------
+#define UI_WINDOW_SUBCLASSES(op) \
+	op(3tButton,            CUI3tButton) \
+	op(ActorMenu,           CUIActorMenu) \
+	op(Button,              CUIButton) \
+	op(CheckButton,         CUICheckButton) \
+	op(ComboBox,            CUIComboBox) \
+	op(CustomEdit,          CUICustomEdit) \
+	op(CustomSpin,          CUICustomSpin) \
+	op(DialogWnd,           CUIDialogWnd) \
+	op(EditBox,             CUIEditBox) \
+	op(FrameLineWnd,        CUIFrameLineWnd) \
+	op(FrameWindow,         CUIFrameWindow) \
+	op(Hint,                UIHint) \
+	op(HudStatesWnd,        CUIHudStatesWnd) \
+	op(ListBox,             CUIListBox) \
+	op(ListBoxItem,         CUIListBoxItem) \
+	op(ListBoxItemMsgChain, CUIListBoxItemMsgChain) \
+	op(MainIngameWnd,       CUIMainIngameWnd) \
+	op(MapInfo,             CUIMapInfo) \
+	op(MapList,             CUIMapList) \
+	op(MessageBox,          CUIMessageBox) \
+	op(MessageBoxEx,        CUIMessageBoxEx) \
+	op(MessagesWindow,      CUIMessagesWindow) \
+	op(MMShniaga,           CUIMMShniaga) \
+	op(MotionIcon,          CUIMotionIcon) \
+	op(PdaWnd,              CUIPdaWnd) \
+	op(ProgressBar,         CUIProgressBar) \
+	op(PropertiesBox,       CUIPropertiesBox) \
+	op(ScriptWnd,           CUIDialogWndEx) \
+	op(ScrollView,          CUIScrollView) \
+	op(ServerList,          CServerList) \
+	op(SleepStatic,         CUISleepStatic) \
+	op(SpinFlt,             CUISpinFlt) \
+	op(SpinNum,             CUISpinNum) \
+	op(SpinText,            CUISpinText) \
+	op(Static,              CUIStatic) \
+	op(TabButton,           CUITabButton) \
+	op(TabControl,          CUITabControl) \
+	op(TextWnd,             CUITextWnd) \
+	op(TrackBar,            CUITrackBar)
+
+namespace
+{
+#define UI_WINDOW_DEFINE_CAST(name, class_name) \
+	class_name* cast_##name(CUIWindow* window) \
+	{ \
+		return smart_cast<class_name*>(window); \
+	}
+
+	UI_WINDOW_SUBCLASSES(UI_WINDOW_DEFINE_CAST)
+
+#undef UI_WINDOW_DEFINE_CAST
+}
+
+#define UI_WINDOW_EXPORT_CAST(name, class_name) .def("cast_" #name, &cast_##name)
+
 using namespace luabind;
 #pragma optimize("s",on)
 void CUIWindow::script_register(lua_State* L)
@@ -166,7 +261,7 @@ void CUIWindow::script_register(lua_State* L)
 		.def("AttachChild", &CUIWindow::AttachChild, adopt<2>())
 		.def("AttachChildKeepOwner", &CUIWindow::AttachChild)
 		.def("DetachChild", &CUIWindow::DetachChild)
-        .def("FindChild", &CUIWindow::FindChild)
+		.def("FindChild", &CUIWindow::FindChild)
 		.def("SetAutoDelete", &CUIWindow::SetAutoDelete)
 		.def("IsAutoDelete", &CUIWindow::IsAutoDelete)
 
@@ -190,6 +285,8 @@ void CUIWindow::script_register(lua_State* L)
 		.def("SetWindowName", &CUIWindow::SetWindowName)
 		.def("SetPPMode", &CUIWindow::SetPPMode)
 		.def("ResetPPMode", &CUIWindow::ResetPPMode)
+
+        UI_WINDOW_SUBCLASSES(UI_WINDOW_EXPORT_CAST)
 	];
 
 	module(L)
@@ -311,3 +408,6 @@ void CUIWindow::script_register(lua_State* L)
 		]
 	];
 }
+
+#undef UI_WINDOW_EXPORT_CAST
+#undef UI_WINDOW_SUBCLASSES
