@@ -385,8 +385,20 @@ void CRenderDevice::on_idle()
 	{
 		PROF_EVENT("seqParallelBeforRender");
 		xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
-		for (auto& it : Device.seqParallelBeforRender)
-			it();
+
+		// A callback invoked here can destroy an object that owns a particle
+		// group, and PS::CParticleGroup::SItem::~SItem cancels its own pending
+		// entry in this very vector. That cancellation clears the entry in
+		// place instead of erasing it, so the vector never changes size while
+		// we walk it. Skip the cleared entries; the clear() below drops them.
+		// Index by position and copy each delegate before invoking it, so an
+		// entry appended by a callback is still handled safely.
+		for (size_t it = 0; it < Device.seqParallelBeforRender.size(); ++it)
+		{
+			auto Callback = Device.seqParallelBeforRender[it];
+			if (Callback)
+				Callback();
+		}
 
 		Device.seqParallelBeforRender.clear();
 	}
