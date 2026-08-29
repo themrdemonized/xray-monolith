@@ -5,8 +5,6 @@
 #include "../GamePersistent.h"
 #include "../ScriptXMLInit.h"
 #include "../UICursor.h"
-
-// Sub-classes of CUIWindow exported to the script engine (see UI_WINDOW_SUBCLASSES)
 #include "ServerList.h"
 #include "UI3tButton.h"
 #include "UIActorMenu.h"
@@ -163,68 +161,13 @@ void SetCursorPosition_script(Fvector2& pos)
 	GetUICursor().SetUICursorPosition(pos);
 }
 
-// -----------------------------------------------------------------------------
-// Every sub-class of CUIWindow exported to the script engine gets a
-// CUIWindow:cast_<name>() method, so that a window obtained as a plain
-// CUIWindow (through FindChild for instance) can be used as what it really is.
-// The cast returns nil when the window is not of that type.
-// To expose one more sub-class, add it to the list below and include its header.
-// -----------------------------------------------------------------------------
-#define UI_WINDOW_SUBCLASSES(op) \
-	op(3tButton,            CUI3tButton) \
-	op(ActorMenu,           CUIActorMenu) \
-	op(Button,              CUIButton) \
-	op(CheckButton,         CUICheckButton) \
-	op(ComboBox,            CUIComboBox) \
-	op(CustomEdit,          CUICustomEdit) \
-	op(CustomSpin,          CUICustomSpin) \
-	op(DialogWnd,           CUIDialogWnd) \
-	op(EditBox,             CUIEditBox) \
-	op(FrameLineWnd,        CUIFrameLineWnd) \
-	op(FrameWindow,         CUIFrameWindow) \
-	op(Hint,                UIHint) \
-	op(HudStatesWnd,        CUIHudStatesWnd) \
-	op(ListBox,             CUIListBox) \
-	op(ListBoxItem,         CUIListBoxItem) \
-	op(ListBoxItemMsgChain, CUIListBoxItemMsgChain) \
-	op(MainIngameWnd,       CUIMainIngameWnd) \
-	op(MapInfo,             CUIMapInfo) \
-	op(MapList,             CUIMapList) \
-	op(MessageBox,          CUIMessageBox) \
-	op(MessageBoxEx,        CUIMessageBoxEx) \
-	op(MessagesWindow,      CUIMessagesWindow) \
-	op(MMShniaga,           CUIMMShniaga) \
-	op(MotionIcon,          CUIMotionIcon) \
-	op(PdaWnd,              CUIPdaWnd) \
-	op(ProgressBar,         CUIProgressBar) \
-	op(PropertiesBox,       CUIPropertiesBox) \
-	op(ScriptWnd,           CUIDialogWndEx) \
-	op(ScrollView,          CUIScrollView) \
-	op(ServerList,          CServerList) \
-	op(SleepStatic,         CUISleepStatic) \
-	op(SpinFlt,             CUISpinFlt) \
-	op(SpinNum,             CUISpinNum) \
-	op(SpinText,            CUISpinText) \
-	op(Static,              CUIStatic) \
-	op(TabButton,           CUITabButton) \
-	op(TabControl,          CUITabControl) \
-	op(TextWnd,             CUITextWnd) \
-	op(TrackBar,            CUITrackBar)
-
-namespace
+template <typename T>
+T* ui_window_cast(CUIWindow* window)
 {
-#define UI_WINDOW_DEFINE_CAST(name, class_name) \
-	class_name* cast_##name(CUIWindow* window) \
-	{ \
-		return smart_cast<class_name*>(window); \
-	}
-
-	UI_WINDOW_SUBCLASSES(UI_WINDOW_DEFINE_CAST)
-
-#undef UI_WINDOW_DEFINE_CAST
+	return smart_cast<T*>(window);
 }
 
-#define UI_WINDOW_EXPORT_CAST(name, class_name) .def("cast_" #name, &cast_##name)
+#define UI_WINDOW_CAST(class_name) &ui_window_cast<class_name>
 
 using namespace luabind;
 #pragma optimize("s",on)
@@ -286,7 +229,45 @@ void CUIWindow::script_register(lua_State* L)
 		.def("SetPPMode", &CUIWindow::SetPPMode)
 		.def("ResetPPMode", &CUIWindow::ResetPPMode)
 
-        UI_WINDOW_SUBCLASSES(UI_WINDOW_EXPORT_CAST)
+		.def("cast_3tButton", UI_WINDOW_CAST(CUI3tButton))
+		.def("cast_ActorMenu", UI_WINDOW_CAST(CUIActorMenu))
+		.def("cast_Button", UI_WINDOW_CAST(CUIButton))
+		.def("cast_CheckButton", UI_WINDOW_CAST(CUICheckButton))
+		.def("cast_ComboBox", UI_WINDOW_CAST(CUIComboBox))
+		.def("cast_CustomEdit", UI_WINDOW_CAST(CUICustomEdit))
+		.def("cast_CustomSpin", UI_WINDOW_CAST(CUICustomSpin))
+		.def("cast_DialogWnd", UI_WINDOW_CAST(CUIDialogWnd))
+		.def("cast_EditBox", UI_WINDOW_CAST(CUIEditBox))
+		.def("cast_FrameLineWnd", UI_WINDOW_CAST(CUIFrameLineWnd))
+		.def("cast_FrameWindow", UI_WINDOW_CAST(CUIFrameWindow))
+		.def("cast_Hint", UI_WINDOW_CAST(UIHint))
+		.def("cast_HudStatesWnd", UI_WINDOW_CAST(CUIHudStatesWnd))
+		.def("cast_ListBox", UI_WINDOW_CAST(CUIListBox))
+		.def("cast_ListBoxItem", UI_WINDOW_CAST(CUIListBoxItem))
+		.def("cast_ListBoxItemMsgChain", UI_WINDOW_CAST(CUIListBoxItemMsgChain))
+		.def("cast_MMShniaga", UI_WINDOW_CAST(CUIMMShniaga))
+		.def("cast_MainIngameWnd", UI_WINDOW_CAST(CUIMainIngameWnd))
+		.def("cast_MapInfo", UI_WINDOW_CAST(CUIMapInfo))
+		.def("cast_MapList", UI_WINDOW_CAST(CUIMapList))
+		.def("cast_MessageBox", UI_WINDOW_CAST(CUIMessageBox))
+		.def("cast_MessageBoxEx", UI_WINDOW_CAST(CUIMessageBoxEx))
+		.def("cast_MessagesWindow", UI_WINDOW_CAST(CUIMessagesWindow))
+		.def("cast_MotionIcon", UI_WINDOW_CAST(CUIMotionIcon))
+		.def("cast_PdaWnd", UI_WINDOW_CAST(CUIPdaWnd))
+		.def("cast_ProgressBar", UI_WINDOW_CAST(CUIProgressBar))
+		.def("cast_PropertiesBox", UI_WINDOW_CAST(CUIPropertiesBox))
+		.def("cast_ScriptWnd", UI_WINDOW_CAST(CUIDialogWndEx))
+		.def("cast_ScrollView", UI_WINDOW_CAST(CUIScrollView))
+		.def("cast_ServerList", UI_WINDOW_CAST(CServerList))
+		.def("cast_SleepStatic", UI_WINDOW_CAST(CUISleepStatic))
+		.def("cast_SpinFlt", UI_WINDOW_CAST(CUISpinFlt))
+		.def("cast_SpinNum", UI_WINDOW_CAST(CUISpinNum))
+		.def("cast_SpinText", UI_WINDOW_CAST(CUISpinText))
+		.def("cast_Static", UI_WINDOW_CAST(CUIStatic))
+		.def("cast_TabButton", UI_WINDOW_CAST(CUITabButton))
+		.def("cast_TabControl", UI_WINDOW_CAST(CUITabControl))
+		.def("cast_TextWnd", UI_WINDOW_CAST(CUITextWnd))
+		.def("cast_TrackBar", UI_WINDOW_CAST(CUITrackBar))
 	];
 
 	module(L)
@@ -409,5 +390,4 @@ void CUIWindow::script_register(lua_State* L)
 	];
 }
 
-#undef UI_WINDOW_EXPORT_CAST
-#undef UI_WINDOW_SUBCLASSES
+#undef UI_WINDOW_CAST
