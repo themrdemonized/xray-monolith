@@ -384,6 +384,7 @@ void CRenderDevice::on_idle()
 
 	{
 		PROF_EVENT("seqParallelBeforRender");
+		xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
 		for (auto& it : Device.seqParallelBeforRender)
 			it();
 

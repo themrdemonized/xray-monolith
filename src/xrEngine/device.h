@@ -8,6 +8,7 @@
 //class ENGINE_API CGammaControl;
 
 #include "pure.h"
+#include "../xrCore/xrSyncronize.h"
 //#include "hw.h"
 #include "../xrcore/ftimer.h"
 #include "stats.h"
@@ -230,6 +231,12 @@ public:
 	// ForserX: Pre-Render sequence
 	xr_vector<xr_delegate<void()>> seqParallelRender;
 	xr_vector<xr_delegate<void()>> seqParallelBeforRender;
+
+	// seqParallelBeforRender is filled from the particle worker thread
+	// (CParticleGroup::SItem::OnFrame) and drained on the main thread in
+	// CRenderDevice::on_idle(). Guard every access with this section.
+	// Same pattern as CEventAPI::CS and CEffect_Rain::rainCS.
+	xrCriticalSection seqParallelBeforRenderCS;
 
 	xr_delegate<void()> ParticleWorkerCallback;
 	xr_delegate<void()> ModelDefferClear;

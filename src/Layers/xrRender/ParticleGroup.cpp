@@ -188,6 +188,7 @@ PS::CParticleGroup::SItem::~SItem()
 		return;
 
 	auto Callback = xr_make_delegate(this, &PS::CParticleGroup::SItem::DelayDeleteChilds);
+	xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
 	auto Iter = std::find(Device.seqParallelBeforRender.begin(), Device.seqParallelBeforRender.end(), Callback);
 	if (Iter != Device.seqParallelBeforRender.end())
 	{
@@ -467,6 +468,7 @@ void CParticleGroup::SItem::OnFrame(u32 u_dt, const CPGDef::SEffect& def, Fbox& 
 		if (!_children_destroy.empty())
 		{
 			auto Callback = xr_make_delegate(this, &PS::CParticleGroup::SItem::DelayDeleteChilds);
+			xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
 			if (std::find(Device.seqParallelBeforRender.begin(), Device.seqParallelBeforRender.end(), Callback) == Device.seqParallelBeforRender.end())
 			{
 				Device.seqParallelBeforRender.emplace_back(std::move(Callback));
