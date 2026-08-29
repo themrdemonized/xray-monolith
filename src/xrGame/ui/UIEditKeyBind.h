@@ -1,18 +1,22 @@
 #pragma once
 
-#include "UIStatic.h"
+#include "UIFrameLineWnd.h"
 #include "UIOptionsItem.h"
 
 struct _action;
 struct _keyboard;
 class CUIColorAnimatorWrapper;
+class CUITextWnd;
 
-class CUIEditKeyBind : public CUIStatic, public CUIOptionsItem
+class CUIEditKeyBind : public CUIFrameLineWnd, public CUIOptionsItem
 {
+	typedef CUIFrameLineWnd inherited;
+
 	bool m_bPrimary;
 	_action* m_action;
 	_keyboard* m_keyboard;
 	_keyboard* m_opt_backup_value;
+	CUITextWnd* m_text;
 public:
 	CUIEditKeyBind(bool bPrim);
 	virtual ~CUIEditKeyBind();
@@ -30,7 +34,7 @@ public:
 
 	// CUIWindow methods
 	void InitKeyBind(Fvector2 pos, Fvector2 size);
-	virtual void Update();
+	virtual void Draw();
 	virtual bool OnMouseDown(int mouse_btn);
 	virtual void OnFocusLost();
 	virtual bool OnKeyboardAction(int dik, EUIMessages keyboard_action);

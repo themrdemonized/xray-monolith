@@ -509,7 +509,7 @@ public:
 	CScriptGameObject * GetObjectById(u16 id) const;
 
 
-	// Callbacks			
+	// Callbacks
 	void SetCallback(GameObject::ECallbackType type, const ::luabind::functor<void>& functor);
 	void SetCallback(GameObject::ECallbackType type, const ::luabind::functor<void>& functor,
 	                 const ::luabind::object& object);
@@ -840,6 +840,8 @@ public:
 	void set_aim_params(float max_angle, float min_angle, float min_speed, float predict_time);
 	void set_fire_queue_scale(float size_k, float interval_k);
 	void set_vision_speed(float value);
+	void set_visible_enemy_bias(float actor_bias, float npc_bias);
+	void set_hit_redirect(float max, float falloff);
 	void set_view_distance_factor(float value);
 	void set_health_restore_boost(float value);
 	bool can_kill_enemy();
@@ -1117,8 +1119,8 @@ public:
     void SetBulletCheckVisual(bool value);
 #endif
 
-	bool IsBoneVisible(LPCSTR bone_name, bool bHud = false);	
-	void SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive = true, bool bHud = false);	
+	bool IsBoneVisible(LPCSTR bone_name, bool bHud = false);
+	void SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive = true, bool bHud = false);
 	//CAI_Stalker
 	void ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect);
 	//Anything with PPhysicShell (ie. car, actor, stalker, monster, heli)
@@ -1171,8 +1173,7 @@ public:
 
 	float Weight() const;
 
-	// demonized: get luminosity as displayed in ui
-	float GetActorUILuminosity();
+	float GetActorVisibility();
 
 	float GetActorJumpSpeed() const;
 	void SetActorJumpSpeed(float jump_speed);
@@ -1274,7 +1275,7 @@ struct SafeWrapBase
         ai().script_engine().lua_error_not_crash(ai().script_engine().lua());
     }
 
-    // This generic function accepts ANY instance type (const or non-const) 
+    // This generic function accepts ANY instance type (const or non-const)
     // and ANY member function pointer type.
     template <typename InstanceT, typename FuncT, typename... Args>
     static auto execute(InstanceT instance, FuncT memFunc, Args&&... args)

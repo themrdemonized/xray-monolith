@@ -1263,7 +1263,7 @@ void CActor::UpdateCL()
 			g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
 
 			// Turn off SecondVP
-			Device.m_SecondViewport.SetSVPActive(false);			
+			Device.m_SecondViewport.SetSVPActive(false);
 		}
 	}
 
@@ -1377,7 +1377,7 @@ void CActor::UpdateCL()
 			//Survival Mode
 			else if (ai().script_engine().functor("_g.IsSurvivalMode", game_mode) && game_mode())
 				snprintf(discord_gameinfo.gamemode, 128, xr_ToUTF8(*CStringTable().translate("st_cap_check_survival")));
-			
+
 			//Freeplay Mode
 			else
 				snprintf(discord_gameinfo.gamemode, 128, xr_ToUTF8(*CStringTable().translate("st_cap_check_freeplay")));
@@ -1437,7 +1437,7 @@ void CActor::RPC_UpdateFaction()
 
 void CActor::RPC_UpdateRank()
 {
-	//Rank		
+	//Rank
 	::luabind::functor<LPCSTR> actor_rank;
 	if (ai().script_engine().functor("ranks.get_player_rank_name", actor_rank))
 	{
@@ -1453,7 +1453,7 @@ void CActor::RPC_UpdateRank()
 
 void CActor::RPC_UpdateReputation()
 {
-	//Reputation		
+	//Reputation
 	::luabind::functor<int> actor_rep_val;
 	if (ai().script_engine().functor("ranks.get_player_reputation", actor_rep_val))
 	{
@@ -2091,6 +2091,96 @@ void CActor::shedule_Update(u32 DT)
 	Check_for_AutoPickUp();
 };
 
+void SetActorVisibility(u16 who_id, float value)
+{
+    if (!IsGameTypeSingle())
+        return;
+
+    CActor* pActor = smart_cast<CActor*>(Level().CurrentViewEntity());
+
+    if (!pActor)
+        return;
+
+    pActor->SetVisibilityFromObject(who_id, value);
+}
+
+float GetActorVisibility()
+{
+    if (!IsGameTypeSingle())
+        return 0.f;
+
+    CActor* pActor = smart_cast<CActor*>(Level().CurrentViewEntity());
+
+    if (!pActor)
+        return 0.f;
+
+    float lum = pActor->GetVisibility();
+    clamp(lum, 0.f, 1.f);
+    return lum;
+}
+
+float CActor::GetVisibility()
+{
+    if (m_visibility_changed)
+    {
+        m_visibility_changed = false;
+        if (m_npc_visibility.size())
+        {
+            std::sort(m_npc_visibility.begin(), m_npc_visibility.end());
+            m_visibility_tgt = m_npc_visibility.back().value;
+        }
+        else
+        {
+            m_visibility_tgt = 0.f;
+        }
+    }
+
+    float _diff = _abs(m_visibility_tgt - m_visibility_cur);
+    if (m_visibility_tgt > m_visibility_cur)
+    {
+        m_visibility_cur += _diff * Device.fTimeDelta;
+    }
+    else
+    {
+        m_visibility_cur -= _diff * Device.fTimeDelta;
+    }
+
+    return m_visibility_cur;
+}
+
+void CActor::SetVisibilityValue(float value)
+{
+    m_visibility_tgt = value;
+}
+
+void CActor::SetVisibilityFromObject(u16 who_id, float value)
+{
+    clamp(value, 0.f, 1.f);
+
+    xr_vector<npc_visibility>::iterator it = std::find(m_npc_visibility.begin(),
+        m_npc_visibility.end(),
+        who_id);
+
+    if (it == m_npc_visibility.end() && value != 0)
+    {
+        m_npc_visibility.resize(m_npc_visibility.size() + 1);
+        npc_visibility& v = m_npc_visibility.back();
+        v.id = who_id;
+        v.value = value;
+    }
+    else if (fis_zero(value))
+    {
+        if (it != m_npc_visibility.end())
+            m_npc_visibility.erase(it);
+    }
+    else
+    {
+        (*it).value = value;
+    }
+
+    m_visibility_changed = true;
+}
+
 void CActor::RenderCamAttached()
 {
 	if (cam_active == eacFirstEye && ::Render->active_phase() == 0)
@@ -2179,7 +2269,7 @@ void CActor::renderable_Render()
                 }
             }
 
-			//if (fpBody) 
+			//if (fpBody)
 			//	inherited::renderable_Render();
 		}
 		else if (AllowActorShadow()) // render actor shadow
@@ -2193,7 +2283,7 @@ void CActor::renderable_Render()
                     renderFrame = Device.dwFrame;
                     needAdjust = true;
                 }
-                
+
                 if (canRenderLegs(this, m_holder))
                 {
                     Fvector diff(XFORMShadow.c);
@@ -2251,7 +2341,7 @@ void CActor::renderable_Render()
             {
                 inherited::renderable_Render();
                 CInventoryOwner::renderable_Render();
-            }			
+            }
 		}
 	}
 
@@ -2384,7 +2474,7 @@ void CActor::RenderIndicator(Fvector dpos, float r1, float r2, const ui_shader& 
 	//pv->set         (a.x+pos.x,a.y+pos.y,a.z+pos.z, 0xffffffff, 0.f,0.f);        pv++;
 	//pv->set         (c.x+pos.x,c.y+pos.y,c.z+pos.z, 0xffffffff, 1.f,1.f);        pv++;
 	//pv->set         (b.x+pos.x,b.y+pos.y,b.z+pos.z, 0xffffffff, 1.f,0.f);        pv++;
-	// render	
+	// render
 	//dwCount 				= u32(pv-pv_start);
 	//RCache.Vertex.Unlock	(dwCount,hFriendlyIndicator->vb_stride);
 
@@ -2421,7 +2511,7 @@ void CActor::RenderText(LPCSTR Text, Fvector dpos, float* pdup, u32 color)
 	float size = v1r.distance_to(v0r);
 	CGameFont* pFont = UI().Font().pFontArial14;
 	if (!pFont) return;
-	//	float OldFontSize = pFont->GetHeight	();	
+	//	float OldFontSize = pFont->GetHeight	();
 	float delta_up = 0.0f;
 	if (size < mid_size) delta_up = upsize;
 	else delta_up = upsize * (mid_size / size);
@@ -2734,37 +2824,6 @@ void CActor::AnimTorsoPlayCallBack(CBlend* B)
 	actor->m_bAnimTorsoPlayed = FALSE;
 }
 
-
-/*
-void CActor::UpdateMotionIcon(u32 mstate_rl)
-{
-CUIMotionIcon*	motion_icon=CurrentGameUI()->UIMainIngameWnd->MotionIcon();
-if(mstate_rl&mcClimb)
-{
-motion_icon->ShowState(CUIMotionIcon::stClimb);
-}
-else
-{
-if(mstate_rl&mcCrouch)
-{
-if (!isActorAccelerated(mstate_rl, IsZoomAimingMode()))
-motion_icon->ShowState(CUIMotionIcon::stCreep);
-else
-motion_icon->ShowState(CUIMotionIcon::stCrouch);
-}
-else
-if(mstate_rl&mcSprint)
-motion_icon->ShowState(CUIMotionIcon::stSprint);
-else
-if(mstate_rl&mcAnyMove && isActorAccelerated(mstate_rl, IsZoomAimingMode()))
-motion_icon->ShowState(CUIMotionIcon::stRun);
-else
-motion_icon->ShowState(CUIMotionIcon::stNormal);
-}
-}
-*/
-
-
 CPHDestroyable* CActor::ph_destroyable()
 {
 	return smart_cast<CPHDestroyable*>(character_physics_support());
@@ -2806,7 +2865,7 @@ bool CActor::can_attach(const CInventoryItem* inventory_item) const
 	                                              inventory_item->object().cNameSect()))
 		return false;
 
-	//åñëè óæå åñòü ïðèñîåäèííåíûé îáúåò òàêîãî òèïà 
+	//åñëè óæå åñòü ïðèñîåäèííåíûé îáúåò òàêîãî òèïà
 	if (attached(inventory_item->object().cNameSect()))
 		return false;
 
@@ -3059,7 +3118,7 @@ void CActor::initFPCam()
 	}
 }
 
-void CActor::removeFPCam() 
+void CActor::removeFPCam()
 {
 	if (m_FPCam) {
 		Cameras().RemoveCamEffector(m_FPCam);
@@ -3067,9 +3126,3 @@ void CActor::removeFPCam()
 	}
 }
 
-float GetActorLuminosity();
-float CActor::GetUILuminosity()
-{
-
-	return GetActorLuminosity();
-}

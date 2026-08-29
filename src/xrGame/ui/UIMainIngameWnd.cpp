@@ -114,7 +114,7 @@ void CUIMainIngameWnd::Init()
 	/*	UIWeaponBack.AttachChild	(&UIWeaponSignAmmo);
 		xml_init.InitStatic			(uiXml, "static_ammo", 0, &UIWeaponSignAmmo);
 		UIWeaponSignAmmo.SetEllipsis	(CUIStatic::eepEnd, 2);
-	
+
 		UIWeaponBack.AttachChild	(&UIWeaponIcon);
 		xml_init.InitStatic			(uiXml, "static_wpn_icon", 0, &UIWeaponIcon);
 		UIWeaponIcon.SetShader		(GetEquipmentIconsShader());
@@ -129,7 +129,7 @@ void CUIMainIngameWnd::Init()
 	m_iPickUpItemIconY = UIPickUpItemIcon->GetWndRect().top;
 	//---------------------------------------------------------
 
-	//индикаторы 
+	//индикаторы
 	UIZoneMap->Init();
 
 	// Подсказки, которые возникают при наведении прицела на объект
@@ -167,12 +167,12 @@ void CUIMainIngameWnd::Init()
 	m_ind_boost_power->Show(false);
 	m_ind_boost_rad->Show(false);
 
-	// Загружаем иконки 
+	// Загружаем иконки
 	/*	if ( IsGameTypeSingle() )
 		{
 			xml_init.InitStatic		(uiXml, "starvation_static", 0, &UIStarvationIcon);
 			UIStarvationIcon.Show	(false);
-	
+
 	//		xml_init.InitStatic		(uiXml, "psy_health_static", 0, &UIPsyHealthIcon);
 	//		UIPsyHealthIcon.Show	(false);
 		}
@@ -286,16 +286,17 @@ void CUIMainIngameWnd::Draw()
 	}
 	FS.dwOpenCounter = 0;
 
-	if (!IsGameTypeSingle())
-	{
-		float luminocity = smart_cast<CGameObject*>(Level().CurrentEntity())->ROS()->get_luminocity();
-		float power = log(luminocity > .001f ? luminocity : .001f) * (1.f/*luminocity_factor*/);
-		luminocity = exp(power);
+    if (!IsGameTypeSingle())
+    {
+        CActor* pActor = smart_cast<CActor*>(Level().CurrentViewEntity());
+        float luminocity = pActor->ROS()->get_luminocity();
+        float power = log(luminocity > .001f ? luminocity : .001f) * (1.f);
+        luminocity = exp(power);
 
-		static float cur_lum = luminocity;
-		cur_lum = luminocity * 0.01f + cur_lum * 0.99f;
-		UIMotionIcon->SetLuminosity((s16)iFloor(cur_lum * 100.0f));
-	}
+        static float cur_lum = luminocity;
+        cur_lum = luminocity * 0.01f + cur_lum * 0.99f;
+        pActor->SetVisibilityValue((s16)iFloor(cur_lum * 100.0f));
+    }
 	if (!pActor || !pActor->g_Alive()) return;
 
 	UIMotionIcon->SetNoise((s16)(0xffff & iFloor(pActor->m_snd_noise * 100)));
@@ -476,10 +477,10 @@ void CUIMainIngameWnd::SetWarningIconColor(EWarningIcons icon, const u32 cl)
 			case ewiWound:
 				SetWarningIconColorUI	(&UIWoundIcon, cl);
 				if (bMagicFlag) break;
-		
+
 			case ewiStarvation:
 				SetWarningIconColorUI	(&UIStarvationIcon, cl);
-				if (bMagicFlag) break;	
+				if (bMagicFlag) break;
 			case ewiPsyHealth:
 				SetWarningIconColorUI	(&UIPsyHealthIcon, cl);
 				if (bMagicFlag) break;
@@ -648,7 +649,6 @@ void CUIMainIngameWnd::OnSectorChanged(int sector)
 void CUIMainIngameWnd::reset_ui()
 {
 	m_pPickUpItem = NULL;
-	UIMotionIcon->ResetVisibility();
 	if (m_ui_hud_states)
 	{
 		m_ui_hud_states->reset_ui();
@@ -1088,7 +1088,7 @@ void CUIMainIngameWnd::UpdateBoosterIndicators(const xr_map<EBoostParams, SBoost
 ::luabind::object CUIMainIngameWnd::GetQuickSlotIconsScript()
 {
 	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
-	
+
 	for (int i = 0; i < m_quick_slots_icons.size(); i++)
 	{
 		table[i + 1] = m_quick_slots_icons[i];

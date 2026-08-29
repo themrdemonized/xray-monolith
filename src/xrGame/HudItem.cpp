@@ -1,4 +1,4 @@
-﻿#include "stdafx.h"
+#include "stdafx.h"
 #include "HudItem.h"
 #include "physic_item.h"
 #include "actor.h"
@@ -25,6 +25,9 @@
 ENGINE_API extern float psHUD_FOV_def;
 int g_nearwall = NW_FOV;
 int g_nearwall_trace = NT_CAM;
+
+// verdatim
+BOOL scale_hud_motion_marks_by_speed = FALSE;
 
 CHudItem::CHudItem()
 {
@@ -555,6 +558,20 @@ void CHudItem::UpdateCL()
 			{
 				float motion_prev_time = ((float)m_dwMotionCurrTm - (float)m_dwMotionStartTm) / 1000.0f;
 				float motion_curr_time = ((float)Device.dwTimeGlobal - (float)m_dwMotionStartTm) / 1000.0f;
+
+                // verdatim, edits so motion marks shift their timings based on speed
+                if (scale_hud_motion_marks_by_speed) {
+                    CMotionDef def;
+                    u16 s = m_current_motion_def->speed;
+                    float speed = def.Dequantize(s);
+
+                    // get the final_anim_speed after the ltx speed changes / script changes from actor_on_hud_animation_play and scale the marks accordingly to the two timings
+                    float final_anim_speed = HudItemData()->final_anim_speed;
+
+                    motion_prev_time = (((float)m_dwMotionCurrTm - (float)m_dwMotionStartTm) / 1000.0f) * speed * final_anim_speed;
+                    motion_curr_time = (((float)Device.dwTimeGlobal - (float)m_dwMotionStartTm) / 1000.0f) * speed * final_anim_speed;
+                    
+                }
 
 				xr_vector<motion_marks>::const_iterator it = marks.begin();
 				xr_vector<motion_marks>::const_iterator it_e = marks.end();

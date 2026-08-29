@@ -3,6 +3,8 @@
 #include "UIStatic.h"
 #include "UILines.h"
 
+static const float TAB_ARROW_MIN_W = 20.0f;
+
 bool CUIScrollArrowButton::OnMouseDown(int mouse_btn)
 {
 	return CUI3tButton::OnMouseDown(mouse_btn);
@@ -13,7 +15,7 @@ bool CUIScrollArrowButton::OnMouseAction(float x, float y, EUIMessages mouse_act
 	return CUIButton::OnMouseAction(x, y, mouse_action);
 }
 
-static shared_str StateArt(const shared_str& base, int ib_state)
+static shared_str StateArt(const shared_str& base, IBState ib_state)
 {
 	LPCSTR suffix;
 	switch (ib_state)
@@ -62,14 +64,7 @@ void CUIScrollArrowButton::LayoutHalves()
 	}
 }
 
-int CUIScrollArrowButton::CurrentIBState()
-{
-	if (GetButtonState() == CUIButton::BUTTON_PUSHED)
-		return S_Touched;
-	return CursorOverWindow() ? S_Highlighted : S_Enabled;
-}
-
-void CUIScrollArrowButton::ApplyHalfArt(int ib_state)
+void CUIScrollArrowButton::ApplyHalfArt(IBState ib_state)
 {
 	shared_str art = StateArt(m_half_base, ib_state);
 	for (int i = 0; i < 2; ++i)
@@ -77,7 +72,7 @@ void CUIScrollArrowButton::ApplyHalfArt(int ib_state)
 		CUIStatic* half = m_half[i];
 		half->InitTexture(art.c_str());
 		Frect r = half->GetTextureRect();
-		const float cap = r.height();
+		const float cap = CapWidthTexels(r);
 		if (i == 0)
 			r.x2 = r.x1 + cap;
 		else
@@ -92,7 +87,7 @@ void CUIScrollArrowButton::Update()
 	inherited::Update();
 	if (!m_half[0])
 		return;
-	const int state = CurrentIBState();
+	const IBState state = CurrentIBState();
 	if (state == m_applied_state)
 		return;
 	ApplyHalfArt(state);
@@ -103,6 +98,8 @@ CUITabScrollArrows::CUITabScrollArrows()
 	: m_parent(NULL), m_msg_target(NULL)
 {
 	m_arrow[0] = m_arrow[1] = NULL;
+	m_pin[0].set(0.0f, 0.0f);
+	m_pin[1].set(0.0f, 0.0f);
 }
 
 CUITabScrollArrows::~CUITabScrollArrows()
@@ -118,54 +115,92 @@ void CUITabScrollArrows::Init(CUIWindow* parent, CUIWindow* msg_target)
 	m_msg_target = msg_target;
 }
 
-void CUITabScrollArrows::EnsureBuilt(CUITabButton* ref)
+static bool CanSplice(CUITabButton* ref)
 {
-	if (m_arrow[0] || !ref)
-		return;
-
-	Build(ref);
+	if (!ref->ArtBase().size())
+		return false;
+	const float w = 2.0f * ref->CapWidthUI();
+	return w >= TAB_ARROW_MIN_W && ref->GetWndSize().x - w >= TAB_ARROW_MIN_W;
 }
 
-void CUITabScrollArrows::Build(CUITabButton* ref)
+void CUITabScrollArrows::Adopt(int side, CUIScrollArrowButton* arrow)
 {
-	static const LPCSTR glyph[2] = {"<", ">"};
 	static const LPCSTR name[2] = {"tab_scroll_left", "tab_scroll_right"};
 
-	const float height = ref->GetWndSize().y;
-	const float overlap = ref->Overlap();
-	const float width = 2.0f * ref->CapWidthUI();
+	arrow->SetAutoDelete(true);
+	arrow->SetWindowName(name[side]);
+	arrow->Show(false);
+	m_pin[side] = arrow->GetWndPos();
+	if (m_parent)
+		m_parent->AttachChild(arrow);
+	arrow->SetMessageTarget(m_msg_target);
+	m_arrow[side] = arrow;
+}
+
+CUIScrollArrowButton* CUITabScrollArrows::NewArrow(int side, const Fvector2& size, CUITabButton* ref)
+{
+	static const LPCSTR glyph[2] = {"<", ">"};
+
+	CUIScrollArrowButton* arrow = xr_new<CUIScrollArrowButton>();
+	arrow->InitButton(Fvector2().set(0.0f, 0.0f), size);
+	arrow->TextItemControl()->SetText(glyph[side]);
 
 	CUILines* style = ref->TextItemControl();
+	if (style->GetFont())
+		arrow->TextItemControl()->SetFont(style->GetFont());
+
+	Adopt(side, arrow);
+	return arrow;
+}
+
+void CUITabScrollArrows::EnsureBuilt(CUITabButton* ref)
+{
+	if (!ref)
+		return;
+
+	const bool splice = CanSplice(ref);
+	Fvector2 size;
+	size.set(splice ? 2.0f * ref->CapWidthUI() : TAB_ARROW_MIN_W, ref->GetWndSize().y);
+
 	for (int s = 0; s < 2; ++s)
 	{
-		CUIScrollArrowButton* arrow = xr_new<CUIScrollArrowButton>();
-		arrow->SetAutoDelete(true);
-		arrow->InitButton(Fvector2().set(0.0f, 0.0f), Fvector2().set(width, height));
-		arrow->SetOverlap(overlap);
-		arrow->SetupHalves(ref->ArtBase());
-		arrow->LayoutHalves();
-		arrow->TextItemControl()->SetText(glyph[s]);
-		arrow->SetWindowName(name[s]);
-
-		if (style && style->GetFont())
-			arrow->TextItemControl()->SetFont(style->GetFont());
-		for (int st = S_Enabled; st <= S_Touched; ++st)
+		if (m_arrow[s])
+			continue;
+		CUIScrollArrowButton* arrow = NewArrow(s, size, ref);
+		if (splice)
 		{
-			arrow->m_dwTextColor[st] = ref->m_dwTextColor[st];
-			arrow->m_bUseTextColor[st] = ref->m_bUseTextColor[st];
+			arrow->SetOverlap(ref->Overlap());
+			arrow->SetupHalves(ref->ArtBase());
+			arrow->LayoutHalves();
+			for (int st = S_Enabled; st <= S_Touched; ++st)
+			{
+				arrow->m_dwTextColor[st] = ref->m_dwTextColor[st];
+				arrow->m_bUseTextColor[st] = ref->m_bUseTextColor[st];
+			}
 		}
-		if (m_parent)
-			m_parent->AttachChild(arrow);
-		arrow->SetMessageTarget(m_msg_target);
-		m_arrow[s] = arrow;
+		else
+		{
+			arrow->m_dwTextColor[S_Enabled] = ref->m_bUseTextColor[S_Touched]
+				                                  ? ref->m_dwTextColor[S_Touched]
+				                                  : ref->m_dwTextColor[S_Enabled];
+		}
 	}
 }
 
-void CUITabScrollArrows::Layout(float view_right, float strip_y)
+void CUITabScrollArrows::Layout(float view_left, float view_right, float strip_y)
 {
 	for (int s = 0; s < 2; ++s)
-		if (m_arrow[s])
-			m_arrow[s]->SetWndPos(Fvector2().set((s == eLeft) ? 0.0f : view_right, strip_y));
+	{
+		if (!m_arrow[s])
+			continue;
+		Fvector2 p;
+		p.set((s == eLeft) ? view_left : view_right, strip_y);
+		if (m_pin[s].x != 0.0f)
+			p.x = m_pin[s].x;
+		if (m_pin[s].y != 0.0f)
+			p.y = m_pin[s].y;
+		m_arrow[s]->SetWndPos(p);
+	}
 }
 
 void CUITabScrollArrows::Show(bool visible)

@@ -46,28 +46,8 @@ void CUITabButtonMP::Update()
 	m_bIsEnabled = tempEnabled;
 	UpdateTextAlign();
 
-	u32 hintColor = 0;
 	if (m_hint)
-	{
-		if (!m_bIsEnabled)
-		{
-			hintColor = m_bUseTextColor[S_Disabled] ? m_dwTextColor[S_Disabled] : m_dwTextColor[S_Enabled];
-		}
-		else if (CUIButton::BUTTON_PUSHED == GetButtonState())
-		{
-			hintColor = m_bUseTextColor[S_Touched] ? m_dwTextColor[S_Touched] : m_dwTextColor[S_Enabled];
-		}
-		else if (m_bCursorOverWindow)
-		{
-			hintColor = m_bUseTextColor[S_Highlighted] ? m_dwTextColor[S_Highlighted] : m_dwTextColor[S_Enabled];
-		}
-		else
-		{
-			hintColor = m_dwTextColor[S_Enabled];
-		}
-
-		m_hint->TextItemControl()->SetTextColor(hintColor);
-	}
+		m_hint->TextItemControl()->SetTextColor(StateTextColor(CurrentIBState()));
 }
 
 void CUITabButtonMP::Draw()

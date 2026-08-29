@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "UIEditKeyBind.h"
+#include "UIStatic.h"
 #include "../xr_level_controller.h"
 #include "object_broker.h"
 #include "../../xrEngine/xr_ioconsole.h"
@@ -9,10 +10,10 @@ CUIEditKeyBind::CUIEditKeyBind(bool bPrim)
 {
 	m_bPrimary = bPrim;
 	m_bIsEditMode = false;
-	TextItemControl()->SetTextComplexMode(false);
 	m_keyboard = NULL;
 	m_opt_backup_value = NULL;
 	m_action = NULL;
+	m_text = NULL;
 }
 
 CUIEditKeyBind::~CUIEditKeyBind()
@@ -51,33 +52,46 @@ u32 cut_string_by_length(CGameFont* pFont, LPCSTR src, LPSTR dst, u32 dst_size, 
 void CUIEditKeyBind::SetText(const char* text)
 {
 	if (!text || 0 == xr_strlen(text))
-		TextItemControl()->SetText("---");
+		m_text->SetText("---");
 	else
 	{
 		string256 buff;
 
-		cut_string_by_length(TextItemControl()->GetFont(), text, buff, sizeof(buff), GetWidth());
+		cut_string_by_length(m_text->GetFont(), text, buff, sizeof(buff), GetWidth());
 
-		TextItemControl()->SetText(buff);
+		m_text->SetText(buff);
 	}
 }
 
 void CUIEditKeyBind::InitKeyBind(Fvector2 pos, Fvector2 size)
 {
-	CUIStatic::SetWndPos(pos);
-	CUIStatic::SetWndSize(size);
-	InitTexture("ui_listline2");
-	TextItemControl()->SetFont(UI().Font().pFontLetterica16Russian);
-	SetStretchTexture(true);
+	InitFrameLineWnd("ui_listline2", pos, size);
+
+	m_text = xr_new<CUITextWnd>();
+	m_text->SetAutoDelete(true);
+	m_text->SetWndPos(Fvector2().set(0.0f, 0.0f));
+	m_text->SetWndSize(size);
+	m_text->SetFont(UI().Font().pFontLetterica16Russian);
+	m_text->SetTextComplexMode(false);
+	AttachChild(m_text);
+
 	SetEditMode(false);
+}
+
+void CUIEditKeyBind::Draw()
+{
+	if (m_bIsEditMode)
+		DrawElements();
+
+	CUIWindow::Draw();
 }
 
 
 void CUIEditKeyBind::OnFocusLost()
 {
-	CUIStatic::OnFocusLost();
+	inherited::OnFocusLost();
 	SetEditMode(false);
-	TextItemControl()->SetTextColor((subst_alpha(TextItemControl()->GetTextColor(), color_get_A(0xffffffff))));
+	m_text->SetTextColor(subst_alpha(m_text->GetTextColor(), color_get_A(0xffffffff)));
 }
 
 bool CUIEditKeyBind::OnMouseDown(int mouse_btn)
@@ -102,7 +116,7 @@ bool CUIEditKeyBind::OnMouseDown(int mouse_btn)
 	if (mouse_btn == MOUSE_1)
 		SetEditMode(m_bCursorOverWindow);
 
-	return CUIStatic::OnMouseDown(mouse_btn);
+	return inherited::OnMouseDown(mouse_btn);
 }
 
 bool CUIEditKeyBind::OnKeyboardAction(int dik, EUIMessages keyboard_action)
@@ -110,7 +124,7 @@ bool CUIEditKeyBind::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	if (dik == MOUSE_1 || dik == MOUSE_2 || dik == MOUSE_3)
 		return false;
 
-	if (CUIStatic::OnKeyboardAction(dik, keyboard_action))
+	if (inherited::OnKeyboardAction(dik, keyboard_action))
 		return true;
 
 	string64 message;
@@ -131,25 +145,14 @@ bool CUIEditKeyBind::OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	return false;
 }
 
-void CUIEditKeyBind::Update()
-{
-	CUIStatic::Update();
-}
-
 void CUIEditKeyBind::SetEditMode(bool b)
 {
 	m_bIsEditMode = b;
 
 	if (b)
-	{
-		SetColorAnimation("ui_map_area_anim", LA_CYCLIC | LA_ONLYALPHA | LA_TEXTCOLOR);
-		TextureOn();
-	}
+		m_text->SetColorAnimation("ui_map_area_anim", LA_CYCLIC | LA_ONLYALPHA | LA_TEXTCOLOR);
 	else
-	{
-		SetColorAnimation(NULL, 0);
-		TextureOff();
-	}
+		m_text->SetColorAnimation(NULL, 0);
 }
 
 void CUIEditKeyBind::AssignProps(const shared_str& entry, const shared_str& group)

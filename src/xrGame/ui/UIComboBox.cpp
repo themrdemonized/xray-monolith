@@ -47,6 +47,10 @@ void CUIComboBox::InitComboBox(Fvector2 pos, float width)
 	m_frameLine.InitState(S_Enabled, "ui_inGame2_combobox_linetext"); // horizontal by default
 	m_frameLine.InitState(S_Highlighted, "ui_inGame2_combobox_linetext");
 
+	for (int s = 0; s < S_Total; ++s)
+		if (CUIFrameLineWnd* fl = m_frameLine.Get((IBState)s))
+			fl->SetCapScaled(true);
+
 	// Edit Box on left side of frame line
 	m_text.SetWndPos(Fvector2().set(lb_text_offset, 0.0f));
 	m_text.SetWndSize(Fvector2().set(width - lb_text_offset, CB_HEIGHT));

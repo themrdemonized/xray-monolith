@@ -8,10 +8,18 @@
 
 static const float TAB_SCROLL_WHEEL_STEP = 1.0f / 3.0f;
 
+static const float TAB_MIN_GAP = 3.0f;
+
 // A zero-width tab is "parked": an invisible off-strip dispatch target excluded from strip geometry and scrolling.
 static bool TabParked(CUITabButton* t)
 {
 	return t->GetWndSize().x <= 0.0f;
+}
+
+static float TabSlack(const CUITabButton* t)
+{
+	const float gap = -t->Overlap();
+	return gap > TAB_MIN_GAP ? gap - TAB_MIN_GAP : 0.0f;
 }
 
 CUITabButton* CUITabControl::FirstStripTab() const
@@ -20,6 +28,28 @@ CUITabButton* CUITabControl::FirstStripTab() const
 		if (!TabParked(m_TabsArr[i]))
 			return m_TabsArr[i];
 	return NULL;
+}
+
+void CUITabControl::RebuildTabOverlaps()
+{
+	CUITabButton* prev = NULL;
+	float overlap = 0.0f;
+	for (u32 i = 0; i < m_TabsArr.size(); ++i)
+	{
+		CUITabButton* t = m_TabsArr[i];
+		if (t->m_dynamic || TabParked(t))
+			continue;
+		if (prev)
+		{
+			overlap = prev->GetWndPos().x + prev->GetWndSize().x - t->GetWndPos().x;
+			prev->SetOverlap(overlap);
+		}
+		else
+			m_origin_x = t->GetWndPos().x;
+		prev = t;
+	}
+	if (prev)
+		prev->SetOverlap(overlap);
 }
 
 bool CUITabControl::AddTab(LPCSTR id, LPCSTR caption, LPCSTR after_id)
@@ -55,16 +85,14 @@ bool CUITabControl::AddTab(LPCSTR id, LPCSTR caption, LPCSTR after_id)
 	CUITabButton* prev = m_TabsArr[at - 1];
 	Fvector2 size = first_tab->GetWndSize();
 
-	CGameFont* font = first_tab->TextItemControl()->GetFont();
-	if (!font)
-		font = UI().Font().pFontLetterica16Russian;
-
 	Fvector2 pos;
-	pos.set(prev->GetWndPos().x + StripPitch(prev), prev->GetWndPos().y);
+	pos.set(prev->GetWndPos().x + prev->Pitch(), prev->GetWndPos().y);
 
 	CUITabButton* pNewButton = first_tab->Clone(pos, size);
+	pNewButton->SetOverlap(prev->Overlap());
 	pNewButton->TextItemControl()->SetText(caption);
-	pNewButton->TextItemControl()->SetFont(font);
+	if (!pNewButton->TextItemControl()->GetFont())
+		pNewButton->TextItemControl()->SetFont(UI().Font().pFontLetterica16Russian);
 	pNewButton->SetTextureColor(m_cGlobalButtonColor);
 	pNewButton->m_btn_id = id;
 	pNewButton->m_dynamic = true;
@@ -85,31 +113,33 @@ void CUITabControl::RemoveDynamicTabs()
 	m_TabsArr.resize(dst);
 }
 
-float CUITabControl::StripPitch(const CUITabButton* t) const
+static float LaidOverlap(const CUITabButton* t, float squeeze = 1.0f)
 {
-	return t->Pitch() + m_margin;
+	return t->Overlap() + TabSlack(t) * squeeze;
 }
 
-float CUITabControl::Tuck(const CUITabButton* t) const
+static float LaidPitch(const CUITabButton* t, float squeeze = 1.0f)
 {
-	return t->Overlap() - m_margin;
+	return t->GetWndSize().x - LaidOverlap(t, squeeze);
 }
 
 bool CUITabControl::CanScroll() const
 {
-	return m_content_w > m_strip_w + 0.5;
+	return m_content_w > m_strip_w + 0.5f;
 }
 
 void CUITabControl::RecalcScroll()
 {
-	// Two independent left-to-right layouts. content_w spans ALL strip tabs (what must fit); strip_w spans
-	// the STATIC tabs alone (the viewport): the legacy PDA layout ships a wrong control width, so the vanilla
-	// static tabs define how wide the visible strip is, and the dynamic (AddTab) tabs overflow it and scroll.
-	// GetWidth() is only a floor.
+	// Two left-to-right spans measured from the strip origin. content_w covers ALL tabs (what must fit);
+	// strip_w covers the STATIC tabs alone and is the frame the strip must stay inside -- the authored tabs
+	// define it, not GetWidth(), which the legacy PDA layout ships wrong. Anchoring the frame at both
+	// authored ends is what keeps the last tab's right edge put while the interior redistributes.
 	m_content_w = 0.0f;
-	m_strip_w = GetWidth();
+	m_strip_w = 0.0f;
 	float content_x = 0.0f;
 	float static_x = 0.0f;
+	float total_slack = 0.0f;
+	CUITabButton* prev = NULL;
 	for (u32 i = 0; i < m_TabsArr.size(); ++i)
 	{
 		if (TabParked(m_TabsArr[i]))
@@ -121,28 +151,43 @@ void CUITabControl::RecalcScroll()
 		{
 			if (static_x + w > m_strip_w)
 				m_strip_w = static_x + w;
-			static_x += StripPitch(m_TabsArr[i]);
+			static_x += m_TabsArr[i]->Pitch();
 		}
-		content_x += StripPitch(m_TabsArr[i]);
+		content_x += m_TabsArr[i]->Pitch();
+		if (prev)
+			total_slack += TabSlack(prev);
+		prev = m_TabsArr[i];
+	}
+
+	const float needed = m_content_w - m_strip_w;
+	float squeeze = 0.0f;
+	if (needed > 0.0f && total_slack > 0.0f)
+	{
+		squeeze = (needed < total_slack) ? needed / total_slack : 1.0f;
+		m_content_w -= total_slack * squeeze;
 	}
 
 	CUITabButton* first_tab = FirstStripTab();
 	if (CanScroll())
 		m_arrows->EnsureBuilt(first_tab);
 
-	m_view_left = m_arrows->Width(CUITabScrollArrows::eLeft) - (first_tab ? Tuck(first_tab) : 0.0f);
-	m_view_right = m_strip_w - m_arrows->Width(CUITabScrollArrows::eRight);
+	m_view_left = m_origin_x + m_arrows->Width(CUITabScrollArrows::eLeft)
+		- (first_tab ? LaidOverlap(first_tab) : 0.0f);
+	m_view_right = m_origin_x + m_strip_w - m_arrows->Width(CUITabScrollArrows::eRight);
 
-	m_arrows->Layout(m_view_right, first_tab ? first_tab->GetWndPos().y : 0.0f);
+	if (m_view_right < m_view_left)
+		m_view_right = m_view_left;
+
+	m_arrows->Layout(m_origin_x, m_view_right, first_tab ? first_tab->GetWndPos().y : 0.0f);
 	m_arrows->Show(CanScroll());
 
-	ApplyScroll(0.0f);
+	ApplyScroll(0.0f, squeeze);
 }
 
 float CUITabControl::ScrollStep() const
 {
 	CUITabButton* t = FirstStripTab();
-	return t ? StripPitch(t) : 0.0f;
+	return t ? LaidPitch(t) : 0.0f;
 }
 
 float CUITabControl::CurrentScroll() const
@@ -156,15 +201,15 @@ float CUITabControl::MaxScroll() const
 	CUITabButton* first = FirstStripTab();
 	if (!first)
 		return 0.0f;
-	const float max_scroll = m_content_w + m_view_left - m_view_right - Tuck(first);
+	const float max_scroll = m_content_w + m_view_left - m_view_right - LaidOverlap(first);
 	return max_scroll > 0.0f ? max_scroll : 0.0f;
 }
 
-void CUITabControl::ApplyScroll(float scroll)
+void CUITabControl::ApplyScroll(float scroll, float squeeze)
 {
 	const bool can_scroll = CanScroll();
-	const float view_left = can_scroll ? m_view_left : 0.0f;
-	const float viewport_w = m_strip_w;
+	const float view_left = can_scroll ? m_view_left : m_origin_x;
+	const float frame_r = m_origin_x + m_strip_w;
 	float layout_x = 0.0f;
 	for (u32 i = 0; i < m_TabsArr.size(); ++i)
 	{
@@ -175,12 +220,8 @@ void CUITabControl::ApplyScroll(float scroll)
 		p.x = layout_x - scroll + view_left;
 		m_TabsArr[i]->SetWndPos(p);
 
-		if (can_scroll)
-		{
-			bool vis = (p.x + w > 0.0f) && (p.x < viewport_w);
-			m_TabsArr[i]->SetVisible(vis);
-		}
-		layout_x += StripPitch(m_TabsArr[i]);
+		m_TabsArr[i]->SetVisible(!can_scroll || ((p.x + w > m_origin_x) && (p.x < frame_r)));
+		layout_x += LaidPitch(m_TabsArr[i], squeeze);
 	}
 }
 
@@ -216,7 +257,7 @@ void CUITabControl::EnsureVisible(const shared_str& id)
 				scroll = layout_x;
 			else
 			{
-				float need = layout_x + m_view_left + tab_w - m_view_right - Tuck(m_TabsArr[i]);
+				float need = layout_x + m_view_left + tab_w - m_view_right - LaidOverlap(m_TabsArr[i]);
 				if (scroll < need)
 					scroll = need;
 			}
@@ -224,7 +265,7 @@ void CUITabControl::EnsureVisible(const shared_str& id)
 			return;
 		}
 		if (!TabParked(m_TabsArr[i]))
-			layout_x += StripPitch(m_TabsArr[i]);
+			layout_x += LaidPitch(m_TabsArr[i]);
 	}
 }
 
@@ -243,26 +284,34 @@ void CUITabControl::DrawTabsClipped()
 	Frect abs_rect;
 	GetAbsoluteRect(abs_rect);
 	CUITabButton* ref = FirstStripTab();
-	const float overlap = ref->Overlap();
-	const float tab_h = ref->GetWndSize().y;
-	const float strip_top = abs_rect.y1 + ref->GetWndPos().y;
-	const float strip_bot = strip_top + tab_h;
-
-	const float cut_l = m_view_left;
-	const float cut_r = m_view_right - m_margin;
-
-	Fvector2 lb, lt, rb, rt;
-	UI().ClientToScreenScaled(lb, abs_rect.x1 + cut_l, strip_bot);
-	UI().ClientToScreenScaled(lt, abs_rect.x1 + cut_l + overlap, strip_top);
-	UI().ClientToScreenScaled(rb, abs_rect.x1 + cut_r, strip_bot);
-	UI().ClientToScreenScaled(rt, abs_rect.x1 + cut_r + overlap, strip_top);
+	const float seam = ref->Seam();
 
 	C2DFrustum frustum = UI().ScreenFrustum();
-	frustum.AddEdgePlane(lb, lt);
-	frustum.AddEdgePlane(rt, rb);
+	if (seam > 0.0f)
+	{
+		const float strip_top = abs_rect.y1 + ref->GetWndPos().y;
+		const float strip_bot = strip_top + ref->GetWndSize().y;
+
+		Fvector2 lb, lt, rb, rt;
+		UI().ClientToScreenScaled(lb, abs_rect.x1 + m_view_left, strip_bot);
+		UI().ClientToScreenScaled(lt, abs_rect.x1 + m_view_left + seam, strip_top);
+		UI().ClientToScreenScaled(rb, abs_rect.x1 + m_view_right, strip_bot);
+		UI().ClientToScreenScaled(rt, abs_rect.x1 + m_view_right + seam, strip_top);
+
+		frustum.AddEdgePlane(lb, lt);
+		frustum.AddEdgePlane(rt, rb);
+	}
+
+	const float laid = LaidOverlap(ref);
+	const float tuck = laid > 0.0f ? laid : 0.0f;
 
 	Frect clip_bg = abs_rect;
-	clip_bg.x2 = abs_rect.x1 + m_strip_w;
+	clip_bg.x1 = abs_rect.x1 + m_view_left;
+	clip_bg.x2 = abs_rect.x1 + m_view_right + laid;
+
+	Frect clip_txt = clip_bg;
+	clip_txt.x1 += tuck;
+	clip_txt.x2 -= tuck;
 
 	UI().PushScissor(clip_bg);
 	for (u32 i = 0; i < m_TabsArr.size(); ++i)
@@ -271,8 +320,8 @@ void CUITabControl::DrawTabsClipped()
 		if (!t->IsShown() || TabParked(t))
 			continue;
 		const float tab_lb = t->GetWndPos().x;
-		const float tab_rb = tab_lb + t->GetWndSize().x - overlap;
-		if (tab_lb < cut_l || tab_rb > cut_r)
+		const float tab_rb = tab_lb + t->GetWndSize().x - seam;
+		if (seam > 0.0f && (tab_lb < m_view_left || tab_rb > m_view_right))
 		{
 			UI().PushClipFrustum(&frustum);
 			t->DrawTexture();
@@ -282,10 +331,6 @@ void CUITabControl::DrawTabsClipped()
 			t->DrawTexture();
 	}
 	UI().PopScissor();
-
-	Frect clip_txt = abs_rect;
-	clip_txt.x1 = abs_rect.x1 + m_arrows->Width(CUITabScrollArrows::eLeft);
-	clip_txt.x2 = abs_rect.x1 + m_view_right;
 
 	UI().PushScissor(clip_txt);
 	for (u32 i = 0; i < m_TabsArr.size(); ++i)
@@ -314,23 +359,23 @@ static void SlidePolyIntoBand(Fvector2* poly, float left, float right)
 
 void CUITabControl::ApplyStripHitClips()
 {
-	CUITabButton* ref = FirstStripTab();
-	if (!ref)
-		return;
 	Frect abs_rect;
 	GetAbsoluteRect(abs_rect);
-	const float band_left = m_view_left;
-	const float band_right = m_view_right - m_margin;
 	const bool can_scroll = CanScroll();
 	for (u32 i = 0; i < m_TabsArr.size(); ++i)
 	{
 		CUITabButton* t = m_TabsArr[i];
 		if (TabParked(t))
 			continue;
+		if (!can_scroll && t->Seam() <= 0.0f)
+		{
+			t->SetHitClip(NULL, 0);
+			continue;
+		}
 		Fvector2 poly[4];
 		u32 n = t->HitPoly(poly, 4);
 		if (can_scroll && n == 4)
-			SlidePolyIntoBand(poly, band_left, band_right);
+			SlidePolyIntoBand(poly, m_view_left, m_view_right);
 		for (u32 k = 0; k < n; ++k)
 		{
 			poly[k].x += abs_rect.x1;

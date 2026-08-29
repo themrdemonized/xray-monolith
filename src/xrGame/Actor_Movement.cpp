@@ -21,6 +21,9 @@
 #include "phdebug.h"
 #endif
 BOOL disableActorBodyRotationDelay = TRUE;
+
+// verdatim: flag to allow 'running' speed during left or right lookouts
+BOOL AllowAccelDuringLookOut = FALSE; 
 static const float s_fLandingTime1 = 0.1f; // через сколько снять флаг Landing1 (т.е. включить следующую анимацию)
 static const float s_fLandingTime2 = 0.3f; // через сколько снять флаг Landing2 (т.е. включить следующую анимацию)
 static const float s_fJumpTime = 0.3f;
@@ -598,7 +601,7 @@ bool isActorAccelerated(u32 mstate, bool ZoomMode)
 
 	if (mstate & (mcCrouch | mcClimb | mcJump | mcLanding | mcLanding2))
 		return res;
-	if (mstate & mcLookout || ZoomMode)
+	if ((mstate & mcLookout && !AllowAccelDuringLookOut) || ZoomMode)
 		return false;
 	return res;
 }

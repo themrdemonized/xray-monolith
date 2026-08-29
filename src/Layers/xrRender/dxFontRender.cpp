@@ -76,8 +76,14 @@ void dxFontRender::OnRender(CGameFont& owner)
 				float Y2 = Y + S;
 				float fSize = 0;
 
+				const float hs = fis_zero(owner.fHeight) ? 1.0f : (PS.height / owner.fHeight);
+
 				if (PS.align)
+				{
 					fSize = owner.IsMultibyte() ? owner.SizeOf_(wsStr) : owner.SizeOf_(PS.string);
+					if (!fis_zero(owner.GetHeight()))
+						fSize *= PS.height / owner.GetHeight();
+				}
 
 				switch (PS.align)
 				{
@@ -113,7 +119,7 @@ void dxFontRender::OnRender(CGameFont& owner)
 
 					l = owner.IsMultibyte() ? owner.GetCharTC(wsStr[1 + j]) : owner.GetCharTC((u16)(u8)PS.string[j]);
 
-					float scw = l.z * g_current_font_scale.x;
+					float scw = l.z * hs * g_current_font_scale.x;
 
 					float fTCWidth = l.z / owner.vTS.x;
 

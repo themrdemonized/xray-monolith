@@ -6,6 +6,7 @@
 
 class CUITabButton;
 class CUITabScrollArrows;
+class CUIScrollArrowButton;
 
 DEF_VECTOR(TABS_VECTOR, CUITabButton*)
 
@@ -44,6 +45,19 @@ public:
 	bool AddTab(LPCSTR id, LPCSTR caption, LPCSTR after_id);
 	// Remove the AddTab-added tabs, restoring the XML positions. Call RecalcScroll afterwards.
 	void RemoveDynamicTabs();
+
+	// Hand over a skin-authored scroll arrow; side is CUITabScrollArrows::eLeft/eRight. That side is then
+	// used as-is instead of being built from the strip's art.
+	void SetScrollArrow(int side, CUIScrollArrowButton* arrow);
+
+	void SetIconLayout(const Fvector2& pos, const Fvector2& box, const Fvector2& anchor)
+	{
+		m_icon_pos = pos;
+		m_icon_box = box;
+		m_icon_anchor = anchor;
+	}
+
+	bool SetTabIcon(LPCSTR id, LPCSTR art);
 
 	void RecalcScroll();
 	void ScrollBy(float dx);
@@ -96,17 +110,21 @@ protected:
 	float m_view_left;
 	float m_view_right;
 
-	float m_margin;
+	float m_origin_x;
 
+	Fvector2 m_icon_pos;
+	Fvector2 m_icon_box;
+	Fvector2 m_icon_anchor;
+
+	Fvector2 IconBox(const CUITabButton* b) const;
 	bool InsertItem(CUITabButton* pButton, u32 at);
+	void RebuildTabOverlaps();
 	CUITabButton* FirstStripTab() const;
-	float StripPitch(const CUITabButton* t) const;
-	float Tuck(const CUITabButton* t) const;
 	void DrawTabsClipped();
 	void ApplyStripHitClips();
 	float CurrentScroll() const;
 	float MaxScroll() const;
-	void ApplyScroll(float scroll);
+	void ApplyScroll(float scroll, float squeeze = 1.0f);
 	void ClampScroll(float scroll);
 	float ScrollStep() const;
 

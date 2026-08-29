@@ -31,7 +31,6 @@ u32 ENEMY_INERTIA_TIME_TO_SOMEBODY = 3000;
 u32 ENEMY_INERTIA_TIME_TO_ACTOR = 0;
 u32 ENEMY_INERTIA_TIME_FROM_ACTOR = 6000;
 
-
 #ifdef _DEBUG
 bool g_enemy_manager_second_update	 = false;
 #endif // _DEBUG
@@ -50,6 +49,22 @@ CEnemyManager::CEnemyManager(CCustomMonster* object)
 	m_stalker = smart_cast<CAI_Stalker*>(object);
 	m_enable_enemy_change = true;
 	m_smart_cover_enemy = 0;
+	m_visible_enemy_bias_actor = -1.f;
+	m_visible_enemy_bias_npc = -1.f;
+}
+
+void CEnemyManager::set_visible_enemy_bias(float actor_bias, float npc_bias)
+{
+	m_visible_enemy_bias_actor = actor_bias;
+	m_visible_enemy_bias_npc = npc_bias;
+	m_hit_redirect_max = -1.f;
+	m_hit_redirect_falloff = 60.f;
+}
+
+void CEnemyManager::set_hit_redirect(float max, float falloff)
+{
+	m_hit_redirect_max = max;
+	m_hit_redirect_falloff = (falloff > 0.f) ? falloff : 60.f;
 }
 
 bool CEnemyManager::is_useful(const CEntityAlive* entity_alive) const
@@ -126,17 +141,24 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 		return (distance);
 	}
 
+	float d2 = m_object->Position().distance_to_sqr(object->Position());
+
 	float penalty = 10000.f;
 
 	// if we are hit
 	if (object->ID() == m_object->memory().hit().last_hit_object_id())
 	{
-		float hit_dist = m_object->Position().distance_to(object->Position());
-		
+		if (m_hit_redirect_max >= 0.f)
+		{
+			// per-NPC bonus, decays to 0 by m_hit_redirect_falloff distance
+			float falloff2 = m_hit_redirect_falloff * m_hit_redirect_falloff;
+			if (d2 < falloff2)
+				penalty -= m_hit_redirect_max * (1.f - d2 / falloff2);
+		}
 		// In CQB (< 30m), the distance score variance is only 0 to 9 points.
 		// A tiny -5 penalty ensures they turn to a flanker at 15m, 
 		// but WON'T ignore a guy actively fighting them at 5m just because they got shot!
-		if (hit_dist < 30.f)
+		else if (m_object->Position().distance_to(object->Position()) < 30.f)
 			penalty -= 5.f;
 			
 		// For medium/long range, give a standard 100m aggro advantage
@@ -152,13 +174,13 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	// if object is actor and he/she sees us
 	if (actor) {
 		if (actor->memory().visual().visible_now(m_object))
-			penalty -= 900.f;
+			penalty -= (m_visible_enemy_bias_actor >= 0.f) ? m_visible_enemy_bias_actor : 900.f;
 	}
 	else {
 		// if object is npc and it sees us
 		const CCustomMonster	*monster = smart_cast<const CCustomMonster*>(object);
 		if (monster && monster->memory().visual().visible_now(m_object))
-			penalty -= 300.f;
+			penalty -= (m_visible_enemy_bias_npc >= 0.f) ? m_visible_enemy_bias_npc : 300.f;
 	}
 
 #ifdef USE_EVALUATOR
@@ -167,11 +189,9 @@ float CEnemyManager::evaluate(const CEntityAlive* object) const
 	ai().ef_storage().non_alife().member() = m_object;
 	ai().ef_storage().non_alife().enemy() = object;
 
-	float distance = m_object->Position().distance_to_sqr(object->Position());
 	return (
 		penalty +
-		distance / 100.f
-		// + ai().ef_storage().m_pfVictoryProbability->ffGetValue() / 100.f //SkyKi: Removed to stop AI from locking onto heavily armed targets (like the player) across the map
+		d2 / 100.f
 	);
 #else // USE_EVALUATOR
 	float					distance = m_object->Position().distance_to_sqr(object->Position());

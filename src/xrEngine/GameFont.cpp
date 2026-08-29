@@ -17,6 +17,148 @@ ENGINE_API Fvector2 g_current_font_scale = {1.0f, 1.0f};
 #include "../Include/xrRender/RenderFactory.h"
 #include "../Include/xrRender/FontRender.h"
 
+struct FontRung
+{
+	LPCSTR key;
+	u32 lo, hi;
+	u32 authored;
+};
+
+static const FontRung s_legacy_rungs[] = {
+	{"texture800", 0, 601, 600},
+	{"texture", 601, 1024, 768},
+	{"texture1600", 1024, 1440, 1200},
+	{"texture2160", 1440, 0, 2160},
+};
+
+static const int LEGACY_DEFAULT_IDX = 1;
+
+static const char RUNG_PREFIX[] = "texture_h";
+
+IC bool rung_claims(const FontRung& r, u32 h) { return h >= r.lo && (r.hi == 0 || h < r.hi); }
+
+static u32 parse_rung_height(LPCSTR key)
+{
+	const size_t n = sizeof(RUNG_PREFIX) - 1;
+	if (0 != strncmp(key, RUNG_PREFIX, n))
+		return 0;
+
+	u32 v = 0;
+	for (LPCSTR d = key + n; *d; ++d)
+	{
+		if (*d < '0' || *d > '9')
+			return 0;
+		v = v * 10 + u32(*d - '0');
+	}
+	return v;
+}
+
+static void resolve_font_texture(LPCSTR base, string_path& out)
+{
+	LPCSTR _lang = pSettings->r_string("string_table", "font_prefix");
+	const bool is_di = strstr(base, "ui_font_hud_01") || strstr(base, "ui_font_hud_02") ||
+		strstr(base, "ui_font_console_02");
+
+	if (_lang && !is_di)
+		strconcat(sizeof(out), out, base, _lang);
+	else
+		xr_strcpy(out, sizeof(out), base);
+}
+
+static bool font_atlas_exists(LPCSTR base)
+{
+	string_path resolved, buf, fn;
+	resolve_font_texture(base, resolved);
+	xr_strcpy(buf, sizeof(buf), resolved);
+	if (strext(buf))
+		*strext(buf) = 0;
+	return !!FS.exist(fn, "$game_textures$", buf, ".ini");
+}
+
+static int legacy_winner_idx(LPCSTR section, u32 h)
+{
+	int idx = LEGACY_DEFAULT_IDX;
+	for (int i = 0; i < int(sizeof(s_legacy_rungs) / sizeof(s_legacy_rungs[0])); ++i)
+	{
+		if (rung_claims(s_legacy_rungs[i], h))
+		{
+			idx = i;
+			break;
+		}
+	}
+	while (idx >= 0)
+	{
+		if (pSettings->line_exist(section, s_legacy_rungs[idx].key))
+			return idx;
+		--idx;
+	}
+	return -1;
+}
+
+struct FontCandidate
+{
+	LPCSTR key;
+	u32 authored;
+	float dist;
+	bool explicit_rung;
+	bool tried;
+};
+
+IC bool candidate_better(const FontCandidate& a, const FontCandidate& b)
+{
+	if (fabsf(a.dist - b.dist) > EPS_S)
+		return a.dist < b.dist;
+	if (a.explicit_rung != b.explicit_rung)
+		return a.explicit_rung;
+	return a.authored > b.authored;
+}
+
+ENGINE_API LPCSTR GetFontTextureName(LPCSTR section)
+{
+	const u32 h = Device.dwHeight ? Device.dwHeight : 1;
+
+	xr_vector<FontCandidate> cands;
+	const CInifile::Sect& S = pSettings->r_section(section);
+	for (const CInifile::Item& it : S.Data)
+	{
+		const u32 n = parse_rung_height(*it.first);
+		if (n)
+			cands.push_back({*it.first, n, 0.f, true, false});
+	}
+
+	const int lw = legacy_winner_idx(section, h);
+	if (lw >= 0)
+		cands.push_back({s_legacy_rungs[lw].key, s_legacy_rungs[lw].authored, 0.f, false, false});
+
+	for (FontCandidate& c : cands)
+		c.dist = fabsf(logf(float(c.authored) / float(h)));
+
+	for (u32 n = 0; n < cands.size(); ++n)
+	{
+		int best = -1;
+		for (u32 i = 0; i < cands.size(); ++i)
+		{
+			if (cands[i].tried)
+				continue;
+			if (best < 0 || candidate_better(cands[i], cands[best]))
+				best = int(i);
+		}
+		cands[best].tried = true;
+
+		LPCSTR tex = pSettings->r_string(section, cands[best].key);
+		if (font_atlas_exists(tex))
+		{
+			Msg("* [font] h=%u [%s] %s = %s (authored %u, %+.1f%%)", h, section, cands[best].key, tex,
+			    cands[best].authored, 100.f * (float(cands[best].authored) / float(h) - 1.f));
+			return tex;
+		}
+		Msg("~[font] h=%u [%s] %s -> %s has no atlas, skipped", h, section, cands[best].key, tex);
+	}
+
+	Msg("~[font] h=%u [%s] no usable rung, forcing %s", h, section, s_legacy_rungs[LEGACY_DEFAULT_IDX].key);
+	return pSettings->r_string(section, s_legacy_rungs[LEGACY_DEFAULT_IDX].key);
+}
+
 CGameFont::CGameFont(LPCSTR section, u32 flags)
 {
 	pFontRender = RenderFactory->CreateFontRender();
@@ -27,25 +169,7 @@ CGameFont::CGameFont(LPCSTR section, u32 flags)
 	nNumChars = 0x100;
 	TCMap = NULL;
 
-	const auto FindTextureName = [&](LPCSTR _sect)
-	{
-		static char* tex_names[] = { "texture800", "texture", "texture1600", "texture2160" };
-		int idx = 1;
-		u32 h = Device.dwHeight;
-		if (h <= 600) idx = 0;
-		else if (h < 1024) idx = 1;
-		else if (h < 1440) idx = 2;
-		else idx = 3;
-		while (idx >= 0)
-		{
-			if (pSettings->line_exist(_sect, tex_names[idx]))
-				return pSettings->r_string(_sect, tex_names[idx]);
-			--idx;
-		}
-		return pSettings->r_string(_sect, tex_names[1]);
-	};
-
-	Initialize(pSettings->r_string(section, "shader"), FindTextureName(section));
+	Initialize(pSettings->r_string(section, "shader"), GetFontTextureName(section));
 	if (pSettings->line_exist(section, "size"))
 	{
 		float sz = pSettings->r_float(section, "size");
@@ -72,14 +196,7 @@ void CGameFont::Initialize(LPCSTR cShader, LPCSTR cTextureName)
 {
 	string_path cTexture;
 
-	LPCSTR _lang = pSettings->r_string("string_table", "font_prefix");
-	bool is_di = strstr(cTextureName, "ui_font_hud_01") ||
-		strstr(cTextureName, "ui_font_hud_02") ||
-		strstr(cTextureName, "ui_font_console_02");
-	if (_lang && !is_di)
-		strconcat(sizeof(cTexture), cTexture, cTextureName, _lang);
-	else
-		xr_strcpy(cTexture, sizeof(cTexture), cTextureName);
+	resolve_font_texture(cTextureName, cTexture);
 
 	uFlags &= ~fsValid;
 	vTS.set(1.f, 1.f); // обязательно !!!
@@ -352,7 +469,7 @@ void CGameFont::OutSkip(float val)
 
 float CGameFont::SizeOf_(const char cChar)
 {
-	return (GetCharTC((u16)(u8)(((IsMultibyte() && cChar == ' ')) ? 0 : cChar)).z * vInterval.x);
+	return (GetCharTC((u16)(u8)(((IsMultibyte() && cChar == ' ')) ? 0 : cChar)).z * WidthScale() * vInterval.x);
 }
 
 float CGameFont::SizeOf_(LPCSTR s)
@@ -375,7 +492,7 @@ float CGameFont::SizeOf_(LPCSTR s)
 		for (int j = 0; j < len; j++)
 			X += GetCharTC((u16)(u8)s[j]).z;
 
-	return (X * vInterval.x);
+	return (X * WidthScale() * vInterval.x);
 }
 
 float CGameFont::SizeOf_(const wide_char* wsStr)
@@ -395,7 +512,7 @@ float CGameFont::SizeOf_(const wide_char* wsStr)
 			X += fDelta;
 		}
 
-	return (X * vInterval.x);
+	return (X * WidthScale() * vInterval.x);
 }
 
 float CGameFont::CurrentHeight_()

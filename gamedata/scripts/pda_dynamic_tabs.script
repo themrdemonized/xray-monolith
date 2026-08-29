@@ -27,6 +27,12 @@
 -- The tab's look is not configurable: it inherits the strip's own art, font and size. Its width is
 -- fixed to the strip's tab width, so a long caption may clip.
 --
+-- Icons: if the UI declares a texture named after the caption id ("st_wrfr_pda_tab_e" and optional
+-- _d/_h/_t, or a single "st_wrfr_pda_tab"), the tab gets it. No art under that name means no icon,
+-- which is not an error. The caption id is used because it is chosen by the registering mod and
+-- stable, unlike the tab id -- so a PDA reskin can supply icons for tabs it does not know about,
+-- and a mod can ship a default for its own, without either side coordinating.
+--
 -- To detect engine support: CUITabControl.AddTab ~= nil.
 
 local registry = {}        -- ordered list of { id, caption, ui, after }
@@ -77,6 +83,9 @@ function build_extra_tabs(tab_control)
     for i = 1, #registry do
         local t = registry[i]
         tab_control:AddTab(t.id, game.translate_string(t.caption), t.after or "")
+        if CUITabControl.SetTabIcon then
+            tab_control:SetTabIcon(t.id, t.caption)
+        end
     end
 end
 

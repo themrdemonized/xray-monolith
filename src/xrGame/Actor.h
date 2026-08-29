@@ -100,8 +100,6 @@ public:
 public:
 	virtual BOOL AlwaysTheCrow() { return TRUE; }
 
-	virtual float GetUILuminosity();
-
 	virtual CAttachmentOwner* cast_attachment_owner() { return this; }
 	virtual CInventoryOwner* cast_inventory_owner() { return this; }
 	virtual CActor* cast_actor() { return this; }
@@ -261,7 +259,7 @@ protected:
 	s32 m_ShotRndSeed;
 
 	bool m_bOutBorder;
-	//сохраняет счетчик объектов в feel_touch, для которых необходимо обновлять размер колижена с актером 
+	//сохраняет счетчик объектов в feel_touch, для которых необходимо обновлять размер колижена с актером
 	u32 m_feel_touch_characters;
 private:
 	void SwitchOutBorder(bool new_border_state);
@@ -339,7 +337,7 @@ public:
 	virtual void OnHUDDraw(CCustomHUD* hud);
 	BOOL HUDview() const;
 
-	//visiblity 
+	//visiblity
 	virtual float ffGetFov() const { return 90.f; }
 	virtual float ffGetRange() const { return 500.f; }
 
@@ -519,7 +517,7 @@ public:
 	virtual float MaxCarryWeight() const;
 	float MaxWalkWeight() const;
 	float get_additional_weight() const;
-	
+
 #ifdef STATIONARYMGUN_NEW
 	float GetWeaponAccuracyStm();
 #endif
@@ -535,7 +533,7 @@ protected:
 	float m_fDispBase;
 	float m_fDispAim;
 	//коэффициенты на сколько процентов увеличится базовая дисперсия
-	//учитывает скорость актера 
+	//учитывает скорость актера
 	float m_fDispVelFactor;
 	//если актер бежит
 	float m_fDispAccelFactor;
@@ -605,7 +603,7 @@ protected:
 	xr_deque<net_update_A> NET_A;
 
 	//---------------------------------------------
-	//	bool					m_bHasUpdate;	
+	//	bool					m_bHasUpdate;
 	/// spline coeff /////////////////////
 	float SCoeff[3][4]; //коэффициэнты для сплайна Бизье
 	float HCoeff[3][4]; //коэффициэнты для сплайна Эрмита
@@ -876,7 +874,36 @@ public:
 	void RPC_UpdateReputation();
 
 	CNightVisionEffector* m_night_vision;
-DECLARE_SCRIPT_REGISTER_FUNCTION
+
+private:
+    struct npc_visibility
+    {
+        u16 id;
+        float value;
+
+        bool operator ==(const u16& _id)
+        {
+            return id == _id;
+        }
+
+        bool operator <(const npc_visibility& m) const
+        {
+            return (value < m.value);
+        }
+    };
+
+    xr_vector<npc_visibility> m_npc_visibility;
+    float m_visibility_tgt = 0.0f;
+    float m_visibility_cur = 0.0f;
+    bool m_visibility_changed = false;
+
+public:
+    float GetVisibility();
+    void SetVisibilityValue(float value);
+    void SetVisibilityFromObject(u16 who_id, float value);
+
+public:
+    DECLARE_SCRIPT_REGISTER_FUNCTION
 };
 
 extern bool isActorAccelerated(u32 mstate, bool ZoomMode);

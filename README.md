@@ -235,6 +235,31 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.08.17**
+* Main and MT:
+  * DXML: Revert "Malformed closing tags are silently accepted" due to errors with mods
+  * erepb: support for hi-res fonts (https://github.com/themrdemonized/xray-monolith/pull/623)
+
+**2026.08.16**
+* Main and MT:
+  * DXML fixed errors:
+    * Malformed closing tags are silently accepted
+    * Several mutation functions violate their own DOM invariants
+    * Selector evaluation has correctness bugs
+  * erepb:
+    * fix some visual issues when using higher resolutions (https://github.com/themrdemonized/xray-monolith/pull/630)
+    * fixes and improvements to pda tabs (https://github.com/themrdemonized/xray-monolith/pull/633)
+  * Verdatim25: New Cvars `scale_hud_motion_marks_by_speed` and `allow_accel_during_lookout` (https://github.com/themrdemonized/xray-monolith/pull/632)
+  * nltp-ashes: feature(visibility-ui-to-actor): move visibility source of truth (https://github.com/themrdemonized/xray-monolith/pull/635)
+  * damiansirbu:
+    * per-NPC npc:set_hit_redirect selection lever (https://github.com/themrdemonized/xray-monolith/pull/636)
+    * per-NPC npc:set_visible_enemy_bias selection lever (https://github.com/themrdemonized/xray-monolith/pull/637)
+
+MT:
+  * fix crash memory_manager.cpp (329): CMemoryManager::remove_links
+  * fix crash PHMovementControl.cpp (167): CPHMovementControl::Calculate
+  * fix crash alife_update_manager.cpp (118): CALifeUpdateManager::update
+
 **2026.08.09**
 * Main and MT:
   * Expose AttachChild without the adopt policy (so lua windows can be attached to engine windows), fix https://github.com/themrdemonized/xray-monolith/issues/624

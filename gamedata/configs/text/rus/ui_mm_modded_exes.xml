@@ -736,6 +736,9 @@
 	<string id="ui_mm_modded_exes_gameplay_gameplay_general_disable_actor_body_rotation_delay">
 		<text>Мгновенный поворот модели игрока (disable_actor_body_rotation_delay)</text>
 	</string>
+	<string id="ui_mm_modded_exes_gameplay_gameplay_general_allow_accel_during_lookout">
+		<text>Возможность бега вместе с выглядыванием из-за угла (allow_accel_during_lookout)</text>
+	</string>
 
 	<!-- Aim -->
 	<string id="ui_mm_menu_aim">
@@ -835,6 +838,9 @@
 	</string>
 	<string id="ui_mm_modded_exes_gameplay_weapons_g_decouple_horz_recoil">
 		<text>Горизонтальная отдача не зависит от вертикальной (g_decouple_horz_recoil)</text>
+	</string>
+	<string id="ui_mm_modded_exes_gameplay_weapons_scale_hud_motion_marks_by_speed">
+		<text>Регулировать Motion Marks в зависимости от скорости анимации (scale_hud_motion_marks_by_speed)</text>
 	</string>
 	
 	<string id="ui_mm_modded_exes_gameplay_weapons_g_fire_reloads_ubgl">

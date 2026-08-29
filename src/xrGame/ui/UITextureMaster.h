@@ -16,6 +16,9 @@ struct TEX_INFO
 {
 	shared_str file;
 	Frect rect;
+	// Crisp-band insets in texels, from the border_l/t/r/b attributes. Each listed outer row/column is
+	// drawn as its own flat band instead of being stretched with the slice. 0 => unchanged rendering.
+	s16 border_l = 0, border_t = 0, border_r = 0, border_b = 0;
 	LPCSTR get_file_name() { return *file; }
 	Frect get_rect() { return rect; }
 };

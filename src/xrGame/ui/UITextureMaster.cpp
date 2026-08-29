@@ -54,6 +54,10 @@ void CUITextureMaster::ParseShTexInfo(LPCSTR xml_file)
 			info.rect.x2 = xml.ReadAttribFlt(node, "texture", i, "width") + info.rect.x1;
 			info.rect.y1 = xml.ReadAttribFlt(node, "texture", i, "y");
 			info.rect.y2 = xml.ReadAttribFlt(node, "texture", i, "height") + info.rect.y1;
+			info.border_l = (s16)xml.ReadAttribInt(node, "texture", i, "border_l", 0);
+			info.border_t = (s16)xml.ReadAttribInt(node, "texture", i, "border_t", 0);
+			info.border_r = (s16)xml.ReadAttribInt(node, "texture", i, "border_r", 0);
+			info.border_b = (s16)xml.ReadAttribInt(node, "texture", i, "border_b", 0);
 			shared_str id = xml.ReadAttrib(node, "texture", i, "id");
 			/* avo: fix issue when values were not updated (silently skipped) when same key is encountered more than once. This is how std::map is designed. 
 			/* Also used more efficient C++11 std::map::emplace method instead of outdated std::pair::make_pair */

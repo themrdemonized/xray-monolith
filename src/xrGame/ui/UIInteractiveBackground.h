@@ -16,6 +16,9 @@
 #include "UIFrameWindow.h"
 #include "UIFrameLineWnd.h"
 
+inline void ib_set_vertical(CUIFrameLineWnd* w, bool vertical) { w->SetHorizontal(!vertical); }
+inline void ib_set_vertical(CUIWindow*, bool) { }
+
 enum IBState
 {
 	S_Enabled =0,
@@ -40,7 +43,7 @@ public:
 	void InitIB(LPCSTR texture_e, Fvector2 pos, Fvector2 size);
 	T* Get(IBState state) { return m_states[state]; };
 
-	void InitState(IBState state, LPCSTR texture);
+	void InitState(IBState state, LPCSTR texture, bool vertical = false);
 	void SetCurrentState(IBState state);
 
 	virtual void Draw();
@@ -75,7 +78,7 @@ void CUIInteractiveBackground<T>::InitIB(LPCSTR texture, Fvector2 pos, Fvector2 
 }
 
 template <class T>
-void CUIInteractiveBackground<T>::InitState(IBState state, LPCSTR texture)
+void CUIInteractiveBackground<T>::InitState(IBState state, LPCSTR texture, bool vertical)
 {
 	Fvector2 size = GetWndSize();
 
@@ -85,6 +88,8 @@ void CUIInteractiveBackground<T>::InitState(IBState state, LPCSTR texture)
 		m_states[state]->SetAutoDelete(true);
 		AttachChild(m_states[state]);
 	}
+
+	ib_set_vertical(m_states[state], vertical);
 
 	m_states[state]->InitTexture(texture);
 	m_states[state]->SetWndPos(Fvector2().set(0, 0));

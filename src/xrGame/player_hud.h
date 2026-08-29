@@ -309,6 +309,9 @@ struct attachable_hud_item
 	Fmatrix m_attach_offset;
 	Fmatrix m_item_transform;
 
+    // ver; final anim speed holder for use in motion mark timing scaling
+    float final_anim_speed;
+
 	player_hud_motion_container* m_hand_motions;
 
 	attachable_hud_item(player_hud* pparent) : m_parent(pparent), m_upd_firedeps_frame(u32(-1)), m_parent_hud_item(nullptr),

@@ -247,7 +247,27 @@ public:
 
 	// Optional convex hit polygon (absolute coords, any vertex count): the cursor must also be inside
 	// it to hover or receive mouse actions.
-	IC void SetHitClip(const Fvector2* pts, u32 count) { m_hit_clip_poly.assign(pts, pts + count); }
+	IC void SetHitClip(const Fvector2* pts, u32 count)
+	{
+		if (count >= 3)
+		{
+			Fvector2 lo = pts[0];
+			Fvector2 hi = pts[0];
+			for (u32 i = 1; i < count; ++i)
+			{
+				lo.x = _min(lo.x, pts[i].x);
+				lo.y = _min(lo.y, pts[i].y);
+				hi.x = _max(hi.x, pts[i].x);
+				hi.y = _max(hi.y, pts[i].y);
+			}
+			if (hi.x - lo.x >= EPS_L || hi.y - lo.y >= EPS_L)
+			{
+				m_hit_clip_poly.assign(pts, pts + count);
+				return;
+			}
+		}
+		m_hit_clip_poly.clear();
+	}
 	IC bool HitClipPass(const Fvector2& abs_pos) const
 	{
 		const u32 n = m_hit_clip_poly.size();
