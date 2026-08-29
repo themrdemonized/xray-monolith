@@ -105,78 +105,8 @@ void CUIGameCustom::Render()
 		if (GameIndicatorsShown() && psHUD_Flags.is(HUD_DRAW | HUD_DRAW_RT))
 			UIMainIngameWnd->Draw();
 	}
-	DrawCustomShapes();
 	m_pMessagesWnd->Draw();
 	DoRenderDialogs();
-}
-
-void CUIGameCustom::AddCustomShapeToRender(LPCSTR name, ::luabind::object lua_shape)
-{
-    CustomShape shape{};
-	shape.shader_name = ::luabind::object_cast<LPCSTR>(lua_shape["shader"]);
-	shape.texture_name = ::luabind::object_cast<LPCSTR>(lua_shape["texture"]);
-	shape.texture_color = ::luabind::object_cast<u32>(lua_shape["color"]);
-    shape.shader->create(shape.shader_name.c_str(), shape.texture_name.c_str());
-
-	custom_shapes.emplace(name, shape);
-}
-
-void CUIGameCustom::RemoveCustomShapeToRender(LPCSTR name)
-{
-    auto it = custom_shapes.find(name);
-    if (it != custom_shapes.end())
-        custom_shapes.erase(it);
-}
-
-bool CUIGameCustom::HasCustomShape(LPCSTR name)
-{
-    auto it = custom_shapes.find(name);
-    return it != custom_shapes.end();
-}
-
-void CUIGameCustom::UpdateCustomShape(LPCSTR name, ::luabind::object lua_poly)
-{
-    CustomShape shape = custom_shapes[name];
-    
-    int poly_size = 0;
-    for (auto i = lua_poly.begin(); i != lua_poly.end(); ++i) {
-        poly_size++;
-    }
-    shape.poly.resize(poly_size);
-
-    for (int i = 1; i <= poly_size; i++) {
-        ::luabind::object lua_point = lua_poly[i];
-        shape.poly[i - 1].pt = ::luabind::object_cast<Fvector2>(lua_point["pt"]);
-        shape.poly[i - 1].uv = ::luabind::object_cast<Fvector2>(lua_point["uv"]);
-    }
-    custom_shapes[name] = shape;
-}
-
-void CUIGameCustom::DrawCustomShapes()
-{
-    for (const auto& pair : custom_shapes)
-    {
-        CustomShape shape = pair.second;
-        sPoly2D poly = shape.poly;
-
-        if (poly.empty())
-        {
-            continue;
-        }
-
-        UIRender->SetShader(*shape.shader);
-
-		UIRender->StartPrimitive(poly.size() * 3, IUIRender::ePrimitiveType::ptTriList, IUIRender::ePointType::pttTL);
-
-		for (u32 idx = 0; idx < poly.size() - 2; ++idx)
-		{
-			UIRender->PushPoint(poly[0].pt.x, poly[0].pt.y, 0, shape.texture_color, poly[0].uv.x, poly[0].uv.y);
-			UIRender->PushPoint(poly[idx + 2].pt.x, poly[idx + 2].pt.y, 0, shape.texture_color, poly[idx + 2].uv.x, poly[idx + 2].uv.y);
-			UIRender->PushPoint(poly[idx + 1].pt.x, poly[idx + 1].pt.y, 0, shape.texture_color, poly[idx + 1].uv.x, poly[idx + 1].uv.y);
-		}
-
-		UIRender->FlushPrimitive();
-	}
 }
 
 StaticDrawableWrapper* CUIGameCustom::AddCustomStatic(const char* id, bool singleInstance)
