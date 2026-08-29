@@ -166,24 +166,13 @@ void CUIWindow::script_register(lua_State* L)
 		.def("AttachChild", &CUIWindow::AttachChild, adopt<2>())
 		.def("AttachChildKeepOwner", &CUIWindow::AttachChild)
 		.def("DetachChild", &CUIWindow::DetachChild)
+        .def("FindChild", &CUIWindow::FindChild)
 		.def("SetAutoDelete", &CUIWindow::SetAutoDelete)
 		.def("IsAutoDelete", &CUIWindow::IsAutoDelete)
 
 		.def("IsCursorOverWindow", &CUIWindow::CursorOverWindow)
 		.def("FocusReceiveTime", &CUIWindow::FocusReceiveTime)
 		.def("GetAbsoluteRect", &CUIWindow::GetAbsoluteRect)
-
-		/*
-		.def("DisableHint",			&CUIWindow::DisableHint)
-		.def("EnableHint",			&CUIWindow::EnableHint)
-		.def("SetHintDelay",		&CUIWindow::SetHintDelay)
-		.def("GetHintDelay",		&CUIWindow::GetHintDelay)
-		.def("RemoveHint",			&CUIWindow::RemoveHint)
-		.def("SetHintWnd",			&CUIWindow::SetHintWnd)
-		.def("GetHintWnd",			&CUIWindow::GetHintWnd)
-		.def("SetHintText",			&CUIWindow::SetHintText)
-		.def("GetHintText",			&CUIWindow::GetHintText)
-		*/
 
 		.def("SetWndRect", (void (CUIWindow::*)(Frect))&CUIWindow::SetWndRect_script)
 		.def("SetWndPos", (void (CUIWindow::*)(Fvector2))&CUIWindow::SetWndPos_script)
