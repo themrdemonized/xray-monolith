@@ -59,22 +59,25 @@ void CUIGameCustom::OnFrame()
 {
 	PROF_EVENT("CUIGameCustom::OnFrame");
 	CDialogHolder::OnFrame();
-	for (auto item : CustomStatics)
-		item->Update();
-	auto comparer = [](const StaticDrawableWrapper* s1, const StaticDrawableWrapper* s2)
 	{
-		return s1->IsActual() > s2->IsActual();
-	};
-	std::sort(CustomStatics.begin(), CustomStatics.end(), comparer);
-	while (!CustomStatics.empty() && !CustomStatics.back()->IsActual())
-	{
-		delete_data(CustomStatics.back());
-		CustomStatics.pop_back();
-	}
-	if (g_b_ClearGameCaptions)
-	{
-		delete_data(CustomStatics);
-		g_b_ClearGameCaptions = false;
+		std::scoped_lock lock(m_customs_lock);
+		for (auto item : CustomStatics)
+			item->Update();
+		auto comparer = [](const StaticDrawableWrapper* s1, const StaticDrawableWrapper* s2)
+		{
+			return s1->IsActual() > s2->IsActual();
+		};
+		std::sort(CustomStatics.begin(), CustomStatics.end(), comparer);
+		while (!CustomStatics.empty() && !CustomStatics.back()->IsActual())
+		{
+			delete_data(CustomStatics.back());
+			CustomStatics.pop_back();
+		}
+		if (g_b_ClearGameCaptions)
+		{
+			delete_data(CustomStatics);
+			g_b_ClearGameCaptions = false;
+		}
 	}
 	Window->Update();
 	//update windows
@@ -86,8 +89,11 @@ void CUIGameCustom::OnFrame()
 void CUIGameCustom::Render()
 {
 	PROF_EVENT("CUIGameCustom::Render");
-	for (StaticDrawableWrapper* item : CustomStatics)
-		item->Draw();
+	{
+		std::scoped_lock lock(m_customs_lock);
+		for (StaticDrawableWrapper* item : CustomStatics)
+			item->Draw();
+	}
 	Window->Draw();
 	CEntity* pEntity = smart_cast<CEntity*>(Level().CurrentEntity());
 	if (pEntity)
@@ -114,6 +120,7 @@ void CUIGameCustom::Render()
 
 StaticDrawableWrapper* CUIGameCustom::AddCustomStatic(const char* id, bool singleInstance)
 {
+	std::scoped_lock lock(m_customs_lock);
 	if (singleInstance)
 	{
 		auto it = std::find_if(CustomStatics.begin(), CustomStatics.end(), predicate_find_stat(id));
@@ -134,6 +141,7 @@ StaticDrawableWrapper* CUIGameCustom::AddCustomStatic(const char* id, bool singl
 
 StaticDrawableWrapper* CUIGameCustom::GetCustomStatic(const char* id)
 {
+	std::scoped_lock lock(m_customs_lock);
 	auto it = std::find_if(CustomStatics.begin(), CustomStatics.end(), predicate_find_stat(id));
 	if (it != CustomStatics.end())
 		return *it;
@@ -142,6 +150,7 @@ StaticDrawableWrapper* CUIGameCustom::GetCustomStatic(const char* id)
 
 void CUIGameCustom::RemoveCustomStatic(const char* id)
 {
+	std::scoped_lock lock(m_customs_lock);
 	auto it = std::find_if(CustomStatics.begin(), CustomStatics.end(), predicate_find_stat(id));
 	if (it != CustomStatics.end())
 	{
