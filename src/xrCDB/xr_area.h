@@ -79,8 +79,11 @@ public:
 	int GetNearest(xr_vector<ISpatialShared>& q_spatial, xr_vector<CObject*>& q_nearest, const Fvector& point, float range,
 	               CObject* ignore_object);
 
-	CDB::TRI* GetStaticTris() { return Static.get_tris(); }
-	Fvector* GetStaticVerts() { return Static.get_verts(); }
+	// CFORM is built on a background task, so the arrays are null until it finishes.
+	// Wait for the build before handing out the pointers, the same way the CDB query
+	// paths do. When the model is ready this costs one atomic compare.
+	CDB::TRI* GetStaticTris() { Static.syncronize(); return Static.get_tris(); }
+	Fvector* GetStaticVerts() { Static.syncronize(); return Static.get_verts(); }
 	CDB::MODEL* GetStaticModel() { return &Static; }
 
 	const Fbox& GetBoundingVolume() { return m_BoundingVolume; }
