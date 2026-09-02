@@ -141,15 +141,15 @@ void CUIPropertiesBox::HideActiveSubmenu()
 	m_submenu_close_at = 0;
 }
 
-bool CUIPropertiesBox::CursorOverTree()
+CUIPropertiesBox* CUIPropertiesBox::BoxUnderCursor()
 {
+	if (m_active_submenu && m_active_submenu->IsShown())
+		if (CUIPropertiesBox* deeper = m_active_submenu->BoxUnderCursor())
+			return deeper;
+
 	Frect r;
 	GetAbsoluteRect(r);
-	if (r.in(GetUICursor().GetCursorPosition()))
-		return true;
-	if (m_active_submenu && m_active_submenu->IsShown())
-		return m_active_submenu->CursorOverTree();
-	return false;
+	return r.in(GetUICursor().GetCursorPosition()) ? this : NULL;
 }
 
 void CUIPropertiesBox::ClearSubmenus()
@@ -251,7 +251,8 @@ void CUIPropertiesBox::Show(const Frect& parent_rect, const Fvector2& point)
 
 	ResetAll();
 
-	GetParent()->SetCapture(this, true);
+	if (!m_parent_menu)
+		GetParent()->SetCapture(this, true);
 	m_UIListWnd.Reset();
 
 	float pad_h = m_UIListWnd.GetPadSize().y;
@@ -264,66 +265,49 @@ void CUIPropertiesBox::Hide()
 	CUIWindow::Show(false);
 	CUIWindow::Enable(false);
 
-	m_pMouseCapturer = NULL;
-
-	if (GetParent()->GetMouseCapturer() == this)
-	{
-		if (m_parent_menu && m_parent_menu->IsShown())
-			GetParent()->SetCapture(m_parent_menu, true);
-		else
-			GetParent()->SetCapture(this, false);
-	}
+	ReleaseMouseCapture();
 
 	HideActiveSubmenu();
 }
 
 bool CUIPropertiesBox::OnMouseAction(float x, float y, EUIMessages mouse_action)
 {
-	bool cursor_on_box;
+	if (m_parent_menu)
+		return HandleMouse(x, y, mouse_action);
 
+	CUIPropertiesBox* target = BoxUnderCursor();
 
-	if (x >= 0 && x < GetWidth() && y >= 0 && y < GetHeight())
-		cursor_on_box = true;
-	else
-		cursor_on_box = false;
-
-
-	CUIPropertiesBox* root = this;
-	while (root->m_parent_menu)
-		root = root->m_parent_menu;
-
-	if (mouse_action == WINDOW_LBUTTON_DOWN && !cursor_on_box)
+	if (target && target != this)
 	{
-		root->Hide();
-		return true;
+		Frect r;
+		target->GetAbsoluteRect(r);
+		Fvector2 cur = GetUICursor().GetCursorPosition();
+		return target->HandleMouse(cur.x - r.x1, cur.y - r.y1, mouse_action);
 	}
-	if (mouse_action == WINDOW_RBUTTON_DOWN && !cursor_on_box)
+
+	if (!target) // outside the whole tree
 	{
-		root->Hide();
+		if (mouse_action == WINDOW_LBUTTON_DOWN || mouse_action == WINDOW_RBUTTON_DOWN)
+		{
+			Hide();
+			return true;
+		}
 	}
+
+	return HandleMouse(x, y, mouse_action);
+}
+
+// Input handling for one box, after routing. Coordinates are relative to this box.
+bool CUIPropertiesBox::HandleMouse(float x, float y, EUIMessages mouse_action)
+{
 	if (mouse_action == WINDOW_MOUSE_WHEEL_DOWN || mouse_action == WINDOW_MOUSE_WHEEL_UP)
 	{
-		Fvector2 cur = GetUICursor().GetCursorPosition();
-		CUIPropertiesBox* target = this;
-		for (CUIPropertiesBox* b = root; b;
-		     b = (b->m_active_submenu && b->m_active_submenu->IsShown()) ? b->m_active_submenu : NULL)
-		{
-			Frect r;
-			b->GetAbsoluteRect(r);
-			if (r.in(cur))
-				target = b;
-		}
-		if (target->m_UIListWnd.GetPadSize().y > target->m_UIListWnd.GetHeight())
-			target->m_UIListWnd.OnMouseAction(x, y, mouse_action);
+		if (m_UIListWnd.GetPadSize().y > m_UIListWnd.GetHeight())
+			m_UIListWnd.OnMouseAction(x, y, mouse_action);
 		return true;
 	}
 
-	bool res = inherited::OnMouseAction(x, y, mouse_action);
-
-	if (IsShown() && GetParent() && GetParent()->GetMouseCapturer() != this)
-		GetParent()->SetCapture(this, true);
-
-	return res;
+	return inherited::OnMouseAction(x, y, mouse_action);
 }
 
 void CUIPropertiesBox::AutoUpdateSize()
@@ -370,7 +354,7 @@ void CUIPropertiesBox::Update()
 	{
 		Frect ir;
 		m_active_sub_item->GetAbsoluteRect(ir);
-		bool inside = ir.in(GetUICursor().GetCursorPosition()) || m_active_submenu->CursorOverTree();
+		bool inside = ir.in(GetUICursor().GetCursorPosition()) || m_active_submenu->BoxUnderCursor();
 		if (inside)
 		{
 			m_submenu_close_at = 0;

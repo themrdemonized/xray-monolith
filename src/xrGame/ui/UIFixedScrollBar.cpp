@@ -177,7 +177,7 @@ bool CUIFixedScrollBar::OnMouseAction(float x, float y, EUIMessages mouse_action
 		return true;
 	case WINDOW_MOUSE_MOVE:
 		{
-			bool im_capturer = (GetMouseCapturer() == m_ScrollBox);
+			bool im_capturer = m_ScrollBox->IsMouseCapturer();
 			bool cursor_over = false;
 			Fvector2 cursor_pos = GetUICursor().GetCursorPosition();
 			Frect box_rect;

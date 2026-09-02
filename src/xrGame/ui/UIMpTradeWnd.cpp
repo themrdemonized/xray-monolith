@@ -232,8 +232,6 @@ void CUIMpTradeWnd::Show(bool status)
 
 	if (status)
 	{
-		m_pMouseCapturer = NULL;
-
 		m_static_information->SetText("");
 		m_static_money_change->SetText("");
 	}
