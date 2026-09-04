@@ -6,6 +6,7 @@
 #include "../xrRender/dxRenderDeviceRender.h"
 
 #include "dx10TextureUtils.h"
+#include "dx10DebugName.h"
 
 CRT::CRT()
 {
@@ -136,6 +137,7 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
 
 	CHK_DX(HW.pDevice->CreateTexture2D( &desc, NULL, &pSurface ));
 	HW.stats_manager.increment_stats_rtarget(pSurface);
+	dx10_set_debug_name(pSurface, Name);
 	// OK
 #ifdef DEBUG
 	Msg			("* created RT(%s), %dx%d, format = %d samples = %d",Name,w,h, dx10FMT, SampleCount );
