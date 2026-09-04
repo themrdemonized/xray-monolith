@@ -39,6 +39,8 @@ enum class ECoreParams : u8
 	
 	// API
 	renderdoc,
+	rdoc_refall,
+	rdoc_cmdlists,
 
 	// Anomaly
 	no_dialog_header,

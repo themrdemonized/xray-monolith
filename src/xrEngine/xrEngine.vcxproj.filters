@@ -258,6 +258,12 @@
     <ClInclude Include="Rain.h">
       <Filter>Game API\Environment\Effects</Filter>
     </ClInclude>
+    <ClInclude Include="renderdoc_app.h">
+      <Filter>General</Filter>
+    </ClInclude>
+    <ClInclude Include="renderdoc_integration.h">
+      <Filter>General</Filter>
+    </ClInclude>
     <ClInclude Include="thunderbolt.h">
       <Filter>Game API\Environment\Effects</Filter>
     </ClInclude>
@@ -572,6 +578,9 @@
     </ClCompile>
     <ClCompile Include="Rain.cpp">
       <Filter>Game API\Environment\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="renderdoc_integration.cpp">
+      <Filter>General</Filter>
     </ClCompile>
     <ClCompile Include="thunderbolt.cpp">
       <Filter>Game API\Environment\Effects</Filter>
