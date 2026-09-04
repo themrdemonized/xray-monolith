@@ -3,7 +3,7 @@
 // startup
 void CRenderTarget::phase_scene_prepare()
 {
-	PIX_EVENT(phase_scene_prepare);
+	PIX_EVENT_C(phase_scene_prepare, dx10_marker_gbuffer);
 
 		//	TODO: DX10: Check if we need to set RT here.
 		if (!RImplementation.o.dx10_msaa)
