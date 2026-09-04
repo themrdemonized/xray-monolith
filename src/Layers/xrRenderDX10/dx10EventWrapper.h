@@ -15,6 +15,8 @@ enum dx10_marker_color : u32
 #define PIX_EVENT(Name) dxPixEventWrapper pixEvent##Name(L#Name)
 #define PIX_EVENT_C(Name, Color) dxPixEventWrapper pixEvent##Name(L#Name, Color)
 
+void dx10_annotate_frame();
+
 class dxPixEventWrapper
 {
     ID3DUserDefinedAnnotation* annotation;

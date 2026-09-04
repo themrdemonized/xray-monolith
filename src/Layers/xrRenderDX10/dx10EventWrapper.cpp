@@ -94,3 +94,23 @@ dxPixEventWrapper::~dxPixEventWrapper()
     else if (annotation)
         annotation->EndEvent();
 }
+
+extern Fvector4 ps_dev_param_1;
+extern Fvector4 ps_dev_param_2;
+extern Fvector4 ps_dev_param_3;
+extern Fvector4 ps_dev_param_4;
+extern Fvector4 ps_dev_param_5;
+extern Fvector4 ps_dev_param_6;
+extern Fvector4 ps_dev_param_7;
+extern Fvector4 ps_dev_param_8;
+
+void dx10_annotate_frame()
+{
+    if (!renderdoc_api_live())
+        return;
+
+    const Fvector4 shader_params[] = {ps_dev_param_1, ps_dev_param_2, ps_dev_param_3, ps_dev_param_4,
+        ps_dev_param_5, ps_dev_param_6, ps_dev_param_7, ps_dev_param_8};
+
+    renderdoc_annotate_frame(shader_params, u32(std::size(shader_params)));
+}

@@ -3,6 +3,7 @@
 
 #include "renderdoc_integration.h"
 #include "renderdoc_app.h"
+#include "IGame_Level.h"
 
 namespace
 {
@@ -10,6 +11,7 @@ namespace
 
 	RENDERDOC_API_1_7_0* s_rdc_api = nullptr;
 	RENDERDOC_Version s_rdc_version = eRENDERDOC_API_Version_1_0_0;
+	bool s_rdc_annotations = false;
 	bool s_rdc_initialized = false;
 	u32 s_rdc_seen_captures = 0;
 	string_path s_rdc_capture_template = {};
@@ -55,6 +57,7 @@ namespace
 			{
 				s_rdc_api = static_cast<RENDERDOC_API_1_7_0*>(api);
 				s_rdc_version = version;
+				s_rdc_annotations = version >= eRENDERDOC_API_Version_1_7_0;
 				return true;
 			}
 		}
@@ -137,6 +140,44 @@ namespace
 		s_rdc_api->SetCaptureFilePathTemplate(s_rdc_capture_template);
 	}
 
+	// D3D11 takes a null device here, the annotation rides the immediate command stream
+	void rdc_annotate(const char* key, RENDERDOC_AnnotationType type, u32 width,
+		const RENDERDOC_AnnotationValue* value)
+	{
+		const u32 result = s_rdc_api->SetCommandAnnotation(nullptr, nullptr, key, type, width, value);
+
+		static bool reported = false;
+		if (result && !reported)
+		{
+			reported = true;
+			Msg("! [RDC] SetCommandAnnotation failed %u on %s", result, key);
+		}
+	}
+
+	void rdc_annotate(const char* key, u32 number)
+	{
+		rdc_annotate(key, eRENDERDOC_UInt32, 0, RDAnnotationHelper(number));
+	}
+
+	void rdc_annotate(const char* key, float number)
+	{
+		rdc_annotate(key, eRENDERDOC_Float, 0, RDAnnotationHelper(number));
+	}
+
+	void rdc_annotate(const char* key, const char* text)
+	{
+		rdc_annotate(key, eRENDERDOC_String, 0, RDAnnotationHelper(text));
+	}
+
+	void rdc_annotate(const char* key, const float* floats, u32 width)
+	{
+		RENDERDOC_AnnotationValue value = {};
+		for (u32 index = 0; index < width; ++index)
+			value.vector.float32[index] = floats[index];
+
+		rdc_annotate(key, eRENDERDOC_Float, width, &value);
+	}
+
 	void rdc_log_capture(u32 index)
 	{
 		u32 length = 0;
@@ -183,8 +224,9 @@ void renderdoc_initialize()
 	int minor = 0;
 	int patch = 0;
 	s_rdc_api->GetAPIVersion(&major, &minor, &patch);
-	Msg("* [RDC] capture API %d.%d.%d ready, ui %s", major, minor, patch,
-		rdc_ui_connected() ? "connected" : "not connected");
+	Msg("* [RDC] capture API %d.%d.%d ready, ui %s, annotations %s", major, minor, patch,
+		rdc_ui_connected() ? "connected" : "not connected",
+		s_rdc_annotations ? "available" : "unavailable");
 	Msg("* [RDC] captures land in %s_frameN.rdc", s_rdc_capture_template);
 }
 
@@ -256,6 +298,33 @@ bool renderdoc_overlay_enabled()
 		return false;
 
 	return (s_rdc_api->GetOverlayBits() & eRENDERDOC_Overlay_Enabled) != 0;
+}
+
+void renderdoc_annotate_frame(const Fvector4* shader_params, u32 count)
+{
+	if (!s_rdc_annotations || s_rdc_api->IsFrameCapturing() != 1)
+		return;
+
+	rdc_annotate("xray.frame.number", Device.dwFrame);
+	rdc_annotate("xray.frame.time", Device.fTimeGlobal);
+
+	rdc_annotate("xray.camera.position", &Device.vCameraPosition.x, 3);
+	rdc_annotate("xray.camera.direction", &Device.vCameraDirection.x, 3);
+	rdc_annotate("xray.camera.fov", Device.fFOV);
+	rdc_annotate("xray.camera.aspect", Device.fASPECT);
+
+	rdc_annotate("xray.render.width", Device.dwWidth);
+	rdc_annotate("xray.render.height", Device.dwHeight);
+	rdc_annotate("xray.svp", Device.m_SecondViewport.IsSVPFrame() ? 1u : 0u);
+
+	rdc_annotate("xray.level.name", g_pGameLevel ? g_pGameLevel->name().c_str() : "");
+
+	for (u32 index = 0; index < count && shader_params; ++index)
+	{
+		string64 key = {};
+		xr_sprintf(key, "xray.shader_param.%u", index + 1);
+		rdc_annotate(key, &shader_params[index].x, 4);
+	}
 }
 
 void renderdoc_set_active_window(void* device, void* window)

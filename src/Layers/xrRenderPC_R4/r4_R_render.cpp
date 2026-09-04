@@ -65,6 +65,7 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT_C(CRender_Render, dx10_marker_frame);
+	dx10_annotate_frame();
 
 	rmNormal();
 
