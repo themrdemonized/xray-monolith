@@ -9,9 +9,9 @@ _G.OnLoadingScreenKeyPrompt = function()
 end
 
 -- Callback for when player dismisses loading screen after "Press Any Key to Continue" pressed
-_G.OnLoadingScreenDismissed = function()
+_G.OnLoadingScreenDismissed = doOnce(function()
 	SendScriptCallback("on_loading_screen_dismissed")
-end
+end)
 
 -- Generic net spawn/net destroy callbacks
 AddScriptCallback("game_object_on_net_spawn")
