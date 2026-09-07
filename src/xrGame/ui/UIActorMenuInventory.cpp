@@ -451,7 +451,6 @@ void CUIActorMenu::InitCellForSlot(u16 slot_idx)
 void CUIActorMenu::InitInventoryContents(CUIDragDropListEx* pBagList)
 {
 	ClearAllLists();
-	m_pMouseCapturer = NULL;
 	m_UIPropertiesBox->Hide();
 	SetCurrentItem(NULL);
 
