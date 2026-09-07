@@ -612,7 +612,7 @@ bool CUIWindow::IsChild(CUIWindow* pPossibleChild) const
 }
 
 
-CUIWindow* CUIWindow::FindChild(const shared_str name)
+CUIWindow* CUIWindow::FindChild(const LPCSTR name)
 {
 	if (WindowName() == name)
 		return this;

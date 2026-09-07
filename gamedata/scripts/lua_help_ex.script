@@ -200,12 +200,6 @@
         bool dltx_is_override(string sec, string line)
     }
 
-    // UI hud
-    // get_hud():GetWindow()
-    get_hud() {
-        CUIWindow GetWindow()
-    }
-
     // Player hud
     // get_player_hud():set_hands("actor_hud_cs_exo")
     get_player_hud() {
@@ -226,6 +220,54 @@
         property dest_game_vertex_id    // u16
         property dest_level_vertex_id   // u32
         property dest_position          // Fvector
+    }
+
+    class CUIWindow {
+        CUIWindow FindChild()
+
+		CUI3tButton cast_3tButton()
+		CUIActorMenu cast_ActorMenu()
+		CUIButton cast_Button()
+		CUICheckButton cast_CheckButton()
+		CUIComboBox cast_ComboBox()
+		CUICustomEdit cast_CustomEdit()
+		CUICustomSpin cast_CustomSpin()
+		CUIDialogWnd cast_DialogWnd()
+		CUIEditBox cast_EditBox()
+		CUIFrameLineWnd cast_FrameLineWnd()
+		CUIFrameWindow cast_FrameWindow()
+		UIHint cast_Hint()
+		CUIHudStatesWnd cast_HudStatesWnd()
+		CUIListBox cast_ListBox()
+		CUIListBoxItem cast_ListBoxItem()
+		CUIListBoxItemMsgChain cast_ListBoxItemMsgChain()
+		CUIMMShniaga cast_MMShniaga()
+		CUIMainIngameWnd cast_MainIngameWnd()
+		CUIMapInfo cast_MapInfo()
+		CUIMapList cast_MapList()
+		CUIMessageBox cast_MessageBox()
+		CUIMessageBoxEx cast_MessageBoxEx()
+		CUIMessagesWindow cast_MessagesWindow()
+		CUIMotionIcon cast_MotionIcon()
+		CUIPdaWnd cast_PdaWnd()
+		CUIProgressBar cast_ProgressBar()
+		CUIPropertiesBox cast_PropertiesBox()
+		CUIDialogWndEx cast_ScriptWnd()
+		CUIScrollView cast_ScrollView()
+		CServerList cast_ServerList()
+		CUISleepStatic cast_SleepStatic()
+		CUISpinFlt cast_SpinFlt()
+		CUISpinNum cast_SpinNum()
+		CUISpinText cast_SpinText()
+		CUIStatic cast_Static()
+		CUITabButton cast_TabButton()
+		CUITabControl cast_TabControl()
+		CUITextWnd cast_TextWnd()
+		CUITrackBar cast_TrackBar()
+    }
+    
+    class CUIGameCustom {
+        CUIWindow GetWindow() // get_hud():GetWindow()
     }
 
     class CUIProgressBar {

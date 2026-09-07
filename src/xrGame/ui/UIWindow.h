@@ -240,7 +240,7 @@ public:
 	const shared_str WindowName() const { return m_windowName; }
 	void SetWindowName(LPCSTR wn) { m_windowName = wn; }
 	LPCSTR WindowName_script() { return m_windowName.c_str(); }
-	CUIWindow* FindChild(const shared_str name);
+	CUIWindow* FindChild(const LPCSTR name);
 
 	IC bool CursorOverWindow() const { return m_bCursorOverWindow; }
 	IC u32 FocusReceiveTime() const { return m_dwFocusReceiveTime; }

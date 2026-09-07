@@ -315,7 +315,6 @@ void CUIMainIngameWnd::Draw()
 	RenderQuickInfos();
 }
 
-
 void CUIMainIngameWnd::SetMPChatLog(CUIWindow* pChat, CUIWindow* pLog)
 {
 	m_pMPChatWnd = pChat;
