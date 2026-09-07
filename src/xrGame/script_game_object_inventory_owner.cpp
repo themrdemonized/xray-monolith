@@ -1957,6 +1957,19 @@ bool CScriptGameObject::is_hit_anim_playing()
 	return (entity_alive->character_physics_support()->is_hit_anim_playing());
 }
 
+void CScriptGameObject::set_movement_hold(bool value)
+{
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
+	if (!stalker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Stalker : cannot access class member set_movement_hold!");
+		return;
+	}
+
+	stalker->movement_hold(value);
+}
+
 bool CScriptGameObject::can_kill_enemy()
 {
 	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&object());
