@@ -1186,7 +1186,7 @@ static class ssfx_fTimeDelta : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, Device.fTimeDelta, 0, 0, 0);
+		RCache.set_c(C, Device.fTimeDelta, (float)Device.dwFrame, 0, 0);
 	}
 }    ssfx_fTimeDelta;
 
