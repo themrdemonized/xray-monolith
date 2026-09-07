@@ -1193,6 +1193,10 @@ public:
 	float GetActorLookoutCoef() const;
 	void SetActorLookoutCoef(float val);
 
+    // verdatim: adjust damage stagger time factor
+    float GetActorDamageStaggerTimeFactor() const;
+    void SetActorDamageStaggerTimeFactor(float val);
+
 	float GetActorCrouchCoef() const;
 	void SetActorCrouchCoef(float val);
 	float GetActorClimbCoef() const;

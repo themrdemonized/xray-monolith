@@ -674,6 +674,10 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("get_actor_lookout_coef", SAFE_WRAP(&CScriptGameObject::GetActorLookoutCoef))
 		.def("set_actor_lookout_coef", SAFE_WRAP(&CScriptGameObject::SetActorLookoutCoef))
 
+        // verdatim: Adjust damager stagger time factor
+        .def("get_actor_damage_stagger_time_factor", SAFE_WRAP(&CScriptGameObject::GetActorDamageStaggerTimeFactor))
+        .def("set_actor_damage_stagger_time_factor", SAFE_WRAP(&CScriptGameObject::SetActorDamageStaggerTimeFactor))
+
 		// demonized: add getters and setters for pathfinding for npcs around anomalies and damage for npcs
 		.def("get_enable_anomalies_pathfinding", SAFE_WRAP(&CScriptGameObject::get_enable_anomalies_pathfinding))
 		.def("set_enable_anomalies_pathfinding", SAFE_WRAP(&CScriptGameObject::set_enable_anomalies_pathfinding))
