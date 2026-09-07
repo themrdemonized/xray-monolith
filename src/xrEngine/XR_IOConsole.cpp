@@ -12,6 +12,7 @@
 #include "xr_input.h"
 #include "xr_ioc_cmd.h"
 #include "GameFont.h"
+#include "svp_crash_context.h"
 
 #include "../Include/xrRender/UIRender.h"
 
@@ -43,6 +44,7 @@ static void DumpConsoleVariablesOnCrash()
 {
 	if (Console)
 		Console->Execute("dump_cvar");
+	svp_crash_context_dump(); // svp runtime latch state alongside the cvar dump
 }
 
 extern char const* const ioc_prompt;

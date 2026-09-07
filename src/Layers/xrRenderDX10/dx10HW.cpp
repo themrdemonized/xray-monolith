@@ -849,6 +849,12 @@ void CHW::Reset(HWND hwnd)
     _SHOW_REF("refCount:pBaseZB", pBaseZB);
     _SHOW_REF("refCount:pBaseRT", pBaseRT);
 
+    // flip model ResizeBuffers needs every back buffer reference released and unbound from the context
+    // the previous frame's final composite leaves pBaseRT bound, so without this unbind ResizeBuffers
+    // fails with DXGI_ERROR_INVALID_CALL, and the shipping CHK_DX does nothing so that failure is
+    // swallowed and the GetBuffer in UpdateViews then faults inside DXGI
+    pContext->OMSetRenderTargets(0, nullptr, nullptr);
+
     _RELEASE(pBaseZB);
     _RELEASE(pBaseRT);
 
@@ -858,12 +864,16 @@ void CHW::Reset(HWND hwnd)
         flags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
     }
 
-    CHK_DX(m_pSwapChain->ResizeBuffers(
+    // capture explicitly (the shipping CHK_DX does nothing) so a resize failure or a removed device (TDR)
+    // is logged instead of silently corrupting the swapchain and faulting in the UpdateViews GetBuffer
+    const HRESULT _hr_resize = m_pSwapChain->ResizeBuffers(
         cd.BufferCount,
         cd.Width,
         cd.Height,
         cd.Format,
-        flags));
+        flags);
+    if (FAILED(_hr_resize) || pDevice->GetDeviceRemovedReason() != S_OK)
+        Msg("! [CHW::Reset] ResizeBuffers hr=0x%08x removed=0x%08x", _hr_resize, pDevice->GetDeviceRemovedReason());
 #elif defined(USE_DX10)
 	CHK_DX(m_pSwapChain->ResizeBuffers(
 		cd.BufferCount,
@@ -1507,5 +1517,12 @@ void CHW::UpdateViews()
     R_CHK(R);
 
     pDepthStencil->Release();
+
+#if defined(USE_DX11)
+    // snapshot the true swapchain RTV/DSV, re-run on resize, SetActive (R4) restores the main
+    // target from these so a clobbered pBaseRT from the SVP pass never sticks
+    secret_pBaseRT = pBaseRT;
+    secret_pBaseZB = pBaseZB;
+#endif
 }
 #endif

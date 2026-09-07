@@ -42,7 +42,20 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
     ShaderElement* sh_d = &*pVisual->shader->E[4];
     if (!(flags.test(IRenderVisualFlags::eIgnoreOptimization) || (sh_d && sh_d->flags.bEmissive)))
     {
-        if (SSA < r_ssaDISCARD)
+		// pip the ssa is main-view, the magnified scope replays this shared graph and resolves
+		// mag-times smaller parts (distant NPC heads), scale the discard by the scope coverage
+		float ssa_discard = r_ssaDISCARD;
+		{
+			extern float g_pip_scope_ratio;
+			extern float g_pip_scope_magnification;
+			if (ps_r__svp_npc_detail && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive()
+				&& g_pip_scope_magnification > 1.f)
+			{
+				const float m = g_pip_scope_ratio * g_pip_scope_magnification;
+				ssa_discard /= m * m;
+			}
+		}
+        if (SSA < ssa_discard)
         {
             //Msg("SSA %.2f discarded", SSA);
             return;
@@ -71,10 +84,21 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 
 	if (sh_d && sh_d->flags.bDistort && i_mask[sh_d->flags.iPriority/2])
 	{
-		if (i_mask[CDSGraphManager::fl_hud])
-			RGraph.mapHUDSorted.Distort.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh_d, i_mask[CDSGraphManager::fl_hud]);
-		else
-			RGraph.mapDynamicSorted.Distort.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh_d, i_mask[CDSGraphManager::fl_hud]);
+		// pip the weapon's own hud-mode heat haze paints its warp across the composited lens while
+		// scoped, drop just that, psi and controller filter overlays keep rendering
+		bool drop = false;
+		if (ps_r__svp_skip_hud_distort && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())
+		{
+			IParticleCustom* pc = pVisual->dcast_ParticleCustom();
+			drop = pc && pc->GetHudMode() && pc->GetWeaponFX();
+		}
+		if (!drop)
+		{
+			if (i_mask[CDSGraphManager::fl_hud])
+				RGraph.mapHUDSorted.Distort.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh_d, i_mask[CDSGraphManager::fl_hud]);
+			else
+				RGraph.mapDynamicSorted.Distort.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh_d, i_mask[CDSGraphManager::fl_hud]);
+		}
 	}
 
 	// Select shader
@@ -89,8 +113,76 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
 
-#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
-	switch (sh->flags.iScopeLense) {	
+#if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes
+	// pip true-PiP scope capture, keep the eye-nearest eyepiece lens (==3) for the SVP composite, and
+	// once the SVP is active drop the back-glass (==1) / zwrite (==2) since the SVP draws the whole lens
+	if (Device.true_pip_on && sh->flags.iScopeLense > 0)
+	{
+		if (sh->flags.iScopeLense == 3)
+		{
+			// a scope can flag several lens surfaces (objective + ocular), keep the one in front of the eye
+			// and nearest it (the ocular the player looks through) for the SVP composite, and separately
+			// keep the FARTHEST in-front surface (the objective) as real geometry for the svpscope-2 camera
+			Fvector lp, to;
+			xform->transform_tiny(lp, pVisual->getVisData().sphere.P);
+			to.sub(lp, Device.vCameraPosition);
+			const bool ahead = to.dotproduct(Device.vCameraDirection) > 0.f;
+			const float score = ahead ? to.square_magnitude() : (to.square_magnitude() + 1.0e6f);
+
+			// ocular = nearest in-front lens (the SVP composite surface, also the drawn lens)
+			auto& M = RGraph.mapScopeHUDSorted;
+			bool keep_oc = M.empty();
+			if (!keep_oc)
+			{
+				auto& f = M.front();
+				Fvector ep, te;
+				f.pMatrix->transform_tiny(ep, f.pVisual->getVisData().sphere.P);
+				te.sub(ep, Device.vCameraPosition);
+				const float fscore = (te.dotproduct(Device.vCameraDirection) > 0.f) ? te.square_magnitude() : (te.square_magnitude() + 1.0e6f);
+				keep_oc = score < fscore;
+			}
+			if (keep_oc)
+			{
+				M.clear();
+				M.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			}
+
+			// objective = farthest in-front lens (front of the scope), geometry only for the camera, never drawn
+			if (ahead)
+			{
+				auto& O = RGraph.mapScopeHUDObjective;
+				bool keep_obj = O.empty();
+				if (!keep_obj)
+				{
+					auto& f = O.front();
+					Fvector op, te;
+					f.pMatrix->transform_tiny(op, f.pVisual->getVisData().sphere.P);
+					te.sub(op, Device.vCameraPosition);
+					keep_obj = (te.dotproduct(Device.vCameraDirection) > 0.f) && (score > te.square_magnitude());
+				}
+				if (keep_obj)
+				{
+					O.clear();
+					O.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+				}
+			}
+			return;
+		}
+		if (sh->flags.iScopeLense == 10)
+		{
+			// dedup per visual, the HUD capture inserts the same reflex mesh many times per frame and
+			// draw_reflex would otherwise draw it hundreds of times
+			for (const auto& n : RGraph.mapReflexHUDSorted)
+				if (n.pVisual == pVisual)
+					return;
+			RGraph.mapReflexHUDSorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+			return;
+		}
+		if (Device.m_SecondViewport.IsSVPActive())
+			return; // the SVP composite draws the whole lens, skip the back-glass / zwrite
+		// a fake / not-yet-active optic, fall through to the legacy ==1/==2 handling below
+	}
+	switch (sh->flags.iScopeLense) {
 		case 0:
 			break;
 

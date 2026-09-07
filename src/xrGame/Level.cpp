@@ -1245,6 +1245,7 @@ extern int ps_r4_hdr10_pda; // NOTE: this is a hack to avoid double HDR tonemapp
 
 void CLevel::OnRender()
 {
+	Device.dwViewport++; // pip advance the per-viewport cache key once per frame (keeps non-R4 invalidating)
 	// PDA
 	if (game && CurrentGameUI() && &CurrentGameUI()->GetPdaMenu() != nullptr)
 	{
@@ -1309,7 +1310,7 @@ void CLevel::OnRender()
 	Game().OnRender();
 	BulletManager().Render();
 
-	if (Device.m_SecondViewport.IsSVPFrame())
+	if (!Device.true_pip_on && Device.m_SecondViewport.IsSVPFrame())
 		Render->RenderToTarget(Render->rtSVP);
 
 	if (use_reshade)

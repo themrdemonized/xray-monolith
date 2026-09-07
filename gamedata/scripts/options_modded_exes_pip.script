@@ -1,0 +1,64 @@
+--- Picture in Picture scope options tree
+
+-- Import smart constructors
+options_builder.import_into(this)
+
+-- a matched PiP exe registers the PiP cvars; on a non-PiP engine the controls below would read cvars that
+-- do not exist and crash the menu on open. probe one PiP cvar safely (get_variable_bounds returns an empty
+-- table for a missing command) and only expose the controls when the engine actually supports them
+local function pip_engine_present()
+	local ok, b = pcall(function() return get_console():get_variable_bounds("r__svpscope") end)
+	return ok and b ~= nil and b.max ~= nil
+end
+
+local _full = page {
+	{ id = "pip" },
+
+	list_enum {
+		id = "r__svpscope",
+		content = {
+			"OFF",
+			"Eyepiece",
+			"Objective"
+		},
+	},
+	track {
+		id = "g_zoom_smooth",
+		def = 12,
+		min = 0,
+		max = 60,
+		step = 1,
+	},
+	track {
+		id = "g_zoom_analog",
+		def = 0,
+		min = 0,
+		max = 200,
+		step = 5,
+	},
+
+	line {},
+
+	track {
+		id = "r__svp_render_scale",
+		def = 1.0,
+		min = 0.4,
+		max = 1.0,
+		step = 0.05,
+	},
+	list_bool { id = "r__svp_dlss" },
+
+	line {},
+
+	track {
+		id = "r__scope_debug",
+		def = 0,
+		min = 0,
+		max = 4,
+		step = 1,
+	},
+
+}
+
+-- expose the controls only on a matched PiP engine; otherwise an empty page so the menu never reads the missing cvars
+PAGE = pip_engine_present() and _full or page { { id = "pip" }, line {} }

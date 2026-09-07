@@ -104,6 +104,14 @@ void CRenderTarget::phase_smaa()
 
 void CRenderTarget::phase_ssfx_taa()
 {
+	// a scope edge swaps the content source under the resolve, seed the history with the current
+	// frame so a stale scene never ghosts through
+	if (m_taa_seed_history)
+	{
+		m_taa_seed_history = false;
+		HW.pContext->CopyResource(rt_ssfx_prev_frame->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());
+	}
+
 	u32 Offset = 0;
 	Fvector2 p0, p1;
 
@@ -135,6 +143,23 @@ void CRenderTarget::phase_ssfx_taa()
 	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
 	
 	HW.pContext->CopyResource(rt_ssfx_taa->pTexture->surface_get(), rt_ssfx_accum->pTexture->surface_get());
+
+	// main pass only, stamp taa alpha 1 over the scope footprint so the resolve keeps the svp
+	// viewport taa there instead of smearing on the near-zero hud motion vectors
+	if (ps_r__svp_taa_mask && Device.true_pip_on && !Device.m_SecondViewport.m_render_pass_is_svp
+		&& this == RImplementation.TargetMain && Device.m_SecondViewport.IsSVPActive()
+		&& !RImplementation.GMBase.RGraph.mapScopeHUDSorted.empty())
+	{
+		EnsureScopeShaders();
+		u_setrt(rt_ssfx_taa, nullptr, nullptr, nullptr);
+		draw_scope(s_svp_taa_stamp, []()
+		{
+			RCache.set_c("scope_phase", 0);
+			RCache.set_ColorWriteEnable(D3DCOLORWRITEENABLE_ALPHA);
+		});
+		RCache.set_ColorWriteEnable();
+		if (ps_r__svp_stats) ++svp_stats_taa_stamp; // overlay proof the sovereignty stamp fired
+	}
 
 	// TAA
 	ref_rt& dest_rt = RImplementation.o.dx10_msaa ? rt_Generic : rt_Color;

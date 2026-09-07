@@ -525,6 +525,10 @@
     <ClInclude Include="..\xrRender\WallmarksEngine.h" />
     <ClInclude Include="..\xrRender\xrD3DDefs.h" />
     <ClInclude Include="..\xrRender\xrRender_console.h" />
+    <ClInclude Include="..\xrRender\svp_constants.h" />
+    <ClInclude Include="..\xrRender\svp_console.h" />
+    <ClInclude Include="..\xrRender\svp_lens_detect_math.h" />
+    <ClInclude Include="..\xrRender\svp_lens_detect.h" />
     <ClInclude Include="..\xrRender\xrStripify.h" />
     <ClInclude Include="..\xrRender\xr_effgamma.h" />
     <ClInclude Include="blender_bloom_build.h" />
@@ -562,6 +566,9 @@
     <ClInclude Include="r2_types.h" />
     <ClInclude Include="r4.h" />
     <ClInclude Include="r4_rendertarget.h" />
+    <ClInclude Include="svp_target.h" />
+    <ClInclude Include="svp_camera.h" />
+    <ClInclude Include="svp_stats.h" />
     <ClInclude Include="r4_rendertarget_wallmarks.h" />
     <ClInclude Include="R_Backend_LOD.h" />
     <ClInclude Include="SMAP_Allocator.h" />
@@ -613,6 +620,7 @@
     <ClCompile Include="..\xrRender\Blender_Particle.cpp" />
     <ClCompile Include="..\xrRender\Blender_Recorder_R2.cpp" />
     <ClCompile Include="..\xrRender\Blender_Recorder_StandartBinding.cpp" />
+    <ClCompile Include="..\xrRender\svp_constants.cpp" />
     <ClCompile Include="..\xrRender\Blender_Screen_SET.cpp" />
     <ClCompile Include="..\xrRender\Blender_tree.cpp" />
     <ClCompile Include="..\xrRender\CHudInitializer.cpp" />
@@ -704,6 +712,12 @@
     <ClCompile Include="..\xrRender\r__dsgraph_build.cpp" />
     <ClCompile Include="..\xrRender\r__dsgraph_manager.cpp" />
     <ClCompile Include="..\xrRender\r__dsgraph_render.cpp" />
+    <ClCompile Include="..\xrRender\svp_hud_latch.cpp" />
+    <ClCompile Include="..\xrRender\svp_lens_detect_math.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\xrRender\svp_lens_detect.cpp" />
+    <ClCompile Include="..\xrRender\svp_dsgraph_cull.cpp" />
     <ClCompile Include="..\xrRender\r__dsgraph_render_lods.cpp" />
     <ClCompile Include="..\xrRender\r__occlusion.cpp" />
     <ClCompile Include="..\xrRender\r__pixel_calculator.cpp" />
@@ -727,6 +741,7 @@
     <ClCompile Include="..\xrRender\VertexCache.cpp" />
     <ClCompile Include="..\xrRender\WallmarksEngine.cpp" />
     <ClCompile Include="..\xrRender\xrRender_console.cpp" />
+    <ClCompile Include="..\xrRender\svp_console.cpp" />
     <ClCompile Include="..\xrRender\xrStripify.cpp" />
     <ClCompile Include="..\xrRender\xr_effgamma.cpp" />
     <ClCompile Include="blender_bloom_build.cpp" />
@@ -760,6 +775,11 @@
     <ClCompile Include="light_GI.cpp" />
     <ClCompile Include="r2_test_hw.cpp" />
     <ClCompile Include="r4.cpp" />
+    <ClCompile Include="svp_target.cpp" />
+    <ClCompile Include="svp_optics.cpp" />
+    <ClCompile Include="svp_nearblur.cpp" />
+    <ClCompile Include="svp_camera.cpp" />
+    <ClCompile Include="svp_stats.cpp" />
     <ClCompile Include="r4_loader.cpp" />
     <ClCompile Include="r4_rendertarget.cpp" />
     <ClCompile Include="r4_rendertarget_accum_direct.cpp" />

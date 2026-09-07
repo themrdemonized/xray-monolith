@@ -1,0 +1,16 @@
+; PiP per-scope SVP tonemapper overrides. Optional per-optic exposure control for the
+; second-viewport render, pushed by zzz_extra_scope_features on aim change. Both keys default
+; to 0 = inherit the main tonemap, so an optic with no entry here behaves byte-identical to stock.
+;
+;   s3ds_middle_grey  target middle-grey for the scope's own adaptation (lower = darker scope image,
+;                     the anti-blowout lever for bright-sky / NVG / thermal optics). ~0.05-0.5.
+;   s3ds_adapt_speed  how fast the scope re-exposes (lower = slower, holds exposure through a muzzle
+;                     flash or a sky pan instead of snapping bright). ~1-8.
+;
+; Authored game-feel, not spec-sheet data. Seed conservatively per optic and tune in-game with the
+; live console cvars s3ds_middle_grey / s3ds_adapt_speed before committing values here.
+; Example (commented out until tuned):
+;
+; ![some_nvg_scope_section]
+; s3ds_middle_grey = 0.18
+; s3ds_adapt_speed = 3

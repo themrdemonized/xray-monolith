@@ -713,6 +713,28 @@ BOOL CParticleGroup::GetHudMode()
 	return FALSE;
 }
 
+void CParticleGroup::SetWeaponFX(BOOL b)
+{
+	xrCriticalSectionGuard guard(&onframe_lock);
+	for (SItem& item : items)
+	{
+		CParticleEffect* E = static_cast<CParticleEffect*>(item._effect);
+		E->SetWeaponFX(b);
+	}
+}
+
+BOOL CParticleGroup::GetWeaponFX()
+{
+	xrCriticalSectionGuard guard(&onframe_lock);
+	if (items.size())
+	{
+		CParticleEffect* E = static_cast<CParticleEffect*>(items[0]._effect);
+		return E->GetWeaponFX();
+	}
+
+	return FALSE;
+}
+
 void CParticleGroup::SetLiveUpdate(BOOL b)
 {
 	xrCriticalSectionGuard guard(&onframe_lock);

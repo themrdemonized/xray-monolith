@@ -11,6 +11,7 @@
 #include "xrserver_objects_alife_items.h"
 #include "actor.h"
 #include "actoreffector.h"
+#include "../xrEngine/CameraBase.h"
 #include "level.h"
 #include "xr_level_controller.h"
 #include "game_cl_base.h"
@@ -34,6 +35,8 @@
 #include "WeaponMagazinedWGrenade.h"
 #include "../xrEngine/GameMtlLib.h"
 #include "../Layers/xrRender/xrRender_console.h"
+#include "../xrEngine/svp_gameplay_cvars.h"
+#include "svp_mags.h"
 #include "pch_script.h"
 #include "script_game_object.h"
 #include "ai/stalker/ai_stalker.h"
@@ -121,6 +124,7 @@ CWeapon::CWeapon()
 	m_APk = 1.0f;
 
 	m_zoom_params.m_fCurrentZoomFactor = g_fov;
+	m_zoom_params.m_fZoomTargetFactor = g_fov;
 	m_zoom_params.m_fZoomRotationFactor = 0.f;
 	m_zoom_params.m_pVision = NULL;
 	m_zoom_params.m_pNight_vision = NULL;
@@ -340,6 +344,12 @@ void CWeapon::UpdateZoomParams() {
 				m_zoom_params.m_bUseDynamicZoom = READ_IF_EXISTS(pSettings, r_bool, GetScopeName(), "scope_dynamic_zoom", false);
 				m_zoom_params.m_fMinBaseZoomFactor = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "min_scope_zoom_factor", 200.0f);
 				stepCount = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "zoom_step_count", 0);
+			} else {
+				// pip honor the scope's own zoom config on non-modular hosts too, OR in scope_dynamic_zoom
+				// (never disable what the weapon/upgrade enabled) and adopt the scope's min/step when present
+				m_zoom_params.m_bUseDynamicZoom = m_zoom_params.m_bUseDynamicZoom || READ_IF_EXISTS(pSettings, r_bool, GetScopeName(), "scope_dynamic_zoom", false);
+				m_zoom_params.m_fMinBaseZoomFactor = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "min_scope_zoom_factor", m_zoom_params.m_fMinBaseZoomFactor);
+				stepCount = READ_IF_EXISTS(pSettings, r_float, GetScopeName(), "zoom_step_count", stepCount);
 			}
 		} else
 		{
@@ -348,6 +358,46 @@ void CWeapon::UpdateZoomParams() {
 		if (stepCount == 0)
 			stepCount = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "zoom_step_count", 0);
 		m_zoom_params.m_fZoomStepCount = stepCount;
+	}
+
+	// pip recover a section-variant scope's max zoom, the parent merge can leave a base
+	// weapon's 0 in place of the scope's real value
+	if (m_zoom_params.m_bUseDynamicZoom && m_zoom_params.m_fScopeZoomFactor < 1.0f)
+	{
+		float recovered = 0.0f;
+		if (const RStringVec* parents = pSettings->get_section_parents(cNameSect()))
+			for (const shared_str& p : *parents)
+			{
+				float v = READ_IF_EXISTS(pSettings, r_float, p.c_str(), "scope_zoom_factor", 0.0f);
+				if (v >= 1.0f)
+					recovered = v; // last valid parent wins; the scope _s settings is the inheriting one
+			}
+		// 20.0 last-resort cap if no parent carries a usable value, so the lens still cannot break
+		m_zoom_params.m_fScopeZoomFactor = (recovered >= 1.0f ? recovered : 20.0f) / zoom_multiple;
+	}
+
+	// pip svp scopes may author true magnifications directly, engine derives the 75 base factors
+	m_zoom_params.m_bSvpAuthoredMin = false;
+	if (m_zoomtype == 0 && scope_svp_enabled >= 2 && g_svp_authored_mags && SvpMagsEligible())
+	{
+		const bool scope_attached = (ALife::eAddonPermanent != m_eScopeStatus
+			&& 0 != (m_flagsAddOnState & CSE_ALifeItemWeapon::eWeaponAddonScope) && m_scopes.size());
+		const shared_str sect = scope_attached ? GetScopeName() : cNameSect();
+		const svp_mags_data mags = svp_mags_resolve(sect.c_str(), zoom_multiple);
+		if (mags.mode != svp_mag_none)
+		{
+			m_zoom_params.m_fScopeZoomFactor = mags.f_top;
+			if (mags.mode != svp_mag_fixed)
+			{
+				m_zoom_params.m_fMinBaseZoomFactor = mags.f_floor;
+				m_zoom_params.m_bUseDynamicZoom = TRUE;
+				m_zoom_params.m_bSvpAuthoredMin = true;
+				if (mags.mode == svp_mag_stepped)
+					m_zoom_params.m_fZoomStepCount = 1;
+			}
+			else
+				m_zoom_params.m_bUseDynamicZoom = FALSE;
+		}
 	}
 
 	if (IsZoomed()) {
@@ -503,6 +553,9 @@ void CWeapon::SetZoomType(u8 new_zoom_type)
     {
         funct(this->lua_game_object(), previous_zoom_type, m_zoomtype);
     }
+
+	Device.m_SecondViewport.dlss_reset_next = true; // pip DLSS history reset on magnification change (logic thread)
+	UpdateSecondVP(); // pip re-evaluate SVP activation when the zoom type changes
 }
 
 extern float g_ironsights_factor;
@@ -956,14 +1009,16 @@ void GetZoomData(const float scope_factor, const float zoom_step_count, const fl
 void newGetZoomDelta(const float scope_factor, float& delta, const float min_zoom_factor, float steps);
 extern BOOL useNewZoomDeltaAlgorithm;
 
-void NewGetZoomData(const float scope_factor, const float zoom_step_count, float& delta, float& min_zoom_factor, float zoom, float min_zoom)
+void NewGetZoomData(const float scope_factor, const float zoom_step_count, float& delta, float& min_zoom_factor, float zoom, float min_zoom, bool svp_base, bool authored_min = false)
 {
-	float def_fov = float(g_fov);
+	// pip a true svp scope derives its floor in the authored 75 base, factor 100 renders 1x at any fov
+	float def_fov = svp_base ? SVP_ZOOM_BASE_FOV : float(g_fov);
 	float delta_factor_total = def_fov - scope_factor;
 	VERIFY(delta_factor_total > 0);
 	float loc_min_zoom_factor = ((atan(tan(def_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180)) / 0.75f) * (scope_radius > 0.0 ? scope_scrollpower : 1);
 
-	if (min_zoom < loc_min_zoom_factor) {
+	// pip authored magnifications carry their own floor, bypass the optical-model cap
+	if (authored_min || min_zoom < loc_min_zoom_factor) {
 		min_zoom_factor = min_zoom;
 	} else {
 		min_zoom_factor = loc_min_zoom_factor;
@@ -985,7 +1040,7 @@ BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
 		float delta, min_zoom_factor;
 		float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 		if (zoomFlags.test(NEW_ZOOM)) {
-			NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+			NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor, SvpDetentBase(), m_zoom_params.m_bSvpAuthoredMin);
 		} else {
 			GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 		}
@@ -1334,6 +1389,22 @@ bool CWeapon::AllowBore()
 void CWeapon::UpdateCL()
 {
 	inherited::UpdateCL();
+
+	// pip ease the dynamic zoom toward its scroll target, g_zoom_smooth 0 = instant
+	if (g_zoom_smooth > 0.f && m_zoom_params.m_bUseDynamicZoom && IsZoomed())
+	{
+		float& cur = m_zoom_params.m_fCurrentZoomFactor;
+		const float tgt = m_zoom_params.m_fZoomTargetFactor;
+		if (fsimilar(cur, tgt, 0.001f))
+			cur = tgt;
+		else
+		{
+			float a = g_zoom_smooth * Device.fTimeDelta;
+			if (a > 1.f) a = 1.f;
+			cur += (tgt - cur) * a;
+		}
+	}
+
 	UpdateHUDAddonsVisibility();
 	//ïîäñâåòêà îò âûñòðåëà
 	UpdateLight();
@@ -1404,7 +1475,10 @@ void CWeapon::EnableActorNVisnAfterZoom()
 
 bool CWeapon::need_renderable()
 {
-	return !Device.m_SecondViewport.IsSVPFrame() && !(IsZoomed() && ZoomTexture() && !IsRotatingToZoom());
+	// pip with an objective lens the weapon must render so the SVP sees it through the scope tube
+	bool svp_has_objective_lens = (scope_svp_enabled >= 2 && Device.m_SecondViewport.objective.radius > EPS);
+	bool not_in_scope = !Device.m_SecondViewport.IsSVPFrame() && !(IsZoomed() && ZoomTexture() && !IsRotatingToZoom());
+	return svp_has_objective_lens || not_in_scope;
 }
 
 void CWeapon::renderable_Render(IDSGraphManager* DM)
@@ -2071,7 +2145,7 @@ void CWeapon::OnZoomIn()
 			float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 			
 			if (zoomFlags.test(NEW_ZOOM)) {
-				NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+				NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor, SvpDetentBase(), m_zoom_params.m_bSvpAuthoredMin);
 			} else {
 				GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 			}
@@ -2081,6 +2155,27 @@ void CWeapon::OnZoomIn()
 	}
 
 	//Msg("m_fRTZoomFactor %f, scope_scrollpower %f", m_fRTZoomFactor, scope_scrollpower);
+
+	// pip re-derive the detent range at the live fov and pull a stale dialed factor into it,
+	// click optics land on the nearer detent, scripted factors stay untouched
+	if (m_zoom_params.m_bUseDynamicZoom && !m_zoom_params.m_bScriptedZoom && SvpDetentBase())
+	{
+		float delta, min_zoom_factor;
+		float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+		if (zoomFlags.test(NEW_ZOOM)) {
+			NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor, SvpDetentBase(), m_zoom_params.m_bSvpAuthoredMin);
+		} else {
+			GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
+		}
+		const float full = m_zoom_params.m_fScopeZoomFactor * power;
+		const float before = m_fRTZoomFactor;
+		if (g_zoom_clicks && m_zoom_params.m_fZoomStepCount == 1.f)
+			m_fRTZoomFactor = (m_fRTZoomFactor - full < min_zoom_factor - m_fRTZoomFactor) ? full : min_zoom_factor;
+		else
+			clamp(m_fRTZoomFactor, full, min_zoom_factor);
+		if (!fsimilar(before, m_fRTZoomFactor))
+			PipMsg("[SVP-SEED] %s f=%.1f->%.1f range=[%.1f..%.1f]", cNameSect().c_str(), before, m_fRTZoomFactor, full, min_zoom_factor);
+	}
 
 	if (m_zoom_params.m_bUseDynamicZoom)
 		SetZoomFactor(scope_radius > 0.0 ? m_fRTZoomFactor / scope_scrollpower : m_fRTZoomFactor);
@@ -2110,6 +2205,8 @@ void CWeapon::OnZoomIn()
 	}
 
 	g_player_hud->updateMovementLayerState();
+
+	UpdateSecondVP(); // pip re-evaluate SVP activation on ADS-in
 }
 
 void CWeapon::OnZoomOut()
@@ -2117,10 +2214,13 @@ void CWeapon::OnZoomOut()
 	m_zoom_params.m_bIsZoomModeNow = false;
     if (m_zoom_params.m_bUseDynamicZoom)
     {
-        m_fRTZoomFactor = scope_radius > 0.0 ? GetZoomFactor() * scope_scrollpower : GetZoomFactor(); //store current
+        // store the dialed zoom, under smoothing the target (the current factor can be mid-glide)
+        const float dialed = (g_zoom_smooth > 0.f) ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
+        m_fRTZoomFactor = scope_radius > 0.0 ? dialed * scope_scrollpower : dialed;
     }
     
 	m_zoom_params.m_fCurrentZoomFactor = g_fov;
+	m_zoom_params.m_fZoomTargetFactor = g_fov; // pip snap the smooth-zoom target on ADS-out
 
 	GamePersistent().RestoreEffectorDOF();
 
@@ -2931,6 +3031,9 @@ void CWeapon::UpdateHudAdditional(Fmatrix& trans)
 	hud_rotation.identity();
 	hud_rotation.translate_over(curr_offs);
 	trans.mulB_43(hud_rotation);
+
+	// pip swing envelope for the scope shadow crescent
+	ApplySvpSightAnchor(pActor, trans);
 }
 
 // Добавить эффект сдвига оружия от выстрела
@@ -3242,7 +3345,7 @@ float CWeapon::GetMinScopeZoomFactor() const
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor, SvpDetentBase(), m_zoom_params.m_bSvpAuthoredMin);
 	}
 	else {
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
@@ -3250,50 +3353,140 @@ float CWeapon::GetMinScopeZoomFactor() const
 	return min_zoom_factor;
 }
 
+float CWeapon::GetZoomFactorScript() const
+{
+	// under smoothing lua sees the commanded detent, steps land instantly and the clamp goes quiet
+	extern float g_zoom_smooth;
+	return (g_zoom_smooth > 0.f) ? m_zoom_params.m_fZoomTargetFactor : m_zoom_params.m_fCurrentZoomFactor;
+}
+
+void CWeapon::SetZoomFactorScript(float f)
+{
+	// script authored factors already carry the user fov, the svp scale passes them through
+	SetZoomFactor(f);
+	m_zoom_params.m_bScriptedZoom = true;
+}
+
 void CWeapon::ZoomInc()
 {
-	if (!IsScopeAttached()) return;
+	// pip no IsScopeAttached gate, integrated scopes report none, dynamic zoom is the real gate
 	if (!m_zoom_params.m_bUseDynamicZoom) return;
+	// pip an authored single-throw scope clicks between its two detents, no analog, no smoothing
+	const bool click = g_zoom_clicks && m_zoom_params.m_fZoomStepCount == 1.f;
+	const bool smooth = g_zoom_smooth > 0.f && !click;
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+	// pip when smoothing, advance from the TARGET (the current factor is mid-glide) so rapid scrolls accumulate
+	float base = smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
 
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, base * power, m_zoom_params.m_fMinBaseZoomFactor, SvpDetentBase(), m_zoom_params.m_bSvpAuthoredMin);
 	} else {
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 	}
 
-	float f = GetZoomFactor() * power - delta;
-	if (useNewZoomDeltaAlgorithm)
-		f = GetZoomFactor() * power * delta;
+	float f;
+	if (click)
+		// pip a lever optic wheel event lands the top detent absolutely, no relative step
+		f = m_zoom_params.m_fScopeZoomFactor * power;
+	else if (g_zoom_analog > 0.f)
+	{
+		// pip continuous/analog, step by a fine fraction of the FOV range (ignoring the config step
+		// count + delta algorithm) so any magnification in the scope's range is reachable
+		float fine = (min_zoom_factor - m_zoom_params.m_fScopeZoomFactor * power) / g_zoom_analog;
+		f = base * power - fine;
+	}
+	else
+	{
+		f = base * power - delta;
+		if (useNewZoomDeltaAlgorithm)
+			f = base * power * delta;
+	}
 
 	clamp(f, m_zoom_params.m_fScopeZoomFactor * power, min_zoom_factor);
-	SetZoomFactor(f / power);
+	if (smooth)
+		m_zoom_params.m_fZoomTargetFactor = f / power; // pip target, UpdateCL eases the current toward it, the step inherits the base factor's author
+	else
+		SetZoomFactor(f / power);
 
-	m_fRTZoomFactor = GetZoomFactor() * power;
+	// pip capture the commanded zoom (the smooth target, not the mid-glide current) so a later
+	// alt-aim / UpdateZoomParams restore lands on the dialed magnification, not a stale snapshot
+	m_fRTZoomFactor = (smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor()) * power;
+
+	// pip the lever throw sweeps the transition shadow while the prism seats
+	if (click && scope_svp_enabled >= 2 && Device.m_SecondViewport.IsSVPActive() && !fsimilar(base, f / power))
+	{
+		auto& vp = Device.m_SecondViewport;
+		vp.svp_lever_ms = Device.dwTimeGlobal;
+		vp.svp_swing_x = 1.f; // the lever throws across the tube, the side flips with the throw
+		vp.svp_swing_y = 0.f;
+	}
+
+	// pip click flip proof, one line per wheel event on a lever optic
+	if (click && !fsimilar(base, f / power))
+		PipMsg("[SVP-CLICK] %s steps=1 path=click f=%.1f->%.1f (mag %.1f)",
+			cNameSect().c_str(), base, f / power, min_zoom_factor / f);
 }
 
 void CWeapon::ZoomDec()
 {
-	if (!IsScopeAttached()) return;
+	// pip no IsScopeAttached gate, integrated scopes report none, dynamic zoom is the real gate
 	if (!m_zoom_params.m_bUseDynamicZoom) return;
+	// pip an authored single-throw scope clicks between its two detents, no analog, no smoothing
+	const bool click = g_zoom_clicks && m_zoom_params.m_fZoomStepCount == 1.f;
+	const bool smooth = g_zoom_smooth > 0.f && !click;
 	float delta, min_zoom_factor;
 	float power = scope_radius > 0.0 ? scope_scrollpower : 1;
+	// pip when smoothing, advance from the TARGET (the current factor is mid-glide) so rapid scrolls accumulate
+	float base = smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
 
 	if (zoomFlags.test(NEW_ZOOM)) {
-		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, GetZoomFactor() * power, m_zoom_params.m_fMinBaseZoomFactor);
+		NewGetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, base * power, m_zoom_params.m_fMinBaseZoomFactor, SvpDetentBase(), m_zoom_params.m_bSvpAuthoredMin);
 	} else {
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor * power, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 	}
 
-	float f = GetZoomFactor() * power + delta;
-	if (useNewZoomDeltaAlgorithm)
-		f = GetZoomFactor() * power / std::max(delta, 0.001f);
+	float f;
+	if (click)
+		// pip a lever optic wheel event lands the bottom detent absolutely, no relative step
+		f = min_zoom_factor;
+	else if (g_zoom_analog > 0.f)
+	{
+		// pip continuous/analog, step by a fine fraction of the FOV range (ignoring the config step
+		// count + delta algorithm) so any magnification in the scope's range is reachable
+		float fine = (min_zoom_factor - m_zoom_params.m_fScopeZoomFactor * power) / g_zoom_analog;
+		f = base * power + fine;
+	}
+	else
+	{
+		f = base * power + delta;
+		if (useNewZoomDeltaAlgorithm)
+			f = base * power / std::max(delta, 0.001f);
+	}
 
 	clamp(f, m_zoom_params.m_fScopeZoomFactor * power, min_zoom_factor);
-	SetZoomFactor(f / power);
-	
-	m_fRTZoomFactor = GetZoomFactor() * power;
+	if (smooth)
+		m_zoom_params.m_fZoomTargetFactor = f / power; // pip target, UpdateCL eases the current toward it, the step inherits the base factor's author
+	else
+		SetZoomFactor(f / power);
+
+	// pip capture the commanded zoom (the smooth target, not the mid-glide current) so a later
+	// alt-aim / UpdateZoomParams restore lands on the dialed magnification, not a stale snapshot
+	m_fRTZoomFactor = (smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor()) * power;
+
+	// pip the lever throw sweeps the transition shadow while the prism seats
+	if (click && scope_svp_enabled >= 2 && Device.m_SecondViewport.IsSVPActive() && !fsimilar(base, f / power))
+	{
+		auto& vp = Device.m_SecondViewport;
+		vp.svp_lever_ms = Device.dwTimeGlobal;
+		vp.svp_swing_x = -1.f; // the lever throws across the tube, the side flips with the throw
+		vp.svp_swing_y = 0.f;
+	}
+
+	// pip click flip proof, one line per wheel event on a lever optic
+	if (click && !fsimilar(base, f / power))
+		PipMsg("[SVP-CLICK] %s steps=1 path=click f=%.1f->%.1f (mag %.1f)",
+			cNameSect().c_str(), base, f / power, min_zoom_factor / f);
 }
 
 u32 CWeapon::Cost() const
@@ -3320,23 +3513,6 @@ u32 CWeapon::Cost() const
 		res += iFloor(w * (iAmmoElapsed / bs));
 	}
 	return res;
-}
-
-float CWeapon::GetSecondVPFov() const
-{
-	if (m_zoom_params.m_bUseDynamicZoom && IsSecondVPZoomPresent())
-		return (m_fRTZoomFactor / 100.f) * g_fov;
-
-	return GetSecondVPZoomFactor() * g_fov;
-}
-
-void CWeapon::UpdateSecondVP()
-{
-	if (!(ParentIsActor() && (m_pInventory != NULL) && (m_pInventory->ActiveItem() == this)))
-		return;
-
-	CActor* pActor = smart_cast<CActor*>(H_Parent());
-	Device.m_SecondViewport.SetSVPActive(m_zoomtype == 0 && pActor->cam_Active() == pActor->cam_FirstEye() && IsSecondVPZoomPresent() && m_zoom_params.m_fZoomRotationFactor > 0.05f);
 }
 
 Fmatrix CWeapon::RayTransform()

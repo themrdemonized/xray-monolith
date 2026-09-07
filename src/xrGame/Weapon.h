@@ -15,6 +15,8 @@
 #include "CameraRecoil.h"
 
 #include "NewZoomFlag.h"
+#include "../Layers/xrRender/xrRender_console.h" // pip scope_svp_enabled for the SVP zoom accessors
+#include "../xrEngine/svp_gameplay_cvars.h" // pip g_svp_zoom_base and the 75 base for the detent gate
 
 class CEntity;
 class ENGINE_API CMotionDef;
@@ -22,6 +24,7 @@ class CSE_ALifeItemWeapon;
 class CSE_ALifeItemWeaponAmmo;
 class CWeaponMagazined;
 class CWeaponMagazinedWGrenade;
+class CActor;
 class CWeaponBinoculars;
 class CWeaponKnife;
 class CWeaponBM16;
@@ -89,10 +92,17 @@ public:
 		return inherited::net_SaveRelevant();
 	}
 
-	float CWeapon::GetSecondVPFov() const;
 	IC float GetZRotatingFactor()    const { return m_zoom_params.m_fZoomRotationFactor; }
-	IC float GetSecondVPZoomFactor() const { return m_zoom_params.m_fSecondVPFovFactor; }
-	IC float IsSecondVPZoomPresent() const { return GetSecondVPZoomFactor() > 0.005f; }
+	// pip when scope_svp_enabled the SVP zoom comes from the live zoom factor, else the legacy scope_lense_fov key
+	IC float GetSecondVPZoomFactor() const { return scope_svp_enabled ? GetZoomFactor() : m_zoom_params.m_fSecondVPFovFactor; }
+	// pip on -> a real captured ocular is the presence signal, zoom-0 tube sights (1x thermal/nv)
+	// re-image at 1x instead of falling to the fake screen-window path. off -> legacy test, unchanged
+	float IsSecondVPZoomPresent()
+	{
+		if (!scope_svp_enabled)
+			return GetSecondVPZoomFactor() > 0.005f;
+		return GetSVPCameraMatrix();
+	}
 
 	// Up
 	// Magazine system & etc
@@ -118,6 +128,8 @@ public:
 	virtual void HUD_VisualBulletUpdate(bool force = false, int force_idx = -1);
 
 	void UpdateSecondVP();
+	bool GetSVPCameraMatrix(); // pip SVP readiness, a fresh captured lens is present
+	void ApplySvpSightAnchor(CActor* pActor, Fmatrix& trans); // pip swing envelope for the scope shadow
 
 	virtual void UpdateCL();
 	virtual void shedule_Update(u32 dt);
@@ -383,6 +395,9 @@ protected:
 		bool m_bZoomDofEnabled;
 		bool m_bIsZoomModeNow;
 		float m_fCurrentZoomFactor;
+		float m_fZoomTargetFactor; // pip smooth-zoom target, the current factor eases toward this (dynamic scopes)
+		bool m_bScriptedZoom = false; // pip true when a script authored the live factor, those carry the user fov already
+		bool m_bSvpAuthoredMin = false; // pip authored magnifications set the floor directly, skip the optical-model cap
 		float m_fZoomRotateTime;
 		float m_fBaseZoomFactor;
 		float m_fScopeZoomFactor;
@@ -415,6 +430,10 @@ public:
 	}
 
 	virtual float GetMinScopeZoomFactor() const;
+	// pip true svp scopes derive their zoom floor in the authored 75 base so the bottom detent renders 1x
+	virtual bool SvpDetentBase() const { return g_svp_zoom_base && scope_svp_enabled >= 2 && m_zoom_params.m_bUseDynamicZoom && !m_UIScope; }
+	// pip whether this weapon class may take authored magnifications
+	virtual bool SvpMagsEligible() const { return true; }
 	virtual void ZoomInc();
 	virtual void ZoomDec();
 	virtual void OnZoomIn();
@@ -432,9 +451,18 @@ public:
 		return m_zoom_params.m_fCurrentZoomFactor;
 	}
 
+	IC bool IsScriptedZoom() const { return m_zoom_params.m_bScriptedZoom; }
+
+	// the lua binding reads this, scripts see the commanded detent while the fov keeps easing
+	float GetZoomFactorScript() const;
+	// the lua binding writes through this, it marks the factor script authored
+	void SetZoomFactorScript(float f);
+
 	IC void SetZoomFactor(float f)
 	{
 		m_zoom_params.m_fCurrentZoomFactor = f;
+		m_zoom_params.m_fZoomTargetFactor = f; // pip keep the smooth-zoom target synced, only scroll (ZoomInc/Dec) pushes it ahead
+		m_zoom_params.m_bScriptedZoom = false; // pip engine and config writes land here, the lua wrapper re-marks
 	}
 
 	virtual float CurrentZoomFactor();

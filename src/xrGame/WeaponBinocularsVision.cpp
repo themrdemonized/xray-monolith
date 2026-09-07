@@ -106,8 +106,22 @@ void SBinocVisibleObj::Update()
 
 	Fbox b = m_object->Visual()->getVisData().box;
 
+	// under an active true-PiP binocular the player sees the magnified SVP image in the flat panel,
+	// project the target through the SVP camera so the bracket tracks the magnified view
+	const bool svp_panel = Device.true_pip_on
+		&& Device.m_SecondViewport.IsSVPActive()
+		&& Device.m_SecondViewport.svp_panel_flat;
+
 	Fmatrix xform;
-	xform.mul(Device.mFullTransform, m_object->XFORM());
+	if (svp_panel)
+	{
+		// matrices[1] carries no full transform, compose the SVP view-projection (already magnified)
+		Fmatrix svp_vp;
+		svp_vp.mul(Device.matrices[1].mProject, Device.matrices[1].mView);
+		xform.mul(svp_vp, m_object->XFORM());
+	}
+	else
+		xform.mul(Device.mFullTransform, m_object->XFORM());
 	Fvector2 mn = {flt_max,flt_max}, mx = {flt_min,flt_min};
 
 	for (u32 k = 0; k < 8; ++k)
@@ -129,11 +143,35 @@ void SBinocVisibleObj::Update()
 	if (FALSE == screen_rect.intersected(new_rect)) return;
 	if (new_rect.in(screen_rect.lt) && new_rect.in(screen_rect.rb)) return;
 
-	std::swap(mn.y, mx.y);
-	mn.x = (1.f + mn.x) / 2.f * UI_BASE_WIDTH;
-	mx.x = (1.f + mx.x) / 2.f * UI_BASE_WIDTH;
-	mn.y = (1.f - mn.y) / 2.f * UI_BASE_HEIGHT;
-	mx.y = (1.f - mx.y) / 2.f * UI_BASE_HEIGHT;
+	if (svp_panel)
+	{
+		// place the bracket on the on-screen panel (the flat lens mesh projected through the hud
+		// transform), the panel rides level so map the svp frame axis-aligned, +x right +y up
+		const Fvector cw = Device.m_SecondViewport.eyepiece.m_W.c;
+		Fvector4 pc, pw, ph;
+		Device.mFullTransformHud.transform(pc, cw);
+		Device.mFullTransformHud.transform(pw, Fvector(cw).add(Device.m_SecondViewport.svp_panel_ax_w));
+		Device.mFullTransformHud.transform(ph, Fvector(cw).add(Device.m_SecondViewport.svp_panel_ax_h));
+		const float vcrop = (Device.m_SecondViewport.svp_panel_vcrop > 0.0001f)
+			? Device.m_SecondViewport.svp_panel_vcrop : 1.f;
+		const float half_u = _abs(pw.x - pc.x);         // panel half-width (svp ndc +/-1)
+		const float half_v = _abs(ph.y - pc.y) / vcrop; // panel half-height, shader V-crop
+		// svp ndc -> panel ndc, then to UI (ndc y up flips to UI y down)
+		const float lx = pc.x + mn.x * half_u, rx = pc.x + mx.x * half_u;
+		const float ty = pc.y + mx.y * half_v, bt = pc.y + mn.y * half_v;
+		mn.x = (1.f + lx) / 2.f * UI_BASE_WIDTH;
+		mx.x = (1.f + rx) / 2.f * UI_BASE_WIDTH;
+		mn.y = (1.f - ty) / 2.f * UI_BASE_HEIGHT;
+		mx.y = (1.f - bt) / 2.f * UI_BASE_HEIGHT;
+	}
+	else
+	{
+		std::swap(mn.y, mx.y);
+		mn.x = (1.f + mn.x) / 2.f * UI_BASE_WIDTH;
+		mx.x = (1.f + mx.x) / 2.f * UI_BASE_WIDTH;
+		mn.y = (1.f - mn.y) / 2.f * UI_BASE_HEIGHT;
+		mx.y = (1.f - mx.y) / 2.f * UI_BASE_HEIGHT;
+	}
 
 	if (mx.x - mn.x < RECT_SIZE)
 		mx.x = mn.x + RECT_SIZE;

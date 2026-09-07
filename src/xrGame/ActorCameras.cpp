@@ -703,6 +703,15 @@ void CActor::cam_Update(float dt, float fFOV)
 		{
 			Cameras().ApplyDevice(_viewport_near);
 		}
+		// pip the effector driven actor camera keeps the main view while scoped, 0 = frozen surround, ppe only
+		else if (Device.true_pip_on && eacFirstEye == cam_active && !Level().Cameras().GetCamEffector(cefDemo))
+		{
+			extern int g_svp_world_cam_fx;
+			if (g_svp_world_cam_fx)
+				Cameras().ApplyDevice(_viewport_near);
+			else
+				Cameras().ApplyPP();
+		}
 	}
 }
 

@@ -20,6 +20,22 @@ using ISpatialShared = intrusive_ptr<ISpatial>;
 // 10 fps
 #define UCalc_Interval		(u32(100))
 
+// pip measured lens geometry for one visual, bind-pose model space, metres
+// filled by CKinematics::GetLensDetection, ok == false when no fittable lens
+struct SLensDetection
+{
+	Fvector  eye_center;
+	Fvector  eye_normal;
+	float    eye_radius;
+	Fvector  obj_center;
+	float    obj_radius;
+	bool     has_objective;
+	Fvector4 offset; // scope_objective_lens_offset x,y,z,w in eyepiece-radius units
+	float    mm;     // s3ds_objective_mm 2000 x obj_radius, 0 when no objective
+	int      source; // 0 lens verts, 1 near bone, 2 tube march objective
+	bool     ok;
+};
+
 class IKinematics
 {
 public:
@@ -45,6 +61,9 @@ public:
 	virtual bool PickBone(const Fmatrix& parent_xform, pick_result& r, float dist, const Fvector& start,
 	                      const Fvector& dir, u16 bone_id) = 0;
 	virtual void EnumBoneVertices(SEnumVerticesCallback& C, u16 bone_id) = 0;
+
+	// pip run-or-cached measured lens fit for this visual, false for non-skinned or no lens
+	virtual bool GetLensDetection(SLensDetection& out) { return false; }
 
 	// Low level interface
 	virtual u16 _BCL LL_BoneID(LPCSTR B) = 0;

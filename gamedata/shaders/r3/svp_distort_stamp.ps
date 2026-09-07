@@ -1,0 +1,12 @@
+// writes the distort mask neutral so the combine warp is identity over the lens
+
+#include "scope_common.h"
+
+// Forward declare functions for better error messages
+float scope_custom_depth(float4 hpos);
+#include "scope_custom_depth.h"
+
+float4 main(v_out I) : SV_Target
+{
+	return float4(127.0 / 255.0, 127.0 / 255.0, 0.0, 127.0 / 255.0);
+}

@@ -2,9 +2,11 @@
 #include "console_registrator.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/xr_ioc_cmd.h"
+#include "../xrEngine/device.h"
 #include "ai_space.h"
 #include "script_engine.h"
 #include "../xrSound/Sound.h"
+#include "player_hud.h"
 
 using namespace luabind;
 
@@ -82,12 +84,60 @@ void execute_console_command_deferred(CConsole* c, LPCSTR string_to_execute)
 	return table;
 }
 
+// pip true if a real PiP scope is rendering via the second viewport (reflex/iron/non-PiP sights never set it)
+bool is_svp_active()
+{
+	return Device.m_SecondViewport.IsSVPActive();
+}
+
+// pip measured lens optics, kill-switch gated so a default build never runs detection
+extern int ps_r__svp_measured_optics;
+
+// run the mesh detection on one hud model, true when a lens with an objective is found
+static bool svp_detect_hud(attachable_hud_item* h, SLensDetection& d)
+{
+	return h && h->m_model && h->m_model->GetLensDetection(d) && d.ok && d.has_objective;
+}
+
+// the active scope hud, the attached scope model carries an addon lens, the weapon model an integral one
+static bool svp_detect_active(SLensDetection& d)
+{
+	if (!ps_r__svp_measured_optics || !g_player_hud)
+		return false;
+	if (svp_detect_hud(g_player_hud->attached_item(SCOPE_ATTACH_IDX), d))
+		return true;
+	return svp_detect_hud(g_player_hud->attached_item(0), d);
+}
+
+// scope_objective_lens_offset x,y,z,w in eyepiece-radius units, "" when off or nothing fits
+LPCSTR svp_detected_offset()
+{
+	static string128 s;
+	SLensDetection d;
+	if (!svp_detect_active(d))
+		return "";
+	xr_sprintf(s, "%f,%f,%f,%f", d.offset.x, d.offset.y, d.offset.z, d.offset.w);
+	return s;
+}
+
+// s3ds_objective_mm 2000 x obj_radius, -1 when off or nothing fits
+float svp_detected_obj_mm()
+{
+	SLensDetection d;
+	if (!svp_detect_active(d))
+		return -1.f;
+	return d.mm > 0.f ? d.mm : -1.f;
+}
+
 #pragma optimize("s",on)
 void console_registrator::script_register(lua_State* L)
 {
 	module(L)
 	[
 		def("get_console", &console),
+		def("is_svp_active", &is_svp_active),
+		def("svp_detected_offset", &svp_detected_offset),
+		def("svp_detected_obj_mm", &svp_detected_obj_mm),
 
 		class_<CConsole>("CConsole")
 		.def("execute", &CConsole::Execute)

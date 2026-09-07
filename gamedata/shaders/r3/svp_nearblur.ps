@@ -1,0 +1,108 @@
+// PIP_COMPAT_PATCH svp_nearblur 20260713
+
+// defocus on the SVP scope image, golden-angle spiral bokeh gather after Gustafsson
+// (blog.voxagon.se), uniform sample density, thin lens circle of confusion about the parallax focus
+#include "common.h"
+
+Texture2D s_nb_image;
+Texture2D s_nb_pos;
+
+uniform float4 svp_nearblur_params; // x focus m, y thin-lens k px*m, z max radius px, w muzzle distance m
+uniform float4 s3ds_param_3; // 3DSS per-scope data, y = RETICLE_TYPE, 8 = flat/binocular panel
+uniform float4 svp_nearblur_mode; // x scatter mode (0 gather, 1 scatter accumulator)
+
+#define NB_GOLDEN_ANGLE 2.39996323f
+#define NB_TAP_BUDGET 150.0f
+
+float nb_depth(float2 uv)
+{
+	float z = s_nb_pos.SampleLevel(smp_nofilter, uv, 0).z;
+	return (z < 0.02f) ? 10000.0f : z; // unwritten gbuffer (sky) counts as far
+}
+
+float nb_size(float z) // near-field CoC radius in px from the objective aperture, fades out by 3m
+{
+	float coc = svp_nearblur_params.y * max(1.0f / max(z, 0.05f) - 1.0f / svp_nearblur_params.x, 0.0f);
+	// the near field ends at the weapon's own muzzle, fading over one octave past it
+	coc *= smoothstep(svp_nearblur_params.w * 2.0f, svp_nearblur_params.w, z);
+	return min(coc, svp_nearblur_params.z);
+}
+
+float4 main(p_screen I, float4 pos2d : SV_POSITION) : SV_Target
+{
+	float2 uv = pos2d.xy * screen_res.zw;
+	float centerDepth = nb_depth(uv);
+	float centerSize = nb_size(centerDepth);
+	float3 base = s_nb_image.SampleLevel(smp_base, uv, 0).rgb;
+
+	// flat/binocular panels fill the whole square, only round eyepieces clip to the inscribed disc
+	if ((int)s3ds_param_3.y != 8 && length((uv - 0.5f) * 2.0f) > 1.0f)
+		return float4(base, 1.0f);
+
+	float maxR = svp_nearblur_params.z;
+	// geometric ring growth holds the tap count near the budget for any radius, so the first
+	// ring stays sub-pixel and catches small coc while the count grows only with log(maxR)
+	float r0 = 1.0f;
+	float g = exp(log(max(maxR, r0) / r0) / NB_TAP_BUDGET) - 1.0f;
+
+	// per-pixel interleaved-gradient-noise rotation decorrelates the spiral so the bokeh reads as noise TAA averages
+	float ign = frac(52.9829189f * frac(dot(pos2d.xy, float2(0.06711056f, 0.00583715f))));
+	float rot = ign * 6.2831853f;
+
+	// constant golden-angle rotation from NB_GOLDEN_ANGLE, one mul per tap replaces cos/sin
+	const float2x2 NB_ROT = float2x2(-0.73736f, -0.67549f, 0.67549f, -0.73736f);
+	float2 dir = float2(cos(rot), sin(rot));
+
+	// scatter is a uniform selector, default gather keeps today's look
+	bool scatter = svp_nearblur_mode.x > 0.5f;
+
+	float3 color = base;
+	float tot = 1.0f;
+	float3 farColor = base;
+	float farTot = 1.0f;
+	float3 nearPremul = float3(0.0f, 0.0f, 0.0f);
+	float nearCov = 0.0f;
+	float radius = r0;
+	[loop]
+	for (float ang = 0.0f; radius < maxR && ang < 400.0f; ang += NB_GOLDEN_ANGLE)
+	{
+		float2 tc = uv + dir * screen_res.zw * radius;
+		float sampleDepth = nb_depth(tc);
+		float sampleSize = nb_size(sampleDepth);
+		if (sampleDepth > centerDepth)
+			sampleSize = clamp(sampleSize, 0.0f, centerSize * 2.0f);
+		float m = smoothstep(radius - 0.5f, radius + 0.5f, sampleSize);
+		float lod = log2(max(g * radius, 1.0f));
+		float3 sampleColor = s_nb_image.SampleLevel(smp_base, tc, lod).rgb;
+		if (scatter)
+		{
+			// near premultiplied over a far running average so a foreground disc covers the world
+			if (sampleDepth <= centerDepth)
+			{
+				nearPremul += sampleColor * m;
+				nearCov += m;
+			}
+			else
+			{
+				farColor += lerp(farColor / farTot, sampleColor, m);
+				farTot += 1.0f;
+			}
+		}
+		else
+		{
+			color += lerp(color / tot, sampleColor, m);
+			tot += 1.0f;
+		}
+		dir = mul(NB_ROT, dir);
+		radius += g * radius;
+	}
+	if (scatter)
+	{
+		float3 far = farColor / farTot;
+		float3 Cnear = nearPremul / max(nearCov, 1e-4f);
+		float a = saturate(nearCov / NB_TAP_BUDGET);
+		return float4(lerp(far, Cnear, a), 1.0f);
+	}
+	color /= tot;
+	return float4(color, 1.0f);
+}

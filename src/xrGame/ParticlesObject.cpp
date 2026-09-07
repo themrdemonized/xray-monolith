@@ -269,6 +269,16 @@ void CParticlesObject::SetHudMode(bool bHudMode)
 	V->SetHudMode(bHudMode);
 }
 
+// pip tags the held weapon's own muzzle fx so the scope pass can drop only these
+void CParticlesObject::MarkWeaponFX()
+{
+	if (g_dedicated_server) return;
+
+	IParticleCustom* V = renderable.visual ? renderable.visual->dcast_ParticleCustom() : NULL;
+	if (V)
+		V->SetWeaponFX(TRUE);
+}
+
 void CParticlesObject::SetLiveUpdate(BOOL b)
 {
 	if(g_dedicated_server)		return;

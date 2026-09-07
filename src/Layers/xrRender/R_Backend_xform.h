@@ -13,12 +13,12 @@ public:
 	Fmatrix m_vp; // Derived	- view2projection
 	Fmatrix m_wvp; // Derived	- world2view2projection
 
-	Fmatrix m_w_prev;
-	Fmatrix m_v_prev;
-	Fmatrix m_p_prev;
-	Fmatrix m_wv_prev;
-	Fmatrix m_vp_prev;
-	Fmatrix m_wvp_prev;
+	Fmatrix m_w_prev[2]; // prev-frame matrices, per viewport (main, SVP)
+	Fmatrix m_v_prev[2];
+	Fmatrix m_p_prev[2];
+	Fmatrix m_wv_prev[2];
+	Fmatrix m_vp_prev[2];
+	Fmatrix m_wvp_prev[2];
 
 	R_constant* c_w;
 	R_constant* c_invw;
@@ -28,12 +28,12 @@ public:
 	R_constant* c_vp;
 	R_constant* c_wvp;
 
-	R_constant* c_w_prev;
-	R_constant* c_v_prev;
-	R_constant* c_p_prev;
-	R_constant* c_wv_prev;
-	R_constant* c_vp_prev;
-	R_constant* c_wvp_prev;
+	R_constant* c_w_prev[2];
+	R_constant* c_v_prev[2];
+	R_constant* c_p_prev[2];
+	R_constant* c_wv_prev[2];
+	R_constant* c_vp_prev[2];
+	R_constant* c_wvp_prev[2];
 
 private:
 	bool m_bInvWValid;

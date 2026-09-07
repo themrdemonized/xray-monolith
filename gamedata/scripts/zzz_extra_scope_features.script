@@ -1,0 +1,167 @@
+--[[
+    zzz_extra_scope_features (true-PiP)
+
+    Pushes the per-scope objective lens geometry to the engine so the SVP can place the front plane
+    and size the defocus aperture per optic. The scope_objective_lens_offset key (3DSS objective-lens
+    data, x/y lateral, z forward, w radius, all in eyepiece-radius units) is resolved from the active
+    optic's section and written to the scope_objective_lens_offset console command on every aim change.
+
+    Zoom is owned by the engine (curMag drive) and the 3DSS/Godis controllers. This script NEVER
+    touches zoom. On a non-PiP exe the command is unregistered, get_string returns nil, and the whole
+    script bails - stock behaviour, no side effects.
+]]--
+
+-- Taken from weapon_cover_tilt.script
+function IsBinoc(sec)
+    return  SYS_GetParam(0, sec, "ammo_class", "") == "ammo_binoc"
+        or  SYS_GetParam(0, sec, "class", "") == "WP_BINOC"
+end
+
+local RETRY_EV = "pip_scope_push"
+
+-- read a key from the attached-scope section first, then the weapon section, absent = nil
+local function read_str(scope_sec, weap_sec, key)
+    return (scope_sec and ini_sys:r_string_ex(scope_sec, key)) or (weap_sec and ini_sys:r_string_ex(weap_sec, key))
+end
+local function read_num(scope_sec, weap_sec, key)
+    return (scope_sec and ini_sys:r_float_ex(scope_sec, key)) or (weap_sec and ini_sys:r_float_ex(weap_sec, key))
+end
+
+-- per-scope SVP tonemapper and ballistic zero, absent keys push the safe default
+local function push_aux(scope_sec, weap_sec)
+    exec_console_cmd("s3ds_middle_grey " .. (read_num(scope_sec, weap_sec, "s3ds_middle_grey") or 0))
+    exec_console_cmd("s3ds_adapt_speed " .. (read_num(scope_sec, weap_sec, "s3ds_adapt_speed") or 0))
+    local zero = read_num(scope_sec, weap_sec, "scope_zero_m")
+    exec_console_cmd("g_svp_zero " .. ((zero and zero > 0) and zero or 100))
+end
+
+-- spec-sheet mm rides its own plain-section ltx read directly, a section-authored key still wins
+local mm_ini
+local function read_mm(scope_sec, weap_sec)
+    local mm = read_num(scope_sec, weap_sec, "s3ds_objective_mm")
+    if mm then
+        return mm
+    end
+    mm_ini = mm_ini or ini_file("pip_objective_mm.ltx")
+    return (scope_sec and mm_ini:r_float_ex(scope_sec, "s3ds_objective_mm"))
+        or (weap_sec and mm_ini:r_float_ex(weap_sec, "s3ds_objective_mm"))
+end
+
+-- authored offset (scope then weapon) beats the engine measured detection, returns true when a value landed
+local function push_lens(scope_sec, weap_sec)
+    local off = read_str(scope_sec, weap_sec, "scope_objective_lens_offset")
+    local src = off and "authored"
+    if not off then
+        local det = svp_detected_offset and svp_detected_offset()
+        if det and det ~= "" then off, src = det, "detected" end
+    end
+    if not off then
+        return false
+    end
+    exec_console_cmd("scope_objective_lens_offset " .. off)
+    local obj = read_mm(scope_sec, weap_sec)
+    if not obj then
+        local dmm = svp_detected_obj_mm and svp_detected_obj_mm()
+        if dmm and dmm > 0 then obj = dmm end
+    end
+    exec_console_cmd("s3ds_objective_mm " .. (obj or 0))
+    printf("[SVP-PUSH] sec=%s src=%s off=%s mm=%s", scope_sec or weap_sec or "?", src, off, tostring(obj or 0))
+    return true
+end
+
+-- resolve and push for the live aim, returns true when settled (pushed, alt-cleared or unscoped)
+local function try_push()
+    local item = db.actor and db.actor:active_item()
+    local weapon = item and item:cast_Weapon()
+    if not (item and weapon and weapon:IsZoomed()) then
+        return true
+    end
+    if IsBinoc(item:section()) then
+        return true
+    end
+    local scope_sec = utils_item.get_attached_scope(item)
+    local weap_sec = item:section()
+    push_aux(scope_sec, weap_sec)
+    -- the resolved value wins even on an alt zoom type, gamma analog zoom raises the type on the
+    -- same primary optic right after zoom in and must not stomp the just pushed value
+    if push_lens(scope_sec, weap_sec) then
+        return true
+    end
+    -- genuinely no objective, an alt sight clears the stale primary value, the primary optic keeps
+    -- its last value and retries until the detection cache warms
+    if weapon:GetZoomType() ~= 0 then
+        exec_console_cmd("scope_objective_lens_offset 0,0,0,0")
+        exec_console_cmd("s3ds_objective_mm 0")
+        return true
+    end
+    return false
+end
+
+-- half second cadence so the retry is no busy loop, the cap rides out a slow first load
+-- (a fresh session held the weapon unsettled past 9s) yet ends a sight with nothing to resolve
+local RETRY_STEP_S = 0.5
+local RETRY_MAX = 60
+
+local function push_offset()
+    if try_push() then
+        return
+    end
+    -- detection cache is cold on the zoom-in frame, leave the previous value and re-resolve until it warms
+    printf("[SVP-PUSH] skip kept, retrying the live aim")
+    RemoveTimeEvent(RETRY_EV, "retry")
+    local tries = 0
+    CreateTimeEvent(RETRY_EV, "retry", RETRY_STEP_S, function()
+        tries = tries + 1
+        if try_push() then
+            return true
+        end
+        if tries >= RETRY_MAX then
+            printf("[SVP-PUSH] unresolved after retry, kept")
+            return true
+        end
+        ResetTimeEvent(RETRY_EV, "retry", RETRY_STEP_S)
+        return false
+    end)
+end
+
+local function clear_offset()
+    RemoveTimeEvent(RETRY_EV, "retry")
+    -- the objective/mm are read only while scoped, leave them for the next aim to re-resolve so a
+    -- zoom out never stomps a just pushed value, only the scope tonemapper returns to the default view
+    exec_console_cmd("s3ds_middle_grey 0")
+    exec_console_cmd("s3ds_adapt_speed 0")
+end
+
+-- one-shot per install, resets only the listed cvars and leaves every other setting alone
+local PIP_MIGRATION_VERSION = 20260712
+local function run_migrations()
+    local saved = axr_main.config:r_value("pip", "migration_version", 2, 0)
+    if saved >= PIP_MIGRATION_VERSION then
+        return
+    end
+    if saved < 20260710 then
+        -- 20260710 experimental glass optics ship default-off, clear values saved by older builds
+        exec_console_cmd("r__svp_veiling_glare 0")
+        exec_console_cmd("r__svp_coating 0")
+        exec_console_cmd("r__svp_mirage 0")
+        exec_console_cmd("r__svp_reticle_washout 0")
+    end
+    if saved < 20260712 then
+        -- 20260712 objective fallback re-sourced to the authored-set median
+        exec_console_cmd("r__svp_obj_size 1.0")
+    end
+    axr_main.config:w_value("pip", "migration_version", PIP_MIGRATION_VERSION)
+    axr_main.config:save()
+    printf("pip migration %s applied", PIP_MIGRATION_VERSION)
+end
+
+function on_game_start()
+    if not get_console():get_string("scope_objective_lens_offset") then
+        printf("dev/svp exes not installed - extra scope features inert")
+        return
+    end
+    run_migrations()
+    RegisterScriptCallback("actor_on_weapon_zoom_in", push_offset)
+    RegisterScriptCallback("actor_on_weapon_zoom_type_changed", push_offset)
+    RegisterScriptCallback("actor_on_weapon_zoom_out", clear_offset)
+end

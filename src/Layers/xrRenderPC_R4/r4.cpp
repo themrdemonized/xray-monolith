@@ -10,6 +10,8 @@
 #include "../xrRender/dxRenderDeviceRender.h"
 #include "../xrRender/dxWallMarkArray.h"
 #include "../xrRender/dxUIShader.h"
+#include "../xrRender/xrRender_console.h" // r__shader_debug
+#include "svp_stats.h" // pip render-stats overlay, query pool release on reset/destroy
 
 #include "../xrRenderDX10/3DFluid/dx103DFluidManager.h"
 #include "../xrRender/ShaderResourceTraits.h"
@@ -530,6 +532,8 @@ void CRender::create()
 	m_bMakeAsyncSS = false;
 
 	Target = xr_new<CRenderTarget>(); // Main target
+	TargetMain = Target;
+	TargetSVP = nullptr; // created lazily on first SVP use
 
 	Models = xr_new<CModelPool>();
 	PSLibrary.OnCreate();
@@ -552,8 +556,11 @@ void CRender::destroy()
 	GMBase.destroy();
 
 	HWOCC.occq_destroy();
+	svp_stats::release(); // pip drop the stats query pool + font with the device
 	xr_delete(Models);
 	xr_delete(Target);
+	TargetMain = nullptr;
+	xr_delete(TargetSVP); // pip: only non-null if an SVP pass ran
 	PSLibrary.OnDestroy();
 	Device.seqFrame.Remove(this);
 	Device.ModelDefferClear = nullptr;
@@ -571,7 +578,10 @@ void CRender::reset_begin()
 	//-AVO
 
 	xr_delete(Target);
+	TargetMain = nullptr;
+	xr_delete(TargetSVP); // pip: drop the SVP target across vid_restart, re-lazy-alloc after reset
 	HWOCC.occq_destroy();
+	svp_stats::release(); // pip release the stats queries before ResizeBuffers, re-lazy-alloc on next enabled frame
 }
 
 void CRender::reset_end()
@@ -579,6 +589,7 @@ void CRender::reset_end()
 	HWOCC.occq_create(occq_size);
 
 	Target = xr_new<CRenderTarget>();
+	TargetMain = Target;
 
 	//AVO: let's reload details while changed details options on vid_restart
 	if (b_loaded && ((dm_current_size != dm_size) || (ps_r__Detail_density != ps_current_detail_density) || (
@@ -769,7 +780,8 @@ FSlideWindowItem* CRender::getSWI(int id)
 	return &SWIs[id];
 }
 
-IRender_Target* CRender::getTarget() { return Target; }
+// pip external callers (ppe params, UI metrics) get the main target
+IRender_Target* CRender::getTarget() { return TargetMain ? (IRender_Target*)TargetMain : Target; }
 
 IRender_Light* CRender::light_create() { return Lights.Create(); }
 IRender_Glow* CRender::glow_create() { return xr_new<CGlow>(); }
@@ -852,7 +864,8 @@ void CRender::add_Occluder(Fbox2& bb_screenspace)
 
 void CRender::rmNear()
 {
-	IRender_Target* T = getTarget();
+	// the viewport matches the ACTIVE target
+	IRender_Target* T = Target;
 	D3D_VIEWPORT VP = {0, 0, (float)T->get_width(), (float)T->get_height(), 0, 0.02f};
 
 	HW.pContext->RSSetViewports(1, &VP);
@@ -861,7 +874,7 @@ void CRender::rmNear()
 
 void CRender::rmFar()
 {
-	IRender_Target* T = getTarget();
+	IRender_Target* T = Target;
 	D3D_VIEWPORT VP = {0, 0, (float)T->get_width(), (float)T->get_height(), 0.99999f, 1.f};
 
 	HW.pContext->RSSetViewports(1, &VP);
@@ -870,7 +883,7 @@ void CRender::rmFar()
 
 void CRender::rmNormal()
 {
-	IRender_Target* T = getTarget();
+	IRender_Target* T = Target;
 	D3D_VIEWPORT VP = {0, 0, (float)T->get_width(), (float)T->get_height(), 0, 1.f};
 
 	HW.pContext->RSSetViewports(1, &VP);
@@ -1997,7 +2010,8 @@ HRESULT CRender::shader_compile(
 	if (useGeneratedShaderCache)
 		source_crc = getShaderSourceCrc32(pSrcData, SrcDataLen, ::Render->getShaderPath());
 
-	if (FS.exist(file_name))
+	// r__shader_debug skips the cache read so a cached optimized blob does not shadow the debug build
+	if (!r__shader_debug && FS.exist(file_name))
 	{
 		IReader* file = FS.r_open(file_name);
 		if (useGeneratedShaderCache)
@@ -2041,6 +2055,10 @@ HRESULT CRender::shader_compile(
 		includer Includer;
 		LPD3DBLOB pShaderBuf = NULL;
 		LPD3DBLOB pErrorBuf = NULL;
+		// r__shader_debug emits debug info + skips optimization so RenderDoc can step the HLSL source
+		DWORD compileFlags = Flags;
+		if (r__shader_debug)
+			compileFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 		_result =
 			D3DCompile(
 				pSrcData,
@@ -2048,23 +2066,27 @@ HRESULT CRender::shader_compile(
 				"", //NULL, //LPCSTR pFileName,	//	NVPerfHUD bug workaround.
 				defines, &Includer, pFunctionName,
 				pTarget,
-				Flags, 0,
+				compileFlags, 0,
 				&pShaderBuf,
 				&pErrorBuf
 			);
 
 		if (SUCCEEDED(_result))
 		{
-			IWriter* file = FS.w_open(file_name);
+			// don't cache the debug blob, keyed by source CRC, it would later load as if it were a normal build
+			if (!r__shader_debug)
+			{
+				IWriter* file = FS.w_open(file_name);
 
-			u32 const crc = crc32(pShaderBuf->GetBufferPointer(), pShaderBuf->GetBufferSize());
+				u32 const crc = crc32(pShaderBuf->GetBufferPointer(), pShaderBuf->GetBufferSize());
 
-			if (useGeneratedShaderCache)
-				file->w_u32(source_crc);
+				if (useGeneratedShaderCache)
+					file->w_u32(source_crc);
 
-			file->w_u32(crc);
-			file->w(pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize());
-			FS.w_close(file);
+				file->w_u32(crc);
+				file->w(pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize());
+				FS.w_close(file);
+			}
 
 			_result = create_shader(pTarget, (DWORD*)pShaderBuf->GetBufferPointer(), (u32)pShaderBuf->GetBufferSize(),
 			                        file_name, result, o.disasm);

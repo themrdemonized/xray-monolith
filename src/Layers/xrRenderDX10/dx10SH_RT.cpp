@@ -6,6 +6,7 @@
 #include "../xrRender/dxRenderDeviceRender.h"
 
 #include "dx10TextureUtils.h"
+#include "dx10EventWrapper.h" // dx10_set_debug_name
 
 CRT::CRT()
 {
@@ -184,6 +185,13 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
 		UAVDesc.Buffer.NumElements = dwWidth * dwHeight;
 		CHK_DX(HW.pDevice->CreateUnorderedAccessView( pSurface, &UAVDesc, &pUAView ));
 	}
+
+	// tag the RT texture + its views with the RT name so captures show readable names instead of
+	// "Render Target NNNN", gated on r__gpu_markers
+	dx10_set_debug_name(pSurface, Name);
+	dx10_set_debug_name(pRT, Name);
+	dx10_set_debug_name(pZRT, Name);
+	dx10_set_debug_name(pUAView, Name);
 #endif
 
 	pTexture = DEV->_CreateTexture(Name);

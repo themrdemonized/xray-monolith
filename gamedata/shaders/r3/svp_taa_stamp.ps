@@ -1,0 +1,12 @@
+// writes taa alpha 1 so the main resolve leaves the composited lens untouched
+
+#include "scope_common.h"
+
+// Forward declare functions for better error messages
+float scope_custom_depth(float4 hpos);
+#include "scope_custom_depth.h"
+
+float4 main(v_out I) : SV_Target
+{
+	return float4(0.0, 0.0, 0.0, 1.0);
+}

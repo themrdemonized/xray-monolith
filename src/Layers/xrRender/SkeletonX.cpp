@@ -65,21 +65,22 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 #ifdef USE_DX11 //
 	if (RImplementation.o.ssfx_motionvectors)
 	{
-		if (Device.dwFrame > Parent->CurrentFrame)
+		const bool svp = Device.m_SecondViewport.IsSVPFrame(); // pip this viewport's prev-matrix slot
+		if (Device.dwViewport > Parent->CurrentFrame)
 		{
 			// Save current frame
-			Parent->CurrentFrame = Device.dwFrame;
+			Parent->CurrentFrame = Device.dwViewport;
 
 			// Save prev m_W and save current m_W for the next frame
-			Parent->Matrix_Prev.set(Parent->Matrix_Temp);
-			Parent->Matrix_Temp.set(RCache.xforms.m_w);
+			Parent->Matrix_Prev[svp].set(Parent->Matrix_Temp[svp]);
+			Parent->Matrix_Temp[svp].set(RCache.xforms.m_w);
 
 			// Save bone matrix to use in the next frame
 			for (u16 b = 0; b < Parent->LL_BoneCount(); b++)
 			{
 				CBoneInstance& Bone = Parent->LL_GetBoneInstance(b);
-				Bone.mRenderTransform_prev.set(Bone.mRenderTransform_temp);
-				Bone.mRenderTransform_temp.set(Bone.mRenderTransform);
+				Bone.mRenderTransform_prev[svp].set(Bone.mRenderTransform_temp[svp]);
+				Bone.mRenderTransform_temp[svp].set(Bone.mRenderTransform);
 			}
 		}
 
@@ -88,15 +89,15 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 		{
 			// RM_SINGLE
 			Fmatrix Bone_Prev;
-			Bone_Prev.mul_43(Parent->Matrix_Prev, Parent->LL_GetBoneInstance(u16(RMS_boneid)).mRenderTransform_prev);
-			p_WV.mul_43(RCache.xforms.m_v_prev, Bone_Prev);
-			p_WVP.mul(RCache.xforms.m_p_prev, p_WV);
+			Bone_Prev.mul_43(Parent->Matrix_Prev[svp], Parent->LL_GetBoneInstance(u16(RMS_boneid)).mRenderTransform_prev[svp]);
+			p_WV.mul_43(RCache.xforms.m_v_prev[svp], Bone_Prev);
+			p_WVP.mul(RCache.xforms.m_p_prev[svp], p_WV);
 		}
 		else
 		{
 			// RM_SKINNING_1B ~ RM_SKINNING_4B
-			p_WV.mul_43(RCache.xforms.m_v_prev, Parent->Matrix_Prev);
-			p_WVP.mul(RCache.xforms.m_p_prev, p_WV);
+			p_WV.mul_43(RCache.xforms.m_v_prev[svp], Parent->Matrix_Prev[svp]);
+			p_WVP.mul(RCache.xforms.m_p_prev[svp], p_WV);
 		}
 
 		RCache.set_c("m_wvp_prev", p_WVP); // Apply prev matrix
@@ -149,7 +150,7 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 						if (RImplementation.o.ssfx_motionvectors)
 						{
 							// Save previous transform
-							Fmatrix& Mprev = Parent->LL_GetBoneInstance(u16(mid)).mRenderTransform_prev;
+							Fmatrix& Mprev = Parent->LL_GetBoneInstance(u16(mid)).mRenderTransform_prev[Device.m_SecondViewport.IsSVPFrame()];
 							RCache.set_ca(&*array_prev, id + 0, Mprev._11, Mprev._21, Mprev._31, Mprev._41);
 							RCache.set_ca(&*array_prev, id + 1, Mprev._12, Mprev._22, Mprev._32, Mprev._42);
 							RCache.set_ca(&*array_prev, id + 2, Mprev._13, Mprev._23, Mprev._33, Mprev._43);
@@ -502,6 +503,7 @@ void get_pos_bones(const vertBoned4W& vert, Fvector& p, CKinematics* Parent)
 	p.add(P2);
 	p.add(P3);
 }
+
 
 //-----------------------------------------------------------------------------------------------------
 // Wallmarks

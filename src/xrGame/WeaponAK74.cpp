@@ -38,8 +38,15 @@ void CWeaponAK74::script_register	(lua_State *L)
 			
 			.def("IsZoomEnabled", &CWeapon::IsZoomEnabled)
 			.def("IsZoomed", &CWeapon::IsZoomed)
-			.def("GetZoomFactor", &CWeapon::GetZoomFactor)
-			.def("SetZoomFactor", &CWeapon::SetZoomFactor)
+			.def("GetZoomFactor", &CWeapon::GetZoomFactorScript)
+			.def("SetZoomFactor", &CWeapon::SetZoomFactorScript)
+			// pip expose the zoom steppers + force-ADS so a gamedata script can drive the scope (lens FX tuning menu)
+			.def("ZoomInc", &CWeapon::ZoomInc)
+			.def("ZoomDec", &CWeapon::ZoomDec)
+			.def("GetMinScopeZoomFactor", &CWeapon::GetMinScopeZoomFactor)
+			.def("CurrentZoomFactor", &CWeapon::CurrentZoomFactor)
+			.def("OnZoomIn", &CWeapon::OnZoomIn)
+			.def("OnZoomOut", &CWeapon::OnZoomOut)
 			
 			.def("IsSingleHanded", &CWeapon::IsSingleHanded)
 			

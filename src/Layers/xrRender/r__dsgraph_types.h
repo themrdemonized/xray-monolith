@@ -251,6 +251,8 @@ namespace R_dsgraph
 		mapDSGraphItems<float, false> mapWater;
 #ifdef USE_DX11
 		mapDSGraphItems<float, true> mapScopeHUDSorted;
+		mapDSGraphItems<float, true> mapScopeHUDObjective; // pip the FRONT (objective) scope lens, real geometry for the svpscope-2 camera, never drawn
+		mapDSGraphItems<float, true> mapReflexHUDSorted; // pip reflex-sight lenses (iScopeLense==10)
 		mapDSGraphItems<float, false> mapScopeHUD;
 #endif
 		template<bool free = true>
@@ -329,6 +331,8 @@ namespace R_dsgraph
 #ifdef USE_DX11
 				mapScopeHUD.clear_and_free();
 				mapScopeHUDSorted.clear_and_free();
+				mapScopeHUDObjective.clear_and_free();
+				mapReflexHUDSorted.clear_and_free();
 #endif
 			}
 			else
@@ -347,6 +351,8 @@ namespace R_dsgraph
 #ifdef USE_DX11
 				mapScopeHUD.clear();
 				mapScopeHUDSorted.clear();
+				mapScopeHUDObjective.clear();
+				mapReflexHUDSorted.clear();
 #endif
 			}
 		}

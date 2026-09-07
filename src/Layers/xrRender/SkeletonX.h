@@ -99,6 +99,11 @@ protected:
 	                       u16 bone_id, u32 iBase, u32 iCount) =0;
 public:
 	BOOL has_visible_bones();
+	bool SVP_LensBoneXform(Fmatrix& out); // pip lens bone object-space skinning matrix for the SVP eyepiece
+	bool SVP_LensBoneVisible(); // pip lens bone visibility for the eyepiece pick
+	bool SVP_GetLensDetection(SLensDetection& out); // pip forward the owning kinematics measured lens fit for the render-side diag
+	// pip append each dedup bind-pose vertex, model space, with its global dominant bone id
+	void SVP_GatherVerts(xr_vector<Fvector>& positions, xr_vector<u16>& bones);
 
 	//--DSR-- SilencerOverheat_start
 	BOOL has_bone_id(u16 bone_id)

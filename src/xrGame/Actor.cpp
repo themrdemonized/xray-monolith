@@ -29,6 +29,7 @@
 
 // breakpoints
 #include "../xrEngine/xr_input.h"
+#include "../xrEngine/svp_gameplay_cvars.h" // pip the 75 base for the through-scope sens fov
 //
 #include "Actor.h"
 #include "ActorAnimation.h"
@@ -1098,7 +1099,7 @@ void CActor::g_Physics(Fvector& _accel, float jump, float dt)
 float g_fov = 55.0f;
 extern float g_ironsights_factor;
 
-float CActor::currentFOV()
+float CActor::currentFOV(bool wantSVPFov)
 {
 	if (!psHUD_Flags.is(HUD_WEAPON | HUD_WEAPON_RT | HUD_WEAPON_RT2))
 		return g_fov;
@@ -1112,6 +1113,13 @@ float CActor::currentFOV()
 	{
 		if (pWeapon->GetZoomFactor() == 0)
 			return atan(tan(g_fov * (0.5 * PI / 180)) / g_ironsights_factor) / (0.5 * PI / 180);
+		// pip when the SVP renders the zoom, the main view stays wide (the zoom lives in the scope image),
+		// wantSVPFov asks for the real zoomed fov (svpCamera, mouse sensitivity)
+		else if (Device.true_pip_on && Device.m_SecondViewport.IsSVPActive() && !wantSVPFov)
+			return g_fov;
+		else if (Device.true_pip_on && Device.m_SecondViewport.IsSVPActive() && wantSVPFov)
+			// pip the true through-scope fov, config factors ride the 75 base and rescale to the live fov
+			return pWeapon->GetZoomFactor() * 0.75f * (pWeapon->IsScriptedZoom() ? 1.f : g_fov / SVP_ZOOM_BASE_FOV);
 		else
 			return pWeapon->GetZoomFactor() * (0.75f);
 	}
@@ -1126,6 +1134,7 @@ float CActor::currentFOV()
 void CActor::UpdateCL()
 {
 	PROF_EVENT("CActor UpdateCL");
+
 	if (g_Alive() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)
@@ -1247,6 +1256,9 @@ void CActor::UpdateCL()
 		HUD().ShowCrosshair(true);
 		g_pGamePersistent->m_pGShaderConstants->hud_params.set(0.f, 0.f, 0.f, 0.f);
 		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
+		// pip a mount right after ads left the svp rendering a dead second pass all mount long
+		if (Device.true_pip_on)
+			Device.m_SecondViewport.SetSVPActive(false);
 	}
 #endif
 	else

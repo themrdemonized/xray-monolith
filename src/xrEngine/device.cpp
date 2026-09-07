@@ -420,6 +420,14 @@ void CRenderDevice::on_idle()
 	mFullTransformCam.mul(mProjectCam, mView);
 	m_pRender->SetCacheXform(mView, mProject);
 
+	// advance per-viewport history and store the main camera in slot 0
+	// slot 1 = SVP, filled by svpCamera in the render layer
+	Device.matrices_previous[0] = Device.matrices[0];
+	Device.matrices_previous[1] = Device.matrices[1];
+	Device.matrices[0].mView = mView;
+	Device.matrices[0].mProject = mProject;
+	Device.matrices[0].mProjectHud = mProjectHud;
+
 	mViewHud_prev = mViewHud;
 	mProjectHud_prev = mProjectHud;
 	mFullTransformHud_prev = mFullTransformHud;
@@ -434,7 +442,11 @@ void CRenderDevice::on_idle()
 
 	m_pRender->SetCacheXform_prev(mView_prev, mProject_prev);
 
-	mProjectHud.build_projection(deg2rad(psHUD_FOV * 83.f), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+	// pip true hud fov renders the weapon at the scene perspective while fully aimed through a PiP scope
+	extern int g_svp_hud_true_fov;
+	const float hud_fov_deg = (g_svp_hud_true_fov && true_pip_on && m_SecondViewport.IsSVPActive()
+		&& g_pGamePersistent && g_pGamePersistent->m_pGShaderConstants->hud_params.x > 0.999f) ? fFOV : psHUD_FOV * 83.f;
+	mProjectHud.build_projection(deg2rad(hud_fov_deg), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
 	mProjectCam.build_projection(deg2rad(83.f), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
 	
 	mViewHud.set(mView);
@@ -905,14 +917,29 @@ void CLoadScreenRenderer::OnRender()
 	pApp->load_draw_internal();
 }
 
-void CRenderDevice::CSecondVPParams::SetSVPActive(bool bState) //--#SM+#-- +SecondVP+
+void CSecondVPParams::SetSVPActive(bool bState) //--#SM+#-- +SecondVP+
 {
+	if (bState && !isActive)
+		dlss_reset_next = true; // pip DLSS history reset on ADS-in (logic thread)
 	isActive = bState;
 	if (g_pGamePersistent != NULL)
 		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.z = (isActive ? 1.0f : 0.0f);
 }
 
-bool CRenderDevice::CSecondVPParams::IsSVPFrame() //--#SM+#-- +SecondVP+
+bool CSecondVPParams::IsSVPFrame() //--#SM+#-- +SecondVP+
 {
+	if (Device.true_pip_on)
+		return m_render_pass_is_svp;
 	return IsSVPActive() && Device.dwFrame % frameDelay == 0;
+}
+
+void CRenderDevice::prepare_matrices()
+{
+	auto svp = m_SecondViewport.IsSVPFrame();
+	// per-viewport previous matrices (0 = main, 1 = SVP) for motion vectors
+	mView_prev = Device.matrices_previous[svp].mView;
+	mProject_prev = Device.matrices_previous[svp].mProject;
+	m_pRender->SetCacheXform_prev(mView_prev, mProject_prev);
+	// grass + wind prev stay once-per-frame in the device frame fn, not here, because
+	// prepare_matrices runs per SetActive and wind prev=saved/saved=cur is not idempotent
 }

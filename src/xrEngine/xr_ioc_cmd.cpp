@@ -5,6 +5,7 @@
 #include "x_ray.h"
 #include "xr_ioconsole.h"
 #include "xr_ioc_cmd.h"
+#include "svp_gameplay_cvars.h"
 //#include "fbasicvisual.h"
 #include "cameramanager.h"
 #include "environment.h"
@@ -1243,6 +1244,7 @@ void CCC_Register()
 		CMD4(CCC_Float, "g_freelook_z_offset_factor", &g_freelook_z_offset, -3.f, 3.f);
 
 	CMD4(CCC_Float, "g_ironsights_zoom_factor", &g_ironsights_factor, 1.f, 2.f);
+	svp_gameplay_cvars_init(); // pip gameplay cvars register in svp_gameplay_cvars.cpp
 	CMD4(CCC_Vector3, "ssfx_wetness_multiplier", &ssfx_wetness_multiplier, Fvector3().set(0.1f, 0.1f, 0.0f), Fvector3().set(20.0f, 20.0f, 0.0f));
 
 	// - CrookR

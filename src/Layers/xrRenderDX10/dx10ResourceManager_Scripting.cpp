@@ -632,6 +632,12 @@ ShaderElement* CBlender_Compile::_lua_Compile(LPCSTR namesp, LPCSTR name)
 	bool bFirstPass = false;
 	adopt_compiler ac = adopt_compiler(this, bFirstPass);
 	element(ac, t_0, t_1, t_d);
+
+	// pip auto-flag the 3DSS reflex reticle blenders as scopelense(10) so the engine routes them through
+	// draw_reflex (the GAMMA 4.17 3DSS port dropped the flag), reticle variants only and only if unset
+	if (E.flags.iScopeLense == 0 && namesp && strstr(namesp, "models_reflex_reticle") == namesp)
+		E.flags.iScopeLense = 10;
+
 	r_End();
 	ShaderElement* _r = dxRenderDeviceRender::Instance().Resources->_CreateElement(E);
 	return _r;

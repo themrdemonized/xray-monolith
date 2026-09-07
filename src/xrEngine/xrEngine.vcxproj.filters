@@ -378,6 +378,12 @@
     <ClInclude Include="xr_ioc_cmd.h">
       <Filter>Engine\Console\commands</Filter>
     </ClInclude>
+    <ClInclude Include="svp_gameplay_cvars.h">
+      <Filter>Engine\Console\commands</Filter>
+    </ClInclude>
+    <ClInclude Include="svp_crash_context.h">
+      <Filter>Engine\Console\commands</Filter>
+    </ClInclude>
     <ClInclude Include="Engine.h">
       <Filter>Engine\Core</Filter>
     </ClInclude>
@@ -409,6 +415,9 @@
       <Filter>Engine\text_editor\edit_actions</Filter>
     </ClInclude>
     <ClInclude Include="device.h">
+      <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
+    </ClInclude>
+    <ClInclude Include="svp_state.h">
       <Filter>RenderRef\Execution &amp; 3D\Device</Filter>
     </ClInclude>
     <ClInclude Include="MonitorList.h">
@@ -682,6 +691,12 @@
       <Filter>Engine\Console</Filter>
     </ClCompile>
     <ClCompile Include="xr_ioc_cmd.cpp">
+      <Filter>Engine\Console\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="svp_gameplay_cvars.cpp">
+      <Filter>Engine\Console\commands</Filter>
+    </ClCompile>
+    <ClCompile Include="svp_crash_context.cpp">
       <Filter>Engine\Console\commands</Filter>
     </ClCompile>
     <ClCompile Include="Engine.cpp">

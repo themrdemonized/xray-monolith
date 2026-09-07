@@ -2,6 +2,8 @@
 
 #include "ActorEffector.h"
 #include "PostprocessAnimator.h"
+#include "../xrEngine/svp_gameplay_cvars.h"
+#include "../Layers/xrRender/xrRender_console.h"
 #include "../xrEngine/effectorPP.h"
 #include "../xrEngine/ObjectAnimator.h"
 #include "object_broker.h"
@@ -495,7 +497,12 @@ bool CActorCameraManager::ProcessCameraEffector(CEffectorCam* eff)
 	bool res = inherited::ProcessCameraEffector(eff);
 	if (res)
 	{
-		if (eff->GetHudAffect())
+		// pip while a true PiP scope is aimed the view and the weapon must rotate together, a
+		// camera-only kick points the scope away from the view and the split magnifies in glass,
+		// hud_affect false was authored for 2d scopes that always drew at screen center
+		const bool unify = g_svp_unify_cam_fx && scope_svp_enabled
+			&& Device.m_SecondViewport.IsSVPActive();
+		if (eff->GetHudAffect() || unify)
 		{
 			SCamEffectorInfo affected = m_cam_info;
 			SCamEffectorInfo diff;

@@ -13,6 +13,15 @@ extern float r_ssaGLOD_start, r_ssaGLOD_end;
 
 void CRender::Calculate()
 {
+	// once per frame, gates the hybrid IsSVPFrame and the legacy SVP paths. true PiP is DX11-only, so it
+	// stays off on the DX10/9/8 renderers even if r__svpscope is set, otherwise the shared scope capture
+	// would divert the lens meshes into PiP maps those renderers never render or clear
+#if defined(USE_DX11)
+	Device.true_pip_on = (scope_svp_enabled != 0);
+#else
+	Device.true_pip_on = false;
+#endif
+
 	// Transfer to global space to avoid deep pointer access
 	IRender_Target* T = getTarget();
 	float fov_factor = _sqr(90.f / Device.fFOV);

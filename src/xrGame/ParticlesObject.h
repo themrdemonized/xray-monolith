@@ -44,6 +44,7 @@ public:
 	bool IsPlaying();
 	void SetAutoRemove(bool auto_remove);
 	void SetHudMode(bool bHudMode);
+	void MarkWeaponFX();
 
 	const shared_str Name();
 	void SetLiveUpdate(BOOL b);

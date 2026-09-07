@@ -1,0 +1,47 @@
+#include "night_vision.h"
+#include "common.h"
+
+Texture2D s_3dss_tex;
+Texture2D s_pip_tex;
+
+Texture2D pp_m;
+Texture2D pp_s;
+
+Texture2D mv_m;
+Texture2D mv_s;
+
+Texture2D pf_m;
+Texture2D pf_s;
+
+Texture2D sm;
+
+uniform float4 shader_scope_params;
+float isSVPActive() { return shader_scope_params.w < 0; }
+
+float4 sampleScopeTex(float2 tc) {
+	return isSVPActive() 
+		? s_pip_tex.Sample(smp_base, tc)
+		: s_3dss_tex.Sample(smp_base, tc);
+}
+
+float3 _main(p_screen I,  float4 pos2d) 
+{
+	float2 tc = pos2d.xy * screen_res.zw;
+
+	tc /= 0.25;
+
+	if (tc.x > 4.0 || tc.y > 1.0)
+		discard;
+		
+	float2 r = float2(1.0, 3.0);
+
+	return tc.x > 3.0 ? sm.Sample(smp_base, tc).rrr
+	     : tc.x > 2.0 ? (tc.y > 0.66 ? pf_s.Sample(smp_base, tc*r) : tc.y > 0.33 ? pp_s.Sample(smp_base, tc*r) : (mv_s.Sample(smp_base, tc*r) * 100.0))
+		 : tc.x > 1.0 ? (tc.y > 0.66 ? pf_m.Sample(smp_base, tc*r) : tc.y > 0.33 ? pp_m.Sample(smp_base, tc*r) : (mv_m.Sample(smp_base, tc*r) * 100.0))
+		 : sampleScopeTex(tc);
+}
+
+float4 main(p_screen I,  float4 pos2d : SV_POSITION) : SV_Target
+{
+	return float4(_main(I, pos2d) % 1.0f, 1.0);
+}

@@ -151,10 +151,11 @@ struct FTreeVisual_setup
 void FTreeVisual::Render(float LOD)
 {
 	PROF_EVENT("FTreeVisual::Render");
-	static FTreeVisual_setup tvs, prev_tvs;
-	if (tvs.dwFrame != Device.dwFrame)
+	const bool svp = Device.m_SecondViewport.IsSVPFrame(); // pip this viewport's prev-wind slot
+	static FTreeVisual_setup tvs, prev_tvs[2];
+	if (tvs.dwFrame != Device.dwViewport)
 	{
-		prev_tvs = tvs; // Save previous frame calculations
+		prev_tvs[svp] = tvs; // Save previous frame calculations
 		tvs.calculate();
 	}
 	// setup constants
@@ -169,8 +170,8 @@ void FTreeVisual::Render(float LOD)
 	RCache.tree.set_wave(tvs.wave); // wave
 	RCache.tree.set_wind(tvs.wind); // wind
 
-	RCache.set_c(c_prev_wave, prev_tvs.wave);
-	RCache.set_c(c_prev_wind, prev_tvs.wind);
+	RCache.set_c(c_prev_wave, prev_tvs[svp].wave);
+	RCache.set_c(c_prev_wind, prev_tvs[svp].wind);
 
 #if RENDER!=R_R1
 	s *= 1.3333f;

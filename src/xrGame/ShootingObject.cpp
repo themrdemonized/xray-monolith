@@ -250,6 +250,7 @@ void CShootingObject::StartParticles(CParticlesObject*& pParticles, LPCSTR parti
 	{
 		in_hud_mode = false;
 	}
+	pParticles->MarkWeaponFX();
 	pParticles->Play(in_hud_mode);
 }
 
@@ -339,6 +340,7 @@ void CShootingObject::OnShellDrop(const Fvector& play_pos,
 	{
 		in_hud_mode = false;
 	}
+	pShellParticles->MarkWeaponFX();
 	pShellParticles->Play(in_hud_mode);
 }
 
@@ -378,7 +380,10 @@ void CShootingObject::StartFlameParticles()
 		in_hud_mode = false;
 	}
 	if(m_pFlameParticles)
+	{
+		m_pFlameParticles->MarkWeaponFX();
 		m_pFlameParticles->Play(in_hud_mode);
+	}
 }
 
 void CShootingObject::StopFlameParticles()

@@ -136,7 +136,7 @@ ImGui.Groups.Add("MenuBar")
 
 --- Unique, renders unconditionally
 ImGui.Groups.Add("Unique")
-AddUniqueCall(ImGui.Groups.Unique.Render)
+-- Rendered by the engine every frame (ide::OnFrame), frame safe with mt_level_call
 
 --- Debug, provides a shared menu for tooling (inspectors, editors, etc.)
 ImGui.Groups.Add("Debug")

@@ -166,6 +166,11 @@ namespace xr_imgui
             if (imgui_metrics)  ImGui::ShowMetricsWindow(&imgui_metrics);
         }
 
+        // Unique group draws every frame here, main thread inside the open frame
+        // replaces the script side AddUniqueCall pump which races render with mt_level_call
+        if (g_pGamePersistent)
+            g_pGamePersistent->ImGui_OnRender("Unique");
+
         if (io.WantSetMousePos)
         {
             POINT pos = { (int)io.MousePos.x, (int)io.MousePos.y };

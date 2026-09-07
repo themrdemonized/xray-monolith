@@ -1,0 +1,19 @@
+// DO NOT EDIT, OR INCLUDE IN MODS
+
+#ifndef SCOPE_DEFINES_H
+#define SCOPE_DEFINES_H
+
+
+#define SCOPE_PHASE_GBUFFER 1
+#define SCOPE_PHASE_DEPTHWRITE 2
+#define SCOPE_PHASE_IMAGE 8
+#define SCOPE_PHASE_RETICLE 16
+#define SCOPE_PHASE_CUSTOM_DEPTH 32
+#define SCOPE_PHASE_SHADOW 64
+#define SCOPE_PHASE_LENS 128
+
+// Hacky solution to fix jitter/ring around scope
+#define SCOPE_PHASE_JITTERFIX 256
+
+
+#endif

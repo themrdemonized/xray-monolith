@@ -574,6 +574,7 @@
     </ClCompile>
     <ClCompile Include="Lock.cpp" />
     <ClCompile Include="log.cpp" />
+    <ClCompile Include="svp_log.cpp" />
     <ClCompile Include="LzHuf.cpp" />
     <ClCompile Include="lzo_compressor.cpp" />
     <ClCompile Include="memory_allocation_stats.cpp" />
@@ -699,6 +700,7 @@
     </CustomBuild>
     <ClInclude Include="Lock.hpp" />
     <ClInclude Include="log.h" />
+    <ClInclude Include="svp_log.h" />
     <ClInclude Include="lzhuf.h" />
     <ClInclude Include="lzo_compressor.h" />
     <ClInclude Include="memory_monitor.h" />

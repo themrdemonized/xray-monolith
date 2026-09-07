@@ -4,6 +4,7 @@
 #define VPUSH(a)	((a).x), ((a).y), ((a).z)
 
 void 	XRCORE_API		Msg	(const char* format, ...);
+#include "svp_log.h" // pip PipMsg, chain-included so every consumer keeps seeing it
 
 // Old shit
 void 	XRCORE_API		Log			(const char* msg);

@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "WeaponBinoculars.h"
+#include "../xrEngine/svp_gameplay_cvars.h"
 
 #include "xr_level_controller.h"
 
@@ -112,6 +113,21 @@ void CWeaponBinoculars::net_Destroy()
 void CWeaponBinoculars::UpdateCL()
 {
 	inherited::UpdateCL();
+	// ease the wheel zoom toward its target even without scope_dynamic_zoom, the binocular
+	// wheel bypass works while the base easing gate stays closed
+	if (g_zoom_smooth > 0.f && !m_zoom_params.m_bUseDynamicZoom && IsZoomed())
+	{
+		float& cur = m_zoom_params.m_fCurrentZoomFactor;
+		const float tgt = m_zoom_params.m_fZoomTargetFactor;
+		if (fsimilar(cur, tgt, 0.001f))
+			cur = tgt;
+		else
+		{
+			float a = g_zoom_smooth * Device.fTimeDelta;
+			if (a > 1.f) a = 1.f;
+			cur += (tgt - cur) * a;
+		}
+	}
 	//manage visible entities here...
 	if (H_Parent() && IsZoomed() && !IsRotatingToZoom() && m_binoc_vision)
 		m_binoc_vision->Update();
@@ -163,6 +179,10 @@ void CWeaponBinoculars::ZoomInc()
 {
 	if (binoculars_dynamic_zoom_check && !m_zoom_params.m_bUseDynamicZoom) return;
 
+	const bool smooth = g_zoom_smooth > 0.f;
+	// when smoothing, advance from the target (the current factor is mid-glide) so rapid scrolls accumulate
+	float base = smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
+
 	float delta, min_zoom_factor;
 	if (zoomFlags.test(NEW_ZOOM)) {
 		newGetZoomData(m_zoom_params.m_fScopeZoomFactor, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, czoom);
@@ -170,16 +190,26 @@ void CWeaponBinoculars::ZoomInc()
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 	}
 
-	float f = useNewZoomDeltaAlgorithm ? GetZoomFactor() * delta : GetZoomFactor() - delta;
+	float f;
+	if (g_zoom_analog > 0.f)
+		f = base - (min_zoom_factor - m_zoom_params.m_fScopeZoomFactor) / g_zoom_analog;
+	else
+		f = useNewZoomDeltaAlgorithm ? base * delta : base - delta;
 	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
-	SetZoomFactor(f);
-    czoom = f;
+	if (smooth)
+		m_zoom_params.m_fZoomTargetFactor = f; // UpdateCL eases the current factor toward it
+	else
+		SetZoomFactor(f);
+	czoom = f;
 }
 
 void CWeaponBinoculars::ZoomDec()
 {
 	if (binoculars_dynamic_zoom_check && !m_zoom_params.m_bUseDynamicZoom) return;
 
+	const bool smooth = g_zoom_smooth > 0.f;
+	float base = smooth ? m_zoom_params.m_fZoomTargetFactor : GetZoomFactor();
+
 	float delta, min_zoom_factor;
 	if (zoomFlags.test(NEW_ZOOM)) {
 		newGetZoomData(m_zoom_params.m_fScopeZoomFactor, m_zoom_params.m_fZoomStepCount, delta, min_zoom_factor, czoom);
@@ -187,10 +217,17 @@ void CWeaponBinoculars::ZoomDec()
 		GetZoomData(m_zoom_params.m_fScopeZoomFactor, m_zoom_params.m_fZoomStepCount, m_zoom_params.m_fMinBaseZoomFactor, delta, min_zoom_factor);
 	}
 
-	float f = useNewZoomDeltaAlgorithm ? GetZoomFactor() / std::max(delta, 0.001f) : GetZoomFactor() + delta;
+	float f;
+	if (g_zoom_analog > 0.f)
+		f = base + (min_zoom_factor - m_zoom_params.m_fScopeZoomFactor) / g_zoom_analog;
+	else
+		f = useNewZoomDeltaAlgorithm ? base / std::max(delta, 0.001f) : base + delta;
 	clamp(f, m_zoom_params.m_fScopeZoomFactor, min_zoom_factor);
-	SetZoomFactor(f);
-    czoom = f;
+	if (smooth)
+		m_zoom_params.m_fZoomTargetFactor = f;
+	else
+		SetZoomFactor(f);
+	czoom = f;
 }
 
 void CWeaponBinoculars::save(NET_Packet& output_packet)

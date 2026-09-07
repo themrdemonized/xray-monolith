@@ -162,6 +162,9 @@ namespace PS
 		virtual void SetHudMode(BOOL b);
 		virtual BOOL GetHudMode();
 
+		virtual void SetWeaponFX(BOOL b);
+		virtual BOOL GetWeaponFX();
+
 		virtual void SetLiveUpdate(BOOL b);
 		virtual BOOL GetLiveUpdate();
 

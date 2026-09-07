@@ -148,11 +148,16 @@ void CRenderTarget::phase_luminance()
 		pv++;
 		RCache.Vertex.Unlock(4, g_bloom_filter->vb_stride);
 
-		f_luminance_adapt = .9f * f_luminance_adapt + .1f * Device.fTimeDelta * ps_r2_tonemap_adaptation;
+		// per-scope SVP tonemapper override: authored middle-grey / adaption slow the scope's own
+		// adaptation so a bright sky or NVG source does not blow the disc, main view is untouched
+		const bool svp_tm = Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp;
+		const float tm_adapt = (svp_tm && ps_s3ds_adapt_speed > 0.f) ? ps_s3ds_adapt_speed : ps_r2_tonemap_adaptation;
+		const float tm_mgrey = (svp_tm && ps_s3ds_middle_grey > 0.f) ? ps_s3ds_middle_grey : ps_r2_tonemap_middlegray;
+		f_luminance_adapt = .9f * f_luminance_adapt + .1f * Device.fTimeDelta * tm_adapt;
 		float amount = ps_r2_ls_flags.test(R2FLAG_TONEMAP) ? ps_r2_tonemap_amount : 0;
 		Fvector3 _none, _full, _result;
 		_none.set(1, 0, 1);
-		_full.set(ps_r2_tonemap_middlegray, 1.f, ps_r2_tonemap_low_lum);
+		_full.set(tm_mgrey, 1.f, ps_r2_tonemap_low_lum);
 		_result.lerp(_none, _full, amount);
 
 		RCache.set_Element(s_luminance->E[2]);

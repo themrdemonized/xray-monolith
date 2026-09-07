@@ -681,9 +681,23 @@ void CParticleEffect::Render(float)
 				CHudInitializer initalizer(false);
 				if (GetHudMode())
 				{
-					initalizer.SetHudMode();
-					RImplementation.rmNear();
-					ApplyTexgen(Device.mFullTransform);
+					if (Device.true_pip_on && Device.m_SecondViewport.m_render_pass_is_svp)
+					{
+						// scope pass, the hud matrices would pair the main view with the svp projection,
+						// bind the pass camera instead so the flash sits on the drained muzzle with real depth
+						Device.mView.set(Device.matrices[1].mView);
+						Device.mProject.set(Device.matrices[1].mProject);
+						Device.mFullTransform.mul(Device.mProject, Device.mView);
+						Device.m_pRender->SetCacheXform(Device.mView, Device.mProject);
+						RImplementation.rmNormal();
+						ApplyTexgen(Device.mFullTransform);
+					}
+					else
+					{
+						initalizer.SetHudMode();
+						RImplementation.rmNear();
+						ApplyTexgen(Device.mFullTransform);
+					}
 				}
 #endif
 

@@ -295,6 +295,56 @@
 		<text>Fog Max Travel Distance (scope_fog_travel)</text>
 	</string>
 
+	<!-- Picture in Picture -->
+	<string id="ui_mm_menu_pip">
+		<text>Picture in Picture</text>
+	</string>
+	<string id="ui_mm_pip_modded_exes">
+		<text>Picture in Picture</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svpscope">
+		<text>Picture in Picture Mode (r__svpscope)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svpscope_desc">
+		<text>True scope rendering, a real second render of the scene through the lens. Eyepiece places the scope camera at the ocular lens, Objective at the front lens</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_g_zoom_smooth">
+		<text>Zoom Smoothing Rate (g_zoom_smooth)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_g_zoom_smooth_desc">
+		<text>Lerp speed of the dynamic zoom transition, higher is faster, 0 is instant stepped</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_g_zoom_analog">
+		<text>Analog Zoom Steps (g_zoom_analog)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_g_zoom_analog_desc">
+		<text>0 uses the scope's configured zoom steps, higher gives finer continuous zoom across the range</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_render_scale">
+		<text>Scope Render Scale [DLSS only] (r__svp_render_scale)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_render_scale_desc">
+		<text>Resolution scale of the scope render, inert until DLSS upscaling is enabled, applies on video restart</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_dlss">
+		<text>DLSS Scope Upscaling [experimental] (r__svp_dlss)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__svp_dlss_desc">
+		<text>Experimental DLSS-SR path for the scope render, currently a passthrough stub</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__scope_debug">
+		<text>Scope Debug Overlay (r__scope_debug)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_pip_r__scope_debug_desc">
+		<text>Developer overlay, draws the derived eyepiece, objective and camera lenses in the world</text>
+	</string>
+	<string id="ui_mm_lst_Eyepiece">
+		<text>Eyepiece</text>
+	</string>
+	<string id="ui_mm_lst_Objective">
+		<text>Objective</text>
+	</string>
+
 	<!-- Particles -->
 	<string id="ui_mm_particles_modded_exes">
 		<text>Particles</text>

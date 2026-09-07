@@ -501,7 +501,7 @@ void CCameraManager::ApplyDevice(float _viewport_near)
 	Device.fASPECT = m_cam_info.fAspect;
 	//--#SM+# Begin-- +SecondVP+
 	// Recalculate scene FOV for SecondVP frame
-	if (Device.m_SecondViewport.IsSVPFrame())
+	if (!Device.true_pip_on && Device.m_SecondViewport.IsSVPFrame())
 	{
 		// For the second viewport, set FOV from HUD shader constants
 		Device.fFOV = g_pGamePersistent->m_pGShaderConstants->hud_params.y;
@@ -513,7 +513,12 @@ void CCameraManager::ApplyDevice(float _viewport_near)
 		Device.m_SecondViewport.isCamReady = false;
 
 	Device.mProject.build_projection(deg2rad(Device.fFOV), m_cam_info.fAspect, _viewport_near, m_cam_info.fFar);
-	Device.mProjectHud.build_projection(deg2rad(psHUD_FOV * 83.f), Device.fASPECT, R_VIEWPORT_NEAR, m_cam_info.fFar);
+	// pip true hud fov renders the weapon at the scene perspective while fully aimed through a PiP scope
+	extern int g_svp_hud_true_fov;
+	const float hud_fov_deg = (g_svp_hud_true_fov && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive()
+		&& g_pGamePersistent && g_pGamePersistent->m_pGShaderConstants->hud_params.x > 0.999f)
+		? Device.fFOV : psHUD_FOV * 83.f;
+	Device.mProjectHud.build_projection(deg2rad(hud_fov_deg), Device.fASPECT, R_VIEWPORT_NEAR, m_cam_info.fFar);
 
 	Device.mInvProject.invert(Device.mProject);
 	Device.mInvProjectHud.invert(Device.mProjectHud);
@@ -522,29 +527,33 @@ void CCameraManager::ApplyDevice(float _viewport_near)
 	if (g_pGamePersistent && g_pGamePersistent->m_pMainMenu->IsActive())
 		ResetPP();
 	else
-	{
-		pp_affected.validate("apply device");
-		// postprocess
-		IRender_Target* T = ::Render->getTarget();
-		T->set_duality_h(pp_affected.duality.h);
-		T->set_duality_v(pp_affected.duality.v);
-		T->set_blur(pp_affected.blur);
-		T->set_gray(pp_affected.gray);
-		T->set_noise(pp_affected.noise.intensity);
+		ApplyPP();
+}
 
-		clamp(pp_affected.noise.grain, EPS_L, 1000.0f);
+// pip the pp half of ApplyDevice, callable on its own
+void CCameraManager::ApplyPP()
+{
+	pp_affected.validate("apply device");
+	// postprocess
+	IRender_Target* T = ::Render->getTarget();
+	T->set_duality_h(pp_affected.duality.h);
+	T->set_duality_v(pp_affected.duality.v);
+	T->set_blur(pp_affected.blur);
+	T->set_gray(pp_affected.gray);
+	T->set_noise(pp_affected.noise.intensity);
 
-		T->set_noise_scale(pp_affected.noise.grain);
+	clamp(pp_affected.noise.grain, EPS_L, 1000.0f);
 
-		T->set_noise_fps(pp_affected.noise.fps);
-		T->set_color_base(pp_affected.color_base);
-		T->set_color_gray(pp_affected.color_gray);
-		T->set_color_add(pp_affected.color_add);
+	T->set_noise_scale(pp_affected.noise.grain);
 
-		T->set_cm_imfluence(pp_affected.cm_influence);
-		T->set_cm_interpolate(pp_affected.cm_interpolate);
-		T->set_cm_textures(pp_affected.cm_tex1, pp_affected.cm_tex2);
-	}
+	T->set_noise_fps(pp_affected.noise.fps);
+	T->set_color_base(pp_affected.color_base);
+	T->set_color_gray(pp_affected.color_gray);
+	T->set_color_add(pp_affected.color_add);
+
+	T->set_cm_imfluence(pp_affected.cm_influence);
+	T->set_cm_interpolate(pp_affected.cm_interpolate);
+	T->set_cm_textures(pp_affected.cm_tex1, pp_affected.cm_tex2);
 }
 
 void CCameraManager::ResetPP()

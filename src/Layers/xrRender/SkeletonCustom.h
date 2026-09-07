@@ -126,8 +126,8 @@ protected:
 	SkeletonWMVec wallmarks;
 	u32 wm_frame;
 	u32 CurrentFrame;
-	Fmatrix	Matrix_Prev;
-	Fmatrix Matrix_Temp;
+	Fmatrix	Matrix_Prev[2]; // per viewport (main, SVP)
+	Fmatrix Matrix_Temp[2];
 
 	// Globals
 	CInifile* pUserData;
@@ -178,6 +178,7 @@ public:
 	bool PickBone(const Fmatrix& parent_xform, IKinematics::pick_result& r, float dist, const Fvector& start,
 	              const Fvector& dir, u16 bone_id);
 	virtual void EnumBoneVertices(SEnumVerticesCallback& C, u16 bone_id);
+	virtual bool GetLensDetection(SLensDetection& out);
 public:
 	CKinematics();
 	virtual ~CKinematics();

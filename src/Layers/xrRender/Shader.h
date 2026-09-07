@@ -145,7 +145,7 @@ public:
 		u32 isLandscape : 1;
 		u32 isWater : 1;
 
-		u32 iScopeLense : 2; //  Redotix99: for 3D Shader Based Scopes 		
+		u32 iScopeLense : 4; //  Redotix99: for 3D Shader Based Scopes / pip widened to 4 bits (reflex sights use ==10)
 	};
 
 public:

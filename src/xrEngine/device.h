@@ -7,6 +7,9 @@
 //class ENGINE_API CResourceManager;
 //class ENGINE_API CGammaControl;
 
+#include <functional>
+#include <atomic>
+
 #include "pure.h"
 //#include "hw.h"
 #include "../xrcore/ftimer.h"
@@ -59,6 +62,11 @@ public:
 	// Engine flow-control
 	u32 dwFrame;
 
+	// cache-clear key, bumped per viewport in SVP mode
+	u32 dwViewport = 0;
+	// sampled once per frame from r__svpscope, gates the hybrid IsSVPFrame
+	bool true_pip_on = false;
+
 	float fTimeDelta;
 	float fTimeGlobal;
 	u32 dwTimeDelta;
@@ -104,6 +112,16 @@ public:
 	float fFOV;
 	float fASPECT;
 	float ViewportNear = 0.2f;
+
+	// per-viewport camera data, [0] = main, [1] = SVP
+	struct MatrixData
+	{
+		Fmatrix mView;
+		Fmatrix mProject;
+		Fmatrix mProjectHud;
+	};
+	MatrixData matrices[2];
+	MatrixData matrices_previous[2];
 protected:
 
 	u32 Timer_MM_Delta;
@@ -137,29 +155,12 @@ public:
 };
 
 // refs
+#include "svp_state.h" // pip the SVP cross-thread data bus
 class ENGINE_API CRenderDevice : public CRenderDeviceBase
 {
 public:
-	class ENGINE_API CSecondVPParams //--#SM+#-- +SecondVP+
-	{
-		bool isActive; // Oeaa aeoeaaoee ?aiaa?a ai aoi?ie au?ii?o
-		u8 frameDelay;  // Ia eaeii eaa?a n iiiaioa i?ioeiai ?aiaa?a ai aoi?ie au?ii?o iu ia?i?i iiaue
-						  //(ia ii?ao auou iaiuoa 2 - ea?aue aoi?ie eaa?, ?ai aieuoa oai aieaa ieceee FPS ai aoi?ii au?ii?oa)
-
-	public:
-		bool isCamReady; // Oeaa aioiaiinoe eaia?u (FOV, iiceoey, e o.i) e ?aiaa?o aoi?iai au?ii?oa
-
-		IC bool IsSVPActive() { return isActive; }
-		void SetSVPActive(bool bState);
-		bool    IsSVPFrame();
-
-		IC u8 GetSVPFrameDelay() { return frameDelay; }
-		void  SetSVPFrameDelay(u8 iDelay)
-		{
-			frameDelay = iDelay;
-			clamp<u8>(frameDelay, 2, u8(-1));
-		}
-	};	
+	// pip the SVP cross-thread data bus lives in svp_state.h, the alias keeps qualified names resolving
+	using CSecondVPParams = ::CSecondVPParams;
 	
 private:
 	// Main objects used for creating and rendering the 3D scene
@@ -215,6 +216,7 @@ public:
 	}
 
 	void DumpResourcesMemoryUsage() { m_pRender->ResourcesDumpMemoryUsage(); }
+	void prepare_matrices();
 public:
 	// Registrators
 	//CRegistrator <pureRender > seqRender;
@@ -270,6 +272,10 @@ public:
 	Fmatrix mInvFullTransform;
 
 	CSecondVPParams m_SecondViewport;	//--#SM+#-- +SecondVP+
+
+	// SVP target is square, half the main height per side
+	u32 svp_width() { return svp_height(); }
+	u32 svp_height() { return dwHeight >> 1; }
 
 	//float fFOV;
 	//float fASPECT;
@@ -393,6 +399,36 @@ public:
 	Fmatrix& hud_to_world(Fmatrix& m)
 	{
 		return hud_to_world(m, mProjectHud);
+	}
+
+	// pip explicit-camera variants, the defaults read the live device camera which demo_record
+	// replaces with the fly camera, callers can remap through the actor's real eye instead
+	Fvector& hud_to_world(Fvector& v, const Fmatrix& p, const Fmatrix& view, const Fmatrix& inv_view, const Fmatrix& inv_proj)
+	{
+		view.transform_tiny(v);
+		p.transform_tiny(v);
+		v.z -= ViewportNear;
+		inv_proj.transform_tiny(v);
+		inv_view.transform_tiny(v);
+		return v;
+	}
+
+	Fvector& hud_to_world_dir(Fvector& v, const Fmatrix& p, const Fmatrix& view, const Fmatrix& inv_view, const Fmatrix& inv_proj)
+	{
+		view.transform_dir(v);
+		p.transform_dir(v);
+		inv_proj.transform_dir(v);
+		inv_view.transform_dir(v);
+		return v;
+	}
+
+	Fmatrix& hud_to_world(Fmatrix& m, const Fmatrix& p, const Fmatrix& view, const Fmatrix& inv_view, const Fmatrix& inv_proj)
+	{
+		hud_to_world(m.c, p, view, inv_view, inv_proj);
+		hud_to_world_dir(m.i, p, view, inv_view, inv_proj).normalize();
+		hud_to_world_dir(m.j, p, view, inv_view, inv_proj).normalize();
+		hud_to_world_dir(m.k, p, view, inv_view, inv_proj).normalize();
+		return m;
 	}
 
 	Fvector& world_to_hud(Fvector& v, const Fmatrix& p)
@@ -519,6 +555,14 @@ private:
 
 extern ENGINE_API CRenderDevice Device;
 extern ENGINE_API CRenderDevice* DevicePtr;
+
+// pip clear a draw-list shared across the main + SVP passes only on the last pass to drain it
+// svp_first = SVP pass drains before main (combine order), false = main first (gbuffer/wmark order)
+inline bool svp_clear_shared_list(bool svp_first)
+{
+	if (!(Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())) return true;
+	return svp_first ? !Device.m_SecondViewport.m_render_pass_is_svp : Device.m_SecondViewport.m_render_pass_is_svp;
+}
 
 #ifndef _EDITOR
 #define RDEVICE Device

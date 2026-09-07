@@ -144,6 +144,9 @@
     <ClCompile Include="log.cpp">
       <Filter>FS</Filter>
     </ClCompile>
+    <ClCompile Include="svp_log.cpp">
+      <Filter>FS</Filter>
+    </ClCompile>
     <ClCompile Include="NET_utils.cpp">
       <Filter>FS</Filter>
     </ClCompile>
@@ -442,6 +445,9 @@
       <Filter>FS</Filter>
     </ClInclude>
     <ClInclude Include="log.h">
+      <Filter>FS</Filter>
+    </ClInclude>
+    <ClInclude Include="svp_log.h">
       <Filter>FS</Filter>
     </ClInclude>
     <ClInclude Include="net_utils.h">

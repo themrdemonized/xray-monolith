@@ -25,6 +25,9 @@ public:
 	virtual const shared_str Name() =0;
 	virtual void SetHudMode(BOOL b) =0;
 	virtual BOOL GetHudMode() =0;
+	// pip marks the held weapon's own muzzle fx so scope-pass drops cannot catch other hud particles
+	virtual void SetWeaponFX(BOOL b) { ; }
+	virtual BOOL GetWeaponFX() { return FALSE; }
 	virtual void SetLiveUpdate(BOOL b) =0;
 	virtual BOOL GetLiveUpdate() =0;
 };

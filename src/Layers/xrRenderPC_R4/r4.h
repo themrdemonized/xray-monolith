@@ -171,7 +171,9 @@ public:
 	CModelPool* Models;
 	CWallmarksEngine* Wallmarks;
 
-	CRenderTarget* Target; // Render-target
+	CRenderTarget* Target; // Render-target (currently active, set by SetActive)
+	CRenderTarget* TargetMain; // full-screen main viewport
+	CRenderTarget* TargetSVP; // second viewport (square) for true PiP, created lazily on first SVP use
 
 	CLight_DB Lights;
 	SMAP_Allocator LP_smap_pool;
@@ -328,6 +330,8 @@ public:
 	virtual IRenderVisual* getVisual(int id);
 	virtual IRender_Sector* detectSector(const Fvector& P);
 	virtual IRender_Target* getTarget();
+	void SetMatrices(Fmatrix view, Fmatrix projection, Fmatrix projection_hud);
+	void EnsureTargetSVP(); // pip: lazy-alloc TargetSVP on the first SVP pass (never when off)
 
 	// Main
 	virtual void flush();
@@ -419,6 +423,10 @@ public:
 	// Main
 	virtual void Calculate();
 	virtual void Render();
+	void renderGBuffer(bool clearGraph); // pip per-viewport gbuffer fill, clearGraph false keeps the graph for the SVP pass
+	void renderSceneLighting(BOOL bSUN, bool svp); // pip shared lighting, generate shadows once, accumulate per viewport
+	void share_main_smaps(); // pip: re-point the shadow atlas textures at the main maps for the SVP accumulate
+	void deriveScopeLens(); // pip extract the eyepiece/objective lens from the captured scope meshes
 	virtual void Screenshot(ScreenshotMode mode = SM_NORMAL, LPCSTR name = 0);
 	virtual void Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer);
 	virtual void ScreenshotAsyncBegin();

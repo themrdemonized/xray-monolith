@@ -17,6 +17,9 @@ const int quant = 16384;
 const int c_hdr = 10;
 const int c_size = 4;
 
+// pip set by the main gbuffer pass while a SVP pass follows, the SVP drain then clears the set
+bool g_svp_defer_detail_clear = false;
+
 static D3DVERTEXELEMENT9 dwDecl[] =
 {
 	{0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0}, // pos
@@ -256,6 +259,11 @@ void CDetailManager::hw_Render_dump(ref_constant x_array, u32 var_id, u32 lod_id
 
 	VERIFY(objects.size()<=list.size());
 
+	// pip grass cull, only on the SVP gbuffer pass with the frustum armed, the main pass pays one bool
+	const bool svp_grass_cull = ps_r__svp_cull_grass && CDSGraphManager::svp_cull_active();
+	// pip the main-pass drain keeps the visible set when the SVP pass draws the scope grass second
+	extern bool g_svp_defer_detail_clear;
+
 	// Iterate
 	for (u32 O = 0; O < objects.size(); O++)
 	{
@@ -281,6 +289,10 @@ void CDetailManager::hw_Render_dump(ref_constant x_array, u32 var_id, u32 lod_id
 				for (; _iI != _iE; _iI++)
 				{
 					SlotItem& Instance = **_iI;
+
+					// pip drop grass instances off the scope cone, radius covers a blade past its root
+					if (svp_grass_cull && CDSGraphManager::svp_cull_reject_sphere(Instance.position, dm_slot_size))
+						continue;
 
 					if (!RImplementation.GMBase.is_sector_visible(RImplementation.pOutdoorSector))
 						continue;
@@ -350,8 +362,11 @@ void CDetailManager::hw_Render_dump(ref_constant x_array, u32 var_id, u32 lod_id
 			// KD: we must not clear vis on r2 since we want details shadows
 #if RENDER==R_R2
 			if (!psDeviceFlags2.test(rsGrassShadow) || RImplementation.PHASE_NORMAL == RImplementation.phase) // phase normal without shadows
-#endif
 			vis.clear_not_free();
+#else
+			if (!g_svp_defer_detail_clear)
+				vis.clear_not_free();
+#endif
 		}
 		vOffset += hw_BatchSize * Object.number_vertices;
 		iOffset += hw_BatchSize * Object.number_indices;

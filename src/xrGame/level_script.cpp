@@ -951,6 +951,20 @@ float get_cam_effector_length(int id)
 	return e ? e->GetAnimatorLength() : 0.0f;
 }
 
+// drives the effector fov live without forcing absolute positioning, 0 clears
+void set_cam_effector_fov(int id, float fov)
+{
+	CAnimatorCamEffectorScriptCB* e = smart_cast<CAnimatorCamEffectorScriptCB*>(Actor()->Cameras().GetCamEffector((ECamEffectorType)id));
+	if (e)
+		e->m_fov = clampr(fov, 0.f, 170.f);
+}
+
+float get_cam_effector_fov(int id)
+{
+	CAnimatorCamEffectorScriptCB* e = smart_cast<CAnimatorCamEffectorScriptCB*>(Actor()->Cameras().GetCamEffector((ECamEffectorType)id));
+	return e ? e->m_fov : 0.0f;
+}
+
 
 bool check_cam_effector(int id)
 {
@@ -2630,6 +2644,8 @@ void CLevel::script_register(lua_State* L)
 			def("set_cam_effector_factor", &set_cam_effector_factor),
 			def("get_cam_effector_factor", &get_cam_effector_factor),
 			def("get_cam_effector_length", &get_cam_effector_length),
+			def("set_cam_effector_fov", &set_cam_effector_fov),
+			def("get_cam_effector_fov", &get_cam_effector_fov),
 			def("check_cam_effector", &check_cam_effector),
 			def("add_pp_effector", &add_pp_effector),
 			def("set_pp_effector_factor", &set_pp_effector_factor),

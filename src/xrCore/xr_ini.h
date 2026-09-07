@@ -272,6 +272,9 @@ public:
 	u32 section_count() const;
 	BOOL section_exist(LPCSTR S) const;
 	BOOL section_exist(const shared_str& S) const;
+	// pip direct inheritance parents of a section ([sect]:A, B), override map first then base, lets the
+	// game recover a scope's true config when X-Ray's first-parent-wins merge let a base override the value
+	const RStringVec* get_section_parents(const shared_str& S) const;
 	Root& sections() { return DATA; }
 	Root const& sections() const { return DATA; }
 

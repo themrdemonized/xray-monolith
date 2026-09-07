@@ -197,7 +197,13 @@ void CLight_DB::add_light(light* L)
 	L->frame_render = Device.dwFrame;
 	if (RImplementation.o.noshadows) L->flags.bShadow = FALSE;
 	if (L->flags.bStatic && !ps_r2_ls_flags.test(R2FLAG_R1LIGHTS)) return;
-	if(Device.vCameraPosition.distance_to_sqr(L->SpatialComponent->spatial.sphere.P)>_sqr(g_pGamePersistent->Environment().CurrentEnv->fog_distance)) return;
+	// pip the fog-distance cull is a naked-eye heuristic, the scope sees far past it
+	float lim = g_pGamePersistent->Environment().CurrentEnv->fog_distance;
+	{
+		if (ps_r__svp_light_capture && Device.true_pip_on && Device.m_SecondViewport.IsSVPActive())
+			lim = _max(lim, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+	}
+	if (Device.vCameraPosition.distance_to_sqr(L->SpatialComponent->spatial.sphere.P) > _sqr(lim)) return;
 
 	L->export_();
 }
