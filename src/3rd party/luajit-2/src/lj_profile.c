@@ -342,8 +342,8 @@ LUA_API void luaJIT_profile_stop(lua_State *L)
   ProfileState *ps = &profile_state;
   global_State *g = ps->g;
   if (G(L) == g) {  /* Only stop profiler if started by this VM. */
+    profile_timer_stop(ps);  /* Join the timer thread first: no profile_trigger can read a cleared g. */
     ps->g = NULL;
-    profile_timer_stop(ps);
     g->hookmask &= (uint8_t)~(HOOK_PROFILE |
 			      (ps->added_maskline ? LUA_MASKLINE : 0));
     g->hookcount = ps->saved_count;
