@@ -32,6 +32,12 @@ static float script_sound_hook_volume_mult(LPCSTR file, const Fvector* pos, CScr
 	::luabind::functor<::luabind::object> funct;
 	if (!ai().script_engine().functor("_G.COnBeforePlayScriptSound", funct))
 		return 1.0f;
+	Fvector obj_pos;                       // Play() carries no position: read the object's, but only past the gate
+	if (!pos && object)
+	{
+		obj_pos = object->object().Position();
+		pos = &obj_pos;
+	}
 	if (pos && object)
 		return ambient_hook_volume_mult(funct(file, *pos, object));
 	if (pos)
@@ -80,10 +86,7 @@ void CScriptSound::Play(CScriptGameObject* object, float delay, int flags)
 {
 	THROW3(m_sound._handle(), "There is no sound", *m_caSoundToPlay);
 	//	Msg							("%6d : CScriptSound::Play (%s), delay %f, flags %d",Device.dwTimeGlobal,m_sound._handle()->file_name(),delay,flags);
-	Fvector object_pos;
-	if (object)
-		object_pos = object->object().Position();
-	float volume_mult = script_sound_hook_volume_mult(*m_caSoundToPlay, (object) ? &object_pos : NULL, object);
+	float volume_mult = script_sound_hook_volume_mult(*m_caSoundToPlay, NULL, object);
 	if (volume_mult <= EPS_S)
 		return;
 	m_sound.play((object) ? &object->object() : NULL, flags, delay);

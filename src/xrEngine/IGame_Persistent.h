@@ -159,9 +159,6 @@ public:
 	};
 	virtual void OnAssetsChanged();
 
-	// thunderbolt clap volume gate, overridden by the game layer to ask Lua. Returns 1.0 for vanilla.
-	virtual float OnThunderboltSound(LPCSTR file, float distance) { return 1.0f; }
-
 	virtual void RegisterModel(IRenderVisual* V)
 #ifndef _EDITOR
 	= 0;
@@ -198,6 +195,10 @@ public:
 	}
 
 	virtual bool CanBePaused() { return true; }
+
+	// thunderbolt clap volume gate, overridden by the game layer to ask Lua. Returns 1.0 for vanilla.
+	// Appended at the end of the virtual block so it adds no vtable slot ahead of the existing ones.
+	virtual float OnThunderboltSound(LPCSTR file, float distance) { return 1.0f; }
 
 	struct pda_data
 	{
