@@ -819,6 +819,30 @@ float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam
 	return e->GetAnimatorLength();
 }
 
+float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam_fov, bool b_hud, float power, float speed)
+{
+    CAnimatorCamEffectorScriptCB* e = xr_new<CAnimatorCamEffectorScriptCB>(cb_func);
+    if (cam_fov)
+    {
+        e->m_bAbsolutePositioning = true;
+        e->m_fov = cam_fov;
+    }
+    if (power)
+    {
+        e->SetPower(power);
+    }
+    if (speed)
+    {
+        e->SetSpeed(speed);
+    }
+    e->SetHudAffect(b_hud);
+    e->SetType((ECamEffectorType)id);
+    e->SetCyclic(cyclic);
+    e->Start(fn);
+    Actor()->Cameras().AddCamEffector(e);
+    return e->GetAnimatorLength();
+}
+
 // demonized: Get cam effector transform data from "*.anm" file
 #include "../xrEngine/motion.h"
 #include "../xrEngine/envelope.h"
@@ -2582,6 +2606,8 @@ void CLevel::script_register(lua_State* L)
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))&add_cam_effector)),
+            // ver; allow changing the speed of cam effectors
+            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float, float))& add_cam_effector)),
 
 			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool, bool))& set_cam_position_direction)),
