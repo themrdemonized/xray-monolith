@@ -599,6 +599,11 @@ void attachable_hud_item::load(const shared_str& sect_name)
 	m_attach_place_idx = pSettings->r_u16(sect_name, "attach_place_idx");
 	m_measures.load(sect_name, m_model);
 	m_hand_motions = m_parent->get_hand_motions(*sect_name);
+
+    // demonized: shell particles for hud
+    // An explicitly empty setting disables particles instead of using the weapon default.
+    m_shell_particles_override = pSettings->line_exist(sect_name, "shell_particles");
+    m_shell_particles = m_shell_particles_override ? pSettings->r_string(sect_name, "shell_particles") : nullptr;
 }
 
 player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
