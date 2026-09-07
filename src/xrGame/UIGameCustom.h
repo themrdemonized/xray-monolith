@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include "script_export_space.h"
 #include "object_interfaces.h"
 #include "inventory_space.h"
@@ -87,7 +86,7 @@ protected:
 	CUIXml* MsgConfig;
 	xr_vector<StaticDrawableWrapper*> CustomStatics;
 	// captions are mutated by game logic and drawn by the render thread, guard every access
-	std::mutex m_customs_lock;
+	xrCriticalSection m_customs_lock;
 	CUIActorMenu* ActorMenu;
 	CUIPdaWnd* PdaMenu;
 	bool showGameIndicators;
