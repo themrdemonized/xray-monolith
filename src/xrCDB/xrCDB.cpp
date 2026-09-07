@@ -65,15 +65,21 @@ MODEL::~MODEL()
 
 void MODEL::build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)
 {
-	R_ASSERT(S_INIT == status);
-	R_ASSERT((Vcnt>=4)&&(Tcnt>=2));
-
 	build_internal(V, Vcnt, T, Tcnt, bc, bcp);
 }
 
 void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)
 {
+	build_arrays(V, Vcnt, T, Tcnt, bc, bcp);
+	build_tree();
+}
+
+void MODEL::build_arrays(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc, void* bcp)
+{
 	PROF_EVENT();
+
+	R_ASSERT(S_INIT == status);
+	R_ASSERT((Vcnt>=4)&&(Tcnt>=2));
 
 	// verts
 	status = S_BUILD;
@@ -88,15 +94,16 @@ void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callbac
 
 	// callback
 	if (bc) bc(verts, Vcnt, tris, Tcnt, bcp);
+}
+
+void MODEL::build_tree()
+{
+	PROF_EVENT();
 
 	// Allocate temporary "OPCODE" tris + convert tris to 'pointer' form
 	u32* temp_tris = CALLOC(u32, tris_count*3);
 	if (0 == temp_tris)
-	{
-		CFREE(verts);
-		CFREE(tris);
 		return;
-	}
 	u32* temp_ptr = temp_tris;
 	for (int i = 0; i < tris_count; i++)
 	{
@@ -119,8 +126,9 @@ void MODEL::build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callbac
 	tree = CNEW(OPCODE_Model)();
 	if (!tree->Build(OPCC))
 	{
-		CFREE(verts);
-		CFREE(tris);
+		// Do not free verts/tris here. build_arrays already handed them out and
+		// callers may hold pointers into them. status stays S_BUILD, so the query
+		// paths still refuse to use the tree.
 		CFREE(temp_tris);
 		return;
 	};

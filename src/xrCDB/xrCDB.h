@@ -72,7 +72,7 @@ namespace CDB
 
 	private:
 		Opcode::OPCODE_Model* tree;
-		xr_atomic_bool status; // 0=ready, 1=init, 2=building
+		xr_atomic_u32 status; // 0=ready, 1=init, 2=building
 
 		// tris
 		TRI* tris;
@@ -100,6 +100,13 @@ namespace CDB
 		}
 
 		static void build_thread(void*);
+		// Copies the geometry and runs the material remap callback. This is the cheap
+		// half, and it publishes verts/tris, so callers that only read the arrays
+		// need nothing else.
+		void build_arrays(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc = NULL, void* bcp = NULL);
+		// Builds the OPCODE tree over the arrays published by build_arrays. This is
+		// the expensive half and the only part worth moving to a background task.
+		void build_tree();
 		void build_internal(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc = NULL, void* bcp = NULL);
 		void build(Fvector* V, int Vcnt, TRI* T, int Tcnt, build_callback* bc = NULL, void* bcp = NULL);
 		u32 memory();
