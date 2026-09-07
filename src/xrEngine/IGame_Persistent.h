@@ -159,6 +159,9 @@ public:
 	};
 	virtual void OnAssetsChanged();
 
+	// thunderbolt clap volume gate, overridden by the game layer to ask Lua. Returns 1.0 for vanilla.
+	virtual float OnThunderboltSound(LPCSTR file, float distance) { return 1.0f; }
+
 	virtual void RegisterModel(IRenderVisual* V)
 #ifndef _EDITOR
 	= 0;

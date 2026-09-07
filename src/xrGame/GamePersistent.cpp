@@ -276,6 +276,28 @@ void CGamePersistent::OnGameEnd()
 	xr_delete(g_stalker_velocity_holder);
 }
 
+// { volume_mult = number } from a sound hook's return. 1.0 (vanilla) when nil, not a table, or not a number.
+static float ambient_hook_volume_mult(const ::luabind::object& output)
+{
+	if (output && output.type() == LUA_TTABLE)
+	{
+		auto volume_mult_obj = output["volume_mult"];
+		if (volume_mult_obj.type() == LUA_TNUMBER)
+			return ::luabind::object_cast<float>(volume_mult_obj);
+	}
+	return 1.0f;
+}
+
+// Thunderbolt clap crossing. CEffect_Thunderbolt (xrEngine) has no script-engine reach, so it calls this
+// IGame_Persistent virtual and the functor fires here, the COnBeforePlayHudSound shape. An unset global leaves vanilla.
+float CGamePersistent::OnThunderboltSound(LPCSTR file, float distance)
+{
+	::luabind::functor<::luabind::object> funct;
+	if (ai().script_engine().functor("_G.COnThunderboltSound", funct))
+		return ambient_hook_volume_mult(funct(file, distance));
+	return 1.0f;
+}
+
 void CGamePersistent::WeathersUpdate()
 {
 	if (g_pGameLevel && !g_dedicated_server)
@@ -369,7 +391,23 @@ void CGamePersistent::WeathersUpdate()
                     offset.z += Random.randF(0.5f, 5.f) * (Random.randF(0.f, 1.f) < 0.5f ? -1.f : 1.f);
 					pos.add(Device.vCameraPosition, offset);
 					ambient_particles->play_at_pos(pos);
-					if (eff->sound._handle()) eff->sound.play_at_pos(0, pos);
+
+					// Ambient-effect sound hook. Lua may veto (0) or attenuate the recording. The particle burst and wind blast play either way.
+					// An unset global leaves exact vanilla.
+					if (eff->sound._handle())
+					{
+						float effect_volume_mult = 1.0f;
+						::luabind::functor<::luabind::object> effect_funct;
+						if (ai().script_engine().functor("_G.COnAmbientEffectSound", effect_funct))
+							effect_volume_mult = ambient_hook_volume_mult(effect_funct(eff->sound._handle()->file_name(), pos));
+
+						if (effect_volume_mult > EPS_S)
+						{
+							eff->sound.play_at_pos(0, pos);
+							if (effect_volume_mult < 1.0f)
+								eff->sound.set_volume(effect_volume_mult);
+						}
+					}
 
 
 					Environment().wind_blast_strength_start_value = Environment().wind_strength_factor;
