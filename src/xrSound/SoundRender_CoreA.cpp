@@ -7,6 +7,8 @@
 
 #include "../xrEngine/pure.h"
 #include "../xrEngine/XR_IOConsole.h"
+#include "../xrEngine/defines.h"
+#include "../xrCore/_math.h"
 
 #include <AL/efx.h>
 
@@ -56,6 +58,37 @@ namespace soundSmoothingParams {
 extern CConsole* Console;
 
 CSoundRender_CoreA* SoundRenderA = nullptr;
+
+static const u32 SOUND_BG_SLEEP_MS = 20;
+
+void SoundRender_UpdateThread(void*)
+{
+	VERIFY(SoundRenderA && SoundRenderA->pContext);
+	alcMakeContextCurrent(SoundRenderA->pContext);
+
+	while (SoundRender->m_bUpdateThreadRun)
+	{
+		Sleep(SOUND_BG_SLEEP_MS);
+		if (!SoundRender->bReady)
+			continue;
+
+		SoundRender->sound_api_enter();
+		SoundRender->update_impl(
+			SoundRender->m_snap_P,
+			SoundRender->m_snap_D,
+			SoundRender->m_snap_N);
+		SoundRender->sound_api_leave();
+	}
+
+	alcMakeContextCurrent(nullptr);
+	SoundRender->m_bUpdateThreadExited = TRUE;
+}
+
+void CSoundRender_CoreA::bind_context()
+{
+	if (pContext && alcGetCurrentContext() != pContext)
+		alcMakeContextCurrent(pContext);
+}
 
 CSoundRender_CoreA::CSoundRender_CoreA() : CSoundRender_Core()
 {
@@ -505,6 +538,10 @@ void CSoundRender_CoreA::_initialize(int stage)
 				break;
 			}
 		}
+#ifndef _EDITOR
+		if (psDeviceFlags.test(mtSound))
+			update_thread_start();
+#endif
 	}
 }
 
@@ -512,12 +549,15 @@ void CSoundRender_CoreA::set_master_volume(float f)
 {
 	if (bPresent)
 	{
+		sound_api_enter();
 		A_CHK(alListenerf (AL_GAIN,f));
+		sound_api_leave();
 	}
 }
 
 void CSoundRender_CoreA::_clear()
 {
+	update_thread_stop();
 	inherited::_clear();
 	// remove targets
 	CSoundRender_Target* T = nullptr;
