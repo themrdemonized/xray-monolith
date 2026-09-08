@@ -96,7 +96,7 @@ ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name)
 	return l;
 }
 
-u32 ShaderBus::try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
+static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn)
 {
 	if (!bus_valid_id(id))
 	{
@@ -125,14 +125,15 @@ u32 ShaderBus::try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR 
 		strncpy_s(stored_source, sizeof(stored_source), source, _TRUNCATE);
 
 	xrCriticalSectionGuard guard(&g_bus_lock);
-	lane* l = bus_find_or_add(id);
+	ShaderBus::lane* l = bus_find_or_add(id);
 
 	if (l->registered)
 	{
 		if (0 == xr_strcmp(l->owner.c_str(), owner))
 			return bus_token(l);
 
-		Msg("~ [SHADER-BUS] lane '%s' stays with '%s', '%s' did not take it", id, l->owner.c_str(), owner);
+		if (warn)
+			Msg("~ [SHADER-BUS] lane '%s' stays with '%s', '%s' did not take it", id, l->owner.c_str(), owner);
 		return 0;
 	}
 
@@ -146,9 +147,14 @@ u32 ShaderBus::try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR 
 	return bus_token(l);
 }
 
+u32 ShaderBus::try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
+{
+	return bus_take(id, owner, description, source, true);
+}
+
 u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
 {
-	const u32 token = try_register(id, owner, description, source);
+	const u32 token = bus_take(id, owner, description, source, false);
 	if (token)
 		return token;
 
