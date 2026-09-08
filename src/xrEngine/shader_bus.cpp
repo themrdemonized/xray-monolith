@@ -369,16 +369,20 @@ bool ShaderBus::legacy_writer(LPCSTR command, string256& out)
 void ShaderBus::dump()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
-	Msg("[SHADER-BUS] %d lanes", u32(g_bus_lanes.size()));
+	const bool verbose = 0 != strstr(Core.Params, "-dbg");
+
+	if (verbose)
+		Msg("[SHADER-BUS] %d lanes", u32(g_bus_lanes.size()));
+
 	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
 	{
 		const lane* l = g_bus_lanes[i];
-		if (l->registered)
+		if (!l->registered)
+			Msg("~ [SHADER-BUS] bus_%s is declared by a shader and registered by nobody", l->id.c_str());
+		else if (verbose)
 			Msg("[SHADER-BUS] bus_%s owner '%s' from '%s' = (%f, %f, %f, %f) %s",
 			    l->id.c_str(), l->owner.c_str(), l->source.c_str(),
 			    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str());
-		else
-			Msg("[SHADER-BUS] bus_%s declared by shaders, not registered", l->id.c_str());
 	}
 }
 
