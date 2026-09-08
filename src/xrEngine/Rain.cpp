@@ -219,8 +219,7 @@ void CEffect_Rain::OnFrame()
 	case stIdle:
 		if (factor < EPS_L) return;
 		state = stWorking;
-		// Rain-loop hook, mirrors COnBeforePlayHudSound: Lua may veto (0) or attenuate the loop at onset.
-		// Sampled once here, applied at set_volume below; a solo toggled mid-rain takes effect next onset.
+		// Rain-loop hook, mirrors COnBeforePlayHudSound: veto (0) or attenuate, sampled once at onset.
 		rain_volume_mult = g_pGamePersistent
 			? g_pGamePersistent->OnRainSound(snd_Ambient._handle() ? snd_Ambient._handle()->file_name() : "")
 			: 1.0f;
