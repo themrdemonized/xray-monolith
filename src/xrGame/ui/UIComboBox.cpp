@@ -19,10 +19,13 @@ CUIComboBox::CUIComboBox()
 	m_bInited = false;
 	m_eState = LIST_FONDED;
 	m_textColor[0] = 0xff00ff00;
+
+	Device.seqRender.Add(this, 3);
 }
 
 CUIComboBox::~CUIComboBox()
 {
+	Device.seqRender.Remove(this);
 }
 
 void CUIComboBox::SetListLength(int length)
@@ -250,12 +253,6 @@ void CUIComboBox::Update()
 	else
 	{
 		m_text.SetTextColor(m_textColor[0]);
-
-		if (m_list_frame.IsShown())
-		{
-			Device.seqRender.Remove(this);
-			Device.seqRender.Add(this, 3);
-		}
 	}
 }
 
@@ -317,14 +314,14 @@ void CUIComboBox::SendMessage(CUIWindow* pWnd, s16 msg, void* pData)
 
 void CUIComboBox::OnRender()
 {
-	if (IsShown())
-	{
-		if (m_list_frame.IsShown())
-		{
-			m_list_frame.Draw();
-			Device.seqRender.Remove(this);
-		}
-	}
+	if (!m_list_frame.IsShown())
+		return;
+
+	for (CUIWindow* wnd = this; wnd; wnd = wnd->GetParent())
+		if (!wnd->IsShown())
+			return;
+
+	m_list_frame.Draw();
 }
 
 void CUIComboBox::Draw()
