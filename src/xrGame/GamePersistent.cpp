@@ -298,6 +298,14 @@ float CGamePersistent::OnThunderboltSound(LPCSTR file, float distance)
 	return 1.0f;
 }
 
+float CGamePersistent::OnRainSound(LPCSTR file)
+{
+	::luabind::functor<::luabind::object> funct;
+	if (ai().script_engine().functor("_G.COnRainSound", funct))
+		return ambient_hook_volume_mult(funct(file));
+	return 1.0f;
+}
+
 void CGamePersistent::WeathersUpdate()
 {
 	if (g_pGameLevel && !g_dedicated_server)
