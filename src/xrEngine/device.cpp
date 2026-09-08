@@ -32,6 +32,7 @@
 
 #include "xrSash.h"
 #include "igame_persistent.h"
+#include "shader_bus.h"
 
 #pragma comment( lib, "d3dx9.lib" )
 
@@ -739,6 +740,9 @@ void CRenderDevice::FrameMove()
 	}
 	// Frame move
 	Statistic->EngineTOTAL.Begin();
+
+	ShaderBus::frame_latch();
+
 	// TODO: HACK to test loading screen.
 	//if(!g_bLoaded)
 	START_PROFILE("Process seqFrame");
