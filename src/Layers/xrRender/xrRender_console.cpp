@@ -1100,11 +1100,13 @@ public:
 				continue;
 
 			if (l->registered)
-				Msg("[SHADER-BUS] bus_%s owner '%s' = (%f, %f, %f, %f) %s",
+				Msg("[SHADER-BUS] bus_%s owner '%s' = (%f, %f, %f, %f) %s [%s changes %d writes %d bound frame %d]",
 				    l->id.c_str(), l->owner.c_str(),
-				    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str());
+				    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str(),
+				    l->is_forced ? "forced" : "registered", l->changes, l->writes, l->bound_frame);
 			else
-				Msg("[SHADER-BUS] bus_%s declared by shaders, not registered", l->id.c_str());
+				Msg("[SHADER-BUS] bus_%s declared by shaders, not registered [%s changes %d writes %d bound frame %d]",
+				    l->id.c_str(), l->is_forced ? "forced" : "declared", l->changes, l->writes, l->bound_frame);
 		}
 
 		for (u32 i = 0; i < sizeof(legacy_lanes) / sizeof(legacy_lanes[0]); ++i)
@@ -1134,6 +1136,67 @@ public:
 			return;
 		}
 		Msg("[SHADER-BUS] bus_%s = (%f, %f, %f, %f)", args, v.x, v.y, v.z, v.w);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
+};
+
+class CCC_BusForce : public IConsole_Command
+{
+public:
+	CCC_BusForce(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		string64 id;
+		id[0] = 0;
+
+		Fvector4 v;
+		if (!args || 5 != sscanf(args, "%63s %f %f %f %f", id, &v.x, &v.y, &v.z, &v.w))
+		{
+			Msg("~ [SHADER-BUS] usage bus_force <id> x y z w");
+			return;
+		}
+
+		if (!_finite(v.x) || !_finite(v.y) || !_finite(v.z) || !_finite(v.w))
+		{
+			Msg("~ [SHADER-BUS] bus_force needs finite values");
+			return;
+		}
+
+		if (!ShaderBus::force(id, v))
+		{
+			Msg("~ [SHADER-BUS] no lane named %s", id);
+			return;
+		}
+		Msg("[SHADER-BUS] bus_%s held at (%f, %f, %f, %f)", id, v.x, v.y, v.z, v.w);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id and four floats"); }
+};
+
+class CCC_BusRelease : public IConsole_Command
+{
+public:
+	CCC_BusRelease(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		string64 id;
+		id[0] = 0;
+
+		if (!args || 1 != sscanf(args, "%63s", id))
+		{
+			Msg("~ [SHADER-BUS] usage bus_release <id>");
+			return;
+		}
+
+		if (!ShaderBus::release(id))
+		{
+			Msg("~ [SHADER-BUS] no lane named %s", id);
+			return;
+		}
+		Msg("[SHADER-BUS] bus_%s released", id);
 	}
 
 	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
@@ -1427,6 +1490,8 @@ void xrRender_initconsole()
 
 	CMD1(CCC_BusList, "bus_list");
 	CMD1(CCC_BusGet, "bus_get");
+	CMD1(CCC_BusForce, "bus_force");
+	CMD1(CCC_BusRelease, "bus_release");
 
 	// Mark Switch
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);

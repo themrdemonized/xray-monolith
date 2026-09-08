@@ -181,6 +181,7 @@ bool ShaderBus::set(u32 token, float x, float y, float z, float w)
 		return false;
 
 	l->pending.set(x, y, z, w);
+	++l->writes;
 	return true;
 }
 
@@ -219,6 +220,55 @@ LPCSTR ShaderBus::owner_of(LPCSTR id)
 	return g_bus_lanes[found]->owner.c_str();
 }
 
+bool ShaderBus::stats(LPCSTR id, u32& changes, u32& last_change, u32& bound_frame, u32& writes)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	const lane* l = g_bus_lanes[found];
+	changes = l->changes;
+	last_change = l->last_change_frame;
+	bound_frame = l->bound_frame;
+	writes = l->writes;
+	return true;
+}
+
+bool ShaderBus::get_pending(LPCSTR id, Fvector4& value)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	value.set(g_bus_lanes[found]->pending);
+	return true;
+}
+
+bool ShaderBus::force(LPCSTR id, const Fvector4& value)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	g_bus_lanes[found]->forced.set(value);
+	g_bus_lanes[found]->is_forced = true;
+	return true;
+}
+
+bool ShaderBus::release(LPCSTR id)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	g_bus_lanes[found]->is_forced = false;
+	return true;
+}
+
 u32 ShaderBus::count()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -235,7 +285,19 @@ void ShaderBus::frame_latch()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
-		g_bus_lanes[i]->bound.set(g_bus_lanes[i]->pending);
+	{
+		lane* l = g_bus_lanes[i];
+		const Fvector4& src = l->is_forced ? l->forced : l->pending;
+
+		if (src.x != l->bound.x || src.y != l->bound.y ||
+			src.z != l->bound.z || src.w != l->bound.w)
+		{
+			++l->changes;
+			l->last_change_frame = Device.dwFrame;
+		}
+
+		l->bound.set(src);
+	}
 }
 
 void ShaderBus::dump()
@@ -256,5 +318,5 @@ void ShaderBus::dump()
 
 int ShaderBus::version()
 {
-	return 1;
+	return 2;
 }

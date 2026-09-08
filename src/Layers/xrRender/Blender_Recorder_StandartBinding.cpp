@@ -1368,6 +1368,7 @@ public:
 
 	virtual void setup(R_constant* C)
 	{
+		lane->bound_frame = Device.dwFrame;
 		RCache.set_c(C, lane->bound.x, lane->bound.y, lane->bound.z, lane->bound.w);
 	}
 };

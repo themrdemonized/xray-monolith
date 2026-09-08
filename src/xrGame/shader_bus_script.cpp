@@ -87,12 +87,35 @@ static LPCSTR bus_owner_of(LPCSTR id)
 	return ShaderBus::owner_of(id);
 }
 
+static bool bus_stats(LPCSTR id, u32& changes, u32& last_change, u32& bound_frame, u32& writes)
+{
+	changes = 0;
+	last_change = 0;
+	bound_frame = 0;
+	writes = 0;
+	return ShaderBus::stats(id, changes, last_change, bound_frame, writes);
+}
+
+static bool bus_get_pending(LPCSTR id, float& x, float& y, float& z, float& w)
+{
+	Fvector4 v;
+	const bool found = ShaderBus::get_pending(id, v);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	x = v.x;
+	y = v.y;
+	z = v.z;
+	w = v.w;
+	return found;
+}
+
 static int bus_version()
 {
 	return ShaderBus::version();
 }
 
-static ::luabind::object bus_list(lua_State* L)
+static ::luabind::object bus_list(lua_State* L, bool include_declared)
 {
 	::luabind::object rows = ::luabind::newtable(L);
 
@@ -101,13 +124,17 @@ static ::luabind::object bus_list(lua_State* L)
 	for (u32 i = 0; i < lanes; ++i)
 	{
 		const ShaderBus::lane* l = ShaderBus::at(i);
-		if (!l || !l->registered)
+		if (!l)
+			continue;
+		if (!l->registered && !include_declared)
 			continue;
 
 		::luabind::object row = ::luabind::newtable(L);
 		row["id"] = l->id.c_str();
-		row["owner"] = l->owner.c_str();
-		row["description"] = l->description.c_str();
+		row["owner"] = l->registered ? l->owner.c_str() : "";
+		row["description"] = l->registered ? l->description.c_str() : "";
+		row["state"] = l->registered ? "registered" : "declared";
+		row["source"] = l->registered ? l->source.c_str() : "";
 		rows[row_index++] = row;
 	}
 
@@ -127,9 +154,16 @@ static ::luabind::object bus_list(lua_State* L)
 		row["id"] = legacy_lanes[i];
 		row["owner"] = "engine legacy";
 		row["description"] = "";
+		row["state"] = "legacy";
+		row["source"] = "";
 		rows[row_index++] = row;
 	}
 	return rows;
+}
+
+static ::luabind::object bus_list_registered(lua_State* L)
+{
+	return bus_list(L, false);
 }
 
 #pragma optimize("s",on)
@@ -145,6 +179,11 @@ void shader_bus_registrator::script_register(lua_State* L)
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),
+		def("stats", &bus_stats,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
+		def("get_pending", &bus_get_pending,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
+		def("list", &bus_list_registered, raw<1>()),
 		def("list", &bus_list, raw<1>()),
 		def("version", &bus_version)
 	];
