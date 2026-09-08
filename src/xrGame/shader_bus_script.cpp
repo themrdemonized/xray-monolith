@@ -150,11 +150,15 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		if (!cc || !smart_cast<CCC_Vector4*>(cc))
 			continue;
 
+		string256 writer;
+		ShaderBus::legacy_writer(legacy_lanes[i], writer);
+
 		::luabind::object row = ::luabind::newtable(L);
 		row["id"] = legacy_lanes[i];
 		row["owner"] = "engine legacy";
 		row["description"] = "";
 		row["state"] = "legacy";
+		row["writer"] = (LPCSTR)writer;
 		row["source"] = "";
 		rows[row_index++] = row;
 	}

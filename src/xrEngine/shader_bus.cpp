@@ -3,8 +3,16 @@
 
 #include "shader_bus.h"
 
+struct bus_legacy_row
+{
+	shared_str command;
+	string256 writer;
+};
+
 static xr_vector<ShaderBus::lane*> g_bus_lanes;
 static xr_vector<shared_str> g_bus_rejected;
+static xr_vector<bus_legacy_row> g_bus_legacy;
+static xr_vector<shared_str> g_bus_legacy_logged;
 static xrCriticalSection g_bus_lock;
 
 static bool bus_valid_id(LPCSTR id)
@@ -298,6 +306,64 @@ void ShaderBus::frame_latch()
 
 		l->bound.set(src);
 	}
+}
+
+void ShaderBus::note_legacy_write(LPCSTR command, LPCSTR writer)
+{
+	if (!command || !command[0])
+		return;
+	if (!writer)
+		writer = "";
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+
+	int found = -1;
+	for (u32 i = 0; i < g_bus_legacy.size() && found < 0; ++i)
+		if (0 == xr_strcmp(g_bus_legacy[i].command.c_str(), command))
+			found = int(i);
+
+	if (found >= 0 && 0 == xr_strcmp(g_bus_legacy[found].writer, writer))
+		return;
+
+	if (found < 0)
+	{
+		bus_legacy_row row;
+		row.command = command;
+		row.writer[0] = 0;
+		g_bus_legacy.push_back(row);
+		found = int(g_bus_legacy.size()) - 1;
+	}
+	strncpy_s(g_bus_legacy[found].writer, sizeof(g_bus_legacy[found].writer), writer, _TRUNCATE);
+
+	if (!Device.b_is_Ready)
+		return;
+
+	string512 pair;
+	xr_sprintf(pair, "%s %s", command, writer);
+
+	shared_str pair_key(pair);
+	for (u32 i = 0; i < g_bus_legacy_logged.size(); ++i)
+		if (g_bus_legacy_logged[i].equal(pair_key))
+			return;
+
+	g_bus_legacy_logged.push_back(pair_key);
+	Msg("~ [SHADER-BUS] %s written from %s, register a shader_bus lane instead", command, writer);
+}
+
+bool ShaderBus::legacy_writer(LPCSTR command, string256& out)
+{
+	out[0] = 0;
+	if (!command || !command[0])
+		return false;
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 i = 0; i < g_bus_legacy.size(); ++i)
+		if (0 == xr_strcmp(g_bus_legacy[i].command.c_str(), command))
+		{
+			xr_strcpy(out, g_bus_legacy[i].writer);
+			return true;
+		}
+	return false;
 }
 
 void ShaderBus::dump()

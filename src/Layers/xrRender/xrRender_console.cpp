@@ -1204,22 +1204,25 @@ public:
 
 class CCC_Vector4Legacy : public CCC_Vector4
 {
-	bool warned;
-
 public:
 	CCC_Vector4Legacy(LPCSTR N, Fvector4* V, const Fvector4 _min, const Fvector4 _max) :
-		CCC_Vector4(N, V, _min, _max), warned(false)
+		CCC_Vector4(N, V, _min, _max)
 	{
 	};
 
 	virtual void Execute(LPCSTR args)
 	{
-		if (!warned && Device.b_is_Ready)
+		Fvector4 v;
+		if (!parse(args, v))
 		{
-			warned = true;
-			Msg("~ [SHADER-BUS] %s is a legacy lane, register a shader_bus lane instead", cName);
+			InvalidSyntax();
+			return;
 		}
-		CCC_Vector4::Execute(args);
+		value->set(v);
+
+		LPCSTR caller = Console->ScriptCaller();
+		LPCSTR writer = caller[0] ? caller : (Device.b_is_Ready ? "console" : Console->ConfigFile);
+		ShaderBus::note_legacy_write(cName, writer);
 	}
 };
 

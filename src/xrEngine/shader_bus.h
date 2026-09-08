@@ -50,6 +50,9 @@ namespace ShaderBus
 	// copies the forced or pending value to bound and counts a change when it differs
 	ENGINE_API void frame_latch();
 
+	ENGINE_API void note_legacy_write(LPCSTR command, LPCSTR writer);
+	ENGINE_API bool legacy_writer(LPCSTR command, string256& out);
+
 	ENGINE_API void dump();
 	ENGINE_API int version();
 }
