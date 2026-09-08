@@ -520,6 +520,7 @@ int opt_dynamic = 2;
 #ifndef _EDITOR
 #include	"../../xrEngine/xr_ioconsole.h"
 #include	"../../xrEngine/xr_ioc_cmd.h"
+#include	"../../xrEngine/shader_bus.h"
 
 #if defined(USE_DX10) || defined(USE_DX11)
 #include "../xrRenderDX10/StateManager/dx10SamplerStateCache.h"
@@ -1063,6 +1064,102 @@ public:
 #endif	//	DEBUG
 #endif	//	(RENDER == R_R3) || (RENDER == R_R4)
 
+static const struct
+{
+	LPCSTR name;
+	Fvector4* value;
+} legacy_lanes[] = {
+	{"shader_param_1", &ps_dev_param_1},
+	{"shader_param_2", &ps_dev_param_2},
+	{"shader_param_3", &ps_dev_param_3},
+	{"shader_param_4", &ps_dev_param_4},
+	{"shader_param_5", &ps_dev_param_5},
+	{"shader_param_6", &ps_dev_param_6},
+	{"shader_param_7", &ps_dev_param_7},
+	{"shader_param_8", &ps_dev_param_8},
+	{"s3ds_param_1", &ps_s3ds_param_1},
+	{"s3ds_param_2", &ps_s3ds_param_2},
+	{"s3ds_param_3", &ps_s3ds_param_3},
+	{"s3ds_param_4", &ps_s3ds_param_4}
+};
+
+class CCC_BusList : public IConsole_Command
+{
+public:
+	CCC_BusList(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		const u32 lanes = ShaderBus::count();
+		Msg("[SHADER-BUS] %d lanes", lanes);
+
+		for (u32 i = 0; i < lanes; ++i)
+		{
+			const ShaderBus::lane* l = ShaderBus::at(i);
+			if (!l)
+				continue;
+
+			if (l->registered)
+				Msg("[SHADER-BUS] bus_%s owner '%s' = (%f, %f, %f, %f) %s",
+				    l->id.c_str(), l->owner.c_str(),
+				    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str());
+			else
+				Msg("[SHADER-BUS] bus_%s declared by shaders, not registered", l->id.c_str());
+		}
+
+		for (u32 i = 0; i < sizeof(legacy_lanes) / sizeof(legacy_lanes[0]); ++i)
+			Msg("[SHADER-BUS] %s legacy = (%f, %f, %f, %f)", legacy_lanes[i].name,
+			    legacy_lanes[i].value->x, legacy_lanes[i].value->y,
+			    legacy_lanes[i].value->z, legacy_lanes[i].value->w);
+	}
+};
+
+class CCC_BusGet : public IConsole_Command
+{
+public:
+	CCC_BusGet(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!args || !args[0])
+		{
+			Msg("~ [SHADER-BUS] usage bus_get <id>");
+			return;
+		}
+
+		Fvector4 v;
+		if (!ShaderBus::get(args, v))
+		{
+			Msg("~ [SHADER-BUS] no lane named %s", args);
+			return;
+		}
+		Msg("[SHADER-BUS] bus_%s = (%f, %f, %f, %f)", args, v.x, v.y, v.z, v.w);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
+};
+
+class CCC_Vector4Legacy : public CCC_Vector4
+{
+	bool warned;
+
+public:
+	CCC_Vector4Legacy(LPCSTR N, Fvector4* V, const Fvector4 _min, const Fvector4 _max) :
+		CCC_Vector4(N, V, _min, _max), warned(false)
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!warned && Device.b_is_Ready)
+		{
+			warned = true;
+			Msg("~ [SHADER-BUS] %s is a legacy lane, register a shader_bus lane instead", cName);
+		}
+		CCC_Vector4::Execute(args);
+	}
+};
+
 //-----------------------------------------------------------------------
 void xrRender_initconsole()
 {
@@ -1319,25 +1416,28 @@ void xrRender_initconsole()
 	//Shader param stuff
 	Fvector4 tw2_min = { -100.f, -100.f, -100.f, -100.f };
 	Fvector4 tw2_max = { 100.f, 100.f, 100.f, 100.f };
-	CMD4(CCC_Vector4, "shader_param_1", &ps_dev_param_1, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_2", &ps_dev_param_2, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_3", &ps_dev_param_3, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_4", &ps_dev_param_4, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_5", &ps_dev_param_5, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
-	
+	CMD4(CCC_Vector4Legacy, "shader_param_1", &ps_dev_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_2", &ps_dev_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_3", &ps_dev_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_4", &ps_dev_param_4, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_5", &ps_dev_param_5, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+
+	CMD1(CCC_BusList, "bus_list");
+	CMD1(CCC_BusGet, "bus_get");
+
 	// Mark Switch
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
 	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
 	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 
 	// Shader 3D Scopes
-	CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
 	
