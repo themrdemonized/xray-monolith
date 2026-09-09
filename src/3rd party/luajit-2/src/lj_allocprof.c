@@ -54,7 +54,12 @@ static void allocprof_record(AllocProfEntry *tab, int slots, int *used,
 {
   size_t n = strlen(key);
   uint32_t h, i;
-  if (n >= sizeof(tab->key)) n = sizeof(tab->key) - 1;
+  if (n >= sizeof(tab->key)) {
+    /* Cut at the last ';' so a partial frame drops whole, never mid-name. */
+    size_t j = sizeof(tab->key) - 1;
+    while (j > 0 && key[j] != ';') j--;
+    n = j > 0 ? j : sizeof(tab->key) - 1;
+  }
   h = allocprof_hash(key, n) & (uint32_t)(slots - 1);
   for (i = 0; i < (uint32_t)slots; i++) {
     AllocProfEntry *e = &tab[(h + i) & (uint32_t)(slots - 1)];

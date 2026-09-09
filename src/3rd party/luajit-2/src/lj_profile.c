@@ -356,7 +356,7 @@ LUA_API void luaJIT_profile_stop(lua_State *L)
 LUA_API const char *luaJIT_profile_dumpstack(lua_State *L, const char *fmt,
 					     int depth, size_t *len)
 {
-  static char buf[2048];
+  static char buf[8192];
   size_t n = 0;
   int level;
   int maxd = depth < 0 ? -depth : depth;

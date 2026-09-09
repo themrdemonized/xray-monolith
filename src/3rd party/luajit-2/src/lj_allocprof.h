@@ -10,7 +10,7 @@
 #if LJ_HASPROFILE
 
 typedef struct AllocProfEntry {
-  char key[512];
+  char key[4096];
   uint64_t bytes;
 } AllocProfEntry;
 
