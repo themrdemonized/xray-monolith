@@ -155,12 +155,6 @@
         ClrSetB(number argb, number b)
     }
 
-    engine callbacks (Lua defines the _G function; the engine calls it only if present) {
-        -- Each returns { volume_mult = number } to scale the play (0 vetoes/silences, <1 attenuates), or nil for vanilla. Zero cost when undefined. Mirror _G.COnBeforePlayHudSound.
-        table COnAmbientBed(string section, string file, Fvector pos) -- System A per-weather background bed play site (CGamePersistent::WeathersUpdate, GamePersistent.cpp). 0 vetoes the play.
-        table COnLevelMusic(string file) -- level music track in SMusicTrack::Play (level_sounds.cpp). Volume-only (0 silences the track).
-    }
-
     get_console() {
         table get_variable_bounds(cmd)   
     }
