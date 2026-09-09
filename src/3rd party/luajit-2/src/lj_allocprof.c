@@ -16,6 +16,7 @@
 #include "luajit.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <math.h>
 
 #define ALLOCPROF_LEAF_SLOTS	4096
@@ -37,8 +38,8 @@ static struct {
   uint8_t saved_mask;
   int32_t saved_count;
   int32_t saved_cstart;
-  AllocProfEntry leaf[ALLOCPROF_LEAF_SLOTS];
-  AllocProfEntry stack[ALLOCPROF_STACK_SLOTS];
+  AllocProfEntry *leaf;   /* Heap, first start; kept so dump reads work after stop. */
+  AllocProfEntry *stack;
 } AS;
 
 static uint32_t allocprof_hash(const char *s, size_t n)
@@ -128,7 +129,20 @@ void lj_allocprof_start(lua_State *L, int depth)
   }
   if (depth < 1) depth = 1;
   if (depth > ALLOCPROF_MAX_DEPTH) depth = ALLOCPROF_MAX_DEPTH;
-  memset(&AS, 0, sizeof(AS));
+  if (!AS.leaf) {
+    AS.leaf = (AllocProfEntry *)calloc(ALLOCPROF_LEAF_SLOTS, sizeof(AllocProfEntry));
+    AS.stack = (AllocProfEntry *)calloc(ALLOCPROF_STACK_SLOTS, sizeof(AllocProfEntry));
+    if (!AS.leaf || !AS.stack) {
+      free(AS.leaf); free(AS.stack);
+      AS.leaf = NULL; AS.stack = NULL;
+      return;
+    }
+  } else {
+    memset(AS.leaf, 0, ALLOCPROF_LEAF_SLOTS * sizeof(AllocProfEntry));
+    memset(AS.stack, 0, ALLOCPROF_STACK_SLOTS * sizeof(AllocProfEntry));
+  }
+  AS.leaf_used = 0;
+  AS.stack_used = 0;
   AS.g = g;
   AS.depth = depth;
   AS.saved_mask = g->hookmask;
@@ -162,9 +176,9 @@ void lj_allocprof_stop(lua_State *L)
 
 void lj_allocprof_reset(void)
 {
-  if (!AS.g) return;
-  memset(AS.leaf, 0, sizeof(AS.leaf));
-  memset(AS.stack, 0, sizeof(AS.stack));
+  if (!(AS.g && AS.leaf)) return;
+  memset(AS.leaf, 0, ALLOCPROF_LEAF_SLOTS * sizeof(AllocProfEntry));
+  memset(AS.stack, 0, ALLOCPROF_STACK_SLOTS * sizeof(AllocProfEntry));
   AS.leaf_used = 0;
   AS.stack_used = 0;
   lj_allocprof_dropped = 0;
@@ -213,7 +227,7 @@ int lj_allocprof_slots(int stacks)
 const AllocProfEntry *lj_allocprof_slot(int stacks, int k)
 {
   AllocProfEntry *tab = stacks ? AS.stack : AS.leaf;
-  return tab[k].bytes ? &tab[k] : NULL;
+  return (tab && tab[k].bytes) ? &tab[k] : NULL;
 }
 
 #endif
