@@ -155,14 +155,6 @@
         ClrSetB(number argb, number b)
     }
 
-    engine callbacks (Lua defines the _G function, the engine calls it only if present) {
-        -- Each returns { volume_mult = number } to scale the play (0 vetoes, <1 attenuates), or nil for vanilla. An undefined global costs nothing. The shape mirrors _G.COnBeforePlayHudSound.
-        table COnBeforePlayScriptSound(string file, Fvector pos, game_object obj) -- every sound_object play (CScriptSound). Absent pos and obj reach Lua as nil. Veto holds, later .volume writes override attenuation
-        table COnAmbientEffectSound(string file, Fvector pos) -- the weather-effect recording (WeathersUpdate). The particle burst and wind blast play regardless
-        table COnThunderboltSound(string file, number distance) -- the lightning-strike clap. Fires on the last bolt of a burst only, distance in metres
-        table COnRainSound(string file) -- the looped rain ambient (CEffect_Rain). Sampled at rain onset, so a veto applies from the next time rain starts
-    }
-
     get_console() {
         table get_variable_bounds(cmd)   
     }
