@@ -178,6 +178,12 @@ static void setintfield(lua_State *L, GCtab *t, const char *name, int32_t val)
   setintV(lj_tab_setstr(L, t, lj_str_newz(L, name)), val);
 }
 
+/* GC counters are MSize (uint32); a double holds the full range without the int32 wrap. */
+static void setnumfield(lua_State *L, GCtab *t, const char *name, lua_Number val)
+{
+  setnumV(lj_tab_setstr(L, t, lj_str_newz(L, name)), val);
+}
+
 /* local info = jit.util.funcinfo(func [,pc]) */
 LJLIB_CF(jit_util_funcinfo)
 {
@@ -266,6 +272,25 @@ LJLIB_CF(jit_util_funcuvname)
     return 1;
   }
   return 0;
+}
+
+/* local info = jit.util.gcstat() -- LuaJIT GC counters (bytes): total, threshold, estimate, debt */
+LJLIB_CF(jit_util_gcstat)
+{
+  global_State *g = G(L);
+  /* Snapshot before allocating: lua_createtable/lj_str_newz can run a GC step that moves these. */
+  lua_Number total = (lua_Number)g->gc.total;
+  lua_Number threshold = (lua_Number)g->gc.threshold;
+  lua_Number estimate = (lua_Number)g->gc.estimate;
+  lua_Number debt = (lua_Number)g->gc.debt;
+  GCtab *t;
+  lua_createtable(L, 0, 4);
+  t = tabV(L->top-1);
+  setnumfield(L, t, "total", total);
+  setnumfield(L, t, "threshold", threshold);
+  setnumfield(L, t, "estimate", estimate);
+  setnumfield(L, t, "debt", debt);
+  return 1;
 }
 
 /* -- Reflection API for traces ------------------------------------------- */
