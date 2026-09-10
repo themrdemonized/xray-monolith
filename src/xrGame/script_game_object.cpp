@@ -953,6 +953,34 @@ u32 CScriptGameObject::Cost() const
 	return (inventory_item->Cost());
 }
 
+Frect CScriptGameObject::GetInvGridRect() const
+{
+	CInventoryItem* inventory_item = smart_cast<CInventoryItem*>(&object());
+	if (!inventory_item)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CInventoryItem : cannot access class member get_inv_grid_rect!");
+		return Frect().set(0.f, 0.f, 0.f, 0.f);
+	}
+
+	const Irect rect = inventory_item->GetInvGridRect();
+	return Frect().set(float(rect.x1), float(rect.y1), float(rect.x2), float(rect.y2));
+}
+
+Frect CScriptGameObject::GetUpgrIconRect() const
+{
+	CInventoryItem* inventory_item = smart_cast<CInventoryItem*>(&object());
+	if (!inventory_item)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CInventoryItem : cannot access class member get_upgr_icon_rect!");
+		return Frect().set(0.f, 0.f, 0.f, 0.f);
+	}
+
+	const Irect rect = inventory_item->GetUpgrIconRect();
+	return Frect().set(float(rect.x1), float(rect.y1), float(rect.x2), float(rect.y2));
+}
+
 float CScriptGameObject::GetCondition() const
 {
 	CInventoryItem* inventory_item = smart_cast<CInventoryItem*>(&object());

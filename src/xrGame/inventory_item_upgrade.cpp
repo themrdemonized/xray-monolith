@@ -19,6 +19,7 @@
 #include "inventory_upgrade.h"
 #include "Level.h"
 #include "WeaponMagazinedWGrenade.h"
+#include "string_table.h"
 
 bool CInventoryItem::has_upgrade_group(const shared_str& upgrade_group_id)
 {
@@ -164,6 +165,7 @@ bool CInventoryItem::install_upgrade_impl(LPCSTR section, bool test)
 {
 	bool result = process_if_exists(section, "cost", &CInifile::r_u32, m_cost, test);
 	result |= process_if_exists(section, "inv_weight", &CInifile::r_float, m_weight, test);
+	result |= install_upgrade_ui(section, test);
 
 	bool result2 = false;
 	if (BaseSlot() != NO_ACTIVE_SLOT)
@@ -197,6 +199,61 @@ bool CInventoryItem::install_upgrade_impl(LPCSTR section, bool test)
 	if (result2 && !test)
 		CHitImmunity::AddImmunities(str, pSettings);
 
+	return result;
+}
+
+bool CInventoryItem::install_upgrade_ui(LPCSTR section, bool test)
+{
+	struct IconField
+	{
+		LPCSTR name;
+		int* value;
+		int minimum;
+	};
+	const IconField icon_fields[] = {
+		{"inv_grid_x", &m_inv_grid_rect.x1, 0},
+		{"inv_grid_y", &m_inv_grid_rect.y1, 0},
+		{"inv_grid_width", &m_inv_grid_rect.x2, 1},
+		{"inv_grid_height", &m_inv_grid_rect.y2, 1},
+		{"upgr_icon_x", &m_upgr_icon_rect.x1, 0},
+		{"upgr_icon_y", &m_upgr_icon_rect.y1, 0},
+		{"upgr_icon_width", &m_upgr_icon_rect.x2, 1},
+		{"upgr_icon_height", &m_upgr_icon_rect.y2, 1},
+	};
+
+	bool result = false;
+	for (const IconField& field : icon_fields)
+	{
+		int value = 0;
+		if (!process_if_exists_set(section, field.name, &CInifile::r_s32, value, false))
+			continue;
+
+		R_ASSERT3(value >= field.minimum, section, field.name);
+		if (!test)
+			*field.value = value;
+		result = true;
+	}
+
+	struct TextField
+	{
+		LPCSTR name;
+		shared_str* value;
+	};
+	const TextField text_fields[] = {
+		{"inv_name", &m_name},
+		{"inv_name_short", &m_nameShort},
+		{"description", &m_Description},
+	};
+	for (const TextField& field : text_fields)
+	{
+		LPCSTR value = nullptr;
+		if (!process_if_exists_set(section, field.name, &CInifile::r_string, value, test))
+			continue;
+
+		if (!test)
+			*field.value = CStringTable().translate(value);
+		result = true;
+	}
 	return result;
 }
 

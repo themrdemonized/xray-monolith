@@ -216,6 +216,9 @@ public:
 	LPCSTR Section() const;
 	// CInventoryItem
 	u32 Cost() const;
+	// Icon values use x1/y1 for position and x2/y2 for width/height.
+	Frect GetInvGridRect() const;
+	Frect GetUpgrIconRect() const;
 	float GetCondition() const;
 	void SetCondition(float val);
 	float GetPowerCritical() const;

@@ -712,6 +712,16 @@
         // Anomalies
         function is_enabled_anomaly()
 
+        // Inventory items (including weapons, outfits, helmets and backpacks)
+        Frect get_inv_grid_rect() // Current inv_grid values, including upgrades; units are inventory grid cells.
+        Frect get_upgr_icon_rect() // Current upgr_icon values, including upgrades; units are pixels.
+        // Both return a copy: x1 = x, y1 = y, x2 = width, y2 = height (not bottom-right coordinates).
+        // Modifying the returned Frect does not change the item. Non-inventory objects log an error and return all zeros.
+        // Example: local grid = item:get_inv_grid_rect(); local width, height = grid.x2, grid.y2
+        // To construct a UI pixel rectangle from the upgrade icon:
+        // local icon = item:get_upgr_icon_rect()
+        // local uv = Frect():set(icon.x1, icon.y1, icon.x1 + icon.x2, icon.y1 + icon.y2)
+
         // Artefact
         function get_artefact_additional_inventory_weight()
         function set_artefact_additional_inventory_weight(float)

@@ -114,6 +114,17 @@ bool CUIInventoryCellItem::EqualTo(CUICellItem* itm)
 	{
 		return false;
 	}
+	// The same upgrades can produce different presentation when applied in a different order.
+	Irect grid_rect = object()->GetInvGridRect();
+	Irect other_grid_rect = ci->object()->GetInvGridRect();
+	Irect upgrade_rect = object()->GetUpgrIconRect();
+	Irect other_upgrade_rect = ci->object()->GetUpgrIconRect();
+	if (!grid_rect.cmp(other_grid_rect) || !upgrade_rect.cmp(other_upgrade_rect) ||
+		object()->m_name != ci->object()->m_name || object()->m_nameShort != ci->object()->m_nameShort ||
+		object()->ItemDescription() != ci->object()->ItemDescription())
+	{
+		return false;
+	}
 	CEatableItem* eatable_item_1 = object()->cast_eatable_item();
 	CEatableItem* eatable_item_2 = ci->object()->cast_eatable_item();
 	if (eatable_item_1 && eatable_item_2 && ((eatable_item_1->GetRemainingUses() != eatable_item_1->GetMaxUses()) || (
