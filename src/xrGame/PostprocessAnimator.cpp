@@ -173,6 +173,11 @@ void CPostprocessAnimator::SetDesiredFactor(float f, float sp)
 	VERIFY(_valid(m_dest_factor));
 };
 
+float CPostprocessAnimator::GetCurrentFactor()
+{
+    return m_factor;
+};
+
 void CPostprocessAnimator::SetCurrentFactor(float f)
 {
 	m_factor = f;

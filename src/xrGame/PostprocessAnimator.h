@@ -175,6 +175,7 @@ public:
 	IC LPCSTR Name() { return *m_Name; }
 	virtual void Stop(float speed);
 	void SetDesiredFactor(float f, float sp);
+    float GetCurrentFactor();
 	void SetCurrentFactor(float f);
 	void SetCyclic(bool b) { m_bCyclic = b; }
 	float GetLength();
