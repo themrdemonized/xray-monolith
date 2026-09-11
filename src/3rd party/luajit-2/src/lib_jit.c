@@ -274,7 +274,9 @@ LJLIB_CF(jit_util_funcuvname)
   return 0;
 }
 
-/* local info = jit.util.gcstat() -- LuaJIT GC counters (bytes): total, threshold, estimate, debt */
+extern uint32_t lj_gc_cycles;  /* Defined in lj_gc.c: completed GC cycles since start. */
+
+/* local info = jit.util.gcstat() -- GC counters: total, threshold, estimate, debt (bytes) and cycles (completed collections) */
 LJLIB_CF(jit_util_gcstat)
 {
   global_State *g = G(L);
@@ -283,13 +285,15 @@ LJLIB_CF(jit_util_gcstat)
   lua_Number threshold = (lua_Number)g->gc.threshold;
   lua_Number estimate = (lua_Number)g->gc.estimate;
   lua_Number debt = (lua_Number)g->gc.debt;
+  lua_Number cycles = (lua_Number)lj_gc_cycles;
   GCtab *t;
-  lua_createtable(L, 0, 4);
+  lua_createtable(L, 0, 5);
   t = tabV(L->top-1);
   setnumfield(L, t, "total", total);
   setnumfield(L, t, "threshold", threshold);
   setnumfield(L, t, "estimate", estimate);
   setnumfield(L, t, "debt", debt);
+  setnumfield(L, t, "cycles", cycles);
   return 1;
 }
 

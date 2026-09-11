@@ -149,7 +149,7 @@
     }
 
     jit.util { // additions beyond stock jit.util
-        table jit.util.gcstat() // {total, threshold, estimate, debt} in bytes from the LuaJIT GC state; read-only snapshot, values may be mid-cycle under parallel GC
+        table jit.util.gcstat() // {total, threshold, estimate, debt} in bytes plus cycles = completed GC collections since start; read-only snapshot, values may be mid-cycle under parallel GC
     }
 
     globals {
