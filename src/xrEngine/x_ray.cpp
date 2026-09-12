@@ -66,6 +66,20 @@ rpc_info discord_gameinfo;
 rpc_strings discord_strings;
 float discord_update_rate = .5f;
 
+static ULONGLONG startup_begin_time;
+
+void LogStartupMenuReady()
+{
+	static bool logged = false;
+	if (!logged)
+	{
+		logged = true;
+		Msg("* [STARTUP] total to main menu: %llu ms", GetTickCount64() - startup_begin_time);
+	}
+	if (Sound)
+		Sound->source_prefetch_start();
+}
+
 //UTF-8 (ICU)
 #pragma comment(lib, "icuuc.lib")
 //#pragma comment(lib, "sicuuc.lib")
@@ -633,6 +647,8 @@ void Startup()
 	}
 
 	// Initialize APP
+	if (Sound)
+		Sound->source_prefetch_pause();
 	Device.Create();
 
 	LALib.OnCreate();
@@ -660,6 +676,8 @@ void Startup()
 	Memory.mem_usage();
 
 	Device.Run();
+	if (Sound)
+		Sound->source_prefetch_stop();
 
 	// Discord
 	clearDiscordPresence();
@@ -1252,6 +1270,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      char* lpCmdLine,
                      int nCmdShow)
 {
+	startup_begin_time = GetTickCount64();
   // Initialize LuaJIT low-memory pool FIRST, before any DLLs load and fragment
 	// the lower 2GB address space.
 	XR_EARLY_INIT();
@@ -1396,6 +1415,8 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 {
 	if (E == eQuit)
 	{
+		if (Sound)
+			Sound->source_prefetch_stop();
 		g_SASH.EndBenchmark();
 
 		PostQuitMessage(0);
@@ -1512,6 +1533,8 @@ void CApplication::LoadBegin()
 	ll_dwReference++;
 	if (1 == ll_dwReference)
 	{
+		if (Sound)
+			Sound->source_prefetch_pause();
 		g_appLoaded = FALSE;
 
 		//AVO:
@@ -1547,6 +1570,8 @@ void CApplication::destroy_loading_shaders()
 
 	//AVO:
 	g_bootComplete = TRUE;
+	if (Sound)
+		Sound->source_prefetch_start();
 	//-AVO
 
 	//hLevelLogo.destroy ();
@@ -1607,6 +1632,8 @@ void CApplication::OnFrame()
 	PROF_EVENT();
 
 	Engine.Event.OnFrame();
+	if (Sound)
+		Sound->source_prefetch_poll();
 	g_SpatialSpace->update();
 	g_SpatialSpacePhysic->update();
 	if (g_pGameLevel)

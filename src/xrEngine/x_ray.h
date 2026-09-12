@@ -117,6 +117,7 @@ extern ENGINE_API void updateDiscordPresence();
 extern ENGINE_API rpc_info discord_gameinfo;
 extern ENGINE_API rpc_strings discord_strings;
 extern ENGINE_API float discord_update_rate;
+extern ENGINE_API void LogStartupMenuReady();
 
 LPCSTR xr_ToUTF8(LPCSTR input, int max_length = 128);
 

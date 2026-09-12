@@ -82,7 +82,8 @@ void CSoundRender_Core::_initialize(int stage)
 
 	if (strstr(Core.Params, "-prefetch_sounds"))
 	{
-		i_create_all_sources();
+		build_source_prefetch_manifest();
+		source_prefetch_start();
 	}
 }
 
@@ -91,6 +92,8 @@ extern xr_vector<u8> g_target_temp_data_16;
 
 void CSoundRender_Core::_clear()
 {
+	source_prefetch_stop();
+	clear_source_prefetch();
 	bReady = FALSE;
 	cache.destroy();
 	env_unload();

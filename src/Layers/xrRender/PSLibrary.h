@@ -19,6 +19,12 @@ class ECORE_API CPSLibrary : public particles_systems::library_interface
 {
 	PS::PEDVec m_PEDs;
 	PS::PGDVec m_PGDs;
+	u32 m_prepare_loose_ms = 0;
+	u32 m_prepare_library_ms = 0;
+	u32 m_prepare_sort_ms = 0;
+
+	bool LoadDefinitions(LPCSTR nm);
+	void FinalizeLoad();
 
 #ifdef _EDITOR
     AnsiString			m_CurrentParticles;
