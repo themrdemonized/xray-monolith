@@ -32,6 +32,7 @@
 
 #include "xrSash.h"
 #include "MonitorList.h"
+#include "renderdoc_integration.h"
 
 extern "C" void XR_EARLY_INIT();
 
@@ -1096,6 +1097,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 
 	compute_build_id();
 	Core._initialize("xray", NULL, TRUE, fsgame[0] ? fsgame : NULL);
+	renderdoc_initialize();
 
 	InitSettings();
 	Msg(XRAY_MONOLITH_VERSION);

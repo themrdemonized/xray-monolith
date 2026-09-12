@@ -13,6 +13,7 @@
 #pragma warning(default:4995)
 #include "../xrRender/HW.h"
 #include "../../xrEngine/XR_IOConsole.h"
+#include "../../xrEngine/renderdoc_integration.h"
 #include "../../Include/xrAPI/xrAPI.h"
 #include "../xrRender/xrRender_console.h"
 
@@ -609,6 +610,8 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
     _RELEASE(swapchain3);
 
     R_CHK(pContext->QueryInterface(__uuidof(ID3DUserDefinedAnnotation), (void**)&pAnnotation));
+
+    renderdoc_set_active_window(pDevice, m_hWnd);
 
 #else
 	R = D3DX10CreateDeviceAndSwapChain(m_pAdapter,
