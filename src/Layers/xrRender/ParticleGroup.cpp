@@ -188,10 +188,19 @@ PS::CParticleGroup::SItem::~SItem()
 		return;
 
 	auto Callback = xr_make_delegate(this, &PS::CParticleGroup::SItem::DelayDeleteChilds);
+	xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
 	auto Iter = std::find(Device.seqParallelBeforRender.begin(), Device.seqParallelBeforRender.end(), Callback);
 	if (Iter != Device.seqParallelBeforRender.end())
 	{
-		Device.seqParallelBeforRender.erase(Iter);
+		// Cancel in place rather than erasing. This destructor can run from
+		// inside the main thread's drain loop in CRenderDevice::on_idle, when
+		// an invoked callback destroys an object owning this particle group
+		// (CObjectList::ProcessDestroyQueue is registered in the same vector).
+		// Erasing there would invalidate the loop's iteration; clearing the
+		// entry leaves the size untouched. The drain skips cleared entries and
+		// clear()s the whole vector once it finishes, so the callback is never
+		// invoked on a destroyed SItem either way.
+		Iter->clear();
 	}
 }
 
@@ -467,6 +476,7 @@ void CParticleGroup::SItem::OnFrame(u32 u_dt, const CPGDef::SEffect& def, Fbox& 
 		if (!_children_destroy.empty())
 		{
 			auto Callback = xr_make_delegate(this, &PS::CParticleGroup::SItem::DelayDeleteChilds);
+			xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
 			if (std::find(Device.seqParallelBeforRender.begin(), Device.seqParallelBeforRender.end(), Callback) == Device.seqParallelBeforRender.end())
 			{
 				Device.seqParallelBeforRender.emplace_back(std::move(Callback));
