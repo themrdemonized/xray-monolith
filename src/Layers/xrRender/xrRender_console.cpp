@@ -129,6 +129,12 @@ float ps_r__Detail_l_ambient = 0.9f;
 float ps_r__Detail_l_aniso = 0.25f;
 float ps_r__Detail_density = 0.3f;
 float ps_r__Detail_height = 1.0f;
+// Distance-based grass density falloff (render-time, RADIUS-RELATIVE). Full density
+// within 'knee' (a FRACTION of the grass radius dm_fade / r__detail_radius), then
+// falls to zero at the radius edge along a power curve. Auto-covers the field at any
+// radius. knee>=1.0 disables it.
+float ps_r__Detail_density_knee = 1.00f; // radius fraction kept fully dense (1.0 -> linear/vanilla SSA distribution)
+float ps_r__Detail_density_curve = 2.00f; // falloff exponent: >1 drop hard after knee, <1 hold then cliff at edge, 1 linear
 float ps_r__Detail_rainbow_hemi = 0.75f;
 
 float ps_r__Tree_w_rot = 10.0f;
@@ -1287,6 +1293,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r__detail_density", &ps_current_detail_density/*&ps_r__Detail_density*/, 0.04f/*.2f*/, 1.f);
 	//AVO: extended from 0.2 to 0.04 and replaced variable
 	CMD4(CCC_Float, "r__detail_height", &ps_current_detail_height, 0.5f, 2.0f);
+	CMD4(CCC_Float, "r__detail_density_knee", &ps_r__Detail_density_knee, 0.0f, 1.0f);
+	CMD4(CCC_Float, "r__detail_density_curve", &ps_r__Detail_density_curve, 0.25f, 12.0f);
 
 #ifdef DEBUG
 	CMD4(CCC_Float,		"r__detail_l_ambient",	&ps_r__Detail_l_ambient,	.5f,	.95f	);
