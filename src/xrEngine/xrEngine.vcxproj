@@ -977,9 +977,12 @@
     <ClInclude Include="pure.h" />
     <ClInclude Include="pure_relcase.h" />
     <ClInclude Include="Rain.h" />
+    <ClInclude Include="renderdoc_app.h" />
+    <ClInclude Include="renderdoc_integration.h" />
     <ClInclude Include="Render.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ShadersExternalData.h" />
+    <ClInclude Include="shader_bus.h" />
     <ClInclude Include="Shader_xrLC.h" />
     <ClInclude Include="SkeletonMotionDefs.h" />
     <ClInclude Include="SkeletonMotions.h" />
@@ -1089,7 +1092,9 @@
     <ClCompile Include="pure.cpp" />
     <ClCompile Include="pure_relcase.cpp" />
     <ClCompile Include="Rain.cpp" />
+    <ClCompile Include="renderdoc_integration.cpp" />
     <ClCompile Include="Render.cpp" />
+    <ClCompile Include="shader_bus.cpp" />
     <ClCompile Include="SkeletonMotions.cpp" />
     <ClCompile Include="StatGraph.cpp" />
     <ClCompile Include="Stats.cpp" />

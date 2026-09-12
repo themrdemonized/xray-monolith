@@ -164,6 +164,7 @@ void CRenderTarget::phase_downsamp()
 
 void CRenderTarget::phase_ssfx_ao()
 {
+	PIX_EVENT(phase_ssfx_ao);
 
 	//Constants
 	u32 Offset = 0;

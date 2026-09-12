@@ -851,7 +851,6 @@ void CUIActorMenu::CallMessageBoxOK(LPCSTR text)
 void CUIActorMenu::ResetMode()
 {
 	ClearAllLists();
-	m_pMouseCapturer = NULL;
 	m_UIPropertiesBox->Hide();
 	SetCurrentItem(NULL);
 }

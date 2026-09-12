@@ -15,6 +15,7 @@
 
 #include "xr_object.h"
 #include "MonitorList.h"
+#include "renderdoc_integration.h"
 
 xr_token* vid_quality_token = NULL;
 
@@ -122,6 +123,61 @@ class CCC_DbgStrDump : public IConsole_Command
 public:
 	CCC_DbgStrDump(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
 	virtual void Execute(LPCSTR args) { g_pStringContainer->dump(); }
+};
+
+class CCC_RenderDoc : public IConsole_Command
+{
+protected:
+	int Value(LPCSTR args, int fallback) { return (args && args[0]) ? atoi(args) : fallback; }
+
+public:
+	CCC_RenderDoc(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+};
+
+class CCC_RenderDocCapture : public CCC_RenderDoc
+{
+	enum { frames_max = 60 };
+
+public:
+	CCC_RenderDocCapture(LPCSTR N) : CCC_RenderDoc(N) {};
+
+	virtual void Execute(LPCSTR args)
+	{
+		int frames = Value(args, 1);
+		if (frames < 1 || frames > frames_max) InvalidSyntax();
+		else renderdoc_trigger_capture(u32(frames));
+	}
+
+	virtual void Info(TInfo& I) { xr_sprintf(I, sizeof(I), "frame count in range [1,%d], 1 when omitted", frames_max); }
+};
+
+class CCC_RenderDocOpen : public CCC_RenderDoc
+{
+public:
+	CCC_RenderDocOpen(LPCSTR N) : CCC_RenderDoc(N) {};
+
+	virtual void Execute(LPCSTR args) { renderdoc_open_replay_ui(); }
+};
+
+class CCC_RenderDocOverlay : public CCC_RenderDoc
+{
+public:
+	CCC_RenderDocOverlay(LPCSTR N) : CCC_RenderDoc(N) {};
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!args || !args[0])
+		{
+			Msg("* [RDC] overlay %s", renderdoc_overlay_enabled() ? "on" : "off");
+			return;
+		}
+
+		int visible = Value(args, 0);
+		if (visible < 0 || visible > 1) InvalidSyntax();
+		else renderdoc_set_overlay(visible != 0);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "0 hides, 1 shows, empty prints the state"); }
 };
 
 //-----------------------------------------------------------------------
@@ -1041,6 +1097,9 @@ void CCC_Register()
 	CMD1(CCC_SaveCFG, "cfg_save");
 	CMD1(CCC_LoadCFG, "cfg_load");
 	CMD1(CCC_DumpCVars, "dump_cvar");
+	CMD1(CCC_RenderDocCapture, "rdoc_capture");
+	CMD1(CCC_RenderDocOpen, "rdoc_open");
+	CMD1(CCC_RenderDocOverlay, "rdoc_overlay");
 
 	CMD3(CCC_Mask, "mt_particles", &psDeviceFlags, mtParticles);
 

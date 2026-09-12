@@ -155,8 +155,8 @@ void CUIDragDropListEx::DestroyDragItem()
 {
 	if (m_selected_item && m_drag_item && m_drag_item->ParentItem() == m_selected_item)
 	{
-		VERIFY(GetParent()->GetMouseCapturer()==m_drag_item);
-		GetParent()->SetCapture(NULL, false);
+		VERIFY(m_drag_item->IsMouseCapturer());
+		GetParent()->SetCapture(m_drag_item, false);
 
 		delete_data(m_drag_item);
 	}

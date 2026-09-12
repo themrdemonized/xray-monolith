@@ -266,7 +266,10 @@ void CObjectList::Update(bool bForce)
 	// Destroy
     ProcessDestroyQueueImpl(force_destroy_queue);
     if (mt_Scheduler)
+    {
+        xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
         Device.seqParallelBeforRender.push_back(xr_make_delegate(this, &CObjectList::ProcessDestroyQueue));
+    }
     else
         ProcessDestroyQueue();
 }
@@ -430,6 +433,7 @@ void CObjectList::Load()
 void CObjectList::ClearProcessDestroyQueueFromDevice()
 {
     auto Callback = xr_make_delegate(this, &CObjectList::ProcessDestroyQueue);
+    xrCriticalSectionGuard guard(&Device.seqParallelBeforRenderCS);
     Device.seqParallelBeforRender.erase(
         std::remove(
             Device.seqParallelBeforRender.begin(),

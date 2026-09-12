@@ -315,7 +315,6 @@ void CUIMainIngameWnd::Draw()
 	RenderQuickInfos();
 }
 
-
 void CUIMainIngameWnd::SetMPChatLog(CUIWindow* pChat, CUIWindow* pLog)
 {
 	m_pMPChatWnd = pChat;
@@ -589,11 +588,12 @@ void CUIMainIngameWnd::UpdatePickUpItem()
 	shared_str sect_name = m_pPickUpItem->object().cNameSect();
 
 	//properties used by inventory menu
-	int m_iGridWidth = pSettings->r_u32(sect_name, "inv_grid_width");
-	int m_iGridHeight = pSettings->r_u32(sect_name, "inv_grid_height");
+	const Irect grid_rect = m_pPickUpItem->GetInvGridRect();
+	int m_iGridWidth = grid_rect.x2;
+	int m_iGridHeight = grid_rect.y2;
 
-	int m_iXPos = pSettings->r_u32(sect_name, "inv_grid_x");
-	int m_iYPos = pSettings->r_u32(sect_name, "inv_grid_y");
+	int m_iXPos = grid_rect.x1;
+	int m_iYPos = grid_rect.y1;
 
 	if (pSettings->line_exist(sect_name.c_str(), "icons_texture"))
 	{

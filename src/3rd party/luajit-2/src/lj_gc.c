@@ -25,6 +25,9 @@
 #endif
 #include "lj_trace.h"
 #include "lj_vm.h"
+#if LJ_HASPROFILE
+#include "lj_allocprof.h"
+#endif
 
 #define GCSTEPSIZE	1024u
 #define GCSWEEPMAX	40
@@ -816,6 +819,10 @@ void *lj_mem_realloc(lua_State *L, void *p, MSize osz, MSize nsz)
   lua_assert((nsz == 0) == (p == NULL));
   lua_assert(checkptr32(p));
   g->gc.total = (g->gc.total - osz) + nsz;
+#if LJ_HASPROFILE
+  if (lj_allocprof_active && nsz > osz)
+    lj_allocprof_pending += (uint64_t)(nsz - osz);
+#endif
   return p;
 }
 
@@ -831,6 +838,10 @@ void * LJ_FASTCALL lj_mem_newgco(lua_State *L, MSize size)
   setgcrefr(o->gch.nextgc, g->gc.root);
   setgcref(g->gc.root, o);
   newwhite(g, o);
+#if LJ_HASPROFILE
+  if (lj_allocprof_active)
+    lj_allocprof_pending += (uint64_t)size;
+#endif
   return o;
 }
 

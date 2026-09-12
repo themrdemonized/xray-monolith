@@ -454,7 +454,7 @@ Fvector4 ps_ssfx_wetsurfaces_2 = { 1.0f, 1.0f, 1.0f, 1.0f }; // Wet surfaces 2
 int ps_ssfx_is_underground = 0;
 int ps_ssfx_gloss_method = 0;
 float ps_ssfx_gloss_factor = 0.5f;
-Fvector3 ps_ssfx_gloss_minmax = { 0.0f,0.92f,0.0f }; // Gloss
+Fvector4 ps_ssfx_gloss_minmax = { 0.0f,0.92f,0.0f,0.0f }; // Gloss
 
 Fvector4 ps_ssfx_lightsetup_1 = { 0.35f, 0.5f, 0.0f, 0.0f }; // Spec intensity
 
@@ -542,6 +542,7 @@ float r_rain_k = 99.0f;
 #ifndef _EDITOR
 #include	"../../xrEngine/xr_ioconsole.h"
 #include	"../../xrEngine/xr_ioc_cmd.h"
+#include	"../../xrEngine/shader_bus.h"
 
 #if defined(USE_DX10) || defined(USE_DX11)
 #include "../xrRenderDX10/StateManager/dx10SamplerStateCache.h"
@@ -1085,6 +1086,168 @@ public:
 #endif	//	DEBUG
 #endif	//	(RENDER == R_R3) || (RENDER == R_R4)
 
+static const struct
+{
+	LPCSTR name;
+	Fvector4* value;
+} legacy_lanes[] = {
+	{"shader_param_1", &ps_dev_param_1},
+	{"shader_param_2", &ps_dev_param_2},
+	{"shader_param_3", &ps_dev_param_3},
+	{"shader_param_4", &ps_dev_param_4},
+	{"shader_param_5", &ps_dev_param_5},
+	{"shader_param_6", &ps_dev_param_6},
+	{"shader_param_7", &ps_dev_param_7},
+	{"shader_param_8", &ps_dev_param_8},
+	{"s3ds_param_1", &ps_s3ds_param_1},
+	{"s3ds_param_2", &ps_s3ds_param_2},
+	{"s3ds_param_3", &ps_s3ds_param_3},
+	{"s3ds_param_4", &ps_s3ds_param_4}
+};
+
+class CCC_BusList : public IConsole_Command
+{
+public:
+	CCC_BusList(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		const u32 lanes = ShaderBus::count();
+		Msg("[SHADER-BUS] %d lanes", lanes);
+
+		for (u32 i = 0; i < lanes; ++i)
+		{
+			const ShaderBus::lane* l = ShaderBus::at(i);
+			if (!l)
+				continue;
+
+			if (l->registered)
+				Msg("[SHADER-BUS] bus_%s owner '%s' = (%f, %f, %f, %f) %s [%s changes %d writes %d bound frame %d]",
+				    l->id.c_str(), l->owner.c_str(),
+				    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str(),
+				    l->is_forced ? "forced" : "registered", l->changes, l->writes, l->bound_frame);
+			else
+				Msg("[SHADER-BUS] bus_%s declared by shaders, not registered [%s changes %d writes %d bound frame %d]",
+				    l->id.c_str(), l->is_forced ? "forced" : "declared", l->changes, l->writes, l->bound_frame);
+		}
+
+		for (u32 i = 0; i < sizeof(legacy_lanes) / sizeof(legacy_lanes[0]); ++i)
+			Msg("[SHADER-BUS] %s legacy = (%f, %f, %f, %f)", legacy_lanes[i].name,
+			    legacy_lanes[i].value->x, legacy_lanes[i].value->y,
+			    legacy_lanes[i].value->z, legacy_lanes[i].value->w);
+	}
+};
+
+class CCC_BusGet : public IConsole_Command
+{
+public:
+	CCC_BusGet(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!args || !args[0])
+		{
+			Msg("~ [SHADER-BUS] usage bus_get <id>");
+			return;
+		}
+
+		Fvector4 v;
+		if (!ShaderBus::get(args, v))
+		{
+			Msg("~ [SHADER-BUS] no lane named %s", args);
+			return;
+		}
+		Msg("[SHADER-BUS] bus_%s = (%f, %f, %f, %f)", args, v.x, v.y, v.z, v.w);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
+};
+
+class CCC_BusForce : public IConsole_Command
+{
+public:
+	CCC_BusForce(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		string64 id;
+		id[0] = 0;
+
+		Fvector4 v;
+		if (!args || 5 != sscanf(args, "%63s %f %f %f %f", id, &v.x, &v.y, &v.z, &v.w))
+		{
+			Msg("~ [SHADER-BUS] usage bus_force <id> x y z w");
+			return;
+		}
+
+		if (!_finite(v.x) || !_finite(v.y) || !_finite(v.z) || !_finite(v.w))
+		{
+			Msg("~ [SHADER-BUS] bus_force needs finite values");
+			return;
+		}
+
+		if (!ShaderBus::force(id, v))
+		{
+			Msg("~ [SHADER-BUS] no lane named %s", id);
+			return;
+		}
+		Msg("[SHADER-BUS] bus_%s held at (%f, %f, %f, %f)", id, v.x, v.y, v.z, v.w);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id and four floats"); }
+};
+
+class CCC_BusRelease : public IConsole_Command
+{
+public:
+	CCC_BusRelease(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		string64 id;
+		id[0] = 0;
+
+		if (!args || 1 != sscanf(args, "%63s", id))
+		{
+			Msg("~ [SHADER-BUS] usage bus_release <id>");
+			return;
+		}
+
+		if (!ShaderBus::release(id))
+		{
+			Msg("~ [SHADER-BUS] no lane named %s", id);
+			return;
+		}
+		Msg("[SHADER-BUS] bus_%s released", id);
+	}
+
+	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
+};
+
+class CCC_Vector4Legacy : public CCC_Vector4
+{
+public:
+	CCC_Vector4Legacy(LPCSTR N, Fvector4* V, const Fvector4 _min, const Fvector4 _max) :
+		CCC_Vector4(N, V, _min, _max)
+	{
+	};
+
+	virtual void Execute(LPCSTR args)
+	{
+		Fvector4 v;
+		if (!parse(args, v))
+		{
+			InvalidSyntax();
+			return;
+		}
+		value->set(v);
+
+		LPCSTR caller = Console->ScriptCaller();
+		LPCSTR writer = caller[0] ? caller : (Device.b_is_Ready ? "console" : Console->ConfigFile);
+		ShaderBus::note_legacy_write(cName, writer);
+	}
+};
+
 //-----------------------------------------------------------------------
 void xrRender_initconsole()
 {
@@ -1346,14 +1509,19 @@ void xrRender_initconsole()
 	//Shader param stuff
 	Fvector4 tw2_min = { -100.f, -100.f, -100.f, -100.f };
 	Fvector4 tw2_max = { 100.f, 100.f, 100.f, 100.f };
-	CMD4(CCC_Vector4, "shader_param_1", &ps_dev_param_1, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_2", &ps_dev_param_2, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_3", &ps_dev_param_3, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_4", &ps_dev_param_4, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_5", &ps_dev_param_5, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_1", &ps_dev_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_2", &ps_dev_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_3", &ps_dev_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_4", &ps_dev_param_4, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_5", &ps_dev_param_5, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_6", &ps_dev_param_6, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_7", &ps_dev_param_7, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "shader_param_8", &ps_dev_param_8, tw2_min, tw2_max);
+
+	CMD1(CCC_BusList, "bus_list");
+	CMD1(CCC_BusGet, "bus_get");
+	CMD1(CCC_BusForce, "bus_force");
+	CMD1(CCC_BusRelease, "bus_release");
 
 	// Mark Switch
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
@@ -1361,10 +1529,10 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 
 	// Shader 3D Scopes
-	CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
-	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4Legacy, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
 
@@ -1429,7 +1597,7 @@ void xrRender_initconsole()
 
 	CMD4(CCC_Integer, "ssfx_is_underground", &ps_ssfx_is_underground, 0, 1);
 	CMD4(CCC_Integer, "ssfx_gloss_method", &ps_ssfx_gloss_method, 0, 1);
-	CMD4(CCC_Vector3, "ssfx_gloss_minmax", &ps_ssfx_gloss_minmax, Fvector3().set(0, 0, 0), Fvector3().set(1.0, 1.0, 1.0));
+	CMD4(CCC_Vector4, "ssfx_gloss_minmax", &ps_ssfx_gloss_minmax, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 	CMD4(CCC_Float, "ssfx_gloss_factor", &ps_ssfx_gloss_factor, 0.0f, 1.0f);
 
 	CMD4(CCC_Vector4, "ssfx_lightsetup_1", &ps_ssfx_lightsetup_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));

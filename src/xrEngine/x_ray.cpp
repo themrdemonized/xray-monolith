@@ -32,6 +32,7 @@
 
 #include "xrSash.h"
 #include "MonitorList.h"
+#include "renderdoc_integration.h"
 
 extern "C" void XR_EARLY_INIT();
 
@@ -1045,8 +1046,8 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 #endif // DEDICATED_SERVER
 
 	// Title window
-	logoWindow = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_STARTUP), 0, logDlgProc);
-
+    logoWindow = CreateDialog(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_STARTUP), 0, logDlgProc);
+   
 	HWND logoPicture = GetDlgItem(logoWindow, IDC_STATIC_LOGO);
 	RECT logoRect;
 	GetWindowRect(logoPicture, &logoRect);
@@ -1059,6 +1060,13 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 	GetMonitorPosition(monX, monY);
 	int x = monX + (screenW - splashW) / 2;
 	int y = monY + (screenH - splashH) / 2;
+
+    // verdatim: set the size of the splash window to be zero when the flag "-nosplashwindow" is given
+    if (strstr(xr_strdup(GetCommandLine()), "-nosplashwindow")) {
+        splashW = int(0);
+        splashH = int(0);
+    }
+
 
 	SetWindowPos(
 		logoWindow,
@@ -1073,7 +1081,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		splashH,
 		SWP_SHOWWINDOW
 	);
-
+	
 	UpdateWindow(logoWindow);
 
 	// AVI
@@ -1096,6 +1104,7 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 
 	compute_build_id();
 	Core._initialize("xray", NULL, TRUE, fsgame[0] ? fsgame : NULL);
+	renderdoc_initialize();
 
 	InitSettings();
 	Msg(XRAY_MONOLITH_VERSION);

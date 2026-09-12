@@ -79,6 +79,7 @@ private:
 	ref_sound snd_Ambient;
 	float rain_volume;
 	float rain_hemi = 0.0f;
+	float rain_volume_mult = 1.0f;   // set once at rain onset by COnRainSound; 1.0 = vanilla
 
 	// Utilities
 	void p_create();

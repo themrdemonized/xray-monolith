@@ -216,6 +216,9 @@ public:
 	LPCSTR Section() const;
 	// CInventoryItem
 	u32 Cost() const;
+	// Icon values use x1/y1 for position and x2/y2 for width/height.
+	Frect GetInvGridRect() const;
+	Frect GetUpgrIconRect() const;
 	float GetCondition() const;
 	void SetCondition(float val);
 	float GetPowerCritical() const;
@@ -844,6 +847,7 @@ public:
 	void set_hit_redirect(float max, float falloff);
 	void set_view_distance_factor(float value);
 	void set_health_restore_boost(float value);
+	void set_movement_hold(bool value);
 	bool can_kill_enemy();
 	bool can_kill_member();
 	bool fire_make_sense();
@@ -1192,6 +1196,10 @@ public:
 	// demonized: Adjust Lookout coeff
 	float GetActorLookoutCoef() const;
 	void SetActorLookoutCoef(float val);
+
+    // verdatim: adjust damage stagger time factor
+    float GetActorDamageStaggerTimeFactor() const;
+    void SetActorDamageStaggerTimeFactor(float val);
 
 	float GetActorCrouchCoef() const;
 	void SetActorCrouchCoef(float val);

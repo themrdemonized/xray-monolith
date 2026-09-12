@@ -11,6 +11,7 @@
 #include "CameraManager.h"
 #include "xr_object.h"
 #include "feel_sound.h"
+#include "shader_bus.h"
 
 #include "../xrCore/profiler.h"
 
@@ -151,6 +152,8 @@ bool IGame_Level::Load(u32 dwNum)
 #endif
 
 	Device.seqFrame.Add(this);
+
+	ShaderBus::dump();
 
 	//SECUROM_MARKER_PERFORMANCE_OFF(10)
 

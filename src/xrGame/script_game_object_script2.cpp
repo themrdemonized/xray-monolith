@@ -105,6 +105,8 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("mass", &CScriptGameObject::Mass)
 		.def("cost", SAFE_WRAP(&CScriptGameObject::Cost))
 		.def("condition", SAFE_WRAP(&CScriptGameObject::GetCondition))
+		.def("get_inv_grid_rect", SAFE_WRAP(&CScriptGameObject::GetInvGridRect))
+		.def("get_upgr_icon_rect", SAFE_WRAP(&CScriptGameObject::GetUpgrIconRect))
 		.def("set_condition", SAFE_WRAP(&CScriptGameObject::SetCondition))
 		.def("power_critical", SAFE_WRAP(&CScriptGameObject::GetPowerCritical))
 		.def("psy_factor", SAFE_WRAP(&CScriptGameObject::GetPsyFactor))

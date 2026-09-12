@@ -87,7 +87,8 @@ CAI_Stalker::CAI_Stalker() :
 	m_fire_queue_size_k(-1.f),
 	m_fire_queue_interval_k(-1.f),
 	m_take_items_enabled(true),
-	m_death_sound_enabled(true)
+	m_death_sound_enabled(true),
+	m_movement_hold(false)
 {
 	m_pPhysics_support = NULL;
 	m_animation_manager = NULL;

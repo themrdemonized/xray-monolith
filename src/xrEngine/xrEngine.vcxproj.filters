@@ -258,6 +258,12 @@
     <ClInclude Include="Rain.h">
       <Filter>Game API\Environment\Effects</Filter>
     </ClInclude>
+    <ClInclude Include="renderdoc_app.h">
+      <Filter>General</Filter>
+    </ClInclude>
+    <ClInclude Include="renderdoc_integration.h">
+      <Filter>General</Filter>
+    </ClInclude>
     <ClInclude Include="thunderbolt.h">
       <Filter>Game API\Environment\Effects</Filter>
     </ClInclude>
@@ -435,6 +441,9 @@
     <ClInclude Include="ShadersExternalData.h">
       <Filter>Game API\Objects</Filter>
     </ClInclude>
+    <ClInclude Include="shader_bus.h">
+      <Filter>Game API\Objects</Filter>
+    </ClInclude>
     <ClInclude Include="..\3rd party\discord\achievement_manager.h">
       <Filter>Interfaces\Discord</Filter>
     </ClInclude>
@@ -546,6 +555,9 @@
     <ClCompile Include="IGame_ObjectPool.cpp">
       <Filter>Game API\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="shader_bus.cpp">
+      <Filter>Game API\Objects</Filter>
+    </ClCompile>
     <ClCompile Include="pure_relcase.cpp">
       <Filter>Game API\Objects</Filter>
     </ClCompile>
@@ -572,6 +584,9 @@
     </ClCompile>
     <ClCompile Include="Rain.cpp">
       <Filter>Game API\Environment\Effects</Filter>
+    </ClCompile>
+    <ClCompile Include="renderdoc_integration.cpp">
+      <Filter>General</Filter>
     </ClCompile>
     <ClCompile Include="thunderbolt.cpp">
       <Filter>Game API\Environment\Effects</Filter>
