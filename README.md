@@ -134,6 +134,10 @@ The original engine is used in S.T.A.L.K.E.R. Call of Pripyat game released by G
   * Allows to modify contents of loaded xml files before processing by engine by utilizing Lua scripts
   * For more information see DXML.md guide.
 
+* Shader bus
+  * Named, owned float4 shader constants that replace the shared `shader_param_N` slots. A script registers a lane by name and writes it through a token, any shader reads it by declaring `bus_<id>`, and the twelve legacy commands keep working while the log names whoever still writes them.
+  * For more information see SHADER_BUS.md guide, the Lua module and console commands are listed in `lua_help_ex.script`.
+
 * Possibility to unlocalize Lua variables in scripts before loading, making them global to the script namespace
   * For unlocalizing a variable in the script, please refer to documentation in test file in `gamedata/configs/unlocalizers` folder
 

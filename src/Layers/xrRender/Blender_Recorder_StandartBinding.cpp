@@ -12,6 +12,7 @@
 
 #include "../../xrEngine/igame_persistent.h"
 #include "../../xrEngine/environment.h"
+#include "../../xrEngine/shader_bus.h"
 
 #include "dxRenderDeviceRender.h"
 
@@ -1356,6 +1357,25 @@ static class vignette_control : public R_constant_setup
 	}
 } vignette_control;
 
+class bus_binder : public R_constant_setup
+{
+	ShaderBus::lane* lane;
+
+public:
+	bus_binder(ShaderBus::lane* l) : lane(l)
+	{
+	}
+
+	virtual void setup(R_constant* C)
+	{
+		lane->bound_frame = Device.dwFrame;
+		RCache.set_c(C, lane->bound.x, lane->bound.y, lane->bound.z, lane->bound.w);
+	}
+};
+
+// one binder per lane so the pass table dedup, which compares handler pointers, still matches
+static xr_vector<bus_binder*> bus_binders;
+
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
 {
@@ -1526,6 +1546,28 @@ void CBlender_Compile::SetMapping()
 	{
 		std::pair<shared_str, R_constant_setup*> cs = DEV->v_constant_setup[it];
 		r_Constant(*cs.first, cs.second);
+	}
+
+	for (u32 it = 0; it < ctable.table.size(); it++)
+	{
+		R_constant* C = &*ctable.table[it];
+		if (C->type != RC_float)
+			continue;
+
+		LPCSTR cname = C->name.c_str();
+		if (!cname || 0 != strncmp(cname, "bus_", 4))
+			continue;
+
+		ShaderBus::lane* lane = ShaderBus::declare(cname);
+		if (!lane)
+			continue;
+
+		if (bus_binders.size() <= lane->index)
+			bus_binders.resize(lane->index + 1, nullptr);
+		if (!bus_binders[lane->index])
+			bus_binders[lane->index] = xr_new<bus_binder>(lane);
+
+		C->handler = bus_binders[lane->index];
 	}
 
 

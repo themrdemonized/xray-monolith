@@ -2,6 +2,11 @@
 --[[
     
     console commands: {
+        bus_list // Print every shader bus lane with its owner, value, state, counters and the frame a shader last bound it
+        bus_get <id> // Print one shader bus lane
+        bus_force <id> x y z w // Hold a lane at finite values until bus_release, a console debug path, the lua write path still needs the token
+        bus_release <id> // Drop the hold, the owner value returns on the next frame
+
         snd_doppler_power [0; 5] // Adjust power of doppler effect
         snd_doppler_smoothing [1; 100] // Adjust smoothness of pitch shifting in doppler effect
 
@@ -441,6 +446,21 @@
 		eDXE_BC7 = 3,
 		eDXE_undefined = 4,
     }
+
+    shader_bus { -- named float4 lanes bound to hlsl constants called bus_<id>, see SHADER_BUS.md
+        number version() -- 2
+        number register(string id, string owner, string description) -- the write token, fatal when another owner already holds the id
+        number try_register(string id, string owner, string description) -- nil instead of the fatal
+        bool set(number token, number x, number y, number z, number w)
+        function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
+        function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value the owner last wrote
+        bool has(string id)
+        string describe(string id) -- nil for an unknown or unregistered id
+        string owner_of(string id) -- nil for an unknown or unregistered id
+        table list(bool include_declared = false) -- rows {id, owner, description, state, source, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
+        function stats(string id) -> bool ok, number changes, number last_change_frame, number bound_frame, number writes
+    }
+
     level {
         float get_music_volume()
         void set_music_volume(float)
