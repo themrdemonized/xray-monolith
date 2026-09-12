@@ -416,6 +416,24 @@ class CCC_Vector4 : public IConsole_Command
 protected:
 	Fvector4* value;
 	Fvector4 min, max;
+
+	bool parse(LPCSTR args, Fvector4& v)
+	{
+		if (4 != sscanf(args, "%f,%f,%f,%f", &v.x, &v.y, &v.z, &v.w))
+		{
+			if (4 != sscanf(args, "(%f,%f,%f,%f)", &v.x, &v.y, &v.z, &v.w))
+				return false;
+		}
+
+		if (v.x < min.x || v.y < min.y || v.z < min.z || v.w < min.w)
+			return false;
+
+		if (v.x > max.x || v.y > max.y || v.z > max.z || v.w > max.w)
+			return false;
+
+		return true;
+	}
+
 	public
 :
 	CCC_Vector4(LPCSTR N, Fvector4* V, const Fvector4 _min, const Fvector4 _max) :
@@ -431,21 +449,7 @@ protected:
 	virtual void Execute(LPCSTR args)
 	{
 		Fvector4 v;
-		if (4 != sscanf(args, "%f,%f,%f,%f", &v.x, &v.y, &v.z, &v.w))
-		{
-			if (4 != sscanf(args, "(%f,%f,%f,%f)", &v.x, &v.y, &v.z, &v.w))
-			{
-				InvalidSyntax();
-				return;
-			}
-		}
-
-		if (v.x < min.x || v.y < min.y || v.z < min.z || v.w < min.w)
-		{
-			InvalidSyntax();
-			return;
-		}
-		if (v.x > max.x || v.y > max.y || v.z > max.z || v.w > max.w)
+		if (!parse(args, v))
 		{
 			InvalidSyntax();
 			return;

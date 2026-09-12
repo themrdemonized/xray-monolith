@@ -10,6 +10,7 @@
 
 #include "../inventory_item.h"
 #include "UICellItem.h"
+#include "UICellItemFactory.h"
 #include "../InventoryOwner.h"
 #include "../Inventory.h"
 #include "../actor.h"
@@ -126,18 +127,31 @@ void CUIActorMenu::SeparateUpgradeItem()
 		return;
 	}
 	CUIDragDropListEx* list_owner = m_upgrade_selected->OwnerList();
-	if (list_owner && (GetListType(list_owner) != iActorBag))
+	if (!list_owner)
 	{
 		return;
 	}
 
-	//	if ( m_upgrade_selected->ChildsCount() > 0 )
-	//	{
-	//PIItem item = get_upgrade_item();
 	m_upgrade_selected->Mark(false);
 	CUICellItem* ci = list_owner->RemoveItem(m_upgrade_selected, false);
+	m_upgrade_selected = NULL;
+	m_pCurrentCellItem = NULL;
+
+	// Remove using the old grid size, then create a cell with the upgraded size.
+	PIItem item = (PIItem)ci->m_pData;
+	xr_delete(ci);
+	ci = create_cell_item(item);
 	list_owner->SetItem(ci);
-	//		m_upgrade_selected = ci;
-	//		m_upgrade_selected->Mark( true );
-	//	}
+
+	// SetItem may have merged the new cell into an existing stack.
+	for (u32 i = 0; i < list_owner->ItemsCount(); ++i)
+	{
+		CUICellItem* root = list_owner->GetItemIdx(i);
+		if (root == ci || root->HasChild(ci))
+		{
+			SetCurrentItem(root);
+			InfoCurItem(root);
+			break;
+		}
+	}
 }

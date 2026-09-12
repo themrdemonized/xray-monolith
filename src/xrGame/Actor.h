@@ -493,6 +493,9 @@ public:
 	// demonized: lookout modifier
 	float m_fLookoutFactor = 1;
 
+    // verdatim: damage stagger time factor
+    float DamageStaggerTimeFactor = 1;
+
 public:
 	Fvector GetMovementSpeed() { return NET_SavedAccel; };
 	//////////////////////////////////////////////////////////////////////////

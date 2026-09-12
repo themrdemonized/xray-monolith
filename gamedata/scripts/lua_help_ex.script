@@ -2,6 +2,11 @@
 --[[
     
     console commands: {
+        bus_list // Print every shader bus lane with its owner, value, state, counters and the frame a shader last bound it
+        bus_get <id> // Print one shader bus lane
+        bus_force <id> x y z w // Hold a lane at finite values until bus_release, a console debug path, the lua write path still needs the token
+        bus_release <id> // Drop the hold, the owner value returns on the next frame
+
         snd_doppler_power [0; 5] // Adjust power of doppler effect
         snd_doppler_smoothing [1; 100] // Adjust smoothness of pitch shifting in doppler effect
 
@@ -133,6 +138,21 @@
         table.random(t)
     }
 
+    jit.profile { // profiler-enabled build only; backported LuaJIT 2.1 timer sampler, GC64-free so saves stay compatible
+        jit.profile.start(string mode, function(thread, int samples, string vmstate)) // mode "iN" = sample every N ms; vmstate one of N/I/C/G/J; errors if jit.allocprof is running
+        jit.profile.stop()
+        string jit.profile.dumpstack(thread, string fmt, int depth) // "name@src:line;..." leaf-first; fmt accepted but ignored (fixed format)
+    }
+
+    jit.allocprof { // profiler-enabled build only; per-function allocation attribution, jit.off() recommended for exact attribution
+        jit.allocprof.start(int depth = 1) // byte-sampled (Poisson interval); depth>1 also captures full stacks for a flamegraph; errors if jit.profile is running
+        jit.allocprof.stop()
+        table jit.allocprof.dump(bool stacks, bool reset) // {{key=,bytes=},...} + dropped/pending/drains/seen; reset clears tables but keeps capturing
+        int jit.allocprof.usage() // 0..100 fill of the fullest aggregation table, snapshot before it reaches 100
+        jit.allocprof.pause() // disarm the hook to build a snapshot report at full speed
+        jit.allocprof.resume() // re-arm and continue capturing
+    }
+
     globals {
         string dik_to_keyname(number dik, boolean localize)
         int get_modded_exes_version() // Returns modded exes version in integer format
@@ -185,12 +205,6 @@
         bool dltx_is_override(string sec, string line)
     }
 
-    // UI hud
-    // get_hud():GetWindow()
-    get_hud() {
-        CUIWindow GetWindow()
-    }
-
     // Player hud
     // get_player_hud():set_hands("actor_hud_cs_exo")
     get_player_hud() {
@@ -211,6 +225,54 @@
         property dest_game_vertex_id    // u16
         property dest_level_vertex_id   // u32
         property dest_position          // Fvector
+    }
+
+    class CUIWindow {
+        CUIWindow FindChild()
+
+		CUI3tButton cast_3tButton()
+		CUIActorMenu cast_ActorMenu()
+		CUIButton cast_Button()
+		CUICheckButton cast_CheckButton()
+		CUIComboBox cast_ComboBox()
+		CUICustomEdit cast_CustomEdit()
+		CUICustomSpin cast_CustomSpin()
+		CUIDialogWnd cast_DialogWnd()
+		CUIEditBox cast_EditBox()
+		CUIFrameLineWnd cast_FrameLineWnd()
+		CUIFrameWindow cast_FrameWindow()
+		UIHint cast_Hint()
+		CUIHudStatesWnd cast_HudStatesWnd()
+		CUIListBox cast_ListBox()
+		CUIListBoxItem cast_ListBoxItem()
+		CUIListBoxItemMsgChain cast_ListBoxItemMsgChain()
+		CUIMMShniaga cast_MMShniaga()
+		CUIMainIngameWnd cast_MainIngameWnd()
+		CUIMapInfo cast_MapInfo()
+		CUIMapList cast_MapList()
+		CUIMessageBox cast_MessageBox()
+		CUIMessageBoxEx cast_MessageBoxEx()
+		CUIMessagesWindow cast_MessagesWindow()
+		CUIMotionIcon cast_MotionIcon()
+		CUIPdaWnd cast_PdaWnd()
+		CUIProgressBar cast_ProgressBar()
+		CUIPropertiesBox cast_PropertiesBox()
+		CUIDialogWndEx cast_ScriptWnd()
+		CUIScrollView cast_ScrollView()
+		CServerList cast_ServerList()
+		CUISleepStatic cast_SleepStatic()
+		CUISpinFlt cast_SpinFlt()
+		CUISpinNum cast_SpinNum()
+		CUISpinText cast_SpinText()
+		CUIStatic cast_Static()
+		CUITabButton cast_TabButton()
+		CUITabControl cast_TabControl()
+		CUITextWnd cast_TextWnd()
+		CUITrackBar cast_TrackBar()
+    }
+    
+    class CUIGameCustom {
+        CUIWindow GetWindow() // get_hud():GetWindow()
     }
 
     class CUIProgressBar {
@@ -264,6 +326,7 @@
         void AddHeader(string str) // Adds a non-selectable, colored title row (used to group items in a merged context menu)
         CUIPropertiesBox AddSubmenu(string label) // Adds a "label >" row whose submenu expands on hover; returns the child box to populate (AddItem/AddHeader/nested AddSubmenu)
         bool AddItem(string str, u32 id) // Adds a selectable item row carrying a u32 id (read back via GetSelectedItem():GetTAG() / map_spot_menu_property_clicked prop_id); lets a menu carry duplicate labels
+        void ShowAt(Frect parent_rect, vector2 point) // Opens the box at `point`, kept inside `parent_rect`; both in the box's PARENT space. AttachChild and AutoUpdateSize() first (submenus too)
     }
 
     class CUIListBoxItem : CUIFrameLineWnd {
@@ -320,6 +383,7 @@
         sphere,
         box,
     }
+
     debug_render {
         DBG_ScriptObject* add_object(u32 id, DebugRenderType type)
         DBG_ScriptObject* add_object(LPCSTR id, DebugRenderType type)
@@ -383,6 +447,21 @@
 		eDXE_BC7 = 3,
 		eDXE_undefined = 4,
     }
+
+    shader_bus { -- named float4 lanes bound to hlsl constants called bus_<id>, see SHADER_BUS.md
+        number version() -- 2
+        number register(string id, string owner, string description) -- the write token, fatal when another owner already holds the id
+        number try_register(string id, string owner, string description) -- nil instead of the fatal
+        bool set(number token, number x, number y, number z, number w)
+        function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
+        function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value the owner last wrote
+        bool has(string id)
+        string describe(string id) -- nil for an unknown or unregistered id
+        string owner_of(string id) -- nil for an unknown or unregistered id
+        table list(bool include_declared = false) -- rows {id, owner, description, state, source, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
+        function stats(string id) -> bool ok, number changes, number last_change_frame, number bound_frame, number writes
+    }
+
     level {
         float get_music_volume()
         void set_music_volume(float)
@@ -401,6 +480,9 @@
         // Removes all engine-spawned per-animation HUD camera effectors
         // Scripted effectors added via add_cam_effector are not touched.
         void remove_hud_motion_cam_effectors()
+
+        // level.add_cam_effector, but contains one more variable that dictates the speed of the cam effector, returns anim length
+        float add_cam_effector(LPCSTR fn, int id, bool cyclic, LPCSTR cb_func, float cam_fov, bool b_hud, float power, float speed)
 
         game_object get_target_obj(ETraceTarget)
         game_object get_target_obj()
@@ -463,12 +545,17 @@
         //    }
         //    level.add_bullet(t)
 
-         // Script Attachments
+        // Script Attachments
         function add_attachment(string, string)
         function get_attachment(string)
         function remove_attachment(string)
         function remove_attachment(script_attachment)
         function iterate_attachments(function)
+
+        // Post-Process Effectors
+        float get_pp_effector_factor(int id)
+        float get_pp_effector_length(int id)
+        bool check_pp_effector(int id)
 
         // MT only
         function scheduler_flush(bool)
@@ -671,6 +758,8 @@
 		function set_actor_box_y_offset(u32 box_num, float offset) -- box_num: 0 for stand, 1 for crouch, 2 for prone;
         function g_fireParams()
         function move_to_slot(game_object* pItem, number slot_id, bool doNotActivate)
+        function get_actor_damage_stagger_time_factor() // returns the damage stagger time factor that scales the slow down from mutant hit
+        function set_actor_damage_stagger_time_factor(float val) // writes to the damage stagger time factor variable that scales the slow down from mutant hit
 
         // Stalker and Monster
         function invalidate_restrictions()
@@ -679,6 +768,7 @@
         void set_hit_redirect(float max, float falloff) // Per-object bonus toward the last attacker in enemy selection, replacing the flat CQB step. max < 0 keeps vanilla. max >= 0 subtracts max*(1 - d2/falloff^2) from the attacker cost within falloff metres, so a close attacker is prioritised and a distant one fades to 0. The victim turns toward the shooter without a forced sighting. Not serialized, re-set on spawn.
         void set_view_distance_factor(float factor) // Per-object view-DISTANCE factor, the range sibling of set_vision_speed: multiplies object_visible_distance's return, composing with the per-state max_view_distance LTX multiplier. 1.0 = vanilla, higher sees farther, negative clamps to 0. Persists while online; re-set on spawn.
         void set_health_restore_boost(float value) // Per-object additive passive health-restore boost: adds value to the condition's m_fV_HealthRestore velocity applied every UpdateHealth while alive (base ~0.00003/s for stalkers), so the entity regenerates HP over time with no item. 0 = vanilla, higher = faster idle regen, negative clamps to 0. Stalkers and monsters (any CEntityAlive). Persists while online; re-set on spawn (condition rebuilt on re-online).
+        void set_movement_hold(bool value) // Per-object movement hold: while true, parse_velocity_mask routes into its Stand branch, so the stalker stays planted (speed 0, movement type Stand) with the path and destination preserved; movement resumes when cleared. false = vanilla. Stalkers only. Not serialized; the caller owns clearing it - a stale true holds the NPC in place indefinitely.
 
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
@@ -711,6 +801,16 @@
 
         // Anomalies
         function is_enabled_anomaly()
+
+        // Inventory items (including weapons, outfits, helmets and backpacks)
+        Frect get_inv_grid_rect() // Current inv_grid values, including upgrades; units are inventory grid cells.
+        Frect get_upgr_icon_rect() // Current upgr_icon values, including upgrades; units are pixels.
+        // Both return a copy: x1 = x, y1 = y, x2 = width, y2 = height (not bottom-right coordinates).
+        // Modifying the returned Frect does not change the item. Non-inventory objects log an error and return all zeros.
+        // Example: local grid = item:get_inv_grid_rect(); local width, height = grid.x2, grid.y2
+        // To construct a UI pixel rectangle from the upgrade icon:
+        // local icon = item:get_upgr_icon_rect()
+        // local uv = Frect():set(icon.x1, icon.y1, icon.x1 + icon.x2, icon.y1 + icon.y2)
 
         // Artefact
         function get_artefact_additional_inventory_weight()
@@ -1195,5 +1295,5 @@
         property userdata
     }
     
-    Script Attachment Guide: https://igigog.github.io/anomaly-modding-book/tutorials/scripting/script-attachments.html
+    Script Attachment Guide: https://anomaly-modding-book.netlify.app/docs/tutorials/scripting/script-attachments
 --]]

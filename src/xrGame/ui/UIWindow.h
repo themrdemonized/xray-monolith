@@ -199,8 +199,14 @@ public:
 
 	//захватить/освободить мышь окном
 	//сообщение посылается дочерним окном родительскому
+	// Capture is global, not per-window: one stack of windows that have taken the mouse, topmost
+	// wins, and releasing restores the one underneath (a popup keeps its capture across a scrollbar
+	// drag inside it). A capturer need not be a child of the receiver, or attached at all --
+	// CUIDragItem has no parent.
 	void SetCapture(CUIWindow* pChildWindow, bool capture_status);
-	CUIWindow* GetMouseCapturer() { return m_pMouseCapturer; }
+	static CUIWindow* MouseCapturer();
+	bool IsMouseCapturer() { return MouseCapturer() == this; }
+	void ReleaseMouseCapture();
 
 	//окошко, которому пересылаются сообщения,
 	//если NULL, то шлем на GetParent()
@@ -271,7 +277,7 @@ public:
 	const shared_str WindowName() const { return m_windowName; }
 	void SetWindowName(LPCSTR wn) { m_windowName = wn; }
 	LPCSTR WindowName_script() { return m_windowName.c_str(); }
-	CUIWindow* FindChild(const shared_str name);
+	CUIWindow* FindChild(const LPCSTR name);
 
 	IC bool CursorOverWindow() const { return m_bCursorOverWindow; }
 	IC u32 FocusReceiveTime() const { return m_dwFocusReceiveTime; }
@@ -343,9 +349,6 @@ protected:
 
 	//указатель на родительское окно
 	CUIWindow* m_pParentWnd;
-
-	//дочернее окно которое, захватило ввод мыши
-	CUIWindow* m_pMouseCapturer;
 
 	//дочернее окно которое, захватило ввод клавиатуры
 	CUIWindow* m_pKeyboardCapturer;

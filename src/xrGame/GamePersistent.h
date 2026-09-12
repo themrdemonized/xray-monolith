@@ -55,6 +55,12 @@ class CGamePersistent :
 	void UpdateDof();
 
 public:
+	virtual float OnThunderboltSound(LPCSTR file, float distance);
+	virtual float OnRainSound(LPCSTR file);
+
+private:
+
+public:
 	ui_core* m_pUI_core;
 	IReader* pDemoFile;
 	u32 uTime2Change;

@@ -33,6 +33,7 @@
 
 #include "xrSash.h"
 #include "igame_persistent.h"
+#include "shader_bus.h"
 
 #include "CustomHUD.h"
 #include "EngineThreading.h"
@@ -716,6 +717,8 @@ void CRenderDevice::FrameMove()
 	// Frame move
 	Statistic->EngineTOTAL.Begin();
 
+	ShaderBus::frame_latch();
+	
 	START_PROFILE("Process seqFrame");
 	Device.seqFrame.Process(rp_Frame);
 	STOP_PROFILE;

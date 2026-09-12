@@ -198,6 +198,12 @@ public:
 
 	virtual bool CanBePaused() { return true; }
 
+	// thunderbolt clap volume gate, overridden by the game layer to ask Lua. Returns 1.0 for vanilla.
+	// Appended at the end of the virtual block so it adds no vtable slot ahead of the existing ones.
+	virtual float OnThunderboltSound(LPCSTR file, float distance) { return 1.0f; }
+	// looped rain ambient volume gate, overridden by the game layer to ask Lua. Returns 1.0 for vanilla.
+	virtual float OnRainSound(LPCSTR file) { return 1.0f; }
+
 	struct pda_data
 	{
 		float pda_display_factor;

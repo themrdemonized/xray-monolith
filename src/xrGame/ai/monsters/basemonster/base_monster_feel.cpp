@@ -136,6 +136,8 @@ void CBaseMonster::HitEntity(const CEntity* pEntity, float fDamage, float impuls
 
 			float time_to_lock = fDamage * MAX_LOCK_TIME;
 			clamp(time_to_lock, 0.f, MAX_LOCK_TIME);
+            // verdatim: damage stagger time factor
+            time_to_lock *= Actor()->DamageStaggerTimeFactor;
 			Actor()->lock_accel_for(int(time_to_lock * 1000));
 
 			//////////////////////////////////////////////////////////////////////////

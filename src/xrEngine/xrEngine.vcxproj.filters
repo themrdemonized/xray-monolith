@@ -441,6 +441,9 @@
     <ClInclude Include="ShadersExternalData.h">
       <Filter>Game API\Objects</Filter>
     </ClInclude>
+    <ClInclude Include="shader_bus.h">
+      <Filter>Game API\Objects</Filter>
+    </ClInclude>
     <ClInclude Include="..\3rd party\discord\achievement_manager.h">
       <Filter>Interfaces\Discord</Filter>
     </ClInclude>
@@ -550,6 +553,9 @@
       <Filter>Game API</Filter>
     </ClCompile>
     <ClCompile Include="IGame_ObjectPool.cpp">
+      <Filter>Game API\Objects</Filter>
+    </ClCompile>
+    <ClCompile Include="shader_bus.cpp">
       <Filter>Game API\Objects</Filter>
     </ClCompile>
     <ClCompile Include="pure_relcase.cpp">

@@ -27,6 +27,9 @@
 #include "lj_dispatch.h"
 #include "lj_vm.h"
 #include "luajit.h"
+#if LJ_HASPROFILE
+#include "lj_profile.h"
+#endif
 
 /* Bump GG_NUM_ASMFF in lj_dispatch.h as needed. Ugly. */
 LJ_STATIC_ASSERT(GG_NUM_ASMFF == FF_NUM_ASMFUNC);
@@ -89,14 +92,22 @@ void lj_dispatch_init_hotcount(global_State *g)
 #define DISPMODE_RET	0x10	/* Override return dispatch. */
 
 /* Update dispatch table depending on various flags. */
-void lj_dispatch_update(global_State *g)
+void lj_dispatch_update(global_State *g, int nolock)
 {
   uint8_t oldmode = g->dispatchmode;
   uint8_t mode = 0;
+#if LJ_HASPROFILE && !LJ_PROFILE_SIGPROF
+  int profile_locked = nolock ? 0 : lj_profile_lock();
+#else
+  UNUSED(nolock);
+#endif
 #if LJ_HASJIT
   mode |= (G2J(g)->flags & JIT_F_ON) ? DISPMODE_JIT : 0;
   mode |= G2J(g)->state != LJ_TRACE_IDLE ?
 	    (DISPMODE_REC|DISPMODE_INS|DISPMODE_CALL) : 0;
+#endif
+#if LJ_HASPROFILE
+  mode |= (g->hookmask & HOOK_PROFILE) ? DISPMODE_INS : 0;
 #endif
   mode |= (g->hookmask & (LUA_MASKLINE|LUA_MASKCOUNT)) ? DISPMODE_INS : 0;
   mode |= (g->hookmask & LUA_MASKCALL) ? DISPMODE_CALL : 0;
@@ -186,6 +197,9 @@ void lj_dispatch_update(global_State *g)
       lj_dispatch_init_hotcount(g);
 #endif
   }
+#if LJ_HASPROFILE && !LJ_PROFILE_SIGPROF
+  if (profile_locked) lj_profile_unlock();
+#endif
 }
 
 /* -- JIT mode setting ---------------------------------------------------- */
@@ -245,7 +259,7 @@ int luaJIT_setmode(lua_State *L, int idx, int mode)
       else
 	G2J(g)->flags |= (uint32_t)JIT_F_ON;
 #endif
-      lj_dispatch_update(g);
+      lj_dispatch_update(g, 0);
     }
     break;
   case LUAJIT_MODE_FUNC:
@@ -320,7 +334,7 @@ LUA_API int lua_sethook(lua_State *L, lua_Hook func, int mask, int count)
   g->hookcount = g->hookcstart = (int32_t)count;
   g->hookmask = (uint8_t)((g->hookmask & ~HOOK_EVENTMASK) | mask);
   lj_trace_abort(g);  /* Abort recording on any hook change. */
-  lj_dispatch_update(g);
+  lj_dispatch_update(g, 0);
   return 1;
 }
 
@@ -352,10 +366,18 @@ static void callhook(lua_State *L, int event, BCLine line)
     /* Top frame, nextframe = NULL. */
     ar.i_ci = (int)((L->base-1) - tvref(L->stack));
     lj_state_checkstack(L, 1+LUA_MINSTACK);
+#if LJ_HASPROFILE && !LJ_PROFILE_SIGPROF
+    lj_profile_hook_enter(g);
+#else
     hook_enter(g);
+#endif
     hookf(L, &ar);
     lua_assert(hook_active(g));
+#if LJ_HASPROFILE && !LJ_PROFILE_SIGPROF
+    lj_profile_hook_leave(g);
+#else
     hook_leave(g);
+#endif
   }
 }
 
@@ -388,6 +410,14 @@ void LJ_FASTCALL lj_dispatch_ins(lua_State *L, const BCIns *pc)
   setcframe_pc(cf, pc);
   slots = cur_topslot(pt, pc, cframe_multres_n(cf));
   L->top = L->base + slots;  /* Fix top. */
+#if LJ_HASPROFILE
+  if (g->hookmask & HOOK_PROFILE) {
+    lj_profile_interpreter(L);
+    L->top = L->base + slots;
+    ERRNO_RESTORE
+    return;
+  }
+#endif
 #if LJ_HASJIT
   {
     jit_State *J = G2J(g);

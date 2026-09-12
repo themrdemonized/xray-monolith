@@ -72,6 +72,8 @@ public:
 	bool m_bAbsolutePositioning;
 	float m_fov;
 	float m_power;
+    // ver, allow setting speed of a camera anim
+    float m_speed;
 
 	CAnimatorCamEffector();
 	virtual ~CAnimatorCamEffector();
@@ -79,6 +81,8 @@ public:
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
 	void SetCyclic(bool b) { m_bCyclic = b; }
 	void SetPower(float p) { m_power = p; }
+    // ver, allow setting speed of a camera anim
+    void SetSpeed(float s) {m_speed = s;}
 	float GetPower() { return m_power; }
 	virtual BOOL Valid();
 	float GetAnimatorLength() { return fLifeTime; };

@@ -321,10 +321,21 @@ void CShootingObject::LoadFlameParticles(LPCSTR section, LPCSTR prefix)
 void CShootingObject::OnShellDrop(const Fvector& play_pos,
                                   const Fvector& parent_vel)
 {
-	if (!m_sShellParticles) return;
-	if (Device.vCameraPosition.distance_to_sqr(play_pos) > 2 * 2) return;
+    shared_str particles = m_sShellParticles;
+    bool in_hud_mode = IsHudModeNow();
+    if (in_hud_mode)
+    {
+        auto weaponObj = smart_cast<CWeapon*>(this);
+        if (weaponObj && weaponObj->HudItemData() && weaponObj->HudItemData()->m_shell_particles_override)
+        {
+            particles = weaponObj->HudItemData()->m_shell_particles;
+        }
+    }
 
-	intrusive_ptr<CParticlesObject> pShellParticles = Particles::Details::Create(*m_sShellParticles,TRUE);
+	if (!particles) return;
+    if (Device.vCameraPosition.distance_to_sqr(play_pos) > 2 * 2) return;
+
+	intrusive_ptr<CParticlesObject> pShellParticles = Particles::Details::Create(*particles,TRUE);
 	pShellParticles->SetLiveUpdate(TRUE);
 
 	Fmatrix particles_pos;
@@ -333,7 +344,7 @@ void CShootingObject::OnShellDrop(const Fvector& play_pos,
 
 	pShellParticles->UpdateParent(particles_pos, parent_vel);
 	CSpectator* tmp_spectr = smart_cast<CSpectator*>(Level().CurrentControlEntity());
-	bool in_hud_mode = IsHudModeNow();
+
 	if (in_hud_mode && tmp_spectr &&
 		(tmp_spectr->GetActiveCam() != CSpectator::eacFirstEye))
 	{

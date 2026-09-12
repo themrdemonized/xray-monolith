@@ -240,6 +240,9 @@ protected:
 
 	float m_fControlInertionFactor;
 	shared_str m_icon_name;
+	// Negative components use the base config; x2/y2 store width/height.
+	Irect m_inv_grid_rect = Irect().set(-1, -1, -1, -1);
+	Irect m_upgr_icon_rect = Irect().set(-1, -1, -1, -1);
 
 public:
 	virtual void make_Interpolation()
@@ -386,6 +389,7 @@ public:
 protected:
 	virtual void net_Spawn_install_upgrades(Upgrades_type saved_upgrades);
 	virtual bool install_upgrade_impl(LPCSTR section, bool test);
+	bool install_upgrade_ui(LPCSTR section, bool test);
 
 	template <typename T>
 	IC static bool process_if_exists(LPCSTR section, LPCSTR name, T (CInifile::*method)(LPCSTR, LPCSTR) const, T& value,

@@ -232,7 +232,14 @@ void CEffect_Thunderbolt::Bolt(shared_str id, float period, float lt)
 	else
 	{
 		next_lightning_time = Device.fTimeGlobal + period + Random.randF(-period * 0.3f, period * 0.3f);
-		current->snd.play_no_feedback(0, 0, dist / 300.f, &pos, 0, 0, &Fvector2().set(dist / 2, dist * 2.f));
+
+		// clap volume gate through the game layer (no script-engine reach from xrEngine). 0 skips the clap.
+		float clap_volume_mult = g_pGamePersistent
+			? g_pGamePersistent->OnThunderboltSound(current->snd._handle() ? current->snd._handle()->file_name() : "", dist)
+			: 1.0f;
+		if (clap_volume_mult > EPS_S)
+			current->snd.play_no_feedback(0, 0, dist / 300.f, &pos, (clap_volume_mult < 1.0f) ? &clap_volume_mult : 0, 0,
+			                              &Fvector2().set(dist / 2, dist * 2.f));
 	}
 
 
