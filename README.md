@@ -239,6 +239,42 @@ How to compile exes:
 13. A short video demonstration of the entire process: https://youtu.be/MmZwyM2QO38
 
 ## Changelog
+**2026.09.12**
+* Main and MT:
+  * Fix https://github.com/themrdemonized/xray-monolith/issues/650
+  * Possibility to set `shell_particles` override in hud section
+  * Fix `ltx_help` missing extra added fields
+  * New weapon upgrade fields, not useful since inventory is scripted.
+    * inv_grid_x, inv_grid_y - inventory icon position, in grid cells
+    * inv_grid_width, inv_grid_height - inventory icon size and occupied space, in grid cells
+    * upgr_icon_x, upgr_icon_y - upgrade picture position, in pixels
+    * upgr_icon_width, upgr_icon_height - upgrade picture size, in pixels
+  * damiansirbu: 
+    * low-overhead CPU and allocation profilers (jit.profile, jit.allocprof) (https://github.com/themrdemonized/xray-monolith/pull/641)
+    * per-NPC npc:set_movement_hold movement lever (https://github.com/themrdemonized/xray-monolith/pull/645)
+    * Lua trace/veto hooks for the ambient bed and level music (https://github.com/themrdemonized/xray-monolith/pull/644)
+    * Lua veto/volume hooks for script sounds, weather effects, thunderbolt claps, and rain (https://github.com/themrdemonized/xray-monolith/pull/661)
+  * Verdatim25:
+    * Allow actor time_to_lock accel from mutant hit to be controlled via script (https://github.com/themrdemonized/xray-monolith/pull/642)
+    * Allow configuring speeds of script cam anims (https://github.com/themrdemonized/xray-monolith/pull/643)
+    * Add a command to disable the splash window when starting the game (https://github.com/themrdemonized/xray-monolith/pull/649)
+  * nltp-ashes:
+    * export CUIWindow::FindChild to Lua and add UI casting exports (https://github.com/themrdemonized/xray-monolith/pull/653)
+    * export pp functions to lua (https://github.com/themrdemonized/xray-monolith/pull/667)
+  * LVutner:
+    * Expose frame count to the shaders (https://github.com/themrdemonized/xray-monolith/pull/658)
+    * Extended ps_ssfx_gloss_minmax for "Glossy Puddles" addon (https://github.com/themrdemonized/xray-monolith/pull/659)
+  * TheLostInPlace: Shader Bus | Lanes between Scripts and Shaders (https://github.com/themrdemonized/xray-monolith/pull/665)
+  * erepb: few ui improevments (https://github.com/themrdemonized/xray-monolith/pull/654)
+
+* MT:
+  * TheLostInPlace:
+    * Fix a race on the UI caption statics (https://github.com/themrdemonized/xray-monolith/pull/655)
+    * RenderDoc Integration (https://github.com/themrdemonized/xray-monolith/pull/662)
+    * Fix ComboBox drawing over cursor (in mt_ui 1) (https://github.com/themrdemonized/xray-monolith/pull/664)
+  * JorgeVV: publish CFORM arrays before the async tree build (https://github.com/themrdemonized/xray-monolith/pull/657)
+  * noisethanks: Fix/thread safety bullet particle (https://github.com/themrdemonized/xray-monolith/pull/660)
+
 **2026.08.17**
 * Main and MT:
   * DXML: Revert "Malformed closing tags are silently accepted" due to errors with mods
