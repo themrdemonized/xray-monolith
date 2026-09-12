@@ -652,6 +652,25 @@ _G.COnBeforePlayHudSound = function(alias, parent)
 end
 
 --[[
+on_before_play_script_sound callback, scale or veto any script sound_object play (CScriptSound).
+Return via result.volume_mult: 0 vetoes, <1 attenuates, nil leaves vanilla. A later engine
+.volume write can override the attenuation.
+
+Arguments
+	file: resolved sound file name
+	pos: Fvector world position, nil when the play is 2D / positionless
+	obj: game_object that owns the sound, nil when absent
+--]]
+AddScriptCallback("on_before_play_script_sound")
+_G.COnBeforePlayScriptSound = function(file, pos, obj)
+	local result = { volume_mult = nil }
+	SendScriptCallback("on_before_play_script_sound", file, pos, obj, result)
+  if result.volume_mult then
+		return result
+	end
+end
+
+--[[
 on_before_play_ambient_bed callback, scale or veto the per-weather ambient background bed.
 Fired from CGamePersistent::WeathersUpdate (GamePersistent.cpp) at each bed play site.
 Return via result.volume_mult: 0 vetoes the play, <1 attenuates, nil leaves vanilla.
@@ -670,6 +689,58 @@ _G.COnAmbientBed = function(section, file, pos)
 	end
 end
 
+--[[
+on_before_play_ambient_effect callback, scale or veto the weather-effect recording sound
+(CGamePersistent::WeathersUpdate). The particle burst and wind blast still play regardless.
+Return via result.volume_mult: 0 vetoes the sound, <1 attenuates, nil leaves vanilla.
+
+Arguments
+	file: resolved effect sound file name
+	pos: Fvector world position the effect plays at
+--]]
+AddScriptCallback("on_before_play_ambient_effect")
+_G.COnAmbientEffectSound = function(file, pos)
+	local result = { volume_mult = nil }
+	SendScriptCallback("on_before_play_ambient_effect", file, pos, result)
+	if result.volume_mult then
+		return result
+	end
+end
+
+--[[
+on_before_play_thunderbolt callback, scale or veto the lightning-strike clap. Fires on the
+last bolt of a burst only.
+Return via result.volume_mult: 0 vetoes the clap, <1 attenuates, nil leaves vanilla.
+
+Arguments
+	file: resolved clap sound file name
+	distance: distance to the strike in metres
+--]]
+AddScriptCallback("on_before_play_thunderbolt")
+_G.COnThunderboltSound = function(file, distance)
+	local result = { volume_mult = nil }
+	SendScriptCallback("on_before_play_thunderbolt", file, distance, result)
+	if result.volume_mult then
+		return result
+	end
+end
+
+--[[
+on_before_play_rain callback, scale or veto the looped rain ambient (CEffect_Rain). Sampled
+at rain onset, so a veto applies from the next time rain starts.
+Return via result.volume_mult: 0 vetoes the loop, <1 attenuates, nil leaves vanilla.
+
+Arguments
+	file: resolved rain ambient file name
+--]]
+AddScriptCallback("on_before_play_rain")
+_G.COnRainSound = function(file)
+	local result = { volume_mult = nil }
+	SendScriptCallback("on_before_play_rain", file, result)
+  if result.volume_mult then
+		return result
+	end
+end
 --[[
 on_before_play_level_music callback, scale or silence the level music track.
 Fired from SMusicTrack::Play (level_sounds.cpp). Volume-only: a skip would make the
