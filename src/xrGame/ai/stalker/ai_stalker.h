@@ -879,9 +879,13 @@ public:
 	IC void death_sound_enabled(bool value);
 	IC bool death_sound_enabled() const;
 
+	IC void movement_hold(bool value);
+	IC bool movement_hold() const;
+
 private:
 	bool m_take_items_enabled;
 	bool m_death_sound_enabled;
+	bool m_movement_hold;
 
 public:
 	smart_cover::cover const* get_current_smart_cover();

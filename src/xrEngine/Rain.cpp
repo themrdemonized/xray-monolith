@@ -219,9 +219,16 @@ void CEffect_Rain::OnFrame()
 	case stIdle:
 		if (factor < EPS_L) return;
 		state = stWorking;
-		snd_Ambient.play(0, sm_Looped);
-		snd_Ambient.set_position(Fvector().set(0, 0, 0));
-		snd_Ambient.set_range(source_offset, source_offset * 2.f);
+		// Rain-loop hook, mirrors COnBeforePlayHudSound: veto (0) or attenuate, sampled once at onset.
+		rain_volume_mult = g_pGamePersistent
+			? g_pGamePersistent->OnRainSound(snd_Ambient._handle() ? snd_Ambient._handle()->file_name() : "")
+			: 1.0f;
+		if (rain_volume_mult > EPS_S)
+		{
+			snd_Ambient.play(0, sm_Looped);
+			snd_Ambient.set_position(Fvector().set(0, 0, 0));
+			snd_Ambient.set_range(source_offset, source_offset * 2.f);
+		}
 		break;
 	case stWorking:
 		if (factor < EPS_L)
@@ -242,7 +249,7 @@ void CEffect_Rain::OnFrame()
 		// snd_Ambient.set_position(sndP);
 		rain_volume = factor * hemi_factor;
 		clamp(rain_volume, .1f, 1.f);
-		snd_Ambient.set_volume(rain_volume);
+		snd_Ambient.set_volume(rain_volume * rain_volume_mult);
 	}
 }
 

@@ -39,6 +39,8 @@ static u32 const tips_scroll_pos_color = color_rgba(70, 70, 70, 240);
 
 ENGINE_API CConsole* Console = NULL;
 
+static thread_local string256 s_script_caller;
+
 static void DumpConsoleVariablesOnCrash()
 {
 	if (Console)
@@ -737,6 +739,26 @@ void CConsole::SelectCommand()
 void CConsole::Execute(LPCSTR cmd)
 {
 	ExecuteCommand(cmd, false);
+}
+
+LPCSTR CConsole::ScriptCaller() const
+{
+	return s_script_caller;
+}
+
+CConsole::ScriptCallerScope::ScriptCallerScope(LPCSTR src)
+{
+	xr_strcpy(prev, s_script_caller);
+
+	if (src && src[0])
+		strncpy_s(s_script_caller, sizeof(s_script_caller), src, _TRUNCATE);
+	else
+		s_script_caller[0] = 0;
+}
+
+CConsole::ScriptCallerScope::~ScriptCallerScope()
+{
+	xr_strcpy(s_script_caller, prev);
 }
 
 void CConsole::ExecuteScript(LPCSTR str)

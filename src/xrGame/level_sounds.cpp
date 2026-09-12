@@ -5,6 +5,20 @@
 
 #include "level.h"
 #include "level_sounds.h"
+#include "ai_space.h"
+#include "../xrServerEntities/script_engine.h"
+
+// { volume_mult = number } from a sound hook's return; 1.0 (vanilla) when nil, not a table, or not a number
+static float ambient_hook_volume_mult(const ::luabind::object& output)
+{
+	if (output && output.type() == LUA_TTABLE)
+	{
+		auto volume_mult_obj = output["volume_mult"];
+		if (volume_mult_obj.type() == LUA_TNUMBER)
+			return ::luabind::object_cast<float>(volume_mult_obj);
+	}
+	return 1.0f;
+}
 
 //-----------------------------------------------------------------------------
 // static level sounds
@@ -129,7 +143,16 @@ BOOL SMusicTrack::in(u32 game_time)
 void SMusicTrack::Play()
 {
 	m_SourceStereo.play_at_pos(0, Fvector().set(0.0f, 0.0f, 0.0f), sm_Intro);
-	SetVolume(1.0f);
+
+	// Level-music hook: volume-only (a skip would make the manager re-select every frame); absent global = vanilla
+	float music_volume_mult = 1.0f;
+	::luabind::functor<::luabind::object> music_funct;
+	if (ai().script_engine().functor("_G.COnLevelMusic", music_funct))
+	{
+		LPCSTR music_file = m_SourceStereo._handle() ? m_SourceStereo._handle()->file_name() : "";
+		music_volume_mult = ambient_hook_volume_mult(music_funct(music_file));
+	}
+	SetVolume(music_volume_mult);
 }
 
 BOOL SMusicTrack::IsPlaying()

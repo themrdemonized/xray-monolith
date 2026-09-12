@@ -62,7 +62,9 @@ private:
 	void ShowSubMenuForItem(CUIListBoxItem* item);
 	void HideActiveSubmenu();
 	void ClearSubmenus();
-	bool CursorOverTree();
+
+	CUIPropertiesBox* BoxUnderCursor();
+	bool HandleMouse(float x, float y, EUIMessages mouse_action);
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

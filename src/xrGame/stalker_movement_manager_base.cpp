@@ -429,6 +429,7 @@ void stalker_movement_manager_base::parse_velocity_mask(stalker_movement_params&
 	sight_manager_enable_guard guard(object().sight(), true);
 
 	if (
+		object().movement_hold() ||
 		(movement_params.m_movement_type == eMovementTypeStand) ||
 		path().empty() ||
 		(path().size() <= detail().curr_travel_point_index()) ||

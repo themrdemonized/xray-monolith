@@ -22,7 +22,7 @@ bool CUIScrollBox::OnMouseAction(float x, float y, EUIMessages mouse_action)
 		cursor_over = true;
 	}
 
-	bool im_capturer = (GetParent()->GetMouseCapturer() == this);
+	bool im_capturer = IsMouseCapturer();
 
 	if (mouse_action == WINDOW_LBUTTON_DOWN || mouse_action == WINDOW_LBUTTON_DB_CLICK)
 	{

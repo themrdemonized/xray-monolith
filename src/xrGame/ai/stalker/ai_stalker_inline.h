@@ -212,6 +212,16 @@ IC bool CAI_Stalker::death_sound_enabled() const
 	return (m_death_sound_enabled);
 }
 
+IC void CAI_Stalker::movement_hold(bool value)
+{
+	m_movement_hold = value;
+}
+
+IC bool CAI_Stalker::movement_hold() const
+{
+	return (m_movement_hold);
+}
+
 IC u32 CAI_Stalker::pstl_min_queue_size_far() const
 {
 	return (m_pstl_min_queue_size_far);

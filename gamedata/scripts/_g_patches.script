@@ -263,6 +263,17 @@ _G.throttle = function(func, tg_throttle)
     end
 end
 
+-- Do function once
+_G.doOnce = function(func)
+	local canDo = true
+	return function(...)
+		if canDo then
+			func(...)
+			canDo = false
+		end
+	end
+end
+
 _G.print_tip = function(text, ...)
     local text = tostring(text)
     printf(text, ...)
