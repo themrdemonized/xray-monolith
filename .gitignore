@@ -38,3 +38,14 @@ compressor/mod/
 # emacs temp file
 \#*\#
 *~
+
+# TBB import libs must be committed so a fresh clone can link.
+# The /**/x64/ rule above excludes the *directory*, and git will not
+# descend into an excluded directory -- so the directory exclusion must
+# be lifted first, then everything re-ignored, then these files re-included.
+!/sdk/libraries/x64/
+/sdk/libraries/x64/*
+!/sdk/libraries/x64/tbb.lib
+!/sdk/libraries/x64/tbb12.lib
+!/sdk/libraries/x64/tbbmalloc.lib
+!/sdk/libraries/x64/tbbmalloc_proxy.lib
