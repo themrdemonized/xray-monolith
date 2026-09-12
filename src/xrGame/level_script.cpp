@@ -2620,12 +2620,6 @@ void CLevel::script_register(lua_State* L)
 			def("set_snd_volume", &set_snd_volume),
 			def("get_music_volume", &get_music_volume),
 			def("set_music_volume", &set_music_volume),
-			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR))&add_cam_effector)),
-			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))&add_cam_effector)),
-			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))&add_cam_effector)),
-			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))&add_cam_effector)),
-      // ver; allow changing the speed of cam effectors
-      def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float, float))& add_cam_effector)),
 
 			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool, bool))& set_cam_position_direction)),
@@ -2639,6 +2633,8 @@ void CLevel::script_register(lua_State* L)
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))& add_cam_effector)),
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))& add_cam_effector)),
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))& add_cam_effector)),
+            // ver; allow changing the speed of cam effectors
+            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float, float))& add_cam_effector)),
 			def("remove_cam_effector", &remove_cam_effector),
 			def("set_cam_effector_factor", &set_cam_effector_factor),
 			def("get_cam_effector_factor", &get_cam_effector_factor),

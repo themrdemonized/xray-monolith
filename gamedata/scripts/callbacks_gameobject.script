@@ -665,7 +665,7 @@ AddScriptCallback("on_before_play_script_sound")
 _G.COnBeforePlayScriptSound = function(file, pos, obj)
 	local result = { volume_mult = nil }
 	SendScriptCallback("on_before_play_script_sound", file, pos, obj, result)
-  if result.volume_mult then
+  	if result.volume_mult then
 		return result
 	end
 end
@@ -737,10 +737,11 @@ AddScriptCallback("on_before_play_rain")
 _G.COnRainSound = function(file)
 	local result = { volume_mult = nil }
 	SendScriptCallback("on_before_play_rain", file, result)
-  if result.volume_mult then
+  	if result.volume_mult then
 		return result
 	end
 end
+
 --[[
 on_before_play_level_music callback, scale or silence the level music track.
 Fired from SMusicTrack::Play (level_sounds.cpp). Volume-only: a skip would make the
