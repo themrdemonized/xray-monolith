@@ -383,6 +383,7 @@
         sphere,
         box,
     }
+
     debug_render {
         DBG_ScriptObject* add_object(u32 id, DebugRenderType type)
         DBG_ScriptObject* add_object(LPCSTR id, DebugRenderType type)
@@ -544,12 +545,17 @@
         //    }
         //    level.add_bullet(t)
 
-         // Script Attachments
+        // Script Attachments
         function add_attachment(string, string)
         function get_attachment(string)
         function remove_attachment(string)
         function remove_attachment(script_attachment)
         function iterate_attachments(function)
+
+        // Post-Process Effectors
+        float get_pp_effector_factor(int id)
+        float get_pp_effector_length(int id)
+        bool check_pp_effector(int id)
 
         // MT only
         function scheduler_flush(bool)
@@ -1279,5 +1285,5 @@
         property userdata
     }
     
-    Script Attachment Guide: https://igigog.github.io/anomaly-modding-book/tutorials/scripting/script-attachments.html
+    Script Attachment Guide: https://anomaly-modding-book.netlify.app/docs/tutorials/scripting/script-attachments
 --]]

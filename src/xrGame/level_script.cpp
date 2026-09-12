@@ -1057,16 +1057,38 @@ void remove_pp_effector(int id)
 
 void set_pp_effector_factor(int id, float f, float f_sp)
 {
-	CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
+    CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
 
-	if (pp) pp->SetDesiredFactor(f, f_sp);
+    if (pp) pp->SetDesiredFactor(f, f_sp);
 }
 
 void set_pp_effector_factor2(int id, float f)
 {
-	CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
+    CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
 
-	if (pp) pp->SetCurrentFactor(f);
+    if (pp) pp->SetCurrentFactor(f);
+}
+
+bool check_pp_effector(int id)
+{
+    CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
+    if (pp)
+    {
+        return pp->Valid();
+    }
+    return false;
+}
+
+float get_pp_effector_factor(int id)
+{
+    CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
+    return pp ? pp->GetCurrentFactor() : 0.0f;
+}
+
+float get_pp_effector_length(int id)
+{
+    CPostprocessAnimator* pp = smart_cast<CPostprocessAnimator*>(Actor()->Cameras().GetPPEffector((EEffectorPPType)id));
+    return pp ? pp->GetLength() : 0.0f;
 }
 
 #include "relation_registry.h"
@@ -2556,7 +2578,6 @@ void CLevel::script_register(lua_State* L)
 
 			def("map_add_object_spot_ser", map_add_object_spot_ser),
 			def("map_add_object_spot", map_add_object_spot),
-			//-		def("map_add_object_spot_complex",		map_add_object_spot_complex),
 			def("map_remove_object_spot", map_remove_object_spot),
 			def("map_has_object_spot", map_has_object_spot),
 			def("map_change_spot_hint", map_change_spot_hint),
@@ -2578,13 +2599,10 @@ void CLevel::script_register(lua_State* L)
 			def("show_indicators", show_indicators),
 			def("show_weapon", show_weapon),
 			def("add_call", ((void (*)(const ::luabind::functor<bool>&, const ::luabind::functor<void>&))&add_call)),
-			def("add_call", ((void (*)(const ::luabind::object&, const ::luabind::functor<bool>&,
-			                           const ::luabind::functor<void>&))&add_call)),
+			def("add_call", ((void (*)(const ::luabind::object&, const ::luabind::functor<bool>&, const ::luabind::functor<void>&))&add_call)),
 			def("add_call", ((void (*)(const ::luabind::object&, LPCSTR, LPCSTR))&add_call)),
 			def("remove_call", ((void (*)(const ::luabind::functor<bool>&, const ::luabind::functor<void>&))&remove_call)),
-			def("remove_call",
-			    ((void (*)(const ::luabind::object&, const ::luabind::functor<bool>&, const ::luabind::functor<void>&))&
-				    remove_call)),
+			def("remove_call", ((void (*)(const ::luabind::object&, const ::luabind::functor<bool>&, const ::luabind::functor<void>&))&remove_call)),
 			def("remove_call", ((void (*)(const ::luabind::object&, LPCSTR, LPCSTR))&remove_call)),
 			def("remove_calls_for_object", remove_calls_for_object),
 			def("present", is_level_present),
@@ -2606,8 +2624,8 @@ void CLevel::script_register(lua_State* L)
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))&add_cam_effector)),
 			def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))&add_cam_effector)),
-            // ver; allow changing the speed of cam effectors
-            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float, float))& add_cam_effector)),
+      // ver; allow changing the speed of cam effectors
+      def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float, float))& add_cam_effector)),
 
 			// demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int, bool, bool))& set_cam_position_direction)),
@@ -2617,15 +2635,23 @@ void CLevel::script_register(lua_State* L)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),
 			def("remove_cam_custom_position_direction", &remove_cam_position_direction),
 
+            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR))& add_cam_effector)),
+            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))& add_cam_effector)),
+            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool))& add_cam_effector)),
+            def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float, bool, float))& add_cam_effector)),
 			def("remove_cam_effector", &remove_cam_effector),
 			def("set_cam_effector_factor", &set_cam_effector_factor),
 			def("get_cam_effector_factor", &get_cam_effector_factor),
 			def("get_cam_effector_length", &get_cam_effector_length),
 			def("check_cam_effector", &check_cam_effector),
+
 			def("add_pp_effector", &add_pp_effector),
+            def("remove_pp_effector", &remove_pp_effector),
 			def("set_pp_effector_factor", &set_pp_effector_factor),
-			def("set_pp_effector_factor", &set_pp_effector_factor2),
-			def("remove_pp_effector", &remove_pp_effector),
+            def("set_pp_effector_factor", &set_pp_effector_factor2),
+            def("get_pp_effector_factor", &get_pp_effector_factor),
+            def("get_pp_effector_length", &get_pp_effector_length),
+            def("check_pp_effector", &check_pp_effector),
 
 			def("add_complex_effector", &add_complex_effector),
 			def("remove_complex_effector", &remove_complex_effector),
