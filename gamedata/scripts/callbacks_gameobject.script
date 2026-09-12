@@ -9,9 +9,9 @@ _G.OnLoadingScreenKeyPrompt = function()
 end
 
 -- Callback for when player dismisses loading screen after "Press Any Key to Continue" pressed
-_G.OnLoadingScreenDismissed = function()
+_G.OnLoadingScreenDismissed = doOnce(function()
 	SendScriptCallback("on_loading_screen_dismissed")
-end
+end)
 
 -- Generic net spawn/net destroy callbacks
 AddScriptCallback("game_object_on_net_spawn")
@@ -665,6 +665,25 @@ AddScriptCallback("on_before_play_script_sound")
 _G.COnBeforePlayScriptSound = function(file, pos, obj)
 	local result = { volume_mult = nil }
 	SendScriptCallback("on_before_play_script_sound", file, pos, obj, result)
+  if result.volume_mult then
+		return result
+	end
+end
+
+--[[
+on_before_play_ambient_bed callback, scale or veto the per-weather ambient background bed.
+Fired from CGamePersistent::WeathersUpdate (GamePersistent.cpp) at each bed play site.
+Return via result.volume_mult: 0 vetoes the play, <1 attenuates, nil leaves vanilla.
+
+Arguments
+	section: weather ambient section the bed loads from
+	file: resolved sound file name, "" when the handle is not ready yet
+	pos: Fvector world position the bed plays at
+--]]
+AddScriptCallback("on_before_play_ambient_bed")
+_G.COnAmbientBed = function(section, file, pos)
+	local result = { volume_mult = nil }
+	SendScriptCallback("on_before_play_ambient_bed", section, file, pos, result)
 	if result.volume_mult then
 		return result
 	end
@@ -718,6 +737,23 @@ AddScriptCallback("on_before_play_rain")
 _G.COnRainSound = function(file)
 	local result = { volume_mult = nil }
 	SendScriptCallback("on_before_play_rain", file, result)
+  if result.volume_mult then
+		return result
+	end
+end
+--[[
+on_before_play_level_music callback, scale or silence the level music track.
+Fired from SMusicTrack::Play (level_sounds.cpp). Volume-only: a skip would make the
+manager re-select every frame, so 0 silences rather than stops the track.
+Return via result.volume_mult: 0 silences, <1 attenuates, nil leaves vanilla.
+
+Arguments
+	file: resolved music track file name, "" when the handle is not ready yet
+--]]
+AddScriptCallback("on_before_play_level_music")
+_G.COnLevelMusic = function(file)
+	local result = { volume_mult = nil }
+	SendScriptCallback("on_before_play_level_music", file, result)
 	if result.volume_mult then
 		return result
 	end

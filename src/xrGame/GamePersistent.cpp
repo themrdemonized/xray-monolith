@@ -345,7 +345,22 @@ void CGamePersistent::WeathersUpdate()
 					pos.z = _sin(angle);
 					pos.normalize().mul(ch.get_rnd_sound_dist()).add(Device.vCameraPosition);
 					pos.y += 10.f;
-					snd.play_at_pos(0, pos);
+
+					// Ambient bed hook, mirrors COnBeforePlayHudSound: Lua may veto (0) or attenuate; absent global = exact vanilla
+					float bed_volume_mult = 1.0f;
+					::luabind::functor<::luabind::object> bed_funct;
+					if (ai().script_engine().functor("_G.COnAmbientBed", bed_funct))
+					{
+						LPCSTR bed_file = snd._handle() ? snd._handle()->file_name() : "";
+						bed_volume_mult = ambient_hook_volume_mult(bed_funct(ch.m_load_section.c_str(), bed_file, pos));
+					}
+
+					if (bed_volume_mult > EPS_S)
+					{
+						snd.play_at_pos(0, pos);
+						if (bed_volume_mult < 1.0f)
+							snd.set_volume(bed_volume_mult);
+					}
 
 #ifdef DEBUG
                     if (!snd._handle() && strstr(Core.Params, "-nosound"))
