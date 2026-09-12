@@ -568,7 +568,7 @@ static TValue *trace_state(lua_State *L, lua_CFunction dummy, void *ud)
     case LJ_TRACE_START:
       J->state = LJ_TRACE_RECORD;  /* trace_start() may change state. */
       trace_start(J);
-      lj_dispatch_update(J2G(J));
+      lj_dispatch_update(J2G(J), 0);
       break;
 
     case LJ_TRACE_RECORD:
@@ -617,7 +617,7 @@ static TValue *trace_state(lua_State *L, lua_CFunction dummy, void *ud)
       trace_stop(J);
       setvmstate(J2G(J), INTERP);
       J->state = LJ_TRACE_IDLE;
-      lj_dispatch_update(J2G(J));
+      lj_dispatch_update(J2G(J), 0);
       return NULL;
 
     default:  /* Trace aborted asynchronously. */
@@ -629,7 +629,7 @@ static TValue *trace_state(lua_State *L, lua_CFunction dummy, void *ud)
 	goto retry;
       setvmstate(J2G(J), INTERP);
       J->state = LJ_TRACE_IDLE;
-      lj_dispatch_update(J2G(J));
+      lj_dispatch_update(J2G(J), 0);
       return NULL;
     }
   } while (J->state > LJ_TRACE_RECORD);
@@ -656,9 +656,9 @@ void LJ_FASTCALL lj_trace_hot(jit_State *J, const BCIns *pc)
   ERRNO_SAVE
   /* Reset hotcount. */
   hotcount_set(J2GG(J), pc, J->param[JIT_P_hotloop]*HOTCOUNT_LOOP);
-  /* Only start a new trace if not recording or inside __gc call or vmevent. */
+  /* No new trace while recording, in __gc, in vmevent, or with a profiler hook armed (its drain bypasses lj_trace_ins). */
   if (J->state == LJ_TRACE_IDLE &&
-      !(J2G(J)->hookmask & (HOOK_GC|HOOK_VMEVENT))) {
+      !(J2G(J)->hookmask & (HOOK_GC|HOOK_VMEVENT|HOOK_PROFILE))) {
     J->parent = 0;  /* Root trace. */
     J->exitno = 0;
     J->state = LJ_TRACE_START;
@@ -671,7 +671,7 @@ void LJ_FASTCALL lj_trace_hot(jit_State *J, const BCIns *pc)
 static void trace_hotside(jit_State *J, const BCIns *pc)
 {
   SnapShot *snap = &traceref(J, J->parent)->snap[J->exitno];
-  if (!(J2G(J)->hookmask & (HOOK_GC|HOOK_VMEVENT)) &&
+  if (!(J2G(J)->hookmask & (HOOK_GC|HOOK_VMEVENT|HOOK_PROFILE)) &&
       snap->count != SNAPCOUNT_DONE &&
       ++snap->count >= J->param[JIT_P_hotexit]) {
     lua_assert(J->state == LJ_TRACE_IDLE);

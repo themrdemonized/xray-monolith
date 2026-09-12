@@ -37,6 +37,35 @@ void execute_console_command_deferred(CConsole* c, LPCSTR string_to_execute)
 	Engine.Event.Defer("KERNEL:console", size_t(xr_strdup(string_to_execute)));
 }
 
+static void console_execute(lua_State* L, CConsole* c, LPCSTR cmd)
+{
+	string256 src = "";
+	lua_Debug ar;
+	for (int level = 1; level <= 8 && lua_getstack(L, level, &ar); ++level)
+	{
+		if (!lua_getinfo(L, "Sl", &ar))
+			break;
+
+		if (1 == level)
+			xr_sprintf(src, "%s:%d", ar.short_src, ar.currentline);
+
+		if ('C' == ar.what[0])
+			continue;
+
+		const u32 tail = sizeof("_g.script") - 1;
+		const u32 len = xr_strlen(ar.short_src);
+		if (len >= tail && 0 == xr_strcmp(ar.short_src + len - tail, "_g.script") &&
+			(len == tail || '\\' == ar.short_src[len - tail - 1] || '/' == ar.short_src[len - tail - 1]))
+			continue;
+
+		xr_sprintf(src, "%s:%d", ar.short_src, ar.currentline);
+		break;
+	}
+
+	CConsole::ScriptCallerScope scope(src);
+	c->Execute(cmd);
+}
+
 ::luabind::object get_console_bounds(CConsole* c, LPCSTR cmd)
 {
 	IConsole_Command* command = c->GetCommand(cmd);
@@ -90,7 +119,7 @@ void console_registrator::script_register(lua_State* L)
 		def("get_console", &console),
 
 		class_<CConsole>("CConsole")
-		.def("execute", &CConsole::Execute)
+		.def("execute", &console_execute, raw<1>())
 		.def("execute_script", &CConsole::ExecuteScript)
 		.def("show", &CConsole::Show)
 		.def("hide", &CConsole::Hide)

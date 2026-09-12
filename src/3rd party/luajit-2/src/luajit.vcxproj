@@ -200,6 +200,8 @@
     <ClCompile Include="lj_ctype.c" />
     <ClCompile Include="lj_debug.c" />
     <ClCompile Include="lj_dispatch.c" />
+    <ClCompile Include="lj_profile.c" />
+    <ClCompile Include="lj_allocprof.c" />
     <ClCompile Include="lj_err.c" />
     <ClCompile Include="lj_ffrecord.c" />
     <ClCompile Include="lj_func.c" />

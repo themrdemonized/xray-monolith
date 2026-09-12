@@ -172,7 +172,7 @@ extern float ps_r2_gloss_min;
 
 extern int ps_ssfx_gloss_method;
 extern float ps_ssfx_gloss_factor;
-extern Fvector3 ps_ssfx_gloss_minmax;
+extern Fvector4 ps_ssfx_gloss_minmax;
 
 IC float u_diffuse2s(float x, float y, float z)
 {

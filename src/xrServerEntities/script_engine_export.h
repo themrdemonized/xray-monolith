@@ -68,6 +68,7 @@
 #	include "key_binding_registrator.h"
 #	include "fs_registrator.h"
 #	include "console_registrator.h"
+#	include "shader_bus_script.h"
 #	include	"physics_shell_scripted.h"
 #	include	"physics_joint_scripted.h"
 #	include	"physics_element_scripted.h"

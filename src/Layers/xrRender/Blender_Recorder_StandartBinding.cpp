@@ -12,6 +12,7 @@
 
 #include "../../xrEngine/igame_persistent.h"
 #include "../../xrEngine/environment.h"
+#include "../../xrEngine/shader_bus.h"
 
 #include "dxRenderDeviceRender.h"
 
@@ -781,7 +782,7 @@ extern Fvector4 ps_ssfx_florafixes_1;
 extern Fvector4 ps_ssfx_florafixes_2;
 
 extern float ps_ssfx_gloss_factor;
-extern Fvector3 ps_ssfx_gloss_minmax;
+extern Fvector4 ps_ssfx_gloss_minmax;
 
 extern Fvector4 ps_ssfx_wetsurfaces_1;
 extern Fvector4 ps_ssfx_wetsurfaces_2;
@@ -944,7 +945,7 @@ static class ssfx_gloss : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, 0);
+		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, ps_ssfx_gloss_minmax.w);
 	}
 }    ssfx_gloss;
 
@@ -1186,7 +1187,7 @@ static class ssfx_fTimeDelta : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, Device.fTimeDelta, 0, 0, 0);
+		RCache.set_c(C, Device.fTimeDelta, (float)Device.dwFrame, 0, 0);
 	}
 }    ssfx_fTimeDelta;
 
@@ -1355,6 +1356,25 @@ static class vignette_control : public R_constant_setup
 		RCache.set_c(C, ps_vignette_control.x, ps_vignette_control.y, ps_vignette_control.z, ps_vignette_control.w);
 	}
 } vignette_control;
+
+class bus_binder : public R_constant_setup
+{
+	ShaderBus::lane* lane;
+
+public:
+	bus_binder(ShaderBus::lane* l) : lane(l)
+	{
+	}
+
+	virtual void setup(R_constant* C)
+	{
+		lane->bound_frame = Device.dwFrame;
+		RCache.set_c(C, lane->bound.x, lane->bound.y, lane->bound.z, lane->bound.w);
+	}
+};
+
+// one binder per lane so the pass table dedup, which compares handler pointers, still matches
+static xr_vector<bus_binder*> bus_binders;
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -1526,6 +1546,28 @@ void CBlender_Compile::SetMapping()
 	{
 		std::pair<shared_str, R_constant_setup*> cs = DEV->v_constant_setup[it];
 		r_Constant(*cs.first, cs.second);
+	}
+
+	for (u32 it = 0; it < ctable.table.size(); it++)
+	{
+		R_constant* C = &*ctable.table[it];
+		if (C->type != RC_float)
+			continue;
+
+		LPCSTR cname = C->name.c_str();
+		if (!cname || 0 != strncmp(cname, "bus_", 4))
+			continue;
+
+		ShaderBus::lane* lane = ShaderBus::declare(cname);
+		if (!lane)
+			continue;
+
+		if (bus_binders.size() <= lane->index)
+			bus_binders.resize(lane->index + 1, nullptr);
+		if (!bus_binders[lane->index])
+			bus_binders[lane->index] = xr_new<bus_binder>(lane);
+
+		C->handler = bus_binders[lane->index];
 	}
 
 
