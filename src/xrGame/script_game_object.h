@@ -1201,6 +1201,9 @@ public:
     float GetActorDamageStaggerTimeFactor() const;
     void SetActorDamageStaggerTimeFactor(float val);
 
+    // Boeker: adjust zoom inertia factor
+    void SetZoomInertionFactor(float factor);
+
 	float GetActorCrouchCoef() const;
 	void SetActorCrouchCoef(float val);
 	float GetActorClimbCoef() const;

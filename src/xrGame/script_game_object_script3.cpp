@@ -675,6 +675,9 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("get_actor_lookout_coef", SAFE_WRAP(&CScriptGameObject::GetActorLookoutCoef))
 		.def("set_actor_lookout_coef", SAFE_WRAP(&CScriptGameObject::SetActorLookoutCoef))
 
+        // Boeker: adjust zoom inertia factor
+        .def("set_zoom_inertion_factor", SAFE_WRAP(&CScriptGameObject::SetZoomInertionFactor))
+
         // verdatim: Adjust damager stagger time factor
         .def("get_actor_damage_stagger_time_factor", SAFE_WRAP(&CScriptGameObject::GetActorDamageStaggerTimeFactor))
         .def("set_actor_damage_stagger_time_factor", SAFE_WRAP(&CScriptGameObject::SetActorDamageStaggerTimeFactor))
