@@ -19,6 +19,7 @@
 #include "x_ray.h"
 #include "discord\discord.h"
 #include "render.h"
+#include "renderdoc_integration.h"
 #include <chrono>
 
 // must be defined before include of FS_impl.h
@@ -672,6 +673,7 @@ void CRenderDevice::FrameMove()
 
 	dwFrame++;
 	Core.dwFrame = dwFrame;
+	renderdoc_poll_captures();
 	dwTimeContinual = TimerMM.GetElapsed_ms() - app_inactive_time;
 	if (psDeviceFlags.test(rsConstantFPS))
 	{

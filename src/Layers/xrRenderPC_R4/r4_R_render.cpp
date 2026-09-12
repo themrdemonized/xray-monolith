@@ -64,7 +64,8 @@ extern u32 g_r;
 
 void CRender::Render()
 {
-	PIX_EVENT(CRender_Render);
+	PIX_EVENT_C(CRender_Render, dx10_marker_frame);
+	dx10_annotate_frame();
 
 	rmNormal();
 
@@ -156,7 +157,7 @@ void CRender::Render()
 
 	//******* Main render :: PART-0	-- first
 	{
-		PIX_EVENT(DEFER_PART0_SPLIT);
+		PIX_EVENT_C(DEFER_PART0_SPLIT, dx10_marker_gbuffer);
 		// level, SPLIT
 		Target->phase_scene_begin();
 		GMBase.r_dsgraph_render_static(0);
@@ -186,7 +187,7 @@ void CRender::Render()
 
 	//******* Main render :: PART-1 (second)
 	{
-		PIX_EVENT(DEFER_PART1_SPLIT);
+		PIX_EVENT_C(DEFER_PART1_SPLIT, dx10_marker_gbuffer);
 		// level
 		Target->phase_scene_begin();
 		GMBase.r_dsgraph_capture_hud();
@@ -273,7 +274,7 @@ void CRender::Render()
 	// Directional light - fucking sun
 	if (bSUN) //bSUN && Device.dwFrame & 1 --Delayed sun update. Worth to check it in future
 	{
-		PIX_EVENT(DEFER_SUN);
+		PIX_EVENT_C(DEFER_SUN, dx10_marker_lights);
 		RImplementation.stats.l_visible ++;
 		render_sun_cascades();
 		Target->increment_light_marker();
@@ -283,7 +284,7 @@ void CRender::Render()
 	phase = PHASE_NORMAL;
 
 	{
-		PIX_EVENT(DEFER_SELF_ILLUM);
+		PIX_EVENT_C(DEFER_SELF_ILLUM, dx10_marker_lights);
 		Target->phase_accumulator();
 		// Render emissive geometry, stencil - write 0x0 at pixel pos
 		RCache.set_xform_project(Device.mProject);
@@ -315,14 +316,14 @@ void CRender::Render()
 
 	// Lighting, non dependant on OCCQ
 	{
-		PIX_EVENT(DEFER_LIGHT_NO_OCCQ);
+		PIX_EVENT_C(DEFER_LIGHT_NO_OCCQ, dx10_marker_lights);
 		Target->phase_accumulator();
 		render_lights(LP_normal);
 	}
 
 	// Lighting, dependant on OCCQ
 	{
-		PIX_EVENT(DEFER_LIGHT_OCCQ);
+		PIX_EVENT_C(DEFER_LIGHT_OCCQ, dx10_marker_lights);
 		render_lights(LP_pending);
 	}
 
@@ -335,7 +336,7 @@ void CRender::Render()
 
 	// Postprocess
 	{
-		PIX_EVENT(DEFER_LIGHT_COMBINE);
+		PIX_EVENT_C(DEFER_LIGHT_COMBINE, dx10_marker_lights);
 		Target->phase_combine();
 	}
 

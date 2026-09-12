@@ -675,6 +675,9 @@
     <ClInclude Include="..\xrRenderDX10\dx10BufferUtils.h">
       <Filter>dx9 to dx10 Utils</Filter>
     </ClInclude>
+    <ClInclude Include="..\xrRenderDX10\dx10DebugName.h">
+      <Filter>dx9 to dx10 Utils</Filter>
+    </ClInclude>
     <ClInclude Include="..\xrRenderDX10\dx10StateUtils.h">
       <Filter>dx9 to dx10 Utils</Filter>
     </ClInclude>
