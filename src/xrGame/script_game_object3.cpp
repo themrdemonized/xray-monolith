@@ -1842,6 +1842,91 @@ u32 CScriptGameObject::PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float spe
 	return itm->PlayHUDMotion(M, bMixIn, itm, state, speed, end);
 }
 
+::luabind::object CScriptGameObject::PlayHUDMotion_Add(LPCSTR M, bool bMixIn, u32 state, float speed, float end, u16 mode)
+{
+    CWeapon* Weapon = object().cast_weapon();
+    if (Weapon)
+    {
+        if (!Weapon->HudAnimationExist(M))
+            return ::luabind::newtable(ai().script_engine().lua());
+
+        return Weapon->PlayHUDMotion_Additive(M, bMixIn, Weapon, state, speed, end, true, mode);
+    }
+
+    CHudItem* itm = object().cast_inventory_item()->cast_hud_item();
+    if (!itm)
+        return ::luabind::newtable(ai().script_engine().lua());
+
+    if (!itm->HudAnimationExist(M))
+        return ::luabind::newtable(ai().script_engine().lua());
+
+    return itm->PlayHUDMotion_Additive(M, bMixIn, itm, state, speed, end, true, mode);
+}
+
+void CScriptGameObject::ClearBlends()
+{
+    CWeapon* Weapon = object().cast_weapon();
+    if (Weapon)
+    {
+        Weapon->ClearBlends();
+    }
+
+    CHudItem* itm = object().cast_inventory_item()->cast_hud_item();
+    if (!itm)
+        return;
+
+    itm->ClearBlends();
+}
+
+BOOL CScriptGameObject::load_motion(const shared_str& sect_name, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim)
+{
+    CWeapon* Weapon = object().cast_weapon();
+    if (Weapon)
+    {
+        return Weapon->load_one_motion(sect_name, alias, hand_anim, item_anim);
+    }
+
+    CHudItem* itm = object().cast_inventory_item()->cast_hud_item();
+    if (!itm)
+        return FALSE;
+
+    return itm->load_one_motion(sect_name, alias, hand_anim, item_anim);
+}
+
+void CScriptGameObject::ClearSpecificBlends(::luabind::object table)
+{
+    anim_play_returns returns;
+    if (table && table.type() == LUA_TTABLE)
+    {
+        returns.anim_time = ::luabind::object_cast<u32>(table["anim_time"]);
+        returns.m_model_p0_ID = ::luabind::object_cast<u16>(table["m_model_p0_ID"]);
+        returns.m_model_p2_ID = ::luabind::object_cast<u16>(table["m_model_p2_ID"]);
+        returns.m_model_2_p0_ID = ::luabind::object_cast<u16>(table["m_model_2_p0_ID"]);
+        returns.m_model_2_p1_ID = ::luabind::object_cast<u16>(table["m_model_2_p1_ID"]);
+        returns.m_model_2_p2_ID = ::luabind::object_cast<u16>(table["m_model_2_p2_ID"]);
+        returns.mode = ::luabind::object_cast<u16>(table["mode"]);
+
+        for (int i = 0; i < MAX_PARTS; i++) {
+            u16 item_ID = ::luabind::object_cast<u16>(table[i+1]);
+            if (!(item_ID)) {
+                break;
+            }
+            returns.Item_BlendID.push_back(item_ID);
+        }
+        CWeapon* Weapon = object().cast_weapon();
+        if (Weapon)
+        {
+            Weapon->StopHUDMotion_Additive(&returns);
+        }
+
+        CHudItem* itm = object().cast_inventory_item()->cast_hud_item();
+        if (!itm)
+            return;
+
+        itm->StopHUDMotion_Additive(&returns);
+    }
+}
+
 void CScriptGameObject::SwitchState(u32 state)
 {
 	CWeapon* Weapon = object().cast_weapon();

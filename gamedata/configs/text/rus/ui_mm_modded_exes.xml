@@ -839,8 +839,8 @@
 	<string id="ui_mm_modded_exes_gameplay_weapons_g_decouple_horz_recoil">
 		<text>Горизонтальная отдача не зависит от вертикальной (g_decouple_horz_recoil)</text>
 	</string>
-	<string id="ui_mm_modded_exes_gameplay_weapons_scale_hud_motion_marks_by_speed">
-		<text>Регулировать Motion Marks в зависимости от скорости анимации (scale_hud_motion_marks_by_speed)</text>
+	<string id="ui_mm_modded_exes_gameplay_weapons_disable_scale_hud_motion_marks_by_speed">
+		<text>Запрещать Регулировать Motion Marks в зависимости от скорости анимации (disable_scale_hud_motion_marks_by_speed)</text>
 	</string>
 	
 	<string id="ui_mm_modded_exes_gameplay_weapons_g_fire_reloads_ubgl">

@@ -429,6 +429,12 @@ _G.CHudItem__OnMotionMark = function(state, mark, obj, owner)
 	SendScriptCallback("actor_on_hud_animation_mark", state, mark, obj, owner)
 end
 
+-- Hud Item motion mark callback
+AddScriptCallback("actor_on_hud_item_animation_mark", state, mark, obj, owner)
+_G.CHudItem__OnItemMotionMark = function(state, mark, obj, owner)
+	SendScriptCallback("actor_on_hud_animation_mark", state, mark, obj, owner)
+end
+
 _G.CHudItem__PlayHUDMotion = function(anm_table, obj, owner)
 	SendScriptCallback("actor_on_hud_animation_play", anm_table, obj, owner)
 	return anm_table

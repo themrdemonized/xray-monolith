@@ -602,6 +602,66 @@ u32 script_attachment::PlayMotion(LPCSTR name, bool mixin, float speed)
 	return length;
 }
 
+::luabind::object script_attachment::PlayMotion_Add(LPCSTR name, bool bMixIn, float speed)
+{
+    IKinematicsAnimated* k = renderable.visual->dcast_PKinematicsAnimated();
+
+    if (!k)
+        return ::luabind::newtable(ai().script_engine().lua());
+
+    MotionID M2 = k->ID_Cycle_Safe(name);
+    if (!M2.valid())
+        M2 = k->ID_Cycle_Safe("idle");
+
+    if (!M2.valid())
+        return ::luabind::newtable(ai().script_engine().lua());
+
+    ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+    u16 pc = k->partitions().count();
+    for (u16 pid = 0; pid < pc; ++pid)
+    { 
+        CBlend* B = k->PlayCycle(pid, M2, bMixIn, 0, 0, 0, speed);
+        table[pid+1] = B->Add_ID;
+    }
+
+    k->UpdateTracks();
+    m_kinematics->CalculateBones_Invalidate();
+    m_kinematics->CalculateBones(true);
+
+    return table;
+}
+
+void script_attachment::ClearSpecificBlends(::luabind::object table)
+{
+    if (table && table.type() == LUA_TTABLE) {
+        IKinematicsAnimated* k = renderable.visual->dcast_PKinematicsAnimated();
+
+        if (!k)
+            return;
+        u16 pc = k->partitions().count();
+        for (u16 pid = 0; pid < pc; ++pid)
+        {
+            u16 Add_ID = ::luabind::object_cast<u16>(table[pid+1]);
+            if (Add_ID)
+                k->CloseAddCycles(pid, Add_ID);
+        }
+    }
+}
+
+void script_attachment::ClearBlends()
+{
+    IKinematicsAnimated* k = renderable.visual->dcast_PKinematicsAnimated();
+
+    if (!k)
+        return;
+    u16 pc = k->partitions().count();
+    for (u16 pid = 0; pid < pc; ++pid)
+    {
+        k->CloseAddCycles(pid, 0);
+    }
+}
+
 u32 script_attachment::motion_length(const MotionID& M, const CMotionDef*& md, float speed)
 {
 	IKinematicsAnimated* k = renderable.visual->dcast_PKinematicsAnimated();
