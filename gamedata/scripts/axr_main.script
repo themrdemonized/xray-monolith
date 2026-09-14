@@ -233,44 +233,176 @@ local intercepts = {
 }
 
 -- Kutez: Callback Priority System (https://github.com/themrdemonized/xray-monolith/pull/339)
+--
+-- before_funcs / after_funcs are stored as persistent ordering constraints.
+-- This makes callback ordering independent of script registration order:
+--   callback_set(name, A, { B }, {}) => A runs before B
+--   callback_set(name, A, {}, { B }) => A runs after B
+-- Constraints may reference callbacks which have not been registered yet;
+-- they become active automatically when those callbacks are later registered.
 local next_index = {}
+local callback_order = {}
+local callback_constraints = {}
+
 for name,v in pairs(intercepts) do
 	next_index[name] = 1
+	callback_order[name] = {}
+	callback_constraints[name] = {}
+end
+
+-- Recompute numeric priorities used by make_callback().
+-- A stable topological sort is used: when several callbacks are unconstrained,
+-- their most recent callback_set registration order is preserved.
+local function callback_reorder(name)
+	local callbacks = intercepts[name]
+	if (not callbacks) then
+		return
+	end
+
+	local order = callback_order[name]
+	local constraints = callback_constraints[name]
+	local edges = {} -- Stores what callback must go before other, A->B, ie. edge in graph
+	local indegree = {} -- Stores how much edges point into each callback
+	local remaining = {}
+	local remaining_count = 0
+
+	for func_or_userdata, priority in pairs(callbacks) do
+		indegree[func_or_userdata] = 0
+		edges[func_or_userdata] = {}
+		remaining[func_or_userdata] = true
+		remaining_count = remaining_count + 1
+	end
+
+	-- Build callback graph
+	local function add_edge(from_func, to_func)
+		if from_func == to_func then
+			return
+		end
+		if remaining[from_func] and remaining[to_func] and not edges[from_func][to_func] then
+			edges[from_func][to_func] = true
+			indegree[to_func] = indegree[to_func] + 1
+		end
+	end
+
+	for func_or_userdata, rule in pairs(constraints) do
+		if remaining[func_or_userdata] then
+			for k, target in pairs(rule.before) do
+				add_edge(func_or_userdata, target)
+			end
+			for k, target in pairs(rule.after) do
+				add_edge(target, func_or_userdata)
+			end
+		end
+	end
+
+	local priority = 1
+	while remaining_count > 0 do
+		local selected = nil
+		local selected_order = nil
+
+		-- Pick the earliest registered callback whose dependencies are satisfied.
+		for func_or_userdata, exists in pairs(remaining) do
+			if exists and indegree[func_or_userdata] == 0 then
+				local registration_order = order[func_or_userdata] or 0
+				if selected == nil or registration_order < selected_order then
+					selected = func_or_userdata
+					selected_order = registration_order
+				end
+			end
+		end
+
+		if selected == nil then
+			-- A dependency cycle exists. No ordering can satisfy every edge, so
+			-- break the cycle deterministically using registration order.
+			for func_or_userdata, exists in pairs(remaining) do
+				if exists then
+					local registration_order = order[func_or_userdata] or 0
+					if selected == nil or registration_order < selected_order then
+						selected = func_or_userdata
+						selected_order = registration_order
+					end
+				end
+			end
+			printf("![axr_main callback_set] dependency cycle detected for callback %s; falling back to registration order!",name)
+		end
+
+		callbacks[selected] = priority
+		priority = priority + 1
+		remaining[selected] = nil
+		remaining_count = remaining_count - 1
+
+		for target, exists in pairs(edges[selected]) do
+			if remaining[target] then
+				indegree[target] = indegree[target] - 1
+			end
+		end
+	end
 end
 
 -----------------------------------------------------------
 -- Global Callback Register
 -- param 1 - name as type<string> (ie. intercepts[name])
 -- param 2 - function to execute as type<function> or userdata with name as function
+-- param 3 - optional array of callbacks this callback must run before
+-- param 4 - optional array of callbacks this callback must run after
 -----------------------------------------------------------
 function callback_add(name)
 	if (not intercepts[name]) then
 		intercepts[name] = {}
 		next_index[name] = 1
+		callback_order[name] = {}
+		callback_constraints[name] = {}
 	else
 		printf("![axr_main callback_add] callback %s already exists!",name)
 		callstack()
 	end
 end
 
-function callback_set(name,func_or_userdata)
+function callback_set(name, func_or_userdata, before_funcs, after_funcs)
 	if (func_or_userdata == nil) then 
 		printf("![axr_main callback_set] trying to set callback %s to nil function!",name)
 		callstack()
 		return
 	end
-	if (intercepts[name]) then
-		intercepts[name][func_or_userdata] = next_index[name]
-		next_index[name] = next_index[name] + 1
-	else
+
+	if (not intercepts[name]) then
 		printf("![axr_main callback_set] callback %s doesn't exist!",name)
 		callstack()
 	end
+
+	if before_funcs and (type(before_funcs) == "function" or type(before_funcs) == "userdata") then
+		before_funcs = {before_funcs}
+	elseif not before_funcs then
+		before_funcs = {}
+	end
+	if after_funcs and (type(after_funcs) == "function" or type(after_funcs) == "userdata") then
+		after_funcs = {after_funcs}
+	elseif not after_funcs then
+		after_funcs = {}
+	end	
+
+	-- callback_set on an existing callback behaves like a fresh registration:
+	-- its fallback position moves to the end and its constraints are replaced.
+	callback_order[name][func_or_userdata] = next_index[name]
+	next_index[name] = next_index[name] + 1
+
+	callback_constraints[name][func_or_userdata] = {
+		before = before_funcs,
+		after = after_funcs
+	}
+
+	-- The actual value is assigned by callback_reorder(). Setting a temporary
+	-- value here makes the callback visible to the graph during recomputation.
+	intercepts[name][func_or_userdata] = callback_order[name][func_or_userdata]
+	callback_reorder(name)
 end
 
 function callback_unset(name,func_or_userdata)
 	if (intercepts[name]) then
 		intercepts[name][func_or_userdata] = nil
+		callback_order[name][func_or_userdata] = nil
+		callback_constraints[name][func_or_userdata] = nil
+		callback_reorder(name)
 	else
 		printf("![axr_main callback_unset] callback %s doesn't exist!",name)
 		callstack()

@@ -423,6 +423,11 @@ _G.sort_func_values_length_descend = function(t, a, b)
 	return #t[a] > #t[b]
 end
 
+-- Send additional arguments to axr_main.callback_set
+_G.RegisterScriptCallback = function(name, func_or_userdata, ...)
+	axr_main.callback_set(name, func_or_userdata, ...)
+end
+
 -- Additional params for callbacks
 -- Called on CHudItem Motion Mark
 _G.CHudItem__OnMotionMark = function(state, mark, obj, owner)
