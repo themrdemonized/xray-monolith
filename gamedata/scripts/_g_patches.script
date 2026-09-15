@@ -428,6 +428,16 @@ _G.RegisterScriptCallback = function(name, func_or_userdata, ...)
 	axr_main.callback_set(name, func_or_userdata, ...)
 end
 
+_G.CALLBACKS_PRE = 0
+_G.CALLBACKS_NORMAL = 1
+_G.CALLBACKS_POST = 2
+_G.RegisterScriptCallbackPre = function(name, func_or_userdata, before_funcs, after_funcs, ...)
+	axr_main.callback_set(name, func_or_userdata, before_funcs, after_funcs, CALLBACKS_PRE, ...)
+end
+_G.RegisterScriptCallbackPost = function(name, func_or_userdata, before_funcs, after_funcs, ...)
+	axr_main.callback_set(name, func_or_userdata, before_funcs, after_funcs, CALLBACKS_POST, ...)
+end
+
 -- Additional params for callbacks
 -- Called on CHudItem Motion Mark
 _G.CHudItem__OnMotionMark = function(state, mark, obj, owner)
