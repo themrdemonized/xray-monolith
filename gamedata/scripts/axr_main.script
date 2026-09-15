@@ -507,13 +507,13 @@ function callback_add(name)
 end
 
 function callback_set(name, func_or_userdata, before_funcs, after_funcs, priority)
-	if (func_or_userdata == nil) then 
+	if func_or_userdata == nil then 
 		printf("![axr_main callback_set] trying to set callback %s to nil function!",name)
 		callstack()
 		return
 	end
 
-	if (not intercepts[name]) then
+	if not intercepts[name] then
 		printf("![axr_main callback_set] callback %s doesn't exist!",name)
 		callstack()
 		return
@@ -521,25 +521,22 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 
 	local normalized_before, before_error = callback_normalize_constraint_list(before_funcs, "before_funcs")
 	if not normalized_before then
-		printf("![axr_main callback_set] rejected callback for %s: %s", name, before_error)
+		printf("![axr_main callback_set] rejected callback dependency for %s: %s", name, before_error)
 		callstack()
-		return
 	end
 
 	local normalized_after, after_error = callback_normalize_constraint_list(after_funcs, "after_funcs")
 	if not normalized_after then
-		printf("![axr_main callback_set] rejected callback for %s: %s", name, after_error)
+		printf("![axr_main callback_set] rejected callback dependency for %s: %s", name, after_error)
 		callstack()
-		return
 	end
 
 	if priority == nil then
 		priority = CALLBACKS_NORMAL
 	end
 	if not callback_valid_priority(priority) then
-		printf("![axr_main callback_set] rejected callback for %s: invalid callback tier %s", name, tostring(priority))
+		printf("![axr_main callback_set] rejected callback dependency for %s: invalid callback tier %s", name, tostring(priority))
 		callstack()
-		return
 	end
 
 	-- Registration order is stable: re-registering the same function/userdata
