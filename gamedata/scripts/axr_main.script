@@ -271,7 +271,7 @@ end
 -- Normalize a single callback or a callback array into a private table.
 -- Keeping a private copy prevents callers from mutating constraints after registration.
 local function callback_normalize_constraint_list(targets, argument_name)
-	if targets == nil then
+	if not targets then
 		return {}
 	end
 
@@ -342,15 +342,15 @@ local function callback_reorder(name)
 		    }
 		    constraints[func_or_userdata] = rule
 		else
-		    if rule.priority == nil then
+		    if not rule.priority then
 		        rule.priority = CALLBACKS_NORMAL
 		    end
 
-		    if rule.before == nil then
+		    if not rule.before then
 		        rule.before = {}
 		    end
 
-		    if rule.after == nil then
+		    if not rule.after then
 		        rule.after = {}
 		    end
 		end
@@ -358,7 +358,7 @@ local function callback_reorder(name)
 			return false, string.format("callback has invalid tier %s", tostring(rule.priority))
 		end
 
-		if order[func_or_userdata] == nil then
+		if not order[func_or_userdata] then
 			order[func_or_userdata] = next_index[name]
 			next_index[name] = next_index[name] + 1
 		end
@@ -453,14 +453,14 @@ local function callback_reorder(name)
 			for func_or_userdata, exists in pairs(remaining) do
 				if exists and indegree[func_or_userdata] == 0 then
 					local registration_order = order[func_or_userdata] or 0
-					if selected == nil or registration_order < selected_order then
+					if not selected or registration_order < selected_order then
 						selected = func_or_userdata
 						selected_order = registration_order
 					end
 				end
 			end
 
-			if selected == nil then
+			if not selected then
 				return false, string.format(
 					"dependency cycle detected in callback %s (%s tier)",
 					name, callback_priority_name(tier)
@@ -507,7 +507,7 @@ function callback_add(name)
 end
 
 function callback_set(name, func_or_userdata, before_funcs, after_funcs, priority)
-	if func_or_userdata == nil then 
+	if not func_or_userdata then 
 		printf("![axr_main callback_set] trying to set callback %s to nil function!",name)
 		callstack()
 		return
@@ -521,21 +521,21 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 
 	local normalized_before, before_error = callback_normalize_constraint_list(before_funcs, "before_funcs")
 	if not normalized_before then
-		printf("![axr_main callback_set] rejected callback dependency for %s: %s", name, before_error)
+		assert(false, string.format("![axr_main callback_set] rejected callback dependency for %s: %s", name, before_error))
 		callstack()
 	end
 
 	local normalized_after, after_error = callback_normalize_constraint_list(after_funcs, "after_funcs")
 	if not normalized_after then
-		printf("![axr_main callback_set] rejected callback dependency for %s: %s", name, after_error)
+		assert(false, string.format("![axr_main callback_set] rejected callback dependency for %s: %s", name, after_error))
 		callstack()
 	end
 
-	if priority == nil then
+	if not priority then
 		priority = CALLBACKS_NORMAL
 	end
 	if not callback_valid_priority(priority) then
-		printf("![axr_main callback_set] rejected callback dependency for %s: invalid callback tier %s", name, tostring(priority))
+		assert(false, string.format("![axr_main callback_set] rejected callback dependency for %s: invalid callback tier %s", name, tostring(priority)))
 		callstack()
 	end
 
@@ -547,7 +547,7 @@ function callback_set(name, func_or_userdata, before_funcs, after_funcs, priorit
 	local old_priority = intercepts[name][func_or_userdata]
 	local was_registered = old_priority ~= nil
 
-	if old_order == nil then
+	if not old_order then
 		callback_order[name][func_or_userdata] = next_index[name]
 		next_index[name] = next_index[name] + 1
 	end
