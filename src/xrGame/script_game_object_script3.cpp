@@ -518,6 +518,8 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("weapon_in_grenade_mode", &CScriptGameObject::WeaponInGrenadeMode)
 		// For CHudItem
 		.def("play_hud_motion", SAFE_WRAP(&CScriptGameObject::PlayHudMotion))
+		.def("need_blend_anm", SAFE_WRAP(&CScriptGameObject::NeedBlendAnm))
+		.def("hud_fov", SAFE_WRAP(&CScriptGameObject::GetHudFov))
 		.def("switch_state", SAFE_WRAP(&CScriptGameObject::SwitchState))
 		.def("get_state", SAFE_WRAP(&CScriptGameObject::GetState))
 		.def("hud_fire_point", SAFE_WRAP(&CScriptGameObject::hud_fire_point))

@@ -210,6 +210,8 @@
     get_player_hud() {
         void set_hands(string section)
         void reset_hands()
+        string section_name() // the hud section currently loaded, empty string when none is
+        bool set_hands_visuals(string right_visual, string left_visual) // swaps the hand models inside the loaded section, left falls back to the right visual when empty, false when a visual is missing, is not animated, or lacks the bones the hud binds
     }
 
     namespace ActorMenu {
@@ -544,6 +546,40 @@
         //        air_resistance = 0.2,
         //    }
         //    level.add_bullet(t)
+
+        // HUD hands, script motions and blend anms
+        u32 play_hud_motion(u8 hand, string itm_name, string anm_name, bool bMixIn, float speed, bool keep_freelook) // hand 0 right, 1 left, 2 both, returns the motion length in ms, 0 when the section is missing or the hand is out of range
+        void set_hud_motion_freelook(u8 hand, bool keep) // hand 0 right, 1 left, 2 both, keep lets freelook stay active while that script motion plays
+        bool hud_motion_exists(string section, string anm_name) // true when the section defines the motion and the loaded hands model has that cycle
+        int hud_motion_blocked_reason() // 0 nothing blocks, 1 right item pending, 2 right item boring, 3 left item pending, 4 left item boring, 5 a script motion already plays
+        int hud_motion_part() // 0 right, 1 left, 2 both for the script motion playing now, nil when none plays
+        bool hud_needs_blend(u8 part) // part 0 right, 1 left, true when that hand wants a blend anm this frame
+        void play_hud_anm(string name, u8 part, float speed, float power, bool bLooped)
+        void play_hud_anm(string name, u8 part, float speed, float power, bool bLooped, bool no_restart)
+        void play_hud_anm(string name, u8 part, float speed, float power, bool bLooped, bool no_restart, string pivot_bone, int priority) // priority orders the blend layers, higher is applied later, default 0
+        void set_hud_anm_priority(string name, int priority) // reorders a blend layer that is already playing
+        void stop_hud_anm(string name, bool bForce, float fade_ms) // fades the layer out over fade_ms milliseconds
+        function hud_anm_state(string name) -> bool found, bool active, float blend // blend runs 0 to 1, found is false when no layer carries that name
+        bool hud_anm_exists(string name) // true when the anm file is found under $level$ or $game_anims$
+        void set_hud_cycle_speed(u8 part, float speed) // part 0 both, 1 left hand, 2 right hand, multiplies the speed of the cycles playing there
+        void set_hud_cycle_time(u8 part, float time) // part 0 both, 1 left hand, 2 right hand, time is the position in the cycle, clamped 0 to 1
+        void resync_hud_anim(u8 part) // part 1 left hand or 2 right hand, copies the cycles playing on that part and their time onto the other hand partitions
+        void set_blend_move_anims_override(bool mode) // true forces the movement blend anms on, false forces them off, nil returns control to the console flag
+        bool get_blend_move_anims() // the movement blend anm state in effect, override included
+        bool set_bare_hands(string section) // hud section idled when both hands are empty, nil clears it, false when the section is missing or has no anm_idle on the hands model
+        string get_bare_hands() // the bare hands section, nil when none is set
+        bool bare_hands_live() // true while the bare hands idle is the thing being drawn
+        u32 bare_hands_skipped() // hud draws and ui queries skipped since the hud was created while a bare hands section was set
+        void set_hud_offset(u8 part, float x, float y, float z, float pitch, float yaw, float roll, float blend_ms) // part 0 right, 1 left, 2 both, position in metres, angles in degrees with the aim_hud_offset_rot signs, eased in over blend_ms milliseconds
+        void clear_hud_offset(u8 part, float blend_ms) // part 0 right, 1 left, 2 both, eases the offset back out over blend_ms milliseconds
+        float get_hud_fov() // the hud fov the renderer is using
+        bool hud_visible() // true while any of the hud weapon draw flags is set
+        game_object hud_attached_item(u16 slot) // slot 0 right hand, 1 left hand, 2 scope, nil when the slot is empty
+
+        // Actor freelook
+        int actor_freelook_state() // 0 disabled, 1 enabling, 2 enabled, 3 disabling
+        float actor_freelook_factor() // how far the freelook camera has taken control, 0 to 1
+        float actor_freelook_yaw_split() // signed radians between the body yaw and the camera yaw
 
         // Script Attachments
         function add_attachment(string, string)
@@ -886,6 +922,10 @@
         // HUD item inertia
         bool set_hud_inertion_enabled()
         void hud_inertion_enabled(bool value)
+
+        // HUD item animation state
+        bool need_blend_anm() // true when this hud item wants a blend anm playing, false when the object is not a hud item
+        float hud_fov() // the hud fov this item renders with, 0 when the object is not a hud item
 
         // Torch
         function update_torch()

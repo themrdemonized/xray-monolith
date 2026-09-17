@@ -1842,6 +1842,26 @@ u32 CScriptGameObject::PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float spe
 	return itm->PlayHUDMotion(M, bMixIn, itm, state, speed, end);
 }
 
+bool CScriptGameObject::NeedBlendAnm()
+{
+	CInventoryItem* inv_itm = object().cast_inventory_item();
+	CHudItem* itm = inv_itm ? inv_itm->cast_hud_item() : nullptr;
+	if (!itm)
+		return false;
+
+	return itm->NeedBlendAnm();
+}
+
+float CScriptGameObject::GetHudFov()
+{
+	CInventoryItem* inv_itm = object().cast_inventory_item();
+	CHudItem* itm = inv_itm ? inv_itm->cast_hud_item() : nullptr;
+	if (!itm)
+		return 0.f;
+
+	return itm->GetHudFov();
+}
+
 void CScriptGameObject::SwitchState(u32 state)
 {
 	CWeapon* Weapon = object().cast_weapon();
