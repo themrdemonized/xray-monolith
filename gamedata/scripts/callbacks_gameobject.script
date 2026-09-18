@@ -322,7 +322,7 @@ _G.CAI_Stalker__OnBeforeOwnershipTake = function(npc, item)
 end
 
 AddScriptCallback("npc_set_body_state")
-function _G.CAI_Stalker__SetBodyState(npc, state)
+_G.CAI_Stalker__SetBodyState = function(npc, state)
 	local flags = {ret_value = state}
 	SendScriptCallback("npc_set_body_state",npc, state, flags)
 	return flags.ret_value
@@ -350,7 +350,7 @@ body_state = {
 }
 --]]
 AddScriptCallback("npc_on_combat_set_body_state")
-function _G.CAI_Stalker__CombatSetBodyState(npc,world_operator,body_state)
+_G.CAI_Stalker__CombatSetBodyState = function(npc,world_operator,body_state)
 	local csbs_flags = {body_state = body_state}
 	SendScriptCallback("npc_on_combat_set_body_state",npc,world_operator,body_state,csbs_flags)
 	return csbs_flags.body_state
@@ -419,12 +419,12 @@ end
 
 -- NPC grenade throw force override. Return a float to override throw force.
 -- Lower values = shorter throw range. Use npc:rank_name() to scale by rank
+AddScriptCallback("npc_on_missile_throw_force")
 _G.CAI_Stalker__GetMissileThrowForce = function(npc, base_force)
 	local flags = { ret_value = base_force }
 	SendScriptCallback("npc_on_missile_throw_force", npc, base_force, flags)
 	return flags.ret_value
 end
-AddScriptCallback("npc_on_missile_throw_force")
 
 -- NPC wounded/killed an enemy callback. victim is the enemy that was wounded or killed
 AddScriptCallback("npc_on_enemy_wounded_or_killed")
@@ -497,22 +497,45 @@ end
 -- Returns the minimum distance from enemy at which this NPC will accept a cover point.
 -- Snipers use a high min (they need distance to fire effectively).
 -- Default is computed from ef_weapon_type and ai_cover_sniper_min_dist / MIN_SUITABLE_ENEMY_DISTANCE.
+AddScriptCallback("npc_on_get_min_combat_dist")
 _G.CAI_Stalker__GetMinCombatDist = function(npc, base_min)
 	local flags = { ret_value = base_min }
 	SendScriptCallback("npc_on_get_min_combat_dist", npc, base_min, flags)
 	return flags.ret_value
 end
-AddScriptCallback("npc_on_get_min_combat_dist")
 
 -- NPC maximum combat engagement distance override
 -- Returns the maximum distance from enemy at which this NPC will accept a cover point.
 -- Shotgunners use a low max (close cover only). Default computed from ef_weapon_type.
+AddScriptCallback("npc_on_get_max_combat_dist")
 _G.CAI_Stalker__GetMaxCombatDist = function(npc, base_max)
 	local flags = { ret_value = base_max }
 	SendScriptCallback("npc_on_get_max_combat_dist", npc, base_max, flags)
 	return flags.ret_value
 end
-AddScriptCallback("npc_on_get_max_combat_dist")
+
+-- Add on_item_take/drop callbacks for Sidorovich/Forester
+AddScriptCallback("sid_forester_on_item_take")
+AddScriptCallback("sid_forester_on_item_drop")
+function bind_trader.trader_object_binder:on_item_take(item)
+	SendScriptCallback("sid_forester_on_item_take", self.object, item)
+end
+function bind_trader.trader_object_binder:on_item_drop(item)
+	SendScriptCallback("sid_forester_on_item_drop", self.object, item)
+end
+
+bind_trader_trader_object_binder_reinit = bind_trader.trader_object_binder.reinit
+bind_trader.trader_object_binder.reinit = function(self)
+	bind_trader_trader_object_binder_reinit(self)
+	self.object:set_callback(callback.on_item_take, self.on_item_take, self)
+	self.object:set_callback(callback.on_item_drop, self.on_item_drop, self)
+end
+bind_trader_trader_object_binder_net_destroy = bind_trader.trader_object_binder.net_destroy
+bind_trader.trader_object_binder.net_destroy = function(self)
+	self.object:set_callback(callback.on_item_take, nil)
+	self.object:set_callback(callback.on_item_drop, nil)
+	bind_trader_trader_object_binder_net_destroy(self)
+end
 
 -- actor_on_task_callback
 AddScriptCallback("actor_on_task_callback")
