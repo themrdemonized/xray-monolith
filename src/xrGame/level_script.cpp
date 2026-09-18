@@ -2433,7 +2433,9 @@ void CLevel::script_register(lua_State* L)
 		.def("cast_dbg_line", &DBG_ScriptObject::cast_dbg_line)
 		.def_readwrite("color", &DBG_ScriptObject::m_color)
 		.def_readwrite("hud", &DBG_ScriptObject::m_hud)
-		.def_readwrite("visible", &DBG_ScriptObject::m_visible),
+		.def_readwrite("visible", &DBG_ScriptObject::m_visible)
+		.def_readwrite("width", &DBG_ScriptObject::m_width)
+		.def_readwrite("depth_test", &DBG_ScriptObject::m_depth_test),
 
 		class_<DBG_ScriptSphere, DBG_ScriptObject>("DBG_ScriptSphere")
 		.def_readwrite("matrix", &DBG_ScriptSphere::m_mat),

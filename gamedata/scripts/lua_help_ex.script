@@ -401,6 +401,10 @@
         fcolor color
         bool hud
         bool visible
+        // line thickness in world units, 0 keeps the stock one pixel lines
+        float width
+        // false draws the shape through walls and other geometry
+        bool depth_test
     }
     class DBG_ScriptSphere {
         Fmatrix matrix
@@ -1253,6 +1257,9 @@
         -- Other
         function set_type(number); -- ex. script_attachment_type.Hud
         function get_type();
+        -- a hud attachment with this set keeps drawing while the hands are empty, inherited from children
+        function set_render_always(boolean);
+        function get_render_always();
         function set_model(string, boolean);
         function get_model();
         function set_name();
@@ -1260,36 +1267,78 @@
         function play_motion(string, boolean, number);
 
         -- Script 3D UI
+        -- an attachment holds several UI slots, a leading string argument names the slot
+        -- the short forms use the slot named "default", a setter on an unknown slot creates it
         function set_ui(string);
-        function get_ui();
+        function set_ui(string, string); -- slot name, name of a global functor returning a CUIDialogWndEx
+        function get_ui(); -- functor name held by the slot, nil when the slot has none
+        function get_ui(string);
+        function clear_ui(); -- drops the window from the slot, the slot keeps its offsets and bone
+        function clear_ui(string);
+        function set_ui_visible(boolean);
+        function set_ui_visible(string, boolean);
+        function get_ui_visible(); -- false when the slot does not exist
+        function get_ui_visible(string);
+        function list_uis(); -- table of slot names, keys 1 upwards
+        function get_ui_transform(); -- world matrix of the slot, identity when the slot does not exist
+        function get_ui_transform(string);
         function set_ui_bone(number);
-        function get_ui_bone();
+        function set_ui_bone(string); -- bone name on the default slot
+        function set_ui_bone(string, number);
+        function set_ui_bone(string, string); -- slot name, bone name
+        function get_ui_bone(); -- bone index, 0 when the slot does not exist
+        function get_ui_bone(string);
         function set_ui_position(vector);
         function set_ui_position(number, number, number);
-        function get_ui_position();
+        function set_ui_position(string, vector);
+        function set_ui_position(string, number, number, number);
+        function get_ui_position(); -- zero vector when the slot does not exist
+        function get_ui_position(string);
         function set_ui_rotation(vector);
         function set_ui_rotation(number, number, number);
+        function set_ui_rotation(string, vector);
+        function set_ui_rotation(string, number, number, number);
         function get_ui_rotation();
+        function get_ui_rotation(string);
         function set_ui_scale(vector);
         function set_ui_scale(number, number, number);
+        function set_ui_scale(string, vector);
+        function set_ui_scale(string, number, number, number);
         function get_ui_scale();
+        function get_ui_scale(string);
         function set_ui_origin(vector);
         function set_ui_origin(number, number, number);
+        function set_ui_origin(string, vector);
+        function set_ui_origin(string, number, number, number);
         function get_ui_origin();
+        function get_ui_origin(string);
 
         -- Script Light
+        -- light slots work like the UI slots, a leading string argument names the slot
         function attach_light(attachment_script_light*);
-        function detach_light();
-        function get_light();
+        function attach_light(string, attachment_script_light*);
+        function attach_light(string, attachment_script_light*, number); -- also sets the slot bone by index
+        function attach_light(string, attachment_script_light*, string); -- also sets the slot bone by name
+        function detach_light(); -- returns the light taken out of the slot, nil when it held none
+        function detach_light(string);
+        function get_light(); -- nil when the slot is empty
+        function get_light(string);
         function set_light_bone(number);
         function set_light_bone(string);
-        function get_light_bone();
+        function set_light_bone(string, number);
+        function set_light_bone(string, string); -- slot name, bone name
+        function get_light_bone(); -- bone index, 0 when the slot does not exist
+        function get_light_bone(string);
 
         -- Shader and Texture
 		function get_shaders()
 		function get_default_shaders()
 		function set_shader(number, string, string)
 		function reset_shader(number)
+		function find_children_by_texture(string) -- table of child ids drawing that texture, a visual without children yields 1
+		function set_shader_by_texture(string, string, string) -- texture to match, new shader, new texture
+		function set_shader_param(number, number, number, number, number) -- child id then x y z w reaching the shader as m_visual_params, id 0 hits every child
+		function clear_shader_param(number) -- zeroes the param on that child and stops feeding it
 
         -- Userdata
         property userdata

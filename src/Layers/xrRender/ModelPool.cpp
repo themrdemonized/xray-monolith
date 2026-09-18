@@ -321,11 +321,28 @@ void CModelPool::DeleteInternal(dxRender_Visual* & V, BOOL bDiscard)
 		{
 			// Registry entry found - move it to pool and reset changed shader/texture if necessary
 			xr_vector<IRenderVisual*>* children = V->get_children();
+			xr_vector<IRenderVisual*>* children_invisible = V->get_children_invisible();
+			V->dxRender_Visual::SetHudShaders(V->hud_def);
 			if (children)
 				for (auto* child : *children)
+				{
+					auto* visual = (dxRender_Visual*)child;
+					visual->dxRender_Visual::SetHudShaders(visual->hud_def);
 					child->ResetShaderTexture();
+					child->ClearShaderParam();
+				}
 			else
 				V->ResetShaderTexture();
+
+			if (children_invisible)
+				for (auto* child : *children_invisible)
+				{
+					auto* visual = (dxRender_Visual*)child;
+					visual->dxRender_Visual::SetHudShaders(visual->hud_def);
+					child->ClearShaderParam();
+				}
+			else if (!children)
+				V->ClearShaderParam();
 
 			Pool.insert(mk_pair(it->second, V));
 		}

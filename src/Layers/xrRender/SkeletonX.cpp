@@ -36,6 +36,8 @@ void CSkeletonX::_Copy(CSkeletonX* B)
 {
 	Parent = NULL;
 	ChildIDX = B->ChildIDX;
+	m_shader_param = B->m_shader_param;
+	m_shader_param_set = B->m_shader_param_set;
 	Vertices1W = B->Vertices1W;
 	Vertices2W = B->Vertices2W;
 	Vertices3W = B->Vertices3W;
@@ -102,6 +104,16 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 #endif
 
 	RCache.stat.r.s_dynamic.add(vCount);
+
+	// written on every draw so one child's value is never reused by the next child of the same element
+	if (RCache.hemi.c_visual_params)
+	{
+		if (m_shader_param_set)
+			RCache.hemi.set_visual_params(m_shader_param.x, m_shader_param.y, m_shader_param.z, m_shader_param.w);
+		else
+			RCache.hemi.set_visual_params(0.f, 0.f, 0.f, 0.f);
+	}
+
 	switch (RenderMode)
 	{
 	case RM_SKINNING_SOFT:

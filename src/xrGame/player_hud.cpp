@@ -907,9 +907,41 @@ void player_hud::load_script(LPCSTR section)
 	script_override_arms = true;
 }
 
+bool player_hud::hud_attachment_render_always()
+{
+	if (!g_actor) return false;
+
+	for (auto& pair : *g_actor->GetAttachments())
+	{
+		script_attachment* att = pair.second;
+		if (att->GetType() == eSA_HUD && att->HasRenderAlways())
+			return true;
+	}
+
+	return false;
+}
+
+void player_hud::render_hud_attachments_always()
+{
+	for (auto& pair : *g_actor->GetAttachments())
+	{
+		script_attachment* att = pair.second;
+
+		if (att->GetType() != eSA_HUD || !att->HasRenderAlways()) continue;
+
+		// Left arm
+		if (att->GetParentBone() < 21)
+			att->Render(m_model_2->dcast_PKinematics(), &m_transform_2);
+
+		// Right arm
+		else
+			att->Render(m_model->dcast_PKinematics(), &m_transform);
+	}
+}
+
 bool player_hud::render_item_ui_query()
 {
-	bool res = false;
+	bool res = hud_attachment_render_always();
 	if (m_attached_items[0])
 		res |= m_attached_items[0]->render_item_ui_query();
 
@@ -943,8 +975,14 @@ void player_hud::render_item_ui()
 	if (g_actor->GetAttachments()->size())
 	{
 		for (auto& pair : *g_actor->GetAttachments())
-			if (pair.second->GetType() == eSA_HUD)
-				pair.second->RenderUI();
+		{
+			if (pair.second->GetType() != eSA_HUD) continue;
+
+			if (!m_attached_items[0] && !m_attached_items[1] && !pair.second->HasRenderAlways())
+				continue;
+
+			pair.second->RenderUI();
+		}
 	}
 }
 
@@ -952,6 +990,12 @@ void player_hud::render_hud()
 {
 	bool b_r0 = ((m_attached_items[0] && m_attached_items[0]->need_renderable()) || script_anim_part == 0 || script_anim_part == 2);
 	bool b_r1 = ((m_attached_items[1] && m_attached_items[1]->need_renderable()) || script_anim_part == 1 || script_anim_part == 2);
+
+	if (!b_r0 && !b_r1 && hud_attachment_render_always())
+	{
+		render_hud_attachments_always();
+		return;
+	}
 
 	if (!b_r0 && !b_r1) return;
 

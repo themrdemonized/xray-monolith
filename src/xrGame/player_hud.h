@@ -379,6 +379,8 @@ public:
 	u32 anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part = u16(-1));
 	u32 script_anim_play(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true, float speed = 1.f);
 	const shared_str& section_name() const { return m_sect_name; }
+	bool hud_attachment_render_always();
+	void render_hud_attachments_always();
 	void OnFrame();
 	void net_Relcase(CObject* obj);
 
