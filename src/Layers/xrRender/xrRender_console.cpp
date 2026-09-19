@@ -1226,6 +1226,48 @@ public:
 	}
 };
 
+class CCC_GlossMinMax : public CCC_Vector4
+{
+public:
+    CCC_GlossMinMax(LPCSTR N, Fvector4* V, const Fvector4 _min, const Fvector4 _max) :
+        CCC_Vector4(N, V, _min, _max)
+    {
+    }
+
+    virtual void Execute(LPCSTR args)
+    {
+        Fvector4 v;
+        if (parse(args, v))
+        {
+            value->set(v);
+            return;
+        }
+
+        // Older scripts supply only x, y and z. Keep the puddle setting in w.
+        v.set(*value);
+        int consumed = 0;
+        bool parsed = 3 == sscanf(args, " %f , %f , %f %n", &v.x, &v.y, &v.z, &consumed) && !args[consumed];
+        if (!parsed)
+        {
+            consumed = 0;
+            parsed = 3 == sscanf(args, " ( %f , %f , %f ) %n", &v.x, &v.y, &v.z, &consumed) && !args[consumed];
+        }
+        if (!parsed || v.x < min.x || v.y < min.y || v.z < min.z ||
+            v.x > max.x || v.y > max.y || v.z > max.z)
+        {
+            InvalidSyntax();
+            return;
+        }
+
+        value->set(v);
+    }
+
+    virtual void Info(TInfo& I)
+    {
+        xr_sprintf(I, sizeof(I), "vector3 or vector4 in range [%e,%e,%e,%e]-[%e,%e,%e,%e]", min.x, min.y, min.z, min.w, max.x, max.y, max.z, max.w);
+    }
+};
+
 //-----------------------------------------------------------------------
 void xrRender_initconsole()
 {
@@ -1570,7 +1612,7 @@ void xrRender_initconsole()
 
 	CMD4(CCC_Integer, "ssfx_is_underground", &ps_ssfx_is_underground, 0, 1);
 	CMD4(CCC_Integer, "ssfx_gloss_method", &ps_ssfx_gloss_method, 0, 1);
-	CMD4(CCC_Vector4, "ssfx_gloss_minmax", &ps_ssfx_gloss_minmax, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+	CMD4(CCC_GlossMinMax, "ssfx_gloss_minmax", &ps_ssfx_gloss_minmax, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
 	CMD4(CCC_Float, "ssfx_gloss_factor", &ps_ssfx_gloss_factor, 0.0f, 1.0f);
 
 	CMD4(CCC_Vector4, "ssfx_lightsetup_1", &ps_ssfx_lightsetup_1, Fvector4().set(0, 0, 0, 0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
