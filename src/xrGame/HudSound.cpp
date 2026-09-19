@@ -91,7 +91,8 @@ void HUD_SOUND_ITEM::PlaySound(HUD_SOUND_ITEM& hud_snd,
                                bool looped,
                                u8 index,
 							   float volume_mult,
-							   float frequency)
+							   float frequency,
+							   float delay_mult)
 {
 	if (hud_snd.sounds.empty()) return;
 
@@ -116,18 +117,20 @@ void HUD_SOUND_ITEM::PlaySound(HUD_SOUND_ITEM& hud_snd,
 
 	hud_snd.m_activeSnd = &hud_snd.sounds[index];
 
+	const float delay = hud_snd.m_activeSnd->delay * delay_mult;
+
 	if (hud_snd.m_b_exclusive)
 	{
 		hud_snd.m_activeSnd->snd.play_at_pos(const_cast<CObject*>(parent),
 		                                     flags & sm_2D ? Fvector().set(0, 0, 0) : position,
 		                                     flags,
-		                                     hud_snd.m_activeSnd->delay);
+		                                     delay);
 	}
 	else
 	{
 		hud_snd.m_activeSnd->snd.play_no_feedback(const_cast<CObject*>(parent),
 		                                          flags,
-		                                          hud_snd.m_activeSnd->delay,
+		                                          delay,
 		                                          flags & sm_2D
 			                                          ? &Fvector().set(0, 0, 0)
 			                                          : &Fvector().set(position.x, position.y, position.z),
@@ -186,7 +189,8 @@ void HUD_SOUND_COLLECTION::PlaySound(LPCSTR alias,
                                      bool looped,
                                      u8 index,
 									 float volume_mult,
-									 float frequency)
+									 float frequency,
+									 float delay_mult)
 {
 	xr_vector<HUD_SOUND_ITEM>::iterator it = m_sound_items.begin();
 	xr_vector<HUD_SOUND_ITEM>::iterator it_e = m_sound_items.end();
@@ -198,7 +202,7 @@ void HUD_SOUND_COLLECTION::PlaySound(LPCSTR alias,
 
 	HUD_SOUND_ITEM* snd_item = FindSoundItem(alias, false);
 	if (snd_item)
-		HUD_SOUND_ITEM::PlaySound(*snd_item, position, parent, hud_mode, looped, index, volume_mult, frequency);
+		HUD_SOUND_ITEM::PlaySound(*snd_item, position, parent, hud_mode, looped, index, volume_mult, frequency, delay_mult);
 }
 
 void HUD_SOUND_COLLECTION::StopSound(LPCSTR alias)
@@ -303,7 +307,8 @@ void HUD_SOUND_COLLECTION_LAYERED::UpdateAllSoundsPositions(const Fvector& P)
 }
 
 void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& position, const CObject* parent,
-                                             bool hud_mode, bool looped, u8 index, float volume_mult, float frequency)
+                                             bool hud_mode, bool looped, u8 index, float volume_mult, float frequency,
+                                             float delay_mult)
 {
 	LPCSTR alias_to_play = alias;
 	::luabind::functor<::luabind::object> funct;
@@ -316,7 +321,7 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
 			::luabind::object output = funct(alias, parent_lua_game_object);
 			if (output && output.type() == LUA_TTABLE)
 			{
-				auto volume_mult_ex_obj = output["volume_mult"]; 
+				auto volume_mult_ex_obj = output["volume_mult"];
 				float volume_mult_ex = volume_mult_ex_obj.type() != LUA_TNUMBER ? 1 : ::luabind::object_cast<float>(volume_mult_ex_obj);
 				volume_mult = volume_mult * volume_mult_ex;
 
@@ -328,6 +333,16 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
 						frequency = frequency * frequency_ex;
 					else
 						Msg("!_G.COnBeforePlayHudSound callback, HUD_SOUND_COLLECTION_LAYERED::PlaySound, ignoring invalid frequency_mult for sound item %s", alias);
+				}
+
+				auto delay_mult_obj = output["delay_mult"];
+				if (delay_mult_obj.type() == LUA_TNUMBER)
+				{
+					float delay_mult_ex = ::luabind::object_cast<float>(delay_mult_obj);
+					if (_valid(delay_mult_ex) && delay_mult_ex >= 0.f)
+						delay_mult = delay_mult * delay_mult_ex;
+					else
+						Msg("!_G.COnBeforePlayHudSound callback, HUD_SOUND_COLLECTION_LAYERED::PlaySound, ignoring invalid delay_mult for sound item %s", alias);
 				}
 
 				LPCSTR section = ::luabind::object_cast<LPCSTR>(output["section"]);
@@ -362,7 +377,7 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
 						{
 							Msg("!_G.COnBeforePlayHudSound callback, HUD_SOUND_COLLECTION_LAYERED::PlaySound, failed to override sound item %s with %s, sound item by original alias %s not found", alias, new_alias.c_str(), alias);
 						}
-					} 
+					}
 					else
 					{
 						alias_to_play = new_alias.c_str();
@@ -379,7 +394,7 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
 	for (; it != it_e; ++it)
 	{
 		if (it->m_alias == alias_to_play && volume_mult > EPS_S)
-			it->PlaySound(alias_to_play, position, parent, hud_mode, looped, index, volume_mult, frequency);
+			it->PlaySound(alias_to_play, position, parent, hud_mode, looped, index, volume_mult, frequency, delay_mult);
 	}
 }
 
