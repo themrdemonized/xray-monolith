@@ -561,10 +561,13 @@ end
 on_before_play_hud_sound callback, possibility to override sound with another one, or change the volume, the frequency or
 the delay of an existing sound, or any combination of those
 
-Callback returns a table which must contain "section", "line", "volume_mult", "frequency_mult" or "delay_mult" fields, which refer to the
-section and line to load the new sound from, the volume multiplier, the playback rate, and the delay scale.
+Callback returns a table which must contain "section", "line", "volume_mult", "frequency_mult" or "delay_mult" fields, which
+refer to the section and line to load the new sound from, the volume multiplier, the playback rate, and the delay scale.
 
 Unfortunately, the engine have some limitation regarding its sound's volume, so it can't increase the volume too much.
+
+Do not assign the multipliers directly, but multiply your value with it instead, so that several addons can stack.
+Assigning throws away what other addons before you asked for, and whichever callback happens to run last wins.
 
 Arguments
 	Alias: internal sound type in the engine
@@ -574,23 +577,23 @@ Example:
 	if alias == "sndShot" and parent and parent:id() == AC_ID then
 		result.section = "wpn_l96a1_sounds"
 		result.line = "snd_shoot"
-		result.volume_mult = 0.75 -- Multiply the fire sound's volume by 0.75
+		result.volume_mult = result.volume_mult * 0.75 -- 0.75x volume
 	end
 
 Or:
 	if alias == "sndShot" and parent and parent:id() == AC_ID then
-		result.volume_mult = 0.5 -- Multiply the fire sound's volume by 0.5
+		result.volume_mult = result.volume_mult * 0.5 -- 0.5x volume
 	end
 
 Or:
 	if alias == "sndReload" and parent and parent:id() == AC_ID then
-		result.frequency_mult = 1.25 -- Play the reload sound 1.25x faster, and 1.25x higher pitched
+		result.frequency_mult = result.frequency_mult * 1.25 -- 1.25x faster, and 1.25x higher pitched
 	end
 
 Or:
 	if alias == "sndReloadG" and parent and parent:id() == AC_ID then
-		result.frequency_mult = 1.25 -- Play the grenade reload sound 1.25x faster
-		result.delay_mult = 1 / 1.25 -- ...and bring its lead-in forward to match
+		result.frequency_mult = result.frequency_mult * 1.25 -- 1.25x faster
+		result.delay_mult = result.delay_mult / 1.25 -- ...and its lead-in forward to match
 	end
 
 Possible aliases:
@@ -655,21 +658,21 @@ _G.COnBeforePlayHudSound = function(alias, parent)
 	local result = {
 		section = nil,
 		line = nil,
-		volume_mult = nil,
-		frequency_mult = nil,
-		delay_mult = nil
+		volume_mult = 1,
+		frequency_mult = 1,
+		delay_mult = 1
 	}
 
 	SendScriptCallback("on_before_play_hud_sound", alias, parent, result)
 
-	if (result.section and result.line) or result.volume_mult or result.frequency_mult or result.delay_mult then
+	if (result.section and result.line) or result.volume_mult ~= 1 or result.frequency_mult ~= 1 or result.delay_mult ~= 1 then
 		return result
 	end
 end
 
 --[[
 on_before_play_script_sound callback, scale or veto any script sound_object play (CScriptSound).
-Return via result.volume_mult: 0 vetoes, <1 attenuates, nil leaves vanilla. A later engine
+Return via result.volume_mult: 0 vetoes, <1 attenuates, 1 leaves vanilla. A later engine
 .volume write can override the attenuation.
 
 Arguments
@@ -679,9 +682,9 @@ Arguments
 --]]
 AddScriptCallback("on_before_play_script_sound")
 _G.COnBeforePlayScriptSound = function(file, pos, obj)
-	local result = { volume_mult = nil }
+	local result = { volume_mult = 1 }
 	SendScriptCallback("on_before_play_script_sound", file, pos, obj, result)
-  	if result.volume_mult then
+  	if result.volume_mult ~= 1 then
 		return result
 	end
 end
@@ -689,7 +692,7 @@ end
 --[[
 on_before_play_ambient_bed callback, scale or veto the per-weather ambient background bed.
 Fired from CGamePersistent::WeathersUpdate (GamePersistent.cpp) at each bed play site.
-Return via result.volume_mult: 0 vetoes the play, <1 attenuates, nil leaves vanilla.
+Return via result.volume_mult: 0 vetoes the play, <1 attenuates, 1 leaves vanilla.
 
 Arguments
 	section: weather ambient section the bed loads from
@@ -698,9 +701,9 @@ Arguments
 --]]
 AddScriptCallback("on_before_play_ambient_bed")
 _G.COnAmbientBed = function(section, file, pos)
-	local result = { volume_mult = nil }
+	local result = { volume_mult = 1 }
 	SendScriptCallback("on_before_play_ambient_bed", section, file, pos, result)
-	if result.volume_mult then
+	if result.volume_mult ~= 1 then
 		return result
 	end
 end
@@ -708,7 +711,7 @@ end
 --[[
 on_before_play_ambient_effect callback, scale or veto the weather-effect recording sound
 (CGamePersistent::WeathersUpdate). The particle burst and wind blast still play regardless.
-Return via result.volume_mult: 0 vetoes the sound, <1 attenuates, nil leaves vanilla.
+Return via result.volume_mult: 0 vetoes the sound, <1 attenuates, 1 leaves vanilla.
 
 Arguments
 	file: resolved effect sound file name
@@ -716,9 +719,9 @@ Arguments
 --]]
 AddScriptCallback("on_before_play_ambient_effect")
 _G.COnAmbientEffectSound = function(file, pos)
-	local result = { volume_mult = nil }
+	local result = { volume_mult = 1 }
 	SendScriptCallback("on_before_play_ambient_effect", file, pos, result)
-	if result.volume_mult then
+	if result.volume_mult ~= 1 then
 		return result
 	end
 end
@@ -726,7 +729,7 @@ end
 --[[
 on_before_play_thunderbolt callback, scale or veto the lightning-strike clap. Fires on the
 last bolt of a burst only.
-Return via result.volume_mult: 0 vetoes the clap, <1 attenuates, nil leaves vanilla.
+Return via result.volume_mult: 0 vetoes the clap, <1 attenuates, 1 leaves vanilla.
 
 Arguments
 	file: resolved clap sound file name
@@ -734,9 +737,9 @@ Arguments
 --]]
 AddScriptCallback("on_before_play_thunderbolt")
 _G.COnThunderboltSound = function(file, distance)
-	local result = { volume_mult = nil }
+	local result = { volume_mult = 1 }
 	SendScriptCallback("on_before_play_thunderbolt", file, distance, result)
-	if result.volume_mult then
+	if result.volume_mult ~= 1 then
 		return result
 	end
 end
@@ -744,16 +747,16 @@ end
 --[[
 on_before_play_rain callback, scale or veto the looped rain ambient (CEffect_Rain). Sampled
 at rain onset, so a veto applies from the next time rain starts.
-Return via result.volume_mult: 0 vetoes the loop, <1 attenuates, nil leaves vanilla.
+Return via result.volume_mult: 0 vetoes the loop, <1 attenuates, 1 leaves vanilla.
 
 Arguments
 	file: resolved rain ambient file name
 --]]
 AddScriptCallback("on_before_play_rain")
 _G.COnRainSound = function(file)
-	local result = { volume_mult = nil }
+	local result = { volume_mult = 1 }
 	SendScriptCallback("on_before_play_rain", file, result)
-  	if result.volume_mult then
+  	if result.volume_mult ~= 1 then
 		return result
 	end
 end
@@ -762,16 +765,16 @@ end
 on_before_play_level_music callback, scale or silence the level music track.
 Fired from SMusicTrack::Play (level_sounds.cpp). Volume-only: a skip would make the
 manager re-select every frame, so 0 silences rather than stops the track.
-Return via result.volume_mult: 0 silences, <1 attenuates, nil leaves vanilla.
+Return via result.volume_mult: 0 silences, <1 attenuates, 1 leaves vanilla.
 
 Arguments
 	file: resolved music track file name, "" when the handle is not ready yet
 --]]
 AddScriptCallback("on_before_play_level_music")
 _G.COnLevelMusic = function(file)
-	local result = { volume_mult = nil }
+	local result = { volume_mult = 1 }
 	SendScriptCallback("on_before_play_level_music", file, result)
-	if result.volume_mult then
+	if result.volume_mult ~= 1 then
 		return result
 	end
 end
