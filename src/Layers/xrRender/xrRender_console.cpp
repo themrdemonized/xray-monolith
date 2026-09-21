@@ -52,6 +52,13 @@ xr_token smaa_quality_token[] = {
 	{ 0, 0 }
 };
 
+u32 ps_r4_temporal_aa = 0;
+xr_token r4_temporal_aa_token[] = {
+	{ "off", 0 },
+	{ "taa", 1 },
+	{ 0, 0 }
+};
+
 u32 ps_r_ssao = 3;
 xr_token qssao_token [ ] = {
 	{"st_opt_off", 0},
@@ -1537,6 +1544,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
 
 	// Screen Space Shaders
+	CMD3(CCC_Token, "r4_temporal_aa", &ps_r4_temporal_aa, r4_temporal_aa_token);
 	CMD4(CCC_Vector4, "ssfx_floravariation", &ps_ssfx_floravariation, Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 1, 10, 1));
 	CMD4(CCC_Vector4, "ssfx_taa", &ps_ssfx_taa, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 1, 2, 1));
 	CMD4(CCC_Vector4, "ssfx_motionblur", &ps_ssfx_motionblur, Fvector4().set(1, 0, 0, 0), Fvector4().set(16, 2, 1, 100));
