@@ -111,15 +111,12 @@ BOOL dltx_use_cache = TRUE;
 xr_unordered_flat_map<xr_string, CInifile::Root> CInifile::CachedData;
 xrCriticalSection CInifile::CacheCS;
 void CInifile::InvalidateCache(LPCSTR path) {
-	if (path)
+	if (path && path[0])
 	{
-		if (path[0])
-		{
-			xr_string FileName(path);
-			toLowerCase(FileName);
-			xrCriticalSectionGuard g(CacheCS);
-			CachedData.erase(FileName);
-		}
+		xr_string FileName(path);
+		toLowerCase(FileName);
+		xrCriticalSectionGuard g(CacheCS);
+		CachedData.erase(FileName);
 	}
 	else
 	{
