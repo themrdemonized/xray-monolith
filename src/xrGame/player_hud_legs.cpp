@@ -15,22 +15,19 @@ BOOL legs_attach_to_camera = TRUE;
 extern int showActorBody;
 extern xr_unordered_set<CDemoRecord*> pDemoRecords;
 
-static void delete_model(IKinematics*& model)
-{
-    if (!model)
-        return;
-
-    IRenderVisual* v = model->dcast_RenderVisual();
-    if (v)
-        ::Render->model_Delete(v);
-
-    model = nullptr;
-}
-
 void player_legs_controller::destroy()
 {
-    delete_model(m_model);
-    delete_model(m_shadow_model);
+    for (IKinematics** model : { &m_model, &m_shadow_model })
+    {
+        if (!*model)
+            continue;
+
+        if (IRenderVisual* v = (*model)->dcast_RenderVisual())
+            ::Render->model_Delete(v);
+
+        *model = nullptr;
+    }
+
     m_visual_name = "";
 }
 
