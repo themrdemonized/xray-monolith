@@ -18,6 +18,7 @@ CLevelGraph::CLevelGraph		(LPCSTR filename)
 CLevelGraph::CLevelGraph()
 #endif
 {
+	m_nodes_allocated = false;
 #ifndef AI_COMPILER
 #ifdef DEBUG
 	sh_debug->create				("debug\\ai_nodes","$null");
@@ -29,12 +30,42 @@ CLevelGraph::CLevelGraph()
 	strconcat					(sizeof(file_name), file_name, filename, LEVEL_GRAPH_NAME);
 #endif
 	m_reader = FS.r_open(file_name);
+	R_ASSERT2(m_reader, "Cannot open level.ai");
 
 	// m_header & data
 	m_header = (CHeader*)m_reader->pointer();
-	R_ASSERT(header().version() == XRAI_CURRENT_VERSION);
+	R_ASSERT2(header().version() == XRAI_CURRENT_VERSION || header().version() == XRAI_LARGE_VERSION,
+		"Unsupported level.ai version");
 	m_reader->advance(sizeof(CHeader));
-	m_nodes = (CVertex*)m_reader->pointer();
+	const u64 node_bytes = u64(header().vertex_count()) *
+		(header().version() == XRAI_LARGE_VERSION ? sizeof(CVertex) : sizeof(NodeCompressed));
+	R_ASSERT2(node_bytes <= m_reader->elapsed(), "Truncated level.ai node array");
+	if (header().version() == XRAI_LARGE_VERSION)
+	{
+		R_ASSERT2(header().vertex_count() < NodeCompressed13::LINK_MASK, "Too many level.ai nodes");
+		m_nodes = (CVertex*)m_reader->pointer();
+	}
+	else
+	{
+		const NodeCompressed* old_nodes = (const NodeCompressed*)m_reader->pointer();
+		m_nodes = xr_alloc<CVertex>(header().vertex_count());
+		ZeroMemory(m_nodes, sizeof(CVertex) * header().vertex_count());
+		m_nodes_allocated = true;
+		for (u32 i = 0; i < header().vertex_count(); ++i)
+		{
+			for (u8 direction = 0; direction < 4; ++direction)
+			{
+				const u32 old_link = old_nodes[i].link(direction);
+				m_nodes[i].set_link(direction,
+					old_link == 0x007fffff ? NodeCompressed13::LINK_MASK : old_link);
+			}
+			m_nodes[i].high = old_nodes[i].high;
+			m_nodes[i].low = old_nodes[i].low;
+			m_nodes[i].NodeCompressed13::plane = old_nodes[i].plane;
+			m_nodes[i].p.xz(old_nodes[i].p.xz());
+			m_nodes[i].p.y(u16(old_nodes[i].p.y()));
+		}
+	}
 	m_row_length = iFloor((header().box().max.z - header().box().min.z) / header().cell_size() + EPS_L + 1.5f);
 	m_column_length = iFloor((header().box().max.x - header().box().min.x) / header().cell_size() + EPS_L + 1.5f);
 	m_access_mask.assign(header().vertex_count(), true);
@@ -52,6 +83,8 @@ CLevelGraph::CLevelGraph()
 
 CLevelGraph::~CLevelGraph()
 {
+	if (m_nodes_allocated)
+		xr_free(m_nodes);
 	FS.r_close(m_reader);
 }
 
