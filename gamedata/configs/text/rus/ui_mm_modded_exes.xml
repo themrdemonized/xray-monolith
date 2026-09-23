@@ -1214,6 +1214,9 @@
 	<string id="ui_mm_modded_exes_debug_logging_print_dltx_warnings">
 		<text>Предупреждения DLTX в логе (print_dltx_warnings)</text>
 	</string>
+	<string id="ui_mm_modded_exes_debug_logging_dump_cvar_enable">
+		<text>Лог консольных переменных во время старта и выхода (dump_cvar_enable)</text>
+	</string>
 
 	<!-- Errors -->
 	<string id="ui_mm_menu_errors">

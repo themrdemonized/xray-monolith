@@ -1217,6 +1217,9 @@
 	<string id="ui_mm_modded_exes_debug_logging_print_dltx_warnings">
 		<text>Print DLTX failed override warnings (print_dltx_warnings)</text>
 	</string>
+	<string id="ui_mm_modded_exes_debug_logging_dump_cvar_enable">
+		<text>Print console variables on engine start and end (dump_cvar_enable)</text>
+	</string>
 
 	<!-- Errors -->
 	<string id="ui_mm_menu_errors">
