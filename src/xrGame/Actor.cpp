@@ -2294,7 +2294,7 @@ void CActor::renderable_Render()
                     // Render full body from legs controller without hiding bones for shadow correctness
                     // Solves potential issues with manipulating actor's XFORM
                         m_legs_controller.update(this, true);
-                        m_legs_controller.render();
+                        m_legs_controller.render(true);
 
                         // Ideally the active item also should be duplicated but leave this for now
                         // Move active item
