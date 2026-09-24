@@ -16,6 +16,7 @@ class CGameGraph
 {
 private:
 	friend class CRenumbererConverter;
+	friend class CGameGraphBuilder;
 
 public:
 	typedef GameGraph::_GRAPH_ID _GRAPH_ID;
@@ -53,6 +54,9 @@ public:
 
 public:
 	IC CGameGraph(const IReader& stream);
+	// nodes = vertices, edges and death points laid out contiguously as in a spawn chunk;
+	// cross_tables may live in a different buffer. Neither is owned.
+	IC CGameGraph(const CHeader& header, CVertex* nodes, u32* cross_tables);
 	IC void save(IWriter& stream);
 	IC const CGameLevelCrossTable& cross_table() const;
 
@@ -72,6 +76,9 @@ public:
 	IC const _GRAPH_ID& value(u32 vertex_id, const_iterator& i) const;
 	IC const float& edge_weight(const_iterator i) const;
 	IC const CVertex* vertex(u32 vertex_id) const;
+	// Nearest vertex of level_id by level_point; false when the level has no vertices (distance is then
+	// undefined).
+	IC bool nearest_vertex(_LEVEL_ID level_id, const Fvector& level_point, u32& vertex_id, float& distance) const;
 	IC void set_invalid_vertex(_GRAPH_ID& vertex_id) const;
 	IC _GRAPH_ID vertex_id(const CVertex* vertex) const;
 	IC void set_current_level(u32 level_id);
