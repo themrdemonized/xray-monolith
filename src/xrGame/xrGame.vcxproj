@@ -491,6 +491,7 @@
     <ClInclude Include="action_script_base_inline.h" />
     <ClInclude Include="ActivatingCharCollisionDelay.h" />
     <ClInclude Include="Actor.h" />
+    <ClInclude Include="ActorParkour.h" />
     <ClInclude Include="ActorAnimation.h" />
     <ClInclude Include="ActorBackpack.h" />
     <ClInclude Include="ActorCondition.h" />
@@ -2192,6 +2193,8 @@
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>
     </ClCompile>
     <ClCompile Include="ActivatingCharCollisionDelay.cpp" />
+    <ClCompile Include="ActorParkour.cpp" />
+    <ClCompile Include="ActorParkourScript.cpp" />
     <ClCompile Include="Actor.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

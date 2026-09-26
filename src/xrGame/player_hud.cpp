@@ -18,6 +18,44 @@ player_hud* g_player_hud = NULL;
 Fvector _ancor_pos;
 Fvector _wpn_root_pos;
 
+namespace
+{
+static bool parkour_ik_from_to(Fmatrix& result, const Fvector& from, const Fvector& to)
+{
+	Fvector a = from;
+	Fvector b = to;
+	if (a.square_magnitude() < EPS_S)
+		return false;
+	a.normalize();
+	if (b.square_magnitude() < EPS_S)
+		return false;
+	b.normalize();
+	Fvector axis;
+	axis.crossproduct(a, b);
+	float sine = axis.magnitude();
+	float cosine = a.dotproduct(b);
+	if (sine < 0.0001f)
+	{
+		if (cosine > 0.f)
+			return false;
+		Fvector up;
+		up.set(0.f, 1.f, 0.f);
+		axis.crossproduct(a, up);
+		if (axis.square_magnitude() < EPS_S)
+		{
+			up.set(1.f, 0.f, 0.f);
+			axis.crossproduct(a, up);
+		}
+		axis.normalize();
+		result.rotation(axis, PI);
+		return true;
+	}
+	axis.mul(1.f / sine);
+	result.rotation(axis, atan2(sine, cosine));
+	return true;
+}
+}
+
 player_hud_motion* player_hud_motion_container::find_motion(const shared_str& name)
 {
 	xr_vector<player_hud_motion>::iterator it = m_anims.begin();
@@ -727,6 +765,11 @@ player_hud::player_hud()
 	script_anim_offset_factor = 0.f;
 	m_item_pos.identity();
 	script_override_arms = false;
+	for (int side = 0; side != 2; ++side)
+	{
+		m_parkour_ik[side] = parkour_ik_arm();
+		m_parkour_ik_palm_offset[side].set(0.f, 0.f, 0.f);
+	}
 
 	//Bone Callback Params
 	m_bone_callback_params.insert(mk_pair(r_finger0, xr_new<BoneCallbackParams>()));
@@ -814,6 +857,209 @@ void player_hud::FingerCallback(CBoneInstance* B)
 	B->mTransform.mulB_43(rotation);
 }
 
+void player_hud::ParkourIKCallback(CBoneInstance* B)
+{
+	parkour_ik_bone* cb = static_cast<parkour_ik_bone*>(B->callback_param());
+	if (!cb || !cb->hud || !cb->hud->m_parkour_ik_applying)
+		return;
+	parkour_ik_arm& arm = cb->hud->m_parkour_ik[cb->left ? 1 : 0];
+	if (!arm.valid || arm.weight <= 0.001f)
+		return;
+
+	IKinematics* K = cb->left ? cb->hud->m_model_2->dcast_PKinematics() : cb->hud->m_model->dcast_PKinematics();
+	if (!K)
+		return;
+	if (cb->wrist)
+	{
+        if (!arm.orient) return;
+        Fquaternion current, target, blended;
+        current.set(B->mTransform);target.set(arm.hand_rotation);
+        blended.slerp(current,target,arm.weight);
+        Fmatrix rotation;rotation.rotation(blended);
+        B->mTransform.i=rotation.i;B->mTransform.j=rotation.j;B->mTransform.k=rotation.k;
+		return;
+	}
+	// Bone callbacks receive model-space matrices, including the parent.
+	// Rotate the actual child offset, not an assumed local +Z bone axis.
+	Fvector current, desired;
+	B->mTransform.transform_dir(current, cb->upper ? arm.upper_axis : arm.lower_axis);
+	desired.sub(cb->upper ? arm.elbow : arm.target, B->mTransform.c);
+	Fmatrix delta;
+	if (parkour_ik_from_to(delta, current, desired))
+	{
+		delta.transform_dir(B->mTransform.i);
+		delta.transform_dir(B->mTransform.j);
+		delta.transform_dir(B->mTransform.k);
+	}
+}
+
+void player_hud::update_parkour_ik()
+{
+    CActor* actor = Actor();
+    if (!actor || !ParkourMotionPlaying() || !actor->Parkour().Active() || !actor->Parkour().HandsEnabled())
+    {
+        for (auto& arm : m_parkour_ik) { arm.valid = false; arm.weight = 0.f; arm.palm_calibrated = false; }
+        return;
+    }
+    auto& parkour = actor->Parkour();
+    IKinematics* models[2] = {m_model->dcast_PKinematics(), m_model_2->dcast_PKinematics()};
+    Fmatrix* transforms[2] = {&m_transform, &m_transform_2};
+    Fvector contactTargets[2];
+    float catchSlack=flt_max;
+    for (int side = 0; side < 2; ++side)
+    {
+        auto& arm = m_parkour_ik[side];
+        Fvector world, normal;
+        auto* k = models[side];
+        if (!arm.callbacks_owned || arm.wrist_bone == BI_NONE ||
+            k->LL_GetBoneInstance(arm.upper).callback() != ParkourIKCallback ||
+            k->LL_GetBoneInstance(arm.lower).callback() != ParkourIKCallback ||
+            !parkour.HandTarget(side == 1, world, normal))
+        { arm.valid = false; arm.weight = 0.f; continue; }
+
+        // HUD and world render at different FOVs. Preserve world contact's
+        // screen position at its depth before converting to arm model space.
+        Fvector view;
+        Device.mView.transform_tiny(view, world);
+        // A reachable lip can be beside/behind the eye when hugging a wall or
+        // rising above it. Visibility is not a physical hand-contact condition.
+        if (!_valid(view) || _abs(Device.mProjectHud._11) < EPS || _abs(Device.mProjectHud._22) < EPS)
+        { arm.valid = false; arm.weight = 0.f; continue; }
+        view.x *= Device.mProject._11 / Device.mProjectHud._11;
+        view.y *= Device.mProject._22 / Device.mProjectHud._22;
+        Fmatrix inverseView; inverseView.invert(Device.mView);
+        inverseView.transform_tiny(world, view);
+        Fmatrix inverseHud; inverseHud.invert(*transforms[side]);
+        Fvector target;
+        inverseHud.transform_tiny(target, world);
+        Fvector facing=parkour.HandDirection(side==1);
+        Device.mView.transform_dir(normal);Device.mView.transform_dir(facing);
+        const float sx=Device.mProject._11/Device.mProjectHud._11;
+        const float sy=Device.mProject._22/Device.mProjectHud._22;
+        if (_abs(sx)<EPS || _abs(sy)<EPS) {arm.valid=false;continue;}
+        normal.x/=sx;normal.y/=sy;facing.x*=sx;facing.y*=sy;
+        inverseView.transform_dir(normal);inverseView.transform_dir(facing);
+        inverseHud.transform_dir(normal);inverseHud.transform_dir(facing);
+        normal.normalize_safe();facing.mad(normal,-facing.dotproduct(normal));facing.normalize_safe();
+        Fvector across;across.crossproduct(normal,facing).normalize_safe();
+        const Fvector& offset=m_parkour_ik_palm_offset[side];
+        target.mad(across,offset.x);target.mad(normal,offset.y);target.mad(facing,offset.z);
+
+        const Fmatrix& upper = k->LL_GetTransform(arm.upper);
+        const Fmatrix& lower = k->LL_GetTransform(arm.lower);
+        const Fvector shoulder = upper.c, elbow = lower.c, wrist = k->LL_GetTransform(arm.wrist_bone).c;
+        Fvector upperOffset, lowerOffset;
+        upperOffset.sub(elbow, shoulder); lowerOffset.sub(wrist, elbow);
+        const float a = upperOffset.magnitude(), b = lowerOffset.magnitude();
+        if (a < .01f || b < .01f) { arm.valid = false; continue; }
+        // HUD shoulders are camera-mounted, not the actor's world shoulders.
+        // Allow a small shoulder adjustment instead of clamping both wrists
+        // toward the center of the screen when the projected target is farther
+        // than the authored arm length. Keep bone lengths and target separation.
+        Fvector shoulderToTarget; shoulderToTarget.sub(target, shoulder);
+        const float targetDistance = shoulderToTarget.magnitude();
+        if (targetDistance > a + b - .02f)
+        {
+            Fvector localShift = shoulderToTarget;
+            const float maxShift = parkour.ShoulderAdjustment();
+            localShift.mul(_min(maxShift, targetDistance - (a + b - .02f)) / targetDistance);
+            Fvector worldShift; transforms[side]->transform_dir(worldShift, localShift);
+            transforms[side]->c.add(worldShift);
+            target.sub(localShift);
+        }
+        contactTargets[side] = target;
+        Fvector reach;reach.sub(target,shoulder);
+        // Reserve actual chain slack for a falling catch. A straight arm cannot dip.
+        catchSlack=_min(catchSlack,_max(0.f,a+b-reach.magnitude()-.02f) /
+            _max(1.f,_max(_abs(sx),_abs(sy))));
+        Fmatrix inverseBone;
+        arm.orient=false;
+        if (arm.finger_bone!=BI_NONE && arm.index_bone!=BI_NONE && arm.little_bone!=BI_NONE &&
+            k->LL_GetBoneInstance(arm.wrist_bone).callback()==ParkourIKCallback)
+        {
+            if (!arm.palm_calibrated)
+            {
+                Fvector fingers, width, palm;
+                fingers.sub(k->LL_GetTransform(arm.finger_bone).c,wrist);
+                width.sub(k->LL_GetTransform(arm.little_bone).c,k->LL_GetTransform(arm.index_bone).c);
+                palm.crossproduct(fingers,width);
+                if (side==1) palm.invert();
+                if (fingers.square_magnitude()>EPS_S && palm.square_magnitude()>EPS_S*EPS_S)
+                {
+                    inverseBone.invert(k->LL_GetTransform(arm.wrist_bone));
+                    inverseBone.transform_dir(arm.finger_axis,fingers);arm.finger_axis.normalize();
+                    inverseBone.transform_dir(arm.palm_axis,palm);arm.palm_axis.normalize();
+                    arm.palm_calibrated=true;
+                }
+            }
+            if (arm.palm_calibrated && across.square_magnitude()>EPS_S)
+            {
+                Fvector localAcross;localAcross.crossproduct(arm.palm_axis,arm.finger_axis).normalize();
+                arm.hand_rotation.identity();
+                auto axis = [&](Fvector& out,float x,float y,float z)
+                {out.set(across);out.mul(x);out.mad(normal,y);out.mad(facing,z);};
+                axis(arm.hand_rotation.i,localAcross.x,arm.palm_axis.x,arm.finger_axis.x);
+                axis(arm.hand_rotation.j,localAcross.y,arm.palm_axis.y,arm.finger_axis.y);
+                axis(arm.hand_rotation.k,localAcross.z,arm.palm_axis.z,arm.finger_axis.z);
+                arm.orient=true;
+            }
+        }
+        inverseBone.invert(upper); inverseBone.transform_dir(arm.upper_axis, upperOffset);
+        inverseBone.invert(lower); inverseBone.transform_dir(arm.lower_axis, lowerOffset);
+        Fvector correction; correction.sub(target, wrist);
+        // Bone lengths already constrain reach. Clamping this correction after
+        // contact pulls both wrists back toward the clip's centered hand pose.
+        const float desiredWeight = parkour.HandWeight();
+        if (parkour.Reaching()) arm.weight = desiredWeight;
+        else arm.weight += (desiredWeight - arm.weight) * (1.f - expf(-Device.fTimeDelta / .06f));
+        target.mad(wrist, correction, arm.weight);
+        Fvector direction; direction.sub(target, shoulder);
+        float distance = direction.magnitude();
+        if (distance < EPS) { arm.valid = false; continue; }
+        direction.div(distance);
+        distance = clampr(distance, _abs(a - b) + .001f, a + b - .001f);
+        target.mad(shoulder, direction, distance);
+        // Keep the authored elbow side; normal/side axes only resolve a straight
+        // arm's degenerate plane. No right-arm sign inversion or elbow flipping.
+        Fvector pole = upperOffset;
+        pole.mad(direction, -pole.dotproduct(direction));
+        if (pole.square_magnitude() < .00001f)
+        {
+            pole = normal; pole.mad(direction, -pole.dotproduct(direction));
+        }
+        if (pole.square_magnitude() < .00001f)
+        {
+            pole.set(1.f, 0.f, 0.f);
+            if (_abs(direction.x) > .9f) pole.set(0.f, 0.f, 1.f);
+            pole.mad(direction, -pole.dotproduct(direction));
+        }
+        pole.normalize();
+        const float along = (a*a - b*b + distance*distance) / (2.f*distance);
+        const float height = sqrtf(_max(0.f, a*a - along*along));
+        arm.elbow.mad(shoulder, direction, along);
+        arm.elbow.mad(pole, height);
+        arm.target = target;
+        arm.valid = true;
+    }
+    // Temporary reach/FOV/bone failures must not permanently stop both hands.
+    // The controller validates real ledge contacts; IK recovers on later frames.
+    m_parkour_ik_applying = true;
+    for (auto* k : models) { k->CalculateBones_Invalidate(); k->CalculateBones(TRUE); }
+    m_parkour_ik_applying = false;
+    if(parkour.Reaching())
+    {
+        bool touching=true;
+        for(int side=0;side<2;++side)
+        {
+            const auto& arm=m_parkour_ik[side];
+            if(!arm.valid || arm.weight<.90f ||
+                models[side]->LL_GetTransform(arm.wrist_bone).c.distance_to(contactTargets[side])>.10f)
+                touching=false;
+        }
+        parkour.ConfirmHandContact(touching,catchSlack);
+    }
+}
+
 void player_hud::load(const shared_str& player_hud_sect, bool force)
 {
 	if (!force && player_hud_sect == m_sect_name) return;
@@ -854,6 +1100,56 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_finger0).set_callback(bctCustom, FingerCallback, m_bone_callback_params[r_finger0]);
 	m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_finger01).set_callback(bctCustom, FingerCallback, m_bone_callback_params[r_finger01]);
 	m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_finger02).set_callback(bctCustom, FingerCallback, m_bone_callback_params[r_finger02]);
+
+	const LPCSTR names[2][3] = {
+		{ "parkour_ik_right_upper", "parkour_ik_right_lower", "parkour_ik_right_wrist" },
+		{ "parkour_ik_left_upper", "parkour_ik_left_lower", "parkour_ik_left_wrist" }
+	};
+	const bool parkourConfigured=pSettings->section_exist("item_anm_ledge_grabbing");
+	const LPCSTR ik_section = parkourConfigured ? "item_anm_ledge_grabbing" : player_hud_sect.c_str();
+	m_parkour_ik_palm_offset[0] = READ_IF_EXISTS(pSettings, r_fvector3, ik_section, "parkour_ik_right_palm_offset", Fvector().set(0.f, 0.f, 0.f));
+	m_parkour_ik_palm_offset[1] = READ_IF_EXISTS(pSettings, r_fvector3, ik_section, "parkour_ik_left_palm_offset", Fvector().set(0.f, 0.f, 0.f));
+	IKinematics* ik_models[2] = { m_model->dcast_PKinematics(), m_model_2->dcast_PKinematics() };
+	for (int side = 0; side != 2; ++side)
+	{
+		m_parkour_ik[side] = parkour_ik_arm();
+		if (!parkourConfigured) continue;
+		for (int bone = 0; bone != 3; ++bone)
+		{
+			LPCSTR fallback[2][3] = {
+				{ "r_upperarm", "r_forearm", "r_hand" },
+				{ "l_upperarm", "l_forearm", "l_hand" }
+			};
+			shared_str configured = READ_IF_EXISTS(pSettings, r_string, ik_section, names[side][bone], fallback[side][bone]);
+			u16 id = ik_models[side]->LL_BoneID(configured);
+			if (id == BI_NONE)
+				id = ik_models[side]->LL_BoneID(fallback[side][bone]);
+			if (bone == 0) m_parkour_ik[side].upper = id;
+			if (bone == 1) m_parkour_ik[side].lower = id;
+			if (bone == 2) m_parkour_ik[side].wrist_bone = id;
+		}
+		m_parkour_ik[side].finger_bone=ik_models[side]->LL_BoneID(side==0?"r_finger2":"l_finger2");
+		if(m_parkour_ik[side].finger_bone==BI_NONE)
+			m_parkour_ik[side].finger_bone=ik_models[side]->LL_BoneID(side==0?"r_finger1":"l_finger1");
+        m_parkour_ik[side].index_bone=ik_models[side]->LL_BoneID(side==0?"r_finger1":"l_finger1");
+        m_parkour_ik[side].little_bone=ik_models[side]->LL_BoneID(side==0?"r_finger4":"l_finger4");
+		m_parkour_ik_bones[side * 3] = { this, side == 1, true, false };
+		m_parkour_ik_bones[side * 3 + 1] = { this, side == 1, false, false };
+		m_parkour_ik_bones[side * 3 + 2] = { this, side == 1, false, true };
+		bool can_own_callbacks = m_parkour_ik[side].upper != BI_NONE && m_parkour_ik[side].lower != BI_NONE &&
+			m_parkour_ik[side].wrist_bone != BI_NONE &&
+			!ik_models[side]->LL_GetBoneInstance(m_parkour_ik[side].upper).callback() &&
+			!ik_models[side]->LL_GetBoneInstance(m_parkour_ik[side].lower).callback();
+		if (can_own_callbacks)
+		{
+			ik_models[side]->LL_GetBoneInstance(m_parkour_ik[side].upper).set_callback(bctCustom, ParkourIKCallback, &m_parkour_ik_bones[side * 3]);
+			ik_models[side]->LL_GetBoneInstance(m_parkour_ik[side].lower).set_callback(bctCustom, ParkourIKCallback, &m_parkour_ik_bones[side * 3 + 1]);
+            auto& wrist=ik_models[side]->LL_GetBoneInstance(m_parkour_ik[side].wrist_bone);
+            if (!wrist.callback())
+                wrist.set_callback(bctCustom,ParkourIKCallback,&m_parkour_ik_bones[side*3+2]);
+        }
+        m_parkour_ik[side].callbacks_owned = can_own_callbacks;
+	}
 
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger0).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger1]);
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger01).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger11]);
@@ -1189,6 +1485,14 @@ void player_hud::update(const Fmatrix& cam_trans)
 		}
 	}
 
+    // Apply after the two-hand script override, which resets BOTH transforms
+    // to trans_b. Locking only trans earlier had no effect during this clip.
+    if (ParkourMotionPlaying() && Actor() && Actor()->Parkour().Active())
+    {
+        trans.k = Actor()->Parkour().Result().direction;
+        Fvector::generate_orthonormal_basis_normalized(trans.k, trans.j, trans.i);
+        trans_2.i = trans.i; trans_2.j = trans.j; trans_2.k = trans.k;
+    }
 	m1rot.mul(PI / 180.f);
 	m_attach_offset.setHPB(m1rot.x, m1rot.y, m1rot.z);
 	m_attach_offset.translate_over(m1pos);
@@ -1200,6 +1504,7 @@ void player_hud::update(const Fmatrix& cam_trans)
 	m_transform.mul(trans, m_attach_offset);
 	m_transform_2.mul(trans_2, m_attach_offset_2);
 
+	m_parkour_ik_applying = false;
 	m_model->UpdateTracks();
 	m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model->dcast_PKinematics()->CalculateBones(TRUE);
@@ -1349,13 +1654,28 @@ void player_hud::update(const Fmatrix& cam_trans)
 	{
 		script_anim_offset_factor += Device.fTimeDelta * 2.5f;
 
-		if (m_bStopAtEndAnimIsRunning && Device.dwTimeGlobal >= script_anim_end)
+		if (m_bStopAtEndAnimIsRunning && Device.dwTimeGlobal >= script_anim_end &&
+            !(ParkourMotionPlaying() && Actor() && Actor()->Parkour().Active()))
 			StopScriptAnim();
 	}
 	else
 		script_anim_offset_factor -= Device.fTimeDelta * 5.f;
 
 	clamp(script_anim_offset_factor, 0.f, 1.f);
+	update_parkour_ik();
+    CActor* actor = Actor();
+    if (ParkourMotionPlaying() && actor && actor->Parkour().Active())
+    {
+        // The shared high-climb clip has a raised-hands tail. Withdraw the
+        // rendered arms while contact is still held, then stop that clip
+        // before IK releases back to its unrelated authored high pose.
+        const float progress = actor->Parkour().Progress();
+        const float withdraw = clampr((progress - .78f) / .16f, 0.f, 1.f);
+        const float drop = .9f * withdraw * withdraw * (3.f - 2.f * withdraw);
+        m_transform.c.mad(Device.vCameraTop, -drop);
+        m_transform_2.c.mad(Device.vCameraTop, -drop);
+        if (progress >= .94f) StopScriptAnim();
+    }
 }
 
 void player_hud::updateMovementLayerState()
@@ -1509,8 +1829,11 @@ void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float s
 extern BOOL print_bone_warnings;
 void player_hud::StopScriptAnim()
 {
+	// Stopping an already stopped animation is valid (e.g. first-update cleanup).
+	if (script_anim_part == u8(-1)) return;
 	u8 part = script_anim_part;
 	script_anim_part = u8(-1);
+	m_script_anim_section = nullptr;
 	script_anim_item_model = nullptr;
 	script_anim_lead_gun = false;
 
@@ -1631,6 +1954,7 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 	script_anim_offset[0] = offs;
 	script_anim_offset[1] = rrot;
 	script_anim_part = hand;
+	m_script_anim_section = section;
 
 	player_hud_motion_container* pm = get_hand_motions(section);
 	player_hud_motion* phm = pm->find_motion(anm_name);

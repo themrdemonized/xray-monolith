@@ -101,6 +101,12 @@ class CPHActorCharacter :
 	RESRICTORS_V m_restrictors;
 	float m_speed_goal;
 	bool b_single_game;
+	bool m_smooth_step_enabled;
+	float m_smooth_step_height;
+	float m_smooth_step_strength;
+	float m_smooth_step_fast_multiplier, m_smooth_step_fast_start, m_smooth_step_fast_full;
+	float SmoothStepSpeedMultiplier() const;
+	bool m_smooth_step_clear = false;
 public:
 	typedef TPHCharacterRestrictor<rtStalker> stalker_restrictor;
 	typedef TPHCharacterRestrictor<rtStalkerSmall> stalker_small_restrictor;
@@ -117,11 +123,21 @@ public:
 	virtual void Jump(const Fvector& jump_velocity);
 	virtual void InitContact(dContact* c, bool& do_collide, u16 material_idx_1, u16 material_idx_2);
 	virtual void SetRestrictorRadius(ERestrictionType rtype, float r);
+	void SetSmoothStep(bool enabled, float height);
+	bool Grounded() const { return b_exist && !b_lose_ground && !b_jump && !b_jumping; }
+	bool SmoothStepEnabled() const { return m_smooth_step_enabled; }
+	float SmoothStepHeight() const { return m_smooth_step_height; }
+	void SetSmoothStepStrength(float strength);
+	float SmoothStepStrength() const { return m_smooth_step_strength; }
+	void SetSmoothStepSpeed(float multiplier, float start, float full);
 	virtual void ChooseRestrictionType(ERestrictionType my_type, float my_depth, CPHCharacter* ch);
 	CPHActorCharacter(bool single_game);
 	virtual ~CPHActorCharacter(void);
 private:
 	virtual void ValidateWalkOn();
+	virtual float GroundStepHeight() const;
+	virtual float ClamberHorizontalMultiplier() const;
+	virtual float ClamberVerticalMultiplier() const;
 	bool CanJump();
 	virtual void update_last_material();
 	virtual void PhTune(dReal step);
