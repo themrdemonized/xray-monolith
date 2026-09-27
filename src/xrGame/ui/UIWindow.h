@@ -177,6 +177,12 @@ public:
 	bool IsMouseCapturer() { return MouseCapturer() == this; }
 	void ReleaseMouseCapture();
 
+	void SetMouseCapture(bool status);
+	void FeedCursorDelta(const Fvector2& cursor);
+	virtual void OnMouseMoveRelative(float dx, float dy)
+	{
+	}
+
 	//окошко, которому пересылаются сообщения,
 	//если NULL, то шлем на GetParent()
 	void SetMessageTarget(CUIWindow* pWindow) { m_pMessageTarget = pWindow; }
@@ -197,9 +203,20 @@ public:
 	//убрать/показать окно и его дочерние окна
 	virtual void Show(bool status)
 	{
+		if (m_bHideLock && status)
+			return;
+
 		SetVisible(status);
 		Enable(status);
 	}
+
+	void SetHideLock(bool lock)
+	{
+		m_bHideLock = lock;
+		if (lock)
+			Show(false);
+	}
+	IC bool GetHideLock() const { return m_bHideLock; }
 
 	IC bool IsShown() { return GetVisible(); }
 	void ShowChildren(bool show);
@@ -296,6 +313,31 @@ public:
 		return true;
 	}
 
+	// frame lines and text are not clipped
+	void EnableClip(bool enable);
+	IC bool IsClipEnabled() const { return m_bClipEnabled; }
+	void SetClipRect(Frect rect)
+	{
+		if (rect.x2 <= rect.x1 || rect.y2 <= rect.y1)
+		{
+			Msg("!CUIWindow::SetClipRect called with an empty rect [%f,%f,%f,%f]", rect.x1, rect.y1, rect.x2,
+			    rect.y2);
+			return;
+		}
+
+		m_clip_rect = rect;
+		m_bClipRectSet = true;
+	}
+	void ResetClipRect() { m_bClipRectSet = false; }
+	void GetClipRect(Frect& r)
+	{
+		if (m_bClipRectSet)
+			r = m_clip_rect;
+		else
+			GetAbsoluteRect(r);
+	}
+	static bool AnyClipEnabled();
+
 	IC bool GetCustomDraw() const { return m_bCustomDraw; }
 	IC void SetCustomDraw(bool b) { m_bCustomDraw = b; }
 
@@ -336,6 +378,13 @@ protected:
 	// Если курсор над окном
 	bool m_bCursorOverWindow;
 	bool m_bCustomDraw;
+	bool m_bHideLock;
+	bool m_bClipEnabled;
+	bool m_bClipRectSet;
+	bool m_bCursorDelta;
+
+	Frect m_clip_rect;
+	Fvector2 m_capture_cursor;
 
 	xr_vector<Fvector2> m_hit_clip_poly;
 

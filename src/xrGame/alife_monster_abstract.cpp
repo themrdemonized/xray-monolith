@@ -237,6 +237,10 @@ Fvector CSE_ALifeMonsterAbstract::draw_level_position() const
 #if 0
 	brain().update				();
 #endif
+	// an object built but never registered has no brain yet
+	if (!m_brain)
+		return (Position());
+
 	return (brain().movement().detail().draw_level_position());
 }
 

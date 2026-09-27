@@ -105,6 +105,21 @@ void CUIWindow::ResetPPMode()
 	}
 }
 
+// latched once so an untouched game never pays for the ancestor lookup in the draw path
+static std::atomic<bool> s_clip_used{false};
+
+void CUIWindow::EnableClip(bool enable)
+{
+	m_bClipEnabled = enable;
+	if (enable)
+		s_clip_used.store(true, std::memory_order_relaxed);
+}
+
+bool CUIWindow::AnyClipEnabled()
+{
+	return s_clip_used.load(std::memory_order_relaxed);
+}
+
 // Windows that have taken the mouse, oldest first; the top one receives all mouse input. Nesting is
 // a transient grab (a scrollbar drag) on top of a lasting one (an open popup), so a release restores
 // the previous holder instead of leaving nobody in charge.
@@ -145,8 +160,15 @@ CUIWindow::CUIWindow()
 	  //dwHintDelay(1000),
 	  //bShowHint(false),
 	  //m_sHint(""),
-	  m_bCustomDraw(false)
+	  m_bCustomDraw(false),
+	  m_bHideLock(false),
+	  m_bClipEnabled(false),
+	  m_bClipRectSet(false),
+	  m_bCursorDelta(false)
 {
+	m_clip_rect.set(0.0f, 0.0f, 0.0f, 0.0f);
+	m_capture_cursor.set(0.0f, 0.0f);
+
 	Show(true);
 	Enable(true);
 #ifdef LOG_ALL_WNDS
@@ -362,12 +384,18 @@ bool CUIWindow::OnMouseAction(float x, float y, EUIMessages mouse_action)
 				Frect cap_rect;
 				cap->GetAbsoluteRect(cap_rect);
 				Fvector2 cur = GetUICursor().GetCursorPosition();
+				if (WINDOW_MOUSE_MOVE == mouse_action)
+					cap->FeedCursorDelta(cur);
 				cap->OnMouseAction(cur.x - cap_rect.left, cur.y - cap_rect.top, mouse_action);
 				return true;
 			}
 		}
 
-		if (!wndRect.in(cursor_pos))
+		if (cap == this && WINDOW_MOUSE_MOVE == mouse_action)
+			FeedCursorDelta(GetUICursor().GetCursorPosition());
+
+		// a window that captured the mouse keeps receiving actions from outside its rect
+		if (!wndRect.in(cursor_pos) && cap != this)
 			return false;
 		//получить координаты относительно окна
 		cursor_pos.x -= wndRect.left;
@@ -498,10 +526,16 @@ void CUIWindow::SetCapture(CUIWindow* pChildWindow, bool capture_status)
 
 		erase_capture(pChildWindow); // re-capture moves it to the top rather than stacking twice
 		s_capture_stack.push_back(pChildWindow);
+
+		pChildWindow->m_capture_cursor = GetUICursor().GetCursorPosition();
 	}
 	else
 	{
 		erase_capture(pChildWindow);
+
+		// the window underneath missed every move made during the capture
+		if (CUIWindow* top = MouseCapturer())
+			top->m_capture_cursor = GetUICursor().GetCursorPosition();
 	}
 }
 
@@ -512,7 +546,30 @@ CUIWindow* CUIWindow::MouseCapturer()
 
 void CUIWindow::ReleaseMouseCapture()
 {
+	m_bCursorDelta = false;
 	erase_capture_subtree(this);
+}
+
+void CUIWindow::SetMouseCapture(bool status)
+{
+	m_bCursorDelta = status;
+	if (status)
+		m_capture_cursor = GetUICursor().GetCursorPosition();
+
+	SetCapture(this, status);
+}
+
+void CUIWindow::FeedCursorDelta(const Fvector2& cursor)
+{
+	if (!m_bCursorDelta)
+		return;
+
+	Fvector2 d;
+	d.sub(cursor, m_capture_cursor);
+	m_capture_cursor = cursor;
+
+	if (_abs(d.x) > EPS_S || _abs(d.y) > EPS_S)
+		OnMouseMoveRelative(d.x, d.y);
 }
 
 

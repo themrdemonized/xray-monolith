@@ -306,6 +306,20 @@ function pda.map_spot_selected(id, level_name, spot_type)
 	SendScriptCallback("on_map_spot_selected", id, level_name, spot_type)
 end
 
+-- Map location callbacks
+-- fire when a map spot is added to or removed from the map manager, in single player only
+-- spot_type is the spot section, object_id the object the spot marks
+-- removals are queued on the map update thread and sent from the main thread on the next frame
+AddScriptCallback("on_map_location_added")
+_G.COnMapLocationAdded = function(spot_type, object_id)
+	SendScriptCallback("on_map_location_added", spot_type, object_id)
+end
+
+AddScriptCallback("on_map_location_removed")
+_G.COnMapLocationRemoved = function(spot_type, object_id)
+	SendScriptCallback("on_map_location_removed", spot_type, object_id)
+end
+
 -- On receive game news callback
 AddScriptCallback("on_news_received")
 _G.CUIMessagesWindow__AddIconedPdaMessage = function(UIMessageView, UITimeText, UICaptionText, UIMsgText, UIIconStatic, UIMessagesScrollView)
