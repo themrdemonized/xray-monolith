@@ -178,6 +178,12 @@ static void setintfield(lua_State *L, GCtab *t, const char *name, int32_t val)
   setintV(lj_tab_setstr(L, t, lj_str_newz(L, name)), val);
 }
 
+/* GC counters are MSize (uint32); a double holds the full range without the int32 wrap. */
+static void setnumfield(lua_State *L, GCtab *t, const char *name, lua_Number val)
+{
+  setnumV(lj_tab_setstr(L, t, lj_str_newz(L, name)), val);
+}
+
 /* local info = jit.util.funcinfo(func [,pc]) */
 LJLIB_CF(jit_util_funcinfo)
 {
@@ -266,6 +272,29 @@ LJLIB_CF(jit_util_funcuvname)
     return 1;
   }
   return 0;
+}
+
+extern uint32_t lj_gc_cycles;  /* Defined in lj_gc.c: completed GC cycles since start. */
+
+/* local info = jit.util.gcstat() -- GC counters: total, threshold, estimate, debt (bytes) and cycles (completed collections) */
+LJLIB_CF(jit_util_gcstat)
+{
+  global_State *g = G(L);
+  /* Snapshot before allocating: lua_createtable/lj_str_newz can run a GC step that moves these. */
+  lua_Number total = (lua_Number)g->gc.total;
+  lua_Number threshold = (lua_Number)g->gc.threshold;
+  lua_Number estimate = (lua_Number)g->gc.estimate;
+  lua_Number debt = (lua_Number)g->gc.debt;
+  lua_Number cycles = (lua_Number)lj_gc_cycles;
+  GCtab *t;
+  lua_createtable(L, 0, 5);
+  t = tabV(L->top-1);
+  setnumfield(L, t, "total", total);
+  setnumfield(L, t, "threshold", threshold);
+  setnumfield(L, t, "estimate", estimate);
+  setnumfield(L, t, "debt", debt);
+  setnumfield(L, t, "cycles", cycles);
+  return 1;
 }
 
 /* -- Reflection API for traces ------------------------------------------- */
@@ -544,8 +573,9 @@ static void jit_profile_callback(lua_State *L2, lua_State *L, int samples,
     setstrV(L2, L2->top++, lj_str_new(L2, &vmst, 1));
     status = lua_pcall(L2, 3, 0, 0);  /* callback(thread, samples, vmstate) */
     if (status) {
+      /* Panic logs and returns; drop the sample and keep sampling, never exit the game. */
       if (G(L2)->panic) G(L2)->panic(L2);
-      exit(EXIT_FAILURE);
+      lua_settop(L2, 0);
     }
     lj_trace_abort(G(L2));
   }
