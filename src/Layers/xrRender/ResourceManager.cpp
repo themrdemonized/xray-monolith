@@ -390,12 +390,24 @@ void CResourceManager::DeferredUpload()
 	CTimer timer;
 	timer.Start();
 
+	// Snapshot the pointers under creationGuard so this walk doesn't run
+	// concurrently with _CreateTexture's insert into the same std::map, then
+	// release the lock before running Load() across PPL worker threads (some
+	// of which may themselves need creationGuard, e.g. via _CreateTexture).
+	xr_vector<CTexture*> textures;
+	{
+		xrCriticalSectionGuard guard(creationGuard);
+		textures.reserve(m_textures.size());
+		for (auto& pair : m_textures)
+			textures.push_back(pair.second);
+	}
+
 	static DWORD this_thread_id = 0;
 	this_thread_id = GetCurrentThreadId();
-	xr_parallel_foreach(m_textures.begin(), m_textures.end(), [](auto& pair)
+	xr_parallel_foreach(textures.begin(), textures.end(), [](CTexture* texture)
 	{
 		if (this_thread_id != GetCurrentThreadId()) { PROF_THREAD("X-Ray PPL Thread") }
-		pair.second->Load();
+		texture->Load();
 	});
 
 	Msg("texture loading time: %d", timer.GetElapsed_ms());
@@ -406,9 +418,17 @@ void CResourceManager::DeferredUnload()
 	if (!RDEVICE.b_is_Ready)
 		return;
 
-	xr_parallel_foreach(m_textures.begin(), m_textures.end(), [](auto& pair)
+	xr_vector<CTexture*> textures;
 	{
-		pair.second->Unload();
+		xrCriticalSectionGuard guard(creationGuard);
+		textures.reserve(m_textures.size());
+		for (auto& pair : m_textures)
+			textures.push_back(pair.second);
+	}
+
+	xr_parallel_foreach(textures.begin(), textures.end(), [](CTexture* texture)
+	{
+		texture->Unload();
 	});
 }
 
