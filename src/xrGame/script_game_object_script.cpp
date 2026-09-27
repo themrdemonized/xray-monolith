@@ -11,6 +11,7 @@
 #include "game_object_space.h"
 #include "script_ini_file.h"
 #include "sight_manager_space.h"
+#include "inventory_space.h"
 
 using namespace luabind;
 
@@ -52,6 +53,33 @@ void CScriptGameObject::script_register(lua_State* L)
 				script_register_game_object_trader(std::move(instance))
 			)
 		),
+
+		class_<enum_exporter<EInventorySlots>>("inventory")
+		.enum_("slot")
+		[
+			value("no_active", int(NO_ACTIVE_SLOT)),
+			value("knife", int(KNIFE_SLOT)),
+			value("slot_2", int(INV_SLOT_2)),
+			value("slot_3", int(INV_SLOT_3)),
+			value("grenade", int(GRENADE_SLOT)),
+			value("binocular", int(BINOCULAR_SLOT)),
+			value("bolt", int(BOLT_SLOT)),
+			value("outfit", int(OUTFIT_SLOT)),
+			value("pda", int(PDA_SLOT)),
+			value("detector", int(DETECTOR_SLOT)),
+			value("torch", int(TORCH_SLOT)),
+			value("artefact", int(ARTEFACT_SLOT)),
+			value("helmet", int(HELMET_SLOT)),
+			value("backpack", int(BACKPACK_SLOT)),
+#ifdef MORE_INVENTORY_SLOTS
+			value("custom_1", int(CUSTOM_SLOT_1)),
+			value("custom_2", int(CUSTOM_SLOT_2)),
+			value("custom_3", int(CUSTOM_SLOT_3)),
+			value("custom_4", int(CUSTOM_SLOT_4)),
+			value("custom_5", int(CUSTOM_SLOT_5)),
+#endif
+			value("last", int(LAST_SLOT))
+		],
 
 		class_<enum_exporter<GameObject::ECallbackType>>("callback")
 		.enum_("callback_types")

@@ -192,7 +192,8 @@
 
     game {
         Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
-        Fvector2 world2ui_with_depth(Fvector pos, bool hud = false, bool allow_offscreen = false)
+        Fvector world2ui_with_depth(Fvector pos, bool hud = false, bool allow_offscreen = false) // x and y are screen coordinates, z is the post projection w, negative behind the camera and its magnitude is the view distance in metres
+        table world2ui_many(table positions, bool hud, bool allow_offscreen) // projects an array of Fvector in one call, result[i] is the world2ui_with_depth vector for positions[i], stops at the first missing or non vector entry, empty table if the argument is not a table
         function ui2world(Fvector2 pos) -> Fvector result, u16 object_id
         function ui2world_offscreen(Fvector2 pos) -> Fvector result, u16 object_id
         change_game_news_show_time(CUIWindow* UIWindow, float show_time)
@@ -203,6 +204,8 @@
 
     ini_file() {
         string get_filename()
+        Fvector4 r_vector4(string sec, string line) // reads four floats from one line, zero vector and a log line when the section or line is missing
+        bool remove_section(string sec) // drops a whole section with its lines, false if the name is empty, the file is read only or the section is not there
         void dltx_print(string sec = nil, string line = nil)
         string dltx_get_filename_of_line(string sec, string line)
         table dltx_get_section(string sec)
@@ -223,6 +226,15 @@
     // MT only
     class cse_alife_item_weapon {
         function clone_upgrades(cse_alife_item_weapon*)
+    }
+
+    class cse_visual {
+        string visual_name() // current visual path, empty string when the entity has none
+        void set_visual_name(string name) // sets the visual path, ignores an empty name and logs it
+    }
+
+    class cse_alife_inventory_item {
+        property condition // float 0 to 1, a write outside that range is dropped and logged because the net packet only carries that range
     }
 
     class cse_alife_level_changer : cse_alife_space_restrictor {
@@ -561,6 +573,8 @@
         float get_pp_effector_length(int id)
         bool check_pp_effector(int id)
 
+        bool is_input_captured() // true while input is disabled or a UI dialog holds the top input receiver, so game keys will not reach scripts
+
         // MT only
         function scheduler_flush(bool)
     }
@@ -717,9 +731,34 @@
         function place_skeleton (game_object obj, string section, Fvector start, Fvector dir, float size, float ttl)
     }
 
+    // slot ids, the same numbers move_to_slot and active_slot use, read as inventory.knife
+    enum inventory.slot {
+        no_active   = 0,
+        knife       = 1,
+        slot_2      = 2,
+        slot_3      = 3,
+        grenade     = 4,
+        binocular   = 5,
+        bolt        = 6,
+        outfit      = 7,
+        pda         = 8,
+        detector    = 9,
+        torch       = 10,
+        artefact    = 11,
+        helmet      = 12,
+        backpack    = 13,
+        custom_1,   // custom_1 to custom_5 only exist in a build with the extra inventory slots
+        custom_2,
+        custom_3,
+        custom_4,
+        custom_5,
+        last,       // highest valid slot id in this build, backpack without the extra slots
+    }
+
     class game_object {
 		// Class casting
 		function cast_Knife()
+		function cast_Binoculars() // CWeaponBinoculars, nil when the object is not a pair of binoculars
         function get_projector()
         function get_stmgun()
         function cast_Missile()
@@ -935,6 +974,19 @@
 		same as set_shader but resets to the default shader/texture values, so you don't need to store them in a table to reset them later
     }
 
+    class CActorCondition : CEntityCondition {
+        enum influence_type
+            infl_rad
+            infl_fire
+            infl_acid
+            infl_psi
+            infl_electra
+
+        function GetInjuriousMaterialDamage() // damage per second of the injurious material the actor stands on, 0 on a normal material
+        function GetZoneMaxPower(influence_type) // the actor's max power for that influence, the value zone danger is measured against, 0 and a log line on a bad type
+        function GetZoneDanger(influence_type) // current danger for that influence, 0 to 1, 0 and a log line on a bad type
+    }
+
     class CArtefact : CGameObject {
         property m_additional_weight
     }
@@ -965,6 +1017,27 @@
         
         functiom Action(number id, number flags, string sec)
         functiom SetParam(number id, Fvector val, string sec)
+    }
+
+    // hud states shared by every hud item, read as hud_state.idle, compare against item:get_state()
+    enum hud_state.states {
+        idle,
+        showing,
+        hiding,
+        hidden,
+        bore,       // the idle fidget animation
+    }
+
+    // weapon only states, read as weapon_state.fire, they continue the hud_state numbering
+    enum weapon_state.states {
+        fire,
+        fire2,      // second fire mode, grenade launcher or underbarrel
+        reload,
+        misfire,
+        switch,     // switching ammo type
+        switch_mode, // switching fire mode
+        aim_start,  // rotating into ADS
+        aim_end,    // rotating out of ADS
     }
 
     class CWeapon : CGameObject {
@@ -1060,6 +1133,10 @@
         function SetZoomCamStepAngleHorz(float)
 		
 		
+
+        // Zoom
+        bool StopZoom() // leaves ADS, plays the aim end animation when the weapon has one, false if the weapon was not zoomed
+        bool IsTextureZoomActive() // true only while the scope texture UI is actually drawn, so zoomed in with a scope texture and no longer rotating into ADS
 
         //Scope UI
         //Returns table containing this data

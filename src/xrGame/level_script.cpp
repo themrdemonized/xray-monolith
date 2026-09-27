@@ -712,6 +712,15 @@ void enable_input()
 #endif // #ifdef DEBUG
 }
 
+bool is_input_captured()
+{
+	if (g_bDisableAllInput)
+		return true;
+
+	CUIGameCustom* ui = CurrentGameUI();
+	return ui && ui->TopInputReceiver() != NULL;
+}
+
 void spawn_phantom(const Fvector& position)
 {
 	Level().spawn_item("m_phantom", position, u32(-1), u16(-1), false);
@@ -1807,15 +1816,36 @@ const Fvector3 world2ui_with_depth(Fvector pos, bool hud = false, bool allow_off
 	x /= width_fk;
 	y /= height_fk;
 
-	float depth = v_res.w < 0 ? -1 : 1;
-
-	return {x, y, depth};
+	// post projection w, negative behind the camera, its magnitude is the view distance
+	return {x, y, v_res.w};
 }
 
 const Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
 {
 	Fvector3 res = world2ui_with_depth(pos, hud, allow_offscreen);
 	return {res.x, res.y};
+}
+
+::luabind::object world2ui_many(::luabind::object points, bool hud, bool allow_offscreen)
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	if (!points || points.type() != LUA_TTABLE)
+	{
+		Msg("!world2ui_many: argument is not a table");
+		return table;
+	}
+
+	for (int i = 1;; ++i)
+	{
+		std::optional<Fvector> pos = ::luabind::object_cast_nothrow<Fvector>(points[i]);
+		if (!pos)
+			break;
+
+		table[i] = world2ui_with_depth(*pos, hud, allow_offscreen);
+	}
+
+	return table;
 }
 
 // demonized: unproject ui coordinates (ie mouse cursor coordinates) to world coordinates
@@ -2608,6 +2638,7 @@ void CLevel::script_register(lua_State* L)
 			def("present", is_level_present),
 			def("disable_input", disable_input),
 			def("enable_input", enable_input),
+			def("is_input_captured", is_input_captured),
 			def("spawn_phantom", spawn_phantom),
 
 			def("get_bounding_volume", get_bounding_volume),
@@ -2847,6 +2878,7 @@ void CLevel::script_register(lua_State* L)
 		def("get_visual_userdata", GetVisualUserdata),
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
+		def("world2ui_many", world2ui_many),
 		def("ui2world", (void (*)(Fvector2, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
