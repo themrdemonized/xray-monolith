@@ -499,18 +499,22 @@ void CLocatorAPI::ProcessArchive(LPCSTR _path)
 void CLocatorAPI::unload_archive(CLocatorAPI::archive& A)
 {
 	files_it I = m_files.begin();
-	for (; I != m_files.end(); ++I)
+	while (I != m_files.end())
 	{
-		const file& entry = *I;
-		if (entry.vfs == A.vfs_idx)
+		if (I->vfs == A.vfs_idx)
 		{
 #ifndef MASTER_GOLD
             Msg("unregistering file [%s]", I->name);
 #endif // #ifndef MASTER_GOLD
-			char* str = LPSTR(I->name);
+			LPSTR str = LPSTR(I->name);
+			// Erase before freeing: the container may still touch this node
+			// (and its comparator may dereference name) while unlinking it.
+			I = m_files.erase(I);
 			xr_free(str);
-			m_files.erase(I);
-			break;
+		}
+		else
+		{
+			++I;
 		}
 	}
 	A.close();
