@@ -59,7 +59,9 @@ extern XRCORE_API void _initialize_cpu_thread();
 // threading
 typedef void thread_t(void*);
 extern XRCORE_API void thread_name(const char* name);
-extern XRCORE_API void thread_spawn(
+// Returns a joinable thread handle (from _beginthreadex); caller owns it and
+// must CloseHandle() it once done (e.g. after WaitForSingleObject/WaitForMultipleObjects).
+extern XRCORE_API HANDLE thread_spawn(
 	thread_t* entry,
 	const char* name,
 	unsigned stack,
