@@ -239,24 +239,28 @@ void CLocatorAPI::Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real
 	desc.modif = modif & (~u32(0x3));
 	// Msg("registering file %s - %d", name, size_real);
 	// if file already exist - update info
-	files_it I = m_files.find(desc);
-	if (I != m_files.end())
 	{
-		//. Msg("-- file already scanned [%s]", I->name);
-		desc.name = I->name;
+		xrSRWLockGuard guard(m_files_lock);
 
-		// sad but true, performance option
-		// correct way is to erase and then insert new record:
-		const_cast<file&>(*I) = desc;
-		return;
-	}
-	else
-	{
-		desc.name = xr_strdup(desc.name);
-	}
+		files_it I = m_files.find(desc);
+		if (I != m_files.end())
+		{
+			//. Msg("-- file already scanned [%s]", I->name);
+			desc.name = I->name;
 
-	// otherwise insert file
-	m_files.insert(desc);
+			// sad but true, performance option
+			// correct way is to erase and then insert new record:
+			const_cast<file&>(*I) = desc;
+			return;
+		}
+		else
+		{
+			desc.name = xr_strdup(desc.name);
+		}
+
+		// otherwise insert file
+		m_files.insert(desc);
+	}
 
 	// Try to register folder(s)
 	string_path temp;
@@ -276,7 +280,11 @@ void CLocatorAPI::Register(LPCSTR name, u32 vfs, u32 crc, u32 ptr, u32 size_real
 			desc.size_real = 0;
 			desc.size_compressed = 0;
 			desc.modif = u32(-1);
-			std::pair<files_it, bool> I = m_files.insert(desc);
+			std::pair<files_it, bool> I;
+			{
+				xrSRWLockGuard guard(m_files_lock);
+				I = m_files.insert(desc);
+			}
 
 			R_ASSERT(I.second);
 		}
@@ -498,6 +506,8 @@ void CLocatorAPI::ProcessArchive(LPCSTR _path)
 
 void CLocatorAPI::unload_archive(CLocatorAPI::archive& A)
 {
+	xrSRWLockGuard guard(m_files_lock);
+
 	files_it I = m_files.begin();
 	while (I != m_files.end())
 	{
@@ -1462,6 +1472,7 @@ CLocatorAPI::files_it CLocatorAPI::file_find_it(LPCSTR fname)
 	xr_strcpy(file_name, sizeof(file_name), fname);
 	desc_f.name = file_name;
 	// desc_f.name = xr_strlwr(xr_strdup(fname));
+	xrSRWLockGuard guard(m_files_lock, true);
 	files_it I = m_files.find(desc_f);
 	// xr_free (desc_f.name);
 	return (I);
