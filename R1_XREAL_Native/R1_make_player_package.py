@@ -19,7 +19,7 @@ allowed={'.dll','.script','.xml','.md','.txt'}
 files=[p for p in P.rglob('*') if p.is_file()]
 assert all(p.suffix in allowed for p in files), 'Unexpected package artifacts'
 assert not any('live' in p.name.lower() or 'test' in p.name.lower() for p in files),'Test harness in player ZIP'
-z=R/'R1_XREAL_Native_MT_DX11_0.1.2_CANDIDATE.zip'
+z=R/'R1_XREAL_Native_MT_DX11_0.1.3_CANDIDATE.zip'
 with zipfile.ZipFile(z,'w',zipfile.ZIP_DEFLATED) as archive:
  for p in files:archive.write(p,p.relative_to(P).as_posix())
 with zipfile.ZipFile(z) as archive:
