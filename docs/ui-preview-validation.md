@@ -17,6 +17,8 @@ The standalone base-game AK74 example displayed against a grey background, and E
 
 ## Performance observations
 
+Test hardware (user-reported): NVIDIA GeForce RTX 5080, AMD Ryzen 7 9800X3D, 32 GB DDR5 RAM.
+
 | Scene | Instantaneous screenshot FPS |
 | --- | ---: |
 | Gameplay before opening | 208 |
