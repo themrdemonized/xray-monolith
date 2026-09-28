@@ -72,7 +72,7 @@ The stock/SSS-compatible shader path is tested by compilation, not every third-p
 
 See [validation and limitations](ui-preview-validation.md) for exact revisions, build coverage and user-reported results. All DX8/DX9/DX10/DX11 and AVX build jobs passed for the tested implementation. Runtime testing was on the user's DX11 GAMMA installation, not every compiled renderer.
 
-The contribution has been reapplied to upstream MT `ad31f200` without changing the tested engine feature code. Upstream's newer render-order and LOD fixes are retained; this combined revision needs its own build and focused visual check before ready-for-review status.
+The contribution has been reapplied to upstream MT `ad31f200` without changing the tested engine feature code. Upstream's newer render-order and LOD fixes are retained; the combined revision passed all renderer/AVX build jobs, and the user confirmed fullscreen/PDA functionality. Remaining coverage and review limits are listed in the validation record.
 
 ## Suggested contribution title
 

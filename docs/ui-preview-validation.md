@@ -5,7 +5,7 @@
 - Tested engine feature snapshot: `fdb34bd4149949923f8ee6771a0677dc43b7f641` in the author's fork.
 - [Successful build](https://github.com/Fomok/xray-monolith-inventory-edits/actions/runs/36352797070): gamedata packaging and DX8, DX9, DX10, DX11, each ordinary and AVX, passed.
 - Proposed base: upstream MT `ad31f200bbe1b6cf0c33f545d5792c124411be69`.
-- The feature patch applies cleanly. Upstream's newer camera-UI render order and LOD clearing changes are retained. Runtime acceptance below is for the tested snapshot, not this newer combination.
+- The feature patch applies cleanly. Upstream's newer camera-UI render order and LOD clearing changes are retained. The rebased source was also built successfully in [validation run 36363557007](https://github.com/Fomok/xray-monolith-inventory-edits/actions/runs/36363557007), revision `1be96e72` (engine/shader sources identical to proposal `6c280bf4`). All renderer/AVX jobs and packaging passed. The user subsequently confirmed fullscreen and PDA work on these EXEs. The broader checks below were performed on the preceding snapshot unless noted.
 
 ## User-reported runtime checks
 
@@ -29,7 +29,7 @@ The user reports rapid fluctuations of about +/-30 FPS (roughly 460-520 around t
 
 ## Remaining review/coverage limits
 
-- Fresh build and visual checks on the current upstream base.
+- Fullscreen/PDA were rechecked on the current upstream base; broader checks were not all repeated after the rebase.
 - Standalone transparent surfaces without a background plane have code-path checks but limited native visual coverage.
 - MSAA capability rejection, older-renderer fallback, forced device loss, native-parent source destruction and sustained memory measurements are not established by the above runtime checks.
 - Render targets/depth and culling are restored. Stencil/shader state follows existing engine UI pass conventions; the portal is not an arbitrary GPU-state sandbox. Maintainer review of these call sites is requested.
