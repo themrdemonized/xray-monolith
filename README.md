@@ -2392,3 +2392,7 @@ override = true
 
 * Exported distance_to_xz_sqr() function of Fvector
 * Redesigned duplicate section error, it will additionally print what file adds the section in the first place in addition to the file that has the duplicate
+
+## Proposed scriptable UI previews
+
+Opt-in camera backgrounds, isolated model previews, embedded scripted dialogs and fullscreen scene suppression are documented in [the preview API guide](docs/ui-previews.md). See [validation and limitations](docs/ui-preview-validation.md) for renderer support and review status.
