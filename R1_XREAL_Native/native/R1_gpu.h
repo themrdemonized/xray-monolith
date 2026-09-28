@@ -15,7 +15,8 @@ struct R1GPU {
     bool setup(ID3D11Device* d,ID3D11Texture2D* back){
         D3D11_TEXTURE2D_DESC desc{};back->GetDesc(&desc);
         if(desc.SampleDesc.Count!=1||desc.Width%2||desc.Width<2||desc.Height==0)return false;
-        if(!vs){
+        if(!(vs&&ps&&commands&&sampler&&raster&&depth&&blend)){
+            vs.Reset();ps.Reset();commands.Reset();sampler.Reset();raster.Reset();depth.Reset();blend.Reset();
             const char* source=R"(
 Texture2D leftTex:register(t0);Texture2D rightTex:register(t1);SamplerState smp:register(s0);
 struct V {float4 p:SV_Position;float2 uv:TEXCOORD;};
@@ -35,7 +36,7 @@ float4 PS(V p):SV_Target {float2 uv=float2(frac(p.uv.x*2),p.uv.y);return p.uv.x<
             if(FAILED(d->CreateSamplerState(&sd,&sampler))||FAILED(d->CreateRasterizerState(&rd,&raster))||
                FAILED(d->CreateDepthStencilState(&dd,&depth))||FAILED(d->CreateBlendState(&bd,&blend)))return false;
         }
-        if(left&&width==desc.Width&&height==desc.Height&&format==desc.Format)return true;
+        if(left&&right&&left_view&&right_view&&width==desc.Width&&height==desc.Height&&format==desc.Format)return true;
         left.Reset();right.Reset();left_view.Reset();right_view.Reset();width=desc.Width;height=desc.Height;format=desc.Format;
         desc.Usage=D3D11_USAGE_DEFAULT;desc.BindFlags=D3D11_BIND_SHADER_RESOURCE;desc.CPUAccessFlags=0;desc.MiscFlags=0;
         return SUCCEEDED(d->CreateTexture2D(&desc,nullptr,&left))&&SUCCEEDED(d->CreateTexture2D(&desc,nullptr,&right))&&

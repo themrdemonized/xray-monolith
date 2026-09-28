@@ -39,7 +39,7 @@ bool identify(){
     if(hash)BCryptDestroyHash(hash);BCryptCloseAlgorithmProvider(algorithm,0);if(!ok)return false;
     char hex[65];for(unsigned i=0;i<32;++i)sprintf_s(hex+i*2,3,"%02x",digest[i]);
     for(const auto& h:R1_HOSTS)if(strcmp(h.hash,hex)==0)host=&h;
-    if(!host)return false;base=reinterpret_cast<unsigned char*>(GetModuleHandleW(nullptr));
+    if(!host||strcmp(host->name,"DX11"))return false;base=reinterpret_cast<unsigned char*>(GetModuleHandleW(nullptr));
     auto dos=reinterpret_cast<const IMAGE_DOS_HEADER*>(base);if(dos->e_magic!=IMAGE_DOS_SIGNATURE||dos->e_lfanew<0||dos->e_lfanew>4096)return false;
     auto pe=reinterpret_cast<const IMAGE_NT_HEADERS64*>(base+dos->e_lfanew);
     if(pe->Signature!=IMAGE_NT_SIGNATURE||pe->FileHeader.Machine!=IMAGE_FILE_MACHINE_AMD64||pe->FileHeader.TimeDateStamp!=host->timestamp||pe->OptionalHeader.SizeOfImage!=host->image_size)return false;
@@ -57,6 +57,8 @@ bool world(){
     if(!level||!persistent||!field<unsigned char>(level,524912)||field<unsigned>(d,24))return false;
     auto menu=field<void*>(persistent,2608);if(menu&&reinterpret_cast<bool(__fastcall*)(void*)>(base+host->menu)(menu))return false;
     if(global<int>(host->hdr)||global<int>(host->msaa)||field<unsigned char>(d,2576)){status.error=-20;return false;}
+    // PDB ps_ssfx_taa, September DX11 only. Separate eye histories are not implemented.
+    if(global<float>(0x143fe78)>0){status.error=-25;return false;}
     return true;
 }
 struct Snapshot {
@@ -94,6 +96,16 @@ void eye(const Snapshot& snapshot,float offset){
 void __fastcall onHom(void* self){
     if(in_pair){field<int>(self,56)=0;return;}homOriginal(self);
 }
+struct PairGuard {
+    void* hom;int enabled;
+    PairGuard():hom(base+host->render+528),enabled(field<int>(hom,56)){in_pair=true;field<int>(hom,56)=0;}
+    ~PairGuard(){field<int>(hom,56)=enabled;in_pair=false;}
+};
+struct RenderFlagGuard {
+    bool value;
+    RenderFlagGuard():value(field<bool>(device(),2264)){field<bool>(device(),2264)=false;}
+    ~RenderFlagGuard(){field<bool>(device(),2264)=value;}
+};
 void __fastcall onRender(void* self){
     have_pair=false;
     if(in_pair||!world()){renderOriginal(self);return;}
@@ -102,14 +114,12 @@ void __fastcall onRender(void* self){
     if(gpu.width<gpu.height*3||gpu.width>gpu.height*4){status.error=-24;renderOriginal(self);return;}
     // Finish the existing frame jobs before touching camera matrices. This does not rerun simulation.
     static_assert(sizeof(Concurrency::task_group)==232,"MT task_group ABI");
-    auto d=device();bool rendering=field<bool>(d,2264);field<bool>(d,2264)=false;
-    field<Concurrency::task_group>(d,2584).wait();field<bool>(d,2264)=rendering;
+    auto d=device();{RenderFlagGuard flag;field<Concurrency::task_group>(d,2584).wait();}
     Snapshot snapshot;const unsigned frame=field<unsigned>(d,40);
-    auto hom=base+host->render+528;const int enabled=field<int>(hom,56);
-    in_pair=true;field<int>(hom,56)=0;
+    {PairGuard pair;
     eye(snapshot,-ipd);renderOriginal(self);++status.passes;context->CopyResource(gpu.left.Get(),back.Get());
     eye(snapshot,0);renderOriginal(self);++status.passes;context->CopyResource(gpu.right.Get(),back.Get());
-    in_pair=false;field<int>(hom,56)=enabled;snapshot.restore();
+    }snapshot.restore();
     if(frame!=field<unsigned>(d,40)){status.error=-22;status.enabled=0;note("ERROR simulation frame advanced between eyes");return;}
     status.frame=frame;status.restored++;status.error=0;have_pair=true;
 }
@@ -154,6 +164,7 @@ R1_API int r1st_install(const char* log_path){
 R1_API int r1st_set(unsigned enabled,float eye_distance,float focus){
     if(!status.installed||GetCurrentThreadId()!=owner||in_pair)return -2;
     if(enabled>1||!std::isfinite(eye_distance)||eye_distance<0||eye_distance>.085f||!std::isfinite(focus)||focus<.5f||focus>10000)return -3;
+    if(enabled&&!status.enabled)status.error=0;
     status.enabled=enabled;ipd=eye_distance;convergence=focus;heartbeat=GetTickCount64();return 1;
 }
 R1_API int r1st_status(R1Status* out){if(!out||out->size!=sizeof(R1Status)||GetCurrentThreadId()!=owner)return -3;*out=status;return 1;}

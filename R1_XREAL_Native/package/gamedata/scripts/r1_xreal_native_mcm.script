@@ -1,0 +1,16 @@
+local defaults={toggle=DIK_keys.DIK_F10,ipd=64,convergence=2}
+function get(k)
+ local v=ui_mcm and ui_mcm.get('r1_xreal_native/'..k)
+ if type(v)~='number' or v~=v then return defaults[k] end
+ if k=='ipd' then return math.max(0,math.min(85,v)) end
+ if k=='convergence' then return math.max(.5,math.min(20,v)) end
+ return v
+end
+function on_mcm_load()
+ return {id='r1_xreal_native',sh=true,gr={
+  {id='note',type='desc',text='ui_mcm_r1_xreal_native_note'},
+  {id='toggle',type='key_bind',val=2,def=DIK_keys.DIK_F10},
+  {id='ipd',type='track',val=2,def=64,min=0,max=85,step=1,prec=0},
+  {id='convergence',type='track',val=2,def=2,min=.5,max=20,step=.5,prec=1}
+ }}
+end

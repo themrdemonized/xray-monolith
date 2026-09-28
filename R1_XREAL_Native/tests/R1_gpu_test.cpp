@@ -10,6 +10,8 @@ int main(){
  ComPtr<ID3D11Texture2D> output;ComPtr<ID3D11RenderTargetView> view;
  check(SUCCEEDED(d->CreateTexture2D(&desc,nullptr,&output))&&SUCCEEDED(d->CreateRenderTargetView(output.Get(),nullptr,&view)),"output");
  R1GPU gpu;check(gpu.setup(d.Get(),output.Get()),"GPU setup");
+ gpu.ps.Reset();gpu.right_view.Reset();
+ check(gpu.setup(d.Get(),output.Get())&&gpu.ps&&gpu.right_view,"recover incomplete GPU initialization");
  std::vector<unsigned> red(128*32,0xff0000ffu),blue(128*32,0xffff0000u);
  c->UpdateSubresource(gpu.left.Get(),0,nullptr,red.data(),128*4,0);c->UpdateSubresource(gpu.right.Get(),0,nullptr,blue.data(),128*4,0);
  D3D11_VIEWPORT original{7,9,33,17,0,1};c->RSSetViewports(1,&original);

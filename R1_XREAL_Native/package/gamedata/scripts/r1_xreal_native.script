@@ -1,0 +1,68 @@
+-- R1 XREAL Native 0.1.1: opt-in September MT DX11 stereo probe.
+local ffi,library,status
+local active=false
+local failed=false
+local function notice(text)
+ printf('[R1_XREAL_NATIVE] %s',text)
+ if db.actor then news_manager.send_tip(db.actor,'R1 XREAL: '..text,nil,nil,5000) end
+end
+local function params()
+ return r1_xreal_native_mcm.get('ipd')/1000,r1_xreal_native_mcm.get('convergence')
+end
+function stop(reason)
+ if library and active then local a,b=params();library.r1st_set(0,a,b) end
+ local was=active;active=false
+ if was then notice(reason or 'OFF') end
+end
+local function load_native()
+ if failed then return false end
+ if library then return true end
+ ffi=require('ffi')
+ ffi.cdef[[
+ typedef struct {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;} R1XrealStatus;
+ int r1st_install(const char*);int r1st_set(unsigned,float,float);
+ int r1st_status(R1XrealStatus*);
+ ]]
+ -- Missing DLL/dependency is an expected loader failure: report it once and remain off.
+ local ok,result=pcall(ffi.load,getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
+ if not ok then failed=true;notice('DLL load failed: '..tostring(result));return false end
+ local installed=result.r1st_install(getFS():update_path('$app_data_root$','R1_XREAL_Native.log'))
+ if installed~=1 then failed=true;notice('Host/install refused: '..tonumber(installed));return false end
+ library=result;status=ffi.new('R1XrealStatus[1]');status[0].size=ffi.sizeof('R1XrealStatus')
+ return true
+end
+function toggle()
+ if active then stop();return end
+ if not db.actor or not db.actor:alive() or device():is_paused() then return end
+ if not load_native() then return end
+ local a,b=params();local result=library.r1st_set(1,a,b)
+ if result~=1 then notice('Enable refused: '..tonumber(result));return end
+ active=true;notice('ON - F10 / Esc: OFF. Experimental; 2D HUD unavailable.')
+end
+local function update()
+ if not active then return end
+ if not db.actor or not db.actor:alive() or device():is_paused() then stop();return end
+ local result=library.r1st_status(status)
+ if result~=1 then stop('Status error: '..tonumber(result));return end
+ if status[0].error~=0 then stop('Render refused: '..tonumber(status[0].error)..' (check R1 README)');return end
+ local a,b=params();result=library.r1st_set(1,a,b)
+ if result~=1 then stop('Heartbeat error: '..tonumber(result)) end
+end
+local function key(k)
+ if k==DIK_keys.DIK_ESCAPE then stop();return end
+ if k==r1_xreal_native_mcm.get('toggle') then toggle();return end
+ if active then
+  local bind=dik_to_bind(k)
+  if bind==key_bindings.kINVENTORY or bind==key_bindings.kPDA or bind==key_bindings.kCAM_2 or bind==key_bindings.kCAM_3 then stop('OFF - UI / camera') end
+ end
+end
+function on_game_start()
+ RegisterScriptCallback('actor_on_update',update)
+ RegisterScriptCallback('on_key_press',key)
+ RegisterScriptCallback('on_option_change',function() stop('OFF - settings changed') end)
+ RegisterScriptCallback('actor_on_net_destroy',function() stop() end)
+ RegisterScriptCallback('actor_on_before_death',function() stop() end)
+ RegisterScriptCallback('on_before_level_changing',function() stop() end)
+ RegisterScriptCallback('load_state',function() stop() end)
+ printf('[R1_XREAL_NATIVE] 0.1.1 loaded; default OFF; F10 toggle; exact MT DX11 only')
+end

@@ -1,0 +1,38 @@
+{
+  "archive": "R1_XREAL_Native_MT_DX11_0.1.1_EXPERIMENTAL.zip",
+  "sha256": "205ae306315970fd4606e218fb051e2e068f1c615d8dc3c246a4aae08d780b33",
+  "files": [
+    {
+      "path": "R1_MinHook_LICENSE.txt",
+      "sha256": "4f21f857550d7be854da6ea5f2da4e6775ca4e3fbb535e4f3d961c47d0bf3335"
+    },
+    {
+      "path": "R1_README_EN.md",
+      "sha256": "6a50033b7e1a458c57ab316540925e629b6f57ea609da833c878aeed8c6e3949"
+    },
+    {
+      "path": "R1_README_RU.md",
+      "sha256": "b3d681a0377e4c8c7b03757918699f2dc9c3136e3982dddb2741f73257946d78"
+    },
+    {
+      "path": "gamedata/scripts/r1_xreal_native.script",
+      "sha256": "a1ecbd2ad7980103e35be41f1550ae402cbfdaac0836de78f2d4870830027870"
+    },
+    {
+      "path": "gamedata/scripts/r1_xreal_native_mcm.script",
+      "sha256": "82cc36730f49672f37964b8089daa7f2a974129ed80e3f5ebe6f891a64410555"
+    },
+    {
+      "path": "gamedata/configs/text/eng/st_r1_xreal_native.xml",
+      "sha256": "c13724eaf953ef1da838a1da95e2ee3998b17fd83eed3f321200a80a59c60227"
+    },
+    {
+      "path": "gamedata/configs/text/rus/st_r1_xreal_native.xml",
+      "sha256": "4331feb33b17e183079ad243beafea2d165f96717d24ab4b5200e762a6059cd5"
+    },
+    {
+      "path": "gamedata/plugins/R1_XREAL_Native/R1_XREAL_Native.dll",
+      "sha256": "6d9299dc9036b7b39224635baacae6f08e647482ffae80b908ff36fdd110a5bb"
+    }
+  ]
+}
