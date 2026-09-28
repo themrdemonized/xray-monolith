@@ -14,6 +14,7 @@
 #include "R1_stereo_math.h"
 #include "R1_gpu.h"
 #include "R1_pair_state.h"
+#include "R1_decompression.h"
 using namespace DirectX;
 #define R1_API extern "C" __declspec(dllexport)
 struct R1Status {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;};
@@ -25,6 +26,9 @@ Method renderOriginal=nullptr,endOriginal=nullptr,homOriginal=nullptr;
 Method uiOriginal=nullptr;
 Method cursorOriginal=nullptr;
 Method consoleOriginal=nullptr;
+using DecompressMethod=void(__fastcall*)(void*,void*);
+DecompressMethod decompressOriginal=nullptr;
+const R1Function decompressHook={0xaf7000,{0x40,0x57,0x48,0x83,0xec,0x30,0xf3,0x0f,0x10,0x05,0xae,0xa4,0xad,0x00,0x48,0x8b,0xfa,0xf3,0x0f,0x59,0x05,0xdf,0xfd,0x6d}};
 const R1Function consoleHook={0x92460,{0x48,0x8b,0xc4,0x56,0x48,0x81,0xec,0xf0,0x00,0x00,0x00,0x80,0xb9,0x5c,0x81,0x00,0x00,0x00,0x48,0x8b,0xf1,0x0f,0x84,0xa5}};
 const R1Function cursorHook={0x19f7d0,{0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0x3d,0x5f,0xf9,0x42,0x01,0x48,0x8b,0xd9,0x80,0xbf,0x88,0x01}};
 bool drawing_ui=false;
@@ -59,7 +63,7 @@ bool identify(){
     auto pe=reinterpret_cast<const IMAGE_NT_HEADERS64*>(base+dos->e_lfanew);
     if(pe->Signature!=IMAGE_NT_SIGNATURE||pe->FileHeader.Machine!=IMAGE_FILE_MACHINE_AMD64||pe->FileHeader.TimeDateStamp!=host->timestamp||pe->OptionalHeader.SizeOfImage!=host->image_size)return false;
     for(const auto& f:host->hooks)if(f.rva>host->image_size-24||memcmp(base+f.rva,f.bytes,24))return false;
-    if(memcmp(base+fontHook.rva,fontHook.bytes,24))return false;
+    if(memcmp(base+fontHook.rva,fontHook.bytes,24)||memcmp(base+decompressHook.rva,decompressHook.bytes,24))return false;
     if(memcmp(base+uiHook.rva,uiHook.bytes,24)||memcmp(base+detailCalc.rva,detailCalc.bytes,24))return false;
     if(memcmp(base+cursorHook.rva,cursorHook.bytes,24))return false;
     if(memcmp(base+consoleHook.rva,consoleHook.bytes,24))return false;
@@ -111,6 +115,28 @@ void eye(const Snapshot& snapshot,float offset){
         if(mode==1)store(2448,XMMatrixInverse(nullptr,proj));
     }
     cache();
+}
+void __fastcall onDecompress(void* self,void* constant){
+    decompressOriginal(self,constant);
+    if(!in_pair||!constant)return;
+    const auto& p=field<XMFLOAT4X4>(device(),304);
+    if(p._31==0.f&&p._32==0.f)return;
+    // September PDB: CBackend buffer arrays, R_constant loads, dx10ConstantBuffer.
+    const unsigned masks[]={1,2,8,16,32,64},shifts[]={16,12,8,20,24,28};
+    const unsigned arrays[]={1256,1144,1368,1480,1592,1704};
+    const auto destination=field<unsigned>(constant,28);
+    for(unsigned i=0;i<6;++i)if(destination&masks[i]){
+        auto index=(destination>>shifts[i])&15;
+        if(index>=14){status.error=-27;return;}
+        auto buffer=global<void*>(0x15d53d0+arrays[i]+index*8);
+        auto offset=field<unsigned short>(constant,32+i*4);
+        if(!buffer||offset+16u>field<unsigned>(buffer,112)||!field<void*>(buffer,120)){
+            status.error=-27;return;
+        }
+        auto value=reinterpret_cast<float*>(static_cast<unsigned char*>(field<void*>(buffer,120))+offset);
+        r1st::correct_decompression(value,p._11,p._22,p._31,p._32);
+        field<bool>(buffer,128)=true;
+    }
 }
 void __fastcall onHom(void* self){
     // Rebuild the occlusion raster for the actual eye instead of globally disabling culling.
@@ -209,7 +235,7 @@ void __fastcall onEnd(void* self){
             }
             // World eye textures include CHUDManager::RenderUI; menus use the full backbuffer.
             if(gpu.draw(context,rt)){
-                if(!menu_frame){++status.pairs;if(status.pairs==1)note("FIRST_PAIR 0.1.3 candidate; UI hook; detail and light replay; visual acceptance pending");}
+                if(!menu_frame){++status.pairs;if(status.pairs==1)note("FIRST_PAIR 0.1.4 candidate; UI hook; detail and light replay; visual acceptance pending");}
                 else if(!menu_reported){menu_reported=true;note("MENU_SBS identical full menu per eye");}
                 if(!capture_path.empty()&&(!capture_loading_only||loadingActive())){
                     D3D11_TEXTURE2D_DESC desc{};back->GetDesc(&desc);desc.BindFlags=0;desc.MiscFlags=0;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;
@@ -235,12 +261,12 @@ R1_API int r1st_install(const char* log_path){
     if(status.installed)return 1;if(log_path)logFile.open(log_path,std::ios::app);
     if(!identify()){status.error=-10;note("REFUSED unknown host or modified hook site");return -10;}
     owner=GetCurrentThreadId();if(MH_Initialize()!=MH_OK)return -11;
-    void* hooks[]={reinterpret_cast<void*>(&onRender),reinterpret_cast<void*>(&onEnd),reinterpret_cast<void*>(&onHom),reinterpret_cast<void*>(&onFont),reinterpret_cast<void*>(&onUI),reinterpret_cast<void*>(&onCursor),reinterpret_cast<void*>(&onConsole)};
-    void** originals[]={reinterpret_cast<void**>(&renderOriginal),reinterpret_cast<void**>(&endOriginal),reinterpret_cast<void**>(&homOriginal),reinterpret_cast<void**>(&fontOriginal),reinterpret_cast<void**>(&uiOriginal),reinterpret_cast<void**>(&cursorOriginal),reinterpret_cast<void**>(&consoleOriginal)};
-    const unsigned rvas[]={host->hooks[0].rva,host->hooks[1].rva,host->hooks[2].rva,fontHook.rva,uiHook.rva,cursorHook.rva,consoleHook.rva};
-    for(unsigned i=0;i<7;++i)if(MH_CreateHook(base+rvas[i],hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
+    void* hooks[]={reinterpret_cast<void*>(&onRender),reinterpret_cast<void*>(&onEnd),reinterpret_cast<void*>(&onHom),reinterpret_cast<void*>(&onFont),reinterpret_cast<void*>(&onUI),reinterpret_cast<void*>(&onCursor),reinterpret_cast<void*>(&onConsole),reinterpret_cast<void*>(&onDecompress)};
+    void** originals[]={reinterpret_cast<void**>(&renderOriginal),reinterpret_cast<void**>(&endOriginal),reinterpret_cast<void**>(&homOriginal),reinterpret_cast<void**>(&fontOriginal),reinterpret_cast<void**>(&uiOriginal),reinterpret_cast<void**>(&cursorOriginal),reinterpret_cast<void**>(&consoleOriginal),reinterpret_cast<void**>(&decompressOriginal)};
+    const unsigned rvas[]={host->hooks[0].rva,host->hooks[1].rva,host->hooks[2].rva,fontHook.rva,uiHook.rva,cursorHook.rva,consoleHook.rva,decompressHook.rva};
+    for(unsigned i=0;i<8;++i)if(MH_CreateHook(base+rvas[i],hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
     HMODULE pin;if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,reinterpret_cast<LPCWSTR>(&r1st_install),&pin)){MH_Uninitialize();return -13;}
-    for(unsigned i=0;i<7;++i)if(MH_EnableHook(base+rvas[i])!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+rvas[j]);MH_Uninitialize();return -14;}
+    for(unsigned i=0;i<8;++i)if(MH_EnableHook(base+rvas[i])!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+rvas[j]);MH_Uninitialize();return -14;}
     status.installed=1;note("INSTALLED default-off exact September MT host");return 1;
 }
 R1_API int r1st_set(unsigned enabled,float eye_distance,float focus){

@@ -1,6 +1,6 @@
-**0.1.3 diagnostic candidate.** Lighting, console and loading card inspected in an isolated copy. No FPS improvement. One unexplained shutdown failure (0xC0000374) occurred; later runs exited normally. Not a stable release.
+**0.1.4 lighting fix candidate.** The user quicksave_2 view now reconstructs lighting positions with the stereo projection shift. Standard 64 mm / 2 m retained. No FPS fix claimed. Two earlier diagnostic runs encountered shutdown 0xC0000374; its cause remains unresolved. Not a stable release. Close the game and replace the previous package; disable the old mod in MO2.
 
-# R1 XREAL Native 0.1.3 CANDIDATE — experimental MT DX11
+# R1 XREAL Native 0.1.4 CANDIDATE — experimental MT DX11
 
 Geometry SBS stereo for the exact September MT DX11 executable. Separate DLL; the EXE file is not replaced. This is a world/iron-sight probe, not a complete VR adaptation.
 
@@ -27,4 +27,4 @@ See appdata/R1_XREAL_Native.log and `[R1_XREAL_NATIVE]` in the xray log. -10: wr
 
 Disable the mod in MO2 and restart. For manual installation remove only files from this archive. No new game is required; the addon stores no custom save data. The DLL remains loaded until process exit even when stereo is off.
 
-Developer source/docs: https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_xreal_stereo_probe/R1_XREAL_Native . Published 0.1.3 CANDIDATE source may lag the local package. MinHook license: R1_MinHook_LICENSE.txt.
+Developer source/docs: https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_xreal_stereo_probe/R1_XREAL_Native . Published 0.1.4 CANDIDATE source may lag the local package. MinHook license: R1_MinHook_LICENSE.txt.
