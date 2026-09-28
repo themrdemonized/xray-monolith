@@ -44,6 +44,9 @@ public:
 	virtual void RenderCamAttachedUI() = 0;
 	virtual bool RenderActiveItemUIQuery() = 0;
 	virtual bool RenderCamAttachedUIQuery() = 0;
+	virtual bool PreviewLightingQuery() { return false; }
+	virtual bool PreviewDryQuery() { return false; }
+    virtual bool PreviewBackgroundQuery() { return false; }
 	virtual void Render_R1_Attachment_UI() = 0;
 	virtual void net_Relcase(CObject* object) = 0;
 };

@@ -76,6 +76,8 @@ public:
 	virtual void set_color(float r, float g, float b) = 0;
 	virtual void set_hud_mode(bool b) = 0;
 	virtual bool get_hud_mode() = 0;
+	virtual void set_preview_light(bool enabled) {}
+	virtual bool get_preview_light() const { return false; }
 	virtual void set_is_playerlight(bool b) = 0;
 	virtual vis_data& get_homdata() = 0;
 

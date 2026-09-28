@@ -42,6 +42,9 @@
 #include "UITabButton.h"
 #include "UITabControl.h"
 #include "UITrackBar.h"
+#include "../../Include/xrRender/UIRender.h"
+
+#include "UIRenderPortal.h"
 
 CFontManager& mngr()
 {
@@ -173,6 +176,8 @@ using namespace luabind;
 #pragma optimize("s",on)
 void CUIWindow::script_register(lua_State* L)
 {
+    module(L,"ui_preview")[def("supports", &UIPreviewSupports)];
+
 	module(L)
 	[
 		def("GetARGB", &GetARGB),
@@ -316,7 +321,25 @@ void CUIWindow::script_register(lua_State* L)
 		.def("ShowPage", &CUIMMShniaga::ShowPage),
 
 
-		class_<CUIScrollView, CUIWindow>("CUIScrollView")
+		class_<CUIPreviewContext>("CUIPreviewContext")
+        .def(constructor<>())
+        .def("request_scene_suppression", &CUIPreviewContext::RequestSceneSuppression)
+        .def("release", &CUIPreviewContext::Release)
+        .def("is_active", &CUIPreviewContext::Active)
+        .def("is_scene_suppressed", &CUIPreviewContext::SceneSuppressed)
+        .def("set_background_color", &CUIPreviewContext::SetBackgroundColor)
+        .def("set_background_texture", &CUIPreviewContext::SetBackgroundTexture)
+        .def("set_dry", &CUIPreviewContext::SetDry)
+        .def("set_lighting_gain", &CUIPreviewContext::SetLightingGain),
+        class_<CUIRenderPortal, CUIWindow>("CUIRenderPortal")
+        .def(constructor<>())
+        .def("SetSource", &CUIRenderPortal::SetSource)
+        .def("SetActive", &CUIRenderPortal::SetActive)
+        .def("SetBackgroundTexture", &CUIRenderPortal::SetBackgroundTexture)
+        .def("SetBackgroundColor", &CUIRenderPortal::SetBackgroundColor)
+        .def("SetDry", &CUIRenderPortal::SetDry)
+        .def("SetLightingGain", &CUIRenderPortal::SetLightingGain),
+        class_<CUIScrollView, CUIWindow>("CUIScrollView")
 		.def(constructor<>())
 		.def("AddWindow", &CUIScrollView::AddWindow)
 		.def("RemoveWindow", &CUIScrollView::RemoveWindow)

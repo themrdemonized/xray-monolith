@@ -124,7 +124,11 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 
 			// this would be supported by DX10.1 but is not needed for stalker
 			// if( ViewDesc.Format != DXGI_FORMAT_R24_UNORM_X8_TYPELESS )
-			if ((desc.SampleDesc.Count <= 1) || (ViewDesc.Format != DXGI_FORMAT_R24_UNORM_X8_TYPELESS))
+			if ((desc.SampleDesc.Count <= 1) || (ViewDesc.Format != DXGI_FORMAT_R24_UNORM_X8_TYPELESS)
+#ifdef USE_DX11
+				|| (desc.BindFlags & D3D_BIND_SHADER_RESOURCE)
+#endif
+				)
 				CHK_DX(HW.pDevice->CreateShaderResourceView(pSurface, &ViewDesc, &m_pSRView));
 			else
 				m_pSRView = 0;

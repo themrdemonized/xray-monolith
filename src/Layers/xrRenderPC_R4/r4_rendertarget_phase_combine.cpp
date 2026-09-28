@@ -119,7 +119,7 @@ void CRenderTarget::phase_combine()
 				phase_ssfx_ao(); // [SSFX] - New AO Phase
 			}
 
-			if (RImplementation.o.ssfx_il && ps_ssfx_il.y > 0)
+			if (!RImplementation.previewLighting && RImplementation.o.ssfx_il && ps_ssfx_il.y > 0)
 			{
 				ssfx_PrevPos_Requiered = true;
 				phase_ssfx_il(); // [SSFX] - New IL Phase
@@ -290,6 +290,14 @@ void CRenderTarget::phase_combine()
 		RCache.set_Geometry(g_combine);
 
 		RCache.set_c("m_v2w", Device.mInvView);
+		if (RImplementation.previewLighting)
+		{
+			// Studio fill comes from tagged lights; no weather tint, sun,
+			// environment-map lighting or world screen-space reflections.
+			ambclr.set(0.08f, 0.08f, 0.08f, 0.f);
+			envclr.set(0.f, 0.f, 0.f, 0.f);
+			sunclr.set(0.f, 0.f, 0.f, 0.f);
+		}
 		RCache.set_c("L_ambient", ambclr);
 
 		RCache.set_c("Ldynamic_color", sunclr);
@@ -334,7 +342,7 @@ void CRenderTarget::phase_combine()
 	else
 		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
 
-	if (RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
+	if (!RImplementation.previewLighting && RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
 	{
 		PIX_EVENT(phase_ssfx_ssr);
 		ssfx_PrevPos_Requiered = true;

@@ -16,6 +16,7 @@ light::light()
 	flags.bShadow = false;
 	flags.bVolumetric = false;
 	flags.bHudMode = false;
+	flags.bPreview = false;
 	flags.bOccq = true;
 
 	position.set(0, -1000, 0);
@@ -578,6 +579,7 @@ void light::export_()
 					for (int f=0; f<6; f++) L->set_decor_object(decor_object[f],f);
 					L->set_occq_mode(flags.bOccq);
 					L->set_hud_mode(flags.bHudMode);
+					L->set_preview_light(flags.bPreview);
 					L->xform_calc();
 					if (ps_r2_shadow_omnipart_vischeck)
 					{
