@@ -22,6 +22,8 @@ using Cache=void(__fastcall*)(void*,void*,void*);
 unsigned char* base=nullptr;const R1Host* host=nullptr;DWORD owner=0;
 Method renderOriginal=nullptr,endOriginal=nullptr,homOriginal=nullptr;
 Method uiOriginal=nullptr;
+Method cursorOriginal=nullptr;
+const R1Function cursorHook={0x19f7d0,{0x48,0x89,0x5c,0x24,0x08,0x57,0x48,0x83,0xec,0x20,0x48,0x8b,0x3d,0x5f,0xf9,0x42,0x01,0x48,0x8b,0xd9,0x80,0xbf,0x88,0x01}};
 bool drawing_ui=false;
 const R1Function uiHook={0x1fdca0,{0x40,0x55,0x48,0x83,0xec,0x70,0xf7,0x05,0x2c,0x02,0x24,0x01,0x00,0x10,0x00,0x00,0x48,0x8b,0xe9,0x0f,0x84,0xf4,0x03,0x00}};
 const R1Function detailCalc={0xb6c050,{0x40,0x53,0x48,0x83,0xec,0x50,0x48,0x83,0x3d,0xca,0x79,0xa6,0x00,0x00,0x48,0x8b,0xd9,0x0f,0x84,0x0d,0x02,0x00,0x00,0x48}};
@@ -55,6 +57,7 @@ bool identify(){
     for(const auto& f:host->hooks)if(f.rva>host->image_size-24||memcmp(base+f.rva,f.bytes,24))return false;
     if(memcmp(base+fontHook.rva,fontHook.bytes,24))return false;
     if(memcmp(base+uiHook.rva,uiHook.bytes,24)||memcmp(base+detailCalc.rva,detailCalc.bytes,24))return false;
+    if(memcmp(base+cursorHook.rva,cursorHook.bytes,24))return false;
     return true;
 }
 bool targets(ComPtr<ID3D11Texture2D>& back,ID3D11RenderTargetView*& rt,ID3D11DeviceContext*& context){
@@ -155,14 +158,18 @@ void __fastcall onRender(void* self){
     if(frame!=field<unsigned>(d,40)){status.error=-22;status.enabled=0;note("ERROR simulation frame advanced between eyes");return;}
     status.frame=frame;status.restored++;status.error=0;have_pair=true;
 }
-void __fastcall onUI(void* self){
-    if(!have_pair||!world()||drawing_ui){uiOriginal(self);return;}
+void overlay(void* self,Method original,bool cursor){
+    if(!have_pair||!world()||drawing_ui){original(self);return;}
     ComPtr<ID3D11Texture2D> back;ID3D11RenderTargetView* rt=nullptr;ID3D11DeviceContext* context=nullptr;
-    if(!targets(back,rt,context)){status.error=-21;have_pair=false;uiOriginal(self);return;}
+    if(!targets(back,rt,context)){status.error=-21;have_pair=false;original(self);return;}
     struct Guard{Guard(){drawing_ui=true;}~Guard(){drawing_ui=false;}}guard;
-    context->CopyResource(back.Get(),gpu.left.Get());uiOriginal(self);context->CopyResource(gpu.left.Get(),back.Get());
-    context->CopyResource(back.Get(),gpu.right.Get());uiOriginal(self);context->CopyResource(gpu.right.Get(),back.Get());
+    const unsigned stamp=global<unsigned>(0x15c02cc);
+    context->CopyResource(back.Get(),gpu.left.Get());original(self);context->CopyResource(gpu.left.Get(),back.Get());
+    if(cursor)global<unsigned>(0x15c02cc)=stamp;
+    context->CopyResource(back.Get(),gpu.right.Get());original(self);context->CopyResource(gpu.right.Get(),back.Get());
 }
+void __fastcall onUI(void* self){overlay(self,uiOriginal,false);}
+void __fastcall onCursor(void* self){overlay(self,cursorOriginal,true);}
 void __fastcall onEnd(void* self){
     bool menu_frame=menuActive();
     if((have_pair&&world())||menu_frame){
@@ -200,12 +207,12 @@ R1_API int r1st_install(const char* log_path){
     if(status.installed)return 1;if(log_path)logFile.open(log_path,std::ios::app);
     if(!identify()){status.error=-10;note("REFUSED unknown host or modified hook site");return -10;}
     owner=GetCurrentThreadId();if(MH_Initialize()!=MH_OK)return -11;
-    void* hooks[]={reinterpret_cast<void*>(&onRender),reinterpret_cast<void*>(&onEnd),reinterpret_cast<void*>(&onHom),reinterpret_cast<void*>(&onFont),reinterpret_cast<void*>(&onUI)};
-    void** originals[]={reinterpret_cast<void**>(&renderOriginal),reinterpret_cast<void**>(&endOriginal),reinterpret_cast<void**>(&homOriginal),reinterpret_cast<void**>(&fontOriginal),reinterpret_cast<void**>(&uiOriginal)};
-    const unsigned rvas[]={host->hooks[0].rva,host->hooks[1].rva,host->hooks[2].rva,fontHook.rva,uiHook.rva};
-    for(unsigned i=0;i<5;++i)if(MH_CreateHook(base+rvas[i],hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
+    void* hooks[]={reinterpret_cast<void*>(&onRender),reinterpret_cast<void*>(&onEnd),reinterpret_cast<void*>(&onHom),reinterpret_cast<void*>(&onFont),reinterpret_cast<void*>(&onUI),reinterpret_cast<void*>(&onCursor)};
+    void** originals[]={reinterpret_cast<void**>(&renderOriginal),reinterpret_cast<void**>(&endOriginal),reinterpret_cast<void**>(&homOriginal),reinterpret_cast<void**>(&fontOriginal),reinterpret_cast<void**>(&uiOriginal),reinterpret_cast<void**>(&cursorOriginal)};
+    const unsigned rvas[]={host->hooks[0].rva,host->hooks[1].rva,host->hooks[2].rva,fontHook.rva,uiHook.rva,cursorHook.rva};
+    for(unsigned i=0;i<6;++i)if(MH_CreateHook(base+rvas[i],hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
     HMODULE pin;if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,reinterpret_cast<LPCWSTR>(&r1st_install),&pin)){MH_Uninitialize();return -13;}
-    for(unsigned i=0;i<5;++i)if(MH_EnableHook(base+rvas[i])!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+rvas[j]);MH_Uninitialize();return -14;}
+    for(unsigned i=0;i<6;++i)if(MH_EnableHook(base+rvas[i])!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+rvas[j]);MH_Uninitialize();return -14;}
     status.installed=1;note("INSTALLED default-off exact September MT host");return 1;
 }
 R1_API int r1st_set(unsigned enabled,float eye_distance,float focus){
@@ -222,6 +229,7 @@ R1_API int r1st_shutdown(){
     status.enabled=0;have_pair=false;for(const auto& f:host->hooks)MH_DisableHook(base+f.rva);
     MH_DisableHook(base+fontHook.rva);menu_sbs=false;
     MH_DisableHook(base+uiHook.rva);
+    MH_DisableHook(base+cursorHook.rva);
     MH_Uninitialize();gpu=R1GPU{};status.installed=0;note("SHUTDOWN");return 1;
 }
 BOOL WINAPI DllMain(HINSTANCE,DWORD,LPVOID){return TRUE;}

@@ -1,4 +1,4 @@
--- R1 XREAL Native 0.1.1: opt-in September MT DX11 stereo probe.
+-- R1 XREAL Native 0.1.2 candidate: opt-in September MT DX11 stereo probe.
 local ffi,library,status
 local active=false
 local failed=false
@@ -41,7 +41,7 @@ function toggle()
  if not load_native() then return end
  local a,b=params();local result=library.r1st_set(1,a,b)
  if result~=1 then notice('Enable refused: '..tonumber(result));return end
- active=true;notice('ON - F10 / Esc: OFF. Experimental; 2D HUD unavailable.')
+ active=true;notice('ON - F10 / Esc: OFF. Experimental UI stereo candidate.')
 end
 local function update()
  if not active then return end
@@ -57,7 +57,7 @@ local function key(k)
  if k==r1_xreal_native_mcm.get('toggle') then toggle();return end
  if active then
   local bind=dik_to_bind(k)
-  if bind==key_bindings.kINVENTORY or bind==key_bindings.kPDA or bind==key_bindings.kCAM_2 or bind==key_bindings.kCAM_3 then stop('OFF - UI / camera') end
+  if bind==key_bindings.kCAM_2 or bind==key_bindings.kCAM_3 then stop('OFF - UI / camera') end
  end
 end
 function on_game_start()
@@ -68,5 +68,5 @@ function on_game_start()
  RegisterScriptCallback('actor_on_before_death',function() stop() end)
  RegisterScriptCallback('on_before_level_changing',function() stop() end)
  RegisterScriptCallback('load_state',function() stop() end)
- printf('[R1_XREAL_NATIVE] 0.1.1 loaded; default OFF; F10 toggle; exact MT DX11 only')
+ printf('[R1_XREAL_NATIVE] 0.1.2 candidate loaded; default OFF; F10 toggle; exact MT DX11 only')
 end

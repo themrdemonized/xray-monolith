@@ -5,6 +5,7 @@ local native_enabled,native_error=0,0
 local values={toggle=68,ipd=64,convergence=2}
 local dll={
  r1st_install=function() installs=installs+1;return 1 end,
+ r1st_menu=function()return 1 end,
  r1st_set=function(on) sets=sets+1;if on==1 and native_enabled==0 then native_error=0 end;native_enabled=on;return 1 end,
  r1st_status=function(s) s[0].error=native_error;return 1 end
 }
@@ -28,6 +29,8 @@ callbacks.on_key_press(68);native_error=-25;callbacks.actor_on_update();assert(n
 callbacks.on_key_press(68);callbacks.actor_on_update();assert(native_enabled==1,'retry after correcting a mode')
 callbacks.on_option_change();assert(native_enabled==0)
 callbacks.on_key_press(68);callbacks.actor_on_net_destroy();assert(native_enabled==0)
-callbacks.on_key_press(68);callbacks.on_key_press(10);assert(native_enabled==0,'inventory stops')
+callbacks.on_key_press(68);callbacks.on_key_press(10);assert(native_enabled==1,'inventory keeps UI stereo active')
+callbacks.on_key_press(12);assert(native_enabled==0,'camera switch stops')
 assert(installs==1,'hooks must not install repeatedly')
-print('PASS loader default-off, toggle, Escape, native refusal, retry, settings, destroy, inventory; mock only')
+prepare_menu();assert(installs==1 and native_enabled==0,'menu preparation does not enable geometry')
+print('PASS loader geometry default-off, menu preparation, toggle, Escape, refusal, retry, settings, destroy, inventory and camera; mock only')
