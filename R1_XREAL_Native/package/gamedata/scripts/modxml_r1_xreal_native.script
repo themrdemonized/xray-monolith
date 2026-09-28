@@ -1,0 +1,5 @@
+function on_xml_read()
+ RegisterScriptCallback('on_xml_read',function(path)
+  if path=='ui\\ui_mm_main.xml' or path=='ui\\ui_mm_main_16.xml' then r1_xreal_native.prepare_menu() end
+ end)
+end

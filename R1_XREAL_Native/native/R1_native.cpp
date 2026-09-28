@@ -12,6 +12,7 @@
 #include "R1_hosts.h"
 #include "R1_stereo_math.h"
 #include "R1_gpu.h"
+#include "R1_pair_state.h"
 using namespace DirectX;
 #define R1_API extern "C" __declspec(dllexport)
 struct R1Status {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;};
@@ -20,7 +21,15 @@ using Method=void(__fastcall*)(void*);
 using Cache=void(__fastcall*)(void*,void*,void*);
 unsigned char* base=nullptr;const R1Host* host=nullptr;DWORD owner=0;
 Method renderOriginal=nullptr,endOriginal=nullptr,homOriginal=nullptr;
+Method uiOriginal=nullptr;
+bool drawing_ui=false;
+const R1Function uiHook={0x1fdca0,{0x40,0x55,0x48,0x83,0xec,0x70,0xf7,0x05,0x2c,0x02,0x24,0x01,0x00,0x10,0x00,0x00,0x48,0x8b,0xe9,0x0f,0x84,0xf4,0x03,0x00}};
+const R1Function detailCalc={0xb6c050,{0x40,0x53,0x48,0x83,0xec,0x50,0x48,0x83,0x3d,0xca,0x79,0xa6,0x00,0x00,0x48,0x8b,0xd9,0x0f,0x84,0x0d,0x02,0x00,0x00,0x48}};
+using FontMethod=void(__fastcall*)(void*,void*);
+FontMethod fontOriginal=nullptr;
+const R1Function fontHook={0xb1f490,{0x48,0x89,0x4c,0x24,0x08,0x55,0x56,0x41,0x54,0x41,0x55,0x41,0x57,0x48,0x8d,0xac,0x24,0xe0,0xdf,0xff,0xff,0xb8,0x20,0x21}};
 R1GPU gpu;R1Status status{sizeof(R1Status)};bool in_pair=false,have_pair=false;
+bool menu_sbs=false,menu_reported=false;
 float ipd=.064f,convergence=2.f;ULONGLONG heartbeat=0;std::ofstream logFile;std::string capture_path;
 template<class T>T& field(void* p,unsigned offset){return *reinterpret_cast<T*>(static_cast<unsigned char*>(p)+offset);}
 template<class T>T& global(unsigned rva){return field<T>(base,rva);}
@@ -44,6 +53,8 @@ bool identify(){
     auto pe=reinterpret_cast<const IMAGE_NT_HEADERS64*>(base+dos->e_lfanew);
     if(pe->Signature!=IMAGE_NT_SIGNATURE||pe->FileHeader.Machine!=IMAGE_FILE_MACHINE_AMD64||pe->FileHeader.TimeDateStamp!=host->timestamp||pe->OptionalHeader.SizeOfImage!=host->image_size)return false;
     for(const auto& f:host->hooks)if(f.rva>host->image_size-24||memcmp(base+f.rva,f.bytes,24))return false;
+    if(memcmp(base+fontHook.rva,fontHook.bytes,24))return false;
+    if(memcmp(base+uiHook.rva,uiHook.bytes,24)||memcmp(base+detailCalc.rva,detailCalc.bytes,24))return false;
     return true;
 }
 bool targets(ComPtr<ID3D11Texture2D>& back,ID3D11RenderTargetView*& rt,ID3D11DeviceContext*& context){
@@ -96,6 +107,19 @@ void eye(const Snapshot& snapshot,float offset){
 void __fastcall onHom(void* self){
     if(in_pair){field<int>(self,56)=0;return;}homOriginal(self);
 }
+bool menuActive(){
+    if(!menu_sbs||GetCurrentThreadId()!=owner)return false;
+    auto persistent=global<void*>(host->persistent);
+    auto menu=persistent?field<void*>(persistent,2608):nullptr;
+    return menu&&reinterpret_cast<bool(__fastcall*)(void*)>(base+host->menu)(menu);
+}
+void __fastcall onFont(void* self,void* font){
+    if((!menuActive()&&!drawing_ui)||!gpu.height||gpu.width<gpu.height*3||gpu.width>gpu.height*4){fontOriginal(self,font);return;}
+    // UI rectangles scale with screen width, but glyph widths do not. SBS halves need twice-wide glyphs before packing.
+    auto& scale=global<float>(0x143df00);const float saved=scale;
+    struct Restore{float& value;float saved;~Restore(){value=saved;}}restore{scale,saved};
+    scale*=2; fontOriginal(self,font);
+}
 struct PairGuard {
     void* hom;int enabled;
     PairGuard():hom(base+host->render+528),enabled(field<int>(hom,56)){in_pair=true;field<int>(hom,56)=0;}
@@ -115,21 +139,43 @@ void __fastcall onRender(void* self){
     // Finish the existing frame jobs before touching camera matrices. This does not rerun simulation.
     static_assert(sizeof(Concurrency::task_group)==232,"MT task_group ABI");
     auto d=device();{RenderFlagGuard flag;field<Concurrency::task_group>(d,2584).wait();}
+    auto details=global<void*>(host->render+1112);
+    if(details)reinterpret_cast<Method>(base+detailCalc.rva)(details);
+    r1st::DetailLists detailLists;r1st::LightFrames lightFrames;
+    if(!detailLists.capture(details)||!lightFrames.capture(base+host->render+7608)){
+        status.error=-26;renderOriginal(self);return;
+    }
     Snapshot snapshot;const unsigned frame=field<unsigned>(d,40);
     {PairGuard pair;
     eye(snapshot,-ipd);renderOriginal(self);++status.passes;context->CopyResource(gpu.left.Get(),back.Get());
+    if(!detailLists.restore()){status.error=-26;status.enabled=0;return;}
+    lightFrames.restore();
     eye(snapshot,0);renderOriginal(self);++status.passes;context->CopyResource(gpu.right.Get(),back.Get());
     }snapshot.restore();
     if(frame!=field<unsigned>(d,40)){status.error=-22;status.enabled=0;note("ERROR simulation frame advanced between eyes");return;}
     status.frame=frame;status.restored++;status.error=0;have_pair=true;
 }
+void __fastcall onUI(void* self){
+    if(!have_pair||!world()||drawing_ui){uiOriginal(self);return;}
+    ComPtr<ID3D11Texture2D> back;ID3D11RenderTargetView* rt=nullptr;ID3D11DeviceContext* context=nullptr;
+    if(!targets(back,rt,context)){status.error=-21;have_pair=false;uiOriginal(self);return;}
+    struct Guard{Guard(){drawing_ui=true;}~Guard(){drawing_ui=false;}}guard;
+    context->CopyResource(back.Get(),gpu.left.Get());uiOriginal(self);context->CopyResource(gpu.left.Get(),back.Get());
+    context->CopyResource(back.Get(),gpu.right.Get());uiOriginal(self);context->CopyResource(gpu.right.Get(),back.Get());
+}
 void __fastcall onEnd(void* self){
-    if(have_pair&&world()){
+    bool menu_frame=menuActive();
+    if((have_pair&&world())||menu_frame){
         ComPtr<ID3D11Texture2D> back;ID3D11RenderTargetView* rt=nullptr;ID3D11DeviceContext* context=nullptr;
         if(targets(back,rt,context)){
-            // Probe deliberately excludes 2D UI until the independent HUD composition path is validated.
+            if(menu_frame){
+                if(gpu.width<gpu.height*3||gpu.width>gpu.height*4){endOriginal(self);return;}
+                context->CopyResource(gpu.left.Get(),back.Get());context->CopyResource(gpu.right.Get(),back.Get());
+            }
+            // World eye textures include CHUDManager::RenderUI; menus use the full backbuffer.
             if(gpu.draw(context,rt)){
-                ++status.pairs;if(status.pairs==1)note("FIRST_PAIR same simulation frame; UI excluded; geometry not yet visually certified");
+                if(!menu_frame){++status.pairs;if(status.pairs==1)note("FIRST_PAIR 0.1.2 candidate; UI hook; detail and light replay; visual acceptance pending");}
+                else if(!menu_reported){menu_reported=true;note("MENU_SBS identical full menu per eye");}
                 if(!capture_path.empty()){
                     D3D11_TEXTURE2D_DESC desc{};back->GetDesc(&desc);desc.BindFlags=0;desc.MiscFlags=0;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;
                     ComPtr<ID3D11Device> d;back->GetDevice(&d);ComPtr<ID3D11Texture2D> copy;
@@ -154,11 +200,12 @@ R1_API int r1st_install(const char* log_path){
     if(status.installed)return 1;if(log_path)logFile.open(log_path,std::ios::app);
     if(!identify()){status.error=-10;note("REFUSED unknown host or modified hook site");return -10;}
     owner=GetCurrentThreadId();if(MH_Initialize()!=MH_OK)return -11;
-    void* hooks[]={reinterpret_cast<void*>(&onRender),reinterpret_cast<void*>(&onEnd),reinterpret_cast<void*>(&onHom)};
-    void** originals[]={reinterpret_cast<void**>(&renderOriginal),reinterpret_cast<void**>(&endOriginal),reinterpret_cast<void**>(&homOriginal)};
-    for(unsigned i=0;i<3;++i)if(MH_CreateHook(base+host->hooks[i].rva,hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
+    void* hooks[]={reinterpret_cast<void*>(&onRender),reinterpret_cast<void*>(&onEnd),reinterpret_cast<void*>(&onHom),reinterpret_cast<void*>(&onFont),reinterpret_cast<void*>(&onUI)};
+    void** originals[]={reinterpret_cast<void**>(&renderOriginal),reinterpret_cast<void**>(&endOriginal),reinterpret_cast<void**>(&homOriginal),reinterpret_cast<void**>(&fontOriginal),reinterpret_cast<void**>(&uiOriginal)};
+    const unsigned rvas[]={host->hooks[0].rva,host->hooks[1].rva,host->hooks[2].rva,fontHook.rva,uiHook.rva};
+    for(unsigned i=0;i<5;++i)if(MH_CreateHook(base+rvas[i],hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
     HMODULE pin;if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,reinterpret_cast<LPCWSTR>(&r1st_install),&pin)){MH_Uninitialize();return -13;}
-    for(unsigned i=0;i<3;++i)if(MH_EnableHook(base+host->hooks[i].rva)!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+host->hooks[j].rva);MH_Uninitialize();return -14;}
+    for(unsigned i=0;i<5;++i)if(MH_EnableHook(base+rvas[i])!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+rvas[j]);MH_Uninitialize();return -14;}
     status.installed=1;note("INSTALLED default-off exact September MT host");return 1;
 }
 R1_API int r1st_set(unsigned enabled,float eye_distance,float focus){
@@ -169,9 +216,12 @@ R1_API int r1st_set(unsigned enabled,float eye_distance,float focus){
 }
 R1_API int r1st_status(R1Status* out){if(!out||out->size!=sizeof(R1Status)||GetCurrentThreadId()!=owner)return -3;*out=status;return 1;}
 R1_API int r1st_capture(const char* path){if(!status.installed||GetCurrentThreadId()!=owner||!path||strlen(path)>2000)return -3;capture_path=path;return 1;}
+R1_API int r1st_menu(unsigned enabled){if(!status.installed||GetCurrentThreadId()!=owner||enabled>1)return -3;menu_sbs=enabled!=0;return 1;}
 R1_API int r1st_shutdown(){
     if(!status.installed)return 0;if(GetCurrentThreadId()!=owner||in_pair)return -2;
     status.enabled=0;have_pair=false;for(const auto& f:host->hooks)MH_DisableHook(base+f.rva);
+    MH_DisableHook(base+fontHook.rva);menu_sbs=false;
+    MH_DisableHook(base+uiHook.rva);
     MH_Uninitialize();gpu=R1GPU{};status.installed=0;note("SHUTDOWN");return 1;
 }
 BOOL WINAPI DllMain(HINSTANCE,DWORD,LPVOID){return TRUE;}

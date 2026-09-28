@@ -21,7 +21,7 @@ local function load_native()
  ffi.cdef[[
  typedef struct {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;} R1XrealStatus;
  int r1st_install(const char*);int r1st_set(unsigned,float,float);
- int r1st_status(R1XrealStatus*);
+ int r1st_status(R1XrealStatus*);int r1st_menu(unsigned);
  ]]
  -- Missing DLL/dependency is an expected loader failure: report it once and remain off.
  local ok,result=pcall(ffi.load,getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
@@ -30,6 +30,10 @@ local function load_native()
  if installed~=1 then failed=true;notice('Host/install refused: '..tonumber(installed));return false end
  library=result;status=ffi.new('R1XrealStatus[1]');status[0].size=ffi.sizeof('R1XrealStatus')
  return true
+end
+function prepare_menu()
+ -- Called by DXML on the main menu path. Geometry stereo remains opt-in.
+ if load_native() then library.r1st_menu(1) end
 end
 function toggle()
  if active then stop();return end
