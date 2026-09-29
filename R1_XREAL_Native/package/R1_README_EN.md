@@ -1,7 +1,9 @@
+**0.1.7 — loading-tip wrapping.** Wrapping now accounts for SBS glyph scaling so lines stay inside each eye card. Verified on an isolated loading capture. The intermittent world-loading stall is not declared fixed.
+
 **0.1.6 — volume sampling performance option.** MCM now caps volumetric density in stereo only: default 1.5 (36 instead of 72 slices). The saved bunker view measured 64 → 88 FPS; density 1.0 reached 95 FPS. Lights and shadows remain enabled. This trades sampling quality for performance; bands/flicker may appear in shafts. Disable the cap for original quality. user.ltx is unchanged.
 
 Includes partial UI fixes from 0.1.5 and stereo-light reconstruction from 0.1.4. 3D PDA, all native tooltip layouts and full renderer optimization remain incomplete. Two earlier diagnostic runs ended with 0xC0000374; the cause remains unknown. This is an experimental candidate, not a stable release.
-# R1 XREAL Native 0.1.6 CANDIDATE — experimental MT DX11
+# R1 XREAL Native 0.1.7 CANDIDATE — experimental MT DX11
 
 Geometry SBS stereo for the exact September MT DX11 executable. Separate DLL; the EXE file is not replaced. This is a world/iron-sight probe, not a complete VR adaptation.
 
@@ -28,4 +30,4 @@ See appdata/R1_XREAL_Native.log and `[R1_XREAL_NATIVE]` in the xray log. -10: wr
 
 Disable the mod in MO2 and restart. For manual installation remove only files from this archive. No new game is required; the addon stores no custom save data. The DLL remains loaded until process exit even when stereo is off.
 
-Developer source/docs: https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_xreal_stereo_probe/R1_XREAL_Native . Published 0.1.6 CANDIDATE source may lag the local package. MinHook license: R1_MinHook_LICENSE.txt.
+Developer source/docs: https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_xreal_stereo_probe/R1_XREAL_Native . Published 0.1.7 CANDIDATE source may lag the local package. MinHook license: R1_MinHook_LICENSE.txt.

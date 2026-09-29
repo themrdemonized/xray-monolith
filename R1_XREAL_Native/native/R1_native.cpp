@@ -16,6 +16,7 @@
 #include "R1_pair_state.h"
 #include "R1_decompression.h"
 #include "R1_volume_quality.h"
+#include "R1_loading_text.h"
 using namespace DirectX;
 #define R1_API extern "C" __declspec(dllexport)
 struct R1Status {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;};
@@ -29,6 +30,9 @@ Method cursorOriginal=nullptr;
 Method consoleOriginal=nullptr;
 using VolumeCall=void(__fastcall*)(void*,void*);
 VolumeCall volumeOriginal=nullptr;
+using LoadingTextCall=void(__fastcall*)(void*,float,const char*);
+LoadingTextCall loadingTextOriginal=nullptr;
+const R1Function loadingTextHook={0xb23700,{0x4d,0x85,0xc0,0x0f,0x84,0xeb,0x01,0x00,0x00,0x48,0x8b,0xc4,0x57,0x41,0x56,0x48,0x81,0xec,0x68,0x02,0x00,0x00,0x44,0x0f}};
 float volumeCap=1.5f;
 const R1Function volumeHook={0xc7e390,{0x48,0x8b,0xc4,0x55,0x53,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x8d,0xa8,0x78,0xfc,0xff,0xff,0x48,0x81}};
 using DecompressMethod=void(__fastcall*)(void*,void*);
@@ -45,7 +49,7 @@ const R1Function fontHook={0xb1f490,{0x48,0x89,0x4c,0x24,0x08,0x55,0x56,0x41,0x5
 R1GPU gpu;R1Status status{sizeof(R1Status)};bool in_pair=false,have_pair=false;
 bool menu_sbs=false,menu_reported=false;
 float ipd=.064f,convergence=2.f;ULONGLONG heartbeat=0;std::ofstream logFile;std::string capture_path;
-bool capture_loading_only=false;
+bool capture_loading_only=false,loading_text_ready=false;
 template<class T>T& field(void* p,unsigned offset){return *reinterpret_cast<T*>(static_cast<unsigned char*>(p)+offset);}
 template<class T>T& global(unsigned rva){return field<T>(base,rva);}
 void* device(){return base+host->device;}
@@ -78,6 +82,7 @@ bool identify(){
     if(memcmp(base+cursorHook.rva,cursorHook.bytes,24))return false;
     if(memcmp(base+consoleHook.rva,consoleHook.bytes,24))return false;
     if(memcmp(base+volumeHook.rva,volumeHook.bytes,24))return false;
+    if(memcmp(base+loadingTextHook.rva,loadingTextHook.bytes,24))return false;
     return true;
 }
 bool targets(ComPtr<ID3D11Texture2D>& back,ID3D11RenderTargetView*& rt,ID3D11DeviceContext*& context){
@@ -169,6 +174,14 @@ bool menuActive(){
     auto menu=persistent?field<void*>(persistent,2608):nullptr;
     return menu&&reinterpret_cast<bool(__fastcall*)(void*)>(base+host->menu)(menu);
 }
+void __fastcall onLoadingText(void* font,float width,const char* text){
+    // Layout measures unscaled glyphs; onFont doubles their rasterized width.
+    // Adjust only the loading card, before the original word-wrap loop queues lines.
+    const float adjusted=r1st::loadingWidth(width,menu_sbs&&GetCurrentThreadId()==owner&&loadingActive(),gpu.width,gpu.height);
+    if(adjusted!=width){static bool reported=false;if(!reported){note("LOADING_TEXT_WRAP one-eye width applied");reported=true;}}
+    loadingTextOriginal(font,adjusted,text);
+    if(loadingActive()&&text&&*text)loading_text_ready=true;
+}
 void __fastcall onFont(void* self,void* font){
     if((!menuActive()&&!drawing_ui)||!gpu.height||gpu.width<gpu.height*3||gpu.width>gpu.height*4){fontOriginal(self,font);return;}
     // UI rectangles scale with screen width, but glyph widths do not. SBS halves need twice-wide glyphs before packing.
@@ -246,9 +259,9 @@ void __fastcall onEnd(void* self){
             }
             // World eye textures include CHUDManager::RenderUI; menus use the full backbuffer.
             if(gpu.draw(context,rt)){
-                if(!menu_frame){++status.pairs;if(status.pairs==1)note("FIRST_PAIR 0.1.6 candidate; UI hook; detail and light replay; visual acceptance pending");}
+                if(!menu_frame){++status.pairs;if(status.pairs==1)note("FIRST_PAIR 0.1.7 candidate; UI hook; detail and light replay; visual acceptance pending");}
                 else if(!menu_reported){menu_reported=true;note("MENU_SBS identical full menu per eye");}
-                if(!capture_path.empty()&&(!capture_loading_only||loadingActive())){
+                if(!capture_path.empty()&&(!capture_loading_only||(loadingActive()&&loading_text_ready))){
                     D3D11_TEXTURE2D_DESC desc{};back->GetDesc(&desc);desc.BindFlags=0;desc.MiscFlags=0;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;
                     ComPtr<ID3D11Device> d;back->GetDevice(&d);ComPtr<ID3D11Texture2D> copy;
                     if((desc.Format==DXGI_FORMAT_R8G8B8A8_UNORM||desc.Format==DXGI_FORMAT_R8G8B8A8_UNORM_SRGB)&&SUCCEEDED(d->CreateTexture2D(&desc,nullptr,&copy))){
@@ -277,9 +290,11 @@ R1_API int r1st_install(const char* log_path){
     const unsigned rvas[]={host->hooks[0].rva,host->hooks[1].rva,host->hooks[2].rva,fontHook.rva,uiHook.rva,cursorHook.rva,consoleHook.rva,decompressHook.rva};
     for(unsigned i=0;i<8;++i)if(MH_CreateHook(base+rvas[i],hooks[i],originals[i])!=MH_OK){MH_Uninitialize();return -12;}
     if(MH_CreateHook(base+volumeHook.rva,reinterpret_cast<void*>(&onVolume),reinterpret_cast<void**>(&volumeOriginal))!=MH_OK){MH_Uninitialize();return -12;}
+    if(MH_CreateHook(base+loadingTextHook.rva,reinterpret_cast<void*>(&onLoadingText),reinterpret_cast<void**>(&loadingTextOriginal))!=MH_OK){MH_Uninitialize();return -12;}
     HMODULE pin;if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_PIN,reinterpret_cast<LPCWSTR>(&r1st_install),&pin)){MH_Uninitialize();return -13;}
     for(unsigned i=0;i<8;++i)if(MH_EnableHook(base+rvas[i])!=MH_OK){for(unsigned j=0;j<i;++j)MH_DisableHook(base+rvas[j]);MH_Uninitialize();return -14;}
     if(MH_EnableHook(base+volumeHook.rva)!=MH_OK){for(unsigned i=0;i<8;++i)MH_DisableHook(base+rvas[i]);MH_Uninitialize();return -14;}
+    if(MH_EnableHook(base+loadingTextHook.rva)!=MH_OK){for(unsigned i=0;i<8;++i)MH_DisableHook(base+rvas[i]);MH_DisableHook(base+volumeHook.rva);MH_Uninitialize();return -14;}
     status.installed=1;note("INSTALLED default-off exact September MT host");return 1;
 }
 R1_API int r1st_set(unsigned enabled,float eye_distance,float focus){
@@ -296,7 +311,7 @@ R1_API int r1st_volume_quality(float cap){
 }
 R1_API int r1st_status(R1Status* out){if(!out||out->size!=sizeof(R1Status)||GetCurrentThreadId()!=owner)return -3;*out=status;return 1;}
 R1_API int r1st_capture(const char* path){if(!status.installed||GetCurrentThreadId()!=owner||!path||strlen(path)>2000)return -3;capture_path=path;capture_loading_only=false;return 1;}
-R1_API int r1st_capture_loading(const char* path){int result=r1st_capture(path);if(result==1)capture_loading_only=true;return result;}
+R1_API int r1st_capture_loading(const char* path){int result=r1st_capture(path);if(result==1){capture_loading_only=true;loading_text_ready=false;}return result;}
 R1_API int r1st_menu(unsigned enabled){if(!status.installed||GetCurrentThreadId()!=owner||enabled>1)return -3;menu_sbs=enabled!=0;return 1;}
 R1_API int r1st_shutdown(){
     if(!status.installed)return 0;if(GetCurrentThreadId()!=owner||in_pair)return -2;
@@ -307,6 +322,7 @@ R1_API int r1st_shutdown(){
     MH_DisableHook(base+consoleHook.rva);
     MH_DisableHook(base+decompressHook.rva);
     MH_DisableHook(base+volumeHook.rva);
+    MH_DisableHook(base+loadingTextHook.rva);
     MH_Uninitialize();gpu=R1GPU{};status.installed=0;note("SHUTDOWN");return 1;
 }
 BOOL WINAPI DllMain(HINSTANCE,DWORD,LPVOID){return TRUE;}
