@@ -1,4 +1,4 @@
--- R1 XREAL Native 0.1.5 candidate: opt-in September MT DX11 stereo probe.
+-- R1 XREAL Native 0.1.6 candidate: opt-in September MT DX11 stereo probe.
 local ffi,library,status
 local active=false
 local failed=false
@@ -21,7 +21,7 @@ local function load_native()
  ffi.cdef[[
  typedef struct {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;} R1XrealStatus;
  int r1st_install(const char*);int r1st_set(unsigned,float,float);
- int r1st_status(R1XrealStatus*);int r1st_menu(unsigned);
+ int r1st_status(R1XrealStatus*);int r1st_menu(unsigned);int r1st_volume_quality(float);
  ]]
  -- Missing DLL/dependency is an expected loader failure: report it once and remain off.
  local ok,result=pcall(ffi.load,getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
@@ -62,6 +62,9 @@ function toggle()
  if active then stop();return end
  if not db.actor or not db.actor:alive() or device():is_paused() then return end
  if not load_native() then return end
+ local quality=r1_xreal_native_mcm.get('volume_optimize') and r1_xreal_native_mcm.get('volume_quality') or 0
+ local configured=library.r1st_volume_quality(quality)
+ if configured~=1 then notice('Volume setting refused: '..tonumber(configured));return end
  local a,b=params();local result=library.r1st_set(1,a,b)
  if result~=1 then notice('Enable refused: '..tonumber(result));return end
  active=true;notice('ON - F10: OFF. Experimental UI stereo candidate.')
@@ -91,5 +94,5 @@ function on_game_start()
  RegisterScriptCallback('actor_on_before_death',function() stop() end)
  RegisterScriptCallback('on_before_level_changing',function() stop() end)
  RegisterScriptCallback('load_state',function() stop() end)
- printf('[R1_XREAL_NATIVE] 0.1.5 candidate loaded; default OFF; F10 toggle; exact MT DX11 only')
+ printf('[R1_XREAL_NATIVE] 0.1.6 candidate loaded; default OFF; F10 toggle; exact MT DX11 only')
 end

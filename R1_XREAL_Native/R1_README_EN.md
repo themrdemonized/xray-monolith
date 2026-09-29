@@ -1,3 +1,7 @@
+Current candidate: **0.1.6**. See [0.1.6 implementation and measured limits](R1_UPDATE_0.1.6.md) and [player installation](package/R1_README_EN.md). New stereo-only volume density cap: 64 -> 88 FPS at 1.5 in one bunker view, trading sampling quality for speed. No lossless or all-scene fix is claimed. PDA, full UI and intermittent loading/shutdown failures remain open.
+
+## Historical 0.1.0 developer notes
+
 # R1 XREAL Native — developer experiment
 
 Status, September 29, 2026: a separate x64 DLL renders world geometry from two eye positions within one simulation frame and composes left/right SBS. This is not depth-buffer image conversion. The EXE file remains unchanged on disk; MinHook modifies three code sites in process memory. This is not a complete playable release.

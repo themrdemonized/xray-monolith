@@ -1,5 +1,7 @@
 # R1 local-shadow A/B/A, 2026-09-29
 
+**Follow-up:** the more selective volume-light test and 0.1.6 sampling option are documented in `R1_UPDATE_0.1.6.md`. Shadow-map reuse did not improve FPS. Turning off only volumetric lights while retaining shadows reproduced most of the speedup; the historical conclusion below must not be read as proof that shadow-map generation itself is the bottleneck.
+
 User quicksave_2 bunker viewpoint; exact September MT DX11 executable C43701F5822950172C9D13A9CD4C92CBDA3E94060CAE794FBA81DEDFD5BA43D0. Separate fixture, 3824x1041 windowed SBS, production 0.1.5 Lua, diagnostic derivative of 0.1.4 native code. The user closed their game before measurement. Sun and local lighting remained enabled.
 
 | Stage | Frames | Measured milliseconds | FPS |

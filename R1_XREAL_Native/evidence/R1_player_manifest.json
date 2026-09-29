@@ -1,6 +1,6 @@
 {
-  "archive": "R1_XREAL_Native_MT_DX11_0.1.1_EXPERIMENTAL.zip",
-  "sha256": "205ae306315970fd4606e218fb051e2e068f1c615d8dc3c246a4aae08d780b33",
+  "archive": "R1_XREAL_Native_MT_DX11_0.1.6_CANDIDATE.zip",
+  "sha256": "be317ea1a233ec977d97b461c529d84c8b4060529e8d505c444c8cc8bd96d2c2",
   "files": [
     {
       "path": "R1_MinHook_LICENSE.txt",
@@ -8,31 +8,35 @@
     },
     {
       "path": "R1_README_EN.md",
-      "sha256": "6a50033b7e1a458c57ab316540925e629b6f57ea609da833c878aeed8c6e3949"
+      "sha256": "839997ed2e13619b9ddc694a87ab87cfed3ef515b86598775130c18ecac591b6"
     },
     {
       "path": "R1_README_RU.md",
-      "sha256": "b3d681a0377e4c8c7b03757918699f2dc9c3136e3982dddb2741f73257946d78"
+      "sha256": "d9e2a81b9e073d6157e6d666647bc59d00dd02c18bf8ab951763080d7e4352b3"
+    },
+    {
+      "path": "gamedata/scripts/modxml_r1_xreal_native.script",
+      "sha256": "c44c19e1db0b2867ea6af8f4b236347bdcc9aa279b95acfd8b6ad841ff6f54aa"
     },
     {
       "path": "gamedata/scripts/r1_xreal_native.script",
-      "sha256": "a1ecbd2ad7980103e35be41f1550ae402cbfdaac0836de78f2d4870830027870"
+      "sha256": "92ffcc9d6bcf8f783ad7708cf7777c3ff3aa417b41a218a6840077c8baa5c93f"
     },
     {
       "path": "gamedata/scripts/r1_xreal_native_mcm.script",
-      "sha256": "82cc36730f49672f37964b8089daa7f2a974129ed80e3f5ebe6f891a64410555"
+      "sha256": "030ead183b93e501fc564700a78716ce57ebc84abcf8a19648f250563391b5ef"
     },
     {
       "path": "gamedata/configs/text/eng/st_r1_xreal_native.xml",
-      "sha256": "c13724eaf953ef1da838a1da95e2ee3998b17fd83eed3f321200a80a59c60227"
+      "sha256": "28b80fa9c71d281607d22d4b647de0248986d4d7267717bb277391a94ceef75c"
     },
     {
       "path": "gamedata/configs/text/rus/st_r1_xreal_native.xml",
-      "sha256": "4331feb33b17e183079ad243beafea2d165f96717d24ab4b5200e762a6059cd5"
+      "sha256": "ef6017bb78a4dd96409646aebbb7169784e4b940b0281d4ce69f4759f3681c6d"
     },
     {
       "path": "gamedata/plugins/R1_XREAL_Native/R1_XREAL_Native.dll",
-      "sha256": "6d9299dc9036b7b39224635baacae6f08e647482ffae80b908ff36fdd110a5bb"
+      "sha256": "e72faa1d3a32d4c15231e5b1befbb873f32d58e04c8550c200db30bb602757a8"
     }
   ]
 }
