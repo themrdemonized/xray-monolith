@@ -1,7 +1,27 @@
--- R1 XREAL Native 0.1.7 candidate: opt-in September MT DX11 stereo probe.
+-- R1 XREAL Native 0.1.8 candidate: remembered September MT DX11 stereo probe.
 local ffi,library,status
 local active=false
 local failed=false
+local wanted=true
+local preference_loaded=false
+local registered=false
+local next_try,last_clock=0,0
+local last_fault
+local function preference_path()
+ return getFS():update_path('$app_data_root$','R1_XREAL_enabled.txt')
+end
+local function read_preference()
+ if preference_loaded then return end
+ preference_loaded=true
+ local f=io.open(preference_path(),'rb')
+ if f then local value=f:read('*a');f:close();wanted=value~='0\n' and value~='0' end
+end
+local function clock()
+ local now=time_global()
+ if now<last_clock then next_try=0 end
+ last_clock=now
+ return now
+end
 local function notice(text)
  printf('[R1_XREAL_NATIVE] %s',text)
  if db.actor then news_manager.send_tip(db.actor,'R1 XREAL: '..text,nil,nil,5000) end
@@ -11,8 +31,8 @@ local function params()
 end
 function stop(reason)
  if library and active then local a,b=params();library.r1st_set(0,a,b) end
- local was=active;active=false
- if was then notice(reason or 'OFF') end
+ local was=active;active=false;next_try=clock()+2000
+ if was and reason~=false then notice(reason or 'OFF') end
 end
 local function load_native()
  if failed then return false end
@@ -55,28 +75,49 @@ local function prepare_ratio()
  ratio_hook=true
 end
 function prepare_menu()
- -- Called by DXML on the main menu path. Geometry stereo remains opt-in.
+ -- Menu composition is independent of the remembered world-stereo preference.
  if load_native() then library.r1st_menu(1);prepare_ratio() end
 end
-function toggle()
- if active then stop();return end
- if not db.actor or not db.actor:alive() or device():is_paused() then return end
- if not load_native() then return end
+local function ready()
+ return db.actor and db.actor:alive() and not device():is_paused() and level.get_active_cam()==0
+end
+local function fault(message)
+ if last_fault~=message then last_fault=message;notice(message) end
+end
+local function enable()
+ if not ready() or not load_native() then return end
  local quality=r1_xreal_native_mcm.get('volume_optimize') and r1_xreal_native_mcm.get('volume_quality') or 0
  local configured=library.r1st_volume_quality(quality)
- if configured~=1 then notice('Volume setting refused: '..tonumber(configured));return end
+ if configured~=1 then fault('Volume setting refused: '..tonumber(configured));return end
  local a,b=params();local result=library.r1st_set(1,a,b)
- if result~=1 then notice('Enable refused: '..tonumber(result));return end
- active=true;notice('ON - F10: OFF. Experimental UI stereo candidate.')
+ if result~=1 then fault('Enable refused: '..tonumber(result));return end
+ active=true
+end
+function toggle()
+ read_preference()
+ wanted=not wanted
+ local f=io.open(preference_path(),'wb')
+ local stored=false
+ if f then local wrote=f:write(wanted and '1\n' or '0\n');local closed=f:close();stored=wrote and closed end
+ if not stored then notice('Cannot save preference; choice applies to this session only') end
+ if not wanted then stop();notice('OFF - automatic recovery disabled');return end
+ next_try=clock()+2000;enable();notice('ON requested - automatic recovery enabled')
 end
 local function update()
- if not active then return end
- if not db.actor or not db.actor:alive() or device():is_paused() then stop();return end
+ read_preference()
+ local now=clock()
+ if not wanted then return end
+ if not ready() then if active then stop() end;return end
+ if not active then
+  if now>=next_try then next_try=now+2000;enable() end
+  return
+ end
  local result=library.r1st_status(status)
- if result~=1 then stop('Status error: '..tonumber(result));return end
- if status[0].error~=0 then stop('Render refused: '..tonumber(status[0].error)..' (check R1 README)');return end
+ if result~=1 then stop(false);fault('Status error: '..tonumber(result));return end
+ if status[0].error~=0 then stop(false);fault('Render refused: '..tonumber(status[0].error)..' (check R1 README)');return end
+ if status[0].enabled==0 then stop();return end
  local a,b=params();result=library.r1st_set(1,a,b)
- if result~=1 then stop('Heartbeat error: '..tonumber(result)) end
+ if result~=1 then stop(false);fault('Heartbeat error: '..tonumber(result)) end
 end
 local function key(k)
  -- Escape belongs to the current game dialog; F10 is the explicit stereo toggle.
@@ -87,6 +128,9 @@ local function key(k)
  end
 end
 function on_game_start()
+ read_preference()
+ if registered then return end
+ registered=true
  RegisterScriptCallback('actor_on_update',update)
  RegisterScriptCallback('on_key_press',key)
  RegisterScriptCallback('on_option_change',function() stop('OFF - settings changed') end)
@@ -94,5 +138,5 @@ function on_game_start()
  RegisterScriptCallback('actor_on_before_death',function() stop() end)
  RegisterScriptCallback('on_before_level_changing',function() stop() end)
  RegisterScriptCallback('load_state',function() stop() end)
- printf('[R1_XREAL_NATIVE] 0.1.7 candidate loaded; default OFF; F10 toggle; exact MT DX11 only')
+ printf('[R1_XREAL_NATIVE] 0.1.8 loader; remembered stereo preference; F10 toggles recovery; exact MT DX11 only')
 end
