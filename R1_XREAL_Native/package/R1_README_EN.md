@@ -1,6 +1,8 @@
-**0.1.4 lighting fix candidate.** The user quicksave_2 view now reconstructs lighting positions with the stereo projection shift. Standard 64 mm / 2 m retained. No FPS fix claimed. Two earlier diagnostic runs encountered shutdown 0xC0000374; its cause remains unresolved. Not a stable release. Close the game and replace the previous package; disable the old mod in MO2.
+**0.1.5 — partial UI correction.** Scripted new-game item icons use one-eye aspect; item descriptions wrap inside their frame. Escape no longer disables stereo when closing inventory. New-game menu and bread description inspected. Native DLL remains 0.1.4. 3D PDA, all native tooltip variants and FPS problems are NOT fixed by this update.
 
-# R1 XREAL Native 0.1.4 CANDIDATE — experimental MT DX11
+**0.1.5 lighting fix candidate.** The user quicksave_2 view now reconstructs lighting positions with the stereo projection shift. Standard 64 mm / 2 m retained. No FPS fix claimed. Two earlier diagnostic runs encountered shutdown 0xC0000374; its cause remains unresolved. Not a stable release. Close the game and replace the previous package; disable the old mod in MO2.
+
+# R1 XREAL Native 0.1.5 CANDIDATE — experimental MT DX11
 
 Geometry SBS stereo for the exact September MT DX11 executable. Separate DLL; the EXE file is not replaced. This is a world/iron-sight probe, not a complete VR adaptation.
 
@@ -11,7 +13,7 @@ Geometry SBS stereo for the exact September MT DX11 executable. Separate DLL; th
 3. Remove any manually installed R1_live/modxml_r1_stereo_test harness. Disable ReShade SuperDepth3D/other stereo converters and the older R1 XREAL Probe sharing F10.
 4. Put the glasses in SBS mode and select 3840x1080 on that display. Actual backbuffer aspect must be between 3 and 4; ordinary 1920x1080 is refused with -24.
 5. Disable HDR/MSAA and run `ssfx_taa (0,0,0,0)` in the game console. Restart if required to apply graphics settings. This addon does not rewrite them.
-6. Load a save and press **F10**. Press F10 again or Escape to disable. Camera/settings changes, loading and transitions disable stereo; re-enable manually.
+6. Load a save and press **F10**. Press F10 again to disable. Escape no longer disables stereo when closing dialogs. Camera/settings changes, loading and transitions disable stereo; re-enable manually.
 
 MCM is optional. The **R1 XREAL Native** page controls the toggle key, eye separation (default 64 mm) and convergence (2 m). Changing settings disables stereo; values apply on the next enable. Startup/load is default-off.
 
@@ -27,4 +29,4 @@ See appdata/R1_XREAL_Native.log and `[R1_XREAL_NATIVE]` in the xray log. -10: wr
 
 Disable the mod in MO2 and restart. For manual installation remove only files from this archive. No new game is required; the addon stores no custom save data. The DLL remains loaded until process exit even when stereo is off.
 
-Developer source/docs: https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_xreal_stereo_probe/R1_XREAL_Native . Published 0.1.4 CANDIDATE source may lag the local package. MinHook license: R1_MinHook_LICENSE.txt.
+Developer source/docs: https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_xreal_stereo_probe/R1_XREAL_Native . Published 0.1.5 CANDIDATE source may lag the local package. MinHook license: R1_MinHook_LICENSE.txt.

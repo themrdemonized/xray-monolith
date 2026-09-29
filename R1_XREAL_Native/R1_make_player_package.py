@@ -4,8 +4,8 @@ import zipfile,hashlib,json
 R=Path(__file__).parent
 P=R/'package'
 texts={
-'eng':{'':'R1 XREAL Native','note':'Experimental MT DX11 stereo. OFF on load. F10 toggles. Esc stops stereo. UI stereo candidate. Disable TAA, HDR and MSAA.','toggle':'Toggle stereo','ipd':'Eye separation (mm)','convergence':'Convergence distance (m)'},
-'rus':{'':'R1 XREAL Native','note':'Пробник стерео для MT DX11. При загрузке выключен. F10 переключает режим; Esc выключает. Тестовая стереокомпоновка интерфейса. Отключите TAA, HDR и MSAA.','toggle':'Переключить стерео','ipd':'Расстояние между глазами (мм)','convergence':'Дистанция сведения (м)'}}
+'eng':{'':'R1 XREAL Native','note':'Experimental MT DX11 stereo. OFF on load. F10 toggles. Esc closes game dialogs. UI stereo candidate. Disable TAA, HDR and MSAA.','toggle':'Toggle stereo','ipd':'Eye separation (mm)','convergence':'Convergence distance (m)'},
+'rus':{'':'R1 XREAL Native','note':'Пробник стерео для MT DX11. При загрузке выключен. F10 переключает режим; Esc закрывает игровые окна. Тестовая стереокомпоновка интерфейса. Отключите TAA, HDR и MSAA.','toggle':'Переключить стерео','ipd':'Расстояние между глазами (мм)','convergence':'Дистанция сведения (м)'}}
 for lang,values in texts.items():
  root=ET.Element('string_table')
  for key,value in values.items():
@@ -19,7 +19,7 @@ allowed={'.dll','.script','.xml','.md','.txt'}
 files=[p for p in P.rglob('*') if p.is_file()]
 assert all(p.suffix in allowed for p in files), 'Unexpected package artifacts'
 assert not any('live' in p.name.lower() or 'test' in p.name.lower() for p in files),'Test harness in player ZIP'
-z=R/'R1_XREAL_Native_MT_DX11_0.1.4_CANDIDATE.zip'
+z=R/'R1_XREAL_Native_MT_DX11_0.1.5_CANDIDATE.zip'
 with zipfile.ZipFile(z,'w',zipfile.ZIP_DEFLATED) as archive:
  for p in files:archive.write(p,p.relative_to(P).as_posix())
 with zipfile.ZipFile(z) as archive:

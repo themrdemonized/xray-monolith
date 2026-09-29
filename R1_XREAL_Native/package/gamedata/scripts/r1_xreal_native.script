@@ -1,4 +1,4 @@
--- R1 XREAL Native 0.1.4 candidate: opt-in September MT DX11 stereo probe.
+-- R1 XREAL Native 0.1.5 candidate: opt-in September MT DX11 stereo probe.
 local ffi,library,status
 local active=false
 local failed=false
@@ -31,9 +31,32 @@ local function load_native()
  library=result;status=ffi.new('R1XrealStatus[1]');status[0].size=ffi.sizeof('R1XrealStatus')
  return true
 end
+local ratio_hook=false
+local function prepare_ratio()
+ if ratio_hook then return end
+ local d=device()
+ if not d.width or not d.height or d.width/d.height<3 or d.width/d.height>4 then return end
+ local original=utils_xml.screen_ratio
+ utils_xml.screen_ratio=function(...)
+  local ratio=original(...)
+  local current=device()
+  if current.width/current.height>=3 and current.width/current.height<=4 then return ratio*2 end
+  return ratio
+ end
+ -- utils_ui caches the ratio when its module is first loaded; initialize it after the wrapper.
+ local initialize=utils_ui.UIInfoItem.InitControls
+ utils_ui.UIInfoItem.InitControls=function(self,...)
+  initialize(self,...)
+  local current=device()
+  if current.width/current.height>=3 and current.width/current.height<=4 then
+   self.desc:SetWndSize(vector2():set(self.desc:GetWidth()/2,self.desc:GetHeight()))
+  end
+ end
+ ratio_hook=true
+end
 function prepare_menu()
  -- Called by DXML on the main menu path. Geometry stereo remains opt-in.
- if load_native() then library.r1st_menu(1) end
+ if load_native() then library.r1st_menu(1);prepare_ratio() end
 end
 function toggle()
  if active then stop();return end
@@ -41,7 +64,7 @@ function toggle()
  if not load_native() then return end
  local a,b=params();local result=library.r1st_set(1,a,b)
  if result~=1 then notice('Enable refused: '..tonumber(result));return end
- active=true;notice('ON - F10 / Esc: OFF. Experimental UI stereo candidate.')
+ active=true;notice('ON - F10: OFF. Experimental UI stereo candidate.')
 end
 local function update()
  if not active then return end
@@ -53,7 +76,7 @@ local function update()
  if result~=1 then stop('Heartbeat error: '..tonumber(result)) end
 end
 local function key(k)
- if k==DIK_keys.DIK_ESCAPE then stop();return end
+ -- Escape belongs to the current game dialog; F10 is the explicit stereo toggle.
  if k==r1_xreal_native_mcm.get('toggle') then toggle();return end
  if active then
   local bind=dik_to_bind(k)
@@ -68,5 +91,5 @@ function on_game_start()
  RegisterScriptCallback('actor_on_before_death',function() stop() end)
  RegisterScriptCallback('on_before_level_changing',function() stop() end)
  RegisterScriptCallback('load_state',function() stop() end)
- printf('[R1_XREAL_NATIVE] 0.1.4 candidate loaded; default OFF; F10 toggle; exact MT DX11 only')
+ printf('[R1_XREAL_NATIVE] 0.1.5 candidate loaded; default OFF; F10 toggle; exact MT DX11 only')
 end
