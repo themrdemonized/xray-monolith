@@ -115,7 +115,8 @@ void CWeaponSSRS::UpdateCL()
 {
 	inheritedWM::UpdateCL();
 
-	if (m_bSyncRockets)
+	// rounds added or removed outside a reload, set_ammo_elapsed or an unload, get their rockets here
+	if (m_bSyncRockets || getRocketCount() + m_pendingRockets.size() != m_magazine.size())
 		SyncRockets();
 }
 
