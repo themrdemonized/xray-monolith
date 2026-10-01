@@ -49,8 +49,9 @@ public:
 private:
 	map_TD m_texture_details;
 	map_CS m_detail_scalers;
+	mutable xrSRWLock m_texture_details_lock;
 
-	static void LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers);
+	static void LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers, xrSRWLock& s_lock);
 	static void LoadTHMThread(void* args);
 
 public:
