@@ -26,6 +26,8 @@ protected:
 	float fAiOneShotTime;
 	xr_vector<shared_str> m_pendingRockets;
 	bool m_bSyncRockets = false;
+	u32 m_rocketlessRounds = 0;
+	shared_str m_syncedTopAmmo;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

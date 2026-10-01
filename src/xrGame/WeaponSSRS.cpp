@@ -47,21 +47,7 @@ BOOL CWeaponSSRS::net_Spawn(CSE_Abstract* DC)
 	BOOL l_res = inheritedWM::net_Spawn(DC);
 	if (!l_res) return l_res;
 
-	if (iAmmoElapsed && !getCurrentRocket())
-	{
-		shared_str grenade_name = m_ammoTypes[0];
-		shared_str fake_grenade_name = pSettings->r_string(grenade_name, "fake_grenade_name");
-
-		if (fake_grenade_name.size())
-		{
-			int k = iAmmoElapsed;
-			while (k)
-			{
-				k--;
-				inheritedRL::SpawnRocket(*fake_grenade_name, this);
-			}
-		}
-	}
+	SyncRockets();
 
 	return l_res;
 };
@@ -115,9 +101,23 @@ void CWeaponSSRS::UpdateCL()
 {
 	inheritedWM::UpdateCL();
 
-	// rounds added or removed outside a reload, set_ammo_elapsed or an unload, get their rockets here
-	if (m_bSyncRockets || getRocketCount() + m_pendingRockets.size() != m_magazine.size())
+	// rounds added, removed or retyped outside a reload, set_ammo_elapsed, set_ammo_type or an unload, get their rockets here
+	if (m_bSyncRockets || getRocketCount() + m_pendingRockets.size() + m_rocketlessRounds != m_magazine.size() ||
+		(!m_magazine.empty() && m_magazine.back().m_ammoSect != m_syncedTopAmmo))
 		SyncRockets();
+}
+
+// Rocket section for a cartridge, NULL when its ammo has no fake_grenade_name
+static LPCSTR rocket_section(const CCartridge& cartridge)
+{
+	LPCSTR rocket = READ_IF_EXISTS(pSettings, r_string, cartridge.m_ammoSect.c_str(), "fake_grenade_name", NULL);
+	if (rocket && rocket[0])
+		return rocket;
+
+	static xr_set<shared_str> logged;
+	if (logged.insert(cartridge.m_ammoSect).second)
+		Msg("! CWeaponSSRS ammo [%s] has no fake_grenade_name, its rounds get no rocket", cartridge.m_ammoSect.c_str());
+	return NULL;
 }
 
 // One rocket per cartridge from its own ammo, waits while spawned rockets are still on the way
@@ -131,11 +131,20 @@ void CWeaponSSRS::SyncRockets()
 		return;
 	}
 	m_bSyncRockets = false;
+	m_syncedTopAmmo = m_magazine.empty() ? shared_str() : m_magazine.back().m_ammoSect;
 
-	u32 matched = 0;
-	while (matched < m_magazine.size() && matched < getRocketCount() &&
-		!xr_strcmp(m_rockets[matched]->cNameSect_str(), pSettings->r_string(m_magazine[matched].m_ammoSect, "fake_grenade_name")))
-		++matched;
+	u32 matched = 0, i = 0;
+	m_rocketlessRounds = 0;
+	for (; i < m_magazine.size(); ++i)
+	{
+		LPCSTR rocket = rocket_section(m_magazine[i]);
+		if (!rocket)
+			++m_rocketlessRounds;
+		else if (matched < getRocketCount() && !xr_strcmp(m_rockets[matched]->cNameSect_str(), rocket))
+			++matched;
+		else
+			break;
+	}
 
 	while (getRocketCount() > matched)
 	{
@@ -147,11 +156,16 @@ void CWeaponSSRS::SyncRockets()
 		dropCurrentRocket();
 	}
 
-	for (u32 i = matched; i < m_magazine.size(); ++i)
+	for (; i < m_magazine.size(); ++i)
 	{
-		shared_str fake_grenade_name = pSettings->r_string(m_magazine[i].m_ammoSect, "fake_grenade_name");
-		inheritedRL::SpawnRocket(fake_grenade_name, this);
-		m_pendingRockets.push_back(fake_grenade_name);
+		LPCSTR rocket = rocket_section(m_magazine[i]);
+		if (!rocket)
+		{
+			++m_rocketlessRounds;
+			continue;
+		}
+		inheritedRL::SpawnRocket(rocket, this);
+		m_pendingRockets.push_back(rocket);
 	}
 }
 
@@ -199,7 +213,6 @@ void CWeaponSSRS::ReloadMagazine()
 
 		if (!m_pCurrentAmmo && !m_bLockType && iAmmoElapsed == 0)
 		{
-			shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
 			for (u8 i = 0; i < u8(m_ammoTypes.size()); ++i)
 			{
 				//проверить патроны всех подходящих типов
@@ -302,7 +315,7 @@ void CWeaponSSRS::state_Fire(float dt)
 		while (!m_magazine.empty() && fShotTimeCounter < 0 && (IsWorking() || m_bFireSingleShot) && (m_iQueueSize < 0 ||
 			m_iShotNum < m_iQueueSize))
 		{
-			// a round whose rocket hasn't spawned yet stays in the magazine
+			// a round whose rocket hasn't spawned yet or whose ammo has none stays in the magazine
 			if (!getRocketCount())
 				break;
 
