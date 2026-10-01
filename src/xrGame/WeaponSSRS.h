@@ -19,7 +19,6 @@ public:
 	virtual void OnEvent(NET_Packet& P, u16 type);
 
 protected:
-	virtual void FireStart();
 	virtual void ReloadMagazine();
 	virtual void state_Fire(float dt);
 	void SyncRockets();

@@ -60,17 +60,6 @@ void CWeaponSSRS::Load(LPCSTR section)
 	fAiOneShotTime = READ_IF_EXISTS(pSettings, r_float, section, "ai_rpm", 0.f);
 }
 
-void CWeaponSSRS::FireStart()
-{
-	//Check if actor is AI
-	if (fAiOneShotTime > 0.f && smart_cast<CAI_Stalker*>(H_Parent()))
-	{
-		fOneShotTime = 60.f / fAiOneShotTime;
-	}
-
-	inheritedWM::FireStart();
-}
-
 void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 {
 	inheritedWM::OnEvent(P, type);
@@ -329,6 +318,9 @@ void CWeaponSSRS::state_Fire(float dt)
 			{
 				fShotTimeCounter = fModeShotTime;
 			}
+			// NPCs fire at ai_rpm and leave the weapon's own rpm alone
+			else if (fAiOneShotTime > 0.f && smart_cast<CAI_Stalker*>(H_Parent()))
+				fShotTimeCounter = 60.f / fAiOneShotTime;
 			else
 				fShotTimeCounter = fOneShotTime;
 			//Alundaio: END
