@@ -81,7 +81,16 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 		{
 			bool bLaunch = (type == GE_LAUNCH_ROCKET);
 			P.r_u16(id);
-			inheritedRL::DetachRocket(id, bLaunch);
+			// a stripped rocket already left m_rockets, detach it here so its destroy can land
+			xr_vector<u16>::iterator it = std::find(m_strippedRockets.begin(), m_strippedRockets.end(), id);
+			if (it != m_strippedRockets.end())
+			{
+				m_strippedRockets.erase(it);
+				if (CObject* rocket = Level().Objects.net_Find(id))
+					rocket->H_SetParent(NULL, true);
+			}
+			else
+				inheritedRL::DetachRocket(id, bLaunch);
 		}
 		break;
 	}
@@ -136,14 +145,13 @@ void CWeaponSSRS::SyncRockets()
 			break;
 	}
 
+	// destroying a child brings the weapon a reject first, then the rocket its destroy
 	while (getRocketCount() > matched)
 	{
-		Msg("%s:%d [%d]-[%s]", __FUNCTION__, __LINE__, getRocketCount(), getCurrentRocket()->cNameSect_str());
-		NET_Packet P;
-		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
-		P.w_u16(u16(getCurrentRocket()->ID()));
-		u_EventSend(P);
+		CCustomRocket* rocket = getCurrentRocket();
+		m_strippedRockets.push_back(rocket->ID());
 		dropCurrentRocket();
+		rocket->DestroyObject();
 	}
 
 	for (; i < m_magazine.size(); ++i)

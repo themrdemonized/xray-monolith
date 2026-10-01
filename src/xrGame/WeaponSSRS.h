@@ -24,6 +24,7 @@ protected:
 	void SyncRockets();
 	float fAiOneShotTime;
 	xr_vector<shared_str> m_pendingRockets;
+	xr_vector<u16> m_strippedRockets;
 	bool m_bSyncRockets = false;
 	u32 m_rocketlessRounds = 0;
 	shared_str m_syncedTopAmmo;
