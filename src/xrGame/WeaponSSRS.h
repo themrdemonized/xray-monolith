@@ -15,17 +15,17 @@ public:
 	virtual ~CWeaponSSRS();
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
 	virtual void Load(LPCSTR section);
+	virtual void UpdateCL();
 	virtual void OnEvent(NET_Packet& P, u16 type);
-
-#ifdef CROCKETLAUNCHER_CHANGE
-	virtual void UnloadRocket();
-#endif
 
 protected:
 	virtual void FireStart();
 	virtual void ReloadMagazine();
 	virtual void state_Fire(float dt);
+	void SyncRockets();
 	float fAiOneShotTime;
+	xr_vector<shared_str> m_pendingRockets;
+	bool m_bSyncRockets = false;
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

@@ -95,6 +95,9 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 		{
 			P.r_u16(id);
 			inheritedRL::AttachRocket(id, this);
+			xr_vector<shared_str>::iterator it = std::find(m_pendingRockets.begin(), m_pendingRockets.end(), getCurrentRocket()->cNameSect());
+			if (it != m_pendingRockets.end())
+				m_pendingRockets.erase(it);
 		}
 		break;
 	case GE_OWNERSHIP_REJECT:
@@ -108,20 +111,48 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 	}
 }
 
-#ifdef CROCKETLAUNCHER_CHANGE
-void CWeaponSSRS::UnloadRocket()
+void CWeaponSSRS::UpdateCL()
 {
-	while (getRocketCount() > 0)
+	inheritedWM::UpdateCL();
+
+	if (m_bSyncRockets)
+		SyncRockets();
+}
+
+// One rocket per cartridge from its own ammo, waits while spawned rockets are still on the way
+void CWeaponSSRS::SyncRockets()
+{
+	if (!OnServer()) return;
+
+	if (!m_pendingRockets.empty())
+	{
+		m_bSyncRockets = true;
+		return;
+	}
+	m_bSyncRockets = false;
+
+	u32 matched = 0;
+	while (matched < m_magazine.size() && matched < getRocketCount() &&
+		!xr_strcmp(m_rockets[matched]->cNameSect_str(), pSettings->r_string(m_magazine[matched].m_ammoSect, "fake_grenade_name")))
+		++matched;
+
+	while (getRocketCount() > matched)
 	{
 		Msg("%s:%d [%d]-[%s]", __FUNCTION__, __LINE__, getRocketCount(), getCurrentRocket()->cNameSect_str());
 		NET_Packet P;
 		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
 		P.w_u16(u16(getCurrentRocket()->ID()));
 		u_EventSend(P);
-        dropCurrentRocket();
+		dropCurrentRocket();
+	}
+
+	for (u32 i = matched; i < m_magazine.size(); ++i)
+	{
+		shared_str fake_grenade_name = pSettings->r_string(m_magazine[i].m_ammoSect, "fake_grenade_name");
+		inheritedRL::SpawnRocket(fake_grenade_name, this);
+		m_pendingRockets.push_back(fake_grenade_name);
 	}
 }
-#endif
 
 void CWeaponSSRS::ReloadMagazine()
 {
@@ -151,8 +182,6 @@ void CWeaponSSRS::ReloadMagazine()
 		m_ammoType = m_set_next_ammoType_on_reload;
 		m_set_next_ammoType_on_reload = undefined_ammo_type;
 	}
-
-	UnloadRocket();
 
 	if (!unlimited_ammo())
 	{
@@ -199,7 +228,6 @@ void CWeaponSSRS::ReloadMagazine()
 		m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, m_APk);
 	CCartridge l_cartridge = m_DefaultCartridge;
 
-	shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
 	while (iAmmoElapsed < iMagazineSize)
 	{
 		if (!unlimited_ammo())
@@ -209,7 +237,6 @@ void CWeaponSSRS::ReloadMagazine()
 		++iAmmoElapsed;
 		l_cartridge.m_LocalAmmoType = m_ammoType;
 		m_magazine.push_back(l_cartridge);
-		inheritedRL::SpawnRocket(*fake_grenade_name, this);
 	}
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
@@ -226,6 +253,7 @@ void CWeaponSSRS::ReloadMagazine()
 	}
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
+	SyncRockets();
 }
 
 void CWeaponSSRS::state_Fire(float dt)
