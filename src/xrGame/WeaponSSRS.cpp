@@ -386,13 +386,14 @@ void CWeaponSSRS::state_Fire(float dt)
 				}
 			};
 			d.normalize();
+			Fvector vel;
 #ifdef CROCKETLAUNCHER_CHANGE
-			d.mul(launch_speed);
+			vel.mul(d, launch_speed);
 #else
-			d.mul(m_fLaunchSpeed);
+			vel.mul(d, m_fLaunchSpeed);
 #endif
 			VERIFY2(_valid(launch_matrix), "CWeaponSSRS::state_Fire. Invalid launch_matrix");
-			inheritedRL::LaunchRocket(launch_matrix, d, zero_vel);
+			inheritedRL::LaunchRocket(launch_matrix, vel, zero_vel);
 			CExplosiveRocket* pGrenade = smart_cast<CExplosiveRocket*>(getCurrentRocket());
 			VERIFY(pGrenade);
 			pGrenade->SetInitiator(H_Parent()->ID());
