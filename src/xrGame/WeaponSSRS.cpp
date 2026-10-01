@@ -56,13 +56,14 @@ void CWeaponSSRS::Load(LPCSTR section)
 {
 	inheritedRL::Load(section);
 	inheritedWM::Load(section);
-	fAiOneShotTime = READ_IF_EXISTS(pSettings, r_float, section, "ai_rpm", fOneShotTime);
+	// zero without an ai_rpm key, NPCs then fire at the weapon's current rpm
+	fAiOneShotTime = READ_IF_EXISTS(pSettings, r_float, section, "ai_rpm", 0.f);
 }
 
 void CWeaponSSRS::FireStart()
 {
 	//Check if actor is AI
-	if (smart_cast<CAI_Stalker*>(H_Parent()))
+	if (fAiOneShotTime > 0.f && smart_cast<CAI_Stalker*>(H_Parent()))
 	{
 		fOneShotTime = 60.f / fAiOneShotTime;
 	}
@@ -275,7 +276,7 @@ void CWeaponSSRS::state_Fire(float dt)
 	if (iAmmoElapsed > 0)
 	{
 		VERIFY(fOneShotTime > 0.f);
-		VERIFY(fAiOneShotTime > 0.f);
+		VERIFY(fAiOneShotTime >= 0.f);
 
 		if (!H_Parent()) return;
 
