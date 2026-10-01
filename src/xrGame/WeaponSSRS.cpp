@@ -58,6 +58,25 @@ void CWeaponSSRS::Load(LPCSTR section)
 	inheritedWM::Load(section);
 	// zero without an ai_rpm key, NPCs then fire at the weapon's current rpm
 	fAiOneShotTime = READ_IF_EXISTS(pSettings, r_float, section, "ai_rpm", 0.f);
+
+	// tri_state_reload loads one round at a time like a shotgun, it needs the hud's open, insert and close motions
+	m_bTriStateReload = READ_IF_EXISTS(pSettings, r_bool, section, "tri_state_reload", false);
+	if (m_bTriStateReload)
+	{
+		LPCSTR hud = HudSection().c_str();
+		if (!pSettings->line_exist(hud, "anm_open") || !pSettings->line_exist(hud, "anm_add_cartridge") || !pSettings->line_exist(hud, "anm_close"))
+		{
+			Msg("! CWeaponSSRS [%s] hud [%s] lacks anm_open, anm_add_cartridge or anm_close, tri_state_reload ignored", section, hud);
+			m_bTriStateReload = false;
+		}
+	}
+	if (m_bTriStateReload)
+	{
+		m_sounds.LoadSound(section, "snd_open_weapon", "sndOpen", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+		m_sounds.LoadSound(section, "snd_add_cartridge", "sndAddCartridge", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+		m_sounds.LoadSound(section, "snd_close_weapon", "sndClose", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+		m_sounds.LoadSound(section, "snd_close_weapon_empty", "sndCloseEmpty", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+	}
 }
 
 void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
@@ -268,6 +287,189 @@ void CWeaponSSRS::ReloadMagazine()
 	SyncRockets();
 }
 
+void CWeaponSSRS::Reload()
+{
+	if (!m_bTriStateReload)
+	{
+		inheritedWM::Reload();
+		return;
+	}
+
+	if (m_magazine.size() == (u32)iMagazineSize || !HaveCartridgeInInventory(1))
+		return;
+	CWeapon::Reload();
+	m_needReload = false;
+	m_sub_state = eSubstateReloadBegin;
+	SwitchState(eReload);
+}
+
+bool CWeaponSSRS::Action(u16 cmd, u32 flags)
+{
+	if (inheritedWM::Action(cmd, flags)) return true;
+
+	// fire stops a per round reload once the round in hand is in
+	if (m_bTriStateReload && GetState() == eReload && cmd == kWPN_FIRE && (flags & CMD_START) &&
+		m_sub_state == eSubstateReloadInProcess)
+	{
+		AddCartridge(1);
+		m_sub_state = eSubstateReloadEnd;
+		return true;
+	}
+	return false;
+}
+
+void CWeaponSSRS::OnAnimationEnd(u32 state)
+{
+	if (!m_bTriStateReload || state != eReload)
+	{
+		inheritedWM::OnAnimationEnd(state);
+		return;
+	}
+
+	switch (m_sub_state)
+	{
+	case eSubstateReloadBegin:
+		m_sub_state = eSubstateReloadInProcess;
+		SwitchState(eReload);
+		break;
+	case eSubstateReloadInProcess:
+		if (0 != AddCartridge(1))
+			m_sub_state = eSubstateReloadEnd;
+		SwitchState(eReload);
+		break;
+	case eSubstateReloadEnd:
+		m_bReloadFromEmpty = false;
+		m_sub_state = eSubstateReloadBegin;
+		SwitchState(eIdle);
+		break;
+	}
+}
+
+void CWeaponSSRS::OnStateSwitch(u32 S, u32 oldState)
+{
+	if (!m_bTriStateReload || S != eReload)
+	{
+		inheritedWM::OnStateSwitch(S, oldState);
+		return;
+	}
+
+	CWeapon::OnStateSwitch(S, oldState);
+
+	if (m_magazine.size() == (u32)iMagazineSize || !HaveCartridgeInInventory(1))
+	{
+		switch2_EndReload();
+		m_sub_state = eSubstateReloadEnd;
+		return;
+	}
+
+	switch (m_sub_state)
+	{
+	case eSubstateReloadBegin: switch2_StartReload();
+		break;
+	case eSubstateReloadInProcess: switch2_AddCartridge();
+		break;
+	case eSubstateReloadEnd: switch2_EndReload();
+		break;
+	}
+}
+
+void CWeaponSSRS::switch2_StartReload()
+{
+	m_bReloadFromEmpty = m_magazine.empty();
+	PlaySound("sndOpen", get_LastFP());
+	PlayHUDMotion("anm_open", TRUE, this, GetState(), 1.f, 0.f, false);
+	SetPending(TRUE);
+}
+
+void CWeaponSSRS::switch2_AddCartridge()
+{
+	if (ParentIsActor()) Actor()->callback(GameObject::eWeaponNoAmmoAvailable)(lua_game_object(), GetSuitableAmmoTotal());
+	PlaySound("sndAddCartridge", get_LastFP());
+	PlayHUDMotion("anm_add_cartridge", FALSE, this, GetState());
+	SetPending(TRUE);
+}
+
+void CWeaponSSRS::switch2_EndReload()
+{
+	SetPending(FALSE);
+
+	if (m_bReloadFromEmpty && m_sounds.FindSoundItem("sndCloseEmpty", false))
+		PlaySound("sndCloseEmpty", get_LastFP());
+	else
+		PlaySound("sndClose", get_LastFP());
+
+	if (m_bReloadFromEmpty && HudAnimationExist("anm_close_empty"))
+		PlayHUDMotion("anm_close_empty", FALSE, this, GetState());
+	else
+		PlayHUDMotion("anm_close", FALSE, this, GetState());
+}
+
+// Any ammo type with rounds counts, the reload moves on to it when the current type runs out
+bool CWeaponSSRS::HaveCartridgeInInventory(u8 cnt)
+{
+	if (unlimited_ammo()) return true;
+	if (!m_pInventory) return false;
+
+	u32 ac = GetAmmoCount(m_ammoType);
+	if (ac < cnt)
+	{
+		for (u8 i = 0; i < u8(m_ammoTypes.size()); ++i)
+		{
+			if (m_ammoType == i) continue;
+			ac += GetAmmoCount(i);
+			if (ac >= cnt)
+			{
+				m_ammoType = i;
+				break;
+			}
+		}
+	}
+	return ac >= cnt;
+}
+
+// Puts cnt rounds on top of the magazine, each with its own rocket, and returns how many didn't fit
+u8 CWeaponSSRS::AddCartridge(u8 cnt)
+{
+	if (IsMisfire()) bMisfire = false;
+
+	if (m_set_next_ammoType_on_reload != undefined_ammo_type)
+	{
+		m_ammoType = m_set_next_ammoType_on_reload;
+		m_set_next_ammoType_on_reload = undefined_ammo_type;
+	}
+
+	if (!HaveCartridgeInInventory(1) || iAmmoElapsed >= iMagazineSize)
+		return 0;
+
+	m_pCurrentAmmo = smart_cast<CWeaponAmmo*>(m_pInventory->GetAny(m_ammoTypes[m_ammoType].c_str()));
+	VERIFY((u32)iAmmoElapsed == m_magazine.size());
+
+	if (m_DefaultCartridge.m_LocalAmmoType != m_ammoType)
+		m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, m_APk);
+
+	CCartridge l_cartridge = m_DefaultCartridge;
+	while (cnt)
+	{
+		if (!unlimited_ammo())
+		{
+			if (!m_pCurrentAmmo->Get(l_cartridge)) break;
+		}
+		--cnt;
+		++iAmmoElapsed;
+		l_cartridge.m_LocalAmmoType = m_ammoType;
+		m_magazine.push_back(l_cartridge);
+	}
+
+	VERIFY((u32)iAmmoElapsed == m_magazine.size());
+
+	if (m_pCurrentAmmo && !m_pCurrentAmmo->m_boxCurr && OnServer())
+		m_pCurrentAmmo->SetDropManual(TRUE);
+
+	// the rounds below keep their rockets, only the new ones spawn
+	SyncRockets();
+	return cnt;
+}
+
 void CWeaponSSRS::state_Fire(float dt)
 {
 	if (iAmmoElapsed > 0)
@@ -334,7 +536,8 @@ void CWeaponSSRS::state_Fire(float dt)
 			//Alundaio: END
 
 #ifdef CROCKETLAUNCHER_CHANGE
-			LPCSTR ammo_name = m_ammoTypes[m_ammoType].c_str();
+			// a per round magazine can mix ammo, so the round being fired sets the speed
+			LPCSTR ammo_name = m_bTriStateReload ? m_magazine.back().m_ammoSect.c_str() : m_ammoTypes[m_ammoType].c_str();
 			float launch_speed = READ_IF_EXISTS(pSettings, r_float, ammo_name, "ammo_grenade_vel", CRocketLauncher::m_fLaunchSpeed);
 #endif
 			if (E)
