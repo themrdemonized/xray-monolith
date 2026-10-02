@@ -230,25 +230,40 @@ IC bool ImGui_SliderFloat4(LPCSTR name, Fvector4& vec, float min = 0.f, float ma
 	return ImGui::SliderFloat4(name, (float*)&vec, min, max, format, flags);
 }
 
-IC LPCSTR ImGui_InputText(LPCSTR label, LPCSTR text, int capacity = 100, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
+// ImGui writes up to `capacity` bytes into the buffer, so it must be at least that
+// large, and never smaller than the incoming text. ImGui still receives `capacity`
+// as the edit limit, so behavior for script callers is unchanged.
+IC char* ImGui_PrepareTextBuffer(LPCSTR text, int capacity)
 {
 	imgui_text_buffer = (text && xr_strlen(text)) ? text : "";
-	changed = ImGui::InputText(label, (char*)imgui_text_buffer.c_str(), capacity, flags);
+	size_t size = _max(size_t(capacity > 0 ? capacity : 0), imgui_text_buffer.size() + 1);
+	imgui_text_buffer.resize(size, '\0');
+	return &imgui_text_buffer[0];
+}
+
+// Drop the padding after the terminator ImGui wrote.
+IC LPCSTR ImGui_FinishTextBuffer()
+{
+	imgui_text_buffer.resize(xr_strlen(imgui_text_buffer.c_str()));
 	return imgui_text_buffer.c_str();
+}
+
+IC LPCSTR ImGui_InputText(LPCSTR label, LPCSTR text, int capacity = 100, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
+{
+	changed = ImGui::InputText(label, ImGui_PrepareTextBuffer(text, capacity), capacity, flags);
+	return ImGui_FinishTextBuffer();
 }
 
 IC LPCSTR ImGui_InputTextMultiline(LPCSTR label, LPCSTR text, int capacity = 100, Fvector2 size = Fvector2{ 0,0 }, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
 {
-	imgui_text_buffer = (text && xr_strlen(text)) ? text : "";
-	changed = ImGui::InputTextMultiline(label, (char*)imgui_text_buffer.c_str(), capacity, *(ImVec2*)&size, flags);
-	return imgui_text_buffer.c_str();
+	changed = ImGui::InputTextMultiline(label, ImGui_PrepareTextBuffer(text, capacity), capacity, *(ImVec2*)&size, flags);
+	return ImGui_FinishTextBuffer();
 }
 
 IC LPCSTR ImGui_InputTextWithHint(LPCSTR label, LPCSTR hint, LPCSTR text, int capacity = 100, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
 {
-	imgui_text_buffer = (text && xr_strlen(text)) ? text : "";
-	changed = ImGui::InputTextWithHint(label, hint, (char*)imgui_text_buffer.c_str(), capacity, flags);
-	return imgui_text_buffer.c_str();
+	changed = ImGui::InputTextWithHint(label, hint, ImGui_PrepareTextBuffer(text, capacity), capacity, flags);
+	return ImGui_FinishTextBuffer();
 }
 
 IC bool ImGui_CollapsingHeader(LPCSTR label)
