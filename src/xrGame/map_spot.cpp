@@ -216,6 +216,7 @@ void CMiniMapSpot::Load(CUIXml* xml, LPCSTR path)
 		else
 			m_tex_rect_above = m_UIStaticItem.GetTextureRect();
 
+		m_tex_above = texture;
 		m_icon_above = m_UIStaticItem.GetShader();
 	}
 
@@ -236,6 +237,7 @@ void CMiniMapSpot::Load(CUIXml* xml, LPCSTR path)
 		else
 			m_tex_rect_below = m_UIStaticItem.GetTextureRect();
 
+		m_tex_below = texture;
 		m_icon_below = m_UIStaticItem.GetShader();
 	}
 	strconcat(sizeof(buf), buf, path, ":texture");
@@ -255,10 +257,61 @@ void CMiniMapSpot::Load(CUIXml* xml, LPCSTR path)
 		else
 			m_tex_rect_normal = m_UIStaticItem.GetTextureRect();
 
+		m_tex_normal = texture;
 		m_icon_normal = m_UIStaticItem.GetShader();
 	}
 
 	m_UIStaticItem.SetTextureRect(_stored_rect);
+}
+
+// the three icons take the shader of the screen that hosts the spot
+void CMiniMapSpot::SetIconShader(LPCSTR sh)
+{
+	if (m_tex_above.size())
+	{
+		CUITextureMaster::InitTexture(m_tex_above, &m_UIStaticItem, sh);
+		m_icon_above = m_UIStaticItem.GetShader();
+	}
+	if (m_tex_below.size())
+	{
+		CUITextureMaster::InitTexture(m_tex_below, &m_UIStaticItem, sh);
+		m_icon_below = m_UIStaticItem.GetShader();
+	}
+	if (m_tex_normal.size())
+	{
+		CUITextureMaster::InitTexture(m_tex_normal, &m_UIStaticItem, sh);
+		m_icon_normal = m_UIStaticItem.GetShader();
+	}
+	m_UIStaticItem.SetTextureRect(m_tex_rect_normal);
+}
+
+void CMiniMapSpot::SetNormalIcon(LPCSTR texture, LPCSTR sh)
+{
+	m_tex_normal = texture;
+	CUITextureMaster::InitTexture(m_tex_normal, &m_UIStaticItem, sh);
+	m_tex_rect_normal = m_UIStaticItem.GetTextureRect();
+	m_icon_normal = m_UIStaticItem.GetShader();
+}
+
+// the icons shown above and below the player, each with the rect its texture registers
+void CMiniMapSpot::SetHeightIcons(LPCSTR above, LPCSTR below, LPCSTR sh)
+{
+	if (above && xr_strlen(above))
+	{
+		m_tex_above = above;
+		CUITextureMaster::InitTexture(m_tex_above, &m_UIStaticItem, sh);
+		m_tex_rect_above = m_UIStaticItem.GetTextureRect();
+		m_icon_above = m_UIStaticItem.GetShader();
+	}
+	if (below && xr_strlen(below))
+	{
+		m_tex_below = below;
+		CUITextureMaster::InitTexture(m_tex_below, &m_UIStaticItem, sh);
+		m_tex_rect_below = m_UIStaticItem.GetTextureRect();
+		m_icon_below = m_UIStaticItem.GetShader();
+	}
+	m_UIStaticItem.SetShader(m_icon_normal);
+	m_UIStaticItem.SetTextureRect(m_tex_rect_normal);
 }
 
 void CMiniMapSpot::Draw()

@@ -1309,9 +1309,9 @@ bool CWeapon::NeedBlendAnm()
 	if (IsZoomed() && psDeviceFlags2.test(rsAimSway))
 		return true;
 
-	if (psDeviceFlags2.test(rsBlendMoveAnims))
+	if (blend_move_anims_enabled())
 		return true;
-	
+
 	return inherited::NeedBlendAnm();
 }
 
@@ -2142,6 +2142,23 @@ void CWeapon::OnZoomOut()
     scope_2dtexactive = 0;
     sens_multiple = 1.0f;
 
+}
+
+bool CWeapon::StopZoom()
+{
+	if (!IsZoomed())
+		return false;
+
+	if (GetState() != eAimEnd && HudAnimationExist("anm_idle_aim_end"))
+		SwitchState(eAimEnd);
+
+	OnZoomOut();
+	return true;
+}
+
+bool CWeapon::IsTextureZoomActive()
+{
+	return IsZoomed() && ZoomTexture() && !IsRotatingToZoom();
 }
 
 CUIWindow* CWeapon::ZoomTexture()
@@ -3229,7 +3246,7 @@ void CWeapon::render_hud_mode()
 
 bool CWeapon::MovingAnimAllowedNow()
 {
-	return !IsZoomed() && !psDeviceFlags2.test(rsBlendMoveAnims);
+	return !IsZoomed() && !blend_move_anims_enabled();
 }
 
 bool CWeapon::IsHudModeNow()

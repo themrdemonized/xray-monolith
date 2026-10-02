@@ -8,6 +8,11 @@ player_hud* get_player_hud()
 	return g_player_hud;
 }
 
+LPCSTR hud_section_name(player_hud* hud)
+{
+	return (hud && hud->section_name().size()) ? hud->section_name().c_str() : "";
+}
+
 #pragma optimize("s",on)
 void player_hud::script_register(lua_State* L)
 {
@@ -16,7 +21,9 @@ void player_hud::script_register(lua_State* L)
 		class_<player_hud>("player_hud")
 		.def(constructor<>())
 		.def("set_hands", &player_hud::load_script)
-		.def("reset_hands", &player_hud::reset_model_script),
+		.def("reset_hands", &player_hud::reset_model_script)
+		.def("section_name", &hud_section_name)
+		.def("set_hands_visuals", &player_hud::set_hands_visuals),
 
 		def("get_player_hud", &get_player_hud)
 	];

@@ -140,6 +140,7 @@ extern BOOL pseudogiantDodgeWhileFalling; // Verdatim
 extern BOOL AllowAccelDuringLookOut; // Verdatim
 extern BOOL scale_hud_motion_marks_by_speed; // Verdatim
 
+
 //demonized: new console vars
 extern BOOL firstPersonDeath;
 extern BOOL pseudogiantCanDamageObjects;
@@ -2660,6 +2661,7 @@ void CCC_RegisterCommands()
 
 	CMD3(CCC_Mask, "hud_crosshair", &psHUD_Flags, HUD_CROSSHAIR);
 	CMD3(CCC_Mask, "hud_crosshair_dist", &psHUD_Flags, HUD_CROSSHAIR_DIST);
+
 
 	//#ifdef DEBUG
 	CMD4(CCC_Float, "hud_fov", &psHUD_FOV_def, 0.1f, 1.0f);

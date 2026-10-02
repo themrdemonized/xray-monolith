@@ -71,6 +71,9 @@ public:
 	                      u16 bone_id);
 	virtual void FillVertices(const Fmatrix& view, CSkeletonWallmark& wm, const Fvector& normal, float size,
 	                          u16 bone_id);
+
+	virtual bool SetShaderParam(float x, float y, float z, float w) { _SetShaderParam(x, y, z, w); return true; }
+	virtual bool ClearShaderParam() { _ClearShaderParam(); return true; }
 private:
 	CSkeletonX_ST(const CSkeletonX_ST& other);
 	void operator=(const CSkeletonX_ST& other);
@@ -100,6 +103,9 @@ public:
 	                      u16 bone_id);
 	virtual void FillVertices(const Fmatrix& view, CSkeletonWallmark& wm, const Fvector& normal, float size,
 	                          u16 bone_id);
+
+	virtual bool SetShaderParam(float x, float y, float z, float w) { _SetShaderParam(x, y, z, w); return true; }
+	virtual bool ClearShaderParam() { _ClearShaderParam(); return true; }
 private:
 	CSkeletonX_PM(const CSkeletonX_PM& other);
 	void operator=(const CSkeletonX_PM& other);

@@ -34,6 +34,7 @@
 #include "artefact.h"
 #include "sight_manager_space.h"
 #include "script_attachment_manager.h"
+#include "WeaponBinoculars.h"
 
 using namespace luabind;
 
@@ -518,6 +519,8 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("weapon_in_grenade_mode", &CScriptGameObject::WeaponInGrenadeMode)
 		// For CHudItem
 		.def("play_hud_motion", SAFE_WRAP(&CScriptGameObject::PlayHudMotion))
+		.def("need_blend_anm", SAFE_WRAP(&CScriptGameObject::NeedBlendAnm))
+		.def("hud_fov", SAFE_WRAP(&CScriptGameObject::GetHudFov))
 		.def("switch_state", SAFE_WRAP(&CScriptGameObject::SwitchState))
 		.def("get_state", SAFE_WRAP(&CScriptGameObject::GetState))
 		.def("hud_fire_point", SAFE_WRAP(&CScriptGameObject::hud_fire_point))
@@ -565,6 +568,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("cast_Ammo", &CScriptGameObject::cast_Ammo)
 		.def("cast_Weapon", &CScriptGameObject::cast_Weapon)
 		.def("cast_Knife", &CScriptGameObject::cast_Knife)
+		.def("cast_Binoculars", &CScriptGameObject::cast_Binoculars)
 		.def("cast_WeaponMagazined", &CScriptGameObject::cast_WeaponMagazined)
 		.def("cast_WeaponMagazinedWGrenade", &CScriptGameObject::cast_WeaponMagazinedWGrenade)
 		.def("cast_EatableItem", SAFE_WRAP(&CScriptGameObject::cast_EatableItem))

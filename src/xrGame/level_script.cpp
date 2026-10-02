@@ -28,6 +28,8 @@
 #include "map_manager.h"
 #include "map_spot.h"
 #include "map_location.h"
+#include "ui/xrUIXmlParser.h"
+#include "../Include/xrRender/UIRender.h"
 #include "physics_world_scripted.h"
 #include "alife_simulator.h"
 #include "alife_time_manager.h"
@@ -502,6 +504,69 @@ CUIStatic* map_get_minimap_spot_static(u16 id, LPCSTR spot_type)
 	return table;
 }
 
+::luabind::object map_get_all_object_spots()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	if (!g_pGameLevel)
+		return table;
+
+	Locations& locations = Level().MapManager().Locations();
+	int i = 1;
+	for (Locations_it it = locations.begin(); it != locations.end(); ++it)
+	{
+		CMapLocation* ml = (*it).location;
+		if (!ml) continue;
+
+		::luabind::object spot = ::luabind::newtable(ai().script_engine().lua());
+		spot["id"] = ml->ObjectID();
+		spot["spot_type"] = ml->spot_type;
+		spot["current_spot_type"] = ml->CurrentSpotType();
+		spot["hint"] = ml->GetHint();
+		spot["level_name"] = ml->GetLevelName().c_str();
+
+		Fvector pos = ml->GetLastPosition();
+		spot["x"] = pos.x;
+		spot["y"] = pos.y;
+		spot["z"] = pos.z;
+
+		table[i] = spot;
+		i++;
+	}
+
+	return table;
+}
+
+::luabind::object map_get_spot_declaration(LPCSTR spot_type)
+{
+	::luabind::object declaration = ::luabind::newtable(ai().script_engine().lua());
+
+	if (!spot_type || !spot_type[0])
+	{
+		Msg("!map_get_spot_declaration: empty spot type");
+		return declaration;
+	}
+
+	CUIXml* xml = GetSpotXml();
+	string512 path;
+	strconcat(sizeof(path), path, spot_type, ":mini_map");
+	if (!xml->NavigateToNode(path, 0))
+		return declaration;
+
+	LPCSTR spot = xml->ReadAttrib(path, 0, "spot", "");
+	if (!xr_strlen(spot))
+		return declaration;
+
+	strconcat(sizeof(path), path, spot, ":texture");
+	if (!xml->NavigateToNode(path, 0))
+		return declaration;
+
+	declaration["texture"] = xml->Read(path, 0, "");
+	declaration["width"] = xml->ReadAttribFlt(spot, 0, "width", 0.0f);
+	declaration["height"] = xml->ReadAttribFlt(spot, 0, "height", 0.0f);
+	return declaration;
+}
+
 u16 map_has_object_spot(u16 id, LPCSTR spot_type)
 {
 	return Level().MapManager().HasMapLocation(spot_type, id);
@@ -720,6 +785,15 @@ void enable_input()
 #ifdef DEBUG
 	Msg("input enabled");
 #endif // #ifdef DEBUG
+}
+
+bool is_input_captured()
+{
+	if (g_bDisableAllInput)
+		return true;
+
+	CUIGameCustom* ui = CurrentGameUI();
+	return ui && ui->TopInputReceiver() != NULL;
 }
 
 void spawn_phantom(const Fvector& position)
@@ -1600,6 +1674,7 @@ void reload_language()
 }
 
 #include "player_hud.h"
+#include "../xrEngine/CameraBase.h"
 
 void hud_adj_offs(int off, int idx, float x, float y, float z)
 {
@@ -1671,19 +1746,124 @@ u32 PlayHudMotion(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true,
 	return g_player_hud->script_anim_play(hand, itm_name, anm_name, bMixIn, speed);
 }
 
+// hand 0 is the right, 1 the left, 2 both
+void SetHudMotionFreelook(u8 hand, bool keep)
+{
+	if (!g_player_hud)
+		return;
+
+	if (hand > 2)
+	{
+		Msg("!set_hud_motion_freelook called with part %d, must be 0, 1 or 2", hand);
+		return;
+	}
+
+	g_player_hud->SetScriptAnimFreelook(hand, keep);
+}
+
+u32 PlayHudMotionFreelook(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn, float speed, bool keep_freelook)
+{
+	if (!g_player_hud)
+		return 0;
+
+	if (hand > 2)
+	{
+		Msg("!play_hud_motion called with part %d, must be 0, 1 or 2", hand);
+		return 0;
+	}
+
+	if (!itm_name || !xr_strlen(itm_name) || !pSettings->section_exist(itm_name))
+	{
+		Msg("!play_hud_motion section [%s] does not exist", itm_name ? itm_name : "");
+		return 0;
+	}
+
+	SetHudMotionFreelook(hand, keep_freelook);
+
+	return g_player_hud->script_anim_play(hand, itm_name, anm_name, bMixIn, speed);
+}
+
 void StopHudMotion()
 {
-	g_player_hud->StopScriptAnim();
+	if (!g_player_hud)
+		return;
+
+	g_player_hud->StopScriptAnim(true);
 }
 
 float MotionLength(LPCSTR section, LPCSTR name, float speed)
 {
+	if (!g_player_hud)
+		return 0.f;
+
 	return g_player_hud->motion_length_script(section, name, speed);
 }
 
 bool AllowHudMotion()
 {
+	if (!g_player_hud)
+		return false;
+
 	return g_player_hud->allow_script_anim();
+}
+
+bool HudMotionExists(LPCSTR section, LPCSTR anm_name)
+{
+	if (!g_player_hud || !g_player_hud->m_model)
+		return false;
+
+	if (!section || !section[0] || !anm_name || !anm_name[0])
+	{
+		Msg("!hud_motion_exists called with an empty section or motion name");
+		return false;
+	}
+
+	if (!pSettings->section_exist(section))
+	{
+		Msg("!hud_motion_exists section [%s] does not exist", section);
+		return false;
+	}
+
+	player_hud_motion_container* pm = g_player_hud->get_hand_motions(section);
+	player_hud_motion* phm = pm ? pm->find_motion(anm_name) : nullptr;
+
+	return phm && !phm->m_animations.empty() && g_player_hud->m_model->ID_Cycle_Safe(phm->m_base_name).valid();
+}
+
+int HudMotionBlockedReason()
+{
+	if (!g_player_hud)
+		return 0;
+
+	return g_player_hud->script_anim_blocked_reason();
+}
+
+::luabind::object HudMotionPart()
+{
+	lua_State* L = ai().script_engine().lua();
+
+	if (g_player_hud && g_player_hud->script_anim_part < 3)
+		return ::luabind::object(L, int(g_player_hud->script_anim_part));
+
+	::luabind::object none(L);
+	lua_pushnil(L);
+	none.set();
+
+	return none;
+}
+
+bool HudNeedsBlend(u8 part)
+{
+	if (!g_player_hud)
+		return false;
+
+	if (part > 1)
+	{
+		Msg("!hud_needs_blend called with part %d, must be 0 or 1", part);
+		return false;
+	}
+
+	return g_player_hud->need_blend_anm(part);
 }
 
 bool MotionExists(LPCSTR model_path, LPCSTR motion_name)
@@ -1703,6 +1883,17 @@ void PlayBlendAnm(LPCSTR name, u8 part, float speed, float power, bool bLooped, 
 	g_player_hud->PlayBlendAnm(name, part, speed, power, bLooped, no_restart, pivot_bone);
 }
 
+// short call forms kept as exact arities so overload matching still finds a body
+void PlayBlendAnm6(LPCSTR name, u8 part, float speed, float power, bool bLooped, bool no_restart)
+{
+	PlayBlendAnm(name, part, speed, power, bLooped, no_restart, "");
+}
+
+void PlayBlendAnm5(LPCSTR name, u8 part, float speed, float power, bool bLooped)
+{
+	PlayBlendAnm(name, part, speed, power, bLooped, false, "");
+}
+
 void StopBlendAnm(LPCSTR name, bool bForce)
 {
 	g_player_hud->StopBlendAnm(name, bForce);
@@ -1716,6 +1907,254 @@ void StopAllBlendAnms(bool bForce)
 float SetBlendAnmTime(LPCSTR name, float time)
 {
 	return g_player_hud->SetBlendAnmTime(name, time);
+}
+
+void PlayBlendAnmPrio(LPCSTR name, u8 part, float speed, float power, bool bLooped, bool no_restart, LPCSTR pivot_bone, int priority)
+{
+	if (!g_player_hud)
+		return;
+
+	g_player_hud->PlayBlendAnm(name, part, speed, power, bLooped, no_restart, pivot_bone);
+	g_player_hud->SetBlendAnmPriority(name, priority);
+}
+
+void SetBlendAnmPriority(LPCSTR name, int priority)
+{
+	if (!g_player_hud)
+		return;
+
+	g_player_hud->SetBlendAnmPriority(name, priority);
+}
+
+void StopBlendAnmFade(LPCSTR name, bool bForce, float fade_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	g_player_hud->StopBlendAnmFade(name, bForce, fade_ms / 1000.f);
+}
+
+bool BlendAnmState(LPCSTR name, bool& active, float& blend)
+{
+	if (!g_player_hud)
+	{
+		active = false;
+		blend = 0.f;
+		return false;
+	}
+
+	return g_player_hud->BlendAnmState(name, active, blend);
+}
+
+bool BlendAnmExists(LPCSTR name)
+{
+	if (!name || !name[0])
+	{
+		Msg("!hud_anm_exists called with an empty name");
+		return false;
+	}
+
+	string_path full_path;
+
+	return !!FS.exist(full_path, "$level$", name) || !!FS.exist(full_path, "$game_anims$", name);
+}
+
+// part 0 is the root, 1 the left hand, 2 the right hand
+void SetHudCycleSpeed(u8 part, float speed)
+{
+	if (!g_player_hud || !g_player_hud->m_model || !g_player_hud->m_model_2)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!set_hud_cycle_speed called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	g_player_hud->set_part_cycle_speed(part, speed);
+}
+
+void SetHudCycleTime(u8 part, float time)
+{
+	if (!g_player_hud || !g_player_hud->m_model || !g_player_hud->m_model_2)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!set_hud_cycle_time called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	clamp(time, 0.f, 1.f);
+	g_player_hud->set_part_cycle_time(part, time);
+}
+
+void ResyncHudAnim(u8 part)
+{
+	if (!g_player_hud || !g_player_hud->m_model || !g_player_hud->m_model_2)
+		return;
+
+	if (part != 1 && part != 2)
+	{
+		Msg("!resync_hud_anim called with part %d, must be 1 or 2", part);
+		return;
+	}
+
+	g_player_hud->re_sync_anim(part);
+}
+
+void SetBlendMoveAnimsOverride(const ::luabind::object& mode)
+{
+	if (!mode || mode.type() != LUA_TBOOLEAN)
+		g_blend_move_anims_override = -1;
+	else
+		g_blend_move_anims_override = ::luabind::object_cast<bool>(mode) ? 1 : 0;
+
+	if (g_player_hud)
+		g_player_hud->updateMovementLayerState();
+}
+
+bool GetBlendMoveAnims()
+{
+	return blend_move_anims_enabled();
+}
+
+bool SetBareHands(const ::luabind::object& section)
+{
+	if (!g_player_hud)
+		return false;
+
+	if (!section || section.type() != LUA_TSTRING)
+		return g_player_hud->SetBareHands(nullptr);
+
+	return g_player_hud->SetBareHands(::luabind::object_cast<LPCSTR>(section));
+}
+
+::luabind::object GetBareHands()
+{
+	lua_State* L = ai().script_engine().lua();
+
+	if (g_player_hud && g_player_hud->bare_hands_section().size())
+		return ::luabind::object(L, g_player_hud->bare_hands_section().c_str());
+
+	::luabind::object none(L);
+	lua_pushnil(L);
+	none.set();
+
+	return none;
+}
+
+bool BareHandsLive()
+{
+	return g_player_hud && g_player_hud->bare_hands_active();
+}
+
+u32 BareHandsSkipped()
+{
+	return g_player_hud ? g_player_hud->bare_hands_skipped() : 0;
+}
+
+// part 0 is the right hand, 1 the left hand, 2 both, angles in degrees and position in metres
+void SetHudOffset(u8 part, float x, float y, float z, float pitch, float yaw, float roll, float blend_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!set_hud_offset called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	Fvector pos = { x, y, z };
+	Fvector rot = { yaw, pitch, roll };
+
+	g_player_hud->SetHudOffset(part, pos, rot, blend_ms / 1000.f);
+}
+
+void ClearHudOffset(u8 part, float blend_ms)
+{
+	if (!g_player_hud)
+		return;
+
+	if (part > 2)
+	{
+		Msg("!clear_hud_offset called with part %d, must be 0, 1 or 2", part);
+		return;
+	}
+
+	g_player_hud->ClearHudOffset(part, blend_ms / 1000.f);
+}
+
+ENGINE_API extern float psHUD_FOV;
+
+float GetHudFov()
+{
+	return psHUD_FOV;
+}
+
+// 0 = disabled, 1 = enabling, 2 = enabled, 3 = disabling
+int ActorFreelookState()
+{
+	CActor* actor = g_actor;
+	if (!actor)
+		return 0;
+
+	switch (actor->cam_freelook)
+	{
+	case eflEnabling:
+		return 1;
+	case eflEnabled:
+		return 2;
+	case eflDisabling:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
+float ActorFreelookFactor()
+{
+	CActor* actor = g_actor;
+
+	return actor ? actor->freelook_cam_control : 0.f;
+}
+
+// signed radians between the body yaw and the camera yaw
+float ActorFreelookYawSplit()
+{
+	CActor* actor = g_actor;
+	if (!actor || !actor->cam_FirstEye())
+		return 0.f;
+
+	float body_yaw = -angle_normalize_signed(actor->old_torso_yaw);
+	float cam_yaw = -angle_normalize_signed(actor->cam_FirstEye()->yaw);
+
+	return angle_difference_signed(body_yaw, cam_yaw);
+}
+
+bool HudVisible()
+{
+	return !!psHUD_Flags.is(HUD_WEAPON | HUD_WEAPON_RT | HUD_WEAPON_RT2 | HUD_DRAW_RT2);
+}
+
+// slot 0 is the right hand, 1 the left hand, 2 the scope
+CScriptGameObject* HudAttachedItem(u16 slot)
+{
+	if (!g_player_hud)
+		return nullptr;
+
+	if (slot > SCOPE_ATTACH_IDX)
+	{
+		Msg("!hud_attached_item called with slot %d, must be 0, 1 or 2", slot);
+		return nullptr;
+	}
+
+	attachable_hud_item* item = g_player_hud->attached_item(slot);
+	if (!item || !item->m_parent_hud_item || !item->m_parent_hud_item->has_object())
+		return nullptr;
+
+	return item->m_parent_hud_item->object().lua_game_object();
 }
 
 void block_all_except_movement(bool b)
@@ -1764,6 +2203,9 @@ void remove_hud_model(LPCSTR section)
 
 const u32 ActorMovingState()
 {
+	if (!g_actor)
+		return 0;
+
 	return g_actor->MovingState();
 }
 
@@ -1839,15 +2281,36 @@ const Fvector3 world2ui_with_depth(Fvector pos, bool hud = false, bool allow_off
 	x /= width_fk;
 	y /= height_fk;
 
-	float depth = v_res.w < 0 ? -1 : 1;
-
-	return {x, y, depth};
+	// post projection w, negative behind the camera, its magnitude is the view distance
+	return {x, y, v_res.w};
 }
 
 const Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
 {
 	Fvector3 res = world2ui_with_depth(pos, hud, allow_offscreen);
 	return {res.x, res.y};
+}
+
+::luabind::object world2ui_many(::luabind::object points, bool hud, bool allow_offscreen)
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	if (!points || points.type() != LUA_TTABLE)
+	{
+		Msg("!world2ui_many: argument is not a table");
+		return table;
+	}
+
+	for (int i = 1;; ++i)
+	{
+		std::optional<Fvector> pos = ::luabind::object_cast_nothrow<Fvector>(points[i]);
+		if (!pos)
+			break;
+
+		table[i] = world2ui_with_depth(*pos, hud, allow_offscreen);
+	}
+
+	return table;
 }
 
 // demonized: unproject ui coordinates (ie mouse cursor coordinates) to world coordinates
@@ -1955,6 +2418,21 @@ void ui2world_offscreen(Fvector2 pos, Fvector& res, u16& obj_id)
 void ui2world_offscreen(Fvector& pos, Fvector& res, u16& obj_id)
 {
 	ui2world_offscreen(Fvector2().set(pos.x, pos.y), res, obj_id);
+}
+
+Fvector2 get_texture_size(LPCSTR name)
+{
+	Fvector2 size;
+	size.set(0.f, 0.f);
+
+	if (!name || !name[0])
+	{
+		Msg("!get_texture_size: empty texture name");
+		return size;
+	}
+
+	UIRender->GetTextureResolution(name, size);
+	return size;
 }
 
 const float get_env_rads()
@@ -2214,6 +2692,49 @@ void iterate_nearest(const Fvector& pos, float radius, const ::luabind::functor<
 	}
 }
 
+CScriptGameObject* nearest_object_of_class(const Fvector& pos, float radius, int clsid, float& distance)
+{
+	distance = 0.f;
+
+	if (!g_pGameLevel)
+		return nullptr;
+
+	if (radius <= 0.f)
+	{
+		Msg("!nearest_object: bad radius %f", radius);
+		return nullptr;
+	}
+
+	xr_vector<CObject*> nearest;
+	Level().ObjectSpace.GetNearest(nearest, pos, radius, NULL);
+
+	CGameObject* best = nullptr;
+	float best_dist = flt_max;
+	for (CObject* o : nearest)
+	{
+		CGameObject* obj = smart_cast<CGameObject*>(o);
+		if (!obj) continue;
+		if (clsid >= 0 && obj->clsid() != clsid) continue;
+
+		float d = obj->Position().distance_to_sqr(pos);
+		if (d < best_dist)
+		{
+			best_dist = d;
+			best = obj;
+		}
+	}
+
+	if (!best) return nullptr;
+
+	distance = _sqrt(best_dist);
+	return best->lua_game_object();
+}
+
+CScriptGameObject* nearest_object(const Fvector& pos, float radius, float& distance)
+{
+	return nearest_object_of_class(pos, radius, -1, distance);
+}
+
 LPCSTR PickMaterial(const Fvector& start_pos, const Fvector& dir, float trace_dist, CScriptGameObject* ignore_obj)
 {
 	collide::rq_result result;
@@ -2465,7 +2986,9 @@ void CLevel::script_register(lua_State* L)
 		.def("cast_dbg_line", &DBG_ScriptObject::cast_dbg_line)
 		.def_readwrite("color", &DBG_ScriptObject::m_color)
 		.def_readwrite("hud", &DBG_ScriptObject::m_hud)
-		.def_readwrite("visible", &DBG_ScriptObject::m_visible),
+		.def_readwrite("visible", &DBG_ScriptObject::m_visible)
+		.def_readwrite("width", &DBG_ScriptObject::m_width)
+		.def_readwrite("depth_test", &DBG_ScriptObject::m_depth_test),
 
 		class_<DBG_ScriptSphere, DBG_ScriptObject>("DBG_ScriptSphere")
 		.def_readwrite("matrix", &DBG_ScriptSphere::m_mat),
@@ -2620,6 +3143,8 @@ void CLevel::script_register(lua_State* L)
 			def("map_get_object_spot_static", map_get_spot_static),
 			def("map_get_object_minimap_spot_static", map_get_minimap_spot_static),
 			def("map_get_object_spots_by_id", map_get_object_spots_by_id),
+			def("map_get_all_object_spots", map_get_all_object_spots),
+			def("map_get_spot_declaration", map_get_spot_declaration),
 
 			def("map_pan_to", &map_pan_to),
 			def("map_pan_to_level", &map_pan_to_level),
@@ -2641,6 +3166,7 @@ void CLevel::script_register(lua_State* L)
 			def("present", is_level_present),
 			def("disable_input", disable_input),
 			def("enable_input", enable_input),
+			def("is_input_captured", is_input_captured),
 			def("spawn_phantom", spawn_phantom),
 
             def("scheduler_flush", scheduler_flush),
@@ -2698,8 +3224,14 @@ void CLevel::script_register(lua_State* L)
 			def("hold_action", &LevelHoldAction),
 
 			def("actor_moving_state", &ActorMovingState),
+			def("actor_freelook_state", &ActorFreelookState),
+			def("actor_freelook_factor", &ActorFreelookFactor),
+			def("actor_freelook_yaw_split", &ActorFreelookYawSplit),
 			def("get_env_rads", &get_env_rads),
+			def("get_texture_size", &get_texture_size),
 			def("iterate_nearest", &iterate_nearest),
+			def("nearest_object", &nearest_object, pure_out_value<3>()),
+			def("nearest_object", &nearest_object_of_class, pure_out_value<4>()),
 			def("pick_material", &PickMaterial),
 			def("add_bullet", ((void (*)(Fvector, Fvector, float, float, float, u16, ALife::EHitType, float, LPCSTR, float))& AddBullet)),
 			def("add_bullet", ((void (*)(::luabind::object))& AddBullet)),
@@ -2866,14 +3398,41 @@ void CLevel::script_register(lua_State* L)
 		def("reload_language", &reload_language),
 		def("get_resolutions", &vid_modes_string),
 		def("play_hud_motion", PlayHudMotion),
+		def("play_hud_motion", PlayHudMotionFreelook),
+		def("set_hud_motion_freelook", SetHudMotionFreelook),
 		def("stop_hud_motion", StopHudMotion),
 		def("get_motion_length", MotionLength),
 		def("hud_motion_allowed", AllowHudMotion),
 		def("motion_exists", MotionExists),
+		def("hud_motion_exists", HudMotionExists),
+		def("hud_motion_blocked_reason", HudMotionBlockedReason),
+		def("hud_motion_part", HudMotionPart),
+		def("hud_needs_blend", HudNeedsBlend),
 		def("play_hud_anm", PlayBlendAnm),
+		def("play_hud_anm", PlayBlendAnmPrio),
+		def("play_hud_anm", PlayBlendAnm6),
+		def("play_hud_anm", PlayBlendAnm5),
+		def("set_hud_anm_priority", SetBlendAnmPriority),
 		def("stop_hud_anm", StopBlendAnm),
+		def("stop_hud_anm", StopBlendAnmFade),
 		def("stop_all_hud_anms", StopAllBlendAnms),
 		def("set_hud_anm_time", SetBlendAnmTime),
+		def("hud_anm_state", BlendAnmState, pure_out_value<2>() + pure_out_value<3>()),
+		def("hud_anm_exists", BlendAnmExists),
+		def("set_hud_cycle_speed", SetHudCycleSpeed),
+		def("set_hud_cycle_time", SetHudCycleTime),
+		def("resync_hud_anim", ResyncHudAnim),
+		def("set_blend_move_anims_override", SetBlendMoveAnimsOverride),
+		def("get_blend_move_anims", GetBlendMoveAnims),
+		def("set_bare_hands", SetBareHands),
+		def("get_bare_hands", GetBareHands),
+		def("bare_hands_live", BareHandsLive),
+		def("bare_hands_skipped", BareHandsSkipped),
+		def("set_hud_offset", SetHudOffset),
+		def("clear_hud_offset", ClearHudOffset),
+		def("get_hud_fov", GetHudFov),
+		def("hud_visible", HudVisible),
+		def("hud_attached_item", HudAttachedItem),
 		def("only_allow_movekeys", block_all_except_movement),
 		def("only_movekeys_allowed", only_movement_allowed),
 		def("set_actor_allow_ladder", set_actor_allow_ladder),
@@ -2886,6 +3445,7 @@ void CLevel::script_register(lua_State* L)
 		def("get_visual_userdata", GetVisualUserdata),
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
+		def("world2ui_many", world2ui_many),
 		def("ui2world", (void (*)(Fvector2, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),

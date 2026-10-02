@@ -2031,3 +2031,23 @@ void CInifile::remove_line(LPCSTR S, LPCSTR L)
 			data.Data.erase(A);
 	}
 }
+
+bool CInifile::remove_section(LPCSTR S)
+{
+	R_ASSERT(!m_flags.test(eReadOnly));
+
+	if (!S || !S[0])
+		return false;
+
+	// sections are stored parsed and lower cased, the same way a write creates them
+	string256 sect;
+	_parse(sect, S);
+	_strlwr(sect);
+
+	RootIt I = std::lower_bound(DATA.begin(), DATA.end(), sect, sect_pred);
+	if (I == DATA.end() || xr_strcmp(*(*I).Name, sect) != 0)
+		return false;
+
+	DATA.erase(I);
+	return true;
+}

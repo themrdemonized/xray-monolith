@@ -114,6 +114,7 @@ class CScriptGameObject;
 class CZoneCampfire;
 class CPhysicObject;
 class CArtefact;
+class CWeaponBinoculars;
 class script_attachment;
 
 #ifdef STATIONARYMGUN_NEW
@@ -986,6 +987,7 @@ public:
 	_DECLARE_FUNCTION14(cast_Ammo, CWeaponAmmo);
 	_DECLARE_FUNCTION14(cast_Weapon, CWeapon);
 	_DECLARE_FUNCTION14(cast_Knife, CWeaponKnife);
+	_DECLARE_FUNCTION14(cast_Binoculars, CWeaponBinoculars);
 	_DECLARE_FUNCTION14(cast_WeaponMagazined, CWeaponMagazined);
 	_DECLARE_FUNCTION14(cast_WeaponMagazinedWGrenade, CWeaponMagazinedWGrenade);
 	_DECLARE_FUNCTION14(cast_EatableItem, CEatableItem);
@@ -1058,6 +1060,8 @@ public:
 
 	//Any class that is derived from CHudItem
 	u32 PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f);
+	bool NeedBlendAnm();
+	float GetHudFov();
 	void SwitchState(u32 state);
 	u32 GetState();
 	Fvector hud_fire_point();
