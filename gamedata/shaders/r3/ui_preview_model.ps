@@ -1,0 +1,34 @@
+float4 preview_background;
+float4 preview_options;
+// Isolated inspection G-buffer; no world lighting or temporal history.
+Texture2D<float4> s_preview_position;
+Texture2D<float4> s_preview_color;
+Texture2D<float4> s_preview_background;
+SamplerState smp_rtlinear;
+struct pin { float4 position : SV_Position; float4 color : COLOR0; float2 uv : TEXCOORD0; };
+float4 main(pin I) : SV_Target
+{
+    int3 px=int3(I.position.xy,0);
+    float4 P=s_preview_position.Load(px);
+    if(P.z<=0.00001) {
+        float3 background=preview_background.rgb;
+        if(preview_options.x>0.5) background=s_preview_background.SampleLevel(smp_rtlinear,I.uv,0).rgb;
+        return float4(background,1);
+    }
+    float3 N;
+#ifdef INTERNAL_AMD
+    N.z=P.x;N.x=2*abs(P.y)-1;
+    N.y=(P.y<0?-1:1)*sqrt(abs(1-N.x*N.x-N.z*N.z));
+#else
+    float sn,cs;sincos(P.x*3.14159,sn,cs);
+    float phi=sqrt(saturate(1-P.y*P.y));N=float3(cs*phi,sn*phi,P.y);
+#endif
+    float4 C=s_preview_color.Load(px);
+    float3 key=normalize(float3(-0.5,0.65,-0.8));
+    float3 fill=normalize(float3(0.8,0.2,-0.5));
+    float3 warm=normalize(float3(-0.7,0.1,-1));
+    float3 light=0.32+0.65*saturate(dot(N,key))+0.32*saturate(dot(N,fill));
+    light+=float3(0.38,0.22,0.08)*saturate(dot(N,warm));
+    float spec=pow(saturate(dot(N,normalize(key+float3(0,0,-1)))),24)*C.a*0.25;
+    return float4(saturate((C.rgb*light+spec)*preview_options.y),1);
+}

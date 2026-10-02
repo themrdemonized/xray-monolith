@@ -1,0 +1,7 @@
+// Final fullscreen blit of the same isolated model used by the PDA workbench.
+Texture2D<float4> s_preview_model;
+struct pin { float4 position : SV_Position; float4 color : COLOR0; };
+float4 main(pin I) : SV_Target
+{
+    return s_preview_model.Load(int3(I.position.xy,0));
+}

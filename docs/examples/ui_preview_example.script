@@ -1,0 +1,102 @@
+-- Developer-invoked example; no callbacks and no spawned inventory items.
+local window
+local model_name='ui_preview_example_model'
+class 'Example' (CUIScriptWnd)
+function Example:__init() super()
+    self:SetAutoDelete(false)
+    local xml=CScriptXmlInit();xml:ParseFile('ui_preview_example.xml')
+    xml:InitWindow('window',0,self);xml:InitTextWnd('title',self)
+    self.context=CUIPreviewContext()
+    self.context:set_background_color(GetARGB(255,30,32,35))
+    self.context:set_dry(true)
+end
+function Example:Update()
+    CUIScriptWnd.Update(self)
+    if self:IsShown() and not self.first_update then
+        self.first_update=true
+        printf('[UI Preview Test] Preview reached first visible update')
+    end
+    if self:IsShown() and not self.context:request_scene_suppression() then
+        printf('[UI Preview Test] Preview closed: renderer ownership unavailable')
+        self:Close()
+    end
+end
+function Example:Close()
+    self.context:release()
+    if db.actor then db.actor:remove_attachment(model_name) end
+    self:HideDialog()
+end
+function Example:OnKeyboard(key,action)
+    if key==DIK_keys.DIK_ESCAPE then
+        if action==ui_events.WINDOW_KEY_PRESSED and time_global()>=(self.escape_after or 0) then
+            printf('[UI Preview Test] Preview closed by Escape')
+            self:Close()
+        end
+        return true
+    end
+    return CUIScriptWnd.OnKeyboard(self,key,action)
+end
+function show(section)
+    if not ui_preview or not ui_preview.supports('scene_suppression') or not db.actor then return false end
+    local ini=system_ini();section=section or 'wpn_ak74'
+    if not ini:section_exist(section) or not ini:line_exist(section,'visual') then return false end
+    if not window then window=Example() end
+    if window:IsShown() then window:Close() end
+    if not window.context:request_scene_suppression() then return false end
+    local model=db.actor:add_attachment(model_name,ini:r_string(section,'visual'))
+    if not model then window.context:release();return false end
+    model:set_type(script_attachment_type.CamAttached)
+    model:set_position(0,0,1.2);model:set_rotation(0,90,0)
+    window.first_update=false
+    window.escape_after=time_global()+750
+    window:ShowDialog(true)
+    printf('[UI Preview Test] ShowDialog returned; shown=%s',tostring(window:IsShown()))
+    return window:IsShown()
+end
+function close() if window then window:Close() end end
+
+-- In-game native binding regression. Install the example XML first, then call
+-- ui_preview_example.portal_source_smoke_test() from the developer console.
+function portal_source_smoke_test()
+    if not ui_preview or not ui_preview.supports('ui_portal') then return false end
+    local portal=CUIRenderPortal();portal:SetAutoDelete(false)
+    local source=Example();source:Show(false)
+    assert(portal:SetSource(nil))
+    for i=1,20 do
+        assert(portal:SetSource(source))
+        assert(portal:SetSource(source))
+        assert(portal:SetSource(nil))
+    end
+    assert(portal:SetSource(source))
+    source=nil;collectgarbage('collect') -- only the portal now retains the source
+    assert(portal:SetSource(nil))
+    portal=nil;collectgarbage('collect')
+    return true
+end
+
+-- Run separately with no other preview open. Exercises visibility and competing
+-- ownership through the real Lua/native API; no inventory items are created.
+function portal_lifecycle_smoke_test()
+    if not ui_preview or not ui_preview.supports('ui_portal') then return false end
+    local portal=CUIRenderPortal();portal:SetAutoDelete(false);portal:Show(true)
+    local source=Example();source:Show(true)
+    local other=CUIPreviewContext()
+    assert(portal:SetSource(source))
+    assert(portal:SetActive(true))
+    assert(not other:request_scene_suppression())
+    portal:SetActive(false)
+    source:Show(false)
+    assert(not portal:SetActive(true))
+    source:Show(true)
+    assert(portal:SetActive(true))
+    portal:Show(false)
+    assert(not portal:SetActive(true))
+    portal:Show(true)
+    assert(portal:SetActive(true))
+    assert(portal:SetSource(nil))
+    assert(other:request_scene_suppression())
+    assert(not portal:SetActive(true))
+    other:release();other:release()
+    portal=nil;source=nil;other=nil;collectgarbage('collect')
+    return true
+end

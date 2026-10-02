@@ -21,6 +21,8 @@ public:
 
 	Fvector2 GetCursorPosition();
 	void SetUICursorPosition(Fvector2 pos);
+	// Temporary UI coordinate mapping without warping the OS cursor.
+	void SetLogicalPosition(Fvector2 pos) { vPos = pos; }
 	void UpdateCursorPosition(int _dx, int _dy);
 	virtual void OnScreenResolutionChanged();
 

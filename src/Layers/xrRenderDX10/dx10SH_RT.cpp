@@ -124,6 +124,12 @@ void CRT::create(LPCSTR Name, u32 w, u32 h, D3DFORMAT f, u32 SampleCount)
 	else
 	{
 		desc.BindFlags = (bUseAsDepth ? D3D_BIND_DEPTH_STENCIL : (D3D_BIND_SHADER_RESOURCE | D3D_BIND_RENDER_TARGET));
+#ifdef USE_DX11
+		// Only the camera UI background reads this depth after the scene.
+		if (bUseAsDepth && xr_strcmp(Name, "$user$msaadepth") == 0 &&
+			HW.FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
+			desc.BindFlags |= D3D_BIND_SHADER_RESOURCE;
+#endif
 		if (RImplementation.o.dx10_msaa_opt)
 		{
 			desc.SampleDesc.Quality = UINT(D3D_STANDARD_MULTISAMPLE_PATTERN);

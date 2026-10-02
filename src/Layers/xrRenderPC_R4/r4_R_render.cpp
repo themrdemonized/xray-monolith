@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "../../Include/xrRender/UIRender.h"
 #include "../../xrEngine/igame_persistent.h"
 #include "../xrRender/FBasicVisual.h"
 #include "../../xrEngine/customhud.h"
@@ -64,6 +65,7 @@ extern u32 g_r;
 
 void CRender::Render()
 {
+	previewLighting = g_hud && g_hud->PreviewLightingQuery() && !UIRender->PreviewEmbedded();
 	PIX_EVENT_C(CRender_Render, dx10_marker_frame);
 	dx10_annotate_frame();
 
@@ -98,13 +100,45 @@ void CRender::Render()
 	if ((Device.dwFrame % (u32)ps_r__tex_evict_interval) == 0)
 		dxRenderDeviceRender::Instance().Resources->EvictStalledTextures();
 
+    UIRender->ReleaseUnusedPreview();
+
+    // Explicit fullscreen opt-in. Render only camera attachments through the
+    // isolated preview targets; the ordinary UI is drawn by the level later.
+    // No world visibility traversal, geometry, grass, shadows, lights or effects.
+    if (UIRender->SceneSuppressed())
+    {
+        PROF_EVENT("Fullscreen isolated UI preview");
+        phase=PHASE_NORMAL;
+        RImplementation.o.distortion=FALSE;
+        GMBase.RGraph.clear<false>();
+        LP_normal.clear();LP_pending.clear();
+        Target->u_setrt(Device.dwWidth,Device.dwHeight,HW.pBaseRT,NULL,NULL,HW.pBaseZB);
+        Fcolor clearColor;clearColor.set(UIRender->PreviewBackgroundColor());
+        const FLOAT background[4]={clearColor.r,clearColor.g,clearColor.b,1.f};
+        HW.pContext->ClearRenderTargetView(HW.pBaseRT,background);
+        HW.pContext->ClearDepthStencilView(HW.pBaseZB,D3D_CLEAR_DEPTH|D3D_CLEAR_STENCIL,1.f,0);
+        GMBase.r_dsgraph_capture_hud();
+        const bool hasModel=!GMBase.RGraph.mapCamAttached.empty();
+        if (hasModel)
+        {
+            GMBase.r_dsgraph_render_hud();
+            GMBase.r_dsgraph_render_cam_ui();
+            UIRender->PresentPreviewModel();
+        }
+        GMBase.RGraph.clear<false>();
+        if (Details) Details->details_clear();
+        rmNormal();
+        Target->DoAsyncScreenshot();
+        return;
+    }
+
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
 
 	// Configure
 	RImplementation.o.distortion = FALSE; // disable distorion
 	Fcolor sun_color = ((light*)Lights.sun_adapted._get())->color;
 	BOOL bSUN = ps_r2_ls_flags.test(R2FLAG_SUN) && (u_diffuse2s(sun_color.r, sun_color.g, sun_color.b)>EPS) && !Core.ParamsData.test(ECoreParams::r4_dev);
-	if (o.sunstatic) bSUN = FALSE;
+	if (o.sunstatic || previewLighting) bSUN = FALSE;
 	// Msg						("sstatic: %s, sun: %s",o.sunstatic?;"true":"false", bSUN?"true":"false");
 
 	// HOM

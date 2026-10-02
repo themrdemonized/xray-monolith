@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "../../Include/xrRender/UIRender.h"
 
 #include "../../xrEngine/render.h"
 #include "../../xrEngine/irenderable.h"
@@ -22,6 +23,9 @@ extern float r_ssaDISCARD;
 extern float r_ssaDONTSORT;
 extern float r_ssaHZBvsTEX;
 extern float r_ssaGLOD_start, r_ssaGLOD_end;
+#if defined(USE_DX11)
+extern Fvector4 ps_ssfx_hud_drops_1;
+#endif
 
 ICF float calcLOD(float ssa/*fDistSq*/, float R)
 {
@@ -33,6 +37,15 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 {
     if (graph.empty())
         return;
+
+#if defined(USE_DX11)
+    // HUD and camera copies may share a shader/constant table. Override only
+    // camera inspection draws, then restore even when the next shader is cached.
+    const bool dryInspection =
+        (static_cast<const void*>(&graph) == static_cast<const void*>(&RGraph.mapCamAttached) ||
+         static_cast<const void*>(&graph) == static_cast<const void*>(&RGraph.mapCamAttachedSorted.Sorted)) &&
+        g_hud && g_hud->PreviewDryQuery();
+#endif
 
     std::sort(graph.begin(), graph.end());
 
@@ -48,7 +61,15 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 		//{
 		//	//new feature
 		//}
+#if defined(USE_DX11)
+        if (dryInspection)
+            RCache.set_c("ssfx_hud_drops_1", ps_ssfx_hud_drops_1.x, 0.f,
+                ps_ssfx_hud_drops_1.z, ps_ssfx_hud_drops_1.w);
+#endif
 		V->Render(calcLOD(item.ssa, V->vis.sphere.R));
+#if defined(USE_DX11)
+        if (dryInspection) RCache.set_c("ssfx_hud_drops_1", ps_ssfx_hud_drops_1);
+#endif
 	}
 
 	if (_clear)
@@ -209,7 +230,9 @@ void CDSGraphManager::r_dsgraph_render_hud()
 		initializer.SetCamMode();
 
 		// Rendering
-		r_dsgraph_render_graph_sorted(RGraph.mapCamAttached);
+        const bool previewPass=UIRender->BeginPreviewModel(false);
+        r_dsgraph_render_graph_sorted(RGraph.mapCamAttached);
+        if(previewPass) UIRender->EndPreviewPass();
 
 		RImplementation.rmNormal();
 	}
@@ -234,7 +257,16 @@ void CDSGraphManager::r_dsgraph_render_cam_ui()
 	
 	// Rendering
 	RImplementation.rmNear();
-	g_hud->RenderCamAttachedUI();
+    const bool previewPass=UIRender->BeginPreviewModel(true);
+    if(!previewPass) g_hud->RenderCamAttachedUI();
+#if defined(USE_DX11)
+	// A flat background preserves opaque depth but overwrites transparent
+	// pixels. Composite deferred glass/reticles after it, using the same
+	// camera attachment projection and near depth range.
+	if (RGraph.mapCamAttachedSorted.Sorted.size())
+		r_dsgraph_render_graph_sorted(RGraph.mapCamAttachedSorted.Sorted, true);
+#endif
+    if(previewPass) UIRender->EndPreviewPass();
 	RImplementation.rmNormal();
 }
 
@@ -252,8 +284,16 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 	if (render_hud)
 		r_dsgraph_render_sorted_hud();
 
+	// Keep transparent camera surfaces for the late camera UI pass whenever
+	// a flat background or isolated target is active. An isolated model does
+    // not require an attachment background. Gameplay keeps its existing order.
+	bool deferCamTransparency = false;
+#if defined(USE_DX11)
+	deferCamTransparency = (g_hud && g_hud->PreviewBackgroundQuery()) ||
+        UIRender->PreviewEmbedded() || UIRender->SceneSuppressed();
+#endif
 	// Camera Script Attachments
-	if (RGraph.mapCamAttachedSorted.Sorted.size())
+	if (!deferCamTransparency && RGraph.mapCamAttachedSorted.Sorted.size())
 	{
 		RImplementation.rmNear();
 		// Change projection
@@ -515,7 +555,17 @@ void CDSGraphManager::r_dsgraph_capture_lights()
 
 	for (ISpatialShared spatial : lstLights)
 	{
-		if (0 == spatial) continue; spatial->spatial_updatesector();
+		if (0 == spatial) continue;
+#if RENDER == R_R4
+		if (RImplementation.previewLighting)
+		{
+			light* studio = (light*)spatial->dcast_Light();
+			if (studio && studio->get_preview_light())
+				RImplementation.Lights.add_light(studio);
+			continue;
+		}
+#endif
+		spatial->spatial_updatesector();
 		CSector* sector = (CSector*)spatial->spatial.sector;
 		if (0 == sector) continue;
 
