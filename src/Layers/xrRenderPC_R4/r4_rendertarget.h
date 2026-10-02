@@ -71,6 +71,7 @@ public:
 	IBlender* b_heatvision; //--DSR-- HeatVision
 	IBlender* b_lut;
 	IBlender* b_smaa;
+	IBlender* b_temporal_prepare;
 	// compute shader for hdao
 	IBlender* b_hdao_cs;
 	IBlender* b_hdao_msaa_cs;
@@ -145,6 +146,11 @@ public:
 
 	ref_rt rt_smaa_edgetex;
 	ref_rt rt_smaa_blendtex;
+	ref_rt rt_temporal_velocity;
+	ref_rt rt_temporal_depth;
+	ref_rt rt_temporal_reactive;
+	ref_rt rt_temporal_output;
+	ref_rt rt_temporal_history;
 
 	//	Igor: for volumetric lights
 	ref_rt rt_Generic_2; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
@@ -223,6 +229,15 @@ public:
 	Fmatrix Matrix_previous, Matrix_current;
 	//Fmatrix Matrix_HUD_previous, Matrix_HUD_current;
 	Fvector3 Position_previous;
+	Fmatrix m_temporalCurrent;
+	Fmatrix m_temporalPrevious;
+	Fmatrix m_temporalPreviousFull;
+	Fvector3 m_temporalCameraPosition;
+	Fvector2 m_temporalJitter;
+	u32 m_temporalFrame;
+	u32 m_temporalMode;
+	bool m_temporalHistoryValid;
+	bool m_temporalReset;
 	//bool RVelocity;
 
 	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
@@ -273,6 +288,7 @@ private:
 	ref_shader s_fakescope; //crookr
 	ref_shader s_heatvision; //--DSR-- HeatVision
 	ref_shader s_smaa;
+	ref_shader s_temporal_prepare;
 
 	ref_shader s_lut;
 	//	generate min/max
@@ -429,6 +445,11 @@ public:
 	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 	void phase_lut();
 	void phase_smaa();
+	void begin_temporal_frame(const Fvector2& jitter);
+	void invalidate_temporal_history();
+	void phase_temporal_prepare();
+	void phase_temporal_resolve();
+	bool phase_temporal_aa();
 	void phase_scene_prepare();
 	void phase_scene_begin();
 	void phase_scene_end();
