@@ -30,7 +30,45 @@
 #include "../xrengine/xr_object.h"
 #include "ph_valid_ode.h"
 
+static bool ignore_material(u16 material_idx)
+{
+	SGameMtl* material = GMLibrary().GetMaterialByIdx(material_idx);
+	return material && !!material->Flags.test(SGameMtl::flActorObstacle);
+}
+
 BOOL fun_allowed = FALSE;
+namespace
+{
+    bool terrainActor=false, terrainNpc=false;
+    float terrainPenalty=.18f;
+}
+void CPHSimpleCharacter::ConfigureTerrain(bool actor, bool npc, float penalty)
+{
+    const bool valid = _valid(penalty) && penalty >= 0.f && penalty <= 1.f;
+    terrainActor=actor && valid;terrainNpc=npc && valid;
+    terrainPenalty=valid ? penalty : 0.f;
+}
+float CPHSimpleCharacter::TerrainSpeedScale() const
+{
+    const bool human=m_restriction_type==rtStalker || m_restriction_type==rtStalkerSmall;
+    if (!(m_restriction_type==rtActor?terrainActor:(human&&terrainNpc)) ||
+        !b_valide_ground_contact || b_lose_control || b_jumping || b_jump ||
+        (m_restriction_type==rtActor && b_clamb_jump) ||
+        m_elevator_state.ClimbingState()) return 1.f;
+    const float horizontal=sqrtf(m_acceleration.x*m_acceleration.x+m_acceleration.z*m_acceleration.z);
+    if(horizontal<EPS_S) return 1.f;
+    // Grade in the actual travel direction: traversing sideways/downhill stays unchanged.
+    const float grade=-(m_ground_contact_normal[0]*m_acceleration.x+
+        m_ground_contact_normal[2]*m_acceleration.z)/
+        (_max(.2f,float(m_ground_contact_normal[1]))*horizontal);
+    float effort=clampr((grade-.15f)/.75f,0.f,1.f);
+    if(m_restriction_type!=rtActor && b_clamb_jump && b_valide_wall_contact)
+    {
+        const float rise=float(m_wall_contact_position[1]-m_ground_contact_position[1]);
+        effort=_max(effort,clampr((rise-.06f)/.30f,0.f,1.f));
+    }
+    return 1.f-terrainPenalty*effort;
+}
 
 IC bool PhOutOfBoundaries(const Fvector& v)
 {
@@ -1089,6 +1127,13 @@ void CPHSimpleCharacter::ApplyAcceleration()
 	{
 		dCROSS(fvdir, =, sidedir, m_wall_contact_normal);
 		accurate_normalize(fvdir);
+        if (GroundStepHeight() > 0.f)
+        {
+            // A square riser makes the stock tangent vertical. Keep driving
+            // forward while the existing foot contacts lift over the step.
+            dVector3 forward; dVectorSet(forward,accel); accurate_normalize(forward);
+            fvdir[0]=forward[0];fvdir[2]=forward[2];
+        }
 		dVectorAddMul(m_control_force, fvdir, m.mass * pull_force);
 	}
 	else
@@ -1109,9 +1154,14 @@ void CPHSimpleCharacter::ApplyAcceleration()
 	}
 	if (!m_elevator_state.ClimbingState() && b_clamb_jump)
 	{
-		//&&m_wall_contact_normal[1]<M_SQRT1_2
-		dVectorMul(m_control_force, 4.f);
-		m_control_force[1] = dFabs(m_control_force[1]);
+		// Vanilla uses a fixed 4x boost on every axis. Actor-only smooth stepping
+		// can lower the horizontal boost while retaining enough vertical force to
+		// clear a step; AI and disabled features still return 4x/4x exactly.
+		const float horizontal_mul = ClamberHorizontalMultiplier();
+		const float vertical_mul = ClamberVerticalMultiplier();
+		m_control_force[0] *= horizontal_mul;
+		m_control_force[2] *= horizontal_mul;
+		m_control_force[1] = dFabs(m_control_force[1]) * vertical_mul;
 		m_control_force[0] = m_control_force[0] * accel[0] >= 0.f ? m_control_force[0] : -m_control_force[0];
 		m_control_force[2] = m_control_force[2] * accel[2] >= 0.f ? m_control_force[2] : -m_control_force[2];
 	}
@@ -1318,15 +1368,25 @@ void CPHSimpleCharacter::doCaptureExist(bool& do_exist)
 void CPHSimpleCharacter::SafeAndLimitVelocity()
 {
 	const float* linear_velocity = dBodyGetLinearVel(m_body);
+    const float stepHeight = GroundStepHeight();
+    if (stepHeight > 0.f && dV_valid(linear_velocity))
+    {
+        // Lift speed must not consume the horizontal walking/running budget.
+        // Limit upward energy by the configured step height to avoid launching
+        // the player when testing large force multipliers.
+        const float upLimit = _sqrt(2.f * ph_world->Gravity() * stepHeight);
+        if (linear_velocity[1] > upLimit)
+            dBodySetLinearVel(m_body,linear_velocity[0],upLimit,linear_velocity[2]);
+    }
 	if (dV_valid(linear_velocity))
 	{
 		dReal mag = _sqrt(
-			linear_velocity[0] * linear_velocity[0] + linear_velocity[1] * linear_velocity[1] + linear_velocity[2] *
+			linear_velocity[0] * linear_velocity[0] + (stepHeight > 0.f ? 0.f : linear_velocity[1] * linear_velocity[1]) + linear_velocity[2] *
 			linear_velocity[2]); //;
 		//limit velocity
 		dReal l_limit;
 		if (is_control && !b_lose_control)
-			l_limit = m_max_velocity / phTimefactor;
+			l_limit = m_max_velocity * TerrainSpeedScale() / phTimefactor;
 		else
 			l_limit = default_l_limit;
 
@@ -1359,7 +1419,7 @@ void CPHSimpleCharacter::SafeAndLimitVelocity()
 			{
 				dReal f = mag / l_limit;
 
-				if (b_lose_ground && linear_velocity[1] < 0.f && linear_velocity[1] > -default_l_limit)
+				if (stepHeight > 0.f || (b_lose_ground && linear_velocity[1] < 0.f && linear_velocity[1] > -default_l_limit))
 					dBodySetLinearVel(m_body, linear_velocity[0] / f, linear_velocity[1], linear_velocity[2] / f); ///f
 				else
 					CutVelocity(l_limit, 0.f);

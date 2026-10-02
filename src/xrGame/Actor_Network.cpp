@@ -510,6 +510,7 @@ void CActor::net_Import_Physic_proceed()
 
 BOOL CActor::net_Spawn(CSE_Abstract* DC)
 {
+	Parkour().Reset();
 	m_holder_id = ALife::_OBJECT_ID(-1);
 	m_feel_touch_characters = 0;
 	m_snd_noise = 0.0f;
@@ -720,6 +721,7 @@ namespace crash_saving {
 
 void CActor::net_Destroy()
 {
+	Parkour().Reset();
 	inherited::net_Destroy();
 
 	if (m_holder_id != ALife::_OBJECT_ID(-1))

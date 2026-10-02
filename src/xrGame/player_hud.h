@@ -5,6 +5,7 @@
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "actor_defs.h"
 #include "player_hud_legs.h"
+#include "ActorParkour.h"
 
 #define SCOPE_ATTACH_IDX 2
 
@@ -437,6 +438,38 @@ public:
 	bool inertion_allowed();
 
 private:
+	struct parkour_ik_bone
+	{
+		player_hud* hud;
+		bool left;
+		bool upper;
+		bool wrist = false;
+	};
+	struct parkour_ik_arm
+	{
+		u16 upper = BI_NONE;
+		u16 lower = BI_NONE;
+		u16 wrist_bone = BI_NONE;
+		u16 finger_bone = BI_NONE;
+		u16 index_bone = BI_NONE, little_bone = BI_NONE;
+		Fvector finger_axis, palm_axis;
+		Fmatrix hand_rotation;
+		bool palm_calibrated = false, orient = false;
+		Fvector elbow;
+		Fvector target;
+		Fvector upper_axis;
+		Fvector lower_axis;
+		float weight = 0.f;
+		bool valid = false;
+		bool callbacks_owned = false;
+	};
+	parkour_ik_arm m_parkour_ik[2];
+	parkour_ik_bone m_parkour_ik_bones[6];
+	Fvector m_parkour_ik_palm_offset[2];
+	shared_str m_script_anim_section;
+	bool m_parkour_ik_applying = false;
+	void update_parkour_ik();
+	static void _BCL ParkourIKCallback(CBoneInstance* B);
 	const Fvector attach_rot(u8 part) const;
 	const Fvector attach_pos(u8 part) const;
 	shared_str m_sect_name;
@@ -446,6 +479,7 @@ private:
 
 public:
 	IKinematicsAnimated* m_model;
+	bool ParkourMotionPlaying() const { return script_anim_part == 2 && m_script_anim_section == "item_anm_ledge_grabbing"; }
 	IKinematicsAnimated* m_model_2;
 	Fvector m_adjust_offset[2][10]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount, aim for attach, alt aim for attach
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself

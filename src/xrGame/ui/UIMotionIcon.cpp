@@ -2,7 +2,10 @@
 #include "UIMainIngameWnd.h"
 #include "UIMotionIcon.h"
 #include "UIXmlInit.h"
-#include "../actor.cpp"
+#include "../Actor.h"
+
+// Implemented in Actor.cpp; do not compile the actor implementation into this UI unit.
+extern float GetActorVisibility();
 
 const LPCSTR MOTION_ICON_XML = "motion_icon.xml";
 

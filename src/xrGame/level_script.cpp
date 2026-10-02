@@ -2412,6 +2412,8 @@ extern void open_originals_link();
 
 void CLevel::script_register(lua_State* L)
 {
+	extern void RegisterParkour(lua_State*);
+	RegisterParkour(L);
 	module(L)
 		[
 			class_<CEnvDescriptor>("CEnvDescriptor")

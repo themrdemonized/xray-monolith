@@ -202,6 +202,7 @@ void player_legs_controller::copy_bones_from_actor(CActor* actor, bool isShadowP
     
 }
 
+
 float legs_fwd_offset = -0.5f;
 BOOL legs_attach_to_camera = TRUE;
 extern int showActorBody;
@@ -245,6 +246,7 @@ void player_legs_controller::update(CActor* actor, bool isShadowPass)
 
     float offset = m_fwd_offset.has_value() ? m_fwd_offset.value() : legs_fwd_offset;
     m_legs_transform.c.mad(fwd, offset);
+
 
     // Move actor's XFORM for correct shadow placement
     actor->XFORMShadow.translate_over(m_legs_transform.c);

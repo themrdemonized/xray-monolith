@@ -503,6 +503,7 @@ void CActor::cam_Update(float dt, float fFOV)
 
 	if (cam_freelook != eflDisabled && cam_active != eacFreeLook)
 		camUpdateFreelook(dt);
+    if (Parkour().Active()) Parkour().UpdateCamera(dt);
 
 	if ((mstate_real & mcClimb) && (cam_active != eacFreeLook))
 	{
