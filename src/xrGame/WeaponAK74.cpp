@@ -35,6 +35,7 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("IsSilencerAttached", &CWeapon::IsSilencerAttached)
 			.def("SilencerAttachable", &CWeapon::SilencerAttachable)
 			.def("GetSilencerName", &CWeapon::GetSilencerNameScript)
+			.def("SetSilencerName", &CWeapon::SetSilencerName)
 			
 			.def("IsZoomEnabled", &CWeapon::IsZoomEnabled)
 			.def("IsZoomed", &CWeapon::IsZoomed)

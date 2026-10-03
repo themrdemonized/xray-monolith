@@ -928,6 +928,21 @@ void CWeapon::set_mShellPoint(Fvector &fire_point) {
 	vLoadedShellPoint = fire_point;
 }
 
+// An attached suppressor is renamed only from the net spawn hook, where InitAddons follows
+bool CWeapon::SetSilencerName(LPCSTR section)
+{
+	if (m_eSilencerStatus != ALife::eAddonAttachable || !section || !pSettings->section_exist(section))
+		return false;
+	if (IsSilencerAttached() && !m_bNetSpawnHook)
+		return false;
+
+	m_sSilencerName = section;
+	CWeaponMagazined* wm = smart_cast<CWeaponMagazined*>(this);
+	if (wm)
+		wm->LoadSilencerKoeffs();
+	return true;
+}
+
 void CWeapon::LoadFireParams(LPCSTR section)
 {
 	cam_recoil.Dispersion = deg2rad(pSettings->r_float(section, "cam_dispersion"));
@@ -1030,6 +1045,14 @@ BOOL CWeapon::net_Spawn(CSE_Abstract* DC)
 		m_fCurrentCartirdgeDisp = m_DefaultCartridge.param_s.kDisp;
 		for (int i = 0; i < iAmmoElapsed; ++i)
 			m_magazine.push_back(m_DefaultCartridge);
+	}
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.CWeapon_NetSpawn", funct))
+	{
+		m_bNetSpawnHook = true;
+		funct(this->lua_game_object());
+		m_bNetSpawnHook = false;
 	}
 
 	UpdateAddonsVisibility();

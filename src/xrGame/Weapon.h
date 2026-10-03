@@ -361,6 +361,8 @@ protected:
 	shared_str m_sScopeName;
 	shared_str m_sSilencerName;
 	shared_str m_sGrenadeLauncherName;
+	// Set only while _G.CWeapon_NetSpawn runs, lets SetSilencerName rename an attached suppressor
+	bool m_bNetSpawnHook = false;
 
 	//ñìåùåíèå èêîíîâ àïãðåéäîâ â èíâåíòàðå
 	int m_iScopeX, m_iScopeY;
@@ -447,6 +449,7 @@ public:
 	int GetAmmoCount_forType_Script(LPCSTR type) const { return GetAmmoCount_forType(type); }
 	LPCSTR GetGrenadeLauncherNameScript() const { return *GetGrenadeLauncherName(); }
 	LPCSTR GetSilencerNameScript() const { return *GetSilencerName(); }
+	bool SetSilencerName(LPCSTR section);
 	LPCSTR GetScopeNameScript() const { return *GetScopeName(); }
 	float GetFireDispersionScript() const { return fireDispersionBase; }
 	float RPMScript() const { return fOneShotTime; }
