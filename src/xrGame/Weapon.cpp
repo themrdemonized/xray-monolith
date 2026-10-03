@@ -1949,7 +1949,7 @@ void CWeapon::UpdateHUDAddonsVisibility()
 
 	if (SilencerAttachable())
 	{
-		HudItemData()->set_bone_visible(wpn_silencer, IsSilencerAttached());
+		HudItemData()->set_bone_visible(wpn_silencer, IsSilencerAttached() && !m_bSilencerBoneHidden);
 	}
 	if (m_eSilencerStatus == ALife::eAddonDisabled)
 	{
@@ -2007,7 +2007,7 @@ void CWeapon::UpdateAddonsVisibility()
 	bone_id = pWeaponVisual->LL_BoneID(wpn_silencer);
 	if (SilencerAttachable())
 	{
-		if (IsSilencerAttached())
+		if (IsSilencerAttached() && !m_bSilencerBoneHidden)
 		{
 			if (!pWeaponVisual->LL_GetBoneVisible(bone_id))
 				pWeaponVisual->LL_SetBoneVisible(bone_id, TRUE, TRUE);

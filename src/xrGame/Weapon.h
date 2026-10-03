@@ -363,6 +363,8 @@ protected:
 	shared_str m_sGrenadeLauncherName;
 	// Set only while _G.CWeapon_NetSpawn runs, lets SetSilencerName rename an attached suppressor
 	bool m_bNetSpawnHook = false;
+	// Keeps the baked wpn_silencer bone hidden while a suppressor is attached
+	bool m_bSilencerBoneHidden = false;
 
 	//ñìåùåíèå èêîíîâ àïãðåéäîâ â èíâåíòàðå
 	int m_iScopeX, m_iScopeY;
@@ -450,6 +452,8 @@ public:
 	LPCSTR GetGrenadeLauncherNameScript() const { return *GetGrenadeLauncherName(); }
 	LPCSTR GetSilencerNameScript() const { return *GetSilencerName(); }
 	bool SetSilencerName(LPCSTR section);
+	void SetSilencerBoneHidden(bool hidden) { m_bSilencerBoneHidden = hidden; }
+	bool IsSilencerBoneHidden() const { return m_bSilencerBoneHidden; }
 	LPCSTR GetScopeNameScript() const { return *GetScopeName(); }
 	float GetFireDispersionScript() const { return fireDispersionBase; }
 	float RPMScript() const { return fOneShotTime; }
