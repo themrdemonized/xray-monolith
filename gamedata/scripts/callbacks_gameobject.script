@@ -249,6 +249,18 @@ _G.CBeforeHitAfterCalcs = function(shit, target, boneId)
 	SendScriptCallback("on_before_hit_after_calcs", shit, target, boneId)
 end
 
+-- Monster combat action decision callback, fired at the head of the shared monster attack selectors.
+-- A subscriber sets flags.substate to an EMonsterState id; the engine selects it only if its own
+-- start conditions pass, else the vanilla selection runs. Left at -1 = no proposal = exact vanilla.
+-- A proposed substate's check_start_conditions runs every selector tick (camp runs a cover search),
+-- and the selector crosses into this relay once per tick even with zero subscribers.
+AddScriptCallback("monster_on_combat_action")
+_G.CMonsterCombatAction = function(monster, enemy, dist, enemy_strength, can_jump)
+	local flags = { substate = -1 }
+	SendScriptCallback("monster_on_combat_action", monster, enemy, dist, enemy_strength, can_jump, flags)
+	return tonumber(flags.substate) or -1
+end
+
 --[[ 
 
 On right click on PDA map callback
