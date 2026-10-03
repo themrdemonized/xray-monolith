@@ -1,9 +1,25 @@
 #pragma once
 #include "stdafx.h"
 #include "imgui/imgui.h"
+#include "3rd party/imGuIZMO.quat/imguizmo_quat/imGuIZMOquat.h"
 
 static bool ugly_hack = false;
 static ::std::string imgui_text_buffer;
+
+IC bool ImGui_Gizmo3D(LPCSTR name, Fquaternion& quate)
+{
+	quat a;
+	a.w = quate.w;
+	a.x = quate.x;
+	a.y = quate.y;
+	a.z = quate.z;
+	bool ret = ImGui::gizmo3D(name, a);//*(quat*)&quate, 500, imguiGizmo::mode3Axes);
+	quate.w = a.w;
+	quate.x = a.x;
+	quate.y = a.y;
+	quate.z = a.z;
+	return ret;
+}
 
 IC LPCSTR ImGui_GetVersion()
 {

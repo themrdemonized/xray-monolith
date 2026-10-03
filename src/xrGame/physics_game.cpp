@@ -291,7 +291,7 @@ void TContactShotMark(CDB::TRI* T, dContactGeom* c)
 				SGameMtl* static_mtl = GMLib.GetMaterialByIdx(T->material);
 				SGameMtl* other_mtl = GMLib.GetMaterialByIdx(data->material);
 				VERIFY(static_mtl);
-				if (!static_mtl->Flags.test(SGameMtl::flPassable))
+				if (data->ph_ref_attachment || !static_mtl->Flags.test(SGameMtl::flPassable))
 				{
 					if (vel_cret > other_mtl->fCollisionSoundVel)
 					{

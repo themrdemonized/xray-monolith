@@ -6,6 +6,7 @@
 #include "../../xrEngine/igame_persistent.h"
 #include "../../xrEngine/environment.h"
 #include "../xrRender/fbasicvisual.h"
+#include "../../Include/xrRender/RenderVisual.h"
 #include "../../xrEngine/CustomHUD.h"
 #include "../../xrEngine/xr_object.h"
 #include "../../xrEngine/fmesh.h"
@@ -412,6 +413,12 @@ void CRender::apply_object(IRenderable* O)
 		// shadowing
 		if ((LT.shadow_recv_frame == Device.dwFrame) && O->renderable_ShadowReceive())
 			RImplementation.L_Projector->setup(LT.shadow_recv_slot);
+
+        Fvector4* params = O->GetShaderParams();
+        if (params)
+            RCache.hemi.set_model_params(params);
+        else
+            RCache.hemi.zero_model_params();
 	}
 }
 

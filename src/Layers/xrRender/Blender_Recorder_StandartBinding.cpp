@@ -363,82 +363,81 @@ class cl_fakescope_params3 : public R_constant_setup
 };
 static cl_fakescope_params3 binder_fakescope_params3;
 
-// Mark Switch
-extern int ps_markswitch_current;
-extern int ps_markswitch_count;
-extern Fvector4 ps_markswitch_color;
-
-static class markswitch_current : public R_constant_setup
+// Per Model Shader Params
+static class model_param_1 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_markswitch_current, 0, 0, 0);
+        RCache.hemi.set_c_model_param(C, 0);
 	}
-}    markswitch_current;
+}    model_param_1;
 
-static class markswitch_count : public R_constant_setup
+static class model_param_2 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_markswitch_count, 0, 0, 0);
+        RCache.hemi.set_c_model_param(C, 1);
 	}
-}    markswitch_count;
+}    model_param_2;
 
-static class markswitch_color : public R_constant_setup
+static class model_param_3 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_markswitch_color.x, ps_markswitch_color.y, ps_markswitch_color.z, ps_markswitch_color.w);
+        RCache.hemi.set_c_model_param(C, 2);
 	}
-}    markswitch_color;
+}    model_param_3;
 
-// Shader 3D Scopes
-extern Fvector4 ps_s3ds_param_1;
-extern Fvector4 ps_s3ds_param_2;
-extern Fvector4 ps_s3ds_param_3;
-extern Fvector4 ps_s3ds_param_4;
-
-static class s3ds_param_1 : public R_constant_setup
+static class model_param_4 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, ps_s3ds_param_1.z, ps_s3ds_param_1.w);
+        RCache.hemi.set_c_model_param(C, 3);
 	}
-}    s3ds_param_1;
+}    model_param_4;
 
-static class s3ds_param_2 : public R_constant_setup
+static class model_param_5 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, ps_s3ds_param_2.w);
+        RCache.hemi.set_c_model_param(C, 4);
 	}
-}    s3ds_param_2;
+}    model_param_5;
 
-static class s3ds_param_3 : public R_constant_setup
+static class model_param_6 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_3.x, ps_s3ds_param_3.y, ps_s3ds_param_3.z, ps_s3ds_param_3.w);
+        RCache.hemi.set_c_model_param(C, 5);
 	}
-}    s3ds_param_3;
+}    model_param_6;
 
-static class s3ds_param_4 : public R_constant_setup
+static class model_param_7 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, ps_s3ds_param_4.w);
+        RCache.hemi.set_c_model_param(C, 6);
 	}
-}    s3ds_param_4;
+}    model_param_7;
 
-//--DSR-- SilencerOverheat_start
-static class cl_silencer_glowing : public R_constant_setup
+static class model_param_8 : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.hemi.set_c_glowing(C);
+        RCache.hemi.set_c_model_param(C, 7);
 	}
-} binder_silencer_glowing;
-//--DSR-- SilencerOverheat_end
+}    model_param_8;
+
+// Reflex Sights
+extern Fvector4 ps_reflex_param;
+
+static class reflex_param : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_reflex_param.x, ps_reflex_param.y, ps_reflex_param.z, ps_reflex_param.w);
+	}
+}    reflex_param;
 
 //--DSR-- HeatVision_start
 extern float heat_vision_mode;
@@ -446,14 +445,6 @@ extern Fvector4 heat_vision_steps;
 extern Fvector4 heat_vision_blurring;
 extern Fvector4 heat_vision_args_1;
 extern Fvector4 heat_vision_args_2;
-
-static class cl_heatvision_hotness : public R_constant_setup
-{
-	virtual void setup(R_constant* C)
-	{
-		RCache.hemi.set_c_hotness(C);
-	}
-} binder_heatvision_hotness;
 
 static class cl_heatvision_steps : public R_constant_setup
 {
@@ -1596,17 +1587,19 @@ void CBlender_Compile::SetMapping()
 	r_Constant("shader_param_6", &dev_param_6);
 	r_Constant("shader_param_7", &dev_param_7);
 	r_Constant("shader_param_8", &dev_param_8);
-	
-	// Mark Switch
-	r_Constant("markswitch_current", &markswitch_current);
-	r_Constant("markswitch_count", &markswitch_count);
-	r_Constant("markswitch_color", &markswitch_color);
 
-	// Shader 3D Scopes
-	r_Constant("s3ds_param_1", &s3ds_param_1);
-	r_Constant("s3ds_param_2", &s3ds_param_2);
-	r_Constant("s3ds_param_3", &s3ds_param_3);
-	r_Constant("s3ds_param_4", &s3ds_param_4);
+	// Per Model Shader Params (can be used in forward rendering or when stored in gbuffer)
+	r_Constant("model_param_1", &model_param_1);
+	r_Constant("model_param_2", &model_param_2);
+	r_Constant("model_param_3", &model_param_3);
+	r_Constant("model_param_4", &model_param_4);
+	r_Constant("model_param_5", &model_param_5);
+	r_Constant("model_param_6", &model_param_6);
+	r_Constant("model_param_7", &model_param_7);
+	r_Constant("model_param_8", &model_param_8);
+
+	// Reflex Sights
+	r_Constant("reflex_param", &reflex_param);
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);
@@ -1703,9 +1696,7 @@ void CBlender_Compile::SetMapping()
 	}
 
 
-	r_Constant("L_glowing", &binder_silencer_glowing);		//--DSR-- SilencerOverheat
 	//--DSR-- HeatVision_start
-	r_Constant("L_hotness", &binder_heatvision_hotness);
 	r_Constant("heatvision_params1", &binder_heatvision_params1);
 	r_Constant("heatvision_params2", &binder_heatvision_params2);
 	r_Constant("heatvision_params3", &binder_heatvision_args1);

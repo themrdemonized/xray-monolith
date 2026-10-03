@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "../xrphysics/PhysicsShell.h"
 #include "weaponammo.h"
@@ -34,6 +34,9 @@ extern xr_map<shared_str, float> listScopeRadii;
 
 extern float scope_scrollpower;
 extern float sens_multiple;
+
+// non-linear weapon inertia
+extern BOOL g_use_non_linear_inertia;
 
 struct PickParam
 {
@@ -98,9 +101,6 @@ public:
 	int last_hide_bullet;
 	bool bHasBulletsToHide;
 
-	//--DSR-- SilencerOverheat_start
-	float temperature;
-
 	virtual void FireBullet(const Fvector& pos,
 		const Fvector& shot_dir,
 		float fire_disp,
@@ -108,9 +108,6 @@ public:
 		u16 parent_id,
 		u16 weapon_id,
 		bool send_hit, int iShotNum);
-
-	virtual float GetGlowing();
-	//--DSR-- SilencerOverheat_end
 
 	virtual void HUD_VisualBulletUpdate(bool force = false, int force_idx = -1);
 

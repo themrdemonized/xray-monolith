@@ -403,6 +403,8 @@ public:
 	virtual void DisableCollision() = 0;
 	virtual void EnableCollision() = 0;
 	virtual void SetDeadBody() = 0;
+	virtual void SetScale(float scale) = 0;
+	virtual float GetScale() = 0;
 	virtual void PureStep(float step = fixed_step) = 0;
 	virtual void SetGlTransformDynamic(const Fmatrix& form) = 0;
 	virtual void CollideAll() = 0;

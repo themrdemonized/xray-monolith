@@ -1,3 +1,7 @@
 [submodule "src/3rd party/optick-git"]
 	path = src/3rd party/optick-git
 	url = https://github.com/bombomby/optick.git
+[submodule "src/3rd party/imGuIZMO.quat"]
+	path = src/3rd party/imGuIZMO.quat
+	url = https://github.com/BrutPitt/imGuIZMO.quat.git
+	branch = master

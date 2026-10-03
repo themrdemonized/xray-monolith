@@ -75,6 +75,7 @@ CPHShell::CPHShell()
 	m_object_in_root.identity();
 	m_active_count = 0;
 	m_pPhysicsShellAnimatorC = NULL;
+	m_fScale = 1.f;
 }
 
 void CPHShell::EnableObject(CPHObject* obj)
@@ -450,6 +451,7 @@ CPHSynchronize* CPHShell::get_ElementSync(u16 element)
 CPhysicsElement* CPHShell::get_PhysicsParrentElement(u16 bone_id)
 {
 	VERIFY(PKinematics());
+	if (bone_id == 0 || bone_id == u16(-1)) return get_Element(u16(0));
 	CPhysicsElement* E = get_Element(bone_id);
 	u16 bid = bone_id;
 	while (!E && bid != PKinematics()->LL_GetBoneRoot())
@@ -537,6 +539,11 @@ void CPHShell::BonesCallback(CBoneInstance* B)
 
 	//}
 	E->BonesCallBack(B);
+
+	const float& scale = E->PHShell()->m_fScale;
+	if (scale != 1.f)
+		B->mTransform.mulB_43(Fmatrix().scale(scale, scale, scale));
+
 	VERIFY2(_valid(B->mTransform), "CPHShell:: BonesCallback");
 }
 
@@ -560,7 +567,6 @@ void CPHShell::SetTransform(const Fmatrix& m0, motion_history_state history_stat
 	}
 	spatial_move();
 }
-
 
 void CPHShell::Enable()
 {

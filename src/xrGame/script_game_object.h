@@ -1263,9 +1263,9 @@ public:
 	float GetActorLookoutCoef() const;
 	void SetActorLookoutCoef(float val);
 
-    // verdatim: adjust damage stagger time factor
-    float GetActorDamageStaggerTimeFactor() const;
-    void SetActorDamageStaggerTimeFactor(float val);
+	// verdatim: adjust damage stagger time factor
+	float GetActorDamageStaggerTimeFactor() const;
+	void SetActorDamageStaggerTimeFactor(float val);
 
     // Boeker: adjust zoom inertia factor
     void SetZoomInertionFactor(float factor);
@@ -1307,6 +1307,21 @@ public:
 	::luabind::object GetLegsShaders();
 	void SetLegsShader(int id, LPCSTR shader, LPCSTR texture);
 	void ResetLegsShader(int id);
+
+
+	//GameObject Shader Params
+	Fvector4* GetShaderParam_Script(int param);
+	::luabind::object GetShaderParams_Script();
+	void SetShaderParam(int param, Fvector4 v) { SetShaderParam(param, v.x, v.y, v.z, v.w); }
+	void SetShaderParam(int param, float x, float y, float z, float w);
+	void ClearShaderParams();
+
+	//Model Shader Params
+	::luabind::object GetModelShaderParams_Script(bool bHud = false);
+	Fvector4* GetModelShaderParam_Script(int id, int param, bool bHud = false);
+	void SetModelShaderParam(int id, int param, Fvector4 v, bool bHud = false) { SetModelShaderParam(id, param, v.x, v.y, v.z, v.w, bHud); }
+	void SetModelShaderParam(int id, int param, float x, float y, float z, float w, bool bHud = false);
+	void ClearModelShaderParams(int id, bool bHud = false);
 
 	script_attachment* AddAttachment(LPCSTR name, LPCSTR model_name);
 	script_attachment* GetAttachment(LPCSTR name);

@@ -236,7 +236,9 @@ public:
 
 	Flags32 m_debug_render_flags;
 	xr_map<shared_str, DBG_ScriptObject*> m_debug_render_queue;
+	xr_vector<DBG_ScriptObject*> m_debug_render_queue_immediate;
 	xr_map<shared_str, DBG_ScriptObject*>* getScriptRenderQueue() { return &m_debug_render_queue; }
+    xr_vector<DBG_ScriptObject*>* getImmediateScriptRenderQueue() { return &m_debug_render_queue_immediate; }
 	void ScriptDebugRender();
 
 	virtual shared_str OpenDemoFile(const char* demo_file_name);

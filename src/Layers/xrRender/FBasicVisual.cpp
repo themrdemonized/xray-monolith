@@ -28,10 +28,14 @@ dxRender_Visual::dxRender_Visual()
 	Type = 0;
 	shader = 0;
 	vis.clear();
+    dbg_id = 1;
+    skinning = 1;
+    shader_params = nullptr;
 }
 
 dxRender_Visual::~dxRender_Visual()
 {
+    xr_delete(shader_params);
 }
 
 void dxRender_Visual::Release()
@@ -82,45 +86,6 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 #endif
 }
 
-//--DSR-- HeatVision_start
-CTexture* dxRender_Visual::GetTexture()
-{
-	Shader* pSh = shader._get();
-	if (pSh == 0) 
-		return 0;
-
-	ShaderElement* pShE = pSh->E[0]._get();
-	if (pShE == 0 || pShE->passes.empty()) 
-		return 0;
-
-	SPass* pPass = pShE->passes[0]._get();
-	if (pPass == 0)
-		return 0;
-
-	STextureList* pTexList = pPass->T._get();
-	if (pTexList == 0 || pTexList->empty()) 
-		return 0;
-
-	return pTexList->at(0).second._get();
-}
-
-void dxRender_Visual::MarkAsHot(bool is_hot) 
-{
-	auto texture = GetTexture();
-	if (texture)
-		texture->m_is_hot = is_hot;
-}
-//--DSR-- HeatVision_end
-
-//--DSR-- SilencerOverheat_start
-void dxRender_Visual::MarkAsGlowing(bool is_glowing)
-{
-	auto texture = GetTexture();
-	if (texture)
-		texture->m_is_glowing = is_glowing;
-}
-//--DSR-- SilencerOverheat_end
-
 void dxRender_Visual::SetShaderTexture(LPCSTR s_shader, LPCSTR s_texture)
 {
 	if (s_shader && strlen(s_shader))
@@ -156,6 +121,31 @@ void dxRender_Visual::ResetShaderTexture()
 {
 	if (!dbg_shader.equal(dbg_shader_def) || !dbg_texture.equal(dbg_texture_def))
 		SetShaderTexture(*dbg_shader_def, *dbg_texture_def);
+}
+
+void dxRender_Visual::SetShaderParam(int param, float x, float y, float z, float w)
+{
+    if (param < 1 || param > 8) return;
+
+    if (!shader_params)
+    {
+        shader_params = xr_alloc<Fvector4>(8);
+        for (int i = 0; i < 8; ++i)
+            shader_params[i].set(0, 0, 0, 0);
+    }
+
+    shader_params[param - 1].set(x, y, z, w);
+}
+
+void dxRender_Visual::SetShaderParams(Fvector4* params)
+{
+    if (!shader_params) shader_params = xr_alloc<Fvector4>(8);
+    CopyMemory(shader_params, params, sizeof(Fvector4) * 8);
+}
+
+void dxRender_Visual::ResetShaderParams()
+{
+    if (shader_params) xr_delete(shader_params);
 }
 
 #define PCOPY(a)	a = pFrom->a

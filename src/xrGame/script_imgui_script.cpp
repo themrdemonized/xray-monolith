@@ -303,6 +303,8 @@ void ScriptImGui::script_register(::lua_State* L)
 		def("PopFont", &ImGui::PopFont),
 		def("GetFontSize", &ImGui::GetFontSize),
 
+		def("Gizmo3D", &ImGui_Gizmo3D, out_value<2>()),
+
 		def("GetClipboardText", &ImGui_GetClipboardText),
 		def("SetClipboardText", &ImGui::SetClipboardText)
 	],

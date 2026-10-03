@@ -85,9 +85,11 @@ public:
 	Fmatrix mView;
 	Fmatrix mProject;
 	Fmatrix mProjectHud;
+	Fmatrix mProjectCamAttached;
 	Fmatrix mProject3DIcons;
 	Fmatrix mFullTransform;
 	Fmatrix mFullTransformHud;
+	Fmatrix mFullTransformCamAttached;
 	Fmatrix mFullTransform3DIcons;
 
 	Fmatrix mView_prev;
@@ -392,6 +394,10 @@ public:
 		return hud_to_world(m, mProjectHud);
 	}
 
+	Fmatrix& cam_to_world(Fmatrix& m)
+	{
+		return hud_to_world(m, mProjectCamAttached);
+	}
 	Fvector& world_to_hud(Fvector& v, const Fmatrix& p)
 	{
 		mInvView.transform_tiny(v);

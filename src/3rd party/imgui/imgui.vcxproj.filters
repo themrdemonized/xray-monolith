@@ -5,6 +5,9 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="imGuIZMO">
+      <UniqueIdentifier>{98c0d7c2-7c7d-4c71-b1d2-0d7382edefe3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imconfig.h" />
@@ -23,6 +26,9 @@
       <Filter>backends</Filter>
     </ClInclude>
     <ClInclude Include="imgui_custom.h" />
+    <ClInclude Include="..\imGuIZMO.quat\imguizmo_quat\imGuIZMOquat.h">
+      <Filter>imGuIZMO</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="backends\imgui_impl_dx9.cpp">
@@ -41,6 +47,9 @@
     <ClCompile Include="imgui_draw.cpp" />
     <ClCompile Include="imgui_custom.cpp">
       <Filter>backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imGuIZMO.quat\imguizmo_quat\imGuIZMOquat.cpp">
+      <Filter>imGuIZMO</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

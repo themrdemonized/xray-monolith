@@ -23,10 +23,6 @@ public:
 	virtual void Copy(dxRender_Visual* pFrom);
 	virtual void Release();
 
-	//--DSR-- HeatVision_start
-	virtual void MarkAsHot(bool is_hot);
-	//--DSR-- HeatVision_end
-
 	virtual xr_vector<IRenderVisual*>* get_children() { return &children; };
 	virtual xr_vector<IRenderVisual*>* get_children_invisible() { return &children_invisible; };
 };

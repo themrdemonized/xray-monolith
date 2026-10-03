@@ -36,7 +36,7 @@ class CPHShell :
 	JOINT_STORAGE joints;
 	CPHShellSplitterHolder* m_spliter_holder;
 	CPHMoveStorage m_traced_geoms;
-
+	float m_fScale;
 
 	CPhysicsShellAnimator* m_pPhysicsShellAnimatorC;
 
@@ -159,9 +159,6 @@ public:
 	virtual void applyImpulse(const Fvector& dir, float val);
 	virtual void _BCL applyGravityAccel(const Fvector& accel);
 
-    float m_fScale;
-    virtual void SetScale(float scale);
-
 	virtual void setTorque(const Fvector& torque);
 	virtual void setForce(const Fvector& force);
 
@@ -233,6 +230,8 @@ public:
 	virtual void DisableCollision();
 	virtual void EnableCollision();
 	virtual void SetDeadBody();
+	virtual void SetScale(float scale);
+	virtual float GetScale() { return m_fScale; }
 	virtual bool isEnabled() const { return CPHObject::is_active(); }
 	virtual bool isActive() const { return !!m_flags.test(flActive); }
 	virtual bool isFullActive() const { return isActive() && !m_flags.test(flActivating); }
@@ -299,6 +298,11 @@ public:
 	void DeleteElement(u16 element);
 	void DeleteJoint(u16 joint);
 	u16 BoneIdToRootGeom(u16 id);
+	IC CPHElement& root_element()
+	{
+		VERIFY(!elements.empty());
+		return *(*elements.begin());
+	}
 	/////////////////////////////////////////////////////////////////////////////////////////////////////
 protected:
 	virtual void get_spatial_params();
@@ -328,11 +332,6 @@ private:
 	void ClearBreakInfo();
 	Fmatrix& get_animation_root_matrix(Fmatrix& m);
 	void update_root_transforms();
-	IC CPHElement& root_element()
-	{
-		VERIFY(!elements.empty());
-		return *(*elements.begin());
-	}
 
 private:
 	virtual iphysics_scripted& get_scripted() { return *this; }

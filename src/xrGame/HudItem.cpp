@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "HudItem.h"
 #include "physic_item.h"
 #include "actor.h"
@@ -21,6 +21,8 @@
 #include "clsid_game.h"
 #include "weaponpistol.h"
 #include "HUDManager.h"
+
+#include "script_attachment_manager.h"
 
 ENGINE_API extern float psHUD_FOV_def;
 int g_nearwall = NW_FOV;
@@ -52,6 +54,8 @@ CHudItem::CHudItem()
 	script_ui_funct = nullptr;
 	script_ui_bone = nullptr;
 	script_ui_matrix.identity();
+
+	m_instance_holder_hud = nullptr;
 }
 
 DLL_Pure* CHudItem::_construct()
@@ -1199,7 +1203,6 @@ void CAnonHudItem::UpdateXForm() { }
 
 void CAnonHudItem::on_renderable_Render() { }
 
-#ifdef ATTACHMENT_HUD_VISBOX
 void VisualCallbackHud(IKinematics* tpKinematics)
 {
 	CHudItem* game_object = static_cast<CHudItem*>((tpKinematics->GetUpdateCallbackParam()));
@@ -1237,4 +1240,3 @@ void CHudItem::SetKinematicsCallback(bool set)
 	else
 		HudItemData()->m_model->Callback(0, 0);
 }
-#endif

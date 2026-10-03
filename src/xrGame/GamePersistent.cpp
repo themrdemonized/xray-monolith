@@ -863,6 +863,17 @@ void CGamePersistent::ImGui_OnRender(LPCSTR name)
 	}
 }
 
+void CGamePersistent::ImGui_OnShow(bool show)
+{
+	if (!g_pGameLevel || !g_pGameLevel->bReady) return;
+
+	::luabind::functor<void> imgui_show;
+	if (ai().script_engine().functor("callbacks_gameobject.on_imgui_show", imgui_show))
+	{
+        imgui_show(show);
+	}
+}
+
 #include "game_sv_single.h"
 #include "xrServer.h"
 #include "UIGameCustom.h"

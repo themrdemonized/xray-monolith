@@ -33,9 +33,8 @@ protected:
 	dGeomID m_geom_transform;
 	u16 m_bone_id;
 	Flags16 m_flags;
-protected:
-
-
+public:
+	Fvector def_translate;
 public:
 	//get
 	virtual float volume() =0;
@@ -177,6 +176,7 @@ public:
 	virtual void set_build_position(const Fvector& ref_point);
 	void set_size(const Fvector& half_size);
 	void get_size(Fvector& half_size) const;
+	Fvector def_half_size;
 private:
 #ifdef	DEBUG
 	virtual		void		dbg_draw			( float scale, u32 color, Flags32 flags ) const						;
@@ -203,6 +203,7 @@ public:
 	virtual void set_local_form(const Fmatrix& form);
 	virtual dGeomID create();
 	virtual void set_build_position(const Fvector& ref_point);
+	float def_radius;
 
 private:
 #ifdef	DEBUG
@@ -230,9 +231,10 @@ public:
 	virtual dGeomID create();
 	virtual void set_build_position(const Fvector& ref_point);
 	void set_radius(float r);
-
-    virtual float height();
-    void set_height(float h);
+	virtual float height();
+	void set_height(float h);
+	float m_def_radius;
+	float m_def_height;
 private:
 #ifdef	DEBUG
 	virtual		void		dbg_draw			( float scale, u32 color, Flags32 flags ) const;

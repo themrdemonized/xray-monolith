@@ -32,10 +32,7 @@ public:
 	virtual BOOL renderable_ShadowGenerate() { return FALSE; };
 	virtual BOOL renderable_ShadowReceive() { return FALSE; };
 
-	virtual float GetHotness() { return 0.0; }			//--DSR-- HeatVision
-	virtual float GetTransparency() { return 0.0; }		//--DSR-- HeatVision
-	virtual float GetGlowing() { return 0.0; }			//--DSR-- SilencerOverheat
-
+    virtual Fvector4* GetShaderParams() { return nullptr; }
 };
 
 #endif // IRENDERABLE_H_INCLUDED

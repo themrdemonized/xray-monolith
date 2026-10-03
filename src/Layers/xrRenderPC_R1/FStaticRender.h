@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "../xrRender/r__dsgraph_structure.h"
 
@@ -15,6 +15,7 @@
 #include "lightProjector.h"
 #include "lightPPA.h"
 #include "../xrRender/light_DB.h"
+#include "../../Include/xrRender/RenderVisual.h"
 #include "../../xrEngine/fmesh.h"
 
 class dxRender_Visual;
@@ -115,6 +116,12 @@ public:
 	IRenderVisual* model_CreatePE(LPCSTR name);
 	void ApplyBlur4(FVF::TL4uv* dest, u32 w, u32 h, float k);
 	void apply_object(IRenderable* O);
+    ICF void apply_visual(IRenderVisual* vis)
+    {
+        if (!vis) return;
+        Fvector4* params = vis->GetShaderParams();
+        if (params) RCache.hemi.set_model_params(params);
+    }
 	IC void apply_lmaterial()
 	{
 		RCache.bus_object.apply_static();

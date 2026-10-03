@@ -49,6 +49,7 @@
 #include "player_hud.h"
 #include "script_attachment_manager.h"
 #include "CustomDevice.h"
+#include "CharacterPhysicsSupport.h"
 
 class CScriptBinderObject;
 
@@ -702,7 +703,22 @@ void CScriptGameObject::set_bone_visible(u16 bone_id, bool bVisibility, bool bRe
 		return;
 
 	if (bVisibility != !!k->LL_GetBoneVisible(bone_id))
+	{
 		k->LL_SetBoneVisible(bone_id, bVisibility, bRecursive);
+
+		CPhysicsShellHolder* holder = object().cast_physics_shell_holder();
+		if (!holder) return;
+
+		CCharacterPhysicsSupport* phys = holder->character_physics_support();
+
+		if (phys)
+			phys->RecreateSkeleton();
+		else if (holder->m_pPhysicsShell && holder->m_pPhysicsShell->isActive())
+		{
+			holder->deactivate_physics_shell();
+			holder->activate_physic_shell();
+		}
+	}
 }
 
 bool CScriptGameObject::is_bone_visible(u16 bone_id, bool bHud)
@@ -1420,21 +1436,27 @@ CGameObject& CScriptGameObject::object() const
 		return table;
 	}
 
-	for (auto* child : *children)
-	{
-		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-		subtable["shader"] = child->getDebugShader();
-		subtable["texture"] = child->getDebugTexture();
-		table[child->getID()] = subtable;
-	}
-
-	for (auto* child : *children_invisible)
-	{
-		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-		subtable["shader"] = child->getDebugShader();
-		subtable["texture"] = child->getDebugTexture();
-		table[child->getID()] = subtable;
-	}
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+            subtable["shader"] = child->getDebugShader();
+            subtable["texture"] = child->getDebugTexture();
+            table[child->getID()] = subtable;
+        }
+    }
+	
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+            subtable["shader"] = child->getDebugShader();
+            subtable["texture"] = child->getDebugTexture();
+            table[child->getID()] = subtable;
+        }
+    }
 
 	return table;
 }
@@ -1504,21 +1526,27 @@ CGameObject& CScriptGameObject::object() const
 		return table;
 	}
 
-	for (auto* child : *children)
-	{
-		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-		subtable["shader"] = child->getDebugShaderDef();
-		subtable["texture"] = child->getDebugTextureDef();
-		table[child->getID()] = subtable;
-	}
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+            subtable["shader"] = child->getDebugShaderDef();
+            subtable["texture"] = child->getDebugTextureDef();
+            table[child->getID()] = subtable;
+        }
+    }
 
-	for (auto* child : *children_invisible)
-	{
-		::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
-		subtable["shader"] = child->getDebugShaderDef();
-		subtable["texture"] = child->getDebugTextureDef();
-		table[child->getID()] = subtable;
-	}
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+            subtable["shader"] = child->getDebugShaderDef();
+            subtable["texture"] = child->getDebugTextureDef();
+            table[child->getID()] = subtable;
+        }
+    }
 
 	return table;
 }
@@ -1536,29 +1564,43 @@ void set_shader_tex(IRenderVisual* vis, int id, LPCSTR shader, LPCSTR texture)
 
 	if (id < 1)
 	{
-		for (auto* child : *children)
-		{
-			child->SetShaderTexture(shader, texture);
-		}
-		for (auto* child : *children_invisible)
-		{
-			child->SetShaderTexture(shader, texture);
-		}
+        if (children)
+        {
+            for (auto* child : *children)
+            {
+                child->SetShaderTexture(shader, texture);
+            }
+        }
+
+        if (children_invisible)
+        {
+            for (auto* child : *children_invisible)
+            {
+                child->SetShaderTexture(shader, texture);
+            }
+        }
 		return;
 	}
 
-	for (auto* child : *children)
-	{
-		if (child->getID() != id) continue;
-		child->SetShaderTexture(shader, texture);
-		return;
-	}
-	for (auto* child : *children_invisible)
-	{
-		if (child->getID() != id) continue;
-		child->SetShaderTexture(shader, texture);
-		return;
-	}
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            if (child->getID() != id) continue;
+            child->SetShaderTexture(shader, texture);
+            return;
+        }
+    }
+
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            if (child->getID() != id) continue;
+            child->SetShaderTexture(shader, texture);
+            return;
+        }
+    }
 }
 
 void reset_shader_tex(IRenderVisual* vis, int id)
@@ -1574,29 +1616,43 @@ void reset_shader_tex(IRenderVisual* vis, int id)
 
 	if (id < 1)
 	{
-		for (auto* child : *children)
-		{
-			child->ResetShaderTexture();
-		}
-		for (auto* child : *children_invisible)
-		{
-			child->ResetShaderTexture();
-		}
+        if (children)
+        {
+            for (auto* child : *children)
+		    {
+			    child->ResetShaderTexture();
+		    }
+        }
+
+        if (children_invisible)
+        {
+            for (auto* child : *children_invisible)
+            {
+                child->ResetShaderTexture();
+            }
+        }
 		return;
 	}
 
-	for (auto* child : *children)
-	{
-		if (child->getID() != id) continue;
-		child->ResetShaderTexture();
-		return;
-	}
-	for (auto* child : *children_invisible)
-	{
-		if (child->getID() != id) continue;
-		child->ResetShaderTexture();
-		return;
-	}
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            if (child->getID() != id) continue;
+            child->ResetShaderTexture();
+            return;
+        }
+    }
+
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            if (child->getID() != id) continue;
+            child->ResetShaderTexture();
+            return;
+        }
+    }
 }
 
 void CScriptGameObject::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud)
@@ -1738,6 +1794,326 @@ void CScriptGameObject::ResetLegsShader(int id)
 
 	if (act->m_legs_controller.is_active())
 		reset_shader_tex(act->m_legs_controller.model()->dcast_RenderVisual(), id);
+}
+
+Fvector4* CScriptGameObject::GetModelShaderParam_Script(int id, int param, bool bHud)
+{
+    if (param < 1 || param > 8) return nullptr;
+
+    IKinematics* k = nullptr;
+
+    if (bHud)
+    {
+        CActor* act = smart_cast<CActor*>(&object());
+        CHudItem* itm = smart_cast<CHudItem*>(&object());
+        if (itm)
+            k = itm->HudItemData()->m_model;
+        else if (act)
+            k = g_player_hud->m_model->dcast_PKinematics();
+    }
+
+    if (!k)
+        k = object().Visual()->dcast_PKinematics();
+
+    if (!k) return nullptr;
+
+    xr_vector<IRenderVisual*>* children = k->dcast_RenderVisual()->get_children();
+    xr_vector<IRenderVisual*>* children_invisible = k->dcast_RenderVisual()->get_children_invisible();
+
+    if (!children && !children_invisible)
+    {
+        Fvector4* shader_params = k->dcast_RenderVisual()->GetShaderParams();
+        if (!shader_params) return nullptr;
+        return &shader_params[param - 1];
+    }
+
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            if (child->getID() != id) continue;
+            Fvector4* shader_params = child->GetShaderParams();
+            if (!shader_params) return nullptr;
+            return &shader_params[param - 1];
+        }
+    }
+
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            if (child->getID() != id) continue;
+            Fvector4* shader_params = child->GetShaderParams();
+            if (!shader_params) return nullptr;
+            return &shader_params[param - 1];
+        }
+    }
+
+    return nullptr;
+}
+
+::luabind::object CScriptGameObject::GetModelShaderParams_Script(bool bHud)
+{
+    ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+    IKinematics* k = nullptr;
+
+    if (bHud)
+    {
+        CActor* act = smart_cast<CActor*>(&object());
+        CHudItem* itm = smart_cast<CHudItem*>(&object());
+        if (itm)
+            k = itm->HudItemData()->m_model;
+        else if (act)
+            k = g_player_hud->m_model->dcast_PKinematics();
+    }
+
+    if (!k)
+        k = object().Visual()->dcast_PKinematics();
+
+    if (!k)
+    {
+        table["error"] = true;
+        return table;
+    }
+
+    xr_vector<IRenderVisual*>* children = k->dcast_RenderVisual()->get_children();
+    xr_vector<IRenderVisual*>* children_invisible = k->dcast_RenderVisual()->get_children_invisible();
+
+    if (!children && !children_invisible)
+    {
+        ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+        Fvector4* shader_params = k->dcast_RenderVisual()->GetShaderParams();
+
+        if (!shader_params)
+        {
+            table["error"] = true;
+            return table;
+        }
+
+        for (int i = 0; i < 8; ++i)
+            subtable[i + 1] = shader_params[i];
+        table[1] = subtable;
+        return table;
+    }
+
+    bool t_error = true;
+
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+            Fvector4* shader_params = child->GetShaderParams();
+
+            if (shader_params)
+                t_error = false;
+            else
+                continue;
+
+            for (int i = 0; i < 8; ++i)
+                subtable[i + 1] = shader_params[i];
+            table[child->getID()] = subtable;
+        }
+    }
+
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            ::luabind::object subtable = ::luabind::newtable(ai().script_engine().lua());
+            Fvector4* shader_params = child->GetShaderParams();
+
+            if (shader_params)
+                t_error = false;
+            else
+                continue;
+
+            for (int i = 0; i < 8; ++i)
+                subtable[i + 1] = shader_params[i];
+            table[child->getID()] = subtable;
+        }
+    }
+
+    if (t_error) table["error"] = true;
+
+    return table;
+}
+
+void set_shader_param(IRenderVisual* vis, int id, int param, float x, float y, float z, float w)
+{
+    xr_vector<IRenderVisual*>* children = vis->get_children();
+    xr_vector<IRenderVisual*>* children_invisible = vis->get_children_invisible();
+
+    if (!children && !children_invisible)
+    {
+        vis->SetShaderParam(param, x, y, z, w);
+        return;
+    }
+
+    if (id < 1)
+    {
+        if (children)
+        {
+            for (auto* child : *children)
+            {
+                child->SetShaderParam(param, x, y, z, w);
+            }
+        }
+
+        if (children_invisible)
+        {
+            for (auto* child : *children_invisible)
+            {
+                child->SetShaderParam(param, x, y, z, w);
+            }
+        }
+        return;
+    }
+
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            if (child->getID() != id) continue;
+            child->SetShaderParam(param, x, y, z, w);
+            return;
+        }
+    }
+
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            if (child->getID() != id) continue;
+            child->SetShaderParam(param, x, y, z, w);
+            return;
+        }
+    }
+}
+
+void reset_shader_params(IRenderVisual* vis, int id)
+{
+    xr_vector<IRenderVisual*>* children = vis->get_children();
+    xr_vector<IRenderVisual*>* children_invisible = vis->get_children_invisible();
+
+    if (!children && !children_invisible)
+    {
+        vis->ResetShaderParams();
+        return;
+    }
+
+    if (id < 1)
+    {
+        if (children)
+        {
+            for (auto* child : *children)
+            {
+                child->ResetShaderParams();
+            }
+        }
+
+        if (children_invisible)
+        {
+            for (auto* child : *children_invisible)
+            {
+                child->ResetShaderParams();
+            }
+        }
+        return;
+    }
+
+    if (children)
+    {
+        for (auto* child : *children)
+        {
+            if (child->getID() != id) continue;
+            child->ResetShaderParams();
+            return;
+        }
+    }
+
+    if (children_invisible)
+    {
+        for (auto* child : *children_invisible)
+        {
+            if (child->getID() != id) continue;
+            child->ResetShaderParams();
+            return;
+        }
+    }
+}
+
+void CScriptGameObject::SetModelShaderParam(int id, int param, float x, float y, float z, float w, bool bHud)
+{
+    IKinematics* k = nullptr;
+
+    if (bHud)
+    {
+        CActor* act = smart_cast<CActor*>(&object());
+        CHudItem* itm = smart_cast<CHudItem*>(&object());
+        if (itm)
+            k = itm->HudItemData()->m_model;
+        else if (act)
+        {
+            set_shader_param(g_player_hud->m_model->dcast_RenderVisual(), id, param, x, y, z, w);
+            set_shader_param(g_player_hud->m_model_2->dcast_RenderVisual(), id, param, x, y, z, w);
+            return;
+        }
+    }
+
+    if (!k)
+        k = object().Visual()->dcast_PKinematics();
+
+    if (!k) return;
+
+    set_shader_param(k->dcast_RenderVisual(), id, param, x, y, z, w);
+}
+
+void CScriptGameObject::ClearModelShaderParams(int id, bool bHud)
+{
+    IKinematics* k = nullptr;
+
+    if (bHud)
+    {
+        CActor* act = smart_cast<CActor*>(&object());
+        CHudItem* itm = smart_cast<CHudItem*>(&object());
+        if (itm)
+            k = itm->HudItemData()->m_model;
+        else if (act)
+        {
+            reset_shader_params(g_player_hud->m_model->dcast_RenderVisual(), id);
+            reset_shader_params(g_player_hud->m_model_2->dcast_RenderVisual(), id);
+            return;
+        }
+    }
+
+    if (!k)
+        k = object().Visual()->dcast_PKinematics();
+
+    if (!k) return;
+
+    reset_shader_params(k->dcast_RenderVisual(), id);
+}
+
+Fvector4* CScriptGameObject::GetShaderParam_Script(int param)
+{
+    return object().GetShaderParam_Script(param);
+}
+
+::luabind::object CScriptGameObject::GetShaderParams_Script()
+{
+    return object().GetShaderParams_Script();
+}
+
+void CScriptGameObject::SetShaderParam(int param, float x, float y, float z, float w)
+{
+    object().SetShaderParam(param, x, y, z, w);
+}
+
+void CScriptGameObject::ClearShaderParams()
+{
+    object().ClearShaderParams();
 }
 
 bool CScriptGameObject::IsPending()

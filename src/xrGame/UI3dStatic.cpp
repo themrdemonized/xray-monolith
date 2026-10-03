@@ -373,14 +373,14 @@ void CUI3dStatic::DrawAttachmentIcon(script_attachment* att, const Fmatrix& matr
     trans.mulB_43(att->GetOffset());
 
     ::Render->set_Transform(&trans);
-    ::Render->add_Visual(att->renderable.visual);
+    ::Render->add_Visual(att->Visual());
 
     for (auto& pair : *att->GetAttachments())
     {
         script_attachment* cat = pair.second;
         if (cat->GetType() != eSA_World) continue;
 
-        DrawAttachmentIcon(cat, trans, att->renderable.visual->dcast_PKinematics());
+        DrawAttachmentIcon(cat, trans, att->Visual()->dcast_PKinematics());
     }
 }
 
