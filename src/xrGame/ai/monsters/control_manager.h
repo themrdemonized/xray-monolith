@@ -97,6 +97,13 @@ public:
 
 	bool check_start_conditions(ControlCom::EControlType);
 
+	// the element map null-inserts on a miss, so unchecked access to an unregistered type derefs null
+	bool is_registered(ControlCom::EControlType type) const
+	{
+		CONTROLLERS_MAP::const_iterator it = m_control_elems.find(type);
+		return (it != m_control_elems.end()) && it->second;
+	}
+
 	// path buidler specials
 	bool build_path_line(CControl_Com*, const Fvector& target, u32 node, u32 vel_mask);
 

@@ -37,6 +37,13 @@ public:
 	IC float get_min_distance();
 	IC float get_max_distance();
 
+	// negative argument keeps the current value
+	IC void set_attack_distance(float min_dist, float max_dist)
+	{
+		if (min_dist >= 0.f) m_min_attack_distance = min_dist;
+		if (max_dist >= 0.f) m_max_attack_distance = max_dist;
+	}
+
 	bool can_start_melee(const CEntityAlive* enemy);
 	bool should_stop_melee(const CEntityAlive* enemy);
 
