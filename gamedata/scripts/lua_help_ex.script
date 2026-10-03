@@ -1467,6 +1467,7 @@
         function Set_mStrapOffset(Fvector position, Fvector orientation)
         function Set_mFirePoint(Fvector position)
         function Set_mFirePoint2(Fvector position)
+        function Set_mFirePointSilencer(Fvector position)
         function Set_mShellPoint(Fvector position)  
 
         function Get_mOffset()

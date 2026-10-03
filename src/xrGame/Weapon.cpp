@@ -963,6 +963,10 @@ void CWeapon::set_mShellPoint(Fvector &fire_point) {
 	vLoadedShellPoint = fire_point;
 }
 
+void CWeapon::set_mFirePointSilencer(Fvector &fire_point) {
+	vLoadedFirePointSilencer = fire_point;
+}
+
 // Private_Pirate:
 // Control weapon inertia on mouse movement
 // Getters
