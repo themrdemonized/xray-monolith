@@ -928,6 +928,10 @@ void CWeapon::set_mShellPoint(Fvector &fire_point) {
 	vLoadedShellPoint = fire_point;
 }
 
+void CWeapon::set_mFirePointSilencer(Fvector &fire_point) {
+	vLoadedFirePointSilencer = fire_point;
+}
+
 // An attached suppressor is renamed only from the net spawn hook, where InitAddons follows
 bool CWeapon::SetSilencerName(LPCSTR section)
 {

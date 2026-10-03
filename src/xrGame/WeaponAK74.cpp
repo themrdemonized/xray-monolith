@@ -148,6 +148,7 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("Set_mStrapOffset", &CWeapon::set_mStrapOffset)
 			.def("Set_mFirePoint", &CWeapon::set_mFirePoint)
 			.def("Set_mFirePoint2", &CWeapon::set_mFirePoint2)
+			.def("Set_mFirePointSilencer", &CWeapon::set_mFirePointSilencer)
 			.def("Set_mShellPoint", &CWeapon::set_mShellPoint)
 
 			.def("Get_mOffset", &CWeapon::get_mOffset)

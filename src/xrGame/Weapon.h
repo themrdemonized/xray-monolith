@@ -141,6 +141,7 @@ public:
 	void set_mFirePoint(Fvector &fire_point);
 	void set_mFirePoint2(Fvector &fire_point);
 	void set_mShellPoint(Fvector &fire_point);
+	void set_mFirePointSilencer(Fvector &fire_point);
 	Fmatrix get_mOffset() { return m_Offset; };
 	Fmatrix get_mStrapOffset() { return m_StrapOffset; };
 
