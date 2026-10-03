@@ -1300,7 +1300,7 @@ void CInventoryItem::UpdateXForm()
 	if (parent && parent->use_simplified_visual())
 		return;
 
-	if (parent->attached(this))
+	if (parent && parent->attached(this))
 		return;
 
 	R_ASSERT(E);

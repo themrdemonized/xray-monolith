@@ -16,7 +16,7 @@ if /I "%~1"=="x64" (
 REM Build minilua if missing
 if not exist "host\minilua.exe" (
   echo [LuaJIT] Building host\minilua.exe
-  cl /nologo /c /O2 /Ob3 /Oi /Ot /Oy /GT /W3 /fp:precise /MD /GF /GS- /Zi /D_CRT_SECURE_NO_DEPRECATE host\minilua.c || exit /b 1
+  cl /nologo /c /O2 /Ob3 /Oi /Ot /Oy /GT /W3 /fp:precise /MT /GF /GS- /Zi /D_CRT_SECURE_NO_DEPRECATE host\minilua.c || exit /b 1
   link /nologo /OPT:REF /OPT:ICF /out:host\minilua.exe minilua.obj || exit /b 1
 )
 
@@ -27,7 +27,7 @@ echo [LuaJIT] Running DynASM to generate host\buildvm_arch.h
 REM Build buildvm if missing
 if not exist "host\buildvm.exe" (
   echo [LuaJIT] Building host\buildvm.exe
-  cl /nologo /c /O2 /Ob3 /Oi /Ot /Oy /GT /W3 /fp:precise /MD /GF /GS- /Zi /I "." /I "..\dynasm" host\buildvm.c host\buildvm_peobj.c host\buildvm_lib.c host\buildvm_asm.c host\buildvm_fold.c || exit /b 1
+  cl /nologo /c /O2 /Ob3 /Oi /Ot /Oy /GT /W3 /fp:precise /MT /GF /GS- /Zi /I "." /I "..\dynasm" host\buildvm.c host\buildvm_peobj.c host\buildvm_lib.c host\buildvm_asm.c host\buildvm_fold.c || exit /b 1
   link /nologo /OPT:REF /OPT:ICF /out:host\buildvm.exe buildvm.obj buildvm_peobj.obj buildvm_lib.obj buildvm_asm.obj buildvm_fold.obj || exit /b 1
 )
 

@@ -571,6 +571,10 @@ void hud_item_measures::load(const shared_str& sect_name, IKinematics* K)
 	strconcat(sizeof(val_name), val_name, "attach_mount_hud_offset_rot", _prefix);
 	m_hands_offset[1][7] = READ_IF_EXISTS(pSettings, r_fvector3, sect_name, val_name, vZero);
 
+    //custom HUD offset
+    m_hands_offset[0][8] = Fvector().set(0, 0, 0);
+    m_hands_offset[1][8] = Fvector().set(0, 0, 0);
+
 	m_fFreelookZOffset = READ_IF_EXISTS(pSettings, r_float, sect_name, "freelook_z_offset_mul", 0.f);
 	m_bLeadGunLeftHand = READ_IF_EXISTS(pSettings, r_bool, sect_name, "lh_lead_gun", false);
 

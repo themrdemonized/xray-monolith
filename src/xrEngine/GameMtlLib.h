@@ -122,6 +122,7 @@ public:
 	float fVisTransparencyFactor; // 0.f - 1.f (1.f-полностью прозрачный)
 	float fSndOcclusionFactor; // 0.f - 1.f (1.f-полностью слышен)
 	float fDensityFactor;
+    float fCollisionSoundVel;
 public:
 	SGameMtl()
 	{
@@ -143,6 +144,8 @@ public:
 		fPHBounceStartVelocity = 0.f;
 		fPHBouncing = 0.1f;
 		fDensityFactor = 0.0f;
+        // sounds
+        fCollisionSoundVel = 10.f;
 	}
 
 	void Load(IReader& fs);
