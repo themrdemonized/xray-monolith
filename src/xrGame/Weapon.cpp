@@ -963,25 +963,6 @@ void CWeapon::set_mShellPoint(Fvector &fire_point) {
 }
 
 // Private_Pirate:
-// HUD model shot particle adjustments
-void CWeapon::SetFirePoint(Fvector fire_point) {
-	HudItemData()->m_measures.m_fire_point_offset = fire_point;
-}
-
-void CWeapon::SetFirePoint2(Fvector fire_point) {
-	HudItemData()->m_measures.m_fire_point2_offset = fire_point;
-}
-
-void CWeapon::SetFireBone(u16 bone_id) {
-	HudItemData()->m_measures.m_fire_bone = bone_id;
-}
-
-void CWeapon::SetFireBone(LPCSTR bone_name) {
-	auto* hud = HudItemData();
-	u16 bone_id = hud->m_model->LL_BoneID(bone_name);
-	hud->m_measures.m_fire_bone = bone_id;
-}
-
 // Control weapon inertia on mouse movement
 // Getters
 Fvector4 CWeapon::GetInertionOffsetLRUD() {

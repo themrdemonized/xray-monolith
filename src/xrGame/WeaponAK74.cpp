@@ -174,14 +174,6 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("HandDependence", &CWeapon::HandDependence)
 
 			//Private_Pirate:
-			// HUD model shot particle adjustments
-			.def("SetFirePoint", (void (CWeapon::*)(Fvector)) &CWeapon::SetFirePoint)
-			.def("SetFirePoint", (void (CWeapon::*)(float, float, float)) &CWeapon::SetFirePoint)
-			.def("SetFirePoint2", (void (CWeapon::*)(Fvector))& CWeapon::SetFirePoint2)
-			.def("SetFirePoint2", (void (CWeapon::*)(float, float, float))& CWeapon::SetFirePoint2)
-			.def("SetFireBone", (void (CWeapon::*)(u16)) &CWeapon::SetFireBone)
-			.def("SetFireBone", (void (CWeapon::*)(LPCSTR)) &CWeapon::SetFireBone)
-
 			// Control weapon inertia on mouse movement
 			// Getters
 			.def("GetInertionOffsetLRUD", &CWeapon::GetInertionOffsetLRUD)

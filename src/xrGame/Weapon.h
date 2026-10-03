@@ -147,24 +147,6 @@ public:
 	Fmatrix get_mStrapOffset() { return m_StrapOffset; };
 
 	// Private_Pirate:
-	// HUD model shot particle adjustments
-	void SetFirePoint(Fvector fire_point);
-	void SetFirePoint2(Fvector fire_point);
-	void SetFirePoint(float x, float y, float z)
-	{
-		Fvector fp{};
-		fp.set(x, y, z);
-		SetFirePoint(fp);
-	};
-	void SetFirePoint2(float x, float y, float z)
-	{
-		Fvector fp{};
-		fp.set(x, y, z);
-		SetFirePoint2(fp);
-	};
-	void SetFireBone(u16 bone_id);
-	void SetFireBone(LPCSTR bone_name);
-
 	// Control weapon inertia on mouse movement
 	// Getters
 	Fvector4 GetInertionOffsetLRUD();
