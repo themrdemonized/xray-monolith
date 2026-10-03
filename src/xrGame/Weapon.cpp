@@ -1051,6 +1051,15 @@ bool CWeapon::SetSilencerName(LPCSTR section)
 	return true;
 }
 
+void CWeapon::SetSilencerBoneHidden(bool hidden)
+{
+	if (m_bSilencerBoneHidden == hidden)
+		return;
+
+	m_bSilencerBoneHidden = hidden;
+	UpdateAddonsVisibility();
+}
+
 void CWeapon::LoadFireParams(LPCSTR section)
 {
 	cam_recoil.Dispersion = deg2rad(pSettings->r_float(section, "cam_dispersion"));
@@ -2074,7 +2083,7 @@ void CWeapon::UpdateHUDAddonsVisibility()
 
 	if (SilencerAttachable())
 	{
-		HudItemData()->set_bone_visible(wpn_silencer, IsSilencerAttached());
+		HudItemData()->set_bone_visible(wpn_silencer, IsSilencerAttached() && !m_bSilencerBoneHidden);
 	}
 	if (m_eSilencerStatus == ALife::eAddonDisabled)
 	{
@@ -2135,7 +2144,7 @@ void CWeapon::UpdateAddonsVisibility()
 	bone_id = pWeaponVisual->LL_BoneID(wpn_silencer);
 	if (SilencerAttachable())
 	{
-		if (IsSilencerAttached())
+		if (IsSilencerAttached() && !m_bSilencerBoneHidden)
 		{
 			if (!pWeaponVisual->LL_GetBoneVisible(bone_id))
 				pWeaponVisual->LL_SetBoneVisible(bone_id, TRUE, TRUE);
