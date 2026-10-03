@@ -814,3 +814,15 @@ void CScriptGameObject::set_scope_ui(LPCSTR scope_texture) {
 
 	weapon->SetUIScope(scope_texture);
 }
+
+void CScriptGameObject::reset_scope_ui() {
+	CWeapon * weapon = smart_cast<CWeapon*>(&object());
+	if (!weapon)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+										"CScriptGameObject : reset_scope_ui works only with CWeapon object!");
+		return;
+	}
+
+	weapon->ResetUIScope();
+}

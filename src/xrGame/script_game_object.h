@@ -1224,6 +1224,7 @@ public:
 	// demonized: get and set scope UI
 	::luabind::object get_scope_ui();
 	void set_scope_ui(LPCSTR scope_texture);
+	void reset_scope_ui();
 #endif
 	//-Alundaio
 
