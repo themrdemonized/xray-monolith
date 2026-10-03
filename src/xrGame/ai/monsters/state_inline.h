@@ -138,6 +138,16 @@ CStateAbstract* CStateAbstract::get_state(u32 state_id)
 }
 
 TEMPLATE_SPECIALIZATION
+CStateAbstract* CStateAbstract::get_state_if_present(u32 state_id)
+{
+	STATE_MAP_IT it = substates.find(state_id);
+	if (it == substates.end())
+		return 0;
+
+	return it->second;
+}
+
+TEMPLATE_SPECIALIZATION
 void CStateAbstract::add_state(u32 state_id, CSState* s)
 {
 	substates.insert(mk_pair(state_id, s));
