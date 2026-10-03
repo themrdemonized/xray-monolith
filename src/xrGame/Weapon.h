@@ -11,6 +11,8 @@
 #include "firedeps.h"
 #include "game_cl_single.h"
 #include "first_bullet_controller.h"
+#include "../Layers/xrRender/xrRender_console.h"
+#include "ActorNightVision.h"
 
 #include "CameraRecoil.h"
 
@@ -143,6 +145,59 @@ public:
 	void set_mShellPoint(Fvector &fire_point);
 	Fmatrix get_mOffset() { return m_Offset; };
 	Fmatrix get_mStrapOffset() { return m_StrapOffset; };
+
+	// Private_Pirate:
+	// HUD model shot particle adjustments
+	void SetFirePoint(Fvector fire_point);
+	void SetFirePoint2(Fvector fire_point);
+	void SetFirePoint(float x, float y, float z)
+	{
+		Fvector fp{};
+		fp.set(x, y, z);
+		SetFirePoint(fp);
+	};
+	void SetFirePoint2(float x, float y, float z)
+	{
+		Fvector fp{};
+		fp.set(x, y, z);
+		SetFirePoint2(fp);
+	};
+	void SetFireBone(u16 bone_id);
+	void SetFireBone(LPCSTR bone_name);
+
+	// Control weapon inertia on mouse movement
+	// Getters
+	Fvector4 GetInertionOffsetLRUD();
+	Fvector4 GetInertionOffsetLRUDAim();
+	float GetInertionTendtoSpeed();
+	float GetInertionTendtoAimSpeed();
+	float GetInertionTendtoRetSpeed();
+	float GetInertionTendtoRetAimSpeed();
+	float GetInertionMinAngle();
+	float GetInertionMinAngleAim();
+
+	// Setters
+	void SetInertionOffsetLRUD(Fvector4 LRUD);
+	void SetInertionOffsetLRUDAim(Fvector4 LRUD);
+	void SetInertionOffsetLRUD(float L, float R, float U, float D)
+	{
+		Fvector4 LRUD{};
+		LRUD.set(L, R, U, D);
+		SetInertionOffsetLRUD(LRUD);
+	};
+	void SetInertionOffsetLRUDAim(float L, float R, float U, float D)
+	{
+		Fvector4 LRUD{};
+		LRUD.set(L, R, U, D);
+		SetInertionOffsetLRUDAim(LRUD);
+	};
+	void SetInertionTendtoSpeed(float val);
+	void SetInertionTendtoAimSpeed(float val);
+	void SetInertionTendtoRetSpeed(float val);
+	void SetInertionTendtoRetAimSpeed(float val);
+	void SetInertionMinAngle(float angle);
+	void SetInertionMinAngleAim(float angle);
+	// Private_Pirate end
 
 	virtual void create_physic_shell();
 	virtual void activate_physic_shell();
@@ -356,6 +411,7 @@ protected:
 	ALife::EWeaponAddonStatus m_eScopeStatus;
 	ALife::EWeaponAddonStatus m_eSilencerStatus;
 	ALife::EWeaponAddonStatus m_eGrenadeLauncherStatus;
+	bool m_bUseEngineAttachments;
 
 
 	shared_str m_sScopeName;
@@ -402,6 +458,10 @@ protected:
 private:
 	bool firstZoomDone;
 
+protected:
+	bool m_bHandleZoomParameters;
+	bool m_bHandleCustomHudOffset;
+
 public:
 
 	IC bool IsZoomEnabled() const
@@ -409,7 +469,7 @@ public:
 		return m_zoom_params.m_bZoomEnabled;
 	}
 
-	virtual float GetMinScopeZoomFactor() const;
+	virtual float GetEffectiveMinScopeZoomFactor() const;
 	virtual void ZoomInc();
 	virtual void ZoomDec();
 	virtual void OnZoomIn();
@@ -422,6 +482,8 @@ public:
 
 	bool ZoomHideCrosshair();
 
+	void ResetCurrentZoomFactor();
+
 	IC float GetZoomFactor() const
 	{
 		return m_zoom_params.m_fCurrentZoomFactor;
@@ -432,12 +494,89 @@ public:
 		m_zoom_params.m_fCurrentZoomFactor = f;
 	}
 
-	virtual float CurrentZoomFactor();
-	//ïîêàçûâàåò, ÷òî îðóæèå íàõîäèòñÿ â ñîîñòîÿíèè ïîâîðîòà äëÿ ïðèáëèæåííîãî ïðèöåëèâàíèÿ
-	bool IsRotatingToZoom() const
+	IC float GetScopeZoomFactor() const
 	{
-		return (m_zoom_params.m_fZoomRotationFactor < 1.f);
+		return m_zoom_params.m_fScopeZoomFactor;
 	}
+
+	IC void SetScopeZoomFactor(float f)
+	{
+		m_zoom_params.m_fScopeZoomFactor = f;
+		ResetCurrentZoomFactor();
+	}
+
+	IC float GetMinScopeZoomFactor() const
+	{
+		return m_zoom_params.m_fMinBaseZoomFactor;
+	}
+
+	IC void SetMinScopeZoomFactor(float f)
+	{
+		m_zoom_params.m_fMinBaseZoomFactor = f;
+		ResetCurrentZoomFactor();
+	}
+
+	IC float GetZoomStepCount() const
+	{
+		return m_zoom_params.m_fZoomStepCount;
+	}
+
+	IC void SetZoomStepCount(float f)
+	{
+		m_zoom_params.m_fZoomStepCount = f;
+		ResetCurrentZoomFactor();
+	}
+
+	IC float IsDynamicZoom() const
+	{
+		return m_zoom_params.m_bUseDynamicZoom;
+	}
+
+	IC void SetDynamicZoom(bool b)
+	{
+		m_zoom_params.m_bUseDynamicZoom = b;
+		ResetCurrentZoomFactor();
+	}
+
+	IC LPCSTR GetZoomPostprocess() const
+	{
+		return *m_zoom_params.m_sUseZoomPostprocess;
+	}
+
+	void SetZoomPostprocess(LPCSTR s)
+	{
+		m_zoom_params.m_sUseZoomPostprocess = s;
+
+		if (m_zoom_params.m_pNight_vision) {
+			m_zoom_params.m_pNight_vision->Stop(100000.0f, false);
+			xr_delete(m_zoom_params.m_pNight_vision);
+		}
+
+		if (m_zoom_params.m_sUseZoomPostprocess.size()) {
+			m_zoom_params.m_pNight_vision = xr_new<CNightVisionEffector>(
+				m_zoom_params.m_sUseZoomPostprocess
+			);
+		}
+	}
+
+	void SetFlameParticles(LPCSTR s)
+	{
+		m_sFlameParticlesCurrent = s;
+	}
+
+	void SetSmokeParticles(LPCSTR s)
+	{
+		m_sSmokeParticlesCurrent = s;
+	}
+
+	void SetLightShotDisabled(bool b)
+	{
+		m_bLightShotEnabled = !b;
+	}
+
+	virtual float CurrentZoomFactor();
+	//показывает, что оружие находится в соостоянии поворота для приближенного прицеливания
+	bool IsRotatingToZoom();
 
 	virtual u8 GetCurrentHudOffsetIdx();
 
@@ -453,6 +592,7 @@ public:
 	float RealRPMScript() const { return 60.0f / fOneShotTime; } // Return actual RPM like in configs
 	float ModeRPMScript() const { return fModeShotTime; }
 	float ModeRealRPMScript() const { return 60.0f / fModeShotTime; }
+    LPCSTR GetAmmoNameScript() const { return m_ammoTypes[m_ammoType].c_str(); }
 
 	//Setters
 	void SetFireDispersionScript(float val) { fireDispersionBase = val; }
@@ -508,7 +648,8 @@ protected:
 
 	Fmatrix m_Offset;
 	Fvector m_hud_offset[2];
-	Fvector m_hud_aim_rot;
+	Fquaternion m_hud_rotation;
+	Fquaternion m_hud_aim_rotation;
 	// 0-èñïîëüçóåòñÿ áåç ó÷àñòèÿ ðóê, 1-îäíà ðóêà, 2-äâå ðóêè
 	EHandDependence eHandDependence;
 	bool m_bIsSingleHanded;
@@ -528,7 +669,9 @@ public:
 	Fmatrix m_shoot_shake_mat;
 	void UpdateZoomParams();
 
+	void ResetUIScope();
 	void SetUIScope(LPCSTR scope_texture);
+	void SetHandleCustomHudOffset(bool value);
 	shared_str m_scope_tex_name;
 	shared_str m_primary_scope_tex_name;
 	shared_str m_secondary_scope_tex_name;
@@ -557,6 +700,7 @@ protected:
 	virtual void UpdatePosition(const Fmatrix& transform); //.
 	virtual void UpdateXForm();
 	void InterpolateOffset(Fvector& current, const Fvector& target, const float factor) const;
+	bool InterpolateHudRotation(const Fvector& rotation, const Fvector& aim_rotation, float factor);
 	virtual void UpdateHudAdditional(Fmatrix& trans);
 	IC void UpdateFireDependencies()
 	{
@@ -796,6 +940,12 @@ public:
 	{
 		return iMagazineSize;
 	}
+
+    void SetAmmoMagSize(int s) {
+        iMagazineSize = s > 0 ? s : 0;
+        if (iAmmoElapsed > s)
+            SetAmmoElapsed(iMagazineSize);
+    }
 
 	int GetSuitableAmmoTotal(bool use_item_to_spawn = false) const;
 
@@ -1098,6 +1248,8 @@ public:
 	virtual void set_ef_main_weapon_type(u32 type) { m_ef_main_weapon_type = type; };
 	virtual void set_ef_weapon_type(u32 type) { m_ef_weapon_type = type; };
 	virtual void SetAmmoType(u8 type) { m_ammoType = type; };
+	virtual void SetAmmoType(shared_str const& type);
+    virtual void SetAmmoType_Script(LPCSTR type) { SetAmmoType(type); };
 	u8 GetAmmoType() { return m_ammoType; };
 	//-Alundaio
 

@@ -384,6 +384,8 @@ Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
 
 float hud_fov_aim_factor = 0;
 
+int interpolation_based_scope_zoom = 0;
+
 // Screen Space Shaders Stuff
 Fvector4 ps_ssfx_floravariation = { 0.025, 0.1, 0.025, 0.05 }; // Grass Int, Grass Freq, Foliage Int, Foliage Freq ( 0.025, 0.1, 0.03, 0.05 )
 Fvector4 ps_ssfx_motionblur = { 6, 0, 0, 0 }; // Samples, Intensity, Only HUD, -
@@ -1508,6 +1510,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Vector4Legacy, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 
 	CMD4(CCC_Float, "hud_fov_aim_factor", &hud_fov_aim_factor, 0.0f, 1.0f);
+
+	CMD4(CCC_Integer, "interpolation_based_scope_zoom", &interpolation_based_scope_zoom, 0, 1);
 	
 	// Screen Space Shaders
 	CMD4(CCC_Vector4, "ssfx_floravariation", &ps_ssfx_floravariation, Fvector4().set(0, 0, 0, 0), Fvector4().set(10, 1, 10, 1));

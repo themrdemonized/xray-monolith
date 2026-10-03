@@ -812,6 +812,7 @@ BOOL CAI_Stalker::net_Spawn(CSE_Abstract* DC)
 	m_pPhysics_support->in_NetSpawn(e);
 
 	// LookAtActor feature
+	if (g_Alive())
 	{
 		IKinematics* k = smart_cast<IKinematics*>(Visual());
 		if (k)
