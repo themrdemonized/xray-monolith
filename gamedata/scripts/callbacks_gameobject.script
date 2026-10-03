@@ -144,6 +144,13 @@ _G.CWeapon_OnSwitchZoomType = function(obj, previous, current)
 	SendScriptCallback("actor_on_weapon_zoom_type_changed", obj, previous, current)
 end
 
+-- Called from CWeapon::net_Spawn after upgrades install and before the addons apply
+-- Only here can obj:cast_Weapon():SetSilencerName(section) change a suppressor that is already attached
+AddScriptCallback("weapon_on_net_spawn")
+_G.CWeapon_NetSpawn = function(obj)
+	SendScriptCallback("weapon_on_net_spawn", obj)
+end
+
 -- WIP DONT TOUCH
 -- AddScriptCallback("rocket_on_update")
 -- Called when rocket is flying
