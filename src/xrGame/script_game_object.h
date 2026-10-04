@@ -848,6 +848,14 @@ public:
 	void set_view_distance_factor(float value);
 	void set_health_restore_boost(float value);
 	void set_movement_hold(bool value);
+	void set_monster_attack_on_move_params(float max_go_close_time, float far_radius, float prepare_radius,
+	                                       float prepare_time, float attack_radius, float update_side_period,
+	                                       float prediction_factor);
+	void set_monster_run_attack_params(float min_dist, float max_dist, float min_delay_ms, float max_delay_ms);
+	void set_monster_jump_flags(bool auto_aim, bool prepare_in_move, bool ground_skip, float auto_aim_factor);
+	void set_monster_aura_params(LPCSTR aura_name, float linear, float quadratic, float max_power,
+	                             float max_distance);
+	void set_bloodsucker_vis_timing(float min_delay_ms);
 	bool can_kill_enemy();
 	bool can_kill_member();
 	bool fire_make_sense();

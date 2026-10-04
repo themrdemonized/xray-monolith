@@ -770,6 +770,14 @@
         void set_health_restore_boost(float value) // Per-object additive passive health-restore boost: adds value to the condition's m_fV_HealthRestore velocity applied every UpdateHealth while alive (base ~0.00003/s for stalkers), so the entity regenerates HP over time with no item. 0 = vanilla, higher = faster idle regen, negative clamps to 0. Stalkers and monsters (any CEntityAlive). Persists while online; re-set on spawn (condition rebuilt on re-online).
         void set_movement_hold(bool value) // Per-object movement hold: while true, parse_velocity_mask routes into its Stand branch, so the stalker stays planted (speed 0, movement type Stand) with the path and destination preserved; movement resumes when cleared. false = vanilla. Stalkers only. Not serialized; the caller owns clearing it - a stale true holds the NPC in place indefinitely.
 
+        // CBaseMonster - combat-param setters. Neutral per-object levers over params loaded once from LTX.
+        // A negative argument keeps the current value. Not serialized - re-apply on net_spawn. No-op + error log on a non-matching class.
+        void set_monster_attack_on_move_params(float max_go_close_time, float far_radius, float prepare_radius, float prepare_time, float attack_radius, float update_side_period, float prediction_factor) // The attack-on-move circle geometry and side-flip cadence (times in seconds, read per attack tick). Geometry only - the enabled switch stays config-owned.
+        void set_monster_run_attack_params(float min_dist, float max_dist, float min_delay_ms, float max_delay_ms) // CControlRunAttack distance band and re-arm delay roll. Errors when the species carries no run-attack component.
+        void set_monster_jump_flags(bool auto_aim, bool prepare_in_move, bool ground_skip, float auto_aim_factor) // Script-forced jump flags, OR'd onto every jump's own flag fill at activation - auto_aim steers the glide onto a moving target, prepare_in_move winds up in motion (engages only where the species has the motion), ground_skip drops the landing animation. auto_aim_factor >= 0 writes the air-control gain the steering reads; configs ship it 0, so the flag alone steers nothing - set both. Negative keeps the loaded gain. All false + negative = vanilla. Never clears an engine-set flag.
+        void set_monster_aura_params(string aura_name, float linear, float quadratic, float max_power, float max_distance) // One monster aura by name: psy, radiation, fire or base. Writes the falloff pair, power cap and range the aura's calculate() reads live. Error log on an unknown name.
+        void set_bloodsucker_vis_timing(float min_delay_ms) // Bloodsucker only. The minimum delay between visibility-state changes (the predator flicker pacing).
+
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
         function set_enable_anomalies_pathfinding(bool)
