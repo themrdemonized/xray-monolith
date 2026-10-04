@@ -93,6 +93,7 @@ public:
 	// Rotation Jump
 	void add_rotation_jump_data(LPCSTR left1, LPCSTR left2, LPCSTR right1, LPCSTR right2, float angle, u32 flags = 0);
 	void add_melee_jump_data(LPCSTR left, LPCSTR right);
+	bool has_melee_strike() const { return m_melee_jump_data.anim_ls.valid() && m_melee_jump_data.anim_rs.valid(); }
 
 	//-------------------------------------------------------------------------------
 	// Threaten Animation
