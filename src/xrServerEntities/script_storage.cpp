@@ -1123,6 +1123,19 @@ bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
 bool CScriptStorage::object(LPCSTR identifier, int type)
 {
 	int start = lua_gettop(lua());
+
+   	// Direct lookup instead of iterating the whole table
+   	if (lua_istable(lua(), -1))
+   	{
+   		lua_pushstring(lua(), identifier);
+   		lua_rawget(lua(), -2);
+   		const bool found = (lua_type(lua(), -1) == type);
+   		lua_pop(lua(), 2);
+   		VERIFY(lua_gettop(lua()) == start - 1);
+   		return (found);
+   	}    
+
+    //Original behavior
 	lua_pushnil(lua());
 	while (lua_next(lua(), -2))
 	{
