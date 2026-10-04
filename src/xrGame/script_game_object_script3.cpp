@@ -89,7 +89,6 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("get_monster_cover_vertex", SAFE_WRAP(&CScriptGameObject::get_monster_cover_vertex))
 		.def("set_monster_attack_dist", SAFE_WRAP(&CScriptGameObject::set_monster_attack_dist))
 		.def("set_monster_jump_params", SAFE_WRAP(&CScriptGameObject::set_monster_jump_params))
-		.def("set_monster_aggressive", SAFE_WRAP(&CScriptGameObject::set_monster_aggressive))
 		.def("set_chimera_attack_params", SAFE_WRAP(&CScriptGameObject::set_chimera_attack_params))
 		.def("set_burer_gravi_params", SAFE_WRAP(&CScriptGameObject::set_burer_gravi_params))
 		.def("set_burer_tele_params", SAFE_WRAP(&CScriptGameObject::set_burer_tele_params))

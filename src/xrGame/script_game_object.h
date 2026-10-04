@@ -874,7 +874,6 @@ public:
 
 	void set_monster_attack_dist(float min_dist, float max_dist);
 	void set_monster_jump_params(float min_dist, float max_dist, float max_angle, float max_height, float delay_ms);
-	void set_monster_aggressive(bool value);
 	void set_chimera_attack_params(float attack_radius, float prepare_timeout_ms, float attack_timeout_ms,
 	                               int num_prepare_jumps, int num_attack_jumps);
 	void set_burer_gravi_params(float cooldown_ms, float min_dist, float max_dist, float speed, float radius,

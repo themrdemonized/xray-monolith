@@ -460,18 +460,6 @@ void CScriptGameObject::set_monster_jump_params(float min_dist, float max_dist, 
 	jump->set_jump_params(min_dist, max_dist, max_angle, max_height, delay_ms);
 }
 
-void CScriptGameObject::set_monster_aggressive(bool value)
-{
-	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CBaseMonster : cannot access class member set_monster_aggressive!");
-		return;
-	}
-	monster->set_aggressive(value);
-}
-
 void CScriptGameObject::set_chimera_attack_params(float attack_radius, float prepare_timeout_ms,
                                                   float attack_timeout_ms, int num_prepare_jumps,
                                                   int num_attack_jumps)
