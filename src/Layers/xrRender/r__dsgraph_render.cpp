@@ -82,6 +82,24 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
 
+void __fastcall sorted_UI(mapSorted_Node* N)
+{
+	VERIFY(N);
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V && V->shader._get());
+	// The icon material must use the same vertex layout and bone weights as the mesh.
+	R_ASSERT(V->skinning >= -1 && V->skinning <= 4);
+	RCache.set_Shader(RImplementation.Target->s_ui_icons[V->skinning + 1]);
+	// Shader variants are shared across icons; textures still belong to the original material.
+	RCache.set_Textures(V->shader._get()->E[0]->passes[0]->T);
+	RCache.set_xform_world(N->val.Matrix);
+#if RENDER == R_R4
+	RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_lmaterial();
+#endif
+	V->Render(0.f);
+}
+
 void __fastcall water_node_ssr(mapSorted_Node* N)
 {
 #ifdef USE_DX11
@@ -710,6 +728,42 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 	// Restore projection
 	Device.mFullTransform = FTold;
 	RCache.set_xform_project(Device.mProject);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// UI render
+void R_dsgraph_structure::r_dsgraph_render_ui()
+{
+	const Fmatrix saved_world = RCache.get_xform_world();
+	const Fmatrix saved_view = RCache.get_xform_view();
+	const Fmatrix saved_project = RCache.get_xform_project();
+	const Fmatrix saved_full_transform = Device.mFullTransform;
+	RCache.set_xform_view(Device.mView);
+	// Change projection
+	Device.mFullTransform = Device.mFullTransform3DIcons;
+	RCache.set_xform_project(Device.mProject3DIcons);
+
+	// Rendering
+	mapUI.traverseLR(sorted_UI);
+	mapUI.clear();
+
+#if	RENDER!=R_R1
+	mapUIEmissive.traverseLR(sorted_UI);
+	mapUIEmissive.clear();
+#endif
+
+#if RENDER == R_R4
+	mapUISorted.traverseLR(sorted_L1);
+#else
+	// Match the direct icon material for sorted meshes too, drawing far to near.
+	mapUISorted.traverseRL(sorted_UI);
+#endif
+	mapUISorted.clear();
+
+	Device.mFullTransform = saved_full_transform;
+	RCache.set_xform_world(saved_world);
+	RCache.set_xform_view(saved_view);
+	RCache.set_xform_project(saved_project);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -549,6 +549,78 @@ void CRender::Render()
 	VERIFY(0==mapDistort.size());
 }
 
+void CRender::RenderUI()
+{
+	// Keep scene depth intact even when icons are drawn before the world finishes rendering.
+	auto* saved_depth = RCache.get_ZB();
+	auto* color_target = RCache.get_RT();
+	ID3D10DepthStencilView* queried_depth = nullptr;
+	const bool queried_color_target = !color_target;
+	if (queried_color_target)
+	{
+		// A cache invalidation does not necessarily unbind the device's backbuffer.
+		HW.pDevice->OMGetRenderTargets(1, &color_target, &queried_depth);
+		if (!saved_depth) saved_depth = queried_depth;
+		R_ASSERT(color_target);
+		RCache.set_RT(color_target, 0);
+	}
+
+	ID3D10Resource* color_resource = nullptr;
+	ID3D10Texture2D* color_texture = nullptr;
+	color_target->GetResource(&color_resource);
+	R_CHK(color_resource->QueryInterface(__uuidof(ID3D10Texture2D), (void**)&color_texture));
+	_RELEASE(color_resource);
+	D3D10_TEXTURE2D_DESC color_desc;
+	color_texture->GetDesc(&color_desc);
+	_RELEASE(color_texture);
+
+	if (Target->ui_icons_depth_texture)
+	{
+		D3D10_TEXTURE2D_DESC desc;
+		Target->ui_icons_depth_texture->GetDesc(&desc);
+		if (desc.Width != color_desc.Width || desc.Height != color_desc.Height ||
+			desc.SampleDesc.Count != color_desc.SampleDesc.Count ||
+			desc.SampleDesc.Quality != color_desc.SampleDesc.Quality)
+		{
+			_RELEASE(Target->ui_icons_depth);
+			_RELEASE(Target->ui_icons_depth_texture);
+		}
+	}
+	if (!Target->ui_icons_depth_texture)
+	{
+		D3D10_TEXTURE2D_DESC desc = {};
+		desc.Width = color_desc.Width;
+		desc.Height = color_desc.Height;
+		desc.MipLevels = 1;
+		desc.ArraySize = 1;
+		desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		desc.SampleDesc = color_desc.SampleDesc;
+		desc.Usage = D3D10_USAGE_DEFAULT;
+		desc.BindFlags = D3D10_BIND_DEPTH_STENCIL;
+		R_CHK(HW.pDevice->CreateTexture2D(&desc, nullptr, &Target->ui_icons_depth_texture));
+		R_CHK(HW.pDevice->CreateDepthStencilView(Target->ui_icons_depth_texture, nullptr, &Target->ui_icons_depth));
+	}
+
+	// Flush pending state before taking the snapshot; restore through the state manager.
+	StateManager.Apply();
+	ID3D10DepthStencilState* saved_state = nullptr;
+	UINT saved_stencil_ref;
+	HW.pDevice->OMGetDepthStencilState(&saved_state, &saved_stencil_ref);
+	RCache.set_ZB(Target->ui_icons_depth);
+	HW.pDevice->ClearDepthStencilView(Target->ui_icons_depth,
+		D3D10_CLEAR_DEPTH | D3D10_CLEAR_STENCIL, 1.f, 0);
+	RCache.set_Z(TRUE);
+	r_dsgraph_render_ui();
+	RCache.set_ZB(saved_depth);
+	StateManager.SetDepthStencilState(saved_state);
+	StateManager.SetStencilRef(saved_stencil_ref);
+	StateManager.Apply();
+	_RELEASE(saved_state);
+	_RELEASE(queried_depth);
+	if (queried_color_target) color_target->Release();
+	marker++;
+}
+
 void CRender::render_forward()
 {
 	VERIFY(0==mapDistort.size());

@@ -417,6 +417,11 @@ public:
 	// Main
 	virtual void Calculate();
 	virtual void Render();
+	virtual void RenderUI();
+	bool GetUI3DIconAtlasInfo(u32& width, u32& height, float& resolution) override;
+	bool BeginUI3DIconAtlas() override;
+	void BeginUI3DIconAtlasItem() override;
+	void EndUI3DIconAtlas() override;
 	virtual void Screenshot(ScreenshotMode mode = SM_NORMAL, LPCSTR name = 0);
 	virtual void Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer);
 	virtual void ScreenshotAsyncBegin();

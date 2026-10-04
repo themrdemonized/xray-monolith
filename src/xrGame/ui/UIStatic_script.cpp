@@ -1,6 +1,8 @@
 #include "pch_script.h"
 #include "UIStatic.h"
 #include "UIAnimatedStatic.h"
+#include "UI3dStatic.h"
+#include "script_game_object.h"
 
 using namespace luabind;
 
@@ -61,6 +63,13 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetEllipsis", &CUITextWnd::SetEllipsis)
 		.def("SetTextOffset", &CUITextWnd::SetTextOffset),
 		//		.def("",					&CUITextWnd::)
+
+		class_<CUI3dStatic, CUIStatic>("CUI3dStatic")
+		.def(constructor<>())
+		.def("SetObject", &CUI3dStatic::SetObject)
+		.def("SetVisual", &CUI3dStatic::SetVisual)
+		.def("SetRotate", &CUI3dStatic::SetRotate)
+		.def("SetScale", &CUI3dStatic::SetScale),
 
 		class_<CUISleepStatic, CUIStatic>("CUISleepStatic")
 		.def(constructor<>())
