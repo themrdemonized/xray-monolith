@@ -179,6 +179,7 @@ void CGameMtlLibrary::Load()
 			if (materialsLtx->line_exist(M->m_Name, "flotation_factor"))		M->fFlotationFactor = materialsLtx->r_float(M->m_Name, "flotation_factor");
 			if (materialsLtx->line_exist(M->m_Name, "injurious_factor"))		M->fInjuriousSpeed = materialsLtx->r_float(M->m_Name, "injurious_factor");
 			if (materialsLtx->line_exist(M->m_Name, "density_factor"))			M->fDensityFactor = materialsLtx->r_float(M->m_Name, "density_factor");
+			if (materialsLtx->line_exist(M->m_Name, "collision_sound_vel"))     M->fCollisionSoundVel = materialsLtx->r_float(M->m_Name, "collision_sound_vel");
 		}
 		xr_delete(materialsLtx);
 	}

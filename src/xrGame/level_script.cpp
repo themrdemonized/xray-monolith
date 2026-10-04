@@ -1597,6 +1597,23 @@ void hud_adj_offs(int off, int idx, float x, float y, float z)
 		g_player_hud->m_adjust_offset[off][idx].set(x, y, z);
 }
 
+void set_hud_offset(int type, int idx, float x, float y, float z)
+{
+	attachable_hud_item * hi = g_player_hud->attached_item(0);
+	if (hi)
+		hi->m_measures.m_hands_offset[type][idx].set(x, y, z);
+}
+
+void set_hud_offset(int type, int idx, const Fvector& offs)
+{
+    set_hud_offset(type, idx, offs.x, offs.y, offs.z);
+}
+
+Fmatrix get_hud_transform()
+{
+	return g_player_hud->m_transform_2;
+}
+
 #include "Inventory.h"
 #include "Weapon.h"
 
@@ -2762,7 +2779,10 @@ void CLevel::script_register(lua_State* L)
 		def("enabled", hud_adj_state),
 		def("set_vector", hud_adj_offs),
 		def("set_value", hud_adj_value),
-		def("remove_hud_model", remove_hud_model)
+		def("remove_hud_model", remove_hud_model),
+		def("set_hud_offset", (void (*)(int, int, float, float, float))(set_hud_offset)),
+		def("set_hud_offset", (void (*)(int, int, const Fvector&))(set_hud_offset)),
+		def("get_hud_transform", get_hud_transform)
 	];
 
 	module(L, "relation_registry")

@@ -964,6 +964,56 @@
     }
 
     class CWeapon : CGameObject {
+        // Scope zoom parameters
+        function GetScopeZoomFactor()
+        function SetScopeZoomFactor(float factor)
+        function GetMinScopeZoomFactor()
+        function SetMinScopeZoomFactor(float factor)
+        function GetZoomStepCount()
+        function SetZoomStepCount(float steps)
+        function IsDynamicZoom()
+        function SetDynamicZoom(bool enabled)
+        function GetZoomPostprocess()
+        function SetZoomPostprocess(string section)
+
+        // Current shot particle effects and muzzle light
+        function SetFlameParticles(string effect)
+        function SetSmokeParticles(string effect)
+        function SetLightShotDisabled(bool disabled)
+
+        // Magazine / ammo
+        function SetAmmoMagSize(number capacity)
+        function GetAmmoName()
+        function SetAmmoType(number index)
+        function SetAmmoType(string section)
+        function GetAmmoCount_forType(string section)
+        function GetAmmoCount_forType(number index)
+
+        function UseCustomHudOffset(bool enabled)
+
+        // HUD inertia on mouse movement
+        function GetInertionOffsetLRUD()
+        function GetInertionOffsetLRUDAim()
+        function SetInertionOffsetLRUD(Fvector4 offsets)
+        function SetInertionOffsetLRUD(float left, float right, float up, float down)
+        function SetInertionOffsetLRUDAim(Fvector4 offsets)
+        function SetInertionOffsetLRUDAim(float left, float right, float up, float down)
+
+        function GetInertionTendtoSpeed()
+        function GetInertionTendtoAimSpeed()
+        function SetInertionTendtoSpeed(float speed)
+        function SetInertionTendtoAimSpeed(float speed)
+
+        function GetInertionTendtoRetSpeed()
+        function GetInertionTendtoRetAimSpeed()
+        function SetInertionTendtoRetSpeed(float speed)
+        function SetInertionTendtoRetAimSpeed(float speed)
+
+        function GetInertionMinAngle()
+        function GetInertionMinAngleAim()
+        function SetInertionMinAngle(float angle)
+        function SetInertionMinAngleAim(float angle)
+
         // Return RPM in actual RPM value like in configs
         function RealRPM()
         function ModeRealRPM()
@@ -1065,7 +1115,8 @@
             statics - array of CUIStatic that CUIWindow scope UI instance uses
         }
         table get_scope_ui() 
-        function set_scope_ui(string)
+        function set_scope_ui(string name) // creates/replaces UI using the named node in scopes.xml
+        function reset_scope_ui() // removes the scope UI and clears the active 2D scope flag
         
         // Get and set the zoom_rotate_time (time in seconds to fully ADS) field for a given weapon
         function GetZoomRotateTime()
@@ -1075,6 +1126,21 @@
 		function ForceSetZoomType(float)
 
         callbacks (see callbacks_gameobject.script): npc_on_weapon_reload_start, npc_on_weapon_reload_stop -- (npc, wpn), fired on a stalker's weapon entering/leaving the reload state; actor reloads fire actor_on_weapon_reload instead
+    }
+
+    class CWeaponMagazined : CWeapon {
+        // Select a loaded firing-sound alias, e.g. "sndShot" or "sndSilencerShot".
+        // This does not load a sound file
+        function SetShootSound(string alias)
+    }
+
+    namespace hud_adjust {
+        // Edit the HUD item in slot 0. type: 0 = position, 1 = rotation (radians).
+        // idx selects the HUD offset; use 8 with CWeapon.UseCustomHudOffset(true).
+        // Does nothing if slot 0 has no attached HUD item.
+        function set_hud_offset(number type, number idx, Fvector offset)
+        function set_hud_offset(number type, number idx, float x, float y, float z)
+        function get_hud_transform()
     }
 
     class CWeaponKnife : CWeapon {
