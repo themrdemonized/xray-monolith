@@ -88,6 +88,10 @@ void script_attachment::script_register(lua_State* L)
 		.def("set_name", &script_attachment::SetName)
 		.def("get_name", &script_attachment::GetName)
 		.def("play_motion", &script_attachment::PlayMotion)
+        // additive animations
+        .def("play_motion_hud", &script_attachment::PlayMotion_Add)
+        .def("clear_specific_blends", &script_attachment::ClearSpecificBlends)
+        .def("clear_blends", &script_attachment::ClearBlends)
 		
 		//Script 3D UI
 		.def("set_ui", &script_attachment::SetScriptUI)

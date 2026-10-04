@@ -381,6 +381,11 @@ bool CMotionDef::StopAtEnd()
 	return !!(flags & esmStopAtEnd);
 }
 
+bool CMotionDef::SkipFirstFrame()
+{
+    return !!(flags & esmSkipFirstFrame);
+}
+
 bool shared_motions::create(shared_str key, IReader* data, vecBones* bones)
 {
 	motions_value* v = g_pMotionsContainer->dock(key, data, bones);

@@ -840,8 +840,8 @@
 	<string id="ui_mm_modded_exes_gameplay_weapons_g_decouple_horz_recoil">
 		<text>Horizontal recoil is independent of vertical (g_decouple_horz_recoil)</text>
 	</string>
-	<string id="ui_mm_modded_exes_gameplay_weapons_scale_hud_motion_marks_by_speed">
-		<text>Scale Hud Motion Marks By Anim Speed (scale_hud_motion_marks_by_speed)</text>
+	<string id="ui_mm_modded_exes_gameplay_weapons_disable_scale_hud_motion_marks_by_speed">
+		<text>Disable Scale Hud Motion Marks By Anim Speed (disable_scale_hud_motion_marks_by_speed)</text>
 	</string>
 	
 	<string id="ui_mm_modded_exes_gameplay_weapons_g_fire_reloads_ubgl">

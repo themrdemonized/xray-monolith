@@ -138,7 +138,7 @@ extern BOOL disableActorBodyRotationDelay; //leer
 
 extern BOOL pseudogiantDodgeWhileFalling; // Verdatim
 extern BOOL AllowAccelDuringLookOut; // Verdatim
-extern BOOL scale_hud_motion_marks_by_speed; // Verdatim
+extern BOOL disable_scale_hud_motion_marks_by_speed; // Verdatim
 
 //demonized: new console vars
 extern BOOL firstPersonDeath;
@@ -3077,7 +3077,7 @@ void CCC_RegisterCommands()
 
     CMD4(CCC_Integer, "allow_accel_during_lookout", &AllowAccelDuringLookOut, 0, 1); // Verdatim
 
-    CMD4(CCC_Integer, "scale_hud_motion_marks_by_speed", &scale_hud_motion_marks_by_speed, 0, 1); // Verdatim
+    CMD4(CCC_Integer, "disable_scale_hud_motion_marks_by_speed", &disable_scale_hud_motion_marks_by_speed, 0, 1); // Verdatim
 
 	CMD4(CCC_Integer, "telekinetic_objects_include_corpses", &g_telekinetic_objects_include_corpses, 0, 1); // Tosox
 
