@@ -2,6 +2,11 @@
 --[[
     
     console commands: {
+        step_sound_distance [10; 100] // max distance at which step sounds are played, hard cut-off, default 50
+        step_particle_distance [10; 100] // max distance at which step particle effects are played, hard cut-off, default 50
+        snd_max_distance_multiplier [0.2; 2.0] // multiplier for maximum sound distance before it fade into being inaudbile due to low volume, default 1.0 (base values are configured on a per ogg file basis)
+        snd_max_ai_distance_multiplier [0.2; 2.0] // multiplier for maximum distance AI reacts to sounds, default 1.0 (base values are configured on a per ogg file basis)
+
         bus_list // Print every shader bus lane with its owner, value, state, counters and the frame a shader last bound it
         bus_get <id> // Print one shader bus lane
         bus_force <id> x y z w // Hold a lane at finite values until bus_release, a console debug path, the lua write path still needs the token

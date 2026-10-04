@@ -34,6 +34,7 @@
 #include "ui/UIOptConCom.h"
 #include "UIGameSP.h"
 #include "ui/UIActorMenu.h"
+#include "../xrSound/Sound.h"
 #include "ui/UIStatic.h"
 #include "zone_effector.h"
 #include "GameTask.h"
@@ -79,6 +80,8 @@ extern u64 g_qwEStartGameTime;
 ENGINE_API
 extern float psHUD_FOV_def;
 extern float psSqueezeVelocity;
+extern float g_step_sound_distance;
+extern float g_step_particle_distance;
 
 // Lua
 extern int psLUA_GCSTEP;
@@ -2534,6 +2537,10 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Float, "hud_fov", &psHUD_FOV_def, 0.1f, 1.0f);
 	CMD4(CCC_Float, "fov", &g_fov, 5.0f, 180.0f);
 	CMD4(CCC_Float, "viewport_near", &Device.ViewportNear, 0.0f, 1.0f);
+    CMD4(CCC_Float, "step_sound_distance", &g_step_sound_distance, 10.0f, 100.0f);
+	CMD4(CCC_Float, "step_particle_distance", &g_step_particle_distance, 10.0f, 100.0f);
+    CMD4(CCC_Float, "snd_max_distance_multiplier", &psSoundMaxDistanceMultiplier, 0.2f, 2.0f);
+	CMD4(CCC_Float, "snd_max_ai_distance_multiplier", &psSoundMaxAIDistanceMultiplier, 0.2f, 2.0f);
 	//#endif // DEBUG
 
 	// Demo
