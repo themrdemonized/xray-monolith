@@ -31,6 +31,34 @@ ICF float CalcSSA(float& distSQ, Fvector& C, dxRender_Visual* V)
     return CalcSSA(distSQ, C, V->vis.sphere.R);
 }
 
+ICF bool R4FullDetailRejectStatic(dxRender_Visual* pVisual, bool normalPhase)
+{
+#if RENDER == R_R4
+	if (ps_r4_full_detail_distance_scale >= 1.f || !normalPhase ||
+		pVisual->flags.test(IRenderVisualFlags::eIgnoreOptimization) || !g_pGamePersistent ||
+		!g_pGamePersistent->Environment().CurrentEnv)
+		return false;
+
+	// Keep the engine's normal LOD selection alive beyond the full-detail range.
+	if (pVisual->Type == MT_LOD)
+		return false;
+
+	const float farPlane = g_pGamePersistent->Environment().CurrentEnv->far_plane;
+	const float fullDetailDistance = std::max(100.f, farPlane * ps_r4_full_detail_distance_scale);
+	float distanceSquared;
+	const float ssa = CalcSSA(distanceSquared, pVisual->vis.sphere.P, pVisual);
+	const float nearestDistance = _sqrt(distanceSquared) - pVisual->vis.sphere.R;
+	if (nearestDistance <= fullDetailDistance)
+		return false;
+
+	const float transitionRange = std::max(1.f, farPlane - fullDetailDistance);
+	const float transition = clampr((nearestDistance - fullDetailDistance) / transitionRange, 0.f, 1.f);
+	return ssa <= r_ssaDISCARD * (1.f + transition * 11.f);
+#else
+	return false;
+#endif
+}
+
 void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix* xform)
 {
 	Fvector Center;
@@ -557,6 +585,9 @@ void CDSGraphManager::add_Static(IRenderVisual* piVisual, CFrustum& frustum, u32
 	if (fcvNone == VIS)
 		return;
 
+	if (R4FullDetailRejectStatic(pVisual, i_mask[CDSGraphManager::fl_normal]))
+		return;
+
 #if RENDER!=R_R1
 	if (i_mask[CDSGraphManager::fl_normal])//phase normal
 #endif
@@ -670,6 +701,9 @@ void CDSGraphManager::add_Static_MultiFrustum(IRenderVisual* piVisual, const xr_
 	if (!anyVisible)
 		return;
 
+	if (R4FullDetailRejectStatic(pVisual, i_mask[CDSGraphManager::fl_normal]))
+		return;
+
 #if RENDER!=R_R1
 	if (i_mask[CDSGraphManager::fl_normal])//phase normal
 #endif
@@ -726,6 +760,9 @@ void CDSGraphManager::add_Static_MultiFrustum(IRenderVisual* piVisual, const xr_
 
 void CDSGraphManager::add_leaf_Static(dxRender_Visual* pVisual)
 {
+	if (R4FullDetailRejectStatic(pVisual, i_mask[CDSGraphManager::fl_normal]))
+		return;
+
 #if RENDER!=R_R1
 	if (i_mask[CDSGraphManager::fl_normal])//phase normal
 #endif
