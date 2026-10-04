@@ -21,6 +21,12 @@
 
         scale_hud_motion_marks_by_speed [1; 0] // flag to scale motion marks by speed, default is on
 
+        r4_atlas [0; 1] // DX11 3D inventory icon atlas. Default: 0 (direct rendering). Disabling stops atlas rendering immediately; vid_restart applies allocation/freeing of atlas resources
+        r4_atlas_resolution [0.1; 1.0] // Icon render size in the atlas relative to its screen size. Default: 0.6666667 (vanilla Anomaly icons resolution); applies immediately
+        r4_atlas_width [256; 8192] // Atlas texture width in pixels. Default: 2048; requires vid_restart
+        r4_atlas_height [256; 8192] // Atlas texture height in pixels. Default: 2048; requires vid_restart
+        r4_atlas_msaa [st_opt_off; 2x; 4x] // Atlas MSAA; st_opt_off disables MSAA. Default: 4x; requires vid_restart
+
         telekinetic_objects_include_corpses [0; 1] // Enable the ability for poltergeists and burers to throw corpses
         
         sds_enable [0; 1] // Enable shader based scopes
