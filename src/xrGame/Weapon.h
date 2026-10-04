@@ -566,6 +566,7 @@ public:
 	void AmmoTypeForEach(const ::luabind::functor<bool>& funct);
 	float GetMagazineWeightScript() const { return GetMagazineWeight(m_magazine); }
 	int GetAmmoCount_forType_Script(LPCSTR type) const { return GetAmmoCount_forType(type); }
+	int GetAmmoCount_byIndex_Script(u8 i) const { return i < m_ammoTypes.size() ? GetAmmoCount_forType(m_ammoTypes[i]) : 0; }
 	LPCSTR GetGrenadeLauncherNameScript() const { return *GetGrenadeLauncherName(); }
 	LPCSTR GetSilencerNameScript() const { return *GetSilencerName(); }
 	LPCSTR GetScopeNameScript() const { return *GetScopeName(); }
@@ -574,7 +575,7 @@ public:
 	float RealRPMScript() const { return 60.0f / fOneShotTime; } // Return actual RPM like in configs
 	float ModeRPMScript() const { return fModeShotTime; }
 	float ModeRealRPMScript() const { return 60.0f / fModeShotTime; }
-    LPCSTR GetAmmoNameScript() const { return m_ammoTypes[m_ammoType].c_str(); }
+    LPCSTR GetAmmoNameScript() const { return (m_ammoType < m_ammoTypes.size()) ? m_ammoTypes[m_ammoType].c_str() : ""; }
 
 	//Setters
 	void SetFireDispersionScript(float val) { fireDispersionBase = val; }

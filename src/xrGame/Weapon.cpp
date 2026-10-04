@@ -2570,9 +2570,9 @@ bool CWeapon::InterpolateHudRotation(const Fvector& rotation, const Fvector& aim
 	axis_rotation.rotateZ(rotation.z);
 	target_rotation.mulA_43(axis_rotation);
 	Fquaternion target_quaternion, target_aim_quaternion;
-	target_quaternion.set2(target_rotation).normalize();
+	target_quaternion.set(target_rotation).normalize();
 	target_rotation.setHPB(aim_rotation);
-	target_aim_quaternion.set2(target_rotation).normalize();
+	target_aim_quaternion.set(target_rotation).normalize();
 	const float rotation_factor = clampr(factor * 2.5f, 0.f, 1.f);
 	auto interpolate_rotation = [&](Fquaternion& current, const Fquaternion& target)
 	{

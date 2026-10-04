@@ -476,7 +476,7 @@ public:
 		return *this;
 	}
 
-	IC SelfRef set2(const _matrix<T>& M)
+	IC SelfRef set(const _matrix<T>& M)
 	{
 		float trace, s, invS = 0.f;
 
@@ -517,8 +517,6 @@ public:
 
 		return *this;
 	}
-
-	IC SelfRef set(const _matrix<T>& M) { return set2(M); }
 };
 
 typedef _quaternion<float> Fquaternion;
