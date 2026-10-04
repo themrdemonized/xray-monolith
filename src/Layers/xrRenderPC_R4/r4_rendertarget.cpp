@@ -560,6 +560,20 @@ CRenderTarget::CRenderTarget()
 			rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
 		}
 
+		if (ps_r4_atlas)
+		{
+			const u32 atlas_width = ps_r4_atlas_width;
+			const u32 atlas_height = ps_r4_atlas_height;
+			const u32 atlas_samples = 1u << ps_r4_atlas_msaa;
+			rt_ui_3d_icons.create(r2_RT_ui_3d_icons, atlas_width, atlas_height, D3DFMT_A8R8G8B8);
+			rt_ui_3d_icons_raw.create(r2_RT_ui_3d_icons_raw, atlas_width, atlas_height, D3DFMT_A8R8G8B8);
+			if (atlas_samples > 1)
+				rt_ui_3d_icons_raw_msaa.create(r2_RT_ui_3d_icons_raw_msaa, atlas_width,
+					atlas_height, D3DFMT_A8R8G8B8, atlas_samples);
+			rt_ui_3d_icons_depth.create(r2_RT_ui_3d_icons_depth, atlas_width, atlas_height,
+				D3DFMT_D24S8, atlas_samples);
+		}
+
 		// TODO: R11G11B10F? needs another horrible hack + cast + update to converter function
 		if (RImplementation.o.dx11_hdr10) {
 			rt_HDR10_HalfRes[0].create(r4_RT_HDR10_halfres0, w/2,  h/2,  D3DFMT_A16B16G16R16F);
@@ -673,6 +687,15 @@ CRenderTarget::CRenderTarget()
 
 	s_heatvision.create(b_heatvision, "r2\\heatvision"); //--DSR-- HeatVision
 	s_lut.create(b_lut, "r2\\lut");
+	const s32 saved_skinning = RImplementation.m_skinning;
+	for (s32 skinning = -1; skinning <= 4; ++skinning)
+	{
+		RImplementation.shader_option_skinning(skinning);
+		s_ui_icons[skinning + 1].create("ui_icons");
+	}
+	RImplementation.shader_option_skinning(saved_skinning);
+	if (ps_r4_atlas)
+		s_ui_3d_icons_postprocess.create("ui_icons_pp");
 	// OCCLUSION
 	s_occq.create(b_occq, "r2\\occq");
 
@@ -1300,6 +1323,31 @@ CRenderTarget::CRenderTarget()
 	//
 	dwWidth = Device.dwWidth;
 	dwHeight = Device.dwHeight;
+}
+
+void CRenderTarget::phase_ui_3d_icons_postprocess()
+{
+	// stub_screen_space uses screen_res, which always contains the backbuffer
+	// dimensions. These positions therefore must be in backbuffer pixels even
+	// though the active viewport and render target are atlas-sized.
+	const float w = float(Device.dwWidth);
+	const float h = float(Device.dwHeight);
+	const u32 color = color_rgba(255, 255, 255, 255);
+	u32 offset;
+
+	u_setrt(rt_ui_3d_icons, nullptr, nullptr, nullptr);
+	set_viewport_size(HW.pContext, rt_ui_3d_icons->dwWidth, rt_ui_3d_icons->dwHeight);
+
+	FVF::TL* vertices = (FVF::TL*)RCache.Vertex.Lock(4, g_combine->vb_stride, offset);
+	vertices->set(0.f, h, EPS_S, 1.f, color, 0.f, 1.f); ++vertices;
+	vertices->set(0.f, 0.f, EPS_S, 1.f, color, 0.f, 0.f); ++vertices;
+	vertices->set(w, h, EPS_S, 1.f, color, 1.f, 1.f); ++vertices;
+	vertices->set(w, 0.f, EPS_S, 1.f, color, 1.f, 0.f);
+	RCache.Vertex.Unlock(4, g_combine->vb_stride);
+
+	RCache.set_Element(s_ui_3d_icons_postprocess->E[0]);
+	RCache.set_Geometry(g_combine);
+	RCache.Render(D3DPT_TRIANGLELIST, offset, 0, 4, 0, 2);
 }
 
 CRenderTarget::~CRenderTarget()

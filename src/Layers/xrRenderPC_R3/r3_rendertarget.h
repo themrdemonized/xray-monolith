@@ -253,6 +253,9 @@ public:
 	ref_geom g_postprocess;
 	ref_shader s_menu;
 	ref_geom g_menu;
+	ref_shader s_ui_icons[6]; // SKIN_NONE, SKIN_0 ... SKIN_4
+	ID3D10Texture2D* ui_icons_depth_texture = nullptr;
+	ID3D10DepthStencilView* ui_icons_depth = nullptr;
 private:
 	float im_noise_time;
 	u32 im_noise_shift_w;

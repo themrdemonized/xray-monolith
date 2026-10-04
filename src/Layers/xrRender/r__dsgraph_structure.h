@@ -23,6 +23,7 @@ public:
 	IRenderable* val_pObject;
 	Fmatrix* val_pTransform;
 	BOOL val_bHUD;
+	BOOL val_bUI;
 	BOOL val_bCamAttached;
 	BOOL val_bInvisible;
 	BOOL val_bRecordMP; // record nearest for multi-pass
@@ -41,6 +42,8 @@ public:
 	R_dsgraph::mapMatrixPasses_T mapMatrixPasses [2];
 	R_dsgraph::mapSorted_T mapSorted;
 	R_dsgraph::mapHUD_T mapHUD;
+	R_dsgraph::mapHUD_T mapUI;
+	R_dsgraph::mapHUD_T mapUISorted;
 	R_dsgraph::mapHUD_T mapCamAttached;
 	R_dsgraph::mapLOD_T mapLOD;
 	R_dsgraph::mapSorted_T mapDistort;
@@ -59,6 +62,7 @@ public:
 	R_dsgraph::mapSorted_T										mapWmark;			// sorted
 	R_dsgraph::mapSorted_T										mapEmissive;
 	R_dsgraph::mapSorted_T										mapHUDEmissive;
+	R_dsgraph::mapSorted_T										mapUIEmissive;
 	R_dsgraph::mapSorted_T										mapCamAttachedEmissive;
 #endif
 	R_dsgraph::mapSorted_T										mapHUDDistort;
@@ -104,6 +108,8 @@ public:
 
 	virtual void set_HUD(BOOL V) { val_bHUD = V; }
 	virtual BOOL get_HUD() { return val_bHUD; }
+	virtual void set_UI(BOOL V) { val_bUI = V; }
+	virtual BOOL get_UI() { return val_bUI; }
 	virtual void set_CamAttached(BOOL V) { val_bCamAttached = V; }
 	virtual BOOL get_CamAttached() { return val_bCamAttached; }
 	virtual void set_Invisible(BOOL V) { val_bInvisible = V; }
@@ -133,6 +139,7 @@ public:
 		val_pObject = NULL;
 		val_pTransform = NULL;
 		val_bHUD = FALSE;
+		val_bUI = FALSE;
 		val_bCamAttached = FALSE;
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
@@ -181,6 +188,8 @@ public:
 		}
 		mapSorted.destroy();
 		mapHUD.destroy();
+		mapUI.destroy();
+		mapUISorted.destroy();
 		mapCamAttached.destroy();
 		mapLOD.destroy();
 		mapDistort.destroy();
@@ -196,6 +205,7 @@ public:
 		mapWmark.destroy();
 		mapEmissive.destroy();
 		mapHUDEmissive.destroy();
+		mapUIEmissive.destroy();
 		mapCamAttachedEmissive.destroy();
 #endif
 	}
@@ -213,6 +223,7 @@ public:
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();
+	void r_dsgraph_render_ui();
 	void r_dsgraph_render_cam_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted();

@@ -6,6 +6,7 @@
 class CUIWindow;
 class CUIFrameWindow;
 class CUIStatic;
+class CUI3dStatic;
 class CUITextWnd;
 class CUICheckButton;
 class CUISpinNum;
@@ -52,6 +53,7 @@ public:
 	CUIFrameLineWnd* InitFrameLine(LPCSTR path, CUIWindow* parent);
 	CUIEditBox* InitEditBox(LPCSTR path, CUIWindow* parent);
 	CUIStatic* InitStatic(LPCSTR path, CUIWindow* parent);
+	CUI3dStatic* Init3dStatic(LPCSTR path, CUIWindow* parent);
 	CUIStatic* InitAnimStatic(LPCSTR path, CUIWindow* parent);
 	CUIStatic* InitSleepStatic(LPCSTR path, CUIWindow* parent);
 	CUITextWnd* InitTextWnd(LPCSTR path, CUIWindow* parent);
