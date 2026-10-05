@@ -2411,76 +2411,59 @@ void take_screenshot(LPCSTR path, Fvector2 dimensions, IRender_interface::DxEnco
 extern void open_originals_link();
 
 // lucy: getters and setters for first person hands IK
+// Bone IDs 0-20 use the left-hand skeleton; higher IDs use the right-hand skeleton.
 Fmatrix hands_bone_anim_pos(u16 bone_id)
 {
 	Fmatrix res;
+	res.identity();
+	if (!g_player_hud) return res;
 
-	if (bone_id > 20) // right hand
-		g_player_hud->m_model->dcast_PKinematics()->Bone_GetAnimPos(res, bone_id, u8(-1), true);
-		//return g_player_hud->m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_id).mTransformHidden;
-	else // left hand
-		g_player_hud->m_model_2->dcast_PKinematics()->Bone_GetAnimPos(res, bone_id, u8(-1), true);
-		//return g_player_hud->m_model_2->dcast_PKinematics()->LL_GetBoneInstance(bone_id).mTransformHidden;
+	IKinematicsAnimated* model = bone_id > 20 ? g_player_hud->m_model : g_player_hud->m_model_2;
+	if (model)
+	{
+		IKinematics* skeleton = model->dcast_PKinematics();
+		if (skeleton && bone_id < skeleton->LL_BoneCount())
+			skeleton->Bone_GetAnimPos(res, bone_id, u8(-1), true);
+	}
 
 	return res;
 }
 
-u8 bone_to_ik(u16 bone_id)
+// 0 = right hand, 1 = left hand
+void set_hand_target_transform(u8 hand, Fmatrix transform)
 {
-	switch (bone_id)
-	{
-	case 2:
-		return 0;
-	case 3:
-		return 1;
-	case 4:
-		return 2;
-	case 5:
-		return 3;
-	case 23:
-		return 4;
-	case 24:
-		return 5;
-	case 25:
-		return 6;
-	case 26:
-		return 7;
-	default:
-		return u8(-1);
-	}
-}
-
-void set_hands_bone_transform(u16 bone_id, Fmatrix transform)
-{
-	u8 ik_id = bone_to_ik(bone_id);
-	if (ik_id == u8(-1)) return;
+	if (!g_player_hud || hand > 1) return;
+	const u8 ik_id = hand == 0 ? 7 : 3;
 
 	g_player_hud->m_ik_transforms[ik_id].first = transform;
 	g_player_hud->m_ik_transforms[ik_id].second = true;
 }
 
-void set_hands_bone_ik(u16 bone_id, bool state)
+// 0 = right hand, 1 = left hand
+void set_hand_target_enabled(u8 hand, bool state)
 {
-	u8 ik_id = bone_to_ik(bone_id);
-	if (ik_id == u8(-1)) return;
+	if (!g_player_hud || hand > 1) return;
+	const u8 ik_id = hand == 0 ? 7 : 3;
 
 	g_player_hud->m_ik_transforms[ik_id].second = state;
 }
 
-bool get_hands_bone_ik(u16 bone_id)
+// 0 = right hand, 1 = left hand
+bool get_hand_target_enabled(u8 hand)
 {
-	u8 ik_id = bone_to_ik(bone_id);
-	if (ik_id == u8(-1)) return false;
+	if (!g_player_hud || hand > 1) return false;
+	const u8 ik_id = hand == 0 ? 7 : 3;
 
 	return g_player_hud->m_ik_transforms[ik_id].second;
 }
 
-// Setters accept 0 = right, 1 = left, 2 = both. Getters query one hand.
+// 0 = right hand, 1 = left hand, 2 = both
 void set_arm_ik_enabled(u8 hand, bool enabled)
 {
 	if (g_player_hud) g_player_hud->set_arm_ik_enabled(hand, enabled);
 }
 
+// 0 = right hand, 1 = left hand
 bool get_arm_ik_enabled(u8 hand)
 {
 	return g_player_hud && hand < 2 && g_player_hud->m_arm_ik[1 - hand].enabled;
@@ -2840,9 +2823,9 @@ void CLevel::script_register(lua_State* L)
 		def("set_value", hud_adj_value),
 		def("remove_hud_model", remove_hud_model),
 		def("hands_bone_anim_pos", hands_bone_anim_pos),
-		def("set_hands_bone_transform", set_hands_bone_transform),
-		def("set_hands_bone_ik", set_hands_bone_ik),
-		def("get_hands_bone_ik", get_hands_bone_ik),
+		def("set_hand_target_transform", set_hand_target_transform),
+		def("set_hand_target_enabled", set_hand_target_enabled),
+		def("get_hand_target_enabled", get_hand_target_enabled),
 		def("set_arm_ik_enabled", set_arm_ik_enabled),
 		def("get_arm_ik_enabled", get_arm_ik_enabled)
 	];
