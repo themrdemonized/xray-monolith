@@ -1651,15 +1651,12 @@ void hud_adj_state(bool state)
 
 LPCSTR vid_modes_string()
 {
-	// Static: the returned pointer must outlive this call until luabind copies it.
-	// A local would be freed on return, leaving luabind to read a freed buffer.
-	static xr_string resolutions;
-	resolutions.clear();
+	xr_string resolutions = "";
 
 	xr_token* tok = vid_mode_token;
 	while (tok->name)
 	{
-		if (!resolutions.empty())
+		if (strlen(resolutions.c_str()) > 0)
 			resolutions.append(",");
 
 		resolutions.append(tok->name);
