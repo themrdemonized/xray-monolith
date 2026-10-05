@@ -1003,8 +1003,9 @@ void player_hud::render_item_ui()
 	}
 }
 
-// IK helper: swing an authored bone frame onto the solved segment without imposing a new roll.
-static Fmatrix swing_ik_bone(const Fmatrix& animated, const Fvector& from, const Fvector& to, const Fvector& position)
+// IK helper: takes an animated bone and direction/position resolved by IK, returns transform that matches
+// the IK direction/position and having the closest possible rotation to the animated bone, to avoid twists
+static Fmatrix apply_ik_pos_dir(const Fmatrix& animated, const Fvector& from, const Fvector& to, const Fvector& position)
 {
 	Fvector axis;
 	axis.crossproduct(from, to);
@@ -1201,8 +1202,8 @@ void player_hud::solve_hand_ik(int arm)
 		Fvector original_upper, original_forearm;
 		original_upper.sub(animated[1].c, animated[0].c).normalize_safe();
 		original_forearm.sub(animated[3].c, animated[1].c).normalize_safe();
-		pose[0] = swing_ik_bone(animated[0], original_upper, directions[0], shoulder);
-		pose[1] = swing_ik_bone(animated[1], original_forearm, directions[1], elbow);
+		pose[0] = apply_ik_pos_dir(animated[0], original_upper, directions[0], shoulder);
+		pose[1] = apply_ik_pos_dir(animated[1], original_forearm, directions[1], elbow);
 		pose[3] = target;
 		pose[3].c = hand;
 
