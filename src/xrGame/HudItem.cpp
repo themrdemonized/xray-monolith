@@ -27,7 +27,7 @@ int g_nearwall = NW_FOV;
 int g_nearwall_trace = NT_CAM;
 
 // verdatim
-BOOL disable_scale_hud_motion_marks_by_speed = FALSE;
+BOOL scale_hud_motion_marks_by_speed = FALSE;
 
 CHudItem::CHudItem()
 {
@@ -560,7 +560,7 @@ void CHudItem::UpdateCL()
 				float motion_curr_time = ((float)Device.dwTimeGlobal - (float)m_dwMotionStartTm) / 1000.0f;
 
                 // verdatim, edits so motion marks shift their timings based on speed
-                if (!disable_scale_hud_motion_marks_by_speed) {
+                if (scale_hud_motion_marks_by_speed) {
                     CMotionDef def;
                     u16 s = m_current_motion_def->speed;
                     float speed = def.Dequantize(s);
@@ -568,9 +568,8 @@ void CHudItem::UpdateCL()
                     // get the final_anim_speed after the ltx speed changes / script changes from actor_on_hud_animation_play and scale the marks accordingly to the two timings
                     float final_anim_speed = HudItemData()->final_anim_speed;
 
-                    // edit to not re-calculate already calculated values
-                    motion_prev_time *= speed * final_anim_speed;
-                    motion_curr_time *= speed * final_anim_speed;
+                    motion_prev_time = (((float)m_dwMotionCurrTm - (float)m_dwMotionStartTm) / 1000.0f) * speed * final_anim_speed;
+                    motion_curr_time = (((float)Device.dwTimeGlobal - (float)m_dwMotionStartTm) / 1000.0f) * speed * final_anim_speed;
                     
                 }
 
@@ -590,44 +589,6 @@ void CHudItem::UpdateCL()
 					}
 				}
 			}
-
-            // same as above but for item marks 
-            const xr_vector<motion_marks>& marks_i = m_item_current_motion_def->marks;
-            if (!marks_i.empty())
-            {
-                float motion_prev_time = ((float)m_dwMotionCurrTm - (float)m_dwMotionStartTm) / 1000.0f;
-                float motion_curr_time = ((float)Device.dwTimeGlobal - (float)m_dwMotionStartTm) / 1000.0f;
-
-                // verdatim, edits so motion marks shift their timings based on speed
-                if (disable_scale_hud_motion_marks_by_speed) {
-                    CMotionDef def;
-                    u16 s = m_current_motion_def->speed;
-                    float speed = def.Dequantize(s);
-
-                    // get the final_anim_speed after the ltx speed changes / script changes from actor_on_hud_animation_play and scale the marks accordingly to the two timings
-                    float final_anim_speed = HudItemData()->final_anim_speed;
-
-                    motion_prev_time *= speed * final_anim_speed;
-                    motion_curr_time *= speed * final_anim_speed;
-
-                }
-
-                xr_vector<motion_marks>::const_iterator it = marks_i.begin();
-                xr_vector<motion_marks>::const_iterator it_e = marks_i.end();
-                for (; it != it_e; ++it)
-                {
-                    const motion_marks& M = (*it);
-                    if (M.is_empty())
-                        continue;
-
-                    const motion_marks::interval* Iprev = M.pick_mark(motion_prev_time);
-                    const motion_marks::interval* Icurr = M.pick_mark(motion_curr_time);
-                    if (Iprev == NULL && Icurr != NULL /* || M.is_mark_between(motion_prev_time, motion_curr_time)*/)
-                    {
-                        OnItemMotionMark(m_startedMotionState, M);
-                    }
-                }
-            }
 
 			m_dwMotionCurrTm = Device.dwTimeGlobal;
 			if (m_dwMotionCurrTm > m_dwMotionEndTm)
@@ -651,13 +612,6 @@ void CHudItem::OnMotionMark(u32 state, const motion_marks& M)
 	::luabind::functor<bool> funct;
 	if (ai().script_engine().functor("_G.CHudItem__OnMotionMark", funct))
 		funct(state, *M.name, object().lua_game_object(), object().lua_game_object() ? object().lua_game_object()->Parent() : nullptr);
-}
-
-void CHudItem::OnItemMotionMark(u32 state, const motion_marks& M)
-{
-    ::luabind::functor<bool> funct;
-    if (ai().script_engine().functor("_G.CHudItem__OnItemMotionMark", funct))
-        funct(state, *M.name, object().lua_game_object(), object().lua_game_object() ? object().lua_game_object()->Parent() : nullptr);
 }
 
 void CHudItem::OnH_A_Chield()
@@ -832,10 +786,9 @@ u32 CHudItem::PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, f
 	return anim_time;
 }
 
-u32 CHudItem::PlayHUDMotion_noCB(const shared_str& motion_name, BOOL bMixIn, float speed, bool bMixIn2, u8 channel, anim_play_returns* returns)
+u32 CHudItem::PlayHUDMotion_noCB(const shared_str& motion_name, BOOL bMixIn, float speed, bool bMixIn2)
 {
-    if (channel == 0)
-    m_current_motion = motion_name;
+	m_current_motion = motion_name;
 
 	if (bDebug && item().m_pInventory)
 	{
@@ -848,58 +801,13 @@ u32 CHudItem::PlayHUDMotion_noCB(const shared_str& motion_name, BOOL bMixIn, flo
 	}
 	if (IsAttachedToHUD())
 	{
-		return HudItemData()->anim_play(motion_name, bMixIn, m_current_motion_def, m_started_rnd_anim_idx, speed, bMixIn2, channel, returns, m_item_current_motion_def);
+		return HudItemData()->anim_play(motion_name, bMixIn, m_current_motion_def, m_started_rnd_anim_idx, speed, bMixIn2);
 	}
 	else
 	{
 		m_started_rnd_anim_idx = 0;
 		return g_player_hud->motion_length(motion_name, HudSection(), m_current_motion_def);
 	}
-}
-
-::luabind::object CHudItem::PlayHUDMotion_Additive(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed, float end, bool bMixIn2, u16 mode)
-{
-    anim_play_returns returns;
-    // 1 is both, 2 is item only, 3 is hands only
-    returns.mode = mode;
-    PlayHUDMotion_noCB(M, bMixIn, speed, bMixIn2, u8(2), &returns);
-
-    // from script_game_object.cpp line 1395, thanks lucy
-    ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
-
-    table["anim_time"] = returns.anim_time;
-    table["m_model_p0_ID"] = returns.m_model_p0_ID;
-    table["m_model_p2_ID"] = returns.m_model_p2_ID;
-    table["m_model_2_p0_ID"] = returns.m_model_2_p0_ID;
-    table["m_model_2_p1_ID"] = returns.m_model_2_p1_ID;
-    table["m_model_2_p2_ID"] = returns.m_model_2_p2_ID;
-    table["mode"] = mode;
-
-    for (int i = 0; i < returns.Item_BlendID.size(); i++)
-    {
-        table[1+i] = returns.Item_BlendID[i];
-    }
-    
-    return table;
-}
-
-void CHudItem::ClearBlends()
-{
-    HudItemData()->ClearBlends();
-
-    return;
-}
-
-BOOL CHudItem::load_one_motion(const shared_str& sect_name, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim)
-{
-    if (HudItemData()->load_motion(sect_name, alias, hand_anim, item_anim))
-        return TRUE;
-    return FALSE;
-}
-
-void CHudItem::StopHUDMotion_Additive(anim_play_returns* returns)
-{
-     HudItemData()->ClearBlends(returns);
 }
 
 void CHudItem::StopCurrentAnimWithoutCallback()

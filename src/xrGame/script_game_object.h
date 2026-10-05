@@ -1060,12 +1060,6 @@ public:
 
 	//Any class that is derived from CHudItem
 	u32 PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f);
-
-    ::luabind::object PlayHUDMotion_Add(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f, u16 mode = 1);
-    void ClearBlends();
-    BOOL load_motion(const shared_str& sect_name, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim);
-    void ClearSpecificBlends(::luabind::object table = ::luabind::newtable(ai().script_engine().lua()));
-
 	void SwitchState(u32 state);
 	u32 GetState();
 	Fvector hud_fire_point();

@@ -88,15 +88,6 @@ IC void Dequantize(CKey& K, const CBlend& BD, const CMotion& M)
 	u32 frame = iFloor(time);
 	float delta = time - float(frame);
 	u32 count = M.get_count();
-
-    // skip first frame if SkipFirstFrame is used
-    // count is total frames of animaion (constant per motion), frame is global frame 
-    if (BD.SkipFirstFrame) {
-        if ((((frame + 0) % count) == 0) && count != 0) {
-            //Msg("skipping first frame");
-            frame++;
-        }
-    }
 	// rotation
 	if (M.test_flag(flRKeyAbsent))
 	{
@@ -190,6 +181,92 @@ IC void Dequantize(CKey& K, const CBlend& BD, const CMotion& M)
 	}
 }
 
+
+IC void MixInterlerp(CKey& Result, const CKey* R, const CBlend* const BA[MAX_BLENDED], int b_count)
+{
+	VERIFY(MAX_BLENDED >= b_count);
+	switch (b_count)
+	{
+	case 0:
+		Result.Q.set(0, 0, 0, 0);
+		Result.T.set(0, 0, 0);
+		break;
+	case 1:
+		Result = R[0];
+		/*
+		if(Result.T.y>10000){
+		Log("1");
+		Log("BLEND_INST",BLEND_INST.Blend.size());
+		Log("Bone",LL_BoneName_dbg(SelfID));
+		Msg("Result.Q %f,%f,%f,%f",Result.Q.x,Result.Q.y,Result.Q.z,Result.Q.w);
+		Log("Result.T",Result.T);
+		VERIFY(0);
+		}
+		*/
+		break;
+	case 2:
+		{
+			float w0 = BA[0]->blendAmount;
+			float w1 = BA[1]->blendAmount;
+			float ws = w0 + w1;
+			float w;
+			if (fis_zero(ws)) w = 0;
+			else w = w1 / ws;
+#ifdef DEBUG
+			//.					if (fis_zero(w0+w1) || (!_valid(w))){
+			//.						Debug.fatal		(DEBUG_INFO,"TO ALEXMX VERY IMPORTANT: (TOTAL: %f) w: %f, w0: %f, w1: %f, ws:%f, BIS: %d",w0+w1,w,w0,w1,ws,BLEND_INST.Blend.size());
+			//.					}
+#endif
+			KEY_Interp(Result, R[0], R[1], clampr(w, 0.f, 1.f));
+			/*
+			if(Result.T.y>10000){
+			Log("2");
+			Log("BLEND_INST",BLEND_INST.Blend.size());
+			Log("Bone",LL_BoneName_dbg(SelfID));
+			Msg("Result.Q %f,%f,%f,%f",Result.Q.x,Result.Q.y,Result.Q.z,Result.Q.w);
+			Log("Result.T",Result.T);
+			Log("parent",*parent);
+			VERIFY(0);
+			}
+			*/
+		}
+		break;
+	default:
+		{
+			//int 	count 	= Blend.size();
+			float total = 0;
+			ConsistantKey S[MAX_BLENDED];
+			for (int i = 0; i < b_count; i++)
+				S[i].set(R + i, BA[i]->blendAmount);
+
+			std::sort(S, S + b_count);
+			CKey tmp;
+			total = S[0].w;
+			tmp = *S[0].K;
+			for (int cnt = 1; cnt < b_count; cnt++)
+			{
+				total += S[cnt].w;
+				float d;
+				if (fis_zero(total)) d = 0.0f;
+				else d = S[cnt].w / total;
+
+				clampr(d, 0.f, 1.f);
+
+#ifdef DEBUG
+				//.						if ((total==0) || (!_valid(S[cnt].w/total))){
+				//.							Debug.fatal		(DEBUG_INFO,"TO ALEXMX VERY IMPORTANT: (TOTAL: %f) w: %f, total: %f, count: %d, real count: %d",total,S[cnt].w,total,count,BLEND_INST.Blend.size());
+				//.						}
+#endif
+
+				KEY_Interp(Result, tmp, *S[cnt].K, d);
+				tmp = Result;
+			}
+		}
+		break;
+	}
+}
+
+
 IC void key_sub(CKey& rk, const CKey& k0, const CKey& k1) //sub right
 {
 	Fquaternion q;
@@ -235,118 +312,15 @@ IC void key_mad(CKey& res, const CKey& k0, const CKey& k1, float v)
 	key_add(res, k, k0);
 }
 
-// shift this function down so i have access to the key functiono
-IC void MixInterlerp(CKey& Result, const CKey* R, const CBlend* const BA[MAX_BLENDED], int b_count, const animation::channel_def& ch)
-{
-    VERIFY(MAX_BLENDED >= b_count);
 
-    // verdatim, additive animations:
-    // if the channel is 2 (additive), then add the final blends together instead of
-    // mixing them based off of blend amount
-    // this is already done in MixChannels but not for here 
-    if (ch.rule.extern_ == animation::add) {
-        CKey tmp = *R;
-        for (int cnt = 1; cnt < b_count; cnt++)
-        {
-            key_mad(Result, tmp, *(R + cnt), 1);
-            tmp = Result;
-        }
-        Result = tmp;
-        return;
-    }
-
-    switch (b_count)
-    {
-    case 0:
-        Result.Q.set(0, 0, 0, 0);
-        Result.T.set(0, 0, 0);
-        break;
-    case 1:
-        Result = R[0];
-        /*
-        if(Result.T.y>10000){
-        Log("1");
-        Log("BLEND_INST",BLEND_INST.Blend.size());
-        Log("Bone",LL_BoneName_dbg(SelfID));
-        Msg("Result.Q %f,%f,%f,%f",Result.Q.x,Result.Q.y,Result.Q.z,Result.Q.w);
-        Log("Result.T",Result.T);
-        VERIFY(0);
-        }
-        */
-        break;
-    case 2:
-    {
-        float w0 = BA[0]->blendAmount;
-        float w1 = BA[1]->blendAmount;
-        float ws = w0 + w1;
-        float w;
-        if (fis_zero(ws)) w = 0;
-        else w = w1 / ws;
-#ifdef DEBUG
-        //.					if (fis_zero(w0+w1) || (!_valid(w))){
-        //.						Debug.fatal		(DEBUG_INFO,"TO ALEXMX VERY IMPORTANT: (TOTAL: %f) w: %f, w0: %f, w1: %f, ws:%f, BIS: %d",w0+w1,w,w0,w1,ws,BLEND_INST.Blend.size());
-        //.					}
-#endif
-        KEY_Interp(Result, R[0], R[1], clampr(w, 0.f, 1.f));
-        /*
-        if(Result.T.y>10000){
-        Log("2");
-        Log("BLEND_INST",BLEND_INST.Blend.size());
-        Log("Bone",LL_BoneName_dbg(SelfID));
-        Msg("Result.Q %f,%f,%f,%f",Result.Q.x,Result.Q.y,Result.Q.z,Result.Q.w);
-        Log("Result.T",Result.T);
-        Log("parent",*parent);
-        VERIFY(0);
-        }
-        */
-    }
-    break;
-    default:
-    {
-
-        //int 	count 	= Blend.size();
-        float total = 0;
-        ConsistantKey S[MAX_BLENDED];
-        for (int i = 0; i < b_count; i++)
-            S[i].set(R + i, BA[i]->blendAmount);
-
-        std::sort(S, S + b_count);
-        CKey tmp;
-        total = S[0].w;
-        tmp = *S[0].K;
-        for (int cnt = 1; cnt < b_count; cnt++)
-        {
-            total += S[cnt].w;
-            float d;
-            if (fis_zero(total)) d = 0.0f;
-            else d = S[cnt].w / total;
-
-            clampr(d, 0.f, 1.f);
-
-#ifdef DEBUG
-            //.						if ((total==0) || (!_valid(S[cnt].w/total))){
-            //.							Debug.fatal		(DEBUG_INFO,"TO ALEXMX VERY IMPORTANT: (TOTAL: %f) w: %f, total: %f, count: %d, real count: %d",total,S[cnt].w,total,count,BLEND_INST.Blend.size());
-            //.						}
-#endif
-
-            KEY_Interp(Result, tmp, *S[cnt].K, d);
-            tmp = Result;
-
-        }
-    }
-    break;
-    }
-}
-
-// verdatim, add two extra parameters for keys to access blend flags for additive animations, adds complexity, but this function is found nowhere else
 IC void keys_substruct(CKey* R, const CKey* BR, int b_count)
 {
-    for (int i = 0; i < b_count; i++)
-    {
-        CKey r;
-        key_sub(r, R[i], BR[i]);
-        R[i] = r;
-    }
+	for (int i = 0; i < b_count; i++)
+	{
+		CKey r;
+		key_sub(r, R[i], BR[i]);
+		R[i] = r;
+	}
 }
 
 
@@ -431,7 +405,7 @@ IC void MixAdd(CKey& Result, const CKey* R, const float* BA, int b_count)
 IC void process_single_channel(CKey& Result, const animation::channel_def& ch, const CKey* R,
                                const CBlend* const BA[MAX_BLENDED], int b_count)
 {
-	MixInterlerp(Result, R, BA, b_count, ch);
+	MixInterlerp(Result, R, BA, b_count);
 	VERIFY(_valid( Result.T ));
 	VERIFY(_valid( Result.Q ));
 }
