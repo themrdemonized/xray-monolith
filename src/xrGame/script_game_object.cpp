@@ -1560,32 +1560,6 @@ void set_shader_tex(IRenderVisual* vis, int id, LPCSTR shader, LPCSTR texture)
 	}
 }
 
-void CScriptGameObject::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud)
-{
-	IKinematics* k = nullptr;
-
-	if (bHud)
-	{
-		CActor* act = smart_cast<CActor*>(&object());
-		CHudItem* itm = smart_cast<CHudItem*>(&object());
-		if (itm)
-			k = itm->HudItemData()->m_model;
-		else if (act)
-		{
-			set_shader_tex(g_player_hud->m_model->dcast_RenderVisual(), id, shader, texture);
-			set_shader_tex(g_player_hud->m_model_2->dcast_RenderVisual(), id, shader, texture);
-			return;
-		}
-	}
-
-	if (!k)
-		k = object().Visual()->dcast_PKinematics();
-
-	if (!k) return;
-
-	set_shader_tex(k->dcast_RenderVisual(), id, shader, texture);
-}
-
 void reset_shader_tex(IRenderVisual* vis, int id)
 {
 	xr_vector<IRenderVisual*>* children = vis->get_children();
@@ -1622,6 +1596,32 @@ void reset_shader_tex(IRenderVisual* vis, int id)
 		child->ResetShaderTexture();
 		return;
 	}
+}
+
+void CScriptGameObject::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud)
+{
+    IKinematics* k = nullptr;
+
+    if (bHud)
+    {
+        CActor* act = smart_cast<CActor*>(&object());
+        CHudItem* itm = smart_cast<CHudItem*>(&object());
+        if (itm)
+            k = itm->HudItemData()->m_model;
+        else if (act)
+        {
+            set_shader_tex(g_player_hud->m_model->dcast_RenderVisual(), id, shader, texture);
+            set_shader_tex(g_player_hud->m_model_2->dcast_RenderVisual(), id, shader, texture);
+            return;
+        }
+    }
+
+    if (!k)
+        k = object().Visual()->dcast_PKinematics();
+
+    if (!k) return;
+
+    set_shader_tex(k->dcast_RenderVisual(), id, shader, texture);
 }
 
 void CScriptGameObject::ResetShaderTexture(int id, bool bHud)
