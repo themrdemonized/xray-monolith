@@ -708,5 +708,8 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("get_default_shaders", SAFE_WRAP(&CScriptGameObject::GetDefaultShaders))
 		.def("set_shader", SAFE_WRAP(&CScriptGameObject::SetShaderTexture))
 		.def("reset_shader", SAFE_WRAP(&CScriptGameObject::ResetShaderTexture))
+		.def("get_hud_motion_item_shaders", SAFE_WRAP(&CScriptGameObject::GetHudMotionItemShaders))
+		.def("set_hud_motion_item_shader", SAFE_WRAP(&CScriptGameObject::SetHudMotionItemShader))
+		.def("reset_hud_motion_item_shader", SAFE_WRAP(&CScriptGameObject::ResetHudMotionItemShader))
 		;
 }

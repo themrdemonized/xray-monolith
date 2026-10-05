@@ -93,7 +93,7 @@ Fmatrix CScriptGameObject::Xform(bool bHud)
 }
 
 Fbox CScriptGameObject::bounding_box(bool bHud)
-{	
+{
 	if (bHud)
 	{
 		CHudItem* itm = smart_cast<CHudItem*>(&object());
@@ -796,7 +796,7 @@ void CScriptGameObject::SetAmmoElapsed(int ammo_elapsed)
 		return;
 	}
 #endif
-	
+
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return;
 	weapon->SetAmmoElapsed(ammo_elapsed);
@@ -848,7 +848,7 @@ u8 CScriptGameObject::GetAmmoType()
 		return stm->GetAmmoType();
 	}
 #endif
-	
+
 	CWeapon* weapon = smart_cast<CWeapon*>(&object());
 	if (!weapon) return 255;
 
@@ -1298,7 +1298,7 @@ bool CScriptGameObject::Use(CScriptGameObject* obj)
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (!pGameSP)
 		return ret;
-	
+
 	CInventoryBox* pBox = smart_cast<CInventoryBox*>(&object());
 	if (pBox)
 	{
@@ -1348,7 +1348,7 @@ void CScriptGameObject::StartUpgrade(CScriptGameObject* obj)
 	CInventoryOwner* pOtherOwner = smart_cast<CInventoryOwner*>(&object());
 	if (!pOtherOwner)
 		return;
-	
+
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (pGameSP)
 		pGameSP->StartUpgrade(pActorInv, pOtherOwner);
@@ -1403,32 +1403,10 @@ CGameObject& CScriptGameObject::object() const
 
 //////////////////////////////////////////////////////////////////////////
 // Shader / Textures Magic
-::luabind::object CScriptGameObject::GetShaders(bool bHud)
+::luabind::object get_shaders(IRenderVisual* vis)
 {
-	IKinematics* k = nullptr;
-
-	if (bHud)
-	{
-		CActor* act = smart_cast<CActor*>(&object());
-		CHudItem* itm = smart_cast<CHudItem*>(&object());
-		if (itm)
-			k = itm->HudItemData()->m_model;
-		else if (act)
-			k = g_player_hud->m_model->dcast_PKinematics();
-	}
-
-	if (!k)
-		k = object().Visual()->dcast_PKinematics();
-
 	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
 
-	if (!k)
-	{
-		table["error"] = true;
-		return table;
-	}
-
-	IRenderVisual* vis = k->dcast_RenderVisual();
 	xr_vector<IRenderVisual*>* children = vis->get_children();
 	xr_vector<IRenderVisual*>* children_invisible = vis->get_children_invisible();
 
@@ -1458,6 +1436,33 @@ CGameObject& CScriptGameObject::object() const
 	}
 
 	return table;
+}
+
+::luabind::object CScriptGameObject::GetShaders(bool bHud)
+{
+	IKinematics* k = nullptr;
+
+	if (bHud)
+	{
+		CActor* act = smart_cast<CActor*>(&object());
+		CHudItem* itm = smart_cast<CHudItem*>(&object());
+		if (itm)
+			k = itm->HudItemData()->m_model;
+		else if (act)
+			k = g_player_hud->m_model->dcast_PKinematics();
+	}
+
+	if (!k)
+		k = object().Visual()->dcast_PKinematics();
+
+	if (!k)
+	{
+		::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+		table["error"] = true;
+		return table;
+	}
+
+	return get_shaders(k->dcast_RenderVisual());
 }
 
 ::luabind::object CScriptGameObject::GetDefaultShaders(bool bHud)
@@ -1555,6 +1560,32 @@ void set_shader_tex(IRenderVisual* vis, int id, LPCSTR shader, LPCSTR texture)
 	}
 }
 
+void CScriptGameObject::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud)
+{
+	IKinematics* k = nullptr;
+
+	if (bHud)
+	{
+		CActor* act = smart_cast<CActor*>(&object());
+		CHudItem* itm = smart_cast<CHudItem*>(&object());
+		if (itm)
+			k = itm->HudItemData()->m_model;
+		else if (act)
+		{
+			set_shader_tex(g_player_hud->m_model->dcast_RenderVisual(), id, shader, texture);
+			set_shader_tex(g_player_hud->m_model_2->dcast_RenderVisual(), id, shader, texture);
+			return;
+		}
+	}
+
+	if (!k)
+		k = object().Visual()->dcast_PKinematics();
+
+	if (!k) return;
+
+	set_shader_tex(k->dcast_RenderVisual(), id, shader, texture);
+}
+
 void reset_shader_tex(IRenderVisual* vis, int id)
 {
 	xr_vector<IRenderVisual*>* children = vis->get_children();
@@ -1593,32 +1624,6 @@ void reset_shader_tex(IRenderVisual* vis, int id)
 	}
 }
 
-void CScriptGameObject::SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud)
-{
-	IKinematics* k = nullptr;
-
-	if (bHud)
-	{
-		CActor* act = smart_cast<CActor*>(&object());
-		CHudItem* itm = smart_cast<CHudItem*>(&object());
-		if (itm)
-			k = itm->HudItemData()->m_model;
-		else if (act)
-		{
-			set_shader_tex(g_player_hud->m_model->dcast_RenderVisual(), id, shader, texture);
-			set_shader_tex(g_player_hud->m_model_2->dcast_RenderVisual(), id, shader, texture);
-			return;
-		}
-	}
-
-	if (!k)
-		k = object().Visual()->dcast_PKinematics();
-
-	if (!k) return;
-
-	set_shader_tex(k->dcast_RenderVisual(), id, shader, texture);
-}
-
 void CScriptGameObject::ResetShaderTexture(int id, bool bHud)
 {
 	IKinematics* k = nullptr;
@@ -1643,4 +1648,48 @@ void CScriptGameObject::ResetShaderTexture(int id, bool bHud)
 	if (!k) return;
 
 	reset_shader_tex(k->dcast_RenderVisual(), id);
+}
+
+::luabind::object CScriptGameObject::GetHudMotionItemShaders()
+{
+	CActor* act = smart_cast<CActor*>(&object());
+	if (!act)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CActor : cannot access class member GetHudMotionItemShaders!");
+		return ::luabind::newtable(ai().script_engine().lua());
+	}
+
+	if (!g_player_hud->script_anim_item_model)
+		return ::luabind::newtable(ai().script_engine().lua());
+
+	return get_shaders(g_player_hud->script_anim_item_model->dcast_RenderVisual());
+}
+
+void CScriptGameObject::SetHudMotionItemShader(int id, LPCSTR shader, LPCSTR texture)
+{
+	CActor* act = smart_cast<CActor*>(&object());
+	if (!act)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CActor : cannot access class member SetHudMotionItemShader!");
+		return;
+	}
+
+	if (g_player_hud->script_anim_item_model)
+		set_shader_tex(g_player_hud->script_anim_item_model->dcast_RenderVisual(), id, shader, texture);
+}
+
+void CScriptGameObject::ResetHudMotionItemShader(int id)
+{
+	CActor* act = smart_cast<CActor*>(&object());
+	if (!act)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CActor : cannot access class member ResetHudMotionItemShader!");
+		return;
+	}
+
+	if (g_player_hud->script_anim_item_model)
+		reset_shader_tex(g_player_hud->script_anim_item_model->dcast_RenderVisual(), id);
 }
