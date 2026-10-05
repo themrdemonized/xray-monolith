@@ -2857,6 +2857,7 @@ void CLevel::script_register(lua_State* L)
 		.def("get_object", &CRayPick::get_object)
 		.def("get_distance", &CRayPick::get_distance)
 		.def("get_element", &CRayPick::get_element)
+		.def("get_multiply_add", &CRayPick::get_multiply_add)
 		.def("get_normal", &CRayPick::get_normal),
 		class_<script_rq_result>("rq_result")
 		.def_readonly("object", &script_rq_result::O)
