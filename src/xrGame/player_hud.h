@@ -32,7 +32,6 @@ struct player_hud_motion_container
 	xr_vector<player_hud_motion> m_anims;
 	player_hud_motion* find_motion(const shared_str& name);
 	void load(IKinematicsAnimated* model, const shared_str& sect);
-    BOOL load_single_motion(IKinematicsAnimated* model, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim);
 };
 
 struct hand_motions
@@ -297,8 +296,6 @@ struct hud_item_measures
 	float m_attach_scale;
 };
 
-extern struct anim_play_returns;
-
 struct attachable_hud_item
 {
 	player_hud* m_parent;
@@ -334,10 +331,6 @@ struct attachable_hud_item
 	void set_bone_visible(const shared_str& bone_name, BOOL bVisibility, BOOL bSilent = FALSE);
 	void debug_draw_firedeps();
 	player_hud_motion* find_motion(const shared_str& anm_name);
-
-    // verdatim
-    BOOL load_motion(const shared_str& sect_name, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim);
-
 	//hands bind position
 	Fvector& hands_attach_pos();
 	Fvector& hands_attach_rot();
@@ -361,9 +354,7 @@ struct attachable_hud_item
 	//props
 	u32 m_upd_firedeps_frame;
 	void tune(Ivector values);
-    u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float speed, bool bMixIn2, u8 channel, anim_play_returns* returns, const CMotionDef*& mdi);
-    void ClearBlends(anim_play_returns* returns = nullptr);
-    u32 anim_add_stop(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float speed = 0, bool bMixIn2 = true, u8 channel = u8(2));
+	u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float speed = 0, bool bMixIn2 = true);
 };
 
 class player_hud
@@ -385,7 +376,7 @@ public:
 	void render_hud();
 	void render_item_ui();
 	bool render_item_ui_query();
-    u32 anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part = u16(-1), u8 channel = u8(0), anim_play_returns* returns = nullptr);
+	u32 anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part = u16(-1));
 	u32 script_anim_play(u8 hand, LPCSTR itm_name, LPCSTR anm_name, bool bMixIn = true, float speed = 1.f);
 	const shared_str& section_name() const { return m_sect_name; }
 	void OnFrame();
@@ -410,7 +401,6 @@ public:
 
 	xr_vector<hand_motions*> m_hand_motions;
 	player_hud_motion_container* get_hand_motions(LPCSTR section);
-    BOOL create_hand_motion(LPCSTR section, LPCSTR alias, LPCSTR hand_anim, LPCSTR item_anim);
 
 	void update_script_item();
 
