@@ -902,6 +902,9 @@
 		function set_shader(number, string, string, bool)
 		function get_default_shaders(bool)
 		function reset_shader(number, bool)
+		function get_hud_motion_item_shaders()
+		function set_hud_motion_item_shader(number, string, string)
+		function reset_hud_motion_item_shader(number)
 		
 		get_shaders(hud_mode)
 		hud_mode is optional and will default to false
@@ -929,6 +932,10 @@
 		
 		reset_shader(id, hud_mode)
 		same as set_shader but resets to the default shader/texture values, so you don't need to store them in a table to reset them later
+		
+		get_hud_motion_item_shaders(), set_hud_motion_item_shader(id, shader, texture), reset_hud_motion_item_shader(id)
+		actor only, same as get_shaders, set_shader and reset_shader but for the item model of the running game.play_hud_motion
+		does nothing when no animation with an item model is playing
     }
 
     class CArtefact : CGameObject {
