@@ -127,9 +127,16 @@ void CUISequenceVideoItem::Update()
 	}
 	else return;
 
-	u32 sync_tm = (0 == m_sound._handle())
-		              ? Device.dwTimeContinual
-		              : (m_sound._feedback() ? m_sound._feedback()->play_time() : m_sync_time);
+	u32 sync_tm;
+	if (0 == m_sound._handle())
+		sync_tm = Device.dwTimeContinual;
+	else
+	{
+		// Keep the feedback lookup and playback-time read in one sound operation.
+		sound_lock_guard sound_guard;
+		CSound_emitter* fb = m_sound._feedback();
+		sync_tm = fb ? fb->play_time() : m_sync_time;
+	}
 	m_sync_time = sync_tm;
 	// processing A&V
 

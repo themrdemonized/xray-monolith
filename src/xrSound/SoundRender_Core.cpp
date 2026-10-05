@@ -48,12 +48,10 @@ CSoundRender_Core::CSoundRender_Core()
 	e_target_ptr = &e_identity;
 	bListenerMoved = FALSE;
 	bReady = FALSE;
+	m_is_supported = false;
 	bLocked = FALSE;
 	m_bUpdateThreadRun = FALSE;
 	m_bUpdateThreadExited = TRUE;
-	m_snap_P.set(0, 0, 0);
-	m_snap_D.set(0, 0, 1);
-	m_snap_N.set(0, 1, 0);
 	fTimer_Value = Timer.GetElapsed_sec();
 	fTimer_Delta = 0.0f;
 	m_iPauseCounter = 1;
@@ -179,13 +177,8 @@ void CSoundRender_Core::_clear()
 
 void CSoundRender_Core::update(const Fvector& P, const Fvector& D, const Fvector& N)
 {
-	m_snap_P = P;
-	m_snap_D = D;
-	m_snap_N = N;
-
-	if (use_background_update())
-		return;
-
+	// Emitter lifetime, occlusion and AI callbacks belong to the frame thread.
+	// The worker only keeps already-rendering OpenAL streams supplied with data.
 	sound_api_enter();
 	update_impl(P, D, N);
 	sound_api_leave();
@@ -257,7 +250,12 @@ void CSoundRender_Core::stop_emitters_for_owner(ref_sound_data* owner)
 
 bool CSoundRender_Core::has_playing_emitter_for_owner(ref_sound_data* owner) const
 {
-	return find_emitter_for_owner(owner, true) != nullptr;
+	if (!owner)
+		return false;
+	const_cast<CSoundRender_Core*>(this)->sound_api_enter();
+	bool result = const_cast<CSoundRender_Core*>(this)->reconcile_emitter_feedback(owner);
+	const_cast<CSoundRender_Core*>(this)->sound_api_leave();
+	return result;
 }
 
 bool CSoundRender_Core::reconcile_emitter_feedback(ref_sound_data* owner)
@@ -269,26 +267,40 @@ bool CSoundRender_Core::reconcile_emitter_feedback(ref_sound_data* owner)
 	CSoundRender_Emitter* E = find_emitter_for_owner(owner, true);
 	if (!E && owner->handle)
 	{
-		// Level transition can recreate Lua sound objects (new owner pointer) while
-		// a persistent emitter keeps playing. Reattach by source handle so control
-		// (stop/volume/state) continues to work after load without restarting audio.
+		// Only adopt an orphan left by destroy(). Merely sharing a cached source
+		// must not let a second live sound object steal another object's emitter.
+		CSoundRender_Emitter* orphan = nullptr;
 		for (u32 it = 0; it < s_emitters.size(); it++)
 		{
 			CSoundRender_Emitter* candidate = s_emitters[it];
 			if (!candidate || !candidate->is_persistent() || !candidate->isPlaying())
 				continue;
-			if (!candidate->owner_data || candidate->owner_data->handle != owner->handle)
+			if (!candidate->owner_released || !candidate->owner_data || candidate->original_source != owner->handle)
 				continue;
-
-			ref_sound_data_ptr prev_owner = candidate->owner_data;
-			if (prev_owner && prev_owner._get() != owner)
-				prev_owner->feedback = nullptr;
-
-			release_persistent(candidate);
-			candidate->owner_data = owner;
-			anchor_persistent(candidate);
-			E = candidate;
-			break;
+			if (orphan)
+			{
+				// Source identity is ambiguous; do not choose an arbitrary stream.
+				sound_api_leave();
+				return false;
+			}
+			orphan = candidate;
+		}
+		if (orphan)
+		{
+			ref_sound_data_ptr prev_owner = orphan->owner_data;
+			prev_owner->feedback = nullptr;
+			// Preserve stream metadata, including an already advanced attached tail.
+			owner->handle = prev_owner->handle;
+			owner->fn_attached[0] = prev_owner->fn_attached[0];
+			owner->fn_attached[1] = prev_owner->fn_attached[1];
+			owner->dwBytesTotal = prev_owner->dwBytesTotal;
+			owner->fTimeTotal = prev_owner->fTimeTotal;
+			owner->s_type = prev_owner->s_type;
+			release_persistent(orphan);
+			orphan->owner_data = owner;
+			orphan->owner_released = false;
+			anchor_persistent(orphan);
+			E = orphan;
 		}
 	}
 	if (E)
@@ -299,9 +311,12 @@ bool CSoundRender_Core::reconcile_emitter_feedback(ref_sound_data* owner)
 
 void CSoundRender_Core::restart_emitters()
 {
+	// Serialize against the background sound thread iterating s_emitters.
+	sound_api_enter();
 	for (u32 eit = 0; eit < s_emitters.size(); eit++)
 		if (s_emitters[eit]->target)
 			i_start(s_emitters[eit]);
+	sound_api_leave();
 }
 
 void CSoundRender_Core::set_thread_enabled(bool enabled)
@@ -362,13 +377,19 @@ void CSoundRender_Core::update_thread_stop()
 
 bool CSoundRender_Core::has_playing_persistent() const
 {
+	const_cast<CSoundRender_Core*>(this)->sound_api_enter();
+	bool result = false;
 	for (u32 it = 0; it < s_emitters.size(); it++)
 	{
 		CSoundRender_Emitter* E = s_emitters[it];
 		if (E->is_persistent() && E->isPlaying())
-			return true;
+		{
+			result = true;
+			break;
+		}
 	}
-	return false;
+	const_cast<CSoundRender_Core*>(this)->sound_api_leave();
+	return result;
 }
 
 int CSoundRender_Core::pause_emitters(bool val)
@@ -390,8 +411,18 @@ int CSoundRender_Core::pause_emitters(bool val)
 	return counter;
 }
 
-// Called when an emitter is marked persistent.
-// The core grabs a strong ref to owner_data so the sound survives Lua GC.
+// Apply a changed persistence policy to the current pause state.
+// Callers hold the sound API lock.
+void CSoundRender_Core::sync_persistent_pause(CSoundRender_Emitter* E)
+{
+	// The counter starts at one; higher values represent active pause scopes.
+	// Reconcile immediately when Lua changes menu policy during an active pause.
+	if (E->is_persistent() && E->is_persistent_in_menu())
+		E->iPaused = 0;
+	else if (m_iPauseCounter > 1 && !E->iPaused)
+		E->pause(TRUE, m_iPauseCounter);
+}
+
 void CSoundRender_Core::anchor_persistent(CSoundRender_Emitter* E)
 {
     if (!E || !E->owner_data)
@@ -447,6 +478,7 @@ void CSoundRender_Core::env_unload()
 
 void CSoundRender_Core::_restart()
 {
+	sound_lock_guard sound_guard;
 	cache.destroy();
 	cache.initialize(psSoundCacheSizeMB * 1024, cache_bytes_per_line);
 	env_apply();
@@ -581,6 +613,7 @@ void CSoundRender_Core::create(ref_sound& S, const char* fName, esound_type soun
 
 void CSoundRender_Core::attach_tail(ref_sound& S, const char* fName)
 {
+	sound_lock_guard sound_guard;
 	if (!bPresent) return;
 	string_path fn;
 	xr_strcpy(fn, fName);
@@ -608,6 +641,7 @@ void CSoundRender_Core::attach_tail(ref_sound& S, const char* fName)
 
 void CSoundRender_Core::clone(ref_sound& S, const ref_sound& from, esound_type sound_type, int game_type)
 {
+	sound_lock_guard sound_guard;
 	if (!bPresent) return;
 	S._p = xr_new<ref_sound_data>();
 	S._p->handle = from._p->handle;
@@ -625,9 +659,10 @@ void CSoundRender_Core::play(ref_sound& S, CObject* O, u32 flags, float delay)
 	if (!bPresent || (0==S._handle())) return;
 	sound_api_enter();
 	S._p->g_object = O;
+	const bool had_feedback = S._feedback() != nullptr;
 	S.reconcile_feedback();
-	if (S._feedback()) ((CSoundRender_Emitter*)S._feedback())->rewind();
-	else i_play(&S, flags & sm_Looped, delay);
+	if (had_feedback) ((CSoundRender_Emitter*)S._feedback())->rewind();
+	else if (!S._feedback()) i_play(&S, flags & sm_Looped, delay);
 
 	if ((flags & sm_2D) || (S._handle()->channels_num() == 2))
 		S._feedback()->switch_to_2D();
@@ -676,9 +711,10 @@ void CSoundRender_Core::play_at_pos(ref_sound& S, CObject* O, const Fvector &pos
 	if (!bPresent || (0 == S._handle())) return;
 	sound_api_enter();
 	S._p->g_object = O;
+	const bool had_feedback = S._feedback() != nullptr;
 	S.reconcile_feedback();
-	if (S._feedback()) ((CSoundRender_Emitter*)S._feedback())->rewind();
-	else i_play(&S, flags & sm_Looped, delay);
+	if (had_feedback) ((CSoundRender_Emitter*)S._feedback())->rewind();
+	else if (!S._feedback()) i_play(&S, flags & sm_Looped, delay);
 
 	S._feedback()->set_position(pos);
 	if ((flags & sm_2D) || (S._handle()->channels_num() == 2))
@@ -699,7 +735,11 @@ void CSoundRender_Core::destroy(ref_sound& S)
 		CSoundRender_Emitter* E = (CSoundRender_Emitter*)S._feedback();
 		if (!E->is_persistent())
 			E->stop(FALSE);
-		// else: let it keep playing; the core holds ownership
+		else
+		{
+			E->owner_released = true;
+			E->owner_data->g_object = nullptr;
+		}
 	}
 	S._p = 0;
 	sound_api_leave();
@@ -707,6 +747,9 @@ void CSoundRender_Core::destroy(ref_sound& S)
 
 void CSoundRender_Core::_create_data(ref_sound_data& S, LPCSTR fName, esound_type sound_type, int game_type)
 {
+	// Serialize against the background sound thread: source creation touches the
+	// shared s_sources map and the OpenAL context.
+	sound_api_enter();
 	string_path fn;
 	xr_strcpy(fn, fName);
 	if (strext(fn)) *strext(fn) = 0;
@@ -718,10 +761,14 @@ void CSoundRender_Core::_create_data(ref_sound_data& S, LPCSTR fName, esound_typ
 	S.g_userdata = 0;
 	S.dwBytesTotal = S.handle->bytes_total();
 	S.fTimeTotal = S.handle->length_sec();
+	sound_api_leave();
 }
 
 void CSoundRender_Core::_destroy_data(ref_sound_data& S)
 {
+	// Serialize against the background sound thread: stopping an emitter and
+	// touching the source list must not race with update_impl iterating s_emitters.
+	sound_api_enter();
 	if (S.feedback)
 	{
 		CSoundRender_Emitter* E = (CSoundRender_Emitter*)S.feedback;
@@ -737,6 +784,7 @@ void CSoundRender_Core::_destroy_data(ref_sound_data& S)
 	SoundRender->i_destroy_source((CSoundRender_Source*)S.handle);
 
 	S.handle = NULL;
+	sound_api_leave();
 }
 
 CSoundRender_Environment* CSoundRender_Core::get_environment(const Fvector& P)
@@ -807,10 +855,13 @@ void CSoundRender_Core::update_listener(const Fvector& P, const Fvector& D, cons
 void CSoundRender_Core::object_relcase(CObject* obj)
 {
 	if (obj) {
+		// Serialize against the background sound thread iterating s_emitters.
+		sound_api_enter();
 		for (u32 eit = 0; eit < s_emitters.size(); eit++) {
 			if (s_emitters[eit] && s_emitters[eit]->owner_data && (obj == s_emitters[eit]->owner_data->g_object))
 				s_emitters[eit]->owner_data->g_object = nullptr;
 		}
+		sound_api_leave();
 	}
 }
 
@@ -839,6 +890,8 @@ void CSoundRender_Core::refresh_env_library()
 }
 void CSoundRender_Core::refresh_sources()
 {
+	// Serialize against the background sound thread iterating s_emitters/s_sources.
+	sound_api_enter();
 	for (u32 eit=0; eit<s_emitters.size(); eit++)
     	s_emitters[eit]->stop(FALSE);
 	for (const auto& kv : s_sources)
@@ -847,6 +900,7 @@ void CSoundRender_Core::refresh_sources()
     	s->unload		();
 		s->load			(*s->fname);
     }
+	sound_api_leave();
 }
 void CSoundRender_Core::set_environment_size	(CSound_environment* src_env, CSound_environment** dst_env)
 {

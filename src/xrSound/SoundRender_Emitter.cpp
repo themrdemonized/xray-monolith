@@ -11,6 +11,8 @@ extern float psSoundVEffects;
 
 void CSoundRender_Emitter::set_position(const Fvector& pos)
 {
+	if (!owner_data || !owner_data->handle)
+		return;
 	if (source()->channels_num() == 1)
 		p_source.update_position(pos);
 	else
@@ -38,6 +40,7 @@ CSoundRender_Emitter::CSoundRender_Emitter(void)
 	set_cursor(0);
 	bMoved = TRUE;
 	b2D = FALSE;
+	bIntro = false;
 	b_persistent = false;
 	b_persistent_in_menu = true;
 	bStopping = FALSE;
@@ -179,4 +182,12 @@ void CSoundRender_Emitter::set_persistent(bool bPersist)
     {
         SoundRender->release_persistent(this);
     }
+	SoundRender->sync_persistent_pause(this);
+}
+
+void CSoundRender_Emitter::set_persistent_in_menu(bool bPersistInMenu)
+{
+	b_persistent_in_menu = bPersistInMenu;
+	if (b_persistent)
+		SoundRender->sync_persistent_pause(this);
 }

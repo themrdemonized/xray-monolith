@@ -41,6 +41,8 @@ public:
 	CSoundRender_Target* target;
 	IC CSoundRender_Source* source() { return (CSoundRender_Source*)owner_data->handle; };
 	ref_sound_data_ptr owner_data;
+	bool owner_released = false; // Explicit owner destruction permits persistent rebinding.
+	CSound_source* original_source = nullptr;
 
 	u32 get_bytes_total() const;
 	float get_length_sec() const;
@@ -63,7 +65,7 @@ public:
 	// CSound_emitter overrides
 	virtual void set_persistent(bool bPersist) override;
 	virtual bool is_persistent() const override { return b_persistent; }
-	virtual void set_persistent_in_menu(bool bPersistInMenu) override { b_persistent_in_menu = bPersistInMenu; }
+	virtual void set_persistent_in_menu(bool bPersistInMenu) override;
 	virtual bool is_persistent_in_menu() const override { return b_persistent_in_menu; }
 	BOOL bStopping;
 	BOOL bRewind;

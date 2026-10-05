@@ -39,7 +39,14 @@ struct HUD_SOUND_ITEM
 	{
 		if (m_activeSnd)
 		{
-			if (m_activeSnd->snd._feedback() && !m_activeSnd->snd._feedback()->is_2D())
+			bool playable_3d = false;
+			{
+				// Serialize direct emitter access with sound updates.
+				sound_lock_guard sound_guard;
+				CSound_emitter* fb = m_activeSnd->snd._feedback();
+				playable_3d = fb && !fb->is_2D();
+			}
+			if (playable_3d)
 				m_activeSnd->snd.set_position(pos);
 			else m_activeSnd = NULL;
 		}

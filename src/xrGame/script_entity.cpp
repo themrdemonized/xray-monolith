@@ -254,8 +254,13 @@ void CScriptEntity::vfUpdateParticles()
 void CScriptEntity::vfUpdateSounds()
 {
 	CScriptSoundAction& l_tSoundAction = GetCurrentAction()->m_tSoundAction;
-	if (xr_strlen(l_tSoundAction.m_caBoneName) && m_current_sound && m_current_sound->_feedback())
-		m_current_sound->_feedback()->set_position(
+	if (!xr_strlen(l_tSoundAction.m_caBoneName) || !m_current_sound)
+		return;
+	// Serialize the feedback lookup and position update as one sound operation.
+	sound_lock_guard sound_guard;
+	CSound_emitter* fb = m_current_sound->_feedback();
+	if (fb)
+		fb->set_position(
 			GetUpdatedMatrix(l_tSoundAction.m_caBoneName, l_tSoundAction.m_tSoundPosition,
 			                 Fvector().set(0, 0, 0)).c);
 }

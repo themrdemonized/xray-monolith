@@ -48,26 +48,34 @@ IC void CScriptSound::SetMaxDistance(const float fMaxDistance)
 
 IC const float CScriptSound::GetFrequency() const
 {
+	sound_lock_guard sound_guard;
 	VERIFY(m_sound._handle());
-	return (m_sound.get_params()->freq);
+	const CSound_params* params = m_sound.get_params();
+	return params ? params->freq : 1.f;
 }
 
 IC const float CScriptSound::GetMinDistance() const
 {
+	sound_lock_guard sound_guard;
 	VERIFY(m_sound._handle());
-	return (m_sound.get_params()->min_distance);
+	const CSound_params* params = m_sound.get_params();
+	return params ? params->min_distance : 1.f;
 }
 
 IC const float CScriptSound::GetMaxDistance() const
 {
+	sound_lock_guard sound_guard;
 	VERIFY(m_sound._handle());
-	return (m_sound.get_params()->max_distance);
+	const CSound_params* params = m_sound.get_params();
+	return params ? params->max_distance : 300.f;
 }
 
 IC const float CScriptSound::GetVolume() const
 {
+	sound_lock_guard sound_guard;
 	VERIFY(m_sound._handle());
-	return (m_sound.get_params()->volume);
+	const CSound_params* params = m_sound.get_params();
+	return params ? params->volume : 1.f;
 }
 
 IC bool CScriptSound::IsPlaying() const

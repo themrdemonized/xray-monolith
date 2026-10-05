@@ -1395,7 +1395,7 @@ CApplication::CApplication()
 	// Register us
 	Device.seqFrame.Add(this, REG_PRIORITY_HIGH + 1000);
 
-	// OpenAL updates run on SoundRender_UpdateThread; main thread only refreshes listener snapshot
+	// Keep emitter state and AI callbacks on the frame thread; the worker refills audio buffers.
 	Device.seqFrame.Add(&SoundProcessor);
 
 	Console->Show();

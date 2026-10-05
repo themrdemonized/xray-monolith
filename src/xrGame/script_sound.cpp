@@ -30,8 +30,9 @@ CScriptSound::CScriptSound(LPCSTR caSoundName, ESoundTypes sound_type)
 
 CScriptSound::~CScriptSound()
 {
+	sound_lock_guard sound_guard;
 #ifdef DEBUG
-	THROW3(!m_sound._feedback(), "playing sound is not completed, but is destroying",
+	THROW3(!m_sound._feedback() || m_sound._feedback()->is_persistent(), "playing sound is not completed, but is destroying",
 	       m_sound._handle() ? m_sound._handle()->file_name() : "unknown");
 #endif
 	m_sound.destroy();
@@ -39,6 +40,7 @@ CScriptSound::~CScriptSound()
 
 Fvector CScriptSound::GetPosition() const
 {
+	sound_lock_guard sound_guard;
 	VERIFY(m_sound._handle());
 	const CSound_params* l_tpSoundParams = m_sound.get_params();
 	if (l_tpSoundParams)
@@ -53,6 +55,7 @@ Fvector CScriptSound::GetPosition() const
 
 void CScriptSound::apply_pending_persistent()
 {
+	sound_lock_guard sound_guard;
 	CSound_emitter* emitter = active_emitter(false);
 	if (!m_bPersistentPending || !emitter)
 		return;
@@ -72,6 +75,7 @@ CSound_emitter* CScriptSound::active_emitter(bool reconcile)
 
 void CScriptSound::Play(CScriptGameObject* object, float delay, int flags)
 {
+	sound_lock_guard sound_guard;
 	THROW3(m_sound._handle(), "There is no sound", *m_caSoundToPlay);
 	m_sound.play((object) ? &object->object() : NULL, flags, delay);
 	apply_pending_persistent();
@@ -79,6 +83,7 @@ void CScriptSound::Play(CScriptGameObject* object, float delay, int flags)
 
 void CScriptSound::PlayAtPos(CScriptGameObject* object, const Fvector& position, float delay, int flags)
 {
+	sound_lock_guard sound_guard;
 	THROW3(m_sound._handle(), "There is no sound", *m_caSoundToPlay);
 	m_sound.play_at_pos((object) ? &object->object() : NULL, position, flags, delay);
 	apply_pending_persistent();
@@ -89,7 +94,8 @@ void CScriptSound::PlayNoFeedback(CScriptGameObject* object, u32 flags/*!< Loopi
 {
 	THROW3(m_sound._handle(), "There is no sound", *m_caSoundToPlay);
 	m_sound.play_no_feedback((object) ? &object->object() : NULL, flags, delay, &pos, &vol, &freq);
-	apply_pending_persistent();
+	// This creates a separate, uncontrolled emitter. Do not change persistence
+	// on a different sound already playing through m_sound's feedback.
 }
 
 void CScriptSound::set_persistent(bool bPersist)
@@ -99,6 +105,7 @@ void CScriptSound::set_persistent(bool bPersist)
 
 void CScriptSound::set_persistent(bool bPersist, bool bPersistInMenu)
 {
+	sound_lock_guard sound_guard;
 	m_bPersistentInMenuPending = bPersistInMenu;
 	CSound_emitter* emitter = active_emitter();
 	if (!emitter)
@@ -120,6 +127,8 @@ void CScriptSound::Stop()
 
 bool CScriptSound::is_persistent() const
 {
+	sound_lock_guard sound_guard;
+	m_sound.reconcile_feedback();
 	if (CSound_emitter* emitter = m_sound._feedback())
 		return emitter->is_persistent();
 	return m_bPersistentPending;
@@ -127,6 +136,8 @@ bool CScriptSound::is_persistent() const
 
 bool CScriptSound::is_persistent_in_menu() const
 {
+	sound_lock_guard sound_guard;
+	m_sound.reconcile_feedback();
 	if (CSound_emitter* emitter = m_sound._feedback())
 		return emitter->is_persistent_in_menu();
 	return m_bPersistentInMenuPending;

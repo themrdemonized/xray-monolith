@@ -69,8 +69,6 @@ void CSoundRender_TargetA::start(CSoundRender_Emitter* E)
 
 	// Calc storage
 	buf_block = sdef_target_block * E->source()->m_wformat.nAvgBytesPerSec / 1000;
-	g_target_temp_data.resize(buf_block);
-	g_target_temp_data_16.resize(buf_block * 2);
 }
 
 void CSoundRender_TargetA::render()
@@ -210,16 +208,12 @@ void CSoundRender_TargetA::fill_block(ALuint BufferID)
 {
 	R_ASSERT(m_pEmitter);
 	ALuint format = (m_pEmitter->source()->m_wformat.nChannels == 1) ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
-	if (format == AL_FORMAT_MONO16)
-	{
-		m_pEmitter->fill_block(&g_target_temp_data.front(), g_target_temp_data.size());
-		A_CHK(alBufferData(BufferID, format, &g_target_temp_data.front(), g_target_temp_data.size(), m_pEmitter->source()->m_wformat.nSamplesPerSec));
-	}
-	else
-	{
-		m_pEmitter->fill_block(&g_target_temp_data_16.front(), g_target_temp_data_16.size());
-		A_CHK(alBufferData(BufferID, format, &g_target_temp_data_16.front(), g_target_temp_data_16.size(), m_pEmitter->source()->m_wformat.nSamplesPerSec));
-	}
+	// Scratch storage is shared, but block size belongs to this target. Another
+	// sound may have started with a different sample rate/channel count since
+	// start(). nAvgBytesPerSec already includes both channels for stereo PCM.
+	g_target_temp_data.resize(buf_block);
+	m_pEmitter->fill_block(g_target_temp_data.data(), buf_block);
+	A_CHK(alBufferData(BufferID, format, g_target_temp_data.data(), buf_block, m_pEmitter->source()->m_wformat.nSamplesPerSec));
 }
 
 void CSoundRender_TargetA::source_changed()

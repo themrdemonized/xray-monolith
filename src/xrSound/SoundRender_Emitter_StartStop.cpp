@@ -12,6 +12,8 @@ void CSoundRender_Emitter::start(ref_sound* _owner, BOOL _loop, float delay)
 	VERIFY(_owner);
 	owner_data = _owner->_p;
 	VERIFY(owner_data);
+	original_source = owner_data->handle;
+	owner_released = false;
 	//	source					= (CSoundRender_Source*)owner_data->handle;
 	p_source.position.set(0, 0, 0);
 	p_source.min_distance = source()->m_fMinDist; // DS3D_DEFAULTMINDISTANCE;

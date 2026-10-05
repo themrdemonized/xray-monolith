@@ -125,6 +125,9 @@ bool CSoundPlayer::check_sound_legacy(u32 internal_type) const
 
 void CSoundPlayer::update(float time_delta)
 {
+	if (!m_object || m_object->getDestroy())
+		return;
+
 	START_PROFILE("Sound Player")
 		remove_inappropriate_sounds(m_sound_mask);
 		update_playing_sounds();
@@ -145,12 +148,22 @@ void CSoundPlayer::remove_inappropriate_sounds(u32 sound_mask)
 
 void CSoundPlayer::update_playing_sounds()
 {
+	// May run on the secondary game thread (mtSoundPlayer). Object lifetime is
+	// protected by the engine's task join; the sound lock protects emitter access.
+	if (!m_object || m_object->getDestroy())
+		return;
+
+	sound_lock_guard sound_guard;
 	xr_vector<CSoundSingle>::iterator I = m_playing_sounds.begin();
 	xr_vector<CSoundSingle>::iterator E = m_playing_sounds.end();
 	for (; I != E; ++I)
 	{
-		if ((*I).m_sound->_feedback())
-			(*I).m_sound->_feedback()->set_position(compute_sound_point(*I));
+		ref_sound* snd = (*I).m_sound;
+		if (!snd)
+			continue;
+
+		if (snd->_feedback())
+			snd->set_position(compute_sound_point(*I));
 		else if (!(*I).started() && (Device.dwTimeGlobal >= (*I).m_start_time))
 			(*I).play_at_pos(m_object, compute_sound_point(*I));
 	}
@@ -256,10 +269,21 @@ void CSoundPlayer::play(u32 internal_type, u32 max_start_time, u32 min_start_tim
 
 IC Fvector CSoundPlayer::compute_sound_point(const CSoundSingle& sound)
 {
+	if (!m_object)
+		return Fvector().set(0.f, 0.f, 0.f);
+
+	const Fvector& object_pos = m_object->Position();
+	IRenderVisual* visual = m_object->Visual();
+	if (!visual)
+		return object_pos;
+
+	IKinematics* kinematics = smart_cast<IKinematics*>(visual);
+	if (!kinematics || sound.m_bone_id >= kinematics->LL_BoneCount())
+		return object_pos;
+
 	Fmatrix l_tMatrix;
-	l_tMatrix.mul_43(m_object->XFORM(),
-	                 smart_cast<IKinematics*>(m_object->Visual())->LL_GetBoneInstance(sound.m_bone_id).mTransform);
-	return (l_tMatrix.c);
+	l_tMatrix.mul_43(m_object->XFORM(), kinematics->LL_GetBoneInstance(sound.m_bone_id).mTransform);
+	return l_tMatrix.c;
 }
 
 CSoundPlayer::CSoundCollection::CSoundCollection(const CSoundCollectionParams& params)

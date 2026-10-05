@@ -4,6 +4,7 @@
 #include "SoundRender_Environment.h"
 #include "SoundRender_Cache.h"
 #include "../xrCore/xrSyncronize.h"
+#include <atomic>
 
 class CNotificationClient;
 
@@ -64,13 +65,11 @@ protected:
 
 	// Background OpenAL update (level load blocks main thread for seconds at a time)
 	xrCriticalSection m_api_cs;
-	volatile BOOL m_bUpdateThreadRun;
-	volatile BOOL m_bUpdateThreadExited;
-	Fvector m_snap_P;
-	Fvector m_snap_D;
-	Fvector m_snap_N;
+	std::atomic<bool> m_bUpdateThreadRun;
+	std::atomic<bool> m_bUpdateThreadExited;
 
 	void update_impl(const Fvector& P, const Fvector& D, const Fvector& N);
+	void update_streams(); // Buffer refills only; never runs gameplay callbacks or deletes emitters.
 	void sound_api_enter();
 	void sound_api_leave();
 	bool use_background_update() const;
@@ -112,10 +111,13 @@ public:
 	virtual bool has_playing_persistent() const override;
 	virtual void set_thread_enabled(bool enabled) override;
 	virtual bool thread_enabled() const override;
+	virtual void lock() override { sound_api_enter(); }
+	virtual void unlock() override { sound_api_leave(); }
 
     // Called by CSoundRender_Emitter::set_persistent
     void anchor_persistent(CSoundRender_Emitter* E);
     void release_persistent(CSoundRender_Emitter* E);
+	void sync_persistent_pause(CSoundRender_Emitter* E);
 
 	virtual void play(ref_sound& S, CObject* O, u32 flags = 0, float delay = 0.f);
 	virtual void play_at_pos(ref_sound& S, CObject* O, const Fvector& pos, u32 flags = 0, float delay = 0.f);

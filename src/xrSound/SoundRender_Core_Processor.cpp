@@ -98,7 +98,8 @@ void CSoundRender_Core::update_impl(const Fvector& P, const Fvector& D, const Fv
 			{
 				/*if	(PU == it)*/
 				T->fill_parameters();
-				T->update();
+				if (!use_background_update())
+					T->update();
 			}
 			else
 				s_targets_defer.push_back(T);
@@ -161,6 +162,17 @@ void CSoundRender_Core::update_impl(const Fvector& P, const Fvector& D, const Fv
 
 static u32 g_saved_event_count = 0;
 
+void CSoundRender_Core::update_streams()
+{
+	// Called with the API lock held. In particular, do not call E->update(): it
+	// uses level geometry, the shared RNG and gameplay sound-event handlers.
+	if (!bReady)
+		return;
+	for (CSoundRender_Target* target : s_targets)
+		if (target->get_emitter() && target->get_Rendering())
+			target->update();
+}
+
 void CSoundRender_Core::update_events()
 {
 	PROF_EVENT("Sound: Update Events");
@@ -168,13 +180,16 @@ void CSoundRender_Core::update_events()
 	for (u32 it = 0; it < s_events.size(); it++)
 	{
 		event& E = s_events[it];
-		Handler(E.first, E.second);
+		if (Handler)
+			Handler(E.first, E.second);
 	}
 	s_events.clear_not_free();
 }
 
 void CSoundRender_Core::statistic(CSound_stats* dest, CSound_stats_ext* ext)
 {
+	// Serialize against the background sound thread mutating s_emitters/s_targets.
+	sound_api_enter();
 	if (dest)
 	{
 		dest->_rendered = 0;
@@ -215,6 +230,7 @@ void CSoundRender_Core::statistic(CSound_stats* dest, CSound_stats_ext* ext)
 			ext->append(_I);
 		}
 	}
+	sound_api_leave();
 }
 
 

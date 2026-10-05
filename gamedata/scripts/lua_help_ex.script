@@ -4,6 +4,8 @@
     console commands: {
         snd_doppler_power [0; 5] // Adjust power of doppler effect
         snd_doppler_smoothing [1; 100] // Adjust smoothness of pitch shifting in doppler effect
+        mt_sound [0; 1] // OpenAL buffer refills on a dedicated thread (1) or the frame thread (0). Gameplay sound state and AI callbacks always run on the frame thread.
+        snd_stop_persistent // Stops every sound marked persistent (e.g. PDA radio). Use from console or exec_console_cmd at main menu / full quit; does not affect normal one-shot emitters.
 
         crash_save [0; 1] // Enable saving game on game crash
         crash_save_count [0; 20] // Crash saves max number
@@ -239,6 +241,36 @@
 
     class particles_object {
         void set_hud_mode(bool hud_mode)
+    }
+
+    // Persistent / level-surviving playback (sound_object)
+    class sound_object {
+        enum sound_play_type {
+            looped, // sm_Looped
+            s2d,    // sm_2D
+            s3d     // 0
+        }
+
+        // Mark the emitter so it survives level unload and destruction of its Lua sound_object.
+        // Use with play() or play_at_pos(), before or after starting playback.
+        // play_no_feedback() creates a separate emitter and does not apply this flag.
+        // bPersist: true keeps audio across level transitions; false releases persistence
+        // but does not stop playback. Use stop() to stop immediately.
+        void set_persistent(bool bPersist)
+        // bPersistInMenu: when true, persistent audio is not paused while the game menu is open.
+        void set_persistent(bool bPersist, bool bPersistInMenu)
+
+        // Query persistent state (includes pending flag if set_persistent was called before play).
+        bool is_persistent()
+        bool is_persistent_in_menu()
+
+        // A new object for the same sound can adopt an orphan persistent stream through
+        // playing(), property access or play(). Adoption does not rewind the stream.
+        // Live owners are never replaced. If several orphan streams share the same source,
+        // adoption is ambiguous: retain the original owner or use snd_stop_persistent.
+
+        // Existing API (unchanged): play, play_at_pos, play_no_feedback, stop, stop_deffered,
+        // playing, length, attach_tail, position/volume/frequency/min_distance/max_distance properties, etc.
     }
 
     // Debug shapes

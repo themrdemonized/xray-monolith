@@ -425,6 +425,11 @@ public:
 	virtual bool has_playing_persistent() const = 0;
 	virtual void set_thread_enabled(bool enabled) = 0; // mt_sound: run OpenAL updates on the worker thread (1) or the main thread (0)
 	virtual bool thread_enabled() const = 0;
+	// Serialize emitter/stream access. Callers dereferencing _feedback() on a
+	// secondary game thread must hold this throughout the operation. The audio
+	// worker refills buffers only; emitter lifetime remains owned by frame updates.
+	virtual void lock() = 0;
+	virtual void unlock() = 0;
 	virtual int pause_emitters(bool val) = 0;
 
 	virtual void play(ref_sound& S, CObject* O, u32 flags = 0, float delay = 0.f) = 0;
@@ -457,6 +462,19 @@ public:
 };
 
 extern XRSOUND_API CSound_manager_interface* Sound;
+
+// Scoped guard: holds the sound emitter lock for the duration of a block.
+// Use around direct emitter access outside the serialized frame sound update.
+class sound_lock_guard
+{
+public:
+	sound_lock_guard() : m_sound(::Sound) { if (m_sound) m_sound->lock(); }
+	~sound_lock_guard() { if (m_sound) m_sound->unlock(); }
+private:
+	CSound_manager_interface* m_sound;
+	sound_lock_guard(const sound_lock_guard&);
+	sound_lock_guard& operator=(const sound_lock_guard&);
+};
 
 /// ********* Sound ********* (utils, accessors, helpers)
 IC ref_sound_data::ref_sound_data()
@@ -520,37 +538,48 @@ IC void ref_sound::play_no_feedback(CObject* O, u32 flags, float d, Fvector* pos
 
 IC void ref_sound::set_position(const Fvector& pos)
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	VERIFY(_feedback());
-	_feedback()->set_position(pos);
+	reconcile_feedback();
+	CSound_emitter* fb = _feedback();
+	if (fb) fb->set_position(pos);
 }
 
 IC void ref_sound::set_frequency(float freq)
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback()) _feedback()->set_frequency(freq);
+	reconcile_feedback();
+	if (CSound_emitter* fb = _feedback()) fb->set_frequency(freq);
 }
 
 IC void ref_sound::set_range(float min, float max)
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback()) _feedback()->set_range(min, max);
+	reconcile_feedback();
+	if (CSound_emitter* fb = _feedback()) fb->set_range(min, max);
 }
 
 IC void ref_sound::set_volume(float vol)
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback()) _feedback()->set_volume(vol);
+	reconcile_feedback();
+	if (CSound_emitter* fb = _feedback()) fb->set_volume(vol);
 }
 
 IC void ref_sound::set_priority(float p)
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback()) _feedback()->set_priority(p);
+	reconcile_feedback();
+	if (CSound_emitter* fb = _feedback()) fb->set_priority(p);
 }
 
 IC void ref_sound::reconcile_feedback()
 {
+	sound_lock_guard sound_guard;
 	if (!_p || _p->feedback || !::Sound)
 		return;
 	VERIFY(!::Sound->i_locked());
@@ -559,6 +588,7 @@ IC void ref_sound::reconcile_feedback()
 
 IC bool ref_sound::has_playing_emitter() const
 {
+	sound_lock_guard sound_guard;
 	if (!_p)
 		return false;
 	if (_p->feedback)
@@ -568,36 +598,45 @@ IC bool ref_sound::has_playing_emitter() const
 
 IC void ref_sound::stop()
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
 	reconcile_feedback();
-	if (_feedback())
-		_feedback()->stop(FALSE);
+	if (CSound_emitter* fb = _feedback())
+		fb->stop(FALSE);
 	else if (_p && ::Sound)
 		::Sound->stop_emitters_for_owner(_p._get());
 }
 
 IC void ref_sound::stop_deffered()
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback()) _feedback()->stop(TRUE);
+	reconcile_feedback();
+	if (CSound_emitter* fb = _feedback()) fb->stop(TRUE);
 }
 
 IC const CSound_params* ref_sound::get_params()
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback()) return _feedback()->get_params();
+	reconcile_feedback();
+	// Borrowed pointer: callers retaining it across sound operations must hold
+	// sound_lock_guard for the complete read, not only this lookup.
+	if (CSound_emitter* fb = _feedback()) return fb->get_params();
 	else return NULL;
 }
 
 IC void ref_sound::set_params(CSound_params* p)
 {
+	sound_lock_guard sound_guard;
 	VERIFY(!::Sound->i_locked());
-	if (_feedback())
+	reconcile_feedback();
+	if (CSound_emitter* fb = _feedback())
 	{
-		_feedback()->set_position(p->position);
-		_feedback()->set_frequency(p->freq);
-		_feedback()->set_range(p->min_distance, p->max_distance);
-		_feedback()->set_volume(p->volume);
+		fb->set_position(p->position);
+		fb->set_frequency(p->freq);
+		fb->set_range(p->min_distance, p->max_distance);
+		fb->set_volume(p->volume);
 	}
 }
 #endif

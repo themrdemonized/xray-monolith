@@ -368,7 +368,8 @@ void CRenderDevice::on_idle()
 			if (g_loading_events.front()())
 				g_loading_events.pop_front();
 		}
-		// Keep listener snapshot fresh; SoundRender_UpdateThread refills OpenAL buffers
+		// Advance sound state between loading steps; the worker refills buffers
+		// while a loading step blocks this thread.
 #ifndef DEDICATED_SERVER
 		if (::Sound)
 			::Sound->update(Device.vCameraPosition, Device.vCameraDirection, Device.vCameraTop);

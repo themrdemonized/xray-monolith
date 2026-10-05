@@ -3,6 +3,7 @@
 
 #include "SoundRender_CoreA.h"
 #include "SoundRender_TargetA.h"
+#include "SoundRender_Emitter.h"
 #include "SoundRender_Environment.h"
 
 #include "../xrEngine/pure.h"
@@ -64,23 +65,18 @@ static const u32 SOUND_BG_SLEEP_MS = 20;
 void SoundRender_UpdateThread(void*)
 {
 	VERIFY(SoundRenderA && SoundRenderA->pContext);
-	alcMakeContextCurrent(SoundRenderA->pContext);
 
 	while (SoundRender->m_bUpdateThreadRun)
 	{
 		Sleep(SOUND_BG_SLEEP_MS);
-		if (!SoundRender->bReady)
-			continue;
-
 		SoundRender->sound_api_enter();
-		SoundRender->update_impl(
-			SoundRender->m_snap_P,
-			SoundRender->m_snap_D,
-			SoundRender->m_snap_N);
+		if (SoundRender->m_bUpdateThreadRun)
+			SoundRender->update_streams();
 		SoundRender->sound_api_leave();
 	}
 
-	alcMakeContextCurrent(nullptr);
+	// The context is process-wide. Clearing it here races with main-thread AL
+	// calls, including target teardown immediately after joining this worker.
 	SoundRender->m_bUpdateThreadExited = TRUE;
 }
 
@@ -296,10 +292,12 @@ void  CSoundRender_CoreA::_restart()
 
 void CSoundRender_CoreA::refresh_devices()
 {
+	sound_lock_guard sound_guard;
 	if (!pDeviceList)
 		return;
 
 	pDeviceList->Enumerate();
+	bind_context(); // Enumeration creates and clears temporary contexts.
 	Msg("SOUND: OpenAL: Device list refreshed, %d devices found", pDeviceList->GetNumDevices());
 
 	if (pDeviceList->GetNumDevices() == 0)
@@ -330,6 +328,7 @@ void CSoundRender_CoreA::default_device_changed()
 
 void CSoundRender_CoreA::switch_device(LPCSTR device_name)
 {
+	sound_lock_guard sound_guard;
 	if (!pDevice || !pContext)
 		return;
 
@@ -343,7 +342,7 @@ void CSoundRender_CoreA::switch_device(LPCSTR device_name)
 		return;
 	}
 
-	const ALDeviceDesc& deviceDesc = *pDeviceDesc;
+	const ALDeviceDesc deviceDesc = *pDeviceDesc;
 	Msg("SOUND: Attempting to open device: name='%s', name_al='%s'", deviceDesc.name, deviceDesc.name_al);
 
 	ALCdevice* newDevice = alcOpenDevice(deviceDesc.name_al);
@@ -367,6 +366,8 @@ void CSoundRender_CoreA::switch_device(LPCSTR device_name)
 	for (u32 it = 0; it < s_targets.size(); it++)
 	{
 		CSoundRender_TargetA* AlTarget = (CSoundRender_TargetA*)s_targets[it];
+		if (CSoundRender_Emitter* emitter = AlTarget->get_emitter())
+			emitter->cancel();
 		AlTarget->_destroy();
 	}
 
@@ -558,6 +559,7 @@ void CSoundRender_CoreA::set_master_volume(float f)
 void CSoundRender_CoreA::_clear()
 {
 	update_thread_stop();
+	sound_lock_guard sound_guard;
 	inherited::_clear();
 	// remove targets
 	CSoundRender_Target* T = nullptr;
@@ -567,6 +569,10 @@ void CSoundRender_CoreA::_clear()
 		T->_destroy();
 		xr_delete(T);
 	}
+	s_targets.clear();
+	s_targets_defer.clear();
+	DestroyEffect();
+	m_is_supported = false;
 	// Reset the current context to NULL.
 	alcMakeContextCurrent(NULL);
 	// Release the context and the device.
@@ -584,6 +590,7 @@ void CSoundRender_CoreA::update_listener(const Fvector& P, const Fvector& D, con
 
 	Listener.curVelocity.sub(P, Listener.position);
 
+	dt = _max(dt, EPS_S);
 	float a = soundSmoothingParams::getTimeDeltaSmoothing();
 	int p = soundSmoothingParams::power;
 	Listener.accVelocity.x = soundSmoothingParams::getSmoothedValue(Listener.curVelocity.x * p / dt, Listener.accVelocity.x, a);
