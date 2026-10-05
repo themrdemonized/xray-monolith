@@ -14,6 +14,8 @@
 
 extern int g_nearwall;
 
+int ps_hud_ik_compensation = 0;
+
 player_hud* g_player_hud = NULL;
 Fvector _ancor_pos;
 Fvector _wpn_root_pos;
@@ -722,6 +724,8 @@ player_hud::player_hud()
 	m_attach_offset_2.identity();
 	m_transform.identity();
 	m_transform_2.identity();
+	m_ik_shoulder_reference[0].identity();
+	m_ik_shoulder_reference[1].identity();
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
 	script_anim_offset_factor = 0.f;
@@ -735,6 +739,12 @@ player_hud::player_hud()
 	//m_bone_callback_params.insert(mk_pair(bip01_r_finger1, xr_new<BoneCallbackParams>()));
 	//m_bone_callback_params.insert(mk_pair(bip01_r_finger11, xr_new<BoneCallbackParams>()));
 	//m_bone_callback_params.insert(mk_pair(bip01_r_finger12, xr_new<BoneCallbackParams>()));
+
+	for (int i = 0; i < 8; ++i)
+	{
+		m_ik_transforms[i].first.identity();
+		m_ik_transforms[i].second = false;
+	}
 
 	//Movement Layers
 	m_movement_layers.reserve(move_anms_end);
@@ -814,6 +824,17 @@ void player_hud::FingerCallback(CBoneInstance* B)
 	B->mTransform.mulB_43(rotation);
 }
 
+void IKHandCallback(CBoneInstance* B)
+{
+	xr_pair<Fmatrix, bool>* pair = static_cast<xr_pair<Fmatrix, bool>*>(B->callback_param());
+	if (g_player_hud->attached_item(1) && pair < &g_player_hud->m_ik_transforms[4]) return;
+	const int arm = int(pair - g_player_hud->m_ik_transforms) / 4;
+	if (!g_player_hud->m_arm_ik[arm].enabled) return;
+	if (!pair->second) return;
+
+	B->mTransform = pair->first;
+}
+
 void player_hud::load(const shared_str& player_hud_sect, bool force)
 {
 	if (!force && player_hud_sect == m_sect_name) return;
@@ -843,6 +864,30 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
 
+	u16 l_upperarm = m_model_2->dcast_PKinematics()->LL_BoneID("l_upperarm");
+	u16 r_upperarm = m_model->dcast_PKinematics()->LL_BoneID("r_upperarm");
+
+	u16 l_forearm = m_model_2->dcast_PKinematics()->LL_BoneID("l_forearm");
+	u16 r_forearm = m_model->dcast_PKinematics()->LL_BoneID("r_forearm");
+
+	u16 l_forearm_twist = m_model_2->dcast_PKinematics()->LL_BoneID("l_forearm_twist");
+	u16 r_forearm_twist = m_model->dcast_PKinematics()->LL_BoneID("r_forearm_twist");
+
+	u16 l_hand = m_model_2->dcast_PKinematics()->LL_BoneID("l_hand");
+	u16 r_hand = m_model->dcast_PKinematics()->LL_BoneID("r_hand");
+
+	m_arm_ik[0].initialized = false;
+	m_arm_ik[1].initialized = false;
+	m_ik_frame = u32(-1);
+	m_arm_ik[0].bones[0] = l_upperarm;
+	m_arm_ik[0].bones[1] = l_forearm;
+	m_arm_ik[0].bones[2] = l_forearm_twist;
+	m_arm_ik[0].bones[3] = l_hand;
+	m_arm_ik[1].bones[0] = r_upperarm;
+	m_arm_ik[1].bones[1] = r_forearm;
+	m_arm_ik[1].bones[2] = r_forearm_twist;
+	m_arm_ik[1].bones[3] = r_hand;
+
 	u16 bone_r_finger0 = m_model->dcast_PKinematics()->LL_BoneID("r_finger0");
 	u16 bone_r_finger01 = m_model->dcast_PKinematics()->LL_BoneID("r_finger01");
 	u16 bone_r_finger02 = m_model->dcast_PKinematics()->LL_BoneID("r_finger02");
@@ -858,6 +903,16 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger0).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger1]);
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger01).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger11]);
 	//m_model->dcast_PKinematics()->LL_GetBoneInstance(bone_r_triggerfinger02).set_callback(bctCustom, FingerCallback, m_bone_callback_params[bip01_r_finger12]);
+
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_upperarm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[0]);
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_forearm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[1]);
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_forearm_twist).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[2]);
+	m_model_2->dcast_PKinematics()->LL_GetBoneInstance(l_hand).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[3]);
+
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_upperarm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[4]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_forearm).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[5]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_forearm_twist).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[6]);
+	m_model->dcast_PKinematics()->LL_GetBoneInstance(r_hand).set_callback(bctCustom, IKHandCallback, &m_ik_transforms[7]);
 
 	// hides the unused arm meshes
 	m_model->dcast_PKinematics()->LL_SetBoneVisible(l_arm, FALSE, TRUE);
@@ -946,6 +1001,272 @@ void player_hud::render_item_ui()
 			if (pair.second->GetType() == eSA_HUD)
 				pair.second->RenderUI();
 	}
+}
+
+// IK helper: swing an authored bone frame onto the solved segment without imposing a new roll.
+static Fmatrix swing_ik_bone(const Fmatrix& animated, const Fvector& from, const Fvector& to, const Fvector& position)
+{
+	Fvector axis;
+	axis.crossproduct(from, to);
+	const float cosine = clampr(from.dotproduct(to), -1.f, 1.f);
+	float sine = axis.magnitude();
+	if (sine > EPS_S)
+		axis.div(sine);
+	else if (cosine < 0.f)
+	{
+		Fvector fallback;
+		fallback.set(_abs(from.y) < .9f ? 0.f : 1.f, _abs(from.y) < .9f ? 1.f : 0.f, 0.f);
+		axis.crossproduct(from, fallback).normalize_safe();
+		sine = 0.f;
+	}
+	else
+	{
+		Fmatrix result = animated;
+		result.c = position;
+		return result;
+	}
+
+	auto rotate = [&](const Fvector& v)
+	{
+		Fvector cross, result;
+		cross.crossproduct(axis, v);
+		result.mul(v, cosine);
+		result.mad(cross, sine);
+		result.mad(axis, axis.dotproduct(v) * (1.f - cosine));
+		return result;
+	};
+	Fmatrix result = animated;
+	result.i = rotate(animated.i);
+	result.j = rotate(animated.j);
+	result.k = rotate(animated.k);
+	result.c = position;
+	return result;
+}
+
+// IK helper: build pole target from the current animated shoulder, elbow and hand.
+static bool animation_ik_pole(const Fmatrix* animated, Fvector& cached_direction,
+	bool& direction_valid, Fvector& pole)
+{
+	Fvector axis, upper;
+	axis.sub(animated[3].c, animated[0].c);
+	const float distance = axis.magnitude();
+	if (distance < EPS_S) return false;
+	axis.div(distance);
+	upper.sub(animated[1].c, animated[0].c);
+	Fvector origin, bend;
+	origin.mad(animated[0].c, axis, upper.dotproduct(axis));
+	bend.sub(animated[1].c, origin);
+	// Near extension the measured bend is unreliable; retain the last valid direction.
+	if (bend.magnitude() > _max(EPS_S, upper.magnitude() * .001f))
+	{
+		cached_direction = bend.normalize_safe();
+		direction_valid = true;
+	}
+	else
+	{
+		if (!direction_valid) return false;
+		bend = cached_direction;
+		bend.mad(axis, -bend.dotproduct(axis));
+		if (bend.square_magnitude() < EPS_S * EPS_S) return false;
+		bend.normalize_safe();
+	}
+	pole.mad(origin, bend, 1.5f);
+	return true;
+}
+
+void player_hud::set_arm_ik_enabled(u8 hand, bool enabled)
+{
+	if (hand > 2) return;
+	for (int arm = 0; arm < 2; ++arm)
+	{
+		if (hand != 2 && arm != 1 - hand) continue;
+		ArmIK& state = m_arm_ik[arm];
+		if (state.enabled == enabled) continue;
+		state.enabled = enabled;
+		state.initialized = false;
+		for (int bone = 0; bone < 4; ++bone)
+			m_ik_transforms[arm * 4 + bone].second = false;
+		IKinematicsAnimated* model = arm == 0 ? m_model_2 : m_model;
+		if (model) model->dcast_PKinematics()->CalculateBones_Invalidate();
+	}
+}
+
+// IK helper: solve one arm and apply its bone transforms to the skeleton.
+void player_hud::solve_hand_ik(int arm)
+{
+	ArmIK& state = m_arm_ik[arm];
+	const int first = arm * 4;
+	IKinematics* K = (arm == 0 ? m_model_2 : m_model)->dcast_PKinematics();
+	for (int i = 0; i < 3; ++i)
+		m_ik_transforms[first + i].second = false;
+
+	if (state.enabled && m_attached_items[0] && (arm == 1 || !m_attached_items[1]))
+	{
+		for (int i = 0; i < 4; ++i)
+			if (state.bones[i] == BI_NONE)
+				return;
+
+		Fmatrix animated[4];
+		for (int i = 0; i < 4; ++i)
+			K->Bone_GetAnimPos(animated[i], state.bones[i], u8(-1), true);
+
+		const Fmatrix animated_hand = animated[3];
+
+		if (!state.initialized)
+		{
+			// Fixed bone-frame relationships must not follow the animation under an IK target.
+			xr_vector<Fmatrix> bind_pose;
+			K->LL_GetBindTransform(bind_pose);
+			Fmatrix inverse_bind_forearm;
+			inverse_bind_forearm.invert(bind_pose[state.bones[1]]);
+			state.wrist_from_forearm.mul_43(inverse_bind_forearm, bind_pose[state.bones[2]]);
+			state.hand_from_forearm.mul_43(inverse_bind_forearm, bind_pose[state.bones[3]]);
+			state.animation_pole_direction_valid = false;
+			state.lengths[0] = animated[0].c.distance_to(animated[1].c);
+			state.lengths[1] = animated[1].c.distance_to(animated[3].c);
+			state.lengths[2] = animated[1].c.distance_to(animated[2].c);
+			if (state.lengths[0] < EPS_S || state.lengths[1] < EPS_S)
+				return;
+
+			state.pole.set(0.f, -1.f, 0.f);
+			state.initialized = true;
+		}
+
+		Fvector animation_pole;
+		const bool animation_pole_valid = animation_ik_pole(animated, state.animation_pole_direction,
+			state.animation_pole_direction_valid, animation_pole);
+
+		if (ps_hud_ik_compensation)
+		{
+			// Hand targets follow the final HUD transform; shoulders follow the camera and idle offset.
+			const Fmatrix& hud_transform = arm == 0 ? m_transform_2 : m_transform;
+			Fmatrix inverse_hud, reference;
+			inverse_hud.invert(hud_transform);
+			reference.mul_43(inverse_hud, m_ik_shoulder_reference[arm]);
+			for (auto& bone : animated) bone.mulA_43(reference);
+			if (animation_pole_valid) reference.transform_tiny(animation_pole);
+		}
+
+		const Fmatrix target = m_ik_transforms[first + 3].second ? m_ik_transforms[first + 3].first : animated_hand;
+		Fvector shoulder = animated[0].c;
+		const float upper = state.lengths[0], lower = state.lengths[1];
+
+		Fvector direction, pole, normal;
+		direction.sub(target.c, shoulder);
+		const float distance = direction.magnitude();
+		if (distance < EPS_S)
+			return;
+		direction.div(distance);
+		// Use the animated pole directly. Degenerate poses retain the previous bend plane.
+		pole = state.pole;
+		if (animation_pole_valid)
+			pole.sub(animation_pole, shoulder);
+		normal.crossproduct(direction, pole);
+		if (normal.square_magnitude() < EPS_S * EPS_S)
+		{
+			normal.crossproduct(direction, state.pole);
+			if (normal.square_magnitude() < EPS_S * EPS_S)
+			{
+				pole.set(_abs(direction.y) < .9f ? 0.f : 1.f, _abs(direction.y) < .9f ? 1.f : 0.f, 0.f);
+				normal.crossproduct(direction, pole);
+			}
+		}
+		normal.normalize_safe();
+		state.pole.crossproduct(normal, direction).normalize_safe();
+
+		Fvector elbow, hand;
+		if (distance > upper + lower - 1e-5f)
+		{
+			elbow.mad(shoulder, direction, upper);
+			hand.mad(elbow, direction, lower);
+		}
+		else
+		{
+			const float cosine = clampr((distance * distance + upper * upper - lower * lower) / (2.f * upper * distance), -1.f, 1.f);
+			const float angle = acosf(cosine);
+			Fvector cross, rotated;
+			cross.crossproduct(normal, direction);
+			rotated.mul(direction, cosf(angle));
+			rotated.mad(cross, sinf(angle));
+			rotated.mad(normal, normal.dotproduct(direction) * (1.f - cosf(angle)));
+			rotated.normalize_safe();
+			elbow.mad(shoulder, rotated, upper);
+			hand = target.c;
+		}
+
+		Fmatrix pose[4];
+		Fvector directions[2];
+		directions[0].sub(elbow, shoulder).normalize_safe();
+		directions[1].sub(hand, elbow).normalize_safe();
+		Fvector original_upper, original_forearm;
+		original_upper.sub(animated[1].c, animated[0].c).normalize_safe();
+		original_forearm.sub(animated[3].c, animated[1].c).normalize_safe();
+		pose[0] = swing_ik_bone(animated[0], original_upper, directions[0], shoulder);
+		pose[1] = swing_ik_bone(animated[1], original_forearm, directions[1], elbow);
+		pose[3] = target;
+		pose[3].c = hand;
+
+		Fvector wrist;
+		wrist.mad(elbow, directions[1], state.lengths[2]);
+		// Use the skeleton's fixed wrist/hand frames, not the underlying animation's
+		// magazine-grab or reload pose, as the reference for target-driven roll.
+		Fmatrix reference_hand;
+		pose[2].mul_43(pose[1], state.wrist_from_forearm);
+		pose[2].c = wrist;
+		reference_hand.mul_43(pose[1], state.hand_from_forearm);
+		reference_hand.c = hand;
+		const Fvector reference_axes[3] = {reference_hand.i, reference_hand.j, reference_hand.k};
+		const Fvector target_axes[3] = {target.i, target.j, target.k};
+		float sine = 0.f, cosine = 0.f;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			Fvector cross;
+			cross.crossproduct(reference_axes[axis], target_axes[axis]);
+			sine += directions[1].dotproduct(cross);
+			cosine += reference_axes[axis].dotproduct(target_axes[axis])
+				- directions[1].dotproduct(reference_axes[axis]) * directions[1].dotproduct(target_axes[axis]);
+		}
+		// atan2 wraps the hand's extra roll to [-PI, PI]; the twist bone receives half.
+		const float roll = sine * sine + cosine * cosine > EPS_S * EPS_S
+			? atan2f(sine, cosine) * .5f : 0.f;
+		auto roll_axis = [&](Fvector& axis)
+		{
+			Fvector cross, rotated;
+			cross.crossproduct(directions[1], axis);
+			rotated.mul(axis, cosf(roll));
+			rotated.mad(cross, sinf(roll));
+			rotated.mad(directions[1], directions[1].dotproduct(axis) * (1.f - cosf(roll)));
+			axis = rotated;
+		};
+		roll_axis(pose[2].i);
+		roll_axis(pose[2].j);
+		roll_axis(pose[2].k);
+
+		for (int i = 0; i < 4; ++i)
+		{
+			m_ik_transforms[first + i].first = pose[i];
+			m_ik_transforms[first + i].second = true;
+		}
+	}
+
+	// Re-evaluate without advancing tracks: callbacks update descendants and render matrices.
+	K->CalculateBones_Invalidate();
+	K->CalculateBones(TRUE);
+}
+
+void player_hud::finalize_hands_ik()
+{
+	if (m_ik_frame == Device.dwFrame)
+		return;
+	m_ik_frame = Device.dwFrame;
+
+	// Lua registers this after game start; lookup must not auto-load IK scripts during loading.
+	::luabind::functor<void> update_target;
+	if (ai().script_engine().functor("_G.COnHudIKTarget", update_target))
+		update_target();
+
+	solve_hand_ik(0);
+	solve_hand_ik(1);
 }
 
 void player_hud::render_hud()
@@ -1070,8 +1391,41 @@ const Fvector player_hud::attach_pos(u8 part) const
 extern float g_freelook_z_offset;
 extern float psHUD_FOV;
 
+// Build an independent reference before inertia, recoil, script layers and near-wall offsets.
+void player_hud::update_ik_shoulder_reference(const Fmatrix& camera)
+{
+	for (int slot = 0; slot < 2; ++slot)
+	{
+		const attachable_hud_item* item = m_attached_items[slot] ? m_attached_items[slot] : m_attached_items[!slot];
+		Fmatrix reference = camera;
+		if (item && smart_cast<CWeapon*>(item->m_parent_hud_item))
+		{
+			const Fvector& rotation = m_adjust_mode ? m_adjust_offset[1][5] : item->m_measures.m_hands_offset[1][5];
+			const Fvector& position = m_adjust_mode ? m_adjust_offset[0][5] : item->m_measures.m_hands_offset[0][5];
+			Fmatrix offset, axis;
+			offset.rotateX(rotation.x);
+			axis.rotateY(rotation.y);
+			offset.mulA_43(axis);
+			axis.rotateZ(rotation.z);
+			offset.mulA_43(axis);
+			offset.translate_over(position);
+			reference.mulB_43(offset);
+		}
+
+		Fvector rotation = attach_rot(slot);
+		rotation.mul(PI / 180.f);
+		Fmatrix attachment;
+		attachment.setHPB(rotation.x, rotation.y, rotation.z);
+		attachment.translate_over(attach_pos(slot));
+		// HUD slots are right/left; the IK array is left/right.
+		m_ik_shoulder_reference[1 - slot].mul_43(reference, attachment);
+	}
+}
+
 void player_hud::update(const Fmatrix& cam_trans)
 {
+	if (ps_hud_ik_compensation)
+		update_ik_shoulder_reference(cam_trans);
 	Fmatrix trans = cam_trans;
 	Fmatrix trans_b = cam_trans;
 	CWeapon* wep = smart_cast<CWeapon*>(Actor()->inventory().ActiveItem());
@@ -1200,6 +1554,8 @@ void player_hud::update(const Fmatrix& cam_trans)
 	m_transform.mul(trans, m_attach_offset);
 	m_transform_2.mul(trans_2, m_attach_offset_2);
 
+	for (int i = 0; i < 8; ++i)
+		m_ik_transforms[i].second = false;
 	m_model->UpdateTracks();
 	m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model->dcast_PKinematics()->CalculateBones(TRUE);
@@ -2038,6 +2394,9 @@ void player_hud::OnFrame()
 			m_attached_items[SCOPE_ATTACH_IDX]->m_item_transform.mulB_43(nearwall_0);
 		}
 	}
+
+	if (g_actor && g_actor->IsFocused() && m_model && m_model_2)
+		finalize_hands_ik();
 }
 
 void player_hud::net_Relcase(CObject* obj)
