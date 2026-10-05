@@ -1695,19 +1695,23 @@ LPCSTR vid_modes_string()
 {
 	// Static: the returned pointer must outlive this call until luabind copies it.
 	// A local would be freed on return, leaving luabind to read a freed buffer.
-	static xr_string resolutions;
-	resolutions.clear();
+	static shared_str resolutions;
+    if (resolutions.size() > 0)
+        return resolutions.c_str();
+
+    xr_string result;
 
 	xr_token* tok = vid_mode_token;
 	while (tok->name)
 	{
-		if (!resolutions.empty())
-			resolutions.append(",");
+		if (!result.empty())
+            result.append(",");
 
-		resolutions.append(tok->name);
+        result.append(tok->name);
 		tok++;
 	}
 
+    resolutions = result.c_str();
 	return resolutions.c_str();
 }
 
