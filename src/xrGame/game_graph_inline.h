@@ -41,6 +41,16 @@ IC CGameGraph::CGameGraph(const IReader& _stream)
 	m_current_level_cross_table = 0;
 }
 
+IC CGameGraph::CGameGraph(const CHeader& header, CVertex* nodes, u32* cross_tables)
+{
+	m_header = header;
+	m_nodes = nodes;
+	m_current_level_some_vertex_id = _GRAPH_ID(-1);
+	m_enabled.assign(this->header().vertex_count(), true);
+	m_cross_tables = cross_tables;
+	m_current_level_cross_table = nullptr;
+}
+
 IC CGameGraph::~CGameGraph()
 {
 	xr_delete(m_current_level_cross_table);
@@ -240,6 +250,24 @@ IC const u32& GameGraph::CVertex::death_point_offset() const
 	return (dwPointOffset);
 }
 
+IC bool CGameGraph::nearest_vertex(const _LEVEL_ID level_id, const Fvector& level_point, u32& vertex_id, float& distance) const
+{
+	distance = flt_max;
+	vertex_id = u32(-1);
+	for (u32 i = 0, n = header().vertex_count(); i < n; ++i)
+	{
+		const CVertex* candidate = vertex(i);
+		if (candidate->level_id() != level_id)
+			continue;
+		const float current = candidate->level_point().distance_to(level_point);
+		if (current >= distance)
+			continue;
+		distance = current;
+		vertex_id = i;
+	}
+	return vertex_id != u32(-1);
+}
+
 IC const GameGraph::_GRAPH_ID& GameGraph::CEdge::vertex_id() const
 {
 	return (m_vertex_id);
@@ -368,28 +396,26 @@ IC const CGameLevelCrossTable& CGameGraph::cross_table() const
 	return (*m_current_level_cross_table);
 }
 
-#ifdef AI_COMPILER
-IC void CGameGraph::save								(IWriter &stream)
+IC void CGameGraph::save(IWriter& stream)
 {
-	m_header.save				(&stream);
-	
-	u8							*buffer = (u8*)m_nodes;
-	stream.w					(buffer,header().vertex_count()*sizeof(CVertex));
-	buffer						+= header().vertex_count()*sizeof(CVertex);
+	m_header.save(&stream);
 
-	stream.w					(buffer,header().edge_count()*sizeof(CGameGraph::CEdge));
-	buffer						+= header().edge_count()*sizeof(CGameGraph::CEdge);
+	u8* buffer = (u8*)m_nodes;
+	stream.w(buffer, header().vertex_count() * sizeof(CVertex));
+	buffer += header().vertex_count() * sizeof(CVertex);
 
-	stream.w					(buffer,header().death_point_count()*sizeof(CLevelPoint));
-	buffer						+= header().death_point_count()*sizeof(CLevelPoint);
+	stream.w(buffer, header().edge_count() * sizeof(CGameGraph::CEdge));
+	buffer += header().edge_count() * sizeof(CGameGraph::CEdge);
 
-	VERIFY						((u8*)m_cross_tables == buffer);
-	GameGraph::LEVEL_MAP::const_iterator	I = header().levels().begin();
-	GameGraph::LEVEL_MAP::const_iterator	E = header().levels().end();
-	for ( ; I != E; ++I) {
-		u32						size = *(u32*)buffer;
-		stream.w				(buffer,size);
-		buffer					+= size;
+	stream.w(buffer, header().death_point_count() * sizeof(CLevelPoint));
+
+	buffer = (u8*)m_cross_tables;
+	GameGraph::LEVEL_MAP::const_iterator I = header().levels().begin();
+	GameGraph::LEVEL_MAP::const_iterator E = header().levels().end();
+	for (; I != E; ++I)
+	{
+		const u32 size = *(u32*)buffer;
+		stream.w(buffer, size);
+		buffer += size;
 	}
 }
-#endif // AI_COMPILER

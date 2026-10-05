@@ -188,6 +188,7 @@
         void iterate_objects(function(se_obj))
         void iterate_level_objects_of_clsid(number script_clsid, function(se_obj)) -- walks actor's current-level CSE registry filtered by m_script_clsid; functor returns true to stop early; must not release the currently iterated entity
         void force_update() -- forces an immediate alife scheduled update cycle
+        cse_abstract create_on_level(string section, string level_name, Fvector position, number level_vertex_id = nil) -- create(section, position, lvid, gvid) with the ids derived: exact on the current level; elsewhere the level's nearest game vertex and level_vertex_id or that vertex's own level vertex, re-snapped to position when the level loads; nil (logged) when the level is not in the game graph
     }
 
     game {
@@ -245,6 +246,12 @@
         property dest_game_vertex_id    // u16
         property dest_level_vertex_id   // u32
         property dest_position          // Fvector
+    }
+
+    // game_graph()
+    class CGameGraph {
+        table level_neighbours(number level_id) // {[level_id] = true} for every level sharing a game-graph edge with level_id; empty table when the level is unknown or has no cross-level edges (offline squads cannot path in or out)
+        number nearest_vertex(string level_name, Fvector position) // game vertex id of level_name's vertex whose level point is nearest to position; nil when the level is not in the game graph
     }
 
     class CUIWindow {

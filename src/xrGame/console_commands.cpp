@@ -10,6 +10,7 @@
 #include "script_debugger.h"
 #include "ai_debug.h"
 #include "alife_simulator.h"
+#include "alife_spawn_registry.h"
 #include "game_cl_base.h"
 #include "game_cl_single.h"
 #include "game_sv_single.h"
@@ -40,6 +41,7 @@
 #include "MainMenu.h"
 #include "saved_game_wrapper.h"
 #include "level_graph.h"
+#include "game_graph.h"
 //#include "../xrEngine/resourcemanager.h"
 //#include "../xrEngine/doug_lea_memory_allocator.h"
 #include "cameralook.h"
@@ -999,6 +1001,41 @@ void get_files_list(xr_vector<shared_str>& files, LPCSTR dir, LPCSTR file_ext, b
 }
 
 #include "UIGameCustom.h"
+
+// Writes the loaded spawn registry (overlays and level packs applied) as an all.spawn file into $app_data_root$.
+class CCC_SpawnOverlaysDump : public IConsole_Command
+{
+public:
+	CCC_SpawnOverlaysDump(LPCSTR N) : IConsole_Command(N)
+	{
+	}
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!ai().get_alife())
+		{
+			Msg("! alife is not loaded");
+			return;
+		}
+		if (!*args)
+		{
+			Msg("! usage: spawn_overlays_dump <file name>");
+			return;
+		}
+
+		string_path file_name;
+		FS.update_path(file_name, "$app_data_root$", args);
+		IWriter* writer = FS.w_open(file_name);
+		if (!writer)
+		{
+			Msg("! cannot open %s for writing", file_name);
+			return;
+		}
+		const_cast<CALifeSpawnRegistry&>(ai().alife().spawns()).save_spawn(*writer);
+		FS.w_close(writer);
+		Msg("* spawn written to %s", file_name);
+	}
+};
 
 class CCC_ALifeSave : public IConsole_Command
 {
@@ -2502,6 +2539,7 @@ void CCC_RegisterCommands()
 #endif // DEBUG
 
 	CMD1(CCC_ALifeSave, "save"); // save game
+	CMD1(CCC_SpawnOverlaysDump, "spawn_overlays_dump");
 	CMD1(CCC_ALifeLoadFrom, "load"); // load game from ...
 	CMD1(CCC_LoadLastSave, "load_last_save"); // load last saved game from ...
 

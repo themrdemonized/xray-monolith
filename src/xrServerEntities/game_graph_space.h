@@ -16,6 +16,8 @@
 #	include "../../xrEngine/xrLevel.h"
 #endif
 
+class CGameGraphBuilder;
+
 namespace GameGraph
 {
 	typedef u16 _GRAPH_ID;
@@ -71,6 +73,7 @@ namespace GameGraph
 		IC void save(IWriter* writer);
 
 		friend class CGameGraph;
+		friend class ::CGameGraphBuilder;
 	};
 
 	typedef associative_vector<_LEVEL_ID, SLevel> LEVEL_MAP;
@@ -88,6 +91,7 @@ namespace GameGraph
 	public:
 		IC const _GRAPH_ID& vertex_id() const;
 		IC const float& distance() const;
+		friend class ::CGameGraphBuilder;
 	};
 
 #ifdef AI_COMPILER
@@ -117,6 +121,7 @@ namespace GameGraph
 		IC const u8& death_point_count() const;
 		IC const u32& death_point_offset() const;
 		friend class CGameGraph;
+		friend class ::CGameGraphBuilder;
 	};
 
 #ifdef AI_COMPILER
@@ -147,6 +152,7 @@ namespace GameGraph
 		IC void load(IReader* reader);
 		IC void save(IWriter* reader);
 		friend class CGameGraph;
+		friend class ::CGameGraphBuilder;
 	};
 #pragma pack(pop)
 
