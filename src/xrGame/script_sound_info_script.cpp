@@ -15,5 +15,7 @@ void CScriptSoundInfo::script_register(lua_State* L)
 		.def_readwrite("position", &CScriptSoundInfo::position)
 		.def_readwrite("power", &CScriptSoundInfo::power)
 		.def_readwrite("time", &CScriptSoundInfo::time)
+		.def_readwrite("type", &CScriptSoundInfo::type)
+		.def_readwrite("count", &CScriptSoundInfo::count)
 	];
 }
