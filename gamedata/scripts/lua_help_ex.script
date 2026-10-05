@@ -20,6 +20,7 @@
         allow_accel_during_lookout [0; 1] // flag to allow 'running' speed during left or right lookouts
 
         scale_hud_motion_marks_by_speed [1; 0] // flag to scale motion marks by speed, default is on
+        hud_ik_compensation [0; 1] // Anchor enabled arm IK shoulders to the camera and idle HUD offset. Default: 0
 
         telekinetic_objects_include_corpses [0; 1] // Enable the ability for poltergeists and burers to throw corpses
         

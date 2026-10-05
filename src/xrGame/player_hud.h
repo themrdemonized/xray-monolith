@@ -458,6 +458,29 @@ public:
 	float m_adjust_scale;
 	bool m_adjust_mode;
 	u16 m_edit_bone;
+	xr_pair<Fmatrix, bool> m_ik_transforms[8];
+
+	// Lua supplies the left-hand target; both arms are finalized after HUD layers.
+	void finalize_hands_ik();
+	void solve_hand_ik(int arm);
+	// Script hand numbering: 0 right, 1 left, 2 both (setter only).
+	void set_arm_ik_enabled(u8 hand, bool enabled);
+	u32 m_ik_frame = u32(-1);
+	struct ArmIK
+	{
+		bool enabled = false;
+		bool initialized = false;
+		Fmatrix wrist_from_forearm;
+		Fmatrix hand_from_forearm;
+		Fvector animation_pole_direction;
+		bool animation_pole_direction_valid = false;
+		u16 bones[4];
+		float lengths[3];
+		Fvector pole;
+	};
+	ArmIK m_arm_ik[2]; // Left, right.
+	Fmatrix m_ik_shoulder_reference[2]; // Camera + idle HUD offset + model attachment, left/right.
+	void update_ik_shoulder_reference(const Fmatrix& camera);
 
 	void reset_thumb(bool bForce)
 	{
