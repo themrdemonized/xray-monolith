@@ -419,7 +419,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;giflib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;giflib.lib;tbbmalloc_proxy.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)$(Platform)\Release\;$(SolutionDir)3rd party\luajit-2\src\;$(XRAY_16X_LIBS)OpenAutomate\libraries;$(SolutionDir)..\lib\$(Platform)\Release;$(SolutionDir)$(Platform)\Release;$(xrSdkDir)libraries\x64;$(xrLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
@@ -429,6 +429,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /D /Y "$(xrSdkDir)binaries\tbbmalloc.dll" "$(OutDir)"
+xcopy /D /Y "$(xrSdkDir)binaries\tbbmalloc_proxy.dll" "$(OutDir)"
+xcopy /D /Y "$(xrSdkDir)binaries\tbb12.dll" "$(OutDir)"</Command>
+      <Message>Deploying TBB runtime DLLs</Message>
+    </PostBuildEvent>
     <Manifest>
       <AdditionalManifestFiles>$(SolutionDir)xrEngine\as-invoker-manifest-part.xml;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
@@ -458,7 +464,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;giflib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;giflib.lib;tbbmalloc_proxy.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)$(Platform)\$(Configuration);$(SolutionDir)3rd party\luajit-2\src\;$(XRAY_16X_LIBS)OpenAutomate\libraries;$(SolutionDir)..\lib\$(Platform)\Release;$(SolutionDir)$(Platform)\Release;$(xrSdkDir)libraries\x64;$(xrLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
@@ -468,6 +474,12 @@
       <EnableCOMDATFolding>false</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /D /Y "$(xrSdkDir)binaries\tbbmalloc.dll" "$(OutDir)"
+xcopy /D /Y "$(xrSdkDir)binaries\tbbmalloc_proxy.dll" "$(OutDir)"
+xcopy /D /Y "$(xrSdkDir)binaries\tbb12.dll" "$(OutDir)"</Command>
+      <Message>Deploying TBB runtime DLLs</Message>
+    </PostBuildEvent>
     <Manifest>
       <AdditionalManifestFiles>$(SolutionDir)xrEngine\as-invoker-manifest-part.xml;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
@@ -675,7 +687,7 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;giflib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vfw32.lib;libogg_static.lib;libtheora_static.lib;winmm.lib;OpenAL32.lib;giflib.lib;tbbmalloc_proxy.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(OutDir)$(Platform)\Release-AVX\;$(SolutionDir)3rd party\luajit-2\src\;$(XRAY_16X_LIBS)OpenAutomate\libraries;$(SolutionDir)..\lib\$(Platform)\Release;$(SolutionDir)$(Platform)\Release;$(xrSdkDir)libraries\x64;$(xrLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>$(xrLibDir)$(TargetName).lib</ImportLibrary>
@@ -685,6 +697,12 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /D /Y "$(xrSdkDir)binaries\tbbmalloc.dll" "$(OutDir)"
+xcopy /D /Y "$(xrSdkDir)binaries\tbbmalloc_proxy.dll" "$(OutDir)"
+xcopy /D /Y "$(xrSdkDir)binaries\tbb12.dll" "$(OutDir)"</Command>
+      <Message>Deploying TBB runtime DLLs</Message>
+    </PostBuildEvent>
     <Manifest>
       <AdditionalManifestFiles>$(SolutionDir)xrEngine\as-invoker-manifest-part.xml;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>

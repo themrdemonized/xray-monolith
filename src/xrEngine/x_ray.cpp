@@ -6,6 +6,9 @@
 // AlexMX - Alexander Maksimchuk
 //-----------------------------------------------------------------------------
 #include "stdafx.h"
+// TBB scalable allocator proxy: replaces the CRT malloc/free/new/delete
+// for the whole process. Must follow stdafx.h (PCH), activates at CRT init.
+#include "tbb/tbbmalloc_proxy.h"
 #include "igame_level.h"
 #include "igame_persistent.h"
 
