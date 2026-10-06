@@ -43,6 +43,7 @@ struct TH_LoadTHM
 	LPCSTR initial;
 	map_TD& s_texture_details;
 	map_CS& s_detail_scalers;
+	xrSRWLock& s_lock;
 };
 
 void CTextureDescrMngr::LoadTHMThread(void* args)
@@ -50,10 +51,10 @@ void CTextureDescrMngr::LoadTHMThread(void* args)
 	PROF_EVENT();
 
 	TH_LoadTHM* p = (TH_LoadTHM*)args;
-	LoadTHM(p->initial, p->s_texture_details, p->s_detail_scalers);
+	LoadTHM(p->initial, p->s_texture_details, p->s_detail_scalers, p->s_lock);
 }
 
-void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers)
+void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_CS& s_detail_scalers, xrSRWLock& s_lock)
 {
 	PROF_EVENT();
 
@@ -78,6 +79,11 @@ void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_C
 		if (STextureParams::ttImage == tp.type || STextureParams::ttTerrain == tp.type || STextureParams::ttNormalMap ==
 			tp.type)
 		{
+			// Exclusive: LoadTHM runs concurrently on two threads (game-textures
+			// and level THMs) sharing the same s_texture_details/s_detail_scalers
+			// maps, and readers (GetBumpName/GetMaterial/...) may run concurrently too.
+			xrSRWLockGuard guard(s_lock);
+
 			texture_desc& desc = s_texture_details[fn];
 			cl_dt_scaler*& dts = s_detail_scalers[fn];
 
@@ -124,15 +130,29 @@ void CTextureDescrMngr::LoadTHM(LPCSTR initial, map_TD& s_texture_details, map_C
 
 void CTextureDescrMngr::Load()
 {
-	TH_LoadTHM* gtex = new TH_LoadTHM({"$game_textures$", m_texture_details, m_detail_scalers});
-	TH_LoadTHM* lvl = new TH_LoadTHM({"$level$", m_texture_details, m_detail_scalers});
-	thread_spawn(LoadTHMThread, "X-Ray THM Loader 1", 0, gtex);
-	thread_spawn(LoadTHMThread, "X-Ray THM Loader 2", 0, lvl);
-	Sleep(5);
+	TH_LoadTHM* gtex = new TH_LoadTHM({"$game_textures$", m_texture_details, m_detail_scalers, m_texture_details_lock});
+	TH_LoadTHM* lvl = new TH_LoadTHM({"$level$", m_texture_details, m_detail_scalers, m_texture_details_lock});
+
+	HANDLE threads[2];
+	threads[0] = thread_spawn(LoadTHMThread, "X-Ray THM Loader 1", 0, gtex);
+	threads[1] = thread_spawn(LoadTHMThread, "X-Ray THM Loader 2", 0, lvl);
+	R_ASSERT(threads[0] && threads[1]);
+
+	// Actually wait for both loaders instead of guessing with Sleep(): they
+	// write into m_texture_details/m_detail_scalers, and UnLoad()/the getters
+	// below must not run concurrently with that.
+	WaitForMultipleObjects(2, threads, TRUE, INFINITE);
+	CloseHandle(threads[0]);
+	CloseHandle(threads[1]);
+
+	delete gtex;
+	delete lvl;
 }
 
 void CTextureDescrMngr::UnLoad()
 {
+	xrSRWLockGuard guard(m_texture_details_lock);
+
 	for (auto& it : m_texture_details)
 	{
 		xr_delete(it.second.m_assoc);
@@ -154,6 +174,7 @@ CTextureDescrMngr::~CTextureDescrMngr()
 
 shared_str CTextureDescrMngr::GetBumpName(const shared_str& tex_name) const
 {
+	xrSRWLockGuard guard(m_texture_details_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -167,6 +188,7 @@ shared_str CTextureDescrMngr::GetBumpName(const shared_str& tex_name) const
 
 BOOL CTextureDescrMngr::UseSteepParallax(const shared_str& tex_name) const
 {
+	xrSRWLockGuard guard(m_texture_details_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -180,6 +202,7 @@ BOOL CTextureDescrMngr::UseSteepParallax(const shared_str& tex_name) const
 
 float CTextureDescrMngr::GetMaterial(const shared_str& tex_name) const
 {
+	xrSRWLockGuard guard(m_texture_details_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -193,6 +216,7 @@ float CTextureDescrMngr::GetMaterial(const shared_str& tex_name) const
 
 void CTextureDescrMngr::GetTextureUsage(const shared_str& tex_name, BOOL& bDiffuse, BOOL& bBump) const
 {
+	xrSRWLockGuard guard(m_texture_details_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{
@@ -207,6 +231,7 @@ void CTextureDescrMngr::GetTextureUsage(const shared_str& tex_name, BOOL& bDiffu
 
 BOOL CTextureDescrMngr::GetDetailTexture(const shared_str& tex_name, LPCSTR& res, R_constant_setup* & CS) const
 {
+	xrSRWLockGuard guard(m_texture_details_lock, true);
 	map_TD::const_iterator I = m_texture_details.find(tex_name);
 	if (I != m_texture_details.end())
 	{

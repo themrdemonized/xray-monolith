@@ -370,7 +370,7 @@ struct THREAD_STARTUP
 	void* args;
 };
 
-void __cdecl thread_entry(void* _params)
+unsigned __stdcall thread_entry(void* _params)
 {
 	// initialize
 	THREAD_STARTUP* startup = (THREAD_STARTUP*)_params;
@@ -387,9 +387,10 @@ void __cdecl thread_entry(void* _params)
 
 	// call
 	entry(arglist);
+	return 0;
 }
 
-void thread_spawn(thread_t* entry, const char* name, unsigned stack, void* arglist)
+HANDLE thread_spawn(thread_t* entry, const char* name, unsigned stack, void* arglist)
 {
 	Debug._initialize(false);
 
@@ -397,7 +398,10 @@ void thread_spawn(thread_t* entry, const char* name, unsigned stack, void* argli
 	startup->entry = entry;
 	startup->name = (char*)name;
 	startup->args = arglist;
-	_beginthread(thread_entry, stack, startup);
+	// _beginthreadex (not _beginthread): its handle stays valid and joinable
+	// until the caller CloseHandle()s it; _beginthread's handle is closed
+	// automatically on thread exit, making it unsafe to wait on.
+	return (HANDLE)_beginthreadex(NULL, stack, thread_entry, startup, 0, NULL);
 }
 
 //void spline1(float t, Fvector* p, Fvector* ret)
