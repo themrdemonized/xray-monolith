@@ -588,17 +588,24 @@ void CRenderTarget::phase_combine()
 		phase_fakescope(); //crookr
 	}
 
-    //SMAA
-	if (ps_smaa_quality)
+	bool temporalApplied = false;
+	if (ps_r4_temporal_aa > 0)
 	{
-        //PIX_EVENT(SMAA);
-        phase_smaa();
-        RCache.set_Stencil(FALSE);
-    }    
-	
-	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0)
+		PIX_EVENT(phase_temporal_aa);
+		temporalApplied = phase_temporal_aa();
+	}
+
+	if (!temporalApplied)
 	{
-		phase_ssfx_taa();
+		// SMAA and SSFX TAA remain available as fallbacks.
+		if (ps_smaa_quality)
+		{
+			phase_smaa();
+			RCache.set_Stencil(FALSE);
+		}
+
+		if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0)
+			phase_ssfx_taa();
 	}
 
 	if (ssfx_PrevPos_Requiered)
