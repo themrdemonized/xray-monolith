@@ -89,7 +89,7 @@ protected:
 	bool bShadow;
 	bool bHudMode;
 	float fBrightness;
-	float fRange;
+	float fRange = 0.f;
 	Fcolor color;
 	LPCSTR texture;
 	int iType;
@@ -157,9 +157,14 @@ public:
 		bShadow = state;
 	}
 
-	IC void SetRange(float range) 
+	IC void SetRange(float range)
 	{
-		m_light->set_range(range); 
+		if (fsimilar(fRange, range, EPS))
+			return;
+
+		// the light ignores a range change smaller than ten percent, so step past that band first
+		m_light->set_range(range * 2.f + 1.f);
+		m_light->set_range(range);
 		fRange = range;
 	}
 

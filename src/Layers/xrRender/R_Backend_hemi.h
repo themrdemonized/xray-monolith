@@ -12,6 +12,8 @@ public:
 	R_constant* c_hotness; //--DSR-- HeatVision
 	R_constant* c_glowing; //--DSR-- SilencerOverheat
 
+	R_constant* c_visual_params;
+
 public:
 	R_hemi();
 	void unmap();
@@ -23,9 +25,12 @@ public:
 	void set_c_hotness(R_constant* C) { c_hotness = C; } //--DSR-- HeatVision
 	void set_c_glowing(R_constant* C) { c_glowing = C; } //--DSR-- SilencerOverheat
 
+	void set_c_visual_params(R_constant* C) { c_visual_params = C; }
+
 	void set_pos_faces(float posx, float posy, float posz);
 	void set_neg_faces(float negx, float negy, float negz);
 	void set_material(float x, float y, float z, float w);
+	void set_visual_params(float x, float y, float z, float w);
 
 
 	void set_hotness(float x, float y, float z, float w); //--DSR-- HeatVision

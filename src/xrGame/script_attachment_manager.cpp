@@ -11,6 +11,8 @@
 #include "debug_renderer.h"
 #endif
 
+const char* const script_attachment::DEFAULT_SLOT = "default";
+
 static void update_visbox_attachment(IKinematics* k)
 {
 	script_attachment* att = static_cast<script_attachment*>(k->GetUpdateCallbackParam());
@@ -59,17 +61,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name)
 	m_parent_attachment = nullptr;
 	m_parent_object = nullptr;
 	m_parent_level = false;
-	m_script_ui = nullptr;
-	m_script_ui_func = 0;
-	m_script_ui_mat = Fidentity;
-	m_script_ui_offset[0].set(0, 0, 0);
-	m_script_ui_offset[1].set(0, 0, 0);
-	m_script_ui_offset[2].set(1, 1, 1);
-	m_script_ui_offset[3].set(0, 0, 0);
-	m_script_ui_scale.set(1, 1);
-	m_script_ui_bone = 0;
-	m_script_light = nullptr;
-	m_script_light_bone = 0;
+	m_render_always = false;
 	m_parent_bone = 0;
 	m_offset = Fidentity;
 	renderable.visual = nullptr;
@@ -81,6 +73,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name)
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
 	m_type = eSA_World;
+	m_hud_shaders_type = eSA_undefined;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
 	m_model_name = "";
@@ -131,18 +124,7 @@ void script_attachment::renderable_Render(IDSGraphManager* DM)
 {
 	if (GetType() != eSA_World) return;
 
-	if (m_script_light)
-	{
-		Fmatrix LM;
-		Fmatrix light_bone;
-		if (m_kinematics->LL_BoneCount() > m_script_light_bone)
-			light_bone = m_kinematics->LL_GetTransform(m_script_light_bone);
-		else
-			light_bone = m_kinematics->LL_GetTransform(m_kinematics->LL_GetBoneRoot());
-
-		LM.mul(renderable.xform, light_bone);
-		m_script_light->SetXFORM(LM);
-	}
+	PlaceLights();
 
 	if (::Render->get_generation() == ::Render->GENERATION_R1)
 		g_pGamePersistent->AttachmentUIsToRender.push_back(this);
@@ -174,18 +156,7 @@ void script_attachment::Render(IKinematics* model, Fmatrix* mat, IDSGraphManager
 
 	renderable.xform.mulB_43(m_offset);
 
-	if (m_script_light)
-	{
-		Fmatrix LM;
-		Fmatrix light_bone;
-		if (m_kinematics->LL_BoneCount() > m_script_light_bone)
-			light_bone = m_kinematics->LL_GetTransform(m_script_light_bone);
-		else
-			light_bone = m_kinematics->LL_GetTransform(m_kinematics->LL_GetBoneRoot());
-
-		LM.mul(renderable.xform, light_bone);
-		m_script_light->SetXFORM(LM);
-	}
+	PlaceLights();
 
 	IKinematicsAnimated* ka = renderable.visual->dcast_PKinematicsAnimated();
 	if (ka || GetType() == eSA_CamAttached)
@@ -211,8 +182,18 @@ void script_attachment::Update()
 	if (m_last_upd_frame == Device.dwFrame) return;
 	m_last_upd_frame = Device.dwFrame;
 
-	if (m_script_ui)
-		m_script_ui->Update();
+	if (m_hud_shaders_type != m_type && renderable.visual)
+	{
+		renderable.visual->SetHudShaders(m_type == eSA_HUD);
+		m_hud_shaders_type = m_type;
+	}
+
+	for (auto& pair : m_script_uis)
+	{
+		script_attachment_ui& slot = pair.second;
+		if (slot.m_window && slot.m_visible)
+			slot.m_window->Update();
+	}
 
 	if (m_bStopAtEndAnimIsRunning && Device.dwTimeGlobal >= m_anim_end)
 	{
@@ -297,26 +278,30 @@ void script_attachment::Update()
 
 void script_attachment::RenderUI()
 {
-	if (m_script_ui)
+	IUIRender::ePointType bk = IUIRender::pttLIT;
+	bool state_changed = false;
+
+	for (auto& pair : m_script_uis)
 	{
-		IUIRender::ePointType bk;
+		script_attachment_ui& slot = pair.second;
+		if (!slot.m_window || !slot.m_visible) continue;
 
-		bk = UI().m_currentPointType;
-		UI().m_currentPointType = IUIRender::pttLIT;
-		UIRender->CacheSetCullMode(IUIRender::cmNONE);
+		if (!state_changed)
+		{
+			bk = UI().m_currentPointType;
+			UI().m_currentPointType = IUIRender::pttLIT;
+			UIRender->CacheSetCullMode(IUIRender::cmNONE);
+			state_changed = true;
+		}
 
-		Fmatrix LM;
-		Fmatrix ui_bone;
-		if (m_kinematics->LL_BoneCount() > m_script_ui_bone)
-			ui_bone = m_kinematics->LL_GetTransform(m_script_ui_bone);
-		else
-			ui_bone = m_kinematics->LL_GetTransform(m_kinematics->LL_GetBoneRoot());
-
-		LM.mul(renderable.xform, ui_bone);
-		LM.mulB_43(m_script_ui_mat);
+		Fmatrix LM = SlotTransform(slot.m_bone);
+		LM.mulB_43(slot.m_mat);
 		UIRender->CacheSetXformWorld(LM);
-		m_script_ui->Draw();
-		
+		slot.m_window->Draw();
+	}
+
+	if (state_changed)
+	{
 		UIRender->CacheSetCullMode(IUIRender::cmCCW);
 		UI().m_currentPointType = bk;
 	}
@@ -330,24 +315,99 @@ void script_attachment::RenderUI()
 	}
 }
 
-void script_attachment::AttachLight(AttachmentScriptLight* light)
-{ 
-	R_ASSERT(light);
-	m_script_light = light;
+Fmatrix script_attachment::SlotTransform(u16 bone)
+{
+	Fmatrix slot_bone;
+	if (m_kinematics->LL_BoneCount() > bone)
+		slot_bone = m_kinematics->LL_GetTransform(bone);
+	else
+		slot_bone = m_kinematics->LL_GetTransform(m_kinematics->LL_GetBoneRoot());
+
+	Fmatrix LM;
+	LM.mul(renderable.xform, slot_bone);
+	return LM;
 }
 
-AttachmentScriptLight* script_attachment::DetachLight()
+void script_attachment::PlaceLights()
 {
-	if (!m_script_light) return nullptr;
-	AttachmentScriptLight* ret = m_script_light;
-	m_script_light = nullptr;
+	for (auto& pair : m_script_lights)
+	{
+		script_attachment_light& slot = pair.second;
+		if (!slot.m_light) continue;
+
+		slot.m_light->SetXFORM(SlotTransform(slot.m_bone));
+	}
+}
+
+script_attachment_light* script_attachment::FindLight(LPCSTR name)
+{
+	if (!name || !xr_strlen(name)) return nullptr;
+
+	auto pair = m_script_lights.find(name);
+	return pair == m_script_lights.end() ? nullptr : &pair->second;
+}
+
+script_attachment_light* script_attachment::TouchLight(LPCSTR name, LPCSTR caller)
+{
+	if (!name || !xr_strlen(name))
+	{
+		Msg("![%s]: Light slot name is empty", caller);
+		return nullptr;
+	}
+
+	return &m_script_lights[name];
+}
+
+void script_attachment::AttachLight(LPCSTR name, AttachmentScriptLight* light)
+{
+	if (!light)
+	{
+		Msg("![AttachLight]: No light given for slot [%s]", name ? name : "");
+		return;
+	}
+
+	script_attachment_light* slot = TouchLight(name, "AttachLight");
+	if (slot)
+		slot->m_light = light;
+}
+
+void script_attachment::AttachLight(LPCSTR name, AttachmentScriptLight* light, u16 bone)
+{
+	AttachLight(name, light);
+
+	script_attachment_light* slot = FindLight(name);
+	if (slot && slot->m_light == light)
+		slot->m_bone = bone;
+}
+
+AttachmentScriptLight* script_attachment::DetachLight(LPCSTR name)
+{
+	script_attachment_light* slot = FindLight(name);
+	if (!slot) return nullptr;
+
+	// the slot keeps its bone so a light attached again goes where the last one was
+	AttachmentScriptLight* ret = slot->m_light;
+	slot->m_light = nullptr;
 	return ret;
 }
 
-AttachmentScriptLight* script_attachment::GetLight()
+AttachmentScriptLight* script_attachment::GetLight(LPCSTR name)
 {
-	if (!m_script_light) return nullptr;
-	return m_script_light;
+	script_attachment_light* slot = FindLight(name);
+	return slot ? slot->m_light : nullptr;
+}
+
+void script_attachment::SetScriptLightBone(LPCSTR name, u16 bone)
+{
+	script_attachment_light* slot = TouchLight(name, "SetScriptLightBone");
+	if (slot)
+		slot->m_bone = bone;
+}
+
+u16 script_attachment::GetScriptLightBone(LPCSTR name)
+{
+	script_attachment_light* slot = FindLight(name);
+	return slot ? slot->m_bone : 0;
 }
 
 void script_attachment::RecalcOffset()
@@ -752,6 +812,7 @@ void script_attachment::LoadModel(LPCSTR model_name, bool keep_bc)
 	R_ASSERT(renderable.visual);
 	m_kinematics = renderable.visual->dcast_PKinematics();
 	R_ASSERT(m_kinematics);
+	m_hud_shaders_type = eSA_undefined;
 
 	spatial_move();
 
@@ -862,9 +923,65 @@ void script_attachment::SetUserdata(::luabind::object obj)
 	*m_userdata = obj;
 }
 
-void script_attachment::SetScriptUI(LPCSTR ui_func)
+void script_attachment_ui::recalc()
 {
-	if (m_script_ui_func != nullptr && 0 == xr_strcmp(m_script_ui_func, ui_func)) return;
+	Fvector& position = m_offset[0];
+	Fvector rotation = m_offset[1];
+	Fvector& scale = m_offset[2];
+	Fvector& origin = m_offset[3];
+
+	rotation.mul(PI / 180.f);
+
+	if (!!origin.x || !!origin.y || !!origin.z)
+	{
+		m_mat.translate(-origin.x, -origin.y, -origin.z);
+		m_mat.mulA_43(Fmatrix().setHPB(rotation));
+		m_mat.mulA_43(Fmatrix().scale(scale));
+		m_mat.mulA_43(Fmatrix().translate(position));
+	}
+	else
+	{
+		m_mat.setHPB(rotation);
+		m_mat.translate_over(position);
+		m_mat.mulB_43(Fmatrix().scale(scale));
+	}
+}
+
+script_attachment_ui* script_attachment::FindUI(LPCSTR name)
+{
+	if (!name || !xr_strlen(name)) return nullptr;
+
+	auto pair = m_script_uis.find(name);
+	return pair == m_script_uis.end() ? nullptr : &pair->second;
+}
+
+script_attachment_ui* script_attachment::TouchUI(LPCSTR name, LPCSTR caller)
+{
+	if (!name || !xr_strlen(name))
+	{
+		Msg("![%s]: UI slot name is empty", caller);
+		return nullptr;
+	}
+
+	return &m_script_uis[name];
+}
+
+void script_attachment::SetScriptUI(LPCSTR name, LPCSTR ui_func)
+{
+	if (!ui_func || !xr_strlen(ui_func))
+	{
+		Msg("![Script Attachment]: No script UI functor given for slot [%s]", name ? name : "");
+		return;
+	}
+
+	if (!name || !xr_strlen(name))
+	{
+		Msg("![Script Attachment]: UI slot name is empty");
+		return;
+	}
+
+	script_attachment_ui* known = FindUI(name);
+	if (known && known->m_func.size() && 0 == xr_strcmp(known->m_func.c_str(), ui_func)) return;
 
 	::luabind::functor<CUIDialogWndEx*> funct;
 
@@ -874,8 +991,9 @@ void script_attachment::SetScriptUI(LPCSTR ui_func)
 		CUIWindow* pScriptWnd = ret ? smart_cast<CUIWindow*>(ret) : (0);
 		if (pScriptWnd)
 		{
-			m_script_ui_func = ui_func;
-			m_script_ui = pScriptWnd;
+			script_attachment_ui& slot = m_script_uis[name];
+			slot.m_func = ui_func;
+			slot.m_window = pScriptWnd;
 		}
 		else
 			Msg("![Script Attachment]: Failed to load script UI [%s]!", ui_func);
@@ -884,52 +1002,126 @@ void script_attachment::SetScriptUI(LPCSTR ui_func)
 		Msg("![Script Attachment]: Script UI functor [%s] does not exist!", ui_func);
 }
 
-void script_attachment::RecalcScriptUIOffset()
+LPCSTR script_attachment::GetScriptUI(LPCSTR name)
 {
-	Fvector& position = m_script_ui_offset[0];
-	Fvector rotation = m_script_ui_offset[1];
-	Fvector& scale = m_script_ui_offset[2];
-	Fvector& origin = m_script_ui_offset[3];
-
-	rotation.mul(PI / 180.f);
-
-	if (!!origin.x || !!origin.y || !!origin.z)
-	{
-		m_script_ui_mat.translate(-origin.x, -origin.y, -origin.z);
-		m_script_ui_mat.mulA_43(Fmatrix().setHPB(rotation));
-		m_script_ui_mat.mulA_43(Fmatrix().scale(scale));
-		m_script_ui_mat.mulA_43(Fmatrix().translate(position));
-	}
-	else
-	{
-		m_script_ui_mat.setHPB(rotation);
-		m_script_ui_mat.translate_over(position);
-		m_script_ui_mat.mulB_43(Fmatrix().scale(scale));
-	}
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_func.c_str() : nullptr;
 }
 
-void script_attachment::SetScriptUIPosition(float x, float y, float z)
+void script_attachment::ClearScriptUI(LPCSTR name)
 {
-	m_script_ui_offset[0].set(x, y, z);
-	RecalcScriptUIOffset();
+	script_attachment_ui* slot = FindUI(name);
+	if (!slot) return;
+
+	slot->m_func = nullptr;
+	slot->m_window = nullptr;
 }
 
-void script_attachment::SetScriptUIRotation(float x, float y, float z)
+void script_attachment::SetScriptUIVisible(LPCSTR name, bool visible)
 {
-	m_script_ui_offset[1].set(x, y, z);
-	RecalcScriptUIOffset();
+	script_attachment_ui* slot = TouchUI(name, "SetScriptUIVisible");
+	if (slot)
+		slot->m_visible = visible;
 }
 
-void script_attachment::SetScriptUIScale(float x, float y, float z)
+bool script_attachment::GetScriptUIVisible(LPCSTR name)
 {
-	m_script_ui_offset[2].set(x, y, z);
-	RecalcScriptUIOffset();
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_visible : false;
 }
 
-void script_attachment::SetScriptUIOrigin(float x, float y, float z)
+::luabind::object script_attachment::ListScriptUIs()
 {
-	m_script_ui_offset[3].set(x, y, z);
-	RecalcScriptUIOffset();
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	int idx = 1;
+	for (auto& pair : m_script_uis)
+		table[idx++] = pair.first.c_str();
+
+	return table;
+}
+
+Fmatrix script_attachment::GetScriptUITransform(LPCSTR name)
+{
+	script_attachment_ui* slot = FindUI(name);
+	if (!slot) return Fidentity;
+
+	Fmatrix LM = SlotTransform(slot->m_bone);
+	LM.mulB_43(slot->m_mat);
+	return LM;
+}
+
+void script_attachment::SetScriptUIBone(LPCSTR name, u16 bone)
+{
+	script_attachment_ui* slot = TouchUI(name, "SetScriptUIBone");
+	if (slot)
+		slot->m_bone = bone;
+}
+
+u16 script_attachment::GetScriptUIBone(LPCSTR name)
+{
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_bone : 0;
+}
+
+void script_attachment::SetScriptUIPosition(LPCSTR name, float x, float y, float z)
+{
+	script_attachment_ui* slot = TouchUI(name, "SetScriptUIPosition");
+	if (!slot) return;
+
+	slot->m_offset[0].set(x, y, z);
+	slot->recalc();
+}
+
+Fvector script_attachment::GetScriptUIPosition(LPCSTR name)
+{
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_offset[0] : Fvector().set(0, 0, 0);
+}
+
+void script_attachment::SetScriptUIRotation(LPCSTR name, float x, float y, float z)
+{
+	script_attachment_ui* slot = TouchUI(name, "SetScriptUIRotation");
+	if (!slot) return;
+
+	slot->m_offset[1].set(x, y, z);
+	slot->recalc();
+}
+
+Fvector script_attachment::GetScriptUIRotation(LPCSTR name)
+{
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_offset[1] : Fvector().set(0, 0, 0);
+}
+
+void script_attachment::SetScriptUIScale(LPCSTR name, float x, float y, float z)
+{
+	script_attachment_ui* slot = TouchUI(name, "SetScriptUIScale");
+	if (!slot) return;
+
+	slot->m_offset[2].set(x, y, z);
+	slot->recalc();
+}
+
+Fvector script_attachment::GetScriptUIScale(LPCSTR name)
+{
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_offset[2] : Fvector().set(1, 1, 1);
+}
+
+void script_attachment::SetScriptUIOrigin(LPCSTR name, float x, float y, float z)
+{
+	script_attachment_ui* slot = TouchUI(name, "SetScriptUIOrigin");
+	if (!slot) return;
+
+	slot->m_offset[3].set(x, y, z);
+	slot->recalc();
+}
+
+Fvector script_attachment::GetScriptUIOrigin(LPCSTR name)
+{
+	script_attachment_ui* slot = FindUI(name);
+	return slot ? slot->m_offset[3] : Fvector().set(0, 0, 0);
 }
 
 void script_attachment::ScriptAttachmentBoneCallback(CBoneInstance* B)
@@ -1192,4 +1384,137 @@ void script_attachment::ResetShaderTexture(int id)
 		child->ResetShaderTexture();
 		return;
 	}
+}
+
+::luabind::object script_attachment::FindChildrenByTexture(LPCSTR texture)
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	if (!renderable.visual) return table;
+
+	if (!texture || !xr_strlen(texture))
+	{
+		Msg("![FindChildrenByTexture]: No texture given for [%s]", GetName());
+		return table;
+	}
+
+	xr_vector<IRenderVisual*>* children = renderable.visual->get_children();
+	xr_vector<IRenderVisual*>* children_invisible = renderable.visual->get_children_invisible();
+	int idx = 1;
+
+	if (!children && !children_invisible)
+	{
+		LPCSTR current = renderable.visual->getDebugTexture();
+		if (current && 0 == xr_strcmp(current, texture))
+			table[idx] = 1;
+		return table;
+	}
+
+	if (children)
+		for (auto* child : *children)
+		{
+			LPCSTR current = child->getDebugTexture();
+			if (current && 0 == xr_strcmp(current, texture))
+				table[idx++] = child->getID();
+		}
+
+	if (children_invisible)
+		for (auto* child : *children_invisible)
+		{
+			LPCSTR current = child->getDebugTexture();
+			if (current && 0 == xr_strcmp(current, texture))
+				table[idx++] = child->getID();
+		}
+
+	return table;
+}
+
+void script_attachment::SetShaderTextureByTexture(LPCSTR match, LPCSTR shader, LPCSTR texture)
+{
+	if (!renderable.visual) return;
+
+	if (!match || !xr_strlen(match))
+	{
+		Msg("![SetShaderTextureByTexture]: No texture to match given for [%s]", GetName());
+		return;
+	}
+
+	xr_vector<IRenderVisual*>* children = renderable.visual->get_children();
+	xr_vector<IRenderVisual*>* children_invisible = renderable.visual->get_children_invisible();
+
+	if (!children && !children_invisible)
+	{
+		LPCSTR current = renderable.visual->getDebugTexture();
+		if (current && 0 == xr_strcmp(current, match))
+			renderable.visual->SetShaderTexture(shader, texture);
+		return;
+	}
+
+	if (children)
+		for (auto* child : *children)
+		{
+			LPCSTR current = child->getDebugTexture();
+			if (current && 0 == xr_strcmp(current, match))
+				child->SetShaderTexture(shader, texture);
+		}
+
+	if (children_invisible)
+		for (auto* child : *children_invisible)
+		{
+			LPCSTR current = child->getDebugTexture();
+			if (current && 0 == xr_strcmp(current, match))
+				child->SetShaderTexture(shader, texture);
+		}
+}
+
+static bool apply_shader_param(IRenderVisual* visual, int id, const Fvector4& p, bool set)
+{
+	xr_vector<IRenderVisual*>* children = visual->get_children();
+	xr_vector<IRenderVisual*>* children_invisible = visual->get_children_invisible();
+
+	if (!children && !children_invisible)
+		return set ? visual->SetShaderParam(p.x, p.y, p.z, p.w) : visual->ClearShaderParam();
+
+	bool applied = false;
+
+	if (children)
+		for (auto* child : *children)
+		{
+			if (id > 0 && child->getID() != u32(id)) continue;
+			if (set ? child->SetShaderParam(p.x, p.y, p.z, p.w) : child->ClearShaderParam())
+				applied = true;
+		}
+
+	if (children_invisible)
+		for (auto* child : *children_invisible)
+		{
+			if (id > 0 && child->getID() != u32(id)) continue;
+			if (set ? child->SetShaderParam(p.x, p.y, p.z, p.w) : child->ClearShaderParam())
+				applied = true;
+		}
+
+	return applied;
+}
+
+// an id below 1 addresses every child
+void script_attachment::SetShaderParam(int id, float x, float y, float z, float w)
+{
+	if (!renderable.visual) return;
+
+	Fvector4 p;
+	p.set(x, y, z, w);
+
+	if (!apply_shader_param(renderable.visual, id, p, true))
+		Msg("![SetShaderParam]: no skinned child [%d] on [%s]", id, GetName());
+}
+
+void script_attachment::ClearShaderParam(int id)
+{
+	if (!renderable.visual) return;
+
+	Fvector4 p;
+	p.set(0.f, 0.f, 0.f, 0.f);
+
+	if (!apply_shader_param(renderable.visual, id, p, false))
+		Msg("![ClearShaderParam]: no skinned child [%d] on [%s]", id, GetName());
 }

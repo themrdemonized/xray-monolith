@@ -66,7 +66,7 @@ void CLevel::IR_OnMouseWheel(int direction)
                 return;
             }
         }
-        //g_actor->callback(GameObject::eMouseWheel)(direction);
+        g_actor->callback(GameObject::eMouseWheel)(direction);
     }
 #endif
 	/* avo: end */

@@ -37,11 +37,15 @@ public:
 	virtual LPCSTR _BCL getDebugShaderDef() { return nullptr; }
 	virtual LPCSTR _BCL getDebugTextureDef() { return nullptr; }
 
+	virtual bool SetShaderParam(float x, float y, float z, float w) { return false; };
+	virtual bool ClearShaderParam() { return false; };
+
 	virtual xr_vector<IRenderVisual*>* get_children() { return nullptr; };
 	virtual xr_vector<IRenderVisual*>* get_children_invisible() { return nullptr; };
 
 	virtual void SetShaderTexture(LPCSTR shader, LPCSTR texture) {};
 	virtual void ResetShaderTexture() {};
+	virtual void SetHudShaders(bool hud) {};
 	virtual void MarkAsHot(bool is_hot) {};				//--DSR-- HeatVision
 	virtual void MarkAsGlowing(bool is_glowing) {};		//--DSR-- SilencerOverheat
     virtual void MarkIgnoreOptimization(BOOL value)

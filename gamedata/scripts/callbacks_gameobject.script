@@ -193,6 +193,22 @@ _G.CActorHudOnNearWall = function(arg)
 	SendScriptCallback("actor_hud_on_nearwall", arg)
 end
 
+-- Script hud motion end callback
+-- part is 0 for the right hand, 1 for the left hand, 2 for both
+-- section is the hud section the motion belongs to, anm_name the motion that ended
+-- reason is 0 when the motion reached its end, 1 when something stopped it early
+AddScriptCallback("actor_hud_on_script_anim_end")
+_G.CActorHudOnScriptAnimEnd = function(part, section, anm_name, reason)
+	SendScriptCallback("actor_hud_on_script_anim_end", part, section, anm_name, reason)
+end
+
+-- Hands section change callback
+-- fires when the player hud switches its hands section, sends the new and the previous section name
+AddScriptCallback("actor_hud_on_hands_changed")
+_G.CActorHudOnHandsChanged = function(new_section, old_section)
+	SendScriptCallback("actor_hud_on_hands_changed", new_section, old_section)
+end
+
 -- Mouse callbacks
 -- Scroll wheel callback, sends mouse wheel direction as a number
 -- 1 is up, 0 is down
@@ -304,6 +320,20 @@ Params are id, level_name, spot_type
 AddScriptCallback("on_map_spot_selected")
 function pda.map_spot_selected(id, level_name, spot_type)
 	SendScriptCallback("on_map_spot_selected", id, level_name, spot_type)
+end
+
+-- Map location callbacks
+-- fire when a map spot is added to or removed from the map manager, in single player only
+-- spot_type is the spot section, object_id the object the spot marks
+-- removals are queued on the map update thread and sent from the main thread on the next frame
+AddScriptCallback("on_map_location_added")
+_G.COnMapLocationAdded = function(spot_type, object_id)
+	SendScriptCallback("on_map_location_added", spot_type, object_id)
+end
+
+AddScriptCallback("on_map_location_removed")
+_G.COnMapLocationRemoved = function(spot_type, object_id)
+	SendScriptCallback("on_map_location_removed", spot_type, object_id)
 end
 
 -- On receive game news callback

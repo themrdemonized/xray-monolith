@@ -61,6 +61,7 @@ CMapLocation::CMapLocation(LPCSTR type, u16 object_id)
 
 	EnableSpot();
 	m_cached.m_Position.set(10000, 10000);
+	m_position_global.set(0.f, 0.f, 0.f);
 	m_cached.m_updatedFrame = u32(-1);
 	m_cached.m_graphID = GameGraph::_GRAPH_ID(-1);
 	if (!IsGameTypeSingle())
@@ -91,13 +92,42 @@ void CMapLocation::destroy()
 
 CUIXml* g_uiSpotXml = NULL;
 
-void CMapLocation::LoadSpot(LPCSTR type, bool bReload)
+CUIXml* GetSpotXml()
 {
 	if (!g_uiSpotXml)
 	{
 		g_uiSpotXml = xr_new<CUIXml>();
 		g_uiSpotXml->Load(CONFIG_PATH, UI_PATH, "map_spots.xml");
 	}
+
+	return g_uiSpotXml;
+}
+
+bool GetMiniMapSpotPaths(LPCSTR type, string512& spot, string512& pointer)
+{
+	GetSpotXml();
+
+	spot[0] = 0;
+	pointer[0] = 0;
+
+	string512 path_base, path;
+	xr_strcpy(path_base, type);
+	if (!g_uiSpotXml->NavigateToNode(path_base, 0))
+		return false;
+
+	strconcat(sizeof(path), path, path_base, ":mini_map");
+	if (!g_uiSpotXml->NavigateToNode(path, 0))
+		return false;
+
+	xr_strcpy(spot, g_uiSpotXml->ReadAttrib(path, 0, "spot", ""));
+	xr_strcpy(pointer, g_uiSpotXml->ReadAttrib(path, 0, "pointer", ""));
+
+	return xr_strlen(spot) > 0;
+}
+
+void CMapLocation::LoadSpot(LPCSTR type, bool bReload)
+{
+	GetSpotXml();
 
 	XML_NODE* node = NULL;
 	string512 path_base, path;
@@ -353,7 +383,7 @@ bool CMapLocation::Update() //returns actual
 extern xr_vector<CLevelChanger*> g_lchangers;
 xr_vector<u32> map_point_path;
 
-void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
+void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp, CMapSpotPointer* pt)
 {
 	if (map->MapName() == GetLevelName())
 	{
@@ -425,7 +455,7 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
 		}
 
 
-		bool b_pointer = (GetSpotPointer(sp) && map->NeedShowPointer(wnd_rect));
+		bool b_pointer = (pt && map->NeedShowPointer(wnd_rect));
 
 		if (map->Heading())
 		{
@@ -434,102 +464,57 @@ void CMapLocation::UpdateSpot(CUICustomMap* map, CMapSpot* sp)
 		}
 
 		if (b_pointer)
-			UpdateSpotPointer(map, GetSpotPointer(sp));
+			UpdateSpotPointer(map, pt);
 	}
-	else if (Level().name() == map->MapName() && GetSpotPointer(sp))
+	else if (Level().name() == map->MapName() && pt)
 	{
         if (!m_owner_se_object)
             return;
 
-		GameGraph::_GRAPH_ID dest_graph_id;
-
-		dest_graph_id = m_owner_se_object->m_tGraphID;
-
-		map_point_path.clear();
-
 		VERIFY(Actor());
-		GraphEngineSpace::CGameVertexParams params(Actor()->locations().vertex_types(),flt_max);
-		bool res = ai().graph_engine().search(
-			ai().game_graph(),
-			Actor()->ai_location().game_vertex_id(),
-			dest_graph_id,
-			&map_point_path,
-			params
-		);
+		GameGraph::_GRAPH_ID dest_graph_id = m_owner_se_object->m_tGraphID;
+		GameGraph::_GRAPH_ID actor_graph_id = Actor()->ai_location().game_vertex_id();
 
-		if (res)
+		// the graph path only changes when one of its ends moves to another vertex
+		if (m_exit_from != actor_graph_id || m_exit_to != dest_graph_id)
 		{
-			xr_vector<u32>::reverse_iterator it = map_point_path.rbegin();
-			xr_vector<u32>::reverse_iterator it_e = map_point_path.rend();
+			m_exit_from = actor_graph_id;
+			m_exit_to = dest_graph_id;
+			m_exit_vertex = GameGraph::_GRAPH_ID(-1);
 
-			xr_vector<CLevelChanger*>::iterator lit = g_lchangers.begin();
-			//xr_vector<CLevelChanger*>::iterator lit_e = g_lchangers.end();
-			bool bDone = false;
-			//for(; (it!=it_e)&&(!bDone) ;++it){
-			//	for(lit=g_lchangers.begin();lit!=lit_e; ++lit){
+			map_point_path.clear();
+			GraphEngineSpace::CGameVertexParams params(Actor()->locations().vertex_types(), flt_max);
+			bool res = ai().graph_engine().search(
+				ai().game_graph(),
+				actor_graph_id,
+				dest_graph_id,
+				&map_point_path,
+				params
+			);
 
-			//		if((*it)==(*lit)->ai_location().game_vertex_id() )
-			//		{
-			//			bDone = true;
-			//			break;
-			//		}
-
-			//	}
-			//}
-			static bool bbb = false;
-			if (!bDone && bbb)
-			{
-				Msg("! Error. Path from actor to selected map spot does not contain level changer :(");
-				Msg("Path:");
-				xr_vector<u32>::iterator it = map_point_path.begin();
-				xr_vector<u32>::iterator it_e = map_point_path.end();
-				for (; it != it_e; ++it)
-				{
-					//					Msg("%d-%s",(*it),ai().game_graph().vertex(*it));
-					Msg("[%d] level[%s]", (*it),
-					    *ai().game_graph().header().level(ai().game_graph().vertex(*it)->level_id()).name());
-				}
-				Msg("- Available LevelChangers:");
-				xr_vector<CLevelChanger*>::iterator lit, lit_e;
-				lit_e = g_lchangers.end();
-				for (lit = g_lchangers.begin(); lit != lit_e; ++lit)
-				{
-					GameGraph::_GRAPH_ID gid = (*lit)->ai_location().game_vertex_id();
-					Msg("[%d]", gid);
-					Fvector p = ai().game_graph().vertex(gid)->level_point();
-					Msg("lch_name=%s pos=%f %f %f",
-					    *ai().game_graph().header().level(ai().game_graph().vertex(gid)->level_id()).name(), p.x, p.y,
-					    p.z);
-				}
-			};
-			if (bDone)
-			{
-				Fvector2 position;
-				position.set((*lit)->Position().x, (*lit)->Position().z);
-				m_position_on_map = map->ConvertRealToLocal(position, false);
-				UpdateSpotPointer(map, GetSpotPointer(sp));
-			}
-			else
+			if (res)
 			{
 				xr_vector<u32>::reverse_iterator it = map_point_path.rbegin();
 				xr_vector<u32>::reverse_iterator it_e = map_point_path.rend();
-				for (; (it != it_e) && (!bDone); ++it)
+				for (; it != it_e; ++it)
 				{
-					if (*ai().game_graph().header().level(ai().game_graph().vertex(*it)->level_id()).name() == Level().
-						name())
+					if (*ai().game_graph().header().level(ai().game_graph().vertex(*it)->level_id()).name() == Level().name())
 						break;
 				}
 				if (it != it_e)
-				{
-					Fvector p = ai().game_graph().vertex(*it)->level_point();
-					if (Actor()->Position().distance_to_sqr(p) > 45.0f * 45.0f)
-					{
-						Fvector2 position;
-						position.set(p.x, p.z);
-						m_position_on_map = map->ConvertRealToLocal(position, false);
-						UpdateSpotPointer(map, GetSpotPointer(sp));
-					}
-				}
+					m_exit_vertex = GameGraph::_GRAPH_ID(*it);
+			}
+		}
+
+		if (m_exit_vertex != GameGraph::_GRAPH_ID(-1))
+		{
+			Fvector p = ai().game_graph().vertex(m_exit_vertex)->level_point();
+			if (Actor()->Position().distance_to_sqr(p) > 45.0f * 45.0f)
+			{
+				Fvector2 position;
+				position.set(p.x, p.z);
+				m_position_on_map = map->ConvertRealToLocal(position, false);
+				UpdateSpotPointer(map, pt);
 			}
 		}
 	}
@@ -580,8 +565,13 @@ void CMapLocation::UpdateMiniMap(CUICustomMap* map)
 {
 	CMapSpot* sp = m_minimap_spot;
 	if (!sp) return;
-	if (SpotEnabled())
-		UpdateSpot(map, sp);
+	UpdateMiniMap(map, sp, GetSpotPointer(sp));
+}
+
+void CMapLocation::UpdateMiniMap(CUICustomMap* map, CMapSpot* sp, CMapSpotPointer* pt)
+{
+	if (sp && SpotEnabled())
+		UpdateSpot(map, sp, pt);
 }
 
 void CMapLocation::UpdateLevelMap(CUICustomMap* map)
@@ -589,14 +579,14 @@ void CMapLocation::UpdateLevelMap(CUICustomMap* map)
 	CComplexMapSpot* csp = m_complex_spot;
 	if (csp && SpotEnabled())
 	{
-		UpdateSpot(map, csp);
+		UpdateSpot(map, csp, GetSpotPointer(csp));
 		return;
 	}
 
 	CMapSpot* sp = m_level_spot;
 	if (sp && SpotEnabled())
 	{
-		UpdateSpot(map, sp);
+		UpdateSpot(map, sp, GetSpotPointer(sp));
 	}
 }
 
@@ -883,6 +873,12 @@ void CRelationMapLocation::UpdateMiniMap(CUICustomMap* map)
 {
 	if (IsVisible() && m_b_minimap_visible)
 		inherited::UpdateMiniMap(map);
+}
+
+void CRelationMapLocation::UpdateMiniMap(CUICustomMap* map, CMapSpot* sp, CMapSpotPointer* pt)
+{
+	if (IsVisible() && m_b_minimap_visible)
+		inherited::UpdateMiniMap(map, sp, pt);
 }
 
 void CRelationMapLocation::UpdateLevelMap(CUICustomMap* map)

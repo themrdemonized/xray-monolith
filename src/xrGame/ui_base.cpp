@@ -283,6 +283,11 @@ u8 ui_core::screenmode()
 
 float ui_core::get_current_kx()
 {
+	// the world space pass and a map update made for it use no screen aspect
+	ui_core* core = GamePersistent().m_pUI_core;
+	if (core && (core->m_currentPointType == IUIRender::pttLIT || core->m_bAspectNeutral))
+		return 1.0f;
+
 	float h = float(Device.dwHeight);
 	float w = float(Device.dwWidth);
 

@@ -68,6 +68,13 @@ class cl_material : public R_constant_setup
 
 static cl_material binder_material;
 
+class cl_visual_params : public R_constant_setup
+{
+	virtual void setup(R_constant* C) { RCache.hemi.set_c_visual_params(C); }
+};
+
+static cl_visual_params binder_visual_params;
+
 class cl_texgen : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
@@ -1408,6 +1415,8 @@ void CBlender_Compile::SetMapping()
 	r_Constant("L_material", &binder_material);
 	r_Constant("hemi_cube_pos_faces", &binder_hemi_cube_pos_faces);
 	r_Constant("hemi_cube_neg_faces", &binder_hemi_cube_neg_faces);
+
+	r_Constant("m_visual_params", &binder_visual_params);
 
 	//	Igor	temp solution for the texgen functionality in the shader
 	r_Constant("m_texgen", &binder_texgen);
