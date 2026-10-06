@@ -134,8 +134,8 @@ void CTextureDescrMngr::Load()
 	TH_LoadTHM* lvl = new TH_LoadTHM({"$level$", m_texture_details, m_detail_scalers, m_texture_details_lock});
 
 	HANDLE threads[2];
-	threads[0] = thread_spawn(LoadTHMThread, "X-Ray THM Loader 1", 0, gtex);
-	threads[1] = thread_spawn(LoadTHMThread, "X-Ray THM Loader 2", 0, lvl);
+	threads[0] = thread_spawn_ex(LoadTHMThread, "X-Ray THM Loader 1", 0, gtex);
+	threads[1] = thread_spawn_ex(LoadTHMThread, "X-Ray THM Loader 2", 0, lvl);
 	R_ASSERT(threads[0] && threads[1]);
 
 	// Actually wait for both loaders instead of guessing with Sleep(): they

@@ -370,7 +370,7 @@ struct THREAD_STARTUP
 	void* args;
 };
 
-unsigned __stdcall thread_entry(void* _params)
+void __cdecl thread_entry(void* _params)
 {
 	// initialize
 	THREAD_STARTUP* startup = (THREAD_STARTUP*)_params;
@@ -387,10 +387,9 @@ unsigned __stdcall thread_entry(void* _params)
 
 	// call
 	entry(arglist);
-	return 0;
 }
 
-HANDLE thread_spawn(thread_t* entry, const char* name, unsigned stack, void* arglist)
+void thread_spawn(thread_t* entry, const char* name, unsigned stack, void* arglist)
 {
 	Debug._initialize(false);
 
@@ -398,10 +397,41 @@ HANDLE thread_spawn(thread_t* entry, const char* name, unsigned stack, void* arg
 	startup->entry = entry;
 	startup->name = (char*)name;
 	startup->args = arglist;
-	// _beginthreadex (not _beginthread): its handle stays valid and joinable
-	// until the caller CloseHandle()s it; _beginthread's handle is closed
-	// automatically on thread exit, making it unsafe to wait on.
-	return (HANDLE)_beginthreadex(NULL, stack, thread_entry, startup, 0, NULL);
+	_beginthread(thread_entry, stack, startup);
+}
+
+unsigned __stdcall thread_entry_ex(void* _params)
+{
+    // initialize
+    THREAD_STARTUP* startup = (THREAD_STARTUP*)_params;
+    thread_name(startup->name);
+    thread_t* entry = startup->entry;
+    void* arglist = startup->args;
+    _initialize_cpu_thread();
+
+    // emit profiler thread
+    PROF_THREAD(startup->name);
+
+    // clean up
+    xr_delete(startup);
+
+    // call
+    entry(arglist);
+    return 0;
+}
+
+HANDLE thread_spawn_ex(thread_t* entry, const char* name, unsigned stack, void* arglist)
+{
+    Debug._initialize(false);
+
+    THREAD_STARTUP* startup = xr_new<THREAD_STARTUP>();
+    startup->entry = entry;
+    startup->name = (char*)name;
+    startup->args = arglist;
+    // _beginthreadex (not _beginthread): its handle stays valid and joinable
+    // until the caller CloseHandle()s it; _beginthread's handle is closed
+    // automatically on thread exit, making it unsafe to wait on.
+    return (HANDLE)_beginthreadex(NULL, stack, thread_entry_ex, startup, 0, NULL);
 }
 
 //void spline1(float t, Fvector* p, Fvector* ret)

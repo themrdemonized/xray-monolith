@@ -59,13 +59,20 @@ extern XRCORE_API void _initialize_cpu_thread();
 // threading
 typedef void thread_t(void*);
 extern XRCORE_API void thread_name(const char* name);
-// Returns a joinable thread handle (from _beginthreadex); caller owns it and
-// must CloseHandle() it once done (e.g. after WaitForSingleObject/WaitForMultipleObjects).
-extern XRCORE_API HANDLE thread_spawn(
+extern XRCORE_API void thread_spawn(
 	thread_t* entry,
 	const char* name,
 	unsigned stack,
 	void* arglist
+);
+
+// Returns a joinable thread handle (from _beginthreadex); caller owns it and
+// must CloseHandle() it once done (e.g. after WaitForSingleObject/WaitForMultipleObjects).
+extern XRCORE_API HANDLE thread_spawn_ex(
+    thread_t* entry,
+    const char* name,
+    unsigned stack,
+    void* arglist
 );
 
 #endif //__XR_MATH_H__
