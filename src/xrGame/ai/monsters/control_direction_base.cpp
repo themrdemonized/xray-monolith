@@ -74,5 +74,5 @@ void CControlDirectionBase::update_frame()
 	if (!ctrl_data) return;
 
 	ctrl_data->heading.target_angle = m_heading.target;
-	ctrl_data->heading.target_speed = m_heading.speed_target;
+	ctrl_data->heading.target_speed = m_heading.speed_target * m_object->get_turn_speed_factor();
 }

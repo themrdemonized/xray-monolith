@@ -74,6 +74,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("set_monster_jump_flags", SAFE_WRAP(&CScriptGameObject::set_monster_jump_flags))
 		.def("set_monster_aura_params", SAFE_WRAP(&CScriptGameObject::set_monster_aura_params))
 		.def("set_bloodsucker_vis_timing", SAFE_WRAP(&CScriptGameObject::set_bloodsucker_vis_timing))
+		.def("set_monster_turn_factor", SAFE_WRAP(&CScriptGameObject::set_monster_turn_factor))
 		.def("active_sound_count", SAFE_WRAP((int (CScriptGameObject::*)())(&CScriptGameObject::active_sound_count)))
 		.def("active_sound_count", SAFE_WRAP((int (CScriptGameObject::*)(bool))(&CScriptGameObject::active_sound_count)))
 		.def("best_cover", SAFE_WRAP(&CScriptGameObject::best_cover))

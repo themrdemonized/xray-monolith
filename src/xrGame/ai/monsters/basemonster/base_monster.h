@@ -594,6 +594,11 @@ public:
 		if (prediction_factor >= 0.f) m_attack_on_move_params.prediction_factor = prediction_factor;
 	}
 
+	// script-set multiplier on the base-path heading speed (CControlDirectionBase::update_frame); 1 = vanilla, <= 0 keeps the current value
+	float m_turn_speed_factor = 1.f;
+	float get_turn_speed_factor() const { return m_turn_speed_factor; }
+	void set_turn_speed_factor(float v) { if (v > 0.f) m_turn_speed_factor = v; }
+
 	bool enemy_accessible();
 	bool at_home();
 

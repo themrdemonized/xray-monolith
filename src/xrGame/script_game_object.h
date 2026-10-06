@@ -856,6 +856,7 @@ public:
 	void set_monster_aura_params(LPCSTR aura_name, float linear, float quadratic, float max_power,
 	                             float max_distance);
 	void set_bloodsucker_vis_timing(float min_delay_ms);
+	void set_monster_turn_factor(float factor);
 	bool can_kill_enemy();
 	bool can_kill_member();
 	bool fire_make_sense();

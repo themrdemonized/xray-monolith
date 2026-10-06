@@ -222,6 +222,18 @@ void CScriptGameObject::set_monster_attack_on_move_params(float max_go_close_tim
 	                                   attack_radius, update_side_period, prediction_factor);
 }
 
+void CScriptGameObject::set_monster_turn_factor(float factor)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_turn_factor!");
+		return;
+	}
+	monster->set_turn_speed_factor(factor);
+}
+
 void CScriptGameObject::set_monster_run_attack_params(float min_dist, float max_dist, float min_delay_ms,
                                                       float max_delay_ms)
 {
