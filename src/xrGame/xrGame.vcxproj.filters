@@ -7398,6 +7398,7 @@
     <ClInclude Include="player_hud_legs.h">
       <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClInclude>
+    <ClInclude Include="UI3dStatic.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="damage_manager.cpp">
@@ -11120,6 +11121,7 @@
     <ClCompile Include="player_hud_legs.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\HudItem</Filter>
     </ClCompile>
+    <ClCompile Include="UI3dStatic.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="Explosive.h">

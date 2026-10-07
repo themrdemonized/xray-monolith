@@ -493,6 +493,56 @@ void CRender::Render()
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 
+void CRender::RenderUI3DDirect()
+{
+	// Icons need independent depth: later world passes may still use the scene buffer.
+	// Query bound surfaces directly because an invalidated RCache may contain null pointers.
+	IDirect3DSurface9* saved_depth = nullptr;
+	const HRESULT depth_result = HW.pDevice->GetDepthStencilSurface(&saved_depth);
+	if (depth_result != D3DERR_NOTFOUND)
+		R_CHK(depth_result);
+	DWORD saved_z_enable;
+	R_CHK(HW.pDevice->GetRenderState(D3DRS_ZENABLE, &saved_z_enable));
+
+	D3DSURFACE_DESC color_desc;
+	IDirect3DSurface9* color_target = nullptr;
+	R_CHK(HW.pDevice->GetRenderTarget(0, &color_target));
+	R_CHK(color_target->GetDesc(&color_desc));
+	_RELEASE(color_target);
+	D3DFORMAT depth_format = HW.Caps.fDepth;
+	if (saved_depth)
+	{
+		D3DSURFACE_DESC depth_desc;
+		R_CHK(saved_depth->GetDesc(&depth_desc));
+		depth_format = depth_desc.Format;
+	}
+
+	// Recreate only when the UI target changes size, format or multisampling.
+	if (Target->ui_icons_depth)
+	{
+		D3DSURFACE_DESC desc;
+		R_CHK(Target->ui_icons_depth->GetDesc(&desc));
+		if (desc.Width != color_desc.Width || desc.Height != color_desc.Height ||
+			desc.Format != depth_format || desc.MultiSampleType != color_desc.MultiSampleType ||
+			desc.MultiSampleQuality != color_desc.MultiSampleQuality)
+			_RELEASE(Target->ui_icons_depth);
+	}
+	if (!Target->ui_icons_depth)
+		R_CHK(HW.pDevice->CreateDepthStencilSurface(color_desc.Width, color_desc.Height,
+			depth_format, color_desc.MultiSampleType, color_desc.MultiSampleQuality,
+			TRUE, &Target->ui_icons_depth, nullptr));
+
+	RCache.set_ZB(Target->ui_icons_depth);
+	R_CHK(HW.pDevice->Clear(0, nullptr, D3DCLEAR_ZBUFFER, 0, 1.f, 0));
+	// PassSET_ZB configures the comparison/writes, but does not enable depth testing.
+	RCache.set_Z(TRUE);
+	r_dsgraph_render_ui_3d();
+	RCache.set_ZB(saved_depth);
+	_RELEASE(saved_depth);
+	RCache.set_Z(saved_z_enable);
+	marker++;
+}
+
 void CRender::render_forward()
 {
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());

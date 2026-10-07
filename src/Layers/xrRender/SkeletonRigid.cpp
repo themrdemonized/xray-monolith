@@ -108,10 +108,15 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 		// the update itself
 		Fbox Box;
 		Box.invalidate();
+		bool has_geometry = false;
 		for (u32 b = 0; b < bones->size(); b++)
 		{
 			if (!LL_GetBoneVisible(u16(b))) continue;
 			Fobb& obb = (*bones)[b]->obb;
+			// Bones without geometry have an empty OBB and must not contribute
+			// their position to the visbox.
+			if (fis_zero(obb.m_halfsize.square_magnitude())) continue;
+			has_geometry = true;
 			Fmatrix& Mbone = bone_instances[b].mTransform;
 			Fmatrix Mbox;
 			obb.xform_get(Mbox);
@@ -145,7 +150,7 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 			X.transform_tiny(P, A);
 			Box.modify(P);
 		}
-		if (bones->size())
+		if (has_geometry)
 		{
 			// previous frame we have updated box - update sphere
 			vis.box.min = (Box.min);

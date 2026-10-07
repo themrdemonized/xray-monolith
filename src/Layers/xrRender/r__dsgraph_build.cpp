@@ -37,6 +37,22 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 {
 	CRender& RI = RImplementation;
 
+#if RENDER != R_R4
+	if (RI.get_UI3D())
+	{
+		// Menu icons have no level lighting/projector and must not enter world passes.
+		// Do not stamp the world visibility marker: the same mesh can occur in several icons.
+		VERIFY(pVisual->shader._get());
+		mapSorted_Node* N = mapUI3DSorted.insertInAnyWay(Device.vCameraPosition.distance_to_sqr(Center));
+		N->val.ssa = 1.f;
+		N->val.pObject = nullptr;
+		N->val.pVisual = pVisual;
+		N->val.Matrix = *RI.val_pTransform;
+		N->val.se = nullptr; // sorted_UI3D binds the dedicated icon shader.
+		return;
+	}
+#endif
+
 	if (pVisual->vis.marker == RI.marker) return;
 	pVisual->vis.marker = RI.marker;
 
@@ -68,7 +84,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// Select shader
 	ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
 	if (0 == sh) return;
-	if (!pmask[sh->flags.iPriority / 2]) return;
+	if (!pmask[sh->flags.iPriority / 2] && !RI.get_UI3D()) return;
 
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
@@ -176,6 +192,42 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 				N->val.pVisual = pVisual;
 				N->val.Matrix = *RI.val_pTransform;
 				N->val.se = &*pVisual->shader->E[4]; // 4=L_special
+			}
+#endif	//	RENDER!=R_R1
+			return;
+		}
+	}
+
+	// UI rendering
+	if (RI.val_bUI3D)
+	{
+		if (sh->flags.bStrictB2F)
+		{
+			mapSorted_Node* N = mapUI3DSorted.insertInAnyWay(distSQ);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+			return;
+		}
+		else
+		{
+			mapHUD_Node* N = mapUI3D.insertInAnyWay(distSQ);
+			N->val.ssa = SSA;
+			N->val.pObject = RI.val_pObject;
+			N->val.pVisual = pVisual;
+			N->val.Matrix = *RI.val_pTransform;
+			N->val.se = sh;
+#if RENDER!=R_R1
+			if (sh->flags.bEmissive)
+			{
+				mapSorted_Node* N_ = mapUI3DEmissive.insertInAnyWay(distSQ);
+				N_->val.ssa = SSA;
+				N_->val.pObject = RI.val_pObject;
+				N_->val.pVisual = pVisual;
+				N_->val.Matrix = *RI.val_pTransform;
+				N_->val.se = &*pVisual->shader->E[4];		// 4=L_special
 			}
 #endif	//	RENDER!=R_R1
 			return;
@@ -867,7 +919,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			// Add all children, doesn't perform any tests
 			CKinematics* pV = (CKinematics*)pVisual;
 			BOOL _use_lod = FALSE;
-			if (pV->m_lod)
+			if (pV->m_lod && !get_UI3D())
 			{
 				Fvector Tpos;
 				float D;
@@ -882,7 +934,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			else
 			{
 				pV->CalculateBones(TRUE);
-				pV->CalculateWallmarks(); //. bug?
+				if (!get_UI3D()) pV->CalculateWallmarks();
 				I = pV->children.begin();
 				E = pV->children.end();
 				for (; I != E; ++I) add_leafs_Dynamic((dxRender_Visual*)*I);

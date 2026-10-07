@@ -1075,6 +1075,15 @@ CRenderTarget::CRenderTarget()
 
 	// Menu
 	s_menu.create("distort");
+
+	const s32 saved_skinning = RImplementation.m_skinning;
+	for (s32 skinning = -1; skinning <= 4; ++skinning)
+	{
+		RImplementation.shader_option_skinning(skinning);
+		s_ui_icons[skinning + 1].create("ui_icons");
+	}
+	RImplementation.shader_option_skinning(saved_skinning);
+
 	g_menu.create(FVF::F_TL, RCache.Vertex.Buffer(), RCache.QuadIB);
 
 	//
@@ -1084,6 +1093,8 @@ CRenderTarget::CRenderTarget()
 
 CRenderTarget::~CRenderTarget()
 {
+	_RELEASE(ui_icons_depth);
+	_RELEASE(ui_icons_depth_texture);
 	_RELEASE(t_ss_async);
 
 	// Textures

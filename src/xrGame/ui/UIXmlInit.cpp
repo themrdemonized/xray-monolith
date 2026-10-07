@@ -23,6 +23,7 @@
 #include "UItabButtonMP.h"
 #include "UITabScrollArrows.h"
 #include "UILines.h"
+#include "UI3dStatic.h"
 
 extern int keyname_to_dik(LPCSTR);
 
@@ -189,6 +190,57 @@ bool CUIXmlInit::InitStatic(CUIXml& xml_doc, LPCSTR path,
 
 	pWnd->SetColorAnimation(str_flag, flags);
 
+
+	str_flag = xml_doc.ReadAttrib(path, index, "xform_anim", "");
+	flag_cyclic = xml_doc.ReadAttribInt(path, index, "xform_anim_cyclic", 1);
+
+	pWnd->SetXformLightAnim(str_flag, (flag_cyclic) ? true : false);
+
+	bool bComplexMode = xml_doc.ReadAttribInt(path, index, "complex_mode", 0) ? true : false;
+	if (bComplexMode)
+		pWnd->TextItemControl()->SetTextComplexMode(bComplexMode);
+
+	pWnd->m_stat_hint_text = xml_doc.ReadAttrib(path, index, "hint", "");
+
+	return true;
+}
+
+bool CUIXmlInit::Init3dStatic(CUIXml& xml_doc, LPCSTR path,
+	int index, CUI3dStatic* pWnd)
+{
+	R_ASSERT4(xml_doc.NavigateToNode(path, index), "XML node not found", path, xml_doc.m_xml_file_name);
+
+	InitWindow(xml_doc, path, index, pWnd);
+
+	string256 buf;
+	InitText(xml_doc, strconcat(sizeof(buf), buf, path, ":text"), index, pWnd);
+	InitTexture(xml_doc, path, index, pWnd);
+	InitTextureOffset(xml_doc, path, index, pWnd);
+
+	int flag = xml_doc.ReadAttribInt(path, index, "heading", 0);
+	pWnd->EnableHeading((flag) ? true : false);
+
+	float heading_angle = xml_doc.ReadAttribFlt(path, index, "heading_angle", 0.0f);
+	if (!fis_zero(heading_angle))
+	{
+		pWnd->EnableHeading(true);
+		pWnd->SetConstHeading(true);
+		pWnd->SetHeading(deg2rad(heading_angle));
+	}
+
+	LPCSTR str_flag = xml_doc.ReadAttrib(path, index, "light_anim", "");
+	int flag_cyclic = xml_doc.ReadAttribInt(path, index, "la_cyclic", 1);
+	int flag_text = xml_doc.ReadAttribInt(path, index, "la_text", 1);
+	int flag_texture = xml_doc.ReadAttribInt(path, index, "la_texture", 1);
+	int flag_alpha = xml_doc.ReadAttribInt(path, index, "la_alpha", 0);
+
+	u8 flags = 0;
+	if (flag_cyclic) flags |= LA_CYCLIC;
+	if (flag_alpha) flags |= LA_ONLYALPHA;
+	if (flag_text) flags |= LA_TEXTCOLOR;
+	if (flag_texture) flags |= LA_TEXTURECOLOR;
+
+	pWnd->SetColorAnimation(str_flag, flags);
 
 	str_flag = xml_doc.ReadAttrib(path, index, "xform_anim", "");
 	flag_cyclic = xml_doc.ReadAttribInt(path, index, "xform_anim_cyclic", 1);
