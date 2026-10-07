@@ -425,7 +425,7 @@ public:
 	// Main
 	virtual void Calculate();
 	virtual void Render();
-	virtual void RenderUI();
+	virtual void RenderUI3DModelsDirect();
 	bool GetUI3DIconAtlasInfo(u32& width, u32& height, float& resolution) override;
 	bool BeginUI3DIconAtlas() override;
 	void BeginUI3DIconAtlasItem() override;

@@ -178,14 +178,14 @@ void CUI3dStatic::PrepareAtlas()
     if (packed.empty() || !::Render->BeginUI3DIconAtlas())
         return;
 
-    ::Render->set_UI(true);
+    ::Render->set_UI3DModels(true);
     for (CUI3dStatic* widget : packed)
     {
         ::Render->BeginUI3DIconAtlasItem();
         widget->QueueVisuals(widget->m_atlasContentRect, float(atlas_target_width),
             float(atlas_target_height), float(atlas_target_height) / float(atlas_target_width));
     }
-    ::Render->set_UI(false);
+    ::Render->set_UI3DModels(false);
     ::Render->EndUI3DIconAtlas();
     DeleteTemporaryVisuals();
 
@@ -245,10 +245,10 @@ void CUI3dStatic::Draw()
     // Use the direct-render path when this widget was not packed this frame.
     Frect rect;
     GetAbsoluteRect(rect);
-    ::Render->set_UI(true);
+    ::Render->set_UI3DModels(true);
     QueueVisuals(rect, 1024.f, 768.f, Device.fASPECT);
-    ::Render->set_UI(false);
-    ::Render->RenderUI();
+    ::Render->set_UI3DModels(false);
+    ::Render->RenderUI3DModelsDirect();
     DeleteTemporaryVisuals();
 
     // Draw children without rendering the inherited 2D texture over the model.
