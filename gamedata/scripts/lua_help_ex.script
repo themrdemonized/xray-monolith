@@ -298,7 +298,7 @@
     class CUI3dStatic : CUIStatic {
         function SetVisual(string model)
         function SetObject(game_object obj)
-        function SetRotate(float heading, float pitch, float bank) // radians
+        function SetRotation(float heading, float pitch, float bank) // radians
         function SetScale(float scale)
     }
 

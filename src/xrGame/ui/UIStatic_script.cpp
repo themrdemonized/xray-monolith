@@ -68,7 +68,7 @@ void CUIStatic::script_register(lua_State* L)
 		.def(constructor<>())
 		.def("SetObject", &CUI3dStatic::SetObject)
 		.def("SetVisual", &CUI3dStatic::SetVisual)
-		.def("SetRotate", &CUI3dStatic::SetRotate)
+		.def("SetRotation", &CUI3dStatic::SetRotation)
 		.def("SetScale", &CUI3dStatic::SetScale),
 
 		class_<CUISleepStatic, CUIStatic>("CUISleepStatic")
