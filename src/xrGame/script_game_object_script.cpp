@@ -11,6 +11,7 @@
 #include "game_object_space.h"
 #include "script_ini_file.h"
 #include "sight_manager_space.h"
+#include "ai/monsters/state_defs.h"
 
 using namespace luabind;
 
@@ -138,6 +139,27 @@ void CScriptGameObject::script_register(lua_State* L)
 			value("on_foot_step", int(GameObject::eOnFootStep)),
 
 			value("map_location_added", int(GameObject::eMapLocationAdded))
+		],
+
+		// Attack substates the monster_on_combat_action callback can propose in flags.substate.
+		// These are the states the shared monster and group attack selectors register
+		// (monster_state_attack_inline.h, group_state_attack_inline.h); any other EMonsterState
+		// is ignored and the vanilla selection runs.
+		class_<enum_exporter<EMonsterState>>("monster_state")
+		.enum_("substate")
+		[
+			value("eStateAttack_Run", int(eStateAttack_Run)),
+			value("eStateAttack_Melee", int(eStateAttack_Melee)),
+			value("eStateAttack_RunAttack", int(eStateAttack_RunAttack)),
+			value("eStateAttack_RunAway", int(eStateAttack_RunAway)),
+			value("eStateAttack_FindEnemy", int(eStateAttack_FindEnemy)),
+			value("eStateAttack_Steal", int(eStateAttack_Steal)),
+			value("eStateAttack_AttackHidden", int(eStateAttack_AttackHidden)),
+			value("eStateAttack_ControlFire", int(eStateAttack_ControlFire)),
+			value("eStateAttackCamp", int(eStateAttackCamp)),
+			value("eStateAttack_MoveToHomePoint", int(eStateAttack_MoveToHomePoint)),
+			value("eStateAttack_Attack_On_Run", int(eStateAttack_Attack_On_Run)),
+			value("eStateCustom", int(eStateCustom))
 		],
 
 		def("buy_condition", (void (*)(CScriptIniFile*, LPCSTR))(&::buy_condition)),
