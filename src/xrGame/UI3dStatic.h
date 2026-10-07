@@ -18,7 +18,7 @@ public:
     // Called once immediately before the normal HUD UI traversal.
     static void PrepareAtlas();
 
-    void SetRotate(float x, float y, float z) { m_angle.set(x, y, z); }
+    void SetRotation(float x, float y, float z) { m_angle.set(x, y, z); }
     void SetScale(float scale) { m_scale = scale; }
     void SetObject(CScriptGameObject* obj);
     void SetVisual(LPCSTR name);
