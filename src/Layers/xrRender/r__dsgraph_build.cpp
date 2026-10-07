@@ -38,17 +38,17 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	CRender& RI = RImplementation;
 
 #if RENDER != R_R4
-	if (RI.get_UI())
+	if (RI.get_UI3DModels())
 	{
 		// Menu icons have no level lighting/projector and must not enter world passes.
 		// Do not stamp the world visibility marker: the same mesh can occur in several icons.
 		VERIFY(pVisual->shader._get());
-		mapSorted_Node* N = mapUISorted.insertInAnyWay(Device.vCameraPosition.distance_to_sqr(Center));
+		mapSorted_Node* N = mapUI3DModelsSorted.insertInAnyWay(Device.vCameraPosition.distance_to_sqr(Center));
 		N->val.ssa = 1.f;
 		N->val.pObject = nullptr;
 		N->val.pVisual = pVisual;
 		N->val.Matrix = *RI.val_pTransform;
-		N->val.se = nullptr; // sorted_UI binds the dedicated icon shader.
+		N->val.se = nullptr; // sorted_UI3DModels binds the dedicated icon shader.
 		return;
 	}
 #endif
@@ -84,7 +84,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// Select shader
 	ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
 	if (0 == sh) return;
-	if (!pmask[sh->flags.iPriority / 2] && !RI.get_UI()) return;
+	if (!pmask[sh->flags.iPriority / 2] && !RI.get_UI3DModels()) return;
 
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
@@ -199,11 +199,11 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	}
 
 	// UI rendering
-	if (RI.val_bUI)
+	if (RI.val_bUI3DModels)
 	{
 		if (sh->flags.bStrictB2F)
 		{
-			mapSorted_Node* N = mapUISorted.insertInAnyWay(distSQ);
+			mapSorted_Node* N = mapUI3DModelsSorted.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
@@ -213,7 +213,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 		}
 		else
 		{
-			mapHUD_Node* N = mapUI.insertInAnyWay(distSQ);
+			mapHUD_Node* N = mapUI3DModels.insertInAnyWay(distSQ);
 			N->val.ssa = SSA;
 			N->val.pObject = RI.val_pObject;
 			N->val.pVisual = pVisual;
@@ -222,7 +222,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #if RENDER!=R_R1
 			if (sh->flags.bEmissive)
 			{
-				mapSorted_Node* N_ = mapUIEmissive.insertInAnyWay(distSQ);
+				mapSorted_Node* N_ = mapUI3DModelsEmissive.insertInAnyWay(distSQ);
 				N_->val.ssa = SSA;
 				N_->val.pObject = RI.val_pObject;
 				N_->val.pVisual = pVisual;
@@ -919,7 +919,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			// Add all children, doesn't perform any tests
 			CKinematics* pV = (CKinematics*)pVisual;
 			BOOL _use_lod = FALSE;
-			if (pV->m_lod && !get_UI())
+			if (pV->m_lod && !get_UI3DModels())
 			{
 				Fvector Tpos;
 				float D;
@@ -934,7 +934,7 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 			else
 			{
 				pV->CalculateBones(TRUE);
-				if (!get_UI()) pV->CalculateWallmarks();
+				if (!get_UI3DModels()) pV->CalculateWallmarks();
 				I = pV->children.begin();
 				E = pV->children.end();
 				for (; I != E; ++I) add_leafs_Dynamic((dxRender_Visual*)*I);

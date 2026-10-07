@@ -767,7 +767,7 @@ void CRender::Render()
 	Device.Statistic->RenderDUMP.End();
 }
 
-void CRender::RenderUI()
+void CRender::RenderUI3DModelsDirect()
 {
 	// Icons need independent depth: later world passes may still use the scene buffer.
 	// Query bound surfaces directly because an invalidated RCache may contain null pointers.
@@ -810,7 +810,7 @@ void CRender::RenderUI()
 	R_CHK(HW.pDevice->Clear(0, nullptr, D3DCLEAR_ZBUFFER, 0, 1.f, 0));
 	// PassSET_ZB configures the comparison/writes, but does not enable depth testing.
 	RCache.set_Z(TRUE);
-	r_dsgraph_render_ui();
+	r_dsgraph_render_ui_3d_models();
 	RCache.set_ZB(saved_depth);
 	_RELEASE(saved_depth);
 	RCache.set_Z(saved_z_enable);

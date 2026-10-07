@@ -662,13 +662,13 @@ void CRender::Render()
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 
-void CRender::RenderUI()
+void CRender::RenderUI3DModelsDirect()
 {
 	HW.pContext->ClearDepthStencilView(HW.pBaseZB, D3D_CLEAR_DEPTH | D3D_CLEAR_STENCIL, 1.0f, 0);
 
 	RCache.set_Z(FALSE);
 	RCache.set_RT(HW.pBaseRT, 0);
-	r_dsgraph_render_ui();
+	r_dsgraph_render_ui_3d_models();
 
 	marker++;
 }
@@ -725,7 +725,7 @@ void CRender::EndUI3DIconAtlas()
 		return;
 
 	RCache.set_Z(FALSE);
-	r_dsgraph_render_ui();
+	r_dsgraph_render_ui_3d_models();
 	marker++;
 
 	// The postprocess expects an ordinary Texture2D. Resolve the multisampled
