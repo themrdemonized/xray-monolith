@@ -905,6 +905,9 @@
 		function get_hud_motion_item_shaders()
 		function set_hud_motion_item_shader(number, string, string)
 		function reset_hud_motion_item_shader(number)
+		function get_legs_shaders()
+		function set_legs_shader(number, string, string)
+		function reset_legs_shader(number)
 		
 		get_shaders(hud_mode)
 		hud_mode is optional and will default to false
@@ -936,6 +939,10 @@
 		get_hud_motion_item_shaders(), set_hud_motion_item_shader(id, shader, texture), reset_hud_motion_item_shader(id)
 		actor only, same as get_shaders, set_shader and reset_shader but for the item model of the running game.play_hud_motion
 		does nothing when no animation with an item model is playing
+		
+		get_legs_shaders(), set_legs_shader(id, shader, texture), reset_legs_shader(id)
+		actor only, same as get_shaders, set_shader and reset_shader but for the first person legs model
+		does nothing when the legs are not shown
     }
 
     class CArtefact : CGameObject {

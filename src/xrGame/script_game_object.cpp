@@ -1693,3 +1693,48 @@ void CScriptGameObject::ResetHudMotionItemShader(int id)
 	if (g_player_hud->script_anim_item_model)
 		reset_shader_tex(g_player_hud->script_anim_item_model->dcast_RenderVisual(), id);
 }
+
+// First person legs model, empty table / no-op when the legs are not shown
+::luabind::object CScriptGameObject::GetLegsShaders()
+{
+	CActor* act = smart_cast<CActor*>(&object());
+	if (!act)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CActor : cannot access class member GetLegsShaders!");
+		return ::luabind::newtable(ai().script_engine().lua());
+	}
+
+	if (!act->m_legs_controller.is_active())
+		return ::luabind::newtable(ai().script_engine().lua());
+
+	return get_shaders(act->m_legs_controller.model()->dcast_RenderVisual());
+}
+
+void CScriptGameObject::SetLegsShader(int id, LPCSTR shader, LPCSTR texture)
+{
+	CActor* act = smart_cast<CActor*>(&object());
+	if (!act)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CActor : cannot access class member SetLegsShader!");
+		return;
+	}
+
+	if (act->m_legs_controller.is_active())
+		set_shader_tex(act->m_legs_controller.model()->dcast_RenderVisual(), id, shader, texture);
+}
+
+void CScriptGameObject::ResetLegsShader(int id)
+{
+	CActor* act = smart_cast<CActor*>(&object());
+	if (!act)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CActor : cannot access class member ResetLegsShader!");
+		return;
+	}
+
+	if (act->m_legs_controller.is_active())
+		reset_shader_tex(act->m_legs_controller.model()->dcast_RenderVisual(), id);
+}

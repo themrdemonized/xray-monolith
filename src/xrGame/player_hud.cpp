@@ -1514,6 +1514,10 @@ void player_hud::create_script_anim_item_model(LPCSTR section)
 	::Render->hud_loading = true;
 	script_anim_item_model = ::Render->model_Create(pSettings->r_string(section, "item_visual"))->dcast_PKinematicsAnimated();
 	::Render->hud_loading = false;
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.player_hud__OnCreateHudMotionItem", funct))
+		funct(section);
 }
 
 void player_hud::delete_script_anim_item_model()
@@ -1706,10 +1710,6 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 		m_bStopAtEndAnimIsRunning = false;
 
 	updateMovementLayerState();
-
-	::luabind::functor<void> funct;
-	if (ai().script_engine().functor("_G.player_hud__OnScriptAnimPlay", funct))
-		funct(section);
 
 	return length;
 }
