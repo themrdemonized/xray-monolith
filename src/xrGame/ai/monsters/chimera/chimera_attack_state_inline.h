@@ -205,7 +205,7 @@ bool ChimeraAttackState<Object>::select_target_for_move()
 			}
 		}
 
-		return index < num_scan_points;
+		return index < move_scan_points;
 	}
 }
 
