@@ -50,6 +50,28 @@ class CPoltergeist : public CBaseMonster,
 public:
 	bool m_detect_without_sight;
 
+	// negative argument keeps the current value
+	void set_detection_params(float near_factor, float far_factor, float far_range, float speed_factor,
+	                          float loose_speed)
+	{
+		if (near_factor >= 0.f) m_detection_near_range_factor = near_factor;
+		if (far_factor >= 0.f) m_detection_far_range_factor = far_factor;
+		if (far_range >= 0.f) m_detection_far_range = far_range;
+		if (speed_factor >= 0.f) m_detection_speed_factor = speed_factor;
+		if (loose_speed >= 0.f) m_detection_loose_speed = loose_speed;
+	}
+
+	// negative argument keeps the current value
+	void set_height_params(float height_min, float height_max, float change_velocity, float min_time_ms,
+	                       float max_time_ms)
+	{
+		if (height_min >= 0.f) m_height_min = height_min;
+		if (height_max >= 0.f) m_height_max = height_max;
+		if (change_velocity >= 0.f) m_height_change_velocity = change_velocity;
+		if (min_time_ms >= 0.f) m_height_change_min_time = (u32)min_time_ms;
+		if (max_time_ms >= 0.f) m_height_change_max_time = (u32)max_time_ms;
+	}
+
 public:
 	CPoltergeist();
 	virtual ~CPoltergeist();

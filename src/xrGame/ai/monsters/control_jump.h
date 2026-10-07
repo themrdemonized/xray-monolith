@@ -124,6 +124,16 @@ public:
 	float get_max_distance() const { return m_max_distance; }
 	float get_min_distance() const { return m_min_distance; }
 
+	// negative argument keeps the current value
+	void set_jump_params(float min_dist, float max_dist, float max_angle, float max_height, float delay_ms)
+	{
+		if (min_dist >= 0.f) m_min_distance = min_dist;
+		if (max_dist >= 0.f) m_max_distance = max_dist;
+		if (max_angle >= 0.f) m_max_angle = max_angle;
+		if (max_height >= 0.f) m_max_height = max_height;
+		if (delay_ms >= 0.f) m_delay_after_jump = (u32)delay_ms;
+	}
+
 	SControlJumpData& setup_data() { return m_data; }
 
 	void remove_links(CObject* object);

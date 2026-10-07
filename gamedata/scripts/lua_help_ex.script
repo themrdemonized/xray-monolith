@@ -895,6 +895,47 @@
         void set_health_restore_boost(float value) // Per-object additive passive health-restore boost: adds value to the condition's m_fV_HealthRestore velocity applied every UpdateHealth while alive (base ~0.00003/s for stalkers), so the entity regenerates HP over time with no item. 0 = vanilla, higher = faster idle regen, negative clamps to 0. Stalkers and monsters (any CEntityAlive). Persists while online; re-set on spawn (condition rebuilt on re-online).
         void set_movement_hold(bool value) // Per-object movement hold: while true, parse_velocity_mask routes into its Stand branch, so the stalker stays planted (speed 0, movement type Stand) with the path and destination preserved; movement resumes when cleared. false = vanilla. Stalkers only. Not serialized; the caller owns clearing it - a stale true holds the NPC in place indefinitely.
 
+        // CBaseMonster - FSM and combat-state readers. All return -1 / false on a non-monster object.
+        number get_monster_state() // Deepest resolved FSM state id (EMonsterState) via StateMan->get_state_type(): recurses into the current substate, so an attacking monster reports the substate it runs (e.g. Attack_Run, Attack_Melee), not just eStateAttack. eStateUnknown while no state is active.
+        bool is_monster_jumping() // True while a jump control is active on the monster.
+        number get_monster_rank() // m_rank integer (Rank()).
+        bool ability_invisibility() // Per-species class flags, hints only - NOT the live capability envelope: a species can report false yet execute the maneuver through a registered component (a dog reports can_jump false and still jumps). The try_* invoke booleans below are the authoritative capability read.
+        bool ability_can_drag()
+        bool ability_psi_attack()
+        bool ability_earthquake()
+        bool ability_can_jump()
+        bool ability_distant_feel()
+        bool ability_run_attack()
+        bool ability_rotation_jump()
+        bool ability_jump_over_physics()
+        bool can_attack_on_move() // True when the monster's attack-on-move params are enabled and applicable.
+        number get_monster_morale() // Current morale value (CMonsterMorale::get_morale).
+        number get_psy_influence() // Aura influence reads on the monster.
+        number get_radiation_influence()
+        number get_fire_influence()
+        number get_monster_cover_vertex(Fvector enemy_position, float min_dist, float max_dist) // Best monster cover level-vertex against enemy_position within the distance band (CMonsterCoverManager::find_cover - the camp state's own query). 4294967295 when none found. Feed level.vertex_position for a retreat/ambush point.
+
+        // CBaseMonster - combat-param setters. Neutral per-object levers over params loaded once from LTX.
+        // A negative argument keeps the current value. Not serialized - re-apply on net_spawn. No-op + error log on a non-matching class.
+        void set_monster_attack_dist(float min_dist, float max_dist) // MeleeChecker min/max attack distance.
+        void set_monster_jump_params(float min_dist, float max_dist, float max_angle, float max_height, float delay_ms) // CControlJump distance/angle/height/post-jump delay.
+        void set_chimera_attack_params(float attack_radius, float prepare_timeout_ms, float attack_timeout_ms, int num_prepare_jumps, int num_attack_jumps) // Chimera/lurker only. attack_radius passes through unclamped; the circle-run geometry clamps its own sqrt argument below jump_max_distance, so an oversized radius cannot NaN it. int args negative = keep.
+        void set_burer_gravi_params(float cooldown_ms, float min_dist, float max_dist, float speed, float radius, float hit_power) // Burer only. Gravity-attack family.
+        void set_burer_tele_params(int max_objects, float find_radius, float min_dist, float max_dist, float fly_velocity) // Burer only. Telekinesis family.
+        void set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms, float min_distance) // Controller only. Psi tube-attack family.
+        void set_controller_stamina_hit(float value) // Controller only. Per-hit stamina drain.
+        void set_poltergeist_detection_params(float near_factor, float far_factor, float far_range, float speed_factor, float loose_speed) // Poltergeist only. Actor-detection family.
+        void set_poltergeist_height_params(float height_min, float height_max, float change_velocity, float min_time_ms, float max_time_ms) // Poltergeist only. Hover-height family.
+
+        // CBaseMonster - maneuver invokes. Lua commands a control component; the engine executes it.
+        // Returns true if the component was captured and activated, false if refused: start conditions failed, required data missing, or the monster is under script control (mob_capture / scheme logic) - the invokes always defer to a scheme owner. All but try_monster_jump also consult the monster FSM's own start gate (e.g. a follower dog denies a jump at a non-elevated enemy); the jump bypasses it, see its line.
+        bool try_monster_jump(Fvector position, float factor, bool skip_prepare) // Jump toward a world position (the script_jump path). Bypasses the FSM's own jump pacing (e.g. the chimera attack state's m_allow_jump veto), like the engine's scripted CChimera::jump does - the command is the caller's policy. Refused while another jump is active or the manager is pure-captured. skip_prepare = true launches without the crouch wind-up (SControlJumpData::ePrepareSkip). The leap launches along the body axis.
+        bool try_monster_rotation_jump() // Start a rotation-jump from the loaded rotation-jump data (false if none loaded).
+        bool try_monster_run_attack() // Start a run-attack.
+        bool try_monster_threaten() // Start a threaten animation (false if no threaten data set).
+        bool monster_capture_control(number type) // Capture a ControlCom::EControlType for script control; true if this manager holds it after. Refuses under script control (a scheme owner holds the monster) and while a pure capture is in flight (an active jump owns the control stack; stealing movement or path mid-flight destabilizes it).
+        bool monster_release_control(number type) // Release a ControlCom::EControlType; true if this manager no longer holds it. Never refused - a caller can always clean up its own capture.
+
         // Stalker NPCs
         function get_enable_anomalies_pathfinding()
         function set_enable_anomalies_pathfinding(bool)
