@@ -549,7 +549,7 @@ void CRender::Render()
 	VERIFY(0==mapDistort.size());
 }
 
-void CRender::RenderUI3DModelsDirect()
+void CRender::RenderUI3DDirect()
 {
 	// Keep scene depth intact even when icons are drawn before the world finishes rendering.
 	auto* saved_depth = RCache.get_ZB();
@@ -610,7 +610,7 @@ void CRender::RenderUI3DModelsDirect()
 	HW.pDevice->ClearDepthStencilView(Target->ui_icons_depth,
 		D3D10_CLEAR_DEPTH | D3D10_CLEAR_STENCIL, 1.f, 0);
 	RCache.set_Z(TRUE);
-	r_dsgraph_render_ui_3d_models();
+	r_dsgraph_render_ui_3d();
 	RCache.set_ZB(saved_depth);
 	StateManager.SetDepthStencilState(saved_state);
 	StateManager.SetStencilRef(saved_stencil_ref);
