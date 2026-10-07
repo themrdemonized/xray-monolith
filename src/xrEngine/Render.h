@@ -284,8 +284,8 @@ public:
 	virtual void set_Transform(Fmatrix* M) = 0;
 	virtual void set_HUD(BOOL V) = 0;
 	virtual BOOL get_HUD() = 0;
-	virtual void set_UI3DModels(BOOL V) = 0;
-	virtual BOOL get_UI3DModels() = 0;
+	virtual void set_UI3D(BOOL V) = 0;
+	virtual BOOL get_UI3D() = 0;
 	virtual void set_CamAttached(BOOL V) = 0;
 	virtual BOOL get_CamAttached() = 0;
 	virtual void set_Invisible(BOOL V) = 0;
@@ -360,8 +360,8 @@ public:
 	// Main
 	virtual void Calculate() = 0;
 	virtual void Render() = 0;
-	virtual void RenderUI3DModelsDirect() = 0;
-	// Renderers without an atlas use RenderUI3DModelsDirect for each icon.
+	virtual void RenderUI3DDirect() = 0;
+	// Renderers without an atlas use RenderUI3DDirect for each icon.
 	// Return allocated dimensions, not pending console settings; resolution is the live icon scale.
 	virtual bool GetUI3DIconAtlasInfo(u32& width, u32& height, float& resolution) { return false; }
 	virtual bool BeginUI3DIconAtlas() { return false; }

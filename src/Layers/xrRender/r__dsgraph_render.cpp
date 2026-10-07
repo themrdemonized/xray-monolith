@@ -82,7 +82,7 @@ void __fastcall sorted_L1(mapSorted_Node* N)
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
 
-void __fastcall sorted_UI3DModels(mapSorted_Node* N)
+void __fastcall sorted_UI3D(mapSorted_Node* N)
 {
 	VERIFY(N);
 	dxRender_Visual* V = N->val.pVisual;
@@ -732,7 +732,7 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 
 //////////////////////////////////////////////////////////////////////////
 // UI render
-void R_dsgraph_structure::r_dsgraph_render_ui_3d_models()
+void R_dsgraph_structure::r_dsgraph_render_ui_3d()
 {
 	const Fmatrix saved_world = RCache.get_xform_world();
 	const Fmatrix saved_view = RCache.get_xform_view();
@@ -744,21 +744,21 @@ void R_dsgraph_structure::r_dsgraph_render_ui_3d_models()
 	RCache.set_xform_project(Device.mProject3DIcons);
 
 	// Rendering
-	mapUI3DModels.traverseLR(sorted_UI3DModels);
-	mapUI3DModels.clear();
+	mapUI3D.traverseLR(sorted_UI3D);
+	mapUI3D.clear();
 
 #if	RENDER!=R_R1
-	mapUI3DModelsEmissive.traverseLR(sorted_UI3DModels);
-	mapUI3DModelsEmissive.clear();
+	mapUI3DEmissive.traverseLR(sorted_UI3D);
+	mapUI3DEmissive.clear();
 #endif
 
 #if RENDER == R_R4
-	mapUI3DModelsSorted.traverseLR(sorted_L1);
+	mapUI3DSorted.traverseLR(sorted_L1);
 #else
 	// Match the direct icon material for sorted meshes too, drawing far to near.
-	mapUI3DModelsSorted.traverseRL(sorted_UI3DModels);
+	mapUI3DSorted.traverseRL(sorted_UI3D);
 #endif
-	mapUI3DModelsSorted.clear();
+	mapUI3DSorted.clear();
 
 	Device.mFullTransform = saved_full_transform;
 	RCache.set_xform_world(saved_world);

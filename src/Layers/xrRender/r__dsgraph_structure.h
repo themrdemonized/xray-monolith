@@ -23,7 +23,7 @@ public:
 	IRenderable* val_pObject;
 	Fmatrix* val_pTransform;
 	BOOL val_bHUD;
-	BOOL val_bUI3DModels;
+	BOOL val_bUI3D;
 	BOOL val_bCamAttached;
 	BOOL val_bInvisible;
 	BOOL val_bRecordMP; // record nearest for multi-pass
@@ -42,8 +42,8 @@ public:
 	R_dsgraph::mapMatrixPasses_T mapMatrixPasses [2];
 	R_dsgraph::mapSorted_T mapSorted;
 	R_dsgraph::mapHUD_T mapHUD;
-	R_dsgraph::mapHUD_T mapUI3DModels;
-	R_dsgraph::mapHUD_T mapUI3DModelsSorted;
+	R_dsgraph::mapHUD_T mapUI3D;
+	R_dsgraph::mapHUD_T mapUI3DSorted;
 	R_dsgraph::mapHUD_T mapCamAttached;
 	R_dsgraph::mapLOD_T mapLOD;
 	R_dsgraph::mapSorted_T mapDistort;
@@ -62,7 +62,7 @@ public:
 	R_dsgraph::mapSorted_T										mapWmark;			// sorted
 	R_dsgraph::mapSorted_T										mapEmissive;
 	R_dsgraph::mapSorted_T										mapHUDEmissive;
-	R_dsgraph::mapSorted_T										mapUI3DModelsEmissive;
+	R_dsgraph::mapSorted_T										mapUI3DEmissive;
 	R_dsgraph::mapSorted_T										mapCamAttachedEmissive;
 #endif
 	R_dsgraph::mapSorted_T										mapHUDDistort;
@@ -108,8 +108,8 @@ public:
 
 	virtual void set_HUD(BOOL V) { val_bHUD = V; }
 	virtual BOOL get_HUD() { return val_bHUD; }
-	virtual void set_UI3DModels(BOOL V) { val_bUI3DModels = V; }
-	virtual BOOL get_UI3DModels() { return val_bUI3DModels; }
+	virtual void set_UI3D(BOOL V) { val_bUI3D = V; }
+	virtual BOOL get_UI3D() { return val_bUI3D; }
 	virtual void set_CamAttached(BOOL V) { val_bCamAttached = V; }
 	virtual BOOL get_CamAttached() { return val_bCamAttached; }
 	virtual void set_Invisible(BOOL V) { val_bInvisible = V; }
@@ -139,7 +139,7 @@ public:
 		val_pObject = NULL;
 		val_pTransform = NULL;
 		val_bHUD = FALSE;
-		val_bUI3DModels = FALSE;
+		val_bUI3D = FALSE;
 		val_bCamAttached = FALSE;
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
@@ -188,8 +188,8 @@ public:
 		}
 		mapSorted.destroy();
 		mapHUD.destroy();
-		mapUI3DModels.destroy();
-		mapUI3DModelsSorted.destroy();
+		mapUI3D.destroy();
+		mapUI3DSorted.destroy();
 		mapCamAttached.destroy();
 		mapLOD.destroy();
 		mapDistort.destroy();
@@ -205,7 +205,7 @@ public:
 		mapWmark.destroy();
 		mapEmissive.destroy();
 		mapHUDEmissive.destroy();
-		mapUI3DModelsEmissive.destroy();
+		mapUI3DEmissive.destroy();
 		mapCamAttachedEmissive.destroy();
 #endif
 	}
@@ -223,7 +223,7 @@ public:
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();
-	void r_dsgraph_render_ui_3d_models();
+	void r_dsgraph_render_ui_3d();
 	void r_dsgraph_render_cam_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted();
