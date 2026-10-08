@@ -110,6 +110,8 @@ extern ECORE_API float ps_r1_lmodel_lerp;
 extern ECORE_API float ps_r1_dlights_clip;
 extern ECORE_API float ps_r1_pps_u;
 extern ECORE_API float ps_r1_pps_v;
+extern ECORE_API int ps_r1_scope_scene_capture;
+extern ECORE_API int ps_r1_scope_debug;
 
 // R1-specific
 extern ECORE_API int ps_r1_GlowsPerFrame; // r1-only

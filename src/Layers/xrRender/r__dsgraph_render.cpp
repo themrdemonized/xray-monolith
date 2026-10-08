@@ -720,6 +720,11 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	mapSorted.traverseRL(sorted_L1);
 	mapSorted.clear();
 
+#if RENDER == R_R1
+    if (RImplementation.o.defer_hud)
+        return;
+#endif
+
 	// Change projection
 	Fmatrix FTold = Device.mFullTransform;
 
@@ -756,7 +761,7 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	RCache.set_xform_project(Device.mProject);
 }
 
-#if defined(USE_DX11)
+#if defined(USE_DX11) || RENDER == R_R1
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
 void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	

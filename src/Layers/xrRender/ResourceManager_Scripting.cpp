@@ -196,6 +196,13 @@ public:
 		return *this;
 	}
 
+    adopt_compiler& _o_scopelense(u32 type)
+    {
+        R_ASSERT(type <= 3);
+        C->SH->flags.iScopeLense = type;
+        return *this;
+    }
+
 	adopt_compiler& _pass(LPCSTR vs, LPCSTR ps)
 	{
 		C->r_Pass(vs, ps, true);
@@ -388,6 +395,7 @@ void CResourceManager::LS_Load()
 		.def("sorting", &adopt_compiler::_options, return_reference_to<1>())
 		.def("emissive", &adopt_compiler::_o_emissive, return_reference_to<1>())
 		.def("distort", &adopt_compiler::_o_distort, return_reference_to<1>())
+        .def("scopelense", &adopt_compiler::_o_scopelense, return_reference_to<1>())
 		.def("wmark", &adopt_compiler::_o_wmark, return_reference_to<1>())
 		.def("fog", &adopt_compiler::_fog, return_reference_to<1>())
 		.def("zb", &adopt_compiler::_ZB, return_reference_to<1>())

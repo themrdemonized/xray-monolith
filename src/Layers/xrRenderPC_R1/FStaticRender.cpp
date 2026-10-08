@@ -434,6 +434,7 @@ IC void gm_SetNearer(BOOL bNearer)
 CRender::CRender()
 	: m_bFirstFrameAfterReset(false)
 {
+    o.defer_hud = FALSE;
 }
 
 CRender::~CRender()
@@ -707,9 +708,11 @@ void CRender::Render()
 	Device.Statistic->RenderDUMP.Begin();
 	// Begin
 	Target->Begin();
+	o.defer_hud = Target->IsScopeSceneCaptureActive();
 	o.vis_intersect = FALSE;
 	phase = PHASE_NORMAL;
-	r_dsgraph_render_hud(); // hud
+    if (!o.defer_hud)
+        r_dsgraph_render_hud(); // hud
 	r_dsgraph_render_graph(0); // normal level
 	if (Details)Details->Render(); // grass / details
 	r_dsgraph_render_lods(true, false); // lods - FB
@@ -724,7 +727,7 @@ void CRender::Render()
 	L_Dynamic->render(0); // addititional light sources
 	if (Wallmarks)Wallmarks->Render(); // wallmarks has priority as normal geometry
 
-	if (g_hud)
+	if (g_hud && !o.defer_hud)
 	{
 		g_hud->Render_R1_Attachment_UI();
 
@@ -747,6 +750,36 @@ void CRender::Render()
 	if (L_Glows)L_Glows->Render(); // glows
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES))Env->RenderFlares(); // lens-flares
 	Env->RenderLast(); // rain/thunder-bolts
+
+    if (o.defer_hud)
+    {
+        Target->CaptureScopeScene();
+        o.defer_hud = FALSE;
+        phase = PHASE_NORMAL;
+        r_dsgraph_render_hud();
+
+        // Replay only HUD lighting; the world and its visibility traversal are not rendered again.
+        o.vis_intersect = TRUE;
+        HOM.Disable();
+        L_Dynamic->render(0, true);
+        HOM.Enable();
+        o.vis_intersect = FALSE;
+        r_dsgraph_render_sorted();
+        phase = PHASE_NORMAL;
+
+        if (scope_3D_fake_enabled)
+            r_dsgraph_render_ScopeSorted();
+
+        if (g_hud)
+        {
+            g_hud->Render_R1_Attachment_UI();
+            if (g_hud->RenderActiveItemUIQuery())
+                r_dsgraph_render_hud_ui();
+            if (g_hud->RenderCamAttachedUIQuery())
+                r_dsgraph_render_cam_ui();
+        }
+    }
+    mapScopeHUDSorted.clear();
 
 #if DEBUG
 	for (int _priority=0; _priority<2; ++_priority)

@@ -20,6 +20,8 @@ private:
 	ref_rt RT;
 	ref_rt RT_color_map;
 	ref_rt RT_distort;
+	ref_rt rt_scope_scene;
+	bool scope_scene_capture_active;
 	IDirect3DSurface9* ZB;
 
 	//	Can't implement in a single pass of a shader since
@@ -72,6 +74,8 @@ public:
 
 	void Begin();
 	void End();
+	bool IsScopeSceneCaptureActive() const { return scope_scene_capture_active; }
+	void CaptureScopeScene();
 
 	void DoAsyncScreenshot();
 

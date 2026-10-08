@@ -74,6 +74,23 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 
+#if RENDER == R_R1
+    if (RI.val_bHUD && sh->flags.iScopeLense)
+    {
+        // The physical lens supplies its own mask; R1 needs no DX11 stencil/depth-repair passes.
+        if (sh->flags.iScopeLense == 3 && RI.phase == CRender::PHASE_NORMAL)
+        {
+            mapScopeHUD_T_Node* node = mapScopeHUDSorted.insertInAnyWay(distSQ);
+            node->val.ssa = SSA;
+            node->val.pObject = RI.val_pObject;
+            node->val.pVisual = pVisual;
+            node->val.Matrix = *RI.val_pTransform;
+            node->val.se = sh;
+        }
+        return;
+    }
+#endif
+
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	
 		case 0:

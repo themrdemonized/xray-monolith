@@ -1535,6 +1535,14 @@ void CBlender_Compile::SetMapping()
 	r_Constant("s3ds_param_2", &s3ds_param_2);
 	r_Constant("s3ds_param_3", &s3ds_param_3);
 	r_Constant("s3ds_param_4", &s3ds_param_4);
+    static class cl_r1_scope_debug : public R_constant_setup
+    {
+        virtual void setup(R_constant* C)
+        {
+            RCache.set_c(C, float(ps_r1_scope_debug), 0.0f, 0.0f, 0.0f);
+        }
+    } binder_r1_scope_debug;
+    r_Constant("r1_scope_debug", &binder_r1_scope_debug);
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);

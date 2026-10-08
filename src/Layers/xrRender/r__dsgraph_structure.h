@@ -48,7 +48,9 @@ public:
 	R_dsgraph::mapHUD_T mapCamAttachedSorted;
 #if defined(USE_DX11)
 	R_dsgraph::mapScopeHUD_T mapScopeHUD;	//  Redotix99: for 3D Shader Based Scopes
-	R_dsgraph::mapScopeHUD_T mapScopeHUDSorted;
+#endif
+#if defined(USE_DX11) || RENDER == R_R1
+    R_dsgraph::mapScopeHUD_T mapScopeHUDSorted;
 #endif
 	R_dsgraph::mapLandscape_T mapLandscape;
 	//R_dsgraph::HUDMask_T HUDMask; // SSS 23: Deprecated
@@ -191,6 +193,9 @@ public:
 		//HUDMask.destroy(); // SSS 23: Deprecated
 		HUDMaskCamAttached.destroy();
 		mapWater.destroy();
+#if RENDER == R_R1
+        mapScopeHUDSorted.destroy();
+#endif
 
 #if RENDER!=R_R1
 		mapWmark.destroy();
@@ -216,7 +221,7 @@ public:
 	void r_dsgraph_render_cam_ui();
 	void r_dsgraph_render_lods(bool _setup_zb, bool _clear);
 	void r_dsgraph_render_sorted();
-#if defined(USE_DX11)
+#if defined(USE_DX11) || RENDER == R_R1
 	void r_dsgraph_render_ScopeSorted(); // Redotix99: for 3D Shader Based Scopes
 #endif
 	void r_dsgraph_render_emissive(bool clear = true, bool renderHUD = false);

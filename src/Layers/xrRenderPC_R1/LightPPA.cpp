@@ -146,7 +146,7 @@ void CLightR_Manager::render_point	()
 }
 */
 
-void CLightR_Manager::render_point(u32 _priority)
+void CLightR_Manager::render_point(u32 _priority, bool hud_only)
 {
 	// for each light
 	Fvector lc_COP = Device.vCameraPosition;
@@ -199,36 +199,41 @@ void CLightR_Manager::render_point(u32 _priority)
 
 		//		3. Calculate visibility for light + build soring tree
 		VERIFY(L->spatial.sector);
-		if (_priority == 1)
-			RImplementation.r_pmask(false, true);
+        if (!hud_only)
+        {
+            if (_priority == 1)
+                RImplementation.r_pmask(false, true);
 
-		RImplementation.r_dsgraph_render_subspace(
-			L->spatial.sector,
-			L_combine,
-			L_pos,
-			true,
-			true
-		);
+            RImplementation.r_dsgraph_render_subspace(
+                L->spatial.sector, L_combine, L_pos, true, true);
 
-		if (_priority == 1)
-			RImplementation.r_pmask(true, true);
+            if (_priority == 1)
+                RImplementation.r_pmask(true, true);
+        }
 
 		//		4. Analyze if HUD intersects light volume
 		BOOL bHUD = FALSE;
 		CFrustum F;
 		F.CreateFromMatrix(L_combine,FRUSTUM_P_ALL);
 		bHUD = F.testSphere_dirty(Device.vCameraPosition, 2.f);
+        bHUD = bHUD && !RImplementation.o.defer_hud;
 
 		//		5. Dump sorting tree
 		RCache.set_Constants((R_constant_table*)0);
-		if (bHUD && _priority == 0) g_hud->Render_Last();
-		RImplementation.r_dsgraph_render_graph(_priority);
+        if (bHUD && _priority == 0)
+        {
+            if (hud_only)
+                RImplementation.marker++;
+            g_hud->Render_Last();
+        }
+        if (!hud_only)
+            RImplementation.r_dsgraph_render_graph(_priority);
 		if (bHUD && _priority == 0) RImplementation.r_dsgraph_render_hud();
 	}
 	//		??? grass ???
 }
 
-void CLightR_Manager::render_spot(u32 _priority)
+void CLightR_Manager::render_spot(u32 _priority, bool hud_only)
 {
 	// for each light
 	//	Msg	("l=%d",selected_spot.size());
@@ -282,32 +287,37 @@ void CLightR_Manager::render_spot(u32 _priority)
 		//		3. Calculate visibility for light + build soring tree
 		VERIFY(L->spatial.sector);
 		// RImplementation.marker					++;
-		if (_priority == 1)
-			RImplementation.r_pmask(false, true);
+        if (!hud_only)
+        {
+            if (_priority == 1)
+                RImplementation.r_pmask(false, true);
 
-		RImplementation.r_dsgraph_render_subspace(
-			L->spatial.sector,
-			L_combine,
-			L_pos,
-			TRUE,
-			TRUE // precise portals
-		);
+            RImplementation.r_dsgraph_render_subspace(
+                L->spatial.sector, L_combine, L_pos, TRUE, TRUE);
 
-		if (_priority == 1)
-			RImplementation.r_pmask(true, true);
+            if (_priority == 1)
+                RImplementation.r_pmask(true, true);
+        }
 
 		//		4. Analyze if HUD intersects light volume
 		BOOL bHUD = FALSE;
 		CFrustum F;
 		F.CreateFromMatrix(L_combine,FRUSTUM_P_ALL);
 		bHUD = F.testSphere_dirty(Device.vCameraPosition, 2.f);
+        bHUD = bHUD && !RImplementation.o.defer_hud;
 		// if (bHUD)		Msg	("HUD");
 
 		//		4. Dump sorting tree
 		//	RCache.set_ClipPlanes					(true,	&L_combine);
 		RCache.set_Constants((R_constant_table*)0);
-		if (bHUD && _priority == 0) g_hud->Render_Last();
-		RImplementation.r_dsgraph_render_graph(_priority);
+        if (bHUD && _priority == 0)
+        {
+            if (hud_only)
+                RImplementation.marker++;
+            g_hud->Render_Last();
+        }
+        if (!hud_only)
+            RImplementation.r_dsgraph_render_graph(_priority);
 		if (bHUD && _priority == 0) RImplementation.r_dsgraph_render_hud();
 		//	RCache.set_ClipPlanes					(false,	&L_combine);
 	}
@@ -340,7 +350,7 @@ IC void hud_light_restore(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos
 	}
 }
 
-void CLightR_Manager::render(u32 _priority)
+void CLightR_Manager::render(u32 _priority, bool hud_only)
 {
 	xr_map<light*, std::pair<Fvector, Fvector>> saved_pos;
 
@@ -348,20 +358,20 @@ void CLightR_Manager::render(u32 _priority)
 	{
 		hud_light_apply(saved_pos, selected_spot);
 		RImplementation.phase = CRender::PHASE_SPOT;
-		render_spot(_priority);
+		render_spot(_priority, hud_only);
 		hud_light_restore(saved_pos, selected_spot);
 
-		if (_priority == 1)
+		if ((_priority == 1 || hud_only) && !RImplementation.o.defer_hud)
 			selected_spot.clear();
 	}
 	if (selected_point.size())
 	{
 		hud_light_apply(saved_pos, selected_point);
 		RImplementation.phase = CRender::PHASE_POINT;
-		render_point(_priority);
+		render_point(_priority, hud_only);
 		hud_light_restore(saved_pos, selected_point);
 
-		if (_priority == 1)
+		if ((_priority == 1 || hud_only) && !RImplementation.o.defer_hud)
 			selected_point.clear();
 	}
 }

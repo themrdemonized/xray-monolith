@@ -39,6 +39,7 @@ public:
 		u32 forceskinw : 1; // config
 		u32 no_detail_textures : 1; // config
 		u32 no_ram_textures : 1; // don't keep textures in RAM
+		u32 defer_hud : 1; // keep HUD out of the scope scene capture
 	} o;
 
 	struct _stats
