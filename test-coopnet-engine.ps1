@@ -1,5 +1,6 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe)
 $ErrorActionPreference = 'Stop'
+if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
 $fixtureFiles = Get-ChildItem "$client\appdata\savedgames\player - autosave.*" -File
@@ -8,7 +9,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -82,4 +83,16 @@ if ($GameplayProbe) {
     }
     Write-Output 'NATIVE_GAMEPLAY_FIXTURE_PASS: native take/drop, replay without duplicate mutation, host damage and client condition correction.'
 }
-Write-Output 'Development fixture only. Canonical world loading, normal combat/inventory controls and persistence are not verified.'
+if ($WorldProbe) {
+    $baseline=[regex]::Match($logs.host,'CoopNet canonical baseline captured: (coopnet-[0-9a-f]{16}) bytes ([1-9]\d*) level ([1-9]\d*)')
+    if (!$baseline.Success -or $logs.guest -notmatch 'CoopNet canonical baseline SHA-256 verified:' -or
+        !$logs.guest.Contains("CoopNet canonical baseline loaded and acknowledged: $($baseline.Groups[1].Value) level $($baseline.Groups[3].Value)")) {
+        throw 'Host-created baseline transfer, checksum validation or native loading barrier evidence missing.'
+    }
+    $baselineName=$baseline.Groups[1].Value+'.scop'
+    $hostHash=(Get-FileHash -LiteralPath "$testRoot\host\appdata\savedgames\$baselineName").Hash
+    $guestHash=(Get-FileHash -LiteralPath "$testRoot\guest\appdata\savedgames\$baselineName").Hash
+    if ($hostHash -ne $guestHash) { throw 'Transferred canonical baseline differs from the host snapshot.' }
+    Write-Output "CANONICAL_BASELINE_PASS: guest loaded the verified host snapshot $baselineName; file hashes match."
+}
+Write-Output 'Development fixture only. Continuous shared NPC/item replication, normal combat/inventory controls and persistence are not verified.'

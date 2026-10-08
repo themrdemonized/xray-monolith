@@ -30,4 +30,8 @@ if errorlevel 1 exit /b 1
 cl /nologo /std:c++17 /EHsc /W4 /WX "tests\coopnet\GameplayTests.cpp" /Fo"_build\coopnet-tests\GameplayTests.obj" /Fe"_build\coopnet-tests\GameplayTests.exe"
 if errorlevel 1 exit /b 1
 "_build\coopnet-tests\GameplayTests.exe"
+if errorlevel 1 exit /b 1
+cl /nologo /std:c++17 /EHsc /W4 /WX "tests\coopnet\WorldBaselineTests.cpp" /Fo"_build\coopnet-tests\WorldBaselineTests.obj" /Fe"_build\coopnet-tests\WorldBaselineTests.exe"
+if errorlevel 1 exit /b 1
+"_build\coopnet-tests\WorldBaselineTests.exe"
 exit /b %errorlevel%

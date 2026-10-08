@@ -6,6 +6,7 @@
 #include "LevelAssignment.h"
 #include "ActorInput.h"
 #include "Gameplay.h"
+#include "WorldBaseline.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -30,6 +31,11 @@ class HostPump {
         SequenceWindow transaction_sequences;
         double transaction_budget = 8;
         std::map<Identity,std::uint32_t> item_revisions;
+        WorldBaseline baseline;
+        std::shared_ptr<const std::vector<std::uint8_t>> baseline_bytes;
+        std::uint32_t baseline_offset=0;
+        bool baseline_started=false, baseline_received=false;
+        double baseline_time=0, baseline_budget=65536;
     };
     HostSession session_;
     Identity id_ = 0;
@@ -114,6 +120,13 @@ class HostPump {
                 if (!peer.inputs.accept(input.sequence)) continue;
                 peer.input = input; peer.input_age = 0;
             }
+            else if (peer.ready && frame.message==Message::WorldReceived) {
+                WorldBaseline received;
+                if (!decode_baseline(frame.payload,received) || frame.sequence ||
+                    !peer.baseline_started || peer.baseline_offset!=peer.baseline.size ||
+                    !same_baseline(received,peer.baseline)) return false;
+                peer.baseline_received=true; peer.baseline_bytes.reset();
+            }
             else if (peer.ready && frame.message == Message::InventoryRequest) {
                 InventoryRequest request;
                 if (!decode_inventory_request(frame.payload,request) || frame.sequence != request.sequence) return false;
@@ -150,6 +163,26 @@ class HostPump {
         return true;
     }
 public:
+    bool participant_ready(Identity player) const {
+        for (const auto& peer:peers_) if (peer.player==player) return peer.ready && peer.transport->connected();
+        return false;
+    }
+    bool baseline_received(Identity player) const {
+        for (const auto& peer:peers_) if (peer.player==player && peer.ready)
+            return peer.baseline.id && peer.baseline_received;
+        return false;
+    }
+    bool send_baseline(Identity player,const WorldBaseline& manifest,
+        std::shared_ptr<const std::vector<std::uint8_t>> bytes) {
+        if (!valid_baseline(manifest) || !bytes || bytes->size()!=manifest.size) return false;
+        for (auto& peer:peers_) if (peer.player==player && peer.ready) {
+            if (peer.assigned || (peer.baseline.id && !peer.baseline_received) || !set_interest_level(player,0)) return false;
+            peer.baseline=manifest; peer.baseline_bytes=std::move(bytes); peer.baseline_offset=0;
+            peer.baseline_started=false; peer.baseline_received=false; peer.baseline_time=0; peer.baseline_budget=65536;
+            return true;
+        }
+        return false;
+    }
     void set_inventory_handler(std::function<InventoryResult(Identity,const InventoryRequest&)> handler) {
         inventory_handler_=std::move(handler);
     }
@@ -192,6 +225,7 @@ public:
     bool assign_level(Identity player, std::uint32_t level, Identity ticket) {
         if (!level || !ticket || failures_.size() >= 61) return false;
         for (auto& peer : peers_) if (peer.player == player && peer.ready) {
+            if (peer.baseline.id && !peer.baseline_received) return false;
             if (peer.assigned || ticket == peer.assignment.ticket || !set_interest_level(player, 0)) return false;
             peer.assignment = {ticket,level,peer.assignment.revision + 1}; peer.assigned = true;
             peer.transfer_time = 0;
@@ -280,14 +314,34 @@ public:
             peer.elapsed += elapsed;
             peer.input_age += elapsed;
             peer.transaction_budget=(std::min)(8.,peer.transaction_budget+elapsed*8.);
+            if (peer.baseline.id && !peer.baseline_received) {
+                peer.baseline_time+=elapsed;
+                peer.baseline_budget=(std::min)(65536.,peer.baseline_budget+elapsed*1024*1024);
+            }
             if (peer.assigned) {
                 peer.transfer_time += elapsed;
                 if (peer.transfer_time >= 120) failed(peer, TransferFailure::Timeout);
             }
             bool keep = peer.transport->connected() || peer.transport->connecting();
+            if (peer.baseline.id && !peer.baseline_received && peer.baseline_time>=120) keep=false;
             if ((!peer.ready && peer.elapsed >= 10) || (peer.rejected && peer.elapsed >= 1)) keep = false;
             if (keep && peer.transport->connected()) {
                 keep=receive(peer);
+                if (keep && peer.baseline_bytes && !peer.baseline_started && peer.outgoing.size()<48) {
+                    keep=queue(peer,{Message::WorldBaseline,Channel::World,Delivery::ReliableOrdered,0,encode_baseline(peer.baseline)});
+                    peer.baseline_started=keep;
+                }
+                for (unsigned n=0;keep && peer.baseline_bytes && peer.baseline_started &&
+                    peer.baseline_offset<peer.baseline.size && peer.outgoing.size()<48 && n<8;++n) {
+                    const auto size=(std::min)(baseline_chunk_bytes,peer.baseline.size-peer.baseline_offset);
+                    // Reserve room for control/results while a socket is applying backpressure.
+                    if (peer.baseline_budget<size || peer.queued_bytes+size+30>224*1024) break;
+                    const auto begin=peer.baseline_bytes->begin()+peer.baseline_offset;
+                    WorldChunk chunk{peer.baseline.id,peer.baseline_offset,{begin,begin+size}};
+                    keep=queue(peer,{Message::WorldChunk,Channel::World,Delivery::ReliableOrdered,
+                        peer.baseline_offset/baseline_chunk_bytes,encode_world_chunk(chunk)});
+                    if (keep) { peer.baseline_offset+=size; peer.baseline_budget-=size; }
+                }
                 unsigned published=0;
                 for (const auto& item : items_) if (keep && peer.ready && item.second.level==peer.level &&
                     peer.item_revisions[item.first]!=item.second.revision && peer.outgoing.size()<48 && published<8) {

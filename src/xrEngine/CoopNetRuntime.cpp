@@ -18,6 +18,7 @@ void coopnet_log(const char* format, ...) {
 #include "../CoopNet/HostPump.h"
 #include "../CoopNet/ClientPump.h"
 #include "../CoopNet/EngineActorBridge.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "../CoopNet/EntityRegistry.h"
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -35,6 +36,33 @@ coopnet::Identity random_identity() {
             BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0) throw std::runtime_error("CoopNet random source failed");
     } while (!value);
     return value;
+}
+coopnet::BaselineDigest baseline_digest(const std::vector<std::uint8_t>& bytes) {
+    struct HashHandles {
+        BCRYPT_ALG_HANDLE algorithm=nullptr;
+        BCRYPT_HASH_HANDLE hash=nullptr;
+        ~HashHandles() { if (hash) BCryptDestroyHash(hash); if (algorithm) BCryptCloseAlgorithmProvider(algorithm,0); }
+    } handles;
+    if (BCryptOpenAlgorithmProvider(&handles.algorithm,BCRYPT_SHA256_ALGORITHM,nullptr,0)<0)
+        throw std::runtime_error("World baseline SHA-256 provider failed");
+    DWORD length=0,received=0;
+    if (BCryptGetProperty(handles.algorithm,BCRYPT_OBJECT_LENGTH,reinterpret_cast<PUCHAR>(&length),sizeof(length),&received,0)<0 ||
+        !length || length>65536) throw std::runtime_error("World baseline SHA-256 properties failed");
+    std::vector<std::uint8_t> object(length);
+    // Destroy the hash before its object buffer leaves scope.
+    BCRYPT_HASH_HANDLE hash=nullptr;
+    if (BCryptCreateHash(handles.algorithm,&hash,object.data(),length,nullptr,0,0)<0)
+        throw std::runtime_error("World baseline SHA-256 creation failed");
+    handles.hash=hash;
+    coopnet::BaselineDigest digest;
+    const auto status=BCryptHashData(hash,const_cast<PUCHAR>(bytes.data()),static_cast<ULONG>(bytes.size()),0);
+    const auto finished=status<0 ? status : BCryptFinishHash(hash,digest.data(),static_cast<ULONG>(digest.size()),0);
+    BCryptDestroyHash(handles.hash); handles.hash=nullptr;
+    if (finished<0) throw std::runtime_error("World baseline SHA-256 failed");
+    return digest;
+}
+std::string baseline_name(coopnet::Identity id) {
+    char value[48]; snprintf(value,sizeof(value),"coopnet-%016llx",id); return value;
 }
 struct Session {
     // Connections are destroyed before the networking runtime.
@@ -61,6 +89,9 @@ struct Session {
     bool automated_controls = false;
     unsigned corrections = 0;
     bool gameplay_probe=false;
+    bool world_probe=false, world_load_requested=false;
+    std::string world_save;
+    std::map<coopnet::Identity,std::pair<std::uint32_t,std::uint64_t>> world_sent;
     unsigned condition_corrections=0, inventory_accepts=0, gameplay_phase=0;
     double gameplay_wait=0;
     bool gameplay_pending=false;
@@ -87,6 +118,22 @@ struct Session {
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
 };
 std::unique_ptr<Session> session;
+void send_world_baselines(Session& current) {
+    if (!current.world_probe) return;
+    LocalActorPose local;
+    if (!capture_local_actor(local)) return;
+    for (const auto& player:current.host.session().players()) {
+        const auto binding=std::make_pair(player.generation,local.incarnation);
+        if (player.id==1 || !player.connected || current.world_sent[player.id]==binding || !current.host.participant_ready(player.id)) continue;
+        const auto id=random_identity(); const auto name=baseline_name(id);
+        auto bytes=std::make_shared<std::vector<std::uint8_t>>(); std::uint32_t level=0;
+        if (!capture_world_baseline(name.c_str(),level,*bytes)) throw std::runtime_error("Canonical host snapshot failed");
+        const coopnet::WorldBaseline manifest{id,level,static_cast<std::uint32_t>(bytes->size()),baseline_digest(*bytes)};
+        if (!current.host.send_baseline(player.id,manifest,bytes)) throw std::runtime_error("Canonical host snapshot transfer failed");
+        current.world_sent[player.id]=binding;
+        Msg("* CoopNet canonical baseline queued: player %llu id %llu bytes %u",player.id,id,manifest.size);
+    }
+}
 coopnet::InventoryResult transact_inventory(Session& current, coopnet::Identity player, const coopnet::InventoryRequest& request) {
     coopnet::InventoryResult result{request.item,0,request.sequence,0,coopnet::InventoryStatus::Unavailable};
     const auto actor=current.guests.find(player); const auto item=current.items.find(request.item);
@@ -208,6 +255,7 @@ void capture_guests(Session& current) {
     if (!available) return;
     for (const auto& player : current.host.session().players()) {
         if (player.id == 1 || !player.connected) continue;
+        if (current.world_probe && !current.host.baseline_received(player.id)) continue;
         auto found = current.guests.find(player.id);
         if (found == current.guests.end()) {
             const auto object = spawn_guest_actor();
@@ -375,6 +423,7 @@ void update(double) {
             }
             session->host.update(elapsed);
             capture_host(*session, elapsed);
+            send_world_baselines(*session);
             capture_guests(*session);
             if (session->replica_probe && session->host_actor) {
                 const auto* actor = session->entities.find(session->host_actor);
@@ -392,6 +441,12 @@ void update(double) {
             }
         } else {
             session->client.update(elapsed);
+            if (session->world_probe && session->world_load_requested && !session->client.baseline_acknowledged() &&
+                world_baseline_loaded(session->world_save.c_str())) {
+                LocalActorPose local;
+                if (capture_local_actor(local) && local.level==session->client.baseline().level && session->client.acknowledge_baseline())
+                    Msg("* CoopNet canonical baseline loaded and acknowledged: %s level %u",session->world_save.c_str(),local.level);
+            }
             if (session->replica_probe && session->client.assignment().ticket) {
                 LocalActorPose local;
                 if (capture_local_actor(local)) session->client.acknowledge_level(local.level);
@@ -440,6 +495,13 @@ void command(const char* name, const char* arguments) {
                 static_cast<unsigned>(session->automated_controls));
             return;
         }
+        if (!strcmp(name,"coop_world_probe")) {
+            if (!session) throw std::runtime_error("Start a session before the world probe");
+            session->world_probe=true; session->replica_probe=true; session->movement_probe=true;
+            begin_guest_simulation();
+            Msg("* CoopNet canonical baseline probe enabled; continuous shared world replication pending");
+            return;
+        }
         if (!strcmp(name, "coop_status")) {
             if (!session) { Msg("* CoopNet offline"); return; }
             if (session->mode == coopnet::Mode::Host) {
@@ -476,6 +538,20 @@ void command(const char* name, const char* arguments) {
             if (connection == k_HSteamNetConnection_Invalid) throw std::runtime_error("Invalid endpoint or connect failed");
             next->client.start(std::make_unique<coopnet::GnsTransport>(next->runtime, connection), character, build);
             auto* owner = next.get();
+            next->client.set_baseline_progress_sink([](const coopnet::WorldBaseline& manifest,std::uint32_t received) {
+                if (!(received%65536) || received==manifest.size)
+                    Msg("* CoopNet canonical baseline receiving: id %llu bytes %u/%u",manifest.id,received,manifest.size);
+            });
+            next->client.set_baseline_sink([owner](const coopnet::WorldBaseline& manifest,const std::vector<std::uint8_t>& bytes) {
+                if (!owner->world_probe) { Msg("! CoopNet canonical baseline requires world mode"); return false; }
+                if (baseline_digest(bytes)!=manifest.digest) { Msg("! CoopNet canonical baseline checksum mismatch"); return false; }
+                const auto name=baseline_name(manifest.id);
+                if (!store_world_baseline(name.c_str(),bytes)) { Msg("! CoopNet canonical baseline storage failed"); return false; }
+                if (!load_world_baseline(name.c_str())) { Msg("! CoopNet canonical baseline loading failed"); return false; }
+                owner->world_save=name; owner->world_load_requested=true;
+                Msg("* CoopNet canonical baseline SHA-256 verified: id %llu bytes %u",manifest.id,manifest.size);
+                return true;
+            });
             next->client.set_inventory_sink([owner](const coopnet::InventoryResult& result) {
                 if (!owner->gameplay_probe || !owner->gameplay_pending || result.sequence!=owner->probe_request.sequence || result.item!=owner->probe_request.item) return;
                 owner->gameplay_pending=false;

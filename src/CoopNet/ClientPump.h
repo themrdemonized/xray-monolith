@@ -6,6 +6,7 @@
 #include "LevelAssignment.h"
 #include "ActorInput.h"
 #include "Gameplay.h"
+#include "WorldBaseline.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -32,6 +33,15 @@ class ClientPump {
     std::map<Identity,std::pair<std::uint32_t,SequenceWindow>> vitals_sequences_;
     std::function<void(const InventoryResult&)> inventory_sink_;
     std::function<void(const ActorVitals&)> vitals_sink_;
+    BaselineAssembly baseline_assembly_;
+    WorldBaseline baseline_;
+    bool baseline_validated_=false, baseline_acknowledged_=false;
+    double baseline_time_=0;
+    std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> baseline_sink_;
+    std::function<void(const WorldBaseline&,std::uint32_t)> baseline_progress_sink_;
+    void clear_baseline() {
+        baseline_assembly_.clear(); baseline_={}; baseline_validated_=false; baseline_acknowledged_=false; baseline_time_=0;
+    }
     static constexpr double timeout_ = 10;
     void attach(std::unique_ptr<Transport> transport, const ClientHello& hello) {
         if (!transport) throw std::invalid_argument("Missing client transport");
@@ -39,6 +49,7 @@ class ClientPump {
         level_ready_sent_ = false; transfer_failure_ = TransferFailure::None; sent_ = false; ready_sent_ = false; handshake_time_ = 0;
         items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
         inventory_history_.clear(); inventory_sequences_={};
+        clear_baseline();
         hello_ = Frame{Message::ClientHello, Channel::Control, Delivery::ReliableOrdered, 1, encode_hello(hello)};
     }
     void lost() {
@@ -49,8 +60,24 @@ class ClientPump {
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; session_.lost_connection();
         items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
+        clear_baseline();
     }
 public:
+    const WorldBaseline& baseline() const { return baseline_; }
+    bool baseline_acknowledged() const { return baseline_acknowledged_; }
+    void set_baseline_sink(std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> sink) {
+        baseline_sink_=std::move(sink);
+    }
+    void set_baseline_progress_sink(std::function<void(const WorldBaseline&,std::uint32_t)> sink) {
+        baseline_progress_sink_=std::move(sink);
+    }
+    bool acknowledge_baseline() {
+        if (!transport_ || session_.state()!=ClientState::Connected || !baseline_validated_ || baseline_acknowledged_) return false;
+        const auto result=transport_->send({Message::WorldReceived,Channel::World,Delivery::ReliableOrdered,0,encode_baseline(baseline_)});
+        if (result==SendResult::Sent) { baseline_acknowledged_=true; return true; }
+        if (result!=SendResult::Backpressure) lost();
+        return false;
+    }
     const std::map<Identity,ItemState>& items() const { return items_; }
     void set_inventory_sink(std::function<void(const InventoryResult&)> sink) { inventory_sink_=std::move(sink); }
     void set_vitals_sink(std::function<void(const ActorVitals&)> sink) { vitals_sink_=std::move(sink); }
@@ -105,6 +132,7 @@ public:
     void set_transfer_failure_sink(std::function<void(const LevelFailure&)> sink) { transfer_failure_sink_ = std::move(sink); }
     bool acknowledge_level(std::uint32_t loaded_level) {
         if (!transport_ || session_.state() != ClientState::Connected || level_ready_sent_ ||
+            (baseline_.id && !baseline_acknowledged_) ||
             !assignment_.ticket || loaded_level != assignment_.level) return false;
         const auto result = transport_->send(Frame{Message::LevelReady, Channel::Transition, Delivery::ReliableOrdered,
             assignment_.revision, encode_assignment(assignment_)});
@@ -125,6 +153,10 @@ public:
     void update(double elapsed) {
         if (!std::isfinite(elapsed) || elapsed < 0) throw std::invalid_argument("Invalid pump time");
         if (!transport_) return;
+        if (baseline_.id && !baseline_acknowledged_) {
+            baseline_time_+=elapsed;
+            if (baseline_time_>=120) { lost(); return; }
+        }
         if (session_.state() == ClientState::Connecting) {
             handshake_time_ += elapsed;
             if (handshake_time_ >= timeout_) { lost(); return; }
@@ -156,6 +188,23 @@ public:
                 roster_ = std::make_unique<ClientRoster>(welcome.session, welcome.player);
             } else if (frame.message == Message::Roster) {
                 if (!roster_->apply(frame.payload)) { lost(); return; }
+            } else if (frame.message==Message::WorldBaseline) {
+                WorldBaseline value;
+                if (!decode_baseline(frame.payload,value) || frame.sequence ||
+                    (baseline_.id && (!baseline_acknowledged_ || value.id==baseline_.id))) { lost(); return; }
+                clear_baseline(); baseline_=value;
+                if (!baseline_assembly_.begin(value)) { lost(); return; }
+                if (baseline_progress_sink_) baseline_progress_sink_(baseline_,0);
+                level_ready_sent_=false; items_.clear(); pending_inventory_.clear();
+            } else if (frame.message==Message::WorldChunk) {
+                WorldChunk chunk;
+                if (!decode_world_chunk(frame.payload,chunk) || frame.sequence!=chunk.offset/baseline_chunk_bytes ||
+                    !baseline_assembly_.append(chunk)) { lost(); return; }
+                if (baseline_progress_sink_) baseline_progress_sink_(baseline_,static_cast<std::uint32_t>(baseline_assembly_.bytes().size()));
+                if (baseline_assembly_.complete()) {
+                    if (!baseline_sink_ || !baseline_sink_(baseline_,baseline_assembly_.bytes())) { lost(); return; }
+                    baseline_validated_=true; baseline_assembly_.clear();
+                }
             } else if (frame.message == Message::ActorSnapshot) {
                 ActorSnapshot snapshot;
                 if (!decode_snapshot(frame.payload, snapshot) || frame.sequence != snapshot.tick) { lost(); return; }
@@ -228,6 +277,7 @@ public:
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; transfer_failure_ = TransferFailure::None; session_.stop();
         items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
         inventory_history_.clear(); inventory_sequences_={};
+        clear_baseline();
     }
 };
 }

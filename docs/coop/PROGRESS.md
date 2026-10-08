@@ -4,6 +4,14 @@ Goal: implement and verify every CoopNet phase, including independent level resi
 
 ## Current commit checkpoint — 2026-10-08
 
+Canonical starting-world loading now works under `coop_world_probe`. Protocol 8 streams a bounded host-created native snapshot with SHA-256 validation and a validated-load barrier before map assignment. The guest starts from the main menu and loads the host snapshot instead of independently starting a copied single-player fixture. Native object state is synchronized before saving; original saves and the host's selected save name are preserved. Bulk production respects reliable queue byte capacity during socket backpressure.
+
+All seven standalone suites and the enabled engine build passed. The 90-second native world probe passed with matching host/guest snapshot file hashes, 1,191 input-bearing frames, 8.156 metres native displacement, 1,227 remote model updates, 512 render submissions, native transient take/drop and exact replay, host damage applied to the guest, normal shutdown and unchanged original-save hashes. Logs: `_build/coopnet-world-baseline-unit.log`, `_build/coopnet-world-baseline-build.log`, `_build/coopnet-world-baseline-engine.log`.
+
+**Playable co-op remains unfinished.** NPCs, physics and scripts still advance independently after the canonical load. Passive replicas and continuous world state, normal combat/inventory controls, durable character/item ownership, quests, death/rejoin and independent maps remain required. Session snapshot cleanup is also pending. See WORLD_REPLICATION.md for the exact boundary.
+
+## Previous single-host lifecycle checkpoint — 2026-10-08
+
 Removed the location-worker dimension from entity bindings and the distributed-host proposal from the active implementation plan. Current simulation uses one host process. Independent location residency remains unfinished; the active plan requires host engine context isolation rather than location-worker hosting.
 
 Client inventory transactions now have bounded outstanding-request tracking, response correlation and sequence history. Unsolicited/duplicate replies do not reach gameplay; mismatched correlated item IDs disconnect. Actor replacement, level changes, cancellation and disconnect retire pending requests. Old sequence IDs cannot alias replacement actors or new loading tickets, including a same-map reload. Exact replay under the original active binding/ticket still works.

@@ -16,8 +16,19 @@
 #include "../xrPhysics/iphworld.h"
 #include "../xrPhysics/physicscommon.h"
 #include "../CoopNet/EngineActorBridge.h"
+#include "../CoopNet/EngineWorldBridge.h"
+#include "alife_simulator.h"
+#include "saved_game_wrapper.h"
+#include "game_sv_single.h"
+#include <cstring>
+extern string_path g_last_saved_game;
 namespace engine_coopnet {
 namespace {
+bool safe_baseline_name(const char* name) {
+    if (!name || strncmp(name,"coopnet-",8) || strlen(name)>64) return false;
+    for (const char* c=name;*c;++c) if (!((*c>='a' && *c<='z') || (*c>='0' && *c<='9') || *c=='-')) return false;
+    return true;
+}
 std::uint64_t local_incarnation = 0;
 LocalActorControls local_controls;
 std::uint32_t controls_time = 0;
@@ -27,6 +38,60 @@ std::uint64_t guest_incarnation = 0;
 struct SessionItem { std::uint64_t incarnation=0; bool removing=false; };
 xr_map<u16,SessionItem> session_items;
 std::uint64_t item_incarnation=0;
+}
+bool capture_world_baseline(const char* name,std::uint32_t& level,std::vector<std::uint8_t>& bytes) {
+    LocalActorPose pose;
+    if (!safe_baseline_name(name) || !capture_local_actor(pose) || !Level().Server || !ai().get_alife() ||
+        CSavedGameWrapper::saved_game_exist(name)) return false;
+    auto* game=smart_cast<game_sv_Single*>(Level().Server->game);
+    if (!game) return false;
+    // Use the native save preparation path to synchronize current object state first.
+    // Preserve the user's selected save name and last-save UI state.
+    string_path previous; xr_strcpy(previous,g_last_saved_game);
+    NET_Packet packet; packet.B.count=0; packet.r_pos=0; packet.w_stringZ(name); packet.w_u8(0);
+    game->alife().save(packet);
+    xr_strcpy(g_last_saved_game,previous);
+    string_path path; CSavedGameWrapper::saved_game_full_name(name,path);
+    IReader* reader=FS.r_open(path);
+    if (!reader) return false;
+    const auto size=reader->length();
+    if (size<12 || size>64*1024*1024) { FS.r_close(reader); return false; }
+    const auto* begin=static_cast<const std::uint8_t*>(reader->pointer());
+    bytes.assign(begin,begin+size); FS.r_close(reader);
+    level=pose.level;
+    Msg("* CoopNet canonical baseline captured: %s bytes %u level %u",name,size,level);
+    return true;
+}
+bool store_world_baseline(const char* name,const std::vector<std::uint8_t>& bytes) {
+    if (!safe_baseline_name(name) || bytes.size()<12 || bytes.size()>64*1024*1024 ||
+        CSavedGameWrapper::saved_game_exist(name)) return false;
+    std::uint32_t header[3]; std::memcpy(header,bytes.data(),sizeof(header));
+    if (header[0]!=UINT32_MAX || header[1]!=ALIFE_VERSION || header[2]<12 || header[2]>512*1024*1024) return false;
+    string_path path,partial;
+    CSavedGameWrapper::saved_game_full_name(name,path); strconcat(sizeof(partial),partial,path,".partial");
+    if (FS.exist(partial)) return false;
+    IWriter* writer=FS.w_open(partial);
+    if (!writer) return false;
+    writer->w(bytes.data(),static_cast<u32>(bytes.size())); FS.w_close(writer);
+    FS.file_rename(partial,path,false);
+    if (!FS.exist(path)) { FS.file_delete(partial); return false; }
+    Msg("* CoopNet canonical baseline stored: %s bytes %u",name,static_cast<unsigned>(bytes.size()));
+    return true;
+}
+bool load_world_baseline(const char* name) {
+    if (!safe_baseline_name(name) || !CSavedGameWrapper::valid_saved_game(name)) return false;
+    string128 server; strconcat(sizeof(server),server,name,"/single/alife/load");
+    if (g_pGameLevel) Engine.Event.Defer("KERNEL:disconnect");
+    Engine.Event.Defer("KERNEL:start",u64(xr_strdup(server)),u64(xr_strdup("localhost")));
+    Msg("* CoopNet canonical baseline load queued: %s",name);
+    return true;
+}
+bool world_baseline_loaded(const char* name) {
+    LocalActorPose pose;
+    if (!safe_baseline_name(name) || !capture_local_actor(pose) || !Level().Server) return false;
+    const auto& options=Level().Server->GetConnectOptions();
+    const auto length=strlen(name);
+    return options.size()>length && !strncmp(options.c_str(),name,length) && options.c_str()[length]=='/';
 }
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state) {
     if (!g_pGameLevel || !g_pGameLevel->bReady) return false;
