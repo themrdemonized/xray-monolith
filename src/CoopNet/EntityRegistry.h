@@ -4,10 +4,10 @@
 #include <tuple>
 namespace coopnet {
 struct EngineKey {
-    std::uint32_t worker = 0, level = 0;
+    std::uint32_t level = 0;
     std::uint16_t object = 0xffff;
     bool operator<(const EngineKey& other) const {
-        return std::tie(worker, level, object) < std::tie(other.worker, other.level, other.object);
+        return std::tie(level, object) < std::tie(other.level, other.object);
     }
 };
 struct EntityBinding {
@@ -37,7 +37,7 @@ public:
         const auto entry = reverse_.find(key); return entry == reverse_.end() ? 0 : entry->second;
     }
     bool bind(Identity id, EngineKey key) {
-        if (!key.worker || !key.level || key.object == 0xffff) return false;
+        if (!key.level || key.object == 0xffff) return false;
         auto entry = entries_.find(id);
         if (entry == entries_.end() || entry->second.active || reverse_.count(key) ||
             entry->second.generation == UINT32_MAX) return false;
@@ -49,10 +49,10 @@ public:
         if (entry == entries_.end() || !entry->second.active || entry->second.generation != generation) return false;
         reverse_.erase(entry->second.engine); entry->second.active = false; return true;
     }
-    void unload(std::uint32_t worker, std::uint32_t level) {
+    void unload(std::uint32_t level) {
         for (auto& item : entries_) {
             auto& binding = item.second;
-            if (binding.active && binding.engine.worker == worker && binding.engine.level == level) {
+            if (binding.active && binding.engine.level == level) {
                 reverse_.erase(binding.engine); binding.active = false;
             }
         }

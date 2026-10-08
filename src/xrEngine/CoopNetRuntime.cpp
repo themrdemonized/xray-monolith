@@ -135,7 +135,7 @@ void capture_host(Session& current, double elapsed) {
     if (!current.host_actor) current.host_actor = current.entities.create();
     previous = current.entities.find(current.host_actor);
     if (!previous->active) {
-        if (!current.entities.bind(current.host_actor, {1,pose.level,pose.object}))
+        if (!current.entities.bind(current.host_actor, {pose.level,pose.object}))
             throw std::runtime_error("CoopNet host actor binding failed");
         previous = current.entities.find(current.host_actor);
         const auto& player = current.host.session().players()[0];
@@ -220,7 +220,7 @@ void capture_guests(Session& current) {
         LocalActorPose pose;
         if (!capture_guest_actor(guest.object,pose)) continue;
         if (!guest.generation) {
-            if (!current.entities.bind(guest.entity,{1,pose.level,pose.object}))
+            if (!current.entities.bind(guest.entity,{pose.level,pose.object}))
                 throw std::runtime_error("Guest native binding failed");
             guest.generation = current.entities.find(guest.entity)->generation;
             if (!current.host.create_actor({guest.entity,player.id,player.character,guest.generation,pose.level,pose.visual}))

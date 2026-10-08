@@ -26,6 +26,9 @@ class ClientPump {
     TransferFailure transfer_failure_ = TransferFailure::None;
     std::function<void(const LevelFailure&)> transfer_failure_sink_;
     std::map<Identity,ItemState> items_;
+    std::map<std::uint32_t,InventoryRequest> pending_inventory_;
+    std::map<std::uint32_t,std::pair<InventoryRequest,Identity>> inventory_history_;
+    SequenceWindow inventory_sequences_;
     std::map<Identity,std::pair<std::uint32_t,SequenceWindow>> vitals_sequences_;
     std::function<void(const InventoryResult&)> inventory_sink_;
     std::function<void(const ActorVitals&)> vitals_sink_;
@@ -34,7 +37,8 @@ class ClientPump {
         if (!transport) throw std::invalid_argument("Missing client transport");
         transport_ = std::move(transport); roster_.reset(); actors_ = {}; assignment_ = {}; assignments_ = {};
         level_ready_sent_ = false; transfer_failure_ = TransferFailure::None; sent_ = false; ready_sent_ = false; handshake_time_ = 0;
-        items_.clear(); vitals_sequences_.clear();
+        items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
+        inventory_history_.clear(); inventory_sequences_={};
         hello_ = Frame{Message::ClientHello, Channel::Control, Delivery::ReliableOrdered, 1, encode_hello(hello)};
     }
     void lost() {
@@ -44,7 +48,7 @@ class ClientPump {
         }
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; session_.lost_connection();
-        items_.clear(); vitals_sequences_.clear();
+        items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
     }
 public:
     const std::map<Identity,ItemState>& items() const { return items_; }
@@ -56,8 +60,28 @@ public:
         if (!valid_inventory_request(request) || !actor || actor->player!=session_.welcome().player ||
             actor->generation!=request.generation || actor->level!=request.level || assignment_.level!=request.level)
             return SendResult::Invalid;
+        const auto history=inventory_history_.find(request.sequence);
+        auto sequences=inventory_sequences_;
+        if (history!=inventory_history_.end()) {
+            if (history->second.second!=assignment_.ticket ||
+                encode_inventory_request(history->second.first)!=encode_inventory_request(request)) return SendResult::Invalid;
+        } else if (!sequences.accept(request.sequence)) return SendResult::Invalid;
+        const auto pending=pending_inventory_.find(request.sequence);
+        if (pending==pending_inventory_.end() && pending_inventory_.size()>=64) return SendResult::Backpressure;
         const auto result=transport_->send({Message::InventoryRequest,Channel::Inventory,Delivery::ReliableOrdered,
             request.sequence,encode_inventory_request(request)});
+        if (result==SendResult::Sent) {
+            if (history==inventory_history_.end()) {
+                if (inventory_history_.size()>=256) {
+                    for (auto old=inventory_history_.begin();old!=inventory_history_.end();++old) {
+                        if (!pending_inventory_.count(old->first)) { inventory_history_.erase(old); break; }
+                    }
+                }
+                inventory_history_[request.sequence]={request,assignment_.ticket};
+                inventory_sequences_=sequences;
+            }
+            pending_inventory_[request.sequence]=request;
+        }
         if (result!=SendResult::Sent && result!=SendResult::Backpressure) lost();
         return result;
     }
@@ -144,7 +168,15 @@ public:
                     if (entry.player == presence.player && entry.character == presence.character) participant = true;
                 if (!participant || !(frame.message == Message::ActorCreate ?
                     actors_.create(presence) : actors_.remove(presence))) { lost(); return; }
-                if (frame.message==Message::ActorRemove) vitals_sequences_.erase(presence.entity);
+                if (frame.message==Message::ActorRemove || frame.message==Message::ActorCreate) {
+                    if (frame.message==Message::ActorRemove) vitals_sequences_.erase(presence.entity);
+                    for (auto pending=pending_inventory_.begin();pending!=pending_inventory_.end();) {
+                        if (pending->second.actor==presence.entity && (frame.message==Message::ActorRemove ||
+                            pending->second.generation!=presence.generation || pending->second.level!=presence.level))
+                            pending=pending_inventory_.erase(pending);
+                        else ++pending;
+                    }
+                }
             } else if (frame.message==Message::ItemState) {
                 ItemState item;
                 if (!decode_item_state(frame.payload,item) || item.revision!=frame.sequence) { lost(); return; }
@@ -155,6 +187,14 @@ public:
             } else if (frame.message==Message::InventoryResult) {
                 InventoryResult result;
                 if (!decode_inventory_result(frame.payload,result) || result.sequence!=frame.sequence) { lost(); return; }
+                const auto pending=pending_inventory_.find(result.sequence);
+                if (pending==pending_inventory_.end()) continue; // unsolicited, duplicate or retired binding
+                const auto request=pending->second;
+                if (request.item!=result.item) { lost(); return; }
+                pending_inventory_.erase(pending);
+                const auto* actor=actors_.find(request.actor);
+                if (!actor || actor->generation!=request.generation || actor->level!=request.level ||
+                    actor->player!=session_.welcome().player || !level_ready_sent_ || assignment_.level!=request.level) continue;
                 if (inventory_sink_) inventory_sink_(result);
             } else if (frame.message==Message::ActorVitals) {
                 ActorVitals vitals;
@@ -170,14 +210,14 @@ public:
                 if (!decode_assignment(frame.payload, value) || frame.sequence != value.revision ||
                     !assignments_.accept(value.revision)) { lost(); return; }
                 assignment_ = value; level_ready_sent_ = false; transfer_failure_ = TransferFailure::None;
-                items_.clear(); vitals_sequences_.clear();
+                items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
             } else if (frame.message == Message::LevelCancelled) {
                 LevelAssignment value; TransferFailure reason;
                 if (!decode_cancellation(frame.payload, value, reason) || frame.sequence != value.revision ||
                     value.ticket != assignment_.ticket || value.level != assignment_.level ||
                     value.revision != assignment_.revision) { lost(); return; }
                 assignment_ = {}; level_ready_sent_ = false; transfer_failure_ = reason;
-                items_.clear(); vitals_sequences_.clear();
+                items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
                 if (transfer_failure_sink_) transfer_failure_sink_({session_.welcome().player,value,reason});
             } else if (frame.message == Message::Disconnect) { lost(); return; }
             else { lost(); return; } // gameplay dispatcher is not installed yet
@@ -186,7 +226,8 @@ public:
     void stop() {
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; transfer_failure_ = TransferFailure::None; session_.stop();
-        items_.clear(); vitals_sequences_.clear();
+        items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
+        inventory_history_.clear(); inventory_sequences_={};
     }
 };
 }

@@ -188,7 +188,7 @@ public:
         for (const auto& peer : peers_) if (peer.ready && peer.transport->connected()) ++count;
         return count;
     }
-    // The coordinator calls this only after its checkpoint and destination preparation.
+    // The host calls this only after its checkpoint and destination preparation.
     bool assign_level(Identity player, std::uint32_t level, Identity ticket) {
         if (!level || !ticket || failures_.size() >= 61) return false;
         for (auto& peer : peers_) if (peer.player == player && peer.ready) {
@@ -211,7 +211,7 @@ public:
         if (failures_.empty()) return false;
         output = failures_.front(); failures_.pop_front(); return true;
     }
-    // Called by the authoritative level coordinator, never from a guest packet.
+    // Called by the host, never from a guest packet.
     bool set_interest_level(Identity player, std::uint32_t level) {
         for (auto& peer : peers_) if (peer.player == player && peer.ready) {
             if (peer.level == level) return true;

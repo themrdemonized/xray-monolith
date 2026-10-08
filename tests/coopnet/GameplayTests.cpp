@@ -28,6 +28,7 @@ int main() {
     HostPump host; ClientPump a,b;
     Identity token=500; host.start(1,1,{1,1},[&] { return ++token; });
     auto link_a=MemoryTransport::pair(),link_b=MemoryTransport::pair(); auto* raw_a=link_a.first.get();
+    auto* server_b=link_b.second.get();
     require(host.attach(1,std::move(link_a.second))); require(host.attach(2,std::move(link_b.second)));
     a.start(std::move(link_a.first),2,{1,1}); b.start(std::move(link_b.first),3,{1,1});
     auto pump=[&] { for (unsigned n=0;n<4;++n) { host.update(.01); a.update(.01); b.update(.01); } };
@@ -53,6 +54,8 @@ int main() {
         require(host.publish_item(item)); result.owner=item.owner; result.revision=item.revision; result.status=InventoryStatus::Accepted; return result;
     });
     require(a.send_inventory(request)==SendResult::Sent);
+    auto changed=request; changed.item=101;
+    require(a.send_inventory(changed)==SendResult::Invalid);
     auto competing=request; competing.actor=21; competing.sequence=1;
     require(b.send_inventory(competing)==SendResult::Sent); pump();
     require(mutations==1 && item.owner==20 && ra.back().status==InventoryStatus::Accepted && rb.back().status==InventoryStatus::Conflict);
@@ -62,20 +65,52 @@ int main() {
     require(a.send_inventory(request)==SendResult::Sent); pump();
     require(mutations==2 && item.owner==0 && ra.back().status==InventoryStatus::Accepted);
     auto old=request; old.sequence=0xffffffffu;
-    require(a.send_inventory(old)==SendResult::Sent); pump(); require(ra.back().status==InventoryStatus::Expired && mutations==2);
+    require(a.send_inventory(old)==SendResult::Invalid);
+    require(raw_a->send({Message::InventoryRequest,Channel::Inventory,Delivery::ReliableOrdered,
+        old.sequence,encode_inventory_request(old)})==SendResult::Sent);
+    host.update(.01);
+    Frame expired_frame; InventoryResult expired_result;
+    require(raw_a->receive(expired_frame) && expired_frame.message==Message::InventoryResult &&
+        decode_inventory_result(expired_frame.payload,expired_result) && expired_result.status==InventoryStatus::Expired);
+    pump(); require(mutations==2);
     require(host.remove_actor(20,1)); require(host.create_actor({20,pa,2,2,10})); pump();
     old.sequence=1;
     require(raw_a->send({Message::InventoryRequest,Channel::Inventory,Delivery::ReliableOrdered,old.sequence,encode_inventory_request(old)})==SendResult::Sent);
-    pump(); require(ra.back().status==InventoryStatus::Denied && mutations==2);
+    const auto delivered=ra.size();
+    pump(); require(ra.size()==delivered && mutations==2); // unsolicited old-binding reply is discarded
+    auto retiring=request; retiring.generation=2; retiring.sequence=2;
+    require(a.send_inventory(retiring)==SendResult::Sent);
+    require(host.remove_actor(20,2)); require(host.create_actor({20,pa,2,3,10}));
+    pump(); require(ra.size()==delivered && mutations==2); // in-flight request retired before its acknowledgement
+    auto reused=retiring; reused.generation=3;
+    require(a.send_inventory(reused)==SendResult::Invalid); // delayed acknowledgement cannot alias a new actor request
     unsigned applied=0; a.set_vitals_sink([&](const ActorVitals&) { ++applied; });
-    vitals.generation=2; require(host.publish_vitals(vitals)); pump(); require(applied==1);
+    vitals.generation=3; require(host.publish_vitals(vitals)); pump(); require(applied==1);
     require(host.publish_vitals(vitals)); pump(); require(applied==1);
     vitals.tick=0; require(host.publish_vitals(vitals)); pump(); require(applied==1);
     vitals.tick=2; require(host.publish_vitals(vitals)); pump(); require(applied==2);
+    auto transferred=request; transferred.generation=3; transferred.sequence=3; transferred.revision=item.revision;
+    require(a.send_inventory(transferred)==SendResult::Sent); pump();
+    require(host.assign_level(pa,10,1002)); pump(); require(a.acknowledge_level(10)); pump();
+    require(a.send_inventory(transferred)==SendResult::Invalid); // same-level reload must not reuse a retired ticket's sequence
     request.actor=21; request.sequence=2;
     require(a.send_inventory(request)==SendResult::Invalid);
     require(raw_a->send({Message::InventoryRequest,Channel::Inventory,Delivery::ReliableOrdered,request.sequence,encode_inventory_request(request)})==SendResult::Sent);
     pump(); require(host.ready_participants()==2 && mutations==2);
+    auto bounded=competing;
+    for (unsigned n=0;n<64;++n) {
+        bounded.sequence=10+n; require(b.send_inventory(bounded)==SendResult::Sent);
+    }
+    bounded.sequence=74; require(b.send_inventory(bounded)==SendResult::Backpressure);
+    const auto b_delivered=rb.size();
+    InventoryResult unsolicited{100,0,999,3,InventoryStatus::Accepted};
+    require(server_b->send({Message::InventoryResult,Channel::Inventory,Delivery::ReliableOrdered,
+        unsolicited.sequence,encode_inventory_result(unsolicited)})==SendResult::Sent);
+    b.update(.01); require(rb.size()==b_delivered && b.session().state()==ClientState::Connected);
+    unsolicited.sequence=10; unsolicited.item=101;
+    require(server_b->send({Message::InventoryResult,Channel::Inventory,Delivery::ReliableOrdered,
+        unsolicited.sequence,encode_inventory_result(unsolicited)})==SendResult::Sent);
+    b.update(.01); require(b.session().state()==ClientState::Disconnected); // correlated sequence with wrong item
     a.stop(); b.stop(); host.stop();
-    std::cout<<"CoopNet gameplay codec, bounded baseline, competing loot, replay, stale binding and damage ordering tests passed\n";
+    std::cout<<"CoopNet gameplay codec, bounded baseline/requests, competing loot, replay, reply correlation, stale binding and damage ordering tests passed\n";
 }

@@ -13,7 +13,7 @@ if (!(Test-Path "$output\GameNetworkingSockets.dll")) {
 }
 $fsTemplate = Get-Content "$client\fsgame.ltx"
 $userTemplate = Get-Content "$client\appdata\user.ltx" |
-    Where-Object { $_ -notmatch '^(coop_|rs_screenmode |vid_mode |snd_volume_eff |snd_volume_music |r__framelimit )' }
+    Where-Object { $_ -notmatch '^(coop_|rs_screenmode |vid_mode |snd_volume_eff |snd_volume_music |r__framelimit |g_always_active )' }
 foreach ($role in @('host', 'guest')) {
     $root = Join-Path $testRoot $role
     $data = Join-Path $root 'appdata'
@@ -32,8 +32,9 @@ foreach ($role in @('host', 'guest')) {
     }
     $fs | Set-Content "$root\fsgame.ltx" -Encoding ascii
     $startup = if ($role -eq 'host') { 'coop_host 27889 1 1 1' } else { 'coop_join 127.0.0.1:27889 2 1 1' }
+    # Hidden probe processes must render without desktop focus; only these copied configs change.
     @($userTemplate) + @('rs_screenmode windowed','vid_mode 1280x720',
-        'snd_volume_eff 0','snd_volume_music 0','r__framelimit 30',$startup,'coop_status') |
+        'snd_volume_eff 0','snd_volume_music 0','r__framelimit 30','g_always_active on',$startup,'coop_status') |
         Set-Content "$data\user.ltx" -Encoding ascii
     if ($ReplicaProbe) { Add-Content "$data\user.ltx" 'coop_replica_probe' -Encoding ascii }
     if ($MovementProbe) {
