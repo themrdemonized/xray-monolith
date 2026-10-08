@@ -122,7 +122,7 @@ void CGameObject::net_Destroy()
 	VERIFY(m_spawned);
 
 	::luabind::functor<void> funct;
-	if ((!IsGameTypeSingle() || !cast_actor() || cast_actor() == g_actor) &&
+	if ((!cast_actor() || !cast_actor()->is_coopnet_guest()) &&
 		ai().script_engine().functor("_G.CGameObject_NetDestroy", funct))
 	{
 		funct(this->lua_game_object());
@@ -386,10 +386,8 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 			spatial.type = (spatial.type | STYPE_VISIBLEFORAI) ^ STYPE_VISIBLEFORAI;
 	}
 
-	// A secondary single-player actor must not attach the offline local actor binder.
-	// ASPLAYER also selects the sole ALife/control actor; guest actors keep it clear.
-	const bool bind_actor_scripts = !IsGameTypeSingle() || !cast_actor() ||
-		E->s_flags.is(M_SPAWN_OBJECT_ASPLAYER);
+	// Only explicit CoopNet guests skip the offline local actor binder.
+	const bool bind_actor_scripts = !cast_actor() || !cast_actor()->is_coopnet_guest();
 	reload(*cNameSect());
 	if (!g_dedicated_server && bind_actor_scripts)
 		CScriptBinder::reload(*cNameSect());

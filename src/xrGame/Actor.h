@@ -573,6 +573,9 @@ protected:
 	void ConvState(u32 mstate_rl, string128* buf);
 public:
 	virtual BOOL net_Spawn(CSE_Abstract* DC);
+	// Set by the native CoopNet spawner before net_Spawn; never inferred from ASPLAYER.
+	void set_coopnet_guest(bool value) { m_coopnet_guest = value; }
+	bool is_coopnet_guest() const { return m_coopnet_guest; }
 	virtual void net_Export(NET_Packet& P); // export to server
 	virtual void net_Import(NET_Packet& P); // import from server
 	virtual void net_Destroy();
@@ -588,6 +591,7 @@ protected:
 	xr_deque<net_update> NET;
 	Fvector NET_SavedAccel;
 	float NET_Jump = 0.f; // Pending impulse belongs to this actor, not the process.
+	bool m_coopnet_guest = false;
 	net_update NET_Last;
 	BOOL NET_WasInterpolating; // previous update was by interpolation or by extrapolation
 	u32 NET_Time; // server time of last update

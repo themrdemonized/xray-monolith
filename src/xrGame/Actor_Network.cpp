@@ -511,6 +511,8 @@ void CActor::net_Import_Physic_proceed()
 
 BOOL CActor::net_Spawn(CSE_Abstract* DC)
 {
+	R_ASSERT2(!m_coopnet_guest || (IsGameTypeSingle() &&
+		!DC->s_flags.is(M_SPAWN_OBJECT_ASPLAYER)), "CoopNet guest cannot be the primary actor");
 	m_holder_id = ALife::_OBJECT_ID(-1);
 	m_feel_touch_characters = 0;
 	m_snd_noise = 0.0f;
@@ -727,6 +729,7 @@ namespace crash_saving {
 void CActor::net_Destroy()
 {
 	inherited::net_Destroy();
+	m_coopnet_guest = false;
 
 	if (m_holder_id != ALife::_OBJECT_ID(-1))
 		if (!g_dedicated_server)
