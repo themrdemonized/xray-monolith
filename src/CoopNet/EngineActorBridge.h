@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <string>
+#include <vector>
 namespace engine_coopnet {
 // Copied owner-thread state only. No engine pointer crosses the transport boundary.
 struct LocalActorPose {
@@ -24,6 +26,20 @@ struct LocalActorControls {
     float yaw = 0, pitch = 0;
 };
 struct ActorConditionState { float health=1, power=1, radiation=0; };
+// Host-created native records stay inside the host process. They are never accepted from peers.
+struct GuestInventoryItem {
+    std::string section;
+    std::vector<std::uint8_t> spawn;
+};
+struct GuestInventoryState {
+    std::vector<GuestInventoryItem> items;
+    std::uint16_t active_slot=0xffff;
+};
+bool capture_guest_inventory(std::uint16_t actor,GuestInventoryState& state);
+bool restore_guest_inventory(std::uint16_t actor,const GuestInventoryState& state);
+std::uint64_t guest_save_scope();
+bool read_guest_save_file(const char* name,std::vector<std::uint8_t>& bytes);
+bool write_guest_save_file(const char* name,const std::vector<std::uint8_t>& bytes);
 struct NativeSessionItem {
     std::uint64_t incarnation=0;
     std::uint16_t object=0xffff, owner=0xffff, native_owner=0xffff;
@@ -31,6 +47,7 @@ struct NativeSessionItem {
 };
 enum class NativeInventoryStatus : std::uint8_t { Accepted, Unavailable, Conflict, Denied, OutOfRange, Capacity };
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state);
+bool apply_guest_condition(std::uint16_t object,const ActorConditionState& state);
 bool apply_local_condition(std::uint32_t level, const ActorConditionState& state);
 std::uint16_t spawn_session_item(std::uint16_t actor, const char* section);
 bool capture_session_item(std::uint16_t item, NativeSessionItem& state);
@@ -39,9 +56,12 @@ void session_item_destroyed(std::uint16_t item);
 void remove_session_item(std::uint16_t item);
 NativeInventoryStatus transact_session_item(std::uint16_t actor, std::uint16_t item, std::uint64_t incarnation, bool take);
 bool damage_guest_probe(std::uint16_t actor);
+bool equip_guest_weapon(std::uint16_t actor,std::uint16_t item,unsigned rounds);
+bool capture_guest_weapon(std::uint16_t actor,std::uint16_t item,unsigned& rounds,bool& ready);
 void local_controls_sampled(std::uint16_t object, std::uint32_t buttons, float yaw, float pitch);
 bool capture_local_controls(LocalActorControls& controls);
 void local_actor_spawned();
+bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed);
 bool capture_local_actor(LocalActorPose& pose);
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity);
 // Native host actor lifecycle. IDs never leave this owner-thread adapter.

@@ -34,4 +34,11 @@ if errorlevel 1 exit /b 1
 cl /nologo /std:c++17 /EHsc /W4 /WX "tests\coopnet\WorldBaselineTests.cpp" /Fo"_build\coopnet-tests\WorldBaselineTests.obj" /Fe"_build\coopnet-tests\WorldBaselineTests.exe"
 if errorlevel 1 exit /b 1
 "_build\coopnet-tests\WorldBaselineTests.exe"
-exit /b %errorlevel%
+if errorlevel 1 exit /b 1
+for %%T in (WorldState PartyTransition GuestSave) do (
+cl /nologo /std:c++17 /EHsc /W4 /WX "tests\coopnet\%%TTests.cpp" /Fo"_build\coopnet-tests\%%TTests.obj" /Fe"_build\coopnet-tests\%%TTests.exe"
+if errorlevel 1 exit /b 1
+"_build\coopnet-tests\%%TTests.exe"
+if errorlevel 1 exit /b 1
+)
+exit /b 0

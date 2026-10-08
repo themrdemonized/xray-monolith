@@ -113,6 +113,12 @@ SPickParam& CActor::GetPick()
 
 void CActor::g_fireParams(const CHudItem* pHudItem, Fvector& fire_pos, Fvector& fire_dir)
 {
+    if (m_coopnet_guest) {
+        // Host guests never read the primary player's pick ray or attached HUD weapon.
+        fire_pos=Position(); fire_pos.y+=CameraHeight();
+        fire_dir=cam_FirstEye()->vDirection; fire_dir.normalize_safe();
+        return;
+    }
 	SPickParam& pp = GetPick();
 
 	attachable_hud_item* item_0 = g_player_hud->attached_item(0);

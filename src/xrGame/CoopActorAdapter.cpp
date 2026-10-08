@@ -11,6 +11,9 @@
 #include "xrServer_Objects_ALife_Items.h"
 #include "inventory_item.h"
 #include "Inventory.h"
+#include "xr_level_controller.h"
+#include "Weapon.h"
+#include "../CoopNet/ActorInput.h"
 #include "Hit.h"
 #include "xrMessages.h"
 #include "../xrPhysics/iphworld.h"
@@ -18,6 +21,7 @@
 #include "../CoopNet/EngineActorBridge.h"
 #include "../CoopNet/EngineWorldBridge.h"
 #include "../CoopNet/WorldState.h"
+#include "../CoopNet/GuestSave.h"
 #include "entity_alive.h"
 #include "level_changer.h"
 #include "UIGameCustom.h"
@@ -208,8 +212,10 @@ void world_level_stopped() {
 namespace {
 std::uint64_t local_incarnation = 0;
 LocalActorControls local_controls;
+std::uint16_t local_weapon_buttons=0;
 std::uint32_t controls_time = 0;
-struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarnation = 0; unsigned controls = 0; };
+struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarnation = 0; unsigned controls = 0; std::uint16_t weapon_buttons=0;
+    bool restoring=false; std::uint16_t restore_slot=0xffff; unsigned restore_count=0; };
 xr_map<u16,GuestSpawn> guests;
 std::uint64_t guest_incarnation = 0;
 struct SessionItem { std::uint64_t incarnation=0; bool removing=false; };
@@ -290,9 +296,47 @@ bool apply_local_condition(std::uint32_t level, const ActorConditionState& state
     if (was_alive && state.health<=0) g_actor->Die(nullptr);
     return true;
 }
+bool apply_guest_condition(std::uint16_t object,const ActorConditionState& state) {
+    LocalActorPose pose;
+    if (!capture_guest_actor(object,pose) || !std::isfinite(state.health) || state.health>1 || state.health< -1 ||
+        !std::isfinite(state.power) || state.power>1 || state.power< -1 ||
+        !std::isfinite(state.radiation) || state.radiation>1 || state.radiation<0) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    actor->conditions().SetHealth(state.health); actor->conditions().SetPower(state.power);
+    actor->conditions().SetRadiation(state.radiation); return true;
+}
+std::uint64_t guest_save_scope() {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || !Level().Server || world_level_is_replica()) return 0;
+    const auto& options=Level().Server->GetConnectOptions();
+    if (!options.size()) return 0;
+    std::uint64_t hash=14695981039346656037ull;
+    for (const char* text=options.c_str();*text && *text!='/';++text) {
+        hash^=static_cast<unsigned char>(*text); hash*=1099511628211ull;
+    }
+    hash^=ALIFE_VERSION; hash*=1099511628211ull;
+    return hash ? hash : 1;
+}
+bool read_guest_save_file(const char* name,std::vector<std::uint8_t>& bytes) {
+    if (!safe_baseline_name(name) || strncmp(name,"coopnet-character-",18) || world_level_is_replica()) return false;
+    string_path path; FS.update_path(path,"$game_saves$",name);
+    IReader* reader=FS.r_open(path); if (!reader) return false;
+    const auto size=reader->length();
+    if (size<92 || size>max_guest_save+32) { FS.r_close(reader); return false; }
+    const auto* begin=static_cast<const std::uint8_t*>(reader->pointer());
+    bytes.assign(begin,begin+size); FS.r_close(reader); return true;
+}
+bool write_guest_save_file(const char* name,const std::vector<std::uint8_t>& bytes) {
+    if (!safe_baseline_name(name) || strncmp(name,"coopnet-character-",18) || world_level_is_replica() ||
+        bytes.size()<92 || bytes.size()>max_guest_save+32) return false;
+    string_path path; FS.update_path(path,"$game_saves$",name);
+    IWriter* writer=FS.w_open(path); if (!writer) return false;
+    writer->w(bytes.data(),static_cast<u32>(bytes.size())); FS.w_close(writer);
+    std::vector<std::uint8_t> verify;
+    return read_guest_save_file(name,verify) && verify==bytes;
+}
 std::uint16_t spawn_session_item(std::uint16_t owner, const char* section) {
     LocalActorPose pose;
-    if (!capture_guest_actor(owner,pose) || !pSettings->section_exist(section) || session_items.size()>=32) return 0xffff;
+    if (!capture_guest_actor(owner,pose) || !pSettings->section_exist(section) || session_items.size()>=768) return 0xffff;
     CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
     Fvector position=actor->Position(); position.y+=.15f;
     CSE_Abstract* abstract=Level().spawn_item(section,position,actor->ai_location().level_vertex_id(),0xffff,true);
@@ -349,6 +393,84 @@ bool damage_guest_probe(std::uint16_t object) {
     SHit hit(.2f,direction,g_actor,BI_NONE,Fvector().set(0,0,0),0,ALife::eHitTypeStrike,0,false);
     hit.GenHeader(GE_HIT,object); hit.whoID=g_actor->ID(); hit.weaponID=g_actor->ID();
     NET_Packet packet; hit.Write_Packet(packet); CGameObject::u_EventSend(packet); return true;
+}
+bool equip_guest_weapon(std::uint16_t owner,std::uint16_t item,unsigned rounds) {
+    LocalActorPose pose; NativeSessionItem state;
+    if (!capture_guest_actor(owner,pose) || !capture_session_item(item,state) || state.owner!=owner || state.native_owner!=owner) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    auto* weapon=smart_cast<CWeapon*>(Level().Objects.net_Find(item));
+    if (!weapon || rounds>static_cast<unsigned>(weapon->GetAmmoMagSize())) return false;
+    weapon->SetAmmoElapsed(static_cast<int>(rounds));
+    const auto slot=weapon->BaseSlot();
+    if (actor->inventory().ItemFromSlot(slot)!=weapon && !actor->inventory().Slot(slot,weapon,true)) return false;
+    actor->inventory().Activate(slot,true); return true;
+}
+bool capture_guest_weapon(std::uint16_t owner,std::uint16_t item,unsigned& rounds,bool& ready) {
+    LocalActorPose pose; if (!capture_guest_actor(owner,pose)) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    auto* weapon=smart_cast<CWeapon*>(Level().Objects.net_Find(item));
+    if (!weapon || weapon->H_Parent()!=actor || actor->inventory().ActiveItem()!=weapon) return false;
+    rounds=static_cast<unsigned>(weapon->GetAmmoElapsed());
+    ready=!weapon->IsPending() && weapon->GetState()==CWeapon::eIdle && weapon->GetNextState()==CWeapon::eIdle;
+    return true;
+}
+bool capture_guest_inventory(std::uint16_t owner,GuestInventoryState& output) {
+    LocalActorPose pose; if (!capture_guest_actor(owner,pose)) return false;
+    if (guests.find(owner)->second.restoring) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    if (actor->inventory().m_all.size()>256) return false;
+    GuestInventoryState state; state.active_slot=actor->inventory().GetActiveSlot();
+    for (auto* item:actor->inventory().m_all) {
+        auto& object=item->object();
+        auto* server=Level().Server->ID_to_entity(object.ID());
+        if (object.getDestroy() || object.H_Parent()!=actor || !server || server->ID_Parent!=owner ||
+            !smart_cast<CSE_ALifeInventoryItem*>(server)) return false;
+        NET_Packet update; update.B.count=0; update.r_pos=0;
+        object.net_Export(update); server->UPDATE_Read(update);
+        if (!update.r_eof()) return false;
+        NET_Packet saved; saved.B.count=0; saved.r_pos=0;
+        object.net_Save(saved); server->load(saved);
+        if (!saved.r_eof()) return false;
+        NET_Packet spawn; server->Spawn_Write(spawn,TRUE);
+        GuestInventoryItem record;
+        record.section=*object.cNameSect();
+        record.spawn.assign(spawn.B.data,spawn.B.data+spawn.B.count);
+        state.items.push_back(std::move(record));
+    }
+    output=std::move(state); return true;
+}
+bool restore_guest_inventory(std::uint16_t owner,const GuestInventoryState& state) {
+    LocalActorPose pose; if (!capture_guest_actor(owner,pose) || state.items.size()>256 ||
+        session_items.size()+state.items.size()>768) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    if (!actor->inventory().m_all.empty()) return false;
+    xr_vector<u16> created_items;
+    for (const auto& record:state.items) {
+        if (record.section.empty() || record.section.size()>128 || !pSettings->section_exist(record.section.c_str()) ||
+            record.spawn.empty() || record.spawn.size()>NET_PacketSizeLimit) return false;
+        CSE_Abstract* abstract=F_entity_Create(record.section.c_str());
+        if (!abstract || !smart_cast<CSE_ALifeInventoryItem*>(abstract)) {
+            if (abstract) F_entity_Destroy(abstract); return false;
+        }
+        NET_Packet packet; packet.B.count=static_cast<u32>(record.spawn.size()); packet.r_pos=0;
+        memcpy(packet.B.data,record.spawn.data(),record.spawn.size());
+        const bool read=!!abstract->Spawn_Read(packet);
+        if (!read || xr_strcmp(abstract->s_name.c_str(),record.section.c_str())) { F_entity_Destroy(abstract); return false; }
+        abstract->ID=0xffff; abstract->ID_Parent=owner; abstract->ID_Phantom=0xffff;
+        abstract->m_bALifeControl=false; abstract->o_Position=actor->Position();
+        if (auto* life=smart_cast<CSE_ALifeObject*>(abstract)) {
+            life->m_tNodeID=actor->ai_location().level_vertex_id();
+            if (auto* parent=smart_cast<CSE_ALifeObject*>(Level().Server->ID_to_entity(owner))) life->m_tGraphID=parent->m_tGraphID;
+        }
+        abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+        auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID);
+        F_entity_Destroy(abstract);
+        if (!created) { for (auto id:created_items) remove_session_item(id); return false; }
+        session_items.emplace(created->ID,SessionItem{++item_incarnation,false}); created_items.push_back(created->ID);
+    }
+    auto& guest=guests.find(owner)->second;
+    guest.restoring=true; guest.restore_slot=state.active_slot; guest.restore_count=static_cast<unsigned>(state.items.size());
+    return true;
 }
 void begin_guest_simulation() { Device.Pause(FALSE, TRUE, FALSE, "CoopNet native movement"); }
 std::uint16_t spawn_guest_actor() {
@@ -439,6 +561,23 @@ void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw,
     CActor* actor = smart_cast<CActor*>(Level().Objects.net_Find(object));
     actor->coopnet_controls(buttons,yaw,pitch);
     auto& state = guests.find(object)->second;
+    if (state.restoring && actor->inventory().m_all.size()==state.restore_count) {
+        actor->inventory().Activate(state.restore_slot,true); state.restoring=false;
+        auto* weapon=smart_cast<CWeapon*>(actor->inventory().ItemFromSlot(state.restore_slot));
+        Msg("* CoopNet native inventory restoration completed: items %u active slot %u rounds %d",
+            state.restore_count,state.restore_slot,weapon ? weapon->GetAmmoElapsed() : -1);
+    }
+    const auto actions=actor->g_Alive() ? static_cast<std::uint16_t>(buttons & (coopnet::fire_button|coopnet::reload_button)) : 0;
+    if ((actions^state.weapon_buttons)&coopnet::fire_button) {
+        const bool accepted=actor->inventory().Action(kWPN_FIRE,(actions&coopnet::fire_button) ? CMD_START : CMD_STOP);
+        auto* weapon=smart_cast<CWeapon*>(actor->inventory().ActiveItem());
+        Msg("* CoopNet guest fire edge: pressed %u accepted %u weapon %u state %u pending %u rounds %d",
+            !!(actions&coopnet::fire_button),accepted,weapon ? weapon->ID() : 0xffff,
+            weapon ? weapon->GetState() : 0,weapon ? weapon->IsPending() : false,weapon ? weapon->GetAmmoElapsed() : 0);
+    }
+    if ((actions&coopnet::reload_button) && !(state.weapon_buttons&coopnet::reload_button))
+        actor->inventory().Action(kWPN_RELOAD,CMD_START);
+    state.weapon_buttons=actions;
     if (++state.controls == 1 || state.controls % 300 == 0)
         Msg("* CoopNet guest physics: buttons %u movement %u enabled %u ready %u paused %u dt %u power %.3f character %u environment %u steps %llu",
             buttons,actor->MovingState(),actor->getEnabled(),actor->Ready(),Device.Paused(),Device.dwTimeDelta,
@@ -466,7 +605,14 @@ void clear_guest_actors() {
     for (const auto object : objects) remove_guest_actor(object);
 }
 void guest_level_stopped() { guests.clear(); session_items.clear(); world_level_stopped(); }
-void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; }
+void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; local_weapon_buttons=0; }
+bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed) {
+    if (!world_level_is_replica() || !g_actor || g_actor->ID()!=object) return false;
+    const auto bit=command==kWPN_FIRE ? coopnet::fire_button : command==kWPN_RELOAD ? coopnet::reload_button : 0;
+    if (!bit) return false;
+    if (pressed) local_weapon_buttons|=bit; else local_weapon_buttons&=~bit;
+    return true;
+}
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity) {
     LocalActorPose local;
     if (!capture_local_actor(local) || local.level != level || !g_actor->g_Alive()) return false;
@@ -478,7 +624,7 @@ bool reconcile_local_actor(std::uint32_t level, const float* position, const flo
 void local_controls_sampled(std::uint16_t object, std::uint32_t buttons, float yaw, float pitch) {
     if (!g_pGameLevel || !g_actor || g_actor->ID() != object || Level().CurrentControlEntity() != g_actor) return;
     local_controls.incarnation = local_incarnation;
-    local_controls.buttons = static_cast<std::uint16_t>(buttons & 0x70bf); // held wishes, never physics-result bits
+    local_controls.buttons = static_cast<std::uint16_t>((buttons & 0x70bf)|local_weapon_buttons);
     local_controls.yaw = angle_normalize_signed(yaw);
     local_controls.pitch = angle_normalize_signed(pitch);
     clamp(local_controls.pitch,-PI_DIV_2,PI_DIV_2);

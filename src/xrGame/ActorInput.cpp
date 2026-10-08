@@ -2,6 +2,7 @@
 #include <dinput.h>
 #include "Actor.h"
 #include "../xrEngine/CoopNetRuntime.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "Torch.h"
 #include "trade.h"
 #include "../xrEngine/CameraBase.h"
@@ -44,6 +45,7 @@ extern u32 hud_adj_mode;
 void CActor::IR_OnKeyboardPress(int cmd)
 {
     if (!engine_coopnet::party_controls_enabled()) return;
+    if (engine_coopnet::record_coopnet_weapon_input(ID(),cmd,true)) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote()) return;
@@ -318,6 +320,7 @@ void CActor::IR_OnMouseWheel(int direction)
 
 void CActor::IR_OnKeyboardRelease(int cmd)
 {
+    if (engine_coopnet::record_coopnet_weapon_input(ID(),cmd,false)) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote()) return;

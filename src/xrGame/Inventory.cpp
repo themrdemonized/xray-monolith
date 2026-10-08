@@ -869,7 +869,9 @@ void CInventory::Update()
 			auto prev_slot = m_iActiveSlot;
 			m_iActiveSlot = GetNextActiveSlot();
 			auto obj = ActiveItem() ? ActiveItem()->object().lua_game_object() : NULL;
-			if (ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
+			auto* callback_actor=smart_cast<CActor*>(m_pOwner);
+			if ((!callback_actor || !callback_actor->is_coopnet_guest()) &&
+				ai().script_engine().functor("_G.CActor_OnChangedSlot", funct))
 			{
 				funct(m_iActiveSlot, obj, prev_slot, prev_obj);
 			}

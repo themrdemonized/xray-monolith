@@ -1004,7 +1004,9 @@ bool CHudItem::ParentIsActor()
 	if (!EA)
 		return false;
 
-	return !!EA->cast_actor();
+    const auto* actor=EA->cast_actor();
+    // Authoritative guests use world weapon animation, never the primary player's HUD.
+    return actor && !actor->is_coopnet_guest();
 }
 
 void CHudItem::ApplyAimModifiers(Fmatrix& matrix)

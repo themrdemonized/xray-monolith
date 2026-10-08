@@ -2,6 +2,16 @@
 
 Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. Independent active locations and location workers are deferred. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
 
+## Guest firing and saved equipment checkpoint — 2026-10-08
+
+Protocol 11 routes client fire/reload input to host guest inventories. Guest firing uses its own actor aim and position; guest presentation, slot and safemode callbacks avoid the host's primary HUD. Health/power/radiation and native guest inventory records, ammunition and active slots are preserved across travel. Bounded, SHA-256 checked alternating host-local records restore that subset after host restart. Initial join timeouts retry, and a running client can attempt token-based session resume after connection loss.
+
+All ten standalone suites and the enabled DX11 build passed. The native run fired a guest pistol through client input (three rounds to two), travelled from logical level 3 to 2, and restored the same weapon, active slot and ammunition. A second host/client launch rejected a deliberately corrupted newest record (sequence 203), loaded the previous valid version (202), and restored the weapon with two rounds. Movement, loot replay/damage, passive NPC updates, rendering, canonical snapshot hashes and unchanged original saves passed in both runs. Logs: `_build/coopnet-save-unit.log`, `_build/coopnet-save-build.log`, `_build/coopnet-save-engine.log`. Repeat with `test-coopnet-persistence.ps1 -TravelSeconds 300 -RestartSeconds 150`; the longer first run accommodates cold shader caches.
+
+The first fresh-directory run exposed a connection timeout while the host loaded. Runtime retry was added before the successful combined run. Retry/resume core behavior is covered by standalone session tests; forced native network interruption remains unverified. Travel displacement includes automatic exit positioning.
+
+This is not a finished playable release. Ordinary guest inventory mirroring/UI and loadouts, dynamic NPC lifecycles/corpses/animation, full combat effects and death/rejoin, complete conditions, shared quests, portable identities, and client process restart into the same running host remain incomplete. Saved state is scoped to the original selected host save alias and supplied build/mod identities. See GUEST_STATE.md and CONNECTING.md.
+
 ## Shared-world default and party travel checkpoint — 2026-10-08
 
 Protocol 10 enables the existing canonical host-world integration directly through host/join. The host checks every connected player's native collision contact with the same enabled level changer. A one-second dwell requires everyone to stay inside; stepping out, switching exits or changing connected identities/generations resets the barrier. Travel status is reliable and visible in the HUD log. Native/script/dialog level changes are gated so guests cannot leave alone. The host suspends old map interest, performs the native transition, sends fresh destination snapshots, and marks arrival only after all connected guests validate/load/acknowledge the destination. Post-arrival disarming prevents bouncing through reciprocal exits. Input is gated during loading; loading fails after 180 seconds.
@@ -10,7 +20,7 @@ All nine standalone suites and the enabled engine build passed. The 150-second n
 
 The first native party run found an uninitialized font in the single-player plain-text HUD log. Initializing that log's native font fixed `CUILines::Draw: m_pFont`; the corrected test rendered travel notices and completed map loading. Fatal assertions now honor `-silent_error_mode` after flushing diagnostics, so automatic tests exit without blocking desktop dialogs.
 
-This is a verified group-travel integration, not completion of normal combat/inventory, dynamic NPC lifecycles, durable guest character/equipment state or quests. Guest equipment/condition is not preserved across maps yet. See PARTY_TRAVEL.md.
+This was a verified group-travel integration. The later guest state checkpoint above adds condition/equipment preservation; normal inventory, dynamic lifecycles and quests remain incomplete. See PARTY_TRAVEL.md.
 
 ## Passive world and NPC checkpoint — 2026-10-08
 

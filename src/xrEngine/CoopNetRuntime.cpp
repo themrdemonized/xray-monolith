@@ -20,6 +20,7 @@ void coopnet_log(const char* format, ...) {
 #include "../CoopNet/EngineActorBridge.h"
 #include "../CoopNet/EngineWorldBridge.h"
 #include "../CoopNet/EntityRegistry.h"
+#include "../CoopNet/GuestSave.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -89,6 +90,9 @@ struct Session {
     bool automated_controls = false;
     unsigned corrections = 0;
     bool gameplay_probe=false;
+    bool weapon_probe=false;
+    unsigned weapon_phase=0;
+    double weapon_wait=0;
     bool world_probe=false, world_load_requested=false;
     std::string world_save;
     std::map<coopnet::Identity,std::pair<std::uint32_t,std::uint64_t>> world_sent;
@@ -106,6 +110,16 @@ struct Session {
     std::uint16_t party_probe_exit=0xffff;
     float party_probe_origin[3]{};
     unsigned condition_corrections=0, inventory_accepts=0, gameplay_phase=0;
+    std::map<coopnet::Identity,ActorConditionState> guest_conditions;
+    std::map<coopnet::Identity,GuestInventoryState> guest_inventory;
+    coopnet::BuildIdentity build;
+    coopnet::Identity host_character=0;
+    std::string endpoint;
+    double reconnect_wait=0,reconnect_delay=2;
+    std::uint64_t save_scope=0;
+    struct SaveMeta { std::uint64_t sequence=0; coopnet::BaselineDigest digest{}; };
+    std::map<coopnet::Identity,SaveMeta> guest_saves;
+    std::set<coopnet::Identity> loaded_guest_saves;
     double gameplay_wait=0;
     bool gameplay_pending=false;
     coopnet::InventoryRequest probe_request;
@@ -126,11 +140,60 @@ struct Session {
         std::uint16_t fixture=0xffff;
         coopnet::Identity fixture_entity=0;
         bool take_observed=false, drop_observed=false, damage_sent=false;
+        std::uint16_t weapon=0xffff;
+        unsigned weapon_phase=0;
     };
     std::map<coopnet::Identity,Guest> guests;
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
 };
 std::unique_ptr<Session> session;
+std::string guest_save_name(const Session& current,coopnet::Identity character,unsigned slot) {
+    char name[64]; snprintf(name,sizeof(name),"coopnet-character-%016llx-%016llx-%u",current.save_scope,character,slot);
+    return name;
+}
+void load_guest_save(Session& current,coopnet::Identity character) {
+    if (!current.save_scope || !current.loaded_guest_saves.insert(character).second) return;
+    GuestSave selected; coopnet::BaselineDigest selected_digest{};
+    for (unsigned slot=0;slot<2;++slot) {
+        std::vector<std::uint8_t> file;
+        if (!read_guest_save_file(guest_save_name(current,character,slot).c_str(),file)) continue;
+        if (file.size()<32) continue;
+        const std::vector<std::uint8_t> body(file.begin(),file.end()-32);
+        const auto digest=baseline_digest(body);
+        GuestSave saved;
+        if (!std::equal(digest.begin(),digest.end(),file.end()-32) || !decode_guest_save(body,saved) ||
+            saved.scope!=current.save_scope || saved.character!=character || saved.game!=current.build.game || saved.mods!=current.build.mods) {
+            Msg("! CoopNet ignored invalid guest save: character %llu slot %u",character,slot); continue;
+        }
+        if (saved.sequence>selected.sequence) { selected=std::move(saved); selected_digest=digest; }
+    }
+    if (!selected.sequence) return;
+    current.guest_conditions[character]=selected.condition;
+    current.guest_inventory[character]=std::move(selected.inventory);
+    current.guest_saves[character]={selected.sequence,selected_digest};
+    Msg("* CoopNet durable guest save loaded: character %llu sequence %llu items %u",character,selected.sequence,
+        static_cast<unsigned>(current.guest_inventory[character].items.size()));
+}
+void save_guest_state(Session& current,coopnet::Identity character) {
+    const auto condition=current.guest_conditions.find(character);
+    const auto inventory=current.guest_inventory.find(character);
+    if (!current.save_scope || condition==current.guest_conditions.end() || inventory==current.guest_inventory.end()) return;
+    auto& meta=current.guest_saves[character];
+    GuestSave save;
+    save.scope=current.save_scope; save.character=character; save.game=current.build.game; save.mods=current.build.mods;
+    save.sequence=meta.sequence ? meta.sequence : 1; save.condition=condition->second; save.inventory=inventory->second;
+    auto body=encode_guest_save(save);
+    if (meta.sequence && baseline_digest(body)==meta.digest) return;
+    if (meta.sequence==UINT64_MAX) throw std::runtime_error("Guest save sequence exhausted");
+    save.sequence=meta.sequence+1; body=encode_guest_save(save);
+    const auto digest=baseline_digest(body); auto file=body; file.insert(file.end(),digest.begin(),digest.end());
+    // Alternating records retain the previous valid version if a write is interrupted.
+    if (!write_guest_save_file(guest_save_name(current,character,static_cast<unsigned>(save.sequence&1)).c_str(),file))
+        throw std::runtime_error("Durable guest save write failed; previous record retained");
+    meta={save.sequence,digest};
+    if (save.sequence==1) Msg("* CoopNet durable guest save written: character %llu items %u",character,
+        static_cast<unsigned>(save.inventory.items.size()));
+}
 void party_status(Session& current,coopnet::PartyStage stage,unsigned present,unsigned required,std::uint32_t destination) {
     const auto& previous=current.party_status;
     if (previous.stage==stage && previous.present==present && previous.required==required && previous.destination==destination) return;
@@ -182,6 +245,17 @@ void update_party(Session& current,double elapsed) {
     if (current.party_disarmed) return;
     party_status(current,coopnet::PartyStage::Gathering,exit.present,required,exit.destination);
     if (!current.party_barrier.update(exit.object+1,exit.present,required,elapsed)) return;
+    for (const auto& player:current.host.session().players()) {
+        const auto guest=current.guests.find(player.id);
+        if (guest==current.guests.end()) continue;
+        GuestInventoryState inventory;
+        if (!capture_guest_inventory(guest->second.object,inventory))
+            throw std::runtime_error("Guest inventory capture before travel failed");
+        current.guest_inventory[player.character]=std::move(inventory);
+        ActorConditionState condition;
+        if (capture_actor_condition(guest->second.object,condition)) current.guest_conditions[player.character]=condition;
+        save_guest_state(current,player.character);
+    }
     current.party_loading=true; current.party_elapsed=0; current.party_source=host.level;
     current.host.suspend_world(); current.probe_assignments.clear();
     party_status(current,coopnet::PartyStage::Loading,0,required,exit.destination);
@@ -196,7 +270,8 @@ void update_party_probe(Session& current,double elapsed) {
     auto& guest=current.guests.begin()->second;
     if (!guest.generation || !current.host.level_ready(current.guests.begin()->first,local.level)) return;
     current.party_probe_time+=elapsed;
-    if (current.party_probe_phase==0 && guest.drop_observed && guest.damage_sent && current.party_probe_time>12) {
+    if (current.party_probe_phase==0 && guest.drop_observed && guest.damage_sent &&
+        (!current.weapon_probe || guest.weapon_phase==3) && current.party_probe_time>12) {
         if (!prepare_party_probe(current.party_probe_exit,current.party_probe_origin) ||
             !position_party_probe(local.object,current.party_probe_exit,current.party_probe_origin,true))
             throw std::runtime_error("Party probe exit preparation failed");
@@ -296,6 +371,12 @@ void capture_host(Session& current, double elapsed) {
         Msg("* CoopNet host actor unbound");
     }
     if (!available) return;
+    if (!current.save_scope) {
+        current.save_scope=guest_save_scope();
+        for (auto value:{current.build.game,current.build.mods,current.host_character})
+            for (unsigned byte=0;byte<8;++byte) { current.save_scope^=(value>>(8*byte))&255; current.save_scope*=1099511628211ull; }
+        if (!current.save_scope) current.save_scope=1;
+    }
     if (!current.host_actor) current.host_actor = current.entities.create();
     previous = current.entities.find(current.host_actor);
     if (!previous->active) {
@@ -354,6 +435,13 @@ void capture_guests(Session& current) {
             if (player.id == it->first && player.connected) connected = true;
         if (!available || !connected || it->second.host_incarnation != host.incarnation) {
             auto& guest = it->second;
+            if (available) for (const auto& player:current.host.session().players()) if (player.id==it->first) {
+                ActorConditionState condition; GuestInventoryState inventory;
+                if (capture_actor_condition(guest.object,condition) && capture_guest_inventory(guest.object,inventory)) {
+                    current.guest_conditions[player.character]=condition; current.guest_inventory[player.character]=std::move(inventory);
+                    save_guest_state(current,player.character);
+                }
+            }
             if (guest.fixture_entity) {
                 auto& item=current.items.at(guest.fixture_entity);
                 item.state.present=false; item.state.owner=0; ++item.state.revision;
@@ -385,6 +473,19 @@ void capture_guests(Session& current) {
         LocalActorPose pose;
         if (!capture_guest_actor(guest.object,pose)) continue;
         if (!guest.generation) {
+            load_guest_save(current,player.character);
+            const auto saved=current.guest_conditions.find(player.character);
+            if (saved!=current.guest_conditions.end()) {
+                if (!apply_guest_condition(guest.object,saved->second)) throw std::runtime_error("Guest condition restoration failed");
+                Msg("* CoopNet guest condition restored: character %llu health %.3f power %.3f radiation %.3f",
+                    player.character,saved->second.health,saved->second.power,saved->second.radiation);
+            }
+            const auto inventory=current.guest_inventory.find(player.character);
+            if (inventory!=current.guest_inventory.end()) {
+                if (!restore_guest_inventory(guest.object,inventory->second)) throw std::runtime_error("Guest inventory restoration failed");
+                Msg("* CoopNet guest inventory restored: character %llu items %u",player.character,
+                    static_cast<unsigned>(inventory->second.items.size()));
+            }
             if (!current.entities.bind(guest.entity,{pose.level,pose.object}))
                 throw std::runtime_error("Guest native binding failed");
             guest.generation = current.entities.find(guest.entity)->generation;
@@ -428,6 +529,27 @@ void capture_guests(Session& current) {
                 }
             }
         }
+        if (current.weapon_probe && guest.drop_observed && guest.damage_sent) {
+            if (guest.weapon==0xffff) guest.weapon=spawn_session_item(guest.object,"wpn_pm");
+            NativeSessionItem native;
+            if (guest.weapon!=0xffff && capture_session_item(guest.weapon,native)) {
+                if (guest.weapon_phase==0 && native.owner==0xffff)
+                    transact_session_item(guest.object,guest.weapon,native.incarnation,true);
+                if (guest.weapon_phase==0 && native.owner==guest.object && native.native_owner==guest.object && equip_guest_weapon(guest.object,guest.weapon,3))
+                    guest.weapon_phase=1;
+                unsigned rounds=0; bool ready=false;
+                if (guest.weapon_phase==1 && capture_guest_weapon(guest.object,guest.weapon,rounds,ready) && ready) {
+                    const auto entity=current.entities.create();
+                    if (!current.host.publish_item({entity,guest.entity,pose.level,1,true,"wpn_pm"})) throw std::runtime_error("Weapon probe publication failed");
+                    guest.weapon_phase=2;
+                    Msg("* CoopNet native weapon ready: guest %llu rounds %u",player.id,rounds);
+                }
+                if (guest.weapon_phase==2 && capture_guest_weapon(guest.object,guest.weapon,rounds,ready) && rounds<3) {
+                    guest.weapon_phase=3;
+                    Msg("* CoopNet native guest weapon fired: remaining rounds %u",rounds);
+                }
+            }
+        }
         coopnet::ActorInput input;
         const bool active = current.host.latest_input(player.id,input);
         if (active) ++guest.inputs;
@@ -446,11 +568,19 @@ void capture_guests(Session& current) {
             snapshot.rotation[axis] = pose.rotation[axis];
         }
         if (!current.host.publish_snapshot(snapshot)) throw std::runtime_error("Invalid native guest snapshot");
-        if (current.gameplay_probe) {
+        {
             ActorConditionState condition;
             if (capture_actor_condition(guest.object,condition)) {
+                current.guest_conditions[player.character]=condition;
                 current.host.publish_vitals({guest.entity,guest.generation,pose.level,current.tick,
                     condition.health,condition.power,condition.radiation});
+                if (current.tick%25==0) {
+                    GuestInventoryState inventory;
+                    if (capture_guest_inventory(guest.object,inventory)) {
+                        current.guest_inventory[player.character]=std::move(inventory);
+                        save_guest_state(current,player.character);
+                    }
+                }
                 if (guest.damage_sent && current.tick%25==0)
                     Msg("* CoopNet host guest health: %.3f",condition.health);
             }
@@ -502,12 +632,36 @@ void send_client_controls(Session& current, double elapsed) {
         input.yaw = 0; input.pitch = 0;
     }
     if (current.gameplay_probe && current.gameplay_phase<3) input.buttons=0;
+    if (current.weapon_probe && current.gameplay_phase>=3) {
+        bool armed=false;
+        for (const auto& item:current.client.items()) if (item.second.owner==input.entity && item.second.section=="wpn_pm") armed=true;
+        if (armed && current.weapon_phase<2) {
+            current.weapon_wait+=elapsed;
+            input.buttons=0; input.pitch=-.7f;
+            if (current.weapon_wait>.5 && current.weapon_wait<1) {
+                input.buttons=coopnet::fire_button;
+                if (current.weapon_phase==0) { current.weapon_phase=1; Msg("* CoopNet client weapon fire input: actor %llu",input.entity); }
+            }
+            if (current.weapon_wait>=1) current.weapon_phase=2;
+        }
+    }
     // Sending may disconnect and clear the replica registry; send after traversal.
     current.client.send_input(input);
 }
 }
 void stop() {
     if (session) {
+        if (session->mode==coopnet::Mode::Host) for (const auto& player:session->host.session().players()) {
+            const auto guest=session->guests.find(player.id);
+            if (guest==session->guests.end()) continue;
+            try {
+                ActorConditionState condition; GuestInventoryState inventory;
+                if (capture_actor_condition(guest->second.object,condition) && capture_guest_inventory(guest->second.object,inventory)) {
+                    session->guest_conditions[player.character]=condition; session->guest_inventory[player.character]=std::move(inventory);
+                    save_guest_state(*session,player.character);
+                }
+            } catch (const std::exception& error) { Msg("! CoopNet guest shutdown save failed: %s",error.what()); }
+        }
         if (session->movement_probe && session->mode == coopnet::Mode::Client)
             Msg("* CoopNet owned native snapshots applied: %u",session->corrections);
         if (session->gameplay_probe && session->mode==coopnet::Mode::Client)
@@ -573,6 +727,23 @@ void update(double) {
             }
         } else {
             session->client.update(elapsed);
+            const auto connection_state=session->client.session().state();
+            if (connection_state==coopnet::ClientState::Connected) {
+                session->reconnect_wait=0; session->reconnect_delay=2;
+            } else if (connection_state==coopnet::ClientState::Disconnected || connection_state==coopnet::ClientState::Offline) {
+                session->reconnect_wait+=elapsed;
+                if (session->reconnect_wait>=session->reconnect_delay && !session->endpoint.empty()) {
+                    session->reconnect_wait=0; session->reconnect_delay=(std::min)(session->reconnect_delay*2,8.0);
+                    const auto connection=session->runtime.connect(session->endpoint.c_str());
+                    if (connection!=k_HSteamNetConnection_Invalid) {
+                        auto transport=std::make_unique<coopnet::GnsTransport>(session->runtime,connection);
+                        if (connection_state==coopnet::ClientState::Disconnected) session->client.reconnect(std::move(transport));
+                        else session->client.start(std::move(transport),session->host_character,session->build);
+                        session->world_load_requested=false;
+                        Msg("* CoopNet connection retry: %s",connection_state==coopnet::ClientState::Disconnected ? "resume" : "initial join");
+                    }
+                }
+            }
             if (session->world_probe && session->world_load_requested && !session->client.baseline_acknowledged() &&
                 world_baseline_loaded(session->world_save.c_str())) {
                 LocalActorPose local;
@@ -607,6 +778,10 @@ void update(double) {
 void command(const char* name, const char* arguments) {
     try {
         if (!strcmp(name, "coop_disconnect")) { stop(); Msg("* CoopNet offline"); return; }
+        if (!strcmp(name,"coop_weapon_probe")) {
+            if (!session) throw std::runtime_error("Weapon probe requires a session");
+            session->weapon_probe=true; Msg("* CoopNet native weapon probe enabled"); return;
+        }
         if (!strcmp(name,"coop_party_probe")) {
             if (!session || session->mode!=coopnet::Mode::Host) throw std::runtime_error("Party probe requires a host");
             session->party_probe=true; Msg("* CoopNet party transition probe enabled"); return;
@@ -659,6 +834,7 @@ void command(const char* name, const char* arguments) {
             throw std::invalid_argument("Usage: coop_host <port> <character-id> <game-fingerprint> <mod-fingerprint>; coop_join <IP:port> <character-id> <game-fingerprint> <mod-fingerprint> (decimal IDs)");
         // Publish the session only after all initialization succeeds.
         auto next = std::make_unique<Session>();
+        next->build=build; next->host_character=character; next->endpoint=endpoint;
         if (!strcmp(name, "coop_host")) {
             std::size_t consumed = 0;
             const auto port = std::stoul(endpoint, &consumed);
@@ -703,7 +879,7 @@ void command(const char* name, const char* arguments) {
             });
             next->client.set_vitals_sink([owner](const coopnet::ActorVitals& vitals) {
                 const auto* actor=owner->client.actors().find(vitals.actor);
-                if (owner->gameplay_probe && actor && actor->player==owner->client.session().welcome().player &&
+                if (actor && actor->player==owner->client.session().welcome().player &&
                     apply_local_condition(vitals.level,{vitals.health,vitals.power,vitals.radiation})) {
                     ++owner->condition_corrections;
                     if (vitals.tick%25==0) Msg("* CoopNet authoritative guest health applied: %.3f",vitals.health);

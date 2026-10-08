@@ -5,7 +5,8 @@
 namespace coopnet {
 // Held controls, not movement results. Simulation duration comes from the host clock.
 // Bits match native actor wishes: forward/back/strafe/crouch/accel/jump/sprint/lookout.
-constexpr std::uint16_t input_buttons = 0x70bf;
+constexpr std::uint16_t fire_button=0x8000, reload_button=0x0800;
+constexpr std::uint16_t input_buttons = 0xf8bf;
 struct ActorInput {
     Identity entity = 0;
     std::uint32_t generation = 0, level = 0, sequence = 0;

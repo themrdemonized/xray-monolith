@@ -1423,6 +1423,7 @@ void CActor::set_safemode(bool status)
 	if (is_safemode() != status)
 	{
 		m_bSafemode = status;
+		if (m_coopnet_guest) return;
 		g_player_hud->OnMovementChanged(mcAnyMove);
 		g_player_hud->updateMovementLayerState();
 

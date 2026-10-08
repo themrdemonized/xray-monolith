@@ -1,6 +1,6 @@
 # CoopNet transport development
 
-These commands exercise admission, actor presentation data and validated guest movement-command transport. They do not load a shared world, simulate guest actors, replicate gameplay, or make co-op playable.
+Host/join now enable the canonical shared world, native guest movement and group location transitions. The complete ordinary co-op gameplay loop remains unfinished; see PROGRESS.md for the tested boundaries.
 
 From the repository in PowerShell:
 

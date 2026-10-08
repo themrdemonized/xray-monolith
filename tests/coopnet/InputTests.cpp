@@ -16,6 +16,8 @@ int main() {
     malformed = bytes; malformed[20] = 0x40; require(!decode_input(malformed,decoded)); // simulation turn state
     malformed = bytes; malformed[24] = 0x80; malformed[25] = 0x7f; require(!decode_input(malformed,decoded)); // infinity
     auto invalid = input; invalid.pitch = 2; require(!valid_input(invalid));
+    auto armed=input; armed.buttons=fire_button|reload_button;
+    require(decode_input(encode_input(armed),decoded) && decoded.buttons==armed.buttons);
     invalid = input; invalid.yaw = 4; require(!valid_input(invalid));
     invalid = input; invalid.entity = 0; require(!valid_input(invalid));
     require(valid_contract({Message::ActorInput,Channel::Actor,Delivery::UnreliableSequenced,0,{}}));

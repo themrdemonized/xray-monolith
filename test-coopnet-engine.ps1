@@ -1,6 +1,8 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
+if ($WeaponProbe) { $WorldProbe=$true }
+if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
@@ -10,7 +12,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -39,6 +41,7 @@ try {
     if ($cleanupProblems.Count) { throw ($cleanupProblems -join "`n") }
 }
 $testRoot = Join-Path $PSScriptRoot '_build\coopnet-engine-test'
+if ($TestDirectory) { $testRoot=[IO.Path]::GetFullPath($TestDirectory) }
 $logs = @{}
 foreach ($role in @('host','guest')) {
     $file = Get-ChildItem "$testRoot\$role\appdata\logs" -Filter '*.log' |
@@ -112,6 +115,11 @@ if ($PartyProbe) {
         throw 'Native lone entrant, departure reset, second snapshot and whole-party destination evidence missing.'
     }
     $last=$snapshots[$snapshots.Count-1];
+    $restored=[regex]::Match($logs.host,'CoopNet guest condition restored: character 2 health ([\d.]+) power ([\d.]+) radiation ([\d.]+)');
+    if (!$restored.Success -or [double]::Parse($restored.Groups[1].Value,[Globalization.CultureInfo]::InvariantCulture) -ge .95 -or
+        [double]::Parse($restored.Groups[1].Value,[Globalization.CultureInfo]::InvariantCulture) -le 0) {
+        throw 'Guest authoritative condition did not survive native map travel.'
+    }
     if ($last.Groups[3].Value -ne $destination.Groups[1].Value -or $last.Groups[3].Value -eq $snapshots[0].Groups[3].Value) {
         throw 'Party did not travel to a different native map.'
     }
@@ -120,4 +128,25 @@ if ($PartyProbe) {
         (Get-FileHash -LiteralPath "$testRoot\guest\appdata\savedgames\$name").Hash) { throw 'Destination snapshot hashes differ.' }
     Write-Output "NATIVE_PARTY_TRANSITION_PASS: lone entrant waited, departure reset gathering, both clients loaded destination level $($destination.Groups[1].Value)."
 }
-Write-Output 'Development fixture only. Dynamic NPC lifecycles, item replication, normal combat/inventory controls and persistence are not verified.'
+if ($WeaponProbe) {
+    if ($logs.host -notmatch 'CoopNet native weapon ready: guest [1-9]\d* rounds 3' -or
+        $logs.host -notmatch 'CoopNet native guest weapon fired: remaining rounds [012]') {
+        throw 'Guest weapon activation and real ammunition consumption from client fire input missing.'
+    }
+    Write-Output 'NATIVE_WEAPON_PASS: host guest weapon finished drawing and consumed ammunition from client fire input.'
+    if ($PartyProbe) {
+        if ($logs.host -notmatch 'CoopNet guest inventory restored: character 2 items 1' -or
+            $logs.host -notmatch 'CoopNet native inventory restoration completed: items 1 active slot [1-9]\d* rounds 2') {
+            throw 'Guest weapon and ammunition preservation across native travel missing.'
+        }
+        Write-Output 'NATIVE_INVENTORY_TRAVEL_PASS: guest weapon, active slot and remaining ammunition restored on the destination map.'
+    }
+}
+if ($RestartProbe) {
+    if ($logs.host -notmatch 'CoopNet durable guest save loaded: character 2 sequence [1-9]\d* items 1' -or
+        $logs.host -notmatch 'CoopNet native inventory restoration completed: items 1 active slot [1-9]\d* rounds 2') {
+        throw 'Guest equipment and ammunition restore after a host restart missing.'
+    }
+    Write-Output 'NATIVE_GUEST_RESTART_PASS: a new host process restored the saved guest weapon, active slot and two remaining rounds.'
+}
+Write-Output 'Development fixture only. Dynamic NPC lifecycles and complete inventory controls are not verified.'
