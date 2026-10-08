@@ -23,7 +23,7 @@ struct player_hud_motion
 	shared_str m_alias_name;
 	shared_str m_base_name;
 	shared_str m_additional_name;
-	float m_anim_speed, m_anim_end = 0.f;
+	float m_anim_speed = 1.f;
 	xr_vector<motion_descr> m_animations;
 };
 
@@ -354,7 +354,7 @@ struct attachable_hud_item
 	//props
 	u32 m_upd_firedeps_frame;
 	void tune(Ivector values);
-	u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float speed = 0, bool bMixIn2 = true);
+	u32 anim_play(const shared_str& anim_name, BOOL bMixIn, const CMotionDef*& md, u8& rnd, float& speed, bool bMixIn2 = true);
 };
 
 class player_hud
@@ -375,6 +375,9 @@ public:
 	void StopBlendAnm(LPCSTR name, bool bForce = false);
 	void StopAllBlendAnms(bool bForce);
 	float SetBlendAnmTime(LPCSTR name, float time);
+	void set_current_blend_falloff(u8 part, float falloff);
+	void set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm, float accrue = 0.f, float falloff = 0.f, bool mixin = true);
+	void clear_hand_pose(u8 hand, float accrue = 0.f, float falloff = 0.f);
 	void render_hud();
 	void render_item_ui();
 	bool render_item_ui_query();
@@ -396,6 +399,7 @@ public:
 	Fvector item_pos[2];
 	Fmatrix m_item_pos;
 	u8 m_attach_idx;
+	bool override_hand_pose[2];
 
 	//Movement animation layers: 0 = aim_walk, 1 = aim_crouch, 2 = crouch, 3 = walk, 4 = run, 5 = sprint
 	xr_vector<movement_layer*> m_movement_layers;
@@ -408,7 +412,8 @@ public:
 
 	void attach_item(CHudItem* item);
 	void re_sync_anim(u8 part);
-	void set_part_cycle_time(u8 part, float time);
+	void re_sync_hand(bool left, float accrue = 0.f, float falloff = 0.f);
+	void set_part_cycle_time(u8 part, float time, float set_time = 0.f);
 	void set_part_cycle_speed(u8 part, float speed);
 	bool allow_activation(CHudItem* item);
 	attachable_hud_item* attached_item(u16 item_idx) { return m_attached_items[item_idx]; };
@@ -432,9 +437,10 @@ public:
 
 	void calc_transform(u16 attach_slot_idx, const Fmatrix& offset, Fmatrix& result, bool leadGun = false);
 	void tune(Ivector values);
-	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed);
+	u32 motion_length(const MotionID& M, const CMotionDef*& md, float speed, bool ignore_stop_at_end = false);
 	u32 motion_length_script(LPCSTR section, LPCSTR anm_name, float speed);
-	u32 motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md);
+	u32 motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md, u8 anim_idx = 0, bool ignore_stop_at_end = false);
+	bool motion_is_stop_at_end(const shared_str& anim_name, const shared_str& hud_name);
 	void OnMovementChanged(ACTOR_DEFS::EMoveCommand cmd);
 	bool inertion_allowed();
 

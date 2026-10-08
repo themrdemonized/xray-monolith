@@ -34,7 +34,7 @@ protected:
 	virtual void PlaySoundShot();
 	bool HaveCartridgeInInventory(u8 cnt);
 	bool BeginReloadWasEmpty;
-    void OnMotionMark(u32 state, const motion_marks& M);
+    void OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end);
 	virtual u8 AddCartridge(u8 cnt);
     bool ClickInterruptFlag; // ver
     bool MotionMarked; // ver
