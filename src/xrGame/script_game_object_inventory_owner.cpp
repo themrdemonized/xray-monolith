@@ -60,6 +60,10 @@
 #include "ai_space.h"
 #include "ActorBackpack.h"
 
+// Boeker: zoom inertia factor support
+#include "EffectorZoomInertion.h"
+#include "ActorEffector.h"
+
 //
 //-Alundaio
 
@@ -2865,6 +2869,22 @@ void CScriptGameObject::SetActorDamageStaggerTimeFactor(float val)
         return;
     }
     pActor->DamageStaggerTimeFactor = val;
+}
+
+// Boeker: zoom inertia factor support
+void CScriptGameObject::SetZoomInertionFactor(float factor)
+{
+    CActor* pActor = smart_cast<CActor*>(&object());
+    if (!pActor)
+        return;
+
+    CEffectorZoomInertion* eff = smart_cast<CEffectorZoomInertion*>(
+        pActor->Cameras().GetCamEffector(eCEZoom)
+    );
+    if (!eff)
+        return;
+
+    eff->SetUserFactor(clampr(factor, 0.f, 2.f));
 }
 
 // demonized: Additional exports

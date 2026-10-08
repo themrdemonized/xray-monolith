@@ -38,6 +38,7 @@ public:
 	int r_s32(LPCSTR S, LPCSTR L);
 	float r_float(LPCSTR S, LPCSTR L);
 	Fvector r_fvector3(LPCSTR S, LPCSTR L);
+	Fvector4 r_fvector4(LPCSTR S, LPCSTR L);
 	//AVO: additional methods to allow writing to ini files
 #ifdef INI_FILE_EXTENDED_EXPORTS
 	void w_bool(LPCSTR S, LPCSTR L, bool V, LPCSTR comment /* = 0 */);
@@ -59,6 +60,7 @@ public:
 	bool save_as(LPCSTR new_fname /* = 0 */);
 	void save_at_end(bool b);
 	void remove_line(LPCSTR S, LPCSTR L);
+	bool remove_section(LPCSTR S);
 	void set_override_names(bool b);
 	u32 section_count();
 	void set_readonly(bool b);

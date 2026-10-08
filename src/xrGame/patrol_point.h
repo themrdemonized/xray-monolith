@@ -24,6 +24,8 @@ protected:
 	u32 m_flags;
 	u32 m_level_vertex_id;
 	GameGraph::_GRAPH_ID m_game_vertex_id;
+	// ids came from the nearest game vertex of the level, not from the AI map; fixed by resolve()
+	bool m_approximate;
 
 protected:
 #ifdef DEBUG
@@ -44,7 +46,11 @@ public:
 	virtual void load(IReader& stream);
 	virtual void save(IWriter& stream);
 	CPatrolPoint& load_raw(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph, IReader& stream);
-	CPatrolPoint& load_from_config(CInifile* ini_paths, LPCSTR patrol_name, LPCSTR point_name);
+	// level != nullptr makes level_vertex_id / game_vertex_id optional: missing ids are approximated on that level.
+	// false = reason, the point is unusable.
+	bool load_from_config(const CInifile* ini_paths, LPCSTR patrol_name, LPCSTR point_name, const CGameGraph* game_graph, const GameGraph::SLevel* level, string256& reason);
+	bool resolve(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph);
+	void relocate(const CGameGraph& graph, GameGraph::_GRAPH_ID vertex_id, bool approximate);
 	void set_lvid_from_position(const CLevelGraph* level_graph);
 	IC const Fvector& position() const;
 	IC const u32& level_vertex_id(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph) const;

@@ -56,6 +56,9 @@ void CSE_ALifeObject::script_register(lua_State* L)
 		.def_readonly("m_level_vertex_id", &CSE_ALifeObject::m_tNodeID)
 		.def_readonly("m_game_vertex_id", &CSE_ALifeObject::m_tGraphID)
 		.def_readonly("m_story_id", &CSE_ALifeObject::m_story_id)
+#ifdef XRGAME_EXPORTS
+		.def("draw_level_position", &CSE_ALifeObject::draw_level_position)
+#endif
 	];
 }
 

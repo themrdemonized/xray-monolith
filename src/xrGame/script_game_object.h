@@ -114,6 +114,7 @@ class CScriptGameObject;
 class CZoneCampfire;
 class CPhysicObject;
 class CArtefact;
+class CWeaponBinoculars;
 class script_attachment;
 
 #ifdef STATIONARYMGUN_NEW
@@ -854,6 +855,47 @@ public:
 	bool fire_make_sense();
 	bool is_hit_anim_playing();
 
+	int get_monster_state();
+	bool is_monster_jumping();
+	int get_monster_rank();
+	bool ability_invisibility();
+	bool ability_can_drag();
+	bool ability_psi_attack();
+	bool ability_earthquake();
+	bool ability_can_jump();
+	bool ability_distant_feel();
+	bool ability_run_attack();
+	bool ability_rotation_jump();
+	bool ability_jump_over_physics();
+	bool can_attack_on_move();
+	float get_monster_morale();
+	float get_psy_influence();
+	float get_radiation_influence();
+	float get_fire_influence();
+	u32 get_monster_cover_vertex(const Fvector& enemy_position, float min_dist, float max_dist);
+
+	void set_monster_attack_dist(float min_dist, float max_dist);
+	void set_monster_jump_params(float min_dist, float max_dist, float max_angle, float max_height, float delay_ms);
+	void set_chimera_attack_params(float attack_radius, float prepare_timeout_ms, float attack_timeout_ms,
+	                               int num_prepare_jumps, int num_attack_jumps);
+	void set_burer_gravi_params(float cooldown_ms, float min_dist, float max_dist, float speed, float radius,
+	                            float hit_power);
+	void set_burer_tele_params(int max_objects, float find_radius, float min_dist, float max_dist,
+	                           float fly_velocity);
+	void set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms, float min_distance);
+	void set_controller_stamina_hit(float value);
+	void set_poltergeist_detection_params(float near_factor, float far_factor, float far_range,
+	                                      float speed_factor, float loose_speed);
+	void set_poltergeist_height_params(float height_min, float height_max, float change_velocity,
+	                                   float min_time_ms, float max_time_ms);
+
+	bool try_monster_jump(const Fvector& position, float factor, bool skip_prepare);
+	bool try_monster_rotation_jump();
+	bool try_monster_run_attack();
+	bool try_monster_threaten();
+	bool monster_capture_control(int type);
+	bool monster_release_control(int type);
+
 	void aim_bone_id(LPCSTR value);
 	LPCSTR aim_bone_id() const;
 
@@ -987,6 +1029,7 @@ public:
 	_DECLARE_FUNCTION14(cast_Ammo, CWeaponAmmo);
 	_DECLARE_FUNCTION14(cast_Weapon, CWeapon);
 	_DECLARE_FUNCTION14(cast_Knife, CWeaponKnife);
+	_DECLARE_FUNCTION14(cast_Binoculars, CWeaponBinoculars);
 	_DECLARE_FUNCTION14(cast_WeaponMagazined, CWeaponMagazined);
 	_DECLARE_FUNCTION14(cast_WeaponMagazinedWGrenade, CWeaponMagazinedWGrenade);
 	_DECLARE_FUNCTION14(cast_EatableItem, CEatableItem);
@@ -1201,6 +1244,9 @@ public:
     // verdatim: adjust damage stagger time factor
     float GetActorDamageStaggerTimeFactor() const;
     void SetActorDamageStaggerTimeFactor(float val);
+
+    // Boeker: adjust zoom inertia factor
+    void SetZoomInertionFactor(float factor);
 
 	float GetActorCrouchCoef() const;
 	void SetActorCrouchCoef(float val);
