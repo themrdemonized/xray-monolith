@@ -204,7 +204,7 @@ void CActorCondition::UpdateCondition()
 
 		m_fAlcohol += v_alcohol * m_fDeltaTime;
 		clamp(m_fAlcohol, 0.0f, 1.0f);
-		if (IsGameTypeSingle())
+		if (IsGameTypeSingle() && m_object == Level().CurrentViewEntity())
 		{
 			CEffectorCam* ce = Actor()->Cameras().GetCamEffector((ECamEffectorType)effAlcohol);
 			if (ce)
@@ -251,7 +251,7 @@ void CActorCondition::UpdateCondition()
 	m_fAlcohol += v_alcohol * m_fDeltaTime;
 	clamp(m_fAlcohol, 0.0f, 1.0f);
 
-	if (IsGameTypeSingle())
+	if (IsGameTypeSingle() && m_object == Level().CurrentViewEntity())
 	{
 		CEffectorCam* ce = Actor()->Cameras().GetCamEffector((ECamEffectorType)effAlcohol);
 		if ((m_fAlcohol > 0.0001f))
@@ -302,10 +302,10 @@ void CActorCondition::UpdateCondition()
 
 	inherited::UpdateCondition();
 
-	if (IsGameTypeSingle())
+	if (IsGameTypeSingle() && m_object == Level().CurrentViewEntity())
 		UpdateTutorialThresholds();
 
-	if (GetHealth() < 0.05f && m_death_effector == NULL && IsGameTypeSingle())
+	if (GetHealth() < 0.05f && m_death_effector == NULL && IsGameTypeSingle() && m_object == Level().CurrentViewEntity())
 	{
 		if (pSettings->section_exist("actor_death_effector"))
 			m_death_effector = xr_new<CActorDeathEffector>(this, "actor_death_effector");

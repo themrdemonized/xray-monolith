@@ -684,7 +684,7 @@ void CActor::Hit(SHit* pHDS)
 				CScriptHit tLuaHit(&HDS);
 
 				::luabind::functor<bool> funct;
-				if (ai().script_engine().functor("_G.CActor__BeforeHitCallback", funct))
+				if (!m_coopnet_guest && ai().script_engine().functor("_G.CActor__BeforeHitCallback", funct))
 				{
 					if (!funct(this->lua_game_object(), &tLuaHit, HDS.boneID))
 						return;
@@ -957,7 +957,7 @@ void CActor::Die(CObject* who)
 		m_DangerSnd.stop();
 	}
 
-	if (IsGameTypeSingle())
+	if (IsGameTypeSingle() && Level().CurrentControlEntity() == this)
 	{
 		// demonized: First Person Death
 		if (firstPersonDeath) {
@@ -1128,6 +1128,15 @@ float CActor::currentFOV()
 
 void CActor::UpdateCL()
 {
+	if (m_coopnet_guest)
+	{
+		// Native physics/render maintenance without local camera, pickup or HUD work.
+		UpdateInventoryOwner(Device.dwTimeDelta);
+		inherited::UpdateCL();
+		m_pPhysics_support->in_UpdateCL();
+		m_legs_controller.update(this);
+		return;
+	}
 	if (g_Alive() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)
@@ -1772,8 +1781,20 @@ void CActor::set_state_box(u32 mstate)
 		character_physics_support()->movement()->ActivateBox(0, true);
 }
 
+void CActor::coopnet_controls(u16 buttons, float yaw, float pitch)
+{
+	if (!m_coopnet_guest) return;
+	m_coopnet_buttons = buttons & 0x70bf;
+	m_coopnet_yaw = yaw; m_coopnet_pitch = pitch;
+	m_coopnet_control_time = Device.dwTimeGlobal;
+	if (Device.dwFrame % 300 == 0)
+		Msg("* CoopNet guest controls stored: object %u buttons %u time %u",ID(),m_coopnet_buttons,m_coopnet_control_time);
+}
+
 void CActor::shedule_Update(u32 DT)
 {
+	if (m_coopnet_guest && Device.dwFrame % 300 == 0)
+		Msg("* CoopNet guest scheduled: object %u dt %u buttons %u holder %u",ID(),DT,m_coopnet_buttons,m_holder != NULL);
 	setSVU(OnServer());
 	//.	UpdateInventoryOwner			(DT);
 
@@ -1820,6 +1841,30 @@ void CActor::shedule_Update(u32 DT)
 
 	//----------- for E3 -----------------------------
 	//	if (Local() && (OnClient() || Level().CurrentEntity()==this))
+	if (m_coopnet_guest)
+	{
+		mstate_wishful = Device.Paused() || Device.dwTimeGlobal - m_coopnet_control_time >= 250 ?
+			0 : m_coopnet_buttons;
+		// Reuse native character movement with this actor's own camera and jump impulse.
+		cam_FirstEye()->Set(-m_coopnet_yaw, m_coopnet_pitch, 0);
+		Fvector point = Position(), noise; noise.set(0,0,0);
+		cam_FirstEye()->Update(point, noise);
+		g_cl_Orientate(mstate_real, dt);
+		g_cl_CheckControls(mstate_wishful, NET_SavedAccel, NET_Jump, dt);
+		g_Orientate(mstate_real, dt);
+		if (Device.dwFrame % 300 == 0)
+			Msg("* CoopNet guest acceleration: wish %u state %u accel %.3f %.3f %.3f canmove %u health %.3f",
+				mstate_wishful,mstate_real,NET_SavedAccel.x,NET_SavedAccel.y,NET_SavedAccel.z,CanMove(),GetfHealth());
+		g_Physics(NET_SavedAccel, NET_Jump, dt);
+		g_cl_ValidateMState(dt, mstate_wishful);
+		g_SetAnimation(mstate_real);
+		NET_Jump = 0;
+		mstate_old = mstate_real;
+		inherited::shedule_Update(DT);
+		m_pPhysics_support->in_shedule_Update(DT);
+		setVisible(!character_physics_support()->IsRemoved());
+		return;
+	}
 	if (Level().CurrentControlEntity() == this && !Level().IsDemoPlay())
 		//------------------------------------------------
 	{

@@ -385,7 +385,7 @@ void CActor::net_Import_Base(NET_Packet& P)
 	}
 
 	//----------- for E3 -----------------------------
-	if (Local() && OnClient()) return;
+	if ((Local() && OnClient()) || (m_coopnet_guest && OnServer())) return;
 	//-------------------------------------------------
 	if (!NET.empty() && N.dwTimeStamp < NET.back().dwTimeStamp) return;
 
@@ -476,7 +476,7 @@ void CActor::net_Import_Physic(NET_Packet& P)
 		N_A.State.previous_position = N_A.State.position;
 		N_A.State.previous_quaternion = N_A.State.quaternion;
 		//----------- for E3 -----------------------------
-		if (Local() && OnClient() || !g_Alive()) return;
+			if ((Local() && OnClient()) || !g_Alive() || (m_coopnet_guest && OnServer())) return;
 		//		if (g_Alive() && (Remote() || OnServer()))
 		{
 			//-----------------------------------------------
@@ -504,6 +504,8 @@ void CActor::net_Import_Physic(NET_Packet& P)
 
 void CActor::net_Import_Physic_proceed()
 {
+	// The legacy correction pipeline must not rewind an authoritative host guest.
+	if (m_coopnet_guest && OnServer()) return;
 	Level().AddObject_To_Objects4CrPr(this);
 	CrPr_SetActivated(false);
 	CrPr_SetActivationStep(0);
@@ -511,6 +513,7 @@ void CActor::net_Import_Physic_proceed()
 
 BOOL CActor::net_Spawn(CSE_Abstract* DC)
 {
+	if (engine_coopnet::claim_guest_spawn(DC->ID)) set_coopnet_guest(true);
 	R_ASSERT2(!m_coopnet_guest || (IsGameTypeSingle() &&
 		!DC->s_flags.is(M_SPAWN_OBJECT_ASPLAYER)), "CoopNet guest cannot be the primary actor");
 	m_holder_id = ALife::_OBJECT_ID(-1);
@@ -587,7 +590,7 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 	unaffected_r_torso.pitch = r_torso.pitch;
 	unaffected_r_torso.roll = r_torso.roll;
 
-	if (psActorFlags.test(AF_PSP))
+	if (!m_coopnet_guest && psActorFlags.test(AF_PSP))
 		cam_Set(eacLookAt);
 	else
 		cam_Set(eacFirstEye);
@@ -729,6 +732,7 @@ namespace crash_saving {
 void CActor::net_Destroy()
 {
 	inherited::net_Destroy();
+	if (m_coopnet_guest) engine_coopnet::guest_actor_destroyed(ID());
 	m_coopnet_guest = false;
 
 	if (m_holder_id != ALife::_OBJECT_ID(-1))
@@ -1802,7 +1806,8 @@ void CActor::net_Save(NET_Packet& P)
 
 BOOL CActor::net_SaveRelevant()
 {
-	return TRUE;
+	// Guest persistence belongs to PlayerState; do not serialize primary HUD/quickslots.
+	return !m_coopnet_guest;
 }
 
 

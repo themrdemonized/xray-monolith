@@ -229,7 +229,7 @@ void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector& vControlAccel, float& Ju
 			m_fJumpTime = s_fJumpTime;
 
 			::luabind::functor<bool> on_jump;
-			if (ai().script_engine().functor("_G.CActor_on_jump", on_jump))
+			if (this == Level().CurrentControlEntity() && ai().script_engine().functor("_G.CActor_on_jump", on_jump))
 				on_jump();
 
 			//уменьшить силу игрока из-за выполненого прыжка

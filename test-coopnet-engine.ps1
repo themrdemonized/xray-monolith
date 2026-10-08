@@ -1,4 +1,4 @@
-param([ValidateRange(30,300)][int]$Seconds = 90)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe)
 $ErrorActionPreference = 'Stop'
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
 $fixtureFiles = Get-ChildItem "$client\appdata\savedgames\player - autosave.*" -File
@@ -7,7 +7,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -54,6 +54,15 @@ if ($logs.guest -notmatch 'CoopNet client state: connected' -or
     $logs.guest -notmatch 'CoopNet remote actor visual created:' -or
     !$renderEvidence.Success) {
     throw 'Guest admission, model update, rendering or cleanup evidence missing'
+}
+if ($MovementProbe) {
+    $motion = [regex]::Match($logs.host,'CoopNet guest simulation removed: inputs ([1-9]\d*) distance ([\d.]+)')
+    if ($logs.host -notmatch 'CoopNet native guest bound:' -or !$motion.Success -or
+        $logs.guest -notmatch 'CoopNet owned native snapshots applied: [1-9]\d*' -or
+        [double]::Parse($motion.Groups[2].Value,[Globalization.CultureInfo]::InvariantCulture) -lt 0.5) {
+        throw 'Native guest spawn, real client input and physical displacement evidence missing.'
+    }
+    Write-Output "NATIVE_MOVEMENT_PASS: $($motion.Groups[1].Value) inputs; $($motion.Groups[2].Value) metres displacement."
 }
 Write-Output "ENGINE_PROBE_PASS: guest model updated $($renderEvidence.Groups[1].Value) times, submitted $($renderEvidence.Groups[2].Value) times, and removed; original saves unchanged."
 Write-Output 'Presentation probe only. Shared-world gameplay and visual appearance quality are not verified.'

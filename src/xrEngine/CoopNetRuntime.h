@@ -5,4 +5,5 @@ void report(const char* text);
 void command(const char* name, const char* arguments);
 void update(double elapsed);
 void stop();
+bool simulation_active();
 }

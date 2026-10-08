@@ -339,7 +339,7 @@ void game_sv_Single::on_death(CSE_Abstract* e_dest, CSE_Abstract* e_src)
 {
 	inherited::on_death(e_dest, e_src);
 
-	if (!ai().get_alife())
+	if (!ai().get_alife() || !e_dest->m_bALifeControl)
 		return;
 
 	alife().on_death(e_dest, e_src);

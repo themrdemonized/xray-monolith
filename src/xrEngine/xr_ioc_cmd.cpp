@@ -1042,6 +1042,7 @@ void CCC_Register()
 	CMD1(CCC_CoopNet, "coop_disconnect");
 	CMD1(CCC_CoopNet, "coop_status");
 	CMD1(CCC_CoopNet, "coop_replica_probe");
+	CMD1(CCC_CoopNet, "coop_movement_probe");
 	// General
 	CMD1(CCC_Help, "help");
 	CMD1(CCC_Quit, "quit");

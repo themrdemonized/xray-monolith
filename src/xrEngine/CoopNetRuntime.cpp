@@ -2,6 +2,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <cmath>
 namespace {
 void coopnet_log(const char* format, ...) {
     char text[1024];
@@ -56,6 +57,19 @@ struct Session {
     std::string host_visual;
     std::set<coopnet::Identity> presented;
     bool replica_probe = false;
+    bool movement_probe = false;
+    bool automated_controls = false;
+    unsigned corrections = 0;
+    struct Guest {
+        coopnet::Identity entity = 0;
+        std::uint16_t object = 0xffff;
+        std::uint32_t generation = 0, last_tick = 0;
+        std::uint64_t host_incarnation = 0;
+        float origin[3]{};
+        double distance = 0;
+        unsigned inputs = 0;
+    };
+    std::map<coopnet::Identity,Guest> guests;
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
 };
 std::unique_ptr<Session> session;
@@ -132,6 +146,69 @@ void present_client(Session& current, double elapsed) {
     for (const auto entity : current.presented) if (!visible.count(entity)) remove_remote_actor(entity);
     current.presented = std::move(visible);
 }
+void capture_guests(Session& current) {
+    if (!current.movement_probe) return;
+    LocalActorPose host;
+    const bool available = capture_local_actor(host);
+    for (auto it = current.guests.begin(); it != current.guests.end();) {
+        bool connected = false;
+        for (const auto& player : current.host.session().players())
+            if (player.id == it->first && player.connected) connected = true;
+        if (!available || !connected || it->second.host_incarnation != host.incarnation) {
+            auto& guest = it->second;
+            if (guest.generation) {
+                current.host.remove_actor(guest.entity,guest.generation);
+                current.entities.unbind(guest.entity,guest.generation);
+            }
+            remove_guest_actor(guest.object);
+            Msg("* CoopNet guest simulation removed: inputs %u distance %.3f",guest.inputs,guest.distance);
+            current.entities.erase(guest.entity);
+            it = current.guests.erase(it);
+        } else ++it;
+    }
+    if (!available) return;
+    for (const auto& player : current.host.session().players()) {
+        if (player.id == 1 || !player.connected) continue;
+        auto found = current.guests.find(player.id);
+        if (found == current.guests.end()) {
+            const auto object = spawn_guest_actor();
+            if (object == 0xffff) continue;
+            Session::Guest value;
+            value.object = object; value.entity = current.entities.create(); value.host_incarnation = host.incarnation;
+            found = current.guests.emplace(player.id,value).first;
+        }
+        auto& guest = found->second;
+        LocalActorPose pose;
+        if (!capture_guest_actor(guest.object,pose)) continue;
+        if (!guest.generation) {
+            if (!current.entities.bind(guest.entity,{1,pose.level,pose.object}))
+                throw std::runtime_error("Guest native binding failed");
+            guest.generation = current.entities.find(guest.entity)->generation;
+            if (!current.host.create_actor({guest.entity,player.id,player.character,guest.generation,pose.level,pose.visual}))
+                throw std::runtime_error("Guest actor publication failed");
+            for (unsigned axis = 0; axis < 3; ++axis) guest.origin[axis] = pose.position[axis];
+            Msg("* CoopNet native guest bound: object %u generation %u",guest.object,guest.generation);
+        }
+        coopnet::ActorInput input;
+        const bool active = current.host.latest_input(player.id,input);
+        if (active) ++guest.inputs;
+        control_guest_actor(guest.object,active ? input.buttons : 0,active ? input.yaw : pose.rotation[1],
+            active ? input.pitch : pose.rotation[0]);
+        const double dx = pose.position[0] - guest.origin[0], dz = pose.position[2] - guest.origin[2];
+        guest.distance = (std::max)(guest.distance,std::sqrt(dx * dx + dz * dz));
+        if (guest.last_tick == current.tick) continue;
+        guest.last_tick = current.tick;
+        coopnet::ActorSnapshot snapshot;
+        snapshot.entity = guest.entity; snapshot.generation = guest.generation; snapshot.level = pose.level;
+        snapshot.tick = current.tick; snapshot.time_us = current.server_us;
+        snapshot.movement = pose.movement; snapshot.stance = pose.stance;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            snapshot.position[axis] = pose.position[axis]; snapshot.velocity[axis] = pose.velocity[axis];
+            snapshot.rotation[axis] = pose.rotation[axis];
+        }
+        if (!current.host.publish_snapshot(snapshot)) throw std::runtime_error("Invalid native guest snapshot");
+    }
+}
 void send_client_controls(Session& current, double elapsed) {
     const auto due = current.ticks.advance(elapsed);
     if (!due || current.client.session().state() != coopnet::ClientState::Connected) return;
@@ -145,12 +222,28 @@ void send_client_controls(Session& current, double elapsed) {
     if (!owned.entity) return;
     coopnet::ActorInput input{owned.entity,owned.generation,owned.level,current.input_sequence,
         controls.buttons,controls.yaw,controls.pitch};
+    if (current.automated_controls) {
+        // Explicit automated test stimulus through the real client input channel.
+        static constexpr std::uint16_t directions[] = {1,2,4,8};
+        input.buttons = directions[(current.input_sequence % 200) / 50];
+        input.yaw = 0; input.pitch = 0;
+    }
     // Sending may disconnect and clear the replica registry; send after traversal.
     current.client.send_input(input);
 }
 }
 void stop() {
-    if (session) { clear_remote_actors(); session.reset(); Msg("* CoopNet session stopped"); }
+    if (session) {
+        if (session->movement_probe && session->mode == coopnet::Mode::Client)
+            Msg("* CoopNet owned native snapshots applied: %u",session->corrections);
+        for (const auto& entry : session->guests)
+            Msg("* CoopNet guest simulation removed: inputs %u distance %.3f",entry.second.inputs,entry.second.distance);
+        clear_guest_actors(); clear_remote_actors(); session.reset(); Msg("* CoopNet session stopped");
+    }
+}
+bool simulation_active() {
+    return session && session->movement_probe && (session->mode == coopnet::Mode::Host ||
+        session->client.session().state() == coopnet::ClientState::Connected);
 }
 void update(double) {
     if (!session) return;
@@ -170,6 +263,7 @@ void update(double) {
             }
             session->host.update(elapsed);
             capture_host(*session, elapsed);
+            capture_guests(*session);
             if (session->replica_probe && session->host_actor) {
                 const auto* actor = session->entities.find(session->host_actor);
                 if (actor && actor->active) for (const auto& player : session->host.session().players()) {
@@ -219,6 +313,15 @@ void command(const char* name, const char* arguments) {
             Msg("* CoopNet replica probe: display test with independent copied worlds; shared gameplay is not enabled");
             return;
         }
+        if (!strcmp(name,"coop_movement_probe")) {
+            if (!session) throw std::runtime_error("Start a session before the movement probe");
+            session->replica_probe = true; session->movement_probe = true;
+            session->automated_controls = !strcmp(arguments,"auto");
+            begin_guest_simulation();
+            Msg("* CoopNet native movement probe enabled: automatic controls %u; independent client world; gameplay authority pending",
+                static_cast<unsigned>(session->automated_controls));
+            return;
+        }
         if (!strcmp(name, "coop_status")) {
             if (!session) { Msg("* CoopNet offline"); return; }
             if (session->mode == coopnet::Mode::Host) {
@@ -254,6 +357,9 @@ void command(const char* name, const char* arguments) {
             next->client.set_snapshot_sink([owner](const coopnet::ActorSnapshot& snapshot) {
                 if (!owner->server_clock_known || snapshot.time_us > owner->server_us) owner->server_us = snapshot.time_us;
                 owner->server_clock_known = true;
+                const auto* actor = owner->client.actors().find(snapshot.entity);
+                if (owner->movement_probe && actor && actor->player == owner->client.session().welcome().player &&
+                    reconcile_local_actor(snapshot.level,snapshot.position.data(),snapshot.velocity.data())) ++owner->corrections;
             });
             next->mode = coopnet::Mode::Client;
         } else throw std::invalid_argument("Unknown CoopNet command");
@@ -266,6 +372,7 @@ void command(const char* name, const char* arguments) {
 namespace engine_coopnet {
 void update(double) {}
 void stop() {}
+bool simulation_active() { return false; }
 void command(const char*, const char*) { Msg("! CoopNet unavailable: build with -CoopNet after setup-coopnet-deps.ps1"); }
 }
 #endif

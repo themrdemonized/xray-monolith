@@ -38,7 +38,7 @@ Checks: two actors on one map; camera/input isolation; destroy/rejoin with no st
 
 Use the gates in MULTI_LEVEL_ASSESSMENT.md. Choose the architecture after measured proof, not from class names. Add per-player transition state with authoritative checkpoint, destination simulation preparation, LevelReady, actor recreation/rebind, and failure rollback. Never broadcast an ordinary single-player level change to all participants.
 
-The user prioritizes player performance. Prototype coordinator/location workers first with direct player-to-worker movement traffic, capacity/latency-based placement, stable ownership, optional distributed hosting, and budgeted activation/preloading. Follow the performance benchmark gates in MULTI_LEVEL_ASSESSMENT.md before selecting deployment defaults; first entry alone does not decide the worker host.
+The user prioritizes player performance and now prioritizes reaching playable gameplay. Keep the immediate implementation on a single host and defer coordinator/location worker prototyping until canonical same-map gameplay works. No location-worker processes currently run in the engine implementation. Independent location residency remains a future requirement and still needs measured architecture selection using MULTI_LEVEL_ASSESSMENT.md; first entry alone does not decide ownership.
 
 Checks: A stays in Cordon while B moves to Garbage; both maps advance; disconnect/crash mid-transfer; repeated transitions; one entity/item owner; coordinated world save/load. Do not claim this requirement satisfied by offline ALife records alone.
 

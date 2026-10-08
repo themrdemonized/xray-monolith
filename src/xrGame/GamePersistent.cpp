@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "gamepersistent.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "../xrEngine/fmesh.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/gamemtllib.h"
@@ -1027,6 +1028,7 @@ void CGamePersistent::LoadTitle(bool change_tip, shared_str map_name)
 
 bool CGamePersistent::CanBePaused()
 {
+	if (engine_coopnet::simulation_active()) return false;
 	return IsGameTypeSingle() || (g_pGameLevel && Level().IsDemoPlay());
 }
 

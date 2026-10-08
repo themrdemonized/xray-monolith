@@ -1,6 +1,8 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls)
 $ErrorActionPreference = 'Stop'
 if ($ReplicaProbe -and !$LoadFixture) { throw 'ReplicaProbe requires LoadFixture and isolated copied worlds.' }
+if ($MovementProbe) { $ReplicaProbe = $true; if (!$LoadFixture) { throw 'MovementProbe requires LoadFixture.' } }
+if ($ManualControls -and !$MovementProbe) { throw 'ManualControls requires MovementProbe.' }
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
 $testRoot = Join-Path $PSScriptRoot '_build\coopnet-engine-test'
 $output = Join-Path $PSScriptRoot '_build\_game\bin_dbg'
@@ -33,6 +35,10 @@ foreach ($role in @('host', 'guest')) {
         'snd_volume_eff 0','snd_volume_music 0','r__framelimit 30',$startup,'coop_status') |
         Set-Content "$data\user.ltx" -Encoding ascii
     if ($ReplicaProbe) { Add-Content "$data\user.ltx" 'coop_replica_probe' -Encoding ascii }
+    if ($MovementProbe) {
+        $controls = if ($ManualControls) { 'coop_movement_probe' } else { 'coop_movement_probe auto' }
+        Add-Content "$data\user.ltx" $controls -Encoding ascii
+    }
     if ($LoadFixture -and ($role -eq 'host' -or $ReplicaProbe)) {
         $fixture = Join-Path $client 'appdata\savedgames\player - autosave.scop'
         if (!(Test-Path $fixture)) { throw 'The disposable gameplay test fixture source save is missing.' }

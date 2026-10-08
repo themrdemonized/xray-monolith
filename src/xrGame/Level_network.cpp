@@ -122,6 +122,7 @@ extern CUISequencer* g_tutorial2;
 void CLevel::net_Stop()
 {
 	engine_coopnet::clear_remote_actors();
+	engine_coopnet::clear_guest_actors();
 	Msg("- Disconnect");
 
 	if (CurrentGameUI())
@@ -152,6 +153,7 @@ void CLevel::net_Stop()
 		SaveDemoInfo();
 
 	remove_objects();
+	engine_coopnet::guest_level_stopped();
 
 	//WARNING ! remove_objects() uses this flag, so position of this line must e here ..
 	game_configured = FALSE;

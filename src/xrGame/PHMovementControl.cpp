@@ -1271,6 +1271,11 @@ void CPHMovementControl::UpdateObjectBox(CPHCharacter* ach)
 {
 	if (!m_character || !m_character->b_exist) 
 		return;
+	// Actor controllers already own their collision box and movement input.
+	// The NPC restriction adjustment below clears acceleration and must not
+	// run on another player standing near the current actor.
+	if (m_character->CastActorCharacter())
+		return;
 
 	if (!ach || !ach->b_exist) 
 		return;
