@@ -21,6 +21,8 @@
 
         scale_hud_motion_marks_by_speed [1; 0] // flag to scale motion marks by speed, default is on
 
+        npc_dont_drop_weapons_on_death [0; 1] // flag to disable NPCs dropping weapons on death
+
         telekinetic_objects_include_corpses [0; 1] // Enable the ability for poltergeists and burers to throw corpses
         
         sds_enable [0; 1] // Enable shader based scopes

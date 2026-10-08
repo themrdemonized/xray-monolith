@@ -867,6 +867,11 @@
 	<string id="ui_mm_stalkers_modded_exes">
 		<text>Stalkers</text>
 	</string>
+
+	<string id="ui_mm_modded_exes_gameplay_stalkers_npc_dont_drop_weapons_on_death">
+		<text>NPCs dont drop weapons on death (npc_dont_drop_weapons_on_death)</text>
+	</string>
+
 	<string id="ui_mm_modded_exes_gameplay_stalkers_g_npcs_look_at_actor">
 		<text>Stalkers look at player when upclose (g_npcs_look_at_actor)</text>
 	</string>
