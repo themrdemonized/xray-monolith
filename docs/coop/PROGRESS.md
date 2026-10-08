@@ -1,6 +1,16 @@
 # Implementation progress
 
-Goal: implement and verify every CoopNet phase, including independent level residency, gameplay authority, portable characters, persistence, and eventual quest/script synchronization. The goal is not complete.
+Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. Independent active locations and location workers are deferred. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
+
+## Shared-world default and party travel checkpoint — 2026-10-08
+
+Protocol 10 enables the existing canonical host-world integration directly through host/join. The host checks every connected player's native collision contact with the same enabled level changer. A one-second dwell requires everyone to stay inside; stepping out, switching exits or changing connected identities/generations resets the barrier. Travel status is reliable and visible in the HUD log. Native/script/dialog level changes are gated so guests cannot leave alone. The host suspends old map interest, performs the native transition, sends fresh destination snapshots, and marks arrival only after all connected guests validate/load/acknowledge the destination. Post-arrival disarming prevents bouncing through reciprocal exits. Input is gated during loading; loading fails after 180 seconds.
+
+All nine standalone suites and the enabled engine build passed. The 150-second native party probe passed: one entrant waited, departing reset gathering, both actors entered the same exit, and both clients loaded a different map (logical level 3 to 2). Source and destination snapshot hashes matched; original saves were unchanged; existing movement, loot replay, host damage, NPC replication, rendering and shutdown assertions passed. Probe displacement includes deliberate native positioning and must not be interpreted as naturally walked distance. Logs: `_build/coopnet-party-unit.log`, `_build/coopnet-party-build.log`, `_build/coopnet-party-engine.log`.
+
+The first native party run found an uninitialized font in the single-player plain-text HUD log. Initializing that log's native font fixed `CUILines::Draw: m_pFont`; the corrected test rendered travel notices and completed map loading. Fatal assertions now honor `-silent_error_mode` after flushing diagnostics, so automatic tests exit without blocking desktop dialogs.
+
+This is a verified group-travel integration, not completion of normal combat/inventory, dynamic NPC lifecycles, durable guest character/equipment state or quests. Guest equipment/condition is not preserved across maps yet. See PARTY_TRAVEL.md.
 
 ## Passive world and NPC checkpoint — 2026-10-08
 

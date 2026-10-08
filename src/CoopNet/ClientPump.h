@@ -8,6 +8,7 @@
 #include "Gameplay.h"
 #include "WorldBaseline.h"
 #include "WorldState.h"
+#include "PartyTransition.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -21,6 +22,9 @@ class ClientPump {
     bool ready_sent_ = false;
     double handshake_time_ = 0;
     std::function<void(const ActorSnapshot&)> snapshot_sink_;
+    PartyStatus party_status_;
+    SequenceWindow party_sequences_;
+    std::function<void(const PartyStatus&)> party_sink_;
     std::function<void(const WorldState&)> world_sink_;
     std::map<Identity,std::pair<Identity,SequenceWindow>> world_sequences_;
     ActorReplicas actors_;
@@ -48,6 +52,7 @@ class ClientPump {
     }
     static constexpr double timeout_ = 10;
     void attach(std::unique_ptr<Transport> transport, const ClientHello& hello) {
+        party_status_={}; party_sequences_={};
         if (!transport) throw std::invalid_argument("Missing client transport");
         transport_ = std::move(transport); roster_.reset(); actors_ = {}; assignment_ = {}; assignments_ = {};
         level_ready_sent_ = false; transfer_failure_ = TransferFailure::None; sent_ = false; ready_sent_ = false; handshake_time_ = 0;
@@ -147,6 +152,8 @@ public:
     // The engine adapter owns entity bindings and rejects stale generations/levels.
     void set_snapshot_sink(std::function<void(const ActorSnapshot&)> sink) { snapshot_sink_ = std::move(sink); }
     void set_world_sink(std::function<void(const WorldState&)> sink) { world_sink_=std::move(sink); }
+    void set_party_sink(std::function<void(const PartyStatus&)> sink) { party_sink_=std::move(sink); }
+    const PartyStatus& party_status() const { return party_status_; }
     void start(std::unique_ptr<Transport> transport, Identity character, BuildIdentity build) {
         if (!transport) throw std::invalid_argument("Missing client transport");
         attach(std::move(transport), session_.begin(character, build));
@@ -209,6 +216,13 @@ public:
                 if (baseline_assembly_.complete()) {
                     if (!baseline_sink_ || !baseline_sink_(baseline_,baseline_assembly_.bytes())) { lost(); return; }
                     baseline_validated_=true; baseline_assembly_.clear();
+                }
+            } else if (frame.message==Message::PartyStatus) {
+                PartyStatus status;
+                if (!decode_party_status(frame.payload,status) || status.revision!=frame.sequence) { lost(); return; }
+                if (party_sequences_.accept(status.revision)) {
+                    party_status_=status;
+                    if (party_sink_) party_sink_(status);
                 }
             } else if (frame.message==Message::WorldState) {
                 WorldState state;

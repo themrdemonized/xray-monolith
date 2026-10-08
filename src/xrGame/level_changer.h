@@ -43,9 +43,13 @@ public:
 	virtual bool IsVisibleForZones() { return false; }
 	void EnableLevelChanger(bool b) { m_b_enabled = b; }
 	bool IsLevelChangerEnabled() const { return m_b_enabled; }
+    bool coopnet_contains(CObject* object);
+    u32 coopnet_destination() const;
+    bool coopnet_transition();
 	void SetLEvelChangerInvitationStr(LPCSTR str) { m_invite_str = str; }
 	//serialization
 	virtual BOOL net_SaveRelevant();
 	virtual void save(NET_Packet& output_packet);
 	virtual void load(IReader& input_packet);
 };
+extern xr_vector<CLevelChanger*> g_lchangers;

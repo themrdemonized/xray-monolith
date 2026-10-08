@@ -13,6 +13,16 @@ bool load_world_baseline(const char* name);
 bool world_baseline_loaded(const char* name);
 void begin_world_replication();
 void end_world_replication();
+struct NativePartyExit {
+    std::uint16_t object=0xffff;
+    std::uint32_t destination=0;
+    unsigned present=0;
+};
+bool capture_party_exit(const std::vector<std::uint16_t>& actors,NativePartyExit& exit);
+bool perform_party_transition(std::uint16_t exit);
+bool prepare_party_probe(std::uint16_t& exit,float* origin);
+bool position_party_probe(std::uint16_t actor,std::uint16_t exit,const float* origin,bool at_exit);
+void display_party_status(unsigned stage,unsigned present,unsigned required,std::uint32_t destination);
 struct NativeWorldPose {
     std::uint16_t object=0xffff;
     std::uint64_t incarnation=0;

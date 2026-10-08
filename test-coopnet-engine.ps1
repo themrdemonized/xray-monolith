@@ -1,5 +1,6 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe)
 $ErrorActionPreference = 'Stop'
+if ($PartyProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
@@ -9,7 +10,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -101,5 +102,22 @@ if ($WorldProbe) {
         throw 'Host NPC state application or passive client frame/schedule dispatch evidence missing.'
     }
     Write-Output 'NATIVE_NPC_REPLICATION_PASS: host NPC states applied to passive client world objects; native frame and schedule dispatch bypassed local simulation.'
+}
+if ($PartyProbe) {
+    $destination=[regex]::Match($logs.host,'CoopNet party probe destination arrived: level ([1-9]\d*)');
+    $snapshots=[regex]::Matches($logs.host,'CoopNet canonical baseline captured: (coopnet-[0-9a-f]{16}) bytes ([1-9]\d*) level ([1-9]\d*)');
+    if (!$destination.Success -or $logs.host -notmatch 'CoopNet party probe lone entrant held' -or
+        $logs.host -notmatch 'CoopNet party probe departure reset' -or $snapshots.Count -lt 2 -or
+        $logs.guest -notmatch "CoopNet party travel: stage 3 present 2 required 2 destination $($destination.Groups[1].Value)") {
+        throw 'Native lone entrant, departure reset, second snapshot and whole-party destination evidence missing.'
+    }
+    $last=$snapshots[$snapshots.Count-1];
+    if ($last.Groups[3].Value -ne $destination.Groups[1].Value -or $last.Groups[3].Value -eq $snapshots[0].Groups[3].Value) {
+        throw 'Party did not travel to a different native map.'
+    }
+    $name=$last.Groups[1].Value+'.scop';
+    if ((Get-FileHash -LiteralPath "$testRoot\host\appdata\savedgames\$name").Hash -ne
+        (Get-FileHash -LiteralPath "$testRoot\guest\appdata\savedgames\$name").Hash) { throw 'Destination snapshot hashes differ.' }
+    Write-Output "NATIVE_PARTY_TRANSITION_PASS: lone entrant waited, departure reset gathering, both clients loaded destination level $($destination.Groups[1].Value)."
 }
 Write-Output 'Development fixture only. Dynamic NPC lifecycles, item replication, normal combat/inventory controls and persistence are not verified.'

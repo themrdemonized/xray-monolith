@@ -1,5 +1,7 @@
 # CoopNet implementation sequence
 
+Current user-selected scope (2026-10-08): one host simulates one active location; all connected players gather at the same native exit and travel together. Independent active locations and location workers are deferred. PARTY_TRAVEL.md describes the current integration; the later independent-residency milestones below remain historical planning rather than current delivery requirements.
+
 This plan covers the recovered requirements and the audited source. It is a newly written engineering plan, not the missing tail of the original master document. Recover the original remaining sections before treating it as the full historical implementation plan.
 
 ## Phase 0 — completed setup and static reconnaissance

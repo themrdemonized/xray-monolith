@@ -277,6 +277,12 @@ void xrDebug::backend(const char* expression, const char* description, const cha
     if (IsDebuggerPresent())
         DebugBreak();
 
+	// Automated probes must preserve diagnostics without opening a blocking desktop dialog.
+	if (strstr(GetCommandLine(),"-silent_error_mode")) {
+		CS.Leave();
+		TerminateProcess(GetCurrentProcess(),1);
+		return;
+	}
 	ShowCursor(true);
 	ShowWindow(GetActiveWindow(), SW_FORCEMINIMIZE);
 	MessageBox(

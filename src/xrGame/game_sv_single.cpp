@@ -9,6 +9,7 @@
 #include "gamepersistent.h"
 #include "xrServer.h"
 #include "../CoopNet/EngineActorBridge.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "../xrEngine/x_ray.h"
 #include "../xrEngine/dedicated_server_only.h"
 #include "../xrEngine/no_single.h"
@@ -236,6 +237,7 @@ void game_sv_Single::SetEnvironmentGameTimeFactor(const float fTimeFactor)
 
 bool game_sv_Single::change_level(NET_Packet& net_packet, ClientID sender)
 {
+    if (!engine_coopnet::party_level_change_allowed()) return false;
 	if (ai().get_alife())
 		return (alife().change_level(net_packet));
 	else

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <dinput.h>
 #include "Actor.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "Torch.h"
 #include "trade.h"
 #include "../xrEngine/CameraBase.h"
@@ -42,6 +43,7 @@ extern u32 hud_adj_mode;
 
 void CActor::IR_OnKeyboardPress(int cmd)
 {
+    if (!engine_coopnet::party_controls_enabled()) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote()) return;
@@ -350,6 +352,7 @@ void CActor::IR_OnKeyboardRelease(int cmd)
 
 void CActor::IR_OnKeyboardHold(int cmd)
 {
+    if (!engine_coopnet::party_controls_enabled()) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
 	if (Remote() || !g_Alive()) return;

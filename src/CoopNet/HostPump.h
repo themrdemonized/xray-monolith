@@ -8,6 +8,7 @@
 #include "Gameplay.h"
 #include "WorldBaseline.h"
 #include "WorldState.h"
+#include "PartyTransition.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -19,6 +20,7 @@ class HostPump {
         std::size_t queued_bytes = 0;
         Identity player = 0;
         bool fresh = false, ready = false, rejected = false;
+        std::uint32_t party_revision=0;
         double elapsed = 0;
         std::uint32_t level = 0;
         LevelAssignment assignment;
@@ -39,6 +41,7 @@ class HostPump {
         double baseline_time=0, baseline_budget=65536;
     };
     HostSession session_;
+    PartyStatus party_status_;
     Identity id_ = 0;
     std::uint32_t revision_ = 0;
     std::function<Identity()> tokens_;
@@ -164,6 +167,22 @@ class HostPump {
         return true;
     }
 public:
+    bool level_ready(Identity player,std::uint32_t level) const {
+        for (const auto& peer:peers_) if (peer.player==player)
+            return peer.ready && !peer.assigned && peer.baseline_received && peer.level==level && peer.transport->connected();
+        return false;
+    }
+    void suspend_world() {
+        for (auto& peer:peers_) if (peer.ready) {
+            if (peer.assigned) failed(peer,TransferFailure::Cancelled);
+            set_interest_level(peer.player,0); peer.baseline={}; peer.baseline_bytes.reset();
+            peer.baseline_started=false; peer.baseline_received=false;
+        }
+    }
+    void publish_party_status(PartyStatus status) {
+        if (!valid_party_status(status)) throw std::invalid_argument("Invalid party status");
+        status.revision=party_status_.revision+1; party_status_=status;
+    }
     Identity identity() const { return id_; }
     bool publish_world_state(const WorldState& state) {
         if (session_.mode()!=Mode::Host || !valid_world_state(state)) return false;
@@ -338,6 +357,11 @@ public:
             if ((!peer.ready && peer.elapsed >= 10) || (peer.rejected && peer.elapsed >= 1)) keep = false;
             if (keep && peer.transport->connected()) {
                 keep=receive(peer);
+                if (keep && peer.ready && peer.party_revision!=party_status_.revision && peer.outgoing.size()<48) {
+                    keep=queue(peer,{Message::PartyStatus,Channel::Transition,Delivery::ReliableOrdered,
+                        party_status_.revision,encode_party_status(party_status_)});
+                    if (keep) peer.party_revision=party_status_.revision;
+                }
                 if (keep && peer.baseline_bytes && !peer.baseline_started && peer.outgoing.size()<48) {
                     keep=queue(peer,{Message::WorldBaseline,Channel::World,Delivery::ReliableOrdered,0,encode_baseline(peer.baseline)});
                     peer.baseline_started=keep;

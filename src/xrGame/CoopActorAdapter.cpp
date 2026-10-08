@@ -19,6 +19,9 @@
 #include "../CoopNet/EngineWorldBridge.h"
 #include "../CoopNet/WorldState.h"
 #include "entity_alive.h"
+#include "level_changer.h"
+#include "UIGameCustom.h"
+#include "ui/UIMessagesWindow.h"
 #include "alife_simulator.h"
 #include "saved_game_wrapper.h"
 #include "game_sv_single.h"
@@ -52,6 +55,52 @@ void begin_world_replication() {
     }
 }
 void end_world_replication() { collect_world_objects=false; }
+bool capture_party_exit(const std::vector<std::uint16_t>& actors,NativePartyExit& exit) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || world_level_is_replica()) return false;
+    exit={};
+    for (auto* changer:g_lchangers) {
+        const auto destination=changer->coopnet_destination();
+        if (!destination || changer->getDestroy()) continue;
+        unsigned present=0;
+        for (auto id:actors) if (id!=0xffff && changer->coopnet_contains(Level().Objects.net_Find(id))) ++present;
+        if (present>exit.present) exit={changer->ID(),destination,present};
+    }
+    return exit.present!=0;
+}
+bool perform_party_transition(std::uint16_t exit) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || world_level_is_replica()) return false;
+    auto* changer=smart_cast<CLevelChanger*>(Level().Objects.net_Find(exit));
+    return changer && !changer->getDestroy() && changer->coopnet_transition();
+}
+bool prepare_party_probe(std::uint16_t& exit,float* origin) {
+    LocalActorPose local; if (!capture_local_actor(local) || world_level_is_replica()) return false;
+    for (unsigned axis=0;axis<3;++axis) origin[axis]=local.position[axis];
+    float best=FLT_MAX; exit=0xffff;
+    for (auto* changer:g_lchangers) if (changer->coopnet_destination() && changer->coopnet_destination()!=local.level) {
+        Fvector center; changer->Center(center); const auto distance=center.distance_to_sqr(g_actor->Position());
+        if (distance<best) { best=distance; exit=changer->ID(); }
+    }
+    return exit!=0xffff;
+}
+bool position_party_probe(std::uint16_t actor_id,std::uint16_t exit,const float* origin,bool at_exit) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || world_level_is_replica()) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(actor_id));
+    auto* changer=smart_cast<CLevelChanger*>(Level().Objects.net_Find(exit));
+    if (!actor || !changer) return false;
+    Fmatrix transform=actor->XFORM();
+    if (at_exit) changer->Center(transform.c); else transform.c.set(origin[0],origin[1],origin[2]);
+    actor->ForceTransform(transform); return true;
+}
+void display_party_status(unsigned stage,unsigned present,unsigned required,std::uint32_t) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || !CurrentGameUI() || !CurrentGameUI()->m_pMessagesWnd) return;
+    string256 text;
+    if (stage==1) xr_sprintf(text,"Co-op travel: %u/%u players at the exit. Gather here to travel together.",present,required);
+    else if (stage==2) xr_strcpy(text,"Co-op travel: loading the next location. Waiting for the party.");
+    else if (stage==3) xr_strcpy(text,"Co-op travel: everyone has arrived.");
+    else if (stage==4) xr_strcpy(text,"Co-op travel failed. Check the host connection.");
+    else return;
+    CurrentGameUI()->m_pMessagesWnd->AddLogMessage(shared_str(text));
+}
 bool capture_world_objects(std::uint32_t& level,std::vector<NativeWorldPose>& objects) {
     LocalActorPose local;
     if (!capture_local_actor(local) || world_level_is_replica()) return false;

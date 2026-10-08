@@ -94,6 +94,17 @@ struct Session {
     std::map<coopnet::Identity,std::pair<std::uint32_t,std::uint64_t>> world_sent;
     std::uint32_t world_tick=0;
     unsigned world_updates=0;
+    bool party_loading=false, party_authorized=false;
+    double party_elapsed=0;
+    std::uint32_t party_source=0;
+    coopnet::PartyStatus party_status;
+    coopnet::PartyBarrier party_barrier;
+    std::vector<std::pair<coopnet::Identity,std::uint32_t>> party_members;
+    bool party_disarmed=false,party_probe=false;
+    unsigned party_probe_phase=0;
+    double party_probe_time=0;
+    std::uint16_t party_probe_exit=0xffff;
+    float party_probe_origin[3]{};
     unsigned condition_corrections=0, inventory_accepts=0, gameplay_phase=0;
     double gameplay_wait=0;
     bool gameplay_pending=false;
@@ -120,6 +131,92 @@ struct Session {
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
 };
 std::unique_ptr<Session> session;
+void party_status(Session& current,coopnet::PartyStage stage,unsigned present,unsigned required,std::uint32_t destination) {
+    const auto& previous=current.party_status;
+    if (previous.stage==stage && previous.present==present && previous.required==required && previous.destination==destination) return;
+    current.party_status={0,destination,stage,static_cast<std::uint8_t>(present),static_cast<std::uint8_t>(required)};
+    current.host.publish_party_status(current.party_status);
+    display_party_status(static_cast<unsigned>(stage),present,required,destination);
+    Msg("* CoopNet party travel: stage %u present %u required %u destination %u",static_cast<unsigned>(stage),present,required,destination);
+}
+void update_party(Session& current,double elapsed) {
+    if (!current.world_probe) return;
+    LocalActorPose host; const bool available=capture_local_actor(host);
+    unsigned required=0,loaded=0;
+    std::vector<std::pair<coopnet::Identity,std::uint32_t>> members;
+    std::vector<std::uint16_t> actors;
+    for (const auto& player:current.host.session().players()) if (player.connected) {
+        ++required;
+        members.emplace_back(player.id,player.generation);
+        if (player.id==1) {
+            actors.push_back(available ? host.object : 0xffff);
+            if (available && host.level==current.party_status.destination) ++loaded;
+        } else {
+            const auto guest=current.guests.find(player.id);
+            actors.push_back(guest!=current.guests.end() && guest->second.generation ? guest->second.object : 0xffff);
+            if (current.host.level_ready(player.id,current.party_status.destination)) ++loaded;
+        }
+    }
+    if (members!=current.party_members) { current.party_barrier.reset(); current.party_members=std::move(members); }
+    if (current.party_loading) {
+        current.party_elapsed+=elapsed;
+        if (available && host.level==current.party_status.destination && loaded==required) {
+            current.party_loading=false; current.party_barrier.reset();
+            current.party_disarmed=true;
+            party_status(current,coopnet::PartyStage::Arrived,loaded,required,host.level);
+        } else if (current.party_elapsed>=180) {
+            party_status(current,coopnet::PartyStage::Failed,loaded,required,current.party_status.destination);
+            throw std::runtime_error("Party destination loading timed out");
+        } else party_status(current,coopnet::PartyStage::Loading,loaded,required,current.party_status.destination);
+        return;
+    }
+    if (!available) { current.party_barrier.reset(); return; }
+    NativePartyExit exit;
+    if (!capture_party_exit(actors,exit) || exit.destination==host.level) {
+        current.party_disarmed=false;
+        current.party_barrier.reset();
+        if (current.party_status.stage==coopnet::PartyStage::Gathering)
+            party_status(current,coopnet::PartyStage::Idle,0,0,0);
+        return;
+    }
+    if (current.party_disarmed) return;
+    party_status(current,coopnet::PartyStage::Gathering,exit.present,required,exit.destination);
+    if (!current.party_barrier.update(exit.object+1,exit.present,required,elapsed)) return;
+    current.party_loading=true; current.party_elapsed=0; current.party_source=host.level;
+    current.host.suspend_world(); current.probe_assignments.clear();
+    party_status(current,coopnet::PartyStage::Loading,0,required,exit.destination);
+    current.party_authorized=true;
+    const bool started=perform_party_transition(exit.object);
+    current.party_authorized=false;
+    if (!started) throw std::runtime_error("Native party transition failed");
+}
+void update_party_probe(Session& current,double elapsed) {
+    if (!current.party_probe || current.guests.empty()) return;
+    LocalActorPose local; if (!capture_local_actor(local)) return;
+    auto& guest=current.guests.begin()->second;
+    if (!guest.generation || !current.host.level_ready(current.guests.begin()->first,local.level)) return;
+    current.party_probe_time+=elapsed;
+    if (current.party_probe_phase==0 && guest.drop_observed && guest.damage_sent && current.party_probe_time>12) {
+        if (!prepare_party_probe(current.party_probe_exit,current.party_probe_origin) ||
+            !position_party_probe(local.object,current.party_probe_exit,current.party_probe_origin,true))
+            throw std::runtime_error("Party probe exit preparation failed");
+        current.party_probe_phase=1; current.party_probe_time=0;
+    } else if (current.party_probe_phase==1 && current.party_probe_time>2) {
+        if (current.party_status.stage!=coopnet::PartyStage::Gathering || current.party_status.present!=1 || current.party_status.required!=2)
+            throw std::runtime_error("Party probe lone entrant was not held");
+        Msg("* CoopNet party probe lone entrant held");
+        position_party_probe(local.object,current.party_probe_exit,current.party_probe_origin,false);
+        current.party_probe_phase=2; current.party_probe_time=0;
+    } else if (current.party_probe_phase==2 && current.party_probe_time>2) {
+        if (current.party_status.stage!=coopnet::PartyStage::Idle) throw std::runtime_error("Party probe exit departure did not reset gathering");
+        Msg("* CoopNet party probe departure reset");
+        position_party_probe(local.object,current.party_probe_exit,current.party_probe_origin,true);
+        position_party_probe(guest.object,current.party_probe_exit,current.party_probe_origin,true);
+        current.party_probe_phase=3; current.party_probe_time=0;
+    } else if (current.party_probe_phase==3 && current.party_status.stage==coopnet::PartyStage::Arrived) {
+        Msg("* CoopNet party probe destination arrived: level %u",local.level); current.party_probe_phase=4;
+    }
+}
 void publish_world(Session& current) {
     if (!current.world_probe || current.world_tick==current.tick) return;
     current.world_tick=current.tick;
@@ -141,6 +238,7 @@ void send_world_baselines(Session& current) {
     if (!current.world_probe) return;
     LocalActorPose local;
     if (!capture_local_actor(local)) return;
+    if (current.party_loading && local.level!=current.party_status.destination) return;
     for (const auto& player:current.host.session().players()) {
         const auto binding=std::make_pair(player.generation,local.incarnation);
         if (player.id==1 || !player.connected || current.world_sent[player.id]==binding || !current.host.participant_ready(player.id)) continue;
@@ -333,7 +431,7 @@ void capture_guests(Session& current) {
         coopnet::ActorInput input;
         const bool active = current.host.latest_input(player.id,input);
         if (active) ++guest.inputs;
-        control_guest_actor(guest.object,active ? input.buttons : 0,active ? input.yaw : pose.rotation[1],
+        control_guest_actor(guest.object,active && !current.party_loading && !(current.party_probe && current.party_probe_phase>0) ? input.buttons : 0,active ? input.yaw : pose.rotation[1],
             active ? input.pitch : pose.rotation[0]);
         const double dx = pose.position[0] - guest.origin[0], dz = pose.position[2] - guest.origin[2];
         guest.distance = (std::max)(guest.distance,std::sqrt(dx * dx + dz * dz));
@@ -425,6 +523,15 @@ bool simulation_active() {
     return session && session->movement_probe && (session->mode == coopnet::Mode::Host ||
         session->client.session().state() == coopnet::ClientState::Connected);
 }
+bool shared_world_active() { return session && session->world_probe; }
+bool party_level_change_allowed() {
+    return !shared_world_active() || (session->mode==coopnet::Mode::Host && session->party_authorized);
+}
+bool party_controls_enabled() {
+    if (!shared_world_active()) return true;
+    return session->mode==coopnet::Mode::Host ? !session->party_loading :
+        session->client.party_status().stage!=coopnet::PartyStage::Loading;
+}
 void update(double) {
     if (!session) return;
     try {
@@ -446,10 +553,14 @@ void update(double) {
             send_world_baselines(*session);
             capture_guests(*session);
             publish_world(*session);
+            update_party(*session,elapsed);
+            update_party_probe(*session,elapsed);
             if (session->replica_probe && session->host_actor) {
                 const auto* actor = session->entities.find(session->host_actor);
                 if (actor && actor->active) for (const auto& player : session->host.session().players()) {
                     if (player.id != 1 && player.connected && session->probe_assignments[player.id] != player.generation &&
+                        (!session->world_probe || session->host.baseline_received(player.id)) &&
+                        (!session->party_loading || actor->engine.level==session->party_status.destination) &&
                         session->host.assign_level(player.id,actor->engine.level,random_identity())) {
                         session->probe_assignments[player.id] = player.generation;
                     }
@@ -496,6 +607,10 @@ void update(double) {
 void command(const char* name, const char* arguments) {
     try {
         if (!strcmp(name, "coop_disconnect")) { stop(); Msg("* CoopNet offline"); return; }
+        if (!strcmp(name,"coop_party_probe")) {
+            if (!session || session->mode!=coopnet::Mode::Host) throw std::runtime_error("Party probe requires a host");
+            session->party_probe=true; Msg("* CoopNet party transition probe enabled"); return;
+        }
         if (!strcmp(name,"coop_gameplay_probe")) {
             if (!session || !session->movement_probe) throw std::runtime_error("Gameplay probe requires an active native movement probe");
             session->gameplay_probe=true;
@@ -564,6 +679,10 @@ void command(const char* name, const char* arguments) {
                 if (!(received%65536) || received==manifest.size)
                     Msg("* CoopNet canonical baseline receiving: id %llu bytes %u/%u",manifest.id,received,manifest.size);
             });
+            next->client.set_party_sink([](const coopnet::PartyStatus& status) {
+                display_party_status(static_cast<unsigned>(status.stage),status.present,status.required,status.destination);
+                Msg("* CoopNet party travel: stage %u present %u required %u destination %u",static_cast<unsigned>(status.stage),status.present,status.required,status.destination);
+            });
             next->client.set_baseline_sink([owner](const coopnet::WorldBaseline& manifest,const std::vector<std::uint8_t>& bytes) {
                 if (!owner->world_probe) { Msg("! CoopNet canonical baseline requires world mode"); return false; }
                 if (baseline_digest(bytes)!=manifest.digest) { Msg("! CoopNet canonical baseline checksum mismatch"); return false; }
@@ -610,7 +729,9 @@ void command(const char* name, const char* arguments) {
             next->mode = coopnet::Mode::Client;
         } else throw std::invalid_argument("Unknown CoopNet command");
         session = std::move(next);
-        Msg("* CoopNet session started (transport only; use coop_status to inspect admission)");
+        session->world_probe=true; session->replica_probe=true; session->movement_probe=true;
+        begin_world_replication(); begin_guest_simulation();
+        Msg("* CoopNet shared host world started; party travels together");
     } catch (const std::exception& error) { Msg("! %s", error.what()); }
 }
 }
@@ -619,6 +740,9 @@ namespace engine_coopnet {
 void update(double) {}
 void stop() {}
 bool simulation_active() { return false; }
+bool shared_world_active() { return false; }
+bool party_level_change_allowed() { return true; }
+bool party_controls_enabled() { return true; }
 void command(const char*, const char*) { Msg("! CoopNet unavailable: build with -CoopNet after setup-coopnet-deps.ps1"); }
 }
 #endif

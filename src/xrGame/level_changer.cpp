@@ -16,6 +16,8 @@
 #include "ai_space.h"
 #include "level_graph.h"
 #include "game_level_cross_table.h"
+#include "game_graph.h"
+#include "../xrEngine/CoopNetRuntime.h"
 
 #include "UIGameSP.h"
 #include "../xrengine/xr_collide_form.h"
@@ -106,6 +108,7 @@ BOOL CLevelChanger::net_Spawn(CSE_Abstract* DC)
 void CLevelChanger::shedule_Update(u32 dt)
 {
 	inherited::shedule_Update(dt);
+    if (engine_coopnet::shared_world_active()) return;
 
 	const Fsphere& s = CFORM()->getSphere();
 	Fvector P;
@@ -120,6 +123,7 @@ void CLevelChanger::shedule_Update(u32 dt)
 
 void CLevelChanger::feel_touch_new(CObject* tpObject)
 {
+    if (engine_coopnet::shared_world_active()) return;
 	CActor* l_tpActor = smart_cast<CActor*>(tpObject);
 	VERIFY(l_tpActor);
 	if (!l_tpActor->g_Alive())
@@ -182,6 +186,7 @@ bool CLevelChanger::feel_touch_contact(CObject* object)
 
 void CLevelChanger::update_actor_invitation()
 {
+    if (engine_coopnet::shared_world_active()) return;
 	if (m_bSilentMode) return;
 	xr_vector<CObject*>::iterator it = feel_touch.begin();
 	xr_vector<CObject*>::iterator it_e = feel_touch.end();
@@ -207,6 +212,20 @@ void CLevelChanger::update_actor_invitation()
 			m_entrance_time = Device.fTimeGlobal;
 		}
 	}
+}
+
+bool CLevelChanger::coopnet_contains(CObject* object) {
+    return m_b_enabled && object && feel_touch_contact(object);
+}
+u32 CLevelChanger::coopnet_destination() const {
+    if (!m_b_enabled || !ai().get_game_graph() || !ai().game_graph().valid_vertex_id(m_game_vertex_id)) return 0;
+    return static_cast<u32>(ai().game_graph().vertex(m_game_vertex_id)->level_id())+1;
+}
+bool CLevelChanger::coopnet_transition() {
+    if (!coopnet_destination()) return false;
+    NET_Packet packet; packet.w_begin(M_CHANGE_LEVEL);
+    packet.w(&m_game_vertex_id,sizeof(m_game_vertex_id)); packet.w(&m_level_vertex_id,sizeof(m_level_vertex_id));
+    packet.w_vec3(m_position); packet.w_vec3(m_angles); Level().Send(packet,net_flags(TRUE)); return true;
 }
 
 void CLevelChanger::save(NET_Packet& output_packet)

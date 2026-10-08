@@ -2,7 +2,7 @@
 
 The active architecture is one host process. Location-worker hosting has been removed at the user's request; the earlier distributed-host proposal is superseded. Entity bindings now contain level and native object identity only.
 
-Independent residency remains unfinished: a player moving from Cordon to Garbage must eventually leave another player's active Cordon world uninterrupted. Offline ALife records alone cannot satisfy this requirement. Canonical same-map gameplay is the immediate milestone.
+The user selected shared location residency on 2026-10-08: players gather in one exit and the whole party moves together. Independent active maps are deferred. The engine constraints below remain research for a future expansion; they are not required by the current party-travel scope.
 
 ## Engine constraints
 

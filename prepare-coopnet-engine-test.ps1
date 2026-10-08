@@ -1,5 +1,6 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe)
 $ErrorActionPreference = 'Stop'
+if ($PartyProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true; $LoadFixture=$true }
 if ($ReplicaProbe -and !$LoadFixture) { throw 'ReplicaProbe requires LoadFixture and isolated copied worlds.' }
@@ -44,6 +45,7 @@ foreach ($role in @('host', 'guest')) {
     }
     if ($GameplayProbe) { Add-Content "$data\user.ltx" 'coop_gameplay_probe' -Encoding ascii }
     if ($WorldProbe) { Add-Content "$data\user.ltx" 'coop_world_probe' -Encoding ascii }
+    if ($PartyProbe -and $role -eq 'host') { Add-Content "$data\user.ltx" 'coop_party_probe' -Encoding ascii }
     if ($LoadFixture -and ($role -eq 'host' -or $ReplicaProbe) -and !($WorldProbe -and $role -eq 'guest')) {
         $fixture = Join-Path $client 'appdata\savedgames\player - autosave.scop'
         if (!(Test-Path $fixture)) { throw 'The disposable gameplay test fixture source save is missing.' }

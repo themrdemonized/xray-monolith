@@ -72,6 +72,7 @@ void CUIMessagesWindow::Init(float x, float y, float width, float height)
 	if (IsGameTypeSingle())
 	{
 		CUIXmlInit::InitScrollView(xml, "sp_log_list", 0, m_pGameLog);
+        m_pGameLog->SetTextAtrib(UI().Font().pFontLetterica16Russian,0xffffffff);
 	}
 	else
 	{
