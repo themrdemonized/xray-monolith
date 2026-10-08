@@ -77,6 +77,15 @@ void CUIProgressBar::SetProgressPos(float _Pos)
 	UpdateProgressBar();
 }
 
+void CUIProgressBar::SetProgressPosInstant(float _Pos)
+{
+	m_ProgressPos.y = _Pos;
+	m_ProgressPos.x = _Pos;
+	clamp(m_ProgressPos.y, m_MinPos, m_MaxPos);
+	clamp(m_ProgressPos.x, m_MinPos, m_MaxPos);
+	UpdateProgressBar();
+}
+
 float _sign(const float& v)
 {
 	return (v > 0.0f) ? +1.0f : -1.0f;

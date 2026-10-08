@@ -259,6 +259,12 @@ void CUIGameSP::StartCarBody(CInventoryOwner* pActorInv, CInventoryBox* pBox) //
 	ActorMenu->ShowDialog(true);
 }
 
+void CUIGameSP::TalkMenuSetVisible(bool vis)
+{
+	if (TalkMenu)
+		TalkMenu->SetVisible(vis);
+}
+
 
 extern ENGINE_API BOOL bShowPauseString;
 

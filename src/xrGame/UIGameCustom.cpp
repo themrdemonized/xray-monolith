@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "UIGameCustom.h"
+#include "UIGameSP.h"
 #include "level.h"
 #include "ui/UIXmlInit.h"
 #include "ui/UIStatic.h"
@@ -322,6 +323,13 @@ void CUIGameCustom::update_fake_indicators(u8 type, float power)
 void CUIGameCustom::enable_fake_indicators(bool enable)
 {
 	UIMainIngameWnd->get_hud_states()->EnableFakeIndicators(enable);
+}
+
+void CUIGameCustom::TalkMenuSetVisible(bool vis)
+{
+	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
+	if (pGameSP)
+		pGameSP->TalkMenuSetVisible(vis);
 }
 
 StaticDrawableWrapper::StaticDrawableWrapper()

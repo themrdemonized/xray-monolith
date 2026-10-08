@@ -12,6 +12,7 @@ CUICheckButton::CUICheckButton()
 {
 	TextItemControl()->SetTextAlignment(CGameFont::alLeft);
 	m_pDependControl = NULL;
+	m_manual_visual_state = -1; // -1 means automatic, >= 0 means manual
 }
 
 CUICheckButton::~CUICheckButton()
@@ -25,7 +26,20 @@ void CUICheckButton::SetDependControl(CUIWindow* pWnd)
 
 void CUICheckButton::Update()
 {
-	CUI3tButton::Update();
+	if (m_manual_visual_state >= 0)
+	{
+		// Only call button base class Update, skip CUI3tButton's visual state logic
+		CUIButton::Update();
+		if (m_background)
+		{
+			m_background->SetCurrentState((IBState)m_manual_visual_state);
+		}
+	}
+	else
+	{
+		CUI3tButton::Update();
+	}
+
 	if (m_pDependControl)
 		m_pDependControl->Enable(GetCheck());
 }

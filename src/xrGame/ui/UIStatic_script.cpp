@@ -45,6 +45,10 @@ void CUIStatic::script_register(lua_State* L)
 		.def("SetColorAnimation", &CUIStatic::SetColorAnimation)
 		.def("ResetColorAnimation", &CUIStatic::ResetColorAnimation)
 		.def("RemoveColorAnimation", &CUIStatic::RemoveColorAnimation)
+		.def("SetOnlyHeadingPivot", &CUIStatic::SetOnlyHeadingPivot)
+		.def("GetOnlyHeadingPivot", &CUIStatic::GetOnlyHeadingPivot)
+		.def("SetOnlyHeadingOffset", &CUIStatic::SetOnlyHeadingOffset)
+		.def("GetOnlyHeadingOffset", &CUIStatic::GetOnlyHeadingOffset)
 		,
 
 		class_<CUITextWnd, CUIWindow>("CUITextWnd")

@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "pch_script.h"
+#include "../xrEngine/LightAnimLibrary.h"
 #include "level.h"
 #include "actor.h"
 #include "script_game_object.h"
@@ -1055,6 +1056,11 @@ void remove_hud_motion_cam_effectors()
 	CActor* actor = Actor();
 	if (actor)
 		actor->Cameras().RemoveHudMotionEffectors();
+}
+
+bool is_demo_record()
+{
+    return g_pGameLevel->Cameras().GetCamEffector(ECamEffectorType::cefDemo);
 }
 
 float get_snd_volume()
@@ -2236,6 +2242,11 @@ void prefetch_model(LPCSTR name)
 {
 	::Render->models_PrefetchOne(name);
 }
+
+bool model_prefetched(LPCSTR name)
+{
+    return ::Render->models_Exists(name, true);
+}
 #endif
 //-Alundaio
 
@@ -2565,10 +2576,28 @@ void take_screenshot(LPCSTR path, Fvector2 dimensions, IRender_interface::DxEnco
 	Render->TakeScreenshot(path, dimensions, dx_encoding);
 }
 
+bool TopInputReceiver()
+{
+	return CurrentGameUI() && CurrentGameUI()->TopInputReceiver();
+}
 
 #pragma optimize("s",on)
 
 extern void open_originals_link();
+
+::luabind::object list_lanims()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	int i = 1;
+	for (auto& item : LALib.Items)
+	{
+		table[i] = *item->cName;
+		++i;
+	}
+
+	return table;
+}
 
 void CLevel::script_register(lua_State* L)
 {
@@ -2811,6 +2840,7 @@ void CLevel::script_register(lua_State* L)
             def("get_pp_effector_factor", &get_pp_effector_factor),
             def("get_pp_effector_length", &get_pp_effector_length),
             def("check_pp_effector", &check_pp_effector),
+			def("is_demo_record", &is_demo_record),
 
 			def("add_complex_effector", &add_complex_effector),
 			def("remove_complex_effector", &remove_complex_effector),
@@ -3011,7 +3041,9 @@ void CLevel::script_register(lua_State* L)
 		def("actor_lower_weapon", actor_set_safemode),
 		def("prefetch_texture", prefetch_texture),
 		def("prefetch_model", prefetch_model),
+		def("model_prefetched", model_prefetched),
 		def("get_visual_userdata", GetVisualUserdata),
+		def("list_lanims", list_lanims),
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
 		def("world2ui_many", world2ui_many),
@@ -3019,7 +3051,7 @@ void CLevel::script_register(lua_State* L)
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector&, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
-		
+		def("top_input_receiver", TopInputReceiver),
 		// demonized: adjust game news time
 		def("change_game_news_show_time", &change_game_news_show_time),
 		def("update_pda_news_from_uiwindow", &update_pda_news_from_uiwindow),
