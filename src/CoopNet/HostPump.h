@@ -7,6 +7,7 @@
 #include "ActorInput.h"
 #include "Gameplay.h"
 #include "WorldBaseline.h"
+#include "WorldState.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -163,6 +164,16 @@ class HostPump {
         return true;
     }
 public:
+    Identity identity() const { return id_; }
+    bool publish_world_state(const WorldState& state) {
+        if (session_.mode()!=Mode::Host || !valid_world_state(state)) return false;
+        const Frame frame{Message::WorldState,Channel::AI,Delivery::UnreliableSequenced,state.tick,encode_world_state(state)};
+        for (auto& peer:peers_) if (peer.ready && peer.baseline_received && !peer.assigned && peer.level==state.level) {
+            const auto result=peer.transport->send(frame);
+            if (result!=SendResult::Sent && result!=SendResult::Backpressure) peer.transport->close();
+        }
+        return true;
+    }
     bool participant_ready(Identity player) const {
         for (const auto& peer:peers_) if (peer.player==player) return peer.ready && peer.transport->connected();
         return false;

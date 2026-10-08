@@ -2,6 +2,7 @@
 #include "GameObject.h"
 #include "Actor.h"
 #include "../CoopNet/EngineActorBridge.h"
+#include "../CoopNet/EngineWorldBridge.h"
 //#include "../Include/xrRender/RenderVisual.h"
 #include "../Include/xrRender/RenderVisual.h"
 #include "../xrphysics/PhysicsShell.h"
@@ -124,7 +125,7 @@ void CGameObject::net_Destroy()
 	VERIFY(m_spawned);
 
 	::luabind::functor<void> funct;
-	if ((!cast_actor() || !cast_actor()->is_coopnet_guest()) &&
+    if (!engine_coopnet::world_replica_object(this) && (!cast_actor() || !cast_actor()->is_coopnet_guest()) &&
 		ai().script_engine().functor("_G.CGameObject_NetDestroy", funct))
 	{
 		funct(this->lua_game_object());
@@ -168,10 +169,12 @@ void CGameObject::net_Destroy()
 
 	xr_delete(m_lua_game_object);
 	m_spawned = false;
+	engine_coopnet::world_object_destroyed(this);
 }
 
 void CGameObject::OnEvent(NET_Packet& P, u16 type)
 {
+	if (engine_coopnet::world_replica_object(this) && (type==GE_HIT || type==GE_HIT_STATISTIC)) return;
 	switch (type)
 	{
 	case GE_HIT:
@@ -331,6 +334,7 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 
 
 	setID(E->ID);
+	engine_coopnet::world_object_spawned(this,E);
 	//	if (GameID() != eGameIDSingle)
 	//		Msg ("CGameObject::net_Spawn -- object %s[%x] setID [%d]", *(E->s_name), this, E->ID);
 
@@ -389,7 +393,8 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	}
 
 	// Only explicit CoopNet guests skip the offline local actor binder.
-	const bool bind_actor_scripts = !cast_actor() || !cast_actor()->is_coopnet_guest();
+	const bool bind_actor_scripts = !engine_coopnet::world_replica_object(this) &&
+		(!cast_actor() || !cast_actor()->is_coopnet_guest());
 	reload(*cNameSect());
 	if (!g_dedicated_server && bind_actor_scripts)
 		CScriptBinder::reload(*cNameSect());
@@ -461,7 +466,7 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 
 	m_bObjectRemoved = false;
 
-	spawn_supplies();
+	if (!engine_coopnet::world_level_is_replica()) spawn_supplies();
 	if (!bind_actor_scripts)
 		return TRUE;
 #ifdef DEBUG
@@ -1096,7 +1101,7 @@ void CGameObject::shedule_Update(u32 dt)
 	// Msg							("-SUB-:[%x][%s] CGameObject::shedule_Update",smart_cast<void*>(this),*cName());
 	inherited::shedule_Update(dt);
 
-	if (!g_dedicated_server)
+	if (!g_dedicated_server && !engine_coopnet::world_level_is_replica())
 		CScriptBinder::shedule_Update(dt);
 }
 

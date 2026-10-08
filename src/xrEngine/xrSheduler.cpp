@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "xrSheduler.h"
 #include "xr_object.h"
+#include "../CoopNet/EngineWorldBridge.h"
 
 //#define DEBUG_SCHEDULER
 
@@ -365,7 +366,8 @@ void CSheduler::ProcessStep()
 
 		m_current_step_obj = T.Object;
 		// try {
-		T.Object->shedule_Update(clampr(Elapsed, u32(1), u32(_max(u32(T.Object->shedule.t_max), u32(1000)))));
+		const auto elapsed=clampr(Elapsed,u32(1),u32(_max(u32(T.Object->shedule.t_max),u32(1000))));
+		if (!engine_coopnet::schedule_world_replica(T.Object,elapsed)) T.Object->shedule_Update(elapsed);
 		if (!m_current_step_obj)
 		{
 #ifdef DEBUG_SCHEDULER
@@ -476,7 +478,7 @@ void CSheduler::Update()
         VERIFY(T.Object->dbg_startframe != Device.dwFrame);
         T.Object->dbg_startframe = Device.dwFrame;
 #endif
-		T.Object->shedule_Update(Elapsed);
+		if (!engine_coopnet::schedule_world_replica(T.Object,Elapsed)) T.Object->shedule_Update(Elapsed);
 		T.dwTimeOfLastExecute = dwTime;
 	}
 

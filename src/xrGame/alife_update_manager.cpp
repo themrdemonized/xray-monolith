@@ -22,6 +22,7 @@
 #include "restriction_space.h"
 #include "profiler.h"
 #include "mt_config.h"
+#include "../CoopNet/EngineWorldBridge.h"
 
 using namespace ALife;
 #ifdef	ENGINE_LUA_ALIFE_UPDAGE_MANAGER_CALLBACKS
@@ -112,6 +113,7 @@ void CALifeUpdateManager::update_scheduled(bool init_ef)
 
 void CALifeUpdateManager::update()
 {
+	if (engine_coopnet::world_level_is_replica()) return;
 	update_switch();
 	update_scheduled(false);
 }
@@ -119,6 +121,7 @@ void CALifeUpdateManager::update()
 void CALifeUpdateManager::shedule_Update(u32 dt)
 {
 	ISheduled::shedule_Update(dt);
+	if (engine_coopnet::world_level_is_replica()) return;
 
 	if (!initialized())
 		return;

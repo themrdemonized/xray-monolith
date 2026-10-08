@@ -94,5 +94,12 @@ if ($WorldProbe) {
     $guestHash=(Get-FileHash -LiteralPath "$testRoot\guest\appdata\savedgames\$baselineName").Hash
     if ($hostHash -ne $guestHash) { throw 'Transferred canonical baseline differs from the host snapshot.' }
     Write-Output "CANONICAL_BASELINE_PASS: guest loaded the verified host snapshot $baselineName; file hashes match."
+    if ($logs.host -notmatch 'CoopNet host NPC states: objects [1-9]\d*' -or
+        $logs.guest -notmatch 'CoopNet authoritative NPC states applied: objects [1-9]\d*' -or
+        $logs.guest -notmatch 'CoopNet NPC state updates: [1-9]\d*' -or
+        $logs.guest -notmatch 'CoopNet passive world stopped: frame updates [1-9]\d* scheduled updates [1-9]\d*') {
+        throw 'Host NPC state application or passive client frame/schedule dispatch evidence missing.'
+    }
+    Write-Output 'NATIVE_NPC_REPLICATION_PASS: host NPC states applied to passive client world objects; native frame and schedule dispatch bypassed local simulation.'
 }
-Write-Output 'Development fixture only. Continuous shared NPC/item replication, normal combat/inventory controls and persistence are not verified.'
+Write-Output 'Development fixture only. Dynamic NPC lifecycles, item replication, normal combat/inventory controls and persistence are not verified.'

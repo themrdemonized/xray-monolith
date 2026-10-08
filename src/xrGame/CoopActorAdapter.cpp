@@ -17,18 +17,146 @@
 #include "../xrPhysics/physicscommon.h"
 #include "../CoopNet/EngineActorBridge.h"
 #include "../CoopNet/EngineWorldBridge.h"
+#include "../CoopNet/WorldState.h"
+#include "entity_alive.h"
 #include "alife_simulator.h"
 #include "saved_game_wrapper.h"
 #include "game_sv_single.h"
+#include "PhysicsShellHolder.h"
+#include "PHMovementControl.h"
+#include "../xrPhysics/PhysicsShell.h"
+#include "../Include/xrRender/KinematicsAnimated.h"
 #include <cstring>
 extern string_path g_last_saved_game;
 namespace engine_coopnet {
 namespace {
+struct WorldObject { std::uint64_t incarnation=0; bool replica=false, animated=false; std::uint64_t authority=0; };
+xr_map<const CGameObject*,WorldObject> world_objects;
+std::uint64_t world_incarnation=0, replica_frames=0, replica_schedules=0;
+unsigned world_replica_count=0;
+bool collect_world_objects=false;
+u16 replica_local_root=0xffff;
+std::string replica_world_save;
 bool safe_baseline_name(const char* name) {
     if (!name || strncmp(name,"coopnet-",8) || strlen(name)>64) return false;
     for (const char* c=name;*c;++c) if (!((*c>='a' && *c<='z') || (*c>='0' && *c<='9') || *c=='-')) return false;
     return true;
 }
+}
+void begin_world_replication() {
+    collect_world_objects=true;
+    if (!g_pGameLevel || !g_pGameLevel->bReady) return;
+    for (u32 index=0;index<Level().Objects.o_count();++index) {
+        auto* object=smart_cast<CGameObject*>(Level().Objects.o_get_by_iterator(index));
+        if (object && !world_objects.count(object)) world_objects.emplace(object,WorldObject{++world_incarnation,false,false});
+    }
+}
+void end_world_replication() { collect_world_objects=false; }
+bool capture_world_objects(std::uint32_t& level,std::vector<NativeWorldPose>& objects) {
+    LocalActorPose local;
+    if (!capture_local_actor(local) || world_level_is_replica()) return false;
+    level=local.level; objects.clear();
+    for (const auto& record:world_objects) {
+        auto* object=const_cast<CGameObject*>(record.first);
+        auto* entity=smart_cast<CEntityAlive*>(object);
+        if (!entity || object->cast_actor() || object->getDestroy()) continue;
+        NativeWorldPose pose; pose.object=object->ID(); pose.incarnation=record.second.incarnation;
+        for (unsigned axis=0;axis<3;++axis) pose.position[axis]=object->Position()[axis];
+        object->XFORM().getHPB(pose.rotation[0],pose.rotation[1],pose.rotation[2]);
+        pose.health=entity->GetfHealth(); clamp(pose.health,-1.f,1.f); objects.push_back(pose);
+        if (objects.size()>=4096) break;
+    }
+    return true;
+}
+bool apply_world_object(std::uint64_t session_id,std::uint64_t anchor,std::uint64_t incarnation,
+    const float* position,const float* rotation,float health) {
+    if (!world_level_is_replica() || !g_pGameLevel->bReady) return false;
+    for (auto& record:world_objects) {
+        auto* object=const_cast<CGameObject*>(record.first);
+        if (!record.second.replica || object->getDestroy() || coopnet::world_anchor(session_id,object->ID())!=anchor) continue;
+        auto* entity=smart_cast<CEntityAlive*>(object);
+        if (!entity || object->cast_actor() || (record.second.authority && record.second.authority!=incarnation)) return false;
+        record.second.authority=incarnation;
+        object->XFORM().setHPB(rotation[0],rotation[1],rotation[2]); object->Position().set(position[0],position[1],position[2]);
+        if (auto* support=entity->character_physics_support()) if (support->movement()) {
+            support->movement()->SetPosition(object->Position()); support->movement()->DisableCharacter();
+        }
+        entity->SetfHealth(health); return true;
+    }
+    return false;
+}
+bool world_level_is_replica() {
+    if (replica_world_save.empty() || !g_pGameLevel || !Level().Server) return false;
+    const auto& options=Level().Server->GetConnectOptions();
+    const auto length=replica_world_save.size();
+    return options.size()>length && !strncmp(options.c_str(),replica_world_save.c_str(),length) && options.c_str()[length]=='/';
+}
+void world_object_spawned(CGameObject* object,const CSE_Abstract* source) {
+    if (!collect_world_objects && replica_world_save.empty()) return;
+    bool replica=world_level_is_replica();
+    if (replica) {
+        const auto* actor=smart_cast<const CSE_ALifeCreatureActor*>(source);
+        if (actor && source->s_flags.is(M_SPAWN_OBJECT_ASPLAYER)) { replica_local_root=source->ID; replica=false; }
+        else if (source->ID_Parent==replica_local_root && replica_local_root!=0xffff) replica=false;
+    }
+    const auto old=world_objects.find(object);
+    if (old!=world_objects.end() && old->second.replica) --world_replica_count;
+    world_objects[object]={++world_incarnation,replica,false};
+    if (replica) ++world_replica_count;
+}
+void world_object_destroyed(CGameObject* object) {
+    const auto found=world_objects.find(object);
+    if (found==world_objects.end()) return;
+    if (found->second.replica) --world_replica_count;
+    world_objects.erase(found);
+}
+bool world_replica_object(const CGameObject* object) {
+    if (!world_replica_count) return false;
+    const auto found=world_objects.find(object);
+    return found!=world_objects.end() && found->second.replica;
+}
+bool update_world_replica(CObject* base) {
+    if (!world_replica_count) return false;
+    auto* object=smart_cast<CGameObject*>(base);
+    if (!object) return false;
+    const auto found=world_objects.find(object);
+    if (found==world_objects.end() || !found->second.replica) return false;
+    if (auto* physical=object->cast_physics_shell_holder()) {
+        if (auto* support=physical->character_physics_support()) {
+            if (support->movement()) support->movement()->DisableCharacter();
+        }
+        if (physical->PPhysicsShell()) physical->PPhysicsShell()->Disable();
+    }
+    base->CObject::UpdateCL();
+    if (object->Visual()) {
+        if (auto* animated=object->Visual()->dcast_PKinematicsAnimated()) {
+            if (!found->second.animated) {
+                for (const auto* name:{"norm_idle_0","norm_torso_0_aim_0","head_idle_0","stand_idle_0"}) {
+                    const auto motion=animated->ID_Cycle_Safe(name);
+                    if (motion.valid()) animated->PlayCycle(motion,TRUE);
+                }
+                found->second.animated=true;
+            }
+            animated->UpdateTracks();
+        }
+        if (auto* skeleton=object->Visual()->dcast_PKinematics()) skeleton->CalculateBones(TRUE);
+    }
+    ++replica_frames; return true;
+}
+bool schedule_world_replica(ISheduled* scheduled,std::uint32_t elapsed) {
+    if (!world_replica_count) return false;
+    auto* object=smart_cast<CGameObject*>(scheduled);
+    if (!object || !world_replica_object(object)) return false;
+    object->CObject::shedule_Update(elapsed);
+    ++replica_schedules; return true;
+}
+void world_level_stopped() {
+    if (replica_frames || replica_schedules)
+        Msg("* CoopNet passive world stopped: frame updates %llu scheduled updates %llu",replica_frames,replica_schedules);
+    if (world_level_is_replica()) replica_world_save.clear();
+    world_objects.clear(); world_replica_count=0; replica_local_root=0xffff; replica_frames=0; replica_schedules=0;
+}
+namespace {
 std::uint64_t local_incarnation = 0;
 LocalActorControls local_controls;
 std::uint32_t controls_time = 0;
@@ -81,6 +209,7 @@ bool store_world_baseline(const char* name,const std::vector<std::uint8_t>& byte
 bool load_world_baseline(const char* name) {
     if (!safe_baseline_name(name) || !CSavedGameWrapper::valid_saved_game(name)) return false;
     string128 server; strconcat(sizeof(server),server,name,"/single/alife/load");
+    replica_world_save=name;
     if (g_pGameLevel) Engine.Event.Defer("KERNEL:disconnect");
     Engine.Event.Defer("KERNEL:start",u64(xr_strdup(server)),u64(xr_strdup("localhost")));
     Msg("* CoopNet canonical baseline load queued: %s",name);
@@ -287,7 +416,7 @@ void clear_guest_actors() {
     for (const auto& entry : guests) objects.push_back(entry.first);
     for (const auto object : objects) remove_guest_actor(object);
 }
-void guest_level_stopped() { guests.clear(); session_items.clear(); }
+void guest_level_stopped() { guests.clear(); session_items.clear(); world_level_stopped(); }
 void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; }
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity) {
     LocalActorPose local;

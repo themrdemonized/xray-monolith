@@ -5,6 +5,7 @@
 #include "xrEngine/IGame_Persistent.h"
 #include "ParticlesObject.h"
 #include "Level.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "HUDManager.h"
 #include "xrServer.h"
 #include "NET_Queue.h"
@@ -1046,7 +1047,7 @@ void CLevel::OnFrame()
 			//    m_game_task_manager,&CGameTaskManager::UpdateTasks));
 			//}
 			//else
-			GameTaskManager().UpdateTasks();
+			if (!engine_coopnet::world_level_is_replica()) GameTaskManager().UpdateTasks();
 		}
 	}
 	// Inherited update
@@ -1138,10 +1139,10 @@ void CLevel::OnFrame()
 #endif
 	g_pGamePersistent->Environment().SetGameTime(GetEnvironmentGameDayTimeSec(),
 	                                             game->GetEnvironmentGameTimeFactor());
-	if (!g_dedicated_server)
+	if (!g_dedicated_server && !engine_coopnet::world_level_is_replica())
 		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
 	m_ph_commander->update();
-	m_ph_commander_scripts->update();
+	if (!engine_coopnet::world_level_is_replica()) m_ph_commander_scripts->update();
 	Device.Statistic->TEST0.Begin();
 	BulletManager().CommitRenderSet();
 	Device.Statistic->TEST0.End();

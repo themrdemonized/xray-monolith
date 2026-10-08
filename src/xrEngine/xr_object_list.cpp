@@ -7,6 +7,7 @@
 #include "std_classes.h"
 
 #include "xr_object.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "../xrCore/net_utils.h"
 
 #include "CustomHUD.h"
@@ -125,7 +126,7 @@ void CObjectList::SingleUpdate(CObject* O)
 
 	// Msg ("[%d][0x%08x]IAmNotACrowAnyMore (CObjectList::SingleUpdate)", Device.dwFrame, fast_dynamic_cast<void*>(O));
 
-	O->UpdateCL();
+	if (!engine_coopnet::update_world_replica(O)) O->UpdateCL();
 #ifdef DEBUG
 	VERIFY3(O->dbg_update_cl == Device.dwFrame, "Broken sequence of calls to 'UpdateCL'", *O->cName());
 #endif

@@ -22,6 +22,7 @@
 #include "string_table.h"
 #include "../xrEngine/igame_persistent.h"
 #include "autosave_manager.h"
+#include "../CoopNet/EngineWorldBridge.h"
 //Alundaio
 #ifdef ENGINE_LUA_ALIFE_STORAGE_MANAGER_CALLBACKS
 #include "pch_script.h"
@@ -45,6 +46,7 @@ CALifeStorageManager::~CALifeStorageManager()
 
 void CALifeStorageManager::save(LPCSTR save_name_no_check, bool update_name)
 {
+	if (engine_coopnet::world_level_is_replica()) { Msg("! CoopNet client replicas cannot save an authoritative world"); return; }
 	PROF_EVENT();
 	LPCSTR game_saves_path = FS.get_path("$game_saves$")->m_Path;
 
@@ -233,6 +235,7 @@ bool CALifeStorageManager::load(LPCSTR save_name_no_check)
 
 void CALifeStorageManager::save(NET_Packet& net_packet)
 {
+	if (engine_coopnet::world_level_is_replica()) return;
 	PROF_EVENT();
 	prepare_objects_for_save();
 

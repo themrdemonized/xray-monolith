@@ -92,6 +92,8 @@ struct Session {
     bool world_probe=false, world_load_requested=false;
     std::string world_save;
     std::map<coopnet::Identity,std::pair<std::uint32_t,std::uint64_t>> world_sent;
+    std::uint32_t world_tick=0;
+    unsigned world_updates=0;
     unsigned condition_corrections=0, inventory_accepts=0, gameplay_phase=0;
     double gameplay_wait=0;
     bool gameplay_pending=false;
@@ -118,6 +120,23 @@ struct Session {
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
 };
 std::unique_ptr<Session> session;
+void publish_world(Session& current) {
+    if (!current.world_probe || current.world_tick==current.tick) return;
+    current.world_tick=current.tick;
+    std::uint32_t level=0; std::vector<NativeWorldPose> objects;
+    if (!capture_world_objects(level,objects)) return;
+    coopnet::WorldState state; state.level=level; state.tick=current.tick;
+    for (const auto& native:objects) {
+        coopnet::WorldPose pose; pose.anchor=coopnet::world_anchor(current.host.identity(),native.object);
+        pose.incarnation=native.incarnation; pose.health=native.health;
+        for (unsigned axis=0;axis<3;++axis) { pose.position[axis]=native.position[axis]; pose.rotation[axis]=native.rotation[axis]; }
+        state.objects.push_back(pose);
+        if (state.objects.size()==128) { current.host.publish_world_state(state); state.objects.clear(); }
+    }
+    if (!state.objects.empty()) current.host.publish_world_state(state);
+    if (!objects.empty() && ++current.world_updates==1)
+        Msg("* CoopNet host NPC states: objects %u level %u",static_cast<unsigned>(objects.size()),level);
+}
 void send_world_baselines(Session& current) {
     if (!current.world_probe) return;
     LocalActorPose local;
@@ -398,7 +417,8 @@ void stop() {
                 session->inventory_accepts,session->gameplay_phase,session->condition_corrections);
         for (const auto& entry : session->guests)
             Msg("* CoopNet guest simulation removed: inputs %u distance %.3f",entry.second.inputs,entry.second.distance);
-        clear_guest_actors(); clear_remote_actors(); session.reset(); Msg("* CoopNet session stopped");
+        if (session->world_probe) Msg("* CoopNet NPC state updates: %u",session->world_updates);
+        end_world_replication(); clear_guest_actors(); clear_remote_actors(); session.reset(); Msg("* CoopNet session stopped");
     }
 }
 bool simulation_active() {
@@ -425,6 +445,7 @@ void update(double) {
             capture_host(*session, elapsed);
             send_world_baselines(*session);
             capture_guests(*session);
+            publish_world(*session);
             if (session->replica_probe && session->host_actor) {
                 const auto* actor = session->entities.find(session->host_actor);
                 if (actor && actor->active) for (const auto& player : session->host.session().players()) {
@@ -498,6 +519,7 @@ void command(const char* name, const char* arguments) {
         if (!strcmp(name,"coop_world_probe")) {
             if (!session) throw std::runtime_error("Start a session before the world probe");
             session->world_probe=true; session->replica_probe=true; session->movement_probe=true;
+            begin_world_replication();
             begin_guest_simulation();
             Msg("* CoopNet canonical baseline probe enabled; continuous shared world replication pending");
             return;
@@ -567,6 +589,16 @@ void command(const char* name, const char* arguments) {
                     ++owner->condition_corrections;
                     if (vitals.tick%25==0) Msg("* CoopNet authoritative guest health applied: %.3f",vitals.health);
                 }
+            });
+            next->client.set_world_sink([owner](const coopnet::WorldState& state) {
+                if (!owner->world_probe) return;
+                unsigned applied=0;
+                for (const auto& object:state.objects)
+                    if (apply_world_object(owner->client.session().welcome().session,object.anchor,object.incarnation,
+                        object.position.data(),object.rotation.data(),object.health)) ++applied;
+                owner->world_updates+=applied;
+                if (applied && owner->world_updates==applied)
+                    Msg("* CoopNet authoritative NPC states applied: objects %u level %u",applied,state.level);
             });
             next->client.set_snapshot_sink([owner](const coopnet::ActorSnapshot& snapshot) {
                 if (!owner->server_clock_known || snapshot.time_us > owner->server_us) owner->server_us = snapshot.time_us;

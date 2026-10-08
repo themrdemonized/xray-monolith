@@ -2,7 +2,15 @@
 
 Goal: implement and verify every CoopNet phase, including independent level residency, gameplay authority, portable characters, persistence, and eventual quest/script synchronization. The goal is not complete.
 
-## Current commit checkpoint — 2026-10-08
+## Passive world and NPC checkpoint — 2026-10-08
+
+Protocol 9 adds typed host NPC position, orientation and health updates for objects present in the canonical baseline. Explicit native replica roles bypass derived frame and scheduled simulation, client ALife, world scripts, task advancement and authoritative save/export paths. Updates require the validated baseline and map acknowledgement; duplicate ticks, wrong maps and replacement incarnations are rejected. Session-scoped anchors keep native object IDs off the wire.
+
+The first native run reproduced `CPHObject::FreezeContent: !m_flags.test(st_freezed)`: permanently freezing replica bodies conflicted with the engine's temporary global physics freeze during player reconciliation. Replica physics now uses native disabling instead. The corrected enabled build, all eight standalone suites and the strict 90-second native world test passed. The guest applied 50,745 NPC poses, bypassed 119,582 native frame updates and 127,234 scheduled updates, and preserved the movement/gameplay checks (1,193 input-bearing frames, 8.367 metres native displacement, native take/drop and exactly-once replay, host guest damage correction). Both snapshot hashes matched and original saves remained unchanged. Logs: `_build/coopnet-npc-unit.log`, `_build/coopnet-npc-build.log`, `_build/coopnet-npc-engine.log`.
+
+**The full playable co-op objective remains incomplete.** Dynamic NPC spawn/despawn and corpse/animation states, ordinary item ownership and weapon/inventory controls, durable character import/export, persistence, quest synchronization, death/rejoin and independent maps still require implementation. Current NPC updates bind only objects already present in the received baseline; unknown or replacement incarnations are ignored. Snapshot cleanup remains pending. No authoritative location workers are used.
+
+## Previous canonical baseline checkpoint — 2026-10-08
 
 Canonical starting-world loading now works under `coop_world_probe`. Protocol 8 streams a bounded host-created native snapshot with SHA-256 validation and a validated-load barrier before map assignment. The guest starts from the main menu and loads the host snapshot instead of independently starting a copied single-player fixture. Native object state is synchronized before saving; original saves and the host's selected save name are preserved. Bulk production respects reliable queue byte capacity during socket backpressure.
 

@@ -7,6 +7,7 @@
 #include "ActorInput.h"
 #include "Gameplay.h"
 #include "WorldBaseline.h"
+#include "WorldState.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -20,6 +21,8 @@ class ClientPump {
     bool ready_sent_ = false;
     double handshake_time_ = 0;
     std::function<void(const ActorSnapshot&)> snapshot_sink_;
+    std::function<void(const WorldState&)> world_sink_;
+    std::map<Identity,std::pair<Identity,SequenceWindow>> world_sequences_;
     ActorReplicas actors_;
     LevelAssignment assignment_;
     SequenceWindow assignments_;
@@ -40,6 +43,7 @@ class ClientPump {
     std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> baseline_sink_;
     std::function<void(const WorldBaseline&,std::uint32_t)> baseline_progress_sink_;
     void clear_baseline() {
+        world_sequences_.clear();
         baseline_assembly_.clear(); baseline_={}; baseline_validated_=false; baseline_acknowledged_=false; baseline_time_=0;
     }
     static constexpr double timeout_ = 10;
@@ -142,6 +146,7 @@ public:
     }
     // The engine adapter owns entity bindings and rejects stale generations/levels.
     void set_snapshot_sink(std::function<void(const ActorSnapshot&)> sink) { snapshot_sink_ = std::move(sink); }
+    void set_world_sink(std::function<void(const WorldState&)> sink) { world_sink_=std::move(sink); }
     void start(std::unique_ptr<Transport> transport, Identity character, BuildIdentity build) {
         if (!transport) throw std::invalid_argument("Missing client transport");
         attach(std::move(transport), session_.begin(character, build));
@@ -205,6 +210,22 @@ public:
                     if (!baseline_sink_ || !baseline_sink_(baseline_,baseline_assembly_.bytes())) { lost(); return; }
                     baseline_validated_=true; baseline_assembly_.clear();
                 }
+            } else if (frame.message==Message::WorldState) {
+                WorldState state;
+                if (!decode_world_state(frame.payload,state) || frame.sequence!=state.tick) { lost(); return; }
+                if (!baseline_acknowledged_ || !level_ready_sent_ || state.level!=assignment_.level) continue;
+                WorldState accepted; accepted.level=state.level; accepted.tick=state.tick;
+                for (const auto& object:state.objects) {
+                    auto found=world_sequences_.find(object.anchor);
+                    if (found==world_sequences_.end()) {
+                        if (world_sequences_.size()>=4096) continue;
+                        found=world_sequences_.emplace(object.anchor,std::make_pair(object.incarnation,SequenceWindow{})).first;
+                    }
+                    // A replacement requires a new canonical native binding, never an arbitrary pose.
+                    if (found->second.first!=object.incarnation || !found->second.second.accept(state.tick)) continue;
+                    accepted.objects.push_back(object);
+                }
+                if (!accepted.objects.empty() && world_sink_) world_sink_(accepted);
             } else if (frame.message == Message::ActorSnapshot) {
                 ActorSnapshot snapshot;
                 if (!decode_snapshot(frame.payload, snapshot) || frame.sequence != snapshot.tick) { lost(); return; }
