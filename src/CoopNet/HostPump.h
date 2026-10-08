@@ -5,6 +5,7 @@
 #include "ActorPresence.h"
 #include "LevelAssignment.h"
 #include "ActorInput.h"
+#include "Gameplay.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -24,6 +25,11 @@ class HostPump {
         ActorInput input;
         SequenceWindow inputs;
         double input_age = 1;
+        struct Transaction { InventoryRequest request; InventoryResult result; };
+        std::deque<Transaction> transactions;
+        SequenceWindow transaction_sequences;
+        double transaction_budget = 8;
+        std::map<Identity,std::uint32_t> item_revisions;
     };
     HostSession session_;
     Identity id_ = 0;
@@ -33,6 +39,8 @@ class HostPump {
     std::map<Identity, ActorPresence> actors_;
     std::map<Identity, std::uint32_t> actor_generations_;
     std::deque<LevelFailure> failures_;
+    std::map<Identity,ItemState> items_;
+    std::function<InventoryResult(Identity,const InventoryRequest&)> inventory_handler_;
     void failed(Peer& peer, TransferFailure reason) {
         if (!peer.assigned) return;
         failures_.push_back({peer.player,peer.assignment,reason}); peer.assigned = false;
@@ -106,11 +114,63 @@ class HostPump {
                 if (!peer.inputs.accept(input.sequence)) continue;
                 peer.input = input; peer.input_age = 0;
             }
+            else if (peer.ready && frame.message == Message::InventoryRequest) {
+                InventoryRequest request;
+                if (!decode_inventory_request(frame.payload,request) || frame.sequence != request.sequence) return false;
+                InventoryResult result{request.item,0,request.sequence,0,InventoryStatus::Unavailable};
+                bool replay = false;
+                for (const auto& transaction : peer.transactions) if (transaction.request.sequence == request.sequence) {
+                    if (encode_inventory_request(transaction.request) != frame.payload) return false;
+                    result=transaction.result; replay=true; break;
+                }
+                if (!replay) {
+                    if (!peer.transaction_sequences.accept(request.sequence)) result.status=InventoryStatus::Expired;
+                    else {
+                        const auto actor=actors_.find(request.actor);
+                        if (actor!=actors_.end() && actor->second.player!=peer.player) return false;
+                        if (actor==actors_.end() || actor->second.generation!=request.generation ||
+                            actor->second.level!=request.level || peer.level!=request.level || peer.assigned)
+                            result.status=InventoryStatus::Denied;
+                        else if (peer.transaction_budget<1) result.status=InventoryStatus::Busy;
+                        else {
+                            peer.transaction_budget-=1;
+                            if (inventory_handler_) result=inventory_handler_(peer.player,request);
+                            // Adapter cannot change the transaction's request identity.
+                            result.item=request.item; result.sequence=request.sequence;
+                        }
+                        peer.transactions.push_back({request,result});
+                        if (peer.transactions.size()>256) peer.transactions.pop_front();
+                    }
+                }
+                if (!queue(peer,{Message::InventoryResult,Channel::Inventory,Delivery::ReliableOrdered,
+                    request.sequence,encode_inventory_result(result)})) return false;
+            }
             else return false;
         }
         return true;
     }
 public:
+    void set_inventory_handler(std::function<InventoryResult(Identity,const InventoryRequest&)> handler) {
+        inventory_handler_=std::move(handler);
+    }
+    bool publish_item(const ItemState& item) {
+        if (session_.mode()!=Mode::Host || !valid_item_state(item)) return false;
+        const auto found=items_.find(item.item);
+        if (found==items_.end() && items_.size()>=4096) return false;
+        if (found!=items_.end() && item.revision<=found->second.revision) return false;
+        items_[item.item]=item; return true;
+    }
+    bool publish_vitals(const ActorVitals& vitals) {
+        const auto actor=actors_.find(vitals.actor);
+        if (session_.mode()!=Mode::Host || !valid_vitals(vitals) || actor==actors_.end() ||
+            actor->second.generation!=vitals.generation || actor->second.level!=vitals.level) return false;
+        const Frame frame{Message::ActorVitals,Channel::Combat,Delivery::UnreliableSequenced,vitals.tick,encode_vitals(vitals)};
+        for (auto& peer : peers_) if (peer.ready && peer.level==vitals.level) {
+            const auto result=peer.transport->send(frame);
+            if (result!=SendResult::Sent && result!=SendResult::Backpressure) peer.transport->close();
+        }
+        return true;
+    }
     // Held controls expire after packet loss; callers apply them on host simulation ticks.
     bool latest_input(Identity player, ActorInput& output) const {
         for (const auto& peer : peers_) if (peer.player == player && peer.ready && !peer.assigned &&
@@ -158,6 +218,7 @@ public:
             for (const auto& actor : actors_) if (actor.second.level == peer.level)
                 if (!presence(peer, Message::ActorRemove, actor.second)) return false;
             peer.level = level;
+            peer.item_revisions.clear();
             peer.input_age = 1; // preserve sequence history across same-binding relevance changes
             for (const auto& actor : actors_) if (actor.second.level == level)
                 if (!presence(peer, Message::ActorCreate, actor.second)) return false;
@@ -218,13 +279,24 @@ public:
             auto& peer = *it;
             peer.elapsed += elapsed;
             peer.input_age += elapsed;
+            peer.transaction_budget=(std::min)(8.,peer.transaction_budget+elapsed*8.);
             if (peer.assigned) {
                 peer.transfer_time += elapsed;
                 if (peer.transfer_time >= 120) failed(peer, TransferFailure::Timeout);
             }
             bool keep = peer.transport->connected() || peer.transport->connecting();
             if ((!peer.ready && peer.elapsed >= 10) || (peer.rejected && peer.elapsed >= 1)) keep = false;
-            if (keep && peer.transport->connected()) keep = receive(peer) && flush(peer);
+            if (keep && peer.transport->connected()) {
+                keep=receive(peer);
+                unsigned published=0;
+                for (const auto& item : items_) if (keep && peer.ready && item.second.level==peer.level &&
+                    peer.item_revisions[item.first]!=item.second.revision && peer.outgoing.size()<48 && published<8) {
+                    keep=queue(peer,{Message::ItemState,Channel::Inventory,Delivery::ReliableOrdered,
+                        item.second.revision,encode_item_state(item.second)});
+                    if (keep) { peer.item_revisions[item.first]=item.second.revision; ++published; }
+                }
+                if (keep) keep=flush(peer);
+            }
             if (keep) { ++it; continue; }
             peer.transport->close();
             failed(peer, TransferFailure::Disconnected);
@@ -245,6 +317,7 @@ public:
     void stop() {
         for (auto& peer : peers_) peer.transport->close();
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
+        items_.clear(); inventory_handler_={};
     }
 };
 }

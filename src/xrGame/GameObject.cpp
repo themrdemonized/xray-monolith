@@ -1,6 +1,7 @@
 #include "pch_script.h"
 #include "GameObject.h"
 #include "Actor.h"
+#include "../CoopNet/EngineActorBridge.h"
 //#include "../Include/xrRender/RenderVisual.h"
 #include "../Include/xrRender/RenderVisual.h"
 #include "../xrphysics/PhysicsShell.h"
@@ -114,6 +115,7 @@ void CGameObject::reload(LPCSTR section)
 
 void CGameObject::net_Destroy()
 {
+    engine_coopnet::session_item_destroyed(ID());
 #ifdef DEBUG
 	if (psAI_Flags.test(aiDestroy))
 		Msg					("Destroying client object [%d][%s][%x]",ID(),*cName(),this);

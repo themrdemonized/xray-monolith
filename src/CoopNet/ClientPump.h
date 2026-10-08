@@ -5,6 +5,7 @@
 #include "ActorPresence.h"
 #include "LevelAssignment.h"
 #include "ActorInput.h"
+#include "Gameplay.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -24,11 +25,16 @@ class ClientPump {
     bool level_ready_sent_ = false;
     TransferFailure transfer_failure_ = TransferFailure::None;
     std::function<void(const LevelFailure&)> transfer_failure_sink_;
+    std::map<Identity,ItemState> items_;
+    std::map<Identity,std::pair<std::uint32_t,SequenceWindow>> vitals_sequences_;
+    std::function<void(const InventoryResult&)> inventory_sink_;
+    std::function<void(const ActorVitals&)> vitals_sink_;
     static constexpr double timeout_ = 10;
     void attach(std::unique_ptr<Transport> transport, const ClientHello& hello) {
         if (!transport) throw std::invalid_argument("Missing client transport");
         transport_ = std::move(transport); roster_.reset(); actors_ = {}; assignment_ = {}; assignments_ = {};
         level_ready_sent_ = false; transfer_failure_ = TransferFailure::None; sent_ = false; ready_sent_ = false; handshake_time_ = 0;
+        items_.clear(); vitals_sequences_.clear();
         hello_ = Frame{Message::ClientHello, Channel::Control, Delivery::ReliableOrdered, 1, encode_hello(hello)};
     }
     void lost() {
@@ -38,8 +44,23 @@ class ClientPump {
         }
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; session_.lost_connection();
+        items_.clear(); vitals_sequences_.clear();
     }
 public:
+    const std::map<Identity,ItemState>& items() const { return items_; }
+    void set_inventory_sink(std::function<void(const InventoryResult&)> sink) { inventory_sink_=std::move(sink); }
+    void set_vitals_sink(std::function<void(const ActorVitals&)> sink) { vitals_sink_=std::move(sink); }
+    SendResult send_inventory(const InventoryRequest& request) {
+        if (!transport_ || session_.state()!=ClientState::Connected || !level_ready_sent_) return SendResult::Disconnected;
+        const auto* actor=actors_.find(request.actor);
+        if (!valid_inventory_request(request) || !actor || actor->player!=session_.welcome().player ||
+            actor->generation!=request.generation || actor->level!=request.level || assignment_.level!=request.level)
+            return SendResult::Invalid;
+        const auto result=transport_->send({Message::InventoryRequest,Channel::Inventory,Delivery::ReliableOrdered,
+            request.sequence,encode_inventory_request(request)});
+        if (result!=SendResult::Sent && result!=SendResult::Backpressure) lost();
+        return result;
+    }
     SendResult send_input(const ActorInput& input) {
         if (!transport_ || session_.state() != ClientState::Connected || !level_ready_sent_)
             return SendResult::Disconnected;
@@ -123,17 +144,40 @@ public:
                     if (entry.player == presence.player && entry.character == presence.character) participant = true;
                 if (!participant || !(frame.message == Message::ActorCreate ?
                     actors_.create(presence) : actors_.remove(presence))) { lost(); return; }
+                if (frame.message==Message::ActorRemove) vitals_sequences_.erase(presence.entity);
+            } else if (frame.message==Message::ItemState) {
+                ItemState item;
+                if (!decode_item_state(frame.payload,item) || item.revision!=frame.sequence) { lost(); return; }
+                if (!level_ready_sent_ || item.level!=assignment_.level) continue;
+                auto found=items_.find(item.item);
+                if (found==items_.end() && items_.size()>=4096) { lost(); return; }
+                if (found==items_.end() || item.revision>found->second.revision) items_[item.item]=std::move(item);
+            } else if (frame.message==Message::InventoryResult) {
+                InventoryResult result;
+                if (!decode_inventory_result(frame.payload,result) || result.sequence!=frame.sequence) { lost(); return; }
+                if (inventory_sink_) inventory_sink_(result);
+            } else if (frame.message==Message::ActorVitals) {
+                ActorVitals vitals;
+                if (!decode_vitals(frame.payload,vitals) || vitals.tick!=frame.sequence) { lost(); return; }
+                const auto* actor=actors_.find(vitals.actor);
+                if (!actor || actor->generation!=vitals.generation || actor->level!=vitals.level ||
+                    !level_ready_sent_ || assignment_.level!=vitals.level) continue;
+                auto& sequence=vitals_sequences_[vitals.actor];
+                if (sequence.first!=vitals.generation) sequence={vitals.generation,{}};
+                if (sequence.second.accept(vitals.tick) && vitals_sink_) vitals_sink_(vitals);
             } else if (frame.message == Message::LevelAssignment) {
                 LevelAssignment value;
                 if (!decode_assignment(frame.payload, value) || frame.sequence != value.revision ||
                     !assignments_.accept(value.revision)) { lost(); return; }
                 assignment_ = value; level_ready_sent_ = false; transfer_failure_ = TransferFailure::None;
+                items_.clear(); vitals_sequences_.clear();
             } else if (frame.message == Message::LevelCancelled) {
                 LevelAssignment value; TransferFailure reason;
                 if (!decode_cancellation(frame.payload, value, reason) || frame.sequence != value.revision ||
                     value.ticket != assignment_.ticket || value.level != assignment_.level ||
                     value.revision != assignment_.revision) { lost(); return; }
                 assignment_ = {}; level_ready_sent_ = false; transfer_failure_ = reason;
+                items_.clear(); vitals_sequences_.clear();
                 if (transfer_failure_sink_) transfer_failure_sink_({session_.welcome().player,value,reason});
             } else if (frame.message == Message::Disconnect) { lost(); return; }
             else { lost(); return; } // gameplay dispatcher is not installed yet
@@ -142,6 +186,7 @@ public:
     void stop() {
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; transfer_failure_ = TransferFailure::None; session_.stop();
+        items_.clear(); vitals_sequences_.clear();
     }
 };
 }

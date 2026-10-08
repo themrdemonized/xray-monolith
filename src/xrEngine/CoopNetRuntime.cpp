@@ -60,6 +60,17 @@ struct Session {
     bool movement_probe = false;
     bool automated_controls = false;
     unsigned corrections = 0;
+    bool gameplay_probe=false;
+    unsigned condition_corrections=0, inventory_accepts=0, gameplay_phase=0;
+    double gameplay_wait=0;
+    bool gameplay_pending=false;
+    coopnet::InventoryRequest probe_request;
+    struct Item {
+        std::uint16_t object=0xffff;
+        std::uint64_t incarnation=0;
+        coopnet::ItemState state;
+    };
+    std::map<coopnet::Identity,Item> items;
     struct Guest {
         coopnet::Identity entity = 0;
         std::uint16_t object = 0xffff;
@@ -68,11 +79,34 @@ struct Session {
         float origin[3]{};
         double distance = 0;
         unsigned inputs = 0;
+        std::uint16_t fixture=0xffff;
+        coopnet::Identity fixture_entity=0;
+        bool take_observed=false, drop_observed=false, damage_sent=false;
     };
     std::map<coopnet::Identity,Guest> guests;
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
 };
 std::unique_ptr<Session> session;
+coopnet::InventoryResult transact_inventory(Session& current, coopnet::Identity player, const coopnet::InventoryRequest& request) {
+    coopnet::InventoryResult result{request.item,0,request.sequence,0,coopnet::InventoryStatus::Unavailable};
+    const auto actor=current.guests.find(player); const auto item=current.items.find(request.item);
+    if (!current.gameplay_probe || actor==current.guests.end() || item==current.items.end()) return result;
+    auto& record=item->second;
+    result.owner=record.state.owner; result.revision=record.state.revision;
+    if (!record.state.present) return result;
+    if (request.revision!=record.state.revision) { result.status=coopnet::InventoryStatus::Conflict; return result; }
+    const bool take=request.action==coopnet::InventoryAction::Take;
+    const auto status=transact_session_item(actor->second.object,record.object,record.incarnation,take);
+    result.status=static_cast<coopnet::InventoryStatus>(status);
+    if (status==NativeInventoryStatus::Accepted) {
+        record.state.owner=take ? actor->second.entity : 0; ++record.state.revision;
+        if (!current.host.publish_item(record.state)) throw std::runtime_error("Item ownership publication failed");
+        result.owner=record.state.owner; result.revision=record.state.revision;
+        Msg("* CoopNet inventory native transaction: sequence %u action %u owner %llu revision %u",
+            request.sequence,static_cast<unsigned>(request.action),result.owner,result.revision);
+    }
+    return result;
+}
 const char* state_name(coopnet::ClientState state) {
     switch (state) {
     case coopnet::ClientState::Offline: return "offline";
@@ -156,6 +190,11 @@ void capture_guests(Session& current) {
             if (player.id == it->first && player.connected) connected = true;
         if (!available || !connected || it->second.host_incarnation != host.incarnation) {
             auto& guest = it->second;
+            if (guest.fixture_entity) {
+                auto& item=current.items.at(guest.fixture_entity);
+                item.state.present=false; item.state.owner=0; ++item.state.revision;
+                current.host.publish_item(item.state); remove_session_item(item.object);
+            }
             if (guest.generation) {
                 current.host.remove_actor(guest.entity,guest.generation);
                 current.entities.unbind(guest.entity,guest.generation);
@@ -189,6 +228,41 @@ void capture_guests(Session& current) {
             for (unsigned axis = 0; axis < 3; ++axis) guest.origin[axis] = pose.position[axis];
             Msg("* CoopNet native guest bound: object %u generation %u",guest.object,guest.generation);
         }
+        if (current.gameplay_probe) {
+            if (guest.fixture==0xffff) guest.fixture=spawn_session_item(guest.object,"bandage");
+            NativeSessionItem native;
+            if (guest.fixture!=0xffff && capture_session_item(guest.fixture,native)) {
+                if (!guest.fixture_entity) {
+                    guest.fixture_entity=current.entities.create();
+                    Session::Item item;
+                    item.object=guest.fixture; item.incarnation=native.incarnation;
+                    item.state={guest.fixture_entity,0,pose.level,1,true,native.section};
+                    if (!current.host.publish_item(item.state)) throw std::runtime_error("Item baseline publication failed");
+                    current.items.emplace(guest.fixture_entity,std::move(item));
+                    Msg("* CoopNet session loot published: item %llu object %u",guest.fixture_entity,guest.fixture);
+                }
+                auto& record=current.items.at(guest.fixture_entity);
+                const auto native_owner=native.owner==guest.object ? guest.entity :
+                    native.owner==host.object ? current.host_actor : coopnet::Identity{0};
+                const bool available=native.owner==0xffff || native_owner!=0;
+                if (record.state.owner!=native_owner || record.state.present!=available) {
+                    record.state.owner=native_owner; record.state.present=available; ++record.state.revision;
+                    if (!current.host.publish_item(record.state)) throw std::runtime_error("Native item reconciliation failed");
+                }
+                if (native.native_owner==guest.object && !guest.take_observed) {
+                    guest.take_observed=true;
+                    Msg("* CoopNet native inventory take confirmed: object %u actor %u",guest.fixture,guest.object);
+                }
+                if (guest.take_observed && native.native_owner==0xffff && !guest.drop_observed) {
+                    guest.drop_observed=true;
+                    Msg("* CoopNet native inventory drop confirmed: object %u",guest.fixture);
+                }
+                if (guest.take_observed && !guest.damage_sent) {
+                    guest.damage_sent=damage_guest_probe(guest.object);
+                    if (guest.damage_sent) Msg("* CoopNet native damage event sent: actor %u",guest.object);
+                }
+            }
+        }
         coopnet::ActorInput input;
         const bool active = current.host.latest_input(player.id,input);
         if (active) ++guest.inputs;
@@ -207,6 +281,40 @@ void capture_guests(Session& current) {
             snapshot.rotation[axis] = pose.rotation[axis];
         }
         if (!current.host.publish_snapshot(snapshot)) throw std::runtime_error("Invalid native guest snapshot");
+        if (current.gameplay_probe) {
+            ActorConditionState condition;
+            if (capture_actor_condition(guest.object,condition)) {
+                current.host.publish_vitals({guest.entity,guest.generation,pose.level,current.tick,
+                    condition.health,condition.power,condition.radiation});
+                if (guest.damage_sent && current.tick%25==0)
+                    Msg("* CoopNet host guest health: %.3f",condition.health);
+            }
+        }
+    }
+}
+void send_gameplay_probe(Session& current, double elapsed) {
+    if (!current.gameplay_probe || current.client.session().state()!=coopnet::ClientState::Connected || current.gameplay_phase>=3) return;
+    current.gameplay_wait+=elapsed;
+    coopnet::ActorPresence actor;
+    current.client.actors().visit([&](const coopnet::ActorPresence& value) {
+        if (value.player==current.client.session().welcome().player) actor=value;
+    });
+    if (!actor.entity || current.gameplay_wait<.5 || current.gameplay_pending) return;
+    const coopnet::ItemState* item=nullptr;
+    for (const auto& entry : current.client.items()) if (entry.second.present && entry.second.level==actor.level &&
+        entry.second.section=="bandage" && (entry.second.owner==0 || entry.second.owner==actor.entity)) { item=&entry.second; break; }
+    if (!item) return;
+    if (current.gameplay_phase==0) {
+        current.probe_request={actor.entity,item->item,actor.generation,actor.level,1,item->revision,coopnet::InventoryAction::Take};
+    } else if (current.gameplay_phase==1) {
+        if (item->owner!=actor.entity) return;
+        // Deliberately replay the exact take request: the server must not apply it twice.
+    } else {
+        if (item->owner!=actor.entity) return;
+        current.probe_request={actor.entity,item->item,actor.generation,actor.level,2,item->revision,coopnet::InventoryAction::Drop};
+    }
+    if (current.client.send_inventory(current.probe_request)==coopnet::SendResult::Sent) {
+        current.gameplay_wait=0; current.gameplay_pending=true;
     }
 }
 void send_client_controls(Session& current, double elapsed) {
@@ -228,6 +336,7 @@ void send_client_controls(Session& current, double elapsed) {
         input.buttons = directions[(current.input_sequence % 200) / 50];
         input.yaw = 0; input.pitch = 0;
     }
+    if (current.gameplay_probe && current.gameplay_phase<3) input.buttons=0;
     // Sending may disconnect and clear the replica registry; send after traversal.
     current.client.send_input(input);
 }
@@ -236,6 +345,9 @@ void stop() {
     if (session) {
         if (session->movement_probe && session->mode == coopnet::Mode::Client)
             Msg("* CoopNet owned native snapshots applied: %u",session->corrections);
+        if (session->gameplay_probe && session->mode==coopnet::Mode::Client)
+            Msg("* CoopNet gameplay results: inventory accepts %u phase %u condition updates %u",
+                session->inventory_accepts,session->gameplay_phase,session->condition_corrections);
         for (const auto& entry : session->guests)
             Msg("* CoopNet guest simulation removed: inputs %u distance %.3f",entry.second.inputs,entry.second.distance);
         clear_guest_actors(); clear_remote_actors(); session.reset(); Msg("* CoopNet session stopped");
@@ -285,6 +397,7 @@ void update(double) {
                 if (capture_local_actor(local)) session->client.acknowledge_level(local.level);
             }
             present_client(*session, elapsed);
+            send_gameplay_probe(*session,elapsed);
             send_client_controls(*session, elapsed);
             const auto state = session->client.session().state();
             if (state != session->last_client_state) {
@@ -307,6 +420,11 @@ void update(double) {
 void command(const char* name, const char* arguments) {
     try {
         if (!strcmp(name, "coop_disconnect")) { stop(); Msg("* CoopNet offline"); return; }
+        if (!strcmp(name,"coop_gameplay_probe")) {
+            if (!session || !session->movement_probe) throw std::runtime_error("Gameplay probe requires an active native movement probe");
+            session->gameplay_probe=true;
+            Msg("* CoopNet gameplay fixture enabled: transient native loot and damage only; shared world pending"); return;
+        }
         if (!strcmp(name, "coop_replica_probe")) {
             if (!session) throw std::runtime_error("Start a transport session before the replica probe");
             session->replica_probe = true;
@@ -348,12 +466,32 @@ void command(const char* name, const char* arguments) {
             if (consumed != endpoint.size() || !port || port > 65535 ||
                 !next->runtime.listen(static_cast<std::uint16_t>(port))) throw std::runtime_error("Invalid port or listen failed");
             next->host.start(random_identity(), character, build, random_identity);
+            auto* owner=next.get();
+            next->host.set_inventory_handler([owner](coopnet::Identity player,const coopnet::InventoryRequest& request) {
+                return transact_inventory(*owner,player,request);
+            });
             next->mode = coopnet::Mode::Host;
         } else if (!strcmp(name, "coop_join")) {
             const auto connection = next->runtime.connect(endpoint.c_str());
             if (connection == k_HSteamNetConnection_Invalid) throw std::runtime_error("Invalid endpoint or connect failed");
             next->client.start(std::make_unique<coopnet::GnsTransport>(next->runtime, connection), character, build);
             auto* owner = next.get();
+            next->client.set_inventory_sink([owner](const coopnet::InventoryResult& result) {
+                if (!owner->gameplay_probe || !owner->gameplay_pending || result.sequence!=owner->probe_request.sequence || result.item!=owner->probe_request.item) return;
+                owner->gameplay_pending=false;
+                Msg("* CoopNet inventory result: sequence %u status %u revision %u",result.sequence,static_cast<unsigned>(result.status),result.revision);
+                if (result.status==coopnet::InventoryStatus::Accepted) {
+                    ++owner->inventory_accepts; ++owner->gameplay_phase; owner->gameplay_wait=0;
+                }
+            });
+            next->client.set_vitals_sink([owner](const coopnet::ActorVitals& vitals) {
+                const auto* actor=owner->client.actors().find(vitals.actor);
+                if (owner->gameplay_probe && actor && actor->player==owner->client.session().welcome().player &&
+                    apply_local_condition(vitals.level,{vitals.health,vitals.power,vitals.radiation})) {
+                    ++owner->condition_corrections;
+                    if (vitals.tick%25==0) Msg("* CoopNet authoritative guest health applied: %.3f",vitals.health);
+                }
+            });
             next->client.set_snapshot_sink([owner](const coopnet::ActorSnapshot& snapshot) {
                 if (!owner->server_clock_known || snapshot.time_us > owner->server_us) owner->server_us = snapshot.time_us;
                 owner->server_clock_known = true;

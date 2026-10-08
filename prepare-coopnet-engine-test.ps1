@@ -1,5 +1,6 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe)
 $ErrorActionPreference = 'Stop'
+if ($GameplayProbe) { $MovementProbe=$true; $LoadFixture=$true }
 if ($ReplicaProbe -and !$LoadFixture) { throw 'ReplicaProbe requires LoadFixture and isolated copied worlds.' }
 if ($MovementProbe) { $ReplicaProbe = $true; if (!$LoadFixture) { throw 'MovementProbe requires LoadFixture.' } }
 if ($ManualControls -and !$MovementProbe) { throw 'ManualControls requires MovementProbe.' }
@@ -39,6 +40,7 @@ foreach ($role in @('host', 'guest')) {
         $controls = if ($ManualControls) { 'coop_movement_probe' } else { 'coop_movement_probe auto' }
         Add-Content "$data\user.ltx" $controls -Encoding ascii
     }
+    if ($GameplayProbe) { Add-Content "$data\user.ltx" 'coop_gameplay_probe' -Encoding ascii }
     if ($LoadFixture -and ($role -eq 'host' -or $ReplicaProbe)) {
         $fixture = Join-Path $client 'appdata\savedgames\player - autosave.scop'
         if (!(Test-Path $fixture)) { throw 'The disposable gameplay test fixture source save is missing.' }
@@ -58,5 +60,5 @@ if ($Launch) {
         Start-Process -FilePath "$root\bin\AnomalyDX11.exe" -WorkingDirectory $root `
             -ArgumentList '-silent_error_mode','-noprefetch' -WindowStyle Hidden -PassThru
     }
-    Write-Host 'Transport test only. Use coop_status in each console; close both clients after testing.'
+    Write-Host 'Development fixture only. Use coop_status in each console; close both clients after testing.'
 }

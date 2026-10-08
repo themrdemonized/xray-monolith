@@ -8,6 +8,10 @@
 #include "CharacterPhysicsSupport.h"
 #include "xrServer.h"
 #include "xrServer_Objects_ALife_Monsters.h"
+#include "xrServer_Objects_ALife_Items.h"
+#include "inventory_item.h"
+#include "Inventory.h"
+#include "Hit.h"
 #include "xrMessages.h"
 #include "../xrPhysics/iphworld.h"
 #include "../xrPhysics/physicscommon.h"
@@ -20,6 +24,88 @@ std::uint32_t controls_time = 0;
 struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarnation = 0; unsigned controls = 0; };
 xr_map<u16,GuestSpawn> guests;
 std::uint64_t guest_incarnation = 0;
+struct SessionItem { std::uint64_t incarnation=0; bool removing=false; };
+xr_map<u16,SessionItem> session_items;
+std::uint64_t item_incarnation=0;
+}
+bool capture_actor_condition(std::uint16_t object, ActorConditionState& state) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady) return false;
+    CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if (!actor || actor->getDestroy()) return false;
+    state={actor->GetfHealth(),actor->conditions().GetPower(),actor->conditions().GetRadiation()};
+    clamp(state.health,-1.f,1.f); clamp(state.power,-1.f,1.f); clamp(state.radiation,0.f,1.f); return true;
+}
+bool apply_local_condition(std::uint32_t level, const ActorConditionState& state) {
+    LocalActorPose pose;
+    if (!capture_local_actor(pose) || pose.level!=level) return false;
+    const bool was_alive=g_actor->g_Alive();
+    // Authoritative death cannot be undone by a later positive snapshot.
+    if (!was_alive && state.health>0) return false;
+    g_actor->conditions().SetHealth(state.health);
+    g_actor->conditions().SetPower(state.power);
+    g_actor->conditions().SetRadiation(state.radiation);
+    if (was_alive && state.health<=0) g_actor->Die(nullptr);
+    return true;
+}
+std::uint16_t spawn_session_item(std::uint16_t owner, const char* section) {
+    LocalActorPose pose;
+    if (!capture_guest_actor(owner,pose) || !pSettings->section_exist(section) || session_items.size()>=32) return 0xffff;
+    CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    Fvector position=actor->Position(); position.y+=.15f;
+    CSE_Abstract* abstract=Level().spawn_item(section,position,actor->ai_location().level_vertex_id(),0xffff,true);
+    if (!smart_cast<CSE_ALifeInventoryItem*>(abstract)) { F_entity_Destroy(abstract); return 0xffff; }
+    abstract->m_bALifeControl=false;
+    NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+    CSE_Abstract* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID);
+    F_entity_Destroy(abstract);
+    if (!created) return 0xffff;
+    session_items.emplace(created->ID,SessionItem{++item_incarnation,false}); return created->ID;
+}
+bool is_session_item(std::uint16_t item) { return session_items.find(item)!=session_items.end(); }
+void session_item_destroyed(std::uint16_t item) { session_items.erase(item); }
+bool capture_session_item(std::uint16_t item, NativeSessionItem& state) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || !Level().Server) return false;
+    const auto record=session_items.find(item);
+    CGameObject* object=smart_cast<CGameObject*>(Level().Objects.net_Find(item));
+    CSE_Abstract* server=Level().Server->ID_to_entity(item);
+    if (record==session_items.end() || record->second.removing || !object || !server || object->getDestroy() ||
+        !smart_cast<CInventoryItem*>(object) || object->cNameSect().size()>128) return false;
+    state.incarnation=record->second.incarnation; state.object=item; state.owner=server->ID_Parent;
+    state.native_owner=object->H_Parent() ? object->H_Parent()->ID() : 0xffff;
+    xr_strcpy(state.section,*object->cNameSect()); return true;
+}
+NativeInventoryStatus transact_session_item(std::uint16_t owner, std::uint16_t item, std::uint64_t incarnation, bool take) {
+    NativeSessionItem state; LocalActorPose pose;
+    if (!capture_session_item(item,state) || state.incarnation!=incarnation) return NativeInventoryStatus::Unavailable;
+    if (!capture_guest_actor(owner,pose)) return NativeInventoryStatus::Denied;
+    CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    CGameObject* object=smart_cast<CGameObject*>(Level().Objects.net_Find(item));
+    if (!actor->g_Alive()) return NativeInventoryStatus::Denied;
+    if (state.native_owner!=state.owner) return NativeInventoryStatus::Conflict; // native event still queued
+    if ((take && state.owner!=0xffff) || (!take && state.owner!=owner)) return NativeInventoryStatus::Conflict;
+    if (take) {
+        if (actor->Position().distance_to_sqr(object->Position())>4.f) return NativeInventoryStatus::OutOfRange;
+        if (!actor->inventory().CanTakeItem(smart_cast<CInventoryItem*>(object))) return NativeInventoryStatus::Capacity;
+    }
+    NET_Packet packet; CGameObject::u_EventGen(packet,take ? GE_OWNERSHIP_TAKE : GE_OWNERSHIP_REJECT,owner);
+    packet.w_u16(item); CGameObject::u_EventSend(packet);
+    NativeSessionItem after;
+    if (!capture_session_item(item,after) || after.owner!=(take ? owner : 0xffff)) return NativeInventoryStatus::Denied;
+    return NativeInventoryStatus::Accepted;
+}
+void remove_session_item(std::uint16_t item) {
+    const auto found=session_items.find(item);
+    if (found==session_items.end() || found->second.removing || !g_pGameLevel || !Level().Server) return;
+    found->second.removing=true;
+    NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,item); CGameObject::u_EventSend(packet);
+}
+bool damage_guest_probe(std::uint16_t object) {
+    LocalActorPose pose; if (!capture_guest_actor(object,pose) || !g_actor) return false;
+    CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    Fvector direction; direction.set(0,0,1);
+    SHit hit(.2f,direction,g_actor,BI_NONE,Fvector().set(0,0,0),0,ALife::eHitTypeStrike,0,false);
+    hit.GenHeader(GE_HIT,object); hit.whoID=g_actor->ID(); hit.weaponID=g_actor->ID();
+    NET_Packet packet; hit.Write_Packet(packet); CGameObject::u_EventSend(packet); return true;
 }
 void begin_guest_simulation() { Device.Pause(FALSE, TRUE, FALSE, "CoopNet native movement"); }
 std::uint16_t spawn_guest_actor() {
@@ -128,12 +214,15 @@ void remove_guest_actor(std::uint16_t object) {
     Msg("* CoopNet native guest removed: object %u", object);
 }
 void clear_guest_actors() {
-    if (!g_pGameLevel || !Level().Server) { guests.clear(); return; }
+    xr_vector<u16> items;
+    for (const auto& item : session_items) items.push_back(item.first);
+    for (const auto item : items) remove_session_item(item);
+    if (!g_pGameLevel || !Level().Server) { guests.clear(); session_items.clear(); return; }
     xr_vector<u16> objects;
     for (const auto& entry : guests) objects.push_back(entry.first);
     for (const auto object : objects) remove_guest_actor(object);
 }
-void guest_level_stopped() { guests.clear(); }
+void guest_level_stopped() { guests.clear(); session_items.clear(); }
 void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; }
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity) {
     LocalActorPose local;

@@ -1,5 +1,6 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe)
 $ErrorActionPreference = 'Stop'
+if ($GameplayProbe) { $MovementProbe=$true }
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
 $fixtureFiles = Get-ChildItem "$client\appdata\savedgames\player - autosave.*" -File
 $originalHashes = @{}
@@ -7,7 +8,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -65,4 +66,20 @@ if ($MovementProbe) {
     Write-Output "NATIVE_MOVEMENT_PASS: $($motion.Groups[1].Value) inputs; $($motion.Groups[2].Value) metres displacement."
 }
 Write-Output "ENGINE_PROBE_PASS: guest model updated $($renderEvidence.Groups[1].Value) times, submitted $($renderEvidence.Groups[2].Value) times, and removed; original saves unchanged."
-Write-Output 'Presentation probe only. Shared-world gameplay and visual appearance quality are not verified.'
+if ($GameplayProbe) {
+    $nativeTransactions=[regex]::Matches($logs.host,'CoopNet inventory native transaction:')
+    $health=[regex]::Matches($logs.guest,'CoopNet authoritative guest health applied: (-?[\d.]+)')
+    $damaged=$false
+    foreach ($match in $health) {
+        $value=[double]::Parse($match.Groups[1].Value,[Globalization.CultureInfo]::InvariantCulture)
+        if ($value -gt 0 -and $value -lt .95) { $damaged=$true }
+    }
+    if ($nativeTransactions.Count -ne 2 -or !$damaged -or
+        $logs.host -notmatch 'CoopNet native inventory take confirmed:' -or
+        $logs.host -notmatch 'CoopNet native inventory drop confirmed:' -or
+        $logs.guest -notmatch 'CoopNet gameplay results: inventory accepts 3 phase 3 condition updates [1-9]\d*') {
+        throw 'Host native loot ownership, exactly-once replay, drop or authoritative damage evidence missing.'
+    }
+    Write-Output 'NATIVE_GAMEPLAY_FIXTURE_PASS: native take/drop, replay without duplicate mutation, host damage and client condition correction.'
+}
+Write-Output 'Development fixture only. Canonical world loading, normal combat/inventory controls and persistence are not verified.'

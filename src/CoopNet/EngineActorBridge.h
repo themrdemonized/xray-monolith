@@ -23,6 +23,22 @@ struct LocalActorControls {
     std::uint16_t buttons = 0;
     float yaw = 0, pitch = 0;
 };
+struct ActorConditionState { float health=1, power=1, radiation=0; };
+struct NativeSessionItem {
+    std::uint64_t incarnation=0;
+    std::uint16_t object=0xffff, owner=0xffff, native_owner=0xffff;
+    char section[129]{};
+};
+enum class NativeInventoryStatus : std::uint8_t { Accepted, Unavailable, Conflict, Denied, OutOfRange, Capacity };
+bool capture_actor_condition(std::uint16_t object, ActorConditionState& state);
+bool apply_local_condition(std::uint32_t level, const ActorConditionState& state);
+std::uint16_t spawn_session_item(std::uint16_t actor, const char* section);
+bool capture_session_item(std::uint16_t item, NativeSessionItem& state);
+bool is_session_item(std::uint16_t item);
+void session_item_destroyed(std::uint16_t item);
+void remove_session_item(std::uint16_t item);
+NativeInventoryStatus transact_session_item(std::uint16_t actor, std::uint16_t item, std::uint64_t incarnation, bool take);
+bool damage_guest_probe(std::uint16_t actor);
 void local_controls_sampled(std::uint16_t object, std::uint32_t buttons, float yaw, float pitch);
 bool capture_local_controls(LocalActorControls& controls);
 void local_actor_spawned();

@@ -8,6 +8,7 @@
 #include "object_broker.h"
 #include "gamepersistent.h"
 #include "xrServer.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "../xrEngine/x_ray.h"
 #include "../xrEngine/dedicated_server_only.h"
 #include "../xrEngine/no_single.h"
@@ -121,6 +122,8 @@ BOOL game_sv_Single::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
 
 void game_sv_Single::OnDetach(u16 eid_who, u16 eid_what)
 {
+    // Session fixtures are transient; native detachment must not import them into ALife.
+    if (engine_coopnet::is_session_item(eid_what)) return;
 	if (ai().get_alife())
 	{
 		CSE_Abstract* e_who = get_entity_from_eid(eid_who);
