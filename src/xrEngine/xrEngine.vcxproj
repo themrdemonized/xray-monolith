@@ -831,7 +831,9 @@
       <AdditionalManifestFiles>$(SolutionDir)xrEngine\as-invoker-manifest-part.xml;%(AdditionalManifestFiles)</AdditionalManifestFiles>
     </Manifest>
   </ItemDefinitionGroup>
+  <Import Project="..\CoopNet\EngineIntegration.props" />
   <ItemGroup>
+    <ClInclude Include="CoopNetRuntime.h" />
     <ClInclude Include="..\3rd party\discord\achievement_manager.h" />
     <ClInclude Include="..\3rd party\discord\activity_manager.h" />
     <ClInclude Include="..\3rd party\discord\application_manager.h" />
@@ -1065,6 +1067,10 @@
     <ClCompile Include="xr_object.cpp" />
     <ClCompile Include="xr_object_list.cpp" />
     <ClCompile Include="x_ray.cpp" />
+    <ClCompile Include="CoopNetRuntime.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ExceptionHandling>Sync</ExceptionHandling>
+    </ClCompile>
     <ClCompile Include="_scripting.cpp" />
   </ItemGroup>
   <ItemGroup>

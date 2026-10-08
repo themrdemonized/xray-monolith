@@ -1,7 +1,8 @@
 param(
     [ValidateSet('DX11','DX11-AVX','DX10','DX9','DX8','VerifiedDX11')]
     [string]$Configuration = 'DX11',
-    [switch]$Deploy
+    [switch]$Deploy,
+    [switch]$CoopNet
 )
 $ErrorActionPreference = 'Stop'
 $engine = $PSScriptRoot
@@ -23,7 +24,7 @@ if (Test-Path "$vsroot\MSBuild\Microsoft\VC\v180\Platforms\x64\PlatformToolsets\
 }
 Push-Location $engine
 try {
-    & $msbuild "$engine\src\engine-vs2022.sln" /m:2 "/p:Configuration=$Configuration" /p:Platform=x64 @toolsetArguments /v:minimal /fl "/flp:logfile=build-$Configuration.log;verbosity=normal"
+    & $msbuild "$engine\src\engine-vs2022.sln" /m:2 "/p:Configuration=$Configuration" /p:Platform=x64 "/p:CoopNet=$($CoopNet.IsPresent.ToString().ToLowerInvariant())" @toolsetArguments /v:minimal /fl "/flp:logfile=build-$Configuration.log;verbosity=normal"
     if ($LASTEXITCODE -ne 0) { throw "Build failed. See build-$Configuration.log." }
     if ($Deploy) {
         $name = if ($Configuration -eq 'VerifiedDX11') { 'VerifiedDX11' } else { 'Anomaly' + $Configuration.Replace('-','') }
@@ -50,6 +51,16 @@ try {
             }
         }
         Copy-Item -LiteralPath $exe -Destination "$client\bin\$name.exe" -Force
+        if ($CoopNet) {
+            Get-ChildItem "$engine\_build\coopnet-deps\installed\x64-windows\bin" -Filter '*.dll' | ForEach-Object {
+                $existing = Join-Path "$client\bin" $_.Name
+                if (Test-Path $existing) {
+                    New-Item "$backup\bin" -ItemType Directory -Force | Out-Null
+                    Copy-Item -LiteralPath $existing -Destination "$backup\bin\$($_.Name)"
+                }
+                Copy-Item -LiteralPath $_.FullName -Destination "$client\bin" -Force
+            }
+        }
         if (Test-Path "$output\$name.pdb") { Copy-Item "$output\$name.pdb" "$client\bin" -Force }
         Copy-Item "$engine\gamedata\*" "$client\gamedata" -Recurse -Force
         $cache = Join-Path $client 'appdata\shaders_cache'

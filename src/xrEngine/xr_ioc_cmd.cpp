@@ -5,6 +5,7 @@
 #include "x_ray.h"
 #include "xr_ioconsole.h"
 #include "xr_ioc_cmd.h"
+#include "CoopNetRuntime.h"
 //#include "fbasicvisual.h"
 #include "cameramanager.h"
 #include "environment.h"
@@ -64,6 +65,13 @@ void IConsole_Command::add_LRU_to_tips(vecTips& tips)
 }
 
 // =======================================================
+
+class CCC_CoopNet : public IConsole_Command
+{
+public:
+    CCC_CoopNet(LPCSTR name) : IConsole_Command(name) { bEmptyArgsHandled = TRUE; }
+    void Execute(LPCSTR args) override { engine_coopnet::command(cName, args); }
+};
 
 class CCC_Quit : public IConsole_Command
 {
@@ -1029,6 +1037,11 @@ Fvector3 ssfx_wetness_multiplier = Fvector3().set(1.0f, 0.3f, 0.0f);
 
 void CCC_Register()
 {
+	CMD1(CCC_CoopNet, "coop_host");
+	CMD1(CCC_CoopNet, "coop_join");
+	CMD1(CCC_CoopNet, "coop_disconnect");
+	CMD1(CCC_CoopNet, "coop_status");
+	CMD1(CCC_CoopNet, "coop_replica_probe");
 	// General
 	CMD1(CCC_Help, "help");
 	CMD1(CCC_Quit, "quit");

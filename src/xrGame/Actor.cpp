@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "Actor_Flags.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "hudmanager.h"
 #ifdef DEBUG
 
@@ -1296,7 +1297,7 @@ void CActor::UpdateCL()
 		m_bPickupMode = false;
 
 	//Discord
-	if (psDeviceFlags2.test(rsDiscord))
+	if (this == Level().CurrentControlEntity() && psDeviceFlags2.test(rsDiscord))
 	{
 		//God
 		bool isGodmode = psActorFlags.test(AF_GODMODE);
@@ -1395,14 +1396,17 @@ void CActor::UpdateCL()
 	}
 
 	//for LV shaders
-	g_pGamePersistent->actor_data.health = GetfHealth();
-	g_pGamePersistent->actor_data.stamina = conditions().GetPower();
-	g_pGamePersistent->actor_data.bleeding = conditions().BleedingSpeed();
-	//g_pGamePersistent->actor_data.helmet = !GetOutfit()->bIsHelmetAvaliable || inventory().ItemFromSlot(HELMET_SLOT) ? 1 : 0;
+	if (this == Level().CurrentViewEntity())
+	{
+		g_pGamePersistent->actor_data.health = GetfHealth();
+		g_pGamePersistent->actor_data.stamina = conditions().GetPower();
+		g_pGamePersistent->actor_data.bleeding = conditions().BleedingSpeed();
+		//g_pGamePersistent->actor_data.helmet = !GetOutfit()->bIsHelmetAvaliable || inventory().ItemFromSlot(HELMET_SLOT) ? 1 : 0;
 
-	// Update environment radiation value if hud is not shown
-	if (!psHUD_Flags.test(HUD_DRAW))
-		CurrentGameUI()->UIMainIngameWnd->get_hud_states()->UpdateZones();
+		// Update environment radiation value if hud is not shown
+		if (!psHUD_Flags.test(HUD_DRAW))
+			CurrentGameUI()->UIMainIngameWnd->get_hud_states()->UpdateZones();
+	}
 }
 
 void CActor::set_safemode(bool status)
@@ -1755,8 +1759,6 @@ void CActor::on_requested_spawn(CObject *object)
 #endif
 }
 
-float NET_Jump = 0;
-
 void CActor::set_state_box(u32 mstate)
 {
 	if (mstate & mcCrouch)
@@ -1835,6 +1837,7 @@ void CActor::shedule_Update(u32 DT)
 			*/
 		}
 		g_cl_Orientate(mstate_real, dt);
+		engine_coopnet::local_controls_sampled(ID(), mstate_wishful, r_torso.yaw, r_torso.pitch);
 		g_Orientate(mstate_real, dt);
 
 		g_Physics(NET_SavedAccel, NET_Jump, dt);
@@ -2012,7 +2015,7 @@ void CActor::shedule_Update(u32 DT)
 	collide::rq_result& RQ = HUD().GetRQ();
 
 
-	if (!input_external_handler_installed() && RQ.O && RQ.O->getVisible() && RQ.range < 2.0f)
+	if (this == Level().CurrentControlEntity() && !input_external_handler_installed() && RQ.O && RQ.O->getVisible() && RQ.range < 2.0f)
 	{
 		m_pObjectWeLookingAt = smart_cast<CGameObject*>(RQ.O);
 

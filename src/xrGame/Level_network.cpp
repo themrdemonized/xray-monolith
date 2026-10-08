@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "Level.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "Level_Bullet_Manager.h"
 #include "xrserver.h"
 #include "xrmessages.h"
@@ -120,6 +121,7 @@ extern CUISequencer* g_tutorial2;
 
 void CLevel::net_Stop()
 {
+	engine_coopnet::clear_remote_actors();
 	Msg("- Disconnect");
 
 	if (CurrentGameUI())

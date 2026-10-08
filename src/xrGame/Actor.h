@@ -587,6 +587,7 @@ public:
 protected:
 	xr_deque<net_update> NET;
 	Fvector NET_SavedAccel;
+	float NET_Jump = 0.f; // Pending impulse belongs to this actor, not the process.
 	net_update NET_Last;
 	BOOL NET_WasInterpolating; // previous update was by interpolation or by extrapolation
 	u32 NET_Time; // server time of last update

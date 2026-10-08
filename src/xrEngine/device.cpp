@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "CoopNetRuntime.h"
 #include "../xrCDB/frustum.h"
 #include "xr_ioconsole.h"
 #include "xr_input.h"
@@ -424,6 +425,7 @@ void CRenderDevice::on_idle()
 	if (g_loading_events.size())
 	{
 		PROF_EVENT("Pop loading event");
+		engine_coopnet::update(0);
 		if (g_loading_events.front()())
 			g_loading_events.pop_front();
 		pApp->LoadDraw();
@@ -436,6 +438,7 @@ void CRenderDevice::on_idle()
 		g_SASH.StartBenchmark();
 	}
 
+	engine_coopnet::update(0);
 	FrameMove();
 
 	// Precache

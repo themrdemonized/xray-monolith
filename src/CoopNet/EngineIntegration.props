@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <CoopNetDependencies>$(MSBuildThisFileDirectory)..\..\_build\coopnet-deps\installed\x64-windows\</CoopNetDependencies>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(CoopNet)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>XR_COOPNET;STEAMNETWORKINGSOCKETS_OPENSOURCE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CoopNetDependencies)include\GameNetworkingSockets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(CoopNetDependencies)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>GameNetworkingSockets.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <Target Name="CheckCoopNetDependencies" BeforeTargets="ClCompile" Condition="'$(CoopNet)'=='true'">
+    <Error Condition="!Exists('$(CoopNetDependencies)include\GameNetworkingSockets\steam\steamnetworkingsockets.h')" Text="Run setup-coopnet-deps.ps1 before building with CoopNet=true." />
+  </Target>
+  <Target Name="CopyCoopNetRuntime" AfterTargets="Build" Condition="'$(CoopNet)'=='true'">
+    <ItemGroup><CoopNetDll Include="$(CoopNetDependencies)bin\*.dll" /></ItemGroup>
+    <Copy SourceFiles="@(CoopNetDll)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

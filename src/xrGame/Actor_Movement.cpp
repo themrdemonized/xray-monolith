@@ -90,7 +90,7 @@ void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 			}
 
 			::luabind::functor<bool> on_land;
-			if (ai().script_engine().functor("_G.CActor_on_land", on_land))
+			if (this == Level().CurrentControlEntity() && ai().script_engine().functor("_G.CActor_on_land", on_land))
 				on_land(character_physics_support()->movement()->GetContactSpeed());
 		}
 		m_bJumpKeyPressed = TRUE;
@@ -318,7 +318,7 @@ void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector& vControlAccel, float& Ju
 		} //(mstate_real&mcAnyMove)
 	} //peOnGround || peAtWall
 
-	if (IsGameTypeSingle() && cam_eff_factor > EPS)
+	if (IsGameTypeSingle() && this == Level().CurrentControlEntity() && cam_eff_factor > EPS)
 	{
 		LPCSTR state_anm = NULL;
 
@@ -649,7 +649,7 @@ bool CActor::CanMove()
 {
 	if (conditions().IsCantWalk())
 	{
-		if (mstate_wishful & mcAnyMove)
+		if (this == Level().CurrentControlEntity() && (mstate_wishful & mcAnyMove))
 		{
 			CurrentGameUI()->AddCustomStatic("cant_walk", true);
 		}
@@ -657,7 +657,7 @@ bool CActor::CanMove()
 	}
 	else if (conditions().IsCantWalkWeight())
 	{
-		if (mstate_wishful & mcAnyMove)
+		if (this == Level().CurrentControlEntity() && (mstate_wishful & mcAnyMove))
 		{
 			CurrentGameUI()->AddCustomStatic("cant_walk_weight", true);
 		}

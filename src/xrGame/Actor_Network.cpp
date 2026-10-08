@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "actor.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "hudmanager.h"
 #include "Actor_Flags.h"
 #include "inventory.h"
@@ -600,6 +601,7 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 	//	m_bJumpKeyPressed = ((mstate_wishful&mcJump)!=0);
 	//		
 	NET_SavedAccel.set(0, 0, 0);
+	NET_Jump = 0.f;
 	NET_WasInterpolating = TRUE;
 
 	setEnabled(E->s_flags.is(M_SPAWN_OBJECT_LOCAL));
@@ -700,8 +702,11 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 
 
 	spatial.type |= STYPE_REACTTOSOUND;
-	psHUD_Flags.set(HUD_WEAPON_RT,TRUE);
-	psHUD_Flags.set(HUD_WEAPON_RT2,TRUE);
+	if (!IsGameTypeSingle() || g_actor == this)
+	{
+		psHUD_Flags.set(HUD_WEAPON_RT,TRUE);
+		psHUD_Flags.set(HUD_WEAPON_RT2,TRUE);
+	}
 
 	if (Level().IsDemoPlay() && OnClient())
 	{
@@ -710,6 +715,7 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 
 	//Alun: In theory it will call SwitchNightVision 'true' when outfit or helmet spawn and moved to slot if m_bNightVisionOn is true
 	m_bNightVisionOn = !!m_trader_flags.test(CSE_ALifeTraderAbstract::eTraderFlagNightVisionActive);
+	if (g_actor == this) engine_coopnet::local_actor_spawned();
 
 	return TRUE;
 }

@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "GameObject.h"
+#include "Actor.h"
 //#include "../Include/xrRender/RenderVisual.h"
 #include "../Include/xrRender/RenderVisual.h"
 #include "../xrphysics/PhysicsShell.h"
@@ -121,7 +122,8 @@ void CGameObject::net_Destroy()
 	VERIFY(m_spawned);
 
 	::luabind::functor<void> funct;
-	if (ai().script_engine().functor("_G.CGameObject_NetDestroy", funct))
+	if ((!IsGameTypeSingle() || !cast_actor() || cast_actor() == g_actor) &&
+		ai().script_engine().functor("_G.CGameObject_NetDestroy", funct))
 	{
 		funct(this->lua_game_object());
 	}
@@ -384,12 +386,16 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 			spatial.type = (spatial.type | STYPE_VISIBLEFORAI) ^ STYPE_VISIBLEFORAI;
 	}
 
+	// A secondary single-player actor must not attach the offline local actor binder.
+	// ASPLAYER also selects the sole ALife/control actor; guest actors keep it clear.
+	const bool bind_actor_scripts = !IsGameTypeSingle() || !cast_actor() ||
+		E->s_flags.is(M_SPAWN_OBJECT_ASPLAYER);
 	reload(*cNameSect());
-	if (!g_dedicated_server)
+	if (!g_dedicated_server && bind_actor_scripts)
 		CScriptBinder::reload(*cNameSect());
 
 	reinit();
-	if (!g_dedicated_server)
+	if (!g_dedicated_server && bind_actor_scripts)
 		CScriptBinder::reinit();
 #ifdef DEBUG
 	if(ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject)&&stricmp(PH_DBG_ObjectTrackName(),*cName())==0)
@@ -456,6 +462,8 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 	m_bObjectRemoved = false;
 
 	spawn_supplies();
+	if (!bind_actor_scripts)
+		return TRUE;
 #ifdef DEBUG
 	if(ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject)&&stricmp(PH_DBG_ObjectTrackName(),*cName())==0)
 	{

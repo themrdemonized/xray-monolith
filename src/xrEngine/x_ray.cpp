@@ -6,6 +6,8 @@
 // AlexMX - Alexander Maksimchuk
 //-----------------------------------------------------------------------------
 #include "stdafx.h"
+#include "CoopNetRuntime.h"
+void engine_coopnet::report(const char* text) { Msg("%s", text); }
 #include "igame_level.h"
 #include "igame_persistent.h"
 
@@ -1371,6 +1373,7 @@ CApplication::CApplication()
 
 CApplication::~CApplication()
 {
+	engine_coopnet::stop();
 	Console->Hide();
 
 	// font

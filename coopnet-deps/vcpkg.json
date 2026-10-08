@@ -1,0 +1,8 @@
+{
+  "name": "coopnet",
+  "version-string": "0.1.0",
+  "builtin-baseline": "2750401336fb7c95f6619657a46a7e798661341c",
+  "dependencies": [
+    { "name": "gamenetworkingsockets", "version>=": "1.6.0" }
+  ]
+}
