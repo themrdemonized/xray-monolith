@@ -404,6 +404,15 @@ public:
 
 	void set_aggressive(bool val = true) { m_bAggressive = val; }
 
+	// rear-strike facing threshold (radians): the melee spin-strike fires when the enemy sits
+	// beyond this angle off the front. 2.8798 = the GSC 165 deg default (a ~30 deg dead-rear wedge)
+	float m_melee_face_eps = 2.8798f;
+	float get_melee_face_eps() const { return m_melee_face_eps; }
+	void set_melee_face_eps(float eps_rad)
+	{
+		if (eps_rad > 0.f) m_melee_face_eps = eps_rad;
+	}
+
 	//---------------------------------------------------------------------------------------
 
 

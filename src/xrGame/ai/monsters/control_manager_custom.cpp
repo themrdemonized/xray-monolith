@@ -735,6 +735,8 @@ void CControlManagerCustom::add_melee_jump_data(LPCSTR left, LPCSTR right)
 
 void CControlManagerCustom::check_melee_jump()
 {
+	// no strike motions supplied: the component stays inert (activate divides by the motion time)
+	if (!m_melee_jump_data.anim_ls || !m_melee_jump_data.anim_rs) return;
 	if (!m_man->check_start_conditions(ControlCom::eControlMeleeJump)) return;
 	if (!m_object->check_start_conditions(ControlCom::eControlMeleeJump)) return;
 
