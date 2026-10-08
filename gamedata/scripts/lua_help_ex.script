@@ -813,6 +813,24 @@
         function place_skeleton (game_object obj, string section, Fvector start, Fvector dir, float size, float ttl)
     }
 
+    // monster_on_combat_action callback flags.substate: the attack substates the shared monster
+    // and group attack selectors can honor; any other value is ignored and vanilla selection runs.
+    // Values are EMonsterState ids.
+    enum monster_state {
+        eStateAttack_Run             = 262145,
+        eStateAttack_Melee           = 262146,
+        eStateAttack_RunAttack       = 262147,
+        eStateAttack_RunAway         = 262148,
+        eStateAttack_FindEnemy       = 262149,
+        eStateAttack_Steal           = 262150,
+        eStateAttack_AttackHidden    = 262151,
+        eStateAttack_ControlFire     = 262157,
+        eStateAttackCamp             = 262160,
+        eStateAttack_MoveToHomePoint = 262165,
+        eStateAttack_Attack_On_Run   = 262169,
+        eStateCustom                 = 1073741824
+    }
+    
     // slot ids, the same numbers move_to_slot and active_slot use, read as inventory.knife
     enum inventory.slot {
         no_active   = 0,
