@@ -47,21 +47,7 @@ BOOL CWeaponSSRS::net_Spawn(CSE_Abstract* DC)
 	BOOL l_res = inheritedWM::net_Spawn(DC);
 	if (!l_res) return l_res;
 
-	if (iAmmoElapsed && !getCurrentRocket())
-	{
-		shared_str grenade_name = m_ammoTypes[0];
-		shared_str fake_grenade_name = pSettings->r_string(grenade_name, "fake_grenade_name");
-
-		if (fake_grenade_name.size())
-		{
-			int k = iAmmoElapsed;
-			while (k)
-			{
-				k--;
-				inheritedRL::SpawnRocket(*fake_grenade_name, this);
-			}
-		}
-	}
+	SyncRockets();
 
 	return l_res;
 };
@@ -70,18 +56,27 @@ void CWeaponSSRS::Load(LPCSTR section)
 {
 	inheritedRL::Load(section);
 	inheritedWM::Load(section);
-	fAiOneShotTime = READ_IF_EXISTS(pSettings, r_float, section, "ai_rpm", fOneShotTime);
-}
+	// zero without an ai_rpm key, NPCs then fire at the weapon's current rpm
+	fAiOneShotTime = READ_IF_EXISTS(pSettings, r_float, section, "ai_rpm", 0.f);
 
-void CWeaponSSRS::FireStart()
-{
-	//Check if actor is AI
-	if (smart_cast<CAI_Stalker*>(H_Parent()))
+	// tri_state_reload loads one round at a time like a shotgun, it needs the hud's open, insert and close motions
+	m_bTriStateReload = READ_IF_EXISTS(pSettings, r_bool, section, "tri_state_reload", false);
+	if (m_bTriStateReload)
 	{
-		fOneShotTime = 60.f / fAiOneShotTime;
+		LPCSTR hud = HudSection().c_str();
+		if (!pSettings->line_exist(hud, "anm_open") || !pSettings->line_exist(hud, "anm_add_cartridge") || !pSettings->line_exist(hud, "anm_close"))
+		{
+			Msg("! CWeaponSSRS [%s] hud [%s] lacks anm_open, anm_add_cartridge or anm_close, tri_state_reload ignored", section, hud);
+			m_bTriStateReload = false;
+		}
 	}
-
-	inheritedWM::FireStart();
+	if (m_bTriStateReload)
+	{
+		m_sounds.LoadSound(section, "snd_open_weapon", "sndOpen", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+		m_sounds.LoadSound(section, "snd_add_cartridge", "sndAddCartridge", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+		m_sounds.LoadSound(section, "snd_close_weapon", "sndClose", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+		m_sounds.LoadSound(section, "snd_close_weapon_empty", "sndCloseEmpty", false, ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING));
+	}
 }
 
 void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
@@ -95,6 +90,9 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 		{
 			P.r_u16(id);
 			inheritedRL::AttachRocket(id, this);
+			xr_vector<shared_str>::iterator it = std::find(m_pendingRockets.begin(), m_pendingRockets.end(), getCurrentRocket()->cNameSect());
+			if (it != m_pendingRockets.end())
+				m_pendingRockets.erase(it);
 		}
 		break;
 	case GE_OWNERSHIP_REJECT:
@@ -102,26 +100,91 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 		{
 			bool bLaunch = (type == GE_LAUNCH_ROCKET);
 			P.r_u16(id);
-			inheritedRL::DetachRocket(id, bLaunch);
+			// a stripped rocket already left m_rockets, detach it here so its destroy can land
+			xr_vector<u16>::iterator it = std::find(m_strippedRockets.begin(), m_strippedRockets.end(), id);
+			if (it != m_strippedRockets.end())
+			{
+				m_strippedRockets.erase(it);
+				if (CObject* rocket = Level().Objects.net_Find(id))
+					rocket->H_SetParent(NULL, true);
+			}
+			else
+				inheritedRL::DetachRocket(id, bLaunch);
 		}
 		break;
 	}
 }
 
-#ifdef CROCKETLAUNCHER_CHANGE
-void CWeaponSSRS::UnloadRocket()
+void CWeaponSSRS::UpdateCL()
 {
-	while (getRocketCount() > 0)
+	inheritedWM::UpdateCL();
+
+	// rounds added, removed or retyped outside a reload, set_ammo_elapsed, set_ammo_type or an unload, get their rockets here
+	if (m_bSyncRockets || getRocketCount() + m_pendingRockets.size() + m_rocketlessRounds != m_magazine.size() ||
+		(!m_magazine.empty() && m_magazine.back().m_ammoSect != m_syncedTopAmmo))
+		SyncRockets();
+}
+
+// Rocket section for a cartridge, NULL when its ammo has no fake_grenade_name
+static LPCSTR rocket_section(const CCartridge& cartridge)
+{
+	LPCSTR rocket = READ_IF_EXISTS(pSettings, r_string, cartridge.m_ammoSect.c_str(), "fake_grenade_name", NULL);
+	if (rocket && rocket[0])
+		return rocket;
+
+	static xr_set<shared_str> logged;
+	if (logged.insert(cartridge.m_ammoSect).second)
+		Msg("! CWeaponSSRS ammo [%s] has no fake_grenade_name, its rounds get no rocket", cartridge.m_ammoSect.c_str());
+	return NULL;
+}
+
+// One rocket per cartridge from its own ammo, waits while spawned rockets are still on the way
+void CWeaponSSRS::SyncRockets()
+{
+	if (!OnServer()) return;
+
+	if (!m_pendingRockets.empty())
 	{
-		Msg("%s:%d [%d]-[%s]", __FUNCTION__, __LINE__, getRocketCount(), getCurrentRocket()->cNameSect_str());
-		NET_Packet P;
-		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
-		P.w_u16(u16(getCurrentRocket()->ID()));
-		u_EventSend(P);
-        dropCurrentRocket();
+		m_bSyncRockets = true;
+		return;
+	}
+	m_bSyncRockets = false;
+	m_syncedTopAmmo = m_magazine.empty() ? shared_str() : m_magazine.back().m_ammoSect;
+
+	u32 matched = 0, i = 0;
+	m_rocketlessRounds = 0;
+	for (; i < m_magazine.size(); ++i)
+	{
+		LPCSTR rocket = rocket_section(m_magazine[i]);
+		if (!rocket)
+			++m_rocketlessRounds;
+		else if (matched < getRocketCount() && !xr_strcmp(m_rockets[matched]->cNameSect_str(), rocket))
+			++matched;
+		else
+			break;
+	}
+
+	// destroying a child brings the weapon a reject first, then the rocket its destroy
+	while (getRocketCount() > matched)
+	{
+		CCustomRocket* rocket = getCurrentRocket();
+		m_strippedRockets.push_back(rocket->ID());
+		dropCurrentRocket();
+		rocket->DestroyObject();
+	}
+
+	for (; i < m_magazine.size(); ++i)
+	{
+		LPCSTR rocket = rocket_section(m_magazine[i]);
+		if (!rocket)
+		{
+			++m_rocketlessRounds;
+			continue;
+		}
+		inheritedRL::SpawnRocket(rocket, this);
+		m_pendingRockets.push_back(rocket);
 	}
 }
-#endif
 
 void CWeaponSSRS::ReloadMagazine()
 {
@@ -152,8 +215,6 @@ void CWeaponSSRS::ReloadMagazine()
 		m_set_next_ammoType_on_reload = undefined_ammo_type;
 	}
 
-	UnloadRocket();
-
 	if (!unlimited_ammo())
 	{
 		if (m_ammoTypes.size() <= m_ammoType)
@@ -169,7 +230,6 @@ void CWeaponSSRS::ReloadMagazine()
 
 		if (!m_pCurrentAmmo && !m_bLockType && iAmmoElapsed == 0)
 		{
-			shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
 			for (u8 i = 0; i < u8(m_ammoTypes.size()); ++i)
 			{
 				//проверить патроны всех подходящих типов
@@ -199,7 +259,6 @@ void CWeaponSSRS::ReloadMagazine()
 		m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, m_APk);
 	CCartridge l_cartridge = m_DefaultCartridge;
 
-	shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
 	while (iAmmoElapsed < iMagazineSize)
 	{
 		if (!unlimited_ammo())
@@ -209,7 +268,6 @@ void CWeaponSSRS::ReloadMagazine()
 		++iAmmoElapsed;
 		l_cartridge.m_LocalAmmoType = m_ammoType;
 		m_magazine.push_back(l_cartridge);
-		inheritedRL::SpawnRocket(*fake_grenade_name, this);
 	}
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
@@ -226,6 +284,190 @@ void CWeaponSSRS::ReloadMagazine()
 	}
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
+	SyncRockets();
+}
+
+void CWeaponSSRS::Reload()
+{
+	if (!m_bTriStateReload)
+	{
+		inheritedWM::Reload();
+		return;
+	}
+
+	if (m_magazine.size() == (u32)iMagazineSize || !HaveCartridgeInInventory(1))
+		return;
+	CWeapon::Reload();
+	m_needReload = false;
+	m_sub_state = eSubstateReloadBegin;
+	SwitchState(eReload);
+}
+
+bool CWeaponSSRS::Action(u16 cmd, u32 flags)
+{
+	if (inheritedWM::Action(cmd, flags)) return true;
+
+	// fire stops a per round reload once the round in hand is in
+	if (m_bTriStateReload && GetState() == eReload && cmd == kWPN_FIRE && (flags & CMD_START) &&
+		m_sub_state == eSubstateReloadInProcess)
+	{
+		AddCartridge(1);
+		m_sub_state = eSubstateReloadEnd;
+		return true;
+	}
+	return false;
+}
+
+void CWeaponSSRS::OnAnimationEnd(u32 state)
+{
+	if (!m_bTriStateReload || state != eReload)
+	{
+		inheritedWM::OnAnimationEnd(state);
+		return;
+	}
+
+	switch (m_sub_state)
+	{
+	case eSubstateReloadBegin:
+		m_sub_state = eSubstateReloadInProcess;
+		SwitchState(eReload);
+		break;
+	case eSubstateReloadInProcess:
+		if (0 != AddCartridge(1))
+			m_sub_state = eSubstateReloadEnd;
+		SwitchState(eReload);
+		break;
+	case eSubstateReloadEnd:
+		m_bReloadFromEmpty = false;
+		m_sub_state = eSubstateReloadBegin;
+		SwitchState(eIdle);
+		break;
+	}
+}
+
+void CWeaponSSRS::OnStateSwitch(u32 S, u32 oldState)
+{
+	if (!m_bTriStateReload || S != eReload)
+	{
+		inheritedWM::OnStateSwitch(S, oldState);
+		return;
+	}
+
+	CWeapon::OnStateSwitch(S, oldState);
+
+	if (m_magazine.size() == (u32)iMagazineSize || !HaveCartridgeInInventory(1))
+	{
+		switch2_EndReload();
+		m_sub_state = eSubstateReloadEnd;
+		return;
+	}
+
+	switch (m_sub_state)
+	{
+	case eSubstateReloadBegin: switch2_StartReload();
+		break;
+	case eSubstateReloadInProcess: switch2_AddCartridge();
+		break;
+	case eSubstateReloadEnd: switch2_EndReload();
+		break;
+	}
+}
+
+void CWeaponSSRS::switch2_StartReload()
+{
+	m_bReloadFromEmpty = m_magazine.empty();
+	PlaySound("sndOpen", get_LastFP());
+	PlayHUDMotion("anm_open", TRUE, this, GetState(), 1.f, 0.f, false);
+	SetPending(TRUE);
+}
+
+void CWeaponSSRS::switch2_AddCartridge()
+{
+	if (ParentIsActor()) Actor()->callback(GameObject::eWeaponNoAmmoAvailable)(lua_game_object(), GetSuitableAmmoTotal());
+	PlaySound("sndAddCartridge", get_LastFP());
+	PlayHUDMotion("anm_add_cartridge", FALSE, this, GetState());
+	SetPending(TRUE);
+}
+
+void CWeaponSSRS::switch2_EndReload()
+{
+	SetPending(FALSE);
+
+	if (m_bReloadFromEmpty && m_sounds.FindSoundItem("sndCloseEmpty", false))
+		PlaySound("sndCloseEmpty", get_LastFP());
+	else
+		PlaySound("sndClose", get_LastFP());
+
+	if (m_bReloadFromEmpty && HudAnimationExist("anm_close_empty"))
+		PlayHUDMotion("anm_close_empty", FALSE, this, GetState());
+	else
+		PlayHUDMotion("anm_close", FALSE, this, GetState());
+}
+
+// Any ammo type with rounds counts, the reload moves on to it when the current type runs out
+bool CWeaponSSRS::HaveCartridgeInInventory(u8 cnt)
+{
+	if (unlimited_ammo()) return true;
+	if (!m_pInventory) return false;
+
+	u32 ac = GetAmmoCount(m_ammoType);
+	if (ac < cnt)
+	{
+		for (u8 i = 0; i < u8(m_ammoTypes.size()); ++i)
+		{
+			if (m_ammoType == i) continue;
+			ac += GetAmmoCount(i);
+			if (ac >= cnt)
+			{
+				m_ammoType = i;
+				break;
+			}
+		}
+	}
+	return ac >= cnt;
+}
+
+// Puts cnt rounds on top of the magazine, each with its own rocket, and returns how many didn't fit
+u8 CWeaponSSRS::AddCartridge(u8 cnt)
+{
+	if (IsMisfire()) bMisfire = false;
+
+	if (m_set_next_ammoType_on_reload != undefined_ammo_type)
+	{
+		m_ammoType = m_set_next_ammoType_on_reload;
+		m_set_next_ammoType_on_reload = undefined_ammo_type;
+	}
+
+	if (!HaveCartridgeInInventory(1) || iAmmoElapsed >= iMagazineSize)
+		return 0;
+
+	m_pCurrentAmmo = smart_cast<CWeaponAmmo*>(m_pInventory->GetAny(m_ammoTypes[m_ammoType].c_str()));
+	VERIFY((u32)iAmmoElapsed == m_magazine.size());
+
+	if (m_DefaultCartridge.m_LocalAmmoType != m_ammoType)
+		m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, m_APk);
+
+	CCartridge l_cartridge = m_DefaultCartridge;
+	while (cnt)
+	{
+		if (!unlimited_ammo())
+		{
+			if (!m_pCurrentAmmo->Get(l_cartridge)) break;
+		}
+		--cnt;
+		++iAmmoElapsed;
+		l_cartridge.m_LocalAmmoType = m_ammoType;
+		m_magazine.push_back(l_cartridge);
+	}
+
+	VERIFY((u32)iAmmoElapsed == m_magazine.size());
+
+	if (m_pCurrentAmmo && !m_pCurrentAmmo->m_boxCurr && OnServer())
+		m_pCurrentAmmo->SetDropManual(TRUE);
+
+	// the rounds below keep their rockets, only the new ones spawn
+	SyncRockets();
+	return cnt;
 }
 
 void CWeaponSSRS::state_Fire(float dt)
@@ -233,7 +475,7 @@ void CWeaponSSRS::state_Fire(float dt)
 	if (iAmmoElapsed > 0)
 	{
 		VERIFY(fOneShotTime > 0.f);
-		VERIFY(fAiOneShotTime > 0.f);
+		VERIFY(fAiOneShotTime >= 0.f);
 
 		if (!H_Parent()) return;
 
@@ -273,6 +515,11 @@ void CWeaponSSRS::state_Fire(float dt)
 		while (!m_magazine.empty() && fShotTimeCounter < 0 && (IsWorking() || m_bFireSingleShot) && (m_iQueueSize < 0 ||
 			m_iShotNum < m_iQueueSize))
 		{
+			// a rocketed round waits while any rocket is still on the way, a round whose ammo has none fires as a dud
+			const bool rocketed = rocket_section(m_magazine.back()) != NULL;
+			if (rocketed && (!getRocketCount() || !m_pendingRockets.empty() || m_bSyncRockets))
+				break;
+
 			m_bFireSingleShot = false;
 
 			//Alundaio: Use fModeShotTime instead of fOneShotTime if current fire mode is 2-shot burst
@@ -282,14 +529,13 @@ void CWeaponSSRS::state_Fire(float dt)
 			{
 				fShotTimeCounter = fModeShotTime;
 			}
+			// NPCs fire at ai_rpm and leave the weapon's own rpm alone
+			else if (fAiOneShotTime > 0.f && smart_cast<CAI_Stalker*>(H_Parent()))
+				fShotTimeCounter = 60.f / fAiOneShotTime;
 			else
 				fShotTimeCounter = fOneShotTime;
 			//Alundaio: END
 
-#ifdef CROCKETLAUNCHER_CHANGE
-			LPCSTR ammo_name = m_ammoTypes[m_ammoType].c_str();
-			float launch_speed = READ_IF_EXISTS(pSettings, r_float, ammo_name, "ammo_grenade_vel", CRocketLauncher::m_fLaunchSpeed);
-#endif
 			if (E)
 			{
 				CInventoryOwner* io = smart_cast<CInventoryOwner*>(H_Parent());
@@ -303,60 +549,69 @@ void CWeaponSSRS::state_Fire(float dt)
 				E->g_fireParams(this, p1, d);
 			}
 
-			Fmatrix launch_matrix;
-			launch_matrix.identity();
-			launch_matrix.k.set(d);
-			Fvector::generate_orthonormal_basis(launch_matrix.k, launch_matrix.j, launch_matrix.i);
-			launch_matrix.c.set(p1);
-
-			if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()) && g_launcher_dynamic_range_zoom)
+			if (rocketed)
 			{
-				H_Parent()->setEnabled(FALSE);
-				setEnabled(FALSE);
+#ifdef CROCKETLAUNCHER_CHANGE
+				// a per round magazine can mix ammo, so the round being fired sets the speed
+				LPCSTR ammo_name = m_bTriStateReload ? m_magazine.back().m_ammoSect.c_str() : m_ammoTypes[m_ammoType].c_str();
+				float launch_speed = READ_IF_EXISTS(pSettings, r_float, ammo_name, "ammo_grenade_vel", CRocketLauncher::m_fLaunchSpeed);
+#endif
+				Fmatrix launch_matrix;
+				launch_matrix.identity();
+				launch_matrix.k.set(d);
+				Fvector::generate_orthonormal_basis(launch_matrix.k, launch_matrix.j, launch_matrix.i);
+				launch_matrix.c.set(p1);
 
-				collide::rq_result RQ;
-				BOOL HasPick = Level().ObjectSpace.RayPick(p1, d, 300.0f, collide::rqtStatic, RQ, this);
-
-				setEnabled(TRUE);
-				H_Parent()->setEnabled(TRUE);
-
-				if (HasPick)
+				if (IsGameTypeSingle() && IsZoomed() && smart_cast<CActor*>(H_Parent()) && g_launcher_dynamic_range_zoom)
 				{
-					Fvector Transference;
-					Transference.mul(d, RQ.range);
-					Fvector res[2];
+					H_Parent()->setEnabled(FALSE);
+					setEnabled(FALSE);
+
+					collide::rq_result RQ;
+					BOOL HasPick = Level().ObjectSpace.RayPick(p1, d, 300.0f, collide::rqtStatic, RQ, this);
+
+					setEnabled(TRUE);
+					H_Parent()->setEnabled(TRUE);
+
+					if (HasPick)
+					{
+						Fvector Transference;
+						Transference.mul(d, RQ.range);
+						Fvector res[2];
 
 #ifdef CROCKETLAUNCHER_CHANGE
-					u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, launch_speed, EffectiveGravity(), res);
+						u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, launch_speed, EffectiveGravity(), res);
 #else
-					u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, CRocketLauncher::m_fLaunchSpeed,
-						EffectiveGravity(), res);
+						u8 canfire0 = TransferenceAndThrowVelToThrowDir(Transference, CRocketLauncher::m_fLaunchSpeed,
+							EffectiveGravity(), res);
 #endif
-					if (canfire0 != 0)
-					{
-						d = res[0];
-					};
-				}
-			};
-			d.normalize();
+						if (canfire0 != 0)
+						{
+							d = res[0];
+						};
+					}
+				};
+				d.normalize();
+				Fvector vel;
 #ifdef CROCKETLAUNCHER_CHANGE
-			d.mul(launch_speed);
+				vel.mul(d, launch_speed);
 #else
-			d.mul(m_fLaunchSpeed);
+				vel.mul(d, m_fLaunchSpeed);
 #endif
-			VERIFY2(_valid(launch_matrix), "CWeaponSSRS::state_Fire. Invalid launch_matrix");
-			inheritedRL::LaunchRocket(launch_matrix, d, zero_vel);
-			CExplosiveRocket* pGrenade = smart_cast<CExplosiveRocket*>(getCurrentRocket());
-			VERIFY(pGrenade);
-			pGrenade->SetInitiator(H_Parent()->ID());
-			if (OnServer())
-			{
-				NET_Packet P;
-				u_EventGen(P, GE_LAUNCH_ROCKET, ID());
-				P.w_u16(u16(getCurrentRocket()->ID()));
-				u_EventSend(P);
+				VERIFY2(_valid(launch_matrix), "CWeaponSSRS::state_Fire. Invalid launch_matrix");
+				inheritedRL::LaunchRocket(launch_matrix, vel, zero_vel);
+				CExplosiveRocket* pGrenade = smart_cast<CExplosiveRocket*>(getCurrentRocket());
+				VERIFY(pGrenade);
+				pGrenade->SetInitiator(H_Parent()->ID());
+				if (OnServer())
+				{
+					NET_Packet P;
+					u_EventGen(P, GE_LAUNCH_ROCKET, ID());
+					P.w_u16(u16(getCurrentRocket()->ID()));
+					u_EventSend(P);
+				}
+				dropCurrentRocket();
 			}
-			dropCurrentRocket();
 
 			++m_iShotNum;
 

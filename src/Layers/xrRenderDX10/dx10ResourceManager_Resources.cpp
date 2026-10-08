@@ -683,6 +683,20 @@ void CResourceManager::_DeleteTexture(const CTexture* T)
 	Msg("! ERROR: Failed to find texture surface '%s'", *T->cName);
 }
 
+CTexture* CResourceManager::_FindTexture(LPCSTR _Name)
+{
+	if (!_Name || !_Name[0]) return 0;
+	if (0 == xr_strcmp(_Name, "null")) return 0;
+
+	string_path Name;
+	xr_strcpy(Name, _Name);
+	fix_texture_name(Name);
+
+	xrCriticalSectionGuard guard(creationGuard);
+	map_TextureIt I = m_textures.find(LPSTR(Name));
+	return I != m_textures.end() ? I->second : 0;
+}
+
 #ifdef DEBUG
 void	CResourceManager::DBG_VerifyTextures	()
 {

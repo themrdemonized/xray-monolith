@@ -18,6 +18,11 @@ IC const xrGUID& CALifeSpawnHeader::guid() const
 	return (m_guid);
 }
 
+IC void CALifeSpawnHeader::set_guid(const xrGUID& guid)
+{
+	m_guid = guid;
+}
+
 IC const xrGUID& CALifeSpawnHeader::graph_guid() const
 {
 	return (m_graph_guid);

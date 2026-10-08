@@ -603,6 +603,10 @@ static void atomic(global_State *g, lua_State *L)
 }
 
 /* GC state machine. Returns a cost estimate for each step performed. */
+/* Completed GC cycles since process start, read via jit.util.gcstat. A file-scope
+** global, not a GCState field, so it does not shift global_State layout. */
+uint32_t lj_gc_cycles = 0;
+
 static size_t gc_onestep(lua_State *L)
 {
   global_State *g = G(L);
@@ -646,6 +650,7 @@ static size_t gc_onestep(lua_State *L)
       } else {  /* Otherwise skip this phase to help the JIT. */
 	g->gc.state = GCSpause;  /* End of GC cycle. */
 	g->gc.debt = 0;
+	lj_gc_cycles++;
       }
     }
     return GCSWEEPMAX*GCSWEEPCOST;
@@ -664,6 +669,7 @@ static size_t gc_onestep(lua_State *L)
 #endif
     g->gc.state = GCSpause;  /* End of GC cycle. */
     g->gc.debt = 0;
+    lj_gc_cycles++;
     return 0;
   default:
     lua_assert(0);

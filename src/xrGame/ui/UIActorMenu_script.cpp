@@ -27,6 +27,7 @@
 
 #include "UIMainIngameWnd.h"
 #include "UIZoneMap.h"
+#include "UIMap.h"
 #include "UIMotionIcon.h"
 #include "UIHudStatesWnd.h"
 #include "UIMessagesWindow.h"
@@ -377,6 +378,43 @@ void CUIActorMenu::script_register(lua_State* L)
 		.def_readonly("visible", &CUIZoneMap::visible)
 		.def("MapFrame", &CUIZoneMap::MapFrame)
 		.def("Background", &CUIZoneMap::Background),
+
+		class_<CUIMiniMapWidget, CUIWindow>("CUIMiniMapWidget")
+		.def(constructor<>())
+		.def("init", (bool (CUIMiniMapWidget::*)(LPCSTR)) &CUIMiniMapWidget::init)
+		.def("init", (bool (CUIMiniMapWidget::*)(LPCSTR, LPCSTR)) &CUIMiniMapWidget::init)
+		.def("map_texture", &CUIMiniMapWidget::map_texture)
+		.def("set_map_texture", &CUIMiniMapWidget::set_map_texture)
+		.def("has_map", &CUIMiniMapWidget::has_map)
+		.def("set_zoom_span", &CUIMiniMapWidget::set_zoom_span)
+		.def("set_active_point", &CUIMiniMapWidget::set_active_point)
+		.def("set_heading", &CUIMiniMapWidget::set_heading)
+		.def("set_rotate", &CUIMiniMapWidget::set_rotate)
+		.def("set_texture_color", &CUIMiniMapWidget::set_texture_color)
+		.def("set_spot_scale", &CUIMiniMapWidget::set_spot_scale)
+		.def("set_pointer_scale", &CUIMiniMapWidget::set_pointer_scale)
+		.def("set_spot_type_visible", &CUIMiniMapWidget::set_spot_type_visible)
+		.def("clear_spot_type_filter", &CUIMiniMapWidget::clear_spot_type_filter)
+		.def("set_pointers_visible", &CUIMiniMapWidget::set_pointers_visible)
+		.def("set_pointer_type", &CUIMiniMapWidget::set_pointer_type)
+		.def("clear_pointer_types", &CUIMiniMapWidget::clear_pointer_types)
+		.def("set_pointer_target", &CUIMiniMapWidget::set_pointer_target)
+		.def("clear_pointer_target", &CUIMiniMapWidget::clear_pointer_target)
+		.def("pointer_count", &CUIMiniMapWidget::pointer_count)
+		.def("set_pointer_texture", (void (CUIMiniMapWidget::*)(LPCSTR, float, float, float, float)) &CUIMiniMapWidget::set_pointer_texture)
+		.def("set_pointer_texture", (void (CUIMiniMapWidget::*)(LPCSTR, LPCSTR, float, float, float, float)) &CUIMiniMapWidget::set_pointer_texture)
+		.def("clear_pointer_texture", &CUIMiniMapWidget::clear_pointer_texture)
+		.def("spot_at", &CUIMiniMapWidget::spot_at)
+		.def("set_spot_color", &CUIMiniMapWidget::set_spot_color)
+		.def("set_update_interval", &CUIMiniMapWidget::set_update_interval)
+		.def("local_of", &CUIMiniMapWidget::local_of)
+		.def("spot_count", &CUIMiniMapWidget::spot_count)
+		.def("set_global_visible", &CUIMiniMapWidget::set_global_visible)
+		.def("set_global_texture", &CUIMiniMapWidget::set_global_texture)
+		.def("set_spot_shader", &CUIMiniMapWidget::set_spot_shader)
+		.def("set_spot_texture", &CUIMiniMapWidget::set_spot_texture)
+		.def("set_spot_height_textures", &CUIMiniMapWidget::set_spot_height_textures)
+		.def("clear_spot_textures", &CUIMiniMapWidget::clear_spot_textures),
 
 		class_<CUIMotionIcon, CUIWindow>("CUIMotionIcon")
 		.def(constructor<>()),
