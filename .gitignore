@@ -5,6 +5,7 @@
 
 # exclude binaries and temporary files
 _build/
+build-*.log
 /src/*.tss
 /**/x64/
 **/.vs/
