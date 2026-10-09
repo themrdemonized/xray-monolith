@@ -8,6 +8,8 @@
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "../xrEngine/FDemoRecord.h"
 #include "../xrEngine/CameraBase.h"
+#include "ai_space.h"
+#include "script_engine.h"
 
 BOOL g_legs_enabled = FALSE;
 float legs_fwd_offset = -0.5f;
@@ -144,6 +146,10 @@ bool player_legs_controller::ensure_model(const shared_str& sect, const shared_s
         m_fwd_offset = pSettings->r_float(sect, "legs_fwd_offset");
     else
         m_fwd_offset = std::nullopt;
+
+    ::luabind::functor<void> funct;
+    if (ai().script_engine().functor("_G.player_legs_controller__OnCreateLegs", funct))
+        funct(sect.c_str());
 
     return true;
 }

@@ -44,6 +44,10 @@
 #include "ai/monsters/burer/burer.h"
 #include "ai/monsters/controller/controller.h"
 #include "ai/monsters/poltergeist/poltergeist.h"
+#include "ai/monsters/control_manager_custom.h"
+#include "ai/monsters/control_jump.h"
+#include "ai/monsters/control_run_attack.h"
+#include "ai/monsters/bloodsucker/bloodsucker.h"
 #include "trade_parameters.h"
 #include "script_ini_file.h"
 #include "sound_player.h"
@@ -648,6 +652,107 @@ bool CScriptGameObject::monster_release_control(int type)
 		return false;
 	monster->com_man().script_release(control_type);
 	return monster->control().get_capturer(control_type) != &monster->com_man();
+}
+
+void CScriptGameObject::set_monster_attack_on_move_params(float max_go_close_time, float far_radius,
+                                                          float prepare_radius, float prepare_time,
+                                                          float attack_radius, float update_side_period,
+                                                          float prediction_factor)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_attack_on_move_params!");
+		return;
+	}
+	monster->set_attack_on_move_params(max_go_close_time, far_radius, prepare_radius, prepare_time,
+	                                   attack_radius, update_side_period, prediction_factor);
+}
+
+void CScriptGameObject::set_monster_turn_factor(float factor)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_turn_factor!");
+		return;
+	}
+	monster->set_turn_speed_factor(factor);
+}
+
+void CScriptGameObject::set_monster_run_attack_params(float min_dist, float max_dist, float min_delay_ms,
+                                                      float max_delay_ms)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_run_attack_params!");
+		return;
+	}
+	CControlRunAttack* run_attack = monster->com_man().get_run_attack_control();
+	if (!run_attack)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : no run-attack control for set_monster_run_attack_params!");
+		return;
+	}
+	run_attack->set_params(min_dist, max_dist, min_delay_ms, max_delay_ms);
+}
+
+void CScriptGameObject::set_monster_jump_flags(bool auto_aim, bool prepare_in_move, bool ground_skip,
+                                               float auto_aim_factor)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_jump_flags!");
+		return;
+	}
+	CControlJump* jump = monster->com_man().get_jump_control();
+	if (!jump)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : no jump control for set_monster_jump_flags!");
+		return;
+	}
+	u32 mask = 0;
+	if (auto_aim) mask |= SControlJumpData::eUseAutoAim;
+	if (prepare_in_move) mask |= SControlJumpData::ePrepareInMove;
+	if (ground_skip) mask |= SControlJumpData::eGroundSkip;
+	jump->set_script_flags(mask, auto_aim_factor);
+}
+
+void CScriptGameObject::set_monster_aura_params(LPCSTR aura_name, float linear, float quadratic, float max_power,
+                                                float max_distance)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_aura_params!");
+		return;
+	}
+	if (!monster->set_aura_params(aura_name, linear, quadratic, max_power, max_distance))
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : unknown aura name for set_monster_aura_params!");
+	}
+}
+
+void CScriptGameObject::set_bloodsucker_vis_timing(float min_delay_ms)
+{
+	CAI_Bloodsucker* bloodsucker = smart_cast<CAI_Bloodsucker*>(&object());
+	if (!bloodsucker)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Bloodsucker : cannot access class member set_bloodsucker_vis_timing!");
+		return;
+	}
+	bloodsucker->set_visibility_change_min_delay(min_delay_ms);
 }
 
 float CScriptGameObject::GetObjectVisibleDistance(const CScriptGameObject* obj)

@@ -1034,6 +1034,21 @@ float CBaseMonster::get_fire_influence()
 	return m_fire_aura.calculate();
 }
 
+bool CBaseMonster::set_aura_params(LPCSTR aura_name, float linear, float quadratic, float max_power,
+                                   float max_distance)
+{
+	monster_aura* aura = 0;
+	if (!xr_strcmp(aura_name, "psy")) aura = &m_psy_aura;
+	else if (!xr_strcmp(aura_name, "radiation")) aura = &m_radiation_aura;
+	else if (!xr_strcmp(aura_name, "fire")) aura = &m_fire_aura;
+	else if (!xr_strcmp(aura_name, "base")) aura = &m_base_aura;
+
+	if (!aura) return false;
+
+	aura->set_params(linear, quadratic, max_power, max_distance);
+	return true;
+}
+
 void CBaseMonster::play_detector_sound()
 {
 	m_psy_aura.play_detector_sound();
