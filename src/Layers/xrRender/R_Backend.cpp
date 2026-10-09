@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#include "../../xrEngine/IRenderable.h"
+
 #if defined(USE_DX10) || defined(USE_DX11)
 #include "../xrRenderDX10/dx10BufferUtils.h"
 #endif	//	USE_DX11
@@ -137,4 +139,38 @@ void CBackend::OnDeviceDestroy()
 	// Quad
 	HW.stats_manager.decrement_stats_ib(QuadIB);
 	_RELEASE(QuadIB);
+}
+
+void R_bus_object::map(R_constant* C, ShaderBus::lane* l)
+{
+	RCache.set_c(C, l->bound.x, l->bound.y, l->bound.z, l->bound.w);
+	if (count < ShaderBus::max_object_lanes)
+	{
+		c[count] = C;
+		lanes[count++] = l;
+	}
+}
+
+void R_bus_object::write_object(IRenderable* O)
+{
+	const ShaderBus::object_values* block = O ? O->renderable.bus_values : nullptr;
+	for (u32 i = 0; i < count; ++i)
+	{
+		const Fvector4& v = ShaderBus::object_bound(lanes[i], block);
+		RCache.set_c(c[i], v.x, v.y, v.z, v.w);
+	}
+	object_applied = true;
+}
+
+void R_bus_object::write_defaults()
+{
+	// the material step right after an object draw keeps that object's values
+	if (object_applied)
+	{
+		object_applied = false;
+		return;
+	}
+
+	for (u32 i = 0; i < count; ++i)
+		RCache.set_c(c[i], lanes[i]->bound.x, lanes[i]->bound.y, lanes[i]->bound.z, lanes[i]->bound.w);
 }

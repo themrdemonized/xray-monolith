@@ -399,6 +399,7 @@ void CRender::set_Object(IRenderable* O)
 
 void CRender::apply_object(IRenderable* O)
 {
+	RCache.bus_object.apply(O);
 	if (0 == O) return;
 	if (O->renderable_ROS())
 	{

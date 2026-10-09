@@ -1376,6 +1376,25 @@ public:
 // one binder per lane so the pass table dedup, which compares handler pointers, still matches
 static xr_vector<bus_binder*> bus_binders;
 
+// writes the lane's value on a table switch, each drawn object then writes its own
+class bus_object_binder : public R_constant_setup
+{
+	ShaderBus::lane* lane;
+
+public:
+	bus_object_binder(ShaderBus::lane* l) : lane(l)
+	{
+	}
+
+	virtual void setup(R_constant* C)
+	{
+		lane->bound_frame = Device.dwFrame;
+		RCache.bus_object.map(C, lane);
+	}
+};
+
+static xr_vector<bus_object_binder*> bus_object_binders;
+
 #if defined(USE_DX10) || defined(USE_DX11)
 // copies every bound row, the setter zeroes declared rows past the last one set
 class bus_row_binder : public R_constant_setup
@@ -1601,6 +1620,7 @@ void CBlender_Compile::SetMapping()
 		r_Constant(*cs.first, cs.second);
 	}
 
+	u32 object_lanes = 0;
 	for (u32 it = 0; it < ctable.table.size(); it++)
 	{
 		R_constant* C = &*ctable.table[it];
@@ -1617,6 +1637,19 @@ void CBlender_Compile::SetMapping()
 		// uint lanes always take the byte copy so the raw bits arrive unchanged
 		const bool fits = C->type == RC_float && bus_fits_vector(C);
 		const u32 rows = bus_rows(C);
+
+		// an obj_ lane takes its value from the drawn object
+		const bool object = 0 == strncmp(cname, "bus_obj_", 8);
+		if (object && !fits)
+		{
+			ShaderBus::refuse(cname, "is an object lane, which binds one float to float4 only");
+			continue;
+		}
+		if (object && object_lanes == ShaderBus::max_object_lanes)
+		{
+			ShaderBus::refuse(cname, "is past the 16 object lanes one pass binds");
+			continue;
+		}
 #if defined(USE_DX10) || defined(USE_DX11)
 		if (rows > ShaderBus::max_rows)
 		{
@@ -1635,6 +1668,18 @@ void CBlender_Compile::SetMapping()
 			C->type == RC_uint ? ShaderBus::kind_uint : ShaderBus::kind_float);
 		if (!lane)
 			continue;
+
+		if (object)
+		{
+			++object_lanes;
+			if (bus_object_binders.size() <= lane->index)
+				bus_object_binders.resize(lane->index + 1, nullptr);
+			if (!bus_object_binders[lane->index])
+				bus_object_binders[lane->index] = xr_new<bus_object_binder>(lane);
+
+			C->handler = bus_object_binders[lane->index];
+			continue;
+		}
 
 #if defined(USE_DX10) || defined(USE_DX11)
 		if (!fits)

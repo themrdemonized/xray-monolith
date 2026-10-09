@@ -2,6 +2,7 @@
 #pragma hdrstop
 
 #include "shader_bus.h"
+#include "IRenderable.h"
 #include "XR_IOConsole.h"
 #include "xr_ioc_cmd.h"
 
@@ -30,12 +31,57 @@ struct bus_cvar
 	u8 type;
 };
 
+// a value for one object on an obj_ lane, waiting for the per-frame update
+struct bus_object_write
+{
+	IRenderable* object;
+	u16 lane;
+	bool clear;
+	Fvector4 value;
+};
+
+// one token on a shared lane and the lane value it set
+struct bus_writer
+{
+	shared_str owner;
+	Fvector4 value;
+	u16 nonce;
+	bool has_value;
+};
+
+struct ShaderBus::lane_shared
+{
+	xr_vector<bus_writer> writers;
+	// a token set the lane value since the last per-frame update
+	bool dirty;
+
+	lane_shared() : dirty(false) {}
+};
+
+// one token's value for one object on a shared obj_ lane
+struct bus_shared_value
+{
+	u16 lane;
+	u16 writer;
+	Fvector4 value;
+};
+
+// the most tokens one shared lane gives out
+static const u32 bus_max_writers = 256;
+
 static xr_vector<ShaderBus::lane*> g_bus_lanes;
+static xr_vector<bus_object_write> g_bus_object_writes;
+static xr_vector<ShaderBus::lane*> g_bus_shared_dirty;
+static xr_map<IRenderable*, xr_vector<bus_shared_value>> g_bus_shared_values;
 static xr_vector<bus_cvar> g_bus_cvars;
+static ShaderBus::lane* g_bus_hotness = nullptr;
+static bool g_bus_objects_used = false;
 static xr_vector<shared_str> g_bus_rejected;
 static xr_vector<bus_legacy_row> g_bus_legacy;
 static xr_vector<shared_str> g_bus_legacy_logged;
 static xrCriticalSection g_bus_lock;
+
+ENGINE_API const ShaderBus::lane* ShaderBus::hotness_lane = nullptr;
 
 static bool bus_valid_id(LPCSTR id)
 {
@@ -85,6 +131,12 @@ static ShaderBus::lane* bus_find_or_add(LPCSTR id)
 	l->id = id;
 	l->index = u16(g_bus_lanes.size());
 	g_bus_lanes.push_back(l);
+	// every mod writes obj_hotness, so it is shared from the start
+	if (0 == xr_strcmp(id, "obj_hotness"))
+	{
+		l->shared = xr_new<ShaderBus::lane_shared>();
+		g_bus_hotness = l;
+	}
 	return l;
 }
 
@@ -101,6 +153,76 @@ static u16 bus_next_nonce()
 static u32 bus_token(const ShaderBus::lane* l)
 {
 	return (u32(l->nonce) << 16) | u32(l->index);
+}
+
+// the writer a nonce points to on a shared lane, -1 for none
+static int bus_shared_writer(const ShaderBus::lane* l, u16 nonce)
+{
+	const xr_vector<bus_writer>& writers = l->shared->writers;
+	for (u32 i = 0; i < writers.size(); ++i)
+		if (writers[i].nonce == nonce)
+			return int(i);
+	return -1;
+}
+
+static void bus_max(Fvector4& to, const Fvector4& v)
+{
+	to.set(_max(to.x, v.x), _max(to.y, v.y), _max(to.z, v.z), _max(to.w, v.w));
+}
+
+// the per component largest value of the tokens that set one, false when none did
+static bool bus_shared_max(const ShaderBus::lane* l, Fvector4& out)
+{
+	bool found = false;
+	const xr_vector<bus_writer>& writers = l->shared->writers;
+	for (u32 i = 0; i < writers.size(); ++i)
+	{
+		if (!writers[i].has_value)
+			continue;
+		if (found)
+			bus_max(out, writers[i].value);
+		else
+			out.set(writers[i].value);
+		found = true;
+	}
+	return found;
+}
+
+// a token per writer on a shared lane, the same token again for a repeat registration, called under the lock
+static u32 bus_join(ShaderBus::lane* l, LPCSTR owner, LPCSTR description, LPCSTR source)
+{
+	xr_vector<bus_writer>& writers = l->shared->writers;
+	for (u32 i = 0; i < writers.size(); ++i)
+		if (0 == xr_strcmp(writers[i].owner.c_str(), owner))
+			return (u32(writers[i].nonce) << 16) | u32(l->index);
+
+	if (writers.size() >= bus_max_writers)
+	{
+		Msg("! [SHADER-BUS] shared lane '%s' refused '%s', it has %u tokens", l->id.c_str(), owner, bus_max_writers);
+		return 0;
+	}
+
+	bus_writer w;
+	w.owner = owner;
+	w.value.set(0.f, 0.f, 0.f, 0.f);
+	w.has_value = false;
+	w.nonce = bus_next_nonce();
+	while (bus_shared_writer(l, w.nonce) >= 0)
+		w.nonce = bus_next_nonce();
+	writers.push_back(w);
+
+	// the first writer is the one owner_of and describe report
+	if (!l->registered)
+	{
+		l->owner = owner;
+		l->description = description ? description : "";
+		l->source = source;
+		l->nonce = w.nonce;
+		l->registered = true;
+	}
+
+	Msg("[SHADER-BUS] shared lane %s joined by '%s' from '%s'", l->id.c_str(), owner, source);
+	return (u32(w.nonce) << 16) | u32(l->index);
 }
 
 static void bus_refuse(LPCSTR hlsl_name, LPCSTR reason)
@@ -149,7 +271,7 @@ void ShaderBus::refuse(LPCSTR hlsl_name, LPCSTR reason)
 	bus_refuse(hlsl_name, reason);
 }
 
-static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn)
+static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn, bool share)
 {
 	if (!bus_valid_id(id))
 	{
@@ -181,6 +303,26 @@ static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, 
 	ShaderBus::lane* l = bus_find_or_add(id);
 	if (!l)
 		return 0;
+
+	// obj_hotness takes every caller in, register and try_register too
+	if (l->shared && (share || l == g_bus_hotness))
+		return bus_join(l, owner, description, stored_source);
+	if (share)
+	{
+		if (!l->registered)
+		{
+			l->shared = xr_new<ShaderBus::lane_shared>();
+			return bus_join(l, owner, description, stored_source);
+		}
+		Msg("~ [SHADER-BUS] lane '%s' belongs to '%s' alone, '%s' cannot share it", id, l->owner.c_str(), owner);
+		return 0;
+	}
+	if (l->shared)
+	{
+		if (warn)
+			Msg("~ [SHADER-BUS] lane '%s' is shared, '%s' did not take it, register_shared joins it", id, owner);
+		return 0;
+	}
 
 	if (l->registered)
 	{
@@ -244,7 +386,7 @@ static void bus_bind_cvar(ShaderBus::lane* l, LPCSTR hlsl_name)
 
 	string64 description;
 	xr_sprintf(description, "console value %s", name);
-	if (!bus_take(l->id.c_str(), "engine", description, "console", false))
+	if (!bus_take(l->id.c_str(), "engine", description, "console", false, false))
 		return;
 
 	entry.lane = l;
@@ -302,12 +444,19 @@ u32 ShaderBus::try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR 
 {
 	if (bus_reserved(id))
 		return 0;
-	return bus_take(id, owner, description, source, true);
+	return bus_take(id, owner, description, source, true, false);
+}
+
+u32 ShaderBus::register_shared(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
+{
+	if (bus_reserved(id))
+		return 0;
+	return bus_take(id, owner, description, source, true, true);
 }
 
 u32 ShaderBus::register_engine(LPCSTR id, LPCSTR description)
 {
-	return bus_take(id, "engine", description, "engine", false);
+	return bus_take(id, "engine", description, "engine", false, false);
 }
 
 u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
@@ -315,13 +464,15 @@ u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 	if (bus_reserved(id))
 		return 0;
 
-	const u32 token = bus_take(id, owner, description, source, false);
+	const u32 token = bus_take(id, owner, description, source, false, false);
 	if (token)
 		return token;
 
 	string256 held_by, held_from;
+	string512 shared_by;
 	held_by[0] = 0;
 	held_from[0] = 0;
+	shared_by[0] = 0;
 	{
 		xrCriticalSectionGuard guard(&g_bus_lock);
 		const int found = bus_find(id);
@@ -330,9 +481,19 @@ u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 			const lane* l = g_bus_lanes[found];
 			xr_strcpy(held_by, l->owner.c_str());
 			xr_strcpy(held_from, l->source.c_str());
+			if (l->shared)
+				for (u32 i = 0; i < l->shared->writers.size(); ++i)
+				{
+					if (i)
+						strncat_s(shared_by, sizeof(shared_by), ", ", _TRUNCATE);
+					strncat_s(shared_by, sizeof(shared_by), l->shared->writers[i].owner.c_str(), _TRUNCATE);
+				}
 		}
 	}
 
+	if (shared_by[0])
+		Debug.fatal(DEBUG_INFO, "shader bus lane '%s' is shared by %s, '%s' registered by '%s' cannot take it alone",
+		            id, shared_by, owner ? owner : "", source ? source : "");
 	if (held_by[0])
 		Debug.fatal(DEBUG_INFO,
 		            "shader bus lane '%s' already belongs to '%s' registered by '%s', '%s' registered by '%s' cannot take it",
@@ -349,7 +510,11 @@ static ShaderBus::lane* bus_writable(u32 token)
 		return nullptr;
 
 	ShaderBus::lane* l = g_bus_lanes[index];
-	if (!l->registered || l->nonce != nonce)
+	if (!l->registered)
+		return nullptr;
+	if (l->shared)
+		return bus_shared_writer(l, nonce) >= 0 ? l : nullptr;
+	if (l->nonce != nonce)
 		return nullptr;
 	return l;
 }
@@ -377,6 +542,21 @@ bool ShaderBus::set(u32 token, float x, float y, float z, float w)
 	if (!_finite(x) || !_finite(y) || !_finite(z) || !_finite(w))
 		return bus_refuse_write(l, "a value that is not finite");
 
+	if (l->shared)
+	{
+		bus_writer& writer = l->shared->writers[bus_shared_writer(l, u16(token >> 16))];
+		writer.value.set(x, y, z, w);
+		writer.has_value = true;
+		if (!l->shared->dirty)
+		{
+			l->shared->dirty = true;
+			g_bus_shared_dirty.push_back(l);
+		}
+		l->kind = kind_float;
+		++l->writes;
+		return true;
+	}
+
 	l->pending.set(x, y, z, w);
 	if (!l->rows_pending.empty())
 		l->rows_pending[0] = l->pending;
@@ -391,6 +571,8 @@ bool ShaderBus::set_uint(u32 token, u32 x, u32 y, u32 z, u32 w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "a uint value, a shared lane takes set and set_object only");
 
 	const u32 raw[4] = { x, y, z, w };
 	CopyMemory(&l->pending, raw, sizeof(raw));
@@ -428,6 +610,8 @@ bool ShaderBus::set_rows(u32 token, u32 first, const Fvector4* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "rows, a shared lane takes set and set_object only");
 
 	for (u32 i = 0; i < count; ++i)
 		if (!bus_finite(rows[i]))
@@ -442,8 +626,160 @@ bool ShaderBus::set_rows_uint(u32 token, u32 first, const u32* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "rows, a shared lane takes set and set_object only");
 
 	return bus_write_rows(l, first, rows, count, kind_uint);
+}
+
+// keeps or drops the token's own value for the object, the per-frame update resolves the queued entry, called under the lock
+static void bus_shared_object(ShaderBus::lane* l, u16 nonce, IRenderable* object, bool clear, const Fvector4& value)
+{
+	const u16 writer = u16(bus_shared_writer(l, nonce));
+	if (clear)
+	{
+		auto found = g_bus_shared_values.find(object);
+		if (found == g_bus_shared_values.end())
+			return;
+		xr_vector<bus_shared_value>& values = found->second;
+		for (u32 i = 0; i < values.size(); ++i)
+			if (values[i].lane == l->index && values[i].writer == writer)
+			{
+				values.erase(values.begin() + i);
+				break;
+			}
+		if (values.empty())
+			g_bus_shared_values.erase(found);
+		return;
+	}
+
+	xr_vector<bus_shared_value>& values = g_bus_shared_values[object];
+	u32 i = 0;
+	while (i < values.size() && (values[i].lane != l->index || values[i].writer != writer))
+		++i;
+	if (i == values.size())
+	{
+		bus_shared_value added;
+		added.lane = l->index;
+		added.writer = writer;
+		values.push_back(added);
+	}
+	values[i].value.set(value);
+}
+
+// the largest value the tokens set on the entry's object, or a clear when none did, called under the lock
+static void bus_resolve_object(bus_object_write& entry)
+{
+	entry.clear = true;
+	const auto found = g_bus_shared_values.find(entry.object);
+	if (found == g_bus_shared_values.end())
+		return;
+
+	const xr_vector<bus_shared_value>& values = found->second;
+	for (u32 i = 0; i < values.size(); ++i)
+	{
+		if (values[i].lane != entry.lane)
+			continue;
+		if (entry.clear)
+			entry.value.set(values[i].value);
+		else
+			bus_max(entry.value, values[i].value);
+		entry.clear = false;
+	}
+}
+
+// queues a value or a clear for one object, called under the lock
+static bool bus_queue_object(u32 token, IRenderable* object, bool clear, const Fvector4& value)
+{
+	ShaderBus::lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (0 != strncmp(l->id.c_str(), "obj_", 4))
+		return bus_refuse_write(l, "an object value, the lane id does not start obj_");
+	if (!object)
+		return bus_refuse_write(l, "an object that does not exist");
+	if (!bus_finite(value))
+		return bus_refuse_write(l, "a value that is not finite");
+	if (l->shared)
+		bus_shared_object(l, u16(token >> 16), object, clear, value);
+
+	bus_object_write entry;
+	entry.object = object;
+	entry.lane = l->index;
+	entry.clear = clear;
+	entry.value.set(value);
+	g_bus_object_writes.push_back(entry);
+	g_bus_objects_used = true;
+	++l->writes;
+	return true;
+}
+
+bool ShaderBus::set_object(u32 token, IRenderable* object, float x, float y, float z, float w)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	Fvector4 value;
+	value.set(x, y, z, w);
+	return bus_queue_object(token, object, false, value);
+}
+
+bool ShaderBus::clear_object(u32 token, IRenderable* object)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	Fvector4 value;
+	value.set(0.f, 0.f, 0.f, 0.f);
+	return bus_queue_object(token, object, true, value);
+}
+
+// moves one queued write into the object's block, called under the lock
+static void bus_store_object(const bus_object_write& entry)
+{
+	ShaderBus::object_values*& block = entry.object->renderable.bus_values;
+	ShaderBus::lane* l = g_bus_lanes[entry.lane];
+
+	const u32 n = block ? u32(block->values.size()) : 0;
+	u32 i = 0;
+	while (i < n && block->values[i].lane != entry.lane)
+		++i;
+
+	if (entry.clear)
+	{
+		if (i == n)
+			return;
+		block->values.erase(block->values.begin() + i);
+		--l->objects;
+		if (block->values.empty())
+			xr_delete(block);
+		return;
+	}
+
+	if (!block)
+		block = xr_new<ShaderBus::object_values>();
+	if (i == n)
+	{
+		ShaderBus::object_value added;
+		added.lane = entry.lane;
+		block->values.push_back(added);
+		++l->objects;
+	}
+	block->values[i].value.set(entry.value);
+}
+
+void ShaderBus::object_forget(IRenderable* object)
+{
+	if (!g_bus_objects_used)
+		return;
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	g_bus_object_writes.erase(std::remove_if(g_bus_object_writes.begin(), g_bus_object_writes.end(),
+		[object](const bus_object_write& entry) { return entry.object == object; }), g_bus_object_writes.end());
+	g_bus_shared_values.erase(object);
+
+	object_values*& block = object->renderable.bus_values;
+	if (!block)
+		return;
+	for (u32 i = 0; i < block->values.size(); ++i)
+		--g_bus_lanes[block->values[i].lane]->objects;
+	xr_delete(block);
 }
 
 bool ShaderBus::refuse_write(u32 token, LPCSTR what)
@@ -482,6 +818,64 @@ bool ShaderBus::get_row(LPCSTR id, u32 row, Fvector4& value)
 	else
 		value.set(0.f, 0.f, 0.f, 0.f);
 	return true;
+}
+
+bool ShaderBus::get_object(LPCSTR id, const IRenderable* object, Fvector4& value)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0 || !object)
+		return false;
+
+	value.set(object_bound(g_bus_lanes[found], object->renderable.bus_values));
+	return true;
+}
+
+bool ShaderBus::writers(LPCSTR id, const IRenderable* object, xr_vector<writer_value>& out)
+{
+	out.clear();
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	const lane* l = g_bus_lanes[found];
+	if (!l->shared)
+		return true;
+
+	writer_value entry;
+	const xr_vector<bus_writer>& tokens = l->shared->writers;
+	if (!object)
+	{
+		for (u32 i = 0; i < tokens.size(); ++i)
+			if (tokens[i].has_value)
+			{
+				entry.owner = tokens[i].owner;
+				entry.value.set(tokens[i].value);
+				out.push_back(entry);
+			}
+		return true;
+	}
+
+	const auto values = g_bus_shared_values.find(const_cast<IRenderable*>(object));
+	if (values == g_bus_shared_values.end())
+		return true;
+	for (u32 i = 0; i < values->second.size(); ++i)
+		if (values->second[i].lane == l->index)
+		{
+			entry.owner = tokens[values->second[i].writer].owner;
+			entry.value.set(values->second[i].value);
+			out.push_back(entry);
+		}
+	return true;
+}
+
+u32 ShaderBus::writer_count(const lane* l)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (l->shared)
+		return u32(l->shared->writers.size());
+	return l->registered ? 1 : 0;
 }
 
 const ShaderBus::lane* ShaderBus::find(LPCSTR id)
@@ -544,7 +938,9 @@ bool ShaderBus::get_pending(LPCSTR id, Fvector4& value)
 	if (found < 0)
 		return false;
 
-	value.set(g_bus_lanes[found]->pending);
+	const lane* l = g_bus_lanes[found];
+	if (!l->shared || !bus_shared_max(l, value))
+		value.set(l->pending);
 	return true;
 }
 
@@ -602,6 +998,15 @@ void ShaderBus::frame_latch()
 	for (u32 i = 0; i < g_bus_cvars.size(); ++i)
 		bus_read_cvar(g_bus_cvars[i]);
 
+	// a shared lane set since the last per-frame update takes the largest value of its tokens
+	for (u32 i = 0; i < g_bus_shared_dirty.size(); ++i)
+	{
+		lane* l = g_bus_shared_dirty[i];
+		bus_shared_max(l, l->pending);
+		l->shared->dirty = false;
+	}
+	g_bus_shared_dirty.clear();
+
 	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
 	{
 		lane* l = g_bus_lanes[i];
@@ -625,6 +1030,7 @@ void ShaderBus::frame_latch()
 		}
 		if (!l->rows_bound.empty())
 			CopyMemory(&l->rows_bound[0], &l->bound, sizeof(Fvector4));
+		l->bound_forced = l->is_forced;
 
 		if (moved)
 		{
@@ -632,6 +1038,17 @@ void ShaderBus::frame_latch()
 			l->last_change_frame = Device.dwFrame;
 		}
 	}
+
+	// draws read object values only from the blocks written here
+	for (u32 i = 0; i < g_bus_object_writes.size(); ++i)
+	{
+		bus_object_write& entry = g_bus_object_writes[i];
+		if (g_bus_lanes[entry.lane]->shared)
+			bus_resolve_object(entry);
+		bus_store_object(entry);
+	}
+	g_bus_object_writes.clear();
+	hotness_lane = g_bus_hotness;
 }
 
 void ShaderBus::note_legacy_write(LPCSTR command, LPCSTR writer)
@@ -711,6 +1128,12 @@ void ShaderBus::dump()
 			rows[0] = 0;
 			if (!l->rows_bound.empty() || l->rows_declared > 1)
 				xr_sprintf(rows, " rows %u/%u", u32(l->rows_bound.size()), l->rows_declared);
+			if (0 == strncmp(l->id.c_str(), "obj_", 4))
+			{
+				string32 objects;
+				xr_sprintf(objects, " objects %u", l->objects);
+				xr_strcat(rows, objects);
+			}
 
 			string256 value;
 			Msg("[SHADER-BUS] bus_%s owner '%s' from '%s' = %s%s%s%s %s",
@@ -728,5 +1151,5 @@ void ShaderBus::dump()
 
 int ShaderBus::version()
 {
-	return 4;
+	return 5;
 }

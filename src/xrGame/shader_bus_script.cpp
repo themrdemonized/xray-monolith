@@ -3,6 +3,8 @@
 #include "../xrEngine/shader_bus.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/xr_ioc_cmd.h"
+#include "script_game_object.h"
+#include "GameObject.h"
 
 using namespace luabind;
 
@@ -51,6 +53,14 @@ static ::luabind::object bus_try_register(lua_State* L, LPCSTR id, LPCSTR owner,
 	bus_caller_source(L, source);
 
 	return bus_token_object(L, ShaderBus::try_register(id, owner, description, source));
+}
+
+static ::luabind::object bus_register_shared(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description)
+{
+	string_path source;
+	bus_caller_source(L, source);
+
+	return bus_token_object(L, ShaderBus::register_shared(id, owner, description, source));
 }
 
 static bool bus_set(u32 token, float x, float y, float z, float w)
@@ -126,6 +136,66 @@ static bool bus_set_array_uint(u32 token, double first, const ::luabind::object&
 		if (!bus_uint_value(values[i], raw[i]))
 			return ShaderBus::refuse_write(token, "a value that is not an unsigned 32 bit integer");
 	return ShaderBus::set_rows_uint(token, row, &raw.front(), u32(raw.size() / 4));
+}
+
+static IRenderable* bus_renderable(CScriptGameObject* obj)
+{
+	return obj ? &obj->object() : nullptr;
+}
+
+static bool bus_set_object(u32 token, CScriptGameObject* obj, float x, float y, float z, float w)
+{
+	return ShaderBus::set_object(token, bus_renderable(obj), x, y, z, w);
+}
+
+static bool bus_clear_object(u32 token, CScriptGameObject* obj)
+{
+	return ShaderBus::clear_object(token, bus_renderable(obj));
+}
+
+static bool bus_get_object(LPCSTR id, CScriptGameObject* obj, float& x, float& y, float& z, float& w)
+{
+	Fvector4 v;
+	const bool found = ShaderBus::get_object(id, bus_renderable(obj), v);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	x = v.x;
+	y = v.y;
+	z = v.z;
+	w = v.w;
+	return found;
+}
+
+// rows {owner, x, y, z, w}, one per token of a shared lane that set a value
+static ::luabind::object bus_writer_rows(lua_State* L, LPCSTR id, const IRenderable* object)
+{
+	::luabind::object rows = ::luabind::newtable(L);
+	xr_vector<ShaderBus::writer_value> values;
+	ShaderBus::writers(id, object, values);
+	for (u32 i = 0; i < values.size(); ++i)
+	{
+		::luabind::object row = ::luabind::newtable(L);
+		row["owner"] = values[i].owner.c_str();
+		row["x"] = values[i].value.x;
+		row["y"] = values[i].value.y;
+		row["z"] = values[i].value.z;
+		row["w"] = values[i].value.w;
+		rows[i + 1] = row;
+	}
+	return rows;
+}
+
+static ::luabind::object bus_writers(lua_State* L, LPCSTR id)
+{
+	return bus_writer_rows(L, id, nullptr);
+}
+
+static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, CScriptGameObject* obj)
+{
+	if (!obj)
+		return ::luabind::newtable(L);
+	return bus_writer_rows(L, id, bus_renderable(obj));
 }
 
 static bool bus_get(LPCSTR id, float& x, float& y, float& z, float& w)
@@ -268,6 +338,9 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["rows"] = u32(l->rows_bound.size());
 		row["declared_rows"] = l->rows_declared;
 		row["kind"] = l->kind == ShaderBus::kind_uint ? "uint" : "float";
+		row["objects"] = l->objects;
+		row["shared"] = l->shared != nullptr;
+		row["writers"] = ShaderBus::writer_count(l);
 
 		// every kind a shader declared, more than one or one unlike kind shows a mismatch
 		::luabind::object kinds = ::luabind::newtable(L);
@@ -319,6 +392,7 @@ void shader_bus_registrator::script_register(lua_State* L)
 	[
 		def("register", &bus_register, raw<1>()),
 		def("try_register", &bus_try_register, raw<1>()),
+		def("register_shared", &bus_register_shared, raw<1>()),
 		def("set", &bus_set),
 		def("set_array", &bus_set_array),
 		def("set_uint", &bus_set_uint),
@@ -329,6 +403,12 @@ void shader_bus_registrator::script_register(lua_State* L)
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("get_row", &bus_get_row,
 		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("set_object", &bus_set_object),
+		def("clear_object", &bus_clear_object),
+		def("get_object", &bus_get_object,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("writers", &bus_writers, raw<1>()),
+		def("writers", &bus_writers_object, raw<1>()),
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),

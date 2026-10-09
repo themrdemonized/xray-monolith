@@ -1105,6 +1105,12 @@ public:
 				xr_sprintf(tags, " rows %u/%u", u32(l->rows_bound.size()), l->rows_declared);
 			if (l->kind == ShaderBus::kind_uint)
 				xr_strcat(tags, " uint");
+			if (0 == strncmp(l->id.c_str(), "obj_", 4))
+			{
+				string32 objects;
+				xr_sprintf(objects, " objects %u", l->objects);
+				xr_strcat(tags, objects);
+			}
 
 			string256 value;
 			if (l->registered)
@@ -1145,6 +1151,8 @@ public:
 		const ShaderBus::lane* l = ShaderBus::find(args);
 		string256 value;
 		Msg("[SHADER-BUS] bus_%s = %s", args, ShaderBus::value_text(l, v, value));
+		if (l && 0 == strncmp(l->id.c_str(), "obj_", 4))
+			Msg("[SHADER-BUS] bus_%s is the default, %u objects have their own value", args, l->objects);
 
 		// rows past row 0 that have a value, up to sixteen in all
 		const u32 rows = l ? _min(u32(l->rows_bound.size()), 16u) : 0;

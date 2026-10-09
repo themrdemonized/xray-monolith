@@ -527,6 +527,7 @@ IC void CBackend::set_Constants(R_constant_table* C)
 	ctable = C;
 	xforms.unmap();
 	hemi.unmap();
+	bus_object.unmap();
 	tree.unmap();
 #ifdef USE_DX11
 	LOD.unmap		();

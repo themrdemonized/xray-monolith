@@ -191,6 +191,7 @@ public:
 
 	ICF void apply_object(IRenderable* O)
 	{
+		RCache.bus_object.apply(O);
 		if (0 == O) return;
 		if (0 == O->renderable_ROS()) return;
 		CROS_impl& LT = *((CROS_impl*)O->renderable_ROS());
@@ -202,6 +203,7 @@ public:
 
 	IC void apply_lmaterial()
 	{
+		RCache.bus_object.apply_static();
 		R_constant* C = RCache.get_c(c_sbase); // get sampler
 		if (0 == C) return;
 		VERIFY(RC_dest_sampler == C->destination);
