@@ -334,6 +334,80 @@ Forcing is a debug path for testing a shader against arbitrary values. The Lua w
 unaffected while a lane is forced, and nothing about `bus_force` should be relied on by shipped
 mod behavior.
 
+### Monitor
+
+`imgui_shader_bus.script` adds a live lane monitor to the ImGui overlay. Open the overlay with the
+`editor` key (bind it in the key settings) or `rs_editor`, then pick Debug > Shader bus. The menu
+opens two windows and has the same toggles as the panel buttons.
+
+- **Panel** is a window in the overlay. It lists every lane, filtered by `owner` (`all`, `orphan`
+  for a lane a shader declared and nobody registered, `legacy`, `read`, `unread` or one `owner`),
+  by a text match on the id or `owner` and by `live` (lanes that changed since the monitor opened),
+  and sorted by id, `owner`, last change or change count. The pin box marks a lane for the strip
+  view. Clicking a lane opens its detail: description, the script that registered it (or the last
+  writer of a legacy lane), kind, rows, objects, texture, forced, bound and pending values, the
+  session min and max and the counters. A lane with rows lists every row shaders declare,
+  scrolling past eight, and `matrix view` groups them by four, with row `j` of matrix `k` labelled
+  `m<k> r<j>`. An object lane shows the name, id and value of the object under the crosshair, or
+  `no target`. A shared lane shows how many tokens it has, then each token that wrote a value with
+  its `owner` and value and a `*` after each component that has the largest value, and on an
+  object lane a second list of the tokens that gave the object under the crosshair a value. The
+  monitor reads these only while a lane is selected, ten times a second, and for rows only the
+  rows the list shows. With the panel focused, `L` switches the HUD between table
+  and strip and `F` freezes sampling.
+- **HUD** draws over the game with the overlay hidden: the table view in the top left corner, at
+  most 40 lanes, or the strip view in the top right with no header, showing pinned lanes or every lane when none
+  is pinned. It takes
+  no input, and it does not draw while the game is paused, which includes an alt-tab unless the
+  game is set to stay active in the background.
+
+Columns are `pin`, `lane`, `owner`, `kind`, `x y z w`, `age` (since the last change), `chg` (the
+engine change count, or changes the monitor saw on a legacy lane), `wr` (writes), `bnd` (frames
+since a shader last read the lane, `never` or `stale`). A lane id ending in `!` has had a NaN
+or infinite value, which shows red. A changed lane flashes for half a second. Declared lanes show
+orange and legacy lanes grey. `kind` reads `f` or `u` (float or uint, uint values print in hex in
+the table and in hex and decimal in the detail), `[n]` for the rows shaders declare (values show
+row 0, the detail lists every row), `obj n` for the objects with their own value on an `obj_`
+lane (values show the lane's own value), `tex` for a lane showing a texture (its name fills `x` to
+`w`), `eng` for an engine lane, `con` for a console lane (`bus_cvar_<name>`), `frc` while
+`bus_force` overrides the lane, and `mix` when shaders declare the lane as more than one kind or as
+another kind than the last write stored. `cvar` marks a legacy lane.
+
+Snapshot stores every value and then lists only the lanes that moved since, with deltas. Snapshot
+again to leave that view. Freeze stops sampling and keeps the values on screen. Dump prints every
+lane to the log, Copy puts the same lines on the clipboard. Force and Release in the detail run
+`bus_force` and `bus_release` on the selected lane, with four numbers for a float lane and four
+whole numbers for a uint lane.
+
+The filter, sort, `owner` choice, `live`, the HUD view and the pins persist in `axr_options.ltx`
+under `[imgui_shader_bus]`. Window position, size and column widths persist in ImGui's own
+`imgui.ini`. Nothing is sampled while both windows are closed. An open window samples each lane
+once per frame and redraws its text ten times a second.
+
+Past 64 lanes the monitor spreads its reads over frames. Each frame it reads the lanes of the rows
+it shows, the selected lane and 64 more in turn, and the panel draws only the rows in its scroll
+area. One pass over a full bus of 65,535 lanes takes about 1,024 frames, about 17 seconds at 60
+frames a second. A lane off screen shows what its last read found, values, counters and session
+min and max alike, and the filters, Dump and Copy work from the same data. The filters apply ten
+times a second. The last change and change count sorts run at once when picked or when the lane
+list changes, and otherwise about every 2 seconds between two reads of the lane list, so a row
+keeps its place in between.
+
+A lane counts as live when a read finds a different value. Past 64 lanes a bus lane also counts as
+live when the engine counted a change between two reads, since a read spread over frames can miss
+one. A legacy lane has no engine counter. A snapshot takes the value of every lane read that
+frame, and every other lane takes its snapshot value at its next read. A lane counts as moved when
+its value differs from the snapshot, and past 64 lanes a bus lane counts as moved when the engine
+changed it after the snapshot.
+
+On the multithreaded exe the HUD does not draw while `mt_level_call` is `1`, since that setting
+runs the HUD's frame callback beside the renderer, and the panel says so. An exe without
+`shader_bus` logs one line and leaves the menu entries disabled. On an older bus the monitor shows
+what that exe offers: kinds, rows, objects, textures and forced values appear only where `list()` has
+their fields and the matching calls exist, Force shows only where `get_pending` exists, the value
+under the crosshair only where `get_object` exists, and the writers of a shared lane only where
+`writers` exists.
+
 ---
 
 ## Semantics
