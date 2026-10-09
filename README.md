@@ -2,6 +2,38 @@
 
 # STALKER-Anomaly-modded-exes
 
+## CoopNet: host, join, and port forwarding
+
+Use matching CoopNet-enabled clients and game/mod files. Open the in-game console with the console key (usually `~`) and enter `/help` for the command list. The hosting command is `coop_host`; `/host` is not currently a registered command.
+
+Load the host's save, then run:
+
+```text
+coop_host 27888 1 1 1
+coop_status
+```
+
+Syntax: `coop_host <UDP-port> <character-id> <game-fingerprint> <mod-fingerprint>`. All four arguments are required. Choose a port from 1–65535; `27888` is the menu/help default. Each player needs a different nonzero character ID (for example, host `1`, guests `2`, `3`, `4`). Both fingerprints must match on every client. The example `1 1` values are manual test identifiers; they do not automatically check your installed files.
+
+Guests can use **Main Menu → Join CoopNet** and enter `HOST-IP:27888`, then choose **Load save** or **Create character**. The console equivalent is:
+
+```text
+coop_join HOST-IP:27888 2 1 1
+```
+
+For two clients on the same PC, use separate game installations and appdata folders, and replace `HOST-IP` with `127.0.0.1`. On the same LAN, use the host PC's local IPv4 address. Neither case needs router port forwarding.
+
+For an internet connection, configure the **host's** router:
+
+1. Reserve the host PC's local IPv4 address in the router's DHCP settings. Run `ipconfig` on the host to find that address (for example, `192.168.1.100`).
+2. Add a port-forward rule: **protocol UDP**, **external port 27888**, **internal port 27888**, **destination the host PC's local IPv4 address**. If you chose another port in `coop_host`, use that same port throughout.
+3. Allow the CoopNet game executable through Windows Firewall, or add an inbound UDP rule for that port on the network profile you use. Do not disable the firewall.
+4. Give guests the host router's **public IPv4 address** and port, such as `PUBLIC-IP:27888`. Test this from a different internet connection; your router may not support joining its public IP from inside your LAN.
+
+TCP forwarding is not required for this direct UDP connection. Guests do not need a forwarding rule. This build does not provide automatic router traversal or a relay. If your router is behind another router, both must forward the port; if your ISP uses carrier-grade NAT, request a reachable public IPv4 address or use a VPN that provides connectivity between the players.
+
+Use `coop_disconnect` to leave or stop hosting, and `coop_respawn` to respawn at a living teammate when downed. The host controls the shared world settings and the party travels between locations together. See [CoopNet progress](docs/coop/PROGRESS.md) for tested features and remaining gameplay work.
+
 Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by community required for some advanced mods to work.
 
 # Versions

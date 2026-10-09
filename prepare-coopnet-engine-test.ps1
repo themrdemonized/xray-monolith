@@ -87,6 +87,7 @@ if ($Launch) {
     foreach ($role in @('host', 'guest')) {
         $root = Join-Path $testRoot $role
         $probeArguments=@('-silent_error_mode','-noprefetch')
+        if ($SharedWorldProbe -and $role -eq 'guest') { $probeArguments+='-coop_trader_spawn_probe' }
         if ($SettingsProbe) { $probeArguments+='-coop_settings_audit' }
         Start-Process -FilePath "$root\bin\AnomalyDX11.exe" -WorkingDirectory $root `
             -ArgumentList $probeArguments -WindowStyle Hidden -PassThru

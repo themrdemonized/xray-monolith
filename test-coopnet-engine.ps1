@@ -208,6 +208,19 @@ if ($WorldLootProbe) {
     Write-Output 'NATIVE_WORLD_LOOT_PASS: client presentation pickup removed ALife ownership, drop restored persistent world ownership, and a second pickup transferred the same item back to the guest.'
 }
 if ($SharedWorldProbe) {
+    if ($logs.guest -notmatch 'CoopNet trader probe: baseline trader removed section' -or
+        $logs.guest -notmatch 'CoopNet NPC spawned: section \S+ anchor \d+ trader 1 visible 1') {
+        throw 'Native stationary trader did not spawn visibly on the guest.'
+    }
+    if ([regex]::Matches($logs.guest,'CoopNet NPC spawned: section \S+ anchor \d+ trader 1 visible 1').Count -ne 1) {
+        throw 'Stationary trader was repeatedly recreated instead of remaining stable.'
+    }
+    $audits=[regex]::Matches($logs.guest,'CoopNet NPC catalogue audit: expected (\d+) visible (\d+) traders (\d+)')
+    if (!$audits.Count) { throw 'Guest NPC catalogue audit missing.' }
+    $lastAudit=$audits[$audits.Count-1]
+    if ($lastAudit.Groups[1].Value -ne $lastAudit.Groups[2].Value -or [int]$lastAudit.Groups[3].Value -lt 1) {
+        throw 'Guest NPC catalogue contains missing or invisible native NPCs.'
+    }
     if ($logs.host -notmatch 'CoopNet shared probe: host NPC and quests created' -or
         $logs.host -notmatch 'CoopNet shared probe: host NPC killed and quests completed/failed' -or
         $logs.host -notmatch 'CoopNet shared probe: host corpse removed and info withdrawn' -or

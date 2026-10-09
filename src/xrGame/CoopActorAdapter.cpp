@@ -29,6 +29,7 @@
 #include "../CoopNet/WorldState.h"
 #include "../CoopNet/GuestSave.h"
 #include "entity_alive.h"
+#include "ai/trader/ai_trader.h"
 #include "level_changer.h"
 #include "UIGameCustom.h"
 #include "ui/UIMessagesWindow.h"
@@ -321,7 +322,7 @@ bool apply_world_object(std::uint64_t session_id,std::uint64_t anchor,std::uint6
         auto* entity=smart_cast<CEntityAlive*>(object);
         if (!entity || object->cast_actor() || (record.second.authority && record.second.authority!=incarnation)) return false;
         if (record.second.dead && health>0) return false;
-        record.second.authority=incarnation;
+        record.second.authority=incarnation; record.second.anchor=anchor;
         object->XFORM().setHPB(rotation[0],rotation[1],rotation[2]); object->Position().set(position[0],position[1],position[2]);
         if (auto* support=entity->character_physics_support()) if (support->movement() && support->movement()->CharacterExist()) {
             support->movement()->SetPosition(object->Position()); support->movement()->DisableCharacter();
@@ -356,6 +357,23 @@ void update_npc_catalogue() {
     if (!npc_dirty && npc_pending.empty()) return;
     LocalActorPose local; if (!npc_session || !world_level_is_replica() || !capture_local_actor(local) || local.level!=npc_level) return;
     npc_dirty=false;
+    // Development fixture removes a baseline trader to prove native recreation.
+    static unsigned trader_probe_stage=0;
+    static u16 trader_probe_id=0xffff;
+    if (strstr(Core.Params,"-coop_trader_spawn_probe") && trader_probe_stage<2) {
+        if (!trader_probe_stage) for (const auto& entry:world_objects) {
+            auto* trader=smart_cast<CAI_Trader*>(const_cast<CGameObject*>(entry.first));
+            if (!trader || trader->getDestroy()) continue;
+            trader_probe_id=trader->ID(); trader_probe_stage=1;
+            NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,trader_probe_id); CGameObject::u_EventSend(packet);
+            Msg("* CoopNet trader probe: baseline trader removed section %s",trader->cNameSect().c_str());
+            npc_dirty=true; return;
+        }
+        if (trader_probe_stage==1) {
+            if (Level().Objects.net_Find(trader_probe_id)) { npc_dirty=true; return; }
+            trader_probe_stage=2;
+        }
+    }
     // Bind completed asynchronous spawns before catalogue retirement checks. Their
     // locally allocated IDs must never be mistaken for a missing host anchor.
     for (const auto& pending:npc_pending) {
@@ -375,7 +393,7 @@ void update_npc_catalogue() {
             xr_strcmp(object->cNameSect().c_str(),expected->second->section.c_str()) ||
             (!expected->second->visual.empty() && xr_strcmp(object->cNameVisual().size() ? object->cNameVisual().c_str() : "",expected->second->visual.c_str()))) {
             NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,object->ID()); CGameObject::u_EventSend(packet);
-            Msg("* CoopNet NPC removed: anchor %llu",anchor);
+            Msg("* CoopNet NPC removed: anchor %llu section %s",anchor,object->cNameSect().c_str());
         }
     }
     for (const auto& n:npc_catalogue) {
@@ -386,7 +404,8 @@ void update_npc_catalogue() {
             if (!object && Level().Server->ID_to_entity(pending->second.first)) continue;
             if (object) {
                 auto found=world_objects.find(object); if (found!=world_objects.end()) { found->second.anchor=n.pose.anchor; found->second.authority=n.pose.incarnation; }
-                Msg("* CoopNet NPC spawned: section %s anchor %llu",n.section.c_str(),n.pose.anchor);
+                Msg("* CoopNet NPC spawned: section %s anchor %llu trader %u visible %u",n.section.c_str(),n.pose.anchor,
+                    smart_cast<CAI_Trader*>(object)!=nullptr,object->getVisible()!=FALSE);
             }
             npc_pending.erase(pending);
         }
@@ -396,18 +415,28 @@ void update_npc_catalogue() {
                 (!record.second.authority || record.second.authority==n.pose.incarnation) && xr_strcmp(candidate->cNameSect().c_str(),n.section.c_str())==0) { object=candidate; break; }
         }
         if (!object) {
-            if (!pSettings->section_exist(n.section.c_str())) continue;
+            if (!pSettings->section_exist(n.section.c_str())) { Msg("! CoopNet NPC spawn rejected: section %s unavailable",n.section.c_str()); continue; }
             Fvector position; position.set(n.pose.position[0],n.pose.position[1],n.pose.position[2]);
-            const auto node=ai().level_graph().vertex(g_actor->ai_location().level_vertex_id(),position); if (!ai().level_graph().valid_vertex_id(node)) continue;
+            const auto node=ai().level_graph().vertex(g_actor->ai_location().level_vertex_id(),position);
+            if (!ai().level_graph().valid_vertex_id(node)) { Msg("! CoopNet NPC spawn rejected: section %s invalid navigation node",n.section.c_str()); continue; }
             auto* abstract=Level().spawn_item(n.section.c_str(),position,node,0xffff,true);
             auto* creature=smart_cast<CSE_ALifeCreatureAbstract*>(abstract);
-            if (!creature || smart_cast<CSE_ALifeCreatureActor*>(abstract)) { F_entity_Destroy(abstract); continue; }
+            // Stationary traders have a native CEntityAlive presentation, but their
+            // server object derives from DynamicObjectVisual, not CreatureAbstract.
+            const bool trader=smart_cast<CSE_ALifeTrader*>(abstract)!=nullptr;
+            if ((!creature && !trader) || smart_cast<CSE_ALifeCreatureActor*>(abstract)) {
+                Msg("! CoopNet NPC spawn rejected: section %s unsupported server class",n.section.c_str());
+                F_entity_Destroy(abstract); continue;
+            }
+            // Profile resolution selects a default model. Resolve it before
+            // applying the host model so Spawn_Write cannot overwrite that model.
+            if (auto* owner=smart_cast<CSE_ALifeTraderAbstract*>(abstract)) owner->specific_character();
             if (!n.visual.empty()) {
                 string_path model; xr_sprintf(model,"%s.ogf",n.visual.c_str());
                 if (!FS.exist("$game_meshes$",n.visual.c_str()) && !FS.exist("$game_meshes$",model)) { F_entity_Destroy(abstract); continue; }
                 if (auto* visual=abstract->visual()) visual->visual_name=n.visual.c_str();
             }
-            abstract->m_bALifeControl=false; creature->set_health(1.f);
+            abstract->m_bALifeControl=false; if (creature) creature->set_health(1.f);
             abstract->o_Angle.set(n.pose.rotation[0],n.pose.rotation[1],n.pose.rotation[2]);
             NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
             auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
@@ -421,6 +450,17 @@ void update_npc_catalogue() {
             apply_world_object(npc_session,n.pose.anchor,n.pose.incarnation,n.pose.position.data(),n.pose.rotation.data(),n.pose.health);
         } else if (n.pose.health<=0 && found!=world_objects.end() && !found->second.dead)
             apply_world_object(npc_session,n.pose.anchor,n.pose.incarnation,n.pose.position.data(),n.pose.rotation.data(),n.pose.health);
+    }
+    if (npc_pending.empty()) {
+        unsigned matched=0,traders=0;
+        for (const auto& n:npc_catalogue) for (const auto& entry:world_objects) {
+            auto* candidate=const_cast<CGameObject*>(entry.first);
+            if (entry.second.replica && !candidate->getDestroy() && candidate->getVisible() && candidate->Visual() &&
+                smart_cast<CEntityAlive*>(candidate) && entry.second.anchor==n.pose.anchor && entry.second.authority==n.pose.incarnation) {
+                ++matched; if (smart_cast<CAI_Trader*>(candidate)) ++traders; break;
+            }
+        }
+        Msg("* CoopNet NPC catalogue audit: expected %u visible %u traders %u",static_cast<unsigned>(npc_catalogue.size()),matched,traders);
     }
 }
 bool capture_containers(std::uint64_t session,std::uint32_t& level,std::vector<coopnet::ContainerRecord>& records) {
