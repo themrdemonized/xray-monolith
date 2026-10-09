@@ -576,6 +576,9 @@ public:
 	// Set by the native CoopNet spawner before net_Spawn; never inferred from ASPLAYER.
 	void set_coopnet_guest(bool value) { m_coopnet_guest = value; }
 	bool is_coopnet_guest() const { return m_coopnet_guest; }
+    bool is_coopnet_downed() const { return m_coopnet_downed; }
+    void coopnet_down();
+    void coopnet_revive(const Fvector& position);
 	void coopnet_controls(u16 buttons, float yaw, float pitch);
 	virtual void net_Export(NET_Packet& P); // export to server
 	virtual void net_Import(NET_Packet& P); // import from server
@@ -593,6 +596,7 @@ protected:
 	Fvector NET_SavedAccel;
 	float NET_Jump = 0.f; // Pending impulse belongs to this actor, not the process.
 	bool m_coopnet_guest = false;
+    bool m_coopnet_downed = false;
 	u16 m_coopnet_buttons = 0;
 	u32 m_coopnet_control_time = 0;
 	float m_coopnet_yaw = 0.f, m_coopnet_pitch = 0.f;

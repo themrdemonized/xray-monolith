@@ -1,6 +1,7 @@
 #include "pch_script.h"
 #include "Actor_Flags.h"
 #include "../CoopNet/EngineActorBridge.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "hudmanager.h"
 #ifdef DEBUG
 
@@ -541,6 +542,7 @@ void CActor::set_actor_box_y_offset(u32 box_num, float offset)
 
 void CActor::PHHit(SHit& H)
 {
+    if (m_coopnet_downed) return;
 	m_pPhysics_support->in_Hit(H, false);
 }
 
@@ -554,6 +556,7 @@ struct playing_pred
 
 void CActor::Hit(SHit* pHDS)
 {
+    if (m_coopnet_downed) return;
 	bool b_initiated = pHDS->aim_bullet; // physics strike by poltergeist
 
 	pHDS->aim_bullet = false;
@@ -867,6 +870,8 @@ extern BOOL firstPersonDeath;
 
 void CActor::Die(CObject* who)
 {
+    if (this==g_actor && engine_coopnet::guest_settings_locked()) { if (GetfHealth()<=0) conditions().SetHealth(.001f); return; }
+    if (engine_coopnet::shared_world_active() && (this==g_actor || m_coopnet_guest)) { coopnet_down(); return; }
 #ifdef HOLDERCUSTOM_NEW
 	use_HolderEx(NULL, true);
 #endif
@@ -1782,10 +1787,30 @@ void CActor::set_state_box(u32 mstate)
 		character_physics_support()->movement()->ActivateBox(0, true);
 }
 
+void CActor::coopnet_down()
+{
+    if (m_coopnet_downed) return;
+    m_coopnet_downed=true;
+    // Keep the native character shell intact; wire health is zero until host-approved revival.
+    conditions().SetHealth(.001f);
+    inventory().Action(kWPN_FIRE,CMD_STOP);
+    mstate_wishful=0; m_coopnet_buttons=0; NET_SavedAccel.set(0,0,0); NET_Jump=0;
+    character_physics_support()->movement()->SetVelocity(0,0,0);
+    Msg("* CoopNet player downed: object %u",ID());
+}
+void CActor::coopnet_revive(const Fvector& position)
+{
+    conditions().reinit();
+    m_coopnet_downed=false;
+    mstate_wishful=0; m_coopnet_buttons=0; NET_SavedAccel.set(0,0,0); NET_Jump=0;
+    Fmatrix transform=XFORM(); transform.c=position; ForceTransform(transform);
+    character_physics_support()->movement()->SetVelocity(0,0,0);
+    Msg("* CoopNet player respawned: object %u position %.3f %.3f %.3f",ID(),position.x,position.y,position.z);
+}
 void CActor::coopnet_controls(u16 buttons, float yaw, float pitch)
 {
 	if (!m_coopnet_guest) return;
-	m_coopnet_buttons = buttons & 0x70bf;
+	m_coopnet_buttons = m_coopnet_downed ? 0 : buttons & 0x70bf;
 	m_coopnet_yaw = yaw; m_coopnet_pitch = pitch;
 	m_coopnet_control_time = Device.dwTimeGlobal;
 	if (Device.dwFrame % 300 == 0)
@@ -1794,6 +1819,7 @@ void CActor::coopnet_controls(u16 buttons, float yaw, float pitch)
 
 void CActor::shedule_Update(u32 DT)
 {
+    if (m_coopnet_downed) { mstate_wishful=0; m_coopnet_buttons=0; NET_SavedAccel.set(0,0,0); NET_Jump=0; }
 	if (m_coopnet_guest && Device.dwFrame % 300 == 0)
 		Msg("* CoopNet guest scheduled: object %u dt %u buttons %u holder %u",ID(),DT,m_coopnet_buttons,m_holder != NULL);
 	setSVU(OnServer());

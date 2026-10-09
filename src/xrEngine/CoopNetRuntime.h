@@ -18,4 +18,8 @@ bool simulation_active();
 bool shared_world_active();
 bool party_level_change_allowed();
 bool party_controls_enabled();
+bool player_downed();
+bool can_respawn();
+bool request_respawn();
+void respawn_status(char* output,unsigned capacity);
 }

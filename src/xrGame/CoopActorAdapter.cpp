@@ -229,7 +229,10 @@ bool capture_party_exit(const std::vector<std::uint16_t>& actors,NativePartyExit
         const auto destination=changer->coopnet_destination();
         if (!destination || changer->getDestroy()) continue;
         unsigned present=0;
-        for (auto id:actors) if (id!=0xffff && changer->coopnet_contains(Level().Objects.net_Find(id))) ++present;
+        for (auto id:actors) if (id!=0xffff) {
+            auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(id));
+            if (actor && !actor->is_coopnet_downed() && actor->g_Alive() && changer->coopnet_contains(actor)) ++present;
+        }
         if (present>exit.present) exit={changer->ID(),destination,present};
     }
     return exit.present!=0;
@@ -454,23 +457,41 @@ bool world_baseline_loaded(const char* name) {
     const auto length=strlen(name);
     return options.size()>length && !strncmp(options.c_str(),name,length) && options.c_str()[length]=='/';
 }
+bool local_actor_downed() { return g_actor && g_actor->is_coopnet_downed(); }
+bool down_actor(std::uint16_t object) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if (!actor || actor->getDestroy() || (actor!=g_actor && !actor->is_coopnet_guest())) return false;
+    actor->conditions().SetHealth(0);
+    actor->KillEntity(actor->ID(),TRUE);
+    return actor->is_coopnet_downed();
+}
+bool respawn_actor(std::uint16_t object,std::uint32_t level,const float* position) {
+    LocalActorPose local;
+    if (!position || !capture_local_actor(local) || local.level!=level) return false;
+    for (unsigned axis=0;axis<3;++axis) if (!std::isfinite(position[axis]) || std::abs(position[axis])>1000000) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if (!actor || actor->getDestroy() || !actor->is_coopnet_downed() || (actor!=g_actor && !actor->is_coopnet_guest())) return false;
+    Fvector target; target.set(position[0],position[1],position[2]);
+    const auto node=ai().level_graph().vertex(actor->ai_location().level_vertex_id(),target);
+    if (!ai().level_graph().valid_vertex_id(node)) return false;
+    actor->coopnet_revive(target); return true;
+}
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state) {
     if (!g_pGameLevel || !g_pGameLevel->bReady) return false;
     CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
     if (!actor || actor->getDestroy()) return false;
-    state={actor->GetfHealth(),actor->conditions().GetPower(),actor->conditions().GetRadiation()};
+    state={actor->is_coopnet_downed() ? 0.f : actor->GetfHealth(),actor->conditions().GetPower(),actor->conditions().GetRadiation()};
     clamp(state.health,-1.f,1.f); clamp(state.power,-1.f,1.f); clamp(state.radiation,0.f,1.f); return true;
 }
 bool apply_local_condition(std::uint32_t level, const ActorConditionState& state) {
     LocalActorPose pose;
     if (!capture_local_actor(pose) || pose.level!=level) return false;
-    const bool was_alive=g_actor->g_Alive();
-    // Authoritative death cannot be undone by a later positive snapshot.
-    if (!was_alive && state.health>0) return false;
-    g_actor->conditions().SetHealth(state.health);
+    if (g_actor->is_coopnet_downed() && state.health>0) return false;
+    if (state.health<=0) g_actor->coopnet_down();
+    else g_actor->conditions().SetHealth(state.health);
     g_actor->conditions().SetPower(state.power);
     g_actor->conditions().SetRadiation(state.radiation);
-    if (was_alive && state.health<=0) g_actor->Die(nullptr);
     return true;
 }
 bool apply_guest_condition(std::uint16_t object,const ActorConditionState& state) {
@@ -479,7 +500,9 @@ bool apply_guest_condition(std::uint16_t object,const ActorConditionState& state
         !std::isfinite(state.power) || state.power>1 || state.power< -1 ||
         !std::isfinite(state.radiation) || state.radiation>1 || state.radiation<0) return false;
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
-    actor->conditions().SetHealth(state.health); actor->conditions().SetPower(state.power);
+    if (actor->is_coopnet_downed() && state.health>0) return false;
+    if (state.health<=0) actor->coopnet_down(); else actor->conditions().SetHealth(state.health);
+    actor->conditions().SetPower(state.power);
     actor->conditions().SetRadiation(state.radiation); return true;
 }
 std::uint64_t guest_save_scope() {
@@ -1076,7 +1099,7 @@ void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw,
         Msg("* CoopNet native inventory restoration completed: items %u active slot %u rounds %d",
             state.restore_count,state.restore_slot,weapon ? weapon->GetAmmoElapsed() : -1);
     }
-    const auto actions=actor->g_Alive() ? static_cast<std::uint16_t>(buttons & (coopnet::fire_button|coopnet::reload_button)) : 0;
+    const auto actions=actor->g_Alive() && !actor->is_coopnet_downed() ? static_cast<std::uint16_t>(buttons & (coopnet::fire_button|coopnet::reload_button)) : 0;
     if ((actions^state.weapon_buttons)&coopnet::fire_button) {
         const bool accepted=actor->inventory().Action(kWPN_FIRE,(actions&coopnet::fire_button) ? CMD_START : CMD_STOP);
         auto* weapon=smart_cast<CWeapon*>(actor->inventory().ActiveItem());
@@ -1152,8 +1175,9 @@ void local_controls_sampled(std::uint16_t object, std::uint32_t buttons, float y
 bool capture_local_controls(LocalActorControls& controls) {
     LocalActorPose pose;
     if (!capture_local_actor(pose) || Level().CurrentControlEntity() != g_actor) return false;
+    if (g_actor->is_coopnet_downed()) { local_weapon_buttons=0; local_controls.buttons=0; }
     controls = local_controls; controls.incarnation = pose.incarnation; controls.level = pose.level;
-    if (Device.Paused() || local_controls.incarnation != pose.incarnation ||
+    if (g_actor->is_coopnet_downed() || Device.Paused() || local_controls.incarnation != pose.incarnation ||
         static_cast<std::uint32_t>(Device.dwTimeGlobal - controls_time) >= 250) controls.buttons = 0;
     return true;
 }

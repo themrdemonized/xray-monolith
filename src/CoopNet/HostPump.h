@@ -11,6 +11,7 @@
 #include "WorldState.h"
 #include "PartyTransition.h"
 #include "WorldSettings.h"
+#include "Respawn.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -37,6 +38,8 @@ class HostPump {
         std::deque<Transaction> transactions;
         SequenceWindow transaction_sequences;
         double transaction_budget = 8;
+        SequenceWindow respawn_sequences;
+        std::deque<RespawnResult> respawn_results;
         std::map<Identity,std::uint32_t> item_revisions;
         Identity item_cursor=0;
         WorldBaseline baseline;
@@ -58,6 +61,7 @@ class HostPump {
     std::deque<LevelFailure> failures_;
     std::map<Identity,ItemState> items_;
     std::function<InventoryResult(Identity,const InventoryRequest&)> inventory_handler_;
+    std::function<RespawnResult(Identity,const RespawnRequest&)> respawn_handler_;
     void failed(Peer& peer, TransferFailure reason) {
         if (!peer.assigned) return;
         failures_.push_back({peer.player,peer.assignment,reason}); peer.assigned = false;
@@ -137,6 +141,28 @@ class HostPump {
                     !peer.baseline_started || peer.baseline_offset!=peer.baseline.size ||
                     !same_baseline(received,peer.baseline)) return false;
                 peer.baseline_received=true; peer.baseline_bytes.reset();
+            }
+            else if (peer.ready && frame.message==Message::RespawnRequest) {
+                RespawnRequest request;
+                if (!decode_respawn_request(frame.payload,request) || request.sequence!=frame.sequence) return false;
+                const auto actor=actors_.find(request.actor);
+                if (actor!=actors_.end() && actor->second.player!=peer.player) return false;
+                RespawnResult result{request,RespawnStatus::Denied}; bool replay=false;
+                for (const auto& previous:peer.respawn_results) if (previous.request.sequence==request.sequence) {
+                    if (encode_respawn_request(previous.request)!=frame.payload) return false;
+                    result=previous; replay=true; break;
+                }
+                if (!replay) {
+                    if (!peer.respawn_sequences.accept(request.sequence)) continue;
+                    if (peer.assigned || peer.transaction_budget<1) result.status=RespawnStatus::Busy;
+                    else if (actor!=actors_.end() && actor->second.generation==request.generation && actor->second.level==request.level && peer.level==request.level && respawn_handler_) {
+                        peer.transaction_budget-=1; result=respawn_handler_(peer.player,request); result.request=request;
+                    }
+                    if (!valid_respawn_result(result)) return false;
+                    if (peer.respawn_results.size()>=16) peer.respawn_results.pop_front();
+                    peer.respawn_results.push_back(result);
+                }
+                if (!queue(peer,{Message::RespawnResult,Channel::Combat,Delivery::ReliableOrdered,request.sequence,encode_respawn_result(result)})) return false;
             }
             else if (peer.ready && frame.message == Message::InventoryRequest) {
                 InventoryRequest request;
@@ -220,6 +246,7 @@ public:
         }
         return false;
     }
+    void set_respawn_handler(std::function<RespawnResult(Identity,const RespawnRequest&)> handler) { respawn_handler_=std::move(handler); }
     void set_inventory_handler(std::function<InventoryResult(Identity,const InventoryRequest&)> handler) {
         inventory_handler_=std::move(handler);
     }

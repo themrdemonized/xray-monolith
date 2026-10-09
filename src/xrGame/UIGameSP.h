@@ -40,6 +40,7 @@ public:
 #endif
 	CUITalkWnd* TalkMenu;
 	CChangeLevelWnd* UIChangeLevelWnd;
+    CUIDialogWnd* CoopRespawnWnd=nullptr;
 
 	StaticDrawableWrapper* m_game_objective;
 };

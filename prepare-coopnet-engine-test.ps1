@@ -1,7 +1,8 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$StarterProbe, [string]$TestDirectory)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$StarterProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
+if ($RespawnProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
 if ($StarterProbe) { $WorldProbe=$true }
@@ -55,6 +56,7 @@ foreach ($role in @('host', 'guest')) {
     }
     if ($GameplayProbe) { Add-Content "$data\user.ltx" 'coop_gameplay_probe' -Encoding ascii }
     if ($WorldLootProbe) { Add-Content "$data\user.ltx" 'coop_loot_probe' -Encoding ascii }
+    if ($RespawnProbe) { Add-Content "$data\user.ltx" 'coop_respawn_probe' -Encoding ascii }
     if ($SettingsProbe) { Add-Content "$data\user.ltx" 'coop_settings_probe' -Encoding ascii }
     if ($WorldProbe) { Add-Content "$data\user.ltx" 'coop_world_probe' -Encoding ascii }
     if ($WeaponProbe) { Add-Content "$data\user.ltx" 'coop_weapon_probe' -Encoding ascii }

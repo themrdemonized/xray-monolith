@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "Entity.h"
 #include "actor.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "xrserver_objects_alife_monsters.h"
 #include "entity.h"
 #include "level.h"
@@ -262,6 +263,14 @@ void CEntity::net_Destroy()
 
 void CEntity::KillEntity(u16 whoID, BOOL bypass_actor_check /*AVO: added for actor_before_death callback*/)
 {
+    if (engine_coopnet::shared_world_active()) {
+        auto* actor=smart_cast<CActor*>(this);
+        if (actor && actor==g_actor && engine_coopnet::guest_settings_locked()) {
+            if (actor->GetfHealth()<=0) actor->SetfHealth(.001f);
+            return; // Only host condition updates may down a guest's local presentation actor.
+        }
+        if (actor && (actor==g_actor || actor->is_coopnet_guest())) { actor->coopnet_down(); return; }
+    }
 	//AVO: allow scripts to process actor condition and prevent actor's death or kill him if desired.
 	//IMPORTANT: if you wish to kill actor you need to call db.actor:kill(level:object_by_id(whoID), true) in actor_before_death callback, to ensure all objects are properly destroyed
 	// this will bypass below if block and go to normal KillEntity routine.

@@ -44,6 +44,7 @@ extern u32 hud_adj_mode;
 
 void CActor::IR_OnKeyboardPress(int cmd)
 {
+    if (is_coopnet_downed()) return;
     if (!engine_coopnet::party_controls_enabled()) return;
     if (engine_coopnet::record_coopnet_weapon_input(ID(),cmd,true)) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
@@ -279,6 +280,7 @@ BOOL mouseWheelInvertChangeWeapons = FALSE;
 BOOL mouseWheelInvertZoom = FALSE;
 void CActor::IR_OnMouseWheel(int direction)
 {
+    if (is_coopnet_downed()) return;
 	if (hud_adj_mode)
 	{
 		g_player_hud->tune(Ivector().set(0, 0, direction));
@@ -320,6 +322,7 @@ void CActor::IR_OnMouseWheel(int direction)
 
 void CActor::IR_OnKeyboardRelease(int cmd)
 {
+    if (is_coopnet_downed()) return;
     if (engine_coopnet::record_coopnet_weapon_input(ID(),cmd,false)) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
@@ -355,6 +358,7 @@ void CActor::IR_OnKeyboardRelease(int cmd)
 
 void CActor::IR_OnKeyboardHold(int cmd)
 {
+    if (is_coopnet_downed()) return;
     if (!engine_coopnet::party_controls_enabled()) return;
 	if (hud_adj_mode && pInput->iGetAsyncKeyState(DIK_LSHIFT)) return;
 
@@ -449,6 +453,7 @@ void CActor::IR_OnKeyboardHold(int cmd)
 
 void CActor::IR_OnMouseMove(int dx, int dy)
 {
+    if (is_coopnet_downed()) return;
 	if (hud_adj_mode)
 	{
 		g_player_hud->tune(Ivector().set(dx, dy, 0));

@@ -1,6 +1,6 @@
 # Guest weapons and saved state
 
-Protocol 14 routes client fire/reload controls to the host's guest inventory. A guest weapon uses its actor's position and aiming direction, and world weapon presentation instead of the host's primary HUD. Inventory slot and safemode callbacks avoid modifying the host's HUD through guest actions. Native weapon draw completion is required before the automated firing stimulus.
+Protocol 15 routes client fire/reload controls to the host's guest inventory. A guest weapon uses its actor's position and aiming direction, and world weapon presentation instead of the host's primary HUD. Inventory slot and safemode callbacks avoid modifying the host's HUD through guest actions. Native weapon draw completion is required before the automated firing stimulus.
 
 The host sends bounded, owner-only inventory views containing section, condition, placement, active item and ammunition. The guest retires the copied host actor's inventory and creates local presentation items from that view. Inventory menu and quick-use requests route equip, backpack, belt, use, activate, holster and drop actions to the host, using the existing correlated request/replay checks. A fresh character receives a PM pistol, ammunition, a bandage and a PDA; an existing saved character restores its equipment, including an intentionally empty inventory, without granting the starter items again.
 
@@ -15,3 +15,5 @@ The stored condition is limited to health, power and radiation. Full wounds/blee
 Initial join timeouts retry automatically with a bounded backoff. An existing client process uses its resume token after connection loss. Saved Windows-encrypted connection profiles let a new guest process resume against the same host. Expired host sessions retry fresh admission with the saved character identity; a new host process can load that character equipment.
 
 `test-coopnet-persistence.ps1` runs firing and group travel in isolated appdata, damages the newest disposable guest record, and starts new host/client processes to check recovery of the weapon, active slot and two remaining rounds. Original native saves are hash-checked throughout. See PROGRESS.md for completed native runs and logs.
+
+Protocol 15 adds host-validated respawn at a living teammate. Downed players keep equipment, and an all-dead party cannot respawn. Guest local death waits for host confirmation. See [Respawn](RESPAWN.md) for popup behavior and limits.

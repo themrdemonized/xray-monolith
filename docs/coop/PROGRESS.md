@@ -2,6 +2,17 @@
 
 Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. The active architecture has no location workers or independently active guest locations. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
 
+## Respawn checkpoint — 2026-10-09
+
+Protocol 15 adds a Respawn popup for zero-health players. The host chooses a living connected teammate on the same map and revives the requester at that teammate's current XYZ position. Guests send identity/generation/level requests, never destination coordinates. Owned requests, stale bindings, replay, reliable replies and pre-respawn death/position packets are validated. Equipment is retained; native condition and velocity reset. An all-dead party cannot respawn, and downed players do not count toward location exits. Held firing input is cleared. Guest local death is ignored until the host confirms zero health, avoiding an unrevivable client-only death.
+
+The native character shell remains intact while downed, with wire health zero and movement/firing/damage/inventory actions blocked. Single-player death callbacks/teardown are suppressed for session actors. Respawn is not a spectator camera or dropped death inventory. Guest downed condition is saved; host primary downed state is session-local. See RESPAWN.md.
+
+All fourteen standalone suites passed (`_build/coopnet-respawn-unit1.log`). The final authority DX11 build and 90-second native respawn/settings/inventory run passed (`_build/coopnet-respawn-authority-build.log`, `_build/coopnet-respawn-authority-native.log`): unconfirmed guest local death was rejected, real zero-health kills opened both native popups, guest and host revived at living teammate coordinates, two remaining rounds were retained, and all-dead approval was rejected. Existing movement, rendering, ownership/replay, canonical snapshot, passive NPC, settings-lock, firing, inventory and original-save checks passed. Popups opened natively; clicked GUI appearance was not visually verified.
+
+The preceding protocol-15 travel/restart regression passed (`_build/coopnet-respawn-final-persistence.log`): both clients reached level 2, equipment/active slot/two rounds survived travel and host restart, corrupted newest sequence 70 was rejected in favor of the previous valid record, and the saved-character fallback handled the expired host session. This regression preceded the final guest local-death guard; the final native run exercised that guard and both death/respawn roles. Original saves remained unchanged.
+
+Full ordinary co-op still needs dynamic NPC lifecycles, corpse/stash access, complete item presentation, combat effects and shared quests. Steam friends/lobby joining and public internet testing remain outstanding.
 ## Main-menu joining and host settings checkpoint — 2026-10-09
 
 Protocol 14 adds a native Join CoopNet menu button with an IPv4/optional-port dialog, successful-connection history and DPAPI-encrypted character/session credentials. The same menu backend resumes a guest after process restart; an expired host session falls back to fresh admission with the saved character. There is no Steam friends integration.

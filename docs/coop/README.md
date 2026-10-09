@@ -2,10 +2,11 @@
 
 Source audited: `a91b22ce`, xray-monolith, 2026-10-08. Development branch: `coopnet`. Local recovery tag: `coopnet-build-baseline`. Upstream remote remains separate from the user's `origin` fork.
 
-The current implementation uses one host world and group location transitions. Guests load a validated canonical host snapshot and receive native actor and existing NPC updates. Protocol 14 includes main-menu IP joining, Windows-encrypted saved connections, guest world-setting locks, host time/weather replication, host-side guest firing, saved equipment, owner inventory views/controls and loose world loot transfers. Full ordinary gameplay remains incomplete: corpse/stash inventory, complete item presentation, dynamic NPC lifecycles, death/rejoin and shared quests need further work. See [current verification evidence](PROGRESS.md).
+The current implementation uses one host world and group location transitions. Guests load a validated canonical host snapshot and receive native actor and existing NPC updates. Protocol 15 includes respawn at a living teammate, main-menu IP joining, Windows-encrypted saved connections, guest world-setting locks, host time/weather replication, host-side guest firing, saved equipment, owner inventory views/controls and loose world loot transfers. Full ordinary gameplay remains incomplete: corpse/stash inventory, complete item presentation, dynamic NPC lifecycles and shared quests need further work. See [current verification evidence](PROGRESS.md).
 
 ## Documents
 
+- [Respawn](RESPAWN.md): host-validated revival, all-dead behavior and retained equipment.
 - [Connecting players](CONNECTING.md): client requirements and direct host/join commands.
 - [Guest weapons and saved state](GUEST_STATE.md): implementation and remaining character/inventory limits.
 - [Recovered design](../../COOP_NETCODE_DESIGN.md): original text recovered through section 34; explicitly incomplete because the history tool truncates the message.

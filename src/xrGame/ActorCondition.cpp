@@ -1,6 +1,7 @@
 #include "pch_script.h"
 #include "actorcondition.h"
 #include "actor.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "actorEffector.h"
 #include "inventory.h"
 #include "level.h"
@@ -195,6 +196,7 @@ float CActorCondition::GetZoneMaxPower(ALife::EHitType hit_type) const
 
 void CActorCondition::UpdateCondition()
 {
+    if (m_object->is_coopnet_downed()) return;
 	float v_alcohol = IsSleeping() ? m_fV_AlcoholSleep : m_fV_Alcohol;
 	
 	if (psActorFlags.test(AF_GODMODE_RT))
@@ -305,7 +307,7 @@ void CActorCondition::UpdateCondition()
 	if (IsGameTypeSingle() && m_object == Level().CurrentViewEntity())
 		UpdateTutorialThresholds();
 
-	if (GetHealth() < 0.05f && m_death_effector == NULL && IsGameTypeSingle() && m_object == Level().CurrentViewEntity())
+	if (GetHealth() < 0.05f && m_death_effector == NULL && IsGameTypeSingle() && m_object == Level().CurrentViewEntity() && !engine_coopnet::shared_world_active())
 	{
 		if (pSettings->section_exist("actor_death_effector"))
 			m_death_effector = xr_new<CActorDeathEffector>(this, "actor_death_effector");

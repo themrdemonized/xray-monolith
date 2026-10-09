@@ -11,6 +11,7 @@
 #include "WorldState.h"
 #include "PartyTransition.h"
 #include "WorldSettings.h"
+#include "Respawn.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -52,6 +53,9 @@ class ClientPump {
     std::map<Identity,std::pair<std::uint32_t,SequenceWindow>> vitals_sequences_;
     std::function<void(const InventoryResult&)> inventory_sink_;
     std::function<void(const ActorVitals&)> vitals_sink_;
+    std::function<void(const RespawnResult&)> respawn_sink_;
+    std::map<std::uint32_t,RespawnRequest> pending_respawns_;
+    std::map<Identity,std::uint32_t> respawn_ticks_;
     BaselineAssembly baseline_assembly_;
     WorldBaseline baseline_;
     bool baseline_validated_=false, baseline_acknowledged_=false;
@@ -59,6 +63,7 @@ class ClientPump {
     std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> baseline_sink_;
     std::function<void(const WorldBaseline&,std::uint32_t)> baseline_progress_sink_;
     void clear_baseline() {
+        pending_respawns_.clear(); respawn_ticks_.clear();
         inventory_view_assembly_.clear(); inventory_views_={}; inventory_view_revision_=0;
         world_sequences_.clear();
         baseline_assembly_.clear(); baseline_={}; baseline_validated_=false; baseline_acknowledged_=false; baseline_time_=0;
@@ -108,6 +113,18 @@ public:
     void set_item_sink(std::function<void(const ItemState&)> sink) { item_sink_=std::move(sink); }
     void set_inventory_sink(std::function<void(const InventoryResult&)> sink) { inventory_sink_=std::move(sink); }
     void set_vitals_sink(std::function<void(const ActorVitals&)> sink) { vitals_sink_=std::move(sink); }
+    void set_respawn_sink(std::function<void(const RespawnResult&)> sink) { respawn_sink_=std::move(sink); }
+    bool respawn_pending() const { return !pending_respawns_.empty(); }
+    SendResult send_respawn(const RespawnRequest& request) {
+        if (!transport_ || session_.state()!=ClientState::Connected || !level_ready_sent_) return SendResult::Disconnected;
+        const auto* actor=actors_.find(request.actor);
+        if (!valid_respawn_request(request) || !actor || actor->player!=session_.welcome().player || actor->generation!=request.generation || actor->level!=request.level || assignment_.level!=request.level) return SendResult::Invalid;
+        if (!pending_respawns_.empty()) return SendResult::Backpressure;
+        const auto result=transport_->send({Message::RespawnRequest,Channel::Combat,Delivery::ReliableOrdered,request.sequence,encode_respawn_request(request)});
+        if (result==SendResult::Sent) pending_respawns_.emplace(request.sequence,request);
+        else if (result!=SendResult::Backpressure) lost();
+        return result;
+    }
     SendResult send_inventory(const InventoryRequest& request) {
         if (!transport_ || session_.state()!=ClientState::Connected || !level_ready_sent_) return SendResult::Disconnected;
         const auto* actor=actors_.find(request.actor);
@@ -271,6 +288,8 @@ public:
             } else if (frame.message == Message::ActorSnapshot) {
                 ActorSnapshot snapshot;
                 if (!decode_snapshot(frame.payload, snapshot) || frame.sequence != snapshot.tick) { lost(); return; }
+                const auto floor=respawn_ticks_.find(snapshot.entity);
+                if (floor!=respawn_ticks_.end() && (snapshot.tick-floor->second==0 || snapshot.tick-floor->second>=0x80000000u)) continue;
                 if (actors_.push(snapshot) && snapshot_sink_) snapshot_sink_(snapshot);
             } else if (frame.message == Message::ActorCreate || frame.message == Message::ActorRemove) {
                 ActorPresence presence;
@@ -322,6 +341,20 @@ public:
                 if (!actor || actor->generation!=request.generation || actor->level!=request.level ||
                     actor->player!=session_.welcome().player || !level_ready_sent_ || assignment_.level!=request.level) continue;
                 if (inventory_sink_) inventory_sink_(result);
+            } else if (frame.message==Message::RespawnResult) {
+                RespawnResult result;
+                if (!decode_respawn_result(frame.payload,result) || result.request.sequence!=frame.sequence) { lost(); return; }
+                const auto pending=pending_respawns_.find(result.request.sequence);
+                if (pending==pending_respawns_.end()) continue;
+                if (encode_respawn_request(pending->second)!=encode_respawn_request(result.request)) { lost(); return; }
+                const auto* actor=actors_.find(result.request.actor);
+                pending_respawns_.erase(pending);
+                if (!actor || actor->generation!=result.request.generation || actor->level!=result.request.level || actor->player!=session_.welcome().player) continue;
+                if (result.status==RespawnStatus::Accepted) {
+                    respawn_ticks_[result.request.actor]=result.tick;
+                    auto& vitals=vitals_sequences_[result.request.actor]; vitals={result.request.generation,{}}; vitals.second.accept(result.tick);
+                }
+                if (respawn_sink_) respawn_sink_(result);
             } else if (frame.message==Message::ActorVitals) {
                 ActorVitals vitals;
                 if (!decode_vitals(frame.payload,vitals) || vitals.tick!=frame.sequence) { lost(); return; }

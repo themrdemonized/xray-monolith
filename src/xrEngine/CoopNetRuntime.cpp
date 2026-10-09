@@ -104,6 +104,13 @@ struct Session {
     double world_rules_wait=5,world_clock_wait=1;
     bool settings_probe=false;
     unsigned host_clock_updates=0;
+    std::uint32_t respawn_sequence=0;
+    std::map<coopnet::Identity,coopnet::ActorVitals> player_vitals;
+    std::string respawn_message;
+    bool respawn_probe=false;
+    bool respawn_probe_local_death_checked=false;
+    unsigned respawn_probe_phase=0;
+    double respawn_probe_wait=0;
     unsigned last_ready = 0;
     std::uint32_t last_roster_revision = 0;
     std::chrono::steady_clock::time_point last_update{};
@@ -370,10 +377,50 @@ void send_world_baselines(Session& current) {
         Msg("* CoopNet canonical baseline queued: player %llu id %llu bytes %u",player.id,id,manifest.size);
     }
 }
+bool living_player_position(Session& current,std::uint16_t dead,std::uint32_t level,float* position) {
+    auto living=[&](const LocalActorPose& pose) {
+        ActorConditionState state;
+        if (pose.object==dead || pose.level!=level || !capture_actor_condition(pose.object,state) || state.health<=0) return false;
+        for (unsigned axis=0;axis<3;++axis) position[axis]=pose.position[axis]; return true;
+    };
+    LocalActorPose host;
+    if (capture_local_actor(host) && living(host)) return true;
+    for (const auto& player:current.host.session().players()) if (player.connected) {
+        const auto guest=current.guests.find(player.id); LocalActorPose pose;
+        if (guest!=current.guests.end() && guest->second.generation && capture_guest_actor(guest->second.object,pose) && living(pose)) return true;
+    }
+    return false;
+}
+coopnet::RespawnResult respawn_player(Session& current,coopnet::Identity player,const coopnet::RespawnRequest& request) {
+    coopnet::RespawnResult result{request,coopnet::RespawnStatus::Denied,current.tick};
+    LocalActorPose pose;
+    if (player==current.host.session().players()[0].id) {
+        const auto* binding=current.entities.find(current.host_actor);
+        if (!binding || !capture_local_actor(pose) || request.actor!=current.host_actor || request.generation!=binding->generation) return result;
+    } else {
+        const auto guest=current.guests.find(player);
+        if (guest==current.guests.end() || guest->second.entity!=request.actor || guest->second.generation!=request.generation || !capture_guest_actor(guest->second.object,pose)) return result;
+    }
+    if (pose.level!=request.level) return result;
+    ActorConditionState condition;
+    if (!capture_actor_condition(pose.object,condition)) return result;
+    if (condition.health>0) { result.status=coopnet::RespawnStatus::Alive; return result; }
+    if (current.party_loading) { result.status=coopnet::RespawnStatus::Busy; return result; }
+    if (!living_player_position(current,pose.object,pose.level,result.position.data())) { result.status=coopnet::RespawnStatus::NoLivingPlayer; return result; }
+    if (!respawn_actor(pose.object,pose.level,result.position.data())) return result;
+    result.status=coopnet::RespawnStatus::Accepted;
+    for (const auto& participant:current.host.session().players()) if (participant.id==player && player!=current.host.session().players()[0].id) {
+        current.guest_conditions[participant.character]={1,1,0}; save_guest_state(current,participant.character);
+    }
+    Msg("* CoopNet host respawn accepted: player %llu at living teammate %.3f %.3f %.3f",player,result.position[0],result.position[1],result.position[2]);
+    return result;
+}
 coopnet::InventoryResult transact_inventory(Session& current, coopnet::Identity player, const coopnet::InventoryRequest& request) {
     coopnet::InventoryResult result{request.item,0,request.sequence,0,coopnet::InventoryStatus::Unavailable};
     const auto actor=current.guests.find(player); const auto item=current.items.find(request.item);
     if (actor==current.guests.end() || item==current.items.end()) return result;
+    ActorConditionState condition;
+    if (!capture_actor_condition(actor->second.object,condition) || condition.health<=0) { result.status=coopnet::InventoryStatus::Denied; return result; }
     auto& record=item->second;
     result.owner=record.state.owner; result.revision=record.state.revision;
     if (!record.state.present) return result;
@@ -390,6 +437,55 @@ coopnet::InventoryResult transact_inventory(Session& current, coopnet::Identity 
             request.sequence,static_cast<unsigned>(request.action),result.owner,result.revision);
     }
     return result;
+}
+void exercise_respawn_probe(Session& current,double elapsed) {
+    if (!current.respawn_probe || !current.world_probe) return;
+    if (current.mode==coopnet::Mode::Client) {
+        LocalActorPose local;
+        if (!current.respawn_probe_local_death_checked && current.client.baseline_acknowledged() && capture_local_actor(local) && !player_downed()) {
+            if (down_actor(local.object) || player_downed()) throw std::runtime_error("Guest accepted an unconfirmed local death");
+            current.respawn_probe_local_death_checked=true;
+            Msg("* CoopNet respawn probe: guest local death ignored until host confirmation");
+        }
+        if (!current.respawn_probe_phase && player_downed() && can_respawn()) {
+            current.respawn_probe_wait+=elapsed;
+            if (current.respawn_probe_wait>=3 && request_respawn()) {
+                current.respawn_probe_phase=1; Msg("* CoopNet respawn probe: guest requested revival");
+            }
+        } else if (current.respawn_probe_phase==1 && !player_downed()) {
+            current.respawn_probe_phase=2; Msg("* CoopNet respawn probe: guest living after host approval");
+        }
+        return;
+    }
+    if (current.guests.empty() || current.respawn_probe_phase>=4) return;
+    auto& guest=current.guests.begin()->second; LocalActorPose host,guest_pose; ActorConditionState condition;
+    if (!guest.generation || !guest.damage_sent || (current.weapon_probe && guest.weapon_phase<3) || !capture_local_actor(host) || !capture_guest_actor(guest.object,guest_pose) || !capture_actor_condition(guest.object,condition)) return;
+    current.respawn_probe_wait+=elapsed;
+    if (current.respawn_probe_phase==0 && current.respawn_probe_wait>=5) {
+        if (request_respawn()) throw std::runtime_error("Living host was allowed to respawn");
+        if (!down_actor(guest.object)) throw std::runtime_error("Guest death probe failed");
+        current.respawn_probe_phase=1; current.respawn_probe_wait=0;
+        Msg("* CoopNet respawn probe: guest death; living host request denied");
+    } else if (current.respawn_probe_phase==1 && condition.health>0 && current.respawn_probe_wait>=5) {
+        if (current.weapon_probe) {
+            unsigned rounds=0; bool ready=false;
+            if (!capture_guest_weapon(guest.object,guest.weapon,rounds,ready) || rounds!=2) throw std::runtime_error("Respawn changed guest ammunition");
+            Msg("* CoopNet respawn probe: guest equipment retained; rounds %u",rounds);
+        }
+        if (!down_actor(host.object)) throw std::runtime_error("Host death probe failed");
+        current.respawn_probe_phase=2; current.respawn_probe_wait=0;
+        Msg("* CoopNet respawn probe: host death with living guest");
+    } else if (current.respawn_probe_phase==2 && current.respawn_probe_wait>=3) {
+        if (!request_respawn()) throw std::runtime_error("Host respawn at guest failed");
+        current.respawn_probe_phase=3; current.respawn_probe_wait=0;
+        Msg("* CoopNet respawn probe: host respawned at guest");
+    } else if (current.respawn_probe_phase==3 && current.respawn_probe_wait>=5) {
+        if (!down_actor(host.object) || !down_actor(guest.object) || can_respawn() || request_respawn()) throw std::runtime_error("No-living-player respawn guard failed");
+        const auto* binding=current.entities.find(current.host_actor);
+        const coopnet::RespawnRequest request{current.host_actor,binding->generation,host.level,++current.respawn_sequence};
+        if (respawn_player(current,current.host.session().players()[0].id,request).status!=coopnet::RespawnStatus::NoLivingPlayer) throw std::runtime_error("Host accepted revival without a living player");
+        current.respawn_probe_phase=4; Msg("* CoopNet respawn probe: all dead; respawn disabled and host denied request");
+    }
 }
 const char* state_name(coopnet::ClientState state) {
     switch (state) {
@@ -446,6 +542,8 @@ void capture_host(Session& current, double elapsed) {
         snapshot.rotation[axis] = pose.rotation[axis];
     }
     if (!current.host.publish_snapshot(snapshot)) throw std::runtime_error("Invalid engine actor snapshot");
+    ActorConditionState condition;
+    if (capture_actor_condition(pose.object,condition)) current.host.publish_vitals({snapshot.entity,snapshot.generation,pose.level,current.tick,condition.health,condition.power,condition.radiation});
 }
 void present_client(Session& current, double elapsed) {
     if (current.server_clock_known) current.server_us += static_cast<std::uint64_t>(elapsed * 1000000);
@@ -879,6 +977,7 @@ void update(double) {
             capture_world_loot(*session);
             send_world_baselines(*session);
             capture_guests(*session);
+            exercise_respawn_probe(*session,elapsed);
             publish_world(*session);
             update_party(*session,elapsed);
             update_party_probe(*session,elapsed);
@@ -901,6 +1000,7 @@ void update(double) {
         } else {
             session->client.update(elapsed);
             update_host_world_rules();
+            exercise_respawn_probe(*session,elapsed);
             const auto connection_state=session->client.session().state();
             if (connection_state==coopnet::ClientState::Connected) {
                 session->reconnect_wait=0; session->reconnect_delay=2;
@@ -999,6 +1099,11 @@ void command(const char* name, const char* arguments) {
             session->settings_probe=true; return;
         }
         if (!strcmp(name, "coop_disconnect")) { stop(); Msg("* CoopNet offline"); return; }
+        if (!strcmp(name,"coop_respawn")) { request_respawn(); return; }
+        if (!strcmp(name,"coop_respawn_probe")) {
+            if (!session) throw std::runtime_error("Respawn probe requires a session");
+            session->respawn_probe=true; return;
+        }
         if (!strcmp(name,"coop_weapon_probe")) {
             if (!session) throw std::runtime_error("Weapon probe requires a session");
             session->weapon_probe=true; Msg("* CoopNet native weapon probe enabled"); return;
@@ -1083,6 +1188,7 @@ void command(const char* name, const char* arguments) {
             next->host.set_inventory_handler([owner](coopnet::Identity player,const coopnet::InventoryRequest& request) {
                 return transact_inventory(*owner,player,request);
             });
+            next->host.set_respawn_handler([owner](coopnet::Identity player,const coopnet::RespawnRequest& request) { return respawn_player(*owner,player,request); });
             next->mode = coopnet::Mode::Host;
         } else if (!strcmp(name, "coop_join")) {
             const auto connection = next->runtime.connect(endpoint.c_str());
@@ -1131,12 +1237,23 @@ void command(const char* name, const char* arguments) {
                 }
             });
             next->client.set_vitals_sink([owner](const coopnet::ActorVitals& vitals) {
+                owner->player_vitals[vitals.actor]=vitals;
                 const auto* actor=owner->client.actors().find(vitals.actor);
                 if (actor && actor->player==owner->client.session().welcome().player &&
                     apply_local_condition(vitals.level,{vitals.health,vitals.power,vitals.radiation})) {
                     ++owner->condition_corrections;
                     if (vitals.tick%25==0) Msg("* CoopNet authoritative guest health applied: %.3f",vitals.health);
                 }
+            });
+            next->client.set_respawn_sink([owner](const coopnet::RespawnResult& result) {
+                if (result.status==coopnet::RespawnStatus::Accepted) {
+                    LocalActorPose local;
+                    if (!capture_local_actor(local) || !respawn_actor(local.object,result.request.level,result.position.data())) {
+                        owner->respawn_message="Respawn failed locally. Reconnect to the host."; return;
+                    }
+                    owner->respawn_message.clear();
+                    Msg("* CoopNet client respawn accepted: host position %.3f %.3f %.3f",result.position[0],result.position[1],result.position[2]);
+                } else owner->respawn_message=result.status==coopnet::RespawnStatus::NoLivingPlayer ? "No living teammate is available." : "Respawn is unavailable. Try again when a teammate is alive.";
             });
             next->client.set_world_sink([owner](const coopnet::WorldState& state) {
                 if (!owner->world_probe) return;
@@ -1177,6 +1294,46 @@ bool world_setting_command(const char* name) {
     return name && (world_commands.count(name) || !strncmp(name,"al_",3) || !strncmp(name,"ai_",3) || !strncmp(name,"ph_",3) ||
         !strcmp(name,"g_game_difficulty") || !strcmp(name,"time_factor") || !strcmp(name,"weather") ||
         !strncmp(name,"env_",4) || !strcmp(name,"g_god") || !strcmp(name,"g_unlimitedammo") || !strcmp(name,"g_no_clip"));
+}
+bool player_downed() { return shared_world_active() && local_actor_downed(); }
+bool can_respawn() {
+    LocalActorPose local;
+    if (!player_downed() || !capture_local_actor(local)) return false;
+    if (session->mode==coopnet::Mode::Host) {
+        float position[3]; return !session->party_loading && living_player_position(*session,local.object,local.level,position);
+    }
+    if (session->client.session().state()!=coopnet::ClientState::Connected || session->client.respawn_pending() || session->client.party_status().stage==coopnet::PartyStage::Loading) return false;
+    bool living=false;
+    session->client.actors().visit([&](const coopnet::ActorPresence& actor) {
+        const auto vitals=session->player_vitals.find(actor.entity);
+        if (actor.player!=session->client.session().welcome().player && actor.level==local.level && vitals!=session->player_vitals.end() && vitals->second.generation==actor.generation && vitals->second.level==local.level && vitals->second.health>0) living=true;
+    });
+    return living;
+}
+bool request_respawn() {
+    try {
+        if (!can_respawn()) return false;
+        LocalActorPose local; if (!capture_local_actor(local)) return false;
+        coopnet::RespawnRequest request; request.level=local.level; request.sequence=++session->respawn_sequence;
+        if (session->mode==coopnet::Mode::Host) {
+            const auto* binding=session->entities.find(session->host_actor); if (!binding) return false;
+            request.actor=session->host_actor; request.generation=binding->generation;
+            return respawn_player(*session,session->host.session().players()[0].id,request).status==coopnet::RespawnStatus::Accepted;
+        }
+        session->client.actors().visit([&](const coopnet::ActorPresence& actor) {
+            if (actor.player==session->client.session().welcome().player && actor.level==local.level) { request.actor=actor.entity; request.generation=actor.generation; }
+        });
+        if (!request.actor) return false;
+        const auto sent=session->client.send_respawn(request);
+        if (sent==coopnet::SendResult::Sent) { session->respawn_message="Waiting for the host..."; return true; }
+    } catch (const std::exception& error) { Msg("! CoopNet respawn failed: %s",error.what()); }
+    return false;
+}
+void respawn_status(char* output,unsigned capacity) {
+    if (!output || !capacity) return;
+    const char* text=can_respawn() ? "Respawn at a living teammate's position." : "No living teammate is available. Wait for one or load a save.";
+    if (session && !session->respawn_message.empty() && (session->client.respawn_pending() || can_respawn())) text=session->respawn_message.c_str();
+    snprintf(output,capacity,"%s",text);
 }
 void saved_join_address(char* output,unsigned capacity) {
     if (!output || !capacity) return;
@@ -1225,6 +1382,10 @@ bool simulation_active() { return false; }
 bool shared_world_active() { return false; }
 bool party_level_change_allowed() { return true; }
 bool party_controls_enabled() { return true; }
+bool player_downed() { return false; }
+bool can_respawn() { return false; }
+bool request_respawn() { return false; }
+void respawn_status(char* output,unsigned capacity) { if (output && capacity) output[0]=0; }
 void command(const char*, const char*) { Msg("! CoopNet unavailable: build with -CoopNet after setup-coopnet-deps.ps1"); }
 }
 #endif

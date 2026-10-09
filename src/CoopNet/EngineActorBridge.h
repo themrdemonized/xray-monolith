@@ -27,6 +27,9 @@ struct LocalActorControls {
     float yaw = 0, pitch = 0;
 };
 struct ActorConditionState { float health=1, power=1, radiation=0; };
+bool local_actor_downed();
+bool respawn_actor(std::uint16_t object,std::uint32_t level,const float* position);
+bool down_actor(std::uint16_t object);
 // Host-created native records stay inside the host process. They are never accepted from peers.
 struct GuestInventoryItem {
     std::string section;

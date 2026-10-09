@@ -1,7 +1,8 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
+if ($RespawnProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
 if ($StarterProbe) { $WorldProbe=$true }
@@ -9,7 +10,7 @@ if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe) -and !$TestDirectory) {
+if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -26,7 +27,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -203,4 +204,16 @@ if ($SettingsProbe) {
         throw 'Host settings replication or guest native/script settings lock evidence missing.'
     }
     Write-Output 'NATIVE_HOST_SETTINGS_PASS: host rules and clock applied; guest console and scripted world-state changes rejected.'
+}
+if ($RespawnProbe) {
+    if ($logs.guest -notmatch 'CoopNet respawn probe: guest local death ignored until host confirmation') { throw 'Guest local death authority guard evidence missing.' }
+    if ($WeaponProbe -and $logs.host -notmatch 'CoopNet respawn probe: guest equipment retained; rounds 2') { throw 'Respawn equipment/ammunition preservation evidence missing.' }
+    if ($logs.host -notmatch 'CoopNet respawn probe: host respawned at guest' -or
+        $logs.host -notmatch 'CoopNet respawn probe: all dead; respawn disabled and host denied request' -or
+        $logs.guest -notmatch 'CoopNet client respawn accepted: host position' -or
+        $logs.guest -notmatch 'CoopNet respawn probe: guest living after host approval' -or
+        $logs.host -notmatch 'CoopNet Respawn dialog opened' -or $logs.guest -notmatch 'CoopNet Respawn dialog opened') {
+        throw 'Guest/host respawn popup, host approval or no-living-player guard evidence missing.'
+    }
+    Write-Output 'NATIVE_RESPAWN_PASS: guest and host popup opened, each respawned at a living teammate through host validation, and all-dead revival was rejected.'
 }

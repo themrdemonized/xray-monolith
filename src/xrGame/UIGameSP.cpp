@@ -22,6 +22,49 @@
 #include "ui/UIMessageBox.h"
 
 #include "Inventory.h"
+#include "MainMenu.h"
+#include "../xrEngine/CoopNetRuntime.h"
+#include "ui/UI3tButton.h"
+#include "ui/UIStatic.h"
+#include "ui/UIWndCallback.h"
+#include <dinput.h>
+
+namespace {
+class CCoopRespawnDialog : public CUIDialogWnd,public CUIWndCallback {
+    CUI3tButton* respawn;
+    CUIStatic* status;
+    void xr_stdcall Respawn(CUIWindow*,void*) { engine_coopnet::request_respawn(); }
+public:
+    CCoopRespawnDialog() {
+        SetWndPos(Fvector2().set(312,250)); SetWndSize(Fvector2().set(400,230));
+        auto* background=xr_new<CUIStatic>(); background->SetAutoDelete(true); AttachChild(background);
+        background->SetWndSize(GetWndSize()); background->InitTexture("ui\\ui_actor_hint_wnd");
+        background->SetTextureRect(Frect().set(0,0,512,256)); background->SetStretchTexture(true); background->SetTextureColor(0xf0202020);
+        auto* title=xr_new<CUIStatic>(); title->SetAutoDelete(true); AttachChild(title);
+        title->SetWndPos(Fvector2().set(24,20)); title->SetWndSize(Fvector2().set(352,32));
+        title->TextItemControl()->SetFont(UI().Font().pFontLetterica18Russian); title->TextItemControl()->SetText("You died");
+        status=xr_new<CUIStatic>(); status->SetAutoDelete(true); AttachChild(status);
+        status->SetWndPos(Fvector2().set(24,66)); status->SetWndSize(Fvector2().set(352,84));
+        status->TextItemControl()->SetFont(UI().Font().pFontLetterica16Russian); status->TextItemControl()->SetTextComplexMode(true);
+        respawn=xr_new<CUI3tButton>(); respawn->SetAutoDelete(true); AttachChild(respawn);
+        respawn->InitButton(Fvector2().set(108,164),Fvector2().set(184,36));
+        respawn->TextItemControl()->SetFont(UI().Font().pFontLetterica18Russian); respawn->TextItemControl()->SetText("Respawn");
+        respawn->SetStateTextColor(0xffffcc66,S_Highlighted); respawn->SetStateTextColor(0xff969696,S_Disabled);
+        Register(respawn); AddCallback(respawn,BUTTON_CLICKED,CUIWndCallback::void_function(this,&CCoopRespawnDialog::Respawn));
+        Show(false);
+    }
+    void SendMessage(CUIWindow* window,s16 message,void* data=nullptr) override { OnEvent(window,message,data); }
+    void Update() override {
+        CUIDialogWnd::Update(); respawn->Enable(engine_coopnet::can_respawn());
+        char text[256]; engine_coopnet::respawn_status(text,sizeof(text)); status->TextItemControl()->SetText(text);
+    }
+    bool OnKeyboardAction(int key,EUIMessages action) override {
+        if (action==WINDOW_KEY_PRESSED && key==DIK_ESCAPE) { HideDialog(); MainMenu()->Activate(true); return true; }
+        if (action==WINDOW_KEY_PRESSED && (key==DIK_RETURN || key==DIK_NUMPADENTER)) { if (respawn->IsEnabled()) Respawn(nullptr,nullptr); return true; }
+        return CUIDialogWnd::OnKeyboardAction(key,action);
+    }
+};
+}
 
 
 CUIGameSP::CUIGameSP()
@@ -33,6 +76,8 @@ CUIGameSP::CUIGameSP()
 
 CUIGameSP::~CUIGameSP()
 {
+    if (CoopRespawnWnd) CoopRespawnWnd->HideDialog();
+    delete_data(CoopRespawnWnd);
 	delete_data(TalkMenu);
 	delete_data(UIChangeLevelWnd);
 }
@@ -64,6 +109,13 @@ void CUIGameSP::SetClGame(game_cl_GameState* g)
 void CUIGameSP::OnFrame()
 {
 	inherited::OnFrame();
+    if (engine_coopnet::player_downed() && !MainMenu()->IsActive() && !Device.Paused()) {
+        if (!CoopRespawnWnd) CoopRespawnWnd=xr_new<CCoopRespawnDialog>();
+        if (!CoopRespawnWnd->IsShown()) {
+            HideShownDialogs(); CoopRespawnWnd->ShowDialog(false);
+            Msg("* CoopNet Respawn dialog opened");
+        }
+    } else if (CoopRespawnWnd && CoopRespawnWnd->IsShown()) CoopRespawnWnd->HideDialog();
 
 	if (Device.Paused()) return;
 
