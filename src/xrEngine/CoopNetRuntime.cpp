@@ -21,15 +21,40 @@ void coopnet_log(const char* format, ...) {
 #include "../CoopNet/EngineWorldBridge.h"
 #include "../CoopNet/EntityRegistry.h"
 #include "../CoopNet/GuestSave.h"
+#include "../CoopNet/JoinProfile.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
 #include <bcrypt.h>
+#include <wincrypt.h>
 #include <sstream>
 #include <chrono>
 namespace engine_coopnet {
 namespace {
+std::vector<coopnet::JoinProfile> join_profiles;
+bool profiles_loaded=false;
+std::string menu_join_error;
+std::set<std::string> world_commands;
+bool host_application=false;
+void load_join_profiles() {
+    if (profiles_loaded) return;
+    profiles_loaded=true; std::vector<std::uint8_t> encrypted;
+    if (!read_join_profile_file(encrypted)) return;
+    DATA_BLOB source{static_cast<DWORD>(encrypted.size()),encrypted.data()},plain{};
+    if (!CryptUnprotectData(&source,nullptr,nullptr,nullptr,nullptr,CRYPTPROTECT_UI_FORBIDDEN,&plain)) {
+        Msg("! CoopNet saved connections could not be decrypted"); return;
+    }
+    std::vector<std::uint8_t> bytes(plain.pbData,plain.pbData+plain.cbData); LocalFree(plain.pbData);
+    if (!coopnet::decode_join_profiles(bytes,join_profiles)) Msg("! CoopNet saved connections are invalid");
+}
+bool save_join_profiles() {
+    const auto bytes=coopnet::encode_join_profiles(join_profiles);
+    DATA_BLOB source{static_cast<DWORD>(bytes.size()),const_cast<BYTE*>(bytes.data())},encrypted{};
+    if (!CryptProtectData(&source,L"CoopNet saved connections",nullptr,nullptr,nullptr,CRYPTPROTECT_UI_FORBIDDEN,&encrypted)) return false;
+    std::vector<std::uint8_t> output(encrypted.pbData,encrypted.pbData+encrypted.cbData); LocalFree(encrypted.pbData);
+    return write_join_profile_file(output);
+}
 coopnet::Identity random_identity() {
     coopnet::Identity value = 0;
     do {
@@ -72,6 +97,13 @@ struct Session {
     coopnet::ClientPump client;
     coopnet::Mode mode = coopnet::Mode::Offline;
     coopnet::ClientState last_client_state = coopnet::ClientState::Offline;
+    bool saved_resume_attempt=false;
+    std::uint32_t saved_join_generation=0;
+    std::uint32_t world_rules_revision=0;
+    std::vector<std::uint8_t> world_rules_signature;
+    double world_rules_wait=5,world_clock_wait=1;
+    bool settings_probe=false;
+    unsigned host_clock_updates=0;
     unsigned last_ready = 0;
     std::uint32_t last_roster_revision = 0;
     std::chrono::steady_clock::time_point last_update{};
@@ -438,6 +470,29 @@ void present_client(Session& current, double elapsed) {
     for (const auto entity : current.presented) if (!visible.count(entity)) remove_remote_actor(entity);
     current.presented = std::move(visible);
 }
+void publish_world_settings(Session& current,double elapsed) {
+    current.world_rules_wait+=elapsed; current.world_clock_wait+=elapsed;
+    if (current.world_rules_wait>=5) {
+        current.world_rules_wait=0; std::vector<coopnet::WorldRule> rules;
+        if (capture_world_rules(rules)) {
+            std::vector<std::uint8_t> signature;
+            for (std::size_t offset=0;offset<rules.size() || signature.empty();offset+=32) {
+                coopnet::WorldRulesChunk chunk{1,static_cast<std::uint16_t>(offset),static_cast<std::uint16_t>(rules.size()),{}};
+                chunk.rules.assign(rules.begin()+offset,rules.begin()+(std::min)(rules.size(),offset+32));
+                const auto bytes=coopnet::encode_world_rules(chunk); signature.insert(signature.end(),bytes.begin(),bytes.end());
+            }
+            if (signature!=current.world_rules_signature && current.host.publish_world_rules(current.world_rules_revision+1,rules)) {
+                ++current.world_rules_revision; current.world_rules_signature=std::move(signature);
+                Msg("* CoopNet host world rules published: revision %u count %u",current.world_rules_revision,static_cast<unsigned>(rules.size()));
+            }
+            else if (signature!=current.world_rules_signature) Msg("! CoopNet host world rules publication rejected: count %u",static_cast<unsigned>(rules.size()));
+        }
+    }
+    if (current.world_clock_wait>=1) {
+        current.world_clock_wait=0; coopnet::WorldClock clock;
+        if (capture_world_clock(clock)) { clock.tick=current.tick; current.host.publish_world_clock(clock); }
+    }
+}
 void capture_world_loot(Session& current) {
     LocalActorPose pose; if (!capture_local_actor(pose)) return;
     if (current.world_items_incarnation!=pose.incarnation) {
@@ -784,6 +839,7 @@ void stop() {
         for (const auto& entry : session->guests)
             Msg("* CoopNet guest simulation removed: inputs %u distance %.3f",entry.second.inputs,entry.second.distance);
         if (session->world_probe) Msg("* CoopNet NPC state updates: %u",session->world_updates);
+        clear_host_world_rules();
         end_world_replication(); clear_guest_actors(); clear_remote_actors(); session.reset(); Msg("* CoopNet session stopped");
     }
 }
@@ -818,6 +874,8 @@ void update(double) {
             }
             session->host.update(elapsed);
             capture_host(*session, elapsed);
+            if (session->settings_probe) exercise_world_settings_probe();
+            publish_world_settings(*session,elapsed);
             capture_world_loot(*session);
             send_world_baselines(*session);
             capture_guests(*session);
@@ -842,9 +900,28 @@ void update(double) {
             }
         } else {
             session->client.update(elapsed);
+            update_host_world_rules();
             const auto connection_state=session->client.session().state();
             if (connection_state==coopnet::ClientState::Connected) {
                 session->reconnect_wait=0; session->reconnect_delay=2;
+                const auto welcome=session->client.session().welcome();
+                if (welcome.generation!=session->saved_join_generation) {
+                    load_join_profiles();
+                    join_profiles.erase(std::remove_if(join_profiles.begin(),join_profiles.end(),[&](const coopnet::JoinProfile& profile) { return profile.endpoint==session->endpoint; }),join_profiles.end());
+                    join_profiles.insert(join_profiles.begin(),{session->endpoint,session->host_character,session->build,welcome});
+                    if (join_profiles.size()>16) join_profiles.resize(16);
+                    if (save_join_profiles()) Msg("* CoopNet connection credentials saved: generation %u",welcome.generation);
+                    else Msg("! CoopNet connection credentials could not be saved");
+                    session->saved_join_generation=welcome.generation;
+                }
+            } else if (connection_state==coopnet::ClientState::Rejected && session->saved_resume_attempt &&
+                session->client.session().welcome().result==coopnet::Admission::InvalidResume) {
+                session->saved_resume_attempt=false;
+                session->client.stop();
+                const auto connection=session->runtime.connect(session->endpoint.c_str());
+                if (connection!=k_HSteamNetConnection_Invalid)
+                    session->client.start(std::make_unique<coopnet::GnsTransport>(session->runtime,connection),session->host_character,session->build);
+                Msg("* CoopNet saved session expired; retrying saved character with new host session");
             } else if (connection_state==coopnet::ClientState::Disconnected || connection_state==coopnet::ClientState::Offline) {
                 session->reconnect_wait+=elapsed;
                 if (session->reconnect_wait>=session->reconnect_delay && !session->endpoint.empty()) {
@@ -872,6 +949,7 @@ void update(double) {
             present_client(*session, elapsed);
             update_local_inventory_view();
             update_world_items();
+            if (session->settings_probe) exercise_world_settings_probe();
             if (session->loot_probe) exercise_local_world_loot_probe();
             if (session->inventory_probe) exercise_local_inventory_probe();
             if (session->client.session().state()==coopnet::ClientState::Connected) {
@@ -915,6 +993,11 @@ void update(double) {
 }
 void command(const char* name, const char* arguments) {
     try {
+        if (!strcmp(name,"coop_join_menu")) { join_from_menu(arguments); return; }
+        if (!strcmp(name,"coop_settings_probe")) {
+            if (!session) throw std::runtime_error("Start a session before the settings probe");
+            session->settings_probe=true; return;
+        }
         if (!strcmp(name, "coop_disconnect")) { stop(); Msg("* CoopNet offline"); return; }
         if (!strcmp(name,"coop_weapon_probe")) {
             if (!session) throw std::runtime_error("Weapon probe requires a session");
@@ -982,6 +1065,11 @@ void command(const char* name, const char* arguments) {
         if (!(input >> endpoint >> character >> build.game >> build.mods) || (input >> extra) ||
             !character || !build.game || !build.mods)
             throw std::invalid_argument("Usage: coop_host <port> <character-id> <game-fingerprint> <mod-fingerprint>; coop_join <IP:port> <character-id> <game-fingerprint> <mod-fingerprint> (decimal IDs)");
+        if (!strcmp(name,"coop_join")) {
+            std::string normalized;
+            if (!coopnet::normalize_endpoint(endpoint,normalized)) throw std::invalid_argument("Invalid host IPv4 address/port");
+            endpoint=normalized;
+        }
         // Publish the session only after all initialization succeeds.
         auto next = std::make_unique<Session>();
         next->build=build; next->host_character=character; next->endpoint=endpoint;
@@ -999,9 +1087,18 @@ void command(const char* name, const char* arguments) {
         } else if (!strcmp(name, "coop_join")) {
             const auto connection = next->runtime.connect(endpoint.c_str());
             if (connection == k_HSteamNetConnection_Invalid) throw std::runtime_error("Invalid endpoint or connect failed");
-            next->client.start(std::make_unique<coopnet::GnsTransport>(next->runtime, connection), character, build);
+            load_join_profiles(); const coopnet::Welcome* saved=nullptr;
+            for (const auto& profile:join_profiles) if (profile.endpoint==endpoint && profile.character==character &&
+                profile.build.game==build.game && profile.build.mods==build.mods) { saved=&profile.resume; break; }
+            next->saved_resume_attempt=saved!=nullptr;
+            next->client.start(std::make_unique<coopnet::GnsTransport>(next->runtime, connection), character, build,saved);
             auto* owner = next.get();
             next->client.set_inventory_view_sink([](const coopnet::InventoryView& view) { queue_local_inventory_view(view); });
+            next->client.set_world_rules_sink([](std::uint32_t revision,const std::vector<coopnet::WorldRule>& rules) { queue_host_world_rules(revision,rules); });
+            next->client.set_world_clock_sink([owner](const coopnet::WorldClock& clock) {
+                if (apply_host_world_clock(clock) && ++owner->host_clock_updates==1)
+                    Msg("* CoopNet host world clock applied: level %u factor %.3f difficulty %u cycle %s",clock.level,clock.time_factor,static_cast<unsigned>(clock.difficulty),clock.cycle.c_str());
+            });
             next->client.set_item_sink([owner](const coopnet::ItemState& item) {
                 if (owner->gameplay_probe && (item.item==owner->probe_request.item || (!item.world && item.section=="bandage")))
                     Msg("* CoopNet fixture item state: item %llu owner %llu revision %u world %u",item.item,item.owner,item.revision,static_cast<unsigned>(item.world));
@@ -1064,13 +1161,66 @@ void command(const char* name, const char* arguments) {
         session->world_probe=true; session->replica_probe=true; session->movement_probe=true;
         begin_world_replication(); begin_guest_simulation();
         Msg("* CoopNet shared host world started; party travels together");
-    } catch (const std::exception& error) { Msg("! %s", error.what()); }
+    } catch (const std::exception& error) { menu_join_error=error.what(); Msg("! %s", error.what()); }
+}
+bool available() { return true; }
+bool guest_settings_locked() { return session && session->mode==coopnet::Mode::Client; }
+void register_world_setting_command(const char* name) {
+    if (!name || !*name || strlen(name)>96) return;
+    for (const char* c=name;*c;++c) if (!((*c>='a' && *c<='z') || (*c>='0' && *c<='9') || *c=='_')) return;
+    world_commands.insert(name);
+}
+bool host_settings_application() { return host_application; }
+void applying_host_settings(bool value) { host_application=value; }
+bool world_setting_command(const char* name) {
+    if (name && !strcmp(name,"ai_use_torch_dynamic_lights")) return false;
+    return name && (world_commands.count(name) || !strncmp(name,"al_",3) || !strncmp(name,"ai_",3) || !strncmp(name,"ph_",3) ||
+        !strcmp(name,"g_game_difficulty") || !strcmp(name,"time_factor") || !strcmp(name,"weather") ||
+        !strncmp(name,"env_",4) || !strcmp(name,"g_god") || !strcmp(name,"g_unlimitedammo") || !strcmp(name,"g_no_clip"));
+}
+void saved_join_address(char* output,unsigned capacity) {
+    if (!output || !capacity) return;
+    try { load_join_profiles(); snprintf(output,capacity,"%s",join_profiles.empty() ? "" : join_profiles.front().endpoint.c_str()); }
+    catch (...) { output[0]=0; }
+}
+bool join_from_menu(const char* address) {
+    try {
+        std::string endpoint; if (!address || !coopnet::normalize_endpoint(address,endpoint)) {
+            menu_join_error="Enter an IPv4 address, optionally followed by :port."; return false;
+        }
+        load_join_profiles(); coopnet::Identity character=random_identity(); coopnet::BuildIdentity build{1,1};
+        for (const auto& profile:join_profiles) if (profile.endpoint==endpoint) { character=profile.character; build=profile.build; break; }
+        std::ostringstream args; args<<endpoint<<' '<<character<<' '<<build.game<<' '<<build.mods;
+        menu_join_error.clear(); command("coop_join",args.str().c_str());
+        return session && session->mode==coopnet::Mode::Client && session->endpoint==endpoint;
+    } catch (const std::exception& error) { menu_join_error=error.what(); return false; }
+}
+void join_status(char* output,unsigned capacity) {
+    if (!output || !capacity) return;
+    const char* status=menu_join_error.c_str();
+    if (session && session->mode==coopnet::Mode::Client) {
+        const auto state=session->client.session().state();
+        if (state==coopnet::ClientState::Rejected) status="Host rejected the connection. Check build/mod compatibility and available slots.";
+        else if (session->client.baseline_acknowledged()) status="Connected. Your host controls the world settings.";
+        else if (state==coopnet::ClientState::Connected) status="Connected. Loading the host's world...";
+        else status="Connecting to host...";
+    }
+    snprintf(output,capacity,"%s",status);
 }
 }
 #else
 namespace engine_coopnet {
 void update(double) {}
 void stop() {}
+bool available() { return false; }
+bool guest_settings_locked() { return false; }
+bool world_setting_command(const char*) { return false; }
+void register_world_setting_command(const char*) {}
+bool host_settings_application() { return false; }
+void applying_host_settings(bool) {}
+bool join_from_menu(const char*) { return false; }
+void saved_join_address(char* output,unsigned capacity) { if (output && capacity) output[0]=0; }
+void join_status(char* output,unsigned capacity) { if (output && capacity) snprintf(output,capacity,"CoopNet is unavailable in this build."); }
 bool simulation_active() { return false; }
 bool shared_world_active() { return false; }
 bool party_level_change_allowed() { return true; }

@@ -132,6 +132,13 @@ public:
         hello_ = ClientHello{protocol_version, build, character, 0, 0, 0};
         state_ = ClientState::Connecting; return hello_;
     }
+    ClientHello begin_saved(Identity character, BuildIdentity build,const Welcome& previous) {
+        if (previous.result!=Admission::Accepted || !previous.session || previous.player<2 || !previous.resume_token || !previous.generation)
+            throw std::invalid_argument("Invalid saved session");
+        begin(character,build); welcome_=previous;
+        hello_.resume_session=previous.session; hello_.resume_player=previous.player; hello_.resume_token=previous.resume_token;
+        return hello_;
+    }
     bool accept(const std::vector<std::uint8_t>& payload) {
         if (state_ != ClientState::Connecting) return false;
         Welcome value;

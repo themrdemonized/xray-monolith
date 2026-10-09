@@ -2,6 +2,8 @@
 #include "UIOptionsItem.h"
 #include "UIOptionsManager.h"
 #include "../../xrEngine/xr_ioconsole.h"
+#include "../../xrEngine/CoopNetRuntime.h"
+#include "UIWindow.h"
 
 CUIOptionsManager CUIOptionsItem::m_optionsManager;
 
@@ -19,6 +21,8 @@ void CUIOptionsItem::AssignProps(const shared_str& entry, const shared_str& grou
 {
 	m_optionsManager.RegisterItem(this, group);
 	m_entry = entry;
+    if (engine_coopnet::guest_settings_locked() && engine_coopnet::world_setting_command(entry.c_str()))
+        if (auto* control=smart_cast<CUIWindow*>(this)) control->Enable(false);
 }
 
 void CUIOptionsItem::SendMessage2Group(LPCSTR group, LPCSTR message)

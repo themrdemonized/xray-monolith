@@ -52,6 +52,7 @@ class CMainMenu :
 
 {
 	CUIDialogWnd* m_startDialog;
+    CUIDialogWnd* m_coopJoinDialog=nullptr;
 
 
 	enum
@@ -138,6 +139,7 @@ public:
 
 	virtual void Activate(bool bActive);
 	virtual bool IsActive();
+    void ShowCoopJoin();
 	virtual bool CanSkipSceneRendering();
 
 	virtual bool IgnorePause() { return true; }

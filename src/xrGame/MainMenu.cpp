@@ -15,6 +15,81 @@
 #include "gamespy/CdkeyDecode/cdkeydecode.h"
 #include "string_table.h"
 #include "../xrCore/os_clipboard.h"
+#include "../xrEngine/CoopNetRuntime.h"
+#include "../CoopNet/EngineWorldBridge.h"
+#include "ui/UIEditBox.h"
+#include "ui/UI3tButton.h"
+
+namespace {
+class CCoopJoinDialog : public CUIDialogWnd,public CUIWndCallback {
+    CUIEditBox* address;
+    CUIStatic* status;
+    CUI3tButton* connect;
+    CUIStatic* label(const char* text,float y,float height=28) {
+        auto* control=xr_new<CUIStatic>(); control->SetAutoDelete(true); AttachChild(control);
+        control->SetWndPos(Fvector2().set(24.f,y)); control->SetWndSize(Fvector2().set(392.f,height));
+        control->TextItemControl()->SetFont(UI().Font().pFontLetterica16Russian);
+        control->TextItemControl()->SetTextComplexMode(true); control->TextItemControl()->SetText(text);
+        return control;
+    }
+    CUI3tButton* button(const char* text,float x) {
+        auto* control=xr_new<CUI3tButton>(); control->SetAutoDelete(true); AttachChild(control);
+        control->InitButton(Fvector2().set(x,242.f),Fvector2().set(174.f,32.f));
+        control->TextItemControl()->SetFont(UI().Font().pFontLetterica16Russian);
+        control->TextItemControl()->SetText(text);
+        control->SetStateTextColor(0xffffcc66,S_Highlighted); Register(control); return control;
+    }
+    void xr_stdcall Connect(CUIWindow*,void*) {
+        if (engine_coopnet::join_from_menu(address->GetText())) { address->Enable(false); connect->Enable(false); }
+        char text[512]; engine_coopnet::join_status(text,sizeof(text)); status->TextItemControl()->SetText(text);
+    }
+    void xr_stdcall Cancel(CUIWindow*,void*) {
+        if (engine_coopnet::guest_settings_locked()) engine_coopnet::command("coop_disconnect","");
+        HideDialog();
+    }
+public:
+    CCoopJoinDialog() {
+        SetWndPos(Fvector2().set(292,218)); SetWndSize(Fvector2().set(440,292)); m_bWorkInPause=true;
+        auto* background=xr_new<CUIStatic>(); background->SetAutoDelete(true); AttachChild(background);
+        background->SetWndSize(GetWndSize()); background->InitTexture("ui\\ui_actor_hint_wnd");
+        background->SetTextureRect(Frect().set(0,0,512,256)); background->SetStretchTexture(true);
+        background->SetTextureColor(0xf0202020);
+        label("Join CoopNet",20);
+        label("Host IP address (optional :port)",60);
+        address=xr_new<CUIEditBox>(); address->SetAutoDelete(true); AttachChild(address);
+        address->InitCustomEdit(Fvector2().set(24,92),Fvector2().set(392,32)); address->Init(32);
+        address->TextItemControl()->SetFont(UI().Font().pFontLetterica16Russian);
+        label("Successful connections are remembered on this computer.",134,44);
+        status=label("",180,56);
+        connect=button("Connect",24); auto* cancel=button("Cancel",242);
+        AddCallback(connect,BUTTON_CLICKED,CUIWndCallback::void_function(this,&CCoopJoinDialog::Connect));
+        AddCallback(cancel,BUTTON_CLICKED,CUIWndCallback::void_function(this,&CCoopJoinDialog::Cancel));
+        Show(false);
+    }
+    void Open() {
+        char saved[64]; engine_coopnet::saved_join_address(saved,sizeof(saved)); address->SetText(saved);
+        address->Enable(true); connect->Enable(true); status->TextItemControl()->SetText("");
+        ShowDialog(false); address->CaptureFocus(true);
+    }
+    void SendMessage(CUIWindow* window,s16 message,void* data=nullptr) override { OnEvent(window,message,data); }
+    void Update() override {
+        CUIDialogWnd::Update();
+        if (engine_coopnet::guest_settings_locked()) {
+            char text[512]; engine_coopnet::join_status(text,sizeof(text)); status->TextItemControl()->SetText(text);
+        }
+    }
+    bool OnKeyboardAction(int key,EUIMessages action) override {
+        if (action==WINDOW_KEY_PRESSED && key==DIK_ESCAPE) { Cancel(nullptr,nullptr); return true; }
+        if (action==WINDOW_KEY_PRESSED && (key==DIK_RETURN || key==DIK_NUMPADENTER) && connect->IsEnabled()) { Connect(nullptr,nullptr); return true; }
+        return CUIDialogWnd::OnKeyboardAction(key,action);
+    }
+};
+class CCoopJoinButton : public CUI3tButton {
+public:
+    void OnClick() override { CUI3tButton::OnClick(); MainMenu()->ShowCoopJoin(); }
+    void Update() override { Enable(!g_pGameLevel && !engine_coopnet::shared_world_active()); CUI3tButton::Update(); }
+};
+}
 
 #include "DemoInfo.h"
 #include "DemoInfo_Loader.h"
@@ -70,6 +145,7 @@ CMainMenu::CMainMenu()
 	g_pGamePersistent->m_pMainMenu = this;
 	if (Device.b_is_Ready) OnDeviceCreate();
 	ReadTextureInfo();
+    if (strstr(Core.Params,"-coop_settings_audit")) engine_coopnet::export_settings_audit();
 	CUIXmlInit::InitColorDefs();
 	g_btnHint = NULL;
 	g_statHint = NULL;
@@ -137,6 +213,7 @@ CMainMenu::~CMainMenu()
 	xr_delete(g_btnHint);
 	xr_delete(g_statHint);
 	xr_delete(m_startDialog);
+    xr_delete(m_coopJoinDialog);
 	g_pGamePersistent->m_pMainMenu = NULL;
 
 	//xr_delete						(m_account_mngr);
@@ -251,6 +328,7 @@ void CMainMenu::Activate(bool bActivate)
 			Console->Show();
 		}
 
+        if (m_coopJoinDialog && m_coopJoinDialog->IsShown()) m_coopJoinDialog->HideDialog();
 		if (m_startDialog->IsShown())
 			m_startDialog->HideDialog();
 
@@ -289,6 +367,7 @@ void CMainMenu::Activate(bool bActivate)
 
 bool CMainMenu::ReloadUI()
 {
+    if (m_coopJoinDialog && m_coopJoinDialog->IsShown()) m_coopJoinDialog->HideDialog();
 	if (m_startDialog)
 	{
 		if (m_startDialog->IsShown())
@@ -305,12 +384,26 @@ bool CMainMenu::ReloadUI()
 	m_startDialog = smart_cast<CUIDialogWnd*>(dlg);
 	VERIFY(m_startDialog);
 	m_startDialog->m_bWorkInPause = true;
+    if (engine_coopnet::available()) {
+        auto* join=xr_new<CCoopJoinButton>(); join->SetAutoDelete(true); m_startDialog->AttachChild(join);
+        join->InitButton(Fvector2().set(790,48),Fvector2().set(190,36));
+        join->TextItemControl()->SetFont(UI().Font().pFontLetterica18Russian);
+        join->TextItemControl()->SetText("Join CoopNet"); join->SetStateTextColor(0xffffcc66,S_Highlighted);
+        Msg("* CoopNet main menu Join option installed");
+    }
 	m_startDialog->ShowDialog(true);
+    if (strstr(Core.Params,"-coop_menu_probe") && !g_pGameLevel) ShowCoopJoin();
 
 	m_activatedScreenRatio = (float)Device.dwWidth / (float)Device.dwHeight > (UI_BASE_WIDTH / UI_BASE_HEIGHT + 0.01f);
 	return true;
 }
 
+void CMainMenu::ShowCoopJoin() {
+    if (g_pGameLevel || engine_coopnet::shared_world_active()) return;
+    if (!m_coopJoinDialog) m_coopJoinDialog=xr_new<CCoopJoinDialog>();
+    static_cast<CCoopJoinDialog*>(m_coopJoinDialog)->Open();
+    Msg("* CoopNet Join address dialog opened");
+}
 bool CMainMenu::IsActive()
 {
 	return !!m_Flags.test(flActive);

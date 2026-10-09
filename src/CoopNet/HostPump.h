@@ -10,6 +10,7 @@
 #include "WorldBaseline.h"
 #include "WorldState.h"
 #include "PartyTransition.h"
+#include "WorldSettings.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -22,6 +23,8 @@ class HostPump {
         Identity player = 0;
         bool fresh = false, ready = false, rejected = false;
         std::uint32_t party_revision=0;
+        std::uint32_t rules_revision=0;
+        std::size_t rules_chunk=0;
         double elapsed = 0;
         std::uint32_t level = 0;
         LevelAssignment assignment;
@@ -44,6 +47,8 @@ class HostPump {
     };
     HostSession session_;
     PartyStatus party_status_;
+    std::uint32_t rules_revision_=0;
+    std::vector<Frame> rules_frames_;
     Identity id_ = 0;
     std::uint32_t revision_ = 0;
     std::function<Identity()> tokens_;
@@ -245,6 +250,26 @@ public:
         if (found!=items_.end() && item.revision<=found->second.revision) return false;
         items_[item.item]=item; return true;
     }
+    bool publish_world_rules(std::uint32_t revision,const std::vector<WorldRule>& rules) {
+        if (!revision || rules.size()>4096 || (rules_revision_ && revision<=rules_revision_)) return false;
+        std::vector<Frame> frames; std::set<std::string> names;
+        for (const auto& rule:rules) if (!valid_world_rule(rule) || !names.insert(rule.name).second) return false;
+        for (std::size_t offset=0;offset<rules.size() || frames.empty();offset+=32) {
+            WorldRulesChunk chunk{revision,static_cast<std::uint16_t>(offset),static_cast<std::uint16_t>(rules.size()),{}};
+            chunk.rules.assign(rules.begin()+offset,rules.begin()+(std::min)(rules.size(),offset+32));
+            frames.push_back({Message::WorldRules,Channel::Control,Delivery::ReliableOrdered,revision,encode_world_rules(chunk)});
+        }
+        rules_revision_=revision; rules_frames_=std::move(frames); return true;
+    }
+    bool publish_world_clock(const WorldClock& clock) {
+        if (!valid_world_clock(clock)) return false;
+        const Frame frame{Message::WorldClock,Channel::World,Delivery::UnreliableSequenced,clock.tick,encode_world_clock(clock)};
+        for (auto& peer:peers_) if (peer.ready && peer.level==clock.level && !peer.assigned) {
+            const auto result=peer.transport->send(frame);
+            if (result!=SendResult::Sent && result!=SendResult::Backpressure) peer.transport->close();
+        }
+        return true;
+    }
     void clear_world_items() {
         for (auto it=items_.begin();it!=items_.end();) {
             if (it->second.world) it=items_.erase(it); else ++it;
@@ -393,12 +418,19 @@ public:
             if ((!peer.ready && peer.elapsed >= 10) || (peer.rejected && peer.elapsed >= 1)) keep = false;
             if (keep && peer.transport->connected()) {
                 keep=receive(peer);
+                if (keep && peer.ready && rules_revision_) {
+                    if (peer.rules_revision!=rules_revision_) { peer.rules_revision=rules_revision_; peer.rules_chunk=0; }
+                    for (unsigned n=0;keep && n<4 && peer.rules_chunk<rules_frames_.size() && peer.outgoing.size()<48;++n) {
+                        if (peer.queued_bytes+rules_frames_[peer.rules_chunk].payload.size()+16>256*1024) break;
+                        keep=queue(peer,rules_frames_[peer.rules_chunk]); if (keep) ++peer.rules_chunk;
+                    }
+                }
                 if (keep && peer.ready && peer.party_revision!=party_status_.revision && peer.outgoing.size()<48) {
                     keep=queue(peer,{Message::PartyStatus,Channel::Transition,Delivery::ReliableOrdered,
                         party_status_.revision,encode_party_status(party_status_)});
                     if (keep) peer.party_revision=party_status_.revision;
                 }
-                if (keep && peer.baseline_bytes && !peer.baseline_started && peer.outgoing.size()<48) {
+                if (keep && peer.baseline_bytes && !peer.baseline_started && peer.outgoing.size()<48 && peer.rules_chunk==rules_frames_.size()) {
                     keep=queue(peer,{Message::WorldBaseline,Channel::World,Delivery::ReliableOrdered,0,encode_baseline(peer.baseline)});
                     peer.baseline_started=keep;
                 }
@@ -446,6 +478,7 @@ public:
         for (auto& peer : peers_) peer.transport->close();
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
         items_.clear(); inventory_handler_={};
+        rules_revision_=0; rules_frames_.clear();
     }
 };
 }

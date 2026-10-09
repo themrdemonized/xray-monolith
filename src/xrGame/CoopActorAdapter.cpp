@@ -37,9 +37,46 @@
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include <cstring>
 #include <deque>
+#include "../xrEngine/CoopNetRuntime.h"
+#include "../xrEngine/Environment.h"
+#include "../xrEngine/xr_IOConsole.h"
+#include "script_engine.h"
+#include "lua.hpp"
+#include "alife_time_manager.h"
+#include "game_cl_single.h"
 extern string_path g_last_saved_game;
 namespace engine_coopnet {
 namespace {
+const char* options_hook=
+#include "CoopNetOptions.inc"
+;
+std::uint32_t host_rules_revision=0;
+std::vector<coopnet::WorldRule> host_rules;
+bool settings_probe_done=false;
+int saved_world_difficulty=-1;
+int lua_settings_locked(lua_State* state) { lua_pushboolean(state,guest_settings_locked()); return 1; }
+int lua_world_path(lua_State* state) { const char* path=lua_tostring(state,1); lua_pushboolean(state,path && coopnet::world_rule_path(path)); return 1; }
+int lua_world_command(lua_State* state) { const char* command=lua_tostring(state,1); if (command) register_world_setting_command(command); return 0; }
+bool options_call(lua_State* state,const char* function,int arguments,int results) {
+    if (lua_pcall(state,arguments,results,0)==0) return true;
+    Msg("! CoopNet options %s failed: %s",function,lua_tostring(state,-1)); lua_pop(state,1); return false;
+}
+bool ensure_options_hook(lua_State*& state) {
+    if (!g_ai_space) return false; state=ai().script_engine().lua(); if (!state) return false;
+    lua_getglobal(state,"coopnet_options"); const bool installed=lua_istable(state,-1); lua_pop(state,1);
+    if (installed) return true;
+    lua_pushcfunction(state,lua_settings_locked); lua_setglobal(state,"coopnet_world_settings_locked");
+    lua_pushcfunction(state,lua_world_path); lua_setglobal(state,"coopnet_world_rule_path");
+    lua_pushcfunction(state,lua_world_command); lua_setglobal(state,"coopnet_register_world_command");
+    if (luaL_loadbuffer(state,options_hook,strlen(options_hook),"@coopnet_options")!=0) {
+        Msg("! CoopNet options hook compile failed: %s",lua_tostring(state,-1)); lua_pop(state,1); return false;
+    }
+    if (!options_call(state,"install",0,0)) { lua_pushnil(state); lua_setglobal(state,"coopnet_options"); return false; }
+    return true;
+}
+void options_function(lua_State* state,const char* name) {
+    lua_getglobal(state,"coopnet_options"); lua_getfield(state,-1,name); lua_remove(state,-2);
+}
 struct WorldObject { std::uint64_t incarnation=0; bool replica=false, animated=false; std::uint64_t authority=0; };
 xr_map<const CGameObject*,WorldObject> world_objects;
 std::uint64_t world_incarnation=0, replica_frames=0, replica_schedules=0;
@@ -52,6 +89,129 @@ bool safe_baseline_name(const char* name) {
     for (const char* c=name;*c;++c) if (!((*c>='a' && *c<='z') || (*c>='0' && *c<='9') || *c=='-')) return false;
     return true;
 }
+}
+bool read_join_profile_file(std::vector<std::uint8_t>& bytes) {
+    string_path path; FS.update_path(path,"$app_data_root$","coopnet-connections.dat");
+    auto* reader=FS.r_open(path); if (!reader) return false;
+    const auto size=reader->length();
+    if (!size || size>8192) { FS.r_close(reader); return false; }
+    const auto* begin=static_cast<const std::uint8_t*>(reader->pointer()); bytes.assign(begin,begin+size);
+    FS.r_close(reader); return true;
+}
+bool write_join_profile_file(const std::vector<std::uint8_t>& bytes) {
+    if (bytes.empty() || bytes.size()>8192) return false;
+    string_path path,partial; FS.update_path(path,"$app_data_root$","coopnet-connections.dat");
+    FS.update_path(partial,"$app_data_root$","coopnet-connections.tmp");
+    auto* writer=FS.w_open(partial); if (!writer) return false;
+    writer->w(bytes.data(),static_cast<u32>(bytes.size())); FS.w_close(writer);
+    return MoveFileExA(partial,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
+}
+void export_settings_audit() {
+    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script"}) {
+        string_path source,target; FS.update_path(source,"$game_scripts$",name); FS.update_path(target,"$app_data_root$",name);
+        FS.file_copy(source,target);
+    }
+    Msg("* CoopNet settings source audit exported to isolated appdata");
+}
+bool capture_world_rules(std::vector<coopnet::WorldRule>& rules) {
+    if (!g_pGameLevel || !g_pGameLevel->bReady || world_level_is_replica()) return false;
+    lua_State* state=nullptr; if (!ensure_options_hook(state)) return false;
+    const int top=lua_gettop(state); options_function(state,"capture");
+    if (!options_call(state,"capture",0,1)) { lua_settop(state,top); return false; }
+    if (!lua_istable(state,-1) || lua_objlen(state,-1)>4096) { Msg("! CoopNet options capture invalid result: type %d count %u",lua_type(state,-1),static_cast<unsigned>(lua_objlen(state,-1))); lua_settop(state,top); return false; }
+    std::vector<coopnet::WorldRule> captured;
+    const auto count=lua_objlen(state,-1);
+    for (std::size_t n=1;n<=count;++n) {
+        lua_rawgeti(state,-1,static_cast<int>(n)); coopnet::WorldRule rule;
+        lua_getfield(state,-1,"name"); const char* name=lua_tostring(state,-1); if (name) rule.name=name; lua_pop(state,1);
+        lua_getfield(state,-1,"value");
+        if (lua_isboolean(state,-1)) { rule.type=1; rule.value=lua_toboolean(state,-1) ? "true" : "false"; }
+        else if (lua_type(state,-1)==LUA_TNUMBER) { rule.type=2; char text[64]; snprintf(text,sizeof(text),"%.17g",lua_tonumber(state,-1)); rule.value=text; }
+        else { const char* value=lua_tostring(state,-1); if (value) rule.value=value; }
+        lua_pop(state,2);
+        if (!coopnet::valid_world_rule(rule)) { Msg("! CoopNet unsupported world rule: %s",rule.name.c_str()); lua_settop(state,top); return false; }
+        captured.push_back(std::move(rule));
+    }
+    lua_settop(state,top); rules=std::move(captured); return true;
+}
+void queue_host_world_rules(std::uint32_t revision,const std::vector<coopnet::WorldRule>& rules) {
+    if (saved_world_difficulty<0) saved_world_difficulty=static_cast<int>(g_SingleGameDifficulty);
+    host_rules_revision=revision; host_rules=rules;
+    Msg("* CoopNet host world rules received: revision %u count %u",revision,static_cast<unsigned>(rules.size()));
+}
+void update_host_world_rules() {
+    if (!guest_settings_locked() || !host_rules_revision) return;
+    lua_State* state=nullptr; if (!ensure_options_hook(state)) return;
+    const int top=lua_gettop(state); lua_getglobal(state,"coopnet_options"); lua_getfield(state,-1,"revision");
+    const auto applied=static_cast<std::uint32_t>(lua_tonumber(state,-1)); lua_settop(state,top);
+    if (applied==host_rules_revision) return;
+    options_function(state,"apply"); lua_pushnumber(state,host_rules_revision); lua_createtable(state,static_cast<int>(host_rules.size()),0);
+    for (std::size_t i=0;i<host_rules.size();++i) {
+        const auto& rule=host_rules[i]; lua_createtable(state,0,2);
+        lua_pushstring(state,rule.name.c_str()); lua_setfield(state,-2,"name");
+        if (rule.type==1) lua_pushboolean(state,rule.value=="true");
+        else if (rule.type==2) lua_pushnumber(state,std::strtod(rule.value.c_str(),nullptr));
+        else lua_pushstring(state,rule.value.c_str());
+        lua_setfield(state,-2,"value"); lua_rawseti(state,-2,static_cast<int>(i+1));
+    }
+    applying_host_settings(true); const bool called=options_call(state,"apply",2,1); applying_host_settings(false);
+    if (called && lua_toboolean(state,-1)) Msg("* CoopNet host world rules applied: revision %u count %u",host_rules_revision,static_cast<unsigned>(host_rules.size()));
+    else Msg("! CoopNet host world rules could not be applied");
+    lua_settop(state,top);
+}
+void clear_host_world_rules() {
+    if (host_rules_revision && g_ai_space) {
+        auto* state=ai().script_engine().lua(); const int top=lua_gettop(state);
+        lua_getglobal(state,"coopnet_options"); const bool installed=lua_istable(state,-1); lua_settop(state,top);
+        if (installed) { options_function(state,"clear"); applying_host_settings(true); options_call(state,"clear",0,0); applying_host_settings(false); lua_settop(state,top); }
+    }
+    host_rules.clear(); host_rules_revision=0; settings_probe_done=false;
+    if (saved_world_difficulty>=0) g_SingleGameDifficulty=static_cast<ESingleGameDifficulty>(saved_world_difficulty);
+    saved_world_difficulty=-1;
+}
+bool capture_world_clock(coopnet::WorldClock& clock) {
+    LocalActorPose pose; if (!capture_local_actor(pose) || world_level_is_replica() || !g_pGamePersistent) return false;
+    auto& environment=g_pGamePersistent->Environment(); if (!environment.CurrentCycleName.size()) return false;
+    clock.level=pose.level; clock.game_time=Level().GetGameTime(); clock.time_factor=Level().GetGameTimeFactor();
+    clock.difficulty=static_cast<std::uint8_t>(g_SingleGameDifficulty); clock.cycle=*environment.CurrentCycleName;
+    if (environment.bWFX && environment.CurrentWeatherName.size()) { clock.fx=*environment.CurrentWeatherName; clock.fx_remaining=(std::max)(0.f,environment.wfx_time); }
+    return coopnet::valid_world_clock(clock);
+}
+bool apply_host_world_clock(const coopnet::WorldClock& clock) {
+    LocalActorPose pose; if (!world_level_is_replica() || !capture_local_actor(pose) || pose.level!=clock.level || !g_pGamePersistent || !ai().get_alife()) return false;
+    auto& environment=g_pGamePersistent->Environment();
+    if (environment.WeatherCycles.find(clock.cycle.c_str())==environment.WeatherCycles.end() ||
+        (!clock.fx.empty() && environment.WeatherFXs.find(clock.fx.c_str())==environment.WeatherFXs.end())) return false;
+    const_cast<CALifeTimeManager&>(ai().alife().time_manager()).set_replica_time(clock.game_time,clock.time_factor);
+    if (static_cast<unsigned>(g_SingleGameDifficulty)!=clock.difficulty) {
+        g_SingleGameDifficulty=static_cast<ESingleGameDifficulty>(clock.difficulty);
+        if (auto* game=smart_cast<game_cl_Single*>(Level().game)) game->OnDifficultyChanged();
+    }
+    environment.m_paused=false;
+    environment.SetGameTime(static_cast<float>(clock.game_time%86400000)/1000.f,clock.time_factor);
+    if (xr_strcmp(*environment.CurrentCycleName,clock.cycle.c_str())) { if (environment.bWFX) environment.StopWFX(); environment.SetWeather(clock.cycle.c_str(),true); }
+    if (clock.fx.empty()) { if (environment.bWFX) environment.StopWFX(); }
+    else if (!environment.bWFX || xr_strcmp(*environment.CurrentWeatherName,clock.fx.c_str())) environment.StartWeatherFXFromTime(clock.fx.c_str(),clock.fx_remaining);
+    else environment.wfx_time=clock.fx_remaining;
+    return true;
+}
+void exercise_world_settings_probe() {
+    if (!g_pGameLevel || !g_pGameLevel->bReady) return;
+    if (!guest_settings_locked()) {
+        if (!fsimilar(Level().GetGameTimeFactor(),7.f)) Level().Server->game->SetGameTimeFactor(7.f);
+        if (!settings_probe_done) Msg("* CoopNet settings probe: host time factor 7");
+        settings_probe_done=true; return;
+    }
+    if (settings_probe_done) return;
+    if (!host_rules_revision || !world_level_is_replica() || !fsimilar(Level().GetGameTimeFactor(),7.f)) return;
+    const auto difficulty=g_SingleGameDifficulty;
+    Console->Execute("al_time_factor 99"); Console->Execute("g_game_difficulty novice");
+    if (!fsimilar(Level().GetGameTimeFactor(),7.f) || difficulty!=g_SingleGameDifficulty) return;
+    lua_State* state=nullptr; if (!ensure_options_hook(state)) return;
+    const int top=lua_gettop(state); options_function(state,"probe"); const bool called=options_call(state,"probe",0,1);
+    const bool valid=called && lua_toboolean(state,-1); lua_settop(state,top);
+    if (!valid) return;
+    settings_probe_done=true; Msg("* CoopNet settings probe: guest world commands and scripted writes denied; host factor 7 retained");
 }
 void begin_world_replication() {
     collect_world_objects=true;

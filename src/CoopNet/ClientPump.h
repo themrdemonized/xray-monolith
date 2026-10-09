@@ -10,6 +10,7 @@
 #include "WorldBaseline.h"
 #include "WorldState.h"
 #include "PartyTransition.h"
+#include "WorldSettings.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -21,6 +22,11 @@ class ClientPump {
     Frame hello_{};
     bool sent_ = false;
     bool ready_sent_ = false;
+    WorldRulesAssembly rules_assembly_;
+    SequenceWindow clock_sequences_;
+    std::uint32_t rules_revision_=0;
+    std::function<void(std::uint32_t,const std::vector<WorldRule>&)> rules_sink_;
+    std::function<void(const WorldClock&)> clock_sink_;
     double handshake_time_ = 0;
     std::function<void(const ActorSnapshot&)> snapshot_sink_;
     PartyStatus party_status_;
@@ -59,6 +65,7 @@ class ClientPump {
     }
     static constexpr double timeout_ = 10;
     void attach(std::unique_ptr<Transport> transport, const ClientHello& hello) {
+        rules_assembly_.clear(); rules_revision_=0; clock_sequences_={};
         party_status_={}; party_sequences_={};
         if (!transport) throw std::invalid_argument("Missing client transport");
         transport_ = std::move(transport); roster_.reset(); actors_ = {}; assignment_ = {}; assignments_ = {};
@@ -79,6 +86,8 @@ class ClientPump {
         clear_baseline();
     }
 public:
+    void set_world_rules_sink(std::function<void(std::uint32_t,const std::vector<WorldRule>&)> sink) { rules_sink_=std::move(sink); }
+    void set_world_clock_sink(std::function<void(const WorldClock&)> sink) { clock_sink_=std::move(sink); }
     const WorldBaseline& baseline() const { return baseline_; }
     bool baseline_acknowledged() const { return baseline_acknowledged_; }
     void set_baseline_sink(std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> sink) {
@@ -163,9 +172,9 @@ public:
     void set_world_sink(std::function<void(const WorldState&)> sink) { world_sink_=std::move(sink); }
     void set_party_sink(std::function<void(const PartyStatus&)> sink) { party_sink_=std::move(sink); }
     const PartyStatus& party_status() const { return party_status_; }
-    void start(std::unique_ptr<Transport> transport, Identity character, BuildIdentity build) {
+    void start(std::unique_ptr<Transport> transport, Identity character, BuildIdentity build,const Welcome* saved=nullptr) {
         if (!transport) throw std::invalid_argument("Missing client transport");
-        attach(std::move(transport), session_.begin(character, build));
+        attach(std::move(transport), saved ? session_.begin_saved(character,build,*saved) : session_.begin(character, build));
     }
     void reconnect(std::unique_ptr<Transport> transport) {
         if (!transport) throw std::invalid_argument("Missing reconnect transport");
@@ -207,6 +216,16 @@ public:
                 if (session_.state() == ClientState::Rejected) { transport_->close(); transport_.reset(); return; }
                 const auto& welcome = session_.welcome();
                 roster_ = std::make_unique<ClientRoster>(welcome.session, welcome.player);
+            } else if (frame.message==Message::WorldRules) {
+                WorldRulesChunk chunk; if (!decode_world_rules(frame.payload,chunk) || frame.sequence!=chunk.revision) { lost(); return; }
+                if (chunk.revision>rules_revision_) {
+                    bool complete=false; std::vector<WorldRule> rules;
+                    if (!rules_assembly_.append(chunk,complete,rules)) { lost(); return; }
+                    if (complete) { rules_revision_=chunk.revision; if (rules_sink_) rules_sink_(chunk.revision,rules); }
+                }
+            } else if (frame.message==Message::WorldClock) {
+                WorldClock clock; if (!decode_world_clock(frame.payload,clock) || frame.sequence!=clock.tick) { lost(); return; }
+                if (level_ready_sent_ && clock.level==assignment_.level && clock_sequences_.accept(clock.tick) && clock_sink_) clock_sink_(clock);
             } else if (frame.message == Message::Roster) {
                 if (!roster_->apply(frame.payload)) { lost(); return; }
             } else if (frame.message==Message::WorldBaseline) {

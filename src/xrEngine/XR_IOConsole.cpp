@@ -12,6 +12,7 @@
 #include "xr_input.h"
 #include "xr_ioc_cmd.h"
 #include "GameFont.h"
+#include "CoopNetRuntime.h"
 
 #include "../Include/xrRender/UIRender.h"
 
@@ -619,6 +620,9 @@ void CConsole::ExecuteCommand(LPCSTR cmd_str, bool record_cmd)
 		}
 	}
 	text_editor::split_cmd(first, last, edt);
+    if (last[0] && engine_coopnet::guest_settings_locked() && !engine_coopnet::host_settings_application() && engine_coopnet::world_setting_command(first)) {
+        Msg("! CoopNet: world settings are controlled by the host."); return;
+    }
 
 	// search
 	vecCMD_IT it = Commands.find(first);

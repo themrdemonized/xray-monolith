@@ -34,6 +34,7 @@ public:
 	IC float time_factor() const;
 	IC float normal_time_factor() const;
 	IC void change_game_time(u32 value);
+    IC void set_replica_time(ALife::_TIME_ID value,float factor) { m_game_time=value; m_time_factor=factor; m_start_time=Device.dwTimeGlobal; }
 };
 
 #include "alife_time_manager_inline.h"

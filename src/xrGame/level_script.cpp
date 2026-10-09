@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "level.h"
+#include "../xrEngine/CoopNetRuntime.h"
 #include "actor.h"
 #include "script_game_object.h"
 #include "patrol_path_storage.h"
@@ -170,11 +171,13 @@ float get_weather_weight()
 
 void set_weather_weight(float weight)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
     g_pGamePersistent->Environment().set_lerp(weight);
 }
 
 void set_weather(LPCSTR weather_name, bool forced)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 #ifdef INGAME_EDITOR
 	if (!Device.editor())
 #endif // #ifdef INGAME_EDITOR
@@ -184,6 +187,7 @@ void set_weather(LPCSTR weather_name, bool forced)
 // demonized: Sets weather and force updates next environment so the interpolation will happen between current environment and next weather's environment
 void set_weather_smooth(LPCSTR weather_name)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 #ifdef INGAME_EDITOR
     if (!Device.editor())
 #endif // #ifdef INGAME_EDITOR
@@ -200,6 +204,7 @@ void set_weather_smooth(LPCSTR weather_name)
 
 bool set_weather_fx(LPCSTR weather_name)
 {
+    if (engine_coopnet::guest_settings_locked()) return false;
 #ifdef INGAME_EDITOR
 	if (!Device.editor())
 #endif // #ifdef INGAME_EDITOR
@@ -212,6 +217,7 @@ bool set_weather_fx(LPCSTR weather_name)
 
 bool start_weather_fx_from_time(LPCSTR weather_name, float time)
 {
+    if (engine_coopnet::guest_settings_locked()) return false;
 #ifdef INGAME_EDITOR
 	if (!Device.editor())
 #endif // #ifdef INGAME_EDITOR
@@ -234,6 +240,7 @@ float get_wfx_time()
 
 void stop_weather_fx()
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	g_pGamePersistent->Environment().StopWFX();
 }
 
@@ -260,6 +267,7 @@ bool is_sun_visible()
 
 void set_time_factor(float time_factor)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	if (!OnServer())
 		return;
 
@@ -278,6 +286,7 @@ float get_time_factor()
 
 void set_game_difficulty(ESingleGameDifficulty dif)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	g_SingleGameDifficulty = dif;
 	game_cl_Single* game = smart_cast<game_cl_Single*>(Level().game);
 	VERIFY(game);
@@ -315,6 +324,7 @@ u32 get_time_minutes()
 
 void change_game_time(u32 days, u32 hours, u32 mins)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	game_sv_Single* tpGame = smart_cast<game_sv_Single *>(Level().Server->game);
 	if (tpGame && ai().get_alife())
 	{
@@ -1314,6 +1324,7 @@ float get_weather_value_numric(LPCSTR name)
 
 void set_weather_value_numric(LPCSTR name, float val)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	CEnvDescriptorMixer& E = *environment()->CurrentEnv;
 
 	if (0 == xr_strcmp(name, "sky_rotation"))
@@ -1404,6 +1415,7 @@ Fvector3 get_weather_value_vector(LPCSTR name)
 
 void set_weather_value_vector(LPCSTR name, float x, float y, float z, float w = 0)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	CEnvDescriptor& E = *environment()->CurrentEnv;
 
 	if (0 == xr_strcmp(name, "sky_color"))
@@ -1442,6 +1454,7 @@ LPCSTR get_weather_value_string(LPCSTR name)
 
 void set_weather_value_string(LPCSTR name, LPCSTR newval)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	CEnvDescriptor& E = *environment()->CurrentEnv;
 
 	if (0 == xr_strcmp(name, "clouds_texture"))
@@ -1485,6 +1498,7 @@ void set_weather_value_string(LPCSTR name, LPCSTR newval)
 
 void pause_weather(bool b_pause)
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	environment()->m_paused = b_pause;
 }
 
@@ -1495,6 +1509,7 @@ bool is_weather_paused()
 
 void reload_weather()
 {
+    if (engine_coopnet::guest_settings_locked()) return;
 	environment()->Reload();
 }
 

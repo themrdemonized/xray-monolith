@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include "WorldSettings.h"
 class CObject;
 class CGameObject;
 class CSE_Abstract;
@@ -11,6 +12,16 @@ bool capture_world_baseline(const char* name,std::uint32_t& level,std::vector<st
 bool store_world_baseline(const char* name,const std::vector<std::uint8_t>& bytes);
 bool load_world_baseline(const char* name);
 bool world_baseline_loaded(const char* name);
+bool read_join_profile_file(std::vector<std::uint8_t>& bytes);
+bool write_join_profile_file(const std::vector<std::uint8_t>& bytes);
+void export_settings_audit();
+bool capture_world_rules(std::vector<coopnet::WorldRule>& rules);
+void queue_host_world_rules(std::uint32_t revision,const std::vector<coopnet::WorldRule>& rules);
+void update_host_world_rules();
+void clear_host_world_rules();
+bool capture_world_clock(coopnet::WorldClock& clock);
+bool apply_host_world_clock(const coopnet::WorldClock& clock);
+void exercise_world_settings_probe();
 void begin_world_replication();
 void end_world_replication();
 struct NativePartyExit {

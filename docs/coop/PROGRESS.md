@@ -2,6 +2,15 @@
 
 Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. The active architecture has no location workers or independently active guest locations. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
 
+## Main-menu joining and host settings checkpoint — 2026-10-09
+
+Protocol 14 adds a native Join CoopNet menu button with an IPv4/optional-port dialog, successful-connection history and DPAPI-encrypted character/session credentials. The same menu backend resumes a guest after process restart; an expired host session falls back to fresh admission with the saved character. There is no Steam friends integration.
+
+Host simulation/gameplay/economy/weather options are captured from the local option tree and delivered atomically in bounded chunks, including late joins. The 4,096-rule bound covers Anomaly's roughly 1,200 world options. Guests see world controls and presets disabled and gray. Config, option-cache, console and native world scripting writes are blocked while personal graphics/sound/input/name/display warnings stay editable. Host overrides are session-local; time, difficulty and weather are applied from host updates.
+
+All thirteen standalone suites and DX11 compilation passed (`_build/coopnet-settings-unit2.log`, `_build/coopnet-settings-build4.log`). The 90-second native settings/inventory run passed (`_build/coopnet-settings-native4.log`): host options and clock applied, guest console/script changes rejected, and movement, rendering, ownership/replay, firing/ammunition, inventory and canonical snapshot checks passed. A separate two-phase native test saved encrypted credentials, restarted only the guest against the running host, admitted session generation 2, loaded the canonical world and retained the settings lock (`_build/coopnet-settings-resume2.log`). These are native/backend checks; clicked UI appearance and public internet connections remain unverified.
+
+Respawn is the next requested feature. Complete co-op still needs dynamic NPC lifecycles, corpse/stash inventories, full item presentation, combat effects and shared quests.
 ## Loose world loot checkpoint — 2026-10-09
 
 Protocol 13 maps loose world inventory items to session identities and bounded typed position, condition and ammunition updates. Guest pickup uses the native inventory request queue and host ownership/distance/capacity checks. Persistent items retain their native data while transferring out of the world registry; dropped items return to persistent world ownership. Quest/story items and items containing children are excluded. Corpse/stash inventories remain unsupported.
