@@ -1882,7 +1882,7 @@ void CActor::shedule_Update(u32 DT)
 		if (Device.dwFrame % 300 == 0)
 			Msg("* CoopNet guest acceleration: wish %u state %u accel %.3f %.3f %.3f canmove %u health %.3f",
 				mstate_wishful,mstate_real,NET_SavedAccel.x,NET_SavedAccel.y,NET_SavedAccel.z,CanMove(),GetfHealth());
-		g_Physics(NET_SavedAccel, NET_Jump, dt);
+		if (!engine_coopnet::guest_movement_owned(ID())) g_Physics(NET_SavedAccel, NET_Jump, dt);
 		g_cl_ValidateMState(dt, mstate_wishful);
 		g_SetAnimation(mstate_real);
 		NET_Jump = 0;

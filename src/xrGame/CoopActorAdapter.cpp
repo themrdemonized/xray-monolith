@@ -1066,6 +1066,7 @@ LocalActorControls local_controls;
 std::uint16_t local_weapon_buttons=0;
 std::uint32_t controls_time = 0;
 struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarnation = 0; unsigned controls = 0; std::uint16_t weapon_buttons=0;
+    bool owner_movement=false, awaiting_respawn_pose=false; std::uint32_t pose_sequence=0;
     bool restoring=false; std::uint16_t restore_slot=0xffff; unsigned restore_count=0;
     bool starter_pending=false; xr_vector<u16> starter_items; };
 xr_map<u16,GuestSpawn> guests;
@@ -1160,7 +1161,10 @@ bool respawn_actor(std::uint16_t object,std::uint32_t level,const float* positio
     Fvector target; target.set(position[0],position[1],position[2]);
     const auto node=ai().level_graph().vertex(actor->ai_location().level_vertex_id(),target);
     if (!ai().level_graph().valid_vertex_id(node)) return false;
-    actor->coopnet_revive(target); return true;
+    actor->coopnet_revive(target);
+    const auto guest=guests.find(object);
+    if(guest!=guests.end() && guest->second.owner_movement) guest->second.awaiting_respawn_pose=true;
+    return true;
 }
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state) {
     if (!g_pGameLevel || !g_pGameLevel->bReady) return false;
@@ -1930,6 +1934,34 @@ bool capture_guest_actor(std::uint16_t object, LocalActorPose& pose) {
     value.velocity[0] = velocity.x; value.velocity[1] = velocity.y; value.velocity[2] = velocity.z;
     value.rotation[0] = pitch; value.rotation[1] = -heading; value.rotation[2] = bank;
     pose = value; return true;
+}
+bool guest_movement_owned(std::uint16_t object) {
+    const auto found=guests.find(object);
+    return found!=guests.end() && found->second.owner_movement;
+}
+bool apply_guest_movement(std::uint16_t object,const coopnet::ActorInput& input) {
+    LocalActorPose pose;
+    if(!input.has_pose || !coopnet::valid_input(input) || !capture_guest_actor(object,pose) || pose.level!=input.level) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if(!actor || actor->is_coopnet_downed()) return false;
+    auto& state=guests.find(object)->second;
+    if(state.owner_movement && state.pose_sequence==input.sequence) return true;
+    if(state.awaiting_respawn_pose) {
+        float squared=0;
+        for(unsigned axis=0;axis<3;++axis) { const float delta=input.position[axis]-pose.position[axis]; squared+=delta*delta; }
+        if(squared>1.f) return false; // Discard pre-respawn packets until the guest receives the new position.
+        state.awaiting_respawn_pose=false;
+    }
+    Fmatrix transform=actor->XFORM(); transform.c.set(input.position[0],input.position[1],input.position[2]);
+    actor->ForceTransform(transform);
+    actor->character_physics_support()->movement()->SetVelocity(input.velocity[0],input.velocity[1],input.velocity[2]);
+    const auto& applied_velocity=actor->character_physics_support()->movement()->GetVelocity();
+    Fvector expected_velocity; expected_velocity.set(input.velocity[0],input.velocity[1],input.velocity[2]);
+    if(actor->Position().distance_to_sqr(transform.c)>.0001f || applied_velocity.distance_to_sqr(expected_velocity)>.0001f)
+        return false;
+    state.owner_movement=true; state.pose_sequence=input.sequence;
+    if(state.controls%300==0) Msg("* CoopNet guest owner pose applied: object %u sequence %u",object,input.sequence);
+    return true;
 }
 void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw, float pitch) {
     LocalActorPose pose;

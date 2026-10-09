@@ -9,7 +9,11 @@ void check(bool value, int line) {
 int main() {
     ActorInput input{20,1,10,0xfffffffeu,1,1.f,.5f}, decoded;
     const auto bytes = encode_input(input);
-    require(bytes.size() == 30 && decode_input(bytes,decoded) && decoded.buttons == 1 && decoded.yaw == 1.f);
+    require(bytes.size() == 55 && decode_input(bytes,decoded) && decoded.buttons == 1 && decoded.yaw == 1.f);
+    auto moving=input; moving.has_pose=true; moving.position={10,20,30}; moving.velocity={1,2,3};
+    require(decode_input(encode_input(moving),decoded) && decoded.has_pose && decoded.position==moving.position && decoded.velocity==moving.velocity);
+    moving.position[0]=std::numeric_limits<float>::infinity(); require(!valid_input(moving));
+    moving=input; moving.has_pose=true; moving.velocity[0]=101; require(!valid_input(moving));
     for (std::size_t size = 0; size < bytes.size(); ++size)
         require(!decode_input({bytes.begin(),bytes.begin() + size},decoded));
     auto malformed = bytes; malformed.push_back(0); require(!decode_input(malformed,decoded));

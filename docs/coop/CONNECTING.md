@@ -2,7 +2,7 @@
 
 This is a direct connection to a player's host process. There is no hosted lobby, account service, automatic discovery or relay. The host simulates the active location; connected players travel together.
 
-Every player needs Anomaly 1.5.3, the same co-op engine build and networking DLLs, and matching mods. The Git repository supplies engine source and build instructions, not a complete downloadable game package. Protocol 19 clients cannot connect to older protocol builds. Keep each installation's appdata and saves separate.
+Every player needs Anomaly 1.5.3, the same co-op engine build and networking DLLs, and matching mods. The Git repository supplies engine source and build instructions, not a complete downloadable game package. Protocol 20 clients cannot connect to older protocol builds. Keep each installation's appdata and saves separate.
 
 The host loads a game, opens the console, and enters:
 
