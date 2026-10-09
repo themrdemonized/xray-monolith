@@ -107,6 +107,7 @@ public:
 	void remove_links(CObject* object);
 
 	CControlJump* get_jump_control() { return m_jump; }
+	CControlRunAttack* get_run_attack_control() { return m_run_attack; }
 private:
 
 	void check_attack_jump();

@@ -580,6 +580,25 @@ public:
 	float get_attack_on_move_prepare_radius();
 	float get_attack_on_move_prepare_time();
 
+	// geometry only, the enabled switch stays config-owned; negative argument keeps the current value
+	void set_attack_on_move_params(float max_go_close_time, float far_radius, float prepare_radius,
+	                               float prepare_time, float attack_radius, float update_side_period,
+	                               float prediction_factor)
+	{
+		if (max_go_close_time >= 0.f) m_attack_on_move_params.max_go_close_time = max_go_close_time;
+		if (far_radius >= 0.f) m_attack_on_move_params.far_radius = far_radius;
+		if (prepare_radius >= 0.f) m_attack_on_move_params.prepare_radius = prepare_radius;
+		if (prepare_time >= 0.f) m_attack_on_move_params.prepare_time = prepare_time;
+		if (attack_radius >= 0.f) m_attack_on_move_params.attack_radius = attack_radius;
+		if (update_side_period >= 0.f) m_attack_on_move_params.update_side_period = update_side_period;
+		if (prediction_factor >= 0.f) m_attack_on_move_params.prediction_factor = prediction_factor;
+	}
+
+	// script-set multiplier on the base-path heading speed (CControlDirectionBase::update_frame); 1 = vanilla, <= 0 keeps the current value
+	float m_turn_speed_factor = 1.f;
+	float get_turn_speed_factor() const { return m_turn_speed_factor; }
+	void set_turn_speed_factor(float v) { if (v > 0.f) m_turn_speed_factor = v; }
+
 	bool enemy_accessible();
 	bool at_home();
 
@@ -597,6 +616,8 @@ public:
 	float get_psy_influence();
 	float get_radiation_influence();
 	float get_fire_influence();
+	// aura_name: psy / radiation / fire / base; false on an unknown name
+	bool set_aura_params(LPCSTR aura_name, float linear, float quadratic, float max_power, float max_distance);
 	void play_detector_sound();
 
 private:
