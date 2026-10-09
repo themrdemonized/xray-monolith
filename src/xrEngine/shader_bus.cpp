@@ -2,6 +2,8 @@
 #pragma hdrstop
 
 #include "shader_bus.h"
+#include "XR_IOConsole.h"
+#include "xr_ioc_cmd.h"
 
 struct bus_legacy_row
 {
@@ -9,7 +11,27 @@ struct bus_legacy_row
 	string256 writer;
 };
 
+enum bus_cvar_type
+{
+	cvar_mask,
+	cvar_toggle,
+	cvar_integer,
+	cvar_float,
+	cvar_vector3,
+	cvar_vector4,
+	cvar_ivector4
+};
+
+// a cvar_ lane and the console command the per-frame update copies into it
+struct bus_cvar
+{
+	ShaderBus::lane* lane;
+	IConsole_Command* command;
+	u8 type;
+};
+
 static xr_vector<ShaderBus::lane*> g_bus_lanes;
+static xr_vector<bus_cvar> g_bus_cvars;
 static xr_vector<shared_str> g_bus_rejected;
 static xr_vector<bus_legacy_row> g_bus_legacy;
 static xr_vector<shared_str> g_bus_legacy_logged;
@@ -92,6 +114,8 @@ static void bus_refuse(LPCSTR hlsl_name, LPCSTR reason)
 	Msg("! [SHADER-BUS] shader constant %s %s", hlsl_name, reason);
 }
 
+static void bus_bind_cvar(ShaderBus::lane* l, LPCSTR hlsl_name);
+
 ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name, u32 rows, u8 kind)
 {
 	if (!hlsl_name || 0 != strncmp(hlsl_name, "bus_", 4))
@@ -109,6 +133,8 @@ ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name, u32 rows, u8 kind)
 	lane* l = bus_find_or_add(id);
 	if (!l)
 		return nullptr;
+	if (!l->registered && 0 == strncmp(id, "cvar_", 5))
+		bus_bind_cvar(l, hlsl_name);
 	l->hlsl = hlsl_name;
 	l->rows_declared = _max(l->rows_declared, rows);
 	l->declared_kinds |= u8(1 << kind);
@@ -176,13 +202,119 @@ static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, 
 	return bus_token(l);
 }
 
+// the console value kinds a lane can take
+static bool bus_cvar_type_of(IConsole_Command* command, u8& type)
+{
+	if (fast_dynamic_cast<CCC_Mask*>(command))
+		type = cvar_mask;
+	else if (fast_dynamic_cast<CCC_ToggleMask*>(command))
+		type = cvar_toggle;
+	else if (fast_dynamic_cast<CCC_Integer*>(command))
+		type = cvar_integer;
+	else if (fast_dynamic_cast<CCC_Float*>(command))
+		type = cvar_float;
+	else if (fast_dynamic_cast<CCC_Vector3*>(command))
+		type = cvar_vector3;
+	else if (fast_dynamic_cast<CCC_Vector4*>(command))
+		type = cvar_vector4;
+	else if (fast_dynamic_cast<CCC_IVector4*>(command))
+		type = cvar_ivector4;
+	else
+		return false;
+	return true;
+}
+
+// gives a cvar_ lane to the engine and the console command after the prefix, called under the lock
+static void bus_bind_cvar(ShaderBus::lane* l, LPCSTR hlsl_name)
+{
+	LPCSTR name = l->id.c_str() + 5;
+	IConsole_Command* command = Console ? Console->GetCommand(name) : nullptr;
+	if (!command)
+	{
+		bus_refuse(hlsl_name, "has no console command and reads 0");
+		return;
+	}
+
+	bus_cvar entry;
+	if (!bus_cvar_type_of(command, entry.type))
+	{
+		bus_refuse(hlsl_name, "has a console command with no number value and reads 0");
+		return;
+	}
+
+	string64 description;
+	xr_sprintf(description, "console value %s", name);
+	if (!bus_take(l->id.c_str(), "engine", description, "console", false))
+		return;
+
+	entry.lane = l;
+	entry.command = command;
+	g_bus_cvars.push_back(entry);
+}
+
+// copies the console value into the lane's pending value
+static void bus_read_cvar(const bus_cvar& c)
+{
+	Fvector4& v = c.lane->pending;
+	v.set(0.f, 0.f, 0.f, 0.f);
+	switch (c.type)
+	{
+	case cvar_mask:
+		v.x = static_cast<CCC_Mask*>(c.command)->GetValue() ? 1.f : 0.f;
+		break;
+	case cvar_toggle:
+		v.x = static_cast<CCC_ToggleMask*>(c.command)->GetValue() ? 1.f : 0.f;
+		break;
+	case cvar_integer:
+		v.x = float(static_cast<CCC_Integer*>(c.command)->GetValue());
+		break;
+	case cvar_float:
+		v.x = static_cast<CCC_Float*>(c.command)->GetValue();
+		break;
+	case cvar_vector3:
+		{
+			const Fvector* f = static_cast<CCC_Vector3*>(c.command)->GetValuePtr();
+			v.set(f->x, f->y, f->z, 0.f);
+		}
+		break;
+	case cvar_vector4:
+		v.set(*static_cast<CCC_Vector4*>(c.command)->GetValuePtr());
+		break;
+	case cvar_ivector4:
+		{
+			const Ivector4* i = static_cast<CCC_IVector4*>(c.command)->GetValuePtr();
+			v.set(float(i->x), float(i->y), float(i->z), float(i->w));
+		}
+		break;
+	}
+}
+
+static bool bus_reserved(LPCSTR id)
+{
+	if (!id || (0 != strncmp(id, "engine_", 7) && 0 != strncmp(id, "cvar_", 5)))
+		return false;
+
+	Msg("! [SHADER-BUS] lane id '%s' is reserved for the engine", id);
+	return true;
+}
+
 u32 ShaderBus::try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
 {
+	if (bus_reserved(id))
+		return 0;
 	return bus_take(id, owner, description, source, true);
+}
+
+u32 ShaderBus::register_engine(LPCSTR id, LPCSTR description)
+{
+	return bus_take(id, "engine", description, "engine", false);
 }
 
 u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
 {
+	if (bus_reserved(id))
+		return 0;
+
 	const u32 token = bus_take(id, owner, description, source, false);
 	if (token)
 		return token;
@@ -359,6 +491,13 @@ const ShaderBus::lane* ShaderBus::find(LPCSTR id)
 	return (found >= 0) ? g_bus_lanes[found] : nullptr;
 }
 
+bool ShaderBus::declared(u32 token)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const lane* l = bus_writable(token);
+	return l && l->rows_declared > 0;
+}
+
 bool ShaderBus::has(LPCSTR id)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -460,6 +599,9 @@ LPCSTR ShaderBus::value_text(const lane* l, const Fvector4& value, string256& ou
 void ShaderBus::frame_latch()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
+	for (u32 i = 0; i < g_bus_cvars.size(); ++i)
+		bus_read_cvar(g_bus_cvars[i]);
+
 	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
 	{
 		lane* l = g_bus_lanes[i];
@@ -586,5 +728,5 @@ void ShaderBus::dump()
 
 int ShaderBus::version()
 {
-	return 3;
+	return 4;
 }

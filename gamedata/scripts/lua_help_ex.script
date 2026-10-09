@@ -548,9 +548,11 @@
     }
 
     shader_bus { -- float4 lanes bound to hlsl constants called bus_<id>, see docs/shader_bus.md
-        number version() -- 3
-        number register(string id, string owner, string description) -- the write token, fatal when another owner already holds the id
+        number version() -- 4
+        number register(string id, string owner, string description) -- the write token, fatal when the id is registered with a different owner, nil for an id starting engine_ or cvar_
         number try_register(string id, string owner, string description) -- nil instead of the fatal
+        -- engine lanes engine_sun_los and engine_sky_open are registered by the engine, owner_of returns engine, and fill while a shader declares them
+        -- a shader declaring bus_cvar_<name> reads the console value <name>, no script writes it
         bool set(number token, number x, number y, number z, number w) -- false for a bad token or a value that is not finite
         bool set_array(number token, number first, table rows) -- rows {x, y, z, w} from 0-based row first, DX10 and DX11 arrays and matrices, false past row 4095
         bool set_uint(number token, number a, number b, number c, number d) -- whole numbers 0 to 4294967295 for uint lanes, DX10 and DX11

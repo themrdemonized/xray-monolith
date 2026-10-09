@@ -9,7 +9,7 @@ constants with lanes that each have an id and an `owner`. Any script can registe
 any lane, and only the script that registered a lane can write it. The engine needs no advance
 list of names, so a mod can claim a lane without anything being patched into the exe for it.
 
-Requires a modded exe with the bus. `shader_bus.version()` returns `3`. A script that wants
+Requires a modded exe with the bus. `shader_bus.version()` returns `4`. A script that wants
 to detect the feature should test `shader_bus ~= nil` first, since an older exe has no such
 module at all.
 
@@ -88,7 +88,7 @@ Do not test the token against `0`, which is truthy in Lua.
 
 | call | returns |
 |---|---|
-| `shader_bus.register(id, owner, description)` | a token, or a hard fatal, with both `owner` strings and both script paths, if the id is already registered with a different `owner`. A bad id, a missing `owner`, an `owner` over 64 characters, a description over 256 characters or a full bus returns `nil` with a log line (once per game for a full bus), so check the token before using it |
+| `shader_bus.register(id, owner, description)` | a token, or a hard fatal, with both `owner` strings and both script paths, if the id is already registered with a different `owner`. A bad id, a missing `owner`, an `owner` over 64 characters, a description over 256 characters, an `engine_` or `cvar_` id or a full bus returns `nil` with a log line (once per game for a full bus), so check the token before using it |
 | `shader_bus.try_register(id, owner, description)` | a token, or `nil` if the id is already registered with a different `owner` or under the same rules as `register` |
 | `shader_bus.set(token, x, y, z, w)` | `true` if the token is valid and all four values are finite. A NaN or infinite value is dropped, the lane keeps its last value, and the first refusal on each lane logs a line |
 | `shader_bus.set_array(token, first, rows)` | `true` if the token is valid, `first` is a whole number from `0`, `rows` is a non-empty array of rows `{x, y, z, w}` (a missing component reads `0`), every value is finite and the last row is below row 4096. Writes `rows[1]` to row `first` (0-based, the HLSL element index) onward and leaves other rows as they were. Row 0 is the value `set` writes, so `set` and `set_array` from row 0 overwrite each other. The first refusal on each lane logs a line |
@@ -104,7 +104,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.stats(id)` | `ok, changes, last_change_frame, bound_frame, writes` |
 | `shader_bus.list()` | rows for the registered lanes, then the twelve legacy lanes |
 | `shader_bus.list(true)` | the same, plus a row for every lane a shader declared that nobody registered |
-| `shader_bus.version()` | `3` |
+| `shader_bus.version()` | `4` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
 `legacy`), `source` (the script path that called `register`, empty for a declared or legacy row),
@@ -127,6 +127,59 @@ no lane by that id exists at all.
 
 Reads and listing are open to every script. Only the token returned by `register` or
 `try_register` can write.
+
+### Engine lanes
+
+The engine registers two lanes itself, with the `owner` string `engine`, and fills them every frame once a
+shader has declared them, so they cost nothing until one does. The declaration lasts until the
+game exits. Read them in a shader like any lane.
+
+| lane | value |
+|---|---|
+| `engine_sun_los` | `x` is `1` when nothing blocks a ray of 500 m from the camera toward the sun, else `0` |
+| `engine_sky_open` | `x` is how open the sky is over the view entity, from `0` to `1`, the value `level.rain_hemi()` returns |
+
+```hlsl
+uniform float4 bus_engine_sun_los;
+```
+
+Ids starting `engine_` belong to the engine. `register` and `try_register` refuse them with a log
+line and `nil`, never a fatal. A script checks for an engine lane with
+`shader_bus.owner_of("engine_sun_los") == "engine"`.
+
+### Console lanes
+
+A shader that declares `bus_cvar_<name>` reads the console value `<name>`, copied once per frame
+like any lane, so `bus_cvar_r__nightvision` reads `r__nightvision` with no script.
+The engine registers the lane with the `owner` string `engine` when a shader first declares it and logs the
+registration. Nothing is copied while no shader declares a console lane.
+
+```hlsl
+uniform float4 bus_cvar_r__nightvision;
+```
+
+| console value | lane value |
+|---|---|
+| on/off flag | `x` is `1` or `0`, `y, z, w` are `0` |
+| integer | `x` is the integer, `y, z, w` are `0` |
+| float | `x`, `y, z, w` are `0` |
+| three floats | `x, y, z`, `w` is `0` |
+| four floats | `x, y, z, w` |
+| four integers or a colour | `x, y, z, w` |
+
+A command that does not exist on the running exe, or has a text value or a choice from a list, leaves
+the lane at `0, 0, 0, 0` and logs one line with the constant's name. Declare a console lane as `float`
+to `float4`; a `uint` declaration reads the float bits.
+
+Limits:
+- The console name follows the lane id rules, lowercase letters, digits and `_`, at most 27
+  characters after `cvar_`. A longer name or one with an uppercase letter never finds its command.
+- The lane has the value the console had at the per-frame update, so a change shows one frame
+  later, the same as a script write.
+- Ids starting `cvar_` are refused to `register` and `try_register` with the same log line as
+  `engine_` ids. `bus_force` forces a console lane like any other.
+- An exe before version `4` treats `bus_cvar_<name>` as an ordinary lane nobody registered, which
+  reads `0, 0, 0, 0` unless a script registers that id.
 
 ### Console
 

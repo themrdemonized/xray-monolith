@@ -58,6 +58,10 @@ namespace ShaderBus
 
 	ENGINE_API u32 register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
 	ENGINE_API u32 try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
+	// a lane the engine fills, scripts cannot register ids starting engine_
+	ENGINE_API u32 register_engine(LPCSTR id, LPCSTR description);
+	// true once a shader declares the lane the token writes
+	ENGINE_API bool declared(u32 token);
 	ENGINE_API bool set(u32 token, float x, float y, float z, float w);
 	// writes rows first to first + count - 1, row 0 is the value set writes
 	ENGINE_API bool set_rows(u32 token, u32 first, const Fvector4* rows, u32 count);
