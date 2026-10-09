@@ -764,11 +764,14 @@ void CRender::Render()
         L_Dynamic->render(0, true);
         HOM.Enable();
         o.vis_intersect = FALSE;
-        r_dsgraph_render_sorted();
         phase = PHASE_NORMAL;
 
         if (scope_3D_fake_enabled)
             r_dsgraph_render_ScopeSorted();
+
+        // Magnifiers have a blank lens and a separate transparent reflex reticle.
+        // Compose the lens first so it cannot overwrite the reticle drawn by HUD sorting.
+        r_dsgraph_render_sorted();
 
         if (g_hud)
         {

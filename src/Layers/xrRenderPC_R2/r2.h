@@ -237,7 +237,7 @@ public:
 	virtual void level_Load(IReader*);
 	virtual void level_Unload();
 
-	virtual IDirect3DBaseTexture9* texture_load(LPCSTR fname, u32& msize);
+    virtual IDirect3DBaseTexture9* texture_load(LPCSTR fname, u32& msize, Fvector2* source_size = nullptr);
 	virtual HRESULT shader_compile(
 		LPCSTR name,
 		DWORD const* pSrcData,

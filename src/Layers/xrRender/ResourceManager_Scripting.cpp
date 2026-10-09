@@ -550,6 +550,25 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 		S.E[4] = C._lua_Compile(s_shader, "l_special");
 	}
 
+#if RENDER == R_R1
+    // Scope-only elements: keep extra focal-plane samples out of ordinary optics.
+    if (S.E[0]._get() && S.E[0]->flags.iScopeLense == 3)
+    {
+        if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_dual", LUA_TFUNCTION))
+        {
+            C.iElement = 2;
+            C.bDetail = FALSE;
+            S.E[2] = C._lua_Compile(s_shader, "scope_dual");
+        }
+        if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_giperon", LUA_TFUNCTION))
+        {
+            C.iElement = 3;
+            C.bDetail = FALSE;
+            S.E[3] = C._lua_Compile(s_shader, "scope_giperon");
+        }
+    }
+#endif
+
 	// Search equal in shaders array
 	for (u32 it = 0; it < v_shaders.size(); it++)
 		if (S.equal(v_shaders[it])) return v_shaders[it];

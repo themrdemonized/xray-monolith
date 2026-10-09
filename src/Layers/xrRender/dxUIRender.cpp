@@ -156,7 +156,7 @@ void dxUIRender::SetScissor(Irect* rect)
 void dxUIRender::GetActiveTextureResolution(Fvector2& res)
 {
 	CTexture* T = RCache.get_ActiveTexture(0);
-	res.set(float(T->get_Width()), float(T->get_Height()));
+    T->get_UIResolution(res);
 }
 
 LPCSTR dxUIRender::UpdateShaderName(LPCSTR tex_name, LPCSTR sh_name)

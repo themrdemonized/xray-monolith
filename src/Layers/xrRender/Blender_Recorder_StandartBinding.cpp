@@ -430,6 +430,120 @@ static class s3ds_param_4 : public R_constant_setup
 	}
 }    s3ds_param_4;
 
+// Lightweight scope constants: choose channel roles on the CPU, keeping ps_2_0 small.
+static class scope_lens_params : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float aim = clampr(g_pGamePersistent->m_pGShaderConstants->hud_params.x, 0.f, 1.f);
+        const float factor = _max(ps_s3ds_param_2.w, 1.f);
+        const float zoom = 1.f + (0.2f * factor - 0.2f) * aim;
+        const float shift = (0.8f * factor - 0.8f) * aim;
+        const float aspect = float(RDEVICE.dwHeight) / _max(float(RDEVICE.dwWidth), 1.f);
+        const float pupil = _max(ps_s3ds_param_1.z * aim, 0.001f);
+        RCache.set_c(C, 1.f / zoom, shift * aspect, shift, 1.f / pupil);
+    }
+} binder_scope_lens_params;
+
+static class scope_reticle_mode : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        float rgb = 1.f, led = 0.f, alpha = 1.f, over = 1.f;
+        if (type == 1 || type == 5)
+        {
+            rgb = 0.f;
+            led = 1.f;
+        }
+        else if (type == 2 || type == 3 || type == 4 || type == 9)
+        {
+            rgb = 0.f;
+            alpha = 0.f;
+        }
+        else if (type == 7)
+            over = 0.f;
+        RCache.set_c(C, rgb, led, alpha, over);
+    }
+} binder_scope_reticle_mode;
+
+static class scope_reticle_masks : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        float black = 0.f, green = 0.f, blue = 0.f, text = 0.f;
+        if (type == 2 || type == 3 || type == 9)
+        {
+            black = green = 1.f;
+            text = type == 3 ? 1.f : 0.f;
+        }
+        else if (type == 4)
+        {
+            black = 1.f;
+            green = ps_markswitch_current == 1 ? 1.f : 0.f;
+            blue = ps_markswitch_current == 2 ? 1.f : 0.f;
+        }
+        RCache.set_c(C, black, green, blue, text);
+    }
+} binder_scope_reticle_masks;
+
+static class scope_reticle_projection : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        const Fvector4& fov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
+        const float minFov = fov.y * 0.75f;
+        const float maxFov = fov.x * 0.75f;
+        const float currentFov = Device.fFOV;
+        const float zoom = currentFov > EPS_S ? _max(minFov / currentFov, 1.f) : 1.f;
+        const bool ffp = int(ps_s3ds_param_1.w) != 0 || type == 5 || type == 9;
+        const float inverseSize = 1.f / _max(ps_s3ds_param_1.x, 0.001f);
+        float cosine = 1.f, sine = 0.f;
+        if (type == 5)
+        {
+            const float part = fis_zero(maxFov - minFov) ? 0.f :
+                clampr((currentFov - minFov) / (maxFov - minFov), 0.f, 1.f);
+            const float angle = -PI * (part + 0.053f) / 1.053f;
+            cosine = _cos(angle);
+            sine = _sin(angle);
+        }
+        RCache.set_c(C, inverseSize / (ffp ? zoom : 1.f), inverseSize, cosine, sine);
+    }
+} binder_scope_reticle_projection;
+
+static void set_reticle_atlas(R_constant* C, bool enabled)
+{
+    int sides = 1, index = 0;
+    if (enabled)
+    {
+        const int count = _max(ps_markswitch_count, 1);
+        while (sides * sides < count)
+            ++sides;
+        index = clampr(ps_markswitch_current, 0, count - 1);
+    }
+    const float scale = 1.f / sides;
+    RCache.set_c(C, scale, scale, (index % sides) * scale, (index / sides) * scale);
+}
+
+static class scope_reticle_atlas : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        // ms_count usually counts color choices. Only type 10 selects an atlas cell.
+        set_reticle_atlas(C, int(ps_s3ds_param_3.y) == 10);
+    }
+} binder_scope_reticle_atlas;
+
+static class reflex_reticle_atlas : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        set_reticle_atlas(C, true);
+    }
+} binder_reflex_reticle_atlas;
+
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
 {
@@ -1535,6 +1649,12 @@ void CBlender_Compile::SetMapping()
 	r_Constant("s3ds_param_2", &s3ds_param_2);
 	r_Constant("s3ds_param_3", &s3ds_param_3);
 	r_Constant("s3ds_param_4", &s3ds_param_4);
+    r_Constant("scope_reticle_mode", &binder_scope_reticle_mode);
+    r_Constant("scope_lens_params", &binder_scope_lens_params);
+    r_Constant("scope_reticle_masks", &binder_scope_reticle_masks);
+    r_Constant("scope_reticle_projection", &binder_scope_reticle_projection);
+    r_Constant("scope_reticle_atlas", &binder_scope_reticle_atlas);
+    r_Constant("reflex_reticle_atlas", &binder_reflex_reticle_atlas);
     static class cl_r1_scope_debug : public R_constant_setup
     {
         virtual void setup(R_constant* C)

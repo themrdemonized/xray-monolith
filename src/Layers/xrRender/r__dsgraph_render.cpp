@@ -15,6 +15,10 @@ extern float r_ssaDONTSORT;
 extern float r_ssaHZBvsTEX;
 extern float r_ssaGLOD_start, r_ssaGLOD_end;
 
+#if RENDER == R_R1
+extern Fvector4 ps_s3ds_param_3;
+#endif
+
 ICF float calcLOD(float ssa/*fDistSq*/, float R)
 {
 	return _sqrt(clampr((ssa - r_ssaGLOD_end) / (r_ssaGLOD_start - r_ssaGLOD_end), 0.f, 1.f));
@@ -70,17 +74,40 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 }
 
 // ALPHA
-void __fastcall sorted_L1(mapSorted_Node* N)
+IC void render_sorted_item(mapSorted_Node* N, ShaderElement* element)
 {
 	VERIFY(N);
 	dxRender_Visual* V = N->val.pVisual;
 	VERIFY(V && V->shader._get());
-	RCache.set_Element(N->val.se);
+    RCache.set_Element(element);
 	RCache.set_xform_world(N->val.Matrix);
 	RImplementation.apply_object(N->val.pObject);
 	RImplementation.apply_lmaterial();
 	V->Render(calcLOD(N->key, V->vis.sphere.R));
 }
+
+void __fastcall sorted_L1(mapSorted_Node* N)
+{
+    VERIFY(N);
+    render_sorted_item(N, N->val.se);
+}
+
+#if RENDER == R_R1
+void __fastcall sorted_scope_L1(mapSorted_Node* N)
+{
+    VERIFY(N && N->val.pVisual && N->val.pVisual->shader._get());
+    ShaderElement* element = N->val.se;
+    const int type = int(ps_s3ds_param_3.y);
+    const int slot = type == 9 ? 2 : (type == 5 ? 3 : -1);
+    if (slot >= 0)
+    {
+        ShaderElement* variant = N->val.pVisual->shader->E[slot]._get();
+        if (variant && variant->flags.iScopeLense == 3)
+            element = variant;
+    }
+    render_sorted_item(N, element);
+}
+#endif
 
 void __fastcall water_node_ssr(mapSorted_Node* N)
 {
@@ -774,7 +801,11 @@ void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D 
 
 	// Rendering
 	rmNear();
+#if RENDER == R_R1
+    mapScopeHUDSorted.traverseRL(sorted_scope_L1);
+#else
 	mapScopeHUDSorted.traverseRL(sorted_L1);
+#endif
 	mapScopeHUDSorted.clear();
 	rmNormal();
 
