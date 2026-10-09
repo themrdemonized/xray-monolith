@@ -29,20 +29,26 @@ inline bool decode_dialogue_request(const std::vector<std::uint8_t>& bytes,Dialo
     output=std::move(r); return true;
 }
 struct DialogueChoice { std::string dialog,phrase,text; };
+struct DialogueLine { bool player=false; std::string text; };
 struct DialogueView {
     Identity actor=0,target=0,incarnation=0;
     std::uint32_t generation=0,level=0,revision=0;
     bool finished=false;
     std::vector<DialogueChoice> choices;
+    std::vector<DialogueLine> answers;
 };
 inline bool valid_dialogue_view(const DialogueView& v) {
-    if (!v.actor || !v.target || !v.incarnation || !v.generation || !v.level || !v.revision || v.choices.size()>256 || (v.finished && !v.choices.empty())) return false;
+    if (!v.actor || !v.target || !v.incarnation || !v.generation || !v.level || !v.revision || v.choices.size()>256 || v.answers.size()>64 || (v.finished && !v.choices.empty())) return false;
     std::set<std::pair<std::string,std::string>> keys;
-    std::size_t encoded_size=39;
+    std::size_t encoded_size=40;
     for (const auto& c:v.choices) {
         if (!shared_name(c.dialog,128) || (!c.phrase.empty() && !shared_name(c.phrase,128)) || c.text.size()>4096 || c.text.find('\0')!=std::string::npos || !keys.insert({c.dialog,c.phrase}).second) return false;
         encoded_size+=6+c.dialog.size()+c.phrase.size()+c.text.size();
         if (encoded_size>shared_limit) return false;
+    }
+    for (const auto& line:v.answers) {
+        if (line.text.empty() || line.text.size()>4096 || line.text.find('\0')!=std::string::npos) return false;
+        encoded_size+=3+line.text.size(); if (encoded_size>shared_limit) return false;
     }
     return true;
 }
@@ -51,7 +57,8 @@ inline std::vector<std::uint8_t> encode_dialogue_view(const DialogueView& v) {
     SharedWriter w; for (auto n:{v.actor,v.target,v.incarnation}) w.integer(n,8);
     for (auto n:{v.generation,v.level,v.revision}) w.integer(n,4);
     w.integer(v.finished,1); w.integer(v.choices.size(),2);
-    for (const auto& c:v.choices) { w.string(c.dialog); w.string(c.phrase); w.string(c.text); } return w.bytes;
+    for (const auto& c:v.choices) { w.string(c.dialog); w.string(c.phrase); w.string(c.text); }
+    w.integer(v.answers.size(),1); for (const auto& line:v.answers) { w.integer(line.player,1); w.string(line.text); } return w.bytes;
 }
 inline bool decode_dialogue_view(const std::vector<std::uint8_t>& bytes,DialogueView& output) {
     if (bytes.size()>shared_limit) return false;
@@ -60,6 +67,8 @@ inline bool decode_dialogue_view(const std::vector<std::uint8_t>& bytes,Dialogue
     for (auto* value:{&v.generation,&v.level,&v.revision}) { if (!reader.integer(n,4)) return false; *value=static_cast<std::uint32_t>(n); }
     if (!reader.integer(n,1) || n>1 || !reader.integer(count,2) || count>256) return false; v.finished=n!=0;
     for (unsigned i=0;i<count;++i) { DialogueChoice c; if (!shared_string(reader,c.dialog,128) || !shared_string(reader,c.phrase,128) || !shared_string(reader,c.text,4096)) return false; v.choices.push_back(std::move(c)); }
+    if (!reader.integer(count,1) || count>64) return false;
+    for (unsigned i=0;i<count;++i) { DialogueLine line; if (!reader.integer(n,1) || n>1 || !shared_string(reader,line.text,4096)) return false; line.player=n!=0; v.answers.push_back(std::move(line)); }
     if (reader.remaining() || !valid_dialogue_view(v)) return false; output=std::move(v); return true;
 }
 // This checks the offered revision only. Native distance, liveness and Lua

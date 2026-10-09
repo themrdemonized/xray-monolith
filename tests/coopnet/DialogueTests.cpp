@@ -11,9 +11,17 @@ int main() {
     for (std::size_t i=0;i<bytes.size();++i) require(!decode_dialogue_request({bytes.begin(),bytes.begin()+i},decoded));
     auto extra=bytes; extra.push_back(0); require(!decode_dialogue_request(extra,decoded));
     DialogueView view{10,20,2,3,4,6,false,{{"quest_offer","","Accept a quest"},{"quest_turnin","2","Turn in"}}},out;
+    view.answers={{true,"Accept this job"},{false,"Here are the details"}};
     bytes=encode_dialogue_view(view); require(decode_dialogue_view(bytes,out));
+    require(out.answers.size()==2 && out.answers[0].player && !out.answers[1].player && out.answers[1].text=="Here are the details");
+    auto invalid_speaker=bytes; invalid_speaker[bytes.size()-1-3-view.answers[0].text.size()-3-view.answers[1].text.size()+1]=2;
+    require(!decode_dialogue_view(invalid_speaker,out));
+    auto invalid_answer=view; invalid_answer.answers.resize(65,{false,"x"}); require(!valid_dialogue_view(invalid_answer));
+    invalid_answer=view; invalid_answer.answers[0].text=std::string(4097,'x'); require(!valid_dialogue_view(invalid_answer));
+    invalid_answer=view; invalid_answer.answers[0].text=std::string("a\0b",3); require(!valid_dialogue_view(invalid_answer));
     for (std::size_t i=0;i<bytes.size();++i) require(!decode_dialogue_view({bytes.begin(),bytes.begin()+i},out));
     extra=bytes; extra.push_back(0); require(!decode_dialogue_view(extra,out));
+    view.answers.clear();
     request.action=DialogueAction::Select; request.revision=6; request.dialog="quest_offer";
     require(offered_dialogue_choice(view,request));
     request.dialog="quest_turnin"; request.phrase="2"; require(offered_dialogue_choice(view,request));
@@ -58,6 +66,7 @@ int main() {
     host.set_dialogue_handler([&](Identity owner,const DialogueRequest& r,std::uint32_t revision) {
         require(owner==player); ++calls;
         DialogueView response{r.actor,r.target,r.incarnation,r.generation,r.level,revision,false,{{"quest_offer","0",std::string(4096,'a')},{"quest_offer","1",std::string(4096,'b')}}};
+        response.answers={{false,"Host NPC reply"}};
         if (r.action==DialogueAction::Select) { require(offered_dialogue_choice(latest,r)); ++mutations; response.finished=true; response.choices.clear(); }
         return response;
     });
@@ -66,6 +75,7 @@ int main() {
     require(client.send_dialogue(request)==SendResult::Sent);
     auto overlapping=request; overlapping.sequence=2; require(client.send_dialogue(overlapping)==SendResult::Backpressure);
     pump(); require(calls==1 && replies==1 && latest.choices.size()==2);
+    require(latest.answers.size()==1 && latest.answers[0].text=="Host NPC reply" && !latest.answers[0].player);
     require(client.send_dialogue(request)==SendResult::Sent); pump(); require(calls==1 && replies==2);
     auto changed=request; changed.target=21; require(client.send_dialogue(changed)==SendResult::Invalid);
     request.sequence=2; request.revision=latest.revision; request.action=DialogueAction::Select; request.dialog="quest_offer"; request.phrase="0";

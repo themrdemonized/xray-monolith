@@ -5,6 +5,7 @@
 #include "level.h"
 #include "string_table.h"
 #include "PhraseDialog.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "character_info.h"
 #include "relation_registry.h"
 #include "ai_space.h"
@@ -87,6 +88,7 @@ void CActor::OnDisableInfo(shared_str info_id) const
 
 void CActor::ReceivePhrase(DIALOG_SHARED_PTR& phrase_dialog)
 {
+    if (engine_coopnet::remote_dialogue_output_active()) return;
 	//только если находимся в режиме single
 	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (!pGameSP) return;

@@ -6,7 +6,7 @@
 #include <utility>
 
 namespace coopnet {
-constexpr std::uint16_t protocol_version = 18;
+constexpr std::uint16_t protocol_version = 19;
 constexpr std::size_t max_payload = 16384;
 enum class Mode { Offline, Host, Client };
 enum class Channel : std::uint8_t { Control, Actor, Combat, Inventory, World, AI, Transition };

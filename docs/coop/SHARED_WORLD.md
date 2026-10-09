@@ -1,6 +1,6 @@
 # Host-owned loot, NPCs and quests
 
-Protocol 18 extends the single-host, single-active-location model. Everyone still travels together; there are no location workers.
+Protocol 19 extends the single-host, single-active-location model. Everyone still travels together; there are no location workers.
 
 ## Loot
 

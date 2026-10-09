@@ -51,6 +51,8 @@
 #include "alife_registry_wrappers.h"
 #include "PhraseDialog.h"
 #include "PhraseDialogManager.h"
+#include "UIGameSP.h"
+#include "ui/UITalkWnd.h"
 #include "script_game_object.h"
 #include <type_traits>
 extern string_path g_last_saved_game;
@@ -489,6 +491,24 @@ void update_container_catalogue() {
     }
     container_dirty=false;
 }
+namespace {
+coopnet::DialogueView* remote_dialogue_output=nullptr;
+}
+NativeDialogueOutput::NativeDialogueOutput(coopnet::DialogueView& view):previous_(remote_dialogue_output) {
+    remote_dialogue_output=&view;
+}
+NativeDialogueOutput::~NativeDialogueOutput() {
+    remote_dialogue_output=previous_;
+}
+bool remote_dialogue_output_active() { return remote_dialogue_output!=nullptr; }
+bool capture_remote_dialogue_answer(const char* text,bool player) {
+    if (!remote_dialogue_output) return false;
+    if (!text || !*text) return true;
+    if (remote_dialogue_output->answers.size()>=64 || strlen(text)>4096)
+        throw std::runtime_error("Remote native dialogue transcript bounds exceeded");
+    remote_dialogue_output->answers.push_back({player,text});
+    return true;
+}
 bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id,
     const coopnet::DialogueRequest& request,std::uint32_t revision,coopnet::DialogueView& view) {
     view={request.actor,request.target,request.incarnation,request.generation,request.level,revision,true,{}};
@@ -578,6 +598,18 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
         const auto infos_before=g_actor->m_known_info_registry->registry().objects();
         if (!capture_native_dialogue_topics(session,actor_id,request,4,view) || view.choices.empty() ||
             g_actor->m_known_info_registry->registry().objects()!=infos_before) throw std::runtime_error("Native dialogue topics changed host story flags");
+        auto* ui=smart_cast<CUIGameSP*>(CurrentGameUI()); if (!ui || !ui->TalkMenu) return false;
+        {
+            NativeDialogueOutput output(view);
+            capture_remote_dialogue_answer("coopnet_guest_question",true);
+            // Equal display names must never misclassify an NPC reply as player speech.
+            ui->TalkMenu->AddAnswer("coopnet_npc_answer",actor->Name());
+            DIALOG_SHARED_PTR empty; actor->ReceivePhrase(empty);
+        }
+        if (remote_dialogue_output_active() || view.answers.size()!=2 || !view.answers[0].player || view.answers[1].player ||
+            view.answers[0].text!="coopnet_guest_question" || view.answers[1].text!="coopnet_npc_answer")
+            throw std::runtime_error("Native remote dialogue transcript redirection failed");
+        Msg("* CoopNet native dialogue transcript probe: player and NPC answers captured without host talk UI");
         Msg("* CoopNet native dialogue topics probe: section %s choices %u context restored stale incarnation and range denied",object->cNameSect().c_str(),static_cast<unsigned>(view.choices.size()));
         actor->set_money(314159,false);
         if (actor->get_money()!=314159) throw std::runtime_error("Dialogue fixture guest money assignment failed");

@@ -52,6 +52,17 @@ bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::Q
 // guest. It does not initialize a dialog or execute any phrase/reward action.
 bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor,
     const coopnet::DialogueRequest& request,std::uint32_t revision,coopnet::DialogueView& view);
+// Scoped owner-thread redirection for NPC replies during remote native dialogs.
+class NativeDialogueOutput {
+    coopnet::DialogueView* previous_;
+public:
+    explicit NativeDialogueOutput(coopnet::DialogueView& view);
+    ~NativeDialogueOutput();
+    NativeDialogueOutput(const NativeDialogueOutput&)=delete;
+    NativeDialogueOutput& operator=(const NativeDialogueOutput&)=delete;
+};
+bool remote_dialogue_output_active();
+bool capture_remote_dialogue_answer(const char* text,bool player);
 bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t actor,
     std::uint64_t entity,std::uint32_t generation,std::uint32_t level);
 bool apply_shared_quests(std::uint64_t session,std::uint32_t level,const coopnet::QuestState& quests);

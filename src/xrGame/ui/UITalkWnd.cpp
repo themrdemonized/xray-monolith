@@ -12,6 +12,7 @@
 
 #include "../PhraseDialog.h"
 #include "../PhraseDialogManager.h"
+#include "../../CoopNet/EngineWorldBridge.h"
 
 #include "../game_cl_base.h"
 #include "../string_table.h"
@@ -322,6 +323,7 @@ void CUITalkWnd::AddQuestion(const shared_str& text, const shared_str& value, in
 
 void CUITalkWnd::AddAnswer(const shared_str& text, LPCSTR SpeakerName)
 {
+    if (engine_coopnet::capture_remote_dialogue_answer(text.c_str(),false)) return;
 	//для пустой фразы вообще ничего не выводим
 	if (text.size() == 0)
 	{

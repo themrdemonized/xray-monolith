@@ -1,6 +1,6 @@
 # Container looting and guest quest interactions — in progress
 
-Target: guests can loot host corpses/stashes, accept and turn in host quests, and receive shared rewards without duplicate mutation. The installed build is now protocol 18, with native container looting verified. Guest quest execution and shared rewards remain unfinished.
+Target: guests can loot host corpses/stashes, accept and turn in host quests, and receive shared rewards without duplicate mutation. The installed build is now protocol 19, with native container looting and reply capture verified. Guest quest execution and shared rewards remain unfinished.
 
 The item codec now distinguishes container identity/incarnation from actor ownership. A contained item is present, world-backed and unowned by a player; its container cannot equal its item anchor. Partial identities, hidden/retired container items and simultaneous player/container ownership are rejected. Sixteen standalone suites passed in `_build/coopnet-container-unit1.log`, including roundtrip/truncation and invalid container combinations. This is wire groundwork, not native corpse/stash functionality.
 
@@ -88,3 +88,13 @@ The explicit dialogue fixture now assigns balance 314159 after successful topic 
 That combined persistence run completed successfully: 180-second travel and 90-second restart, exact native balance 314159, both stash/corpse conditions, weapon/active slot/two rounds and original-save hashes all passed. Root: `coopnet-persistence-facb156fbf754349be4716f497ce133f`. The deliberately corrupted newest sequence 98 fell back to valid sequence 97. No build or native fixture remains running. This verifies native topic discovery and authoritative money persistence; guest phrase execution, talk-window integration, reward sharing and durable grant receipts remain required for the full goal.
 
 The verified native EXE and symbols were installed and their EXE hash checked. Previous installed files are backed up at `StalkerDev/backups/20261009-114318-coopnet-dialogue-money`. Wire protocol remains 18; the GCS2 change is a host-local journal upgrade.
+
+## Remote NPC reply capture
+
+The working wire protocol is now 19 because DialogueView adds a bounded transcript: at most 64 lines, each tagged as player/NPC with nonempty text up to 4096 bytes, under the existing total reply limit. Finished views may include farewell lines but no choices. Codec tests cover speaker flags, embedded NULs, oversized text/count, truncation and transcripts delivered through chunked host/client replies. All seventeen suites passed in `coopnet-dialogue-transcript-unit1.log`.
+
+NativeDialogueOutput redirects TalkMenu::AddAnswer into a scoped owner-thread transcript during remote native conversations. CActor::ReceivePhrase suppresses host talk-window refresh while that scope is active. Player lines are explicitly tagged by the remote execution caller; NPC UI replies are always NPC lines, even if their display name equals the player's. The fixture checks this path while the host talk window has no active conversation, then requires scope restoration. It still does not execute a real quest phrase or prove guest UI clicks. Native build `coopnet-dialogue-transcript-build1.log` is in progress; installed/pushed checkpoint remains protocol-18 1ded458d pending native verification. Native phrase execution, guest talk-window integration and shared rewards remain required.
+
+The transcript build and 110-second native test completed successfully (`coopnet-dialogue-transcript-build1.log`, `coopnet-dialogue-transcript-native1.log`, root `coopnet-inventory-f1535f397358453b8ddefa817ee4c6a8`). The native reply-redirection assertion is mandatory under DialogueProbe and its log records player/NPC answer capture without host talk UI. Topic validation, locked stash/corpse transfers and existing native regressions also passed; original saves remained unchanged. No native test or build is running. This prerequisite does not complete native phrase execution, guest UI integration or reward sharing.
+
+The verified protocol-19 EXE and symbols were installed with matching executable hashes; previous files are backed up at `StalkerDev/backups/20261009-115535-coopnet-dialogue-transcript`. All participants need the same protocol-19 build.

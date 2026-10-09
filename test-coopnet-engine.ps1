@@ -261,6 +261,7 @@ if ($ContainerRecoveryProbe) {
 }
 
 if ($DialogueProbe) {
+    if ($logs.host -notmatch 'native dialogue transcript probe: player and NPC answers captured without host talk UI') { throw 'Native dialogue reply redirection evidence missing.' }
     if ($logs.host -notmatch 'native dialogue topics probe: section .+ choices [1-9][0-9]* context restored stale incarnation and range denied') { throw 'Native NPC dialogue topics evidence missing.' }
     Write-Output 'NATIVE_DIALOGUE_TOPICS_PASS: real NPC topics evaluated for the guest, script context restored, stale NPC incarnation and range rejected.'
 }
