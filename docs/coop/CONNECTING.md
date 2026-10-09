@@ -4,6 +4,8 @@ This is a direct connection to a player's host process. There is no hosted lobby
 
 Every player needs Anomaly 1.5.3, the same co-op engine build and networking DLLs, and matching mods. The Git repository supplies engine source and build instructions, not a complete downloadable game package. Protocol 21 clients cannot connect to older protocol builds. Keep each installation's appdata and saves separate.
 
+Enter `/help` (or `coop_help`) in the console for the host/join examples, same-PC address, status, disconnect and respawn commands. The existing `help` command still lists general engine commands.
+
 The host loads a game, opens the console, and enters:
 
 ```text

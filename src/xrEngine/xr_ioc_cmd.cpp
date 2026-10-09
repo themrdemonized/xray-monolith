@@ -73,6 +73,24 @@ public:
     void Execute(LPCSTR args) override { engine_coopnet::command(cName, args); }
 };
 
+class CCC_CoopHelp : public IConsole_Command
+{
+public:
+    CCC_CoopHelp(LPCSTR name) : IConsole_Command(name) { bEmptyArgsHandled = TRUE; }
+    void Execute(LPCSTR) override
+    {
+        Msg("- CoopNet help (UDP, default port 27888)");
+        Msg("- Host: load your save, then enter coop_host 27888 1 1 1");
+        Msg("- Join: coop_join HOST-IP:27888 2 1 1 (or Main Menu > Join CoopNet)");
+        Msg("- Same PC guest: coop_join 127.0.0.1:27888 2 1 1");
+        Msg("- Arguments: port/address, character ID, game fingerprint, mod fingerprint.");
+        Msg("- Use unique character IDs (host 1, guests 2/3/4); both fingerprints must match.");
+        Msg("- coop_status: show connection status; coop_disconnect: leave/stop hosting.");
+        Msg("- coop_respawn: respawn at a living teammate when downed.");
+        Msg("- Same PC: run two separate game installations. Internet host: forward UDP 27888.");
+    }
+};
+
 class CCC_Quit : public IConsole_Command
 {
 public:
@@ -1038,6 +1056,8 @@ Fvector3 ssfx_wetness_multiplier = Fvector3().set(1.0f, 0.3f, 0.0f);
 void CCC_Register()
 {
 	CMD1(CCC_CoopNet, "coop_host");
+    CMD1(CCC_CoopHelp, "/help");
+    CMD1(CCC_CoopHelp, "coop_help");
     CMD1(CCC_CoopNet, "coop_join");
     CMD1(CCC_CoopNet, "coop_join_menu");
     CMD1(CCC_CoopNet, "coop_settings_probe");

@@ -276,3 +276,7 @@ The 110-second respawn run passed (_build/coopnet-native-prediction-respawn1.log
 Gunplay audit: CWeapon/CWeaponMagazined already simulate host guest firing/reloading through native inventory Action calls; WeaponFire routes to native FireBullet and game_cl_single enables server-controlled hits. Native net_Export/net_Import and weapon-state events are candidates for the missing stable-ID weapon/shot/attachment presentation adapter. Full bidirectional gun/gear presentation, internet-delay behavior, manual FPS sensitivity and the quest/reward loop remain unfinished.
 
 Both installed EXEs/symbols updated; fixture/build/installed EXE hashes match. Backup: ..\backups\20261009-153623-coopnet-native-prediction. Both peers require protocol 21.
+
+## Console connection help — 2026-10-09
+
+Added /help and coop_help with host/join syntax, same-PC loopback example, unique character IDs, matching fingerprints, status/disconnect and respawn. General engine help remains available. DX11 CoopNet build passed (_build/coopnet-console-help-build.log); both aliases executed successfully in a disposable native client before quit. Both installed EXE/PDB copies match the smoke-tested executable. Backup: C:\Users\deaDParrot\Documents\StalkerDev\backups\20261009-155254-coopnet-console-help. This change does not advance the unfinished quest/reward or weapon-presentation work.
