@@ -128,7 +128,7 @@ bool write_join_profile_file(const std::vector<std::uint8_t>& bytes) {
     return MoveFileExA(partial,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
 }
 void export_settings_audit() {
-    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script","task_manager.script","task_objects.script","ui_pda.script"}) {
+    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script","task_manager.script","task_objects.script","dialogs.script","_g.script","ui_pda.script"}) {
         string_path source,target; FS.update_path(source,"$game_scripts$",name); FS.update_path(target,"$app_data_root$",name);
         FS.file_copy(source,target);
     }
@@ -497,6 +497,7 @@ bool native_dialogue_probe_gate=true;
 unsigned native_dialogue_probe_actions=0;
 int native_dialogue_gate_predicate(lua_State* state) { lua_pushboolean(state,native_dialogue_probe_gate); return 1; }
 int native_dialogue_gate_action(lua_State*) { ++native_dialogue_probe_actions; return 0; }
+int native_dialogue_context_object(lua_State* state) { lua_pushvalue(state,lua_upvalueindex(1)); return 1; }
 }
 NativeDialogueOutput::NativeDialogueOutput(coopnet::DialogueView& view):previous_(remote_dialogue_output) {
     remote_dialogue_output=&view;
@@ -536,18 +537,46 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
         !owner->IsTalkEnabled() || owner->IsTalking() || owner->IsTrading() || actor->Position().distance_to(target->Position())>3.f) return false;
     auto* state=ai().script_engine().lua();
     if (!state || !actor->m_known_info_registry || !g_actor->m_known_info_registry) return false;
+    // Native dialogue scripts resolve their NPC through db.storage. An online
+    // object without its script binder cannot safely supply dynamic captions.
+    const int script_top=lua_gettop(state);
+    lua_getglobal(state,"db");
+    bool scripted_npc=false;
+    if (lua_istable(state,-1)) {
+        lua_getfield(state,-1,"storage");
+        if (lua_istable(state,-1)) {
+            lua_rawgeti(state,-1,target->ID());
+            if (lua_istable(state,-1)) {
+                luabind::object db=luabind::get_globals(state)["db"];
+                luabind::object storage=db["storage"];
+                luabind::object binding=storage[target->ID()];
+                luabind::object registered=binding["object"];
+                const auto npc=luabind::object_cast_nothrow<CScriptGameObject*>(registered);
+                scripted_npc=npc && *npc==target->lua_game_object();
+            }
+        }
+    }
+    lua_settop(state,script_top);
+    if (!scripted_npc) return false;
     // Existing Anomaly topic predicates consult db.actor for inventory and the
     // actor info registry for shared world flags. Restore both even on unwinding.
+    NativeDialogueOutput output(view);
     struct Context {
-        lua_State* state; CActor* actor; int top,reference=LUA_NOREF;
+        lua_State* state; CActor* actor; CInventoryOwner* owner;
+        int top,reference=LUA_NOREF,actor_reference=LUA_NOREF,speaker_reference=LUA_NOREF,id_reference=LUA_NOREF;
+        bool talking=false;
         using Infos=std::remove_reference_t<decltype(g_actor->m_known_info_registry->registry().objects())>;
         Infos infos;
-        Context(lua_State* s,CActor* a):state(s),actor(a),top(lua_gettop(s)),infos(a->m_known_info_registry->registry().objects()) {}
+        Context(lua_State* s,CActor* a,CInventoryOwner* o):state(s),actor(a),owner(o),top(lua_gettop(s)),infos(a->m_known_info_registry->registry().objects()) {}
         ~Context() {
+            if (talking) { actor->CInventoryOwner::StopTalk(); owner->CInventoryOwner::StopTalk(); }
             actor->m_known_info_registry->registry().objects()=infos;
             if (reference!=LUA_NOREF) {
                 lua_getglobal(state,"db"); lua_rawgeti(state,LUA_REGISTRYINDEX,reference); lua_setfield(state,-2,"actor");
                 luaL_unref(state,LUA_REGISTRYINDEX,reference);
+            }
+            for (auto entry:{std::make_pair("get_actor",actor_reference),std::make_pair("get_speaker",speaker_reference),std::make_pair("AC_ID",id_reference)}) if (entry.second!=LUA_NOREF) {
+                lua_rawgeti(state,LUA_REGISTRYINDEX,entry.second); lua_setglobal(state,entry.first); luaL_unref(state,LUA_REGISTRYINDEX,entry.second);
             }
             lua_settop(state,top);
         }
@@ -556,9 +585,21 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
             lua_getfield(state,-1,"actor"); reference=luaL_ref(state,LUA_REGISTRYINDEX);
             luabind::object value(state,actor->lua_game_object()); value.pushvalue(); lua_setfield(state,-2,"actor");
             actor->m_known_info_registry->registry().objects()=g_actor->m_known_info_registry->registry().objects();
+            lua_getglobal(state,"get_actor"); actor_reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            lua_getglobal(state,"get_speaker"); speaker_reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            lua_getglobal(state,"AC_ID"); id_reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            lua_pushinteger(state,actor->ID()); lua_setglobal(state,"AC_ID");
+            value.pushvalue(); lua_pushcclosure(state,native_dialogue_context_object,1); lua_setglobal(state,"get_actor");
+            luabind::object npc(state,owner->cast_game_object()->lua_game_object());
+            npc.pushvalue(); lua_pushcclosure(state,native_dialogue_context_object,1); lua_setglobal(state,"get_speaker");
+            actor->CInventoryOwner::StartTalk(owner,false); owner->CInventoryOwner::StartTalk(actor,false); talking=true;
+            luabind::functor<CScriptGameObject*> get_actor,get_speaker;
+            if (!ai().script_engine().functor("get_actor",get_actor) || !ai().script_engine().functor("get_speaker",get_speaker) ||
+                get_actor()!=actor->lua_game_object() || get_speaker()!=owner->cast_game_object()->lua_game_object() ||
+                actor->lua_game_object()->get_talking_npc()!=owner->cast_game_object()->lua_game_object()) return false;
             return true;
         }
-    } context(state,actor);
+    } context(state,actor,owner);
     if (!context.bind()) return false;
     auto* manager=smart_cast<CPhraseDialogManager*>(actor);
     manager->UpdateAvailableDialogs(partner);
@@ -567,6 +608,10 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
         DIALOG_SHARED_PTR dialog=available;
         manager->InitDialog(partner,dialog);
         struct Cancel { CPhraseDialogManager* manager; DIALOG_SHARED_PTR& dialog; ~Cancel() { manager->CancelDialog(dialog); } } cancel{manager,dialog};
+        // Dynamic captions may depend on data prepared by the root phrase's
+        // predicate (for example Anomaly's lifestyle_id). Evaluate that root
+        // for these exact speakers before reading its text; never run actions.
+        if (!dialog->Precondition(actor,target) || !dialog->CanSayPhrase(manager,"0")) continue;
         const char* id=dialog->GetDialogID().c_str(); const char* caption=dialog->DialogCaption();
         if (!id || !caption || !coopnet::shared_name(id,128) || strlen(caption)>4096 || view.choices.size()>=256) continue;
         view.choices.push_back({id,{},caption});
@@ -590,11 +635,20 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
         actor->Position()=object->Position(); actor->Position().x+=1.f;
         coopnet::DialogueRequest request{entity,coopnet::world_anchor(session,object->ID()),binding.second.incarnation,generation,level,1,0,coopnet::DialogueAction::Open,{},{}};
         lua_getglobal(state,"db"); lua_getfield(state,-1,"actor"); const int saved=luaL_ref(state,LUA_REGISTRYINDEX); lua_pop(state,1);
+        lua_getglobal(state,"get_actor"); const int saved_actor=luaL_ref(state,LUA_REGISTRYINDEX);
+        lua_getglobal(state,"get_speaker"); const int saved_speaker=luaL_ref(state,LUA_REGISTRYINDEX);
+        lua_getglobal(state,"AC_ID"); const int saved_id=luaL_ref(state,LUA_REGISTRYINDEX);
         const auto top=lua_gettop(state); coopnet::DialogueView view;
         const bool captured=capture_native_dialogue_topics(session,actor_id,request,1,view);
         lua_getglobal(state,"db"); lua_getfield(state,-1,"actor"); lua_rawgeti(state,LUA_REGISTRYINDEX,saved);
         const bool restored=lua_rawequal(state,-1,-2)!=0; lua_pop(state,3); luaL_unref(state,LUA_REGISTRYINDEX,saved);
-        if (!restored || lua_gettop(state)!=top || actor->m_known_info_registry->registry().objects()!=original_infos)
+        bool helpers_restored=true;
+        for (auto entry:{std::make_pair("get_actor",saved_actor),std::make_pair("get_speaker",saved_speaker),std::make_pair("AC_ID",saved_id)}) {
+            lua_getglobal(state,entry.first); lua_rawgeti(state,LUA_REGISTRYINDEX,entry.second);
+            helpers_restored=helpers_restored && lua_rawequal(state,-1,-2)!=0; lua_pop(state,2); luaL_unref(state,LUA_REGISTRYINDEX,entry.second);
+        }
+        if (!restored || !helpers_restored || actor->IsTalking() || owner->IsTalking() || actor->GetTalkPartner() || owner->GetTalkPartner() ||
+            lua_gettop(state)!=top || actor->m_known_info_registry->registry().objects()!=original_infos)
             throw std::runtime_error("Native dialogue predicate context did not restore");
         if (!captured || view.choices.empty()) continue;
         auto invalid=request; ++invalid.incarnation;
@@ -654,6 +708,7 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
             throw std::runtime_error("Native remote dialogue transcript redirection failed");
         Msg("* CoopNet native dialogue transcript probe: player and NPC answers captured without host talk UI");
         Msg("* CoopNet native dialogue topics probe: section %s choices %u context restored stale incarnation and range denied",object->cNameSect().c_str(),static_cast<unsigned>(view.choices.size()));
+        Msg("* CoopNet native dialogue speaker probe: guest actor NPC speaker and talk flags bound then restored");
         actor->set_money(314159,false);
         if (actor->get_money()!=314159) throw std::runtime_error("Dialogue fixture guest money assignment failed");
         Msg("* CoopNet native dialogue topics probe: guest money assigned 314159");

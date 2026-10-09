@@ -261,6 +261,7 @@ if ($ContainerRecoveryProbe) {
 }
 
 if ($DialogueProbe) {
+    if ($logs.host -notmatch 'native dialogue speaker probe: guest actor NPC speaker and talk flags bound then restored') { throw 'Native guest/NPC talking context evidence missing.' }
     if ($logs.host -notmatch 'native dialogue lifecycle probe: changed predicate prevented action wrong speaker and unoffered phrase denied cancel and reopen passed') { throw 'Native dialogue lifecycle evidence missing.' }
     if ($logs.host -notmatch 'native dialogue transcript probe: player and NPC answers captured without host talk UI') { throw 'Native dialogue reply redirection evidence missing.' }
     if ($logs.host -notmatch 'native dialogue topics probe: section .+ choices [1-9][0-9]* context restored stale incarnation and range denied') { throw 'Native NPC dialogue topics evidence missing.' }

@@ -13,6 +13,7 @@
 #include "level.h"
 #include "game_base_space.h"
 #include "PhraseDialog.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "xrserver.h"
 #include "xrServer_Objects_ALife_Monsters.h"
 #include "alife_registry_wrappers.h"
@@ -290,6 +291,7 @@ void CInventoryOwner::StopTalk()
 {
 	m_pTalkPartner = NULL;
 	m_bTalking = false;
+	if (engine_coopnet::remote_dialogue_output_active()) return;
 
 	CUIGameSP* ui_sp = smart_cast<CUIGameSP*>(CurrentGameUI());
 	if (ui_sp && ui_sp->TalkMenu->IsShown())
