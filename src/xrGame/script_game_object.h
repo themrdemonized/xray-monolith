@@ -1240,6 +1240,12 @@ public:
 	::luabind::object GetDefaultShaders(bool bHud = false);
 	void SetShaderTexture(int id, LPCSTR shader, LPCSTR texture, bool bHud = false);
 	void ResetShaderTexture(int id, bool bHud = false);
+	::luabind::object GetHudMotionItemShaders();
+	void SetHudMotionItemShader(int id, LPCSTR shader, LPCSTR texture);
+	void ResetHudMotionItemShader(int id);
+	::luabind::object GetLegsShaders();
+	void SetLegsShader(int id, LPCSTR shader, LPCSTR texture);
+	void ResetLegsShader(int id);
 
 	script_attachment* AddAttachment(LPCSTR name, LPCSTR model_name);
 	script_attachment* GetAttachment(LPCSTR name);

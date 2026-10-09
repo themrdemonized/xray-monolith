@@ -812,6 +812,18 @@ _G.CHudItem__OnStateSwitch = function(obj, new_state, old_state)
 	SendScriptCallback("actor_on_item_state_switch", obj, new_state, old_state)
 end
 
+-- NLTP_ASHES: game.play_hud_motion item model created
+AddScriptCallback("actor_on_create_hud_motion_item")
+_G.player_hud__OnCreateHudMotionItem = function(section)
+	SendScriptCallback("actor_on_create_hud_motion_item", section)
+end
+
+-- NLTP_ASHES: first person legs model created
+AddScriptCallback("actor_on_create_legs")
+_G.player_legs_controller__OnCreateLegs = function(section)
+	SendScriptCallback("actor_on_create_legs", section)
+end
+
 -- NLTP_ASHES: Trigger actor_on_item_put_in_box callback when moving item to stash from slot
 function ActorMenu_on_item_after_move(npc_id, obj, mode, bag_from)
 	local box = level.object_by_id(npc_id)
