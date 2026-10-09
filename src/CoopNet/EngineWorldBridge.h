@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include "WorldSettings.h"
+#include "SharedWorld.h"
 class CObject;
 class CGameObject;
 class CSE_Abstract;
@@ -38,7 +39,13 @@ struct NativeWorldPose {
     std::uint16_t object=0xffff;
     std::uint64_t incarnation=0;
     float position[3]{},rotation[3]{},health=0;
+    std::string section,visual;
 };
+void queue_npc_catalogue(std::uint64_t session,std::uint32_t level,const std::vector<coopnet::NPCRecord>& records);
+void update_npc_catalogue();
+bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::QuestState& quests);
+bool apply_shared_quests(std::uint64_t session,std::uint32_t level,const coopnet::QuestState& quests);
+void exercise_shared_world_probe(double elapsed,unsigned& phase,double& wait,std::uint16_t& object);
 bool capture_world_objects(std::uint32_t& level,std::vector<NativeWorldPose>& objects);
 bool apply_world_object(std::uint64_t session,std::uint64_t anchor,std::uint64_t incarnation,
     const float* position,const float* rotation,float health);

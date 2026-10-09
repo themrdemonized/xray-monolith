@@ -1,4 +1,4 @@
-param([ValidateRange(120,300)][int]$TravelSeconds=150,[ValidateRange(60,300)][int]$RestartSeconds=90)
+param([ValidateRange(120,300)][int]$TravelSeconds=150,[ValidateRange(60,300)][int]$RestartSeconds=90,[switch]$SharedWorldProbe)
 $ErrorActionPreference='Stop'
 $probeRoot=Join-Path $PSScriptRoot ('_build\coopnet-persistence-'+[Guid]::NewGuid().ToString('N'))
 foreach ($role in @('host','guest')) {
@@ -7,7 +7,14 @@ foreach ($role in @('host','guest')) {
     New-Item $target -ItemType Directory -Force | Out-Null
     if (Test-Path $cache) { Copy-Item -LiteralPath $cache -Destination $target -Recurse }
 }
-& "$PSScriptRoot\test-coopnet-engine.ps1" -WeaponProbe -PartyProbe -Seconds $TravelSeconds -TestDirectory $probeRoot
+& "$PSScriptRoot\test-coopnet-engine.ps1" -WeaponProbe -PartyProbe -SharedWorldProbe:$SharedWorldProbe -Seconds $TravelSeconds -TestDirectory $probeRoot
+if ($SharedWorldProbe) {
+    $travelGuestLog=Get-ChildItem (Join-Path $probeRoot 'guest\appdata\logs') -Filter '*.log' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    $travelGuestText=Get-Content -LiteralPath $travelGuestLog.FullName -Raw
+    $completedMatches=[regex]::Matches($travelGuestText,'CoopNet shared probe: guest quest coopnet_probe_quest state 2')
+    if ($completedMatches.Count -lt 2 -or $travelGuestText -notmatch 'CoopNet NPC catalogue received: objects \d+ level 2') { throw 'Shared quests or NPC catalogue did not resume after party travel.' }
+    Write-Output 'SHARED_WORLD_TRAVEL_PASS: NPC catalogue and completed shared quest were reapplied after party travel.'
+}
 $records=@(Get-ChildItem (Join-Path $probeRoot 'host\appdata\savedgames') -Filter 'coopnet-character-*-0000000000000002-*' -File)
 if ($records.Count -ne 2) { throw 'Expected both guest save journal records.' }
 $ordered=@($records | ForEach-Object {

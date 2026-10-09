@@ -1,5 +1,7 @@
 # Canonical world integration
 
+This page preserves the earlier canonical-snapshot checkpoint. Protocol 16 now adds dynamic NPC spawning/death/removal and host-owned quest/story-info snapshots; see [Shared world](SHARED_WORLD.md) and [Progress](PROGRESS.md) for current behavior and verification. Later loose-loot, saved-character, join/settings and respawn checkpoints supersede the remaining-work list below.
+
 Protocol 10 retains a canonical starting-world transfer. Host/join enable the current native integration directly; `coop_world_probe` remains an explicit diagnostic command. The host synchronizes current object state through the native save preparation path and creates a uniquely named session snapshot without changing the selected save name. The guest may start from the main menu, receives the host snapshot, verifies SHA-256 and the native save header, stores it under a locally derived session name, and loads it through the engine's normal lifecycle. No filename or native object ID is supplied by a transfer message.
 
 The transfer is capped at 64 MiB, uses ordered 8 KiB chunks, limits bulk output to roughly 1 MiB/s per connection, reserves reliable queue capacity for control messages and times out after 120 seconds. The host will not assign the map before a matching validated-load acknowledgement. The client acknowledges only after a native actor exists on the expected map and the native server's loading options identify the received snapshot. Socket backpressure pauses bulk production instead of overflowing the byte limit.

@@ -2,6 +2,15 @@
 
 Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. The active architecture has no location workers or independently active guest locations. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
 
+## Shared-world checkpoint — 2026-10-09
+
+Protocol 16 synchronizes ordinary loose-world loot, host NPC creation/death/removal and the host's native quest journal/story flags. Guests receive bounded typed snapshots and passive native NPC presentations, without running duplicate AI, death rewards or quest callbacks. Guest native task/info mutations are blocked. Loot revision conflicts retry with fresh request sequences, bounded attempts/expiry and unchanged ownership/incarnation checks. The host still validates every transfer. See SHARED_WORLD.md for scope and wire limits.
+
+All sixteen standalone suites passed (`_build/coopnet-shared-world-final-unit2.log`), and the final DX11 build passed (`_build/coopnet-shared-world-loot-build.log`). The 110-second two-client native test passed (`_build/coopnet-shared-world-loot-native.log`): one dynamic dog spawn/death/removal, completed/failed quests and story-info updates, denied guest quest writes, pickup/drop/re-pickup including a deliberately stale revision, movement/rendering/canonical baseline and host settings locks. Original saves remained unchanged. This verifies native/backend behavior; clicked PDA/UI appearance is not visually verified.
+
+The final 180-second travel plus 90-second restart test passed (`_build/coopnet-shared-world-loot-persistence.log`): both clients loaded level 2, the NPC catalogue and completed quest reapplied there, equipment/active slot/two rounds survived travel and host restart, and corrupted newest record 101 fell back to the previous valid guest state. Original saves remained unchanged.
+
+Corpse/stash inventories, story/quest loot, exact ragdoll/animation/equipment presentation, guest dialogue quest acceptance/turn-in, shared rewards and mod-specific Lua task tables remain unfinished. No location workers are introduced.
 ## Respawn checkpoint — 2026-10-09
 
 Protocol 15 adds a Respawn popup for zero-health players. The host chooses a living connected teammate on the same map and revives the requester at that teammate's current XYZ position. Guests send identity/generation/level requests, never destination coordinates. Owned requests, stale bindings, replay, reliable replies and pre-respawn death/position packets are validated. Equipment is retained; native condition and velocity reset. An all-dead party cannot respawn, and downed players do not count toward location exits. Held firing input is cleared. Guest local death is ignored until the host confirms zero health, avoiding an unrevivable client-only death.

@@ -44,6 +44,9 @@
 #include "lua.hpp"
 #include "alife_time_manager.h"
 #include "game_cl_single.h"
+#include "GametaskManager.h"
+#include "GameTask.h"
+#include "alife_registry_wrappers.h"
 extern string_path g_last_saved_game;
 namespace engine_coopnet {
 namespace {
@@ -77,13 +80,18 @@ bool ensure_options_hook(lua_State*& state) {
 void options_function(lua_State* state,const char* name) {
     lua_getglobal(state,"coopnet_options"); lua_getfield(state,-1,name); lua_remove(state,-2);
 }
-struct WorldObject { std::uint64_t incarnation=0; bool replica=false, animated=false; std::uint64_t authority=0; };
+struct WorldObject { std::uint64_t incarnation=0; bool replica=false, animated=false; std::uint64_t authority=0,anchor=0; bool dead=false; };
 xr_map<const CGameObject*,WorldObject> world_objects;
 std::uint64_t world_incarnation=0, replica_frames=0, replica_schedules=0;
 unsigned world_replica_count=0;
 bool collect_world_objects=false;
 u16 replica_local_root=0xffff;
 std::string replica_world_save;
+std::uint64_t npc_session=0;
+std::uint32_t npc_level=0;
+std::vector<coopnet::NPCRecord> npc_catalogue;
+bool npc_dirty=false;
+xr_map<coopnet::Identity,std::pair<u16,std::uint64_t>> npc_pending;
 bool safe_baseline_name(const char* name) {
     if (!name || strncmp(name,"coopnet-",8) || strlen(name)>64) return false;
     for (const char* c=name;*c;++c) if (!((*c>='a' && *c<='z') || (*c>='0' && *c<='9') || *c=='-')) return false;
@@ -107,7 +115,7 @@ bool write_join_profile_file(const std::vector<std::uint8_t>& bytes) {
     return MoveFileExA(partial,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
 }
 void export_settings_audit() {
-    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script"}) {
+    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script","task_manager.script","ui_pda.script"}) {
         string_path source,target; FS.update_path(source,"$game_scripts$",name); FS.update_path(target,"$app_data_root$",name);
         FS.file_copy(source,target);
     }
@@ -280,6 +288,7 @@ bool capture_world_objects(std::uint32_t& level,std::vector<NativeWorldPose>& ob
         auto* entity=smart_cast<CEntityAlive*>(object);
         if (!entity || object->cast_actor() || object->getDestroy()) continue;
         NativeWorldPose pose; pose.object=object->ID(); pose.incarnation=record.second.incarnation;
+        pose.section=object->cNameSect().c_str(); if (object->cNameVisual().size()) pose.visual=object->cNameVisual().c_str();
         for (unsigned axis=0;axis<3;++axis) pose.position[axis]=object->Position()[axis];
         object->XFORM().getHPB(pose.rotation[0],pose.rotation[1],pose.rotation[2]);
         pose.health=entity->GetfHealth(); clamp(pose.health,-1.f,1.f); objects.push_back(pose);
@@ -292,17 +301,211 @@ bool apply_world_object(std::uint64_t session_id,std::uint64_t anchor,std::uint6
     if (!world_level_is_replica() || !g_pGameLevel->bReady) return false;
     for (auto& record:world_objects) {
         auto* object=const_cast<CGameObject*>(record.first);
-        if (!record.second.replica || object->getDestroy() || coopnet::world_anchor(session_id,object->ID())!=anchor) continue;
+        if (!record.second.replica || object->getDestroy() || (record.second.anchor ? record.second.anchor : coopnet::world_anchor(session_id,object->ID()))!=anchor) continue;
         auto* entity=smart_cast<CEntityAlive*>(object);
         if (!entity || object->cast_actor() || (record.second.authority && record.second.authority!=incarnation)) return false;
+        if (record.second.dead && health>0) return false;
         record.second.authority=incarnation;
         object->XFORM().setHPB(rotation[0],rotation[1],rotation[2]); object->Position().set(position[0],position[1],position[2]);
-        if (auto* support=entity->character_physics_support()) if (support->movement()) {
+        if (auto* support=entity->character_physics_support()) if (support->movement() && support->movement()->CharacterExist()) {
             support->movement()->SetPosition(object->Position()); support->movement()->DisableCharacter();
         }
-        entity->SetfHealth(health); return true;
+        entity->SetfHealth(health);
+        if (health<=0 && !record.second.dead) {
+            record.second.dead=true; if (!entity->AlreadyDie()) entity->set_death_time();
+            // Only build the presentation shell. Native Die invokes quest/reputation callbacks.
+            if (!entity->PPhysicsShell()) if (auto* support=entity->character_physics_support()) support->in_Die();
+            if (entity->PPhysicsShell()) entity->PPhysicsShell()->Disable();
+            Msg("* CoopNet NPC death applied: anchor %llu",anchor);
+        }
+        return true;
     }
     return false;
+}
+void queue_npc_catalogue(std::uint64_t session,std::uint32_t level,const std::vector<coopnet::NPCRecord>& records) {
+    for (auto pending=npc_pending.begin();pending!=npc_pending.end();) {
+        const auto match=std::find_if(records.begin(),records.end(),[&](const coopnet::NPCRecord& n) { return n.pose.anchor==pending->first && n.pose.incarnation==pending->second.second; });
+        if (match==records.end()) {
+            if (g_pGameLevel && Level().Server && Level().Server->ID_to_entity(pending->second.first)) {
+                NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,pending->second.first); CGameObject::u_EventSend(packet);
+            }
+            pending=npc_pending.erase(pending);
+        } else ++pending;
+    }
+    npc_session=session; npc_level=level; npc_catalogue=records;
+    npc_dirty=true;
+    Msg("* CoopNet NPC catalogue received: objects %u level %u",static_cast<unsigned>(records.size()),level);
+}
+void update_npc_catalogue() {
+    if (!npc_dirty && npc_pending.empty()) return;
+    LocalActorPose local; if (!npc_session || !world_level_is_replica() || !capture_local_actor(local) || local.level!=npc_level) return;
+    npc_dirty=false;
+    // Bind completed asynchronous spawns before catalogue retirement checks. Their
+    // locally allocated IDs must never be mistaken for a missing host anchor.
+    for (const auto& pending:npc_pending) {
+        auto* object=smart_cast<CGameObject*>(Level().Objects.net_Find(pending.second.first));
+        if (!object || object->getDestroy()) continue;
+        auto found=world_objects.find(object);
+        if (found!=world_objects.end()) { found->second.anchor=pending.first; found->second.authority=pending.second.second; }
+    }
+    std::map<coopnet::Identity,const coopnet::NPCRecord*> retained;
+    for (const auto& n:npc_catalogue) retained[n.pose.anchor]=&n;
+    for (const auto& record:world_objects) {
+        auto* object=const_cast<CGameObject*>(record.first);
+        if (!record.second.replica || object->cast_actor() || !smart_cast<CEntityAlive*>(object) || object->getDestroy()) continue;
+        const auto anchor=record.second.anchor ? record.second.anchor : coopnet::world_anchor(npc_session,object->ID());
+        const auto expected=retained.find(anchor);
+        if (expected==retained.end() || (record.second.authority && expected->second->pose.incarnation!=record.second.authority) ||
+            xr_strcmp(object->cNameSect().c_str(),expected->second->section.c_str()) ||
+            (!expected->second->visual.empty() && xr_strcmp(object->cNameVisual().size() ? object->cNameVisual().c_str() : "",expected->second->visual.c_str()))) {
+            NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,object->ID()); CGameObject::u_EventSend(packet);
+            Msg("* CoopNet NPC removed: anchor %llu",anchor);
+        }
+    }
+    for (const auto& n:npc_catalogue) {
+        CGameObject* object=nullptr;
+        auto pending=npc_pending.find(n.pose.anchor);
+        if (pending!=npc_pending.end()) {
+            object=smart_cast<CGameObject*>(Level().Objects.net_Find(pending->second.first));
+            if (!object && Level().Server->ID_to_entity(pending->second.first)) continue;
+            if (object) {
+                auto found=world_objects.find(object); if (found!=world_objects.end()) { found->second.anchor=n.pose.anchor; found->second.authority=n.pose.incarnation; }
+                Msg("* CoopNet NPC spawned: section %s anchor %llu",n.section.c_str(),n.pose.anchor);
+            }
+            npc_pending.erase(pending);
+        }
+        if (!object) for (const auto& record:world_objects) {
+            auto* candidate=const_cast<CGameObject*>(record.first);
+            if (record.second.replica && !candidate->getDestroy() && (record.second.anchor ? record.second.anchor : coopnet::world_anchor(npc_session,candidate->ID()))==n.pose.anchor &&
+                (!record.second.authority || record.second.authority==n.pose.incarnation) && xr_strcmp(candidate->cNameSect().c_str(),n.section.c_str())==0) { object=candidate; break; }
+        }
+        if (!object) {
+            if (!pSettings->section_exist(n.section.c_str())) continue;
+            Fvector position; position.set(n.pose.position[0],n.pose.position[1],n.pose.position[2]);
+            const auto node=ai().level_graph().vertex(g_actor->ai_location().level_vertex_id(),position); if (!ai().level_graph().valid_vertex_id(node)) continue;
+            auto* abstract=Level().spawn_item(n.section.c_str(),position,node,0xffff,true);
+            auto* creature=smart_cast<CSE_ALifeCreatureAbstract*>(abstract);
+            if (!creature || smart_cast<CSE_ALifeCreatureActor*>(abstract)) { F_entity_Destroy(abstract); continue; }
+            if (!n.visual.empty()) {
+                string_path model; xr_sprintf(model,"%s.ogf",n.visual.c_str());
+                if (!FS.exist("$game_meshes$",n.visual.c_str()) && !FS.exist("$game_meshes$",model)) { F_entity_Destroy(abstract); continue; }
+                if (auto* visual=abstract->visual()) visual->visual_name=n.visual.c_str();
+            }
+            abstract->m_bALifeControl=false; creature->set_health(1.f);
+            abstract->o_Angle.set(n.pose.rotation[0],n.pose.rotation[1],n.pose.rotation[2]);
+            NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+            auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
+            if (created) npc_pending[n.pose.anchor]={created->ID,n.pose.incarnation};
+            continue;
+        }
+        // Catalogue supplies the initial pose and reliable life/death state; later poses remain sequenced.
+        auto found=world_objects.find(object);
+        if (found!=world_objects.end() && !found->second.authority) {
+            found->second.anchor=n.pose.anchor;
+            apply_world_object(npc_session,n.pose.anchor,n.pose.incarnation,n.pose.position.data(),n.pose.rotation.data(),n.pose.health);
+        } else if (n.pose.health<=0 && found!=world_objects.end() && !found->second.dead)
+            apply_world_object(npc_session,n.pose.anchor,n.pose.incarnation,n.pose.position.data(),n.pose.rotation.data(),n.pose.health);
+    }
+}
+bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::QuestState& quests) {
+    LocalActorPose local; if (!capture_local_actor(local) || world_level_is_replica()) return false; level=local.level; quests={};
+    std::map<std::string,const CGameTask*> latest;
+    for (const auto& key:Level().GameTaskManager().GetGameTasks()) if (key.game_task && key.game_task->GetTaskState()!=eTaskStateDummy) {
+        auto& selected=latest[key.task_id.c_str()]; if (!selected || key.game_task->m_ReceiveTime>=selected->m_ReceiveTime) selected=key.game_task;
+    }
+    for (const auto& key:latest) {
+        const auto* task=key.second;
+        coopnet::QuestRecord q; q.id=key.first;
+        auto text=[](shared_str s) { return s.size() ? std::string(s.c_str()) : std::string{}; };
+        q.title=text(task->m_Title); q.description=text(task->m_Description); q.icon=text(task->m_icon_texture_name); q.hint=text(task->m_map_hint); q.spot=text(task->m_map_location);
+        q.state=static_cast<std::uint8_t>(task->GetTaskState()); q.type=task->GetTaskType()==eTaskTypeDummy ? 255 : static_cast<std::uint8_t>(task->GetTaskType());
+        if (task->m_map_object_id!=0xffff && !q.spot.empty()) q.target=coopnet::world_anchor(session,task->m_map_object_id);
+        q.priority=task->m_priority; q.times={task->m_ReceiveTime,task->m_FinishTime,task->m_TimeToComplete,task->m_timer_finish}; quests.tasks.push_back(std::move(q));
+    }
+    for (const auto& info:g_actor->m_known_info_registry->registry().objects()) quests.infos.emplace_back(info.c_str());
+    return true;
+}
+bool apply_shared_quests(std::uint64_t session,std::uint32_t level,const coopnet::QuestState& quests) {
+    if (!npc_pending.empty()) return false;
+    LocalActorPose local; if (!world_level_is_replica() || !capture_local_actor(local) || local.level!=level) return false;
+    auto& manager=Level().GameTaskManager(); auto& tasks=manager.GetGameTasks();
+    std::set<std::string> retained; for (const auto& q:quests.tasks) retained.insert(q.id);
+    std::set<std::string> seen;
+    for (auto it=tasks.begin();it!=tasks.end();) {
+        if (!retained.count(it->task_id.c_str()) || !seen.insert(it->task_id.c_str()).second) { it->game_task->RemoveMapLocations(false); it->destroy(); it=tasks.erase(it); } else ++it;
+    }
+    for (const auto& q:quests.tasks) {
+        auto* task=manager.HasGameTask(shared_str(q.id.c_str()),false);
+        if (!task) { task=xr_new<CGameTask>(); task->m_ID=q.id.c_str(); tasks.push_back(SGameTaskKey(task->m_ID)); tasks.back().game_task=task; }
+        task->m_Title=q.title.c_str(); task->m_Description=q.description.c_str(); task->m_icon_texture_name=q.icon.c_str(); task->m_map_hint=q.hint.c_str();
+        task->m_priority=q.priority; task->SetType_script(q.type==255 ? eTaskTypeDummy : q.type);
+        task->m_ReceiveTime=q.times[0]; task->m_FinishTime=q.times[1]; task->m_TimeToComplete=q.times[2]; task->m_timer_finish=q.times[3];
+        u16 target=0xffff;
+        if (q.target) {
+            for (const auto& object:world_objects) if ((object.second.anchor ? object.second.anchor : coopnet::world_anchor(session,object.first->ID()))==q.target && !object.first->getDestroy()) { target=object.first->ID(); break; }
+            if (target==0xffff && ai().get_alife()) for (const auto& object:ai().alife().objects().objects()) if (coopnet::world_anchor(session,object.first)==q.target) { target=object.first; break; }
+        }
+        if (q.state==eTaskStateInProgress && target!=0xffff && !q.spot.empty() && (task->m_map_object_id!=target || xr_strcmp(task->m_map_location.size() ? task->m_map_location.c_str() : "",q.spot.c_str())))
+            task->ChangeMapLocation(q.spot.c_str(),target);
+        if (q.state==eTaskStateInProgress && (q.spot.empty() || target==0xffff)) task->RemoveMapLocations(false);
+        task->ApplyCoopState(static_cast<ETaskState>(q.state));
+    }
+    auto& infos=g_actor->m_known_info_registry->registry().objects(); infos.clear(); for (const auto& info:quests.infos) infos.push_back(shared_str(info.c_str()));
+    if (manager.HasGameTask(shared_str("coopnet_probe_quest"),false)) {
+        const bool expected=std::find(quests.infos.begin(),quests.infos.end(),"coopnet_shared_probe_info")!=quests.infos.end();
+        if (g_actor->HasInfo(shared_str("coopnet_shared_probe_info"))!=expected) throw std::runtime_error("Shared quest info registry mismatch");
+        Msg("* CoopNet shared probe: guest story info %s",expected ? "present" : "removed");
+    }
+    manager.CoopTasksChanged();
+    for (const auto& q:quests.tasks) if (q.id=="coopnet_probe_quest" || q.id=="coopnet_probe_fail") {
+        auto* mirrored=manager.HasGameTask(shared_str(q.id.c_str()),false);
+        if (!mirrored || mirrored->GetTaskState()!=q.state || mirrored->m_Description!=shared_str(q.description.c_str())) throw std::runtime_error("Native shared quest mismatch");
+        if (q.id=="coopnet_probe_quest" && q.state==eTaskStateInProgress) {
+            const auto info_count=infos.size(); g_actor->TransferInfo(shared_str("coopnet_guest_forged"),true);
+            mirrored->UpdateState();
+            if (infos.size()!=info_count) throw std::runtime_error("Guest quest info authority guard failed");
+            manager.SetTaskState(mirrored,eTaskStateCompleted);
+            if (mirrored->GetTaskState()!=eTaskStateInProgress) throw std::runtime_error("Guest quest completion authority guard failed");
+            Msg("* CoopNet shared probe: guest quest writes denied");
+        }
+        Msg("* CoopNet shared probe: guest quest %s state %u",q.id.c_str(),q.state);
+    }
+    Msg("* CoopNet quests applied: tasks %u infos %u",static_cast<unsigned>(quests.tasks.size()),static_cast<unsigned>(quests.infos.size())); return true;
+}
+void exercise_shared_world_probe(double elapsed,unsigned& phase,double& wait,std::uint16_t& object) {
+    LocalActorPose local; if (!capture_local_actor(local) || world_level_is_replica() || phase>=3) return;
+    wait+=elapsed; if (wait<(phase ? 8. : 5.)) return;
+    auto& manager=Level().GameTaskManager();
+    if (!phase) {
+        if (!pSettings->section_exist("dog_weak")) throw std::runtime_error("Shared probe dog section missing");
+        Fvector position=g_actor->Position(); position.x+=6.f;
+        const auto node=ai().level_graph().vertex(g_actor->ai_location().level_vertex_id(),position);
+        auto* abstract=Level().spawn_item("dog_weak",position,node,0xffff,true); abstract->m_bALifeControl=false;
+        NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+        auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
+        if (!created) throw std::runtime_error("Shared probe NPC spawn failed"); object=created->ID;
+        auto* persistent=smart_cast<CSE_ALifeDynamicObject*>(created);
+        if (!persistent || !ai().get_alife()) throw std::runtime_error("Shared probe NPC ALife registration unavailable");
+        persistent->m_bOnline=true; persistent->m_bALifeControl=true;
+        const_cast<CALifeSimulator&>(ai().alife()).create(persistent);
+        for (const auto* id:{"coopnet_probe_quest","coopnet_probe_fail"}) {
+            auto* task=xr_new<CGameTask>(); task->m_ID=id; task->m_Title="Co-op test objective"; task->m_Description="Host-owned quest progress";
+            task->SetType_script(eTaskTypeAdditional); task->m_ReceiveTime=Level().GetGameTime(); task->m_TimeToComplete=task->m_ReceiveTime;
+            task->OnArrived(); manager.GetGameTasks().push_back(SGameTaskKey(task->m_ID)); manager.GetGameTasks().back().game_task=task;
+        }
+        g_actor->m_known_info_registry->registry().objects().push_back(shared_str("coopnet_shared_probe_info"));
+        manager.CoopTasksChanged(); phase=1; wait=0; Msg("* CoopNet shared probe: host NPC and quests created");
+    } else if (phase==1) {
+        auto* entity=smart_cast<CEntityAlive*>(Level().Objects.net_Find(object)); if (!entity) throw std::runtime_error("Shared probe NPC missing before death");
+        entity->SetfHealth(0.f); entity->KillEntity(g_actor->ID(),TRUE);
+        manager.HasGameTask(shared_str("coopnet_probe_quest"),false)->ApplyCoopState(eTaskStateCompleted);
+        manager.HasGameTask(shared_str("coopnet_probe_fail"),false)->ApplyCoopState(eTaskStateFail);
+        manager.CoopTasksChanged(); phase=2; wait=0; Msg("* CoopNet shared probe: host NPC killed and quests completed/failed");
+    } else {
+        NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,object); CGameObject::u_EventSend(packet);
+        auto& infos=g_actor->m_known_info_registry->registry().objects(); infos.erase(std::remove(infos.begin(),infos.end(),shared_str("coopnet_shared_probe_info")),infos.end());
+        phase=3; Msg("* CoopNet shared probe: host corpse removed and info withdrawn");
+    }
 }
 bool world_level_is_replica() {
     if (replica_world_save.empty() || !g_pGameLevel || !Level().Server) return false;
@@ -342,7 +545,7 @@ bool update_world_replica(CObject* base) {
     if (found==world_objects.end() || !found->second.replica) return false;
     if (auto* physical=object->cast_physics_shell_holder()) {
         if (auto* support=physical->character_physics_support()) {
-            if (support->movement()) support->movement()->DisableCharacter();
+            if (support->movement() && support->movement()->CharacterExist()) support->movement()->DisableCharacter();
         }
         if (physical->PPhysicsShell()) physical->PPhysicsShell()->Disable();
     }
@@ -374,6 +577,8 @@ void world_level_stopped() {
         Msg("* CoopNet passive world stopped: frame updates %llu scheduled updates %llu",replica_frames,replica_schedules);
     if (world_level_is_replica()) replica_world_save.clear();
     world_objects.clear(); world_replica_count=0; replica_local_root=0xffff; replica_frames=0; replica_schedules=0;
+    npc_session=0; npc_level=0; npc_catalogue.clear(); npc_pending.clear();
+    npc_dirty=false;
 }
 namespace {
 std::uint64_t local_incarnation = 0;
@@ -829,6 +1034,9 @@ void exercise_local_world_loot_probe() {
         if (state!=local_world_items.end() && state->second.present && !state->second.owner &&
             native!=local_world_objects.end() && Level().Objects.net_Find(native->second)) {
             queue_local_inventory_action(native->second,coopnet::InventoryAction::Take); loot_probe_phase=3;
+            // Deliberately race a stale revision through the same queue used by pickup UI.
+            if (!local_inventory_actions.empty() && local_inventory_actions.back().item==loot_probe_item && local_inventory_actions.back().revision>1)
+                --local_inventory_actions.back().revision;
             Msg("* CoopNet world loot probe: second pickup requested");
         }
     }

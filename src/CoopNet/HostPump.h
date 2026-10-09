@@ -9,6 +9,7 @@
 #include "InventoryView.h"
 #include "WorldBaseline.h"
 #include "WorldState.h"
+#include "SharedWorld.h"
 #include "PartyTransition.h"
 #include "WorldSettings.h"
 #include "Respawn.h"
@@ -46,12 +47,17 @@ class HostPump {
         std::shared_ptr<const std::vector<std::uint8_t>> baseline_bytes;
         std::uint32_t baseline_offset=0;
         bool baseline_started=false, baseline_received=false;
+        std::array<std::shared_ptr<const std::vector<Frame>>,2> shared_frames;
+        std::array<std::size_t,2> shared_cursor{};
+        std::array<std::uint32_t,2> shared_revision{};
         double baseline_time=0, baseline_budget=65536;
     };
     HostSession session_;
     PartyStatus party_status_;
     std::uint32_t rules_revision_=0;
     std::vector<Frame> rules_frames_;
+    std::array<std::shared_ptr<const std::vector<Frame>>,2> shared_frames_;
+    std::array<std::uint32_t,2> shared_revision_{};
     Identity id_ = 0;
     std::uint32_t revision_ = 0;
     std::function<Identity()> tokens_;
@@ -217,6 +223,17 @@ public:
         status.revision=party_status_.revision+1; party_status_=status;
     }
     Identity identity() const { return id_; }
+    bool publish_shared_world(SharedKind kind,std::uint32_t level,std::uint32_t revision,const std::vector<std::uint8_t>& bytes) {
+        const auto index=static_cast<unsigned>(kind);
+        if (index>1 || !level || !revision || bytes.empty() || bytes.size()>shared_limit || revision<=shared_revision_[index]) return false;
+        auto frames=std::make_shared<std::vector<Frame>>();
+        for (std::size_t offset=0;offset<bytes.size();offset+=8192) {
+            const auto end=(std::min)(bytes.size(),offset+8192);
+            SharedChunk chunk{kind,level,revision,static_cast<std::uint32_t>(bytes.size()),static_cast<std::uint32_t>(offset),{bytes.begin()+offset,bytes.begin()+end}};
+            frames->push_back({Message::SharedWorld,Channel::World,Delivery::ReliableOrdered,revision,encode_shared_chunk(chunk)});
+        }
+        shared_frames_[index]=frames; shared_revision_[index]=revision; return true;
+    }
     bool publish_world_state(const WorldState& state) {
         if (session_.mode()!=Mode::Host || !valid_world_state(state)) return false;
         const Frame frame{Message::WorldState,Channel::AI,Delivery::UnreliableSequenced,state.tick,encode_world_state(state)};
@@ -241,6 +258,7 @@ public:
         for (auto& peer:peers_) if (peer.player==player && peer.ready) {
             if (peer.assigned || (peer.baseline.id && !peer.baseline_received) || !set_interest_level(player,0)) return false;
             peer.baseline=manifest; peer.baseline_bytes=std::move(bytes); peer.baseline_offset=0;
+            peer.shared_frames={}; peer.shared_cursor={}; peer.shared_revision={};
             peer.baseline_started=false; peer.baseline_received=false; peer.baseline_time=0; peer.baseline_budget=65536;
             return true;
         }
@@ -483,6 +501,19 @@ public:
                     if (keep) { peer.item_revisions[item.first]=item.second.revision; ++published; }
                 }
                 if (keep) keep=flush(peer);
+                // Finish the captured revision before adopting a newer one, including under backpressure.
+                if (keep && peer.ready && peer.baseline_received && !peer.assigned && peer.level) for (unsigned kind=0;kind<2;++kind) {
+                    if ((!peer.shared_frames[kind] || peer.shared_cursor[kind]==peer.shared_frames[kind]->size()) && peer.shared_revision[kind]!=shared_revision_[kind]) {
+                        peer.shared_frames[kind]=shared_frames_[kind]; peer.shared_cursor[kind]=0; peer.shared_revision[kind]=shared_revision_[kind];
+                    }
+                    for (unsigned n=0;keep && n<4 && peer.shared_frames[kind] && peer.shared_cursor[kind]<peer.shared_frames[kind]->size() && peer.outgoing.size()<48;++n) {
+                        const auto& frame=(*peer.shared_frames[kind])[peer.shared_cursor[kind]];
+                        SharedChunk chunk; decode_shared_chunk(frame.payload,chunk);
+                        if (chunk.level!=peer.level) { peer.shared_frames[kind].reset(); peer.shared_revision[kind]=0; break; }
+                        if (peer.queued_bytes+frame.payload.size()+16>256*1024) break;
+                        keep=queue(peer,frame); if (keep) ++peer.shared_cursor[kind];
+                    }
+                }
             }
             if (keep) { ++it; continue; }
             peer.transport->close();
@@ -506,6 +537,7 @@ public:
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
         items_.clear(); inventory_handler_={};
         rules_revision_=0; rules_frames_.clear();
+        shared_frames_={}; shared_revision_={};
     }
 };
 }

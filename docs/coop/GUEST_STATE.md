@@ -17,3 +17,5 @@ Initial join timeouts retry automatically with a bounded backoff. An existing cl
 `test-coopnet-persistence.ps1` runs firing and group travel in isolated appdata, damages the newest disposable guest record, and starts new host/client processes to check recovery of the weapon, active slot and two remaining rounds. Original native saves are hash-checked throughout. See PROGRESS.md for completed native runs and logs.
 
 Protocol 15 adds host-validated respawn at a living teammate. Downed players keep equipment, and an all-dead party cannot respawn. Guest local death waits for host confirmation. See [Respawn](RESPAWN.md) for popup behavior and limits.
+
+Protocol 16 mirrors the host's native quest journal and known story-info registry, and synchronizes NPC spawning/death/removal. Guest-owned faction data, mod-specific task tables, dialogue acceptance/turn-in and reward distribution remain separate unfinished work. See [Shared world](SHARED_WORLD.md).

@@ -3,6 +3,7 @@
 #include "alife_registry_wrappers.h"
 #include "ui/xrUIXmlParser.h"
 #include "GameTask.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "Level.h"
 #include "map_manager.h"
 #include "map_location.h"
@@ -93,6 +94,7 @@ CGameTask* CGameTaskManager::HasGameTask(const shared_str& id, bool only_inproce
 
 CGameTask* CGameTaskManager::GiveGameTaskToActor(CGameTask* t, u32 timeToComplete, bool bCheckExisting, u32 timer_ttl)
 {
+    if (engine_coopnet::world_level_is_replica()) { xr_delete(t); return NULL; }
 	t->CommitScriptHelperContents();
 	if (/* bCheckExisting &&*/ HasGameTask(t->m_ID, true))
 	{
@@ -131,8 +133,16 @@ CGameTask* CGameTaskManager::GiveGameTaskToActor(CGameTask* t, u32 timeToComplet
 	return t;
 }
 
+void CGameTaskManager::CoopTasksChanged()
+{
+    m_flags.set(eChanged,TRUE);
+    UpdateActiveTask();
+    if (CurrentGameUI()) CurrentGameUI()->UpdatePda();
+}
+
 void CGameTaskManager::SetTaskState(CGameTask* t, ETaskState state)
 {
+    if (engine_coopnet::world_level_is_replica()) return;
 	m_flags.set(eChanged, TRUE);
 
 	t->SetTaskState(state);

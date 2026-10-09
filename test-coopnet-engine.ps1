@@ -1,8 +1,9 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
 if ($RespawnProbe) { $WorldProbe=$true }
+if ($SharedWorldProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
 if ($StarterProbe) { $WorldProbe=$true }
@@ -10,7 +11,7 @@ if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe) -and !$TestDirectory) {
+if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -27,7 +28,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -167,7 +168,7 @@ if ($RestartProbe) {
     }
     Write-Output 'NATIVE_GUEST_RESTART_PASS: a new host process restored the saved guest weapon, active slot and two remaining rounds.'
 }
-Write-Output 'Development fixture only. Dynamic NPC lifecycles and complete inventory controls are not verified.'
+Write-Output 'Development fixture only. Full NPC animation, corpse/stash loot and complete inventory presentation are not verified.'
 
 if ($InventoryProbe) {
     if ($logs.guest -notmatch 'CoopNet guest cloned inventory retired:' -or
@@ -191,10 +192,34 @@ if ($WorldLootProbe) {
         $logs.host -notmatch 'CoopNet world loot probe: guest ownership confirmed stage 2' -or
         $logs.host -notmatch 'CoopNet world loot probe: persistent drop confirmed' -or
         $logs.host -notmatch 'CoopNet world loot probe: guest ownership confirmed stage 4' -or
-        $logs.guest -notmatch 'CoopNet world loot probe: second pickup requested') {
+        $logs.guest -notmatch 'CoopNet world loot probe: second pickup requested' -or
+        $logs.guest -notmatch 'CoopNet world loot revision conflict: retry scheduled' -or
+        $logs.guest -notmatch 'CoopNet world loot revision retry sent: sequence \d+ attempt [1-3]') {
         throw 'Persistent world loot, guest pickup, persistent drop or second pickup evidence missing.'
     }
     Write-Output 'NATIVE_WORLD_LOOT_PASS: client presentation pickup removed ALife ownership, drop restored persistent world ownership, and a second pickup transferred the same item back to the guest.'
+}
+if ($SharedWorldProbe) {
+    if ($logs.host -notmatch 'CoopNet shared probe: host NPC and quests created' -or
+        $logs.host -notmatch 'CoopNet shared probe: host NPC killed and quests completed/failed' -or
+        $logs.host -notmatch 'CoopNet shared probe: host corpse removed and info withdrawn' -or
+        $logs.guest -notmatch 'CoopNet NPC spawned: section dog_weak anchor' -or
+        $logs.guest -notmatch 'CoopNet NPC death applied: anchor' -or
+        $logs.guest -notmatch 'CoopNet NPC removed: anchor' -or
+        $logs.guest -notmatch 'CoopNet shared probe: guest quest writes denied' -or
+        $logs.guest -notmatch 'CoopNet shared probe: guest quest coopnet_probe_quest state 2' -or
+        $logs.guest -notmatch 'CoopNet shared probe: guest quest coopnet_probe_fail state 0' -or
+        $logs.guest -notmatch 'CoopNet shared probe: guest story info present' -or
+        $logs.guest -notmatch 'CoopNet shared probe: guest story info removed') {
+        throw 'Native NPC spawning/death/removal or host-owned quest state evidence missing.'
+    }
+    $probeSpawns=[regex]::Matches($logs.guest,'CoopNet NPC spawned: section dog_weak anchor (\d+)\b')
+    $anchor=$probeSpawns[0].Groups[1].Value
+    $spawns=[regex]::Matches($logs.guest,"CoopNet NPC spawned: section dog_weak anchor $anchor\b")
+    $deaths=[regex]::Matches($logs.guest,"CoopNet NPC death applied: anchor $anchor\b")
+    $removals=[regex]::Matches($logs.guest,"CoopNet NPC removed: anchor $anchor\b")
+    if ($spawns.Count -ne 1 -or $deaths.Count -ne 1 -or $removals.Count -ne 1) { throw 'The replicated test NPC was recreated or lost instead of remaining stable until host removal.' }
+    Write-Output 'NATIVE_SHARED_WORLD_PASS: dynamically spawned NPC replicated, host death and removal applied, quests completed/failed, and guest quest writes denied.'
 }
 if ($SettingsProbe) {
     if ($logs.host -notmatch 'CoopNet host world rules published: revision [1-9]\d* count [1-9]\d*' -or

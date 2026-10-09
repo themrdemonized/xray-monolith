@@ -22,6 +22,7 @@ void coopnet_log(const char* format, ...) {
 #include "../CoopNet/EntityRegistry.h"
 #include "../CoopNet/GuestSave.h"
 #include "../CoopNet/JoinProfile.h"
+#include "../CoopNet/LootRetries.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -102,6 +103,17 @@ struct Session {
     std::uint32_t world_rules_revision=0;
     std::vector<std::uint8_t> world_rules_signature;
     double world_rules_wait=5,world_clock_wait=1;
+    double shared_wait=1;
+    std::array<std::uint32_t,2> shared_revision{};
+    std::array<std::vector<std::uint8_t>,2> shared_signature;
+    std::uint32_t shared_level=0;
+    coopnet::QuestState shared_quests;
+    std::uint32_t shared_quest_level=0;
+    bool shared_quests_pending=false;
+    bool shared_probe=false;
+    unsigned shared_probe_phase=0;
+    double shared_probe_wait=0;
+    std::uint16_t shared_probe_object=0xffff;
     bool settings_probe=false;
     unsigned host_clock_updates=0;
     std::uint32_t respawn_sequence=0;
@@ -166,6 +178,7 @@ struct Session {
     bool gameplay_pending=false;
     coopnet::InventoryRequest probe_request;
     std::uint32_t inventory_sequence=1000;
+    coopnet::LootRetries loot_retries;
     bool native_inventory_pending=false;
     LocalInventoryAction native_inventory_action;
     struct Item {
@@ -317,6 +330,8 @@ void update_party(Session& current,double elapsed) {
 }
 void update_party_probe(Session& current,double elapsed) {
     if (!current.party_probe || current.guests.empty()) return;
+    // Finish lifecycle stimuli on their original map before the travel stimulus.
+    if (current.shared_probe && current.shared_probe_phase<3) return;
     LocalActorPose local; if (!capture_local_actor(local)) return;
     auto& guest=current.guests.begin()->second;
     if (!guest.generation || !current.host.level_ready(current.guests.begin()->first,local.level)) return;
@@ -359,6 +374,32 @@ void publish_world(Session& current) {
     if (!state.objects.empty()) current.host.publish_world_state(state);
     if (!objects.empty() && ++current.world_updates==1)
         Msg("* CoopNet host NPC states: objects %u level %u",static_cast<unsigned>(objects.size()),level);
+}
+void publish_shared_world(Session& current,double elapsed) {
+    if (!current.world_probe || current.party_loading) return;
+    current.shared_wait+=elapsed; if (current.shared_wait<1) return; current.shared_wait=0;
+    std::uint32_t level=0; std::vector<NativeWorldPose> objects; if (!capture_world_objects(level,objects)) return;
+    if (level!=current.shared_level) { current.shared_signature={}; current.shared_level=level; }
+    std::vector<coopnet::NPCRecord> records,signature;
+    for (const auto& native:objects) {
+        coopnet::NPCRecord n; n.section=native.section; n.visual=native.visual;
+        n.pose.anchor=coopnet::world_anchor(current.host.identity(),native.object); n.pose.incarnation=native.incarnation; n.pose.health=native.health;
+        for (unsigned axis=0;axis<3;++axis) { n.pose.position[axis]=native.position[axis]; n.pose.rotation[axis]=native.rotation[axis]; }
+        records.push_back(n); n.pose.position={}; n.pose.rotation={}; n.pose.health=n.pose.health>0 ? 1.f : 0.f; signature.push_back(n);
+    }
+    const auto npc_signature=coopnet::encode_npcs(signature);
+    if (npc_signature!=current.shared_signature[0] && current.host.publish_shared_world(coopnet::SharedKind::NPC,level,current.shared_revision[0]+1,coopnet::encode_npcs(records))) {
+        current.shared_signature[0]=npc_signature; ++current.shared_revision[0];
+        Msg("* CoopNet host NPC catalogue: objects %u revision %u",static_cast<unsigned>(records.size()),current.shared_revision[0]);
+    }
+    coopnet::QuestState quests;
+    if (capture_shared_quests(current.host.identity(),level,quests)) {
+        const auto bytes=coopnet::encode_quests(quests);
+        if (bytes!=current.shared_signature[1] && current.host.publish_shared_world(coopnet::SharedKind::Quests,level,current.shared_revision[1]+1,bytes)) {
+            current.shared_signature[1]=bytes; ++current.shared_revision[1];
+            Msg("* CoopNet host quests: tasks %u infos %u revision %u",static_cast<unsigned>(quests.tasks.size()),static_cast<unsigned>(quests.infos.size()),current.shared_revision[1]);
+        }
+    }
 }
 void send_world_baselines(Session& current) {
     if (!current.world_probe) return;
@@ -977,8 +1018,14 @@ void update(double) {
             capture_world_loot(*session);
             send_world_baselines(*session);
             capture_guests(*session);
+            if (session->shared_probe && !session->guests.empty()) {
+                const auto& guest=session->guests.begin()->second;
+                LocalActorPose pose;
+                if (capture_guest_actor(guest.object,pose)) exercise_shared_world_probe(elapsed,session->shared_probe_phase,session->shared_probe_wait,session->shared_probe_object);
+            }
             exercise_respawn_probe(*session,elapsed);
             publish_world(*session);
+            publish_shared_world(*session,elapsed);
             update_party(*session,elapsed);
             update_party_probe(*session,elapsed);
             if (session->replica_probe && session->host_actor) {
@@ -998,7 +1045,9 @@ void update(double) {
                 Msg("* CoopNet host ready participants: %u (transport only)", ready);
             }
         } else {
+            session->loot_retries.advance(elapsed);
             session->client.update(elapsed);
+            if (session->client.session().state()!=coopnet::ClientState::Connected) session->loot_retries.clear();
             update_host_world_rules();
             exercise_respawn_probe(*session,elapsed);
             const auto connection_state=session->client.session().state();
@@ -1049,6 +1098,8 @@ void update(double) {
             present_client(*session, elapsed);
             update_local_inventory_view();
             update_world_items();
+            update_npc_catalogue();
+            if (session->shared_quests_pending && apply_shared_quests(session->client.session().welcome().session,session->shared_quest_level,session->shared_quests)) session->shared_quests_pending=false;
             if (session->settings_probe) exercise_world_settings_probe();
             if (session->loot_probe) exercise_local_world_loot_probe();
             if (session->inventory_probe) exercise_local_inventory_probe();
@@ -1064,11 +1115,26 @@ void update(double) {
                         const coopnet::InventoryRequest request{owned.entity,action.item,owned.generation,owned.level,
                             session->inventory_sequence,action.revision,action.action,action.slot};
                         const auto result=session->client.send_inventory(request);
+                        if (result==coopnet::SendResult::Sent) {
+                            const auto item=session->client.items().find(request.item);
+                            if (item!=session->client.items().end()) session->loot_retries.sent(request,item->second);
+                        }
                         if (result!=coopnet::SendResult::Backpressure) {
                             session->native_inventory_pending=false; ++session->inventory_sequence;
                             Msg("* CoopNet guest inventory control sent: action %u result %u",static_cast<unsigned>(action.action),static_cast<unsigned>(result));
                         }
                     }
+                }
+            }
+            coopnet::InventoryRequest retry; unsigned attempts=0;
+            if (session->loot_retries.pop(session->client.items(),retry,attempts)) {
+                retry.sequence=session->inventory_sequence++;
+                const auto result=session->client.send_inventory(retry);
+                if (result==coopnet::SendResult::Backpressure) session->loot_retries.defer();
+                if (result==coopnet::SendResult::Sent) {
+                    const auto item=session->client.items().find(retry.item);
+                    if (item!=session->client.items().end()) session->loot_retries.sent(retry,item->second,attempts);
+                    Msg("* CoopNet world loot revision retry sent: sequence %u attempt %u",retry.sequence,attempts);
                 }
             }
             send_gameplay_probe(*session,elapsed);
@@ -1100,6 +1166,10 @@ void command(const char* name, const char* arguments) {
         }
         if (!strcmp(name, "coop_disconnect")) { stop(); Msg("* CoopNet offline"); return; }
         if (!strcmp(name,"coop_respawn")) { request_respawn(); return; }
+        if (!strcmp(name,"coop_shared_probe")) {
+            if (!session) throw std::runtime_error("Shared world probe requires a session");
+            session->shared_probe=true; return;
+        }
         if (!strcmp(name,"coop_respawn_probe")) {
             if (!session) throw std::runtime_error("Respawn probe requires a session");
             session->respawn_probe=true; return;
@@ -1219,6 +1289,7 @@ void command(const char* name, const char* arguments) {
                 Msg("* CoopNet party travel: stage %u present %u required %u destination %u",static_cast<unsigned>(status.stage),status.present,status.required,status.destination);
             });
             next->client.set_baseline_sink([owner](const coopnet::WorldBaseline& manifest,const std::vector<std::uint8_t>& bytes) {
+                owner->loot_retries.clear();
                 if (!owner->world_probe) { Msg("! CoopNet canonical baseline requires world mode"); return false; }
                 if (baseline_digest(bytes)!=manifest.digest) { Msg("! CoopNet canonical baseline checksum mismatch"); return false; }
                 const auto name=baseline_name(manifest.id);
@@ -1229,6 +1300,8 @@ void command(const char* name, const char* arguments) {
                 return true;
             });
             next->client.set_inventory_sink([owner](const coopnet::InventoryResult& result) {
+                if (result.sequence>=1000) Msg("* CoopNet guest inventory control result: sequence %u status %u revision %u",result.sequence,static_cast<unsigned>(result.status),result.revision);
+                if (owner->loot_retries.completed(result)) Msg("* CoopNet world loot revision conflict: retry scheduled");
                 if (!owner->gameplay_probe || !owner->gameplay_pending || result.sequence!=owner->probe_request.sequence || result.item!=owner->probe_request.item) return;
                 owner->gameplay_pending=false;
                 Msg("* CoopNet inventory result: sequence %u status %u revision %u",result.sequence,static_cast<unsigned>(result.status),result.revision);
@@ -1254,6 +1327,12 @@ void command(const char* name, const char* arguments) {
                     owner->respawn_message.clear();
                     Msg("* CoopNet client respawn accepted: host position %.3f %.3f %.3f",result.position[0],result.position[1],result.position[2]);
                 } else owner->respawn_message=result.status==coopnet::RespawnStatus::NoLivingPlayer ? "No living teammate is available." : "Respawn is unavailable. Try again when a teammate is alive.";
+            });
+            next->client.set_shared_world_sink([owner](coopnet::SharedKind kind,std::uint32_t level,const std::vector<std::uint8_t>& bytes) {
+                if (!owner->world_probe) return;
+                if (kind==coopnet::SharedKind::NPC) {
+                    std::vector<coopnet::NPCRecord> records; if (coopnet::decode_npcs(bytes,records)) queue_npc_catalogue(owner->client.session().welcome().session,level,records);
+                } else if (coopnet::decode_quests(bytes,owner->shared_quests)) { owner->shared_quest_level=level; owner->shared_quests_pending=true; }
             });
             next->client.set_world_sink([owner](const coopnet::WorldState& state) {
                 if (!owner->world_probe) return;

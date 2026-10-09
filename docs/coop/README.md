@@ -2,7 +2,7 @@
 
 Source audited: `a91b22ce`, xray-monolith, 2026-10-08. Development branch: `coopnet`. Local recovery tag: `coopnet-build-baseline`. Upstream remote remains separate from the user's `origin` fork.
 
-The current implementation uses one host world and group location transitions. Guests load a validated canonical host snapshot and receive native actor and existing NPC updates. Protocol 15 includes respawn at a living teammate, main-menu IP joining, Windows-encrypted saved connections, guest world-setting locks, host time/weather replication, host-side guest firing, saved equipment, owner inventory views/controls and loose world loot transfers. Full ordinary gameplay remains incomplete: corpse/stash inventory, complete item presentation, dynamic NPC lifecycles and shared quests need further work. See [current verification evidence](PROGRESS.md).
+The current implementation uses one host world and group location transitions. Guests load a validated canonical host snapshot and receive native actor and NPC updates. Protocol 16 adds dynamic NPC spawning/death/removal and host-owned task-journal/story-info synchronization, alongside respawn, main-menu joining, saved connections, world-setting locks, host-side guest firing, saved equipment and loose world loot transfers. Full ordinary gameplay remains incomplete: corpse/stash inventory, complete item presentation, exact NPC animations/ragdolls and guest quest dialogue/rewards need further work. See [shared-world behavior and limits](SHARED_WORLD.md) and [current verification evidence](PROGRESS.md).
 
 ## Documents
 

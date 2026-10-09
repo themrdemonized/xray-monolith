@@ -1,5 +1,6 @@
 #include "pch_script.h"
 #include "GameTask.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "ui/xrUIXmlParser.h"
 #include "encyclopedia_article.h"
 #include "map_location.h"
@@ -39,6 +40,7 @@ CGameTask::CGameTask()
 
 void CGameTask::SetTaskState(ETaskState state)
 {
+    if (engine_coopnet::world_level_is_replica()) return;
 	m_task_state = state;
 	if ((m_task_state == eTaskStateFail) || (m_task_state == eTaskStateCompleted))
 	{
@@ -65,6 +67,12 @@ void CGameTask::OnArrived()
 	m_read = false;
 
 	CreateMapLocation(false);
+}
+
+void CGameTask::ApplyCoopState(ETaskState state)
+{
+    m_task_state=state;
+    if (state!=eTaskStateInProgress) RemoveMapLocations(false);
 }
 
 void CGameTask::CreateMapLocation(bool on_load)
@@ -136,11 +144,13 @@ void CGameTask::ChangeMapLocation(LPCSTR new_map_location, u16 new_map_object_id
 
 void CGameTask::ChangeStateCallback()
 {
+    if (engine_coopnet::world_level_is_replica()) return;
 	Actor()->callback(GameObject::eTaskStateChange)(this, GetTaskState());
 }
 
 ETaskState CGameTask::UpdateState()
 {
+    if (engine_coopnet::world_level_is_replica()) return GetTaskState();
 	if ((m_ReceiveTime != m_TimeToComplete))
 	{
 		if (Level().GetGameTime() > m_TimeToComplete)

@@ -95,6 +95,7 @@ public:
 
 	void ChangeStateCallback();
 	void SetTaskState(ETaskState state);
+    void ApplyCoopState(ETaskState state);
 	ETaskState GetTaskState() const { return m_task_state; };
 	ETaskType GetTaskType() const { return m_task_type; }
 

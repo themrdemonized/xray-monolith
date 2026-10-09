@@ -5,6 +5,7 @@
 
 #include "pch_script.h"
 #include "InventoryOwner.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "GameObject.h"
 #include "xrMessages.h"
 #include "ai_space.h"
@@ -44,6 +45,7 @@ void CInventoryOwner::OnEvent(NET_Packet& P, u16 type)
 
 bool CInventoryOwner::OnReceiveInfo(shared_str info_id) const
 {
+    if (engine_coopnet::world_level_is_replica()) return false;
 	VERIFY(info_id.size());
 	//добавить запись в реестр
 	KNOWN_INFO_VECTOR& known_info = m_known_info_registry->registry().objects();
@@ -78,6 +80,7 @@ void CInventoryOwner::DumpInfo() const
 
 void CInventoryOwner::OnDisableInfo(shared_str info_id) const
 {
+    if (engine_coopnet::world_level_is_replica()) return;
 	VERIFY(info_id.size());
 	//удалить запись из реестра
 
@@ -95,6 +98,7 @@ void CInventoryOwner::OnDisableInfo(shared_str info_id) const
 
 void CInventoryOwner::TransferInfo(shared_str info_id, bool add_info) const
 {
+    if (engine_coopnet::world_level_is_replica()) return;
 	VERIFY(info_id.size());
 	const CObject* pThisObject = smart_cast<const CObject*>(this);
 	VERIFY(pThisObject);
