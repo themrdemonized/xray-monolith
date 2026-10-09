@@ -2320,6 +2320,14 @@ bool canRenderLegs(CActor* actor, CHolderCustom* m_holder) noexcept
 
 void CActor::renderable_Render()
 {
+	if (m_coopnet_guest)
+	{
+		// A remote player always renders a full body for the host camera.
+		inherited::renderable_Render();
+		CInventoryOwner::renderable_Render();
+		return;
+	}
+
 	VERIFY(_valid(XFORM()));
 
     // leg shadows are disabled for DX8 and DX9

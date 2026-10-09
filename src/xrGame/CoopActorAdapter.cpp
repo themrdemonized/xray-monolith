@@ -2024,6 +2024,10 @@ bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed) 
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity) {
     LocalActorPose local;
     if (!capture_local_actor(local) || local.level != level || !g_actor->g_Alive()) return false;
+    // Keep native prediction for small snapshot differences; resetting its physics
+    // position and velocity every packet makes ordinary movement oscillate.
+    Fvector target; target.set(position[0],position[1],position[2]);
+    if (g_actor->Position().distance_to_sqr(target) < .35f * .35f) return false;
     Fmatrix transform = g_actor->XFORM(); transform.c.set(position[0],position[1],position[2]);
     g_actor->ForceTransform(transform);
     g_actor->character_physics_support()->movement()->SetVelocity(velocity[0],velocity[1],velocity[2]);
