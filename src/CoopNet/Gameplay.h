@@ -20,6 +20,12 @@ struct ItemState {
     std::uint32_t level = 0, revision = 0;
     bool present = true;
     std::string section;
+    bool world=false;
+    Identity anchor=0,incarnation=0;
+    std::array<float,3> position{};
+    float condition=1;
+    std::uint16_t ammo=0;
+    std::uint8_t kind=0,ammo_type=0;
 };
 struct ActorVitals {
     Identity actor = 0;
@@ -68,21 +74,42 @@ inline bool decode_inventory_result(const std::vector<std::uint8_t>& bytes, Inve
 }
 inline bool valid_item_state(const ItemState& v) {
     if (!v.item || !v.level || !v.revision || v.section.empty() || v.section.size()>128 || (!v.present && v.owner)) return false;
+    if (v.section.front()=='.' || v.section.find("..")!=std::string::npos) return false;
+    if (v.world) {
+        if (!v.anchor || !v.incarnation || v.kind>2 || !std::isfinite(v.condition) || v.condition<0 || v.condition>1) return false;
+        for (auto value:v.position) if (!std::isfinite(value) || std::abs(value)>1000000) return false;
+    }
     for (const unsigned char c : v.section)
-        if (!(c>='a' && c<='z') && !(c>='A' && c<='Z') && !(c>='0' && c<='9') && c!='_' && c!='-') return false;
+        if (!(c>='a' && c<='z') && !(c>='A' && c<='Z') && !(c>='0' && c<='9') && c!='_' && c!='-' && c!='.') return false;
     return true;
 }
 inline std::vector<std::uint8_t> encode_item_state(const ItemState& v) {
     if (!valid_item_state(v)) throw std::invalid_argument("Invalid item state");
     Writer w; w.integer(v.item,8); w.integer(v.owner,8); w.integer(v.level,4); w.integer(v.revision,4);
-    w.integer(v.present,1); w.integer(v.section.size(),1); w.bytes.insert(w.bytes.end(),v.section.begin(),v.section.end()); return w.bytes;
+    w.integer(v.present,1); w.integer(v.section.size(),1); w.bytes.insert(w.bytes.end(),v.section.begin(),v.section.end());
+    w.integer(v.world,1);
+    if (v.world) {
+        w.integer(v.anchor,8); w.integer(v.incarnation,8);
+        for (auto value:v.position) write_float(w,value);
+        write_float(w,v.condition); w.integer(v.ammo,2); w.integer(v.kind,1); w.integer(v.ammo_type,1);
+    }
+    return w.bytes;
 }
 inline bool decode_item_state(const std::vector<std::uint8_t>& bytes, ItemState& output) {
     Reader r(bytes); ItemState v; std::uint64_t l,revision,present,length;
     if (!r.integer(v.item,8) || !r.integer(v.owner,8) || !r.integer(l,4) || !r.integer(revision,4) ||
-        !r.integer(present,1) || !r.integer(length,1) || present>1 || length!=r.remaining()) return false;
+        !r.integer(present,1) || !r.integer(length,1) || present>1 || length>128 || length>=r.remaining()) return false;
     v.level=static_cast<std::uint32_t>(l); v.revision=static_cast<std::uint32_t>(revision); v.present=present!=0;
-    v.section.assign(bytes.end()-static_cast<std::size_t>(length),bytes.end());
+    for (std::uint64_t n=0;n<length;++n) { std::uint64_t c; if (!r.integer(c,1)) return false; v.section.push_back(static_cast<char>(c)); }
+    std::uint64_t world; if (!r.integer(world,1) || world>1) return false; v.world=world!=0;
+    if (v.world) {
+        std::uint64_t ammo,kind,type;
+        if (!r.integer(v.anchor,8) || !r.integer(v.incarnation,8)) return false;
+        for (auto& value:v.position) if (!read_float(r,value)) return false;
+        if (!read_float(r,v.condition) || !r.integer(ammo,2) || !r.integer(kind,1) || !r.integer(type,1)) return false;
+        v.ammo=static_cast<std::uint16_t>(ammo); v.kind=static_cast<std::uint8_t>(kind); v.ammo_type=static_cast<std::uint8_t>(type);
+    }
+    if (r.remaining()) return false;
     if (!valid_item_state(v)) return false; output=std::move(v); return true;
 }
 inline bool valid_vitals(const ActorVitals& v) {

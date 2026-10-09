@@ -36,13 +36,11 @@ Replicate transform/velocity/stance/basic movement, with level filtering and buf
 
 Checks: two actors on one map; camera/input isolation; destroy/rejoin with no stale object bindings; late join; loss/reordering; different frame rates; bounded bandwidth; long-distance same-map relevance and ALife activation. No quests or prediction in this milestone.
 
-## Milestone 4 — independent residency prototype
+## Milestone 4 — shared location and party travel
 
-Use the gates in MULTI_LEVEL_ASSESSMENT.md. Choose the architecture after measured proof, not from class names. Add per-player transition state with authoritative checkpoint, destination simulation preparation, LevelReady, actor recreation/rebind, and failure rollback. Never broadcast an ordinary single-player level change to all participants.
+The selected architecture uses one host simulation and one active location. Everyone must enter the same exit before the host transitions the party. Protocol 10 implemented and verified the gathering/reset barrier, canonical destination load, actor rebinding and arrival acknowledgements. Protocols 11–13 preserve guest equipment across that transition. See PARTY_TRAVEL.md and PROGRESS.md for the checks and limits.
 
-The user has removed the location-worker architecture from scope. Use one host process for world authority. Independent location residency remains unfinished and requires engine context isolation within that process; it must not reintroduce location-worker hosting. Canonical same-map gameplay comes first. MULTI_LEVEL_ASSESSMENT.md records the engine constraints and proof required for a future residency implementation.
-
-Checks: A stays in Cordon while B moves to Garbage; both maps advance; disconnect/crash mid-transfer; repeated transitions; one entity/item owner; coordinated world save/load. Do not claim this requirement satisfied by offline ALife records alone.
+Independent location residency and location-worker hosting are outside the selected scope. MULTI_LEVEL_ASSESSMENT.md is historical architecture research, not an implementation requirement.
 
 ## Subsequent milestones
 
@@ -51,6 +49,6 @@ Checks: A stays in Cordon while B moves to Garbage; both maps advance; disconnec
 3. Versioned portable character import/export with original-save preservation, complete item subtree reconstruction, and mod/section compatibility handling. No complete world merges.
 4. Coordinated world/time/weather/emission persistence and late join.
 5. Explicit personal/shared quest and Lua side-effect ownership; portable quest state only after policy is agreed.
-6. Movement prediction/reconciliation, bandwidth tuning, wider addon compatibility, and multi-level recovery stress tests.
+6. Movement prediction/reconciliation, bandwidth tuning, wider addon compatibility, and repeated party-travel recovery stress tests.
 
 Anti-cheat remains out of scope. Input bounds, decoder safety, transaction correctness, and ownership invariants are required for stability regardless of anti-cheat goals.

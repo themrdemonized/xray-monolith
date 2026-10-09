@@ -1,13 +1,14 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
+if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
 if ($StarterProbe) { $WorldProbe=$true }
 if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($InventoryProbe -or $StarterProbe) -and !$TestDirectory) {
+if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -24,7 +25,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -74,6 +75,9 @@ if ($logs.guest -notmatch 'CoopNet client state: connected' -or
     throw 'Guest admission, model update, rendering or cleanup evidence missing'
 }
 if ($MovementProbe) {
+    if ($logs.host -notmatch 'CoopNet guest ALife registration: 0' -or $logs.host -match 'CoopNet guest ALife registration: 1') {
+        throw 'Guest actor entered the persistent ALife registry.'
+    }
     $motion = [regex]::Match($logs.host,'CoopNet guest simulation removed: inputs ([1-9]\d*) distance ([\d.]+)')
     if ($logs.host -notmatch 'CoopNet native guest bound:' -or !$motion.Success -or
         $logs.guest -notmatch 'CoopNet owned native snapshots applied: [1-9]\d*' -or
@@ -84,7 +88,7 @@ if ($MovementProbe) {
 }
 Write-Output "ENGINE_PROBE_PASS: guest model updated $($renderEvidence.Groups[1].Value) times, submitted $($renderEvidence.Groups[2].Value) times, and removed; original saves unchanged."
 if ($GameplayProbe) {
-    $nativeTransactions=[regex]::Matches($logs.host,'CoopNet inventory native transaction: sequence [0-9]+ action [12] ')
+    $nativeTransactions=[regex]::Matches($logs.host,'CoopNet inventory native transaction: sequence [12] action [12] ')
     $health=[regex]::Matches($logs.guest,'CoopNet authoritative guest health applied: (-?[\d.]+)')
     $damaged=$false
     foreach ($match in $health) {
@@ -178,4 +182,15 @@ if ($StarterProbe) {
         throw 'Fresh guest starter equipment and client inventory mirror evidence missing.'
     }
     Write-Output 'NATIVE_STARTER_LOADOUT_PASS: fresh guest received pistol, ammunition, bandage and PDA with an owner inventory view.'
+}
+
+if ($WorldLootProbe) {
+    if ($logs.host -notmatch 'CoopNet world loot probe: persistent item created' -or
+        $logs.host -notmatch 'CoopNet world loot probe: guest ownership confirmed stage 2' -or
+        $logs.host -notmatch 'CoopNet world loot probe: persistent drop confirmed' -or
+        $logs.host -notmatch 'CoopNet world loot probe: guest ownership confirmed stage 4' -or
+        $logs.guest -notmatch 'CoopNet world loot probe: second pickup requested') {
+        throw 'Persistent world loot, guest pickup, persistent drop or second pickup evidence missing.'
+    }
+    Write-Output 'NATIVE_WORLD_LOOT_PASS: client presentation pickup removed ALife ownership, drop restored persistent world ownership, and a second pickup transferred the same item back to the guest.'
 }

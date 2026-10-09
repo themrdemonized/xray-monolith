@@ -39,6 +39,7 @@ class ClientPump {
     SequenceWindow inventory_views_;
     std::uint32_t inventory_view_revision_=0;
     std::function<void(const InventoryView&)> inventory_view_sink_;
+    std::function<void(const ItemState&)> item_sink_;
     std::map<std::uint32_t,InventoryRequest> pending_inventory_;
     std::map<std::uint32_t,std::pair<InventoryRequest,Identity>> inventory_history_;
     SequenceWindow inventory_sequences_;
@@ -95,6 +96,7 @@ public:
     }
     const std::map<Identity,ItemState>& items() const { return items_; }
     void set_inventory_view_sink(std::function<void(const InventoryView&)> sink) { inventory_view_sink_=std::move(sink); }
+    void set_item_sink(std::function<void(const ItemState&)> sink) { item_sink_=std::move(sink); }
     void set_inventory_sink(std::function<void(const InventoryResult&)> sink) { inventory_sink_=std::move(sink); }
     void set_vitals_sink(std::function<void(const ActorVitals&)> sink) { vitals_sink_=std::move(sink); }
     SendResult send_inventory(const InventoryRequest& request) {
@@ -285,7 +287,10 @@ public:
                 if (!level_ready_sent_ || item.level!=assignment_.level) continue;
                 auto found=items_.find(item.item);
                 if (found==items_.end() && items_.size()>=4096) { lost(); return; }
-                if (found==items_.end() || item.revision>found->second.revision) items_[item.item]=std::move(item);
+                if (found==items_.end() || item.revision>found->second.revision) {
+                    if (item_sink_) item_sink_(item);
+                    items_[item.item]=std::move(item);
+                }
             } else if (frame.message==Message::InventoryResult) {
                 InventoryResult result;
                 if (!decode_inventory_result(frame.payload,result) || result.sequence!=frame.sequence) { lost(); return; }

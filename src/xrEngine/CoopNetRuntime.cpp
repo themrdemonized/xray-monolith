@@ -93,6 +93,7 @@ struct Session {
     bool weapon_probe=false;
     bool inventory_probe=false;
     bool starter_probe=false;
+    bool loot_probe=false;
     unsigned weapon_phase=0;
     double weapon_wait=0;
     bool world_probe=false, world_load_requested=false;
@@ -134,6 +135,8 @@ struct Session {
         coopnet::ItemState state;
     };
     std::map<coopnet::Identity,Item> items;
+    std::uint64_t world_items_incarnation=0;
+    std::set<std::pair<std::uint16_t,std::uint64_t>> unsupported_world_items;
     struct Guest {
         coopnet::Identity entity = 0;
         std::uint16_t object = 0xffff;
@@ -148,6 +151,9 @@ struct Session {
         std::uint16_t weapon=0xffff;
         unsigned weapon_phase=0;
         std::uint32_t inventory_revision=0;
+        std::vector<std::uint8_t> inventory_signature;
+        std::uint16_t world_loot=0xffff;
+        unsigned world_loot_phase=0;
     };
     std::map<coopnet::Identity,Guest> guests;
     std::map<coopnet::Identity,std::uint32_t> probe_assignments;
@@ -432,6 +438,57 @@ void present_client(Session& current, double elapsed) {
     for (const auto entity : current.presented) if (!visible.count(entity)) remove_remote_actor(entity);
     current.presented = std::move(visible);
 }
+void capture_world_loot(Session& current) {
+    LocalActorPose pose; if (!capture_local_actor(pose)) return;
+    if (current.world_items_incarnation!=pose.incarnation) {
+        current.host.clear_world_items();
+        for (auto it=current.items.begin();it!=current.items.end();) {
+            if (it->second.state.world) { current.entities.erase(it->first); it=current.items.erase(it); } else ++it;
+        }
+        current.world_items_incarnation=pose.incarnation;
+        current.unsupported_world_items.clear();
+    }
+    if (current.tick%10) return;
+    std::vector<NativeWorldItem> native_items; if (!capture_world_items(native_items)) return;
+    std::set<coopnet::Identity> seen;
+    for (const auto& native:native_items) {
+        auto validated=native.state; validated.item=1; validated.level=pose.level; validated.revision=1;
+        validated.anchor=coopnet::world_anchor(current.host.identity(),native.object); validated.incarnation=native.incarnation;
+        if (!coopnet::valid_item_state(validated)) {
+            if (current.unsupported_world_items.insert({native.object,native.incarnation}).second)
+                Msg("! CoopNet unsupported world item: section %s condition %.3f position %.3f %.3f %.3f",native.state.section.c_str(),native.state.condition,native.state.position[0],native.state.position[1],native.state.position[2]);
+            continue;
+        }
+        coopnet::Identity owner=0;
+        if (native.owner!=0xffff) {
+            owner=current.host_actor;
+            for (const auto& guest:current.guests) if (guest.second.object==native.owner) owner=guest.second.entity;
+        }
+        auto found=current.items.end();
+        for (auto it=current.items.begin();it!=current.items.end();++it)
+            if (it->second.object==native.object && it->second.incarnation==native.incarnation) { found=it; break; }
+        if (found==current.items.end()) {
+            if (owner || current.items.size()>=3000) continue; // reserve identities for three guest inventories
+            const auto logical=current.entities.create(); Session::Item record;
+            record.object=native.object; record.incarnation=native.incarnation; record.state=native.state;
+            record.state.item=logical; record.state.revision=1;
+            found=current.items.emplace(logical,std::move(record)).first;
+        }
+        seen.insert(found->first);
+        auto state=native.state; state.item=found->first; state.owner=owner; state.level=pose.level;
+        state.anchor=coopnet::world_anchor(current.host.identity(),native.object); state.incarnation=native.incarnation;
+        for (auto& value:state.position) value=std::round(value*100.f)/100.f;
+        state.revision=found->second.state.revision;
+        const auto changed=!coopnet::valid_item_state(found->second.state) || !found->second.state.world || coopnet::encode_item_state(state)!=coopnet::encode_item_state(found->second.state);
+        if (changed || !found->second.state.level) {
+            if (found->second.state.level) ++state.revision;
+            found->second.state=state; current.host.publish_item(state);
+        }
+    }
+    for (auto& record:current.items) if (record.second.state.world && record.second.state.present && !seen.count(record.first)) {
+        auto& state=record.second.state; state.present=false; state.owner=0; ++state.revision; current.host.publish_item(state);
+    }
+}
 void capture_guests(Session& current) {
     if (!current.movement_probe) return;
     LocalActorPose host;
@@ -537,6 +594,19 @@ void capture_guests(Session& current) {
                 }
             }
         }
+        if (current.loot_probe && guest.drop_observed && guest.damage_sent) {
+            if (!guest.world_loot_phase && prepare_world_loot_probe(guest.object,guest.world_loot)) {
+                guest.world_loot_phase=1; Msg("* CoopNet world loot probe: persistent item created");
+            }
+            NativeSessionItem item;
+            if (capture_session_item(guest.world_loot,item)) {
+                if ((guest.world_loot_phase==1 || guest.world_loot_phase==3) && item.owner==guest.object && item.native_owner==guest.object && !world_loot_is_registered(guest.world_loot)) {
+                    ++guest.world_loot_phase; Msg("* CoopNet world loot probe: guest ownership confirmed stage %u",guest.world_loot_phase);
+                } else if (guest.world_loot_phase==2 && item.owner==0xffff && item.native_owner==0xffff && world_loot_is_registered(guest.world_loot)) {
+                    guest.world_loot_phase=3; Msg("* CoopNet world loot probe: persistent drop confirmed");
+                }
+            }
+        }
         if (current.weapon_probe && guest.drop_observed && guest.damage_sent) {
             if (guest.weapon==0xffff) guest.weapon=spawn_session_item(guest.object,"wpn_pm");
             NativeSessionItem native;
@@ -580,7 +650,7 @@ void capture_guests(Session& current) {
             std::vector<NativeInventoryViewItem> native_items; std::uint16_t active=0xffff;
             if (capture_guest_inventory_view(guest.object,native_items,active)) {
                 coopnet::InventoryView view; view.actor=guest.entity; view.generation=guest.generation; view.level=pose.level;
-                view.revision=++guest.inventory_revision;
+                view.revision=guest.inventory_revision+1;
                 for (const auto& native:native_items) {
                     auto found=current.items.end();
                     for (auto it=current.items.begin();it!=current.items.end();++it)
@@ -595,7 +665,18 @@ void capture_guests(Session& current) {
                     if (native.object==active) view.active=state.item;
                     view.items.push_back(std::move(state));
                 }
-                current.host.publish_inventory_view(player.id,view);
+                if (coopnet::valid_inventory_view(view)) {
+                    std::vector<std::uint8_t> signature;
+                    for (std::size_t offset=0;offset<view.items.size() || signature.empty();offset+=32) {
+                        coopnet::InventoryViewChunk chunk{view,static_cast<std::uint16_t>(offset),static_cast<std::uint16_t>(view.items.size())};
+                        chunk.view.revision=1; const auto end=(std::min)(view.items.size(),offset+32);
+                        chunk.view.items.assign(view.items.begin()+offset,view.items.begin()+end);
+                        const auto bytes=coopnet::encode_view_chunk(chunk); signature.insert(signature.end(),bytes.begin(),bytes.end());
+                    }
+                    if (signature!=guest.inventory_signature && current.host.publish_inventory_view(player.id,view)) {
+                        guest.inventory_revision=view.revision; guest.inventory_signature=std::move(signature);
+                    }
+                }
             }
         }
         {
@@ -626,7 +707,10 @@ void send_gameplay_probe(Session& current, double elapsed) {
     });
     if (!actor.entity || current.gameplay_wait<.5 || current.gameplay_pending) return;
     const coopnet::ItemState* item=nullptr;
-    for (const auto& entry : current.client.items()) if (entry.second.present && entry.second.level==actor.level &&
+    if (current.gameplay_phase) {
+        const auto found=current.client.items().find(current.probe_request.item);
+        if (found!=current.client.items().end()) item=&found->second;
+    } else for (const auto& entry : current.client.items()) if (!entry.second.world && entry.second.present && entry.second.level==actor.level &&
         entry.second.section=="bandage" && (entry.second.owner==0 || entry.second.owner==actor.entity)) { item=&entry.second; break; }
     if (!item) return;
     if (current.gameplay_phase==0) {
@@ -734,6 +818,7 @@ void update(double) {
             }
             session->host.update(elapsed);
             capture_host(*session, elapsed);
+            capture_world_loot(*session);
             send_world_baselines(*session);
             capture_guests(*session);
             publish_world(*session);
@@ -786,6 +871,8 @@ void update(double) {
             }
             present_client(*session, elapsed);
             update_local_inventory_view();
+            update_world_items();
+            if (session->loot_probe) exercise_local_world_loot_probe();
             if (session->inventory_probe) exercise_local_inventory_probe();
             if (session->client.session().state()==coopnet::ClientState::Connected) {
                 if (!session->native_inventory_pending) session->native_inventory_pending=pop_local_inventory_action(session->native_inventory_action);
@@ -832,6 +919,10 @@ void command(const char* name, const char* arguments) {
         if (!strcmp(name,"coop_weapon_probe")) {
             if (!session) throw std::runtime_error("Weapon probe requires a session");
             session->weapon_probe=true; Msg("* CoopNet native weapon probe enabled"); return;
+        }
+        if (!strcmp(name,"coop_loot_probe")) {
+            if (!session) throw std::runtime_error("World loot probe requires a session");
+            session->loot_probe=true; Msg("* CoopNet native world loot probe enabled"); return;
         }
         if (!strcmp(name,"coop_inventory_probe")) {
             if (!session || session->mode!=coopnet::Mode::Client) throw std::runtime_error("Inventory control probe requires a client");
@@ -911,6 +1002,11 @@ void command(const char* name, const char* arguments) {
             next->client.start(std::make_unique<coopnet::GnsTransport>(next->runtime, connection), character, build);
             auto* owner = next.get();
             next->client.set_inventory_view_sink([](const coopnet::InventoryView& view) { queue_local_inventory_view(view); });
+            next->client.set_item_sink([owner](const coopnet::ItemState& item) {
+                if (owner->gameplay_probe && (item.item==owner->probe_request.item || (!item.world && item.section=="bandage")))
+                    Msg("* CoopNet fixture item state: item %llu owner %llu revision %u world %u",item.item,item.owner,item.revision,static_cast<unsigned>(item.world));
+                queue_world_item_state(owner->client.session().welcome().session,item);
+            });
             next->client.set_baseline_progress_sink([](const coopnet::WorldBaseline& manifest,std::uint32_t received) {
                 if (!(received%65536) || received==manifest.size)
                     Msg("* CoopNet canonical baseline receiving: id %llu bytes %u/%u",manifest.id,received,manifest.size);

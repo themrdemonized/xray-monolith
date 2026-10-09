@@ -7,11 +7,12 @@
 #endif
 
 CSE_Abstract* xrServer::Process_spawn(NET_Packet& P, ClientID sender, BOOL bSpawnWithClientsMainEntityAsParent,
-                                      CSE_Abstract* tpExistedEntity)
+                                      CSE_Abstract* tpExistedEntity, bool temporary)
 {
 	// create server entity
 	xrClientData* CL = ID_to_client(sender);
 	CSE_Abstract* E = tpExistedEntity;
+    if (E && temporary) return nullptr; // temporary mode is only for newly created owner-thread objects
 	if (!E)
 	{
 		// read spawn information
@@ -21,6 +22,9 @@ CSE_Abstract* xrServer::Process_spawn(NET_Packet& P, ClientID sender, BOOL bSpaw
 		E = entity_Create(s_name);
 		R_ASSERT3(E, "Can't create entity.", s_name);
 		E->Spawn_Read(P);
+        // m_bALifeControl is not serialized by Spawn_Write. Set the actual server
+        // object's lifetime before OnPreCreate/OnCreate can register it in ALife.
+        if (temporary) E->m_bALifeControl=false;
 		if (
 				//.				!( (game->Type()==E->s_gameid) || (GAME_ANY==E->s_gameid) ) ||
 

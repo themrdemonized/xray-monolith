@@ -35,6 +35,7 @@ class HostPump {
         SequenceWindow transaction_sequences;
         double transaction_budget = 8;
         std::map<Identity,std::uint32_t> item_revisions;
+        Identity item_cursor=0;
         WorldBaseline baseline;
         std::shared_ptr<const std::vector<std::uint8_t>> baseline_bytes;
         std::uint32_t baseline_offset=0;
@@ -244,6 +245,20 @@ public:
         if (found!=items_.end() && item.revision<=found->second.revision) return false;
         items_[item.item]=item; return true;
     }
+    void clear_world_items() {
+        for (auto it=items_.begin();it!=items_.end();) {
+            if (it->second.world) it=items_.erase(it); else ++it;
+        }
+        for (auto& peer:peers_) {
+          peer.item_revisions.clear();
+          for (auto it=peer.outgoing.begin();it!=peer.outgoing.end();) {
+            ItemState item;
+            if (it->message==Message::ItemState && decode_item_state(it->payload,item) && item.world) {
+                peer.queued_bytes-=it->payload.size()+16; it=peer.outgoing.erase(it);
+            } else ++it;
+          }
+        }
+    }
     bool publish_vitals(const ActorVitals& vitals) {
         const auto actor=actors_.find(vitals.actor);
         if (session_.mode()!=Mode::Host || !valid_vitals(vitals) || actor==actors_.end() ||
@@ -399,8 +414,11 @@ public:
                     if (keep) { peer.baseline_offset+=size; peer.baseline_budget-=size; }
                 }
                 unsigned published=0;
-                for (const auto& item : items_) if (keep && peer.ready && item.second.level==peer.level &&
-                    peer.item_revisions[item.first]!=item.second.revision && peer.outgoing.size()<48 && published<8) {
+                auto item_it=items_.upper_bound(peer.item_cursor);
+                for (std::size_t visited=0;visited<items_.size() && keep && peer.ready && peer.outgoing.size()<48 && published<8;++visited) {
+                    if (item_it==items_.end()) item_it=items_.begin();
+                    const auto& item=*item_it++; peer.item_cursor=item.first;
+                    if (item.second.level!=peer.level || peer.item_revisions[item.first]==item.second.revision) continue;
                     keep=queue(peer,{Message::ItemState,Channel::Inventory,Delivery::ReliableOrdered,
                         item.second.revision,encode_item_state(item.second)});
                     if (keep) { peer.item_revisions[item.first]=item.second.revision; ++published; }

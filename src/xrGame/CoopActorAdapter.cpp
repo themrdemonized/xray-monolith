@@ -28,6 +28,7 @@
 #include "UIGameCustom.h"
 #include "ui/UIMessagesWindow.h"
 #include "alife_simulator.h"
+#include "alife_object_registry.h"
 #include "saved_game_wrapper.h"
 #include "game_sv_single.h"
 #include "PhysicsShellHolder.h"
@@ -221,7 +222,7 @@ struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarna
     bool starter_pending=false; xr_vector<u16> starter_items; };
 xr_map<u16,GuestSpawn> guests;
 std::uint64_t guest_incarnation = 0;
-struct SessionItem { std::uint64_t incarnation=0; bool removing=false; };
+struct SessionItem { std::uint64_t incarnation=0; bool removing=false, enters_world=false; };
 xr_map<u16,SessionItem> session_items;
 std::uint64_t item_incarnation=0;
 coopnet::InventoryView local_inventory_view;
@@ -231,6 +232,12 @@ bool inventory_cleared=false;
 std::uint32_t inventory_reported=0;
 std::deque<LocalInventoryAction> local_inventory_actions;
 unsigned inventory_probe_phase=0;
+unsigned loot_probe_phase=0;
+coopnet::Identity loot_probe_item=0;
+xr_map<coopnet::Identity,coopnet::ItemState> local_world_items;
+xr_map<coopnet::Identity,u16> local_world_objects;
+std::uint64_t local_world_session=0;
+std::set<coopnet::Identity> retired_world_items;
 }
 bool capture_world_baseline(const char* name,std::uint32_t& level,std::vector<std::uint8_t>& bytes) {
     LocalActorPose pose;
@@ -353,21 +360,98 @@ std::uint16_t spawn_session_item(std::uint16_t owner, const char* section) {
     if (!smart_cast<CSE_ALifeInventoryItem*>(abstract)) { F_entity_Destroy(abstract); return 0xffff; }
     abstract->m_bALifeControl=false;
     NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
-    CSE_Abstract* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID);
+    CSE_Abstract* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true);
     F_entity_Destroy(abstract);
     if (!created) return 0xffff;
     session_items.emplace(created->ID,SessionItem{++item_incarnation,false}); return created->ID;
 }
 bool is_session_item(std::uint16_t item) { return session_items.find(item)!=session_items.end(); }
+bool session_item_enters_world(std::uint16_t item) {
+    const auto found=session_items.find(item); return found!=session_items.end() && found->second.enters_world;
+}
+bool capture_world_items(std::vector<NativeWorldItem>& items) {
+    LocalActorPose pose; if (!capture_local_actor(pose) || world_level_is_replica()) return false;
+    items.clear();
+    for (const auto& record:world_objects) {
+        auto* object=const_cast<CGameObject*>(record.first);
+        auto* item=smart_cast<CInventoryItem*>(object);
+        auto* server=Level().Server->ID_to_entity(object->ID());
+        auto* persistent=smart_cast<CSE_ALifeDynamicObject*>(server);
+        if (!item || object->getDestroy() || item->IsQuestItem() || !persistent ||
+            persistent->m_story_id!=ALife::_STORY_ID(-1) || !persistent->children.empty()) continue;
+        if (is_session_item(object->ID()) && !session_item_enters_world(object->ID())) continue;
+        NativeSessionItem native; if (!capture_session_item(object->ID(),native) || native.owner!=native.native_owner) continue;
+        NativeWorldItem value; value.object=native.object; value.owner=native.owner; value.incarnation=native.incarnation;
+        value.state.world=true; value.state.section=native.section; value.state.condition=item->GetCondition();
+        for (unsigned axis=0;axis<3;++axis) value.state.position[axis]=object->Position()[axis];
+        if (auto* weapon=smart_cast<CWeapon*>(object)) { value.state.kind=1; value.state.ammo=static_cast<u16>(weapon->GetAmmoElapsed()); value.state.ammo_type=weapon->GetAmmoType(); }
+        else if (auto* ammo=smart_cast<CWeaponAmmo*>(object)) { value.state.kind=2; value.state.ammo=ammo->m_boxCurr; }
+        items.push_back(std::move(value)); if (items.size()==4096) break;
+    }
+    return true;
+}
+void queue_world_item_state(std::uint64_t session,const coopnet::ItemState& item) {
+    if (!item.world) return;
+    local_world_session=session; local_world_items[item.item]=item; retired_world_items.erase(item.item);
+}
+void update_world_items() {
+    LocalActorPose pose; if (!world_level_is_replica() || !capture_local_actor(pose) || !local_world_session) return;
+    for (const auto& record:local_world_items) {
+        const auto& state=record.second; if (state.level!=pose.level) continue;
+        if (retired_world_items.count(record.first)) continue;
+        auto found=local_world_objects.find(record.first);
+        CGameObject* object=found==local_world_objects.end() ? nullptr : smart_cast<CGameObject*>(Level().Objects.net_Find(found->second));
+        if (!object && found!=local_world_objects.end() && Level().Server->ID_to_entity(found->second)) continue;
+        if (object && object->getDestroy()) object=nullptr;
+        if (!object) for (const auto& world:world_objects) {
+            auto* candidate=const_cast<CGameObject*>(world.first);
+            if (world.second.replica && !candidate->getDestroy() && coopnet::world_anchor(local_world_session,candidate->ID())==state.anchor &&
+                xr_strcmp(*candidate->cNameSect(),state.section.c_str())==0) { object=candidate; break; }
+        }
+        if (!state.present || state.owner) {
+            if (object) { NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,object->ID()); CGameObject::u_EventSend(packet); }
+            local_world_objects.erase(record.first); retired_world_items.insert(record.first); continue;
+        }
+        if (!object) {
+            if (!pSettings->section_exist(state.section.c_str())) continue;
+            Fvector position; position.set(state.position[0],state.position[1],state.position[2]);
+            auto* abstract=Level().spawn_item(state.section.c_str(),position,g_actor->ai_location().level_vertex_id(),0xffff,true);
+            auto* inventory=smart_cast<CSE_ALifeInventoryItem*>(abstract);
+            if (!inventory) { F_entity_Destroy(abstract); continue; }
+            abstract->m_bALifeControl=false; inventory->m_fCondition=state.condition;
+            if (auto* weapon=smart_cast<CSE_ALifeItemWeapon*>(abstract)) { weapon->a_elapsed=state.ammo; weapon->ammo_type=state.ammo_type; }
+            if (auto* ammo=smart_cast<CSE_ALifeItemAmmo*>(abstract)) ammo->a_elapsed=state.ammo;
+            NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+            auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
+            if (!created) continue;
+            session_items[created->ID]={++item_incarnation,false,false}; local_world_objects[record.first]=created->ID;
+            continue;
+        }
+        local_world_objects[record.first]=object->ID();
+        if (object->H_Parent()) continue;
+        object->Position().set(state.position[0],state.position[1],state.position[2]);
+        if (auto* item=smart_cast<CInventoryItem*>(object)) item->SetCondition(state.condition);
+        if (auto* weapon=smart_cast<CWeapon*>(object)) {
+            if (state.ammo<=weapon->GetAmmoMagSize()) weapon->SetAmmoElapsed(state.ammo);
+            if (state.ammo_type<weapon->m_ammoTypes.size()) weapon->SetAmmoType(state.ammo_type);
+        } else if (auto* ammo=smart_cast<CWeaponAmmo*>(object)) if (state.ammo<=ammo->m_boxSize) ammo->m_boxCurr=state.ammo;
+    }
+}
 void session_item_destroyed(std::uint16_t item) { session_items.erase(item); }
 bool capture_session_item(std::uint16_t item, NativeSessionItem& state) {
     if (!g_pGameLevel || !g_pGameLevel->bReady || !Level().Server) return false;
     const auto record=session_items.find(item);
     CGameObject* object=smart_cast<CGameObject*>(Level().Objects.net_Find(item));
     CSE_Abstract* server=Level().Server->ID_to_entity(item);
-    if (record==session_items.end() || record->second.removing || !object || !server || object->getDestroy() ||
+    if ((record!=session_items.end() && record->second.removing) || !object || !server || object->getDestroy() ||
         !smart_cast<CInventoryItem*>(object) || object->cNameSect().size()>128) return false;
-    state.incarnation=record->second.incarnation; state.object=item; state.owner=server->ID_Parent;
+    if (record!=session_items.end()) state.incarnation=record->second.incarnation;
+    else {
+        const auto world=world_objects.find(object);
+        if (world==world_objects.end() || world->second.replica || !ai().get_alife() || !ai().alife().objects().object(item,true)) return false;
+        state.incarnation=(std::uint64_t(1)<<63)|world->second.incarnation;
+    }
+    state.object=item; state.owner=server->ID_Parent;
     state.native_owner=object->H_Parent() ? object->H_Parent()->ID() : 0xffff;
     xr_strcpy(state.section,*object->cNameSect()); return true;
 }
@@ -381,18 +465,34 @@ NativeInventoryStatus transact_session_item(std::uint16_t owner, std::uint16_t i
     if (state.native_owner!=state.owner) return NativeInventoryStatus::Conflict; // native event still queued
     if ((take && state.owner!=0xffff) || (!take && state.owner!=owner)) return NativeInventoryStatus::Conflict;
     if (take) {
+        if (actor->inventory().m_all.size()>=256) return NativeInventoryStatus::Capacity;
         if (actor->Position().distance_to_sqr(object->Position())>4.f) return NativeInventoryStatus::OutOfRange;
         if (!actor->inventory().CanTakeItem(smart_cast<CInventoryItem*>(object))) return NativeInventoryStatus::Capacity;
+    }
+    CSE_ALifeDynamicObject* withdrawn=nullptr;
+    if (take && ai().get_alife() && ai().alife().objects().object(item,true)) {
+        auto* inventory=smart_cast<CInventoryItem*>(object);
+        auto* persistent=smart_cast<CSE_ALifeDynamicObject*>(Level().Server->ID_to_entity(item));
+        if (!persistent || inventory->IsQuestItem() || persistent->m_story_id!=ALife::_STORY_ID(-1) || !persistent->children.empty()) return NativeInventoryStatus::Denied;
+        // Keep the native item and its save data; remove only persistent-world ownership.
+        const_cast<CALifeSimulator&>(ai().alife()).unregister_object(persistent,false); persistent->m_bALifeControl=false;
+        session_items[item]={incarnation,false,true}; withdrawn=persistent;
     }
     NET_Packet packet; CGameObject::u_EventGen(packet,take ? GE_OWNERSHIP_TAKE : GE_OWNERSHIP_REJECT,owner);
     packet.w_u16(item); CGameObject::u_EventSend(packet);
     NativeSessionItem after;
-    if (!capture_session_item(item,after) || after.owner!=(take ? owner : 0xffff)) return NativeInventoryStatus::Denied;
+    if (!capture_session_item(item,after) || after.owner!=(take ? owner : 0xffff)) {
+        if (withdrawn && withdrawn->ID_Parent==0xffff) {
+            withdrawn->m_bALifeControl=true; const_cast<CALifeSimulator&>(ai().alife()).register_object(withdrawn,true); session_items.erase(item);
+        }
+        return NativeInventoryStatus::Denied;
+    }
     return NativeInventoryStatus::Accepted;
 }
 void remove_session_item(std::uint16_t item) {
     const auto found=session_items.find(item);
     if (found==session_items.end() || found->second.removing || !g_pGameLevel || !Level().Server) return;
+    if (found->second.enters_world && !world_level_is_replica() && ai().get_alife() && ai().alife().objects().object(item,true)) return;
     found->second.removing=true;
     NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,item); CGameObject::u_EventSend(packet);
 }
@@ -481,12 +581,21 @@ bool begin_guest_loadout(std::uint16_t owner) {
         const auto item=spawn_session_item(owner,section);
         if (item==0xffff) { for (auto id:guest.starter_items) remove_session_item(id); guest.starter_items.clear(); return false; }
         guest.starter_items.push_back(item);
+        session_items[item].enters_world=true;
     }
     guest.starter_pending=true; return true;
 }
 void queue_local_inventory_view(const coopnet::InventoryView& view) { local_inventory_view=view; }
 bool queue_local_inventory_action(std::uint16_t object,coopnet::InventoryAction action,std::uint16_t slot) {
     if (!world_level_is_replica()) return false;
+    if (action==coopnet::InventoryAction::Take) for (const auto& record:local_world_objects) if (record.second==object) {
+        const auto state=local_world_items.find(record.first);
+        if (state!=local_world_items.end() && state->second.present && !state->second.owner && local_inventory_actions.size()<32) {
+            for (const auto& pending:local_inventory_actions) if (pending.item==record.first && pending.action==action) return true;
+            local_inventory_actions.push_back({record.first,state->second.revision,action,slot});
+        }
+        return true;
+    }
     for (const auto& record:local_inventory_items) if (record.second==object) {
         for (const auto& state:local_inventory_view.items) if (state.item==record.first) {
             for (const auto& pending:local_inventory_actions) if (pending.item==state.item && pending.action==action && pending.slot==slot) return true;
@@ -499,6 +608,47 @@ bool queue_local_inventory_action(std::uint16_t object,coopnet::InventoryAction 
 bool pop_local_inventory_action(LocalInventoryAction& action) {
     if (local_inventory_actions.empty()) return false;
     action=local_inventory_actions.front(); local_inventory_actions.pop_front(); return true;
+}
+bool prepare_world_loot_probe(std::uint16_t owner,std::uint16_t& object) {
+    LocalActorPose pose; if (!capture_guest_actor(owner,pose) || !ai().get_alife()) return false;
+    if (object==0xffff) { object=spawn_session_item(owner,"bandage"); return false; }
+    auto* item=smart_cast<CInventoryItem*>(Level().Objects.net_Find(object));
+    auto* server=smart_cast<CSE_ALifeDynamicObject*>(Level().Server->ID_to_entity(object));
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    auto* parent=smart_cast<CSE_ALifeObject*>(Level().Server->ID_to_entity(owner));
+    if (!item || !server || !parent || item->object().H_Parent()) return false;
+    item->SetCondition(.4321f); session_items[object].enters_world=true;
+    server->m_tGraphID=parent->m_tGraphID; server->m_tNodeID=actor->ai_location().level_vertex_id();
+    server->m_bOnline=true; server->m_bALifeControl=true;
+    if (!ai().alife().objects().object(object,true)) const_cast<CALifeSimulator&>(ai().alife()).create(server);
+    return ai().alife().objects().object(object,true)!=nullptr;
+}
+bool world_loot_is_registered(std::uint16_t object) { return ai().get_alife() && ai().alife().objects().object(object,true); }
+void exercise_local_world_loot_probe() {
+    if (!world_level_is_replica() || !g_actor || loot_probe_phase>=3) return;
+    if (loot_probe_phase==0) for (const auto& record:local_world_items) {
+        const auto& state=record.second; const auto native=local_world_objects.find(record.first);
+        if (state.present && !state.owner && state.section=="bandage" && std::abs(state.condition-.4321f)<.0001f &&
+            native!=local_world_objects.end() && Level().Objects.net_Find(native->second)) {
+            loot_probe_item=record.first; queue_local_inventory_action(native->second,coopnet::InventoryAction::Take);
+            loot_probe_phase=1; Msg("* CoopNet world loot probe: pickup requested"); return;
+        }
+    }
+    if (loot_probe_phase==1) for (const auto& item:local_inventory_view.items) if (item.item==loot_probe_item) {
+        const auto native=local_inventory_items.find(item.item);
+        if (native!=local_inventory_items.end() && Level().Objects.net_Find(native->second)) {
+            queue_local_inventory_action(native->second,coopnet::InventoryAction::Drop); loot_probe_phase=2;
+            Msg("* CoopNet world loot probe: drop requested"); return;
+        }
+    }
+    if (loot_probe_phase==2) {
+        const auto state=local_world_items.find(loot_probe_item); const auto native=local_world_objects.find(loot_probe_item);
+        if (state!=local_world_items.end() && state->second.present && !state->second.owner &&
+            native!=local_world_objects.end() && Level().Objects.net_Find(native->second)) {
+            queue_local_inventory_action(native->second,coopnet::InventoryAction::Take); loot_probe_phase=3;
+            Msg("* CoopNet world loot probe: second pickup requested");
+        }
+    }
 }
 void exercise_local_inventory_probe() {
     if (!g_actor || !world_level_is_replica() || inventory_probe_phase>=3) return;
@@ -586,7 +736,7 @@ void update_local_inventory_view() {
             if (auto* weapon=smart_cast<CSE_ALifeItemWeapon*>(abstract)) { weapon->a_elapsed=state.ammo; weapon->ammo_type=state.ammo_type; }
             if (auto* ammo=smart_cast<CSE_ALifeItemAmmo*>(abstract)) ammo->a_elapsed=state.ammo;
             NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
-            auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID); F_entity_Destroy(abstract);
+            auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
             if (!created) return;
             session_items.emplace(created->ID,SessionItem{++item_incarnation,false});
             found=local_inventory_items.emplace(state.item,created->ID).first;
@@ -595,8 +745,10 @@ void update_local_inventory_view() {
         if (!item || item->object().H_Parent()!=g_actor) { ready=false; continue; }
         item->SetCondition(state.condition);
         if (auto* weapon=smart_cast<CWeapon*>(&item->object())) {
-            if (state.kind!=1 || state.ammo_type>=weapon->m_ammoTypes.size() || state.ammo>weapon->GetAmmoMagSize()) return;
-            weapon->SetAmmoType(state.ammo_type); weapon->SetAmmoElapsed(state.ammo);
+            if (state.kind!=1 || (!weapon->m_ammoTypes.empty() && state.ammo_type>=weapon->m_ammoTypes.size()) ||
+                (weapon->m_ammoTypes.empty() && state.ammo) || state.ammo>weapon->GetAmmoMagSize()) return;
+            if (!weapon->m_ammoTypes.empty()) weapon->SetAmmoType(state.ammo_type);
+            weapon->SetAmmoElapsed(state.ammo);
         } else if (auto* ammo=smart_cast<CWeaponAmmo*>(&item->object())) {
             if (state.kind!=2 || state.ammo>ammo->m_boxSize) return; ammo->m_boxCurr=state.ammo;
         }
@@ -642,10 +794,10 @@ bool restore_guest_inventory(std::uint16_t owner,const GuestInventoryState& stat
             if (auto* parent=smart_cast<CSE_ALifeObject*>(Level().Server->ID_to_entity(owner))) life->m_tGraphID=parent->m_tGraphID;
         }
         abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
-        auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID);
+        auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true);
         F_entity_Destroy(abstract);
         if (!created) { for (auto id:created_items) remove_session_item(id); return false; }
-        session_items.emplace(created->ID,SessionItem{++item_incarnation,false}); created_items.push_back(created->ID);
+        session_items.emplace(created->ID,SessionItem{++item_incarnation,false,true}); created_items.push_back(created->ID);
     }
     auto& guest=guests.find(owner)->second;
     guest.restoring=true; guest.restore_slot=state.active_slot; guest.restore_count=static_cast<unsigned>(state.items.size());
@@ -691,15 +843,17 @@ std::uint16_t spawn_guest_actor() {
     CSE_ALifeCreatureActor* actor = smart_cast<CSE_ALifeCreatureActor*>(abstract);
     if (!actor) { F_entity_Destroy(abstract); return 0xffff; }
     actor->m_bALifeControl = false; // Session actor is not persisted as a second ALife primary.
+    actor->s_flags.set(M_SPAWN_OBJECT_ASPLAYER,FALSE);
     actor->o_torso.yaw = local.rotation[1]; actor->o_torso.pitch = 0;
     actor->set_health(1.f);
     NET_Packet packet; abstract->Spawn_Write(packet, TRUE);
     u16 type; packet.r_begin(type);
     const auto* owner = Level().Server->GetServerClient();
-    CSE_Abstract* created = Level().Server->Process_spawn(packet, owner->ID);
+    CSE_Abstract* created = Level().Server->Process_spawn(packet, owner->ID,FALSE,nullptr,true);
     F_entity_Destroy(abstract);
     if (!created) return 0xffff;
     guests.emplace(created->ID, GuestSpawn{true,false,++guest_incarnation});
+    Msg("* CoopNet guest ALife registration: %u",ai().get_alife() && ai().alife().objects().object(created->ID,true) ? 1u : 0u);
     Msg("* CoopNet native guest requested: object %u position %.3f %.3f %.3f", created->ID,position.x,position.y,position.z);
     return created->ID;
 }
@@ -801,6 +955,8 @@ void clear_guest_actors() {
 }
 void guest_level_stopped() { guests.clear(); session_items.clear(); world_level_stopped(); }
 void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; local_weapon_buttons=0;
+    local_world_items.clear(); local_world_objects.clear(); retired_world_items.clear(); local_world_session=0;
+    loot_probe_phase=0; loot_probe_item=0;
     local_inventory_view={}; local_inventory_items.clear(); local_inventory_actions.clear(); inventory_cleared=false; inventory_reported=0; inventory_probe_phase=0; }
 bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed) {
     if (!world_level_is_replica() || !g_actor || g_actor->ID()!=object) return false;

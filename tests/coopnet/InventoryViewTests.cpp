@@ -6,6 +6,18 @@ using namespace coopnet;
 void check(bool value,int line) { if (!value) { std::cerr<<"Inventory view failure "<<line<<'\n'; std::exit(1); } }
 #define require(v) check((v),__LINE__)
 int main() {
+    require(valid_item_state({1,0,1,1,true,"ammo_5.45x39_fmj"}));
+    require(!valid_item_state({1,0,1,1,true,"ammo..fmj"}));
+    ItemState loot{900,0,10,1,true,"bandage"}; loot.world=true; loot.anchor=901; loot.incarnation=902;
+    loot.position={1,2,3}; loot.condition=.4321f;
+    const auto loot_bytes=encode_item_state(loot); ItemState decoded_loot;
+    require(decode_item_state(loot_bytes,decoded_loot) && decoded_loot.world && decoded_loot.anchor==901 && decoded_loot.incarnation==902 && decoded_loot.position==loot.position && decoded_loot.condition==loot.condition);
+    for (std::size_t n=0;n<loot_bytes.size();++n) require(!decode_item_state({loot_bytes.begin(),loot_bytes.begin()+n},decoded_loot));
+    auto extra=loot_bytes; extra.push_back(0); require(!decode_item_state(extra,decoded_loot));
+    loot.incarnation=0; require(!valid_item_state(loot)); loot.incarnation=902;
+    loot.position[0]=std::numeric_limits<float>::infinity(); require(!valid_item_state(loot)); loot.position[0]=1;
+    loot.kind=3; require(!valid_item_state(loot)); loot.kind=0;
+    loot.condition=std::numeric_limits<float>::quiet_NaN(); require(!valid_item_state(loot));
     InventoryView view; view.actor=20; view.generation=1; view.level=10; view.revision=1;
     for (unsigned n=0;n<256;++n) view.items.push_back({100+n,1,"bandage",.8f,0xffff,0,0,0,0});
     InventoryViewAssembly assembly; InventoryView output; bool complete=false;
@@ -56,5 +68,19 @@ int main() {
     require(decode_inventory_request(encode_inventory_request(request),decoded) && decoded.slot==2);
     request.slot=0xffff; require(!valid_inventory_request(request));
     request.action=InventoryAction::Use; require(valid_inventory_request(request)); request.slot=2; require(!valid_inventory_request(request));
+    HostPump fair_host; ClientPump fair_client; Identity fair_token=2000;
+    fair_host.start(10,1,{1,1},[&] { return ++fair_token; }); auto fair_link=MemoryTransport::pair();
+    require(fair_host.attach(9,std::move(fair_link.second))); fair_client.start(std::move(fair_link.first),2,{1,1});
+    for (unsigned n=0;n<4;++n) { fair_host.update(.01); fair_client.update(.01); }
+    const auto fair_player=fair_client.session().welcome().player;
+    require(fair_host.assign_level(fair_player,10,7000)); fair_host.update(.01); fair_client.update(.01);
+    require(fair_client.acknowledge_level(10)); fair_host.update(.01); fair_client.update(.01);
+    std::set<Identity> delivered; fair_client.set_item_sink([&](const ItemState& state) { delivered.insert(state.item); });
+    for (unsigned n=0;n<16;++n) require(fair_host.publish_item({100+n,0,10,1,true,"bandage"}));
+    for (unsigned tick=0;tick<4;++tick) {
+        for (unsigned n=0;n<8;++n) require(fair_host.publish_item({100+n,0,10,2+tick,true,"bandage"}));
+        fair_host.update(.01); fair_client.update(.01);
+    }
+    require(delivered.size()==16); // frequently changing early entries must not starve later loot
     std::cout<<"Inventory view chunk assembly, owner isolation, stale views and control validation passed\n";
 }

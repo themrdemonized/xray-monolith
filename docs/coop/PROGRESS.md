@@ -2,6 +2,20 @@
 
 Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. The active architecture has no location workers or independently active guest locations. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
 
+## Loose world loot checkpoint — 2026-10-09
+
+Protocol 13 maps loose world inventory items to session identities and bounded typed position, condition and ammunition updates. Guest pickup uses the native inventory request queue and host ownership/distance/capacity checks. Persistent items retain their native data while transferring out of the world registry; dropped items return to persistent world ownership. Quest/story items and items containing children are excluded. Corpse/stash inventories remain unsupported.
+
+Temporary guest actors, restored equipment and client presentation items now set their lifetime on the actual server object before ALife registration. The template lifetime flag is not serialized by native Spawn_Write, so setting only the template did not enforce this boundary. Native tests require guest actors to remain outside the persistent registry. Guest spawns also clear the primary-player flag.
+
+Item publication rotates through the catalogue to avoid starving later ownership updates. Unchanged owner inventory views are suppressed, loose positions are quantized to one centimetre, and catalogue capacity reserves identities for guest inventories. Section validation accepts normal dotted ammunition names while rejecting paths and traversal. Standalone tests cover malformed loot metadata and publication fairness.
+
+All eleven standalone suites and the enabled DX11 build passed (`_build/coopnet-world-loot-final-unit.log`, `_build/coopnet-world-loot-final-build.log`). Final native loot, inventory and starter checks passed: pickup/drop/second pickup transferred the same persistent item, firing consumed three rounds to two, backpack/equip preserved ammunition, and a fresh character received the four starter items. Existing movement, rendering, canonical snapshot hashes, passive NPC dispatch, replay/damage, normal shutdown and original-save checks passed. Logs: `_build/coopnet-world-loot-final-native.log`, `_build/coopnet-world-loot-final-inventory.log`, `_build/coopnet-world-loot-final-starter.log`. These exercise native command queues, not clicked GUI appearance.
+
+The final 150-second party travel and 90-second host restart regression passed (`_build/coopnet-world-loot-final-persistence.log`). Both clients loaded destination level 2 and restored the guest weapon/active slot with two rounds. The restarted host rejected the deliberately corrupted newest record (sequence 62), recovered the previous valid record, and retained equipment. Snapshot hashes, normal shutdown and unchanged original saves passed in both phases.
+
+Full playable co-op remains incomplete. Dynamic NPC creation/removal and corpse/animation state, corpse/stash loot, upgrades/attachments/remaining-use presentation, combat effects, death/rejoin, shared quests and persisted client resume credentials remain required. Independent active locations are outside the selected scope.
+
 ## Guest inventory view checkpoint — 2026-10-08
 
 Protocol 12 adds bounded owner-only equipment snapshots and retires the guest actor's cloned host inventory. The mirror carries section, condition, slot/backpack/belt placement, active item and weapon/ammo counts. Inventory UI and quick-use hooks send equip, backpack, belt, use, activate, holster and drop requests to the host through the correlated, replay-protected inventory path. New characters receive a PM pistol, ammunition, bandage and PDA; saved characters restore their prior inventory without another grant.

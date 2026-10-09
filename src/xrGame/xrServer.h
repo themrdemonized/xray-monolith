@@ -190,7 +190,7 @@ public:
 	void Perform_destroy(CSE_Abstract* tpSE_Abstract, u32 mode);
 
 	CSE_Abstract* Process_spawn(NET_Packet& P, ClientID sender, BOOL bSpawnWithClientsMainEntityAsParent = FALSE,
-	                            CSE_Abstract* tpExistedEntity = 0);
+	                            CSE_Abstract* tpExistedEntity = 0, bool temporary = false);
 	void Process_update(NET_Packet& P, ClientID sender);
 	void Process_save(NET_Packet& P, ClientID sender);
 	void Process_event(NET_Packet& P, ClientID sender);

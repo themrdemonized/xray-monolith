@@ -1,4 +1,5 @@
 #include "pch_script.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "game_cl_base.h"
 #include "level.h"
 #include "GamePersistent.h"
@@ -436,6 +437,7 @@ void game_cl_GameState::SendPickUpEvent(u16 ID_who, u16 ID_what)
 {
 	CObject* O = Level().Objects.net_Find(ID_what);
 	Level().m_feel_deny.feel_touch_deny(O, 1000);
+    if (engine_coopnet::queue_local_inventory_action(ID_what,coopnet::InventoryAction::Take)) return;
 
 	NET_Packet P;
 	u_EventGen(P, GE_OWNERSHIP_TAKE, ID_who);

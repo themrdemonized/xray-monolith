@@ -64,6 +64,14 @@ bool apply_local_condition(std::uint32_t level, const ActorConditionState& state
 std::uint16_t spawn_session_item(std::uint16_t actor, const char* section);
 bool capture_session_item(std::uint16_t item, NativeSessionItem& state);
 bool is_session_item(std::uint16_t item);
+bool session_item_enters_world(std::uint16_t item);
+struct NativeWorldItem { std::uint16_t object=0xffff,owner=0xffff; std::uint64_t incarnation=0; coopnet::ItemState state; };
+bool capture_world_items(std::vector<NativeWorldItem>& items);
+void queue_world_item_state(std::uint64_t session,const coopnet::ItemState& item);
+void update_world_items();
+bool prepare_world_loot_probe(std::uint16_t owner,std::uint16_t& object);
+bool world_loot_is_registered(std::uint16_t object);
+void exercise_local_world_loot_probe();
 void session_item_destroyed(std::uint16_t item);
 void remove_session_item(std::uint16_t item);
 NativeInventoryStatus transact_session_item(std::uint16_t actor, std::uint16_t item, std::uint64_t incarnation, bool take);
