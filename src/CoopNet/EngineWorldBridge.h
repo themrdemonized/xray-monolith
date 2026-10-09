@@ -49,7 +49,8 @@ void queue_container_catalogue(std::uint64_t session,std::uint32_t level,const s
 void update_container_catalogue();
 bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::QuestState& quests);
 // Topic discovery evaluates native preconditions on the host for the requesting
-// guest. It does not initialize a dialog or execute any phrase/reward action.
+// guest. A selected topic retains native speaker bindings and offers its root;
+// phrase/reward actions are not executed by this adapter yet.
 bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor,
     const coopnet::DialogueRequest& request,std::uint32_t revision,coopnet::DialogueView& view);
 // Scoped owner-thread redirection for NPC replies during remote native dialogs.

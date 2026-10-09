@@ -261,6 +261,12 @@ if ($ContainerRecoveryProbe) {
 }
 
 if ($DialogueProbe) {
+    $dialogueTeardown=[regex]::Match($logs.host,'native dialogue teardown probe: active conversation retained for shutdown actor ([0-9]+)')
+    if (!$dialogueTeardown.Success) { throw 'Active native dialogue teardown stimulus missing.' }
+    $dialogueRelease='native dialogue released: actor '+$dialogueTeardown.Groups[1].Value
+    $teardownOffset=$dialogueTeardown.Index+$dialogueTeardown.Length
+    if ($logs.host.Substring($teardownOffset) -notmatch [regex]::Escape($dialogueRelease)) { throw 'Native active conversation shutdown cleanup missing.' }
+    if ($logs.host -notmatch 'native dialogue selection probe: topic selected root offered without actions close and reopen passed') { throw 'Native guest topic selection/close evidence missing.' }
     if ($logs.host -notmatch 'native dialogue speaker probe: guest actor NPC speaker and talk flags bound then restored') { throw 'Native guest/NPC talking context evidence missing.' }
     if ($logs.host -notmatch 'native dialogue lifecycle probe: changed predicate prevented action wrong speaker and unoffered phrase denied cancel and reopen passed') { throw 'Native dialogue lifecycle evidence missing.' }
     if ($logs.host -notmatch 'native dialogue transcript probe: player and NPC answers captured without host talk UI') { throw 'Native dialogue reply redirection evidence missing.' }

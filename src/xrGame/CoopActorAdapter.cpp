@@ -498,6 +498,29 @@ unsigned native_dialogue_probe_actions=0;
 int native_dialogue_gate_predicate(lua_State* state) { lua_pushboolean(state,native_dialogue_probe_gate); return 1; }
 int native_dialogue_gate_action(lua_State*) { ++native_dialogue_probe_actions; return 0; }
 int native_dialogue_context_object(lua_State* state) { lua_pushvalue(state,lua_upvalueindex(1)); return 1; }
+struct NativeDialogueSession {
+    std::uint64_t session=0;
+    CGameObject* npc=nullptr;
+    coopnet::DialogueView offered;
+    DIALOG_SHARED_PTR dialog;
+};
+xr_map<u16,NativeDialogueSession> native_dialogues;
+void cancel_native_dialogue(u16 actor) {
+    const auto found=native_dialogues.find(actor);
+    if (found==native_dialogues.end()) return;
+    auto& dialog=found->second.dialog;
+    if (dialog && dialog->FirstSpeaker()) {
+        dialog->FirstSpeaker()->CancelDialog(dialog);
+        Msg("* CoopNet native dialogue released: actor %u",actor);
+    }
+    native_dialogues.erase(found);
+}
+void cancel_native_dialogues_for(CGameObject* object) {
+    xr_vector<u16> retired;
+    for (const auto& entry:native_dialogues)
+        if (entry.first==object->ID() || entry.second.npc==object) retired.push_back(entry.first);
+    for (const auto actor:retired) cancel_native_dialogue(actor);
+}
 }
 NativeDialogueOutput::NativeDialogueOutput(coopnet::DialogueView& view):previous_(remote_dialogue_output) {
     remote_dialogue_output=&view;
@@ -517,8 +540,27 @@ bool capture_remote_dialogue_answer(const char* text,bool player) {
 bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id,
     const coopnet::DialogueRequest& request,std::uint32_t revision,coopnet::DialogueView& view) {
     view={request.actor,request.target,request.incarnation,request.generation,request.level,revision,true,{}};
+    if (!session || !revision || !coopnet::valid_dialogue_request(request)) return false;
+    auto existing=native_dialogues.find(actor_id);
+    if (request.action==coopnet::DialogueAction::Close) {
+        if (existing==native_dialogues.end()) return false;
+        const auto& offered=existing->second.offered;
+        const bool bound=existing->second.session==session && request.actor==offered.actor && request.target==offered.target &&
+            request.incarnation==offered.incarnation && request.generation==offered.generation && request.level==offered.level && request.revision==offered.revision;
+        if (bound) cancel_native_dialogue(actor_id);
+        return bound;
+    }
+    bool selection_retained=false;
+    struct RetireSelection {
+        u16 actor; bool selecting; bool& retained;
+        ~RetireSelection() { if (selecting && !retained) cancel_native_dialogue(actor); }
+    } retire_selection{actor_id,request.action==coopnet::DialogueAction::Select,selection_retained};
+    if (request.action==coopnet::DialogueAction::Select &&
+        (existing==native_dialogues.end() || existing->second.session!=session ||
+         !coopnet::offered_dialogue_choice(existing->second.offered,request) || !request.phrase.empty())) return false;
+    if (request.action==coopnet::DialogueAction::Open) cancel_native_dialogue(actor_id);
     LocalActorPose local;
-    if (!session || !revision || !coopnet::valid_dialogue_request(request) || request.action!=coopnet::DialogueAction::Open ||
+    if (
         world_level_is_replica() || !capture_local_actor(local) || local.level!=request.level) return false;
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(actor_id));
     if (!actor || actor==g_actor || actor->getDestroy() || !actor->g_Alive() || !actor->IsTalkEnabled() || actor->IsTalking()) return false;
@@ -602,6 +644,24 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
     } context(state,actor,owner);
     if (!context.bind()) return false;
     auto* manager=smart_cast<CPhraseDialogManager*>(actor);
+    if (request.action==coopnet::DialogueAction::Select) {
+        auto& conversation=native_dialogues.find(actor_id)->second;
+        if (conversation.npc!=target || conversation.dialog) return false;
+        for (const auto& entry:native_dialogues) if (entry.first!=actor_id && entry.second.npc==target && entry.second.dialog) return false;
+        manager->UpdateAvailableDialogs(partner);
+        if (!manager->HaveAvailableDialog(request.dialog.c_str())) { cancel_native_dialogue(actor_id); return false; }
+        DIALOG_SHARED_PTR dialog=manager->GetDialogByID(request.dialog.c_str());
+        manager->InitDialog(partner,dialog);
+        if (!dialog->Precondition(actor,target) || !dialog->CanSayPhrase(manager,"0")) {
+            manager->CancelDialog(dialog); cancel_native_dialogue(actor_id); return false;
+        }
+        const char* text=dialog->GetPhraseText("0");
+        view.finished=false; view.choices.push_back({request.dialog,"0",text ? text : ""});
+        if (!coopnet::valid_dialogue_view(view)) { manager->CancelDialog(dialog); cancel_native_dialogue(actor_id); view.choices.clear(); view.finished=true; return false; }
+        conversation.dialog=dialog; conversation.offered=view;
+        selection_retained=true;
+        return true;
+    }
     manager->UpdateAvailableDialogs(partner);
     view.finished=false;
     for (const auto& available:manager->AvailableDialogs()) {
@@ -617,6 +677,7 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
         view.choices.push_back({id,{},caption});
     }
     if (!coopnet::valid_dialogue_view(view)) { view.choices.clear(); view.finished=true; return false; }
+    native_dialogues[actor_id]={session,target,view,{}};
     return true;
 }
 bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t actor_id,
@@ -659,6 +720,16 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
         const auto infos_before=g_actor->m_known_info_registry->registry().objects();
         if (!capture_native_dialogue_topics(session,actor_id,request,4,view) || view.choices.empty() ||
             g_actor->m_known_info_registry->registry().objects()!=infos_before) throw std::runtime_error("Native dialogue topics changed host story flags");
+        auto select=request; select.action=coopnet::DialogueAction::Select; select.sequence=5; select.revision=view.revision;
+        select.dialog=view.choices.front().dialog;
+        if (!capture_native_dialogue_topics(session,actor_id,select,5,view) || view.finished || view.choices.size()!=1 || view.choices.front().phrase!="0")
+            throw std::runtime_error("Native guest topic selection failed");
+        auto close=request; close.action=coopnet::DialogueAction::Close; close.sequence=6; close.revision=view.revision;
+        if (!capture_native_dialogue_topics(session,actor_id,close,6,view) || !view.finished || native_dialogues.count(actor_id))
+            throw std::runtime_error("Native guest conversation close retained active references");
+        if (!capture_native_dialogue_topics(session,actor_id,request,7,view) || view.choices.empty())
+            throw std::runtime_error("Native guest conversation did not reopen");
+        Msg("* CoopNet native dialogue selection probe: topic selected root offered without actions close and reopen passed");
         bool lifecycle_checked=false;
         {
             using Infos=std::remove_reference_t<decltype(actor->m_known_info_registry->registry().objects())>;
@@ -712,6 +783,11 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
         actor->set_money(314159,false);
         if (actor->get_money()!=314159) throw std::runtime_error("Dialogue fixture guest money assignment failed");
         Msg("* CoopNet native dialogue topics probe: guest money assigned 314159");
+        select.sequence=8; select.revision=native_dialogues.find(actor_id)->second.offered.revision;
+        select.dialog=native_dialogues.find(actor_id)->second.offered.choices.front().dialog;
+        if (!capture_native_dialogue_topics(session,actor_id,select,8,view) || !native_dialogues.find(actor_id)->second.dialog)
+            throw std::runtime_error("Native guest conversation teardown stimulus failed");
+        Msg("* CoopNet native dialogue teardown probe: active conversation retained for shutdown actor %u",actor_id);
         return true;
     }
     return false;
@@ -836,6 +912,7 @@ void world_object_spawned(CGameObject* object,const CSE_Abstract* source) {
     if (replica) ++world_replica_count;
 }
 void world_object_destroyed(CGameObject* object) {
+    cancel_native_dialogues_for(object);
     const auto found=world_objects.find(object);
     if (found==world_objects.end()) return;
     if (found->second.replica) --world_replica_count;
@@ -882,6 +959,7 @@ bool schedule_world_replica(ISheduled* scheduled,std::uint32_t elapsed) {
     ++replica_schedules; return true;
 }
 void world_level_stopped() {
+    while (!native_dialogues.empty()) cancel_native_dialogue(native_dialogues.begin()->first);
     if (replica_frames || replica_schedules)
         Msg("* CoopNet passive world stopped: frame updates %llu scheduled updates %llu",replica_frames,replica_schedules);
     if (world_level_is_replica()) replica_world_save.clear();
@@ -1807,6 +1885,7 @@ void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw,
             actor->character_physics_support()->movement()->Environment(),physics_world()->StepsNum());
 }
 void remove_guest_actor(std::uint16_t object) {
+    cancel_native_dialogue(object);
     if (!g_pGameLevel || !Level().Server) return;
     auto found = guests.find(object);
     if (found == guests.end() || found->second.removing) return;
