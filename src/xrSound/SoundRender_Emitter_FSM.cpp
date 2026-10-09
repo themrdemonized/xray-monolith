@@ -94,6 +94,8 @@ void CSoundRender_Emitter::update(float dt)
 				{
 					starting_delay = delay;
 					m_current_state = m_current_state == stStarting ? stStartingDelayed : stStartingLoopedDelayed;
+					// Match explicit delays: start AI propagation from now, not from zero.
+					fTimeToPropagade = fTime;
 				}
 				else
 				{
