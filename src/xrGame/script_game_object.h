@@ -99,6 +99,8 @@ class CScriptEntityAction;
 class CScriptTask;
 class CScriptSoundInfo;
 class CScriptMonsterHitInfo;
+class CScriptMonsterEnemyInfo;
+class CScriptMonsterHomeInfo;
 class CScriptBinderObject;
 class CCoverPoint;
 class CScriptIniFile;
@@ -569,6 +571,8 @@ public:
 	CScriptGameObject* GetCorpse() const;
 	CScriptSoundInfo GetSoundInfo();
 	CScriptMonsterHitInfo GetMonsterHitInfo();
+	CScriptMonsterEnemyInfo GetMonsterEnemyInfo();
+	CScriptMonsterHomeInfo GetMonsterHomeInfo();
 	void bind_object(CScriptBinderObject* object);
 	CScriptGameObject* GetCurrentOutfit() const;
 	float GetCurrentOutfitProtection(int hit_type);
