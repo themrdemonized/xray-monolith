@@ -66,7 +66,7 @@ enum class NativeInventoryStatus : std::uint8_t { Accepted, Unavailable, Conflic
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state);
 bool apply_guest_condition(std::uint16_t object,const ActorConditionState& state);
 bool apply_local_condition(std::uint32_t level, const ActorConditionState& state);
-std::uint16_t spawn_session_item(std::uint16_t actor, const char* section);
+std::uint16_t spawn_session_item(std::uint16_t actor, const char* section,bool attached=false);
 bool capture_session_item(std::uint16_t item, NativeSessionItem& state);
 bool is_session_item(std::uint16_t item);
 bool session_item_enters_world(std::uint16_t item);

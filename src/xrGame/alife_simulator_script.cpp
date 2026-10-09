@@ -19,6 +19,7 @@
 #include "alife_registry_container.h"
 #include "xrServer.h"
 #include "level.h"
+#include "../CoopNet/EngineActorBridge.h"
 
 #include <luabind/iterator_policy.hpp>
 #include <luabind/iterator_pair_policy.hpp>
@@ -174,6 +175,12 @@ CSE_Abstract* CALifeSimulator__spawn_item(CALifeSimulator* self, LPCSTR section,
 
 CSE_Abstract* CALifeSimulator__spawn_item2(CALifeSimulator* self, LPCSTR section, const Fvector& position, u32 level_vertex_id, GameGraph::_GRAPH_ID game_vertex_id, ALife::_OBJECT_ID id_parent)
 {
+    engine_coopnet::LocalActorPose guest;
+    if (engine_coopnet::capture_guest_actor(id_parent,guest)) {
+        const auto item=engine_coopnet::spawn_session_item(id_parent,section,true);
+        if (item==0xffff) return nullptr;
+        return Level().Server->ID_to_entity(item);
+    }
 	if (id_parent == ALife::_OBJECT_ID(-1))
 		return (self->spawn_item(section, position, level_vertex_id, game_vertex_id, id_parent));
 

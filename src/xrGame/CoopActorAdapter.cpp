@@ -495,6 +495,9 @@ namespace {
 coopnet::DialogueView* remote_dialogue_output=nullptr;
 bool native_dialogue_probe_gate=true;
 unsigned native_dialogue_probe_actions=0;
+bool native_dialogue_reward_probe=false;
+u16 native_dialogue_reward_item=0xffff,native_dialogue_reward_actor=0xffff;
+unsigned native_dialogue_reward_stage=0;
 int native_dialogue_gate_predicate(lua_State* state) { lua_pushboolean(state,native_dialogue_probe_gate); return 1; }
 int native_dialogue_gate_action(lua_State*) { ++native_dialogue_probe_actions; return 0; }
 int native_dialogue_context_object(lua_State* state) { lua_pushvalue(state,lua_upvalueindex(1)); return 1; }
@@ -659,6 +662,15 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
         view.finished=false; view.choices.push_back({request.dialog,"0",text ? text : ""});
         if (!coopnet::valid_dialogue_view(view)) { manager->CancelDialog(dialog); cancel_native_dialogue(actor_id); view.choices.clear(); view.finished=true; return false; }
         conversation.dialog=dialog; conversation.offered=view;
+        if (native_dialogue_reward_probe) {
+            luabind::functor<CSE_Abstract*> create_item;
+            if (!ai().script_engine().functor("alife_create_item",create_item)) throw std::runtime_error("Native reward item script missing");
+            CSE_Abstract* created=create_item("bandage",actor->lua_game_object());
+            if (!created || created->ID_Parent!=actor_id || !is_session_item(created->ID) || ai().alife().objects().object(created->ID,true))
+                throw std::runtime_error("Native script reward entered persistent ALife or wrong parent");
+            native_dialogue_reward_item=created->ID; native_dialogue_reward_actor=actor_id; native_dialogue_reward_stage=1;
+            Msg("* CoopNet native script reward probe: bandage created for guest outside persistent ALife");
+        }
         selection_retained=true;
         return true;
     }
@@ -682,6 +694,18 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
 }
 bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t actor_id,
     std::uint64_t entity,std::uint32_t generation,std::uint32_t level) {
+    if (native_dialogue_reward_actor==actor_id && native_dialogue_reward_stage) {
+        if (native_dialogue_reward_stage==1) {
+            NativeSessionItem item;
+            if (!capture_session_item(native_dialogue_reward_item,item) || item.owner!=actor_id || item.native_owner!=actor_id) return false;
+            remove_session_item(native_dialogue_reward_item); native_dialogue_reward_stage=2;
+            Msg("* CoopNet native script reward probe: guest native inventory ownership confirmed");
+            return false;
+        }
+        if (is_session_item(native_dialogue_reward_item)) return false;
+        Msg("* CoopNet native script reward probe: diagnostic item retired before persistence");
+        return true;
+    }
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(actor_id));
     if (!actor || !actor->m_known_info_registry) return false;
     auto* state=ai().script_engine().lua(); if (!state) return false;
@@ -722,7 +746,10 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
             g_actor->m_known_info_registry->registry().objects()!=infos_before) throw std::runtime_error("Native dialogue topics changed host story flags");
         auto select=request; select.action=coopnet::DialogueAction::Select; select.sequence=5; select.revision=view.revision;
         select.dialog=view.choices.front().dialog;
-        if (!capture_native_dialogue_topics(session,actor_id,select,5,view) || view.finished || view.choices.size()!=1 || view.choices.front().phrase!="0")
+        native_dialogue_reward_probe=true;
+        const bool selected=capture_native_dialogue_topics(session,actor_id,select,5,view);
+        native_dialogue_reward_probe=false;
+        if (!selected || view.finished || view.choices.size()!=1 || view.choices.front().phrase!="0")
             throw std::runtime_error("Native guest topic selection failed");
         auto close=request; close.action=coopnet::DialogueAction::Close; close.sequence=6; close.revision=view.revision;
         if (!capture_native_dialogue_topics(session,actor_id,close,6,view) || !view.finished || native_dialogues.count(actor_id))
@@ -788,7 +815,7 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
         if (!capture_native_dialogue_topics(session,actor_id,select,8,view) || !native_dialogues.find(actor_id)->second.dialog)
             throw std::runtime_error("Native guest conversation teardown stimulus failed");
         Msg("* CoopNet native dialogue teardown probe: active conversation retained for shutdown actor %u",actor_id);
-        return true;
+        return false; // Wait for native reward ownership and diagnostic removal.
     }
     return false;
 }
@@ -959,6 +986,7 @@ bool schedule_world_replica(ISheduled* scheduled,std::uint32_t elapsed) {
     ++replica_schedules; return true;
 }
 void world_level_stopped() {
+    native_dialogue_reward_probe=false; native_dialogue_reward_item=0xffff; native_dialogue_reward_actor=0xffff; native_dialogue_reward_stage=0;
     while (!native_dialogues.empty()) cancel_native_dialogue(native_dialogues.begin()->first);
     if (replica_frames || replica_schedules)
         Msg("* CoopNet passive world stopped: frame updates %llu scheduled updates %llu",replica_frames,replica_schedules);
@@ -1127,12 +1155,12 @@ bool write_guest_save_file(const char* name,const std::vector<std::uint8_t>& byt
     std::vector<std::uint8_t> verify;
     return read_guest_save_file(name,verify) && verify==bytes;
 }
-std::uint16_t spawn_session_item(std::uint16_t owner, const char* section) {
+std::uint16_t spawn_session_item(std::uint16_t owner, const char* section,bool attached) {
     LocalActorPose pose;
     if (!capture_guest_actor(owner,pose) || !pSettings->section_exist(section) || session_items.size()>=768) return 0xffff;
     CActor* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
     Fvector position=actor->Position(); position.y+=.15f;
-    CSE_Abstract* abstract=Level().spawn_item(section,position,actor->ai_location().level_vertex_id(),0xffff,true);
+    CSE_Abstract* abstract=Level().spawn_item(section,position,actor->ai_location().level_vertex_id(),attached ? owner : 0xffff,true);
     if (!smart_cast<CSE_ALifeInventoryItem*>(abstract)) { F_entity_Destroy(abstract); return 0xffff; }
     abstract->m_bALifeControl=false;
     NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);

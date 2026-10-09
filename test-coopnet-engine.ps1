@@ -261,6 +261,8 @@ if ($ContainerRecoveryProbe) {
 }
 
 if ($DialogueProbe) {
+    if ($logs.host -notmatch 'native script reward probe: guest native inventory ownership confirmed' -or
+        $logs.host -notmatch 'native script reward probe: diagnostic item retired before persistence') { throw 'Native scripted guest reward ownership/removal evidence missing.' }
     $dialogueTeardown=[regex]::Match($logs.host,'native dialogue teardown probe: active conversation retained for shutdown actor ([0-9]+)')
     if (!$dialogueTeardown.Success) { throw 'Active native dialogue teardown stimulus missing.' }
     $dialogueRelease='native dialogue released: actor '+$dialogueTeardown.Groups[1].Value
