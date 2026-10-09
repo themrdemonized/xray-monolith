@@ -10,6 +10,8 @@ public:
 
 	virtual void InitDialog(CPhraseDialogManager* dialog_partner, DIALOG_SHARED_PTR& phrase_dialog);
 	virtual void AddDialog(DIALOG_SHARED_PTR& phrase_dialog);
+	// Releases both speakers' active references before resetting a remote dialog.
+	void CancelDialog(DIALOG_SHARED_PTR& phrase_dialog);
 
 	//получение фразы, виртуальная функция, 
 	//должна быть переопределена для сталкеров и актера

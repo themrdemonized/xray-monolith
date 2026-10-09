@@ -62,6 +62,24 @@ void CPhraseDialog::Init(CPhraseDialogManager* speaker_first, CPhraseDialogManag
 //обнуляем все связи
 void CPhraseDialog::Reset()
 {
+	m_PhraseVector.clear();
+	m_SaidPhraseID = "";
+	m_bFinished = true;
+	m_pSpeakerFirst = NULL;
+	m_pSpeakerSecond = NULL;
+}
+
+bool CPhraseDialog::CanSayPhrase(CPhraseDialogManager* speaker,const shared_str& phrase_id)
+{
+	if (!IsInited() || IsFinished() || !speaker || !IsWeSpeaking(speaker)) return false;
+	CPhrase* selected = NULL;
+	for (auto* phrase : m_PhraseVector) if (phrase->GetID() == phrase_id) { selected = phrase; break; }
+	if (!selected) return false;
+	const auto* current = smart_cast<const CGameObject*>(CurrentSpeaker());
+	const auto* other = smart_cast<const CGameObject*>(OtherSpeaker());
+	if (!current || !other) return false;
+	return selected->GetScriptHelper()->Precondition(current, other, GetDialogID().c_str(),
+	    GetLastPhraseID().c_str(), phrase_id.c_str());
 }
 
 CPhraseDialogManager* CPhraseDialog::OurPartner(CPhraseDialogManager* dialog_manager) const

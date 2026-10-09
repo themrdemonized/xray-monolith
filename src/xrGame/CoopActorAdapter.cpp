@@ -128,7 +128,7 @@ bool write_join_profile_file(const std::vector<std::uint8_t>& bytes) {
     return MoveFileExA(partial,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;
 }
 void export_settings_audit() {
-    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script","task_manager.script","ui_pda.script"}) {
+    for (const char* name:{"ui_main_menu.script","ui_options.script","axr_main.script","task_manager.script","task_objects.script","ui_pda.script"}) {
         string_path source,target; FS.update_path(source,"$game_scripts$",name); FS.update_path(target,"$app_data_root$",name);
         FS.file_copy(source,target);
     }
@@ -493,6 +493,10 @@ void update_container_catalogue() {
 }
 namespace {
 coopnet::DialogueView* remote_dialogue_output=nullptr;
+bool native_dialogue_probe_gate=true;
+unsigned native_dialogue_probe_actions=0;
+int native_dialogue_gate_predicate(lua_State* state) { lua_pushboolean(state,native_dialogue_probe_gate); return 1; }
+int native_dialogue_gate_action(lua_State*) { ++native_dialogue_probe_actions; return 0; }
 }
 NativeDialogueOutput::NativeDialogueOutput(coopnet::DialogueView& view):previous_(remote_dialogue_output) {
     remote_dialogue_output=&view;
@@ -559,7 +563,10 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
     auto* manager=smart_cast<CPhraseDialogManager*>(actor);
     manager->UpdateAvailableDialogs(partner);
     view.finished=false;
-    for (const auto& dialog:manager->AvailableDialogs()) {
+    for (const auto& available:manager->AvailableDialogs()) {
+        DIALOG_SHARED_PTR dialog=available;
+        manager->InitDialog(partner,dialog);
+        struct Cancel { CPhraseDialogManager* manager; DIALOG_SHARED_PTR& dialog; ~Cancel() { manager->CancelDialog(dialog); } } cancel{manager,dialog};
         const char* id=dialog->GetDialogID().c_str(); const char* caption=dialog->DialogCaption();
         if (!id || !caption || !coopnet::shared_name(id,128) || strlen(caption)>4096 || view.choices.size()>=256) continue;
         view.choices.push_back({id,{},caption});
@@ -598,6 +605,42 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
         const auto infos_before=g_actor->m_known_info_registry->registry().objects();
         if (!capture_native_dialogue_topics(session,actor_id,request,4,view) || view.choices.empty() ||
             g_actor->m_known_info_registry->registry().objects()!=infos_before) throw std::runtime_error("Native dialogue topics changed host story flags");
+        bool lifecycle_checked=false;
+        {
+            using Infos=std::remove_reference_t<decltype(actor->m_known_info_registry->registry().objects())>;
+            struct RestoreInfos { CActor* actor; Infos infos; ~RestoreInfos() { actor->m_known_info_registry->registry().objects()=infos; } } restore_infos{actor,actor->m_known_info_registry->registry().objects()};
+            actor->m_known_info_registry->registry().objects()=g_actor->m_known_info_registry->registry().objects();
+            auto* manager=smart_cast<CPhraseDialogManager*>(actor);
+            auto* partner=smart_cast<CPhraseDialogManager*>(object);
+            for (const auto& available:manager->AvailableDialogs()) {
+                DIALOG_SHARED_PTR dialog=available;
+                manager->InitDialog(partner,dialog);
+                if (!dialog->CanSayPhrase(manager,"0")) { manager->CancelDialog(dialog); continue; }
+                lua_pushcfunction(state,native_dialogue_gate_predicate); lua_setglobal(state,"coopnet_native_dialogue_gate_predicate");
+                lua_pushcfunction(state,native_dialogue_gate_action); lua_setglobal(state,"coopnet_native_dialogue_gate_action");
+                dialog->GetPhrase("0")->GetScriptHelper()->AddPrecondition("coopnet_native_dialogue_gate_predicate");
+                dialog->GetPhrase("0")->GetScriptHelper()->AddAction("coopnet_native_dialogue_gate_action");
+                native_dialogue_probe_gate=true; native_dialogue_probe_actions=0;
+                if (!dialog->CanSayPhrase(manager,"0") || dialog->CanSayPhrase(partner,"0") || dialog->CanSayPhrase(manager,"coopnet_unoffered_phrase"))
+                    throw std::runtime_error("Native dialogue phrase ownership/membership guard failed");
+                native_dialogue_probe_gate=false;
+                if (dialog->CanSayPhrase(manager,"0")) manager->SayPhrase(dialog,"0");
+                if (native_dialogue_probe_actions) throw std::runtime_error("Changed native predicate allowed dialogue action");
+                native_dialogue_probe_gate=true;
+                DIALOG_SHARED_PTR retained=dialog;
+                manager->CancelDialog(dialog);
+                if (dialog || retained->IsInited() || !retained->IsFinished() || !retained->PhraseList().empty() || retained->CanSayPhrase(manager,"0"))
+                    throw std::runtime_error("Native dialogue cancellation retained speaker/phrase state");
+                // AddDialog asserts on duplicate active references: reopening the
+                // same native instance checks both managers' cancellation cleanup.
+                manager->InitDialog(partner,retained);
+                if (!retained->CanSayPhrase(manager,"0")) throw std::runtime_error("Cancelled native dialogue could not reopen");
+                manager->CancelDialog(retained); lifecycle_checked=true; break;
+            }
+        }
+        if (!lifecycle_checked) continue;
+        Msg("* CoopNet native dialogue lifecycle probe: changed predicate prevented action wrong speaker and unoffered phrase denied cancel and reopen passed");
+        export_settings_audit();
         auto* ui=smart_cast<CUIGameSP*>(CurrentGameUI()); if (!ui || !ui->TalkMenu) return false;
         {
             NativeDialogueOutput output(view);

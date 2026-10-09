@@ -69,6 +69,22 @@ void CPhraseDialogManager::ReceivePhrase(DIALOG_SHARED_PTR& phrase_dialog)
 {
 }
 
+void CPhraseDialogManager::CancelDialog(DIALOG_SHARED_PTR& dialog)
+{
+	if (!dialog) return;
+	// Retain a local reference while removing managers' owning references.
+	DIALOG_SHARED_PTR retained = dialog;
+	auto erase = [&](CPhraseDialogManager* manager) {
+		if (manager) manager->m_ActiveDialogs.erase(std::remove(manager->m_ActiveDialogs.begin(),
+		    manager->m_ActiveDialogs.end(), retained), manager->m_ActiveDialogs.end());
+	};
+	erase(this);
+	erase(retained->FirstSpeaker());
+	erase(retained->SecondSpeaker());
+	retained->Reset();
+	dialog = DIALOG_SHARED_PTR{};
+}
+
 void CPhraseDialogManager::SayPhrase(DIALOG_SHARED_PTR& phrase_dialog, const shared_str& phrase_id)
 {
 	DIALOG_VECTOR_IT it = std::find(m_ActiveDialogs.begin(), m_ActiveDialogs.end(), phrase_dialog);

@@ -74,6 +74,9 @@ public:
 	//список доступных в данный момент фраз
 	virtual const PHRASE_VECTOR& PhraseList() const { return m_PhraseVector; }
 	bool allIsDummy();
+	// Remote choices must recheck the native phrase set and script predicates
+	// immediately before SayPhrase, whose action executes before the next set.
+	bool CanSayPhrase(CPhraseDialogManager* speaker,const shared_str& phrase_id);
 	//сказать фразу и перейти к следующей стадии диалога
 	//если вернули false, то считаем, что диалог закончился
 	//(сделано статическим, так как мы должны передавать имеенно DIALOG_SHARED_PTR&,
