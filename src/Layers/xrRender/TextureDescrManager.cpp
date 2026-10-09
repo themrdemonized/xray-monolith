@@ -151,7 +151,7 @@ void CTextureDescrMngr::LoadLTX(LPCSTR initial, map_TD& s_texture_details)
 
 		texture_desc& desc = s_texture_details[name];
 		desc.m_spec = xr_new<texture_spec>();
-		desc.m_spec->m_material = 1.0f;
+		desc.m_spec->m_material = ini.line_exist("texture", "material") ? ini.r_float("texture", "material") : 1.0f;
 		desc.m_spec->m_bump_name = bump_name;
 		desc.m_spec->m_use_steep_parallax = stricmp(mode, "parallax") == 0;
 	}
