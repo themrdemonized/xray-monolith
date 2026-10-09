@@ -946,6 +946,10 @@ bool CActor::coopnet_import_movement(const Fvector& position,const Fvector& velo
     if(this!=g_actor || !g_Alive() || is_coopnet_downed() || !_valid(position) || !_valid(velocity)) return false;
     auto* sync=PHGetSyncItem(0); if(!sync) return false;
     net_update_A update{}; sync->get_State(update.State);
+    // Compare at the local present, not against a snapshot still in flight.
+    // Small native physics differences should not steer the owned character.
+    Fvector present=position; present.mad(velocity,(std::min)(delay_ms,150u)*.001f);
+    if(m_coopnet_native_prediction && update.State.position.distance_to_sqr(present)<.10f*.10f) return false;
     update.dwTimeStamp=Level().timeServer();
     update.State.position=update.State.previous_position=position;
     update.State.linear_vel=velocity; update.State.enabled=true;
@@ -1081,10 +1085,15 @@ void CActor::PH_A_CrPr()
 	pSyncObj->get_State(PredictedState);
 	////////////////////////////////////
 	pSyncObj->set_State(RecalculatedState);
-	if (m_coopnet_native_prediction) PredictedState=RecalculatedState;
 	if(m_coopnet_native_prediction) {
+		// Preserve the visible camera across the physics correction, then decay
+		// only its error. Local movement never waits on a remote actor spline.
+		m_coopnet_view_correction.sub(IStart.Pos,RecalculatedState.position);
+		if(m_coopnet_view_correction.square_magnitude()>4.f) m_coopnet_view_correction.set(0,0,0);
+		m_bInInterpolation=false;
 		static unsigned native_corrections=0;
-		if(++native_corrections%300==0) Msg("* CoopNet native physics correction completed: %u",native_corrections);
+		if(++native_corrections==1 || native_corrections%300==0) Msg("* CoopNet native physics correction completed: %u",native_corrections);
+		return;
 	}
 	////////////////////////////////////
 	if (!m_bInterpolate) return;
@@ -1270,12 +1279,10 @@ void CActor::make_Interpolation()
 {
 	m_dwILastUpdateTime = Level().timeServer();
     if(m_coopnet_native_prediction) {
-        m_coopnet_view_correction.set(0,0,0);
-        if(!m_bInInterpolation || !g_Alive()) return;
-        if(m_dwILastUpdateTime>=m_dwIEndTime || m_dwIEndTime<=m_dwIStartTime) { m_bInInterpolation=false; return; }
-        const float factor=float(m_dwILastUpdateTime-m_dwIStartTime)/(m_dwIEndTime-m_dwIStartTime);
-        for(unsigned axis=0;axis<3;++axis)
-            m_coopnet_view_correction[axis]=factor*(factor*(factor*HCoeff[axis][0]+HCoeff[axis][1])+HCoeff[axis][2])+HCoeff[axis][3]-IEnd.Pos[axis];
+        if(!g_Alive()) { m_coopnet_view_correction.set(0,0,0); return; }
+        // Frame-rate independent error smoothing, separate from native controls.
+        m_coopnet_view_correction.mul(expf(-Device.fTimeDelta/.08f));
+        if(m_coopnet_view_correction.square_magnitude()<.000001f) m_coopnet_view_correction.set(0,0,0);
         return; // Local prediction keeps its physics velocity, controls and aim.
     }
 

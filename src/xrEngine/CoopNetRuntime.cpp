@@ -137,6 +137,8 @@ struct Session {
     bool server_clock_known = false;
     std::uint32_t tick = 0;
     std::uint32_t input_sequence = 0;
+    std::uint16_t last_sent_buttons=0;
+    bool controls_sent=false;
     std::deque<std::pair<std::uint32_t,std::chrono::steady_clock::time_point>> input_times;
     std::uint32_t prediction_delay_ms=0;
     coopnet::TickClock ticks;
@@ -961,10 +963,11 @@ void send_gameplay_probe(Session& current, double elapsed) {
 }
 void send_client_controls(Session& current, double elapsed) {
     const auto due = current.ticks.advance(elapsed);
-    if (!due || current.client.session().state() != coopnet::ClientState::Connected) return;
+    if (current.client.session().state() != coopnet::ClientState::Connected) return;
     LocalActorControls controls;
     if (!capture_local_controls(controls)) return;
-    current.input_sequence += due;
+    if (!due && current.controls_sent && controls.buttons==current.last_sent_buttons) return;
+    current.input_sequence += (std::max)(due,1u);
     coopnet::ActorPresence owned;
     current.client.actors().visit([&](const coopnet::ActorPresence& actor) {
         if (actor.player == current.client.session().welcome().player && actor.level == controls.level) owned = actor;
@@ -995,6 +998,7 @@ void send_client_controls(Session& current, double elapsed) {
     // Sending may disconnect and clear the replica registry; send after traversal.
     if(current.automated_controls) set_local_movement_probe(input.buttons,input.yaw,input.pitch);
     if(current.client.send_input(input)==coopnet::SendResult::Sent) {
+        current.last_sent_buttons=input.buttons; current.controls_sent=true;
         current.input_times.push_back({input.sequence,std::chrono::steady_clock::now()});
         if(current.input_times.size()>128) current.input_times.pop_front();
     }
