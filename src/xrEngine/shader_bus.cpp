@@ -1202,5 +1202,5 @@ void ShaderBus::dump()
 
 int ShaderBus::version()
 {
-	return 6;
+	return 7;
 }

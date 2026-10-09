@@ -955,6 +955,7 @@ HRESULT CRender::shader_compile(
 {
 	D3DXMACRO defines [128];
 	int def_it = 0;
+	char c_shader_bus [32];
 
 	char sh_name[MAX_PATH] = "";
 	u32 len = 0;
@@ -1027,6 +1028,14 @@ HRESULT CRender::shader_compile(
 	}
 	sh_name[len] = '0' + char(4 == m_skinning);
 	++len;
+
+	// the bus version, in the cache name too so each version keeps its own build
+	xr_sprintf(c_shader_bus, "%d", ShaderBus::version());
+	defines[def_it].Name = "SHADER_BUS";
+	defines[def_it].Definition = c_shader_bus;
+	def_it ++;
+	xr_strcat(sh_name, c_shader_bus);
+	len += xr_strlen(c_shader_bus);
 
 	// finish
 	defines[def_it].Name = 0;

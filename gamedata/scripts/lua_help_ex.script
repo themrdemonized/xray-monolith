@@ -548,7 +548,7 @@
     }
 
     shader_bus { -- float4 lanes bound to hlsl constants called bus_<id>, see docs/shader_bus.md
-        number version() -- 6
+        number version() -- 7
         number register(string id, string owner, string description) -- the write token, fatal when the id is registered with a different owner, nil for an id starting engine_ or cvar_
         number try_register(string id, string owner, string description) -- nil instead of the fatal
         number register_shared(string id, string owner, string description) -- a token of a shared lane, every writer gets its own and the lane binds the largest value, obj_hotness is shared and register and try_register give its token too

@@ -9,7 +9,7 @@ constants with lanes that each have an id and an `owner`. Any script can registe
 any lane, and only the script that registered a lane can write it. The engine needs no advance
 list of names, so a mod can claim a lane without anything being patched into the exe for it.
 
-Requires a modded exe with the bus. `shader_bus.version()` returns `6`. A script that wants
+Requires a modded exe with the bus. `shader_bus.version()` returns `7`. A script that wants
 to detect the feature should test `shader_bus ~= nil` first, since an older exe has no such
 module at all.
 
@@ -78,6 +78,23 @@ nobody has registered reads `0, 0, 0, 0`, so an unclaimed lane behaves like an u
 long as your shader treats an all-zero value as off. A refused `bus_` constant is never written, so
 its value is undefined, never zero.
 
+From version `7` on, every renderer compiles every shader with `SHADER_BUS` defined as the bus
+version, so a shader can keep its lane reads away from an exe that cannot fill them:
+
+```hlsl
+#if defined(SHADER_BUS) && SHADER_BUS >= 7
+    float level = bus_cvar_r__nightvision.x;
+#else
+    float level = 0;
+#endif
+```
+
+- A shader that never tests `SHADER_BUS` compiles to the same bytecode as before.
+- Versions `1` to `6` have the bus but do not define `SHADER_BUS`, so a shader that tests it takes
+  its fallback there too.
+- The version is part of each shader cache file name, so the first start on an exe of a new
+  version compiles every shader once. Cache files from other versions stay on disk unused.
+
 ---
 
 ## The script side
@@ -133,7 +150,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.stats(id)` | `ok, changes, last_change_frame, bound_frame, writes` |
 | `shader_bus.list()` | rows for the registered lanes, then the twelve legacy lanes |
 | `shader_bus.list(true)` | the same, plus a row for every lane a shader declared that nobody registered |
-| `shader_bus.version()` | `6` |
+| `shader_bus.version()` | `7` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
 `legacy`), `source` (the script path that called `register`, empty for a declared or legacy row),
@@ -440,7 +457,8 @@ float3 tinted = base_color.rgb * bus_mymod_tint.rgb;
 On an exe without the bus, `shader_bus` is `nil`, so the script never registers or sets anything,
 and `bus_mymod_tint` is an unbound constant in the shader, reading whatever else happens to sit in
 the constant buffer at that offset. Ship the two halves together, and say in your mod description
-that it needs an exe with the shader bus.
+that it needs an exe with the shader bus, or wrap the read in a `SHADER_BUS` test, which only
+exes from version `7` on pass.
 
 ---
 
@@ -466,4 +484,4 @@ that it needs an exe with the shader bus.
   `register_shared` for a lane more than one mod writes at once.
 - **There is no compatibility check for old exes.** `if shader_bus then` is a complete detection on
   its own, and the all-zero default above is a convention this bus provides, not a guarantee on an
-  exe that predates it.
+  exe that predates it. The only shader side test is `SHADER_BUS`, from version `7` on.
