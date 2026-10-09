@@ -508,6 +508,19 @@ struct NativeDialogueSession {
     DIALOG_SHARED_PTR dialog;
 };
 xr_map<u16,NativeDialogueSession> native_dialogues;
+xr_set<u16> native_guest_script_records;
+void erase_native_guest_script_record(u16 actor) {
+    if (!native_guest_script_records.erase(actor)) return;
+    auto* state=ai().script_engine().lua(); if (!state) return;
+    const int top=lua_gettop(state);
+    lua_getglobal(state,"db");
+    if (lua_istable(state,-1)) {
+        lua_getfield(state,-1,"storage");
+        if (lua_istable(state,-1)) { lua_pushnil(state); lua_rawseti(state,-2,actor); }
+    }
+    lua_settop(state,top);
+    Msg("* CoopNet guest script storage released: actor %u",actor);
+}
 void cancel_native_dialogue(u16 actor) {
     const auto found=native_dialogues.find(actor);
     if (found==native_dialogues.end()) return;
@@ -609,6 +622,7 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
     struct Context {
         lua_State* state; CActor* actor; CInventoryOwner* owner;
         int top,reference=LUA_NOREF,actor_reference=LUA_NOREF,speaker_reference=LUA_NOREF,id_reference=LUA_NOREF;
+        int storage_reference=LUA_NOREF,pstor_reference=LUA_NOREF,ctime_reference=LUA_NOREF;
         bool talking=false;
         using Infos=std::remove_reference_t<decltype(g_actor->m_known_info_registry->registry().objects())>;
         Infos infos;
@@ -616,6 +630,14 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
         ~Context() {
             if (talking) { actor->CInventoryOwner::StopTalk(); owner->CInventoryOwner::StopTalk(); }
             actor->m_known_info_registry->registry().objects()=infos;
+            if (storage_reference!=LUA_NOREF) {
+                lua_rawgeti(state,LUA_REGISTRYINDEX,storage_reference);
+                const int binding=lua_gettop(state);
+                for (auto entry:{std::make_pair("pstor",pstor_reference),std::make_pair("pstor_ctime",ctime_reference)}) if (entry.second!=LUA_NOREF) {
+                    lua_rawgeti(state,LUA_REGISTRYINDEX,entry.second); lua_setfield(state,binding,entry.first); luaL_unref(state,LUA_REGISTRYINDEX,entry.second);
+                }
+                lua_pop(state,1); luaL_unref(state,LUA_REGISTRYINDEX,storage_reference);
+            }
             if (reference!=LUA_NOREF) {
                 lua_getglobal(state,"db"); lua_rawgeti(state,LUA_REGISTRYINDEX,reference); lua_setfield(state,-2,"actor");
                 luaL_unref(state,LUA_REGISTRYINDEX,reference);
@@ -629,6 +651,29 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
             lua_getglobal(state,"db"); if (!lua_istable(state,-1)) return false;
             lua_getfield(state,-1,"actor"); reference=luaL_ref(state,LUA_REGISTRYINDEX);
             luabind::object value(state,actor->lua_game_object()); value.pushvalue(); lua_setfield(state,-2,"actor");
+            lua_getfield(state,-1,"storage"); if (!lua_istable(state,-1)) return false;
+            const int storage=lua_gettop(state);
+            lua_rawgeti(state,storage,actor->ID());
+            if (!lua_istable(state,-1)) {
+                lua_pop(state,1); lua_newtable(state);
+                value.pushvalue(); lua_setfield(state,-2,"object");
+                lua_newtable(state); lua_setfield(state,-2,"pstor");
+                lua_newtable(state); lua_setfield(state,-2,"pstor_ctime");
+                lua_pushvalue(state,-1); lua_rawseti(state,storage,actor->ID());
+                native_guest_script_records.insert(actor->ID());
+            }
+            const int guest_binding=lua_gettop(state);
+            lua_pushvalue(state,guest_binding); storage_reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            lua_getfield(state,guest_binding,"pstor"); pstor_reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            lua_getfield(state,guest_binding,"pstor_ctime"); ctime_reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            lua_rawgeti(state,storage,g_actor->ID()); if (!lua_istable(state,-1)) return false;
+            const int host_binding=lua_gettop(state);
+            for (const char* field:{"pstor","pstor_ctime"}) {
+                lua_getfield(state,host_binding,field);
+                if (!lua_istable(state,-1)) { lua_pop(state,1); lua_newtable(state); lua_pushvalue(state,-1); lua_setfield(state,host_binding,field); }
+                lua_setfield(state,guest_binding,field);
+            }
+            lua_pop(state,3);
             actor->m_known_info_registry->registry().objects()=g_actor->m_known_info_registry->registry().objects();
             lua_getglobal(state,"get_actor"); actor_reference=luaL_ref(state,LUA_REGISTRYINDEX);
             lua_getglobal(state,"get_speaker"); speaker_reference=luaL_ref(state,LUA_REGISTRYINDEX);
@@ -663,6 +708,15 @@ bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id
         if (!coopnet::valid_dialogue_view(view)) { manager->CancelDialog(dialog); cancel_native_dialogue(actor_id); view.choices.clear(); view.finished=true; return false; }
         conversation.dialog=dialog; conversation.offered=view;
         if (native_dialogue_reward_probe) {
+            luabind::functor<void> save_var;
+            luabind::functor<int> load_var;
+            if (!ai().script_engine().functor("save_var",save_var) || !ai().script_engine().functor("load_var",load_var))
+                throw std::runtime_error("Native quest storage helpers missing");
+            save_var(actor->lua_game_object(),"coopnet_dialogue_storage_probe",73);
+            const int shared=load_var(g_actor->lua_game_object(),"coopnet_dialogue_storage_probe",-1);
+            save_var(actor->lua_game_object(),"coopnet_dialogue_storage_probe",luabind::object(state));
+            if (shared!=73) throw std::runtime_error("Guest dialogue wrote separate quest variables");
+            Msg("* CoopNet guest quest storage probe: native save_var and load_var used host world storage");
             luabind::functor<CSE_Abstract*> create_item;
             if (!ai().script_engine().functor("alife_create_item",create_item)) throw std::runtime_error("Native reward item script missing");
             CSE_Abstract* created=create_item("bandage",actor->lua_game_object());
@@ -746,11 +800,19 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
             g_actor->m_known_info_registry->registry().objects()!=infos_before) throw std::runtime_error("Native dialogue topics changed host story flags");
         auto select=request; select.action=coopnet::DialogueAction::Select; select.sequence=5; select.revision=view.revision;
         select.dialog=view.choices.front().dialog;
+        const int private_top=lua_gettop(state);
+        lua_getglobal(state,"db"); lua_getfield(state,-1,"storage"); lua_rawgeti(state,-1,actor_id); lua_getfield(state,-1,"pstor");
+        const int private_storage=luaL_ref(state,LUA_REGISTRYINDEX); lua_settop(state,private_top);
         native_dialogue_reward_probe=true;
         const bool selected=capture_native_dialogue_topics(session,actor_id,select,5,view);
         native_dialogue_reward_probe=false;
+        lua_getglobal(state,"db"); lua_getfield(state,-1,"storage"); lua_rawgeti(state,-1,actor_id); lua_getfield(state,-1,"pstor");
+        lua_rawgeti(state,LUA_REGISTRYINDEX,private_storage); const bool private_restored=lua_rawequal(state,-1,-2)!=0;
+        lua_settop(state,private_top); luaL_unref(state,LUA_REGISTRYINDEX,private_storage);
         if (!selected || view.finished || view.choices.size()!=1 || view.choices.front().phrase!="0")
             throw std::runtime_error("Native guest topic selection failed");
+        if (!private_restored) throw std::runtime_error("Native guest private storage retained world alias");
+        Msg("* CoopNet guest quest storage probe: guest private storage restored after dialogue");
         auto close=request; close.action=coopnet::DialogueAction::Close; close.sequence=6; close.revision=view.revision;
         if (!capture_native_dialogue_topics(session,actor_id,close,6,view) || !view.finished || native_dialogues.count(actor_id))
             throw std::runtime_error("Native guest conversation close retained active references");
@@ -939,6 +1001,7 @@ void world_object_spawned(CGameObject* object,const CSE_Abstract* source) {
     if (replica) ++world_replica_count;
 }
 void world_object_destroyed(CGameObject* object) {
+    erase_native_guest_script_record(object->ID());
     cancel_native_dialogues_for(object);
     const auto found=world_objects.find(object);
     if (found==world_objects.end()) return;
@@ -986,6 +1049,7 @@ bool schedule_world_replica(ISheduled* scheduled,std::uint32_t elapsed) {
     ++replica_schedules; return true;
 }
 void world_level_stopped() {
+    while (!native_guest_script_records.empty()) erase_native_guest_script_record(*native_guest_script_records.begin());
     native_dialogue_reward_probe=false; native_dialogue_reward_item=0xffff; native_dialogue_reward_actor=0xffff; native_dialogue_reward_stage=0;
     while (!native_dialogues.empty()) cancel_native_dialogue(native_dialogues.begin()->first);
     if (replica_frames || replica_schedules)
@@ -1914,6 +1978,11 @@ void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw,
 }
 void remove_guest_actor(std::uint16_t object) {
     cancel_native_dialogue(object);
+    if (native_guest_script_records.count(object)) {
+        luabind::functor<void> stop_looped;
+        if (ai().script_engine().functor("xr_sound.stop_sound_looped",stop_looped)) stop_looped(object);
+        erase_native_guest_script_record(object);
+    }
     if (!g_pGameLevel || !Level().Server) return;
     auto found = guests.find(object);
     if (found == guests.end() || found->second.removing) return;
