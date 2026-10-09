@@ -101,6 +101,22 @@ int main() {
     request.sequence=6; request.generation=4;
     require(client.send_dialogue(request)==SendResult::Sent); pump();
     require(calls==4 && replies==before_travel+2);
+    // These requests pass client ownership checks but must be rejected before
+    // the host's native action callback, independently of adapter validation.
+    auto malicious=request; malicious.sequence=7; malicious.action=DialogueAction::Select;
+    malicious.revision=latest.revision-1; malicious.dialog="quest_offer"; malicious.phrase="0";
+    require(client.send_dialogue(malicious)==SendResult::Sent); pump(); require(calls==4 && latest.finished && mutations==1);
+    host.update(1); request.sequence=8; require(client.send_dialogue(request)==SendResult::Sent); pump(); require(calls==5);
+    malicious=request; malicious.sequence=9; malicious.action=DialogueAction::Select;
+    malicious.revision=latest.revision; malicious.dialog="unoffered_reward"; malicious.phrase="0";
+    require(client.send_dialogue(malicious)==SendResult::Sent); pump(); require(calls==5 && latest.finished && mutations==1);
+    host.update(1); request.sequence=10; require(client.send_dialogue(request)==SendResult::Sent); pump(); require(calls==6);
+    malicious=request; malicious.sequence=11; malicious.action=DialogueAction::Close;
+    malicious.revision=latest.revision; ++malicious.target;
+    require(client.send_dialogue(malicious)==SendResult::Sent); pump(); require(calls==6 && latest.finished);
+    host.update(1); request.sequence=12; require(client.send_dialogue(request)==SendResult::Sent); pump(); require(calls==7);
+    malicious=request; malicious.sequence=13; malicious.action=DialogueAction::Close; malicious.revision=latest.revision;
+    require(client.send_dialogue(malicious)==SendResult::Sent); pump(); require(calls==8 && latest.finished && latest.choices.empty());
     require(host.assign_level(player,4,803)); pump();
     require(host.cancel_level(player)); pump();
     require(client.transfer_failure()==TransferFailure::Cancelled);

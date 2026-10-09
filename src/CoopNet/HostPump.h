@@ -44,6 +44,8 @@ class HostPump {
         std::deque<DialogueTransaction> dialogues;
         SequenceWindow dialogue_sequences;
         std::uint32_t dialogue_revision=0;
+        DialogueView dialogue_view;
+        bool has_dialogue_view=false;
         std::deque<Frame> dialogue_outgoing;
         SequenceWindow respawn_sequences;
         std::deque<RespawnResult> respawn_results;
@@ -196,10 +198,21 @@ class HostPump {
                     if (!peer.dialogue_sequences.accept(request.sequence) || peer.transaction_budget<1 || peer.dialogue_revision==0xffffffffu) return false;
                     peer.transaction_budget-=1; revision=++peer.dialogue_revision;
                     DialogueView view{request.actor,request.target,request.incarnation,request.generation,request.level,revision,true,{}};
-                    if (dialogue_handler_) view=dialogue_handler_(peer.player,request,revision);
+                    const auto& offered=peer.dialogue_view;
+                    const bool bound=peer.has_dialogue_view && !offered.finished &&
+                        request.actor==offered.actor && request.target==offered.target && request.incarnation==offered.incarnation &&
+                        request.generation==offered.generation && request.level==offered.level && request.revision==offered.revision;
+                    const bool permitted=request.action==DialogueAction::Open ||
+                        (bound && (request.action==DialogueAction::Close || offered_dialogue_choice(offered,request)));
+                    // Enforce the host's latest offer before entering native Lua.
+                    // A forged/stale choice must never reach an action callback.
+                    if (permitted && dialogue_handler_) view=dialogue_handler_(peer.player,request,revision);
+                    if (request.action==DialogueAction::Close) { view.finished=true; view.choices.clear(); }
                     view.actor=request.actor; view.target=request.target; view.incarnation=request.incarnation;
                     view.generation=request.generation; view.level=request.level; view.revision=revision;
                     reply=std::make_shared<const std::vector<std::uint8_t>>(encode_dialogue_view(view));
+                    peer.has_dialogue_view=!view.finished;
+                    peer.dialogue_view=view;
                     peer.dialogues.push_back({request,reply,revision});
                     std::size_t cached_bytes=0; for (const auto& cached:peer.dialogues) cached_bytes+=cached.reply->size();
                     while (peer.dialogues.size()>16 || cached_bytes>shared_limit) { cached_bytes-=peer.dialogues.front().reply->size(); peer.dialogues.pop_front(); }
@@ -299,7 +312,7 @@ public:
         for (auto& peer:peers_) if (peer.player==player && peer.ready) {
             if (peer.assigned || (peer.baseline.id && !peer.baseline_received) || !set_interest_level(player,0)) return false;
             peer.baseline=manifest; peer.baseline_bytes=std::move(bytes); peer.baseline_offset=0;
-            peer.dialogue_outgoing.clear(); peer.dialogues.clear();
+            peer.dialogue_outgoing.clear(); peer.dialogues.clear(); peer.dialogue_view={}; peer.has_dialogue_view=false;
             peer.shared_frames={}; peer.shared_cursor={}; peer.shared_revision={};
             peer.baseline_started=false; peer.baseline_received=false; peer.baseline_time=0; peer.baseline_budget=65536;
             return true;
@@ -406,7 +419,7 @@ public:
             if (peer.baseline.id && !peer.baseline_received) return false;
             if (peer.assigned || ticket == peer.assignment.ticket || !set_interest_level(player, 0)) return false;
             peer.assignment = {ticket,level,peer.assignment.revision + 1}; peer.assigned = true;
-            peer.dialogue_outgoing.clear(); peer.dialogues.clear();
+            peer.dialogue_outgoing.clear(); peer.dialogues.clear(); peer.dialogue_view={}; peer.has_dialogue_view=false;
             peer.transfer_time = 0;
             if (!queue(peer, Frame{Message::LevelAssignment, Channel::Transition, Delivery::ReliableOrdered,
                 peer.assignment.revision, encode_assignment(peer.assignment)})) { peer.transport->close(); return false; }
@@ -475,7 +488,7 @@ public:
         for (auto& peer : peers_) if (peer.ready && peer.level == found->second.level)
             presence(peer, Message::ActorRemove, found->second);
         for (auto& peer : peers_) if (peer.player==found->second.player) {
-            peer.dialogue_outgoing.clear(); peer.dialogues.clear();
+            peer.dialogue_outgoing.clear(); peer.dialogues.clear(); peer.dialogue_view={}; peer.has_dialogue_view=false;
         }
         actors_.erase(found); return true;
     }
