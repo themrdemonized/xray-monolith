@@ -146,6 +146,7 @@ struct Session {
     bool starter_probe=false;
     bool loot_probe=false;
     bool container_probe=false;
+    bool dialogue_probe=false,dialogue_probe_done=false;
     unsigned container_probe_phase=0;
     std::uint16_t container_probe_source=0xffff,container_probe_item=0xffff;
     unsigned weapon_phase=0;
@@ -336,6 +337,7 @@ void update_party_probe(Session& current,double elapsed) {
     // Finish lifecycle stimuli on their original map before the travel stimulus.
     if (current.shared_probe && current.shared_probe_phase<3) return;
     if (current.container_probe && current.container_probe_phase<6) return;
+    if (current.dialogue_probe && !current.dialogue_probe_done) return;
     LocalActorPose local; if (!capture_local_actor(local)) return;
     auto& guest=current.guests.begin()->second;
     if (!guest.generation || !current.host.level_ready(current.guests.begin()->first,local.level)) return;
@@ -1052,6 +1054,12 @@ void update(double) {
                 if (guest.distance>1 && guest.inputs>300 && guest.drop_observed && guest.damage_sent) exercise_container_probe(guest.object,session->container_probe_phase,session->container_probe_source,session->container_probe_item);
             }
             exercise_respawn_probe(*session,elapsed);
+            if (session->dialogue_probe && !session->dialogue_probe_done && !session->guests.empty()) {
+                const auto& guest=session->guests.begin()->second;
+                LocalActorPose pose;
+                if (guest.inputs>300 && guest.drop_observed && guest.damage_sent && capture_guest_actor(guest.object,pose))
+                    session->dialogue_probe_done=exercise_native_dialogue_topics_probe(session->host.identity(),guest.object,guest.entity,guest.generation,pose.level);
+            }
             publish_world(*session);
             publish_shared_world(*session,elapsed);
             update_party(*session,elapsed);
@@ -1204,6 +1212,10 @@ void command(const char* name, const char* arguments) {
             if (!session) throw std::runtime_error("Container probe requires a session");
             session->container_probe=true; return;
         }
+        if (!strcmp(name,"coop_dialogue_probe")) {
+            if (!session) throw std::runtime_error("Dialogue probe requires a session");
+            session->dialogue_probe=true; return;
+        }
         if (!strcmp(name,"coop_respawn_probe")) {
             if (!session) throw std::runtime_error("Respawn probe requires a session");
             session->respawn_probe=true; return;
@@ -1291,6 +1303,13 @@ void command(const char* name, const char* arguments) {
             auto* owner=next.get();
             next->host.set_inventory_handler([owner](coopnet::Identity player,const coopnet::InventoryRequest& request) {
                 return transact_inventory(*owner,player,request);
+            });
+            next->host.set_dialogue_handler([owner](coopnet::Identity player,const coopnet::DialogueRequest& request,std::uint32_t revision) {
+                coopnet::DialogueView view{request.actor,request.target,request.incarnation,request.generation,request.level,revision,true,{}};
+                const auto guest=owner->guests.find(player);
+                if (guest!=owner->guests.end() && guest->second.entity==request.actor && guest->second.generation==request.generation)
+                    capture_native_dialogue_topics(owner->host.identity(),guest->second.object,request,revision,view);
+                return view;
             });
             next->host.set_respawn_handler([owner](coopnet::Identity player,const coopnet::RespawnRequest& request) { return respawn_player(*owner,player,request); });
             next->mode = coopnet::Mode::Host;

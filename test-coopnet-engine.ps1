@@ -1,10 +1,11 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
 if ($RespawnProbe) { $WorldProbe=$true }
 if ($SharedWorldProbe) { $WorldProbe=$true }
 if ($ContainerProbe) { $WorldProbe=$true }
+if ($DialogueProbe) { $WorldProbe=$true }
 if ($ContainerRecoveryProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
@@ -13,7 +14,7 @@ if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe) -and !$TestDirectory) {
+if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe -or $DialogueProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -31,7 +32,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -DialogueProbe:$DialogueProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -257,4 +258,9 @@ if ($ContainerRecoveryProbe) {
     $corpseRecovery=[regex]::Match($logs.guest,'container inventory restored: marker 2 level ([1-9]\d*)')
     if (!$stashRecovery.Success -or !$corpseRecovery.Success -or $stashRecovery.Groups[1].Value -ne $corpseRecovery.Groups[1].Value) { throw 'Native stash/corpse item restart recovery failed.' }
     Write-Output 'NATIVE_CONTAINER_RESTART_PASS: both looted bandages recovered into native guest inventory with their saved conditions.'
+}
+
+if ($DialogueProbe) {
+    if ($logs.host -notmatch 'native dialogue topics probe: section .+ choices [1-9][0-9]* context restored stale incarnation and range denied') { throw 'Native NPC dialogue topics evidence missing.' }
+    Write-Output 'NATIVE_DIALOGUE_TOPICS_PASS: real NPC topics evaluated for the guest, script context restored, stale NPC incarnation and range rejected.'
 }

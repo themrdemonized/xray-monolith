@@ -3,6 +3,7 @@
 #include <vector>
 #include "WorldSettings.h"
 #include "SharedWorld.h"
+#include "Dialogue.h"
 class CObject;
 class CGameObject;
 class CSE_Abstract;
@@ -47,6 +48,12 @@ bool capture_containers(std::uint64_t session,std::uint32_t& level,std::vector<c
 void queue_container_catalogue(std::uint64_t session,std::uint32_t level,const std::vector<coopnet::ContainerRecord>& records);
 void update_container_catalogue();
 bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::QuestState& quests);
+// Topic discovery evaluates native preconditions on the host for the requesting
+// guest. It does not initialize a dialog or execute any phrase/reward action.
+bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor,
+    const coopnet::DialogueRequest& request,std::uint32_t revision,coopnet::DialogueView& view);
+bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t actor,
+    std::uint64_t entity,std::uint32_t generation,std::uint32_t level);
 bool apply_shared_quests(std::uint64_t session,std::uint32_t level,const coopnet::QuestState& quests);
 void exercise_shared_world_probe(double elapsed,unsigned& phase,double& wait,std::uint16_t& object);
 bool capture_world_objects(std::uint32_t& level,std::vector<NativeWorldPose>& objects);

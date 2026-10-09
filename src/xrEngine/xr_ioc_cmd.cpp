@@ -1045,6 +1045,7 @@ void CCC_Register()
     CMD1(CCC_CoopNet, "coop_respawn_probe");
     CMD1(CCC_CoopNet, "coop_shared_probe");
     CMD1(CCC_CoopNet, "coop_container_probe");
+    CMD1(CCC_CoopNet, "coop_dialogue_probe");
 	CMD1(CCC_CoopNet, "coop_disconnect");
 	CMD1(CCC_CoopNet, "coop_status");
 	CMD1(CCC_CoopNet, "coop_replica_probe");

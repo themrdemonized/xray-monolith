@@ -1,4 +1,4 @@
-param([ValidateRange(120,300)][int]$TravelSeconds=150,[ValidateRange(60,300)][int]$RestartSeconds=90,[switch]$SharedWorldProbe,[switch]$ContainerProbe)
+param([ValidateRange(120,300)][int]$TravelSeconds=150,[ValidateRange(60,300)][int]$RestartSeconds=90,[switch]$SharedWorldProbe,[switch]$ContainerProbe,[switch]$DialogueProbe)
 $ErrorActionPreference='Stop'
 $probeRoot=Join-Path $PSScriptRoot ('_build\coopnet-persistence-'+[Guid]::NewGuid().ToString('N'))
 foreach ($role in @('host','guest')) {
@@ -7,7 +7,13 @@ foreach ($role in @('host','guest')) {
     New-Item $target -ItemType Directory -Force | Out-Null
     if (Test-Path $cache) { Copy-Item -LiteralPath $cache -Destination $target -Recurse }
 }
-& "$PSScriptRoot\test-coopnet-engine.ps1" -WeaponProbe -PartyProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -Seconds $TravelSeconds -TestDirectory $probeRoot
+& "$PSScriptRoot\test-coopnet-engine.ps1" -WeaponProbe -PartyProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -DialogueProbe:$DialogueProbe -Seconds $TravelSeconds -TestDirectory $probeRoot
+if ($DialogueProbe) {
+    $moneyTravelLog=Get-ChildItem (Join-Path $probeRoot 'host\appdata\logs') -Filter '*.log' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    $moneyTravelText=Get-Content -LiteralPath $moneyTravelLog.FullName -Raw
+    if ($moneyTravelText -notmatch 'guest money restored: amount 314159 level 2') { throw 'Native guest money did not survive travel.' }
+    Write-Output 'NATIVE_GUEST_MONEY_TRAVEL_PASS: exact guest balance restored on the destination map.'
+}
 if ($SharedWorldProbe) {
     $travelGuestLog=Get-ChildItem (Join-Path $probeRoot 'guest\appdata\logs') -Filter '*.log' | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
     $travelGuestText=Get-Content -LiteralPath $travelGuestLog.FullName -Raw
@@ -26,6 +32,7 @@ if ($records.Count -ne 2) { throw 'Expected both guest save journal records.' }
 $ordered=@($records | ForEach-Object {
     $bytes=[IO.File]::ReadAllBytes($_.FullName)
     if ($bytes.Length -lt 92) { throw 'Incomplete guest save record before corruption test.' }
+    if ($DialogueProbe -and ([BitConverter]::ToUInt32($bytes,0) -ne 0x32534347 -or $bytes[60] -ne 1 -or [BitConverter]::ToUInt32($bytes,61) -ne 314159)) { throw 'Guest money missing from journal record.' }
     [pscustomobject]@{ Path=$_.FullName; Sequence=[BitConverter]::ToUInt64($bytes,36); Bytes=$bytes }
 } | Sort-Object Sequence -Descending)
 if ($ordered[0].Sequence -le $ordered[1].Sequence) { throw 'Distinct journal sequences missing.' }
@@ -38,6 +45,10 @@ $hostLog=Get-ChildItem (Join-Path $probeRoot 'host\appdata\logs') -Filter '*.log
     Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
 $text=Get-Content -LiteralPath $hostLog.FullName -Raw
 if ($text -notmatch 'CoopNet ignored invalid guest save: character 2 slot [01]') { throw 'Corrupt newest record rejection evidence missing.' }
+if ($DialogueProbe) {
+    if ($text -notmatch 'guest money restored: amount 314159 level [1-9][0-9]*') { throw 'Native guest money did not survive host restart and journal recovery.' }
+    Write-Output 'NATIVE_GUEST_MONEY_RESTART_PASS: exact guest balance restored after host restart and corrupted-record fallback.'
+}
 $expectedRecoveryCount=if ($ContainerProbe) { 3 } else { 1 }
 if ($text -notmatch "CoopNet durable guest save loaded: character 2 sequence $($ordered[1].Sequence) items $expectedRecoveryCount") {
     throw 'Recovery from the previous valid guest save record missing.'

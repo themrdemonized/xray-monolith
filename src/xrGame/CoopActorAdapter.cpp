@@ -49,6 +49,10 @@
 #include "GametaskManager.h"
 #include "GameTask.h"
 #include "alife_registry_wrappers.h"
+#include "PhraseDialog.h"
+#include "PhraseDialogManager.h"
+#include "script_game_object.h"
+#include <type_traits>
 extern string_path g_last_saved_game;
 namespace engine_coopnet {
 namespace {
@@ -484,6 +488,103 @@ void update_container_catalogue() {
         if (created) { container_pending[record.pose.anchor]={created->ID,record.pose.incarnation}; Msg("* CoopNet container replica spawned: anchor %llu",record.pose.anchor); }
     }
     container_dirty=false;
+}
+bool capture_native_dialogue_topics(std::uint64_t session,std::uint16_t actor_id,
+    const coopnet::DialogueRequest& request,std::uint32_t revision,coopnet::DialogueView& view) {
+    view={request.actor,request.target,request.incarnation,request.generation,request.level,revision,true,{}};
+    LocalActorPose local;
+    if (!session || !revision || !coopnet::valid_dialogue_request(request) || request.action!=coopnet::DialogueAction::Open ||
+        world_level_is_replica() || !capture_local_actor(local) || local.level!=request.level) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(actor_id));
+    if (!actor || actor==g_actor || actor->getDestroy() || !actor->g_Alive() || !actor->IsTalkEnabled() || actor->IsTalking()) return false;
+    ActorConditionState condition;
+    if (!capture_actor_condition(actor_id,condition) || condition.health<=0) return false;
+    CGameObject* target=nullptr;
+    for (const auto& binding:world_objects) {
+        auto* candidate=const_cast<CGameObject*>(binding.first);
+        if (!binding.second.replica && binding.second.incarnation==request.incarnation &&
+            !candidate->getDestroy() && coopnet::world_anchor(session,candidate->ID())==request.target) { target=candidate; break; }
+    }
+    auto* entity=smart_cast<CEntityAlive*>(target);
+    auto* owner=smart_cast<CInventoryOwner*>(target);
+    auto* partner=smart_cast<CPhraseDialogManager*>(target);
+    if (!target || target->cast_actor() || !entity || !entity->g_Alive() || !owner || !partner ||
+        !owner->IsTalkEnabled() || owner->IsTalking() || owner->IsTrading() || actor->Position().distance_to(target->Position())>3.f) return false;
+    auto* state=ai().script_engine().lua();
+    if (!state || !actor->m_known_info_registry || !g_actor->m_known_info_registry) return false;
+    // Existing Anomaly topic predicates consult db.actor for inventory and the
+    // actor info registry for shared world flags. Restore both even on unwinding.
+    struct Context {
+        lua_State* state; CActor* actor; int top,reference=LUA_NOREF;
+        using Infos=std::remove_reference_t<decltype(g_actor->m_known_info_registry->registry().objects())>;
+        Infos infos;
+        Context(lua_State* s,CActor* a):state(s),actor(a),top(lua_gettop(s)),infos(a->m_known_info_registry->registry().objects()) {}
+        ~Context() {
+            actor->m_known_info_registry->registry().objects()=infos;
+            if (reference!=LUA_NOREF) {
+                lua_getglobal(state,"db"); lua_rawgeti(state,LUA_REGISTRYINDEX,reference); lua_setfield(state,-2,"actor");
+                luaL_unref(state,LUA_REGISTRYINDEX,reference);
+            }
+            lua_settop(state,top);
+        }
+        bool bind() {
+            lua_getglobal(state,"db"); if (!lua_istable(state,-1)) return false;
+            lua_getfield(state,-1,"actor"); reference=luaL_ref(state,LUA_REGISTRYINDEX);
+            luabind::object value(state,actor->lua_game_object()); value.pushvalue(); lua_setfield(state,-2,"actor");
+            actor->m_known_info_registry->registry().objects()=g_actor->m_known_info_registry->registry().objects();
+            return true;
+        }
+    } context(state,actor);
+    if (!context.bind()) return false;
+    auto* manager=smart_cast<CPhraseDialogManager*>(actor);
+    manager->UpdateAvailableDialogs(partner);
+    view.finished=false;
+    for (const auto& dialog:manager->AvailableDialogs()) {
+        const char* id=dialog->GetDialogID().c_str(); const char* caption=dialog->DialogCaption();
+        if (!id || !caption || !coopnet::shared_name(id,128) || strlen(caption)>4096 || view.choices.size()>=256) continue;
+        view.choices.push_back({id,{},caption});
+    }
+    if (!coopnet::valid_dialogue_view(view)) { view.choices.clear(); view.finished=true; return false; }
+    return true;
+}
+bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t actor_id,
+    std::uint64_t entity,std::uint32_t generation,std::uint32_t level) {
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(actor_id));
+    if (!actor || !actor->m_known_info_registry) return false;
+    auto* state=ai().script_engine().lua(); if (!state) return false;
+    const auto original_position=actor->Position();
+    struct RestorePosition { CActor* actor; Fvector position; ~RestorePosition() { actor->Position()=position; } } restore{actor,original_position};
+    const auto original_infos=actor->m_known_info_registry->registry().objects();
+    for (const auto& binding:world_objects) {
+        auto* object=const_cast<CGameObject*>(binding.first);
+        auto* alive=smart_cast<CEntityAlive*>(object); auto* owner=smart_cast<CInventoryOwner*>(object);
+        if (!alive || !alive->g_Alive() || object->cast_actor() || object->getDestroy() || binding.second.replica ||
+            !owner || !owner->IsTalkEnabled() || owner->IsTalking() || owner->IsTrading() || !smart_cast<CPhraseDialogManager*>(object)) continue;
+        actor->Position()=object->Position(); actor->Position().x+=1.f;
+        coopnet::DialogueRequest request{entity,coopnet::world_anchor(session,object->ID()),binding.second.incarnation,generation,level,1,0,coopnet::DialogueAction::Open,{},{}};
+        lua_getglobal(state,"db"); lua_getfield(state,-1,"actor"); const int saved=luaL_ref(state,LUA_REGISTRYINDEX); lua_pop(state,1);
+        const auto top=lua_gettop(state); coopnet::DialogueView view;
+        const bool captured=capture_native_dialogue_topics(session,actor_id,request,1,view);
+        lua_getglobal(state,"db"); lua_getfield(state,-1,"actor"); lua_rawgeti(state,LUA_REGISTRYINDEX,saved);
+        const bool restored=lua_rawequal(state,-1,-2)!=0; lua_pop(state,3); luaL_unref(state,LUA_REGISTRYINDEX,saved);
+        if (!restored || lua_gettop(state)!=top || actor->m_known_info_registry->registry().objects()!=original_infos)
+            throw std::runtime_error("Native dialogue predicate context did not restore");
+        if (!captured || view.choices.empty()) continue;
+        auto invalid=request; ++invalid.incarnation;
+        if (capture_native_dialogue_topics(session,actor_id,invalid,2,view)) throw std::runtime_error("Stale NPC dialogue incarnation accepted");
+        actor->Position().x+=10.f;
+        if (capture_native_dialogue_topics(session,actor_id,request,3,view)) throw std::runtime_error("Out-of-range NPC dialogue accepted");
+        actor->Position()=object->Position(); actor->Position().x+=1.f;
+        const auto infos_before=g_actor->m_known_info_registry->registry().objects();
+        if (!capture_native_dialogue_topics(session,actor_id,request,4,view) || view.choices.empty() ||
+            g_actor->m_known_info_registry->registry().objects()!=infos_before) throw std::runtime_error("Native dialogue topics changed host story flags");
+        Msg("* CoopNet native dialogue topics probe: section %s choices %u context restored stale incarnation and range denied",object->cNameSect().c_str(),static_cast<unsigned>(view.choices.size()));
+        actor->set_money(314159,false);
+        if (actor->get_money()!=314159) throw std::runtime_error("Dialogue fixture guest money assignment failed");
+        Msg("* CoopNet native dialogue topics probe: guest money assigned 314159");
+        return true;
+    }
+    return false;
 }
 bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::QuestState& quests) {
     LocalActorPose local; if (!capture_local_actor(local) || world_level_is_replica()) return false; level=local.level; quests={};
@@ -1043,6 +1144,7 @@ bool capture_guest_inventory(std::uint16_t owner,GuestInventoryState& output) {
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
     if (actor->inventory().m_all.size()>256) return false;
     GuestInventoryState state; state.active_slot=actor->inventory().GetActiveSlot();
+    state.money=actor->get_money(); state.has_money=true;
     for (auto* item:actor->inventory().m_all) {
         auto& object=item->object();
         auto* server=Level().Server->ID_to_entity(object.ID());
@@ -1437,6 +1539,11 @@ bool restore_guest_inventory(std::uint16_t owner,const GuestInventoryState& stat
     }
     auto& guest=guests.find(owner)->second;
     guest.restoring=true; guest.restore_slot=state.active_slot; guest.restore_count=static_cast<unsigned>(state.items.size());
+    if (state.has_money) {
+        actor->set_money(state.money,false);
+        if (actor->get_money()!=state.money) return false;
+        Msg("* CoopNet guest money restored: amount %u level %u",state.money,pose.level);
+    }
     return true;
 }
 void begin_guest_simulation() { Device.Pause(FALSE, TRUE, FALSE, "CoopNet native movement"); }

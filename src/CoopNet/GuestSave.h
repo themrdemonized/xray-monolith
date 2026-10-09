@@ -16,7 +16,7 @@ inline bool valid_guest_save(const GuestSave& v) {
         !std::isfinite(v.condition.health) || v.condition.health< -1 || v.condition.health>1 ||
         !std::isfinite(v.condition.power) || v.condition.power< -1 || v.condition.power>1 ||
         !std::isfinite(v.condition.radiation) || v.condition.radiation<0 || v.condition.radiation>1) return false;
-    std::size_t total=64;
+    std::size_t total=69;
     for (const auto& item:v.inventory.items) {
         if (item.section.empty() || item.section.size()>128 || item.spawn.empty() || item.spawn.size()>=16384) return false;
         for (unsigned char c:item.section) if (!((c>='a' && c<='z') || (c>='A' && c<='Z') ||
@@ -32,12 +32,13 @@ inline std::vector<std::uint8_t> encode_guest_save(const GuestSave& v) {
     auto integer=[&](std::uint64_t value,unsigned width) {
         for (unsigned i=0;i<width;++i) bytes.push_back(static_cast<std::uint8_t>(value>>(8*i)));
     };
-    integer(0x31534347,4); // GCS1: host-local format, never a network payload.
+    integer(0x32534347,4); // GCS2: host-local format, never a network payload.
     for (auto value:{v.scope,v.character,v.game,v.mods,v.sequence}) integer(value,8);
     for (float value:{v.condition.health,v.condition.power,v.condition.radiation}) {
         std::uint32_t bits; std::memcpy(&bits,&value,4); integer(bits,4);
     }
     integer(v.inventory.active_slot,2); integer(v.inventory.items.size(),2);
+    integer(v.inventory.has_money,1); integer(v.inventory.money,4);
     for (const auto& item:v.inventory.items) {
         integer(item.section.size(),1); integer(item.spawn.size(),2);
         bytes.insert(bytes.end(),item.section.begin(),item.section.end());
@@ -54,7 +55,7 @@ inline bool decode_guest_save(const std::vector<std::uint8_t>& bytes,GuestSave& 
         return true;
     };
     GuestSave v; std::uint64_t magic,slot,count;
-    if (!integer(magic,4) || magic!=0x31534347 || !integer(v.scope,8) || !integer(v.character,8) ||
+    if (!integer(magic,4) || (magic!=0x31534347 && magic!=0x32534347) || !integer(v.scope,8) || !integer(v.character,8) ||
         !integer(v.game,8) || !integer(v.mods,8) || !integer(v.sequence,8)) return false;
     for (auto* value:{&v.condition.health,&v.condition.power,&v.condition.radiation}) {
         std::uint64_t raw; if (!integer(raw,4)) return false;
@@ -62,6 +63,11 @@ inline bool decode_guest_save(const std::vector<std::uint8_t>& bytes,GuestSave& 
     }
     if (!integer(slot,2) || !integer(count,2) || count>256) return false;
     v.inventory.active_slot=static_cast<std::uint16_t>(slot);
+    if (magic==0x32534347) {
+        std::uint64_t present,money;
+        if (!integer(present,1) || present>1 || !integer(money,4)) return false;
+        v.inventory.has_money=present!=0; v.inventory.money=static_cast<std::uint32_t>(money);
+    }
     for (std::uint64_t i=0;i<count;++i) {
         std::uint64_t section,size;
         if (!integer(section,1) || !integer(size,2) || section>128 || !section || !size || size>=16384 ||

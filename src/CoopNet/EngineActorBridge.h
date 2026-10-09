@@ -38,6 +38,8 @@ struct GuestInventoryItem {
 struct GuestInventoryState {
     std::vector<GuestInventoryItem> items;
     std::uint16_t active_slot=0xffff;
+    std::uint32_t money=0;
+    bool has_money=false;
 };
 bool capture_guest_inventory(std::uint16_t actor,GuestInventoryState& state);
 bool restore_guest_inventory(std::uint16_t actor,const GuestInventoryState& state);
