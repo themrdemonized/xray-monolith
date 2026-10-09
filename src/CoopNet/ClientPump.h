@@ -25,6 +25,8 @@ class ClientPump {
     Frame hello_{};
     bool sent_ = false;
     bool ready_sent_ = false;
+    std::vector<Frame> character_frames_;
+    std::size_t character_cursor_=0;
     WorldRulesAssembly rules_assembly_;
     SequenceWindow clock_sequences_;
     std::uint32_t rules_revision_=0;
@@ -82,6 +84,7 @@ class ClientPump {
     }
     static constexpr double timeout_ = 10;
     void attach(std::unique_ptr<Transport> transport, const ClientHello& hello) {
+        character_cursor_=0;
         rules_assembly_.clear(); rules_revision_=0; clock_sequences_={};
         party_status_={}; party_sequences_={};
         if (!transport) throw std::invalid_argument("Missing client transport");
@@ -104,6 +107,17 @@ class ClientPump {
         clear_baseline();
     }
 public:
+    void set_character_profile(const InventoryView& character) {
+        if (!valid_inventory_view(character) || character.generation!=1 || character.level!=1 || character.revision!=1 || ready_sent_)
+            throw std::invalid_argument("Invalid join character");
+        character_frames_.clear(); character_cursor_=0;
+        for (std::size_t offset=0;offset<character.items.size() || character_frames_.empty();offset+=4) {
+            InventoryViewChunk chunk{character,static_cast<std::uint16_t>(offset),static_cast<std::uint16_t>(character.items.size())};
+            const auto end=(std::min)(character.items.size(),offset+4);
+            chunk.view.items.assign(character.items.begin()+offset,character.items.begin()+end);
+            character_frames_.push_back({Message::CharacterProfile,Channel::Control,Delivery::ReliableOrdered,static_cast<std::uint32_t>(offset),encode_view_chunk(chunk)});
+        }
+    }
     void set_dialogue_sink(std::function<void(const DialogueView&)> sink) { dialogue_sink_=std::move(sink); }
     SendResult send_dialogue(const DialogueRequest& request) {
         if (!transport_ || session_.state()!=ClientState::Connected || !level_ready_sent_ || !baseline_acknowledged_) return SendResult::Disconnected;
@@ -251,6 +265,12 @@ public:
         }
         for (unsigned messages = 0; messages < 32; ++messages) {
             if (session_.state() == ClientState::Connected && !ready_sent_) {
+                while (character_cursor_<character_frames_.size()) {
+                    const auto result=transport_->send(character_frames_[character_cursor_]);
+                    if (result==SendResult::Backpressure) return;
+                    if (result!=SendResult::Sent) { lost(); return; }
+                    ++character_cursor_;
+                }
                 const auto result = transport_->send(Frame{Message::ClientReady, Channel::Control,
                     Delivery::ReliableOrdered, 2, {}});
                 if (result == SendResult::Backpressure) return;
@@ -457,6 +477,7 @@ public:
         }
     }
     void stop() {
+        character_frames_.clear(); character_cursor_=0;
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; transfer_failure_ = TransferFailure::None; session_.stop();
         items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();

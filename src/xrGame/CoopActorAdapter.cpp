@@ -16,6 +16,9 @@
 #include "xr_level_controller.h"
 #include "Weapon.h"
 #include "WeaponAmmo.h"
+#include "eatable_item.h"
+#include "inventory_upgrade_manager.h"
+#include "inventory_upgrade_root.h"
 #include "../CoopNet/ActorInput.h"
 #include "Hit.h"
 #include "xrMessages.h"
@@ -1071,7 +1074,8 @@ float local_movement_probe_yaw=0,local_movement_probe_pitch=0;
 struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarnation = 0; unsigned controls = 0; std::uint16_t weapon_buttons=0;
     std::uint32_t received_input=0,simulated_input=0;
     bool restoring=false; std::uint16_t restore_slot=0xffff; unsigned restore_count=0;
-    bool starter_pending=false; xr_vector<u16> starter_items; };
+    bool starter_pending=false; xr_vector<u16> starter_items;
+    coopnet::InventoryView imported_character; xr_vector<u16> imported_items; bool importing=false; };
 xr_map<u16,GuestSpawn> guests;
 std::uint64_t guest_incarnation = 0;
 struct SessionItem { std::uint64_t incarnation=0; bool removing=false, enters_world=false; };
@@ -1444,7 +1448,7 @@ bool capture_guest_weapon(std::uint16_t owner,std::uint16_t item,unsigned& round
 }
 bool capture_guest_inventory(std::uint16_t owner,GuestInventoryState& output) {
     LocalActorPose pose; if (!capture_guest_actor(owner,pose)) return false;
-    if (guests.find(owner)->second.restoring || guests.find(owner)->second.starter_pending) return false;
+    if (guests.find(owner)->second.restoring || guests.find(owner)->second.starter_pending || guests.find(owner)->second.importing) return false;
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
     if (actor->inventory().m_all.size()>256) return false;
     GuestInventoryState state; state.active_slot=actor->inventory().GetActiveSlot();
@@ -1472,7 +1476,7 @@ bool capture_guest_inventory(std::uint16_t owner,GuestInventoryState& output) {
     output=std::move(state); return true;
 }
 bool capture_guest_inventory_view(std::uint16_t owner,std::vector<NativeInventoryViewItem>& output,std::uint16_t& active) {
-    LocalActorPose pose; if (!capture_guest_actor(owner,pose) || guests.find(owner)->second.restoring || guests.find(owner)->second.starter_pending) return false;
+    LocalActorPose pose; if (!capture_guest_actor(owner,pose) || guests.find(owner)->second.restoring || guests.find(owner)->second.starter_pending || guests.find(owner)->second.importing) return false;
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
     if (actor->inventory().m_all.size()>256) return false;
     std::vector<NativeInventoryViewItem> items;
@@ -1489,10 +1493,83 @@ bool capture_guest_inventory_view(std::uint16_t owner,std::vector<NativeInventor
         if (auto* weapon=smart_cast<CWeapon*>(&object)) {
             value.state.kind=1; value.state.ammo=static_cast<u16>(weapon->GetAmmoElapsed()); value.state.ammo_type=weapon->GetAmmoType();
         } else if (auto* ammo=smart_cast<CWeaponAmmo*>(&object)) { value.state.kind=2; value.state.ammo=ammo->m_boxCurr; }
+        if (auto* weapon=smart_cast<CWeapon*>(&object)) { value.state.addons=weapon->GetAddonsState(); value.state.scope=weapon->m_cur_scope; }
+        if (auto* edible=item->cast_eatable_item()) value.state.uses=edible->GetRemainingUses();
+        for (const auto& upgrade:item->upgardes()) value.state.upgrades.emplace_back(upgrade.c_str());
         items.push_back(std::move(value));
     }
     active=actor->inventory().ActiveItem() ? actor->inventory().ActiveItem()->object().ID() : 0xffff;
     output=std::move(items); return true;
+}
+std::uint32_t guest_money(std::uint16_t owner) {
+    if (!g_pGameLevel) return 0;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner)); return actor ? actor->get_money() : 0;
+}
+std::uint64_t join_character_identity(std::uint64_t proposed,bool replace) {
+    const auto scope=guest_save_scope(); if (!scope || !proposed) return 0;
+    char name[96]; xr_sprintf(name,"coopnet-character-id-%llu.dat",scope);
+    string_path path; FS.update_path(path,"$app_data_root$",name);
+    if (IReader* reader=FS.r_open(path)) {
+        const auto identity=reader->length()==8 ? reader->r_u64() : 0; FS.r_close(reader);
+        if (identity && !replace) return identity;
+    }
+    IWriter* writer=FS.w_open(path); if (!writer) return 0; writer->w_u64(proposed); FS.w_close(writer);
+    return proposed;
+}
+bool capture_join_character(coopnet::InventoryView& output) {
+    LocalActorPose pose; if (!capture_local_actor(pose) || world_level_is_replica() || !g_actor->g_Alive() || g_actor->inventory().m_all.size()>256) return false;
+    coopnet::InventoryView character; character.actor=1; character.generation=character.level=character.revision=1;
+    character.money=g_actor->get_money();
+    for (auto* item:g_actor->inventory().m_all) {
+        if (item->object().getDestroy() || item->object().H_Parent()!=g_actor) return false;
+        coopnet::InventoryViewItem state;
+        state.item=character.items.size()+1; state.revision=1; state.section=item->object().cNameSect().c_str(); state.condition=item->GetCondition();
+        state.slot=item->CurrSlot(); state.place=item->CurrPlace()==eItemPlaceSlot ? 2 : item->CurrPlace()==eItemPlaceBelt ? 1 : 0;
+        if (auto* weapon=smart_cast<CWeapon*>(&item->object())) {
+            state.kind=1; state.ammo=static_cast<u16>(weapon->GetAmmoElapsed()); state.ammo_type=weapon->GetAmmoType();
+            state.addons=weapon->GetAddonsState(); state.scope=weapon->m_cur_scope;
+        } else if (auto* ammo=smart_cast<CWeaponAmmo*>(&item->object())) { state.kind=2; state.ammo=ammo->m_boxCurr; }
+        if (auto* edible=item->cast_eatable_item()) state.uses=edible->GetRemainingUses();
+        for (const auto& upgrade:item->upgardes()) state.upgrades.emplace_back(upgrade.c_str());
+        if (g_actor->inventory().ActiveItem()==item) character.active=state.item;
+        character.items.push_back(std::move(state));
+    }
+    if (!coopnet::valid_inventory_view(character)) return false;
+    output=std::move(character); return true;
+}
+bool validate_join_character(const coopnet::InventoryView& character) {
+    if (!coopnet::valid_inventory_view(character) || !ai().get_alife()) return false;
+    for (const auto& state:character.items) {
+        if (!pSettings->section_exist(state.section.c_str()) || !pSettings->line_exist(state.section.c_str(),"class")) return false;
+        auto* abstract=F_entity_Create(state.section.c_str());
+        const bool inventory=abstract && smart_cast<CSE_ALifeInventoryItem*>(abstract);
+        const bool weapon=abstract && smart_cast<CSE_ALifeItemWeapon*>(abstract);
+        const bool ammo=abstract && smart_cast<CSE_ALifeItemAmmo*>(abstract);
+        if (abstract) F_entity_Destroy(abstract);
+        if (!inventory || (state.kind==1)!=weapon || (state.kind==2)!=ammo) return false;
+        for (const auto& upgrade:state.upgrades) {
+            auto& manager=ai().alife().inventory_upgrade_manager(); auto* root=manager.get_root(state.section.c_str());
+            if (!root || !manager.get_upgrade(upgrade.c_str()) || !root->contain_upgrade(upgrade.c_str())) return false;
+        }
+    }
+    return true;
+}
+bool import_join_character(std::uint16_t owner,const coopnet::InventoryView& character) {
+    LocalActorPose pose; if (!capture_guest_actor(owner,pose) || !validate_join_character(character) || session_items.size()+character.items.size()>768) return false;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner)); if (!actor->inventory().m_all.empty()) return false;
+    auto& guest=guests.find(owner)->second; guest.imported_character=character; guest.importing=true;
+    for (const auto& state:character.items) {
+        auto* abstract=Level().spawn_item(state.section.c_str(),actor->Position(),actor->ai_location().level_vertex_id(),owner,true);
+        auto* inventory=smart_cast<CSE_ALifeInventoryItem*>(abstract); abstract->m_bALifeControl=false; inventory->m_fCondition=state.condition;
+        for (const auto& upgrade:state.upgrades) inventory->m_upgrades.emplace_back(upgrade.c_str());
+        if (auto* weapon=smart_cast<CSE_ALifeItemWeapon*>(abstract)) { weapon->a_elapsed=state.ammo; weapon->ammo_type=state.ammo_type; weapon->m_addon_flags.assign(state.addons); }
+        if (auto* ammo=smart_cast<CSE_ALifeItemAmmo*>(abstract)) ammo->a_elapsed=state.ammo;
+        NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+        auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
+        if (!created) { for (auto id:guest.imported_items) remove_session_item(id); guest.importing=false; return false; }
+        session_items.emplace(created->ID,SessionItem{++item_incarnation,false,true}); guest.imported_items.push_back(created->ID);
+    }
+    return true;
 }
 bool begin_guest_loadout(std::uint16_t owner) {
     LocalActorPose pose; if (!capture_guest_actor(owner,pose)) return false;
@@ -1769,13 +1846,17 @@ void update_local_inventory_view() {
     for (const auto& state:local_inventory_view.items) {
         if (state.place==2 && (state.slot<g_actor->inventory().FirstSlot() || state.slot>g_actor->inventory().LastSlot())) return;
         auto found=local_inventory_items.find(state.item);
+        if (found!=local_inventory_items.end() && !Level().Server->ID_to_entity(found->second)) {
+            local_inventory_items.erase(found); found=local_inventory_items.end();
+        }
         if (found==local_inventory_items.end()) {
             if (!pSettings->section_exist(state.section.c_str())) { Msg("! CoopNet guest inventory section unavailable: %s",state.section.c_str()); return; }
             auto* abstract=Level().spawn_item(state.section.c_str(),g_actor->Position(),g_actor->ai_location().level_vertex_id(),g_actor->ID(),true);
             auto* inventory=smart_cast<CSE_ALifeInventoryItem*>(abstract);
             if (!inventory) { F_entity_Destroy(abstract); return; }
             abstract->m_bALifeControl=false; inventory->m_fCondition=state.condition;
-            if (auto* weapon=smart_cast<CSE_ALifeItemWeapon*>(abstract)) { weapon->a_elapsed=state.ammo; weapon->ammo_type=state.ammo_type; }
+            for (const auto& upgrade:state.upgrades) inventory->m_upgrades.emplace_back(upgrade.c_str());
+            if (auto* weapon=smart_cast<CSE_ALifeItemWeapon*>(abstract)) { weapon->a_elapsed=state.ammo; weapon->ammo_type=state.ammo_type; weapon->m_addon_flags.assign(state.addons); }
             if (auto* ammo=smart_cast<CSE_ALifeItemAmmo*>(abstract)) ammo->a_elapsed=state.ammo;
             NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
             auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
@@ -1785,14 +1866,21 @@ void update_local_inventory_view() {
         }
         auto* item=smart_cast<CInventoryItem*>(Level().Objects.net_Find(found->second));
         if (!item || item->object().H_Parent()!=g_actor) { ready=false; continue; }
-        item->SetCondition(state.condition);
-        if (auto* weapon=smart_cast<CWeapon*>(&item->object())) {
+        if (inventory_reported!=local_inventory_view.revision) {
+          item->SetCondition(state.condition);
+          if (auto* edible=item->cast_eatable_item()) edible->SetRemainingUses(state.uses);
+          if (auto* weapon=smart_cast<CWeapon*>(&item->object())) {
             if (state.kind!=1 || (!weapon->m_ammoTypes.empty() && state.ammo_type>=weapon->m_ammoTypes.size()) ||
                 (weapon->m_ammoTypes.empty() && state.ammo) || state.ammo>weapon->GetAmmoMagSize()) return;
             if (!weapon->m_ammoTypes.empty()) weapon->SetAmmoType(state.ammo_type);
             weapon->SetAmmoElapsed(state.ammo);
-        } else if (auto* ammo=smart_cast<CWeaponAmmo*>(&item->object())) {
+            if (state.scope>=weapon->m_scopes.size() && state.scope) return;
+            if (weapon->GetAddonsState()!=state.addons || weapon->m_cur_scope!=state.scope) {
+                weapon->SetAddonsState(state.addons); weapon->m_cur_scope=state.scope; weapon->InitAddons(); weapon->UpdateAddonsVisibility();
+            }
+          } else if (auto* ammo=smart_cast<CWeaponAmmo*>(&item->object())) {
             if (state.kind!=2 || state.ammo>ammo->m_boxSize) return; ammo->m_boxCurr=state.ammo;
+          }
         }
         if (state.place==2 && (item->CurrPlace()!=eItemPlaceSlot || item->CurrSlot()!=state.slot)) g_actor->inventory().Slot(state.slot,item,true);
         else if (state.place==1 && item->CurrPlace()!=eItemPlaceBelt) g_actor->inventory().Belt(item);
@@ -1807,9 +1895,10 @@ void update_local_inventory_view() {
         if (item) g_actor->inventory().Activate(item->CurrSlot(),true);
     }
     if (inventory_reported!=local_inventory_view.revision) {
+        g_actor->set_money(local_inventory_view.money,false);
         inventory_reported=local_inventory_view.revision;
         auto* weapon=smart_cast<CWeapon*>(g_actor->inventory().ActiveItem());
-        Msg("* CoopNet guest inventory view applied: items %u active rounds %d",static_cast<unsigned>(local_inventory_view.items.size()),weapon ? weapon->GetAmmoElapsed() : -1);
+        Msg("* CoopNet guest inventory view applied: items %u active rounds %d rubles %u",static_cast<unsigned>(local_inventory_view.items.size()),weapon ? weapon->GetAmmoElapsed() : -1,g_actor->get_money());
     }
 }
 bool restore_guest_inventory(std::uint16_t owner,const GuestInventoryState& state) {
@@ -1942,6 +2031,17 @@ void set_local_movement_probe(std::uint16_t buttons,float yaw,float pitch) {
 bool local_movement_probe_controls(std::uint16_t object,std::uint32_t& buttons,float& yaw,float& pitch) {
     if(!local_movement_probe_active || !world_level_is_replica() || !g_actor || g_actor->ID()!=object) return false;
     buttons=local_movement_probe_buttons & 0x70bf; yaw=local_movement_probe_yaw; pitch=local_movement_probe_pitch;
+    const auto weapon_buttons=local_movement_probe_buttons & (coopnet::fire_button|coopnet::reload_button);
+    if ((weapon_buttons^local_weapon_buttons)&coopnet::fire_button) {
+        const bool pressed=!!(weapon_buttons&coopnet::fire_button);
+        record_coopnet_weapon_input(object,kWPN_FIRE,pressed);
+        g_actor->inventory().Action(kWPN_FIRE,pressed ? CMD_START : CMD_STOP);
+        Msg("* CoopNet native local weapon input applied: fire %u",pressed);
+    }
+    if ((weapon_buttons&coopnet::reload_button) && !(local_weapon_buttons&coopnet::reload_button)) {
+        record_coopnet_weapon_input(object,kWPN_RELOAD,true); g_actor->inventory().Action(kWPN_RELOAD,CMD_START);
+    }
+    local_weapon_buttons=weapon_buttons;
     static unsigned samples=0;
     if(++samples%300==0) Msg("* CoopNet native local movement controls applied: %u",samples);
     return true;
@@ -1961,6 +2061,36 @@ void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw,
     CActor* actor = smart_cast<CActor*>(Level().Objects.net_Find(object));
     actor->coopnet_controls(buttons,yaw,pitch);
     auto& state = guests.find(object)->second;
+    if (state.importing) {
+        if (actor->inventory().m_all.size()!=state.imported_items.size()) return;
+        u16 active_slot=NO_ACTIVE_SLOT;
+        for (std::size_t index=0;index<state.imported_items.size();++index) {
+            const auto& record=state.imported_character.items[index];
+            auto* item=smart_cast<CInventoryItem*>(Level().Objects.net_Find(state.imported_items[index]));
+            if (!item || item->object().H_Parent()!=actor) return;
+            item->SetCondition(record.condition);
+            if (auto* edible=item->cast_eatable_item()) edible->SetRemainingUses(record.uses);
+            if (auto* weapon=smart_cast<CWeapon*>(&item->object())) {
+                if (record.scope>=weapon->m_scopes.size() && record.scope) throw std::runtime_error("Imported weapon scope is unavailable");
+                weapon->m_cur_scope=record.scope; weapon->InitAddons(); weapon->UpdateAddonsVisibility();
+                if (weapon->GetAmmoElapsed()!=record.ammo || weapon->GetAmmoType()!=record.ammo_type || weapon->GetAddonsState()!=record.addons)
+                    throw std::runtime_error("Imported native weapon state differs from selected save");
+            } else if (auto* ammo=smart_cast<CWeaponAmmo*>(&item->object())) {
+                if (ammo->m_boxCurr!=record.ammo) throw std::runtime_error("Imported native ammunition differs from selected save");
+            }
+            if (item->upgardes().size()!=record.upgrades.size()) throw std::runtime_error("Imported native upgrades differ from selected save");
+            if (record.place==2) {
+                if (record.slot<actor->inventory().FirstSlot() || record.slot>actor->inventory().LastSlot() ||
+                    ((item->CurrPlace()!=eItemPlaceSlot || item->CurrSlot()!=record.slot) && !actor->inventory().Slot(record.slot,item,true)))
+                    throw std::runtime_error("Imported equipment slot is unavailable");
+            } else if (record.place==1) { if (item->CurrPlace()!=eItemPlaceBelt && !actor->inventory().Belt(item)) throw std::runtime_error("Imported belt equipment is unavailable"); }
+            else actor->inventory().Ruck(item);
+            if (record.item==state.imported_character.active) active_slot=record.slot;
+        }
+        actor->set_money(state.imported_character.money,false); actor->inventory().Activate(active_slot,true); state.importing=false;
+        Msg("* CoopNet selected character imported: items %u rubles %u active slot %u",static_cast<unsigned>(state.imported_items.size()),actor->get_money(),active_slot);
+        state.imported_items.clear(); state.imported_character={};
+    }
     if (state.starter_pending) {
         bool ready=true;
         for (auto id:state.starter_items) {
@@ -2043,7 +2173,8 @@ bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed) 
     const auto bit=command==kWPN_FIRE ? coopnet::fire_button : command==kWPN_RELOAD ? coopnet::reload_button : 0;
     if (!bit) return false;
     if (pressed) local_weapon_buttons|=bit; else local_weapon_buttons&=~bit;
-    return true;
+    // Run native local animation/audio immediately; the host owns ammunition and hits.
+    return false;
 }
 bool correct_local_actor_native(std::uint32_t level,const float* position,const float* velocity,std::uint32_t delay_ms) {
     LocalActorPose local;

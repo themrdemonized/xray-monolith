@@ -24,7 +24,10 @@ class HostPump {
         std::deque<Frame> outgoing;
         std::size_t queued_bytes = 0;
         Identity player = 0;
+        Identity character = 0;
         bool fresh = false, ready = false, rejected = false;
+        InventoryViewAssembly character_assembly;
+        bool character_started=false,character_complete=false;
         std::uint32_t party_revision=0;
         std::uint32_t rules_revision=0;
         std::size_t rules_chunk=0;
@@ -77,6 +80,7 @@ class HostPump {
     std::function<InventoryResult(Identity,const InventoryRequest&)> inventory_handler_;
     std::function<DialogueView(Identity,const DialogueRequest&,std::uint32_t)> dialogue_handler_;
     std::function<RespawnResult(Identity,const RespawnRequest&)> respawn_handler_;
+    std::function<bool(Identity,const InventoryView&)> character_handler_;
     void failed(Peer& peer, TransferFailure reason) {
         if (!peer.assigned) return;
         failures_.push_back({peer.player,peer.assignment,reason}); peer.assigned = false;
@@ -91,7 +95,7 @@ class HostPump {
     }
     bool queue(Peer& peer, Frame frame) {
         const auto size = frame.payload.size() + 16;
-        if (peer.outgoing.size() >= 64 || size > 256 * 1024 - peer.queued_bytes) return false;
+        if (peer.outgoing.size() >= 96 || size > 256 * 1024 - peer.queued_bytes) return false;
         peer.queued_bytes += size; peer.outgoing.push_back(std::move(frame)); return true;
     }
     void publish() {
@@ -122,10 +126,20 @@ class HostPump {
                 if (!queue(peer, Frame{Message::ServerHello, Channel::Control, Delivery::ReliableOrdered,
                     1, encode_welcome(welcome)})) return false;
                 peer.rejected = welcome.result != Admission::Accepted;
-                peer.player = welcome.player; peer.fresh = !hello.resume_session;
+                peer.player = welcome.player; peer.character=hello.character; peer.fresh = !hello.resume_session;
                 peer.elapsed = 0;
             } else if (!peer.rejected && !peer.ready) {
+                if (frame.message==Message::CharacterProfile) {
+                    InventoryViewChunk chunk; InventoryView character; bool complete=false;
+                    if (peer.character_complete || !decode_view_chunk(frame.payload,chunk) || frame.sequence!=chunk.offset ||
+                        chunk.view.actor!=peer.character || chunk.view.generation!=1 || chunk.view.level!=1 || chunk.view.revision!=1 ||
+                        (peer.character_started && !chunk.offset) || !peer.character_assembly.append(chunk,complete,character)) return false;
+                    peer.character_started=true;
+                    if (complete) { if (!character_handler_ || !character_handler_(peer.player,character)) return false; peer.character_complete=true; }
+                    continue;
+                }
                 if (frame.message != Message::ClientReady || !frame.payload.empty()) return false;
+                if (peer.character_started && !peer.character_complete) return false;
                 peer.ready = true; publish();
             } else if (frame.message == Message::Disconnect && frame.payload.empty()) return false;
             else if (peer.ready && frame.message == Message::LevelReady) {
@@ -259,6 +273,11 @@ class HostPump {
         return true;
     }
 public:
+    bool player_ready(Identity player) const {
+        for (const auto& peer:peers_) if (peer.player==player && peer.ready && peer.transport->connected()) return true;
+        return false;
+    }
+    void set_character_handler(std::function<bool(Identity,const InventoryView&)> handler) { character_handler_=std::move(handler); }
     void set_dialogue_handler(std::function<DialogueView(Identity,const DialogueRequest&,std::uint32_t)> handler) { dialogue_handler_=std::move(handler); }
     bool level_ready(Identity player,std::uint32_t level) const {
         for (const auto& peer:peers_) if (peer.player==player)
@@ -328,16 +347,16 @@ public:
         if (actor==actors_.end() || actor->second.player!=player || actor->second.generation!=view.generation ||
             actor->second.level!=view.level || !valid_inventory_view(view)) return false;
         std::vector<Frame> frames; std::size_t bytes=0;
-        for (std::size_t offset=0;offset<view.items.size() || frames.empty();offset+=32) {
+        for (std::size_t offset=0;offset<view.items.size() || frames.empty();offset+=4) {
             InventoryViewChunk chunk; chunk.view=view; chunk.view.items.clear();
             chunk.offset=static_cast<std::uint16_t>(offset); chunk.total=static_cast<std::uint16_t>(view.items.size());
-            const auto end=(std::min)(view.items.size(),offset+32);
+            const auto end=(std::min)(view.items.size(),offset+4);
             chunk.view.items.assign(view.items.begin()+offset,view.items.begin()+end);
             auto payload=encode_view_chunk(chunk); bytes+=payload.size()+16;
             frames.push_back({Message::InventoryView,Channel::Inventory,Delivery::ReliableOrdered,view.revision,std::move(payload)});
         }
         for (auto& peer:peers_) if (peer.player==player && peer.ready && peer.level==view.level && peer.transport->connected()) {
-            if (peer.outgoing.size()+frames.size()>48 || peer.queued_bytes>224*1024 || bytes>224*1024-peer.queued_bytes) return false;
+            if (peer.outgoing.size()+frames.size()>64 || peer.queued_bytes>224*1024 || bytes>224*1024-peer.queued_bytes) return false;
             for (auto& frame:frames) if (!queue(peer,std::move(frame))) return false;
             return true;
         }
@@ -599,7 +618,7 @@ public:
     void stop() {
         for (auto& peer : peers_) peer.transport->close();
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
-        items_.clear(); inventory_handler_={}; dialogue_handler_={};
+        items_.clear(); inventory_handler_={}; dialogue_handler_={}; character_handler_={};
         rules_revision_=0; rules_frames_.clear();
         shared_frames_={}; shared_revision_={};
     }

@@ -140,6 +140,7 @@ public:
 	virtual void Activate(bool bActive);
 	virtual bool IsActive();
     void ShowCoopJoin();
+    bool ShowCoopCharacterMenu(bool create);
 	virtual bool CanSkipSceneRendering();
 
 	virtual bool IgnorePause() { return true; }

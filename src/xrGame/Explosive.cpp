@@ -17,6 +17,7 @@
 #include "actor.h"
 #include "actoreffector.h"
 #include "level.h"
+#include "../CoopNet/EngineWorldBridge.h"
 #include "level_bullet_manager.h"
 #include "xrmessages.h"
 #include "../xrEngine/gamemtllib.h"
@@ -407,7 +408,7 @@ void CExplosive::Explode()
 	//////////////////////////////
 	//-------------------------------------
 	bool SendHits = false;
-	if (OnServer()) SendHits = true;
+	if (OnServer() && !engine_coopnet::world_level_is_replica()) SendHits = true;
 	else SendHits = false;
 
 
@@ -736,6 +737,7 @@ void CExplosive::GetRayExplosionSourcePos(Fvector& pos)
 
 void CExplosive::ExplodeWaveProcessObject(collide::rq_results& storage, CPhysicsShellHolder* l_pGO)
 {
+    if (engine_coopnet::world_level_is_replica()) return;
 	Fvector l_goPos;
 	if (l_pGO->Visual()) l_pGO->Center(l_goPos);
 	else return; //мне непонятно зачем наносить хит от взрыва по объектам не имеющим вижуал - поэтому игнорируем

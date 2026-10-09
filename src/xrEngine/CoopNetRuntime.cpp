@@ -36,6 +36,10 @@ namespace {
 std::vector<coopnet::JoinProfile> join_profiles;
 bool profiles_loaded=false;
 std::string menu_join_error;
+std::string pending_character_address;
+std::uint64_t pending_character_incarnation=0;
+bool pending_new_character=false;
+bool pending_character_probe=false;
 std::set<std::string> world_commands;
 bool host_application=false;
 void load_join_profiles() {
@@ -172,6 +176,7 @@ struct Session {
     unsigned condition_corrections=0, inventory_accepts=0, gameplay_phase=0;
     std::map<coopnet::Identity,ActorConditionState> guest_conditions;
     std::map<coopnet::Identity,GuestInventoryState> guest_inventory;
+    std::map<coopnet::Identity,coopnet::InventoryView> join_characters;
     coopnet::BuildIdentity build;
     coopnet::Identity host_character=0;
     std::string endpoint;
@@ -745,7 +750,7 @@ void capture_guests(Session& current) {
     }
     if (!available) return;
     for (const auto& player : current.host.session().players()) {
-        if (player.id == 1 || !player.connected) continue;
+        if (player.id == 1 || !player.connected || !current.host.player_ready(player.id)) continue;
         if (current.world_probe && !current.host.baseline_received(player.id)) continue;
         auto found = current.guests.find(player.id);
         if (found == current.guests.end()) {
@@ -771,6 +776,9 @@ void capture_guests(Session& current) {
                 if (!restore_guest_inventory(guest.object,inventory->second)) throw std::runtime_error("Guest inventory restoration failed");
                 Msg("* CoopNet guest inventory restored: character %llu items %u",player.character,
                     static_cast<unsigned>(inventory->second.items.size()));
+            } else if (current.join_characters.count(player.character)) {
+                if (!import_join_character(guest.object,current.join_characters.at(player.character))) throw std::runtime_error("Selected character import failed");
+                current.join_characters.erase(player.character);
             } else if ((!current.gameplay_probe || current.starter_probe) && !begin_guest_loadout(guest.object))
                 throw std::runtime_error("Guest starter loadout creation failed");
             if (!current.entities.bind(guest.entity,{pose.level,pose.object}))
@@ -875,6 +883,7 @@ void capture_guests(Session& current) {
             if (capture_guest_inventory_view(guest.object,native_items,active)) {
                 coopnet::InventoryView view; view.actor=guest.entity; view.generation=guest.generation; view.level=pose.level;
                 view.revision=guest.inventory_revision+1;
+                view.money=guest_money(guest.object);
                 for (const auto& native:native_items) {
                     auto found=current.items.end();
                     for (auto it=current.items.begin();it!=current.items.end();++it)
@@ -891,9 +900,9 @@ void capture_guests(Session& current) {
                 }
                 if (coopnet::valid_inventory_view(view)) {
                     std::vector<std::uint8_t> signature;
-                    for (std::size_t offset=0;offset<view.items.size() || signature.empty();offset+=32) {
+                    for (std::size_t offset=0;offset<view.items.size() || signature.empty();offset+=4) {
                         coopnet::InventoryViewChunk chunk{view,static_cast<std::uint16_t>(offset),static_cast<std::uint16_t>(view.items.size())};
-                        chunk.view.revision=1; const auto end=(std::min)(view.items.size(),offset+32);
+                        chunk.view.revision=1; const auto end=(std::min)(view.items.size(),offset+4);
                         chunk.view.items.assign(view.items.begin()+offset,view.items.begin()+end);
                         const auto bytes=coopnet::encode_view_chunk(chunk); signature.insert(signature.end(),bytes.begin(),bytes.end());
                     }
@@ -976,11 +985,11 @@ void send_client_controls(Session& current, double elapsed) {
         if (armed && current.weapon_phase<2) {
             current.weapon_wait+=elapsed;
             input.buttons=0; input.pitch=-.7f;
-            if (current.weapon_wait>.5 && current.weapon_wait<1) {
+            if (current.weapon_wait>2 && current.weapon_wait<2.5) {
                 input.buttons=coopnet::fire_button;
                 if (current.weapon_phase==0) { current.weapon_phase=1; Msg("* CoopNet client weapon fire input: actor %llu",input.entity); }
             }
-            if (current.weapon_wait>=1) current.weapon_phase=2;
+            if (current.weapon_wait>=2.5) current.weapon_phase=2;
         }
     }
     // Sending may disconnect and clear the replica registry; send after traversal.
@@ -1030,6 +1039,15 @@ bool party_controls_enabled() {
         session->client.party_status().stage!=coopnet::PartyStage::Loading;
 }
 void update(double) {
+    if (!session && !pending_character_address.empty()) {
+        LocalActorPose selected;
+        if (capture_local_actor(selected) && selected.incarnation!=pending_character_incarnation && guest_save_scope()) {
+            const auto address=pending_character_address; pending_character_address.clear();
+            join_from_menu(address.c_str()); pending_new_character=false;
+            if (pending_character_probe && session) command("coop_movement_probe","auto");
+            pending_character_probe=false;
+        }
+    }
     if (!session) return;
     try {
         // Game time is zero while paused and clamped during stalls. Network deadlines
@@ -1206,6 +1224,10 @@ void update(double) {
 void command(const char* name, const char* arguments) {
     try {
         if (!strcmp(name,"coop_join_menu")) { join_from_menu(arguments); return; }
+        if (!strcmp(name,"coop_character_probe")) {
+            if (!queue_character_join(arguments,false)) throw std::runtime_error("Unable to queue character probe join");
+            pending_character_probe=true; return;
+        }
         if (!strcmp(name,"coop_settings_probe")) {
             if (!session) throw std::runtime_error("Start a session before the settings probe");
             session->settings_probe=true; return;
@@ -1281,8 +1303,8 @@ void command(const char* name, const char* arguments) {
             if (session->mode == coopnet::Mode::Host) {
                 unsigned connected = 0;
                 for (const auto& player : session->host.session().players()) if (player.connected) ++connected;
-                Msg("* CoopNet host: %u participants (transport only; gameplay adapter pending)", connected);
-            } else Msg("* CoopNet client: %s (transport only; gameplay adapter pending)",
+                Msg("* CoopNet host: %u participants", connected);
+            } else Msg("* CoopNet client: %s",
                 state_name(session->client.session().state()));
             return;
         }
@@ -1309,6 +1331,15 @@ void command(const char* name, const char* arguments) {
                 !next->runtime.listen(static_cast<std::uint16_t>(port))) throw std::runtime_error("Invalid port or listen failed");
             next->host.start(random_identity(), character, build, random_identity);
             auto* owner=next.get();
+            next->host.set_character_handler([owner](coopnet::Identity player,const coopnet::InventoryView& character) {
+                if (!validate_join_character(character)) return false;
+                for (const auto& participant:owner->host.session().players()) if (participant.id==player && participant.character==character.actor) {
+                    if (!owner->guest_inventory.count(character.actor)) owner->join_characters[character.actor]=character;
+                    Msg("* CoopNet selected character received: character %llu items %u rubles %u",character.actor,static_cast<unsigned>(character.items.size()),character.money);
+                    return true;
+                }
+                return false;
+            });
             next->host.set_inventory_handler([owner](coopnet::Identity player,const coopnet::InventoryRequest& request) {
                 return transact_inventory(*owner,player,request);
             });
@@ -1329,6 +1360,11 @@ void command(const char* name, const char* arguments) {
                 profile.build.game==build.game && profile.build.mods==build.mods) { saved=&profile.resume; break; }
             next->saved_resume_attempt=saved!=nullptr;
             next->client.start(std::make_unique<coopnet::GnsTransport>(next->runtime, connection), character, build,saved);
+            coopnet::InventoryView selected_character;
+            if (capture_join_character(selected_character)) {
+                selected_character.actor=character; next->client.set_character_profile(selected_character);
+                Msg("* CoopNet joining with loaded character: items %u rubles %u",static_cast<unsigned>(selected_character.items.size()),selected_character.money);
+            }
             auto* owner = next.get();
             next->client.set_inventory_view_sink([](const coopnet::InventoryView& view) { queue_local_inventory_view(view); });
             next->client.set_world_rules_sink([](std::uint32_t revision,const std::vector<coopnet::WorldRule>& rules) { queue_host_world_rules(revision,rules); });
@@ -1499,12 +1535,29 @@ bool join_from_menu(const char* address) {
             menu_join_error="Enter an IPv4 address, optionally followed by :port."; return false;
         }
         load_join_profiles(); coopnet::Identity character=random_identity(); coopnet::BuildIdentity build{1,1};
-        for (const auto& profile:join_profiles) if (profile.endpoint==endpoint) { character=profile.character; build=profile.build; break; }
+        coopnet::InventoryView selected;
+        if (capture_join_character(selected)) {
+            character=join_character_identity(character,pending_new_character); if (!character) throw std::runtime_error("Unable to save this character's CoopNet identity.");
+        } else {
+            if (guest_save_scope()) { menu_join_error="Unable to import this save's character inventory. Check item/mod compatibility and inventory limits."; return false; }
+            bool remembered=false;
+            for (const auto& profile:join_profiles) if (profile.endpoint==endpoint) { character=profile.character; build=profile.build; remembered=true; break; }
+            if (!remembered) { menu_join_error="Load a save or create a character first, then open Join CoopNet again."; return false; }
+        }
         std::ostringstream args; args<<endpoint<<' '<<character<<' '<<build.game<<' '<<build.mods;
         menu_join_error.clear(); command("coop_join",args.str().c_str());
         return session && session->mode==coopnet::Mode::Client && session->endpoint==endpoint;
     } catch (const std::exception& error) { menu_join_error=error.what(); return false; }
 }
+bool queue_character_join(const char* address,bool create) {
+    std::string normalized;
+    if (!address || !coopnet::normalize_endpoint(address,normalized) || session) {
+        menu_join_error="Enter the host IPv4 address before choosing a character."; return false;
+    }
+    LocalActorPose local; pending_character_incarnation=capture_local_actor(local) ? local.incarnation : 0;
+    pending_character_address=normalized; pending_new_character=create; menu_join_error.clear(); return true;
+}
+void cancel_character_join() { pending_character_address.clear(); pending_new_character=false; pending_character_probe=false; }
 void join_status(char* output,unsigned capacity) {
     if (!output || !capacity) return;
     const char* status=menu_join_error.c_str();
@@ -1529,6 +1582,8 @@ void register_world_setting_command(const char*) {}
 bool host_settings_application() { return false; }
 void applying_host_settings(bool) {}
 bool join_from_menu(const char*) { return false; }
+bool queue_character_join(const char*,bool) { return false; }
+void cancel_character_join() {}
 void saved_join_address(char* output,unsigned capacity) { if (output && capacity) output[0]=0; }
 void join_status(char* output,unsigned capacity) { if (output && capacity) snprintf(output,capacity,"CoopNet is unavailable in this build."); }
 bool simulation_active() { return false; }

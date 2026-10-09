@@ -16,6 +16,7 @@
 #include "level.h"
 #include "level_bullet_manager.h"
 #include "game_cl_single.h"
+#include "../CoopNet/EngineWorldBridge.h"
 
 #define HIT_POWER_EPSILON 0.05f
 #define WALLMARK_SIZE 0.04f
@@ -449,6 +450,7 @@ void CShootingObject::RenderLight()
 
 bool CShootingObject::SendHitAllowed(CObject* pUser)
 {
+    if (engine_coopnet::world_level_is_replica()) return false;
 	if (Game().IsServerControlHits())
 		return OnServer();
 

@@ -157,6 +157,10 @@ if ($WeaponProbe) {
         throw 'Guest weapon activation and real ammunition consumption from client fire input missing.'
     }
     Write-Output 'NATIVE_WEAPON_PASS: host guest weapon finished drawing and consumed ammunition from client fire input.'
+    if ($logs.guest -notmatch 'CoopNet native guest predicted shot: weapon \d+ rounds \d+ send hit 0') {
+        throw 'Guest native local firing feedback without local hit authority missing.'
+    }
+    Write-Output 'NATIVE_LOCAL_WEAPON_PASS: guest native firing executed with local damage disabled.'
     if ($PartyProbe) {
         if ($logs.host -notmatch ("CoopNet guest inventory restored: character 2 items $expectedInventoryCount") -or
             $logs.host -notmatch ("CoopNet native inventory restoration completed: items $expectedInventoryCount active slot [1-9]\d* rounds 2")) {

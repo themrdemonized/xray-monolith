@@ -2,7 +2,7 @@
 
 This is a direct connection to a player's host process. There is no hosted lobby, account service, automatic discovery or relay. The host simulates the active location; connected players travel together.
 
-Every player needs Anomaly 1.5.3, the same co-op engine build and networking DLLs, and matching mods. The Git repository supplies engine source and build instructions, not a complete downloadable game package. Protocol 21 clients cannot connect to older protocol builds. Keep each installation's appdata and saves separate.
+Every player needs Anomaly 1.5.3, the same co-op engine build and networking DLLs, and matching mods. The Git repository supplies engine source and build instructions, not a complete downloadable game package. Protocol 22 clients cannot connect to older protocol builds. Keep each installation's appdata and saves separate.
 
 Enter `/help` (or `coop_help`) in the console for the host/join examples, same-PC address, status, disconnect and respawn commands. The existing `help` command still lists general engine commands.
 
@@ -12,7 +12,11 @@ The host loads a game, opens the console, and enters:
 coop_host 27888 1 1 1
 ```
 
-A guest can click **Join CoopNet** on the main menu, enter the host IPv4 address (optional `:port`, default 27888), and click **Connect**. Successful connections remember the character and resume token. Up to sixteen profiles are encrypted for the current Windows account with DPAPI in `appdata/coopnet-connections.dat`. No Steam password is requested. The most recent address is filled automatically; the menu uses placeholder game/mod fingerprints `1 1`.
+A guest clicks **Join CoopNet**, enters the host IPv4 address (optional `:port`, default 27888), and chooses **Load save** or **Create character**. These open Anomaly's normal save picker or faction/character creator. After the selected character loads, joining starts automatically. Returning from the picker to the main menu cancels the pending join. For testing on one PC, enter `127.0.0.1:27888` in the second installation.
+
+**Connect** uses a character already loaded in single-player, or resumes the remembered CoopNet character when no game is loaded. A first-time guest without a loaded character is asked to load or create one. The Join option remains available in the pause menu before connecting. A selected character imports its carried items, equipped and belt placement, active weapon, condition, ammunition, attachments/upgrades, consumable uses and rubles into the host's world. The source save's world and location are not transferred. Existing host campaign records resume that character's latest CoopNet equipment rather than granting the original loadout again. See GUEST_STATE.md for limits.
+
+Successful connections remember the character and resume token. Up to sixteen profiles are encrypted for the current Windows account with DPAPI in `appdata/coopnet-connections.dat`. Character IDs are retained per source save alias in separate `appdata/coopnet-character-id-*.dat` files. No Steam password is requested. The most recent address is filled automatically; the menu uses placeholder game/mod fingerprints `1 1`.
 
 The console remains available for explicit identities and fingerprints:
 

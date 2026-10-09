@@ -19,6 +19,7 @@ int main() {
     loot.kind=3; require(!valid_item_state(loot)); loot.kind=0;
     loot.condition=std::numeric_limits<float>::quiet_NaN(); require(!valid_item_state(loot));
     InventoryView view; view.actor=20; view.generation=1; view.level=10; view.revision=1;
+    view.money=314159;
     for (unsigned n=0;n<256;++n) view.items.push_back({100+n,1,"bandage",.8f,0xffff,0,0,0,0});
     InventoryViewAssembly assembly; InventoryView output; bool complete=false;
     for (unsigned offset=0;offset<256;offset+=32) {
@@ -31,7 +32,14 @@ int main() {
         require(decode_view_chunk(bytes,decoded)); require(assembly.append(decoded,complete,output));
         require(complete==(offset==224));
     }
-    require(output.items.size()==256 && output.items.back().item==355);
+    require(output.items.size()==256 && output.items.back().item==355 && output.money==314159);
+    auto equipped=view; equipped.items.resize(1); equipped.items.front().kind=1;
+    equipped.items.front().addons=5; equipped.items.front().scope=2; equipped.items.front().uses=3;
+    equipped.items.front().upgrades={"up_firsta_pm","up_secona_pm"};
+    InventoryViewChunk equipment_chunk{equipped,0,1},equipment_decoded;
+    require(decode_view_chunk(encode_view_chunk(equipment_chunk),equipment_decoded));
+    require(equipment_decoded.view.items.front().upgrades==equipped.items.front().upgrades && equipment_decoded.view.items.front().addons==5 && equipment_decoded.view.items.front().uses==3);
+    equipment_chunk.view.items.front().upgrades={"../bad"}; require(!valid_view_chunk(equipment_chunk));
     InventoryViewChunk first{view,0,256}; first.view.items.assign(view.items.begin(),view.items.begin()+32);
     require(assembly.append(first,complete,output) && !complete);
     auto mixed=first; mixed.offset=32; mixed.view.revision=2; require(!assembly.append(mixed,complete,output));
@@ -48,11 +56,16 @@ int main() {
     invalid=view; invalid.items.back().item=invalid.items.front().item; require(!valid_inventory_view(invalid));
     HostPump host; ClientPump a,b; Identity token=100;
     host.start(1,1,{1,1},[&] { return ++token; });
+    unsigned character_received=0;
+    host.set_character_handler([&](Identity player,const InventoryView& selected) {
+        ++character_received; require(player>=2 && selected.actor==2 && selected.items.size()==256 && selected.money==314159); return true;
+    });
     auto la=MemoryTransport::pair(),lb=MemoryTransport::pair();
     require(host.attach(1,std::move(la.second))); require(host.attach(2,std::move(lb.second)));
     a.start(std::move(la.first),2,{1,1}); b.start(std::move(lb.first),3,{1,1});
-    auto pump=[&] { for (unsigned n=0;n<4;++n) { host.update(.01); a.update(.01); b.update(.01); } };
-    pump(); const auto pa=a.session().welcome().player,pb=b.session().welcome().player;
+    auto selected=view; selected.actor=2; selected.level=1; a.set_character_profile(selected);
+    auto pump=[&] { for (unsigned n=0;n<8;++n) { host.update(.01); a.update(.01); b.update(.01); } };
+    pump(); require(character_received==1); const auto pa=a.session().welcome().player,pb=b.session().welcome().player;
     require(host.create_actor({20,pa,2,1,10})); require(host.create_actor({21,pb,3,1,10}));
     require(host.assign_level(pa,10,1000)); require(host.assign_level(pb,10,1001)); pump();
     require(a.acknowledge_level(10)); require(b.acknowledge_level(10)); pump();
@@ -82,5 +95,25 @@ int main() {
         fair_host.update(.01); fair_client.update(.01);
     }
     require(delivered.size()==16); // frequently changing early entries must not starve later loot
+    for (unsigned failure=0;failure<3;++failure) {
+        HostPump guarded; Identity guard_token=4000; unsigned imported=0;
+        guarded.start(80,1,{1,1},[&] { return ++guard_token; });
+        guarded.set_character_handler([&](Identity,const InventoryView&) {++imported; return true;});
+        auto raw=MemoryTransport::pair(); require(guarded.attach(80,std::move(raw.second)));
+        ClientHello hello{protocol_version,{1,1},9,0,0,0};
+        require(raw.first->send({Message::ClientHello,Channel::Control,Delivery::ReliableOrdered,1,encode_hello(hello)})==SendResult::Sent);
+        guarded.update(.01); Frame reply; require(raw.first->receive(reply)); Welcome admitted; require(decode_welcome(reply.payload,admitted));
+        require(!guarded.player_ready(admitted.player));
+        InventoryView character; character.actor=failure==1 ? 10 : 9; character.generation=character.level=character.revision=1;
+        character.items={{1,1,"bandage",1,0xffff,0,0,0,0}};
+        InventoryViewChunk chunk{character,0,static_cast<std::uint16_t>(failure==0 ? 2 : 1)};
+        Frame profile{Message::CharacterProfile,Channel::Control,Delivery::ReliableOrdered,0,encode_view_chunk(chunk)};
+        require(raw.first->send(profile)==SendResult::Sent);
+        if (failure==2) require(raw.first->send(profile)==SendResult::Sent);
+        else require(raw.first->send({Message::ClientReady,Channel::Control,Delivery::ReliableOrdered,2,{}})==SendResult::Sent);
+        guarded.update(.01);
+        require(!raw.first->connected() && !guarded.player_ready(admitted.player));
+        require(imported==(failure==2 ? 1u : 0u));
+    }
     std::cout<<"Inventory view chunk assembly, owner isolation, stale views and control validation passed\n";
 }

@@ -53,6 +53,11 @@ struct NativeSessionItem {
 };
 struct NativeInventoryViewItem { std::uint16_t object=0xffff; std::uint64_t incarnation=0; coopnet::InventoryViewItem state; };
 bool capture_guest_inventory_view(std::uint16_t actor,std::vector<NativeInventoryViewItem>& items,std::uint16_t& active);
+bool capture_join_character(coopnet::InventoryView& character);
+std::uint64_t join_character_identity(std::uint64_t proposed,bool replace=false);
+bool validate_join_character(const coopnet::InventoryView& character);
+bool import_join_character(std::uint16_t actor,const coopnet::InventoryView& character);
+std::uint32_t guest_money(std::uint16_t actor);
 bool begin_guest_loadout(std::uint16_t actor);
 void queue_local_inventory_view(const coopnet::InventoryView& view);
 void update_local_inventory_view();

@@ -12,6 +12,8 @@ void register_world_setting_command(const char* command);
 bool host_settings_application();
 void applying_host_settings(bool value);
 bool join_from_menu(const char* address);
+bool queue_character_join(const char* address,bool create);
+void cancel_character_join();
 void saved_join_address(char* output,unsigned capacity);
 void join_status(char* output,unsigned capacity);
 bool simulation_active();

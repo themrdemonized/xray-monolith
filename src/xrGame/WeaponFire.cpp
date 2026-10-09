@@ -7,6 +7,7 @@
 #include "ParticlesObject.h"
 #include "entity.h"
 #include "actor.h"
+#include "../CoopNet/EngineWorldBridge.h"
 
 #include "actoreffector.h"
 #include "effectorshot.h"
@@ -120,6 +121,8 @@ void CWeapon::FireTrace(const Fvector& P, const Fvector& D)
 
 
 	bool SendHit = SendHitAllowed(H_Parent());
+    if (engine_coopnet::world_level_is_replica())
+        Msg("* CoopNet native guest predicted shot: weapon %u rounds %d send hit %u",ID(),iAmmoElapsed,SendHit);
 	//выстерлить пулю (с учетом возможной стрельбы дробью)
 	for (int i = 0; i < l_cartridge.param_s.buckShot; ++i)
 	{
