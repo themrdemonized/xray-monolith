@@ -1133,6 +1133,12 @@ float CActor::currentFOV()
 
 void CActor::UpdateCL()
 {
+    if(m_coopnet_native_prediction && !engine_coopnet::shared_world_active()) {
+        Level().RemoveObject_From_4CrPr(this); NET.clear(); NET_A.clear();
+        m_coopnet_native_prediction=false; m_bInInterpolation=false; m_bInterpolate=false;
+        m_coopnet_view_correction.set(0,0,0);
+    }
+    if(m_coopnet_native_prediction) make_Interpolation();
 	if (m_coopnet_guest)
 	{
 		// Native physics/render maintenance without local camera, pickup or HUD work.
@@ -1800,6 +1806,10 @@ void CActor::coopnet_down()
 }
 void CActor::coopnet_revive(const Fvector& position)
 {
+    if(m_coopnet_native_prediction) {
+        Level().RemoveObject_From_4CrPr(this); NET.clear(); NET_A.clear();
+        m_bInInterpolation=false; m_coopnet_view_correction.set(0,0,0);
+    }
     conditions().reinit();
     m_coopnet_downed=false;
     mstate_wishful=0; m_coopnet_buttons=0; NET_SavedAccel.set(0,0,0); NET_Jump=0;
@@ -1882,19 +1892,23 @@ void CActor::shedule_Update(u32 DT)
 		if (Device.dwFrame % 300 == 0)
 			Msg("* CoopNet guest acceleration: wish %u state %u accel %.3f %.3f %.3f canmove %u health %.3f",
 				mstate_wishful,mstate_real,NET_SavedAccel.x,NET_SavedAccel.y,NET_SavedAccel.z,CanMove(),GetfHealth());
-		if (!engine_coopnet::guest_movement_owned(ID())) g_Physics(NET_SavedAccel, NET_Jump, dt);
+		g_Physics(NET_SavedAccel, NET_Jump, dt);
 		g_cl_ValidateMState(dt, mstate_wishful);
 		g_SetAnimation(mstate_real);
 		NET_Jump = 0;
 		mstate_old = mstate_real;
 		inherited::shedule_Update(DT);
 		m_pPhysics_support->in_shedule_Update(DT);
+		engine_coopnet::guest_input_simulated(ID());
 		setVisible(!character_physics_support()->IsRemoved());
 		return;
 	}
 	if (Level().CurrentControlEntity() == this && !Level().IsDemoPlay())
 		//------------------------------------------------
 	{
+		float probe_yaw=0,probe_pitch=0;
+		if(engine_coopnet::local_movement_probe_controls(ID(),mstate_wishful,probe_yaw,probe_pitch))
+			cam_FirstEye()->Set(-probe_yaw,probe_pitch,0);
 		g_cl_CheckControls(mstate_wishful, NET_SavedAccel, NET_Jump, dt);
 		{
 			/*

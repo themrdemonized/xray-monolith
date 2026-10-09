@@ -10,11 +10,11 @@ void check(bool value, int line) {
 int main() {
     ActorSnapshot first{5, 1, 10, 1, 1000000, {0,0,0}, {1,0,0}, {0,3.1f,0}, 2, 1};
     auto bytes = encode_snapshot(first); ActorSnapshot result;
-    require(bytes.size() == 67 && decode_snapshot(bytes, result) && result.entity == 5 && result.position == first.position);
+    require(bytes.size() == 71 && decode_snapshot(bytes, result) && result.entity == 5 && result.position == first.position);
     for (std::size_t size = 0; size < bytes.size(); ++size)
         require(!decode_snapshot({bytes.begin(), bytes.begin() + size}, result));
     auto corrupt = bytes; corrupt.push_back(0); require(!decode_snapshot(corrupt, result));
-    corrupt = bytes; corrupt.back() = 4; require(!decode_snapshot(corrupt, result));
+    corrupt = bytes; corrupt[66] = 4; require(!decode_snapshot(corrupt, result));
     corrupt = bytes; corrupt[28] = 0; corrupt[29] = 0; corrupt[30] = 0x80; corrupt[31] = 0x7f;
     require(!decode_snapshot(corrupt, result)); // infinity
     SnapshotBuffer buffer; buffer.bind(5, 1, 10); require(!buffer.sample(0, result));

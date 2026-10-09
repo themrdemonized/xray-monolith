@@ -1065,8 +1065,11 @@ std::uint64_t local_incarnation = 0;
 LocalActorControls local_controls;
 std::uint16_t local_weapon_buttons=0;
 std::uint32_t controls_time = 0;
+bool local_movement_probe_active=false;
+std::uint16_t local_movement_probe_buttons=0;
+float local_movement_probe_yaw=0,local_movement_probe_pitch=0;
 struct GuestSpawn { bool pending = true, removing = false; std::uint64_t incarnation = 0; unsigned controls = 0; std::uint16_t weapon_buttons=0;
-    bool owner_movement=false, awaiting_respawn_pose=false; std::uint32_t pose_sequence=0;
+    std::uint32_t received_input=0,simulated_input=0;
     bool restoring=false; std::uint16_t restore_slot=0xffff; unsigned restore_count=0;
     bool starter_pending=false; xr_vector<u16> starter_items; };
 xr_map<u16,GuestSpawn> guests;
@@ -1161,10 +1164,7 @@ bool respawn_actor(std::uint16_t object,std::uint32_t level,const float* positio
     Fvector target; target.set(position[0],position[1],position[2]);
     const auto node=ai().level_graph().vertex(actor->ai_location().level_vertex_id(),target);
     if (!ai().level_graph().valid_vertex_id(node)) return false;
-    actor->coopnet_revive(target);
-    const auto guest=guests.find(object);
-    if(guest!=guests.end() && guest->second.owner_movement) guest->second.awaiting_respawn_pose=true;
-    return true;
+    actor->coopnet_revive(target); return true;
 }
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state) {
     if (!g_pGameLevel || !g_pGameLevel->bReady) return false;
@@ -1935,33 +1935,25 @@ bool capture_guest_actor(std::uint16_t object, LocalActorPose& pose) {
     value.rotation[0] = pitch; value.rotation[1] = -heading; value.rotation[2] = bank;
     pose = value; return true;
 }
-bool guest_movement_owned(std::uint16_t object) {
-    const auto found=guests.find(object);
-    return found!=guests.end() && found->second.owner_movement;
+void set_local_movement_probe(std::uint16_t buttons,float yaw,float pitch) {
+    local_movement_probe_active=true; local_movement_probe_buttons=buttons;
+    local_movement_probe_yaw=yaw; local_movement_probe_pitch=pitch;
 }
-bool apply_guest_movement(std::uint16_t object,const coopnet::ActorInput& input) {
-    LocalActorPose pose;
-    if(!input.has_pose || !coopnet::valid_input(input) || !capture_guest_actor(object,pose) || pose.level!=input.level) return false;
-    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
-    if(!actor || actor->is_coopnet_downed()) return false;
-    auto& state=guests.find(object)->second;
-    if(state.owner_movement && state.pose_sequence==input.sequence) return true;
-    if(state.awaiting_respawn_pose) {
-        float squared=0;
-        for(unsigned axis=0;axis<3;++axis) { const float delta=input.position[axis]-pose.position[axis]; squared+=delta*delta; }
-        if(squared>1.f) return false; // Discard pre-respawn packets until the guest receives the new position.
-        state.awaiting_respawn_pose=false;
-    }
-    Fmatrix transform=actor->XFORM(); transform.c.set(input.position[0],input.position[1],input.position[2]);
-    actor->ForceTransform(transform);
-    actor->character_physics_support()->movement()->SetVelocity(input.velocity[0],input.velocity[1],input.velocity[2]);
-    const auto& applied_velocity=actor->character_physics_support()->movement()->GetVelocity();
-    Fvector expected_velocity; expected_velocity.set(input.velocity[0],input.velocity[1],input.velocity[2]);
-    if(actor->Position().distance_to_sqr(transform.c)>.0001f || applied_velocity.distance_to_sqr(expected_velocity)>.0001f)
-        return false;
-    state.owner_movement=true; state.pose_sequence=input.sequence;
-    if(state.controls%300==0) Msg("* CoopNet guest owner pose applied: object %u sequence %u",object,input.sequence);
+bool local_movement_probe_controls(std::uint16_t object,std::uint32_t& buttons,float& yaw,float& pitch) {
+    if(!local_movement_probe_active || !world_level_is_replica() || !g_actor || g_actor->ID()!=object) return false;
+    buttons=local_movement_probe_buttons & 0x70bf; yaw=local_movement_probe_yaw; pitch=local_movement_probe_pitch;
+    static unsigned samples=0;
+    if(++samples%300==0) Msg("* CoopNet native local movement controls applied: %u",samples);
     return true;
+}
+void guest_input_received(std::uint16_t object,std::uint32_t sequence) {
+    const auto found=guests.find(object); if(found!=guests.end()) found->second.received_input=sequence;
+}
+void guest_input_simulated(std::uint16_t object) {
+    const auto found=guests.find(object); if(found!=guests.end()) found->second.simulated_input=found->second.received_input;
+}
+std::uint32_t guest_input_acknowledgement(std::uint16_t object) {
+    const auto found=guests.find(object); return found==guests.end() ? 0 : found->second.simulated_input;
 }
 void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw, float pitch) {
     LocalActorPose pose;
@@ -2035,7 +2027,7 @@ void clear_guest_actors() {
     for (const auto object : objects) remove_guest_actor(object);
 }
 void guest_level_stopped() { guests.clear(); session_items.clear(); world_level_stopped(); }
-void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; local_weapon_buttons=0;
+void local_actor_spawned() { ++local_incarnation; local_controls = {}; controls_time = 0; local_weapon_buttons=0; local_movement_probe_active=false;
     local_world_items.clear(); local_world_objects.clear(); retired_world_items.clear(); local_world_session=0;
     loot_probe_phase=0; loot_probe_item=0;
     local_inventory_view={}; local_inventory_items.clear(); local_inventory_actions.clear(); inventory_cleared=false; inventory_reported=0; inventory_probe_phase=0; }
@@ -2052,6 +2044,12 @@ bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed) 
     if (!bit) return false;
     if (pressed) local_weapon_buttons|=bit; else local_weapon_buttons&=~bit;
     return true;
+}
+bool correct_local_actor_native(std::uint32_t level,const float* position,const float* velocity,std::uint32_t delay_ms) {
+    LocalActorPose local;
+    if(!capture_local_actor(local) || local.level!=level || !world_level_is_replica()) return false;
+    Fvector target,speed; target.set(position[0],position[1],position[2]); speed.set(velocity[0],velocity[1],velocity[2]);
+    return g_actor->coopnet_import_movement(target,speed,delay_ms);
 }
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity) {
     LocalActorPose local;

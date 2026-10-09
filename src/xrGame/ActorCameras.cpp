@@ -584,6 +584,22 @@ void CActor::cam_Update(float dt, float fFOV)
 	float _viewport_near = VIEWPORT_NEAR;
 	// calc point
 	xform.transform_tiny(point);
+	if(m_coopnet_native_prediction) point.add(m_coopnet_view_correction);
+    if(m_coopnet_native_prediction) {
+        static CActor* previous_actor=nullptr;
+        static Fvector previous_point;
+        static u32 previous_time=0,samples=0,discontinuities=0;
+        static float maximum_step=0;
+        const u32 elapsed=Device.dwTimeGlobal-previous_time;
+        if(previous_actor==this && samples>30 && elapsed>0 && elapsed<=100) {
+            const float step=point.distance_to(previous_point);
+            maximum_step=(std::max)(maximum_step,step);
+            const float expected=character_physics_support()->movement()->GetVelocity().magnitude()*elapsed*.001f;
+            if(step>expected+.35f) ++discontinuities;
+        }
+        previous_actor=this; previous_point=point; previous_time=Device.dwTimeGlobal;
+        if(++samples%300==0) Msg("* CoopNet native camera continuity: samples %u discontinuities %u maximum step %.3f",samples,discontinuities,maximum_step);
+    }
 
 	CCameraBase* C = cam_Active();
 

@@ -1,6 +1,5 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$OwnerMovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
-if ($OwnerMovementProbe) { $MovementProbe=$true }
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
 if ($RespawnProbe) { $WorldProbe=$true }
@@ -15,7 +14,7 @@ if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe -or $DialogueProbe) -and !$TestDirectory) {
+if (($WeaponProbe -or $InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe -or $DialogueProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -33,7 +32,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -OwnerMovementProbe:$OwnerMovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -DialogueProbe:$DialogueProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -DialogueProbe:$DialogueProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -280,7 +279,11 @@ if ($DialogueProbe) {
     Write-Output 'NATIVE_DIALOGUE_TOPICS_PASS: real NPC topics evaluated for the guest, script context restored, stale NPC incarnation and range rejected.'
 }
 
-if ($OwnerMovementProbe) {
-    if ($logs.host -notmatch 'guest owner pose applied' -or $logs.guest -notmatch 'guest poses sent' -or $logs.guest -notmatch 'routine snapshots ignored') { throw 'Owner movement pose transport or correction suppression missing' }
-    Write-Output 'NATIVE_OWNER_MOVEMENT_PASS: native host XYZ/velocity followed guest packets; routine guest snapshot corrections suppressed.'
+if ($WorldProbe -and $MovementProbe) {
+    if ($logs.guest -notmatch 'native physics correction completed' -or $logs.guest -notmatch 'native local movement controls applied') { throw 'Native physics correction or local prediction controls evidence missing' }
+    if (!$RespawnProbe -and !$PartyProbe) {
+        $continuity=[regex]::Matches($logs.guest,'native camera continuity: samples ([0-9]+) discontinuities ([0-9]+) maximum step ([0-9.]+)')
+        if (!$continuity.Count -or $continuity[$continuity.Count-1].Groups[2].Value -ne '0') { throw 'Native camera target continuity evidence missing or movement discontinuities detected' }
+    }
+    Write-Output 'NATIVE_PREDICTION_PATH_PASS: local native movement controls and legacy physics correction pipeline both executed.'
 }

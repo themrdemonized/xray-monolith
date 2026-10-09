@@ -941,6 +941,26 @@ InterpData IStartT;
 InterpData IRecT;
 InterpData IEndT;
 
+bool CActor::coopnet_import_movement(const Fvector& position,const Fvector& velocity,u32 delay_ms)
+{
+    if(this!=g_actor || !g_Alive() || is_coopnet_downed() || !_valid(position) || !_valid(velocity)) return false;
+    auto* sync=PHGetSyncItem(0); if(!sync) return false;
+    net_update_A update{}; sync->get_State(update.State);
+    update.dwTimeStamp=Level().timeServer();
+    update.State.position=update.State.previous_position=position;
+    update.State.linear_vel=velocity; update.State.enabled=true;
+    net_update base;
+    base.dwTimeStamp=update.dwTimeStamp; base.p_pos=position; base.p_velocity=velocity;
+    base.p_accel=NET_SavedAccel; base.mstate=mstate_wishful;
+    base.o_model=r_model_yaw; base.o_torso=unaffected_r_torso;
+    NET.push_back(base); if(NET.size()>5) NET.pop_front(); NET_Last=base;
+    NET_A.push_back(update); if(NET_A.size()>5) NET_A.pop_front();
+    m_coopnet_native_prediction=true; m_bInterpolate=true;
+    Level().SetNumCrSteps(physics_world()->CalcNumSteps((std::min)(delay_ms,150u)));
+    net_Import_Physic_proceed();
+    return true;
+}
+
 void CActor::PH_B_CrPr() // actions & operations before physic correction-prediction steps
 {
 	//just set last update data for now
@@ -955,6 +975,7 @@ void CActor::PH_B_CrPr() // actions & operations before physic correction-predic
 			///////////////////////////////////////////////
 			InterpData* pIStart = &IStart;
 			pIStart->Pos = Position();
+			if(m_coopnet_native_prediction) pIStart->Pos.add(m_coopnet_view_correction);
 			pIStart->Vel = character_physics_support()->movement()->GetVelocity();
 			pIStart->o_model = angle_normalize(r_model_yaw);
 			pIStart->o_torso.yaw = angle_normalize(unaffected_r_torso.yaw);
@@ -971,7 +992,7 @@ void CActor::PH_B_CrPr() // actions & operations before physic correction-predic
 		///////////////////////////////////////////////
 
 		//----------- for E3 -----------------------------
-		if (Local() && OnClient())
+		if ((Local() && OnClient()) || m_coopnet_native_prediction)
 			//------------------------------------------------
 		{
 			PHUnFreeze();
@@ -1060,11 +1081,16 @@ void CActor::PH_A_CrPr()
 	pSyncObj->get_State(PredictedState);
 	////////////////////////////////////
 	pSyncObj->set_State(RecalculatedState);
+	if (m_coopnet_native_prediction) PredictedState=RecalculatedState;
+	if(m_coopnet_native_prediction) {
+		static unsigned native_corrections=0;
+		if(++native_corrections%300==0) Msg("* CoopNet native physics correction completed: %u",native_corrections);
+	}
 	////////////////////////////////////
 	if (!m_bInterpolate) return;
 
 	////////////////////////////////////
-	mstate_wishful = mstate_real = NET_Last.mstate;
+	if (!m_coopnet_native_prediction) mstate_wishful = mstate_real = NET_Last.mstate;
 	CalculateInterpolationParams();
 };
 extern float g_cl_lvInterp;
@@ -1109,7 +1135,7 @@ void CActor::CalculateInterpolationParams()
 	SP0 = pIStart->Pos;
 	HP0 = pIStart->Pos;
 
-	if (m_bInInterpolation)
+	if (m_bInInterpolation && !m_coopnet_native_prediction)
 	{
 		u32 CurTime = Level().timeServer();
 		float factor = float(CurTime - m_dwIStartTime) / (m_dwIEndTime - m_dwIStartTime);
@@ -1243,6 +1269,15 @@ int actInterpType = 0;
 void CActor::make_Interpolation()
 {
 	m_dwILastUpdateTime = Level().timeServer();
+    if(m_coopnet_native_prediction) {
+        m_coopnet_view_correction.set(0,0,0);
+        if(!m_bInInterpolation || !g_Alive()) return;
+        if(m_dwILastUpdateTime>=m_dwIEndTime || m_dwIEndTime<=m_dwIStartTime) { m_bInInterpolation=false; return; }
+        const float factor=float(m_dwILastUpdateTime-m_dwIStartTime)/(m_dwIEndTime-m_dwIStartTime);
+        for(unsigned axis=0;axis<3;++axis)
+            m_coopnet_view_correction[axis]=factor*(factor*(factor*HCoeff[axis][0]+HCoeff[axis][1])+HCoeff[axis][2])+HCoeff[axis][3]-IEnd.Pos[axis];
+        return; // Local prediction keeps its physics velocity, controls and aim.
+    }
 
 	if (g_Alive() && m_bInInterpolation)
 	{

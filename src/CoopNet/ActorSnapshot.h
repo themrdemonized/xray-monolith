@@ -12,6 +12,7 @@ struct ActorSnapshot {
     std::array<float, 3> position{}, velocity{}, rotation{};
     std::uint16_t movement = 0;
     std::uint8_t stance = 0;
+    std::uint32_t input_sequence = 0;
 };
 inline bool valid_snapshot(const ActorSnapshot& snapshot) {
     if (!snapshot.entity || !snapshot.generation || !snapshot.level || snapshot.stance > 3) return false;
@@ -30,6 +31,7 @@ inline std::vector<std::uint8_t> encode_snapshot(const ActorSnapshot& snapshot) 
             std::uint32_t bits; std::memcpy(&bits, &value, sizeof(bits)); writer.integer(bits, 4);
         }
     writer.integer(snapshot.movement, 2); writer.integer(snapshot.stance, 1);
+    writer.integer(snapshot.input_sequence,4);
     return writer.bytes;
 }
 inline bool decode_snapshot(const std::vector<std::uint8_t>& bytes, ActorSnapshot& output) {
@@ -45,7 +47,9 @@ inline bool decode_snapshot(const std::vector<std::uint8_t>& bytes, ActorSnapsho
             if (!reader.integer(encoded, 4)) return false;
             const auto bits = static_cast<std::uint32_t>(encoded); std::memcpy(&number, &bits, sizeof(bits));
         }
-    if (!reader.integer(movement, 2) || !reader.integer(stance, 1) || reader.remaining()) return false;
+    std::uint64_t input_sequence;
+    if (!reader.integer(movement, 2) || !reader.integer(stance, 1) || !reader.integer(input_sequence,4) || reader.remaining()) return false;
+    value.input_sequence=static_cast<std::uint32_t>(input_sequence);
     value.movement = static_cast<std::uint16_t>(movement); value.stance = static_cast<std::uint8_t>(stance);
     if (!valid_snapshot(value)) return false;
     output = value; return true;

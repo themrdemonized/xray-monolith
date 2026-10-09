@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include "InventoryView.h"
-#include "ActorInput.h"
 namespace engine_coopnet {
 // Copied owner-thread state only. No engine pointer crosses the transport boundary.
 struct LocalActorPose {
@@ -92,8 +91,12 @@ void local_actor_spawned();
 bool record_coopnet_weapon_input(std::uint16_t object,int command,bool pressed);
 bool capture_local_actor(LocalActorPose& pose);
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity);
-bool guest_movement_owned(std::uint16_t object);
-bool apply_guest_movement(std::uint16_t object,const coopnet::ActorInput& input);
+bool correct_local_actor_native(std::uint32_t level,const float* position,const float* velocity,std::uint32_t delay_ms);
+void guest_input_received(std::uint16_t object,std::uint32_t sequence);
+void guest_input_simulated(std::uint16_t object);
+std::uint32_t guest_input_acknowledgement(std::uint16_t object);
+void set_local_movement_probe(std::uint16_t buttons,float yaw,float pitch);
+bool local_movement_probe_controls(std::uint16_t object,std::uint32_t& buttons,float& yaw,float& pitch);
 // Native host actor lifecycle. IDs never leave this owner-thread adapter.
 std::uint16_t spawn_guest_actor();
 void begin_guest_simulation();

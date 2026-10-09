@@ -1677,6 +1677,8 @@ void CLevel::PhisStepsCallback(u32 Time0, u32 Time1)
 
 void CLevel::SetNumCrSteps(u32 NumSteps)
 {
+    // Update interpolation timing here, as the legacy packet handlers do.
+    if(IsGameTypeSingle() && engine_coopnet::world_level_is_replica()) UpdateDeltaUpd(timeServer());
 	m_bNeed_CrPr = true;
 	if (m_dwNumSteps > NumSteps)
 		return;

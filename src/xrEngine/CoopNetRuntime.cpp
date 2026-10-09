@@ -133,19 +133,14 @@ struct Session {
     bool server_clock_known = false;
     std::uint32_t tick = 0;
     std::uint32_t input_sequence = 0;
+    std::deque<std::pair<std::uint32_t,std::chrono::steady_clock::time_point>> input_times;
+    std::uint32_t prediction_delay_ms=0;
     coopnet::TickClock ticks;
     std::string host_visual;
     std::set<coopnet::Identity> presented;
     bool replica_probe = false;
     bool movement_probe = false;
     bool automated_controls = false;
-    bool local_movement_ready = false;
-    bool owner_movement_probe=false;
-    unsigned owner_pose_sent=0,owner_snapshots_ignored=0;
-    std::array<float,3> owner_probe_origin{};
-    std::uint64_t movement_incarnation=0;
-    coopnet::Identity movement_entity=0;
-    std::uint32_t movement_generation=0;
     unsigned corrections = 0;
     bool gameplay_probe=false;
     bool weapon_probe=false;
@@ -857,7 +852,7 @@ void capture_guests(Session& current) {
         }
         coopnet::ActorInput input;
         const bool active = current.host.latest_input(player.id,input);
-        if(active && !current.party_loading && input.has_pose) apply_guest_movement(guest.object,input);
+        if(active) guest_input_received(guest.object,input.sequence);
         if (active) ++guest.inputs;
         control_guest_actor(guest.object,active && !current.party_loading && !(current.party_probe && current.party_probe_phase>0) ? input.buttons : 0,active ? input.yaw : pose.rotation[1],
             active ? input.pitch : pose.rotation[0]);
@@ -867,6 +862,7 @@ void capture_guests(Session& current) {
         guest.last_tick = current.tick;
         coopnet::ActorSnapshot snapshot;
         snapshot.entity = guest.entity; snapshot.generation = guest.generation; snapshot.level = pose.level;
+        snapshot.input_sequence=guest_input_acknowledgement(guest.object);
         snapshot.tick = current.tick; snapshot.time_us = current.server_us;
         snapshot.movement = pose.movement; snapshot.stance = pose.stance;
         for (unsigned axis = 0; axis < 3; ++axis) {
@@ -965,10 +961,6 @@ void send_client_controls(Session& current, double elapsed) {
         if (actor.player == current.client.session().welcome().player && actor.level == controls.level) owned = actor;
     });
     if (!owned.entity) return;
-    if(current.movement_entity!=owned.entity || current.movement_generation!=owned.generation || current.movement_incarnation!=controls.incarnation) {
-        current.local_movement_ready=false; current.movement_entity=owned.entity;
-        current.movement_generation=owned.generation; current.movement_incarnation=controls.incarnation;
-    }
     coopnet::ActorInput input{owned.entity,owned.generation,owned.level,current.input_sequence,
         controls.buttons,controls.yaw,controls.pitch};
     if (current.automated_controls) {
@@ -992,24 +984,11 @@ void send_client_controls(Session& current, double elapsed) {
         }
     }
     // Sending may disconnect and clear the replica registry; send after traversal.
-    if((!current.automated_controls || current.owner_movement_probe) && current.local_movement_ready) {
-        LocalActorPose pose;
-        if(capture_local_actor(pose) && pose.level==input.level) {
-            input.has_pose=true;
-            for(unsigned axis=0;axis<3;++axis) { input.position[axis]=pose.position[axis]; input.velocity[axis]=pose.velocity[axis]; }
-            if(current.owner_movement_probe) {
-                // Explicit transport fixture: move a copied actor along a bounded trajectory.
-                // This proves pose ownership, not manual native movement feel.
-                if(!current.owner_pose_sent) current.owner_probe_origin=input.position;
-                input.position=current.owner_probe_origin;
-                const float phase=current.owner_pose_sent*.04f;
-                input.position[0]+=2.f*std::sin(phase); input.velocity={2.4f*std::cos(phase),0,0};
-                reconcile_local_actor(input.level,input.position.data(),input.velocity.data());
-                if(++current.owner_pose_sent%300==0) Msg("* CoopNet owner movement probe: guest poses sent %u",current.owner_pose_sent);
-            }
-        }
+    if(current.automated_controls) set_local_movement_probe(input.buttons,input.yaw,input.pitch);
+    if(current.client.send_input(input)==coopnet::SendResult::Sent) {
+        current.input_times.push_back({input.sequence,std::chrono::steady_clock::now()});
+        if(current.input_times.size()>128) current.input_times.pop_front();
     }
-    current.client.send_input(input);
 }
 }
 void stop() {
@@ -1283,8 +1262,7 @@ void command(const char* name, const char* arguments) {
         if (!strcmp(name,"coop_movement_probe")) {
             if (!session) throw std::runtime_error("Start a session before the movement probe");
             session->replica_probe = true; session->movement_probe = true;
-            session->owner_movement_probe=!strcmp(arguments,"owner");
-            session->automated_controls = !strcmp(arguments,"auto") || session->owner_movement_probe;
+            session->automated_controls = !strcmp(arguments,"auto");
             begin_guest_simulation();
             Msg("* CoopNet native movement probe enabled: automatic controls %u; independent client world; gameplay authority pending",
                 static_cast<unsigned>(session->automated_controls));
@@ -1436,16 +1414,14 @@ void command(const char* name, const char* arguments) {
                 owner->server_clock_known = true;
                 const auto* actor = owner->client.actors().find(snapshot.entity);
                 if (owner->movement_probe && actor && actor->player == owner->client.session().welcome().player) {
-                    if((owner->automated_controls && !owner->owner_movement_probe) || !owner->local_movement_ready) {
-                        LocalActorPose local;
-                        if(capture_local_actor(local) && local.level==snapshot.level) {
-                            if(reconcile_local_actor(snapshot.level,snapshot.position.data(),snapshot.velocity.data())) ++owner->corrections;
-                            owner->local_movement_ready=true;
-                            owner->movement_entity=snapshot.entity; owner->movement_generation=snapshot.generation;
-                            owner->movement_incarnation=local.incarnation;
-                        }
-                    } else if(owner->owner_movement_probe && ++owner->owner_snapshots_ignored%300==0) {
-                        Msg("* CoopNet owner movement probe: routine snapshots ignored %u",owner->owner_snapshots_ignored);
+                    const auto stamp=std::find_if(owner->input_times.begin(),owner->input_times.end(),[&](const auto& sample){return sample.first==snapshot.input_sequence;});
+                    if(stamp!=owner->input_times.end()) {
+                        const auto roundtrip=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-stamp->second).count();
+                        owner->prediction_delay_ms=static_cast<std::uint32_t>((std::min)(roundtrip/2,150LL));
+                        owner->input_times.erase(owner->input_times.begin(),std::next(stamp));
+                    }
+                    if(correct_local_actor_native(snapshot.level,snapshot.position.data(),snapshot.velocity.data(),owner->prediction_delay_ms)) {
+                        if(++owner->corrections%300==0) Msg("* CoopNet native correction queued: %u delay %u ms",owner->corrections,owner->prediction_delay_ms);
                     }
                 }
             });
