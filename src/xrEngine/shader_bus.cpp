@@ -76,6 +76,7 @@ static xr_map<IRenderable*, xr_vector<bus_shared_value>> g_bus_shared_values;
 static xr_vector<bus_cvar> g_bus_cvars;
 static ShaderBus::lane* g_bus_hotness = nullptr;
 static bool g_bus_objects_used = false;
+static u32 g_bus_texture_serial = 0;
 static xr_vector<shared_str> g_bus_rejected;
 static xr_vector<bus_legacy_row> g_bus_legacy;
 static xr_vector<shared_str> g_bus_legacy_logged;
@@ -782,6 +783,40 @@ void ShaderBus::object_forget(IRenderable* object)
 	xr_delete(block);
 }
 
+bool ShaderBus::set_texture(u32 token, LPCSTR name)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "a texture, a shared lane takes set and set_object only");
+	if (!name || xr_strlen(name) > 255)
+		return bus_refuse_write(l, "a texture name longer than 255 characters");
+	if (0 == _strnicmp(name, "$user$bus_", 10))
+		return bus_refuse_write(l, "a texture lane as its texture");
+
+	l->texture_pending = name;
+	++l->writes;
+	return true;
+}
+
+u32 ShaderBus::texture_serial()
+{
+	return g_bus_texture_serial;
+}
+
+bool ShaderBus::texture_get(u32 index, shared_str& id, shared_str& name)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (index >= g_bus_lanes.size())
+		return false;
+
+	id = g_bus_lanes[index]->id;
+	name = g_bus_lanes[index]->texture_bound;
+	return true;
+}
+
 bool ShaderBus::refuse_write(u32 token, LPCSTR what)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -1007,6 +1042,7 @@ void ShaderBus::frame_latch()
 	}
 	g_bus_shared_dirty.clear();
 
+	bool textures_moved = false;
 	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
 	{
 		lane* l = g_bus_lanes[i];
@@ -1032,12 +1068,21 @@ void ShaderBus::frame_latch()
 			CopyMemory(&l->rows_bound[0], &l->bound, sizeof(Fvector4));
 		l->bound_forced = l->is_forced;
 
+		if (!l->texture_pending.equal(l->texture_bound))
+		{
+			l->texture_bound = l->texture_pending;
+			textures_moved = true;
+			moved = true;
+		}
+
 		if (moved)
 		{
 			++l->changes;
 			l->last_change_frame = Device.dwFrame;
 		}
 	}
+	if (textures_moved)
+		++g_bus_texture_serial;
 
 	// draws read object values only from the blocks written here
 	for (u32 i = 0; i < g_bus_object_writes.size(); ++i)
@@ -1124,7 +1169,7 @@ void ShaderBus::dump()
 			Msg("~ [SHADER-BUS] bus_%s is declared by a shader and registered by nobody", l->id.c_str());
 		else if (verbose)
 		{
-			string64 rows;
+			string512 rows;
 			rows[0] = 0;
 			if (!l->rows_bound.empty() || l->rows_declared > 1)
 				xr_sprintf(rows, " rows %u/%u", u32(l->rows_bound.size()), l->rows_declared);
@@ -1133,6 +1178,12 @@ void ShaderBus::dump()
 				string32 objects;
 				xr_sprintf(objects, " objects %u", l->objects);
 				xr_strcat(rows, objects);
+			}
+			if (l->texture_bound.size())
+			{
+				string512 texture;
+				xr_sprintf(texture, " texture '%s'", l->texture_bound.c_str());
+				xr_strcat(rows, texture);
 			}
 
 			string256 value;
@@ -1151,5 +1202,5 @@ void ShaderBus::dump()
 
 int ShaderBus::version()
 {
-	return 5;
+	return 6;
 }

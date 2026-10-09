@@ -9,7 +9,7 @@ constants with lanes that each have an id and an `owner`. Any script can registe
 any lane, and only the script that registered a lane can write it. The engine needs no advance
 list of names, so a mod can claim a lane without anything being patched into the exe for it.
 
-Requires a modded exe with the bus. `shader_bus.version()` returns `5`. A script that wants
+Requires a modded exe with the bus. `shader_bus.version()` returns `6`. A script that wants
 to detect the feature should test `shader_bus ~= nil` first, since an older exe has no such
 module at all.
 
@@ -53,6 +53,16 @@ binds a `float` to `float4`, and one pass binds at most 16 of them; the rest bin
 
 ```hlsl
 uniform float4 bus_obj_mymark;
+```
+
+A lane can also show a texture. A `.s` or blender that uses the texture `$user$bus_<id>` samples
+whatever texture or render target the script that registered the lane picks with `set_texture`, and an empty view
+until it picks one. The texture follows a render target the engine recreates, for example after
+a resolution change, and the lane keeps its texture over a level change.
+
+```lua
+-- in the .s
+shader:dx10texture("s_mymap", "$user$bus_mymap")
 ```
 
 A `bus_` constant declared as an `int` or a `bool`, an array or matrix on DX9, or one larger than
@@ -108,10 +118,12 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.set_array_uint(token, first, rows)` | `set_array` with unsigned rows, under the same value rule as `set_uint` |
 | `shader_bus.set_object(token, obj, x, y, z, w)` | `true` if the token is valid, the lane id starts `obj_`, `obj` is a game object and all four values are finite. Draws of that object read the value from the next frame on, until `clear_object` or the object goes away. The first refusal on each lane logs a line |
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
+| `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. The first refusal on each lane logs a line |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
 | `shader_bus.get_uint(id)` | `ok, a, b, c, d`, the bound value read as four unsigned integers |
 | `shader_bus.get_row(id, i)` | `ok, x, y, z, w`, bound row `i` (0-based), `0, 0, 0, 0` for a row never set, `false` past the rows a shader declared. Row 0 always answers, like `get`. On a uint lane the values are the raw unsigned integers |
 | `shader_bus.get_object(id, obj)` | `ok, x, y, z, w`, what draws of `obj` read, its own value or the lane's, `false` with zeros for an unknown lane or a `nil` object |
+| `shader_bus.get_texture(id)` | the texture name `$user$bus_<id>` shows, or `nil` for none or an unknown id |
 | `shader_bus.get_pending(id)` | `ok, x, y, z, w`, the value last written through the token and not yet copied into the bound value, on a shared lane the largest value of its tokens. On a uint lane the values are the raw unsigned integers |
 | `shader_bus.writers(id)` | rows `{owner, x, y, z, w}`, one for each token of a shared lane that has called `set`, with that token's value, or an empty list for a lane that is not shared or an unknown id |
 | `shader_bus.writers(id, obj)` | the same rows for the tokens that gave `obj` its own value, or an empty list for a `nil` object |
@@ -121,7 +133,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.stats(id)` | `ok, changes, last_change_frame, bound_frame, writes` |
 | `shader_bus.list()` | rows for the registered lanes, then the twelve legacy lanes |
 | `shader_bus.list(true)` | the same, plus a row for every lane a shader declared that nobody registered |
-| `shader_bus.version()` | `5` |
+| `shader_bus.version()` | `6` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
 `legacy`), `source` (the script path that called `register`, empty for a declared or legacy row),
@@ -131,7 +143,8 @@ any shader declares, `0` before a shader declares the lane), `kind` (`float` or 
 last write stored, or what a shader declared before any write), `declared_kinds` (an array of
 every kind a shader declared the lane as), `objects` (how many objects have their own value on an
 object lane), `shared` (`true` for a shared lane), `writers` (how many tokens a shared lane has
-handed out, `1` for a registered lane that is not shared) and, on a legacy row only,
+handed out, `1` for a registered lane that is not shared), `texture` (the texture the lane shows,
+empty for none) and, on a legacy row only,
 `writer`. Registered rows come first (declared rows too, with the
 `true` argument), then the twelve legacy rows, and a legacy row only appears if that console
 command still exists on the running exe.
@@ -226,8 +239,9 @@ the lane's value once none is left. A token that never wrote has no say in the r
 The per-frame update works out the largest values, only for the lanes and objects a token
 wrote since the previous update, and the draw path does not change.
 
-Rows and uint values have no largest value, so `set_array`, `set_uint` and `set_array_uint` return
-`false` on a shared lane, and the first refusal on each lane logs a line.
+Rows, uint values and textures have no largest value, so `set_array`, `set_uint`,
+`set_array_uint` and `set_texture` return `false` on a shared lane, and the first refusal on each
+lane logs a line.
 
 On a shared lane `owner_of` and `describe` return the first `owner` and its description,
 `get_pending` returns the largest value of the tokens, `writers(id)` lists the `owner` and value of
@@ -284,9 +298,11 @@ Limits:
   change and write counters, then the twelve legacy lanes and their raw values. A lane with rows
   ends its line with `rows <filled>/<declared>`, and a uint lane prints unsigned values and ends
   with `uint`. `bus_get` and `bus_force` read and take unsigned values on a uint lane too. An
-  object lane ends its line with `objects <count>`.
+  object lane ends its line with `objects <count>`, and a lane showing a texture with
+  `texture '<name>'`.
 - `bus_get <id>` prints one lane, then up to fifteen more rows that `set_array` filled. On an
-  object lane it prints the lane's value and how many objects have their own.
+  object lane it prints the lane's value and how many objects have their own, and on a lane
+  showing a texture the texture name.
 - `bus_force <id> x y z w` pins a lane's row 0 to a value the engine publishes every frame until
   `bus_release`. All four components must be finite or the command is refused. It does not touch or
   reject what the script that registered the lane writes: `get_pending` still reads that script's

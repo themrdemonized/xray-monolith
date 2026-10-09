@@ -198,6 +198,17 @@ static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, CScriptGame
 	return bus_writer_rows(L, id, bus_renderable(obj));
 }
 
+static bool bus_set_texture(u32 token, LPCSTR name)
+{
+	return ShaderBus::set_texture(token, name);
+}
+
+static LPCSTR bus_get_texture(LPCSTR id)
+{
+	const ShaderBus::lane* l = ShaderBus::find(id);
+	return l && l->texture_bound.size() ? l->texture_bound.c_str() : nullptr;
+}
+
 static bool bus_get(LPCSTR id, float& x, float& y, float& z, float& w)
 {
 	Fvector4 v;
@@ -341,6 +352,7 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["objects"] = l->objects;
 		row["shared"] = l->shared != nullptr;
 		row["writers"] = ShaderBus::writer_count(l);
+		row["texture"] = l->texture_bound.size() ? l->texture_bound.c_str() : "";
 
 		// every kind a shader declared, more than one or one unlike kind shows a mismatch
 		::luabind::object kinds = ::luabind::newtable(L);
@@ -409,6 +421,8 @@ void shader_bus_registrator::script_register(lua_State* L)
 		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
 		def("writers", &bus_writers, raw<1>()),
 		def("writers", &bus_writers_object, raw<1>()),
+		def("set_texture", &bus_set_texture),
+		def("get_texture", &bus_get_texture),
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),

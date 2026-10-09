@@ -1099,7 +1099,7 @@ public:
 			if (!l)
 				continue;
 
-			string64 tags;
+			string512 tags;
 			tags[0] = 0;
 			if (!l->rows_bound.empty() || l->rows_declared > 1)
 				xr_sprintf(tags, " rows %u/%u", u32(l->rows_bound.size()), l->rows_declared);
@@ -1110,6 +1110,12 @@ public:
 				string32 objects;
 				xr_sprintf(objects, " objects %u", l->objects);
 				xr_strcat(tags, objects);
+			}
+			if (l->texture_bound.size())
+			{
+				string512 texture;
+				xr_sprintf(texture, " texture '%s'", l->texture_bound.c_str());
+				xr_strcat(tags, texture);
 			}
 
 			string256 value;
@@ -1153,6 +1159,8 @@ public:
 		Msg("[SHADER-BUS] bus_%s = %s", args, ShaderBus::value_text(l, v, value));
 		if (l && 0 == strncmp(l->id.c_str(), "obj_", 4))
 			Msg("[SHADER-BUS] bus_%s is the default, %u objects have their own value", args, l->objects);
+		if (l && l->texture_bound.size())
+			Msg("[SHADER-BUS] $user$bus_%s shows '%s'", args, l->texture_bound.c_str());
 
 		// rows past row 0 that have a value, up to sixteen in all
 		const u32 rows = l ? _min(u32(l->rows_bound.size()), 16u) : 0;

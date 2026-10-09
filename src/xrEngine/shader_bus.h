@@ -23,6 +23,9 @@ namespace ShaderBus
 		Fvector4 pending;
 		Fvector4 bound;
 		Fvector4 forced;
+		// the texture shaders sample through $user$bus_<id>, empty for none
+		shared_str texture_pending;
+		shared_str texture_bound;
 		// rows past row 0 for array and matrix constants, empty until the first set_rows
 		xr_vector<Fvector4> rows_pending;
 		xr_vector<Fvector4> rows_bound;
@@ -142,6 +145,12 @@ namespace ShaderBus
 	ENGINE_API bool clear_object(u32 token, IRenderable* object);
 	// drops everything the bus stores for an object, called as it is destroyed
 	ENGINE_API void object_forget(IRenderable* object);
+	// shows a texture or render target through $user$bus_<id> from the next frame on, empty clears
+	ENGINE_API bool set_texture(u32 token, LPCSTR name);
+	// moves when any lane's bound texture changes, read on the main thread after the per-frame update
+	ENGINE_API u32 texture_serial();
+	// the lane id and bound texture of lane index, false past the last lane
+	ENGINE_API bool texture_get(u32 index, shared_str& id, shared_str& name);
 	// logs once per lane why a write was dropped and returns false
 	ENGINE_API bool refuse_write(u32 token, LPCSTR what);
 	ENGINE_API bool get(LPCSTR id, Fvector4& value);
@@ -167,7 +176,7 @@ namespace ShaderBus
 	ENGINE_API LPCSTR value_text(const lane* l, const Fvector4& value, string256& out);
 
 	// copies the forced or pending value to bound and counts a change when it differs
-	// and moves queued object values into each object's block
+	// and moves queued object values into each object's block and pending textures to bound
 	// a shared lane or object written since the last per-frame update takes the largest value of its tokens
 	ENGINE_API void frame_latch();
 
