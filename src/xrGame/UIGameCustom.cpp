@@ -15,6 +15,7 @@
 #include "actor.h"
 #include "inventory.h"
 #include "game_cl_base.h"
+#include "../CoopNet/EngineActorBridge.h"
 
 #include "xrEngine/x_ray.h"
 
@@ -106,6 +107,7 @@ void CUIGameCustom::Render()
 			UIMainIngameWnd->Draw();
 	}
 	m_pMessagesWnd->Draw();
+	if (GameIndicatorsShown() && psHUD_Flags.is(HUD_DRAW | HUD_DRAW_RT)) engine_coopnet::draw_player_nameplates();
 	DoRenderDialogs();
 }
 

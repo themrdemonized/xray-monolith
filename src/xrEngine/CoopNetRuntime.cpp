@@ -141,6 +141,9 @@ struct Session {
     bool controls_sent=false;
     std::deque<std::pair<std::uint32_t,std::chrono::steady_clock::time_point>> input_times;
     std::uint32_t prediction_delay_ms=0;
+    std::string local_player_name="Player";
+    std::uint64_t name_incarnation=0;
+    double name_wait=0;
     coopnet::TickClock ticks;
     std::string host_visual;
     std::set<coopnet::Identity> presented;
@@ -1003,8 +1006,51 @@ void send_client_controls(Session& current, double elapsed) {
         if(current.input_times.size()>128) current.input_times.pop_front();
     }
 }
+void update_player_nameplates(Session& current,double elapsed) {
+    LocalActorPose local;
+    if(!capture_local_actor(local)) { set_player_nameplates({}); return; }
+    if(current.mode==coopnet::Mode::Client && current.world_load_requested && !current.client.baseline_acknowledged()) {
+        set_player_nameplates({}); return;
+    }
+    if(current.mode==coopnet::Mode::Client && current.client.baseline_acknowledged() && current.name_incarnation!=local.incarnation) {
+        if(!set_local_player_name(current.local_player_name)) return;
+        current.name_incarnation=local.incarnation;
+    }
+    current.name_wait+=elapsed;
+    if(current.name_wait>=.5) {
+        exercise_player_name_probe(current.name_wait);
+        current.name_wait=0;
+        std::string name; if(capture_player_name(name)) {
+            if(name!=current.local_player_name) Msg("* CoopNet player name updated from options: %s",name.c_str());
+            current.local_player_name=name;
+        }
+        if(current.mode==coopnet::Mode::Host) current.host.publish_name(1,current.local_player_name);
+        else if(current.client.player_name(current.client.session().welcome().player)!=current.local_player_name)
+            current.client.send_name(current.local_player_name);
+    }
+    std::vector<PlayerNameplate> labels;
+    if(current.mode==coopnet::Mode::Host) {
+        for(const auto& guest:current.guests) {
+            LocalActorPose pose; ActorConditionState condition;
+            const auto& name=current.host.player_name(guest.first);
+            if(!guest.second.generation || name.empty() || !capture_guest_actor(guest.second.object,pose) || pose.level!=local.level ||
+                !capture_actor_condition(guest.second.object,condition)) continue;
+            PlayerNameplate label; label.entity=guest.second.entity; label.object=guest.second.object; label.name=name; label.health=condition.health;
+            for(unsigned axis=0;axis<3;++axis) label.position[axis]=pose.position[axis]; labels.push_back(std::move(label));
+        }
+    } else if(current.client.session().state()==coopnet::ClientState::Connected) {
+        current.client.actors().visit([&](const coopnet::ActorPresence& actor) {
+            if(actor.player==current.client.session().welcome().player || actor.level!=local.level || !current.presented.count(actor.entity)) return;
+            const auto health=current.player_vitals.find(actor.entity); const auto& name=current.client.player_name(actor.player);
+            if(name.empty() || health==current.player_vitals.end() || health->second.generation!=actor.generation || health->second.level!=local.level) return;
+            PlayerNameplate label; label.entity=actor.entity; label.name=name; label.health=health->second.health; labels.push_back(std::move(label));
+        });
+    }
+    set_player_nameplates(labels);
+}
 }
 void stop() {
+    set_player_nameplates({});
     if (session) {
         if (session->mode==coopnet::Mode::Host) for (const auto& player:session->host.session().players()) {
             const auto guest=session->guests.find(player.id);
@@ -1221,6 +1267,7 @@ void update(double) {
                 }
             }
         }
+        if(session) update_player_nameplates(*session,elapsed);
     } catch (const std::exception& error) {
         Msg("! CoopNet update failed: %s", error.what()); stop();
     }
@@ -1328,6 +1375,7 @@ void command(const char* name, const char* arguments) {
         // Publish the session only after all initialization succeeds.
         auto next = std::make_unique<Session>();
         next->build=build; next->host_character=character; next->endpoint=endpoint;
+        capture_player_name(next->local_player_name);
         if (!strcmp(name, "coop_host")) {
             std::size_t consumed = 0;
             const auto port = std::stoul(endpoint, &consumed);

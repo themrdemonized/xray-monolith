@@ -34,6 +34,8 @@ TCP forwarding is not required for this direct UDP connection. Guests do not nee
 
 Use `coop_disconnect` to leave or stop hosting, and `coop_respawn` to respawn at a living teammate when downed. The host controls the shared world settings and the party travels between locations together. See [CoopNet progress](docs/coop/PROGRESS.md) for tested features and remaining gameplay work.
 
+Teammates see your **Options → Gameplay → General → Player name** above your character's head. Name changes update during play. A dot to the left shows that player's host-validated health: **black** at 0%, **red** above 0% through 25%, **orange** above 25% through 50%, **yellow** above 50% and below 90%, and **green** at 90%–100%. Black dots have a pale outline for visibility. Nameplates appear for other players in the current location; your own nameplate is hidden. Displayed names are limited to 64 bytes. Both clients need the matching protocol-23 build.
+
 Here is list of exe files for Anomaly 1.5.3 that contains all engine patches by community required for some advanced mods to work.
 
 # Versions

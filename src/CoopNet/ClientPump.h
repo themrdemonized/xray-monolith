@@ -14,6 +14,7 @@
 #include "WorldSettings.h"
 #include "Respawn.h"
 #include "Dialogue.h"
+#include "PlayerName.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -43,6 +44,7 @@ class ClientPump {
     std::array<std::uint32_t,shared_kind_count> shared_revision_{};
     std::function<void(SharedKind,std::uint32_t,const std::vector<std::uint8_t>&)> shared_sink_;
     ActorReplicas actors_;
+    std::map<Identity,std::string> names_;
     LevelAssignment assignment_;
     SequenceWindow assignments_;
     bool level_ready_sent_ = false;
@@ -84,6 +86,7 @@ class ClientPump {
     }
     static constexpr double timeout_ = 10;
     void attach(std::unique_ptr<Transport> transport, const ClientHello& hello) {
+        names_.clear();
         character_cursor_=0;
         rules_assembly_.clear(); rules_revision_=0; clock_sequences_={};
         party_status_={}; party_sequences_={};
@@ -107,6 +110,13 @@ class ClientPump {
         clear_baseline();
     }
 public:
+    const std::string& player_name(Identity player) const {
+        static const std::string empty; const auto found=names_.find(player); return found==names_.end()?empty:found->second;
+    }
+    SendResult send_name(const std::string& name) {
+        if(!ready_sent_ || !transport_ || session_.state()!=ClientState::Connected || !valid_player_name(name)) return SendResult::Disconnected;
+        return transport_->send({Message::PlayerName,Channel::Control,Delivery::ReliableOrdered,0,encode_player_name({session_.welcome().player,name})});
+    }
     void set_character_profile(const InventoryView& character) {
         if (!valid_inventory_view(character) || character.generation!=1 || character.level!=1 || character.revision!=1 || ready_sent_)
             throw std::invalid_argument("Invalid join character");
@@ -447,6 +457,10 @@ public:
                     auto& vitals=vitals_sequences_[result.request.actor]; vitals={result.request.generation,{}}; vitals.second.accept(result.tick);
                 }
                 if (respawn_sink_) respawn_sink_(result);
+            } else if(frame.message==Message::PlayerName) {
+                PlayerName name;
+                if(frame.sequence || !decode_player_name(frame.payload,name) || (!names_.count(name.player) && names_.size()>=4)) { lost(); return; }
+                names_[name.player]=std::move(name.name);
             } else if (frame.message==Message::ActorVitals) {
                 ActorVitals vitals;
                 if (!decode_vitals(frame.payload,vitals) || vitals.tick!=frame.sequence) { lost(); return; }
@@ -477,6 +491,7 @@ public:
         }
     }
     void stop() {
+        names_.clear();
         character_frames_.clear(); character_cursor_=0;
         if (transport_) transport_->close();
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; transfer_failure_ = TransferFailure::None; session_.stop();

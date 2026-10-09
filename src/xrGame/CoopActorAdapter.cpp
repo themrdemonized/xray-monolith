@@ -42,6 +42,7 @@
 #include "../xrPhysics/PhysicsShell.h"
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include <cstring>
+#include "../CoopNet/PlayerName.h"
 #include <deque>
 #include "../xrEngine/CoopNetRuntime.h"
 #include "../xrEngine/Environment.h"
@@ -61,6 +62,31 @@
 #include <type_traits>
 extern string_path g_last_saved_game;
 namespace engine_coopnet {
+bool capture_player_name(std::string& name) {
+    if(!g_pGameLevel || !Level().Server || !g_actor || !g_pGameLevel->bReady) return false;
+    auto* actor=smart_cast<CSE_ALifeTraderAbstract*>(Level().Server->ID_to_entity(g_actor->ID()));
+    if(!actor) return false;
+    std::string value=actor->m_character_name.c_str();
+    if(value.size()>64) value.resize(64);
+    if(!coopnet::valid_player_name(value)) return false;
+    name=std::move(value); return true;
+}
+bool set_local_player_name(const std::string& name) {
+    if(!coopnet::valid_player_name(name) || !g_pGameLevel || !Level().Server || !g_actor) return false;
+    auto* actor=smart_cast<CSE_ALifeTraderAbstract*>(Level().Server->ID_to_entity(g_actor->ID()));
+    if(!actor) return false;
+    actor->m_character_name_str=name.c_str(); actor->m_character_name=name.c_str(); g_actor->ChangeName(name.c_str()); return true;
+}
+void exercise_player_name_probe(double elapsed) {
+    const bool host=strstr(Core.Params,"-coop_nameplate_host_probe")!=nullptr;
+    if(!host && !strstr(Core.Params,"-coop_nameplate_guest_probe")) return;
+    static unsigned stage=0; static double wait=0;
+    wait+=elapsed; if(stage>=2 || (stage && wait<8)) return;
+    const std::string name=std::string(host?"CoopHost":"CoopGuest")+(stage?"Renamed":"Initial");
+    if(!set_local_player_name(name)) return;
+    std::string actual; if(!capture_player_name(actual) || actual!=name) throw std::runtime_error("Native option player name did not update");
+    Msg("* CoopNet nameplate probe: options actor name %s",actual.c_str()); ++stage; wait=0;
+}
 namespace {
 const char* options_hook=
 #include "CoopNetOptions.inc"

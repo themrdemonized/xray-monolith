@@ -35,7 +35,7 @@ cl /nologo /std:c++17 /EHsc /W4 /WX "tests\coopnet\WorldBaselineTests.cpp" /Fo"_
 if errorlevel 1 exit /b 1
 "_build\coopnet-tests\WorldBaselineTests.exe"
 if errorlevel 1 exit /b 1
-for %%T in (WorldState PartyTransition GuestSave InventoryView JoinProfile WorldSettings Respawn SharedWorld LootRetries Dialogue) do (
+for %%T in (WorldState PartyTransition GuestSave InventoryView JoinProfile WorldSettings Respawn SharedWorld LootRetries Dialogue PlayerName) do (
 cl /nologo /std:c++17 /EHsc /W4 /WX "tests\coopnet\%%TTests.cpp" /Fo"_build\coopnet-tests\%%TTests.obj" /Fe"_build\coopnet-tests\%%TTests.exe"
 if errorlevel 1 exit /b 1
 "_build\coopnet-tests\%%TTests.exe"

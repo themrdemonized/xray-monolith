@@ -1,4 +1,4 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$StarterProbe, [string]$TestDirectory)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$NameplateProbe, [switch]$StarterProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
@@ -6,6 +6,7 @@ if ($RespawnProbe) { $WorldProbe=$true }
 if ($SharedWorldProbe) { $WorldProbe=$true }
 if ($ContainerProbe) { $WorldProbe=$true }
 if ($DialogueProbe) { $WorldProbe=$true }
+if ($NameplateProbe) { $WorldProbe=$true }
 if ($ContainerRecoveryProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
@@ -87,6 +88,7 @@ if ($Launch) {
     foreach ($role in @('host', 'guest')) {
         $root = Join-Path $testRoot $role
         $probeArguments=@('-silent_error_mode','-noprefetch')
+        if ($NameplateProbe) { $probeArguments+=('-coop_nameplate_'+$role+'_probe') }
         if ($SharedWorldProbe -and $role -eq 'guest') { $probeArguments+='-coop_trader_spawn_probe' }
         if ($SettingsProbe) { $probeArguments+='-coop_settings_audit' }
         Start-Process -FilePath "$root\bin\AnomalyDX11.exe" -WorkingDirectory $root `

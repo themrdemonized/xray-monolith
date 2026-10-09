@@ -14,6 +14,7 @@
 #include "WorldSettings.h"
 #include "Respawn.h"
 #include "Dialogue.h"
+#include "PlayerName.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -74,6 +75,7 @@ class HostPump {
     std::function<Identity()> tokens_;
     std::list<Peer> peers_;
     std::map<Identity, ActorPresence> actors_;
+    std::map<Identity,std::string> names_;
     std::map<Identity, std::uint32_t> actor_generations_;
     std::deque<LevelFailure> failures_;
     std::map<Identity,ItemState> items_;
@@ -141,7 +143,17 @@ class HostPump {
                 if (frame.message != Message::ClientReady || !frame.payload.empty()) return false;
                 if (peer.character_started && !peer.character_complete) return false;
                 peer.ready = true; publish();
+                for(const auto& name:names_) if(!queue(peer,{Message::PlayerName,Channel::Control,Delivery::ReliableOrdered,0,encode_player_name({name.first,name.second})})) return false;
             } else if (frame.message == Message::Disconnect && frame.payload.empty()) return false;
+            else if(peer.ready && frame.message==Message::PlayerName) {
+                PlayerName name;
+                if(frame.sequence || !decode_player_name(frame.payload,name) || name.player!=peer.player) return false;
+                if(names_[peer.player]!=name.name) {
+                    if(peer.transaction_budget<1) continue;
+                    peer.transaction_budget-=1;
+                    if(!publish_name(peer.player,name.name)) return false;
+                }
+            }
             else if (peer.ready && frame.message == Message::LevelReady) {
                 LevelAssignment ready;
                 if (!decode_assignment(frame.payload, ready) || frame.sequence != ready.revision) return false;
@@ -273,6 +285,18 @@ class HostPump {
         return true;
     }
 public:
+    const std::string& player_name(Identity player) const {
+        static const std::string empty; const auto found=names_.find(player); return found==names_.end()?empty:found->second;
+    }
+    bool publish_name(Identity player,const std::string& name) {
+        if(!valid_player_name(name) || session_.mode()!=Mode::Host) return false;
+        bool connected=false; for(const auto& p:session_.players()) if(p.id==player && p.connected) connected=true;
+        if(!connected) return false;
+        if(player_name(player)==name) return true;
+        names_[player]=name;
+        for(auto& peer:peers_) if(peer.ready && !queue(peer,{Message::PlayerName,Channel::Control,Delivery::ReliableOrdered,0,encode_player_name({player,name})})) peer.transport->close();
+        return true;
+    }
     bool player_ready(Identity player) const {
         for (const auto& peer:peers_) if (peer.player==player && peer.ready && peer.transport->connected()) return true;
         return false;
@@ -616,6 +640,7 @@ public:
             if (peer.transport->connected() && !flush(peer)) peer.transport->close();
     }
     void stop() {
+        names_.clear();
         for (auto& peer : peers_) peer.transport->close();
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
         items_.clear(); inventory_handler_={}; dialogue_handler_={}; character_handler_={};

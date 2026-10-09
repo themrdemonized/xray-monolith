@@ -27,6 +27,17 @@ struct LocalActorControls {
     float yaw = 0, pitch = 0;
 };
 struct ActorConditionState { float health=1, power=1, radiation=0; };
+struct PlayerNameplate {
+    std::uint64_t entity=0;
+    std::uint16_t object=0xffff;
+    float position[3]{},health=1;
+    std::string name;
+};
+bool capture_player_name(std::string& name);
+bool set_local_player_name(const std::string& name);
+void exercise_player_name_probe(double elapsed);
+void set_player_nameplates(const std::vector<PlayerNameplate>& labels);
+void draw_player_nameplates();
 bool local_actor_downed();
 bool respawn_actor(std::uint16_t object,std::uint32_t level,const float* position);
 bool down_actor(std::uint16_t object);
