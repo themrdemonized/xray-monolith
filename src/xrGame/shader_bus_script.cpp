@@ -135,6 +135,7 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["description"] = l->registered ? l->description.c_str() : "";
 		row["state"] = l->registered ? "registered" : "declared";
 		row["source"] = l->registered ? l->source.c_str() : "";
+		row["forced"] = l->is_forced;
 		rows[row_index++] = row;
 	}
 

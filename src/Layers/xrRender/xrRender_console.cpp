@@ -1132,7 +1132,7 @@ public:
 		Fvector4 v;
 		if (!ShaderBus::get(args, v))
 		{
-			Msg("~ [SHADER-BUS] no lane named %s", args);
+			Msg("~ [SHADER-BUS] no lane with id %s", args);
 			return;
 		}
 		Msg("[SHADER-BUS] bus_%s = (%f, %f, %f, %f)", args, v.x, v.y, v.z, v.w);
@@ -1166,10 +1166,10 @@ public:
 
 		if (!ShaderBus::force(id, v))
 		{
-			Msg("~ [SHADER-BUS] no lane named %s", id);
+			Msg("~ [SHADER-BUS] no lane with id %s", id);
 			return;
 		}
-		Msg("[SHADER-BUS] bus_%s held at (%f, %f, %f, %f)", id, v.x, v.y, v.z, v.w);
+		Msg("[SHADER-BUS] bus_%s forced to (%f, %f, %f, %f)", id, v.x, v.y, v.z, v.w);
 	}
 
 	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id and four floats"); }
@@ -1193,7 +1193,7 @@ public:
 
 		if (!ShaderBus::release(id))
 		{
-			Msg("~ [SHADER-BUS] no lane named %s", id);
+			Msg("~ [SHADER-BUS] no lane with id %s", id);
 			return;
 		}
 		Msg("[SHADER-BUS] bus_%s released", id);

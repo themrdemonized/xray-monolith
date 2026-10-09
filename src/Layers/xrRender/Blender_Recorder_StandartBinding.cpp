@@ -1376,6 +1376,24 @@ public:
 // one binder per lane so the pass table dedup, which compares handler pointers, still matches
 static xr_vector<bus_binder*> bus_binders;
 
+// a lane binds only where every stage declares one float to float4
+static bool bus_fits_vector(R_constant* C)
+{
+	static const u32 stages[] = { RC_dest_pixel, RC_dest_vertex, RC_dest_geometry, RC_dest_hull, RC_dest_domain, RC_dest_compute };
+	for (u32 i = 0; i < sizeof(stages) / sizeof(stages[0]); ++i)
+	{
+		if (!(C->destination & stages[i]))
+			continue;
+
+		const R_constant_load& L = C->get_load(stages[i]);
+		if (L.cls != RC_1x1 && L.cls != RC_1x2 && L.cls != RC_1x3 && L.cls != RC_1x4)
+			return false;
+		if (L.size > sizeof(Fvector4))
+			return false;
+	}
+	return true;
+}
+
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
 {
@@ -1551,12 +1569,21 @@ void CBlender_Compile::SetMapping()
 	for (u32 it = 0; it < ctable.table.size(); it++)
 	{
 		R_constant* C = &*ctable.table[it];
-		if (C->type != RC_float)
-			continue;
-
 		LPCSTR cname = C->name.c_str();
 		if (!cname || 0 != strncmp(cname, "bus_", 4))
 			continue;
+
+		if (C->type != RC_float)
+		{
+			if (C->type == RC_int || C->type == RC_bool)
+				ShaderBus::refuse(cname, "is an int or bool, a lane binds float to float4 only");
+			continue;
+		}
+		if (!bus_fits_vector(C))
+		{
+			ShaderBus::refuse(cname, "is an array or matrix, a lane binds one float to float4 only");
+			continue;
+		}
 
 		ShaderBus::lane* lane = ShaderBus::declare(cname);
 		if (!lane)

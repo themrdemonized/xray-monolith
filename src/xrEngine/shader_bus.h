@@ -20,9 +20,10 @@ namespace ShaderBus
 		u16 nonce;
 		bool registered;
 		bool is_forced;
+		bool warned;
 
 		lane() : changes(0), writes(0), last_change_frame(0), bound_frame(0), index(0), nonce(0), registered(false),
-		         is_forced(false)
+		         is_forced(false), warned(false)
 		{
 			pending.set(0.f, 0.f, 0.f, 0.f);
 			bound.set(0.f, 0.f, 0.f, 0.f);
@@ -32,6 +33,8 @@ namespace ShaderBus
 
 	// lanes are never removed so a returned pointer stays valid for the process lifetime
 	ENGINE_API lane* declare(LPCSTR hlsl_name);
+	// logs once per constant name why the bus will not bind it
+	ENGINE_API void refuse(LPCSTR hlsl_name, LPCSTR reason);
 
 	ENGINE_API u32 register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);
 	ENGINE_API u32 try_register(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source);

@@ -49,6 +49,16 @@ static ShaderBus::lane* bus_find_or_add(LPCSTR id)
 	if (found >= 0)
 		return g_bus_lanes[found];
 
+	// a token stores the lane index in 16 bits
+	if (g_bus_lanes.size() >= 0xFFFF)
+	{
+		static bool logged = false;
+		if (!logged)
+			Msg("! [SHADER-BUS] lane '%s' refused, the bus is full at %u lanes", id, u32(g_bus_lanes.size()));
+		logged = true;
+		return nullptr;
+	}
+
 	ShaderBus::lane* l = xr_new<ShaderBus::lane>();
 	l->id = id;
 	l->index = u16(g_bus_lanes.size());
@@ -71,6 +81,17 @@ static u32 bus_token(const ShaderBus::lane* l)
 	return (u32(l->nonce) << 16) | u32(l->index);
 }
 
+static void bus_refuse(LPCSTR hlsl_name, LPCSTR reason)
+{
+	shared_str key(hlsl_name);
+	for (u32 i = 0; i < g_bus_rejected.size(); ++i)
+		if (g_bus_rejected[i].equal(key))
+			return;
+
+	g_bus_rejected.push_back(key);
+	Msg("! [SHADER-BUS] shader constant %s %s", hlsl_name, reason);
+}
+
 ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name)
 {
 	if (!hlsl_name || 0 != strncmp(hlsl_name, "bus_", 4))
@@ -81,19 +102,21 @@ ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name)
 
 	if (!bus_valid_id(id))
 	{
-		shared_str key(hlsl_name);
-		for (u32 i = 0; i < g_bus_rejected.size(); ++i)
-			if (g_bus_rejected[i].equal(key))
-				return nullptr;
-
-		g_bus_rejected.push_back(key);
-		Msg("! [SHADER-BUS] shader constant %s is not a valid lane name", hlsl_name);
+		bus_refuse(hlsl_name, "is not a valid lane name");
 		return nullptr;
 	}
 
 	lane* l = bus_find_or_add(id);
+	if (!l)
+		return nullptr;
 	l->hlsl = hlsl_name;
 	return l;
+}
+
+void ShaderBus::refuse(LPCSTR hlsl_name, LPCSTR reason)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	bus_refuse(hlsl_name, reason);
 }
 
 static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, bool warn)
@@ -126,6 +149,8 @@ static u32 bus_take(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source, 
 
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	ShaderBus::lane* l = bus_find_or_add(id);
+	if (!l)
+		return 0;
 
 	if (l->registered)
 	{
@@ -193,6 +218,14 @@ bool ShaderBus::set(u32 token, float x, float y, float z, float w)
 	lane* l = g_bus_lanes[index];
 	if (!l->registered || l->nonce != nonce)
 		return false;
+
+	if (!_finite(x) || !_finite(y) || !_finite(z) || !_finite(w))
+	{
+		if (!l->warned)
+			Msg("! [SHADER-BUS] lane '%s' refused a value that is not finite", l->id.c_str());
+		l->warned = true;
+		return false;
+	}
 
 	l->pending.set(x, y, z, w);
 	++l->writes;
@@ -386,9 +419,13 @@ void ShaderBus::dump()
 		if (!l->registered)
 			Msg("~ [SHADER-BUS] bus_%s is declared by a shader and registered by nobody", l->id.c_str());
 		else if (verbose)
-			Msg("[SHADER-BUS] bus_%s owner '%s' from '%s' = (%f, %f, %f, %f) %s",
+			Msg("[SHADER-BUS] bus_%s owner '%s' from '%s' = (%f, %f, %f, %f)%s %s",
 			    l->id.c_str(), l->owner.c_str(), l->source.c_str(),
-			    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str());
+			    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->is_forced ? " forced" : "", l->description.c_str());
+
+		if (l->is_forced && (!verbose || !l->registered))
+			Msg("~ [SHADER-BUS] bus_%s is forced to (%f, %f, %f, %f) until bus_release",
+			    l->id.c_str(), l->forced.x, l->forced.y, l->forced.z, l->forced.w);
 	}
 }
 
