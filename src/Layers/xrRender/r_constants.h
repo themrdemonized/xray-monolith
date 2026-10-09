@@ -17,6 +17,8 @@ enum
 	RC_float = 0,
 	RC_int = 1,
 	RC_bool = 2,
+	// DX10 and DX11, shader bus lanes only
+	RC_uint = 3,
 	RC_sampler = 99,
 	//	DX9 shares index for sampler and texture
 	RC_dx10texture = 100,

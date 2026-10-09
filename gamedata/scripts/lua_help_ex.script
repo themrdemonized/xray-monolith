@@ -548,16 +548,21 @@
     }
 
     shader_bus { -- float4 lanes bound to hlsl constants called bus_<id>, see docs/shader_bus.md
-        number version() -- 2
+        number version() -- 3
         number register(string id, string owner, string description) -- the write token, fatal when another owner already holds the id
         number try_register(string id, string owner, string description) -- nil instead of the fatal
         bool set(number token, number x, number y, number z, number w) -- false for a bad token or a value that is not finite
+        bool set_array(number token, number first, table rows) -- rows {x, y, z, w} from 0-based row first, DX10 and DX11 arrays and matrices, false past row 4095
+        bool set_uint(number token, number a, number b, number c, number d) -- whole numbers 0 to 4294967295 for uint lanes, DX10 and DX11
+        bool set_array_uint(number token, number first, table rows) -- set_array with unsigned rows
         function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
-        function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value the owner last wrote
+        function get_uint(string id) -> bool ok, number a, number b, number c, number d -- the bound value as unsigned integers
+        function get_row(string id, number i) -> bool ok, number x, number y, number z, number w -- bound row i, false past the rows a shader declared, unsigned on a uint lane
+        function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value last written through the token, unsigned on a uint lane
         bool has(string id)
         string describe(string id) -- nil for an unknown or unregistered id
         string owner_of(string id) -- nil for an unknown or unregistered id
-        table list(bool include_declared = false) -- rows {id, owner, description, state, source, forced, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
+        table list(bool include_declared = false) -- rows {id, owner, description, state, source, forced, rows, declared_rows, kind, declared_kinds, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
         function stats(string id) -> bool ok, number changes, number last_change_frame, number bound_frame, number writes
     }
 

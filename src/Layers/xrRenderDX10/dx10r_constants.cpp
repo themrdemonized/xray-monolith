@@ -63,6 +63,12 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 		case D3D10_SVT_INT:
 			type = RC_int;
 			break;
+		case D3D10_SVT_UINT:
+			// shader bus lanes take raw unsigned values, any other uint stays unsupported
+			if (0 != strncmp(name, "bus_", 4))
+				fatal("R_constant_table::parse: unexpected shader variable type.", name);
+			type = RC_uint;
+			break;
 		default:
 			fatal("R_constant_table::parse: unexpected shader variable type.", name);
 		}

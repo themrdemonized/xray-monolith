@@ -92,7 +92,7 @@ static void bus_refuse(LPCSTR hlsl_name, LPCSTR reason)
 	Msg("! [SHADER-BUS] shader constant %s %s", hlsl_name, reason);
 }
 
-ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name)
+ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name, u32 rows, u8 kind)
 {
 	if (!hlsl_name || 0 != strncmp(hlsl_name, "bus_", 4))
 		return nullptr;
@@ -110,6 +110,10 @@ ShaderBus::lane* ShaderBus::declare(LPCSTR hlsl_name)
 	if (!l)
 		return nullptr;
 	l->hlsl = hlsl_name;
+	l->rows_declared = _max(l->rows_declared, rows);
+	l->declared_kinds |= u8(1 << kind);
+	if (!l->writes)
+		l->kind = kind;
 	return l;
 }
 
@@ -204,32 +208,117 @@ u32 ShaderBus::register_lane(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 	return 0;
 }
 
-bool ShaderBus::set(u32 token, float x, float y, float z, float w)
+// the lane a token may write, called under the lock
+static ShaderBus::lane* bus_writable(u32 token)
 {
 	const u16 nonce = u16(token >> 16);
 	const u16 index = u16(token & 0xffff);
-	if (!nonce)
-		return false;
+	if (!nonce || index >= g_bus_lanes.size())
+		return nullptr;
 
-	xrCriticalSectionGuard guard(&g_bus_lock);
-	if (index >= g_bus_lanes.size())
-		return false;
-
-	lane* l = g_bus_lanes[index];
+	ShaderBus::lane* l = g_bus_lanes[index];
 	if (!l->registered || l->nonce != nonce)
+		return nullptr;
+	return l;
+}
+
+static bool bus_refuse_write(ShaderBus::lane* l, LPCSTR what)
+{
+	if (!l->warned)
+		Msg("! [SHADER-BUS] lane '%s' refused %s", l->id.c_str(), what);
+	l->warned = true;
+	return false;
+}
+
+static bool bus_finite(const Fvector4& v)
+{
+	return _finite(v.x) && _finite(v.y) && _finite(v.z) && _finite(v.w);
+}
+
+bool ShaderBus::set(u32 token, float x, float y, float z, float w)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
 		return false;
 
 	if (!_finite(x) || !_finite(y) || !_finite(z) || !_finite(w))
-	{
-		if (!l->warned)
-			Msg("! [SHADER-BUS] lane '%s' refused a value that is not finite", l->id.c_str());
-		l->warned = true;
-		return false;
-	}
+		return bus_refuse_write(l, "a value that is not finite");
 
 	l->pending.set(x, y, z, w);
+	if (!l->rows_pending.empty())
+		l->rows_pending[0] = l->pending;
+	l->kind = kind_float;
 	++l->writes;
 	return true;
+}
+
+bool ShaderBus::set_uint(u32 token, u32 x, u32 y, u32 z, u32 w)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+
+	const u32 raw[4] = { x, y, z, w };
+	CopyMemory(&l->pending, raw, sizeof(raw));
+	if (!l->rows_pending.empty())
+		CopyMemory(&l->rows_pending[0], raw, sizeof(raw));
+	l->kind = kind_uint;
+	++l->writes;
+	return true;
+}
+
+// copies rows bit for bit, called under the lock
+static bool bus_write_rows(ShaderBus::lane* l, u32 first, const void* rows, u32 count, u8 kind)
+{
+	if (first >= ShaderBus::max_rows || count > ShaderBus::max_rows - first)
+		return bus_refuse_write(l, "rows past the row limit");
+
+	Fvector4 zero;
+	zero.set(0.f, 0.f, 0.f, 0.f);
+	if (l->rows_pending.empty())
+		l->rows_pending.push_back(l->pending);
+	if (l->rows_pending.size() < first + count)
+		l->rows_pending.resize(first + count, zero);
+
+	CopyMemory(&l->rows_pending[first], rows, count * sizeof(Fvector4));
+	CopyMemory(&l->pending, &l->rows_pending[0], sizeof(Fvector4));
+	l->rows_dirty = true;
+	l->kind = kind;
+	++l->writes;
+	return true;
+}
+
+bool ShaderBus::set_rows(u32 token, u32 first, const Fvector4* rows, u32 count)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l || !count)
+		return false;
+
+	for (u32 i = 0; i < count; ++i)
+		if (!bus_finite(rows[i]))
+			return bus_refuse_write(l, "a value that is not finite");
+
+	return bus_write_rows(l, first, rows, count, kind_float);
+}
+
+bool ShaderBus::set_rows_uint(u32 token, u32 first, const u32* rows, u32 count)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l || !count)
+		return false;
+
+	return bus_write_rows(l, first, rows, count, kind_uint);
+}
+
+bool ShaderBus::refuse_write(u32 token, LPCSTR what)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	return l ? bus_refuse_write(l, what) : false;
 }
 
 bool ShaderBus::get(LPCSTR id, Fvector4& value)
@@ -241,6 +330,33 @@ bool ShaderBus::get(LPCSTR id, Fvector4& value)
 
 	value.set(g_bus_lanes[found]->bound);
 	return true;
+}
+
+bool ShaderBus::get_row(LPCSTR id, u32 row, Fvector4& value)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	const lane* l = g_bus_lanes[found];
+	if (row >= _max(l->rows_declared, 1u))
+		return false;
+
+	if (row == 0)
+		value.set(l->bound);
+	else if (row < l->rows_bound.size())
+		value.set(l->rows_bound[row]);
+	else
+		value.set(0.f, 0.f, 0.f, 0.f);
+	return true;
+}
+
+const ShaderBus::lane* ShaderBus::find(LPCSTR id)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	return (found >= 0) ? g_bus_lanes[found] : nullptr;
 }
 
 bool ShaderBus::has(LPCSTR id)
@@ -328,6 +444,19 @@ const ShaderBus::lane* ShaderBus::at(u32 index)
 	return (index < g_bus_lanes.size()) ? g_bus_lanes[index] : nullptr;
 }
 
+LPCSTR ShaderBus::value_text(const lane* l, const Fvector4& value, string256& out)
+{
+	if (l && l->kind == kind_uint)
+	{
+		u32 raw[4];
+		CopyMemory(raw, &value, sizeof(raw));
+		xr_sprintf(out, "(%u, %u, %u, %u)", raw[0], raw[1], raw[2], raw[3]);
+	}
+	else
+		xr_sprintf(out, "(%f, %f, %f, %f)", value.x, value.y, value.z, value.w);
+	return out;
+}
+
 void ShaderBus::frame_latch()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -336,14 +465,30 @@ void ShaderBus::frame_latch()
 		lane* l = g_bus_lanes[i];
 		const Fvector4& src = l->is_forced ? l->forced : l->pending;
 
-		if (src.x != l->bound.x || src.y != l->bound.y ||
-			src.z != l->bound.z || src.w != l->bound.w)
+		// bitwise so a uint value that reads as a NaN float still compares equal
+		bool moved = 0 != memcmp(&src, &l->bound, sizeof(Fvector4));
+
+		CopyMemory(&l->bound, &src, sizeof(Fvector4));
+
+		// row 0 always follows the bound value so array binds also see a forced value
+		if (l->rows_dirty)
+		{
+			const u32 n = u32(l->rows_pending.size());
+			if (n != l->rows_bound.size() ||
+				(n > 1 && 0 != memcmp(&l->rows_pending[1], &l->rows_bound[1], (n - 1) * sizeof(Fvector4))))
+				moved = true;
+
+			l->rows_bound = l->rows_pending;
+			l->rows_dirty = false;
+		}
+		if (!l->rows_bound.empty())
+			CopyMemory(&l->rows_bound[0], &l->bound, sizeof(Fvector4));
+
+		if (moved)
 		{
 			++l->changes;
 			l->last_change_frame = Device.dwFrame;
 		}
-
-		l->bound.set(src);
 	}
 }
 
@@ -419,17 +564,27 @@ void ShaderBus::dump()
 		if (!l->registered)
 			Msg("~ [SHADER-BUS] bus_%s is declared by a shader and registered by nobody", l->id.c_str());
 		else if (verbose)
-			Msg("[SHADER-BUS] bus_%s owner '%s' from '%s' = (%f, %f, %f, %f)%s %s",
-			    l->id.c_str(), l->owner.c_str(), l->source.c_str(),
-			    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->is_forced ? " forced" : "", l->description.c_str());
+		{
+			string64 rows;
+			rows[0] = 0;
+			if (!l->rows_bound.empty() || l->rows_declared > 1)
+				xr_sprintf(rows, " rows %u/%u", u32(l->rows_bound.size()), l->rows_declared);
+
+			string256 value;
+			Msg("[SHADER-BUS] bus_%s owner '%s' from '%s' = %s%s%s%s %s",
+			    l->id.c_str(), l->owner.c_str(), l->source.c_str(), value_text(l, l->bound, value),
+			    l->is_forced ? " forced" : "", rows, l->kind == kind_uint ? " uint" : "", l->description.c_str());
+		}
 
 		if (l->is_forced && (!verbose || !l->registered))
-			Msg("~ [SHADER-BUS] bus_%s is forced to (%f, %f, %f, %f) until bus_release",
-			    l->id.c_str(), l->forced.x, l->forced.y, l->forced.z, l->forced.w);
+		{
+			string256 value;
+			Msg("~ [SHADER-BUS] bus_%s is forced to %s until bus_release", l->id.c_str(), value_text(l, l->forced, value));
+		}
 	}
 }
 
 int ShaderBus::version()
 {
-	return 2;
+	return 3;
 }

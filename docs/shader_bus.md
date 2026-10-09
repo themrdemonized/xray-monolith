@@ -9,7 +9,7 @@ constants with lanes that each have an id and an `owner`. Any script can registe
 any lane, and only the script that registered a lane can write it. The engine needs no advance
 list of names, so a mod can claim a lane without anything being patched into the exe for it.
 
-Requires a modded exe with the bus. `shader_bus.version()` returns `2`. A script that wants
+Requires a modded exe with the bus. `shader_bus.version()` returns `3`. A script that wants
 to detect the feature should test `shader_bus ~= nil` first, since an older exe has no such
 module at all.
 
@@ -27,9 +27,26 @@ That is all. When the pass compiles, the renderer sees the name in the reflected
 and attaches a binder that writes the lane's current bound value on every constant table switch.
 The part of the name after `bus_` is the lane id, so `bus_myeffect` is the lane `myeffect`.
 
-A lane binds a `float`, `float2`, `float3` or `float4`. A `bus_` constant declared as an `int`, a
-`bool`, an array or a matrix binds to nothing, the engine never writes it, and the log gets one
-line with the constant's name and the reason. A pass whose shaders declare one lane with different types, say
+A lane binds a `float`, `float2`, `float3` or `float4`. On DX10 and DX11 it also binds an array
+of those, a `float4x4`, `float3x4` or `float2x4` matrix, or an array of matrices, as rows of 16
+bytes: HLSL element `i` of an array is row `i`, matrix row `i` is row `i` (the engine compiles
+shaders row major), and an array of matrices runs its rows one matrix after the other. A row the
+script never set reads `0, 0, 0, 0`, and rows past what a shader declares are not written. A lane
+has at most 4096 rows. On DX9 an array or matrix lane binds to nothing.
+
+```hlsl
+uniform float4 bus_mypath[8];
+uniform float4x4 bus_mymatrix;
+```
+
+On DX10 and DX11 a lane also binds `uint` through `uint4` and arrays of them, for flags, ids and
+bit masks a float cannot store exactly. The script writes those with `set_uint` or
+`set_array_uint` and the shader reads the exact 32 bit values. A `uint` constant whose name does
+not start with `bus_` still stops shader compilation as before.
+
+A `bus_` constant declared as an `int` or a `bool`, an array or matrix on DX9, or one larger than
+4096 rows binds to nothing, the engine never writes it, and the log gets one line with the
+constant's name and the reason. A pass whose shaders declare one lane with different types, say
 a `float4` in the pixel shader and an `int4` in the vertex shader, binds the lane only in the
 stages that agree with the first stage the engine reads (pixel, then vertex, geometry, hull,
 domain and compute), and logs the clash once. When that first stage declares a type a lane cannot
@@ -74,20 +91,29 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.register(id, owner, description)` | a token, or a hard fatal, with both `owner` strings and both script paths, if the id is already registered with a different `owner`. A bad id, a missing `owner`, an `owner` over 64 characters, a description over 256 characters or a full bus returns `nil` with a log line (once per game for a full bus), so check the token before using it |
 | `shader_bus.try_register(id, owner, description)` | a token, or `nil` if the id is already registered with a different `owner` or under the same rules as `register` |
 | `shader_bus.set(token, x, y, z, w)` | `true` if the token is valid and all four values are finite. A NaN or infinite value is dropped, the lane keeps its last value, and the first refusal on each lane logs a line |
+| `shader_bus.set_array(token, first, rows)` | `true` if the token is valid, `first` is a whole number from `0`, `rows` is a non-empty array of rows `{x, y, z, w}` (a missing component reads `0`), every value is finite and the last row is below row 4096. Writes `rows[1]` to row `first` (0-based, the HLSL element index) onward and leaves other rows as they were. Row 0 is the value `set` writes, so `set` and `set_array` from row 0 overwrite each other. The first refusal on each lane logs a line |
+| `shader_bus.set_uint(token, a, b, c, d)` | `true` if the token is valid and all four values are whole numbers from `0` to `4294967295`. The lane becomes a uint lane. A value out of range, negative or fractional is dropped and the first refusal on each lane logs a line |
+| `shader_bus.set_array_uint(token, first, rows)` | `set_array` with unsigned rows, under the same value rule as `set_uint` |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
-| `shader_bus.get_pending(id)` | `ok, x, y, z, w`, the value last written through the token and not yet copied into the bound value |
+| `shader_bus.get_uint(id)` | `ok, a, b, c, d`, the bound value read as four unsigned integers |
+| `shader_bus.get_row(id, i)` | `ok, x, y, z, w`, bound row `i` (0-based), `0, 0, 0, 0` for a row never set, `false` past the rows a shader declared. Row 0 always answers, like `get`. On a uint lane the values are the raw unsigned integers |
+| `shader_bus.get_pending(id)` | `ok, x, y, z, w`, the value last written through the token and not yet copied into the bound value. On a uint lane the values are the raw unsigned integers |
 | `shader_bus.has(id)` | `true` for a lane a script registered or a shader declared, so a declared lane nobody registered answers `true` while `owner_of` gives `nil` |
 | `shader_bus.describe(id)` | the description string, or `nil` for an id with no registered lane |
 | `shader_bus.owner_of(id)` | the `owner` string, or `nil` for an id with no registered lane |
 | `shader_bus.stats(id)` | `ok, changes, last_change_frame, bound_frame, writes` |
 | `shader_bus.list()` | rows for the registered lanes, then the twelve legacy lanes |
 | `shader_bus.list(true)` | the same, plus a row for every lane a shader declared that nobody registered |
-| `shader_bus.version()` | `2` |
+| `shader_bus.version()` | `3` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
 `legacy`), `source` (the script path that called `register`, empty for a declared or legacy row),
-on a registered or declared row `forced` (`true` while `bus_force` overrides the lane) and, on a
-legacy row only, `writer`. Registered rows come first (declared rows too, with the
+on a registered or declared row `forced` (`true` while `bus_force` overrides the lane), `rows` (the
+rows `set_array` has filled, `0` for a lane only `set` writes), `declared_rows` (the most rows
+any shader declares, `0` before a shader declares the lane), `kind` (`float` or `uint`, what the
+last write stored, or what a shader declared before any write), `declared_kinds` (an array of
+every kind a shader declared the lane as) and, on a legacy row only,
+`writer`. Registered rows come first (declared rows too, with the
 `true` argument), then the twelve legacy rows, and a legacy row only appears if that console
 command still exists on the running exe.
 
@@ -105,9 +131,11 @@ Reads and listing are open to every script. Only the token returned by `register
 ### Console
 
 - `bus_list` prints every lane with its `owner`, description, current bound value, state and its
-  change and write counters, then the twelve legacy lanes and their raw values.
-- `bus_get <id>` prints one lane.
-- `bus_force <id> x y z w` pins a lane to a value the engine publishes every frame until
+  change and write counters, then the twelve legacy lanes and their raw values. A lane with rows
+  ends its line with `rows <filled>/<declared>`, and a uint lane prints unsigned values and ends
+  with `uint`. `bus_get` and `bus_force` read and take unsigned values on a uint lane too.
+- `bus_get <id>` prints one lane, then up to fifteen more rows that `set_array` filled.
+- `bus_force <id> x y z w` pins a lane's row 0 to a value the engine publishes every frame until
   `bus_release`. All four components must be finite or the command is refused. It does not touch or
   reject what the script that registered the lane writes: `get_pending` still reads that script's
   value while the lane is forced, and that value is published again on the very next frame after
@@ -252,9 +280,11 @@ that it needs an exe with the shader bus.
   removes a whole class of mismatch.
 - **All zero is the default.** Design your encoding so a shader reading zero behaves like an
   unmodded install. That is what an unregistered lane, and an exe without the bus, hand you.
-- **One lane is one float4.** If you need more values, register more ids rather than packing two
-  numbers into the decimal digits of one float.
-- **Floats only.** Booleans and small integers go in as floats. Strings never.
+- **One lane is one float4, or rows of float4 on DX10 and DX11.** If you need more values, declare
+  an array or register more ids rather than packing two numbers into the decimal digits of one
+  float.
+- **Floats, or uints on DX10 and DX11.** Booleans and small integers go in as floats, bit masks
+  and large ids as uints. Strings never.
 - **The `owner` string is yours, up to 64 characters,** and the description up to 256. Use the mod's
   display name for `owner`, since it appears in `bus_list` and in the collision fatal.
 - **Re-registering with the same `owner` is free.** Scripts re-run on every level load, and

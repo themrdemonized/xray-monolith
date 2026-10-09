@@ -1099,14 +1099,21 @@ public:
 			if (!l)
 				continue;
 
+			string64 tags;
+			tags[0] = 0;
+			if (!l->rows_bound.empty() || l->rows_declared > 1)
+				xr_sprintf(tags, " rows %u/%u", u32(l->rows_bound.size()), l->rows_declared);
+			if (l->kind == ShaderBus::kind_uint)
+				xr_strcat(tags, " uint");
+
+			string256 value;
 			if (l->registered)
-				Msg("[SHADER-BUS] bus_%s owner '%s' = (%f, %f, %f, %f) %s [%s changes %d writes %d bound frame %d]",
-				    l->id.c_str(), l->owner.c_str(),
-				    l->bound.x, l->bound.y, l->bound.z, l->bound.w, l->description.c_str(),
-				    l->is_forced ? "forced" : "registered", l->changes, l->writes, l->bound_frame);
+				Msg("[SHADER-BUS] bus_%s owner '%s' = %s %s [%s changes %d writes %d bound frame %d]%s",
+				    l->id.c_str(), l->owner.c_str(), ShaderBus::value_text(l, l->bound, value), l->description.c_str(),
+				    l->is_forced ? "forced" : "registered", l->changes, l->writes, l->bound_frame, tags);
 			else
-				Msg("[SHADER-BUS] bus_%s declared by shaders, not registered [%s changes %d writes %d bound frame %d]",
-				    l->id.c_str(), l->is_forced ? "forced" : "declared", l->changes, l->writes, l->bound_frame);
+				Msg("[SHADER-BUS] bus_%s declared by shaders, not registered [%s changes %d writes %d bound frame %d]%s",
+				    l->id.c_str(), l->is_forced ? "forced" : "declared", l->changes, l->writes, l->bound_frame, tags);
 		}
 
 		for (u32 i = 0; i < sizeof(legacy_lanes) / sizeof(legacy_lanes[0]); ++i)
@@ -1135,7 +1142,14 @@ public:
 			Msg("~ [SHADER-BUS] no lane with id %s", args);
 			return;
 		}
-		Msg("[SHADER-BUS] bus_%s = (%f, %f, %f, %f)", args, v.x, v.y, v.z, v.w);
+		const ShaderBus::lane* l = ShaderBus::find(args);
+		string256 value;
+		Msg("[SHADER-BUS] bus_%s = %s", args, ShaderBus::value_text(l, v, value));
+
+		// rows past row 0 that have a value, up to sixteen in all
+		const u32 rows = l ? _min(u32(l->rows_bound.size()), 16u) : 0;
+		for (u32 r = 1; r < rows; ++r)
+			Msg("[SHADER-BUS] bus_%s[%u] = %s", args, r, ShaderBus::value_text(l, l->rows_bound[r], value));
 	}
 
 	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
@@ -1152,16 +1166,37 @@ public:
 		id[0] = 0;
 
 		Fvector4 v;
-		if (!args || 5 != sscanf(args, "%63s %f %f %f %f", id, &v.x, &v.y, &v.z, &v.w))
+		if (!args || 1 != sscanf(args, "%63s", id))
 		{
 			Msg("~ [SHADER-BUS] usage bus_force <id> x y z w");
 			return;
 		}
 
-		if (!_finite(v.x) || !_finite(v.y) || !_finite(v.z) || !_finite(v.w))
+		// a uint lane takes four unsigned values bit for bit
+		const ShaderBus::lane* l = ShaderBus::find(id);
+		if (l && l->kind == ShaderBus::kind_uint)
 		{
-			Msg("~ [SHADER-BUS] bus_force needs finite values");
-			return;
+			u32 raw[4];
+			if (5 != sscanf(args, "%63s %u %u %u %u", id, &raw[0], &raw[1], &raw[2], &raw[3]))
+			{
+				Msg("~ [SHADER-BUS] usage bus_force <id> a b c d, four unsigned values on a uint lane");
+				return;
+			}
+			CopyMemory(&v, raw, sizeof(raw));
+		}
+		else
+		{
+			if (5 != sscanf(args, "%63s %f %f %f %f", id, &v.x, &v.y, &v.z, &v.w))
+			{
+				Msg("~ [SHADER-BUS] usage bus_force <id> x y z w");
+				return;
+			}
+
+			if (!_finite(v.x) || !_finite(v.y) || !_finite(v.z) || !_finite(v.w))
+			{
+				Msg("~ [SHADER-BUS] bus_force needs finite values");
+				return;
+			}
 		}
 
 		if (!ShaderBus::force(id, v))
@@ -1169,7 +1204,8 @@ public:
 			Msg("~ [SHADER-BUS] no lane with id %s", id);
 			return;
 		}
-		Msg("[SHADER-BUS] bus_%s forced to (%f, %f, %f, %f)", id, v.x, v.y, v.z, v.w);
+		string256 value;
+		Msg("[SHADER-BUS] bus_%s forced to %s", id, ShaderBus::value_text(l, v, value));
 	}
 
 	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id and four floats"); }
