@@ -94,6 +94,7 @@ void HUD_SOUND_ITEM::PlaySound(HUD_SOUND_ITEM& hud_snd,
 							   float frequency,
 							   float delay_mult)
 {
+	PROF_EVENT("HUD_SOUND_ITEM::PlaySound");
 	if (hud_snd.sounds.empty()) return;
 
 	hud_snd.m_activeSnd = NULL;
@@ -310,6 +311,7 @@ void HUD_SOUND_COLLECTION_LAYERED::PlaySound(LPCSTR alias, const Fvector& positi
                                              bool hud_mode, bool looped, u8 index, float volume_mult, float frequency,
                                              float delay_mult)
 {
+	PROF_EVENT("HUD_SOUND_COLLECTION_LAYERED::PlaySound");
 	LPCSTR alias_to_play = alias;
 	::luabind::functor<::luabind::object> funct;
 	if (ai().script_engine().functor("_G.COnBeforePlayHudSound", funct))
