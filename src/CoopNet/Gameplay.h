@@ -26,6 +26,8 @@ struct ItemState {
     float condition=1;
     std::uint16_t ammo=0;
     std::uint8_t kind=0,ammo_type=0;
+    // Container identity is independent of actor ownership. Never a native object ID.
+    Identity container=0,container_incarnation=0;
 };
 struct ActorVitals {
     Identity actor = 0;
@@ -74,6 +76,7 @@ inline bool decode_inventory_result(const std::vector<std::uint8_t>& bytes, Inve
 }
 inline bool valid_item_state(const ItemState& v) {
     if (!v.item || !v.level || !v.revision || v.section.empty() || v.section.size()>128 || (!v.present && v.owner)) return false;
+    if (bool(v.container)!=bool(v.container_incarnation) || (v.container && (!v.world || !v.present || v.owner || v.container==v.anchor))) return false;
     if (v.section.front()=='.' || v.section.find("..")!=std::string::npos) return false;
     if (v.world) {
         if (!v.anchor || !v.incarnation || v.kind>2 || !std::isfinite(v.condition) || v.condition<0 || v.condition>1) return false;
@@ -92,6 +95,7 @@ inline std::vector<std::uint8_t> encode_item_state(const ItemState& v) {
         w.integer(v.anchor,8); w.integer(v.incarnation,8);
         for (auto value:v.position) write_float(w,value);
         write_float(w,v.condition); w.integer(v.ammo,2); w.integer(v.kind,1); w.integer(v.ammo_type,1);
+        w.integer(v.container,8); w.integer(v.container_incarnation,8);
     }
     return w.bytes;
 }
@@ -108,6 +112,7 @@ inline bool decode_item_state(const std::vector<std::uint8_t>& bytes, ItemState&
         for (auto& value:v.position) if (!read_float(r,value)) return false;
         if (!read_float(r,v.condition) || !r.integer(ammo,2) || !r.integer(kind,1) || !r.integer(type,1)) return false;
         v.ammo=static_cast<std::uint16_t>(ammo); v.kind=static_cast<std::uint8_t>(kind); v.ammo_type=static_cast<std::uint8_t>(type);
+        if (!r.integer(v.container,8) || !r.integer(v.container_incarnation,8)) return false;
     }
     if (r.remaining()) return false;
     if (!valid_item_state(v)) return false; output=std::move(v); return true;

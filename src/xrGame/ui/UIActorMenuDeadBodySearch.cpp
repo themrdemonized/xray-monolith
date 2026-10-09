@@ -15,11 +15,19 @@
 #include "../Inventory.h"
 #include "../Inventory_item.h"
 #include "../InventoryBox.h"
+#include "../../CoopNet/EngineActorBridge.h"
+#include "../../CoopNet/EngineWorldBridge.h"
+#include "../Actor.h"
 #include "../string_table.h"
 #include "../ai/monsters/BaseMonster/base_monster.h"
 
 void move_item_from_to(u16 from_id, u16 to_id, u16 what_id)
 {
+    if (engine_coopnet::world_level_is_replica()) {
+        // Presentation ownership follows the host reply, never the local drag operation.
+        if (g_actor && to_id==g_actor->ID()) engine_coopnet::queue_local_inventory_action(what_id,coopnet::InventoryAction::Take);
+        return;
+    }
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GE_TRADE_SELL, from_id);
 	P.w_u16(what_id);
@@ -184,6 +192,7 @@ void CUIActorMenu::DeInitDeadBodySearchMode()
 
 bool CUIActorMenu::ToDeadBodyBag(CUICellItem* itm, bool b_use_cursor_pos)
 {
+    if (engine_coopnet::world_level_is_replica()) return false; // deposits need their own host transaction
 	if (m_pPartnerInvOwner)
 	{
 		if (!m_pPartnerInvOwner->deadbody_can_take_status())

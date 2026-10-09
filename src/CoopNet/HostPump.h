@@ -13,6 +13,7 @@
 #include "PartyTransition.h"
 #include "WorldSettings.h"
 #include "Respawn.h"
+#include "Dialogue.h"
 #include <functional>
 #include <list>
 namespace coopnet {
@@ -39,6 +40,11 @@ class HostPump {
         std::deque<Transaction> transactions;
         SequenceWindow transaction_sequences;
         double transaction_budget = 8;
+        struct DialogueTransaction { DialogueRequest request; std::shared_ptr<const std::vector<std::uint8_t>> reply; std::uint32_t revision=0; };
+        std::deque<DialogueTransaction> dialogues;
+        SequenceWindow dialogue_sequences;
+        std::uint32_t dialogue_revision=0;
+        std::deque<Frame> dialogue_outgoing;
         SequenceWindow respawn_sequences;
         std::deque<RespawnResult> respawn_results;
         std::map<Identity,std::uint32_t> item_revisions;
@@ -47,17 +53,17 @@ class HostPump {
         std::shared_ptr<const std::vector<std::uint8_t>> baseline_bytes;
         std::uint32_t baseline_offset=0;
         bool baseline_started=false, baseline_received=false;
-        std::array<std::shared_ptr<const std::vector<Frame>>,2> shared_frames;
-        std::array<std::size_t,2> shared_cursor{};
-        std::array<std::uint32_t,2> shared_revision{};
+        std::array<std::shared_ptr<const std::vector<Frame>>,shared_kind_count> shared_frames;
+        std::array<std::size_t,shared_kind_count> shared_cursor{};
+        std::array<std::uint32_t,shared_kind_count> shared_revision{};
         double baseline_time=0, baseline_budget=65536;
     };
     HostSession session_;
     PartyStatus party_status_;
     std::uint32_t rules_revision_=0;
     std::vector<Frame> rules_frames_;
-    std::array<std::shared_ptr<const std::vector<Frame>>,2> shared_frames_;
-    std::array<std::uint32_t,2> shared_revision_{};
+    std::array<std::shared_ptr<const std::vector<Frame>>,shared_kind_count> shared_frames_;
+    std::array<std::uint32_t,shared_kind_count> shared_revision_{};
     Identity id_ = 0;
     std::uint32_t revision_ = 0;
     std::function<Identity()> tokens_;
@@ -67,6 +73,7 @@ class HostPump {
     std::deque<LevelFailure> failures_;
     std::map<Identity,ItemState> items_;
     std::function<InventoryResult(Identity,const InventoryRequest&)> inventory_handler_;
+    std::function<DialogueView(Identity,const DialogueRequest&,std::uint32_t)> dialogue_handler_;
     std::function<RespawnResult(Identity,const RespawnRequest&)> respawn_handler_;
     void failed(Peer& peer, TransferFailure reason) {
         if (!peer.assigned) return;
@@ -170,6 +177,39 @@ class HostPump {
                 }
                 if (!queue(peer,{Message::RespawnResult,Channel::Combat,Delivery::ReliableOrdered,request.sequence,encode_respawn_result(result)})) return false;
             }
+            else if (peer.ready && frame.message==Message::DialogueRequest) {
+                DialogueRequest request;
+                if (!decode_dialogue_request(frame.payload,request) || request.sequence!=frame.sequence) return false;
+                const auto actor=actors_.find(request.actor);
+                if (actor==actors_.end() || actor->second.player!=peer.player) return false;
+                // A request already in transit when travel starts is legitimate but
+                // obsolete. Retire it without disconnecting or running native actions.
+                if (actor->second.generation!=request.generation || actor->second.level!=request.level ||
+                    peer.level!=request.level || peer.assigned || !peer.baseline_received) return true;
+                if (!peer.dialogue_outgoing.empty()) return true; // one captured reply at a time
+                std::shared_ptr<const std::vector<std::uint8_t>> reply; std::uint32_t revision=0;
+                for (const auto& cached:peer.dialogues) if (cached.request.sequence==request.sequence) {
+                    if (encode_dialogue_request(cached.request)!=frame.payload) return false;
+                    reply=cached.reply; revision=cached.revision; break;
+                }
+                if (!reply) {
+                    if (!peer.dialogue_sequences.accept(request.sequence) || peer.transaction_budget<1 || peer.dialogue_revision==0xffffffffu) return false;
+                    peer.transaction_budget-=1; revision=++peer.dialogue_revision;
+                    DialogueView view{request.actor,request.target,request.incarnation,request.generation,request.level,revision,true,{}};
+                    if (dialogue_handler_) view=dialogue_handler_(peer.player,request,revision);
+                    view.actor=request.actor; view.target=request.target; view.incarnation=request.incarnation;
+                    view.generation=request.generation; view.level=request.level; view.revision=revision;
+                    reply=std::make_shared<const std::vector<std::uint8_t>>(encode_dialogue_view(view));
+                    peer.dialogues.push_back({request,reply,revision});
+                    std::size_t cached_bytes=0; for (const auto& cached:peer.dialogues) cached_bytes+=cached.reply->size();
+                    while (peer.dialogues.size()>16 || cached_bytes>shared_limit) { cached_bytes-=peer.dialogues.front().reply->size(); peer.dialogues.pop_front(); }
+                }
+                for (std::size_t offset=0;offset<reply->size();offset+=8192) {
+                    const auto end=(std::min)(reply->size(),offset+8192);
+                    DialogueChunk chunk{request.actor,request.generation,request.level,revision,request.sequence,static_cast<std::uint32_t>(reply->size()),static_cast<std::uint32_t>(offset),{reply->begin()+offset,reply->begin()+end}};
+                    peer.dialogue_outgoing.push_back({Message::DialogueView,Channel::Control,Delivery::ReliableOrdered,request.sequence,encode_dialogue_chunk(chunk)});
+                }
+            }
             else if (peer.ready && frame.message == Message::InventoryRequest) {
                 InventoryRequest request;
                 if (!decode_inventory_request(frame.payload,request) || frame.sequence != request.sequence) return false;
@@ -206,6 +246,7 @@ class HostPump {
         return true;
     }
 public:
+    void set_dialogue_handler(std::function<DialogueView(Identity,const DialogueRequest&,std::uint32_t)> handler) { dialogue_handler_=std::move(handler); }
     bool level_ready(Identity player,std::uint32_t level) const {
         for (const auto& peer:peers_) if (peer.player==player)
             return peer.ready && !peer.assigned && peer.baseline_received && peer.level==level && peer.transport->connected();
@@ -225,7 +266,7 @@ public:
     Identity identity() const { return id_; }
     bool publish_shared_world(SharedKind kind,std::uint32_t level,std::uint32_t revision,const std::vector<std::uint8_t>& bytes) {
         const auto index=static_cast<unsigned>(kind);
-        if (index>1 || !level || !revision || bytes.empty() || bytes.size()>shared_limit || revision<=shared_revision_[index]) return false;
+        if (index>=shared_kind_count || !level || !revision || bytes.empty() || bytes.size()>shared_limit || revision<=shared_revision_[index]) return false;
         auto frames=std::make_shared<std::vector<Frame>>();
         for (std::size_t offset=0;offset<bytes.size();offset+=8192) {
             const auto end=(std::min)(bytes.size(),offset+8192);
@@ -258,6 +299,7 @@ public:
         for (auto& peer:peers_) if (peer.player==player && peer.ready) {
             if (peer.assigned || (peer.baseline.id && !peer.baseline_received) || !set_interest_level(player,0)) return false;
             peer.baseline=manifest; peer.baseline_bytes=std::move(bytes); peer.baseline_offset=0;
+            peer.dialogue_outgoing.clear(); peer.dialogues.clear();
             peer.shared_frames={}; peer.shared_cursor={}; peer.shared_revision={};
             peer.baseline_started=false; peer.baseline_received=false; peer.baseline_time=0; peer.baseline_budget=65536;
             return true;
@@ -364,6 +406,7 @@ public:
             if (peer.baseline.id && !peer.baseline_received) return false;
             if (peer.assigned || ticket == peer.assignment.ticket || !set_interest_level(player, 0)) return false;
             peer.assignment = {ticket,level,peer.assignment.revision + 1}; peer.assigned = true;
+            peer.dialogue_outgoing.clear(); peer.dialogues.clear();
             peer.transfer_time = 0;
             if (!queue(peer, Frame{Message::LevelAssignment, Channel::Transition, Delivery::ReliableOrdered,
                 peer.assignment.revision, encode_assignment(peer.assignment)})) { peer.transport->close(); return false; }
@@ -431,6 +474,9 @@ public:
         if (found == actors_.end() || found->second.generation != generation) return false;
         for (auto& peer : peers_) if (peer.ready && peer.level == found->second.level)
             presence(peer, Message::ActorRemove, found->second);
+        for (auto& peer : peers_) if (peer.player==found->second.player) {
+            peer.dialogue_outgoing.clear(); peer.dialogues.clear();
+        }
         actors_.erase(found); return true;
     }
     void start(Identity id, Identity character, BuildIdentity build, std::function<Identity()> tokens) {
@@ -501,8 +547,13 @@ public:
                     if (keep) { peer.item_revisions[item.first]=item.second.revision; ++published; }
                 }
                 if (keep) keep=flush(peer);
+                for (unsigned sent=0;keep && sent<4 && !peer.dialogue_outgoing.empty() && peer.outgoing.size()<48;++sent) {
+                    const auto& frame=peer.dialogue_outgoing.front();
+                    if (peer.queued_bytes+frame.payload.size()+16>256*1024) break;
+                    keep=queue(peer,frame); if (keep) peer.dialogue_outgoing.pop_front();
+                }
                 // Finish the captured revision before adopting a newer one, including under backpressure.
-                if (keep && peer.ready && peer.baseline_received && !peer.assigned && peer.level) for (unsigned kind=0;kind<2;++kind) {
+                if (keep && peer.ready && peer.baseline_received && !peer.assigned && peer.level) for (unsigned kind=0;kind<shared_kind_count;++kind) {
                     if ((!peer.shared_frames[kind] || peer.shared_cursor[kind]==peer.shared_frames[kind]->size()) && peer.shared_revision[kind]!=shared_revision_[kind]) {
                         peer.shared_frames[kind]=shared_frames_[kind]; peer.shared_cursor[kind]=0; peer.shared_revision[kind]=shared_revision_[kind];
                     }
@@ -535,7 +586,7 @@ public:
     void stop() {
         for (auto& peer : peers_) peer.transport->close();
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
-        items_.clear(); inventory_handler_={};
+        items_.clear(); inventory_handler_={}; dialogue_handler_={};
         rules_revision_=0; rules_frames_.clear();
         shared_frames_={}; shared_revision_={};
     }

@@ -75,6 +75,8 @@ void update_world_items();
 bool prepare_world_loot_probe(std::uint16_t owner,std::uint16_t& object);
 bool world_loot_is_registered(std::uint16_t object);
 void exercise_local_world_loot_probe();
+void exercise_container_probe(std::uint16_t owner,unsigned& phase,std::uint16_t& source,std::uint16_t& item);
+void exercise_local_container_probe();
 void session_item_destroyed(std::uint16_t item);
 void remove_session_item(std::uint16_t item);
 NativeInventoryStatus transact_session_item(std::uint16_t actor, std::uint16_t item, std::uint64_t incarnation, bool take);

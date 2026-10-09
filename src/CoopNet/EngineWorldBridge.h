@@ -43,6 +43,9 @@ struct NativeWorldPose {
 };
 void queue_npc_catalogue(std::uint64_t session,std::uint32_t level,const std::vector<coopnet::NPCRecord>& records);
 void update_npc_catalogue();
+bool capture_containers(std::uint64_t session,std::uint32_t& level,std::vector<coopnet::ContainerRecord>& records);
+void queue_container_catalogue(std::uint64_t session,std::uint32_t level,const std::vector<coopnet::ContainerRecord>& records);
+void update_container_catalogue();
 bool capture_shared_quests(std::uint64_t session,std::uint32_t& level,coopnet::QuestState& quests);
 bool apply_shared_quests(std::uint64_t session,std::uint32_t level,const coopnet::QuestState& quests);
 void exercise_shared_world_probe(double elapsed,unsigned& phase,double& wait,std::uint16_t& object);

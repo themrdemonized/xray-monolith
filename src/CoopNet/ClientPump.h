@@ -13,6 +13,7 @@
 #include "PartyTransition.h"
 #include "WorldSettings.h"
 #include "Respawn.h"
+#include "Dialogue.h"
 #include <functional>
 #include <memory>
 namespace coopnet {
@@ -36,8 +37,8 @@ class ClientPump {
     std::function<void(const PartyStatus&)> party_sink_;
     std::function<void(const WorldState&)> world_sink_;
     std::map<Identity,std::pair<Identity,SequenceWindow>> world_sequences_;
-    std::array<SharedAssembly,2> shared_assembly_;
-    std::array<std::uint32_t,2> shared_revision_{};
+    std::array<SharedAssembly,shared_kind_count> shared_assembly_;
+    std::array<std::uint32_t,shared_kind_count> shared_revision_{};
     std::function<void(SharedKind,std::uint32_t,const std::vector<std::uint8_t>&)> shared_sink_;
     ActorReplicas actors_;
     LevelAssignment assignment_;
@@ -59,6 +60,11 @@ class ClientPump {
     std::function<void(const ActorVitals&)> vitals_sink_;
     std::function<void(const RespawnResult&)> respawn_sink_;
     std::map<std::uint32_t,RespawnRequest> pending_respawns_;
+    std::map<std::uint32_t,DialogueRequest> pending_dialogue_;
+    std::map<std::uint32_t,std::pair<DialogueRequest,Identity>> dialogue_history_;
+    SequenceWindow dialogue_sequences_;
+    DialogueAssembly dialogue_assembly_;
+    std::function<void(const DialogueView&)> dialogue_sink_;
     std::map<Identity,std::uint32_t> respawn_ticks_;
     BaselineAssembly baseline_assembly_;
     WorldBaseline baseline_;
@@ -67,6 +73,7 @@ class ClientPump {
     std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> baseline_sink_;
     std::function<void(const WorldBaseline&,std::uint32_t)> baseline_progress_sink_;
     void clear_baseline() {
+        pending_dialogue_.clear(); dialogue_assembly_.clear();
         pending_respawns_.clear(); respawn_ticks_.clear();
         inventory_view_assembly_.clear(); inventory_views_={}; inventory_view_revision_=0;
         world_sequences_.clear();
@@ -82,6 +89,7 @@ class ClientPump {
         level_ready_sent_ = false; transfer_failure_ = TransferFailure::None; sent_ = false; ready_sent_ = false; handshake_time_ = 0;
         items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
         inventory_history_.clear(); inventory_sequences_={};
+        dialogue_history_.clear(); dialogue_sequences_={};
         clear_baseline();
         hello_ = Frame{Message::ClientHello, Channel::Control, Delivery::ReliableOrdered, 1, encode_hello(hello)};
     }
@@ -96,6 +104,23 @@ class ClientPump {
         clear_baseline();
     }
 public:
+    void set_dialogue_sink(std::function<void(const DialogueView&)> sink) { dialogue_sink_=std::move(sink); }
+    SendResult send_dialogue(const DialogueRequest& request) {
+        if (!transport_ || session_.state()!=ClientState::Connected || !level_ready_sent_ || !baseline_acknowledged_) return SendResult::Disconnected;
+        const auto* actor=actors_.find(request.actor);
+        if (!valid_dialogue_request(request) || !actor || actor->player!=session_.welcome().player || actor->generation!=request.generation || actor->level!=request.level || assignment_.level!=request.level) return SendResult::Invalid;
+        const auto history=dialogue_history_.find(request.sequence); auto sequences=dialogue_sequences_;
+        if (history!=dialogue_history_.end()) {
+            if (history->second.second!=assignment_.ticket || encode_dialogue_request(history->second.first)!=encode_dialogue_request(request)) return SendResult::Invalid;
+        } else if (!sequences.accept(request.sequence)) return SendResult::Invalid;
+        if (!pending_dialogue_.empty() && !pending_dialogue_.count(request.sequence)) return SendResult::Backpressure;
+        const auto result=transport_->send({Message::DialogueRequest,Channel::Control,Delivery::ReliableOrdered,request.sequence,encode_dialogue_request(request)});
+        if (result==SendResult::Sent) {
+            pending_dialogue_[request.sequence]=request; dialogue_history_[request.sequence]={request,assignment_.ticket}; dialogue_sequences_=sequences;
+            if (dialogue_history_.size()>64) for (auto it=dialogue_history_.begin();it!=dialogue_history_.end();++it) if (!pending_dialogue_.count(it->first)) { dialogue_history_.erase(it); break; }
+        } else if (result!=SendResult::Backpressure) lost();
+        return result;
+    }
     void set_shared_world_sink(std::function<void(SharedKind,std::uint32_t,const std::vector<std::uint8_t>&)> sink) { shared_sink_=std::move(sink); }
     void set_world_rules_sink(std::function<void(std::uint32_t,const std::vector<WorldRule>&)> sink) { rules_sink_=std::move(sink); }
     void set_world_clock_sink(std::function<void(const WorldClock&)> sink) { clock_sink_=std::move(sink); }
@@ -275,6 +300,18 @@ public:
                     party_status_=status;
                     if (party_sink_) party_sink_(status);
                 }
+            } else if (frame.message==Message::DialogueView) {
+                DialogueChunk chunk; if (!decode_dialogue_chunk(frame.payload,chunk) || chunk.sequence!=frame.sequence) { lost(); return; }
+                const auto pending=pending_dialogue_.find(chunk.sequence); if (pending==pending_dialogue_.end()) continue;
+                const auto& request=pending->second; const auto* actor=actors_.find(request.actor);
+                if (!actor || actor->player!=session_.welcome().player || actor->generation!=request.generation || actor->level!=request.level ||
+                    !baseline_acknowledged_ || !level_ready_sent_ || assignment_.level!=request.level || chunk.actor!=request.actor || chunk.generation!=request.generation || chunk.level!=request.level) { pending_dialogue_.erase(pending); dialogue_assembly_.clear(); continue; }
+                if (!dialogue_assembly_.accept(chunk)) { lost(); return; }
+                if (dialogue_assembly_.complete()) {
+                    DialogueView view;
+                    if (!dialogue_assembly_.view(view) || view.target!=request.target || view.incarnation!=request.incarnation) { lost(); return; }
+                    pending_dialogue_.erase(pending); dialogue_assembly_.clear(); if (dialogue_sink_) dialogue_sink_(view);
+                }
             } else if (frame.message==Message::SharedWorld) {
                 SharedChunk chunk; if (!decode_shared_chunk(frame.payload,chunk) || chunk.revision!=frame.sequence) { lost(); return; }
                 if (!baseline_acknowledged_ || !level_ready_sent_ || chunk.level!=assignment_.level) continue;
@@ -292,7 +329,8 @@ public:
                             else bindings.emplace(n.pose.anchor,std::make_pair(n.pose.incarnation,SequenceWindow{}));
                         }
                         world_sequences_=std::move(bindings);
-                    } else { QuestState quests; if (!decode_quests(assembly.bytes(),quests)) { lost(); return; } }
+                    } else if (chunk.kind==SharedKind::Quests) { QuestState quests; if (!decode_quests(assembly.bytes(),quests)) { lost(); return; } }
+                    else { std::vector<ContainerRecord> containers; if (!decode_containers(assembly.bytes(),containers)) { lost(); return; } }
                     shared_revision_[kind]=chunk.revision; if (shared_sink_) shared_sink_(chunk.kind,chunk.level,assembly.bytes()); assembly.clear();
                 }
             } else if (frame.message==Message::WorldState) {
@@ -333,6 +371,13 @@ public:
                             pending->second.generation!=presence.generation || pending->second.level!=presence.level))
                             pending=pending_inventory_.erase(pending);
                         else ++pending;
+                    }
+                    for (auto pending=pending_dialogue_.begin();pending!=pending_dialogue_.end();) {
+                        if (pending->second.actor==presence.entity && (frame.message==Message::ActorRemove ||
+                            pending->second.generation!=presence.generation || pending->second.level!=presence.level)) {
+                            pending=pending_dialogue_.erase(pending);
+                            dialogue_assembly_.clear();
+                        } else ++pending;
                     }
                 }
             } else if (frame.message==Message::InventoryView) {
@@ -397,6 +442,7 @@ public:
                     !assignments_.accept(value.revision)) { lost(); return; }
                 assignment_ = value; level_ready_sent_ = false; transfer_failure_ = TransferFailure::None;
                 items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
+                pending_dialogue_.clear(); dialogue_assembly_.clear();
             } else if (frame.message == Message::LevelCancelled) {
                 LevelAssignment value; TransferFailure reason;
                 if (!decode_cancellation(frame.payload, value, reason) || frame.sequence != value.revision ||
@@ -404,6 +450,7 @@ public:
                     value.revision != assignment_.revision) { lost(); return; }
                 assignment_ = {}; level_ready_sent_ = false; transfer_failure_ = reason;
                 items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
+                pending_dialogue_.clear(); dialogue_assembly_.clear();
                 if (transfer_failure_sink_) transfer_failure_sink_({session_.welcome().player,value,reason});
             } else if (frame.message == Message::Disconnect) { lost(); return; }
             else { lost(); return; } // gameplay dispatcher is not installed yet
@@ -414,6 +461,7 @@ public:
         transport_.reset(); roster_.reset(); actors_ = {}; assignment_ = {}; transfer_failure_ = TransferFailure::None; session_.stop();
         items_.clear(); vitals_sequences_.clear(); pending_inventory_.clear();
         inventory_history_.clear(); inventory_sequences_={};
+        dialogue_history_.clear(); dialogue_sequences_={};
         clear_baseline();
     }
 };

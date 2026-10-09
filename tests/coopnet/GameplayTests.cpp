@@ -19,6 +19,15 @@ int main() {
     ItemState item{100,0,10,1,true,"bandage"},decoded_item;
     require(decode_item_state(encode_item_state(item),decoded_item));
     truncated<ItemState>(encode_item_state(item),decode_item_state);
+    auto contained=item; contained.world=true; contained.anchor=700; contained.incarnation=2;
+    contained.container=800; contained.container_incarnation=3;
+    require(decode_item_state(encode_item_state(contained),decoded_item));
+    require(decoded_item.container==800 && decoded_item.container_incarnation==3);
+    truncated<ItemState>(encode_item_state(contained),decode_item_state);
+    auto invalid_container=contained; invalid_container.owner=20; require(!valid_item_state(invalid_container));
+    invalid_container=contained; invalid_container.container_incarnation=0; require(!valid_item_state(invalid_container));
+    invalid_container=contained; invalid_container.container=contained.anchor; require(!valid_item_state(invalid_container));
+    invalid_container=contained; invalid_container.present=false; require(!valid_item_state(invalid_container));
     auto invalid_item=item; invalid_item.section="../bandage"; require(!valid_item_state(invalid_item));
     ActorVitals vitals{20,1,10,1,.75f,.8f,.1f},decoded_vitals;
     require(decode_vitals(encode_vitals(vitals),decoded_vitals) && decoded_vitals.health==.75f);

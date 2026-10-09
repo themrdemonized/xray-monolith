@@ -4,7 +4,8 @@
 #include <memory>
 namespace coopnet {
 // Complete, bounded host snapshots; never native spawn/save packets or Lua code.
-enum class SharedKind : std::uint8_t { NPC, Quests };
+enum class SharedKind : std::uint8_t { NPC, Quests, Containers };
+constexpr unsigned shared_kind_count=3;
 constexpr std::size_t shared_limit=1024*1024;
 inline bool shared_name(const std::string& value,std::size_t limit,bool path=false) {
     if (value.empty() || value.size()>limit || value.find("..")!=std::string::npos) return false;
@@ -42,6 +43,32 @@ inline bool decode_npcs(const std::vector<std::uint8_t>& bytes,std::vector<NPCRe
         if (!shared_number(r,n.pose.health) || !valid_npc(n) || !ids.insert(n.pose.anchor).second) return false; result.push_back(std::move(n));
     } if (r.remaining()) return false; output=std::move(result); return true;
 }
+struct ContainerRecord { WorldPose pose; std::string section; bool closed=false,can_take=true; };
+inline bool valid_container(const ContainerRecord& c) { return shared_name(c.section,96) && valid_world_state({1,0,{c.pose}}); }
+inline std::vector<std::uint8_t> encode_containers(const std::vector<ContainerRecord>& records) {
+    if (records.size()>4096) throw std::length_error("Container limit");
+    SharedWriter w; w.integer(records.size(),2); std::set<Identity> ids;
+    for (const auto& c:records) {
+        if (!valid_container(c) || !ids.insert(c.pose.anchor).second) throw std::invalid_argument("Container record");
+        w.integer(c.pose.anchor,8); w.integer(c.pose.incarnation,8); w.string(c.section);
+        for (const auto& v:{c.pose.position,c.pose.rotation}) for (float f:v) w.number(f);
+        w.integer(c.closed,1); w.integer(c.can_take,1);
+    } return w.bytes;
+}
+inline bool decode_containers(const std::vector<std::uint8_t>& bytes,std::vector<ContainerRecord>& output) {
+    if (bytes.size()>shared_limit) return false; Reader r(bytes); std::uint64_t count,n;
+    if (!r.integer(count,2) || count>4096) return false;
+    std::vector<ContainerRecord> result; std::set<Identity> ids;
+    for (unsigned i=0;i<count;++i) {
+        ContainerRecord c;
+        if (!r.integer(c.pose.anchor,8) || !r.integer(c.pose.incarnation,8) || !shared_string(r,c.section,96)) return false;
+        for (auto* v:{&c.pose.position,&c.pose.rotation}) for (auto& f:*v) if (!shared_number(r,f)) return false;
+        if (!r.integer(n,1) || n>1) return false; c.closed=n!=0;
+        if (!r.integer(n,1) || n>1) return false; c.can_take=n!=0;
+        if (!valid_container(c) || !ids.insert(c.pose.anchor).second) return false; result.push_back(std::move(c));
+    }
+    if (r.remaining()) return false; output=std::move(result); return true;
+}
 struct QuestRecord {
     std::string id,title,description,icon,hint,spot;
     std::uint8_t state=1,type=0;
@@ -76,7 +103,7 @@ inline bool decode_quests(const std::vector<std::uint8_t>& bytes,QuestState& out
     if (r.remaining()) return false; output=std::move(result); return true;
 }
 struct SharedChunk { SharedKind kind=SharedKind::NPC; std::uint32_t level=0,revision=0,total=0,offset=0; std::vector<std::uint8_t> bytes; };
-inline bool valid_shared_chunk(const SharedChunk& c) { return static_cast<unsigned>(c.kind)<=1 && c.level && c.revision && c.total && c.total<=shared_limit && c.offset<c.total && c.offset%8192==0 && c.bytes.size()==(std::min)(std::size_t(8192),std::size_t(c.total-c.offset)); }
+inline bool valid_shared_chunk(const SharedChunk& c) { return static_cast<unsigned>(c.kind)<shared_kind_count && c.level && c.revision && c.total && c.total<=shared_limit && c.offset<c.total && c.offset%8192==0 && c.bytes.size()==(std::min)(std::size_t(8192),std::size_t(c.total-c.offset)); }
 inline std::vector<std::uint8_t> encode_shared_chunk(const SharedChunk& c) {
     if (!valid_shared_chunk(c)) throw std::invalid_argument("Shared chunk"); Writer w; w.integer(static_cast<unsigned>(c.kind),1); for (auto n:{c.level,c.revision,c.total,c.offset}) w.integer(n,4); w.bytes.insert(w.bytes.end(),c.bytes.begin(),c.bytes.end()); return w.bytes;
 }

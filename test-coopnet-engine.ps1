@@ -1,9 +1,11 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
 if ($RespawnProbe) { $WorldProbe=$true }
 if ($SharedWorldProbe) { $WorldProbe=$true }
+if ($ContainerProbe) { $WorldProbe=$true }
+if ($ContainerRecoveryProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
 if ($StarterProbe) { $WorldProbe=$true }
@@ -11,7 +13,7 @@ if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe) -and !$TestDirectory) {
+if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -21,6 +23,7 @@ if (($InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -o
         if (Test-Path $cache) { Copy-Item -LiteralPath $cache -Destination $target -Recurse }
     }
 }
+$expectedInventoryCount=if ($ContainerProbe -or $ContainerRecoveryProbe) { 3 } else { 1 }
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
 $fixtureFiles = Get-ChildItem "$client\appdata\savedgames\player - autosave.*" -File
 $originalHashes = @{}
@@ -28,7 +31,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -154,21 +157,21 @@ if ($WeaponProbe) {
     }
     Write-Output 'NATIVE_WEAPON_PASS: host guest weapon finished drawing and consumed ammunition from client fire input.'
     if ($PartyProbe) {
-        if ($logs.host -notmatch 'CoopNet guest inventory restored: character 2 items 1' -or
-            $logs.host -notmatch 'CoopNet native inventory restoration completed: items 1 active slot [1-9]\d* rounds 2') {
+        if ($logs.host -notmatch ("CoopNet guest inventory restored: character 2 items $expectedInventoryCount") -or
+            $logs.host -notmatch ("CoopNet native inventory restoration completed: items $expectedInventoryCount active slot [1-9]\d* rounds 2")) {
             throw 'Guest weapon and ammunition preservation across native travel missing.'
         }
         Write-Output 'NATIVE_INVENTORY_TRAVEL_PASS: guest weapon, active slot and remaining ammunition restored on the destination map.'
     }
 }
 if ($RestartProbe) {
-    if ($logs.host -notmatch 'CoopNet durable guest save loaded: character 2 sequence [1-9]\d* items 1' -or
-        $logs.host -notmatch 'CoopNet native inventory restoration completed: items 1 active slot [1-9]\d* rounds 2') {
+    if ($logs.host -notmatch ("CoopNet durable guest save loaded: character 2 sequence [1-9]\d* items $expectedInventoryCount") -or
+        $logs.host -notmatch ("CoopNet native inventory restoration completed: items $expectedInventoryCount active slot [1-9]\d* rounds 2")) {
         throw 'Guest equipment and ammunition restore after a host restart missing.'
     }
     Write-Output 'NATIVE_GUEST_RESTART_PASS: a new host process restored the saved guest weapon, active slot and two remaining rounds.'
 }
-Write-Output 'Development fixture only. Full NPC animation, corpse/stash loot and complete inventory presentation are not verified.'
+Write-Output 'Development fixture only. Full NPC animation, clicked UI interaction and complete inventory presentation are not verified.'
 
 if ($InventoryProbe) {
     if ($logs.guest -notmatch 'CoopNet guest cloned inventory retired:' -or
@@ -241,4 +244,17 @@ if ($RespawnProbe) {
         throw 'Guest/host respawn popup, host approval or no-living-player guard evidence missing.'
     }
     Write-Output 'NATIVE_RESPAWN_PASS: guest and host popup opened, each respawned at a living teammate through host validation, and all-dead revival was rejected.'
+}
+
+if ($ContainerProbe) {
+    if ($logs.host -notmatch 'container probe: populated stash created' -or $logs.host -notmatch 'container probe: host transfer and ALife withdrawal confirmed' -or $logs.guest -notmatch 'container probe: guest native inventory confirmed' -or $logs.guest -notmatch 'container replica spawned:' -or $logs.guest -notmatch 'container replica removed:') { throw 'Native populated stash replication/transfer/removal failed.' }
+    if ($logs.host -notmatch 'container probe: locked stash pickup denied without mutation') { throw 'Locked stash rejection evidence missing.' }
+    if ($logs.host -notmatch 'container probe: populated corpse created' -or $logs.host -notmatch 'container probe: host corpse transfer confirmed' -or $logs.guest -notmatch 'container probe: guest corpse inventory confirmed') { throw 'Native corpse ownership transfer failed.' }
+    Write-Output 'NATIVE_CONTAINER_LOOT_PASS: populated stash and NPC corpse transferred items into the guest native inventory, released host source/ALife ownership, and retired the emptied stash replica.'
+}
+if ($ContainerRecoveryProbe) {
+    $stashRecovery=[regex]::Match($logs.guest,'container inventory restored: marker 1 level ([1-9]\d*)')
+    $corpseRecovery=[regex]::Match($logs.guest,'container inventory restored: marker 2 level ([1-9]\d*)')
+    if (!$stashRecovery.Success -or !$corpseRecovery.Success -or $stashRecovery.Groups[1].Value -ne $corpseRecovery.Groups[1].Value) { throw 'Native stash/corpse item restart recovery failed.' }
+    Write-Output 'NATIVE_CONTAINER_RESTART_PASS: both looted bandages recovered into native guest inventory with their saved conditions.'
 }

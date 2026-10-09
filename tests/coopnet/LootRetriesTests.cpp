@@ -21,5 +21,17 @@ int main() {
     require(queue.sent(request,item)); require(queue.completed({50,100,1,4,InventoryStatus::Conflict})); queue.advance(3); require(!queue.pop(items,retry,attempts));
     queue.clear(); require(queue.sent(request,item)); require(queue.completed({50,100,1,4,InventoryStatus::Conflict})); queue.advance(.2); require(queue.pop(items,retry,attempts)); queue.defer();
     require(!queue.pop(items,retry,attempts)); queue.advance(.2); require(queue.pop(items,retry,attempts) && attempts==1); queue.defer(); queue.advance(2); require(!queue.pop(items,retry,attempts));
-    std::cout<<"Loot revision retry ownership/incarnation guards, denial isolation, latest-state wait, attempt bounds and expiry passed\n";
+    request.action=InventoryAction::Take; item.owner=0; item.container=90; item.container_incarnation=12;
+    for (unsigned changed=0;changed<3;++changed) {
+        queue.clear(); items[50]=item; items[50].revision=4;
+        require(queue.sent(request,item)); require(queue.completed({50,0,1,4,InventoryStatus::Conflict}));
+        if (changed==0) items[50].container=91;
+        if (changed==1) ++items[50].container_incarnation;
+        if (changed==2) { items[50].container=0; items[50].container_incarnation=0; }
+        queue.advance(.2); require(!queue.pop(items,retry,attempts));
+    }
+    queue.clear(); items[50]=item; items[50].revision=4;
+    require(queue.sent(request,item)); require(queue.completed({50,0,1,4,InventoryStatus::Conflict})); queue.advance(.2);
+    require(queue.pop(items,retry,attempts));
+    std::cout<<"Loot revision retry ownership/item/container incarnation guards, denial isolation, latest-state wait, attempt bounds and expiry passed\n";
 }

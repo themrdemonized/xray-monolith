@@ -1,10 +1,12 @@
 # Host-owned loot, NPCs and quests
 
-Protocol 16 extends the single-host, single-active-location model. Everyone still travels together; there are no location workers.
+Protocol 18 extends the single-host, single-active-location model. Everyone still travels together; there are no location workers.
 
 ## Loot
 
-Loose ordinary world items use the existing host-owned item catalogue and inventory transactions. Pickup, drop, condition and ammunition changes are reflected to guests. The host checks ownership, revision, distance and capacity; repeated requests cannot duplicate a transfer. Persistent ALife ownership is withdrawn on pickup and restored on drop. NPC inventory, stashes, story/quest items and nested item relationships remain outside this loose-loot path.
+Ordinary loose items and loot in accessible corpses/stashes use the host-owned item catalogue and inventory transactions. Pickup, drop, condition and ammunition changes are reflected to guests. The host checks ownership, source access, revision, distance and capacity; repeated requests cannot duplicate a transfer. Persistent ALife ownership is withdrawn on pickup and restored on drop. Guest corpse/stash pickups route through the search menu's host request queue. Deposits, living NPC inventory theft, story/quest items and nested item relationships remain outside this path.
+
+Stashes have a separate reliable catalogue with native identity/incarnation, pose and access flags. Guest replicas bind canonical stashes or create temporary local presentation boxes. Contents retain the source container incarnation so a conflict retry cannot silently switch to another corpse or stash. Exact native item condition survives guest inventory save/load.
 
 Pickup/drop revision conflicts retry at most three times, waiting for the host's newer item state. Retries expire after two seconds and require the same incarnation, location and ownership. Denial, distance and capacity failures are not retried; the host's existing checks and request replay protection remain in force.
 
