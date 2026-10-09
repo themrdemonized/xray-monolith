@@ -161,8 +161,8 @@ void CTextureDescrMngr::Load()
 {
 	LoadTHM("$game_textures$", m_texture_details, m_detail_scalers);
 	LoadTHM("$level$", m_texture_details, m_detail_scalers);
-	LoadLTX("$level$", m_texture_details);
 	LoadLTX("$game_textures$", m_texture_details);
+	LoadLTX("$level$", m_texture_details);
 }
 
 void CTextureDescrMngr::UnLoad()
