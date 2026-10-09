@@ -2142,6 +2142,23 @@ void CWeapon::OnZoomOut()
 
 }
 
+bool CWeapon::StopZoom()
+{
+	if (!IsZoomed())
+		return false;
+
+	if (GetState() != eAimEnd && HudAnimationExist("anm_idle_aim_end"))
+		SwitchState(eAimEnd);
+
+	OnZoomOut();
+	return true;
+}
+
+bool CWeapon::IsTextureZoomActive()
+{
+	return IsZoomed() && ZoomTexture() && !IsRotatingToZoom();
+}
+
 CUIWindow* CWeapon::ZoomTexture()
 {
 	if (UseScopeTexture())

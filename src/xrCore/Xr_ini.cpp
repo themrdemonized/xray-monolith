@@ -111,15 +111,12 @@ BOOL dltx_use_cache = TRUE;
 xr_unordered_flat_map<xr_string, CInifile::Root> CInifile::CachedData;
 xrCriticalSection CInifile::CacheCS;
 void CInifile::InvalidateCache(LPCSTR path) {
-	if (path)
+	if (path && path[0])
 	{
-		if (path[0])
-		{
-			xr_string FileName(path);
-			toLowerCase(FileName);
-			xrCriticalSectionGuard g(CacheCS);
-			CachedData.erase(FileName);
-		}
+		xr_string FileName(path);
+		toLowerCase(FileName);
+		xrCriticalSectionGuard g(CacheCS);
+		CachedData.erase(FileName);
 	}
 	else
 	{
@@ -2030,4 +2027,24 @@ void CInifile::remove_line(LPCSTR S, LPCSTR L)
 		if (A != data.Data.end() && xr_strcmp(*A->first, L) == 0)
 			data.Data.erase(A);
 	}
+}
+
+bool CInifile::remove_section(LPCSTR S)
+{
+	R_ASSERT(!m_flags.test(eReadOnly));
+
+	if (!S || !S[0])
+		return false;
+
+	// sections are stored parsed and lower cased, the same way a write creates them
+	string256 sect;
+	_parse(sect, S);
+	_strlwr(sect);
+
+	RootIt I = std::lower_bound(DATA.begin(), DATA.end(), sect, sect_pred);
+	if (I == DATA.end() || xr_strcmp(*(*I).Name, sect) != 0)
+		return false;
+
+	DATA.erase(I);
+	return true;
 }

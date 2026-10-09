@@ -92,6 +92,8 @@ CBaseMonster::CBaseMonster() : m_psy_aura(this, "psy"),
 
 	m_com_manager.add_ability(ControlCom::eControlSequencer);
 	m_com_manager.add_ability(ControlCom::eControlTripleAnimation);
+	// inert until a script supplies strike motions (check_melee_jump refuses empty data)
+	m_com_manager.add_ability(ControlCom::eControlMeleeJump);
 
 
 	m_anomaly_detector = xr_new<CAnomalyDetector>(this);
@@ -906,11 +908,24 @@ bool CBaseMonster::check_start_conditions(ControlCom::EControlType type)
 	{
 		EMonsterState state = StateMan->get_state_type();
 
-		if (!is_state(state, eStateAttack_Run) &&
-			!is_state(state, eStateAttack_Melee) &&
-			!is_state(state, eStateAttack_RunAttack))
+		if (m_com_manager.has_melee_strike())
 		{
-			return false;
+			// armed by a script: accept the whole attack family, so a flat-ladder species
+			// (chimera) that reports only the top-level eStateAttack can spin-strike
+			if (!is_state(state, eStateAttack))
+			{
+				return false;
+			}
+		}
+		else
+		{
+			// default: GSC's exact gate, so an unarmed monster stays byte-identical to vanilla
+			if (!is_state(state, eStateAttack_Run) &&
+				!is_state(state, eStateAttack_Melee) &&
+				!is_state(state, eStateAttack_RunAttack))
+			{
+				return false;
+			}
 		}
 	}
 
@@ -1029,6 +1044,23 @@ void CBaseMonster::play_detector_sound()
 bool CBaseMonster::is_jumping()
 {
 	return m_com_manager.is_jumping();
+}
+
+u32 CBaseMonster::script_combat_substate()
+{
+	CEntityAlive* enemy = const_cast<CEntityAlive*>(EnemyMan.get_enemy());
+	if (!enemy) return u32(-1);
+
+	::luabind::functor<int> funct;
+	if (!ai().script_engine().functor("_G.CMonsterCombatAction", funct))
+		return u32(-1);
+
+	float dist = enemy->Position().distance_to(Position());
+	int enemy_strength = get_enemy_strength();
+	bool can_jump = ability_can_jump();
+
+	int proposed = funct(lua_game_object(), enemy->lua_game_object(), dist, enemy_strength, can_jump);
+	return (proposed < 0) ? u32(-1) : (u32)proposed;
 }
 
 void CBaseMonster::update_eyes_visibility()

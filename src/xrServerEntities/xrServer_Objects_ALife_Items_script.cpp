@@ -20,6 +20,23 @@ bool has_upgrade_script(CSE_ALifeInventoryItem* ta, LPCSTR str)
 	return ta->has_upgrade(str);
 }
 
+float get_condition_script(CSE_ALifeInventoryItem* item)
+{
+	return item->m_fCondition;
+}
+
+// the net packet quantises condition over zero to one, anything else corrupts the stored value
+void set_condition_script(CSE_ALifeInventoryItem* item, float value)
+{
+	if (value < 0.f || value > 1.f)
+	{
+		Msg("!cse_alife_inventory_item.condition set to %f, must be between 0 and 1", value);
+		return;
+	}
+
+	item->m_fCondition = value;
+}
+
 using namespace luabind;
 
 #pragma optimize("s",on)
@@ -31,6 +48,7 @@ void CSE_ALifeInventoryItem::script_register(lua_State* L)
 		//			.def(		constructor<LPCSTR>())
 		.def("has_upgrade", &has_upgrade)
 		.def("add_upgrade", &add_upgrade)
+		.property("condition", &get_condition_script, &set_condition_script)
 	];
 }
 

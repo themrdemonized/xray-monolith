@@ -89,10 +89,17 @@ public:
 	void script_jump(const Fvector& position, float factor);
 	void script_capture(ControlCom::EControlType type);
 	void script_release(ControlCom::EControlType type);
+
+	// checked invoke variants: false = refused (start conditions, missing data)
+	bool script_try_jump(const Fvector& position, float factor, bool skip_prepare);
+	bool script_try_rotation_jump();
+	bool script_try_run_attack();
+	bool script_try_threaten();
 	//-------------------------------------------------------------------------------
 	// Rotation Jump
 	void add_rotation_jump_data(LPCSTR left1, LPCSTR left2, LPCSTR right1, LPCSTR right2, float angle, u32 flags = 0);
 	void add_melee_jump_data(LPCSTR left, LPCSTR right);
+	bool has_melee_strike() const { return m_melee_jump_data.anim_ls.valid() && m_melee_jump_data.anim_rs.valid(); }
 
 	//-------------------------------------------------------------------------------
 	// Threaten Animation

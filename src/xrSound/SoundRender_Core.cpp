@@ -20,6 +20,8 @@ float psSoundRolloff = 0.75f;
 u32 psSoundModel = 0;
 float psSoundVEffects = 1.0f;
 float psSoundVFactor = 1.0f;
+float psSoundMaxDistanceMultiplier = 1.0f;
+float psSoundMaxAIDistanceMultiplier = 1.0f;
 
 float psSoundVMusic = 1.f;
 float psSoundVMusicFactor = 1.f;

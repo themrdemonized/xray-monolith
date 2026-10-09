@@ -8,10 +8,21 @@ class CMapLocation;
 
 class CMapManager
 {
+	struct SRemovedSpot
+	{
+		shared_str spot_type;
+		u16 object_id;
+	};
+
 	CMapLocationWrapper* m_locations_wrapper;
 	Locations* m_locations;
 	xr_vector<CMapLocation*> m_deffered_destroy_queue;
+
+	xr_vector<SRemovedSpot> m_removed_spots;
+	void QueueRemovedNotify(const shared_str& spot_type, u16 id);
 public:
+	// called from the main thread only
+	void FlushRemovedNotify();
 
 	CMapManager();
 	~CMapManager();
@@ -35,7 +46,7 @@ public:
 	void ReloadSpots();
 	bool GetMapLocationsForObject(u16 id, xr_vector<CMapLocation*>& res);
 	void OnObjectDestroyNotify(u16 id);
-	void ResetStorage() { m_locations = NULL; };
+	void ResetStorage() { m_locations = NULL; m_removed_spots.clear_not_free(); };
 #ifdef DEBUG
 	void					Dump						();
 #endif

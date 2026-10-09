@@ -39,6 +39,7 @@ public:
 	}
 
 	CSState* get_state(u32 state_id);
+	CSState* get_state_if_present(u32 state_id);
 	CSState* get_state_current();
 
 	void fill_data_with(void* ptr_src, u32 size);

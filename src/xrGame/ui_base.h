@@ -103,6 +103,7 @@ public:
 	shared_str get_xml_name(LPCSTR fn);
 
 	IUIRender::ePointType m_currentPointType;
+	bool m_bAspectNeutral = false;
 };
 
 

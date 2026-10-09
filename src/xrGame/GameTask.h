@@ -107,6 +107,7 @@ public:
 	void SetPriority_script(int _prio) { m_priority = _prio; }
 	int GetPriority_script() { return m_priority; }
 	void SetType_script(int t) { m_task_type = (ETaskType)t; }
+	int GetType_script() { return (int)m_task_type; }
 
 	LPCSTR GetID_script() { return m_ID.c_str(); }
 	void SetID_script(LPCSTR _id) { m_ID = _id; }

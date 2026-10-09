@@ -38,30 +38,42 @@ public:
 	template <typename T>
 	struct CFixedStorage
 	{
-		T* m_objects;
 		T* m_free;
 		u32 m_max_object_count;
+		xr_vector<T*> m_blocks;
+
+		IC void add_block()
+		{
+			T* objects = xr_alloc<T>(m_max_object_count);
+			m_blocks.push_back(objects);
+			T* previous = m_free;
+			T* end = objects + m_max_object_count;
+			for (T* item = objects; item != end; ++item)
+			{
+				item->next() = previous;
+				previous = item;
+			}
+			m_free = previous;
+		}
 
 		IC CFixedStorage(u32 max_object_count) :
+			m_free(0),
 			m_max_object_count(max_object_count)
 		{
-			m_objects = xr_alloc<T>(m_max_object_count);
-			T* B = 0;
-			T* I = m_objects;
-			T* E = m_objects + m_max_object_count;
-			for (; I != E; B = I, ++I)
-				I->next() = B;
-			m_free = E - 1;
+			VERIFY(m_max_object_count);
+			add_block();
 		}
 
 		virtual ~CFixedStorage()
 		{
-			xr_free(m_objects);
+			for (T* objects : m_blocks)
+				xr_free(objects);
 		}
 
 		IC T* get_object()
 		{
-			VERIFY(m_free);
+			if (!m_free)
+				add_block();
 			T* node = m_free;
 			m_free = m_free->next();
 			ZeroMemory(node, sizeof(T));
@@ -70,12 +82,16 @@ public:
 
 		IC void clear()
 		{
-			T* B = 0;
-			T* I = m_objects;
-			T* E = m_objects + m_max_object_count;
-			m_free = E - 1;
-			for (; I != E; ++I)
-				I->next() = B;
+			m_free = 0;
+			for (T* objects : m_blocks)
+			{
+				T* end = objects + m_max_object_count;
+				for (T* item = objects; item != end; ++item)
+				{
+					item->next() = m_free;
+					m_free = item;
+				}
+			}
 		}
 
 		IC void remove(T*& node)

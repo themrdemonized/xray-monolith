@@ -11,6 +11,8 @@
 #include "game_object_space.h"
 #include "script_ini_file.h"
 #include "sight_manager_space.h"
+#include "ai/monsters/state_defs.h"
+#include "inventory_space.h"
 
 using namespace luabind;
 
@@ -52,6 +54,33 @@ void CScriptGameObject::script_register(lua_State* L)
 				script_register_game_object_trader(std::move(instance))
 			)
 		),
+
+		class_<enum_exporter<EInventorySlots>>("inventory")
+		.enum_("slot")
+		[
+			value("no_active", int(NO_ACTIVE_SLOT)),
+			value("knife", int(KNIFE_SLOT)),
+			value("slot_2", int(INV_SLOT_2)),
+			value("slot_3", int(INV_SLOT_3)),
+			value("grenade", int(GRENADE_SLOT)),
+			value("binocular", int(BINOCULAR_SLOT)),
+			value("bolt", int(BOLT_SLOT)),
+			value("outfit", int(OUTFIT_SLOT)),
+			value("pda", int(PDA_SLOT)),
+			value("detector", int(DETECTOR_SLOT)),
+			value("torch", int(TORCH_SLOT)),
+			value("artefact", int(ARTEFACT_SLOT)),
+			value("helmet", int(HELMET_SLOT)),
+			value("backpack", int(BACKPACK_SLOT)),
+#ifdef MORE_INVENTORY_SLOTS
+			value("custom_1", int(CUSTOM_SLOT_1)),
+			value("custom_2", int(CUSTOM_SLOT_2)),
+			value("custom_3", int(CUSTOM_SLOT_3)),
+			value("custom_4", int(CUSTOM_SLOT_4)),
+			value("custom_5", int(CUSTOM_SLOT_5)),
+#endif
+			value("last", int(LAST_SLOT))
+		],
 
 		class_<enum_exporter<GameObject::ECallbackType>>("callback")
 		.enum_("callback_types")
@@ -138,6 +167,27 @@ void CScriptGameObject::script_register(lua_State* L)
 			value("on_foot_step", int(GameObject::eOnFootStep)),
 
 			value("map_location_added", int(GameObject::eMapLocationAdded))
+		],
+
+		// Attack substates the monster_on_combat_action callback can propose in flags.substate.
+		// These are the states the shared monster and group attack selectors register
+		// (monster_state_attack_inline.h, group_state_attack_inline.h); any other EMonsterState
+		// is ignored and the vanilla selection runs.
+		class_<enum_exporter<EMonsterState>>("monster_state")
+		.enum_("substate")
+		[
+			value("eStateAttack_Run", int(eStateAttack_Run)),
+			value("eStateAttack_Melee", int(eStateAttack_Melee)),
+			value("eStateAttack_RunAttack", int(eStateAttack_RunAttack)),
+			value("eStateAttack_RunAway", int(eStateAttack_RunAway)),
+			value("eStateAttack_FindEnemy", int(eStateAttack_FindEnemy)),
+			value("eStateAttack_Steal", int(eStateAttack_Steal)),
+			value("eStateAttack_AttackHidden", int(eStateAttack_AttackHidden)),
+			value("eStateAttack_ControlFire", int(eStateAttack_ControlFire)),
+			value("eStateAttackCamp", int(eStateAttackCamp)),
+			value("eStateAttack_MoveToHomePoint", int(eStateAttack_MoveToHomePoint)),
+			value("eStateAttack_Attack_On_Run", int(eStateAttack_Attack_On_Run)),
+			value("eStateCustom", int(eStateCustom))
 		],
 
 		def("buy_condition", (void (*)(CScriptIniFile*, LPCSTR))(&::buy_condition)),

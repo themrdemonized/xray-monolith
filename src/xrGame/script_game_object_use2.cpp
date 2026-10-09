@@ -11,6 +11,7 @@
 #include "script_monster_home_info.h"
 #include "ai/monsters/monster_home.h"
 #include "ai/monsters/control_animation_base.h"
+#include "ai/monsters/control_manager_custom.h"
 
 //////////////////////////////////////////////////////////////////////////
 // Burer
@@ -451,4 +452,15 @@ void CScriptGameObject::set_default_panic_threshold()
 {
 	CBaseMonster* monster = smart_cast<CBaseMonster *>(&object());
 	if (monster) monster->set_default_panic_threshold();
+}
+
+void CScriptGameObject::set_monster_melee_strike(LPCSTR anim_left, LPCSTR anim_right, float rear_arc_deg)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster *>(&object());
+	if (!monster || !monster->Visual()) return;
+	monster->com_man().add_melee_jump_data(anim_left, anim_right);
+	// rear_arc_deg is the size of the rear cone that triggers the strike; <= 0 keeps 120 (the useful arc).
+	// the engine fires when the enemy sits beyond (180 - arc/2) degrees off the front, so a wider arc = a lower threshold.
+	float arc = (rear_arc_deg > 0.f) ? rear_arc_deg : 120.f;
+	monster->set_melee_face_eps((180.f - arc * 0.5f) * 0.0174532925f);
 }

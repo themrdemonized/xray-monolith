@@ -565,6 +565,56 @@ void CKinematics::LL_SetBonesVisible(u64 mask)
 	Visibility_Invalidate();
 }
 
+bool CKinematics::CopyBonesFrom(IKinematics* _from)
+{
+	CKinematics* from = smart_cast<CKinematics*>(_from);
+	if (!from || from == this)
+		return false;
+
+	// Calculate now, so that the renderer doesn't recalculate the bones this frame and overwrite the copy
+	CalculateBones_Invalidate();
+	CalculateBones(TRUE);
+
+	CBoneInstance& root = bone_instances[iRoot];
+	root.mTransform.identity();
+	root.mRenderTransform.mul_43(root.mTransform, (*bones)[iRoot]->m2b_transform);
+
+	auto copy_bone = [&](u16 dst_id, u16 src_id)
+	{
+		CBoneInstance& dst = bone_instances[dst_id];
+		const Fmatrix& pose = from->LL_GetTransform(src_id);
+
+		// Hidden bones stay collapsed, but keep the pose for when they are shown again
+		dst.mTransformHidden = pose;
+		if (LL_GetBoneVisible(dst_id))
+		{
+			dst.mTransform = pose;
+			dst.mRenderTransform = from->bone_instances[src_id].mRenderTransform;
+		}
+	};
+
+	if (LL_BoneCount() == from->LL_BoneCount())
+	{
+		for (u16 i = 0; i < LL_BoneCount(); ++i)
+			copy_bone(i, i);
+	}
+	else
+	{
+		for (const auto& [name, id] : *bone_map_N)
+		{
+			u16 src_id = from->LL_BoneID(name);
+			if (src_id != BI_NONE)
+				copy_bone(id, src_id);
+		}
+	}
+
+	// Bounds of the copied pose
+	vis.box = from->vis.box;
+	vis.sphere = from->vis.sphere;
+
+	return true;
+}
+
 void CKinematics::Visibility_Update()
 {
 	Update_Visibility = FALSE;
