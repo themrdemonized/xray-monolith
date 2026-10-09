@@ -278,6 +278,9 @@ if ($ContainerRecoveryProbe) {
 }
 
 if ($DialogueProbe) {
+    if ($logs.host -notmatch 'CoopNet player dialogue probe: host guest and null targets blocked') {
+        throw 'Native player dialogue rejection evidence missing.'
+    }
     if ($logs.host -notmatch 'guest quest storage probe: native save_var and load_var used host world storage' -or
         $logs.host -notmatch 'guest quest storage probe: guest private storage restored after dialogue' -or
         $logs.host -notmatch 'guest script storage released: actor [0-9]+') { throw 'Shared quest script storage or native guest storage cleanup evidence missing.' }

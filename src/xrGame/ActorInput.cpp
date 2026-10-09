@@ -552,6 +552,8 @@ void CActor::ActorUse()
 		character_physics_support()->movement()->PHReleaseObject();
 
 
+	if (m_pObjectWeLookingAt && m_pObjectWeLookingAt->cast_actor()) return;
+
 	if (m_pUsableObject && NULL == m_pObjectWeLookingAt->cast_inventory_item())
 	{
 		m_pUsableObject->use(this);

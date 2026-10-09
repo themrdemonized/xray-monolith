@@ -308,3 +308,11 @@ Client movement-button changes send immediately instead of waiting for the 25 Hz
 _build/coopnet-input-build.log passed. The combined 110-second WeaponProbe/SharedWorldProbe passed in _build/coopnet-input-native.log (root coopnet-inventory-a84c64c24cd44d38a8efca4354c166a5): native prediction with zero measured camera discontinuities, host ammunition consumption, guest native firing with local damage disabled, canonical save integrity, loot replay/drop, condition correction, stable trader recreation and a complete visible NPC catalogue. This is loopback automation, not proof of singleplayer-equivalent feel under WAN latency or all FPS combinations; manual guest input feedback is still needed.
 
 Both installed EXEs/PDBs match the tested executable. Backup: C:\Users\deaDParrot\Documents\StalkerDev\backups\20261009-182919-coopnet-input.
+
+## Reject player dialogue interactions — 2026-10-09
+
+Player actors are excluded from the HUD NPC talk/corpse-search target and scripted usable target. ActorUse rejects actor targets before running use/talk/corpse logic, and RunTalkDialog rejects null/player partners before OfferTalk or UI creation, covering stale and scripted targets as well as F-key use. NPC dialogue remains eligible.
+
+Build passed (_build/coopnet-player-talk-build.log). The 110-second native DialogueProbe passed (_build/coopnet-player-talk-native.log; root coopnet-inventory-4408d42eeb054e21b54f6b10b079af1b). The added probe called the real dialogue entry point for host-to-guest, guest-to-host and null partners and verified neither actor entered talking state. Existing real NPC topic/context/range/lifecycle checks and movement/camera, canonical load, loot and passive-world regressions passed. This is programmatic native verification, not a manually pressed F-key test.
+
+Both installed EXEs/PDBs match the tested build. Backup: C:\Users\deaDParrot\Documents\StalkerDev\backups\20261009-183523-coopnet-player-talk.

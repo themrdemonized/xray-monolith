@@ -2111,6 +2111,13 @@ void CActor::shedule_Update(u32 DT)
 		m_pPersonWeLookingAt = smart_cast<CInventoryOwner*>(game_object);
 		m_pVehicleWeLookingAt = smart_cast<CHolderCustom*>(game_object);
 		CEntityAlive* pEntityAlive = smart_cast<CEntityAlive*>(game_object);
+		// Player actors are never NPC dialogue or corpse-search targets.
+		if (game_object && game_object->cast_actor())
+		{
+			m_pPersonWeLookingAt = nullptr;
+			m_pUsableObject = nullptr;
+			pEntityAlive = nullptr;
+		}
 
 		if (GameID() == eGameIDSingle)
 		{

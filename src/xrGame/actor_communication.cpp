@@ -124,6 +124,8 @@ void CActor::TryToTalk()
 
 void CActor::RunTalkDialog(CInventoryOwner* talk_partner, bool disable_break)
 {
+	// Also guard scripted callers and stale interaction targets before OfferTalk.
+	if (!talk_partner || smart_cast<CActor*>(talk_partner)) return;
 	//предложить поговорить с нами
 	if (talk_partner->OfferTalk(this))
 	{

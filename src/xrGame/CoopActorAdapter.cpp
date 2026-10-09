@@ -805,6 +805,11 @@ bool exercise_native_dialogue_topics_probe(std::uint64_t session,std::uint16_t a
     }
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(actor_id));
     if (!actor || !actor->m_known_info_registry) return false;
+    g_actor->RunTalkDialog(actor,false);
+    actor->RunTalkDialog(g_actor,false);
+    g_actor->RunTalkDialog(nullptr,false);
+    if (g_actor->IsTalking() || actor->IsTalking()) throw std::runtime_error("Player dialogue interaction was not blocked");
+    Msg("* CoopNet player dialogue probe: host guest and null targets blocked");
     auto* state=ai().script_engine().lua(); if (!state) return false;
     const auto original_position=actor->Position();
     struct RestorePosition { CActor* actor; Fvector position; ~RestorePosition() { actor->Position()=position; } } restore{actor,original_position};
