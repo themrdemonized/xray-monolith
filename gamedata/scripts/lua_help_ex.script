@@ -29,7 +29,9 @@
         npc_dont_drop_weapons_on_death [0; 1] // flag to disable NPCs dropping weapons on death
 
         telekinetic_objects_include_corpses [0; 1] // Enable the ability for poltergeists and burers to throw corpses
-        
+
+        npc_relaxed_idle_mode [0; 2] // Relaxed free-standing NPC torso idle source: 0 = vanilla (the player's safemode pose, idle_1), 1 = the NPC's own idle_0, 2 = per-NPC stable spread across every authored idle variant in the row (same NPC always lands on the same one). Default 0.
+
         sds_enable [0; 1] // Enable shader based scopes
         sds_speed_enable [0; 1] // Enable mouse sensitivity change on zooming
         sds_zoom_enable [0; 1] // Enable correction of max. zoom with scope_factor, if this option is enabled then max. zoom will be such as prescribed in settings regardless of scope_factor value, if this option is disabled then max. zoom will be sum of value prescribed in settings and the increase that gives scope_factor.
