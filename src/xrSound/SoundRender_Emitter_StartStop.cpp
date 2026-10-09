@@ -7,6 +7,7 @@
 
 void CSoundRender_Emitter::start(ref_sound* _owner, BOOL _loop, float delay)
 {
+	PROF_EVENT("CSoundRender_Emitter::start");
 	starting_delay = delay;
 
 	VERIFY(_owner);

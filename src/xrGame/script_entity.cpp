@@ -29,6 +29,7 @@
 #include "movement_manager.h"
 #include "script_callback_ex.h"
 #include "game_object_space.h"
+#include "profiler.h"
 
 void __stdcall ActionCallback(IKinematics* tpKinematics);
 
@@ -752,10 +753,12 @@ int CScriptEntity::get_enemy_strength()
 
 void CScriptEntity::process_sound_callbacks()
 {
+	PROF_EVENT("CScriptEntity::process_sound_callbacks");
 	xr_vector<CSavedSound>::const_iterator I = m_saved_sounds.begin();
 	xr_vector<CSavedSound>::const_iterator E = m_saved_sounds.end();
 	for (; I != E; ++I)
 	{
+		PROF_EVENT("Sound: deferred Lua hearing callback");
 		object().callback(GameObject::eSound)(
 			object().lua_game_object(),
 			(*I).m_game_object_id,
