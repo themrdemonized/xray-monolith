@@ -1047,6 +1047,8 @@ void CCC_Register()
 	CMD1(CCC_CoopNet, "coop_world_probe");
 	CMD1(CCC_CoopNet, "coop_party_probe");
 	CMD1(CCC_CoopNet, "coop_weapon_probe");
+	CMD1(CCC_CoopNet, "coop_inventory_probe");
+	CMD1(CCC_CoopNet, "coop_starter_probe");
 	// General
 	CMD1(CCC_Help, "help");
 	CMD1(CCC_Quit, "quit");

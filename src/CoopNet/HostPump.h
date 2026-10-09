@@ -6,6 +6,7 @@
 #include "LevelAssignment.h"
 #include "ActorInput.h"
 #include "Gameplay.h"
+#include "InventoryView.h"
 #include "WorldBaseline.h"
 #include "WorldState.h"
 #include "PartyTransition.h"
@@ -215,6 +216,26 @@ public:
     }
     void set_inventory_handler(std::function<InventoryResult(Identity,const InventoryRequest&)> handler) {
         inventory_handler_=std::move(handler);
+    }
+    bool publish_inventory_view(Identity player,const InventoryView& view) {
+        const auto actor=actors_.find(view.actor);
+        if (actor==actors_.end() || actor->second.player!=player || actor->second.generation!=view.generation ||
+            actor->second.level!=view.level || !valid_inventory_view(view)) return false;
+        std::vector<Frame> frames; std::size_t bytes=0;
+        for (std::size_t offset=0;offset<view.items.size() || frames.empty();offset+=32) {
+            InventoryViewChunk chunk; chunk.view=view; chunk.view.items.clear();
+            chunk.offset=static_cast<std::uint16_t>(offset); chunk.total=static_cast<std::uint16_t>(view.items.size());
+            const auto end=(std::min)(view.items.size(),offset+32);
+            chunk.view.items.assign(view.items.begin()+offset,view.items.begin()+end);
+            auto payload=encode_view_chunk(chunk); bytes+=payload.size()+16;
+            frames.push_back({Message::InventoryView,Channel::Inventory,Delivery::ReliableOrdered,view.revision,std::move(payload)});
+        }
+        for (auto& peer:peers_) if (peer.player==player && peer.ready && peer.level==view.level && peer.transport->connected()) {
+            if (peer.outgoing.size()+frames.size()>48 || peer.queued_bytes>224*1024 || bytes>224*1024-peer.queued_bytes) return false;
+            for (auto& frame:frames) if (!queue(peer,std::move(frame))) return false;
+            return true;
+        }
+        return false;
     }
     bool publish_item(const ItemState& item) {
         if (session_.mode()!=Mode::Host || !valid_item_state(item)) return false;

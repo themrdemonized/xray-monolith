@@ -1,10 +1,22 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
+if ($InventoryProbe) { $WeaponProbe=$true }
+if ($StarterProbe) { $WorldProbe=$true }
 if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
+if (($InventoryProbe -or $StarterProbe) -and !$TestDirectory) {
+    # A prior guest journal would bypass the fresh-loadout/firing stimulus.
+    $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
+    foreach ($role in @('host','guest')) {
+        $cache=Join-Path $PSScriptRoot "_build\coopnet-engine-test\$role\appdata\shaders_cache"
+        $target=Join-Path $TestDirectory "$role\appdata"
+        New-Item $target -ItemType Directory -Force | Out-Null
+        if (Test-Path $cache) { Copy-Item -LiteralPath $cache -Destination $target -Recurse }
+    }
+}
 $client = Join-Path (Split-Path $PSScriptRoot) 'Anomaly-1.5.3'
 $fixtureFiles = Get-ChildItem "$client\appdata\savedgames\player - autosave.*" -File
 $originalHashes = @{}
@@ -12,7 +24,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -72,7 +84,7 @@ if ($MovementProbe) {
 }
 Write-Output "ENGINE_PROBE_PASS: guest model updated $($renderEvidence.Groups[1].Value) times, submitted $($renderEvidence.Groups[2].Value) times, and removed; original saves unchanged."
 if ($GameplayProbe) {
-    $nativeTransactions=[regex]::Matches($logs.host,'CoopNet inventory native transaction:')
+    $nativeTransactions=[regex]::Matches($logs.host,'CoopNet inventory native transaction: sequence [0-9]+ action [12] ')
     $health=[regex]::Matches($logs.guest,'CoopNet authoritative guest health applied: (-?[\d.]+)')
     $damaged=$false
     foreach ($match in $health) {
@@ -150,3 +162,20 @@ if ($RestartProbe) {
     Write-Output 'NATIVE_GUEST_RESTART_PASS: a new host process restored the saved guest weapon, active slot and two remaining rounds.'
 }
 Write-Output 'Development fixture only. Dynamic NPC lifecycles and complete inventory controls are not verified.'
+
+if ($InventoryProbe) {
+    if ($logs.guest -notmatch 'CoopNet guest cloned inventory retired:' -or
+        $logs.guest -notmatch 'CoopNet inventory control probe completed: rounds 2' -or
+        $logs.host -notmatch 'CoopNet inventory native transaction: sequence [0-9]+ action 4 ' -or
+        $logs.host -notmatch 'CoopNet inventory native transaction: sequence [0-9]+ action 3 ') {
+        throw 'Guest inventory mirror, host ruck/equip and ammunition preservation evidence missing.'
+    }
+    Write-Output 'NATIVE_INVENTORY_CONTROL_PASS: guest mirror retired cloned equipment; host accepted ruck/equip and preserved two rounds.'
+}
+if ($StarterProbe) {
+    if ($logs.host -notmatch 'CoopNet guest starter loadout ready: items 4 rounds [1-9][0-9]*' -or
+        $logs.guest -notmatch 'CoopNet guest inventory view applied: items 4 active rounds [1-9][0-9]*') {
+        throw 'Fresh guest starter equipment and client inventory mirror evidence missing.'
+    }
+    Write-Output 'NATIVE_STARTER_LOADOUT_PASS: fresh guest received pistol, ammunition, bandage and PDA with an owner inventory view.'
+}

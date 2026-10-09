@@ -1,6 +1,12 @@
 param([ValidateRange(120,300)][int]$TravelSeconds=150,[ValidateRange(60,300)][int]$RestartSeconds=90)
 $ErrorActionPreference='Stop'
 $probeRoot=Join-Path $PSScriptRoot ('_build\coopnet-persistence-'+[Guid]::NewGuid().ToString('N'))
+foreach ($role in @('host','guest')) {
+    $cache=Join-Path $PSScriptRoot "_build\coopnet-engine-test\$role\appdata\shaders_cache"
+    $target=Join-Path $probeRoot "$role\appdata"
+    New-Item $target -ItemType Directory -Force | Out-Null
+    if (Test-Path $cache) { Copy-Item -LiteralPath $cache -Destination $target -Recurse }
+}
 & "$PSScriptRoot\test-coopnet-engine.ps1" -WeaponProbe -PartyProbe -Seconds $TravelSeconds -TestDirectory $probeRoot
 $records=@(Get-ChildItem (Join-Path $probeRoot 'host\appdata\savedgames') -Filter 'coopnet-character-*-0000000000000002-*' -File)
 if ($records.Count -ne 2) { throw 'Expected both guest save journal records.' }

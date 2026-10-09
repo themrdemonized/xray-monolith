@@ -1,6 +1,8 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [string]$TestDirectory)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$StarterProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
+if ($InventoryProbe) { $WeaponProbe=$true }
+if ($StarterProbe) { $WorldProbe=$true }
 if ($WeaponProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true; $LoadFixture=$true }
@@ -52,6 +54,8 @@ foreach ($role in @('host', 'guest')) {
     if ($GameplayProbe) { Add-Content "$data\user.ltx" 'coop_gameplay_probe' -Encoding ascii }
     if ($WorldProbe) { Add-Content "$data\user.ltx" 'coop_world_probe' -Encoding ascii }
     if ($WeaponProbe) { Add-Content "$data\user.ltx" 'coop_weapon_probe' -Encoding ascii }
+    if ($InventoryProbe -and $role -eq 'guest') { Add-Content "$data\user.ltx" 'coop_inventory_probe' -Encoding ascii }
+    if ($StarterProbe -and $role -eq 'host') { Add-Content "$data\user.ltx" 'coop_starter_probe' -Encoding ascii }
     if ($PartyProbe -and $role -eq 'host') { Add-Content "$data\user.ltx" 'coop_party_probe' -Encoding ascii }
     if ($LoadFixture -and ($role -eq 'host' -or $ReplicaProbe) -and !($WorldProbe -and $role -eq 'guest')) {
         $fixture = Join-Path $client 'appdata\savedgames\player - autosave.scop'

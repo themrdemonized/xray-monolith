@@ -6,12 +6,12 @@
 #include <utility>
 
 namespace coopnet {
-constexpr std::uint16_t protocol_version = 11;
+constexpr std::uint16_t protocol_version = 12;
 constexpr std::size_t max_payload = 16384;
 enum class Mode { Offline, Host, Client };
 enum class Channel : std::uint8_t { Control, Actor, Combat, Inventory, World, AI, Transition };
 enum class Delivery : std::uint8_t { ReliableOrdered, UnreliableSequenced };
-enum class Message : std::uint16_t { ClientHello = 1, ServerHello, Disconnect, ActorSnapshot, LevelReady, Roster, ClientReady, ActorCreate, ActorRemove, LevelAssignment, LevelCancelled, ActorInput, InventoryRequest, InventoryResult, ItemState, ActorVitals, WorldBaseline, WorldChunk, WorldReceived, WorldState, PartyStatus };
+enum class Message : std::uint16_t { ClientHello = 1, ServerHello, Disconnect, ActorSnapshot, LevelReady, Roster, ClientReady, ActorCreate, ActorRemove, LevelAssignment, LevelCancelled, ActorInput, InventoryRequest, InventoryResult, ItemState, ActorVitals, WorldBaseline, WorldChunk, WorldReceived, WorldState, PartyStatus, InventoryView };
 using Identity = std::uint64_t;
 struct Frame {
     Message message;
@@ -43,6 +43,8 @@ public:
     std::size_t remaining() const { return bytes.size() - offset; }
 };
 inline bool valid_contract(const Frame& frame) {
+    if (frame.message==Message::InventoryView)
+        return frame.channel==Channel::Inventory && frame.delivery==Delivery::ReliableOrdered;
     if (frame.message==Message::PartyStatus)
         return frame.channel==Channel::Transition && frame.delivery==Delivery::ReliableOrdered;
     if (frame.message==Message::WorldState)

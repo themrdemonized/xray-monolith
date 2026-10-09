@@ -2,12 +2,13 @@
 #include "ActorSnapshot.h"
 #include <string>
 namespace coopnet {
-enum class InventoryAction : std::uint8_t { Take = 1, Drop = 2 };
+enum class InventoryAction : std::uint8_t { Take = 1, Drop = 2, Equip, Ruck, Belt, Use, Activate, Holster };
 enum class InventoryStatus : std::uint8_t { Accepted, Unavailable, Conflict, Denied, OutOfRange, Capacity, Busy, Expired };
 struct InventoryRequest {
     Identity actor = 0, item = 0;
     std::uint32_t generation = 0, level = 0, sequence = 0, revision = 0;
     InventoryAction action = InventoryAction::Take;
+    std::uint16_t slot=0xffff;
 };
 struct InventoryResult {
     Identity item = 0, owner = 0;
@@ -34,21 +35,23 @@ inline bool read_float(Reader& r, float& value) {
 }
 inline bool valid_inventory_request(const InventoryRequest& r) {
     return r.actor && r.item && r.generation && r.level && r.revision &&
-        (r.action == InventoryAction::Take || r.action == InventoryAction::Drop);
+        static_cast<unsigned>(r.action)>=1 && static_cast<unsigned>(r.action)<=8 &&
+        ((r.action==InventoryAction::Equip || r.action==InventoryAction::Activate) ? r.slot<256 : r.slot==0xffff);
 }
 inline std::vector<std::uint8_t> encode_inventory_request(const InventoryRequest& r) {
     if (!valid_inventory_request(r)) throw std::invalid_argument("Invalid inventory request");
     Writer w; w.integer(r.actor,8); w.integer(r.item,8); w.integer(r.generation,4);
-    w.integer(r.level,4); w.integer(r.sequence,4); w.integer(r.revision,4); w.integer(static_cast<unsigned>(r.action),1);
+    w.integer(r.level,4); w.integer(r.sequence,4); w.integer(r.revision,4); w.integer(static_cast<unsigned>(r.action),1); w.integer(r.slot,2);
     return w.bytes;
 }
 inline bool decode_inventory_request(const std::vector<std::uint8_t>& bytes, InventoryRequest& output) {
-    Reader r(bytes); InventoryRequest v; std::uint64_t g,l,s,revision,action;
+    Reader r(bytes); InventoryRequest v; std::uint64_t g,l,s,revision,action,slot;
     if (!r.integer(v.actor,8) || !r.integer(v.item,8) || !r.integer(g,4) || !r.integer(l,4) ||
-        !r.integer(s,4) || !r.integer(revision,4) || !r.integer(action,1) || r.remaining()) return false;
+        !r.integer(s,4) || !r.integer(revision,4) || !r.integer(action,1) || !r.integer(slot,2) || r.remaining()) return false;
     v.generation=static_cast<std::uint32_t>(g); v.level=static_cast<std::uint32_t>(l);
     v.sequence=static_cast<std::uint32_t>(s); v.revision=static_cast<std::uint32_t>(revision);
     v.action=static_cast<InventoryAction>(action);
+    v.slot=static_cast<std::uint16_t>(slot);
     if (!valid_inventory_request(v)) return false; output=v; return true;
 }
 inline std::vector<std::uint8_t> encode_inventory_result(const InventoryResult& v) {

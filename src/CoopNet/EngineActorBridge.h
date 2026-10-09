@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "InventoryView.h"
 namespace engine_coopnet {
 // Copied owner-thread state only. No engine pointer crosses the transport boundary.
 struct LocalActorPose {
@@ -45,6 +46,17 @@ struct NativeSessionItem {
     std::uint16_t object=0xffff, owner=0xffff, native_owner=0xffff;
     char section[129]{};
 };
+struct NativeInventoryViewItem { std::uint16_t object=0xffff; std::uint64_t incarnation=0; coopnet::InventoryViewItem state; };
+bool capture_guest_inventory_view(std::uint16_t actor,std::vector<NativeInventoryViewItem>& items,std::uint16_t& active);
+bool begin_guest_loadout(std::uint16_t actor);
+void queue_local_inventory_view(const coopnet::InventoryView& view);
+void update_local_inventory_view();
+struct LocalInventoryAction { coopnet::Identity item=0; std::uint32_t revision=0; coopnet::InventoryAction action=coopnet::InventoryAction::Drop; std::uint16_t slot=0xffff; };
+enum class NativeInventoryStatus : std::uint8_t;
+bool queue_local_inventory_action(std::uint16_t object,coopnet::InventoryAction action,std::uint16_t slot=0xffff);
+bool pop_local_inventory_action(LocalInventoryAction& action);
+void exercise_local_inventory_probe();
+NativeInventoryStatus transact_owned_item(std::uint16_t actor,std::uint16_t item,std::uint64_t incarnation,coopnet::InventoryAction action,std::uint16_t slot);
 enum class NativeInventoryStatus : std::uint8_t { Accepted, Unavailable, Conflict, Denied, OutOfRange, Capacity };
 bool capture_actor_condition(std::uint16_t object, ActorConditionState& state);
 bool apply_guest_condition(std::uint16_t object,const ActorConditionState& state);

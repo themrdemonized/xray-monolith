@@ -6,6 +6,7 @@
 #include "LevelAssignment.h"
 #include "ActorInput.h"
 #include "Gameplay.h"
+#include "InventoryView.h"
 #include "WorldBaseline.h"
 #include "WorldState.h"
 #include "PartyTransition.h"
@@ -34,6 +35,10 @@ class ClientPump {
     TransferFailure transfer_failure_ = TransferFailure::None;
     std::function<void(const LevelFailure&)> transfer_failure_sink_;
     std::map<Identity,ItemState> items_;
+    InventoryViewAssembly inventory_view_assembly_;
+    SequenceWindow inventory_views_;
+    std::uint32_t inventory_view_revision_=0;
+    std::function<void(const InventoryView&)> inventory_view_sink_;
     std::map<std::uint32_t,InventoryRequest> pending_inventory_;
     std::map<std::uint32_t,std::pair<InventoryRequest,Identity>> inventory_history_;
     SequenceWindow inventory_sequences_;
@@ -47,6 +52,7 @@ class ClientPump {
     std::function<bool(const WorldBaseline&,const std::vector<std::uint8_t>&)> baseline_sink_;
     std::function<void(const WorldBaseline&,std::uint32_t)> baseline_progress_sink_;
     void clear_baseline() {
+        inventory_view_assembly_.clear(); inventory_views_={}; inventory_view_revision_=0;
         world_sequences_.clear();
         baseline_assembly_.clear(); baseline_={}; baseline_validated_=false; baseline_acknowledged_=false; baseline_time_=0;
     }
@@ -88,6 +94,7 @@ public:
         return false;
     }
     const std::map<Identity,ItemState>& items() const { return items_; }
+    void set_inventory_view_sink(std::function<void(const InventoryView&)> sink) { inventory_view_sink_=std::move(sink); }
     void set_inventory_sink(std::function<void(const InventoryResult&)> sink) { inventory_sink_=std::move(sink); }
     void set_vitals_sink(std::function<void(const ActorVitals&)> sink) { vitals_sink_=std::move(sink); }
     SendResult send_inventory(const InventoryRequest& request) {
@@ -261,6 +268,17 @@ public:
                         else ++pending;
                     }
                 }
+            } else if (frame.message==Message::InventoryView) {
+                InventoryViewChunk chunk;
+                if (!decode_view_chunk(frame.payload,chunk) || chunk.view.revision!=frame.sequence) { lost(); return; }
+                const auto* actor=actors_.find(chunk.view.actor);
+                if (!level_ready_sent_ || chunk.view.level!=assignment_.level || !actor || actor->player!=session_.welcome().player ||
+                    actor->generation!=chunk.view.generation || actor->level!=chunk.view.level) continue;
+                if (!chunk.offset) { if (!inventory_views_.accept(chunk.view.revision)) continue; inventory_view_revision_=chunk.view.revision; }
+                if (chunk.view.revision!=inventory_view_revision_) continue;
+                InventoryView view; bool complete=false;
+                if (!inventory_view_assembly_.append(chunk,complete,view)) { lost(); return; }
+                if (complete) { inventory_view_revision_=0; if (inventory_view_sink_) inventory_view_sink_(view); }
             } else if (frame.message==Message::ItemState) {
                 ItemState item;
                 if (!decode_item_state(frame.payload,item) || item.revision!=frame.sequence) { lost(); return; }

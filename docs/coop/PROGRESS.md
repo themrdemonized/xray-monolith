@@ -1,6 +1,20 @@
 # Implementation progress
 
-Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. Independent active locations and location workers are deferred. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
+Current user-selected goal: one host simulates the shared world, and all connected players travel between locations together. The active architecture has no location workers or independently active guest locations. Full ordinary gameplay authority, portable characters, persistence and quest synchronization remain incomplete.
+
+## Guest inventory view checkpoint — 2026-10-08
+
+Protocol 12 adds bounded owner-only equipment snapshots and retires the guest actor's cloned host inventory. The mirror carries section, condition, slot/backpack/belt placement, active item and weapon/ammo counts. Inventory UI and quick-use hooks send equip, backpack, belt, use, activate, holster and drop requests to the host through the correlated, replay-protected inventory path. New characters receive a PM pistol, ammunition, bandage and PDA; saved characters restore their prior inventory without another grant.
+
+All eleven standalone suites and the enabled DX11 build passed (`_build/coopnet-inventory-final-unit.log`, `_build/coopnet-inventory-final-build.log`). A fresh 90-second native run passed firing from three rounds to two, clone retirement, host backpack/equip transactions, and mirror reactivation with two rounds. Movement, canonical snapshot hashes, passive NPC updates, rendering, loot replay/damage, normal shutdown and original-save hashes also passed (`_build/coopnet-inventory-fresh-engine.log`). The probe exercises the same native command queue used by inventory menu hooks; clicked UI appearance has not been visually verified.
+
+A separate fresh 90-second native run confirmed the four starter items and the guest's four-item view with an active loaded pistol, alongside the existing movement/world/gameplay checks (`_build/coopnet-starter-engine.log`).
+
+The 150-second travel plus 90-second restart regression also passed (`_build/coopnet-inventory-persistence.log`). Both players loaded destination level 2, with the guest weapon, active slot and two rounds restored. A new host rejected the deliberately damaged newest guest record (sequence 62), restored the previous valid version, and retained two rounds. Canonical snapshot hashes, normal shutdown and original-save hashes passed throughout. Repeat with `test-coopnet-persistence.ps1 -TravelSeconds 150 -RestartSeconds 90`; isolated shader caches are copied when available.
+
+An initial run reused an earlier guest journal and bypassed the fresh weapon fixture. Inventory/starter probes now use fresh isolated save directories by default; copied test shader caches reduce loading time without changing original appdata. Duplicate multi-chunk inventory snapshots are ignored without disconnecting; whole-view identities, active slot placement and slot uniqueness are validated before queuing. Empty saved inventories remain empty.
+
+Ordinary world loot mapping, full consumable/upgrade/attachment mirroring, dynamic NPC lifecycles, combat effects, death/rejoin and quest synchronization remain unfinished. Belt/use/drop/holster hooks need dedicated native checks beyond the existing take/drop fixture. See GUEST_STATE.md for the supported subset.
 
 ## Guest firing and saved equipment checkpoint — 2026-10-08
 

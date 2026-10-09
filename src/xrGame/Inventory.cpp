@@ -4,6 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "pch_script.h"
+#include "../CoopNet/EngineActorBridge.h"
 #include "inventory.h"
 #include "actor.h"
 #include "CustomOutfit.h"
@@ -1157,6 +1158,7 @@ bool CInventory::Eat(PIItem pIItem)
 
 bool CInventory::ClientEat(PIItem pIItem)
 {
+    if (smart_cast<CActor*>(m_pOwner)==Actor() && engine_coopnet::queue_local_inventory_action(pIItem->object().ID(),coopnet::InventoryAction::Use)) return true;
 	CEatableItem* pItemToEat = smart_cast<CEatableItem*>(pIItem);
 	if (!pItemToEat) return false;
 

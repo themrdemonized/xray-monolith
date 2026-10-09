@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include "../../CoopNet/EngineActorBridge.h"
+#include "../../CoopNet/EngineWorldBridge.h"
 #include "UIActorMenu.h"
 #include "../inventory.h"
 #include "../inventoryOwner.h"
@@ -70,6 +72,17 @@ void CUIActorMenu::DeInitInventoryMode()
 
 void CUIActorMenu::SendEvent_ActivateSlot(u16 slot, u16 recipient)
 {
+    if (Actor() && Actor()->ID()==recipient && engine_coopnet::world_level_is_replica()) {
+        if (slot==NO_ACTIVE_SLOT) {
+            auto* active=Actor()->inventory().ActiveItem();
+            if (active) engine_coopnet::queue_local_inventory_action(active->object().ID(),coopnet::InventoryAction::Holster);
+            return;
+        }
+        if (slot<Actor()->inventory().FirstSlot() || slot>Actor()->inventory().LastSlot()) return;
+        auto* item=Actor()->inventory().ItemFromSlot(slot);
+        if (item) engine_coopnet::queue_local_inventory_action(item->object().ID(),coopnet::InventoryAction::Activate,slot);
+        return;
+    }
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ACTIVATE_SLOT, recipient);
 	P.w_u16(slot);
@@ -78,6 +91,7 @@ void CUIActorMenu::SendEvent_ActivateSlot(u16 slot, u16 recipient)
 
 void CUIActorMenu::SendEvent_Item2Slot(PIItem pItem, u16 recipient, u16 slot_id)
 {
+    if (engine_coopnet::queue_local_inventory_action(pItem->object_id(),coopnet::InventoryAction::Equip,slot_id)) return;
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
@@ -93,6 +107,7 @@ void CUIActorMenu::SendEvent_Item2Slot(PIItem pItem, u16 recipient, u16 slot_id)
 
 void CUIActorMenu::SendEvent_Item2Belt(PIItem pItem, u16 recipient)
 {
+    if (engine_coopnet::queue_local_inventory_action(pItem->object_id(),coopnet::InventoryAction::Belt)) return;
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
@@ -106,6 +121,7 @@ void CUIActorMenu::SendEvent_Item2Belt(PIItem pItem, u16 recipient)
 
 void CUIActorMenu::SendEvent_Item2Ruck(PIItem pItem, u16 recipient)
 {
+    if (engine_coopnet::queue_local_inventory_action(pItem->object_id(),coopnet::InventoryAction::Ruck)) return;
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
@@ -119,6 +135,7 @@ void CUIActorMenu::SendEvent_Item2Ruck(PIItem pItem, u16 recipient)
 
 void CUIActorMenu::SendEvent_Item_Eat(PIItem pItem, u16 recipient)
 {
+    if (engine_coopnet::queue_local_inventory_action(pItem->object_id(),coopnet::InventoryAction::Use)) return;
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
@@ -130,6 +147,7 @@ void CUIActorMenu::SendEvent_Item_Eat(PIItem pItem, u16 recipient)
 
 void CUIActorMenu::SendEvent_Item_Drop(PIItem pItem, u16 recipient)
 {
+    if (engine_coopnet::queue_local_inventory_action(pItem->object_id(),coopnet::InventoryAction::Drop)) return;
 	R_ASSERT(pItem->parent_id()==recipient);
 	if (!IsGameTypeSingle())
 		pItem->DenyTrade();
