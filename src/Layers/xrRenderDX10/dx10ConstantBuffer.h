@@ -25,6 +25,8 @@ public:
 	//	Array buffer member
 	void seta(R_constant* C, R_constant_load& L, u32 e, const Fmatrix& A);
 	void seta(R_constant* C, R_constant_load& L, u32 e, const Fvector4& A);
+	//	Raw bytes over the declared size, the tail past the data is zeroed
+	void set_bytes(R_constant_load& L, const void* data, u32 bytes);
 
 	void* AccessDirect(R_constant_load& L, u32 DataSize);
 

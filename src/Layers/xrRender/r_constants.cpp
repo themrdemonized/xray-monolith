@@ -25,9 +25,9 @@ R_constant_table::~R_constant_table()
 }
 
 
-void R_constant_table::fatal(LPCSTR S)
+void R_constant_table::fatal(LPCSTR S, LPCSTR name)
 {
-	FATAL(S);
+	Debug.fatal(DEBUG_INFO, "%s (constant '%s')", S, name);
 }
 
 // predicates
@@ -98,7 +98,7 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
 							break;
 						default:
 							Msg("Invalid matrix dimension:%dx%d in constant %s", it->RegisterCount, T->Columns, name);
-							fatal("MATRIX_ROWS: unsupported number of RegisterCount");
+							fatal("MATRIX_ROWS: unsupported number of RegisterCount", name);
 							break;
 						}
 						break;
@@ -106,21 +106,21 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
 						VERIFY(4 == it->RegisterCount);
 						break;
 					default:
-						fatal("MATRIX_ROWS: unsupported number of Rows");
+						fatal("MATRIX_ROWS: unsupported number of Rows", name);
 						break;
 					}
 					break;
 				default:
-					fatal("MATRIX_ROWS: unsupported number of Columns");
+					fatal("MATRIX_ROWS: unsupported number of Columns", name);
 					break;
 				}
 			}
 			break;
 		case D3DXPC_MATRIX_COLUMNS:
-			fatal("Pclass MATRIX_COLUMNS unsupported");
+			fatal("Pclass MATRIX_COLUMNS unsupported", name);
 			break;
 		case D3DXPC_STRUCT:
-			fatal("Pclass D3DXPC_STRUCT unsupported");
+			fatal("Pclass D3DXPC_STRUCT unsupported", name);
 			break;
 		case D3DXPC_OBJECT:
 			{
@@ -157,7 +157,7 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
 					}
 					break;
 				default:
-					fatal("Pclass D3DXPC_OBJECT - object isn't of 'sampler' type");
+					fatal("Pclass D3DXPC_OBJECT - object isn't of 'sampler' type", name);
 					break;
 				}
 			}
@@ -180,6 +180,7 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
 			R_constant_load& L = (destination & 1) ? C->ps : C->vs;
 			L.index = r_index;
 			L.cls = r_type;
+			L.size = it->RegisterCount * 16;
 			table.push_back(C);
 		}
 		else
@@ -189,6 +190,7 @@ BOOL R_constant_table::parse(void* _desc, u32 destination)
 			R_constant_load& L = (destination & 1) ? C->ps : C->vs;
 			L.index = r_index;
 			L.cls = r_type;
+			L.size = it->RegisterCount * 16;
 		}
 	}
 	std::sort(table.begin(), table.end(), p_sort);
@@ -238,6 +240,7 @@ void R_constant_table::merge(R_constant_table* T)
 			R_constant_load& dL = C->get_load(src->destination);
 			dL.index = sL.index;
 			dL.cls = sL.cls;
+			dL.size = sL.size;
 		}
 	}
 

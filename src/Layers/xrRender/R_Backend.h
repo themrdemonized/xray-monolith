@@ -376,6 +376,7 @@ public:
 #if defined(USE_DX10) || defined(USE_DX11)
 	ICF void set_c(R_constant* C, float A) { if (C) constants.set(C, A); }
 	ICF void set_c(R_constant* C, int A) { if (C) constants.set(C, A); }
+	ICF void set_c_bytes(R_constant* C, const void* data, u32 bytes) { if (C) constants.set_bytes(C, data, bytes); }
 #endif	//	USE_DX10
 
 
