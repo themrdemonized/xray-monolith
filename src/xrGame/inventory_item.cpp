@@ -20,6 +20,7 @@
 #include "Level.h"
 #include "game_cl_base.h"
 #include "Actor.h"
+#include "../xrEngine/CameraBase.h"
 #include "string_table.h"
 #include "../Include/xrRender/Kinematics.h"
 #include "ai_object_location.h"
@@ -1268,7 +1269,24 @@ void CInventoryItem::activate_physic_shell()
 
 	UpdateXForm();
 
+	CActor* actor = smart_cast<CActor*>(E);
+	float heading = actor ? actor->cam_Active()->vDirection.getH() : E->Direction().getH();
+	Fvector pos = object().Position();
+	object().XFORM().setHPB(heading, 0.f, 0.f);
+	if (actor)
+	{
+		pos.x = actor->Position().x;
+		pos.z = actor->Position().z;
+		pos.mad(object().XFORM().k, 0.3f);
+	}
+	object().Position().set(pos);
 	object().CPhysicsShellHolder::activate_physic_shell();
+	if (actor && object().PPhysicsShell())
+	{
+		Fvector vel = actor->cam_Active()->vDirection;
+		vel.y = 0.f;
+		object().PPhysicsShell()->set_LinearVel(vel.mul(4.f));
+	}
 }
 
 void CInventoryItem::UpdateXForm()
