@@ -17,6 +17,8 @@ enum
 	RC_float = 0,
 	RC_int = 1,
 	RC_bool = 2,
+	// DX10 and DX11, shader bus lanes only
+	RC_uint = 3,
 	RC_sampler = 99,
 	//	DX9 shares index for sampler and texture
 	RC_dx10texture = 100,
@@ -100,14 +102,15 @@ struct ECORE_API R_constant_load
 {
 	u16 index; // linear index (pixel)
 	u16 cls; // element class
+	u32 size; // declared size in bytes
 
-	R_constant_load() : index(u16(-1)), cls(u16(-1))
+	R_constant_load() : index(u16(-1)), cls(u16(-1)), size(0)
 	{
 	};
 
 	IC BOOL equal(R_constant_load& C)
 	{
-		return (index == C.index) && (cls == C.cls);
+		return (index == C.index) && (cls == C.cls) && (size == C.size);
 	}
 };
 
@@ -198,7 +201,7 @@ public:
 	cb_table m_CBTable;
 #endif	//	USE_DX10
 private:
-	void fatal(LPCSTR s);
+	void fatal(LPCSTR s, LPCSTR name);
 
 #if defined(USE_DX10) || defined(USE_DX11)
 	BOOL parseConstants(ID3DShaderReflectionConstantBuffer* pTable, u32 destination);

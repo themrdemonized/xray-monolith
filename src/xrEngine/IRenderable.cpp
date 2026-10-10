@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "shader_bus.h"
 #include "../xrcdb/ispatial.h"
 #include "irenderable.h"
 
@@ -21,6 +22,7 @@ IRenderable::~IRenderable()
 	if (renderable.pROS) Render->ros_destroy(renderable.pROS);
 	renderable.visual = NULL;
 	renderable.pROS = NULL;
+	ShaderBus::object_forget(this);
 }
 
 IRender_ObjectSpecific* IRenderable::renderable_ROS()
