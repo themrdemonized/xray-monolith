@@ -2,6 +2,10 @@
 
 # STALKER-Anomaly-modded-exes
 
+> **CoopNet is an EARLY TEST / FREE PLAY build. It DOES NOT contain the full planned feature set yet. Expect bugs, crashes, and incomplete systems.** The current focus is exploring and experiencing the Zone together. Story progression, quest synchronization, quest turn-in, and shared rewards are still incomplete; do not expect a complete co-op story experience yet.
+
+Get the required base game: [Anomaly 1.5.3 full download on ModDB](https://www.moddb.com/mods/stalker-anomaly/downloads/stalker-anomaly-153) or [Anomaly download/install page with a torrent option](https://anomalymod.com/download-install/). CoopNet must be installed separately using the guide below.
+
 **Looking to play CoopNet? Start with the [installation and multiplayer setup guide](INSTALL-COOPNET.md).** It covers building the `coopnet` branch, installing into Anomaly 1.5.3, hosting, joining, and UDP port forwarding. This source repository is not a full game download; the CoopNet guide takes precedence over the inherited upstream executable installation instructions below.
 
 ## CoopNet: host, join, and port forwarding

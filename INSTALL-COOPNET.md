@@ -1,10 +1,19 @@
 # Installing and playing Anomaly CoopNet
 
+> **EARLY TEST / FREE PLAY BUILD — DOES NOT contain the full planned features yet. Expect bugs, crashes, and incomplete systems.** Think of this as a way to explore and experience the Zone with friends. Story progression and quest systems are still being developed; a complete co-op story experience is not available yet.
+
 CoopNet is an experimental engine modification for **S.T.A.L.K.E.R. Anomaly 1.5.3**. This repository contains engine source and supporting files, not the full game. Downloading GitHub's source ZIP alone does not install a playable client. The instructions below build the networking-enabled DX11 client from the `coopnet` branch.
 
 ## 1. Prepare the game and build tools
 
 Install Anomaly 1.5.3 separately and launch it once to check that it works. Back up your saves before testing CoopNet. Start with an unmodified game; host and guests need matching game files, mods, and CoopNet builds.
+
+Download the base game from either of these pages:
+
+- [Anomaly 1.5.3 full release on ModDB](https://www.moddb.com/mods/stalker-anomaly/downloads/stalker-anomaly-153).
+- [Anomaly download and installation page](https://anomalymod.com/download-install/), which also links a torrent option.
+
+Use the full **1.5.3** release. These downloads provide the base game; they do not include this CoopNet modification.
 
 On Windows, install Git and Visual Studio 2022 with **Desktop development with C++**, the **v143 toolset**, a **Windows SDK**, and the matching **v143 MFC and ATL** components. Visual Studio 2026 requires the side-by-side **14.44 (17.14)** compiler and matching MFC/ATL components; see [build details](BUILD-AND-RUN.md).
 
