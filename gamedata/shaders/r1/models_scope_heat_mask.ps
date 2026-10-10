@@ -1,0 +1,13 @@
+uniform sampler2D s_base;
+uniform float4 r1_heat_params;
+
+struct vf
+{
+    float2 tc : TEXCOORD0;
+};
+
+float4 main(vf I) : COLOR0
+{
+    // Original material state keeps its alpha test; temperature does not depend on light.
+    return float4(r1_heat_params.x, 0.0, 0.0, tex2D(s_base, I.tc).a);
+}

@@ -22,6 +22,7 @@ class CEntity :
 private:
 	typedef CPhysicsShellHolder inherited;
 	CEntityConditionSimple* m_entity_condition;
+    float m_heat_age_at_spawn = 0.f;
 
 protected:
 	//время через которое мертвое тело убирется с уровня

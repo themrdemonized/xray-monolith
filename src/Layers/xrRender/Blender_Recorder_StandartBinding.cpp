@@ -582,6 +582,20 @@ static class scope_lens_color : public R_constant_setup
     }
 } binder_scope_lens_color;
 
+#if RENDER == R_R1
+static class scope_thermal_params : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float minFov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y * 0.75f;
+        const float zoom = Device.fFOV > EPS_S ? _max(minFov / Device.fFOV, 1.f) : 1.f;
+        const float pixel = (int(ps_s3ds_param_4.w) & 8) ? _max(floorf(zoom), 1.f) : 1.f;
+        RCache.set_c(C, ps_markswitch_current == 1 ? 1.f : 0.f,
+            int(ps_s3ds_param_3.x) == 3 ? 1.f : 0.f, pixel, 0.f);
+    }
+} binder_scope_thermal_params;
+#endif
+
 static class scope_transition : public R_constant_setup
 {
     virtual void setup(R_constant* C)
@@ -1757,6 +1771,9 @@ void CBlender_Compile::SetMapping()
     r_Constant("scope_reticle_color", &binder_scope_reticle_color);
     r_Constant("scope_reticle_optics", &binder_scope_reticle_optics);
     r_Constant("scope_lens_color", &binder_scope_lens_color);
+#if RENDER == R_R1
+    r_Constant("scope_thermal_params", &binder_scope_thermal_params);
+#endif
     r_Constant("scope_transition", &binder_scope_transition);
     r_Constant("scope_surface_params", &binder_scope_surface_params);
     r_Constant("scope_surface_light", &binder_scope_surface_light);

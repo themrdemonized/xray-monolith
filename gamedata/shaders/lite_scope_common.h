@@ -29,6 +29,19 @@ float2 scope_mark_offset(vf I, float2 parallax)
     return offset * (1.0 - scope_reticle_optics.y * length(parallax) * dot(radius, radius));
 }
 
+float2 scope_scene_coord(vf I, float4 resolution)
+{
+    float2 screen_tc = I.screen.xy / I.screen.w * float2(0.5, -0.5) + 0.5;
+    float2 tc = (screen_tc - 0.5) * scope_lens_params.x + 0.5 + resolution.zw * 0.5;
+    tc += scope_parallax(I) * scope_lens_params.yz;
+    float2 disk1 = I.tc - float2(scope_transition.z, 0.5);
+    float2 disk2 = I.tc - float2(scope_transition.w, 0.5);
+    tc.x += scope_transition.y * 0.2 *
+        ((1.0 - scope_transition.x) * step(dot(disk2, disk2), 1.0) -
+        scope_transition.x * step(dot(disk1, disk1), 1.0));
+    return tc;
+}
+
 float scope_pupil(vf I, float2 parallax)
 {
     float2 exit_tc = (I.tc - 0.5 + parallax * scope_shadow_params.x) * scope_shadow_params.y;

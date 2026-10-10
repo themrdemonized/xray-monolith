@@ -585,6 +585,18 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
             C.bDetail = FALSE;
             S.E[5] = C._lua_Compile(s_shader, "scope_surface");
         }
+        if (S.E[5]._get() && Script::bfIsObjectPresent(LSVM, s_shader, "scope_thermal", LUA_TFUNCTION))
+        {
+            C.iElement = 5;
+            C.bDetail = FALSE;
+            ref_selement thermal;
+            thermal = C._lua_Compile(s_shader, "scope_thermal");
+            ShaderElement surface;
+            surface.flags = S.E[5]->flags;
+            surface.passes = S.E[5]->passes;
+            surface.passes.push_back(thermal->passes[0]);
+            S.E[5] = _CreateElement(surface);
+        }
     }
 #endif
 

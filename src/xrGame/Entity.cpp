@@ -157,6 +157,7 @@ BOOL CEntity::net_Spawn(CSE_Abstract* DC)
 {
 	m_level_death_time = 0;
 	m_game_death_time = 0;
+    m_heat_age_at_spawn = 0.f;
 	m_killer_id = ALife::_OBJECT_ID(-1);
 
 	CSE_Abstract* e = (CSE_Abstract*)(DC);
@@ -226,6 +227,13 @@ BOOL CEntity::net_Spawn(CSE_Abstract* DC)
 	{
 		m_level_death_time = Device.dwTimeGlobal;
 		m_game_death_time = E->m_game_death_time;
+        if (m_game_death_time && ai().get_alife())
+        {
+            const auto& time = ai().alife().time_manager();
+            const ALife::_TIME_ID now = time.game_time();
+            if (now > m_game_death_time && time.normal_time_factor() > EPS_S)
+                m_heat_age_at_spawn = float(double(now - m_game_death_time) / time.normal_time_factor());
+        }
 	}
 
 	if (!inherited::net_Spawn(DC))
@@ -331,6 +339,7 @@ void CEntity::reload(LPCSTR section)
 
 void CEntity::set_death_time()
 {
+    m_heat_age_at_spawn = 0.f;
 	m_level_death_time = Device.dwTimeGlobal;
 	m_game_death_time = ai().get_alife() ? ai().alife().time_manager().game_time() : Level().GetGameTime();
 }
@@ -407,14 +416,14 @@ void CEntity::ChangeTeam(int team, int squad, int group)
 }
 
 //--DSR-- HeatVision_start
-static u32 clampU(u32 x, u32 a, u32 b) 
-{
-	return x < a ? a : (x > b ? b : x);
-}
-
 float CEntity::GetHotness() {
 	if (heat_vision_cooldown && (AlreadyDie() || !g_Alive())) 
-		return 1.0f - (float)clampU(Device.dwTimeGlobal - m_level_death_time, 0, heat_vision_cooldown_time) / heat_vision_cooldown_time;
+	{
+        if (heat_vision_cooldown_time <= 0.f)
+            return 0.f;
+        const float age = m_heat_age_at_spawn + float(Device.dwTimeGlobal - m_level_death_time);
+        return 1.f - clampr(age / heat_vision_cooldown_time, 0.f, 1.f);
+	}
 	return 1.0f;
 }
 

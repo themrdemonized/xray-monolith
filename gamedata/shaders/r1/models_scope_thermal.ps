@@ -1,0 +1,18 @@
+#include "lite_scope_common.h"
+uniform sampler2D s_scene;
+uniform sampler2D s_heat;
+uniform sampler2D s_heat_map;
+uniform float4 screen_res;
+uniform float4 scope_thermal_params;
+
+float4 main(vf I) : COLOR0
+{
+    float2 tc = scope_scene_coord(I, screen_res);
+    tc = (floor(tc * screen_res.xy / scope_thermal_params.z) * scope_thermal_params.z + 0.5) * screen_res.zw;
+    float cold = 0.24 + 0.12 * dot(tex2D(s_scene, tc).rgb, float3(0.299, 0.587, 0.114));
+    float heat = saturate(tex2D(s_heat, tc).r);
+    float intensity = lerp(cold, 0.8, heat);
+    intensity = lerp(intensity, 1.0 - intensity, scope_thermal_params.x);
+    float3 palette = tex2D(s_heat_map, float2(intensity, 0.5)).rgb;
+    return float4(lerp(intensity, palette, scope_thermal_params.y), 1.0);
+}

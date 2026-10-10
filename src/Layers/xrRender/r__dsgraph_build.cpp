@@ -49,6 +49,16 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	float SSA = CalcSSA(distSQ, Center, pVisual);
 	if (SSA <= r_ssaDISCARD) return;
 
+#if RENDER == R_R1
+    if (RI.scope_heat_only)
+    {
+        ShaderElement* shader = RI.rimp_select_sh_dynamic(pVisual, distSQ);
+        if (shader)
+            RI.AddScopeHeatItem({SSA, RI.val_pObject, pVisual, *RI.val_pTransform}, shader);
+        return;
+    }
+#endif
+
 	// Distortive geometry should be marked and R2 special-cases it
 	// a) Allow to optimize RT order
 	// b) Should be rendered to special distort buffer in another pass
@@ -204,6 +214,14 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	RI.L_Shadows->add_element(item);
 #endif
 	if (RI.val_bInvisible) return;
+
+#if RENDER == R_R1
+    if (RI.phase == CRender::PHASE_NORMAL && !RI.val_bCamAttached &&
+        RI.val_pObject && RI.Target->IsScopeThermalActive())
+    {
+        RI.AddScopeHeatItem(item, sh);
+    }
+#endif
 
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F)

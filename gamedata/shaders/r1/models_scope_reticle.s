@@ -40,3 +40,12 @@ function scope_shadow(shader, t_base, t_second, t_detail)
         :fog(false):zb(true, false):blend(true, blend.one, blend.invsrcalpha)
         :sorting(2, true):scopelense(3)
 end
+
+function scope_thermal(shader, t_base, t_second, t_detail)
+    shader:begin("models_scope_reticle", "models_scope_thermal")
+        :fog(false):zb(true, false):blend(false, blend.one, blend.zero)
+        :sorting(2, true):scopelense(3)
+    shader:sampler("s_scene"):texture("$user$3dss_scene"):clamp():f_linear()
+    shader:sampler("s_heat"):texture("$user$3dss_heat"):clamp():f_none()
+    shader:sampler("s_heat_map"):texture("wpn\\scope_utility\\heat_map"):clamp():f_linear()
+end

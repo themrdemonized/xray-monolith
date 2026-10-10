@@ -107,15 +107,39 @@ void __fastcall sorted_scope_L1(mapSorted_Node* N)
             element = variant;
     }
     ShaderElement* image = N->val.pVisual->shader->E[4]._get();
-    if (image && image->flags.iScopeLense == 3)
+    ShaderElement* surface = N->val.pVisual->shader->E[5]._get();
+    if (RImplementation.Target->IsScopeThermalActive() && surface && surface->passes.size() > 1)
+        render_sorted_item(N, surface, 1);
+    else if (image && image->flags.iScopeLense == 3)
         render_sorted_item(N, image);
     render_sorted_item(N, element);
     const bool inside = type != 3 && type != 4 && type != 6 && type != 8 && !int(ps_s3ds_param_1.w);
-    ShaderElement* surface = N->val.pVisual->shader->E[5]._get();
     if ((inside || ps_s3ds_param_3.z > 0.f) && surface && surface->flags.iScopeLense == 3)
         render_sorted_item(N, surface);
     if (image && image->flags.iScopeLense == 3 && image->passes.size() > 1)
         render_sorted_item(N, image, 1);
+}
+
+void CRender::AddScopeHeatItem(const R_dsgraph::_MatrixItem& item, ShaderElement* shader)
+{
+    CTexture* texture = item.pVisual->GetTexture();
+    const float temperature = item.pObject->GetHotness();
+    if (texture && texture->m_is_hot && _valid(temperature) && temperature > EPS_S)
+        scope_heat_items.push_back({item, shader, clampr(temperature, 0.f, 1.f)});
+}
+
+void CRender::RenderScopeHeat()
+{
+    for (const ScopeHeatItem& item : scope_heat_items)
+    {
+        ShaderElement* shader = Target->GetScopeHeatShader(item.shader);
+        if (!shader)
+            continue;
+        RCache.set_Element(shader);
+        RCache.set_xform_world(item.draw.Matrix);
+        RCache.set_c("r1_heat_params", item.temperature, 0.f, 0.f, 0.f);
+        item.draw.pVisual->Render(calcLOD(item.draw.ssa, item.draw.pVisual->vis.sphere.R));
+    }
 }
 #endif
 

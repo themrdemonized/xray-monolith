@@ -5,14 +5,7 @@ uniform float4 scope_lens_color;
 
 float4 main(vf I) : COLOR0
 {
-    float2 screen_tc = I.screen.xy / I.screen.w * float2(0.5, -0.5) + 0.5;
-    float2 scene_tc = (screen_tc - 0.5) * scope_lens_params.x + 0.5 + screen_res.zw * 0.5;
-    scene_tc += scope_parallax(I) * scope_lens_params.yz;
-    float2 disk1 = I.tc - float2(scope_transition.z, 0.5);
-    float2 disk2 = I.tc - float2(scope_transition.w, 0.5);
-    scene_tc.x += scope_transition.y * 0.2 *
-        ((1.0 - scope_transition.x) * step(dot(disk2, disk2), 1.0) -
-        scope_transition.x * step(dot(disk1, disk1), 1.0));
+    float2 scene_tc = scope_scene_coord(I, screen_res);
     float3 color = tex2D(s_scene, scene_tc).rgb * scope_lens_color.rgb;
     // Original NV brightness/contrast and approximate 4/1/8 gamma, without grain or blur.
     float light = saturate(dot(color, float3(0.299, 0.587, 0.114)) * 7.0 + 0.15);

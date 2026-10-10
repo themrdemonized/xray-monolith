@@ -21,6 +21,8 @@ private:
 	ref_rt RT_color_map;
 	ref_rt RT_distort;
 	ref_rt rt_scope_scene;
+    ref_rt rt_scope_heat;
+    xr_map<SPass*, std::pair<ref_pass, ref_selement>> scope_heat_shaders;
 	bool scope_scene_capture_active;
 	IDirect3DSurface9* ZB;
 
@@ -76,6 +78,10 @@ public:
 	void End();
 	bool IsScopeSceneCaptureActive() const { return scope_scene_capture_active; }
 	void CaptureScopeScene();
+    bool IsScopeThermalActive(bool require_lens = true) const;
+    void CaptureScopeHeat();
+    ShaderElement* GetScopeHeatShader(ShaderElement* source);
+    void ClearScopeHeat();
 
 	void DoAsyncScreenshot();
 

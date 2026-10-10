@@ -21,3 +21,7 @@ end
 function scope_shadow(shader, t_base, t_second, t_detail)
     models_scope_reticle.scope_shadow(shader, t_base, t_second, t_detail)
 end
+
+function scope_thermal(shader, t_base, t_second, t_detail)
+    models_scope_reticle.scope_thermal(shader, t_base, t_second, t_detail)
+end

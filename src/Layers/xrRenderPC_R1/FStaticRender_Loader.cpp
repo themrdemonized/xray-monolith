@@ -109,6 +109,8 @@ void CRender::level_Unload()
 {
 	if (0 == g_pGameLevel) return;
 	if (!b_loaded) return;
+    scope_heat_items.clear();
+    Target->ClearScopeHeat();
 
 	u32 I;
 

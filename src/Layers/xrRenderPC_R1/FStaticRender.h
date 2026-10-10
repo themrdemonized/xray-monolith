@@ -80,6 +80,17 @@ public:
 
 	CRenderTarget* Target; // Render-target
 
+    struct ScopeHeatItem
+    {
+        R_dsgraph::_MatrixItem draw;
+        ShaderElement* shader;
+        float temperature;
+    };
+    xr_vector<ScopeHeatItem> scope_heat_items;
+    bool scope_heat_only = false;
+    void AddScopeHeatItem(const R_dsgraph::_MatrixItem& item, ShaderElement* shader);
+    void RenderScopeHeat();
+
 	// R1-specific global constants
 	Fmatrix r1_dlight_tcgen;
 	light* r1_dlight_light;

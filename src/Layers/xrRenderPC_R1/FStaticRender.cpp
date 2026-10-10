@@ -456,6 +456,8 @@ ICF bool pred_sp_sort(ISpatial* _1, ISpatial* _2)
 
 void CRender::Calculate()
 {
+    scope_heat_items.clear();
+    scope_heat_only = false;
 #ifdef _GPA_ENABLED
 	TAL_SCOPED_TASK_NAMED("CRender::Calculate()");
 #endif // _GPA_ENABLED
@@ -550,7 +552,8 @@ void CRender::Calculate()
 			(
 				lstRenderables,
 				ISpatial_DB::O_ORDERED,
-				STYPE_RENDERABLE + STYPE_LIGHTSOURCE,
+                STYPE_RENDERABLE + STYPE_LIGHTSOURCE +
+                    (Target->IsScopeThermalActive(false) ? STYPE_COLLIDEABLE : 0),
 				ViewBase
 			);
 
@@ -584,10 +587,13 @@ void CRender::Calculate()
 					continue; // disassociated from S/P structure
 
 				// Filter only not light spatial
-				if (PortalTraverser.i_marker != sector->r_marker && (spatial->spatial.type & STYPE_RENDERABLE)) continue
+                IRenderable* thermal = Target->IsScopeThermalActive() ? spatial->dcast_Renderable() : nullptr;
+                const bool thermal_hidden = thermal && thermal->renderable.visual && thermal->GetTransparency() > 0.f;
+				if (PortalTraverser.i_marker != sector->r_marker &&
+                    ((spatial->spatial.type & STYPE_RENDERABLE) || thermal_hidden)) continue
 					; // inactive (untouched) sector
 
-				if (spatial->spatial.type & STYPE_RENDERABLE)
+                if ((spatial->spatial.type & STYPE_RENDERABLE) || thermal_hidden)
 				{
 					for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
 					{
@@ -625,13 +631,21 @@ void CRender::Calculate()
 								T->update(renderable);
 							}
 							set_Object(renderable);
-							renderable->renderable_Render();
+                            if (spatial->spatial.type & STYPE_RENDERABLE)
+                                renderable->renderable_Render();
+                            if (thermal_hidden)
+                            {
+                                scope_heat_only = true;
+                                set_Transform(&renderable->renderable.xform);
+                                add_Visual(renderable->renderable.visual);
+                                scope_heat_only = false;
+                            }
 							set_Object(0); //? is it needed at all
 						}
 						break; // exit loop on frustums
 					}
 				}
-				else
+				else if (spatial->spatial.type & STYPE_LIGHTSOURCE)
 				{
 					if (ViewBase.testSphere_dirty(spatial->spatial.sphere.P, spatial->spatial.sphere.R))
 					{
@@ -754,6 +768,9 @@ void CRender::Render()
     if (o.defer_hud)
     {
         Target->CaptureScopeScene();
+        if (Target->IsScopeThermalActive())
+            Target->CaptureScopeHeat();
+        scope_heat_items.clear();
         o.defer_hud = FALSE;
         phase = PHASE_NORMAL;
         r_dsgraph_render_hud();
@@ -783,6 +800,7 @@ void CRender::Render()
         }
     }
     mapScopeHUDSorted.clear();
+    scope_heat_items.clear();
 
 #if DEBUG
 	for (int _priority=0; _priority<2; ++_priority)
