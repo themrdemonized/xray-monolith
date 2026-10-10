@@ -1,5 +1,7 @@
 Keep this repository beside the `Anomaly-1.5.3` client folder. Build from the repository folder in PowerShell:
 
+For multiplayer, follow [the CoopNet installation guide](INSTALL-COOPNET.md): run `setup-coopnet-deps.ps1` first and include `-CoopNet` when building. The commands below build the ordinary engine without networking.
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\build.ps1 -Deploy
 powershell -ExecutionPolicy Bypass -File .\run.ps1

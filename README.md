@@ -2,6 +2,8 @@
 
 # STALKER-Anomaly-modded-exes
 
+**Looking to play CoopNet? Start with the [installation and multiplayer setup guide](INSTALL-COOPNET.md).** It covers building the `coopnet` branch, installing into Anomaly 1.5.3, hosting, joining, and UDP port forwarding. This source repository is not a full game download; the CoopNet guide takes precedence over the inherited upstream executable installation instructions below.
+
 ## CoopNet: host, join, and port forwarding
 
 Use matching CoopNet-enabled clients and game/mod files. Open the in-game console with the console key (usually `~`) and enter `/help` for the command list. The hosting command is `coop_host`; `/host` is not currently a registered command.
