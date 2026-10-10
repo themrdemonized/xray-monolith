@@ -8,19 +8,28 @@
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "../xrEngine/FDemoRecord.h"
 #include "../xrEngine/CameraBase.h"
+#include "ai_space.h"
+#include "script_engine.h"
 
 BOOL g_legs_enabled = FALSE;
+float legs_fwd_offset = -0.5f;
+BOOL legs_attach_to_camera = TRUE;
+extern int showActorBody;
+extern xr_unordered_set<CDemoRecord*> pDemoRecords;
 
 void player_legs_controller::destroy()
 {
-    if (!m_model)
-        return;
+    for (IKinematics** model : { &m_model, &m_shadow_model })
+    {
+        if (!*model)
+            continue;
 
-    IRenderVisual* v = m_model->dcast_RenderVisual();
-    if (v)
-        ::Render->model_Delete(v);
+        if (IRenderVisual* v = (*model)->dcast_RenderVisual())
+            ::Render->model_Delete(v);
 
-    m_model = nullptr;
+        *model = nullptr;
+    }
+
     m_visual_name = "";
 }
 
@@ -107,22 +116,30 @@ bool player_legs_controller::ensure_model(const shared_str& sect, const shared_s
 
     destroy();
 
-    IRenderVisual* raw = ::Render->model_Create(model.c_str());
-    if (!raw)
+    // Separate instance for the shadow pass: the full body shadow must not touch the hidden bones
+    // of the main model, which is drawn again after shadows (emissive, forward passes)
+    for (IKinematics** target : { &m_model, &m_shadow_model })
     {
-        warn_once("failed to create model [%s]", model.c_str());
-        return false;
+        IRenderVisual* raw = ::Render->model_Create(model.c_str());
+        if (!raw)
+        {
+            destroy();
+            warn_once("failed to create model [%s]", model.c_str());
+            return false;
+        }
+
+        IKinematics* K = smart_cast<IKinematics*>(raw);
+        if (!K)
+        {
+            ::Render->model_Delete(raw);
+            destroy();
+            warn_once("model [%s] is not a skeleton", model.c_str());
+            return false;
+        }
+
+        *target = K;
     }
 
-    IKinematics* K = smart_cast<IKinematics*>(raw);
-    if (!K)
-    {
-        ::Render->model_Delete(raw);
-        warn_once("model [%s] is not a skeleton", model.c_str());
-        return false;
-    }
-
-    m_model = K;
     m_visual_name = model;
 
     if (pSettings->line_exist(sect, "legs_fwd_offset"))
@@ -130,82 +147,51 @@ bool player_legs_controller::ensure_model(const shared_str& sect, const shared_s
     else
         m_fwd_offset = std::nullopt;
 
+    ::luabind::functor<void> funct;
+    if (ai().script_engine().functor("_G.player_legs_controller__OnCreateLegs", funct))
+        funct(sect.c_str());
+
     return true;
 }
 
-// clean up later
+// TODO : clean up later
 float legs_spine_offset_y = 0.1f;
-void player_legs_controller::copy_bones_from_actor(CActor* actor, bool isShadowPass)
+void player_legs_controller::copy_bones_from_actor(CActor* actor)
 {
-    if (!actor || !m_model)
+    if (!actor || !m_model || !m_shadow_model)
         return;
 
     IKinematics* actor_K = actor->Visual()->dcast_PKinematics();
     if (!actor_K)
         return;
 
-    if (!isShadowPass)
+    actor_K->CalculateBones(TRUE);
+
+    // Full body for shadows
+    m_shadow_model->CopyBonesFrom(actor_K);
+
+    // Legs only for the main pass
+    m_model->CopyBonesFrom(actor_K);
+
+    if (auto BoneID = m_model->LL_BoneID("bip01_spine"); BoneID != BI_NONE)
     {
-        actor_K->CalculateBones(TRUE);
-        m_model->CalculateBones_Invalidate();
-        m_model->CalculateBones(TRUE);
+        auto& BoneInstance = m_model->LL_GetData(BoneID);
+        auto& transform = m_model->LL_GetTransform(BoneInstance.GetParentID());
+        transform.c.y += legs_spine_offset_y;
+        m_model->Bone_Calculate(&BoneInstance, &transform);
     }
 
-    u16 legs_root = m_model->LL_GetBoneRoot();
-    CBoneInstance& root_bi = m_model->LL_GetBoneInstance(legs_root);
-    root_bi.mTransform.identity();
-    root_bi.mRenderTransform.mul_43(root_bi.mTransform,
-        m_model->LL_GetData(legs_root).m2b_transform);
-
-    u16 bone_count = m_model->LL_BoneCount();
-    if (bone_count == actor_K->LL_BoneCount())
+    static LPCSTR bonesToHide[] = { "bip01_neck", "bip01_l_upperarm", "bip01_r_upperarm" };
+    for (const auto& bone : bonesToHide)
     {
-        for (u16 i = 0; i < bone_count; ++i)
+        u16 bone_id = m_model->LL_BoneID(bone);
+        if (bone_id != BI_NONE)
         {
-            m_model->LL_GetTransform(i).set(actor_K->LL_GetTransform(i));
-            m_model->LL_GetTransform_R(i).set(actor_K->LL_GetTransform_R(i));
+            m_model->LL_SetBoneVisible(bone_id, false, true);
         }
     }
-    else
-    {
-        for (auto& [bonename, ID] : *m_model->LL_Bones())
-        {
-            auto BoneID = actor_K->LL_BoneID(bonename);
-            if (BoneID != BI_NONE)
-            {
-                m_model->LL_GetTransform(ID).set(actor_K->LL_GetTransform(BoneID));
-                m_model->LL_GetTransform_R(ID).set(actor_K->LL_GetTransform_R(BoneID));
-            }
-        }
-    }
-
-    if (!isShadowPass)
-    {
-        if (auto BoneID = m_model->LL_BoneID("bip01_spine"); BoneID != BI_NONE)
-        {
-            auto& BoneInstance = m_model->LL_GetData(BoneID);
-            auto& transform = m_model->LL_GetTransform(BoneInstance.GetParentID());
-            transform.c.y += legs_spine_offset_y;
-            m_model->Bone_Calculate(&BoneInstance, &transform);
-        }
-
-        static LPCSTR bonesToHide[] = { "bip01_neck", "bip01_l_upperarm", "bip01_r_upperarm" };
-        for (const auto& bone : bonesToHide)
-        {
-            u16 bone_id = m_model->LL_BoneID(bone);
-            if (bone_id != BI_NONE)
-            {
-                m_model->LL_SetBoneVisible(bone_id, false, true);
-            }
-        }
-    }
-    
 }
 
-float legs_fwd_offset = -0.5f;
-BOOL legs_attach_to_camera = TRUE;
-extern int showActorBody;
-extern xr_unordered_set<CDemoRecord*> pDemoRecords;
 void player_legs_controller::update(CActor* actor, bool isShadowPass)
 {
     actor->XFORMShadow.set(actor->XFORM());
@@ -233,11 +219,13 @@ void player_legs_controller::update(CActor* actor, bool isShadowPass)
     if (!ensure_model(sect, model))
         return;
 
-    copy_bones_from_actor(actor, isShadowPass);
+    // Bones of both models are set up once per frame, outside of the shadow pass
+    if (!isShadowPass)
+        copy_bones_from_actor(actor);
 
     m_legs_transform.set(actor->XFORM());
     if (legs_attach_to_camera && pDemoRecords.empty())
-        m_legs_transform.c.set(Device.vCameraPosition.x, m_legs_transform.c.y, Device.vCameraPosition.z);       
+        m_legs_transform.c.set(Device.vCameraPosition.x, m_legs_transform.c.y, Device.vCameraPosition.z);
 
     Fvector fwd = m_legs_transform.k;
     fwd.y = 0.f;
@@ -250,9 +238,10 @@ void player_legs_controller::update(CActor* actor, bool isShadowPass)
     actor->XFORMShadow.translate_over(m_legs_transform.c);
 }
 
-void player_legs_controller::render()
+void player_legs_controller::render(bool isShadowPass)
 {
-    if (!m_model)
+    IKinematics* model = isShadowPass ? m_shadow_model : m_model;
+    if (!model)
         return;
 
     CActor* actor = Actor();
@@ -263,9 +252,9 @@ void player_legs_controller::render()
     if (move_state & mcClimb)
         return;
 
-    IRenderVisual* visual = m_model->dcast_RenderVisual();
+    IRenderVisual* visual = model->dcast_RenderVisual();
     if (!visual)
-        return;    
+        return;
 
     ::Render->set_Transform(&m_legs_transform);
     ::Render->add_Visual(visual);

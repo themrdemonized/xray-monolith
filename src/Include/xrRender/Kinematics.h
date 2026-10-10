@@ -84,6 +84,8 @@ public:
 	// Main functionality
 	virtual void CalculateBones(BOOL bForceExact = FALSE) = 0; // Recalculate skeleton
 	virtual void CalculateBones_Invalidate() = 0;
+	// Copy the current bone transforms of another model
+	virtual bool CopyBonesFrom(IKinematics* from) = 0;
 	virtual void Callback(UpdateCallback C, void* Param) = 0;
 
 	//	Callback: data manipulation

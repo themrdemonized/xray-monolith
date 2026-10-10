@@ -782,7 +782,7 @@ extern Fvector4 ps_ssfx_florafixes_1;
 extern Fvector4 ps_ssfx_florafixes_2;
 
 extern float ps_ssfx_gloss_factor;
-extern Fvector4 ps_ssfx_gloss_minmax;
+extern Fvector3 ps_ssfx_gloss_minmax;
 
 extern Fvector4 ps_ssfx_wetsurfaces_1;
 extern Fvector4 ps_ssfx_wetsurfaces_2;
@@ -945,7 +945,7 @@ static class ssfx_gloss : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, ps_ssfx_gloss_minmax.w);
+		RCache.set_c(C, ps_ssfx_gloss_minmax.x, ps_ssfx_gloss_minmax.y, ps_ssfx_gloss_factor, 0);
 	}
 }    ssfx_gloss;
 

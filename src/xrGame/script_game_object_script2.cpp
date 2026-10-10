@@ -19,6 +19,8 @@
 #include "script_ini_file.h"
 #include "script_sound_info.h"
 #include "script_monster_hit_info.h"
+#include "script_monster_enemy_info.h"
+#include "script_monster_home_info.h"
 #include "script_entity_action.h"
 #include "action_planner.h"
 //#include "../xrphysics/PhysicsShell.h"
@@ -223,6 +225,8 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("get_enemy_strength", &CScriptGameObject::GetEnemyStrength)
 		.def("get_sound_info", SAFE_WRAP(&CScriptGameObject::GetSoundInfo))
 		.def("get_monster_hit_info", SAFE_WRAP(&CScriptGameObject::GetMonsterHitInfo))
+		.def("get_monster_enemy_info", SAFE_WRAP(&CScriptGameObject::GetMonsterEnemyInfo))
+		.def("get_monster_home_info", SAFE_WRAP(&CScriptGameObject::GetMonsterHomeInfo))
 		.def("bind_object", SAFE_WRAP(&CScriptGameObject::bind_object), adopt<2>())
 		.def("motivation_action_manager", &script_action_planner)
 
@@ -268,6 +272,7 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		.def("can_script_capture", &CScriptGameObject::can_script_capture)
 		.def("set_custom_panic_threshold", &CScriptGameObject::set_custom_panic_threshold)
 		.def("set_default_panic_threshold", &CScriptGameObject::set_default_panic_threshold)
+		.def("set_monster_melee_strike", SAFE_WRAP(&CScriptGameObject::set_monster_melee_strike))
 
 		// inventory owner
 		.def("get_current_outfit", SAFE_WRAP(&CScriptGameObject::GetCurrentOutfit))

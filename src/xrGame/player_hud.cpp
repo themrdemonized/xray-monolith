@@ -727,6 +727,7 @@ player_hud::player_hud()
 	script_anim_offset_factor = 0.f;
 	m_item_pos.identity();
 	script_override_arms = false;
+	script_anim_item_model = nullptr;
 
 	//Bone Callback Params
 	m_bone_callback_params.insert(mk_pair(r_finger0, xr_new<BoneCallbackParams>()));
@@ -773,6 +774,8 @@ player_hud::~player_hud()
 	v = m_model_2->dcast_RenderVisual();
 	::Render->model_Delete(v);
 	m_model_2 = nullptr;
+
+	delete_script_anim_item_model();
 
 	delete_data(m_hand_motions);
 	delete_data(m_script_layers);
@@ -1506,12 +1509,33 @@ void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float s
 	}
 }
 
+void player_hud::create_script_anim_item_model(LPCSTR section)
+{
+	::Render->hud_loading = true;
+	script_anim_item_model = ::Render->model_Create(pSettings->r_string(section, "item_visual"))->dcast_PKinematicsAnimated();
+	::Render->hud_loading = false;
+
+	::luabind::functor<void> funct;
+	if (ai().script_engine().functor("_G.player_hud__OnCreateHudMotionItem", funct))
+		funct(section);
+}
+
+void player_hud::delete_script_anim_item_model()
+{
+	if (!script_anim_item_model)
+		return;
+
+	IRenderVisual* v = script_anim_item_model->dcast_RenderVisual();
+	::Render->model_Delete(v);
+	script_anim_item_model = nullptr;
+}
+
 extern BOOL print_bone_warnings;
 void player_hud::StopScriptAnim()
 {
 	u8 part = script_anim_part;
 	script_anim_part = u8(-1);
-	script_anim_item_model = nullptr;
+	delete_script_anim_item_model();
 	script_anim_lead_gun = false;
 
 	updateMovementLayerState();
@@ -1608,9 +1632,9 @@ u32 player_hud::script_anim_play(u8 hand, LPCSTR section, LPCSTR anm_name, bool 
 
 	if (pSettings->line_exist(section, "item_visual"))
 	{
-		::Render->hud_loading = true;
-		script_anim_item_model = ::Render->model_Create(pSettings->r_string(section, "item_visual"))->dcast_PKinematicsAnimated();
-		::Render->hud_loading = false;
+		delete_script_anim_item_model();
+		create_script_anim_item_model(section);
+
 		item_pos[0] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_position", def);
 		item_pos[1] = READ_IF_EXISTS(pSettings, r_fvector3, section, "item_orientation", def);
 		script_anim_item_attached = READ_IF_EXISTS(pSettings, r_bool, section, "item_attached", true);

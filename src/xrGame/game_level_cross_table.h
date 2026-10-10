@@ -48,7 +48,9 @@ public:
 		IC const xrGUID& level_guid() const;
 		IC const xrGUID& game_guid() const;
 
-#ifdef AI_COMPILER
+#ifndef AI_COMPILER
+		friend class ::CGameGraphBuilder;
+#else
 		friend class CLevelGameGraph;
 		friend class CCrossTableBuilder;
 		friend class CRenumbererConverter;
@@ -63,7 +65,9 @@ public:
 	public:
 		IC GameGraph::_GRAPH_ID game_vertex_id() const;
 		IC float distance() const;
-#ifdef AI_COMPILER
+#ifndef AI_COMPILER
+		friend class ::CGameGraphBuilder;
+#else
 		friend class CLevelGameGraph;
 		friend class CCrossTableBuilder;
 		friend class CRenumbererConverter;

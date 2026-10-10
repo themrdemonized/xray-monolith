@@ -60,6 +60,9 @@ public:
 	}
 
 	void ResetHeadingPivot() { m_UIStaticItem.ResetHeadingPivot(); }
+
+	float SetLineTo(float x1, float y1, float x2, float y2, float thickness);
+
 	virtual void SetTextureOffset(float x, float y) { m_TextureOffset.set(x, y); }
 	Fvector2 GetTextureOffeset() const { return m_TextureOffset; }
 	void TextureOn() { m_bTextureEnable = true; }

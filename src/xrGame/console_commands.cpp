@@ -10,6 +10,7 @@
 #include "script_debugger.h"
 #include "ai_debug.h"
 #include "alife_simulator.h"
+#include "alife_spawn_registry.h"
 #include "game_cl_base.h"
 #include "game_cl_single.h"
 #include "game_sv_single.h"
@@ -34,12 +35,14 @@
 #include "ui/UIOptConCom.h"
 #include "UIGameSP.h"
 #include "ui/UIActorMenu.h"
+#include "../xrSound/Sound.h"
 #include "ui/UIStatic.h"
 #include "zone_effector.h"
 #include "GameTask.h"
 #include "MainMenu.h"
 #include "saved_game_wrapper.h"
 #include "level_graph.h"
+#include "game_graph.h"
 //#include "../xrEngine/resourcemanager.h"
 //#include "../xrEngine/doug_lea_memory_allocator.h"
 #include "cameralook.h"
@@ -79,6 +82,8 @@ extern u64 g_qwEStartGameTime;
 ENGINE_API
 extern float psHUD_FOV_def;
 extern float psSqueezeVelocity;
+extern float g_step_sound_distance;
+extern float g_step_particle_distance;
 
 // Lua
 extern int psLUA_GCSTEP;
@@ -100,6 +105,7 @@ extern int g_dwInputUpdateDelta;
 extern	BOOL	g_ShowAnimationInfo;
 #endif // DEBUG
 extern BOOL g_bShowHitSectors;
+extern int g_npc_relaxed_idle_mode;
 //extern	BOOL	g_bDebugDumpPhysicsStep	;
 extern ESingleGameDifficulty g_SingleGameDifficulty;
 extern BOOL g_show_wnd_rect2;
@@ -139,6 +145,7 @@ extern BOOL disableActorBodyRotationDelay; //leer
 extern BOOL pseudogiantDodgeWhileFalling; // Verdatim
 extern BOOL AllowAccelDuringLookOut; // Verdatim
 extern BOOL scale_hud_motion_marks_by_speed; // Verdatim
+extern BOOL npc_dont_drop_weapons_on_death; // Verdatim
 
 //demonized: new console vars
 extern BOOL firstPersonDeath;
@@ -999,6 +1006,41 @@ void get_files_list(xr_vector<shared_str>& files, LPCSTR dir, LPCSTR file_ext, b
 }
 
 #include "UIGameCustom.h"
+
+// Writes the loaded spawn registry (overlays and level packs applied) as an all.spawn file into $app_data_root$.
+class CCC_SpawnOverlaysDump : public IConsole_Command
+{
+public:
+	CCC_SpawnOverlaysDump(LPCSTR N) : IConsole_Command(N)
+	{
+	}
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!ai().get_alife())
+		{
+			Msg("! alife is not loaded");
+			return;
+		}
+		if (!*args)
+		{
+			Msg("! usage: spawn_overlays_dump <file name>");
+			return;
+		}
+
+		string_path file_name;
+		FS.update_path(file_name, "$app_data_root$", args);
+		IWriter* writer = FS.w_open(file_name);
+		if (!writer)
+		{
+			Msg("! cannot open %s for writing", file_name);
+			return;
+		}
+		const_cast<CALifeSpawnRegistry&>(ai().alife().spawns()).save_spawn(*writer);
+		FS.w_close(writer);
+		Msg("* spawn written to %s", file_name);
+	}
+};
 
 class CCC_ALifeSave : public IConsole_Command
 {
@@ -2502,6 +2544,7 @@ void CCC_RegisterCommands()
 #endif // DEBUG
 
 	CMD1(CCC_ALifeSave, "save"); // save game
+	CMD1(CCC_SpawnOverlaysDump, "spawn_overlays_dump");
 	CMD1(CCC_ALifeLoadFrom, "load"); // load game from ...
 	CMD1(CCC_LoadLastSave, "load_last_save"); // load last saved game from ...
 
@@ -2534,6 +2577,10 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Float, "hud_fov", &psHUD_FOV_def, 0.1f, 1.0f);
 	CMD4(CCC_Float, "fov", &g_fov, 5.0f, 180.0f);
 	CMD4(CCC_Float, "viewport_near", &Device.ViewportNear, 0.0f, 1.0f);
+    CMD4(CCC_Float, "step_sound_distance", &g_step_sound_distance, 10.0f, 100.0f);
+	CMD4(CCC_Float, "step_particle_distance", &g_step_particle_distance, 10.0f, 100.0f);
+    CMD4(CCC_Float, "snd_max_distance_multiplier", &psSoundMaxDistanceMultiplier, 0.2f, 2.0f);
+	CMD4(CCC_Float, "snd_max_ai_distance_multiplier", &psSoundMaxAIDistanceMultiplier, 0.2f, 2.0f);
 	//#endif // DEBUG
 
 	// Demo
@@ -3079,7 +3126,11 @@ void CCC_RegisterCommands()
 
     CMD4(CCC_Integer, "scale_hud_motion_marks_by_speed", &scale_hud_motion_marks_by_speed, 0, 1); // Verdatim
 
+
+    CMD4(CCC_Integer, "npc_dont_drop_weapons_on_death", &npc_dont_drop_weapons_on_death, 0, 1); // Verdatim
+
 	CMD4(CCC_Integer, "telekinetic_objects_include_corpses", &g_telekinetic_objects_include_corpses, 0, 1); // Tosox
+	CMD4(CCC_Integer, "npc_relaxed_idle_mode", &g_npc_relaxed_idle_mode, 0, 2);
 
 	CMD4(CCC_Integer, "allow_weapon_control_inertion_factor", &g_allow_weapon_control_inertion_factor, 0, 1); // momopate
 	CMD4(CCC_Integer, "allow_outfit_control_inertion_factor", &g_allow_outfit_control_inertion_factor, 0, 1);
