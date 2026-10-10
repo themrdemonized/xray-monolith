@@ -121,6 +121,16 @@ CEffect_Thunderbolt::CEffect_Thunderbolt()
 	next_lightning_time = 0.f;
 	bEnabled = FALSE;
 
+	base_sky_color.set(0.f, 0.f, 0.f);
+	base_sun_color.set(0.f, 0.f, 0.f);
+	base_fog_color.set(0.f, 0.f, 0.f);
+	base_sun_dir.set(0.f, -1.f, 0.f);
+	flash_sky_color.set(0.f, 0.f, 0.f);
+	flash_sun_color.set(0.f, 0.f, 0.f);
+	flash_fog_color.set(0.f, 0.f, 0.f);
+	flash_sun_dir.set(0.f, -1.f, 0.f);
+	flash_applied = false;
+
 	// geom
 	//hGeom_model.create (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1, RCache.Vertex.Buffer(), RCache.Index.Buffer());
 	//hGeom_gradient.create(FVF::F_LIT,RCache.Vertex.Buffer(),RCache.QuadIB);
@@ -187,6 +197,13 @@ BOOL CEffect_Thunderbolt::RayPick(const Fvector& s, const Fvector& d, float& dis
 
 #define FAR_DIST g_pGamePersistent->Environment().CurrentEnv->far_plane
 
+// only undo if value unchanged
+static inline void undo_flash_value(Fvector3& value, const Fvector3& written, const Fvector3& before)
+{
+	if (value.x == written.x && value.y == written.y && value.z == written.z)
+		value = before;
+}
+
 void CEffect_Thunderbolt::Bolt(shared_str id, float period, float lt)
 {
 	VERIFY(id.size());
@@ -248,6 +265,19 @@ void CEffect_Thunderbolt::Bolt(shared_str id, float period, float lt)
 
 void CEffect_Thunderbolt::OnFrame(shared_str id, float period, float duration)
 {
+
+	CEnvironment& environment = g_pGamePersistent->Environment();
+
+	// lerp is skipped while paused, undo last frame's flash
+	if (environment.m_paused && flash_applied)
+	{
+		undo_flash_value(environment.CurrentEnv->sky_color, flash_sky_color, base_sky_color);
+		undo_flash_value(environment.CurrentEnv->sun_color, flash_sun_color, base_sun_color);
+		undo_flash_value(environment.CurrentEnv->fog_color, flash_fog_color, base_fog_color);
+		undo_flash_value(environment.CurrentEnv->sun_dir, flash_sun_dir, base_sun_dir);
+	}
+	flash_applied = false;
+
 	BOOL enabled = !!(id.size());
 	if (bEnabled != enabled)
 	{
@@ -274,7 +304,10 @@ void CEffect_Thunderbolt::OnFrame(shared_str id, float period, float duration)
 		lightning_phase = 1.5f * (current_time / life_time);
 		clamp(lightning_phase, 0.f, 1.f);
 
-		CEnvironment& environment = g_pGamePersistent->Environment();
+		base_sky_color = environment.CurrentEnv->sky_color;
+		base_sun_color = environment.CurrentEnv->sun_color;
+		base_fog_color = environment.CurrentEnv->fog_color;
+		base_sun_dir = environment.CurrentEnv->sun_dir;
 
 		Fvector& sky_color = environment.CurrentEnv->sky_color;
 		sky_color.mad(fClr, environment.p_sky_color);
@@ -292,6 +325,12 @@ void CEffect_Thunderbolt::OnFrame(shared_str id, float period, float duration)
 			VERIFY2(g_pGamePersistent->Environment().CurrentEnv->sun_dir.y < 0,
 			        "Invalid sun direction settings while CEffect_Thunderbolt");
 		}
+
+		flash_sky_color = environment.CurrentEnv->sky_color;
+		flash_sun_color = environment.CurrentEnv->sun_color;
+		flash_fog_color = environment.CurrentEnv->fog_color;
+		flash_sun_dir = environment.CurrentEnv->sun_dir;
+		flash_applied = true;
 	}
 }
 
