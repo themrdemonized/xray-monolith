@@ -38,6 +38,8 @@ bool profiles_loaded=false;
 std::string menu_join_error;
 std::string pending_character_address;
 std::uint64_t pending_character_incarnation=0;
+std::uint64_t pending_ready_incarnation=0;
+unsigned pending_ready_frames=0;
 bool pending_new_character=false;
 bool pending_character_probe=false;
 std::set<std::string> world_commands;
@@ -139,6 +141,11 @@ struct Session {
     std::uint32_t input_sequence = 0;
     std::uint16_t last_sent_buttons=0;
     bool controls_sent=false;
+    std::uint64_t placed_incarnation=0;
+    coopnet::Identity placed_entity=0;
+    std::uint32_t placed_generation=0;
+    std::map<coopnet::Identity,std::uint32_t> announced_joins;
+    coopnet::Identity news_session=0;
     std::deque<std::pair<std::uint32_t,std::chrono::steady_clock::time_point>> input_times;
     std::uint32_t prediction_delay_ms=0;
     std::string local_player_name="Player";
@@ -975,6 +982,9 @@ void send_client_controls(Session& current, double elapsed) {
     if (current.client.session().state() != coopnet::ClientState::Connected) return;
     LocalActorControls controls;
     if (!capture_local_controls(controls)) return;
+    LocalActorPose local;
+    if (current.world_probe && (!current.client.baseline_acknowledged() || !capture_local_actor(local) ||
+        current.placed_incarnation!=local.incarnation)) return;
     if (!due && current.controls_sent && controls.buttons==current.last_sent_buttons) return;
     current.input_sequence += (std::max)(due,1u);
     coopnet::ActorPresence owned;
@@ -982,6 +992,7 @@ void send_client_controls(Session& current, double elapsed) {
         if (actor.player == current.client.session().welcome().player && actor.level == controls.level) owned = actor;
     });
     if (!owned.entity) return;
+    if (current.world_probe && (current.placed_entity!=owned.entity || current.placed_generation!=owned.generation)) return;
     coopnet::ActorInput input{owned.entity,owned.generation,owned.level,current.input_sequence,
         controls.buttons,controls.yaw,controls.pitch};
     if (current.automated_controls) {
@@ -1054,6 +1065,31 @@ void update_player_nameplates(Session& current,double elapsed) {
     }
     set_player_nameplates(labels);
 }
+void update_join_news(Session& current) {
+    LocalActorPose local; if (!capture_local_actor(local)) return;
+    const auto identity=current.mode==coopnet::Mode::Host ? current.host.identity() : current.client.session().welcome().session;
+    if (!identity) return;
+    if (current.news_session!=identity) { current.news_session=identity; current.announced_joins.clear(); }
+    auto announce=[&](coopnet::Identity player,std::uint32_t generation,const std::string& name,bool ready) {
+        if (player==1 || !ready || name.empty() || current.announced_joins[player]==generation) return;
+        if (show_session_join_news(name)) current.announced_joins[player]=generation;
+    };
+    if (current.mode==coopnet::Mode::Host) {
+        for (const auto& player:current.host.session().players()) {
+            const auto guest=current.guests.find(player.id);
+            announce(player.id,player.generation,current.host.player_name(player.id),player.connected &&
+                current.host.player_ready(player.id) && guest!=current.guests.end() && guest->second.generation);
+        }
+    } else if (current.client.baseline_acknowledged() && current.placed_incarnation==local.incarnation && current.client.roster()) {
+        for (const auto& player:current.client.roster()->current().participants) {
+            bool ready=false;
+            current.client.actors().visit([&](const coopnet::ActorPresence& actor) {
+                if (actor.player==player.player && actor.level==local.level) ready=true;
+            });
+            announce(player.player,player.generation,current.client.player_name(player.player),player.connected && ready);
+        }
+    }
+}
 }
 void stop() {
     set_player_nameplates({});
@@ -1097,7 +1133,15 @@ bool party_controls_enabled() {
 void update(double) {
     if (!session && !pending_character_address.empty()) {
         LocalActorPose selected;
-        if (capture_local_actor(selected) && selected.incarnation!=pending_character_incarnation && guest_save_scope()) {
+        const bool ready=capture_local_actor(selected) && selected.incarnation!=pending_character_incarnation &&
+            guest_save_scope() && character_selection_ready();
+        if (!ready || pending_ready_incarnation!=selected.incarnation) {
+            pending_ready_incarnation=ready ? selected.incarnation : 0; pending_ready_frames=0;
+        }
+        // Let the stock first-update ChangeLevel event drain before connecting.
+        if (ready && ++pending_ready_frames>=2) {
+            Msg("* CoopNet selected character initialization completed: incarnation %llu position %.3f %.3f %.3f",
+                selected.incarnation,selected.position[0],selected.position[1],selected.position[2]);
             const auto address=pending_character_address; pending_character_address.clear();
             join_from_menu(address.c_str()); pending_new_character=false;
             if (pending_character_probe && session) command("coop_movement_probe","auto");
@@ -1273,7 +1317,7 @@ void update(double) {
                 }
             }
         }
-        if(session) update_player_nameplates(*session,elapsed);
+        if(session) { update_player_nameplates(*session,elapsed); update_join_news(*session); }
     } catch (const std::exception& error) {
         Msg("! CoopNet update failed: %s", error.what()); stop();
     }
@@ -1282,7 +1326,7 @@ void command(const char* name, const char* arguments) {
     try {
         if (!strcmp(name,"coop_join_menu")) { join_from_menu(arguments); return; }
         if (!strcmp(name,"coop_character_probe")) {
-            if (!queue_character_join(arguments,false)) throw std::runtime_error("Unable to queue character probe join");
+            if (!queue_character_join(arguments,strstr(GetCommandLineA(),"-coop_new_character_probe")!=nullptr)) throw std::runtime_error("Unable to queue character probe join");
             pending_character_probe=true; return;
         }
         if (!strcmp(name,"coop_settings_probe")) {
@@ -1517,6 +1561,21 @@ void command(const char* name, const char* arguments) {
                 owner->server_clock_known = true;
                 const auto* actor = owner->client.actors().find(snapshot.entity);
                 if (owner->movement_probe && actor && actor->player == owner->client.session().welcome().player) {
+                    LocalActorPose local;
+                    if (!capture_local_actor(local) || local.level!=snapshot.level) return;
+                    if (owner->world_probe) {
+                        if (!owner->client.baseline_acknowledged()) return;
+                        if (owner->placed_incarnation!=local.incarnation || owner->placed_entity!=snapshot.entity ||
+                            owner->placed_generation!=snapshot.generation) {
+                            // The acknowledged host baseline is ready; guest world
+                            // scripts are suppressed, so solo first-update flags
+                            // cannot gate placement in the replicated world.
+                            if (!place_local_actor(snapshot.level,snapshot.position.data(),snapshot.velocity.data())) return;
+                            owner->placed_incarnation=local.incarnation; owner->placed_entity=snapshot.entity;
+                            owner->placed_generation=snapshot.generation; owner->input_times.clear();
+                            return;
+                        }
+                    }
                     const auto stamp=std::find_if(owner->input_times.begin(),owner->input_times.end(),[&](const auto& sample){return sample.first==snapshot.input_sequence;});
                     if(stamp!=owner->input_times.end()) {
                         const auto roundtrip=std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-stamp->second).count();
@@ -1622,7 +1681,7 @@ bool queue_character_join(const char* address,bool create) {
         menu_join_error="Enter the host IPv4 address before choosing a character."; return false;
     }
     LocalActorPose local; pending_character_incarnation=capture_local_actor(local) ? local.incarnation : 0;
-    pending_character_address=normalized; pending_new_character=create; menu_join_error.clear(); return true;
+    pending_character_address=normalized; pending_new_character=create; pending_ready_incarnation=0; pending_ready_frames=0; menu_join_error.clear(); return true;
 }
 void cancel_character_join() { pending_character_address.clear(); pending_new_character=false; pending_character_probe=false; }
 void join_status(char* output,unsigned capacity) {

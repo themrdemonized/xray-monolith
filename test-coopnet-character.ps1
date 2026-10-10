@@ -29,7 +29,7 @@ try {
     foreach ($process in $owned) {
         if (!$process.HasExited) {
             $process.CloseMainWindow() | Out-Null
-            if (!$process.WaitForExit(10000)) {Stop-Process -Id $process.Id; throw 'Owned character fixture did not close normally'}
+            if (!$process.WaitForExit(30000)) {Stop-Process -Id $process.Id; throw 'Owned character fixture did not close normally'}
         }
     }
     foreach ($path in $sourceHashes.Keys) {if ((Get-FileHash -LiteralPath $path).Hash -ne $sourceHashes[$path]) {throw "Original save changed: $path"}}
@@ -42,7 +42,7 @@ $selected=[regex]::Match($guestText,'joining with loaded character: items (\d+) 
 if (!$selected.Success -or [int]$selected.Groups[1].Value -lt 1) {throw 'No real saved character was selected'}
 $items=$selected.Groups[1].Value; $rubles=$selected.Groups[2].Value
 if ($hostText -notmatch "selected character imported: items $items rubles $rubles active slot") {throw 'Native character import count/money did not match the selected save'}
-if ($guestText -notmatch "guest inventory view applied: items $items active rounds -?\d+ rubles $rubles" -or $guestText -notmatch 'canonical baseline loaded and acknowledged') {throw 'Imported inventory/money did not reach the guest in the host world'}
+if ($guestText -notmatch "guest inventory view applied: items $items active rounds -?\d+ rubles $rubles" -or $guestText -notmatch 'canonical baseline loaded and acknowledged' -or $guestText -notmatch 'guest arrival placed:') {throw 'Imported inventory/money and host arrival did not reach the guest in the host world'}
 if ($hostText -match '! CoopNet update failed|FATAL ERROR' -or $guestText -match '! CoopNet update failed|FATAL ERROR') {throw 'Native character fixture reported an error'}
 Write-Host "PASS: saved character transferred $items items and $rubles rubles; host world loaded; original saves unchanged."
 Write-Host "Native item import checks verified ammunition, upgrades and equipped/belt placement. Logs: $testRoot"

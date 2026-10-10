@@ -579,6 +579,7 @@ public:
     bool is_coopnet_downed() const { return m_coopnet_downed; }
     void coopnet_down();
     void coopnet_revive(const Fvector& position);
+    void coopnet_place(const Fvector& position,const Fvector& velocity);
 	void coopnet_controls(u16 buttons, float yaw, float pitch);
     bool coopnet_import_movement(const Fvector& position,const Fvector& velocity,u32 delay_ms);
 	virtual void net_Export(NET_Packet& P); // export to server

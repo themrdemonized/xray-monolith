@@ -7,7 +7,7 @@ CoopNet is an experimental engine modification for **S.T.A.L.K.E.R. Anomaly 1.5.
 ## Install the compiled test build (no compiler required)
 
 1. Install the full [Anomaly 1.5.3 base game](https://www.moddb.com/mods/stalker-anomaly/downloads/stalker-anomaly-153). [Alternate download/torrent page](https://anomalymod.com/download-install/).
-2. Download **FOBs-Anomaly-CoopNet-EarlyTest-DX11-c3b127bc-r2.zip** from the [early-test release](https://github.com/FleshofBeast/FOBs-Anomaly-CoopNet/releases/tag/coopnet-early-test-c3b127bc). Choose the named ZIP asset, not GitHub's source-code archives.
+2. Download **FOBs-Anomaly-CoopNet-EarlyTest-DX11-GuestArrival.zip** from the [early-test release](https://github.com/FleshofBeast/FOBs-Anomaly-CoopNet/releases/tag/coopnet-early-test-guest-arrival). Choose the named ZIP asset, not GitHub's source-code archives.
 3. Close the game and back up your saves and existing `bin`/`gamedata` folders.
 4. Extract the package and copy its `bin` and `gamedata` folders into the Anomaly game root, beside `fsgame.ltx`. Merge folders and replace matching files; keep the other base-game files.
 5. Clear the shader cache through the Anomaly launcher, then select **DX11 with AVX disabled**. Only `bin\AnomalyDX11.exe` contains CoopNet; the base game's DX11-AVX and other renderer executables do not. If launching through a shortcut, set its “Start in” folder to the game root containing `fsgame.ltx`. Install Microsoft's [x64 Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) if missing, and [DirectX End-User Runtimes (June 2010)](https://www.microsoft.com/en-us/download/details.aspx?id=8109) for missing D3DX libraries (extract the installer and run `DXSETUP.exe`).

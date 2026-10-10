@@ -57,6 +57,7 @@
 #include "../xrEngine/xr_IOConsole.h"
 #include "script_engine.h"
 #include "lua.hpp"
+#include "game_news.h"
 #include "alife_time_manager.h"
 #include "game_cl_single.h"
 #include "GametaskManager.h"
@@ -266,6 +267,17 @@ bool set_local_player_name(const std::string& name) {
     auto* actor=smart_cast<CSE_ALifeTraderAbstract*>(Level().Server->ID_to_entity(g_actor->ID()));
     if(!actor) return false;
     actor->m_character_name_str=name.c_str(); actor->m_character_name=name.c_str(); g_actor->ChangeName(name.c_str()); return true;
+}
+bool show_session_join_news(const std::string& name) {
+    LocalActorPose local;
+    if (!coopnet::valid_player_name(name) || !capture_local_actor(local) || !CurrentGameUI() ||
+        !CurrentGameUI()->m_pMessagesWnd || !g_actor->game_news_registry) return false;
+    GAME_NEWS_DATA news;
+    news.news_caption="CoopNet";
+    const std::string text=name+" has joined the session.";
+    news.news_text=text.c_str(); news.texture_name="ui_inGame2_PDA_icon";
+    g_actor->AddGameNews(news);
+    Msg("* CoopNet radio join announcement: %s",text.c_str()); return true;
 }
 void exercise_player_name_probe(double elapsed) {
     const bool host=strstr(Core.Params,"-coop_nameplate_host_probe")!=nullptr;
@@ -2483,6 +2495,31 @@ bool correct_local_actor_native(std::uint32_t level,const float* position,const 
     if(!capture_local_actor(local) || local.level!=level || !world_level_is_replica()) return false;
     Fvector target,speed; target.set(position[0],position[1],position[2]); speed.set(velocity[0],velocity[1],velocity[2]);
     return g_actor->coopnet_import_movement(target,speed,delay_ms);
+}
+bool character_selection_ready() {
+    LocalActorPose local;
+    if (!capture_local_actor(local) || !g_ai_space) return false;
+    auto* state=ai().script_engine().lua(); if (!state) return false;
+    const int top=lua_gettop(state);
+    // Anomaly initializes a fresh character on fake_start before changing to
+    // the selected faction location. Joining there would interrupt that change.
+    const char* source="return db and db.actor and db.actor.afterFirstUpdate == true and level.name() ~= 'fake_start'";
+    bool ready=false;
+    if (!luaL_loadbuffer(state,source,strlen(source),"@coopnet_character_ready") && !lua_pcall(state,0,1,0))
+        ready=lua_toboolean(state,-1)!=0;
+    lua_settop(state,top); return ready;
+}
+bool place_local_actor(std::uint32_t level,const float* position,const float* velocity) {
+    LocalActorPose local;
+    if (!position || !velocity || !capture_local_actor(local) || local.level!=level || !world_level_is_replica()) return false;
+    for (unsigned axis=0;axis<3;++axis)
+        if (!std::isfinite(position[axis]) || !std::isfinite(velocity[axis]) || std::abs(position[axis])>1000000) return false;
+    Fvector target,speed; target.set(position[0],position[1],position[2]); speed.set(velocity[0],velocity[1],velocity[2]);
+    const auto node=ai().level_graph().vertex(g_actor->ai_location().level_vertex_id(),target);
+    if (!ai().level_graph().valid_vertex_id(node)) return false;
+    g_actor->coopnet_place(target,speed);
+    Msg("* CoopNet guest arrival placed: level %u position %.3f %.3f %.3f",level,target.x,target.y,target.z);
+    return true;
 }
 bool reconcile_local_actor(std::uint32_t level, const float* position, const float* velocity) {
     LocalActorPose local;
