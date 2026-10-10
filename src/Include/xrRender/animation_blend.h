@@ -33,6 +33,10 @@ public:
 	MotionID motionID;
 	u16 bone_or_part; // startup parameters
 	u8 channel;
+
+    // Verdatim, ID of blend for additive animations
+    u16 Add_ID;
+    BOOL SkipFirstFrame;
 private:
 	ECurvature blend;
 public:

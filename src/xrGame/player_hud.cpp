@@ -107,6 +107,55 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 	}
 }
 
+BOOL player_hud_motion_container::load_single_motion(IKinematicsAnimated* model, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim)
+{
+    player_hud_motion* pm = NULL;
+
+    string512 buff;
+    MotionID motion_ID;
+
+    xr_vector<player_hud_motion>::iterator it = m_anims.begin();
+    xr_vector<player_hud_motion>::iterator it_e = m_anims.end();
+    for (; it != it_e; ++it)
+    {
+        const shared_str& s = (true) ? (*it).m_alias_name : (*it).m_base_name; // ??
+        if (s == alias)
+            // return false if alias is already being used
+            return FALSE;
+    }
+
+    m_anims.resize(m_anims.size() + 1);
+    pm = &m_anims.back();
+
+    //base and alias name
+    pm->m_alias_name = alias;
+    pm->m_base_name = hand_anim;
+    pm->m_additional_name = item_anim;
+
+
+    //and load all motions for it
+
+    xr_strcpy(buff, pm->m_base_name.c_str());
+
+    motion_ID = model->ID_Cycle_Safe(buff);
+
+    if (!motion_ID.valid())
+    {
+        motion_ID = model->ID_Cycle_Safe("hand_idle_doun");
+    }
+    if (motion_ID.valid())
+    {
+        pm->m_animations.resize(pm->m_animations.size() + 1);
+        pm->m_animations.back().mid = motion_ID;
+        pm->m_animations.back().name = buff;
+#ifdef DEBUG
+        //					Msg(" alias=[%s] base=[%s] name=[%s]",pm->m_alias_name.c_str(), pm->m_base_name.c_str(), buff);
+#endif // #ifdef DEBUG
+    }
+    VERIFY2(pm->m_animations.size(), make_string("motion not found [%s]", pm->m_base_name.c_str()).c_str());
+    return TRUE;
+}
+
 Fvector& attachable_hud_item::hands_attach_pos()
 {
 	if (g_player_hud->m_adjust_mode)
@@ -612,7 +661,7 @@ player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
 	string256 anim_name_r;
 	bool is_16x9 = UI().is_widescreen();
 	xr_sprintf(anim_name_r, "%s%s", anm_name.c_str(), ((m_attach_place_idx == 1) && is_16x9) ? "_16x9" : "");
-
+    
 	player_hud_motion* anm = m_hand_motions->find_motion(anim_name_r);
 
 	if (!anm)
@@ -627,20 +676,118 @@ player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
 	return anm;
 }
 
+BOOL attachable_hud_item::load_motion(const shared_str& sect_name, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim)
+{
+    if (m_parent->create_hand_motion(*sect_name, *alias, *hand_anim, *item_anim))
+        return TRUE;
+    return FALSE;
+}
+
+void attachable_hud_item::ClearBlends(anim_play_returns* returns)
+{
+    IKinematicsAnimated* ka = m_model->dcast_PKinematicsAnimated();
+    // clear blends for each partition
+
+    if (returns == nullptr) {
+        anim_play_returns temp = {0, 0, 0, 0, 0, 0};
+        returns = &temp;
+    }
+    u16 pcI = ka->partitions().count();
+    for (u16 pid = 0; pid < pcI; ++pid)
+    {
+        u16 blend_id = 0;
+        if (returns->Item_BlendID.size() == 0) {
+            blend_id = 0;
+        }
+        else
+        blend_id = returns->Item_BlendID[pid];
+
+        if (!(blend_id)) {
+            blend_id = 0;
+        }
+        if ((returns->mode == 1) || (returns->mode == 2))
+        ka->CloseAddCycles(pid, blend_id); // visual model
+    }
+
+    u16 pcR = g_player_hud->m_model->partitions().count();
+    for (u16 pid = 0; pid < pcR; ++pid)
+    {
+        // not too sure if this is the best idea for this but oh well
+        u16 blend_id = 0;
+        switch (pid) {
+        case 0:
+            blend_id = returns->m_model_p0_ID;
+            break;
+        case 1:
+            blend_id = 0;
+            break;
+        case 2:
+            blend_id = returns->m_model_p2_ID;
+            break;
+        default:
+            blend_id = 0;
+
+        }
+
+        if (!(blend_id)) {
+            blend_id = 0;
+        }
+        if ((returns->mode == 1) || (returns->mode == 3))
+        g_player_hud->m_model->CloseAddCycles(pid, blend_id); // right arm
+    }
+
+    u16 pcL = g_player_hud->m_model_2->partitions().count();
+    for (u16 pid = 0; pid < pcL; ++pid)
+    {
+        // not too sure if this is the best idea for this but oh well
+        u16 blend_id = 0;
+        switch (pid) {
+        case 0:
+            blend_id = returns->m_model_2_p0_ID;
+            break;
+        case 1:
+            blend_id = returns->m_model_2_p1_ID;
+            break;
+        case 2:
+            blend_id = returns->m_model_2_p2_ID;
+            break;
+        default:
+            blend_id = 0;
+
+        }
+
+        if (!(blend_id)) {
+            blend_id = 0;
+        }
+        if ((returns->mode == 1) || (returns->mode == 3))
+        g_player_hud->m_model_2->CloseAddCycles(pid, blend_id); // left arm
+    }
+
+}
+
 u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, const CMotionDef*& md, u8& rnd_idx,
-	float speed, bool bMixIn2)
+	float speed, bool bMixIn2, u8 channel, anim_play_returns* returns, const CMotionDef*& mdi)
 {
 	player_hud_motion* anm = find_motion(anm_name_b);
 	rnd_idx = (u8)Random.randI(anm->m_animations.size());
 	const motion_descr& M = anm->m_animations[rnd_idx];
 	if (speed == 1.f)
 		speed = anm->m_anim_speed != 0 ? anm->m_anim_speed : 1.f;
-        // Verdatim: store the final anim speed for use in motion mark timing scaling
-        final_anim_speed = speed;
+    // Verdatim: store the final anim speed for use in motion mark timing scaling
+    final_anim_speed = speed;
+
+    anim_play_returns foo;
+    anim_play_returns* temp = &foo;
+
+    u16 mode = 0;
+    if (returns != nullptr) {
+        mode = returns->mode;
+    }
 
 	u32 ret = 0;
 	if (m_attach_place_idx != SCOPE_ATTACH_IDX) {
-		ret = g_player_hud->anim_play(m_attach_place_idx, M.mid, bMixIn, md, speed);
+        if (!(mode == 2))
+		    ret = g_player_hud->anim_play(m_attach_place_idx, M.mid, bMixIn, md, speed, u16(-1), channel, temp);
 	}
 
 	if (m_model->dcast_PKinematicsAnimated())
@@ -652,7 +799,7 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 			item_anm_name = anm->m_additional_name;
 		else
 			item_anm_name = M.name;
-
+      
 		MotionID M2 = ka->ID_Cycle_Safe(item_anm_name);
 		if (!M2.valid())
 			M2 = ka->ID_Cycle_Safe("idle");
@@ -671,11 +818,24 @@ u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, co
 		}
 
 		u16 pc = ka->partitions().count();
-		for (u16 pid = 0; pid < pc; ++pid)
-			CBlend* B = ka->PlayCycle(pid, M2, (!!bMixIn && bMixIn2), 0, 0, 0, speed);
+        if (!(mode == 3))
+        {
+		    for (u16 pid = 0; pid < pc; ++pid)
+            {
+			    CBlend* B = ka->PlayCycle(pid, M2, (!!bMixIn && bMixIn2), 0, 0, channel, speed);
+                temp->Item_BlendID.push_back(B->Add_ID);
+                //Msg("adding blend id [%d], new size of vec is [%d]", B->Add_ID, temp->Item_BlendID.size());
+            }
+        }
+        // set the motion def of the item
+        mdi = ka->LL_GetMotionDef(M2);
 
 		m_model->CalculateBones_Invalidate();
 	}
+
+    if (returns != nullptr) {
+        *returns = *temp;
+    }
 
 	if (m_attach_place_idx == SCOPE_ATTACH_IDX) {
 		return ret;
@@ -1482,31 +1642,39 @@ float player_hud::SetBlendAnmTime(LPCSTR name, float time)
 }
 
 //0 = both, 1 = left, 2 = right
-void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float speed, bool script_anim = false)
+void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float speed, bool script_anim = false, u8 channel = u8(0), anim_play_returns* ret = nullptr)
 {
-	switch (pid)
-	{
-	case 0:
-	{
-		if (!script_anim && hud->script_anim_part == 2) return;
-		play_blend(hud, 1, M, bMixIn, speed);
-		play_blend(hud, 2, M, bMixIn, speed);
-		break;
-	}
-	case 1:
-		if (!script_anim && hud->script_anim_part == 1) return;
-		hud->m_model_2->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
-		hud->m_model_2->PlayCycle(1, M, bMixIn, 0, 0, 0, speed);
-		hud->m_model_2->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
-		hud->m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
-		break;
-	case 2:
-		if (!script_anim && hud->script_anim_part == 0) return;
-		hud->m_model->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
-		hud->m_model->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
-		hud->m_model->dcast_PKinematics()->CalculateBones_Invalidate();
-		break;
-	}
+    if (ret == nullptr) {
+        anim_play_returns temp;
+        ret = &temp;
+    }
+    switch (pid)
+    {
+    case 0:
+    {
+        if (!script_anim && hud->script_anim_part == 2) return;
+        play_blend(hud, 1, M, bMixIn, speed, false, channel, ret);
+        play_blend(hud, 2, M, bMixIn, speed, false, channel, ret);
+        break;
+    }
+    case 1:
+        if (!script_anim && hud->script_anim_part == 1) return;
+        // left arm
+        ret->m_model_2_p0_ID = hud->m_model_2->PlayCycle(0, M, bMixIn, 0, 0, channel, speed)->Add_ID;
+        ret->m_model_2_p1_ID = hud->m_model_2->PlayCycle(1, M, bMixIn, 0, 0, channel, speed)->Add_ID;
+
+        // this line below is ??, not sure why it exists. it plays the right arm anim for m_model_2 but the right arm is hidden in m_model_2
+        ret->m_model_2_p2_ID = hud->m_model_2->PlayCycle(2, M, bMixIn, 0, 0, channel, speed)->Add_ID;
+        hud->m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
+        break;
+    case 2:
+        if (!script_anim && hud->script_anim_part == 0) return;
+        // right arm
+        ret->m_model_p0_ID = hud->m_model->PlayCycle(0, M, bMixIn, 0, 0, channel, speed)->Add_ID;
+        ret->m_model_p2_ID = hud->m_model->PlayCycle(2, M, bMixIn, 0, 0, channel, speed)->Add_ID;
+        hud->m_model->dcast_PKinematics()->CalculateBones_Invalidate();
+        break;
+    }
 }
 
 void player_hud::create_script_anim_item_model(LPCSTR section)
@@ -1556,7 +1724,7 @@ void player_hud::StopScriptAnim()
 }
 
 //part: 0 = right arm; 1 = left arm
-u32 player_hud::anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part)
+u32 player_hud::anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotionDef*& md, float speed, u16 override_part, u8 channel, anim_play_returns* returns)
 {
 	u16 part_id = u16(-1);
 	if (attached_item(0) && attached_item(1))
@@ -1567,7 +1735,7 @@ u32 player_hud::anim_play(u16 part, const MotionID& M, BOOL bMixIn, const CMotio
 	if (override_part != u16(-1))
 		part_id = override_part;
 
-	play_blend(this, part_id, M, bMixIn, speed);
+    play_blend(this, part_id, M, bMixIn, speed, false, channel, returns);
 
 	return motion_length(M, md, speed);
 }
@@ -1586,6 +1754,19 @@ player_hud_motion_container* player_hud::get_hand_motions(LPCSTR section)
 	m_hand_motions.push_back(res);
 
 	return &res->pm;
+}
+
+BOOL player_hud::create_hand_motion(LPCSTR section, LPCSTR alias, LPCSTR hand_anim, LPCSTR item_anim)
+{
+    // load a new motion for an already initiated item section
+    for (hand_motions* phm : m_hand_motions)
+    {
+        if (phm->section == section)
+            if (phm->pm.load_single_motion(m_model, alias, hand_anim, item_anim));
+                return TRUE;
+    }
+
+    return FALSE;
 }
 
 void player_hud::update_script_item()
