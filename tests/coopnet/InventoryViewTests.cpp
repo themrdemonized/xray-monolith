@@ -20,6 +20,8 @@ int main() {
     loot.condition=std::numeric_limits<float>::quiet_NaN(); require(!valid_item_state(loot));
     InventoryView view; view.actor=20; view.generation=1; view.level=10; view.revision=1;
     view.money=314159;
+    view.community="actor_stalker";
+    view.npc_disposition={{800,-2000},{801,1000}};
     for (unsigned n=0;n<256;++n) view.items.push_back({100+n,1,"bandage",.8f,0xffff,0,0,0,0});
     InventoryViewAssembly assembly; InventoryView output; bool complete=false;
     for (unsigned offset=0;offset<256;offset+=32) {
@@ -33,6 +35,8 @@ int main() {
         require(complete==(offset==224));
     }
     require(output.items.size()==256 && output.items.back().item==355 && output.money==314159);
+    require(output.community=="actor_stalker");
+    require(output.npc_disposition==view.npc_disposition);
     auto equipped=view; equipped.items.resize(1); equipped.items.front().kind=1;
     equipped.items.front().addons=5; equipped.items.front().scope=2; equipped.items.front().uses=3;
     equipped.items.front().upgrades={"up_firsta_pm","up_secona_pm"};

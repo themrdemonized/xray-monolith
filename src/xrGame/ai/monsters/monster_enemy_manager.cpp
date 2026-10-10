@@ -242,9 +242,9 @@ bool CMonsterEnemyManager::see_enemy_recently(const CEntityAlive* enemy)
 
 bool CMonsterEnemyManager::enemy_see_me_now()
 {
-	if (Actor() == enemy)
+	if (const auto* actor=smart_cast<const CActor*>(enemy))
 	{
-		return (Actor()->memory().visual().visible_right_now(monster));
+		return (actor->memory().visual().visible_right_now(monster));
 	}
 	else
 	{

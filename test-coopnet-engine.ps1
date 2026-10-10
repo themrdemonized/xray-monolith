@@ -1,4 +1,4 @@
-param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$NameplateProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
+param([ValidateRange(30,300)][int]$Seconds = 90, [switch]$MovementProbe, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$NameplateProbe, [switch]$FactionProbe, [switch]$MutantProbe, [switch]$StarterProbe, [switch]$RestartProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
@@ -7,6 +7,8 @@ if ($SharedWorldProbe) { $WorldProbe=$true }
 if ($ContainerProbe) { $WorldProbe=$true }
 if ($DialogueProbe) { $WorldProbe=$true }
 if ($NameplateProbe) { $WorldProbe=$true }
+if ($MutantProbe) { $FactionProbe=$true }
+if ($FactionProbe) { $WorldProbe=$true }
 if ($ContainerRecoveryProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
@@ -15,7 +17,7 @@ if ($WeaponProbe) { $WorldProbe=$true }
 if ($RestartProbe) { $WorldProbe=$true }
 if ($WorldProbe) { $GameplayProbe=$true }
 if ($GameplayProbe) { $MovementProbe=$true }
-if (($NameplateProbe -or $WeaponProbe -or $InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe -or $DialogueProbe) -and !$TestDirectory) {
+if (($FactionProbe -or $NameplateProbe -or $WeaponProbe -or $InventoryProbe -or $StarterProbe -or $WorldLootProbe -or $SettingsProbe -or $RespawnProbe -or $SharedWorldProbe -or $ContainerProbe -or $DialogueProbe) -and !$TestDirectory) {
     # A prior guest journal would bypass the fresh-loadout/firing stimulus.
     $TestDirectory=Join-Path $PSScriptRoot ('_build\coopnet-inventory-'+[Guid]::NewGuid().ToString('N'))
     foreach ($role in @('host','guest')) {
@@ -33,7 +35,7 @@ foreach ($file in $fixtureFiles) { $originalHashes[$file.FullName] = (Get-FileHa
 $ownedProcesses = @()
 $started = [DateTime]::UtcNow
 try {
-    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -DialogueProbe:$DialogueProbe -NameplateProbe:$NameplateProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
+    $ownedProcesses = @(& "$PSScriptRoot\prepare-coopnet-engine-test.ps1" -Launch -LoadFixture -ReplicaProbe -MovementProbe:$MovementProbe -GameplayProbe:$GameplayProbe -WorldProbe:$WorldProbe -PartyProbe:$PartyProbe -WeaponProbe:$WeaponProbe -InventoryProbe:$InventoryProbe -WorldLootProbe:$WorldLootProbe -SettingsProbe:$SettingsProbe -RespawnProbe:$RespawnProbe -SharedWorldProbe:$SharedWorldProbe -ContainerProbe:$ContainerProbe -ContainerRecoveryProbe:$ContainerRecoveryProbe -DialogueProbe:$DialogueProbe -NameplateProbe:$NameplateProbe -FactionProbe:$FactionProbe -MutantProbe:$MutantProbe -StarterProbe:$StarterProbe -TestDirectory $TestDirectory)
     if ($ownedProcesses.Count -ne 2) { throw 'Expected exactly two owned engine probe processes.' }
     $watch = [System.Diagnostics.Stopwatch]::StartNew()
     while ($watch.Elapsed.TotalSeconds -lt $Seconds) {
@@ -48,7 +50,7 @@ try {
     foreach ($process in $ownedProcesses) {
         if (!$process.HasExited) {
             $process.CloseMainWindow() | Out-Null
-            if (!$process.WaitForExit(10000)) {
+            if (!$process.WaitForExit(30000)) {
                 Stop-Process -Id $process.Id
                 $cleanupProblems += "Probe engine PID $($process.Id) did not close normally."
             }
@@ -312,9 +314,25 @@ if ($NameplateProbe) {
 
 if ($WorldProbe -and $MovementProbe) {
     if ($logs.guest -notmatch 'native physics correction completed' -or $logs.guest -notmatch 'native local movement controls applied') { throw 'Native physics correction or local prediction controls evidence missing' }
-    if (!$RespawnProbe -and !$PartyProbe) {
+    if (!$RespawnProbe -and !$PartyProbe -and !$FactionProbe) {
         $continuity=[regex]::Matches($logs.guest,'native camera continuity: samples ([0-9]+) discontinuities ([0-9]+) maximum step ([0-9.]+)')
         if (!$continuity.Count -or $continuity[$continuity.Count-1].Groups[2].Value -ne '0') { throw 'Native camera target continuity evidence missing or movement discontinuities detected' }
     }
     Write-Output 'NATIVE_PREDICTION_PATH_PASS: local native movement controls and legacy physics correction pipeline both executed.'
+}
+
+if ($FactionProbe) {
+    if ($logs.host -notmatch 'faction probe: solo matrix passed factions [1-9][0-9] relations' -or
+        $logs.host -notmatch 'Wolf fresh guest disposition [0-9]+ enemy 0' -or
+        $logs.host -notmatch 'Wolf guest disposition -2000 host unchanged' -or
+        $logs.host -notmatch 'Wolf selected guest and damaged health' -or
+        $logs.host -notmatch 'native NPC bullet hit guest' -or
+        $logs.guest -notmatch 'NPC disposition received: anchor [0-9]+ attitude -2000') { throw 'Native faction matrix, guest display, or Wolf combat evidence missing.' }
+    Write-Output 'NATIVE_FACTION_PASS: solo faction defaults, independent host relations, hostile Wolf targeting and damage verified.'
+}
+
+if ($MutantProbe) {
+    $types=[regex]::Matches($logs.host,'mutant probe: native hostility and sensing passed section (\S+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+    if ($types.Count -ne 18 -or $logs.host -notmatch 'pseudodog naturally selected guest and damaged health' -or $logs.host -notmatch 'native mutant hit guest') { throw 'Native mutant hostility, unchanged sensing, or unforced combat evidence missing.' }
+    Write-Output 'NATIVE_MUTANT_PASS: 18 stock variants retained native hostility/sensing; a strong pseudodog naturally selected and damaged the guest.'
 }

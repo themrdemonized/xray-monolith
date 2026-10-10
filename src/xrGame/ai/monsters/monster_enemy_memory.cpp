@@ -11,6 +11,8 @@
 #include "ai_monster_squad_manager.h"
 #include "../../Actor.h"
 #include "../../actor_memory.h"
+#include "../../Level.h"
+#include "../../../CoopNet/EngineActorBridge.h"
 
 CMonsterEnemyMemory::CMonsterEnemyMemory()
 {
@@ -61,13 +63,14 @@ void CMonsterEnemyMemory::update()
 		}
 	}
 
-	if (monster->SoundMemory.IsRememberSound() && g_actor
-		&& g_actor->memory().visual().visible_now(monster))
+	if (monster->SoundMemory.IsRememberSound())
 	{
 		SoundElem sound;
 		bool dangerous;
 		monster->SoundMemory.GetSound(sound, dangerous);
-		if (dangerous && Device.dwTimeGlobal < sound.time + 2000)
+		const auto* heard_actor=smart_cast<const CActor*>(sound.who);
+		const auto* observer=heard_actor ? heard_actor : g_actor;
+		if (observer && observer->memory().visual().visible_now(monster) && dangerous && Device.dwTimeGlobal < sound.time + 2000)
 		{
 			if (CEntityAlive const* enemy = smart_cast<CEntityAlive const*>(sound.who))
 			{
@@ -105,19 +108,22 @@ void CMonsterEnemyMemory::update()
 	}
 
 	float const feel_enemy_max_distance = monster->get_feel_enemy_max_distance();
-	if (g_actor)
-	{
-		float const xz_dist = monster->Position().distance_to_xz(g_actor->Position());
-		float const y_dist = _abs(monster->Position().y - g_actor->Position().y);
+	auto sense_actor=[&](CActor* actor) {
+		if (!actor || actor->getDestroy() || !actor->g_Alive()) return;
+		float const xz_dist = monster->Position().distance_to_xz(actor->Position());
+		float const y_dist = _abs(monster->Position().y - actor->Position().y);
 
 		if (xz_dist < feel_enemy_max_distance &&
 			y_dist < 10 &&
-			monster->memory().enemy().is_useful(g_actor) &&
-			g_actor->memory().visual().visible_now(monster))
+			monster->memory().enemy().is_useful(actor) &&
+			actor->memory().visual().visible_now(monster))
 		{
-			add_enemy(g_actor);
+			add_enemy(actor);
 		}
-	}
+	};
+	sense_actor(g_actor);
+	for (const auto object:engine_coopnet::guest_actor_objects())
+		sense_actor(smart_cast<CActor*>(Level().Objects.net_Find(object)));
 
 	// удалить устаревших врагов
 	remove_non_actual();

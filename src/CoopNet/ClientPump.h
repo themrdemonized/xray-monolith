@@ -294,6 +294,10 @@ public:
                 if (session_.state() == ClientState::Rejected) { transport_->close(); transport_.reset(); return; }
                 const auto& welcome = session_.welcome();
                 roster_ = std::make_unique<ClientRoster>(welcome.session, welcome.player);
+            } else if (frame.message==Message::ServerHello) {
+                Welcome rejection;
+                if (baseline_.id || !decode_welcome(frame.payload,rejection) || !session_.reject_character(rejection)) { lost(); return; }
+                transport_->close(); transport_.reset(); clear_baseline(); return;
             } else if (frame.message==Message::WorldRules) {
                 WorldRulesChunk chunk; if (!decode_world_rules(frame.payload,chunk) || frame.sequence!=chunk.revision) { lost(); return; }
                 if (chunk.revision>rules_revision_) {

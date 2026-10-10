@@ -31,7 +31,7 @@ struct Player {
     bool connected = false;
 };
 enum class Admission { Accepted, WrongMode, Invalid, VersionMismatch, BuildMismatch,
-    Full, DuplicateCharacter, DuplicateConnection, InvalidResume };
+    Full, DuplicateCharacter, DuplicateConnection, InvalidResume, CharacterRejected, CharacterRequired };
 struct Welcome {
     Admission result = Admission::Invalid;
     Identity session = 0, player = 0, resume_token = 0;
@@ -109,7 +109,7 @@ inline std::vector<std::uint8_t> encode_welcome(const Welcome& welcome) {
 }
 inline bool decode_welcome(const std::vector<std::uint8_t>& bytes, Welcome& output) {
     Reader reader(bytes); Welcome value; std::uint64_t result, generation;
-    if (!reader.integer(result, 1) || result > static_cast<unsigned>(Admission::InvalidResume) ||
+    if (!reader.integer(result, 1) || result > static_cast<unsigned>(Admission::CharacterRequired) ||
         !reader.integer(value.session, 8) || !reader.integer(value.player, 8) ||
         !reader.integer(value.resume_token, 8) || !reader.integer(generation, 4) || reader.remaining()) return false;
     value.result = static_cast<Admission>(result); value.generation = static_cast<std::uint32_t>(generation);
@@ -154,6 +154,10 @@ public:
         if (state_ == ClientState::Connected) state_ = ClientState::Disconnected;
         else if (state_ == ClientState::Connecting)
             state_ = hello_.resume_session ? ClientState::Disconnected : ClientState::Offline;
+    }
+    bool reject_character(const Welcome& value) {
+        if (state_!=ClientState::Connected || (value.result!=Admission::CharacterRejected && value.result!=Admission::CharacterRequired)) return false;
+        welcome_=value; hello_.resume_session=hello_.resume_player=hello_.resume_token=0; state_=ClientState::Rejected; return true;
     }
     ClientHello reconnect() {
         if (state_ != ClientState::Disconnected) throw std::logic_error("No resumable session");

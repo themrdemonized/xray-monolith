@@ -12,6 +12,9 @@
 #include "inventory_item.h"
 #include "Inventory.h"
 #include "InventoryOwner.h"
+#include "character_community.h"
+#include "character_info.h"
+#include "relation_registry.h"
 #include "InventoryBox.h"
 #include "xr_level_controller.h"
 #include "Weapon.h"
@@ -30,6 +33,11 @@
 #include "../CoopNet/GuestSave.h"
 #include "entity_alive.h"
 #include "ai/trader/ai_trader.h"
+#include "ai/stalker/ai_stalker.h"
+#include "memory_manager.h"
+#include "visual_memory_manager.h"
+#include "enemy_manager.h"
+#include "ai/monsters/BaseMonster/base_monster.h"
 #include "level_changer.h"
 #include "UIGameCustom.h"
 #include "ui/UIMessagesWindow.h"
@@ -62,6 +70,188 @@
 #include <type_traits>
 extern string_path g_last_saved_game;
 namespace engine_coopnet {
+bool install_guest_combat_rules() {
+    ai().script_engine().process_file("xr_combat_ignore");
+    auto* state=ai().script_engine().lua(); const int top=lua_gettop(state);
+    lua_getglobal(state,"xr_combat_ignore");
+    if (!lua_istable(state,-1)) { lua_settop(state,top); return false; }
+    lua_getfield(state,-1,"coopnet_players"); const bool installed=lua_toboolean(state,-1)!=0; lua_pop(state,1);
+    if (installed) { lua_settop(state,top); return true; }
+    const char* source=
+#include "CoopNetCombatIgnore.inc"
+    ;
+    if (luaL_loadbuffer(state,source,strlen(source),"@coopnet_combat_ignore")!=0) { lua_settop(state,top); return false; }
+    lua_pushvalue(state,-2); lua_setfenv(state,-2);
+    if (lua_pcall(state,0,0,0)!=0) { Msg("! CoopNet combat rules: %s",lua_tostring(state,-1)); lua_settop(state,top); return false; }
+    lua_pushboolean(state,1); lua_setfield(state,-2,"coopnet_players"); lua_settop(state,top);
+    Msg("* CoopNet combat rules: all native actors recognized as players"); return true;
+}
+std::string actor_community(std::uint16_t object) {
+    if (!g_pGameLevel) return {};
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    return actor ? actor->CharacterInfo().Community().id().c_str() : std::string{};
+}
+bool faction_matches_host(const std::string& community) {
+    if (!g_actor || !g_pGameLevel || !g_pGameLevel->bReady) return false;
+    const auto host=actor_community(g_actor->ID());
+    return !community.empty() && community==host;
+}
+bool apply_actor_community(CActor* actor,const std::string& community,bool reset=false) {
+    if (!actor || community.empty()) return false;
+    const auto* data=CHARACTER_COMMUNITY::GetById(community.c_str(),true);
+    if (!data || community.compare(0,6,"actor_")!=0) return false;
+    if (actor->Community()==data->index && !reset) return true;
+    actor->SetCommunity(data->index);
+    if (actor->Community()!=data->index) return false;
+    // Match solo new-game setup: the selected actor community supplies faction
+    // relations; personal faction goodwill starts at zero, never the host's values.
+    for (unsigned i=0;i<=CHARACTER_COMMUNITY::GetMaxIndex();++i)
+        RELATION_REGISTRY().SetCommunityGoodwill(static_cast<CHARACTER_COMMUNITY_INDEX>(i),actor->ID(),0);
+    Msg("* CoopNet player faction applied: object %u community %s",actor->ID(),community.c_str());
+    return true;
+}
+namespace { u16 mutant_probe_stationary=0xffff,mutant_probe_attacker=0xffff; }
+void record_guest_mutant_probe_hit(std::uint16_t actor,std::uint16_t attacker) {
+    if (actor==mutant_probe_stationary) mutant_probe_attacker=attacker;
+}
+void exercise_guest_faction_probe(std::uint16_t object,double elapsed) {
+    if (!strstr(Core.Params,"-coop_faction_probe")) return;
+    static unsigned stage=0; static double wait=0; static u16 wolf_id=0xffff;
+    static Fmatrix origin; static int previous_goodwill=0; static float health=1;
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if (!actor || stage==6) return;
+    wait+=elapsed;
+    if (!stage && wait>10) {
+        const auto original=actor_community(object); unsigned factions=0,checks=0;
+        for (unsigned i=0;i<=CHARACTER_COMMUNITY::GetMaxIndex();++i) {
+            const auto* community=CHARACTER_COMMUNITY::GetByIndex(static_cast<CHARACTER_COMMUNITY_INDEX>(i));
+            const std::string name=community->id.c_str(); if (name.compare(0,6,"actor_")!=0) continue;
+            if (!apply_actor_community(actor,name,true)) throw std::runtime_error("Guest faction initialization failed");
+            for (unsigned n=0;n<=CHARACTER_COMMUNITY::GetMaxIndex();++n) {
+                const auto index=static_cast<CHARACTER_COMMUNITY_INDEX>(n);
+                if (RELATION_REGISTRY().GetCommunityGoodwill(index,object)!=0 ||
+                    RELATION_REGISTRY().GetCommunityRelation(index,actor->Community())!=CHARACTER_COMMUNITY::relation(index,community->index))
+                    throw std::runtime_error("Guest faction differs from solo faction matrix");
+                ++checks;
+            }
+            ++factions;
+        }
+        if (!apply_actor_community(actor,original,true) || factions<12) throw std::runtime_error("Guest faction matrix coverage incomplete");
+        Msg("* CoopNet faction probe: solo matrix passed factions %u relations %u",factions,checks); stage=1;
+    }
+    if (stage==1 && wait>65) {
+        CAI_Stalker* wolf=nullptr;
+        for (unsigned i=0;i<Level().Objects.o_count();++i) {
+            auto* npc=smart_cast<CAI_Stalker*>(Level().Objects.o_get_by_iterator(i));
+            auto* server=npc ? smart_cast<CSE_ALifeTraderAbstract*>(Level().Server->ID_to_entity(npc->ID())) : nullptr;
+            if (npc && npc->g_Alive() && server && server->m_SpecificCharacter.size() && strstr(server->m_SpecificCharacter.c_str(),"wolf")) { wolf=npc; break; }
+        }
+        if (!wolf) throw std::runtime_error("Faction probe Wolf unavailable");
+        wolf_id=wolf->ID(); origin=actor->XFORM(); previous_goodwill=RELATION_REGISTRY().GetGoodwill(wolf_id,object);
+        if (actor_community(object)=="actor_stalker" && wolf->is_relation_enemy(actor))
+            throw std::runtime_error("Wolf incorrectly hostile toward fresh Free Stalker guest");
+        Msg("* CoopNet faction probe: Wolf fresh guest disposition %d enemy %u",RELATION_REGISTRY().GetAttitude(static_cast<CInventoryOwner*>(wolf),static_cast<CInventoryOwner*>(actor)),wolf->is_relation_enemy(actor));
+        const int host_disposition=RELATION_REGISTRY().GetAttitude(static_cast<CInventoryOwner*>(wolf),static_cast<CInventoryOwner*>(g_actor));
+        RELATION_REGISTRY().ForceSetGoodwill(wolf_id,object,-2000);
+        const auto actual=RELATION_REGISTRY().GetAttitude(static_cast<CInventoryOwner*>(wolf),static_cast<CInventoryOwner*>(actor));
+        if (actual!=-2000) RELATION_REGISTRY().ChangeGoodwill(wolf_id,object,-2000-actual);
+        if (!wolf->is_relation_enemy(actor) || RELATION_REGISTRY().GetAttitude(static_cast<CInventoryOwner*>(wolf),static_cast<CInventoryOwner*>(g_actor))!=host_disposition)
+            throw std::runtime_error("Wolf guest hostility or host independence failed");
+        Fmatrix target=origin; target.c=wolf->Position(); target.c.mad(wolf->XFORM().k,3.f); target.c.y+=.1f;
+        actor->ForceTransform(target); actor->SetfHealth(1.f); health=actor->GetfHealth(); stage=2; wait=0;
+        Msg("* CoopNet faction probe: Wolf guest disposition -2000 host unchanged; live combat started");
+    }
+    if (stage==2) {
+        auto* wolf=smart_cast<CAI_Stalker*>(Level().Objects.net_Find(wolf_id));
+        if (!wolf || !wolf->g_Alive()) throw std::runtime_error("Faction probe Wolf died");
+        if (wolf->memory().enemy().selected()==actor && actor->GetfHealth()<health-.05f) {
+            Msg("* CoopNet faction probe: Wolf selected guest and damaged health %.3f -> %.3f",health,actor->GetfHealth());
+            RELATION_REGISTRY().SetGoodwill(wolf_id,object,previous_goodwill); actor->ForceTransform(origin); stage=3;
+        } else if (wait>30) {
+            Msg("! CoopNet faction probe: Wolf enemy %u useful %u selected %u guest %u health %.3f",wolf->is_relation_enemy(actor),wolf->memory().enemy().useful(actor),wolf->memory().enemy().selected()?wolf->memory().enemy().selected()->ID():0xffff,object,actor->GetfHealth());
+            throw std::runtime_error("Wolf did not target and damage hostile guest");
+        }
+    }
+    // Test-only native entities. No forced enemy, synthetic damage, or altered
+    // sensing settings: the final strong pseudodog must find and strike the guest itself.
+    if (!strstr(Core.Params,"-coop_mutant_probe")) return;
+    static const char* sections[]={"dog_weak","flesh_weak","boar_normal","pseudodog_weak","psy_dog",
+        "bloodsucker_weak","burer_weak","chimera_weak","gigant_weak","m_controller_normal",
+        "m_poltergeist_normal_tele","m_poltergeist_normal_flame","zombie_weak","fracture_weak",
+        "snork_weak","cat_weak_a","tushkano_weak"};
+    static unsigned specimen=0; static u16 mutant_id=0xffff; static Fmatrix arena;
+    if (stage==3) {
+        if (!specimen) {
+            arena=origin; Fvector requested=origin.c; requested.x+=150.f; requested.z+=100.f;
+            auto& graph=ai().level_graph(); u32 node=u32(-1); float best=flt_max;
+            std::vector<Fvector> other_targets;
+            for (unsigned i=0;i<Level().Objects.o_count();++i) {
+                const auto* entity=smart_cast<const CEntityAlive*>(Level().Objects.o_get_by_iterator(i));
+                if (entity && entity!=actor && entity->g_Alive() && !entity->getDestroy()) other_targets.push_back(entity->Position());
+            }
+            for (u32 candidate=0;candidate<graph.header().vertex_count();++candidate) {
+                const auto position=graph.vertex_position(candidate);
+                const auto distance=position.distance_to_sqr(requested);
+                if (distance>=best || position.distance_to_xz(origin.c)>220.f || position.distance_to_xz(origin.c)<100.f) continue;
+                bool isolated=true;
+                for (const auto& target:other_targets) if (position.distance_to_xz(target)<100.f) { isolated=false; break; }
+                if (isolated) { node=candidate; best=distance; }
+            }
+            if (!graph.valid_vertex_id(node)) throw std::runtime_error("Mutant probe isolated arena unavailable");
+            arena.c=graph.vertex_position(node); arena.c.y+=.15f;
+            Msg("* CoopNet mutant probe: isolated arena %.1f %.1f %.1f host distance %.1f",arena.c.x,arena.c.y,arena.c.z,arena.c.distance_to(g_actor->Position()));
+            actor->ForceTransform(arena); actor->SetfHealth(1.f);
+        }
+        const char* section=specimen<sizeof(sections)/sizeof(*sections) ? sections[specimen] : "pseudodog_strong";
+        if (!pSettings->section_exist(section)) throw std::runtime_error("Mutant probe section missing");
+        Fvector position=arena.c; position.z+=specimen<sizeof(sections)/sizeof(*sections) ? 4.f : 1.5f;
+        const auto node=ai().level_graph().vertex(actor->ai_location().level_vertex_id(),position);
+        if (!ai().level_graph().valid_vertex_id(node)) throw std::runtime_error("Mutant probe spawn vertex unavailable");
+        position=ai().level_graph().vertex_position(node); position.y+=.1f;
+        auto* abstract=Level().spawn_item(section,position,node,0xffff,true); abstract->m_bALifeControl=false;
+        Fvector direction; direction.sub(arena.c,position); direction.getHP(abstract->o_Angle.y,abstract->o_Angle.x);
+        if (auto* creature=smart_cast<CSE_ALifeMonsterAbstract*>(abstract)) {
+            creature->o_torso.yaw=abstract->o_Angle.y; creature->o_torso.pitch=abstract->o_Angle.x;
+        }
+        NET_Packet packet; abstract->Spawn_Write(packet,TRUE); u16 type; packet.r_begin(type);
+        auto* created=Level().Server->Process_spawn(packet,Level().Server->GetServerClient()->ID,FALSE,nullptr,true); F_entity_Destroy(abstract);
+        auto* persistent=created ? smart_cast<CSE_ALifeDynamicObject*>(created) : nullptr;
+        if (!persistent) throw std::runtime_error("Mutant probe native spawn failed");
+        persistent->m_bOnline=true; persistent->m_bALifeControl=true;
+        const_cast<CALifeSimulator&>(ai().alife()).create(persistent);
+        mutant_id=created->ID; stage=4; wait=0;
+    } else if (stage==4 && wait>1) {
+        auto* monster=smart_cast<CBaseMonster*>(Level().Objects.net_Find(mutant_id));
+        if (!monster) throw std::runtime_error("Mutant probe native object missing");
+        if (!monster->EnemyMan.is_enemy(actor) || monster->EnemyMan.is_enemy(actor)!=monster->EnemyMan.is_enemy(g_actor))
+            throw std::runtime_error("Mutant guest hostility differs from native host actor");
+        const char* section=monster->cNameSect().c_str();
+        if (!fis_zero(monster->ffGetRange()-pSettings->r_float(section,"eye_range")) ||
+            !fis_zero(monster->ffGetFov()-pSettings->r_float(section,"eye_fov")))
+            throw std::runtime_error("Mutant probe native sensing settings changed");
+        Msg("* CoopNet mutant probe: native hostility and sensing passed section %s sight %.1f fov %.1f feel %.1f",section,monster->ffGetRange(),monster->ffGetFov(),monster->get_feel_enemy_max_distance());
+        if (specimen<sizeof(sections)/sizeof(*sections)) {
+            NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,mutant_id); CGameObject::u_EventSend(packet);
+            ++specimen; stage=3;
+        } else {
+            actor->ForceTransform(arena); actor->SetfHealth(1.f); health=actor->GetfHealth(); stage=5; wait=0;
+            mutant_probe_stationary=object; mutant_probe_attacker=0xffff;
+            Msg("* CoopNet mutant probe: unforced pseudodog combat started guest %u",object);
+        }
+    } else if (stage==5) {
+        auto* monster=smart_cast<CBaseMonster*>(Level().Objects.net_Find(mutant_id));
+        if (!monster || !monster->g_Alive()) throw std::runtime_error("Mutant probe pseudodog died before combat verification");
+        if (monster->EnemyMan.get_enemy()==actor && mutant_probe_attacker==mutant_id && actor->GetfHealth()<health-.05f) {
+            Msg("* CoopNet mutant probe: pseudodog naturally selected guest and damaged health %.3f -> %.3f",health,actor->GetfHealth());
+            NET_Packet packet; CGameObject::u_EventGen(packet,GE_DESTROY,mutant_id); CGameObject::u_EventSend(packet);
+            actor->ForceTransform(origin); mutant_probe_stationary=0xffff; stage=6;
+        } else if (wait>30) {
+            Msg("! CoopNet mutant probe: pseudodog selected %u guest %u sight %u useful %u health %.3f distance %.1f pseudodog %.1f %.1f %.1f guest %.1f %.1f %.1f",monster->EnemyMan.get_enemy()?monster->EnemyMan.get_enemy()->ID():0xffff,object,monster->memory().visual().visible_now(actor),monster->memory().enemy().is_useful(actor),actor->GetfHealth(),monster->Position().distance_to(actor->Position()),monster->Position().x,monster->Position().y,monster->Position().z,actor->Position().x,actor->Position().y,actor->Position().z);
+            Msg("! CoopNet mutant probe: visibility relevant %u luminance %.3f spatial offset %.1f head yaw %.2f last seen %u",monster->feel_vision_isRelevant(actor),actor->ROS()->get_luminocity(),actor->spatial.sphere.P.distance_to(actor->Position()),monster->head_orientation().current.yaw,monster->memory().visual().visible_object_time_last_seen(actor));
+            throw std::runtime_error("Mutant did not naturally detect and damage guest");
+        }
+    }
+}
 bool capture_player_name(std::string& name) {
     if(!g_pGameLevel || !Level().Server || !g_actor || !g_pGameLevel->bReady) return false;
     auto* actor=smart_cast<CSE_ALifeTraderAbstract*>(Level().Server->ID_to_entity(g_actor->ID()));
@@ -338,6 +528,18 @@ bool capture_world_objects(std::uint32_t& level,std::vector<NativeWorldPose>& ob
         if (objects.size()>=4096) break;
     }
     return true;
+}
+void capture_guest_disposition(std::uint64_t session,std::uint16_t object,coopnet::InventoryView& view) {
+    auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if (!actor || world_level_is_replica()) return;
+    for (const auto& binding:world_objects) {
+        auto* object=const_cast<CGameObject*>(binding.first);
+        auto* npc=smart_cast<CInventoryOwner*>(object);
+        if (!npc || object->cast_actor() || object->getDestroy() || binding.second.replica) continue;
+        view.npc_disposition.emplace_back(coopnet::world_anchor(session,object->ID()),
+            RELATION_REGISTRY().GetAttitude(npc,static_cast<CInventoryOwner*>(actor)));
+        if (view.npc_disposition.size()==128) break;
+    }
 }
 bool apply_world_object(std::uint64_t session_id,std::uint64_t anchor,std::uint64_t incarnation,
     const float* position,const float* rotation,float health) {
@@ -1524,6 +1726,7 @@ bool capture_guest_inventory(std::uint16_t owner,GuestInventoryState& output) {
     if (actor->inventory().m_all.size()>256) return false;
     GuestInventoryState state; state.active_slot=actor->inventory().GetActiveSlot();
     state.money=actor->get_money(); state.has_money=true;
+    state.community=actor_community(owner);
     for (auto* item:actor->inventory().m_all) {
         auto& object=item->object();
         auto* server=Level().Server->ID_to_entity(object.ID());
@@ -1591,6 +1794,7 @@ bool capture_join_character(coopnet::InventoryView& output) {
     LocalActorPose pose; if (!capture_local_actor(pose) || world_level_is_replica() || !g_actor->g_Alive() || g_actor->inventory().m_all.size()>256) return false;
     coopnet::InventoryView character; character.actor=1; character.generation=character.level=character.revision=1;
     character.money=g_actor->get_money();
+    character.community=actor_community(g_actor->ID());
     for (auto* item:g_actor->inventory().m_all) {
         if (item->object().getDestroy() || item->object().H_Parent()!=g_actor) return false;
         coopnet::InventoryViewItem state;
@@ -1610,6 +1814,8 @@ bool capture_join_character(coopnet::InventoryView& output) {
 }
 bool validate_join_character(const coopnet::InventoryView& character) {
     if (!coopnet::valid_inventory_view(character) || !ai().get_alife()) return false;
+    if (!character.npc_disposition.empty()) return false; // NPC attitudes belong to the host world.
+    if (!character.community.empty() && (character.community.compare(0,6,"actor_")!=0 || !CHARACTER_COMMUNITY::GetById(character.community.c_str(),true))) return false;
     for (const auto& state:character.items) {
         if (!pSettings->section_exist(state.section.c_str()) || !pSettings->line_exist(state.section.c_str(),"class")) return false;
         auto* abstract=F_entity_Create(state.section.c_str());
@@ -1628,6 +1834,7 @@ bool validate_join_character(const coopnet::InventoryView& character) {
 bool import_join_character(std::uint16_t owner,const coopnet::InventoryView& character) {
     LocalActorPose pose; if (!capture_guest_actor(owner,pose) || !validate_join_character(character) || session_items.size()+character.items.size()>768) return false;
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner)); if (!actor->inventory().m_all.empty()) return false;
+    if (!character.community.empty() && !apply_actor_community(actor,character.community,true)) return false;
     auto& guest=guests.find(owner)->second; guest.imported_character=character; guest.importing=true;
     for (const auto& state:character.items) {
         auto* abstract=Level().spawn_item(state.section.c_str(),actor->Position(),actor->ai_location().level_vertex_id(),owner,true);
@@ -1893,6 +2100,18 @@ NativeInventoryStatus transact_owned_item(std::uint16_t owner,std::uint16_t item
 void update_local_inventory_view() {
     LocalActorPose pose;
     if (!world_level_is_replica() || !local_inventory_view.actor || !capture_local_actor(pose) || pose.level!=local_inventory_view.level || !Level().Server) return;
+    if (!local_inventory_view.community.empty() && !apply_actor_community(g_actor,local_inventory_view.community,inventory_local_incarnation!=pose.incarnation)) return;
+    for (const auto& relation:local_inventory_view.npc_disposition) for (const auto& binding:world_objects) {
+        if (binding.second.anchor!=relation.first) continue;
+        auto* npc=smart_cast<CInventoryOwner*>(const_cast<CGameObject*>(binding.first));
+        if (!npc || binding.first->getDestroy() || const_cast<CGameObject*>(binding.first)->cast_actor()) continue;
+        const auto personal=RELATION_REGISTRY().GetGoodwill(binding.first->ID(),g_actor->ID());
+        const auto attitude=RELATION_REGISTRY().GetAttitude(npc,static_cast<CInventoryOwner*>(g_actor));
+        RELATION_REGISTRY().SetGoodwill(binding.first->ID(),g_actor->ID(),relation.second-(attitude-personal));
+        if (relation.second==-2000 && attitude!=relation.second)
+            Msg("* CoopNet NPC disposition received: anchor %llu attitude %d",relation.first,
+                RELATION_REGISTRY().GetAttitude(npc,static_cast<CInventoryOwner*>(g_actor)));
+    }
     if (inventory_local_incarnation!=pose.incarnation) {
         local_inventory_items.clear(); inventory_cleared=false; inventory_local_incarnation=pose.incarnation;
     }
@@ -1976,6 +2195,7 @@ bool restore_guest_inventory(std::uint16_t owner,const GuestInventoryState& stat
     LocalActorPose pose; if (!capture_guest_actor(owner,pose) || state.items.size()>256 ||
         session_items.size()+state.items.size()>768) return false;
     auto* actor=smart_cast<CActor*>(Level().Objects.net_Find(owner));
+    if (!state.community.empty() && !apply_actor_community(actor,state.community,true)) return false;
     if (!actor->inventory().m_all.empty()) return false;
     xr_vector<u16> created_items;
     for (const auto& record:state.items) {
@@ -2015,6 +2235,7 @@ std::uint16_t spawn_guest_actor() {
     LocalActorPose local;
     if (!capture_local_actor(local) || !Level().Server || !Level().Server->GetServerClient() || guests.size() >= 3)
         return 0xffff;
+    if (!install_guest_combat_rules()) return 0xffff;
     auto& graph = ai().level_graph();
     const auto start = g_actor->ai_location().level_vertex_id();
     if (!graph.valid_vertex_id(start)) return 0xffff;
@@ -2049,6 +2270,10 @@ std::uint16_t spawn_guest_actor() {
     CSE_Abstract* abstract = Level().spawn_item(*g_actor->cNameSect(), position, node, 0xffff, true);
     CSE_ALifeCreatureActor* actor = smart_cast<CSE_ALifeCreatureActor*>(abstract);
     if (!actor) { F_entity_Destroy(abstract); return 0xffff; }
+    actor->specific_character();
+    auto community=actor_community(g_actor->ID());
+    if (community.compare(0,6,"actor_")!=0) community="actor_stalker";
+    actor->m_community_index=CHARACTER_COMMUNITY::IdToIndex(community.c_str());
     actor->m_bALifeControl = false; // Session actor is not persisted as a second ALife primary.
     actor->s_flags.set(M_SPAWN_OBJECT_ASPLAYER,FALSE);
     actor->o_torso.yaw = local.rotation[1]; actor->o_torso.pitch = 0;
@@ -2063,6 +2288,11 @@ std::uint16_t spawn_guest_actor() {
     Msg("* CoopNet guest ALife registration: %u",ai().get_alife() && ai().alife().objects().object(created->ID,true) ? 1u : 0u);
     Msg("* CoopNet native guest requested: object %u position %.3f %.3f %.3f", created->ID,position.x,position.y,position.z);
     return created->ID;
+}
+std::vector<std::uint16_t> guest_actor_objects() {
+    std::vector<std::uint16_t> result;
+    for (const auto& guest:guests) if (!guest.second.pending && !guest.second.removing) result.push_back(guest.first);
+    return result;
 }
 bool claim_guest_spawn(std::uint16_t object) {
     auto found = guests.find(object);
@@ -2130,6 +2360,7 @@ void control_guest_actor(std::uint16_t object, std::uint16_t buttons, float yaw,
     LocalActorPose pose;
     if (!capture_guest_actor(object,pose)) return;
     CActor* actor = smart_cast<CActor*>(Level().Objects.net_Find(object));
+    if (object==mutant_probe_stationary) { buttons=0; yaw=0; pitch=0; }
     actor->coopnet_controls(buttons,yaw,pitch);
     auto& state = guests.find(object)->second;
     if (state.importing) {

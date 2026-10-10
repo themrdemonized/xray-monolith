@@ -14,6 +14,9 @@
 #include "alife_object_registry.h"
 #include "xrServer_Objects_ALife_Monsters.h"
 #include "script_engine.h"
+#include "Level.h"
+#include "xrServer.h"
+#include "Actor.h"
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -162,8 +165,16 @@ void RELATION_REGISTRY::ForceSetGoodwill(u16 from, u16 to, CHARACTER_GOODWILL go
 {
 	RELATION_DATA& relation_data = relation_registry().registry().objects(from);
 
-	CSE_ALifeTraderAbstract* from_obj = smart_cast<CSE_ALifeTraderAbstract*>(ai().alife().objects().object(from));
-	CSE_ALifeTraderAbstract* to_obj = smart_cast<CSE_ALifeTraderAbstract*>(ai().alife().objects().object(to));
+	auto trader = [](u16 id) {
+		CSE_Abstract* object = ai().alife().objects().object(id, true);
+		if (!object && Level().Server) {
+			auto* actor = smart_cast<CActor*>(Level().Objects.net_Find(id));
+			if (actor && actor->is_coopnet_guest()) object = Level().Server->ID_to_entity(id);
+		}
+		return smart_cast<CSE_ALifeTraderAbstract*>(object);
+	};
+	CSE_ALifeTraderAbstract* from_obj = trader(from);
+	CSE_ALifeTraderAbstract* to_obj = trader(to);
 
 	if (!from_obj || !to_obj)
 	{

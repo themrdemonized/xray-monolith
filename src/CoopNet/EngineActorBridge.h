@@ -51,6 +51,7 @@ struct GuestInventoryState {
     std::uint16_t active_slot=0xffff;
     std::uint32_t money=0;
     bool has_money=false;
+    std::string community;
 };
 bool capture_guest_inventory(std::uint16_t actor,GuestInventoryState& state);
 bool restore_guest_inventory(std::uint16_t actor,const GuestInventoryState& state);
@@ -65,6 +66,12 @@ struct NativeSessionItem {
 struct NativeInventoryViewItem { std::uint16_t object=0xffff; std::uint64_t incarnation=0; coopnet::InventoryViewItem state; };
 bool capture_guest_inventory_view(std::uint16_t actor,std::vector<NativeInventoryViewItem>& items,std::uint16_t& active);
 bool capture_join_character(coopnet::InventoryView& character);
+std::string actor_community(std::uint16_t actor);
+std::vector<std::uint16_t> guest_actor_objects();
+bool faction_matches_host(const std::string& community);
+void exercise_guest_faction_probe(std::uint16_t actor,double elapsed);
+void record_guest_mutant_probe_hit(std::uint16_t actor,std::uint16_t attacker);
+void capture_guest_disposition(std::uint64_t session,std::uint16_t actor,coopnet::InventoryView& view);
 std::uint64_t join_character_identity(std::uint64_t proposed,bool replace=false);
 bool validate_join_character(const coopnet::InventoryView& character);
 bool import_join_character(std::uint16_t actor,const coopnet::InventoryView& character);

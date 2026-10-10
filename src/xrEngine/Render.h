@@ -121,6 +121,7 @@ public:
 public:
 	virtual void force_mode(u32 mode) = 0;
 	virtual float get_luminocity() = 0;
+	virtual void update_luminocity(IRenderable* object) {}
 	virtual float get_luminocity_hemi() = 0;
 	virtual float* get_luminocity_hemi_cube() = 0;
 

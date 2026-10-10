@@ -436,7 +436,10 @@ void CInventoryOwner::SetCommunity(CHARACTER_COMMUNITY_INDEX new_community)
 	CEntityAlive* EA = smart_cast<CEntityAlive*>(this);
 	VERIFY(EA);
 
-	CSE_Abstract* e_entity = ai().alife().objects().object(EA->ID(), false);
+	CSE_Abstract* e_entity = ai().alife().objects().object(EA->ID(), EA->cast_actor() && EA->cast_actor()->is_coopnet_guest());
+	// Session guests have a native server object but no persistent ALife primary.
+	if (!e_entity && EA->cast_actor() && EA->cast_actor()->is_coopnet_guest() && Level().Server)
+		e_entity = Level().Server->ID_to_entity(EA->ID());
 	if (!e_entity) return;
 
 	CharacterInfo().SetCommunity(new_community);
@@ -458,7 +461,9 @@ void CInventoryOwner::SetRank(CHARACTER_RANK_VALUE rank)
 {
 	CEntityAlive* EA = smart_cast<CEntityAlive*>(this);
 	VERIFY(EA);
-	CSE_Abstract* e_entity = ai().alife().objects().object(EA->ID(), false);
+	CSE_Abstract* e_entity = ai().alife().objects().object(EA->ID(), EA->cast_actor() && EA->cast_actor()->is_coopnet_guest());
+    if (!e_entity && EA->cast_actor() && EA->cast_actor()->is_coopnet_guest() && Level().Server)
+        e_entity = Level().Server->ID_to_entity(EA->ID());
 	if (!e_entity) return;
 	CSE_ALifeTraderAbstract* trader = smart_cast<CSE_ALifeTraderAbstract*>(e_entity);
 	if (!trader) return;
@@ -479,7 +484,9 @@ void CInventoryOwner::SetReputation(CHARACTER_REPUTATION_VALUE reputation)
 {
 	CEntityAlive* EA = smart_cast<CEntityAlive*>(this);
 	VERIFY(EA);
-	CSE_Abstract* e_entity = ai().alife().objects().object(EA->ID(), false);
+	CSE_Abstract* e_entity = ai().alife().objects().object(EA->ID(), EA->cast_actor() && EA->cast_actor()->is_coopnet_guest());
+    if (!e_entity && EA->cast_actor() && EA->cast_actor()->is_coopnet_guest() && Level().Server)
+        e_entity = Level().Server->ID_to_entity(EA->ID());
 	if (!e_entity) return;
 
 	CSE_ALifeTraderAbstract* trader = smart_cast<CSE_ALifeTraderAbstract*>(e_entity);

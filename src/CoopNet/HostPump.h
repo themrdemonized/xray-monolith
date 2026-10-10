@@ -83,6 +83,11 @@ class HostPump {
     std::function<DialogueView(Identity,const DialogueRequest&,std::uint32_t)> dialogue_handler_;
     std::function<RespawnResult(Identity,const RespawnRequest&)> respawn_handler_;
     std::function<bool(Identity,const InventoryView&)> character_handler_;
+    bool character_required_=false;
+    bool reject_character(Peer& peer,Admission reason) {
+        peer.rejected=true; peer.elapsed=0;
+        return queue(peer,{Message::ServerHello,Channel::Control,Delivery::ReliableOrdered,2,encode_welcome(Welcome{reason})});
+    }
     void failed(Peer& peer, TransferFailure reason) {
         if (!peer.assigned) return;
         failures_.push_back({peer.player,peer.assignment,reason}); peer.assigned = false;
@@ -121,6 +126,7 @@ class HostPump {
         for (unsigned count = 0; count < 32; ++count) {
             Frame frame{};
             if (!peer.transport->receive(frame)) return true;
+            if (peer.rejected) continue;
             if (!peer.player && !peer.rejected) {
                 ClientHello hello;
                 if (frame.message != Message::ClientHello || !decode_hello(frame.payload, hello)) return false;
@@ -137,10 +143,14 @@ class HostPump {
                         chunk.view.actor!=peer.character || chunk.view.generation!=1 || chunk.view.level!=1 || chunk.view.revision!=1 ||
                         (peer.character_started && !chunk.offset) || !peer.character_assembly.append(chunk,complete,character)) return false;
                     peer.character_started=true;
-                    if (complete) { if (!character_handler_ || !character_handler_(peer.player,character)) return false; peer.character_complete=true; }
+                    if (complete) {
+                        if (!character_handler_ || !character_handler_(peer.player,character)) return reject_character(peer,Admission::CharacterRejected);
+                        peer.character_complete=true;
+                    }
                     continue;
                 }
                 if (frame.message != Message::ClientReady || !frame.payload.empty()) return false;
+                if (character_required_ && !peer.character_complete) return reject_character(peer,Admission::CharacterRequired);
                 if (peer.character_started && !peer.character_complete) return false;
                 peer.ready = true; publish();
                 for(const auto& name:names_) if(!queue(peer,{Message::PlayerName,Channel::Control,Delivery::ReliableOrdered,0,encode_player_name({name.first,name.second})})) return false;
@@ -302,6 +312,7 @@ public:
         return false;
     }
     void set_character_handler(std::function<bool(Identity,const InventoryView&)> handler) { character_handler_=std::move(handler); }
+    void require_character_profile(bool required) { character_required_=required; }
     void set_dialogue_handler(std::function<DialogueView(Identity,const DialogueRequest&,std::uint32_t)> handler) { dialogue_handler_=std::move(handler); }
     bool level_ready(Identity player,std::uint32_t level) const {
         for (const auto& peer:peers_) if (peer.player==player)
@@ -631,7 +642,7 @@ public:
                 const auto value = actor->second; ++actor;
                 if (value.player == peer.player) remove_actor(value.entity, value.generation);
             }
-            if (peer.fresh && !peer.ready && peer.player) session_.release(peer.player);
+            if ((peer.fresh || peer.rejected) && !peer.ready && peer.player) session_.release(peer.player);
             it = peers_.erase(it);
             if (visible) publish();
         }
@@ -643,7 +654,7 @@ public:
         names_.clear();
         for (auto& peer : peers_) peer.transport->close();
         peers_.clear(); actors_.clear(); actor_generations_.clear(); failures_.clear(); session_.stop(); tokens_ = {}; id_ = 0;
-        items_.clear(); inventory_handler_={}; dialogue_handler_={}; character_handler_={};
+        items_.clear(); inventory_handler_={}; dialogue_handler_={}; character_handler_={}; character_required_=false;
         rules_revision_=0; rules_frames_.clear();
         shared_frames_={}; shared_revision_={};
     }

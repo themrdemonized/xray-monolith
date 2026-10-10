@@ -79,6 +79,7 @@ private:
 #endif	// RENDER!=R_R1
 public:
 	virtual void force_mode(u32 mode) { MODE = mode; };
+	virtual void update_luminocity(IRenderable* object) override { update(object); }
 
 	virtual float get_luminocity()
 	{

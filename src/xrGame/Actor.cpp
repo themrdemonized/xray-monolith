@@ -557,6 +557,12 @@ struct playing_pred
 void CActor::Hit(SHit* pHDS)
 {
     if (m_coopnet_downed) return;
+    if (m_coopnet_guest && strstr(Core.Params,"-coop_faction_probe") && pHDS->who && pHDS->hit_type==ALife::eHitTypeFireWound)
+        Msg("* CoopNet faction probe: native NPC bullet hit guest %u attacker %u power %.3f",ID(),pHDS->who->ID(),pHDS->power);
+    if (m_coopnet_guest && strstr(Core.Params,"-coop_mutant_probe") && pHDS->who && smart_cast<CBaseMonster*>(pHDS->who)) {
+        engine_coopnet::record_guest_mutant_probe_hit(ID(),pHDS->who->ID());
+        Msg("* CoopNet mutant probe: native mutant hit guest %u attacker %u power %.3f",ID(),pHDS->who->ID(),pHDS->power);
+    }
 	bool b_initiated = pHDS->aim_bullet; // physics strike by poltergeist
 
 	pHDS->aim_bullet = false;
@@ -1146,6 +1152,9 @@ void CActor::UpdateCL()
 		inherited::UpdateCL();
 		m_pPhysics_support->in_UpdateCL();
 		m_legs_controller.update(this);
+		// The renderer normally refreshes the current view actor. Session actors
+		// need the same native lighting sample even outside the host's frustum.
+		if (auto* lighting=ROS()) lighting->update_luminocity(this);
 		return;
 	}
 	if (g_Alive() && Level().CurrentViewEntity() == this)

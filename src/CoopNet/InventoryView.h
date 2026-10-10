@@ -19,11 +19,23 @@ struct InventoryView {
     std::uint32_t generation=0,level=0,revision=0;
     std::vector<InventoryViewItem> items;
     std::uint32_t money=0;
+    std::string community;
+    std::vector<std::pair<Identity,std::int32_t>> npc_disposition;
 };
 struct InventoryViewChunk {
     InventoryView view;
     std::uint16_t offset=0,total=0;
 };
+inline bool valid_actor_community(const std::string& value) {
+    return value.size()<=64 && std::all_of(value.begin(),value.end(),[](unsigned char c) { return (c>='a' && c<='z') || c=='_'; });
+}
+inline bool valid_npc_disposition(const InventoryView& view) {
+    if (view.npc_disposition.size()>128) return false;
+    std::set<Identity> seen;
+    for (const auto& relation:view.npc_disposition)
+        if (!relation.first || !seen.insert(relation.first).second || relation.second < -100000 || relation.second > 100000) return false;
+    return true;
+}
 inline bool valid_view_item(const InventoryViewItem& item) {
     return valid_item_state({item.item,0,1,item.revision,true,item.section}) &&
         std::isfinite(item.condition) && item.condition>=0 && item.condition<=1 && item.place<=2 && item.kind<=2 &&
@@ -34,14 +46,14 @@ inline bool valid_view_item(const InventoryViewItem& item) {
 }
 inline bool valid_view_chunk(const InventoryViewChunk& chunk) {
     const auto& v=chunk.view;
-    if (!v.actor || !v.generation || !v.level || !v.revision || chunk.total>256 || v.items.size()>32 ||
+    if (!valid_npc_disposition(v) || !valid_actor_community(v.community) || !v.actor || !v.generation || !v.level || !v.revision || chunk.total>256 || v.items.size()>32 ||
         chunk.offset+v.items.size()>chunk.total || (chunk.total && v.items.empty()) || (!chunk.total && chunk.offset)) return false;
     std::set<Identity> identities;
     for (const auto& item:v.items) if (!valid_view_item(item) || !identities.insert(item.item).second) return false;
     return true;
 }
 inline bool valid_inventory_view(const InventoryView& view) {
-    if (!view.actor || !view.generation || !view.level || !view.revision || view.items.size()>256) return false;
+    if (!valid_npc_disposition(view) || !valid_actor_community(view.community) || !view.actor || !view.generation || !view.level || !view.revision || view.items.size()>256) return false;
     std::set<Identity> identities; std::set<std::uint16_t> slots; bool active=!view.active;
     for (const auto& item:view.items) {
         if (!valid_view_item(item) || !identities.insert(item.item).second ||
@@ -56,6 +68,9 @@ inline std::vector<std::uint8_t> encode_view_chunk(const InventoryViewChunk& chu
     w.integer(v.actor,8); w.integer(v.active,8); w.integer(v.generation,4); w.integer(v.level,4); w.integer(v.revision,4);
     w.integer(chunk.offset,2); w.integer(chunk.total,2); w.integer(v.items.size(),1);
     w.integer(v.money,4);
+    w.integer(v.community.size(),1); w.bytes.insert(w.bytes.end(),v.community.begin(),v.community.end());
+    w.integer(v.npc_disposition.size(),2);
+    for (const auto& relation:v.npc_disposition) { w.integer(relation.first,8); w.integer(static_cast<std::uint32_t>(relation.second),4); }
     for (const auto& item:v.items) {
         w.integer(item.item,8); w.integer(item.revision,4); write_float(w,item.condition);
         w.integer(item.slot,2); w.integer(item.ammo,2); w.integer(item.place,1); w.integer(item.kind,1); w.integer(item.ammo_type,1);
@@ -72,6 +87,13 @@ inline bool decode_view_chunk(const std::vector<std::uint8_t>& bytes,InventoryVi
     c.view.generation=static_cast<std::uint32_t>(g); c.view.level=static_cast<std::uint32_t>(l); c.view.revision=static_cast<std::uint32_t>(rev);
     c.offset=static_cast<std::uint16_t>(offset); c.total=static_cast<std::uint16_t>(total);
     std::uint64_t money; if (!r.integer(money,4)) return false; c.view.money=static_cast<std::uint32_t>(money);
+    std::uint64_t community_size; if (!r.integer(community_size,1) || community_size>64 || community_size>r.remaining()) return false;
+    for (std::uint64_t i=0;i<community_size;++i) { std::uint64_t ch; if (!r.integer(ch,1) || !((ch>='a' && ch<='z') || ch=='_')) return false; c.view.community.push_back(static_cast<char>(ch)); }
+    std::uint64_t relations; if (!r.integer(relations,2) || relations>128) return false;
+    for (std::uint64_t i=0;i<relations;++i) {
+        Identity anchor; std::uint64_t raw; if (!r.integer(anchor,8) || !r.integer(raw,4)) return false;
+        const auto bits=static_cast<std::uint32_t>(raw); std::int32_t value; std::memcpy(&value,&bits,4); c.view.npc_disposition.emplace_back(anchor,value);
+    }
     for (std::uint64_t n=0;n<count;++n) {
         InventoryViewItem item; std::uint64_t revision,slot,ammo,place,kind,type,size;
         if (!r.integer(item.item,8) || !r.integer(revision,4) || !read_float(r,item.condition) || !r.integer(slot,2) ||
@@ -105,7 +127,7 @@ public:
         if (!chunk.offset) { clear(); pending_=chunk.view; pending_.items.clear(); total_=chunk.total; }
         if (!pending_.actor || pending_.actor!=chunk.view.actor || pending_.active!=chunk.view.active ||
             pending_.generation!=chunk.view.generation || pending_.level!=chunk.view.level || pending_.revision!=chunk.view.revision ||
-            pending_.money!=chunk.view.money || total_!=chunk.total || pending_.items.size()!=chunk.offset) return false;
+            pending_.money!=chunk.view.money || pending_.community!=chunk.view.community || pending_.npc_disposition!=chunk.view.npc_disposition || total_!=chunk.total || pending_.items.size()!=chunk.offset) return false;
         for (const auto& item:chunk.view.items) if (!identities_.insert(item.item).second) return false;
         pending_.items.insert(pending_.items.end(),chunk.view.items.begin(),chunk.view.items.end());
         if (pending_.items.size()==total_) {

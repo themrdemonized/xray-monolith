@@ -1,4 +1,4 @@
-param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$NameplateProbe, [switch]$StarterProbe, [string]$TestDirectory)
+param([switch]$Launch, [switch]$LoadFixture, [switch]$ReplicaProbe, [switch]$MovementProbe, [switch]$ManualControls, [switch]$GameplayProbe, [switch]$WorldProbe, [switch]$PartyProbe, [switch]$WeaponProbe, [switch]$InventoryProbe, [switch]$WorldLootProbe, [switch]$SettingsProbe, [switch]$RespawnProbe, [switch]$SharedWorldProbe, [switch]$ContainerProbe, [switch]$ContainerRecoveryProbe, [switch]$DialogueProbe, [switch]$NameplateProbe, [switch]$FactionProbe, [switch]$MutantProbe, [switch]$StarterProbe, [string]$TestDirectory)
 $ErrorActionPreference = 'Stop'
 if ($PartyProbe) { $WorldProbe=$true }
 if ($SettingsProbe) { $WorldProbe=$true }
@@ -7,6 +7,8 @@ if ($SharedWorldProbe) { $WorldProbe=$true }
 if ($ContainerProbe) { $WorldProbe=$true }
 if ($DialogueProbe) { $WorldProbe=$true }
 if ($NameplateProbe) { $WorldProbe=$true }
+if ($MutantProbe) { $FactionProbe=$true }
+if ($FactionProbe) { $WorldProbe=$true }
 if ($ContainerRecoveryProbe) { $WorldProbe=$true }
 if ($WorldLootProbe) { $WorldProbe=$true }
 if ($InventoryProbe) { $WeaponProbe=$true }
@@ -87,7 +89,9 @@ foreach ($role in @('host', 'guest')) {
 if ($Launch) {
     foreach ($role in @('host', 'guest')) {
         $root = Join-Path $testRoot $role
-        $probeArguments=@('-silent_error_mode','-noprefetch')
+        $probeArguments=@('-silent_error_mode','-noprefetch','-coop_engine_fixture')
+        if ($FactionProbe -and $role -eq 'host') { $probeArguments+='-coop_faction_probe' }
+        if ($MutantProbe -and $role -eq 'host') { $probeArguments+='-coop_mutant_probe' }
         if ($NameplateProbe) { $probeArguments+=('-coop_nameplate_'+$role+'_probe') }
         if ($SharedWorldProbe -and $role -eq 'guest') { $probeArguments+='-coop_trader_spawn_probe' }
         if ($SettingsProbe) { $probeArguments+='-coop_settings_audit' }

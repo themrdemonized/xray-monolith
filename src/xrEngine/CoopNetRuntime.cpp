@@ -778,6 +778,9 @@ void capture_guests(Session& current) {
             }
             const auto inventory=current.guest_inventory.find(player.character);
             if (inventory!=current.guest_inventory.end()) {
+                // Upgrade journals written before faction transfer from the selected character.
+                if (inventory->second.community.empty() && current.join_characters.count(player.character))
+                    inventory->second.community=current.join_characters.at(player.character).community;
                 if (!restore_guest_inventory(guest.object,inventory->second)) throw std::runtime_error("Guest inventory restoration failed");
                 Msg("* CoopNet guest inventory restored: character %llu items %u",player.character,
                     static_cast<unsigned>(inventory->second.items.size()));
@@ -889,6 +892,9 @@ void capture_guests(Session& current) {
                 coopnet::InventoryView view; view.actor=guest.entity; view.generation=guest.generation; view.level=pose.level;
                 view.revision=guest.inventory_revision+1;
                 view.money=guest_money(guest.object);
+                view.community=actor_community(guest.object);
+                exercise_guest_faction_probe(guest.object,10./25.);
+                capture_guest_disposition(current.host.identity(),guest.object,view);
                 for (const auto& native:native_items) {
                     auto found=current.items.end();
                     for (auto it=current.items.begin();it!=current.items.end();++it)
@@ -1382,9 +1388,18 @@ void command(const char* name, const char* arguments) {
             if (consumed != endpoint.size() || !port || port > 65535 ||
                 !next->runtime.listen(static_cast<std::uint16_t>(port))) throw std::runtime_error("Invalid port or listen failed");
             next->host.start(random_identity(), character, build, random_identity);
+            next->host.require_character_profile(strstr(GetCommandLineA(),"-coop_engine_fixture")==nullptr);
             auto* owner=next.get();
             next->host.set_character_handler([owner](coopnet::Identity player,const coopnet::InventoryView& character) {
                 if (!validate_join_character(character)) return false;
+                if (!faction_matches_host(character.community)) {
+                    Msg("! CoopNet join rejected: selected faction %s must match the host faction",character.community.c_str()); return false;
+                }
+                load_guest_save(*owner,character.actor);
+                const auto saved=owner->guest_inventory.find(character.actor);
+                if (saved!=owner->guest_inventory.end() && !saved->second.community.empty() && !faction_matches_host(saved->second.community)) {
+                    Msg("! CoopNet join rejected: saved character faction must match the host faction"); return false;
+                }
                 for (const auto& participant:owner->host.session().players()) if (participant.id==player && participant.character==character.actor) {
                     if (!owner->guest_inventory.count(character.actor)) owner->join_characters[character.actor]=character;
                     Msg("* CoopNet selected character received: character %llu items %u rubles %u",character.actor,static_cast<unsigned>(character.items.size()),character.money);
@@ -1615,7 +1630,12 @@ void join_status(char* output,unsigned capacity) {
     const char* status=menu_join_error.c_str();
     if (session && session->mode==coopnet::Mode::Client) {
         const auto state=session->client.session().state();
-        if (state==coopnet::ClientState::Rejected) status="Host rejected the connection. Check build/mod compatibility and available slots.";
+        if (state==coopnet::ClientState::Rejected) {
+            const auto reason=session->client.session().welcome().result;
+            status=reason==coopnet::Admission::CharacterRejected ? "Character rejected. Select a character in the host's faction with matching mods." :
+                reason==coopnet::Admission::CharacterRequired ? "Select Load save or Create character before joining the host." :
+                "Host rejected the connection. Check build/mod compatibility and available slots.";
+        }
         else if (session->client.baseline_acknowledged()) status="Connected. Your host controls the world settings.";
         else if (state==coopnet::ClientState::Connected) status="Connected. Loading the host's world...";
         else status="Connecting to host...";

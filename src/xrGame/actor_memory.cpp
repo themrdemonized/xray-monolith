@@ -11,6 +11,7 @@
 #include "actor.h"
 #include "../xrEngine/camerabase.h"
 #include "gamepersistent.h"
+#include "ai/monsters/ai_monster_utils.h"
 
 CActorMemory::CActorMemory(CActor* actor) :
 	inherited(
@@ -43,6 +44,7 @@ void CActorMemory::camera(
 {
 	CCameraBase& camera = *m_actor->cam_Active();
 	camera.Get(position, direction, normal);
+	if (m_actor->is_coopnet_guest()) position=get_head_position(m_actor);
 	field_of_view = deg2rad(camera.f_fov);
 	aspect_ratio = camera.f_aspect;
 	near_plane = .1f;
