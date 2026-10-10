@@ -1,0 +1,18 @@
+#include "lite_scope_common.h"
+uniform sampler2D s_inside;
+uniform sampler2D s_dirt;
+uniform float4 scope_surface_params;
+uniform float4 s3ds_param_3;
+
+float4 main(vf I) : COLOR0
+{
+    float2 parallax = scope_parallax(I);
+    float2 tc = scope_mark_offset(I, parallax) * scope_reticle_projection.y * 0.62 + 0.5;
+    float4 inside = tex2D(s_inside, tc);
+    float inside_alpha = inside.a * scope_surface_params.x * scope_pupil(I, parallax);
+    float3 color = scope_reticle_color.rgb * inside.r * inside_alpha;
+    float4 dirt = tex2D(s_dirt, I.tc);
+    float dirt_alpha = saturate(dirt.a * s3ds_param_3.z);
+    color = color * (1.0 - dirt_alpha) + saturate((1.0 - dirt.rgb) * scope_surface_params.z) * dirt_alpha;
+    return float4(color, 1.0 - (1.0 - inside_alpha) * (1.0 - dirt_alpha));
+}

@@ -16,6 +16,7 @@ extern float r_ssaHZBvsTEX;
 extern float r_ssaGLOD_start, r_ssaGLOD_end;
 
 #if RENDER == R_R1
+extern Fvector4 ps_s3ds_param_1;
 extern Fvector4 ps_s3ds_param_3;
 #endif
 
@@ -74,12 +75,12 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 }
 
 // ALPHA
-IC void render_sorted_item(mapSorted_Node* N, ShaderElement* element)
+IC void render_sorted_item(mapSorted_Node* N, ShaderElement* element, u32 pass = 0)
 {
 	VERIFY(N);
 	dxRender_Visual* V = N->val.pVisual;
 	VERIFY(V && V->shader._get());
-    RCache.set_Element(element);
+    RCache.set_Element(element, pass);
 	RCache.set_xform_world(N->val.Matrix);
 	RImplementation.apply_object(N->val.pObject);
 	RImplementation.apply_lmaterial();
@@ -105,7 +106,16 @@ void __fastcall sorted_scope_L1(mapSorted_Node* N)
         if (variant && variant->flags.iScopeLense == 3)
             element = variant;
     }
+    ShaderElement* image = N->val.pVisual->shader->E[4]._get();
+    if (image && image->flags.iScopeLense == 3)
+        render_sorted_item(N, image);
     render_sorted_item(N, element);
+    const bool inside = type != 3 && type != 4 && type != 6 && type != 8 && !int(ps_s3ds_param_1.w);
+    ShaderElement* surface = N->val.pVisual->shader->E[5]._get();
+    if ((inside || ps_s3ds_param_3.z > 0.f) && surface && surface->flags.iScopeLense == 3)
+        render_sorted_item(N, surface);
+    if (image && image->flags.iScopeLense == 3 && image->passes.size() > 1)
+        render_sorted_item(N, image, 1);
 }
 #endif
 

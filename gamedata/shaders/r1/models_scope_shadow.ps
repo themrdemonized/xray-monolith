@@ -1,0 +1,12 @@
+#include "lite_scope_common.h"
+uniform float4 r1_scope_debug;
+
+float4 main(vf I) : COLOR0
+{
+    float visible = scope_pupil(I, scope_parallax(I)) * scope_vignette(I.tc);
+    float a = smoothstep(0.9, 1.0, length(I.tc - float2(scope_transition.z, 0.5)));
+    float b = smoothstep(0.6, 1.0, length(I.tc - float2(scope_transition.w, 0.5)));
+    visible *= 1.0 - a * b * scope_transition.y;
+    float debug = saturate(r1_scope_debug.x);
+    return float4(float3(1.0, 0.0, 1.0) * debug, lerp(1.0 - visible, 1.0, debug));
+}

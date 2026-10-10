@@ -551,9 +551,22 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 	}
 
 #if RENDER == R_R1
-    // Scope-only elements: keep extra focal-plane samples out of ordinary optics.
+    // R1 scope slots: E0/E1 reticle LOD, E2/E3 focal-plane variants,
+    // E4 image + shadow passes, E5 optional dirt/inside. Keep each pass within ps_2_0.
     if (S.E[0]._get() && S.E[0]->flags.iScopeLense == 3)
     {
+        if (S.E[4]._get() && Script::bfIsObjectPresent(LSVM, s_shader, "scope_shadow", LUA_TFUNCTION))
+        {
+            C.iElement = 4;
+            C.bDetail = FALSE;
+            ref_selement shadow;
+            shadow = C._lua_Compile(s_shader, "scope_shadow");
+            ShaderElement image;
+            image.flags = S.E[4]->flags;
+            image.passes = S.E[4]->passes;
+            image.passes.push_back(shadow->passes[0]);
+            S.E[4] = _CreateElement(image);
+        }
         if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_dual", LUA_TFUNCTION))
         {
             C.iElement = 2;
@@ -565,6 +578,12 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
             C.iElement = 3;
             C.bDetail = FALSE;
             S.E[3] = C._lua_Compile(s_shader, "scope_giperon");
+        }
+        if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_surface", LUA_TFUNCTION))
+        {
+            C.iElement = 5;
+            C.bDetail = FALSE;
+            S.E[5] = C._lua_Compile(s_shader, "scope_surface");
         }
     }
 #endif
