@@ -2,9 +2,20 @@
 
 > **EARLY TEST / FREE PLAY BUILD — DOES NOT contain the full planned features yet. Expect bugs, crashes, and incomplete systems.** Think of this as a way to explore and experience the Zone with friends. Story progression and quest systems are still being developed; a complete co-op story experience is not available yet.
 
-CoopNet is an experimental engine modification for **S.T.A.L.K.E.R. Anomaly 1.5.3**. This repository contains engine source and supporting files, not the full game. Downloading GitHub's source ZIP alone does not install a playable client. The instructions below build the networking-enabled DX11 client from the `coopnet` branch.
+CoopNet is an experimental engine modification for **S.T.A.L.K.E.R. Anomaly 1.5.3**. This repository contains engine source and supporting files, not the full game. Downloading GitHub's source ZIP alone does not install a playable client. Most players should use the compiled package below; the source-build instructions are optional.
 
-## 1. Prepare the game and build tools
+## Install the compiled test build (no compiler required)
+
+1. Install the full [Anomaly 1.5.3 base game](https://www.moddb.com/mods/stalker-anomaly/downloads/stalker-anomaly-153). [Alternate download/torrent page](https://anomalymod.com/download-install/).
+2. Download **FOBs-Anomaly-CoopNet-EarlyTest-DX11-c3b127bc.zip** from the [early-test release](https://github.com/FleshofBeast/FOBs-Anomaly-CoopNet/releases/tag/coopnet-early-test-c3b127bc). Choose the named ZIP asset, not GitHub's source-code archives.
+3. Close the game and back up your saves and existing `bin`/`gamedata` folders.
+4. Extract the package and copy its `bin` and `gamedata` folders into the Anomaly game root, beside `fsgame.ltx`. Merge folders and replace matching files; keep the other base-game files.
+5. Clear the shader cache through the Anomaly launcher, then launch **DX11**. If the runtime is missing, install Microsoft's [x64 Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+6. Use the same package and matching game/mod files on every player's PC. Follow the host/join and port-forwarding sections below, or read `INSTALL.txt` inside the ZIP.
+
+Start with clean Anomaly 1.5.3; arbitrary modpacks are not verified. The compiled package includes the networking DLLs and matching gamedata, but not the base game. **Visual Studio and Git are only required if you choose to build from source.**
+
+## 1. Optional source build: prepare the game and build tools
 
 Install Anomaly 1.5.3 separately and launch it once to check that it works. Back up your saves before testing CoopNet. Start with an unmodified game; host and guests need matching game files, mods, and CoopNet builds.
 

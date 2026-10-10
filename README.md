@@ -8,6 +8,8 @@ Get the required base game: [Anomaly 1.5.3 full download on ModDB](https://www.m
 
 **Looking to play CoopNet? Start with the [installation and multiplayer setup guide](INSTALL-COOPNET.md).** It covers building the `coopnet` branch, installing into Anomaly 1.5.3, hosting, joining, and UDP port forwarding. This source repository is not a full game download; the CoopNet guide takes precedence over the inherited upstream executable installation instructions below.
 
+**[Download the compiled DX11 early-test build](https://github.com/FleshofBeast/FOBs-Anomaly-CoopNet/releases/tag/coopnet-early-test-c3b127bc)** — no compiler required. Choose the `FOBs-Anomaly-CoopNet-EarlyTest-DX11-c3b127bc.zip` asset and follow its `INSTALL.txt`. All players need the same package; the Anomaly 1.5.3 base game is still required separately.
+
 ## CoopNet: host, join, and port forwarding
 
 Use matching CoopNet-enabled clients and game/mod files. Open the in-game console with the console key (usually `~`) and enter `/help` for the command list. The hosting command is `coop_host`; `/host` is not currently a registered command.
