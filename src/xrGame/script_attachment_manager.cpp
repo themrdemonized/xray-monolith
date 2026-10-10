@@ -621,7 +621,7 @@ u32 script_attachment::PlayMotion(LPCSTR name, bool mixin, float speed)
     u16 pc = k->partitions().count();
     for (u16 pid = 0; pid < pc; ++pid)
     { 
-        CBlend* B = k->PlayCycle(pid, M2, bMixIn, 0, 0, 0, speed);
+        CBlend* B = k->PlayCycle(pid, M2, bMixIn, 0, 0, u8(2), speed);
         table[pid+1] = B->Add_ID;
     }
 
