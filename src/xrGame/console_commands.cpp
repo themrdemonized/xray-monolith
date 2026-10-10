@@ -144,7 +144,7 @@ extern BOOL disableActorBodyRotationDelay; //leer
 
 extern BOOL pseudogiantDodgeWhileFalling; // Verdatim
 extern BOOL AllowAccelDuringLookOut; // Verdatim
-extern BOOL scale_hud_motion_marks_by_speed; // Verdatim
+extern BOOL disable_scale_hud_motion_marks_by_speed; // Verdatim
 extern BOOL npc_dont_drop_weapons_on_death; // Verdatim
 
 //demonized: new console vars
@@ -3124,7 +3124,7 @@ void CCC_RegisterCommands()
 
     CMD4(CCC_Integer, "allow_accel_during_lookout", &AllowAccelDuringLookOut, 0, 1); // Verdatim
 
-    CMD4(CCC_Integer, "scale_hud_motion_marks_by_speed", &scale_hud_motion_marks_by_speed, 0, 1); // Verdatim
+    CMD4(CCC_Integer, "disable_scale_hud_motion_marks_by_speed", &disable_scale_hud_motion_marks_by_speed, 0, 1); // Verdatim
 
 
     CMD4(CCC_Integer, "npc_dont_drop_weapons_on_death", &npc_dont_drop_weapons_on_death, 0, 1); // Verdatim
