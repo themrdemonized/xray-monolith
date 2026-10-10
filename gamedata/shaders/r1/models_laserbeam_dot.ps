@@ -1,0 +1,32 @@
+uniform sampler2D s_base;
+uniform float4 shader_param_6;
+uniform float4 r1_laser_distance;
+
+struct v2p
+{
+    float2 tc0 : TEXCOORD0;
+    float4 c0 : COLOR0;
+};
+
+float4 main(v2p I) : COLOR0
+{
+    float distance = max(r1_laser_distance.x, 3.0);
+    float size = max(sqrt(3.0 / distance), 0.15);
+    size = lerp(1.0, size, shader_param_6.y > 0.0);
+    float2 tc = (I.tc0 - 0.5) / size + 0.5;
+    float mask = step(0.0, tc.x) * step(tc.x, 1.0) * step(0.0, tc.y) * step(tc.y, 1.0);
+    float4 color = tex2D(s_base, tc) * mask;
+    color.a *= color.a;
+
+    float hue = frac((shader_param_6.z - 1.0) / 99.0);
+    float3 tint = saturate(float3(abs(hue * 6.0 - 3.0) - 1.0,
+        2.0 - abs(hue * 6.0 - 2.0), 2.0 - abs(hue * 6.0 - 4.0)));
+    float intensity = dot(color.rgb, float3(0.299, 0.587, 0.114));
+    color.rgb = lerp(color.rgb, tint * intensity, shader_param_6.z > 0.5);
+
+    float bright = abs(shader_param_6.x) * 1.5;
+    float fade = saturate((distance - 3.0) / 97.0) * (shader_param_6.x > 0.0);
+    color *= lerp(bright, 0.09, fade);
+    color.a *= I.c0.a;
+    return color;
+}

@@ -583,6 +583,16 @@ static class scope_lens_color : public R_constant_setup
 } binder_scope_lens_color;
 
 #if RENDER == R_R1
+static class r1_laser_distance : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        // ponytail: use the existing camera pick; per-pixel surface distance needs a position buffer.
+        const float distance = g_pGamePersistent->m_pGShaderConstants->hud_target_distance;
+        RCache.set_c(C, _valid(distance) && distance > EPS_S ? distance : 100.f, 0.f, 0.f, 0.f);
+    }
+} binder_r1_laser_distance;
+
 static class scope_thermal_params : public R_constant_setup
 {
     virtual void setup(R_constant* C)
@@ -1772,6 +1782,7 @@ void CBlender_Compile::SetMapping()
     r_Constant("scope_reticle_optics", &binder_scope_reticle_optics);
     r_Constant("scope_lens_color", &binder_scope_lens_color);
 #if RENDER == R_R1
+    r_Constant("r1_laser_distance", &binder_r1_laser_distance);
     r_Constant("scope_thermal_params", &binder_scope_thermal_params);
 #endif
     r_Constant("scope_transition", &binder_scope_transition);

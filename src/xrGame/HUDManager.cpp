@@ -139,6 +139,7 @@ void CHUDManager::OnFrame()
 	PP.CameraPick();
 	g_player_hud->OnFrame();
 	DoPick(PP);
+    g_pGamePersistent->m_pGShaderConstants->hud_target_distance = PP.result.range;
 }
 
 //--------------------------------------------------------------------
