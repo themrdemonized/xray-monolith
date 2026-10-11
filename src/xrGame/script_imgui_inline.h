@@ -232,22 +232,32 @@ IC bool ImGui_SliderFloat4(LPCSTR name, Fvector4& vec, float min = 0.f, float ma
 
 IC LPCSTR ImGui_InputText(LPCSTR label, LPCSTR text, int capacity = 100, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
 {
+	if (capacity < 1) capacity = 1;
 	imgui_text_buffer = (text && xr_strlen(text)) ? text : "";
-	changed = ImGui::InputText(label, (char*)imgui_text_buffer.c_str(), capacity, flags);
+	// ImGui writes up to capacity bytes, so the buffer must own that many before the call, not just strlen(text).
+	if ((int)imgui_text_buffer.size() < capacity) imgui_text_buffer.resize(capacity, '\0');
+	changed = ImGui::InputText(label, &imgui_text_buffer[0], capacity, flags);
+	imgui_text_buffer.resize(xr_strlen(imgui_text_buffer.c_str()));
 	return imgui_text_buffer.c_str();
 }
 
 IC LPCSTR ImGui_InputTextMultiline(LPCSTR label, LPCSTR text, int capacity = 100, Fvector2 size = Fvector2{ 0,0 }, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
 {
+	if (capacity < 1) capacity = 1;
 	imgui_text_buffer = (text && xr_strlen(text)) ? text : "";
-	changed = ImGui::InputTextMultiline(label, (char*)imgui_text_buffer.c_str(), capacity, *(ImVec2*)&size, flags);
+	if ((int)imgui_text_buffer.size() < capacity) imgui_text_buffer.resize(capacity, '\0');
+	changed = ImGui::InputTextMultiline(label, &imgui_text_buffer[0], capacity, *(ImVec2*)&size, flags);
+	imgui_text_buffer.resize(xr_strlen(imgui_text_buffer.c_str()));
 	return imgui_text_buffer.c_str();
 }
 
 IC LPCSTR ImGui_InputTextWithHint(LPCSTR label, LPCSTR hint, LPCSTR text, int capacity = 100, ImGuiInputTextFlags flags = 0, bool& changed = ugly_hack)
 {
+	if (capacity < 1) capacity = 1;
 	imgui_text_buffer = (text && xr_strlen(text)) ? text : "";
-	changed = ImGui::InputTextWithHint(label, hint, (char*)imgui_text_buffer.c_str(), capacity, flags);
+	if ((int)imgui_text_buffer.size() < capacity) imgui_text_buffer.resize(capacity, '\0');
+	changed = ImGui::InputTextWithHint(label, hint, &imgui_text_buffer[0], capacity, flags);
+	imgui_text_buffer.resize(xr_strlen(imgui_text_buffer.c_str()));
 	return imgui_text_buffer.c_str();
 }
 

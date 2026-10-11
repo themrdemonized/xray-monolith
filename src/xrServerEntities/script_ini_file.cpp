@@ -104,6 +104,20 @@ Fvector CScriptIniFile::r_fvector3(LPCSTR S, LPCSTR L)
 	return (inherited::r_fvector3(S, L));
 }
 
+Fvector4 CScriptIniFile::r_fvector4(LPCSTR S, LPCSTR L)
+{
+	Fvector4 res;
+	res.set(0.0f, 0.0f, 0.0f, 0.0f);
+
+	if (!S || !L || !inherited::line_exist(S, L))
+	{
+		Msg("!CScriptIniFile::r_vector4: no line [%s] in section [%s]", L ? L : "", S ? S : "");
+		return res;
+	}
+
+	return (inherited::r_fvector4(S, L));
+}
+
 //AVO: additional methods to allow writing to ini files
 #ifdef INI_FILE_EXTENDED_EXPORTS
 void CScriptIniFile::w_bool(LPCSTR S, LPCSTR L, bool V, LPCSTR comment)
@@ -234,6 +248,23 @@ void CScriptIniFile::remove_line(LPCSTR S, LPCSTR L)
 	THROW3(inherited::section_exist(S), "Cannot find section", S);
 	THROW3(inherited::line_exist(S, L), "Cannot find line", L);
 	inherited::remove_line(S, L);
+}
+
+bool CScriptIniFile::remove_section(LPCSTR S)
+{
+	if (!S || !S[0])
+	{
+		Msg("!CScriptIniFile::remove_section: empty section name");
+		return false;
+	}
+
+	if (inherited::m_flags.test(eReadOnly))
+	{
+		Msg("!CScriptIniFile::remove_section: [%s] is read only", S);
+		return false;
+	}
+
+	return inherited::remove_section(S);
 }
 
 void CScriptIniFile::set_override_names(bool b)

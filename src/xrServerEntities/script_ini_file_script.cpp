@@ -37,11 +37,21 @@ void section_for_each(CScriptIniFile* self, ::luabind::functor<bool> functor)
 	typedef CInifile::Root sections_type;
 	sections_type& sections = self->sections();
 
+	// the functor can remove sections so walk a copy of the section list and skip whatever it removed
+	xr_vector<shared_str> names;
+	names.reserve(sections.size());
+
 	sections_type::const_iterator i = sections.begin();
 	sections_type::const_iterator e = sections.end();
 	for (; i != e; ++i)
+		names.push_back((*i).Name);
+
+	for (const shared_str& name : names)
 	{
-		if (functor((LPCSTR)(*i).Name.c_str()) == true)
+		if (!self->section_exist((LPCSTR)name.c_str()))
+			continue;
+
+		if (functor((LPCSTR)name.c_str()) == true)
 			return;
 	}
 }
@@ -180,6 +190,7 @@ void CScriptIniFile::script_register(lua_State* L)
 		.def("save_as", &CScriptIniFile::save_as)
 		.def("save_at_end", &CScriptIniFile::save_at_end)
 		.def("remove_line", &CScriptIniFile::remove_line)
+		.def("remove_section", &CScriptIniFile::remove_section)
 		.def("set_override_names", &CScriptIniFile::set_override_names)
 		.def("section_count", &CScriptIniFile::section_count)
 		.def("section_for_each", &::section_for_each)
@@ -198,6 +209,7 @@ void CScriptIniFile::script_register(lua_State* L)
 		.def("r_s32", &CScriptIniFile::r_s32)
 		.def("r_float", &CScriptIniFile::r_float)
 		.def("r_vector", &CScriptIniFile::r_fvector3)
+		.def("r_vector4", &CScriptIniFile::r_fvector4)
 		.def("close", &CScriptIniFile::close)
 		.def("r_line", &::r_line, out_value<4>() + out_value<5>())
 

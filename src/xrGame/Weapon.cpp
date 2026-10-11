@@ -10,6 +10,7 @@
 #include "inventory.h"
 #include "xrserver_objects_alife_items.h"
 #include "actor.h"
+#include "../xrEngine/CameraBase.h"
 #include "actoreffector.h"
 #include "level.h"
 #include "xr_level_controller.h"
@@ -2144,6 +2145,23 @@ void CWeapon::OnZoomOut()
 
 }
 
+bool CWeapon::StopZoom()
+{
+	if (!IsZoomed())
+		return false;
+
+	if (GetState() != eAimEnd && HudAnimationExist("anm_idle_aim_end"))
+		SwitchState(eAimEnd);
+
+	OnZoomOut();
+	return true;
+}
+
+bool CWeapon::IsTextureZoomActive()
+{
+	return IsZoomed() && ZoomTexture() && !IsRotatingToZoom();
+}
+
 CUIWindow* CWeapon::ZoomTexture()
 {
 	if (UseScopeTexture())
@@ -2298,6 +2316,17 @@ void CWeapon::SetActivationSpeedOverride(Fvector const& speed)
 void CWeapon::activate_physic_shell()
 {
 	UpdateXForm();
+
+	CActor* actor = smart_cast<CActor*>(H_Parent());
+	if (actor)
+	{
+		Fvector dir = actor->cam_Active()->vDirection;
+		dir.y = 0.f;
+		dir.normalize_safe();
+		XFORM().c.x = actor->Position().x;
+		XFORM().c.z = actor->Position().z;
+		XFORM().c.mad(dir, 0.3f);
+	}
 	CPhysicsShellHolder::activate_physic_shell();
 }
 

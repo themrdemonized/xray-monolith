@@ -26,6 +26,10 @@ class CEffectorZoomInertion : public CEffectorCam
 	float m_fSpeedMin;
 	float m_fZoomAimingDispK;
 	float m_fZoomAimingSpeedK;
+
+    // Boeker: Lua-controlled zoom inertia factor
+    float m_fUserFactor = 1.0f;
+
 	//время через которое эффектор меняет направление движения
 	u32 m_dwDeltaTime;
 
@@ -39,6 +43,9 @@ public:
 
 	void Load();
 	void SetParams(float disp);
+
+    void SetUserFactor(float factor) { m_fUserFactor = factor; }
+    float GetUserFactor() const { return m_fUserFactor; }
 
 	virtual BOOL ProcessCam(SCamEffectorInfo& info);
 	virtual void SetRndSeed(s32 Seed) { m_Random.seed(Seed); };

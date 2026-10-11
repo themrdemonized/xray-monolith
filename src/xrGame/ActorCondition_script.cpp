@@ -46,6 +46,28 @@ void WoundForEach(CActorCondition* conditions, const ::luabind::functor<bool> &f
 	}
 }
 
+float GetZoneMaxPower_script(CActorCondition* conditions, u32 infl_type)
+{
+	if (infl_type >= ALife::infl_max_count)
+	{
+		Msg("!GetZoneMaxPower: bad influence type %u", infl_type);
+		return 0.f;
+	}
+
+	return conditions->GetZoneMaxPower((ALife::EInfluenceType)infl_type);
+}
+
+float GetZoneDanger_script(CActorCondition* conditions, u32 infl_type)
+{
+	if (infl_type >= ALife::infl_max_count)
+	{
+		Msg("!GetZoneDanger: bad influence type %u", infl_type);
+		return 0.f;
+	}
+
+	return conditions->GetZoneDanger((ALife::EInfluenceType)infl_type);
+}
+
 #pragma optimize("s",on)
 void CActorCondition::script_register(lua_State *L)
 {
@@ -147,6 +169,9 @@ void CActorCondition::script_register(lua_State *L)
 			.def("BoostRadiationProtection", &CActorCondition::BoostRadiationProtection)
 			.def("BoostTelepaticProtection", &CActorCondition::BoostTelepaticProtection)
 			.def("BoostChemicalBurnProtection", &CActorCondition::BoostChemicalBurnProtection)
+			.def("GetInjuriousMaterialDamage", &CActorCondition::GetInjuriousMaterialDamage)
+			.def("GetZoneMaxPower", &GetZoneMaxPower_script)
+			.def("GetZoneDanger", &GetZoneDanger_script)
 			.def("IsLimping", &CActorCondition::IsLimping)
 			.def("IsCantWalk", &CActorCondition::IsCantWalk)
 			.def("IsCantWalkWeight", &CActorCondition::IsCantWalkWeight)
@@ -161,6 +186,14 @@ void CActorCondition::script_register(lua_State *L)
 			.def_readwrite("m_fAccelK", &CActorCondition::m_fAccelK)
 			.def_readwrite("m_fSprintK", &CActorCondition::m_fSprintK)
 			.def_readwrite("m_condition_flags", &CActorCondition::m_condition_flags)
+			.enum_("influence_type")
+			[
+				value("infl_rad", int(ALife::infl_rad)),
+				value("infl_fire", int(ALife::infl_fire)),
+				value("infl_acid", int(ALife::infl_acid)),
+				value("infl_psi", int(ALife::infl_psi)),
+				value("infl_electra", int(ALife::infl_electra))
+			]
 			.enum_("condition_flags")
 			[
 				value("eCriticalPowerReached", int(CActorCondition::eCriticalPowerReached)),

@@ -24,6 +24,7 @@
 
 CPatrolPoint::CPatrolPoint(const CPatrolPath* path)
 {
+	m_approximate = false;
 #ifdef DEBUG
 	m_path = path;
 	m_initialized = false;
@@ -69,6 +70,7 @@ CPatrolPoint::CPatrolPoint(const CLevelGraph* level_graph, const CGameLevelCross
 	m_level_vertex_id = level_vertex_id;
 	m_flags = flags;
 	m_name = name;
+	m_approximate = false;
 
 #ifdef DEBUG
 	m_initialized = true;
@@ -102,25 +104,50 @@ CPatrolPoint& CPatrolPoint::load_raw(const CLevelGraph* level_graph, const CGame
 	return (*this);
 }
 
-CPatrolPoint& CPatrolPoint::load_from_config(CInifile* ini_paths, LPCSTR patrol_name, LPCSTR point_name)
+bool CPatrolPoint::load_from_config(const CInifile* ini_paths, const LPCSTR patrol_name, const LPCSTR point_name, const CGameGraph* game_graph, const GameGraph::SLevel* level, string256& reason)
 {
-	xr_string point_name_key = FormatString("%s:%s", point_name, "name");
-	R_ASSERT4(ini_paths->line_exist(patrol_name, point_name_key.c_str()), "Missing key 'name' in patrol point", patrol_name, point_name);
+	const xr_string point_name_key = FormatString("%s:%s", point_name, "name");
+	if (!ini_paths->line_exist(patrol_name, point_name_key.c_str()))
+	{
+		xr_sprintf(reason, "point %s: missing key 'name'", point_name);
+		return false;
+	}
 	m_name = ini_paths->r_string(patrol_name, point_name_key.c_str());
 
-	xr_string point_position_key = FormatString("%s:%s", point_name, "position");
-	R_ASSERT4(ini_paths->line_exist(patrol_name, point_position_key.c_str()), "Missing key 'position' in patrol point", patrol_name, point_name);
+	const xr_string point_position_key = FormatString("%s:%s", point_name, "position");
+	if (!ini_paths->line_exist(patrol_name, point_position_key.c_str()))
+	{
+		xr_sprintf(reason, "point %s: missing key 'position'", point_name);
+		return false;
+	}
 	m_position = ini_paths->r_fvector3(patrol_name, point_position_key.c_str());
 
-	xr_string point_lvid_key = FormatString("%s:%s", point_name, "level_vertex_id");
-	R_ASSERT4(ini_paths->line_exist(patrol_name, point_lvid_key.c_str()), "Missing key 'level_vertex_id' in patrol point", patrol_name, point_name);
-	m_level_vertex_id = ini_paths->r_u32(patrol_name, point_lvid_key.c_str());
+	const xr_string point_lvid_key = FormatString("%s:%s", point_name, "level_vertex_id");
+	const xr_string point_gvid_key = FormatString("%s:%s", point_name, "game_vertex_id");
+	const bool baked = ini_paths->line_exist(patrol_name, point_lvid_key.c_str()) && ini_paths->line_exist(patrol_name, point_gvid_key.c_str());
+	if (baked)
+	{
+		m_level_vertex_id = ini_paths->r_u32(patrol_name, point_lvid_key.c_str());
+		m_game_vertex_id = ini_paths->r_u16(patrol_name, point_gvid_key.c_str());
+	}
+	else if (!level)
+	{
+		xr_sprintf(reason, "point %s: missing key 'level_vertex_id' or 'game_vertex_id' (section has no 'level')", point_name);
+		return false;
+	}
+	else
+	{
+		u32 nearest;
+		float distance;
+		if (!game_graph->nearest_vertex(level->id(), m_position, nearest, distance))
+		{
+			xr_sprintf(reason, "point %s: level '%s' has no game vertices", point_name, *level->name());
+			return false;
+		}
+		relocate(*game_graph, GameGraph::_GRAPH_ID(nearest), true);
+	}
 
-	xr_string point_gvid_key = FormatString("%s:%s", point_name, "game_vertex_id");
-	R_ASSERT4(ini_paths->line_exist(patrol_name, point_gvid_key.c_str()), "Missing key 'game_vertex_id' in patrol point", patrol_name, point_name);
-	m_game_vertex_id = ini_paths->r_u16(patrol_name, point_gvid_key.c_str());
-
-	xr_string point_flags_key = FormatString("%s:%s", point_name, "flags");
+	const xr_string point_flags_key = FormatString("%s:%s", point_name, "flags");
 	if (ini_paths->line_exist(patrol_name, point_flags_key.c_str()))
 	{
 		m_flags = ini_paths->r_u32(patrol_name, point_flags_key.c_str());
@@ -130,7 +157,41 @@ CPatrolPoint& CPatrolPoint::load_from_config(CInifile* ini_paths, LPCSTR patrol_
 	m_initialized = true;
 #endif
 
-	return (*this);
+	return true;
+}
+
+bool CPatrolPoint::resolve(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph)
+{
+	if (!m_approximate || game_graph->vertex(m_game_vertex_id)->level_id() != level_graph->level_id())
+		return false;
+
+	m_approximate = false;
+	if (!level_graph->valid_vertex_position(m_position))
+	{
+		Msg("! [spawn_overlays] patrol point %s at [%.1f,%.1f,%.1f] is outside the AI map, nearest game vertex kept", *m_name, VPUSH(m_position));
+		return false;
+	}
+
+	Fvector position = m_position;
+	position.y += .15f;
+	const u32 level_vertex_id = level_graph->vertex_id(position);
+	if (!level_graph->valid_vertex_id(level_vertex_id))
+	{
+		Msg("! [spawn_overlays] patrol point %s at [%.1f,%.1f,%.1f] has no AI node, nearest game vertex kept", *m_name, VPUSH(m_position));
+		return false;
+	}
+
+	m_level_vertex_id = level_vertex_id;
+	correct_position(level_graph, cross, game_graph);
+	return true;
+}
+
+void CPatrolPoint::relocate(const CGameGraph& graph, const GameGraph::_GRAPH_ID vertex_id, const bool approximate)
+{
+	m_game_vertex_id = vertex_id;
+	m_approximate = approximate;
+	if (approximate)
+		m_level_vertex_id = graph.vertex(vertex_id)->level_vertex_id();
 }
 
 void CPatrolPoint::load(IReader& stream)

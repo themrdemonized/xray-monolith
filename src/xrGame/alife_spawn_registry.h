@@ -42,6 +42,9 @@ private:
 	IReader* m_file;
 	IReader* m_chunk;
 	CGameGraph* m_game_graph;
+	void* m_graph_buffer;
+	xr_vector<u16> m_legacy_vertices;
+	xr_vector<u16> m_legacy_spawn_ids;
 
 protected:
 	void save_updates(IWriter& stream);
@@ -68,6 +71,11 @@ public:
 	virtual ~CALifeSpawnRegistry();
 	virtual void load(IReader& file_stream, xrGUID* save_guid = 0);
 	virtual void save(IWriter& memory_stream);
+	// Writes the assembled registry (overlays and level packs applied) in the all.spawn layout.
+	void save_spawn(IWriter& stream);
+	// Translates the graph and spawn ids of objects loaded from a save made with a pack's own all.spawn; no-op
+	// for any other save. Call before the objects are registered.
+	void remap_legacy(const ALife::D_OBJECT_P_MAP& objects);
 	void load(IReader& file_stream, LPCSTR game_name);
 	void load(LPCSTR spawn_name);
 	void fill_new_spawns(xr_vector<ALife::_SPAWN_ID>& spawns, ALife::_TIME_ID game_time,

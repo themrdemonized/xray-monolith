@@ -23,6 +23,7 @@
 #include "lua.h"
 
 #include <stdio.h>
+#include <math.h>
 
 #if LJ_PROFILE_SIGPROF
 
@@ -249,6 +250,20 @@ static void profile_timer_stop(ProfileState *ps)
 
 #elif LJ_PROFILE_WTHREAD
 
+static uint64_t profile_rng = 0x2545f4914f6cdd1dull;
+
+/* Randomized sleep from exp(interval): breaks phase-lock so periodic work cannot alias the sampler. */
+static int profile_jitter(int interval)
+{
+  uint64_t x = profile_rng;
+  double u, d;
+  x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+  profile_rng = x;
+  u = ((double)(x >> 11) + 1.0) / 9007199254740993.0;
+  d = -(double)interval * log(u);
+  return d < 1.0 ? 1 : (int)d;
+}
+
 /* Windows timer thread. */
 static DWORD WINAPI profile_thread(void *psx)
 {
@@ -256,7 +271,7 @@ static DWORD WINAPI profile_thread(void *psx)
   int interval = ps->interval;
   if (ps->wmm_tbp) ps->wmm_tbp(interval);
   while (1) {
-    Sleep(interval);
+    Sleep((DWORD)profile_jitter(interval));
     if (ps->abort) break;
     profile_trigger(ps);
   }
@@ -342,8 +357,8 @@ LUA_API void luaJIT_profile_stop(lua_State *L)
   ProfileState *ps = &profile_state;
   global_State *g = ps->g;
   if (G(L) == g) {  /* Only stop profiler if started by this VM. */
+    profile_timer_stop(ps);  /* Join the timer thread first: no profile_trigger can read a cleared g. */
     ps->g = NULL;
-    profile_timer_stop(ps);
     g->hookmask &= (uint8_t)~(HOOK_PROFILE |
 			      (ps->added_maskline ? LUA_MASKLINE : 0));
     g->hookcount = ps->saved_count;
@@ -356,7 +371,7 @@ LUA_API void luaJIT_profile_stop(lua_State *L)
 LUA_API const char *luaJIT_profile_dumpstack(lua_State *L, const char *fmt,
 					     int depth, size_t *len)
 {
-  static char buf[2048];
+  static char buf[8192];
   size_t n = 0;
   int level;
   int maxd = depth < 0 ? -depth : depth;

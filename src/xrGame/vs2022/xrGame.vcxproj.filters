@@ -4758,6 +4758,18 @@
     <ClInclude Include="..\game_graph_inline.h">
       <Filter>AI\ANavigation\GameGraph</Filter>
     </ClInclude>
+    <ClInclude Include="..\game_graph_builder.h">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spawn_overlays.h">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spawn_packs.h">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spawn_templates.h">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\xrServerEntities\game_graph_space.h">
       <Filter>AI\ANavigation\GameGraph</Filter>
     </ClInclude>
@@ -8559,6 +8571,18 @@
       <Filter>AI\AMonsters\humans\stalker\Miscellaneous</Filter>
     </ClCompile>
     <ClCompile Include="..\game_graph_script.cpp">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\game_graph_builder.cpp">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\spawn_overlays.cpp">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\spawn_packs.cpp">
+      <Filter>AI\ANavigation\GameGraph</Filter>
+    </ClCompile>
+    <ClCompile Include="..\spawn_templates.cpp">
       <Filter>AI\ANavigation\GameGraph</Filter>
     </ClCompile>
     <ClCompile Include="..\level_graph.cpp">

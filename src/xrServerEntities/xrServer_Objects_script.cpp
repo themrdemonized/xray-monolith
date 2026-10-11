@@ -29,6 +29,23 @@ CScriptIniFile* get_spawn_ini(CSE_Abstract* abstract)
 	return ((CScriptIniFile*)&abstract->spawn_ini());
 }
 
+LPCSTR get_visual_name(CSE_Visual* visual)
+{
+	LPCSTR name = visual->get_visual();
+	return name ? name : "";
+}
+
+void set_visual_name(CSE_Visual* visual, LPCSTR name)
+{
+	if (!name || !name[0])
+	{
+		Msg("!set_visual_name: empty visual name");
+		return;
+	}
+
+	visual->set_visual(name);
+}
+
 template <typename T>
 struct CWrapperBase : public T, public ::luabind::wrap_base
 {
@@ -141,6 +158,8 @@ void CSE_Visual::script_register(lua_State* L)
 		("cse_visual")
 		//			.def(		constructor<>())
 		//			.def(		constructor<LPCSTR>())
+		.def("visual_name", &get_visual_name)
+		.def("set_visual_name", &set_visual_name)
 	];
 }
 

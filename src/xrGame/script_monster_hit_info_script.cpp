@@ -18,7 +18,9 @@ void CScriptMonsterHitInfo::script_register(lua_State* L)
 		class_<CScriptMonsterHitInfo>("MonsterHitInfo")
 		.def_readwrite("who", &CScriptMonsterHitInfo::who)
 		.def_readwrite("direction", &CScriptMonsterHitInfo::direction)
-		.def_readwrite("time", &CScriptMonsterHitInfo::time),
+		.def_readwrite("time", &CScriptMonsterHitInfo::time)
+		.def_readwrite("position", &CScriptMonsterHitInfo::position)
+		.def_readwrite("count", &CScriptMonsterHitInfo::count),
 
 		class_<CMonsterSpace>("MonsterSpace")
 		.enum_("sounds")

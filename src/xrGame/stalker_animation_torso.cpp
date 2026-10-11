@@ -21,6 +21,19 @@
 
 const u32 need_look_back_time_interval = 2000;
 
+// NPC relaxed standing idle source (cvar npc_relaxed_idle_mode): 0 vanilla player pose, 1 own idle_0, 2 per-NPC spread across the authored variants
+int g_npc_relaxed_idle_mode = 0;
+
+static u32 relaxed_idle_index(u16 id, u32 count)
+{
+	switch (g_npc_relaxed_idle_mode)
+	{
+	case 1:  return 0;
+	case 2:  return count ? (id % count) : 0;
+	default: return 1;
+	}
+}
+
 MotionID CStalkerAnimationManager::aim_animation(const u32& slot, const xr_vector<CAniVector>& animation,
                                                  const u32& index) const
 {
@@ -87,7 +100,7 @@ MotionID CStalkerAnimationManager::no_object_animation(const EBodyState& body_st
 		);
 
 		if (standing())
-			return (animation[9].A[1]);
+			return (animation[9].A[relaxed_idle_index(object().ID(), (u32)animation[9].A.size())]);
 
 		return (animation[7 + movement.movement_type()].A[1]);
 	}
@@ -163,7 +176,7 @@ MotionID CStalkerAnimationManager::unknown_object_animation(u32 slot, const EBod
 		);
 
 		if (standing())
-			return (animation[9].A[1]);
+			return (animation[9].A[relaxed_idle_index(object().ID(), (u32)animation[9].A.size())]);
 
 		return (animation[7 + movement.movement_type()].A[1]);
 	}

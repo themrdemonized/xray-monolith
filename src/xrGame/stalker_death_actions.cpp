@@ -96,6 +96,8 @@ void CStalkerActionDead::initialize()
 	}
 }
 
+BOOL npc_dont_drop_weapons_on_death = false;
+
 void CStalkerActionDead::execute()
 {
 	inherited::execute();
@@ -124,8 +126,11 @@ void CStalkerActionDead::execute()
 
 		if (I == object().inventory().GetActiveSlot())
 		{
-			item->SetDropManual(TRUE);
-			continue;
+            if (!npc_dont_drop_weapons_on_death)
+            {
+			    item->SetDropManual(TRUE);
+			    continue;
+            }
 		}
 		object().inventory().Ruck(item);
 	}

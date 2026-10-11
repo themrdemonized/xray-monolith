@@ -74,13 +74,14 @@ void CEffectorZoomInertion::SetParams(float disp)
 {
 	float old_disp = m_fDispRadius;
 
-	m_fDispRadius = disp * m_fZoomAimingDispK;
-	if (m_fDispRadius < m_fDispMin)
-		m_fDispRadius = m_fDispMin;
+    // Boeker: adjust zoom inertia factor
+	m_fDispRadius = disp * m_fZoomAimingDispK * m_fUserFactor;
+	if (m_fDispRadius < m_fDispMin * m_fUserFactor)
+		m_fDispRadius = m_fDispMin * m_fUserFactor;
 
-	m_fFloatSpeed = disp * m_fZoomAimingSpeedK;
-	if (m_fFloatSpeed < m_fSpeedMin)
-		m_fFloatSpeed = m_fSpeedMin;
+	m_fFloatSpeed = disp * m_fZoomAimingSpeedK * m_fUserFactor;
+	if (m_fFloatSpeed < m_fSpeedMin * m_fUserFactor)
+		m_fFloatSpeed = m_fSpeedMin * m_fUserFactor;
 
 	//для того, чтоб сразу прошел пересчет направления
 	//движения прицела

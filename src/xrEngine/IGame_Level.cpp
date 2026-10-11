@@ -309,7 +309,10 @@ void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 
 	// Query objects
 	Fvector bb_size = {range, range, range};
-	g_SpatialSpace->q_box(snd_ER, 0, STYPE_REACTTOSOUND, snd_position, bb_size);
+	{
+		PROF_EVENT("Sound: hearing spatial query");
+		g_SpatialSpace->q_box(snd_ER, 0, STYPE_REACTTOSOUND, snd_position, bb_size);
+	}
 
 	// Iterate
 	auto it = snd_ER.begin();

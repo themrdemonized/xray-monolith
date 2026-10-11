@@ -698,6 +698,19 @@ int luabind::detail::class_rep::function_dispatcher(lua_State* L)
 
 #endif
 
+	// a call that matched no overload raises an error instead of indexing before the overload table
+	if (match_index < 0)
+	{
+		{
+			string_class msg = "no matching overload for '";
+			msg += rep->name;
+			msg += "'";
+			lua_pushstring(L, msg.c_str());
+		}
+
+		lua_error(L);
+	}
+
 #ifndef LUABIND_NO_EXCEPTIONS
 
 	try
