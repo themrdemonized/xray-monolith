@@ -11,6 +11,7 @@
 #include "thunderbolt.h"
 #include "xrHemisphere.h"
 #include "perlin.h"
+#include "shader_bus.h"
 
 #include "xr_input.h"
 
@@ -45,6 +46,14 @@ const float MAX_DIST_FACTOR = 0.95f;
 
 extern Fvector4 ps_ssfx_wind_trees;
 
+// shader bus lanes the engine fills while a shader declares them
+static u32 bus_sun_los = 0;
+static u32 bus_sky_open = 0;
+#ifndef _EDITOR
+static collide::ray_cache bus_sun_cache;
+static string_path bus_sun_level = "";
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // environment
 CEnvironment::CEnvironment() :
@@ -61,6 +70,11 @@ CEnvironment::CEnvironment() :
 	eff_LensFlare = 0;
 	eff_Thunderbolt = 0;
 	OnDeviceCreate();
+
+	bus_sun_los = ShaderBus::register_engine("engine_sun_los",
+		"1 when nothing blocks the ray from the camera toward the sun, else 0");
+	bus_sky_open = ShaderBus::register_engine("engine_sky_open",
+		"open sky over the view entity from 0 to 1, the value level.rain_hemi returns");
 #ifdef _EDITOR
     ed_from_time = 0.f;
     ed_to_time = DAY_LENGTH;
@@ -659,6 +673,27 @@ void CEnvironment::OnFrame()
 	eff_LensFlare->OnFrame(l_id);
 	eff_Thunderbolt->OnFrame(t_id, CurrentEnv->bolt_period, CurrentEnv->bolt_duration);
 	eff_Rain->OnFrame();
+
+#ifndef _EDITOR
+	if (ShaderBus::declared(bus_sun_los) && g_pGameLevel && g_pGameLevel->bReady)
+	{
+		// a triangle cached on another level is not geometry here
+		const shared_str level = g_pGameLevel->name();
+		LPCSTR level_name = level.size() ? level.c_str() : "";
+		if (xr_strcmp(bus_sun_level, level_name))
+		{
+			xr_strcpy(bus_sun_level, level_name);
+			bus_sun_cache = collide::ray_cache();
+		}
+		Fvector to_sun;
+		to_sun.set(CurrentEnv->sun_dir).invert().normalize();
+		const BOOL blocked = g_pGameLevel->ObjectSpace.RayTest(Device.vCameraPosition, to_sun, 500.f, collide::rqtBoth,
+		                                                       &bus_sun_cache, g_pGameLevel->CurrentViewEntity());
+		ShaderBus::set(bus_sun_los, blocked ? 0.f : 1.f, 0.f, 0.f, 0.f);
+	}
+	if (ShaderBus::declared(bus_sky_open))
+		ShaderBus::set(bus_sky_open, eff_Rain->GetRainHemi(), 0.f, 0.f, 0.f);
+#endif
 
 	// ******************** Environment params (setting)
 	m_pRender->OnFrame(*this);

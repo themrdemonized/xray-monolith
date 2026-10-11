@@ -3,6 +3,8 @@
 #include "../xrEngine/shader_bus.h"
 #include "../xrEngine/xr_ioconsole.h"
 #include "../xrEngine/xr_ioc_cmd.h"
+#include "script_game_object.h"
+#include "GameObject.h"
 
 using namespace luabind;
 
@@ -53,9 +55,158 @@ static ::luabind::object bus_try_register(lua_State* L, LPCSTR id, LPCSTR owner,
 	return bus_token_object(L, ShaderBus::try_register(id, owner, description, source));
 }
 
+static ::luabind::object bus_register_shared(lua_State* L, LPCSTR id, LPCSTR owner, LPCSTR description)
+{
+	string_path source;
+	bus_caller_source(L, source);
+
+	return bus_token_object(L, ShaderBus::register_shared(id, owner, description, source));
+}
+
 static bool bus_set(u32 token, float x, float y, float z, float w)
 {
 	return ShaderBus::set(token, x, y, z, w);
+}
+
+// reads rows {x, y, z, w} from a Lua array, four numbers per row, a missing component reads 0
+static bool bus_read_rows(const ::luabind::object& rows, xr_vector<double>& out)
+{
+	if (rows.type() != LUA_TTABLE)
+		return false;
+
+	for (u32 i = 1; ; ++i)
+	{
+		::luabind::object row = rows[i];
+		if (row.type() == LUA_TNIL)
+			return !out.empty();
+		if (row.type() != LUA_TTABLE || out.size() >= ShaderBus::max_rows * 4)
+			return false;
+
+		for (int c = 0; c < 4; ++c)
+		{
+			::luabind::object e = row[c + 1];
+			if (e.type() == LUA_TNUMBER)
+				out.push_back(::luabind::object_cast<double>(e));
+			else if (e.type() == LUA_TNIL)
+				out.push_back(0.0);
+			else
+				return false;
+		}
+	}
+}
+
+static bool bus_uint_value(double v, u32& out)
+{
+	if (!(v >= 0.0 && v <= 4294967295.0) || v != floor(v))
+		return false;
+	out = u32(v);
+	return true;
+}
+
+static bool bus_set_array(u32 token, double first, const ::luabind::object& rows)
+{
+	u32 row;
+	xr_vector<double> values;
+	if (!bus_uint_value(first, row) || !bus_read_rows(rows, values))
+		return ShaderBus::refuse_write(token, "a first row that is not a whole number from 0 or rows that are not an array of rows");
+
+	xr_vector<Fvector4> converted(values.size() / 4);
+	for (u32 i = 0; i < converted.size(); ++i)
+		converted[i].set(float(values[i * 4]), float(values[i * 4 + 1]), float(values[i * 4 + 2]), float(values[i * 4 + 3]));
+	return ShaderBus::set_rows(token, row, &converted.front(), u32(converted.size()));
+}
+
+static bool bus_set_uint(u32 token, double x, double y, double z, double w)
+{
+	u32 raw[4];
+	if (!bus_uint_value(x, raw[0]) || !bus_uint_value(y, raw[1]) || !bus_uint_value(z, raw[2]) || !bus_uint_value(w, raw[3]))
+		return ShaderBus::refuse_write(token, "a value that is not an unsigned 32 bit integer");
+	return ShaderBus::set_uint(token, raw[0], raw[1], raw[2], raw[3]);
+}
+
+static bool bus_set_array_uint(u32 token, double first, const ::luabind::object& rows)
+{
+	u32 row;
+	xr_vector<double> values;
+	if (!bus_uint_value(first, row) || !bus_read_rows(rows, values))
+		return ShaderBus::refuse_write(token, "a first row that is not a whole number from 0 or rows that are not an array of rows");
+
+	xr_vector<u32> raw(values.size());
+	for (u32 i = 0; i < raw.size(); ++i)
+		if (!bus_uint_value(values[i], raw[i]))
+			return ShaderBus::refuse_write(token, "a value that is not an unsigned 32 bit integer");
+	return ShaderBus::set_rows_uint(token, row, &raw.front(), u32(raw.size() / 4));
+}
+
+static IRenderable* bus_renderable(CScriptGameObject* obj)
+{
+	return obj ? &obj->object() : nullptr;
+}
+
+static bool bus_set_object(u32 token, CScriptGameObject* obj, float x, float y, float z, float w)
+{
+	return ShaderBus::set_object(token, bus_renderable(obj), x, y, z, w);
+}
+
+static bool bus_clear_object(u32 token, CScriptGameObject* obj)
+{
+	return ShaderBus::clear_object(token, bus_renderable(obj));
+}
+
+static bool bus_get_object(LPCSTR id, CScriptGameObject* obj, float& x, float& y, float& z, float& w)
+{
+	Fvector4 v;
+	const bool found = ShaderBus::get_object(id, bus_renderable(obj), v);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	x = v.x;
+	y = v.y;
+	z = v.z;
+	w = v.w;
+	return found;
+}
+
+// rows {owner, x, y, z, w}, one per token of a shared lane that set a value
+static ::luabind::object bus_writer_rows(lua_State* L, LPCSTR id, const IRenderable* object)
+{
+	::luabind::object rows = ::luabind::newtable(L);
+	xr_vector<ShaderBus::writer_value> values;
+	ShaderBus::writers(id, object, values);
+	for (u32 i = 0; i < values.size(); ++i)
+	{
+		::luabind::object row = ::luabind::newtable(L);
+		row["owner"] = values[i].owner.c_str();
+		row["x"] = values[i].value.x;
+		row["y"] = values[i].value.y;
+		row["z"] = values[i].value.z;
+		row["w"] = values[i].value.w;
+		rows[i + 1] = row;
+	}
+	return rows;
+}
+
+static ::luabind::object bus_writers(lua_State* L, LPCSTR id)
+{
+	return bus_writer_rows(L, id, nullptr);
+}
+
+static ::luabind::object bus_writers_object(lua_State* L, LPCSTR id, CScriptGameObject* obj)
+{
+	if (!obj)
+		return ::luabind::newtable(L);
+	return bus_writer_rows(L, id, bus_renderable(obj));
+}
+
+static bool bus_set_texture(u32 token, LPCSTR name)
+{
+	return ShaderBus::set_texture(token, name);
+}
+
+static LPCSTR bus_get_texture(LPCSTR id)
+{
+	const ShaderBus::lane* l = ShaderBus::find(id);
+	return l && l->texture_bound.size() ? l->texture_bound.c_str() : nullptr;
 }
 
 static bool bus_get(LPCSTR id, float& x, float& y, float& z, float& w)
@@ -69,6 +220,51 @@ static bool bus_get(LPCSTR id, float& x, float& y, float& z, float& w)
 	y = v.y;
 	z = v.z;
 	w = v.w;
+	return found;
+}
+
+static bool bus_get_uint(LPCSTR id, u32& x, u32& y, u32& z, u32& w)
+{
+	Fvector4 v;
+	const bool found = ShaderBus::get(id, v);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	u32 raw[4];
+	CopyMemory(raw, &v, sizeof(raw));
+	x = raw[0];
+	y = raw[1];
+	z = raw[2];
+	w = raw[3];
+	return found;
+}
+
+// raw unsigned values on a uint lane
+static bool bus_get_row(LPCSTR id, double i, double& x, double& y, double& z, double& w)
+{
+	u32 row;
+	Fvector4 v;
+	const bool found = bus_uint_value(i, row) && ShaderBus::get_row(id, row, v);
+	if (!found)
+		v.set(0.f, 0.f, 0.f, 0.f);
+
+	const ShaderBus::lane* l = found ? ShaderBus::find(id) : nullptr;
+	if (l && l->kind == ShaderBus::kind_uint)
+	{
+		u32 raw[4];
+		CopyMemory(raw, &v, sizeof(raw));
+		x = raw[0];
+		y = raw[1];
+		z = raw[2];
+		w = raw[3];
+	}
+	else
+	{
+		x = v.x;
+		y = v.y;
+		z = v.z;
+		w = v.w;
+	}
 	return found;
 }
 
@@ -96,17 +292,31 @@ static bool bus_stats(LPCSTR id, u32& changes, u32& last_change, u32& bound_fram
 	return ShaderBus::stats(id, changes, last_change, bound_frame, writes);
 }
 
-static bool bus_get_pending(LPCSTR id, float& x, float& y, float& z, float& w)
+// raw unsigned values on a uint lane
+static bool bus_get_pending(LPCSTR id, double& x, double& y, double& z, double& w)
 {
 	Fvector4 v;
 	const bool found = ShaderBus::get_pending(id, v);
 	if (!found)
 		v.set(0.f, 0.f, 0.f, 0.f);
 
-	x = v.x;
-	y = v.y;
-	z = v.z;
-	w = v.w;
+	const ShaderBus::lane* l = found ? ShaderBus::find(id) : nullptr;
+	if (l && l->kind == ShaderBus::kind_uint)
+	{
+		u32 raw[4];
+		CopyMemory(raw, &v, sizeof(raw));
+		x = raw[0];
+		y = raw[1];
+		z = raw[2];
+		w = raw[3];
+	}
+	else
+	{
+		x = v.x;
+		y = v.y;
+		z = v.z;
+		w = v.w;
+	}
 	return found;
 }
 
@@ -135,6 +345,23 @@ static ::luabind::object bus_list(lua_State* L, bool include_declared)
 		row["description"] = l->registered ? l->description.c_str() : "";
 		row["state"] = l->registered ? "registered" : "declared";
 		row["source"] = l->registered ? l->source.c_str() : "";
+		row["forced"] = l->is_forced;
+		row["rows"] = u32(l->rows_bound.size());
+		row["declared_rows"] = l->rows_declared;
+		row["kind"] = l->kind == ShaderBus::kind_uint ? "uint" : "float";
+		row["objects"] = l->objects;
+		row["shared"] = l->shared != nullptr;
+		row["writers"] = ShaderBus::writer_count(l);
+		row["texture"] = l->texture_bound.size() ? l->texture_bound.c_str() : "";
+
+		// every kind a shader declared, more than one or one unlike kind shows a mismatch
+		::luabind::object kinds = ::luabind::newtable(L);
+		int kind_index = 1;
+		if (l->declared_kinds & (1 << ShaderBus::kind_float))
+			kinds[kind_index++] = "float";
+		if (l->declared_kinds & (1 << ShaderBus::kind_uint))
+			kinds[kind_index++] = "uint";
+		row["declared_kinds"] = kinds;
 		rows[row_index++] = row;
 	}
 
@@ -177,9 +404,25 @@ void shader_bus_registrator::script_register(lua_State* L)
 	[
 		def("register", &bus_register, raw<1>()),
 		def("try_register", &bus_try_register, raw<1>()),
+		def("register_shared", &bus_register_shared, raw<1>()),
 		def("set", &bus_set),
+		def("set_array", &bus_set_array),
+		def("set_uint", &bus_set_uint),
+		def("set_array_uint", &bus_set_array_uint),
+		def("get_uint", &bus_get_uint,
+		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
 		def("get", &bus_get,
 		    pure_out_value<2>() + pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>()),
+		def("get_row", &bus_get_row,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("set_object", &bus_set_object),
+		def("clear_object", &bus_clear_object),
+		def("get_object", &bus_get_object,
+		    pure_out_value<3>() + pure_out_value<4>() + pure_out_value<5>() + pure_out_value<6>()),
+		def("writers", &bus_writers, raw<1>()),
+		def("writers", &bus_writers_object, raw<1>()),
+		def("set_texture", &bus_set_texture),
+		def("get_texture", &bus_get_texture),
 		def("has", &bus_has),
 		def("describe", &bus_describe),
 		def("owner_of", &bus_owner_of),

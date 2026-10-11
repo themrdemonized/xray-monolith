@@ -9,8 +9,8 @@
 
         bus_list // Print every shader bus lane with its owner, value, state, counters and the frame a shader last bound it
         bus_get <id> // Print one shader bus lane
-        bus_force <id> x y z w // Hold a lane at finite values until bus_release, a console debug path, the lua write path still needs the token
-        bus_release <id> // Drop the hold, the owner value returns on the next frame
+        bus_force <id> x y z w // Force a lane to finite values until bus_release, a console debug path, the lua write path still needs the token
+        bus_release <id> // Stop forcing the lane, the pending value returns on the next frame
 
         snd_doppler_power [0; 5] // Adjust power of doppler effect
         snd_doppler_smoothing [1; 100] // Adjust smoothness of pitch shifting in doppler effect
@@ -547,17 +547,32 @@
 		eDXE_undefined = 4,
     }
 
-    shader_bus { -- named float4 lanes bound to hlsl constants called bus_<id>, see SHADER_BUS.md
-        number version() -- 2
-        number register(string id, string owner, string description) -- the write token, fatal when another owner already holds the id
+    shader_bus { -- float4 lanes bound to hlsl constants called bus_<id>, see docs/shader_bus.md
+        number version() -- 7
+        number register(string id, string owner, string description) -- the write token, fatal when the id is registered with a different owner, nil for an id starting engine_ or cvar_
         number try_register(string id, string owner, string description) -- nil instead of the fatal
-        bool set(number token, number x, number y, number z, number w)
+        number register_shared(string id, string owner, string description) -- a token of a shared lane, every writer gets its own and the lane binds the largest value, obj_hotness is shared and register and try_register give its token too
+        -- engine lanes engine_sun_los and engine_sky_open are registered by the engine, owner_of returns engine, and fill while a shader declares them
+        -- a shader declaring bus_cvar_<name> reads the console value <name>, no script writes it
+        bool set(number token, number x, number y, number z, number w) -- false for a bad token or a value that is not finite
+        bool set_array(number token, number first, table rows) -- rows {x, y, z, w} from 0-based row first, DX10 and DX11 arrays and matrices, false past row 4095
+        bool set_uint(number token, number a, number b, number c, number d) -- whole numbers 0 to 4294967295 for uint lanes, DX10 and DX11
+        bool set_array_uint(number token, number first, table rows) -- set_array with unsigned rows
+        bool set_object(number token, game_object obj, number x, number y, number z, number w) -- the object's own value on a lane whose id starts obj_, HUD draws read the actor's
+        bool clear_object(number token, game_object obj) -- the object reads the lane's value again
+        bool set_texture(number token, string name) -- the texture or render target $user$bus_<id> shows from the next frame, "" empties it
         function get(string id) -> bool ok, number x, number y, number z, number w -- the bound value, one frame behind set
-        function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value the owner last wrote
+        function get_uint(string id) -> bool ok, number a, number b, number c, number d -- the bound value as unsigned integers
+        function get_row(string id, number i) -> bool ok, number x, number y, number z, number w -- bound row i, false past the rows a shader declared, unsigned on a uint lane
+        function get_object(string id, game_object obj) -> bool ok, number x, number y, number z, number w -- what draws of obj read, its own value or the lane's
+        string get_texture(string id) -- what $user$bus_<id> shows, nil for none or an unknown id
+        function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value last written through the token, the largest of the tokens on a shared lane, unsigned on a uint lane
+        table writers(string id) -- rows {owner, x, y, z, w}, one per token of a shared lane that called set, empty for any other lane
+        table writers(string id, game_object obj) -- the same rows for the tokens that gave obj an object value
         bool has(string id)
         string describe(string id) -- nil for an unknown or unregistered id
         string owner_of(string id) -- nil for an unknown or unregistered id
-        table list(bool include_declared = false) -- rows {id, owner, description, state, source, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
+        table list(bool include_declared = false) -- rows {id, owner, description, state, source, forced, rows, declared_rows, kind, declared_kinds, objects, shared, writers, texture, writer}, registered lanes then the twelve legacy console lanes, state is registered, declared or legacy
         function stats(string id) -> bool ok, number changes, number last_change_frame, number bound_frame, number writes
     }
 

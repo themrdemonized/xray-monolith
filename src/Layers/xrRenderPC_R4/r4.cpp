@@ -1304,6 +1304,7 @@ HRESULT CRender::shader_compile(
 	char c_ssr_quality[32];
 	char c_rain_quality[32];
 	char c_inter_grass[32];
+	char c_shader_bus[32];
 
 	char sh_name[MAX_PATH] = "";
 
@@ -1950,6 +1951,14 @@ HRESULT CRender::shader_compile(
 		sh_name[len] = '0';
 		++len;
 	}
+
+	// the bus version, in the cache name too so each version keeps its own build
+	xr_sprintf(c_shader_bus, "%d", ShaderBus::version());
+	defines[def_it].Name = "SHADER_BUS";
+	defines[def_it].Definition = c_shader_bus;
+	def_it++;
+	xr_strcat(sh_name, c_shader_bus);
+	len += xr_strlen(c_shader_bus);
 
 	sh_name[len] = 0;
 
