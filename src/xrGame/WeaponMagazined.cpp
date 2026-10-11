@@ -1751,15 +1751,15 @@ void CWeaponMagazined::PlayAnimShoot()
 	}
 }
 
-void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M)
+void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end)
 {
-	inherited::OnMotionMark(state, M);
+	inherited::OnMotionMark(state, M, mark_start, mark_end);
 
     // Edited by Verdatim 18.4.2026
     shared_str reloadMarkName = READ_IF_EXISTS(pSettings, r_string, cNameSect(), "motion_mark_reload", "");
 	if (state == eReload && (reloadMarkName.size() == 0 || reloadMarkName == M.name))
 	{
-		if (bClearJamOnly)
+		if (bClearJamOnly && xr_strcmp(M.name.c_str(), "clear_jam") == 0)
 		{
 			bMisfire = false;
 			bClearJamOnly = false;
@@ -1783,7 +1783,7 @@ void CWeaponMagazined::OnMotionMark(u32 state, const motion_marks& M)
 		}
 		else
 		{
-			if (m_needReload)
+			if (m_needReload && xr_strcmp(M.name.c_str(), "reload") == 0)
 				ReloadMagazine();
 
             // Verdatim, fix for lmg with non-(lmg_reload) motion marks causing belts to disappear

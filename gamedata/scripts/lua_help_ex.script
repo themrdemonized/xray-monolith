@@ -24,7 +24,6 @@
 
         allow_accel_during_lookout [0; 1] // flag to allow 'running' speed during left or right lookouts
 
-        scale_hud_motion_marks_by_speed [1; 0] // flag to scale motion marks by speed, default is on
 
         npc_dont_drop_weapons_on_death [0; 1] // flag to disable NPCs dropping weapons on death
 
@@ -201,6 +200,20 @@
     }
 
     game {
+        // Hand poses: hand = 0 right, 1 left, 2 both, accrue/falloff are blend rates
+        void set_hand_pose(number hand, string section, string animation, number accrue, number falloff)
+        void force_set_hand_pose(number hand, string section, string animation)
+        void clear_hand_pose(number hand, number accrue, number falloff)
+
+        table list_hand_motions(string section)
+
+        table get_hand_motion_marks(string animation)
+        void set_hand_motion_marks(string animation, table marks)
+
+        // part = 0 item and both arms, 1 left arm/hand, 2 right arm/hand.
+        // time is normalized (0..1); a nonzero set_time overrides it with seconds.
+        void set_part_cycle_time(number part, number time, number set_time)
+
         Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
         Fvector world2ui_with_depth(Fvector pos, bool hud = false, bool allow_offscreen = false) // x and y are screen coordinates, z is the post projection w, negative behind the camera and its magnitude is the view distance in metres
         table world2ui_many(table positions, bool hud, bool allow_offscreen) // projects an array of Fvector in one call, result[i] is the world2ui_with_depth vector for positions[i], stops at the first missing or non vector entry, empty table if the argument is not a table
@@ -880,6 +893,10 @@
     }
 
     class game_object {
+        table get_current_motion()
+        bool is_pending()
+        void set_pending(bool pending)
+
 		// Class casting
 		function cast_Knife()
 		function cast_Binoculars() // CWeaponBinoculars, nil when the object is not a pair of binoculars

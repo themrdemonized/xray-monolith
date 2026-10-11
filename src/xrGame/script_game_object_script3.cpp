@@ -559,6 +559,7 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		// For CHudItem
 		.def("play_hud_motion", SAFE_WRAP(&CScriptGameObject::PlayHudMotion))
 		.def("switch_state", SAFE_WRAP(&CScriptGameObject::SwitchState))
+		.def("get_current_motion", SAFE_WRAP(&CScriptGameObject::GetCurrentMotion))
 		.def("get_state", SAFE_WRAP(&CScriptGameObject::GetState))
 		.def("hud_fire_point", SAFE_WRAP(&CScriptGameObject::hud_fire_point))
 		.def("hud_fire_point2", SAFE_WRAP(&CScriptGameObject::hud_fire_point2))

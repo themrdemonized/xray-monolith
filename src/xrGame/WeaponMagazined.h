@@ -106,7 +106,7 @@ public:
 	virtual void net_Export(NET_Packet& P);
 	virtual void net_Import(NET_Packet& P);
 
-	virtual void OnMotionMark(u32 state, const motion_marks& M);
+	virtual void OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end);
 	virtual int     CheckAmmoBeforeReload(u8& v_ammoType);
 
 	virtual void OnH_A_Chield();

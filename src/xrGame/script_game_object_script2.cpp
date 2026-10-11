@@ -467,5 +467,7 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 
 		.def("g_fireParams", SAFE_WRAP(&CScriptGameObject::g_fireParams))
 
-		.def("reload_weapon", &CScriptGameObject::reload_weapon);
+		.def("reload_weapon", &CScriptGameObject::reload_weapon)
+		.def("is_pending", &CScriptGameObject::IsPending)
+		.def("set_pending", &CScriptGameObject::SetPending);
 }

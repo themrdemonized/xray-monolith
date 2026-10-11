@@ -3,7 +3,7 @@
 
 #pragma once
 
-const u32 MAX_PARTS = 4;
+const u32 MAX_PARTS = 5;
 
 const f32 SAMPLE_FPS = 30.f;
 const f32 SAMPLE_SPF = (1.f / SAMPLE_FPS);

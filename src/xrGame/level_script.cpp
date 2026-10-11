@@ -2570,6 +2570,133 @@ void take_screenshot(LPCSTR path, Fvector2 dimensions, IRender_interface::DxEnco
 
 extern void open_originals_link();
 
+// 0 = right hand, 1 = left hand, 2 = both
+void set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm, float accrue = 0.f, float falloff = 0.f)
+{
+	g_player_hud->set_hand_pose(hand, sect, anm, accrue, falloff);
+}
+
+void force_set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm)
+{
+	g_player_hud->set_hand_pose(hand, sect, anm, 1, 1, false);
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void clear_hand_pose(u8 hand, float accrue = 0.f, float falloff = 0.f)
+{
+	g_player_hud->clear_hand_pose(hand, accrue, falloff);
+}
+
+::luabind::object list_hand_motions(LPCSTR section)
+{
+	const player_hud_motion_container* motions = g_player_hud->get_hand_motions(section);
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+	if (!motions) return table;
+
+	for (const player_hud_motion& motion : motions->m_anims)
+	{
+		::luabind::object motion_table = ::luabind::newtable(ai().script_engine().lua());
+		motion_table["base"] = *motion.m_base_name;
+		motion_table["item"] = *motion.m_additional_name;
+        motion_table["speed"] = motion.m_anim_speed;
+
+        CMotionDef* md = g_player_hud->m_model->LL_GetMotionDef(motion.m_animations.front().mid);
+		motion_table["base_speed"] = md->Dequantize(md->speed);
+
+		table[*motion.m_alias_name] = motion_table;
+	}
+
+	return table;
+}
+
+::luabind::object get_hand_motion_marks(LPCSTR name)
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	MotionID mid = g_player_hud->m_model->ID_Cycle_Safe(name);
+
+	if (!mid)
+	{
+		Msg("[get_hand_motion_marks] animation %s does not exist!", name);
+		return table;
+	}
+
+	CMotionDef* md = g_player_hud->m_model->LL_GetMotionDef(mid);
+	const xr_vector<motion_marks>* anm_marks = &md->marks;
+
+	if (!anm_marks || anm_marks->empty()) return table;
+
+	xr_vector<motion_marks>::const_iterator it = anm_marks->begin();
+	xr_vector<motion_marks>::const_iterator it_e = anm_marks->end();
+	for (; it != it_e; ++it)
+	{
+		const motion_marks& M = (*it);
+		if (M.is_empty())
+			continue;
+
+		::luabind::object mark_table = ::luabind::newtable(ai().script_engine().lua());
+		const auto intervals = M.get_intervals();
+
+		int i = 1;
+		for (const motion_marks::interval& interval : intervals)
+		{
+			::luabind::object interval_table = ::luabind::newtable(ai().script_engine().lua());
+			interval_table["begin"] = interval.first;
+			interval_table["end"] = interval.second;
+			mark_table[i] = interval_table;
+			++i;
+		}
+
+		table[*M.name] = mark_table;
+	}
+
+	return table;
+}
+
+void set_hand_motion_marks(LPCSTR name, ::luabind::object table)
+{
+	if (table.type() != LUA_TTABLE) return;
+
+	MotionID mid = g_player_hud->m_model->ID_Cycle_Safe(name);
+
+	if (!mid)
+	{
+		Msg("[set_hand_motion_marks] animation %s does not exist!", name);
+		return;
+	}
+
+	CMotionDef* md = g_player_hud->m_model->LL_GetMotionDef(mid);
+	xr_vector<motion_marks>* anm_marks = &md->marks;
+
+	if (!anm_marks) return;
+
+	anm_marks->clear();
+
+	for (auto i = table.begin(); i != table.end(); ++i)
+	{
+		::luabind::object mark_table = *i;
+		if (mark_table.type() != LUA_TTABLE) continue;
+
+		motion_marks mark;
+		mark.name = ::luabind::object_cast<LPCSTR>(i.key());
+
+		for (auto k = mark_table.begin(); k != mark_table.end(); ++k)
+		{
+			::luabind::object interval_table = *k;
+			if (interval_table.type() != LUA_TTABLE) continue;
+
+			mark.intervals.push_back(motion_marks::interval(::luabind::object_cast<float>(interval_table["begin"]), ::luabind::object_cast<float>(interval_table["end"])));
+		}
+
+		if (mark.intervals.size()) anm_marks->push_back(mark);
+	}
+}
+
+void set_part_cycle_time(u8 part, float time, float set_time)
+{
+	g_player_hud->set_part_cycle_time(part, time, set_time);
+}
+
 void CLevel::script_register(lua_State* L)
 {
 	module(L)
@@ -2993,6 +3120,13 @@ void CLevel::script_register(lua_State* L)
 		def("translate_string", &translate_string),
 		def("reload_language", &reload_language),
 		def("get_resolutions", &vid_modes_string),
+		def("set_hand_pose", set_hand_pose),
+		def("force_set_hand_pose", force_set_hand_pose),
+		def("clear_hand_pose", clear_hand_pose),
+		def("list_hand_motions", list_hand_motions),
+		def("get_hand_motion_marks", get_hand_motion_marks),
+		def("set_hand_motion_marks", set_hand_motion_marks),
+		def("set_part_cycle_time", set_part_cycle_time),
 		def("play_hud_motion", PlayHudMotion),
 		def("stop_hud_motion", StopHudMotion),
 		def("get_motion_length", MotionLength),

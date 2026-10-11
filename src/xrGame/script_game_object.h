@@ -1117,6 +1117,9 @@ public:
 	u32 PlayHudMotion(LPCSTR M, bool bMixIn, u32 state, float speed = 0.f, float end = 0.f);
 	void SwitchState(u32 state);
 	u32 GetState();
+	::luabind::object GetCurrentMotion();
+	bool IsPending();
+	void SetPending(bool pending = false);
 	Fvector hud_fire_point();
 	Fvector hud_fire_point2();
 	Fvector hud_fire_point_silencer();

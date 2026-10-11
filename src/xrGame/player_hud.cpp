@@ -51,15 +51,27 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 			//base and alias name
 			pm->m_alias_name = _b->first;
 
-			if (_GetItemCount(anm.c_str()) == 1)
+			string512 str_item;
+			int item_count = _GetItemCount(anm.c_str());
+
+			switch (item_count)
 			{
+			case 1:
 				pm->m_base_name = anm;
 				pm->m_additional_name = anm;
-			}
-			else
-			{
-				R_ASSERT2(_GetItemCount(anm.c_str()) <= 4, anm.c_str());
-				string512 str_item;
+				pm->m_anim_speed = 1.f;
+				break;
+			case 2:
+				_GetItem(anm.c_str(), 0, str_item);
+				pm->m_base_name = str_item;
+
+				_GetItem(anm.c_str(), 1, str_item);
+				pm->m_additional_name = str_item;
+
+				pm->m_anim_speed = 1.f;
+				break;
+			case 3:
+			default:
 				_GetItem(anm.c_str(), 0, str_item);
 				pm->m_base_name = str_item;
 
@@ -68,9 +80,7 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 
 				_GetItem(anm.c_str(), 2, str_item);
 				pm->m_anim_speed = atof(str_item);
-
-				_GetItem(anm.c_str(), 3, str_item);
-				pm->m_anim_end = atof(str_item);
+				break;
 			}
 
 			//and load all motions for it
@@ -83,11 +93,6 @@ void player_hud_motion_container::load(IKinematicsAnimated* model, const shared_
 					xr_sprintf(buff, "%s%d", pm->m_base_name.c_str(), i);
 
 				motion_ID = model->ID_Cycle_Safe(buff);
-                //code to find hand anim names with speeds of not 1
-                //CMotionDef* def = model->LL_GetMotionDef(motion_ID);
-                //if (def->Speed() != 1) {
-                //    Msg("omf speed is %f, anim_name is %s", def->Speed(), buff);
-                //}
 				if (!motion_ID.valid() && i == 0)
 				{
 					motion_ID = model->ID_Cycle_Safe("hand_idle_doun");
@@ -628,15 +633,12 @@ player_hud_motion* attachable_hud_item::find_motion(const shared_str& anm_name)
 }
 
 u32 attachable_hud_item::anim_play(const shared_str& anm_name_b, BOOL bMixIn, const CMotionDef*& md, u8& rnd_idx,
-	float speed, bool bMixIn2)
+                                   float& speed, bool bMixIn2)
 {
 	player_hud_motion* anm = find_motion(anm_name_b);
 	rnd_idx = (u8)Random.randI(anm->m_animations.size());
 	const motion_descr& M = anm->m_animations[rnd_idx];
-	if (speed == 1.f)
-		speed = anm->m_anim_speed != 0 ? anm->m_anim_speed : 1.f;
-        // Verdatim: store the final anim speed for use in motion mark timing scaling
-        final_anim_speed = speed;
+	speed *= anm->m_anim_speed;
 
 	u32 ret = 0;
 	if (m_attach_place_idx != SCOPE_ATTACH_IDX) {
@@ -728,6 +730,8 @@ player_hud::player_hud()
 	m_item_pos.identity();
 	script_override_arms = false;
 	script_anim_item_model = nullptr;
+	override_hand_pose[0] = false;
+	override_hand_pose[1] = false;
 
 	//Bone Callback Params
 	m_bone_callback_params.insert(mk_pair(r_finger0, xr_new<BoneCallbackParams>()));
@@ -817,6 +821,8 @@ void player_hud::FingerCallback(CBoneInstance* B)
 	B->mTransform.mulB_43(rotation);
 }
 
+bool force_hands_bone_parts = false;
+
 void player_hud::load(const shared_str& player_hud_sect, bool force)
 {
 	if (!force && player_hud_sect == m_sect_name) return;
@@ -838,10 +844,11 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 
 	const shared_str& model_name = pSettings->r_string(player_hud_sect, "visual");
 	::Render->hud_loading = true;
+	force_hands_bone_parts = true;
 	m_model = smart_cast<IKinematicsAnimated*>(::Render->model_Create(model_name.c_str()));
 	m_model_2 = smart_cast<IKinematicsAnimated*>(::Render->model_Create(pSettings->line_exist(player_hud_sect, "visual_2") ? pSettings->r_string(player_hud_sect, "visual_2") : model_name.c_str()));
 	bool b_reload = (m_attached_items[0] != nullptr || m_attached_items[1] != nullptr);
-
+	force_hands_bone_parts = false;
 	::Render->hud_loading = false;
 	u16 l_arm = m_model->dcast_PKinematics()->LL_BoneID("l_clavicle");
 	u16 r_arm = m_model_2->dcast_PKinematics()->LL_BoneID("r_clavicle");
@@ -1023,25 +1030,34 @@ u32 player_hud::motion_length_script(LPCSTR section, LPCSTR anm_name, float spee
 	return motion_length(phm->m_animations[0].mid, temp, speed);
 }
 
-u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md)
+bool player_hud::motion_is_stop_at_end(const shared_str& anim_name, const shared_str& hud_name)
+{
+	player_hud_motion_container* pc = get_hand_motions(*hud_name);
+	if (!pc) return true;
+	player_hud_motion* pm = pc->find_motion(anim_name);
+	if (!pm || !pm->m_animations.size())
+		return true;
+
+	CMotionDef* md = m_model->LL_GetMotionDef(pm->m_animations[0].mid);
+	return md->flags & esmStopAtEnd;
+}
+
+u32 player_hud::motion_length(const shared_str& anim_name, const shared_str& hud_name, const CMotionDef*& md, u8 anim_idx, bool ignore_stop_at_end)
 {
 	player_hud_motion_container* pc = get_hand_motions(*hud_name);
 	if (!pc) return 0;
 	player_hud_motion* pm = pc->find_motion(anim_name);
 	if (!pm || !pm->m_animations.size())
-		return 100; // ms TEMPORARY
-	R_ASSERT2(pm,
-		make_string("hudItem model [%s] has no motion with alias [%s]", hud_name.c_str(), anim_name.c_str()).
-		c_str()
-	);
-	return motion_length(pm->m_animations[0].mid, md, 1.f);
+		return 100; // ms UNTEMPORARY
+
+	return motion_length(pm->m_animations[anim_idx].mid, md, 1.f, ignore_stop_at_end);
 }
 
-u32 player_hud::motion_length(const MotionID& M, const CMotionDef*& md, float speed)
+u32 player_hud::motion_length(const MotionID& M, const CMotionDef*& md, float speed, bool ignore_stop_at_end)
 {
 	md = m_model->LL_GetMotionDef(M);
 	VERIFY(md);
-	if (md->flags & esmStopAtEnd)
+	if (ignore_stop_at_end || md->flags & esmStopAtEnd)
 	{
 		CMotion* motion = m_model->LL_GetRootMotion(M);
 		return iFloor(0.5f + 1000.f * motion->GetLength() / (md->Dequantize(md->speed) * speed));
@@ -1498,12 +1514,16 @@ void play_blend(player_hud* hud, u8 pid, const MotionID& M, BOOL bMixIn, float s
 		hud->m_model_2->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->PlayCycle(1, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
+		if (!hud->override_hand_pose[0] || g_player_hud->attached_item(1))
+			hud->m_model_2->PlayCycle(3, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
 		break;
 	case 2:
 		if (!script_anim && hud->script_anim_part == 0) return;
 		hud->m_model->PlayCycle(0, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model->PlayCycle(2, M, bMixIn, 0, 0, 0, speed);
+		if (!hud->override_hand_pose[1] || g_player_hud->attached_item(1))
+			hud->m_model->PlayCycle(4, M, bMixIn, 0, 0, 0, speed);
 		hud->m_model->dcast_PKinematics()->CalculateBones_Invalidate();
 		break;
 	}
@@ -1528,6 +1548,80 @@ void player_hud::delete_script_anim_item_model()
 	IRenderVisual* v = script_anim_item_model->dcast_RenderVisual();
 	::Render->model_Delete(v);
 	script_anim_item_model = nullptr;
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void player_hud::set_hand_pose(u8 hand, LPCSTR sect, LPCSTR anm, float accrue, float falloff, bool mixin)
+{
+	if (!pSettings->section_exist(sect))
+	{
+		Msg("!script motion section [%s] does not exist", sect);
+		return;
+	}
+
+	player_hud_motion_container* pm = get_hand_motions(sect);
+	player_hud_motion* phm = pm->find_motion(anm);
+
+	if (!phm)
+	{
+		Msg("!script motion [%s] not found in section [%s]", anm, sect);
+		return;
+	}
+
+	const motion_descr& M = phm->m_animations[Random.randI(phm->m_animations.size())];
+
+	switch (hand)
+	{
+	case 0:
+	{
+		if (falloff) set_current_blend_falloff(4, falloff);
+		CBlend* B = m_model->PlayCycle(4, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[1] = true;
+	}
+	break;
+	case 1:
+	{
+		if (falloff) set_current_blend_falloff(3, falloff);
+		CBlend* B = m_model_2->PlayCycle(3, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[0] = true;
+	}
+	break;
+	case 2:
+	{
+		if (falloff) set_current_blend_falloff(4, falloff);
+		CBlend* B = m_model->PlayCycle(4, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[1] = true;
+
+		if (falloff) set_current_blend_falloff(3, falloff);
+		B = m_model_2->PlayCycle(3, M.mid, mixin);
+		if (accrue)
+			B->blendAccrue = accrue;
+		override_hand_pose[0] = true;
+	}
+	break;
+	}
+}
+
+// 0 = right hand, 1 = left hand, 2 = both
+void player_hud::clear_hand_pose(u8 hand, float accrue, float falloff)
+{
+	// Clearing an already released pose must not enqueue another set of blends.
+	if ((hand == 0 || hand == 2) && override_hand_pose[1])
+	{
+		override_hand_pose[1] = false;
+		re_sync_hand(false, accrue, falloff);
+	}
+	if ((hand == 1 || hand == 2) && override_hand_pose[0])
+	{
+		override_hand_pose[0] = false;
+		re_sync_hand(true, accrue, falloff);
+	}
 }
 
 extern BOOL print_bone_warnings;
@@ -1780,24 +1874,107 @@ void player_hud::re_sync_anim(u8 part)
 	}
 }
 
+void player_hud::set_current_blend_falloff(u8 part, float falloff)
+{
+	IKinematicsAnimated* target = (part == 1 || part == 3) ? m_model_2 : m_model;
+
+	if (falloff)
+	{
+		u32 bc = target->LL_PartBlendsCount(part);
+		for (u32 bidx = 0; bidx < bc; ++bidx)
+		{
+			CBlend* BR = target->LL_PartBlend(part, bidx);
+			if (!BR)
+				continue;
+
+			BR->blendFalloff = falloff;
+		}
+	}
+}
+
+//sync hand animation back to the animation currently playing on that arm
+void player_hud::re_sync_hand(bool left, float accrue, float falloff)
+{
+	IKinematicsAnimated* target = left ? m_model_2 : m_model;
+
+	if (falloff) set_current_blend_falloff(left ? 3 : 4, falloff);
+
+	// PlayCycle may update tracks and retire source blends; snapshot before creating any.
+	struct SourceBlend
+	{
+		MotionID motion;
+		float time;
+		float speed;
+	};
+	xr_vector<SourceBlend> sources;
+	const u32 count = target->LL_PartBlendsCount(left ? 1 : 2);
+	for (u32 i = 0; i < count; ++i)
+	{
+		const CBlend* blend = target->LL_PartBlend(left ? 1 : 2, i);
+		if (blend && blend->motionID.valid())
+			sources.push_back({blend->motionID, blend->timeCurrent, blend->speed});
+	}
+	for (const SourceBlend& source : sources)
+	{
+		CBlend* blend = target->PlayCycle(left ? 3 : 4, source.motion, TRUE);
+		if (!blend)
+			continue;
+		blend->timeCurrent = source.time;
+		blend->speed = source.speed;
+		if (accrue)
+			blend->blendAccrue = accrue;
+	}
+}
+
 //set cycle time (0...1) part: 0 = root; 1 = left hand; 2 = right hand
-void player_hud::set_part_cycle_time(u8 part, float time)
+void player_hud::set_part_cycle_time(u8 part, float time, float set_time)
 {
 	if (part == 0)
 	{
-		set_part_cycle_time(1, time);
-		set_part_cycle_time(2, time);
+		IKinematicsAnimated* target = m_attached_items[0] && m_attached_items[0]->m_model
+			? m_attached_items[0]->m_model->dcast_PKinematicsAnimated() : nullptr;
+		if (target)
+		{
+			const u32 count = target->LL_PartBlendsCount(0);
+			for (u32 i = 0; i < count; ++i)
+			{
+				CBlend* blend = target->LL_PartBlend(0, i);
+				if (blend)
+					blend->timeCurrent = set_time ? set_time : blend->timeTotal * time;
+			}
+		}
+
+		set_part_cycle_time(1, time, set_time);
+		set_part_cycle_time(2, time, set_time);
 		return;
 	}
 
-	u32 bc = part == 1 ? m_model_2->LL_PartBlendsCount(part) : m_model->LL_PartBlendsCount(part);
+	IKinematicsAnimated* target = part == 1 ? m_model_2 : m_model;
+
+	u32 bc = target->LL_PartBlendsCount(part);
 	for (u32 bidx = 0; bidx < bc; ++bidx)
 	{
-		CBlend* BR = part == 1 ? m_model_2->LL_PartBlend(part, bidx) : m_model->LL_PartBlend(part, bidx);
+		CBlend* BR = target->LL_PartBlend(part, bidx);
 		if (!BR)
 			continue;
 
-		BR->timeCurrent = BR->timeTotal * time;
+		if (set_time)
+			BR->timeCurrent = set_time;
+		else
+			BR->timeCurrent = BR->timeTotal * time;
+	}
+
+	bc = target->LL_PartBlendsCount(part == 1 ? 3 : 4);
+	for (u32 bidx = 0; bidx < bc; ++bidx)
+	{
+		CBlend* BR = target->LL_PartBlend(part == 1 ? 3 : 4, bidx);
+		if (!BR)
+			continue;
+
+		if (set_time)
+			BR->timeCurrent = set_time;
+		else
+			BR->timeCurrent = BR->timeTotal * time;
 	}
 }
 

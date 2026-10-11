@@ -1738,3 +1738,19 @@ void CScriptGameObject::ResetLegsShader(int id)
 	if (act->m_legs_controller.is_active())
 		reset_shader_tex(act->m_legs_controller.model()->dcast_RenderVisual(), id);
 }
+
+bool CScriptGameObject::IsPending()
+{
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (!itm) return false;
+
+	return itm->IsPending();
+}
+
+void CScriptGameObject::SetPending(bool pending)
+{
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (!itm) return;
+
+	itm->SetPending(pending);
+}

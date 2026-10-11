@@ -2432,6 +2432,29 @@ u32 CScriptGameObject::GetState()
 	return 65535;
 }
 
+::luabind::object CScriptGameObject::GetCurrentMotion()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+
+	CInventoryItem* IItem = object().cast_inventory_item();
+	if (IItem)
+	{
+		CHudItem* itm = IItem->cast_hud_item();
+		if (itm)
+		{
+			table["name"] = *itm->m_current_motion;
+			table["index"] = itm->m_started_rnd_anim_idx;
+			table["stop_at_end"] = itm->m_bStopAtEndAnimIsRunning;
+			table["state"] = itm->m_startedMotionState;
+			table["speed"] = itm->m_fCurrentMotionSpeed;
+			table["length"] = itm->m_fCurrentMotionLength;
+			table["current_time"] = itm->m_fCurrentMotionTime;
+		}
+	}
+
+	return table;
+}
+
 bool CScriptGameObject::WeaponInGrenadeMode()
 {
 	CWeaponMagazinedWGrenade* wpn = smart_cast<CWeaponMagazinedWGrenade*>(&object());

@@ -536,9 +536,9 @@ void CMissile::setup_throw_params()
 	m_throw_direction.set(trans.k);
 }
 
-void CMissile::OnMotionMark(u32 state, const motion_marks& M)
+void CMissile::OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end)
 {
-	inherited::OnMotionMark(state, M);
+	inherited::OnMotionMark(state, M, mark_start, mark_end);
 	if (state == eThrow && !m_throw)
 	{
 		if (H_Parent())

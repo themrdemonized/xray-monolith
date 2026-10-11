@@ -303,9 +303,9 @@ void CFlashlight::OnAnimationEnd(u32 state)
 	inherited::OnAnimationEnd(state);
 }
 
-void CFlashlight::OnMotionMark(u32 state, const motion_marks& M)
+void CFlashlight::OnMotionMark(u32 state, const motion_marks& M, float mark_start, float mark_end)
 {
-	inherited::OnMotionMark(state, M);
+	inherited::OnMotionMark(state, M, mark_start, mark_end);
 
 	if (state == eShowing)
 	{
