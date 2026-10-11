@@ -1,0 +1,17 @@
+CALLBACK_REGISTERED
+ENABLED
+COUNTERS pairs=1172 passes=2344 restored=1172 error=0
+DISABLED
+PASS runtime pair counters and shutdown; visual inspection still required
+CALLBACK_REGISTERED
+SLOT 1 wpn_knife2
+SLOT 2 wpn_fort
+SLOT 4 grenade_gd-05
+SLOT 6 bolt
+ENABLED
+COUNTERS pairs=1139 passes=2278 restored=1139 error=0
+ADS_REQUEST wpn_fort
+FIRE_RAY pos=411.690704,3.021512,-38.869297 dir=0.000347,0.000527,1.000000
+AMMO before=12 after=11
+DISABLED
+PASS runtime pair counters and shutdown; visual inspection still required

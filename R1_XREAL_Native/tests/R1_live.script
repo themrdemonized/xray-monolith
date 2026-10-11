@@ -1,0 +1,78 @@
+local first,phase,at=nil,'init',0
+local ffi,library,status,weapon,ammo_before
+local app=getFS():update_path('$app_data_root$','')
+local function log(s)
+ local f=assert(io.open(app..'R1_live.log','ab'));f:write(s..'\n');f:close()
+ printf('[R1 STEREO TEST] %s',s)
+end
+local function tick()
+ if not db.actor then return end
+ local now=time_global()/1000;first=first or now
+ if now-first<3 then return end
+ if now-first>45 then log('TIMEOUT');exec_console_cmd('quit');return end
+ if phase=='init' then
+  ffi=require('ffi')
+  ffi.cdef[[typedef struct {unsigned size,installed,enabled,pairs,passes,frame,restored;int error;} R1Status;
+  int r1st_install(const char*);int r1st_set(unsigned,float,float);int r1st_status(R1Status*);int r1st_capture(const char*);int r1st_shutdown(void);]]
+  library=ffi.load(getFS():update_path('$game_data$','plugins\\R1_XREAL_Native\\R1_XREAL_Native.dll'))
+  assert(library.r1st_install(app..'R1_native.log')==1,'native install')
+  status=ffi.new('R1Status[1]');status[0].size=ffi.sizeof('R1Status')
+  for slot=0,12 do
+   local item=db.actor:item_in_slot(slot)
+   if item then log('SLOT '..slot..' '..item:section()) end
+   if item and (slot==1 or slot==2) and item:cast_Weapon() then weapon=item;db.actor:activate_slot(slot) end
+  end
+  phase='stereo';at=now;log('ENABLED');return
+ end
+ if phase=='stereo' then
+  assert(library.r1st_set(1,.064,2)==1,'enable')
+  library.r1st_status(status)
+  if now-at>5 then
+   log('COUNTERS pairs='..tonumber(status[0].pairs)..' passes='..tonumber(status[0].passes)..' restored='..tonumber(status[0].restored)..' error='..tonumber(status[0].error))
+   assert(status[0].pairs>10 and status[0].error==0,'actual pair output')
+   library.r1st_capture(app..'R1_stereo.ppm');phase='capture';at=now
+  end
+ elseif phase=='capture' then
+  library.r1st_set(1,.064,2)
+  if now-at>2 then
+   if weapon then
+    log('ADS_REQUEST '..weapon:section());level.press_action(bind_to_dik(key_bindings.kWPN_ZOOM));phase='ads';at=now
+   else library.r1st_set(0,.064,2);phase='off';at=now;log('NO_TEST_WEAPON; DISABLED')end
+  end
+ elseif phase=='ads' then
+  library.r1st_set(1,.064,2)
+  if now-at>3 then
+   local w=weapon:cast_Weapon();assert(w:IsZoomed(),'ADS activated')
+   local params=db.actor:g_fireParams();log(string.format('FIRE_RAY pos=%.6f,%.6f,%.6f dir=%.6f,%.6f,%.6f',params.pos.x,params.pos.y,params.pos.z,params.dir.x,params.dir.y,params.dir.z))
+   library.r1st_capture(app..'R1_ads.ppm');phase='shot';at=now;ammo_before=w:GetAmmoElapsed()
+  end
+ elseif phase=='shot' then
+  library.r1st_set(1,.064,2)
+  if now-at>1 then level.press_action(bind_to_dik(key_bindings.kWPN_FIRE));phase='release';at=now end
+ elseif phase=='release' then
+  library.r1st_set(1,.064,2)
+  if now-at>.2 then
+   level.release_action(bind_to_dik(key_bindings.kWPN_FIRE));level.release_action(bind_to_dik(key_bindings.kWPN_ZOOM))
+   log('AMMO before='..ammo_before..' after='..weapon:cast_Weapon():GetAmmoElapsed())
+   library.r1st_set(0,.064,2);phase='off';at=now;log('DISABLED')
+  end
+ elseif phase=='off' and now-at>2 then
+  assert(library.r1st_shutdown()==1,'shutdown');phase='done';log('PASS runtime pair counters and shutdown; visual inspection still required');exec_console_cmd('quit')
+ end
+end
+function on_game_start()
+ log('CALLBACK_REGISTERED')
+ RegisterScriptCallback('actor_on_update',function()
+  local ok,e=xpcall(tick,debug.traceback)
+  if not ok then log('FAIL '..tostring(e));exec_console_cmd('quit')end
+ end)
+end
+local installed=false
+function install()
+ if installed then return end;installed=true;log('BOOTSTRAP')
+ local update=ui_main_menu.main_menu.Update
+ ui_main_menu.main_menu.Update=function(self,...)
+  update(self,...)
+  if db.actor then device():pause(false);exec_console_cmd('main_menu off')end
+ end
+end

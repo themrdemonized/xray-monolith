@@ -1,0 +1,5 @@
+CALLBACK_REGISTERED
+ENABLED
+COUNTERS pairs=1172 passes=2344 restored=1172 error=0
+DISABLED
+PASS runtime pair counters and shutdown; visual inspection still required

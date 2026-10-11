@@ -1,0 +1,18 @@
+REGISTER benchmark callback
+ACTOR_CALLBACK 14309
+START exact-host isolated benchmark
+mono_wide frames=1374 elapsed_ms=10015 fps=137.194 updates=1374
+stereo_original frames=640 elapsed_ms=10015 fps=63.904 updates=640
+stereo_balanced frames=878 elapsed_ms=10015 fps=87.668 updates=878
+stereo_fast frames=948 elapsed_ms=10015 fps=94.658 updates=948
+stereo_original_restored frames=644 elapsed_ms=10015 fps=64.304 updates=644
+DONE process exit must also pass
+REGISTER benchmark callback
+ACTOR_CALLBACK 14635
+START exact-host isolated benchmark
+mono_wide frames=1378 elapsed_ms=10016 fps=137.580 updates=1378
+stereo_original frames=635 elapsed_ms=10016 fps=63.399 updates=635
+stereo_balanced frames=903 elapsed_ms=10016 fps=90.156 updates=903
+stereo_fast frames=980 elapsed_ms=10016 fps=97.843 updates=980
+stereo_original_restored frames=657 elapsed_ms=10016 fps=65.595 updates=657
+DONE process exit must also pass
