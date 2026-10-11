@@ -1127,6 +1127,7 @@ void CCC_Register()
 	CMD1(CCC_PART_Import, "part_import");
 
 	CMD1(CCC_VID_Reset, "vid_restart");
+	CMD4(CCC_Integer, "g_loading_screen_early", &psLoadingScreenEarly, 0, 1);
 
 	// Sound
 	CMD2(CCC_Float, "snd_volume_eff", &psSoundVEffects);

@@ -1504,6 +1504,7 @@ void CApplication::OnEvent(EVENT E, u64 P1, u64 P2)
 
 static CTimer phase_timer;
 extern ENGINE_API BOOL g_appLoaded = FALSE;
+ENGINE_API int psLoadingScreenEarly = 0;
 //AVO: used by SPAWN_ANTIFREEZE (by alpet)
 extern ENGINE_API BOOL g_bootComplete = FALSE;
 //-AVO
@@ -1523,7 +1524,8 @@ void CApplication::LoadBegin()
 		_InitializeFont(pFontSystem, "ui_font_letterica18_russian", 0);
 
 		m_pRender->LoadBegin();
-		m_pRender->setLevelLogo(m_loading_logo);
+		if (psLoadingScreenEarly)
+			m_pRender->setLevelLogo(m_loading_logo);
 #endif
 		phase_timer.Start();
 		load_stage = 0;
@@ -1682,6 +1684,13 @@ void gen_logo_name(string_path& dest, LPCSTR level_name, int num)
 
 void CApplication::LoadScreenSetLevelLogo(LPCSTR level_name)
 {
+	if (!psLoadingScreenEarly)
+	{
+		m_loading_logo_level[0] = 0;
+		m_loading_logo[0] = 0;
+		return;
+	}
+
 	if (!level_name || !level_name[0])
 		return;
 
@@ -1746,16 +1755,21 @@ void CApplication::Level_Set(u32 L)
 			int num = ::Random.randI(count);
 			gen_logo_name(path, Levels[L].folder, num);
 		}
-		else
+		else if (psLoadingScreenEarly)
 			path[0] = 0;
 	}
 
 	// Keep the early image through level activation; the legacy selection above
 	// preserves RNG ordering and supports level-local artwork once $level$ changes.
-	LPCSTR logo = path;
-	if (!stricmp(m_loading_logo_level, Levels[L].folder) && m_loading_logo[0])
-		logo = m_loading_logo;
-	m_pRender->setLevelLogo(logo);
+	if (psLoadingScreenEarly)
+	{
+		LPCSTR logo = path;
+		if (!stricmp(m_loading_logo_level, Levels[L].folder) && m_loading_logo[0])
+			logo = m_loading_logo;
+		m_pRender->setLevelLogo(logo);
+	}
+	else if (path[0])
+		m_pRender->setLevelLogo(path);
 
 	//SECUROM_MARKER_PERFORMANCE_OFF(9)
 }

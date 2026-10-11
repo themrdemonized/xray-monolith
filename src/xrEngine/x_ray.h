@@ -77,6 +77,7 @@ public:
 };
 
 extern ENGINE_API CApplication* pApp;
+extern ENGINE_API int psLoadingScreenEarly;
 
 //Discord
 struct rpc_info
