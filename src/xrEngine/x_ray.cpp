@@ -1523,6 +1523,7 @@ void CApplication::LoadBegin()
 		_InitializeFont(pFontSystem, "ui_font_letterica18_russian", 0);
 
 		m_pRender->LoadBegin();
+		m_pRender->setLevelLogo(m_loading_logo);
 #endif
 		phase_timer.Start();
 		load_stage = 0;
@@ -1538,6 +1539,8 @@ void CApplication::LoadEnd()
 		Msg("* phase cmem: %lld K", Memory.mem_usage() / 1024);
 		Console->Execute("stat_memory");
 		g_appLoaded = TRUE;
+		m_loading_logo_level[0] = 0;
+		m_loading_logo[0] = 0;
 		// DUMP_PHASE;
 	}
 }
@@ -1677,6 +1680,39 @@ void gen_logo_name(string_path& dest, LPCSTR level_name, int num)
 	xr_strcat(dest, sizeof(dest), itoa(num + 1, buff, 10));
 }
 
+void CApplication::LoadScreenSetLevelLogo(LPCSTR level_name)
+{
+	if (!level_name || !level_name[0])
+		return;
+
+	string_path folder;
+	xr_strcpy(folder, level_name);
+	if (folder[xr_strlen(folder) - 1] != '\\')
+		xr_strcat(folder, "\\");
+	if (!stricmp(m_loading_logo_level, folder))
+		return;
+
+	xr_strcpy(m_loading_logo_level, folder);
+	m_loading_logo[0] = 0;
+	int count = 0;
+	string_path candidate, file;
+	while (true)
+	{
+		gen_logo_name(candidate, folder, count);
+		if (!FS.exist(file, "$game_textures$", candidate, ".dds"))
+			break;
+		++count;
+	}
+	if (count)
+	{
+		// Preview a cosmetic choice; Level_Set retains the original gameplay RNG draw.
+		CRandom preview_random = ::Random;
+		gen_logo_name(m_loading_logo, folder, preview_random.randI(count));
+	}
+	if (ll_dwReference && !g_dedicated_server)
+		m_pRender->setLevelLogo(m_loading_logo);
+}
+
 void CApplication::Level_Set(u32 L)
 {
 	PROF_EVENT();
@@ -1710,10 +1746,16 @@ void CApplication::Level_Set(u32 L)
 			int num = ::Random.randI(count);
 			gen_logo_name(path, Levels[L].folder, num);
 		}
+		else
+			path[0] = 0;
 	}
 
-	if (path[0])
-		m_pRender->setLevelLogo(path);
+	// Keep the early image through level activation; the legacy selection above
+	// preserves RNG ordering and supports level-local artwork once $level$ changes.
+	LPCSTR logo = path;
+	if (!stricmp(m_loading_logo_level, Levels[L].folder) && m_loading_logo[0])
+		logo = m_loading_logo;
+	m_pRender->setLevelLogo(logo);
 
 	//SECUROM_MARKER_PERFORMANCE_OFF(9)
 }
