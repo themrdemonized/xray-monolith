@@ -201,9 +201,9 @@
     }
 
     game {
-        bool model_prefetched(string name) // Query the model cache without loading a missing model.
-        table list_lanims() // Array of light-animation names.
-        bool top_input_receiver() // Whether a UI dialog currently owns input.
+        bool model_prefetched(string name)
+        table list_lanims() // light-animations
+        bool top_input_receiver() // UI dialog owns input
         Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
         Fvector world2ui_with_depth(Fvector pos, bool hud = false, bool allow_offscreen = false) // x and y are screen coordinates, z is the post projection w, negative behind the camera and its magnitude is the view distance in metres
         table world2ui_many(table positions, bool hud, bool allow_offscreen) // projects an array of Fvector in one call, result[i] is the world2ui_with_depth vector for positions[i], stops at the first missing or non vector entry, empty table if the argument is not a table
@@ -270,14 +270,14 @@
     void SetCursorVisible(bool visible)
     object_factory get_object_factory()
     class object_factory {
-        number script_clsid(string class_id) // Engine CLASS_ID string -> registered script class ID.
+        number script_clsid(string class_id) // Engine CLASS_ID string -> registered script class ID
     }
     class CUICheckButton {
-        void SetVisualState(number state) // -1 automatic, 0 enabled, 1 disabled, 2 highlighted, 3 touched.
+        void SetVisualState(number state) // -1 automatic, 0 enabled, 1 disabled, 2 highlighted, 3 touched
     }
 
     class CUIWindow {
-        void Update() // Run the window update explicitly.
+        void Update()
         CUIWindow FindChild()
 
         void SetHideLock(bool lock) // while locked the window hides and Show(true) is ignored
@@ -334,12 +334,12 @@
     }
     
     class CUIGameCustom {
-        void TalkMenuSetVisible(bool visible) // Change talk-menu visibility.
+        void TalkMenuSetVisible(bool visible)
         CUIWindow GetWindow() // get_hud():GetWindow()
     }
 
     class CUIProgressBar {
-        void SetProgressPosInstant(float value) // Clamp and update immediately, without interpolation.
+        void SetProgressPosInstant(float value)
         CUIStatic GetProgressStatic()
 		bool GetSnapNoDelay() Get the status of "SnapNoDelay"
 		void SetSnapNoDelay() Enable: progress visual displays progress position instantly. No longer progressively increase/descrease until meeting the new position.
@@ -597,7 +597,7 @@
     }
 
     level {
-        bool is_demo_record() // Whether the demo camera effector is active.
+        bool is_demo_record()
         float get_music_volume()
         void set_music_volume(float)
 
@@ -902,11 +902,9 @@
 
     class game_object {
         xrTime game_death_time()
-        Fvector get_actor_direction() // Camera yaw, pitch and roll in radians.
+        Fvector get_actor_direction() // Camera yaw, pitch and roll in radians
         Fmatrix bone_transform(number bone_id, bool hud, bool previous)
         Fmatrix bone_transform(string bone_name, bool hud, bool previous)
-        // previous selects the stored previous HUD model transform, with the current bone pose.
-        // World models retain their current transform; existing shorter overloads are unchanged.
 		// Class casting
 		function cast_Knife()
 		function cast_Binoculars() // CWeaponBinoculars, nil when the object is not a pair of binoculars
