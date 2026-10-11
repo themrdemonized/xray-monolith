@@ -18,12 +18,16 @@ public:
 	Fcolor m_color;
 	bool m_visible;
 	bool m_hud;
+	float m_width;
+	bool m_depth_test;
 
 	DBG_ScriptObject()
 	{
 		m_color.set(1, 0, 0, 1);
 		m_visible = true;
 		m_hud = false;
+		m_width = 0.0f;
+		m_depth_test = true;
 	}
 
 	virtual ~DBG_ScriptObject() {}

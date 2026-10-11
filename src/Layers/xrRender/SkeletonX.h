@@ -34,6 +34,9 @@ protected:
 	u16 RenderMode;
 	u16 ChildIDX;
 
+	Fvector4 m_shader_param;
+	bool m_shader_param_set;
+
 	// render-mode specifics
 	union
 	{
@@ -112,10 +115,24 @@ public:
 	}
 	//--DSR-- SilencerOverheat_end
 
+	void _SetShaderParam(float x, float y, float z, float w)
+	{
+		m_shader_param.set(x, y, z, w);
+		m_shader_param_set = true;
+	}
+
+	void _ClearShaderParam()
+	{
+		m_shader_param.set(0.f, 0.f, 0.f, 0.f);
+		m_shader_param_set = false;
+	}
+
 	CSkeletonX()
 	{
 		Parent = 0;
 		ChildIDX = u16(-1);
+		m_shader_param.set(0.f, 0.f, 0.f, 0.f);
+		m_shader_param_set = false;
 	}
 
 	virtual void SetParent(CKinematics* K) { Parent = K; }

@@ -103,6 +103,15 @@ void FHierrarhyVisual::MarkAsHot(bool is_hot)
 }
 //--DSR-- HeatVision_end
 
+void FHierrarhyVisual::SetHudShaders(bool hud_state)
+{
+	dxRender_Visual::SetHudShaders(hud_state);
+	for (u32 i = 0; i < children.size(); i++)
+		children[i]->SetHudShaders(hud_state);
+	for (u32 i = 0; i < children_invisible.size(); i++)
+		children_invisible[i]->SetHudShaders(hud_state);
+}
+
 void FHierrarhyVisual::Copy(dxRender_Visual* pSrc)
 {
 	dxRender_Visual::Copy(pSrc);

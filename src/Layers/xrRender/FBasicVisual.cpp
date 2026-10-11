@@ -46,6 +46,7 @@ void dxRender_Visual::Load(const char* N, IReader* data, u32)
 	dbg_id = 1;
 	skinning = ::Render->m_skinning;
     hud = ::Render->hud_loading;
+	hud_def = hud;
 
 	// header
 	VERIFY(data);
@@ -123,6 +124,18 @@ void dxRender_Visual::MarkAsGlowing(bool is_glowing)
 
 void dxRender_Visual::SetShaderTexture(LPCSTR s_shader, LPCSTR s_texture)
 {
+	if (shader._get())
+	{
+		bool same_shader = !s_shader || !s_shader[0]
+			|| (!strstr(s_shader, "$no_shadows") && !flags.test(IRenderVisualFlags::eNoShadow)
+				&& dbg_shader.size() && 0 == xr_strcmp(dbg_shader.c_str(), s_shader));
+		bool same_texture = !s_texture || !s_texture[0]
+			|| (dbg_texture.size() && 0 == xr_strcmp(dbg_texture.c_str(), s_texture));
+
+		if (same_shader && same_texture)
+			return;
+	}
+
 	if (s_shader && strlen(s_shader))
 	{
 		char* shader = xr_strdup(s_shader);
@@ -158,6 +171,25 @@ void dxRender_Visual::ResetShaderTexture()
 		SetShaderTexture(*dbg_shader_def, *dbg_texture_def);
 }
 
+void dxRender_Visual::SetHudShaders(bool hud_state)
+{
+    if (hud == hud_state)
+        return;
+
+    hud = hud_state;
+    if (dbg_shader.size())
+    {
+        s32 prev_skinning = ::Render->m_skinning;
+        bool prev_hud = ::Render->hud_loading;
+        replaced_shader = shader;
+        ::Render->m_skinning = skinning;
+        ::Render->hud_loading = hud;
+        shader.create(*dbg_shader, *dbg_texture);
+        ::Render->hud_loading = prev_hud;
+        ::Render->m_skinning = prev_skinning;
+    }
+}
+
 #define PCOPY(a)	a = pFrom->a
 
 void dxRender_Visual::Copy(dxRender_Visual* pFrom)
@@ -177,4 +209,5 @@ void dxRender_Visual::Copy(dxRender_Visual* pFrom)
 	PCOPY(dbg_texture_def);
 	PCOPY(skinning);
     PCOPY(hud);
+	PCOPY(hud_def);
 }

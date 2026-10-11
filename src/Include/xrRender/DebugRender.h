@@ -21,7 +21,12 @@ public:
 	virtual			~IDebugRender		()	{}
 	virtual void	Render				() = 0;
 	virtual void	add_lines			(Fvector const *vertices, u32 const &vertex_count, u16 const *pairs, u32 const &pair_count, u32 const &color, bool bHud = false) = 0;
-	
+
+	virtual void	add_lines_ex		(Fvector const *vertices, u32 const &vertex_count, u16 const *pairs, u32 const &pair_count, u32 const &color, bool bHud, float width, bool depth_test)
+	{
+		add_lines(vertices, vertex_count, pairs, pair_count, color, bHud);
+	}
+
 	// routed to RCache
 	virtual void	NextSceneMode		() = 0;
 	virtual void	ZEnable				(bool bEnable) = 0;
