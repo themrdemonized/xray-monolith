@@ -1,0 +1,42 @@
+#include "common.h"
+
+float4x4 m_temporal_current;
+float4x4 m_temporal_previous;
+float4 temporal_params; // near plane, far plane, jitter x/y in pixels
+
+struct temporal_output
+{
+    float2 velocity : SV_Target0;
+    float depth : SV_Target1;
+    float reactive : SV_Target2;
+};
+
+temporal_output main(p_screen I)
+{
+    temporal_output O;
+
+    float view_depth = s_position.SampleLevel(smp_nofilter, I.tc0, 0).z;
+    const bool is_sky = view_depth <= 0.001f;
+    view_depth = is_sky ? temporal_params.y : view_depth;
+
+    const float2 pixel = I.hpos.xy - temporal_params.zw;
+    const float3 view_position = float3(
+        view_depth * (pixel * pos_decompression_params.zw - pos_decompression_params.xy),
+        view_depth);
+
+    const float4 current_clip = mul(m_temporal_current, float4(view_position, 1.f));
+    const float4 previous_clip = mul(m_temporal_previous, float4(view_position, 1.f));
+    const float2 current_ndc = current_clip.xy / max(abs(current_clip.w), 0.0001f);
+    const float2 previous_ndc = previous_clip.xy / max(abs(previous_clip.w), 0.0001f);
+    O.velocity = current_ndc - previous_ndc;
+
+    const float near_plane = temporal_params.x;
+    const float far_plane = temporal_params.y;
+    const float q = far_plane / max(far_plane - near_plane, 0.0001f);
+    O.depth = is_sky ? 1.f : saturate(q - q * near_plane / max(view_depth, near_plane));
+
+    // First-person geometry has no reliable object velocity in the stock shader
+    // pack. Mark it reactive so temporal reconstruction does not retain it.
+    O.reactive = is_sky ? 0.f : 1.f - saturate((view_depth - 0.10f) / 2.90f);
+    return O;
+}

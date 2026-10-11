@@ -1,0 +1,122 @@
+#include "common.h"
+
+Texture2D s_current;
+Texture2D s_history;
+Texture2D s_motion;
+Texture2D s_depth;
+Texture2D s_reactive;
+Texture2D s_smaa;
+
+float4 temporal_resolve_params;  // width, height, inverse width/height
+float4 temporal_resolve_control; // history enabled
+
+#define TAA_BLEND_WEIGHT 0.925f
+#define TAA_HISTORY_SHARPNESS 0.75f
+#define TAA_DEVIATION 1.75f
+
+static const int2 temporal_offsets[9] =
+{
+    int2(-1, -1), int2(0, -1), int2(1, -1),
+    int2(-1,  0), int2(0,  0), int2(1,  0),
+    int2(-1,  1), int2(0,  1), int2(1,  1)
+};
+
+float3 temporal_tonemap(float3 color)
+{
+    return saturate(color * rcp(1.f + color));
+}
+
+float3 temporal_tonemap_inverse(float3 color)
+{
+    color = saturate(color);
+    return color * rcp(1.00001f - color);
+}
+
+// IX-Ray's sharpened spatio-temporal history filter, based on the CoD TAA
+// presentation. It counteracts the softness of ordinary bilinear history.
+float3 temporal_history_filter(
+    float3 current_top,
+    float3 current_bottom,
+    float3 current_left,
+    float3 current_right,
+    float3 current_center,
+    float3 previous_center,
+    float2 fraction)
+{
+    const float2 weight = 0.8f * TAA_HISTORY_SHARPNESS *
+        (fraction * fraction - fraction);
+    float4 color = float4(lerp(current_left, current_right, fraction.x), 1.f) * weight.x;
+    color += float4(lerp(current_top, current_bottom, fraction.y), 1.f) * weight.y;
+    color += float4((1.f + color.w) * previous_center - color.w * current_center, 1.f);
+    return color.rgb / color.w;
+}
+
+float4 main(p_screen I) : SV_Target
+{
+    const int2 dimensions = int2(temporal_resolve_params.xy);
+    const int2 pixel = clamp(int2(I.hpos.xy), int2(0, 0), dimensions - 1);
+    const float2 uv = I.tc0;
+
+    float3 neighborhood[9];
+    float3 mean = 0.f;
+    float3 second_moment = 0.f;
+    int2 closest_offset = int2(0, 0);
+    float closest_depth = 1.f;
+
+    [unroll]
+    for (int index = 0; index < 9; ++index)
+    {
+        const int2 sample_pixel = clamp(pixel + temporal_offsets[index], int2(0, 0), dimensions - 1);
+        neighborhood[index] = temporal_tonemap(s_current.Load(int3(sample_pixel, 0)).rgb);
+        mean += neighborhood[index] * (1.f / 9.f);
+        second_moment += neighborhood[index] * neighborhood[index] * (1.f / 9.f);
+
+        const float sample_depth = s_depth.Load(int3(sample_pixel, 0)).r;
+        if (sample_depth < closest_depth)
+        {
+            closest_depth = sample_depth;
+            closest_offset = temporal_offsets[index];
+        }
+    }
+
+    const float3 deviation = sqrt(max(second_moment - mean * mean, 0.f));
+    const float3 neighborhood_min = mean - deviation * TAA_DEVIATION;
+    const float3 neighborhood_max = mean + deviation * TAA_DEVIATION;
+
+    const int2 motion_pixel = clamp(pixel + closest_offset, int2(0, 0), dimensions - 1);
+    const float2 motion = s_motion.Load(int3(motion_pixel, 0)).xy;
+    const float2 motion_uv = motion * float2(0.5f, -0.5f);
+    const float2 previous_uv = uv - motion_uv;
+    const bool outside = any(previous_uv != saturate(previous_uv));
+
+    float3 taa_color = neighborhood[4];
+    if (!outside && temporal_resolve_control.x > 0.5f)
+    {
+        float3 history = temporal_tonemap(s_history.SampleLevel(smp_rtlinear, previous_uv, 0).rgb);
+        const float2 fraction = frac(previous_uv * temporal_resolve_params.xy - 0.5f);
+        history = temporal_history_filter(
+            neighborhood[1], neighborhood[7], neighborhood[3], neighborhood[5],
+            neighborhood[4], history, fraction);
+        history = clamp(history, neighborhood_min, neighborhood_max);
+
+        const int2 previous_pixel = clamp(int2(previous_uv * temporal_resolve_params.xy),
+            int2(0, 0), dimensions - 1);
+        const float2 previous_motion = s_motion.Load(int3(previous_pixel, 0)).xy * float2(0.5f, -0.5f);
+        const float current_magnitude = sqrt(5.f * length(motion_uv));
+        const float previous_magnitude = sqrt(5.f * length(previous_motion));
+        const float delta = abs(current_magnitude * current_magnitude -
+            previous_magnitude * previous_magnitude) * (1.f / 5.f);
+        const float reactive = s_reactive.Load(int3(pixel, 0)).r;
+        const float history_weight = TAA_BLEND_WEIGHT *
+            saturate(1.f - sqrt(delta) * 8.f) * (1.f - reactive);
+        taa_color = lerp(neighborhood[4], history, history_weight);
+    }
+
+    taa_color = temporal_tonemap_inverse(max(taa_color, 0.f));
+
+    // The world is resolved from the untouched current frame. Only the near
+    // first-person region comes from the independently processed SMAA frame.
+    const float reactive = s_reactive.Load(int3(pixel, 0)).r;
+    const float3 smaa_color = s_smaa.Load(int3(pixel, 0)).rgb;
+    return float4(lerp(taa_color, smaa_color, reactive), 1.f);
+}
