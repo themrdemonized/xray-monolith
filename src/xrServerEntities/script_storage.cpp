@@ -1125,6 +1125,16 @@ bool CScriptStorage::namespace_loaded(LPCSTR N, bool remove_from_stack)
 bool CScriptStorage::object(LPCSTR identifier, int type)
 {
 	int start = lua_gettop(lua());
+	lua_pushstring(lua(), identifier);
+	lua_rawget(lua(), -2);
+	if (type != LUA_TNIL && lua_type(lua(), -1) == type)
+	{
+		lua_pop(lua(), 2);
+		VERIFY(lua_gettop(lua()) == start - 1);
+		return (true);
+	}
+	lua_pop(lua(), 1);
+	// Keep legacy matching for numeric keys and strings containing embedded NULs.
 	lua_pushnil(lua());
 	while (lua_next(lua(), -2))
 	{
