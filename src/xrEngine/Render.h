@@ -339,7 +339,7 @@ public:
 	virtual void models_Prefetch() = 0;
 	virtual void models_PrefetchOne(LPCSTR name, bool assert = true) = 0;
 	virtual void models_Clear(BOOL b_complete) = 0; 
-	virtual bool models_Exists(LPCSTR name) = 0;
+	virtual bool models_Exists(LPCSTR name, bool no_prefetch = false) = 0;
 	
 	//  antglobes: Sun Values
 	virtual Fvector GetSunPosition() { static Fvector default_pos; return default_pos; };

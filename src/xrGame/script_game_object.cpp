@@ -579,12 +579,12 @@ u16 CScriptGameObject::bone_id(LPCSTR bone_name, bool bHud)
 	return bone_id;
 }
 
-Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud)
+Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud, bool bPrev)
 {
 	//if (bone_id == BI_NONE) return Fvector().set(0, 0, 0);
 
 	IKinematics* k = nullptr;
-	Fmatrix* xform = nullptr;
+	const Fmatrix* xform = nullptr;
 
 	if (bHud)
 	{
@@ -593,14 +593,15 @@ Fmatrix CScriptGameObject::bone_transform(u16 bone_id, bool bHud)
 		if (itm)
 		{
 			k = itm->HudItemData()->m_model;
-			xform = &itm->HudItemData()->m_item_transform;
+			xform = bPrev ? &itm->HudItemData()->m_item_transform_prev : &itm->HudItemData()->m_item_transform;
 		} else if (act)
 		{
 			k = (bone_id > 20) ? g_player_hud->m_model->dcast_PKinematics() : g_player_hud->m_model_2->dcast_PKinematics();
-			xform = (bone_id > 20) ? &g_player_hud->m_transform : &g_player_hud->m_transform_2;
+			xform = (bone_id > 20) ? (bPrev ? &g_player_hud->m_transform_prev : &g_player_hud->m_transform) : (bPrev ? &g_player_hud->m_transform_2_prev : &g_player_hud->m_transform_2);
 		}
 	} else {
 		k = object().Visual()->dcast_PKinematics();
+		// Previous transforms are available for HUD models only.
 		xform = &object().XFORM();
 	}
 

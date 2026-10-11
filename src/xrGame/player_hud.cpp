@@ -258,6 +258,7 @@ void attachable_hud_item::update(bool bForce)
 		m_item_transform.mulB_43(hud_rotation);
 	}
 	else {
+        m_item_transform_prev = m_item_transform;
 		m_parent->calc_transform(m_attach_place_idx, m_attach_offset, m_item_transform, m_measures.m_bLeadGunLeftHand);
 		m_upd_firedeps_frame = Device.dwFrame;
 	}
@@ -721,7 +722,9 @@ player_hud::player_hud()
 	m_attach_offset.identity();
 	m_attach_offset_2.identity();
 	m_transform.identity();
+	m_transform_prev.identity();
 	m_transform_2.identity();
+	m_transform_2_prev.identity();
 	m_adjust_mode = false;
 	script_anim_part = u8(-1);
 	script_anim_offset_factor = 0.f;
@@ -1200,7 +1203,9 @@ void player_hud::update(const Fmatrix& cam_trans)
 	m_attach_offset_2.setHPB(m2rot.x, m2rot.y, m2rot.z);
 	m_attach_offset_2.translate_over(m2pos);
 
+	m_transform_prev = m_transform;
 	m_transform.mul(trans, m_attach_offset);
+	m_transform_2_prev = m_transform_2;
 	m_transform_2.mul(trans_2, m_attach_offset_2);
 
 	m_model->UpdateTracks();

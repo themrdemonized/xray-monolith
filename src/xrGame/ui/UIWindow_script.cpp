@@ -1,5 +1,8 @@
 #include "pch_script.h"
 #include "UIWindow.h"
+#include "UIFrameWindow.h"
+#include "UIFrameLineWnd.h"
+#include "UIDialogWnd.h"
 #include "UIDialogHolder.h"
 #include "UITextureMaster.h"
 #include "../GamePersistent.h"
@@ -161,6 +164,19 @@ void SetCursorPosition_script(Fvector2& pos)
 	GetUICursor().SetUICursorPosition(pos);
 }
 
+bool CursorVisible()
+{
+    return GetUICursor().IsVisible();
+}
+
+void SetCursorVisible(bool vis)
+{
+    if (vis)
+        GetUICursor().Show();
+    else
+        GetUICursor().Hide();
+}
+
 template <typename T>
 T* ui_window_cast(CUIWindow* window)
 {
@@ -197,6 +213,8 @@ void CUIWindow::script_register(lua_State* L)
 		def("GetFontLetterica25", &GetFontLetterica25),
 		def("GetCursorPosition", &GetCursorPosition_script),
 		def("SetCursorPosition", &SetCursorPosition_script),
+		def("GetCursorVisible", &CursorVisible),
+		def("SetCursorVisible", &SetCursorVisible),
 		def("FitInRect", &fit_in_rect),
 
 		class_<CUIWindow>("CUIWindow")
@@ -233,6 +251,7 @@ void CUIWindow::script_register(lua_State* L)
 		.def("IsClipEnabled", &CUIWindow::IsClipEnabled)
 		.def("SetClipRect", &CUIWindow::SetClipRect)
 		.def("ResetClipRect", &CUIWindow::ResetClipRect)
+		.def("Update", &CUIWindow::Update)
 
 		.def("WindowName", &CUIWindow::WindowName_script)
 		.def("SetWindowName", &CUIWindow::SetWindowName)

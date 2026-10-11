@@ -233,6 +233,7 @@ public:
 	_DECLARE_FUNCTION11(SetDeviceEnabled, void, bool);
 
 	// CEntity
+	xrTime GameDeathTime();
 	_DECLARE_FUNCTION10(DeathTime, u32);
 	_DECLARE_FUNCTION10(MaxHealth, float);
 	_DECLARE_FUNCTION10(Accuracy, float);
@@ -298,6 +299,7 @@ public:
 	void SetActorDirection(float dir, float pitch);
 	void SetActorDirection(float dir, float pitch, float roll);
 	void SetActorDirection(const Fvector& dir);
+	Fvector GetActorDirection();
 	void SetNpcPosition(Fvector pos);
 	void DisableHitMarks(bool disable);
 	bool DisableHitMarks() const;
@@ -1153,10 +1155,12 @@ public:
 	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud) { set_bone_visible(bone_id(bone_name, bHud), bVisibility, bRecursive, bHud); }
 	void set_bone_visible(LPCSTR bone_name, bool bVisibility, bool bRecursive) { set_bone_visible(bone_id(bone_name), bVisibility, bRecursive, false); }
 
-	Fmatrix bone_transform(u16 bone_id, bool bHud);
-	Fmatrix bone_transform(u16 bone_id) { return bone_transform(bone_id, false); }
-	Fmatrix bone_transform(LPCSTR bone_name, bool bHud) { return bone_transform(bone_id(bone_name, bHud), bHud); }
-	Fmatrix bone_transform(LPCSTR bone_name) { return bone_transform(bone_id(bone_name), false); }
+	Fmatrix bone_transform(u16 bone_id, bool bHud, bool bPrev);
+	Fmatrix bone_transform(u16 bone_id, bool bHud) { return bone_transform(bone_id, bHud, false); }
+	Fmatrix bone_transform(u16 bone_id) { return bone_transform(bone_id, false, false); }
+	Fmatrix bone_transform(LPCSTR bone_name, bool bHud, bool bPrev) { return bone_transform(bone_id(bone_name, bHud), bHud, bPrev); }
+	Fmatrix bone_transform(LPCSTR bone_name, bool bHud) { return bone_transform(bone_id(bone_name, bHud), bHud, false); }
+	Fmatrix bone_transform(LPCSTR bone_name) { return bone_transform(bone_id(bone_name), false, false); }
 
 	Fvector bone_position(u16 bone_id, bool bHud);
 	Fvector bone_position(u16 bone_id) { return bone_position(bone_id, false); }
