@@ -200,14 +200,16 @@
     }
 
     game {
-        // Hand poses: hand = 0 right, 1 left, 2 both. Call after the player HUD is loaded.
-        // accrue/falloff are blend rates; zero preserves the animation defaults.
+        // Hand poses: hand = 0 right, 1 left, 2 both, accrue/falloff are blend rates
         void set_hand_pose(number hand, string section, string animation, number accrue, number falloff)
-        void force_set_hand_pose(number hand, string section, string animation) // Replace without blending.
-        void clear_hand_pose(number hand, number accrue, number falloff) // Resume the current arm animation.
-        table list_hand_motions(string section) // Alias -> {base, item, speed, base_speed}.
-        table get_hand_motion_marks(string animation) // Mark name -> {{["begin"]=seconds, ["end"]=seconds}, ...}.
-        void set_hand_motion_marks(string animation, table marks) // Replace all marks; changes the shared motion definition.
+        void force_set_hand_pose(number hand, string section, string animation)
+        void clear_hand_pose(number hand, number accrue, number falloff)
+
+        table list_hand_motions(string section)
+
+        table get_hand_motion_marks(string animation)
+        void set_hand_motion_marks(string animation, table marks)
+
         // part = 0 item and both arms, 1 left arm/hand, 2 right arm/hand.
         // time is normalized (0..1); a nonzero set_time overrides it with seconds.
         void set_part_cycle_time(number part, number time, number set_time)
@@ -891,11 +893,9 @@
     }
 
     class game_object {
-        // HUD animation state
-        table get_current_motion() // {name, index, stop_at_end, state, speed, length, current_time}; times in seconds.
+        table get_current_motion()
         bool is_pending()
         void set_pending(bool pending)
-        // Motion-mark callbacks now also receive mark_start and mark_end in seconds.
 
 		// Class casting
 		function cast_Knife()
