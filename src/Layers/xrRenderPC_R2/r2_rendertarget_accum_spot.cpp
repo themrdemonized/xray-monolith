@@ -4,7 +4,7 @@
 
 //extern Fvector du_cone_vertices[DU_CONE_NUMVERTEX];
 
-void CRenderTarget::accum_spot(light* L)
+void CRenderTarget::accum_spot(light* L, bool unshadowed)
 {
 	phase_accumulator();
 	RImplementation.stats.l_visible ++;
@@ -120,7 +120,7 @@ void CRenderTarget::accum_spot(light* L)
 	{
 		// Select shader
 		u32 _id = 0;
-		if (L->flags.bShadow)
+		if (L->flags.bShadow && !unshadowed)
 		{
 			bool bFullSize = (L->X.S.size == RImplementation.o.smapsize);
 			if (L->X.S.transluent) _id = SE_L_TRANSLUENT;

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "fstaticrender_rendertarget.h"
 #include "../../xrEngine/IGame_Persistent.h"
+#include "../xrRender/dx9_scope_target.h"
 
 
 static LPCSTR RTname = "$user$rendertarget";
@@ -17,6 +18,7 @@ CRenderTarget::CRenderTarget()
 	pTempZB = 0;
 	ZB = 0;
 	pFB = 0;
+	scope_scene_capture_active = false;
 
 	param_blur = 0.f;
 	param_gray = 0.f;
@@ -117,6 +119,8 @@ CRenderTarget::~CRenderTarget()
 	RT_distort.destroy();
 	RT_color_map.destroy();
 	RT.destroy();
+	rt_scope_scene.destroy();
+    ClearScopeHeat();
 	rt_secondVP.destroy(); //--#SM+#-- +SecondVP+s	
 }
 
@@ -231,6 +235,11 @@ BOOL CRenderTarget::Perform()
 
 void CRenderTarget::Begin()
 {
+    scope_scene_capture_active = g_pGameLevel && g_pGamePersistent &&
+        g_pGamePersistent->m_pGShaderConstants->hud_params.x > EPS_S &&
+        !Device.m_SecondViewport.IsSVPActive() &&
+        (ps_r1_scope_scene_capture != 0 || (scope_3D_fake_enabled && RImplementation.GMBase.RGraph.mapScopeHUDSorted.size()));
+
 	/*
 	if (g_pGameLevel->IR_GetKeyState(DIK_LSHIFT))	
 	{
@@ -266,6 +275,43 @@ void CRenderTarget::Begin()
 		curHeight = rtHeight;
 	}
 	Device.Clear();
+}
+
+void CRenderTarget::CaptureScopeScene()
+{
+    VERIFY(scope_scene_capture_active);
+    VERIFY(RImplementation.o.defer_hud);
+
+    IDirect3DSurface9* source = RCache.get_RT();
+    D3DSURFACE_DESC desc;
+    CHK_DX(source->GetDesc(&desc));
+    if (!rt_scope_scene || rt_scope_scene->dwWidth != desc.Width || rt_scope_scene->dwHeight != desc.Height)
+    {
+        rt_scope_scene.destroy();
+        rt_scope_scene.create("$user$3dss_scene", desc.Width, desc.Height, desc.Format);
+        Msg("* R1 scope scene target: %ux%u", desc.Width, desc.Height);
+    }
+    CHK_DX(HW.pDevice->StretchRect(source, nullptr, rt_scope_scene->pRT, nullptr, D3DTEXF_NONE));
+
+    // Mode 2 is a one-shot visual check; normal capture never reads pixels back to the CPU.
+    if (ps_r1_scope_scene_capture == 2 &&
+        g_pGamePersistent->m_pGShaderConstants->hud_params.x >= 1.0f - EPS_S)
+    {
+        ps_r1_scope_scene_capture = 1;
+        string64 stamp;
+        string_path name;
+        xr_sprintf(name, "r1_scope_scene_%s_%u.png", timestamp(stamp), Device.dwFrame);
+        LPD3DXBUFFER saved = nullptr;
+        CHK_DX(D3DXSaveSurfaceToFileInMemory(&saved, D3DXIFF_PNG, rt_scope_scene->pRT, nullptr, nullptr));
+        IWriter* file = FS.w_open("$screenshots$", name);
+        R_ASSERT(file);
+        file->w(saved->GetBufferPointer(), saved->GetBufferSize());
+        FS.w_close(file);
+        _RELEASE(saved);
+        Msg("* R1 scope scene saved: %s", name);
+        Msg("* R1 scope lens queue: %u, zoom: %.3f", RImplementation.GMBase.RGraph.mapScopeHUDSorted.size(),
+            g_pGamePersistent->m_pGShaderConstants->hud_params.x);
+    }
 }
 
 struct TL_2c3uv

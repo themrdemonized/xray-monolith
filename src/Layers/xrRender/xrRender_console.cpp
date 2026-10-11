@@ -161,6 +161,8 @@ float ps_r1_lmodel_lerp = 0.1f;
 float ps_r1_dlights_clip = 40.f;
 float ps_r1_pps_u = 0.f;
 float ps_r1_pps_v = 0.f;
+int ps_r1_scope_scene_capture = 0;
+int ps_r1_scope_debug = 0;
 
 // R1-specific
 int ps_r1_GlowsPerFrame = 16; // r1-only
@@ -1316,6 +1318,8 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__blood_decals_on_objects", &r_blood_decals_on_objects, 0, 1);
 
 	// R1
+	CMD4(CCC_Integer, "r1_scope_scene_capture", &ps_r1_scope_scene_capture, 0, 2);
+    CMD4(CCC_Integer, "r1_scope_debug", &ps_r1_scope_debug, 0, 1);
 	CMD4(CCC_Float, "r1_ssa_lod_a", &ps_r1_ssaLOD_A, 16, 96);
 	CMD4(CCC_Float, "r1_ssa_lod_b", &ps_r1_ssaLOD_B, 16, 64);
 	CMD4(CCC_Float, "r1_lmodel_lerp", &ps_r1_lmodel_lerp, 0, 0.333f);

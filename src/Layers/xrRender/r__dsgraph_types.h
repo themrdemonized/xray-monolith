@@ -68,6 +68,17 @@ struct SPass;
 
 namespace R_dsgraph
 {
+#if RENDER == R_R1 || RENDER == R_R2
+    struct ScopeHeatItem
+    {
+        float ssa;
+        dxRender_Visual* visual;
+        Fmatrix transform;
+        ShaderElement* shader;
+        float temperature;
+    };
+#endif
+
 	template<typename T, bool Reverse>
 	struct DSGraphItem
 	{
@@ -249,7 +260,7 @@ namespace R_dsgraph
 		mapDSGraphItems<float, false> mapCamAttached;
 		mapSorted<float, true, false, false, false> mapCamAttachedSorted;
 		mapDSGraphItems<float, false> mapWater;
-#ifdef USE_DX11
+#if defined(USE_DX11) || RENDER == R_R1 || RENDER == R_R2
 		mapDSGraphItems<float, true> mapScopeHUDSorted;
 		mapDSGraphItems<float, false> mapScopeHUD;
 #endif
@@ -326,7 +337,7 @@ namespace R_dsgraph
 				mapCamAttachedSorted.Sorted.clear_and_free();
 				mapCamAttachedSorted.Distort.clear_and_free();
 
-#ifdef USE_DX11
+#if defined(USE_DX11) || RENDER == R_R1 || RENDER == R_R2
 				mapScopeHUD.clear_and_free();
 				mapScopeHUDSorted.clear_and_free();
 #endif
@@ -344,7 +355,7 @@ namespace R_dsgraph
 				mapCamAttachedSorted.Sorted.clear();
 				mapCamAttachedSorted.Distort.clear();
 
-#ifdef USE_DX11
+#if defined(USE_DX11) || RENDER == R_R1 || RENDER == R_R2
 				mapScopeHUD.clear();
 				mapScopeHUDSorted.clear();
 #endif

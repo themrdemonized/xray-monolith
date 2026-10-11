@@ -23,6 +23,25 @@ extern float r_ssaDONTSORT;
 extern float r_ssaHZBvsTEX;
 extern float r_ssaGLOD_start, r_ssaGLOD_end;
 
+#if RENDER == R_R1 || RENDER == R_R2
+extern Fvector4 ps_s3ds_param_1;
+extern Fvector4 ps_s3ds_param_3;
+
+void CRender::AddScopeHeatItem(const R_dsgraph::DSGraphItem<u32, false>& item, ShaderElement* shader)
+{
+    CTexture* texture = item.pVisual->GetTexture();
+    const float temperature = item.pObject->GetHotness();
+    if (texture && texture->m_is_hot && _valid(temperature) && temperature > EPS_S)
+    {
+        // An invisible object can also have submitted this mesh through its normal render callback.
+        if (scope_heat_only && std::any_of(scope_heat_items.begin(), scope_heat_items.end(),
+            [&](const R_dsgraph::ScopeHeatItem& heat) { return heat.visual == item.pVisual; }))
+            return;
+        scope_heat_items.push_back({item.ssa, item.pVisual, *item.pMatrix, shader, clampr(temperature, 0.f, 1.f)});
+    }
+}
+#endif
+
 ICF bool R4FullDetailRejectSpatial(ISpatial* spatial, bool normalPhase)
 {
 #if RENDER == R_R4
@@ -53,6 +72,32 @@ ICF float calcLOD(float ssa/*fDistSq*/, float R)
 {
 	return _sqrt(clampr((ssa - r_ssaGLOD_end) / (r_ssaGLOD_start - r_ssaGLOD_end), 0.f, 1.f));
 }
+
+#if RENDER == R_R1 || RENDER == R_R2
+void CRender::RenderScopeHeat()
+{
+    for (const R_dsgraph::ScopeHeatItem& item : scope_heat_items)
+    {
+        ShaderElement* shader = Target->GetScopeHeatShader(item.shader);
+        if (!shader)
+            continue;
+        RCache.set_Element(shader);
+        RCache.set_xform_world(item.transform);
+        RCache.set_c("r1_heat_params", item.temperature, 0.f, 0.f, 0.f);
+        item.visual->Render(calcLOD(item.ssa, item.visual->vis.sphere.R));
+    }
+}
+
+static void render_scope_item(const R_dsgraph::DSGraphItem<float, true>& item,
+    ShaderElement* element, u32 pass = 0)
+{
+    RCache.set_Element(element, pass);
+    RCache.set_xform_world(*item.pMatrix);
+    RImplementation.apply_object(item.pObject);
+    RImplementation.apply_lmaterial();
+    item.pVisual->Render(calcLOD(item.ssa, item.pVisual->vis.sphere.R));
+}
+#endif
 
 template<typename T, bool Reverse>
 void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear)
@@ -275,6 +320,13 @@ void CDSGraphManager::r_dsgraph_render_sorted(bool render_hud)
 		r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Sorted, true);
 	}
 
+#if RENDER == R_R1
+    if (RImplementation.o.defer_hud)
+        return;
+#elif RENDER == R_R2
+    if (RImplementation.scope_capture_active)
+        return;
+#endif
 	if (render_hud)
 		r_dsgraph_render_sorted_hud();
 
@@ -300,7 +352,7 @@ void CDSGraphManager::r_dsgraph_capture_hud()
 	}
 }
 
-#if defined(USE_DX11)
+#if defined(USE_DX11) || RENDER == R_R1 || RENDER == R_R2
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
 void CDSGraphManager::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	
@@ -310,7 +362,36 @@ void CDSGraphManager::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shad
 
 	// Rendering
 	RImplementation.rmNear();
+#if RENDER == R_R1 || RENDER == R_R2
+    std::sort(RGraph.mapScopeHUDSorted.begin(), RGraph.mapScopeHUDSorted.end());
+    for (const auto& item : RGraph.mapScopeHUDSorted)
+    {
+        ShaderElement* element = item.pSE;
+        const int type = int(ps_s3ds_param_3.y);
+        const int slot = type == 9 ? 2 : (type == 5 ? 3 : -1);
+        if (slot >= 0)
+        {
+            ShaderElement* variant = item.pVisual->shader->E[slot]._get();
+            if (variant && variant->flags.iScopeLense == 3)
+                element = variant;
+        }
+        ShaderElement* image = item.pVisual->shader->E[4]._get();
+        ShaderElement* surface = item.pVisual->shader->E[5]._get();
+        if (RImplementation.Target->IsScopeThermalActive() && surface && surface->passes.size() > 1)
+            render_scope_item(item, surface, 1);
+        else if (image && image->flags.iScopeLense == 3)
+            render_scope_item(item, image);
+        render_scope_item(item, element);
+        const bool inside = type != 3 && type != 4 && type != 6 && type != 8 && !int(ps_s3ds_param_1.w);
+        if ((inside || ps_s3ds_param_3.z > 0.f) && surface && surface->flags.iScopeLense == 3)
+            render_scope_item(item, surface);
+        if (image && image->flags.iScopeLense == 3 && image->passes.size() > 1)
+            render_scope_item(item, image, 1);
+    }
+    RGraph.mapScopeHUDSorted.clear();
+#else
 	r_dsgraph_render_graph_sorted(RGraph.mapScopeHUDSorted, true);
+#endif
 	RImplementation.rmNormal();
 }
 #endif
@@ -337,6 +418,11 @@ void CDSGraphManager::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 	r_dsgraph_render_graph_sorted(RGraph.mapStaticSorted.Emissive, clear);
 	r_dsgraph_render_graph_sorted(RGraph.mapDynamicSorted.Emissive, clear);
 	
+#if RENDER == R_R2
+    if (RImplementation.scope_capture_active)
+        return;
+#endif
+
 	//	HACK: Calculate this only once
 	CHudInitializer initializer(true);
 
@@ -579,11 +665,23 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 		if (psDeviceFlags.test(rsDrawDynamic))
 		{
 			// Traverse object database
+            u32 queryOptions = i_doptions;
+#if RENDER == R_R1 || RENDER == R_R2
+            const bool thermalCapture = this == &RImplementation.GMBase &&
+                i_mask[CDSGraphManager::fl_normal] &&
+#if RENDER == R_R2
+                RImplementation.scope_heat_collect &&
+#endif
+                RImplementation.Target->IsScopeThermalActive(false);
+            if (thermalCapture)
+                queryOptions |= STYPE_COLLIDEABLE;
+#endif
+
 			g_SpatialSpace->q_frustum
 			(
 				lstRenderables,
 				ISpatial_DB::O_ORDERED,
-				i_doptions,
+				queryOptions,
 				i_frustum
 			);
 			if (dbg)
@@ -683,7 +781,13 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 //					continue;
 //				}
 
-				if(!(spatial->spatial.type & STYPE_RENDERABLE) && !(spatial->spatial.type & STYPE_PARTICLE) && !(spatial->spatial.type & STYPE_RENDERABLESHADOW))
+#if RENDER == R_R1 || RENDER == R_R2
+                IRenderable* thermal = thermalCapture ? spatial->dcast_Renderable() : nullptr;
+                const bool thermalHidden = thermal && thermal->renderable.visual && thermal->GetTransparency() > 0.f;
+#else
+                const bool thermalHidden = false;
+#endif
+				if(!thermalHidden && !(spatial->spatial.type & STYPE_RENDERABLE) && !(spatial->spatial.type & STYPE_PARTICLE) && !(spatial->spatial.type & STYPE_RENDERABLESHADOW))
 					continue;
 				if (!is_sector_visible(sector))
 					continue;
@@ -728,7 +832,16 @@ void CDSGraphManager::r_dsgraph_capture_dynamic(CObject* O)
 						if (i_mask[CDSGraphManager::fl_normal] && !(spatial->spatial.type & STYPE_PARTICLE))
 							set_Object(renderable);
 
-						renderable->renderable_Render(dcast_IPortalTraverser());
+                        if (!thermalHidden || (spatial->spatial.type & STYPE_RENDERABLE))
+						    renderable->renderable_Render(dcast_IPortalTraverser());
+#if RENDER == R_R1 || RENDER == R_R2
+                        if (thermalHidden)
+                        {
+                            RImplementation.scope_heat_only = true;
+                            add_Dynamic(renderable->renderable.visual, &renderable->renderable.xform);
+                            RImplementation.scope_heat_only = false;
+                        }
+#endif
 						if (dbg)
 						{
 							++dbg->dynamic_rendered;

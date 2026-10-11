@@ -9,6 +9,8 @@
 #include <d3dx9.h>
 #pragma warning(default:4995)
 
+#include "../xrRender/DdsD3D9Compatibility.h"
+
 #ifndef _EDITOR
 #include "../xrRender/dxRenderDeviceRender.h"
 #endif
@@ -315,8 +317,10 @@ IC u32 it_height_rev_base(u32 d, u32 s)
 		(color_get_R(s) + color_get_G(s) + color_get_B(s)) / 3); // height
 }
 
-ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize)
+ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize, Fvector2* source_size)
 {
+    if (source_size)
+        source_size->set(0.f, 0.f);
 	ID3DTexture2D* pTexture2D = NULL;
 	IDirect3DCubeTexture9* pTextureCUBE = NULL;
 	string_path fn;
@@ -334,6 +338,7 @@ ID3DBaseTexture* CRender::texture_load(LPCSTR fRName, u32& ret_msize)
 	xr_strcpy(fname, fRName); //. andy if (strext(fname)) *strext(fname)=0;
 	fix_texture_name(fname);
 	IReader* S = NULL;
+    CMemoryWriter compatibleDDS;
 	//if (FS.exist(fn,"$game_textures$",fname,	".dds")	&& strstr(fname,"_bump"))	goto _BUMP;
 	if (strstr(fname, "_bump"))
 	{
@@ -390,13 +395,22 @@ _DDS:
 	{
 		// Load and get header
 		D3DXIMAGE_INFO IMG;
+        compatibleDDS.clear();
 		S = FS.r_open(fn);
 #ifdef DEBUG
 		Msg						("* Loaded: %s[%d]",fn,S->length());
 #endif // DEBUG
 		img_size = S->length();
 		R_ASSERT(S);
-		HRESULT const result = D3DXGetImageInfoFromFileInMemory(S->pointer(), S->length(), &IMG);
+        HRESULT result = D3DXGetImageInfoFromFileInMemory(S->pointer(), S->length(), &IMG);
+        if (FAILED(result) && DdsD3D9Compatibility::load(fn, *S, compatibleDDS))
+        {
+            result = D3DXGetImageInfoFromFileInMemory(compatibleDDS.pointer(), compatibleDDS.size(), &IMG);
+            if (SUCCEEDED(result))
+            {
+                img_size = compatibleDDS.size();
+            }
+        }
 		if (FAILED(result))
 		{
 			Msg("! Can't get image info for texture '%s'", fn);
@@ -416,7 +430,8 @@ _DDS:
 			HRESULT const result =
 				D3DXCreateCubeTextureFromFileInMemoryEx(
 					HW.pDevice,
-					S->pointer(), S->length(),
+                    compatibleDDS.size() ? compatibleDDS.pointer() : S->pointer(),
+                    compatibleDDS.size() ? compatibleDDS.size() : S->length(),
 					D3DX_DEFAULT,
 					IMG.MipLevels, 0,
 					IMG.Format,
@@ -453,8 +468,10 @@ _DDS:
 			ID3DTexture2D* T_sysmem;
 			HRESULT const result =
 				D3DXCreateTextureFromFileInMemoryEx(
-					HW.pDevice, S->pointer(), S->length(),
-					D3DX_DEFAULT,D3DX_DEFAULT,
+                    HW.pDevice,
+                    compatibleDDS.size() ? compatibleDDS.pointer() : S->pointer(),
+                    compatibleDDS.size() ? compatibleDDS.size() : S->length(),
+                    D3DX_DEFAULT_NONPOW2, D3DX_DEFAULT_NONPOW2,
 					IMG.MipLevels, 0,
 					IMG.Format,
 					D3DPOOL_SYSTEMMEM,
@@ -476,6 +493,10 @@ _DDS:
 				goto _DDS;
 			}
 
+            // UI rectangles are authored in source pixels, including when device limits or
+            // texture LOD make the actual GPU surface a different size.
+            if (source_size)
+                source_size->set(float(IMG.Width), float(IMG.Height));
 			img_loaded_lod = get_texture_load_lod(fn);
 			pTexture2D = TW_LoadTextureFromTexture(T_sysmem, IMG.Format, img_loaded_lod, dwWidth, dwHeight);
 			mip_cnt = pTexture2D->GetLevelCount();

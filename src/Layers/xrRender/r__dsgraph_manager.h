@@ -104,7 +104,7 @@ public:
 	void r_dsgraph_render_distort();
 
 	// Anomaly
-#if defined(USE_DX11)
+#if defined(USE_DX11) || RENDER == R_R1 || RENDER == R_R2
 	void r_dsgraph_render_ScopeSorted();
 #endif
 	void r_dsgraph_render_cam_ui();

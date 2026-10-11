@@ -92,6 +92,16 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
         }
     }
 
+#if RENDER == R_R1 || RENDER == R_R2
+    if (this == &RImplementation.GMBase && RImplementation.scope_heat_only)
+    {
+        ShaderElement* shader = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
+        if (shader)
+            RImplementation.AddScopeHeatItem({0, SSA, val_pObject, pVisual, xform, shader, false}, shader);
+        return;
+    }
+#endif
+
 	// Distortive geometry should be marked and R2 special-cases it
 	// a) Allow to optimize RT order
 	// b) Should be rendered to special distort buffer in another pass
@@ -111,6 +121,21 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 	if (0==sh)
 		return;
 	u32 shader_priority = sh->flags.iPriority/2;
+#if RENDER == R_R1 || RENDER == R_R2
+    if (i_mask[CDSGraphManager::fl_hud] && sh->flags.iScopeLense)
+    {
+        if (sh->flags.iScopeLense == 3 && RImplementation.phase == CRender::PHASE_NORMAL)
+        {
+#if RENDER == R_R2
+            if (RImplementation.scope_capture_active)
+                return;
+#endif
+            RGraph.mapScopeHUDSorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, true);
+        }
+        return;
+    }
+#endif
+
 	if (!i_mask[shader_priority])
 		return;
 
@@ -212,6 +237,18 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 #endif
 	if (i_mask[CDSGraphManager::fl_invisible])
 		return;
+
+#if RENDER == R_R1 || RENDER == R_R2
+    if (this == &RImplementation.GMBase && i_mask[CDSGraphManager::fl_normal] &&
+        !i_mask[CDSGraphManager::fl_cam] &&
+#if RENDER == R_R2
+        RImplementation.scope_heat_collect &&
+#endif
+        val_pObject && RImplementation.Target->IsScopeThermalActive(RENDER == R_R1))
+    {
+        RImplementation.AddScopeHeatItem({0, SSA, val_pObject, pVisual, xform, sh, false}, sh);
+    }
+#endif
 
 	// strict-sorting selection
 	if (sh->flags.bStrictB2F && !pVisual->dcast_ParticleCustom())

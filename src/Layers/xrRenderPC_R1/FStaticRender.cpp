@@ -407,6 +407,7 @@ IC void gm_SetNearer(BOOL bNearer)
 CRender::CRender()
 	: m_bFirstFrameAfterReset(false)
 {
+    o.defer_hud = FALSE;
 }
 
 CRender::~CRender()
@@ -427,6 +428,9 @@ extern float r_ssaHZBvsTEX;
 
 void CRender::Calculate()
 {
+    scope_heat_items.clear();
+    scope_heat_only = false;
+    GMBase.RGraph.mapScopeHUDSorted.clear();
 #ifdef _GPA_ENABLED
 	TAL_SCOPED_TASK_NAMED("CRender::Calculate()");
 #endif // _GPA_ENABLED
@@ -516,8 +520,10 @@ void CRender::Render()
 	Device.Statistic->RenderDUMP.Begin();
 	// Begin
 	Target->Begin();
+	o.defer_hud = Target->IsScopeSceneCaptureActive();
 	phase = PHASE_NORMAL;
-	GMBase.r_dsgraph_render_hud(); // hud
+    if (!o.defer_hud)
+        GMBase.r_dsgraph_render_hud(); // hud
 	GMBase.r_dsgraph_render_graph(0); // normal level
 	if (Details)Details->Render(); // grass / details
 	GMBase.r_dsgraph_render_lods(true, false); // lods - FB
@@ -529,7 +535,7 @@ void CRender::Render()
 	L_Dynamic->render(0); // addititional light sources
 	if (Wallmarks)Wallmarks->Render(); // wallmarks has priority as normal geometry
 
-	if (g_hud)
+	if (g_hud && !o.defer_hud)
 	{
 		g_hud->Render_R1_Attachment_UI();
 
@@ -551,6 +557,32 @@ void CRender::Render()
 	if (L_Glows)L_Glows->Render(); // glows
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES))Env->RenderFlares(); // lens-flares
 	Env->RenderLast(); // rain/thunder-bolts
+
+    if (o.defer_hud)
+    {
+        Target->CaptureScopeScene();
+        if (Target->IsScopeThermalActive())
+            Target->CaptureScopeHeat();
+        scope_heat_items.clear();
+        o.defer_hud = FALSE;
+        phase = PHASE_NORMAL;
+        GMBase.r_dsgraph_render_hud();
+        L_Dynamic->render(0, true);
+        phase = PHASE_NORMAL;
+        if (scope_3D_fake_enabled)
+            GMBase.r_dsgraph_render_ScopeSorted();
+        GMBase.r_dsgraph_render_sorted();
+        if (g_hud)
+        {
+            g_hud->Render_R1_Attachment_UI();
+            if (g_hud->RenderActiveItemUIQuery())
+                GMBase.r_dsgraph_render_hud_ui();
+            if (g_hud->RenderCamAttachedUIQuery())
+                GMBase.r_dsgraph_render_cam_ui();
+        }
+    }
+    GMBase.RGraph.mapScopeHUDSorted.clear();
+    scope_heat_items.clear();
 
 #if DEBUG
 	for (int _priority=0; _priority<2; ++_priority)

@@ -55,6 +55,14 @@ public:
 		return desc.Height;
 	}
 
+    IC void get_UIResolution(Fvector2& size)
+    {
+        if (source_size.x > 0.f && source_size.y > 0.f)
+            size.set(source_size);
+        else
+            size.set(float(get_Width()), float(get_Height()));
+    }
+
 	void video_Sync(u32 _time) { m_play_time = _time; }
 	void video_Play(BOOL looped, u32 _time = 0xFFFFFFFF);
 	void video_Pause(BOOL state);
@@ -120,6 +128,7 @@ private:
 	// Description
 	ID3DBaseTexture* desc_cache;
 	D3D_TEXTURE2D_DESC desc;
+    Fvector2 source_size = {0.f, 0.f}; // source pixel coordinates for static D3D9 UI textures
 
     CGIFAnimationPlayer* gifPlayer;
 

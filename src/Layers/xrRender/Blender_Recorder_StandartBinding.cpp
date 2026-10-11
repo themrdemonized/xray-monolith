@@ -430,6 +430,242 @@ static class s3ds_param_4 : public R_constant_setup
 	}
 }    s3ds_param_4;
 
+// Lightweight scope constants: choose channel roles on the CPU, keeping ps_2_0 small.
+static float scope_zoom_part()
+{
+    const Fvector4& fov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
+    const float minFov = fov.y * 0.75f;
+    const float maxFov = fov.x * 0.75f;
+    return fis_zero(maxFov - minFov) ? 0.f :
+        clampr((Device.fFOV - minFov) / (maxFov - minFov), 0.f, 1.f);
+}
+
+static float scope_light_level()
+{
+    // R1 has no HDR exposure target; approximate daylight with the existing environment colors.
+    const CEnvDescriptor& env = *g_pGamePersistent->Environment().CurrentEnv;
+    return clampr((env.ambient.x + env.ambient.y + env.ambient.z +
+        env.hemi_color.x + env.hemi_color.y + env.hemi_color.z +
+        env.sun_color.x + env.sun_color.y + env.sun_color.z) / 3.f, 0.f, 1.f);
+}
+
+static class scope_lens_params : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float aim = clampr(g_pGamePersistent->m_pGShaderConstants->hud_params.x, 0.f, 1.f);
+        const float factor = _max(ps_s3ds_param_2.w, 1.f);
+        const float part = int(ps_s3ds_param_2.z) ? scope_zoom_part() : 1.f;
+        const float zoom = 1.f + (0.2f * factor - 0.2f) * aim * part;
+        const float shift = (0.8f * factor - 0.8f) * aim * part;
+        const float aspect = float(RDEVICE.dwHeight) / _max(float(RDEVICE.dwWidth), 1.f);
+        RCache.set_c(C, 1.f / zoom, shift * aspect, shift, 0.f);
+    }
+} binder_scope_lens_params;
+
+static class scope_reticle_mode : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        float rgb = 1.f, led = 0.f, alpha = 1.f, over = 1.f;
+        if (type == 1 || type == 5)
+        {
+            rgb = 0.f;
+            led = 1.f;
+        }
+        else if (type == 2 || type == 3 || type == 4 || type == 9)
+        {
+            rgb = 0.f;
+            alpha = 0.f;
+        }
+        else if (type == 7)
+            over = 0.f;
+        RCache.set_c(C, rgb, led, alpha, over);
+    }
+} binder_scope_reticle_mode;
+
+static class scope_reticle_masks : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        float black = 0.f, green = 0.f, blue = 0.f, text = 0.f;
+        if (type == 2 || type == 3 || type == 9)
+        {
+            black = green = 1.f;
+            text = type == 3 ? 1.f : 0.f;
+        }
+        else if (type == 4)
+        {
+            black = 1.f;
+            green = ps_markswitch_current == 1 ? 1.f : 0.f;
+            blue = ps_markswitch_current == 2 ? 1.f : 0.f;
+        }
+        RCache.set_c(C, black, green, blue, text);
+    }
+} binder_scope_reticle_masks;
+
+static class scope_reticle_projection : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        const Fvector4& fov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params;
+        const float minFov = fov.y * 0.75f;
+        const float maxFov = fov.x * 0.75f;
+        const float currentFov = Device.fFOV;
+        const float zoom = currentFov > EPS_S ? _max(minFov / currentFov, 1.f) : 1.f;
+        const bool ffp = int(ps_s3ds_param_1.w) != 0 || type == 5 || type == 9;
+        const float inverseSize = 1.f / _max(ps_s3ds_param_1.x, 0.001f);
+        float cosine = 1.f, sine = 0.f;
+        if (type == 5)
+        {
+            const float part = fis_zero(maxFov - minFov) ? 0.f :
+                clampr((currentFov - minFov) / (maxFov - minFov), 0.f, 1.f);
+            const float angle = -PI * (part + 0.053f) / 1.053f;
+            cosine = _cos(angle);
+            sine = _sin(angle);
+        }
+        RCache.set_c(C, inverseSize / (ffp ? zoom : 1.f), inverseSize, cosine, sine);
+    }
+} binder_scope_reticle_projection;
+
+static class scope_shadow_params : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float aim = clampr(g_pGamePersistent->m_pGShaderConstants->hud_params.x, 0.f, 1.f);
+        const int settings = int(ps_s3ds_param_4.w);
+        const int type = int(ps_s3ds_param_3.y);
+        const float pupil = _max(ps_s3ds_param_1.z * ((settings & 4) ? 1.f : aim), 0.001f);
+        const float minFov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y * 0.75f;
+        const float zoom = Device.fFOV > EPS_S ? _max(minFov / Device.fFOV, 1.f) : 1.f;
+        const float opacity = type == 6 || type == 8 ? 0.f : ((settings & 2) ? 1.f : 1.f - aim);
+        RCache.set_c(C, ps_s3ds_param_1.y, 1.f / pupil, 1.f / (0.15f + 0.02f * (zoom - 1.f)), opacity);
+    }
+} binder_scope_shadow_params;
+
+static class scope_reticle_color : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float aim = clampr(g_pGamePersistent->m_pGShaderConstants->hud_params.x, 0.f, 1.f);
+        const float fade = (int(ps_s3ds_param_4.w) & 4) ? 1.f : aim;
+        const bool acog = int(ps_s3ds_param_3.y) == 3;
+        const float light = acog ? scope_light_level() : 1.f;
+        const float led = fade * (acog ? _max(0.2f, light * 2.f) : 1.f);
+        RCache.set_c(C, ps_markswitch_color.x * led, ps_markswitch_color.y * led,
+            ps_markswitch_color.z * led, 0.3f * light * fade);
+    }
+} binder_scope_reticle_color;
+
+static class scope_reticle_optics : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float minFov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y * 0.75f;
+        const float zoom = Device.fFOV > EPS_S ? _max(minFov / Device.fFOV, 1.f) : 1.f;
+        const bool flat = int(ps_s3ds_param_3.y) == 8;
+        const float aim = clampr(g_pGamePersistent->m_pGShaderConstants->hud_params.x, 0.f, 1.f);
+        const float fade = (int(ps_s3ds_param_4.w) & 4) ? 1.f : aim;
+        RCache.set_c(C, flat ? 0.f : 10.f, flat ? 0.f : 3.f / zoom, fade, 0.f);
+    }
+} binder_scope_reticle_optics;
+
+static class scope_lens_color : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float nvg = int(ps_s3ds_param_3.x) == 1 && ps_markswitch_current == 0 ? 1.f : 0.f;
+        RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, nvg);
+    }
+} binder_scope_lens_color;
+
+#if RENDER == R_R1 || RENDER == R_R2
+static class r1_laser_distance : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        // ponytail: use the existing camera pick; per-pixel surface distance needs a position buffer.
+        const float distance = g_pGamePersistent->m_pGShaderConstants->hud_target_distance;
+        RCache.set_c(C, _valid(distance) && distance > EPS_S ? distance : 100.f, 0.f, 0.f, 0.f);
+    }
+} binder_r1_laser_distance;
+
+static class scope_thermal_params : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float minFov = g_pGamePersistent->m_pGShaderConstants->hud_fov_params.y * 0.75f;
+        const float zoom = Device.fFOV > EPS_S ? _max(minFov / Device.fFOV, 1.f) : 1.f;
+        const float pixel = (int(ps_s3ds_param_4.w) & 8) ? _max(floorf(zoom), 1.f) : 1.f;
+        RCache.set_c(C, ps_markswitch_current == 1 ? 1.f : 0.f,
+            int(ps_s3ds_param_3.x) == 3 ? 1.f : 0.f, pixel, 0.f);
+    }
+} binder_scope_thermal_params;
+#endif
+
+static class scope_transition : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float part = scope_zoom_part();
+        const float smooth = part * part * (3.f - 2.f * part);
+        RCache.set_c(C, smooth, int(ps_s3ds_param_3.y) == 4 ? 1.f : 0.f, 0.5f + smooth * 3.f, -2.5f + smooth * 3.f);
+    }
+} binder_scope_transition;
+
+static class scope_surface_params : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const int type = int(ps_s3ds_param_3.y);
+        const float inside = type != 3 && type != 4 && type != 6 && type != 8 && !int(ps_s3ds_param_1.w) ? 1.f : 0.f;
+        RCache.set_c(C, inside, clampr(ps_s3ds_param_3.z, 0.f, 1.f), 1.5f * scope_light_level(), 0.f);
+    }
+} binder_scope_surface_params;
+
+static class scope_surface_light : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        const float light = scope_light_level();
+        RCache.set_c(C, light * 2.f, light * 2.f, light * 2.f, light);
+    }
+} binder_scope_surface_light;
+
+static void set_reticle_atlas(R_constant* C, bool enabled)
+{
+    int sides = 1, index = 0;
+    if (enabled)
+    {
+        const int count = _max(ps_markswitch_count, 1);
+        while (sides * sides < count)
+            ++sides;
+        index = clampr(ps_markswitch_current, 0, count - 1);
+    }
+    const float scale = 1.f / sides;
+    RCache.set_c(C, scale, scale, (index % sides) * scale, (index / sides) * scale);
+}
+
+static class scope_reticle_atlas : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        // ms_count usually counts color choices. Only type 10 selects an atlas cell.
+        set_reticle_atlas(C, int(ps_s3ds_param_3.y) == 10);
+    }
+} binder_scope_reticle_atlas;
+
+static class reflex_reticle_atlas : public R_constant_setup
+{
+    virtual void setup(R_constant* C)
+    {
+        set_reticle_atlas(C, true);
+    }
+} binder_reflex_reticle_atlas;
+
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
 {
@@ -1535,6 +1771,31 @@ void CBlender_Compile::SetMapping()
 	r_Constant("s3ds_param_2", &s3ds_param_2);
 	r_Constant("s3ds_param_3", &s3ds_param_3);
 	r_Constant("s3ds_param_4", &s3ds_param_4);
+    r_Constant("scope_reticle_mode", &binder_scope_reticle_mode);
+    r_Constant("scope_lens_params", &binder_scope_lens_params);
+    r_Constant("scope_reticle_masks", &binder_scope_reticle_masks);
+    r_Constant("scope_reticle_projection", &binder_scope_reticle_projection);
+    r_Constant("scope_reticle_atlas", &binder_scope_reticle_atlas);
+    r_Constant("reflex_reticle_atlas", &binder_reflex_reticle_atlas);
+    r_Constant("scope_shadow_params", &binder_scope_shadow_params);
+    r_Constant("scope_reticle_color", &binder_scope_reticle_color);
+    r_Constant("scope_reticle_optics", &binder_scope_reticle_optics);
+    r_Constant("scope_lens_color", &binder_scope_lens_color);
+#if RENDER == R_R1 || RENDER == R_R2
+    r_Constant("r1_laser_distance", &binder_r1_laser_distance);
+    r_Constant("scope_thermal_params", &binder_scope_thermal_params);
+#endif
+    r_Constant("scope_transition", &binder_scope_transition);
+    r_Constant("scope_surface_params", &binder_scope_surface_params);
+    r_Constant("scope_surface_light", &binder_scope_surface_light);
+    static class cl_r1_scope_debug : public R_constant_setup
+    {
+        virtual void setup(R_constant* C)
+        {
+            RCache.set_c(C, float(ps_r1_scope_debug), 0.0f, 0.0f, 0.0f);
+        }
+    } binder_r1_scope_debug;
+    r_Constant("r1_scope_debug", &binder_r1_scope_debug);
 
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);

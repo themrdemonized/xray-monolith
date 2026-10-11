@@ -57,6 +57,12 @@ extern u32 g_r;
 
 void CRender::Render()
 {
+    scope_capture_active = false;
+    scope_heat_collect = false;
+    scope_heat_only = false;
+    scope_heat_items.clear();
+    GMBase.RGraph.mapScopeHUDSorted.clear();
+    LP_scope_hud.clear();
 	bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
 	if (_menu_pp)
 	{
@@ -98,8 +104,11 @@ void CRender::Render()
 	Device.Statistic->RenderCALC.Begin();
 	phase = PHASE_NORMAL;
 	GMBase.traverse(pLastSector, ViewBase, Device.vCameraPosition, Device.mFullTransform);
+    scope_heat_collect = true;
 	GMBase.r_dsgraph_capture(false, true);
 	GMBase.r_dsgraph_capture_hud();
+    scope_heat_collect = false;
+    scope_capture_active = Target->IsScopeSceneCaptureActive();
 	Device.Statistic->RenderCALC.End();
 
 	if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS))
@@ -121,13 +130,22 @@ void CRender::Render()
 		LP_normal.clear();
 		LP_pending.clear();
 		GMBase.r_dsgraph_capture_lights();
+        if (scope_capture_active)
+        {
+            // MT drains the world light packages during rendering. Retain only light pointers for HUD.
+            LP_scope_hud = LP_normal;
+            LP_scope_hud.v_point.insert(LP_scope_hud.v_point.end(), LP_pending.v_point.begin(), LP_pending.v_point.end());
+            LP_scope_hud.v_spot.insert(LP_scope_hud.v_spot.end(), LP_pending.v_spot.begin(), LP_pending.v_spot.end());
+            LP_scope_hud.v_shadowed.insert(LP_scope_hud.v_shadowed.end(), LP_pending.v_shadowed.begin(), LP_pending.v_shadowed.end());
+        }
 	}
 
 	//******* Main render :: PART-1 (second)
 	{
 		// level, SPLIT2
 		Target->phase_scene_begin();
-		GMBase.r_dsgraph_render_hud();
+        if (!scope_capture_active)
+		    GMBase.r_dsgraph_render_hud();
 		GMBase.r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
 		Target->phase_scene_end();
@@ -177,12 +195,17 @@ void CRender::Render()
 	render_lights(LP_pending);
 
 	// Postprocess
+    const bool scope_composed = scope_capture_active;
 	Target->phase_combine();
+    scope_heat_items.clear();
+    GMBase.RGraph.mapScopeHUDSorted.clear();
+    scope_capture_active = false;
+    LP_scope_hud.clear();
 
 	/*if (Details)
 		Details->details_clear();*/
 
-	if (g_hud)
+	if (g_hud && !scope_composed)
 	{
 		if (g_hud->RenderActiveItemUIQuery())
 			GMBase.r_dsgraph_render_hud_ui();

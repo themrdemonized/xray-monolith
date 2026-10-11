@@ -146,7 +146,7 @@ void CLightR_Manager::render_point	()
 }
 */
 
-void CLightR_Manager::render_point(u32 _priority)
+void CLightR_Manager::render_point(u32 _priority, bool hud_only)
 {
 	// for each light
 	Fvector lc_COP = Device.vCameraPosition;
@@ -205,8 +205,11 @@ void CLightR_Manager::render_point(u32 _priority)
 		CFrustum F;
 		F.CreateFromMatrix(L_combine, FRUSTUM_P_LRTB | FRUSTUM_P_FAR);
 
-		L->GMLight.traverse((CSector*)L->SpatialComponent->spatial.sector, F, L_pos, L_combine);
-		L->GMLight.r_dsgraph_capture(false,true);
+        if (!hud_only)
+        {
+		    L->GMLight.traverse((CSector*)L->SpatialComponent->spatial.sector, F, L_pos, L_combine);
+		    L->GMLight.r_dsgraph_capture(false,true);
+        }
 
 		//if( _priority == 1)
 		//	RImplementation.r_pmask						(true,true);
@@ -214,13 +217,15 @@ void CLightR_Manager::render_point(u32 _priority)
 		//		4. Analyze if HUD intersects light volume
 		BOOL bHUD	= FALSE;
 		bHUD = F.testSphere_dirty(Device.vCameraPosition,2.f);
+        bHUD = bHUD && !RImplementation.o.defer_hud;
 
 		//		5. Dump sorting tree
 		RCache.set_Constants((R_constant_table*)0);
 		if (bHUD&&_priority == 0)
 			g_hud->Render_Last(&L->GMLight);
 
-		L->GMLight.r_dsgraph_render_graph(_priority);
+        if (!hud_only)
+		    L->GMLight.r_dsgraph_render_graph(_priority);
 
 		if (bHUD&&_priority == 0)
 			L->GMLight.r_dsgraph_render_hud();
@@ -228,7 +233,7 @@ void CLightR_Manager::render_point(u32 _priority)
 	//		??? grass ???
 }
 
-void CLightR_Manager::render_spot(u32 _priority)
+void CLightR_Manager::render_spot(u32 _priority, bool hud_only)
 {
 	// for each light
 	//	Msg	("l=%d",selected_spot.size());
@@ -287,8 +292,11 @@ void CLightR_Manager::render_spot(u32 _priority)
 
 		CFrustum F;
 		F.CreateFromMatrix(L_combine, FRUSTUM_P_LRTB | FRUSTUM_P_FAR);
-		L->GMLight.traverse((CSector*)L->SpatialComponent->spatial.sector, F, L_pos, L_combine);
-		L->GMLight.r_dsgraph_capture(false, true);
+        if (!hud_only)
+        {
+		    L->GMLight.traverse((CSector*)L->SpatialComponent->spatial.sector, F, L_pos, L_combine);
+		    L->GMLight.r_dsgraph_capture(false, true);
+        }
 
 		//if( _priority == 1)
 		//	RImplementation.r_pmask						(true,true);
@@ -296,6 +304,7 @@ void CLightR_Manager::render_spot(u32 _priority)
 		//		4. Analyze if HUD intersects light volume
 		BOOL bHUD	= FALSE;
 		bHUD = F.testSphere_dirty(Device.vCameraPosition,2.f);
+        bHUD = bHUD && !RImplementation.o.defer_hud;
 		// if (bHUD)		Msg	("HUD");
 
 		//		4. Dump sorting tree
@@ -305,7 +314,8 @@ void CLightR_Manager::render_spot(u32 _priority)
 		if (bHUD&&_priority == 0)
 			g_hud->Render_Last(&L->GMLight);
 
-		L->GMLight.r_dsgraph_render_graph(_priority);
+        if (!hud_only)
+		    L->GMLight.r_dsgraph_render_graph(_priority);
 
 		if (bHUD&&_priority == 0)
 			L->GMLight.r_dsgraph_render_hud();
@@ -340,7 +350,7 @@ IC void hud_light_restore(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos
 	}
 }
 
-void CLightR_Manager::render(u32 _priority)
+void CLightR_Manager::render(u32 _priority, bool hud_only)
 {
 	xr_map<light*, std::pair<Fvector, Fvector>> saved_pos;
 
@@ -348,20 +358,20 @@ void CLightR_Manager::render(u32 _priority)
 	{
 		hud_light_apply(saved_pos, selected_spot);
 		RImplementation.phase = CRender::PHASE_SPOT;
-		render_spot(_priority);
+		render_spot(_priority, hud_only);
 		hud_light_restore(saved_pos, selected_spot);
 
-		if (_priority == 1)
+		if ((_priority == 1 || hud_only) && !RImplementation.o.defer_hud)
 			selected_spot.clear();
 	}
 	if (selected_point.size())
 	{
 		hud_light_apply(saved_pos, selected_point);
 		RImplementation.phase = CRender::PHASE_POINT;
-		render_point(_priority);
+		render_point(_priority, hud_only);
 		hud_light_restore(saved_pos, selected_point);
 
-		if (_priority == 1)
+		if ((_priority == 1 || hud_only) && !RImplementation.o.defer_hud)
 			selected_point.clear();
 	}
 }

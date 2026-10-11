@@ -1,0 +1,13 @@
+#define main combine_geometry
+#include "combine_1.ps"
+#undef main
+#include "img_corrections.h"
+#include "tonemapping.h"
+
+float4 main(_input I) : COLOR0
+{
+    float3 color = combine_geometry(I).low.rgb;
+    if (tnmp_onoff == 1.0)
+        color = Uncharted2ToneMapping(color);
+    return float4(img_corrections(color), 0.0);
+}

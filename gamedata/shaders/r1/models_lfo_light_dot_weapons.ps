@@ -1,0 +1,27 @@
+// BAS screen-space magnifier reticle. Keep uniforms local: common.h in some
+// GAMMA combinations already declares screen_res and m_hud_params.
+uniform sampler2D s_base;
+uniform float4 screen_res;
+uniform float4 m_hud_params;
+
+float resize(float input, float factor, float offset)
+{
+    return (input - 0.5 + offset) / factor + 0.5 - offset;
+}
+
+struct v2p
+{
+    float2 tc0 : TEXCOORD0;
+    float4 pos2d : TEXCOORD1;
+};
+
+float4 main(v2p I) : COLOR0
+{
+    float2 tc = I.pos2d.xy;
+    float factor = screen_res.y / 2160.0;
+    float factor_i = 2160.0 / screen_res.y;
+    factor *= (0.45 / max(m_hud_params.z, 0.001)) * 0.14;
+    tc.x = resize(tc.x, factor * (factor_i * 0.9), 0.0);
+    tc.y = resize(tc.y, factor * (factor_i * 1.4), 0.0);
+    return tex2D(s_base, tc) * m_hud_params.x;
+}

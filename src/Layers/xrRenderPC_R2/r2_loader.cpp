@@ -109,6 +109,9 @@ void CRender::level_Unload()
 {
 	if (0 == g_pGameLevel) return;
 	if (!b_loaded) return;
+    scope_heat_items.clear();
+    GMBase.RGraph.mapScopeHUDSorted.clear();
+    Target->ClearScopeHeat();
 
 	GMBase.clear();
 	for (sun::cascade& cascade : m_sun_cascades)

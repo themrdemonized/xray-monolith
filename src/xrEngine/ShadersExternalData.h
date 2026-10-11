@@ -4,6 +4,7 @@
 class ShadersExternalData //--#SM+#--
 {
 public:
+    float hud_target_distance = 100.f;
 	Fmatrix m_script_params; // Ìàòðèöà, çíà÷åíèÿ êîòîðîé äîñòóïíû èç Lua
 	Fvector4 hud_params;     // [zoom_rotate_factor, secondVP_zoom_factor, hud_fov, NULL] - Ïàðàìåòðû õóäà îðóæèÿ
 	Fvector4 hud_fov_params; // [scope_zoom_factor, min_scope_zoom_factor, NULL, NULL]
@@ -17,4 +18,4 @@ public:
 		hud_fov_params.set(0.f, 0.f, 0.f, 0.f);
 		m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
 	}
-}; 
+};

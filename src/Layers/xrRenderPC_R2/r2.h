@@ -29,6 +29,15 @@ class dxRender_Visual;
 class CRender : public IRender_interface, public pureFrame
 {
 public:
+    xr_vector<R_dsgraph::ScopeHeatItem> scope_heat_items;
+    bool scope_heat_only = false;
+    bool scope_heat_collect = false;
+    bool scope_capture_active = false;
+    light_Package LP_scope_hud;
+    void AddScopeHeatItem(const R_dsgraph::DSGraphItem<u32, false>& item, ShaderElement* shader);
+    void RenderScopeHeat();
+    void render_scope_hud_lights();
+
 	struct _options
 	{
 		u32 bug : 1;
@@ -240,7 +249,7 @@ public:
 	virtual void level_Load(IReader*);
 	virtual void level_Unload();
 
-	virtual IDirect3DBaseTexture9* texture_load(LPCSTR fname, u32& msize);
+	virtual IDirect3DBaseTexture9* texture_load(LPCSTR fname, u32& msize, Fvector2* source_size = nullptr);
 	virtual HRESULT shader_compile(
 		LPCSTR name,
 		DWORD const* pSrcData,

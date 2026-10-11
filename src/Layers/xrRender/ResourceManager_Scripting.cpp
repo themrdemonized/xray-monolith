@@ -196,6 +196,13 @@ public:
 		return *this;
 	}
 
+    adopt_compiler& _o_scopelense(u32 type)
+    {
+        R_ASSERT(type <= 3);
+        C->SH->flags.iScopeLense = type;
+        return *this;
+    }
+
 	adopt_compiler& _pass(LPCSTR vs, LPCSTR ps)
 	{
 		C->r_Pass(vs, ps, true);
@@ -388,6 +395,7 @@ void CResourceManager::LS_Load()
 		.def("sorting", &adopt_compiler::_options, return_reference_to<1>())
 		.def("emissive", &adopt_compiler::_o_emissive, return_reference_to<1>())
 		.def("distort", &adopt_compiler::_o_distort, return_reference_to<1>())
+        .def("scopelense", &adopt_compiler::_o_scopelense, return_reference_to<1>())
 		.def("wmark", &adopt_compiler::_o_wmark, return_reference_to<1>())
 		.def("fog", &adopt_compiler::_fog, return_reference_to<1>())
 		.def("zb", &adopt_compiler::_ZB, return_reference_to<1>())
@@ -541,6 +549,56 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 		C.bDetail = FALSE;
 		S.E[4] = C._lua_Compile(s_shader, "l_special");
 	}
+
+#if RENDER == R_R1 || RENDER == R_R2
+    // DX9 scope slots: E0/E1 reticle LOD, E2/E3 focal-plane variants,
+    // E4 image + shadow passes, E5 optional dirt/inside. Keep each pass within ps_2_0.
+    if (S.E[0]._get() && S.E[0]->flags.iScopeLense == 3)
+    {
+        if (S.E[4]._get() && Script::bfIsObjectPresent(LSVM, s_shader, "scope_shadow", LUA_TFUNCTION))
+        {
+            C.iElement = 4;
+            C.bDetail = FALSE;
+            ref_selement shadow;
+            shadow = C._lua_Compile(s_shader, "scope_shadow");
+            ShaderElement image;
+            image.flags = S.E[4]->flags;
+            image.passes = S.E[4]->passes;
+            image.passes.push_back(shadow->passes[0]);
+            S.E[4] = _CreateElement(image);
+        }
+        if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_dual", LUA_TFUNCTION))
+        {
+            C.iElement = 2;
+            C.bDetail = FALSE;
+            S.E[2] = C._lua_Compile(s_shader, "scope_dual");
+        }
+        if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_giperon", LUA_TFUNCTION))
+        {
+            C.iElement = 3;
+            C.bDetail = FALSE;
+            S.E[3] = C._lua_Compile(s_shader, "scope_giperon");
+        }
+        if (Script::bfIsObjectPresent(LSVM, s_shader, "scope_surface", LUA_TFUNCTION))
+        {
+            C.iElement = 5;
+            C.bDetail = FALSE;
+            S.E[5] = C._lua_Compile(s_shader, "scope_surface");
+        }
+        if (S.E[5]._get() && Script::bfIsObjectPresent(LSVM, s_shader, "scope_thermal", LUA_TFUNCTION))
+        {
+            C.iElement = 5;
+            C.bDetail = FALSE;
+            ref_selement thermal;
+            thermal = C._lua_Compile(s_shader, "scope_thermal");
+            ShaderElement surface;
+            surface.flags = S.E[5]->flags;
+            surface.passes = S.E[5]->passes;
+            surface.passes.push_back(thermal->passes[0]);
+            S.E[5] = _CreateElement(surface);
+        }
+    }
+#endif
 
 	// Search equal in shaders array
 	for (u32 it = 0; it < v_shaders.size(); it++)

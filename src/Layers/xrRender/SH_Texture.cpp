@@ -63,6 +63,7 @@ void CTexture::surface_set(ID3DBaseTexture* surf)
 	_RELEASE(pSurface);
 
 	pSurface = surf;
+    source_size.set(0.f, 0.f);
 }
 
 ID3DBaseTexture* CTexture::surface_get()
@@ -372,7 +373,7 @@ void CTexture::Load()
 		{
 			// Normal texture
 			u32 mem = 0;
-			pSurface = ::RImplementation.texture_load(*cName, mem);
+            pSurface = ::RImplementation.texture_load(*cName, mem, &source_size);
 
 			// Calc memory usage and preload into vid-mem
 			if (pSurface)
@@ -399,6 +400,7 @@ void CTexture::Unload()
 	if (!flags.bLoaded)
 		return;
 
+    source_size.set(0.f, 0.f);
 #ifdef DEBUG
 	string_path				msg_buff;
 	xr_sprintf				(msg_buff,sizeof(msg_buff),"* Unloading texture [%s] pSurface RefCount=",cName.c_str());

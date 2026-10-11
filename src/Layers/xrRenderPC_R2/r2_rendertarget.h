@@ -17,7 +17,19 @@ private:
 	u32 dwWidth;
 	u32 dwHeight;
 	u32 dwAccumulatorClearMark;
+    ref_rt rt_scope_scene;
+    ref_rt rt_scope_heat;
+    xr_map<SPass*, std::pair<ref_pass, ref_selement>> scope_heat_shaders;
+    ref_shader s_scope_hud_sun;
 public:
+    bool IsScopeSceneCaptureActive(bool require_lens = true) const;
+    bool IsScopeThermalActive(bool require_lens = true) const;
+    void CaptureScopeScene();
+    void CaptureScopeHeat();
+    ShaderElement* GetScopeHeatShader(ShaderElement* source);
+    void ClearScopeHeat();
+    void phase_scope_hud();
+    void phase_combine_deferred(bool hud = false);
 	u32 dwLightMarkerID;
 	//
 	IBlender* b_occq;
@@ -301,7 +313,7 @@ public:
 	void accum_direct_blend();
 	void accum_direct_volumetric(u32 sub_phase, const u32 Offset, const Fmatrix& mShadow);
 	void accum_point(light* L);
-	void accum_spot(light* L);
+	void accum_spot(light* L, bool unshadowed = false);
 	void accum_reflected(light* L);
 	//	Igor: for volumetric lights
 	void accum_volumetric(light* L);

@@ -26,9 +26,9 @@ public:
 	virtual ~CLightR_Manager();
 
 	void add(light* L);
-	void render(u32 _priority);
-	void render_point(u32 _priority);
-	void render_spot(u32 _priority);
+	void render(u32 _priority, bool hud_only = false);
+	void render_point(u32 _priority, bool hud_only = false);
+	void render_spot(u32 _priority, bool hud_only = false);
 };
 
 //////////////////////////////////////////////////////////////////////////

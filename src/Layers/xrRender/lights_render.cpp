@@ -49,6 +49,29 @@ IC void hud_light_restore(xr_map<light*, std::pair<Fvector, Fvector>>& saved_pos
 	}
 }
 
+#if RENDER == R_R2
+void CRender::render_scope_hud_lights()
+{
+    light_Package& package = LP_scope_hud;
+    xr_map<light*, std::pair<Fvector, Fvector>> saved;
+    hud_light_apply(saved, package.v_point);
+    hud_light_apply(saved, package.v_spot);
+    hud_light_apply(saved, package.v_shadowed);
+    for (light* L : package.v_point)
+        if (L->vis.visible)
+            Target->accum_point(L);
+    for (light* L : package.v_spot)
+        if (L->vis.visible)
+            Target->accum_spot(L, true);
+    for (light* L : package.v_shadowed)
+        if (L->vis.visible)
+            Target->accum_spot(L, true);
+    hud_light_restore(saved, package.v_point);
+    hud_light_restore(saved, package.v_spot);
+    hud_light_restore(saved, package.v_shadowed);
+}
+#endif
+
 void CRender::render_lights(light_Package& LP)
 {
 	xr_map<light*, std::pair<Fvector, Fvector>> saved_pos;
