@@ -343,15 +343,6 @@ void CRender::Render()
 	if (Details)
 		Details->details_clear();
 
-	if (g_hud)
-	{
-        PROF_EVENT("render_hud");
-		if (g_hud->RenderActiveItemUIQuery())
-			GMBase.r_dsgraph_render_hud_ui();
-		if (g_hud->RenderCamAttachedUIQuery())
-			GMBase.r_dsgraph_render_cam_ui();
-	}
-
 }
 #include "../xrRender/CHudInitializer.h"
 
@@ -371,6 +362,17 @@ void CRender::render_forward()
 		GMBase.fade_render(); // faded-portals
 		GMBase.r_dsgraph_render_sorted(false); // strict-sorted geoms
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
+
+		// Item and camera attachment UI draws before the sorted HUD so nearer glass and the post chain cover it
+		if (g_hud)
+		{
+			PROF_EVENT("render_hud");
+			if (g_hud->RenderActiveItemUIQuery())
+				GMBase.r_dsgraph_render_hud_ui();
+			if (g_hud->RenderCamAttachedUIQuery())
+				GMBase.r_dsgraph_render_cam_ui();
+		}
+
 		GMBase.r_dsgraph_render_sorted_hud();
 	}
 

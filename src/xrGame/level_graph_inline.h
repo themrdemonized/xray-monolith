@@ -48,7 +48,7 @@ ICF u32 CLevelGraph::vertex(const CVertex& vertex_r) const
 
 IC void CLevelGraph::unpack_xz(const CLevelGraph::CPosition& vertex_position, u32& x, u32& z) const
 {
-	VERIFY(vertex_position.xz() < (1 << MAX_NODE_BIT_COUNT) - 1);
+	VERIFY(vertex_position.xz() < u32(-1));
 	x = vertex_position.xz() / m_row_length;
 	z = vertex_position.xz() % m_row_length;
 }
@@ -102,7 +102,7 @@ IC const CLevelGraph::CPosition& CLevelGraph::vertex_position(CLevelGraph::CPosi
 	int pxz = iFloor((source_position.x - header().box().min.x) / header().cell_size() + .5f) * m_row_length + iFloor(
 		(source_position.z - header().box().min.z) / header().cell_size() + .5f);
 	int py = iFloor(65535.f * (source_position.y - header().box().min.y) / header().factor_y() + EPS_S);
-	VERIFY(pxz < (1 << MAX_NODE_BIT_COUNT) - 1);
+	VERIFY(pxz >= 0);
 	dest_position.xz(u32(pxz));
 	clamp(py, 0, 65535);
 	dest_position.y(u16(py));
@@ -206,7 +206,7 @@ IC bool CLevelGraph::inside(const u32 vertex_id, const Fvector2& position) const
 {
 	int pxz = iFloor((position.x - header().box().min.x) / header().cell_size() + .5f) * m_row_length + iFloor(
 		(position.y - header().box().min.z) / header().cell_size() + .5f);
-	VERIFY(pxz < (1 << MAX_NODE_BIT_COUNT) - 1);
+	VERIFY(pxz >= 0);
 	bool b = vertex(vertex_id)->position().xz() == u32(pxz);
 	return (b);
 }
@@ -284,7 +284,7 @@ ICF const xrGUID& CLevelGraph::CHeader::guid() const
 
 ICF u32 CLevelGraph::CVertex::link(int index) const
 {
-	return (NodeCompressed::link(u8(index)));
+	return (NodeCompressed13::link(u8(index)));
 }
 
 ICF u16 CLevelGraph::CVertex::high_cover(u8 index) const
@@ -299,7 +299,7 @@ ICF u16 CLevelGraph::CVertex::low_cover(u8 index) const
 
 ICF u16 CLevelGraph::CVertex::plane() const
 {
-	return (NodeCompressed::plane);
+	return (NodeCompressed13::plane);
 }
 
 ICF const CLevelGraph::CPosition& CLevelGraph::CVertex::position() const
@@ -601,7 +601,7 @@ IC bool CLevelGraph::valid_vertex_position(const Fvector& position) const
 	if (!(iFloor((position.x - box->min.x) / header().cell_size() + .5f) < (int)m_column_length))
 		return (false);
 
-	return ((vertex_position(position).xz() < (1 << MAX_NODE_BIT_COUNT) - 1));
+	return (vertex_position(position).xz() < u32(-1));
 }
 
 

@@ -63,8 +63,14 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 		case D3D10_SVT_INT:
 			type = RC_int;
 			break;
+		case D3D10_SVT_UINT:
+			// shader bus lanes take raw unsigned values, any other uint stays unsupported
+			if (0 != strncmp(name, "bus_", 4))
+				fatal("R_constant_table::parse: unexpected shader variable type.", name);
+			type = RC_uint;
+			break;
 		default:
-			fatal("R_constant_table::parse: unexpected shader variable type.");
+			fatal("R_constant_table::parse: unexpected shader variable type.", name);
 		}
 
 		// Rindex,Rcount
@@ -97,7 +103,7 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 					r_type = RC_1x2;
 					break;
 				default:
-					fatal("Vector: 1 components is scalar - there is special case for this!!!!!");
+					fatal("Vector: 1 components is scalar - there is special case for this!!!!!", name);
 					break;
 				}
 			}
@@ -131,21 +137,21 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 						//VERIFY(4 == it->RegisterCount); 
 						break;
 					default:
-						fatal("MATRIX_ROWS: unsupported number of Rows");
+						fatal("MATRIX_ROWS: unsupported number of Rows", name);
 						break;
 					}
 					break;
 				default:
-					fatal("MATRIX_ROWS: unsupported number of Columns");
+					fatal("MATRIX_ROWS: unsupported number of Columns", name);
 					break;
 				}
 			}
 			break;
 		case D3D10_SVC_MATRIX_COLUMNS:
-			fatal("Pclass MATRIX_COLUMNS unsupported");
+			fatal("Pclass MATRIX_COLUMNS unsupported", name);
 			break;
 		case D3D10_SVC_STRUCT:
-			fatal("Pclass D3DXPC_STRUCT unsupported");
+			fatal("Pclass D3DXPC_STRUCT unsupported", name);
 			break;
 		case D3D10_SVC_OBJECT:
 			{
@@ -209,6 +215,7 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 									? C->vs : C->gs);*/
 			L.index = r_index;
 			L.cls = r_type;
+			L.size = VarDesc.Size;
 			table.push_back(C);
 		}
 		else
@@ -221,6 +228,7 @@ BOOL R_constant_table::parseConstants(ID3DShaderReflectionConstantBuffer* pTable
 									? C->vs : C->gs);*/
 			L.index = r_index;
 			L.cls = r_type;
+			L.size = VarDesc.Size;
 		}
 	}
 	return TRUE;

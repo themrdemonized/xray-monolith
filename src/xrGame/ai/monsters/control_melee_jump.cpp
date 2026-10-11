@@ -26,7 +26,7 @@ bool CControlMeleeJump::check_start_conditions()
 
 	Fvector enemy_position;
 	enemy_position.set(m_object->EnemyMan.get_enemy()->Position());
-	if (m_man->direction().is_face_target(enemy_position, CHECK_YAW)) return false;
+	if (m_man->direction().is_face_target(enemy_position, m_object->get_melee_face_eps())) return false;
 	if (enemy_position.distance_to(m_object->Position()) > MAX_DISTANCE_TO_ENEMY) return false;
 
 	return true;

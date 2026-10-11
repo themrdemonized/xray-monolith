@@ -31,6 +31,8 @@
 #	include "alife_simulator.h"
 #	include "script_hit.h"
 #	include "script_monster_hit_info.h"
+#	include "script_monster_enemy_info.h"
+#	include "script_monster_home_info.h"
 #	include "script_sound_info.h"
 #	include "script_sound.h"
 #	include "script_particles.h"

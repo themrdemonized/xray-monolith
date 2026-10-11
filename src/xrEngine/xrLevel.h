@@ -259,6 +259,54 @@ public:
 	friend class CNodeRenumberer;
 	friend class CRenumbererConverter;
 };
+
+// Large AI maps use 26-bit links and a full 32-bit packed XZ coordinate.
+// Keep NodeCompressed above for the version 10 maps shipped with Anomaly.
+struct NodePosition13
+{
+	u32 m_xz;
+	u16 m_y;
+
+	ICF void xz(u32 value) { m_xz = value; }
+	ICF void y(u16 value) { m_y = value; }
+	ICF u32 xz() const { return m_xz; }
+	ICF u32 y() const { return m_y; }
+};
+
+struct NodeCompressed13
+{
+	static const u32 LINK_MASK = (1u << 26) - 1;
+	u8 data[13];
+	NodeCompressed::SCover high;
+	NodeCompressed::SCover low;
+	u16 plane;
+	NodePosition13 p;
+
+	ICF void set_link(u8 index, u32 value)
+	{
+		VERIFY(index < 4 && value <= LINK_MASK);
+		const u32 offset = (index * 26) / 8;
+		const u32 shift = (index * 26) % 8;
+		u32 packed;
+		CopyMemory(&packed, data + offset, sizeof(packed));
+		const u32 mask = LINK_MASK << shift;
+		packed = (packed & ~mask) | (value << shift);
+		CopyMemory(data + offset, &packed, sizeof(packed));
+	}
+
+	ICF u32 link(u8 index) const
+	{
+		VERIFY(index < 4);
+		const u32 offset = (index * 26) / 8;
+		const u32 shift = (index * 26) % 8;
+		u32 packed;
+		CopyMemory(&packed, data + offset, sizeof(packed));
+		return (packed >> shift) & LINK_MASK;
+	}
+};
+
+static_assert(sizeof(NodeCompressed) == 23, "Unexpected version 10 AI node size");
+static_assert(sizeof(NodeCompressed13) == 25, "Unexpected version 13 AI node size");
 #endif
 
 #ifdef AI_COMPILER
@@ -384,5 +432,6 @@ const u32 XRCL_PRODUCTION_VERSION = 14; // output
 const u32 CFORM_CURRENT_VERSION = 4;
 const u32 MAX_NODE_BIT_COUNT = 23;
 const u32 XRAI_CURRENT_VERSION = 10;
+const u32 XRAI_LARGE_VERSION = 13;
 
 #endif // xrLevelH

@@ -134,6 +134,12 @@ public:
 	float get_tube_min_distance() const { return m_tube_condition_min_distance; }
 	bool tube_ready() const;
 
+	// negative argument keeps the current value
+	void set_stamina_hit(float v)
+	{
+		if (v >= 0.f) m_stamina_hit = v;
+	}
+
 	//-------------------------------------------------------------------
 
 

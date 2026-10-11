@@ -88,7 +88,13 @@ void CStateMonsterAttackAbstract::execute()
 {
 	bool can_attack_on_move = object->can_attack_on_move();
 
-	if (check_home_point()) select_state(eStateAttack_MoveToHomePoint);
+	// a Lua-proposed substate is taken only if registered and its own start conditions pass
+	u32 proposed_substate = object->script_combat_substate();
+	CSState* proposed_state = (proposed_substate != u32(-1)) ? get_state_if_present(proposed_substate) : 0;
+
+	if (proposed_state && proposed_state->check_start_conditions())
+		select_state(proposed_substate);
+	else if (check_home_point()) select_state(eStateAttack_MoveToHomePoint);
 	else if (check_steal_state()) select_state(eStateAttack_Steal);
 	else if (check_camp_state()) select_state(eStateAttackCamp);
 	else if (check_find_enemy_state()) select_state(eStateAttack_FindEnemy);

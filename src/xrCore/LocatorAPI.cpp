@@ -105,6 +105,7 @@ struct eq_fname_check
 };
 
 XRCORE_API xr_vector<_open_file> g_open_files;
+static xrCriticalSection g_open_files_lock;
 
 void _check_open_file(const shared_str& _fname)
 {
@@ -140,8 +141,7 @@ void setup_reader(IReader* _r, _open_file& _of)
 template <typename T>
 void _register_open_file(T* _r, LPCSTR _fname)
 {
-	xrCriticalSection _lock;
-	_lock.Enter();
+	g_open_files_lock.Enter();
 
 	shared_str f = _fname;
 	_check_open_file(f);
@@ -150,20 +150,19 @@ void _register_open_file(T* _r, LPCSTR _fname)
 	setup_reader(_r, _of);
 	_of._used += 1;
 
-	_lock.Leave();
+	g_open_files_lock.Leave();
 }
 
 template <typename T>
 void _unregister_open_file(T* _r)
 {
-	xrCriticalSection _lock;
-	_lock.Enter();
+	g_open_files_lock.Enter();
 
 	xr_vector<_open_file>::iterator it = std::find_if(g_open_files.begin(), g_open_files.end(), eq_pointer<T>(_r));
 	VERIFY(it != g_open_files.end());
 	_open_file& _of = *it;
 	_of._reader = NULL;
-	_lock.Leave();
+	g_open_files_lock.Leave();
 }
 
 XRCORE_API void _dump_open_files(int mode)

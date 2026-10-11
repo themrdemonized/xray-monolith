@@ -24,9 +24,9 @@ namespace LevelGraph
 		ICF const xrGUID& guid() const;
 	};
 
-	typedef NodePosition CPosition;
+	typedef NodePosition13 CPosition;
 
-	class CVertex : private NodeCompressed
+	class CVertex : private NodeCompressed13
 	{
 	private:
 		friend class CRenumbererConverter;
@@ -42,6 +42,7 @@ namespace LevelGraph
 		ICF bool operator==(const LevelGraph::CVertex& vertex) const;
 		friend class CLevelGraph;
 	};
+	static_assert(sizeof(CVertex) == sizeof(NodeCompressed13), "Unexpected level graph vertex size");
 
 	struct SSegment
 	{

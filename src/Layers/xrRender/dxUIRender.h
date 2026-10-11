@@ -26,6 +26,7 @@ public:
 	//.	virtual void FlushLineList();
 	virtual void SetScissor(Irect* rect = NULL);
 	virtual void GetActiveTextureResolution(Fvector2& res);
+	virtual bool GetTextureResolution(LPCSTR name, Fvector2& res);
 
 	//.	virtual void PushPoint(float x, float y, u32 c, float u, float v);
 	//	virtual void PushPoint(int x, int y, u32 c, float u, float v);

@@ -38,3 +38,5 @@ compressor/mod/
 # emacs temp file
 \#*\#
 *~
+
+__pycache__/

@@ -54,6 +54,8 @@ void CDSGraphManager::traverse(CSector* start, CFrustum& F, Fvector& vBase, Fmat
 	i_mXFORM			= mXFORM;
 	i_start				= start;
 
+    RGraph.mapLOD.clear();
+
 	xrSRWLockGuard guard(&S_LC,false);
 	if(m_sector_frustums.size())
 	{

@@ -2292,7 +2292,7 @@ void CActor::renderable_Render(IDSGraphManager* DM)
                     // Render full body from legs controller without hiding bones for shadow correctness
                     // Solves potential issues with manipulating actor's XFORM
                         m_legs_controller.update(this, true);
-                        m_legs_controller.render(DM);
+                        m_legs_controller.render(DM, true);
 
                         // Ideally the active item also should be duplicated but leave this for now
                         // Move active item

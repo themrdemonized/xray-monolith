@@ -40,6 +40,11 @@ bool CRayPick::query()
 		return false;
 }
 
+Fvector CRayPick::get_multiply_add()
+{
+    return Fvector().mad(start_position, direction, result.range);
+}
+
 Fvector CRayPick::get_normal()
 {
     if (result.O == nullptr && result.element != 0)
@@ -48,5 +53,5 @@ Fvector CRayPick::get_normal()
         CDB::TRI* T = Level().ObjectSpace.GetStaticTris() + result.element;
         return Fvector().mknormal(V[T->verts[0]], V[T->verts[1]], V[T->verts[2]]);
     }
-    return Fvector().set(0, 1, 0);
+    return Fvector().set(0, 0, 0);
 }

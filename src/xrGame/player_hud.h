@@ -369,6 +369,8 @@ public:
 	void update(const Fmatrix& trans);
 	void updateMovementLayerState();
 	void StopScriptAnim();
+	void create_script_anim_item_model(LPCSTR section);
+	void delete_script_anim_item_model();
 	void PlayBlendAnm(LPCSTR name, u8 part = 0, float speed = 1.f, float power = 1.f, bool bLooped = true, bool no_restart = false, LPCSTR pivot_bone = nullptr);
 	void StopBlendAnm(LPCSTR name, bool bForce = false);
 	void StopAllBlendAnms(bool bForce);

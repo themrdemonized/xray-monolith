@@ -76,6 +76,9 @@ class CControlJump : public CControl_ComCustom<SControlJumpData>
 	float m_auto_aim_factor;
 	Fvector m_jump_start_pos;
 
+	// script-forced flag mask applied at activate(); 0 = vanilla
+	u32 m_script_flags_mask = 0;
+
 	// run-time params
 	u32 m_time_next_allowed;
 	u32 m_time_started; // time jump started
@@ -123,6 +126,25 @@ public:
 
 	float get_max_distance() const { return m_max_distance; }
 	float get_min_distance() const { return m_min_distance; }
+
+	// negative argument keeps the current value
+	void set_jump_params(float min_dist, float max_dist, float max_angle, float max_height, float delay_ms)
+	{
+		if (min_dist >= 0.f) m_min_distance = min_dist;
+		if (max_dist >= 0.f) m_max_distance = max_dist;
+		if (max_angle >= 0.f) m_max_angle = max_angle;
+		if (max_height >= 0.f) m_max_height = max_height;
+		if (delay_ms >= 0.f) m_delay_after_jump = (u32)delay_ms;
+	}
+
+	// script-forced flag mask, OR'd onto the per-call fill at activate(); 0 = vanilla.
+	// auto_aim_factor >= 0 writes the air-control gain the glide steering reads (0 in most configs,
+	// so the eUseAutoAim flag alone steers nothing); negative keeps the loaded value.
+	void set_script_flags(u32 mask, float auto_aim_factor)
+	{
+		m_script_flags_mask = mask;
+		if (auto_aim_factor >= 0.f) m_auto_aim_factor = auto_aim_factor;
+	}
 
 	SControlJumpData& setup_data() { return m_data; }
 

@@ -136,6 +136,18 @@ public:
 	void Render();
 
 	shared_str AppendDef(CEnvironment& environment, CInifile* pIni, CInifile* thunderbolts, LPCSTR sect);
+
+private:
+	// undo flash while paused, kept last to preserve offsets
+	Fvector3 base_sky_color;
+	Fvector3 base_sun_color;
+	Fvector3 base_fog_color;
+	Fvector3 base_sun_dir;
+	Fvector3 flash_sky_color;
+	Fvector3 flash_sun_color;
+	Fvector3 flash_fog_color;
+	Fvector3 flash_sun_dir;
+	bool flash_applied;
 };
 
 #endif //ThunderboltH
