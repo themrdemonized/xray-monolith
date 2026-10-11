@@ -582,7 +582,7 @@ static class scope_lens_color : public R_constant_setup
     }
 } binder_scope_lens_color;
 
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
 static class r1_laser_distance : public R_constant_setup
 {
     virtual void setup(R_constant* C)
@@ -1781,7 +1781,7 @@ void CBlender_Compile::SetMapping()
     r_Constant("scope_reticle_color", &binder_scope_reticle_color);
     r_Constant("scope_reticle_optics", &binder_scope_reticle_optics);
     r_Constant("scope_lens_color", &binder_scope_lens_color);
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
     r_Constant("r1_laser_distance", &binder_r1_laser_distance);
     r_Constant("scope_thermal_params", &binder_scope_thermal_params);
 #endif

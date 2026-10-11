@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "../xrRender/resourcemanager.h"
+#include "../xrRender/dx9_scope_target.h"
+#include "../../xrEngine/CustomHUD.h"
 #include "blender_light_occq.h"
 #include "blender_light_mask.h"
 #include "blender_light_direct.h"
@@ -704,6 +706,7 @@ CRenderTarget::CRenderTarget()
 
 CRenderTarget::~CRenderTarget()
 {
+    ClearScopeHeat();
 	_RELEASE(pFB);
 
 	// Textures
@@ -858,4 +861,112 @@ bool CRenderTarget::need_to_render_sunshafts()
 	}
 
 	return true;
+}
+
+bool CRenderTarget::IsScopeSceneCaptureActive(bool require_lens) const
+{
+    return g_pGameLevel && g_pGamePersistent && scope_3D_fake_enabled &&
+        g_pGamePersistent->m_pGShaderConstants->hud_params.x > EPS_S &&
+        !Device.m_SecondViewport.IsSVPActive() && (!require_lens || RImplementation.mapScopeHUDSorted.size());
+}
+
+void CRenderTarget::CaptureScopeScene()
+{
+    VERIFY(IsScopeSceneCaptureActive());
+    IDirect3DSurface9* source = RCache.get_RT();
+    D3DSURFACE_DESC desc;
+    CHK_DX(source->GetDesc(&desc));
+    if (!rt_scope_scene || rt_scope_scene->dwWidth != desc.Width ||
+        rt_scope_scene->dwHeight != desc.Height)
+    {
+        rt_scope_scene.destroy();
+        rt_scope_scene.create("$user$3dss_scene", desc.Width, desc.Height, desc.Format);
+        Msg("* R2 scope scene target: %ux%u", rt_scope_scene->dwWidth, rt_scope_scene->dwHeight);
+    }
+    CHK_DX(HW.pDevice->StretchRect(source, nullptr, rt_scope_scene->pRT, nullptr, D3DTEXF_NONE));
+    if (ps_r1_scope_scene_capture == 2 &&
+        g_pGamePersistent->m_pGShaderConstants->hud_params.x >= 1.f - EPS_S)
+    {
+        ps_r1_scope_scene_capture = 0;
+        string64 stamp;
+        string_path name;
+        xr_sprintf(name, "r2_scope_scene_%s_%u.png", timestamp(stamp), Device.dwFrame);
+        LPD3DXBUFFER saved = nullptr;
+        CHK_DX(D3DXSaveSurfaceToFileInMemory(&saved, D3DXIFF_PNG, rt_scope_scene->pRT, nullptr, nullptr));
+        IWriter* file = FS.w_open("$screenshots$", name);
+        R_ASSERT(file);
+        file->w(saved->GetBufferPointer(), saved->GetBufferSize());
+        FS.w_close(file);
+        _RELEASE(saved);
+        Msg("* R2 scope scene saved: %s; pending HUD: %u, transparent: %u", name,
+            RImplementation.mapHUD.size(), RImplementation.mapHUDSorted.size());
+    }
+}
+
+void CRenderTarget::phase_scope_hud()
+{
+    // World postprocessing is complete. Keep its output while reusing the G-buffer for HUD only.
+    IDirect3DSurface9* output = RCache.get_RT();
+    // Fullscreen postprocessing disables depth outside the material state cache.
+    RCache.set_Z(FALSE);
+    RCache.set_Z(TRUE);
+    u_setrt(rt_Generic_0, 0, 0, HW.pBaseZB);
+    CHK_DX(HW.pDevice->Clear(0, nullptr, D3DCLEAR_STENCIL, 0, 1.f, 0));
+    phase_scene_begin();
+    RImplementation.r_dsgraph_render_hud();
+    phase_scene_end();
+
+    dwAccumulatorClearMark = Device.dwFrame - 1;
+    phase_accumulator();
+    light* sun = (light*)RImplementation.Lights.sun_adapted._get();
+    if (!RImplementation.o.sunstatic && ps_r2_ls_flags.test(R2FLAG_SUN) && RImplementation.o_sun > EPS_S)
+    {
+        if (!s_scope_hud_sun)
+            s_scope_hud_sun.create("scope_hud_sun");
+        RCache.set_Shader(s_scope_hud_sun);
+        RCache.set_CullMode(CULL_NONE);
+        RCache.set_Stencil(TRUE, D3DCMP_LESSEQUAL, 0x01, 0xff, 0x00);
+        RCache.set_ColorWriteEnable();
+        Fvector direction;
+        Device.mView.transform_dir(direction, sun->direction);
+        direction.normalize();
+        // ponytail: HUD uses object sun visibility, without another world shadow-map render.
+        const float visibility = RImplementation.o_sun;
+        RCache.set_c("Ldynamic_color", sun->color.r * visibility, sun->color.g * visibility,
+            sun->color.b * visibility, u_diffuse2s(sun->color.r, sun->color.g, sun->color.b) * visibility);
+        RCache.set_c("Ldynamic_dir", direction.x, direction.y, direction.z, 0.f);
+        u32 offset;
+        const float w = float(Device.dwWidth), h = float(Device.dwHeight);
+        FVF::TL* vertices = (FVF::TL*)RCache.Vertex.Lock(4, g_combine->vb_stride, offset);
+        const u32 white = color_rgba(255, 255, 255, 255);
+        vertices[0].set(EPS, h + EPS, EPS, 1.f, white, 0.5f / w, (h + 0.5f) / h);
+        vertices[1].set(EPS, EPS, EPS, 1.f, white, 0.5f / w, 0.5f / h);
+        vertices[2].set(w + EPS, h + EPS, EPS, 1.f, white, (w + 0.5f) / w, (h + 0.5f) / h);
+        vertices[3].set(w + EPS, EPS, EPS, 1.f, white, (w + 0.5f) / w, 0.5f / h);
+        RCache.Vertex.Unlock(4, g_combine->vb_stride);
+        RCache.set_Geometry(g_combine);
+        RCache.Render(D3DPT_TRIANGLELIST, offset, 0, 4, 0, 2);
+    }
+    RImplementation.render_scope_hud_lights();
+    RImplementation.scope_capture_active = false;
+    RCache.set_Stencil(TRUE, D3DCMP_ALWAYS, 0x01, 0xff, 0xff, D3DSTENCILOP_KEEP,
+        D3DSTENCILOP_REPLACE, D3DSTENCILOP_KEEP);
+    RImplementation.r_dsgraph_render_emissive(true, false);
+
+    u_setrt(Device.dwWidth, Device.dwHeight, output, nullptr, nullptr, HW.pBaseZB);
+    RCache.set_CullMode(CULL_NONE);
+    RCache.set_Stencil(TRUE, D3DCMP_LESSEQUAL, 0x01, 0xff, 0x00);
+    phase_combine_deferred(true);
+
+    RCache.set_Stencil(FALSE);
+    RCache.set_CullMode(CULL_CCW);
+    RImplementation.r_dsgraph_render_ScopeSorted();
+    RImplementation.r_dsgraph_render_sorted();
+    if (g_hud)
+    {
+        if (g_hud->RenderActiveItemUIQuery())
+            RImplementation.r_dsgraph_render_hud_ui();
+        if (g_hud->RenderCamAttachedUIQuery())
+            RImplementation.r_dsgraph_render_cam_ui();
+    }
 }

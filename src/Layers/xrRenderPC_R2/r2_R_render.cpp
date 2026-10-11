@@ -28,7 +28,8 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 			(
 				lstRenderables,
 				ISpatial_DB::O_ORDERED,
-				STYPE_RENDERABLE + STYPE_LIGHTSOURCE,
+                STYPE_RENDERABLE + STYPE_LIGHTSOURCE +
+                    (scope_heat_collect && Target->IsScopeThermalActive(false) ? STYPE_COLLIDEABLE : 0),
 				ViewBase
 			);
 
@@ -111,12 +112,15 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 			}
 
 			if (PortalTraverser.i_marker != sector->r_marker) continue; // inactive (untouched) sector
+            IRenderable* thermal = scope_heat_collect && Target->IsScopeThermalActive(false) ?
+                spatial->dcast_Renderable() : nullptr;
+            const bool thermal_hidden = thermal && thermal->renderable.visual && thermal->GetTransparency() > 0.f;
 			for (u32 v_it = 0; v_it < sector->r_frustums.size(); v_it++)
 			{
 				CFrustum& view = sector->r_frustums[v_it];
 				if (!view.testSphere_dirty(spatial->spatial.sphere.P, spatial->spatial.sphere.R)) continue;
 
-				if (spatial->spatial.type & STYPE_RENDERABLE)
+                if ((spatial->spatial.type & STYPE_RENDERABLE) || thermal_hidden)
 				{
 					// renderable
 					IRenderable* renderable = spatial->dcast_Renderable();
@@ -136,7 +140,15 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 
 					// Rendering
 					set_Object(renderable);
-					renderable->renderable_Render();
+                    if (spatial->spatial.type & STYPE_RENDERABLE)
+                        renderable->renderable_Render();
+                    if (thermal_hidden)
+                    {
+                        scope_heat_only = true;
+                        set_Transform(&renderable->renderable.xform);
+                        add_Visual(renderable->renderable.visual);
+                        scope_heat_only = false;
+                    }
 					set_Object(0);
 				}
 				break; // exit loop on frustums
@@ -145,9 +157,9 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 		if (g_pGameLevel && (phase == PHASE_NORMAL))
 		{
 			g_hud->Render_Last(); // HUD
-			if (g_hud->RenderActiveItemUIQuery())
+            if (!Target->IsScopeSceneCaptureActive() && g_hud->RenderActiveItemUIQuery())
 				r_dsgraph_render_hud_ui();
-			if (g_hud->RenderCamAttachedUIQuery())
+            if (!Target->IsScopeSceneCaptureActive() && g_hud->RenderCamAttachedUIQuery())
 				r_dsgraph_render_cam_ui();
 		}
 	}
@@ -157,9 +169,9 @@ void CRender::render_main(Fmatrix& m_ViewProjection, bool _fportals)
 		if (g_pGameLevel && (phase == PHASE_NORMAL))
 		{
 			g_hud->Render_Last(); // HUD
-			if (g_hud->RenderActiveItemUIQuery())
+            if (!Target->IsScopeSceneCaptureActive() && g_hud->RenderActiveItemUIQuery())
 				r_dsgraph_render_hud_ui();
-			if (g_hud->RenderCamAttachedUIQuery())
+            if (!Target->IsScopeSceneCaptureActive() && g_hud->RenderCamAttachedUIQuery())
 				r_dsgraph_render_cam_ui();
 		}
 	}
@@ -216,6 +228,11 @@ extern u32 g_r;
 
 void CRender::Render()
 {
+    scope_capture_active = false;
+    scope_heat_collect = false;
+    scope_heat_only = false;
+    scope_heat_items.clear();
+    mapScopeHUDSorted.clear();
 	VERIFY(0==mapDistort.size());
 
 	bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
@@ -313,7 +330,10 @@ void CRender::Render()
 	if (bSUN) set_Recorder(&main_coarse_structure);
 	else set_Recorder(NULL);
 	phase = PHASE_NORMAL;
+	scope_heat_collect = true;
 	render_main(Device.mFullTransform, true);
+    scope_heat_collect = false;
+    scope_capture_active = Target->IsScopeSceneCaptureActive();
 	set_Recorder(NULL);
 	r_pmask(true, false); // disable priority "1"
 	Device.Statistic->RenderCALC.End();
@@ -332,7 +352,8 @@ void CRender::Render()
 	{
 		// level, DO NOT SPLIT
 		Target->phase_scene_begin();
-		r_dsgraph_render_hud();
+        if (!scope_capture_active)
+            r_dsgraph_render_hud();
 		r_dsgraph_render_graph(0);
 		r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
@@ -412,7 +433,8 @@ void CRender::Render()
 
 		// level
 		Target->phase_scene_begin();
-		r_dsgraph_render_hud();
+        if (!scope_capture_active)
+            r_dsgraph_render_hud();
 		r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
@@ -490,6 +512,9 @@ void CRender::Render()
 
 	// Postprocess
 	Target->phase_combine();
+    scope_heat_items.clear();
+    mapScopeHUDSorted.clear();
+    scope_capture_active = false;
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 

@@ -1,0 +1,10 @@
+#include "common.h"
+#include "lmodel.h"
+
+float4 main(float2 tc : TEXCOORD0) : COLOR0
+{
+    float4 position = tex2D(s_position, tc);
+    float4 normal = tex2D(s_normal, tc);
+    float4 diffuse = tex2D(s_diffuse, tc);
+    return Ldynamic_color * plight_infinity(position.w, position.xyz, normal.xyz, diffuse, Ldynamic_dir.xyz);
+}

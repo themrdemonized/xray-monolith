@@ -292,3 +292,24 @@ void CRender::render_indirect(light* L)
 		Target->accum_reflected(&LIGEN);
 	}
 }
+
+void CRender::render_scope_hud_lights()
+{
+    light_Package& package = Lights.package;
+    xr_map<light*, std::pair<Fvector, Fvector>> saved;
+    hud_light_apply(saved, package.v_point);
+    hud_light_apply(saved, package.v_spot);
+    hud_light_apply(saved, package.v_shadowed);
+    for (light* L : package.v_point)
+        if (L->vis.visible)
+            Target->accum_point(L);
+    for (light* L : package.v_spot)
+        if (L->vis.visible)
+            Target->accum_spot(L, true);
+    for (light* L : package.v_shadowed)
+        if (L->vis.visible)
+            Target->accum_spot(L, true);
+    hud_light_restore(saved, package.v_point);
+    hud_light_restore(saved, package.v_spot);
+    hud_light_restore(saved, package.v_shadowed);
+}

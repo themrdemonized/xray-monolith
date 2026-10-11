@@ -15,7 +15,7 @@ extern float r_ssaDONTSORT;
 extern float r_ssaHZBvsTEX;
 extern float r_ssaGLOD_start, r_ssaGLOD_end;
 
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
 extern Fvector4 ps_s3ds_param_1;
 extern Fvector4 ps_s3ds_param_3;
 #endif
@@ -93,7 +93,7 @@ void __fastcall sorted_L1(mapSorted_Node* N)
     render_sorted_item(N, N->val.se);
 }
 
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
 void __fastcall sorted_scope_L1(mapSorted_Node* N)
 {
     VERIFY(N && N->val.pVisual && N->val.pVisual->shader._get());
@@ -785,6 +785,10 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
     if (RImplementation.o.defer_hud)
         return;
 #endif
+#if RENDER == R_R2
+    if (RImplementation.scope_capture_active)
+        return;
+#endif
 
 	// Change projection
 	Fmatrix FTold = Device.mFullTransform;
@@ -822,7 +826,7 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 	RCache.set_xform_project(Device.mProject);
 }
 
-#if defined(USE_DX11) || RENDER == R_R1
+#if defined(USE_DX11) || RENDER == R_R1 || RENDER == R_R2
 //////////////////////////////////////////////////////////////////////////
 // strict-sorted render
 void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D Shader Based Scopes 	
@@ -835,7 +839,7 @@ void R_dsgraph_structure::r_dsgraph_render_ScopeSorted()  //  Redotix99: for 3D 
 
 	// Rendering
 	rmNear();
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
     mapScopeHUDSorted.traverseRL(sorted_scope_L1);
 #else
 	mapScopeHUDSorted.traverseRL(sorted_L1);
@@ -868,6 +872,10 @@ void R_dsgraph_structure::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 	// Rendering
 	rmNear();
 	// Sorted (back to front)
+#if RENDER == R_R2
+    if (!RImplementation.scope_capture_active)
+    {
+#endif
 	mapHUDEmissive.traverseLR(sorted_L1);
 	
 	if (clear)
@@ -875,6 +883,9 @@ void R_dsgraph_structure::r_dsgraph_render_emissive(bool clear, bool renderHUD)
 
 	if (renderHUD)
 		mapHUDSorted.traverseRL(sorted_L1);
+#if RENDER == R_R2
+    }
+#endif
 
 	rmNormal();
 

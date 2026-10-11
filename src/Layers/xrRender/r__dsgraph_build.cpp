@@ -49,7 +49,7 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	float SSA = CalcSSA(distSQ, Center, pVisual);
 	if (SSA <= r_ssaDISCARD) return;
 
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
     if (RI.scope_heat_only)
     {
         ShaderElement* shader = RI.rimp_select_sh_dynamic(pVisual, distSQ);
@@ -78,18 +78,21 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 	// Select shader
 	ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
 	if (0 == sh) return;
-	if (!pmask[sh->flags.iPriority / 2]) return;
 
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
 
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
     if (RI.val_bHUD && sh->flags.iScopeLense)
     {
-        // The physical lens supplies its own mask; R1 needs no DX11 stencil/depth-repair passes.
+        // The physical lens supplies its own mask on both D3D9 renderers.
         if (sh->flags.iScopeLense == 3 && RI.phase == CRender::PHASE_NORMAL)
         {
+#if RENDER == R_R2
+            if (RI.scope_capture_active)
+                return; // The forward traversal must not enqueue the same HUD lens twice.
+#endif
             mapScopeHUD_T_Node* node = mapScopeHUDSorted.insertInAnyWay(distSQ);
             node->val.ssa = SSA;
             node->val.pObject = RI.val_pObject;
@@ -100,6 +103,8 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
         return;
     }
 #endif
+
+	if (!pmask[sh->flags.iPriority / 2]) return;
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	
@@ -215,9 +220,12 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 #endif
 	if (RI.val_bInvisible) return;
 
-#if RENDER == R_R1
+#if RENDER == R_R1 || RENDER == R_R2
     if (RI.phase == CRender::PHASE_NORMAL && !RI.val_bCamAttached &&
-        RI.val_pObject && RI.Target->IsScopeThermalActive())
+#if RENDER == R_R2
+        RI.scope_heat_collect &&
+#endif
+        RI.val_pObject && RI.Target->IsScopeThermalActive(RENDER == R_R1))
     {
         RI.AddScopeHeatItem(item, sh);
     }

@@ -31,8 +31,128 @@ void CRenderTarget::DoAsyncScreenshot()
 
 float hclip(float v, float dim) { return 2.f * v / dim - 1.f; }
 
+void CRenderTarget::phase_combine_deferred(bool hud)
+{
+    u32 Offset;
+    Fvector2 p0, p1;
+	// Compute params
+	CEnvDescriptorMixer& envdesc = *g_pGamePersistent->Environment().CurrentEnv;
+	const float minamb = 0.001f;
+	Fvector4 ambclr = {
+		_max(envdesc.ambient.x * 2, minamb), _max(envdesc.ambient.y * 2, minamb),
+		_max(envdesc.ambient.z * 2, minamb), 0
+	};
+	ambclr.mul(ps_r2_sun_lumscale_amb + g_pGamePersistent->nv_shader_data.lum_factor);
+
+	//.		Fvector4	envclr			= { envdesc.sky_color.x*2+EPS,	envdesc.sky_color.y*2+EPS,	envdesc.sky_color.z*2+EPS,	envdesc.weight					};
+	Fvector4 envclr = {
+		envdesc.hemi_color.x * 2 + EPS, envdesc.hemi_color.y * 2 + EPS, envdesc.hemi_color.z * 2 + EPS,
+		envdesc.weight
+	};
+
+	Fvector4 fogclr = {envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0};
+	envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
+	envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
+	envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
+	Fvector4 sunclr, sundir;
+
+	float fSSAONoise = 2.0f;
+	fSSAONoise *= tan(deg2rad(67.5f / 2.0f));
+	fSSAONoise /= tan(deg2rad(Device.fFOV / 2.0f));
+
+	float fSSAOKernelSize = 150.0f;
+	fSSAOKernelSize *= tan(deg2rad(67.5f / 2.0f));
+	fSSAOKernelSize /= tan(deg2rad(Device.fFOV / 2.0f));
+
+	// sun-params
+	{
+		light* fuckingsun = (light*)RImplementation.Lights.sun_adapted._get();
+		Fvector L_dir, L_clr;
+		float L_spec;
+		L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
+		L_spec = u_diffuse2s(L_clr);
+		Device.mView.transform_dir(L_dir, fuckingsun->direction);
+		L_dir.normalize();
+
+		sunclr.set(L_clr.x, L_clr.y, L_clr.z, L_spec);
+		sundir.set(L_dir.x, L_dir.y, L_dir.z, 0);
+	}
+
+	// Fill VB
+	float _w = float(Device.dwWidth);
+	float _h = float(Device.dwHeight);
+	p0.set(.5f / _w, .5f / _h);
+	p1.set((_w + .5f) / _w, (_h + .5f) / _h);
+
+	// Fill vertex buffer
+	//Fvector4* pv				= (Fvector4*)	RCache.Vertex.Lock	(4,g_combine_VP->vb_stride,Offset);
+	//pv->set						(hclip(EPS,		_w),	hclip(_h+EPS,	_h),	p0.x, p1.y);	pv++;
+	//pv->set						(hclip(EPS,		_w),	hclip(EPS,		_h),	p0.x, p0.y);	pv++;
+	//pv->set						(hclip(_w+EPS,	_w),	hclip(_h+EPS,	_h),	p1.x, p1.y);	pv++;
+	//pv->set						(hclip(_w+EPS,	_w),	hclip(EPS,		_h),	p1.x, p0.y);	pv++;
+	//RCache.Vertex.Unlock		(4,g_combine_VP->vb_stride);
+
+	// Fill VB
+	float scale_X = float(Device.dwWidth) / float(TEX_jitter);
+	float scale_Y = float(Device.dwHeight) / float(TEX_jitter);
+
+	FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(4, g_combine_VP->vb_stride, Offset);
+	pv->set(hclip(EPS, _w), hclip(_h + EPS, _h), p0.x, p1.y, 0, 0, scale_Y);
+	pv++;
+	pv->set(hclip(EPS, _w), hclip(EPS, _h), p0.x, p0.y, 0, 0, 0);
+	pv++;
+	pv->set(hclip(_w + EPS, _w), hclip(_h + EPS, _h), p1.x, p1.y, 0, scale_X, scale_Y);
+	pv++;
+	pv->set(hclip(_w + EPS, _w), hclip(EPS, _h), p1.x, p0.y, 0, scale_X, 0);
+	pv++;
+	RCache.Vertex.Unlock(4, g_combine_VP->vb_stride);
+
+	dxEnvDescriptorMixerRender& envdescren = *(dxEnvDescriptorMixerRender*)(&*envdesc.m_pDescriptorMixer);
+
+	// Setup textures
+	IDirect3DBaseTexture9* e0 = envdescren.sky_r_textures_env[0].second->surface_get();
+	IDirect3DBaseTexture9* e1 = envdescren.sky_r_textures_env[1].second->surface_get();
+	t_envmap_0->surface_set(e0);
+	_RELEASE(e0);
+	t_envmap_1->surface_set(e1);
+	_RELEASE(e1);
+
+	// Draw
+	RCache.set_Element(s_combine->E[hud ? 5 : 0]);
+    // Material state blocks can change stencil state. Apply the geometry mask after the pass.
+    RCache.set_Stencil(FALSE);
+    RCache.set_Stencil(TRUE, D3DCMP_LESSEQUAL, 0x01, 0xff, 0x00);
+	RCache.set_Geometry(g_combine_VP);
+	//RCache.set_Geometry			(g_combine		);
+
+	RCache.set_c("m_v2w", Device.mInvView);
+	RCache.set_c("L_ambient", ambclr);
+
+	RCache.set_c("Ldynamic_color", sunclr);
+	RCache.set_c("Ldynamic_dir", sundir);
+
+	RCache.set_c("env_color", envclr);
+	RCache.set_c("fog_color", fogclr);
+	RCache.set_c("ssao_params", fSSAONoise, fSSAOKernelSize, 0.0f, 0.0f);
+    if (hud)
+    {
+        RCache.set_c("tnmp_a", ps_r2_tnmp_a, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_b", ps_r2_tnmp_b, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_c", ps_r2_tnmp_c, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_d", ps_r2_tnmp_d, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_e", ps_r2_tnmp_e, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_f", ps_r2_tnmp_f, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_w", ps_r2_tnmp_w, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_exposure", ps_r2_tnmp_exposure, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_gamma", ps_r2_tnmp_gamma, 0.f, 0.f, 0.f);
+        RCache.set_c("tnmp_onoff", ps_r2_tnmp_onoff, 0.f, 0.f, 0.f);
+    }
+	RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
+}
+
 void CRenderTarget::phase_combine()
 {
+    const bool scope_capture = RImplementation.scope_capture_active;
 	bool _menu_pp = g_pGamePersistent ? g_pGamePersistent->OnRenderPPUI_query() : false;
 
 	u32 Offset = 0;
@@ -109,107 +229,8 @@ void CRenderTarget::phase_combine()
 		m_blur_scale.set(scale, -scale).div(12.f);
 	}
 
-	// Draw full-screen quad textured with our scene image
 	if (!_menu_pp)
-	{
-		// Compute params
-		CEnvDescriptorMixer& envdesc = *g_pGamePersistent->Environment().CurrentEnv;
-		const float minamb = 0.001f;
-		Fvector4 ambclr = {
-			_max(envdesc.ambient.x * 2, minamb), _max(envdesc.ambient.y * 2, minamb),
-			_max(envdesc.ambient.z * 2, minamb), 0
-		};
-		ambclr.mul(ps_r2_sun_lumscale_amb + g_pGamePersistent->nv_shader_data.lum_factor);
-
-		//.		Fvector4	envclr			= { envdesc.sky_color.x*2+EPS,	envdesc.sky_color.y*2+EPS,	envdesc.sky_color.z*2+EPS,	envdesc.weight					};
-		Fvector4 envclr = {
-			envdesc.hemi_color.x * 2 + EPS, envdesc.hemi_color.y * 2 + EPS, envdesc.hemi_color.z * 2 + EPS,
-			envdesc.weight
-		};
-
-		Fvector4 fogclr = {envdesc.fog_color.x, envdesc.fog_color.y, envdesc.fog_color.z, 0};
-		envclr.x *= 2 * ps_r2_sun_lumscale_hemi;
-		envclr.y *= 2 * ps_r2_sun_lumscale_hemi;
-		envclr.z *= 2 * ps_r2_sun_lumscale_hemi;
-		Fvector4 sunclr, sundir;
-
-		float fSSAONoise = 2.0f;
-		fSSAONoise *= tan(deg2rad(67.5f / 2.0f));
-		fSSAONoise /= tan(deg2rad(Device.fFOV / 2.0f));
-
-		float fSSAOKernelSize = 150.0f;
-		fSSAOKernelSize *= tan(deg2rad(67.5f / 2.0f));
-		fSSAOKernelSize /= tan(deg2rad(Device.fFOV / 2.0f));
-
-		// sun-params
-		{
-			light* fuckingsun = (light*)RImplementation.Lights.sun_adapted._get();
-			Fvector L_dir, L_clr;
-			float L_spec;
-			L_clr.set(fuckingsun->color.r, fuckingsun->color.g, fuckingsun->color.b);
-			L_spec = u_diffuse2s(L_clr);
-			Device.mView.transform_dir(L_dir, fuckingsun->direction);
-			L_dir.normalize();
-
-			sunclr.set(L_clr.x, L_clr.y, L_clr.z, L_spec);
-			sundir.set(L_dir.x, L_dir.y, L_dir.z, 0);
-		}
-
-		// Fill VB
-		float _w = float(Device.dwWidth);
-		float _h = float(Device.dwHeight);
-		p0.set(.5f / _w, .5f / _h);
-		p1.set((_w + .5f) / _w, (_h + .5f) / _h);
-
-		// Fill vertex buffer
-		//Fvector4* pv				= (Fvector4*)	RCache.Vertex.Lock	(4,g_combine_VP->vb_stride,Offset);
-		//pv->set						(hclip(EPS,		_w),	hclip(_h+EPS,	_h),	p0.x, p1.y);	pv++;
-		//pv->set						(hclip(EPS,		_w),	hclip(EPS,		_h),	p0.x, p0.y);	pv++;
-		//pv->set						(hclip(_w+EPS,	_w),	hclip(_h+EPS,	_h),	p1.x, p1.y);	pv++;
-		//pv->set						(hclip(_w+EPS,	_w),	hclip(EPS,		_h),	p1.x, p0.y);	pv++;
-		//RCache.Vertex.Unlock		(4,g_combine_VP->vb_stride);
-
-		// Fill VB
-		float scale_X = float(Device.dwWidth) / float(TEX_jitter);
-		float scale_Y = float(Device.dwHeight) / float(TEX_jitter);
-
-		FVF::TL* pv = (FVF::TL*)RCache.Vertex.Lock(4, g_combine_VP->vb_stride, Offset);
-		pv->set(hclip(EPS, _w), hclip(_h + EPS, _h), p0.x, p1.y, 0, 0, scale_Y);
-		pv++;
-		pv->set(hclip(EPS, _w), hclip(EPS, _h), p0.x, p0.y, 0, 0, 0);
-		pv++;
-		pv->set(hclip(_w + EPS, _w), hclip(_h + EPS, _h), p1.x, p1.y, 0, scale_X, scale_Y);
-		pv++;
-		pv->set(hclip(_w + EPS, _w), hclip(EPS, _h), p1.x, p0.y, 0, scale_X, 0);
-		pv++;
-		RCache.Vertex.Unlock(4, g_combine_VP->vb_stride);
-
-		dxEnvDescriptorMixerRender& envdescren = *(dxEnvDescriptorMixerRender*)(&*envdesc.m_pDescriptorMixer);
-
-		// Setup textures
-		IDirect3DBaseTexture9* e0 = _menu_pp ? 0 : envdescren.sky_r_textures_env[0].second->surface_get();
-		IDirect3DBaseTexture9* e1 = _menu_pp ? 0 : envdescren.sky_r_textures_env[1].second->surface_get();
-		t_envmap_0->surface_set(e0);
-		_RELEASE(e0);
-		t_envmap_1->surface_set(e1);
-		_RELEASE(e1);
-
-		// Draw
-		RCache.set_Element(s_combine->E[0]);
-		RCache.set_Geometry(g_combine_VP);
-		//RCache.set_Geometry			(g_combine		);
-
-		RCache.set_c("m_v2w", Device.mInvView);
-		RCache.set_c("L_ambient", ambclr);
-
-		RCache.set_c("Ldynamic_color", sunclr);
-		RCache.set_c("Ldynamic_dir", sundir);
-
-		RCache.set_c("env_color", envclr);
-		RCache.set_c("fog_color", fogclr);
-		RCache.set_c("ssao_params", fSSAONoise, fSSAOKernelSize, 0.0f, 0.0f);
-		RCache.Render(D3DPT_TRIANGLELIST, Offset, 0, 4, 0, 2);
-	}
+        phase_combine_deferred();
 
 	// Forward rendering
 	{
@@ -279,7 +300,7 @@ void CRenderTarget::phase_combine()
 	if(ps_r2_nightvision > 0)
 		phase_nightvision();
 	
-	if (scope_fake_enabled)
+	if (scope_fake_enabled && !scope_capture)
 	{
 		phase_fakescope(); //crookr
 	}
@@ -413,6 +434,14 @@ void CRenderTarget::phase_combine()
 	{
 		phase_pp();
 	}
+    if (scope_capture)
+    {
+        CaptureScopeScene();
+        RCache.set_ZB(HW.pBaseZB);
+        if (IsScopeThermalActive())
+            CaptureScopeHeat();
+        phase_scope_hud();
+    }
 
 	//	Re-adapt luminance
 	RCache.set_Stencil(FALSE);

@@ -1,0 +1,18 @@
+uniform sampler2D s_image;
+uniform float4 b_params;
+
+struct v2p
+{
+    float2 tc0 : TEXCOORD0;
+    float2 tc1 : TEXCOORD1;
+    float2 tc2 : TEXCOORD2;
+    float2 tc3 : TEXCOORD3;
+};
+
+float4 main(v2p I) : COLOR0
+{
+    float3 average = (tex2D(s_image, I.tc0).rgb + tex2D(s_image, I.tc1).rgb +
+        tex2D(s_image, I.tc2).rgb + tex2D(s_image, I.tc3).rgb) * 0.25;
+    // Keep the legacy luminance threshold, but bound the screen-blend weight.
+    return float4(average, saturate(dot(average, 1.0) - b_params.x));
+}

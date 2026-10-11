@@ -550,8 +550,8 @@ Shader* CResourceManager::_lua_Create(LPCSTR d_shader, LPCSTR s_textures)
 		S.E[4] = C._lua_Compile(s_shader, "l_special");
 	}
 
-#if RENDER == R_R1
-    // R1 scope slots: E0/E1 reticle LOD, E2/E3 focal-plane variants,
+#if RENDER == R_R1 || RENDER == R_R2
+    // DX9 scope slots: E0/E1 reticle LOD, E2/E3 focal-plane variants,
     // E4 image + shadow passes, E5 optional dirt/inside. Keep each pass within ps_2_0.
     if (S.E[0]._get() && S.E[0]->flags.iScopeLense == 3)
     {

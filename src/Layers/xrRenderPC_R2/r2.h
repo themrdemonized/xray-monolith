@@ -37,6 +37,20 @@ public:
 		// E[1]
 	};
 
+    struct ScopeHeatItem
+    {
+        R_dsgraph::_MatrixItem draw;
+        ShaderElement* shader;
+        float temperature;
+    };
+    xr_vector<ScopeHeatItem> scope_heat_items;
+    bool scope_heat_only = false;
+    bool scope_heat_collect = false;
+    bool scope_capture_active = false;
+    void AddScopeHeatItem(const R_dsgraph::_MatrixItem& item, ShaderElement* shader);
+    void RenderScopeHeat();
+    void render_scope_hud_lights();
+
 public:
 	struct _options
 	{
