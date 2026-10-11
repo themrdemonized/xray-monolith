@@ -2,11 +2,21 @@
 #include "phactorcharacter.h"
 #include "Extendedgeom.h"
 #include "PhysicsCommon.h"
+#include "PHWorld.h"
+#include "../xrCDB/xr_area.h"
 //#include "GameObject.h"
 #include "IPhysicsShellHolder.h"
 //#include "ai/stalker/ai_stalker.h"
 //#include "Actor.h"
 #include "../xrEngine/gamemtllib.h"
+namespace
+{
+    bool ignore_material(u16 index)
+    {
+        const SGameMtl* material=GMLibrary().GetMaterialByIdx(index);
+        return material && material->Flags.test(SGameMtl::flActorObstacle);
+    }
+}
 //#include "level.h"
 
 //const float JUMP_HIGHT=0.5;
@@ -17,6 +27,10 @@ const float JUMP_INCREASE_VELOCITY_RATE = 1.2f;
 //#endif
 CPHActorCharacter::CPHActorCharacter(bool single_game): b_single_game(single_game)
 {
+	m_smooth_step_enabled = false;
+	m_smooth_step_height = .24f;
+	m_smooth_step_strength = 1.f;
+	m_smooth_step_fast_multiplier=1.f;m_smooth_step_fast_start=2.8f;m_smooth_step_fast_full=5.8f;
 	SetRestrictionType(rtActor);
 
 	//std::fill(m_restrictors_index,m_restrictors_index+CPHCharacter::rtNone,end(m_restrictors));
@@ -67,10 +81,112 @@ void CPHActorCharacter::Create(dVector3 sizes)
 
 void CPHActorCharacter::ValidateWalkOn()
 {
+    m_smooth_step_clear=false;
 	if (LastMaterialIDX() == slide_material_index)
+	{
 		b_clamb_jump = false;
-	else
-		inherited::ValidateWalkOn();
+		return;
+	}
+
+    inherited::ValidateWalkOn();
+    // Only inspect an actual low contact during grounded locomotion. The stock
+    // detector's fixed lookahead can miss a brick already touching the feet.
+    m_smooth_step_clear=true;
+    if (GroundStepHeight() <= 0.f || b_on_object || b_was_on_object)
+    { m_smooth_step_clear=false;return; }
+    Fvector feet, direction=m_acceleration;
+    GetPosition(feet);direction.y=0.f;direction.normalize_safe();
+    Fvector center;center.mad(feet,direction,m_radius);
+    const float width=m_radius*.7f;
+    Fvector half;half.set(width,0.f,width);
+    xrXRC probe;
+    probe.box_options(CDB::OPT_FULL_TEST);
+    auto blocked = [&](float low,float high)
+    {
+        Fvector at=center;at.y=feet.y+(low+high)*.5f;half.y=(high-low)*.5f;
+        probe.box_query(inl_ph_world().ObjectSpace().GetStaticModel(),at,half);
+        for (auto* r=probe.r_begin();r!=probe.r_end();++r)
+        {
+            const auto* material=GMLibrary().GetMaterialByIdx(r->material);
+            if (material && !material->Flags.test(SGameMtl::flPassable) &&
+                !material->Flags.test(SGameMtl::flActorObstacle)) return true;
+        }
+        return false;
+    };
+    const float height=m_cyl_hight+2.f*m_radius;
+    m_smooth_step_clear=!blocked(m_smooth_step_height+.01f,height+m_smooth_step_height) &&
+        blocked(.01f,m_smooth_step_height);
+    if (m_smooth_step_clear) b_clamb_jump=true;
+}
+
+void CPHActorCharacter::SetSmoothStep(bool enabled, float height)
+{
+	m_smooth_step_enabled = enabled && _valid(height) && height > 0.f;
+    if (!m_smooth_step_enabled) m_smooth_step_clear=false;
+	if (m_smooth_step_enabled) m_smooth_step_height = height;
+}
+
+void CPHActorCharacter::SetSmoothStepStrength(float strength)
+{
+	m_smooth_step_strength = _valid(strength) && strength >= 0.f ? strength : 0.f;
+}
+
+float CPHActorCharacter::GroundStepHeight() const
+{
+    if (!m_smooth_step_enabled || m_smooth_step_strength <= 0.f || !b_exist ||
+        !dBodyGetGravityMode(m_body) ||
+        !is_control || !m_smooth_step_clear || !b_on_ground || b_lose_control || b_jump || b_jumping ||
+        b_external_impulse || m_elevator_state.ClimbingState() ||
+        !b_valide_wall_contact || !b_valide_ground_contact ||
+        m_ground_contact_normal[1] <= M_SQRT1_2 ||
+        dXZDot(m_acceleration,cast_fv(m_wall_contact_normal)) >= 0.f) return 0.f;
+    const float rise = float(m_wall_contact_position[1]-m_ground_contact_position[1]);
+    return rise > 0.f && rise <= m_smooth_step_height ? m_smooth_step_height : 0.f;
+}
+
+float CPHActorCharacter::ClamberHorizontalMultiplier() const
+{
+	if (GroundStepHeight() <= 0.f) return 4.f;
+	float rise = m_smooth_step_height * .5f;
+	if (b_valide_wall_contact && b_valide_ground_contact)
+		rise = _max(.01f, float(m_wall_contact_position[1] - m_ground_contact_position[1]));
+	const float t = clampr(rise / m_smooth_step_height, 0.f, 1.f);
+	const float lowStepAssist = m_smooth_step_strength * .125f * (1.f - t);
+	const float force = 4.f * (1.f + lowStepAssist * SmoothStepSpeedMultiplier());
+	return _valid(force) ? force : 4.f;
+}
+
+float CPHActorCharacter::ClamberVerticalMultiplier() const
+{
+	if (GroundStepHeight() <= 0.f) return 4.f;
+	float rise = m_smooth_step_height * .5f;
+	if (b_valide_wall_contact && b_valide_ground_contact)
+		rise = _max(.01f, float(m_wall_contact_position[1] - m_ground_contact_position[1]));
+	const float t = clampr(rise / m_smooth_step_height, 0.f, 1.f);
+	const float tallStepAssist = m_smooth_step_strength * .125f * t;
+	const float force = 4.f * (1.f + tallStepAssist * SmoothStepSpeedMultiplier());
+	return _valid(force) ? force : 4.f;
+}
+
+void CPHActorCharacter::SetSmoothStepSpeed(float multiplier, float start, float full)
+{
+    if (!_valid(multiplier) || !_valid(start) || !_valid(full) ||
+        multiplier < 0.f || start < 0.f || full <= start)
+    { m_smooth_step_fast_multiplier = 1.f; return; }
+    m_smooth_step_fast_multiplier = multiplier;
+    m_smooth_step_fast_start = start;
+    m_smooth_step_fast_full = full;
+}
+
+float CPHActorCharacter::SmoothStepSpeedMultiplier() const
+{
+	if(!b_exist || !b_valide_ground_contact) return 1.f;
+	Fvector velocity;GetVelocity(velocity);
+	const float speed=sqrtf(velocity.x*velocity.x+velocity.z*velocity.z);
+	float blend=clampr((speed-m_smooth_step_fast_start)/
+		(m_smooth_step_fast_full-m_smooth_step_fast_start),0.f,1.f);
+	blend=blend*blend*(3.f-2.f*blend);
+	return 1.f+(m_smooth_step_fast_multiplier-1.f)*blend;
 }
 
 void SPHCharacterRestrictor::Create(CPHCharacter* ch, dVector3 sizes)

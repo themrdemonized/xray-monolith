@@ -117,7 +117,7 @@ Flags32 psActorFlags = {AF_GODMODE_RT | AF_AUTOPICKUP | AF_RUN_BACKWARD | AF_IMP
 int psActorSleepTime = 1;
 
 
-CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
+CActor::CActor() : CEntityAlive(), m_parkour(this), current_ik_cam_shift(0)
 {
 	game_news_registry = xr_new<CGameNewsRegistryWrapper>();
 	// Cameras
@@ -260,6 +260,7 @@ CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
 
 CActor::~CActor()
 {
+	m_parkour.Reset();
     m_legs_controller.destroy();
 	xr_delete(m_location_manager);
 	xr_delete(m_memory);
@@ -866,6 +867,7 @@ extern BOOL firstPersonDeath;
 
 void CActor::Die(CObject* who)
 {
+	m_parkour.Reset();
 #ifdef HOLDERCUSTOM_NEW
 	use_HolderEx(NULL, true);
 #endif
@@ -1026,6 +1028,13 @@ void CActor::SwitchOutBorder(bool new_border_state)
 
 void CActor::g_Physics(Fvector& _accel, float jump, float dt)
 {
+	if (m_parkour.OwnsMovement())
+	{
+		// Render-frame update owns guided movement; scheduler frequency must
+		// not make vaulting visibly step or advance the trajectory twice.
+		return;
+	}
+	m_parkour.UpdateStance();
 	// Correct accel
 	Fvector accel;
 	accel.set(_accel);
@@ -1127,6 +1136,7 @@ float CActor::currentFOV()
 
 void CActor::UpdateCL()
 {
+	if (m_parkour.Active() && !Device.Paused()) m_parkour.Update(Device.fTimeDelta);
 	if (g_Alive() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)
@@ -1882,7 +1892,7 @@ void CActor::shedule_Update(u32 DT)
 				mstate_wishful &= ~mcRLookout;
 			}
 
-			if (cam_freelook == eflEnabled)
+			if (cam_freelook == eflEnabled && !Parkour().Active())
 			{
 				if (psActorFlags.test(AF_FREELOOK_TOGGLE))
 				{
@@ -3125,4 +3135,3 @@ void CActor::removeFPCam()
 		m_FPCam = NULL;
 	}
 }
-

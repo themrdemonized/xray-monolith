@@ -40,6 +40,8 @@ IC static void generate_orthonormal_basis1(const Fvector& dir, Fvector& updir, F
 
 void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 {
+	if (Parkour().OwnsMovement()) return;
+	if (Parkour().Crouched()) mstate_wf |= mcCrouch;
 	// Lookout
 	if (((mstate_wf & mcLLookout) && (mstate_wf & mcRLookout)) || ((mstate_real & mcLLookout) && (mstate_real & mcRLookout)))
 	{
@@ -164,6 +166,21 @@ void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 
 void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector& vControlAccel, float& Jump, float dt)
 {
+	if (Parkour().OwnsMovement())
+	{
+		vControlAccel.set(0.f, 0.f, 0.f);
+		Jump = 0.f;
+		return;
+	}
+	Parkour().UpdateStance();
+	if (Parkour().Crouched())
+	{
+		mstate_wf |= mcCrouch;
+		// Match the box already validated under the obstruction.
+		if (character_physics_support()->movement()->BoxID() == 1) mstate_wf &= ~mcAccel;
+		else mstate_wf |= mcAccel;
+		mstate_wf &= ~(mcJump | mcSprint);
+	}
 	float cam_eff_factor = 0.0f;
 	mstate_old = mstate_real;
 	vControlAccel.set(0, 0, 0);
@@ -312,6 +329,10 @@ void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector& vControlAccel, float& Ju
 						scale *= m_fWalk_StrafeFactor;
 				}
 
+				// A removed script must not leave a persistent movement penalty.
+				if (Device.dwTimeGlobal - m_scriptMovementScaleTime < 1000 &&
+					!(mstate_real & mcClimb) && !Parkour().Active())
+					scale *= m_scriptMovementScale;
 				vControlAccel.mul(scale);
 				cam_eff_factor = scale;
 			} //scale>EPS
@@ -689,6 +710,12 @@ bool CActor::is_jump()
 
 //максимальный переносимы вес
 #include "CustomOutfit.h"
+
+void CActor::SetScriptMovementScale(float scale)
+{
+	m_scriptMovementScale = _valid(scale) && scale >= 0.f ? scale : 1.f;
+	m_scriptMovementScaleTime = Device.dwTimeGlobal;
+}
 
 float CActor::MaxCarryWeight() const
 {

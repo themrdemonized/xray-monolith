@@ -216,6 +216,7 @@ public:
 	bool ActivateBoxDynamic(DWORD id, int num_it = 9, int num_steps = 5, float resolve_depth = 0.01f);
 	void InterpolateBox(DWORD id, float k);
 	EEnvironment Environment() { return eEnvironment; }
+	BOOL AppliesGravity() const { return bIsAffectedByGravity; }
 	EEnvironment OldEnvironment() { return eOldEnvironment; }
 	const Fbox& Box() { return aabb; }
 	DWORD BoxID() const { return m_dwCurBox; }

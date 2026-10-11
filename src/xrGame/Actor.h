@@ -20,6 +20,7 @@
 #include "script_export_space.h"
 
 #include "player_hud_legs.h"
+#include "ActorParkour.h"
 
 #ifdef STATIONARYMGUN_NEW
 #include "WeaponStatMgun.h"
@@ -83,11 +84,20 @@ class CActor :
 #endif
 {
 	friend class CActorCondition;
+	friend class CActorParkour;
 private:
 	typedef CEntityAlive inherited;
 public:
 	CActor();
 	virtual ~CActor();
+	CActorParkour& Parkour() { return m_parkour; }
+	const CActorParkour& Parkour() const { return m_parkour; }
+	void SetScriptMovementScale(float scale);
+private:
+	CActorParkour m_parkour;
+	float m_scriptMovementScale = 1.f;
+	u32 m_scriptMovementScaleTime = 0;
+public:
 
 // demonized: First Person Death
 public:

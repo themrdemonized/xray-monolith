@@ -133,6 +133,8 @@ protected:
 	dReal m_friction_factor;
 	bool b_non_interactive;
 public:
+    static void ConfigureTerrain(bool actor, bool npc, float penalty);
+    float TerrainSpeedScale() const;
 	CPHSimpleCharacter();
 	virtual ~CPHSimpleCharacter() { Destroy(); }
 
@@ -264,6 +266,11 @@ public:
 	virtual void get_State(SPHNetState& state);
 	virtual void set_State(const SPHNetState& state);
 	virtual void ValidateWalkOn();
+	// Actor-specific step smoothing overrides these; every other character keeps
+	// the original 4x clamber force exactly.
+	virtual float GroundStepHeight() const { return 0.f; }
+	virtual float ClamberHorizontalMultiplier() const { return 4.f; }
+	virtual float ClamberVerticalMultiplier() const { return 4.f; }
 	bool ValidateWalkOnMesh();
 	bool ValidateWalkOnObject();
 private:
@@ -299,9 +306,3 @@ public:
 
 const dReal def_spring_rate = 0.5f;
 const dReal def_dumping_rate = 20.1f;
-
-IC bool ignore_material(u16 material_idx)
-{
-	SGameMtl* material = GMLibrary().GetMaterialByIdx(material_idx);
-	return !!material->Flags.test(SGameMtl::flActorObstacle);
-}
