@@ -330,6 +330,39 @@ IC void CBackend::Render(D3DPRIMITIVETYPE T, u32 baseV, u32 startV, u32 countV, 
 	PGO(Msg("PGO:DIP:%dv/%df",countV,PC));
 }
 
+IC void CBackend::RenderInstanced(D3DPRIMITIVETYPE T, u32 instanceCount, u32 baseV, u32 startV, u32 countV, u32 startI,
+                                  u32 PC, u32 startInstance)
+{
+	PROF_EVENT("RCache.RenderInstanced");
+	D3D_PRIMITIVE_TOPOLOGY Topology = TranslateTopology(T);
+	u32 iIndexCount = GetIndexCount(T, PC);
+
+	//!!! HACK !!! (mirror of CBackend::Render - tessellation patch list)
+#ifdef USE_DX11
+	if (hs != 0 || ds != 0)
+	{
+		R_ASSERT(Topology == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		Topology = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+	}
+#endif
+
+	stat.calls++;
+	stat.verts += countV * instanceCount;
+	stat.polys += PC * instanceCount;
+
+	ApplyPrimitieTopology(Topology);
+	SRVSManager.Apply();
+	ApplyRTandZB();
+	ApplyVertexLayout();
+	StateManager.Apply();
+	//	State manager may alter constants
+	constants.flush();
+
+	HW.pContext->DrawIndexedInstanced(iIndexCount, instanceCount, startI, baseV, startInstance);
+
+	PGO(Msg("PGO:DIPInst:%dv/%df x%d",countV,PC,instanceCount));
+}
+
 IC void CBackend::Render(D3DPRIMITIVETYPE T, u32 startV, u32 PC)
 {
 	PROF_EVENT("RCache.Render_vb");
