@@ -29,6 +29,16 @@ public:
 	~monster_aura();
 
 	void load_from_ini(CInifile const* ini, pcstr section, bool enable_for_dead_default = false);
+
+	// negative argument keeps the current value
+	void set_params(float linear, float quadratic, float max_power, float max_distance)
+	{
+		if (linear >= 0.f) m_linear_factor = linear;
+		if (quadratic >= 0.f) m_quadratic_factor = quadratic;
+		if (max_power >= 0.f) m_max_power = max_power;
+		if (max_distance >= 0.f) m_max_distance = max_distance;
+	}
+
 	float calculate() const;
 	void update_schedule();
 	void play_detector_sound();

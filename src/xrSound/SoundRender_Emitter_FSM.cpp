@@ -28,6 +28,7 @@ inline u32 calc_cursor(const float& fTimeStarted, float& fTime, const float& fTi
 
 void CSoundRender_Emitter::update(float dt)
 {
+	PROF_EVENT("CSoundRender_Emitter::update");
 	float fTime = SoundRender->fTimer_Value;
 	float fDeltaTime = SoundRender->fTimer_Delta;
 
@@ -57,6 +58,7 @@ void CSoundRender_Emitter::update(float dt)
 	// Don't apply delay to already delayed sounds, they are most likely already handled in respective parts of code and scripts
 	if (need_preplay_update && m_current_state < stPlaying && starting_delay == 0.f)
 	{
+		PROF_EVENT("Sound: distance delay");
 		if (_valid(p_source.position) && !p_source.position.similar(Fvector().set(0.f, 0.f, 0.f)) && owner_data && source() && source()->channels_num() == 1)
 		{
 			//Smooth Ramp Using Hermite(Smootherstep)
@@ -92,6 +94,8 @@ void CSoundRender_Emitter::update(float dt)
 				{
 					starting_delay = delay;
 					m_current_state = m_current_state == stStarting ? stStartingDelayed : stStartingLoopedDelayed;
+					// Match explicit delays: start AI propagation from now, not from zero.
+					fTimeToPropagade = fTime;
 				}
 				else
 				{
@@ -118,11 +122,14 @@ void CSoundRender_Emitter::update(float dt)
 	case stStopped:
 		break;
 	case stStartingDelayed:
+	{
+		PROF_EVENT("Sound: delayed start");
 		if (iPaused) break;
 		starting_delay -= dt;
 		if (starting_delay <= 0)
 			m_current_state = stStarting;
 		break;
+	}
 	case stStarting:
 		if (iPaused) break;
 		fTimeStarted = fTime;
@@ -143,11 +150,14 @@ void CSoundRender_Emitter::update(float dt)
 			m_current_state = stSimulating;
 		break;
 	case stStartingLoopedDelayed:
+	{
+		PROF_EVENT("Sound: delayed looped start");
 		if (iPaused) break;
 		starting_delay -= dt;
 		if (starting_delay <= 0)
 			m_current_state = stStartingLooped;
 		break;
+	}
 	case stStartingLooped:
 		if (iPaused) break;
 		fTimeStarted = fTime;
@@ -338,6 +348,7 @@ IC void volume_lerp(float& c, float t, float s, float dt)
 
 BOOL CSoundRender_Emitter::update_culling(float dt)
 {
+	PROF_EVENT("CSoundRender_Emitter::update_culling");
 	float volume_att = 1.f;
 
 	if (b2D)

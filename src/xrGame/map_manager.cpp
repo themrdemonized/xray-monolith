@@ -11,6 +11,8 @@
 #include "xrServer.h"
 #include "game_object_space.h"
 #include "script_callback_ex.h"
+#include "ai_space.h"
+#include "script_engine.h"
 
 struct FindLocationBySpotID
 {
@@ -126,7 +128,13 @@ CMapLocation* CMapManager::AddMapLocation(const shared_str& spot_type, u16 id)
 	Locations().push_back(SLocationKey(spot_type, id));
 	Locations().back().location = l;
 	if (IsGameTypeSingle() && g_actor)
+	{
 		Actor()->callback(GameObject::eMapLocationAdded)(spot_type.c_str(), id);
+
+		::luabind::functor<void> on_added;
+		if (ai().script_engine().functor("_G.COnMapLocationAdded", on_added))
+			on_added(spot_type.c_str(), id);
+	}
 
 	return l;
 }
@@ -148,6 +156,15 @@ CMapLocation* CMapManager::AddRelationLocation(CInventoryOwner* pInvOwner)
 	CMapLocation* l = xr_new<CRelationMapLocation>(sname, pInvOwner->object_id(), pActor->object_id());
 	Locations().push_back(SLocationKey(sname, pInvOwner->object_id()));
 	Locations().back().location = l;
+	if (IsGameTypeSingle() && g_actor)
+	{
+		Actor()->callback(GameObject::eMapLocationAdded)(sname.c_str(), pInvOwner->object_id());
+
+		::luabind::functor<void> on_added;
+		if (ai().script_engine().functor("_G.COnMapLocationAdded", on_added))
+			on_added(sname.c_str(), pInvOwner->object_id());
+	}
+
 	return l;
 }
 
@@ -165,6 +182,7 @@ void CMapManager::RemoveMapLocation(const shared_str& spot_type, u16 id)
 		if (IsGameTypeSingle())
 			Level().GameTaskManager().MapLocationRelcase((*it).location);
 
+		QueueRemovedNotify((*it).spot_type, (*it).object_id);
 		Destroy((*it).location);
 		Locations().erase(it);
 	}
@@ -177,6 +195,7 @@ void CMapManager::RemoveAllMapLocationsById(u16 id)
 		if (it->object_id == id) {
 			if (IsGameTypeSingle())
 				Level().GameTaskManager().MapLocationRelcase((*it).location);
+			QueueRemovedNotify((*it).spot_type, (*it).object_id);
 			Destroy((*it).location);
 			it = Locations().erase(it);
 		} else {
@@ -194,6 +213,7 @@ void CMapManager::RemoveMapLocationByObjectID(u16 id) //call on destroy object
 		if (IsGameTypeSingle())
 			Level().GameTaskManager().MapLocationRelcase((*it).location);
 
+		QueueRemovedNotify((*it).spot_type, (*it).object_id);
 		Destroy((*it).location);
 		Locations().erase(it);
 
@@ -211,6 +231,7 @@ void CMapManager::RemoveMapLocation(CMapLocation* ml)
 		if (IsGameTypeSingle())
 			Level().GameTaskManager().MapLocationRelcase((*it).location);
 
+		QueueRemovedNotify((*it).spot_type, (*it).object_id);
 		Destroy((*it).location);
 		Locations().erase(it);
 	}
@@ -292,6 +313,7 @@ void CMapManager::Update()
 		if (IsGameTypeSingle())
 			Level().GameTaskManager().MapLocationRelcase(Locations().back().location);
 
+		QueueRemovedNotify(Locations().back().spot_type, Locations().back().object_id);
 		Destroy(Locations().back().location);
 		Locations().pop_back();
 	}
@@ -330,6 +352,47 @@ Locations& CMapManager::Locations()
 void CMapManager::OnObjectDestroyNotify(u16 id)
 {
 	RemoveMapLocationByObjectID(id);
+}
+
+void CMapManager::QueueRemovedNotify(const shared_str& spot_type, u16 id)
+{
+	if (!IsGameTypeSingle())
+		return;
+
+	SRemovedSpot spot;
+	spot.spot_type = spot_type;
+	spot.object_id = id;
+	m_removed_spots.push_back(spot);
+}
+
+void CMapManager::FlushRemovedNotify()
+{
+	if (m_removed_spots.empty())
+		return;
+
+	if (!g_actor)
+	{
+		m_removed_spots.clear_not_free();
+		return;
+	}
+
+	::luabind::functor<void> on_removed;
+	if (!ai().script_engine().functor("_G.COnMapLocationRemoved", on_removed))
+	{
+		m_removed_spots.clear_not_free();
+		return;
+	}
+
+	// script may add spots from the callback, so walk a fixed count by index
+	u32 count = m_removed_spots.size();
+	for (u32 i = 0; i < count; ++i)
+	{
+		shared_str spot_type = m_removed_spots[i].spot_type;
+		u16 id = m_removed_spots[i].object_id;
+		on_removed(spot_type.c_str(), id);
+	}
+
+	m_removed_spots.erase(m_removed_spots.begin(), m_removed_spots.begin() + count);
 }
 
 #ifdef DEBUG

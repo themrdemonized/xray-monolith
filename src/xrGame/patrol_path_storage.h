@@ -15,6 +15,7 @@ class CGameGraph;
 
 #include "object_interfaces.h"
 #include "associative_vector.h"
+#include "game_graph_space.h"
 
 class CPatrolPathStorage : public IPureSerializeObject<IReader, IWriter>
 {
@@ -33,11 +34,22 @@ public:
 	IC CPatrolPathStorage();
 	virtual ~CPatrolPathStorage();
 	virtual void load(IReader& stream); 
-	virtual void load_from_config();
+	// game_graph = nullptr (no ALifeSimulator): 'level =' sections are skipped
+	virtual void load_from_config(const CGameGraph* game_graph);
 	virtual void save(IWriter& stream);
 
 public:
+	typedef xr_vector<std::pair<shared_str, CPatrolPath*> > MOVED_PATHS;
+
 	void load_raw(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph, IReader& stream);
+	u32 load_fragment(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id, IReader& stream, LPCSTR source);
+	// Snaps the config paths of the loaded level that were approximated at load
+	void resolve_level(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph);
+	void merge(CPatrolPathStorage& source, MOVED_PATHS& moved);
+	void erase(const shared_str& name);
+	void approximate_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
+	// Erases the paths on level_id (CPatrolPath::on_level); returns their count.
+	u32 erase_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
 	IC const CPatrolPath* path(shared_str patrol_name, bool no_assert = false) const;
 	IC const PATROL_REGISTRY& patrol_paths() const;
 };

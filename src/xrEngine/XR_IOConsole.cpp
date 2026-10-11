@@ -43,7 +43,7 @@ static thread_local string256 s_script_caller;
 
 static void DumpConsoleVariablesOnCrash()
 {
-	if (Console)
+	if (Console && Console->GetBool("dump_cvar_enable"))
 		Console->Execute("dump_cvar");
 }
 

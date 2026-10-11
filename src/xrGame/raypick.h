@@ -124,6 +124,7 @@ struct CRayPick
 	};
 
 	bool query();
+	Fvector get_multiply_add();
 	Fvector get_normal();
 
 	IC script_rq_result get_result() { return result; };

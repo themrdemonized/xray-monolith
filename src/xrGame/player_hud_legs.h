@@ -9,7 +9,7 @@ class player_legs_controller
 {
 public:
     void    update(CActor* actor, bool isShadowPass = false);
-    void    render();
+    void    render(bool isShadowPass = false);
     void    destroy();
 
     bool    is_active() const { return m_model != nullptr; }
@@ -17,6 +17,7 @@ public:
 
 private:
     IKinematics* m_model = nullptr;
+    IKinematics* m_shadow_model = nullptr;
     shared_str              m_visual_name;
     shared_str              m_last_outfit_sect;
     shared_str              m_last_model;
@@ -35,7 +36,7 @@ private:
 
     bool    resolve_config(CActor* actor, shared_str& sect, shared_str& model);
     bool    ensure_model(const shared_str& sect, const shared_str& model);
-    void    copy_bones_from_actor(CActor* actor, bool isShadowPass = false);
+    void    copy_bones_from_actor(CActor* actor);
     void    warn_once(const char* fmt, ...);
     bool is_keep_bind_bone(LPCSTR bone_name) const;
 };

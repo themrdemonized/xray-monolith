@@ -51,6 +51,7 @@
 #include "antirad.h"
 #include "BottleItem.h"
 #include "WeaponKnife.h"
+#include "WeaponBinoculars.h"
 
 class CWeapon;
 
@@ -534,6 +535,7 @@ SPECIFIC_CAST(CScriptGameObject::cast_Artefact, CArtefact);
 SPECIFIC_CAST(CScriptGameObject::cast_Ammo, CWeaponAmmo);
 SPECIFIC_CAST(CScriptGameObject::cast_Weapon, CWeapon);
 SPECIFIC_CAST(CScriptGameObject::cast_Knife, CWeaponKnife);
+SPECIFIC_CAST(CScriptGameObject::cast_Binoculars, CWeaponBinoculars);
 SPECIFIC_CAST(CScriptGameObject::cast_WeaponMagazined, CWeaponMagazined);
 SPECIFIC_CAST(CScriptGameObject::cast_WeaponMagazinedWGrenade, CWeaponMagazinedWGrenade);
 SPECIFIC_CAST(CScriptGameObject::cast_Missile, CMissile);

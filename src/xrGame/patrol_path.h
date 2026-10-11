@@ -35,14 +35,21 @@ public:
 	CPatrolPath(shared_str name = "");
 	virtual ~CPatrolPath();
 	CPatrolPath& load_raw(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph, IReader& stream);
-	CPatrolPath& load_from_config(CInifile* ini_paths, LPCSTR patrol_name);
+	// level != nullptr: points may omit their vertex ids
+	bool load_from_config(const CInifile* ini_paths, LPCSTR patrol_name, const CGameGraph* game_graph, const GameGraph::SLevel* level, string256& reason);
+	bool load_fragment(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id, IReader& stream, string256& reason);
+	u32 resolve(const CLevelGraph* level_graph, const CGameLevelCrossTable* cross, const CGameGraph* game_graph);
+	u32 approximate_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
+	// Level of the first point on the AI map (level vertex id != -1): points off it carry no valid game vertex.
+	bool on_level(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id) const;
 	IC const CVertex* point(shared_str name) const;
 	template <typename T>
 	IC const CVertex* point(const Fvector& position, const T& evaluator) const;
 	IC const CVertex* point(const Fvector& position) const;
 
 private:
-	std::pair<u32, float> CPatrolPath::parse_point_link(LPCSTR patrol_name, std::string link, std::map<shared_str, u32> vertex_ids_by_name);
+	// "<point>(<probability>)" -> (vertex id, probability). false = reason.
+	static bool parse_point_link(const std::string& link, const std::map<shared_str, u32>& vertex_ids_by_name, std::pair<u16, float>& result, string256& reason);
 
 #ifdef DEBUG
 public:

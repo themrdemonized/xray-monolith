@@ -29,6 +29,7 @@
 void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr user_data, const Fvector& Position,
                                   float power)
 {
+	PROF_EVENT("CBaseMonster::feel_sound_new");
 	if (!g_Alive()) return;
 
 	// ignore my sounds
@@ -64,7 +65,10 @@ void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr us
 		HitMemory.add_hit(who, eSideFront);
 
 	// execute callback
-	sound_callback(who, eType, Position, power);
+	{
+		PROF_EVENT("Sound: monster hearing callback");
+		sound_callback(who, eType, Position, power);
+	}
 
 	// register in sound memory
 	if (power >= db().m_fSoundThreshold)

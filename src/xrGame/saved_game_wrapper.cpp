@@ -59,6 +59,36 @@ bool CSavedGameWrapper::valid_saved_game(LPCSTR saved_game_name)
 	return (result);
 }
 
+static bool spawn_guid_matches(IReader& spawn, const xrGUID& guid)
+{
+	IReader* header = spawn.open_chunk(0);
+	if (!header)
+		return false;
+	header->r_u32();
+	xrGUID spawn_guid{};
+	header->r(&spawn_guid, sizeof(spawn_guid));
+	header->close();
+	return spawn_guid == guid;
+}
+
+static IReader* open_pack_with_guid(const xrGUID& guid)
+{
+	FS_FileSet files;
+	FS.file_list(files, "$game_spawn$", FS_ListFiles, "*.spawn");
+	for (const auto& file : files)
+	{
+		if (strchr(file.name.c_str(), '\\'))
+			continue;
+		IReader* spawn = FS.r_open("$game_spawn$", file.name.c_str());
+		if (!spawn)
+			continue;
+		if (spawn_guid_matches(*spawn, guid))
+			return spawn;
+		FS.r_close(spawn);
+	}
+	return nullptr;
+}
+
 CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 {
 	string_path file_name;
@@ -96,7 +126,7 @@ CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 		VERIFY(count > 0);
 		CSE_ALifeDynamicObject* object = CALifeObjectRegistry::get_object(reader);
 		VERIFY(object->ID == 0);
-		CSE_ALifeCreatureActor* actor = smart_cast<CSE_ALifeCreatureActor*>(object);
+		auto* actor = smart_cast<CSE_ALifeCreatureActor*>(object);
 		VERIFY(actor);
 
 		m_actor_health = actor->get_health();
@@ -105,6 +135,8 @@ CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 		R_ASSERT2(chunk, "Spawn version mismatch - REBUILD SPAWN!");
 
 		string_path spawn_file_name;
+		xrGUID save_guid{};
+		bool level_known = false;
 		{
 			IReader* sub_chunk = chunk->open_chunk(0);
 			if (!sub_chunk)
@@ -116,10 +148,25 @@ CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 				return;
 			}
 			sub_chunk->r_stringZ(spawn_file_name, sizeof(spawn_file_name));
+			sub_chunk->r(&save_guid, sizeof(save_guid));
+			// saves written with level packs carry the level after the spawn GUID
+			if (sub_chunk->elapsed() > 0)
+			{
+				m_level_id = sub_chunk->r_u8();
+				sub_chunk->r_stringZ(m_level_name);
+				level_known = true;
+			}
 			sub_chunk->close();
 		}
 
 		chunk->close();
+
+		if (level_known)
+		{
+			F_entity_Destroy(object);
+			xr_free(source_data);
+			return;
+		}
 
 		if (!FS.exist(file_name, "$game_spawn$", spawn_file_name, ".spawn"))
 		{
@@ -147,6 +194,22 @@ CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 			return;
 		}
 
+		// a save made with a level pack's own all.spawn (spawn_packs.h) numbers vertices by that file, not by this one
+		if (!spawn_guid_matches(*spawn, save_guid))
+		{
+			if (b_destroy_spawn)
+				FS.r_close(spawn);
+			b_destroy_spawn = true;
+			spawn = open_pack_with_guid(save_guid);
+			if (!spawn)
+			{
+				F_entity_Destroy(object);
+				m_level_id = _LEVEL_ID(-1);
+				m_level_name = "";
+				return;
+			}
+		}
+
 		chunk = spawn->open_chunk(4);
 		if (!chunk)
 		{
@@ -160,8 +223,16 @@ CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 
 		{
 			CGameGraph graph(*chunk);
-			m_level_id = graph.vertex(object->m_tGraphID)->level_id();
-			m_level_name = graph.header().level(m_level_id).name();
+			if (graph.valid_vertex_id(object->m_tGraphID))
+			{
+				m_level_id = graph.vertex(object->m_tGraphID)->level_id();
+				m_level_name = graph.header().level(m_level_id).name();
+			}
+			else
+			{
+				m_level_id = _LEVEL_ID(-1);
+				m_level_name = "";
+			}
 		}
 
 		chunk->close();

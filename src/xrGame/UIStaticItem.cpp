@@ -115,6 +115,7 @@ void CUIStaticItem::RenderInternal(const Fvector2& in_pos)
 	S[3].set(LTp.x, RBp.y, LTt.x, RBt.y); // LB
 
 	sPoly2D D;
+	sPoly2D C;
 	sPoly2D* R = NULL;
 
 	if (UI().m_currentPointType != IUIRender::pttLIT)
@@ -122,6 +123,8 @@ void CUIStaticItem::RenderInternal(const Fvector2& in_pos)
 	else
 	{
 		R = UI().ScreenFrustumLIT().ClipPoly(S, D);
+		if (R && UI().HasCustomClip())
+			R = UI().ActiveClipFrustum().ClipPoly(*R, C);
 	}
 
 	if (R && R->size())
@@ -216,7 +219,13 @@ void CUIStaticItem::Render()
 {
 	VERIFY(g_bRendering);
 	UIRender->SetShader(*hShader);
-	UIRender->StartPrimitive(UI().HasCustomClip() ? UI().ActiveClipFrustum().ClipBudget(4) : 8, IUIRender::ptTriList, UI().m_currentPointType);
+
+	// the world space pass clips twice, so a clipped quad can have up to eight vertices
+	u32 budget = 8;
+	if (UI().HasCustomClip())
+		budget = UI().ActiveClipFrustum().ClipBudget(UI().m_currentPointType == IUIRender::pttLIT ? 8 : 4);
+
+	UIRender->StartPrimitive(budget, IUIRender::ptTriList, UI().m_currentPointType);
 	RenderInternal(vPos);
 	UIRender->FlushPrimitive();
 }

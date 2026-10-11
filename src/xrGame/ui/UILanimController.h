@@ -67,8 +67,6 @@ public:
 		m_lanim_clr.m_lanim_start_time = -1.0f;
 		m_lanim_clr.m_lanim_delay_time = 0.0f;
 		m_lanim_clr.m_lanimFlags.zero();
-		// Reset texture color
-		ColorAnimationSetTextureColor(color_rgba(255, 255, 255, 255), false);
 	}
 
 	virtual void ResetColorAnimation()

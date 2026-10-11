@@ -55,6 +55,7 @@ private:
 	IReader* m_reader; // level graph virtual storage
 	CHeader* m_header; // level graph header
 	CVertex* m_nodes; // nodes array
+	bool m_nodes_allocated; // version 10 nodes are expanded to the version 13 layout
 	xr_vector<bool> m_access_mask;
 	GameGraph::_LEVEL_ID m_level_id; // unique level identifier
 	u32 m_row_length;

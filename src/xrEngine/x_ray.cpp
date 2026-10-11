@@ -310,7 +310,8 @@ void execUserScript()
 {
 	Console->Execute("default_controls");
 	Console->ExecuteScript(Console->ConfigFile);
-	Console->Execute("dump_cvar");
+    if (Console->GetBool("dump_cvar_enable"))
+	    Console->Execute("dump_cvar");
 }
 
 void slowdownthread(void*)

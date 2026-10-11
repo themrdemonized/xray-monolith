@@ -60,6 +60,7 @@ CSoundRender_Emitter::~CSoundRender_Emitter(void)
 //////////////////////////////////////////////////////////////////////
 void CSoundRender_Emitter::Event_ReleaseOwner()
 {
+	PROF_EVENT("CSoundRender_Emitter::Event_ReleaseOwner");
 	if (!(owner_data)) return;
 
 	for (u32 it = 0; it < SoundRender->s_events.size(); it++)
@@ -74,6 +75,7 @@ void CSoundRender_Emitter::Event_ReleaseOwner()
 
 void CSoundRender_Emitter::Event_Propagade()
 {
+	PROF_EVENT("CSoundRender_Emitter::Event_Propagade");
 	fTimeToPropagade += ::Random.randF(s_f_def_event_pulse - 0.030f, s_f_def_event_pulse + 0.030f);
 	if (!(owner_data)) return;
 	if (0 == owner_data->g_type) return;

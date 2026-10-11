@@ -765,12 +765,12 @@ player_hud::player_hud()
 	script_anim_offset_factor = 0.f;
 	m_item_pos.identity();
 	script_override_arms = false;
+	script_anim_item_model = nullptr;
 	for (int side = 0; side != 2; ++side)
 	{
 		m_parkour_ik[side] = parkour_ik_arm();
 		m_parkour_ik_palm_offset[side].set(0.f, 0.f, 0.f);
 	}
-	script_anim_item_model = nullptr;
 
 	//Bone Callback Params
 	m_bone_callback_params.insert(mk_pair(r_finger0, xr_new<BoneCallbackParams>()));

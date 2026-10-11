@@ -10,6 +10,7 @@
 
 CSoundRender_Emitter* CSoundRender_Core::i_play(ref_sound* S, BOOL _loop, float delay)
 {
+	PROF_EVENT("CSoundRender_Core::i_play");
 	VERIFY(S->_p->feedback==0);
 	CSoundRender_Emitter* E = xr_new<CSoundRender_Emitter>();
 	S->_p->feedback = E;
@@ -20,6 +21,7 @@ CSoundRender_Emitter* CSoundRender_Core::i_play(ref_sound* S, BOOL _loop, float 
 
 void CSoundRender_Core::update(const Fvector& P, const Fvector& D, const Fvector& N)
 {
+	PROF_EVENT("CSoundRender_Core::update");
 	u32 it;
 
 	if (0 == bReady) return;
@@ -163,6 +165,7 @@ static u32 g_saved_event_count = 0;
 
 void CSoundRender_Core::update_events()
 {
+	PROF_EVENT("CSoundRender_Core::update_events");
 	g_saved_event_count = s_events.size();
 	for (u32 it = 0; it < s_events.size(); it++)
 	{
@@ -219,6 +222,7 @@ void CSoundRender_Core::statistic(CSound_stats* dest, CSound_stats_ext* ext)
 
 float CSoundRender_Core::get_occlusion_to(const Fvector& hear_pt, const Fvector& snd_pt, float dispersion)
 {
+	PROF_EVENT("CSoundRender_Core::get_occlusion_to");
 	float occ_value = 1.f;
 
 	if (0 != geom_SOM)
@@ -257,6 +261,7 @@ float CSoundRender_Core::get_occlusion_to(const Fvector& hear_pt, const Fvector&
 
 float CSoundRender_Core::get_occlusion(Fvector& P, float R, Fvector* occ)
 {
+	PROF_EVENT("CSoundRender_Core::get_occlusion");
 	float occ_value = 1.f;
 
 	// Calculate RAY params

@@ -264,6 +264,7 @@ void IGame_Level::SetViewEntity(CObject* O)
 
 void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 {
+	PROF_EVENT("IGame_Level::SoundEvent_Register");
 	if (!g_bLoaded) return;
 	if (!S) return;
 	if (S->g_object && S->g_object->getDestroy())
@@ -290,7 +291,10 @@ void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 
 	// Query objects
 	Fvector bb_size = {range, range, range};
-	g_SpatialSpace->q_box(snd_ER, 0, STYPE_REACTTOSOUND, snd_position, bb_size);
+	{
+		PROF_EVENT("Sound: hearing spatial query");
+		g_SpatialSpace->q_box(snd_ER, 0, STYPE_REACTTOSOUND, snd_position, bb_size);
+	}
 
 	// Iterate
 	xr_vector<ISpatial*>::iterator it = snd_ER.begin();
@@ -328,6 +332,7 @@ void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 
 void IGame_Level::SoundEvent_Dispatch()
 {
+	PROF_EVENT("IGame_Level::SoundEvent_Dispatch");
 	while (!snd_Events.empty())
 	{
 		_esound_delegate& D = snd_Events.back();

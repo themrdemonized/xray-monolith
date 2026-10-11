@@ -26,7 +26,7 @@ static float ambient_hook_volume_mult(const ::luabind::object& output)
 }
 
 // COnBeforePlayScriptSound(file, pos, obj) -> { volume_mult }, the COnBeforePlayHudSound shape.
-// 0 vetoes the play, <1 attenuates, nil = vanilla. Absent args reach Lua as nil. An unset global costs one lookup.
+// 0 vetoes the play, <1 attenuates, 1 = vanilla. Absent args reach Lua as nil. An unset global costs one lookup.
 static float script_sound_hook_volume_mult(LPCSTR file, const Fvector* pos, CScriptGameObject* object)
 {
 	::luabind::functor<::luabind::object> funct;

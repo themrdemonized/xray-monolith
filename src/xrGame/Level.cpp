@@ -1033,6 +1033,9 @@ void CLevel::OnFrame()
 		make_NetCorrectionPrediction();
 	if (!g_dedicated_server)
 	{
+		// the map update may run on the parallel thread so removals are reported to script from here
+		MapManager().FlushRemovedNotify();
+
 		if (g_mt_config.test(mtMap))
 			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(m_map_manager, &CMapManager::Update));
 		else

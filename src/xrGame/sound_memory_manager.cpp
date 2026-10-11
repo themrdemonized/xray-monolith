@@ -128,6 +128,7 @@ IC bool is_sound_type(int s, const ESoundTypes& t)
 void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound_UserDataPtr user_data,
                                          const Fvector& position, float sound_power)
 {
+	PROF_EVENT("CSoundMemoryManager::feel_sound_new");
 #ifndef MASTER_GOLD
 	if (object && smart_cast<CActor*>(object) && psAI_Flags.test(aiIgnoreActor))
 		return;
@@ -147,7 +148,10 @@ void CSoundMemoryManager::feel_sound_new(CObject* object, int sound_type, CSound
 #endif
 
 	VERIFY(_valid(m_sound_threshold));
-	m_object->sound_callback(object, sound_type, position, sound_power);
+	{
+		PROF_EVENT("Sound: NPC hearing callback");
+		m_object->sound_callback(object, sound_type, position, sound_power);
+	}
 	VERIFY(_valid(m_sound_threshold));
 
 	update_sound_threshold();

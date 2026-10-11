@@ -339,6 +339,7 @@ public:
 	void w_bool(LPCSTR S, LPCSTR L, BOOL V, LPCSTR comment = 0);
 
 	void remove_line(LPCSTR S, LPCSTR L);
+	bool remove_section(LPCSTR S);
 };
 
 // Main configuration file

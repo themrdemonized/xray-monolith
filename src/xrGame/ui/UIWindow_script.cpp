@@ -223,6 +223,16 @@ void CUIWindow::script_register(lua_State* L)
 		.def("IsEnabled", &CUIWindow::IsEnabled)
 		.def("Show", &CUIWindow::Show)
 		.def("IsShown", &CUIWindow::IsShown)
+		.def("SetHideLock", &CUIWindow::SetHideLock)
+		.def("GetHideLock", &CUIWindow::GetHideLock)
+
+		.def("SetMouseCapture", &CUIWindow::SetMouseCapture)
+		.def("IsMouseCapturer", &CUIWindow::IsMouseCapturer)
+
+		.def("EnableClip", &CUIWindow::EnableClip)
+		.def("IsClipEnabled", &CUIWindow::IsClipEnabled)
+		.def("SetClipRect", &CUIWindow::SetClipRect)
+		.def("ResetClipRect", &CUIWindow::ResetClipRect)
 
 		.def("WindowName", &CUIWindow::WindowName_script)
 		.def("SetWindowName", &CUIWindow::SetWindowName)

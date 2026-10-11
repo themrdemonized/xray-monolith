@@ -68,6 +68,16 @@ void CControlJump::remove_links(CObject* object)
 
 void CControlJump::activate()
 {
+	// script-forced flags: OR-only onto the per-call fill, after every native entry wrote its own set.
+	// ePrepareInMove engages only with the species' prepare-in-move motion present (start_jump walks it).
+	if (m_script_flags_mask)
+	{
+		u32 mask = m_script_flags_mask & (SControlJumpData::eUseAutoAim | SControlJumpData::eGroundSkip);
+		if ((m_script_flags_mask & SControlJumpData::ePrepareInMove) && m_data.state_prepare_in_move.motion.valid())
+			mask |= SControlJumpData::ePrepareInMove;
+		m_data.flags.or(mask);
+	}
+
 	m_man->capture_pure(this);
 	m_man->subscribe(this, ControlCom::eventAnimationEnd);
 	m_man->subscribe(this, ControlCom::eventAnimationStart);

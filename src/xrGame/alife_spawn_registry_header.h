@@ -24,6 +24,8 @@ public:
 	virtual void load(IReader& file_stream);
 	IC u32 version() const;
 	IC const xrGUID& guid() const;
+	// Spawn GUID of the assembled registry (base spawn + level packs), see spawn_packs.h.
+	IC void set_guid(const xrGUID& guid);
 	IC const xrGUID& graph_guid() const;
 	IC u32 count() const;
 	IC u32 level_count() const;
