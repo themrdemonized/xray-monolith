@@ -456,6 +456,7 @@ void CRenderDevice::on_idle()
 	START_PROFILE("Matrices");
 	mFullTransform.mul(mProject, mView);
 	mFullTransformHud.mul(mProjectHud, mView);
+	mFullTransform3DIcons.mul(mProject3DIcons, mView);
 	m_pRender->SetCacheXform(mView, mProject);
 
 	// Previous frame data -- 

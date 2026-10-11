@@ -214,9 +214,7 @@ void CUIScrollView::Draw()
 		RecalcSize();
 
 	Frect visible_rect;
-	GetAbsoluteRect(visible_rect);
-	visible_rect.top += m_upIndent;
-	visible_rect.bottom -= m_downIndent;
+	GetVisibleRect(visible_rect);
 	UI().PushScissor(visible_rect);
 
 	WINDOW_LIST_it it = m_pad->GetChildWndList().begin();
@@ -256,6 +254,13 @@ void CUIScrollView::Draw()
 
 	if (NeedShowScrollBar())
 		m_VScrollBar->Draw();
+}
+
+void CUIScrollView::GetVisibleRect(Frect& rect)
+{
+	GetAbsoluteRect(rect);
+	rect.top += m_upIndent;
+	rect.bottom -= m_downIndent;
 }
 
 bool CUIScrollView::NeedShowScrollBar()
