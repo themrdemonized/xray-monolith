@@ -67,6 +67,8 @@
 #include "cover_point.h"
 #include "ActorCondition.h"
 
+#include "R1_Static_Geometry.h"
+
 using namespace luabind;
 
 extern ENGINE_API float ps_r2_sun_shafts_min;
@@ -2645,6 +2647,16 @@ void CLevel::script_register(lua_State* L)
 
 	module(L, "level")
 		[
+		def("static_geometry_version", &static_geometry_version),
+		def("static_geometry_file_signature", &static_geometry_file_signature),
+		def("static_visual_count", &static_visual_count),
+		def("static_collision_count", &static_collision_count),
+		def("static_visual_enabled", &static_visual_enabled),
+		def("static_collision_enabled", &static_collision_enabled),
+		def("set_static_visuals_enabled", &set_static_visuals_enabled),
+		def("set_static_collision_enabled", &set_static_collision_enabled),
+		def("set_static_geometry_enabled", &set_static_geometry_enabled),
+		def("reset_static_geometry", &reset_static_geometry),
 			//Alundaio: Extend level namespace exports
 #ifdef NAMESPACE_LEVEL_EXPORTS
 			def("send", &g_send), //allow the ability to send netpacket to level
