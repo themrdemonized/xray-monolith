@@ -286,8 +286,14 @@ bool CUIScrollView::OnMouseAction(float x, float y, EUIMessages mouse_action)
 		m_VScrollBar->TryScrollInc(true);
 		res = true;
 		break;
+	case WINDOW_LBUTTON_DOWN:
+		SetCapture(this, true);
+		break;
+	case WINDOW_LBUTTON_UP:
+		SetCapture(this, false);
+		break;
 	case WINDOW_MOUSE_MOVE:
-		if (pInput->iGetAsyncBtnState(0))
+		if (IsMouseCapturer() && pInput->iGetAsyncBtnState(0))
 		{
 			Fvector2 curr_pad_pos = m_pad->GetWndPos();
 			curr_pad_pos.y += GetUICursor().GetCursorPositionDelta().y;
