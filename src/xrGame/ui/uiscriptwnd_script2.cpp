@@ -23,6 +23,7 @@ using namespace luabind;
 export_class script_register_ui_window2(export_class&& instance)
 {
 	return std::move(instance)
+		.def("Draw", (void (BaseType::*)())&BaseType::Draw, &WrapType::Draw_static)
 		.def("OnKeyboard", &BaseType::OnKeyboardAction, &WrapType::OnKeyboard_static)
 		.def("OnMouse", &BaseType::OnMouseAction, &WrapType::OnMouse_static)
 		.def("OnMouseMoveRelative", &BaseType::OnMouseMoveRelative, &WrapType::OnMouseMoveRelative_static)

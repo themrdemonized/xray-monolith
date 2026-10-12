@@ -6,6 +6,7 @@ Map inspection extends the existing Lua UI API. The engine owns no drawing layer
 - `pda_map.window()` returns the current map viewport CUIWindow, or nil before it exists. Children draw over the map and beneath surrounding navigation/context controls.
 - `pda_map.info("global_map" or level_name)` returns `{ready=false}` for unavailable/rotated maps. Otherwise: ready, global, shown, locked, x, y, width, height, bound_x1/y1/x2/y2, zoom, aspect. Rects are live virtual UI units; bounds are the native aspect-adjusted BoundRect.
 - `CUIWindow:GetParent()` and `IsChild(window)` support attachment checks and cleanup of Lua-owned overlays.
+- `CUIScriptWnd:Draw()` can be overridden in Lua; call the base Draw to render its children. Sample map geometry here after the map planner update, so zoom/pan do not leave child widgets one frame behind.
 
 For map position px, py, calculate absolute UI coordinates:
 
