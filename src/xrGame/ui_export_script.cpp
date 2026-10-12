@@ -1,6 +1,7 @@
 #include "pch_script.h"
 
 #include "script_ui_registrator.h"
+#include "ui/R1_PdaMapApi.h"
 #include "MainMenu.h"
 
 #include "UIGameCustom.h"
@@ -44,6 +45,7 @@ void UIRegistrator::script_register(lua_State* L)
 	CScriptXmlInit::script_register(L);
 	CUIGameCustom::script_register(L);
 	CUIActorMenu::script_register(L);
+	R1PdaMap::script_register(L);
 
 	module(L)
 	[

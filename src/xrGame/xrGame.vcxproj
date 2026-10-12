@@ -1006,6 +1006,8 @@
     <ClInclude Include="configs_dump_verifyer.h" />
     <ClInclude Include="console_registrator.h" />
     <ClInclude Include="shader_bus_script.h" />
+    <ClInclude Include="ui\R1_PdaMapApi.h" />
+    <ClInclude Include="ui\R1_PdaMapMath.h" />
     <ClInclude Include="controller_state_panic_inline.h" />
     <ClInclude Include="control_action.h" />
     <ClInclude Include="control_action_inline.h" />
@@ -4052,6 +4054,7 @@
     <ClCompile Include="ui\UIMapLegend.cpp" />
     <ClCompile Include="ui\UIMapList.cpp" />
     <ClCompile Include="ui\UIMapWnd.cpp" />
+    <ClCompile Include="ui\R1_PdaMapApi.cpp" />
     <ClCompile Include="ui\UIMapWnd2.cpp" />
     <ClCompile Include="ui\UIMapWndActions.cpp" />
     <ClCompile Include="ui\UIMessageBox.cpp" />
