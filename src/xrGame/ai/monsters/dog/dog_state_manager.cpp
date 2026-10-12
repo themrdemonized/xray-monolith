@@ -76,7 +76,15 @@ void CStateManagerDog::execute()
 
 	if (!object->is_under_control())
 	{
-		if (atack)
+		// a Lua-proposed state is taken only if registered and its own start conditions pass
+		u32 proposed = object->script_combat_substate();
+		CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+		if (proposed_state && proposed_state->check_start_conditions())
+		{
+			state_id = proposed;
+		}
+		else if (atack)
 		{
 			CMonsterSquad* squad = monster_squad().get_squad(object);
 			switch (object->EnemyMan.get_danger_type())

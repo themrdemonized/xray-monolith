@@ -169,10 +169,12 @@ void CScriptGameObject::script_register(lua_State* L)
 			value("map_location_added", int(GameObject::eMapLocationAdded))
 		],
 
-		// Attack substates the monster_on_combat_action callback can propose in flags.substate.
-		// These are the states the shared monster and group attack selectors register
-		// (monster_state_attack_inline.h, group_state_attack_inline.h); any other EMonsterState
-		// is ignored and the vanilla selection runs.
+		// States the monster_on_combat_action callback can propose in flags.substate.
+		// Attack substates reach the shared monster and group attack selectors
+		// (monster_state_attack_inline.h, group_state_attack_inline.h); the top-level ids
+		// (eStatePanic, eStateHitted, eStateThreaten, eStateAttack_Psy) reach each species
+		// state manager. A proposal is honored only where that species registers the state and
+		// its own start conditions pass; any other value is ignored and the vanilla selection runs.
 		class_<enum_exporter<EMonsterState>>("monster_state")
 		.enum_("substate")
 		[
@@ -187,7 +189,11 @@ void CScriptGameObject::script_register(lua_State* L)
 			value("eStateAttackCamp", int(eStateAttackCamp)),
 			value("eStateAttack_MoveToHomePoint", int(eStateAttack_MoveToHomePoint)),
 			value("eStateAttack_Attack_On_Run", int(eStateAttack_Attack_On_Run)),
-			value("eStateCustom", int(eStateCustom))
+			value("eStateCustom", int(eStateCustom)),
+			value("eStatePanic", int(eStatePanic)),
+			value("eStateHitted", int(eStateHitted)),
+			value("eStateThreaten", int(eStateThreaten)),
+			value("eStateAttack_Psy", int(eStateAttack_Psy))
 		],
 
 		def("buy_condition", (void (*)(CScriptIniFile*, LPCSTR))(&::buy_condition)),

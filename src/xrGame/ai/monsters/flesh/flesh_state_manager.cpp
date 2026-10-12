@@ -46,10 +46,21 @@ void CStateManagerFlesh::execute()
 
 		if (enemy)
 		{
-			state_id = object->EnemyMan.get_danger_type() == eStrong &&
-			           !object->HitMemory.is_hit()
-				           ? eStatePanic
-				           : eStateAttack;
+			// a Lua-proposed state is taken only if registered and its own start conditions pass
+			u32 proposed = object->script_combat_substate();
+			CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+			if (proposed_state && proposed_state->check_start_conditions())
+			{
+				state_id = proposed;
+			}
+			else
+			{
+				state_id = object->EnemyMan.get_danger_type() == eStrong &&
+				           !object->HitMemory.is_hit()
+					           ? eStatePanic
+					           : eStateAttack;
+			}
 		}
 		else if (object->HitMemory.is_hit())
 		{

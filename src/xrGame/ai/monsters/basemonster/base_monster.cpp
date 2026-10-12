@@ -1066,6 +1066,13 @@ u32 CBaseMonster::script_combat_substate()
 	CEntityAlive* enemy = const_cast<CEntityAlive*>(EnemyMan.get_enemy());
 	if (!enemy) return u32(-1);
 
+	// one Lua call per monster per frame; the state manager head and the attack tree head share the result
+	if (m_script_substate_frame == Device.dwFrame)
+		return m_script_substate_cache;
+
+	m_script_substate_frame = Device.dwFrame;
+	m_script_substate_cache = u32(-1);
+
 	::luabind::functor<int> funct;
 	if (!ai().script_engine().functor("_G.CMonsterCombatAction", funct))
 		return u32(-1);
@@ -1075,7 +1082,8 @@ u32 CBaseMonster::script_combat_substate()
 	bool can_jump = ability_can_jump();
 
 	int proposed = funct(lua_game_object(), enemy->lua_game_object(), dist, enemy_strength, can_jump);
-	return (proposed < 0) ? u32(-1) : (u32)proposed;
+	m_script_substate_cache = (proposed < 0) ? u32(-1) : (u32)proposed;
+	return m_script_substate_cache;
 }
 
 void CBaseMonster::update_eyes_visibility()
