@@ -14,6 +14,7 @@ CUIScrollView::CUIScrollView()
 	m_upIndent = 0.0f;
 	m_downIndent = 0.0f;
 	m_flags.zero();
+	m_pad_drag_active = false;
 	SetFixedScrollBar(true);
 	m_pad = NULL;
 	m_VScrollBar = NULL;
@@ -28,6 +29,7 @@ CUIScrollView::CUIScrollView(CUIFixedScrollBar* scroll_bar)
 	m_upIndent = 0.0f;
 	m_downIndent = 0.0f;
 	m_flags.zero();
+	m_pad_drag_active = false;
 	SetFixedScrollBar(true);
 	m_pad = NULL;
 	m_visible_rgn.set(-1, -1);
@@ -286,9 +288,17 @@ bool CUIScrollView::OnMouseAction(float x, float y, EUIMessages mouse_action)
 		m_VScrollBar->TryScrollInc(true);
 		res = true;
 		break;
+	case WINDOW_LBUTTON_DOWN:
+		m_pad_drag_active = true;
+		break;
+	case WINDOW_LBUTTON_UP:
+		m_pad_drag_active = false;
+		break;
 	case WINDOW_MOUSE_MOVE:
 		if (pInput->iGetAsyncBtnState(0))
 		{
+			if (!m_pad_drag_active)
+				break;
 			Fvector2 curr_pad_pos = m_pad->GetWndPos();
 			curr_pad_pos.y += GetUICursor().GetCursorPositionDelta().y;
 
@@ -299,6 +309,8 @@ bool CUIScrollView::OnMouseAction(float x, float y, EUIMessages mouse_action)
 			UpdateScroll();
 			res = true;
 		}
+		else
+			m_pad_drag_active = false;
 		break;
 	};
 	if (prev_pos != m_VScrollBar->GetScrollPos())
