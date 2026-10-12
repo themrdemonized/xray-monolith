@@ -76,7 +76,7 @@ bool MODEL::triangle_enabled(u32 id) const
 bool MODEL::set_triangles_enabled(const xr_vector<u32>& ids, bool enabled)
 {
 	syncronize();
-	std::lock_guard<std::mutex> lock(triangle_state_lock);
+	xrSRWLockGuard guard(triangle_state_lock);
 	for (u32 id : ids)
 		if (id >= static_cast<u32>(tris_count)) return false;
 	const auto previous = get_triangle_state();
@@ -85,7 +85,7 @@ bool MODEL::set_triangles_enabled(const xr_vector<u32>& ids, bool enabled)
 		if ((!previous || previous->enabled.empty() || previous->enabled[id] != 0) != enabled)
 			changed = true;
 	if (!changed) return true;
-	auto next = std::make_shared<TriangleState>();
+	auto next = std::allocate_shared<TriangleState>(xalloc<TriangleState>());
 	if (previous && !previous->enabled.empty()) next->enabled = previous->enabled;
 	else next->enabled.assign(tris_count, 1);
 	for (u32 id : ids) next->enabled[id] = enabled ? 1 : 0;
@@ -98,10 +98,10 @@ bool MODEL::set_triangles_enabled(const xr_vector<u32>& ids, bool enabled)
 
 void MODEL::reset_triangles()
 {
-	std::lock_guard<std::mutex> lock(triangle_state_lock);
+	xrSRWLockGuard guard(triangle_state_lock);
 	const auto previous = get_triangle_state();
 	if (!previous || previous->enabled.empty()) return;
-	auto next = std::make_shared<TriangleState>();
+	auto next = std::allocate_shared<TriangleState>(xalloc<TriangleState>());
 	next->revision = ++static_triangle_revision;
 	std::atomic_store(&triangle_state, TriangleStatePtr(next));
 }

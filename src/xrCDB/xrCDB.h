@@ -23,7 +23,6 @@
 
 #include <memory>
 #include <atomic>
-#include <mutex>
 
 // forward declarations
 class CFrustum;
@@ -84,7 +83,7 @@ namespace CDB
 		int tris_count;
 		Fvector* verts;
 		int verts_count;
-		std::mutex triangle_state_lock;
+		xrSRWLock triangle_state_lock;
 		u64 initial_triangle_revision;
 	public:
 		struct TriangleState
