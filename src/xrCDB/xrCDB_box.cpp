@@ -94,15 +94,17 @@ public:
 	COLLIDER* dest;
 	TRI* tris;
 	Fvector* verts;
+	const u8* triangle_enabled;
 
 	Fvector b_min, b_max;
 	Point center, extents;
 
 	Point mLeafVerts [3];
 
-	IC void _init(COLLIDER* CL, Fvector* V, TRI* T, const Fvector& C, const Fvector& E)
+	IC void _init(COLLIDER* CL, Fvector* V, TRI* T, const Fvector& C, const Fvector& E, const u8* enabled)
 	{
 		dest = CL;
+		triangle_enabled = enabled;
 		verts = V;
 		tris = T;
 		center = Point(C.x, C.y, C.z);
@@ -198,6 +200,7 @@ public:
 
 	void _prim(DWORD prim)
 	{
+		if (triangle_enabled && !triangle_enabled[prim]) return;
 		TRI& T = tris[prim];
 		Fvector& v0 = verts[T.verts[0]];
 		mLeafVerts[0].x = v0.x;
@@ -241,6 +244,8 @@ public:
 void COLLIDER::box_query(const MODEL* m_def, const Fvector& b_center, const Fvector& b_dim)
 {
 	m_def->syncronize();
+	const auto state = m_def->get_triangle_state();
+	const u8* enabled = state && !state->enabled.empty() ? state->enabled.data() : nullptr;
 
 	// Get nodes
 	const AABBNoLeafTree* T = (const AABBNoLeafTree*)m_def->tree->GetTree();
@@ -253,13 +258,13 @@ void COLLIDER::box_query(const MODEL* m_def, const Fvector& b_center, const Fvec
 		if (box_mode & OPT_ONLYFIRST)
 		{
 			box_collider<true, true> BC;
-			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim);
+			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim, enabled);
 			BC._stab(N);
 		}
 		else
 		{
 			box_collider<true, false> BC;
-			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim);
+			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim, enabled);
 			BC._stab(N);
 		}
 	}
@@ -268,13 +273,13 @@ void COLLIDER::box_query(const MODEL* m_def, const Fvector& b_center, const Fvec
 		if (box_mode & OPT_ONLYFIRST)
 		{
 			box_collider<false, true> BC;
-			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim);
+			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim, enabled);
 			BC._stab(N);
 		}
 		else
 		{
 			box_collider<false, false> BC;
-			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim);
+			BC._init(this, m_def->verts, m_def->tris, b_center, b_dim, enabled);
 			BC._stab(N);
 		}
 	}

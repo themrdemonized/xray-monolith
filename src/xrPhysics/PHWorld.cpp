@@ -303,8 +303,47 @@ void CPHWorld::OnFrame()
 //static dReal frame_time=0.f;
 static u32 start_time = 0;
 
+extern "C" void __stdcall notify_static_geometry_changed(const Fbox& bounds)
+{
+	if (ph_world) ph_world->QueueStaticGeometryChanged(bounds);
+}
+
+void CPHWorld::QueueStaticGeometryChanged(const Fbox& bounds)
+{
+	xrSRWLockGuard guard(static_geometry_lock);
+	if (has_static_geometry_change) static_geometry_bounds.merge(bounds);
+	else static_geometry_bounds = bounds;
+	has_static_geometry_change = true;
+}
+
+void CPHWorld::WakeChangedStaticGeometry()
+{
+	Fbox bounds;
+	{
+		xrSRWLockGuard guard(static_geometry_lock);
+		if (!has_static_geometry_change) return;
+		bounds = static_geometry_bounds;
+		has_static_geometry_change = false;
+	}
+	// Executed by the physics-step owner, never by a Lua/render worker. Sleeping
+	// bodies retain their spatial registration. Leave deliberately frozen bodies
+	// and static shells alone, and only wake bodies near the changed support.
+	bounds.grow(0.1f);
+	Fvector center, extent;
+	bounds.getcenter(center); bounds.getradius(extent);
+	xr_vector<ISpatial*> affected;
+	g_SpatialSpacePhysic->q_box(affected, 0, STYPE_PHYSIC, center, extent);
+	for (ISpatial* spatial : affected)
+	{
+		CPHObject* object = static_cast<CPHObject*>(spatial);
+		if (object->IsFreezed() || object->CastType() == CPHObject::tpStaticShell) continue;
+		object->OnStaticGeometryChanged();
+	}
+}
+
 void CPHWorld::Step()
 {
+	WakeChangedStaticGeometry();
 #ifdef DEBUG
 	debug_output().dbg_reused_queries_per_step()	=0			;
 	debug_output().dbg_new_queries_per_step()		=0			;

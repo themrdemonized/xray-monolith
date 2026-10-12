@@ -818,6 +818,8 @@ IC bool IsValuableToRender(dxRender_Visual* pVisual, bool isStatic, bool sm, Fma
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 {
+	if (!pVisual->static_geometry_enabled())
+		return;
 	if (!pVisual)
 		return;
 
@@ -903,6 +905,8 @@ void CRender::add_leafs_Dynamic(dxRender_Visual* pVisual)
 
 void CRender::add_leafs_Static(dxRender_Visual* pVisual)
 {
+	if (!pVisual->static_geometry_enabled())
+		return;
 	if (!HOM.visible(pVisual->vis))
 		return;
 
@@ -1004,6 +1008,8 @@ void CRender::add_leafs_Static(dxRender_Visual* pVisual)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL CRender::add_Dynamic(dxRender_Visual* pVisual, u32 planes)
 {
+	if (!pVisual->static_geometry_enabled())
+		return FALSE;
 	Flags16& flags = pVisual->dcast_RenderVisual()->flags;
 
 	if (phase != PHASE_NORMAL && !!flags.test(IRenderVisualFlags::eNoShadow))
@@ -1126,6 +1132,8 @@ BOOL CRender::add_Dynamic(dxRender_Visual* pVisual, u32 planes)
 
 void CRender::add_Static(dxRender_Visual* pVisual, u32 planes)
 {
+	if (!pVisual->static_geometry_enabled())
+		return;
 	Flags16& flags = pVisual->dcast_RenderVisual()->flags;
 
 	if (phase != PHASE_NORMAL && !!flags.test(IRenderVisualFlags::eNoShadow))

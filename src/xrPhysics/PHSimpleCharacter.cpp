@@ -1444,6 +1444,19 @@ void CPHSimpleCharacter::Disable()
 	}
 }
 
+void CPHSimpleCharacter::OnStaticGeometryChanged()
+{
+	is_contact = false;
+	was_contact = false;
+	b_on_object = false;
+	b_was_on_object = false;
+	b_valide_ground_contact = false;
+	b_valide_wall_contact = false;
+	b_any_contacts = false;
+	m_contact_count = 0;
+	CPHObject::OnStaticGeometryChanged();
+}
+
 void CPHSimpleCharacter::Enable()
 {
 	if (!b_exist)return;

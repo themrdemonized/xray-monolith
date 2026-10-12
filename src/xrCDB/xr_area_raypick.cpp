@@ -69,6 +69,16 @@ BOOL CObjectSpace::_RayTest(const Fvector& start, const Fvector& dir, float rang
 		// If we get here - test static model
 		if (cache)
 		{
+			const u64 revision = Static.get_triangle_revision();
+			if (cache->static_geometry_revision != revision)
+			{
+				cache->start.set(0, 0, 0);
+				cache->dir.set(0, 0, 0);
+				cache->range = 0;
+				cache->result = FALSE;
+				for (auto& vertex : cache->verts) vertex.set(0, 0, 0);
+				cache->static_geometry_revision = revision;
+			}
 			// 0. similar query???
 			if (cache->similar(start, dir, range))
 			{

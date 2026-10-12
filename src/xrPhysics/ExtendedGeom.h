@@ -116,6 +116,7 @@ class CGameObject;
 struct dxGeomUserData
 {
 	dVector3 last_pos;
+	u64 static_geometry_revision = 0;
 	bool pushing_neg, pushing_b_neg, b_static_colide;
 	CDB::TRI *neg_tri, *b_neg_tri;
 	CPHObject* ph_object;

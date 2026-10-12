@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+  <PropertyGroup Label="Globals"><ProjectGuid>{8DA54CBD-B60C-46F4-BE99-317FA78A23CA}</ProjectGuid><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion></PropertyGroup>
+  <PropertyGroup><R1EngineRoot>$(ProjectDir)..\..\</R1EngineRoot></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup><OutDir>$(R1EngineRoot)_build\R1_Static_Geometry_Tests\</OutDir><IntDir>$(R1EngineRoot)_build\R1_Static_Geometry_Tests\Intermediate\</IntDir><TargetName>R1_CDB_Tests</TargetName></PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><AdditionalIncludeDirectories>$(R1EngineRoot)src;$(R1EngineRoot)src\3rd party;$(R1EngineRoot)sdk\include;$(R1EngineRoot)sdk\include\dxsdk;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><PreprocessorDefinitions>WIN32;NDEBUG;_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS;PURE_ALLOC;PROFILER_OPTICK;_SECURE_SCL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><ExceptionHandling>false</ExceptionHandling></ClCompile>
+    <Link><SubSystem>Console</SubSystem><AdditionalLibraryDirectories>$(R1EngineRoot)_build\_game\bin_dbg\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories><AdditionalDependencies>xrCDB.lib;xrCore.lib;optick.lib;NVTT.lib;winmm.lib;dbghelp.lib;comctl32.lib;shlwapi.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+  </ItemDefinitionGroup>
+  <PropertyGroup><R1TestSource Condition="'$(R1TestSource)'==''">R1_CDB_Tests.cpp</R1TestSource></PropertyGroup><ItemGroup><ClCompile Include="$(R1TestSource)" /></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
