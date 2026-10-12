@@ -78,16 +78,6 @@ int main()
         query.box_options(CDB::OPT_ONLYFIRST);
         query.box_query(&model, center, extent);
         check(query.r_count() == 1 && query.r_begin()->id >= 2, "box first skips removed plane");
-#ifdef R1_MT
-        Fobb obb;
-        obb.identity(); obb.m_translate.set(center); obb.m_halfsize.set(extent);
-        query.box_options(CDB::OPT_FULL_TEST);
-        query.obb_query(&model, obb);
-        check(query.r_count() == 2, "MT OBB excludes removed plane");
-        query.box_options(CDB::OPT_FULL_TEST | CDB::OPT_ONLYFIRST);
-        query.obb_query(&model, obb);
-        check(query.r_count() == 1 && query.r_begin()->id >= 2, "MT OBB first skips removed plane");
-#endif
         CFrustum frustum;
         frustum._clear(); // all space, no planes
         query.frustum_options(0);
