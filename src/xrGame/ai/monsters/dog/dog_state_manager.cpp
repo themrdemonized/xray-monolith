@@ -74,14 +74,13 @@ void CStateManagerDog::execute()
 		}
 	}
 
-	// a Lua-proposed state is taken only if registered and its own start conditions pass
-	u32 proposed = object->script_combat_substate();
-	CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
-	bool proposal_taken = proposed_state && proposed_state->check_start_conditions();
-
 	if (!object->is_under_control())
 	{
-		if (proposal_taken)
+		// a Lua-proposed state is taken only if registered and its own start conditions pass
+		u32 proposed = object->script_combat_substate();
+		CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+		if (proposed_state && proposed_state->check_start_conditions())
 		{
 			state_id = proposed;
 		}
