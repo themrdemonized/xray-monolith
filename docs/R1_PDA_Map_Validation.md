@@ -12,8 +12,8 @@ Date: 2026-10-12. Author of checks: Codex in the isolated R1 PDA Map API source 
 
 - Ordinary source: MSVC `14.44.35207`, Windows SDK `10.0.26100.0`, x64, C++17, Release-style engine defines. `R1_PdaMapApi.cpp`, `UIMapWnd.cpp`, `ui_export_script.cpp` compiled to real object files; all exit codes 0. Precompiled headers were disabled so fresh headers and Lua exports were compiled.
 - Shared production math: `tests/R1_Run_PdaMapMath.ps1` compiled and ran `R1_PdaMapMath_Test.cpp`: 308 checks passed. Covers global/level coordinate inversion, nonzero bounds/origins, four aspect factors, four zoom values, pan, invalid zoom/aspect/NaN, line quad width/winding and degenerate dots. These tests call the same header used by the API.
-- MT source: pending separate object compilation before publication.
-- Final diff/encoding/Lua syntax checks: pending before publication.
+- MT source: the same three changed translation units compiled separately against the MT source tree, using the same MSVC/SDK and Release-style defines; all exit codes 0. The feature cherry-pick preserved MT-specific UI/registration/project changes.
+- Lua syntax: the bundled LuaJIT host/minilua.c (Lua 5.1.5 parser) compiled as an isolated checker; loadfile accepted callbacks_gameobject.script, lua_help_ex.script and the example. Their chunks were not executed. New callbacks, module registration, project source entries and documentation links were inspected; git diff --check passed. Existing tracked files retained UTF-8 without BOM and CRLF checkout line endings; upstream license and authorship files were not modified.
 
 ## Not executed
 

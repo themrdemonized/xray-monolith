@@ -33,6 +33,7 @@ CUIMapWnd* GetMapWnd()
 
 CUIMapWnd::CUIMapWnd()
 {
+	m_script_map_ready = false;
 	m_script_map_layers = R1PdaMap::create(*this);
 	m_UILevelFrame = NULL;
 	m_UIPropertiesBox = NULL;
@@ -60,6 +61,7 @@ CUIMapWnd::CUIMapWnd()
 
 CUIMapWnd::~CUIMapWnd()
 {
+	m_script_map_ready = false;
 	R1PdaMap::destroy(m_script_map_layers);
 	delete_data(m_ActionPlanner);
 	delete_data(m_GameMaps);
@@ -213,6 +215,7 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	AttachChild(m_UIScratchBox);
 	m_UIScratchBox->Hide();
 	m_UIScratchBox->SetWindowName("property_box_scratch");
+	m_script_map_ready = true;
 }
 
 void CUIMapWnd::Show(bool status)

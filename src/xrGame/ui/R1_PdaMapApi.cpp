@@ -65,7 +65,7 @@ namespace R1PdaMap
     static Store* current()
     {
         CUIMapWnd* w = GetMapWnd();
-        return w && w->GlobalMap() ? w->ScriptMapLayers() : nullptr;
+        return w && w->ScriptMapReady() && w->GlobalMap() ? w->ScriptMapLayers() : nullptr;
     }
 
     static bool finite(float v)
