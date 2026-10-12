@@ -21,6 +21,10 @@
 #define ALIGN(a)
 #endif
 
+#include <memory>
+#include <atomic>
+#include <mutex>
+
 // forward declarations
 class CFrustum;
 
@@ -80,7 +84,27 @@ namespace CDB
 		int tris_count;
 		Fvector* verts;
 		int verts_count;
+		std::mutex triangle_state_lock;
+		u64 initial_triangle_revision;
 	public:
+		struct TriangleState
+		{
+			u64 revision;
+			xr_vector<u8> enabled; // Empty means all triangles enabled.
+		};
+		using TriangleStatePtr = std::shared_ptr<const TriangleState>;
+	private:
+		TriangleStatePtr triangle_state;
+	public:
+		TriangleStatePtr get_triangle_state() const { return std::atomic_load(&triangle_state); }
+		u64 get_triangle_revision() const
+		{
+			const auto state = get_triangle_state();
+			return state ? state->revision : initial_triangle_revision;
+		}
+		bool triangle_enabled(u32 id) const;
+		bool set_triangles_enabled(const xr_vector<u32>& ids, bool enabled);
+		void reset_triangles();
 		MODEL();
 		~MODEL();
 

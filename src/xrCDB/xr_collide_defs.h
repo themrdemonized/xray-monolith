@@ -35,6 +35,8 @@ namespace collide
 		float range;
 		BOOL result;
 
+		u64 static_geometry_revision = 0;
+
 		// cached vertices
 		Fvector verts[3];
 

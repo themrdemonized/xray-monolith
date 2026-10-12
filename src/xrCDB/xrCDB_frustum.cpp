@@ -14,12 +14,14 @@ public:
 	COLLIDER* dest;
 	TRI* tris;
 	Fvector* verts;
+	const u8* triangle_enabled;
 
 	const CFrustum* F;
 
-	IC void _init(COLLIDER* CL, Fvector* V, TRI* T, const CFrustum* _F)
+	IC void _init(COLLIDER* CL, Fvector* V, TRI* T, const CFrustum* _F, const u8* enabled)
 	{
 		dest = CL;
+		triangle_enabled = enabled;
 		tris = T;
 		verts = V;
 		F = _F;
@@ -35,6 +37,7 @@ public:
 
 	void _prim(DWORD prim)
 	{
+		if (triangle_enabled && !triangle_enabled[prim]) return;
 		if (bClass3)
 		{
 			sPoly src, dst;
@@ -85,6 +88,8 @@ public:
 void COLLIDER::frustum_query(const MODEL* m_def, const CFrustum& F)
 {
 	m_def->syncronize();
+	const auto state = m_def->get_triangle_state();
+	const u8* enabled = state && !state->enabled.empty() ? state->enabled.data() : nullptr;
 
 	// Get nodes
 	const AABBNoLeafTree* T = (const AABBNoLeafTree*)m_def->tree->GetTree();
@@ -98,13 +103,13 @@ void COLLIDER::frustum_query(const MODEL* m_def, const CFrustum& F)
 		if (frustum_mode & OPT_ONLYFIRST)
 		{
 			frustum_collider<true, true> BC;
-			BC._init(this, m_def->verts, m_def->tris, &F);
+			BC._init(this, m_def->verts, m_def->tris, &F, enabled);
 			BC._stab(N, mask);
 		}
 		else
 		{
 			frustum_collider<true, false> BC;
-			BC._init(this, m_def->verts, m_def->tris, &F);
+			BC._init(this, m_def->verts, m_def->tris, &F, enabled);
 			BC._stab(N, mask);
 		}
 	}
@@ -113,13 +118,13 @@ void COLLIDER::frustum_query(const MODEL* m_def, const CFrustum& F)
 		if (frustum_mode & OPT_ONLYFIRST)
 		{
 			frustum_collider<false, true> BC;
-			BC._init(this, m_def->verts, m_def->tris, &F);
+			BC._init(this, m_def->verts, m_def->tris, &F, enabled);
 			BC._stab(N, mask);
 		}
 		else
 		{
 			frustum_collider<false, false> BC;
-			BC._init(this, m_def->verts, m_def->tris, &F);
+			BC._init(this, m_def->verts, m_def->tris, &F, enabled);
 			BC._stab(N, mask);
 		}
 	}

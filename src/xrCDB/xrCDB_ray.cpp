@@ -211,14 +211,16 @@ public:
 	COLLIDER* dest;
 	TRI* tris;
 	Fvector* verts;
+	const u8* triangle_enabled;
 
 	ray_t ray;
 	float rRange;
 	float rRange2;
 
-	IC void _init(COLLIDER* CL, Fvector* V, TRI* T, const Fvector& C, const Fvector& D, float R)
+	IC void _init(COLLIDER* CL, Fvector* V, TRI* T, const Fvector& C, const Fvector& D, float R, const u8* enabled)
 	{
 		dest = CL;
+		triangle_enabled = enabled;
 		tris = T;
 		verts = V;
 		ray.pos.set(C);
@@ -319,6 +321,7 @@ public:
 
 	void _prim(DWORD prim)
 	{
+		if (triangle_enabled && !triangle_enabled[prim]) return;
 		float u, v, r;
 		if (!_tri(tris[prim].verts, u, v, r)) return;
 		if (r <= 0 || r > rRange) return;
@@ -408,6 +411,8 @@ public:
 void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvector& r_dir, float r_range)
 {
 	m_def->syncronize();
+	const auto state = m_def->get_triangle_state();
+	const u8* enabled = state && !state->enabled.empty() ? state->enabled.data() : nullptr;
 
 	// Get nodes
 	const AABBNoLeafTree* T = (const AABBNoLeafTree*)m_def->tree->GetTree();
@@ -425,13 +430,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<true, true, true, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<true, true, true, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -440,13 +445,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<true, true, false, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<true, true, false, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -458,13 +463,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<true, false, true, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<true, false, true, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -473,13 +478,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<true, false, false, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<true, false, false, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -496,13 +501,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<false, true, true, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<false, true, true, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -511,13 +516,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<false, true, false, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<false, true, false, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -529,13 +534,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<false, false, true, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<false, false, true, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}
@@ -544,13 +549,13 @@ void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvect
 				if (ray_mode & OPT_ONLYNEAREST)
 				{
 					ray_collider<false, false, false, true> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 				else
 				{
 					ray_collider<false, false, false, false> RC;
-					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range);
+					RC._init(this, m_def->verts, m_def->tris, r_start, r_dir, r_range, enabled);
 					RC._stab(N);
 				}
 			}

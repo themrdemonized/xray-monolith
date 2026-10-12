@@ -38,12 +38,15 @@ BOOL DllMainIgnore1(HANDLE hModule,
 	return TRUE;
 }
 
+static std::atomic<u64> static_triangle_revision{0};
+
 // Model building
 MODEL::MODEL()
 #ifdef PROFILE_CRITICAL_SECTIONS
 	:cs(MUTEX_PROFILE_ID(MODEL))
 #endif // PROFILE_CRITICAL_SECTIONS
 {
+	initial_triangle_revision = ++static_triangle_revision;
 	tree = 0;
 	tris = 0;
 	tris_count = 0;
@@ -61,6 +64,46 @@ MODEL::~MODEL()
 	tris_count = 0;
 	CFREE(verts);
 	verts_count = 0;
+}
+
+bool MODEL::triangle_enabled(u32 id) const
+{
+	if (id >= static_cast<u32>(tris_count)) return false;
+	const auto state = get_triangle_state();
+	return !state || state->enabled.empty() || state->enabled[id] != 0;
+}
+
+bool MODEL::set_triangles_enabled(const xr_vector<u32>& ids, bool enabled)
+{
+	syncronize();
+	std::lock_guard<std::mutex> lock(triangle_state_lock);
+	for (u32 id : ids)
+		if (id >= static_cast<u32>(tris_count)) return false;
+	const auto previous = get_triangle_state();
+	bool changed = false;
+	for (u32 id : ids)
+		if ((!previous || previous->enabled.empty() || previous->enabled[id] != 0) != enabled)
+			changed = true;
+	if (!changed) return true;
+	auto next = std::make_shared<TriangleState>();
+	if (previous && !previous->enabled.empty()) next->enabled = previous->enabled;
+	else next->enabled.assign(tris_count, 1);
+	for (u32 id : ids) next->enabled[id] = enabled ? 1 : 0;
+	if (std::find(next->enabled.begin(), next->enabled.end(), u8(0)) == next->enabled.end())
+		next->enabled.clear();
+	next->revision = ++static_triangle_revision;
+	std::atomic_store(&triangle_state, TriangleStatePtr(next));
+	return true;
+}
+
+void MODEL::reset_triangles()
+{
+	std::lock_guard<std::mutex> lock(triangle_state_lock);
+	const auto previous = get_triangle_state();
+	if (!previous || previous->enabled.empty()) return;
+	auto next = std::make_shared<TriangleState>();
+	next->revision = ++static_triangle_revision;
+	std::atomic_store(&triangle_state, TriangleStatePtr(next));
 }
 
 struct BTHREAD_params
