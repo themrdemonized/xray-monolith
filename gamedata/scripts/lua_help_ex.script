@@ -842,7 +842,10 @@
     // eStateAttack_* substates reach the shared monster and group attack selectors; the top-level ids
     // below them reach each species state manager. A proposal is honored only where that species
     // registers the state and its own start conditions pass. Species notes:
-    //   eStateThreaten - chimera only (the dormant GSC intimidation display: walk up, roar, creep)
+    //   eStateThreaten - chimera only (the dormant GSC intimidation machine: roar, creep, walk display).
+    //     The chimera's roar animation row is a GSC idle stub, so the roar phase stands still;
+    //     the proposer owns the visible display (set_override_animation + its own motion asset).
+    //     The creep and walk phases use the model's own motions.
     //   eStateAttack_Psy - psy dog only (hide in cover while the phantoms press)
     //   eStateHitted - flinch/disengage; anchors on hit memory, propose only after a real hit
     //     (get_monster_hit_info), else the retreat anchors at the world origin
