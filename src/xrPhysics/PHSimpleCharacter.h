@@ -183,6 +183,7 @@ public:
 	virtual void Disable();
 	virtual void EnableObject(CPHObject* obj);
 	virtual void Enable();
+	void OnStaticGeometryChanged() override;
 	virtual void SetBox(const dVector3& sizes);
 	virtual bool UpdateRestrictionType(CPHCharacter* ach);
 	//get-set

@@ -46,6 +46,7 @@ public:
 };
 
 extern "C" XRPHYSICS_API IPHWorld* __stdcall physics_world();
+extern "C" XRPHYSICS_API void __stdcall notify_static_geometry_changed(const Fbox& bounds);
 class CObjectSpace;
 class CObjectList;
 class CRenderDeviceBase;

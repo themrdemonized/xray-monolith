@@ -50,6 +50,11 @@ class CPHWorld : public pureFrame,
 	static const u32 update_delay = 1;
 	///	dSpaceID					Space														;
 
+	std::mutex static_geometry_mutex;
+	bool has_static_geometry_change = false;
+	Fbox static_geometry_bounds;
+	void WakeChangedStaticGeometry();
+
 	CPHMesh Mesh;
 	PH_OBJECT_STORAGE m_objects;
 	PH_OBJECT_STORAGE m_freezed_objects;
@@ -107,6 +112,7 @@ public:
 
 	void FrameStep(dReal step = 0.025f);
 	void Step();
+	void QueueStaticGeometryChanged(const Fbox& bounds);
 	void StepTouch();
 	void CutVelocity(float l_limit, float a_limit);
 	void GetState(V_PH_WORLD_STATE& state);

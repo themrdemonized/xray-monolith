@@ -140,6 +140,12 @@ virtual		IPhysicsShellHolder	*ref_object					()										=0;
 	IC const CLBits& collide_bits() const { return m_collide_bits; }
 	IC const _flags<CLClassBits>& collide_class_bits() const { return m_collide_class_bits; }
 	void CollideDynamics();
+	virtual void OnStaticGeometryChanged()
+	{
+		EnableObject(this);
+		Island().Enable();
+	}
+
 };
 
 
