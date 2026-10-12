@@ -310,7 +310,7 @@ extern "C" void __stdcall notify_static_geometry_changed(const Fbox& bounds)
 
 void CPHWorld::QueueStaticGeometryChanged(const Fbox& bounds)
 {
-	std::lock_guard<std::mutex> lock(static_geometry_mutex);
+	xrSRWLockGuard guard(static_geometry_lock);
 	if (has_static_geometry_change) static_geometry_bounds.merge(bounds);
 	else static_geometry_bounds = bounds;
 	has_static_geometry_change = true;
@@ -320,7 +320,7 @@ void CPHWorld::WakeChangedStaticGeometry()
 {
 	Fbox bounds;
 	{
-		std::lock_guard<std::mutex> lock(static_geometry_mutex);
+		xrSRWLockGuard guard(static_geometry_lock);
 		if (!has_static_geometry_change) return;
 		bounds = static_geometry_bounds;
 		has_static_geometry_change = false;

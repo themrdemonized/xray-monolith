@@ -50,7 +50,7 @@ class CPHWorld : public pureFrame,
 	static const u32 update_delay = 1;
 	///	dSpaceID					Space														;
 
-	std::mutex static_geometry_mutex;
+	xrSRWLock static_geometry_lock;
 	bool has_static_geometry_change = false;
 	Fbox static_geometry_bounds;
 	void WakeChangedStaticGeometry();
