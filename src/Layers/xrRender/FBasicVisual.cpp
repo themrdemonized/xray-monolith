@@ -169,6 +169,7 @@ void dxRender_Visual::Copy(dxRender_Visual* pFrom)
 	PCOPY(desc);
 #endif
 	PCOPY(flags);
+	set_static_geometry_enabled(pFrom->static_geometry_enabled());
 	PCOPY(dbg_id);
 	PCOPY(dbg_name);
 	PCOPY(dbg_shader);
