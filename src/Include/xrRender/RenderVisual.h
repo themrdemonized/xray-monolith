@@ -2,6 +2,8 @@
 #define	RenderVisual_included
 #pragma once
 
+#include <atomic>
+
 class IKinematics;
 class IKinematicsAnimated;
 class IParticleCustom;
@@ -16,7 +18,7 @@ enum IRenderVisualFlags
 class IRenderVisual
 {
 public:
-	IRenderVisual() { flags.zero(); }
+	IRenderVisual() : m_static_geometry_enabled(true) { flags.zero(); }
 
 	virtual ~IRenderVisual()
 	{
@@ -26,6 +28,12 @@ public:
 	virtual u32 getType() = 0;
 
 	Flags16 flags;
+
+	bool static_geometry_enabled() const { return m_static_geometry_enabled.load(std::memory_order_relaxed); }
+	void set_static_geometry_enabled(bool value) { m_static_geometry_enabled.store(value, std::memory_order_relaxed); }
+private:
+	std::atomic<bool> m_static_geometry_enabled;
+public:
 
 #ifdef DEBUG
 	virtual shared_str	_BCL	getDebugName() = 0;
