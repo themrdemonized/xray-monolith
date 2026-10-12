@@ -28,7 +28,9 @@ CStateManagerCat::CStateManagerCat(CCat* obj) : inherited(obj)
 	add_state(eStateHearDangerousSound, xr_new<CStateMonsterHearDangerousSound<CCat>>(obj));
 	add_state(eStateHitted, xr_new<CStateMonsterHitted<CCat>>(obj));
 
-	add_state(eStateThreaten, xr_new<CStateMonsterLookActor<CCat>>(obj));
+	// eStateThreaten -> CStateMonsterLookActor removed: a debug test state (faces the actor,
+	// derefs Level().CurrentEntity() unguarded) no selector branch ever picked; without the
+	// removal a monster_on_combat_action proposal of eStateThreaten could reach it
 	add_state(eStateHearHelpSound, xr_new<CStateMonsterHearHelpSound<CCat>>(obj));
 
 	m_rot_jump_last_time = 0;
@@ -48,6 +50,15 @@ void CStateManagerCat::execute()
 
 	if (enemy)
 	{
+		// a Lua-proposed state is taken only if registered and its own start conditions pass
+		u32 proposed = object->script_combat_substate();
+		CSState* proposed_state = (proposed != u32(-1)) ? get_state_if_present(proposed) : 0;
+
+		if (proposed_state && proposed_state->check_start_conditions())
+		{
+			state_id = proposed;
+		}
+		else
 		{
 			switch (object->EnemyMan.get_danger_type())
 			{
