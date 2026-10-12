@@ -1580,6 +1580,6 @@
 -- pda_map.info("global_map" or level_name) -> {ready=false}, or live metadata:
 -- ready, global, shown, locked, x, y, width, height, bound_x1/y1/x2/y2, zoom, aspect
 -- CUIWindow:GetParent() -> current parent or nil; IsChild(window) checks a direct child.
--- CUIScriptWnd:Draw() can be overridden; call the base to render children, sample live map geometry here.
+-- on_pda_map_update fires after map movement/navigation update; refresh Lua widgets before rendering.
 -- Attach Lua-owned widgets with SetAutoDelete(false) and AttachChildKeepOwner.
 -- UI pointers are transient; save plain Lua coordinates/styles, never widgets/metadata.

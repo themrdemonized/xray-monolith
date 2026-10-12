@@ -6,16 +6,6 @@ struct CWrapperBase : public T, public ::luabind::wrap_base
 	typedef T inherited;
 	typedef CWrapperBase<T> self_type;
 
-	virtual void Draw()
-	{
-		call_member<void>(this, "Draw");
-	}
-
-	static void Draw_static(inherited* ptr)
-	{
-		ptr->self_type::inherited::Draw();
-	}
-
 	virtual bool OnKeyboardAction(int dik, EUIMessages keyboard_action)
 	{
 		return call_member<bool>(this, "OnKeyboard", dik, keyboard_action);
