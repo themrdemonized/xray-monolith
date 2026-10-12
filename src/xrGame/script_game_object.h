@@ -863,6 +863,8 @@ public:
 	                             float max_distance);
 	void set_bloodsucker_vis_timing(float min_delay_ms);
 	void set_monster_turn_factor(float factor);
+	void set_monster_dest(const Fvector& position);
+	void clear_monster_dest();
 	bool can_kill_enemy();
 	bool can_kill_member();
 	bool fire_make_sense();

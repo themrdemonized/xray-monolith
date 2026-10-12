@@ -37,6 +37,7 @@
 #include "detail_path_manager_space.h"
 #include "level_debug.h"
 #include "ai/monsters/BaseMonster/base_monster.h"
+#include "ai/monsters/control_path_builder_base.h"
 #include "ai/monsters/state_manager.h"
 #include "ai/monsters/monster_cover_manager.h"
 #include "ai/monsters/control_manager_custom.h"
@@ -680,6 +681,30 @@ void CScriptGameObject::set_monster_turn_factor(float factor)
 		return;
 	}
 	monster->set_turn_speed_factor(factor);
+}
+
+void CScriptGameObject::set_monster_dest(const Fvector& position)
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member set_monster_dest!");
+		return;
+	}
+	monster->path().set_dest_override(position);
+}
+
+void CScriptGameObject::clear_monster_dest()
+{
+	CBaseMonster* monster = smart_cast<CBaseMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBaseMonster : cannot access class member clear_monster_dest!");
+		return;
+	}
+	monster->path().clear_dest_override();
 }
 
 void CScriptGameObject::set_monster_run_attack_params(float min_dist, float max_dist, float min_delay_ms,

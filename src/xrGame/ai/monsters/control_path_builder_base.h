@@ -102,6 +102,11 @@ class CControlPathBuilderBase : public CControl_ComBase
 	u32 m_time_global_failed_started;
 	u32 m_time_path_updated_external;
 
+	// per-object dest override (set_monster_dest bind); default off = vanilla
+	bool m_dest_override_active;
+	Fvector m_dest_override_point;
+	u32 m_dest_override_node;
+
 public:
 	CControlPathBuilderBase();
 	virtual ~CControlPathBuilderBase();
@@ -137,6 +142,8 @@ public:
 	// Set methods
 	void set_target_point(const Fvector& position, u32 node = u32(-1));
 	void set_target_point(u32 node);
+	void set_dest_override(const Fvector& position, u32 node = u32(-1));
+	void clear_dest_override();
 	void set_retreat_from_point(const Fvector& position);
 
 	IC void set_rebuild_time(u32 time);
