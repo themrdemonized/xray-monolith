@@ -577,6 +577,18 @@
     }
 
     level {
+        // Runtime masks for exact authored level IDs (zero-based). See docs/R1_static_geometry.md.
+        number static_geometry_version()
+        string static_geometry_file_signature(string name) // IEEE CRC32:length; nil if missing/unsupported
+        number static_visual_count()
+        number static_collision_count()
+        bool static_visual_enabled(number id)
+        bool static_collision_enabled(number id)
+        bool set_static_visuals_enabled(table ids, bool enabled)
+        bool set_static_collision_enabled(table ids, bool enabled)
+        bool set_static_geometry_enabled(table visual_ids, table triangle_ids, bool enabled)
+        bool reset_static_geometry() // Prefer restoring only IDs owned by your addon.
+
         float get_music_volume()
         void set_music_volume(float)
 
