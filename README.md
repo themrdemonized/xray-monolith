@@ -91,7 +91,7 @@ The original engine is used in S.T.A.L.K.E.R. Call of Pripyat game released by G
 
 # List of patches
 
-* PDA map drawing API for addons: independent layers, lines, markers, coordinates and input callbacks. [EN guide](docs/R1_PDA_Map_API_EN.md) / [RU guide](docs/R1_PDA_Map_API_RU.md).
+* PDA map inspection API for Lua addons. [EN](docs/R1_PDA_Map_API_EN.md) / [RU](docs/R1_PDA_Map_API_RU.md).
 
 * Moved solution to Visual Studio 2022, In case you have problems, make sure you installed the latest Visual C++ Redistributables. You can find them here: https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/
 

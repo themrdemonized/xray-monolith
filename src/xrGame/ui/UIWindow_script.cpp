@@ -207,6 +207,8 @@ void CUIWindow::script_register(lua_State* L)
 		.def("FindChild", &CUIWindow::FindChild)
 		.def("SetAutoDelete", &CUIWindow::SetAutoDelete)
 		.def("IsAutoDelete", &CUIWindow::IsAutoDelete)
+		.def("GetParent", &CUIWindow::GetParent)
+		.def("IsChild", &CUIWindow::IsChild)
 
 		.def("IsCursorOverWindow", &CUIWindow::CursorOverWindow)
 		.def("FocusReceiveTime", &CUIWindow::FocusReceiveTime)

@@ -1,7 +1,6 @@
 #include "pch_script.h"
 
 #include "script_ui_registrator.h"
-#include "ui/R1_PdaMapApi.h"
 #include "MainMenu.h"
 
 #include "UIGameCustom.h"
@@ -15,6 +14,9 @@
 #include "UI/UIComboBox.h"
 #include "ui/UIOptionsManagerScript.h"
 #include "ui/UIMapInfo.h"
+#include "ui/UIMapWnd.h"
+#include "ui/UIMap.h"
+#include <cmath>
 #include "ScriptXmlInit.h"
 #include "ui/UIActorMenu.h"
 
@@ -25,6 +27,64 @@
 using namespace luabind;
 
 CMainMenu* MainMenu();
+
+extern CUIMapWnd* GetMapWnd();
+
+static u32 r1_pda_map_version()
+{
+    return 2;
+}
+
+static CUIWindow* r1_pda_map_window()
+{
+    CUIMapWnd* window = GetMapWnd();
+    return window && window->GlobalMap() ? window->MapFrame() : nullptr;
+}
+
+// Read-only live map geometry; addons own their UI, drawing data and input.
+static luabind::object r1_pda_map_info(lua_State* L, LPCSTR name)
+{
+    luabind::object result = luabind::newtable(L);
+    result["ready"] = false;
+    CUIMapWnd* window = GetMapWnd();
+    if (!name || !window || !window->GlobalMap() || !window->MapFrame())
+        return result;
+
+    const bool global = xr_strcmp(name, "global_map") == 0;
+    CUICustomMap* map = global ? window->GlobalMap() : nullptr;
+    if (!global)
+    {
+        const auto& maps = window->GameMaps();
+        const auto it = maps.find(shared_str(name));
+        if (it != maps.end())
+            map = it->second;
+    }
+    if (!map || map->Heading())
+        return result;
+
+    const float zoom = map->GetCurrentZoom().x;
+    const float aspect = UI().get_current_kx();
+    if (!std::isfinite(zoom) || zoom <= EPS_L || !std::isfinite(aspect) || aspect <= EPS_L)
+        return result;
+    Frect rect;
+    map->GetAbsoluteRect(rect);
+    const Frect& bound = map->BoundRect();
+    result["ready"] = true;
+    result["global"] = global;
+    result["shown"] = window->IsShown() && map->IsShown();
+    result["locked"] = map->Locked();
+    result["x"] = rect.x1;
+    result["y"] = rect.y1;
+    result["width"] = rect.width();
+    result["height"] = rect.height();
+    result["bound_x1"] = bound.x1;
+    result["bound_y1"] = bound.y1;
+    result["bound_x2"] = bound.x2;
+    result["bound_y2"] = bound.y2;
+    result["zoom"] = zoom;
+    result["aspect"] = aspect;
+    return result;
+}
 
 #pragma optimize("s",on)
 void UIRegistrator::script_register(lua_State* L)
@@ -45,7 +105,13 @@ void UIRegistrator::script_register(lua_State* L)
 	CScriptXmlInit::script_register(L);
 	CUIGameCustom::script_register(L);
 	CUIActorMenu::script_register(L);
-	R1PdaMap::script_register(L);
+
+    module(L, "pda_map")
+    [
+        def("version", &r1_pda_map_version),
+        def("window", &r1_pda_map_window),
+        def("info", &r1_pda_map_info, raw<1>())
+    ];
 
 	module(L)
 	[

@@ -1574,11 +1574,11 @@
     Script Attachment Guide: https://anomaly-modding-book.netlify.app/docs/tutorials/scripting/script-attachments
 --]]
 
---[[
-R1 PDA Map API v1: Lua module pda_map.
-Generic retained layers, lines/polylines/textured markers, map/UI coordinates and input ownership.
-Check pda_map and pda_map.version() == 1 before use.
-Full signatures and lifecycle: docs/R1_PDA_Map_API_EN.md and docs/R1_PDA_Map_API_RU.md.
-Callbacks: on_pda_map_input(event), on_pda_map_visibility(shown).
-Tools, UI, undo and annotation save data remain addon-side.
---]]
+-- PDA map inspection API v2 (drawing/UI/input/save data belong to Lua addons).
+-- pda_map.version() -> 2
+-- pda_map.window() -> current map viewport CUIWindow, or nil before initialization
+-- pda_map.info("global_map" or level_name) -> {ready=false}, or live metadata:
+-- ready, global, shown, locked, x, y, width, height, bound_x1/y1/x2/y2, zoom, aspect
+-- CUIWindow:GetParent() -> current parent or nil; IsChild(window) checks a direct child.
+-- Attach Lua-owned widgets with SetAutoDelete(false) and AttachChildKeepOwner.
+-- UI pointers are transient; save plain Lua coordinates/styles, never widgets/metadata.

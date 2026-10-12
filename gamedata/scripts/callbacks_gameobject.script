@@ -290,10 +290,6 @@ function pda.property_box_clicked(property_ui)
 		pda.map_spot_property.id, pda.map_spot_property.level_name, prop, list_item:GetTAG())
 end
 
--- Generic PDA map API: input(event) and visibility(shown). See docs/R1_PDA_Map_API_EN.md.
-AddScriptCallback("on_pda_map_input")
-AddScriptCallback("on_pda_map_visibility")
-
 AddScriptCallback("on_map_right_click")
 _G.COnRightClickMap = function(property_ui, map_table)
 	pda.map_spot_property.id = map_table.object_id
