@@ -67,6 +67,6 @@ See [R1_Pda_Map_Example.lua](../examples/R1_Pda_Map_Example.lua) for a small opt
 
 Use the upstream VS2022 `src/engine-vs2022.sln` build procedure and preserve the original license/credits. The new `.cpp` is listed in `xrGame.vcxproj`; the module is registered from `ui_export_script.cpp`. [RU documentation](R1_PDA_Map_API_RU.md).
 
-Verification evidence for this revision is documented in [R1_PDA_Map_Validation.md](R1_PDA_Map_Validation.md). Object compilation and standalone coordinate/geometry tests do not establish a linked engine build, in-game drawing, 2D/3D PDA input, MT UI scheduling, renderer compatibility, modpack compatibility, or FPS. No game-ready binary release is supplied.
+Verification evidence is documented in [R1_PDA_Map_Validation.md](R1_PDA_Map_Validation.md). Full ordinary and MT DX11 builds were linked; ordinary native 2D drawing, independent layers, input ownership and Lua save/cold-load restoration passed. Physical freehand input, 3D PDA, other renderers/AVX, modpack compatibility and performance remain unverified. MT native acceptance is incomplete. This source contribution does not publish a binary release.
 
 Game acceptance scenarios: two independent addon layers; drawing/panning/zooming over map spots; viewport-edge clipping in 2D and 3D PDA; wheel/nav/context-menu behavior while a tool owns input; hide/reopen/death/load/transition cleanup; failed duplicate input acquisition; point/texture limits and malformed data. Check ordinary and MT builds and each required renderer/configuration separately.
