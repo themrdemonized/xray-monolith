@@ -80,6 +80,12 @@ IC int dcTriListCollider::dSortTriPrimitiveCollide(
 )
 {
 	dxGeomUserData* data = dGeomGetUserData(o1);
+	const u64 revision = inl_ph_world().ObjectSpace().GetStaticModel()->get_triangle_revision();
+	if (data->static_geometry_revision != revision)
+	{
+		dGeomUserDataResetLastPos(o1);
+		data->static_geometry_revision = revision;
+	}
 	dReal* last_pos = data->last_pos;
 	bool no_last_pos = last_pos[0] == -dInfinity;
 	const dReal* p = dGeomGetPosition(o1);
