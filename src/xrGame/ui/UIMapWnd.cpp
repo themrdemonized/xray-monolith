@@ -34,6 +34,7 @@ CUIMapWnd* GetMapWnd()
 CUIMapWnd::CUIMapWnd()
 {
 	m_script_map_ready = false;
+	m_script_map_canvas = NULL;
 	m_script_map_layers = R1PdaMap::create(*this);
 	m_UILevelFrame = NULL;
 	m_UIPropertiesBox = NULL;
@@ -62,6 +63,7 @@ CUIMapWnd::CUIMapWnd()
 CUIMapWnd::~CUIMapWnd()
 {
 	m_script_map_ready = false;
+	xr_delete(m_script_map_canvas);
 	R1PdaMap::destroy(m_script_map_layers);
 	delete_data(m_ActionPlanner);
 	delete_data(m_GameMaps);
@@ -144,7 +146,8 @@ void CUIMapWnd::Init(LPCSTR xml_name, LPCSTR start_from)
 	m_GlobalMap->Initialize();
 
 	m_UILevelFrame->AttachChild(m_GlobalMap);
-	m_UILevelFrame->AttachChild(R1PdaMap::create_canvas(*m_script_map_layers));
+	m_script_map_canvas = R1PdaMap::create_canvas(*m_script_map_layers);
+	m_UILevelFrame->AttachChild(m_script_map_canvas);
 	m_GlobalMap->OptimalFit(m_UILevelFrame->GetWndRect());
 	m_GlobalMap->SetMinZoom(m_GlobalMap->GetCurrentZoom().x);
 	m_currentZoom = m_GlobalMap->GetCurrentZoom().x;

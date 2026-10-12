@@ -1,7 +1,3 @@
-## R1 PDA Map API source fork
-
-Generic Lua capabilities for addon drawing/input on the PDA map. [EN](R1_Readme_EN.md) / [RU](R1_Readme_RU.md) / [Validation](docs/R1_PDA_Map_Validation.md). Development source; no game-tested binary release.
-
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/themrdemonized/xray-monolith)
 
 # STALKER-Anomaly-modded-exes
@@ -94,6 +90,8 @@ This repository contains XRAY Engine sources based on version 1.6.02 and the Cal
 The original engine is used in S.T.A.L.K.E.R. Call of Pripyat game released by GSC Game World and any changes to this engine are allowed for ***non-commercial*** use only.
 
 # List of patches
+
+* PDA map drawing API for addons: independent layers, lines, markers, coordinates and input callbacks. [EN guide](docs/R1_PDA_Map_API_EN.md) / [RU guide](docs/R1_PDA_Map_API_RU.md).
 
 * Moved solution to Visual Studio 2022, In case you have problems, make sure you installed the latest Visual C++ Redistributables. You can find them here: https://www.techpowerup.com/download/visual-c-redistributable-runtime-package-all-in-one/
 

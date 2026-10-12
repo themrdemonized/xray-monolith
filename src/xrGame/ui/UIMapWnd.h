@@ -32,6 +32,7 @@ class CUIMapWnd : public CUIWindow, public CUIWndCallback
 	typedef CUIWindow inherited;
 private:
 	R1PdaMap::Store* m_script_map_layers;
+	CUIWindow* m_script_map_canvas;
 	bool m_script_map_ready;
 	bool m_view_actor;
 	Fvector2 m_prev_actor_pos;

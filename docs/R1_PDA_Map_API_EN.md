@@ -53,7 +53,7 @@ Visibility fires after the map's show/hide operation. Input fires only for the c
 
 The event contains `owner`, `layer`, `action`, `dik` (`-1` for mouse), `screen_x`, `screen_y`, `shift`, `ctrl`, `alt`, `left_held`, `consume=false`; valid projection also supplies `global_x`, `global_y`. Over a level rectangle it adds `level_name`, `world_x`, `world_z`. Level detection uses the current rectangles rather than the previous frame's hover pointer. It does not raycast for world Y or calculate graph vertices.
 
-Actions: `left_down`, `left_up`, `left_double_click`, `right_down`, `right_up`, `middle_down`, `middle_up`, `mouse_move`, `wheel_up`, `wheel_down`, `key_down`, `key_up`. Set `event.consume=true` only for input handled by your tool. Otherwise the original map input/spot actions continue. Filter on your own `event.layer`; never overwrite another addon's consumption decision. Callback handlers can add/remove/release commands because no layer mutex is held while Lua runs.
+Actions: `left_down`, `left_up`, `left_double_click`, `right_down`, `right_up`, `middle_down`, `middle_up`, `mouse_move`, `wheel_up`, `wheel_down`, `key_down`, `key_up`. Set `event.consume=true` only for input handled by your tool. Otherwise the original map input/spot actions continue. Filter on your own `event.layer`; never overwrite another addon's consumption decision. Callback handlers can add/remove/release commands because no layer lock is held while Lua runs.
 
 ## Lifecycle and persistence
 
@@ -67,6 +67,6 @@ See [R1_Pda_Map_Example.lua](../examples/R1_Pda_Map_Example.lua) for a small opt
 
 Use the upstream VS2022 `src/engine-vs2022.sln` build procedure and preserve the original license/credits. The new `.cpp` is listed in `xrGame.vcxproj`; the module is registered from `ui_export_script.cpp`. [RU documentation](R1_PDA_Map_API_RU.md).
 
-Verification evidence is documented in [R1_PDA_Map_Validation.md](R1_PDA_Map_Validation.md). Full ordinary and MT DX11 builds were linked; ordinary native 2D drawing, independent layers, input ownership and Lua save/cold-load restoration passed. Physical freehand input, 3D PDA, other renderers/AVX, modpack compatibility and performance remain unverified. MT native acceptance is incomplete. This source contribution does not publish a binary release.
+This PR is a draft. Build and runtime evidence belongs to its PR description; test results apply only to the listed revision and scenario.
 
 Game acceptance scenarios: two independent addon layers; drawing/panning/zooming over map spots; viewport-edge clipping in 2D and 3D PDA; wheel/nav/context-menu behavior while a tool owns input; hide/reopen/death/load/transition cleanup; failed duplicate input acquisition; point/texture limits and malformed data. Check ordinary and MT builds and each required renderer/configuration separately.
