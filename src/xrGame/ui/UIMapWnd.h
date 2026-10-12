@@ -2,6 +2,7 @@
 
 #include "UIWindow.h"
 #include "UIWndCallback.h"
+#include "R1_PdaMapApi.h"
 
 
 class CUICustomMap;
@@ -30,6 +31,7 @@ class CUIMapWnd : public CUIWindow, public CUIWndCallback
 {
 	typedef CUIWindow inherited;
 private:
+	R1PdaMap::Store* m_script_map_layers;
 	bool m_view_actor;
 	Fvector2 m_prev_actor_pos;
 
@@ -145,6 +147,8 @@ public:
 
 
 	void MoveMap(Fvector2 const& pos_delta);
+	R1PdaMap::Store* ScriptMapLayers() { return m_script_map_layers; }
+	bool ScriptInputAllowed(const Fvector2& cursor);
 	float GetZoom() { return m_currentZoom; }
 	void SetZoom(float value);
 
