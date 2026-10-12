@@ -71,24 +71,13 @@ runtime state, not a general-purpose destructive level editor.
 
 ## Validation
 
-Ordinary and MT DX11 x64 builds compile. The portable native tests in
-`R1_Tests/R1_Static_Geometry` exercise the real CDB libraries: 19 ordinary checks,
-21 MT checks (including OBB) and 10000 concurrent snapshot queries. These are
-console-host tests, not renderer or ODE acceptance.
-
-An external stock Army Warehouses tank example has ordinary in-game evidence for
-visibility/LOD, removal and restoration of collision, a character falling from
-removed support, mismatch/missing-descriptor guards and save/reload reapplication.
-The same bounded MT scene passed removal/restoration, character physics and
-save/reload reapplication. Its final test ran on a verified private Windows
-desktop with effects/music volume zero. Early background-load timeouts and an
-unchanged engine `-nosound` rain path failure are retained in the external test
-history; the harness uses normal sound objects at zero volume, disables the
-loading key prompt and resumes its unattended simulation. These scene checks are
-not all-scene MT acceptance. No map files or game assets are in this engine patch.
+Build the ordinary DX11 x64 solution, then run the real CDB tests documented in
+`R1_Tests/R1_Static_Geometry/R1_Readme_EN.md` (RU instructions are alongside).
+They cover mask updates, concurrent immutable snapshots and query semantics.
+The console host does not initialize Lua, rendering or ODE gameplay. An external
+stock Army Warehouses tank scenario has separate October 12 in-game evidence;
+that evidence does not certify later revisions, other renderers or modpacks.
 
 A missing optional addon manifest is safely refused; a missing mandatory level
 resource may fail in the engine loader before addon Lua can run. This API guards
-addon operations, not broken map installations. Exact external receipts identify
-the tested source bases and binaries. HOM, navigation, baked lighting, other
-renderers/AVX and arbitrary modpacks still require their own acceptance.
+addon operations, not broken map installations.
