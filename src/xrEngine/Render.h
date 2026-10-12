@@ -271,6 +271,7 @@ public:
 	// virtual ref_shader getShader (int id) = 0;
 	virtual IRender_Sector* getSector(int id) = 0;
 	virtual IRenderVisual* getVisual(int id) = 0;
+	virtual u32 getStaticVisualCount() const = 0;
 	virtual IRender_Sector* detectSector(const Fvector& P) = 0;
 	virtual IRender_Target* getTarget() = 0;
 
