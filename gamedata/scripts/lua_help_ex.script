@@ -1573,3 +1573,12 @@
     
     Script Attachment Guide: https://anomaly-modding-book.netlify.app/docs/tutorials/scripting/script-attachments
 --]]
+
+--[[
+R1 PDA Map API v1: Lua module pda_map.
+Generic retained layers, lines/polylines/textured markers, map/UI coordinates and input ownership.
+Check pda_map and pda_map.version() == 1 before use.
+Full signatures and lifecycle: docs/R1_PDA_Map_API_EN.md and docs/R1_PDA_Map_API_RU.md.
+Callbacks: on_pda_map_input(event), on_pda_map_visibility(shown).
+Tools, UI, undo and annotation save data remain addon-side.
+--]]

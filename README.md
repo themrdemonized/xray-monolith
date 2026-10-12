@@ -1,3 +1,7 @@
+## R1 PDA Map API source fork
+
+Generic Lua capabilities for addon drawing/input on the PDA map. [EN](R1_Readme_EN.md) / [RU](R1_Readme_RU.md) / [Validation](docs/R1_PDA_Map_Validation.md). Development source; no game-tested binary release.
+
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/themrdemonized/xray-monolith)
 
 # STALKER-Anomaly-modded-exes
