@@ -32,13 +32,13 @@ end
 
 function on_game_start()
     local cls = ui_main_menu.main_menu
-    local original_update, original_show = cls.Update, cls.Show
+    local original_update = cls.Update
     cls.Update = function(self,...)
         original_update(self,...)
         if self:IsShown() then update() end
     end
-    cls.Show = function(self,state,...)
-        original_show(self,state,...)
-        if not state then stop() end
-    end
+    RegisterScriptCallback("actor_on_update",function()
+        if token and not level.menu_scene_active(token) then stop() end
+    end)
+    RegisterScriptCallback("actor_on_net_destroy",stop)
 end

@@ -20,3 +20,5 @@ Ownership ends on menu close, UI reload, level stop or menu destruction. Camera,
 Keep location loading, NPC choice, animation, orbit paths, collision checks, input, HUD/body visibility, UI and random selection in Lua. This API contains no R1 addon scene data, binary addresses, DLL hooks or alternate clock. Lua code that independently mutates the world can still change it during pause; visual/audio effects need scenario-specific acceptance. MT and other renderers need separate adaptation/testing.
 
 `examples/R1_Menu_Presentation_Demo/gamedata/scripts/R1_menu_presentation_demo.script` shows a Lua-owned pause orbit; it requires a loaded level and this custom EXE. It is not the full R1 3D Menu addon or a migration of its DLL backend.
+
+The tested two-file fixture is in `examples/R1_Menu_API_Test`; see its RU/EN readmes. Its NPC creation and acceptance runner are external to the installable addon.
