@@ -35,7 +35,6 @@
 #include "inventoryowner.h"
 #include "inventory.h"
 #include "xr_level_controller.h"
-#include <atomic>
 #include "activatingcharcollisiondelay.h"
 #include "stalker_movement_manager_smart_cover.h"
 
@@ -261,6 +260,8 @@ LPCSTR CCharacterPhysicsSupport::RagdollStatus() const
 		return "active";
 	if (physics_world()->Processing())
 		return "physics_processing";
+	if (physics_world()->IsFreezed())
+		return "physics_frozen";
 	if (m_pPhysicsShell || !movement()->CharacterExist() || m_EntityAlife.animation_movement_controlled())
 		return "busy";
 	CActor* actor = smart_cast<CActor*>(&m_EntityAlife);
@@ -283,7 +284,7 @@ u32 CCharacterPhysicsSupport::RagdollStart()
 {
 	if (xr_strcmp(RagdollStatus(), "available"))
 		return 0;
-	static std::atomic<u32> next_token{0};
+	static xr_atomic_u32 next_token{0};
 	do { m_ragdoll_token = ++next_token; } while (!m_ragdoll_token);
 	IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
 	m_ragdoll_animation_root = model->LL_GetBoneRoot();
@@ -303,7 +304,7 @@ u32 CCharacterPhysicsSupport::RagdollStart()
 bool CCharacterPhysicsSupport::RagdollStop(u32 token)
 {
 	if (!token || token != m_ragdoll_token || !m_EntityAlife.g_Alive() || !m_pPhysicsShell ||
-		physics_world()->Processing())
+		physics_world()->Processing() || physics_world()->IsFreezed() || m_pPhysicsShell->IsFreezed())
 		return false;
 	// Test the living collision box before removing the body. A blocked recovery
 	// retains the same body/token so the addon can retry later.
@@ -319,11 +320,6 @@ bool CCharacterPhysicsSupport::RagdollStop(u32 token)
 	}
 	m_EntityAlife.deactivate_physics_shell();
 	IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
-	for (u16 bone = 0; bone < model->LL_BoneCount(); ++bone)
-	{
-		model->LL_GetBoneInstance(bone).reset_callback();
-		model->LL_GetBoneInstance(bone).set_callback_overwrite(FALSE);
-	}
 	model->LL_SetBoneRoot(m_ragdoll_animation_root);
 	m_flags.assign(m_ragdoll_flags);
 	m_eState = esAlive;
@@ -477,18 +473,9 @@ void CCharacterPhysicsSupport::in_NetDestroy()
 void CCharacterPhysicsSupport::in_NetSave(NET_Packet& P)
 {
 	if (RagdollActive())
-	{
-		// Runtime ragdolls are not serialized as corpse bones or addon tokens.
-		IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
-		P.w_u8(0);
-		P.w_u64(model->LL_GetBonesVisible());
-		P.w_u16(m_ragdoll_animation_root);
-		P.w_vec3(Fvector(mXFORM.c).sub(2.f * EPS_L));
-		P.w_vec3(Fvector(mXFORM.c).add(2.f * EPS_L));
-		P.w_u16(0);
-		return;
-	}
-	CPHSkeleton::SaveNetState(P);
+		CPHSkeleton::SaveNetState(P, false, m_ragdoll_animation_root);
+	else
+		CPHSkeleton::SaveNetState(P);
 }
 
 void CCharacterPhysicsSupport::in_Init()

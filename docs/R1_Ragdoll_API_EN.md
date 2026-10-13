@@ -14,7 +14,7 @@ modpacks need separate validation; compatibility is not inferred from compilatio
 
 | Method | Result |
 | --- | --- |
-| `object:ragdoll_status()` | `available`, `active`, `not_alive`, `physics_processing`, `busy`, `in_holder`, `unsupported_model`, or `unsupported_type` |
+| `object:ragdoll_status()` | `available`, `active`, `not_alive`, `physics_processing`, `physics_frozen`, `busy`, `in_holder`, `unsupported_model`, or `unsupported_type` |
 | `object:ragdoll_start()` | Nonzero exclusive request token; zero means refused without starting a request |
 | `object:ragdoll_active()` | Whether the temporary state currently exists |
 | `object:ragdoll_stop(token)` | True on completed recovery; false for a wrong/expired token, death, absent body, physics processing or blocked recovery |
@@ -36,7 +36,7 @@ end
 
 The same methods work on `db.actor`. Use the existing physics-shell bindings for
 velocity and other supported physical controls. Start/stop refuse calls during
-physics processing; queue the gameplay request until a safe update instead of
+physics processing/frozen worlds; recovery also refuses a frozen body. Queue the gameplay request until a safe update instead of
 calling from a collision callback. A successful stop restores the living movement
 controller and animation callbacks. A blocked recovery leaves the same request
 active so its owner can retry; it is not reported as success.
@@ -66,7 +66,8 @@ Addons that replace low-level character state still require compatibility checks
 
 ## Separate example and references
 
-`R1_Ragdoll_Demo` is a small external Lua addon: F6 aimed NPC, F7 actor, F8 recover
+The separate [R1 Ragdoll Demo branch](https://github.com/noname-r1nk1/R1_XREAL_xray-monolith/tree/R1_ragdoll_demo/examples/R1_Ragdoll_Demo)
+contains a small external Lua addon: F6 aimed NPC, F7 actor, F8 recover
 its own requests; optional MCM duration/push settings. It does not run automatically
 when this engine contribution is installed. Tests and build tools remain local.
 
