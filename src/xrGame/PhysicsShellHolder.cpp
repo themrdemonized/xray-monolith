@@ -37,6 +37,12 @@ CPhysicsShellHolder::~CPhysicsShellHolder()
 	destroy_physics_shell(m_pPhysicsShell);
 }
 
+bool CPhysicsShellHolder::is_script_ragdoll() const
+{
+	const CCharacterPhysicsSupport* support = character_physics_support();
+	return support && support->RagdollActive();
+}
+
 const IObjectPhysicsCollision* CPhysicsShellHolder::physics_collision()
 {
 	CCharacterPhysicsSupport* char_support = character_physics_support();

@@ -429,6 +429,10 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 #endif
 		.def("get_hanging_lamp", &CScriptGameObject::get_hanging_lamp)
 		.def("get_physics_shell", &CScriptGameObject::get_physics_shell)
+		.def("ragdoll_start", &CScriptGameObject::ragdoll_start)
+		.def("ragdoll_stop", &CScriptGameObject::ragdoll_stop)
+		.def("ragdoll_active", &CScriptGameObject::ragdoll_active)
+		.def("ragdoll_status", &CScriptGameObject::ragdoll_status)
 		.def("get_holder_class", &CScriptGameObject::get_custom_holder)
 		.def("get_current_holder", &CScriptGameObject::get_current_holder)
 		//usable object

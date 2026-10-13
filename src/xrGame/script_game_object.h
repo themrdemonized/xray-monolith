@@ -746,6 +746,10 @@ public:
 
 	bool is_body_turning() const;
 	cphysics_shell_scripted* get_physics_shell() const;
+	u32 ragdoll_start();
+	bool ragdoll_stop(u32 token);
+	bool ragdoll_active() const;
+	LPCSTR ragdoll_status() const;
 	bool weapon_strapped() const;
 	bool weapon_unstrapped() const;
 	void eat(CScriptGameObject* item);

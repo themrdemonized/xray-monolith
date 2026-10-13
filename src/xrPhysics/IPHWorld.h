@@ -25,6 +25,7 @@ public:
 	virtual float Gravity() = 0;
 	virtual void SetGravity(float g) = 0;
 	virtual bool Processing() = 0;
+	virtual bool IsFreezed() = 0;
 	virtual u32 CalcNumSteps(u32 dTime) = 0;
 	virtual u64& StepsNum() = 0;
 

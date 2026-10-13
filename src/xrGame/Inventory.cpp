@@ -682,6 +682,8 @@ void CInventory::SendActionEvent(u16 cmd, u32 flags)
 
 bool CInventory::Action(u16 cmd, u32 flags)
 {
+	CPhysicsShellHolder* holder = smart_cast<CPhysicsShellHolder*>(m_pOwner);
+	if ((flags & CMD_START) && holder && holder->is_script_ragdoll()) return false;
 	CActor* pActor = smart_cast<CActor*>(m_pOwner);
 
 	if (pActor)
@@ -1305,6 +1307,9 @@ bool CInventory::CanTakeItem(CInventoryItem* inventory_item) const
 {
 	VERIFY(inventory_item);
 	VERIFY(m_pOwner);
+
+	CPhysicsShellHolder* holder = smart_cast<CPhysicsShellHolder*>(m_pOwner);
+	if (holder && holder->is_script_ragdoll()) return false;
 
 	if (inventory_item->object().getDestroy()) return false;
 

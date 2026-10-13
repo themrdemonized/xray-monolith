@@ -229,6 +229,8 @@ void CWeaponMagazined::Load(LPCSTR section)
 
 void CWeaponMagazined::FireStart()
 {
+	CPhysicsShellHolder* owner = smart_cast<CPhysicsShellHolder*>(H_Parent());
+	if (owner && owner->is_script_ragdoll()) return;
 	if (!IsMisfire())
 	{
 		if (IsValid())
@@ -732,6 +734,12 @@ bool CWeaponMagazined::cycleDownCheck() {
 
 void CWeaponMagazined::state_Fire(float dt)
 {
+	CPhysicsShellHolder* owner = smart_cast<CPhysicsShellHolder*>(H_Parent());
+	if (owner && owner->is_script_ragdoll())
+	{
+		StopShooting();
+		return;
+	}
 	if (iAmmoElapsed > 0)
 	{
 		VERIFY(fOneShotTime > 0.f);

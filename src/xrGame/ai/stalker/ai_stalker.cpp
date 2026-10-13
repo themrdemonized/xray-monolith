@@ -963,9 +963,19 @@ void CAI_Stalker::net_Import(NET_Packet& P)
 	setEnabled(TRUE);
 }
 
+void CAI_Stalker::OnScriptRagdollRecover()
+{
+	animation().reload();
+	animation().reinit();
+	// Old network samples must not pull the recovered NPC back to its start.
+	for (auto& sample : NET) sample.p_pos = Position();
+	NET_Last.p_pos = Position();
+	movement().detail().make_inactual();
+}
+
 void CAI_Stalker::update_object_handler()
 {
-	if (!g_Alive())
+	if (!g_Alive() || is_script_ragdoll())
 		return;
 
 	try
@@ -1023,6 +1033,12 @@ void CAI_Stalker::destroy_anim_mov_ctrl()
 
 void CAI_Stalker::UpdateCL()
 {
+	if (is_script_ragdoll())
+	{
+		CEntityAlive::UpdateCL();
+		m_pPhysics_support->in_UpdateCL();
+		return;
+	}
 	START_PROFILE("stalker")
 		START_PROFILE("stalker/client_update")
 			VERIFY2(PPhysicsShell()||getEnabled(), *cName());
@@ -1128,6 +1144,14 @@ BOOL NPCsLookAtActor = TRUE;
 float NPCsLookAtActorMinDistance = 3.5f;
 void CAI_Stalker::shedule_Update(u32 DT)
 {
+	if (is_script_ragdoll())
+	{
+		CEntityAlive::shedule_Update(DT);
+		UpdateInventoryOwner(DT);
+		m_pPhysics_support->in_shedule_Update(DT);
+		m_dwLastUpdateTime = Device.dwTimeGlobal;
+		return;
+	}
 	// Optimization update
 //	if (Device.dwFrame % 2) return;
 
@@ -1291,6 +1315,7 @@ void CAI_Stalker::spawn_supplies()
 
 void CAI_Stalker::Think()
 {
+	if (is_script_ragdoll()) return;
 	START_PROFILE("stalker/schedule_update/think")
 		u32 update_delta = Device.dwTimeGlobal - m_dwLastUpdateTime;
 
@@ -1357,6 +1382,7 @@ void CAI_Stalker::Think()
 
 void CAI_Stalker::SelectAnimation(const Fvector& view, const Fvector& move, float speed)
 {
+	if (is_script_ragdoll()) return;
 	if (!Device.Paused())
 		animation().update();
 }
