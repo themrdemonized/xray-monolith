@@ -133,6 +133,7 @@ CMainMenu::CMainMenu()
 
 CMainMenu::~CMainMenu()
 {
+	ResetScene();
 	Device.seqFrame.Remove(this);
 	xr_delete(g_btnHint);
 	xr_delete(g_statHint);
@@ -233,6 +234,9 @@ void CMainMenu::Activate(bool bActivate)
 	}
 	else
 	{
+		const bool restoreScenePause = m_sceneUsed && m_Flags.test(flRestorePause);
+		ResetScene();
+		m_sceneUsed = false;
 		m_deactivated_frame = Device.dwFrame;
 		m_Flags.set(flActive, FALSE);
 		m_Flags.set(flNeedChangeCapture, TRUE);
@@ -259,7 +263,8 @@ void CMainMenu::Activate(bool bActivate)
 		{
 			if (b_is_single)
 			{
-				Device.seqFrame.Add(g_pGameLevel);
+				if (m_sceneLevelFrame == Device.dwFrame) m_sceneResumeLevel = g_pGameLevel;
+				else Device.seqFrame.Add(g_pGameLevel);
 			}
 			Device.seqRender.Add(g_pGameLevel);
 		};
@@ -278,6 +283,7 @@ void CMainMenu::Activate(bool bActivate)
 			GetUICursor().Show();
 
 		Device.Pause(FALSE, TRUE, TRUE, "mm_deactivate2");
+		if (restoreScenePause) Device.Pause(TRUE, TRUE, FALSE, "menu scene restore pause");
 
 		if (m_Flags.test(flNeedVidRestart))
 		{
@@ -289,6 +295,7 @@ void CMainMenu::Activate(bool bActivate)
 
 bool CMainMenu::ReloadUI()
 {
+	ResetScene();
 	if (m_startDialog)
 	{
 		if (m_startDialog->IsShown())
@@ -316,9 +323,81 @@ bool CMainMenu::IsActive()
 	return !!m_Flags.test(flActive);
 }
 
+
+// Presentation only: Lua owns trajectories, subjects, UI and scene content.
+u32 CMainMenu::BeginScene(bool updateLevel)
+{
+	if (GetCurrentThreadId() != m_sceneThreadId || Device.isRendering || m_sceneToken || !IsActive() || !IsGameTypeSingle() || !g_pGameLevel || !g_pGameLevel->bReady ||
+		Device.dwPrecacheFrame || m_Flags.test(flNeedChangeCapture | flGameSaveScreenshot))
+		return 0;
+	static u32 serial = 0;
+	if (++serial == 0) ++serial;
+	m_sceneToken = serial;
+	m_sceneLevel = g_pGameLevel;
+	m_sceneUpdateLevel = updateLevel;
+	m_sceneWasPaused = !!Device.Paused();
+	m_sceneSavedSVP = Device.m_SecondViewport.IsSVPActive();
+	m_sceneUsed = true;
+	m_sceneSavedCamera = {Device.vCameraPosition, Device.vCameraDirection, Device.vCameraTop, Device.vCameraRight,
+		Device.mView, Device.mProject, Device.fFOV, Device.fASPECT};
+	m_sceneCamera = m_sceneSavedCamera;
+	Device.Pause(!updateLevel, TRUE, FALSE, "menu scene begin");
+	if (!updateLevel && !Device.Paused()) { ResetScene(); return 0; }
+	return m_sceneToken;
+}
+
+bool CMainMenu::IsSceneActive(u32 token) const
+{
+	return GetCurrentThreadId() == m_sceneThreadId && token && token == m_sceneToken && m_Flags.test(flActive) &&
+		m_sceneLevel == g_pGameLevel && g_pGameLevel && g_pGameLevel->bReady;
+}
+
+bool CMainMenu::SetSceneCamera(u32 token, const Fvector& position, const Fvector& direction, const Fvector& up, float fov)
+{
+	if (!IsSceneActive(token) || !_valid(position) || !_valid(direction) || !_valid(up) ||
+		!_valid(direction.square_magnitude()) || !_valid(up.square_magnitude()) ||
+		!_valid(fov) || fov <= 1.f || fov >= 179.f || direction.square_magnitude() < EPS || up.square_magnitude() < EPS)
+		return false;
+	Fvector d = direction, n = up, r;
+	d.normalize(); n.normalize(); r.crossproduct(n, d);
+	if (r.square_magnitude() < EPS) return false;
+	r.normalize(); n.crossproduct(d, r);
+	m_sceneCamera.position = position; m_sceneCamera.direction = d;
+	m_sceneCamera.up = n; m_sceneCamera.right = r; m_sceneCamera.fov = fov;
+	return true;
+}
+
+void CMainMenu::ApplySceneCamera(const SceneCamera& camera)
+{
+	Device.vCameraPosition = camera.position; Device.vCameraDirection = camera.direction;
+	Device.vCameraTop = camera.up; Device.vCameraRight = camera.right;
+	Device.mView = camera.view; Device.mProject = camera.projection;
+	Device.mInvView.invert(Device.mView); Device.mInvProject.invert(Device.mProject);
+	Device.fFOV = camera.fov; Device.fASPECT = camera.aspect;
+}
+
+void CMainMenu::ResetScene()
+{
+	m_sceneResumeLevel = nullptr;
+	if (!m_sceneToken) return;
+	m_sceneToken = 0;
+	if (m_sceneLevel == g_pGameLevel && g_pGameLevel && g_pGameLevel->bReady)
+		ApplySceneCamera(m_sceneSavedCamera);
+	Device.m_SecondViewport.SetSVPActive(m_sceneSavedSVP);
+	Device.Pause(m_sceneWasPaused, TRUE, FALSE, "menu scene end");
+	m_sceneLevel = nullptr; m_sceneUpdateLevel = false;
+}
+
+bool CMainMenu::EndScene(u32 token)
+{
+	if (GetCurrentThreadId() != m_sceneThreadId || !token || token != m_sceneToken) return false;
+	ResetScene();
+	return true;
+}
+
 bool CMainMenu::CanSkipSceneRendering()
 {
-	return IsActive() && !m_Flags.test(flGameSaveScreenshot);
+	return IsActive() && !m_sceneToken && !m_Flags.test(flGameSaveScreenshot);
 }
 
 //IInputReceiver
@@ -413,7 +492,7 @@ void CMainMenu::IR_OnMouseWheel(int direction)
 
 bool CMainMenu::OnRenderPPUI_query()
 {
-	return IsActive() && !m_Flags.test(flGameSaveScreenshot) && b_shniaganeed_pp;
+	return IsActive() && !m_sceneToken && !m_Flags.test(flGameSaveScreenshot) && b_shniaganeed_pp;
 }
 
 
@@ -489,13 +568,36 @@ void CMainMenu::StartStopMenu(CUIDialogWnd* pDialog, bool bDoHideIndicators)
 //pureFrame
 void CMainMenu::OnFrame()
 {
+	// Add during the next frame: registrator additions are visited immediately.
+	if (m_sceneResumeLevel)
+	{
+		if (!IsActive() && m_sceneResumeLevel == g_pGameLevel && g_pGameLevel->bReady)
+			Device.seqFrame.Add(g_pGameLevel);
+		m_sceneResumeLevel = nullptr;
+	}
 	if (m_Flags.test(flNeedChangeCapture))
 	{
 		m_Flags.set(flNeedChangeCapture,FALSE);
 		if (m_Flags.test(flActive)) IR_Capture();
 		else IR_Release();
 	}
+	if (m_sceneToken && !IsSceneActive(m_sceneToken)) ResetScene();
+	// Activate removed the level callback. Never tick it twice during save screenshots.
+	if (IsSceneLive() && !Device.Paused() && !m_Flags.test(flGameSaveScreenshot) && m_sceneLevelFrame != Device.dwFrame)
+	{
+		m_sceneLevelFrame = Device.dwFrame;
+		g_pGameLevel->OnFrame();
+	}
 	CDialogHolder::OnFrame();
+	if (m_sceneToken && IsSceneActive(m_sceneToken))
+	{
+		m_sceneCamera.aspect = float(Device.dwHeight) / float(Device.dwWidth);
+		m_sceneCamera.view.build_camera_dir(m_sceneCamera.position, m_sceneCamera.direction, m_sceneCamera.up);
+		m_sceneCamera.projection.build_projection(deg2rad(m_sceneCamera.fov), m_sceneCamera.aspect,
+			VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+		Device.m_SecondViewport.SetSVPActive(false);
+		ApplySceneCamera(m_sceneCamera);
+	}
 
 
 	//screenshot stuff
