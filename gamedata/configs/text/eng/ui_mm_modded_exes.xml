@@ -156,6 +156,13 @@
 		<text>Show Level Names On Global Map (pda_show_map_labels)</text>
 	</string>
 
+	<string id="ui_mm_modded_exes_visual_ui_hud_g_loading_screen_early">
+		<text>Show destination artwork immediately (g_loading_screen_early)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_ui_hud_g_loading_screen_early_desc">
+		<text>Shows destination level artwork from the first loading frame during zone transitions. Off keeps the existing loading screen. Default: OFF.</text>
+	</string>
+
 	<!-- Crosshair -->
 	<string id="ui_mm_crosshair_modded_exes">
 		<text>Crosshair</text>

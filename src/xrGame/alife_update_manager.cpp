@@ -193,6 +193,12 @@ bool CALifeUpdateManager::change_level(NET_Packet& net_packet)
 	net_packet.r(&graph().actor()->m_tNodeID, sizeof(graph().actor()->m_tNodeID));
 	net_packet.r_vec3(graph().actor()->o_Position);
 	net_packet.r_vec3(graph().actor()->o_Angle);
+	if (ai().game_graph().valid_vertex_id(graph().actor()->m_tGraphID))
+	{
+		const GameGraph::_LEVEL_ID destination_level =
+			ai().game_graph().vertex(graph().actor()->m_tGraphID)->level_id();
+		pApp->LoadScreenSetLevelLogo(*ai().game_graph().header().level(destination_level).name());
+	}
 
 	Level().ClientSave();
 

@@ -27,6 +27,8 @@ public:
 	string2048 ls_tip;
 private:
 	FactoryPtr<IApplicationRender> m_pRender;
+	string_path m_loading_logo_level{};
+	string_path m_loading_logo{};
 
 	int max_load_stage;
 
@@ -56,6 +58,7 @@ public:
 
 	// Loading
 	void LoadBegin();
+	void LoadScreenSetLevelLogo(LPCSTR level_name);
 	void LoadEnd();
 	void LoadTitleInt(LPCSTR str1, LPCSTR str2, LPCSTR str3);
 	void LoadStage();
@@ -74,6 +77,7 @@ public:
 };
 
 extern ENGINE_API CApplication* pApp;
+extern ENGINE_API int psLoadingScreenEarly;
 
 //Discord
 struct rpc_info

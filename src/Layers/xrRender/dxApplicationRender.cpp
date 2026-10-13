@@ -46,7 +46,10 @@ void dxApplicationRender::destroy_loading_shaders()
 
 void dxApplicationRender::setLevelLogo(LPCSTR pszLogoName)
 {
-	hLevelLogo.create("hud\\default", pszLogoName);
+	if (pszLogoName && pszLogoName[0])
+		hLevelLogo.create("hud\\default", pszLogoName);
+	else
+		hLevelLogo.destroy();
 }
 
 void dxApplicationRender::KillHW()
