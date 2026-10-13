@@ -1,0 +1,147 @@
+-- R1 Ragdoll Demo 0.1.0: small addon example for the native R1_ragdoll_api.
+-- Lowercase module name in X-Ray: r1_ragdoll_demo. No DLL, FFI or stock overrides.
+local requests, keys = {}, {}
+local registered, warned = false, false
+local pending_camera
+local controls_enabled=true
+local next_update, next_config = 0, 0
+local cfg = {enabled=true, duration=8, speed=2}
+
+local function now() return time_global() end
+local function log(text) printf("[R1RAGDEMO 0.1.0] %s", text) end
+local function message(text)
+    log(text)
+    if type(print_tip)=="function" then print_tip("R1 Ragdoll Demo: "..text) end
+end
+local function available(obj)
+    return obj and type(obj.ragdoll_start)=="function" and type(obj.ragdoll_stop)=="function"
+end
+local function restore_camera(rec)
+    if rec.camera ~= nil and db.actor and rec.id==db.actor:id() and level.get_active_cam()==1 then
+        level.set_active_cam(rec.camera)
+    end
+end
+local function resolve(rec)
+    local obj = level.object_by_id(rec.id)
+    if obj and obj:name()==rec.name then return obj end
+end
+local function refresh()
+    local mcm=rawget(_G,"ui_mcm")
+    if mcm and mcm.get then
+        local enabled=mcm.get("r1_ragdoll_demo/enabled")
+        cfg.enabled=enabled==nil or enabled==true
+        cfg.duration=math.max(1,math.min(30,tonumber(mcm.get("r1_ragdoll_demo/duration")) or 8))
+        cfg.speed=math.max(0,math.min(8,tonumber(mcm.get("r1_ragdoll_demo/speed")) or 2))
+    end
+end
+
+-- Public demo entry point: native start returns an exclusive request token.
+-- Only tokens returned to this addon are retained/released; other owners are untouched.
+function start(obj, duration, speed)
+    if not available(obj) then return false,"api_unavailable" end
+    if not obj:alive() then return false,"not_alive" end
+    local id=obj:id()
+    if requests[id] then return false,"already_owned" end
+    local camera
+    if db.actor and id==db.actor:id() then camera=level.get_active_cam() end
+    local token=obj:ragdoll_start()
+    if token==0 then return false,obj:ragdoll_status() end
+    local rec={id=id,name=obj:name(),token=token,camera=camera,
+        until_time=now()+math.max(1,math.min(30,tonumber(duration) or cfg.duration))*1000}
+    requests[id]=rec
+    if camera~=nil then level.set_active_cam(1) end
+    local shell=obj:get_physics_shell()
+    if shell then
+        local v=vector()
+        shell:get_linear_vel(v)
+        local direction=db.actor and db.actor:direction() or obj:direction()
+        local push=math.max(0,math.min(8,tonumber(speed) or cfg.speed))
+        v.x=v.x+direction.x*push; v.z=v.z+direction.z*push
+        v.y=math.max(v.y,0)+push*.25
+        shell:set_linear_vel(v)
+    end
+    log(string.format("START id=%d token=%d actor=%s",id,token,tostring(camera~=nil)))
+    return true,token
+end
+
+function release_all()
+    local t=now()
+    for _,rec in pairs(requests) do rec.until_time=t end
+end
+function set_controls_enabled(enabled) controls_enabled=enabled==true end
+
+function update()
+    if not db.actor then return end
+    if pending_camera~=nil then
+        level.set_active_cam(pending_camera);pending_camera=nil
+    end
+    local t=now()
+    if t>=next_config then refresh(); next_config=t+1000 end
+    if t>=next_update then
+        next_update=t+100
+        for id,rec in pairs(requests) do
+            local obj=resolve(rec)
+            if not obj or not obj:alive() or not obj:ragdoll_active() then
+                restore_camera(rec);requests[id]=nil
+            elseif not cfg.enabled or t>=rec.until_time then
+                if obj:ragdoll_stop(rec.token) then
+                    restore_camera(rec);requests[id]=nil
+                    log("RECOVER id="..id)
+                else
+                    -- Native recovery may be blocked by geometry/physics processing.
+                    rec.until_time=t+500
+                end
+            end
+        end
+    end
+    if not available(db.actor) then
+        if not warned then message("requires the R1 Ragdoll API EXE");warned=true end
+        return
+    end
+    if not controls_enabled then return end
+    -- Three cheap key checks; no object/world scans or automatic damage callbacks.
+    for _,dik in ipairs({DIK_keys.DIK_F6,DIK_keys.DIK_F7,DIK_keys.DIK_F8}) do
+        local state=key_state(dik)
+        local down=state==true or (type(state)=="number" and state~=0)
+        if down and not keys[dik] then
+            if dik==DIK_keys.DIK_F8 then
+                release_all()
+            elseif cfg.enabled and not device():is_paused() then
+                local obj=dik==DIK_keys.DIK_F7 and db.actor or level.get_target_obj()
+                if obj and (obj:id()==db.actor:id() or IsStalker(obj)) then
+                    local ok,why=start(obj)
+                    if not ok then message(tostring(why)) end
+                else message("aim at a living stalker NPC") end
+            end
+        end
+        keys[dik]=down
+    end
+end
+
+function save_state(data)
+    local actor_rec=db.actor and requests[db.actor:id()]
+    data.r1_ragdoll_demo_camera=actor_rec and actor_rec.camera or nil
+end
+function load_state(data)
+    requests={};keys={};next_update=0;next_config=0
+    -- Native transient bodies/tokens are not restored by save loading.
+    pending_camera=data and data.r1_ragdoll_demo_camera or nil
+end
+function dispose()
+    for _,rec in pairs(requests) do
+        local obj=resolve(rec)
+        if obj and obj:alive() then obj:ragdoll_stop(rec.token) end
+        restore_camera(rec)
+    end
+    requests={};keys={}
+end
+function on_game_start()
+    if registered then return end
+    registered=true
+    RegisterScriptCallback("actor_on_update",update)
+    RegisterScriptCallback("save_state",save_state)
+    RegisterScriptCallback("load_state",load_state)
+    RegisterScriptCallback("actor_on_net_destroy",dispose)
+    RegisterScriptCallback("on_before_level_changing",dispose)
+    log("BOOT F6=NPC F7=actor F8=recover; duration=8s; optional MCM")
+end

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+    <string id="r1_ragdoll_demo_title"><text>R1 Ragdoll Demo</text></string>
+    <string id="r1_ragdoll_demo_enabled"><text>Enable demo controls</text></string>
+    <string id="r1_ragdoll_demo_help"><text>F6: aimed stalker NPC. F7: player. F8: recover your requests. Requires the custom R1 Ragdoll API EXE. No automatic knockout rules.</text></string>
+    <string id="r1_ragdoll_demo_duration"><text>Seconds before recovery</text></string>
+    <string id="r1_ragdoll_demo_speed"><text>Initial push speed, m/s</text></string>
+</string_table>

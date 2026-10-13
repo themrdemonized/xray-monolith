@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+    <string id="r1_ragdoll_demo_title"><text>R1 Ragdoll Demo</text></string>
+    <string id="r1_ragdoll_demo_enabled"><text>Включить управление демонстрацией</text></string>
+    <string id="r1_ragdoll_demo_help"><text>F6: NPC-сталкер под прицелом. F7: игрок. F8: завершить свои падения. Нужна кастомная EXE с R1 Ragdoll API. Автоматические правила нокаута отсутствуют.</text></string>
+    <string id="r1_ragdoll_demo_duration"><text>Секунд до восстановления</text></string>
+    <string id="r1_ragdoll_demo_speed"><text>Начальная скорость толчка, м/с</text></string>
+</string_table>

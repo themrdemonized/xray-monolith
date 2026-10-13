@@ -1,0 +1,9 @@
+-- Optional MCM; the demo works with defaults without MCM.
+function on_mcm_load()
+    return {id="r1_ragdoll_demo",text="r1_ragdoll_demo_title",sh=true,gr={
+        {id="enabled",type="check",val=1,def=true,text="r1_ragdoll_demo_enabled"},
+        {id="help",type="desc",text="r1_ragdoll_demo_help"},
+        {id="duration",type="track",val=2,def=8,min=1,max=30,step=1,prec=0,text="r1_ragdoll_demo_duration"},
+        {id="speed",type="track",val=2,def=2,min=0,max=8,step=.5,prec=1,text="r1_ragdoll_demo_speed"}
+    }}
+end
