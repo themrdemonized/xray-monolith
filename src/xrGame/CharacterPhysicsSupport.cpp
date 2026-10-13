@@ -34,6 +34,8 @@
 #include "stalker_animation_manager.h"
 #include "inventoryowner.h"
 #include "inventory.h"
+#include "xr_level_controller.h"
+#include <atomic>
 #include "activatingcharcollisiondelay.h"
 #include "stalker_movement_manager_smart_cover.h"
 
@@ -132,6 +134,7 @@ CCharacterPhysicsSupport::CCharacterPhysicsSupport(EType atype, CEntityAlive* ae
 
 void CCharacterPhysicsSupport::SetRemoved()
 {
+	m_ragdoll_token = 0;
 	m_eState = esRemoved;
 	if (m_flags.test(fl_skeleton_in_shell))
 	{
@@ -248,8 +251,108 @@ bool CCharacterPhysicsSupport::CollisionCorrectObjPos()
 	return CollisionCorrectObjPos(m_EntityAlife.Position(), true);
 }
 
+LPCSTR CCharacterPhysicsSupport::RagdollStatus() const
+{
+	if (!IsGameTypeSingle() || m_eType == etBitting)
+		return "unsupported_type";
+	if (!m_EntityAlife.g_Alive() || m_EntityAlife.getDestroy() || m_eState == esRemoved)
+		return "not_alive";
+	if (RagdollActive())
+		return "active";
+	if (physics_world()->Processing())
+		return "physics_processing";
+	if (m_pPhysicsShell || !movement()->CharacterExist() || m_EntityAlife.animation_movement_controlled())
+		return "busy";
+	CActor* actor = smart_cast<CActor*>(&m_EntityAlife);
+	if (actor && actor->Holder())
+		return "in_holder";
+#ifdef HOLDERCUSTOM_NEW
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&m_EntityAlife);
+	if (stalker && stalker->Holder())
+		return "in_holder";
+#endif
+	IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
+	string1024 reason;
+	if (m_EntityAlife.use_simplified_visual() || !model || !smart_cast<IKinematicsAnimated*>(m_EntityAlife.Visual()) || model->LL_BoneID("bip01_pelvis") == BI_NONE ||
+		!can_create_phys_shell(reason, m_EntityAlife))
+		return "unsupported_model";
+	return "available";
+}
+
+u32 CCharacterPhysicsSupport::RagdollStart()
+{
+	if (xr_strcmp(RagdollStatus(), "available"))
+		return 0;
+	static std::atomic<u32> next_token{0};
+	do { m_ragdoll_token = ++next_token; } while (!m_ragdoll_token);
+	IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
+	m_ragdoll_animation_root = model->LL_GetBoneRoot();
+	m_ragdoll_flags = m_flags.get();
+	m_ragdoll_upright = mXFORM;
+	CInventoryOwner* owner = smart_cast<CInventoryOwner*>(&m_EntityAlife);
+	if (owner) owner->inventory().Action(kWPN_FIRE, CMD_STOP);
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&m_EntityAlife);
+	if (stalker)
+		stalker->animation().clear_script_animations();
+	DestroyIKController();
+	ActivateShell(nullptr);
+	m_flags.set(fl_use_hit_anims, FALSE);
+	return m_ragdoll_token;
+}
+
+bool CCharacterPhysicsSupport::RagdollStop(u32 token)
+{
+	if (!token || token != m_ragdoll_token || !m_EntityAlife.g_Alive() || !m_pPhysicsShell ||
+		physics_world()->Processing())
+		return false;
+	// Test the living collision box before removing the body. A blocked recovery
+	// retains the same body/token so the addon can retry later.
+	Fmatrix body = mXFORM;
+	mXFORM = m_ragdoll_upright;
+	mXFORM.c = body.c;
+	m_pPhysicsShell->DisableCollision();
+	if (!CollisionCorrectObjPos(mXFORM.c, true))
+	{
+		mXFORM = body;
+		m_pPhysicsShell->EnableCollision();
+		return false;
+	}
+	m_EntityAlife.deactivate_physics_shell();
+	IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
+	for (u16 bone = 0; bone < model->LL_BoneCount(); ++bone)
+	{
+		model->LL_GetBoneInstance(bone).reset_callback();
+		model->LL_GetBoneInstance(bone).set_callback_overwrite(FALSE);
+	}
+	model->LL_SetBoneRoot(m_ragdoll_animation_root);
+	m_flags.assign(m_ragdoll_flags);
+	m_eState = esAlive;
+	m_ragdoll_token = 0;
+	CreateCharacter();
+	movement()->SetVelocity(0, 0, 0);
+	CreateIKController();
+	CActor* actor = smart_cast<CActor*>(&m_EntityAlife);
+	if (actor)
+	{
+		actor->SetCallbacks();
+		actor->m_current_legs.invalidate();
+		actor->m_current_torso.invalidate();
+		actor->g_SetAnimation(0);
+	}
+	CAI_Stalker* stalker = smart_cast<CAI_Stalker*>(&m_EntityAlife);
+	if (stalker)
+	{
+		stalker->OnScriptRagdollRecover();
+	}
+	model->CalculateBones_Invalidate();
+	model->CalculateBones(TRUE);
+	m_EntityAlife.spatial_move();
+	return true;
+}
+
 void CCharacterPhysicsSupport::CreateCharacterSafe()
 {
+	if (RagdollActive()) return;
 	if (m_PhysicMovementControl->CharacterExist())return;
 	CollisionCorrectObjPos(m_EntityAlife.Position(), true);
 	CreateCharacter();
@@ -257,6 +360,7 @@ void CCharacterPhysicsSupport::CreateCharacterSafe()
 
 void CCharacterPhysicsSupport::CreateCharacter()
 {
+	if (RagdollActive()) return;
 	m_PhysicMovementControl->CreateCharacter();
 	m_PhysicMovementControl->SetPhysicsRefObject(&m_EntityAlife);
 	m_PhysicMovementControl->SetPosition(m_EntityAlife.Position());
@@ -344,6 +448,7 @@ void CCharacterPhysicsSupport::destroy_imotion()
 
 void CCharacterPhysicsSupport::in_NetDestroy()
 {
+	m_ragdoll_token = 0;
 	destroy(m_interactive_motion);
 	m_PhysicMovementControl->DestroyCharacter();
 
@@ -371,6 +476,18 @@ void CCharacterPhysicsSupport::in_NetDestroy()
 
 void CCharacterPhysicsSupport::in_NetSave(NET_Packet& P)
 {
+	if (RagdollActive())
+	{
+		// Runtime ragdolls are not serialized as corpse bones or addon tokens.
+		IKinematics* model = m_EntityAlife.Visual()->dcast_PKinematics();
+		P.w_u8(0);
+		P.w_u64(model->LL_GetBonesVisible());
+		P.w_u16(m_ragdoll_animation_root);
+		P.w_vec3(Fvector(mXFORM.c).sub(2.f * EPS_L));
+		P.w_vec3(Fvector(mXFORM.c).add(2.f * EPS_L));
+		P.w_u16(0);
+		return;
+	}
 	CPHSkeleton::SaveNetState(P);
 }
 
@@ -638,7 +755,8 @@ void CCharacterPhysicsSupport::in_UpdateCL()
 		else
 			m_interactive_motion->update();
 
-		UpdateDeathAnims();
+		if (!RagdollActive())
+			UpdateDeathAnims();
 
 		m_character_shell_control.UpdateFrictionAndJointResistanse(m_pPhysicsShell);
 	}
@@ -1198,7 +1316,8 @@ void CCharacterPhysicsSupport::CreateShell(CObject* who, Fvector& dp, Fvector& v
 	else
 		m_pPhysicsShell->SetIgnoreDynamic();
 	m_pPhysicsShell->SetIgnoreSmall();
-	AddActiveWeaponCollision();
+	if (!RagdollActive())
+		AddActiveWeaponCollision();
 }
 
 void CCharacterPhysicsSupport::EndActivateFreeShell(CObject* who, const Fvector& inital_entity_position,
@@ -1448,6 +1567,12 @@ bool CCharacterPhysicsSupport::can_drop_active_weapon()
 
 void CCharacterPhysicsSupport::in_Die(bool hit)
 {
+	if (RagdollActive())
+	{
+		// Death inherits the already existing body; never create a second shell.
+		m_ragdoll_token = 0;
+		return;
+	}
 	if (m_hit_valide_time < Device.dwTimeGlobal || !m_sv_hit.is_valide())
 	{
 		if (m_EntityAlife.use_simplified_visual())

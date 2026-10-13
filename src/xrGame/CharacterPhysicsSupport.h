@@ -42,6 +42,10 @@ public:
 private:
 	EType m_eType;
 	EState m_eState;
+	u32 m_ragdoll_token = 0;
+	u16 m_ragdoll_animation_root = BI_NONE;
+	u8 m_ragdoll_flags = 0;
+	Fmatrix m_ragdoll_upright;
 	Flags8 m_flags;
 
 	enum Fags
@@ -138,6 +142,11 @@ public:
 	void set_use_hit_anims(bool v) { m_flags.set(fl_use_hit_anims, (BOOL)v); }
 	bool is_hit_anim_playing() const { return m_hit_animations.is_hit_anim_playing(); }
 	//////////////////base hierarchi methods///////////////////////////////////////////////////
+	// Temporary living ragdoll. The nonzero token belongs to its initiating addon.
+	LPCSTR RagdollStatus() const;
+	u32 RagdollStart();
+	bool RagdollStop(u32 token);
+	bool RagdollActive() const { return m_ragdoll_token != 0; }
 	void CreateCharacterSafe();
 	void CreateCharacter();
 	bool CollisionCorrectObjPos();

@@ -39,6 +39,7 @@
 #include "smart_cover.h"
 #include "smart_cover_description.h"
 #include "physics_shell_scripted.h"
+#include "CharacterPhysicsSupport.h"
 #include "ai\phantom\phantom.h"
 
 #include "UIGameSP.h"
@@ -226,6 +227,33 @@ const CScriptEntityAction* CScriptGameObject::GetActionByIndex(u32 action_index)
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
+
+u32 CScriptGameObject::ragdoll_start()
+{
+	CPhysicsShellHolder* holder = smart_cast<CPhysicsShellHolder*>(&object());
+	CCharacterPhysicsSupport* support = holder ? holder->character_physics_support() : nullptr;
+	return support ? support->RagdollStart() : 0;
+}
+
+bool CScriptGameObject::ragdoll_stop(u32 token)
+{
+	CPhysicsShellHolder* holder = smart_cast<CPhysicsShellHolder*>(&object());
+	CCharacterPhysicsSupport* support = holder ? holder->character_physics_support() : nullptr;
+	return support && support->RagdollStop(token);
+}
+
+bool CScriptGameObject::ragdoll_active() const
+{
+	const CPhysicsShellHolder* holder = smart_cast<const CPhysicsShellHolder*>(&object());
+	return holder && holder->is_script_ragdoll();
+}
+
+LPCSTR CScriptGameObject::ragdoll_status() const
+{
+	const CPhysicsShellHolder* holder = smart_cast<const CPhysicsShellHolder*>(&object());
+	const CCharacterPhysicsSupport* support = holder ? holder->character_physics_support() : nullptr;
+	return support ? support->RagdollStatus() : "unsupported_type";
+}
 
 cphysics_shell_scripted* CScriptGameObject::get_physics_shell() const
 {
