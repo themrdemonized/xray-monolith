@@ -84,6 +84,7 @@ public:
 		Fvector normal;
 		float alpha;
 		float alpha_target;
+        u32 r1_alpha_frame=~0u;
 #if RENDER==R_R1
 		Fvector c_rgb;
 #endif

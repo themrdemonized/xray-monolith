@@ -161,7 +161,7 @@ public:
 	ICF bool operator()(const CDB::RESULT& _1) const
 	{
 		occTri& T = m_pTris[_1.id];
-		return T.skip > Device.dwFrame;
+		return !Device.r1AuxiliaryView && T.skip > Device.dwFrame;
 	}
 };
 
@@ -217,7 +217,7 @@ void CHOM::Render_DB(CFrustum& base)
 		// Test for good occluder - should be improved :)
 		if (!(T.flags || (T.plane.classify(COP) > 0)))
 		{
-			T.skip = next;
+			if(!Device.r1AuxiliaryView) T.skip = next;
 			continue;
 		}
 
@@ -232,7 +232,7 @@ void CHOM::Render_DB(CFrustum& base)
 		sPoly* P = clip.ClipPoly(src, dst);
 		if (0 == P)
 		{
-			T.skip = next;
+			if(!Device.r1AuxiliaryView) T.skip = next;
 			continue;
 		}
 
@@ -251,7 +251,7 @@ void CHOM::Render_DB(CFrustum& base)
 		}
 		if (0 == pixels)
 		{
-			T.skip = next;
+			if(!Device.r1AuxiliaryView) T.skip = next;
 			continue;
 		}
 	}
@@ -328,6 +328,8 @@ BOOL CHOM::visible(Fbox2& B, float depth)
 
 BOOL CHOM::visible(vis_data& vis)
 {
+    // The auxiliary view must not publish its visibility delay to the main view.
+    if (Device.r1AuxiliaryView) return !bEnabled || _visible(vis.box, m_xform_01);
 	if (Device.dwFrame < vis.hom_frame) return TRUE; // not at this time :)
 	if (!bEnabled) return TRUE; // return - everything visible
 

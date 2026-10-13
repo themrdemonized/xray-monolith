@@ -425,6 +425,14 @@ public:
 	// Main
 	virtual void Calculate();
 	virtual void Render();
+    void R1RenderWorld();
+    bool R1ViewSet(u32, const R1ViewParameters&) override;
+    void R1ViewClear(u32) override;
+    bool R1ViewMesh(u32, const R1ViewGeometry&) override;
+    bool R1ViewGet(u32, R1ViewStatus&) override;
+    void R1ViewCompose() override;
+    void R1ViewReset() override;
+    bool R1ViewsActive() override;
 	virtual void Screenshot(ScreenshotMode mode = SM_NORMAL, LPCSTR name = 0);
 	virtual void Screenshot(ScreenshotMode mode, CMemoryWriter& memory_writer);
 	virtual void ScreenshotAsyncBegin();

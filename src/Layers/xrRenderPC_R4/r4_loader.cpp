@@ -121,6 +121,7 @@ void CRender::level_Load(IReader* fs)
 
 void CRender::level_Unload()
 {
+    R1ViewReset();
 	if (0 == g_pGameLevel) return;
 	if (!b_loaded) return;
 

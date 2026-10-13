@@ -498,9 +498,22 @@ void CRenderDevice::on_idle()
 	// *** Resume threads
 	// Capture end point - thread must run only ONE cycle
 	// Release start point - allow thread to run
+    const bool r1SerialRender = Render && Render->R1ViewsActive();
 	START_PROFILE("Resume threads");
-	mt_csLeave.Enter();
-	mt_csEnter.Leave();
+    if (r1SerialRender)
+    {
+        // Keep the ordinary worker parked for this frame; execute its jobs once
+        // before additional cameras touch global renderer state.
+        for (u32 i = 0; i < seqParallel.size(); ++i) seqParallel[i]();
+        seqParallel.clear_not_free();
+        seqFrameMT.Process(rp_Frame);
+        mt_Thread_marker = dwFrame;
+    }
+    else
+    {
+        mt_csLeave.Enter();
+        mt_csEnter.Leave();
+    }
 	STOP_PROFILE;
 
 #ifdef ECO_RENDER // ECO_RENDER START
@@ -556,8 +569,11 @@ void CRenderDevice::on_idle()
 	// Capture startup point
 	// Release end point - allow thread to wait for startup point
 	START_PROFILE("Suspend threads");
-	mt_csEnter.Enter();
-	mt_csLeave.Leave();
+    if (!r1SerialRender)
+    {
+        mt_csEnter.Enter();
+        mt_csLeave.Leave();
+    }
 	STOP_PROFILE;
 
 	// Ensure, that second thread gets chance to execute anyway

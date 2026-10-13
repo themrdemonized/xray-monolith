@@ -722,3 +722,13 @@ BOOL CTexture::video_IsPlaying()
 {
 	return (pTheora) ? pTheora->IsPlaying() : FALSE;
 }
+
+#ifdef USE_DX11
+void CTexture::R1SwapSurface(CTexture& other)
+{
+    std::swap(pSurface, other.pSurface);
+    std::swap(m_pSRView, other.m_pSRView);
+    std::swap(desc_cache, other.desc_cache);
+    std::swap(desc, other.desc);
+}
+#endif

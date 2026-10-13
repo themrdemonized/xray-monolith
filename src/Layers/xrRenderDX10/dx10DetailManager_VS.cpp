@@ -285,7 +285,7 @@ void CDetailManager::hw_Render_dump(const Fvector4& consts, const Fvector4& wave
 						SlotItem& Instance = **_iI;
 						u32 base = dwBatch * 4;
 
-						Instance.alpha += GoToValue(Instance.alpha, Instance.alpha_target);
+						if(Instance.r1_alpha_frame!=Device.dwFrame){Instance.alpha += GoToValue(Instance.alpha, Instance.alpha_target);Instance.r1_alpha_frame=Device.dwFrame;}
 
 						float scale = Instance.scale_calculated;
 

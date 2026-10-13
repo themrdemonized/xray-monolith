@@ -948,3 +948,22 @@ void CResourceManager::_DeleteInputSignature(const SInputSignature* pSignature)
 	if (reclaim(v_input_signature, pSignature)) return;
 	Msg("! ERROR: Failed to find compiled constant buffer");
 }
+
+#ifdef USE_DX11
+xr_vector<CRT*> CResourceManager::R1ScreenTargets(u32 width, u32 height) const
+{
+    xr_vector<CRT*> result;
+    for (const auto& entry : m_rtargets)
+    {
+        CRT* rt = entry.second;
+        if (!rt->pSurface || strstr(entry.first, "$user$r1mv") == entry.first) continue;
+        // Full/half/quarter/eighth screen resources; fixed-size shadow and
+        // luminance maps are shared only within the synchronized render owner.
+        bool sized = false;
+        for (u32 div : {1u, 2u, 4u, 8u})
+            sized |= rt->dwWidth == width / div && rt->dwHeight == height / div;
+        if (sized) result.push_back(rt);
+    }
+    return result;
+}
+#endif

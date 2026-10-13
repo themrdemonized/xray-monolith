@@ -220,7 +220,7 @@ void CRender::render_menu()
 
 extern u32 g_r;
 
-void CRender::Render()
+void CRender::R1RenderWorld()
 {
 	PIX_EVENT(CRender_Render);
 
@@ -404,6 +404,18 @@ void CRender::Render()
 		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
 	}
 
+
+    struct R1LightRestore
+    {
+        xr_vector<std::pair<light*,light::_vis>> items;
+        void prepare(light* L)
+        {
+            if(!Device.r1AuxiliaryView){L->vis_prepare();return;}
+            items.emplace_back(L,L->vis);L->vis.pending=false;L->vis.visible=true;
+            L->vis.distance=Device.vCameraPosition.distance_to(L->spatial.sphere.P);
+        }
+        ~R1LightRestore(){for(auto& item:items)item.first->vis=item.second;}
+    } lightRestore;
 	//******* Occlusion testing of volume-limited light-sources
 	Target->phase_occq();
 	LP_normal.clear();
@@ -430,21 +442,21 @@ void CRender::Render()
 			if (it < LP.v_point.size())
 			{
 				light* L = LP.v_point[it];
-				L->vis_prepare();
+				lightRestore.prepare(L);
 				if (L->vis.pending) LP_pending.v_point.push_back(L);
 				else LP_normal.v_point.push_back(L);
 			}
 			if (it < LP.v_spot.size())
 			{
 				light* L = LP.v_spot[it];
-				L->vis_prepare();
+				lightRestore.prepare(L);
 				if (L->vis.pending) LP_pending.v_spot.push_back(L);
 				else LP_normal.v_spot.push_back(L);
 			}
 			if (it < LP.v_shadowed.size())
 			{
 				light* L = LP.v_shadowed[it];
-				L->vis_prepare();
+				lightRestore.prepare(L);
 				if (L->vis.pending) LP_pending.v_shadowed.push_back(L);
 				else LP_normal.v_shadowed.push_back(L);
 			}
@@ -534,7 +546,7 @@ void CRender::Render()
 		{
 			static Fmatrix mm_saved_viewproj;
 
-			if (!Device.m_SecondViewport.IsSVPFrame())
+			if ((!Device.m_SecondViewport.IsSVPFrame() && !Device.r1AuxiliaryView))
 			{
 				Target->Matrix_previous.mul(mm_saved_viewproj, Device.mInvView);
 				Target->Matrix_current.set(Device.mProject);
@@ -542,7 +554,7 @@ void CRender::Render()
 			}
 		}
 
-		if (RImplementation.o.ssfx_sss && !Device.m_SecondViewport.IsSVPFrame())
+		if (RImplementation.o.ssfx_sss && (!Device.m_SecondViewport.IsSVPFrame() && !Device.r1AuxiliaryView))
 		{
 			static bool sss_rendered, sss_extended_rendered;
 
@@ -711,3 +723,5 @@ void CRender::RenderToTarget(RRT target)
 	HW.pContext->CopyResource((*RT)->pSurface, pBuffer);
 	pBuffer->Release();
 }
+
+#include "R1_Multi_View.inl"
