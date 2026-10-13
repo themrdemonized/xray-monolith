@@ -1573,3 +1573,13 @@
     
     Script Attachment Guide: https://anomaly-modding-book.netlify.app/docs/tutorials/scripting/script-attachments
 --]]
+
+-- PDA map inspection API v2 (drawing/UI/input/save data belong to Lua addons).
+-- pda_map.version() -> 2
+-- pda_map.window() -> current map viewport CUIWindow, or nil before initialization
+-- pda_map.info("global_map" or level_name) -> {ready=false}, or live metadata:
+-- ready, global, shown, locked, x, y, width, height, bound_x1/y1/x2/y2, zoom, aspect
+-- CUIWindow:GetParent() -> current parent or nil; IsChild(window) checks a direct child.
+-- on_pda_map_update fires after map movement/navigation update; refresh Lua widgets before rendering.
+-- Attach Lua-owned widgets with SetAutoDelete(false) and AttachChildKeepOwner.
+-- UI pointers are transient; save plain Lua coordinates/styles, never widgets/metadata.

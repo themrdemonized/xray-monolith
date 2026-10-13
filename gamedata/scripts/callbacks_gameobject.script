@@ -1040,3 +1040,6 @@ function on_game_start()
 	    ui_inventory_UIInventory_On_Item_Exchange(self, npc_from, npc_to, obj)
 	end
 end
+
+-- Map geometry is final for this UI update; keep Lua work outside the render/parallel-GC phase.
+AddScriptCallback("on_pda_map_update")

@@ -143,6 +143,7 @@ public:
 
 
 	void MoveMap(Fvector2 const& pos_delta);
+	CUIWindow* MapFrame() const { return m_UILevelFrame; }
 	float GetZoom() { return m_currentZoom; }
 	void SetZoom(float value);
 
