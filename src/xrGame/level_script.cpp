@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "level.h"
+#include "MainMenu.h"
 #include "actor.h"
 #include "script_game_object.h"
 #include "patrol_path_storage.h"
@@ -983,6 +984,24 @@ bool getCamEffectorTransformData(::luabind::object& t, LPCSTR animationFile)
 }
 
 // demonized: Set custom camera position and direction with movement smoothing (for cutscenes, etc)
+
+static u32 menu_scene_begin(bool update_level)
+{
+	return g_pGamePersistent && g_pGamePersistent->m_pMainMenu ? MainMenu()->BeginScene(update_level) : 0;
+}
+static bool menu_scene_set_camera(u32 token, const Fvector& position, const Fvector& direction, const Fvector& up, float fov)
+{
+	return g_pGamePersistent && g_pGamePersistent->m_pMainMenu && MainMenu()->SetSceneCamera(token, position, direction, up, fov);
+}
+static bool menu_scene_end(u32 token)
+{
+	return g_pGamePersistent && g_pGamePersistent->m_pMainMenu && MainMenu()->EndScene(token);
+}
+static bool menu_scene_active(u32 token)
+{
+	return g_pGamePersistent && g_pGamePersistent->m_pMainMenu && MainMenu()->IsSceneActive(token);
+}
+
 void set_cam_position_direction(Fvector& position, Fvector& direction, unsigned int smoothing, bool hudEnabled, bool hudAffect)
 {
 	CActor* actor = Actor();
@@ -2791,6 +2810,10 @@ void CLevel::script_register(lua_State* L)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),
 			def("remove_cam_custom_position_direction", &remove_cam_position_direction),
+			def("menu_scene_begin", &menu_scene_begin),
+			def("menu_scene_set_camera", &menu_scene_set_camera),
+			def("menu_scene_end", &menu_scene_end),
+			def("menu_scene_active", &menu_scene_active),
 
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR))& add_cam_effector)),
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))& add_cam_effector)),

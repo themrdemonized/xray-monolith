@@ -590,6 +590,15 @@
         void set_cam_custom_position_direction(Fvector position, Fvector direction, int smoothing)
         void set_cam_custom_position_direction(Fvector position, Fvector direction)
         void remove_cam_custom_position_direction()
+        // Optional world presentation under the active single-player main menu.
+        // Call from menu UI Update; directions are vectors and FOV is in degrees.
+        // Returns 0/false on invalid state, owner, worker thread or camera pose.
+        u32 menu_scene_begin(bool update_level) // false=frozen pause; true=live level
+        bool menu_scene_set_camera(u32 token, Fvector position, Fvector direction, Fvector up, float fov)
+        bool menu_scene_active(u32 token)
+        bool menu_scene_end(u32 token)
+        // Clock, trajectories, NPCs, HUD/body and UI remain in Lua.
+        // Use device():time_continual(); see docs/R1_Menu_Presentation_API_EN.md.
 
         // Removes all engine-spawned per-animation HUD camera effectors
         // Scripted effectors added via add_cam_effector are not touched.
