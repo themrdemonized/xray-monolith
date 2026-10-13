@@ -33,6 +33,9 @@ private:
 	};
 
 public:
+#ifdef USE_DX11
+    xr_vector<CRT*> R1ScreenTargets(u32 width, u32 height) const;
+#endif
 	DEFINE_MAP_PRED(const char*, IBlender*, map_Blender, map_BlenderIt, str_pred);
 	DEFINE_MAP_PRED(const char*, CTexture*, map_Texture, map_TextureIt, str_pred);
 	DEFINE_MAP_PRED(const char*, CMatrix*, map_Matrix, map_MatrixIt, str_pred);

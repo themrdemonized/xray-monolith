@@ -23,6 +23,7 @@
 #include "PHCommander.h"
 #include "PHScriptCall.h"
 #include "script_engine.h"
+#include "R1_Multi_View_Lua.inl"
 #include "game_cl_single.h"
 #include "game_sv_single.h"
 #include "map_manager.h"
@@ -2791,6 +2792,11 @@ void CLevel::script_register(lua_State* L)
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&, unsigned int))&set_cam_position_direction)),
 			def("set_cam_custom_position_direction", ((void (*)(Fvector&, Fvector&))&set_cam_position_direction)),
 			def("remove_cam_custom_position_direction", &remove_cam_position_direction),
+            def("r1_view_api_version", &r1_view_api_version),
+            def("r1_view_set", &r1_view_set),
+            def("r1_view_clear", &r1_view_clear),
+            def("r1_view_geometry", &r1_view_geometry),
+            def("r1_view_status", &r1_view_status),
 
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR))& add_cam_effector)),
             def("add_cam_effector", ((float (*)(LPCSTR, int, bool, LPCSTR, float))& add_cam_effector)),

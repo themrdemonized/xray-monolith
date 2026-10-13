@@ -40,6 +40,10 @@ public:
 	//	void								Apply			(u32 dwStage);
 
 	void surface_set(ID3DBaseTexture* surf);
+#ifdef USE_DX11
+    // Swap pre-created resources without rebuilding SRVs every render pass.
+    void R1SwapSurface(CTexture& other);
+#endif
 	ID3DBaseTexture* surface_get();
 
 	IC BOOL isUser() { return flags.bUser; }

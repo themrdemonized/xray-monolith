@@ -270,8 +270,27 @@ void dxEnvironmentRender::OnUnload()
 	tonemap = 0;
 }
 
+
+// Background geometry surrounds the camera. A portal's oblique near plane
+// clips physical scene objects, but must not cut this camera-centred sky box.
+class R1BackgroundProjection
+{
+    bool auxiliary=Device.r1AuxiliaryView;
+public:
+    R1BackgroundProjection(CEnvironment& env)
+    {
+        if(!auxiliary)return;
+        Fmatrix regular;regular.build_projection(deg2rad(Device.fFOV),Device.fASPECT,.08f,env.CurrentEnv->far_plane);
+        Fmatrix sky=Device.mProject;
+        sky._13=regular._13;sky._23=regular._23;sky._33=regular._33;sky._43=regular._43;
+        RCache.set_xform_project(sky);
+    }
+    ~R1BackgroundProjection(){if(auxiliary)RCache.set_xform_project(Device.mProject);}
+};
+
 void dxEnvironmentRender::RenderSky(CEnvironment& env, bool OnlyMV)
 {
+    R1BackgroundProjection background(env);
 	// clouds_sh.create		("clouds","null");
 	//. this is the bug-fix for the case when the sky is broken
 	//. for some unknown reason the geoms happen to be invalid sometimes
@@ -357,6 +376,7 @@ void dxEnvironmentRender::RenderSky(CEnvironment& env, bool OnlyMV)
 
 void dxEnvironmentRender::RenderClouds(CEnvironment& env)
 {
+    R1BackgroundProjection background(env);
 	::Render->rmFar();
 
 	Fmatrix mXFORM, mScale;

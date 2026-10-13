@@ -62,6 +62,10 @@ public:
 
 	// Engine flow-control
 	u32 dwFrame;
+    // Transient render context; simulation dwFrame is never advanced per view.
+    u32 r1ViewToken = 0;
+    bool r1AuxiliaryView = false;
+    bool r1ActorBody = false;
 
 	float fTimeDelta;
 	float fTimeGlobal;

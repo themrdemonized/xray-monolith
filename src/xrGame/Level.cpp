@@ -1302,7 +1302,9 @@ void CLevel::OnRender()
 	if (use_reshade)
 		render_reshade_effects();
 
+    Render->R1ViewCompose();
 	HUD().RenderUI();
+    Render->R1ViewCompose();
 
 	ScriptDebugRender();
 

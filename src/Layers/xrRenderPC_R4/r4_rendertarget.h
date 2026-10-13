@@ -27,6 +27,8 @@ public:
 	};
 
 	u32 dwLightMarkerID;
+    void R1BeginPass() { dwAccumulatorClearMark = Device.dwFrame - 1; dwLightMarkerID = 5; }
+    void R1SetSize(u32 w, u32 h) { dwWidth = w; dwHeight = h; }
 	//
 	IBlender* b_occq;
 	IBlender* b_accum_mask;

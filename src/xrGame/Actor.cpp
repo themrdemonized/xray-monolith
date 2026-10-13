@@ -2239,7 +2239,7 @@ bool canRenderLegs(CActor* actor, CHolderCustom* m_holder) noexcept
         && g_player_hud
         && !m_holder
         && (legs_in_demo_record || pDemoRecords.empty())
-        && showActorBody == 0
+        && showActorBody == 0 && !Device.r1ActorBody
         && !actor->m_FPCam;
 };
 
@@ -2259,11 +2259,11 @@ void CActor::renderable_Render()
 				m_legs_controller.render();
 			}
 
-            if (showActorBody == 1 || showActorBody == 2)
+            if (showActorBody == 1 || showActorBody == 2 || Device.r1ActorBody)
             {
                 inherited::renderable_Render();
 
-                if (showActorBody == 2)
+                if (showActorBody == 2 || Device.r1ActorBody)
                 {
                     CInventoryOwner::renderable_Render();
                 }

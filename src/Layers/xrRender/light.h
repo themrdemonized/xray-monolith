@@ -33,6 +33,7 @@ public:
 
 	vis_data hom;
 	u32 frame_render;
+    u32 r1_view_token = 0;
 
 	int omnipart_num;
 	int sss_id;

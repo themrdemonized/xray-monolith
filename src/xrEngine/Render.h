@@ -178,6 +178,8 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 // definition (Renderer)
+#include "R1_Multi_View.h"
+
 class ENGINE_API IRender_interface
 {
 public:
@@ -380,6 +382,13 @@ public:
 	virtual u32 memory_usage() = 0;
 	virtual u32 active_phase() = 0; //Swartz: actor shadow
 	virtual void RenderToTarget(RRT target) = 0;
+    virtual bool R1ViewSet(u32, const R1ViewParameters&) { return false; }
+    virtual void R1ViewClear(u32) {}
+    virtual bool R1ViewMesh(u32, const R1ViewGeometry&) { return false; }
+    virtual bool R1ViewGet(u32, R1ViewStatus&) { return false; }
+    virtual void R1ViewCompose() {}
+    virtual void R1ViewReset() {}
+    virtual bool R1ViewsActive() { return false; }
 	// Constructor/destructor
 	virtual ~IRender_interface();
 protected:

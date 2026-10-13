@@ -125,8 +125,21 @@ static class cl_pos_decompress_params : public R_constant_setup
 		float VertTan = -1.0f * tanf(deg2rad(Device.fFOV / 2.0f));
 		float HorzTan = - VertTan / Device.fASPECT;
 
-		RCache.set_c(C, HorzTan, VertTan, (2.0f * HorzTan) / (float)Device.dwWidth,
-		             (2.0f * VertTan) / (float)Device.dwHeight);
+        if (Device.r1AuxiliaryView)
+        {
+            // Reconstruct from the actual projection, including reflection and
+            // an off-centre eye. Default main-view behavior is unchanged.
+            HorzTan = 1.f / Device.mProject._11;
+            VertTan = -1.f / Device.mProject._22;
+            RCache.set_c(C, HorzTan * (1.f + Device.mProject._31),
+                         VertTan * (1.f - Device.mProject._32),
+                         2.f * HorzTan / Device.dwWidth, 2.f * VertTan / Device.dwHeight);
+        }
+        else
+        {
+            RCache.set_c(C, HorzTan, VertTan, 2.f * HorzTan / Device.dwWidth,
+                         2.f * VertTan / Device.dwHeight);
+        }
 	}
 } binder_pos_decompress_params;
 
@@ -561,6 +574,7 @@ void CRender::create()
 
 void CRender::destroy()
 {
+    R1ViewReset();
 	m_bMakeAsyncSS = false;
 	FluidManager.Destroy();
 	::PortalTraverser.destroy();
@@ -579,6 +593,7 @@ void CRender::destroy()
 
 void CRender::reset_begin()
 {
+    R1ViewReset();
 	// Update incremental shadowmap-visibility solver
 	// BUG-ID: 10646
 	{
