@@ -8,6 +8,7 @@
 
 #include "FBasicVisual.h"
 
+extern ENGINE_API float psCamAttachedFOV;
 using namespace R_dsgraph;
 
 extern float r_ssaDISCARD;
@@ -621,7 +622,7 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 			// Change projection
 			Fmatrix camproj;
 			camproj.build_projection(
-				deg2rad(83.f),
+				deg2rad(psCamAttachedFOV),
 				Device.fASPECT, R_VIEWPORT_NEAR,
 				g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
@@ -695,7 +696,7 @@ void R_dsgraph_structure::r_dsgraph_render_cam_ui()
 
 	Fmatrix camproj;
 	camproj.build_projection(
-		deg2rad(83.f),
+		deg2rad(psCamAttachedFOV),
 		Device.fASPECT, R_VIEWPORT_NEAR,
 		g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
@@ -737,7 +738,7 @@ void R_dsgraph_structure::r_dsgraph_render_sorted()
 		// Change projection
 		Fmatrix camproj;
 		camproj.build_projection(
-			deg2rad(83.f),
+			deg2rad(psCamAttachedFOV),
 			Device.fASPECT, R_VIEWPORT_NEAR,
 			g_pGamePersistent->Environment().CurrentEnv->far_plane);
 
