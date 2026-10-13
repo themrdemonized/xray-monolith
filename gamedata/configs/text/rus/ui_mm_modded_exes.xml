@@ -156,6 +156,13 @@
 		<text>Показывать названия локаций на ПДА (pda_show_map_labels)</text>
 	</string>
 
+	<string id="ui_mm_modded_exes_visual_ui_hud_g_loading_screen_early">
+		<text>Сразу показывать фон следующей локации (g_loading_screen_early)</text>
+	</string>
+	<string id="ui_mm_modded_exes_visual_ui_hud_g_loading_screen_early_desc">
+		<text>При переходе между локациями показывает изображение следующей локации с первого кадра загрузки. Если выключено, сохраняет обычный экран загрузки. По умолчанию: ВЫКЛ.</text>
+	</string>
+
 	<!-- Crosshair -->
 	<string id="ui_mm_crosshair_modded_exes">
 		<text>Перекрестье</text>

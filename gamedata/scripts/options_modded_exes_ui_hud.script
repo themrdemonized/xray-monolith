@@ -12,4 +12,5 @@ PAGE = page {
 		restart = true,
 	},
 	list_bool { id = "pda_show_map_labels" },
+	list_bool { id = "g_loading_screen_early" },
 }
