@@ -1383,7 +1383,7 @@ void CGameObject::DBGDrawPhysicsShell()
 				{
 					Fmatrix xform;
 					cylinder->get_Box(xform, Fvector());
-					Level().debug_renderer().draw_cylinder(xform, cylinder->m_def_height, cylinder->m_def_radius, color_xrgb(255, 0, 255), false);
+					Level().debug_renderer().draw_cylinder(xform, cylinder->height(), cylinder->radius(), color_xrgb(255, 0, 255), false);
 					continue;
 				}
 			}

@@ -1176,7 +1176,7 @@ void script_attachment::DBGDrawPhysicsShell()
 				{
 					Fmatrix xform;
 					cylinder->get_Box(xform, Fvector());
-					Level().debug_renderer().draw_cylinder(xform, cylinder->m_def_height, cylinder->m_def_radius, color_xrgb(255, 0, 255), false);
+					Level().debug_renderer().draw_cylinder(xform, cylinder->height(), cylinder->radius(), color_xrgb(255, 0, 255), false);
 					continue;
 				}
 			}
@@ -1393,34 +1393,59 @@ void script_attachment::AddToParentShell(CGameObject* obj)
 		return;
 	}
 
-	CPhysicsElement* attachment_element = attachment_shell->get_ElementByStoreOrder(0);
+    GEOM_STORAGE temp_geoms;
 
-	u16 geom_num = attachment_element->numberOfGeoms();
-	for (u16 i = 0; i < geom_num; ++i)
-		m_attachment_geoms.push_back(attachment_element->geometry(i));
+    for (CPHElement* elem : attachment_shell->Elements())
+    {
+        u16 geom_num = elem->numberOfGeoms();
+        for (u16 i = 0; i < geom_num; ++i)
+        {
+            temp_geoms.push_back(elem->geometry(i));
+            m_attachment_geoms.push_back(elem->geometry(i));
+        }
 
-	for (auto* geom : m_attachment_geoms)
-	{
-		attachment_element->remove_geom(geom);
-		geom->set_bone_id(attachachment_bone->m_SelfID);
+        Fvector center = elem->local_mass_Center();
 
-		CBoxGeom* box = smart_cast<CBoxGeom*>(geom);
-		CSphereGeom* sphere = smart_cast<CSphereGeom*>(geom);
-		CCylinderGeom* cylinder = smart_cast<CCylinderGeom*>(geom);
-		
-		// Apply attachment scale to resulting physics shapes
-		if (box) box->set_size(Fvector().set(box->def_half_size).mul(new_scale));
-		if (sphere) sphere->set_radius(sphere->def_radius * new_scale);
-		if (cylinder)
-		{
-			cylinder->set_radius(cylinder->m_def_radius * new_scale);
-			cylinder->set_height(cylinder->m_def_height * new_scale);
-		}
+        for (auto* geom : temp_geoms)
+        {
+            CBoxGeom* box = smart_cast<CBoxGeom*>(geom);
+            CSphereGeom* sphere = smart_cast<CSphereGeom*>(geom);
+            CCylinderGeom* cylinder = smart_cast<CCylinderGeom*>(geom);
 
-		attachachment_bone->add_geom(geom);
-	}
+            if (box)
+            {
+                Fvector half_size;
+                box->get_size(half_size);
+                half_size.mul(new_scale);
+                box->set_size(half_size);
+            }
 
-	destroy_physics_shell(attachment_shell);
+            if (sphere)
+            {
+                sphere->set_radius(sphere->radius() * new_scale);
+            }
+
+            if (cylinder)
+            {
+                cylinder->set_radius(cylinder->radius() * new_scale);
+                cylinder->set_height(cylinder->height() * new_scale);
+            }
+
+            Fvector scaled_pos = geom->local_center();
+            scaled_pos.mul(new_scale);
+            scaled_pos.sub(center);
+
+            dGeomSetPosition(geom->geom(), scaled_pos.x, scaled_pos.y, scaled_pos.z);
+
+            elem->remove_geom(geom);
+            geom->set_bone_id(attachachment_bone->m_SelfID);
+            attachachment_bone->add_geom(geom);
+        }
+
+        temp_geoms.clear_not_free();
+    }
+
+    destroy_physics_shell(attachment_shell);
 }
 
 void script_attachment::RemoveFromParentShell(CGameObject* obj)
