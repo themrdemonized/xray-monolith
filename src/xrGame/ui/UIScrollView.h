@@ -31,6 +31,7 @@ protected:
 	float m_vertInterval;
 
 	Flags16 m_flags;
+	bool m_pad_drag_active;
 	shared_str m_scrollbar_profile;
 	Ivector2 m_visible_rgn;
 
