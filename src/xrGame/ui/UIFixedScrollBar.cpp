@@ -169,15 +169,15 @@ bool CUIFixedScrollBar::OnMouseAction(float x, float y, EUIMessages mouse_action
 		return true;
 		break;
 	case WINDOW_LBUTTON_UP:
-		SetCapture(m_ScrollBox, false);
+		SetCapture(this, false);
 		m_mouse_state = 0;
 		return true;
 	case WINDOW_LBUTTON_DOWN:
-		SetCapture(m_ScrollBox, true);
+		SetCapture(this, true);
 		return true;
 	case WINDOW_MOUSE_MOVE:
 		{
-			bool im_capturer = m_ScrollBox->IsMouseCapturer();
+			bool im_capturer = IsMouseCapturer();
 			bool cursor_over = false;
 			Fvector2 cursor_pos = GetUICursor().GetCursorPosition();
 			Frect box_rect;
@@ -204,7 +204,7 @@ bool CUIFixedScrollBar::OnMouseAction(float x, float y, EUIMessages mouse_action
 			}
 			if (!cursor_over)
 			{
-				SetCapture(m_ScrollBox, false);
+				SetCapture(this, false);
 			}
 			return true;
 		}
