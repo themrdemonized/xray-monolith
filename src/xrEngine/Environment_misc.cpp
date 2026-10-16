@@ -16,6 +16,9 @@ extern float ps_r2_sun_shafts_min;
 extern float ps_r2_sun_shafts_value;
 extern Fvector3 ssfx_wetness_multiplier;
 
+// seconds to fully wet or dry at multiplier 1
+static const float WETNESS_CHANGE_TIME = 10000.f / 60.f;
+
 void CEnvModifier::load(IReader* fs, u32 version)
 {
 	use_flags.one();
@@ -520,13 +523,10 @@ void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescrip
 
 	sun_color.lerp(A.sun_color, B.sun_color, f);
 
-	// frame rate independent, one step per frame at 60 fps
-	const float wetness_step = Device.fTimeDelta * 60.f;
-
 	if (rain_density > 0.f)
-		env->wetness_factor += ( rain_density * ssfx_wetness_multiplier.x) / 10000.f * wetness_step;
+		env->wetness_factor += rain_density * ssfx_wetness_multiplier.x * Device.fTimeDelta / WETNESS_CHANGE_TIME;
 	else
-		env->wetness_factor -= 0.0001f * ssfx_wetness_multiplier.y * wetness_step;
+		env->wetness_factor -= ssfx_wetness_multiplier.y * Device.fTimeDelta / WETNESS_CHANGE_TIME;
 
 	clamp(env->wetness_factor, 0.f, 1.f);
 
