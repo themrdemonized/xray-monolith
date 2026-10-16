@@ -6,6 +6,7 @@
 #pragma once
 
 #include "object_interfaces.h"
+#include "../xrServerEntities/alife_space.h"
 
 
 //структура, описывающая отношение одного персонажа к другому или к группировке
@@ -20,7 +21,7 @@ private:
 	CHARACTER_GOODWILL m_iGoodwill;
 };
 
-DEFINE_MAP(u16, SRelation, PERSONAL_RELATION_MAP, PERSONAL_RELATION_MAP_IT);
+DEFINE_MAP(ALife::_OBJECT_ID, SRelation, PERSONAL_RELATION_MAP, PERSONAL_RELATION_MAP_IT);
 DEFINE_MAP(CHARACTER_COMMUNITY_INDEX, SRelation, COMMUNITY_RELATION_MAP, COMMUNITY_RELATION_MAP_IT);
 
 

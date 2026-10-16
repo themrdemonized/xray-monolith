@@ -82,6 +82,7 @@ void CGameObject::init()
 	m_script_clsid = -1;
 	m_ini_file = 0;
 	m_spawned = false;
+	m_spawn_version = SPAWN_VERSION_WIDE_REFS;
 }
 
 void CGameObject::Load(LPCSTR section)
@@ -273,6 +274,7 @@ BOOL CGameObject::net_Spawn(CSE_Abstract* DC)
 
 	CSE_Abstract* E = (CSE_Abstract*)DC;
 	VERIFY(E);
+	m_spawn_version = E->m_wVersion;
 
 	const CSE_Visual* visual = smart_cast<const CSE_Visual*>(E);
 	if (visual)
@@ -958,7 +960,7 @@ void CGameObject::u_EventGen(NET_Packet& P, u32 type, u32 dest)
 	P.w_begin(M_EVENT);
 	P.w_u32(Level().timeServer());
 	P.w_u16(u16(type & 0xffff));
-	P.w_u16(u16(dest & 0xffff));
+	P.w_u32(dest);
 }
 
 void CGameObject::u_EventSend(NET_Packet& P, u32 dwFlags)

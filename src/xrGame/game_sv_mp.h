@@ -116,9 +116,9 @@ public:
 	virtual void Create(shared_str& options);
 	virtual void OnPlayerConnect(ClientID id_who);
 	virtual void OnPlayerDisconnect(ClientID id_who, LPSTR Name, u16 GameID);
-	virtual BOOL OnTouch(u16 eid_who, u16 eid_target, BOOL bForced = FALSE) { return true; };
+	virtual BOOL OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_target, BOOL bForced = FALSE) { return true; };
 	// TRUE=allow ownership, FALSE=denied
-	virtual void OnDetach(u16 eid_who, u16 eid_target)
+	virtual void OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_target)
 	{
 	};
 
@@ -131,7 +131,7 @@ public:
 	virtual void OnPlayerHitted(NET_Packet P);
 	virtual void OnPlayerEnteredGame(ClientID id_who);
 
-	virtual void OnDestroyObject(u16 eid_who);
+	virtual void OnDestroyObject(ALife::_OBJECT_ID eid_who);
 
 	virtual void net_Export_State(NET_Packet& P, ClientID id_to);
 

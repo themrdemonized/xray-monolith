@@ -30,7 +30,7 @@ public:
 	virtual void feel_touch_new(CObject* O);
 	virtual void feel_touch_delete(CObject* O);
 	virtual bool feel_touch_contact(CObject* O);
-	bool active_contact(u16 id) const;
+	bool active_contact(ALife::_OBJECT_ID id) const;
 	virtual bool IsVisibleForZones() { return false; }
 	virtual bool register_schedule() const { return true; }
 #ifdef DEBUG

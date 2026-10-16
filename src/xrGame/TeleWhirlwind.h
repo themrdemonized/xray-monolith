@@ -1,5 +1,6 @@
 #ifndef TELE_WHIRLWIND
 #define TELE_WHIRLWIND
+#include "alife_space.h"
 #include "ai/monsters/telekinesis.h"
 #include "ai/monsters/telekinetic_object.h"
 #include "../xrphysics/PHImpact.h"
@@ -67,7 +68,7 @@ private:
 	typedef CTelekinesis inherited;
 
 	// ID of the owner object
-	u16 m_iOwnerID;
+	ALife::_OBJECT_ID m_iOwnerID;
 
 	// Type of telekinesis: 0 - default (whirlwind), 1 - trampolin
 	u16 m_iTelekinesisType;
@@ -119,7 +120,7 @@ public:
 
 public: // Getters
 
-	u16				GetOwnerID() const { return m_iOwnerID; }
+	ALife::_OBJECT_ID GetOwnerID() const { return m_iOwnerID; }
 	u16				GetTelekinesisType() const { return m_iTelekinesisType; }
 	float			GetKeepRadius() const { return m_fKeepRadius; }
 	float			GetTeleTime() const { return m_fTeleTime; }
@@ -132,7 +133,7 @@ public: // Getters
 public: // Setters
 
 	void SetCenter(const Fvector& center) { m_vCenter.set(center); }
-	void SetOwnerID(u16 owner_id) { m_iOwnerID = owner_id; }
+	void SetOwnerID(ALife::_OBJECT_ID owner_id) { m_iOwnerID = owner_id; }
 
 };
 

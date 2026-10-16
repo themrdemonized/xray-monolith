@@ -279,8 +279,8 @@ public:
 		return (*m_object);
 	}
 
-	u16 object_id() const;
-	u16 parent_id() const;
+	ALife::_OBJECT_ID object_id() const;
+	ALife::_OBJECT_ID parent_id() const;
 
 	virtual void on_activate_physic_shell()
 	{

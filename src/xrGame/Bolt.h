@@ -7,15 +7,15 @@ class CBolt :
 	public IDamageSource
 {
 	typedef CMissile inherited;
-	u16 m_thrower_id;
+	ALife::_OBJECT_ID m_thrower_id;
 public:
 	CBolt();
 	virtual ~CBolt();
 
 	virtual void OnH_A_Chield();
 
-	virtual void SetInitiator(u16 id);
-	virtual u16 Initiator();
+	virtual void SetInitiator(ALife::_OBJECT_ID id);
+	virtual ALife::_OBJECT_ID Initiator();
 
 	virtual void Throw();
 	virtual bool Action(u16 cmd, u32 flags);

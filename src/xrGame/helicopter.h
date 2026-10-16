@@ -25,7 +25,7 @@ struct SHeliEnemy
 {
 	EHeliHuntState type;
 	Fvector destEnemyPos;
-	u16 destEnemyID;
+	ALife::_OBJECT_ID destEnemyID;
 	float fire_trail_length_curr;
 	float fire_trail_length_des;
 	bool bUseFireTrail;
@@ -33,7 +33,7 @@ struct SHeliEnemy
 	void reinit();
 	void Update();
 	void save(NET_Packet& output_packet);
-	void load(IReader& input_packet);
+	void load(IReader& input_packet, u16 spawn_version);
 	void Load(LPCSTR section);
 };
 

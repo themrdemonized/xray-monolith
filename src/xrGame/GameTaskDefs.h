@@ -1,5 +1,7 @@
 #pragma once
 #include "alife_abstract_registry.h"
+#include "alife_registry_version.h"
+#include "../xrServerEntities/alife_space.h"
 
 enum ETaskState
 {
@@ -44,17 +46,17 @@ struct SGameTaskKey : public IPureSerializeObject<IReader, IWriter>, public IPur
 
 DEFINE_VECTOR(SGameTaskKey, vGameTasks, vGameTasks_it);
 
-struct CGameTaskRegistry : public CALifeAbstractRegistry<u16, vGameTasks>
+struct CGameTaskRegistry : public CALifeAbstractRegistry<ALife::_OBJECT_ID, vGameTasks>
 {
 	virtual void save(IWriter& stream)
 	{
-		CALifeAbstractRegistry<u16, vGameTasks>::save(stream);
+		CALifeAbstractRegistry<ALife::_OBJECT_ID, vGameTasks>::save(stream);
 		save_data(g_active_task_id, stream);
 	};
 
 	virtual void load(IReader& stream)
 	{
-		CALifeAbstractRegistry<u16, vGameTasks>::load(stream);
+		load_object_ids(stream, alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS);
 		load_data(g_active_task_id, stream);
 	};
 };

@@ -79,7 +79,7 @@ public:
 
 	IC bool attached() const
 	{
-		return (base()->ID_Parent < 0xffff);
+		return (base()->ID_Parent != ALife::invalid_object_id);
 	}
 
 	virtual bool bfUseful();

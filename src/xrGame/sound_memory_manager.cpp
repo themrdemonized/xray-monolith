@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "sound_memory_manager.h"
+#include "../xrServerEntities/xrServer_Objects.h"
 #include "memory_manager.h"
 #include "hit_memory_manager.h"
 #include "visual_memory_manager.h"
@@ -399,13 +400,19 @@ void CSoundMemoryManager::save(NET_Packet& packet) const
 	if (!m_object->g_Alive())
 		return;
 
-	packet.w_u8((u8)objects().size());
+	u32 count = (u32)objects().size();
+	if (count > 255)
+	{
+		Msg("! sound memory for [%s] keeps 255 of %u records", *m_object->cName(), count);
+		count = 255;
+	}
+	packet.w_u8((u8)count);
 
 	SOUNDS::const_iterator I = objects().begin();
 	SOUNDS::const_iterator E = objects().end();
-	for (; I != E; ++I)
+	for (u32 stored = 0; I != E && stored < count; ++I, ++stored)
 	{
-		packet.w_u16((*I).m_object ? (*I).m_object->ID() : ALife::_OBJECT_ID(-1));
+		packet.w_u32((*I).m_object ? (*I).m_object->ID() : ALife::invalid_object_id);
 		// object params
 		packet.w_u32((*I).m_object_params.m_level_vertex_id);
 		packet.w_vec3((*I).m_object_params.m_position);
@@ -446,13 +453,17 @@ void CSoundMemoryManager::load(IReader& packet)
 	callback.bind(&m_object->memory(), &CMemoryManager::on_requested_spawn);
 
 	int count = packet.r_u8();
+	const bool wide_ids = m_object->spawn_version() >= SPAWN_VERSION_WIDE_REFS;
+	const int record_bytes = (wide_ids ? 4 : 2) + 4 + 12 + 4 + 12 + 4 + 4 + 4 + 4;
 	for (int i = 0; i < count; ++i)
 	{
+		if (packet.elapsed() < record_bytes)
+			break;
 		CDelayedSoundObject delayed_object;
-		delayed_object.m_object_id = packet.r_u16();
+		delayed_object.m_object_id = wide_ids ? packet.r_u32() : packet.r_u16();
 
 		CSoundObject& object = delayed_object.m_sound_object;
-		if (delayed_object.m_object_id != ALife::_OBJECT_ID(-1))
+		if (delayed_object.m_object_id != ALife::invalid_object_id)
 			object.m_object = smart_cast<CGameObject*>(Level().Objects.net_Find(delayed_object.m_object_id));
 		else
 			object.m_object = 0;
@@ -493,7 +504,7 @@ void CSoundMemoryManager::load(IReader& packet)
 		object.m_sound_type = (ESoundTypes)packet.r_u32();
 		object.m_power = packet.r_float();
 
-		if (object.m_object || (delayed_object.m_object_id == ALife::_OBJECT_ID(-1)))
+		if (object.m_object || (delayed_object.m_object_id == ALife::invalid_object_id))
 		{
 			add(object, true);
 			continue;

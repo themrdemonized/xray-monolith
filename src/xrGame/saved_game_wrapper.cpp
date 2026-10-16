@@ -123,11 +123,40 @@ CSavedGameWrapper::CSavedGameWrapper(LPCSTR saved_game_name)
 	{
 		R_ASSERT2(reader.find_chunk(OBJECT_CHUNK_DATA), "Can't find chunk OBJECT_CHUNK_DATA!");
 		u32 count = reader.r_u32();
-		VERIFY(count > 0);
-		CSE_ALifeDynamicObject* object = CALifeObjectRegistry::get_object(reader);
-		VERIFY(object->ID == 0);
-		auto* actor = smart_cast<CSE_ALifeCreatureActor*>(object);
-		VERIFY(actor);
+		// The preview only needs the actor. A crash save, or a save whose first
+		// root object is not the actor, must not take down the load dialog.
+		CSE_ALifeDynamicObject* object = nullptr;
+		CSE_ALifeCreatureActor* actor = nullptr;
+		for (u32 i = 0; i < count; ++i)
+		{
+			if (reader.elapsed() < (int)sizeof(u16))
+				break;
+			const int mark = reader.tell();
+			const u16 spawn_size = reader.r_u16();
+			reader.seek(mark);
+			if (spawn_size < 2 || reader.elapsed() < (int)sizeof(u16) + (int)spawn_size)
+				break;
+
+			object = CALifeObjectRegistry::get_object(reader);
+			if (!object)
+				break;
+
+			actor = smart_cast<CSE_ALifeCreatureActor*>(object);
+			if (actor)
+				break;
+
+			F_entity_Destroy(object);
+			object = nullptr;
+		}
+
+		if (!actor)
+		{
+			xr_free(source_data);
+			m_actor_health = 1.f;
+			m_level_id = _LEVEL_ID(-1);
+			m_level_name = "";
+			return;
+		}
 
 		m_actor_health = actor->get_health();
 

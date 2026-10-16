@@ -83,12 +83,12 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 {
 	inheritedWM::OnEvent(P, type);
 
-	u16 id;
+	u32 id;
 	switch (type)
 	{
 	case GE_OWNERSHIP_TAKE:
 		{
-			P.r_u16(id);
+			P.r_u32(id);
 			inheritedRL::AttachRocket(id, this);
 			xr_vector<shared_str>::iterator it = std::find(m_pendingRockets.begin(), m_pendingRockets.end(), getCurrentRocket()->cNameSect());
 			if (it != m_pendingRockets.end())
@@ -99,7 +99,7 @@ void CWeaponSSRS::OnEvent(NET_Packet& P, u16 type)
 	case GE_LAUNCH_ROCKET:
 		{
 			bool bLaunch = (type == GE_LAUNCH_ROCKET);
-			P.r_u16(id);
+			P.r_u32(id);
 			// a stripped rocket already left m_rockets, detach it here so its destroy can land
 			xr_vector<u16>::iterator it = std::find(m_strippedRockets.begin(), m_strippedRockets.end(), id);
 			if (it != m_strippedRockets.end())
@@ -607,7 +607,7 @@ void CWeaponSSRS::state_Fire(float dt)
 				{
 					NET_Packet P;
 					u_EventGen(P, GE_LAUNCH_ROCKET, ID());
-					P.w_u16(u16(getCurrentRocket()->ID()));
+					P.w_u32(getCurrentRocket()->ID());
 					u_EventSend(P);
 				}
 				dropCurrentRocket();

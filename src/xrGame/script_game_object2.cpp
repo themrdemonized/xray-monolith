@@ -67,7 +67,7 @@ void CScriptGameObject::explode(u32 level_time)
 	}
 }
 
-bool CScriptGameObject::active_zone_contact(u16 id)
+bool CScriptGameObject::active_zone_contact(ALife::_OBJECT_ID id)
 {
 	CScriptZone* script_zone = smart_cast<CScriptZone*>(&object());
 	if (!script_zone)

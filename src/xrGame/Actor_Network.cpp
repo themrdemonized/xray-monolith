@@ -510,7 +510,7 @@ void CActor::net_Import_Physic_proceed()
 
 BOOL CActor::net_Spawn(CSE_Abstract* DC)
 {
-	m_holder_id = ALife::_OBJECT_ID(-1);
+	m_holder_id = ALife::invalid_object_id;
 	m_feel_touch_characters = 0;
 	m_snd_noise = 0.0f;
 	m_sndShockEffector = NULL;
@@ -679,7 +679,7 @@ BOOL CActor::net_Spawn(CSE_Abstract* DC)
 	CALLBACK_TYPE callback;
 	callback.bind(this, &CActor::on_requested_spawn);
 	m_holder_id = E->m_holderID;
-	if (E->m_holderID != ALife::_OBJECT_ID(-1))
+	if (E->m_holderID != ALife::invalid_object_id)
 		if (!g_dedicated_server)
 			Level().client_spawn_manager().add(E->m_holderID, ID(), callback);
 	//F
@@ -722,7 +722,7 @@ void CActor::net_Destroy()
 {
 	inherited::net_Destroy();
 
-	if (m_holder_id != ALife::_OBJECT_ID(-1))
+	if (m_holder_id != ALife::invalid_object_id)
 		if (!g_dedicated_server)
 			Level().client_spawn_manager().remove(m_holder_id, ID());
 
@@ -1782,12 +1782,12 @@ void CActor::net_Save(NET_Packet& P)
 
 	pos					= P.w_tell();
 	m_pPhysics_support->in_NetSave(P);
-	P.w_u16(m_holderID);
+	P.w_u32(m_holderID);
 	Msg					("m_pPhysics_support->in_NetSave() : %d",P.w_tell() - pos);
 #else
 	inherited::net_Save(P);
 	m_pPhysics_support->in_NetSave(P);
-	P.w_u16(m_holderID);
+	P.w_u32(m_holderID);
 #endif
 }
 

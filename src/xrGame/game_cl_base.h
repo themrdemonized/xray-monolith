@@ -99,7 +99,7 @@ public:
 
 	virtual void shedule_Update(u32 dt);
 
-	void u_EventGen(NET_Packet& P, u16 type, u16 dest);
+	void u_EventGen(NET_Packet& P, u16 type, u32 dest);
 	void u_EventSend(NET_Packet& P);
 
 	virtual void ChatSay(LPCSTR phrase, bool bAll)

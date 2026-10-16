@@ -1,6 +1,7 @@
 #pragma once
 #include "UIStatic.h"
 #include "UIWndCallback.h"
+#include "alife_space.h"
 
 class CUIGlobalMapSpot;
 class CUIMapWnd;
@@ -215,11 +216,11 @@ class CUIMiniMapWidget : public CUIWindow
 	shared_str m_spot_shader;
 	shared_str m_global_texture;
 	shared_str m_global_default;
-	xr_map<u16, u32> m_spot_colors;
+	xr_map<ALife::_OBJECT_ID, u32> m_spot_colors;
 	xr_set<shared_str> m_hidden_types;
 	bool m_pointers_visible = true;
 	xr_set<shared_str> m_pointer_types;
-	u16 m_pointer_target = u16(-1);
+	ALife::_OBJECT_ID m_pointer_target = ALife::invalid_object_id;
 	u32 m_pointer_count = 0;
 	shared_str m_pointer_texture;
 	Frect m_pointer_rect;
@@ -259,7 +260,7 @@ public:
 	void set_texture_color(u32 color);
 	void set_spot_scale(float scale);
 	void set_pointer_scale(float scale);
-	void set_spot_color(u16 object_id, u32 color);
+	void set_spot_color(ALife::_OBJECT_ID object_id, u32 color);
 	void set_update_interval(u32 ms);
 	Fvector2 local_of(const Fvector& pos);
 	u32 spot_count() const { return m_spot_count; }
@@ -275,12 +276,12 @@ public:
 	void set_pointers_visible(bool visible);
 	void set_pointer_type(LPCSTR spot_type, bool point);
 	void clear_pointer_types();
-	void set_pointer_target(u16 object_id);
+	void set_pointer_target(ALife::_OBJECT_ID object_id);
 	void clear_pointer_target();
 	void set_pointer_texture(LPCSTR texture, float x, float y, float w, float h);
 	void set_pointer_texture(LPCSTR spot_type, LPCSTR texture, float x, float y, float w, float h);
 	void clear_pointer_texture();
-	u16 spot_at(float x, float y);
+	ALife::_OBJECT_ID spot_at(float x, float y);
 
 	virtual void Update();
 	virtual void Draw();

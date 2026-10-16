@@ -236,7 +236,13 @@ void CSE_PHSkeleton::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	R_ASSERT(visual);
 	tNetPacket.r_stringZ(visual->startup_animation);
 	tNetPacket.r_u8(_flags.flags);
-	tNetPacket.r_u16(source_id);
+	// smart_cast cannot cross from this skeleton base to CSE_Abstract. cast_abstract is the
+	// virtual the combined object overrides, so the saved id width follows the spawn version.
+	CSE_Abstract* abstract = cast_abstract();
+	if (abstract && abstract->m_wVersion >= SPAWN_VERSION)
+		tNetPacket.r_u32(source_id);
+	else
+		source_id = tNetPacket.r_u16();
 	if (_flags.test(flSavedData))
 	{
 		data_load(tNetPacket);
@@ -249,7 +255,7 @@ void CSE_PHSkeleton::STATE_Write(NET_Packet& tNetPacket)
 	R_ASSERT(visual);
 	tNetPacket.w_stringZ(visual->startup_animation);
 	tNetPacket.w_u8(_flags.flags);
-	tNetPacket.w_u16(source_id);
+	tNetPacket.w_u32(source_id);
 	////////////////////////saving///////////////////////////////////////
 	if (_flags.test(flSavedData))
 	{

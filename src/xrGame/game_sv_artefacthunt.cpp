@@ -505,7 +505,7 @@ void game_sv_ArtefactHunt::LoadTeams()
 	LoadTeamData("artefacthunt_team2");
 };
 
-BOOL game_sv_ArtefactHunt::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
+BOOL game_sv_ArtefactHunt::OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what, BOOL bForced)
 {
 	CSE_Abstract* e_who = m_server->ID_to_entity(eid_who);
 	VERIFY(e_who);
@@ -583,7 +583,7 @@ BOOL game_sv_ArtefactHunt::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
 	return inherited::OnTouch(eid_who, eid_what, bForced);
 };
 
-void game_sv_ArtefactHunt::OnDetach(u16 eid_who, u16 eid_what)
+void game_sv_ArtefactHunt::OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what)
 {
 	CSE_Abstract* e_who = m_server->ID_to_entity(eid_who);
 	VERIFY(e_who);
@@ -635,8 +635,8 @@ void game_sv_ArtefactHunt::OnObjectEnterTeamBase(u16 id, u16 zone_team)
 
 			signal_Syncronize();
 
-			xr_vector<u16>& C = eActor->children;
-			xr_vector<u16>::iterator c = std::find(C.begin(), C.end(), m_dwArtefactID);
+			xr_vector<ALife::_OBJECT_ID>& C = eActor->children;
+			xr_vector<ALife::_OBJECT_ID>::iterator c = std::find(C.begin(), C.end(), m_dwArtefactID);
 			if (C.end() != c)
 			{
 				OnArtefactOnBase(eActor->owner->ID);
@@ -743,7 +743,7 @@ void game_sv_ArtefactHunt::OnArtefactOnBase(ClientID id_who)
 	P.w_begin(M_EVENT);
 	P.w_u32(Device.dwTimeGlobal);
 	P.w_u16(GE_DESTROY);
-	P.w_u16(m_dwArtefactID);
+	P.w_u32(m_dwArtefactID);
 
 	Level().Send(P, net_flags(TRUE,TRUE));
 	//-----------------------------------------------
@@ -930,7 +930,7 @@ bool game_sv_ArtefactHunt::ArtefactSpawn_Allowed()
 	return TRUE;
 };
 
-void game_sv_ArtefactHunt::OnCreate(u16 id_who)
+void game_sv_ArtefactHunt::OnCreate(ALife::_OBJECT_ID id_who)
 {
 	inherited::OnCreate(id_who);
 
@@ -1497,7 +1497,7 @@ void game_sv_ArtefactHunt::OnPlayerHitPlayer_Case(game_PlayerState* ps_hitter, g
 	inherited::OnPlayerHitPlayer_Case(ps_hitter, ps_hitted, pHitS);
 };
 
-void game_sv_ArtefactHunt::OnPlayerHitPlayer(u16 id_hitter, u16 id_hitted, NET_Packet& P)
+void game_sv_ArtefactHunt::OnPlayerHitPlayer(ALife::_OBJECT_ID id_hitter, ALife::_OBJECT_ID id_hitted, NET_Packet& P)
 {
 	inherited::OnPlayerHitPlayer(id_hitter, id_hitted, P);
 

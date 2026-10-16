@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "hit_memory_manager.h"
+#include "../xrServerEntities/xrServer_Objects.h"
 #include "memory_space_impl.h"
 #include "custommonster.h"
 #include "ai_object_location.h"
@@ -80,7 +81,7 @@ void CHitMemoryManager::Load(LPCSTR section)
 void CHitMemoryManager::reinit()
 {
 	m_hits = 0;
-	m_last_hit_object_id = ALife::_OBJECT_ID(-1);
+	m_last_hit_object_id = ALife::invalid_object_id;
 	m_last_hit_time = 0;
 }
 
@@ -250,7 +251,7 @@ void CHitMemoryManager::remove_links(CObject* object)
 {
 	if (m_last_hit_object_id == object->ID())
 	{
-		m_last_hit_object_id = ALife::_OBJECT_ID(-1);
+		m_last_hit_object_id = ALife::invalid_object_id;
 		m_last_hit_time = 0;
 	}
 
@@ -278,14 +279,20 @@ void CHitMemoryManager::save(NET_Packet& packet) const
 	if (!m_object->g_Alive())
 		return;
 
-	packet.w_u8((u8)objects().size());
+	u32 count = (u32)objects().size();
+	if (count > 255)
+	{
+		Msg("! hit memory for [%s] keeps 255 of %u records", *m_object->cName(), count);
+		count = 255;
+	}
+	packet.w_u8((u8)count);
 
 	HITS::const_iterator I = objects().begin();
 	HITS::const_iterator E = objects().end();
-	for (; I != E; ++I)
+	for (u32 stored = 0; I != E && stored < count; ++I, ++stored)
 	{
 		VERIFY((*I).m_object);
-		packet.w_u16((*I).m_object->ID());
+		packet.w_u32((*I).m_object->ID());
 		// object params
 		packet.w_u32((*I).m_object_params.m_level_vertex_id);
 		packet.w_vec3((*I).m_object_params.m_position);
@@ -327,10 +334,14 @@ void CHitMemoryManager::load(IReader& packet)
 	callback.bind(&m_object->memory(), &CMemoryManager::on_requested_spawn);
 
 	int count = packet.r_u8();
+	const bool wide_ids = m_object->spawn_version() >= SPAWN_VERSION_WIDE_REFS;
+	const int record_bytes = (wide_ids ? 4 : 2) + 4 + 12 + 4 + 12 + 4 + 4 + 12 + 2 + 4;
 	for (int i = 0; i < count; ++i)
 	{
+		if (packet.elapsed() < record_bytes)
+			break;
 		CDelayedHitObject delayed_object;
-		delayed_object.m_object_id = packet.r_u16();
+		delayed_object.m_object_id = wide_ids ? packet.r_u32() : packet.r_u16();
 
 		CHitObject& object = delayed_object.m_hit_object;
 		object.m_object = smart_cast<CEntityAlive*>(Level().Objects.net_Find(delayed_object.m_object_id));

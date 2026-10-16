@@ -18,10 +18,10 @@ void xrServer::Process_update(NET_Packet& P, ClientID sender)
 	while (!P.r_eof())
 	{
 		// find entity
-		u16 ID;
+		u32 ID;
 		u8 size;
 
-		P.r_u16(ID);
+		P.r_u32(ID);
 		P.r_u8(size);
 		u32 _pos = P.r_tell();
 		CSE_Abstract* E = ID_to_entity(ID);
@@ -68,10 +68,10 @@ void xrServer::Process_save(NET_Packet& P, ClientID sender)
 	while (!P.r_eof())
 	{
 		// find entity
-		u16 ID;
+		u32 ID;
 		u16 size;
 
-		P.r_u16(ID);
+		P.r_u32(ID);
 		P.r_u16(size);
 		s32 _pos_start = P.r_tell();
 		CSE_Abstract* E = ID_to_entity(ID);

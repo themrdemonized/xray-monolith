@@ -16,7 +16,7 @@ CALifeSimulatorHeader::~CALifeSimulatorHeader()
 void CALifeSimulatorHeader::save(IWriter& memory_stream)
 {
 	memory_stream.open_chunk(ALIFE_CHUNK_DATA);
-	memory_stream.w_u32(ALIFE_VERSION);
+	memory_stream.w_u32(ALIFE_VERSION_WIDE_IDS);
 	memory_stream.close_chunk();
 }
 

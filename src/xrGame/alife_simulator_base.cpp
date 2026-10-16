@@ -96,7 +96,7 @@ void CALifeSimulatorBase::reload(LPCSTR section)
 }
 
 CSE_Abstract* CALifeSimulatorBase::spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id,
-                                              GameGraph::_GRAPH_ID game_vertex_id, u16 parent_id, bool registration)
+                                              GameGraph::_GRAPH_ID game_vertex_id, ALife::_OBJECT_ID parent_id, bool registration)
 {
 	CSE_Abstract* abstract = F_entity_Create(section);
 	R_ASSERT3(abstract, "Cannot find item with section", section);
@@ -250,9 +250,9 @@ void CALifeSimulatorBase::create(CSE_ALifeObject* object)
 	//	Msg							("Creating object from client spawn [%d][%d][%s][%s]",dynamic_object->ID,dynamic_object->ID_Parent,dynamic_object->name(),dynamic_object->name_replace());
 #endif
 
-	if (0xffff != dynamic_object->ID_Parent)
+	if (ALife::invalid_object_id != dynamic_object->ID_Parent)
 	{
-		u16 id = dynamic_object->ID_Parent;
+		ALife::_OBJECT_ID id = dynamic_object->ID_Parent;
 		CSE_ALifeDynamicObject* parent = objects().object(id);
 		VERIFY(parent);
 		dynamic_object->m_tGraphID = parent->m_tGraphID;

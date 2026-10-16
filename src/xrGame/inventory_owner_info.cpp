@@ -24,11 +24,11 @@ void CInventoryOwner::OnEvent(NET_Packet& P, u16 type)
 	{
 	case GE_INFO_TRANSFER:
 		{
-			u16 id;
+			u32 id;
 			shared_str info_id;
 			u8 add_info;
 
-			P.r_u16(id); //отправитель
+			P.r_u32(id); //отправитель
 			P.r_stringZ(info_id); //номер полученной информации
 			P.r_u8(add_info); //добавление или убирание информации
 
@@ -102,7 +102,7 @@ void CInventoryOwner::TransferInfo(shared_str info_id, bool add_info) const
 	//отправляем от нашему PDA пакет информации с номером
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GE_INFO_TRANSFER, pThisObject->ID());
-	P.w_u16(pThisObject->ID()); //отправитель
+	P.w_u32(pThisObject->ID()); //отправитель
 	P.w_stringZ(info_id); //сообщение
 	P.w_u8(add_info ? 1 : 0); //добавить/удалить информацию
 	CGameObject::u_EventSend(P);

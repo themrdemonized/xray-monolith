@@ -104,7 +104,11 @@ void CSE_ALifeOnlineOfflineGroup::register_member(ALife::_OBJECT_ID member_id)
 	VERIFY(m_members.find(member_id) == m_members.end());
 	CSE_ALifeDynamicObject* object = ai().alife().objects().object(member_id);
 	CSE_ALifeMonsterAbstract* monster = smart_cast<CSE_ALifeMonsterAbstract*>(object);
-	VERIFY(monster);
+	if (!object || !monster)
+	{
+		Msg("! squad '%s' cannot register member %u", name_replace(), member_id);
+		return;
+	}
 	VERIFY(monster->g_Alive());
 
 	bool empty = m_members.empty();

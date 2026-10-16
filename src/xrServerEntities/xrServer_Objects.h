@@ -163,7 +163,10 @@
 // 127	 CSE_ALifeObjectClimable		added material;
 // 128	 CSE_ALifeObjectClimable		added can_fire in smart covers;
 //------------------------------------------------------------------------------
-#define SPAWN_VERSION	u16(128)
+#define SPAWN_VERSION_LEGACY_IDS u16(128)
+#define SPAWN_VERSION	u16(129)
+// Client references (memory, helicopter target, and the registries) store full ids from this version.
+#define SPAWN_VERSION_WIDE_REFS u16(130)
 
 SERVER_ENTITY_DECLARE_BEGIN2(CSE_Shape, ISE_Shape, CShapeData)
 public:
@@ -201,11 +204,11 @@ SERVER_ENTITY_DECLARE_BEGIN0(CSE_PHSkeleton)
 
 	Flags8 _flags;
 	SPHBonesData saved_bones;
-	u16 source_id; //for break only
+	u32 source_id; //for break only
 	virtual void load(NET_Packet& tNetPacket);
 	virtual bool need_save() const { return (!_flags.test(flNotSave)); }
-	virtual void set_sorce_id(u16 si) { source_id = si; }
-	virtual u16 get_source_id() { return source_id; }
+	virtual void set_sorce_id(u32 si) { source_id = si; }
+	virtual u32 get_source_id() { return source_id; }
 	virtual CSE_Abstract* cast_abstract() { return 0; }
 protected:
 	virtual void data_load(NET_Packet& tNetPacket);

@@ -12,6 +12,8 @@
 
 // ALife objects, events and tasks
 #define ALIFE_VERSION				0x0006
+// Registry object-id keys are 32-bit from this version. Older saves still load.
+#define ALIFE_VERSION_WIDE_IDS		0x0007
 #define ALIFE_CHUNK_DATA			0x0000
 #define SPAWN_CHUNK_DATA			0x0001
 #define OBJECT_CHUNK_DATA			0x0002
@@ -36,7 +38,12 @@ class CGameGraph;
 namespace ALife
 {
 	typedef u64 _CLASS_ID; // Class ID
-	typedef u16 _OBJECT_ID; // Object ID
+	// Runtime object ids are wider than 16 bits. 65535 stays the invalid and parentless value
+	// scripts already compare against. Do not use _OBJECT_ID(-1): that is 0xFFFFFFFF.
+	typedef u32 _OBJECT_ID;
+	const _OBJECT_ID invalid_object_id = 65535;
+	const _OBJECT_ID max_object_id = 131071;
+	const u32 object_id_count = 131072;
 	typedef u64 _TIME_ID; // Time  ID
 	typedef u32 _EVENT_ID; // Event ID
 	typedef u32 _TASK_ID; // Event ID

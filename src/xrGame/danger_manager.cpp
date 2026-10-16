@@ -275,7 +275,7 @@ void CDangerManager::add(const CVisibleObject& object)
 		return;
 
 	const CEntityAlive* obj = smart_cast<const CEntityAlive*>(object.m_object);
-	if (obj && !obj->g_Alive() && (obj->killer_id() != ALife::_OBJECT_ID(-1)))
+	if (obj && !obj->g_Alive() && (obj->killer_id() != ALife::invalid_object_id))
 	{
 		add(CDangerObject(obj, obj->Position(), object.m_level_time, CDangerObject::eDangerTypeFreshEntityCorpse,
 		                  CDangerObject::eDangerPerceiveTypeVisual));

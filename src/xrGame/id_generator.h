@@ -68,7 +68,13 @@ private:
 		}
 
 		if (tInvalidValueID == tValueID)
-			return (VALUE_ID(l_tID_Block.m_tpIDs[--l_tID_Block.m_tCount]) + l_tBlockID * tBlockSize + tMinValue);
+		{
+			// Block index times block size is wider than either factor. Keep the product in VALUE_ID.
+			const VALUE_ID id = VALUE_ID(l_tID_Block.m_tpIDs[--l_tID_Block.m_tCount])
+				+ VALUE_ID(l_tBlockID) * VALUE_ID(tBlockSize) + tMinValue;
+			VERIFY(id != tInvalidValueID);
+			return id;
+		}
 
 		TYPE_ID* l_tpBlockID = std::find(l_tID_Block.m_tpIDs, l_tID_Block.m_tpIDs + l_tID_Block.m_tCount,
 		                                 TYPE_ID((tValueID - tMinValue) % tBlockSize));
@@ -78,18 +84,29 @@ private:
 	}
 
 public:
-	IC CID_Generator()
+	IC void reset()
 	{
 		m_available_count = 0;
+		for (u32 block = 0; block < m_tBlockCount; ++block)
+			m_tppBlocks[block].m_tCount = 0;
+
+		// tInvalidValueID may sit inside [tMinValue, tMaxValue]. It is reserved and is not a free id.
 		for (VALUE_ID i = tMinValue; ; ++i)
 		{
-			vfFreeID(i, tStartTime);
+			if (i != tInvalidValueID)
+				vfFreeID(i, tStartTime);
 			if (i >= tMaxValue)
 				break;
 		}
 		VERIFY(m_available_count == m_tBlockCount);
 		for (u32 j = 0; j < m_tBlockCount; ++j)
 			std::reverse(m_tppBlocks[j].m_tpIDs, m_tppBlocks[j].m_tpIDs + m_tppBlocks[j].m_tCount);
+	}
+
+public:
+	IC CID_Generator()
+	{
+		reset();
 	}
 
 	IC VALUE_ID tfGetID(VALUE_ID tValueID = tInvalidValueID)
@@ -105,6 +122,12 @@ public:
 
 	IC void vfFreeID(VALUE_ID tValueID, TIME_ID tTimeID)
 	{
+		if (tValueID == tInvalidValueID)
+		{
+			R_ASSERT2(false, "Freeing an invalid ID is rejected");
+			return;
+		}
+
 		BLOCK_ID l_tBlockID = tfGetBlockByValue(tValueID);
 		SID_Block& l_tID_Block = m_tppBlocks[l_tBlockID];
 

@@ -155,7 +155,7 @@ void* game_sv_GameState::get_client(u16 id) //if exist
 	return m_server->FindClient(searcher_predicate);
 }
 
-CSE_Abstract* game_sv_GameState::get_entity_from_eid(u16 id)
+CSE_Abstract* game_sv_GameState::get_entity_from_eid(ALife::_OBJECT_ID id)
 {
 	return m_server->ID_to_entity(id);
 }
@@ -187,7 +187,7 @@ u32 game_sv_GameState::get_alive_count(u32 team)
 	return tmp_counter.count;
 }
 
-xr_vector<u16>* game_sv_GameState::get_children(ClientID id)
+xr_vector<ALife::_OBJECT_ID>* game_sv_GameState::get_children(ClientID id)
 {
 	xrClientData* C = (xrClientData*)m_server->ID_to_client(id);
 	if (0 == C) return 0;
@@ -634,12 +634,12 @@ void game_sv_GameState::GenerateGameMessage(NET_Packet& P)
 	P.w_begin(M_GAMEMESSAGE);
 };
 
-void game_sv_GameState::u_EventGen(NET_Packet& P, u16 type, u16 dest)
+void game_sv_GameState::u_EventGen(NET_Packet& P, u16 type, ALife::_OBJECT_ID dest)
 {
 	P.w_begin(M_EVENT);
 	P.w_u32(Level().timeServer()); //Device.TimerAsync());
 	P.w_u16(type);
-	P.w_u16(dest);
+	P.w_u32(dest);
 }
 
 void game_sv_GameState::u_EventSend(NET_Packet& P, u32 dwFlags)
@@ -678,7 +678,7 @@ void game_sv_GameState::Update()
 	}
 }
 
-void game_sv_GameState::OnDestroyObject(u16 eid_who)
+void game_sv_GameState::OnDestroyObject(ALife::_OBJECT_ID eid_who)
 {
 }
 
@@ -732,7 +732,7 @@ void game_sv_GameState::switch_distance(NET_Packet& net_packet, ClientID sender)
 {
 }
 
-void game_sv_GameState::OnHit(u16 id_hitter, u16 id_hitted, NET_Packet& P)
+void game_sv_GameState::OnHit(ALife::_OBJECT_ID id_hitter, ALife::_OBJECT_ID id_hitted, NET_Packet& P)
 {
 	CSE_Abstract* e_hitter = get_entity_from_eid(id_hitter);
 	CSE_Abstract* e_hitted = get_entity_from_eid(id_hitted);
@@ -1181,7 +1181,7 @@ void game_sv_GameState::on_death(CSE_Abstract* e_dest, CSE_Abstract* e_src)
 	if (!creature)
 		return;
 
-	VERIFY(creature->get_killer_id() == ALife::_OBJECT_ID(-1));
+	VERIFY(creature->get_killer_id() == ALife::invalid_object_id);
 	creature->set_killer_id(e_src->ID);
 }
 

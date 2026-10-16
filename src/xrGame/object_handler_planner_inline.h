@@ -16,7 +16,7 @@ IC CAI_Stalker& CObjectHandlerPlanner::object() const
 
 IC u32 CObjectHandlerPlanner::action_state_id(_condition_type action_id) const
 {
-	return (action_id & 0xffff);
+	return (action_id & 0xff);
 }
 
 IC u32 CObjectHandlerPlanner::current_action_state_id() const

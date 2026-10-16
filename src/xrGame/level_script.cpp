@@ -130,7 +130,7 @@ CScriptGameObject *get_object_by_name(LPCSTR caObjectName)
 #endif
 
 // demonized: add u16 id version of function to improve performance
-CScriptGameObject* get_object_by_id(u16 id)
+CScriptGameObject* get_object_by_id(u32 id)
 {
 	CGameObject* pGameObject = smart_cast<CGameObject*>(Level().Objects.net_Find(id));
 	if (!pGameObject)
@@ -155,7 +155,7 @@ CScriptGameObject* get_object_by_id(const ::luabind::object& ob)
 		return nullptr;
 	}
 
-	u16 id = ::luabind::object_cast<u16>(ob);
+	u32 id = ::luabind::object_cast<u32>(ob);
 	return get_object_by_id(id);
 }
 
@@ -1816,7 +1816,7 @@ const u32 ActorMovingState()
 	return g_actor->MovingState();
 }
 
-void AddBullet(Fvector pos, Fvector dir, float speed, float power, float impulse, u16 sender, ALife::EHitType hit_type, float max_dist, LPCSTR ammo_sect, float air_resistance)
+void AddBullet(Fvector pos, Fvector dir, float speed, float power, float impulse, u32 sender, ALife::EHitType hit_type, float max_dist, LPCSTR ammo_sect, float air_resistance)
 {
 	CCartridge* _temp = xr_new<CCartridge>();
 	_temp->Load(ammo_sect, 0);
@@ -1834,16 +1834,16 @@ void AddBullet(::luabind::object t)
 		float speed = ::luabind::object_cast<float>(t["speed"]);
 		float power = ::luabind::object_cast<float>(t["power"]);
 		float impulse = ::luabind::object_cast<float>(t["impulse"]);
-		u16 sender = ::luabind::object_cast<u16>(t["sender"]);
+		u32 sender = ::luabind::object_cast<u32>(t["sender"]);
 		ALife::EHitType hit_type = ::luabind::object_cast<ALife::EHitType>(t["hit_type"]);
 		float max_dist = ::luabind::object_cast<float>(t["max_dist"]);
 		LPCSTR ammo_sect = ::luabind::object_cast<LPCSTR>(t["ammo_sect"]);
 		float air_resistance = ::luabind::object_cast<float>(t["air_resistance"]);
 
 		// momopate: add senderweapon id to the table as to not break most damage mods, defaults to sender
-		u16 senderweapon = sender;
-		if (::luabind::object_cast<u16>(t["senderweapon"]))
-			senderweapon = ::luabind::object_cast<u16>(t["senderweapon"]);
+		u32 senderweapon = sender;
+		if (::luabind::object_cast<u32>(t["senderweapon"]))
+			senderweapon = ::luabind::object_cast<u32>(t["senderweapon"]);
 
 		CCartridge* _temp = xr_new<CCartridge>();
 		_temp->Load(ammo_sect, 0);
@@ -2059,7 +2059,7 @@ void g_send(NET_Packet& P, bool bReliable = 0, bool bSequential = 1, bool bHighP
 }
 
 //can spawn entities like bolts, phantoms, ammo, etc. which normally crash when using alife():create()
-void spawn_section(LPCSTR sSection, Fvector3 vPosition, u32 LevelVertexID, u16 ParentID, bool bReturnItem = false)
+void spawn_section(LPCSTR sSection, Fvector3 vPosition, u32 LevelVertexID, u32 ParentID, bool bReturnItem = false)
 {
 	Level().spawn_item(sSection, vPosition, LevelVertexID, ParentID, bReturnItem);
 }
@@ -2687,7 +2687,7 @@ void CLevel::script_register(lua_State* L)
 			//Alundaio: END
 			// obsolete\deprecated
 			// demonized: add u16 override for better performance
-			def("object_by_id", ((CScriptGameObject * (*)(u16)) & get_object_by_id)),
+			def("object_by_id", ((CScriptGameObject * (*)(u32)) & get_object_by_id)),
 			def("object_by_id", ((CScriptGameObject* (*)()) & get_object_by_id)),
 			def("object_by_id", ((CScriptGameObject* (*)(const ::luabind::object&)) & get_object_by_id)),
 #ifdef DEBUG
@@ -2832,7 +2832,7 @@ void CLevel::script_register(lua_State* L)
 			def("nearest_object", &nearest_object, pure_out_value<3>()),
 			def("nearest_object", &nearest_object_of_class, pure_out_value<4>()),
 			def("pick_material", &PickMaterial),
-			def("add_bullet", ((void (*)(Fvector, Fvector, float, float, float, u16, ALife::EHitType, float, LPCSTR, float))& AddBullet)),
+			def("add_bullet", ((void (*)(Fvector, Fvector, float, float, float, u32, ALife::EHitType, float, LPCSTR, float))& AddBullet)),
 			def("add_bullet", ((void (*)(::luabind::object))& AddBullet)),
 
 			// Lucy: Script Attachments

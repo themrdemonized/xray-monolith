@@ -6,7 +6,9 @@
 
 #pragma pack(push,1)
 
-const u32 NET_PacketSizeLimit = 16 * 1024;
+// Single-player actor state in a modded game no longer fits in 16 KB.
+// Stay under 65535 so an object can still be stored with a u16 size prefix.
+const u32 NET_PacketSizeLimit = 60 * 1024;
 
 struct XRCORE_API IIniFileStream
 {
@@ -71,14 +73,16 @@ public:
 	{
 		memcpy(B.data, data, size);
 		B.count = size;
+		overflowed = false;
 	}
 
 	NET_Buffer B;
 	u32 r_pos;
 	u32 timeReceive;
 	bool w_allow;
+	bool overflowed;
 public:
-	NET_Packet() : inistream(NULL), w_allow(true)
+	NET_Packet() : inistream(NULL), w_allow(true), overflowed(false)
 	{
 	}
 
@@ -86,12 +90,14 @@ public:
 	IC void write_start()
 	{
 		B.count = 0;
+		overflowed = false;
 		INI_W(move_begin());
 	}
 
 	IC void w_begin(u16 type)
 	{
 		B.count = 0;
+		overflowed = false;
 		w_u16(type);
 	}
 
@@ -102,14 +108,21 @@ public:
 		~W_guard() { *guarded = false; }
 	};
 
+	void report_overflow(u32 count, u32 add) const;
+
 	IC void w(const void* p, u32 count)
 	{
 		R_ASSERT(inistream == NULL || w_allow);
 		VERIFY(p && count);
-		VERIFY(B.count + count < NET_PacketSizeLimit);
+		// Writing past data[] smashes the stack and the save appears to freeze.
+		if (!p || B.count + count >= NET_PacketSizeLimit)
+		{
+			overflowed = true;
+			report_overflow(B.count, count);
+			return;
+		}
 		CopyMemory(&B.data[B.count], p, count);
 		B.count += count;
-		VERIFY(B.count < NET_PacketSizeLimit);
 	}
 
 	void w_seek(u32 pos, const void* p, u32 count);
@@ -291,12 +304,26 @@ public:
 	IC void r(void* p, u32 count)
 	{
 		R_ASSERT(inistream == NULL);
-		VERIFY(p && count);
+		if (!p || !count)
+			return;
+		if (r_pos >= B.count)
+		{
+			ZeroMemory(p, count);
+			return;
+		}
+		if (r_pos + count > B.count)
+		{
+			const u32 avail = B.count - r_pos;
+			ZeroMemory(p, count);
+			CopyMemory(p, &B.data[r_pos], avail);
+			r_pos = B.count;
+			return;
+		}
 		CopyMemory(p, &B.data[r_pos], count);
 		r_pos += count;
-		VERIFY(r_pos <= B.count);
 	}
 
+	IC BOOL eof() const { return r_pos >= B.count; }
 	BOOL r_eof();
 	u32 r_elapsed();
 	void r_advance(u32 size);

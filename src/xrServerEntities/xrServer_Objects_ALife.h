@@ -17,6 +17,10 @@
 #endif //#ifdef XRGAME_EXPORTS
 #include "../../build_config_defines.h"
 
+class NET_Packet;
+ALife::_OBJECT_ID read_saved_object_id(NET_Packet& packet, u16 version);
+void load_saved_object_ids(xr_vector<ALife::_OBJECT_ID>& ids, NET_Packet& packet, u16 version);
+
 #pragma warning(push)
 #pragma warning(disable:4005)
 

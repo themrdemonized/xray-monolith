@@ -202,7 +202,7 @@ public:
 	};
 
 	//для работы с relation system
-	u16 object_id() const;
+	ALife::_OBJECT_ID object_id() const;
 	CHARACTER_COMMUNITY_INDEX Community() const { return CharacterInfo().Community().index(); };
 	CHARACTER_RANK_VALUE Rank() const { return CharacterInfo().Rank().value(); };
 	CHARACTER_REPUTATION_VALUE Reputation() const { return CharacterInfo().Reputation().value(); };

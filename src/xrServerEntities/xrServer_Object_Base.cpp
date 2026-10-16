@@ -206,9 +206,11 @@ void CSE_Abstract::Spawn_Write(NET_Packet& tNetPacket, BOOL bLocal)
 	tNetPacket.w_vec3(o_Position);
 	tNetPacket.w_vec3(o_Angle);
 	tNetPacket.w_u16(RespawnTime);
-	tNetPacket.w_u16(ID);
-	tNetPacket.w_u16(ID_Parent);
-	tNetPacket.w_u16(ID_Phantom);
+	// Legacy slots keep old readers aligned up to the version word. Values that do not fit stay 0 here;
+	// the authoritative ids follow SPAWN_VERSION.
+	tNetPacket.w_u16(ID <= ALife::invalid_object_id ? u16(ID) : 0);
+	tNetPacket.w_u16(ID_Parent <= ALife::invalid_object_id ? u16(ID_Parent) : 0);
+	tNetPacket.w_u16(ID_Phantom <= ALife::invalid_object_id ? u16(ID_Phantom) : 0);
 
 	s_flags.set(M_SPAWN_VERSION,TRUE);
 	if (bLocal)
@@ -216,20 +218,34 @@ void CSE_Abstract::Spawn_Write(NET_Packet& tNetPacket, BOOL bLocal)
 	else
 		tNetPacket.w_u16(u16(s_flags.flags & ~(M_SPAWN_OBJECT_LOCAL | M_SPAWN_OBJECT_ASPLAYER)));
 
-	tNetPacket.w_u16(SPAWN_VERSION);
+	tNetPacket.w_u16(SPAWN_VERSION_WIDE_REFS);
+	tNetPacket.w_u32(ID);
+	tNetPacket.w_u32(ID_Parent);
+	tNetPacket.w_u32(ID_Phantom);
 
 	tNetPacket.w_u16(m_gameType.m_GameType.get());
 
 	tNetPacket.w_u16(script_server_object_version());
 
 
-	//client object custom data serialization SAVE
-	u16 client_data_size = (u16)client_data.size(); //не может быть больше 256 байт
-	tNetPacket.w_u16(client_data_size);
-	//	Msg							("SERVER:saving:save:%d bytes:%d:%s",client_data_size,ID,s_name_replace ? s_name_replace : "");
-	if (client_data_size > 0)
+	// The size word has to describe the bytes that follow. A write that does not fit is refused
+	// whole, so claiming the original size would make the loader treat the next fields as client data.
+	const u32 client_bytes = (u32)client_data.size();
+	const u32 tell = tNetPacket.w_tell();
+	const u32 room = (tell + sizeof(u16) < NET_PacketSizeLimit)
+		                 ? (NET_PacketSizeLimit - 1 - tell - sizeof(u16))
+		                 : 0;
+	if (client_bytes > 0xFFFF || client_bytes > room)
 	{
-		tNetPacket.w(&*client_data.begin(), client_data_size);
+		Msg("! spawn client data for [%s] id %u is %u bytes and does not fit",
+		    name_replace() ? name_replace() : "", ID, client_bytes);
+		tNetPacket.w_u16(0);
+	}
+	else
+	{
+		tNetPacket.w_u16((u16)client_bytes);
+		if (client_bytes > 0)
+			tNetPacket.w(&*client_data.begin(), client_bytes);
 	}
 
 	tNetPacket.w_u16(m_tSpawnID);
@@ -289,15 +305,22 @@ BOOL CSE_Abstract::Spawn_Read(NET_Packet& tNetPacket)
 	tNetPacket.r_vec3(o_Position);
 	tNetPacket.r_vec3(o_Angle);
 	tNetPacket.r_u16(RespawnTime);
-	tNetPacket.r_u16(ID);
-	tNetPacket.r_u16(ID_Parent);
-	tNetPacket.r_u16(ID_Phantom);
+	ID = tNetPacket.r_u16();
+	ID_Parent = tNetPacket.r_u16();
+	ID_Phantom = tNetPacket.r_u16();
 
 	tNetPacket.r_u16(s_flags.flags);
 
 	// dangerous!!!!!!!!!
 	if (s_flags.is(M_SPAWN_VERSION))
 		tNetPacket.r_u16(m_wVersion);
+
+	if (m_wVersion >= SPAWN_VERSION)
+	{
+		tNetPacket.r_u32(ID);
+		tNetPacket.r_u32(ID_Parent);
+		tNetPacket.r_u32(ID_Phantom);
+	}
 
 	if (m_wVersion > 120)
 	{

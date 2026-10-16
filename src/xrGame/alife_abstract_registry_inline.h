@@ -35,6 +35,28 @@ void CSALifeAbstractRegistry::load(IReader& file_stream)
 }
 
 TEMPLATE_SPECIALIZATION
+void CSALifeAbstractRegistry::load_object_ids(IReader& file_stream, bool wide_keys)
+{
+	delete_data(m_objects);
+	const u32 count = file_stream.r_u32();
+	for (u32 i = 0; i < count; ++i)
+	{
+		_index_type index;
+		if (wide_keys)
+			file_stream.r(&index, sizeof(index));
+		else
+		{
+			u16 legacy = 0;
+			file_stream.r(&legacy, sizeof(legacy));
+			index = legacy;
+		}
+		_data_type data;
+		load_data(data, file_stream);
+		m_objects.insert(std::make_pair(index, data));
+	}
+}
+
+TEMPLATE_SPECIALIZATION
 IC const typename CSALifeAbstractRegistry::OBJECT_REGISTRY&CSALifeAbstractRegistry::objects() const
 {
 	return (m_objects);

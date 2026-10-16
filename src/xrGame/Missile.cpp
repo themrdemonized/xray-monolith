@@ -573,7 +573,7 @@ void CMissile::Throw()
 	{
 		NET_Packet P;
 		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
-		P.w_u16(u16(m_fake_missile->ID()));
+		P.w_u32(m_fake_missile->ID());
 		u_EventSend(P);
 	}
 }
@@ -581,12 +581,12 @@ void CMissile::Throw()
 void CMissile::OnEvent(NET_Packet& P, u16 type)
 {
 	inherited::OnEvent(P, type);
-	u16 id;
+	u32 id;
 	switch (type)
 	{
 	case GE_OWNERSHIP_TAKE:
 		{
-			P.r_u16(id);
+			P.r_u32(id);
 			CMissile* missile = smart_cast<CMissile*>(Level().Objects.net_Find(id));
 			m_fake_missile = missile;
 			missile->H_SetParent(this);
@@ -595,7 +595,7 @@ void CMissile::OnEvent(NET_Packet& P, u16 type)
 		}
 	case GE_OWNERSHIP_REJECT:
 		{
-			P.r_u16(id);
+			P.r_u32(id);
 			bool IsFakeMissile = false;
 			if (m_fake_missile && (id == m_fake_missile->ID()))
 			{

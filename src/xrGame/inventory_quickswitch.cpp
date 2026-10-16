@@ -160,14 +160,14 @@ bool CInventory::ActivateNextItemInActiveSlot()
 		res = Ruck(current_item);
 		R_ASSERT(res);
 		current_item->object().u_EventGen(P, GEG_PLAYER_ITEM2RUCK, current_item->object().H_Parent()->ID());
-		P.w_u16(current_item->object().ID());
+		P.w_u32(current_item->object().ID());
 		current_item->object().u_EventSend(P);
 	}
 
 	res = Slot(m_iActiveSlot, new_item);
 	R_ASSERT(res);
 	new_item->object().u_EventGen(P, GEG_PLAYER_ITEM2SLOT, new_item->object().H_Parent()->ID());
-	P.w_u16(new_item->object().ID());
+	P.w_u32(new_item->object().ID());
 	P.w_u16(m_iActiveSlot);
 	P.w_u8(0); // do activate
 	new_item->object().u_EventSend(P);

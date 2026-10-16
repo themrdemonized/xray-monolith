@@ -49,13 +49,14 @@ CSE_Abstract*		game_sv_Single::get_entity_from_eid		(u16 id)
 }
 /**/
 
-void game_sv_Single::OnCreate(u16 id_who)
+void game_sv_Single::OnCreate(ALife::_OBJECT_ID id_who)
 {
 	if (!ai().get_alife())
 		return;
 
 	CSE_Abstract* e_who = get_entity_from_eid(id_who);
-	VERIFY(e_who);
+	if (!e_who)
+		return;
 	if (!e_who->m_bALifeControl)
 		return;
 
@@ -89,12 +90,12 @@ void game_sv_Single::OnCreate(u16 id_who)
 		alife().create(alife_object);
 }
 
-BOOL game_sv_Single::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
+BOOL game_sv_Single::OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what, BOOL bForced)
 {
 	CSE_Abstract* e_who = get_entity_from_eid(eid_who);
-	VERIFY(e_who);
 	CSE_Abstract* e_what = get_entity_from_eid(eid_what);
-	VERIFY(e_what);
+	if (!e_who || !e_what)
+		return TRUE;
 
 	if (ai().get_alife())
 	{
@@ -119,14 +120,14 @@ BOOL game_sv_Single::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
 	return TRUE;
 }
 
-void game_sv_Single::OnDetach(u16 eid_who, u16 eid_what)
+void game_sv_Single::OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what)
 {
 	if (ai().get_alife())
 	{
 		CSE_Abstract* e_who = get_entity_from_eid(eid_who);
-		VERIFY(e_who);
 		CSE_Abstract* e_what = get_entity_from_eid(eid_what);
-		VERIFY(e_what);
+		if (!e_who || !e_what)
+			return;
 
 		CSE_ALifeInventoryItem* l_tpALifeInventoryItem = smart_cast<CSE_ALifeInventoryItem*>(e_what);
 		if (!l_tpALifeInventoryItem)

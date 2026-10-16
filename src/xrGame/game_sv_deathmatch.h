@@ -123,15 +123,15 @@ public:
 	virtual void OnDelayedRoundEnd(ERoundEnd_Result reason);
 	virtual void OnDelayedTeamEliminated();
 
-	virtual void OnPlayerHitPlayer(u16 id_hitter, u16 id_hitted, NET_Packet& P); //игрок получил Hit
+	virtual void OnPlayerHitPlayer(ALife::_OBJECT_ID id_hitter, ALife::_OBJECT_ID id_hitted, NET_Packet& P); //игрок получил Hit
 	virtual void OnPlayerHitPlayer_Case(game_PlayerState* ps_hitter, game_PlayerState* ps_hitted, SHit* pHitS);
 
-	virtual BOOL OnTouch(u16 eid_who, u16 eid_what, BOOL bForced = FALSE);
-	virtual void OnDetach(u16 eid_who, u16 eid_what);
+	virtual BOOL OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what, BOOL bForced = FALSE);
+	virtual void OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what);
 
 	virtual BOOL OnPreCreate(CSE_Abstract* E);
-	virtual void OnCreate(u16 eid_who);
-	virtual void OnPostCreate(u16 id_who);
+	virtual void OnCreate(ALife::_OBJECT_ID eid_who);
+	virtual void OnPostCreate(ALife::_OBJECT_ID id_who);
 
 	virtual void OnPlayerConnect(ClientID id_who);
 	virtual void OnPlayerConnectFinished(ClientID id_who);
@@ -155,7 +155,7 @@ public:
 	virtual void OnFraglimitExceed();
 	virtual void OnTimelimitExceed();
 	void OnPlayerScores();
-	virtual void OnDestroyObject(u16 eid_who);
+	virtual void OnDestroyObject(ALife::_OBJECT_ID eid_who);
 	virtual void OnPlayerFire(ClientID id_who, NET_Packet& P);
 	// Main
 	virtual void Update();

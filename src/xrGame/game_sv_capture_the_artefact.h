@@ -243,9 +243,9 @@ public:
 	virtual void OnRoundEnd();
 
 	virtual BOOL OnPreCreate(CSE_Abstract* E);
-	virtual void OnCreate(u16 eid_who);
-	virtual void OnPostCreate(u16 id_who);
-	virtual void OnDestroyObject(u16 eid_who);
+	virtual void OnCreate(ALife::_OBJECT_ID eid_who);
+	virtual void OnPostCreate(ALife::_OBJECT_ID id_who);
+	virtual void OnDestroyObject(ALife::_OBJECT_ID eid_who);
 
 	virtual void Update();
 
@@ -258,12 +258,12 @@ public:
 	virtual void OnPlayerKillPlayer(game_PlayerState* ps_killer, game_PlayerState* ps_killed, KILL_TYPE KillType,
 	                                SPECIAL_KILL_TYPE SpecialKillType, CSE_Abstract* pWeaponA);
 
-	virtual void OnPlayerHitPlayer(u16 id_hitter, u16 id_hitted, NET_Packet& P);
+	virtual void OnPlayerHitPlayer(ALife::_OBJECT_ID id_hitter, ALife::_OBJECT_ID id_hitted, NET_Packet& P);
 	virtual void OnPlayerHitPlayer_Case(game_PlayerState* ps_hitter, game_PlayerState* ps_hitted, SHit* pHitS);
 
-	virtual BOOL OnTouch(u16 eid_who, u16 eid_target, BOOL bForced = FALSE); // TRUE=allow ownership, FALSE=denied
-	virtual void OnDetach(u16 eid_who, u16 eid_target);
-	virtual BOOL OnActivate(u16 eid_who, u16 eid_target);
+	virtual BOOL OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_target, BOOL bForced = FALSE); // TRUE=allow ownership, FALSE=denied
+	virtual void OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_target);
+	virtual BOOL OnActivate(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_target);
 	virtual void OnEvent(NET_Packet& tNetPacket, u16 type, u32 time, ClientID sender);
 	virtual void RespawnPlayer(ClientID id_who, bool NoSpectator);
 	virtual void OnPlayerBuySpawn(ClientID sender);

@@ -8,7 +8,7 @@ class CInventoryBox : public CGameObject
 	typedef CGameObject inherited;
 
 public:
-	xr_vector<u16> m_items;
+	xr_vector<u32> m_items;
 
 protected:
 	bool m_in_use;

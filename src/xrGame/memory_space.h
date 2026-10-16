@@ -133,7 +133,7 @@ namespace MemorySpace
 		_flags<squad_mask_type> m_squad_mask;
 
 		IC CMemoryObject();
-		IC bool operator==(u16 id) const;
+		IC bool operator==(ALife::_OBJECT_ID id) const;
 		IC void fill(const T* game_object, const T* self, const squad_mask_type& mask);
 	};
 

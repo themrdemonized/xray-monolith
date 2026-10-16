@@ -23,7 +23,7 @@ public:
 	CScriptGameObject* m_tpDraftsman;
 	float m_fImpulse;
 	int m_tHitType;
-	u16 m_tpWeaponID;
+	u32 m_tpWeaponID;
 	u32 bulletId;
 
 public:

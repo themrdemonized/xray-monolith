@@ -11,12 +11,13 @@ void ReplaceOwnershipHeader(NET_Packet& P)
 	CopyMemory(&P.B.data[6], &NewType, 2);
 };
 
-void xrServer::Process_event_ownership(NET_Packet& P, ClientID sender, u32 time, u16 ID, BOOL bForced)
+void xrServer::Process_event_ownership(NET_Packet& P, ClientID sender, u32 time, ALife::_OBJECT_ID ID, BOOL bForced)
 {
 	u32 MODE = net_flags(TRUE,TRUE, FALSE, TRUE);
 
-	u16 id_parent = ID, id_entity;
-	P.r_u16(id_entity);
+	ALife::_OBJECT_ID id_parent = ID;
+	u32 id_entity;
+	P.r_u32(id_entity);
 	CSE_Abstract* e_parent = game->get_entity_from_eid(id_parent);
 	CSE_Abstract* e_entity = game->get_entity_from_eid(id_entity);
 

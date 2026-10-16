@@ -678,7 +678,7 @@ public:
 	virtual void g_fireParams(const CHudItem* /**pHudItem/**/, Fvector& /**P/**/, Fvector& /**D/**/)
 	{
 	};
-	virtual u16 Initiator();
+	virtual ALife::_OBJECT_ID Initiator();
 	// HUD
 	virtual void OnHUDDraw(CCustomHUD* hud);
 

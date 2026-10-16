@@ -43,7 +43,6 @@ public:
 	{
 		struct
 		{
-			u32 net_ID : 16;
 			u32 bActiveCounter : 8;
 			u32 bEnabled : 1;
 			u32 bVisible : 1;
@@ -57,6 +56,9 @@ public:
 
 		u32 storage;
 	};
+
+	// Object id lives outside the flag word. 65535 is invalid. The supported range is 0..131071.
+	u32 net_ID;
 
 private:
 	BENCH_SEC_SCRAMBLEMEMBER1
@@ -95,8 +97,8 @@ public:
 	// Network
 	ICF BOOL Local() const { return Props.net_Local; }
 	ICF BOOL Remote() const { return !Props.net_Local; }
-	ICF u16 ID() const { return Props.net_ID; }
-	ICF void setID(u16 _ID) { Props.net_ID = _ID; }
+	ICF u32 ID() const { return net_ID; }
+	ICF void setID(u32 _ID) { net_ID = _ID; }
 	virtual BOOL Ready() { return Props.net_Ready; }
 	BOOL GetTmpPreDestroy() const { return Props.bPreDestroy; }
 	void SetTmpPreDestroy(BOOL b) { Props.bPreDestroy = b; }

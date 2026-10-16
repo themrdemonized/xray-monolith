@@ -7,6 +7,7 @@
 #include "Level.h"
 #include "HUDManager.h"
 #include "xrServer.h"
+#include "xrServer_Objects.h"
 #include "NET_Queue.h"
 #include "game_cl_base.h"
 #include "entity_alive.h"
@@ -116,9 +117,9 @@ struct spawn_and_prefetch_events
     xrSRWLock* prefetch_lock = nullptr;
 };
 
-u16	GetSpawnInfo(NET_Packet& P, u16& parent_id, shared_str& section)
+u32	GetSpawnInfo(NET_Packet& P, u32& parent_id, shared_str& section)
 {
-    u16 dummy16, id;
+    u16 dummy16;
     P.r_begin(dummy16);
 
     shared_str s_name;
@@ -136,8 +137,19 @@ u16	GetSpawnInfo(NET_Packet& P, u16& parent_id, shared_str& section)
     P.r_vec3(o_Position);
     P.r_vec3(o_Angle);
     P.r_u16(RespawnTime);
-    P.r_u16(id);
-    P.r_u16(parent_id);
+    u32 id = P.r_u16();
+    parent_id = P.r_u16();
+    P.r_u16(); // ID_Phantom
+    const u16 flags = P.r_u16();
+    if (flags & M_SPAWN_VERSION)
+    {
+        const u16 version = P.r_u16();
+        if (version >= SPAWN_VERSION)
+        {
+            P.r_u32(id);
+            P.r_u32(parent_id);
+        }
+    }
 
     P.r_pos = 0;
     return id;
@@ -430,7 +442,7 @@ int CLevel::get_RPID(LPCSTR /**name/**/)
 
 bool g_bDebugEvents = false;
 
-void CLevel::cl_Process_Event(u16 dest, u16 type, NET_Packet& P)
+void CLevel::cl_Process_Event(u32 dest, u16 type, NET_Packet& P)
 {
     // Msg("--- event[%d] for [%d]",type,dest);
     CObject* O = Objects.net_Find(dest);
@@ -461,7 +473,7 @@ void CLevel::cl_Process_Event(u16 dest, u16 type, NET_Packet& P)
     {
         // handle GE_DESTROY_REJECT here
         u32 pos = P.r_tell();
-        u16 id = P.r_u16();
+        u32 id = P.r_u32();
         P.r_seek(pos);
         bool ok = true;
         CObject* D = Objects.net_Find(id);
@@ -491,7 +503,7 @@ void CLevel::cl_Process_Event(u16 dest, u16 type, NET_Packet& P)
 
 //AVO: used by SPAWN_ANTIFREEZE (by alpet, edited by demonized)
 #ifdef SPAWN_ANTIFREEZE
-bool CLevel::PostponedSpawnFind(u16 id, const NET_Event& E) const
+bool CLevel::PostponedSpawnFind(ALife::_OBJECT_ID id, const NET_Event& E) const
 {
     auto data = make_intrusive<ProcessNetPacket>();
     NET_Packet& P = data->P;
@@ -499,14 +511,14 @@ bool CLevel::PostponedSpawnFind(u16 id, const NET_Event& E) const
     return PostponedSpawnFind(id, P);
 }
 
-bool CLevel::PostponedSpawnFind(u16 id, NET_Packet& P) const
+bool CLevel::PostponedSpawnFind(ALife::_OBJECT_ID id, NET_Packet& P) const
 {
-    u16 parent_id;
+    u32 parent_id;
     shared_str section;
     return id == GetSpawnInfo(P, parent_id, section);
 }
 
-bool CLevel::PostponedSpawn(u16 id)
+bool CLevel::PostponedSpawn(ALife::_OBJECT_ID id)
 {
     PROF_EVENT("ProcessGameEvents PostponedSpawn");
 
@@ -529,10 +541,10 @@ int CLevel::GetSpawnEventPriority(const NET_Event& e) const
         NET_Packet& P = data->P;
         e.implication(P);
 
-        u16 parent_id = 0;
+        u32 parent_id = 0;
         shared_str section;
         GetSpawnInfo(P, parent_id, section);
-        if (parent_id < 0xFFFF)
+        if (parent_id != 65535)
             return 1;
 
         return 2;
@@ -661,9 +673,9 @@ void CLevel::ProcessSpawnEvents()
 		type = E.type;
 		E.implication(P);
 
-		u16 parent_id;
+		u32 parent_id;
 		shared_str section;
-		u16 obj_id = GetSpawnInfo(P, parent_id, section);
+		u32 obj_id = GetSpawnInfo(P, parent_id, section);
 
 		if (spawn_antifreeze_debug) Msg("[ProcessSpawnEvents] spawning section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
 
@@ -728,7 +740,7 @@ void CLevel::ProcessGameEvents()
 		{
 			PROF_EVENT("ProcessGameEvents game_events queue");
 			u16 ID = it->ID;
-			u16 dest = it->destination;
+			u32 dest = it->destination;
 			u16 type = it->type;
 
 			auto data = make_intrusive<ProcessGameEventsData>();
@@ -753,11 +765,11 @@ void CLevel::ProcessGameEvents()
 				{
 					PROF_EVENT("ProcessGameEvents M_SPAWN");
 
-					u16 parent_id;
+					u32 parent_id;
 					shared_str section;
-					u16 obj_id = GetSpawnInfo(P, parent_id, section);
+					u32 obj_id = GetSpawnInfo(P, parent_id, section);
 
-					static auto isValidToPrefetch = [](u16 parent_id, shared_str& section, u16 obj_id, NET_Packet& P) {
+					static auto isValidToPrefetch = [](u32 parent_id, shared_str& section, u32 obj_id, NET_Packet& P) {
 						if (pSettings->line_exist("spawn_antifreeze_ignore", section))
 						{
 							return false;
@@ -852,9 +864,9 @@ void CLevel::ProcessGameEvents()
 #ifdef SPAWN_ANTIFREEZE
 					if (spawn_antifreeze_debug)
 					{
-						u16 parent_id;
+						u32 parent_id;
 						shared_str section;
-						u16 obj_id = GetSpawnInfo(P, parent_id, section);
+						u32 obj_id = GetSpawnInfo(P, parent_id, section);
 						Msg("[ProcessGameEvents] M_SPAWN: section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
 					}
 #endif

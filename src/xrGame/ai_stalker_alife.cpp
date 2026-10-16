@@ -82,12 +82,12 @@ void CAI_Stalker::transfer_item(CInventoryItem* item, CGameObject* old_owner, CG
 	NET_Packet P;
 	CGameObject* O = old_owner;
 	O->u_EventGen(P, GE_TRADE_SELL, O->ID());
-	P.w_u16(u16(item->object().ID()));
+	P.w_u32(item->object().ID());
 	O->u_EventSend(P);
 
 	O = new_owner;
 	O->u_EventGen(P, GE_TRADE_BUY, O->ID());
-	P.w_u16(u16(item->object().ID()));
+	P.w_u32(item->object().ID());
 	O->u_EventSend(P);
 }
 
@@ -274,7 +274,7 @@ void CAI_Stalker::update_sell_info()
 	m_temp_items.clear();
 	m_current_trader = 0;
 	m_total_money = get_money();
-	u32 money_delta = fill_items(inventory(), this, ALife::_OBJECT_ID(-1));
+	u32 money_delta = fill_items(inventory(), this, ALife::invalid_object_id);
 	m_total_money += money_delta;
 	std::sort(m_temp_items.begin(), m_temp_items.end());
 	select_items();

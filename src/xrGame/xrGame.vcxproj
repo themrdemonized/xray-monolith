@@ -2752,6 +2752,7 @@
     <ClCompile Include="dbg_draw_frustum.cpp" />
     <ClCompile Include="death_anims.cpp" />
     <ClCompile Include="death_anims_predicates.cpp" />
+    <ClCompile Include="saveload_cycle_test.cpp" />
     <ClCompile Include="debug_make_final_test.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>

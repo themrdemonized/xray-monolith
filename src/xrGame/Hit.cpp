@@ -71,7 +71,7 @@ bool SHit::is_valide() const
 	return hit_type != ALife::eHitTypeMax;
 }
 
-void SHit::GenHeader(u16 PacketType, u16 ID)
+void SHit::GenHeader(u16 PacketType, u32 ID)
 {
 	DestID = ID;
 	PACKET_TYPE = PacketType;
@@ -84,14 +84,14 @@ void SHit::Read_Packet(NET_Packet Packet)
 	Packet.r_begin(type_dummy);
 	Packet.r_u32(Time);
 	Packet.r_u16(PACKET_TYPE);
-	Packet.r_u16(DestID);
+	Packet.r_u32(DestID);
 	Read_Packet_Cont(Packet);
 };
 
 void SHit::Read_Packet_Cont(NET_Packet Packet)
 {
-	Packet.r_u16(whoID);
-	Packet.r_u16(weaponID);
+	Packet.r_u32(whoID);
+	Packet.r_u32(weaponID);
 	Packet.r_dir(dir);
 	Packet.r_float(power);
 	Packet.r_u16(boneID);
@@ -116,8 +116,8 @@ void SHit::Read_Packet_Cont(NET_Packet Packet)
 
 void SHit::Write_Packet_Cont(NET_Packet& Packet)
 {
-	Packet.w_u16(whoID);
-	Packet.w_u16(weaponID);
+	Packet.w_u32(whoID);
+	Packet.w_u32(weaponID);
 	Packet.w_dir(dir);
 	Packet.w_float(power);
 	Packet.w_u16(boneID);
@@ -142,7 +142,7 @@ void SHit::Write_Packet(NET_Packet& Packet)
 	Packet.w_begin(M_EVENT);
 	Packet.w_u32(Time);
 	Packet.w_u16(u16(PACKET_TYPE & 0xffff));
-	Packet.w_u16(u16(DestID & 0xffff));
+	Packet.w_u32(DestID);
 
 	Write_Packet_Cont(Packet);
 };

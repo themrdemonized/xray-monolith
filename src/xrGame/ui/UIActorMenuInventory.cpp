@@ -38,7 +38,7 @@
 
  //Alundaio
 
-void move_item_from_to(u16 from_id, u16 to_id, u16 what_id);
+void move_item_from_to(ALife::_OBJECT_ID from_id, ALife::_OBJECT_ID to_id, ALife::_OBJECT_ID what_id);
 
 void CUIActorMenu::InitInventoryMode()
 {
@@ -68,7 +68,7 @@ void CUIActorMenu::DeInitInventoryMode()
 	//	m_clock_value->Show					(false);
 }
 
-void CUIActorMenu::SendEvent_ActivateSlot(u16 slot, u16 recipient)
+void CUIActorMenu::SendEvent_ActivateSlot(u16 slot, ALife::_OBJECT_ID recipient)
 {
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ACTIVATE_SLOT, recipient);
@@ -76,14 +76,14 @@ void CUIActorMenu::SendEvent_ActivateSlot(u16 slot, u16 recipient)
 	CGameObject::u_EventSend(P);
 }
 
-void CUIActorMenu::SendEvent_Item2Slot(PIItem pItem, u16 recipient, u16 slot_id)
+void CUIActorMenu::SendEvent_Item2Slot(PIItem pItem, ALife::_OBJECT_ID recipient, u16 slot_id)
 {
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2SLOT, pItem->object().H_Parent()->ID());
-	P.w_u16(pItem->object().ID());
+	P.w_u32(pItem->object().ID());
 	P.w_u16(slot_id);
     P.w_u8(0); // do activate
 	CGameObject::u_EventSend(P);
@@ -91,44 +91,44 @@ void CUIActorMenu::SendEvent_Item2Slot(PIItem pItem, u16 recipient, u16 slot_id)
 	PlaySnd(eItemToSlot);
 };
 
-void CUIActorMenu::SendEvent_Item2Belt(PIItem pItem, u16 recipient)
+void CUIActorMenu::SendEvent_Item2Belt(PIItem pItem, ALife::_OBJECT_ID recipient)
 {
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2BELT, pItem->object().H_Parent()->ID());
-	P.w_u16(pItem->object().ID());
+	P.w_u32(pItem->object().ID());
 	CGameObject::u_EventSend(P);
 
 	PlaySnd(eItemToBelt);
 };
 
-void CUIActorMenu::SendEvent_Item2Ruck(PIItem pItem, u16 recipient)
+void CUIActorMenu::SendEvent_Item2Ruck(PIItem pItem, ALife::_OBJECT_ID recipient)
 {
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2RUCK, pItem->object().H_Parent()->ID());
-	P.w_u16(pItem->object().ID());
+	P.w_u32(pItem->object().ID());
 	CGameObject::u_EventSend(P);
 
 	PlaySnd(eItemToRuck);
 };
 
-void CUIActorMenu::SendEvent_Item_Eat(PIItem pItem, u16 recipient)
+void CUIActorMenu::SendEvent_Item_Eat(PIItem pItem, ALife::_OBJECT_ID recipient)
 {
 	if (pItem->parent_id() != recipient)
 		move_item_from_to(pItem->parent_id(), recipient, pItem->object_id());
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM_EAT, recipient);
-	P.w_u16(pItem->object().ID());
+	P.w_u32(pItem->object().ID());
 	CGameObject::u_EventSend(P);
 };
 
-void CUIActorMenu::SendEvent_Item_Drop(PIItem pItem, u16 recipient)
+void CUIActorMenu::SendEvent_Item_Drop(PIItem pItem, ALife::_OBJECT_ID recipient)
 {
 	R_ASSERT(pItem->parent_id()==recipient);
 	if (!IsGameTypeSingle())
@@ -136,7 +136,7 @@ void CUIActorMenu::SendEvent_Item_Drop(PIItem pItem, u16 recipient)
 	//pItem->SetDropManual			(TRUE);
 	NET_Packet P;
 	pItem->object().u_EventGen(P, GE_OWNERSHIP_REJECT, pItem->parent_id());
-	P.w_u16(pItem->object().ID());
+	P.w_u32(pItem->object().ID());
 	pItem->object().u_EventSend(P);
 	PlaySnd(eDropItem);
 }

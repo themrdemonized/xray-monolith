@@ -304,12 +304,12 @@ protected:
 	void AttachAddon(PIItem item_to_upgrade);
 	void DetachAddon(LPCSTR addon_name, PIItem itm = NULL);
 
-	void SendEvent_Item2Slot(PIItem pItem, u16 parent, u16 slot_id);
-	void SendEvent_Item2Belt(PIItem pItem, u16 parent);
-	void SendEvent_Item2Ruck(PIItem pItem, u16 parent);
-	void SendEvent_Item_Drop(PIItem pItem, u16 parent);
-	void SendEvent_Item_Eat(PIItem pItem, u16 parent);
-	void SendEvent_ActivateSlot(u16 slot, u16 recipient);
+	void SendEvent_Item2Slot(PIItem pItem, ALife::_OBJECT_ID parent, u16 slot_id);
+	void SendEvent_Item2Belt(PIItem pItem, ALife::_OBJECT_ID parent);
+	void SendEvent_Item2Ruck(PIItem pItem, ALife::_OBJECT_ID parent);
+	void SendEvent_Item_Drop(PIItem pItem, ALife::_OBJECT_ID parent);
+	void SendEvent_Item_Eat(PIItem pItem, ALife::_OBJECT_ID parent);
+	void SendEvent_ActivateSlot(u16 slot, ALife::_OBJECT_ID recipient);
 	void DropAllCurrentItem();
 	void OnPressUserKey();
 

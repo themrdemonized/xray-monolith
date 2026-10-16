@@ -506,7 +506,7 @@ void CHelicopter::load(IReader& input_packet)
 {
 	m_movement.load(input_packet);
 	m_body.load(input_packet);
-	m_enemy.load(input_packet);
+	m_enemy.load(input_packet, spawn_version());
 	input_packet.r_fvector3(XFORM().c);
 	m_barrel_dir_tolerance = input_packet.r_float();
 	UseFireTrail(m_enemy.bUseFireTrail); //force reloar disp params

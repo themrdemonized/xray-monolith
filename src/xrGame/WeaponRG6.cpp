@@ -145,7 +145,7 @@ void CWeaponRG6::FireStart()
 		{
 			NET_Packet P;
 			u_EventGen(P, GE_LAUNCH_ROCKET, ID());
-			P.w_u16(u16(getCurrentRocket()->ID()));
+			P.w_u32(getCurrentRocket()->ID());
 			u_EventSend(P);
 		}
 		dropCurrentRocket();
@@ -169,12 +169,12 @@ void CWeaponRG6::OnEvent(NET_Packet& P, u16 type)
 {
 	inheritedSG::OnEvent(P, type);
 
-	u16 id;
+	u32 id;
 	switch (type)
 	{
 	case GE_OWNERSHIP_TAKE:
 		{
-			P.r_u16(id);
+			P.r_u32(id);
 			inheritedRL::AttachRocket(id, this);
 		}
 		break;
@@ -182,7 +182,7 @@ void CWeaponRG6::OnEvent(NET_Packet& P, u16 type)
 	case GE_LAUNCH_ROCKET:
 		{
 			bool bLaunch = (type == GE_LAUNCH_ROCKET);
-			P.r_u16(id);
+			P.r_u32(id);
 			inheritedRL::DetachRocket(id, bLaunch);
 		}
 		break;
@@ -197,7 +197,7 @@ void CWeaponRG6::UnloadRocket()
 		Msg("%s:%d [%d]-[%s]", __FUNCTION__, __LINE__, getRocketCount(), getCurrentRocket()->cNameSect_str());
 		NET_Packet P;
 		u_EventGen(P, GE_OWNERSHIP_REJECT, ID());
-		P.w_u16(u16(getCurrentRocket()->ID()));
+		P.w_u32(getCurrentRocket()->ID());
 		u_EventSend(P);
         dropCurrentRocket();
 	}

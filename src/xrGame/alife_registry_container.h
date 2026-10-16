@@ -22,10 +22,33 @@
 #include "map_location_defs.h"
 
 #include "actor_statistic_defs.h"
+#include "alife_registry_version.h"
+#include "../xrServerEntities/alife_space.h"
 
-using CInfoPortionRegistry = CALifeAbstractRegistry<u16, KNOWN_INFO_VECTOR>;
-using CRelationRegistry = CALifeAbstractRegistry<u16, RELATION_DATA>;
-using CGameNewsRegistry = CALifeAbstractRegistry<u16, GAME_NEWS_VECTOR>;
+struct CInfoPortionRegistry : CALifeAbstractRegistry<ALife::_OBJECT_ID, KNOWN_INFO_VECTOR>
+{
+	virtual void load(IReader& stream)
+	{
+		load_object_ids(stream, alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS);
+	}
+};
+
+struct CRelationRegistry : CALifeAbstractRegistry<ALife::_OBJECT_ID, RELATION_DATA>
+{
+	virtual void load(IReader& stream)
+	{
+		load_object_ids(stream, alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS);
+	}
+};
+
+struct CGameNewsRegistry : CALifeAbstractRegistry<ALife::_OBJECT_ID, GAME_NEWS_VECTOR>
+{
+	virtual void load(IReader& stream)
+	{
+		load_object_ids(stream, alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS);
+	}
+};
+
 using CSpecificCharacterRegistry = CALifeAbstractRegistry<shared_str, int>;
 
 class CALifeRegistryContainer
@@ -45,7 +68,7 @@ public:
     template <typename T>
     const T& get() const;
 
-    void load(IReader& file_stream);
+    void load(IReader& file_stream, u32 version);
     void save(IWriter& memory_stream);
 };
 

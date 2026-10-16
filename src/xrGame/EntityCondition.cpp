@@ -693,8 +693,15 @@ void CEntityCondition::save(NET_Packet& output_packet)
 		save_data(m_fEntityMorale, output_packet);
 		save_data(m_fPsyHealth, output_packet);
 
-		output_packet.w_u8((u8)m_WoundVector.size());
-		for (WOUND_VECTOR_IT it = m_WoundVector.begin(); m_WoundVector.end() != it; it++)
+		u32 wound_count = (u32)m_WoundVector.size();
+		if (wound_count > 255)
+		{
+			Msg("! %s keeps 255 of %u wounds", m_object ? *m_object->cName() : "entity", wound_count);
+			wound_count = 255;
+		}
+		output_packet.w_u8((u8)wound_count);
+		WOUND_VECTOR_IT it = m_WoundVector.begin();
+		for (u32 i = 0; i < wound_count; ++i, ++it)
 			(*it)->save(output_packet);
 	}
 }

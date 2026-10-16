@@ -18,7 +18,7 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 
 	u32 timestamp;
 	u16 type;
-	u16 destination;
+	u32 destination;
 	u32 MODE = net_flags(TRUE,TRUE);
 
 	// correct timestamp with server-unique-time (note: direct message correction)
@@ -26,7 +26,7 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 
 	// read generic info
 	P.r_u16(type);
-	P.r_u16(destination);
+	P.r_u32(destination);
 
 	CSE_Abstract* receiver = game->get_entity_from_eid(destination);
 	if (receiver)
@@ -61,7 +61,7 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 		break;
 	case GEG_PLAYER_ACTIVATEARTEFACT:
 		{
-			Process_event_activate(P, sender, timestamp, destination, P.r_u16(), true);
+			Process_event_activate(P, sender, timestamp, destination, P.r_u32(), true);
 			break;
 		};
 	case GE_INV_ACTION:
@@ -106,7 +106,7 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 	case GE_OWNERSHIP_REJECT:
 	case GE_LAUNCH_ROCKET:
 		{
-			Process_event_reject(P, sender, timestamp, destination, P.r_u16());
+			Process_event_reject(P, sender, timestamp, destination, P.r_u32());
 #ifdef DEBUG
 			VERIFY(verify_entities());
 #endif
@@ -156,8 +156,8 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 		break;
 	case GE_ASSIGN_KILLER:
 		{
-			u16 id_src;
-			P.r_u16(id_src);
+			u32 id_src;
+			P.r_u32(id_src);
 
 			CSE_Abstract* e_dest = receiver; // кто умер
 			// this is possible when hit event is sent before destroy event
@@ -184,8 +184,9 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 	case GE_DIE:
 		{
 			// Parse message
-			u16 id_dest = destination, id_src;
-			P.r_u16(id_src);
+			u32 id_dest = destination;
+			u32 id_src;
+			P.r_u32(id_src);
 
 
 			xrClientData* l_pC = ID_to_client(sender);
@@ -235,7 +236,7 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 				P.w_begin(M_EVENT);
 				P.w_u32(timestamp);
 				P.w_u16(type);
-				P.w_u16(destination);
+				P.w_u32(destination);
 				P.w_u16(id_src);
 				P.w_clientID(c_src->ID);
 			}
@@ -249,8 +250,8 @@ void xrServer::Process_event(NET_Packet& P, ClientID sender)
 				P.w_begin(M_EVENT);
 				P.w_u32(timestamp);
 				P.w_u16(GE_KILL_SOMEONE);
-				P.w_u16(id_src);
-				P.w_u16(destination);
+				P.w_u32(id_src);
+				P.w_u32(destination);
 				SendTo(c_src->ID, P, net_flags(TRUE, TRUE));
 			}
 			//////////////////////////////////////////////////////////////////////////

@@ -22,9 +22,9 @@ public:
 	//	virtual		CSE_Abstract*		get_entity_from_eid		(u16 id);
 
 
-	virtual void OnCreate(u16 id_who);
-	virtual BOOL OnTouch(u16 eid_who, u16 eid_what, BOOL bForced = FALSE);
-	virtual void OnDetach(u16 eid_who, u16 eid_what);
+	virtual void OnCreate(ALife::_OBJECT_ID id_who);
+	virtual BOOL OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what, BOOL bForced = FALSE);
+	virtual void OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what);
 
 	// Main
 	virtual void Update();

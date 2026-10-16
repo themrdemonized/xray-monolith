@@ -1211,7 +1211,7 @@ void game_sv_Deathmatch::OnPlayerHitPlayer_Case(game_PlayerState* ps_hitter, gam
 	//	}	
 };
 
-void game_sv_Deathmatch::OnPlayerHitPlayer(u16 id_hitter, u16 id_hitted, NET_Packet& P)
+void game_sv_Deathmatch::OnPlayerHitPlayer(ALife::_OBJECT_ID id_hitter, ALife::_OBJECT_ID id_hitted, NET_Packet& P)
 {
 	CSE_Abstract* e_hitter = get_entity_from_eid(id_hitter);
 	CSE_Abstract* e_hitted = get_entity_from_eid(id_hitted);
@@ -1310,7 +1310,7 @@ void game_sv_Deathmatch::LoadTeamData(const shared_str& caSection)
 	TeamList.push_back(NewTeam);
 };
 
-void game_sv_Deathmatch::OnDestroyObject(u16 eid_who)
+void game_sv_Deathmatch::OnDestroyObject(ALife::_OBJECT_ID eid_who)
 {
 	if (eid_who == m_dwSM_CurViewEntity && m_bSpectatorMode)
 	{
@@ -1607,7 +1607,7 @@ void game_sv_Deathmatch::StartAnomalies(int AnomalySet)
 #endif
 };
 
-BOOL game_sv_Deathmatch::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
+BOOL game_sv_Deathmatch::OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what, BOOL bForced)
 {
 	CSE_Abstract* e_who = m_server->ID_to_entity(eid_who);
 	VERIFY(e_who);
@@ -1622,7 +1622,7 @@ BOOL game_sv_Deathmatch::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
 		if (W)
 		{
 			// Weapon
-			xr_vector<u16>& C = A->children;
+			xr_vector<ALife::_OBJECT_ID>& C = A->children;
 			u8 slot = W->get_slot();
 			for (u32 it = 0; it < C.size(); ++it)
 			{
@@ -1742,7 +1742,7 @@ BOOL game_sv_Deathmatch::OnTouch(u16 eid_who, u16 eid_what, BOOL bForced)
 	return FALSE;
 }
 
-void game_sv_Deathmatch::OnDetach(u16 eid_who, u16 eid_what)
+void game_sv_Deathmatch::OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what)
 {
 	CSE_Abstract* e_parent = get_entity_from_eid(eid_who);
 	CSE_Abstract* e_entity = get_entity_from_eid(eid_what);
@@ -1751,8 +1751,8 @@ void game_sv_Deathmatch::OnDetach(u16 eid_who, u16 eid_what)
 	if (e_entity->m_tClassID == CLSID_OBJECT_PLAYERS_BAG && actor)
 	{
 		//move all items from player to rukzak
-		xr_vector<u16>::const_iterator it = e_parent->children.begin();
-		xr_vector<u16>::const_iterator it_e = e_parent->children.end();
+		xr_vector<ALife::_OBJECT_ID>::const_iterator it = e_parent->children.begin();
+		xr_vector<ALife::_OBJECT_ID>::const_iterator it_e = e_parent->children.end();
 		xr_vector<CSE_Abstract*> to_transfer;
 		xr_vector<CSE_Abstract*> to_destroy;
 		xr_vector<CSE_Abstract*> to_reject;
@@ -2056,12 +2056,12 @@ BOOL game_sv_Deathmatch::OnPreCreate(CSE_Abstract* E)
 	return TRUE;
 };
 
-void game_sv_Deathmatch::OnCreate(u16 eid_who)
+void game_sv_Deathmatch::OnCreate(ALife::_OBJECT_ID eid_who)
 {
 	inherited::OnCreate(eid_who);
 };
 
-void game_sv_Deathmatch::OnPostCreate(u16 eid_who)
+void game_sv_Deathmatch::OnPostCreate(ALife::_OBJECT_ID eid_who)
 {
 	inherited::OnPostCreate(eid_who);
 

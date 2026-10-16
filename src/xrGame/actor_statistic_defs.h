@@ -1,5 +1,7 @@
 #pragma once
 #include "alife_abstract_registry.h"
+#include "alife_registry_version.h"
+#include "../xrServerEntities/alife_space.h"
 
 extern xr_token actor_stats_token[];
 
@@ -30,4 +32,11 @@ struct SStatSectionData : public IPureSerializeObject<IReader, IWriter>
 };
 
 typedef xr_vector<SStatSectionData> vStatSectionData;
-typedef CALifeAbstractRegistry<u16, vStatSectionData> CActorStatisticRegistry;
+
+struct CActorStatisticRegistry : CALifeAbstractRegistry<ALife::_OBJECT_ID, vStatSectionData>
+{
+	virtual void load(IReader& stream)
+	{
+		load_object_ids(stream, alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS);
+	}
+};

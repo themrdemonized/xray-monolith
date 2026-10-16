@@ -54,7 +54,7 @@ IC CMemoryObject<T>::CMemoryObject()
 }
 
 template <typename T>
-IC bool CMemoryObject<T>::operator==(u16 id) const
+IC bool CMemoryObject<T>::operator==(ALife::_OBJECT_ID id) const
 {
 	return (object_id(m_object) == id);
 }
@@ -85,7 +85,7 @@ IC void CMemoryObject<T>::fill(const T* game_object, const T* self, const squad_
 }
 
 template <typename T>
-IC u16 object_id(const T* object)
+IC ALife::_OBJECT_ID object_id(const T* object)
 {
-	return (object ? u16(object->ID()) : u16(0xffff));
+	return (object ? object->ID() : ALife::invalid_object_id);
 }

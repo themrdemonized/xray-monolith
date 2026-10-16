@@ -197,7 +197,7 @@ void CLevel::ClientSend()
 				P.w_begin(M_CL_UPDATE);
 
 
-				P.w_u16(u16(pObj->ID()));
+				P.w_u32(pObj->ID());
 				P.w_u32(0); //reserved place for client's ping
 
 				pObj->net_Export(P);
@@ -248,10 +248,26 @@ u32 CLevel::Objects_net_Save(NET_Packet* _Packet, u32 start, u32 max_object_size
 		//		Msg			("save:iterating:%d:%s, size[%d]",P->ID(),*P->cName(), Packet.w_tell() );
 		if (P && !P->getDestroy() && P->net_SaveRelevant())
 		{
-			Packet.w_u16(u16(P->ID()));
+			const u32 rollback = Packet.w_tell();
+			const bool overflow_before = Packet.overflowed;
+			Packet.w_u32(P->ID());
 			Packet.w_chunk_open16(position);
 			//			Msg						("save:saving:%d:%s",P->ID(),*P->cName());
 			P->net_Save(Packet);
+			Packet.w_chunk_close16(position);
+			if (Packet.overflowed && !overflow_before)
+			{
+				// A refused write leaves the counts already stored describing bytes that were
+				// never written. Drop this object from the current packet instead of saving that.
+				Packet.B.count = rollback;
+				Packet.overflowed = overflow_before;
+				if (rollback <= 2)
+				{
+					Msg("! client save for [%s] id %u does not fit in one packet", *P->cName(), P->ID());
+					return start + 1;
+				}
+				return start;
+			}
 #ifdef DEBUG
 			u32 size				= u32		(Packet.w_tell()-position)-sizeof(u16);
 //			Msg						("save:saved:%d bytes:%d:%s",size,P->ID(),*P->cName());
@@ -260,7 +276,6 @@ u32 CLevel::Objects_net_Save(NET_Packet* _Packet, u32 start, u32 max_object_size
 					*P->cName(), P->ID(), size, Packet.w_tell(), position);
 			}
 #endif
-			Packet.w_chunk_close16(position);
 			//			if (0==(--count))		
 			//				break;
 			if (max_object_size >= (NET_PacketSizeLimit - Packet.w_tell()))
@@ -277,13 +292,14 @@ void CLevel::ClientSave()
 
 	for (;;)
 	{
+		const u32 previous = start;
 		P.w_begin(M_SAVE_PACKET);
 
 		start = Objects_net_Save(&P, start, max_objects_size_in_save);
 
 		if (P.B.count > 2)
 			Send(P, net_flags(FALSE));
-		else
+		else if (start == previous || start >= Objects.o_count())
 			break;
 	}
 }
@@ -547,8 +563,8 @@ void CLevel::ClearAllObjects()
 			//---------------------------------------------		
 			GEN.w_u32(Level().timeServer());
 			GEN.w_u16(GE_OWNERSHIP_REJECT);
-			GEN.w_u16(pObj->H_Parent()->ID());
-			GEN.w_u16(u16(pObj->ID()));
+			GEN.w_u32(pObj->H_Parent()->ID());
+			GEN.w_u32(pObj->ID());
 			game_events->insert(GEN);
 			if (g_bDebugEvents) ProcessGameEvents();
 			//-------------------------------------------------------------
@@ -585,7 +601,7 @@ void CLevel::ClearAllObjects()
 		//---------------------------------------------		
 		GEN.w_u32(Level().timeServer());
 		GEN.w_u16(GE_DESTROY);
-		GEN.w_u16(u16(pObj->ID()));
+		GEN.w_u32(pObj->ID());
 		game_events->insert(GEN);
 		if (g_bDebugEvents) ProcessGameEvents();
 		//-------------------------------------------------------------

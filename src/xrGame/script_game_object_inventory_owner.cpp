@@ -318,8 +318,8 @@ void CScriptGameObject::IterateInventoryBox(::luabind::functor<bool> functor, ::
 		return;
 	}
 
-	xr_vector<u16>::const_iterator I = inventory_box->m_items.begin();
-	xr_vector<u16>::const_iterator E = inventory_box->m_items.end();
+		xr_vector<u32>::const_iterator I = inventory_box->m_items.begin();
+		xr_vector<u32>::const_iterator E = inventory_box->m_items.end();
 	for (; I != E; ++I)
 	{
 		CGameObject* GO = smart_cast<CGameObject*>(Level().Objects.net_Find(*I));
@@ -459,7 +459,7 @@ void CScriptGameObject::DropItem(CScriptGameObject* pItem)
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GE_OWNERSHIP_REJECT, object().ID());
-	P.w_u16(pItem->object().ID());
+	P.w_u32(pItem->object().ID());
 	CGameObject::u_EventSend(P);
 }
 
@@ -485,11 +485,11 @@ void CScriptGameObject::MakeItemActive(CScriptGameObject* pItem)
 	if (item_in_slot)
 	{
 		CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2RUCK, owner->object_id());
-		P.w_u16(item_in_slot->object().ID());
+		P.w_u32(item_in_slot->object().ID());
 		CGameObject::u_EventSend(P);
 	}
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2SLOT, owner->object_id());
-	P.w_u16(item->object().ID());
+	P.w_u32(item->object().ID());
 	P.w_u16(slot);
 	P.w_u8(0); // do activate
 	CGameObject::u_EventSend(P);
@@ -515,7 +515,7 @@ void CScriptGameObject::MoveItemToRuck(CScriptGameObject* pItem)
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2RUCK, owner->object_id());
-	P.w_u16(item->object().ID());
+	P.w_u32(item->object().ID());
 	CGameObject::u_EventSend(P);
 }
 
@@ -546,12 +546,12 @@ void CScriptGameObject::MoveItemToSlot(CScriptGameObject* pItem, u16 slot_id, bo
 	if (item_in_slot)
 	{
 		CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2RUCK, owner->object_id());
-		P.w_u16(item_in_slot->object().ID());
+		P.w_u32(item_in_slot->object().ID());
 		CGameObject::u_EventSend(P);
 	}
 
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2SLOT, owner->object_id());
-	P.w_u16(item->object().ID());
+	P.w_u32(item->object().ID());
 	P.w_u16(slot_id);
     P.w_u8(doNotActivate ? 1 : 0);
 	CGameObject::u_EventSend(P);
@@ -573,7 +573,7 @@ void CScriptGameObject::MoveItemToBelt(CScriptGameObject* pItem)
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM2BELT, owner->object_id());
-	P.w_u16(item->object().ID());
+	P.w_u32(item->object().ID());
 	CGameObject::u_EventSend(P);
 }
 
@@ -623,12 +623,12 @@ void CScriptGameObject::TransferItem(CScriptGameObject* pItem, CScriptGameObject
 	// выбросить у себя
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GE_TRADE_SELL, object().ID());
-	P.w_u16(pIItem->object().ID());
+	P.w_u32(pIItem->object().ID());
 	CGameObject::u_EventSend(P);
 
 	// отдать партнеру
 	CGameObject::u_EventGen(P, GE_TRADE_BUY, pForWho->object().ID());
-	P.w_u16(pIItem->object().ID());
+	P.w_u32(pIItem->object().ID());
 	CGameObject::u_EventSend(P);
 }
 
@@ -658,11 +658,11 @@ void CScriptGameObject::TakeItem(CScriptGameObject* pItem)
 		{
 			NET_Packet P;
 			CGameObject::u_EventGen(P, GE_TRADE_SELL, parentGO->ID());
-			P.w_u16(pIItem->object().ID());
+			P.w_u32(pIItem->object().ID());
 			CGameObject::u_EventSend(P);
 
 			CGameObject::u_EventGen(P, GE_TRADE_BUY, object().ID());
-			P.w_u16(pIItem->object().ID());
+			P.w_u32(pIItem->object().ID());
 			CGameObject::u_EventSend(P);
 		}
 		else

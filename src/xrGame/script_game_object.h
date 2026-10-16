@@ -209,7 +209,7 @@ public:
 	_DECLARE_FUNCTION10(Position, Fvector);
 	_DECLARE_FUNCTION10(Direction, Fvector);
 	_DECLARE_FUNCTION10(Mass, float);
-	_DECLARE_FUNCTION10(ID, u16);
+	_DECLARE_FUNCTION10(ID, u32);
 	_DECLARE_FUNCTION10(getVisible, BOOL);
 	_DECLARE_FUNCTION10(getEnabled, BOOL);
 	_DECLARE_FUNCTION10(story_id, ALife::_STORY_ID);
@@ -513,7 +513,7 @@ public:
 
 	CScriptGameObject* GetObjectByName(LPCSTR caObjectName) const;
 	CScriptGameObject* GetObjectByIndex(int iIndex) const;
-	CScriptGameObject * GetObjectById(u16 id) const;
+	CScriptGameObject * GetObjectById(ALife::_OBJECT_ID id) const;
 
 
 	// Callbacks
@@ -674,7 +674,7 @@ public:
 	                              float min_enemy_distance, float max_enemy_distance);
 	const CCoverPoint* safe_cover(const Fvector& position, float radius, float min_distance);
 	CScriptIniFile* spawn_ini() const;
-	bool active_zone_contact(u16 id);
+	bool active_zone_contact(ALife::_OBJECT_ID id);
 
 	///
 	void add_restrictions(LPCSTR out, LPCSTR in);

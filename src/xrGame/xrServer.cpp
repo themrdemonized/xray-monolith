@@ -88,10 +88,10 @@ xrServer::~xrServer()
 
 //--------------------------------------------------------------------
 
-CSE_Abstract* xrServer::ID_to_entity(u16 ID)
+CSE_Abstract* xrServer::ID_to_entity(ALife::_OBJECT_ID ID)
 {
 	// #pragma todo("??? to all : ID_to_entity - must be replaced to 'game->entity_from_eid()'")	
-	if (0xffff == ID) return 0;
+	if (ALife::invalid_object_id == ID) return 0;
 	xrS_entities::iterator I = entities.find(ID);
 	if (entities.end() != I) return I->second;
 	else return 0;
@@ -156,7 +156,7 @@ void xrServer::client_Destroy(IClient* C)
 			P.w_begin(M_EVENT);
 			P.w_u32(Level().timeServer()); //Device.TimerAsync());
 			P.w_u16(GE_DESTROY);
-			P.w_u16(pS->ID);
+			P.w_u32(pS->ID);
 			SendBroadcast(C->ID, P, net_flags(TRUE,TRUE));
 		};
 
@@ -307,12 +307,19 @@ void xrServer::MakeUpdatePackets()
 		if (!Test.Net_Relevant()) continue;
 
 		tmpPacket.B.count = 0;
+		tmpPacket.overflowed = false;
 		// write specific data
 		{
-			tmpPacket.w_u16(Test.ID);
+			tmpPacket.w_u32(Test.ID);
 			tmpPacket.w_chunk_open8(position);
+			const bool overflow_before = tmpPacket.overflowed;
 			Test.UPDATE_Write(tmpPacket);
 			u32 ObjectSize = u32(tmpPacket.w_tell() - position) - sizeof(u8);
+			if (ObjectSize > 255 || (tmpPacket.overflowed && !overflow_before))
+			{
+				Msg("! update for [%s] id %u is %u bytes and was not sent", Test.name_replace(), Test.ID, ObjectSize);
+				continue;
+			}
 			tmpPacket.w_chunk_close8(position);
 
 			if (ObjectSize == 0) continue;
@@ -522,7 +529,7 @@ u32 xrServer::OnMessage(NET_Packet& P, ClientID sender) // Non-Zero means broadc
 				break;
 			//-------------------------------------------------------------------
 			u32 ClientPing = CL->stats.getPing();
-			P.w_seek(P.r_tell() + 2, &ClientPing, 4);
+			P.w_seek(P.r_tell() + 4, &ClientPing, 4);
 			//-------------------------------------------------------------------
 			if (SV_Client)
 				SendTo(SV_Client->ID, P, net_flags(TRUE, TRUE));
@@ -1013,8 +1020,8 @@ void xrServer::verify_entity				(const CSE_Abstract *entity) const
 		VERIFY3							(std::find((*J).second->children.begin(),(*J).second->children.end(),entity->ID) != (*J).second->children.end(),"SERVER : Parent/Children relationship mismatch - Object has parent, but corresponding parent doesn't have children",(*J).second->name_replace());
 	}
 
-	xr_vector<u16>::const_iterator		I = entity->children.begin();
-	xr_vector<u16>::const_iterator		E = entity->children.end();
+	xr_vector<ALife::_OBJECT_ID>::const_iterator		I = entity->children.begin();
+	xr_vector<ALife::_OBJECT_ID>::const_iterator		E = entity->children.end();
 	for ( ; I != E; ++I) {
 		VERIFY3							(*I != 0xffff,"SERVER : Invalid entity children id - 0xffff",entity->name_replace());
 		xrS_entities::const_iterator	J = entities.find(*I);

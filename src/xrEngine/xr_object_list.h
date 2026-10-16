@@ -9,8 +9,9 @@ class ENGINE_API CObjectList
 {
 private:
 	// data
-	//. xr_map<u32,CObject*> map_NETID;
-	CObject* map_NETID[0xffff];
+	// Indexed by object id. 65535 is the invalid id and is never stored.
+	// 131072 entries cover ids 0..131071.
+	CObject* map_NETID[131072];
 
 private:
 	typedef xr_vector<CObject*> Objects;
@@ -67,9 +68,9 @@ public:
 	u32 net_Export(NET_Packet* P, u32 _start, u32 _count); // return next start
 	void net_Import(NET_Packet* P);
 
-	ICF CObject* net_Find(u16 ID) const
+	ICF CObject* net_Find(u32 ID) const
 	{
-		if (ID == u16(-1))
+		if (ID == 65535 || ID >= 131072)
 			return (0);
 
 		return (map_NETID[ID]);

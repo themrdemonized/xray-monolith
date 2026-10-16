@@ -427,7 +427,24 @@ IReader* IReader::open_chunk_iterator(u32& ID, IReader* _prev)
 
 void IReader::r(void* p, int cnt)
 {
-	VERIFY(Pos + cnt <= Size);
+	if (cnt <= 0)
+		return;
+	if (Pos < 0)
+		Pos = 0;
+	if (Pos >= Size)
+	{
+		ZeroMemory(p, cnt);
+		return;
+	}
+	if (cnt > Size - Pos)
+	{
+		const int avail = Size - Pos;
+		ZeroMemory(p, cnt);
+		if (avail > 0)
+			CopyMemory(p, pointer(), avail);
+		Pos = Size;
+		return;
+	}
 	CopyMemory(p, pointer(), cnt);
 	advance(cnt);
 #ifdef DEBUG
@@ -484,31 +501,52 @@ void IReader::r_string(xr_string& dest)
 
 void IReader::r_stringZ(char* dest, u32 tgt_sz)
 {
+	if (eof())
+	{
+		*dest = 0;
+		return;
+	}
 	char* src = (char*)data;
-	u32 sz = xr_strlen(src);
-	R_ASSERT2(sz < tgt_sz, "Dest string less than needed.");
 	while ((src[Pos] != 0) && (!eof())) *dest++ = src[Pos++];
 	*dest = 0;
-	Pos++;
+	if (!eof())
+		Pos++;
 }
 
 void IReader::r_stringZ(shared_str& dest)
 {
+	if (eof())
+	{
+		dest = "";
+		return;
+	}
 	dest = (char*)(data + Pos);
 	Pos += (dest.size() + 1);
+	if (Pos > Size)
+		Pos = Size;
 }
 
 void IReader::r_stringZ(xr_string& dest)
 {
+	if (eof())
+	{
+		dest = "";
+		return;
+	}
 	dest = (char*)(data + Pos);
 	Pos += int(dest.size() + 1);
+	if (Pos > Size)
+		Pos = Size;
 };
 
 void IReader::skip_stringZ()
 {
+	if (eof())
+		return;
 	char* src = (char*)data;
 	while ((src[Pos] != 0) && (!eof())) Pos++;
-	Pos++;
+	if (!eof())
+		Pos++;
 };
 
 //---------------------------------------------------

@@ -432,7 +432,7 @@ void CPHSkeleton::InitServerObject(CSE_Abstract* D)
 	l_tpALifeDynamicObject->m_tNodeID = obj->ai_location().level_vertex_id();
 	l_tpALifePhysicObject->set_visual(*obj->cNameVisual());
 
-	l_tpALifePhysicObject->source_id = u16(obj->ID());
+	l_tpALifePhysicObject->source_id = obj->ID();
 	l_tpALifePhysicObject->startup_animation = m_startup_anim;
 	D->s_name = "ph_skeleton_object"; //*cNameSect()
 	D->set_name_replace("");

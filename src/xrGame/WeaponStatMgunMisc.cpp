@@ -8,12 +8,12 @@
 void CWeaponStatMgun::OnEvent(NET_Packet &P, u16 type)
 {
 	inherited::OnEvent(P, type);
-	u16 id;
+	u32 id;
 	switch (type)
 	{
 	case GE_OWNERSHIP_TAKE:
 	{
-		P.r_u16(id);
+		P.r_u32(id);
 		CObject *O = Level().Objects.net_Find(id);
 		if (O)
 		{
@@ -31,7 +31,7 @@ void CWeaponStatMgun::OnEvent(NET_Packet &P, u16 type)
 	case GE_OWNERSHIP_REJECT:
 	case GE_LAUNCH_ROCKET:
 	{
-		P.r_u16(id);
+		P.r_u32(id);
 		CObject *O = Level().Objects.net_Find(id);
 		if (O)
 		{
@@ -327,7 +327,7 @@ void CWeaponStatMgun::SStmAnimWeapon::LaunchMagazine(CObject *O)
 
 	NET_Packet P;
 	m_stm->u_EventGen(P, GE_LAUNCH_ROCKET, m_stm->ID());
-	P.w_u16(u16(O->ID()));
+	P.w_u32(O->ID());
 	m_stm->u_EventSend(P);
 }
 

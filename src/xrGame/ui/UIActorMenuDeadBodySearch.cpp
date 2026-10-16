@@ -18,16 +18,16 @@
 #include "../string_table.h"
 #include "../ai/monsters/BaseMonster/base_monster.h"
 
-void move_item_from_to(u16 from_id, u16 to_id, u16 what_id)
+void move_item_from_to(ALife::_OBJECT_ID from_id, ALife::_OBJECT_ID to_id, ALife::_OBJECT_ID what_id)
 {
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GE_TRADE_SELL, from_id);
-	P.w_u16(what_id);
+	P.w_u32(what_id);
 	CGameObject::u_EventSend(P);
 
 	//другому инвентарю - взять вещь 
 	CGameObject::u_EventGen(P, GE_TRADE_BUY, to_id);
-	P.w_u16(what_id);
+	P.w_u32(what_id);
 	CGameObject::u_EventSend(P);
 }
 
@@ -156,7 +156,7 @@ void CUIActorMenu::InitDeadBodySearchMode()
 		{
 			NET_Packet P;
 			CGameObject::u_EventGen(P, GE_INFO_TRANSFER, m_pActorInvOwner->object_id());
-			P.w_u16(0);
+			P.w_u32(0);
 			P.w_stringZ(*it);
 			P.w_u8(1);
 			CGameObject::u_EventSend(P);

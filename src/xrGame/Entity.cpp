@@ -56,9 +56,9 @@ void CEntity::OnEvent(NET_Packet& P, u16 type)
 	{
 	case GE_DIE:
 		{
-			u16 id;
+			u32 id;
 			u32 cl;
-			P.r_u16(id);
+			P.r_u32(id);
 			P.r_u32(cl);
 			CObject* who = Level().Objects.net_Find(id);
 			if (who && !IsGameTypeSingle())
@@ -126,7 +126,7 @@ void CEntity::Hit(SHit* pHDS)
 	if (BI_NONE != pHDS->bone()) HitSignal(lost_health, vLocalDir, pHDS->who, pHDS->boneID);
 
 	// If Local() - perform some logic
-	if (Local() && !g_Alive() && !AlreadyDie() && (m_killer_id == ALife::_OBJECT_ID(-1)))
+	if (Local() && !g_Alive() && !AlreadyDie() && (m_killer_id == ALife::invalid_object_id))
 	{
 		KillEntity(pHDS->whoID);
 	}
@@ -157,7 +157,7 @@ BOOL CEntity::net_Spawn(CSE_Abstract* DC)
 {
 	m_level_death_time = 0;
 	m_game_death_time = 0;
-	m_killer_id = ALife::_OBJECT_ID(-1);
+	m_killer_id = ALife::invalid_object_id;
 
 	CSE_Abstract* e = (CSE_Abstract*)(DC);
 	CSE_ALifeCreatureAbstract* E = smart_cast<CSE_ALifeCreatureAbstract*>(e);
@@ -167,20 +167,20 @@ BOOL CEntity::net_Spawn(CSE_Abstract* DC)
 	{
 		SetfHealth(E->get_health());
 
-		//R_ASSERT2(!((E->get_killer_id() != ALife::_OBJECT_ID(-1)) && g_Alive()),
+		//R_ASSERT2(!((E->get_killer_id() != ALife::invalid_object_id) && g_Alive()),
 		//          make_string("server entity [%s][%d] has an killer [%d] and not dead",
 		//	          E->name_replace(), E->ID, E->get_killer_id()).c_str());
 
 		m_killer_id = E->get_killer_id();
 
-		if ((m_killer_id != ALife::_OBJECT_ID(-1)) && g_Alive())
+		if ((m_killer_id != ALife::invalid_object_id) && g_Alive())
 		{
 			Msg("!server entity [%s][%d] has a killer [%d] and is not dead", E->name_replace(), E->ID, E->get_killer_id());
-			m_killer_id = ALife::_OBJECT_ID(-1);
+			m_killer_id = ALife::invalid_object_id;
 		}
 		
 		//if (m_killer_id == ID())
-		//	m_killer_id = ALife::_OBJECT_ID(-1);
+		//	m_killer_id = ALife::invalid_object_id;
 	}
 	else
 		SetfHealth(1.0f);
@@ -260,7 +260,7 @@ void CEntity::net_Destroy()
 	set_ready_to_save();
 }
 
-void CEntity::KillEntity(u16 whoID, BOOL bypass_actor_check /*AVO: added for actor_before_death callback*/)
+void CEntity::KillEntity(ALife::_OBJECT_ID whoID, BOOL bypass_actor_check /*AVO: added for actor_before_death callback*/)
 {
 	//AVO: allow scripts to process actor condition and prevent actor's death or kill him if desired.
 	//IMPORTANT: if you wish to kill actor you need to call db.actor:kill(level:object_by_id(whoID), true) in actor_before_death callback, to ensure all objects are properly destroyed
@@ -277,7 +277,7 @@ void CEntity::KillEntity(u16 whoID, BOOL bypass_actor_check /*AVO: added for act
 	if (whoID != ID())
 	{
 #ifdef DEBUG
-        if (m_killer_id != ALife::_OBJECT_ID(-1)) {
+        if (m_killer_id != ALife::invalid_object_id) {
             Msg			("! Entity [%s][%s] already has killer with id %d, but new killer id arrived - %d",*cNameSect(),*cName(),m_killer_id,whoID);
 
             CObject		*old_killer = Level().Objects.net_Find(m_killer_id);
@@ -286,13 +286,13 @@ void CEntity::KillEntity(u16 whoID, BOOL bypass_actor_check /*AVO: added for act
             CObject		*new_killer = Level().Objects.net_Find(whoID);
             Msg			("! New killer is %s",new_killer ? *new_killer->cName() : "unknown");
 
-            VERIFY		(m_killer_id == ALife::_OBJECT_ID(-1));
+            VERIFY		(m_killer_id == ALife::invalid_object_id);
         }
 #endif
 	}
 	/*else
 	{
-	    if (m_killer_id != ALife::_OBJECT_ID(-1))
+	    if (m_killer_id != ALife::invalid_object_id)
 	        return;
 	} //*/
 
@@ -304,7 +304,7 @@ void CEntity::KillEntity(u16 whoID, BOOL bypass_actor_check /*AVO: added for act
 	{
 		NET_Packet P;
 		u_EventGen(P, GE_DIE, ID());
-		P.w_u16(u16(whoID));
+		P.w_u32(whoID);
 		P.w_u32(0);
 		if (OnServer())
 			u_EventSend(P, net_flags(TRUE, TRUE, FALSE, TRUE));
@@ -369,7 +369,7 @@ void CEntity::shedule_Update(u32 dt)
 			m_killer_id = u16(-1);
 			NET_Packet P;
 			u_EventGen(P, GE_ASSIGN_KILLER, ID());
-			P.w_u16(u16(-1));
+			P.w_u32(ALife::invalid_object_id);
 			if (IsGameTypeSingle()) u_EventSend(P);
 		}
 	}

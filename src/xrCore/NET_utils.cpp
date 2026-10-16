@@ -22,9 +22,20 @@ u32 NET_Packet::r_begin(u16& type) // returns time of receiving
 	return timeReceive;
 }
 
+void NET_Packet::report_overflow(u32 count, u32 add) const
+{
+	static bool reported = false;
+	if (reported)
+		return;
+	reported = true;
+	Msg("! NET_Packet overflow: count=%u add=%u limit=%u", count, add, NET_PacketSizeLimit);
+}
+
 void NET_Packet::w_seek(u32 pos, const void* p, u32 count)
 {
 	VERIFY(p && count && (pos + count <= B.count));
+	if (!p || pos + count > NET_PacketSizeLimit || pos + count > B.count)
+		return;
 	CopyMemory(&B.data[pos], p, count);
 	//. INI_ASSERT (w_seek)
 }

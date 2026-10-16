@@ -917,7 +917,7 @@ void game_sv_mp::SpawnWeapon4Actor(u16 actorId, LPCSTR N, u8 Addons, game_Player
 	SpawnAmmoDifference(actorId, ammo_diff);
 };
 
-void game_sv_mp::OnDestroyObject(u16 eid_who)
+void game_sv_mp::OnDestroyObject(ALife::_OBJECT_ID eid_who)
 {
 	CORPSE_LIST_it it = std::find(m_CorpseList.begin(), m_CorpseList.end(), eid_who);
 	if (it != m_CorpseList.end())
@@ -1879,7 +1879,7 @@ void game_sv_mp::DestroyGameItem(CSE_Abstract* entity)
 	P.w_begin(M_EVENT);
 	P.w_u32(Device.dwTimeGlobal - 2 * NET_Latency);
 	P.w_u16(GE_DESTROY);
-	P.w_u16(entity->ID);
+	P.w_u32(entity->ID);
 	Level().Send(P, net_flags(TRUE,TRUE));
 	//m_server->Perform_destroy(entity, net_flags(TRUE,TRUE));
 }

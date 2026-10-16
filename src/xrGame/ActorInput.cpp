@@ -529,7 +529,7 @@ void CActor::ActorUse()
 		CGameObject* GO = smart_cast<CGameObject*>(m_holder);
 		NET_Packet P;
 		CGameObject::u_EventGen(P, GEG_PLAYER_DETACH_HOLDER, ID());
-		P.w_u16(GO->ID());
+		P.w_u32(GO->ID());
 		CGameObject::u_EventSend(P);
 		return;
 	}
@@ -588,7 +588,7 @@ void CActor::ActorUse()
 			{
 				NET_Packet P;
 				CGameObject::u_EventGen(P, GEG_PLAYER_ATTACH_HOLDER, ID());
-				P.w_u16(object->ID());
+				P.w_u32(object->ID());
 				CGameObject::u_EventSend(P);
 				return;
 			}

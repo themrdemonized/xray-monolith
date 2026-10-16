@@ -125,16 +125,16 @@ void message_filter::dbg_print_msg(NET_Packet& packet, msg_type_subtype_t const&
 				break;
 			case GE_OWNERSHIP_TAKE:
 				{
-					u16 tmp_id_what;
-					packet.r_u16(tmp_id_what);
+					u32 tmp_id_what;
+					packet.r_u32(tmp_id_what);
 					xr_sprintf(tmp_string, "--- CL_EVENT [%7u][%5u]: GE_OWNERSHIP_TAKE    [%d]",
 					           msg_type.msg_receive_time, msg_type.dest_obj_id, tmp_id_what);
 				}
 				break;
 			case GE_OWNERSHIP_REJECT:
 				{
-					u16 tmp_id_what;
-					packet.r_u16(tmp_id_what);
+					u32 tmp_id_what;
+					packet.r_u32(tmp_id_what);
 					xr_sprintf(tmp_string, "--- CL_EVENT [%7u][%5u]: GE_OWNERSHIP_REJECT  [%d]",
 					           msg_type.msg_receive_time, msg_type.dest_obj_id, tmp_id_what);
 				}

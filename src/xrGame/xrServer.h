@@ -25,7 +25,7 @@ class CSE_Abstract;
 const u32 NET_Latency = 50; // time in (ms)
 
 // t-defs
-typedef xr_hash_map<u16, CSE_Abstract*> xrS_entities;
+typedef xr_hash_map<ALife::_OBJECT_ID, CSE_Abstract*> xrS_entities;
 
 class xrClientData : public IClient
 {
@@ -142,16 +142,19 @@ private:
 	void _stdcall SendGameUpdateTo(IClient* client);
 private:
 	typedef
+	// 131072 addressable ids (0..131071). 65535 is reserved and is not allocated.
+	// Block index is u16: id 65536 is block 256. Offset stays u8 (0..255).
+	// Count stays u16 because a full block holds 256 entries.
 	CID_Generator<
 		u32, // time identifier type
-		u8, // compressed id type 
-		u16, // id type
-		u8, // block id type
-		u16, // chunk id type
+		u8, // offset within a block
+		u32, // full object id
+		u16, // block index
+		u16, // per-block count
 		0, // min value
-		u16(-2), // max value
+		ALife::max_object_id, // max value, inclusive
 		256, // block size
-		u16(-1) // invalid id
+		ALife::invalid_object_id // invalid id, kept for scripts
 	> id_generator_type;
 
 private:
@@ -171,17 +174,18 @@ public:
 
 	IC void clear_ids()
 	{
-		m_tID_Generator = id_generator_type();
+		// Rebuild in place. Assigning a temporary would put the whole generator on the stack.
+		m_tID_Generator.reset();
 	}
 
-	IC u16 PerformIDgen(u16 ID)
+	IC ALife::_OBJECT_ID PerformIDgen(ALife::_OBJECT_ID ID)
 	{
 		return (m_tID_Generator.tfGetID(ID));
 	}
 
-	IC void FreeID(u16 ID, u32 time)
+	IC void FreeID(ALife::_OBJECT_ID ID, u32 time)
 	{
-		return (m_tID_Generator.vfFreeID(ID, time));
+		m_tID_Generator.vfFreeID(ID, time);
 	}
 
 	void Perform_connect_spawn(CSE_Abstract* E, xrClientData* to, NET_Packet& P);
@@ -194,12 +198,12 @@ public:
 	void Process_update(NET_Packet& P, ClientID sender);
 	void Process_save(NET_Packet& P, ClientID sender);
 	void Process_event(NET_Packet& P, ClientID sender);
-	void Process_event_ownership(NET_Packet& P, ClientID sender, u32 time, u16 ID, BOOL bForced = FALSE);
-	bool Process_event_reject(NET_Packet& P, const ClientID sender, const u32 time, const u16 id_parent,
-	                          const u16 id_entity, bool send_message = true);
-	void Process_event_destroy(NET_Packet& P, ClientID sender, u32 time, u16 ID, NET_Packet* pEPack);
-	void Process_event_activate(NET_Packet& P, const ClientID sender, const u32 time, const u16 id_parent,
-	                            const u16 id_entity, bool send_message = true);
+	void Process_event_ownership(NET_Packet& P, ClientID sender, u32 time, ALife::_OBJECT_ID ID, BOOL bForced = FALSE);
+	bool Process_event_reject(NET_Packet& P, const ClientID sender, const u32 time, const ALife::_OBJECT_ID id_parent,
+	                          const ALife::_OBJECT_ID id_entity, bool send_message = true);
+	void Process_event_destroy(NET_Packet& P, ClientID sender, u32 time, ALife::_OBJECT_ID ID, NET_Packet* pEPack);
+	void Process_event_activate(NET_Packet& P, const ClientID sender, const u32 time, const ALife::_OBJECT_ID id_parent,
+	                          const ALife::_OBJECT_ID id_entity, bool send_message = true);
 
 	xrClientData* SelectBestClientToMigrateTo(CSE_Abstract* E, BOOL bForceAnother = FALSE);
 	void SendConnectResult(IClient* CL, u8 res, u8 res1, char* ResultStr);
@@ -267,7 +271,7 @@ public:
 		return (xrClientData*)(IPureServer::ID_to_client(ID, ScanAll));
 	}
 
-	CSE_Abstract* ID_to_entity(u16 ID);
+	CSE_Abstract* ID_to_entity(ALife::_OBJECT_ID ID);
 
 	// main
 	virtual EConnect Connect(shared_str& session_name, GameDescriptionData& game_descr);
@@ -296,7 +300,7 @@ public:
 	virtual void GetServerInfo(CServerInfo* si);
 	void SendPlayersInfo(ClientID const& to_client);
 public:
-	xr_string ent_name_safe(u16 eid);
+	xr_string ent_name_safe(ALife::_OBJECT_ID eid);
 #ifdef DEBUG
 			bool			verify_entities		() const;
 			void			verify_entity		(const CSE_Abstract *entity) const;

@@ -330,6 +330,7 @@ void CObjectHandlerPlanner::update()
 
 CObjectHandlerPlanner::_condition_type CObjectHandlerPlanner::uid(const u32 id0, const u32 id1) const
 {
-	VERIFY(!((id0 << 16) & id1));
-	return ((id0 << 16) | id1);
+	VERIFY(id1 < 256);
+	VERIFY(!((id0 << 8) & id1));
+	return ((id0 << 8) | id1);
 }

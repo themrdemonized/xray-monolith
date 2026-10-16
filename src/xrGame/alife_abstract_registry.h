@@ -29,6 +29,7 @@ public:
 	virtual ~CALifeAbstractRegistry();
 	virtual void save(IWriter& memory_stream);
 	virtual void load(IReader& file_stream);
+	void load_object_ids(IReader& file_stream, bool wide_keys);
 	IC const OBJECT_REGISTRY& objects() const;
 	IC void add(const _index_type& index, _data_type& data, bool no_assert = false);
 	IC void remove(const _index_type& index, bool no_assert = false);

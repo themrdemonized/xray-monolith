@@ -8,6 +8,7 @@
 
 #include "pch_script.h"
 #include "visual_memory_manager.h"
+#include "../xrServerEntities/xrServer_Objects.h"
 #include "ai/stalker/ai_stalker.h"
 #include "memory_space_impl.h"
 #include "../Include/xrRender/Kinematics.h"
@@ -832,18 +833,25 @@ void CVisualMemoryManager::save(NET_Packet& packet) const
 			++count;
 	}
 
+	if (count > 255)
+	{
+		Msg("! visual memory for [%s] keeps 255 of %u objects", *m_object->cName(), count);
+		count = 255;
+	}
 	packet.w_u8((u8)count);
 
 	if (!count)
 		return;
 
-	for (I = objects().begin(); I != E; ++I)
+	u32 stored = 0;
+	for (I = objects().begin(); I != E && stored < count; ++I)
 	{
 		if (!is_object_valuable_to_save(m_object, *I))
 			continue;
+		++stored;
 
 		VERIFY((*I).m_object);
-		packet.w_u16((*I).m_object->ID());
+		packet.w_u32((*I).m_object->ID());
 		// object params
 		packet.w_u32((*I).m_object_params.m_level_vertex_id);
 		packet.w_vec3((*I).m_object_params.m_position);
@@ -888,10 +896,14 @@ void CVisualMemoryManager::load(IReader& packet)
 	callback.bind(&m_object->memory(), &CMemoryManager::on_requested_spawn);
 
 	int count = packet.r_u8();
+	const bool wide_ids = m_object->spawn_version() >= SPAWN_VERSION_WIDE_REFS;
+	const int record_bytes = (wide_ids ? 4 : 2) + 4 + 12 + 4 + 12 + 4 + 4 + 8;
 	for (int i = 0; i < count; ++i)
 	{
+		if (packet.elapsed() < record_bytes)
+			break;
 		CDelayedVisibleObject delayed_object;
-		delayed_object.m_object_id = packet.r_u16();
+		delayed_object.m_object_id = wide_ids ? packet.r_u32() : packet.r_u16();
 
 		CVisibleObject& object = delayed_object.m_visible_object;
 		object.m_object = smart_cast<CGameObject*>(Level().Objects.net_Find(delayed_object.m_object_id));

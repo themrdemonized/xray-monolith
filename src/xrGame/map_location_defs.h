@@ -1,16 +1,18 @@
 #pragma once
 #include "alife_abstract_registry.h"
+#include "alife_registry_version.h"
+#include "../xrServerEntities/alife_space.h"
 
 class CMapLocation;
 
 struct SLocationKey : public IPureSerializeObject<IReader, IWriter>, public IPureDestroyableObject
 {
 	shared_str spot_type;
-	u16 object_id;
+	ALife::_OBJECT_ID object_id;
 	CMapLocation* location;
 	bool actual;
 
-	SLocationKey(shared_str s, u16 id): spot_type(s), object_id(id), location(NULL), actual(true)
+	SLocationKey(shared_str s, ALife::_OBJECT_ID id): spot_type(s), object_id(id), location(NULL), actual(true)
 	{
 	};
 
@@ -33,7 +35,8 @@ struct SLocationKey : public IPureSerializeObject<IReader, IWriter>, public IPur
 
 DEFINE_VECTOR(SLocationKey, Locations, Locations_it);
 
-struct CMapLocationRegistry : public CALifeAbstractRegistry<u16, Locations>
+struct CMapLocationRegistry : public CALifeAbstractRegistry<ALife::_OBJECT_ID, Locations>
 {
 	virtual void save(IWriter& stream);
+	virtual void load(IReader& stream);
 };

@@ -169,7 +169,7 @@ public:
 	float BleedingSpeed();
 
 	CObject* GetWhoHitLastTime() { return m_pWho; }
-	u16 GetWhoHitLastTimeID() { return m_iWhoID; }
+	ALife::_OBJECT_ID GetWhoHitLastTimeID() { return m_iWhoID; }
 
 	CWound* AddWound(float hit_power, ALife::EHitType hit_type, u16 element);
 
@@ -281,7 +281,7 @@ protected:
 	float m_fDeltaTime;
 	//кто нанес последний хит
 	CObject* m_pWho;
-	u16 m_iWhoID;
+	ALife::_OBJECT_ID m_iWhoID;
 
 	//для передачи параметров из DamageManager
 	float m_fHitBoneScale;

@@ -41,7 +41,7 @@ public:
 	virtual void UpdateTeamScore(game_PlayerState* ps_killer, s16 OldKills);
 	virtual bool CheckTeams() { return true; };
 
-	virtual void OnPlayerHitPlayer(u16 id_hitter, u16 id_hitted, NET_Packet& P);
+	virtual void OnPlayerHitPlayer(ALife::_OBJECT_ID id_hitter, ALife::_OBJECT_ID id_hitted, NET_Packet& P);
 	virtual void OnPlayerHitPlayer_Case(game_PlayerState* ps_hitter, game_PlayerState* ps_hitted, SHit* pHitS);
 
 	virtual void OnRoundStart();
@@ -75,8 +75,8 @@ public:
 	BOOL OnTouchItem(CSE_ActorMP* actor, CSE_Abstract* item);
 	void OnDetachItem(CSE_ActorMP* actor, CSE_Abstract* item);
 
-	virtual BOOL OnTouch(u16 eid_who, u16 eid_what, BOOL bForced = FALSE);
-	virtual void OnDetach(u16 eid_who, u16 eid_what);
+	virtual BOOL OnTouch(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what, BOOL bForced = FALSE);
+	virtual void OnDetach(ALife::_OBJECT_ID eid_who, ALife::_OBJECT_ID eid_what);
 
 	void OnObjectEnterTeamBase(u16 id, u16 zone_team);
 	void OnObjectLeaveTeamBase(u16 id, u16 zone_team);

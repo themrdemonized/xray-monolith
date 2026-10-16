@@ -365,7 +365,7 @@ CSE_ALifeObject::CSE_ALifeObject(LPCSTR caSection) : CSE_Abstract(caSection)
 {
 	m_bOnline = false;
 	m_fDistance = 0.0f;
-	ID = ALife::_OBJECT_ID(-1);
+	ID = ALife::invalid_object_id;
 	m_tGraphID = GameGraph::_GRAPH_ID(-1);
 	m_tSpawnID = ALife::_SPAWN_ID(-1);
 	m_bDirectControl = true;
@@ -635,6 +635,22 @@ CSE_ALifeGroupAbstract::~CSE_ALifeGroupAbstract()
 {
 }
 
+ALife::_OBJECT_ID read_saved_object_id(NET_Packet& packet, u16 version)
+{
+	if (version >= SPAWN_VERSION)
+		return packet.r_u32();
+	return packet.r_u16();
+}
+
+void load_saved_object_ids(xr_vector<ALife::_OBJECT_ID>& ids, NET_Packet& packet, u16 version)
+{
+	ids.clear();
+	const u32 count = packet.r_u32();
+	ids.reserve(count);
+	for (u32 i = 0; i < count; ++i)
+		ids.push_back(read_saved_object_id(packet, version));
+}
+
 void CSE_ALifeGroupAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 {
 	u16 m_wVersion = base()->m_wVersion;
@@ -643,7 +659,7 @@ void CSE_ALifeGroupAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	m_bCreateSpawnPositions = !!dwDummy;
 	tNetPacket.r_u16(m_wCount);
 	if (m_wVersion > 19)
-		load_data(m_tpMembers, tNetPacket);
+		load_saved_object_ids(m_tpMembers, tNetPacket, m_wVersion);
 };
 
 void CSE_ALifeGroupAbstract::STATE_Write(NET_Packet& tNetPacket)
@@ -1059,7 +1075,7 @@ void CSE_ALifeObjectPhysic::STATE_Read(NET_Packet& tNetPacket, u16 size)
 			tNetPacket.r_u8(_flags.flags);
 
 		if (m_wVersion > 56)
-			tNetPacket.r_u16(source_id);
+			source_id = tNetPacket.r_u16();
 
 		if (m_wVersion > 60 && _flags.test(flSavedData))
 		{

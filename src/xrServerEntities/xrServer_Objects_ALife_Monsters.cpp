@@ -215,6 +215,13 @@ void CSE_ALifeTraderAbstract::STATE_Write(NET_Packet& tNetPacket)
 	tNetPacket.w_u8((m_deadbody_closed) ? 1 : 0);
 }
 
+CSE_ALifeCreatureActor* CSE_ALifeCreatureActor::state_read_active_actor = nullptr;
+
+bool CSE_ALifeCreatureActor::state_read_active()
+{
+	return state_read_active_actor != nullptr;
+}
+
 void CSE_ALifeTraderAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 {
 	u16 m_wVersion = base()->m_wVersion;
@@ -286,7 +293,10 @@ void CSE_ALifeTraderAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	}
 
 #ifdef XRGAME_EXPORTS
-	specific_character();
+	// An actor defers this until its holder id is stored. Resolving an empty profile reenters
+	// STATE_Read through the script binder and a lua error would abandon the rest of the record.
+	if (!CSE_ALifeCreatureActor::state_read_active())
+		specific_character();
 #endif
 
 	if (m_wVersion > 124)
@@ -1030,7 +1040,7 @@ CSE_ALifeCreatureAbstract::CSE_ALifeCreatureAbstract(LPCSTR caSection) : CSE_ALi
 	m_ef_creature_type = pSettings->r_u32(caSection, "ef_creature_type");
 	m_ef_weapon_type = READ_IF_EXISTS(pSettings, r_u32, caSection, "ef_weapon_type", u32(-1));
 	m_ef_detector_type = READ_IF_EXISTS(pSettings, r_u32, caSection, "ef_detector_type", u32(-1));
-	m_killer_id = ALife::_OBJECT_ID(-1);
+	m_killer_id = ALife::invalid_object_id;
 	m_game_death_time = 0;
 }
 
@@ -1080,7 +1090,7 @@ void CSE_ALifeCreatureAbstract::STATE_Write(NET_Packet& tNetPacket)
 	tNetPacket.w_float(fHealth);
 	save_data(m_dynamic_out_restrictions, tNetPacket);
 	save_data(m_dynamic_in_restrictions, tNetPacket);
-	tNetPacket.w_u16(get_killer_id());
+	tNetPacket.w_u32(get_killer_id());
 	//R_ASSERT(!(get_health() > 0.0f && get_killer_id() != u16(-1)));
 	tNetPacket.w_u64(m_game_death_time);
 }
@@ -1103,10 +1113,12 @@ void CSE_ALifeCreatureAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 
 	if (m_wVersion > 87)
 	{
-		load_data(m_dynamic_out_restrictions, tNetPacket);
-		load_data(m_dynamic_in_restrictions, tNetPacket);
+		load_saved_object_ids(m_dynamic_out_restrictions, tNetPacket, m_wVersion);
+		load_saved_object_ids(m_dynamic_in_restrictions, tNetPacket, m_wVersion);
 	}
-	if (m_wVersion > 94)
+	if (m_wVersion >= SPAWN_VERSION)
+		set_killer_id(tNetPacket.r_u32());
+	else if (m_wVersion > 94)
 		set_killer_id(tNetPacket.r_u16());
 
 	o_torso.pitch = o_Angle.x;
@@ -1328,7 +1340,7 @@ void CSE_ALifeMonsterAbstract::STATE_Write(NET_Packet& tNetPacket)
 	inherited1::STATE_Write(tNetPacket);
 	tNetPacket.w_stringZ(m_out_space_restrictors);
 	tNetPacket.w_stringZ(m_in_space_restrictors);
-	tNetPacket.w_u16(m_smart_terrain_id);
+	tNetPacket.w_u32(m_smart_terrain_id);
 
 	if (tNetPacket.inistream)
 		tNetPacket.w_u16((m_task_reached) ? 1 : 0);
@@ -1346,8 +1358,10 @@ void CSE_ALifeMonsterAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 			tNetPacket.r_stringZ(m_in_space_restrictors);
 	}
 
-	if (m_wVersion > 111)
-		tNetPacket.r_u16(m_smart_terrain_id);
+	if (m_wVersion >= SPAWN_VERSION)
+		tNetPacket.r_u32(m_smart_terrain_id);
+	else if (m_wVersion > 111)
+		m_smart_terrain_id = tNetPacket.r_u16();
 
 	if (m_wVersion > 113)
 	{
@@ -1473,6 +1487,14 @@ const CSE_Abstract* CSE_ALifeCreatureActor::base() const
 
 void CSE_ALifeCreatureActor::STATE_Read(NET_Packet& tNetPacket, u16 size)
 {
+	// Resolving the character profile calls back into this function on the same actor while
+	// the record is still open. A second pass treats the unread tail as a new creature and
+	// wipes the killer, restriction, and holder ids that were just loaded.
+	if (state_read_active_actor == this)
+		return;
+	CSE_ALifeCreatureActor* const previous = state_read_active_actor;
+	state_read_active_actor = this;
+
 	if (m_wVersion < 21)
 	{
 		CSE_ALifeDynamicObject::STATE_Read(tNetPacket, size);
@@ -1495,10 +1517,12 @@ void CSE_ALifeCreatureActor::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	{
 		inherited3::STATE_Read(tNetPacket, size);
 	}
-	if (m_wVersion > 88)
-	{
+	if (m_wVersion >= SPAWN_VERSION)
+		m_holderID = tNetPacket.r_u32();
+	else if (m_wVersion > 88)
 		m_holderID = tNetPacket.r_u16();
-	}
+	specific_character();
+	state_read_active_actor = previous;
 };
 
 void CSE_ALifeCreatureActor::STATE_Write(NET_Packet& tNetPacket)
@@ -1506,7 +1530,7 @@ void CSE_ALifeCreatureActor::STATE_Write(NET_Packet& tNetPacket)
 	inherited1::STATE_Write(tNetPacket);
 	inherited2::STATE_Write(tNetPacket);
 	inherited3::STATE_Write(tNetPacket);
-	tNetPacket.w_u16(m_holderID);
+	tNetPacket.w_u32(m_holderID);
 };
 
 void CSE_ALifeCreatureActor::load(NET_Packet& tNetPacket)
@@ -1999,8 +2023,10 @@ void CSE_ALifeMonsterBase::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	if (m_wVersion >= 68)
 		inherited2::STATE_Read(tNetPacket, size);
 
-	if (m_wVersion >= 109)
-		tNetPacket.r_u16(m_spec_object_id);
+	if (m_wVersion >= SPAWN_VERSION)
+		tNetPacket.r_u32(m_spec_object_id);
+	else if (m_wVersion >= 109)
+		m_spec_object_id = tNetPacket.r_u16();
 }
 
 void CSE_ALifeMonsterBase::STATE_Write(NET_Packet& tNetPacket)
@@ -2008,7 +2034,7 @@ void CSE_ALifeMonsterBase::STATE_Write(NET_Packet& tNetPacket)
 	inherited1::STATE_Write(tNetPacket);
 	inherited2::STATE_Write(tNetPacket);
 
-	tNetPacket.w_u16(m_spec_object_id);
+	tNetPacket.w_u32(m_spec_object_id);
 }
 
 void CSE_ALifeMonsterBase::UPDATE_Read(NET_Packet& tNetPacket)
@@ -2124,7 +2150,12 @@ void CSE_ALifeHumanAbstract::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	inherited2::STATE_Read(tNetPacket, size);
 	brain().on_state_read(tNetPacket);
 	if ((m_wVersion >= 110) && (m_wVersion < 112))
-		tNetPacket.r(&m_smart_terrain_id, sizeof(m_smart_terrain_id));
+	{
+		// Those saves stored a 16-bit id. Do not use sizeof(m_smart_terrain_id) after the field widened.
+		u16 legacy_smart_terrain_id;
+		tNetPacket.r(&legacy_smart_terrain_id, sizeof(legacy_smart_terrain_id));
+		m_smart_terrain_id = legacy_smart_terrain_id;
+	}
 }
 
 void CSE_ALifeHumanAbstract::UPDATE_Write(NET_Packet& tNetPacket)
@@ -2289,7 +2320,7 @@ void CSE_ALifeOnlineOfflineGroup::STATE_Read(NET_Packet& tNetPacket, u16 size)
 	for (u32 i = 0; i < container_size; ++i)
 	{
 		MEMBERS::value_type pair;
-		load_data(pair.first, tNetPacket);
+		pair.first = read_saved_object_id(tNetPacket, m_wVersion);
 		pair.second = 0;
 		m_members.insert(pair);
 	}

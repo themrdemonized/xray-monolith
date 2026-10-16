@@ -27,7 +27,7 @@ BOOL debug_destroy = TRUE;
 CObjectList::CObjectList() :
 	m_owner_thread_id(GetCurrentThreadId())
 {
-	ZeroMemory(map_NETID, 0xffff * sizeof(CObject*));
+	ZeroMemory(map_NETID, sizeof(map_NETID));
 }
 
 CObjectList::~CObjectList()
@@ -316,7 +316,7 @@ void CObjectList::Update(bool bForce)
 void CObjectList::net_Register(CObject* O)
 {
 	R_ASSERT(O);
-	R_ASSERT(O->ID() < 0xffff);
+	R_ASSERT(O->ID() != 65535 && O->ID() < 131072);
 
 	map_NETID[O->ID()] = O;
 
@@ -327,8 +327,8 @@ void CObjectList::net_Register(CObject* O)
 
 void CObjectList::net_Unregister(CObject* O)
 {
-	//R_ASSERT (O->ID() < 0xffff);
-	if (O->ID() < 0xffff) //demo_spectator can have 0xffff
+	// demo_spectator can have the invalid id 65535
+	if (O->ID() != 65535 && O->ID() < 131072)
 		map_NETID[O->ID()] = NULL;
 	/*
 	 xr_map<u32,CObject*>::iterator it = map_NETID.find(O->ID());
@@ -354,7 +354,7 @@ u32 CObjectList::net_Export(NET_Packet* _Packet, u32 start, u32 max_object_size)
 			             : objects_sleeping[start - objects_active.size()];
 		if (P->net_Relevant() && !P->getDestroy())
 		{
-			Packet.w_u16(u16(P->ID()));
+			Packet.w_u32(P->ID());
 			Packet.w_chunk_open8(position);
 			//Msg ("cl_export: %d '%s'",P->ID(),*P->cName());
 			P->net_Export(Packet);
@@ -391,8 +391,8 @@ void CObjectList::net_Import(NET_Packet* Packet)
 
 	while (!Packet->r_eof())
 	{
-		u16 ID;
-		Packet->r_u16(ID);
+		u32 ID;
+		Packet->r_u32(ID);
 		u8 size;
 		Packet->r_u8(size);
 		CObject* P = net_Find(ID);
@@ -455,6 +455,9 @@ void CObjectList::Unload()
 		O->net_Destroy();
 		Destroy(O);
 	}
+
+	// setDestroy queued these objects, and Destroy already released them.
+	destroy_queue.clear();
 }
 
 CObject* CObjectList::Create(LPCSTR name)

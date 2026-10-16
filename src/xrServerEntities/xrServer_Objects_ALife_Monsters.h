@@ -332,7 +332,7 @@ SERVER_ENTITY_DECLARE_BEGIN3(CSE_ALifeCreatureActor, CSE_ALifeCreatureAbstract, 
 	u8 weapon;
 	///////////////////////////////////////////
 	u16 m_u16NumItems;
-	u16 m_holderID;
+	ALife::_OBJECT_ID m_holderID;
 	//	DEF_DEQUE		(PH_STATES, SPHNetState); 
 	SPHNetState m_AliveState;
 	//	PH_STATES						m_DeadStates;
@@ -343,6 +343,10 @@ SERVER_ENTITY_DECLARE_BEGIN3(CSE_ALifeCreatureActor, CSE_ALifeCreatureAbstract, 
 	///////////////////////////////////////////
 	CSE_ALifeCreatureActor(LPCSTR caSection);
 	virtual ~CSE_ALifeCreatureActor();
+	static bool state_read_active();
+private:
+	static CSE_ALifeCreatureActor* state_read_active_actor;
+public:
 	virtual CSE_Abstract* base();
 	virtual const CSE_Abstract* base() const;
 	virtual CSE_Abstract* init();
@@ -431,7 +435,7 @@ SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeMonsterZombie, CSE_ALifeMonsterAbstract)
 SERVER_ENTITY_DECLARE_END
 
 SERVER_ENTITY_DECLARE_BEGIN2(CSE_ALifeMonsterBase, CSE_ALifeMonsterAbstract, CSE_PHSkeleton)
-	u16 m_spec_object_id;
+	ALife::_OBJECT_ID m_spec_object_id;
 
 	CSE_ALifeMonsterBase(LPCSTR caSection); // constructor for variable initialization
 	virtual ~CSE_ALifeMonsterBase();

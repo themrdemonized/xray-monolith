@@ -9,6 +9,7 @@
 #pragma once
 
 #include "action_planner.h"
+#include "../xrServerEntities/alife_space.h"
 
 class CAI_Stalker;
 class CInventoryItem;
@@ -63,12 +64,12 @@ public:
 public:
 	_condition_type uid(const u32 id1, const u32 id0) const;
 	IC bool object_action(_condition_type action_id, CObject* object);
-	IC u16 current_action_object_id() const;
+	IC ALife::_OBJECT_ID current_action_object_id() const;
 	IC u32 current_action_state_id() const;
-	IC u16 action_object_id(_condition_type action_id) const;
+	IC ALife::_OBJECT_ID action_object_id(_condition_type action_id) const;
 	IC u32 action_state_id(_condition_type action_id) const;
-	IC void add_condition(CSActionBase* action, u16 id, EWorldProperties property, _value_type value);
-	IC void add_effect(CSActionBase* action, u16 id, EWorldProperties property, _value_type value);
+	IC void add_condition(CSActionBase* action, u32 id, EWorldProperties property, _value_type value);
+	IC void add_effect(CSActionBase* action, u32 id, EWorldProperties property, _value_type value);
 	IC CAI_Stalker& object() const;
 
 public:

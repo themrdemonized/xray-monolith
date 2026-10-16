@@ -1194,6 +1194,15 @@ int APIENTRY WinMain_impl(HINSTANCE hInstance,
 		Engine.External.Initialize();
 		Console->Execute("stat_memory");
 
+		if (strstr(Core.Params, "-saveload_test"))
+		{
+			extern int run_saveload_cycle_tests();
+			const int code = run_saveload_cycle_tests();
+			FlushLog();
+			Core._destroy();
+			return code;
+		}
+
 		Startup();
 		Core._destroy();
 

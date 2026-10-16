@@ -11,7 +11,7 @@ public:
 	u16 ID;
 	u32 timestamp;
 	u16 type;
-	u16 destination;
+	u32 destination;
 	xr_vector<u8> data;
 public:
 	void import(NET_Packet& P)
@@ -31,7 +31,7 @@ public:
 				P.r_u32(timestamp);
 				timestamp += u32(g_dwEventDelay);
 				P.r_u16(type);
-				P.r_u16(destination);
+				P.r_u32(destination);
 			}
 			break;
 		case M_MOVE_PLAYERS:
@@ -62,7 +62,7 @@ public:
 		P.w_begin(ID);
 		P.w_u32(timestamp);
 		P.w_u16(type);
-		P.w_u16(destination);
+		P.w_u32(destination);
 		if (data.size()) P.w(&*data.begin(), (u32)data.size());
 	}
 

@@ -110,7 +110,7 @@ public:
 
 	virtual void Die(CObject* who);
 	//			void			KillEntity			(CObject* who);
-	void KillEntity(u16 whoID, BOOL bypass_actor_check = FALSE);
+	void KillEntity(ALife::_OBJECT_ID whoID, BOOL bypass_actor_check = FALSE);
 
 	// Events
 	virtual void OnEvent(NET_Packet& P, u16 type);

@@ -53,8 +53,8 @@ void CActorMP::use_booster(NET_Packet& packet)
 	if (OnServer())
 		return;
 
-	u16 tmp_booster_id;
-	packet.r_u16(tmp_booster_id);
+	u32 tmp_booster_id;
+	packet.r_u32(tmp_booster_id);
 	CObject* tmp_booster = Level().Objects.net_Find(tmp_booster_id);
 	VERIFY2(tmp_booster, "using unknown or deleted booster");
 	if (!tmp_booster)

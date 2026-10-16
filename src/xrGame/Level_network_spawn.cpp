@@ -174,7 +174,7 @@ void CLevel::g_sv_Spawn(CSE_Abstract* E)
 			NET_Packet GEN;
 			GEN.write_start();
 			GEN.read_start();
-			GEN.w_u16(u16(O->ID()));
+			GEN.w_u32(O->ID());
 			cl_Process_Event(E->ID_Parent, GE_OWNERSHIP_TAKE, GEN);
 			//*/
 		}
@@ -210,7 +210,7 @@ void CLevel::g_sv_Spawn(CSE_Abstract* E)
 #endif // DEBUG_MEMORY_MANAGER
 }
 
-CSE_Abstract* CLevel::spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id, u16 parent_id,
+CSE_Abstract* CLevel::spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id, u32 parent_id,
                                  bool return_item)
 {
 	CSE_Abstract* abstract = F_entity_Create(section);

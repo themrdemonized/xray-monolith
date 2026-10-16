@@ -39,7 +39,7 @@ private:
 
 protected:
 	//ID персонажа который иницировал действие
-	u16 m_iCurrentParentID;
+	ALife::_OBJECT_ID m_iCurrentParentID;
 
 
 	//////////////////////////////////////////////////////////////////////////
@@ -52,8 +52,8 @@ protected:
 	                        const Fvector& dir,
 	                        float fire_disp,
 	                        const CCartridge& cartridge,
-	                        u16 parent_id,
-	                        u16 weapon_id,
+	                        ALife::_OBJECT_ID parent_id,
+	                        ALife::_OBJECT_ID weapon_id,
 	                        bool send_hit,
 	                        int iShotNum = 0);
 	void SetBulletSpeed(float new_speed) { m_fStartBulletSpeed = new_speed; }

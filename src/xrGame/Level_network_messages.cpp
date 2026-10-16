@@ -170,9 +170,10 @@ void CLevel::ClientReceive()
 					break;
 				}*/
 				if (OnClient()) break;
-				P->r_u16(ID);
+				u32 object_id = 0;
+				P->r_u32(object_id);
 				u32 Ping = P->r_u32();
-				CGameObject* O = smart_cast<CGameObject*>(Objects.net_Find(ID));
+				CGameObject* O = smart_cast<CGameObject*>(Objects.net_Find(object_id));
 				if (0 == O) break;
 				O->net_Import(*P);
 				//---------------------------------------------------

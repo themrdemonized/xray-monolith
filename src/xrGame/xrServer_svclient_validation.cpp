@@ -3,7 +3,7 @@
 #include "GameObject.h"
 #include "Level.h"
 
-bool is_object_valid_on_svclient(u16 id_entity)
+bool is_object_valid_on_svclient(ALife::_OBJECT_ID id_entity)
 {
 	CObject* tmp_obj = Level().Objects.net_Find(id_entity);
 	if (!tmp_obj)

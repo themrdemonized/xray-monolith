@@ -498,7 +498,7 @@ void CAgentEnemyManager::assign_wounded()
 			)
 				continue;
 
-			if (wounded_processor((*J).m_object) != ALife::_OBJECT_ID(-1))
+			if (wounded_processor((*J).m_object) != ALife::invalid_object_id)
 				continue;
 
 			wounded_processor((*J).m_object, (*I).second.first);
@@ -609,7 +609,7 @@ void CAgentEnemyManager::assign_wounded()
 
 		//		Msg							("wounded enemy [%s] is assigned to member [%s]",*enemy->m_object->cName(),*processor->cName());
 
-		if (wounded_processor(enemy->m_object) == ALife::_OBJECT_ID(-1))
+		if (wounded_processor(enemy->m_object) == ALife::invalid_object_id)
 			wounded_processor(enemy->m_object, processor->ID());
 
 		squad_mask_type mask = object().member().mask(processor);
@@ -695,7 +695,7 @@ ALife::_OBJECT_ID CAgentEnemyManager::wounded_processor(const CEntityAlive* obje
 			return ((*I).second.first);
 	}
 
-	return (ALife::_OBJECT_ID(-1));
+	return (ALife::invalid_object_id);
 }
 
 class find_wounded_predicate
@@ -735,7 +735,7 @@ void CAgentEnemyManager::wounded_processed(const CEntityAlive* object, bool valu
 	WOUNDED_ENEMIES::iterator I = std::find_if(m_wounded.begin(), m_wounded.end(), find_wounded_predicate(object));
 	if (I == m_wounded.end())
 		return;
-	VERIFY((*I).second.first != ALife::_OBJECT_ID(-1));
+	VERIFY((*I).second.first != ALife::invalid_object_id);
 	//	VERIFY							(!(*I).second.second);
 	(*I).second.second = true;
 }

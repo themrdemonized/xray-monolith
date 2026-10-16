@@ -625,8 +625,8 @@ void CExplosive::OnEvent(NET_Packet& P, u16 type)
 	case GE_GRENADE_EXPLODE:
 		{
 			Fvector pos, normal;
-			u16 parent_id;
-			P.r_u16(parent_id);
+			ALife::_OBJECT_ID parent_id;
+			P.r_u32(parent_id);
 			P.r_vec3(pos);
 			P.r_vec3(normal);
 
@@ -660,7 +660,7 @@ void CExplosive::GenExplodeEvent(const Fvector& pos, const Fvector& normal)
 
 	NET_Packet P;
 	cast_game_object()->u_EventGen(P, GE_GRENADE_EXPLODE, cast_game_object()->ID());
-	P.w_u16(Initiator());
+	P.w_u32(Initiator());
 	P.w_vec3(pos);
 	P.w_vec3(normal);
 	cast_game_object()->u_EventSend(P);
@@ -842,10 +842,10 @@ void CExplosive::net_Relcase(CObject* O)
 	}
 }
 
-u16 CExplosive::Initiator()
+ALife::_OBJECT_ID CExplosive::Initiator()
 {
-	u16 initiator = CurrentParentID();
-	if (initiator == u16(-1))initiator = cast_game_object()->ID();
+	ALife::_OBJECT_ID initiator = CurrentParentID();
+	if (initiator == ALife::invalid_object_id) initiator = cast_game_object()->ID();
 	return initiator;
 }
 

@@ -2,8 +2,8 @@
 #include "xrserver.h"
 #include "xrserver_objects.h"
 
-bool xrServer::Process_event_reject(NET_Packet& P, const ClientID sender, const u32 time, const u16 id_parent,
-                                    const u16 id_entity, bool send_message)
+bool xrServer::Process_event_reject(NET_Packet& P, const ClientID sender, const u32 time, const ALife::_OBJECT_ID id_parent,
+                                    const ALife::_OBJECT_ID id_entity, bool send_message)
 {
 	// Parse message
 	CSE_Abstract* e_parent = game->get_entity_from_eid(id_parent);
@@ -35,12 +35,12 @@ bool xrServer::Process_event_reject(NET_Packet& P, const ClientID sender, const 
 	Msg ( "--- SV: Process reject: parent[%d][%s], item[%d][%s]", id_parent, e_parent->name_replace(), id_entity, e_entity->name());
 #endif // MP_LOGGING
 
-	xr_vector<u16>& C = e_parent->children;
-	xr_vector<u16>::iterator c = std::find(C.begin(), C.end(), id_entity);
+	xr_vector<ALife::_OBJECT_ID>& C = e_parent->children;
+	xr_vector<ALife::_OBJECT_ID>::iterator c = std::find(C.begin(), C.end(), id_entity);
 	if (c == C.end())
 	{
 		xr_string clildrenList;
-		for (const u16& childID : e_parent->children)
+		for (const ALife::_OBJECT_ID& childID : e_parent->children)
 		{
 			clildrenList.append("! ").append(game->get_entity_from_eid(childID)->name_replace()).append("\n");
 		}

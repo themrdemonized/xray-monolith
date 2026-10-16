@@ -18,6 +18,84 @@
 #include "xrServer.h"
 #include "level.h"
 #include "map_manager.h"
+#include "ai_space.h"
+#include "script_engine.h"
+
+// Scripts shipped with Anomaly and GAMMA treat every id >= 65535 as "no object".
+// 65535 stays the empty id. Ids above it are real objects and must still resolve.
+// The wrapper has to be installed again after a script reload replaces alife_object.
+static void allow_expanded_object_ids()
+{
+	lua_State* L = ai().script_engine().lua();
+	if (!L)
+		return;
+
+	lua_getglobal(L, "__expanded_alife_object");
+	lua_getglobal(L, "alife_object");
+	const bool already = lua_isfunction(L, -1) && lua_isfunction(L, -2) && lua_rawequal(L, -1, -2);
+	if (!lua_isfunction(L, -1))
+	{
+		lua_pop(L, 2);
+		return;
+	}
+	lua_getfenv(L, -1);
+	lua_remove(L, -2);
+	lua_remove(L, -2);
+	if (already)
+	{
+		lua_pop(L, 1);
+		return;
+	}
+
+	string2048 chunk;
+	xr_sprintf(chunk,
+		"local max_id = %u\n"
+		"local invalid_id = %u\n"
+		"local previous = alife_object\n"
+		"local function expanded(id)\n"
+		"  if type(id) == 'number' and id > invalid_id and id <= max_id then\n"
+		"    local sim = alife()\n"
+		"    if not sim then return nil end\n"
+		"    return sim:object(id)\n"
+		"  end\n"
+		"  if previous then return previous(id) end\n"
+		"end\n"
+		"alife_object = expanded\n"
+		"rawset(_G, 'alife_object', expanded)\n"
+		"rawset(_G, '__expanded_alife_object', expanded)\n"
+		"if get_object_by_id and rawget(_G, '__expanded_get_object_by_id') ~= get_object_by_id then\n"
+		"  local previous_get = get_object_by_id\n"
+		"  local function expanded_get(id)\n"
+		"    if type(id) == 'number' and id > invalid_id and id <= max_id then\n"
+		"      if AC_ID and id == AC_ID and db and db.actor then return db.actor end\n"
+		"      if gameobjects_registry and gameobjects_registry[id] then return gameobjects_registry[id] end\n"
+		"      if level and level.object_by_id then return level.object_by_id(id) end\n"
+		"      return nil\n"
+		"    end\n"
+		"    return previous_get(id)\n"
+		"  end\n"
+		"  get_object_by_id = expanded_get\n"
+		"  rawset(_G, 'get_object_by_id', expanded_get)\n"
+		"  rawset(_G, '__expanded_get_object_by_id', expanded_get)\n"
+		"end\n",
+		(u32)ALife::max_object_id,
+		(u32)ALife::invalid_object_id);
+
+	if (luaL_loadbuffer(L, chunk, xr_strlen(chunk), "@object_id_compat"))
+	{
+		Msg("! object id compatibility patch failed: %s", lua_tostring(L, -1));
+		lua_pop(L, 2);
+		return;
+	}
+	lua_pushvalue(L, -2);
+	lua_setfenv(L, -2);
+	if (lua_pcall(L, 0, 0, 0))
+	{
+		Msg("! object id compatibility patch failed: %s", lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+}
 
 void CSE_ALifeDynamicObject::on_spawn()
 {
@@ -29,7 +107,7 @@ void CSE_ALifeDynamicObject::on_spawn()
 void CSE_ALifeDynamicObject::on_register()
 {
 	CSE_ALifeObject* object = this;
-	while (object->ID_Parent != ALife::_OBJECT_ID(-1))
+	while (object->ID_Parent != ALife::invalid_object_id)
 	{
 		object = ai().alife().objects().object(object->ID_Parent);
 		VERIFY(object);
@@ -38,9 +116,11 @@ void CSE_ALifeDynamicObject::on_register()
 	if (!alife().graph().level().object(object->ID, true))
 		clear_client_data();
 
+	allow_expanded_object_ids();
+
     ::luabind::functor<void> funct;
     if (ai().script_engine().functor("_G.CSE_ALifeDynamicObject_on_register", funct))
-        funct((u16)ID);
+        funct(ID);
 }
 
 void CSE_ALifeDynamicObject::on_before_register()
@@ -49,9 +129,11 @@ void CSE_ALifeDynamicObject::on_before_register()
 
 void CSE_ALifeDynamicObject::on_unregister()
 {
+	allow_expanded_object_ids();
+
 	::luabind::functor<void> funct;
 	if (ai().script_engine().functor("_G.CSE_ALifeDynamicObject_on_unregister", funct))
-		funct((u16)ID);
+		funct(ID);
 	Level().MapManager().OnObjectDestroyNotify(ID);
 }
 

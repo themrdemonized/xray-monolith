@@ -1,5 +1,7 @@
 #include "pch_script.h"
 #include "map_manager.h"
+#include "alife_registry_version.h"
+#include "../xrServerEntities/alife_space.h"
 #include "alife_registry_wrappers.h"
 #include "inventoryowner.h"
 #include "level.h"
@@ -17,9 +19,9 @@
 struct FindLocationBySpotID
 {
 	shared_str spot_id;
-	u16 object_id;
+	ALife::_OBJECT_ID object_id;
 
-	FindLocationBySpotID(const shared_str& s, u16 id): spot_id(s), object_id(id)
+	FindLocationBySpotID(const shared_str& s, ALife::_OBJECT_ID id): spot_id(s), object_id(id)
 	{
 	}
 
@@ -31,9 +33,9 @@ struct FindLocationBySpotID
 
 struct FindLocationByID
 {
-	u16 object_id;
+	ALife::_OBJECT_ID object_id;
 
-	FindLocationByID(u16 id): object_id(id)
+	FindLocationByID(ALife::_OBJECT_ID id): object_id(id)
 	{
 	}
 
@@ -59,7 +61,7 @@ struct FindLocation
 
 void SLocationKey::save(IWriter& stream)
 {
-	stream.w(&object_id, sizeof(object_id));
+	stream.w_u32(object_id);
 
 	stream.w_stringZ(spot_type);
 	stream.w_u8(0);
@@ -68,7 +70,10 @@ void SLocationKey::save(IWriter& stream)
 
 void SLocationKey::load(IReader& stream)
 {
-	stream.r(&object_id, sizeof(object_id));
+	if (alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS)
+		object_id = stream.r_u32();
+	else
+		object_id = stream.r_u16();
 
 	stream.r_stringZ(spot_type);
 	stream.r_u8();
@@ -108,6 +113,11 @@ void CMapLocationRegistry::save(IWriter& stream)
 	}
 }
 
+void CMapLocationRegistry::load(IReader& stream)
+{
+	load_object_ids(stream, alife_registry_load_version() >= ALIFE_VERSION_WIDE_IDS);
+}
+
 
 CMapManager::CMapManager()
 {
@@ -122,7 +132,7 @@ CMapManager::~CMapManager()
 	delete_data(m_locations_wrapper);
 }
 
-CMapLocation* CMapManager::AddMapLocation(const shared_str& spot_type, u16 id)
+CMapLocation* CMapManager::AddMapLocation(const shared_str& spot_type, ALife::_OBJECT_ID id)
 {
 	CMapLocation* l = xr_new<CMapLocation>(spot_type.c_str(), id);
 	Locations().push_back(SLocationKey(spot_type, id));
@@ -173,7 +183,7 @@ void CMapManager::Destroy(CMapLocation* ml)
 	m_deffered_destroy_queue.push_back(ml);
 }
 
-void CMapManager::RemoveMapLocation(const shared_str& spot_type, u16 id)
+void CMapManager::RemoveMapLocation(const shared_str& spot_type, ALife::_OBJECT_ID id)
 {
 	FindLocationBySpotID key(spot_type, id);
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
@@ -189,7 +199,7 @@ void CMapManager::RemoveMapLocation(const shared_str& spot_type, u16 id)
 }
 
 // demonized: remove all map object spots by id
-void CMapManager::RemoveAllMapLocationsById(u16 id)
+void CMapManager::RemoveAllMapLocationsById(ALife::_OBJECT_ID id)
 {
 	for (Locations_it it = Locations().begin(); it != Locations().end(); ) {
 		if (it->object_id == id) {
@@ -204,7 +214,7 @@ void CMapManager::RemoveAllMapLocationsById(u16 id)
 	}
 }
 
-void CMapManager::RemoveMapLocationByObjectID(u16 id) //call on destroy object
+void CMapManager::RemoveMapLocationByObjectID(ALife::_OBJECT_ID id) //call on destroy object
 {
 	FindLocationByID key(id);
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
@@ -237,7 +247,7 @@ void CMapManager::RemoveMapLocation(CMapLocation* ml)
 	}
 }
 
-bool CMapManager::GetMapLocationsForObject(u16 id, xr_vector<CMapLocation*>& res)
+bool CMapManager::GetMapLocationsForObject(ALife::_OBJECT_ID id, xr_vector<CMapLocation*>& res)
 {
 	res.clear_not_free();
 	Locations_it it = Locations().begin();
@@ -250,14 +260,14 @@ bool CMapManager::GetMapLocationsForObject(u16 id, xr_vector<CMapLocation*>& res
 	return (res.size() != 0);
 }
 
-bool CMapManager::HasMapLocation(const shared_str& spot_type, u16 id)
+bool CMapManager::HasMapLocation(const shared_str& spot_type, ALife::_OBJECT_ID id)
 {
 	CMapLocation* l = GetMapLocation(spot_type, id);
 
 	return (l != NULL);
 }
 
-CMapLocation* CMapManager::GetMapLocation(const shared_str& spot_type, u16 id)
+CMapLocation* CMapManager::GetMapLocation(const shared_str& spot_type, ALife::_OBJECT_ID id)
 {
 	FindLocationBySpotID key(spot_type, id);
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
@@ -267,7 +277,7 @@ CMapLocation* CMapManager::GetMapLocation(const shared_str& spot_type, u16 id)
 	return 0;
 }
 
-void CMapManager::GetMapLocations(const shared_str& spot_type, u16 id, xr_vector<CMapLocation*>& res)
+void CMapManager::GetMapLocations(const shared_str& spot_type, ALife::_OBJECT_ID id, xr_vector<CMapLocation*>& res)
 {
 	FindLocationBySpotID key(spot_type, id);
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
@@ -280,7 +290,7 @@ void CMapManager::GetMapLocations(const shared_str& spot_type, u16 id, xr_vector
 }
 
 // demonized: get all map locations by id
-void CMapManager::GetMapLocations(u16 id, xr_vector<CMapLocation*>& res)
+void CMapManager::GetMapLocations(ALife::_OBJECT_ID id, xr_vector<CMapLocation*>& res)
 {
 	FindLocationByID key(id);
 	Locations_it it = std::find_if(Locations().begin(), Locations().end(), key);
@@ -349,12 +359,12 @@ Locations& CMapManager::Locations()
 	return *m_locations;
 }
 
-void CMapManager::OnObjectDestroyNotify(u16 id)
+void CMapManager::OnObjectDestroyNotify(ALife::_OBJECT_ID id)
 {
 	RemoveMapLocationByObjectID(id);
 }
 
-void CMapManager::QueueRemovedNotify(const shared_str& spot_type, u16 id)
+void CMapManager::QueueRemovedNotify(const shared_str& spot_type, ALife::_OBJECT_ID id)
 {
 	if (!IsGameTypeSingle())
 		return;
@@ -388,7 +398,7 @@ void CMapManager::FlushRemovedNotify()
 	for (u32 i = 0; i < count; ++i)
 	{
 		shared_str spot_type = m_removed_spots[i].spot_type;
-		u16 id = m_removed_spots[i].object_id;
+		ALife::_OBJECT_ID id = m_removed_spots[i].object_id;
 		on_removed(spot_type.c_str(), id);
 	}
 

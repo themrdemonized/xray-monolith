@@ -632,10 +632,21 @@ void CActorCondition::save(NET_Packet& output_packet)
 	save_data(m_curr_medicine_influence.fTimeTotal, output_packet);
 	save_data(m_curr_medicine_influence.fTimeCurrent, output_packet);
 
-	output_packet.w_u8((u8)m_booster_influences.size());
+	u8 stored = 0;
 	BOOSTER_MAP::iterator b = m_booster_influences.begin(), e = m_booster_influences.end();
-	for (; b != e; b++)
+	for (; b != e; ++b)
 	{
+		if ((u32)b->second.m_type < (u32)eBoostMaxCount)
+			++stored;
+	}
+	output_packet.w_u8(stored);
+	for (b = m_booster_influences.begin(); b != e; ++b)
+	{
+		if ((u32)b->second.m_type >= (u32)eBoostMaxCount)
+		{
+			Msg("! CActorCondition::save: dropped booster type %u", (u32)b->second.m_type);
+			continue;
+		}
 		output_packet.w_u8((u8)b->second.m_type);
 		output_packet.w_float(b->second.fBoostValue);
 		output_packet.w_float(b->second.fBoostTime);
@@ -659,13 +670,24 @@ void CActorCondition::load(IReader& input_packet)
 	load_data(m_curr_medicine_influence.fTimeTotal, input_packet);
 	load_data(m_curr_medicine_influence.fTimeCurrent, input_packet);
 
+	if (input_packet.elapsed() < 1)
+		return;
 	u8 cntr = input_packet.r_u8();
 	for (; cntr > 0; cntr--)
 	{
+		// One record is the type byte plus the two floats. A short client blob used to read off
+		// the end of the buffer and then jump through the booster switch.
+		if (input_packet.elapsed() < 1 + int(sizeof(float)) * 2)
+			break;
 		SBooster B;
 		B.m_type = (EBoostParams)input_packet.r_u8();
 		B.fBoostValue = input_packet.r_float();
 		B.fBoostTime = input_packet.r_float();
+		if ((u32)B.m_type >= (u32)eBoostMaxCount)
+		{
+			Msg("! CActorCondition::load: ignored booster type %u", (u32)B.m_type);
+			continue;
+		}
 		m_booster_influences[B.m_type] = B;
 		BoostParameters(B);
 	}
@@ -733,7 +755,8 @@ void CActorCondition::BoostParameters(const SBooster& B)
 			break;
 		case eBoostChemicalBurnProtection: BoostChemicalBurnProtection(B.fBoostValue);
 			break;
-		default: NODEFAULT;
+		default:
+			return;
 		}
 	}
 }
@@ -779,7 +802,8 @@ void CActorCondition::DisableBoostParameters(const SBooster& B)
 		break;
 	case eBoostChemicalBurnProtection: BoostChemicalBurnProtection(-B.fBoostValue);
 		break;
-	default: NODEFAULT;
+	default:
+		return;
 	}
 }
 

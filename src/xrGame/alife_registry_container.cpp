@@ -11,8 +11,21 @@
 #include "object_interfaces.h"
 #include "alife_space.h"
 
-void CALifeRegistryContainer::load(IReader& file_stream)
+static u32 g_alife_registry_load_version = ALIFE_VERSION_WIDE_IDS;
+
+u32 alife_registry_load_version()
 {
+	return g_alife_registry_load_version;
+}
+
+void set_alife_registry_load_version(u32 version)
+{
+	g_alife_registry_load_version = version;
+}
+
+void CALifeRegistryContainer::load(IReader& file_stream, u32 version)
+{
+	set_alife_registry_load_version(version);
 	R_ASSERT2(file_stream.find_chunk(REGISTRY_CHUNK_DATA), "Can't find chunk REGISTRY_CHUNK_DATA!");
 
 	m_info_portions.load(file_stream);

@@ -20,7 +20,7 @@ class CALifeObjectRegistry
 {
 public:
 	typedef xr_map<ALife::_OBJECT_ID, CSE_ALifeDynamicObject*> OBJECT_REGISTRY;
-	ALife::_OBJECT_ID max_id = ALife::_OBJECT_ID(-1);
+	ALife::_OBJECT_ID max_id = ALife::invalid_object_id;
 
 protected:
 	OBJECT_REGISTRY m_objects;

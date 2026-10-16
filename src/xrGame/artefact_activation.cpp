@@ -63,7 +63,7 @@ void SArtefactActivation::Start()
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GE_OWNERSHIP_REJECT, m_af->H_Parent()->ID());
-	P.w_u16(m_af->ID());
+	P.w_u32(m_af->ID());
 	if (OnServer())
 		CGameObject::u_EventSend(P);
 	m_light->set_active(true);

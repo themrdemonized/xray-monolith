@@ -936,11 +936,11 @@ void CBaseMonster::OnEvent(NET_Packet& P, u16 type)
 {
 	inherited::OnEvent(P, type);
 
-	u16 id;
+	u32 id;
 	switch (type)
 	{
 	case GE_KILL_SOMEONE:
-		P.r_u16(id);
+		P.r_u32(id);
 		CObject* O = Level().Objects.net_Find(id);
 
 		if (O)

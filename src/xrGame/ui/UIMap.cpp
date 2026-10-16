@@ -1189,7 +1189,7 @@ void CUIMiniMapWidget::clear_pointer_types()
 }
 
 // the target keeps its pointer from any level, listed types point within the level
-void CUIMiniMapWidget::set_pointer_target(u16 object_id)
+void CUIMiniMapWidget::set_pointer_target(ALife::_OBJECT_ID object_id)
 {
 	if (m_pointer_target == object_id) return;
 
@@ -1199,7 +1199,7 @@ void CUIMiniMapWidget::set_pointer_target(u16 object_id)
 
 void CUIMiniMapWidget::clear_pointer_target()
 {
-	set_pointer_target(u16(-1));
+	set_pointer_target(ALife::invalid_object_id);
 }
 
 bool CUIMiniMapWidget::pointer_allowed(CMapLocation* loc) const
@@ -1235,7 +1235,7 @@ void CUIMiniMapWidget::refit_pointers()
 }
 
 // frame local point in, object id of the spot under it out
-u16 CUIMiniMapWidget::spot_at(float x, float y)
+ALife::_OBJECT_ID CUIMiniMapWidget::spot_at(float x, float y)
 {
 	Fvector2 map_pos = m_map->GetWndPos();
 	for (auto it = m_pool.begin(); it != m_pool.end(); ++it)
@@ -1248,7 +1248,7 @@ u16 CUIMiniMapWidget::spot_at(float x, float y)
 		if (r.in(x, y))
 			return it->first->ObjectID();
 	}
-	return u16(-1);
+	return ALife::invalid_object_id;
 }
 
 void CUIMiniMapWidget::set_pointer_scale(float scale)
@@ -1259,7 +1259,7 @@ void CUIMiniMapWidget::set_pointer_scale(float scale)
 	clear_pool();
 }
 
-void CUIMiniMapWidget::set_spot_color(u16 object_id, u32 color)
+void CUIMiniMapWidget::set_spot_color(ALife::_OBJECT_ID object_id, u32 color)
 {
 	if (color)
 		m_spot_colors[object_id] = color;

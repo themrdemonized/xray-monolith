@@ -22,7 +22,7 @@ RELATION_REGISTRY::FIGHT_DATA::FIGHT_DATA()
 //////////////////////////////////////////////////////////////////////////
 extern bool IsGameTypeSingle();
 
-void RELATION_REGISTRY::FightRegister(u16 attacker, u16 defender, ALife::ERelationType defender_to_attacker,
+void RELATION_REGISTRY::FightRegister(ALife::_OBJECT_ID attacker, ALife::_OBJECT_ID defender, ALife::ERelationType defender_to_attacker,
                                       float hit_amount)
 {
 	UpdateFightRegister();
@@ -53,7 +53,7 @@ void RELATION_REGISTRY::FightRegister(u16 attacker, u16 defender, ALife::ERelati
 	}
 }
 
-RELATION_REGISTRY::FIGHT_DATA* RELATION_REGISTRY::FindFight(u16 object_id, bool by_attacker)
+RELATION_REGISTRY::FIGHT_DATA* RELATION_REGISTRY::FindFight(ALife::_OBJECT_ID object_id, bool by_attacker)
 {
 	FIGHT_VECTOR& fights = fight_registry();
 	for (FIGHT_VECTOR_IT it = fights.begin(); it != fights.end(); it++)

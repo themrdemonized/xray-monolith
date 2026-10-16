@@ -33,15 +33,21 @@ void CALifeObjectRegistry::save(IWriter& memory_stream, CSE_ALifeDynamicObject* 
 	NET_Packet tNetPacket;
 	// Spawn
 	object->Spawn_Write(tNetPacket,TRUE);
-	memory_stream.w_u16(u16(tNetPacket.B.count));
-	memory_stream.w(tNetPacket.B.data, tNetPacket.B.count);
+	if (tNetPacket.overflowed)
+		Msg("! object [%s] id %u spawn was cut off at %u bytes", object->name_replace(), object->ID, tNetPacket.B.count);
+	const u32 spawn_bytes = tNetPacket.B.count > 0xFFFF ? 0xFFFF : tNetPacket.B.count;
+	memory_stream.w_u16((u16)spawn_bytes);
+	memory_stream.w(tNetPacket.B.data, spawn_bytes);
 
 	// Update
 	tNetPacket.w_begin(M_UPDATE);
 	object->UPDATE_Write(tNetPacket);
+	if (tNetPacket.overflowed)
+		Msg("! object [%s] id %u update was cut off at %u bytes", object->name_replace(), object->ID, tNetPacket.B.count);
 
-	memory_stream.w_u16(u16(tNetPacket.B.count));
-	memory_stream.w(tNetPacket.B.data, tNetPacket.B.count);
+	const u32 update_bytes = tNetPacket.B.count > 0xFFFF ? 0xFFFF : tNetPacket.B.count;
+	memory_stream.w_u16((u16)update_bytes);
+	memory_stream.w(tNetPacket.B.data, update_bytes);
 
 	ALife::OBJECT_VECTOR::const_iterator I = object->children.begin();
 	ALife::OBJECT_VECTOR::const_iterator E = object->children.end();

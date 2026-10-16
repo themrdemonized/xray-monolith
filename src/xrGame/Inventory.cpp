@@ -923,7 +923,7 @@ void CInventory::UpdateDropItem(PIItem pIItem)
 		{
 			NET_Packet P;
 			pIItem->object().u_EventGen(P, GE_OWNERSHIP_REJECT, pIItem->object().H_Parent()->ID());
-			P.w_u16(u16(pIItem->object().ID()));
+			P.w_u32(pIItem->object().ID());
 			pIItem->object().u_EventSend(P);
 		}
 	} // dropManual
@@ -992,7 +992,7 @@ PIItem CInventory::Get(CLASS_ID cls_id, bool bSearchRuck) const
 	return NULL;
 }
 
-PIItem CInventory::Get(const u16 id, bool bSearchRuck) const
+PIItem CInventory::Get(const u32 id, bool bSearchRuck) const
 {
 	const TIItemContainer& list = bSearchRuck ? m_ruck : m_belt;
 
@@ -1174,7 +1174,7 @@ bool CInventory::ClientEat(PIItem pIItem)
 
 	NET_Packet P;
 	CGameObject::u_EventGen(P, GEG_PLAYER_ITEM_EAT, pIItem->parent_id());
-	P.w_u16(pIItem->object().ID());
+	P.w_u32(pIItem->object().ID());
 	CGameObject::u_EventSend(P);
 	return true;
 }
@@ -1290,7 +1290,7 @@ CInventoryItem* CInventory::GetItemFromInventory(LPCSTR caItemName)
 	return (0);
 }
 
-CInventoryItem* CInventory::GetItemFromInventory(u16 id)
+CInventoryItem* CInventory::GetItemFromInventory(u32 id)
 {
 	TIItemContainer& l_list = m_all;
 
@@ -1303,8 +1303,9 @@ CInventoryItem* CInventory::GetItemFromInventory(u16 id)
 
 bool CInventory::CanTakeItem(CInventoryItem* inventory_item) const
 {
-	VERIFY(inventory_item);
 	VERIFY(m_pOwner);
+	if (!inventory_item || !m_pOwner)
+		return false;
 
 	if (inventory_item->object().getDestroy()) return false;
 

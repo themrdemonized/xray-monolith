@@ -57,6 +57,7 @@ class CGameObject :
 {
 	typedef CObject inherited;
 	bool m_spawned;
+	u16 m_spawn_version;
 	Flags32 m_server_flags;
 	CAI_ObjectLocation* m_ai_location;
 	ALife::_STORY_ID m_story_id;
@@ -118,6 +119,7 @@ public:
 	virtual BOOL net_SaveRelevant();
 	virtual void save(NET_Packet& output_packet);
 	virtual void load(IReader& input_packet);
+	u16 spawn_version() const { return m_spawn_version; }
 
 	virtual BOOL net_Relevant() { return getLocal(); } // send messages only if active and local
 	virtual void spatial_move();

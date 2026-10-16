@@ -99,7 +99,7 @@ void CALifeStorageManager::save(LPCSTR save_name_no_check, bool update_name)
 	FS.update_path(temp, "$game_saves$", m_save_name);
 	IWriter* writer = FS.w_open(temp);
 	writer->w_u32(u32(-1));
-	writer->w_u32(ALIFE_VERSION);
+	writer->w_u32(ALIFE_VERSION_WIDE_IDS);
 
 	writer->w_u32(source_count);
 	writer->w(dest_data, dest_count);
@@ -154,7 +154,7 @@ void CALifeStorageManager::load(void* buffer, const u32& buffer_size, LPCSTR fil
 		register_object((*I).second, false);
 	}
 
-	registry().load(source);
+	registry().load(source, header().version());
 
 	can_register_objects(true);
 

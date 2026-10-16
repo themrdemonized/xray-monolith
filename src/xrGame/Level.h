@@ -241,7 +241,7 @@ public:
 
 	virtual shared_str OpenDemoFile(const char* demo_file_name);
 	virtual void net_StartPlayDemo();
-	void cl_Process_Event(u16 dest, u16 type, NET_Packet& P);
+	void cl_Process_Event(u32 dest, u16 type, NET_Packet& P);
 	void cl_Process_Spawn(NET_Packet& P);
 
 	script_attachment* add_attachment(LPCSTR name, script_attachment* att);
@@ -260,15 +260,15 @@ public:
 	prefetch_event_queue* prefetch_events = nullptr;
 	models_set* prefetched_models = nullptr;
 	xrSRWLock prefetch_lock;
-    bool PostponedSpawn(u16 id);
+    bool PostponedSpawn(ALife::_OBJECT_ID id);
 	void ProcessSpawnEvents();
 	static void ProcessPrefetchEvents(void* args);
 	void SortSpawnEventsQueue();
 private:
 	bool closeSignal = false;
 	int GetSpawnEventPriority(const NET_Event& e) const;
-	bool PostponedSpawnFind(u16 id, const NET_Event& E) const;
-	bool PostponedSpawnFind(u16 id, NET_Packet& P) const;
+	bool PostponedSpawnFind(ALife::_OBJECT_ID id, const NET_Event& E) const;
+	bool PostponedSpawnFind(ALife::_OBJECT_ID id, NET_Packet& P) const;
 	bool SpawnEventCompare(const NET_Event& a, const NET_Event& b) const;
 #endif	
 
@@ -358,7 +358,7 @@ public:
 	IC CBulletManager& BulletManager() { return *m_pBulletManager; }
 	bool IsServer();
 	bool IsClient();
-	CSE_Abstract* spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id, u16 parent_id,
+	CSE_Abstract* spawn_item(LPCSTR section, const Fvector& position, u32 level_vertex_id, u32 parent_id,
 	                         bool return_item = false);
 
 protected:

@@ -2507,6 +2507,8 @@ public:
     }
 };
 
+void register_saveload_cycle_test_command();
+
 void CCC_RegisterCommands()
 {
 	//Not needed for a singleplayer-only mod
@@ -2549,6 +2551,7 @@ void CCC_RegisterCommands()
 	CMD1(CCC_LoadLastSave, "load_last_save"); // load last saved game from ...
 
 	CMD1(CCC_FlushLog, "flush"); // flush log
+	register_saveload_cycle_test_command();
 	CMD1(CCC_ClearLog, "clear_log");
 
 #ifndef MASTER_GOLD

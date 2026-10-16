@@ -85,12 +85,12 @@ void CBolt::activate_physic_shell()
 	m_pPhysicsShell->SetAirResistance(.0001f);
 }
 
-void CBolt::SetInitiator(u16 id)
+void CBolt::SetInitiator(ALife::_OBJECT_ID id)
 {
 	m_thrower_id = id;
 }
 
-u16 CBolt::Initiator()
+ALife::_OBJECT_ID CBolt::Initiator()
 {
 	return m_thrower_id;
 }
@@ -108,7 +108,7 @@ void CBolt::PutNextToSlot()
 		m_pInventory->Ruck(this);
 
 		this->u_EventGen(P, GEG_PLAYER_ITEM2RUCK, this->H_Parent()->ID());
-		P.w_u16(this->ID());
+		P.w_u32(this->ID());
 		this->u_EventSend(P);
 	}
 	else
@@ -135,7 +135,7 @@ void CBolt::PutNextToSlot()
 			if (m_pInventory->Slot(pNext->BaseSlot(), pNext))
 			{
 				pNext->u_EventGen(P, GEG_PLAYER_ITEM2SLOT, pNext->H_Parent()->ID());
-				P.w_u16(pNext->ID());
+				P.w_u32(pNext->ID());
 				P.w_u16(pNext->BaseSlot());
                 P.w_u8(0); // do activate
 				pNext->u_EventSend(P);

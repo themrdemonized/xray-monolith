@@ -20,8 +20,9 @@ namespace
 
 	const LPCSTR PACK_MASK = "*.spawn";
 	// Packet version whose layout peek_graph_vertex reads.
-	const u16 PEEKED_SPAWN_VERSION = 128;
-	static_assert(SPAWN_VERSION == PEEKED_SPAWN_VERSION, "peek_graph_vertex mirrors Spawn_Read for version 128; update both");
+	const u16 PEEKED_SPAWN_VERSION_LEGACY = SPAWN_VERSION_LEGACY_IDS;
+	static_assert(SPAWN_VERSION == 129, "peek_graph_vertex mirrors Spawn_Read; update both when the spawn header changes");
+	static_assert(SPAWN_VERSION_WIDE_REFS == 130, "version 130 keeps the version-129 spawn header and widens client references");
 	static_assert(XRAI_CURRENT_VERSION == 10, "CGameGraphBuilder::readable_version lists the all.spawn layouts the pack readers walk; update it");
 
 	// The level.ai versions the CLevelGraph constructor accepts; keep in sync with it.
@@ -152,7 +153,7 @@ namespace
 	// Graph vertex of a spawn packet positioned right after o_Position, read from the bytes without
 	// constructing the entity: the same fields CSE_Abstract::Spawn_Read walks, then m_tGraphID, the first field of
 	// CSE_ALifeObject::STATE_Read. Lets a record the base already has be rejected without F_entity_Create (a Lua
-	// constructor for script classes). Only the PEEKED_SPAWN_VERSION layout is known here: u32(-1) for an older
+	// constructor for script classes). Legacy version 128 and the wide-id version are known here: u32(-1) for an older
 	// packet version (the caller then constructs the entity, Spawn_Read has the legacy branches) or one too short to
 	// hold it.
 	u32 peek_graph_vertex(NET_Packet& packet)
@@ -168,8 +169,14 @@ namespace
 			return u32(-1);
 		const u16 flags = packet.r_u16();
 		const u16 version = packet.r_u16();
-		if (!(flags & M_SPAWN_VERSION) || version != PEEKED_SPAWN_VERSION)
+		if (!(flags & M_SPAWN_VERSION) || (version != PEEKED_SPAWN_VERSION_LEGACY && version != SPAWN_VERSION && version != SPAWN_VERSION_WIDE_REFS))
 			return u32(-1);
+		if (version >= SPAWN_VERSION)
+		{
+			if (!has_bytes(packet, 3 * sizeof(u32)))
+				return u32(-1);
+			packet.r_advance(3 * sizeof(u32)); // full ID, ID_Parent, ID_Phantom
+		}
 		if (!has_bytes(packet, 2 * sizeof(u16) + sizeof(u16)))
 			return u32(-1);
 		packet.r_advance(2 * sizeof(u16)); // game type, script version

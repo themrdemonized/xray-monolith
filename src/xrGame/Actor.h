@@ -286,7 +286,7 @@ public:
 	virtual bool can_attach(const CInventoryItem* inventory_item) const;
 protected:
 	CHolderCustom* m_holder;
-	u16 m_holderID;
+	u32 m_holderID;
 	bool use_Holder(CHolderCustom* holder);
 	void ActorUse();
 
@@ -736,8 +736,8 @@ public:
 	virtual bool natural_detector() const { return false; }
 	virtual bool use_center_to_aim() const;
 protected:
-	u16 m_iLastHitterID;
-	u16 m_iLastHittingWeaponID;
+	ALife::_OBJECT_ID m_iLastHitterID;
+	ALife::_OBJECT_ID m_iLastHittingWeaponID;
 	s16 m_s16LastHittedElement;
 	Fvector m_vLastHitDir;
 	Fvector m_vLastHitPos;
