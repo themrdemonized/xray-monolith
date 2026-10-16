@@ -92,6 +92,8 @@ private:
 	svector<CBlend, MAX_BLENDED_POOL> blend_pool;
 	BlendSVec blend_cycles[MAX_PARTS];
 	BlendSVec blend_fx;
+    //additive blends
+    BlendSVec blend_additives;
 	animation::channels channels;
 protected:
 	// internal functions
@@ -103,7 +105,7 @@ protected:
 	CBlend* IBlend_Create();
 private:
 	void IBlendSetup(CBlend& B, u16 part, u8 channel, MotionID motion_ID, BOOL bMixing, float blendAccrue,
-	                 float blendFalloff, float Speed, BOOL noloop, PlayCallback Callback, LPVOID CallbackParam);
+	                 float blendFalloff, float Speed, BOOL noloop, PlayCallback Callback, LPVOID CallbackParam, BOOL SkipFirstFrame = FALSE);
 	void IFXBlendSetup(CBlend& B, MotionID motion_ID, float blendAccrue, float blendFalloff, float Power, float Speed,
 	                   u16 bone);
 	//.	bool						LoadMotions				(LPCSTR N, IReader *data);
@@ -146,6 +148,8 @@ public:
 	                     u8 channel = 0);
 	void LL_FadeCycle(u16 partition, float falloff, u8 mask_channel = (1 << 0));
 	void LL_CloseCycle(u16 partition, u8 mask_channel = (1 << 0));
+    void LL_CloseAddCycles(u16 partition, u8 mask_channel = (1 << 2), u16 BlendID = 0);
+    void CloseAddCycles(u16 partition, u16 BlendID = 0);
 	void LL_SetChannelFactor(u16 channel, float factor);
 
 	CBlendInstance& LL_GetBlendInstance(u16 bone_id)
