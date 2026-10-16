@@ -17,7 +17,7 @@ extern float ps_r2_sun_shafts_value;
 extern Fvector3 ssfx_wetness_multiplier;
 
 // seconds to fully wet or dry at multiplier 1
-static const float WETNESS_CHANGE_TIME = 10000.f / 60.f;
+static const float WETNESS_CHANGE_TIME = 166.f;
 
 void CEnvModifier::load(IReader* fs, u32 version)
 {
