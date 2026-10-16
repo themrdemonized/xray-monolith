@@ -103,6 +103,8 @@ class_<CScriptGameObject> script_register_game_object2(class_<CScriptGameObject>
 		.def("set_monster_aura_params", SAFE_WRAP(&CScriptGameObject::set_monster_aura_params))
 		.def("set_bloodsucker_vis_timing", SAFE_WRAP(&CScriptGameObject::set_bloodsucker_vis_timing))
 		.def("set_monster_turn_factor", SAFE_WRAP(&CScriptGameObject::set_monster_turn_factor))
+		.def("set_monster_dest", SAFE_WRAP(&CScriptGameObject::set_monster_dest))
+		.def("clear_monster_dest", SAFE_WRAP(&CScriptGameObject::clear_monster_dest))
 		.def("try_monster_jump", SAFE_WRAP(&CScriptGameObject::try_monster_jump))
 		.def("try_monster_rotation_jump", SAFE_WRAP(&CScriptGameObject::try_monster_rotation_jump))
 		.def("try_monster_run_attack", SAFE_WRAP(&CScriptGameObject::try_monster_run_attack))

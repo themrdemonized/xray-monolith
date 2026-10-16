@@ -982,6 +982,8 @@
         void set_monster_aura_params(string aura_name, float linear, float quadratic, float max_power, float max_distance) // One monster aura by name: psy, radiation, fire or base. Writes the falloff pair, power cap and range the aura's calculate() reads live. Error log on an unknown name.
         void set_bloodsucker_vis_timing(float min_delay_ms) // Bloodsucker only. The minimum delay between visibility-state changes (the predator flicker pacing).
         void set_monster_turn_factor(float factor) // The monster's base-path heading-turn speed multiplier (CControlDirectionBase::update_frame): it re-faces a moving target faster on the ground. 1 = vanilla, <= 0 keeps the current value. The jump control's in-flight alignment is untouched.
+        void set_monster_dest(Fvector position) // Override the monster's movement destination: the active state's mover walks the body to this world point each tick instead of its own target, re-asserted in CControlPathBuilderBase::update_target_point, the node resolved from the position. Single controller, no mob_capture. Caller restricts this to continuous-chase states (chimera attack) - a state that transitions on arriving at its own target desyncs under the override. Stays set until clear_monster_dest.
+        void clear_monster_dest() // Drop the destination override; the monster's own state resumes driving the mover. Default (never set) = vanilla.
 
 
         // CBaseMonster - maneuver invokes. Lua commands a control component; the engine executes it.

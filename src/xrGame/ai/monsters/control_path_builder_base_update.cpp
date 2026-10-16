@@ -25,6 +25,10 @@ void CControlPathBuilderBase::update_target_point()
 {
 	m_reset_actuality = false;
 
+	// re-assert the per-object dest override each tick through the normal entry
+	if (m_dest_override_active)
+		set_target_point(m_dest_override_point, m_dest_override_node);
+
 	if (!m_enable) return;
 	if (m_path_type != MovementManager::ePathTypeLevelPath) return;
 

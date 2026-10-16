@@ -53,6 +53,18 @@ void CControlPathBuilderBase::set_target_point(u32 node)
 	set_target_point(ai().level_graph().vertex_position(node), node);
 }
 
+void CControlPathBuilderBase::set_dest_override(const Fvector& position, u32 node)
+{
+	m_dest_override_active = true;
+	m_dest_override_point.set(position);
+	m_dest_override_node = node;
+}
+
+void CControlPathBuilderBase::clear_dest_override()
+{
+	m_dest_override_active = false;
+}
+
 void CControlPathBuilderBase::set_retreat_from_point(const Fvector& position)
 {
 	// обновить актуальность
