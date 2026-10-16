@@ -520,10 +520,13 @@ void CEnvDescriptorMixer::lerp(CEnvironment* env, CEnvDescriptor& A, CEnvDescrip
 
 	sun_color.lerp(A.sun_color, B.sun_color, f);
 
+	// frame rate independent, one step per frame at 60 fps
+	const float wetness_step = Device.fTimeDelta * 60.f;
+
 	if (rain_density > 0.f)
-		env->wetness_factor += ( rain_density * ssfx_wetness_multiplier.x) / 10000.f;
+		env->wetness_factor += ( rain_density * ssfx_wetness_multiplier.x) / 10000.f * wetness_step;
 	else
-		env->wetness_factor -= 0.0001f * ssfx_wetness_multiplier.y;
+		env->wetness_factor -= 0.0001f * ssfx_wetness_multiplier.y * wetness_step;
 
 	clamp(env->wetness_factor, 0.f, 1.f);
 
