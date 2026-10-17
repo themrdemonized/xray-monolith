@@ -12,6 +12,8 @@
         bus_force <id> x y z w // Force a lane to finite values until bus_release, a console debug path, the lua write path still needs the token
         bus_release <id> // Stop forcing the lane, the pending value returns on the next frame
 
+        env_mods_reload // Re-read environment modifiers for the current level from configs\environment\env_mods\<level>.ltx, see docs/env_mods.md
+
         snd_doppler_power [0; 5] // Adjust power of doppler effect
         snd_doppler_smoothing [1; 100] // Adjust smoothness of pitch shifting in doppler effect
 
