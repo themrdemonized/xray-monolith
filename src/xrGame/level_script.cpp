@@ -1725,6 +1725,12 @@ void StopHudMotion()
 	g_player_hud->StopScriptAnim();
 }
 
+void SetHudMotionLock(float target, float time)
+{
+	g_player_hud->script_anim_lock_camera_target = clampr(target, 0.f, 1.f);
+	g_player_hud->script_anim_lock_camera_time = time;
+}
+
 float MotionLength(LPCSTR section, LPCSTR name, float speed)
 {
 	return g_player_hud->motion_length_script(section, name, speed);
@@ -2995,6 +3001,7 @@ void CLevel::script_register(lua_State* L)
 		def("get_resolutions", &vid_modes_string),
 		def("play_hud_motion", PlayHudMotion),
 		def("stop_hud_motion", StopHudMotion),
+		def("set_hud_motion_lock", SetHudMotionLock),
 		def("get_motion_length", MotionLength),
 		def("hud_motion_allowed", AllowHudMotion),
 		def("motion_exists", MotionExists),
