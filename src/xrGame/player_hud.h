@@ -392,6 +392,9 @@ public:
 	bool script_anim_item_attached;
 	bool script_override_arms;
 	bool script_anim_lead_gun;
+	float script_anim_lock_camera;
+	float script_anim_lock_camera_target;
+	float script_anim_lock_camera_time;
 	IKinematicsAnimated* script_anim_item_model;
 	Fvector item_pos[2];
 	Fmatrix m_item_pos;
