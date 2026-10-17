@@ -8,6 +8,7 @@
 //#include "fbasicvisual.h"
 #include "cameramanager.h"
 #include "environment.h"
+#include "IGame_Persistent.h"
 #include "xr_input.h"
 #include "CustomHUD.h"
 
@@ -978,6 +979,24 @@ public:
 	}
 };
 
+// Re-read env modifiers for the current level
+class CCC_EnvModsReload : public IConsole_Command
+{
+public:
+	CCC_EnvModsReload(pcstr name) : IConsole_Command(name) { bEmptyArgsHandled = true; }
+	void Execute(pcstr args) override
+	{
+		if (!g_pGameLevel || !g_pGamePersistent)
+		{
+			Log("! env_mods_reload: no level loaded");
+			return;
+		}
+		CEnvironment& env = g_pGamePersistent->Environment();
+		env.mods_reload();
+		Msg("* env_mods_reload: %u modifier(s) active", u32(env.Modifiers.size()));
+	}
+};
+
 ENGINE_API float psHUD_FOV_def = 0.45f;
 ENGINE_API float psHUD_FOV = psHUD_FOV_def;
 
@@ -1256,6 +1275,7 @@ void CCC_Register()
 	CMD4(CCC_Float, "scope_fog_sharp", &scope_fog_sharp, 0, 1000);
 	CMD2(CCC_Integer, "scope_2dtexactive", &scope_2dtexactive);
 	CMD1(CCC_Editor, "rs_editor");
+	CMD1(CCC_EnvModsReload, "env_mods_reload");
 #ifdef DEBUG
     extern BOOL debug_destroy;
     CMD4(CCC_Integer, "debug_destroy", &debug_destroy, FALSE, TRUE);

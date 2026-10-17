@@ -607,11 +607,56 @@ CEnvAmbient* CEnvironment::AppendEnvAmb(const shared_str& sect)
 	return (Ambients.back());
 }
 
+bool CEnvironment::mods_load_ltx()
+{
+	string_path path, full_path;
+	strconcat(sizeof(path), path, "environment\\env_mods\\", g_pGameLevel->name().c_str(), ".ltx");
+	if (!FS.exist(full_path, "$game_config$", path))
+		return false;
+
+	// Drop cached copy so edits are picked up
+	CInifile::InvalidateCache(full_path);
+	CInifile ini(full_path, TRUE, TRUE, FALSE);
+
+	for (const CInifile::Sect& S : ini.sections())
+	{
+		LPCSTR sect = S.Name.c_str();
+		if (!ini.line_exist(sect, "position"))
+			continue;
+
+		CEnvModifier E;
+		E.use_flags.one();
+		E.position = ini.r_fvector3(sect, "position");
+		E.radius = ini.r_float(sect, "radius");
+		E.power = ini.r_float(sect, "power");
+		E.far_plane = ini.r_float(sect, "far_plane");
+		E.fog_color = ini.r_fvector3(sect, "fog_color");
+		E.fog_density = ini.r_float(sect, "fog_density");
+		E.ambient = ini.r_fvector3(sect, "ambient");
+		E.sky_color = ini.r_fvector3(sect, "sky_color");
+		E.hemi_color = ini.r_fvector3(sect, "hemi_color");
+		if (ini.line_exist(sect, "use_flags"))
+			E.use_flags.assign(u16(strtoul(ini.r_string(sect, "use_flags"), nullptr, 0)));
+
+		Modifiers.push_back(E);
+	}
+
+	Msg("* env_mods: loaded %u modifier(s) from [%s]", u32(Modifiers.size()), path);
+	return true;
+}
+
 void CEnvironment::mods_load()
+{
+	mods_reload();
+	load_level_specific_ambients();
+}
+
+// Also used by env_mods_reload
+void CEnvironment::mods_reload()
 {
 	Modifiers.clear_and_free();
 	string_path path;
-	if (FS.exist(path, "$level$", "level.env_mod"))
+	if (!mods_load_ltx() && FS.exist(path, "$level$", "level.env_mod"))
 	{
 		IReader* fs = FS.r_open(path);
 		u32 id = 0;
@@ -634,8 +679,6 @@ void CEnvironment::mods_load()
 		}
 		FS.r_close(fs);
 	}
-
-	load_level_specific_ambients();
 }
 
 void CEnvironment::mods_unload()
