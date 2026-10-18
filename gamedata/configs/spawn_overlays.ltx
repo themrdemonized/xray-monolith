@@ -199,6 +199,11 @@ sync_level_offsets = true
 ;       offset   = 3000.0, 1000.0, 3000.0
 ;       weathers = [default]
 ;       id       = auto
+;     Also list the level in game.ltx [level_maps_single] with a [<level>] section (global_rect, weathers,
+;     music_tracks); without them the level is logged "!" (no PDA map, or the PDA aborts opening).
+;     game.ltx [levels] is the level set (game.level_names() in Lua): a level a pack carries but an install may not
+;     have ships its [levelNN] in the same mod option as its levels\<level> folder. A pack level with neither is
+;     "- not installed"; one with only the section or only the folder is "!".
 ;   - spawn records the base does not have (same name on the same level within 1 m = the same object; exact on the
 ;     pack's levels, placed by position on existing ones);
 ;   - patrol paths whose names are new.
