@@ -83,6 +83,8 @@ private:
 	bool Recurse(LPCSTR path);
 
 	files_it file_find_it(LPCSTR n);
+	// Caller must hold m_files_lock (shared for reads, exclusive if it mutates)
+	files_it file_find_it_nolock(LPCSTR n);
 public:
 	enum
 	{
