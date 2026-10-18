@@ -104,6 +104,7 @@ void CPatrolPathStorage::load(IReader& stream)
 	chunk->close();
 
 	m_registry.clear();
+	m_compiled.clear();
 
 	PATROL_REGISTRY::value_type pair;
 
@@ -132,6 +133,7 @@ void CPatrolPathStorage::load(IReader& stream)
 #endif
 
 		m_registry.insert(pair);
+		m_compiled.insert(pair.first);
 	}
 
 	chunk->close();
@@ -258,6 +260,7 @@ void CPatrolPathStorage::erase(const shared_str& name)
 		return;
 	xr_delete(I->second);
 	m_registry.erase(I);
+	m_compiled.erase(name);
 }
 
 void CPatrolPathStorage::approximate_level(const CGameGraph& graph, const GameGraph::_LEVEL_ID level_id)
@@ -270,15 +273,26 @@ void CPatrolPathStorage::approximate_level(const CGameGraph& graph, const GameGr
 
 u32 CPatrolPathStorage::erase_level(const CGameGraph& graph, const GameGraph::_LEVEL_ID level_id)
 {
+	return erase_on_level(graph, level_id, false);
+}
+
+u32 CPatrolPathStorage::erase_compiled_level(const CGameGraph& graph, const GameGraph::_LEVEL_ID level_id)
+{
+	return erase_on_level(graph, level_id, true);
+}
+
+u32 CPatrolPathStorage::erase_on_level(const CGameGraph& graph, const GameGraph::_LEVEL_ID level_id, const bool compiled_only)
+{
 	u32 erased = 0;
 	for (u32 i = 0; i < m_registry.size();)
 	{
 		const auto I = m_registry.begin() + i;
-		if (!I->second->on_level(graph, level_id))
+		if (!I->second->on_level(graph, level_id) || (compiled_only && m_compiled.find(I->first) == m_compiled.end()))
 		{
 			++i;
 			continue;
 		}
+		m_compiled.erase(I->first);
 		xr_delete(I->second);
 		m_registry.erase(I);
 		++erased;

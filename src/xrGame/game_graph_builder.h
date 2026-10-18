@@ -45,6 +45,8 @@ private:
 	static const u32* level_cross_table(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
 	static const u32* validate_cross_table(const CGameGraph& pack, GameGraph::_LEVEL_ID pack_level_id, string256& reason);
 	static void clear_vertex_map(const CGameGraph& pack, GameGraph::_LEVEL_ID pack_level_id, xr_vector<u32>& vertex_map);
+	// Recomputes the weight of every edge between level_id and another level from the vertices' global points.
+	u32 reweight_cross_edges(GameGraph::_LEVEL_ID level_id);
 
 public:
 	static bool readable_version(u32 version);
@@ -72,10 +74,16 @@ public:
 	// appended vertices (u32(-1) elsewhere); edges are added by append_edges. Needs the pack and vertex_map alive
 	// until build() called.
 	bool append_level(const CGameGraph& pack, GameGraph::_LEVEL_ID pack_level_id, GameGraph::_LEVEL_ID level_id, const Fvector& offset, xr_vector<u32>& vertex_map, string256& reason);
-	// Replaces the internals of a level the graph already has (same name, same graph points) with the pack's
-	// build of it: AI nodes, death points, intra-level edges, cross table and level GUID. Vertex ids and
-	// cross-level edges stay. vertex_map as in append_level; level_id receives the level's id in this graph.
-	bool substitute_level(const CGameGraph& pack, GameGraph::_LEVEL_ID pack_level_id, xr_vector<u32>& vertex_map, GameGraph::_LEVEL_ID& level_id, string256& reason);
+	// Replaces a level the graph already has (same name) with the pack's build of it: graph points, AI nodes, death
+	// points, intra-level edges, cross table and level GUID. The pack's vertices of the level take the level's
+	// vertex ids in order (reused); pack vertices past them are appended (added); level vertices past the pack's
+	// count stay as placeholders, copies of the level's first vertex with a one-way edge to it. Cross-level edges
+	// keep their vertex ids and are reweighted. vertex_map as in append_level; level_id receives the level's id in
+	// this graph. reused, added and placeholders are set on success only.
+	bool substitute_level(const CGameGraph& pack, GameGraph::_LEVEL_ID pack_level_id, xr_vector<u32>& vertex_map, GameGraph::_LEVEL_ID& level_id, u32& reused, u32& added, u32& placeholders, string256& reason);
+	// AI node count of the level's cross table: in this graph, or in the given graph. 0 when there is none.
+	u32 level_node_count(GameGraph::_LEVEL_ID level_id) const;
+	static u32 level_node_count(const CGameGraph& graph, GameGraph::_LEVEL_ID level_id);
 	// Adds the pack edges that touch an appended vertex, with the pack's weights. An endpoint on a level the base
 	// already has is the nearest base vertex of that level to its level point. Returns edges added; no_level
 	// counts edges to a level not installed, unresolved counts the rest.
