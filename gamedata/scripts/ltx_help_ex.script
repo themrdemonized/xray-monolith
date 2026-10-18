@@ -108,6 +108,10 @@
         detector_ui_bone - specifying a custom UI bone for Svarog/Veles in the hud sections of detectors
         lh_lead_gun - Device/Detector animations can now use the lead_gun bone if their hud section has lh_lead_gun = true (script animations can also use this config toggle in their section)
 
+    Script hand animations
+        lock_to_camera - 0-1 weight blending of animated arm(s) toward render camera without script/movement layers, 0 default.
+        lock_to_camera_time - Seconds for a full 0-1 ramp of lock_to_camera starting from 0, if none or 0 it is instant. If you want to ramp lock_to_camera in reverse, set lock_to_camera to 1 and then use lua function set_hud_motion_lock (0, time in seconds).
+
     Flashlight definitions
         hud_mode - toggles hud_mode for lighting, may result in different lighting and shadows
 
