@@ -210,6 +210,8 @@
         update_pda_news_from_uiwindow(CUIWindow* UIWindow)
 
         bool motion_exists(string model_path, string motion_name) -- Loads a HUD model temporarily and checks whether it contains a named cycle motion. Caller must ensure the file exists first — game crashes on a missing path.
+
+        void set_hud_motion_lock(number target, number seconds) -- Ramps lock_to_camera toward target (clamped 0-1, 0 = normal hud, 1 = render cam w/o script/movement layers) from its current value, if seconds is 0 sets target instantly. Target resets to 0 when done with ramping.
     }
 
     ini_file() {
