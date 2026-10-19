@@ -133,7 +133,7 @@ void CPhantom::animation_end_callback(CBlend* B)
 	CPhantom* phantom = (CPhantom*)B->CallbackParam;
 	switch (phantom->m_CurState)
 	{
-    case stBirth: phantom->SwitchToState(phantom->g_Alive() ? stFly : stShoot);
+    case stBirth: phantom->SwitchToState(stFly);
 		break;
 	case stContact: phantom->SwitchToState(stIdle);
 		break;
@@ -303,7 +303,7 @@ void CPhantom::UpdateCL()
 //void CPhantom::Hit	(float P, Fvector &dir, CObject* who, s16 element,Fvector p_in_object_space, float impulse, ALife::EHitType hit_type)
 void CPhantom::Hit(SHit* pHDS)
 {
-	if (m_TgtState == stFly) SwitchToState(stShoot);
+	if (m_TgtState == stFly || m_TgtState == stBirth) SwitchToState(stShoot);
 	if (g_Alive())
 	{
 		//		SetfHealth		(-1.f);
