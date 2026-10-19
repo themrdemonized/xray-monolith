@@ -133,7 +133,7 @@ void CPhantom::animation_end_callback(CBlend* B)
 	CPhantom* phantom = (CPhantom*)B->CallbackParam;
 	switch (phantom->m_CurState)
 	{
-	case stBirth: phantom->SwitchToState(stFly);
+    case stBirth: phantom->SwitchToState(phantom->g_Alive() ? stFly : stShoot);
 		break;
 	case stContact: phantom->SwitchToState(stIdle);
 		break;
