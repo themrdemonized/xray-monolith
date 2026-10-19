@@ -239,7 +239,7 @@ p1:position = 15.3,4.5,-6.7
 
 A section with `level = <name>` named like a compiled path replaces it (`*` log); a section without
 one can't, and is skipped on the clash. Any section that can't be loaded (missing key, unknown link
-target) is skipped and logged `!` instead of failing.
+target) is skipped and logged `!` instead of failing; a compiled path it would replace is kept.
 
 ### level.game fragments
 
