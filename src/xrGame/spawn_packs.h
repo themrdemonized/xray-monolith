@@ -98,6 +98,8 @@ namespace spawn_overlays
 		~CSpawnPacks();
 		void open(LPCSTR base_spawn_name);
 		IC bool empty() const { return m_packs.empty(); }
+		// True when an opened pack's graph has the level, whether or not append_levels takes it.
+		bool carries(LPCSTR level_name) const;
 		// Appends the levels the base lacks and the edges that touch them; a level already present whose build
 		// does not match the installed level.ai is substituted by a pack's build that does. Returns the levels
 		// appended plus substituted. A level the graph lacks that is named in cut_levels is not appended.

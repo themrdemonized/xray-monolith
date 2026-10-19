@@ -14,6 +14,10 @@ class CPatrolPathStorage;
 
 namespace spawn_overlays
 {
+	// Levels in play: the names of the game.ltx [levels] entries minus the spawn_overlays.ltx [level_cut] levels,
+	// sorted. Read once per session; valid without a loaded game.
+	const xr_vector<shared_str>& level_names();
+
 	// Parses $game_config$\spawn_overlays.ltx (and its DLTX mods) once and opens the level packs; apply_graph,
 	// apply_objects, add_paths and spawn_guid apply what it found. One instance per CALifeSpawnRegistry::load.
 	class CSpawnOverlays
