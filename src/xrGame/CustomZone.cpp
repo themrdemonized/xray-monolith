@@ -17,6 +17,7 @@
 #include "zone_effector.h"
 #include "breakableobject.h"
 #include "GamePersistent.h"
+#include "CarPush.h"
 #include "../../script_game_object.h"
 
 #define WIND_RADIUS (4*Radius())	//расстояние до актера, когда появляется ветер 
@@ -46,6 +47,7 @@ CCustomZone::CCustomZone(void)
 
 
 	m_dwAffectFrameNum = 0;
+	m_vho_recharge = 0;
 	m_fBlowoutWindPowerMax = m_fStoreWindPower = 0.f;
 	m_fDistanceToCurEntity = flt_max;
 	m_ef_weapon_type = u32(-1);
@@ -510,8 +512,9 @@ bool CCustomZone::BlowoutState()
 
 bool CCustomZone::AccumulateState()
 {
-	if (m_iStateTime >= m_StateTime[eZoneStateAccumulate])
+	if (m_iStateTime >= _max(m_StateTime[eZoneStateAccumulate], m_vho_recharge))
 	{
+		m_vho_recharge = 0;
 		if (m_zone_flags.test(eZoneIsActive))
 			SwitchZoneState(eZoneStateBlowout);
 		else
@@ -1436,6 +1439,7 @@ void CCustomZone::CreateHit(u16 id_to,
 {
 	if (OnServer())
 	{
+		m_vho_recharge = _max(m_vho_recharge, vehicle_zone_recharge(Level().Objects.net_Find(id_to), hit_type));
 		if (m_owner_id != u32(-1))
 			id_from = (u16)m_owner_id;
 

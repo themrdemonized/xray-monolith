@@ -9,6 +9,7 @@
 #include "entity_alive.h"
 #include "PHDestroyableNotificate.h"
 #include "actor.h"
+#include "CarPush.h"
 
 CMincer::CMincer(void)
 {
@@ -81,9 +82,16 @@ bool CMincer::feel_touch_contact(CObject* O)
 	return inherited::feel_touch_contact(O) && smart_cast<CPhysicsShellHolder *>(O);
 }
 
+void CMincer::AffectPullDead(CPhysicsShellHolder* GO, const Fvector& throw_in_dir, float dist)
+{
+	// loose objects are pulled by the telekinesis; only cars it cannot take are dragged here
+	vehicle_anomaly_pull(GO, this, throw_in_dir, RelativePower(dist, Radius()));
+}
+
 void CMincer::AffectThrow(SZoneObjectInfo* O, CPhysicsShellHolder* GO, const Fvector& throw_in_dir, float dist)
 {
 	inherited::AffectThrow(O, GO, throw_in_dir, dist);
+	vehicle_anomaly_throw(GO, this, throw_in_dir, Power(dist, Radius()));
 }
 
 bool CMincer::BlowoutState()

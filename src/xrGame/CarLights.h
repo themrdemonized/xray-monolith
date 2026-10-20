@@ -37,6 +37,7 @@ public:
 	void TurnOnHeadLights();
 	void TurnOffHeadLights();
 	bool IsLight(u16 bone_id);
+	bool AnyOn();
 	bool findLight(u16 bone_id, SCarLight* & light);
 	CCarLights();
 	~CCarLights();

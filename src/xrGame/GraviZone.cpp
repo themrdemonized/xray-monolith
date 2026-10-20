@@ -9,6 +9,7 @@
 #include "PhysicsShellHolder.h"
 #include "Level.h"
 #include "CharacterPhysicsSupport.h"
+#include "CarPush.h"
 
 CBaseGraviZone::CBaseGraviZone(void)
 {
@@ -197,7 +198,9 @@ void CBaseGraviZone::AffectPullAlife(CEntityAlive* EA, const Fvector& throw_in_d
 
 void CBaseGraviZone::AffectPullDead(CPhysicsShellHolder* GO, const Fvector& throw_in_dir, float dist)
 {
-	GO->PPhysicsShell()->applyImpulse(throw_in_dir, dist * m_fThrowInImpulse * GO->GetMass() / 100.f);
+	float push = vehicle_push_scale(GO, this); // cars only feel a slight pull
+	if (push <= 0.f) return;
+	GO->PPhysicsShell()->applyImpulse(throw_in_dir, push * dist * m_fThrowInImpulse * GO->GetMass() / 100.f);
 }
 
 void CBaseGraviZone::AffectThrow(SZoneObjectInfo* O, CPhysicsShellHolder* GO, const Fvector& throw_in_dir, float dist)

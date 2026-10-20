@@ -6063,6 +6063,9 @@
     <ClInclude Include="Car.h">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClInclude>
+    <ClInclude Include="CarPush.h">
+      <Filter>Core\Client\Objects\vehicles\Car</Filter>
+    </ClInclude>
     <ClInclude Include="CarDamageParticles.h">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClInclude>
@@ -9732,6 +9735,9 @@
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClCompile>
     <ClCompile Include="CarSound.cpp">
+      <Filter>Core\Client\Objects\vehicles\Car</Filter>
+    </ClCompile>
+    <ClCompile Include="CarHandling.cpp">
       <Filter>Core\Client\Objects\vehicles\Car</Filter>
     </ClCompile>
     <ClCompile Include="CarWheels.cpp">
