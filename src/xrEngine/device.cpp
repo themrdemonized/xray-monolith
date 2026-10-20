@@ -49,6 +49,7 @@ ENGINE_API CRenderDevice* DevicePtr = nullptr;
 
 ENGINE_API xr_atomic_bool g_bRendering = false;
 extern ENGINE_API float psHUD_FOV;
+extern ENGINE_API float psCamAttachedFOV;
 
 BOOL g_bLoaded = FALSE;
 ref_light precache_light = 0;
@@ -450,7 +451,7 @@ void CRenderDevice::on_idle()
 	m_pRender->SetCacheXform_prev(mView_prev, mProject_prev);
 
 	mProjectHud.build_projection(deg2rad(psHUD_FOV * 83.f), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
-	mProjectCam.build_projection(deg2rad(83.f), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
+	mProjectCam.build_projection(deg2rad(psCamAttachedFOV), fASPECT, R_VIEWPORT_NEAR, g_pGamePersistent->Environment().CurrentEnv->far_plane);
 	
 	mViewHud.set(mView);
 	mViewCam.set(mView);
