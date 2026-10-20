@@ -52,3 +52,20 @@ sync_level_offsets = true
 ;   dest_direction = x, y, z         level changers: facing on arrival
 ; [spawn_patch@gar_physic_object_bandit_base_generator]
 ; position = 63.9, 0.6, -23.1
+
+; [spawn_add@<object name>] adds one object (new games only), after fragments, packs and [spawn_remove]. Keys:
+;   section = <system.ltx section>   required
+;   level = <level name>             required; a level not installed skips the section
+;   position = x, y, z               required; level-local, the centre of the shape
+;   direction = x, y, z
+;   box = width, height, depth       shaped objects (restrictors, level changers): box or sphere, centred on position
+;   sphere = radius
+;   restrictor_type = <type>         default_none (if omitted), default_out, default_in, none, in, out
+;   custom_data, custom_data_cfg, story_id, spawn_story_id, object_flags   as in [spawn_patch@]
+;   dest_level = <level name>        level changers: required; not installed skips the section
+;   dest_position = x, y, z          level changers: required
+;   dest_direction = x, y, z         level changers
+;   silent_mode = true               level changers: change level on contact, no dialog
+;   hint = <string id>               level changers: the dialog text, default level_changer_invitation
+; An object of that name already within 1 m on that level is left as it is. [spawn_remove] of a name plus an add of
+; it redefines the object; to cancel another mod's add, delete its section with DLTX: !![spawn_add@<object name>]

@@ -270,6 +270,7 @@ namespace
 
 	// Records a registered object on a level the pack did not append that looks like a base template the pack's
 	// build changed (SPack::drift). Templates with an id below known_end are the ones registered before this pack.
+	// On a level the pack rebuilt only the renamed check applies: the base templates its names repeat are retired.
 	void note_drift(CSpawnPacks::SPack& pack, const STemplates& templates, const ALife::_SPAWN_ID known_end, const NAME_INDEX& known_index, const CGameGraph& graph, const CSE_ALifeDynamicObject& object)
 	{
 		const GameGraph::_LEVEL_ID level_id = graph.vertex(object.m_tGraphID)->level_id();
@@ -292,6 +293,8 @@ namespace
 		if (nearest != ALife::_SPAWN_ID(-1))
 			pack.drift.push_back({object.m_tSpawnID, nearest, best, false});
 
+		if (std::find(pack.substituted.begin(), pack.substituted.end(), level_id) != pack.substituted.end())
+			return;
 		const auto found = known_index.find(shared_str(object.name_replace()));
 		if (found == known_index.end())
 			return;

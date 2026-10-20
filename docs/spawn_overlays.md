@@ -12,7 +12,7 @@ They come from four places:
 
 | Source | What it adds or changes |
 |---|---|
-| `configs\spawn_overlays.ltx` | graph links and unlinks, removals, patches, level cuts |
+| `configs\spawn_overlays.ltx` | graph links and unlinks, removals, additions, patches, level cuts |
 | `spawns\<level>\<anything>.spawn` / `.game` | objects and patrol paths on one level (SDK exports) |
 | `spawns\<pack>.spawn` | level packs: whole levels with their objects and paths |
 | `configs\patrol_paths.ltx` | patrol paths written as text |
@@ -34,6 +34,7 @@ Each section is described [below](#spawn_overlaysltx-sections).
 | edit a vanilla object (position, logic, story id) | [`[spawn_patch@<name>]`](#spawn_patchname) |
 | swap a vanilla object for my pack's or fragment's copy | [`[spawn_replace]`](#spawn_remove-and-spawn_replace) (same name, same place) |
 | change where a level changer leads | [`[spawn_patch@<name>]`](#spawn_patchname) `dest_*` keys |
+| add a level changer, a transition restrictor or another single object in ltx | [`[spawn_add@<name>]`](#spawn_addname) |
 | add patrol paths | a [level.game fragment](#patrol-paths): `spawns\<level>\<anything>.game` (SDK export), or `patrol_paths.ltx` sections with a `level = <name>` key |
 | fix or replace a compiled patrol path | a `patrol_paths.ltx` section of the same name, with `level = <name>` |
 | delete a patrol path | [`[path_remove]`](#path_remove) |
@@ -152,7 +153,7 @@ level_prefix_inventory_box_0000 = 12.3, 4.5, -6.7
 instance's position as the value. It affects new games only: objects already created from the
 template live in the save. It applies after fragments and packs, so a removed object stays removed
 even when a pack still carries it. The removed template's `story_id` and `spawn_story_id` are freed
-for a `[spawn_patch@]` to reuse. Removing a template that has a `spawn_story_id`, here or in
+for a `[spawn_patch@]` or `[spawn_add@]` to reuse. Removing a template that has a `spawn_story_id`, here or in
 `[spawn_replace]`, is logged `!` because scripts that spawn it by that id will fail; it is still removed.
 
 `[spawn_replace]` uses the same syntax but applies before fragments and packs. The base template
@@ -187,6 +188,108 @@ dest_position  = 12.3, 4.5, -6.7
 dest_direction = 0, 1.57, 0
 ```
 
+### [spawn_add@\<name\>]
+
+Adds one object, written out in full. The section suffix is the object name. New games only.
+
+The object is built from its system.ltx section plus the keys below, so it can be anything that
+section fully describes:
+
+* space restrictors and level changers (transitions, see the example below);
+* anomalies (`zone_*` sections), with a `box` or `sphere`;
+* items on the ground: weapons, ammo, consumables, artefacts;
+* smart terrains: `section = smart_terrain` with `custom_data_cfg = scripts\...\<smart>.ltx`;
+* inventory boxes and props whose section has a `visual` line (give a model its own section to
+  place it).
+
+Creatures can't be added (scripts spawn them), nor objects inside a box or on a character.
+
+| Key | Meaning |
+|---|---|
+| `section = <system.ltx section>` | required: what to create |
+| `level = <level name>` | required. A level that isn't installed skips the section. |
+| `position = x, y, z` | required, level-local. For a restrictor or level changer, the centre of its shape. |
+| `direction = x, y, z` | rotates the object and its shape |
+| `box = width, height, depth` | restrictors and level changers need `box` or `sphere`: a box centred on `position`, width along the object's x, height up, depth along z |
+| `sphere = radius` | a sphere centred on `position` |
+| `restrictor_type = <type>` | restrictors: `default_none` (if omitted), `default_out`, `default_in`, `none`, `in`, `out` |
+| `custom_data`, `custom_data_cfg`, `story_id`, `spawn_story_id`, `object_flags` | as in [`[spawn_patch@]`](#spawn_patchname) |
+| `dest_level = <level name>`, `dest_position = x, y, z` | level changers, required: where it leads. A destination level that isn't installed skips the section. |
+| `dest_direction = x, y, z` | level changers: facing on arrival |
+| `silent_mode = true` | level changers: change level on contact, without the dialog (`false` if omitted) |
+| `hint = <string id>` | level changers: the dialog text (`level_changer_invitation` if omitted) |
+
+* If an object of that name is already within 1 m on that level, it is left as it is and nothing is
+  added. That lets a compat patch restore an object that is missing only in some setups.
+* The name of an object elsewhere can't be reused.
+* `[spawn_patch@]` and `[level_cut]` act on added objects.
+* `[spawn_remove]` runs before the adds: removing an object and adding it under the same name
+  redefines it (any object, also a pack's). `[spawn_remove]` can't name an added object; to cancel
+  another mod's add, delete its section with DLTX `!![spawn_add@<name>]`.
+
+Copying an object from a spawn: vanilla shapes are boxes centred on the object, so `position`,
+`direction` and the box size copy over unchanged.
+
+A transition the way Anomaly builds them: a restrictor opens the travel dialog and drops the actor
+into a silent level changer next to it. Besides the two objects, your mod adds the restrictor's
+`sr_teleport_sections.ltx` entry and the two patrol paths that entry names:
+
+```ini
+; configs\mod_spawn_overlays_<mod>.ltx
+[spawn_add@esc_space_restrictor_to_my_level]
+section         = space_restrictor
+level           = l01_escape
+position        = 120.0, 2.5, -340.0
+direction       = 0, 1.57, 0
+box             = 5.0, 7.0, 5.0
+restrictor_type = none
+custom_data     = [story_object]\nstory_id = esc_space_restrictor_to_my_level\n[logic]\ncfg = scripts\sr_teleport_logic.ltx
+
+[spawn_add@esc_level_changer_to_my_level]
+section         = level_changer
+level           = l01_escape
+position        = 128.0, 2.5, -340.0
+direction       = 0, 1.57, 0
+box             = 5.0, 6.0, 12.0
+restrictor_type = none
+silent_mode     = true
+dest_level      = my_level
+dest_position   = 10.0, 0.5, 25.0
+dest_direction  = 0, 3.14, 0
+
+; configs\mod_sr_teleport_sections_<mod>.ltx
+[esc_space_restrictor_to_my_level]
+enable      = true
+spot        = level_changer_right
+text        = st_level_changer_descr
+hint        = space_restrictor_to_my_level_desc
+path        = esc_space_restrictor_to_my_level_drop
+reject_path = esc_to_my_level_if_reject_way
+autosave    = true
+
+; configs\mod_patrol_paths_<mod>.ltx
+[esc_space_restrictor_to_my_level_drop]
+level = l01_escape
+points = p0
+p0:name = wp00
+p0:position = 129.0, 2.5, -340.0
+
+[esc_to_my_level_if_reject_way]
+level = l01_escape
+points = p0,p1
+p0:name = wp00
+p0:position = 112.0, 2.5, -335.0
+p0:links = p1(1)
+p1:name = wp01
+p1:position = 110.0, 2.5, -330.0
+```
+
+Two level changers on one level that overlap are logged `!` with their sources: both stay, and
+whichever the actor touches first wins. Remove one with `[spawn_remove]`, or, if it was added with
+`[spawn_add@]`, delete its section with DLTX `!![spawn_add@<name>]`. Overlap here means their
+positions are closer than their sizes added up (a sphere's radius, half a box's longest edge).
+Changers that lead to the same level aren't reported.
+
 ### [path_remove]
 
 Removes patrol paths by name, one per line, after pack paths were added. To replace a compiled
@@ -198,7 +301,7 @@ needed.
 Takes levels out of play, one level name per line (the value is ignored). The level stays in the
 game graph, so no vertex id changes and ids baked into scripts and configs keep pointing where they
 did. It is cut off, though. The following are removed, whatever added them (base, fragments, packs,
-links, patches):
+links, adds, patches):
 
 * every edge between it and another level;
 * every template on it;
@@ -383,7 +486,8 @@ object the pack has no copy of is removed (`!` log). `[spawn_remove]`, `[spawn_p
 level, and their level changers into it, are skipped. A pack's level changer that stands on or leads
 into one of its own added or rebuilt levels is kept; when two packs carry it, the first in file
 order wins. Copies are the same changer only within 1 m of each other; remove a farther duplicate
-with `[spawn_remove]` `<name> = x, y, z`.
+with `[spawn_remove]` `<name> = x, y, z`. An object the rebuild drops (another pack's restrictor, for
+example) can be restored with [`[spawn_add@]`](#spawn_addname).
 
 Edges to other levels stay on their vertex ids. A pack that moves or removes a level's connection
 points fixes the connections with `[graph_unlinks]` (`level_a = level_b`) and `[graph_links]`.
@@ -435,13 +539,13 @@ A line that names a level that isn't installed is skipped with a `-` log line, s
 `- [spawn_overlays] ... level '<name>' is not installed, skipped`. That is not an error, so a mod
 can ship lines for optional levels. Whether a level is installed is decided once per load, when
 the graph and spawn are assembled; nothing waits for a level. This holds for links, unlinks,
-patches, fragments (`.spawn` and `.game`), packs, `patrol_paths.ltx` and `[level_cut]`.
+patches, adds, fragments (`.spawn` and `.game`), packs, `patrol_paths.ltx` and `[level_cut]`.
 
 For a pack's own levels, installed means `levels\<level>\level.ai` exists. For everything else it
 means the level is in the assembled game graph: in the base spawn, or added by a pack.
 
-The exception is a `[spawn_patch@]` section's `level` key: it gates the whole section, not just that
-one line.
+The exception is the `level` key of `[spawn_patch@]` and `[spawn_add@]` sections, and the `dest_level`
+key of `[spawn_add@]`: they gate the whole section, not just that one line.
 
 ---
 
@@ -465,9 +569,11 @@ One load runs these steps in this order.
 2. Rebuilt levels: base templates on the level, and base level changers into it, removed.
 3. `spawns\<level>\*.spawn` fragments: records the base lacks are added.
 4. `spawns\<pack>.spawn` packs: records the base lacks are added (all packs, sorted by file name).
-5. `[spawn_remove]`: applies to base and added templates alike.
-6. `[spawn_patch@*]`: applies to base and added templates alike.
-7. `[level_cut]`: templates on the level, and level changers into it, removed.
+5. `[spawn_remove]`: applies to base, fragment and pack templates.
+6. `[spawn_add@*]`: objects defined in ltx are added.
+7. `[spawn_patch@*]`: applies to base and added templates alike.
+8. `[level_cut]`: templates on the level, and level changers into it, removed.
+9. Level changers on one level that overlap are logged `!`.
 
 **all.spawn chunk 3 (patrol paths)**
 
@@ -491,7 +597,7 @@ Every line starts with `[spawn_overlays]`, after a prefix:
 | Prefix | Meaning |
 |---|---|
 | `*` | applied, or information (an edge already linked, a pack with nothing new) |
-| `!` | a problem: the line or record was skipped, or applied with a warning (story id cleared, actor kept, renamed? / moved?) |
+| `!` | a problem: the line or record was skipped, or applied with a warning (story id cleared, actor kept, renamed? / moved?), or a reported clash (level changers that overlap) |
 | `-` | skipped because a level is not installed; not an error |
 
 The `spawn_overlays_dump <file name>` console command writes the assembled spawn to
