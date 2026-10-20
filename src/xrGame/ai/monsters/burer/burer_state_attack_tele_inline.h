@@ -464,9 +464,11 @@ void CStateBurerAttackTele<Object>::SelectObjects()
 		                                                              10000,
 		                                                              rotate);
 
-		tele_obj->set_sound(object->sound_tele_hold, object->sound_tele_throw);
-
-		object->StartTeleObjectParticle(obj);
+		if (tele_obj) // activate refuses some objects (cars with the handling overhaul)
+		{
+			tele_obj->set_sound(object->sound_tele_hold, object->sound_tele_throw);
+			object->StartTeleObjectParticle(obj);
+		}
 
 		// удалить из списка
 		tele_objects[i] = tele_objects[tele_objects.size() - 1];

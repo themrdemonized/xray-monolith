@@ -20,6 +20,7 @@
 #include "ai_space.h"
 #include "profiler.h"
 #include "actor.h"
+#include "car.h"
 #include "../xrEngine/camerabase.h"
 #include "gamepersistent.h"
 #include "actor_memory.h"
@@ -619,6 +620,9 @@ float CVisualMemoryManager::feel_vision_mtl_transp(CObject* O, u32 element)
 			CBoneData& B = V->LL_GetData((u16)element);
 			vis = GMLib.GetMaterialByIdx(B.game_mtl_idx)->fVisTransparencyFactor;
 		}
+		// a driven car with the handling overhaul lets sight through its windows (see_through); 0 otherwise
+		if (CCar* car = smart_cast<CCar*>(O))
+			vis = _max(vis, car->VisionTransparency());
 	}
 	else
 	{

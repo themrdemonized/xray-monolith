@@ -15,6 +15,15 @@ IRenderable::IRenderable()
 
 extern ENGINE_API BOOL g_bRendering;
 
+int IRenderable::rain_occluders = 0;
+
+void IRenderable::set_rain_occluder(bool on)
+{
+	if (!!renderable.rain_occluder == on) return;
+	renderable.rain_occluder = on ? TRUE : FALSE;
+	rain_occluders += on ? 1 : -1;
+}
+
 IRenderable::~IRenderable()
 {
 	VERIFY(!g_bRendering);
@@ -23,6 +32,7 @@ IRenderable::~IRenderable()
 	renderable.visual = NULL;
 	renderable.pROS = NULL;
 	ShaderBus::object_forget(this);
+	set_rain_occluder(false);
 }
 
 IRender_ObjectSpecific* IRenderable::renderable_ROS()

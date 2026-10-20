@@ -7,6 +7,7 @@
 #include "CharacterPhysicsSupport.h"
 //extern CPHWorld	*ph_world;
 #include "../xrphysics/IPHWorld.h"
+#include "CarPush.h"
 
 void CNoGravityZone::enter_Zone(SZoneObjectInfo& io)
 {
@@ -31,6 +32,7 @@ void CNoGravityZone::switchGravity(SZoneObjectInfo& io, bool val)
 	if (io.object->getDestroy()) return;
 	CPhysicsShellHolder* sh = smart_cast<CPhysicsShellHolder*>(io.object);
 	if (!sh)return;
+	if (vehicle_blocks_push(sh, this)) return;
 	CPhysicsShell* shell = sh->PPhysicsShell();
 	if (shell && shell->isActive())
 	{
