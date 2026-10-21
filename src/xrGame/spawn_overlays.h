@@ -14,6 +14,10 @@ class CPatrolPathStorage;
 
 namespace spawn_overlays
 {
+	// Levels in play: the names of the game.ltx [levels] entries minus the spawn_overlays.ltx [level_cut] levels,
+	// sorted. Read once per session; valid without a loaded game.
+	const xr_vector<shared_str>& level_names();
+
 	// Parses $game_config$\spawn_overlays.ltx (and its DLTX mods) once and opens the level packs; apply_graph,
 	// apply_objects, add_paths and spawn_guid apply what it found. One instance per CALifeSpawnRegistry::load.
 	class CSpawnOverlays
@@ -36,9 +40,10 @@ namespace spawn_overlays
 		CGameGraph* apply_graph(const CGameGraph& base, void*& buffer);
 		// Applies [spawn_replace] to the base templates, adds the records of $game_spawn$\<level_name>\*.spawn
 		// fragments (SDK level.spawn format) as templates of that level and the pack records the base lacks, then
-		// applies [spawn_remove] and [spawn_patch@<name>] to base and added templates alike, then removes the
-		// templates on [level_cut] levels and the level changers leading to them. graph must already be the
-		// assembled one.
+		// applies [spawn_remove], adds the [spawn_add@<name>] objects (a remove and an add of one name redefine the
+		// object), then applies [spawn_patch@<name>] to base and added templates alike, removes the templates on
+		// [level_cut] levels and the level changers leading to them, and logs level changers that overlap. graph
+		// must already be the assembled one.
 		void apply_objects(CALifeSpawnRegistry::SPAWN_GRAPH& spawns, const CGameGraph& graph);
 		// Adds the paths of $game_spawn$\<level_name>\*.game fragments (SDK level.game format) and of packs whose
 		// names storage lacks, remapped to graph, applies [path_remove], then erases the paths on [level_cut] levels.

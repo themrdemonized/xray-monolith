@@ -204,6 +204,7 @@
         Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = false)
         Fvector world2ui_with_depth(Fvector pos, bool hud = false, bool allow_offscreen = false) // x and y are screen coordinates, z is the post projection w, negative behind the camera and its magnitude is the view distance in metres
         table world2ui_many(table positions, bool hud, bool allow_offscreen) // projects an array of Fvector in one call, result[i] is the world2ui_with_depth vector for positions[i], stops at the first missing or non vector entry, empty table if the argument is not a table
+        table level_names() // names of the levels in play: game.ltx [levels] entries minus spawn_overlays.ltx [level_cut], sorted; works in the main menu, same list in game
         function ui2world(Fvector2 pos) -> Fvector result, u16 object_id
         function ui2world_offscreen(Fvector2 pos) -> Fvector result, u16 object_id
         change_game_news_show_time(CUIWindow* UIWindow, float show_time)

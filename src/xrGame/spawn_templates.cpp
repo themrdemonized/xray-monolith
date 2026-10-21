@@ -123,6 +123,7 @@ void spawn_overlays::remove_template(STemplates& templates, const LPCSTR name, c
 		release_id(templates.ids.spawn_story_ids, alife_object->m_spawn_story_id);
 	}
 	templates.spawns.remove_vertex(spawn_id);
+	templates.sources.erase(spawn_id);
 	xr_vector<ALife::_SPAWN_ID>& ids = templates.index[shared_str(name)];
 	ids.erase(std::remove(ids.begin(), ids.end(), spawn_id), ids.end());
 }
@@ -227,6 +228,7 @@ void spawn_overlays::register_template(STemplates& templates, CSE_ALifeDynamicOb
 	dynamic_object->m_tSpawnID = templates.ids.next_spawn_id;
 	templates.spawns.add_vertex(xr_new<CServerEntityWrapper>(dynamic_object), templates.ids.next_spawn_id);
 	templates.index[shared_str(name)].push_back(templates.ids.next_spawn_id);
+	templates.sources[templates.ids.next_spawn_id] = source;
 	++templates.ids.next_spawn_id;
 }
 

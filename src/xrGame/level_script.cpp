@@ -1920,6 +1920,17 @@ const Fvector2 world2ui(Fvector pos, bool hud = false, bool allow_offscreen = fa
 	return table;
 }
 
+#include "spawn_overlays.h"
+
+::luabind::object game_level_names()
+{
+	::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+	int index = 0;
+	for (const shared_str& name : spawn_overlays::level_names())
+		table[++index] = *name;
+	return table;
+}
+
 // demonized: unproject ui coordinates (ie mouse cursor coordinates) to world coordinates
 // returns position and underlying object id if found. If there is no object, obj_id will be 65535
 void ui2world(Fvector2 pos, bool allow_offscreen, Fvector& res, u16& obj_id)
@@ -3015,6 +3026,7 @@ void CLevel::script_register(lua_State* L)
 		def("world2ui", world2ui),
 		def("world2ui_with_depth", world2ui_with_depth),
 		def("world2ui_many", world2ui_many),
+		def("level_names", game_level_names),
 		def("ui2world", (void (*)(Fvector2, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world", (void (*)(Fvector&, Fvector&, u16&))&ui2world, pure_out_value<2>() + pure_out_value<3>()),
 		def("ui2world_offscreen", (void (*)(Fvector2, Fvector&, u16&))& ui2world_offscreen, pure_out_value<2>() + pure_out_value<3>()),
