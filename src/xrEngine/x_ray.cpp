@@ -330,21 +330,6 @@ void slowdownthread(void*)
 	}
 }
 
-void CheckPrivilegySlowdown()
-{
-#ifdef DEBUG
-    if (strstr(Core.Params, "-slowdown"))
-    {
-        thread_spawn(slowdownthread, "slowdown", 0, 0);
-    }
-    if (strstr(Core.Params, "-slowdown2x"))
-    {
-        thread_spawn(slowdownthread, "slowdown", 0, 0);
-        thread_spawn(slowdownthread, "slowdown", 0, 0);
-    }
-#endif // DEBUG
-}
-
 LPCSTR xr_ToUTF8(LPCSTR input, int max_length)
 {
 	UErrorCode errorCode = U_ZERO_ERROR;
