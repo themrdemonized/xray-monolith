@@ -47,7 +47,8 @@ class XRCORE_API smem_container
 private:
 	typedef xr_vector<smem_value*> cdb;
 	xrCriticalSection cs;
-	cdb container;
+	static constexpr u32 bucket_count = 1024;
+	cdb buckets[bucket_count];
 public:
 	smem_value* dock(u32 dwCRC, u32 dwLength, void* ptr);
 	void clean();

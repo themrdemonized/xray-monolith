@@ -10,6 +10,7 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 	VERIFY(dwCRC && dwLength && ptr);
 
 	cs.Enter();
+	cdb& container = buckets[dwCRC >> 22];
 	smem_value* result = 0;
 
 	// search a place to insert
@@ -60,22 +61,23 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 void smem_container::clean()
 {
 	cs.Enter();
-	cdb::iterator it = container.begin();
-	cdb::iterator end = container.end();
-	for (; it != end; it++) if (0 == (*it)->dwReference.load(std::memory_order_relaxed)) xr_free(*it);
-	container.erase(remove(container.begin(), container.end(), (smem_value*)0), container.end());
-	if (container.empty()) container.clear();
+	for (cdb& container : buckets)
+	{
+		cdb::iterator it = container.begin();
+		cdb::iterator end = container.end();
+		for (; it != end; it++) if (0 == (*it)->dwReference.load(std::memory_order_relaxed)) xr_free(*it);
+		container.erase(remove(container.begin(), container.end(), (smem_value*)0), container.end());
+	}
 	cs.Leave();
 }
 
 void smem_container::dump()
 {
 	cs.Enter();
-	cdb::iterator it = container.begin();
-	cdb::iterator end = container.end();
 	FILE* F = fopen("x:\\$smem_dump$.txt", "w");
-	for (; it != end; it++)
-		fprintf(F, "%4u : crc[%6x], %u bytes\n", (*it)->dwReference.load(std::memory_order_relaxed), (*it)->dwCRC, (*it)->dwLength);
+	for (const cdb& container : buckets)
+		for (const smem_value* value : container)
+			fprintf(F, "%4u : crc[%6x], %u bytes\n", value->dwReference.load(std::memory_order_relaxed), value->dwCRC, value->dwLength);
 	fclose(F);
 	cs.Leave();
 }
@@ -83,18 +85,17 @@ void smem_container::dump()
 u32 smem_container::stat_economy()
 {
 	cs.Enter();
-	cdb::iterator it = container.begin();
-	cdb::iterator end = container.end();
 	s64 counter = 0;
 	counter -= sizeof(*this);
 	counter -= sizeof(cdb::allocator_type);
 	const int node_size = 20;
-	for (; it != end; it++)
-	{
-		counter -= 16;
-		counter -= node_size;
-		counter += s64((s64((*it)->dwReference.load(std::memory_order_relaxed)) - 1) * s64((*it)->dwLength));
-	}
+	for (const cdb& container : buckets)
+		for (const smem_value* value : container)
+		{
+			counter -= 16;
+			counter -= node_size;
+			counter += s64((s64(value->dwReference.load(std::memory_order_relaxed)) - 1) * s64(value->dwLength));
+		}
 	cs.Leave();
 
 	return u32(s64(counter) / s64(1024));
