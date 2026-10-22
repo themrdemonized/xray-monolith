@@ -13,6 +13,8 @@
 CWeaponAutomaticShotgun::CWeaponAutomaticShotgun()
 {
 	m_eSoundClose = ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING);
+	ClickInterruptFlag = false;
+	MotionMarked = false;
 	m_eSoundAddCartridge = ESoundTypes(SOUND_TYPE_WEAPON_SHOOTING);
 }
 
@@ -49,38 +51,30 @@ void CWeaponAutomaticShotgun::Load(LPCSTR section)
 
 bool CWeaponAutomaticShotgun::Action(u16 cmd, u32 flags)
 {
-    if (cmd == kWPN_FIRE && flags & CMD_START && GetState() == eReload) // ver
-    {
-        ClickInterruptFlag = true; // ver
-    }
-	if (cmd == kWPN_FIRE && flags & CMD_START)
+	if (m_bTriStateReload && GetState() == eReload && cmd == kWPN_FIRE)
 	{
-		if (fShotTimeCounter > 0.f)
-			return true;
-	}
-	if (inherited::Action(cmd, flags)) return true;
-
-	if (m_bTriStateReload && GetState() == eReload &&
-        ClickInterruptFlag && // ver
-		m_sub_state == eSubstateReloadInProcess || m_sub_state == eSubstateReloadInProcessEmptyEnd) //постановить перезагрузку
-	{	
-		AddCartridge(1);
-		m_sub_state = eSubstateReloadEnd;
-		if(IsCustomReloadAvaible) SwitchState(eReload);
+		if (flags & CMD_START)
+		{
+			ClickInterruptFlag = true;
+			if (m_sub_state == eSubstateReloadBegin || m_sub_state == eSubstateReloadInProcess)
+			{
+				m_sub_state = eSubstateReloadEnd;
+				SwitchState(eReload);
+			}
+		}
 		return true;
 	}
-	return false;
+
+	if (cmd == kWPN_FIRE && flags & CMD_START && fShotTimeCounter > 0.f)
+		return true;
+
+	return inherited::Action(cmd, flags);
 }
 
 void CWeaponAutomaticShotgun::OnAnimationEnd(u32 state)
 {
 	if (!m_bTriStateReload || state != eReload)
 		return inherited::OnAnimationEnd(state);
-
-    if (ClickInterruptFlag && MotionMarked)
-    {
-        m_sub_state = eSubstateReloadEnd;
-    }
 
 	switch (m_sub_state)
 	{
@@ -120,7 +114,15 @@ void CWeaponAutomaticShotgun::OnAnimationEnd(u32 state)
 	case eSubstateReloadInProcessEmptyEnd:
 		{
 			m_sub_state = eSubstateReloadBegin;
-			SwitchState(eReload);
+			if (ClickInterruptFlag)
+			{
+				BeginReloadWasEmpty = false;
+				ClickInterruptFlag = false;
+				MotionMarked = false;
+				SwitchState(eIdle);
+			}
+			else
+				SwitchState(eReload);
 		}
 		break;
 	};
@@ -140,6 +142,8 @@ void CWeaponAutomaticShotgun::TriStateReload()
 {
 	if (m_magazine.size() == (u32)iMagazineSize || !HaveCartridgeInInventory(1))return;
 	CWeapon::Reload();
+	ClickInterruptFlag = false;
+	MotionMarked = false;
 	m_sub_state = eSubstateReloadBegin;
 	SwitchState(eReload);
 }
@@ -239,14 +243,13 @@ void CWeaponAutomaticShotgun::PlayAnimOpenWeapon()
 void CWeaponAutomaticShotgun::PlayAnimAddOneCartridgeWeapon()
 {
 	VERIFY(GetState()==eReload);
+	MotionMarked = false;
 	PlayHUDMotion("anm_add_cartridge", FALSE, this, GetState());
 }
 
 void CWeaponAutomaticShotgun::PlayAnimCloseWeapon()
 {
 	VERIFY(GetState()==eReload);
-
-    ClickInterruptFlag = false; // ver
 
 	if (BeginReloadWasEmpty && HudAnimationExist("anm_close_empty"))
 		PlayHUDMotion("anm_close_empty", FALSE, this, GetState());
