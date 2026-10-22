@@ -56,17 +56,22 @@ void CWeaponShotgun::switch2_Fire()
 
 bool CWeaponShotgun::Action(u16 cmd, u32 flags)
 {
-	if (inherited::Action(cmd, flags)) return true;
-
-	if (m_bTriStateReload && GetState() == eReload &&
-		cmd == kWPN_FIRE && flags & CMD_START &&
-		(m_sub_state == eSubstateReloadInProcess || m_sub_state == eSubstateReloadInProcessEmptyEnd)) //остановить перезарядку
+	if (m_bTriStateReload && GetState() == eReload && cmd == kWPN_FIRE)
 	{
-		AddCartridge(1);
-		m_sub_state = eSubstateReloadEnd;
+		if (flags & CMD_START)
+		{
+			if (m_sub_state == eSubstateReloadBegin || m_sub_state == eSubstateReloadInProcess)
+			{
+				m_sub_state = eSubstateReloadEnd;
+				SwitchState(eReload);
+			}
+			else if (m_sub_state == eSubstateReloadInProcessEmptyEnd)
+				m_sub_state = eSubstateReloadEnd;
+		}
 		return true;
 	}
-	return false;
+
+	return inherited::Action(cmd, flags);
 }
 
 void CWeaponShotgun::OnAnimationEnd(u32 state)
