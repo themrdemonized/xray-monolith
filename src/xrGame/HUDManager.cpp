@@ -136,7 +136,7 @@ void CHUDManager::OnFrame()
 
 	if (pUIGame)
 	{
-		PROF_EVENT("UIGame::OnFrame");
+		PROF_EVENT("UIGame::OnFrame", PROF_CAT(UI));
 		pUIGame->OnFrame();
 	}
 

@@ -316,7 +316,7 @@ void execUserScript()
 
 void slowdownthread(void*)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Debug));
 
 	// Sleep (30*1000);
 	for (;;)
@@ -376,7 +376,7 @@ void DiscordLog(discord::LogLevel level, std::string message)
 
 void updateDiscordPresence()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Network));
 
 	if (!use_discord)
 		return;
@@ -1549,7 +1549,7 @@ void CApplication::destroy_loading_shaders()
 
 PROTECT_API void CApplication::LoadDraw()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
 
 	if (g_appLoaded) return;
 	Device.dwFrame += 1;
@@ -1595,7 +1595,7 @@ void CApplication::LoadSwitch()
 // Sequential
 void CApplication::OnFrame()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	Engine.Event.OnFrame();
 	g_SpatialSpace->update();
@@ -1606,7 +1606,7 @@ void CApplication::OnFrame()
 
 void CApplication::Level_Append(LPCSTR folder)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	string_path N1, N2, N3, N4;
 	strconcat(sizeof(N1), N1, folder, "level");
@@ -1629,7 +1629,7 @@ void CApplication::Level_Append(LPCSTR folder)
 
 void CApplication::Level_Scan()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	//SECUROM_MARKER_PERFORMANCE_ON(8)
 
@@ -1654,7 +1654,7 @@ void CApplication::Level_Scan()
 
 void gen_logo_name(string_path& dest, LPCSTR level_name, int num)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	strconcat(sizeof(dest), dest, "intro\\intro_", level_name);
 
@@ -1709,7 +1709,7 @@ void CApplication::LoadScreenSetLevelLogo(LPCSTR level_name)
 
 void CApplication::Level_Set(u32 L)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	//SECUROM_MARKER_PERFORMANCE_ON(9)
 
@@ -1761,7 +1761,7 @@ void CApplication::Level_Set(u32 L)
 
 int CApplication::Level_ID(LPCSTR name, LPCSTR ver, bool bSet)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	int result = -1;
 
@@ -1813,7 +1813,7 @@ int CApplication::Level_ID(LPCSTR name, LPCSTR ver, bool bSet)
 
 CInifile* CApplication::GetArchiveHeader(LPCSTR name, LPCSTR ver)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	CLocatorAPI::archives_it it = FS.m_archives.begin();
 	CLocatorAPI::archives_it it_e = FS.m_archives.end();
@@ -1834,7 +1834,7 @@ CInifile* CApplication::GetArchiveHeader(LPCSTR name, LPCSTR ver)
 
 void CApplication::LoadAllArchives()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 
 	if (FS.load_all_unloaded_archives())
 	{
