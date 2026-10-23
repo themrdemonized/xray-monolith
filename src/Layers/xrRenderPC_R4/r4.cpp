@@ -12,6 +12,7 @@
 #include "../xrRender/dxUIShader.h"
 
 #include "../xrRenderDX10/3DFluid/dx103DFluidManager.h"
+#include "../xrRenderDX10/dx10GpuTimeline.h"
 #include "../xrRender/ShaderResourceTraits.h"
 
 #include "../../xrCore/profiler.h"
@@ -572,6 +573,7 @@ void CRender::destroy()
 	HWOCC.occq_destroy();
 	xr_delete(Models);
 	xr_delete(Target);
+	gpu_timeline::destroy();
 	PSLibrary.OnDestroy();
 	Device.seqFrame.Remove(this);
 	r_dsgraph_destroy();

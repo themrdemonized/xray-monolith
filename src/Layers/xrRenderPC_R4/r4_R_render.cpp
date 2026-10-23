@@ -5,6 +5,7 @@
 #include "../../xrEngine/xr_object.h"
 
 #include "../xrRender/QueryHelper.h"
+#include "../xrRenderDX10/dx10GpuTimeline.h"
 
 IC bool pred_sp_sort(ISpatial* _1, ISpatial* _2)
 {
@@ -351,6 +352,7 @@ void CRender::Render()
 
 	if (RImplementation.o.ssfx_motionvectors)
 	{
+		PIX_EVENT(DEFER_SKY_MVECTORS);
 		Target->u_setrt(Device.dwWidth, Device.dwHeight, 0, 0, Target->rt_ssfx_motion_vectors->pRT, 0);
 
 		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -399,6 +401,7 @@ void CRender::Render()
 	//  Redotix99: for 3D Shader Based Scopes 	
 	if (scope_3D_fake_enabled)
 	{
+		PIX_EVENT(DEFER_SCOPE_ZB_COPY);
 		ID3D11Resource* zbuffer_res;
 		HW.pBaseZB->GetResource(&zbuffer_res);
 		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
@@ -549,6 +552,7 @@ void CRender::Render()
 			// SSS Shadows
 			if (ps_ssfx_sss_quality.z > 0)
 			{
+				PIX_EVENT(phase_ssfx_sss);
 				Target->phase_ssfx_sss();
 				sss_rendered = true;
 			}
@@ -565,6 +569,7 @@ void CRender::Render()
 			if (ps_ssfx_sss_quality.w > 0)
 			{
 				// Extra lights
+				PIX_EVENT(phase_ssfx_sss_ext);
 				Target->phase_ssfx_sss_ext(Lights.package);
 				sss_extended_rendered = true;
 			}
@@ -617,6 +622,7 @@ void CRender::Render()
 
 	if (RImplementation.o.ssfx_bloom)
 	{
+		PIX_EVENT(DEFER_EMISSIVE_BLOOM);
 		// Render Emissive on `rt_ssfx_bloom_emissive`
 		FLOAT ColorRGBA[4] = { 0,0,0,0 };
 		HW.pContext->ClearRenderTargetView(Target->rt_ssfx_bloom_emissive->pRT, ColorRGBA);
@@ -640,7 +646,10 @@ void CRender::Render()
 
 	{
 		if (RImplementation.o.ssfx_volumetric)
+		{
+			PIX_EVENT(phase_ssfx_volumetric_blur);
 			Target->phase_ssfx_volumetric_blur();
+		}
 	}
 
 	// Postprocess
@@ -691,6 +700,7 @@ void CRender::render_Reticle()
 
 void CRender::RenderToTarget(RRT target)
 {
+	PIX_EVENT(render_to_target);
 	ref_rt* RT = nullptr;
 
 	switch (target)
@@ -710,4 +720,15 @@ void CRender::RenderToTarget(RRT target)
 	HW.m_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBuffer);
 	HW.pContext->CopyResource((*RT)->pSurface, pBuffer);
 	pBuffer->Release();
+}
+
+u32 CRender::ScopeBegin(LPCWSTR name)
+{
+	return ps_r__gpu_timeline ? gpu_timeline::scope_begin(name) : gpu_timeline::no_scope;
+}
+
+void CRender::ScopeEnd(u32 scope)
+{
+	if (scope != gpu_timeline::no_scope)
+		gpu_timeline::scope_end(scope);
 }

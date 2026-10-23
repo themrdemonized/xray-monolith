@@ -411,6 +411,8 @@ void CRenderDevice::on_idle()
 
 	if (g_loading_events.size())
 	{
+		// Loads lower the perf hub's gate, so the hub skips the frames they span
+		frame_record_on = false;
 		PROF_EVENT("Pop loading event");
 		if (g_loading_events.front()())
 			g_loading_events.pop_front();
@@ -424,11 +426,17 @@ void CRenderDevice::on_idle()
 		g_SASH.StartBenchmark();
 	}
 
+	// The perf hub raises the gate in seqFrame, so it holds from FrameMove to the next
+	if (frame_record_on)
+		frame_record.start = CPU::QPC();
 	FrameMove();
+	const bool record = frame_record_on;
 
 	// Precache
 	if (dwPrecacheFrame)
 	{
+		// Precache frames are part of the load for the perf hub too
+		frame_record_on = false;
 		PROF_EVENT("Precache frame");
 		float factor = float(dwPrecacheFrame) / float(dwPrecacheTotal);
 		float angle = PI_MUL_2 * factor;
@@ -491,6 +499,8 @@ void CRenderDevice::on_idle()
 	mt_csEnter.Leave();
 	STOP_PROFILE;
 
+	if (record)
+		frame_record.cap[0] = CPU::QPC();
 #ifdef ECO_RENDER // ECO_RENDER START
 	if (Device.Paused() || IsMainMenuActive() || ps_framelimiter)
 	{
@@ -515,6 +525,8 @@ void CRenderDevice::on_idle()
 		tlastf = std::chrono::high_resolution_clock::now();
 	}
 #endif // ECO_RENDER END
+	if (record)
+		frame_record.cap[1] = CPU::QPC();
 
 #ifndef DEDICATED_SERVER
 	Statistic->RenderTOTAL_Real.FrameStart();
@@ -529,6 +541,7 @@ void CRenderDevice::on_idle()
 		if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size())
 		{
 			PROF_EVENT("Draw statistics");
+			RENDER_SCOPE(stats);
 			Statistic->Show();
 		}
 
@@ -543,6 +556,8 @@ void CRenderDevice::on_idle()
 	// *** Suspend threads
 	// Capture startup point
 	// Release end point - allow thread to wait for startup point
+	if (record)
+		frame_record.join[0] = CPU::QPC();
 	START_PROFILE("Suspend threads");
 	mt_csEnter.Enter();
 	mt_csLeave.Leave();
@@ -556,6 +571,11 @@ void CRenderDevice::on_idle()
 			Device.seqParallel[pit]();
 		Device.seqParallel.clear_not_free();
 		seqFrameMT.Process(rp_Frame);
+	}
+	if (record)
+	{
+		frame_record.join[1] = CPU::QPC();
+		frame_record.frame = dwFrame;
 	}
 
 	if (psLua_ParallelGC_debug && psLua_ParallelGC && Device.LuaGCDebug)

@@ -4,6 +4,8 @@
 
 class dxPixEventWrapper
 {
+    u32 gpu_scope;
+
 public:
     dxPixEventWrapper(LPCWSTR wszName);
     ~dxPixEventWrapper();
