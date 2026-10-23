@@ -289,6 +289,8 @@ extern ECORE_API int opt_static;
 extern ECORE_API int opt_dynamic;
 extern ECORE_API int ps_pfx_volumetric_mode;
 extern ECORE_API int ps_r__portal_traverse_stats;
+// r__gpu_timeline, GPU timestamps around every PIX_EVENT scope for the gpu_timeline window
+extern ECORE_API int ps_r__gpu_timeline;
 
 enum : u64
 {

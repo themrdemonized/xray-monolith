@@ -364,6 +364,8 @@ void CRenderDevice::on_idle()
 
 	if (g_loading_events.size())
 	{
+		// Loads lower the perf hub's gate, so the hub skips the frames they span
+		frame_record_on = false;
 		{
 			PROF_EVENT("Loading...");
 			if (g_loading_events.front()())
@@ -406,7 +408,11 @@ void CRenderDevice::on_idle()
 		Device.seqParallelBeforRender.clear();
 	}
 
+	// The perf hub raises the gate in seqFrame, so it holds from FrameMove to the next
+	if (frame_record_on)
+		frame_record.start = CPU::QPC();
 	FrameMove();
+	const bool record = frame_record_on;
 
     if (g_pGamePersistent != nullptr)
     {
@@ -418,6 +424,8 @@ void CRenderDevice::on_idle()
 	// Precache
 	if (dwPrecacheFrame)
 	{
+		// Precache frames are part of the load for the perf hub too
+		frame_record_on = false;
 		PROF_EVENT("Precache frame");
 		float factor = float(dwPrecacheFrame) / float(dwPrecacheTotal);
 		float angle = PI_MUL_2 * factor;
@@ -498,6 +506,8 @@ void CRenderDevice::on_idle()
 
 	secondary_tasks.run(&XRay::Engine::GameThread);
 	
+	if (record)
+		frame_record.cap[0] = CPU::QPC();
 #ifdef ECO_RENDER // ECO_RENDER START
 	if (Device.Paused() || IsMainMenuActive() || ps_framelimiter)
 	{
@@ -522,6 +532,8 @@ void CRenderDevice::on_idle()
 		tlastf = std::chrono::high_resolution_clock::now();
 	}
 #endif // ECO_RENDER END
+	if (record)
+		frame_record.cap[1] = CPU::QPC();
 
 #ifndef DEDICATED_SERVER
 	Statistic->RenderTOTAL_Real.FrameStart();
@@ -536,6 +548,7 @@ void CRenderDevice::on_idle()
 		if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size())
 		{
 			PROF_EVENT("Draw statistics");
+			RENDER_SCOPE(stats);
 			Statistic->Show();
 		}
 
@@ -547,7 +560,14 @@ void CRenderDevice::on_idle()
 #endif 
 	Device.isRendering = false;
 
+	if (record)
+		frame_record.join[0] = CPU::QPC();
 	secondary_tasks.wait();
+	if (record)
+	{
+		frame_record.join[1] = CPU::QPC();
+		frame_record.frame = dwFrame;
+	}
 
 	if (psLua_ParallelGC_debug && psLua_ParallelGC && Device.LuaGCDebug)
 	{

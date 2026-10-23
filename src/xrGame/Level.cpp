@@ -1254,6 +1254,7 @@ void CLevel::OnRender()
 		CUIPdaWnd* pda = &CurrentGameUI()->GetPdaMenu();
 		if (psActorFlags.test(AF_3D_PDA) && pda->IsShown())
 		{
+			RENDER_SCOPE(ui_pda_3d);
 			ps_r4_hdr10_pda = 1; // !!! HACK !!!
 
 			pda->Draw();
@@ -1310,15 +1311,24 @@ void CLevel::OnRender()
 	if (!game)
 		return;
 	Game().OnRender();
-	BulletManager().Render();
+	{
+		RENDER_SCOPE(ui_tracers);
+		BulletManager().Render();
+	}
 
 	if (Device.m_SecondViewport.IsSVPFrame())
 		Render->RenderToTarget(Render->rtSVP);
 
 	if (use_reshade)
+	{
+		RENDER_SCOPE(reshade);
 		render_reshade_effects();
+	}
 
-	HUD().RenderUI();
+	{
+		RENDER_SCOPE(ui_hud);
+		HUD().RenderUI();
+	}
 
 	ScriptDebugRender();
 

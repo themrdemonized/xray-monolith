@@ -13,9 +13,31 @@
 BOOL mt_Scheduler = TRUE;
 BOOL mt_SchedulerRT = FALSE;
 
+namespace
+{
+// Stamps a task body into the perf hub's frame record while the hub reads it
+struct task_stamp
+{
+	u64* span;
+
+	task_stamp(u32 task) : span(Device.frame_record_on ? Device.frame_record.task[task] : nullptr)
+	{
+		if (span)
+			span[0] = CPU::QPC();
+	}
+
+	~task_stamp()
+	{
+		if (span)
+			span[1] = CPU::QPC();
+	}
+};
+}
+
 void XRay::Engine::PreRenderThread()
 {
 	PROF_THREAD("Secondary Task 1");
+	task_stamp stamp(CRenderDevice::FrameRecord::task_pre_render);
 
 	if (g_pGamePersistent && g_pGamePersistent->pEnvironment && g_pGamePersistent->pEnvironment->eff_Rain)
 	{
@@ -33,6 +55,7 @@ void XRay::Engine::PreRenderThread()
 void XRay::Engine::PreRenderPostTransformsThread()
 {
     PROF_THREAD("Secondary Task 1.1");
+    task_stamp stamp(CRenderDevice::FrameRecord::task_parallel_render);
     {
         PROF_EVENT("seqParallelRender");
         for (auto& it : Device.seqParallelRender)
@@ -51,6 +74,7 @@ struct SpatialSnapshot
 void XRay::Engine::CalculateBonesThread()
 {
 	PROF_THREAD("Secondary Task 3");
+	task_stamp stamp(CRenderDevice::FrameRecord::task_bones);
 
 	PROF_EVENT("CalculateBones");
 
@@ -124,6 +148,7 @@ int psLua_ParallelGC_CallAmount = 25;
 void XRay::Engine::GameThread()
 {
 	PROF_THREAD("Secondary Task 2")
+	task_stamp stamp(CRenderDevice::FrameRecord::task_game);
 		
 	// we has granted permission to execute
 	if (g_hud)

@@ -240,6 +240,9 @@ void CRender::render_lights(light_Package& LP)
 			if (!L_spot_s.empty())
 			{
 				PROF_EVENT("ACCUM_SPOT");
+#if defined(USE_DX10) || defined(USE_DX11)
+				PIX_EVENT(SPOT_LIGHTS_ACCUM_SH);
+#endif
 				stats.ls_shadowed_rendered += (u32)L_spot_s.size();
 				for (light* L : L_spot_s)
 				{
@@ -247,6 +250,9 @@ void CRender::render_lights(light_Package& LP)
 					render_indirect(L);
 					if (L->flags.bVolumetric && RImplementation.o.advancedpp && ps_r2_ls_flags.is(R2FLAG_VOLUMETRIC_LIGHTS))
 					{
+#if defined(USE_DX10) || defined(USE_DX11)
+						PIX_EVENT(ACCUM_VOLUMETRIC);
+#endif
 #ifdef USE_DX11
 						float w = float(Device.dwWidth);
 						float h = float(Device.dwHeight);
