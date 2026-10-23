@@ -1352,7 +1352,10 @@ void CLevel::OnRender()
 		HUD().RenderUI();
 	}
 
-	ScriptDebugRender();
+	{
+		RENDER_SCOPE(script_debug);
+		ScriptDebugRender();
+	}
 
 #ifdef DEBUG
     draw_wnds_rects();

@@ -393,6 +393,7 @@ bool CUIDragItem::OnMouseAction(float x, float y, EUIMessages mouse_action)
 
 void CUIDragItem::OnRender()
 {
+	RENDER_SCOPE(ui_drag_item);
 	Draw();
 }
 
