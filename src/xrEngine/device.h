@@ -234,6 +234,8 @@ public:
 		u64 present[2];
 		u64 join[2];
 		u64 task[task_count][2];
+		// Ticks the render thread spun on the occlusion and sync readbacks
+		u64 wait;
 		bool presented;
 	};
 	FrameRecord frame_record;

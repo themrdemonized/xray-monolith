@@ -179,6 +179,8 @@ namespace
 		float hub;
 		float gpu;
 		float task[task_count];
+		// Render thread spins on the occlusion and sync readbacks
+		float wait;
 		bool presented;
 	};
 
@@ -199,6 +201,8 @@ namespace
 		float window_ms = 0.f;
 		perf_stat frame = {}, cpu = {}, gpu = {}, cap = {}, present = {}, join = {}, hub = {};
 		perf_stat task[task_count] = {};
+		// Readback spins alone, and with Present as the vsync wait
+		perf_stat wait = {}, vsync_wait = {};
 		float std_dev = 0.f;
 		float target_ms = 0.f;
 		LPCSTR target_source = "";
@@ -845,8 +849,8 @@ namespace
 		// Whole refreshes per frame, paced when vsync holds the average on one of them
 		const float steps = floorf(s.frame.avg / refresh + 0.5f);
 		const bool paced = s.vsync && steps >= 1.f && _abs(s.frame.avg - steps * refresh) < refresh * 0.05f;
-		// With vsync off a Present wait is the GPU queue holding the CPU back
-		const float gpu_wait = s.vsync ? 0.f : s.present.avg;
+		// With vsync off the Present and readback waits are the GPU holding the CPU back
+		const float gpu_wait = s.vsync ? 0.f : s.present.avg + s.wait.avg;
 		if (s.cap.avg > frame * 0.1f)
 			s.limit = limit_cap;
 		// Under vsync the GPU stamps also hold the wait for a free back buffer, so frames paced at one refresh are vsync limited
@@ -884,12 +888,14 @@ namespace
 			return;
 
 		s.frame = measure([](const perf_frame& p) { return p.interval; });
-		s.cpu = measure([](const perf_frame& p) { return _max(0.f, p.interval - p.cap - p.present - p.join - p.hub); });
+		s.cpu = measure([](const perf_frame& p) { return _max(0.f, p.interval - p.cap - p.present - p.wait - p.join - p.hub); });
 		s.gpu = measure([](const perf_frame& p) { return p.gpu; }, true);
 		s.cap = measure([](const perf_frame& p) { return p.cap; });
 		s.present = measure([](const perf_frame& p) { return p.present; });
 		s.join = measure([](const perf_frame& p) { return p.join; });
 		s.hub = measure([](const perf_frame& p) { return p.hub; });
+		s.wait = measure([](const perf_frame& p) { return p.wait; });
+		s.vsync_wait = measure([](const perf_frame& p) { return p.present + p.wait; });
 		for (u32 t = 0; t < task_count; ++t)
 			s.task[t] = measure([t](const perf_frame& p) { return p.task[t]; });
 
@@ -1002,9 +1008,9 @@ namespace
 				xr_strcat(tasks, field);
 			}
 			Msg("* [gpu_timeline] frames %u over %.3fs, frame avg %.3f median %.3f p99 %.3f max %.3f std dev %.3f ms, "
-				"avg cpu work %.3f gpu %.3f cap wait %.3f present %.3f join %.3f hub %.3f ms",
+				"avg cpu work %.3f gpu %.3f cap wait %.3f present %.3f readback wait %.3f join %.3f hub %.3f ms",
 				s.frames, s.window_ms / 1000.f, s.frame.avg, s.frame.p50, s.frame.p99, s.frame.max, s.std_dev,
-				s.cpu.avg, s.gpu.avg, s.cap.avg, s.present.avg, s.join.avg, s.hub.avg);
+				s.cpu.avg, s.gpu.avg, s.cap.avg, s.present.avg, s.wait.avg, s.join.avg, s.hub.avg);
 			Msg("* [gpu_timeline] limited by %s, target %.3f ms from %s, %u %s over %.3f ms worst %.3f, %.1f%% not presented%s%s%s",
 				limit, s.target_ms, s.target_source, s.spikes, noun(s.spikes, "hitch", "hitches"), s.hitch_ms, s.worst_spike, s.not_presented * 100.f,
 				tasks[0] ? ", avg tasks" : "", tasks, tasks[0] ? " ms" : "");
@@ -1343,6 +1349,8 @@ namespace
 		const bool menu_cap = Device.Paused() || (g_pGamePersistent && g_pGamePersistent->m_pMainMenu && g_pGamePersistent->m_pMainMenu->IsActive());
 		if (psDeviceFlags.test(rsVSync) || ps_framelimiter || menu_cap)
 			ImGui::TextColored(ImVec4(1.f, 0.67f, 0.24f, 1.f), "Vsync or a frame cap is on, waits can land inside scopes");
+		if (psDeviceFlags.test(rsVSync))
+			ImGui::TextDisabled("Under vsync the GPU times include the display hold");
 
 		const float label_w = 96.f;
 		const float row_h = ImGui::GetFrameHeight() + 6.f;
@@ -1645,12 +1653,17 @@ namespace
 				{"GPU", hub.gpu, hub.limit == limit_gpu ? missed : sev_info, false},
 				{"Cap wait", hub.cap, sev_info, true},
 				{"Present wait", hub.present, sev_info, true},
+				{"Readback wait", hub.wait, sev_info, true},
+				{"Vsync wait", hub.vsync_wait, sev_info, true},
 				{"Worker join wait", hub.join, sev_info, true},
 				{"Hub (this window)", hub.hub, sev_info, true},
 			};
 			for (const auto& r : rows)
 			{
 				if (&r.v == &hub.gpu && hub.gpu.avg <= 0.f)
+					continue;
+				// Under vsync Present and the readbacks both wait for the display
+				if (hub.vsync ? &r.v == &hub.present || &r.v == &hub.wait : &r.v == &hub.vsync_wait)
 					continue;
 				ImGui::TableNextRow();
 				ImGui::TableNextColumn();
@@ -1714,8 +1727,12 @@ namespace
 		ImGui::SameLine();
 		ImGui::TextColored(severity_color(hub.limit == limit_cpu && !hub.meeting_target ? hub.rating : sev_info), "%.2fms", hub.cpu.avg);
 		ImGui::SameLine();
-		ImGui::Text(" |  Cap wait %.2fms  |  Present wait %.2fms  |  Worker join wait %.2fms  |  Hub %.2fms", hub.cap.avg, hub.present.avg,
-			hub.join.avg, hub.hub.avg);
+		if (hub.vsync)
+			ImGui::Text(" |  Cap wait %.2fms  |  Vsync wait %.2fms  |  Worker join wait %.2fms  |  Hub %.2fms", hub.cap.avg, hub.vsync_wait.avg,
+				hub.join.avg, hub.hub.avg);
+		else
+			ImGui::Text(" |  Cap wait %.2fms  |  Present wait %.2fms  |  Readback wait %.2fms  |  Worker join wait %.2fms  |  Hub %.2fms", hub.cap.avg,
+				hub.present.avg, hub.wait.avg, hub.join.avg, hub.hub.avg);
 		ImGui::Text("Frame p50 %.2fms  |  Max %.1fms  |  Std dev %.2fms  |  Not presented %.0f%%", hub.frame.p50, hub.frame.max, hub.std_dev,
 			hub.not_presented * 100.f);
 
@@ -1792,6 +1809,7 @@ namespace
 			p.join = span(r.join);
 			p.hub = float(draw_ms);
 			p.gpu = 0.f;
+			p.wait = float(double(r.wait) * ms);
 			for (u32 t = 0; t < task_count; ++t)
 			{
 				p.task[t] = span(r.task[t]);
