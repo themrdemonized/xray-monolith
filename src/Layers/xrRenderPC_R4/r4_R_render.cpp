@@ -11,6 +11,10 @@
 #include	"../xrRender/dxRenderDeviceRender.h"
 #include "../xrRenderDX10/dx10GpuTimeline.h"
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+extern CRender::_stats g_prof_stats_tagged;
+#endif
+
 void CRender::render_menu()
 {
 	PIX_EVENT(render_menu);
@@ -352,6 +356,14 @@ void CRender::Render()
 	if (Details)
 		Details->details_clear();
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// Counts since the last tag, the stats screen zeroes these counters
+	PROF_TAG("lights visible", stats.l_visible - g_prof_stats_tagged.l_visible);
+	PROF_TAG("lights shadowed", stats.ls_shadowed_rendered - g_prof_stats_tagged.ls_shadowed_rendered);
+	PROF_TAG("occlusion queries", stats.o_queries - g_prof_stats_tagged.o_queries);
+	PROF_TAG("occlusion culled", stats.o_culled - g_prof_stats_tagged.o_culled);
+	g_prof_stats_tagged = stats;
+#endif
 }
 #include "../xrRender/CHudInitializer.h"
 

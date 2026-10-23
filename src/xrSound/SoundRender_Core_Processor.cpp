@@ -85,6 +85,8 @@ void CSoundRender_Core::update(const Fvector& P, const Fvector& D, const Fvector
 		}
 	}
 
+	PROF_TAG("sound emitters", s_emitters.size());
+
 	// Get currently rendering emitters
 	//Msg	("! update: targets");
 	s_targets_defer.clear();

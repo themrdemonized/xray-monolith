@@ -201,9 +201,17 @@ void CScriptBinder::set_object(CScriptBinderObject* object)
 	}
 }
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Binder updates since the level last tagged the count
+std::atomic<u32> g_prof_binder_updates = 0;
+#endif
+
 void CScriptBinder::shedule_Update(u32 time_delta)
 {
 	PROF_EVENT("CScriptBinder::shedule_Update", PROF_CAT(Script));
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	++g_prof_binder_updates;
+#endif
 	if (m_object)
 	{
 		try

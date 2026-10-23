@@ -527,6 +527,7 @@ void CPHWorld::FrameStep(dReal step)
 	if (!(frame_time < fixed_step))
 	{
 		it_number = iFloor(frame_time / fixed_step);
+		PROF_TAG("physics steps", it_number);
 		frame_time -= it_number * fixed_step;
 		m_previous_frame_time = m_frame_time;
 		m_frame_time = frame_time;

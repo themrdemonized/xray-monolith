@@ -204,6 +204,7 @@ extern BOOL mt_Scheduler;
 void CObjectList::Update(bool bForce)
 {
 	PROF_EVENT("CObjectList::Update", PROF_CAT(GameLogic));
+	PROF_TAG("objects active", objects_active.size());
 	if (!Device.Paused() || bForce)
 	{
 		// Clients
