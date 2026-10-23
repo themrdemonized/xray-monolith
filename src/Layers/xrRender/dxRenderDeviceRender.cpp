@@ -468,8 +468,9 @@ void dxRenderDeviceRender::End()
 
 	if (HW.Caps.SceneMode) overdrawEnd();
 
-	// Draw calls this frame
+	// Draw calls and polys this frame
 	PROF_TAG("draws", RCache.stat.calls);
+	PROF_TAG("polys", RCache.stat.polys);
 	RCache.OnFrameEnd();
 	Memory.dbg_check();
 
