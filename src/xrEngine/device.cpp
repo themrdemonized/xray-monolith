@@ -454,6 +454,9 @@ void CRenderDevice::on_idle()
 		frame_record.start = CPU::QPC();
 	FrameMove();
 	const bool record = frame_record_on;
+	// The hub reads the last loop's spins in FrameMove, so this loop counts from here
+	if (record)
+		frame_record.wait = 0;
 
 	// Precache
 	if (dwPrecacheFrame)

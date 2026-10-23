@@ -110,6 +110,7 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 	Device.Statistic->RenderDUMP_Wait.Begin();
 	//while	((hr=used[ID].Q->GetData(&fragments,sizeof(fragments),D3DGETDATA_FLUSH))==S_FALSE) {
 	VERIFY2(ID<used.size(), make_string("_Pos = %d, size() = %d ", ID, used.size()));
+	const u64 wait_begin = Device.frame_record_on ? CPU::QPC() : 0;
 	while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
 	{
 		if (!SwitchToThread())
@@ -121,6 +122,9 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 			break;
 		}
 	}
+	// The perf hub counts the spin as a wait on the GPU or the display
+	if (wait_begin)
+		Device.frame_record.wait += CPU::QPC() - wait_begin;
 	Device.Statistic->RenderDUMP_Wait.End();
 	if (hr == D3DERR_DEVICELOST) fragments = 0xffffffff;
 
