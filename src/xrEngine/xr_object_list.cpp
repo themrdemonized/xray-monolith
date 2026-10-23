@@ -198,6 +198,7 @@ void CObjectList::clear_crow_vec(Objects& o)
 void CObjectList::Update(bool bForce)
 {
 	PROF_EVENT("CObjectList::Update", PROF_CAT(GameLogic));
+	PROF_TAG("objects active", objects_active.size());
 	if (!Device.Paused() || bForce)
 	{
 		// Clients
