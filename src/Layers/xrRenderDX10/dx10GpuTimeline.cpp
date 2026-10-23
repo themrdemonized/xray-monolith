@@ -296,6 +296,207 @@ namespace
 		reach = _max(reach, end);
 	}
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// While a profiler capture runs, each resolved frame's scopes go to an Optick storage called GPU
+	// GPU ticks map to the CPU clock by a line fitted to stamps taken on an idle GPU at capture start and stop
+	enum prof_phase { prof_off, prof_starting, prof_on };
+
+	struct prof_scope
+	{
+		const Optick::EventDescription* desc;
+		u32 parent;
+		UINT64 begin;
+		UINT64 end;
+	};
+
+	struct prof_frame
+	{
+		u32 first;
+		u32 count;
+		bool bracketed;
+		bool presented;
+		bool followed;
+		UINT64 begin;
+		UINT64 end;
+		UINT64 present;
+		UINT64 next;
+	};
+
+	// One stamp and the CPU clock before its submit and after its readback
+	struct clock_sample
+	{
+		UINT64 gpu;
+		u64 before;
+		u64 after;
+	};
+
+	const u32 clock_burst = 64;
+
+	std::atomic<int> prof_now = prof_off;
+	xrCriticalSection prof_lock;
+	bool prof_forced = false;
+	u32 prof_first = 0;
+	UINT64 prof_gpu_freq = 0;
+	xr_vector<prof_scope> prof_scopes;
+	xr_vector<prof_frame> prof_frames;
+	xr_vector<clock_sample> prof_clock;
+	xr_vector<const Optick::EventDescription*> prof_names;
+	ID3D11Query* prof_idle = nullptr;
+	ID3D11Query* prof_stamp = nullptr;
+	ID3D11Query* prof_disjoint = nullptr;
+
+	bool wait_query(ID3D11Query* q, void* data, UINT size)
+	{
+		HRESULT hr;
+		while ((hr = HW.pContext->GetData(q, data, size, 0)) == S_FALSE)
+			;
+		return hr == S_OK;
+	}
+
+	// Each stamp waits for an idle GPU, so it runs as soon as its flush reaches the GPU
+	void prof_burst()
+	{
+		const D3D11_QUERY_DESC desc[] = {{D3D11_QUERY_EVENT, 0}, {D3D11_QUERY_TIMESTAMP, 0}, {D3D11_QUERY_TIMESTAMP_DISJOINT, 0}};
+		ID3D11Query** queries[] = {&prof_idle, &prof_stamp, &prof_disjoint};
+		for (u32 i = 0; i < 3; ++i)
+			if (!*queries[i] && FAILED(HW.pDevice->CreateQuery(&desc[i], queries[i])))
+				return;
+
+		const u32 base = prof_clock.size();
+		bool ok = true;
+		HW.pContext->Begin(prof_disjoint);
+		for (u32 i = 0; ok && i < clock_burst; ++i)
+		{
+			BOOL done = FALSE;
+			HW.pContext->End(prof_idle);
+			ok = wait_query(prof_idle, &done, sizeof(done));
+			clock_sample c;
+			c.before = CPU::QPC();
+			HW.pContext->End(prof_stamp);
+			HW.pContext->Flush();
+			ok = ok && wait_query(prof_stamp, &c.gpu, sizeof(c.gpu));
+			c.after = CPU::QPC();
+			prof_clock.push_back(c);
+		}
+		HW.pContext->End(prof_disjoint);
+		D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dj;
+		if (!wait_query(prof_disjoint, &dj, sizeof(dj)) || dj.Disjoint || !dj.Frequency || !ok)
+		{
+			prof_clock.resize(base);
+			return;
+		}
+		prof_gpu_freq = dj.Frequency;
+	}
+
+	void prof_record(const frame_slot& s, const UINT64* stamps, const UINT64* bracket, const xr_vector<event>& ev)
+	{
+		xrCriticalSectionGuard guard(prof_lock);
+		const u32 first = prof_scopes.size();
+		for (u32 i = 0; i < ev.size(); ++i)
+		{
+			const u32 id = ev[i].name;
+			if (prof_names.size() <= id)
+				prof_names.resize(id + 1, nullptr);
+			if (!prof_names[id])
+				prof_names[id] = Optick::EventDescription::CreateShared(names[id].c_str());
+			prof_scopes.push_back({prof_names[id], ev[i].parent, stamps[2 * i], stamps[2 * i + 1]});
+		}
+		const bool presented = s.started && s.ended && s.presented;
+		prof_frames.push_back({first, u32(ev.size()), s.started && s.ended, presented, presented && s.followed, bracket[0], bracket[1], bracket[2], bracket[3]});
+	}
+
+	// Least squares over the window midpoints, with the nominal rate when only one burst landed
+	// Each sample weighs 1 over its half window squared, so a slow readback barely moves the line
+	void prof_emit()
+	{
+		const u32 n = prof_clock.size();
+		if (n < 2 || !prof_gpu_freq)
+		{
+			Msg("! [gpu_timeline] profiler capture has no GPU clock map, its GPU row stays empty");
+			return;
+		}
+		const double g0 = double(prof_clock[0].gpu);
+		const double c0 = double(prof_clock[0].before);
+		const double nominal = double(CPU::qpc_freq) / double(prof_gpu_freq);
+		auto x = [g0](const clock_sample& c) { return double(c.gpu) - g0; };
+		auto y = [c0](const clock_sample& c) { return 0.5 * (double(c.before) + double(c.after)) - c0; };
+		auto weight = [](const clock_sample& c) {
+			const double half = _max(0.5, 0.5 * double(c.after - c.before));
+			return 1.0 / (half * half);
+		};
+		double sw = 0.0, mx = 0.0, my = 0.0;
+		for (const clock_sample& c : prof_clock)
+		{
+			const double w = weight(c);
+			sw += w;
+			mx += w * x(c);
+			my += w * y(c);
+		}
+		mx /= sw;
+		my /= sw;
+		double k = nominal;
+		if (n > clock_burst)
+		{
+			double sxx = 0.0, sxy = 0.0;
+			for (const clock_sample& c : prof_clock)
+			{
+				const double w = weight(c);
+				sxx += w * (x(c) - mx) * (x(c) - mx);
+				sxy += w * (x(c) - mx) * (y(c) - my);
+			}
+			if (sxx > 0.0)
+				k = sxy / sxx;
+		}
+		const double a = my - k * mx;
+		auto to_cpu = [&](UINT64 g) { return int64_t(c0 + a + k * (double(g) - g0) + 0.5); };
+
+		static Optick::EventStorage* storage = Optick::RegisterStorage("GPU", uint64_t(-1), Optick::ThreadMask::GPU);
+		static const Optick::EventDescription* present_desc = Optick::EventDescription::CreateShared("frame present");
+		static const Optick::EventDescription* between_desc = Optick::EventDescription::CreateShared("between frames");
+		xr_vector<s64> begin, end, last;
+		for (const prof_frame& f : prof_frames)
+		{
+			if (f.bracketed)
+			{
+				Optick::BeginFrame(Optick::FrameType::GPU, to_cpu(f.begin), thread);
+				Optick::EndFrame(Optick::FrameType::GPU, to_cpu(f.end), thread);
+			}
+			// The viewer nests by time alone, so siblings start after the one before and children stay inside their parent
+			begin.resize(f.count);
+			end.resize(f.count);
+			// std::min and std::max stay exact at the s64 limits used as bounds here
+			last.assign(f.count + 1, std::numeric_limits<s64>::min());
+			for (u32 i = 0; i < f.count; ++i)
+			{
+				const prof_scope& p = prof_scopes[f.first + i];
+				const u32 up = p.parent == no_scope ? f.count : p.parent;
+				s64 lo = last[up], hi = std::numeric_limits<s64>::max();
+				if (p.parent != no_scope)
+				{
+					lo = std::max(lo, begin[p.parent]);
+					hi = end[p.parent];
+				}
+				begin[i] = std::min(std::max(to_cpu(p.begin), lo), hi);
+				end[i] = std::min(std::max(to_cpu(p.end), begin[i]), hi);
+				// Equal intervals sort in either order, so a child matching its parent ends a tick early
+				if (p.parent != no_scope && begin[i] == begin[p.parent] && end[i] == hi && end[i] > begin[i])
+					--end[i];
+				last[up] = end[i];
+				Optick::Event::Add(storage, p.desc, begin[i], end[i]);
+			}
+			// Present and the wait for the next frame follow the frame end as top level rows
+			if (f.presented)
+			{
+				const s64 frame_end = std::max(to_cpu(f.end), last[f.count]);
+				const s64 present_end = std::max(to_cpu(f.present), frame_end);
+				Optick::Event::Add(storage, present_desc, frame_end, present_end);
+				if (f.followed)
+					Optick::Event::Add(storage, between_desc, present_end, std::max(to_cpu(f.next), present_end));
+			}
+		}
+	}
+#endif
+
 	void publish(const frame_slot& s, const UINT64* stamps, const UINT64* bracket, double freq)
 	{
 		if (names.empty())
@@ -331,6 +532,10 @@ namespace
 		// Self time is a scope's duration minus the union of its children
 		// On the CPU children run one after another on this thread, so their sum is subtracted
 		xr_vector<event>& ev = latest.events;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		if (prof_now == prof_on && s.frame >= prof_first)
+			prof_record(s, stamps, bracket, ev);
+#endif
 		cover.assign(n, 0.0);
 		cover_end.assign(n, 0.0);
 		top.clear();
@@ -463,6 +668,62 @@ namespace
 				publish(s, poll_stamps.data(), bracket, 1000.0 / double(dj.Frequency));
 		}
 	}
+
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	void prof_reset()
+	{
+		prof_now = prof_off;
+		prof_scopes.clear();
+		prof_frames.clear();
+		prof_clock.clear();
+		if (prof_forced)
+			ps_r__gpu_timeline = 0;
+		prof_forced = false;
+	}
+
+	// On the render thread between frames the open frame closes and the burst drains the GPU, so every captured frame resolves
+	void prof_stop()
+	{
+		if (prof_now == prof_on && thread == GetCurrentThreadId() && stack.empty())
+		{
+			if (cur)
+			{
+				HW.pContext->End(cur->disjoint);
+				cur->pending = cur->ended;
+				cur = nullptr;
+			}
+			prof_burst();
+			poll();
+		}
+		xrCriticalSectionGuard guard(prof_lock);
+		if (prof_now == prof_on)
+			prof_emit();
+		prof_reset();
+	}
+
+	// Optick calls this before it changes state, so the GPU row is filled while the capture is still on
+	bool prof_state_changed(Optick::State::Type state)
+	{
+		if (state == Optick::State::START_CAPTURE)
+		{
+			xrCriticalSectionGuard guard(prof_lock);
+			prof_reset();
+			prof_forced = !ps_r__gpu_timeline;
+			ps_r__gpu_timeline = 1;
+			prof_now = prof_starting;
+		}
+		else if (state == Optick::State::STOP_CAPTURE)
+			prof_stop();
+		else if (state == Optick::State::CANCEL_CAPTURE)
+		{
+			xrCriticalSectionGuard guard(prof_lock);
+			prof_reset();
+		}
+		return true;
+	}
+
+	const bool prof_hooked = Optick::SetStateChangedCallback(prof_state_changed);
+#endif
 
 	float display_hz = 60.f;
 	float eco_hz = 60.f;
@@ -695,6 +956,15 @@ namespace
 			// Frames left open while recording was off are stale, their slots are reused unread
 			cur->pending = cur->frame + 1 == Device.dwFrame;
 		}
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// The start burst runs between frames, with no disjoint query open
+		if (prof_now == prof_starting)
+		{
+			prof_burst();
+			prof_first = Device.dwFrame;
+			prof_now = prof_on;
+		}
+#endif
 		poll();
 		if (log_requested.exchange(false))
 			write_log();
@@ -1436,6 +1706,15 @@ namespace
 		Device.frame_record_on = false;
 		record_valid = false;
 		Device.seqFrame.Remove(&drawer);
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// Running captures keep recording and turn it off when they end
+		if (recording_by_window && prof_now != prof_off)
+		{
+			xrCriticalSectionGuard guard(prof_lock);
+			prof_forced = true;
+			recording_by_window = false;
+		}
+#endif
 		if (recording_by_window)
 			ps_r__gpu_timeline = 0;
 		if (Device.imgui_shown())
@@ -1631,6 +1910,14 @@ void open(LPCSTR tab)
 	{
 		// Closing the window turns recording off again when opening it turned it on
 		recording_by_window = !ps_r__gpu_timeline;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// The window takes over recording a running capture turned on
+		{
+			xrCriticalSectionGuard guard(prof_lock);
+			recording_by_window = recording_by_window || prof_forced;
+			prof_forced = false;
+		}
+#endif
 		ps_r__gpu_timeline = 1;
 		window_open = true;
 		tasks_stamped = 0;
@@ -1676,6 +1963,11 @@ void destroy()
 		s.followed = false;
 		s.pending = false;
 	}
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	_RELEASE(prof_idle);
+	_RELEASE(prof_stamp);
+	_RELEASE(prof_disjoint);
+#endif
 	cur = nullptr;
 	stack.clear();
 	thread = 0;
