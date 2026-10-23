@@ -223,8 +223,18 @@ VOID ttapi_RunAllWorkers()
 
 		// Waiting task queue to become empty
 		//Start = __rdtsc();
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// One zone around the spin, only when a worker is still running
+		if (ttapi_queue_size.size)
+		{
+			PROF_EVENT("ttapi wait for workers", PROF_CAT(Wait));
+			while (ttapi_queue_size.size)
+				_mm_pause();
+		}
+#else
 		while (ttapi_queue_size.size)
 			_mm_pause();
+#endif
 		//Stop = __rdtsc();
 		//Msg( "Wait: %u ticks" , Stop - Start );
 	}

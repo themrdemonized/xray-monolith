@@ -111,6 +111,25 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 	//while	((hr=used[ID].Q->GetData(&fragments,sizeof(fragments),D3DGETDATA_FLUSH))==S_FALSE) {
 	VERIFY2(ID<used.size(), make_string("_Pos = %d, size() = %d ", ID, used.size()));
 	const u64 wait_begin = Device.frame_record_on ? CPU::QPC() : 0;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// One zone around the spin, only when the first result is not ready
+	if ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
+	{
+		PROF_EVENT("GPU::GetData", PROF_CAT(Wait));
+		do
+		{
+			if (!SwitchToThread())
+				Sleep(ps_r2_wait_sleep);
+
+			if (T.GetElapsed_ms() > 500)
+			{
+				fragments = (occq_result)-1; //0xffffffff;
+				break;
+			}
+		}
+		while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE);
+	}
+#else
 	while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
 	{
 		if (!SwitchToThread())
@@ -122,6 +141,7 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 			break;
 		}
 	}
+#endif
 	// The perf hub counts the spin as a wait on the GPU or the display
 	if (wait_begin)
 		Device.frame_record.wait += CPU::QPC() - wait_begin;
