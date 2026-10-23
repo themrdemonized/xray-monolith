@@ -62,6 +62,10 @@ namespace
 	const u32 hist_buckets = 48;
 	const u32 top_rows = 8;
 
+	// Draws with and without the nested scopes, polys, verts, then the pipeline statistics
+	enum { count_draws, count_draws_self, count_polys, count_verts, count_vs, count_clip_in, count_clip_out, count_ps, count_cs, count_fields };
+	const u32 pipe_first = count_vs;
+
 	struct scope_rec
 	{
 		LPCWSTR name;
@@ -69,6 +73,11 @@ namespace
 		u32 depth;
 		u64 cpu_begin;
 		u64 cpu_end;
+		// RCache counters at the begin, their change by the end
+		u32 draws;
+		u32 polys;
+		u32 verts;
+		u32 pipe;
 	};
 
 	struct frame_slot
@@ -77,6 +86,8 @@ namespace
 		// Frame start, frame end, after Present, and the next frame's first stamp
 		ID3D11Query* bracket[4] = {};
 		xr_vector<ID3D11Query*> stamps;
+		xr_vector<ID3D11Query*> pipes;
+		u32 pipes_used = 0;
 		xr_vector<scope_rec> scopes;
 		u64 cpu_begin = 0;
 		u64 cpu_end = 0;
@@ -97,6 +108,8 @@ namespace
 		double self;
 		double cpu;
 		double cpu_self;
+		double counts[count_fields];
+		bool piped;
 	};
 
 	struct resolved_frame
@@ -116,6 +129,8 @@ namespace
 		u32 calls = 0;
 		bool seen = false;
 		double cpu_self = 0.0;
+		double counts[count_fields] = {};
+		bool piped = false;
 	};
 
 	struct sample
@@ -126,6 +141,8 @@ namespace
 		float cpu;
 		u32 calls;
 		float cpu_self;
+		float counts[count_fields];
+		bool piped;
 	};
 
 	struct history
@@ -146,6 +163,9 @@ namespace
 		xr_vector<float> self;
 		xr_vector<float> cpu;
 		u32 calls = 0;
+		// Count sums, the pipeline ones over the frames that read them
+		double counts[count_fields] = {};
+		u32 piped = 0;
 	};
 
 	// One frame of the device's frame record in ms, keyed by its frame number
@@ -213,6 +233,7 @@ namespace
 	u32 marks_count = 0;
 
 	xr_vector<UINT64> poll_stamps;
+	xr_vector<D3D11_QUERY_DATA_PIPELINE_STATISTICS> poll_pipes;
 	xr_vector<double> cover;
 	xr_vector<double> cover_end;
 	xr_vector<u32> top;
@@ -235,6 +256,19 @@ namespace
 
 	std::atomic<bool> log_requested = false;
 	std::atomic<bool> frozen = false;
+
+	// Local and non-local video memory against the budget the OS gives the game
+	IDXGIAdapter3* vram_adapter = nullptr;
+	DXGI_QUERY_VIDEO_MEMORY_INFO vram[2] = {};
+	bool vram_read = false;
+
+	bool read_vram()
+	{
+		if (!vram_adapter && FAILED(HW.m_pAdapter->QueryInterface(__uuidof(IDXGIAdapter3), (void**)&vram_adapter)))
+			return false;
+		return SUCCEEDED(vram_adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &vram[0])) &&
+			SUCCEEDED(vram_adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_NON_LOCAL, &vram[1]));
+	}
 
 	void add_name(const xr_string& name)
 	{
@@ -497,7 +531,7 @@ namespace
 	}
 #endif
 
-	void publish(const frame_slot& s, const UINT64* stamps, const UINT64* bracket, double freq)
+	void publish(const frame_slot& s, const UINT64* stamps, const UINT64* bracket, const D3D11_QUERY_DATA_PIPELINE_STATISTICS* pipes, double freq)
 	{
 		if (names.empty())
 		{
@@ -526,7 +560,17 @@ namespace
 			const UINT64 b = stamps[2 * i];
 			const UINT64 e = _max(b, stamps[2 * i + 1]);
 			const double cpu = r.cpu_end > r.cpu_begin ? double(r.cpu_end - r.cpu_begin) * cpu_freq : 0.0;
-			latest.events.push_back({name_id(r.name), r.parent, double(b - first) * freq, double(e - first) * freq, 0.0, cpu, cpu});
+			latest.events.push_back({name_id(r.name), r.parent, double(b - first) * freq, double(e - first) * freq, 0.0, cpu, cpu,
+				{double(r.draws), double(r.draws), double(r.polys), double(r.verts)}, r.pipe != no_scope});
+			if (r.pipe == no_scope)
+				continue;
+			const D3D11_QUERY_DATA_PIPELINE_STATISTICS& p = pipes[r.pipe];
+			double* c = latest.events.back().counts;
+			c[count_vs] = double(p.VSInvocations);
+			c[count_clip_in] = double(p.CInvocations);
+			c[count_clip_out] = double(p.CPrimitives);
+			c[count_ps] = double(p.PSInvocations);
+			c[count_cs] = double(p.CSInvocations);
 		}
 
 		// Self time is a scope's duration minus the union of its children
@@ -548,6 +592,7 @@ namespace
 			{
 				add_cover(cover[p], cover_end[p], ev[i].start, ev[i].end, ev[p].start, ev[p].end);
 				ev[p].cpu_self -= ev[i].cpu;
+				ev[p].counts[count_draws_self] -= ev[i].counts[count_draws];
 			}
 		}
 		for (u32 i = 0; i < n; ++i)
@@ -573,6 +618,7 @@ namespace
 			frame_acc& a = acc[e.name];
 			a.self += e.self;
 			a.cpu_self += e.cpu_self;
+			a.counts[count_draws_self] += e.counts[count_draws_self];
 			a.seen = true;
 			bool nested = false;
 			for (u32 p = e.parent; p != no_scope && !nested; p = ev[p].parent)
@@ -582,6 +628,10 @@ namespace
 			a.gpu += e.end - e.start;
 			a.cpu += e.cpu;
 			++a.calls;
+			for (u32 k = 0; k < count_fields; ++k)
+				if (k != count_draws_self)
+					a.counts[k] += e.counts[k];
+			a.piped = a.piped || e.piped;
 		}
 		if (bracketed)
 		{
@@ -612,7 +662,10 @@ namespace
 			frame_acc& a = acc[id];
 			if (!a.seen)
 				continue;
-			const sample v = {s.frame, float(a.gpu), float(a.self), float(a.cpu), a.calls, float(a.cpu_self)};
+			sample v = {s.frame, float(a.gpu), float(a.self), float(a.cpu), a.calls, float(a.cpu_self)};
+			for (u32 k = 0; k < count_fields; ++k)
+				v.counts[k] = float(a.counts[k]);
+			v.piped = a.piped;
 			history& h = hist[id];
 			if (h.samples.size() < hist_cap)
 				h.samples.push_back(v);
@@ -626,6 +679,9 @@ namespace
 				l.self.push_back(v.self);
 				l.cpu.push_back(v.cpu);
 				l.calls += v.calls;
+				for (u32 k = 0; k < count_fields; ++k)
+					l.counts[k] += a.counts[k];
+				l.piped += a.piped;
 			}
 			a = frame_acc();
 		}
@@ -658,6 +714,9 @@ namespace
 			for (u32 i = 0; ok && i < 4; ++i)
 				if (written[i])
 					ok = HW.pContext->GetData(s.bracket[i], &bracket[i], sizeof(UINT64), D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK;
+			poll_pipes.resize(s.pipes_used);
+			for (u32 i = 0; ok && i < s.pipes_used; ++i)
+				ok = HW.pContext->GetData(s.pipes[i], &poll_pipes[i], sizeof(D3D11_QUERY_DATA_PIPELINE_STATISTICS), D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK;
 			if (!ok)
 			{
 				++frames_dropped;
@@ -665,7 +724,7 @@ namespace
 				continue;
 			}
 			if (!s.scopes.empty() || (s.started && s.ended))
-				publish(s, poll_stamps.data(), bracket, 1000.0 / double(dj.Frequency));
+				publish(s, poll_stamps.data(), bracket, poll_pipes.data(), 1000.0 / double(dj.Frequency));
 		}
 	}
 
@@ -905,9 +964,25 @@ namespace
 		{
 			const log_stat& l = log_acc[id];
 			const u32 n = l.gpu.size();
-			Msg("* [gpu_timeline] %s median %.3f p95 %.3f max %.3f self %.3f cpu %.3f ms, %.2f calls per frame, in %u %s",
-				names[id].c_str(), median[id], p95[id], l.gpu.back(), self[id], cpu[id], float(l.calls) / float(n), n, noun(n, "frame", "frames"));
+			// Per frame averages, the pipeline ones over the frames that read them
+			string256 counts = "";
+			if (id >= bracket_rows)
+				xr_sprintf(counts, ", per frame %.1f draws %.1f own draws %.0f polys %.0f verts", l.counts[count_draws] / n, l.counts[count_draws_self] / n,
+					l.counts[count_polys] / n, l.counts[count_verts] / n);
+			if (l.piped)
+			{
+				string128 pipeline;
+				xr_sprintf(pipeline, ", vs %.0f clip in %.0f clip out %.0f ps %.0f cs %.0f invocations", l.counts[count_vs] / l.piped,
+					l.counts[count_clip_in] / l.piped, l.counts[count_clip_out] / l.piped, l.counts[count_ps] / l.piped, l.counts[count_cs] / l.piped);
+				xr_strcat(counts, pipeline);
+			}
+			Msg("* [gpu_timeline] %s median %.3f p95 %.3f max %.3f self %.3f cpu %.3f ms, %.2f calls per frame, in %u %s%s",
+				names[id].c_str(), median[id], p95[id], l.gpu.back(), self[id], cpu[id], float(l.calls) / float(n), n, noun(n, "frame", "frames"), counts);
 		}
+		vram_read = read_vram();
+		if (vram_read)
+			Msg("* [gpu_timeline] vram local %.0f of %.0f MB budget, non-local %.0f of %.0f MB", vram[0].CurrentUsage / 1048576.0,
+				vram[0].Budget / 1048576.0, vram[1].CurrentUsage / 1048576.0, vram[1].Budget / 1048576.0);
 
 		// The perf hub's frame stats over the current stats window, while the window records them
 		perf_summary s;
@@ -997,6 +1072,7 @@ namespace
 		}
 		s.frame = Device.dwFrame;
 		s.scopes.clear();
+		s.pipes_used = 0;
 		s.started = false;
 		s.ended = false;
 		s.presented = false;
@@ -1023,6 +1099,8 @@ namespace
 		float cpu;
 		u32 calls;
 		float cpu_self;
+		float counts[count_fields];
+		bool piped;
 	};
 
 	struct cost
@@ -1034,7 +1112,7 @@ namespace
 	resolved_frame shown;
 	xr_vector<timeline_bar> bars;
 	xr_vector<table_row> table;
-	xr_vector<float> win_gpu, win_self, win_cpu, win_cpu_self;
+	xr_vector<float> win_gpu, win_self, win_cpu, win_cpu_self, win_counts[count_fields];
 	xr_vector<cost> top_cpu, top_gpu;
 	perf_summary hub;
 	u64 record_start = 0;
@@ -1098,6 +1176,7 @@ namespace
 		if ((frozen || hovering) && !shown.events.empty())
 			return;
 
+		vram_read = read_vram();
 		table.clear();
 		top_cpu.clear();
 		top_gpu.clear();
@@ -1110,6 +1189,8 @@ namespace
 			win_self.clear();
 			win_cpu.clear();
 			win_cpu_self.clear();
+			for (xr_vector<float>& w : win_counts)
+				w.clear();
 			for (const sample& v : h.samples)
 			{
 				if (v.frame < from)
@@ -1118,6 +1199,8 @@ namespace
 				win_self.push_back(v.self);
 				win_cpu.push_back(v.cpu);
 				win_cpu_self.push_back(v.cpu_self);
+				for (u32 k = 0; k < (v.piped ? count_fields : pipe_first); ++k)
+					win_counts[k].push_back(v.counts[k]);
 			}
 			if (win_gpu.empty())
 				continue;
@@ -1127,6 +1210,10 @@ namespace
 			spread(win_self, r.self, unused);
 			spread(win_cpu, r.cpu, unused);
 			spread(win_cpu_self, r.cpu_self, unused);
+			for (u32 k = 0; k < count_fields; ++k)
+				if (!win_counts[k].empty())
+					spread(win_counts[k], r.counts[k], unused);
+			r.piped = !win_counts[pipe_first].empty();
 			r.max = win_gpu.back();
 			r.calls = h.samples[(h.next + h.samples.size() - 1) % h.samples.size()].calls;
 			table.push_back(r);
@@ -1203,6 +1290,11 @@ namespace
 		ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(bar.color), "%s", names[e.name].c_str());
 		ImGui::Text("Duration %.4fms  |  Self %.4fms  |  CPU %.4fms", e.end - e.start, e.self, e.cpu);
 		ImGui::Text("Start %.4fms  |  End %.4fms (from frame start)", e.start, e.end);
+		const double* c = e.counts;
+		ImGui::Text("Draws %.0f  |  Own draws %.0f  |  Polys %.0f  |  Verts %.0f", c[count_draws], c[count_draws_self], c[count_polys], c[count_verts]);
+		if (e.piped)
+			ImGui::Text("Invocations VS %.0f  |  Clip in %.0f  |  Clip out %.0f  |  PS %.0f  |  CS %.0f", c[count_vs], c[count_clip_in],
+				c[count_clip_out], c[count_ps], c[count_cs]);
 		ImGui::TextDisabled("Frame #%u", shown.frame);
 		ImGui::PushTextWrapPos(ImGui::GetFontSize() * 40.f);
 		ImGui::TextUnformatted(path.c_str());
@@ -1355,8 +1447,9 @@ namespace
 	void draw_table()
 	{
 		const ImGuiTableFlags flags = ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter |
-			ImGuiTableFlags_BordersV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp;
-		if (!ImGui::BeginTable("scopes", 7, flags, ImVec2(0.f, _max(ImGui::GetContentRegionAvail().y, 120.f))))
+			ImGuiTableFlags_BordersV | ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Hideable;
+		static const LPCSTR count_columns[count_fields] = {"Draws", "Own draws", "Polys", "Verts", "VS inv", "Clip in", "Clip out", "PS inv", "CS inv"};
+		if (!ImGui::BeginTable("scopes", 7 + count_fields, flags, ImVec2(0.f, _max(ImGui::GetContentRegionAvail().y, 120.f))))
 			return;
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableSetupColumn("Scope", ImGuiTableColumnFlags_WidthStretch, 3.f, 0);
@@ -1366,6 +1459,8 @@ namespace
 		ImGui::TableSetupColumn("Self ms", ImGuiTableColumnFlags_PreferSortDescending, 1.f, 4);
 		ImGui::TableSetupColumn("CPU ms", ImGuiTableColumnFlags_PreferSortDescending, 1.f, 5);
 		ImGui::TableSetupColumn("Calls", ImGuiTableColumnFlags_PreferSortDescending, 1.f, 6);
+		for (u32 k = 0; k < count_fields; ++k)
+			ImGui::TableSetupColumn(count_columns[k], ImGuiTableColumnFlags_PreferSortDescending, 1.f, 7 + k);
 		ImGui::TableHeadersRow();
 
 		const ImGuiTableSortSpecs* sort = ImGui::TableGetSortSpecs();
@@ -1383,7 +1478,7 @@ namespace
 				case 5: return r.cpu;
 				case 6: return r.calls;
 				}
-				return 0.0;
+				return s.ColumnUserID >= 7 ? r.counts[s.ColumnUserID - 7] : 0.0;
 			};
 			std::stable_sort(table.begin(), table.end(), [&](const table_row& a, const table_row& b) {
 				if (s.ColumnUserID == 0)
@@ -1425,6 +1520,19 @@ namespace
 				ImGui::TextDisabled("-");
 			else
 				ImGui::Text("%u", r.calls);
+			for (u32 k = 0; k < count_fields; ++k)
+			{
+				ImGui::TableNextColumn();
+				if (r.name < bracket_rows || (k >= pipe_first && !r.piped))
+					ImGui::TextDisabled("-");
+				// Thousands and millions keep large counts inside a narrow column
+				else if (r.counts[k] >= 1e7f)
+					ImGui::Text("%.1fM", r.counts[k] / 1e6f);
+				else if (r.counts[k] >= 1e5f)
+					ImGui::Text("%.0fk", r.counts[k] / 1e3f);
+				else
+					ImGui::Text("%.0f", r.counts[k]);
+			}
 		}
 		ImGui::EndTable();
 	}
@@ -1801,6 +1909,14 @@ namespace
 							"GPU timeline: recording is off, r__gpu_timeline 1 starts it");
 					else
 						draw_timeline(hovering);
+					// Past the local budget the OS starts moving resources out of video memory
+					if (vram_read)
+					{
+						const float mb = 1.f / 1048576.f;
+						ImGui::TextColored(severity_color(vram[0].CurrentUsage > vram[0].Budget ? sev_warning : sev_info),
+							"VRAM %.0f of %.0f MB budget  |  Shared %.0f of %.0f MB", vram[0].CurrentUsage * mb, vram[0].Budget * mb,
+							vram[1].CurrentUsage * mb, vram[1].Budget * mb);
+					}
 					draw_table();
 					ImGui::EndTabItem();
 				}
@@ -1877,8 +1993,22 @@ u32 scope_begin(LPCWSTR name)
 		s.stamps.push_back(q);
 	}
 
-	s.scopes.push_back({name, stack.empty() ? no_scope : stack.back(), u32(stack.size()), 0, 0});
+	s.scopes.push_back({name, stack.empty() ? no_scope : stack.back(), u32(stack.size()), 0, 0, RCache.stat.calls, RCache.stat.polys,
+		RCache.stat.verts, no_scope});
 	HW.pContext->End(s.stamps[2 * index]);
+	// Scopes one level below the top never overlap, so one statistics query runs at a time
+	if (stack.size() == 1)
+	{
+		D3D11_QUERY_DESC desc = {D3D11_QUERY_PIPELINE_STATISTICS, 0};
+		ID3D11Query* q = nullptr;
+		if (s.pipes_used < s.pipes.size() || SUCCEEDED(HW.pDevice->CreateQuery(&desc, &q)))
+		{
+			if (q)
+				s.pipes.push_back(q);
+			HW.pContext->Begin(s.pipes[s.pipes_used]);
+			s.scopes.back().pipe = s.pipes_used++;
+		}
+	}
 	s.scopes.back().cpu_begin = CPU::QPC();
 	stack.push_back(index);
 	peak_scopes = _max(peak_scopes, index + 1);
@@ -1889,8 +2019,14 @@ void scope_end(u32 scope)
 {
 	if (!cur || scope >= cur->scopes.size())
 		return;
-	cur->scopes[scope].cpu_end = CPU::QPC();
+	scope_rec& r = cur->scopes[scope];
+	r.cpu_end = CPU::QPC();
+	if (r.pipe != no_scope)
+		HW.pContext->End(cur->pipes[r.pipe]);
 	HW.pContext->End(cur->stamps[2 * scope + 1]);
+	r.draws = RCache.stat.calls - r.draws;
+	r.polys = RCache.stat.polys - r.polys;
+	r.verts = RCache.stat.verts - r.verts;
 	while (!stack.empty())
 	{
 		const u32 top = stack.back();
@@ -1955,7 +2091,11 @@ void destroy()
 			_RELEASE(q);
 		for (ID3D11Query*& q : s.stamps)
 			_RELEASE(q);
+		for (ID3D11Query*& q : s.pipes)
+			_RELEASE(q);
 		s.stamps.clear();
+		s.pipes.clear();
+		s.pipes_used = 0;
 		s.scopes.clear();
 		s.started = false;
 		s.ended = false;
@@ -1968,6 +2108,8 @@ void destroy()
 	_RELEASE(prof_stamp);
 	_RELEASE(prof_disjoint);
 #endif
+	_RELEASE(vram_adapter);
+	vram_read = false;
 	cur = nullptr;
 	stack.clear();
 	thread = 0;
