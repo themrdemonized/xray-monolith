@@ -977,6 +977,7 @@ void CLoadScreenRenderer::stop()
 void CLoadScreenRenderer::OnRender()
 {
 	PROF_EVENT();
+	RENDER_SCOPE(load_screen);
 
 	pApp->load_draw_internal();
 }

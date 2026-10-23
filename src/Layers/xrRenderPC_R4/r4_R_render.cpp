@@ -369,6 +369,7 @@ void CRender::Render()
 
 	if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS))
 	{
+		PIX_EVENT(DEFER_TERRAIN_PREPASS);
 		Target->u_setrt(Device.dwWidth, Device.dwHeight, NULL, NULL, NULL, !RImplementation.o.dx10_msaa ? HW.pBaseZB : Target->rt_MSAADepth->pZRT);
 		r_dsgraph_render_landscape(0, false);
 	}
