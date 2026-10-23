@@ -41,6 +41,10 @@ ENGINE_API CLoadScreenRenderer load_screen_renderer;
 
 
 ENGINE_API BOOL g_bRendering = FALSE;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Frames left in a profiler capture started by prof_capture
+ENGINE_API int g_prof_capture_frames = 0;
+#endif
 
 BOOL g_bLoaded = FALSE;
 ref_light precache_light = 0;
@@ -202,6 +206,7 @@ void mt_Thread(void* ptr)
 				// Do at least once
 				do
 				{
+					PROF_EVENT("LuaGC step");
 					Device.LuaGCCount++;
 					if (Device.LuaGC() == 1) // 1 informs that GC cycle is complete
 					{
@@ -398,6 +403,24 @@ void CRenderDevice::on_idle()
 
 	PROF_FRAME("X-RAY Primary thread");
 	PROF_EVENT();
+
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	if (g_prof_capture_frames > 0 && --g_prof_capture_frames == 0)
+	{
+		PROF_STOP_CAPTURE();
+		string_path fn;
+		FS.update_path(fn, "$logs$", "optick.opt");
+		FILETIME before;
+		GetSystemTimeAsFileTime(&before);
+		PROF_SAVE_CAPTURE(fn);
+		// Optick reports success even when it cannot open the file, so the file itself is checked
+		WIN32_FILE_ATTRIBUTE_DATA fa;
+		if (GetFileAttributesExA(fn, GetFileExInfoStandard, &fa) && CompareFileTime(&fa.ftLastWriteTime, &before) >= 0 && (fa.nFileSizeLow || fa.nFileSizeHigh))
+			Msg("~ profiler capture saved to %s", fn);
+		else
+			Msg("! profiler capture could not be saved to %s", fn);
+	}
+#endif
 
 #ifdef DEDICATED_SERVER
     u32 FrameStartTime = TimerGlobal.GetElapsed_ms();

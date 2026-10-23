@@ -973,6 +973,9 @@ void CLevel::MakeReconnect()
 	}
 }
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+extern std::atomic<u32> g_prof_stalker_updates;
+#endif
 void CLevel::OnFrame()
 {
 	PROF_EVENT("CLevel::OnFrame()");
@@ -1054,6 +1057,9 @@ void CLevel::OnFrame()
 	}
 	// Inherited update
 	inherited::OnFrame();
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	PROF_TAG("stalker UpdateCL", g_prof_stalker_updates.exchange(0));
+#endif
 	// Draw client/server stats
 	if (!g_dedicated_server && psDeviceFlags.test(rsStatistic))
 	{
@@ -1143,8 +1149,14 @@ void CLevel::OnFrame()
 	                                             game->GetEnvironmentGameTimeFactor());
 	if (!g_dedicated_server)
 		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
-	m_ph_commander->update();
-	m_ph_commander_scripts->update();
+	{
+		PROF_EVENT("ph_commander");
+		m_ph_commander->update();
+	}
+	{
+		PROF_EVENT("ph_commander_scripts");
+		m_ph_commander_scripts->update();
+	}
 	Device.Statistic->TEST0.Begin();
 	BulletManager().CommitRenderSet();
 	Device.Statistic->TEST0.End();
@@ -1197,6 +1209,7 @@ void CLevel::script_gc()
 // demonized: bind LuaGC call to be available in device.cpp
 bool CLevel::Load(u32 dwNum)
 {
+    PROF_EVENT("CLevel::Load");
     inherited::Load(dwNum);
     Msg("Device.LuaGC bind");
     Device.LuaGC = fastdelegate::FastDelegate0<int>(&CLevel::LuaGC);

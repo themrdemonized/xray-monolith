@@ -134,7 +134,10 @@ void CHUDManager::OnFrame()
 		return;
 
 	if (pUIGame)
+	{
+		PROF_EVENT("UIGame::OnFrame");
 		pUIGame->OnFrame();
+	}
 
 	PP.CameraPick();
 	g_player_hud->OnFrame();
