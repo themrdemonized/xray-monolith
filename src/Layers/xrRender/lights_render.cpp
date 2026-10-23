@@ -239,7 +239,7 @@ void CRender::render_lights(light_Package& LP)
 			//		if (was_spot_shadowed)		->	accum spot shadowed
 			if (!L_spot_s.empty())
 			{
-				PROF_EVENT("ACCUM_SPOT");
+				PROF_EVENT("ACCUM_SPOT", PROF_CAT(Rendering));
 #if defined(USE_DX10) || defined(USE_DX11)
 				PIX_EVENT(SPOT_LIGHTS_ACCUM_SH);
 #endif
@@ -329,7 +329,7 @@ void CRender::render_lights(light_Package& LP)
 
 	// restore world projection if necessary
     {
-        PROF_EVENT("hud_light_restore");
+        PROF_EVENT("hud_light_restore", PROF_CAT(Rendering));
         hud_light_restore(saved_pos, LP.v_shadowed);
         hud_light_restore(saved_pos, LP.v_point);
         hud_light_restore(saved_pos, LP.v_spot);

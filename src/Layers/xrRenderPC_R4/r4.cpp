@@ -600,7 +600,7 @@ void CRender::reset_end()
 
 void CRender::OnFrame()
 {
-	PROF_EVENT("CRender::OnFrame()");
+	PROF_EVENT("CRender::OnFrame()", PROF_CAT(Rendering));
 	
 	Models->DeleteQueue();
 

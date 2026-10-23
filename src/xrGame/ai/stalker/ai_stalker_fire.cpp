@@ -835,7 +835,7 @@ void CAI_Stalker::update_can_kill_info()
 	if (!inventory().ActiveItem())
 		return;
 
-	PROF_EVENT("update_can_kill_info");
+	PROF_EVENT("update_can_kill_info", PROF_CAT(AI));
 
 	m_pick_frame_id = Device.dwFrame;
 	m_can_kill_member = false;

@@ -210,7 +210,7 @@ void CEntityAlive::reload(LPCSTR section)
 
 void CEntityAlive::shedule_Update(u32 dt)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	inherited::shedule_Update(dt);
 
 	//condition update with the game time pass

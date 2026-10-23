@@ -29,12 +29,12 @@
 void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr user_data, const Fvector& Position,
                                   float power)
 {
-	PROF_EVENT("CBaseMonster::feel_sound_new");
+	PROF_EVENT("CBaseMonster::feel_sound_new", PROF_CAT(AI));
 	if (!g_Alive()) return;
 
 	// ignore my sounds
 	if (this == who) return;
-	PROF_EVENT("CBaseMonster::feel_sound_new");
+	PROF_EVENT("CBaseMonster::feel_sound_new", PROF_CAT(AI));
 
 	if (user_data)
 		user_data->accept(sound_user_data_visitor());
@@ -67,7 +67,7 @@ void CBaseMonster::feel_sound_new(CObject* who, int eType, CSound_UserDataPtr us
 
 	// execute callback
 	{
-		PROF_EVENT("Sound: monster hearing callback");
+		PROF_EVENT("Sound: monster hearing callback", PROF_CAT(AI));
 		sound_callback(who, eType, Position, power);
 	}
 
@@ -118,7 +118,7 @@ void CBaseMonster::HitEntity(const CEntity* pEntity, float fDamage, float impuls
 
 		if (pEntityNC == Actor() && draw_hit_marks)
 		{
-			START_PROFILE("BaseMonster/Animation/HitEntity")
+			START_PROFILE("BaseMonster/Animation/HitEntity", PROF_CAT(UI))
 				;
 
 				StaticDrawableWrapper* s = CurrentGameUI()->AddCustomStatic("monster_claws", false);

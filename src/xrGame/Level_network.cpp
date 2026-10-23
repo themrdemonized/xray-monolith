@@ -30,7 +30,7 @@ extern bool g_b_ClearGameCaptions;
 
 void CLevel::remove_objects()
 {
-	PROF_EVENT("remove_objects");
+	PROF_EVENT("remove_objects", PROF_CAT(Scene));
 	if (!IsGameTypeSingle()) Msg("CLevel::remove_objects - Start");
 	BOOL b_stored = psDeviceFlags.test(rsDisableObjectsAsCrows);
 
@@ -323,7 +323,7 @@ void CLevel::Send(NET_Packet& P, u32 dwFlags, u32 dwTimeout)
 
 void CLevel::net_Update()
 {
-	PROF_EVENT("net_Update");
+	PROF_EVENT("net_Update", PROF_CAT(Network));
 	if (game_configured)
 	{
 		// If we have enought bandwidth - replicate client data on to server

@@ -1229,7 +1229,7 @@ int actInterpType = 0;
 
 void CActor::make_Interpolation()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	m_dwILastUpdateTime = Level().timeServer();
 
 	if (g_Alive() && m_bInInterpolation)

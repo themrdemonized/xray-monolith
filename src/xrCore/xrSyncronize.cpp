@@ -98,7 +98,7 @@ xrSRWLock::xrSRWLock()
 
 void xrSRWLock::AcquireExclusive()
 {
-	PROF_EVENT("xrSRWLock::AcquireExclusive");
+	PROF_EVENT("xrSRWLock::AcquireExclusive", PROF_CAT(Wait));
     AcquireSRWLockExclusive(&smutex);
 }
 

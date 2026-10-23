@@ -82,12 +82,12 @@ public:
 	}
 	IC void r_dsgraph_render_static(u32 _priority, bool _clear = true)
 	{
-		PROF_EVENT("r_dsgraph_render_static");
+		PROF_EVENT("r_dsgraph_render_static", PROF_CAT(Rendering));
 		r_dsgraph_render_graph(RGraph.mapStaticPasses, _priority, _clear);
 	};
 	IC void	r_dsgraph_render_dynamic(u32 _priority, bool _clear = true)
 	{
-		PROF_EVENT("r_dsgraph_render_dynamic");
+		PROF_EVENT("r_dsgraph_render_dynamic", PROF_CAT(Rendering));
 		r_dsgraph_render_graph(RGraph.mapDynamicPasses, _priority, _clear, false);
 	};
 

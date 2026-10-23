@@ -80,7 +80,7 @@ void CRender::render_sun_cascades()
 
 void CRender::render_sun_cascade(u32 cascade_ind)
 {
-	PROF_EVENT("Render Cascade");
+	PROF_EVENT("Render Cascade", PROF_CAT(Rendering));
 	light* fuckingsun = (light*)Lights.sun_adapted._get();
 	sun::cascade& cascade = m_sun_cascades[cascade_ind];
 
@@ -90,7 +90,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 	Fmatrix& cull_xform = cascade.cull_xform;
 
 	{
-		PROF_EVENT("Render Cascade: Prepass");
+		PROF_EVENT("Render Cascade: Prepass", PROF_CAT(Rendering));
 
 		// calculate view-frustum bounds in world space
 		Fmatrix ex_project, ex_full, ex_full_inverse;
@@ -285,7 +285,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
 	// Begin SMAP-render
     {
-        PROF_EVENT("Render Cascade: SMAP traverse");
+        PROF_EVENT("Render Cascade: SMAP traverse", PROF_CAT(Rendering));
         phase = PHASE_SMAP;
         cascade.GMCascade.traverse(pOutdoorSector, cascade.cull_frustum, cascade.cull_COP, cascade.cull_xform);
         cascade.GMCascade.r_dsgraph_capture(false, true);
@@ -293,7 +293,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
 
     // Finalize & Cleanup
     {
-        PROF_EVENT("Render Cascade: SMAP Finalize");
+        PROF_EVENT("Render Cascade: SMAP Finalize", PROF_CAT(Rendering));
 
         fuckingsun->X.D.combine = cull_xform;
 
@@ -337,7 +337,7 @@ void CRender::render_sun_cascade(u32 cascade_ind)
     }	
 
 	// Accumulate
-	PROF_EVENT("Render Cascade: Accumulate");
+	PROF_EVENT("Render Cascade: Accumulate", PROF_CAT(Rendering));
 	Target->phase_accumulator();
 
 #if defined(USE_DX10) || defined(USE_DX11)

@@ -63,7 +63,7 @@ void CSoundRender_Source::decompress(u32 line, OggVorbis_File* ovf)
 
 bool CSoundRender_Source::LoadWave(LPCSTR pName)
 {
-	PROF_EVENT("Sound: Load ogg");
+	PROF_EVENT("Sound: Load ogg", PROF_CAT(Streaming));
 	pname = pName;
 
 	// Load file into memory and parse WAV-format

@@ -483,7 +483,7 @@ void CDetailManager::UpdateVisibleM()
 
 void CDetailManager::Render()
 {
-	PROF_EVENT("Render details");
+	PROF_EVENT("Render details", PROF_CAT(Rendering));
 
 #ifndef _EDITOR
 	if (0 == dtFS) return;
@@ -518,7 +518,7 @@ void CDetailManager::Render()
 
 void __stdcall CDetailManager::MT_CALC()
 {
-	PROF_EVENT("MT_CALC details");
+	PROF_EVENT("MT_CALC details", PROF_CAT(Visibility));
 
 #ifndef _EDITOR
 	if (0 == RImplementation.Details) return; // possibly deleted
@@ -533,7 +533,7 @@ void __stdcall CDetailManager::MT_CALC()
 
 	if (frame_calc != current_frame && (frame_rendered + 1) == current_frame)
 	{
-		PROF_EVENT("details_cache_update");
+		PROF_EVENT("details_cache_update", PROF_CAT(Visibility));
 		Fvector EYE = RDEVICE.vCameraPosition_saved;
 
 		int s_x = iFloor(EYE.x / dm_slot_size + .5f);
@@ -550,7 +550,7 @@ void __stdcall CDetailManager::MT_CALC()
 
 void CDetailManager::details_clear()
 {
-    PROF_EVENT("details_clear");
+    PROF_EVENT("details_clear", PROF_CAT(Rendering));
 
 	// Disable fade, next render will be scene
 	fade_distance = 99999;

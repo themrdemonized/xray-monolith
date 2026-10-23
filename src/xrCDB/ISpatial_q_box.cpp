@@ -64,7 +64,7 @@ public:
 
 void ISpatial_DB::q_box(xr_vector<ISpatialShared>& R, u32 _o, u32 _mask, const Fvector& _center, const Fvector& _size)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Scene));
 	xrSRWLockGuard guard(&db_lock, true);
 	if (!m_root)
 		return;

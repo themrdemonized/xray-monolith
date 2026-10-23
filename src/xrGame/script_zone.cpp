@@ -49,7 +49,7 @@ void CScriptZone::net_Destroy()
 
 void CScriptZone::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CScriptZone::shedule_Update");
+	PROF_EVENT("CScriptZone::shedule_Update", PROF_CAT(Script));
 	inherited::shedule_Update(dt);
 
 	const Fsphere& s = CFORM()->getSphere();

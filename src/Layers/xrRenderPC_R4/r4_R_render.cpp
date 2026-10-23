@@ -378,7 +378,7 @@ void CRender::render_forward()
 		// Item and camera attachment UI draws before the sorted HUD so nearer glass and the post chain cover it
 		if (g_hud)
 		{
-			PROF_EVENT("render_hud");
+			PROF_EVENT("render_hud", PROF_CAT(Rendering));
 			if (g_hud->RenderActiveItemUIQuery())
 				GMBase.r_dsgraph_render_hud_ui();
 			if (g_hud->RenderCamAttachedUIQuery())

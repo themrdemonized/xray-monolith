@@ -130,7 +130,7 @@ void CSkeletonX::_Render(ref_geom& hGeom, u32 vCount, u32 iOffset, u32 pCount)
 			R_constant* array_prev = RImplementation.phase == RImplementation.PHASE_NORMAL ? RCache.get_c(s_bones_array_prev_const) : array;
 
 			{
-				PROF_EVENT("SEND_MATRICES");
+				PROF_EVENT("SEND_MATRICES", PROF_CAT(Rendering));
 				u32 count = RMS_bonecount;
 				for (u32 mid = 0; mid < count; mid++)
 				{

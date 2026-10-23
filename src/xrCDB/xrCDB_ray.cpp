@@ -225,7 +225,7 @@ void _stab(const AABBNoLeafNode* node)
 
 void COLLIDER::ray_query(const MODEL* m_def, const Fvector& r_start, const Fvector& r_dir, float r_range)
 {
-	PROF_EVENT("COLLIDER::ray_query");
+	PROF_EVENT("COLLIDER::ray_query", PROF_CAT(Physics));
 	if (!m_def)
 		return;
 

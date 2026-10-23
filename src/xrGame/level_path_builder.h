@@ -112,7 +112,7 @@ public:
 
 	void __stdcall process()
 	{
-		PROF_EVENT("CLevelPathBuilder::process");
+		PROF_EVENT("CLevelPathBuilder::process", PROF_CAT(Navigation));
 		// demonized: disable the check since we already do it in register_to_process
 		/*if (Device.dwTimeGlobal < m_next_retry_time)
 			return;*/

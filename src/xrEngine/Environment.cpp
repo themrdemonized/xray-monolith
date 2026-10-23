@@ -589,7 +589,7 @@ void CEnvironment::set_lerp(float current_weight)
 
 void CEnvironment::OnFrame()
 {
-	PROF_EVENT("CEnvironment::OnFrame");
+	PROF_EVENT("CEnvironment::OnFrame", PROF_CAT(Scene));
 #ifdef _EDITOR
     SetGameTime(fGameTime + Device.fTimeDelta*fTimeFactor, fTimeFactor);
     if (fsimilar(ed_to_time, DAY_LENGTH) && fsimilar(ed_from_time, 0.f))
