@@ -149,9 +149,27 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 	Device.Statistic->RenderDUMP_Wait.Begin();
 	//while	((hr=used[ID].Q->GetData(&fragments,sizeof(fragments),D3DGETDATA_FLUSH))==S_FALSE) {
 	VERIFY2(ID<used.size(), make_string("_Pos = %d, size() = %d ", ID, used.size()));
-	while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// One zone around the spin, only when the first result is not ready
+	if ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
 	{
 		PROF_EVENT("GPU::GetData", PROF_CAT(Wait));
+		do
+		{
+			if (!SwitchToThread())
+				Sleep(ps_r2_wait_sleep);
+
+			if (T.GetElapsed_ms() > 500)
+			{
+				fragments = (occq_result)-1;
+				break;
+			}
+		}
+		while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE);
+	}
+#else
+	while ((hr = GetData(used[ID].Q, &fragments, sizeof(fragments))) == S_FALSE)
+	{
 		if (!SwitchToThread())
 			Sleep(ps_r2_wait_sleep);
 
@@ -161,6 +179,7 @@ R_occlusion::occq_result R_occlusion::occq_get(u32& ID)
 			break;
 		}
 	}
+#endif
 	Device.Statistic->RenderDUMP_Wait.End();
 	if (hr == D3DERR_DEVICELOST) fragments = 0xffffffff;
 

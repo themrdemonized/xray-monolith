@@ -96,7 +96,14 @@ bool IGame_Level::Load(u32 dwNum)
 	xrCriticalSectionGuard guard(&lloadcs);
 	if (bReady) return TRUE;
 	extern xr_task_group prefetch_task;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	{
+		PROF_EVENT("IGame_Level::Load prefetch wait", PROF_CAT(Wait));
+		prefetch_task.wait();
+	}
+#else
 	prefetch_task.wait();
+#endif
 	//SECUROM_MARKER_PERFORMANCE_ON(10)
 
 	// Initialize level data
