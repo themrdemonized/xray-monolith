@@ -190,7 +190,7 @@ void IGame_Level::OnRender()
 
 void IGame_Level::OnFrame()
 {
-	PROF_EVENT("IGame_Level::OnFrame()");
+	PROF_EVENT("IGame_Level::OnFrame()", PROF_CAT(GameLogic));
 	// Log ("- level:on-frame: ",u32(Device.dwFrame));
 	// if (_abs(Device.fTimeDelta)<EPS_S) return;
 
@@ -264,7 +264,7 @@ void IGame_Level::SetViewEntity(CObject* O)
 
 void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 {
-	PROF_EVENT("IGame_Level::SoundEvent_Register");
+	PROF_EVENT("IGame_Level::SoundEvent_Register", PROF_CAT(Audio));
 	if (!g_bLoaded) return;
 	if (!S) return;
 	if (S->g_object && S->g_object->getDestroy())
@@ -292,7 +292,7 @@ void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 	// Query objects
 	Fvector bb_size = {range, range, range};
 	{
-		PROF_EVENT("Sound: hearing spatial query");
+		PROF_EVENT("Sound: hearing spatial query", PROF_CAT(Audio));
 		g_SpatialSpace->q_box(snd_ER, 0, STYPE_REACTTOSOUND, snd_position, bb_size);
 	}
 
@@ -332,7 +332,7 @@ void IGame_Level::SoundEvent_Register(ref_sound_data_ptr S, float range)
 
 void IGame_Level::SoundEvent_Dispatch()
 {
-	PROF_EVENT("IGame_Level::SoundEvent_Dispatch");
+	PROF_EVENT("IGame_Level::SoundEvent_Dispatch", PROF_CAT(Audio));
 	while (!snd_Events.empty())
 	{
 		_esound_delegate& D = snd_Events.back();

@@ -401,6 +401,6 @@ struct render_scope
 	~render_scope() { ::Render->ScopeEnd(scope); }
 };
 
-#define RENDER_SCOPE(Name) PROF_EVENT(#Name); render_scope renderScope##Name(L#Name)
+#define RENDER_SCOPE(Name) PROF_EVENT(#Name, PROF_CAT(Rendering)); render_scope renderScope##Name(L#Name)
 
 #endif

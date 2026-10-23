@@ -472,7 +472,7 @@ void dxRenderDeviceRender::End()
 	Memory.dbg_check();
 
 	{
-		PROF_EVENT("Async Screenshot");
+		PROF_EVENT("Async Screenshot", PROF_CAT(IO));
 		DoAsyncScreenshot();
 	}
 

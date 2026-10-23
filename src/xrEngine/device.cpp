@@ -67,7 +67,7 @@ ENGINE_API float refresh_rate = 0;
 
 BOOL CRenderDevice::Begin()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Rendering));
 
 #ifndef DEDICATED_SERVER
 	switch (m_pRender->GetDeviceState())
@@ -106,7 +106,7 @@ void CRenderDevice::Clear()
 
 void CRenderDevice::End(void)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Rendering));
 
 #ifndef DEDICATED_SERVER
 
@@ -171,7 +171,7 @@ void mt_Thread(void* ptr)
 	{
 		PROF_EVENT();
 
-		START_PROFILE("Wait for device");
+		START_PROFILE("Wait for device", PROF_CAT(Wait));
 		// waiting for Device permission to execute
 		device.mt_csEnter.Enter();
 
@@ -187,26 +187,26 @@ void mt_Thread(void* ptr)
 		mt_Thread_marker = device.dwFrame;
 		STOP_PROFILE;
 
-		START_PROFILE("Process seqParallel");
+		START_PROFILE("Process seqParallel", PROF_CAT(GameLogic));
 		for (u32 pit = 0; pit < device.seqParallel.size(); pit++)
 			device.seqParallel[pit]();
 		device.seqParallel.clear_not_free();
 		STOP_PROFILE;
 
-		START_PROFILE("Process seqFrameMT");
+		START_PROFILE("Process seqFrameMT", PROF_CAT(GameLogic));
 		device.seqFrameMT.Process(rp_Frame);
 		STOP_PROFILE;
 
 		// demonized: While Renderer prepares frame and GPU renders it, use time opportunity to repeatedly call Lua GC with small step value
 		// Reduces stutters since less work will be done in main GC step or no work at all
 		{
-			PROF_EVENT("seqLuaGC");
+			PROF_EVENT("seqLuaGC", PROF_CAT(Script));
 			if (psLua_ParallelGC && Device.LuaGC)
 			{
 				// Do at least once
 				do
 				{
-					PROF_EVENT("LuaGC step");
+					PROF_EVENT("LuaGC step", PROF_CAT(Script));
 					Device.LuaGCCount++;
 					if (Device.LuaGC() == 1) // 1 informs that GC cycle is complete
 					{
@@ -218,7 +218,7 @@ void mt_Thread(void* ptr)
 			}
 		}
 
-		START_PROFILE("Synchronization");
+		START_PROFILE("Synchronization", PROF_CAT(Wait));
 		// now we give control to device - signals that we are ended our work
 		device.mt_csEnter.Leave();
 		// waits for device signal to continue - to start again
@@ -370,7 +370,7 @@ void mt_FreezeThread(void *ptr) {
 
 	while (true)
 	{
-		PROF_EVENT();
+		PROF_EVENT(PROF_CAT(Debug));
 
 		if (g_loading_events.size())
 			freezetime = 25000.0f;
@@ -379,7 +379,7 @@ void mt_FreezeThread(void *ptr) {
 
 		repeatcheck = 500.f;
 
-		START_PROFILE("Check timer");
+		START_PROFILE("Check timer", PROF_CAT(Debug));
 		if (FreezeTimer.GetElapsed_sec()*1000.f > freezetime)
 		{
 			FlushLog();
@@ -426,7 +426,7 @@ void CRenderDevice::on_idle()
     u32 FrameStartTime = TimerGlobal.GetElapsed_ms();
 #endif
 
-	START_PROFILE("Set stat gathering");
+	START_PROFILE("Set stat gathering", PROF_CAT(Debug));
 	if (psDeviceFlags.test(rsStatistic))
 		g_bEnableStatGather = TRUE;
 	else g_bEnableStatGather = FALSE;
@@ -436,7 +436,7 @@ void CRenderDevice::on_idle()
 	{
 		// Loads lower the perf hub's gate, so the hub skips the frames they span
 		frame_record_on = false;
-		PROF_EVENT("Pop loading event");
+		PROF_EVENT("Pop loading event", PROF_CAT(Scene));
 		if (g_loading_events.front()())
 			g_loading_events.pop_front();
 		pApp->LoadDraw();
@@ -445,7 +445,7 @@ void CRenderDevice::on_idle()
 
 	if (!Device.dwPrecacheFrame && !g_SASH.IsBenchmarkRunning() && g_bLoaded)
 	{
-		PROF_EVENT("Start xrSASH Benchmark");
+		PROF_EVENT("Start xrSASH Benchmark", PROF_CAT(Debug));
 		g_SASH.StartBenchmark();
 	}
 
@@ -463,7 +463,7 @@ void CRenderDevice::on_idle()
 	{
 		// Precache frames are part of the load for the perf hub too
 		frame_record_on = false;
-		PROF_EVENT("Precache frame");
+		PROF_EVENT("Precache frame", PROF_CAT(Rendering));
 		float factor = float(dwPrecacheFrame) / float(dwPrecacheTotal);
 		float angle = PI_MUL_2 * factor;
 		vCameraDirection.set(_sin(angle), 0, _cos(angle));
@@ -475,7 +475,7 @@ void CRenderDevice::on_idle()
 	}
 
 	// Matrices
-	START_PROFILE("Matrices");
+	START_PROFILE("Matrices", PROF_CAT(Camera));
 	mFullTransform.mul(mProject, mView);
 	mFullTransformHud.mul(mProjectHud, mView);
 	m_pRender->SetCacheXform(mView, mProject);
@@ -520,7 +520,7 @@ void CRenderDevice::on_idle()
 	// *** Resume threads
 	// Capture end point - thread must run only ONE cycle
 	// Release start point - allow thread to run
-	START_PROFILE("Resume threads");
+	START_PROFILE("Resume threads", PROF_CAT(Wait));
 	mt_csLeave.Enter();
 	mt_csEnter.Leave();
 	STOP_PROFILE;
@@ -530,7 +530,7 @@ void CRenderDevice::on_idle()
 #ifdef ECO_RENDER // ECO_RENDER START
 	if (Device.Paused() || IsMainMenuActive() || ps_framelimiter)
 	{
-		PROF_EVENT("Eco Render");
+		PROF_EVENT("Eco Render", PROF_CAT(Wait));
 
 		if (refresh_rate == 0)
 			refresh_rate = GetMonitorRefresh();
@@ -560,13 +560,13 @@ void CRenderDevice::on_idle()
 
 	if (b_is_Active && Begin())
 	{
-		START_PROFILE("Process seqRender");
+		START_PROFILE("Process seqRender", PROF_CAT(Rendering));
 		seqRender.Process(rp_Render);
 		STOP_PROFILE;
 
 		if (psDeviceFlags.test(rsCameraPos) || psDeviceFlags.test(rsStatistic) || Statistic->errors.size())
 		{
-			PROF_EVENT("Draw statistics");
+			PROF_EVENT("Draw statistics", PROF_CAT(Debug));
 			RENDER_SCOPE(stats);
 			Statistic->Show();
 		}
@@ -584,7 +584,7 @@ void CRenderDevice::on_idle()
 	// Release end point - allow thread to wait for startup point
 	if (record)
 		frame_record.join[0] = CPU::QPC();
-	START_PROFILE("Suspend threads");
+	START_PROFILE("Suspend threads", PROF_CAT(Wait));
 	mt_csEnter.Enter();
 	mt_csLeave.Leave();
 	STOP_PROFILE;
@@ -592,7 +592,7 @@ void CRenderDevice::on_idle()
 	// Ensure, that second thread gets chance to execute anyway
 	if (dwFrame != mt_Thread_marker)
 	{
-		PROF_EVENT("Execute second thread");
+		PROF_EVENT("Execute second thread", PROF_CAT(GameLogic));
 		for (u32 pit = 0; pit < Device.seqParallel.size(); pit++)
 			Device.seqParallel[pit]();
 		Device.seqParallel.clear_not_free();
@@ -631,7 +631,7 @@ void CRenderDevice::message_loop_editor()
 
 void CRenderDevice::Screenshot()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(IO));
 	Render->Screenshot();
 }
 
@@ -671,7 +671,7 @@ void mt_DiscordThread(void*)
 		//Discord
 		if (use_discord && psDeviceFlags2.test(rsDiscord))
 		{
-			START_PROFILE("Discord");
+			START_PROFILE("Discord", PROF_CAT(Network));
 			discord_core->RunCallbacks();
 			updateDiscordPresence();
 			STOP_PROFILE;
@@ -727,7 +727,7 @@ u32 app_inactive_time_start = 0;
 
 void CRenderDevice::FrameMove()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	if (InterlockedExchange(&g_monitor_list_dirty, 0))
 		refresh_vid_monitor_list();
@@ -737,7 +737,7 @@ void CRenderDevice::FrameMove()
 	dwTimeContinual = TimerMM.GetElapsed_ms() - app_inactive_time;
 	if (psDeviceFlags.test(rsConstantFPS))
 	{
-		PROF_EVENT("Constant FPS");
+		PROF_EVENT("Constant FPS", PROF_CAT(Debug));
 
 		// 20ms = 50fps
 		//fTimeDelta = 0.020f;
@@ -752,7 +752,7 @@ void CRenderDevice::FrameMove()
 	}
 	else
 	{
-		PROF_EVENT("Timer FPS");
+		PROF_EVENT("Timer FPS", PROF_CAT(Debug));
 
 		// Timer
 		float fPreviousFrameTime = Timer.GetElapsed_sec();
@@ -779,7 +779,7 @@ void CRenderDevice::FrameMove()
 
 	// TODO: HACK to test loading screen.
 	//if(!g_bLoaded)
-	START_PROFILE("Process seqFrame");
+	START_PROFILE("Process seqFrame", PROF_CAT(GameLogic));
 	Device.seqFrame.Process(rp_Frame);
 	STOP_PROFILE;
 	g_bLoaded = TRUE;
@@ -793,7 +793,7 @@ ENGINE_API BOOL bShowPauseString = TRUE;
 
 void CRenderDevice::Pause(BOOL bOn, BOOL bTimer, BOOL bSound, LPCSTR reason)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	static int snd_emitters_ = -1;
 
@@ -935,7 +935,7 @@ void CRenderDevice::OnWM_Activate(WPARAM wParam, LPARAM lParam)
 
 void CRenderDevice::AddSeqFrame(pureFrame* f, bool mt)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	if (mt)
 		seqFrameMT.Add(f, REG_PRIORITY_HIGH);
@@ -945,7 +945,7 @@ void CRenderDevice::AddSeqFrame(pureFrame* f, bool mt)
 
 void CRenderDevice::RemoveSeqFrame(pureFrame* f)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	seqFrameMT.Remove(f);
 	seqFrame.Remove(f);
@@ -958,7 +958,7 @@ CLoadScreenRenderer::CLoadScreenRenderer()
 
 void CLoadScreenRenderer::start(bool b_user_input)
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
 
 	Device.seqRender.Add(this, 0);
 	b_registered = true;
@@ -967,7 +967,7 @@ void CLoadScreenRenderer::start(bool b_user_input)
 
 void CLoadScreenRenderer::stop()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
 
 	if (!b_registered)
 		return;
@@ -979,7 +979,7 @@ void CLoadScreenRenderer::stop()
 
 void CLoadScreenRenderer::OnRender()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(UI));
 	RENDER_SCOPE(load_screen);
 
 	pApp->load_draw_internal();

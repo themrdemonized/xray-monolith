@@ -662,7 +662,7 @@ fastdelegate::FastDelegate0<>(&HOM,&CHOM::MT_RENDER));
 }*/
 void CRender::OnFrame()
 {
-	PROF_EVENT("CRender::OnFrame()");
+	PROF_EVENT("CRender::OnFrame()", PROF_CAT(Rendering));
 	Models->DeleteQueue();
 	if (ps_r2_ls_flags.test(R2FLAG_EXP_MT_CALC))
 	{
