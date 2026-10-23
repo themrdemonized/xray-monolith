@@ -370,6 +370,110 @@ namespace
 
 	const u32 clock_burst = 64;
 
+	// GPU row category by scope name prefix, the first match wins and unlisted scopes keep none
+	const struct
+	{
+		LPCSTR prefix;
+		Optick::Category::Type cat;
+	} prof_categories[] = {
+		{"CRender_Render", PROF_CAT(Rendering)},
+		{"ACCUM_VOLUMETRIC", PROF_CAT(GPU_VFX)},
+		{"SPOT_LIGHTS_ACCUM_VOLUMETRIC", PROF_CAT(GPU_VFX)},
+		{"accum_direct_volumetric", PROF_CAT(GPU_VFX)},
+		{"phase_combine_volumetric", PROF_CAT(GPU_VFX)},
+		{"phase_ssfx_volumetric", PROF_CAT(GPU_VFX)},
+		{"DEFER_RAIN", PROF_CAT(GPU_VFX)},
+		{"render_rain", PROF_CAT(GPU_VFX)},
+		{"phase_ssfx_rain", PROF_CAT(GPU_VFX)},
+		{"render_fluid", PROF_CAT(GPU_VFX)},
+		{"simulate_fluid", PROF_CAT(GPU_VFX)},
+		{"Fluid_", PROF_CAT(GPU_VFX)},
+		{"Advect", PROF_CAT(GPU_VFX)},
+		{"Apply", PROF_CAT(GPU_VFX)},
+		{"AttachFluidData", PROF_CAT(GPU_VFX)},
+		{"Compute", PROF_CAT(GPU_VFX)},
+		{"DetachAndSwapFluidData", PROF_CAT(GPU_VFX)},
+		{"ProcessObstacles", PROF_CAT(GPU_VFX)},
+		{"ProjectVelocity", PROF_CAT(GPU_VFX)},
+		{"RenderDynamicObstacle", PROF_CAT(GPU_VFX)},
+		{"RenderObstacle", PROF_CAT(GPU_VFX)},
+		{"render_distort", PROF_CAT(GPU_VFX)},
+		{"render_flares", PROF_CAT(GPU_VFX)},
+		{"SE_SUN_SMAP", PROF_CAT(GPU_Shadows)},
+		{"SE_SUN_NEAR_MINMAX", PROF_CAT(GPU_Shadows)},
+		{"SE_SUN_FAR_MINMAX", PROF_CAT(GPU_Shadows)},
+		{"SHADOWED_LIGHTS_RENDER", PROF_CAT(GPU_Shadows)},
+		{"GENERATE_SHMAPS", PROF_CAT(GPU_Shadows)},
+		{"RENDER_SHADOWS", PROF_CAT(GPU_Shadows)},
+		{"render_water", PROF_CAT(GPU_Water)},
+		{"phase_ssfx_water", PROF_CAT(GPU_Water)},
+		{"DEFER_SUN", PROF_CAT(GPU_Lighting)},
+		{"SE_SUN", PROF_CAT(GPU_Lighting)},
+		{"render_sun", PROF_CAT(GPU_Lighting)},
+		{"Perform_lighting", PROF_CAT(GPU_Lighting)},
+		{"accum_", PROF_CAT(GPU_Lighting)},
+		{"ACCUM_", PROF_CAT(GPU_Lighting)},
+		{"POINT_LIGHTS", PROF_CAT(GPU_Lighting)},
+		{"SPOT_LIGHTS", PROF_CAT(GPU_Lighting)},
+		{"SHADOWED_LIGHTS", PROF_CAT(GPU_Lighting)},
+		{"UNSHADOWED_LIGHTS", PROF_CAT(GPU_Lighting)},
+		{"DEFER_LIGHT_NO_OCCQ", PROF_CAT(GPU_Lighting)},
+		{"DEFER_LIGHT_OCCQ", PROF_CAT(GPU_Lighting)},
+		{"DEFER_TEST_LIGHT_VIS", PROF_CAT(GPU_Lighting)},
+		{"DEFER_SELF_ILLUM", PROF_CAT(GPU_Lighting)},
+		{"PHASE_VIS_UPDATE", PROF_CAT(GPU_Lighting)},
+		{"PHASE_CALC_POOLS", PROF_CAT(GPU_Lighting)},
+		{"phase_ssfx_sss", PROF_CAT(GPU_Lighting)},
+		{"phase_ssao", PROF_CAT(GPU_Lighting)},
+		{"phase_hdao", PROF_CAT(GPU_Lighting)},
+		{"phase_ssfx_il", PROF_CAT(GPU_Lighting)},
+		{"ui_", PROF_CAT(GPU_UI)},
+		{"console", PROF_CAT(GPU_UI)},
+		{"stats", PROF_CAT(GPU_UI)},
+		{"imgui", PROF_CAT(GPU_UI)},
+		{"render_menu", PROF_CAT(GPU_UI)},
+		{"debug_text", PROF_CAT(GPU_UI)},
+		{"load_screen", PROF_CAT(GPU_UI)},
+		{"script_debug", PROF_CAT(GPU_UI)},
+		{"DEFER_Z_FILL", PROF_CAT(GPU_Scene)},
+		{"DEFER_TERRAIN_PREPASS", PROF_CAT(GPU_Scene)},
+		{"render_main", PROF_CAT(GPU_Scene)},
+		{"DEFER_PART", PROF_CAT(GPU_Scene)},
+		{"DEFER_WALLMARKS", PROF_CAT(GPU_Scene)},
+		{"DEFER_SKY_MVECTORS", PROF_CAT(GPU_Scene)},
+		{"DEFER_FLUSH_OCCLUSION", PROF_CAT(GPU_Scene)},
+		{"MARK_MSAA_EDGES", PROF_CAT(GPU_Scene)},
+		{"phase_scene_prepare", PROF_CAT(GPU_Scene)},
+		{"r_dsgraph_render", PROF_CAT(GPU_Scene)},
+		{"Forward_rendering", PROF_CAT(GPU_Scene)},
+		{"render_last", PROF_CAT(GPU_Scene)},
+		{"DEFER_LIGHT_COMBINE", PROF_CAT(GPU_PostFX)},
+		{"DEFER_EMISSIVE_BLOOM", PROF_CAT(GPU_PostFX)},
+		{"DEFER_SCOPE_ZB_COPY", PROF_CAT(GPU_PostFX)},
+		{"combine_", PROF_CAT(GPU_PostFX)},
+		{"phase_", PROF_CAT(GPU_PostFX)},
+		{"SMAA", PROF_CAT(GPU_PostFX)},
+		{"resolve_msaa", PROF_CAT(GPU_PostFX)},
+		{"copy_", PROF_CAT(GPU_PostFX)},
+		{"render_to_target", PROF_CAT(GPU_PostFX)},
+		{"reshade", PROF_CAT(GPU_PostFX)},
+		{"screenshot", PROF_CAT(GPU_PostFX)},
+		{"async_screenshot", PROF_CAT(GPU_PostFX)},
+	};
+
+	const Optick::EventDescription* prof_describe(const char* name, Optick::Category::Type cat)
+	{
+		return Optick::EventDescription::CreateShared(name, nullptr, 0, Optick::Category::GetColor(cat), Optick::Category::GetMask(cat));
+	}
+
+	Optick::Category::Type prof_category(const xr_string& name)
+	{
+		for (const auto& c : prof_categories)
+			if (!strncmp(name.c_str(), c.prefix, xr_strlen(c.prefix)))
+				return c.cat;
+		return PROF_CAT(None);
+	}
+
 	std::atomic<int> prof_now = prof_off;
 	xrCriticalSection prof_lock;
 	bool prof_forced = false;
@@ -436,7 +540,7 @@ namespace
 			if (prof_names.size() <= id)
 				prof_names.resize(id + 1, nullptr);
 			if (!prof_names[id])
-				prof_names[id] = Optick::EventDescription::CreateShared(names[id].c_str());
+				prof_names[id] = prof_describe(names[id].c_str(), prof_category(names[id]));
 			prof_scopes.push_back({prof_names[id], ev[i].parent, stamps[2 * i], stamps[2 * i + 1]});
 		}
 		const bool presented = s.started && s.ended && s.presented;
@@ -489,8 +593,8 @@ namespace
 		auto to_cpu = [&](UINT64 g) { return int64_t(c0 + a + k * (double(g) - g0) + 0.5); };
 
 		static Optick::EventStorage* storage = Optick::RegisterStorage("GPU", uint64_t(-1), Optick::ThreadMask::GPU);
-		static const Optick::EventDescription* present_desc = Optick::EventDescription::CreateShared("frame present");
-		static const Optick::EventDescription* between_desc = Optick::EventDescription::CreateShared("between frames");
+		static const Optick::EventDescription* present_desc = prof_describe("frame present", PROF_CAT(Wait));
+		static const Optick::EventDescription* between_desc = prof_describe("between frames", PROF_CAT(Wait));
 		xr_vector<s64> begin, end, last;
 		for (const prof_frame& f : prof_frames)
 		{
