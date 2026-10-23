@@ -282,8 +282,9 @@ void CRender::render_lights(light_Package& LP)
 	{
 #if defined(USE_DX10) || defined(USE_DX11)
 		PIX_EVENT(UNSHADOWED_LIGHTS);
-#endif
+#else
         PROF_EVENT("UNSHADOWED_LIGHTS");
+#endif
 		{
 #if defined(USE_DX10) || defined(USE_DX11)
 			PIX_EVENT(POINT_LIGHTS_ACCUM_UNSH);

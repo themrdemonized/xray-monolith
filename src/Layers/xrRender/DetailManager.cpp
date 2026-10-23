@@ -533,6 +533,7 @@ void __stdcall CDetailManager::MT_CALC()
 
 	if (frame_calc != current_frame && (frame_rendered + 1) == current_frame)
 	{
+		PROF_EVENT("details_cache_update");
 		Fvector EYE = RDEVICE.vCameraPosition_saved;
 
 		int s_x = iFloor(EYE.x / dm_slot_size + .5f);

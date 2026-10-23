@@ -48,8 +48,6 @@ IC bool p_sort_constants(const ref_constant& C1, const ref_constant& C2) noexcep
 
 R_constant* R_constant_table::get(LPCSTR S)
 {
-	PROF_EVENT("R_constant_table::get LPCSTR");
-
     // demonized: make shared_str and use override, str most likely already exists, faster
     shared_str s(S);
     return get(s);
@@ -57,7 +55,6 @@ R_constant* R_constant_table::get(LPCSTR S)
 
 R_constant* R_constant_table::get(shared_str& S)
 {
-	PROF_EVENT("R_constant_table::get shared_str");
 	// demonized: use lower_bound for shared_str search, sorted by pointer
     static auto sortFunc = [](const ref_constant& C, const shared_str& S) noexcept { return C->name < S; };
     auto it = std::lower_bound(table.begin(), table.end(), S, sortFunc);

@@ -1008,11 +1008,18 @@ void CAI_Stalker::destroy_anim_mov_ctrl()
 	movement().update(0);
 }
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Stalker client updates since the level last tagged the count
+std::atomic<u32> g_prof_stalker_updates = 0;
+#endif
+
 void CAI_Stalker::UpdateCL()
 {
-	PROF_EVENT("CAI_Stalker::UpdateCL");
-	START_PROFILE("stalker")
-		START_PROFILE("stalker/client_update")
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	++g_prof_stalker_updates;
+#endif
+	{
+		{
 			VERIFY2(PPhysicsShell()||getEnabled(), *cName());
 
 			if (g_Alive())
@@ -1045,17 +1052,17 @@ void CAI_Stalker::UpdateCL()
 				}
 			}
 
-			START_PROFILE("stalker/client_update/inherited")
+			{
 				inherited::UpdateCL();
-			STOP_PROFILE
+			}
 
-			START_PROFILE("stalker/client_update/physics")
+			{
 				m_pPhysics_support->in_UpdateCL();
-			STOP_PROFILE
+			}
 
 			if (g_Alive())
 			{
-				START_PROFILE("stalker/client_update/sight_manager")
+				{
 					VERIFY(!m_pPhysicsShell);
 					try
 					{
@@ -1068,22 +1075,22 @@ void CAI_Stalker::UpdateCL()
 					}
 
 					Exec_Look(client_update_fdelta());
-				STOP_PROFILE
+				}
 
-				START_PROFILE("stalker/client_update/step_manager")
+				{
 					CStepManager::update(false);
-				STOP_PROFILE
+				}
 
-				START_PROFILE("stalker/client_update/weapon_shot_effector")
+				{
 					if (weapon_shot_effector().IsActive())
 						weapon_shot_effector().Update();
-				STOP_PROFILE
+				}
 			}
 #ifdef DEBUG
 	debug_text	();
 #endif
-		STOP_PROFILE
-	STOP_PROFILE
+		}
+	}
 }
 
 void CAI_Stalker::PHHit(SHit& H)

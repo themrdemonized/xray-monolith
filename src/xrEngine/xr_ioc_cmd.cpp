@@ -84,6 +84,38 @@ public:
 	}
 };
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Records the given number of frames in the profiler and saves them to logs\optick.opt
+extern ENGINE_API int g_prof_capture_frames;
+class CCC_ProfCapture : public IConsole_Command
+{
+public:
+	CCC_ProfCapture(LPCSTR N) : IConsole_Command(N) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		int frames = atoi(args);
+		if (frames <= 0)
+		{
+			InvalidSyntax();
+			return;
+		}
+		if (g_prof_capture_frames > 0)
+		{
+			Msg("! profiler capture already running, %d frames left", g_prof_capture_frames);
+			return;
+		}
+		PROF_START_CAPTURE();
+		g_prof_capture_frames = frames;
+	}
+
+	virtual void Info(TInfo& I)
+	{
+		xr_strcpy(I, sizeof(I), "frame count, records that many frames to logs\\optick.opt");
+	}
+};
+#endif
+
 //-----------------------------------------------------------------------
 #ifdef DEBUG_MEMORY_MANAGER
 class CCC_MemStat : public IConsole_Command
@@ -1095,6 +1127,9 @@ void CCC_Register()
 	// General
 	CMD1(CCC_Help, "help");
 	CMD1(CCC_Quit, "quit");
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	CMD1(CCC_ProfCapture, "prof_capture");
+#endif
 	CMD1(CCC_Start, "start");
 	CMD1(CCC_Disconnect, "disconnect");
 	CMD1(CCC_SaveCFG, "cfg_save");

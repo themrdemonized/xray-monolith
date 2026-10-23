@@ -195,6 +195,7 @@ void XRay::Engine::GameThread()
         // Do at least once
         do
         {
+            PROF_EVENT("LuaGC step");
             Device.LuaGCCount++;
             if (Device.LuaGC() == 1) // 1 informs that GC cycle is complete
             {

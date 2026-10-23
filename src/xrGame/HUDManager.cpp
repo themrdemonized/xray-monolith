@@ -140,7 +140,10 @@ void CHUDManager::OnFrame()
     if (!mt_ui)
     {
         if (pUIGame)
+        {
+            PROF_EVENT("UIGame::OnFrame");
             pUIGame->OnFrame();
+        }
     }
 
 	PP.CameraPick();

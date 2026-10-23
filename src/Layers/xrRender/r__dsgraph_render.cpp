@@ -94,12 +94,16 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 			continue;
 
 		// 1. Sort by generated sort key to replicate previous fixed map behaviour
-		if (queue.size() < 4096)
-            std::sort(queue.begin(), queue.end());
-		else
-            xr_parallel_sort(queue.begin(), queue.end());
+		{
+			PROF_EVENT("r_dsgraph_sort");
+			if (queue.size() < 4096)
+				std::sort(queue.begin(), queue.end());
+			else
+				xr_parallel_sort(queue.begin(), queue.end());
+		}
 
 		// 2. Render
+		PROF_EVENT("r_dsgraph_submit");
 		vs_type pVS = nullptr;
 
 #if defined(USE_DX10) || defined(USE_DX11)

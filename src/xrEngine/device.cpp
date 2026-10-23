@@ -48,6 +48,10 @@ ENGINE_API CLoadScreenRenderer load_screen_renderer;
 ENGINE_API CRenderDevice* DevicePtr = nullptr;
 
 ENGINE_API xr_atomic_bool g_bRendering = false;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Frames left in a profiler capture started by prof_capture
+ENGINE_API int g_prof_capture_frames = 0;
+#endif
 extern ENGINE_API float psHUD_FOV;
 extern ENGINE_API float psCamAttachedFOV;
 
@@ -352,6 +356,24 @@ void CRenderDevice::on_idle()
 
 	PROF_FRAME("Main Thread");
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	if (g_prof_capture_frames > 0 && --g_prof_capture_frames == 0)
+	{
+		PROF_STOP_CAPTURE();
+		string_path fn;
+		FS.update_path(fn, "$logs$", "optick.opt");
+		FILETIME before;
+		GetSystemTimeAsFileTime(&before);
+		PROF_SAVE_CAPTURE(fn);
+		// Optick reports success even when it cannot open the file, so the file itself is checked
+		WIN32_FILE_ATTRIBUTE_DATA fa;
+		if (GetFileAttributesExA(fn, GetFileExInfoStandard, &fa) && CompareFileTime(&fa.ftLastWriteTime, &before) >= 0 && (fa.nFileSizeLow || fa.nFileSizeHigh))
+			Msg("~ profiler capture saved to %s", fn);
+		else
+			Msg("! profiler capture could not be saved to %s", fn);
+	}
+#endif
+
 #ifdef DEDICATED_SERVER
     u32 FrameStartTime = TimerGlobal.GetElapsed_ms();
 #endif
@@ -562,7 +584,10 @@ void CRenderDevice::on_idle()
 
 	if (record)
 		frame_record.join[0] = CPU::QPC();
-	secondary_tasks.wait();
+	{
+		PROF_EVENT("secondary_tasks.wait");
+		secondary_tasks.wait();
+	}
 	if (record)
 	{
 		frame_record.join[1] = CPU::QPC();

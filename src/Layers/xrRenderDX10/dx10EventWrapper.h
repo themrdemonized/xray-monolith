@@ -12,8 +12,9 @@ enum dx10_marker_color : u32
     dx10_marker_post = 0xffb06fd6,
 };
 
-#define PIX_EVENT(Name) dxPixEventWrapper pixEvent##Name(L#Name)
-#define PIX_EVENT_C(Name, Color) dxPixEventWrapper pixEvent##Name(L#Name, Color)
+// Each scope is also a profiler zone of the same name
+#define PIX_EVENT(Name) PROF_EVENT(#Name); dxPixEventWrapper pixEvent##Name(L#Name)
+#define PIX_EVENT_C(Name, Color) PROF_EVENT(#Name); dxPixEventWrapper pixEvent##Name(L#Name, Color)
 
 void dx10_annotate_frame();
 
