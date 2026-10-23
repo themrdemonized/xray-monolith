@@ -249,6 +249,7 @@ extern ENGINE_API BOOL bShowPauseString;
 //отрисовка элементов интерфейса
 void CHUDManager::RenderUI()
 {
+	PROF_EVENT("CHUDManager::RenderUI", PROF_CAT(UI));
 	if (!psHUD_Flags.is(HUD_DRAW_RT2))
 		return;
 

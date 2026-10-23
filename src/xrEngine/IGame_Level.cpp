@@ -85,6 +85,7 @@ static void __stdcall build_callback(Fvector* V, int Vcnt, CDB::TRI* T, int Tcnt
 
 bool IGame_Level::Load(u32 dwNum)
 {
+	PROF_EVENT("IGame_Level::Load", PROF_CAT(Scene));
 	//SECUROM_MARKER_PERFORMANCE_ON(10)
 
 	// Initialize level data
