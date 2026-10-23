@@ -169,6 +169,7 @@ void CALifeStorageManager::load(void* buffer, const u32& buffer_size, LPCSTR fil
 
 bool CALifeStorageManager::load(LPCSTR save_name_no_check)
 {
+	PROF_EVENT("CALifeStorageManager::load", PROF_CAT(IO));
 	LPCSTR game_saves_path = FS.get_path("$game_saves$")->m_Path;
 
 	string_path save_name;
