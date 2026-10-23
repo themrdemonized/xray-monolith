@@ -311,6 +311,23 @@ void CRender::Render()
 		HRESULT hr = S_FALSE;
 		const u64 wait_begin = Device.frame_record_on ? CPU::QPC() : 0;
 		//while	((hr=q_sync_point[q_sync_count]->GetData	(&result,sizeof(result),D3DGETDATA_FLUSH))==S_FALSE) {
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// One zone around the spin, only when the GPU has not reached the sync point
+		if ((hr = GetData(q_sync_point[q_sync_count], &result, sizeof(result))) == S_FALSE)
+		{
+			PROF_EVENT("GPU::SyncPoint", PROF_CAT(Wait));
+			do
+			{
+				if (!SwitchToThread()) Sleep(ps_r2_wait_sleep);
+				if (T.GetElapsed_ms() > 500)
+				{
+					result = FALSE;
+					break;
+				}
+			}
+			while ((hr = GetData(q_sync_point[q_sync_count], &result, sizeof(result))) == S_FALSE);
+		}
+#else
 		while ((hr = GetData(q_sync_point[q_sync_count], &result, sizeof(result))) == S_FALSE)
 		{
 			if (!SwitchToThread()) Sleep(ps_r2_wait_sleep);
@@ -320,6 +337,7 @@ void CRender::Render()
 				break;
 			}
 		}
+#endif
 		if (wait_begin)
 			Device.frame_record.wait += CPU::QPC() - wait_begin;
 	}
