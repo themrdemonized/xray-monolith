@@ -14,6 +14,10 @@ Fmatrix ui_3d_icon_project_saved;
 Fmatrix ui_3d_icon_full_transform_saved;
 }
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+extern CRender::_stats g_prof_stats_tagged;
+#endif
+
 IC bool pred_sp_sort(ISpatial* _1, ISpatial* _2)
 {
 	float d1 = _1->spatial.sphere.P.distance_to_sqr(Device.vCameraPosition);
@@ -690,6 +694,15 @@ void CRender::Render()
 	if (Details)
 		Details->details_clear();
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// Counts since the last tag, the stats screen zeroes these counters
+	// The shadowed light count is set fresh each frame
+	PROF_TAG("lights visible", stats.l_visible - g_prof_stats_tagged.l_visible);
+	PROF_TAG("lights shadowed", stats.l_shadowed);
+	PROF_TAG("occlusion queries", stats.o_queries - g_prof_stats_tagged.o_queries);
+	PROF_TAG("occlusion culled", stats.o_culled - g_prof_stats_tagged.o_culled);
+	g_prof_stats_tagged = stats;
+#endif
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 

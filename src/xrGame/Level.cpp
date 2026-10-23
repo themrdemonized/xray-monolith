@@ -1003,6 +1003,7 @@ void CLevel::SkipMusicTrack()
 
 #if XRCORE_PROFILER == PROFILER_OPTICK
 extern std::atomic<u32> g_prof_stalker_updates;
+extern std::atomic<u32> g_prof_binder_updates;
 #endif
 void CLevel::OnFrame()
 {
@@ -1087,6 +1088,7 @@ void CLevel::OnFrame()
 	inherited::OnFrame();
 #if XRCORE_PROFILER == PROFILER_OPTICK
 	PROF_TAG("stalker UpdateCL", g_prof_stalker_updates.exchange(0));
+	PROF_TAG("binder updates", g_prof_binder_updates.exchange(0));
 #endif
 	// Draw client/server stats
 	if (!g_dedicated_server && psDeviceFlags.test(rsStatistic))
@@ -1236,6 +1238,7 @@ extern BOOL psLua_ParallelGC_debug;
 
 void CLevel::script_gc()
 {
+	PROF_TAG("lua KB", lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0));
 	if (!(psLua_ParallelGC && Device.LuaGC))
 	{	
 		PROF_EVENT(PROF_CAT(Script));	

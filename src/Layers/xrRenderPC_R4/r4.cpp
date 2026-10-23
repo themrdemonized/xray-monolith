@@ -956,6 +956,11 @@ CRender::~CRender()
 
 #include "../../xrEngine/GameFont.h"
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Render counters at the last profiler tag, copied again after the stats screen zeroes them
+CRender::_stats g_prof_stats_tagged = {};
+#endif
+
 void CRender::Statistics(CGameFont* _F)
 {
 	CGameFont& F = *_F;
@@ -982,6 +987,9 @@ void CRender::Statistics(CGameFont* _F)
 	stats.ic_culled = 0;
 #ifdef DEBUG
 	HOM.stats	();
+#endif
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	g_prof_stats_tagged = stats;
 #endif
 }
 
