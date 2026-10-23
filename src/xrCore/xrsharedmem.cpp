@@ -12,30 +12,8 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 	cs.Enter();
 	smem_value* result = 0;
 
-	// search a place to insert
-	u8 storage[4 * sizeof(u32)];
-	smem_value* value = (smem_value*)storage;
-	value->dwReference.store(0, std::memory_order_relaxed);
-	value->dwCRC = dwCRC;
-	value->dwLength = dwLength;
-	cdb::iterator it = std::lower_bound(container.begin(), container.end(), value, smem_search);
-	cdb::iterator saved_place = it;
-	if (container.end() != it)
-	{
-		// supposedly found
-		for (;; it++)
-		{
-			if (it == container.end()) break;
-			if ((*it)->dwCRC != dwCRC) break;
-			if ((*it)->dwLength != dwLength) break;
-			if (0 == memcmp((*it)->value, ptr, dwLength))
-			{
-				// really found
-				result = *it;
-				break;
-			}
-		}
-	}
+	cdb::iterator it = container.find(key{dwCRC, dwLength, static_cast<const u8*>(ptr)});
+	if (it != container.end()) result = it->second;
 
 	// if not found - create new entry
 	if (0 == result)
@@ -49,7 +27,7 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 		result->dwCRC = dwCRC;
 		result->dwLength = dwLength;
 		CopyMemory(result->value, ptr, dwLength);
-		container.insert(saved_place, result);
+		container.emplace(key{dwCRC, dwLength, result->value}, result);
 	}
 
 	// exit
@@ -60,22 +38,29 @@ smem_value* smem_container::dock(u32 dwCRC, u32 dwLength, void* ptr)
 void smem_container::clean()
 {
 	cs.Enter();
-	cdb::iterator it = container.begin();
-	cdb::iterator end = container.end();
-	for (; it != end; it++) if (0 == (*it)->dwReference.load(std::memory_order_relaxed)) xr_free(*it);
-	container.erase(remove(container.begin(), container.end(), (smem_value*)0), container.end());
-	if (container.empty()) container.clear();
+	for (cdb::iterator it = container.begin(); it != container.end();)
+	{
+		smem_value* value = it->second;
+		if (value->dwReference.load(std::memory_order_relaxed) == 0)
+		{
+			it = container.erase(it);
+			xr_free(value);
+		}
+		else
+			++it;
+	}
 	cs.Leave();
 }
 
 void smem_container::dump()
 {
 	cs.Enter();
-	cdb::iterator it = container.begin();
-	cdb::iterator end = container.end();
 	FILE* F = fopen("x:\\$smem_dump$.txt", "w");
-	for (; it != end; it++)
-		fprintf(F, "%4u : crc[%6x], %u bytes\n", (*it)->dwReference.load(std::memory_order_relaxed), (*it)->dwCRC, (*it)->dwLength);
+	for (const auto& item : container)
+	{
+		const smem_value* value = item.second;
+		fprintf(F, "%4u : crc[%6x], %u bytes\n", value->dwReference.load(std::memory_order_relaxed), value->dwCRC, value->dwLength);
+	}
 	fclose(F);
 	cs.Leave();
 }
@@ -83,17 +68,15 @@ void smem_container::dump()
 u32 smem_container::stat_economy()
 {
 	cs.Enter();
-	cdb::iterator it = container.begin();
-	cdb::iterator end = container.end();
 	s64 counter = 0;
 	counter -= sizeof(*this);
-	counter -= sizeof(cdb::allocator_type);
 	const int node_size = 20;
-	for (; it != end; it++)
+	for (const auto& item : container)
 	{
+		const smem_value* value = item.second;
 		counter -= 16;
 		counter -= node_size;
-		counter += s64((s64((*it)->dwReference.load(std::memory_order_relaxed)) - 1) * s64((*it)->dwLength));
+		counter += s64((s64(value->dwReference.load(std::memory_order_relaxed)) - 1) * s64(value->dwLength));
 	}
 	cs.Leave();
 
