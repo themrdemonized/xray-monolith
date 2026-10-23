@@ -64,6 +64,8 @@
 
 #include "../xrSound/sound.h"
 
+#include "../xrCore/profiler.h"
+
 extern ENGINE_API CInifile* pGameIni;
 
 #pragma comment( lib, "xrCore.lib" )
