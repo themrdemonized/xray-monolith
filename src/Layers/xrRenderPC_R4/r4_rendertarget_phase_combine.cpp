@@ -12,6 +12,7 @@ void CRenderTarget::DoAsyncScreenshot()
 	//	TODO: fox that later
 	if (RImplementation.m_bMakeAsyncSS)
 	{
+		PIX_EVENT(async_screenshot);
 		HRESULT hr;
 
 		//	HACK: unbind RT. CopyResourcess needs src and targetr to be unbound.
@@ -71,6 +72,7 @@ void CRenderTarget::phase_combine()
 		if (ps_r_ssao > 0)
 		{
 			PROF_EVENT("PHASE_AMBIENT_OCCLUSION");
+			PIX_EVENT(phase_hdao);
 			phase_hdao();
 		}
 	}
@@ -78,11 +80,15 @@ void CRenderTarget::phase_combine()
 	{
 		if (RImplementation.o.ssao_opt_data)
 		{
+			PIX_EVENT(phase_downsamp);
 			phase_downsamp();
 			//phase_ssao();
 		}
 		else if (RImplementation.o.ssao_blur_on)
+		{
+			PIX_EVENT(phase_ssao);
 			phase_ssao();
+		}
 	}
 
 	// Save previus and current matrices
@@ -109,9 +115,12 @@ void CRenderTarget::phase_combine()
 		if (!Device.m_SecondViewport.IsSVPFrame())
 		{
 			// Clear RT
-			FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-			HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
-			HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
+			{
+				PIX_EVENT(combine_clear_ssfx);
+				FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+				HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
+				HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
+			}
 
 			if (RImplementation.o.ssfx_ao && ps_ssfx_ao.y > 0)
 			{
@@ -121,6 +130,7 @@ void CRenderTarget::phase_combine()
 
 			if (RImplementation.o.ssfx_il && ps_ssfx_il.y > 0)
 			{
+				PIX_EVENT(phase_ssfx_il);
 				ssfx_PrevPos_Requiered = true;
 				phase_ssfx_il(); // [SSFX] - New IL Phase
 			}
@@ -131,12 +141,14 @@ void CRenderTarget::phase_combine()
 	// low/hi RTs
 	if (!RImplementation.o.dx10_msaa)
 	{
+		PIX_EVENT(combine_clear_generic);
 		HW.pContext->ClearRenderTargetView(rt_Generic_0->pRT, ColorRGBA);
 		HW.pContext->ClearRenderTargetView(rt_Generic_1->pRT, ColorRGBA);
 		u_setrt(rt_Generic_0, rt_Generic_1, rt_Heat, HW.pBaseZB);	//--DSR-- HeatVision
 	}
 	else
 	{
+		PIX_EVENT(combine_clear_generic_msaa);
 		HW.pContext->ClearRenderTargetView(rt_Generic_0_r->pRT, ColorRGBA);
 		HW.pContext->ClearRenderTargetView(rt_Generic_1_r->pRT, ColorRGBA);
 		u_setrt(rt_Generic_0_r, rt_Generic_1_r, rt_Heat, RImplementation.Target->rt_MSAADepth->pZRT);	//--DSR-- HeatVision
@@ -150,6 +162,7 @@ void CRenderTarget::phase_combine()
 	// draw skybox
 	if (1)
 	{
+		PIX_EVENT(combine_sky);
 		//	Moved to shader!
 		//RCache.set_ColorWriteEnable					();
 		//	Moved to shader!
@@ -329,10 +342,13 @@ void CRenderTarget::phase_combine()
 	}
 
 	//Copy previous rt
-	if (!RImplementation.o.dx10_msaa)
-		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());
-	else
-		HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
+	{
+		PIX_EVENT(copy_generic_temp);
+		if (!RImplementation.o.dx10_msaa)
+			HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());
+		else
+			HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0_r->pTexture->surface_get());
+	}
 
 	if (RImplementation.o.ssfx_ssr && !Device.m_SecondViewport.IsSVPFrame())
 	{
@@ -344,6 +360,7 @@ void CRenderTarget::phase_combine()
 	// [SSFX] - Water SSR rendering
 	if (RImplementation.o.ssfx_water && !Device.m_SecondViewport.IsSVPFrame())
 	{
+		PIX_EVENT(phase_ssfx_water);
 		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		HW.pContext->ClearRenderTargetView(rt_ssfx_temp->pRT, ColorRGBA);
 		HW.pContext->ClearRenderTargetView(rt_ssfx_temp2->pRT, ColorRGBA);
@@ -370,10 +387,16 @@ void CRenderTarget::phase_combine()
 		HW.pContext->CopyResource(rt_ssfx_water->pTexture->surface_get(), rt_ssfx_temp->pTexture->surface_get());
 
 		// Water SSR Blur
-		phase_ssfx_water_blur();
+		{
+			PIX_EVENT(phase_ssfx_water_blur);
+			phase_ssfx_water_blur();
+		}
 
 		// Water waves
-		phase_ssfx_water_waves();
+		{
+			PIX_EVENT(phase_ssfx_water_waves);
+			phase_ssfx_water_waves();
+		}
 	}
 
 	if (!RImplementation.o.dx10_msaa)
@@ -382,13 +405,19 @@ void CRenderTarget::phase_combine()
 		u_setrt(rt_Generic_0_r, 0, 0, rt_MSAADepth->pZRT);
 
 	// Final water rendering ( All the code above can be omitted if the Water module isn't installed )
-	RCache.set_xform_world(Fidentity);
-	RImplementation.GMBase.r_dsgraph_render_water();
-	
+	{
+		PIX_EVENT(render_water);
+		RCache.set_xform_world(Fidentity);
+		RImplementation.GMBase.r_dsgraph_render_water();
+	}
+
 	{
 		if (RImplementation.o.ssfx_rain)
 		{
-			phase_ssfx_rain(); // Render a small color buffer to do the refraction and more
+			{
+				PIX_EVENT(phase_ssfx_rain);
+				phase_ssfx_rain(); // Render a small color buffer to do the refraction and more
+			}
 
 			if (!RImplementation.o.dx10_msaa)
 				u_setrt(rt_Generic_0, 0, rt_ssfx_motion_vectors, HW.pBaseZB);
@@ -396,6 +425,7 @@ void CRenderTarget::phase_combine()
 				u_setrt(rt_Generic_0_r, 0, rt_ssfx_motion_vectors, rt_MSAADepth->pZRT);
 		}
 
+		PIX_EVENT(render_last);
 		g_pGamePersistent->Environment().RenderLast(); // rain/thunder-bolts
 	}
 
@@ -405,6 +435,7 @@ void CRenderTarget::phase_combine()
 	// Update rt_Generic_temp ( rain and water )
 	if (RImplementation.o.ssfx_glass)
 	{
+		PIX_EVENT(copy_glass);
 		if (!RImplementation.o.dx10_msaa)
 			HW.pContext->CopyResource(rt_Generic_temp->pTexture->surface_get(), rt_Generic_0->pTexture->surface_get());
 		else
@@ -449,6 +480,7 @@ void CRenderTarget::phase_combine()
 
 	if (RImplementation.o.dx10_msaa)
 	{
+		PIX_EVENT(resolve_msaa);
 		// we need to resolve rt_Generic_1 into rt_Generic_1_r
 		HW.pContext->ResolveSubresource(rt_Generic_1->pTexture->surface_get(), 0,
 		                                rt_Generic_1_r->pTexture->surface_get(), 0, DXGI_FORMAT_R8G8B8A8_UNORM);
@@ -532,6 +564,7 @@ void CRenderTarget::phase_combine()
 
 	if (scope_3D_fake_enabled)
 	{
+		PIX_EVENT(phase_3DSSReticle);
 		phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
 	}
 
@@ -552,6 +585,7 @@ void CRenderTarget::phase_combine()
 	}
 	else
 	{
+		PIX_EVENT(phase_pp_bloom);
 		phase_pp_bloom();
 	}
 	
@@ -568,41 +602,56 @@ void CRenderTarget::phase_combine()
 
 	if(ps_r2_mask_control.x > 0)
 	{
-		phase_gasmask_dudv();
+		{
+			PIX_EVENT(phase_gasmask_dudv);
+			phase_gasmask_dudv();
+		}
 		if (ps_r2_drops_control.x > 0)
 		{
+			PIX_EVENT(phase_gasmask_drops);
 			phase_gasmask_drops();
 		}
 	}
-	
+
 	if(ps_r2_nightvision > 0)
+	{
+		PIX_EVENT(phase_nightvision);
 		phase_nightvision();
+	}
 
 	//--DSR-- HeatVision_start
 	if (ps_r2_heatvision > 0)
+	{
+		PIX_EVENT(phase_heatvision);
 		phase_heatvision();
+	}
 	//--DSR-- HeatVision_end
 
 	if (scope_fake_enabled)
 	{
+		PIX_EVENT(phase_fakescope);
 		phase_fakescope(); //crookr
 	}
 
     //SMAA
 	if (ps_smaa_quality)
 	{
-        //PIX_EVENT(SMAA);
+        PIX_EVENT(SMAA);
         phase_smaa();
         RCache.set_Stencil(FALSE);
-    }    
-	
+    }
+
 	if (RImplementation.o.ssfx_taa && ps_ssfx_taa.x > 0)
 	{
+		PIX_EVENT(phase_ssfx_taa);
 		phase_ssfx_taa();
 	}
 
 	if (ssfx_PrevPos_Requiered)
+	{
+		PIX_EVENT(copy_prev_pos);
 		HW.pContext->CopyResource(rt_ssfx_prevPos->pTexture->surface_get(), rt_Position->pTexture->surface_get());
+	}
 
 	// PP enabled ?
 	//	Render to RT texture to be able to copy RT even in windowed mode.
@@ -738,10 +787,12 @@ void CRenderTarget::phase_combine()
 	if (RImplementation.o.dx11_hdr10) {
 		// TODO: we should be able to avoid a copy if both are enabled
 		if (ps_r4_hdr10_bloom_on) {
+			PIX_EVENT(phase_hdr10_bloom);
 			HW.pContext->CopyResource(rt_Generic_0->pTexture->surface_get(), rt_Color->pTexture->surface_get());
 			phase_hdr10_bloom(); // samples from rt_Generic_0, writes to rt_Color
 		}
 		if (ps_r4_hdr10_flare_on) {
+			PIX_EVENT(phase_hdr10_lens_flare);
 			HW.pContext->CopyResource(rt_Generic_0->pTexture->surface_get(), rt_Color->pTexture->surface_get());
 			phase_hdr10_lens_flare(); // samples from rt_Generic_0, writes to rt_Color
 		}
@@ -750,7 +801,10 @@ void CRenderTarget::phase_combine()
 	//	if FP16-BLEND !not! supported - draw flares here, overwise they are already in the bloom target
 	/* if (!RImplementation.o.fp16_blend)*/
 	if (ps_r2_anomaly_flags.test(R2_AN_FLAG_FLARES) && ps_r2_heatvision == 0) //--DSR-- HeatVision
+	{
+		PIX_EVENT(render_flares);
 		g_pGamePersistent->Environment().RenderFlares(); // lens-flares
+	}
 
 	//	PP-if required
 	if (PP_Complex)

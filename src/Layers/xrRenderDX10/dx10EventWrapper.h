@@ -21,6 +21,7 @@ class dxPixEventWrapper
 {
     ID3DUserDefinedAnnotation* annotation;
     bool perf_event;
+    u32 gpu_scope;
 
 public:
     dxPixEventWrapper(LPCWSTR wszName, u32 color = 0);
