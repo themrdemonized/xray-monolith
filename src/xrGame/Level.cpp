@@ -1427,7 +1427,10 @@ void CLevel::OnRender()
 		HUD().RenderUI();
 	}
 
-	ScriptDebugRender();
+	{
+		RENDER_SCOPE(script_debug);
+		ScriptDebugRender();
+	}
 
 	for (u32 I = 0; I < Level().Objects.o_count(); I++)
 	{
