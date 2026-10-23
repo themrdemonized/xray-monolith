@@ -208,7 +208,7 @@ void CRender::render_lights(light_Package& LP)
 			//		if (was_spot_shadowed)		->	accum spot shadowed
 			if (!L_spot_s.empty())
 			{
-				PROF_EVENT("ACCUM_SPOT");
+				PROF_EVENT("ACCUM_SPOT", PROF_CAT(Rendering));
 #if defined(USE_DX10) || defined(USE_DX11)
 				PIX_EVENT(SPOT_LIGHTS_ACCUM_SH);
 #endif

@@ -70,7 +70,7 @@ void CRenderTarget::phase_combine()
 	{
 		if (ps_r_ssao > 0)
 		{
-			PROF_EVENT("PHASE_AMBIENT_OCCLUSION");
+			PROF_EVENT("PHASE_AMBIENT_OCCLUSION", PROF_CAT(Rendering));
 			PIX_EVENT(phase_hdao);
 			phase_hdao();
 		}

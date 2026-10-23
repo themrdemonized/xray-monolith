@@ -1846,7 +1846,7 @@ void frame_presented()
 	HW.pContext->End(cur->bracket[2]);
 	cur->presented = true;
 	// Submit the stamp after Present now so the wait for the next frame follows it
-	PROF_EVENT("gpu_timeline present flush");
+	PROF_EVENT("gpu_timeline present flush", PROF_CAT(Debug));
 	HW.pContext->Flush();
 }
 

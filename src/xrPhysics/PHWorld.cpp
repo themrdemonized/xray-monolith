@@ -278,7 +278,7 @@ void CPHWorld::SetGravity(float g)
 
 void CPHWorld::OnFrame()
 {
-	PROF_EVENT("CPHWorld::OnFrame");
+	PROF_EVENT("CPHWorld::OnFrame", PROF_CAT(Physics));
 	// Msg									("------------- physics: %d / %d",u32(Device.dwFrame),u32(m_steps_num));
 	//просчитать полет пуль
 	/*
@@ -304,7 +304,7 @@ void CPHWorld::OnFrame()
 
 void CPHWorld::Step()
 {
-	PROF_EVENT("CPHWorld::Step");
+	PROF_EVENT("CPHWorld::Step", PROF_CAT(Physics));
 #ifdef DEBUG
 	debug_output().dbg_reused_queries_per_step()	=0			;
 	debug_output().dbg_new_queries_per_step()		=0			;
@@ -461,7 +461,7 @@ void CPHWorld::Step()
 
 void CPHWorld::StepTouch()
 {
-	PROF_EVENT("CPHWorld::StepTouch");
+	PROF_EVENT("CPHWorld::StepTouch", PROF_CAT(Physics));
 	PH_OBJECT_I i_object;
 	for (i_object = m_objects.begin(); m_objects.end() != i_object;)
 	{

@@ -130,7 +130,7 @@ void Vision::feel_vision_query(Fmatrix& mFull)
 
 void Vision::feel_vision_update(Fvector& P, float dt, float vis_threshold)
 {
-	PROF_EVENT("feel_vision_update");
+	PROF_EVENT("feel_vision_update", PROF_CAT(AI));
 	{
 		xrSRWLockGuard guard(&lock_query, false);
 		// B-A = objects, that become visible

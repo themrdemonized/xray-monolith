@@ -244,7 +244,7 @@ void xrLogger::InitLog()
 void xrLogger::InternalFlushLog()
 {
 	xrCriticalSectionGuard g(logFlushGuard);
-	PROF_EVENT("Log Flush")
+	PROF_EVENT("Log Flush", PROF_CAT(IO))
 	if (logFile != nullptr)
 	{
 		IWriter* mutableWritter = (IWriter*)logFile;
@@ -357,7 +357,7 @@ void xrLogger::InternalPrintRecord()
 
 	string256 TimeOfDay = {};
 
-	PROF_EVENT("Log: Apply Messages")
+	PROF_EVENT("Log: Apply Messages", PROF_CAT(IO))
 		int TimeOfDaySize = 0;
 	for (const xr_string& line : LogLines)
 	{
@@ -440,7 +440,7 @@ void xrLogger::LogThreadEntry()
 		
 		WaitForSingleObject(hLogThread, INFINITE);
 		{
-			PROF_EVENT("Log Frame");
+			PROF_EVENT("Log Frame", PROF_CAT(IO));
 			InternalPrintAllRecords();
 			PauseLogging();
 			FlushLogIfRequestedLambda();

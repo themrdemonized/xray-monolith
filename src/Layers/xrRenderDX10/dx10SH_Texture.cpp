@@ -30,7 +30,7 @@ extern xr_task_group textures_load_tasks;
 
 void resptrcode_texture::create(LPCSTR _name)
 {
-	PROF_EVENT("resptrcode_texture::create");
+	PROF_EVENT("resptrcode_texture::create", PROF_CAT(Streaming));
 	_set(DEV->_CreateTexture(_name));
 }
 
@@ -485,7 +485,7 @@ void CTexture::Preload()
 
 void CTexture::Load()
 {
-	PROF_EVENT("CTexture::Load");
+	PROF_EVENT("CTexture::Load", PROF_CAT(Streaming));
 
 	if (flags.bLoaded || flags.bLoading) return;
 	flags.bLoading = true;

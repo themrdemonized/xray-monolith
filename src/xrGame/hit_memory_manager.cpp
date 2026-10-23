@@ -96,7 +96,7 @@ void CHitMemoryManager::reload(LPCSTR section)
 
 void CHitMemoryManager::add(float amount, const Fvector& vLocalDir, const CObject* who, s16 element)
 {
-	PROF_EVENT("HitMemory::add");
+	PROF_EVENT("HitMemory::add", PROF_CAT(AI));
 #ifndef MASTER_GOLD
 	if (who && smart_cast<CActor const*>(who) && psAI_Flags.test(aiIgnoreActor))
 		return;
@@ -211,7 +211,7 @@ struct CRemoveOfflinePredicate
 
 void CHitMemoryManager::update()
 {
-	START_PROFILE("Memory Manager/hits::update")
+	START_PROFILE("Memory Manager/hits::update", PROF_CAT(AI))
 		clear_delayed_objects();
 
     if (m_hits)

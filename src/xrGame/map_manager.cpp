@@ -303,7 +303,7 @@ void CMapManager::GetMapLocations(u16 id, xr_vector<CMapLocation*>& res)
 
 void CMapManager::Update()
 {
-	PROF_EVENT("Map: Update");
+	PROF_EVENT("Map: Update", PROF_CAT(UI));
 	delete_data(m_deffered_destroy_queue); //from prev frame
 
 	Locations_it it = Locations().begin();
