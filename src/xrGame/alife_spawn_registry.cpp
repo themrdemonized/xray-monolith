@@ -119,6 +119,7 @@ void CALifeSpawnRegistry::load(IReader& file_stream, LPCSTR game_name)
 
 void CALifeSpawnRegistry::load(LPCSTR spawn_name)
 {
+	PROF_EVENT("CALifeSpawnRegistry::load", PROF_CAT(Scene));
 	Msg("* Loading spawn registry...");
 	m_spawn_name = spawn_name;
 	string_path file_name;

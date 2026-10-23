@@ -76,6 +76,7 @@ DWORD WINAPI ttapiThreadProc(LPVOID lpParameter)
 	process:
 
 		pParams->vlFlag = 1;
+		PROF_EVENT("ttapi worker job", PROF_CAT(Animation));
 
 		if (pParams->lpWorkerFunc)
 			pParams->lpWorkerFunc(pParams->lpvWorkerFuncParams);
