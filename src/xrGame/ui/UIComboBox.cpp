@@ -321,6 +321,7 @@ void CUIComboBox::OnRender()
 	{
 		if (m_list_frame.IsShown())
 		{
+			RENDER_SCOPE(ui_combo_list);
 			m_list_frame.Draw();
 			Device.seqRender.Remove(this);
 		}
