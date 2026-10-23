@@ -1,6 +1,7 @@
 #pragma once
 
-#define PIX_EVENT(Name) dxPixEventWrapper pixEvent##Name(L#Name)
+// Each scope is also a profiler zone of the same name
+#define PIX_EVENT(Name) PROF_EVENT(#Name); dxPixEventWrapper pixEvent##Name(L#Name)
 
 class dxPixEventWrapper
 {
