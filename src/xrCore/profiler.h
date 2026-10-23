@@ -13,6 +13,10 @@
 // Implement profiler macro interface
 #if XRCORE_PROFILER == PROFILER_OPTICK
 #	include "../3rd party/optick-git/src/optick.h"
+#	include <cstdio>
+#	include <mutex>
+#	include <string>
+#	include <unordered_map>
 
 namespace xrProfiler
 {
@@ -42,7 +46,23 @@ namespace xrProfiler
 			return;
 		r.named = true;
 		r.owned = true;
-		::Optick::RegisterThread(name);
+
+		// Repeated names get a number, a new thread with a dead thread's name and id would reuse its Optick entry
+		static std::mutex lock;
+		static std::unordered_map<std::string, unsigned> uses;
+		unsigned n;
+		{
+			std::lock_guard<std::mutex> guard(lock);
+			n = ++uses[name];
+		}
+		if (n == 1)
+		{
+			::Optick::RegisterThread(name);
+			return;
+		}
+		char numbered[256];
+		snprintf(numbered, sizeof(numbered), "%s %u", name, n);
+		::Optick::RegisterThread(numbered);
 	}
 
 	// Optick registers the frame thread itself
