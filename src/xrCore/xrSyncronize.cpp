@@ -110,13 +110,11 @@ void xrSRWLock::ReleaseExclusive()
 
 void xrSRWLock::AcquireShared()
 {
-	PROF_EVENT("xrSRWLock::AcquireShared");
     AcquireSRWLockShared(&smutex);
 }
 
 void xrSRWLock::ReleaseShared()
 {
-	PROF_EVENT("xrSRWLock::ReleaseShared");
     ReleaseSRWLockShared(&smutex);
 }
 

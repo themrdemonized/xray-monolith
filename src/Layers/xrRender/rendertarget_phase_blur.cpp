@@ -334,8 +334,6 @@ void CRenderTarget::phase_ssfx_ssr()
 
 void CRenderTarget::phase_ssfx_volumetric_blur()
 {
-    PROF_EVENT("phase_ssfx_volumetric_blur");
-
 	// Be careful and clear the buffer ( rt_Generic_2 contain unspeakable stuff if no volumetric is written )
 	if (!m_bHasActiveVolumetric)
 	{
