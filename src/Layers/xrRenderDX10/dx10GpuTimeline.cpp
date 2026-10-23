@@ -370,6 +370,106 @@ namespace
 
 	const u32 clock_burst = 64;
 
+	// GPU row category by scope name prefix, the first match wins and unlisted scopes keep none
+	const struct
+	{
+		LPCSTR prefix;
+		Optick::Category::Type cat;
+	} prof_categories[] = {
+		{"CRender_Render", Optick::Category::Rendering},
+		{"ACCUM_VOLUMETRIC", Optick::Category::GPU_VFX},
+		{"SPOT_LIGHTS_ACCUM_VOLUMETRIC", Optick::Category::GPU_VFX},
+		{"accum_direct_volumetric", Optick::Category::GPU_VFX},
+		{"phase_combine_volumetric", Optick::Category::GPU_VFX},
+		{"phase_ssfx_volumetric", Optick::Category::GPU_VFX},
+		{"DEFER_RAIN", Optick::Category::GPU_VFX},
+		{"render_rain", Optick::Category::GPU_VFX},
+		{"phase_ssfx_rain", Optick::Category::GPU_VFX},
+		{"render_fluid", Optick::Category::GPU_VFX},
+		{"simulate_fluid", Optick::Category::GPU_VFX},
+		{"Fluid_", Optick::Category::GPU_VFX},
+		{"Advect", Optick::Category::GPU_VFX},
+		{"Apply", Optick::Category::GPU_VFX},
+		{"AttachFluidData", Optick::Category::GPU_VFX},
+		{"Compute", Optick::Category::GPU_VFX},
+		{"DetachAndSwapFluidData", Optick::Category::GPU_VFX},
+		{"ProcessObstacles", Optick::Category::GPU_VFX},
+		{"ProjectVelocity", Optick::Category::GPU_VFX},
+		{"RenderDynamicObstacle", Optick::Category::GPU_VFX},
+		{"RenderObstacle", Optick::Category::GPU_VFX},
+		{"render_distort", Optick::Category::GPU_VFX},
+		{"render_flares", Optick::Category::GPU_VFX},
+		{"SE_SUN_SMAP", Optick::Category::GPU_Shadows},
+		{"SE_SUN_NEAR_MINMAX", Optick::Category::GPU_Shadows},
+		{"SE_SUN_FAR_MINMAX", Optick::Category::GPU_Shadows},
+		{"SHADOWED_LIGHTS_RENDER", Optick::Category::GPU_Shadows},
+		{"render_water", Optick::Category::GPU_Water},
+		{"phase_ssfx_water", Optick::Category::GPU_Water},
+		{"DEFER_SUN", Optick::Category::GPU_Lighting},
+		{"SE_SUN", Optick::Category::GPU_Lighting},
+		{"render_sun", Optick::Category::GPU_Lighting},
+		{"Perform_lighting", Optick::Category::GPU_Lighting},
+		{"accum_", Optick::Category::GPU_Lighting},
+		{"ACCUM_", Optick::Category::GPU_Lighting},
+		{"POINT_LIGHTS", Optick::Category::GPU_Lighting},
+		{"SPOT_LIGHTS", Optick::Category::GPU_Lighting},
+		{"SHADOWED_LIGHTS", Optick::Category::GPU_Lighting},
+		{"UNSHADOWED_LIGHTS", Optick::Category::GPU_Lighting},
+		{"DEFER_LIGHT_NO_OCCQ", Optick::Category::GPU_Lighting},
+		{"DEFER_LIGHT_OCCQ", Optick::Category::GPU_Lighting},
+		{"DEFER_TEST_LIGHT_VIS", Optick::Category::GPU_Lighting},
+		{"DEFER_SELF_ILLUM", Optick::Category::GPU_Lighting},
+		{"phase_ssfx_sss", Optick::Category::GPU_Lighting},
+		{"phase_ssao", Optick::Category::GPU_Lighting},
+		{"phase_hdao", Optick::Category::GPU_Lighting},
+		{"phase_ssfx_il", Optick::Category::GPU_Lighting},
+		{"ui_", Optick::Category::GPU_UI},
+		{"console", Optick::Category::GPU_UI},
+		{"stats", Optick::Category::GPU_UI},
+		{"imgui", Optick::Category::GPU_UI},
+		{"render_menu", Optick::Category::GPU_UI},
+		{"debug_text", Optick::Category::GPU_UI},
+		{"load_screen", Optick::Category::GPU_UI},
+		{"script_debug", Optick::Category::GPU_UI},
+		{"DEFER_Z_FILL", Optick::Category::GPU_Scene},
+		{"DEFER_TERRAIN_PREPASS", Optick::Category::GPU_Scene},
+		{"render_main", Optick::Category::GPU_Scene},
+		{"DEFER_PART", Optick::Category::GPU_Scene},
+		{"DEFER_WALLMARKS", Optick::Category::GPU_Scene},
+		{"DEFER_SKY_MVECTORS", Optick::Category::GPU_Scene},
+		{"DEFER_FLUSH_OCCLUSION", Optick::Category::GPU_Scene},
+		{"MARK_MSAA_EDGES", Optick::Category::GPU_Scene},
+		{"phase_scene_prepare", Optick::Category::GPU_Scene},
+		{"r_dsgraph_render", Optick::Category::GPU_Scene},
+		{"Forward_rendering", Optick::Category::GPU_Scene},
+		{"render_last", Optick::Category::GPU_Scene},
+		{"DEFER_LIGHT_COMBINE", Optick::Category::GPU_PostFX},
+		{"DEFER_EMISSIVE_BLOOM", Optick::Category::GPU_PostFX},
+		{"DEFER_SCOPE_ZB_COPY", Optick::Category::GPU_PostFX},
+		{"combine_", Optick::Category::GPU_PostFX},
+		{"phase_", Optick::Category::GPU_PostFX},
+		{"SMAA", Optick::Category::GPU_PostFX},
+		{"resolve_msaa", Optick::Category::GPU_PostFX},
+		{"copy_", Optick::Category::GPU_PostFX},
+		{"render_to_target", Optick::Category::GPU_PostFX},
+		{"reshade", Optick::Category::GPU_PostFX},
+		{"screenshot", Optick::Category::GPU_PostFX},
+		{"async_screenshot", Optick::Category::GPU_PostFX},
+	};
+
+	const Optick::EventDescription* prof_describe(const char* name, Optick::Category::Type cat)
+	{
+		return Optick::EventDescription::CreateShared(name, nullptr, 0, Optick::Category::GetColor(cat), Optick::Category::GetMask(cat));
+	}
+
+	Optick::Category::Type prof_category(const xr_string& name)
+	{
+		for (const auto& c : prof_categories)
+			if (!strncmp(name.c_str(), c.prefix, xr_strlen(c.prefix)))
+				return c.cat;
+		return Optick::Category::None;
+	}
+
 	std::atomic<int> prof_now = prof_off;
 	xrCriticalSection prof_lock;
 	bool prof_forced = false;
@@ -436,7 +536,7 @@ namespace
 			if (prof_names.size() <= id)
 				prof_names.resize(id + 1, nullptr);
 			if (!prof_names[id])
-				prof_names[id] = Optick::EventDescription::CreateShared(names[id].c_str());
+				prof_names[id] = prof_describe(names[id].c_str(), prof_category(names[id]));
 			prof_scopes.push_back({prof_names[id], ev[i].parent, stamps[2 * i], stamps[2 * i + 1]});
 		}
 		const bool presented = s.started && s.ended && s.presented;
@@ -489,8 +589,8 @@ namespace
 		auto to_cpu = [&](UINT64 g) { return int64_t(c0 + a + k * (double(g) - g0) + 0.5); };
 
 		static Optick::EventStorage* storage = Optick::RegisterStorage("GPU", uint64_t(-1), Optick::ThreadMask::GPU);
-		static const Optick::EventDescription* present_desc = Optick::EventDescription::CreateShared("frame present");
-		static const Optick::EventDescription* between_desc = Optick::EventDescription::CreateShared("between frames");
+		static const Optick::EventDescription* present_desc = prof_describe("frame present", Optick::Category::Wait);
+		static const Optick::EventDescription* between_desc = prof_describe("between frames", Optick::Category::WaitEmpty);
 		xr_vector<s64> begin, end, last;
 		for (const prof_frame& f : prof_frames)
 		{
