@@ -150,7 +150,8 @@ void CStalkerActionMakeItemKilling::initialize()
 	object().sight().add_action(eSightActionTypeWatchEnemy,
 	                            xr_new<CSightControlAction>(
 		                            1.f, 3000, CSightAction(SightManager::eSightTypePosition,
-		                                                    object().memory().enemy().selected()->Position(), false)));
+		                                                    object().known_enemy_position(
+			                                                    object().memory().enemy().selected()), false)));
 
 	object().movement().set_mental_state(eMentalStateDanger);
 }
@@ -192,7 +193,8 @@ void CStalkerActionMakeItemKilling::execute()
 	object().movement().set_body_state(eBodyStateStand);
 #endif
 	object().movement().set_movement_type(eMovementTypeWalk);
-	object().sight().action(eSightActionTypeWatchEnemy).set_vector3d(object().memory().enemy().selected()->Position());
+	object().sight().action(eSightActionTypeWatchEnemy).set_vector3d(
+		object().known_enemy_position(object().memory().enemy().selected()));
 	object().set_goal(eObjectActionIdle);
 }
 

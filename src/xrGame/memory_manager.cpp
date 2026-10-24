@@ -361,6 +361,36 @@ void CMemoryManager::make_object_visible_somewhen(const CEntityAlive* enemy)
 	obj1->visible(mask, prev);
 }
 
+void CMemoryManager::make_object_visible_somewhen(const CEntityAlive* enemy, const CMemoryManager& source)
+{
+	const CMemoryInfo known = source.memory(enemy);
+	if (!known.m_object)
+		return;
+
+	const MemorySpace::CVisibleObject* own = visual().visible_object(enemy);
+	const MemorySpace::CVisibleObject* seen = source.visual().visible_object(enemy);
+
+	MemorySpace::CVisibleObject taken;
+	bool take = true;
+	if (!own)
+		taken = static_cast<CVisibleObject>(known);
+	else if (seen && (own->m_level_time < seen->m_level_time))
+		taken = *seen;
+	else
+		take = false;
+
+	make_object_visible_somewhen(enemy);
+
+	if (!take)
+		return;
+
+	MemorySpace::CVisibleObject* obj = visual().visible_object(enemy);
+	VERIFY(obj);
+	obj->m_object_params = taken.m_object_params;
+	obj->m_level_time = taken.m_level_time;
+	obj->m_last_level_time = taken.m_last_level_time;
+}
+
 void CMemoryManager::save(NET_Packet& packet) const
 {
 	visual().save(packet);

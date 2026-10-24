@@ -891,6 +891,23 @@ void CAI_Stalker::update_range_fov(float& new_range, float& new_fov, float start
 	return (inherited::update_range_fov(new_range, new_fov, range, fov));
 }
 
+Fvector CAI_Stalker::known_enemy_position(const CEntityAlive* enemy) const
+{
+	if (memory().visual().visible_now(enemy))
+		return (enemy->Position());
+
+	MemorySpace::CMemoryInfo const info = memory().memory(enemy);
+	if (!info.m_object)
+		return (enemy->Position());
+
+	Fvector center;
+	enemy->Center(center);
+	Fvector result = info.m_object_params.m_position;
+	result.y -= center.y - enemy->Position().y;
+
+	return (result);
+}
+
 bool CAI_Stalker::fire_make_sense()
 {
 	// if we do not have an enemy

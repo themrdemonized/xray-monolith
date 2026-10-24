@@ -183,7 +183,7 @@ bool loophole_action_base::enemy_in_fov() const
 	if (!enemy)
 		return (false);
 
-	if (!object().movement().in_current_loophole_fov(enemy->Position()))
+	if (!object().movement().in_current_loophole_fov(object().memory().memory_position(enemy)))
 		return (false);
 
 	return (true);
@@ -218,7 +218,7 @@ bool loophole_action_base::process_enemy(bool const& change_sight)
 	object().sight().setup(
 		CSightAction(
 			SightManager::eSightTypeDirection,
-			nearest_loophole_direction(enemy->Position()),
+			nearest_loophole_direction(object().memory().memory_position(enemy)),
 			true
 		)
 	);
