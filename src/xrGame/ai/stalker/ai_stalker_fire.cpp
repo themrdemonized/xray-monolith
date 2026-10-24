@@ -794,7 +794,7 @@ IC float CAI_Stalker::start_pick_distance() const
 	return (
 		_max(
 			result,
-			memory().enemy().selected()->Position().distance_to(Position()) + 1.f
+			known_enemy_position(memory().enemy().selected()).distance_to(Position()) + 1.f
 		)
 	);
 }
@@ -915,10 +915,11 @@ bool CAI_Stalker::fire_make_sense()
 	if (!enemy)
 		return (false);
 
-	if ((pick_distance() + g_ai_fire_range_extension) < Position().distance_to(enemy->Position()))
+	Fvector const target = known_enemy_position(enemy);
+	if ((pick_distance() + g_ai_fire_range_extension) < Position().distance_to(target))
 		return (false);
 
-	if (_abs(Position().y - enemy->Position().y) > g_ai_fire_max_height_diff)
+	if (_abs(Position().y - target.y) > g_ai_fire_max_height_diff)
 		return (false);
 
 	if (pick_distance() < g_ai_fire_min_dist)
