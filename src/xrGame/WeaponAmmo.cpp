@@ -219,7 +219,7 @@ void CWeaponAmmo::renderable_Render(IDSGraphManager* DM)
 
 void CWeaponAmmo::UpdateCL()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	VERIFY2(_valid(renderable.xform), *cName());
 	inherited::UpdateCL();
 	VERIFY2(_valid(renderable.xform), *cName());

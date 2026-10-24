@@ -15,7 +15,7 @@ void CLevel::cl_Process_Spawn(NET_Packet& P)
 	// Begin analysis
 	shared_str s_name;
 	P.r_stringZ(s_name);
-	PROF_EVENT("CLevel::cl_Process_Spawn");
+	PROF_EVENT("CLevel::cl_Process_Spawn", PROF_CAT(GameLogic));
 
 	//Msg("cl_Process_Spawn spawning %s", s_name.c_str());
 

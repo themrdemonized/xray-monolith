@@ -43,7 +43,7 @@ void CCustomDetector::Load(LPCSTR section)
 
 void CCustomDetector::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CCustomDetector::shedule_Update");
+	PROF_EVENT("CCustomDetector::shedule_Update", PROF_CAT(GameLogic));
 	inherited::shedule_Update(dt);
 
 	if (!IsWorking())

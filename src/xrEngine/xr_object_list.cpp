@@ -203,7 +203,8 @@ void CObjectList::clear_crow_vec(Objects& o)
 extern BOOL mt_Scheduler;
 void CObjectList::Update(bool bForce)
 {
-	PROF_EVENT("CObjectList::Update");
+	PROF_EVENT("CObjectList::Update", PROF_CAT(GameLogic));
+	PROF_TAG("objects active", objects_active.size());
 	if (!Device.Paused() || bForce)
 	{
 		// Clients
@@ -215,7 +216,7 @@ void CObjectList::Update(bool bForce)
 			workload.reserve(objects_active.capacity());
 
 			{
-				PROF_EVENT("CObjectList::Update/Crows");
+				PROF_EVENT("CObjectList::Update/Crows", PROF_CAT(GameLogic));
 				Objects& crows = m_crows[0];
 				{
 					Objects& crows1 = m_crows[1];
@@ -238,7 +239,7 @@ void CObjectList::Update(bool bForce)
 				Device.Statistic->UpdateClient_total = objects_active.size() + objects_sleeping.size();
 
 				{
-					PROF_EVENT("CObjectList::Update/CopyWorkload");
+					PROF_EVENT("CObjectList::Update/CopyWorkload", PROF_CAT(GameLogic));
 					workload = *required_workload;
 				}
 
@@ -252,7 +253,7 @@ void CObjectList::Update(bool bForce)
 			}
 
 			{
-				PROF_EVENT("CObjectList::Update/SingleUpdate");
+				PROF_EVENT("CObjectList::Update/SingleUpdate", PROF_CAT(GameLogic));
 				for (const auto obj : workload)
 				{
 					SingleUpdate(obj);
@@ -283,7 +284,7 @@ void CObjectList::ProcessDestroyQueueImpl(Objects& queue)
 {
     if (!queue.empty())
     {
-        PROF_EVENT("CObjectList::Update/destroy_queue");
+        PROF_EVENT("CObjectList::Update/destroy_queue", PROF_CAT(GameLogic));
         for (int it = queue.size() - 1; it >= 0; it--)
         {
             auto obj = queue[it];

@@ -219,7 +219,7 @@ void CArtefact::UpdateWorkload(u32 dt)
 
 void CArtefact::shedule_Update(u32 dt)
 {
-	PROF_EVENT("CArtefact::shedule_Update");
+	PROF_EVENT("CArtefact::shedule_Update", PROF_CAT(GameLogic));
 	inherited::shedule_Update(dt);
 
 	//////////////////////////////////////////////////////////////////////////

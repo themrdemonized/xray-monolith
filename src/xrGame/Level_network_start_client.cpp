@@ -27,7 +27,7 @@ bool CLevel::net_Start_client(const char* options)
 
 bool CLevel::net_start_client1()
 {
-	PROF_EVENT("CLevel::net_start_client1");
+	PROF_EVENT("CLevel::net_start_client1", PROF_CAT(Scene));
 	pApp->LoadBegin();
 	// name_of_server
 	string64 name_of_server = "";
@@ -53,7 +53,7 @@ bool CLevel::net_start_client1()
 
 bool CLevel::net_start_client2()
 {
-	PROF_EVENT("CLevel::net_start_client2");
+	PROF_EVENT("CLevel::net_start_client2", PROF_CAT(Scene));
 	if (psNET_direct_connect)
 	{
 		Server->create_direct_client();
@@ -81,7 +81,7 @@ void rescan_mp_archives()
 
 bool CLevel::net_start_client3()
 {
-	PROF_EVENT("CLevel::net_start_client3");
+	PROF_EVENT("CLevel::net_start_client3", PROF_CAT(Scene));
 	if (connected_to_server)
 	{
 		LPCSTR level_name = NULL;
@@ -136,7 +136,7 @@ bool CLevel::net_start_client3()
 
 bool CLevel::net_start_client4()
 {
-	PROF_EVENT("CLevel::net_start_client4");
+	PROF_EVENT("CLevel::net_start_client4", PROF_CAT(Scene));
 	if (connected_to_server)
 	{
 		// Begin spawn
@@ -213,7 +213,7 @@ void CLevel::ClientSendProfileData()
 
 bool CLevel::net_start_client5()
 {
-	PROF_EVENT("CLevel::net_start_client5");
+	PROF_EVENT("CLevel::net_start_client5", PROF_CAT(Scene));
 	if (connected_to_server)
 	{
 		// HUD
@@ -237,7 +237,7 @@ bool CLevel::net_start_client5()
 
 bool CLevel::net_start_client6()
 {
-	PROF_EVENT("CLevel::net_start_client6");
+	PROF_EVENT("CLevel::net_start_client6", PROF_CAT(Scene));
 	if (connected_to_server)
 	{
 		// Sync

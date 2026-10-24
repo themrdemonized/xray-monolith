@@ -12,6 +12,7 @@
 #include "../xrRender/dxUIShader.h"
 
 #include "../xrRenderDX10/3DFluid/dx103DFluidManager.h"
+#include "../xrRenderDX10/dx10GpuTimeline.h"
 #include "../xrRender/ShaderResourceTraits.h"
 
 #include "../../xrCore/profiler.h"
@@ -554,6 +555,7 @@ void CRender::destroy()
 	HWOCC.occq_destroy();
 	xr_delete(Models);
 	xr_delete(Target);
+	gpu_timeline::destroy();
 	PSLibrary.OnDestroy();
 	Device.seqFrame.Remove(this);
 	Device.ModelDefferClear = nullptr;
@@ -598,7 +600,7 @@ void CRender::reset_end()
 
 void CRender::OnFrame()
 {
-	PROF_EVENT("CRender::OnFrame()");
+	PROF_EVENT("CRender::OnFrame()", PROF_CAT(Rendering));
 	
 	Models->DeleteQueue();
 
@@ -898,6 +900,11 @@ CRender::~CRender()
 
 #include "../../xrEngine/GameFont.h"
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+// Render counters at the last profiler tag, copied again after the stats screen zeroes them
+CRender::_stats g_prof_stats_tagged = {};
+#endif
+
 void CRender::Statistics(CGameFont* _F)
 {
 	CGameFont& F = *_F;
@@ -940,6 +947,9 @@ void CRender::Statistics(CGameFont* _F)
 	stats.ic_culled = 0;
 #ifdef DEBUG
 	HOM.stats	();
+#endif
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	g_prof_stats_tagged = stats;
 #endif
 }
 

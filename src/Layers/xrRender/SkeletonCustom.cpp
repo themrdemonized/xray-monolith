@@ -821,7 +821,7 @@ struct zero_wm_pred
 
 void CKinematics::CalculateWallmarks()
 {
-	PROF_EVENT("Calculate Wallmarks");
+	PROF_EVENT("Calculate Wallmarks", PROF_CAT(VFX));
 	xrCriticalSectionGuard guard(wallmarks_cs);
 	if (!wallmarks.empty() && (wm_frame != RDEVICE.dwFrame))
 	{
@@ -862,7 +862,7 @@ void CKinematics::CalculateWallmarks()
 
 void CKinematics::RenderWallmark(intrusive_ptr<CSkeletonWallmark> wm, FVF::LIT* & V)
 {
-	PROF_EVENT("CKinematics::RenderWallmark");
+	PROF_EVENT("CKinematics::RenderWallmark", PROF_CAT(VFX));
 	VERIFY(wm);
 	VERIFY(V);
 	VERIFY2(bones, "Invalid visual. Bones already released.");

@@ -208,7 +208,6 @@ void CBackend::set_ClipPlanes(u32 _enable, Fmatrix* _xform /*=NULL */, u32 fmask
 
 void CBackend::set_Textures(STextureList* _T)
 {
-	PROF_EVENT("set_Textures");
 	if (T == _T) return;
 	T = _T;
 	//	If resources weren't set at all we should clear from resource #0.

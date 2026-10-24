@@ -370,7 +370,7 @@ void _stdcall CIKLimbsController::IKVisualCallback(IKinematics* K)
 					    }
 
                         {
-                            PROF_EVENT("IK_UPDATE_CALCULATE");
+                            PROF_EVENT("IK_UPDATE_CALCULATE", PROF_CAT(Animation));
                             ik->_pose_extrapolation.update(O->XFORM());
                             for (CIKLimb& limb : ik->_bone_chains)
                                 ik->LimbUpdate(limb);

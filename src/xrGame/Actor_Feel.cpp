@@ -276,7 +276,7 @@ void CActor::PickupModeUpdate_COD(pickup_result_t pickup_result)
 
 void CActor::Check_for_AutoPickUp()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	// mp only
 	if (!psActorFlags.test(AF_AUTOPICKUP)) return;
 	if (IsGameTypeSingle()) return;

@@ -479,7 +479,7 @@ void CSheduler::ProcessStep()
 
 void CSheduler::UpdateInit()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 	R_ASSERT(Device.Statistic);
 	// Initialize
 	Device.Statistic->Sheduler.Begin();
@@ -488,7 +488,7 @@ void CSheduler::UpdateInit()
 
 void CSheduler::UpdateRT()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	// Realtime priority
 	m_processing_nowRT = true;
@@ -516,7 +516,7 @@ void CSheduler::UpdateRT()
 
 void CSheduler::UpdateDeferred()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	cycles_start = CPU::QPC();
 	cycles_limit = CPU::qpc_freq * u64(iCeil(psShedulerCurrent)) / 1000ull + cycles_start;
@@ -529,7 +529,7 @@ void CSheduler::UpdateDeferred()
 
 void CSheduler::UpdateFinalize()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	clamp(psShedulerTarget, 3.f, 66.f);
 	psShedulerCurrent = 0.9f * psShedulerCurrent + 0.1f * psShedulerTarget;
@@ -542,7 +542,7 @@ void CSheduler::UpdateFinalize()
 
 void CSheduler::Update()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(GameLogic));
 
 	UpdateInit();
 	UpdateRT();

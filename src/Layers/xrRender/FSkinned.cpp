@@ -401,7 +401,6 @@ void CSkeletonX_ST::Copy(dxRender_Visual* P)
 //////////////////////////////////////////////////////////////////////
 void CSkeletonX_PM::Render(float LOD)
 {
-	PROF_EVENT("CSkeletonX_PM::Render");
 	int lod_id = inherited1::last_lod;
 	if (LOD >= 0.f)
 	{
@@ -416,7 +415,6 @@ void CSkeletonX_PM::Render(float LOD)
 
 void CSkeletonX_ST::Render(float LOD)
 {
-	PROF_EVENT("CSkeletonX_ST::Render");
 	_Render(rm_geom, vCount, 0, dwPrimitives);
 }
 

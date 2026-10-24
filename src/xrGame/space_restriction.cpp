@@ -139,7 +139,7 @@ IC bool CSpaceRestriction::intersects(SpaceRestrictionHolder::CBaseRestrictionPt
 
 void CSpaceRestriction::merge_in_out_restrictions()
 {
-	START_PROFILE("Restricted Object/Merge In-Out")
+	START_PROFILE("Restricted Object/Merge In-Out", PROF_CAT(Navigation))
 		;
 		m_border = m_out_space_restriction->border();
 		m_border.erase(

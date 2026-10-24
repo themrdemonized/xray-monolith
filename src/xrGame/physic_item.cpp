@@ -103,7 +103,7 @@ void CPhysicItem::net_Destroy()
 
 void CPhysicItem::UpdateCL()
 {
-    PROF_EVENT("CPhysicItem::UpdateCL")
+    PROF_EVENT("CPhysicItem::UpdateCL", PROF_CAT(Physics))
 	//	if (!xr_strcmp("bolt",cName()))
 	//		Log					("--- B - CBolt",renderable.xform);
 	if (!H_Parent() && m_pPhysicsShell && m_pPhysicsShell->isActive())
