@@ -516,6 +516,7 @@ float ps_r2_gloss_min = 0.0f;
 
 int opt_static = 2;
 int opt_dynamic = 2;
+int ps_r__gpu_timeline = 0;
 
 #ifndef _EDITOR
 #include	"../../xrEngine/xr_ioconsole.h"
@@ -1254,6 +1255,42 @@ public:
 	virtual void Info(TInfo& I) { xr_strcpy(I, "lane id"); }
 };
 
+#ifdef USE_DX11
+#include "../xrRenderDX10/dx10GpuTimeline.h"
+
+class CCC_GpuTimeline : public IConsole_Command
+{
+public:
+	CCC_GpuTimeline(LPCSTR N) : IConsole_Command(N) { bEmptyArgsHandled = TRUE; };
+
+	virtual void Execute(LPCSTR args)
+	{
+		if (!xr_strcmp(args, "freeze"))
+			gpu_timeline::toggle_freeze();
+		else if (!xr_strcmp(args, "log"))
+			gpu_timeline::request_log();
+		else if (!*args || !xr_strcmp(args, "overview") || !xr_strcmp(args, "cpu") || !xr_strcmp(args, "gpu"))
+			gpu_timeline::open(args);
+		else
+			Msg("~ usage: gpu_timeline [overview|cpu|gpu|freeze|log]");
+	}
+
+	virtual void Info(TInfo& I)
+	{
+		xr_strcpy(I, "opens the performance window, on a tab when named, freeze toggles the hold, log writes scope times since the last log and the frame stats");
+	}
+};
+
+// The window turns recording on, so the cvar never goes to the saved config
+class CCC_GpuTimelineRecord : public CCC_Integer
+{
+public:
+	CCC_GpuTimelineRecord(LPCSTR N, int* V) : CCC_Integer(N, V, 0, 1) {}
+
+	virtual void Save(IWriter* F) { ; }
+};
+#endif
+
 class CCC_Vector4Legacy : public CCC_Vector4
 {
 public:
@@ -1306,6 +1343,10 @@ void xrRender_initconsole()
 	CMD4(CCC_Float,		"r__wallmark_shift_v",	&ps_r__WallmarkSHIFT_V,		0.0f,	1.f		);
 	CMD1(CCC_ModelPoolStat,"stat_models"		);
 #endif // DEBUG
+#ifdef USE_DX11
+	CMD2(CCC_GpuTimelineRecord, "r__gpu_timeline", &ps_r__gpu_timeline);
+	CMD1(CCC_GpuTimeline, "gpu_timeline");
+#endif
 	CMD4(CCC_Float, "r__wallmark_ttl", &ps_r__WallmarkTTL, 1.0f, 10.f*60.f);
 
 	CMD4(CCC_Integer, "r__supersample", &ps_r__Supersample, 1, 8);

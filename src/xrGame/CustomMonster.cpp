@@ -440,7 +440,7 @@ void CCustomMonster::update_sound_player()
 
 void CCustomMonster::UpdateCL()
 {
-	START_PROFILE("CustomMonster/client_update")
+	START_PROFILE("CustomMonster/client_update", PROF_CAT(AI))
 		m_client_update_delta = (u32)std::min(Device.dwTimeGlobal - m_last_client_update_time, u32(100));
 		m_last_client_update_time = Device.dwTimeGlobal;
 
@@ -449,7 +449,7 @@ void CCustomMonster::UpdateCL()
 				animation_movement()->DBG_verify_position_not_chaged();
 #endif
 
-		START_PROFILE("CustomMonster/client_update/inherited")
+		START_PROFILE("CustomMonster/client_update/inherited", PROF_CAT(GameLogic))
 			inherited::UpdateCL();
 		STOP_PROFILE
 
@@ -473,12 +473,12 @@ void CCustomMonster::UpdateCL()
 			Device.seqParallel.push_back(fastdelegate::FastDelegate0<>(this, &CCustomMonster::update_sound_player));
 		else
 		{
-			START_PROFILE("CustomMonster/client_update/sound_player")
+			START_PROFILE("CustomMonster/client_update/sound_player", PROF_CAT(Audio))
 				update_sound_player();
 			STOP_PROFILE
 		}
 
-		START_PROFILE("CustomMonster/client_update/network extrapolation")
+		START_PROFILE("CustomMonster/client_update/network extrapolation", PROF_CAT(GameLogic))
 			if (NET.empty())
 			{
 				update_animation_movement_controller();
@@ -583,11 +583,11 @@ void CCustomMonster::UpdateCL()
 
 void CCustomMonster::UpdatePositionAnimation()
 {
-	START_PROFILE("CustomMonster/client_update/movement")
+	START_PROFILE("CustomMonster/client_update/movement", PROF_CAT(Navigation))
 		movement().on_frame(character_physics_support()->movement(), NET_Last.p_pos);
 	STOP_PROFILE
 
-	START_PROFILE("CustomMonster/client_update/animation")
+	START_PROFILE("CustomMonster/client_update/animation", PROF_CAT(Animation))
 		if (!bfScriptAnimation())
 			SelectAnimation(XFORM().k, movement().detail().direction(), movement().speed());
 	STOP_PROFILE

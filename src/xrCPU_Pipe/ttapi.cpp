@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #pragma hdrstop
 
+#include "../xrCore/profiler.h"
+
 typedef struct TTAPI_WORKER_PARAMS
 {
 	volatile LONG vlFlag;
@@ -31,6 +33,12 @@ DWORD WINAPI ttapiThreadProc(LPVOID lpParameter)
 {
 	LPTTAPI_WORKER_PARAMS pParams = (LPTTAPI_WORKER_PARAMS)lpParameter;
 	DWORD i, dwFastIter = ttapi_dwFastIter, dwSlowIter = ttapi_dwSlowIter;
+
+#if defined(XRCORE_PROFILER) && defined(PROFILER_OPTICK) && XRCORE_PROFILER == PROFILER_OPTICK
+	char szThreadName[32];
+	sprintf_s(szThreadName, "Helper Thread #%u", u32(pParams - ttapi_worker_params));
+	PROF_THREAD(szThreadName);
+#endif
 
 	while (TRUE)
 	{
@@ -68,6 +76,7 @@ DWORD WINAPI ttapiThreadProc(LPVOID lpParameter)
 	process:
 
 		pParams->vlFlag = 1;
+		PROF_EVENT("ttapi worker job", PROF_CAT(Animation));
 
 		if (pParams->lpWorkerFunc)
 			pParams->lpWorkerFunc(pParams->lpvWorkerFuncParams);
@@ -214,8 +223,18 @@ VOID ttapi_RunAllWorkers()
 
 		// Waiting task queue to become empty
 		//Start = __rdtsc();
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// One zone around the spin, only when a worker is still running
+		if (ttapi_queue_size.size)
+		{
+			PROF_EVENT("ttapi wait for workers", PROF_CAT(Wait));
+			while (ttapi_queue_size.size)
+				_mm_pause();
+		}
+#else
 		while (ttapi_queue_size.size)
 			_mm_pause();
+#endif
 		//Stop = __rdtsc();
 		//Msg( "Wait: %u ticks" , Stop - Start );
 	}

@@ -1524,6 +1524,9 @@ void CDrawUtilities::DrawJoint(const Fvector& p, float radius, u32 clr)
 
 void CDrawUtilities::OnRender()
 {
+#if defined(USE_DX11)
+	PIX_EVENT(debug_text);
+#endif
 	m_Font->OnRender();
 }
 

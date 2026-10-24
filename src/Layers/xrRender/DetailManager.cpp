@@ -472,6 +472,7 @@ void __stdcall CDetailManager::MT_CALC()
 	if (m_frame_calc != RDEVICE.dwFrame)
 		if ((m_frame_rendered + 1) == RDEVICE.dwFrame) //already rendered
 		{
+			PROF_EVENT("details_cache_update", PROF_CAT(Visibility));
 			Fvector EYE = RDEVICE.vCameraPosition_saved;
 
 			int s_x = iFloor(EYE.x / dm_slot_size + .5f);

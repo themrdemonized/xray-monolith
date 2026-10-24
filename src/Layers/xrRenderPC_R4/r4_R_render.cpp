@@ -5,6 +5,11 @@
 #include "../../xrEngine/xr_object.h"
 
 #include "../xrRender/QueryHelper.h"
+#include "../xrRenderDX10/dx10GpuTimeline.h"
+
+#if XRCORE_PROFILER == PROFILER_OPTICK
+extern CRender::_stats g_prof_stats_tagged;
+#endif
 
 IC bool pred_sp_sort(ISpatial* _1, ISpatial* _2)
 {
@@ -308,7 +313,25 @@ void CRender::Render()
 		T.Start();
 		BOOL result = FALSE;
 		HRESULT hr = S_FALSE;
+		const u64 wait_begin = Device.frame_record_on ? CPU::QPC() : 0;
 		//while	((hr=q_sync_point[q_sync_count]->GetData	(&result,sizeof(result),D3DGETDATA_FLUSH))==S_FALSE) {
+#if XRCORE_PROFILER == PROFILER_OPTICK
+		// One zone around the spin, only when the GPU has not reached the sync point
+		if ((hr = GetData(q_sync_point[q_sync_count], &result, sizeof(result))) == S_FALSE)
+		{
+			PROF_EVENT("GPU::SyncPoint", PROF_CAT(Wait));
+			do
+			{
+				if (!SwitchToThread()) Sleep(ps_r2_wait_sleep);
+				if (T.GetElapsed_ms() > 500)
+				{
+					result = FALSE;
+					break;
+				}
+			}
+			while ((hr = GetData(q_sync_point[q_sync_count], &result, sizeof(result))) == S_FALSE);
+		}
+#else
 		while ((hr = GetData(q_sync_point[q_sync_count], &result, sizeof(result))) == S_FALSE)
 		{
 			if (!SwitchToThread()) Sleep(ps_r2_wait_sleep);
@@ -318,6 +341,9 @@ void CRender::Render()
 				break;
 			}
 		}
+#endif
+		if (wait_begin)
+			Device.frame_record.wait += CPU::QPC() - wait_begin;
 	}
 	Device.Statistic->RenderDUMP_Wait_S.End();
 	q_sync_count = (q_sync_count + 1) % HW.Caps.iGPUNum;
@@ -351,6 +377,7 @@ void CRender::Render()
 
 	if (RImplementation.o.ssfx_motionvectors)
 	{
+		PIX_EVENT(DEFER_SKY_MVECTORS);
 		Target->u_setrt(Device.dwWidth, Device.dwHeight, 0, 0, Target->rt_ssfx_motion_vectors->pRT, 0);
 
 		FLOAT ColorRGBA[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -367,6 +394,7 @@ void CRender::Render()
 
 	if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS))
 	{
+		PIX_EVENT(DEFER_TERRAIN_PREPASS);
 		Target->u_setrt(Device.dwWidth, Device.dwHeight, NULL, NULL, NULL, !RImplementation.o.dx10_msaa ? HW.pBaseZB : Target->rt_MSAADepth->pZRT);
 		r_dsgraph_render_landscape(0, false);
 	}
@@ -399,6 +427,7 @@ void CRender::Render()
 	//  Redotix99: for 3D Shader Based Scopes 	
 	if (scope_3D_fake_enabled)
 	{
+		PIX_EVENT(DEFER_SCOPE_ZB_COPY);
 		ID3D11Resource* zbuffer_res;
 		HW.pBaseZB->GetResource(&zbuffer_res);
 		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
@@ -549,6 +578,7 @@ void CRender::Render()
 			// SSS Shadows
 			if (ps_ssfx_sss_quality.z > 0)
 			{
+				PIX_EVENT(phase_ssfx_sss);
 				Target->phase_ssfx_sss();
 				sss_rendered = true;
 			}
@@ -565,6 +595,7 @@ void CRender::Render()
 			if (ps_ssfx_sss_quality.w > 0)
 			{
 				// Extra lights
+				PIX_EVENT(phase_ssfx_sss_ext);
 				Target->phase_ssfx_sss_ext(Lights.package);
 				sss_extended_rendered = true;
 			}
@@ -617,6 +648,7 @@ void CRender::Render()
 
 	if (RImplementation.o.ssfx_bloom)
 	{
+		PIX_EVENT(DEFER_EMISSIVE_BLOOM);
 		// Render Emissive on `rt_ssfx_bloom_emissive`
 		FLOAT ColorRGBA[4] = { 0,0,0,0 };
 		HW.pContext->ClearRenderTargetView(Target->rt_ssfx_bloom_emissive->pRT, ColorRGBA);
@@ -640,7 +672,10 @@ void CRender::Render()
 
 	{
 		if (RImplementation.o.ssfx_volumetric)
+		{
+			PIX_EVENT(phase_ssfx_volumetric_blur);
 			Target->phase_ssfx_volumetric_blur();
+		}
 	}
 
 	// Postprocess
@@ -652,6 +687,15 @@ void CRender::Render()
 	if (Details)
 		Details->details_clear();
 
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	// Counts since the last tag, the stats screen zeroes these counters
+	// The shadowed light count is set fresh each frame
+	PROF_TAG("lights visible", stats.l_visible - g_prof_stats_tagged.l_visible);
+	PROF_TAG("lights shadowed", stats.l_shadowed);
+	PROF_TAG("occlusion queries", stats.o_queries - g_prof_stats_tagged.o_queries);
+	PROF_TAG("occlusion culled", stats.o_culled - g_prof_stats_tagged.o_culled);
+	g_prof_stats_tagged = stats;
+#endif
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 }
 
@@ -691,6 +735,7 @@ void CRender::render_Reticle()
 
 void CRender::RenderToTarget(RRT target)
 {
+	PIX_EVENT(render_to_target);
 	ref_rt* RT = nullptr;
 
 	switch (target)
@@ -710,4 +755,15 @@ void CRender::RenderToTarget(RRT target)
 	HW.m_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBuffer);
 	HW.pContext->CopyResource((*RT)->pSurface, pBuffer);
 	pBuffer->Release();
+}
+
+u32 CRender::ScopeBegin(LPCWSTR name)
+{
+	return ps_r__gpu_timeline ? gpu_timeline::scope_begin(name) : gpu_timeline::no_scope;
+}
+
+void CRender::ScopeEnd(u32 scope)
+{
+	if (scope != gpu_timeline::no_scope)
+		gpu_timeline::scope_end(scope);
 }

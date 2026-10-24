@@ -39,7 +39,7 @@ IC bool CLevelManagerTemplate::actual() const
 TEMPLATE_SPECIALIZATION
 IC void CLevelManagerTemplate::build_path(const _vertex_id_type start_vertex_id, const _vertex_id_type dest_vertex_id)
 {
-	START_PROFILE("Build Path/Level Path")
+	START_PROFILE("Build Path/Level Path", PROF_CAT(Navigation))
 		;
 
 		THROW(ai().level_graph().valid_vertex_id(start_vertex_id) && ai().level_graph().valid_vertex_id(dest_vertex_id))

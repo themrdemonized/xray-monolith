@@ -222,6 +222,25 @@ public:
 
 	bool isRendering;
 
+	// CPU stamps of one frame for the perf hub, written only while frame_record_on
+	// Each field has one writer, and the hub reads them after the join
+	struct FrameRecord
+	{
+		enum { task_pre_render, task_parallel_render, task_bones, task_game, task_count };
+
+		u32 frame;
+		u64 start;
+		u64 cap[2];
+		u64 present[2];
+		u64 join[2];
+		u64 task[task_count][2];
+		// Ticks the render thread spun on the occlusion and sync readbacks
+		u64 wait;
+		bool presented;
+	};
+	FrameRecord frame_record;
+	bool frame_record_on;
+
 	// LuaGC
 	int LuaGCCount;
 	bool LuaGCDone;
@@ -281,6 +300,7 @@ public:
 		b_hide_cursor = FALSE;
 		Timer.Start();
 		m_bNearer = FALSE;
+		frame_record_on = false;
 		
 		m_SecondViewport.SetSVPActive(false);
 		m_SecondViewport.SetSVPFrameDelay(2);
