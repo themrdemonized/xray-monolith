@@ -654,6 +654,11 @@ bool CInventoryOwner::use_default_throw_force()
 	return (true);
 }
 
+float CInventoryOwner::default_missile_throw_force(CMissile* missile)
+{
+	return missile->IsConstPower() ? missile->GetConstForce() : missile->GetThrowForce();
+}
+
 float CInventoryOwner::missile_throw_force()
 {
 	NODEFAULT;
