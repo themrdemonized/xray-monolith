@@ -842,9 +842,22 @@
         function place_skeleton (game_object obj, string section, Fvector start, Fvector dir, float size, float ttl)
     }
 
-    // monster_on_combat_action callback flags.substate: the attack substates the shared monster
-    // and group attack selectors can honor; any other value is ignored and vanilla selection runs.
-    // Values are EMonsterState ids.
+    // monster_on_combat_action callback flags.substate: the states the monster selectors can honor;
+    // any other value is ignored and vanilla selection runs. Values are EMonsterState ids.
+    // eStateAttack_* substates reach the shared monster and group attack selectors; the top-level ids
+    // below them reach each species state manager. A proposal is honored only where that species
+    // registers the state and its own start conditions pass. Species notes:
+    //   eStateThreaten - chimera only (the dormant GSC intimidation machine: roar, creep, walk display).
+    //     The chimera's roar animation row is a GSC idle stub, so the roar phase stands still;
+    //     the proposer owns the visible display (set_override_animation + its own motion asset).
+    //     The creep and walk phases use the model's own motions.
+    //   eStateAttack_Psy - psy dog only (hide in cover while the phantoms press)
+    //   eStateHitted - flinch/disengage; anchors on hit memory, propose only after a real hit
+    //     (get_monster_hit_info), else the retreat anchors at the world origin
+    //   eStatePanic - flee; on the controller prefer eStateCustom (its own run-to-cover state),
+    //     the generic panic run was never exercised on its custom animation rig
+    //   eStateCustom - controller only (run to cover near the enemy, then face danger)
+    // The poltergeist selector takes no proposals: its live selector is hidden-attack/rest only.
     enum monster_state {
         eStateAttack_Run             = 262145,
         eStateAttack_Melee           = 262146,
@@ -857,6 +870,10 @@
         eStateAttackCamp             = 262160,
         eStateAttack_MoveToHomePoint = 262165,
         eStateAttack_Attack_On_Run   = 262169,
+        eStateAttack_Psy             = 262164,
+        eStatePanic                  = 524288,
+        eStateHitted                 = 1048576,
+        eStateThreaten               = 16777216,
         eStateCustom                 = 1073741824
     }
     
