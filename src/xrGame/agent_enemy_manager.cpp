@@ -432,7 +432,7 @@ void CAgentEnemyManager::assign_enemy_masks()
 			CAgentMemberManager::MEMBER_STORAGE::const_iterator i = object().member().combat_members().begin();
 			CAgentMemberManager::MEMBER_STORAGE::const_iterator e = object().member().combat_members().end();
 			for (; i != e; ++i)
-				(*i)->object().memory().make_object_visible_somewhen((*I).m_object);
+				(*i)->object().memory().make_object_visible_somewhen((*I).m_object, (*i)->object().memory());
 		}
 	}
 

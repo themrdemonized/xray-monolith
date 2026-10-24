@@ -150,7 +150,8 @@ void CStalkerActionMakeItemKilling::initialize()
 	object().sight().add_action(eSightActionTypeWatchEnemy,
 	                            xr_new<CSightControlAction>(
 		                            1.f, 3000, CSightAction(SightManager::eSightTypePosition,
-		                                                    object().memory().enemy().selected()->Position(), false)));
+		                                                    object().known_enemy_position(
+			                                                    object().memory().enemy().selected()), false)));
 
 	object().movement().set_mental_state(eMentalStateDanger);
 }
@@ -192,7 +193,8 @@ void CStalkerActionMakeItemKilling::execute()
 	object().movement().set_body_state(eBodyStateStand);
 #endif
 	object().movement().set_movement_type(eMovementTypeWalk);
-	object().sight().action(eSightActionTypeWatchEnemy).set_vector3d(object().memory().enemy().selected()->Position());
+	object().sight().action(eSightActionTypeWatchEnemy).set_vector3d(
+		object().known_enemy_position(object().memory().enemy().selected()));
 	object().set_goal(eObjectActionIdle);
 }
 
@@ -1473,7 +1475,8 @@ void CStalkerActionCriticalHit::initialize()
 		if (object().memory().enemy().selected())
 		{
 			u32 min_queue_size, max_queue_size, min_queue_interval, max_queue_interval;
-			float distance = object().memory().enemy().selected()->Position().distance_to(object().Position());
+			float distance = object().known_enemy_position(object().memory().enemy().selected()).distance_to(
+				object().Position());
 			select_queue_params(distance, min_queue_size, max_queue_size, min_queue_interval, max_queue_interval);
 			object().CObjectHandler::set_goal(eObjectActionIdle, object().best_weapon(), min_queue_size, max_queue_size,
 			                                  min_queue_interval, max_queue_interval);
@@ -1590,7 +1593,7 @@ void CStalkerCombatActionThrowGrenade::execute()
 	object().throw_target(enemy_position, enemy_vertex_id, const_cast<CEntityAlive*>(enemy));
 
 	u32 min_queue_size, max_queue_size, min_queue_interval, max_queue_interval;
-	float distance = enemy->Position().distance_to(object().Position());
+	float distance = enemy_position.distance_to(object().Position());
 	select_queue_params(distance, min_queue_size, max_queue_size, min_queue_interval, max_queue_interval);
 	object().CObjectHandler::set_goal(eObjectActionFire1, &grenade->object(), min_queue_size, max_queue_size,
 	                                  min_queue_interval, max_queue_interval);

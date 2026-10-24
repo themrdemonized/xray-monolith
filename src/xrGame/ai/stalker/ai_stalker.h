@@ -330,6 +330,7 @@ public:
 	float pick_distance();
 	IC float start_pick_distance() const;
 	bool fire_make_sense();
+	Fvector known_enemy_position(const CEntityAlive* enemy) const;
 
 	virtual LPCSTR Name() const;
 	virtual bool feel_touch_contact(CObject* O);
