@@ -2388,6 +2388,23 @@ bool CActor::use_default_throw_force()
 	return true;
 }
 
+float CActor::default_missile_throw_force(CMissile* missile)
+{
+	float force = CInventoryOwner::default_missile_throw_force(missile);
+
+	::luabind::functor<float> funct;
+	if (ai().script_engine().functor("_G.CActor__GetMissileThrowForce", funct))
+	{
+		float result = funct(missile->lua_game_object(), force);
+		if (_valid(result) && result > 0.f)
+			force = result;
+		else
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CActor: _G.CActor__GetMissileThrowForce returned invalid value %f (must be > 0), ignoring", result);
+	}
+
+	return force;
+}
+
 float CActor::missile_throw_force()
 {
 	return 0.f;

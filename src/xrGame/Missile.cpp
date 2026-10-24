@@ -563,7 +563,7 @@ void CMissile::Throw()
 	CInventoryOwner* inventory_owner = smart_cast<CInventoryOwner*>(H_Parent());
 	VERIFY(inventory_owner);
 	if (inventory_owner->use_default_throw_force())
-		m_fake_missile->m_fThrowForce = m_constpower ? m_fConstForce : m_fThrowForce;
+		m_fake_missile->m_fThrowForce = inventory_owner->default_missile_throw_force(this);
 	else
 		m_fake_missile->m_fThrowForce = inventory_owner->missile_throw_force();
 
