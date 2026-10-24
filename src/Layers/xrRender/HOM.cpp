@@ -260,6 +260,7 @@ void CHOM::Render_DB(CFrustum& base)
 void CHOM::Render(CFrustum& base)
 {
 	if (!bEnabled) return;
+	PROF_EVENT("CHOM::Render", PROF_CAT(Visibility));
 
 	Device.Statistic->RenderCALC_HOM.Begin();
 	Raster.clear();

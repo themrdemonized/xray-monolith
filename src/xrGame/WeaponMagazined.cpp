@@ -691,7 +691,7 @@ void CWeaponMagazined::UpdateCL()
 BOOL mt_UpdateWeaponSounds = TRUE;
 void CWeaponMagazined::UpdateSoundsPositionsImpl()
 {
-	PROF_EVENT();
+	PROF_EVENT(PROF_CAT(Audio));
 	auto& P = get_LastFP();
 	m_sounds.UpdateAllSoundsPositions(P);
 }
