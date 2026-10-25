@@ -12,9 +12,11 @@ enum
 	flTargetLocked =(1 << 1),
 };
 
-struct SBinocVisibleObj
+class CUIBinocularsVisionObject : public CUIWindow
 {
-	SBinocVisibleObj()
+	typedef CUIWindow inherited;
+public:
+	CUIBinocularsVisionObject()
 	{
 	};
 	u16 m_id;
@@ -27,10 +29,10 @@ struct SBinocVisibleObj
 
 	Flags8 m_flags;
 	void create(const CUIBinocularsVision* vision);
-	void Draw();
-	void Update();
+	virtual void Draw();
+	virtual void Update();
 
-	bool operator <(const SBinocVisibleObj& other) const
+	bool operator <(const CUIBinocularsVisionObject& other) const
 	{
 		return m_flags.test(flVisObjNotValid) < other.m_flags.test(flVisObjNotValid);
 	} //move non-actual to tail
@@ -38,17 +40,15 @@ struct SBinocVisibleObj
 
 class CUIBinocularsVision : public CUIWindow
 {
-	friend struct SBinocVisibleObj;
+	friend class CUIBinocularsVisionObject;
 	typedef CUIWindow inherited;
-	typedef xr_vector<SBinocVisibleObj*> VIS_OBJECTS;
+	typedef xr_vector<CUIBinocularsVisionObject*> VIS_OBJECTS;
 	typedef VIS_OBJECTS::iterator VIS_OBJECTS_IT;
 	VIS_OBJECTS m_active_objects;
 public:
 	CUIBinocularsVision(LPCSTR lt, LPCSTR rt, LPCSTR lb, LPCSTR rb, const Fvector2& frame_size);
 	CUIBinocularsVision(const shared_str& sect);
-	~CUIBinocularsVision();
 	virtual void Update();
-	virtual void Draw();
 	virtual void Show(bool status);
 
 	void SetFrameColor(u32 color) { m_frame_color = color; }

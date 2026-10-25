@@ -27,13 +27,13 @@ struct FindVisObjByObject
 	{
 	}
 
-	bool operator ()(const SBinocVisibleObj* vis)
+	bool operator ()(const CUIBinocularsVisionObject* vis)
 	{
 		return (id == vis->m_id);
 	}
 };
 
-void SBinocVisibleObj::create(const CUIBinocularsVision* vision)
+void CUIBinocularsVisionObject::create(const CUIBinocularsVision* vision)
 {
 	m_vision = vision;
 
@@ -55,6 +55,11 @@ void SBinocVisibleObj::create(const CUIBinocularsVision* vision)
 	m_rb.SetAlignment(waCenter);
 	m_rb.SetStretchTexture(true);
 
+	AttachChild(&m_lt);
+	AttachChild(&m_lb);
+	AttachChild(&m_rt);
+	AttachChild(&m_rb);
+
 	u32 clr = subst_alpha(vision->m_frame_color, 128);
 	m_lt.SetTextureColor(clr);
 	m_lb.SetTextureColor(clr);
@@ -66,21 +71,18 @@ void SBinocVisibleObj::create(const CUIBinocularsVision* vision)
 	m_flags.zero();
 }
 
-void SBinocVisibleObj::Draw()
+void CUIBinocularsVisionObject::Draw()
 {
 	if (m_flags.test(flVisObjNotValid)) return;
 
-	m_lt.Draw();
-	m_lb.Draw();
-	m_rt.Draw();
-	m_rb.Draw();
+	inherited::Draw();
 }
 
 struct check_pred
 {
 	check_pred() { apos = Actor()->Position(); };
 	Fvector apos;
-	IC void operator()(SBinocVisibleObj* _it) {
+	IC void operator()(CUIBinocularsVisionObject* _it) {
 		if (!_it) return;
 
 		auto object_ = Level().Objects.net_Find(_it->m_id);
@@ -100,7 +102,7 @@ struct check_pred
 	};
 };
 
-void SBinocVisibleObj::Update()
+void CUIBinocularsVisionObject::Update()
 {
 	m_flags.set(flVisObjNotValid,TRUE);
 
@@ -250,11 +252,6 @@ CUIBinocularsVision::CUIBinocularsVision(const shared_str& sect) : CUIBinoculars
 	Load(sect);
 }
 
-CUIBinocularsVision::~CUIBinocularsVision()
-{
-	delete_data(m_active_objects);
-}
-
 void CUIBinocularsVision::Update()
 {
 	if (g_dedicated_server)
@@ -304,11 +301,13 @@ void CUIBinocularsVision::Update()
 		}
 		else
 		{
-			m_active_objects.push_back(xr_new<SBinocVisibleObj>());
-			SBinocVisibleObj* new_vis_obj = m_active_objects.back();
+			m_active_objects.push_back(xr_new<CUIBinocularsVisionObject>());
+			CUIBinocularsVisionObject* new_vis_obj = m_active_objects.back();
 			new_vis_obj->m_flags.set(flVisObjNotValid,FALSE);
 			new_vis_obj->m_id = object_->ID();
 			new_vis_obj->create(this);
+			new_vis_obj->SetAutoDelete(true);
+			AttachChild(new_vis_obj);
 
 			m_found_snd.play(NULL, sm_2D);
 		}
@@ -331,10 +330,10 @@ void CUIBinocularsVision::Update()
 		remove_if(
 			m_active_objects.begin(),
 			m_active_objects.end(),
-			[](SBinocVisibleObj* _it) {
+			[this](CUIBinocularsVisionObject* _it) {
 			if (!_it) return true;
 			bool res = _it->m_flags.test(flVisObjNotValid);
-			if (res) xr_delete(_it);
+			if (res) DetachChild(_it);
 			return res;
 		}),
 		m_active_objects.end()
@@ -343,7 +342,7 @@ void CUIBinocularsVision::Update()
 	it = m_active_objects.begin();
 	for (; it != m_active_objects.end(); ++it)
 	{
-		SBinocVisibleObj* visObj = (*it);
+		CUIBinocularsVisionObject* visObj = (*it);
 
 		BOOL bLocked = visObj->m_flags.test(flTargetLocked);
 
@@ -354,19 +353,16 @@ void CUIBinocularsVision::Update()
 	}
 }
 
-void CUIBinocularsVision::Draw()
-{
-	VIS_OBJECTS_IT it = m_active_objects.begin();
-	for (; it != m_active_objects.end(); ++it)
-		(*it)->Draw();
-}
-
 void CUIBinocularsVision::Show(bool status)
 {
 	inherited::Show(status);
 
 	if (!status)
-		delete_data(m_active_objects);
+	{
+		for (CUIBinocularsVisionObject* object : m_active_objects)
+			DetachChild(object);
+		m_active_objects.clear();
+	}
 }
 
 void CUIBinocularsVision::Load(const shared_str& section)
