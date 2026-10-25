@@ -155,11 +155,12 @@ void CUIBinocularsVisionObject::Update()
 	}
 	else
 	{
-		float speed = m_vision->m_rotating_speed;
-		cur_rect.lt.x += (mn.x - cur_rect.lt.x) * speed * Device.fTimeDelta;
-		cur_rect.lt.y += (mn.y - cur_rect.lt.y) * speed * Device.fTimeDelta;
-		cur_rect.rb.x += (mx.x - cur_rect.rb.x) * speed * Device.fTimeDelta;
-		cur_rect.rb.y += (mx.y - cur_rect.rb.y) * speed * Device.fTimeDelta;
+		// Past 1 the frame would overshoot and diverge, so a high speed locks at once
+		float progress = _min(m_vision->m_rotating_speed * Device.fTimeDelta, 1.f);
+		cur_rect.lt.x += (mn.x - cur_rect.lt.x) * progress;
+		cur_rect.lt.y += (mn.y - cur_rect.lt.y) * progress;
+		cur_rect.rb.x += (mx.x - cur_rect.rb.x) * progress;
+		cur_rect.rb.y += (mx.y - cur_rect.rb.y) * progress;
 		if (mn.similar(cur_rect.lt, 2.f) && mx.similar(cur_rect.rb, 2.f))
 		{
 			// target locked
