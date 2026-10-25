@@ -234,10 +234,7 @@ CScriptGameObject* CScriptGameObject::GetBestItem()
 u32 CScriptGameObject::memory_time(const CScriptGameObject& lua_game_object)
 {
 	if (CActor* actor = smart_cast<CActor*>(&object()))
-	{
-		const CVisibleObject* visible_object = actor->visual_memory()->visible_object(&lua_game_object.object());
-		return (visible_object ? visible_object->m_level_time : 0);
-	}
+		return (actor->visual_memory()->memory_time(&lua_game_object.object()));
 
 	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 		return (monster->memory().memory_time(&lua_game_object.object()));
@@ -250,10 +247,7 @@ u32 CScriptGameObject::memory_time(const CScriptGameObject& lua_game_object)
 Fvector CScriptGameObject::memory_position(const CScriptGameObject& lua_game_object)
 {
 	if (CActor* actor = smart_cast<CActor*>(&object()))
-	{
-		const CVisibleObject* visible_object = actor->visual_memory()->visible_object(&lua_game_object.object());
-		return (visible_object ? visible_object->m_object_params.m_position : Fvector().set(0.f, 0.f, 0.f));
-	}
+		return (actor->visual_memory()->memory_position(&lua_game_object.object()));
 
 	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 		return (monster->memory().memory_position(&lua_game_object.object()));
