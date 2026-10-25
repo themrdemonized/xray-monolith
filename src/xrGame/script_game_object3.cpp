@@ -109,6 +109,9 @@ const CCoverPoint* CScriptGameObject::safe_cover(const Fvector& position, float 
 
 const xr_vector<MemorySpace::CVisibleObject>& CScriptGameObject::memory_visible_objects() const
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->objects());
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
@@ -155,6 +158,12 @@ void CScriptGameObject::ChangeTeam(u8 team, u8 squad, u8 group)
 
 void CScriptGameObject::SetVisualMemoryEnabled(bool enabled)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->enable(enabled);
+		return;
+	}
+
 	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
 	if (!custom_monster)
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
@@ -165,6 +174,12 @@ void CScriptGameObject::SetVisualMemoryEnabled(bool enabled)
 
 void CScriptGameObject::set_vision_speed(float value)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->set_vision_speed(value);
+		return;
+	}
+
 	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
 	if (!custom_monster)
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
@@ -195,6 +210,12 @@ void CScriptGameObject::set_hit_redirect(float max, float falloff)
 
 void CScriptGameObject::set_view_distance_factor(float value)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->set_view_distance_factor(value);
+		return;
+	}
+
 	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
 	if (!custom_monster)
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
@@ -761,12 +782,14 @@ float CScriptGameObject::GetObjectVisibleDistance(const CScriptGameObject* obj)
     {
         ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
     }
+    float distance = 0.0F;
+    if (CActor* actor = smart_cast<CActor*>(&object()))
+        return actor->visual_memory()->object_visible_distance(&obj->object(), distance);
     CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
     if (custom_monster == nullptr)
     {
         ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
     }
-    float distance = 0.0F;
     return custom_monster->visual_memory()->object_visible_distance(&obj->object(), distance);
 }
 
@@ -776,6 +799,8 @@ float CScriptGameObject::GetObjectLuminocity(const CScriptGameObject* obj)
     {
         ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
     }
+    if (CActor* actor = smart_cast<CActor*>(&object()))
+        return actor->visual_memory()->object_luminocity(&obj->object());
     CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
     if (custom_monster == nullptr)
     {

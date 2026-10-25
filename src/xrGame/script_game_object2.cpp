@@ -233,6 +233,12 @@ CScriptGameObject* CScriptGameObject::GetBestItem()
 
 u32 CScriptGameObject::memory_time(const CScriptGameObject& lua_game_object)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		const CVisibleObject* visible_object = actor->visual_memory()->visible_object(&lua_game_object.object());
+		return (visible_object ? visible_object->m_level_time : 0);
+	}
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
@@ -246,6 +252,12 @@ u32 CScriptGameObject::memory_time(const CScriptGameObject& lua_game_object)
 
 Fvector CScriptGameObject::memory_position(const CScriptGameObject& lua_game_object)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		const CVisibleObject* visible_object = actor->visual_memory()->visible_object(&lua_game_object.object());
+		return (visible_object ? visible_object->m_object_params.m_position : Fvector().set(0.f, 0.f, 0.f));
+	}
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
@@ -269,6 +281,9 @@ void CScriptGameObject::enable_memory_object(CScriptGameObject* game_object, boo
 
 const xr_vector<CNotYetVisibleObject>& CScriptGameObject::not_yet_visible_objects() const
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->not_yet_visible_objects());
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
@@ -281,6 +296,9 @@ const xr_vector<CNotYetVisibleObject>& CScriptGameObject::not_yet_visible_object
 
 float CScriptGameObject::visibility_threshold() const
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->visibility_threshold());
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
@@ -293,6 +311,12 @@ float CScriptGameObject::visibility_threshold() const
 
 void CScriptGameObject::enable_vision(bool value)
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->enable(value);
+		return;
+	}
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
@@ -305,6 +329,9 @@ void CScriptGameObject::enable_vision(bool value)
 
 bool CScriptGameObject::vision_enabled() const
 {
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->enabled());
+
 	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
 	if (!monster)
 	{
