@@ -1040,6 +1040,7 @@ public:
 
 ENGINE_API float psHUD_FOV_def = 0.45f;
 ENGINE_API float psHUD_FOV = psHUD_FOV_def;
+ENGINE_API float psCamAttachedFOV = 83.f;
 
 //extern int psSkeletonUpdate;
 extern int rsDVB_Size;

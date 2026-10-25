@@ -470,6 +470,9 @@
     class render_device {
         // Switch the pause, with sound emitters and without hint on screen
         void pause_ex(bool state)
+        // CamAttached FOV in degrees (default 83). Global, restore when done.
+        void set_cam_attached_fov(float fov)
+        float get_cam_attached_fov()
     }
 
     class particles_object {
