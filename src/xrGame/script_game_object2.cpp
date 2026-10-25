@@ -239,15 +239,12 @@ u32 CScriptGameObject::memory_time(const CScriptGameObject& lua_game_object)
 		return (visible_object ? visible_object->m_level_time : 0);
 	}
 
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptEntity : cannot access class member memory!");
-		return (0);
-	}
-	else
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 		return (monster->memory().memory_time(&lua_game_object.object()));
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CScriptEntity : cannot access class member memory!");
+	return (0);
 }
 
 Fvector CScriptGameObject::memory_position(const CScriptGameObject& lua_game_object)
@@ -258,15 +255,12 @@ Fvector CScriptGameObject::memory_position(const CScriptGameObject& lua_game_obj
 		return (visible_object ? visible_object->m_object_params.m_position : Fvector().set(0.f, 0.f, 0.f));
 	}
 
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CScriptEntity : cannot access class member memory!");
-		return (Fvector().set(0.f, 0.f, 0.f));
-	}
-	else
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 		return (monster->memory().memory_position(&lua_game_object.object()));
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CScriptEntity : cannot access class member memory!");
+	return (Fvector().set(0.f, 0.f, 0.f));
 }
 
 void CScriptGameObject::enable_memory_object(CScriptGameObject* game_object, bool enable)
@@ -284,14 +278,12 @@ const xr_vector<CNotYetVisibleObject>& CScriptGameObject::not_yet_visible_object
 	if (CActor* actor = smart_cast<CActor*>(&object()))
 		return (actor->visual_memory()->not_yet_visible_objects());
 
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CGameObject : cannot access class member not_yet_visible_objects!");
-		NODEFAULT;
-	}
-	return (monster->memory().visual().not_yet_visible_objects());
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().not_yet_visible_objects());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CGameObject : cannot access class member not_yet_visible_objects!");
+	NODEFAULT;
 }
 
 float CScriptGameObject::visibility_threshold() const
@@ -299,14 +291,12 @@ float CScriptGameObject::visibility_threshold() const
 	if (CActor* actor = smart_cast<CActor*>(&object()))
 		return (actor->visual_memory()->visibility_threshold());
 
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CGameObject : cannot access class member visibility_threshold!");
-		NODEFAULT;
-	}
-	return (monster->memory().visual().visibility_threshold());
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().visibility_threshold());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CGameObject : cannot access class member visibility_threshold!");
+	NODEFAULT;
 }
 
 void CScriptGameObject::enable_vision(bool value)
@@ -317,14 +307,14 @@ void CScriptGameObject::enable_vision(bool value)
 		return;
 	}
 
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
 	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CVisualMemoryManager : cannot access class member enable_vision!");
+		monster->memory().visual().enable(value);
 		return;
 	}
-	monster->memory().visual().enable(value);
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CVisualMemoryManager : cannot access class member enable_vision!");
 }
 
 bool CScriptGameObject::vision_enabled() const
@@ -332,14 +322,12 @@ bool CScriptGameObject::vision_enabled() const
 	if (CActor* actor = smart_cast<CActor*>(&object()))
 		return (actor->visual_memory()->enabled());
 
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CVisualMemoryManager : cannot access class member vision_enabled!");
-		return (false);
-	}
-	return (monster->memory().visual().enabled());
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().enabled());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CVisualMemoryManager : cannot access class member vision_enabled!");
+	return (false);
 }
 
 void CScriptGameObject::set_sound_threshold(float value)
@@ -779,7 +767,7 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 
 	auto* tp = pInvOwner->GetTalkPartner();
 	if (!tp) return nullptr;
-	
+
 	auto* g_obj = tp->cast_game_object();
 	if (!g_obj) return nullptr;
 
@@ -796,7 +784,7 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 										"CScriptGameObject : get_scope_ui works only with CWeapon object!");
 		return table;
 	}
-	
+
 	auto& zoomTextureWndList = weapon->ZoomTexture()->GetChildWndList();
 	if (zoomTextureWndList.empty()) {
 		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
@@ -819,7 +807,7 @@ CScriptGameObject* CScriptGameObject::get_talking_npc() {
 	table["name"] = weapon->m_scope_tex_name.c_str();
 	table["uiWindow"] = weapon->ZoomTexture();
 	table["statics"] = staticChildren;
-	
+
 	return table;
 }
 
