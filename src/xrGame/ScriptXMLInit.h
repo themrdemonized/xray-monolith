@@ -29,6 +29,7 @@ class CUIMMShniaga;
 class CUIScrollView;
 class CUIListBox;
 class CUIProgressBar;
+class CUIBinocularsVision;
 class UIHint;
 
 class CScriptXmlInit
@@ -74,6 +75,7 @@ public:
 	CUIScrollView* InitScrollView(LPCSTR path, CUIWindow* parent);
 	CUIListBox* InitListBox(LPCSTR path, CUIWindow* parent);
 	CUIProgressBar* InitProgressBar(LPCSTR path, CUIWindow* parent);
+	CUIBinocularsVision* InitBinocularsVision(LPCSTR path, CUIWindow* parent);
 
 	CUIXml& GetXml() { return m_xml; };
 protected:
