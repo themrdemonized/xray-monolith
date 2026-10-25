@@ -1386,17 +1386,18 @@ void CWeapon::UpdateCL()
 
 	if (m_zoom_params.m_pVision)
 	{
-		m_zoom_params.m_pVision->SetScreenZoom(FakeScopeScreenZoom());
+		SetVisionScreenZoom(m_zoom_params.m_pVision);
 		m_zoom_params.m_pVision->Update();
 	}
 }
 
-float CWeapon::FakeScopeScreenZoom()
+void CWeapon::SetVisionScreenZoom(CUIBinocularsVision* vision)
 {
-	// Shader based 2D scopes widen the camera by scope_scrollpower, then fakescope.ps magnifies the screen center back
-	if (scope_fake_enabled && SDS_Radius(m_zoomtype == 1) > 0.f)
-		return 1.f / scope_scrollpower;
-	return 1.f;
+	// Shader based 2D scopes widen the camera by scope_scrollpower, then fakescope.ps magnifies the scope circle back
+	if (scope_fake_enabled && scope_radius > 0.f)
+		vision->SetScreenZoom(1.f / scope_scrollpower, scope_radius);
+	else
+		vision->SetScreenZoom(1.f, 0.f);
 }
 
 void CWeapon::EnableActorNVisnAfterZoom()

@@ -125,8 +125,26 @@ void CUIBinocularsVisionObject::Update()
 		mx.x = _max(mx.x, p.x);
 		mx.y = _max(mx.y, p.y);
 	}
-	mn.mul(m_vision->m_screen_zoom);
-	mx.mul(m_vision->m_screen_zoom);
+
+	// Like fakescope.ps, magnify the circle, and only frame the targets whose center lands inside it
+	if (m_vision->m_screen_zoom_radius > 0.f)
+	{
+		mn.mul(m_vision->m_screen_zoom);
+		mx.mul(m_vision->m_screen_zoom);
+
+		// Offset of the target's center from the middle of the screen, in screen heights like the radius
+		// (projected coordinates span 2 per screen height)
+		Fvector2 center;
+		center.add(mn, mx).mul(0.5f);
+
+		float screen_ratio = float(Device.dwWidth) / float(Device.dwHeight);
+		Fvector2 offset;
+		offset.set(center.x / 2.f * screen_ratio, center.y / 2.f);
+
+		if (offset.magnitude() >= m_vision->m_screen_zoom_radius)
+			return;
+	}
+
 	static Frect screen_rect = {-1.0f, -1.0f, 1.0f, 1.0f};
 
 	Frect new_rect;
@@ -243,6 +261,7 @@ CUIBinocularsVision::CUIBinocularsVision(LPCSTR lt, LPCSTR rt, LPCSTR lb, LPCSTR
 	m_frame_color = color_rgba(178, 178, 178, 255);
 	m_rotating_speed = 8.f;
 	m_screen_zoom = 1.f;
+	m_screen_zoom_radius = 0.f;
 	SetRelationColors(C_ON_FRIEND, C_ON_NEUTRAL, C_ON_ENEMY);
 }
 
