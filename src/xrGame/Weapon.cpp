@@ -1385,7 +1385,18 @@ void CWeapon::UpdateCL()
 	}
 
 	if (m_zoom_params.m_pVision)
+	{
+		m_zoom_params.m_pVision->SetScreenZoom(FakeScopeScreenZoom());
 		m_zoom_params.m_pVision->Update();
+	}
+}
+
+float CWeapon::FakeScopeScreenZoom()
+{
+	// Shader based 2D scopes widen the camera by scope_scrollpower, then fakescope.ps magnifies the screen center back
+	if (scope_fake_enabled && SDS_Radius(m_zoomtype == 1) > 0.f)
+		return 1.f / scope_scrollpower;
+	return 1.f;
 }
 
 void CWeapon::EnableActorNVisnAfterZoom()

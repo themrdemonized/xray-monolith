@@ -125,6 +125,8 @@ void CUIBinocularsVisionObject::Update()
 		mx.x = _max(mx.x, p.x);
 		mx.y = _max(mx.y, p.y);
 	}
+	mn.mul(m_vision->m_screen_zoom);
+	mx.mul(m_vision->m_screen_zoom);
 	static Frect screen_rect = {-1.0f, -1.0f, 1.0f, 1.0f};
 
 	Frect new_rect;
@@ -239,6 +241,7 @@ CUIBinocularsVision::CUIBinocularsVision(LPCSTR lt, LPCSTR rt, LPCSTR lb, LPCSTR
 	m_frame_size = frame_size;
 	m_frame_color = color_rgba(178, 178, 178, 255);
 	m_rotating_speed = 8.f;
+	m_screen_zoom = 1.f;
 	SetRelationColors(C_ON_FRIEND, C_ON_NEUTRAL, C_ON_ENEMY);
 }
 
@@ -256,6 +259,7 @@ void CUIBinocularsVision::Update()
 {
 	if (g_dedicated_server)
 		return;
+
 	//-----------------------------------------------------
 	const CActor* pActor = NULL;
 	if (IsGameTypeSingle()) pActor = Actor();

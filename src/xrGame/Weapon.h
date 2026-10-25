@@ -1167,4 +1167,5 @@ public:
 	};
     
     float SDS_Radius(bool alt = false);
+	float FakeScopeScreenZoom();
 };

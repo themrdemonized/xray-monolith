@@ -113,7 +113,10 @@ void CWeaponBinoculars::UpdateCL()
 	inherited::UpdateCL();
 	//manage visible entities here...
 	if (H_Parent() && IsZoomed() && !IsRotatingToZoom() && m_binoc_vision)
+	{
+		m_binoc_vision->SetScreenZoom(FakeScopeScreenZoom());
 		m_binoc_vision->Update();
+	}
 }
 
 bool CWeaponBinoculars::render_item_ui_query()

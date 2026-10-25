@@ -56,8 +56,10 @@ public:
 	void SetRelationColors(u32 friend_color, u32 neutral_color, u32 enemy_color);
 	void SetFoundSound(LPCSTR path);
 	void SetCatchSound(LPCSTR path);
+	void SetScreenZoom(float zoom) { m_screen_zoom = zoom; }
 
 protected :
+	float m_screen_zoom; // magnification of the screen around its center, applied after the world is rendered
 	u32 m_frame_color;
 	float m_rotating_speed;
 	u32 m_friend_color;
