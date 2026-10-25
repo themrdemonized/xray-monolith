@@ -109,14 +109,15 @@ const CCoverPoint* CScriptGameObject::safe_cover(const Fvector& position, float 
 
 const xr_vector<MemorySpace::CVisibleObject>& CScriptGameObject::memory_visible_objects() const
 {
-	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
-	if (!monster)
-	{
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CGameObject : cannot access class member memory_visible_objects!");
-		NODEFAULT;
-	}
-	return (monster->memory().visual().objects());
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+		return (actor->visual_memory()->objects());
+
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		return (monster->memory().visual().objects());
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CGameObject : cannot access class member memory_visible_objects!");
+	NODEFAULT;
 }
 
 const xr_vector<MemorySpace::CSoundObject>& CScriptGameObject::memory_sound_objects() const
@@ -155,22 +156,38 @@ void CScriptGameObject::ChangeTeam(u8 team, u8 squad, u8 group)
 
 void CScriptGameObject::SetVisualMemoryEnabled(bool enabled)
 {
-	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
-	if (!custom_monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CCustomMonster: cannot access class member ChangeTeam!");
-	else
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->enable(enabled);
+		return;
+	}
+
+	if (CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object()))
+	{
 		custom_monster->memory().visual().enable(enabled);
+		return;
+	}
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CCustomMonster: cannot access class member SetVisualMemoryEnabled!");
 }
 
 void CScriptGameObject::set_vision_speed(float value)
 {
-	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
-	if (!custom_monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CCustomMonster : cannot access class member set_vision_speed!");
-	else
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->set_vision_speed(value);
+		return;
+	}
+
+	if (CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object()))
+	{
 		custom_monster->memory().visual().set_vision_speed(value);
+		return;
+	}
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CCustomMonster : cannot access class member set_vision_speed!");
 }
 
 void CScriptGameObject::set_visible_enemy_bias(float actor_bias, float npc_bias)
@@ -195,12 +212,20 @@ void CScriptGameObject::set_hit_redirect(float max, float falloff)
 
 void CScriptGameObject::set_view_distance_factor(float value)
 {
-	CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
-	if (!custom_monster)
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "CCustomMonster : cannot access class member set_view_distance_factor!");
-	else
+	if (CActor* actor = smart_cast<CActor*>(&object()))
+	{
+		actor->visual_memory()->set_view_distance_factor(value);
+		return;
+	}
+
+	if (CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object()))
+	{
 		custom_monster->memory().visual().set_view_distance_factor(value);
+		return;
+	}
+
+	ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+	                                "CCustomMonster : cannot access class member set_view_distance_factor!");
 }
 
 void CScriptGameObject::set_health_restore_boost(float value)
@@ -758,30 +783,37 @@ void CScriptGameObject::set_bloodsucker_vis_timing(float min_delay_ms)
 float CScriptGameObject::GetObjectVisibleDistance(const CScriptGameObject* obj)
 {
     if (obj == nullptr)
-    {
-        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
-    }
-    CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
-    if (custom_monster == nullptr)
-    {
-        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
-    }
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
+
     float distance = 0.0F;
-    return custom_monster->visual_memory()->object_visible_distance(&obj->object(), distance);
+
+    if (CActor* actor = smart_cast<CActor*>(&object()))
+        return actor->visual_memory()->object_visible_distance(&obj->object(), distance);
+
+    if (CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object()))
+        return custom_monster->visual_memory()->object_visible_distance(&obj->object(), distance);
+
+    ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+        "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
+    return 0.0F;
 }
 
 float CScriptGameObject::GetObjectLuminocity(const CScriptGameObject* obj)
 {
     if (obj == nullptr)
-    {
-        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
-    }
-    CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object());
-    if (custom_monster == nullptr)
-    {
-        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
-    }
-    return custom_monster->visual_memory()->object_luminocity(&obj->object());
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CGameObject: [%s] wrong parameters.", object().cNameSect_str());
+
+    if (CActor* actor = smart_cast<CActor*>(&object()))
+        return actor->visual_memory()->object_luminocity(&obj->object());
+
+    if (CCustomMonster* custom_monster = smart_cast<CCustomMonster*>(&object()))
+        return custom_monster->visual_memory()->object_luminocity(&obj->object());
+
+    ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+        "CGameObject: [%s] cannot access class member CCustomMonster.", object().cNameSect_str());
+    return 0.0F;
 }
 
 CScriptGameObject* CScriptGameObject::GetEnemy() const
