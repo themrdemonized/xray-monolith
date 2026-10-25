@@ -9,6 +9,7 @@
 #include "UI3tButton.h"
 #include "UIActorMenu.h"
 #include "UIAnimatedStatic.h"
+#include "UIBinocularsVision.h"
 #include "UIButton.h"
 #include "UICheckButton.h"
 #include "UIComboBox.h"
@@ -241,6 +242,7 @@ void CUIWindow::script_register(lua_State* L)
 
 		.def("cast_3tButton", UI_WINDOW_CAST(CUI3tButton))
 		.def("cast_ActorMenu", UI_WINDOW_CAST(CUIActorMenu))
+		.def("cast_BinocularsVision", UI_WINDOW_CAST(CUIBinocularsVision))
 		.def("cast_Button", UI_WINDOW_CAST(CUIButton))
 		.def("cast_CheckButton", UI_WINDOW_CAST(CUICheckButton))
 		.def("cast_ComboBox", UI_WINDOW_CAST(CUIComboBox))
