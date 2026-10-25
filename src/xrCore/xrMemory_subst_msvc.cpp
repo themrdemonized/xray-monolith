@@ -193,6 +193,12 @@ void* xrMemory::mem_realloc(void* P, size_t size
 	{
 #ifdef PURE_MEMORY_FILL_ZERO
 		size_t old_size = P ? _aligned_msize(P, PURE_MEMORY_ALIGNMENT, 0) : 0;
+
+		// A shrink can stay in place with _aligned_msize still reporting the old size,
+		// so the growth zeroing below would start past the bytes being dropped now.
+		// Zero them here so they come back clean when the block grows again.
+		if (P && size && size < old_size)
+			memset((u8*)P + size, 0, old_size - size);
 #endif // PURE_MEMORY_FILL_ZERO
 
 		//void* result = realloc(P, size);
