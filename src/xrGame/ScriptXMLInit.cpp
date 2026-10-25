@@ -22,6 +22,7 @@
 #include "ui\UIProgressBar.h"
 #include "ui\UIHint.h"
 #include "ui\UIHelper.h"
+#include "ui\UIBinocularsVision.h"
 
 using namespace luabind;
 
@@ -339,6 +340,33 @@ CUIProgressBar* CScriptXmlInit::InitProgressBar(LPCSTR path, CUIWindow* parent)
 	return pWnd;
 }
 
+CUIBinocularsVision* CScriptXmlInit::InitBinocularsVision(LPCSTR path, CUIWindow* parent)
+{
+	string512 corners_path;
+	strconcat(sizeof(corners_path), corners_path, path, ":corners");
+	R_ASSERT4(m_xml.NavigateToNode(corners_path, 0), "XML node not found", corners_path, m_xml.m_xml_file_name);
+
+	Fvector2 corner_size;
+	corner_size.x = m_xml.ReadAttribFlt(corners_path, 0, "width");
+	corner_size.y = m_xml.ReadAttribFlt(corners_path, 0, "height");
+
+	// lt, rt, lb, rb : the order the constructor takes them in
+	LPCSTR corners[] = {"lt", "rt", "lb", "rb"};
+	LPCSTR textures[4];
+	for (int i = 0; i < 4; ++i)
+	{
+		string512 corner_path;
+		strconcat(sizeof(corner_path), corner_path, corners_path, ":", corners[i]);
+		textures[i] = m_xml.Read(corner_path, 0, NULL);
+		R_ASSERT4(textures[i], "XML node not found", corner_path, m_xml.m_xml_file_name);
+	}
+
+	CUIBinocularsVision* pWnd = xr_new<CUIBinocularsVision>(textures[0], textures[1], textures[2], textures[3], corner_size);
+	CUIXmlInit::InitWindow(m_xml, path, 0, pWnd);
+	_attach_child(pWnd, parent);
+	return pWnd;
+}
+
 CUIEditBox* CScriptXmlInit::InitCDkey(LPCSTR path, CUIWindow* parent)
 {
 	CUICDkey* pWnd = xr_new<CUICDkey>();
@@ -403,5 +431,6 @@ void CScriptXmlInit::script_register(lua_State* L)
 		.def("InitScrollView", &CScriptXmlInit::InitScrollView)
 		.def("InitListBox", &CScriptXmlInit::InitListBox)
 		.def("InitProgressBar", &CScriptXmlInit::InitProgressBar)
+		.def("InitBinocularsVision", &CScriptXmlInit::InitBinocularsVision)
 	];
 }

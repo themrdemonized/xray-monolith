@@ -5,7 +5,7 @@
 
 #include "level.h"
 #include "ui\UIFrameWindow.h"
-#include "WeaponBinocularsVision.h"
+#include "ui/UIBinocularsVision.h"
 #include "NewZoomFlag.h"
 #include "object_broker.h"
 #include "inventory.h"
@@ -74,8 +74,7 @@ void CWeaponBinoculars::OnZoomIn()
 		m_sounds.PlaySound("sndZoomIn", H_Parent()->Position(), H_Parent(), b_hud_mode);
 		if (m_bVision && !m_binoc_vision)
 		{
-			//.VERIFY			(!m_binoc_vision);
-			m_binoc_vision = xr_new<CBinocularsVision>(cNameSect());
+			m_binoc_vision = xr_new<CUIBinocularsVision>(cNameSect());
 		}
 	}
 	inherited::OnZoomIn();
@@ -114,7 +113,10 @@ void CWeaponBinoculars::UpdateCL()
 	inherited::UpdateCL();
 	//manage visible entities here...
 	if (H_Parent() && IsZoomed() && !IsRotatingToZoom() && m_binoc_vision)
+	{
+		SetVisionScreenZoom(m_binoc_vision);
 		m_binoc_vision->Update();
+	}
 }
 
 bool CWeaponBinoculars::render_item_ui_query()
@@ -211,16 +213,6 @@ bool CWeaponBinoculars::GetBriefInfo(II_BriefInfo& info)
 	info.name._set(m_nameShort);
 	info.icon._set(cNameSect());
 	return true;
-}
-
-void CWeaponBinoculars::net_Relcase(CObject* object)
-{
-	CHudItem::net_Relcase(object);
-
-	if (!m_binoc_vision)
-		return;
-
-	m_binoc_vision->remove_links(object);
 }
 
 bool CWeaponBinoculars::can_kill() const

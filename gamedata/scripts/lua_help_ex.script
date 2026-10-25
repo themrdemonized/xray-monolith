@@ -280,6 +280,7 @@
 
 		CUI3tButton cast_3tButton()
 		CUIActorMenu cast_ActorMenu()
+		CUIBinocularsVision cast_BinocularsVision()
 		CUIButton cast_Button()
 		CUICheckButton cast_CheckButton()
 		CUIComboBox cast_ComboBox()
@@ -321,6 +322,22 @@
     
     class CUIGameCustom {
         CUIWindow GetWindow() // get_hud():GetWindow()
+    }
+
+    class CScriptXmlInit {
+        CUIBinocularsVision InitBinocularsVision(string path, CUIWindow parent) // node holds <corners width height> with the <lt>, <rt>, <lb>, <rb> corner textures as children
+    }
+
+    // Frames are placed in screen space : keep the window at 0,0 and over the whole screen
+    class CUIBinocularsVision : CUIWindow {
+        CUIBinocularsVision(string lt, string rt, string lb, string rb, vector2 frame_size) // corner textures, and the size of one corner
+        CUIBinocularsVision(string section) // item section with vis_frame_speed, vis_frame_color, found_snd and catch_snd, vanilla corners
+
+        void SetFrameColor(u32 color) // frame color until it locks, drawn at half alpha
+        void SetSpeed(float speed) // share of the remaining distance to the target closed per second
+        void SetRelationColors(u32 friend_color, u32 neutral_color, u32 enemy_color) // locked frame color of stalkers by relation to the actor, mutants keep the frame color
+        void SetFoundSound(string path) // played when a target is spotted, "" or "none" for silence
+        void SetCatchSound(string path) // played when a frame locks onto its target, "" or "none" for silence
     }
 
     class CUIProgressBar {

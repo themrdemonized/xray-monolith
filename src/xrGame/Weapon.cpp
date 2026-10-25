@@ -26,7 +26,7 @@
 #include "debug_renderer.h"
 #include "static_cast_checked.hpp"
 #include "clsid_game.h"
-#include "weaponBinocularsVision.h"
+#include "ui/UIBinocularsVision.h"
 #include "ui/UIWindow.h"
 #include "ui/UIXmlInit.h"
 #include "Torch.h"
@@ -1385,7 +1385,19 @@ void CWeapon::UpdateCL()
 	}
 
 	if (m_zoom_params.m_pVision)
+	{
+		SetVisionScreenZoom(m_zoom_params.m_pVision);
 		m_zoom_params.m_pVision->Update();
+	}
+}
+
+void CWeapon::SetVisionScreenZoom(CUIBinocularsVision* vision)
+{
+	// Shader based 2D scopes widen the camera by scope_scrollpower, then fakescope.ps magnifies the scope circle back
+	if (scope_fake_enabled && scope_radius > 0.f)
+		vision->SetScreenZoom(1.f / scope_scrollpower, scope_radius);
+	else
+		vision->SetScreenZoom(1.f, 0.f);
 }
 
 void CWeapon::EnableActorNVisnAfterZoom()
@@ -2093,7 +2105,7 @@ void CWeapon::OnZoomIn()
 		GamePersistent().SetPickableEffectorDOF(true);
 
 	if (m_zoom_params.m_sUseBinocularVision.size() && IsScopeAttached() && NULL == m_zoom_params.m_pVision)
-		m_zoom_params.m_pVision = xr_new<CBinocularsVision>(m_zoom_params.m_sUseBinocularVision);
+		m_zoom_params.m_pVision = xr_new<CUIBinocularsVision>(m_zoom_params.m_sUseBinocularVision);
 
 	if (m_zoom_params.m_sUseZoomPostprocess.size() && IsScopeAttached())
 	{
@@ -3414,13 +3426,7 @@ Fmatrix CWeapon::RayTransform()
 	return matrix;
 }
 
-// v2v3v4: fix ctd when zooming into about to be destroyed object with detector scopes
 void CWeapon::net_Relcase(CObject* object)
 {
 	CHudItem::net_Relcase(object);
-
-	if (!m_zoom_params.m_pVision)
-		return;
-
-	m_zoom_params.m_pVision->remove_links(object);
 }

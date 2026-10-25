@@ -5841,8 +5841,8 @@
     <ClInclude Include="WeaponBinoculars.h">
       <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Various weapons\Binocular</Filter>
     </ClInclude>
-    <ClInclude Include="WeaponBinocularsVision.h">
-      <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Various weapons\Binocular</Filter>
+    <ClInclude Include="ui\UIBinocularsVision.h">
+      <Filter>UI\Common\MainIngame</Filter>
     </ClInclude>
     <ClInclude Include="WeaponShotgun.h">
       <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Various weapons\Weapon Shotgun</Filter>
@@ -9428,8 +9428,11 @@
     <ClCompile Include="WeaponBinoculars_script.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Various weapons\Binocular</Filter>
     </ClCompile>
-    <ClCompile Include="WeaponBinocularsVision.cpp">
-      <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Various weapons\Binocular</Filter>
+    <ClCompile Include="ui\UIBinocularsVision.cpp">
+      <Filter>UI\Common\MainIngame</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\UIBinocularsVision_script.cpp">
+      <Filter>UI\Common\MainIngame</Filter>
     </ClCompile>
     <ClCompile Include="WeaponShotgun.cpp">
       <Filter>Core\Client\Objects\items &amp; weapons\Weapons\Various weapons\Weapon Shotgun</Filter>
