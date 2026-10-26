@@ -384,6 +384,12 @@ float rain_wetness()
 	return (g_pGamePersistent->Environment().wetness_factor);
 }
 
+void set_rain_wetness(float val)
+{
+	clamp(val, 0.f, 1.f);
+	g_pGamePersistent->Environment().wetness_factor = val;
+}
+
 float rain_hemi()
 {
 	CEffect_Rain* rain = g_pGamePersistent->pEnvironment->eff_Rain;
@@ -2728,6 +2734,7 @@ void CLevel::script_register(lua_State* L)
 			def("vertex_in_direction", vertex_in_direction),
 			def("rain_factor", rain_factor),
 			def("rain_wetness", rain_wetness),
+			def("set_rain_wetness", set_rain_wetness),
 			def("rain_hemi", rain_hemi),
 			def("patrol_path_exists", patrol_path_exists),
 			def("vertex_position", vertex_position),
