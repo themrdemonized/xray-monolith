@@ -5,6 +5,7 @@
 #include "../Include/xrRender/KinematicsAnimated.h"
 #include "actor_defs.h"
 #include "player_hud_legs.h"
+#include "ActorParkour.h"
 
 #define SCOPE_ATTACH_IDX 2
 
@@ -439,6 +440,62 @@ public:
 	bool inertion_allowed();
 
 private:
+	struct parkour_ik_bone
+	{
+		player_hud* hud;
+		bool left;
+		bool upper;
+		bool wrist = false;
+	};
+	struct parkour_ik_arm
+	{
+		u16 upper = BI_NONE;
+		u16 lower = BI_NONE;
+		u16 wrist_bone = BI_NONE;
+		u16 finger_bone = BI_NONE;
+		u16 index_bone = BI_NONE, little_bone = BI_NONE;
+		Fvector finger_axis, palm_axis;
+		Fmatrix hand_rotation;
+		bool palm_calibrated = false, orient = false;
+		Fvector shoulder_shift = {0.f,0.f,0.f};
+		Fvector applied_shift = {0.f,0.f,0.f}; // last arm offset, kept while leaving view
+		float applied_release = 0.f;
+		float early_release = 0.f; // let go because the edge came too close to the eyes (never takes back)
+		float motion_phase = 0.f;
+		Fvector elbow;
+		Fvector target;
+		Fvector upper_axis;
+		Fvector lower_axis;
+		float weight = 0.f;
+		bool valid = false;
+		bool callbacks_owned = false;
+	};
+	parkour_ik_arm m_parkour_ik[2];
+	parkour_ik_bone m_parkour_ik_bones[6];
+	Fvector m_parkour_ik_palm_offset[2];
+	shared_str m_script_anim_section;
+	bool m_parkour_phase_sync = false, m_parkour_owned = false;
+	// Arms the parkour clip drives: 1 right (m_model), 2 left (m_model_2). The other
+	// arm keeps its item (a weapon held through a one-handed move).
+	u8 m_parkour_arms = 0;
+	bool parkour_arm(int side) const { return (m_parkour_arms & (1 << side)) != 0; }
+	MotionID m_parkour_motion;
+	float m_parkour_reach_duration = .035f;
+	Fvector2 m_parkour_release_tuck = {.55f,.35f};
+	float m_parkour_release_depth = 0.f; // a hand closer to the camera than this lets go (0: only on the plan)
+	// Hands rise into view from below on start and leave the same way on end.
+	float m_parkour_entry_duration = .22f, m_parkour_exit_duration = .25f;
+	u32 m_parkour_exit_started = 0;
+	float parkour_entry_offset() const;
+	bool update_parkour_exit();
+	float m_parkour_reach_weight = 0.f;
+	float m_parkour_release_smoothing = 0.f;
+	float m_parkour_reach_fraction = .12f;
+	u32 m_parkour_reach_started = 0;
+	void sync_parkour_motion();
+	bool m_parkour_ik_applying = false;
+	void update_parkour_ik();
+	static void _BCL ParkourIKCallback(CBoneInstance* B);
 	const Fvector attach_rot(u8 part) const;
 	const Fvector attach_pos(u8 part) const;
 	shared_str m_sect_name;
@@ -448,6 +505,8 @@ private:
 
 public:
 	IKinematicsAnimated* m_model;
+	bool ParkourMotionPlaying() const { return script_anim_part != u8(-1) && m_parkour_owned; }
+	void StopParkourMotion(); // lowers visible hands out of view before stopping
 	IKinematicsAnimated* m_model_2;
 	Fvector m_adjust_offset[2][10]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount, aim for attach, alt aim for attach
 	Fvector m_adjust_obj[2]; // pos,rot; used for the item/weapon itself

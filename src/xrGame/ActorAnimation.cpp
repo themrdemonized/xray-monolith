@@ -19,6 +19,8 @@
 #include "../xrEngine/motion.h"
 #include "artefact.h"
 #include "IKLimbsController.h"
+#include "CharacterPhysicsSupport.h"
+#include "PHMovementControl.h"
 #include "player_hud.h"
 #include "WeaponKnife.h"
 #include "Pda.h"
@@ -43,11 +45,15 @@ void CActor::Spin0Callback(CBoneInstance* B)
 {
 	CActor* A = static_cast<CActor*>(B->callback_param());
 	VERIFY(A);
+	// A parkour clip sets the spine and head: the look twist fades with the clip's share.
+	const float keep = 1.f - A->Parkour().ClipWeight();
+	if (keep <= 0.f) return;
 
 	Fmatrix spin;
-	float bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_spin0_factor;
-	float bone_pitch = angle_normalize_signed(A->r_torso.pitch) * p_spin0_factor;
-	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_spin0_factor;
+	float bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_spin0_factor * keep;
+	// Parkour push-up: the forward bend is spread over the three spine bones.
+	float bone_pitch = (angle_normalize_signed(A->r_torso.pitch) * p_spin0_factor + A->Parkour().Lean() * .35f) * keep;
+	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_spin0_factor * keep;
 	Fvector c = B->mTransform.c;
 	spin.setXYZ(-bone_pitch, bone_yaw, bone_roll);
 	B->mTransform.mulA_43(spin);
@@ -58,11 +64,13 @@ void CActor::Spin1Callback(CBoneInstance* B)
 {
 	CActor* A = static_cast<CActor*>(B->callback_param());
 	VERIFY(A);
+	const float keep = 1.f - A->Parkour().ClipWeight(); // the clip sets the spine and head
+	if (keep <= 0.f) return;
 
 	Fmatrix spin;
-	float bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_spin1_factor;
-	float bone_pitch = angle_normalize_signed(A->r_torso.pitch) * p_spin1_factor;
-	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_spin1_factor;
+	float bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_spin1_factor * keep;
+	float bone_pitch = (angle_normalize_signed(A->r_torso.pitch) * p_spin1_factor + A->Parkour().Lean() * .35f) * keep;
+	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_spin1_factor * keep;
 	Fvector c = B->mTransform.c;
 	spin.setXYZ(-bone_pitch, bone_yaw, bone_roll);
 	B->mTransform.mulA_43(spin);
@@ -73,10 +81,12 @@ void CActor::ShoulderCallback(CBoneInstance* B)
 {
 	CActor* A = static_cast<CActor*>(B->callback_param());
 	VERIFY(A);
+	const float keep = 1.f - A->Parkour().ClipWeight(); // the clip sets the spine and head
+	if (keep <= 0.f) return;
 	Fmatrix spin;
-	float bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_shoulder_factor;
-	float bone_pitch = angle_normalize_signed(A->r_torso.pitch) * p_shoulder_factor;
-	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_shoulder_factor;
+	float bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_shoulder_factor * keep;
+	float bone_pitch = (angle_normalize_signed(A->r_torso.pitch) * p_shoulder_factor + A->Parkour().Lean() * .3f) * keep;
+	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_shoulder_factor * keep;
 	Fvector c = B->mTransform.c;
 	spin.setXYZ(-bone_pitch, bone_yaw, bone_roll);
 	B->mTransform.mulA_43(spin);
@@ -89,6 +99,8 @@ void CActor::HeadCallback(CBoneInstance* B)
 {
 	CActor* A = static_cast<CActor*>(B->callback_param());
 	VERIFY(A);
+	const float keep = 1.f - A->Parkour().ClipWeight(); // the clip sets the spine and head
+	if (keep <= 0.f) return;
 	Fmatrix spin;
 	float bone_yaw;
 
@@ -96,9 +108,10 @@ void CActor::HeadCallback(CBoneInstance* B)
 		bone_yaw = angle_normalize_signed(-A->cam_FirstEye()->yaw - A->r_model_yaw - A->r_model_yaw_delta) * .35f;
 	else
 		bone_yaw = angle_normalize_signed(A->r_torso.yaw - A->r_model_yaw - A->r_model_yaw_delta) * y_head_factor;
+	bone_yaw *= keep;
 
-	float bone_pitch = angle_normalize_signed(A->r_torso.pitch) * p_head_factor;
-	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_head_factor;
+	float bone_pitch = angle_normalize_signed(A->r_torso.pitch) * p_head_factor * keep;
+	float bone_roll = angle_normalize_signed(A->r_torso.roll) * r_head_factor * keep;
 	Fvector c = B->mTransform.c;
 	spin.setXYZ(-bone_pitch, bone_yaw, bone_roll);
 	B->mTransform.mulA_43(spin);
@@ -359,6 +372,16 @@ void CActor::g_SetAnimation(u32 mstate_rl)
 
 		return;
 	}
+	// An authored parkour clip plays the whole body; the stock cycles come back,
+	// mixed in, the frame it ends.
+	if (Parkour().ClipPlaying())
+	{
+		m_current_legs.invalidate();
+		m_current_torso.invalidate();
+		m_current_head.invalidate();
+		m_current_legs_blend = m_current_torso_blend = nullptr;
+		return;
+	}
 	STorsoWpn::eMovingState moving_idx = STorsoWpn::eIdle;
 	SActorState* ST = 0;
 	SAnimState* AS = 0;
@@ -415,6 +438,21 @@ void CActor::g_SetAnimation(u32 mstate_rl)
 	{
 		g_SetSprintAnimation(mstate_rl, M_head, M_torso, M_legs);
 		moving_idx = STorsoWpn::eSprint;
+	}
+
+	// Parkour: legs hang straight while pulling up (stepping only on a wall below a
+	// climb), tuck to sit onto the edge, walk in crouched, or hop a low obstacle.
+	// The arms are held on the edge by ActorParkour IK.
+	const CActorParkour::BodyPose parkourPose = Parkour().Pose();
+	switch (parkourPose)
+	{
+	case CActorParkour::bodyHang: M_legs = m_anims->m_climb.legs_idle; break;
+	case CActorParkour::bodyStep: M_legs = m_anims->m_climb.legs_idle; break; // feet placed on the wall by IK
+	case CActorParkour::bodyTuck: M_legs = m_anims->m_crouch.jump_idle; break;
+	case CActorParkour::bodyWalk: M_legs = m_anims->m_crouch.m_walk.legs_fwd; break;
+	case CActorParkour::bodyHop: M_legs = m_anims->m_normal.jump_idle; break;
+	case CActorParkour::bodyStepUp: M_legs = m_anims->m_climb.legs_idle; break; // both feet placed by IK
+	default: break;
 	}
 
 	if (this == Level().CurrentViewEntity())
@@ -661,6 +699,11 @@ void CActor::g_SetAnimation(u32 mstate_rl)
 		else
 			M_torso = ST->m_torso_idle;
 	}
+	// The unarmed torso is a staggered fighting guard; while the hands hold the edge
+	// the square, two-handed ladder torso keeps both shoulders facing it evenly.
+	if (parkourPose != CActorParkour::bodyNone && parkourPose != CActorParkour::bodyHop &&
+		Parkour().Grip() > .3f)
+		M_torso = m_anims->m_climb.m_torso_idle;
 
 	// есть анимация для всего - запустим / иначе запустим анимацию по частям
 	if (m_current_torso != M_torso)
@@ -706,6 +749,32 @@ void CActor::g_SetAnimation(u32 mstate_rl)
 		m_current_legs = M_legs;
 
 		CStepManager::on_animation_start(M_legs, m_current_legs_blend);
+	}
+
+	// Walking and running at the pace the body really moves: a body slowed (weight, a
+	// slope, a limp) or sped up plays its cycle slower or faster instead of sliding
+	// its feet. Only when a script turns it on (Tactical Traversal).
+	{
+		float pace = 1.f;
+		const bool gait = m_legsSpeedSync && m_current_legs_blend && (mstate_real & mcAnyMove) &&
+			!(mstate_real & (mcJump | mcFall | mcLanding | mcLanding2 | mcClimb)) && !Parkour().Active() &&
+			m_legsNominalSpeed > .1f && character_physics_support();
+		if (gait)
+		{
+			Fvector velocity = character_physics_support()->movement()->GetVelocity();
+			velocity.y = 0.f;
+			pace = clampr(velocity.magnitude() / m_legsNominalSpeed, .55f, 1.5f);
+		}
+		m_legsPace += (pace - m_legsPace) * (1.f - expf(-Device.fTimeDelta / .2f));
+		if (m_current_legs_blend && (gait || m_legsSpeedSync))
+		{
+			IKinematicsAnimated* ka = smart_cast<IKinematicsAnimated*>(Visual());
+			const float base = ka->LL_GetMotionDef(m_current_legs)->Speed();
+			for (u16 part = 0; part < ka->partitions().count(); ++part)
+				for (u32 index = 0; index < ka->LL_PartBlendsCount(part); ++index)
+					if (CBlend* blend = ka->LL_PartBlend(part, index); blend && blend->motionID == m_current_legs)
+						blend->speed = base * (gait ? m_legsPace : 1.f);
+		}
 	}
 
 

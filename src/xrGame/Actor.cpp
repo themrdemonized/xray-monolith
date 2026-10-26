@@ -117,7 +117,7 @@ Flags32 psActorFlags = {AF_GODMODE_RT | AF_AUTOPICKUP | AF_RUN_BACKWARD | AF_IMP
 int psActorSleepTime = 1;
 
 
-CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
+CActor::CActor() : CEntityAlive(), m_parkour(this), current_ik_cam_shift(0)
 {
 	game_news_registry = xr_new<CGameNewsRegistryWrapper>();
 	// Cameras
@@ -260,6 +260,7 @@ CActor::CActor() : CEntityAlive(), current_ik_cam_shift(0)
 
 CActor::~CActor()
 {
+	m_parkour.Reset();
     m_legs_controller.destroy();
 	xr_delete(m_location_manager);
 	xr_delete(m_memory);
@@ -438,6 +439,10 @@ void CActor::Load(LPCSTR section)
 	m_fWalk_StrafeFactor = READ_IF_EXISTS(pSettings, r_float, section, "walk_strafe_coef", 1.0f);
 	m_fRun_StrafeFactor = READ_IF_EXISTS(pSettings, r_float, section, "run_strafe_coef", 1.0f);
 	m_fSprint_StrafeFactor = READ_IF_EXISTS(pSettings, r_float, section, "sprint_strafe_coef", 1.0f);
+	m_legsBase.walkAccel = m_fWalkAccel; m_legsBase.run = m_fRunFactor; m_legsBase.runBack = m_fRunBackFactor;
+	m_legsBase.walkBack = m_fWalkBackFactor; m_legsBase.crouch = m_fCrouchFactor; m_legsBase.climb = m_fClimbFactor;
+	m_legsBase.sprint = m_fSprintFactor; m_legsBase.walkStrafe = m_fWalk_StrafeFactor;
+	m_legsBase.runStrafe = m_fRun_StrafeFactor; m_legsBase.sprintStrafe = m_fSprint_StrafeFactor;
 
 	m_fCamHeightFactor = pSettings->r_float(section, "camera_height_factor");
 	character_physics_support()->movement()->SetJumpUpVelocity(m_fJumpSpeed);
@@ -866,6 +871,7 @@ extern BOOL firstPersonDeath;
 
 void CActor::Die(CObject* who)
 {
+	m_parkour.Reset();
 #ifdef HOLDERCUSTOM_NEW
 	use_HolderEx(NULL, true);
 #endif
@@ -1026,9 +1032,20 @@ void CActor::SwitchOutBorder(bool new_border_state)
 
 void CActor::g_Physics(Fvector& _accel, float jump, float dt)
 {
+	// A performed move (landing roll) walks the body through the controller with its
+	// own input; a guided move places it every render frame.
+	const bool performing = m_parkour.Performing();
+	if (m_parkour.OwnsMovement() && !performing)
+	{
+		// Render-frame update owns guided movement; scheduler frequency must
+		// not make vaulting visibly step or advance the trajectory twice.
+		return;
+	}
+	if (!performing) m_parkour.UpdateStance();
 	// Correct accel
 	Fvector accel;
-	accel.set(_accel);
+	accel.set(performing ? m_parkour.PerformAccel() : _accel);
+	if (performing) jump = 0.f;
 	m_hit_slowmo -= dt;
 	if (m_hit_slowmo < 0) m_hit_slowmo = 0.f;
 
@@ -1127,6 +1144,8 @@ float CActor::currentFOV()
 
 void CActor::UpdateCL()
 {
+	if (m_parkour.Active() && !Device.Paused()) m_parkour.Update(Device.fTimeDelta);
+	if (!Device.Paused()) m_parkour.UpdateBody(Device.fTimeDelta);
 	if (g_Alive() && Level().CurrentViewEntity() == this)
 	{
 		if (CurrentGameUI() && (!CurrentGameUI()->TopInputReceiver() || (CurrentGameUI()->TopInputReceiver() && !CurrentGameUI()->TopInputReceiver()->StopAnyMove())) && !m_holder)
@@ -1882,7 +1901,7 @@ void CActor::shedule_Update(u32 DT)
 				mstate_wishful &= ~mcRLookout;
 			}
 
-			if (cam_freelook == eflEnabled)
+			if (cam_freelook == eflEnabled && !Parkour().Active())
 			{
 				if (psActorFlags.test(AF_FREELOOK_TOGGLE))
 				{
@@ -3125,4 +3144,3 @@ void CActor::removeFPCam()
 		m_FPCam = NULL;
 	}
 }
-
