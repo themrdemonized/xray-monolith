@@ -33,6 +33,24 @@ ICF float CalcSSA(float& distSQ, Fvector& C, float R)
 	return R / distSQ;
 }
 
+// Rain occlusion map, sheltering objects (vehicles): parts without an opaque shadow element (glass) would leave
+// what is under them (dashboards, door cards) uncovered. They borrow the shadow element of an opaque part with the
+// same vertex layout, which is compiled for the same skinning, so any model works as it is. Until such a part has
+// been seen, they are left out as before.
+ShaderElement* R_dsgraph_structure::rain_cover_element(dxRender_Visual* pVisual, ShaderElement* sh)
+{
+	IRender_Mesh* mesh = fast_dynamic_cast<IRender_Mesh*>(pVisual);
+	SDeclaration* dcl = mesh && mesh->rm_geom ? mesh->rm_geom->dcl._get() : 0;
+	if (!dcl) return sh;
+	bool opaque = sh && pmask[sh->flags.iPriority / 2] && !sh->flags.bStrictB2F;
+	for (const auto& it : rain_cover)
+		if (it.first._get() == dcl)
+			return opaque ? sh : it.second._get();
+	if (!opaque) return 0;
+	rain_cover.push_back(std::make_pair(mesh->rm_geom->dcl, ref_selement(sh)));
+	return sh;
+}
+
 void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center)
 {
 	CRender& RI = RImplementation;
@@ -67,12 +85,17 @@ void R_dsgraph_structure::r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fve
 
 	// Select shader
 	ShaderElement* sh = RImplementation.rimp_select_sh_dynamic(pVisual, distSQ);
+	if (val_bRainOccluder) sh = rain_cover_element(pVisual, sh);
 	if (0 == sh) return;
 	if (!pmask[sh->flags.iPriority / 2]) return;
 
 	// Create common node
 	// NOTE: Invisible elements exist only in R1
 	_MatrixItem item = {SSA, RI.val_pObject, pVisual, *RI.val_pTransform};
+	// The rain test lifts every surface by its depth bias (-0.0001 of the 3000 m rain map range, 0.3 m in
+	// draw_rain), so whatever is less than that under a cover reads as uncovered. A sheltering object is drawn that
+	// much higher less 3 cm: under its roof and glass everything stays dry, its own outside still gets wet.
+	if (val_bRainOccluder) item.Matrix.c.y += 0.27f;
 
 #if defined(USE_DX11) //  Redotix99: for 3D Shader Based Scopes 		
 	switch (sh->flags.iScopeLense) {	

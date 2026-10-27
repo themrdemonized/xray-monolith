@@ -15,14 +15,23 @@ CCar::SWheel::SWheelCollisionParams::SWheelCollisionParams()
 	spring_factor = 1;
 	damping_factor = 1;
 	mu_factor = 1;
+	wheel = NULL;
 }
 
+// material_2 is the surface the wheel touches (the callback passes them in that order for either geom)
 IC void CCar::SWheel::applywheelCollisionParams(const dxGeomUserData* ud, bool& do_colide, dContact& c,
                                                 SGameMtl* material_1, SGameMtl* material_2)
 {
 	if (ud && ud->object_callbacks && ud->object_callbacks->HasCallback(WheellCollisionCallback))
 	{
 		SWheelCollisionParams& cp = *((SWheelCollisionParams*)(ud->callback_data));
+		if (cp.wheel && cp.wheel->car->HandlingActive())
+		{
+			cp.wheel->car->HandlingContact(*cp.wheel, c, material_2);
+			// set by the triangle collider before the callbacks; CollideIntoGroup then gives the contact mu = flt_max
+			if (ud->pushing_neg || ud->pushing_b_neg) cp.wheel->vho_dbg_neg = true;
+			return;
+		}
 		dSurfaceParameters& sp = c.surface;
 		sp.mu *= cp.mu_factor;
 		MulSprDmp(sp.soft_cfm, sp.soft_cfm, cp.spring_factor, cp.damping_factor);
@@ -35,7 +44,7 @@ void CCar::SWheel::WheellCollisionCallback(bool& do_colide, bool bo1, dContact& 
 	dxGeomUserData* ud1 = PHRetrieveGeomUserData(c.geom.g1);
 	dxGeomUserData* ud2 = PHRetrieveGeomUserData(c.geom.g2);
 	applywheelCollisionParams(ud1, do_colide, c, material_1, material_2);
-	applywheelCollisionParams(ud2, do_colide, c, material_1, material_2);
+	applywheelCollisionParams(ud2, do_colide, c, material_2, material_1);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +80,12 @@ void CCar::SWheel::Init()
 	e->add_ObjectContactCallback(WheellCollisionCallback);
 	e->set_CallbackData((void*)&collision_params);
 	e->SetAirResistance(0, 0);
+
+	element = e;
+	collision_params.wheel = this;
+	pos = PKinematics(car->Visual())->LL_GetTransform(bone_id).c;
+	joint->GetJointSDfactors(stock_spring, stock_damping);
+	vho_spring_mul = vho_damping_mul = 1.f;
 	inited = true;
 }
 

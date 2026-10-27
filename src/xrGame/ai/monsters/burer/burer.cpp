@@ -14,6 +14,7 @@
 #include "../control_animation_base.h"
 #include "../control_movement_base.h"
 #include "burer_fast_gravi.h"
+#include "../../../CarPush.h"
 #include "../anti_aim_ability.h"
 #include "../anti_aim_ability.h"
 
@@ -392,11 +393,13 @@ void CBurer::UpdateGraviObject()
 
 		CInventoryItem* itm = smart_cast<CInventoryItem*>(obj);
 		if (itm && itm->IsQuestItem()) continue;
+		float push = vehicle_push_scale(obj, this); // cars: the burer's share (VHO); 1 for anything else
+		if (push <= 0.f) continue;
 
 		Fvector dir;
 		dir.sub(obj->Position(), m_gravi_object.cur_pos);
 		dir.normalize();
-		obj->m_pPhysicsShell->applyImpulse(dir, m_gravi.impulse_to_objects * obj->m_pPhysicsShell->getMass());
+		obj->m_pPhysicsShell->applyImpulse(dir, push * m_gravi.impulse_to_objects * obj->m_pPhysicsShell->getMass());
 	}
 
 	// играть звук

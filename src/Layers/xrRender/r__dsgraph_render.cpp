@@ -941,6 +941,15 @@ void R_dsgraph_structure::r_dsgraph_render_subspace(IRender_Sector* _sector, CFr
 				// renderable
 				IRenderable* renderable = spatial->dcast_Renderable();
 				if (0 == renderable) continue; // unknown, but renderable object (r1_glow???)
+				// _dynamic 2 (the rain occlusion map): only the objects that shelter what is under them from rain
+				if (_dynamic == 2)
+				{
+					if (!renderable->renderable.rain_occluder) continue;
+					val_bRainOccluder = TRUE;
+					renderable->renderable_Render();
+					val_bRainOccluder = FALSE;
+					continue;
+				}
 
 				renderable->renderable_Render();
 			}

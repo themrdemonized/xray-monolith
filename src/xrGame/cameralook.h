@@ -6,6 +6,7 @@ class CCameraLook : public CCameraBase
 {
 	typedef CCameraBase inherited;
 
+protected:
 	Fvector2 lim_zoom;
 	float dist, prev_d;
 public:
@@ -21,6 +22,20 @@ public:
 	virtual float GetWorldPitch() { return pitch; };
 protected:
 	void UpdateDistance(Fvector& point);
+};
+
+// Chase/free camera of drivable cars. Its collision ray ignores the car, the driver and passable
+// materials (bushes), and never pulls the camera in front of its pivot.
+class CCameraCarLook : public CCameraLook
+{
+	typedef CCameraLook inherited;
+public:
+	CCameraCarLook(CObject* p, u32 flags = 0) : CCameraLook(p, flags), m_overhaul(false)
+	{
+	}
+
+	virtual void Update(Fvector& point, Fvector& noise_dangle);
+	bool m_overhaul; // set by the car: false keeps the stock camera (Vehicle Handling Overhaul not active)
 };
 
 class CCameraLook2 : public CCameraLook

@@ -100,6 +100,37 @@ collide::rq_result GetPickResult(Fvector pos, Fvector dir, float range, CObject*
 	return RQ;
 }
 
+void CCameraCarLook::Update(Fvector& point, Fvector& noise_dangle)
+{
+	if (!m_overhaul)
+	{
+		inherited::Update(point, noise_dangle);
+		return;
+	}
+	Fmatrix mR;
+	mR.setHPB(-yaw, -pitch, -roll);
+	vDirection.set(mR.k);
+	vNormal.set(mR.j);
+	if (m_Flags.is(flRelativeLink))
+	{
+		parent->XFORM().transform_dir(vDirection);
+		parent->XFORM().transform_dir(vNormal);
+	}
+
+	// GetPickDist_Callback skips the controlled actor, the vehicle it drives and passable materials
+	float covariance = VIEWPORT_NEAR * 6.f;
+	Fvector back;
+	back.invert(vDirection);
+	collide::rq_result R = GetPickResult(point, back, dist + covariance, parent);
+
+	float d = psCamSlideInert * prev_d + (1.f - psCamSlideInert) * (R.range - covariance);
+	if (d < 0.f) d = 0.f;
+	prev_d = d;
+
+	vPosition.mul(vDirection, -d - VIEWPORT_NEAR);
+	vPosition.add(point);
+}
+
 void CCameraLook::UpdateDistance(Fvector& point)
 {
 	Fvector vDir;
