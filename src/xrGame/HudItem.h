@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 class CSE_Abstract;
 class CPhysicItem;
@@ -81,6 +81,19 @@ public:
 	virtual void OnStateSwitch(u32 S, u32 oldState) = 0;
 };
 
+// verdatim, additive animations
+struct anim_play_returns {
+    u32 anim_time;
+    // maybe i should turns the partitions for the hand models into set arrays / Vectors, will think about it
+    u16 m_model_p0_ID;
+    u16 m_model_p2_ID;
+    u16 m_model_2_p0_ID;
+    u16 m_model_2_p1_ID;
+    u16 m_model_2_p2_ID;
+    IntVec Item_BlendID;
+    u16 mode = 0;
+};
+
 class CHudItem : public CHUDState
 {
 protected:
@@ -101,6 +114,10 @@ protected:
 	struct
 	{
 		const CMotionDef* m_current_motion_def;
+
+        // item motion_def
+        const CMotionDef* m_item_current_motion_def;
+
 		shared_str m_current_motion;
 		u32 m_dwMotionCurrTm;
 		u32 m_dwMotionStartTm;
@@ -176,6 +193,9 @@ public:
 
 	virtual void OnMotionMark(u32 state, const motion_marks& M);
 
+    //item motion mark
+    virtual void OnItemMotionMark(u32 state, const motion_marks& M);
+
 	virtual void PlayAnimIdle();
 	virtual bool TryPlayAnimBore();
 	virtual bool TryPlayAnimIdle();
@@ -196,7 +216,14 @@ public:
 	virtual void UpdateXForm() = 0;
 
 	u32 PlayHUDMotion(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed = 1.f, float end = 0.f, bool bMixIn2 = true);
-	u32 PlayHUDMotion_noCB(const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true);
+    u32 PlayHUDMotion_noCB( const shared_str& M, BOOL bMixIn, float speed = 1.f, bool bMixIn2 = true, u8 channel = u8(0), anim_play_returns* returns = nullptr);
+
+    // verdatim
+    ::luabind::object PlayHUDMotion_Additive(shared_str M, BOOL bMixIn, CHudItem* W, u32 state, float speed = 1.f, float end = 0.f, bool bMixIn2 = true, u16 mode = 1);
+    void ClearBlends();
+    BOOL load_one_motion(const shared_str& sect_name, const shared_str& alias, const shared_str& hand_anim, const shared_str& item_anim);
+    void StopHUDMotion_Additive(anim_play_returns* returns = nullptr);
+
 	void StopCurrentAnimWithoutCallback();
 
 	IC void RenderHud(BOOL B) { m_huditem_flags.set(fl_renderhud, B); }

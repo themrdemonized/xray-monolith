@@ -286,6 +286,66 @@ void CKinematicsAnimated::LL_CloseCycle(u16 part, u8 mask_channel /*= (1<<0)*/)
 	//blend_cycles[part].clear	(); // ?
 }
 
+void CKinematicsAnimated::CloseAddCycles(u16 partition, u16 BlendID)
+{
+    //for (MotionsSlotVecIt m_it = m_Motions.begin(); m_it != m_Motions.end(); m_it++)
+    //{
+    //    SMotionsSlot& MS = *m_it;
+    //    MotionDefVec* def = MS.motions.motion_defs();
+    //    for (MotionDefVecIt it = def->begin(); it != def->end(); ++it)
+    //    {
+    //        //Msg("bone part is %d ", it->bone_or_part);
+    //        //LL_CloseAddCycles(it->bone_or_part, u8(2));
+    //    }
+    //}
+
+    LL_CloseAddCycles(partition, 1 << u8(2), BlendID);
+}
+
+void CKinematicsAnimated::LL_CloseAddCycles(u16 part, u8 mask_channel /*= (1<<0)*/, u16 BlendID)
+{
+    if (BI_NONE == part) return Msg("part %d is BI_NONE", part);
+    if (part >= MAX_PARTS) return Msg("part %d is >= MAX_PARTS %d ", part, MAX_PARTS);
+
+    // destroy cycle(s)
+    BlendSVecIt I = blend_cycles[part].begin(), E = blend_cycles[part].end();
+    for (; I != E; I++)
+    {
+        CBlend& B = *(*I);
+        if (!(mask_channel & (1 << B.channel)))
+        {
+            //Msg("channel %d is masked", 1<<B.channel);
+            continue;
+        }
+        //B.blend = CBlend::eFREE_SLOT;
+        
+        // clear blend if blend is not provided or if it matches the current blend's id
+        if ((BlendID == 0) || B.Add_ID == BlendID)
+        {
+            //Msg("clearing blend");
+            B.set_free_state();
+
+            CPartDef* P = (*m_Partition)[B.bone_or_part];
+            if (nullptr == P) return;
+            for (u32 i = 0; i < P->bones.size(); i++)
+                Bone_Motion_Stop_IM((*bones)[P->bones[i]], *I);
+
+            blend_cycles[part].erase(I); // ?
+            E = blend_cycles[part].end();
+            I--;
+
+            // verdatim additive animations
+            B.Add_ID = u16(65535);
+        }
+        else
+        {
+            CBlend& B = *(*I);;
+            //Msg("BlendID [%d] does not match current Add_ID [%d]", BlendID, B.Add_ID);
+        }
+    }
+    //blend_cycles[part].clear	(); // ?
+}
+
 float CKinematicsAnimated::get_animation_length(MotionID motion_ID)
 {
 	VERIFY(motion_ID.slot<m_Motions.size());
@@ -307,7 +367,7 @@ float CKinematicsAnimated::get_animation_length(MotionID motion_ID)
 
 void CKinematicsAnimated::IBlendSetup(CBlend& B, u16 part, u8 channel, MotionID motion_ID, BOOL bMixing,
                                       float blendAccrue, float blendFalloff, float Speed, BOOL noloop,
-                                      PlayCallback Callback, LPVOID CallbackParam)
+                                      PlayCallback Callback, LPVOID CallbackParam, BOOL SkipFirstFrame)
 {
 	VERIFY(B.channel<MAX_CHANNELS);
 	// Setup blend params
@@ -340,6 +400,27 @@ void CKinematicsAnimated::IBlendSetup(CBlend& B, u16 part, u8 channel, MotionID 
 
 	B.channel = channel;
 	B.fall_at_end = B.stop_at_end && (channel > 1);
+
+    // verdatim, additive animation blend defs, use separate vector for additive blends. if empty space exists, use it. Otherwise push back.
+    if (channel == 2){
+         B.SkipFirstFrame = SkipFirstFrame;
+
+        BlendSVecIt I = blend_additives.begin(), E = blend_additives.end();
+        for (int cnt = 0; I != E; I++)
+        {
+            CBlend& b = *(*I);
+            // 65535 is the dummy value
+            if (&b == nullptr) continue;
+            if (*(&b.Add_ID) == u16(65535)) {
+                blend_additives[cnt] = &B;
+                B.Add_ID = cnt;
+                return;
+            }
+            cnt++;
+        }
+        blend_additives.push_back(&B);
+    }
+
 }
 
 void CKinematicsAnimated::IFXBlendSetup(CBlend& B, MotionID motion_ID, float blendAccrue, float blendFalloff,
@@ -391,6 +472,7 @@ CBlend* CKinematicsAnimated::LL_PlayCycle(u16 part, MotionID motion_ID, BOOL bMi
 	if (channel == 0)
 	{
 		_DBG_SINGLE_USE_MARKER;
+       //Msg("stopping previous cycle");
 		if (bMixing) LL_FadeCycle(part, blendFalloff, 1 << channel);
 		else LL_CloseCycle(part, 1 << channel);
 	}
@@ -398,9 +480,15 @@ CBlend* CKinematicsAnimated::LL_PlayCycle(u16 part, MotionID motion_ID, BOOL bMi
 	CBlend* B = IBlend_Create();
 	if (!B) return 0;
 
+    BOOL SkipFirstFrame = FALSE;
+    if (channel == 2) {
+        CMotionDef* m_def = m_Motions[motion_ID.slot].motions.motion_def(motion_ID.idx);
+        SkipFirstFrame = m_def->SkipFirstFrame();
+    }
 	_DBG_SINGLE_USE_MARKER;
 	IBlendSetup(*B, part, channel, motion_ID, bMixing, blendAccrue, blendFalloff, Speed, noloop, Callback,
-	            CallbackParam);
+	            CallbackParam, SkipFirstFrame);
+ 
 	for (u32 i = 0; i < P->bones.size(); i++)
 	{
 		if (!(*bones)[P->bones[i]])
@@ -558,6 +646,11 @@ void CKinematicsAnimated::LL_UpdateTracks(float dt, bool b_force, bool leave_ble
 				blend_cycles[part].erase(I);
 				E = blend_cycles[part].end();
 				I--;
+                if (B.channel == 2) {
+                    // verdatim additive animations
+                    // after blend is destroyed, remove that blend by setting its id to 65535
+                    B.Add_ID = u16(65535);
+                }
 			}
 			//else{
 			//	CMotionDef* m_def						= m_Motions[B.motionID.slot].motions.motion_def(B.motionID.idx);
@@ -777,6 +870,9 @@ void CKinematicsAnimated::Load(const char* N, IReader* data, u32 dwFlags)
 	blend_instances = NULL;
 	m_Partition = NULL;
 	Update_LastTime = 0;
+
+    // clear blend_additives list
+    blend_additives.clear();
 
 	const auto loadOMF = [&](LPCSTR _path)
 	{
