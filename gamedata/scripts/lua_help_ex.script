@@ -368,6 +368,9 @@
         // AddTab, which builds the tab fresh.
         bool SetTabIcon(string id, string art)
         void RecalcScroll() // recompute strip geometry; scrolling engages only on overflow
+
+		// Ncenka - remove selection from active tab and allow to select it again.
+		void ResetTab()
     }
 
     class CUIMessagesWindow : CUIWindow {
