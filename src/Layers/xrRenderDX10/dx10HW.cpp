@@ -541,7 +541,7 @@ void CHW::CreateDevice(HWND hwnd, bool move_window)
 #ifdef DEBUG
 	//createDeviceFlags |= D3Dxx_CREATE_DEVICE_DEBUG;
 #endif
-    HRESULT R;
+    HRESULT R = S_OK; // DX11: every creation failure is already R_CHK'd
     // Create the device
     //	DX10 don't need it?
 	//u32 GPU		= selectGPU();
