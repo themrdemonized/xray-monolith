@@ -4,7 +4,7 @@
 
 class IWallMarkArray;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	class IObjectSpaceRender;
 #endif // DEBUG
 

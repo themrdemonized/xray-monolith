@@ -53,7 +53,7 @@ public:
 	void set_PhysicsRefObject(IPhysicsShellHolder* ref_object); //aux
 	IPhysicsShellHolder* PhysicsRefObject() { return m_phys_ref_object; } //aux
 	void SetPhObjectInGeomData(CPHObject* O);
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		void						dbg_draw								( float scale, u32 color, Flags32 flags )const;
 #endif
 	void SetMaterial(u16 m);

@@ -8,7 +8,7 @@
 
 #pragma once
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	define aiDebug						(1<<0)
 #	define aiBrain						(1<<1)
 #	define aiMotion						(1<<2)
@@ -38,7 +38,7 @@
 #	define aiDrawGameGraphRealPos		(1<<28)
 #endif // DEBUG
 
-#ifndef MASTER_GOLD
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(MASTER_GOLD)
 #	define aiLua						(1<<6)
 #	define aiIgnoreActor				(1<<24)
 #	define aiObstaclesAvoiding			(1<<28)

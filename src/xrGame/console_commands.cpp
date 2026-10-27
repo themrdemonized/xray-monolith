@@ -316,11 +316,11 @@ Flags32 g_mt_config = {
 	mtLevelPath | mtDetailPath | mtObjectHandler | mtSoundPlayer | mtAiVision | mtBullets | mtLUA_GC | mtLevelSounds |
 	mtALife | mtMap
 };
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 Flags32	dbg_net_Draw_Flags = { 0 };
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 BOOL	g_bDebugNode = FALSE;
 u32		g_dwDebugNodeSource = 0;
 u32		g_dwDebugNodeDest = 0;
@@ -329,7 +329,7 @@ extern	BOOL	g_bDrawFirstBulletCrosshair;
 
 float	debug_on_frame_gather_stats_frequency = 0.f;
 #endif
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 extern LPSTR	dbg_stalker_death_anim;
 extern BOOL		b_death_anim_velocity;
 extern BOOL		death_anim_debug;

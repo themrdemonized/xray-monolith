@@ -33,7 +33,7 @@ float ENGINE_API CBoneInstance::get_param(u32 idx)
 	return param[idx];
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void ENGINE_API CBoneData::DebugQuery(BoneDebug& L)
 {
     for (u32 i = 0; i < children.size(); i++)

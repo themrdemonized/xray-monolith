@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 #include "dxObjectSpaceRender.h"
 
@@ -41,7 +41,7 @@ void dxObjectSpaceRender::dbgRender()
 	}
 	q_debug.boxes.clear();
 
-	for (i=0; i<dbg_S.size(); i++)
+	for (u32 i=0; i<dbg_S.size(); i++)
 	{
 		std::pair<Fsphere,u32>& P = dbg_S[i];
 		Fsphere&	S = P.first;

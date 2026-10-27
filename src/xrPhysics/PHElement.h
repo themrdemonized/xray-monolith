@@ -170,7 +170,7 @@ public: //
 	void ActivatingPos(const Fmatrix& BoneTransform);
 	IC void CalculateBoneTransform(Fmatrix& bone_transform) const;
 
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual void						dbg_draw_velocity						( float scale, u32 color );
 	virtual void						dbg_draw_force							( float scale, u32 color );
 	virtual void						dbg_draw_geometry						( float scale, u32 color, Flags32 flags = Flags32().assign( 0 ) ) const;
@@ -260,7 +260,7 @@ public: //
 	virtual CPhysicsShell* PhysicsShell(); //aux
 	CPHShell* PHShell();
 	virtual void set_ParentElement(CPhysicsElement* p) { m_parent_element = (CPHElement*)p; } //aux
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	CPhysicsElement*					parent_element					(){ return m_parent_element; }
 #endif
 	void SetShell(CPHShell* p); //aux

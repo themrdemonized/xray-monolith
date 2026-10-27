@@ -735,7 +735,7 @@ void CActor::update_camera(CCameraShotEffector* effector)
 }
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void dbg_draw_frustum (float FOV, float _FAR, float A, Fvector &P, Fvector &D, Fvector &U);
 extern	Flags32	dbg_net_Draw_Flags;
 extern	BOOL g_bDrawBulletHit;
@@ -755,6 +755,6 @@ void CActor::OnRender	()
 
 	OnRender_Network();
 
-	inherited::OnRender();
+	//inherited::OnRender();
 }
 #endif

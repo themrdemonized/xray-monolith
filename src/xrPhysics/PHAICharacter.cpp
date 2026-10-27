@@ -211,7 +211,7 @@ EEnvironment CPHAICharacter::CheckInvironment()
 	return inherited::CheckInvironment();
 }
 */
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void	CPHAICharacter::OnRender()	
 {
 	inherited::OnRender();

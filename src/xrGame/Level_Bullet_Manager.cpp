@@ -18,7 +18,7 @@
 #include "../Include/xrRender/UIRender.h"
 #include "../Include/xrRender/Kinematics.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #endif
 
@@ -1078,7 +1078,7 @@ bool CBulletManager::process_bullet(collide::rq_results& storage, SBullet& bulle
 	}
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	BOOL g_bDrawBulletHit = FALSE;
 #endif
 
@@ -1113,7 +1113,7 @@ float SqrDistancePointToSegment(const Fvector& pt, const Fvector& orig, const Fv
 BOOL g_render_short_tracers = 1;
 void CBulletManager::Render()
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (g_bDrawBulletHit && !m_bullet_points.empty()) {
 		VERIFY							(!(m_bullet_points.size() % 2));
 		CDebugRenderer& renderer		= Level().debug_renderer();
@@ -1122,12 +1122,12 @@ void CBulletManager::Render()
 		BulletPoints::const_iterator	e = m_bullet_points.end();
 		for ( ; i != e; i+=2) {
 			sphere.c					= *i;
-			renderer.draw_ellipse		(sphere, D3DCOLOR_XRGB(255, 0, 0));
+			renderer.draw_ellipse		(sphere, D3DCOLOR_XRGB(255, 0, 0), false);
 
-			renderer.draw_line			(Fidentity, *i, *(i + 1), D3DCOLOR_XRGB(0, 255, 0));
+			renderer.draw_line			(Fidentity, *i, *(i + 1), D3DCOLOR_XRGB(0, 255, 0), false);
 
 			sphere.c					= *(i + 1);
-			renderer.draw_ellipse		(sphere, D3DCOLOR_XRGB(255, 0, 0));
+			renderer.draw_ellipse		(sphere, D3DCOLOR_XRGB(255, 0, 0), false);
 		}
 
 		if (m_bullet_points.size() > 32768)
@@ -1147,7 +1147,7 @@ void CBulletManager::Render()
 		DRender->CacheSetXformWorld(Fidentity);
 		for(int i=0; i<3; ++i)
 			for(it=g_hit[i].begin();it!=g_hit[i].end();++it){
-				Level().debug_renderer().draw_aabb(*it,0.01f,0.01f,0.01f,C[i]);
+				Level().debug_renderer().draw_aabb(*it,0.01f,0.01f,0.01f,C[i], false);
 			}
 	}
 #endif

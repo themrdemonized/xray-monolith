@@ -130,7 +130,13 @@ private:
 
 private:
 	xr_vector<STravelPathPoint> m_path;
-	xr_vector<STravelPoint> m_key_points;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+public:
+#endif
+    xr_vector<STravelPoint> m_key_points;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+private:
+#endif
 	xr_vector<STravelParamsIndex> m_start_params;
 	xr_vector<STravelParamsIndex> m_dest_params;
 	xr_vector<STravelPathPoint> m_temp_path;

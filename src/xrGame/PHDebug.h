@@ -1,6 +1,6 @@
 #ifndef PH_DEBUG_H
 #define PH_DEBUG_H
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 struct dContact;
 #include "../xrEngine/StatGraph.h"
 #include "../xrphysics/debug_output.h"

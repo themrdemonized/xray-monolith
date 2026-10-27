@@ -7,7 +7,7 @@
 #include "../xrEngine/bone.h"
 
 //global
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include	"debug_output.h"
 #endif // #ifdef DEBUG
 
@@ -798,7 +798,7 @@ void CCylinderGeom::set_build_position(const Fvector& ref_point)
 }
 
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void	CODEGeom::	dbg_draw			( float scale, u32 color, Flags32 flags )const
 {
 	Fmatrix m;

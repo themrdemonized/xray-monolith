@@ -1224,7 +1224,7 @@ void CPHSimpleCharacter::SetMas(dReal mass)
 	dMassAdjust(&m, mass);
 	dBodySetMass(m_body, &m);
 }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CPHSimpleCharacter::OnRender(){
 #if 0
 	if(!b_exist) return;

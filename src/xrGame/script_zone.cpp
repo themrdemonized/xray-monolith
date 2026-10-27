@@ -14,7 +14,7 @@
 #include "script_callback_ex.h"
 #include "game_object_space.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "level.h"
 #	include "debug_renderer.h"
 #endif
@@ -94,7 +94,7 @@ bool CScriptZone::feel_touch_contact(CObject* O)
 	return (((CCF_Shape*)CFORM())->Contact(O)) != 0;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CScriptZone::OnRender() 
 {
 	if(!bDebug) return;
@@ -115,13 +115,13 @@ void CScriptZone::OnRender()
 				l_ball.scale(l_sphere.R, l_sphere.R, l_sphere.R);
 				Fvector l_p; XFORM().transform(l_p, l_sphere.P);
 				l_ball.translate_add(l_p);
-				Level().debug_renderer().draw_ellipse(l_ball, D3DCOLOR_XRGB(0,255,255));
+				Level().debug_renderer().draw_ellipse(l_ball, D3DCOLOR_XRGB(0,255,255), false);
 			}
 			break;
 		case 1:
 			{
 				l_box.mul(XFORM(), l_pShape->data.box);
-				Level().debug_renderer().draw_obb(l_box, l_half, D3DCOLOR_XRGB(0,255,255));
+				Level().debug_renderer().draw_obb(l_box, l_half, D3DCOLOR_XRGB(0,255,255), false);
 			}
 			break;
 		}

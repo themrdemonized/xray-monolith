@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "debug_output.h"
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 static class DebugOutputEmptyImpl:
 	public	IDebugOutput

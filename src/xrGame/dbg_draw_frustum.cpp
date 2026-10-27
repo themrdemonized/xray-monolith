@@ -2,11 +2,11 @@
 #include "level.h"
 #include "../xrCDB/frustum.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "debug_renderer.h"
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void MK_Frustum(CFrustum& F, float FOV, float _FAR, float A, Fvector &P, Fvector &D, Fvector &U)
 {
 	float YFov	= deg2rad(FOV);
@@ -116,15 +116,15 @@ void dbg_draw_frustum	(float FOV, float _FAR, float A, Fvector &P, Fvector &D, F
 //	RCache.dbg_DrawTRI	(M,COP,_F[1],_F[2],CT);
 //	RCache.dbg_DrawTRI	(M,COP,_F[2],_F[3],CT);
 //	RCache.dbg_DrawTRI	(M,COP,_F[3],_F[0],CT);
-	Level().debug_renderer().draw_line	(M,COP,_F[0],CL);
-	Level().debug_renderer().draw_line	(M,COP,_F[1],CL);
-	Level().debug_renderer().draw_line	(M,COP,_F[2],CL);
-	Level().debug_renderer().draw_line	(M,COP,_F[3],CL);
+	Level().debug_renderer().draw_line	(M,COP,_F[0],CL, false);
+	Level().debug_renderer().draw_line	(M,COP,_F[1],CL, false);
+	Level().debug_renderer().draw_line	(M,COP,_F[2],CL, false);
+	Level().debug_renderer().draw_line	(M,COP,_F[3],CL, false);
 
-	Level().debug_renderer().draw_line	(M,_F[0],_F[1],CL);
-	Level().debug_renderer().draw_line	(M,_F[1],_F[2],CL);
-	Level().debug_renderer().draw_line	(M,_F[2],_F[3],CL);
-	Level().debug_renderer().draw_line	(M,_F[3],_F[0],CL);
+	Level().debug_renderer().draw_line	(M,_F[0],_F[1],CL, false);
+	Level().debug_renderer().draw_line	(M,_F[1],_F[2],CL, false);
+	Level().debug_renderer().draw_line	(M,_F[2],_F[3],CL, false);
+	Level().debug_renderer().draw_line	(M,_F[3],_F[0],CL, false);
 
 	//RCache.set_CullMode			(CULL_CCW);
 	DRender->CacheSetCullMode(IDebugRender::cmCCW);

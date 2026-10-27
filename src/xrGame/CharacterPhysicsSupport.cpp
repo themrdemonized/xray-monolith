@@ -582,7 +582,7 @@ IC void CCharacterPhysicsSupport::UpdateDeathAnims()
 		m_flags.set(fl_death_anim_on,TRUE);
 	}
 }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void	DBG_PhysBones( CObject &O );
 void	DBG_DrawBones( CObject &O );
 void	DBG_DrawBind ( CObject &O );

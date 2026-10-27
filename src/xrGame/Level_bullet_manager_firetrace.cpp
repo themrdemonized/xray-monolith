@@ -365,7 +365,7 @@ void CBulletManager::DynamicObjectHit(CBulletManager::_event& E)
 	}
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 FvectorVec g_hit[3];
 #endif
 

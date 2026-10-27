@@ -155,7 +155,7 @@ protected:
 	BulletVec m_BulletsRendered; // copy for rendering
 	xr_vector<_event> m_Events;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	u32						m_thread_id;
 
 	typedef xr_vector<Fvector>	BulletPoints;
