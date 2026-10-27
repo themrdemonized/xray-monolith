@@ -21,10 +21,10 @@ void CCC_CreateGameSpyAccount::Execute(LPCSTR args)
 	string256 tmp_password;
 
 	sscanf_s(args, "%s %s %s %s",
-	         tmp_nick, sizeof(tmp_nick),
-	         tmp_unick, sizeof(tmp_unick),
-	         tmp_email, sizeof(tmp_email),
-	         tmp_password, sizeof(tmp_password));
+	         tmp_nick, (u32)sizeof(tmp_nick),
+	         tmp_unick, (u32)sizeof(tmp_unick),
+	         tmp_email, (u32)sizeof(tmp_email),
+	         tmp_password, (u32)sizeof(tmp_password));
 
 	//VERIFY(MainMenu() && MainMenu()->GetGS());
 	//CGameSpy_GP* tmp_gp = MainMenu()->GetGS()->GetGameSpyGP();
@@ -60,8 +60,8 @@ void CCC_GapySpyListProfiles::Execute(LPCSTR args)
 	string256 tmp_password;
 
 	sscanf_s(args, "%s %s",
-	         tmp_email, sizeof(tmp_email),
-	         tmp_password, sizeof(tmp_password));
+	         tmp_email, (u32)sizeof(tmp_email),
+	         tmp_password, (u32)sizeof(tmp_password));
 
 	//VERIFY(MainMenu() && MainMenu()->GetGS());
 	//CGameSpy_GP* tmp_gp = MainMenu()->GetGS()->GetGameSpyGP();
@@ -88,9 +88,9 @@ void CCC_GameSpyLogin::Execute(LPCSTR args)
 	string256 tmp_password;
 
 	sscanf_s(args, "%s %s %s",
-	         tmp_email, sizeof(tmp_email),
-	         tmp_nick, sizeof(tmp_nick),
-	         tmp_password, sizeof(tmp_password)
+	         tmp_email, (u32)sizeof(tmp_email),
+	         tmp_nick, (u32)sizeof(tmp_nick),
+	         tmp_password, (u32)sizeof(tmp_password)
 	);
 
 	//VERIFY(MainMenu() && MainMenu()->GetGS());
