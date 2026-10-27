@@ -585,6 +585,7 @@ int CUIActorMenu::current_sort_mode()
 			return i;
 		}
 	}
+	return 0;
 }
 
 void CUIActorMenu::SelectInventoryTab(int tab)
