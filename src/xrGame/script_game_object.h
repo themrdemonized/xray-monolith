@@ -1188,6 +1188,13 @@ public:
 	void ResetBoneProtections(LPCSTR imm_sect, LPCSTR bone_sect);
 	//Anything with PPhysicShell (ie. car, actor, stalker, monster, heli)
 	void ForceSetPosition(Fvector pos, bool enable = true);
+	//Anomaly Co-op: CCustomMonster driven by positions from the network
+	void NetPuppet(bool enable, u32 delay);
+	void NetPuppetPush(Fvector pos, u32 remote_time);
+	bool NetPuppetActive();
+	u32 NetPuppetDelay();
+	void NetPuppetBody(u8 body);
+	void NetPuppetLook(Fvector direction);
 	void ForceSetRotation(Fvector rot, bool enable = true);
 	void ForceSetAngle(Fvector ang, bool bActivate);
 	Fvector Angle();

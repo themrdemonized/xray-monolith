@@ -148,6 +148,16 @@ MotionID CStalkerAnimationManager::legs_move_animation()
 
 	stalker_movement_manager_smart_cover& movement = object().movement();
 
+	// Anomaly Co-op: a network puppet walks, runs or sprints by how fast it really moves, and its legs go
+	// where it really goes; its head and weapon keep looking where the sender looks
+	Fvector net_velocity;
+	bool puppet = object().net_puppet_velocity(net_velocity);
+	float net_speed = puppet ? object().net_puppet_speed() : 0.f;
+	MonsterSpace::EMovementType movement_type = movement.movement_type();
+	if (puppet)
+		movement_type = net_speed > 2.5f ? eMovementTypeRun : eMovementTypeWalk;
+	bool sprint = puppet && net_speed > 4.5f && body_state() == eBodyStateStand;
+
 	VERIFY(
 		(movement.body_state() == eBodyStateStand) ||
 		(movement.mental_state() != eMentalStateFree)
@@ -159,16 +169,19 @@ MotionID CStalkerAnimationManager::legs_move_animation()
 		m_last_non_zero_speed = m_target_speed;
 
 		//Alun: Sprint stalker fix
-		if (movement.movement_type() == eMovementTypeRun && movement.mental_state() == eMentalStatePanic)
+		if (sprint || (movement_type == eMovementTypeRun && movement.mental_state() == eMentalStatePanic))
 			return (m_data_storage->m_part_animations.A[eBodyStateStand].m_movement.A[2].A[4].A[0]);
 
-		return (m_data_storage->m_part_animations.A[body_state()].m_movement.A[movement.movement_type()].A[
+		return (m_data_storage->m_part_animations.A[body_state()].m_movement.A[movement_type].A[
 				eMovementDirectionForward].A[1]
 		);
 	}
 
 	float yaw, pitch;
-	object().sight().GetDirectionAngles(yaw, pitch);
+	if (puppet && net_speed > 0.3f)
+		net_velocity.getHP(yaw, pitch);
+	else
+		object().sight().GetDirectionAngles(yaw, pitch);
 
 	yaw = angle_normalize_signed(-yaw);;
 	legs_process_direction(yaw);
@@ -219,11 +232,14 @@ MotionID CStalkerAnimationManager::legs_move_animation()
 	m_target_speed = movement.speed(speed_direction);
 	m_last_non_zero_speed = m_target_speed;
 
+	if (sprint && speed_direction == eMovementDirectionForward)
+		return (m_data_storage->m_part_animations.A[eBodyStateStand].m_movement.A[2].A[4].A[0]);
+
 	return (
 		m_data_storage->m_part_animations.A[
 			body_state()
 		].m_movement.A[
-			movement.movement_type()
+			movement_type
 		].A[
 			speed_direction
 		].A[

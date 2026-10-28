@@ -2550,6 +2550,48 @@ void CScriptGameObject::ForceSetPosition(Fvector pos, bool enable)
 		sh->character_physics_support()->ForceTransform(M);
 }
 
+void CScriptGameObject::NetPuppet(bool enable, u32 delay)
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CScriptGameObject : net_puppet works only for stalkers and monsters");
+		return;
+	}
+	monster->net_puppet(enable, delay);
+}
+
+void CScriptGameObject::NetPuppetPush(Fvector pos, u32 remote_time)
+{
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		monster->net_puppet_push(pos, remote_time);
+}
+
+void CScriptGameObject::NetPuppetBody(u8 body)
+{
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		monster->net_puppet_set_body(body);
+}
+
+void CScriptGameObject::NetPuppetLook(Fvector direction)
+{
+	if (CCustomMonster* monster = smart_cast<CCustomMonster*>(&object()))
+		monster->net_puppet_set_look(direction);
+}
+
+u32 CScriptGameObject::NetPuppetDelay()
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	return monster ? monster->net_puppet_delay() : 0;
+}
+
+bool CScriptGameObject::NetPuppetActive()
+{
+	CCustomMonster* monster = smart_cast<CCustomMonster*>(&object());
+	return monster && monster->net_puppet_active();
+}
+
 
 void CScriptGameObject::ForceSetRotation(Fvector rot, bool enable)
 {

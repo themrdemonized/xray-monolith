@@ -248,6 +248,21 @@ void CSightManager::update()
 		if (!enabled())
 			return;
 
+		// Anomaly Co-op: a network puppet looks where the sender looks, at once. Standing, its body turns along
+		// with the look instead of waiting for the head to pass the turn-in-place angle and then stepping round
+		float net_yaw, net_pitch;
+		if (object().net_puppet_look(net_yaw, net_pitch))
+		{
+			object().movement().m_head.target.yaw = net_yaw;
+			object().movement().m_head.target.pitch = net_pitch;
+			object().movement().m_head.speed = PI_MUL_4;
+			object().movement().m_body.speed = PI_MUL_4;
+			if (fis_zero(object().movement().speed()))
+				object().movement().m_body.target.yaw = net_yaw;
+			m_turning_in_place = false;
+			return;
+		}
+
 		if (!fis_zero(object().movement().speed()))
 		{
 			m_turning_in_place = false;

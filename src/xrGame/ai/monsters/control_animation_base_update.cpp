@@ -214,6 +214,17 @@ void CControlAnimationBase::SelectAnimation()
 		action = GetActionFromPath();
 	}
 
+	// Anomaly Co-op: a network puppet is placed by the network, not by its path; its legs follow how fast
+	// it really moves. Standing still, it keeps whatever its own AI plays (attack, eat, look around)
+	if (m_object->net_puppet_active())
+	{
+		float v = m_object->net_puppet_speed();
+		if (v > 0.3f)
+			action = v > 2.f ? ACT_RUN : ACT_WALK_FWD;
+		else if (action == ACT_WALK_FWD || action == ACT_RUN)
+			action = ACT_STAND_IDLE;
+	}
+
 	cur_anim_info().set_motion(m_tMotions[action].anim);
 
 	m_object->CheckSpecParams(spec_params);

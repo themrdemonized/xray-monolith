@@ -134,6 +134,10 @@ bool CStalkerAnimationManager::standing() const
 	CAI_Stalker& obj = object();
 	stalker_movement_manager_smart_cover& movement = obj.movement();
 
+	// Anomaly Co-op: a network puppet stands when it does not move, whatever its own AI wants
+	if (obj.net_puppet_active())
+		return (obj.net_puppet_speed() < 0.3f);
+
 	if (movement.speed(obj.character_physics_support()->movement()) < EPS_L)
 		return (true);
 

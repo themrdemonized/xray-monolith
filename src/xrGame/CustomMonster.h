@@ -30,6 +30,7 @@ class CSoundPlayer;
 class CAI_Stalker;
 class CDangerObject;
 class moving_object;
+class CCoopNetPuppet;
 
 class CCustomMonster :
 	public CEntityAlive,
@@ -45,6 +46,23 @@ private:
 	CMemoryManager* m_memory_manager;
 	CMovementManager* m_movement_manager;
 	CSoundPlayer* m_sound_player;
+	CCoopNetPuppet* m_net_puppet;
+
+	void net_puppet_apply();
+
+public:
+	// Anomaly Co-op: position driven by the network, see coop_net_puppet.h
+	void net_puppet(bool enable, u32 delay);
+	void net_puppet_push(const Fvector& position, u32 remote_time);
+	bool net_puppet_active() const { return !!m_net_puppet; }
+	float net_puppet_speed() const;
+	u32 net_puppet_delay() const;
+	bool net_puppet_velocity(Fvector& velocity) const;
+	u8 net_puppet_body() const;
+	void net_puppet_set_body(u8 body);
+	void net_puppet_set_look(const Fvector& direction);
+	// head angles (stalker convention) for where the sender looks; false when it has not said
+	bool net_puppet_look(float& yaw, float& pitch) const;
 
 private:
 	u32 m_client_update_delta;

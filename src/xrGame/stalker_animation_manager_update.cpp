@@ -13,6 +13,8 @@
 #include "script_callback_ex.h"
 #include "profiler.h"
 #include "stalker_movement_manager_smart_cover.h"
+#include "../xrEngine/SkeletonMotions.h"
+#include "../Include/xrRender/animation_blend.h"
 
 void CStalkerAnimationManager::play_delayed_callbacks()
 {
@@ -201,6 +203,14 @@ void CStalkerAnimationManager::play_legs()
 	}
 
 	legs().play(m_skeleton_animated, legs_play_callback, false, false, !fis_zero(m_target_speed));
+
+	// Anomaly Co-op: a network puppet moves as fast as the sender does, not as fast as its animation steps:
+	// play the step faster or slower to match, or its feet slide and the legs trail behind the body
+	if (object().net_puppet_active() && legs().blend() && !fis_zero(m_target_speed))
+	{
+		if (CMotionDef* def = m_skeleton_animated->LL_GetMotionDef(legs().animation()))
+			legs().blend()->speed = def->Speed() * clampr(object().net_puppet_speed() / m_target_speed, 0.5f, 2.f);
+	}
 
 	if (result && legs().blend())
 	{

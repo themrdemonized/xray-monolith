@@ -1019,6 +1019,7 @@
     <ClInclude Include="cta_game_artefact_activation.h" />
     <ClInclude Include="CustomDetector.h" />
     <ClInclude Include="CustomDevice.h" />
+    <ClInclude Include="coop_net_puppet.h" />
     <ClInclude Include="CustomMonster.h" />
     <ClInclude Include="CustomMonster_inline.h" />
     <ClInclude Include="CustomOutfit.h" />
@@ -2720,6 +2721,7 @@
     <ClCompile Include="cta_game_artefact_activation.cpp" />
     <ClCompile Include="CustomDetector.cpp" />
     <ClCompile Include="CustomDevice.cpp" />
+    <ClCompile Include="coop_net_puppet.cpp" />
     <ClCompile Include="CustomMonster.cpp">
       <PrecompiledHeaderFile>pch_script.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)$(ProjectName)_script.pch</PrecompiledHeaderOutputFile>

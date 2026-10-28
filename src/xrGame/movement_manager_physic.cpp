@@ -32,6 +32,10 @@
 float CMovementManager::speed(CPHMovementControl* movement_control) const
 {
 	VERIFY(movement_control);
+	// Anomaly Co-op: a network puppet moves as fast as its partner, whatever its path says
+	if (object().net_puppet_active())
+		return (object().net_puppet_speed());
+
 	if (fis_zero(m_speed))
 		return (0.f);
 

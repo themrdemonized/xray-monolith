@@ -1044,6 +1044,14 @@
         string get_current_smart_cover_name() // Returns cName() of the smart cover the NPC is currently occupying, or "" if none.
         string get_current_loophole_id() // Returns the loophole id within the current smart cover, or "" if none.
 
+        // Network puppet (stalkers and monsters): the position comes from another game instead of the object's own path. Its AI keeps running; the engine places it every frame and picks its gait and step rate from how fast it really moves.
+        void net_puppet(bool enable, number delay_ms) // Turn the puppet mode on or off. Positions are played back delay_ms behind the sender to absorb uneven delivery; 0 adapts the delay to the link (how late and how often positions arrive).
+        void net_puppet_push(vector pos, number remote_time_ms) // A position with the sender's clock (its time_global). Interpolated every frame; a hang on either side is taken at once instead of being eased over minutes.
+        bool net_puppet_active() // True while the puppet mode is on.
+        number net_puppet_delay() // The playback delay in use, ms.
+        void net_puppet_body(number body) // 0 crouch, 1 stand, 255 = left to the object's own AI. Stalkers only.
+        void net_puppet_look(vector dir) // Where the sender looks: head and body follow at once. Stalkers only.
+
         // Space Restrictors
         function force_set_restrictor_type(number)
 

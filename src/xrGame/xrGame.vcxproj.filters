@@ -3420,6 +3420,9 @@
     <ClInclude Include="CustomMonster.h">
       <Filter>AI\AMonsters\common\custom</Filter>
     </ClInclude>
+    <ClInclude Include="coop_net_puppet.h">
+      <Filter>AI\AMonsters\common\custom</Filter>
+    </ClInclude>
     <ClInclude Include="CustomMonster_inline.h">
       <Filter>AI\AMonsters\common\custom</Filter>
     </ClInclude>
@@ -7881,6 +7884,9 @@
       <Filter>AI\ALife\server_entities\trader_abstract</Filter>
     </ClCompile>
     <ClCompile Include="CustomMonster.cpp">
+      <Filter>AI\AMonsters\common\custom</Filter>
+    </ClCompile>
+    <ClCompile Include="coop_net_puppet.cpp">
       <Filter>AI\AMonsters\common\custom</Filter>
     </ClCompile>
     <ClCompile Include="CustomMonster_VCPU.cpp">

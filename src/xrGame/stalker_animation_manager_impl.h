@@ -12,6 +12,11 @@
 
 IC CStalkerAnimationManager::EBodyState CStalkerAnimationManager::body_state() const
 {
+	// Anomaly Co-op: a network puppet crouches when its sender does
+	u8 net_body = object().net_puppet_body();
+	if (net_body != 255)
+		return (EBodyState(net_body));
+
 	return (object().movement().body_state());
 }
 

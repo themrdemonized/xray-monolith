@@ -46,6 +46,7 @@
 #include "client_spawn_manager.h"
 #include "moving_object.h"
 #include "level_path_manager.h"
+#include "coop_net_puppet.h"
 
 // Lain: added
 #include "../xrEngine/IGame_Level.h"
@@ -100,6 +101,7 @@ CCustomMonster::CCustomMonster() :
 	m_memory_manager = 0;
 	m_movement_manager = 0;
 	m_sound_player = 0;
+	m_net_puppet = 0;
 	m_already_dead = false;
 	m_invulnerable = false;
 	m_moving_object = 0;
@@ -111,6 +113,7 @@ CCustomMonster::~CCustomMonster()
 	xr_delete(m_memory_manager);
 	xr_delete(m_movement_manager);
 	xr_delete(m_sound_player);
+	xr_delete(m_net_puppet);
 
 	// Lain: added (asking GameLevel to forget about self)
 	if (g_pGameLevel)
@@ -543,6 +546,7 @@ void CCustomMonster::UpdateCL()
 #pragma todo("Dima to All : this is FAKE, network is not supported here!")
 
 			UpdatePositionAnimation();
+			net_puppet_apply();
 		}
 
 		// Use interpolated/last state
@@ -579,6 +583,92 @@ void CCustomMonster::UpdateCL()
 #endif
 
 	STOP_PROFILE
+}
+
+// Anomaly Co-op: the partner's puppet follows positions from the network. Its AI still picks
+// the gait and keeps a path to the partner, but where it stands each frame is decided here.
+void CCustomMonster::net_puppet(bool enable, u32 delay)
+{
+	if (!enable)
+	{
+		xr_delete(m_net_puppet);
+		return;
+	}
+	if (m_net_puppet)
+		m_net_puppet->set_delay(delay);
+	else
+		m_net_puppet = xr_new<CCoopNetPuppet>(delay);
+}
+
+void CCustomMonster::net_puppet_push(const Fvector& position, u32 remote_time)
+{
+	if (m_net_puppet)
+		m_net_puppet->push(position, remote_time);
+}
+
+bool CCustomMonster::net_puppet_velocity(Fvector& velocity) const
+{
+	if (!m_net_puppet)
+		return false;
+	velocity = m_net_puppet->velocity();
+	return true;
+}
+
+u8 CCustomMonster::net_puppet_body() const
+{
+	return m_net_puppet ? m_net_puppet->body() : u8(255);
+}
+
+void CCustomMonster::net_puppet_set_body(u8 body)
+{
+	if (m_net_puppet)
+		m_net_puppet->set_body(body);
+}
+
+void CCustomMonster::net_puppet_set_look(const Fvector& direction)
+{
+	if (m_net_puppet)
+		m_net_puppet->set_look(direction);
+}
+
+bool CCustomMonster::net_puppet_look(float& yaw, float& pitch) const
+{
+	Fvector dir;
+	if (!m_net_puppet || !m_net_puppet->look(dir))
+		return false;
+	dir.getHP(yaw, pitch);
+	yaw = angle_normalize_signed(-yaw);
+	pitch = -pitch;
+	return true;
+}
+
+u32 CCustomMonster::net_puppet_delay() const
+{
+	return m_net_puppet ? m_net_puppet->delay() : 0;
+}
+
+float CCustomMonster::net_puppet_speed() const
+{
+	return m_net_puppet ? m_net_puppet->speed() : 0.f;
+}
+
+void CCustomMonster::net_puppet_apply()
+{
+	Fvector position;
+	if (!m_net_puppet || !m_net_puppet->sample(position))
+		return;
+	if (animation_movement_controlled())
+	{
+		// sitting, leaning, in cover: the animation places it. Keep it while the sender's copy stands still
+		// right there; once that one moves, the animation must not get it back (it would drift and jump)
+		if (m_net_puppet->speed() < 0.2f && position.distance_to(Position()) < 0.5f)
+			return;
+		destroy_anim_mov_ctrl();
+	}
+
+	NET_Last.p_pos = position;
+	if (CPHMovementControl* movement_control = character_physics_support()->movement())
+		movement_control->SetPosition(position);
 }
 
 void CCustomMonster::UpdatePositionAnimation()
@@ -868,6 +958,7 @@ void CCustomMonster::net_Destroy()
 	CScriptEntity::net_Destroy();
 	sound().unload();
 	movement().net_Destroy();
+	xr_delete(m_net_puppet);
 
 	Device.remove_from_seq_parallel(
 		fastdelegate::FastDelegate0<>(
