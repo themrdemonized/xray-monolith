@@ -1475,6 +1475,7 @@ void CActor::RPC_UpdateReputation()
 }
 
 #include "../xrphysics/actorcameracollision.h"
+#include "../xrphysics/ActorCameraCollisionAnchoredSweep.h"
 #include "../xrphysics/ActorCameraCollisionPushOut.h"
 
 #ifdef HOLDERCUSTOM_NEW
@@ -1513,7 +1514,8 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 
 			if (actor_camera_shell)
 				destroy_physics_shell(actor_camera_shell);
-      destroy_actor_camera_pushout_shell(NULL);
+			destroy_actor_camera_probe_shell(NULL);
+			destroy_actor_camera_pushout_shell(NULL);
 
 			IKinematics *K = smart_cast<IKinematics *>(Visual());
 			K->LL_GetBoneInstance(K->LL_BoneID("bip01_spine")).reset_callback();
@@ -1694,7 +1696,8 @@ bool CActor::use_HolderEx(CHolderCustom* object, bool bForce)
 
 				if (actor_camera_shell)
 					destroy_physics_shell(actor_camera_shell);
-        destroy_actor_camera_pushout_shell(NULL);
+				destroy_actor_camera_probe_shell(NULL);
+				destroy_actor_camera_pushout_shell(NULL);
 
 				IKinematics* pK = smart_cast<IKinematics*>(Visual());
 				u16 head_bone = pK->LL_BoneID("bip01_head");
