@@ -354,6 +354,7 @@
   <ItemGroup>
     <ClCompile Include="..\xrServerEntities\PHNetState.cpp" />
     <ClCompile Include="ActorCameraCollision.cpp" />
+    <ClCompile Include="ActorCameraCollisionPushOut.cpp" />
     <ClCompile Include="collisiondamagereceiver.cpp" />
     <ClCompile Include="console_vars.cpp" />
     <ClCompile Include="dcylinder\dCylinder.cpp" />
@@ -430,6 +431,8 @@
   <ItemGroup>
     <ClInclude Include="..\xrServerEntities\PHNetState.h" />
     <ClInclude Include="ActorCameraCollision.h" />
+    <ClInclude Include="ActorCameraCollisionCommon.h" />
+    <ClInclude Include="ActorCameraCollisionPushOut.h" />
     <ClInclude Include="BlockAllocator.h" />
     <ClInclude Include="CalculateTriangle.h" />
     <ClInclude Include="console_vars.h" />
