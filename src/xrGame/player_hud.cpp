@@ -980,6 +980,11 @@ void player_hud::load(const shared_str& player_hud_sect, bool force)
 	m_model->dcast_PKinematics()->CalculateBones(TRUE);
 	m_model_2->dcast_PKinematics()->CalculateBones_Invalidate();
 	m_model_2->dcast_PKinematics()->CalculateBones(TRUE);
+
+	//--DSR-- HeatVision_start
+	m_model->dcast_RenderVisual()->MarkAsHot(true);
+	m_model_2->dcast_RenderVisual()->MarkAsHot(true);
+	//--DSR-- HeatVision_end
 }
 
 void player_hud::load_script(LPCSTR section)
@@ -1715,7 +1720,6 @@ void player_hud::update(const Fmatrix& cam_trans)
 				m_transform_2.mulB_43(anm->XFORM(1));
 		}
 	}
-
 
 	if (m_attached_items[0])
 		m_attached_items[0]->update(true);
