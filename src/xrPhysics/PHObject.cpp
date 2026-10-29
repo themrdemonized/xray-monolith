@@ -6,7 +6,7 @@
 #include "dRayMotions.h"
 #include "PHCollideValidator.h"
 #include "console_vars.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "debug_output.h"
 #endif
 extern CPHWorld* ph_world;
@@ -101,7 +101,7 @@ void CPHObject::Collide()
 			dir.mul(1.f / magnitude);
 			g_SpatialSpacePhysic->q_ray(ph_world->r_spatial, 0, STYPE_PHYSIC, *from, dir, magnitude);
 			//|ISpatial_DB::O_ONLYFIRST
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 				if(debug_output().ph_dbg_draw_mask().test(phDbgDrawRayMotions))
 				{
 					debug_output().DBG_OpenCashedDraw();

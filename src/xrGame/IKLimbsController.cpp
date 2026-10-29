@@ -300,7 +300,7 @@ void CIKLimbsController::Calculate()
 	{
 		cd[j].m_limb->SolveBones(cd[j]);
 
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask1.test( phDbgDrawIKPredict ) )
 	{
 		//IKinematics *K = m_object->Visual()->dcast_PKinematics( );
@@ -341,7 +341,7 @@ void _stdcall CIKLimbsController::IKVisualCallback(IKinematics* K)
 	//if (Device.Paused())
 	//	return;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask1.test( phDbgIKOff ) )
 		return;
 #endif
@@ -371,7 +371,7 @@ void CIKLimbsController::PlayLegs(CBlend* b)
 
 void CIKLimbsController::Update()
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if( ph_dbg_draw_mask1.test( phDbgIKOff ) )
 		return;
 #endif

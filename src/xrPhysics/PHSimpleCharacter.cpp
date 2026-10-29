@@ -616,7 +616,7 @@ void CPHSimpleCharacter::PhTune(dReal step)
 	b_air_contact_state = !is_contact;
 
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgCharacterControl))
 	{
 		if(b_air_contact_state)
@@ -772,7 +772,7 @@ void CPHSimpleCharacter::PhTune(dReal step)
 			              -m.mass * (50.f) * (!b_lose_control && !(is_contact || (b_any_contacts))), //&&!b_climb
 			              -sidedir[2] * vProj * (500.f + 200.f * b_clamb_jump) * m_friction_factor
 			);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(debug_output().ph_dbg_draw_mask().test(phDbgCharacterControl))
 		{
 			const Fvector dipsp = Fvector().set(0,0.02f,0);
@@ -838,7 +838,7 @@ void CPHSimpleCharacter::PhTune(dReal step)
 
 
 	//
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgCharacterControl))
 	{
 		const Fvector dipsp = Fvector().set(0,0.02f,0);
@@ -956,7 +956,7 @@ bool CPHSimpleCharacter::ValidateWalkOnMesh()
 	obb_fb.set(m_radius * 0.5f, m_radius * 2.f, m_radius * 0.7f);
 	Fvector obb;
 	obb.set(m_radius * 0.5f, m_radius, m_radius * 0.7f);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgCharacterControl))
 	{
 		Fmatrix m;m.identity();
@@ -984,7 +984,7 @@ bool CPHSimpleCharacter::ValidateWalkOnMesh()
 		{
 			if (test_sides(center_forbid, sd_dir, accel, obb_fb, Res->id))
 			{
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 					if(debug_output().ph_dbg_draw_mask().test(phDbgCharacterControl))
 					{
 						debug_output().DBG_DrawTri(Res,D3DCOLOR_XRGB(255,0,0));
@@ -1015,7 +1015,7 @@ bool CPHSimpleCharacter::ValidateWalkOnMesh()
 		{
 			if (test_sides(center, sd_dir, accel, obb, Res->id))
 			{
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 				if(debug_output().ph_dbg_draw_mask().test(phDbgCharacterControl))
 				{
 					debug_output().DBG_DrawTri(Res,D3DCOLOR_XRGB(0,255,0));
@@ -2031,7 +2031,7 @@ bool CPHSimpleCharacter::UpdateRestrictionType(CPHCharacter* ach)
 	ph_world->UnFreeze();
 	//if(!state)Disable();
 	m_new_restriction_type = old;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask1().test(ph_m1_DbgActorRestriction))
 		Msg("restriction can not change change small -> large");
 #endif

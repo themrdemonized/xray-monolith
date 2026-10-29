@@ -10,7 +10,7 @@
 #include "phaicharacter.h"
 #include "../xrengine/device.h"
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 //#	include "../xrEngine/StatGraph.h"
 #	include "debug_output.h"
 //#	include "level.h"
@@ -199,7 +199,7 @@ void CPHAICharacter::InitContact(dContact* c, bool& do_collide, u16 material_idx
 		b_on_object = true;
 		b_valide_wall_contact = false;
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(debug_output().ph_dbg_draw_mask().test(phDbgNeverUseAiPhMove))do_collide=false;
 #endif
 }

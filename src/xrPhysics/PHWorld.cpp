@@ -357,7 +357,7 @@ void CPHWorld::Step()
 
 	Device().StatPhysics()->ph_collision.End();
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	for(i_object=m_objects.begin();m_objects.end() != i_object;)
 	{
 		CPHObject* obj=(*i_object);
@@ -406,7 +406,7 @@ void CPHWorld::Step()
 	{
 		CPHObject* obj = (*i_object);
 		++i_object;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(debug_output().ph_dbg_draw_mask().test(phDbgDrawObjectStatistics))
 		{
 			if(obj->Island().IsActive())
