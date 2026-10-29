@@ -315,6 +315,9 @@
     <ClCompile Include="ActorCameraCollision.cpp">
       <Filter>physics\camera_collision</Filter>
     </ClCompile>
+    <ClCompile Include="ActorCameraCollisionCommon.cpp">
+      <Filter>physics\camera_collision</Filter>
+    </ClCompile>
     <ClCompile Include="ActorCameraCollisionPushOut.cpp">
       <Filter>physics\camera_collision</Filter>
     </ClCompile>
@@ -597,6 +600,9 @@
       <Filter>physics\camera_collision</Filter>
     </ClInclude>
     <ClInclude Include="ActorCameraCollisionCommon.h">
+      <Filter>physics\camera_collision</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorCameraCollisionInternal.h">
       <Filter>physics\camera_collision</Filter>
     </ClInclude>
     <ClInclude Include="ActorCameraCollisionPushOut.h">

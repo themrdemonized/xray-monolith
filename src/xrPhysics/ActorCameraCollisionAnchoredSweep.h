@@ -22,9 +22,6 @@ extern XRPHYSICS_API float g_cam_anchored_sweep_min_mass; // dynamic objects lig
 
 extern XRPHYSICS_API CPhysicsShell* actor_camera_probe_shell;
 
-// Distance from the eye to a near-plane corner is viewport_near * factor.
-XRPHYSICS_API float camera_near_plane_corner_factor(float fov_deg);
-
 // True if a sphere at 'center' overlaps blocking geometry (static world + heavy dynamic objects;
 // characters, inventory items and passable materials are ignored).
 XRPHYSICS_API bool test_camera_sphere(const Fvector& center, float radius, IPhysicsShellHolder* actor);
