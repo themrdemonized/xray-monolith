@@ -2891,6 +2891,16 @@ void CCC_RegisterCommands()
     extern XRPHYSICS_API BOOL g_clamp_actor_camera_collision;
     CMD4(CCC_Integer, "g_clamp_actor_camera_collision", &g_clamp_actor_camera_collision, 0, 1);
 
+    // Actor camera collision (see xrPhysics/ActorCameraCollisionCommon.h):
+    //   0 = legacy box solver, 1 = near-plane push-out (g_cam_pushout_*), 2 = anchored sweep (g_cam_anchored_sweep_*).
+    extern XRPHYSICS_API int g_actor_camera_collision_mode;
+    extern XRPHYSICS_API float g_cam_pushout_margin;
+    extern XRPHYSICS_API float g_cam_pushout_recover_speed;
+    extern XRPHYSICS_API float g_cam_pushout_min_mass;
+    CMD4(CCC_Integer, "g_actor_camera_collision_mode", &g_actor_camera_collision_mode, 0, 1);
+    CMD4(CCC_Float, "g_cam_pushout_margin", &g_cam_pushout_margin, 0.f, 1.0f);
+    CMD4(CCC_Float, "g_cam_pushout_recover_speed", &g_cam_pushout_recover_speed, 0.5f, 50.f);
+    CMD4(CCC_Float, "g_cam_pushout_min_mass", &g_cam_pushout_min_mass, 0.f, 1000.f);
 	CMD4(CCC_Float, "g_recon_show_speed", &recon_show_speed, 0.f, 20.f);
 	CMD4(CCC_Float, "g_recon_hide_speed", &recon_hide_speed, 0.f, 20.f);
 	CMD4(CCC_Float, "g_recon_mindist", &recon_mindist, 0.f, 300.f);
