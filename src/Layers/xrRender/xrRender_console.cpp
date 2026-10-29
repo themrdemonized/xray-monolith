@@ -94,6 +94,10 @@ xr_token qmsaa__atest_token [ ] = {
 };
 
 u32 ps_r3_minmax_sm = 3; //	=	0;
+
+#if defined(USE_DX10) || defined(USE_DX11)
+int ps_r3_depth_clip = 1; // see xrRender_console.h
+#endif
 xr_token qminmax_sm_token [ ] = {
 	{"off", 0},
 	{"on", 1},
@@ -1756,6 +1760,9 @@ void xrRender_initconsole()
 	//CMD3(CCC_Mask,		"r3_msaa_alphatest",			&ps_r2_ls_flags,			(u32)R3FLAG_MSAA_ALPHATEST);
 	CMD3(CCC_Token, "r3_msaa_alphatest", &ps_r3_msaa_atest, qmsaa__atest_token);
 	CMD3(CCC_Token, "r3_minmax_sm", &ps_r3_minmax_sm, qminmax_sm_token);
+#if defined(USE_DX10) || defined(USE_DX11)
+	CMD4(CCC_Integer, "r3_depth_clip", &ps_r3_depth_clip, 0, 1);
+#endif
 
 #ifdef DETAIL_RADIUS
 	CMD4(CCC_detail_radius, "r__detail_radius", &ps_r__detail_radius, 0, 250);
