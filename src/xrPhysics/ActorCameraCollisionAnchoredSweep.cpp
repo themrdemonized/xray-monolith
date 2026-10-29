@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #include "ActorCameraCollisionAnchoredSweep.h"
+#include "ActorCameraCollisionInternal.h"
 
 #include "../xrEngine/CameraBase.h"
 #include "../xrEngine/gamemtllib.h"
@@ -19,9 +20,6 @@ extern BOOL dbg_draw_camera_collision; // ActorCameraCollision.cpp
 // ---------------------------------------------------------------------------------------------
 // Settings (console: see xrGame/console_commands.cpp)
 // ---------------------------------------------------------------------------------------------
-// Mode switch for all implementations (declared in ActorCameraCollisionCommon.h).
-XRPHYSICS_API int g_actor_camera_collision_mode = eActorCamCollisionLegacy;
-
 XRPHYSICS_API float g_cam_anchored_sweep_margin = 0.02f;
 XRPHYSICS_API float g_cam_anchored_sweep_recover_speed = 12.f;
 XRPHYSICS_API float g_cam_anchored_sweep_min_mass = 20.f;
@@ -30,10 +28,6 @@ XRPHYSICS_API CPhysicsShell* actor_camera_probe_shell = NULL;
 
 // Contacts shallower than this are treated as touching, not overlapping (avoids flicker on contact).
 static const float probe_depth_eps = 0.002f;
-// Binary-search refinement steps after the first blocked sample (~1/128 of the path).
-static const int probe_refine_iterations = 7;
-// Upper bound on marching samples per sweep.
-static const int probe_max_samples = 32;
 static const float probe_shell_mass = 1.f;
 
 // ---------------------------------------------------------------------------------------------
@@ -50,29 +44,8 @@ static void probe_contact_callback(bool& do_collide, bool bo1, dContact& c, SGam
 		return; // already rejected (e.g. passable material handled by the engine)
 	do_collide = false; // probe only - never generate a contact joint
 
-	SGameMtl* other_material = bo1 ? material_2 : material_1;
-	if (other_material && other_material->Flags.test(SGameMtl::flPassable))
+	if (camera_contact_ignored(bo1, c, material_1, material_2, s_probe_actor, g_cam_anchored_sweep_min_mass))
 		return;
-
-	dxGeomUserData* other_data = retrieveGeomUserData(bo1 ? c.geom.g2 : c.geom.g1);
-	if (other_data)
-	{
-		// Character controllers (actor, NPCs, mutants) are handled by movement collision.
-		if (other_data->ph_object && other_data->ph_object->CastType() == CPHObject::tpCharacter)
-			return;
-
-		IPhysicsShellHolder* other = other_data->ph_ref_object;
-		if (other)
-		{
-			if (other == s_probe_actor)
-				return;
-			if (other->IsInventoryItem())
-				return;
-			CPhysicsShell* other_shell = other->ObjectPPhysicsShell();
-			if (other_shell && other_shell->getMass() < g_cam_anchored_sweep_min_mass)
-				return;
-		}
-	}
 
 	if (c.geom.depth > probe_depth_eps)
 		s_probe_hit = true;
@@ -176,21 +149,25 @@ private:
 // ---------------------------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------------------------
-float camera_near_plane_corner_factor(float fov_deg)
-{
-	// Same convention as tviewport_size(): fov is vertical, fASPECT is height / width.
-	const float half_h = tanf(deg2rad(fov_deg) * 0.5f);
-	float aspect = inl_ph_world().Device().fASPECT;
-	if (aspect < EPS)
-		aspect = 1.f;
-	const float half_w = half_h / aspect;
-	return _sqrt(1.f + half_h * half_h + half_w * half_w);
-}
-
 bool test_camera_sphere(const Fvector& center, float radius, IPhysicsShellHolder* actor)
 {
 	CProbeScope probe(actor, radius);
 	return probe.overlaps(center);
+}
+
+struct SProbeSweep
+{
+	camera_path_fn* path;
+	const void* path_ctx;
+	CProbeScope* probe;
+};
+
+static bool probe_sweep_overlaps(float t, void* ctx)
+{
+	const SProbeSweep& s = *static_cast<const SProbeSweep*>(ctx);
+	Fvector p;
+	s.path(t, p, s.path_ctx);
+	return s.probe->overlaps(p);
 }
 
 float sweep_camera_sphere(camera_path_fn* path, const void* ctx, float path_length, float radius,
@@ -201,41 +178,12 @@ float sweep_camera_sphere(camera_path_fn* path, const void* ctx, float path_leng
 		return 1.f;
 
 	CProbeScope probe(actor, radius);
+	SProbeSweep sweep = {path, ctx, &probe};
 
 	// Conservative march: with a sample spacing below the sphere radius, the sphere centre always
 	// lands within one radius in front of any surface it would cross, so thin walls are not skipped.
-	const float spacing = _max(radius * 0.75f, 0.02f);
-	int samples = iCeil(path_length / spacing);
-	clamp(samples, 1, probe_max_samples);
-
-	float free_t = 0.f; // t = 0 is the anchor, assumed free
-	float blocked_t = -1.f;
-	Fvector p;
-	for (int i = 1; i <= samples; ++i)
-	{
-		const float t = float(i) / float(samples);
-		path(t, p, ctx);
-		if (probe.overlaps(p))
-		{
-			blocked_t = t;
-			break;
-		}
-		free_t = t;
-	}
-
-	if (blocked_t < 0.f)
-		return 1.f;
-
-	for (int i = 0; i < probe_refine_iterations; ++i)
-	{
-		const float mid = 0.5f * (free_t + blocked_t);
-		path(mid, p, ctx);
-		if (probe.overlaps(p))
-			blocked_t = mid;
-		else
-			free_t = mid;
-	}
-	return free_t;
+	// t = 0 is the anchor, assumed free.
+	return camera_sweep(path_length, radius * 0.75f, probe_sweep_overlaps, &sweep);
 }
 
 // ---------------------------------------------------------------------------------------------
