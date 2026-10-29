@@ -318,6 +318,9 @@
     <ClCompile Include="ActorCameraCollisionPushOut.cpp">
       <Filter>physics\camera_collision</Filter>
     </ClCompile>
+    <ClCompile Include="ActorCameraCollisionAnchoredSweep.cpp">
+      <Filter>physics\camera_collision</Filter>
+    </ClCompile>
     <ClCompile Include="collisiondamagereceiver.cpp">
       <Filter>physics\damage_receiver</Filter>
     </ClCompile>
@@ -597,6 +600,9 @@
       <Filter>physics\camera_collision</Filter>
     </ClInclude>
     <ClInclude Include="ActorCameraCollisionPushOut.h">
+      <Filter>physics\camera_collision</Filter>
+    </ClInclude>
+    <ClInclude Include="ActorCameraCollisionAnchoredSweep.h">
       <Filter>physics\camera_collision</Filter>
     </ClInclude>
     <ClInclude Include="icollisiondamagereceiver.h">

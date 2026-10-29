@@ -13,6 +13,7 @@
 
 #include "../xrphysics/iPHWorld.h"
 #include "../xrphysics/actorcameracollision.h"
+#include "../xrphysics/ActorCameraCollisionAnchoredSweep.h"
 #include "../xrphysics/ActorCameraCollisionPushOut.h"
 #include "level.h"
 #include "xr_level_controller.h"
@@ -771,7 +772,8 @@ void CActor::net_Destroy()
 		this
 	)
 		destroy_physics_shell(actor_camera_shell);
-  destroy_actor_camera_pushout_shell(this);
+	destroy_actor_camera_probe_shell(this);
+	destroy_actor_camera_pushout_shell(this);
 
 	// demonized: disable crash saving when actor is destroyed
 	crash_saving::save_impl = nullptr;
