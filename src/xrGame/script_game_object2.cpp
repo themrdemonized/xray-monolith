@@ -67,6 +67,19 @@ void CScriptGameObject::explode(u32 level_time)
 	}
 }
 
+void CScriptGameObject::set_initiator(u16 id)
+{
+    CExplosive* explosive = smart_cast<CExplosive*>(&object());
+    if (!explosive)
+    {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "CExplosive : cannot access class member explode!");
+        return;
+    }
+    
+    explosive->SetInitiator(id);
+}
+
 bool CScriptGameObject::active_zone_contact(u16 id)
 {
 	CScriptZone* script_zone = smart_cast<CScriptZone*>(&object());

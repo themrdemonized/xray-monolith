@@ -792,6 +792,18 @@ public:
 		return 1;
 	}
 
+    virtual int GetCurrentFireModeIndex()
+    {
+        return 0;
+    }
+
+    virtual luabind::object GetFireModes_script()
+    {
+        ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
+        table[1] = 1;
+        return table;
+    }
+
 	//ïàðàìåòû îðóæèÿ â çàâèñèìîòè îò åãî ñîñòîÿíèÿ èñïðàâíîñòè
 	float GetConditionDispersionFactor() const;
 	float GetConditionMisfireProbability() const;

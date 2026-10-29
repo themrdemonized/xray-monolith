@@ -135,6 +135,8 @@ void CWeaponAK74::script_register	(lua_State *L)
 			.def("GetHitImpulse", &CWeapon::GetHitImpulse)
 			.def("GetFireDistance", &CWeapon::GetFireDistance)
 			.def("GetFireMode", &CWeapon::GetCurrentFireMode)
+			.def("GetFireModeIndex", &CWeapon::GetCurrentFireModeIndex)
+			.def("GetFireModes", &CWeapon::GetFireModes_script)
 
 			.def("GetInertionAimFactor", &CWeapon::GetInertionAimFactor)
 

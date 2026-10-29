@@ -1125,6 +1125,9 @@
 		function set_device_enabled(bool)
 		function is_device_enabled()
 
+		// Explosive
+		function set_initiator(obj)
+
         // Bones
         u16 get_bone_id(string)
         u16 get_bone_id(string, bool bHud)
@@ -1458,7 +1461,17 @@
         function SetZoomCamMaxAngleHorz(float)
         function SetZoomCamStepAngleHorz(float)
 		
-		
+		-- lua table listing the different firemodes
+		-- example:
+		-- {
+		--    [1] = -1
+		--    [2] = 1
+		--    [3] = 3
+		-- }
+		function GetFireModes()
+
+		-- returns the index of the engine firemode array (starting at 0 unlike the table returned by GetFireModes)
+        function GetFireModeIndex()
 
         // Zoom
         bool StopZoom() // leaves ADS, plays the aim end animation when the weapon has one, false if the weapon was not zoomed
