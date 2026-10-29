@@ -23,6 +23,7 @@
 #include "PHMovementControl.h"
 #include "../xrphysics/ielevatorstate.h"
 #include "../xrphysics/actorcameracollision.h"
+#include "../xrphysics/ActorCameraCollisionPushOut.h"
 #include "IKLimbsController.h"
 #include "GamePersistent.h"
 #include "player_hud.h"
@@ -31,6 +32,7 @@
 #include "EffectorBobbing.h"
 class CFPCamEffector;
 
+XRPHYSICS_API int g_actor_camera_collision_mode = eActorCamCollisionLegacy;
 ENGINE_API extern float psHUD_FOV;
 ENGINE_API extern float psHUD_FOV_def;
 BOOL g_freelook_while_reloading = 1;
@@ -398,8 +400,56 @@ IC void get_cam_oob(Fvector& bd, Fmatrix& mat, const Fmatrix& xform, const SRota
 	mat.c.set(bc);
 }
 
+extern float g_fov;
+
+// FOV used to size camera collision volumes (modes 1 and 2): the unzoomed FOV, so aiming down sights
+// does not shrink the volume and leaving ADS next to a wall does not shove the view.
+static float camera_collision_fov()
+{
+	return _max(g_fov, Device.fFOV);
+}
+
+struct SLookoutPath
+{
+	Fmatrix xform;
+	float radius;
+	float alpha;
+};
+
+static void lookout_path(float t, Fvector& out, const void* ctx)
+{
+	const SLookoutPath& p = *static_cast<const SLookoutPath*>(ctx);
+	calc_point(out, p.radius, 0.f, p.alpha * t);
+	p.xform.transform_tiny(out);
+}
+
 void CActor::cam_Lookout(const Fmatrix& xform, float camera_height)
 {
+  if (!fis_zero(r_torso_tgt_roll) && g_actor_camera_collision_mode == eActorCamCollisionNearPlanePushOut)
+	{
+		// Near-plane push-out lean (legacy box test, fixed): the box is the real near-plane volume, the
+		// search goes towards the requested side (legacy used the sign of last frame's roll), the result is
+		// the last *free* angle (legacy kept the first colliding one), and march + bisection replaces
+		// PI/1000 stepping.
+		const float alpha = r_torso_tgt_roll / 2.f;
+		Fmatrix33 mat3;
+		get_box_mat(mat3, alpha, r_torso);
+		Fmatrix orientation = Fidentity;
+		orientation.i.set(mat3.i);
+		orientation.j.set(mat3.j);
+		orientation.k.set(mat3.k);
+
+		SLookoutPath path;
+		path.xform.set(xform);
+		path.radius = camera_height * 0.5f;
+		path.alpha = alpha;
+		const float arc_length = path.radius * _abs(alpha);
+		const float t = sweep_camera_pushout_box(lookout_path, &path, arc_length, orientation, camera_collision_fov(),
+		                                       VIEWPORT_NEAR, this);
+		r_torso.roll = alpha * t * 2.f;
+		r_torso_tgt_roll = r_torso.roll;
+		return;
+	}
 	if (!fis_zero(r_torso_tgt_roll))
 	{
 		float w, h;
@@ -597,7 +647,15 @@ void CActor::cam_Update(float dt, float fFOV)
 	}
 	if (Level().CurrentEntity() == this)
 	{
-		collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+		switch (g_actor_camera_collision_mode)
+		{
+		case eActorCamCollisionNearPlanePushOut:
+			collide_camera_pushout(*cameras[eacFirstEye], _viewport_near, camera_collision_fov(), dt, this);
+			break;
+		default:
+			collide_camera(*cameras[eacFirstEye], _viewport_near, this);
+			break;
+		}
 	}
 
     static bool firstPersonDeathDied = false;
