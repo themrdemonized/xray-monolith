@@ -1386,8 +1386,8 @@ void script_attachment::AddToParentShell(CGameObject* obj)
 	attachment_shell->Activate(true, true);
 	attachment_shell->SetAirResistance();
 
-	CPhysicsElement* attachachment_bone = shell->get_PhysicsParrentElement(m_parent_bone);
-	if (!attachachment_bone)
+	CPhysicsElement* attachment_bone = shell->get_PhysicsParrentElement(m_parent_bone);
+	if (!attachment_bone)
 	{
 		destroy_physics_shell(attachment_shell);
 		return;
@@ -1434,18 +1434,19 @@ void script_attachment::AddToParentShell(CGameObject* obj)
             Fvector scaled_pos = geom->local_center();
             scaled_pos.mul(new_scale);
             scaled_pos.sub(center);
-
+            
             dGeomSetPosition(geom->geom(), scaled_pos.x, scaled_pos.y, scaled_pos.z);
 
             elem->remove_geom(geom);
-            geom->set_bone_id(attachachment_bone->m_SelfID);
-            attachachment_bone->add_geom(geom);
+            geom->set_bone_id(attachment_bone->m_SelfID);
+            attachment_bone->add_geom(geom);
         }
 
         temp_geoms.clear_not_free();
     }
 
     destroy_physics_shell(attachment_shell);
+    shell->Enable();
 }
 
 void script_attachment::RemoveFromParentShell(CGameObject* obj)
