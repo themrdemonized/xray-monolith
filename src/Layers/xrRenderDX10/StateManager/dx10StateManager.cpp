@@ -135,10 +135,12 @@ void dx10StateManager::ApplyDepthClipOverride()
 		m_pRState->GetDesc(&desc);
 	else
 	{
-		// NULL binds the D3D default rasterizer state, which always has depth clip on,
-		// regardless of what dx10StateUtils::ResetDescription() uses.
+		// NULL binds the D3D default rasterizer state. dx10StateUtils::ResetDescription() matches it
+		// except for MultisampleEnable (enabled there under MSAA, FALSE in the D3D default), so set
+		// the defaults explicitly to make the override differ from NULL only in DepthClipEnable.
 		dx10StateUtils::ResetDescription(desc);
 		desc.DepthClipEnable = TRUE;
+		desc.MultisampleEnable = FALSE;
 	}
 
 	if (desc.DepthClipEnable == bWanted)
