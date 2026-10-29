@@ -42,14 +42,11 @@ public:
 	virtual xr_vector<IRenderVisual*>* get_children() { return nullptr; };
 	virtual xr_vector<IRenderVisual*>* get_children_invisible() { return nullptr; };
 
-    virtual void SetShaderTexture(LPCSTR shader, LPCSTR texture) = 0;
-	virtual void ResetShaderTexture() = 0;
+    virtual void SetShaderTexture(LPCSTR shader, LPCSTR texture) {};
+    virtual void ResetShaderTexture() {};
 
-    virtual Fvector4* GetShaderParams() = 0;
-
-    virtual void SetShaderParam(int param, float x, float y, float z, float w) = 0;
-	virtual void SetShaderParams(Fvector4* params) = 0;
-	virtual void ResetShaderParams() = 0;
+    virtual void MarkAsHot(bool is_hot) {};				//--DSR-- HeatVision
+    virtual void MarkAsGlowing(bool is_glowing) {};		//--DSR-- SilencerOverheat
 
 	virtual IRenderVisual* _BCL dcast_RenderVisual() { return this; }
 	virtual IKinematics* _BCL dcast_PKinematics() { return 0; }

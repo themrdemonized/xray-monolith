@@ -325,12 +325,10 @@ void CModelPool::DeleteInternal(dxRender_Visual* & V, BOOL bDiscard)
                 for (auto* child : *children)
                 {
                     child->ResetShaderTexture();
-                    child->ResetShaderParams();
                 }
             else
             {
                 V->ResetShaderTexture();
-                V->ResetShaderParams();
             }
 
 			Pool.insert(mk_pair(it->second, V));

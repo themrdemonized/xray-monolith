@@ -343,9 +343,6 @@ private:
 public:
 	virtual bool is_ai_obstacle() const;
 
-protected:
-    Fvector4* m_ShaderParams;
-
 public:
 	IC ai_obstacle& obstacle() const
 	{
@@ -358,14 +355,6 @@ public:
 
 	void FootStepCallback(float power, bool b_play, bool b_on_ground, bool b_hud_view);
 	void DBGDrawPhysicsShell();
-
-    //Object Shader Params
-    virtual Fvector4* GetShaderParams() override { return m_ShaderParams; }
-    Fvector4* GetShaderParam_Script(int param);
-    ::luabind::object GetShaderParams_Script();
-    void SetShaderParam(int param, Fvector4 v) { SetShaderParam(param, v.x, v.y, v.z, v.w); }
-    void SetShaderParam(int param, float x, float y, float z, float w);
-    void ClearShaderParams() { xr_delete(m_ShaderParams); }
 };
 
 #endif // !defined(AFX_GAMEOBJECT_H__3DA72D03_C759_4688_AEBB_89FA812AA873__INCLUDED_)

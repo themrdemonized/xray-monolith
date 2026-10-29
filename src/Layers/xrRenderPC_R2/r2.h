@@ -200,20 +200,7 @@ public:
 		o_hemi = 0.75f * LT.get_hemi();
 		o_sun = 0.75f * LT.get_sun();
 		CopyMemory(o_hemi_cube, LT.get_hemi_cube(), CROS_impl::NUM_FACES*sizeof(float));
-
-        Fvector4* params = O->GetShaderParams();
-        if (params)
-            RCache.hemi.set_model_params(params);
-        else
-            RCache.hemi.zero_model_params();
 	}
-
-    ICF void apply_visual(IRenderVisual* vis)
-    {
-        if (!vis) return;
-        Fvector4* params = vis->GetShaderParams();
-        if (params) RCache.hemi.set_model_params(params);
-    }
 
 	IC void apply_lmaterial()
 	{

@@ -13,9 +13,8 @@ void R_hemi::unmap()
 	c_pos_faces = nullptr;
 	c_neg_faces = nullptr;
 	c_material = nullptr;
-
-    for (int i = 0; i < 8; ++i)
-	    c_model_param[i] = nullptr;
+    c_hotness = nullptr; //--DSR-- HeatVision
+    c_glowing = nullptr; //--DSR-- SilencerOverheat
 }
 
 void R_hemi::set_pos_faces(float posx, float posy, float posz)
@@ -33,16 +32,16 @@ void R_hemi::set_material(float x, float y, float z, float w)
 	if (c_material) RCache.set_c(c_material, x, y, z, w);
 }
 
-void R_hemi::set_model_params(Fvector4* c)
+//--DSR-- HeatVision_start
+void R_hemi::set_hotness(float x, float y, float z, float w)
 {
-    for (int i = 0; i < 8; ++i)
-        if (c_model_param[i]) RCache.set_c(c_model_param[i], c[i]);
+    if (c_hotness) RCache.set_c(c_hotness, x, y, z, w);
 }
+//--DSR-- HeatVision_end
 
-static const Fvector4 vec4_zero = { 0.f, 0.f, 0.f, 0.f };
-
-void R_hemi::zero_model_params()
+//--DSR-- SilencerOverheat_start
+void R_hemi::set_glowing(float x, float y, float z, float w)
 {
-    for (int i = 0; i < 8; ++i)
-        if (c_model_param[i]) RCache.set_c(c_model_param[i], vec4_zero);
+    if (c_glowing) RCache.set_c(c_glowing, x, y, z, w);
 }
+//--DSR-- SilencerOverheat_end

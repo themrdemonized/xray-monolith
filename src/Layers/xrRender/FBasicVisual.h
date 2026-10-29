@@ -68,7 +68,6 @@ public:
 	ref_shader shader; // pipe state, shared
 	s32 skinning;
     bool hud;
-    Fvector4* shader_params;
 
 	virtual void Render(float LOD)
 	{
@@ -92,14 +91,12 @@ public:
 	virtual void SetShaderTexture(LPCSTR shader, LPCSTR texture);
 	virtual void ResetShaderTexture();
 
-    virtual Fvector4* GetShaderParams() { return shader_params; }
-
-    virtual void SetShaderParam(int param, float x, float y, float z, float w);
-    virtual void SetShaderParams(Fvector4* params);
-    virtual void ResetShaderParams();
-
 	virtual vis_data& _BCL getVisData() { return vis; }
 	virtual u32 getType() { return Type; }
+
+    CTexture* GetTexture();							//--DSR--
+    virtual void MarkAsHot(bool is_hot);			//--DSR-- HeatVision
+    virtual void MarkAsGlowing(bool is_glowing);	//--DSR-- SilencerOverheat
 
 	dxRender_Visual();
 	virtual ~dxRender_Visual();

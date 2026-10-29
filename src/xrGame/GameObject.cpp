@@ -67,7 +67,6 @@ CGameObject::CGameObject()
 	m_callbacks = xr_new<CALLBACK_MAP>();
 	m_anim_mov_ctrl = 0;
 	m_instance_holder = nullptr;
-    m_ShaderParams = nullptr;
 }
 
 CGameObject::~CGameObject()
@@ -1400,42 +1399,6 @@ void CGameObject::DBGDrawPhysicsShell()
 			Level().debug_renderer().draw_ellipse(bone_mat, color_xrgb(0, 255, 0), false);
 		}
 	}
-}
-
-Fvector4* CGameObject::GetShaderParam_Script(int param)
-{
-    if (!m_ShaderParams || param < 1 || param > 8) return nullptr;
-    return &m_ShaderParams[param - 1];
-}
-
-::luabind::object CGameObject::GetShaderParams_Script()
-{
-    ::luabind::object table = ::luabind::newtable(ai().script_engine().lua());
-
-    if (!m_ShaderParams)
-    {
-        table["error"] = true;
-        return table;
-    }
-
-    for (int i = 0; i < 8; ++i)
-        table[i + 1] = m_ShaderParams[i];
-
-    return table;
-}
-
-void CGameObject::SetShaderParam(int param, float x, float y, float z, float w)
-{
-    if (param < 1 || param > 8) return;
-
-    if (!m_ShaderParams)
-    {
-        m_ShaderParams = xr_alloc<Fvector4>(8);
-        for (int i = 0; i < 8; ++i)
-            m_ShaderParams[i].set(0, 0, 0, 0);
-    }
-
-    m_ShaderParams[param - 1].set(x, y, z, w);
 }
 
 #ifdef DEBUG

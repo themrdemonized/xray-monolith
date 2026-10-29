@@ -164,6 +164,7 @@ void CWeapon::FireEnd()
 	StopShotEffector();
 }
 
+//--DSR-- SilencerOverheat_start
 void CWeapon::FireBullet(const Fvector& pos,
 	const Fvector& shot_dir,
 	float fire_disp,
@@ -173,7 +174,17 @@ void CWeapon::FireBullet(const Fvector& pos,
 	bool send_hit, int iShotNum)
 {
 	CShootingObject::FireBullet(pos, shot_dir, fire_disp, cartridge, parent_id, weapon_id, send_hit, iShotNum);
+
+    temperature += sil_glow_shot_temp;
+    if (temperature > sil_glow_max_temp)
+        temperature = sil_glow_max_temp;
 }
+
+float CWeapon::GetGlowing()
+{
+    return temperature;
+}
+//--DSR-- SilencerOverheat_end
 
 void CWeapon::StartFlameParticles2()
 {

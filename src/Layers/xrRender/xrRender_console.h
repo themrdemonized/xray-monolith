@@ -185,6 +185,9 @@ extern ECORE_API int ps_r2_nightvision;
 extern ECORE_API int scope_fake_enabled; //crookr
 extern ECORE_API int scope_3D_fake_enabled; // Redotix99: for 3D Shader Based Scopes
 extern ECORE_API int ps_r2_heatvision;			//--DSR-- HeatVision
+extern ECORE_API int heat_vision_cooldown;		//--DSR-- HeatVision
+extern ECORE_API float heat_vision_cooldown_time;	//--DSR-- HeatVision
+extern ECORE_API int heat_vision_zombie_cold;	//--DSR-- HeatVision
 extern ECORE_API float ps_r2_ss_sunshafts_length;
 extern ECORE_API float ps_r2_ss_sunshafts_radius;
 extern u32 ps_sunshafts_mode;

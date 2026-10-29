@@ -161,20 +161,6 @@ void script_attachment::script_register(lua_State* L)
 		.def("set_shader", &script_attachment::SetShaderTexture)
 		.def("reset_shader", &script_attachment::ResetShaderTexture)
 
-        //Shader Params
-		.def("get_shader_params", &script_attachment::GetShaderParams_Script)
-		.def("get_shader_param", &script_attachment::GetShaderParam_Script)
-		.def("set_shader_param", (void (script_attachment::*)(int, Fvector4)) &script_attachment::SetShaderParam)
-		.def("set_shader_param", (void (script_attachment::*)(int, float, float, float, float)) &script_attachment::SetShaderParam)
-        .def("reset_shader_params", &script_attachment::ClearShaderParams)
-
-        //Model Shader Params
-		.def("get_model_shader_params", &script_attachment::GetModelShaderParams_Script)
-		.def("get_model_shader_param", (void (script_attachment::*)(int, int)) & script_attachment::GetModelShaderParam_Script)
-		.def("set_model_shader_param", (void (script_attachment::*)(int, int, Fvector4)) &script_attachment::SetModelShaderParam)
-		.def("set_model_shader_param", (void (script_attachment::*)(int, int, float, float, float, float)) &script_attachment::SetModelShaderParam)
-        .def("reset_model_shader_params", &script_attachment::ClearModelShaderParams)
-
 		//Userdata
 		.property("userdata", &script_attachment::GetUserdata, &script_attachment::SetUserdata)
 	];

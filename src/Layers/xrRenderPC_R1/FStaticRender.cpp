@@ -413,12 +413,6 @@ void CRender::apply_object(IRenderable* O)
 		// shadowing
 		if ((LT.shadow_recv_frame == Device.dwFrame) && O->renderable_ShadowReceive())
 			RImplementation.L_Projector->setup(LT.shadow_recv_slot);
-
-        Fvector4* params = O->GetShaderParams();
-        if (params)
-            RCache.hemi.set_model_params(params);
-        else
-            RCache.hemi.zero_model_params();
 	}
 }
 

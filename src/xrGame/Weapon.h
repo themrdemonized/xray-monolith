@@ -101,6 +101,9 @@ public:
 	int last_hide_bullet;
 	bool bHasBulletsToHide;
 
+    //--DSR-- SilencerOverheat_start
+    float temperature;
+
 	virtual void FireBullet(const Fvector& pos,
 		const Fvector& shot_dir,
 		float fire_disp,
@@ -108,6 +111,9 @@ public:
 		u16 parent_id,
 		u16 weapon_id,
 		bool send_hit, int iShotNum);
+
+    virtual float GetGlowing();
+    //--DSR-- SilencerOverheat_end
 
 	virtual void HUD_VisualBulletUpdate(bool force = false, int force_idx = -1);
 

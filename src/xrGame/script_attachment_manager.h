@@ -124,8 +124,6 @@ private:
 	CGameObject* m_model_instance_owner;
 	CHudItem* m_model_instance_owner_hud;
 
-    Fvector4* m_ShaderParams;
-
 	u32 m_last_upd_frame;
 
 public:
@@ -145,7 +143,6 @@ public:
 		::Render->model_Delete(renderable.visual);
 		renderable.visual = nullptr;
 
-        delete_data(m_ShaderParams);
 		delete_data(m_children);
 		delete_data(m_bone_callbacks);
 
@@ -357,21 +354,6 @@ public:
 	::luabind::object GetDefaultShaders();
 	void SetShaderTexture(int id, LPCSTR shader, LPCSTR texture);
 	void ResetShaderTexture(int id);
-
-    //Attachment Shader Params
-    virtual Fvector4* GetShaderParams() override { return m_ShaderParams; }
-    Fvector4* GetShaderParam_Script(int param);
-    ::luabind::object GetShaderParams_Script();
-    void SetShaderParam(int param, Fvector4 v) { SetShaderParam(param, v.x, v.y, v.z, v.w); }
-    void SetShaderParam(int param, float x, float y, float z, float w);
-    void ClearShaderParams() { delete_data(m_ShaderParams); }
-
-    //Model Shader Params
-    ::luabind::object GetModelShaderParams_Script();
-    Fvector4* GetModelShaderParam_Script(int id, int param);
-    void SetModelShaderParam(int id, int param, Fvector4 v) { SetModelShaderParam(id, param, v.x, v.y, v.z, v.w); }
-    void SetModelShaderParam(int id, int param, float x, float y, float z, float w);
-    void ClearModelShaderParams(int id);
 
     void SetCamCollide(bool b) { m_bCamCollision = b; }
     bool GetCamCollide() { return m_bCamCollision; }

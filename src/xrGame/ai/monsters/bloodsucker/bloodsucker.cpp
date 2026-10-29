@@ -505,6 +505,21 @@ CAI_Bloodsucker::visibility_t CAI_Bloodsucker::get_visibility_state() const
 	return m_force_visibility_state != unset ? m_force_visibility_state : m_visibility_state;
 }
 
+//--DSR-- HeatVision_start
+float CAI_Bloodsucker::GetTransparency()
+{
+    if (m_visibility_state == no_visibility)
+    {
+        return 1.0f;
+    }
+    else
+    {
+        return 0.0f;
+    }
+
+}
+//--DSR-- HeatVision_end
+
 void CAI_Bloodsucker::set_visibility_state(visibility_t new_state)
 {
 	if (m_force_visibility_state != unset)
