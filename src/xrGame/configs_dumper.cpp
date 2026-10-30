@@ -264,7 +264,7 @@ namespace mp_anticheat
 
 	void configs_dumper::dumper_thread(void* my_ptr)
 	{
-		PROF_EVENT();
+		PROF_EVENT(PROF_CAT(IO));
 
 		configs_dumper* this_ptr = static_cast<configs_dumper*>(my_ptr);
 		DWORD wait_result = WaitForSingleObject(this_ptr->m_make_start_event, INFINITE);

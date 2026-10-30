@@ -66,7 +66,7 @@ Fsphere CSpaceRestrictionBridge::sphere() const
 
 bool CSpaceRestrictionBridge::inside(u32 level_vertex_id, bool partially_inside)
 {
-	START_PROFILE("Restricted Object/Bridge/Inside Vertex")
+	START_PROFILE("Restricted Object/Bridge/Inside Vertex", PROF_CAT(Navigation))
 		;
 		return (object().inside(level_vertex_id, partially_inside));
 	STOP_PROFILE;
@@ -74,7 +74,7 @@ bool CSpaceRestrictionBridge::inside(u32 level_vertex_id, bool partially_inside)
 
 bool CSpaceRestrictionBridge::inside(u32 level_vertex_id, bool partially_inside, float radius)
 {
-	START_PROFILE("Restricted Object/Bridge/Inside Vertex")
+	START_PROFILE("Restricted Object/Bridge/Inside Vertex", PROF_CAT(Navigation))
 		;
 		return (object().inside(level_vertex_id, partially_inside, radius));
 	STOP_PROFILE;
@@ -82,7 +82,7 @@ bool CSpaceRestrictionBridge::inside(u32 level_vertex_id, bool partially_inside,
 
 bool CSpaceRestrictionBridge::inside(const Fsphere& sphere)
 {
-	START_PROFILE("Restricted Object/Bridge/Inside Position")
+	START_PROFILE("Restricted Object/Bridge/Inside Position", PROF_CAT(Navigation))
 		;
 		return (object().inside(sphere));
 	STOP_PROFILE;
@@ -98,7 +98,7 @@ struct CFindByXZ_predicate
 
 bool CSpaceRestrictionBridge::on_border(const Fvector& position) const
 {
-	START_PROFILE("Restricted Object/Bridge/On Border")
+	START_PROFILE("Restricted Object/Bridge/On Border", PROF_CAT(Navigation))
 		;
 
 		VERIFY(ai().level_graph().valid_vertex_position(position));
@@ -136,7 +136,7 @@ bool CSpaceRestrictionBridge::on_border(const Fvector& position) const
 
 bool CSpaceRestrictionBridge::out_of_border(const Fvector& position)
 {
-	START_PROFILE("Restricted Object/Bridge/Out Of Border")
+	START_PROFILE("Restricted Object/Bridge/Out Of Border", PROF_CAT(Navigation))
 		;
 
 		VERIFY(ai().level_graph().valid_vertex_position(position));

@@ -29,7 +29,7 @@ void dxLensFlareRender::Copy(ILensFlareRender& _in)
 
 void dxLensFlareRender::Render(CLensFlare& owner, BOOL bSun, BOOL bFlares, BOOL bGradient)
 {
-	PROF_EVENT("dxLensFlareRender::Render");
+	PROF_EVENT("dxLensFlareRender::Render", PROF_CAT(VFX));
 	Fcolor dwLight;
 	Fcolor color;
 	Fvector vec, vecSx, vecSy;

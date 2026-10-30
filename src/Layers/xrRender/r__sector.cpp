@@ -100,7 +100,7 @@ IC CFrustum CreateFrustumFromPortal(sPoly* poly, Fvector& vBase, Fmatrix& mFullX
 
 void CSector::traverse(CFrustum &&F, CDSGraphManager& DM)
 {
-	PROF_EVENT("CSector::traverse")
+	PROF_EVENT("CSector::traverse", PROF_CAT(Visibility))
 	const bool dbg_enabled = PortalTraverseDbg_Enabled();
 	PortalTraverseDebugStats* dbg = dbg_enabled ? &PortalTraverseDbg_Get() : nullptr;
 	const bool opt_bucket = PortalTraverseDbg_IsOptions(DM.i_options);

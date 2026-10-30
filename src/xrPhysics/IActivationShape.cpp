@@ -7,7 +7,7 @@
 
 void ActivateShapeExplosive(IPhysicsShellHolder* self_obj, const Fvector& size, Fvector& out_size, Fvector& in_out_pos)
 {
-	PROF_EVENT("ActivateShapeExplosive");
+	PROF_EVENT("ActivateShapeExplosive", PROF_CAT(Physics));
 	//////////////
 	CPHActivationShape activation_shape; //Fvector start_box;m_PhysicMovementControl.Box().getsize(start_box);
 	activation_shape.Create(in_out_pos, size, self_obj);
@@ -25,7 +25,7 @@ void ActivateShapeExplosive(IPhysicsShellHolder* self_obj, const Fvector& size, 
 void ActivateShapePhysShellHolder(IPhysicsShellHolder* obj, const Fmatrix& in_xform, const Fvector& in_size,
                                   Fvector& in_pos, Fvector& out_pos)
 {
-	PROF_EVENT("ActivateShapePhysShellHolder");
+	PROF_EVENT("ActivateShapePhysShellHolder", PROF_CAT(Physics));
 	CPHActivationShape activation_shape;
 	activation_shape.Create(in_pos, in_size, obj);
 	activation_shape.set_rotation(in_xform);
@@ -57,7 +57,7 @@ bool ActivateShapeCharacterPhysicsSupport(Fvector& out_pos, const Fvector& vbox,
                                           const Fmatrix& mXFORM, bool not_collide_characters, bool set_rotation,
                                           IPhysicsShellHolder* m_EntityAlife)
 {
-	PROF_EVENT("ActivateShapeCharacterPhysicsSupport");
+	PROF_EVENT("ActivateShapeCharacterPhysicsSupport", PROF_CAT(Physics));
 	CPHActivationShape activation_shape;
 	activation_shape.Create(activation_pos, vbox, m_EntityAlife);
 	if (not_collide_characters)

@@ -247,7 +247,7 @@ public:
 
 void COLLIDER::box_query(const MODEL* m_def, const Fvector& b_center, const Fvector& b_dim)
 {
-	PROF_EVENT("COLLIDER::box_query");
+	PROF_EVENT("COLLIDER::box_query", PROF_CAT(Physics));
 	if (!m_def)
 		return;
 	const_cast<MODEL*>(m_def)->syncronize();
@@ -312,7 +312,7 @@ struct obb_collider
 
 void COLLIDER::obb_query(const MODEL* m_def, const Fobb& obb)
 {
-	PROF_EVENT("COLLIDER::obb_query");
+	PROF_EVENT("COLLIDER::obb_query", PROF_CAT(Physics));
 	if (!m_def)
 		return;
 

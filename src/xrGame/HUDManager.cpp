@@ -130,7 +130,7 @@ CHUDManager::~CHUDManager()
 BOOL mt_ui = FALSE;
 void CHUDManager::OnFrame()
 {
-	PROF_EVENT("CHUDManager::OnFrame");
+	PROF_EVENT("CHUDManager::OnFrame", PROF_CAT(UI));
 	if (!psHUD_Flags.is(HUD_DRAW_RT2))
 		return;
 
@@ -140,7 +140,10 @@ void CHUDManager::OnFrame()
     if (!mt_ui)
     {
         if (pUIGame)
+        {
+            PROF_EVENT("UIGame::OnFrame", PROF_CAT(UI));
             pUIGame->OnFrame();
+        }
     }
 
 	PP.CameraPick();
@@ -155,7 +158,7 @@ void CHUDManager::OnFrameMT()
     if (!b_online)
         return;
 
-	PROF_EVENT("CHUDManager::OnFrameMT");
+	PROF_EVENT("CHUDManager::OnFrameMT", PROF_CAT(UI));
 
 	if (mt_TaskManager && Device.dwPrecacheFrame == 0)
 		Level().GameTaskManager().UpdateTasks();
@@ -279,7 +282,7 @@ extern ENGINE_API BOOL bShowPauseString;
 //отрисовка элементов интерфейса
 void CHUDManager::RenderUI()
 {
-	PROF_EVENT("CHUDManager::RenderUI");
+	PROF_EVENT("CHUDManager::RenderUI", PROF_CAT(UI));
 	if (!psHUD_Flags.is(HUD_DRAW_RT2))
 		return;
 

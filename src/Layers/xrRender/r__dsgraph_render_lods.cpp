@@ -15,7 +15,7 @@ extern float r_ssaLOD_B;
 xr_vector<int> lstLODgroups;
 void CDSGraphManager::r_dsgraph_render_lods(bool _setup_zb, bool _clear)
 {
-	PROF_EVENT("LODS: Render");
+	PROF_EVENT("LODS: Render", PROF_CAT(Rendering));
 	if (RGraph.mapLOD.empty())
 		return;
 

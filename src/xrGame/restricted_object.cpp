@@ -115,7 +115,7 @@ void CRestrictedObject::net_Destroy()
 
 u32 CRestrictedObject::accessible_nearest(const Fvector& position, Fvector& result) const
 {
-	START_PROFILE("Restricted Object/Accessible Nearest")
+	START_PROFILE("Restricted Object/Accessible Nearest", PROF_CAT(Navigation))
 		;
 		VERIFY2(
 			!accessible(position),
@@ -157,7 +157,7 @@ bool CRestrictedObject::accessible(u32 level_vertex_id, float radius) const
 
 void CRestrictedObject::add_border(u32 start_vertex_id, float radius) const
 {
-	START_PROFILE("Restricted Object/Add Border")
+	START_PROFILE("Restricted Object/Add Border", PROF_CAT(Navigation))
 		;
 
 		VERIFY(ai().level_graph().valid_vertex_id(start_vertex_id));
@@ -175,7 +175,7 @@ void CRestrictedObject::add_border(u32 start_vertex_id, float radius) const
 
 void CRestrictedObject::add_border(const Fvector& start_position, const Fvector& dest_position) const
 {
-	START_PROFILE("Restricted Object/Add Border")
+	START_PROFILE("Restricted Object/Add Border", PROF_CAT(Navigation))
 		;
 
 		VERIFY(!m_applied);
@@ -192,7 +192,7 @@ void CRestrictedObject::add_border(const Fvector& start_position, const Fvector&
 
 void CRestrictedObject::add_border(u32 start_vertex_id, u32 dest_vertex_id) const
 {
-	START_PROFILE("Restricted Object/Add Border")
+	START_PROFILE("Restricted Object/Add Border", PROF_CAT(Navigation))
 		;
 		VERIFY(ai().level_graph().valid_vertex_id(start_vertex_id));
 		VERIFY(!m_applied);
@@ -208,7 +208,7 @@ void CRestrictedObject::add_border(u32 start_vertex_id, u32 dest_vertex_id) cons
 
 void CRestrictedObject::remove_border() const
 {
-	START_PROFILE("Restricted Object/Remove Border")
+	START_PROFILE("Restricted Object/Remove Border", PROF_CAT(Navigation))
 		;
 
 		VERIFY(!m_removed);
@@ -222,28 +222,28 @@ void CRestrictedObject::remove_border() const
 
 shared_str CRestrictedObject::in_restrictions() const
 {
-	START_PROFILE("Restricted Object/in_restrictions")
+	START_PROFILE("Restricted Object/in_restrictions", PROF_CAT(Navigation))
 		return (Level().space_restriction_manager().in_restrictions(object().ID()));
 	STOP_PROFILE
 }
 
 shared_str CRestrictedObject::out_restrictions() const
 {
-	START_PROFILE("Restricted Object/out_restrictions")
+	START_PROFILE("Restricted Object/out_restrictions", PROF_CAT(Navigation))
 		return (Level().space_restriction_manager().out_restrictions(object().ID()));
 	STOP_PROFILE
 }
 
 shared_str CRestrictedObject::base_in_restrictions() const
 {
-	START_PROFILE("Restricted Object/base_in_restrictions")
+	START_PROFILE("Restricted Object/base_in_restrictions", PROF_CAT(Navigation))
 		return (Level().space_restriction_manager().base_in_restrictions(object().ID()));
 	STOP_PROFILE
 }
 
 shared_str CRestrictedObject::base_out_restrictions() const
 {
-	START_PROFILE("Restricted Object/out_restrictions")
+	START_PROFILE("Restricted Object/out_restrictions", PROF_CAT(Navigation))
 		return (Level().space_restriction_manager().base_out_restrictions(object().ID()));
 	STOP_PROFILE
 }
@@ -319,7 +319,7 @@ void CRestrictedObject::add_restrictions(const xr_vector<ALife::_OBJECT_ID>& out
 	if (out_restrictions.empty() && in_restrictions.empty())
 		return;
 
-	START_PROFILE("Restricted Object/Add Restrictions")
+	START_PROFILE("Restricted Object/Add Restrictions", PROF_CAT(Navigation))
 		;
 
 		string4096 temp_out_restrictions;
@@ -346,7 +346,7 @@ void CRestrictedObject::remove_restrictions(const xr_vector<ALife::_OBJECT_ID>& 
 	if (out_restrictions.empty() && in_restrictions.empty())
 		return;
 
-	START_PROFILE("Restricted Object/Remove Restrictions")
+	START_PROFILE("Restricted Object/Remove Restrictions", PROF_CAT(Navigation))
 		;
 
 		string4096 temp_out_restrictions;
@@ -372,7 +372,7 @@ void CRestrictedObject::add_restrictions(const shared_str& out_restrictions, con
 	if (!out_restrictions.size() && !in_restrictions.size())
 		return;
 
-	START_PROFILE("Restricted Object/Add Restrictions")
+	START_PROFILE("Restricted Object/Add Restrictions", PROF_CAT(Navigation))
 		;
 
 		Level().space_restriction_manager().add_restrictions(object().ID(), *out_restrictions, *in_restrictions);
@@ -387,7 +387,7 @@ void CRestrictedObject::remove_restrictions(const shared_str& out_restrictions, 
 	if (!out_restrictions.size() && !in_restrictions.size())
 		return;
 
-	START_PROFILE("Restricted Object/Remove Restrictions")
+	START_PROFILE("Restricted Object/Remove Restrictions", PROF_CAT(Navigation))
 		;
 
 		Level().space_restriction_manager().remove_restrictions(object().ID(), *out_restrictions, *in_restrictions);
@@ -407,7 +407,7 @@ void CRestrictedObject::remove_all_restrictions(const RestrictionSpace::ERestric
 
 void CRestrictedObject::remove_all_restrictions()
 {
-	START_PROFILE("Restricted Object/Remove Restrictions")
+	START_PROFILE("Restricted Object/Remove Restrictions", PROF_CAT(Navigation))
 		;
 
 		remove_all_restrictions(RestrictionSpace::eRestrictorTypeOut);

@@ -182,18 +182,18 @@ void IGame_Persistent::Prefetch()
 	float p_time = 1000.f * Device.GetTimerGlobal()->GetElapsed_sec();
 	size_t mem_0 = Memory.mem_usage();
 
-	PROF_EVENT("Prefetch");
+	PROF_EVENT("Prefetch", PROF_CAT(Streaming));
 	static DWORD this_thread_id = 0;
 	this_thread_id = GetCurrentThreadId();
 	prefetch_task.run([this]()
 	{
 		{
-			PROF_EVENT("Prefetch Loading models");
+			PROF_EVENT("Prefetch Loading models", PROF_CAT(Streaming));
 			Log("Loading models...");
 			Render->models_Prefetch();
 		}
 		{
-			PROF_EVENT("Loading textures");
+			PROF_EVENT("Loading textures", PROF_CAT(Streaming));
 			Log("Loading textures...");
 
 			const auto loadFileFolder = [&](LPCSTR _folder)
@@ -254,7 +254,7 @@ void IGame_Persistent::Prefetch()
 	});
 	{
 		// prefetch game objects & models
-		PROF_EVENT("Loading objects");
+		PROF_EVENT("Loading objects", PROF_CAT(Streaming));
 		Log("Loading objects...");
 		ObjectPool.prefetch();
 	}

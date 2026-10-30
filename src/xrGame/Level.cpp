@@ -238,7 +238,7 @@ CLevel::CLevel() :
     , DemoCS(MUTEX_PROFILE_ID(DemoCS))
 #endif
 {
-    PROF_EVENT("CLevel::CLevel");
+    PROF_EVENT("CLevel::CLevel", PROF_CAT(Scene));
     g_bDebugEvents = Core.ParamsData.test(ECoreParams::debug_ge);
     game_events = xr_new<NET_Queue_Event>();
 
@@ -292,7 +292,7 @@ extern CAI_Space* g_ai_space;
 
 CLevel::~CLevel()
 {
-    PROF_EVENT("CLevel::~CLevel");
+    PROF_EVENT("CLevel::~CLevel", PROF_CAT(Scene));
     //crash_saving::save_impl = nullptr; // CLevel not available, disable crash save
     xr_delete(g_player_hud);
     delete_data(m_script_attachments);
@@ -515,7 +515,7 @@ bool CLevel::PostponedSpawnFind(u16 id, NET_Packet& P) const
 
 bool CLevel::PostponedSpawn(u16 id)
 {
-    PROF_EVENT("ProcessGameEvents PostponedSpawn");
+    PROF_EVENT("ProcessGameEvents PostponedSpawn", PROF_CAT(GameLogic));
 
     xrSRWLockGuard g(prefetch_lock, true);
     auto queue = prefetch_events;
@@ -593,7 +593,7 @@ void CLevel::ProcessPrefetchEvents(void* args)
             }
         }
 
-        PROF_EVENT("ProcessPrefetchEvents")
+        PROF_EVENT("ProcessPrefetchEvents", PROF_CAT(Streaming))
             prefetch_event_queue saved_prefetch_events;
         {
             xrSRWLockGuard g(prefetch_lock);
@@ -642,7 +642,7 @@ void CLevel::ProcessPrefetchEvents(void* args)
 // demonized: If called manually, be aware of ProcessPrefetchEvents thread, which may modify spawn_events queue at the same time, maybe fix later
 void CLevel::ProcessSpawnEvents()
 {
-    PROF_EVENT("ProcessSpawnEvents");
+    PROF_EVENT("ProcessSpawnEvents", PROF_CAT(GameLogic));
 
     xr_vector<NET_Event> events_to_process;
     spawn_events_data_map spawn_events_data_copy;
@@ -717,7 +717,7 @@ void CLevel::ProcessSpawnEvents()
 
 void CLevel::ProcessGameEvents()
 {
-	PROF_EVENT("ProcessGameEvents");
+	PROF_EVENT("ProcessGameEvents", PROF_CAT(GameLogic));
 
 	xr_vector<NET_Event> events_to_process;
 	xr_vector<prefetch_event> events_to_prefetch;
@@ -733,7 +733,7 @@ void CLevel::ProcessGameEvents()
 	{
 		for (auto it = events_to_process.begin(); it != events_to_process.end(); )
 		{
-			PROF_EVENT("ProcessGameEvents game_events queue");
+			PROF_EVENT("ProcessGameEvents game_events queue", PROF_CAT(GameLogic));
 			u16 ID = it->ID;
 			u16 dest = it->destination;
 			u16 type = it->type;
@@ -758,7 +758,7 @@ void CLevel::ProcessGameEvents()
 				// add to prefetch_events queue for postponed spawn
 				if (M_SPAWN == ID)
 				{
-					PROF_EVENT("ProcessGameEvents M_SPAWN");
+					PROF_EVENT("ProcessGameEvents M_SPAWN", PROF_CAT(GameLogic));
 
 					u16 parent_id;
 					shared_str section;
@@ -854,7 +854,7 @@ void CLevel::ProcessGameEvents()
 			{
 			case M_SPAWN:
 				{
-					PROF_EVENT("ProcessGameEvents M_SPAWN");
+					PROF_EVENT("ProcessGameEvents M_SPAWN", PROF_CAT(GameLogic));
 
 #ifdef SPAWN_ANTIFREEZE
 					if (spawn_antifreeze_debug)
@@ -873,13 +873,13 @@ void CLevel::ProcessGameEvents()
 				}
 			case M_EVENT:
 				{
-					PROF_EVENT("ProcessGameEvents M_EVENT");
+					PROF_EVENT("ProcessGameEvents M_EVENT", PROF_CAT(GameLogic));
 					cl_Process_Event(dest, type, P);
 					break;
 				}
 			case M_MOVE_PLAYERS:
 				{
-					PROF_EVENT("ProcessGameEvents M_MOVE_PLAYERS");
+					PROF_EVENT("ProcessGameEvents M_MOVE_PLAYERS", PROF_CAT(GameLogic));
 					u8 Count = P.r_u8();
 					for (u8 i = 0; i < Count; i++)
 					{
@@ -899,21 +899,21 @@ void CLevel::ProcessGameEvents()
 				}
 			case M_STATISTIC_UPDATE:
 				{
-					PROF_EVENT("ProcessGameEvents M_STATISTIC_UPDATE");
+					PROF_EVENT("ProcessGameEvents M_STATISTIC_UPDATE", PROF_CAT(GameLogic));
 					if (GameID() != eGameIDSingle)
 						Game().m_WeaponUsageStatistic->OnUpdateRequest(&P);
 					break;
 				}
 			case M_FILE_TRANSFER:
 				{
-					PROF_EVENT("ProcessGameEvents M_FILE_TRANSFER");
+					PROF_EVENT("ProcessGameEvents M_FILE_TRANSFER", PROF_CAT(GameLogic));
 					if (m_file_transfer) // in case of net_Stop
 						m_file_transfer->on_message(&P);
 					break;
 				}
 			case M_GAMEMESSAGE:
 				{
-					PROF_EVENT("ProcessGameEvents M_GAMEMESSAGE");
+					PROF_EVENT("ProcessGameEvents M_GAMEMESSAGE", PROF_CAT(GameLogic));
 					Game().OnGameMessage(P);
 					break;
 				}
@@ -982,9 +982,13 @@ void CLevel::MakeReconnect()
 
 BOOL mt_ph_commander = FALSE;
 BOOL mt_TaskManager = FALSE;
+#if XRCORE_PROFILER == PROFILER_OPTICK
+extern std::atomic<u32> g_prof_stalker_updates;
+extern std::atomic<u32> g_prof_binder_updates;
+#endif
 void CLevel::OnFrame()
 {
-	PROF_EVENT("CLevel::OnFrame()");
+	PROF_EVENT("CLevel::OnFrame()", PROF_CAT(GameLogic));
 
     // demonized: update wallmarks before rendering
     ::Render->update_Wallmarks();
@@ -1059,6 +1063,10 @@ void CLevel::OnFrame()
 
 	// Inherited update
 	inherited::OnFrame();
+#if XRCORE_PROFILER == PROFILER_OPTICK
+	PROF_TAG("stalker UpdateCL", g_prof_stalker_updates.exchange(0));
+	PROF_TAG("binder updates", g_prof_binder_updates.exchange(0));
+#endif
 	// Draw client/server stats
 	if (!g_dedicated_server && psDeviceFlags.test(rsStatistic))
 	{
@@ -1148,11 +1156,17 @@ void CLevel::OnFrame()
 	                                             game->GetEnvironmentGameTimeFactor());
 	if (!mt_ph_commander)
 	{
-		PROF_EVENT("m_ph_commander");
+		PROF_EVENT("m_ph_commander", PROF_CAT(Script));
 		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
 
-		m_ph_commander->update();
-		m_ph_commander_scripts->update();
+		{
+			PROF_EVENT("ph_commander", PROF_CAT(Physics));
+			m_ph_commander->update();
+		}
+		{
+			PROF_EVENT("ph_commander_scripts", PROF_CAT(Script));
+			m_ph_commander_scripts->update();
+		}
 	}
 
 	// update static sounds
@@ -1194,17 +1208,24 @@ extern BOOL psLua_ParallelGC_debug;
 
 void CLevel::script_gc()
 {
+	PROF_TAG("lua KB", lua_gc(ai().script_engine().lua(), LUA_GCCOUNT, 0));
 	if (mt_ph_commander)
 	{
-		PROF_EVENT("m_ph_commander");
+		PROF_EVENT("m_ph_commander", PROF_CAT(Script));
 		ai().script_engine().script_process(ScriptEngine::eScriptProcessorLevel)->update();
 
-		m_ph_commander->update();
-		m_ph_commander_scripts->update();
+		{
+			PROF_EVENT("ph_commander", PROF_CAT(Physics));
+			m_ph_commander->update();
+		}
+		{
+			PROF_EVENT("ph_commander_scripts", PROF_CAT(Script));
+			m_ph_commander_scripts->update();
+		}
 	}
 	if (!(psLua_ParallelGC && Device.LuaGC))
 	{
-		PROF_EVENT("CLevel::script_gc");
+		PROF_EVENT("CLevel::script_gc", PROF_CAT(Script));
 		lua_gc(ai().script_engine().lua(), LUA_GCSTEP, psLUA_GCSTEP);
 	}
 	
@@ -1213,6 +1234,7 @@ void CLevel::script_gc()
 // demonized: bind LuaGC call to be available in device.cpp
 bool CLevel::Load(u32 dwNum)
 {
+    PROF_EVENT("CLevel::Load", PROF_CAT(Scene));
     inherited::Load(dwNum);
     Msg("Device.LuaGC bind");
     Device.LuaGC.bind(&CLevel::LuaGC);
@@ -1254,6 +1276,7 @@ void CLevel::OnRender()
 		CUIPdaWnd* pda = &CurrentGameUI()->GetPdaMenu();
 		if (psActorFlags.test(AF_3D_PDA) && pda->IsShown())
 		{
+			RENDER_SCOPE(ui_pda_3d);
 			ps_r4_hdr10_pda = 1; // !!! HACK !!!
 
 			pda->Draw();
@@ -1310,17 +1333,29 @@ void CLevel::OnRender()
 	if (!game)
 		return;
 	Game().OnRender();
-	BulletManager().Render();
+	{
+		RENDER_SCOPE(ui_tracers);
+		BulletManager().Render();
+	}
 
 	if (Device.m_SecondViewport.IsSVPFrame())
 		Render->RenderToTarget(Render->rtSVP);
 
 	if (use_reshade)
+	{
+		RENDER_SCOPE(reshade);
 		render_reshade_effects();
+	}
 
-	HUD().RenderUI();
+	{
+		RENDER_SCOPE(ui_hud);
+		HUD().RenderUI();
+	}
 
-	ScriptDebugRender();
+	{
+		RENDER_SCOPE(script_debug);
+		ScriptDebugRender();
+	}
 
 #ifdef DEBUG
     draw_wnds_rects();

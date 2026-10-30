@@ -341,7 +341,7 @@ u32 CGameFont::smart_strlen(const char* S)
 
 void CGameFont::OnRender()
 {
-	PROF_EVENT("Render Font");
+	PROF_EVENT("Render Font", PROF_CAT(UI));
 	pFontRender->OnRender(*this);
 	strings.clear_not_free();
 }

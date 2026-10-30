@@ -310,7 +310,7 @@ void CTorch::SwitchLightOnly()
 extern BOOL r_optimize_torch = TRUE;
 void CTorch::Update()
 {
-    PROF_EVENT("CTorch::Update")
+    PROF_EVENT("CTorch::Update", PROF_CAT(GameLogic))
 	if (!m_switched_on) return;
 
 	if (isFlickering)
@@ -475,7 +475,7 @@ void CTorch::shedule_Update(u32 dt)
 
 void CTorch::UpdateCL()
 {
-	PROF_EVENT("CTorch::UpdateCL")
+	PROF_EVENT("CTorch::UpdateCL", PROF_CAT(GameLogic))
 	inherited::UpdateCL			();
 	
 	Update();

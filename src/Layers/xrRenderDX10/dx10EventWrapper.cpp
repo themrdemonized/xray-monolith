@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #pragma hdrstop
 #include "dx10EventWrapper.h"
+#include "dx10GpuTimeline.h"
 #include "../xrRender/HW.h"
 #include "../../xrEngine/renderdoc_integration.h"
 
@@ -67,7 +68,8 @@ namespace
     }
 }
 
-dxPixEventWrapper::dxPixEventWrapper(LPCWSTR wszName, u32 color) : annotation(nullptr), perf_event(false)
+dxPixEventWrapper::dxPixEventWrapper(LPCWSTR wszName, u32 color) : annotation(nullptr), perf_event(false),
+    gpu_scope(ps_r__gpu_timeline ? gpu_timeline::scope_begin(wszName) : gpu_timeline::no_scope)
 {
     ID3DUserDefinedAnnotation* const listener = HW.pAnnotation;
     if (!listener)
@@ -93,6 +95,9 @@ dxPixEventWrapper::~dxPixEventWrapper()
         dx10_perf().end();
     else if (annotation)
         annotation->EndEvent();
+
+    if (gpu_scope != gpu_timeline::no_scope)
+        gpu_timeline::scope_end(gpu_scope);
 }
 
 extern Fvector4 ps_dev_param_1;

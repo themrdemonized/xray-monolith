@@ -52,6 +52,9 @@ void CRender::ScreenshotImpl(ScreenshotMode mode, LPCSTR name, CMemoryWriter* me
 	if (ps_r4_hdr10_on) {
 		return;
 	}
+#ifdef USE_DX11
+	PIX_EVENT(screenshot);
+#endif
 
 	ID3DResource* pSrcTexture;
 	HW.pBaseRT->GetResource(&pSrcTexture);
