@@ -996,17 +996,18 @@ void player_hud::load_script(LPCSTR section)
 
 bool player_hud::render_item_ui_query()
 {
-	bool res = false;
-	if (m_attached_items[0])
-		res |= m_attached_items[0]->render_item_ui_query();
+    if (m_attached_items[0] && m_attached_items[0]->render_item_ui_query()) return true;
+    if (m_attached_items[1] && m_attached_items[1]->render_item_ui_query()) return true;
 
-	if (m_attached_items[1])
-		res |= m_attached_items[1]->render_item_ui_query();
+    if (m_attached_items[SCOPE_ATTACH_IDX] && m_attached_items[SCOPE_ATTACH_IDX]->render_item_ui_query()) return true;
 
-	if (m_attached_items[SCOPE_ATTACH_IDX])
-		res |= m_attached_items[SCOPE_ATTACH_IDX]->render_item_ui_query();
+    for (auto& pair : *g_actor->GetAttachments())
+    {
+        script_attachment* att = pair.second;
+        if (att->GetType() == eSA_HUD && att->HasUI()) return true;
+    }
 
-	return res;
+	return false;
 }
 
 void player_hud::render_item_ui()

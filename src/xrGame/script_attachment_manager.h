@@ -165,6 +165,7 @@ public:
 
 	virtual void renderable_Render();
 	void RenderUI();
+    bool HasUI() { return m_script_ui; }
 	void RenderInstanceAttachments();
 	void UpdateInstanceAttachments();
 
