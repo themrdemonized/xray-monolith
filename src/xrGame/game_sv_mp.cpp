@@ -1089,8 +1089,8 @@ void game_sv_mp::OnVoteStart(LPCSTR VoteCommand, ClientID sender)
 			string256 LevelName;
 			string256 LevelVersion;
 			sscanf_s(CommandParams, "%255s %255s",
-			         LevelName, sizeof(LevelName),
-			         LevelVersion, sizeof(LevelVersion)
+			         LevelName, (u32)sizeof(LevelName),
+			         LevelVersion, (u32)sizeof(LevelVersion)
 			);
 #ifdef DEBUG
 			Msg("--- Starting vote for changing level to: %s[%s]", LevelName, LevelVersion);

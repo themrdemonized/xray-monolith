@@ -674,6 +674,9 @@ void CLevel::ProcessSpawnEvents()
 
 		if (spawn_antifreeze_debug) Msg("[ProcessSpawnEvents] spawning section %s, obj_id %d, parent_id %d, event_id %d", section.c_str(), obj_id, parent_id, dest);
 
+        // If the object was in alife, but now its absent, skip it
+        auto spawn_data_it = spawn_events_data_copy.find(obj_id);
+
 		// demonized: If item is II_BOLT class - go through anyway
 		if (pSettings->line_exist(section.c_str(), "class") && strstr(pSettings->r_string(section.c_str(), "class"), "II_BOLT") != nullptr)
 		{
@@ -681,8 +684,6 @@ void CLevel::ProcessSpawnEvents()
 			goto spawn;
 		}
 
-        // If the object was in alife, but now its absent, skip it
-        auto spawn_data_it = spawn_events_data_copy.find(obj_id);
         if (spawn_data_it != spawn_events_data_copy.end())
         {
             if (spawn_data_it->second.hasAlifeObject)
