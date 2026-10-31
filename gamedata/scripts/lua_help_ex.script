@@ -624,6 +624,10 @@
         function get_row(string id, number i) -> bool ok, number x, number y, number z, number w -- bound row i, false past the rows a shader declared, unsigned on a uint lane
         function get_object(string id, game_object obj) -> bool ok, number x, number y, number z, number w -- what draws of obj read, its own value or the lane's
         function get_attachment(string id, script_attachment obj) -> bool ok, number x, number y, number z, number w -- what draws of obj read, its own value or the lane's
+        function register_mask(string id, string owner, string description) -> number token -- claims one object mask bit 10 to 23 and writes 1 << bit as a uint to the lane, nil where the renderer has no object masks or every bit is taken
+        function set_mask(number token, game_object obj, bool on) -> bool ok -- sets or clears the token's bit on obj from the next frame
+        function get_mask(game_object obj) -> number bits -- the live object mask bits obj carries, 0 for none
+        function release_mask(number token) -> bool ok -- drops the bit from the next frame, it returns to the pool after the next level load
         string get_texture(string id) -- what $user$bus_<id> shows, nil for none or an unknown id
         function get_pending(string id) -> bool ok, number x, number y, number z, number w -- the value last written through the token, the largest of the tokens on a shared lane, unsigned on a uint lane
         table writers(string id) -- rows {owner, x, y, z, w}, one per token of a shared lane that called set, empty for any other lane
@@ -1634,6 +1638,12 @@
         CamAttached = 2,
     }
 
+    enum script_attachment_hud {
+        Parent = 0,
+        Actor  = 1,
+        Item   = 2,
+    }
+
     class ScriptAttachment {
         -- Parent
         function set_parent(ScriptAttachment*);
@@ -1699,6 +1709,8 @@
         -- Other
         function set_type(number); -- ex. script_attachment_type.Hud
         function get_type();
+        function set_hud_category(number); -- ex. script_attachment_hud.Item, picks the HUD mask bit of the attachment's HUD draws
+        function get_hud_category();
         function set_model(string, boolean);
         function get_model();
         function set_name();

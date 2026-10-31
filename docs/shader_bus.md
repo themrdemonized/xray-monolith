@@ -164,7 +164,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.set_array(token, first, rows)` | `true` if the token is valid, `first` is a whole number from `0`, `rows` is a non-empty array of rows `{x, y, z, w}` (a missing component reads `0`), every value is finite and the last row is below row 4096, or below the size `set_buffer` gave a larger buffer lane. One call writes at most 4096 rows. Writes `rows[1]` to row `first` (0-based, the HLSL element index) onward and leaves other rows as they were. Row 0 is the value `set` writes, so `set` and `set_array` from row 0 overwrite each other. The first refusal on each lane logs a line |
 | `shader_bus.set_uint(token, a, b, c, d)` | `true` if the token is valid and all four values are whole numbers from `0` to `4294967295`. The lane becomes a uint lane. A value out of range, negative or fractional is dropped and the first refusal on each lane logs a line |
 | `shader_bus.set_array_uint(token, first, rows)` | `set_array` with unsigned rows, under the same value rule as `set_uint` |
-| `shader_bus.set_object(token, obj, x, y, z, w)` | `true` if the token is valid, the lane id starts `obj_`, `obj` is a game object and all four values are finite. Draws of that object read the value from the next frame on, until `clear_object` or the object goes away. The first refusal on each lane logs a line |
+| `shader_bus.set_object(token, obj, x, y, z, w)` | `true` if the token is valid, the lane id starts `obj_`, `obj` is a game object, a `ScriptAttachment` or a particles object and all four values are finite. Draws of that object read the value from the next frame on, until `clear_object` or the object goes away. The first refusal on each lane logs a line |
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
 | `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. A target or history lane refuses. The first refusal on each lane logs a line |
 | `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene` or `backbuffer`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
@@ -210,7 +210,7 @@ rows of a buffer lane as of the last frame, `0` for a lane that is not one), `la
 command still exists on the running exe.
 
 A row also has `role` (`target`, `history` or `pass` for the lanes of Render targets and passes,
-empty for a plain lane; other roles are described with their features). A target row and its history row `<id>_prev` carry `width`, `height`,
+`mask` for a mask lane with its bit in `mask_bit`, see Masks, and empty for a plain lane). A target row and its history row `<id>_prev` carry `width`, `height`,
 `format`, `bytes`, `history` and `target_state` (`pending`, `ready` or `released`), with the size
 and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
 (`pending`, `ready`, `failed` or `off`) and `reason`, the text of the failure and empty
@@ -230,7 +230,7 @@ Reads and listing are open to every script. Only the token returned by `register
 
 ### Engine lanes
 
-The engine registers two lanes itself, with the `owner` string `engine`, and fills them every frame once a
+The engine registers three lanes itself, two on DX9, with the `owner` string `engine`, and fills them every frame once a
 shader has declared them, so they cost nothing until one does. The declaration lasts until the
 game exits. Read them in a shader like any lane.
 
@@ -238,6 +238,7 @@ game exits. Read them in a shader like any lane.
 |---|---|
 | `engine_sun_los` | `x` is `1` when nothing blocks a ray of 500 m from the camera toward the sun, else `0` |
 | `engine_sky_open` | `x` is how open the sky is over the view entity, from `0` to `1`, the value `level.rain_hemi()` returns |
+| `engine_hud_mask` | `x` is `1` while the mask target holds this frame's HUD bits, else `0`. Declaring it makes the engine draw the HUD bits, on DX10 and DX11 only (see Masks) |
 
 ```hlsl
 uniform float4 bus_engine_sun_los;
@@ -361,6 +362,237 @@ Limits:
 - One lane serves every mod, and no mod can pull an object below the value another mod gave it.
 - An exe before version `5` treats `obj_hotness` as an ordinary object lane that `L_hotness` never
   reads.
+
+### Masks
+
+From version `8` on DX10 and DX11, the engine can draw a mask that tells a shader what drew each
+pixel: the player's hands, weapon and other HUD parts by category, and the objects a mod tagged
+with a mask bit. A shader reads the mask as a texture, and a script tags objects through a mask
+lane.
+
+#### The mask target
+
+The mask is `Texture2D<float> bus_engine_mask`, one R32F texel per screen pixel that holds a 24 bit
+tag as tag × 2^-24. `bus_mask.h` declares it and decodes a pixel with `bus_mask_bits`:
+
+```hlsl
+#include "bus_mask.h"
+
+uint bits = bus_mask_bits(int2(I.hpos.xy));
+```
+
+Bits 0 to 9 are the HUD bits below and bits 10 to 23 belong to mods. A pixel holds the tag of the
+last tagged draw whose depth equals the depth buffer there, so only the visible surface counts and
+the tags of two draws never combine. A pixel where nothing tagged drew reads `0`.
+
+The target exists while a shader declares `bus_engine_hud_mask` or a mod holds a live mask bit,
+and it needs MSAA off. With MSAA on the engine logs one `!` line and keeps no target, and without a
+target the texture reads `0`. The target is cleared every frame. The HUD bits draw with the HUD
+and the world tags right after the G-buffer, so the G-buffer's own draws cannot read this frame's
+tags, while passes from the `gbuffer` stage on and the lighting, combine and post shaders can. A
+pass at half resolution scales its pixel coordinates. On the frame the target first appears only
+the HUD bits draw, so a bit registered and set in the same frame shows on the world from the
+second frame after the call. A second viewport frame, such as a scope view, draws no world tags.
+
+#### HUD bits
+
+`bus_hud_mask.h` includes `bus_mask.h` and defines the HUD bits:
+
+| bit | define | what draws it |
+|---|---|---|
+| `0x001` | `BUS_HUD_ARMS` | the main arms model, the right arm, and the HUD attachments on it |
+| `0x002` | `BUS_HUD_ARMS2` | the second arms model, the left arm, and the HUD attachments on it |
+| `0x004` | `BUS_HUD_ITEM0` | the HUD item in the first slot, the weapon |
+| `0x008` | `BUS_HUD_ITEM1` | the HUD item in the second slot, such as a detector |
+| `0x010` | `BUS_HUD_SCOPE` | the HUD item in the scope slot |
+| `0x020` | `BUS_HUD_PROP` | the item model of a scripted HUD animation |
+| `0x040` | `BUS_HUD_ATT_ACTOR` | HUD and camera attachments of the `Actor` category |
+| `0x080` | `BUS_HUD_ATT_ITEM` | HUD and camera attachments of the `Item` category |
+| `0x100` | `BUS_HUD_CAM` | camera attachments |
+| `0x200` | `BUS_HUD_LENS` | set with the item's bit where a 3D scope lens put world depth back |
+
+| group | define | bits |
+|---|---|---|
+| `0x043` | `BUS_HUD_ACTOR` | both arms models and `Actor` attachments |
+| `0x1BC` | `BUS_HUD_ITEMS` | the items, the scope, the prop, `Item` attachments and camera attachments |
+| `0x1FF` | `BUS_HUD_ALL` | every HUD bit but `BUS_HUD_LENS` |
+
+`hud_all(p)`, `hud_items(p)` and `hud_actor(p)` test a group at pixel `p`. They read the engine lane
+`bus_engine_hud_mask`, whose `x` is `1` while the target holds this frame's HUD bits, so they are
+`false` while it is `0`, and `hud_mask_live()` tests that alone. The engine draws HUD bits only
+while a shader declares `bus_engine_hud_mask`, as these helpers do, and world tags alone never
+draw them.
+
+`BUS_HUD_LENS` means world depth here. On DX11, a 3D scope lens draws its item's bit with
+`BUS_HUD_LENS` and puts world depth back behind it, so the pixel shows the world through the lens
+rather than the HUD. A tagged object seen through the lens can draw its own tag over it.
+
+These draw no HUD bit:
+- translucent HUD draws, which the engine sorts, such as scope glass and reticles, and HUD
+  particles such as muzzle flashes
+- the first person legs and body, which are world draws. A mod that tags the actor tags them
+
+The actor's own mod bits never reach a HUD draw. A HUD draw carries its HUD bit, plus the mod bits
+of an attachment that was itself tagged.
+
+#### Attachment categories
+
+A script attachment of type `Hud` or `CamAttached` draws with the HUD bit of what it hangs on:
+`BUS_HUD_ARMS` or `BUS_HUD_ARMS2` for the arm it is on, `BUS_HUD_CAM` on the camera, and a child
+attachment the bit of its parent attachment. `set_hud_category` picks another bit:
+
+| `script_attachment_hud` | HUD bit |
+|---|---|
+| `Parent` | the bit of what it hangs on, the default |
+| `Actor` | `BUS_HUD_ATT_ACTOR` |
+| `Item` | `BUS_HUD_ATT_ITEM` |
+
+```lua
+att:set_hud_category(script_attachment_hud.Item)
+```
+
+`get_hud_category()` returns the category, and a value out of range sets `Parent`. The category
+changes only HUD draws. An attachment's own mask bits join its draws whatever its type, but a
+`Hud` or `CamAttached` attachment draws them into the mask only while a shader declares
+`bus_engine_hud_mask`, so a mod that tags a HUD attachment and reads only world tags sees nothing.
+
+#### Object masks
+
+A mask lane holds one mod bit. A mod registers it, sets the bit on objects, and a shader reads the
+bit from the lane and tests it against the mask.
+
+| call | returns |
+|---|---|
+| `shader_bus.register_mask(id, owner, description)` | a token, or `nil` with a log line, never a fatal. It takes the lowest free bit from 10 to 23 and writes `1 << bit` to the lane as a uint, so `uint bus_<id>` reads the bit in `x`. The same id and `owner` get the same token and bit back. It refuses a bad id, `owner` or description as `register` does, an `engine_`, `cvar_` or `obj_` id, a shared lane, an id another `owner` holds or the same `owner` holds as another kind of lane, a full bus, a renderer other than DX10 and DX11, and a new bit while all 14 are held |
+| `shader_bus.set_mask(token, obj, on)` | `true` if the token holds a live bit and `obj` is a game object or a `ScriptAttachment`. From the next frame on, `true` sets the token's bit on `obj` and `false` clears it. A particles object, `nil` or a released token returns `false` |
+| `shader_bus.get_mask(obj)` | the live mask bits `obj` carries, `0` for none or `nil` |
+| `shader_bus.release_mask(token)` | `true` for a mask token. From the next frame on the bit draws nowhere and the lane reads `0`. The bit returns to the pool after the next level load, and until then `register_mask` with the same id and `owner` takes it back, with the objects that still carry it |
+
+A mask lane takes no other write: `set`, `set_uint`, `set_array`, `set_array_uint`, `set_texture`,
+`set_readback` and `set_buffer` refuse it, and the first refusal logs a line. Its `list` row has
+`role` `mask` and `mask_bit`, the bit it holds, until a released bit returns to the pool. An exe
+before version `8` has no `register_mask`, so check `shader_bus.register_mask ~= nil` before
+calling it.
+
+These draws carry an object's tag, its live bits together:
+- the opaque dynamic draws of a game object or a level root attachment the renderer draws, in the
+  main pass
+- an attachment parented to it and an item it holds, with their own bits added to its bits
+
+These never do:
+- level geometry and other static draws, water, grass and details
+- translucent and sorted draws, emissive and distortion draws, wallmarks and the forward pass
+- particles and shadows
+- an object the renderer culls, so a fully hidden object cannot be outlined and there is no
+  through-walls layer
+
+#### Per object rows
+
+A mask says which objects a mod tagged. To give each object its own data, a mod pairs an `obj_`
+lane that holds the object's slot with a buffer lane that holds the slot's rows. The mod owns the
+slots, and the bus never tells a script that an object went away, so the mod frees its slots
+itself. Slot 0 stays unused, since a draw of an object with no value reads the lane's own value,
+which is `0`. Buffer lanes need DX11.
+
+```lua
+local slot_lane, rows_lane = nil, nil
+local slot_of, free = {}, {}
+
+function on_game_start()
+	if not (shader_bus and shader_bus.set_buffer) then return end
+	slot_lane = shader_bus.register("obj_mymod_slot", "My Mod", "row slot of each tinted object")
+	rows_lane = shader_bus.register("mymod_rows", "My Mod", "four rows per tinted object")
+	if slot_lane and rows_lane and shader_bus.set_buffer(rows_lane, 256 * 4) then
+		for slot = 255, 1, -1 do free[#free + 1] = slot end
+	end
+	RegisterScriptCallback("npc_on_net_destroy", untint)
+end
+
+-- gives obj the tint r, g, b from the next frame on
+function tint(obj, r, g, b)
+	local id = obj:id()
+	local slot = slot_of[id] or table.remove(free)
+	if not slot then return false end
+	slot_of[id] = slot
+	shader_bus.set_array(rows_lane, slot * 4, { { r, g, b, 1 } })
+	return shader_bus.set_object(slot_lane, obj, slot, 0, 0, 0)
+end
+
+-- drops the tint and frees the slot
+function untint(obj)
+	local slot = slot_of[obj:id()]
+	if not slot then return end
+	slot_of[obj:id()] = nil
+	shader_bus.clear_object(slot_lane, obj)
+	shader_bus.set_array(rows_lane, slot * 4, { { 0, 0, 0, 0 } })
+	free[#free + 1] = slot
+end
+```
+
+```hlsl
+#if defined(SHADER_BUS) && SHADER_BUS >= 8
+uniform float4 bus_obj_mymod_slot;
+Buffer<float4> bus_mymod_rows;
+#endif
+
+// in the object's pixel shader
+#if defined(SHADER_BUS) && SHADER_BUS >= 8
+float4 tint = bus_mymod_rows.Load(uint(bus_obj_mymod_slot.x) * 4);
+#else
+float4 tint = 0;
+#endif
+```
+
+The slot and the rows of one frame's writes reach the draws together, so a slot freed and given to
+another object in the same frame never shows the old rows. `obj_` values reach the draws of a level
+root attachment, while a parented attachment draws with the value of the object it hangs on and a
+HUD attachment with the actor's.
+
+#### Example
+
+The script registers a mask bit and a `scene` pass, and tags an object by id:
+
+```lua
+local mark = nil
+
+function on_game_start()
+	if shader_bus and shader_bus.register_mask then
+		mark = shader_bus.register_mask("mymod_mark", "My Mod", "objects my mod marks")
+	end
+	if mark then
+		shader_bus.register_pass("mymod_marks", "My Mod", "tints marked objects and the held items",
+			{ stage = "scene", ps = "mymod_marks", outputs = { "scene" } })
+	end
+end
+
+-- marks or unmarks the object with this id from the next frame on
+function mark_object(id, on)
+	local obj = level.object_by_id(id)
+	return mark ~= nil and obj ~= nil and shader_bus.set_mask(mark, obj, on)
+end
+```
+
+The pass shader `shaders\r3\mymod_marks.ps` tints the held items blue and the marked objects red:
+
+```hlsl
+#include "common.h"
+#include "bus_hud_mask.h"
+
+// x is the bit register_mask gave the lane, 0 before it registers and after release_mask
+uniform uint4 bus_mymod_mark;
+
+float4 main(p_screen I) : SV_Target
+{
+	int2 p = int2(I.hpos.xy);
+	uint bits = bus_mask_bits(p);
+	float3 c = s_image.Load(int3(p, 0)).rgb;
+	if (hud_items(p) && (bits & BUS_HUD_LENS) == 0)
+		c = lerp(c, float3(0.2, 0.5, 1.0), 0.5);
+	else if ((bits & bus_mymod_mark.x) != 0)
+		c = lerp(c, float3(1.0, 0.2, 0.1), 0.5);
+	return float4(c, 1.0);
+}
+```
 
 ### Readback
 
@@ -869,3 +1101,7 @@ exes from version `7` on pass.
 - **A target or history lane takes no texture or buffer.** `set_texture` and `set_buffer` refuse
   it, so one id never holds two GPU resources.
 - **`bus_list` shows a target or pass as a plain lane.** `list()` has its spec and state.
+- **The mask target needs MSAA off.** With MSAA on the engine logs one `!` line, keeps no target,
+  and the mask reads `0`.
+- **A mask lane holds only its bit.** `set`, `set_uint`, the row calls, `set_texture`,
+  `set_readback` and `set_buffer` refuse it, so it reads the bit `register_mask` wrote, or `0` after `release_mask`.

@@ -82,6 +82,13 @@ static xr_vector<bus_legacy_row> g_bus_legacy;
 static xr_vector<shared_str> g_bus_legacy_logged;
 static xrCriticalSection g_bus_lock;
 static bool g_bus_gpu_lanes = false;
+static bool g_bus_mask = false;
+// the token holding each object mask bit, 0 for a free bit, and the live bits as of the last per-frame update
+static u32 g_bus_mask_tokens[24] = {};
+static u32 g_bus_mask_live = 0;
+// bits release_mask parked and the level count each was released in
+static u32 g_bus_mask_parked = 0;
+static u32 g_bus_mask_park_epochs[24] = {};
 // finished level loads, and the count as of the last per-frame update
 static u32 g_bus_epoch_live = 0;
 static u32 g_bus_epoch = 0;
@@ -578,6 +585,8 @@ bool ShaderBus::set(u32 token, float x, float y, float z, float w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "a value, it is an object mask");
 	if (bus_gpu_written(l))
 		return bus_refuse_write(l, "a value, a compute pass writes the lane");
 
@@ -613,6 +622,8 @@ bool ShaderBus::set_uint(u32 token, u32 x, u32 y, u32 z, u32 w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "a value, it is an object mask");
 	if (bus_gpu_written(l))
 		return bus_refuse_write(l, "a value, a compute pass writes the lane");
 	if (l->shared)
@@ -655,6 +666,8 @@ bool ShaderBus::set_rows(u32 token, u32 first, const Fvector4* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "rows, it is an object mask");
 	if (bus_gpu_written(l))
 		return bus_refuse_write(l, "rows, a compute pass writes the lane");
 	if (l->shared)
@@ -673,6 +686,8 @@ bool ShaderBus::set_rows_uint(u32 token, u32 first, const u32* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "rows, it is an object mask");
 	if (bus_gpu_written(l))
 		return bus_refuse_write(l, "rows, a compute pass writes the lane");
 	if (l->shared)
@@ -839,6 +854,8 @@ bool ShaderBus::set_texture(u32 token, LPCSTR name)
 		return false;
 	if (l->role == role_target || l->role == role_history)
 		return bus_refuse_write(l, "a texture, it is a render target");
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "a texture, it is an object mask");
 	if (l->shared)
 		return bus_refuse_write(l, "a texture, a shared lane takes set and set_object only");
 	if (!name || xr_strlen(name) > 255)
@@ -860,6 +877,8 @@ bool ShaderBus::set_readback(u32 token, LPCSTR source, float x, float y, u32 w, 
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "a readback, it is an object mask");
 	if (l->shared)
 		return bus_refuse_write(l, "a readback, a shared lane takes set and set_object only");
 	if (!g_bus_gpu_lanes)
@@ -921,6 +940,8 @@ bool ShaderBus::set_buffer(u32 token, u32 rows)
 		return false;
 	if (l->role == role_target || l->role == role_history)
 		return bus_refuse_write(l, "a buffer, it is a render target");
+	if (l->role == role_mask)
+		return bus_refuse_write(l, "a buffer, it is an object mask");
 	if (l->shared)
 		return bus_refuse_write(l, "a buffer, a shared lane takes set and set_object only");
 	if (!g_bus_gpu_lanes)
@@ -1277,6 +1298,15 @@ static bool bus_latch_lane(ShaderBus::lane* l)
 	return textures_moved;
 }
 
+// the object mask bit a token holds, parked or live, -1 for none, called under the lock
+static int bus_mask_bit(u32 token)
+{
+	for (int bit = 10; bit < 24; ++bit)
+		if (g_bus_mask_tokens[bit] == token)
+			return bit;
+	return -1;
+}
+
 void ShaderBus::frame_latch()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
@@ -1326,11 +1356,34 @@ void ShaderBus::frame_latch()
 	for (u32 i = 0; i < g_bus_object_writes.size(); ++i)
 	{
 		bus_object_write& entry = g_bus_object_writes[i];
+		if (g_bus_lanes[entry.lane]->role == role_mask)
+		{
+			// a bit released since the write stays off the object
+			const int bit = bus_mask_bit(bus_token(g_bus_lanes[entry.lane]));
+			u32& bits = entry.object->renderable.bus_mask;
+			if (bit >= 0 && !(g_bus_mask_parked & (1u << bit)))
+				bits = entry.clear ? bits & ~(1u << bit) : bits | (1u << bit);
+			continue;
+		}
 		if (g_bus_lanes[entry.lane]->shared)
 			bus_resolve_object(entry);
 		bus_store_object(entry);
 	}
 	g_bus_object_writes.clear();
+
+	// a bit parked before this level load returns to the pool, the others stay live or parked
+	g_bus_mask_live = 0;
+	for (u32 bit = 10; bit < 24; ++bit)
+	{
+		const u32 b = 1u << bit;
+		if (reloaded && (g_bus_mask_parked & b) && g_bus_mask_park_epochs[bit] < g_bus_epoch)
+		{
+			g_bus_mask_tokens[bit] = 0;
+			g_bus_mask_parked &= ~b;
+		}
+		if (g_bus_mask_tokens[bit] && !(g_bus_mask_parked & b))
+			g_bus_mask_live |= b;
+	}
 	hotness_lane = g_bus_hotness;
 }
 
@@ -1464,6 +1517,132 @@ void ShaderBus::enable_gpu_lanes()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
 	g_bus_gpu_lanes = true;
+}
+
+void ShaderBus::enable_mask()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	g_bus_mask = true;
+}
+
+bool ShaderBus::mask_enabled()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_mask;
+}
+
+static bool bus_role_free(LPCSTR id, LPCSTR owner, u8 role);
+static bool bus_room(LPCSTR id, LPCSTR prev);
+
+u32 ShaderBus::register_mask(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR source)
+{
+	if (!bus_take_args(id, owner, description))
+		return 0;
+	if (!mask_enabled())
+	{
+		Msg("! [SHADER-BUS] mask '%s' refused, this renderer has no object masks", id);
+		return 0;
+	}
+	if (bus_reserved(id))
+		return 0;
+	if (0 == strncmp(id, "obj_", 4))
+	{
+		Msg("! [SHADER-BUS] mask '%s' refused, an obj_ id is an object value lane", id);
+		return 0;
+	}
+
+	// every refusal comes before the take so a refused call adds no lane
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	if (!bus_role_free(id, owner, role_mask) || !bus_room(id, nullptr))
+		return 0;
+
+	const int found = bus_find(id);
+	int bit = found >= 0 && g_bus_lanes[found]->registered ? bus_mask_bit(bus_token(g_bus_lanes[found])) : -1;
+	if (bit < 0)
+	{
+		bit = 10;
+		while (bit < 24 && g_bus_mask_tokens[bit])
+			++bit;
+		if (bit == 24)
+		{
+			Msg("! [SHADER-BUS] mask '%s' refused, all 14 object mask bits are taken", id);
+			return 0;
+		}
+	}
+
+	const u32 token = bus_take_locked(id, owner, description, source, true, false);
+	lane* l = g_bus_lanes[token & 0xffff];
+	l->role = role_mask;
+	g_bus_mask_tokens[bit] = token;
+	g_bus_mask_parked &= ~(1u << bit);
+	const u32 raw[4] = { 1u << bit, 0, 0, 0 };
+	CopyMemory(&l->pending, raw, sizeof(raw));
+	l->kind = kind_uint;
+	++l->writes;
+	return token;
+}
+
+bool ShaderBus::set_mask(u32 token, IRenderable* object, bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l || l->role != role_mask)
+		return false;
+	const int bit = bus_mask_bit(token);
+	if (bit < 0 || (g_bus_mask_parked & (1u << bit)))
+		return false;
+	if (!object)
+		return bus_refuse_write(l, "an object that does not exist");
+
+	// object_forget drops the queued write with the object's other writes
+	bus_object_write entry;
+	entry.object = object;
+	entry.lane = l->index;
+	entry.clear = !on;
+	entry.value.set(0.f, 0.f, 0.f, 0.f);
+	g_bus_object_writes.push_back(entry);
+	g_bus_objects_used = true;
+	++l->writes;
+	return true;
+}
+
+u32 ShaderBus::get_mask(const IRenderable* object)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return object->renderable.bus_mask & g_bus_mask_live;
+}
+
+bool ShaderBus::release_mask(u32 token)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_mask)
+		return bus_refuse_write(l, "a release, it is not a mask lane");
+
+	// objects keep the bit until their level unloads, so it waits out the next level load
+	const int bit = bus_mask_bit(token);
+	if (bit >= 0 && !(g_bus_mask_parked & (1u << bit)))
+	{
+		g_bus_mask_parked |= 1u << bit;
+		g_bus_mask_park_epochs[bit] = g_bus_epoch_live;
+		l->pending.set(0.f, 0.f, 0.f, 0.f);
+		++l->writes;
+	}
+	return true;
+}
+
+u32 ShaderBus::mask_live_bits()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return g_bus_mask_live;
+}
+
+int ShaderBus::mask_bit(u32 token)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	return bus_mask_bit(token);
 }
 
 const xr_vector<ShaderBus::lane*>& ShaderBus::readbacks()
@@ -1817,8 +1996,12 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 bool ShaderBus::enable_pass(u32 token, bool on)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
-	const lane* l = bus_writable(token);
-	const int entry = l && l->role == role_pass ? bus_pass_find(l->id) : -1;
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_pass)
+		return bus_refuse_write(l, "an enable, it is not a pass lane");
+	const int entry = bus_pass_find(l->id);
 	if (entry < 0 || g_bus_passes[entry].released)
 		return false;
 
@@ -1835,8 +2018,12 @@ bool ShaderBus::enable_pass(u32 token, bool on)
 bool ShaderBus::release_pass(u32 token)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
-	const lane* l = bus_writable(token);
-	const int entry = l && l->role == role_pass ? bus_pass_find(l->id) : -1;
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_pass)
+		return bus_refuse_write(l, "a release, it is not a pass lane");
+	const int entry = bus_pass_find(l->id);
 	if (entry < 0)
 		return false;
 	if (!g_bus_passes[entry].released)
@@ -1851,8 +2038,12 @@ bool ShaderBus::release_pass(u32 token)
 bool ShaderBus::release_target(u32 token)
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
-	const lane* l = bus_writable(token);
-	const int entry = l && l->role == role_target ? bus_target_find(l->id) : -1;
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->role != role_target)
+		return bus_refuse_write(l, "a release, it is not a target lane");
+	const int entry = bus_target_find(l->id);
 	if (entry < 0)
 		return false;
 	if (!g_bus_targets[entry].released)

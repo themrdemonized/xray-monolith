@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "../xrEngine/shader_bus.h"
 #include "physicsshellholder.h"
 #include "attachable_item.h"
 #include "inventoryowner.h"
@@ -68,7 +69,11 @@ void CAttachableItem::OnH_A_Chield()
 
 void CAttachableItem::renderable_Render(IDSGraphManager* DM)
 {
+	const u32 bus_tag = DM->get_BusTag();
+	if (const u32 bus_mask = object().renderable.bus_mask)
+		DM->set_BusTag(bus_tag | (bus_mask & ShaderBus::mask_live_bits()));
 	DM->add_Dynamic(object().Visual(), &object().XFORM());
+	DM->set_BusTag(bus_tag);
 	object().Visual()->getVisData().hom_frame = Device.dwFrame;
 }
 

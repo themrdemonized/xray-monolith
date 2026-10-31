@@ -79,11 +79,12 @@ namespace R_dsgraph
 		ShaderElement* pSE = nullptr;
 		bool b_hud_mode = false;
 		float fov = 0.f;
+		u32 bus_tag = 0;
 
         DSGraphItem(T key, float _ssa, IRenderable* obj, dxRender_Visual* vis,
-            Fmatrix* mat, ShaderElement* se, bool hud, float custom_fov = 0.f)
+            Fmatrix* mat, ShaderElement* se, bool hud, float custom_fov = 0.f, u32 tag = 0)
             : sortKey(key), ssa(_ssa), pObject(obj), pVisual(vis),
-            pMatrix(mat), pSE(se), b_hud_mode(hud), fov(custom_fov) {
+            pMatrix(mat), pSE(se), b_hud_mode(hud), fov(custom_fov), bus_tag(tag) {
         }
 
         bool operator<(const DSGraphItem& other) const noexcept

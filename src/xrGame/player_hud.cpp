@@ -12,6 +12,7 @@
 #include "weapon.h"
 #include "script_attachment_manager.h"
 #include "../xrEngine/CameraBase.h"
+#include "../xrEngine/shader_bus.h"
 
 extern int g_nearwall;
 
@@ -1330,20 +1331,26 @@ void player_hud::render_hud(IDSGraphManager* DM)
 
 	if (!b_r0 && !b_r1) return;
 
+	DM->set_BusTag(ShaderBus::hud_arms);
 	DM->add_Dynamic(m_model->dcast_RenderVisual(), &m_transform);
+	DM->set_BusTag(ShaderBus::hud_arms2);
 	DM->add_Dynamic(m_model_2->dcast_RenderVisual(), &m_transform_2);
 
+	DM->set_BusTag(ShaderBus::hud_item0);
 	if (m_attached_items[0])
 		m_attached_items[0]->render(DM);
 
+	DM->set_BusTag(ShaderBus::hud_item1);
 	if (m_attached_items[1])
 		m_attached_items[1]->render(DM);
 
+	DM->set_BusTag(ShaderBus::hud_scope);
 	if (m_attached_items[SCOPE_ATTACH_IDX])
 		m_attached_items[SCOPE_ATTACH_IDX]->render(DM);
 
 	if (script_anim_item_model)
 	{
+		DM->set_BusTag(ShaderBus::hud_prop);
 		DM->add_Dynamic(script_anim_item_model->dcast_RenderVisual(), &m_item_pos);
 	}
 
@@ -1353,7 +1360,10 @@ void player_hud::render_hud(IDSGraphManager* DM)
 			script_attachment* att = pair.second;
 
 			if (att->GetType() == eSA_HUD)
-            att->renderable_Render(DM);
+			{
+				DM->set_BusTag(att->GetParentBone() < 21 ? ShaderBus::hud_arms2 : ShaderBus::hud_arms);
+				att->renderable_Render(DM);
+			}
 	}
 }
 

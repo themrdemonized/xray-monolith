@@ -9,6 +9,7 @@
 #include "CharacterPhysicsSupport.h"
 #include "../xrPhysics/PHElement.h"
 #include "physics_shell_scripted.h"
+#include "../xrEngine/shader_bus.h"
 #include "debug_renderer.h"
 #include "../Layers/xrRender/LightTrack.h"
 
@@ -266,6 +267,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name)
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
 	m_type = eSA_World;
+	m_hud_category = eSAH_Parent;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
 	m_model_name = "";
@@ -427,19 +429,32 @@ void script_attachment::RenderAt(IDSGraphManager* DM, const Fmatrix& transform)
 	if (!DM->get_HUD() && !m_parent_attachment)
 		DM->add_RenderableUI(this);
 
+	// the draw keeps its caller's tag, set_Object leaves only this attachment's own mask bits
+	const u32 bus_tag = DM->get_BusTag();
+	// one read of the category, a script may change it on another thread
+	const u8 hud_category = m_hud_category;
+	u32 tag = bus_tag;
+	if (hud_category != eSAH_Parent && DM->get_HUD())
+		tag = (tag & ~ShaderBus::hud_mask_bits) |
+			(hud_category == eSAH_Actor ? ShaderBus::hud_att_actor : ShaderBus::hud_att_item);
+
 	IRenderable* previous_object = DM->get_Object();
 	const float previous_fov = DM->get_CustomFOV();
 	DM->set_Object(this);
+	tag |= DM->get_BusTag();
+	DM->set_BusTag(tag);
 	DM->set_CustomFOV(m_custom_fov);
 	Fmatrix submitted_transform = transform;
 	DM->add_Dynamic(Visual(), &submitted_transform);
 	DM->set_CustomFOV(previous_fov);
 	DM->set_Object(previous_object);
+	DM->set_BusTag(tag);
 
 	RenderInstanceAttachments(DM, transform);
 
 	for (auto& pair : m_children)
 		pair.second->Render(Kinematics(), transform, DM);
+	DM->set_BusTag(bus_tag);
 }
 
 void script_attachment::RenderUI(bool defer_r1)

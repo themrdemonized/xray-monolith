@@ -161,7 +161,8 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 			break;
 
 		case 1: {
-			(get_CamAttached() ? RGraph.mapCamAttached : RGraph.mapHUD).emplace_back(EPS, SSA, val_pObject, pVisual, xform, sh, get_HUD(), val_fCustomFOV);
+			(get_CamAttached() ? RGraph.mapCamAttached : RGraph.mapHUD).emplace_back(EPS, SSA, val_pObject, pVisual, xform, sh, get_HUD(), val_fCustomFOV,
+				val_busTag | (get_HUD() ? ShaderBus::hud_lens : 0));
 
 			// SSS: Deprecated
 			/*if (!sh->passes[0]->ps->hud_disabled)
@@ -177,7 +178,8 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 		}
 
 		case 2: {
-			(get_CamAttached() ? RGraph.mapScopeCamAttached : RGraph.mapScopeHUD).emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, get_HUD(), val_fCustomFOV);
+			(get_CamAttached() ? RGraph.mapScopeCamAttached : RGraph.mapScopeHUD).emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, get_HUD(), val_fCustomFOV,
+				val_busTag | (get_HUD() ? ShaderBus::hud_lens : 0));
 			return;
 		}
 
@@ -195,7 +197,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
         if (sh->flags.bStrictB2F)
             RGraph.mapCustomFOVSorted.Sorted.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, false, val_fCustomFOV);
         else
-            RGraph.mapCustomFOV.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, false, val_fCustomFOV);
+            RGraph.mapCustomFOV.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, false, val_fCustomFOV, val_busTag);
 #if RENDER != R_R1
         if (sh->flags.bEmissive)
             RGraph.mapCustomFOVSorted.Emissive.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh_d, false, val_fCustomFOV);
@@ -226,9 +228,9 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 		else
 		{
 			if (i_mask[CDSGraphManager::fl_cam])
-				RGraph.mapCamAttached.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_cam]);
+				RGraph.mapCamAttached.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_cam], 0.f, val_busTag);
 			else
-				RGraph.mapHUD.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud]);
+				RGraph.mapHUD.emplace_back(distSQ, SSA, val_pObject, pVisual, xform, sh, i_mask[CDSGraphManager::fl_hud], 0.f, val_busTag);
 
 			/*
 #if RENDER==R_R4
@@ -311,7 +313,7 @@ void CDSGraphManager::r_dsgraph_insert_dynamic(dxRender_Visual *pVisual, Fmatrix
 #if RENDER==R_R1
 		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], item, pass);
 #else
-		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], { 0, SSA, val_pObject, pVisual, xform, nullptr, get_HUD(), val_fCustomFOV }, pass);
+		AddToRenderQueue(RGraph.mapDynamicPasses[shader_priority][iPass], { 0, SSA, val_pObject, pVisual, xform, nullptr, get_HUD(), val_fCustomFOV, val_busTag }, pass);
 #endif
 	}
 }
@@ -525,10 +527,9 @@ void CDSGraphManager::add_Dynamic(IRenderVisual* piVisual, Fmatrix* xform)
 			add_Dynamic(pV->m_lod, xform);
 		else
 		{
-			//pV->CalculateBones(TRUE);
-			if (get_UI3D())
+			if (get_UI3D() || ((val_busTag & ~ShaderBus::hud_mask_bits) && bus_mask_runs()))
 				pV->CalculateBones(TRUE);
-			else if (i_mask[CDSGraphManager::fl_normal])
+			if (!get_UI3D() && i_mask[CDSGraphManager::fl_normal])
 				pV->CalculateWallmarks();
 			add_leafs_Dynamic(pV->children, xform);
 		}
@@ -594,10 +595,9 @@ void CDSGraphManager::add_Dynamic(dxRender_Visual* pVisual, Fmatrix* xform)
 			add_Dynamic(pV->m_lod, xform);
 		else
 		{
-			//pV->CalculateBones(TRUE);
-			if (get_UI3D())
+			if (get_UI3D() || ((val_busTag & ~ShaderBus::hud_mask_bits) && bus_mask_runs()))
 				pV->CalculateBones(TRUE);
-			else if (i_mask[CDSGraphManager::fl_normal])
+			if (!get_UI3D() && i_mask[CDSGraphManager::fl_normal])
 				pV->CalculateWallmarks();
 			add_leafs_Dynamic(pV->children, xform);
 		}

@@ -72,9 +72,12 @@ void CDSGraphManager::traverse(CSector* start, CFrustum& F, Fvector& vBase, Fmat
 	i_start->traverse(std::move(F),*this);
 }
 
+u32 CDSGraphManager::bus_live_bits = 0;
+
 void CDSGraphManager::set_Object(IRenderable* O)
 {
 	val_pObject = O;		// nullptr is OK, trust me :)
+	val_busTag = O ? O->renderable.bus_mask & bus_live_bits : 0;
 #if RENDER==R_R1
 	if (val_pObject)
 	{

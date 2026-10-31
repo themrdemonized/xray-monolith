@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "r__dsgraph_bus_mask.h"
 
 #include "../../xrEngine/render.h"
 #include "../../xrEngine/irenderable.h"
@@ -88,19 +89,24 @@ public:
 };
 }
 
-template<typename T, bool Reverse>
+template<typename T, bool Reverse, bool BusMask>
 void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T, Reverse>& graph, bool _clear)
 {
     if (graph.empty())
         return;
 
-    std::sort(graph.begin(), graph.end());
+    if constexpr (!BusMask)
+        std::sort(graph.begin(), graph.end());
 
 	for (auto& item : graph)
 	{
 		dxRender_Visual* V = item.pVisual;
 		VERIFY(V && V->shader._get());
 		RCache.set_Element(item.pSE);
+#if defined(USE_DX10) || defined(USE_DX11)
+		if constexpr (BusMask)
+			bus_mask_apply(item.bus_tag);
+#endif
 		CCustomFOVInitializer projection(item.fov);
 		RCache.set_xform_world(*item.pMatrix);
 		RImplementation.apply_object(item.pObject);
@@ -118,6 +124,7 @@ void CDSGraphManager::r_dsgraph_render_graph_sorted(R_dsgraph::mapDSGraphItems<T
 	RCache.set_xform_world(Fidentity);
 }
 
+template<bool BusMask>
 void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _priority, bool _clear, bool static_geometry)
 {
 	RCache.set_xform_world(Fidentity);
@@ -129,10 +136,13 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 			continue;
 
 		// 1. Sort by generated sort key to replicate previous fixed map behaviour
-		if (queue.size() < 4096)
-            std::sort(queue.begin(), queue.end());
-		else
-            xr_parallel_sort(queue.begin(), queue.end());
+		if constexpr (!BusMask)
+		{
+			if (queue.size() < 4096)
+				std::sort(queue.begin(), queue.end());
+			else
+				xr_parallel_sort(queue.begin(), queue.end());
+		}
 
 		// 2. Render
 		vs_type pVS = nullptr;
@@ -156,6 +166,14 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 
         for (auto& packet : queue)
         {
+#if defined(USE_DX10) || defined(USE_DX11)
+            if constexpr (BusMask)
+            {
+                if (!packet.item.bus_tag)
+                    continue;
+            }
+#endif
+
             auto& currentKey = packet.sortKey;
             if (currentKey.high != high)
             {
@@ -196,10 +214,13 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
                 RCache.set_VS(pVS);
             }
 
-            if (packet.pPS != pPS)
+            if constexpr (!BusMask)
             {
-                pPS = packet.pPS;
-                RCache.set_PS(pPS);
+                if (packet.pPS != pPS)
+                {
+                    pPS = packet.pPS;
+                    RCache.set_PS(pPS);
+                }
             }
 
             if (packet.pCS != pCS)
@@ -229,6 +250,10 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 #ifdef USE_DX11
 			RCache.LOD.set_LOD(LOD);
 #endif
+#if defined(USE_DX10) || defined(USE_DX11)
+			if constexpr (BusMask)
+				bus_mask_apply(packet.item.bus_tag);
+#endif
 			item.pVisual->Render(LOD);
 		}
 
@@ -237,22 +262,67 @@ void CDSGraphManager::r_dsgraph_render_graph(RenderQueueArray& queues, u32 _prio
 	}
 }
 
+#if defined(USE_DX10) || defined(USE_DX11)
+// tagged world draws redraw with the matrix values part 0 used
+static xr_vector<Fmatrix> bus_world_xforms;
+#endif
+
+void CDSGraphManager::r_dsgraph_bus_keep_xforms()
+{
+#if defined(USE_DX10) || defined(USE_DX11)
+	bus_world_xforms.clear();
+	u32 count = 0;
+	for (u32 iPass = 0; iPass < SHADER_PASSES_MAX; ++iPass)
+		for (auto& packet : RGraph.mapDynamicPasses[0][iPass])
+			if (packet.item.bus_tag)
+				++count;
+	bus_world_xforms.reserve(count);
+	for (u32 iPass = 0; iPass < SHADER_PASSES_MAX; ++iPass)
+		for (auto& packet : RGraph.mapDynamicPasses[0][iPass])
+			if (packet.item.bus_tag)
+			{
+				bus_world_xforms.push_back(*packet.item.pMatrix);
+				packet.item.pMatrix = &bus_world_xforms.back();
+			}
+#endif
+}
+
+#if defined(USE_DX10) || defined(USE_DX11)
+void CDSGraphManager::r_dsgraph_render_bus_mask()
+{
+	PROF_EVENT("r_dsgraph_render_bus_mask");
+	ID3DRenderTargetView* saved[4];
+	bus_mask_bind(saved);
+	r_dsgraph_render_graph<true>(RGraph.mapDynamicPasses, 0, true, false);
+	bus_mask_unbind(saved);
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // HUD render
+#if defined(USE_DX10) || defined(USE_DX11)
+// the redraw draws with the matrix values the list's own draw used
+static xr_vector<Fmatrix> bus_hud_xforms;
+#endif
+
 void CDSGraphManager::r_dsgraph_render_hud()
 {
 	PROF_EVENT("r_dsgraph_render_hud");
+	const bool mask = bus_mask_begin();
 	CHudInitializer initializer(true);
 
 	// Rendering
 	RImplementation.rmNear();
-	r_dsgraph_render_graph_sorted(RGraph.mapHUD);
-	r_dsgraph_render_graph_sorted(RGraph.mapCustomFOV);
+	if (mask) r_dsgraph_render_hud_mask(RGraph.mapHUD);
+	else r_dsgraph_render_graph_sorted(RGraph.mapHUD);
+	if (mask) r_dsgraph_render_hud_mask(RGraph.mapCustomFOV);
+	else r_dsgraph_render_graph_sorted(RGraph.mapCustomFOV);
 
 	if (!RGraph.mapCamAttached.empty())
 	{
 		initializer.SetCamMode();
-		r_dsgraph_render_graph_sorted(RGraph.mapCamAttached);
+		if (mask) r_dsgraph_render_hud_mask(RGraph.mapCamAttached);
+		else r_dsgraph_render_graph_sorted(RGraph.mapCamAttached);
 	}
 	RImplementation.rmNormal();
 
@@ -262,7 +332,8 @@ void CDSGraphManager::r_dsgraph_render_hud()
 		RCache.set_RT(RImplementation.Target->rt_ssfx_temp->pRT, 3); // Render scope_3D to any buffer
 
 		initializer.SetHudMode();
-		r_dsgraph_render_graph_sorted(RGraph.mapScopeHUD);
+		if (mask) r_dsgraph_render_hud_mask(RGraph.mapScopeHUD);
+		else r_dsgraph_render_graph_sorted(RGraph.mapScopeHUD);
 		initializer.SetCamMode();
 		r_dsgraph_render_graph_sorted(RGraph.mapScopeCamAttached);
 		initializer.SetHudMode();
@@ -274,6 +345,26 @@ void CDSGraphManager::r_dsgraph_render_hud()
 	}
 	RGraph.mapScopeHUD.clear();
 	RGraph.mapScopeCamAttached.clear();
+#endif
+}
+
+void CDSGraphManager::r_dsgraph_render_hud_mask(R_dsgraph::mapDSGraphItems<float, false>& list)
+{
+#if defined(USE_DX10) || defined(USE_DX11)
+	bus_hud_xforms.clear();
+	bus_hud_xforms.reserve(list.size());
+	for (auto& item : list)
+	{
+		bus_hud_xforms.push_back(*item.pMatrix);
+		item.pMatrix = &bus_hud_xforms.back();
+	}
+	r_dsgraph_render_graph_sorted(list, false);
+
+	PROF_EVENT("r_dsgraph_render_hud_mask");
+	ID3DRenderTargetView* rt[4];
+	bus_mask_bind(rt);
+	r_dsgraph_render_graph_sorted<float, false, true>(list, true);
+	bus_mask_unbind(rt);
 #endif
 }
 
@@ -854,3 +945,8 @@ void CDSGraphManager::r_dsgraph_render_ui()
 		object->renderable_RenderUI();
 	renderable_ui.clear();
 }
+
+template void CDSGraphManager::r_dsgraph_render_graph<false>(RenderQueueArray&, u32, bool, bool);
+#if defined(USE_DX10) || defined(USE_DX11)
+template void CDSGraphManager::r_dsgraph_render_graph<true>(RenderQueueArray&, u32, bool, bool);
+#endif

@@ -19,6 +19,14 @@ void script_attachment::script_register(lua_State* L)
 			value("CamAttached", (int)eSA_CamAttached)
 		],
 
+		class_<enum_exporter<script_attachment_hud>>("script_attachment_hud")
+		.enum_("script_attachment_hud")
+		[
+			value("Parent", (int)eSAH_Parent),
+			value("Actor", (int)eSAH_Actor),
+			value("Item", (int)eSAH_Item)
+		],
+
 		class_<script_attachment>("ScriptAttachment")
 
 		//Parent
@@ -96,6 +104,8 @@ void script_attachment::script_register(lua_State* L)
 		//Other
 		.def("set_type", &script_attachment::SetType)
 		.def("get_type", &script_attachment::GetType)
+		.def("set_hud_category", &script_attachment::SetHudCategory)
+		.def("get_hud_category", &script_attachment::GetHudCategory)
 		.def("set_model", &script_attachment::LoadModel)
 		.def("get_model", &script_attachment::GetModelScript)
 		.def("set_name", &script_attachment::SetName)
