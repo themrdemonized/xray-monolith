@@ -599,6 +599,9 @@ u32 bus_target_clears(const shared_str& id)
 	bus_target_slot* s = bus_target_find(id);
 	return s ? s->clears : 0;
 }
+
+void bus_passes_update();
+void bus_passes_release();
 #endif
 
 dxRenderDeviceRender::dxRenderDeviceRender()
@@ -644,6 +647,7 @@ void dxRenderDeviceRender::OnDeviceDestroy(BOOL bKeepTextures)
 	bus_readback_release();
 	bus_readback_rings.clear();
 	bus_targets_release();
+	bus_passes_release();
 #endif
 	bus_texture_slots.clear();
 	bus_texture_serial = 0;
@@ -673,6 +677,7 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 	bus_buffers_release();
 	bus_readback_release();
 	bus_targets_release();
+	bus_passes_release();
 #endif
 	Resources->reset_begin();
 	Memory.mem_compact();
@@ -977,6 +982,7 @@ void dxRenderDeviceRender::Begin()
 #if defined(USE_DX11)
 	bus_buffers_update();
 	bus_targets_update();
+	bus_passes_update();
 #endif
 }
 

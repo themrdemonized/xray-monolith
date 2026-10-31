@@ -100,6 +100,8 @@ void CRender::Render()
 
 	//.	VERIFY					(g_pGameLevel && g_pGameLevel->pHUD);
 
+	Target->phase_bus(ShaderBus::stage_frame);
+
 	// Configure
 	RImplementation.o.distortion = FALSE; // disable distorion
 	Fcolor sun_color = ((light*)Lights.sun_adapted._get())->color;
@@ -219,6 +221,8 @@ void CRender::Render()
 		PIX_EVENT(DEFER_RAIN);
 		render_rain();
 	}
+
+	Target->phase_bus(ShaderBus::stage_gbuffer);
 
 	{
 		// Save previus and current matrices

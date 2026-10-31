@@ -2,6 +2,7 @@
 
 #include "../xrRender/ColorMapManager.h"
 #include "../xrRender/light_db.h"
+#include "../../xrEngine/shader_bus.h"
 class light;
 
 //#define DU_SPHERE_NUMVERTEX 92
@@ -435,6 +436,7 @@ public:
 	void phase_occq();
 	void phase_ssao();
 	void phase_hdao();
+	void phase_bus(u32 stage);
 	void phase_downsamp();
 	void phase_wallmarks();
 	void phase_smap_direct(light* L, u32 sub_phase);
