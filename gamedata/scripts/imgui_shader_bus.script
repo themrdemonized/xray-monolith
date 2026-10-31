@@ -200,13 +200,16 @@ local function detect_bus()
 	bus.texture = type(shader_bus.get_texture) == "function"
 	bus.target = type(shader_bus.get_object) == "function" and level ~= nil and type(level.get_target_obj) == "function"
 	bus.writers = type(shader_bus.writers) == "function"
+	bus.buffer = type(shader_bus.set_buffer) == "function"
+	bus.readback = type(shader_bus.set_readback) == "function" and type(shader_bus.get_readback) == "function"
+	bus.late = type(shader_bus.set_late) == "function"
 end
 
 local function new_lane(id, frame)
 	return {
 		id = id, listed = frame, owner = "", description = "", source = "", writer = "", state = "registered",
 		legacy = false, engine = false, console = false, kind = "float", declared_rows = 0, texture = "", kinds = "", mixed = false,
-		shared = false, writers = 0,
+		shared = false, writers = 0, buffer_rows = 0, readback = "none", late = false,
 		x = 0, y = 0, z = 0, w = 0, samples = 0, changes = 0, writes = 0, last_change = 0, bound_frame = 0,
 		saw_bad = false, seen = false, min = { 0, 0, 0, 0 }, max = { 0, 0, 0, 0 },
 		pin_id = "##pin_" .. id, txt = {}, bad = {}, tip = "",
@@ -257,6 +260,9 @@ local function relist()
 			lane.texture = bus.texture and row.texture or ""
 			lane.shared = bus.writers and row.shared == true
 			lane.writers = row.writers or 0
+			lane.buffer_rows = bus.buffer and row.buffer_rows or 0
+			lane.readback = bus.readback and row.readback or "none"
+			lane.late = bus.late and row.late == true
 
 			local dk = row.declared_kinds
 			if type(dk) == "table" then
@@ -545,6 +551,9 @@ local function kind_text(lane)
 	if lane.declared_rows > 1 then t = string_format("%s[%d]", t, lane.declared_rows) end
 	if lane.objects then t = string_format("%s obj %d", t, lane.objects) end
 	if lane.texture ~= "" then t = t .. " tex" end
+	if lane.buffer_rows > 0 then t = t .. " buf" end
+	if lane.readback ~= "none" then t = t .. " rb" end
+	if lane.late then t = t .. " late" end
 	if lane.console then t = t .. " con"
 	elseif lane.engine then t = t .. " eng" end
 	if lane.forced then t = t .. " frc" end
@@ -677,6 +686,15 @@ local function build_detail(now)
 		end
 	end
 	if lane.texture ~= "" then add_detail("texture", lane.texture) end
+	if lane.buffer_rows > 0 then add_detail("buffer rows", string_format("%d", lane.buffer_rows)) end
+	if lane.readback ~= "none" then
+		add_detail("readback", lane.readback)
+		if bus.readback and lane.readback == "ok" then
+			local ok, x, y, z, w, frame = shader_bus.get_readback(lane.id)
+			add_detail("texel", ok and string_format("%s, frame %d", detail_vec(x, y, z, w), frame) or "n/a")
+		end
+	end
+	if lane.late then add_detail("late", "yes") end
 	if lane.forced ~= nil then add_detail("forced", lane.forced and "yes" or "no") end
 
 	add_detail("bound", detail_vec(lane.x, lane.y, lane.z, lane.w, uint))

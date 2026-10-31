@@ -1448,6 +1448,18 @@ static bool bus_fits_vector(R_constant* C)
 	return true;
 }
 
+#if defined(USE_DX10) || defined(USE_DX11)
+// a slot past its stage's texture count would write past the backend's per-stage arrays
+static bool bus_slot_fits(u32 slot)
+{
+	if (slot < CTexture::rstVertex)
+		return slot < CBackend::mtMaxPixelShaderTextures;
+	if (slot < CTexture::rstGeometry)
+		return slot - CTexture::rstVertex < CBackend::mtMaxVertexShaderTextures;
+	return (slot - CTexture::rstGeometry) % 256 < CBackend::mtMaxGeometryShaderTextures;
+}
+#endif
+
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
 {
@@ -1627,6 +1639,49 @@ void CBlender_Compile::SetMapping()
 		LPCSTR cname = C->name.c_str();
 		if (!cname || 0 != strncmp(cname, "bus_", 4))
 			continue;
+
+#if defined(USE_DX10) || defined(USE_DX11)
+		// a bus_ resource binds its lane's buffer or texture unless the .s binds that slot
+		if (C->type == RC_dx10texture)
+		{
+			const u32 slot = C->samp.index;
+			if (!bus_slot_fits(slot))
+			{
+				ShaderBus::refuse(cname, "is bound past the texture slots its shader stage has");
+				continue;
+			}
+
+			bool taken = false;
+			for (u32 i = 0; i < passTextures.size() && !taken; ++i)
+				taken = passTextures[i].first == slot;
+			if (taken)
+				continue;
+
+			string256 alias;
+			if (C->dimension == D3D_SRV_DIMENSION_BUFFER)
+			{
+#if defined(USE_DX11)
+				const bool uint_rows = C->return_type == D3D_RETURN_TYPE_UINT;
+				if (!uint_rows && C->return_type != D3D_RETURN_TYPE_FLOAT)
+				{
+					ShaderBus::refuse(cname, "is a buffer of a type other than float4 or uint4");
+					continue;
+				}
+				if (!ShaderBus::declare(cname, 1, uint_rows ? ShaderBus::kind_uint : ShaderBus::kind_float))
+					continue;
+				xr_sprintf(alias, uint_rows ? "$user$busbufu_%s" : "$user$busbuf_%s", cname + 4);
+#else
+				ShaderBus::refuse(cname, "is a buffer, which this renderer does not bind");
+				continue;
+#endif
+			}
+			else
+				xr_sprintf(alias, "$user$%s", cname);
+
+			passTextures.push_back(mk_pair(slot, ref_texture(DEV->_CreateTexture(alias))));
+			continue;
+		}
+#endif
 
 		if (C->type != RC_float && C->type != RC_uint)
 		{

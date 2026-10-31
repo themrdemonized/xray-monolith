@@ -72,6 +72,356 @@ static void bus_textures_update()
 	}
 }
 
+#if defined(USE_DX11)
+// one staging copy of a readback block and the frame, level and request it was taken for
+struct bus_readback_slot
+{
+	ID3D11Texture2D* staging;
+	u32 frame;
+	u32 epoch;
+	u32 generation;
+	bool busy;
+};
+
+// the copies in flight for one readback lane, all in the format and size of the last copy
+struct bus_readback_ring
+{
+	ShaderBus::lane* lane;
+	bus_readback_slot slots[ShaderBus::readback_ring];
+	DXGI_FORMAT format;
+	u32 w;
+	u32 h;
+	bool warned;
+};
+
+static xr_vector<bus_readback_ring> bus_readback_rings;
+
+static void bus_readback_free(bus_readback_ring& ring)
+{
+	for (u32 k = 0; k < ShaderBus::readback_ring; ++k)
+	{
+		_RELEASE(ring.slots[k].staging);
+		ring.slots[k].busy = false;
+	}
+}
+
+static void bus_readback_land(ShaderBus::lane* l, u8 state, u32 frame)
+{
+	ShaderBus::lane_readback& r = *l->readback;
+	if (state != ShaderBus::readback_ok)
+		r.landed.clear();
+	r.landed_state = state;
+	r.landed_frame = frame;
+	r.landed_new = true;
+}
+
+// copies the block of every armed lane reading this source, null reads the back buffer
+void bus_readback_capture(u32 source, ID3D11Resource* res)
+{
+	const xr_vector<ShaderBus::lane*>& lanes = ShaderBus::readbacks();
+	if (lanes.empty())
+		return;
+	if (Device.m_SecondViewport.IsSVPFrame() || Device.m_SecondViewport.isCamReady)
+		return;
+
+	u32 first = 0;
+	while (first < lanes.size() && lanes[first]->readback->source != source)
+		++first;
+	if (first == lanes.size())
+		return;
+
+	ID3DTexture2D* buffer = nullptr;
+	if (!res)
+	{
+		if (FAILED(HW.m_pSwapChain->GetBuffer(0, __uuidof(ID3DTexture2D), (LPVOID*)&buffer)))
+			return;
+		res = buffer;
+	}
+
+	D3D_TEXTURE2D_DESC desc;
+	static_cast<ID3D11Texture2D*>(res)->GetDesc(&desc);
+	const bool readable = desc.SampleDesc.Count == 1 && (desc.Format == DXGI_FORMAT_R8G8B8A8_UNORM ||
+		desc.Format == DXGI_FORMAT_R16G16B16A16_FLOAT || desc.Format == DXGI_FORMAT_R10G10B10A2_UNORM);
+
+	for (u32 i = first; i < lanes.size(); ++i)
+	{
+		ShaderBus::lane* l = lanes[i];
+		const ShaderBus::lane_readback& r = *l->readback;
+		if (r.source != source)
+			continue;
+
+		bus_readback_ring* ring = nullptr;
+		for (u32 k = 0; k < bus_readback_rings.size() && !ring; ++k)
+			if (bus_readback_rings[k].lane == l)
+				ring = &bus_readback_rings[k];
+		if (!ring)
+		{
+			bus_readback_rings.push_back(bus_readback_ring());
+			ring = &bus_readback_rings.back();
+			ring->lane = l;
+		}
+
+		if (!readable)
+		{
+			if (!ring->warned)
+				Msg("! [SHADER-BUS] lane '%s' readback refused, the source is multisampled or in format %u",
+				    l->id.c_str(), u32(desc.Format));
+			ring->warned = true;
+			bus_readback_land(l, ShaderBus::readback_refused, Device.dwFrame);
+			continue;
+		}
+
+		// the block stays inside the target, centred on the texel under x, y
+		const u32 w = _min(u32(r.w), desc.Width);
+		const u32 h = _min(u32(r.h), desc.Height);
+		const u32 left = u32(clampr(int(r.x * float(desc.Width)) - int(w / 2), 0, int(desc.Width - w)));
+		const u32 top = u32(clampr(int(r.y * float(desc.Height)) - int(h / 2), 0, int(desc.Height - h)));
+
+		if (ring->format != desc.Format || ring->w != w || ring->h != h)
+		{
+			bus_readback_free(*ring);
+			ring->format = desc.Format;
+			ring->w = w;
+			ring->h = h;
+		}
+
+		bus_readback_slot* slot = nullptr;
+		for (u32 k = 0; k < ShaderBus::readback_ring && !slot; ++k)
+			if (!ring->slots[k].busy)
+				slot = &ring->slots[k];
+		if (!slot)
+			continue;
+
+		if (!slot->staging)
+		{
+			D3D_TEXTURE2D_DESC sd;
+			sd.Width = w;
+			sd.Height = h;
+			sd.MipLevels = 1;
+			sd.ArraySize = 1;
+			sd.SampleDesc.Count = 1;
+			sd.SampleDesc.Quality = 0;
+			sd.Format = desc.Format;
+			sd.Usage = D3D_USAGE_STAGING;
+			sd.BindFlags = 0;
+			sd.CPUAccessFlags = D3D_CPU_ACCESS_READ;
+			sd.MiscFlags = 0;
+			if (FAILED(HW.pDevice->CreateTexture2D(&sd, 0, &slot->staging)))
+			{
+				slot->staging = nullptr;
+				continue;
+			}
+		}
+
+		D3D11_BOX box = { left, top, 0, left + w, top + h, 1 };
+		HW.pContext->CopySubresourceRegion(slot->staging, 0, 0, 0, 0, res, 0, &box);
+		slot->frame = Device.dwFrame;
+		slot->epoch = ShaderBus::level_epoch();
+		slot->generation = r.generation;
+		slot->busy = true;
+	}
+
+	_RELEASE(buffer);
+}
+
+// decodes the copies the GPU has finished, oldest first, without waiting on one
+static void bus_readback_poll()
+{
+	if (bus_readback_rings.empty())
+		return;
+
+	for (u32 i = 0; i < bus_readback_rings.size();)
+	{
+		bus_readback_ring& ring = bus_readback_rings[i];
+		ShaderBus::lane_readback& r = *ring.lane->readback;
+		if (r.source == ShaderBus::readback_off)
+		{
+			bus_readback_free(ring);
+			bus_readback_rings.erase(bus_readback_rings.begin() + i);
+			continue;
+		}
+		++i;
+
+		for (;;)
+		{
+			bus_readback_slot* slot = nullptr;
+			for (u32 k = 0; k < ShaderBus::readback_ring; ++k)
+				if (ring.slots[k].busy && (!slot || ring.slots[k].frame < slot->frame))
+					slot = &ring.slots[k];
+			if (!slot)
+				break;
+
+			if (slot->epoch != ShaderBus::level_epoch() || slot->generation != r.generation)
+			{
+				slot->busy = false;
+				continue;
+			}
+
+			D3D11_MAPPED_SUBRESOURCE m;
+			const HRESULT hr = HW.pContext->Map(slot->staging, 0, D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT, &m);
+			if (hr == DXGI_ERROR_WAS_STILL_DRAWING)
+				break;
+			slot->busy = false;
+			if (FAILED(hr))
+			{
+				bus_readback_land(ring.lane, ShaderBus::readback_lost, slot->frame);
+				continue;
+			}
+
+			xr_vector<Fvector4>& out = r.landed;
+			out.resize(ring.w * ring.h);
+			for (u32 y = 0; y < ring.h; ++y)
+			{
+				const u8* src = (const u8*)m.pData + y * m.RowPitch;
+				Fvector4* dst = &out[y * ring.w];
+				switch (ring.format)
+				{
+				case DXGI_FORMAT_R8G8B8A8_UNORM:
+					for (u32 x = 0; x < ring.w; ++x)
+						dst[x].set(src[x * 4] / 255.f, src[x * 4 + 1] / 255.f, src[x * 4 + 2] / 255.f, src[x * 4 + 3] / 255.f);
+					break;
+				case DXGI_FORMAT_R10G10B10A2_UNORM:
+					for (u32 x = 0; x < ring.w; ++x)
+					{
+						const u32 v = ((const u32*)src)[x];
+						dst[x].set(float(v & 1023) / 1023.f, float((v >> 10) & 1023) / 1023.f,
+						           float((v >> 20) & 1023) / 1023.f, float(v >> 30) / 3.f);
+					}
+					break;
+				default:
+					D3DXFloat16To32Array(&dst->x, (const D3DXFLOAT16*)src, ring.w * 4);
+					break;
+				}
+			}
+			HW.pContext->Unmap(slot->staging, 0);
+
+			if (r.reduce != ShaderBus::reduce_none)
+			{
+				Fvector4 acc = out[0];
+				for (u32 t = 1; t < out.size(); ++t)
+					for (u32 c = 0; c < 4; ++c)
+					{
+						float& a = (&acc.x)[c];
+						const float v = (&out[t].x)[c];
+						switch (r.reduce)
+						{
+						case ShaderBus::reduce_mean: a += v; break;
+						case ShaderBus::reduce_min: a = _min(a, v); break;
+						case ShaderBus::reduce_max: a = _max(a, v); break;
+						}
+					}
+				if (r.reduce == ShaderBus::reduce_mean)
+					acc.div(float(out.size()));
+				out.resize(1);
+				out[0] = acc;
+			}
+			bus_readback_land(ring.lane, ShaderBus::readback_ok, slot->frame);
+		}
+	}
+}
+
+// drops every copy in flight so no staging outlives a reset or the device
+static void bus_readback_release()
+{
+	for (u32 i = 0; i < bus_readback_rings.size(); ++i)
+	{
+		bus_readback_free(bus_readback_rings[i]);
+		bus_readback_land(bus_readback_rings[i].lane, ShaderBus::readback_none, 0);
+	}
+}
+
+// a buffer lane's GPU copy, its view behind $user$busbuf_<id> or $user$busbufu_<id> and the change it holds
+struct bus_buffer_slot
+{
+	ShaderBus::lane* lane;
+	ref_texture alias;
+	ID3D11Buffer* buffer;
+	ID3D11ShaderResourceView* view;
+	u32 rows;
+	u8 kind;
+	u32 uploaded;
+};
+
+static xr_vector<bus_buffer_slot> bus_buffer_slots;
+
+// recreates a buffer whose size or kind moved and uploads the rows of a lane that changed
+static void bus_buffers_update()
+{
+	const xr_vector<ShaderBus::lane*>& lanes = ShaderBus::buffers();
+	if (lanes.empty())
+		return;
+
+	for (u32 i = 0; i < lanes.size(); ++i)
+	{
+		ShaderBus::lane* l = lanes[i];
+		bus_buffer_slot* slot = nullptr;
+		for (u32 k = 0; k < bus_buffer_slots.size() && !slot; ++k)
+			if (bus_buffer_slots[k].lane == l)
+				slot = &bus_buffer_slots[k];
+		if (!slot)
+		{
+			bus_buffer_slots.push_back(bus_buffer_slot());
+			slot = &bus_buffer_slots.back();
+			slot->lane = l;
+		}
+
+		if (slot->rows != l->buffer_bound || slot->kind != l->buffer_kind)
+		{
+			if (slot->alias)
+				slot->alias->surface_set(nullptr);
+			_RELEASE(slot->view);
+			_RELEASE(slot->buffer);
+			slot->rows = l->buffer_bound;
+			slot->kind = l->buffer_kind;
+			slot->uploaded = l->changes - 1;
+
+			const bool uint_rows = l->buffer_kind == ShaderBus::kind_uint;
+			string_path alias;
+			xr_sprintf(alias, uint_rows ? "$user$busbufu_%s" : "$user$busbuf_%s", l->id.c_str());
+			slot->alias.create(alias);
+
+			D3D11_BUFFER_DESC bd = {};
+			bd.ByteWidth = l->buffer_bound * 16;
+			bd.Usage = D3D11_USAGE_DEFAULT;
+			bd.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			D3D11_SHADER_RESOURCE_VIEW_DESC vd = {};
+			vd.Format = uint_rows ? DXGI_FORMAT_R32G32B32A32_UINT : DXGI_FORMAT_R32G32B32A32_FLOAT;
+			vd.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+			vd.Buffer.NumElements = l->buffer_bound;
+			if (FAILED(HW.pDevice->CreateBuffer(&bd, nullptr, &slot->buffer)) ||
+				FAILED(HW.pDevice->CreateShaderResourceView(slot->buffer, &vd, &slot->view)))
+			{
+				Msg("! [SHADER-BUS] lane '%s' buffer of %u rows could not be created", l->id.c_str(), l->buffer_bound);
+				_RELEASE(slot->buffer);
+				continue;
+			}
+			slot->alias->view_set(slot->buffer, slot->view);
+		}
+
+		if (slot->buffer && slot->uploaded != l->changes && !l->rows_bound.empty())
+		{
+			D3D11_BOX box = { 0, 0, 0, _min(u32(l->rows_bound.size()), l->buffer_bound) * 16, 1, 1 };
+			HW.pContext->UpdateSubresource(slot->buffer, 0, &box, &l->rows_bound[0], 0, 0);
+			slot->uploaded = l->changes;
+		}
+	}
+}
+
+// drops every GPU copy so none outlives a reset or the device, the next Begin recreates them
+static void bus_buffers_release()
+{
+	for (u32 i = 0; i < bus_buffer_slots.size(); ++i)
+	{
+		bus_buffer_slot& slot = bus_buffer_slots[i];
+		if (slot.alias)
+			slot.alias->surface_set(nullptr);
+		_RELEASE(slot.view);
+		_RELEASE(slot.buffer);
+		slot.rows = 0;
+	}
+}
+#endif
+
 dxRenderDeviceRender::dxRenderDeviceRender()
 	: Resources(0)
 {
@@ -109,6 +459,12 @@ void dxRenderDeviceRender::OnDeviceDestroy(BOOL bKeepTextures)
 	m_SelectionShader.destroy();
 
 	bus_textures_release();
+#if defined(USE_DX11)
+	bus_buffers_release();
+	bus_buffer_slots.clear();
+	bus_readback_release();
+	bus_readback_rings.clear();
+#endif
 	bus_texture_slots.clear();
 	bus_texture_serial = 0;
 	Resources->OnDeviceDestroy(bKeepTextures);
@@ -133,6 +489,10 @@ void dxRenderDeviceRender::Reset(HWND hWnd, u32& dwWidth, u32& dwHeight, float& 
 #endif // DEBUG
 
 	bus_textures_release();
+#if defined(USE_DX11)
+	bus_buffers_release();
+	bus_readback_release();
+#endif
 	Resources->reset_begin();
 	Memory.mem_compact();
 
@@ -230,6 +590,9 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 	Resources->OnDeviceCreate(shName);
 	::Render->create();
 	Device.Statistic->OnDeviceCreate();
+#if defined(USE_DX11)
+	ShaderBus::enable_gpu_lanes();
+#endif
 
 	//#ifndef DEDICATED_SERVER
 	if (!g_dedicated_server)
@@ -426,6 +789,9 @@ void dxRenderDeviceRender::Begin()
 	RCache.set_CullMode(CULL_CCW);
 	if (HW.Caps.SceneMode) overdrawBegin();
 	bus_textures_update();
+#if defined(USE_DX11)
+	bus_buffers_update();
+#endif
 }
 
 void dxRenderDeviceRender::Clear()
@@ -484,6 +850,9 @@ void dxRenderDeviceRender::End()
 	if (!Device.m_SecondViewport.IsSVPFrame() && !Device.m_SecondViewport.isCamReady)
 		HW.pDevice->Present(NULL, NULL, NULL, NULL);
 #endif //-USE_DX10
+#if defined(USE_DX11)
+	bus_readback_poll();
+#endif
 	//HRESULT _hr		= HW.pDevice->Present( NULL, NULL, NULL, NULL );
 	//if				(D3DERR_DEVICELOST==_hr)	return;			// we will handle this later
 }
