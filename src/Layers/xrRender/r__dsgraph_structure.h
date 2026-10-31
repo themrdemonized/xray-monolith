@@ -24,6 +24,9 @@ public:
 	Fmatrix* val_pTransform;
 	BOOL val_bHUD;
 	BOOL val_bUI3D;
+	u32 val_busTag;
+	// shader bus object mask bits live this frame, read once at the render start
+	u32 bus_live_bits = 0;
 	BOOL val_bCamAttached;
 	BOOL val_bInvisible;
 	BOOL val_bRecordMP; // record nearest for multi-pass
@@ -106,10 +109,12 @@ public:
 		val_pTransform = M;
 	}
 
-	virtual void set_HUD(BOOL V) { val_bHUD = V; }
+	virtual void set_HUD(BOOL V) { val_bHUD = V; val_busTag = 0; }
 	virtual BOOL get_HUD() { return val_bHUD; }
 	virtual void set_UI3D(BOOL V) { val_bUI3D = V; }
 	virtual BOOL get_UI3D() { return val_bUI3D; }
+	virtual void set_BusTag(u32 tag) { val_busTag = tag; }
+	virtual u32 get_BusTag() { return val_busTag; }
 	virtual void set_CamAttached(BOOL V) { val_bCamAttached = V; }
 	virtual BOOL get_CamAttached() { return val_bCamAttached; }
 	virtual void set_Invisible(BOOL V) { val_bInvisible = V; }
@@ -140,6 +145,7 @@ public:
 		val_pTransform = NULL;
 		val_bHUD = FALSE;
 		val_bUI3D = FALSE;
+		val_busTag = 0;
 		val_bCamAttached = FALSE;
 		val_bInvisible = FALSE;
 		val_bRecordMP = FALSE;
@@ -220,7 +226,12 @@ public:
 	void r_dsgraph_insert_dynamic(dxRender_Visual* pVisual, Fvector& Center);
 	void r_dsgraph_insert_static(dxRender_Visual* pVisual);
 
+	template<bool BusMask = false>
 	void r_dsgraph_render_graph(u32 _priority, bool _clear = true);
+#if defined(USE_DX10) || defined(USE_DX11)
+	// redraws the tagged priority 0 matrix items into the shader bus mask and clears them
+	void r_dsgraph_render_bus_mask();
+#endif
 	void r_dsgraph_render_hud(bool NoPS = false);
 	void r_dsgraph_render_hud_ui();
 	void r_dsgraph_render_ui_3d();

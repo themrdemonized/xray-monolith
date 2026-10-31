@@ -39,6 +39,7 @@ public:
 	void SetCullMode(u32 Mode);
 	void SetMultisample(u32 Enable);
 	void SetSampleMask(u32 Mask);
+	void SetBlendFactor(float Factor);
 
 	void EnableScissoring(BOOL bEnable = TRUE);
 
@@ -89,6 +90,7 @@ private:
 	bool m_bOverrideScissoring;
 	BOOL m_bOverrideScissoringValue;
 	UINT m_uiSampleMask;
+	FLOAT m_BlendFactor[4];
 };
 
 extern dx10StateManager StateManager;

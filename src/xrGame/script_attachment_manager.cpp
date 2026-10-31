@@ -4,6 +4,7 @@
 #include "player_hud.h"
 #include "actor.h"
 #include "ui\UIScriptWnd.h"
+#include "../xrEngine/shader_bus.h"
 
 //#define DEBUG_VISBOX
 
@@ -81,6 +82,7 @@ script_attachment::script_attachment(LPCSTR name, LPCSTR model_name): ISpatial(g
 	m_bStopAtEndAnimIsRunning = false;
 	m_anim_end = 0;
 	m_type = eSA_World;
+	m_hud_category = eSAH_Parent;
 	m_last_upd_frame = 0;
 	m_current_motion = "idle";
 	m_model_name = "";
@@ -197,6 +199,14 @@ void script_attachment::Render(IKinematics* model, Fmatrix* mat)
 	}
 
 	::Render->set_Transform(&renderable.xform);
+	// one read of the category, a script may change it on another thread
+	const u8 hud_category = m_hud_category;
+	const u32 bus_tag = ::Render->get_BusTag();
+	if (hud_category != eSAH_Parent && ::Render->get_HUD())
+		::Render->set_BusTag((bus_tag & ~ShaderBus::hud_mask_bits) |
+			(hud_category == eSAH_Actor ? ShaderBus::hud_att_actor : ShaderBus::hud_att_item));
+	if (renderable.bus_mask)
+		::Render->set_BusTag(::Render->get_BusTag() | (renderable.bus_mask & ShaderBus::mask_live_bits()));
 	::Render->add_Visual(renderable.visual);
 
 	if (m_children.size())
@@ -206,6 +216,7 @@ void script_attachment::Render(IKinematics* model, Fmatrix* mat)
 			pair.second->Render(m_kinematics, &renderable.xform);
 		}
 	}
+	::Render->set_BusTag(bus_tag);
 }
 
 void script_attachment::Update()

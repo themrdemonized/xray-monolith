@@ -837,6 +837,7 @@ void dxRenderDeviceRender::OnDeviceCreate(LPCSTR shName)
 	ShaderBus::enable_gpu_lanes();
 #endif
 #if defined(USE_DX10) || defined(USE_DX11)
+	ShaderBus::enable_mask();
 	ShaderBus::set_enable_targets(true);
 #endif
 

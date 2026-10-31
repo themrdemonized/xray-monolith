@@ -97,6 +97,9 @@ public:
 
 
 	ref_rt rt_fakescope; //crookr
+	ref_rt rt_bus_mask; // shader bus mask, R32F, tag times 2^-24
+	ref_ps s_bus_mask;
+	ID3DBlendState* bs_bus_mask = nullptr;
 
 	ref_rt rt_Heat; //--DSR-- HeatVision
 

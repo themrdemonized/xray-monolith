@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include "r__dsgraph_bus_mask.h"
+#include "../../xrCore/profiler.h"
 
 #include "../../xrEngine/render.h"
 #include "../../xrEngine/irenderable.h"
@@ -49,7 +51,7 @@ IC bool cmp_matrix_items(const _MatrixItem& N1, const _MatrixItem& N2)
 	return (N1.ssa > N2.ssa);
 }
 
-void __fastcall mapMatrix_Render(mapMatrixItems& N)
+void __fastcall mapMatrix_Render(mapMatrixItems& N, bool _clear)
 {
 	// *** DIRECT ***
 	std::sort(N.begin(), N.end(), cmp_matrix_items);
@@ -67,8 +69,33 @@ void __fastcall mapMatrix_Render(mapMatrixItems& N)
 #endif
 		Ni.pVisual->Render(LOD);
 	}
+	if (_clear) N.clear();
+}
+
+#if defined(USE_DX10) || defined(USE_DX11)
+// mapMatrix_Render for tagged items in the order part 0 drew them, with the mask shader and the item's tag in the blend factor
+static void __fastcall mapMatrix_RenderBusMask(mapMatrixItems& N)
+{
+	_MatrixItem *I = &*N.begin(), *E = &*N.end();
+	for (; I != E; I++)
+	{
+		_MatrixItem& Ni = *I;
+		if (!Ni.bus_tag)
+			continue;
+		RCache.set_xform_world(Ni.Matrix);
+		RImplementation.apply_object(Ni.pObject);
+		RImplementation.apply_lmaterial();
+
+		float LOD = calcLOD(Ni.ssa, Ni.pVisual->vis.sphere.R);
+#ifdef USE_DX11
+		RCache.LOD.set_LOD(LOD);
+#endif
+		bus_mask_apply(Ni.bus_tag);
+		Ni.pVisual->Render(LOD);
+	}
 	N.clear();
 }
+#endif
 
 // ALPHA
 void __fastcall sorted_L1(mapSorted_Node* N)
@@ -100,6 +127,22 @@ void __fastcall sorted_UI3D(mapSorted_Node* N)
 #endif
 	V->Render(0.f);
 }
+
+#if defined(USE_DX10) || defined(USE_DX11)
+// sorted_L1 with the mask shader and the node's tag in the blend factor
+static void __fastcall sorted_L1_bus_mask(mapSorted_Node* N)
+{
+	VERIFY(N);
+	dxRender_Visual* V = N->val.pVisual;
+	VERIFY(V && V->shader._get());
+	RCache.set_Element(N->val.se);
+	bus_mask_apply(N->val.bus_tag);
+	RCache.set_xform_world(N->val.Matrix);
+	RImplementation.apply_object(N->val.pObject);
+	RImplementation.apply_lmaterial();
+	V->Render(calcLOD(N->key, V->vis.sphere.R));
+}
+#endif
 
 void __fastcall water_node_ssr(mapSorted_Node* N)
 {
@@ -379,6 +422,7 @@ void sort_tlist_mat
 	}
 }
 
+template<bool BusMask>
 void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 {
 	//PIX_EVENT(r_dsgraph_render_graph);
@@ -387,6 +431,7 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 	// **************************************************** NORMAL
 	// Perform sorting based on ScreenSpaceArea
 	// Sorting by SSA and changes minimizations
+	if constexpr (!BusMask)
 	{
 		RCache.set_xform_world(Fidentity);
 
@@ -464,28 +509,28 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 								mapNormalItems& items = Ntex->val;
 								items.ssa = 0;
 								mapNormal_Render(items);
-								if (_clear) items.clear();
+								items.clear();
 							}
 							nrmTextures.clear();
 							nrmTexturesTemp.clear();
-							if (_clear) tex.clear();
+							tex.clear();
 						}
 						nrmStates.clear();
-						if (_clear) states.clear();
+						states.clear();
 					}
 					nrmCS.clear();
-					if (_clear) cs.clear();
+					cs.clear();
 				}
 				nrmPS.clear();
-				if (_clear) ps.clear();
+				ps.clear();
 #if defined(USE_DX10) || defined(USE_DX11)
 				}
 				nrmGS.clear();
-				if (_clear) gs.clear();
+				gs.clear();
 #endif	//	USE_DX10
 			}
 			nrmVS.clear();
-			if (_clear) vs.clear();
+			vs.clear();
 		}
 	}
 
@@ -527,7 +572,8 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 			for (u32 ps_id = 0; ps_id < matPS.size(); ps_id++)
 			{
 				mapMatrixPS::TNode* Nps = matPS[ps_id];
-				RCache.set_PS(Nps->key);
+				if constexpr (!BusMask)
+					RCache.set_PS(Nps->key);
 
 #ifdef USE_DX11
 					mapMatrixCS& cs = Nps->val.mapCS;
@@ -565,7 +611,14 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 
 							mapMatrixItems& items = Ntex->val;
 							items.ssa = 0;
-							mapMatrix_Render(items);
+#if defined(USE_DX10) || defined(USE_DX11)
+							if constexpr (BusMask)
+							{
+								mapMatrix_RenderBusMask(items);
+								continue;
+							}
+#endif
+							mapMatrix_Render(items, _clear);
 						}
 						matTextures.clear();
 						matTexturesTemp.clear();
@@ -592,6 +645,17 @@ void R_dsgraph_structure::r_dsgraph_render_graph(u32 _priority, bool _clear)
 	Device.Statistic->RenderDUMP.End();
 }
 
+#if defined(USE_DX10) || defined(USE_DX11)
+void R_dsgraph_structure::r_dsgraph_render_bus_mask()
+{
+	PROF_EVENT("r_dsgraph_render_bus_mask");
+	ID3DRenderTargetView* saved[4];
+	bus_mask_bind(saved);
+	r_dsgraph_render_graph<true>(0, true);
+	bus_mask_unbind(saved);
+}
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // HUD render
 void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
@@ -612,7 +676,17 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 	rmNear();
 	if (!NoPS)
 	{
+		const bool mask = bus_mask_begin();
 		mapHUD.traverseLR(sorted_L1);
+#if defined(USE_DX10) || defined(USE_DX11)
+		if (mask)
+		{
+			ID3DRenderTargetView* saved[4];
+			bus_mask_bind(saved);
+			mapHUD.traverseLR(sorted_L1_bus_mask);
+			bus_mask_unbind(saved);
+		}
+#endif
 		mapHUD.clear();
 
 		rmNormal();
@@ -624,6 +698,13 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 			RCache.set_RT(RImplementation.Target->rt_ssfx_temp->pRT, 3); // Render scope_3D to any buffer
 			
 			mapScopeHUD.traverseLR(sorted_L1);
+			if (mask)
+			{
+				ID3DRenderTargetView* saved[4];
+				bus_mask_bind(saved);
+				mapScopeHUD.traverseLR(sorted_L1_bus_mask);
+				bus_mask_unbind(saved);
+			}
 
 			if (!RImplementation.o.ssfx_motionvectors)
 				RCache.set_RT(NULL, 3);
@@ -649,6 +730,15 @@ void R_dsgraph_structure::r_dsgraph_render_hud(bool NoPS)
 
 			// Rendering
 			mapCamAttached.traverseLR(sorted_L1);
+#if defined(USE_DX10) || defined(USE_DX11)
+			if (mask)
+			{
+				ID3DRenderTargetView* saved[4];
+				bus_mask_bind(saved);
+				mapCamAttached.traverseLR(sorted_L1_bus_mask);
+				bus_mask_unbind(saved);
+			}
+#endif
 			mapCamAttached.clear();
 
 			rmNormal();
@@ -1124,3 +1214,8 @@ void R_dsgraph_structure::r_dsgraph_render_landscape(u32 pass, bool _clear)
 	if (_clear)
 		mapLandscape.clear();
 }
+
+template void R_dsgraph_structure::r_dsgraph_render_graph<false>(u32, bool);
+#if defined(USE_DX10) || defined(USE_DX11)
+template void R_dsgraph_structure::r_dsgraph_render_graph<true>(u32, bool);
+#endif

@@ -230,6 +230,7 @@ extern u32 g_r;
 void CRender::Render()
 {
 	PIX_EVENT(CRender_Render);
+	bus_live_bits = ShaderBus::mask_live_bits();
 
 	VERIFY(0 == mapDistort.size() + mapHUDDistort.size());
 
@@ -383,6 +384,9 @@ void CRender::Render()
 	BOOL split_the_scene_to_minimize_wait = FALSE;
 	if (ps_r2_ls_flags.test(R2FLAG_EXP_SPLIT_SCENE)) split_the_scene_to_minimize_wait = TRUE;
 
+	// tagged world items keep their matrix nodes for the mask pass after the scene
+	const bool bus_mask = bus_live_bits && Target->rt_bus_mask && !Device.m_SecondViewport.IsSVPFrame();
+
 	//******* Main render :: PART-0	-- first
 	if (!split_the_scene_to_minimize_wait)
 	{
@@ -390,18 +394,19 @@ void CRender::Render()
 		// level, DO NOT SPLIT
 		Target->phase_scene_begin();
 		r_dsgraph_render_hud();
-		r_dsgraph_render_graph(0);
+		r_dsgraph_render_graph(0, !bus_mask);
 		r_dsgraph_render_lods(true, true);
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
+		if (bus_mask) r_dsgraph_render_bus_mask();
 	}
 	else
 	{
 		PIX_EVENT(DEFER_PART0_SPLIT);
 		// level, SPLIT
 		Target->phase_scene_begin();
-		r_dsgraph_render_graph(0);
+		r_dsgraph_render_graph(0, !bus_mask);
 		Target->disable_aniso();
 	}
 
@@ -494,6 +499,7 @@ void CRender::Render()
 		if (Details) Details->Render();
 		if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS)) r_dsgraph_render_landscape(1, true);
 		Target->phase_scene_end();
+		if (bus_mask) r_dsgraph_render_bus_mask();
 	}
 
 	// Wall marks
