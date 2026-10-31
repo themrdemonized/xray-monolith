@@ -689,6 +689,7 @@
     <ClCompile Include="..\xrRender\rendertarget_phase_gasmask_dudv.cpp" />
     <ClCompile Include="..\xrRender\rendertarget_phase_pp_bloom.cpp" />
     <ClCompile Include="..\xrRender\rendertarget_phase_smaa.cpp" />
+    <ClCompile Include="..\xrRender\rendertarget_phase_bus.cpp" />
     <ClCompile Include="..\xrRender\rendertarget_phase_sunshafts.cpp" />
     <ClCompile Include="..\xrRender\ResourceManager.cpp" />
     <ClCompile Include="..\xrRender\ResourceManager_Loader.cpp" />
@@ -778,7 +779,6 @@
     <ClCompile Include="r4_rendertarget_phase_accumulator.cpp" />
     <ClCompile Include="r4_rendertarget_phase_bloom.cpp" />
     <ClCompile Include="r4_rendertarget_phase_combine.cpp" />
-    <ClCompile Include="r4_rendertarget_phase_bus.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdao.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdr10_bloom.cpp" />
     <ClCompile Include="r4_rendertarget_phase_hdr10_lens_flare.cpp" />

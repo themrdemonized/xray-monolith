@@ -1379,6 +1379,9 @@
     <ClCompile Include="..\xrRender\rendertarget_phase_smaa.cpp">
       <Filter>Core_Target</Filter>
     </ClCompile>
+    <ClCompile Include="..\xrRender\rendertarget_phase_bus.cpp">
+      <Filter>Core_Target</Filter>
+    </ClCompile>
     <ClCompile Include="blender_smaa.cpp">
       <Filter>Shading templates</Filter>
     </ClCompile>

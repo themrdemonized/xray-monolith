@@ -1071,9 +1071,6 @@
     <ClCompile Include="r4_rendertarget_phase_combine.cpp">
       <Filter>Core_Target</Filter>
     </ClCompile>
-    <ClCompile Include="r4_rendertarget_phase_bus.cpp">
-      <Filter>Core_Target</Filter>
-    </ClCompile>
     <ClCompile Include="r4_rendertarget_phase_hdao.cpp">
       <Filter>Core_Target</Filter>
     </ClCompile>
@@ -1423,6 +1420,9 @@
       <Filter>Core_Target</Filter>
     </ClCompile>
     <ClCompile Include="..\xrRender\rendertarget_phase_smaa.cpp">
+      <Filter>Core_Target</Filter>
+    </ClCompile>
+    <ClCompile Include="..\xrRender\rendertarget_phase_bus.cpp">
       <Filter>Core_Target</Filter>
     </ClCompile>
     <ClCompile Include="blender_smaa.cpp">
