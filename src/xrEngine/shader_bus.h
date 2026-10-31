@@ -117,12 +117,14 @@ namespace ShaderBus
 		u32 buffer_rows;
 		u32 buffer_bound;
 		u8 buffer_kind;
+		// a compute pass writes the buffer as of the last per-frame update
+		bool buffer_gpu;
 		// latched again after the frame callbacks
 		bool late;
 
 		lane() : rows_declared(0), shared(nullptr), readback(nullptr), objects(0), changes(0), writes(0), last_change_frame(0), bound_frame(0), index(0),
 		         nonce(0), kind(kind_float), declared_kinds(0), role(0), registered(false), is_forced(false),
-		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), late(false)
+		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), buffer_gpu(false), late(false)
 		{
 			pending.set(0.f, 0.f, 0.f, 0.f);
 			bound.set(0.f, 0.f, 0.f, 0.f);

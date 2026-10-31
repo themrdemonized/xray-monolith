@@ -613,6 +613,7 @@
     <ClCompile Include="..\xrRender\rendertarget_phase_gasmask_dudv.cpp" />
     <ClCompile Include="..\xrRender\rendertarget_phase_pp_bloom.cpp" />
     <ClCompile Include="..\xrRender\rendertarget_phase_smaa.cpp" />
+    <ClCompile Include="..\xrRender\rendertarget_phase_bus.cpp" />
     <ClCompile Include="..\xrRender\rendertarget_phase_sunshafts.cpp" />
     <ClCompile Include="..\xrRender\ResourceManager.cpp" />
     <ClCompile Include="..\xrRender\ResourceManager_Loader.cpp" />

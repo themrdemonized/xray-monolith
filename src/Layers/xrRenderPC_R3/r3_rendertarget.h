@@ -365,6 +365,7 @@ public:
 	void phase_bloom();
 	void phase_luminance();
 	void phase_combine();
+	void phase_bus(u32 stage);
 	void phase_combine_volumetric();
 	void phase_pp();
 

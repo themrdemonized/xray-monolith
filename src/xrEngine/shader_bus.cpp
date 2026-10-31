@@ -555,6 +555,18 @@ static bool bus_refuse_write(ShaderBus::lane* l, LPCSTR what)
 	return false;
 }
 
+// a live compute pass of the lane's owner writes it, called under the lock
+static bool bus_gpu_written(const ShaderBus::lane* l)
+{
+	for (u32 i = 0; l->buffer_rows && i < g_bus_passes.size(); ++i)
+	{
+		const ShaderBus::pass_spec& p = g_bus_passes[i];
+		if (!p.released && p.cs.size() && p.output_count == 1 && p.outputs[0].equal(l->id) && p.owner.equal(l->owner))
+			return true;
+	}
+	return false;
+}
+
 static bool bus_finite(const Fvector4& v)
 {
 	return _finite(v.x) && _finite(v.y) && _finite(v.z) && _finite(v.w);
@@ -566,6 +578,8 @@ bool ShaderBus::set(u32 token, float x, float y, float z, float w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (bus_gpu_written(l))
+		return bus_refuse_write(l, "a value, a compute pass writes the lane");
 
 	if (!_finite(x) || !_finite(y) || !_finite(z) || !_finite(w))
 		return bus_refuse_write(l, "a value that is not finite");
@@ -599,6 +613,8 @@ bool ShaderBus::set_uint(u32 token, u32 x, u32 y, u32 z, u32 w)
 	lane* l = bus_writable(token);
 	if (!l)
 		return false;
+	if (bus_gpu_written(l))
+		return bus_refuse_write(l, "a value, a compute pass writes the lane");
 	if (l->shared)
 		return bus_refuse_write(l, "a uint value, a shared lane takes set and set_object only");
 
@@ -639,6 +655,8 @@ bool ShaderBus::set_rows(u32 token, u32 first, const Fvector4* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
+	if (bus_gpu_written(l))
+		return bus_refuse_write(l, "rows, a compute pass writes the lane");
 	if (l->shared)
 		return bus_refuse_write(l, "rows, a shared lane takes set and set_object only");
 
@@ -655,6 +673,8 @@ bool ShaderBus::set_rows_uint(u32 token, u32 first, const u32* rows, u32 count)
 	lane* l = bus_writable(token);
 	if (!l || !count)
 		return false;
+	if (bus_gpu_written(l))
+		return bus_refuse_write(l, "rows, a compute pass writes the lane");
 	if (l->shared)
 		return bus_refuse_write(l, "rows, a shared lane takes set and set_object only");
 
@@ -1292,6 +1312,7 @@ void ShaderBus::frame_latch()
 		{
 			l->buffer_bound = l->buffer_rows;
 			l->buffer_kind = l->kind;
+			l->buffer_gpu = bus_gpu_written(l);
 			g_bus_buffers.push_back(l);
 		}
 
@@ -1739,14 +1760,21 @@ u32 ShaderBus::register_pass(LPCSTR id, LPCSTR owner, LPCSTR description, LPCSTR
 			Msg("! [SHADER-BUS] pass '%s' refused, this renderer has no compute passes", id);
 			return 0;
 		}
-		for (u32 i = 0; i < sorted.output_count; ++i)
+	}
+	// a buffer lane is the only output of a compute pass of its owner
+	for (u32 i = 0; i < sorted.output_count; ++i)
+	{
+		const int found = bus_find(sorted.outputs[i].c_str());
+		if (found < 0 || !g_bus_lanes[found]->buffer_rows)
+			continue;
+		LPCSTR why = !sorted.cs.size() ? ", which only a compute pass writes"
+		             : sorted.output_count > 1 ? " beside other outputs"
+		             : xr_strcmp(g_bus_lanes[found]->owner, owner) ? " of another owner"
+		             : sorted.group_y != 1 ? ", its group takes y = 1" : nullptr;
+		if (why)
 		{
-			const int found = bus_find(sorted.outputs[i].c_str());
-			if (found >= 0 && g_bus_lanes[found]->buffer_rows)
-			{
-				Msg("! [SHADER-BUS] pass '%s' refused, output '%s' is a buffer lane", id, sorted.outputs[i].c_str());
-				return 0;
-			}
+			Msg("! [SHADER-BUS] pass '%s' refused, output '%s' is a buffer lane%s", id, sorted.outputs[i].c_str(), why);
+			return 0;
 		}
 	}
 	if (!bus_role_free(id, owner, role_pass) || !bus_room(id, nullptr))
