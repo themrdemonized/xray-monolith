@@ -65,6 +65,10 @@ a resolution change, and the lane keeps its texture over a level change.
 shader:dx10texture("s_mymap", "$user$bus_mymap")
 ```
 
+On version `7`, a texture lane declared in more than one stage of one pass, say a `Texture2D
+bus_mymap` read in both the vertex and the pixel shader, stops a release exe while the shader
+compiles. Declare a texture lane in one stage of each pass.
+
 A `bus_` constant declared as an `int` or a `bool`, an array or matrix on DX9, or one larger than
 4096 rows binds to nothing, the engine never writes it, and the log gets one line with the
 constant's name and the reason. A pass whose shaders declare one lane with different types, say
@@ -422,9 +426,10 @@ of their tokens (see Shared lanes).
 
 `set` stores a pending value. The engine copies every lane's pending value (or its forced value,
 if forced) into its bound value once per frame, before the frame callbacks run, so a four-float
-write is never half visible to a shader mid-write. This copy runs every frame the device pumps,
-so it is live in the main menu and while loading, not only during gameplay. It is also why `get`
-trails `set` by one frame and why `get_pending` and `get` can legitimately disagree.
+write is never half visible to a shader mid-write. This copy runs every frame the game draws,
+the main menu included, and stops while a level loads, so a value set during a load reaches
+shaders on the first frame after it. The copy is also why `get` trails `set` by one frame and
+why `get_pending` and `get` can legitimately disagree.
 
 Lanes are never removed once declared or registered, so a token stays valid for the rest of the
 process, and a lane you query early keeps existing even if nobody ever claims it. The bus has room for
