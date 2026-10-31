@@ -53,10 +53,9 @@
 #include "../xrphysics/console_vars.h"
 #include <sstream>
 #include "..\xrCore\LocatorAPI.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #	include "PHDebug.h"
 #	include "ui/UIDebugFonts.h"
-#	include "game_graph.h"
 #	include "CharacterPhysicsSupport.h"
 #endif // DEBUG
 
@@ -316,11 +315,9 @@ Flags32 g_mt_config = {
 	mtLevelPath | mtDetailPath | mtObjectHandler | mtSoundPlayer | mtAiVision | mtBullets | mtLUA_GC | mtLevelSounds |
 	mtALife | mtMap
 };
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 Flags32	dbg_net_Draw_Flags = { 0 };
-#endif
 
-#ifdef DEBUG
 BOOL	g_bDebugNode = FALSE;
 u32		g_dwDebugNodeSource = 0;
 u32		g_dwDebugNodeDest = 0;
@@ -328,8 +325,7 @@ extern	BOOL	g_bDrawBulletHit;
 extern	BOOL	g_bDrawFirstBulletCrosshair;
 
 float	debug_on_frame_gather_stats_frequency = 0.f;
-#endif
-#ifdef DEBUG
+
 extern LPSTR	dbg_stalker_death_anim;
 extern BOOL		b_death_anim_velocity;
 extern BOOL		death_anim_debug;
@@ -1341,7 +1337,7 @@ public:
 	}
 };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 class CCC_DrawGameGraphAll : public IConsole_Command
 {
@@ -1407,7 +1403,8 @@ public:
 		ai().level_graph().setup_current_level(level->id());
 	}
 };
-
+#endif
+#ifdef DEBUG
 #if defined(USE_DEBUGGER) && !defined(USE_LUA_STUDIO)
 class CCC_ScriptDbg : public IConsole_Command {
 public:
@@ -2092,7 +2089,7 @@ struct CCC_TimeFactorSingle : public CCC_Float
 	}
 };
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 class CCC_RadioGroupMask2;
 class CCC_RadioMask :public CCC_Mask
 {
@@ -2165,6 +2162,9 @@ struct CCC_DbgBullets : public CCC_Integer
 	}
 };
 
+#endif
+
+#if defined(DEBUG)
 #include "attachable_item.h"
 #include "attachment_owner.h"
 #include "InventoryOwner.h"
@@ -2431,7 +2431,7 @@ public:
 		CCC_Integer::Execute(args);
 	}
 };
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void DBG_CashedClear();
 class CCC_DBGDrawCashedClear : public IConsole_Command
 {
@@ -2629,19 +2629,51 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer, "lua_debug", &lua_debug, 0, 1);
 	CMD4(CCC_Integer, "lua_busy_hands_debug", &lua_busy_hands_debug, 0, 1);
 
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    CMD3(CCC_Mask, "ai_dbg_brain", &psAI_Flags, aiBrain);
+    CMD3(CCC_Mask, "ai_dbg_motion", &psAI_Flags, aiMotion);
+    CMD3(CCC_Mask, "ai_debug", &psAI_Flags, aiDebug);
+    CMD3(CCC_Mask, "ai_dbg_vision", &psAI_Flags, aiVision);
+    CMD3(CCC_Mask, "ai_dbg_frustum", &psAI_Flags, aiFrustum);
+    CMD3(CCC_Mask, "ai_dbg_goap", &psAI_Flags, aiGOAP);
+    CMD3(CCC_Mask, "ai_dbg_goap_script", &psAI_Flags, aiGOAPScript);
+    CMD3(CCC_Mask, "ai_dbg_goap_object", &psAI_Flags, aiGOAPObject);
+    CMD3(CCC_Mask, "ai_dbg_cover", &psAI_Flags, aiCover);
+    CMD3(CCC_Mask, "ai_draw_game_graph", &psAI_Flags, aiDrawGameGraph);
+    CMD3(CCC_Mask, "ai_draw_game_graph_stalkers", &psAI_Flags, aiDrawGameGraphStalkers);
+    CMD3(CCC_Mask, "ai_draw_game_graph_objects", &psAI_Flags, aiDrawGameGraphObjects);
+    CMD3(CCC_Mask, "ai_draw_game_graph_real_pos", &psAI_Flags, aiDrawGameGraphRealPos);
+    CMD3(CCC_Mask, "ai_draw_visibility_rays", &psAI_Flags, aiDrawVisibilityRays);
+
+    /////////////////////////////////////////////HIT ANIMATION////////////////////////////////////////////////////
+    //float						power_factor				= 2.f;
+    //float						rotational_power_factor		= 3.f;
+    //float						side_sensitivity_threshold	= 0.2f;
+    //float						anim_channel_factor			= 3.f;
+
+    CMD4(CCC_Float, "hit_anims_power", &ghit_anims_params.power_factor, 0.0f, 100.0f);
+    CMD4(CCC_Float, "hit_anims_rotational_power", &ghit_anims_params.rotational_power_factor, 0.0f, 100.0f);
+    CMD4(CCC_Float, "hit_anims_side_sensitivity_threshold", &ghit_anims_params.side_sensitivity_threshold, 0.0f, 10.0f);
+    CMD4(CCC_Float, "hit_anims_channel_factor", &ghit_anims_params.anim_channel_factor, 0.0f, 100.0f);
+    //float	block_blend					= 0.1f;
+    //float	reduce_blend				= 0.5f;
+    //float	reduce_power_factor			= 0.5f;
+    CMD4(CCC_Float, "hit_anims_block_blend", &ghit_anims_params.block_blend, 0.f, 1.f);
+    CMD4(CCC_Float, "hit_anims_reduce_blend", &ghit_anims_params.reduce_blend, 0.f, 1.f);
+    CMD4(CCC_Float, "hit_anims_reduce_blend_factor", &ghit_anims_params.reduce_power_factor, 0.0f, 1.0f);
+    CMD4(CCC_Integer, "hit_anims_tune", &tune_hit_anims, 0, 1);
+    /////////////////////////////////////////////HIT ANIMATION END////////////////////////////////////////////////////
+
+    CMD1(CCC_DrawGameGraphAll, "ai_draw_game_graph_all");
+    CMD1(CCC_DrawGameGraphCurrent, "ai_draw_game_graph_current_level");
+    CMD1(CCC_DrawGameGraphLevel, "ai_draw_game_graph_level");
+#endif
+
 #ifdef DEBUG
-	CMD3(CCC_Mask, "ai_debug", &psAI_Flags, aiDebug);
-	CMD3(CCC_Mask, "ai_dbg_brain", &psAI_Flags, aiBrain);
-	CMD3(CCC_Mask, "ai_dbg_motion", &psAI_Flags, aiMotion);
-	CMD3(CCC_Mask, "ai_dbg_frustum", &psAI_Flags, aiFrustum);
 	CMD3(CCC_Mask, "ai_dbg_funcs", &psAI_Flags, aiFuncs);
 	CMD3(CCC_Mask, "ai_dbg_alife", &psAI_Flags, aiALife);
-	CMD3(CCC_Mask, "ai_dbg_goap", &psAI_Flags, aiGOAP);
-	CMD3(CCC_Mask, "ai_dbg_goap_script", &psAI_Flags, aiGOAPScript);
-	CMD3(CCC_Mask, "ai_dbg_goap_object", &psAI_Flags, aiGOAPObject);
-	CMD3(CCC_Mask, "ai_dbg_cover", &psAI_Flags, aiCover);
+	
 	CMD3(CCC_Mask, "ai_dbg_anim", &psAI_Flags, aiAnimation);
-	CMD3(CCC_Mask, "ai_dbg_vision", &psAI_Flags, aiVision);
 	CMD3(CCC_Mask, "ai_dbg_monster", &psAI_Flags, aiMonsterDebug);
 	CMD3(CCC_Mask, "ai_dbg_stalker", &psAI_Flags, aiStalker);
 	CMD3(CCC_Mask, "ai_stats", &psAI_Flags, aiStats);
@@ -2650,34 +2682,8 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask, "ai_dbg_dialogs", &psAI_Flags, aiDialogs);
 	CMD3(CCC_Mask, "ai_dbg_infoportion", &psAI_Flags, aiInfoPortion);
 
-	CMD3(CCC_Mask, "ai_draw_game_graph", &psAI_Flags, aiDrawGameGraph);
-	CMD3(CCC_Mask, "ai_draw_game_graph_stalkers", &psAI_Flags, aiDrawGameGraphStalkers);
-	CMD3(CCC_Mask, "ai_draw_game_graph_objects", &psAI_Flags, aiDrawGameGraphObjects);
-	CMD3(CCC_Mask, "ai_draw_game_graph_real_pos", &psAI_Flags, aiDrawGameGraphRealPos);
-
 	CMD3(CCC_Mask, "ai_nil_object_access", &psAI_Flags, aiNilObjectAccess);
-
-	CMD3(CCC_Mask, "ai_draw_visibility_rays", &psAI_Flags, aiDrawVisibilityRays);
 	CMD3(CCC_Mask, "ai_animation_stats", &psAI_Flags, aiAnimationStats);
-
-	/////////////////////////////////////////////HIT ANIMATION////////////////////////////////////////////////////
-	//float						power_factor				= 2.f;
-	//float						rotational_power_factor		= 3.f;
-	//float						side_sensitivity_threshold	= 0.2f;
-	//float						anim_channel_factor			= 3.f;
-
-	CMD4(CCC_Float, "hit_anims_power", &ghit_anims_params.power_factor, 0.0f, 100.0f);
-	CMD4(CCC_Float, "hit_anims_rotational_power", &ghit_anims_params.rotational_power_factor, 0.0f, 100.0f);
-	CMD4(CCC_Float, "hit_anims_side_sensitivity_threshold", &ghit_anims_params.side_sensitivity_threshold, 0.0f, 10.0f);
-	CMD4(CCC_Float, "hit_anims_channel_factor", &ghit_anims_params.anim_channel_factor, 0.0f, 100.0f);
-	//float	block_blend					= 0.1f;
-	//float	reduce_blend				= 0.5f;
-	//float	reduce_power_factor			= 0.5f;
-	CMD4(CCC_Float, "hit_anims_block_blend", &ghit_anims_params.block_blend, 0.f, 1.f);
-	CMD4(CCC_Float, "hit_anims_reduce_blend", &ghit_anims_params.reduce_blend, 0.f, 1.f);
-	CMD4(CCC_Float, "hit_anims_reduce_blend_factor", &ghit_anims_params.reduce_power_factor, 0.0f, 1.0f);
-	CMD4(CCC_Integer, "hit_anims_tune", &tune_hit_anims, 0, 1);
-	/////////////////////////////////////////////HIT ANIMATION END////////////////////////////////////////////////////
 
 #ifdef DEBUG_MEMORY_MANAGER
 	CMD3(CCC_Mask, "debug_on_frame_gather_stats", &psAI_Flags, aiDebugOnFrameAllocs);
@@ -2687,10 +2693,6 @@ void CCC_RegisterCommands()
 #endif // DEBUG_MEMORY_MANAGER
 
 	CMD1(CCC_DumpModelBones, "debug_dump_model_bones");
-
-	CMD1(CCC_DrawGameGraphAll, "ai_draw_game_graph_all");
-	CMD1(CCC_DrawGameGraphCurrent, "ai_draw_game_graph_current_level");
-	CMD1(CCC_DrawGameGraphLevel, "ai_draw_game_graph_level");
 
 	CMD4(CCC_Integer, "ai_dbg_inactive_time", &g_AI_inactive_time, 0, 1000000);
 
@@ -2902,84 +2904,137 @@ void CCC_RegisterCommands()
 	psActorFlags.set(AF_IMPORTANT_SAVE, TRUE);
 	CMD3(CCC_Mask, "g_important_save", &psActorFlags, AF_IMPORTANT_SAVE);
 
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    CMD3(CCC_Mask, "dbg_draw_actor_alive", &dbg_net_Draw_Flags, dbg_draw_actor_alive);
+    CMD3(CCC_Mask, "dbg_draw_actor_dead", &dbg_net_Draw_Flags, dbg_draw_actor_dead);
+    CMD3(CCC_Mask, "dbg_draw_customzone", &dbg_net_Draw_Flags, dbg_draw_customzone);
+    CMD3(CCC_Mask, "dbg_draw_teamzone", &dbg_net_Draw_Flags, dbg_draw_teamzone);
+    CMD3(CCC_Mask, "dbg_draw_invitem", &dbg_net_Draw_Flags, dbg_draw_invitem);
+    CMD3(CCC_Mask, "dbg_draw_actor_phys", &dbg_net_Draw_Flags, dbg_draw_actor_phys);
+    CMD3(CCC_Mask, "dbg_draw_customdetector", &dbg_net_Draw_Flags, dbg_draw_customdetector);
+    CMD3(CCC_Mask, "dbg_draw_autopickupbox", &dbg_net_Draw_Flags, dbg_draw_autopickupbox);
+    CMD3(CCC_Mask, "dbg_draw_rp", &dbg_net_Draw_Flags, dbg_draw_rp);
+    CMD3(CCC_Mask, "dbg_draw_climbable", &dbg_net_Draw_Flags, dbg_draw_climbable);
+    CMD3(CCC_Mask, "dbg_draw_skeleton", &dbg_net_Draw_Flags, dbg_draw_skeleton);
+    
+    extern XRPHYSICS_API BOOL dbg_draw_camera_collision;
+    CMD4(CCC_Integer, "dbg_draw_camera_collision", &dbg_draw_camera_collision, FALSE, TRUE);
+    
+    extern BOOL dbg_draw_character_bones;
+    extern BOOL dbg_draw_character_physics;
+    extern BOOL dbg_draw_character_binds;
+    extern BOOL dbg_draw_character_physics_pones;
+    CMD4(CCC_Integer, "dbg_draw_character_bones", &dbg_draw_character_bones, FALSE, TRUE);
+    CMD4(CCC_Integer, "dbg_draw_character_physics", &dbg_draw_character_physics, FALSE, TRUE);
+    CMD4(CCC_Integer, "dbg_draw_character_binds", &dbg_draw_character_binds, FALSE, TRUE);
+    CMD4(CCC_Integer, "dbg_draw_character_physics_pones", &dbg_draw_character_physics_pones, FALSE, TRUE);
+    extern	BOOL dbg_draw_doors;
+    CMD4(CCC_Integer, "dbg_draw_doors", &dbg_draw_doors, FALSE, TRUE);
+
+    CMD3(CCC_Mask, "dbg_draw_ph_contacts", &ph_dbg_draw_mask, phDbgDrawContacts);
+    CMD3(CCC_Mask, "dbg_draw_ph_enabled_aabbs", &ph_dbg_draw_mask, phDbgDrawEnabledAABBS);
+    CMD3(CCC_Mask, "dbg_draw_ph_intersected_tries", &ph_dbg_draw_mask, phDBgDrawIntersectedTries);
+    CMD3(CCC_Mask, "dbg_draw_ph_saved_tries", &ph_dbg_draw_mask, phDbgDrawSavedTries);
+    CMD3(CCC_Mask, "dbg_draw_ph_tri_trace", &ph_dbg_draw_mask, phDbgDrawTriTrace);
+    CMD3(CCC_Mask, "dbg_draw_ph_positive_tries", &ph_dbg_draw_mask, phDBgDrawPositiveTries);
+    CMD3(CCC_Mask, "dbg_draw_ph_negative_tries", &ph_dbg_draw_mask, phDBgDrawNegativeTries);
+    CMD3(CCC_Mask, "dbg_draw_ph_tri_test_aabb", &ph_dbg_draw_mask, phDbgDrawTriTestAABB);
+    CMD3(CCC_Mask, "dbg_draw_ph_tries_changes_sign", &ph_dbg_draw_mask, phDBgDrawTriesChangesSign);
+    CMD3(CCC_Mask, "dbg_draw_ph_tri_point", &ph_dbg_draw_mask, phDbgDrawTriPoint);
+    CMD3(CCC_Mask, "dbg_draw_ph_explosion_position", &ph_dbg_draw_mask, phDbgDrawExplosionPos);
+    CMD3(CCC_Mask, "dbg_draw_ph_statistics", &ph_dbg_draw_mask, phDbgDrawObjectStatistics);
+    CMD3(CCC_Mask, "dbg_draw_ph_mass_centres", &ph_dbg_draw_mask, phDbgDrawMassCenters);
+    CMD3(CCC_Mask, "dbg_draw_ph_death_boxes", &ph_dbg_draw_mask, phDbgDrawDeathActivationBox);
+    CMD3(CCC_Mask, "dbg_draw_ph_hit_app_pos", &ph_dbg_draw_mask, phHitApplicationPoints);
+    CMD3(CCC_Mask, "dbg_draw_ph_cashed_tries_stats", &ph_dbg_draw_mask, phDbgDrawCashedTriesStat);
+    CMD3(CCC_Mask, "dbg_draw_ph_car_dynamics", &ph_dbg_draw_mask, phDbgDrawCarDynamics);
+    CMD3(CCC_Mask, "dbg_draw_ph_car_plots", &ph_dbg_draw_mask, phDbgDrawCarPlots);
+    CMD3(CCC_Mask, "dbg_draw_ph_explosions", &ph_dbg_draw_mask, phDbgDrawExplosions);
+    CMD3(CCC_Mask, "dbg_draw_car_plots_all_trans", &ph_dbg_draw_mask, phDbgDrawCarAllTrnsm);
+    CMD3(CCC_Mask, "dbg_draw_ph_zbuffer_disable", &ph_dbg_draw_mask, phDbgDrawZDisable);
+    CMD3(CCC_Mask, "dbg_draw_ph_ray_motions", &ph_dbg_draw_mask, phDbgDrawRayMotions);
+    CMD3(CCC_Mask, "dbg_draw_ph_hit_anims", &ph_dbg_draw_mask1, phDbgHitAnims);
+    CMD3(CCC_Mask, "dbg_draw_ph_ik_limits", &ph_dbg_draw_mask1, phDbgDrawIKLimits);
+    CMD3(CCC_Mask, "dbg_draw_ph_ik_predict", &ph_dbg_draw_mask1, phDbgDrawIKPredict);
+    CMD3(CCC_Mask, "dbg_draw_ph_ik_collision", &ph_dbg_draw_mask1, phDbgDrawIKCollision);
+    CMD3(CCC_Mask, "dbg_draw_ph_ik_shift_object", &ph_dbg_draw_mask1, phDbgDrawIKSHiftObject);
+    CMD3(CCC_Mask, "dbg_draw_ph_ik_blending", &ph_dbg_draw_mask1, phDbgDrawIKBlending);
+    CMD3(CCC_Mask, "dbg_ph_ladder", &ph_dbg_draw_mask, phDbgLadder);
+
+    CMD3(CCC_Mask, "dbg_ph_obj_collision_damage", &ph_dbg_draw_mask, phDbgDispObjCollisionDammage);
+    CMD_RADIOGROUPMASK2("dbg_ph_ai_always_phmove", &ph_dbg_draw_mask, phDbgAlwaysUseAiPhMove, "dbg_ph_ai_never_phmove", &ph_dbg_draw_mask, phDbgNeverUseAiPhMove);
+    CMD3(CCC_Mask, "dbg_ph_ik", &ph_dbg_draw_mask, phDbgIK);
+    CMD3(CCC_Mask, "dbg_ph_ik_off", &ph_dbg_draw_mask1, phDbgIKOff);
+    CMD3(CCC_Mask, "dbg_draw_ph_ik_goal", &ph_dbg_draw_mask, phDbgDrawIKGoal);
+    CMD3(CCC_Mask, "dbg_ph_ik_limits", &ph_dbg_draw_mask, phDbgIKLimits);
+    CMD3(CCC_Mask, "dbg_ph_character_control", &ph_dbg_draw_mask, phDbgCharacterControl);
+    
+
+    CMD1(CCC_DBGDrawCashedClear, "dbg_ph_cashed_clear");
+    extern XRPHYSICS_API float	camera_collision_character_skin_depth;
+    extern XRPHYSICS_API float	camera_collision_character_shift_z;
+    CMD4(CCC_FloatBlock, "camera_collision_character_shift_z", &camera_collision_character_shift_z, 0.f, 1.f);
+    CMD4(CCC_FloatBlock, "camera_collision_character_skin_depth", &camera_collision_character_skin_depth, 0.f, 1.f);
+    extern BOOL	dbg_draw_animation_movement_controller;
+    CMD4(CCC_Integer, "dbg_draw_animation_movement_controller", &dbg_draw_animation_movement_controller, FALSE, TRUE);
+    CMD3(CCC_Mask, "dbg_destroy", &dbg_net_Draw_Flags, dbg_destroy);
+
+    extern 	BOOL dbg_draw_ragdoll_spawn;
+    CMD4(CCC_Integer, "dbg_draw_ragdoll_spawn", &dbg_draw_ragdoll_spawn, FALSE, TRUE);
+    CMD4(CCC_DbgBullets, "dbg_draw_bullet_hit", &g_bDrawBulletHit, 0, 1);
+
+    /*
+    enum
+    {
+    dbg_track_obj_blends_bp_0			= 1<< 0,
+    dbg_track_obj_blends_bp_1			= 1<< 1,
+    dbg_track_obj_blends_bp_2			= 1<< 2,
+    dbg_track_obj_blends_bp_3			= 1<< 3,
+    dbg_track_obj_blends_motion_name	= 1<< 4,
+    dbg_track_obj_blends_time			= 1<< 5,
+    dbg_track_obj_blends_ammount		= 1<< 6,
+    dbg_track_obj_blends_mix_params		= 1<< 7,
+    dbg_track_obj_blends_flags			= 1<< 8,
+    dbg_track_obj_blends_state			= 1<< 9,
+    dbg_track_obj_blends_dump			= 1<< 10
+    };
+    */
+    extern Flags32	dbg_track_obj_flags;
+    CMD3(CCC_Mask, "dbg_track_obj_blends_bp_0", &dbg_track_obj_flags, dbg_track_obj_blends_bp_0);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_bp_1", &dbg_track_obj_flags, dbg_track_obj_blends_bp_1);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_bp_2", &dbg_track_obj_flags, dbg_track_obj_blends_bp_2);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_bp_3", &dbg_track_obj_flags, dbg_track_obj_blends_bp_3);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_motion_name", &dbg_track_obj_flags, dbg_track_obj_blends_motion_name);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_time", &dbg_track_obj_flags, dbg_track_obj_blends_time);
+
+    CMD3(CCC_Mask, "dbg_track_obj_blends_ammount", &dbg_track_obj_flags, dbg_track_obj_blends_ammount);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_mix_params", &dbg_track_obj_flags, dbg_track_obj_blends_mix_params);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_flags", &dbg_track_obj_flags, dbg_track_obj_blends_flags);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_state", &dbg_track_obj_flags, dbg_track_obj_blends_state);
+    CMD3(CCC_Mask, "dbg_track_obj_blends_dump", &dbg_track_obj_flags, dbg_track_obj_blends_dump);
+#endif
+
 #ifdef DEBUG
 	CMD1(CCC_LuaHelp, "lua_help");
 	CMD1(CCC_ShowSmartCastStats, "show_smart_cast_stats");
 	CMD1(CCC_ClearSmartCastStats, "clear_smart_cast_stats");
 
-	CMD3(CCC_Mask, "dbg_draw_actor_alive", &dbg_net_Draw_Flags, dbg_draw_actor_alive);
-	CMD3(CCC_Mask, "dbg_draw_actor_dead", &dbg_net_Draw_Flags, dbg_draw_actor_dead);
-	CMD3(CCC_Mask, "dbg_draw_customzone", &dbg_net_Draw_Flags, dbg_draw_customzone);
-	CMD3(CCC_Mask, "dbg_draw_teamzone", &dbg_net_Draw_Flags, dbg_draw_teamzone);
-	CMD3(CCC_Mask, "dbg_draw_invitem", &dbg_net_Draw_Flags, dbg_draw_invitem);
-	CMD3(CCC_Mask, "dbg_draw_actor_phys", &dbg_net_Draw_Flags, dbg_draw_actor_phys);
-	CMD3(CCC_Mask, "dbg_draw_customdetector", &dbg_net_Draw_Flags, dbg_draw_customdetector);
-	CMD3(CCC_Mask, "dbg_destroy", &dbg_net_Draw_Flags, dbg_destroy);
-	CMD3(CCC_Mask, "dbg_draw_autopickupbox", &dbg_net_Draw_Flags, dbg_draw_autopickupbox);
-	CMD3(CCC_Mask, "dbg_draw_rp", &dbg_net_Draw_Flags, dbg_draw_rp);
-	CMD3(CCC_Mask, "dbg_draw_climbable", &dbg_net_Draw_Flags, dbg_draw_climbable);
-	CMD3(CCC_Mask, "dbg_draw_skeleton", &dbg_net_Draw_Flags, dbg_draw_skeleton);
-
-	CMD3(CCC_Mask, "dbg_draw_ph_contacts", &ph_dbg_draw_mask, phDbgDrawContacts);
-	CMD3(CCC_Mask, "dbg_draw_ph_enabled_aabbs", &ph_dbg_draw_mask, phDbgDrawEnabledAABBS);
-	CMD3(CCC_Mask, "dbg_draw_ph_intersected_tries", &ph_dbg_draw_mask, phDBgDrawIntersectedTries);
-	CMD3(CCC_Mask, "dbg_draw_ph_saved_tries", &ph_dbg_draw_mask, phDbgDrawSavedTries);
-	CMD3(CCC_Mask, "dbg_draw_ph_tri_trace", &ph_dbg_draw_mask, phDbgDrawTriTrace);
-	CMD3(CCC_Mask, "dbg_draw_ph_positive_tries", &ph_dbg_draw_mask, phDBgDrawPositiveTries);
-	CMD3(CCC_Mask, "dbg_draw_ph_negative_tries", &ph_dbg_draw_mask, phDBgDrawNegativeTries);
-	CMD3(CCC_Mask, "dbg_draw_ph_tri_test_aabb", &ph_dbg_draw_mask, phDbgDrawTriTestAABB);
-	CMD3(CCC_Mask, "dbg_draw_ph_tries_changes_sign", &ph_dbg_draw_mask, phDBgDrawTriesChangesSign);
-	CMD3(CCC_Mask, "dbg_draw_ph_tri_point", &ph_dbg_draw_mask, phDbgDrawTriPoint);
-	CMD3(CCC_Mask, "dbg_draw_ph_explosion_position", &ph_dbg_draw_mask, phDbgDrawExplosionPos);
-	CMD3(CCC_Mask, "dbg_draw_ph_statistics", &ph_dbg_draw_mask, phDbgDrawObjectStatistics);
-	CMD3(CCC_Mask, "dbg_draw_ph_mass_centres", &ph_dbg_draw_mask, phDbgDrawMassCenters);
-	CMD3(CCC_Mask, "dbg_draw_ph_death_boxes", &ph_dbg_draw_mask, phDbgDrawDeathActivationBox);
-	CMD3(CCC_Mask, "dbg_draw_ph_hit_app_pos", &ph_dbg_draw_mask, phHitApplicationPoints);
-	CMD3(CCC_Mask, "dbg_draw_ph_cashed_tries_stats", &ph_dbg_draw_mask, phDbgDrawCashedTriesStat);
-	CMD3(CCC_Mask, "dbg_draw_ph_car_dynamics", &ph_dbg_draw_mask, phDbgDrawCarDynamics);
-	CMD3(CCC_Mask, "dbg_draw_ph_car_plots", &ph_dbg_draw_mask, phDbgDrawCarPlots);
-	CMD3(CCC_Mask, "dbg_ph_ladder", &ph_dbg_draw_mask, phDbgLadder);
-	CMD3(CCC_Mask, "dbg_draw_ph_explosions", &ph_dbg_draw_mask, phDbgDrawExplosions);
-	CMD3(CCC_Mask, "dbg_draw_car_plots_all_trans", &ph_dbg_draw_mask, phDbgDrawCarAllTrnsm);
-	CMD3(CCC_Mask, "dbg_draw_ph_zbuffer_disable", &ph_dbg_draw_mask, phDbgDrawZDisable);
-	CMD3(CCC_Mask, "dbg_ph_obj_collision_damage", &ph_dbg_draw_mask, phDbgDispObjCollisionDammage);
-	CMD_RADIOGROUPMASK2("dbg_ph_ai_always_phmove", &ph_dbg_draw_mask, phDbgAlwaysUseAiPhMove, "dbg_ph_ai_never_phmove", &ph_dbg_draw_mask, phDbgNeverUseAiPhMove);
-	CMD3(CCC_Mask, "dbg_ph_ik", &ph_dbg_draw_mask, phDbgIK);
-	CMD3(CCC_Mask, "dbg_ph_ik_off", &ph_dbg_draw_mask1, phDbgIKOff);
-	CMD3(CCC_Mask, "dbg_draw_ph_ik_goal", &ph_dbg_draw_mask, phDbgDrawIKGoal);
-	CMD3(CCC_Mask, "dbg_ph_ik_limits", &ph_dbg_draw_mask, phDbgIKLimits);
-	CMD3(CCC_Mask, "dbg_ph_character_control", &ph_dbg_draw_mask, phDbgCharacterControl);
-	CMD3(CCC_Mask, "dbg_draw_ph_ray_motions", &ph_dbg_draw_mask, phDbgDrawRayMotions);
 	CMD4(CCC_Float, "dbg_ph_vel_collid_damage_to_display", &dbg_vel_collid_damage_to_display, 0.f, 1000.f);
-	CMD4(CCC_DbgBullets, "dbg_draw_bullet_hit", &g_bDrawBulletHit, 0, 1);
-	CMD4(CCC_Integer, "dbg_draw_fb_crosshair", &g_bDrawFirstBulletCrosshair, 0, 1);
+    CMD4(CCC_Integer, "dbg_draw_fb_crosshair", &g_bDrawFirstBulletCrosshair, 0, 1);
+	
+	
 	CMD1(CCC_DbgPhTrackObj, "dbg_track_obj");
 	CMD3(CCC_Mask, "dbg_ph_actor_restriction", &ph_dbg_draw_mask1, ph_m1_DbgActorRestriction);
-	CMD3(CCC_Mask, "dbg_draw_ph_hit_anims", &ph_dbg_draw_mask1, phDbgHitAnims);
-	CMD3(CCC_Mask, "dbg_draw_ph_ik_limits", &ph_dbg_draw_mask1, phDbgDrawIKLimits);
-	CMD3(CCC_Mask, "dbg_draw_ph_ik_predict", &ph_dbg_draw_mask1, phDbgDrawIKPredict);
-	CMD3(CCC_Mask, "dbg_draw_ph_ik_collision", &ph_dbg_draw_mask1, phDbgDrawIKCollision);
-	CMD3(CCC_Mask, "dbg_draw_ph_ik_shift_object", &ph_dbg_draw_mask1, phDbgDrawIKSHiftObject);
-	CMD3(CCC_Mask, "dbg_draw_ph_ik_blending", &ph_dbg_draw_mask1, phDbgDrawIKBlending);
-	CMD1(CCC_DBGDrawCashedClear, "dbg_ph_cashed_clear");
-	extern BOOL dbg_draw_character_bones;
-	extern BOOL dbg_draw_character_physics;
-	extern BOOL dbg_draw_character_binds;
-	extern BOOL dbg_draw_character_physics_pones;
+	
 	extern BOOL ik_cam_shift;
-	CMD4(CCC_Integer, "dbg_draw_character_bones", &dbg_draw_character_bones, FALSE, TRUE);
-	CMD4(CCC_Integer, "dbg_draw_character_physics", &dbg_draw_character_physics, FALSE, TRUE);
-	CMD4(CCC_Integer, "dbg_draw_character_binds", &dbg_draw_character_binds, FALSE, TRUE);
-	CMD4(CCC_Integer, "dbg_draw_character_physics_pones", &dbg_draw_character_physics_pones, FALSE, TRUE);
-
+	
 	CMD4(CCC_Integer, "ik_cam_shift", &ik_cam_shift, FALSE, TRUE);
 
 	extern	float ik_cam_shift_tolerance;
 	CMD4(CCC_Float, "ik_cam_shift_tolerance", &ik_cam_shift_tolerance, 0.f, 2.f);
 	float ik_cam_shift_speed;
 	CMD4(CCC_Float, "ik_cam_shift_speed", &ik_cam_shift_speed, 0.f, 1.f);
-	extern	BOOL dbg_draw_doors;
-	CMD4(CCC_Integer, "dbg_draw_doors", &dbg_draw_doors, FALSE, TRUE);
+	
 
 	/*
 	extern int ik_allign_free_foot;
@@ -2991,52 +3046,14 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer,	"ik_blend_free_foot"			,&ik_blend_free_foot,	0,	1);
 	CMD4(CCC_Integer,	"ik_collide_blend"				,&ik_collide_blend,	0,	1);
 	*/
-	extern 	BOOL dbg_draw_ragdoll_spawn;
-	CMD4(CCC_Integer, "dbg_draw_ragdoll_spawn", &dbg_draw_ragdoll_spawn, FALSE, TRUE);
+	
 	extern BOOL debug_step_info;
 	extern BOOL debug_step_info_load;
 	CMD4(CCC_Integer, "debug_step_info", &debug_step_info, FALSE, TRUE);
 	CMD4(CCC_Integer, "debug_step_info_load", &debug_step_info_load, FALSE, TRUE);
 	extern BOOL debug_character_material_load;
 	CMD4(CCC_Integer, "debug_character_material_load", &debug_character_material_load, FALSE, TRUE);
-	extern XRPHYSICS_API BOOL dbg_draw_camera_collision;
-	CMD4(CCC_Integer, "dbg_draw_camera_collision", &dbg_draw_camera_collision, FALSE, TRUE);
-	extern XRPHYSICS_API float	camera_collision_character_skin_depth;
-	extern XRPHYSICS_API float	camera_collision_character_shift_z;
-	CMD4(CCC_FloatBlock, "camera_collision_character_shift_z", &camera_collision_character_shift_z, 0.f, 1.f);
-	CMD4(CCC_FloatBlock, "camera_collision_character_skin_depth", &camera_collision_character_skin_depth, 0.f, 1.f);
-	extern BOOL	dbg_draw_animation_movement_controller;
-	CMD4(CCC_Integer, "dbg_draw_animation_movement_controller", &dbg_draw_animation_movement_controller, FALSE, TRUE);
-
-	/*
-	enum
-	{
-	dbg_track_obj_blends_bp_0			= 1<< 0,
-	dbg_track_obj_blends_bp_1			= 1<< 1,
-	dbg_track_obj_blends_bp_2			= 1<< 2,
-	dbg_track_obj_blends_bp_3			= 1<< 3,
-	dbg_track_obj_blends_motion_name	= 1<< 4,
-	dbg_track_obj_blends_time			= 1<< 5,
-	dbg_track_obj_blends_ammount		= 1<< 6,
-	dbg_track_obj_blends_mix_params		= 1<< 7,
-	dbg_track_obj_blends_flags			= 1<< 8,
-	dbg_track_obj_blends_state			= 1<< 9,
-	dbg_track_obj_blends_dump			= 1<< 10
-	};
-	*/
-	extern Flags32	dbg_track_obj_flags;
-	CMD3(CCC_Mask, "dbg_track_obj_blends_bp_0", &dbg_track_obj_flags, dbg_track_obj_blends_bp_0);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_bp_1", &dbg_track_obj_flags, dbg_track_obj_blends_bp_1);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_bp_2", &dbg_track_obj_flags, dbg_track_obj_blends_bp_2);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_bp_3", &dbg_track_obj_flags, dbg_track_obj_blends_bp_3);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_motion_name", &dbg_track_obj_flags, dbg_track_obj_blends_motion_name);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_time", &dbg_track_obj_flags, dbg_track_obj_blends_time);
-
-	CMD3(CCC_Mask, "dbg_track_obj_blends_ammount", &dbg_track_obj_flags, dbg_track_obj_blends_ammount);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_mix_params", &dbg_track_obj_flags, dbg_track_obj_blends_mix_params);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_flags", &dbg_track_obj_flags, dbg_track_obj_blends_flags);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_state", &dbg_track_obj_flags, dbg_track_obj_blends_state);
-	CMD3(CCC_Mask, "dbg_track_obj_blends_dump", &dbg_track_obj_flags, dbg_track_obj_blends_dump);
+	
 
 	CMD1(CCC_DbgVar, "dbg_var");
 

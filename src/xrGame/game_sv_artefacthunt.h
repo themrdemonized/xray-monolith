@@ -148,7 +148,7 @@ public:
 	void SwapTeams();
 
 	//  [7/5/2005]
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		void				OnRender				();
 #endif
 	//  [7/5/2005]

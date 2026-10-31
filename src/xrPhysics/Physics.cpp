@@ -7,7 +7,7 @@
 //#include "gameobject.h"
 //#include "PhysicsShellHolder.h"
 #include "PHCollideValidator.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "debug_output.h"
 #endif
 ///////////////////////////////////////////////////////////////
@@ -270,7 +270,7 @@ IC static int CollideIntoGroup(dGeomID o1, dGeomID o2, dJointGroupID jointGroup,
 		if (do_collide && collided_contacts < MAX_CONTACTS)
 		{
 			++collided_contacts;
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 			if( debug_output().ph_dbg_draw_mask().test(phDbgDrawContacts) )
 				debug_output().DBG_DrawContact(c);
 #endif

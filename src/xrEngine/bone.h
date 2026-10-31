@@ -545,7 +545,7 @@ public:
 	virtual ~CBoneData()
 	{
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     typedef svector<int, 128> BoneDebug;
     void DebugQuery(BoneDebug& L);
 #endif

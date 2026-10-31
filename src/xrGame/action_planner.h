@@ -64,7 +64,7 @@ protected:
 	bool m_initialized;
 	_action_id_type m_current_action_id;
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 public:
 	bool						m_use_log;
 	string64					m_temp_string;
@@ -79,7 +79,7 @@ public:
 	bool m_loaded;
 	bool m_solving;
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 public:
 	virtual LPCSTR				action2string			(const _action_id_type &action_id);
 	virtual LPCSTR				property2string			(const _condition_type &action_id);

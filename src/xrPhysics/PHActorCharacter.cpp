@@ -15,6 +15,10 @@ const float JUMP_INCREASE_VELOCITY_RATE = 1.2f;
 //#ifdef DEBUG
 //XRPHYSICS_API BOOL use_controllers_separation = TRUE;
 //#endif
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+#include "debug_output.h"
+#endif // DEBUG
+
 CPHActorCharacter::CPHActorCharacter(bool single_game): b_single_game(single_game)
 {
 	SetRestrictionType(rtActor);
@@ -405,7 +409,7 @@ void CPHActorCharacter::ChooseRestrictionType(ERestrictionType my_type, float my
 			ch->SetNewRestrictionType(rtStalker);
 			Enable();
 			//else ch->SetRestrictionType(rtStalker);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(debug_output().ph_dbg_draw_mask1().test(ph_m1_DbgActorRestriction))
 				Msg("restriction ready to change small -> large");
 #endif
@@ -414,7 +418,7 @@ void CPHActorCharacter::ChooseRestrictionType(ERestrictionType my_type, float my
 	case rtStalker:
 		if (ch->ObjectRadius() < checkR)
 		{
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 		if(debug_output().ph_dbg_draw_mask1().test(ph_m1_DbgActorRestriction))
 						Msg("restriction  change large ->  small");
 #endif

@@ -618,7 +618,7 @@ bool CAI_Rat::Useful() const
 	return false;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void CAI_Rat::OnRender()
 {
 //	inherited::OnRender();

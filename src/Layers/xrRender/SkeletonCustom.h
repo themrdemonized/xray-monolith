@@ -299,7 +299,7 @@ public:
 	virtual bool NeedUCalc() { return UCalc_ThisFrame; }
 
 	// debug
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	void							DebugRender			(Fmatrix& XFORM);
 #endif
 protected:

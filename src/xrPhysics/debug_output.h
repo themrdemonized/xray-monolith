@@ -1,5 +1,5 @@
 #pragma once
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 
 	enum
 {

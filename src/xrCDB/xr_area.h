@@ -31,9 +31,8 @@ private:
 	collide::rq_results r_temp; // MT: dangerous
 	xr_vector<ISpatial*> r_spatial; // MT: dangerous
 public:
-
-#ifdef DEBUG
-	FactoryPtr<IObjectSpaceRender>		*m_pRender;
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	FactoryPtr<IObjectSpaceRender> *m_pRender;
 	//ref_shader							sh_debug;
 	//clQueryCollision					q_debug;			// MT: dangerous
 	//xr_vector<std::pair<Fsphere,u32> >	dbg_S;				// MT: dangerous
@@ -93,8 +92,8 @@ public:
 	const Fbox& GetBoundingVolume() { return m_BoundingVolume; }
 
 	// Debugging
-#ifdef DEBUG
-	void								dbgRender			();
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+	void dbgRender();
 	//ref_shader							dbgGetShader		()	{ return sh_debug;	}
 #endif
 };

@@ -1,9 +1,8 @@
 #include "pch_script.h"
 #include "Actor_Flags.h"
 #include "hudmanager.h"
-#ifdef DEBUG
-
-#	include "PHDebug.h"
+#if defined(DEBUG) || defined(DEBUG_DRAW)
+    #include "PHDebug.h"
 #endif // DEBUG
 #include "alife_space.h"
 #include "hit.h"
@@ -564,7 +563,7 @@ void CActor::Hit(SHit* pHDS)
 		xr_sprintf(err, "Unknown/unregistered hit type [%d]", HDS.hit_type);
 		R_ASSERT2(0, err);
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     if(ph_dbg_draw_mask.test(phDbgCharacterControl)) {
         DBG_OpenCashedDraw();
         Fvector to;to.add(Position(),Fvector().mul(HDS.dir,HDS.phys_impulse()));

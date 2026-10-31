@@ -165,7 +165,7 @@ public:
 	virtual BOOL _RayQuery(const collide::ray_defs& Q, collide::rq_results& R);
 	bool _ElementCenter(u16 elem_id, Fvector& e_center);
 	const ElementVec& _GetElements() { return elements; }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
     void _dbg_refresh() { BuildTopLevel(); BuildState(); }
 #endif
 };

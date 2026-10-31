@@ -117,7 +117,7 @@ void CObjectHandlerPlanner::set_goal(MonsterSpace::EObjectAction object_action, 
 	}
 }
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 LPCSTR CObjectHandlerPlanner::action2string(const _action_id_type &id)
 {
 	LPSTR S = m_temp_string;
@@ -282,7 +282,7 @@ void CObjectHandlerPlanner::setup(CAI_Stalker* object)
 
 	set_goal(MonsterSpace::eObjectActionIdle, 0, 0, 0, 0, 0);
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	set_use_log					(!!psAI_Flags.test(aiGOAPObject));
 #endif
 }
@@ -321,7 +321,7 @@ void CObjectHandlerPlanner::remove_item(CInventoryItem* inventory_item)
 
 void CObjectHandlerPlanner::update()
 {
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	if ((psAI_Flags.test(aiGOAPObject) && !m_use_log) || (!psAI_Flags.test(aiGOAPObject) && m_use_log))
 		set_use_log			(!!psAI_Flags.test(aiGOAPObject));
 #endif

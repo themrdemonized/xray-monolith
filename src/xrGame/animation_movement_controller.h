@@ -18,7 +18,7 @@ class animation_movement_controller :
 public:
 	void DBG_verify_position_not_chaged() const;
 private:
-#ifdef					DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	Fmatrix				DBG_previous_position;
 #endif
 	//Fmatrix			m_startAnimPose;

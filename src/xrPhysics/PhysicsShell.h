@@ -127,7 +127,7 @@ public:
 	virtual void SetMaterial(LPCSTR m) = 0;
 	virtual void set_DisableParams(const SAllDDOParams& params) = 0;
 	virtual void SetTransform(const Fmatrix& m0, motion_history_state history_state) = 0;
-#ifdef		DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		void			dbg_draw_velocity						( float scale, u32 color )																								= 0;
 	virtual		void			dbg_draw_force							( float scale, u32 color )																								= 0;
 	virtual		void			dbg_draw_geometry						( float scale, u32 color, Flags32 flags = Flags32().assign( 0 ) ) const													= 0;
@@ -160,7 +160,7 @@ public:
 	virtual void add_geom(CODEGeom* g) = 0;
 	virtual void remove_geom(CODEGeom* g) = 0;
 	virtual const IPhysicsGeometry* geometry(u16 i) const = 0;
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	virtual		CPhysicsElement*				parent_element							()																													= 0;
 #endif
 	virtual bool has_geoms() = 0;

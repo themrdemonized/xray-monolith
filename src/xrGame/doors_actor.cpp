@@ -310,7 +310,7 @@ bool actor::update_doors(doors_type const& detected_doors, float const average_s
 	return true;
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 void actor::render					( ) const
 {
 	CDebugRenderer& renderer	= Level().debug_renderer();
@@ -320,10 +320,10 @@ void actor::render					( ) const
 		Fmatrix const& matrix	= (*i)->get_matrix();
 		Fvector temp;
 		matrix.transform_tiny	( temp, (*i)->get_vector(door_state_open) );
-		renderer.draw_line		( Fidentity, matrix.c, temp, D3DCOLOR_XRGB(0,255,0) );
+		renderer.draw_line		( Fidentity, matrix.c, temp, D3DCOLOR_XRGB(0,255,0) , false);
 
 		matrix.transform_tiny	( temp, (*i)->get_vector(door_state_closed) );
-		renderer.draw_line		( Fidentity, matrix.c, temp, D3DCOLOR_XRGB(255,0,0) );
+		renderer.draw_line		( Fidentity, matrix.c, temp, D3DCOLOR_XRGB(255,0,0) , false);
 	}
 }
 #endif // #ifdef DEBUG

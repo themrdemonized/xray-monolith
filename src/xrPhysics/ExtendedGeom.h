@@ -301,7 +301,7 @@ IC void dGeomUserDataClearCashedTries(dxGeom* geom)
 	P->cashed_tries.clear();
 	P->last_aabb_size.set(0.f, 0.f, 0.f);
 }
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 XRPHYSICS_API	bool	IsCyliderContact(const dContact& c);
 #endif
 

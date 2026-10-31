@@ -159,7 +159,7 @@ LPCSTR CMapActionPlanner::object_name() const
 
 void CMapActionPlanner::setup(CUIMapWnd* object)
 {
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 	set_use_log						(false);
 #endif
 	inherited::setup(object);

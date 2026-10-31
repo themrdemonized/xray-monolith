@@ -30,7 +30,7 @@ protected:
 public:
 	typedef typename inherited_action::COperatorCondition COperatorCondition;
 
-#ifdef LOG_ACTION
+#if defined(DEBUG) || defined(DEBUG_DRAW) || defined(LOG_ACTION)
 public:
 	virtual	void		set_use_log				(bool value);
 	virtual void		show					(LPCSTR offset = "");

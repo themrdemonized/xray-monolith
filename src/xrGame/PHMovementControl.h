@@ -160,7 +160,7 @@ public:
 	void CreateCharacter();
 	void DestroyCharacter();
 	void Load(LPCSTR section);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	void dbg_Draw();
 #endif
 

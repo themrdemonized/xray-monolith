@@ -23,7 +23,7 @@
 #include "xrPhysics.h"
 
 #include "../include/xrapi/xrapi.h"
-#ifdef	DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "d3d9types.h"
 #endif
 //IC IGame_Level &GLevel()

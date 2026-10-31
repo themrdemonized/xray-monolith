@@ -19,7 +19,7 @@
 #include "CaptureBoneCallback.h"
 #include "Level.h"
 #include "physicsshellholder.h"
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 #include "phdebug.h"
 #endif
 
@@ -39,7 +39,7 @@ CPHMovementControl::CPHMovementControl(CObject* parent)
 {
 	pObject = parent;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (debug_output().ph_dbg_draw_mask1().test(ph_m1_DbgTrackObject) && (!!pObject->cName()) && stricmp(debug_output().PH_DBG_ObjectTrackName(),*pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::CPHMovementControl %s (constructor) %f,%f,%pObjectf",debug_output().PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -262,7 +262,7 @@ bool CPHMovementControl::MakeJumpPath(xr_vector<DetailPathManager::STravelPathPo
 
 void CPHMovementControl::Calculate(const xr_vector<DetailPathManager::STravelPathPoint>& in_path, float speed, u32& travel_point, float& precision)
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (debug_output().ph_dbg_draw_mask1().test(ph_m1_DbgTrackObject) && (!!pObject->cName()) && stricmp(debug_output().PH_DBG_ObjectTrackName(), *pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::Calculate in %s (Object Position) %f,%f,%f",debug_output().PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -491,7 +491,7 @@ void CPHMovementControl::PathNearestPoint(const xr_vector<DetailPathManager::STr
 		index = i;
 		near_line = false;
 	}
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject) && (!!pObject->cName()) && stricmp(PH_DBG_ObjectTrackName(),*pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::Calculate out %s (Object Position) %f,%f,%f",PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -873,7 +873,7 @@ void CPHMovementControl::SetEnvironment(int enviroment, int old_enviroment)
 
 void CPHMovementControl::SetPosition(const Fvector& P)
 {
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject) && (!!pObject->cName())&&stricmp(PH_DBG_ObjectTrackName(), *pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::SetPosition %s (Object Position) %f,%f,%f",PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -889,7 +889,7 @@ bool CPHMovementControl::TryPosition(Fvector& pos)
 {
 	VERIFY_BOUNDARIES2(pos, ph_boundaries(), m_character->PhysicsRefObject(), "CPHMovementControl::TryPosition	arqument pos");
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject)&&(!!pObject->cName()) && stricmp(PH_DBG_ObjectTrackName(), *pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::TryPosition %s (Object Position) %f,%f,%f",PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -913,7 +913,7 @@ void CPHMovementControl::GetPosition(Fvector& P)
 {
 	VERIFY_BOUNDARIES2(P, ph_boundaries(), m_character->PhysicsRefObject(), "CPHMovementControl::GetPosition	arqument pos");
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if(ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject)&&(!!pObject->cName())&&stricmp(PH_DBG_ObjectTrackName(),*pObject->cName())==0)
 	{
 		Msg("CPHMovementControl::GetPosition %s (Object Position) %f,%f,%f",PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -938,7 +938,7 @@ void CPHMovementControl::AllocateCharacterObject(CharacterType type)
 	eCharacterType = type;
 	m_character->SetMas(fMass);
 	m_character->SetPosition(vPosition);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject) && (!!pObject->cName())&&stricmp(PH_DBG_ObjectTrackName(), *pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::AllocateCharacterObject %s (Object Position) %f,%f,%f",PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -1089,7 +1089,7 @@ void CPHMovementControl::CreateCharacter()
 	dVector3 size = {aabb.x2 - aabb.x1, aabb.y2 - aabb.y1, aabb.z2 - aabb.z1};
 	m_character->Create(size);
 	m_character->SetAirControlFactor(fAirControlParam);
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	if (ph_dbg_draw_mask1.test(ph_m1_DbgTrackObject) && (!!pObject->cName()) && stricmp(PH_DBG_ObjectTrackName(), *pObject->cName()) == 0)
 	{
 		Msg("CPHMovementControl::CreateCharacter %s (Object Position) %f,%f,%f",PH_DBG_ObjectTrackName(),pObject->Position().x,pObject->Position().y,pObject->Position().z);
@@ -1582,7 +1582,7 @@ void CPHMovementControl::SetPLastMaterialIDX(u16* p)
 	m_character->SetPLastMaterialIDX(p);
 }
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_DRAW)
 	void CPHMovementControl::dbg_Draw()
 	{
 #if 0
