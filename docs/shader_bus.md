@@ -166,10 +166,15 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.set_array_uint(token, first, rows)` | `set_array` with unsigned rows, under the same value rule as `set_uint` |
 | `shader_bus.set_object(token, obj, x, y, z, w)` | `true` if the token is valid, the lane id starts `obj_`, `obj` is a game object and all four values are finite. Draws of that object read the value from the next frame on, until `clear_object` or the object goes away. The first refusal on each lane logs a line |
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
-| `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. The first refusal on each lane logs a line |
+| `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. A target or history lane refuses. The first refusal on each lane logs a line |
 | `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene` or `backbuffer`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
 | `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
 | `shader_bus.set_late(token, on)` | `true` if the token is valid and the lane is not shared. From the next frame on, `true` copies the lane again after the frame callbacks, so a write from those callbacks reaches the same frame's draws, and `false` stops it. The first refusal on each lane logs a line. See Late lanes |
+| `shader_bus.register_target(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id over 27 characters or one the engine reserves, an id another `owner` or another kind of lane holds, a renderer without targets, 16 live targets or targets that would pass 1024 MB. See Render targets and passes |
+| `shader_bus.register_pass(id, owner, description, spec)` | a token, or `nil` with a log line for a bad spec field, an id the engine reserves or another `owner` or kind of lane holds, a renderer without passes, a `cs` pass on a renderer without compute, or 32 live passes. See Render targets and passes |
+| `shader_bus.enable_pass(token, on)` | `true` if the token is a live pass. `false` stops the pass drawing, `true` on a stopped pass runs it again from a fresh start, and a call that does not change the state changes nothing |
+| `shader_bus.release_pass(token)` | `true` if the token is a pass. The pass stops and its slot is free, and the id can be registered again |
+| `shader_bus.release_target(token)` | `true` if the token is a target. The target and its history are freed and the id can be registered again |
 | `shader_bus.get_readback(id)` | `ok, x, y, z, w, frame`, texel 0 of the lane's last readback result and the frame it was captured on, `false` with zeros while there is no result |
 | `shader_bus.get_readback(id, i)` | the same for texel `i` (0-based, row-major) of a `none` result, `false` past the last texel. A reduced result has only texel `0` |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
@@ -204,6 +209,13 @@ rows of a buffer lane as of the last frame, `0` for a lane that is not one), `la
 `true` argument), then the twelve legacy rows, and a legacy row only appears if that console
 command still exists on the running exe.
 
+A row also has `role` (`target`, `history` or `pass` for the lanes of Render targets and passes,
+empty for a plain lane; other roles are described with their features). A target row and its history row `<id>_prev` carry `width`, `height`,
+`format`, `bytes`, `history` and `target_state` (`pending`, `ready` or `released`), with the size
+and bytes `0` until the target exists. A pass row carries `stage`, `order`, `pass_state`
+(`pending`, `ready`, `failed` or `off`) and `reason`, the text of the failure and empty
+otherwise.
+
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
 times the published value moved, once a frame at most except on a late lane, which can move at
 both latches, so a lane rewritten every frame with an unchanging value shows many writes and no
@@ -233,7 +245,9 @@ uniform float4 bus_engine_sun_los;
 
 Ids starting `engine_` belong to the engine. `register` and `try_register` refuse them with a log
 line and `nil`, never a fatal. A script checks for an engine lane with
-`shader_bus.owner_of("engine_sun_los") == "engine"`.
+`shader_bus.owner_of("engine_sun_los") == "engine"`. The prefix also covers the texture
+`$user$bus_engine_scene_copy`, which a pass reads as `s_image` at the `scene` stage (see Render
+targets and passes). `register_target` and `register_pass` refuse an `engine_` id too.
 
 ### Console lanes
 
@@ -529,6 +543,176 @@ under the crosshair only where `get_object` exists, and the writers of a shared 
 
 ---
 
+## Render targets and passes
+
+From version `8` on DX10 and DX11, a script can register its own render targets and full screen
+passes. A target is a texture a shader reads as `Texture2D bus_<id>`, with an optional copy of
+its last frame. A pass is a pixel shader, or on DX11 a compute shader, that the engine runs at
+one point of the frame into targets or into the scene. Targets and passes are lanes of their
+`owner`, so `list()` shows them and the same id rules apply.
+
+### Targets
+
+```lua
+local target = shader_bus.register_target("frost", "My Mod", "frost mask", {
+	size = "half", format = "r16f", history = true, clear = 0 })
+```
+
+| key | value |
+|---|---|
+| `size` | `"screen"` (the default), `"half"`, `"quarter"` or `{ w, h }`, each side a whole number from `1` to `4096` |
+| `format` | `rgba8` (the default), `rgb10a2`, `r11g11b10f`, `rg16f`, `r16f`, `r32f`, `rgba16f` or `rgba32f` |
+| `history` | `true` keeps last frame's copy, default `false` |
+| `clear` | a number for all four channels or a table of up to four numbers, default `0` |
+
+A spec field that is not valid refuses the call with a log line that cites the field. A target
+id is a lane id of at most 27 characters, so `<id>_prev` fits.
+
+A shader reads the target as `Texture2D bus_<id>` and its history as `Texture2D bus_<id>_prev`,
+bound the way any `bus_` texture is (see The shader side). The target clears to `clear`, history
+included, when it is created, when its spec changes, when the screen size changes under a
+`"screen"`, `"half"` or `"quarter"` size, on a device reset and on a level change. Registering
+again with the same spec changes nothing and returns the same token.
+
+The history copy runs once a frame, just before the first pass that writes the target, and never
+on a second viewport frame. A target no pass writes never copies. A pass that reads a target
+before its writer has run in the same frame sees the last frame's value.
+
+`release_target` frees the target and its history. Live targets together may take 1024 MB, a
+history target counted twice, sized at the resolution in effect when the target registers. A
+call that would pass that is refused with a log line, and a call that does not grow the target
+always passes.
+
+### Passes
+
+```lua
+shader_bus.register_pass("frost_grow", "My Mod", "grows and melts the frost", {
+	stage = "frame", ps = "myfrost", outputs = { "frost" } })
+```
+
+| key | value |
+|---|---|
+| `stage` | required, one of the stages below |
+| `order` | a whole number, default `0` |
+| `ps` or `cs` | the shader file name without folder or extension, exactly one of them. The file is `shaders\r3\<name>.ps` or `.cs` |
+| `outputs` | required, 1 to 4 ids of the owner's targets that share one size, or the single output `"scene"` on a `scene` or `post` pass, or on a `cs` pass one buffer lane of the owner |
+| `inputs` | a table from an HLSL texture variable to a texture or render target name, at most 16. A `Texture2D bus_<id>` the shader declares needs no entry |
+| `blend` | `none` (the default), `add` or `alpha`, how a pixel pass combines with what its outputs hold |
+| `group` | required on a `cs` pass, the thread group size `{ x, y }`, each side from `1` to `1024` |
+| `svp` | `true` also runs the pass on a second viewport frame, default `false` |
+
+A pass shader compiles with the defines the renderer gives its stock shaders, `SHADER_BUS`,
+`USE_MSAA` and `MSAA_SAMPLES` among them. A pixel pass draws over the stock `stub_screen_space`
+vertex shader, so it takes `p_screen` and samples with `I.tc0`. The first output is
+`SV_Target0`. Textures bind to `t0` to `t15`. The shader of the pass above is
+`shaders\r3\myfrost.ps`:
+
+```hlsl
+#include "common.h"
+
+uniform float4 pass_time;
+uniform float4 bus_frost_cold;
+Texture2D bus_frost_prev;
+
+// frost grows from the screen edge while it is cold and melts when it is not
+float4 main(p_screen I) : SV_Target
+{
+	float old = bus_frost_prev.Sample(smp_rtlinear, I.tc0).x;
+	float edge = saturate(length(I.tc0 - 0.5) * 2.0);
+	float rate = lerp(-0.2, 0.1, saturate(bus_frost_cold.x));
+	return float4(saturate(old + rate * edge * pass_time.x), 0.0, 0.0, 0.0);
+}
+```
+
+`frost_cold` is a plain lane the same mod registers and sets from its own cold value.
+
+A pass starts enabled. `enable_pass(token, false)` stops it, `enable_pass(token, true)` runs it
+again, and `release_pass` removes it. Registering a pass again with the same spec changes
+nothing, and with a changed spec it restarts like a new pass.
+
+A pass that cannot run is `failed` in `list()`, with the reason in `reason` and one `!` line in
+the log, and it draws nothing. The reasons are:
+- its shader file is missing, or a texture variable sits past `t15` or a UAV past `u7`
+- an output is not a live target of the pass's `owner`, or the outputs differ in size
+- it reads its own output, through `inputs` or by declaring `Texture2D bus_<output>`
+- a `cs` pass writes `"scene"`, or an `svp` pass writes a history target
+- a `cs` shader does not declare each output as a `RWTexture2D` or `RWBuffer` called `bus_<id>`
+- `s_image` is misused, see `s_image`
+
+### Stages
+
+| stage | runs |
+|---|---|
+| `frame` | before the frame's first draw |
+| `gbuffer` | after the G-buffer and the rain |
+| `lighting` | at the start of the combine, after the lights and volumetrics |
+| `scene` | after the MSAA resolve, before bloom |
+| `post` | before post processing |
+
+There is no stage for the world. Passes in a stage run by `order`, then `owner`, then id. A
+second viewport frame runs only the passes registered with `svp = true`.
+
+### s_image
+
+A pass at `scene` or `post` that declares `Texture2D s_image` gets the scene as it stood before the
+pass, so a pass that writes `"scene"` can read what it replaces. The engine binds `s_image` itself
+there, and a pass that lists it in `inputs` fails. At `post` the copy is the engine's scratch
+texture. At `scene` it is `$user$bus_engine_scene_copy`, which exists while a `scene` pass reads
+`s_image`. A `post` pass that reads `s_image` fails when the scene and its copy differ in
+format.
+
+At the other stages there is no scene, `s_image` is an ordinary input name, and a shader that
+declares it without listing it fails. A pass that writes `"scene"` cannot also list the scene's
+own texture in `inputs`. At `scene` the output `"scene"` is the combined scene, and at `post` it
+is the image post processing reads.
+
+### pass_time
+
+A pixel or compute shader declares `uniform float4 pass_time;`:
+
+| component | value |
+|---|---|
+| `x` | seconds since the pass last ran |
+| `y` | frames since the pass last ran |
+| `z` | how many times the pass ran since its outputs were last cleared, not counting this run |
+| `w` | `1` on the first run after the outputs were cleared, else `0` |
+
+On a pass's first run, on the first run after an enable and on the first run after its outputs
+cleared, `x` is the frame time and `y` is `1`. A pass that writes a buffer lane counts the buffer
+being created again as a clear.
+
+### Compute
+
+A `cs` pass writes its outputs through `RWTexture2D` variables called `bus_<id>` at `u0` to `u7`,
+and the dispatch covers the first output in groups of `group`. The pass sees last frame through
+`Texture2D bus_<id>_prev`. A target becomes a UAV target while a `cs` pass of its owner
+writes it, even a disabled one, and it is created again, and so cleared, when that changes.
+
+A `cs` pass can instead write one buffer lane of its owner, which `set_buffer` made, through
+`RWBuffer<float4> bus_<id>` for a float lane or `RWBuffer<uint4> bus_<id>` for a uint lane.
+The buffer lane is then the pass's only output, `group` is `{ x, 1 }`, and the dispatch runs one
+thread per row. While the pass lives `set`, `set_uint`, `set_array` and `set_array_uint` refuse
+the lane and the engine stops uploading it, and a buffer starts at zero each time it is created.
+
+### Limits
+
+- 16 live targets, 32 live passes, 4 outputs and 16 inputs a pass. A released target or pass
+  stops counting.
+- A target side from `1` to `4096`, a compute group side from `1` to `1024`.
+- 1024 MB over all live targets, a history target counted twice.
+- Texture slots `t0` to `t15` and UAV slots `u0` to `u7`.
+- A target id of at most 27 characters.
+
+### Renderers
+
+| renderer | what works |
+|---|---|
+| DX11 | everything above |
+| DX10 | targets, history and pixel passes. A `cs` pass and buffer lanes are refused |
+| DX9 | `register_target` and `register_pass` return `nil` with one `!` line |
+
+---
+
 ## Semantics
 
 A lane that is not shared has at most one `owner` for the life of the process. Once
@@ -680,3 +864,8 @@ exes from version `7` on pass.
 - **There is no compatibility check for old exes.** `if shader_bus then` is a complete detection on
   its own, and the all-zero default above is a convention this bus provides, not a guarantee on an
   exe that predates it. The only shader side test is `SHADER_BUS`, from version `7` on.
+- **A failed pass draws nothing.** It logs one `!` line with its reason, shows `pass_state`
+  `failed` and the reason in `list()`, and draws nothing.
+- **A target or history lane takes no texture or buffer.** `set_texture` and `set_buffer` refuse
+  it, so one id never holds two GPU resources.
+- **`bus_list` shows a target or pass as a plain lane.** `list()` has its spec and state.
