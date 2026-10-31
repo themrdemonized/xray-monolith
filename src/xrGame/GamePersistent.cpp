@@ -30,6 +30,7 @@
 #include "UI/UIGameTutorial.h"
 
 #include "../xrEngine/xr_input.h"
+#include "../xrEngine/shader_bus.h"
 
 #ifndef MASTER_GOLD
 #	include "custommonster.h"
@@ -885,6 +886,7 @@ void CGamePersistent::OnEvent(EVENT E, u64 P1, u64 P2)
 		game_sv_Single* game = smart_cast<game_sv_Single*>(Level().Server->game);
 		R_ASSERT(game);
 		game->restart_simulator(saved_name);
+		ShaderBus::level_loaded();
 		xr_free(saved_name);
 		return;
 	}

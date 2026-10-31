@@ -9,7 +9,7 @@ constants with lanes that each have an id and an `owner`. Any script can registe
 any lane, and only the script that registered a lane can write it. The engine needs no advance
 list of names, so a mod can claim a lane without anything being patched into the exe for it.
 
-Requires a modded exe with the bus. `shader_bus.version()` returns `7`. A script that wants
+Requires a modded exe with the bus. `shader_bus.version()` returns `8`. A script that wants
 to detect the feature should test `shader_bus ~= nil` first, since an older exe has no such
 module at all.
 
@@ -67,7 +67,32 @@ shader:dx10texture("s_mymap", "$user$bus_mymap")
 
 On version `7`, a texture lane declared in more than one stage of one pass, say a `Texture2D
 bus_mymap` read in both the vertex and the pixel shader, stops a release exe while the shader
-compiles. Declare a texture lane in one stage of each pass.
+compiles. Declare a texture lane in one stage of each pass. From version `8`, the second stage is
+refused with a log line and the first stage keeps the binding. Only a `bus_` identifier gets the
+refusal, and a texture of any other name read in two stages of one pass still stops the exe.
+
+From version `8` on DX10 and DX11, a shader that declares `Texture2D bus_<id>` gets
+`$user$bus_<id>` bound without a `.s`, in every blender, the engine's own C++ blenders included.
+A texture the `.s` binds to the same slot wins.
+
+From version `8` on DX11, a lane can also be a typed buffer of up to 65,536 rows, for data past
+the 4096 rows of a constant lane. `Buffer<float4> bus_<id>` reads a float lane and
+`Buffer<uint4> bus_<id>` a uint lane. Any `Buffer` with a float or uint return type binds, over a
+four component view, so a narrower type reads the leading components. `Load(i)` reads row `i`,
+a row the script never set reads `0, 0, 0, 0`, and the buffer is empty until the script calls
+`set_buffer` (see Buffer lanes). A float declaration reads the buffer while the lane holds float
+rows and a uint declaration while it holds uint rows. DX10 refuses a buffer with a log line.
+
+```hlsl
+#if defined(SHADER_BUS) && SHADER_BUS >= 8
+Buffer<float4> bus_marks;   // rows from set_buffer, $user$busbuf_marks
+Buffer<uint4>  bus_ids;     // uint lane, $user$busbufu_ids
+Texture2D      bus_hist;    // set_texture, $user$bus_hist
+#endif
+```
+
+A `bus_` texture or buffer bound past the slots of its stage, 16 in the pixel shader, 4 in the
+vertex shader and 16 in the others, binds to nothing and logs one line.
 
 A `bus_` constant declared as an `int` or a `bool`, an array or matrix on DX9, or one larger than
 4096 rows binds to nothing, the engine never writes it, and the log gets one line with the
@@ -94,6 +119,8 @@ version, so a shader can keep its lane reads away from an exe that cannot fill t
 ```
 
 - A shader that never tests `SHADER_BUS` compiles to the same bytecode as before.
+- Buffer lanes and the `Texture2D bus_<id>` bind need `SHADER_BUS >= 8`. Version `7` leaves those
+  declarations unbound.
 - Versions `1` to `6` have the bus but do not define `SHADER_BUS`, so a shader that tests it takes
   its fallback there too.
 - The version is part of each shader cache file name, so the first start on an exe of a new
@@ -134,15 +161,20 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.try_register(id, owner, description)` | a token, or `nil` if the id is already registered with a different `owner` or under the same rules as `register`. A shared lane other than `obj_hotness` returns `nil` with a log line |
 | `shader_bus.register_shared(id, owner, description)` | the token of this `owner` on a shared lane, or `nil` with a log line if a script took the lane with `register` or `try_register`, or under the same rules as `register`. See Shared lanes |
 | `shader_bus.set(token, x, y, z, w)` | `true` if the token is valid and all four values are finite. A NaN or infinite value is dropped, the lane keeps its last value, and the first refusal on each lane logs a line |
-| `shader_bus.set_array(token, first, rows)` | `true` if the token is valid, `first` is a whole number from `0`, `rows` is a non-empty array of rows `{x, y, z, w}` (a missing component reads `0`), every value is finite and the last row is below row 4096. Writes `rows[1]` to row `first` (0-based, the HLSL element index) onward and leaves other rows as they were. Row 0 is the value `set` writes, so `set` and `set_array` from row 0 overwrite each other. The first refusal on each lane logs a line |
+| `shader_bus.set_array(token, first, rows)` | `true` if the token is valid, `first` is a whole number from `0`, `rows` is a non-empty array of rows `{x, y, z, w}` (a missing component reads `0`), every value is finite and the last row is below row 4096, or below the size `set_buffer` gave a larger buffer lane. One call writes at most 4096 rows. Writes `rows[1]` to row `first` (0-based, the HLSL element index) onward and leaves other rows as they were. Row 0 is the value `set` writes, so `set` and `set_array` from row 0 overwrite each other. The first refusal on each lane logs a line |
 | `shader_bus.set_uint(token, a, b, c, d)` | `true` if the token is valid and all four values are whole numbers from `0` to `4294967295`. The lane becomes a uint lane. A value out of range, negative or fractional is dropped and the first refusal on each lane logs a line |
 | `shader_bus.set_array_uint(token, first, rows)` | `set_array` with unsigned rows, under the same value rule as `set_uint` |
 | `shader_bus.set_object(token, obj, x, y, z, w)` | `true` if the token is valid, the lane id starts `obj_`, `obj` is a game object and all four values are finite. Draws of that object read the value from the next frame on, until `clear_object` or the object goes away. The first refusal on each lane logs a line |
 | `shader_bus.clear_object(token, obj)` | `true` under the same token, lane and object rule. Draws of that object read the lane's value again from the next frame on |
-| `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. The first refusal on each lane logs a line |
+| `shader_bus.set_texture(token, name)` | `true` if the token is valid and `name` is a texture or render target name of at most 255 characters other than a `$user$bus_` alias. From the next frame on, or the same frame on a late lane, `$user$bus_<id>` shows it; `""` empties it. A texture not yet loaded loads that frame. A name with no file behind it still returns `true`, and the engine logs `! Can't find texture` and shows its missing texture placeholder. The first refusal on each lane logs a line |
+| `shader_bus.set_readback(token, source, x, y, w, h, reduce)` | `true` if the token is valid and the lane is not shared, `source` is `light`, `scene` or `backbuffer`, `x` and `y` are from `0` to `1`, `w` and `h` are whole numbers from `1` to `32` and `reduce` is `none`, `mean`, `min` or `max`. Arms a readback of the `w` by `h` block centred at `x, y` from the next frame on. `""` as `source` disarms the lane and checks only that `w` and `h` are whole numbers. A 17th armed lane and a renderer other than DX11 refuse. The first refusal on each lane logs a line. See Readback |
+| `shader_bus.set_buffer(token, rows)` | `true` if the token is valid, the lane is not shared and `rows` is a whole number from `1` to `65536` that keeps every buffer lane together within 16 MiB. Makes the lane a buffer of `rows` rows from the next frame on. The size only grows: a call at or below the current size returns `true` and changes nothing, and new rows read `0`. A renderer other than DX11 refuses. The first refusal on each lane logs a line. See Buffer lanes |
+| `shader_bus.set_late(token, on)` | `true` if the token is valid and the lane is not shared. From the next frame on, `true` copies the lane again after the frame callbacks, so a write from those callbacks reaches the same frame's draws, and `false` stops it. The first refusal on each lane logs a line. See Late lanes |
+| `shader_bus.get_readback(id)` | `ok, x, y, z, w, frame`, texel 0 of the lane's last readback result and the frame it was captured on, `false` with zeros while there is no result |
+| `shader_bus.get_readback(id, i)` | the same for texel `i` (0-based, row-major) of a `none` result, `false` past the last texel. A reduced result has only texel `0` |
 | `shader_bus.get(id)` | `ok, x, y, z, w`, the bound value, one frame behind the latest `set` |
 | `shader_bus.get_uint(id)` | `ok, a, b, c, d`, the bound value read as four unsigned integers |
-| `shader_bus.get_row(id, i)` | `ok, x, y, z, w`, bound row `i` (0-based), `0, 0, 0, 0` for a row never set, `false` past the rows a shader declared. Row 0 always answers, like `get`. On a uint lane the values are the raw unsigned integers |
+| `shader_bus.get_row(id, i)` | `ok, x, y, z, w`, bound row `i` (0-based), `0, 0, 0, 0` for a row never set, `false` past the rows a shader declared or `set_buffer` sized. Row 0 always answers, like `get`. On a uint lane the values are the raw unsigned integers |
 | `shader_bus.get_object(id, obj)` | `ok, x, y, z, w`, what draws of `obj` read, its own value or the lane's, `false` with zeros for an unknown lane or a `nil` object |
 | `shader_bus.get_texture(id)` | the texture name `$user$bus_<id>` shows, or `nil` for none or an unknown id |
 | `shader_bus.get_pending(id)` | `ok, x, y, z, w`, the value last written through the token and not yet copied into the bound value, on a shared lane the largest value of its tokens. On a uint lane the values are the raw unsigned integers |
@@ -154,7 +186,7 @@ Do not test the token against `0`, which is truthy in Lua.
 | `shader_bus.stats(id)` | `ok, changes, last_change_frame, bound_frame, writes` |
 | `shader_bus.list()` | rows for the registered lanes, then the twelve legacy lanes |
 | `shader_bus.list(true)` | the same, plus a row for every lane a shader declared that nobody registered |
-| `shader_bus.version()` | `7` |
+| `shader_bus.version()` | `8` |
 
 Each `list` row has `id`, `owner`, `description`, `state` (`registered`, `declared` or
 `legacy`), `source` (the script path that called `register`, empty for a declared or legacy row),
@@ -165,14 +197,17 @@ last write stored, or what a shader declared before any write), `declared_kinds`
 every kind a shader declared the lane as), `objects` (how many objects have their own value on an
 object lane), `shared` (`true` for a shared lane), `writers` (how many tokens a shared lane has
 handed out, `1` for a registered lane that is not shared), `texture` (the texture the lane shows,
-empty for none) and, on a legacy row only,
+empty for none), `readback` (`none`, `ok`, `refused` or `lost`, see Readback), `buffer_rows` (the
+rows of a buffer lane as of the last frame, `0` for a lane that is not one), `late` (the last
+`set_late` value, the lane latches late from the next frame) and, on a legacy row only,
 `writer`. Registered rows come first (declared rows too, with the
 `true` argument), then the twelve legacy rows, and a legacy row only appears if that console
 command still exists on the running exe.
 
 `writes` in `stats` counts every `set` call made through the lane's token. `changes` counts the
-frames on which the published value moved, so a lane rewritten every frame with an
-unchanging value shows many writes and no changes. `last_change_frame` is the last frame the bound
+times the published value moved, once a frame at most except on a late lane, which can move at
+both latches, so a lane rewritten every frame with an unchanging value shows many writes and no
+changes. `last_change_frame` is the last frame the bound
 value changed, `bound_frame` is the last frame a shader pass read the lane, so a `bound_frame`
 far behind the current frame means the lane is bound to a shader nothing is drawing. `stats`
 answers for a declared-but-unregistered lane too; it comes back `false` with all zeros only when
@@ -313,6 +348,86 @@ Limits:
 - An exe before version `5` treats `obj_hotness` as an ordinary object lane that `L_hotness` never
   reads.
 
+### Readback
+
+A readback copies a small block of what the GPU drew back to Lua. A script arms it on its own lane
+with `set_readback` and reads the result with `get_readback` a few frames later. The copy never
+stalls the frame, and nothing is copied while no lane is armed.
+
+```lua
+local token = shader_bus.register("mymeter", "My Mod", "light at the screen centre")
+if token and shader_bus.set_readback then
+	shader_bus.set_readback(token, "light", 0.5, 0.5, 16, 16, "mean")
+end
+
+-- each update
+local ok, r, g, b, _, frame = shader_bus.get_readback("mymeter")
+if ok and device().frame - frame < 10 then level_light = 0.2126 * r + 0.7152 * g + 0.0722 * b end
+```
+
+| source | what the block holds |
+|---|---|
+| `light` | the light accumulation before the combine, linear and unbounded |
+| `scene` | the combined scene before bloom |
+| `backbuffer` | the finished frame before the UI |
+
+The block is `w` by `h` texels centred on the texel under `x, y` of the target, moved inward where
+it would cross an edge. The result holds every texel in rows, left to right and top to bottom,
+for `none`, or one texel with the per component mean, minimum or maximum of the block for `mean`,
+`min` and `max`. Each texel is `x, y, z, w` as the red, green, blue and alpha of the target, from
+`0` to `1` for the 8 and 10 bit targets.
+
+`frame` is the `device().frame` of the frame the block was captured on. A result arrives two to
+three frames after its capture, and a script that needs a fresh value compares `frame` with
+`device().frame`. A new `set_readback` call with a different request drops the result, and the next
+result comes from the new request.
+
+The `readback` key of a `list` row says where the lane stands:
+- `none`, no result yet, after a change of request, a level load or a device reset, or for a lane
+  that never armed one
+- `ok`, `get_readback` has a result
+- `refused`, the source cannot be read back, a multisampled target or a format the engine cannot
+  decode, with one log line until the lane disarms
+- `lost`, the last copy failed, and `get_readback` returns `false` until the next result
+
+Limits:
+- 16 armed lanes, at most 32 texels a side, and at most 3 copies in flight per lane. A lane whose
+  copies are all still in flight skips the copy that frame.
+- DX11 only. Every other renderer refuses `set_readback`.
+- A level load and a device reset drop every result. Frames that skip Present, such as second
+  viewport frames, capture nothing.
+- The block reads whatever the frame drew there, the player's hands and weapon included.
+- An older exe has no `set_readback`, so check `shader_bus.set_readback ~= nil` before calling it.
+
+### Buffer lanes
+
+`set_buffer` makes a lane a buffer that a `Buffer<float4>` or `Buffer<uint4>` declaration reads,
+and `set_array` or `set_array_uint` fill its rows as on any lane. Row 0 is still the value `set`
+writes.
+
+```lua
+local token = shader_bus.register("marks", "My Mod", "marker positions")
+if token and shader_bus.set_buffer and shader_bus.set_buffer(token, 10000) then
+	shader_bus.set_array(token, 0, { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } })
+end
+```
+
+Limits:
+- 65,536 rows a lane and 16 MiB over every buffer lane, at most 4096 rows in one `set_array` call.
+- DX11 only. Every other renderer refuses `set_buffer`.
+- The buffer keeps its rows over a level change and a device reset.
+- A frame on which the lane changed uploads the whole buffer once.
+- An older exe has no `set_buffer`, so check `shader_bus.set_buffer ~= nil` before calling it.
+
+### Late lanes
+
+`set_late(token, true)` copies the lane a second time after the frame callbacks, so a `set`,
+`set_array` or `set_texture` from that frame's callbacks reaches that frame's draws. The lane
+turns late or back at the next per-frame update.
+- Object values from `set_object` and `clear_object` still arrive the next frame.
+- A shared lane refuses `set_late`.
+- An older exe has no `set_late`, so check `shader_bus.set_late ~= nil` before calling it.
+
 ### Console
 
 - `bus_list` prints every lane with its `owner`, description, current bound value, state and its
@@ -429,7 +544,8 @@ if forced) into its bound value once per frame, before the frame callbacks run, 
 write is never half visible to a shader mid-write. This copy runs every frame the game draws,
 the main menu included, and stops while a level loads, so a value set during a load reaches
 shaders on the first frame after it. The copy is also why `get` trails `set` by one frame and
-why `get_pending` and `get` can legitimately disagree.
+why `get_pending` and `get` can legitimately disagree. A late lane is copied again after the frame
+callbacks (see Late lanes).
 
 Lanes are never removed once declared or registered, so a token stays valid for the rest of the
 process, and a lane you query early keeps existing even if nobody ever claims it. The bus has room for

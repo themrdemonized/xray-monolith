@@ -13,6 +13,65 @@ namespace ShaderBus
 
 	struct lane_shared;
 
+	// where a readback copies from and how it folds the block
+	enum readback_source
+	{
+		readback_off = 0,
+		readback_light = 1,
+		readback_scene = 2,
+		readback_backbuffer = 3
+	};
+
+	enum readback_reduce
+	{
+		reduce_none = 0,
+		reduce_mean = 1,
+		reduce_min = 2,
+		reduce_max = 3
+	};
+
+	// list reports these as none, ok, refused and lost
+	enum readback_state
+	{
+		readback_none = 0,
+		readback_ok = 1,
+		readback_refused = 2,
+		readback_lost = 3
+	};
+
+	// a lane's readback request as written and as bound, what the renderer landed and what scripts read
+	struct lane_readback
+	{
+		u8 source_pending;
+		u8 reduce_pending;
+		u8 w_pending;
+		u8 h_pending;
+		float x_pending;
+		float y_pending;
+		u8 source;
+		u8 reduce;
+		u8 w;
+		u8 h;
+		float x;
+		float y;
+		// moves with every bound request so copies of an older one are dropped
+		u32 generation;
+		// written by the renderer, published by the per-frame update
+		xr_vector<Fvector4> landed;
+		u32 landed_frame;
+		u8 landed_state;
+		bool landed_new;
+		xr_vector<Fvector4> result;
+		u32 result_frame;
+		u8 state;
+
+		lane_readback() : source_pending(0), reduce_pending(0), w_pending(0), h_pending(0), x_pending(0.f), y_pending(0.f),
+		                  source(0), reduce(0), w(0), h(0), x(0.f), y(0.f), generation(0), landed_frame(0), landed_state(0),
+		                  landed_new(false), result_frame(0), state(0)
+		{
+		}
+	};
+
 	struct lane
 	{
 		shared_str id;
@@ -32,6 +91,8 @@ namespace ShaderBus
 		u32 rows_declared;
 		// the tokens of a shared lane and their values, null for a lane that is not shared
 		lane_shared* shared;
+		// the lane's readback, null until set_readback first arms one
+		lane_readback* readback;
 		// objects with their own value on an obj_ lane
 		u32 objects;
 		u32 changes;
@@ -50,10 +111,16 @@ namespace ShaderBus
 		bool bound_forced;
 		bool warned;
 		bool rows_dirty;
+		// the rows set_buffer asked for, and that size and the kind as of the last per-frame update
+		u32 buffer_rows;
+		u32 buffer_bound;
+		u8 buffer_kind;
+		// latched again after the frame callbacks
+		bool late;
 
-		lane() : rows_declared(0), shared(nullptr), objects(0), changes(0), writes(0), last_change_frame(0), bound_frame(0), index(0),
+		lane() : rows_declared(0), shared(nullptr), readback(nullptr), objects(0), changes(0), writes(0), last_change_frame(0), bound_frame(0), index(0),
 		         nonce(0), kind(kind_float), declared_kinds(0), registered(false), is_forced(false),
-		         bound_forced(false), warned(false), rows_dirty(false)
+		         bound_forced(false), warned(false), rows_dirty(false), buffer_rows(0), buffer_bound(0), buffer_kind(0), late(false)
 		{
 			pending.set(0.f, 0.f, 0.f, 0.f);
 			bound.set(0.f, 0.f, 0.f, 0.f);
@@ -82,8 +149,15 @@ namespace ShaderBus
 
 	// the most 16 byte rows one lane can have
 	const u32 max_rows = 4096;
+	// the most rows of one buffer lane and bytes of all buffer lanes
+	const u32 max_buffer_rows = 65536;
+	const u32 max_buffer_bytes = 16 << 20;
 	// the most obj_ lanes one pass binds
 	const u32 max_object_lanes = 16;
+	// the most armed readback lanes, texels a side of one block and copies in flight per lane
+	const u32 max_readbacks = 16;
+	const u32 max_readback_block = 32;
+	const u32 readback_ring = 3;
 
 	// what a draw of an object binds on an obj_ lane, its own value or the lane's
 	inline const Fvector4& object_bound(const lane* l, const object_values* block)
@@ -175,10 +249,31 @@ namespace ShaderBus
 	// a value as text in the lane's kind, (x, y, z, w)
 	ENGINE_API LPCSTR value_text(const lane* l, const Fvector4& value, string256& out);
 
+	// the renderer calls this at device create when it can bind buffers and read back
+	ENGINE_API void enable_gpu_lanes();
+	// arms a w by h block centred at x, y in 0..1 of light, scene or backbuffer, an empty source disarms
+	ENGINE_API bool set_readback(u32 token, LPCSTR source, float x, float y, u32 w, u32 h, LPCSTR reduce);
+	// texel i of the last result, row-major for none and 0 only for a reduce, false with no result
+	ENGINE_API bool get_readback(LPCSTR id, u32 i, Fvector4& value, u32& frame);
+	// armed readback lanes as of the last per-frame update, main thread only
+	ENGINE_API const xr_vector<lane*>& readbacks();
+	// sizes a lane as a typed buffer of rows, grow only, new rows read 0
+	ENGINE_API bool set_buffer(u32 token, u32 rows);
+	// buffer lanes as of the last per-frame update, main thread only
+	ENGINE_API const xr_vector<lane*>& buffers();
+	// counts a finished level load, any thread
+	ENGINE_API void level_loaded();
+	// the level count as of the last per-frame update, main thread only
+	ENGINE_API u32 level_epoch();
+
 	// copies the forced or pending value to bound and counts a change when it differs
 	// and moves queued object values into each object's block and pending textures to bound
 	// a shared lane or object written since the last per-frame update takes the largest value of its tokens
 	ENGINE_API void frame_latch();
+	// a late lane also latches after the frame callbacks, its draws see the same frame's writes
+	ENGINE_API bool set_late(u32 token, bool on);
+	// latches late lanes, main thread after the frame callbacks
+	ENGINE_API void frame_latch_late();
 
 	ENGINE_API void note_legacy_write(LPCSTR command, LPCSTR writer);
 	ENGINE_API bool legacy_writer(LPCSTR command, string256& out);

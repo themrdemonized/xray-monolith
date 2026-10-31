@@ -241,6 +241,8 @@ void R_constant_table::merge(R_constant_table* T)
 #	endif
 #endif
 			C->samp = src->samp;
+			C->dimension = src->dimension;
+			C->return_type = src->return_type;
 			table_tmp.push_back(C);
 		}
 		else

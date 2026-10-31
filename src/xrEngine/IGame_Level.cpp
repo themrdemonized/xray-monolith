@@ -153,6 +153,7 @@ bool IGame_Level::Load(u32 dwNum)
 
 	Device.seqFrame.Add(this);
 
+	ShaderBus::level_loaded();
 	ShaderBus::dump();
 
 	//SECUROM_MARKER_PERFORMANCE_OFF(10)

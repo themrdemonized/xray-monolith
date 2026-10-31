@@ -81,6 +81,15 @@ static xr_vector<shared_str> g_bus_rejected;
 static xr_vector<bus_legacy_row> g_bus_legacy;
 static xr_vector<shared_str> g_bus_legacy_logged;
 static xrCriticalSection g_bus_lock;
+static bool g_bus_gpu_lanes = false;
+// finished level loads, and the count as of the last per-frame update
+static u32 g_bus_epoch_live = 0;
+static u32 g_bus_epoch = 0;
+static xr_vector<ShaderBus::lane*> g_bus_readbacks;
+static xr_vector<ShaderBus::lane*> g_bus_buffers;
+// bytes set_buffer has handed out over every buffer lane
+static u32 g_bus_buffer_bytes = 0;
+static xr_vector<ShaderBus::lane*> g_bus_late;
 
 ENGINE_API const ShaderBus::lane* ShaderBus::hotness_lane = nullptr;
 
@@ -587,7 +596,8 @@ bool ShaderBus::set_uint(u32 token, u32 x, u32 y, u32 z, u32 w)
 // copies rows bit for bit, called under the lock
 static bool bus_write_rows(ShaderBus::lane* l, u32 first, const void* rows, u32 count, u8 kind)
 {
-	if (first >= ShaderBus::max_rows || count > ShaderBus::max_rows - first)
+	const u32 limit = _max(ShaderBus::max_rows, l->buffer_rows);
+	if (first >= limit || count > limit - first)
 		return bus_refuse_write(l, "rows past the row limit");
 
 	Fvector4 zero;
@@ -801,6 +811,111 @@ bool ShaderBus::set_texture(u32 token, LPCSTR name)
 	return true;
 }
 
+bool ShaderBus::set_readback(u32 token, LPCSTR source, float x, float y, u32 w, u32 h, LPCSTR reduce)
+{
+	static LPCSTR sources[] = { "", "light", "scene", "backbuffer" };
+	static LPCSTR reduces[] = { "none", "mean", "min", "max" };
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "a readback, a shared lane takes set and set_object only");
+	if (!g_bus_gpu_lanes)
+		return bus_refuse_write(l, "a readback, this renderer has none");
+
+	u32 src = 0;
+	while (src < 4 && (!source || xr_strcmp(source, sources[src])))
+		++src;
+	if (src == 4)
+		return bus_refuse_write(l, "a readback source other than light, scene or backbuffer");
+
+	// disarming needs no block and leaves a lane with no readback as it is
+	if (src == readback_off)
+	{
+		if (l->readback)
+		{
+			l->readback->source_pending = readback_off;
+			++l->writes;
+		}
+		return true;
+	}
+
+	if (!(x >= 0.f && x <= 1.f) || !(y >= 0.f && y <= 1.f))
+		return bus_refuse_write(l, "a readback centre outside 0 to 1");
+	if (w < 1 || w > max_readback_block || h < 1 || h > max_readback_block)
+		return bus_refuse_write(l, "a readback block outside 1 to 32 texels a side");
+
+	u32 op = 0;
+	while (op < 4 && (!reduce || xr_strcmp(reduce, reduces[op])))
+		++op;
+	if (op == 4)
+		return bus_refuse_write(l, "a readback reduce other than none, mean, min or max");
+
+	u32 armed = 0;
+	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
+		if (g_bus_lanes[i] != l && g_bus_lanes[i]->readback && g_bus_lanes[i]->readback->source_pending != readback_off)
+			++armed;
+	if (armed >= max_readbacks)
+		return bus_refuse_write(l, "a readback past the 16 armed lanes");
+
+	if (!l->readback)
+		l->readback = xr_new<lane_readback>();
+	lane_readback* r = l->readback;
+	r->source_pending = u8(src);
+	r->reduce_pending = u8(op);
+	r->w_pending = u8(w);
+	r->h_pending = u8(h);
+	r->x_pending = x;
+	r->y_pending = y;
+	++l->writes;
+	return true;
+}
+
+bool ShaderBus::set_buffer(u32 token, u32 rows)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "a buffer, a shared lane takes set and set_object only");
+	if (!g_bus_gpu_lanes)
+		return bus_refuse_write(l, "a buffer, this renderer has none");
+	if (rows < 1 || rows > max_buffer_rows)
+		return bus_refuse_write(l, "a buffer outside 1 to 65536 rows");
+	if (rows <= l->buffer_rows)
+		return true;
+	if (g_bus_buffer_bytes - l->buffer_rows * 16 + rows * 16 > max_buffer_bytes)
+		return bus_refuse_write(l, "a buffer past the 16 MiB all buffer lanes share");
+
+	Fvector4 zero;
+	zero.set(0.f, 0.f, 0.f, 0.f);
+	if (l->rows_pending.empty())
+		l->rows_pending.push_back(l->pending);
+	if (l->rows_pending.size() < rows)
+		l->rows_pending.resize(rows, zero);
+	l->rows_dirty = true;
+	g_bus_buffer_bytes += (rows - l->buffer_rows) * 16;
+	l->buffer_rows = rows;
+	++l->writes;
+	return true;
+}
+
+bool ShaderBus::set_late(u32 token, bool on)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	lane* l = bus_writable(token);
+	if (!l)
+		return false;
+	if (l->shared)
+		return bus_refuse_write(l, "a late latch, a shared lane takes set and set_object only");
+
+	l->late = on;
+	return true;
+}
+
 u32 ShaderBus::texture_serial()
 {
 	return g_bus_texture_serial;
@@ -843,7 +958,7 @@ bool ShaderBus::get_row(LPCSTR id, u32 row, Fvector4& value)
 		return false;
 
 	const lane* l = g_bus_lanes[found];
-	if (row >= _max(l->rows_declared, 1u))
+	if (row >= _max(_max(l->rows_declared, l->buffer_rows), 1u))
 		return false;
 
 	if (row == 0)
@@ -852,6 +967,22 @@ bool ShaderBus::get_row(LPCSTR id, u32 row, Fvector4& value)
 		value.set(l->rows_bound[row]);
 	else
 		value.set(0.f, 0.f, 0.f, 0.f);
+	return true;
+}
+
+bool ShaderBus::get_readback(LPCSTR id, u32 i, Fvector4& value, u32& frame)
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	const int found = bus_find(id);
+	if (found < 0)
+		return false;
+
+	const lane_readback* r = g_bus_lanes[found]->readback;
+	if (!r || r->state != readback_ok || i >= r->result.size())
+		return false;
+
+	value.set(r->result[i]);
+	frame = r->result_frame;
 	return true;
 }
 
@@ -1027,9 +1158,92 @@ LPCSTR ShaderBus::value_text(const lane* l, const Fvector4& value, string256& ou
 	return out;
 }
 
+// binds a changed readback request, else publishes what the renderer landed, called under the lock
+static void bus_latch_readback(ShaderBus::lane* l, bool reloaded)
+{
+	ShaderBus::lane_readback& r = *l->readback;
+	if (reloaded || r.source != r.source_pending || r.reduce != r.reduce_pending || r.w != r.w_pending ||
+		r.h != r.h_pending || r.x != r.x_pending || r.y != r.y_pending)
+	{
+		r.source = r.source_pending;
+		r.reduce = r.reduce_pending;
+		r.w = r.w_pending;
+		r.h = r.h_pending;
+		r.x = r.x_pending;
+		r.y = r.y_pending;
+		++r.generation;
+		r.result.clear();
+		r.state = ShaderBus::readback_none;
+		r.landed_new = false;
+	}
+	else if (r.landed_new)
+	{
+		// a lost copy keeps the last result
+		if (r.landed_state == ShaderBus::readback_ok)
+		{
+			r.result = r.landed;
+			r.result_frame = r.landed_frame;
+		}
+		else if (r.landed_state != ShaderBus::readback_lost)
+			r.result.clear();
+		r.state = r.landed_state;
+		r.landed_new = false;
+	}
+
+	if (r.source != ShaderBus::readback_off)
+		g_bus_readbacks.push_back(l);
+}
+
+// copies one lane's pending value, rows and texture to bound, true when the texture moved
+static bool bus_latch_lane(ShaderBus::lane* l)
+{
+	bool textures_moved = false;
+	const Fvector4& src = l->is_forced ? l->forced : l->pending;
+
+	// bitwise so a uint value that reads as a NaN float still compares equal
+	bool moved = 0 != memcmp(&src, &l->bound, sizeof(Fvector4));
+
+	CopyMemory(&l->bound, &src, sizeof(Fvector4));
+
+	// row 0 always follows the bound value so array binds also see a forced value
+	if (l->rows_dirty)
+	{
+		const u32 n = u32(l->rows_pending.size());
+		if (n != l->rows_bound.size() ||
+			(n > 1 && 0 != memcmp(&l->rows_pending[1], &l->rows_bound[1], (n - 1) * sizeof(Fvector4))))
+			moved = true;
+
+		l->rows_bound = l->rows_pending;
+		l->rows_dirty = false;
+	}
+	if (!l->rows_bound.empty())
+		CopyMemory(&l->rows_bound[0], &l->bound, sizeof(Fvector4));
+	l->bound_forced = l->is_forced;
+
+	if (!l->texture_pending.equal(l->texture_bound))
+	{
+		l->texture_bound = l->texture_pending;
+		textures_moved = true;
+		moved = true;
+	}
+
+	if (moved)
+	{
+		++l->changes;
+		l->last_change_frame = Device.dwFrame;
+	}
+	return textures_moved;
+}
+
 void ShaderBus::frame_latch()
 {
 	xrCriticalSectionGuard guard(&g_bus_lock);
+	const bool reloaded = g_bus_epoch != g_bus_epoch_live;
+	g_bus_epoch = g_bus_epoch_live;
+	g_bus_readbacks.clear();
+	g_bus_buffers.clear();
+	g_bus_late.clear();
+
 	for (u32 i = 0; i < g_bus_cvars.size(); ++i)
 		bus_read_cvar(g_bus_cvars[i]);
 
@@ -1046,40 +1260,21 @@ void ShaderBus::frame_latch()
 	for (u32 i = 0; i < g_bus_lanes.size(); ++i)
 	{
 		lane* l = g_bus_lanes[i];
-		const Fvector4& src = l->is_forced ? l->forced : l->pending;
-
-		// bitwise so a uint value that reads as a NaN float still compares equal
-		bool moved = 0 != memcmp(&src, &l->bound, sizeof(Fvector4));
-
-		CopyMemory(&l->bound, &src, sizeof(Fvector4));
-
-		// row 0 always follows the bound value so array binds also see a forced value
-		if (l->rows_dirty)
-		{
-			const u32 n = u32(l->rows_pending.size());
-			if (n != l->rows_bound.size() ||
-				(n > 1 && 0 != memcmp(&l->rows_pending[1], &l->rows_bound[1], (n - 1) * sizeof(Fvector4))))
-				moved = true;
-
-			l->rows_bound = l->rows_pending;
-			l->rows_dirty = false;
-		}
-		if (!l->rows_bound.empty())
-			CopyMemory(&l->rows_bound[0], &l->bound, sizeof(Fvector4));
-		l->bound_forced = l->is_forced;
-
-		if (!l->texture_pending.equal(l->texture_bound))
-		{
-			l->texture_bound = l->texture_pending;
+		if (bus_latch_lane(l))
 			textures_moved = true;
-			moved = true;
+
+		if (l->readback)
+			bus_latch_readback(l, reloaded);
+
+		if (l->buffer_rows)
+		{
+			l->buffer_bound = l->buffer_rows;
+			l->buffer_kind = l->kind;
+			g_bus_buffers.push_back(l);
 		}
 
-		if (moved)
-		{
-			++l->changes;
-			l->last_change_frame = Device.dwFrame;
-		}
+		if (l->late)
+			g_bus_late.push_back(l);
 	}
 	if (textures_moved)
 		++g_bus_texture_serial;
@@ -1094,6 +1289,28 @@ void ShaderBus::frame_latch()
 	}
 	g_bus_object_writes.clear();
 	hotness_lane = g_bus_hotness;
+}
+
+void ShaderBus::frame_latch_late()
+{
+	// written only by frame_latch on this thread
+	if (g_bus_late.empty())
+		return;
+
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	bool textures_moved = false;
+	for (u32 i = 0; i < g_bus_late.size(); ++i)
+	{
+		lane* l = g_bus_late[i];
+		if (bus_latch_lane(l))
+			textures_moved = true;
+
+		// rows copied here upload with the kind they were written as
+		if (l->buffer_rows)
+			l->buffer_kind = l->kind;
+	}
+	if (textures_moved)
+		++g_bus_texture_serial;
 }
 
 void ShaderBus::note_legacy_write(LPCSTR command, LPCSTR writer)
@@ -1200,7 +1417,34 @@ void ShaderBus::dump()
 	}
 }
 
+void ShaderBus::enable_gpu_lanes()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	g_bus_gpu_lanes = true;
+}
+
+const xr_vector<ShaderBus::lane*>& ShaderBus::readbacks()
+{
+	return g_bus_readbacks;
+}
+
+void ShaderBus::level_loaded()
+{
+	xrCriticalSectionGuard guard(&g_bus_lock);
+	++g_bus_epoch_live;
+}
+
+u32 ShaderBus::level_epoch()
+{
+	return g_bus_epoch;
+}
+
+const xr_vector<ShaderBus::lane*>& ShaderBus::buffers()
+{
+	return g_bus_buffers;
+}
+
 int ShaderBus::version()
 {
-	return 7;
+	return 8;
 }

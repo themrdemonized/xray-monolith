@@ -722,6 +722,7 @@ void CRenderDevice::FrameMove()
 	
 	START_PROFILE("Process seqFrame");
 	Device.seqFrame.Process(rp_Frame);
+	ShaderBus::frame_latch_late();
 	STOP_PROFILE;
 	
 	g_bLoaded = TRUE;
