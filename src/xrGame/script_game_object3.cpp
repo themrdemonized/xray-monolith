@@ -44,6 +44,7 @@
 #include "ai/monsters/burer/burer.h"
 #include "ai/monsters/controller/controller.h"
 #include "ai/monsters/poltergeist/poltergeist.h"
+#include "ai/monsters/snork/snork.h"
 #include "ai/monsters/control_manager_custom.h"
 #include "ai/monsters/control_jump.h"
 #include "ai/monsters/control_run_attack.h"
@@ -514,6 +515,47 @@ void CScriptGameObject::set_burer_tele_params(int max_objects, float find_radius
 	if (fly_velocity >= 0.f) burer->m_tele_fly_velocity = fly_velocity;
 }
 
+// Burer only. Shield pacing: cooldown between raises and how long each holds. Negative keeps the loaded
+// value; default byte-identical vanilla. The trigger (lost ~1% health + off cooldown) stays engine-owned.
+void CScriptGameObject::set_burer_shield_params(float cooldown_ms, float duration_ms)
+{
+	CBurer* burer = smart_cast<CBurer*>(&object());
+	if (!burer)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CBurer : cannot access class member set_burer_shield_params!");
+		return;
+	}
+	if (cooldown_ms >= 0.f) burer->m_shield_cooldown = (TTime)cooldown_ms;
+	if (duration_ms >= 0.f) burer->m_shield_time = (TTime)duration_ms;
+}
+
+// Snork only. Arms the roar/threaten the engine hardwires off (CSnork::check_start_conditions returns false
+// for eControlThreaten in vanilla; the data is loaded). Armed, a try_monster_threaten fires it; false = vanilla.
+void CScriptGameObject::set_snork_roar_enabled(bool enabled)
+{
+	CSnork* snork = smart_cast<CSnork*>(&object());
+	if (!snork)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CSnork : cannot access class member set_snork_roar_enabled!");
+		return;
+	}
+	snork->m_script_roar_enabled = enabled;
+}
+
+// Controller only. Fires the psi tube on the caller's premise, but only if the engine's own start conditions
+// pass (can_tube_fire: live enemy, see-duration met, psy-hit ready, min distance). Returns whether it fired.
+// Refusal-checked - never commands a blind fire. There is no force flag to mirror; this is a direct invoke.
+bool CScriptGameObject::try_controller_tube()
+{
+	CController* controller = smart_cast<CController*>(&object());
+	if (!controller) return false;
+	if (!controller->can_tube_fire()) return false;
+	controller->tube_fire();
+	return true;
+}
+
 void CScriptGameObject::set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms,
                                                    float min_distance)
 {
@@ -701,6 +743,7 @@ void CScriptGameObject::set_monster_run_attack_params(float min_dist, float max_
 	}
 	run_attack->set_params(min_dist, max_dist, min_delay_ms, max_delay_ms);
 }
+
 
 void CScriptGameObject::set_monster_jump_flags(bool auto_aim, bool prepare_in_move, bool ground_skip,
                                                float auto_aim_factor)

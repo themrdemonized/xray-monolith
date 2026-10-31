@@ -262,7 +262,15 @@ _G.CMonsterCombatAction = function(monster, enemy, dist, enemy_strength, can_jum
 	return tonumber(flags.substate) or -1
 end
 
---[[ 
+-- Bloodsucker vampire grab satisfied: fired when a bloodsucker completes a vampire drain on the actor.
+-- The grab bypasses actor_on_before_hit, so the health drain is invisible to every hit seam; this is
+-- the only signal a mod can attribute it from. One argument: the bloodsucker. The victim is the actor.
+AddScriptCallback("bloodsucker_on_vampire")
+_G.CBloodsuckerOnVampire = function(bloodsucker)
+	SendScriptCallback("bloodsucker_on_vampire", bloodsucker)
+end
+
+--[[
 
 On right click on PDA map callback
 Params are property_ui and map_table

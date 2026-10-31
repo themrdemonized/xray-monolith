@@ -165,9 +165,17 @@ public:
 	void set_force_gravi_attack(bool force_gravi) { m_force_gravi_attack = force_gravi; }
 	bool get_force_gravi_attack() const { return m_force_gravi_attack; }
 
+	// Gravi REQUEST (unlike force): fire gravi on a script premise but the SAFE way - it keeps the real
+	// range/facing/see feasibility (only the cooldown is bypassed) and is selected BELOW the shield, so
+	// a hurt burer still shields first. Consumed when the gravi is selected. Default false = vanilla.
+	void set_request_gravi_attack(bool request) { m_request_gravi_attack = request; }
+	bool get_request_gravi_attack() const { return m_request_gravi_attack; }
+
+
 
 private:
 	bool m_force_gravi_attack;
+	bool m_request_gravi_attack;
 
 	void xr_stdcall StaminaHit();
 

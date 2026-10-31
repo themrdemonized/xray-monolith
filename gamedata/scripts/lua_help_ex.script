@@ -854,7 +854,7 @@
         eStateAttack_Attack_On_Run   = 262169,
         eStateCustom                 = 1073741824
     }
-    
+
     // slot ids, the same numbers move_to_slot and active_slot use, read as inventory.knife
     enum inventory.slot {
         no_active   = 0,
@@ -972,6 +972,11 @@
         void set_chimera_attack_params(float attack_radius, float prepare_timeout_ms, float attack_timeout_ms, int num_prepare_jumps, int num_attack_jumps) // Chimera/lurker only. attack_radius passes through unclamped; the circle-run geometry clamps its own sqrt argument below jump_max_distance, so an oversized radius cannot NaN it. int args negative = keep.
         void set_burer_gravi_params(float cooldown_ms, float min_dist, float max_dist, float speed, float radius, float hit_power) // Burer only. Gravity-attack family.
         void set_burer_tele_params(int max_objects, float find_radius, float min_dist, float max_dist, float fly_velocity) // Burer only. Telekinesis family.
+        void set_burer_shield_params(float cooldown_ms, float duration_ms) // Burer only. Shield pacing - cooldown between raises, hold duration. Negative keeps the loaded value; default vanilla. The raise trigger (lost ~1% health + off cooldown) stays engine-owned.
+        void burer_set_request_gravi_attack(bool request) // Burer only. The SAFE gravi trigger (unlike burer_set_force_gravi_attack, which fires blind and preempts the shield): fires gravi on your premise but keeps the real range/facing/see feasibility (only the cooldown is bypassed) and is selected BELOW the shield, so a hurt burer shields first. Consumed when the gravi is selected. false (default) = vanilla.
+        bool burer_get_request_gravi_attack() // Burer only. The pending request-gravi flag; false on a non-burer.
+        void set_snork_roar_enabled(bool enabled) // Snork only. Arms the roar/threaten the engine hardwires off in vanilla (the data is loaded); armed, try_monster_threaten fires it. false = byte-identical vanilla.
+        bool try_controller_tube() // Controller only. Fires the psi tube on your premise IF the engine's own start conditions pass (live enemy, see-duration, psy-hit ready, min distance). Returns whether it fired; refusal-checked, never a blind fire.
         void set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms, float min_distance) // Controller only. Psi tube-attack family.
         void set_controller_stamina_hit(float value) // Controller only. Per-hit stamina drain.
         void set_poltergeist_detection_params(float near_factor, float far_factor, float far_range, float speed_factor, float loose_speed) // Poltergeist only. Actor-detection family.
@@ -982,6 +987,10 @@
         void set_monster_aura_params(string aura_name, float linear, float quadratic, float max_power, float max_distance) // One monster aura by name: psy, radiation, fire or base. Writes the falloff pair, power cap and range the aura's calculate() reads live. Error log on an unknown name.
         void set_bloodsucker_vis_timing(float min_delay_ms) // Bloodsucker only. The minimum delay between visibility-state changes (the predator flicker pacing).
         void set_monster_turn_factor(float factor) // The monster's base-path heading-turn speed multiplier (CControlDirectionBase::update_frame): it re-faces a moving target faster on the ground. 1 = vanilla, <= 0 keeps the current value. The jump control's in-flight alignment is untouched.
+        void bloodsucker_set_force_vampire(bool force) // Bloodsucker only. Fire the vampire grab on your premise: bypasses the warm-up-hits and want-accumulator PACING, but still only grabs when the bloodsucker could physically do it (in melee range, facing, LOS, enemy is the actor, not controlled). Consumed when the grab starts, so it fires once. false (default) = vanilla.
+        bool bloodsucker_get_force_vampire() // Bloodsucker only. The pending force-vampire flag; false on a non-bloodsucker.
+        void bloodsucker_set_veto_vampire(bool veto) // Bloodsucker only. Hard-block the vampire grab (the gate returns false regardless of want / force). false (default) = vanilla.
+        bool bloodsucker_get_veto_vampire() // Bloodsucker only. The veto-vampire flag; false on a non-bloodsucker.
 
 
         // CBaseMonster - maneuver invokes. Lua commands a control component; the engine executes it.

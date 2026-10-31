@@ -241,6 +241,8 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 		// burer
 		.def("burer_set_force_gravi_attack", &CScriptGameObject::burer_set_force_gravi_attack)
 		.def("burer_get_force_gravi_attack", &CScriptGameObject::burer_get_force_gravi_attack)
+		.def("burer_set_request_gravi_attack", &CScriptGameObject::burer_set_request_gravi_attack)
+		.def("burer_get_request_gravi_attack", &CScriptGameObject::burer_get_request_gravi_attack)
 
 		// poltergeist
 		.def("poltergeist_set_actor_ignore", &CScriptGameObject::poltergeist_set_actor_ignore)
@@ -248,6 +250,10 @@ class_<CScriptGameObject> script_register_game_object1(class_<CScriptGameObject>
 
 		// bloodsucker
 		.def("force_visibility_state", SAFE_WRAP(&CScriptGameObject::force_visibility_state))
+		.def("bloodsucker_set_force_vampire", SAFE_WRAP(&CScriptGameObject::bloodsucker_set_force_vampire))
+		.def("bloodsucker_get_force_vampire", SAFE_WRAP(&CScriptGameObject::bloodsucker_get_force_vampire))
+		.def("bloodsucker_set_veto_vampire", SAFE_WRAP(&CScriptGameObject::bloodsucker_set_veto_vampire))
+		.def("bloodsucker_get_veto_vampire", SAFE_WRAP(&CScriptGameObject::bloodsucker_get_veto_vampire))
 		.def("get_visibility_state", SAFE_WRAP(&CScriptGameObject::get_visibility_state))
 		.def("force_stand_sleep_animation", SAFE_WRAP(&CScriptGameObject::force_stand_sleep_animation))
 		.def("release_stand_sleep_animation", SAFE_WRAP(&CScriptGameObject::release_stand_sleep_animation))

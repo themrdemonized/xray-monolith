@@ -68,6 +68,32 @@ bool CScriptGameObject::burer_get_force_gravi_attack()
 	return monster->get_force_gravi_attack();
 }
 
+void CScriptGameObject::burer_set_request_gravi_attack(bool request)
+{
+	CBurer* monster = smart_cast<CBurer*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "object is not CBurer to call burer_set_request_gravi_attack");
+		return;
+	}
+
+	monster->set_request_gravi_attack(request);
+}
+
+bool CScriptGameObject::burer_get_request_gravi_attack()
+{
+	CBurer* monster = smart_cast<CBurer*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "object is not CBurer to call burer_get_request_gravi_attack");
+		return false;
+	}
+
+	return monster->get_request_gravi_attack();
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Poltergeist
 
@@ -111,6 +137,44 @@ void CScriptGameObject::force_visibility_state(int state)
 	}
 
 	monster->force_visibility_state(state);
+}
+
+void CScriptGameObject::bloodsucker_set_force_vampire(bool force)
+{
+	CAI_Bloodsucker* monster = smart_cast<CAI_Bloodsucker*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Bloodsucker : cannot access class member bloodsucker_set_force_vampire!");
+		return;
+	}
+	monster->set_force_vampire(force);
+}
+
+bool CScriptGameObject::bloodsucker_get_force_vampire()
+{
+	CAI_Bloodsucker* monster = smart_cast<CAI_Bloodsucker*>(&object());
+	if (!monster) return false;
+	return monster->get_force_vampire();
+}
+
+void CScriptGameObject::bloodsucker_set_veto_vampire(bool veto)
+{
+	CAI_Bloodsucker* monster = smart_cast<CAI_Bloodsucker*>(&object());
+	if (!monster)
+	{
+		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+		                                "CAI_Bloodsucker : cannot access class member bloodsucker_set_veto_vampire!");
+		return;
+	}
+	monster->set_veto_vampire(veto);
+}
+
+bool CScriptGameObject::bloodsucker_get_veto_vampire()
+{
+	CAI_Bloodsucker* monster = smart_cast<CAI_Bloodsucker*>(&object());
+	if (!monster) return false;
+	return monster->get_veto_vampire();
 }
 
 int CScriptGameObject::get_visibility_state()

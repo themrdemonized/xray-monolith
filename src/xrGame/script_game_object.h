@@ -327,6 +327,8 @@ public:
 	// Burer
 	void burer_set_force_gravi_attack(bool force);
 	bool burer_get_force_gravi_attack();
+	void burer_set_request_gravi_attack(bool request);
+	bool burer_get_request_gravi_attack();
 
 	// Poltergeist
 	void poltergeist_set_actor_ignore(bool ignore);
@@ -334,6 +336,10 @@ public:
 
 	// CAI_Bloodsucker
 	void force_visibility_state(int state);
+	void bloodsucker_set_force_vampire(bool force);
+	bool bloodsucker_get_force_vampire();
+	void bloodsucker_set_veto_vampire(bool veto);
+	bool bloodsucker_get_veto_vampire();
 	int get_visibility_state();
 
 	// CBaseMonster
@@ -895,8 +901,11 @@ public:
 	                            float hit_power);
 	void set_burer_tele_params(int max_objects, float find_radius, float min_dist, float max_dist,
 	                           float fly_velocity);
+	void set_burer_shield_params(float cooldown_ms, float duration_ms);
 	void set_controller_tube_params(float damage, float see_duration_ms, float min_delay_ms, float min_distance);
 	void set_controller_stamina_hit(float value);
+	void set_snork_roar_enabled(bool enabled);
+	bool try_controller_tube();
 	void set_poltergeist_detection_params(float near_factor, float far_factor, float far_range,
 	                                      float speed_factor, float loose_speed);
 	void set_poltergeist_height_params(float height_min, float height_max, float change_velocity,
