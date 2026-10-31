@@ -245,7 +245,7 @@ struct hud_item_measures
 	Flags8 m_prop_flags;
 
 	Fvector m_item_attach[2]; // pos,rot
-	Fvector m_hands_offset[2][8]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base, attach_mount --#SM+#--
+	Fvector m_hands_offset[2][9]; // pos,rot/ normal,aim,GL,aim_alt,safemode, normal2, attach_base (MAS), attach_mount (MAS) --#SM+#--
 	Fvector m_strafe_offset[4][2]; // pos,rot,data1,data2/ normal,aim-GL	 --#SM+#--
 
 	u16 m_fire_bone;
